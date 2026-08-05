@@ -20,39 +20,57 @@ App.views.dashboard = {
   render(root) {
     const { school, user, badges } = App.state;
     const years = school ? school.years : [];
+    const child = user.role === 'parent' ? App.currentStudent() : null;
     root.innerHTML = `
-      <div class="topbar">
-        <span class="logo">🏫</span>
-        <select id="year-select" aria-label="Năm học">
-          ${years.map(y => `<option value="${UI.esc(y)}" ${y === App.state.year ? 'selected' : ''}>${UI.esc(y)}</option>`).join('')}
-        </select>
-      </div>
-
-      <div class="card" style="display:flex;align-items:center;gap:12px">
-        ${UI.avatar(user.avatar, 46)}
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700">${UI.esc(user.title)} ${UI.esc(user.name)}</div>
-          <div class="muted small">${user.role === 'teacher'
-            ? `Giáo viên chủ nhiệm ${UI.esc(this.teacherClassName())}`
-            : `Phụ huynh · ${UI.esc(school ? school.name : '')}`}</div>
+      <header class="hero">
+        <div class="hero-top">
+          <span class="hero-logo">🏫</span>
+          <div class="hero-brand">
+            <b>SchoolConnect</b>
+            <span>${UI.esc(school ? school.name : '')}</span>
+          </div>
+          <select class="hero-year" id="year-select" aria-label="Năm học">
+            ${years.map(y => `<option value="${UI.esc(y)}" ${y === App.state.year ? 'selected' : ''}>${UI.esc(y)}</option>`).join('')}
+          </select>
         </div>
-        ${user.role === 'parent' && App.state.students.length ? UI.avatar(App.currentStudent().avatar, 36) : ''}
-      </div>
-      ${UI.studentBar()}
 
-      <div class="tile-grid">
-        ${this.TILES.map(t => `
-          <button class="tile" onclick="location.hash='${t.hash}'">
-            <span class="tile-icon" style="background:${t.bg}">${UI.icon(t.icon, 32)}</span>
-            <span class="tile-badge" data-tile-badge="${t.key}" style="${badges[t.key] ? '' : 'display:none'}">${badges[t.key] || ''}</span>
-            <span class="tile-label">${t.label}</span>
-          </button>`).join('')}
+        <div class="hero-greet">
+          ${UI.avatar(user.avatar, 54)}
+          <div class="hero-greet-text">
+            <small>${this.greeting()},</small>
+            <b>${UI.esc(user.title)} ${UI.esc(user.name)}</b>
+            <i>${user.role === 'teacher'
+              ? `Giáo viên chủ nhiệm ${UI.esc(this.teacherClassName())}`
+              : child ? `Phụ huynh em ${UI.esc(child.name)} · ${UI.esc(child.className || '')}` : 'Phụ huynh'}</i>
+          </div>
+        </div>
+        ${UI.studentBar()}
+      </header>
+
+      <div class="tile-sheet">
+        <div class="tile-grid">
+          ${this.TILES.map(t => `
+            <button class="tile" onclick="location.hash='${t.hash}'">
+              <span class="tile-icon" style="background:${t.bg}">${UI.icon(t.icon, 29)}</span>
+              <span class="tile-badge" data-tile-badge="${t.key}" style="${badges[t.key] ? '' : 'display:none'}">${badges[t.key] || ''}</span>
+              <span class="tile-label">${t.label}</span>
+            </button>`).join('')}
+        </div>
       </div>`;
 
     document.getElementById('year-select').onchange = (e) => {
       App.state.year = e.target.value;
       UI.toast(`Đang xem năm học ${e.target.value}`);
     };
+  },
+
+  // Lời chào theo giờ trong ngày.
+  greeting() {
+    const h = new Date().getHours();
+    if (h < 11) return 'Chào buổi sáng';
+    if (h < 14) return 'Chào buổi trưa';
+    if (h < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
   },
 
   teacherClassName() {
