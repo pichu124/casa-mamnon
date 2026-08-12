@@ -11,6 +11,54 @@ npm start
 
 Mở trình duyệt tại **http://localhost:3000**. Dữ liệu mẫu được tự sinh vào `data/db.json` ở lần chạy đầu (tạo lại từ đầu bằng `npm run seed`).
 
+> Trên PowerShell cũ của Windows, `&&` không hợp lệ — hãy chạy `npm install` và `npm start` trên hai dòng riêng, hoặc dùng dấu `;` để ngăn cách.
+
+## 📱 Dùng trên điện thoại
+
+Giao diện được thiết kế cho điện thoại trước, và ứng dụng có thể **cài vào màn hình chính như app thật**.
+
+### Bước 1 — Cho điện thoại truy cập được
+
+Máy tính chạy server và điện thoại phải **cùng một mạng Wi-Fi**.
+
+1. Trên máy tính, xem địa chỉ IP nội bộ:
+   ```powershell
+   ipconfig
+   ```
+   Tìm dòng **IPv4 Address** trong mục Wi-Fi, ví dụ `192.168.1.15`.
+
+2. Lần đầu chạy, Windows sẽ hỏi quyền truy cập mạng cho Node.js — chọn **Cho phép** (Allow access) ở mạng Riêng tư. Nếu đã lỡ chặn, mở cổng thủ công bằng PowerShell **quyền Administrator**:
+   ```powershell
+   New-NetFirewallRule -DisplayName "SchoolConnect" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow
+   ```
+
+3. Trên điện thoại, mở trình duyệt và truy cập `http://192.168.1.15:3000` (thay bằng IP của bạn).
+
+### Bước 2 — Cài vào màn hình chính
+
+| Thiết bị | Cách cài |
+|---|---|
+| **Android** (Chrome) | Menu ⋮ → **Thêm vào Màn hình chính** / **Cài đặt ứng dụng**. Hoặc vào mục **Cài đặt** trong app và bấm nút **Cài đặt**. |
+| **iPhone/iPad** (Safari) | Nút Chia sẻ □↑ → **Thêm vào MH chính** (Add to Home Screen). |
+
+Sau khi cài: app có icon riêng, mở toàn màn hình không thanh địa chỉ, và **xem lại được giao diện khi mất mạng**.
+
+> **Lưu ý:** Chế độ cài đặt đầy đủ và hoạt động offline chỉ bật khi truy cập qua `localhost` hoặc **HTTPS**. Khi vào bằng địa chỉ IP dạng `http://192.168.x.x`, trình duyệt vẫn hiển thị app bình thường nhưng bỏ qua service worker. Muốn có đủ tính năng khi thử qua điện thoại, dùng một tunnel HTTPS tạm thời:
+> ```bash
+> npx cloudflared tunnel --url http://localhost:3000
+> ```
+> Lệnh này in ra một địa chỉ `https://...trycloudflare.com` — mở địa chỉ đó trên điện thoại.
+
+### Đã tối ưu sẵn cho điện thoại
+
+- Ô nhập cỡ chữ 16px nên **iOS không tự phóng to trang** khi bạn chạm vào
+- Chừa **vùng tai thỏ và thanh home** khi chạy toàn màn hình
+- Mọi nút bấm đạt tối thiểu 44×44px theo chuẩn của Apple và Google
+- Phòng chat chiếm trọn màn hình, ô nhập luôn sát đáy
+- **Tự dừng cập nhật khi bạn chuyển sang app khác** để tiết kiệm pin và dung lượng 4G
+- Không có thanh cuộn ngang trên mọi màn hình, kể cả máy nhỏ 360px
+- Tự đổi sang **nền tối** theo thiết lập của điện thoại
+
 ## Tài khoản dùng thử
 
 | Vai trò | Tên đăng nhập | Mật khẩu | Ghi chú |

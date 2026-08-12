@@ -13,6 +13,8 @@ window.App = {
   _badgeTimer: null,
 
   async init() {
+    this.registerServiceWorker();
+    this.watchInstallPrompt();
     try {
       const me = await API.get('/api/auth/me');
       this.applyMe(me);
@@ -23,6 +25,46 @@ window.App = {
       this.showLogin();
     }
     window.addEventListener('hashchange', () => this.route());
+  },
+
+  // Đăng ký service worker để app mở nhanh và xem được khi mất mạng.
+  // Chỉ hoạt động qua HTTPS hoặc localhost — dùng qua IP mạng LAN sẽ bị bỏ qua.
+  registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        /* không hỗ trợ hoặc không chạy qua HTTPS — app vẫn dùng bình thường */
+      });
+    });
+  },
+
+  // Ghi lại lời mời cài đặt của Chrome/Edge để hiện nút "Cài đặt ứng dụng" trong Cài đặt.
+  watchInstallPrompt() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.installPrompt = e;
+      document.querySelectorAll('[data-install-app]').forEach(el => { el.style.display = ''; });
+    });
+    window.addEventListener('appinstalled', () => {
+      this.installPrompt = null;
+      UI.toast('Đã cài SchoolConnect vào màn hình chính', 'success');
+    });
+  },
+
+  // Có thể cài đặt khi trình duyệt đã gửi lời mời và app chưa chạy ở chế độ toàn màn hình.
+  canInstall() {
+    return !!this.installPrompt && !window.matchMedia('(display-mode: standalone)').matches;
+  },
+
+  async promptInstall() {
+    if (!this.installPrompt) {
+      UI.toast('Hãy dùng menu trình duyệt: "Thêm vào màn hình chính"');
+      return;
+    }
+    this.installPrompt.prompt();
+    const { outcome } = await this.installPrompt.userChoice;
+    if (outcome !== 'accepted') UI.toast('Bạn có thể cài lại bất cứ lúc nào trong Cài đặt');
+    this.installPrompt = null;
   },
 
   applyMe(me) {
@@ -116,9 +158,34 @@ window.App = {
     this.stopBadgePolling();
     this.refreshBadges();
     this._badgeTimer = setInterval(() => this.refreshBadges(), 15000);
+    this.watchVisibility();
   },
   stopBadgePolling() {
     if (this._badgeTimer) { clearInterval(this._badgeTimer); this._badgeTimer = null; }
+  },
+
+  // Tiết kiệm pin và dung lượng 4G: ngừng hỏi máy chủ khi người dùng chuyển
+  // sang ứng dụng khác hoặc tắt màn hình, chạy lại ngay khi họ quay lại.
+  watchVisibility() {
+    if (this._visibilityBound) return;
+    this._visibilityBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!this.state.user) return;
+      if (document.hidden) {
+        this.stopBadgePolling();
+        const chat = this.views.messages;
+        if (chat && chat._timer) { clearInterval(chat._timer); chat._timer = null; }
+      } else {
+        this.refreshBadges();
+        this._badgeTimer = setInterval(() => this.refreshBadges(), 15000);
+        // Quay lại phòng chat: tải ngay tin nhắn đã nhỡ rồi bật lại theo dõi.
+        const chat = this.views.messages;
+        if (chat && !chat._timer && location.hash.startsWith('#/messages/') && typeof chat.poll === 'function') {
+          chat.poll();
+          chat._timer = setInterval(() => chat.poll(), 4000);
+        }
+      }
+    });
   },
 
   // Banner mời bật thông báo (giống ANS Portal)
