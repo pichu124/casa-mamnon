@@ -2,8 +2,14 @@
 // để dữ liệu demo luôn "sống". Chạy lại: npm run seed
 const fs = require('fs');
 const path = require('path');
+const password = require('../lib/password');
 
-const DB_PATH = path.join(__dirname, 'db.json');
+// Thư mục dữ liệu có thể trỏ ra ổ đĩa gắn ngoài khi triển khai (xem lib/db.js).
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : __dirname;
+const DB_PATH = path.join(DATA_DIR, 'db.json');
+
+// Mật khẩu dùng thử; có thể đổi khi triển khai bằng biến môi trường DEMO_PASSWORD.
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || '123456';
 
 function fmt(d) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
@@ -49,15 +55,19 @@ function generate() {
     { id: 'c2', name: 'Lớp 5B', teacherId: 't2', room: 'Phòng 305', year: schoolYear },
   ];
 
+  // Các tài khoản mẫu dùng chung một mật khẩu nên chỉ cần băm một lần.
+  // Mật khẩu không bao giờ được lưu ở dạng đọc được.
+  const DEMO_HASH = password.hash(DEMO_PASSWORD);
+
   const users = [
-    { id: 't1', username: 'giaovien', password: '123456', role: 'teacher', name: 'Nguyễn Thị Mai Anh', title: 'Cô', phone: '0903 111 222', email: 'maianh@anhduong.edu.vn', classId: 'c1', avatar: { emoji: '👩‍🏫', bg: '#7c5cbf' } },
-    { id: 't2', username: 'giaovien2', password: '123456', role: 'teacher', name: 'Trần Văn Hùng', title: 'Thầy', phone: '0903 333 444', email: 'vanhung@anhduong.edu.vn', classId: 'c2', avatar: { emoji: '👨‍🏫', bg: '#2980b9' } },
-    { id: 'p1', username: 'phuhuynh', password: '123456', role: 'parent', name: 'Lê Thị Thu Hà', title: 'Chị', phone: '0912 345 678', email: 'thuha@gmail.com', avatar: { emoji: '👩', bg: '#e0576f' } },
-    { id: 'p2', username: 'phuhuynh2', password: '123456', role: 'parent', name: 'Phạm Quốc Bảo', title: 'Anh', phone: '0987 654 321', email: 'quocbao@gmail.com', avatar: { emoji: '👨', bg: '#27ae60' } },
-    { id: 'p3', username: 'ph.tuan', password: '123456', role: 'parent', name: 'Vũ Anh Tuấn', title: 'Anh', phone: '0909 100 300', email: 'anhtuan@gmail.com', avatar: { emoji: '👨', bg: '#d68910' } },
-    { id: 'p4', username: 'ph.lan', password: '123456', role: 'parent', name: 'Đỗ Ngọc Lan', title: 'Chị', phone: '0909 200 400', email: 'ngoclan@gmail.com', avatar: { emoji: '👩', bg: '#16a085' } },
-    { id: 'p5', username: 'ph.minh', password: '123456', role: 'parent', name: 'Hoàng Nhật Minh', title: 'Anh', phone: '0909 500 600', email: 'nhatminh@gmail.com', avatar: { emoji: '👨', bg: '#8e44ad' } },
-    { id: 'p6', username: 'ph.huong', password: '123456', role: 'parent', name: 'Bùi Thu Hương', title: 'Chị', phone: '0909 700 800', email: 'thuhuong@gmail.com', avatar: { emoji: '👩', bg: '#c0392b' } },
+    { id: 't1', username: 'giaovien', passwordHash: DEMO_HASH, role: 'teacher', name: 'Nguyễn Thị Mai Anh', title: 'Cô', phone: '0903 111 222', email: 'maianh@anhduong.edu.vn', classId: 'c1', avatar: { emoji: '👩‍🏫', bg: '#7c5cbf' } },
+    { id: 't2', username: 'giaovien2', passwordHash: DEMO_HASH, role: 'teacher', name: 'Trần Văn Hùng', title: 'Thầy', phone: '0903 333 444', email: 'vanhung@anhduong.edu.vn', classId: 'c2', avatar: { emoji: '👨‍🏫', bg: '#2980b9' } },
+    { id: 'p1', username: 'phuhuynh', passwordHash: DEMO_HASH, role: 'parent', name: 'Lê Thị Thu Hà', title: 'Chị', phone: '0912 345 678', email: 'thuha@gmail.com', avatar: { emoji: '👩', bg: '#e0576f' } },
+    { id: 'p2', username: 'phuhuynh2', passwordHash: DEMO_HASH, role: 'parent', name: 'Phạm Quốc Bảo', title: 'Anh', phone: '0987 654 321', email: 'quocbao@gmail.com', avatar: { emoji: '👨', bg: '#27ae60' } },
+    { id: 'p3', username: 'ph.tuan', passwordHash: DEMO_HASH, role: 'parent', name: 'Vũ Anh Tuấn', title: 'Anh', phone: '0909 100 300', email: 'anhtuan@gmail.com', avatar: { emoji: '👨', bg: '#d68910' } },
+    { id: 'p4', username: 'ph.lan', passwordHash: DEMO_HASH, role: 'parent', name: 'Đỗ Ngọc Lan', title: 'Chị', phone: '0909 200 400', email: 'ngoclan@gmail.com', avatar: { emoji: '👩', bg: '#16a085' } },
+    { id: 'p5', username: 'ph.minh', passwordHash: DEMO_HASH, role: 'parent', name: 'Hoàng Nhật Minh', title: 'Anh', phone: '0909 500 600', email: 'nhatminh@gmail.com', avatar: { emoji: '👨', bg: '#8e44ad' } },
+    { id: 'p6', username: 'ph.huong', passwordHash: DEMO_HASH, role: 'parent', name: 'Bùi Thu Hương', title: 'Chị', phone: '0909 700 800', email: 'thuhuong@gmail.com', avatar: { emoji: '👩', bg: '#c0392b' } },
   ];
 
   const students = [
@@ -501,6 +511,7 @@ function generate() {
     notifications, conversations,
   };
 
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 1));
   console.log(`Đã sinh dữ liệu mẫu: ${DB_PATH}`);
   return db;

@@ -1,0 +1,24 @@
+# Cấu hình triển khai lên Render (https://render.com).
+# Cách dùng: đẩy mã nguồn lên GitHub → Render → New → Blueprint → chọn kho này.
+services:
+  - type: web
+    name: schoolconnect
+    runtime: node
+    plan: starter          # gói starter trở lên mới gắn được ổ đĩa lưu dữ liệu
+    region: singapore      # gần Việt Nam nhất
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /data       # trỏ vào ổ đĩa bên dưới để dữ liệu không mất
+      - key: FORCE_HTTPS
+        value: "1"
+      - key: DEMO_PASSWORD
+        generateValue: true  # Render tự sinh mật khẩu ban đầu, xem trong tab Environment
+    disk:
+      name: schoolconnect-data
+      mountPath: /data
+      sizeGB: 1

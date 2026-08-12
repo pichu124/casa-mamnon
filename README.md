@@ -94,6 +94,60 @@ Sau khi cài: app có icon riêng, mở toàn màn hình không thanh địa ch�
 - Xác nhận dặn thuốc và ghi nhật ký cho phụ huynh yên tâm
 - Nhắn tin riêng với từng phụ huynh và nhóm chung của lớp
 
+## 🌐 Đưa lên Internet cho phụ huynh dùng qua 4G
+
+### ⚠️ Bắt buộc làm trước
+
+Toàn bộ tài khoản mẫu đang dùng chung mật khẩu `123456`. **Trước khi cho phụ huynh dùng thật**, đăng nhập từng tài khoản và đổi mật khẩu trong **Cài đặt → Đổi mật khẩu**. Khi chạy với `NODE_ENV=production`, máy chủ sẽ in cảnh báo ra log nếu còn tài khoản dùng mật khẩu mẫu.
+
+### Cách 1 — Dùng thử nhanh bằng tunnel (không cần tài khoản)
+
+```bash
+npm start
+npx cloudflared tunnel --url http://localhost:3000
+```
+Lệnh thứ hai in ra địa chỉ `https://...trycloudflare.com` dùng được từ mọi nơi. Máy tính phải bật, và địa chỉ đổi mỗi lần chạy lại — phù hợp để demo, không phù hợp dùng lâu dài.
+
+### Cách 2 — Deploy lên Render (chạy 24/7)
+
+Kho mã đã có sẵn `render.yaml`. Đẩy mã lên GitHub rồi vào Render → **New → Blueprint** → chọn kho này. Render tự đọc cấu hình, gắn ổ đĩa 1GB vào `/data` và bật HTTPS.
+
+> **Quan trọng:** phải dùng gói **Starter trở lên**. Gói miễn phí không có ổ đĩa lưu trữ nên `db.json` sẽ bị xóa sạch mỗi lần dịch vụ khởi động lại.
+
+### Cách 3 — Docker (máy chủ riêng, VPS)
+
+```bash
+docker build -t schoolconnect .
+docker run -d -p 80:3000 -v schoolconnect-data:/data --restart unless-stopped schoolconnect
+```
+Ổ đĩa `schoolconnect-data` giữ dữ liệu qua các lần cập nhật. Nên đặt Nginx hoặc Caddy phía trước để có HTTPS.
+
+### Biến môi trường
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `PORT` | `3000` | Cổng lắng nghe |
+| `HOST` | `0.0.0.0` | Địa chỉ lắng nghe (`0.0.0.0` cho phép máy khác trong mạng truy cập) |
+| `DATA_DIR` | `./data` | **Thư mục lưu dữ liệu — trỏ vào ổ đĩa gắn ngoài khi deploy** |
+| `NODE_ENV` | — | Đặt `production` để bật cảnh báo mật khẩu mặc định |
+| `FORCE_HTTPS` | — | Đặt `1` để tự chuyển hướng HTTP sang HTTPS |
+| `DEMO_PASSWORD` | `123456` | Mật khẩu ban đầu khi sinh dữ liệu mẫu lần đầu |
+| `TRUST_PROXY` | bật | Đặt `0` nếu **không** chạy sau reverse proxy |
+
+### Bảo mật đã có sẵn
+
+- **Mật khẩu băm bằng scrypt** với muối ngẫu nhiên — không bao giờ lưu dạng đọc được
+- **Khóa 15 phút** sau 8 lần đăng nhập sai từ cùng một địa chỉ IP
+- Cookie phiên **HttpOnly + SameSite=Lax**, tự thêm **Secure** khi chạy qua HTTPS
+- Header bảo mật: CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, không lộ Express
+- Dữ liệu học sinh gửi kèm `Cache-Control: no-store`, service worker **không bao giờ lưu cache `/api`**
+- Đổi mật khẩu sẽ **đăng xuất mọi thiết bị khác**
+- Phiên đăng nhập và dữ liệu **được ghi xuống đĩa an toàn khi máy chủ tắt** (ghi nguyên tử, không hỏng file)
+
+### Giới hạn cần biết
+
+Dữ liệu lưu trong một file JSON — đủ tốt cho một trường (vài nghìn bản ghi) và không cần cài đặt gì thêm, nhưng **chỉ chạy được trên một tiến trình duy nhất**. Nếu cần nhiều máy chủ chạy song song hoặc quy mô nhiều nghìn học sinh, hãy chuyển sang PostgreSQL — điểm cần sửa nằm gọn trong `lib/db.js`.
+
 ## Công nghệ
 
 - **Backend**: Node.js + Express 5, lưu trữ JSON (`data/db.json`) — không cần cài database

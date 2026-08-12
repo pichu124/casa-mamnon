@@ -16,6 +16,13 @@ App.views.settings = {
         <div class="card-title">${UI.icon('user', 19)} Tài khoản</div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Điện thoại</div><div class="row-title">${UI.esc(user.phone)}</div></div></div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Email</div><div class="row-title">${UI.esc(user.email)}</div></div></div>
+        <div class="list-row clickable" id="st-change-pw">
+          <div class="row-main">
+            <div class="row-title">🔑 Đổi mật khẩu</div>
+            <div class="row-sub">Nên đổi mật khẩu mặc định trước khi dùng thật</div>
+          </div>
+          <span class="muted">${UI.icon('chevron', 18)}</span>
+        </div>
       </div>
 
       <div class="card" data-install-app style="${App.canInstall() ? '' : 'display:none'}">
@@ -54,10 +61,51 @@ App.views.settings = {
     const installBtn = document.getElementById('st-install');
     if (installBtn) installBtn.onclick = () => App.promptInstall();
 
+    document.getElementById('st-change-pw').onclick = () => this.showChangePassword();
+
     document.getElementById('st-push').onclick = async () => {
       if (!('Notification' in window)) return UI.toast('Trình duyệt không hỗ trợ thông báo', 'error');
       const perm = await Notification.requestPermission();
       UI.toast(perm === 'granted' ? 'Đã bật thông báo đẩy' : 'Thông báo chưa được cấp quyền', perm === 'granted' ? 'success' : '');
+    };
+  },
+
+  showChangePassword() {
+    UI.modal(`
+      <div class="field">
+        <label>Mật khẩu hiện tại</label>
+        <input type="password" id="pw-current" autocomplete="current-password" placeholder="Nhập mật khẩu đang dùng">
+      </div>
+      <div class="field">
+        <label>Mật khẩu mới</label>
+        <input type="password" id="pw-new" autocomplete="new-password" placeholder="Ít nhất 8 ký tự">
+        <div class="hint">Cần tối thiểu 8 ký tự, có cả chữ và số.</div>
+      </div>
+      <div class="field">
+        <label>Nhập lại mật khẩu mới</label>
+        <input type="password" id="pw-confirm" autocomplete="new-password" placeholder="Gõ lại mật khẩu mới">
+      </div>
+      <button class="btn primary block" id="pw-submit">Đổi mật khẩu</button>
+      <p class="muted small center mt-14">Các thiết bị khác đang đăng nhập sẽ bị đăng xuất.</p>
+    `, 'Đổi mật khẩu');
+
+    const btn = document.getElementById('pw-submit');
+    btn.onclick = async () => {
+      const currentPassword = document.getElementById('pw-current').value;
+      const newPassword = document.getElementById('pw-new').value;
+      const confirm = document.getElementById('pw-confirm').value;
+      if (!currentPassword || !newPassword) return UI.toast('Vui lòng nhập đủ thông tin', 'error');
+      if (newPassword !== confirm) return UI.toast('Hai lần nhập mật khẩu mới chưa khớp', 'error');
+
+      btn.disabled = true;
+      try {
+        const r = await API.post('/api/auth/change-password', { currentPassword, newPassword });
+        UI.closeModal();
+        UI.toast(r.message || 'Đã đổi mật khẩu', 'success');
+      } catch (err) {
+        UI.toast(err.message, 'error');
+        btn.disabled = false;
+      }
     };
   },
 };
