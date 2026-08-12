@@ -148,6 +148,63 @@ docker run -d -p 80:3000 -v schoolconnect-data:/data --restart unless-stopped sc
 
 Dữ liệu lưu trong một file JSON — đủ tốt cho một trường (vài nghìn bản ghi) và không cần cài đặt gì thêm, nhưng **chỉ chạy được trên một tiến trình duy nhất**. Nếu cần nhiều máy chủ chạy song song hoặc quy mô nhiều nghìn học sinh, hãy chuyển sang PostgreSQL — điểm cần sửa nằm gọn trong `lib/db.js`.
 
+## 📦 Đóng gói thành app Android (file APK)
+
+Kho mã đã cấu hình sẵn [Capacitor](https://capacitorjs.com) — app Android là vỏ native nạp giao diện từ máy chủ SchoolConnect của bạn, nên **giữ nguyên toàn bộ tính năng** (đăng nhập, nhắn tin, chạy offline) mà không phải sửa gì ở máy chủ.
+
+### Cần cài trên máy tính
+
+- **Android Studio** (kèm sẵn Android SDK) — tải tại [developer.android.com/studio](https://developer.android.com/studio)
+- **JDK 21** — Android Studio đã có sẵn
+
+### Các bước
+
+```bash
+# 1. Chỉ định địa chỉ máy chủ mà app sẽ kết nối tới
+npm run mobile:prepare -- https://truong-cua-ban.onrender.com
+
+# 2. Đồng bộ cấu hình và giao diện vào project Android
+npm run mobile:sync
+
+# 3. Mở bằng Android Studio rồi bấm Run, hoặc build APK bằng dòng lệnh:
+npm run mobile:apk
+```
+
+File APK nằm ở `android/app/build/outputs/apk/debug/app-debug.apk`. Chép sang điện thoại và cài (cần bật *Cài đặt ứng dụng không rõ nguồn gốc*).
+
+> **Thử với máy chủ trong nhà:** dùng địa chỉ nội bộ, ví dụ `npm run mobile:prepare -- http://192.168.1.15:3000`. Script tự bật cho phép kết nối http trong `AndroidManifest.xml`; khi bạn chuyển sang địa chỉ `https://` nó tự gỡ đi.
+
+### Đổi tên app, icon, mã định danh
+
+| Muốn đổi | Sửa ở đâu |
+|---|---|
+| Tên hiển thị | `android/app/src/main/res/values/strings.xml` |
+| Mã định danh (package) | `capacitor.config.json` → `appId`, rồi chạy lại `npx cap sync` |
+| Icon và màn hình chờ | Thay `resources/icon.png` (1024×1024) và `resources/splash.png`, rồi chạy `npm run mobile:icons` |
+| Số phiên bản | `android/app/build.gradle` → `versionCode`, `versionName` |
+
+### Phát hành lên CH Play
+
+APK ở trên là bản *debug* dùng để thử. Muốn đưa lên CH Play cần bản *release* đã ký:
+
+```bash
+cd android
+./gradlew bundleRelease
+```
+Rồi ký file `.aab` bằng khóa riêng theo [hướng dẫn của Google](https://developer.android.com/studio/publish/app-signing). Đừng đưa file khóa (`.jks`) lên GitHub.
+
+### iOS (iPhone/iPad)
+
+Cần máy **macOS** kèm Xcode:
+```bash
+npm install @capacitor/ios
+npx cap add ios
+npm run mobile:prepare -- https://truong-cua-ban.onrender.com
+npx cap sync ios
+npx cap open ios
+```
+Lưu ý: Apple thường từ chối app chỉ là "trang web đóng gói". Với iPhone, **cài PWA từ Safari** (mục 📱 ở trên) là cách nhanh và chắc chắn hơn.
+
 ## Công nghệ
 
 - **Backend**: Node.js + Express 5, lưu trữ JSON (`data/db.json`) — không cần cài database

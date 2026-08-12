@@ -6,3 +6,14 @@ data/sessions.json.tmp
 *.log
 .DS_Store
 .env
+
+# Android/Capacitor: giữ mã nguồn project, bỏ file build sinh ra
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
