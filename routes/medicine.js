@@ -9,17 +9,12 @@ module.exports = (app) => {
   // Phụ huynh: đơn của các con mình. Giáo viên: đơn của học sinh lớp chủ nhiệm.
   // Sắp xếp: đơn chờ xác nhận lên trước, rồi mới nhất trước.
   app.get('/api/medicine', (req, res) => {
-    const studentIds = db.studentsOf(req.user).map(s => s.id);
-    const list = db.get().medicineRequests
-      .filter(m => studentIds.includes(m.studentId))
-      .map(decorate)
-      .sort((a, b) => {
-        const pa = a.status === 'pending' ? 0 : 1;
-        const pb = b.status === 'pending' ? 0 : 1;
-        if (pa !== pb) return pa - pb;
-        return String(b.createdAt).localeCompare(String(a.createdAt));
-      });
-    res.json(list);
+    const ids = db.studentIdsOf(req.user);
+    if (!ids.length) return res.json([]);
+    const rows = db.all('medicine_requests',
+      `SELECT * FROM medicine_requests WHERE studentId IN (${ids.map(() => '?').join(',')})
+       ORDER BY (status = 'pending') DESC, createdAt DESC`, ids);
+    res.json(rows.map(decorate));
   });
 
   // Phụ huynh gửi lời dặn thuốc cho con.
@@ -59,13 +54,12 @@ module.exports = (app) => {
       confirmedAt: null,
       log: [],
     };
-    db.get().medicineRequests.push(rec);
-    db.save();
+    db.insert('medicine_requests', rec);
     res.status(201).json(decorate(rec));
   });
 
   // Giáo viên xác nhận đã nhận thuốc của một đơn đang chờ.
-  app.post('/api/medicine/:id/confirm', requireRole('teacher'), (req, res) => {
+  app.post('/api/medicine/:id/confirm', requireRole('teacher', 'admin'), (req, res) => {
     const rec = findOwn(req, res);
     if (!rec) return;
     if (rec.status !== 'pending') {
@@ -74,12 +68,14 @@ module.exports = (app) => {
     rec.status = 'received';
     rec.confirmedBy = req.user.id;
     rec.confirmedAt = new Date().toISOString();
-    db.save();
+    db.update('medicine_requests', rec.id, {
+      status: rec.status, confirmedBy: rec.confirmedBy, confirmedAt: rec.confirmedAt,
+    });
     res.json(decorate(rec));
   });
 
   // Giáo viên ghi nhật ký cho thuốc của một đơn đang theo dõi.
-  app.post('/api/medicine/:id/log', requireRole('teacher'), (req, res) => {
+  app.post('/api/medicine/:id/log', requireRole('teacher', 'admin'), (req, res) => {
     const rec = findOwn(req, res);
     if (!rec) return;
     if (rec.status !== 'received') {
@@ -87,21 +83,22 @@ module.exports = (app) => {
     }
     const text = String((req.body || {}).text || '').trim();
     if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung nhật ký' });
-    rec.log.push({ time: new Date().toISOString(), text });
-    db.save();
+    rec.log = [...(rec.log || []), { time: new Date().toISOString(), text }];
+    db.update('medicine_requests', rec.id, { log: rec.log });
     res.json(decorate(rec));
   });
 
   // Giáo viên đánh dấu hoàn tất đợt dùng thuốc.
-  app.post('/api/medicine/:id/done', requireRole('teacher'), (req, res) => {
+  app.post('/api/medicine/:id/done', requireRole('teacher', 'admin'), (req, res) => {
     const rec = findOwn(req, res);
     if (!rec) return;
     if (rec.status !== 'received') {
       return res.status(400).json({ error: 'Chỉ hoàn tất đơn đang theo dõi' });
     }
     rec.status = 'done';
-    rec.log.push({ time: new Date().toISOString(), text: 'Hoàn tất đợt dùng thuốc theo dặn của gia đình' });
-    db.save();
+    rec.log = [...(rec.log || []),
+      { time: new Date().toISOString(), text: 'Hoàn tất đợt dùng thuốc theo dặn của gia đình' }];
+    db.update('medicine_requests', rec.id, { status: rec.status, log: rec.log });
     res.json(decorate(rec));
   });
 };
@@ -109,7 +106,7 @@ module.exports = (app) => {
 // Tìm đơn theo id và kiểm tra quyền của giáo viên với học sinh của đơn.
 // Trả về đơn, hoặc null sau khi đã gửi lỗi tương ứng.
 function findOwn(req, res) {
-  const rec = db.get().medicineRequests.find(m => m.id === req.params.id);
+  const rec = db.first('medicine_requests', 'SELECT * FROM medicine_requests WHERE id = ?', [req.params.id]);
   if (!rec) {
     res.status(404).json({ error: 'Không tìm thấy đơn dặn thuốc' });
     return null;
@@ -124,8 +121,8 @@ function findOwn(req, res) {
 // Ghép thêm tên học sinh, lớp, phụ huynh, người nhận thuốc cho một đơn.
 function decorate(m) {
   const s = db.findStudent(m.studentId);
-  const cls = s ? db.findClass(s.classId) : null;
-  const parent = db.findUser(m.parentId);
+  const cls = s && s.classId ? db.findClass(s.classId) : null;
+  const parent = m.parentId ? db.findUser(m.parentId) : null;
   const confirmer = m.confirmedBy ? db.findUser(m.confirmedBy) : null;
   return {
     ...m,

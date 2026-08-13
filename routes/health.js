@@ -18,16 +18,15 @@ module.exports = (app) => {
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem hồ sơ y tế của học sinh này' });
     }
-    const records = db.get().health
-      .filter(h => h.studentId === studentId)
-      .slice().reverse() // cùng ngày thì bản ghi thêm sau lên trước
-      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    // Cùng ngày thì bản ghi thêm sau lên trước (rowid tăng dần theo thứ tự thêm).
+    const records = db.all('health',
+      'SELECT * FROM health WHERE studentId = ? ORDER BY date DESC, rowid DESC', [studentId]);
     const latestCheckup = records.find(r => r.type === 'checkup') || null;
     res.json({ records, latestCheckup });
   });
 
   // Giáo viên thêm ghi nhận y tế cho học sinh lớp mình.
-  app.post('/api/health', requireRole('teacher'), (req, res) => {
+  app.post('/api/health', requireRole('teacher', 'admin'), (req, res) => {
     const { studentId, type, title, detail, height, weight } = req.body || {};
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Không có quyền thêm ghi nhận cho học sinh này' });
@@ -51,8 +50,7 @@ module.exports = (app) => {
       if (Number.isFinite(h) && h > 0) rec.height = h;
       if (Number.isFinite(w) && w > 0) rec.weight = w;
     }
-    db.get().health.push(rec);
-    db.save();
+    db.insert('health', rec);
     res.status(201).json(rec);
   });
 };

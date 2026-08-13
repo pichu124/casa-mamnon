@@ -4,15 +4,15 @@ const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Các lớp liên quan tới người dùng (giáo viên: lớp chủ nhiệm; phụ huynh: lớp của các con).
-function classIdsOf(user) {
-  if (user.role === 'teacher') return [user.classId];
-  return [...new Set(db.studentsOf(user).map(s => s.classId))];
+// Khảo sát có hiển thị với người dùng này không (theo phạm vi gửi).
+function visibleTo(user, sv) {
+  return sv.audience === 'all' || db.classIdsOf(user).includes(sv.audience);
 }
 
-// Khảo sát có hiển thị với người dùng này không (theo audience).
-function visibleTo(user, sv) {
-  return sv.audience === 'all' || classIdsOf(user).includes(sv.audience);
+// Câu trả lời của một khảo sát, đọc từ bảng riêng.
+function responsesOf(surveyId) {
+  return db.all('survey_responses',
+    'SELECT * FROM survey_responses WHERE surveyId = ? ORDER BY submittedAt', [surveyId]);
 }
 
 function parentName(userId) {
@@ -20,31 +20,27 @@ function parentName(userId) {
   return p ? `${p.title} ${p.name}` : 'Phụ huynh';
 }
 
-function summary(sv, user) {
+function summary(sv, user, responses) {
+  const list = responses || responsesOf(sv.id);
   return {
     id: sv.id,
     title: sv.title,
     description: sv.description,
     deadline: sv.deadline,
     status: sv.status,
-    questionCount: sv.questions.length,
-    responseCount: sv.responses.length,
-    answered: sv.responses.some(r => r.userId === user.id),
+    questionCount: (sv.questions || []).length,
+    responseCount: list.length,
+    answered: list.some(r => r.userId === user.id),
   };
 }
 
 module.exports = (app) => {
   // Danh sách khảo sát người dùng được xem (không kèm chi tiết phản hồi).
   app.get('/api/surveys', (req, res) => {
-    const list = db.get().surveys
+    // Đang mở lên trước, rồi mới nhất trước.
+    const list = db.all('surveys',
+      `SELECT * FROM surveys ORDER BY (status = 'open') DESC, createdAt DESC`)
       .filter(sv => visibleTo(req.user, sv))
-      .slice()
-      .sort((a, b) => {
-        const pa = a.status === 'open' ? 0 : 1;
-        const pb = b.status === 'open' ? 0 : 1;
-        if (pa !== pb) return pa - pb;               // đang mở lên trước
-        return String(b.createdAt).localeCompare(String(a.createdAt)); // rồi mới nhất
-      })
       .map(sv => summary(sv, req.user));
     res.json(list);
   });
@@ -53,14 +49,15 @@ module.exports = (app) => {
   // Phụ huynh: câu hỏi + câu trả lời của mình (nếu có).
   // Giáo viên: câu hỏi + kết quả tổng hợp + danh sách phụ huynh đã trả lời.
   app.get('/api/surveys/:id', (req, res) => {
-    const sv = db.get().surveys.find(x => x.id === req.params.id);
+    const sv = db.first('surveys', 'SELECT * FROM surveys WHERE id = ?', [req.params.id]);
     if (!sv || !visibleTo(req.user, sv)) {
       return res.status(404).json({ error: 'Không tìm thấy khảo sát' });
     }
-    const base = { ...summary(sv, req.user), createdAt: sv.createdAt, questions: sv.questions };
+    const responses = responsesOf(sv.id);
+    const base = { ...summary(sv, req.user, responses), createdAt: sv.createdAt, questions: sv.questions };
 
     if (req.user.role === 'parent') {
-      const mine = sv.responses.find(r => r.userId === req.user.id) || null;
+      const mine = responses.find(r => r.userId === req.user.id) || null;
       return res.json({
         ...base,
         myResponse: mine ? { submittedAt: mine.submittedAt, answers: mine.answers } : null,
@@ -72,11 +69,11 @@ module.exports = (app) => {
       if (q.type === 'choice') {
         const counts = (q.options || []).map(opt => ({
           option: opt,
-          count: sv.responses.filter(r => r.answers && r.answers[q.id] === opt).length,
+          count: responses.filter(r => r.answers && r.answers[q.id] === opt).length,
         }));
         return { questionId: q.id, text: q.text, type: q.type, counts };
       }
-      const answers = sv.responses
+      const answers = responses
         .filter(r => r.answers && String(r.answers[q.id] || '').trim())
         .map(r => ({ answer: String(r.answers[q.id]), parentName: parentName(r.userId) }));
       return { questionId: q.id, text: q.text, type: q.type, answers };
@@ -84,21 +81,23 @@ module.exports = (app) => {
     res.json({
       ...base,
       results,
-      respondents: sv.responses.map(r => parentName(r.userId)),
+      respondents: responses.map(r => parentName(r.userId)),
       createdByMe: sv.createdBy === req.user.id,
     });
   });
 
   // Phụ huynh gửi câu trả lời (mỗi phụ huynh chỉ trả lời một lần).
   app.post('/api/surveys/:id/respond', requireRole('parent'), (req, res) => {
-    const sv = db.get().surveys.find(x => x.id === req.params.id);
+    const sv = db.first('surveys', 'SELECT * FROM surveys WHERE id = ?', [req.params.id]);
     if (!sv || !visibleTo(req.user, sv)) {
       return res.status(404).json({ error: 'Không tìm thấy khảo sát' });
     }
     if (sv.status !== 'open') {
       return res.status(400).json({ error: 'Khảo sát đã kết thúc, không thể gửi câu trả lời' });
     }
-    if (sv.responses.some(r => r.userId === req.user.id)) {
+    const daTraLoi = db.count(
+      'SELECT COUNT(*) FROM survey_responses WHERE surveyId = ? AND userId = ?', [sv.id, req.user.id]);
+    if (daTraLoi) {
       return res.status(400).json({ error: 'Bạn đã trả lời khảo sát này rồi' });
     }
     const raw = (req.body && req.body.answers) || {};
@@ -120,18 +119,19 @@ module.exports = (app) => {
       }
     }
     const firstChild = db.studentsOf(req.user)[0];
-    sv.responses.push({
+    db.insert('survey_responses', {
+      id: db.nextId('sr'),
+      surveyId: sv.id,
       userId: req.user.id,
       studentId: firstChild ? firstChild.id : null,
       submittedAt: new Date().toISOString(),
       answers,
     });
-    db.save();
     res.status(201).json({ ok: true });
   });
 
   // Giáo viên tạo khảo sát mới (gửi tới toàn trường).
-  app.post('/api/surveys', requireRole('teacher'), (req, res) => {
+  app.post('/api/surveys', requireRole('teacher', 'admin'), (req, res) => {
     const { title, description, deadline, questions } = req.body || {};
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập tiêu đề khảo sát' });
@@ -172,16 +172,14 @@ module.exports = (app) => {
       audience: 'all',
       status: 'open',
       questions: qs,
-      responses: [],
     };
-    db.get().surveys.push(rec);
-    db.save();
-    res.status(201).json(summary(rec, req.user));
+    db.insert('surveys', rec);
+    res.status(201).json(summary(rec, req.user, []));
   });
 
   // Người tạo khảo sát đóng khảo sát.
-  app.post('/api/surveys/:id/close', requireRole('teacher'), (req, res) => {
-    const sv = db.get().surveys.find(x => x.id === req.params.id);
+  app.post('/api/surveys/:id/close', requireRole('teacher', 'admin'), (req, res) => {
+    const sv = db.first('surveys', 'SELECT * FROM surveys WHERE id = ?', [req.params.id]);
     if (!sv) return res.status(404).json({ error: 'Không tìm thấy khảo sát' });
     if (sv.createdBy !== req.user.id) {
       return res.status(403).json({ error: 'Chỉ người tạo khảo sát mới được đóng khảo sát này' });
@@ -189,8 +187,7 @@ module.exports = (app) => {
     if (sv.status !== 'open') {
       return res.status(400).json({ error: 'Khảo sát đã được đóng trước đó' });
     }
-    sv.status = 'closed';
-    db.save();
-    res.json({ ok: true, status: sv.status });
+    db.update('surveys', sv.id, { status: 'closed' });
+    res.json({ ok: true, status: 'closed' });
   });
 };
