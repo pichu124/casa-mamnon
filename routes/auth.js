@@ -50,16 +50,15 @@ cleanupTimer.unref();
 
 function publicUser(u) {
   if (!u) return null;
-  const { password: _p, passwordHash: _h, ...rest } = u;
+  const { passwordHash: _h, ...rest } = u;
   return rest;
 }
 
 // Gói dữ liệu trả về sau đăng nhập: người dùng + học sinh liên quan + lớp + trường.
 function mePayload(user) {
-  const data = db.get();
   const students = db.studentsOf(user).map(s => {
-    const cls = db.findClass(s.classId);
-    const teacher = cls ? db.findUser(cls.teacherId) : null;
+    const cls = s.classId ? db.findClass(s.classId) : null;
+    const teacher = cls && cls.teacherId ? db.findUser(cls.teacherId) : null;
     return {
       ...s,
       className: cls ? cls.name : '',
@@ -70,8 +69,8 @@ function mePayload(user) {
   return {
     user: publicUser(user),
     students,
-    classes: data.classes,
-    school: data.school,
+    classes: db.classes(),
+    school: db.school(),
   };
 }
 
@@ -87,12 +86,11 @@ module.exports = (app) => {
     }
 
     const { username, password: plain } = req.body || {};
-    const uname = String(username || '').trim().toLowerCase();
-    const user = db.get().users.find(u => u.username === uname);
+    const user = db.findUserByUsername(username);
 
     // So khớp mật khẩu đã băm. Câu báo lỗi cố ý không nói rõ sai tên hay sai
     // mật khẩu, để không giúp người lạ dò ra tài khoản nào có thật.
-    const ok = user && password.verify(String(plain || ''), user.passwordHash);
+    const ok = user && user.active && password.verify(String(plain || ''), user.passwordHash);
     if (!ok) {
       noteFailure(ip);
       return res.status(401).json({ error: 'Sai tên đăng nhập hoặc mật khẩu' });
@@ -100,6 +98,7 @@ module.exports = (app) => {
 
     clearFailures(ip);
     const token = createSession(user.id);
+    db.audit(user.id, 'login', null, { ip });
     res.setHeader('Set-Cookie', sessionCookie(req, token));
     res.json(mePayload(user));
   });
@@ -127,8 +126,11 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Mật khẩu mới phải khác mật khẩu hiện tại' });
     }
 
-    req.user.passwordHash = password.hash(String(newPassword));
-    db.save();
+    db.update('users', req.user.id, {
+      passwordHash: password.hash(String(newPassword)),
+      mustChangePassword: false,
+    });
+    db.audit(req.user.id, 'change-password', req.user.id, null);
     const kicked = destroyUserSessions(req.user.id, req.sessionToken);
     res.json({
       ok: true,

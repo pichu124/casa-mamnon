@@ -2,11 +2,22 @@
 const db = require('../lib/db');
 const { publicUser } = require('./auth');
 
+function decorate(s) {
+  const cls = s.classId ? db.findClass(s.classId) : null;
+  const teacher = cls && cls.teacherId ? db.findUser(cls.teacherId) : null;
+  return {
+    ...s,
+    className: cls ? cls.name : '',
+    room: cls ? cls.room : '',
+    teacherName: teacher ? `${teacher.title} ${teacher.name}` : '',
+    teacherPhone: teacher ? teacher.phone : '',
+  };
+}
+
 module.exports = (app) => {
   // Danh sách học sinh mà người dùng được xem, kèm thông tin lớp + GVCN.
   app.get('/api/students', (req, res) => {
-    const list = db.studentsOf(req.user).map(s => decorate(s));
-    res.json(list);
+    res.json(db.studentsOf(req.user).map(decorate));
   });
 
   // Hồ sơ chi tiết một học sinh.
@@ -20,15 +31,3 @@ module.exports = (app) => {
     res.json({ ...decorate(s), parents });
   });
 };
-
-function decorate(s) {
-  const cls = db.findClass(s.classId);
-  const teacher = cls ? db.findUser(cls.teacherId) : null;
-  return {
-    ...s,
-    className: cls ? cls.name : '',
-    room: cls ? cls.room : '',
-    teacherName: teacher ? `${teacher.title} ${teacher.name}` : '',
-    teacherPhone: teacher ? teacher.phone : '',
-  };
-}

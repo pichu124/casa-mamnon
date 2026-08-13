@@ -97,7 +97,8 @@ app.use((err, req, res, next) => {
 // Cảnh báo nếu đưa lên Internet mà vẫn dùng mật khẩu mẫu.
 function warnDefaultPasswords() {
   const demo = process.env.DEMO_PASSWORD || '123456';
-  const weak = db.get().users.filter(u => password.verify(demo, u.passwordHash));
+  const weak = db.all('users', 'SELECT id, passwordHash FROM users')
+    .filter(u => password.verify(demo, u.passwordHash));
   if (!weak.length) return;
   console.warn(
     `\n⚠️  CẢNH BÁO BẢO MẬT: ${weak.length} tài khoản vẫn dùng mật khẩu mẫu "${demo}".\n` +
@@ -106,13 +107,15 @@ function warnDefaultPasswords() {
   );
 }
 
-// Nạp (và sinh nếu chưa có) dữ liệu ngay lúc khởi động, để phát hiện sớm khi
-// file dữ liệu hỏng thay vì để người dùng đầu tiên gặp lỗi.
-db.get();
+// Cơ sở dữ liệu trống (lần chạy đầu) thì sinh dữ liệu mẫu để có cái xem ngay.
+if (db.isEmpty()) {
+  console.log('Cơ sở dữ liệu trống — đang sinh dữ liệu mẫu...');
+  require('./data/seed').generate();
+}
 
 const server = app.listen(PORT, HOST, () => {
   console.log(`SchoolConnect đang chạy tại http://localhost:${PORT}`);
-  console.log(`Thư mục dữ liệu: ${db.DATA_DIR}`);
+  console.log(`Cơ sở dữ liệu: ${db.DB_FILE}`);
   if (process.env.NODE_ENV === 'production') warnDefaultPasswords();
 });
 
@@ -122,10 +125,8 @@ let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`\nNhận tín hiệu ${signal}, đang lưu dữ liệu trước khi tắt...`);
-  db.flush();
-  auth.flushSessions();
-  server.close(() => process.exit(0));
+  console.log(`\nNhận tín hiệu ${signal}, đang đóng cơ sở dữ liệu...`);
+  server.close(() => { db.close(); process.exit(0); });
   setTimeout(() => process.exit(0), 5000).unref(); // không chờ quá lâu
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
