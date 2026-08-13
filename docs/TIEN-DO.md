@@ -15,8 +15,8 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B1 | Chuyển kho dữ liệu sang SQLite | ✅ **Hoàn thành** |
 | B4 | Sao lưu tự động | ✅ **Hoàn thành** |
 | B3 | Cấp lại mật khẩu khi quên | ✅ **Hoàn thành** — 25/25 kiểm thử đạt |
-| B2 | Trang quản trị và nhập danh sách | ⏳ Đang làm |
-| B5 | Chuyển năm học và lên lớp | ⬜ Chưa bắt đầu |
+| B2 | Trang quản trị và nhập danh sách | ✅ **Hoàn thành** — 43/43 kiểm thử đạt |
+| B5 | Chuyển năm học và lên lớp | ⏳ Đang làm |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -84,13 +84,13 @@ Toàn bộ 192 bài kiểm thử (API, bảo mật, PWA, album) đều đạt sa
 
 | Bước | Việc | Trạng thái |
 |------|------|-----------|
-| B2.1 | Vai trò `admin`, phân quyền và tài khoản quản trị đầu tiên | ⬜ |
-| B2.2 | Nhật ký thao tác (ai làm gì, lúc nào) | ⬜ |
-| B2.3 | API quản lý lớp và phân công giáo viên chủ nhiệm | ⬜ |
-| B2.4 | API quản lý học sinh: thêm, sửa, chuyển lớp, nghỉ học | ⬜ |
-| B2.5 | Nhập danh sách từ tệp CSV, kiểm tra lỗi trước khi ghi | ⬜ |
-| B2.6 | Tự sinh tài khoản và mật khẩu ban đầu, xuất phiếu để in | ⬜ |
-| B2.7 | Giao diện quản trị | ⬜ |
+| B2.1 | Vai trò `admin`, phân quyền và tài khoản quản trị đầu tiên | ✅ Xong |
+| B2.2 | Nhật ký thao tác (ai làm gì, lúc nào) | ✅ Xong |
+| B2.3 | API quản lý lớp và phân công giáo viên chủ nhiệm | ✅ Xong |
+| B2.4 | API quản lý học sinh: thêm, sửa, chuyển lớp, nghỉ học | ✅ Xong |
+| B2.5 | Nhập danh sách từ tệp CSV, kiểm tra lỗi trước khi ghi | ✅ Xong |
+| B2.6 | Tự sinh tài khoản và mật khẩu ban đầu, xuất phiếu để in | ✅ Xong |
+| B2.7 | Giao diện quản trị | ✅ Xong |
 
 ---
 

@@ -8,7 +8,7 @@ App.views.settings = {
         ${UI.avatar(user.avatar, 56)}
         <div style="flex:1">
           <div style="font-weight:800;font-size:1.05rem">${UI.esc(user.title)} ${UI.esc(user.name)}</div>
-          <div class="muted small">${user.role === 'teacher' ? 'Giáo viên' : 'Phụ huynh'} · ${UI.esc(user.username)}</div>
+          <div class="muted small">${user.role === 'admin' ? 'Quản trị' : user.role === 'teacher' ? 'Giáo viên' : 'Phụ huynh'} · ${UI.esc(user.username)}</div>
         </div>
       </div>
 
@@ -35,6 +35,18 @@ App.views.settings = {
           <button class="btn sm primary" id="st-install">Cài đặt</button>
         </div>
       </div>
+
+      ${user.role === 'admin' ? `
+        <div class="card">
+          <div class="card-title">🏫 Quản trị nhà trường</div>
+          <div class="list-row clickable" onclick="location.hash='#/admin'">
+            <div class="row-main">
+              <div class="row-title">Lớp, giáo viên, nhập danh sách</div>
+              <div class="row-sub">Quản lý toàn trường và xem nhật ký thao tác</div>
+            </div>
+            <span class="muted">${UI.icon('chevron', 18)}</span>
+          </div>
+        </div>` : ''}
 
       ${user.role === 'teacher' || user.role === 'admin' ? `
         <div class="card">
