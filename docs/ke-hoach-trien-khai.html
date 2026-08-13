@@ -1,0 +1,927 @@
+<title>Kế hoạch triển khai SchoolConnect</title>
+<style>
+  /* ===== Bảng màu: mực xanh trên giấy — tông hồ sơ hành chính trường học ===== */
+  :root {
+    --paper:      #FCFCFD;
+    --surface:    #FFFFFF;
+    --surface-2:  #F5F7FA;
+    --ink:        #16202B;
+    --ink-2:      #3D4C5C;
+    --muted:      #67788B;
+    --line:       #E1E7EF;
+    --line-2:     #CBD5E1;
+    --accent:     #1F5E8C;
+    --accent-2:   #17486B;
+    --accent-soft:#EAF2F8;
+    --danger:     #B3261E;
+    --danger-soft:#FBECEA;
+    --warn:       #8A5A00;
+    --warn-soft:  #FDF4E3;
+    --ok:         #1E6B3A;
+    --ok-soft:    #E9F5ED;
+
+    --f-display: Cambria, Georgia, "Times New Roman", serif;
+    --f-body: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --f-mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+    --measure: 68ch;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0E141B;
+      --surface:    #151E28;
+      --surface-2:  #1B2630;
+      --ink:        #E6EDF4;
+      --ink-2:      #BDCAD8;
+      --muted:      #8496A8;
+      --line:       #253340;
+      --line-2:     #35485A;
+      --accent:     #74AEDC;
+      --accent-2:   #9CC8E8;
+      --accent-soft:#152838;
+      --danger:     #E8877D;
+      --danger-soft:#2C1917;
+      --warn:       #D9A441;
+      --warn-soft:  #2A2113;
+      --ok:         #74C494;
+      --ok-soft:    #14291C;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:      #0E141B;
+    --surface:    #151E28;
+    --surface-2:  #1B2630;
+    --ink:        #E6EDF4;
+    --ink-2:      #BDCAD8;
+    --muted:      #8496A8;
+    --line:       #253340;
+    --line-2:     #35485A;
+    --accent:     #74AEDC;
+    --accent-2:   #9CC8E8;
+    --accent-soft:#152838;
+    --danger:     #E8877D;
+    --danger-soft:#2C1917;
+    --warn:       #D9A441;
+    --warn-soft:  #2A2113;
+    --ok:         #74C494;
+    --ok-soft:    #14291C;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 96px; }
+  .layout { display: block; }
+  @media (min-width: 1100px) {
+    .layout { display: grid; grid-template-columns: 214px minmax(0, 1fr); gap: 52px; align-items: start; }
+  }
+
+  /* ===== Đầu trang ===== */
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 56px 0 24px;
+    margin-bottom: 44px;
+  }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: .74rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-size: clamp(2.1rem, 5vw, 3.1rem);
+    line-height: 1.12;
+    letter-spacing: -.015em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    max-width: var(--measure);
+    font-size: 1.09rem;
+    color: var(--ink-2);
+    margin: 0 0 22px;
+  }
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 8px 26px;
+    font-family: var(--f-mono); font-size: .78rem; color: var(--muted);
+  }
+  .meta-strip b { color: var(--ink-2); font-weight: 600; }
+
+  /* ===== Mục lục ===== */
+  nav.toc { display: none; }
+  @media (min-width: 1100px) {
+    nav.toc {
+      display: block; position: sticky; top: 32px;
+      font-size: .86rem; line-height: 1.5;
+      border-left: 2px solid var(--line); padding-left: 16px;
+    }
+    nav.toc p { font-family: var(--f-mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+    nav.toc a { display: block; color: var(--ink-2); text-decoration: none; padding: 5px 0; border-bottom: 1px solid transparent; }
+    nav.toc a:hover { color: var(--accent); }
+    nav.toc a span { font-family: var(--f-mono); font-size: .76rem; color: var(--muted); margin-right: 8px; }
+  }
+
+  /* ===== Phần ===== */
+  section { margin-bottom: 68px; scroll-margin-top: 24px; }
+  h2 {
+    font-family: var(--f-display);
+    font-size: clamp(1.5rem, 3vw, 1.95rem);
+    line-height: 1.2; letter-spacing: -.01em;
+    margin: 0 0 8px; padding-top: 12px;
+    border-top: 1px solid var(--line-2);
+    text-wrap: balance;
+  }
+  h2 .num {
+    display: block; font-family: var(--f-mono); font-size: .74rem;
+    letter-spacing: .14em; color: var(--accent); margin-bottom: 8px; font-weight: 600;
+  }
+  h3 {
+    font-family: var(--f-body); font-weight: 680;
+    font-size: 1.06rem; margin: 32px 0 8px; letter-spacing: -.005em;
+  }
+  h4 { font-size: .95rem; font-weight: 660; margin: 22px 0 6px; color: var(--ink-2); }
+  p, ul, ol { max-width: var(--measure); }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  li::marker { color: var(--muted); }
+  strong { font-weight: 660; }
+  a { color: var(--accent); }
+  code {
+    font-family: var(--f-mono); font-size: .87em;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ===== Khối nhấn mạnh ===== */
+  .callout {
+    border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    background: var(--surface); border-radius: 0 8px 8px 0;
+    padding: 18px 20px; margin: 22px 0; max-width: var(--measure);
+  }
+  .callout.stop { border-left-color: var(--danger); background: var(--danger-soft); }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout.ok   { border-left-color: var(--ok); background: var(--ok-soft); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .label {
+    font-family: var(--f-mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; display: block; margin-bottom: 7px; font-weight: 600;
+  }
+  .callout.stop .label { color: var(--danger); }
+  .callout.warn .label { color: var(--warn); }
+  .callout.ok .label   { color: var(--ok); }
+  .callout .label { color: var(--accent); }
+
+  /* ===== Bảng số đo ===== */
+  .metrics {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; margin: 24px 0 8px;
+  }
+  .metric { background: var(--surface); padding: 16px 18px; }
+  .metric .v {
+    font-family: var(--f-mono); font-size: 1.5rem; font-weight: 600;
+    letter-spacing: -.02em; font-variant-numeric: tabular-nums; display: block;
+  }
+  .metric .v.bad { color: var(--danger); }
+  .metric .k { font-size: .79rem; color: var(--muted); margin-top: 3px; display: block; line-height: 1.4; }
+
+  /* ===== Bảng ===== */
+  .table-scroll { overflow-x: auto; margin: 20px 0; border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 560px; }
+  th, td { padding: 11px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th {
+    background: var(--surface-2); font-family: var(--f-mono);
+    font-size: .72rem; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ===== Nhãn ===== */
+  .tag {
+    display: inline-block; font-family: var(--f-mono);
+    font-size: .68rem; letter-spacing: .06em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 3px; font-weight: 600; white-space: nowrap;
+  }
+  .tag.stop { background: var(--danger-soft); color: var(--danger); border: 1px solid currentColor; }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); border: 1px solid currentColor; }
+  .tag.ok   { background: var(--ok-soft); color: var(--ok); border: 1px solid currentColor; }
+  .tag.info { background: var(--accent-soft); color: var(--accent); border: 1px solid currentColor; }
+
+  /* ===== Danh sách việc bắt buộc ===== */
+  .task {
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); padding: 20px 22px; margin-bottom: 14px;
+  }
+  .task-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .task-head .id {
+    font-family: var(--f-mono); font-size: .78rem; font-weight: 600;
+    color: var(--accent); letter-spacing: .04em;
+  }
+  .task-head h3 { margin: 0; font-size: 1.04rem; flex: 1 1 240px; }
+  .task .effort { font-family: var(--f-mono); font-size: .76rem; color: var(--muted); white-space: nowrap; }
+  .task p, .task ul { max-width: none; }
+  .task p:last-child, .task ul:last-child { margin-bottom: 0; }
+
+  /* ===== Dòng thời gian ===== */
+  .phase {
+    display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 20px;
+    padding: 18px 0; border-bottom: 1px solid var(--line);
+  }
+  .phase:last-child { border-bottom: none; }
+  .phase .when {
+    font-family: var(--f-mono); font-size: .8rem; font-weight: 600;
+    color: var(--accent); padding-top: 2px; line-height: 1.4;
+  }
+  .phase h3 { margin: 0 0 6px; }
+  .phase p, .phase ul { max-width: none; margin-bottom: 0; }
+  @media (max-width: 620px) {
+    .phase { grid-template-columns: 1fr; gap: 6px; }
+  }
+
+  footer.end {
+    border-top: 2px solid var(--ink); margin-top: 24px; padding-top: 20px;
+    font-size: .87rem; color: var(--muted); max-width: var(--measure);
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Tài liệu kỹ thuật · Chuẩn bị vận hành</p>
+  <h1>Kế hoạch triển khai SchoolConnect</h1>
+  <p class="standfirst">
+    Đưa sổ liên lạc điện tử vào sử dụng thật cho một trường 300 học sinh: những gì
+    bắt buộc phải làm trước, chọn hạ tầng nào, sao lưu ra sao, và các vấn đề vận
+    hành thường bị bỏ quên cho tới khi đã quá muộn.
+  </p>
+  <div class="meta-strip">
+    <span>Quy mô: <b>300 học sinh · ~15 lớp · ~420 phụ huynh</b></span>
+    <span>Trạng thái hiện tại: <b>chạy tốt ở quy mô demo</b></span>
+    <span>Thời gian chuẩn bị: <b>6–10 tuần</b></span>
+  </div>
+</header>
+
+<div class="layout">
+
+<nav class="toc" aria-label="Mục lục">
+  <p>Nội dung</p>
+  <a href="#do-luong"><span>01</span>Kết quả đo tải</a>
+  <a href="#bat-buoc"><span>02</span>Việc bắt buộc</a>
+  <a href="#nen-co"><span>03</span>Nên có thêm</a>
+  <a href="#ha-tang"><span>04</span>Hạ tầng</a>
+  <a href="#luu-tru"><span>05</span>Lưu trữ &amp; sao lưu</a>
+  <a href="#bao-mat"><span>06</span>Bảo mật &amp; pháp lý</a>
+  <a href="#lo-trinh"><span>07</span>Lộ trình</a>
+  <a href="#van-hanh"><span>08</span>Vận hành thực tế</a>
+  <a href="#chi-phi"><span>09</span>Chi phí</a>
+  <a href="#rui-ro"><span>10</span>Rủi ro</a>
+</nav>
+
+<main>
+
+<!-- ============ 01 ============ -->
+<section id="do-luong">
+  <h2><span class="num">01 — Kết quả đo tải</span>Hệ thống hiện tại chưa chịu được 300 học sinh</h2>
+
+  <p>
+    Trước khi lập kế hoạch, tôi dựng dữ liệu mô phỏng đúng một năm học của trường
+    300 học sinh và đo trên kho dữ liệu JSON hiện tại. Kết quả cho thấy một điểm
+    chặn rõ ràng, không phải phỏng đoán.
+  </p>
+
+  <div class="metrics">
+    <div class="metric"><span class="v">127.500</span><span class="k">bản ghi sau một năm học</span></div>
+    <div class="metric"><span class="v">31,2 MB</span><span class="k">kích thước tệp db.json</span></div>
+    <div class="metric"><span class="v bad">1.803 ms</span><span class="k">thời gian mỗi lần lưu dữ liệu</span></div>
+    <div class="metric"><span class="v">195 MB</span><span class="k">bộ nhớ máy chủ chiếm dụng</span></div>
+  </div>
+
+  <p style="font-size:.85rem;color:var(--muted);margin-top:10px">
+    Đo trên ổ SSD. Trong đó 1.380 ms để chuyển toàn bộ dữ liệu thành chuỗi và 423 ms để ghi ra đĩa.
+  </p>
+
+  <div class="callout stop">
+    <span class="label">Vấn đề cốt lõi</span>
+    <p>
+      Mỗi lần một giáo viên điểm danh một học sinh, máy chủ ghi lại <em>toàn bộ</em>
+      tệp dữ liệu 31 MB. Node.js chạy một luồng duy nhất, nên trong <strong>1,8 giây</strong>
+      đó mọi người dùng khác đều bị treo — không tải được trang, không gửi được tin nhắn.
+    </p>
+    <p>
+      Buổi sáng cao điểm có khoảng 300 lượt lưu như vậy trong 10–15 phút. Hệ thống
+      sẽ đứng gần như liên tục. Đây là điểm chặn tuyệt đối, phải xử lý trước khi
+      cho trường dùng.
+    </p>
+  </div>
+
+  <p>
+    Tin tốt: mọi thứ khác đều ổn. Toàn bộ phần giao diện, phân quyền, xác thực và
+    logic nghiệp vụ không cần viết lại — chỉ tầng lưu trữ bên dưới cần thay.
+  </p>
+</section>
+
+<!-- ============ 02 ============ -->
+<section id="bat-buoc">
+  <h2><span class="num">02 — Việc bắt buộc</span>Năm hạng mục phải xong trước khi mở cho phụ huynh</h2>
+
+  <p>
+    Đây không phải danh sách mong muốn. Thiếu bất kỳ mục nào trong năm mục dưới
+    đây thì hệ thống hoặc sẽ sập, hoặc không vận hành nổi trên thực tế.
+  </p>
+
+  <div class="task">
+    <div class="task-head">
+      <span class="id">B1</span>
+      <h3>Chuyển kho dữ liệu sang SQLite</h3>
+      <span class="effort">3–5 ngày công</span>
+    </div>
+    <p>
+      Thay vì ghi lại cả tệp, SQLite chỉ ghi đúng dòng dữ liệu thay đổi. Thời gian
+      mỗi thao tác lưu giảm từ <strong>1.803 ms xuống dưới 1 ms</strong> — nhanh
+      hơn khoảng hai nghìn lần.
+    </p>
+    <ul>
+      <li>Dùng thư viện <code>better-sqlite3</code>: ổn định lâu năm, tốc độ cao, kiểu gọi đồng bộ nên hợp với cách viết hiện tại. Tránh <code>node:sqlite</code> vì còn ở dạng thử nghiệm.</li>
+      <li>Bật chế độ WAL (<code>journal_mode=WAL</code>) để đọc và ghi không chặn nhau.</li>
+      <li>Đánh chỉ mục theo <code>studentId</code>, <code>classId</code>, <code>date</code> — ba cột được tra cứu nhiều nhất.</li>
+      <li>Viết script chuyển dữ liệu từ <code>db.json</code> hiện có sang, chạy được nhiều lần.</li>
+      <li>Toàn bộ thay đổi nằm trong <code>lib/db.js</code> và các tệp <code>routes/</code>; giao diện không đụng tới.</li>
+    </ul>
+  </div>
+
+  <div class="task">
+    <div class="task-head">
+      <span class="id">B2</span>
+      <h3>Trang quản trị và nhập danh sách đầu năm</h3>
+      <span class="effort">5–8 ngày công</span>
+    </div>
+    <p>
+      Hiện tại tài khoản chỉ được tạo bằng script sinh dữ liệu mẫu. Không có cách
+      nào để tạo 420 tài khoản phụ huynh thật. <strong>Đây là hạng mục dễ bị đánh
+      giá thấp nhất nhưng lại chặn toàn bộ việc triển khai.</strong>
+    </p>
+    <ul>
+      <li>Thêm vai trò <em>quản trị</em> cho ban giám hiệu, tách khỏi vai trò giáo viên.</li>
+      <li>Nhập danh sách học sinh và phụ huynh từ tệp Excel/CSV — trường học luôn có sẵn danh sách này.</li>
+      <li>Tự sinh tên đăng nhập và mật khẩu ban đầu, xuất ra tệp để in phiếu phát cho từng phụ huynh.</li>
+      <li>Quản lý lớp, phân công giáo viên chủ nhiệm, thêm/chuyển/nghỉ học sinh giữa năm.</li>
+    </ul>
+  </div>
+
+  <div class="task">
+    <div class="task-head">
+      <span class="id">B3</span>
+      <h3>Cấp lại mật khẩu khi phụ huynh quên</h3>
+      <span class="effort">2 ngày công</span>
+    </div>
+    <p>
+      Với 420 phụ huynh, mỗi tuần sẽ có vài người quên mật khẩu. Không có cơ chế
+      này thì gánh nặng đổ hết lên giáo viên chủ nhiệm.
+    </p>
+    <ul>
+      <li>Trường học thường không có máy chủ gửi email, nên phương án thực tế là: giáo viên chủ nhiệm hoặc quản trị viên cấp một <strong>mật khẩu tạm dùng một lần</strong>, phụ huynh bắt buộc đổi ngay khi đăng nhập.</li>
+      <li>Ghi nhật ký mọi lượt cấp lại mật khẩu để tra khi có tranh chấp.</li>
+    </ul>
+  </div>
+
+  <div class="task">
+    <div class="task-head">
+      <span class="id">B4</span>
+      <h3>Sao lưu tự động</h3>
+      <span class="effort">1 ngày công</span>
+    </div>
+    <p>
+      Không có sao lưu nghĩa là một lỗi ổ cứng hoặc một thao tác nhầm sẽ xóa sạch
+      dữ liệu cả năm của toàn trường. Chi tiết ở mục 05.
+    </p>
+  </div>
+
+  <div class="task">
+    <div class="task-head">
+      <span class="id">B5</span>
+      <h3>Chuyển năm học và lên lớp</h3>
+      <span class="effort">3–4 ngày công</span>
+    </div>
+    <p>
+      Hiện mỗi học sinh gắn cứng với một lớp, còn năm học chỉ là nhãn hiển thị.
+      Đến tháng 6 sẽ cần: lên lớp cho toàn trường, đổi giáo viên chủ nhiệm, tiếp
+      nhận khối 1 mới, lưu trữ dữ liệu năm cũ để tra cứu.
+    </p>
+    <p>
+      Nếu bắt đầu triển khai giữa năm học thì việc này có thể làm sau, nhưng
+      <strong>phải hoàn thành trước khi kết thúc năm học đầu tiên</strong>.
+    </p>
+  </div>
+
+  <div class="callout">
+    <span class="label">Tổng công sức</span>
+    <p>
+      Khoảng <strong>14–20 ngày công</strong> cho năm hạng mục bắt buộc, tương
+      đương 3–4 tuần nếu một người làm toàn thời gian.
+    </p>
+  </div>
+</section>
+
+<!-- ============ 03 ============ -->
+<section id="nen-co">
+  <h2><span class="num">03 — Nên có thêm</span>Không chặn triển khai, nhưng sẽ thiếu rất nhanh</h2>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Hạng mục</th><th>Vì sao cần</th><th>Công sức</th><th>Ưu tiên</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Nhật ký thao tác</strong></td>
+          <td>Khi phụ huynh khiếu nại “con tôi đi học sao báo vắng”, cần biết ai sửa, sửa lúc nào. Không có thì không có cơ sở giải quyết.</td>
+          <td class="num">2 ngày</td>
+          <td><span class="tag warn">Cao</span></td>
+        </tr>
+        <tr>
+          <td><strong>Giám sát máy chủ</strong></td>
+          <td>Biết ngay khi hệ thống sập thay vì đợi phụ huynh gọi điện báo. Dùng UptimeRobot miễn phí, gửi cảnh báo qua email hoặc Telegram.</td>
+          <td class="num">2 giờ</td>
+          <td><span class="tag warn">Cao</span></td>
+        </tr>
+        <tr>
+          <td><strong>Thông báo đẩy thật</strong></td>
+          <td>Hiện app mới xin quyền chứ chưa gửi được thông báo khi đóng app. Cần Web Push với khóa VAPID. Thiếu nó, phụ huynh phải tự mở app mới biết có tin.</td>
+          <td class="num">3 ngày</td>
+          <td><span class="tag warn">Cao</span></td>
+        </tr>
+        <tr>
+          <td><strong>Xuất báo cáo Excel</strong></td>
+          <td>Nhà trường luôn cần nộp báo cáo chuyên cần, học lực bằng file. Không có thì giáo viên phải gõ tay lại.</td>
+          <td class="num">2 ngày</td>
+          <td><span class="tag info">Vừa</span></td>
+        </tr>
+        <tr>
+          <td><strong>Xác thực hai bước cho quản trị</strong></td>
+          <td>Tài khoản quản trị xem được dữ liệu toàn trường. Mất tài khoản này là mất tất cả.</td>
+          <td class="num">2 ngày</td>
+          <td><span class="tag info">Vừa</span></td>
+        </tr>
+        <tr>
+          <td><strong>Thay polling bằng SSE</strong></td>
+          <td>Hiện app hỏi máy chủ mỗi 4 giây khi mở phòng chat. Với 200 người online là ~60 lượt/giây — máy chủ chịu được nhưng tốn pin và 4G của phụ huynh.</td>
+          <td class="num">3 ngày</td>
+          <td><span class="tag info">Vừa</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 04 ============ -->
+<section id="ha-tang">
+  <h2><span class="num">04 — Hạ tầng</span>Đặt máy chủ ở đâu</h2>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Phương án</th><th>Ưu điểm</th><th>Nhược điểm</th><th>Chi phí/tháng</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>VPS trong nước</strong><br><span style="color:var(--muted);font-size:.85em">Viettel IDC, VNPT, CMC, AZDIGI, Tinohost</span></td>
+          <td>Độ trễ 5–20 ms; hỗ trợ tiếng Việt; xuất hóa đơn VAT cho trường thanh toán</td>
+          <td>Phải tự cài đặt và quản trị Linux</td>
+          <td class="num">250–450k</td>
+        </tr>
+        <tr>
+          <td><strong>Nền tảng cloud</strong><br><span style="color:var(--muted);font-size:.85em">Render, Railway, Fly.io (Singapore)</span></td>
+          <td>Triển khai bằng vài cú bấm; HTTPS tự động; đã có sẵn tệp cấu hình trong mã nguồn</td>
+          <td>Độ trễ 30–60 ms; cần thẻ thanh toán quốc tế; khó xuất hóa đơn hợp lệ</td>
+          <td class="num">~200–350k</td>
+        </tr>
+        <tr>
+          <td><strong>Máy chủ đặt tại trường</strong></td>
+          <td>Dữ liệu nằm trong khuôn viên trường</td>
+          <td>Địa chỉ mạng thay đổi liên tục; mất điện là sập; không ai trực đêm và cuối tuần; sao lưu ra ngoài rất khó</td>
+          <td class="num">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <span class="label">Khuyến nghị</span>
+    <p>
+      Chọn <strong>VPS trong nước</strong> nếu trường có người biết quản trị Linux —
+      độ trễ thấp và thủ tục thanh toán thuận tiện hơn nhiều. Nếu không có ai,
+      chọn <strong>Render</strong> để đổi lấy sự đơn giản.
+    </p>
+    <p>
+      Tuyệt đối không đặt máy chủ tại trường. Đây là sai lầm phổ biến và luôn dẫn
+      tới việc phụ huynh không truy cập được vào đúng lúc cần nhất.
+    </p>
+  </div>
+
+  <h3>Cấu hình đủ dùng</h3>
+  <p>
+    Sau khi chuyển sang SQLite, 300 học sinh tạo tải rất nhẹ. Cấu hình dưới đây
+    dư sức và còn chỗ để lớn thêm:
+  </p>
+  <ul>
+    <li><strong>2 vCPU, 4 GB RAM, 80 GB SSD</strong> — đủ cho 5 năm dữ liệu kèm ảnh</li>
+    <li>Ubuntu LTS; Node.js bản LTS; chạy qua <code>systemd</code> để tự khởi động lại khi lỗi</li>
+    <li>Đặt <strong>Caddy</strong> phía trước làm reverse proxy: tự xin và tự gia hạn chứng chỉ HTTPS, cấu hình chỉ vài dòng</li>
+  </ul>
+
+  <h3>Tên miền</h3>
+  <ul>
+    <li>Tên miền <code>.edu.vn</code> cần quyết định thành lập trường và hồ sơ pháp nhân, phí khoảng 200–500 nghìn/năm.</li>
+    <li>Nếu thủ tục chậm, dùng tạm <code>.vn</code> hoặc <code>.com</code> rồi chuyển sau.</li>
+    <li>Chứng chỉ HTTPS miễn phí qua Let's Encrypt, Caddy tự gia hạn — không cần thao tác thủ công.</li>
+  </ul>
+
+  <h3>Băng thông ước tính</h3>
+  <p>
+    Mỗi phụ huynh mở app khoảng 20 lần/tháng, phần lớn dung lượng là ảnh album:
+    khoảng <strong>4–6 GB/tháng cho toàn trường</strong>. Mọi gói VPS phổ thông
+    đều cho 1 TB trở lên, nên đây không phải điều cần lo.
+  </p>
+</section>
+
+<!-- ============ 05 ============ -->
+<section id="luu-tru">
+  <h2><span class="num">05 — Lưu trữ và sao lưu</span>Phần quan trọng nhất, dễ bị bỏ qua nhất</h2>
+
+  <h3>Dung lượng cần bao nhiêu</h3>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Thành phần</th><th>Sau 1 năm</th><th>Sau 3 năm</th><th>Ghi chú</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Cơ sở dữ liệu SQLite</td><td class="num">~50 MB</td><td class="num">~150 MB</td><td>Rất nhỏ, không đáng lo</td></tr>
+        <tr><td>Ảnh album lớp</td><td class="num">~1,8 GB</td><td class="num">~5,5 GB</td><td>Chiếm gần như toàn bộ dung lượng</td></tr>
+        <tr><td>Bản sao lưu tại chỗ</td><td class="num">~2 GB</td><td class="num">~6 GB</td><td>Nếu dùng sao lưu tăng dần</td></tr>
+        <tr><td><strong>Tổng</strong></td><td class="num"><strong>~4 GB</strong></td><td class="num"><strong>~12 GB</strong></td><td>Đĩa 80 GB là quá đủ</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:.88rem;color:var(--muted)">
+    Ước tính theo 15 lớp, mỗi lớp 20 album một năm, mỗi album 15 ảnh, mỗi ảnh
+    khoảng 400 KB sau khi ứng dụng tự nén.
+  </p>
+
+  <h3>Nguyên tắc sao lưu 3–2–1</h3>
+  <p>
+    Giữ <strong>3</strong> bản sao dữ liệu, trên <strong>2</strong> loại phương tiện
+    khác nhau, trong đó <strong>1</strong> bản đặt ở nơi khác về mặt địa lý. Cụ thể:
+  </p>
+  <ul>
+    <li><strong>Hằng ngày lúc 2 giờ sáng:</strong> sao lưu cơ sở dữ liệu bằng lệnh <code>.backup</code> của SQLite — lệnh này an toàn ngay cả khi hệ thống đang chạy, không như việc chép tệp trực tiếp.</li>
+    <li><strong>Ảnh:</strong> đồng bộ tăng dần bằng <code>restic</code> hoặc <code>rclone</code>, chỉ gửi phần mới nên rất nhanh.</li>
+    <li><strong>Nơi lưu bên ngoài:</strong> Cloudflare R2, Backblaze B2 hoặc dịch vụ lưu trữ trong nước — khoảng 20–50 nghìn/tháng.</li>
+    <li><strong>Vòng đời:</strong> giữ 7 bản theo ngày, 4 bản theo tuần, 12 bản theo tháng.</li>
+  </ul>
+
+  <div class="callout stop">
+    <span class="label">Quy tắc không được bỏ qua</span>
+    <p>
+      <strong>Bản sao lưu chưa từng được khôi phục thử thì coi như không có.</strong>
+      Mỗi quý, hãy khôi phục bản sao lưu vào một máy chủ thử và đăng nhập kiểm tra
+      dữ liệu. Rất nhiều trường chỉ phát hiện tệp sao lưu bị hỏng đúng vào ngày
+      họ cần đến nó.
+    </p>
+  </div>
+
+  <h3>Mất bao nhiêu và bao lâu thì khôi phục xong</h3>
+  <ul>
+    <li><strong>Lượng dữ liệu có thể mất:</strong> tối đa 24 giờ nếu chỉ sao lưu hằng ngày. Muốn giảm còn 1 giờ thì bật lưu trữ nhật ký WAL theo giờ.</li>
+    <li><strong>Thời gian khôi phục:</strong> khoảng 30 phút nếu đã có sẵn kịch bản và đã tập dượt; có thể mất cả ngày nếu phải mò.</li>
+    <li>Viết sẵn quy trình khôi phục ra giấy, để chỗ người khác cũng tìm được — người biết hệ thống có thể đúng hôm đó lại đang nghỉ.</li>
+  </ul>
+</section>
+
+<!-- ============ 06 ============ -->
+<section id="bao-mat">
+  <h2><span class="num">06 — Bảo mật và pháp lý</span>Dữ liệu trẻ em có ràng buộc pháp luật riêng</h2>
+
+  <div class="callout warn">
+    <span class="label">Nghị định 13/2023/NĐ-CP</span>
+    <p>
+      Nghị định về bảo vệ dữ liệu cá nhân có hiệu lực từ 01/7/2023 quy định dữ liệu
+      của <strong>trẻ em dưới 16 tuổi</strong> và <strong>thông tin sức khỏe</strong>
+      thuộc nhóm dữ liệu cá nhân nhạy cảm — đúng những gì hệ thống này lưu trữ.
+    </p>
+    <p>
+      Nhà trường cần rà soát nghĩa vụ pháp lý với bộ phận pháp chế hoặc phòng giáo
+      dục, đặc biệt là yêu cầu lập hồ sơ đánh giá tác động xử lý dữ liệu cá nhân.
+      Đây là việc của nhà trường, không phải việc kỹ thuật.
+    </p>
+  </div>
+
+  <h3>Việc nhà trường phải chuẩn bị</h3>
+  <ul>
+    <li><strong>Văn bản đồng ý của phụ huynh</strong>, ký đầu năm học, nêu rõ: thu thập những thông tin gì, dùng để làm gì, lưu bao lâu, ai được xem.</li>
+    <li><strong>Đồng ý riêng về quyền hình ảnh</strong> — luôn có phụ huynh không muốn con xuất hiện trong ảnh lớp. Cần danh sách này và giáo viên phải nắm.</li>
+    <li><strong>Chính sách quyền riêng tư</strong> hiển thị ngay trong ứng dụng.</li>
+    <li><strong>Quy định nội bộ:</strong> dữ liệu chỉ phục vụ mục đích giáo dục, nghiêm cấm dùng cho mục đích thương mại hoặc chia sẻ ra ngoài.</li>
+  </ul>
+
+  <h3>Việc kỹ thuật phải làm</h3>
+  <ul>
+    <li>Đổi toàn bộ mật khẩu mặc định — hệ thống đã tự cảnh báo trong nhật ký khi chạy ở chế độ vận hành thật.</li>
+    <li>Tường lửa chỉ mở cổng 80 và 443; đăng nhập máy chủ bằng khóa SSH, tắt đăng nhập bằng mật khẩu, đổi cổng SSH mặc định.</li>
+    <li>Cài <code>fail2ban</code> để chặn máy dò mật khẩu ở tầng hệ điều hành.</li>
+    <li>Cập nhật hệ điều hành và Node.js định kỳ hằng quý.</li>
+    <li>Không bao giờ đưa tệp cơ sở dữ liệu hoặc bản sao lưu lên GitHub — <code>.gitignore</code> đã chặn sẵn.</li>
+    <li>Bật xác thực hai bước cho tài khoản quản trị.</li>
+  </ul>
+
+  <h4>Những gì hệ thống đã có sẵn</h4>
+  <p>
+    Mật khẩu băm bằng scrypt; khóa 15 phút sau 8 lần đăng nhập sai; cookie phiên
+    <code>HttpOnly</code> tự thêm cờ <code>Secure</code> khi chạy HTTPS; các header
+    bảo mật CSP, HSTS, chống nhúng iframe; ảnh được kiểm tra bằng chữ ký tệp; mỗi
+    lượt truy cập dữ liệu học sinh đều kiểm tra quyền theo lớp và theo con.
+  </p>
+
+  <h3>Khi xảy ra sự cố lộ dữ liệu</h3>
+  <p>
+    Chuẩn bị trước một quy trình ngắn: ai phát hiện thì báo cho ai, ai ra quyết
+    định, thông báo cho phụ huynh bằng cách nào. Nghị định 13 yêu cầu thông báo vi
+    phạm cho cơ quan chức năng <strong>trong vòng 72 giờ</strong> — không đủ thời
+    gian để lúc đó mới bàn xem phải làm gì.
+  </p>
+</section>
+
+<!-- ============ 07 ============ -->
+<section id="lo-trinh">
+  <h2><span class="num">07 — Lộ trình</span>Từ hôm nay đến khi toàn trường sử dụng</h2>
+
+  <div class="phase">
+    <div class="when">Tuần<br>1–4</div>
+    <div>
+      <h3>Hoàn thiện kỹ thuật</h3>
+      <p>Làm xong năm hạng mục bắt buộc ở mục 02, ưu tiên theo thứ tự B1 → B2 → B4 → B3 → B5. Bổ sung nhật ký thao tác và giám sát nếu còn thời gian.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="when">Tuần 5</div>
+    <div>
+      <h3>Dựng hạ tầng</h3>
+      <p>Thuê VPS và tên miền, cài đặt máy chủ, bật HTTPS, cấu hình tường lửa, chạy thử sao lưu và <strong>khôi phục thử một lần</strong> trước khi có dữ liệu thật.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="when">Tuần 6</div>
+    <div>
+      <h3>Nhập dữ liệu và tập huấn</h3>
+      <p>Nhập danh sách học sinh, phụ huynh, thời khóa biểu. Tập huấn giáo viên một buổi 60 phút. In phiếu tài khoản kèm hướng dẫn cài đặt cho phụ huynh.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="when">Tuần<br>7–10</div>
+    <div>
+      <h3>Thử nghiệm 2 lớp</h3>
+      <p>
+        Chọn hai lớp có giáo viên chủ nhiệm sẵn sàng hợp tác. Chạy đủ 4 tuần để đi
+        qua một chu kỳ đầy đủ: điểm danh, nhận xét, xin phép, họp phụ huynh.
+        Gặp giáo viên hằng tuần để nghe phản hồi và sửa ngay.
+      </p>
+      <p><strong>Vẫn duy trì sổ liên lạc giấy song song trong giai đoạn này.</strong></p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="when">Tuần<br>11–14</div>
+    <div>
+      <h3>Mở rộng toàn trường</h3>
+      <p>Triển khai theo khối, mỗi tuần thêm 3–5 lớp thay vì mở đồng loạt. Cách này giữ cho khối lượng hỗ trợ ở mức xử lý được và mỗi đợt đều rút được kinh nghiệm.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="when">Học kỳ<br>tiếp theo</div>
+    <div>
+      <h3>Vận hành ổn định</h3>
+      <p>Ngừng sổ giấy khi tỷ lệ phụ huynh sử dụng vượt 90% và giáo viên đã thành thạo. Duy trì kênh dự phòng cho số phụ huynh còn lại.</p>
+    </div>
+  </div>
+
+  <div class="callout ok">
+    <span class="label">Nguyên tắc xuyên suốt</span>
+    <p>
+      Không bao giờ mở đồng loạt cho cả trường trong một ngày. Hai lớp thử nghiệm
+      trong bốn tuần sẽ phát hiện gần hết vấn đề thực tế, với chi phí sửa chữa
+      thấp hơn nhiều so với khi 420 phụ huynh cùng gặp lỗi.
+    </p>
+  </div>
+</section>
+
+<!-- ============ 08 ============ -->
+<section id="van-hanh">
+  <h2><span class="num">08 — Vận hành thực tế</span>Những gì quyết định thành bại, ngoài phần mềm</h2>
+
+  <div class="callout stop">
+    <span class="label">Lý do thất bại phổ biến nhất</span>
+    <p>
+      Các hệ thống kiểu này hiếm khi chết vì lỗi kỹ thuật. Chúng chết vì
+      <strong>giáo viên bỏ dùng sau vài tuần</strong> — do hệ thống làm tăng khối
+      lượng công việc mà không cắt bớt việc nào đang có.
+    </p>
+  </div>
+
+  <h3>Thời gian giáo viên phải bỏ ra mỗi ngày</h3>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Công việc</th><th>Thời gian</th><th>Khuyến nghị</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Điểm danh cả lớp</td>
+          <td class="num">1–2 phút</td>
+          <td>Đã có nút “cả lớp có mặt”, chỉ sửa vài trường hợp lệch. Chấp nhận được.</td>
+        </tr>
+        <tr>
+          <td>Nhận xét từng học sinh</td>
+          <td class="num">20–30 phút</td>
+          <td><strong>Đây là chỗ nguy hiểm.</strong> Đừng bắt buộc hằng ngày — chuyển sang mỗi tuần một lần, hoặc mỗi ngày chỉ nhận xét vài em luân phiên.</td>
+        </tr>
+        <tr>
+          <td>Trả lời tin nhắn phụ huynh</td>
+          <td class="num">10–20 phút</td>
+          <td>Cần nội quy về khung giờ, xem bên dưới.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Đổi lại, nhà trường phải bỏ bớt việc cũ tương ứng: không viết sổ liên lạc giấy
+    nữa, không gọi điện báo nghỉ học, không nhắn tin thủ công qua nhóm Zalo.
+    Nếu chỉ cộng thêm mà không trừ bớt, hệ thống sẽ bị bỏ.
+  </p>
+
+  <h3>Nội quy nhắn tin</h3>
+  <p>Cần ban hành ngay từ đầu, thông báo cho cả giáo viên lẫn phụ huynh:</p>
+  <ul>
+    <li>Giáo viên trả lời tin nhắn trong giờ hành chính các ngày học, chậm nhất trong 24 giờ làm việc.</li>
+    <li><strong>Việc khẩn cấp phải gọi điện thoại</strong>, không nhắn qua ứng dụng. Ghi rõ điều này ngay trong ứng dụng.</li>
+    <li>Giáo viên không có nghĩa vụ trả lời buổi tối, ngày nghỉ và ngày lễ. Không có quy định này, giáo viên sẽ kiệt sức trong vài tháng.</li>
+  </ul>
+
+  <h3>Phụ huynh không dùng được ứng dụng</h3>
+  <p>
+    Thực tế luôn có 5–15% phụ huynh không có điện thoại thông minh, hoặc có nhưng
+    không thao tác được. Con của họ không được phép bị thiệt thòi thông tin.
+  </p>
+  <ul>
+    <li>Giữ kênh giấy hoặc điện thoại cho nhóm này, xác định danh sách ngay từ đầu năm.</li>
+    <li>Cấp tài khoản riêng cho cả bố và mẹ thay vì dùng chung một tài khoản — hệ thống đã hỗ trợ nhiều phụ huynh cho một học sinh.</li>
+    <li>Chuẩn bị video hướng dẫn 3 phút và tờ giấy A5 in kèm phiếu tài khoản.</li>
+  </ul>
+
+  <h3>Người phụ trách kỹ thuật</h3>
+  <ul>
+    <li>Cần một người chịu trách nhiệm chính, thường là giáo viên tin học hoặc bên ngoài được thuê.</li>
+    <li>Khi đã ổn định, khối lượng khoảng <strong>2–4 giờ/tháng</strong>: kiểm tra sao lưu, cập nhật, xử lý cấp lại mật khẩu.</li>
+    <li><strong>Rủi ro lớn nhất là chỉ có một người biết hệ thống.</strong> Phải có tài liệu vận hành viết ra giấy và ít nhất hai người nắm được quy trình khôi phục.</li>
+  </ul>
+
+  <h3>Khi hệ thống gặp sự cố</h3>
+  <p>
+    Chuẩn bị sẵn kênh dự phòng — thường là nhóm Zalo của lớp — và thông báo cho
+    phụ huynh biết trước rằng đó là kênh thay thế khi ứng dụng gián đoạn. Việc này
+    tốn 10 phút chuẩn bị nhưng tránh được hoảng loạn khi sự cố thật xảy ra.
+  </p>
+</section>
+
+<!-- ============ 09 ============ -->
+<section id="chi-phi">
+  <h2><span class="num">09 — Chi phí</span>Ước tính cho một năm học</h2>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Khoản mục</th><th>Đơn giá</th><th>Cả năm</th><th>Ghi chú</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>VPS 2 vCPU / 4 GB / 80 GB</td><td class="num">300k/tháng</td><td class="num">3.600.000</td><td>Nhà cung cấp trong nước</td></tr>
+        <tr><td>Tên miền</td><td class="num">—</td><td class="num">800.000</td><td><code>.vn</code> hoặc <code>.edu.vn</code></td></tr>
+        <tr><td>Lưu trữ sao lưu bên ngoài</td><td class="num">40k/tháng</td><td class="num">480.000</td><td>Cloudflare R2 hoặc Backblaze B2</td></tr>
+        <tr><td>Chứng chỉ HTTPS</td><td class="num">0</td><td class="num">0</td><td>Let's Encrypt</td></tr>
+        <tr><td>Giám sát máy chủ</td><td class="num">0</td><td class="num">0</td><td>UptimeRobot gói miễn phí</td></tr>
+        <tr style="background:var(--surface-2)"><td><strong>Tổng hạ tầng</strong></td><td class="num">—</td><td class="num"><strong>~4.900.000</strong></td><td><strong>~16.000 đ/học sinh/năm</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Chi phí con người</h3>
+  <ul>
+    <li><strong>Hoàn thiện kỹ thuật ban đầu:</strong> 14–20 ngày công. Nếu thuê ngoài, tham khảo 15–30 triệu tùy đơn vị.</li>
+    <li><strong>Vận hành thường xuyên:</strong> 2–4 giờ/tháng. Nếu là giáo viên trong trường kiêm nhiệm thì cần tính phụ cấp.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">Để so sánh</span>
+    <p>
+      Các phần mềm sổ liên lạc điện tử thương mại tại Việt Nam thường thu
+      10.000–30.000 đ/học sinh/năm, tức khoảng 3–9 triệu cho 300 học sinh — rẻ hơn
+      và không phải lo kỹ thuật.
+    </p>
+    <p>
+      Đổi lại, tự vận hành cho phép nhà trường <strong>toàn quyền kiểm soát dữ
+      liệu học sinh</strong>, tùy biến theo đúng cách trường làm việc, và không
+      phụ thuộc vào chính sách giá của bên thứ ba. Đây là lựa chọn của nhà
+      trường, cần cân nhắc thẳng thắn chứ không nên mặc định.
+    </p>
+  </div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="rui-ro">
+  <h2><span class="num">10 — Rủi ro</span>Và cách giảm nhẹ</h2>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Rủi ro</th><th>Khả năng</th><th>Mức độ</th><th>Cách giảm nhẹ</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Giáo viên bỏ dùng sau vài tuần</strong></td>
+          <td><span class="tag stop">Cao</span></td>
+          <td>Nghiêm trọng</td>
+          <td>Thử nghiệm nhỏ trước; giảm tần suất nhận xét; cắt bỏ việc giấy tờ tương ứng; lắng nghe phản hồi hằng tuần</td>
+        </tr>
+        <tr>
+          <td><strong>Mất toàn bộ dữ liệu</strong></td>
+          <td><span class="tag ok">Thấp</span></td>
+          <td>Thảm khốc</td>
+          <td>Sao lưu hằng ngày ra nơi khác; khôi phục thử mỗi quý; ghi quy trình ra giấy</td>
+        </tr>
+        <tr>
+          <td><strong>Chỉ một người biết vận hành</strong></td>
+          <td><span class="tag warn">Trung bình</span></td>
+          <td>Nghiêm trọng</td>
+          <td>Tài liệu vận hành đầy đủ; ít nhất hai người nắm quy trình; lưu mật khẩu quản trị trong két hoặc trình quản lý mật khẩu của trường</td>
+        </tr>
+        <tr>
+          <td><strong>Lộ thông tin học sinh</strong></td>
+          <td><span class="tag ok">Thấp</span></td>
+          <td>Nghiêm trọng</td>
+          <td>Phân quyền theo lớp đã có sẵn; HTTPS bắt buộc; nhật ký thao tác; quy trình xử lý sự cố 72 giờ</td>
+        </tr>
+        <tr>
+          <td><strong>Máy chủ sập giờ cao điểm</strong></td>
+          <td><span class="tag warn">Trung bình</span></td>
+          <td>Trung bình</td>
+          <td>Giám sát tự động; <code>systemd</code> khởi động lại khi lỗi; kênh Zalo dự phòng</td>
+        </tr>
+        <tr>
+          <td><strong>Phụ huynh nhắn tin quá tải giáo viên</strong></td>
+          <td><span class="tag stop">Cao</span></td>
+          <td>Trung bình</td>
+          <td>Ban hành nội quy khung giờ ngay từ ngày đầu; nêu rõ việc khẩn cấp phải gọi điện</td>
+        </tr>
+        <tr>
+          <td><strong>Đầy ổ đĩa vì ảnh</strong></td>
+          <td><span class="tag warn">Trung bình</span></td>
+          <td>Trung bình</td>
+          <td>Cảnh báo khi đĩa dùng quá 70%; ứng dụng đã tự nén ảnh; giới hạn 60 ảnh mỗi album</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="end">
+  <p>
+    Tài liệu lập cho hệ thống SchoolConnect, quy mô 300 học sinh. Các con số đo
+    tải ở mục 01 lấy từ kết quả chạy thử thực tế trên dữ liệu mô phỏng một năm
+    học, không phải ước lượng.
+  </p>
+</footer>
+
+</main>
+</div>
+</div>
