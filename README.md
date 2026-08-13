@@ -2,6 +2,21 @@
 
 Ứng dụng web kết nối **nhà trường – gia đình**, hỗ trợ trao đổi thông tin giữa **giáo viên và phụ huynh học sinh**: điểm danh, xin phép nghỉ học, thực đơn bán trú, thời khóa biểu, nhận xét hằng ngày, báo cáo học tập, xe đưa đón, nề nếp, khảo sát, y tế học đường, dặn thuốc, album ảnh lớp, kế hoạch giáo dục, thông báo và nhắn tin trực tiếp.
 
+## Dành cho nhà trường
+
+Hệ thống đã sẵn sàng cho quy mô vài trăm học sinh: dữ liệu lưu bằng SQLite, có
+trang quản trị để nhập danh sách đầu năm từ Excel, cấp lại mật khẩu khi phụ huynh
+quên, sao lưu tự động và chuyển năm học cuối kỳ.
+
+```bash
+npm run create-admin "Nguyễn Văn Hiệu" hieutruong   # tạo tài khoản quản trị
+npm run backup                                       # sao lưu dữ liệu
+npm run restore:check                                # kiểm tra bản sao lưu
+```
+
+Kế hoạch triển khai đầy đủ (hạ tầng, chi phí, pháp lý, vận hành):
+`docs/ke-hoach-trien-khai.html`. Hướng dẫn sao lưu: `docs/SAO-LUU.md`.
+
 ## Chạy ứng dụng
 
 ```bash
@@ -9,7 +24,11 @@ npm install
 npm start
 ```
 
-Mở trình duyệt tại **http://localhost:3000**. Dữ liệu mẫu được tự sinh vào `data/db.json` ở lần chạy đầu (tạo lại từ đầu bằng `npm run seed`).
+Mở trình duyệt tại **http://localhost:3000**. Dữ liệu mẫu tự sinh vào
+`data/school.db` ở lần chạy đầu (tạo lại bằng `npm run seed`).
+
+> Nâng cấp từ bản cũ dùng tệp JSON: chạy `npm run migrate` một lần để chuyển
+> dữ liệu sang SQLite. Script tự băm lại mật khẩu cũ và giữ nguyên phiên đăng nhập.
 
 > Trên PowerShell cũ của Windows, `&&` không hợp lệ — hãy chạy `npm install` và `npm start` trên hai dòng riêng, hoặc dùng dấu `;` để ngăn cách.
 
@@ -208,7 +227,7 @@ Lưu ý: Apple thường từ chối app chỉ là "trang web đóng gói". Vớ
 
 ## Công nghệ
 
-- **Backend**: Node.js + Express 5, lưu trữ JSON (`data/db.json`) — không cần cài database
+- **Backend**: Node.js + Express 5, cơ sở dữ liệu SQLite (`data/school.db`) — không cần cài máy chủ CSDL riêng
 - **Frontend**: SPA vanilla JavaScript, không cần bước build; giao diện mobile-first tiếng Việt
 - **Xác thực**: phiên cookie HttpOnly, phân quyền theo vai trò (phụ huynh / giáo viên)
 - Nhắn tin cập nhật gần thời gian thực bằng polling; huy hiệu (badge) số việc cần chú ý trên trang chủ

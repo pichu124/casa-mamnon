@@ -16,7 +16,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B4 | Sao lưu tự động | ✅ **Hoàn thành** |
 | B3 | Cấp lại mật khẩu khi quên | ✅ **Hoàn thành** — 25/25 kiểm thử đạt |
 | B2 | Trang quản trị và nhập danh sách | ✅ **Hoàn thành** — 43/43 kiểm thử đạt |
-| B5 | Chuyển năm học và lên lớp | ⏳ Đang làm |
+| B5 | Chuyển năm học và lên lớp | ✅ **Hoàn thành** — 31/31 kiểm thử đạt |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -98,10 +98,30 @@ Toàn bộ 192 bài kiểm thử (API, bảo mật, PWA, album) đều đạt sa
 
 | Bước | Việc | Trạng thái |
 |------|------|-----------|
-| B5.1 | Gắn dữ liệu theo năm học, tra cứu được năm cũ | ⬜ |
-| B5.2 | Thao tác lên lớp hàng loạt cuối năm | ⬜ |
-| B5.3 | Tiếp nhận khối mới, xử lý học sinh chuyển đi | ⬜ |
-| B5.4 | Giao diện chuyển năm học cho quản trị | ⬜ |
+| B5.1 | Gắn dữ liệu theo năm học, tra cứu được năm cũ | ✅ Xong |
+| B5.2 | Thao tác lên lớp hàng loạt cuối năm | ✅ Xong |
+| B5.3 | Tiếp nhận khối mới, xử lý học sinh chuyển đi | ✅ Xong |
+| B5.4 | Giao diện chuyển năm học cho quản trị | ✅ Xong |
+
+---
+
+## Tổng kết
+
+Cả năm hạng mục B1–B5 đã hoàn thành. **291 bài kiểm thử tự động đều đạt:**
+
+| Bộ kiểm thử | Số bài | Nội dung |
+|-------------|--------|----------|
+| API | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
+| Bảo mật | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
+| PWA và điện thoại | 43 | Cài đặt như app, chạy offline, giao diện iPhone và Android |
+| Album ảnh | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
+| Cấp lại mật khẩu | 25 | Mật khẩu tạm, buộc đổi, phân quyền |
+| Quản trị và nhập liệu | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
+| Chuyển năm học | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
+
+Việc còn lại trước khi cho trường dùng thật nằm ở phía nhà trường: thuê hạ tầng,
+soạn văn bản đồng ý của phụ huynh, nhập danh sách thật và tập huấn giáo viên.
+Xem `docs/ke-hoach-trien-khai.html`.
 
 ---
 

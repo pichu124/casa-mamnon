@@ -14,7 +14,7 @@ App.views.admin = {
     root.innerHTML = `
       ${UI.pageHeader('Quản trị nhà trường')}
       <div class="seg">
-        ${[['tongquan', 'Tổng quan'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['nhatky', 'Nhật ký']]
+        ${[['tongquan', 'Tổng quan'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
           .map(([k, t]) => `<button class="${this._tab === k ? 'active' : ''}" onclick="App.views.admin.go('${k}')">${t}</button>`).join('')}
       </div>
       <div id="admin-body"><div class="loading">Đang tải</div></div>`;
@@ -23,6 +23,7 @@ App.views.admin = {
     try {
       if (this._tab === 'nhaplieu') return this.tabNhapLieu(body);
       if (this._tab === 'giaovien') return this.tabGiaoVien(body);
+      if (this._tab === 'namhoc') return this.tabNamHoc(body);
       if (this._tab === 'nhatky') return this.tabNhatKy(body);
       return this.tabTongQuan(body);
     } catch (err) {
@@ -293,6 +294,68 @@ App.views.admin = {
     };
   },
 
+  // ---------- Chuyển năm học ----------
+  async tabNamHoc(body) {
+    const d = await API.get('/api/schoolyear/preview');
+    body.innerHTML = `
+      <div class="card" style="border-left:4px solid var(--warning)">
+        <div class="card-title">⚠️ Việc này ảnh hưởng toàn trường</div>
+        <p class="muted small" style="line-height:1.6">
+          Chuyển năm học sẽ đưa toàn bộ học sinh lên lớp kế tiếp, cho khối cuối cấp
+          ra trường và đóng các lớp của năm cũ. Chỉ làm khi đã kết thúc năm học.
+          <b>Hãy sao lưu dữ liệu trước</b> bằng lệnh <code>npm run backup</code>.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Chuyển từ ${UI.esc(d.namHienTai || 'chưa đặt')} sang ${UI.esc(d.namMoi)}</div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="stat-num" style="color:var(--success)">${d.tongLenLop}</div><div class="stat-label">Học sinh lên lớp</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:var(--warning)">${d.tongRaTruong}</div><div class="stat-label">Ra trường</div></div>
+          <div class="stat-box"><div class="stat-num">${d.buoc.filter(b => b.taoLopMoi).length}</div><div class="stat-label">Lớp tạo mới</div></div>
+        </div>
+        <div class="table-wrap">
+          <table class="simple">
+            <thead><tr><th>Lớp hiện tại</th><th>Sĩ số</th><th>Chuyển thành</th></tr></thead>
+            <tbody>${d.buoc.map(b => `
+              <tr>
+                <td>${UI.esc(b.tenHienTai)}</td>
+                <td>${b.siSo}</td>
+                <td>${b.raTruong
+                  ? '<span style="color:var(--warning);font-weight:600">Ra trường</span>'
+                  : UI.esc(b.tenLopMoi) + (b.taoLopMoi ? ' <span class="muted small">(tạo mới)</span>' : '')}</td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>
+        <div class="field mt-14">
+          <label>Khối cuối cấp (học sinh khối này sẽ ra trường)</label>
+          <input type="number" id="ny-khoi" value="${d.khoiToiDa}" min="1" max="12">
+        </div>
+        <button class="btn danger-soft block" onclick="App.views.admin.chuyenNamHoc('${UI.esc(d.namMoi)}')">
+          Chuyển sang năm học ${UI.esc(d.namMoi)}
+        </button>
+      </div>`;
+  },
+
+  async chuyenNamHoc(namMoi) {
+    const khoiToiDa = Number(document.getElementById('ny-khoi').value) || 5;
+    if (!confirm(`Chuyển toàn trường sang năm học ${namMoi}?\n\nHọc sinh khối ${khoiToiDa} sẽ ra trường. Việc này không tự hoàn tác được — hãy chắc chắn đã sao lưu dữ liệu.`)) return;
+    if (!confirm('Xác nhận lần nữa: bạn đã chạy "npm run backup" chưa?')) return;
+    try {
+      const r = await API.post('/api/schoolyear/promote', { namMoi, khoiToiDa });
+      UI.modal(`
+        <p>${UI.esc(r.message)}</p>
+        <div class="stat-row mt-14">
+          <div class="stat-box"><div class="stat-num">${r.lenLop}</div><div class="stat-label">Lên lớp</div></div>
+          <div class="stat-box"><div class="stat-num">${r.raTruong}</div><div class="stat-label">Ra trường</div></div>
+          <div class="stat-box"><div class="stat-num">${r.lopTao}</div><div class="stat-label">Lớp mới</div></div>
+        </div>
+        <button class="btn primary block mt-14" onclick="UI.closeModal();App.views.admin.go('tongquan')">
+          Đi phân công giáo viên chủ nhiệm
+        </button>`, `Đã chuyển sang ${namMoi}`);
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
   // ---------- Nhật ký ----------
   async tabNhatKy(body) {
     const rows = await API.get('/api/admin/audit');
@@ -303,7 +366,7 @@ App.views.admin = {
       'import-students': 'Nhập danh sách học sinh', 'class-create': 'Tạo lớp',
       'class-update': 'Sửa lớp', 'teacher-create': 'Tạo tài khoản giáo viên',
       'student-update': 'Sửa hồ sơ học sinh', 'student-deactivate': 'Cho học sinh nghỉ học',
-      'admin-create': 'Tạo tài khoản quản trị',
+      'admin-create': 'Tạo tài khoản quản trị', 'schoolyear-promote': 'Chuyển năm học',
     };
     body.innerHTML = rows.length ? `
       <div class="card">
