@@ -1,12 +1,7 @@
-// Sinh dữ liệu mẫu data/db.json. Ngày tháng được tính tương đối so với hôm nay
-// để dữ liệu demo luôn "sống". Chạy lại: npm run seed
-const fs = require('fs');
-const path = require('path');
+// Sinh dữ liệu mẫu vào cơ sở dữ liệu. Ngày tháng được tính tương đối so với hôm
+// nay để dữ liệu demo luôn "sống". Chạy lại: npm run seed
 const password = require('../lib/password');
-
-// Thư mục dữ liệu có thể trỏ ra ổ đĩa gắn ngoài khi triển khai (xem lib/db.js).
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : __dirname;
-const DB_PATH = path.join(DATA_DIR, 'db.json');
+const { importSnapshot } = require('../lib/importer');
 
 // Mật khẩu dùng thử; có thể đổi khi triển khai bằng biến môi trường DEMO_PASSWORD.
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || '123456';
@@ -511,15 +506,20 @@ function generate() {
     notifications, conversations,
   };
 
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 1));
-  console.log(`Đã sinh dữ liệu mẫu: ${DB_PATH}`);
+  const stats = importSnapshot(db);
+  const tong = Object.values(stats).reduce((a, b) => a + b, 0);
+  console.log(`Đã sinh dữ liệu mẫu vào cơ sở dữ liệu (${tong.toLocaleString('vi-VN')} bản ghi).`);
   return db;
 }
 
 if (require.main === module) {
-  if (process.argv.includes('--force') || !fs.existsSync(DB_PATH)) generate();
-  else console.log('db.json đã tồn tại. Dùng --force để tạo lại.');
+  const db = require('../lib/db');
+  if (process.argv.includes('--force') || db.isEmpty()) {
+    generate();
+  } else {
+    console.log('Cơ sở dữ liệu đã có dữ liệu. Dùng --force để xóa và tạo lại.');
+  }
+  db.close();
 }
 
 module.exports = { generate };

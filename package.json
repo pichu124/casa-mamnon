@@ -9,7 +9,8 @@
     "mobile:prepare": "node scripts/prepare-mobile.js",
     "mobile:sync": "npx cap sync android",
     "mobile:icons": "npx @capacitor/assets generate --android --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#4f46e5' --splashBackgroundColorDark '#0a0e1a'",
-    "mobile:apk": "cd android && ./gradlew assembleDebug"
+    "mobile:apk": "cd android && ./gradlew assembleDebug",
+    "migrate": "node scripts/migrate-json-to-sqlite.js"
   },
   "engines": {
     "node": ">=18"
