@@ -10,16 +10,14 @@ module.exports = (app) => {
     const cls = db.findClass(classId);
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học' });
 
-    const user = req.user;
-    const allowed = user.role === 'teacher'
-      ? user.classId === classId
-      : db.studentsOf(user).some(s => s.classId === classId);
-    if (!allowed) return res.status(403).json({ error: 'Không có quyền xem thời khóa biểu của lớp này' });
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Không có quyền xem thời khóa biểu của lớp này' });
+    }
 
-    const tt = db.get().timetable.find(t => t.classId === classId);
+    const tt = db.first('timetable', 'SELECT * FROM timetable WHERE classId = ?', [classId]);
     if (!tt) return res.status(404).json({ error: 'Lớp chưa có thời khóa biểu' });
 
-    const teacher = db.findUser(cls.teacherId);
+    const teacher = cls.teacherId ? db.findUser(cls.teacherId) : null;
     res.json({
       ...tt,
       className: cls.name,

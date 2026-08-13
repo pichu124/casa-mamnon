@@ -16,9 +16,8 @@ module.exports = (app) => {
     const friday = new Date(monday);
     friday.setDate(monday.getDate() + 4);
     const from = fmt(monday), to = fmt(friday);
-    const menus = db.get().menus
-      .filter(m => m.date >= from && m.date <= to)
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const menus = db.all('menus',
+      'SELECT * FROM menus WHERE date BETWEEN ? AND ? ORDER BY date', [from, to]);
     res.json({ week, from, to, menus });
   });
 };
