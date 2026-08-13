@@ -15,7 +15,8 @@
     "backup:list": "node scripts/backup.js --list",
     "restore": "node scripts/restore.js",
     "restore:check": "node scripts/restore.js --kiem-tra",
-    "create-admin": "node scripts/create-admin.js"
+    "create-admin": "node scripts/create-admin.js",
+    "test:tinh-nang": "node test/tinh-nang.test.mjs"
   },
   "engines": {
     "node": ">=18"

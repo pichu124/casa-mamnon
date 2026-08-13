@@ -33,6 +33,7 @@ App.views.login = {
       try {
         const me = await API.post('/api/auth/login', { username, password });
         App.applyMe(me);
+        await App.loadModules();
         location.hash = '#/';
         App.route();
         App.startBadgePolling();

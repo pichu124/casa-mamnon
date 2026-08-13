@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `schoolconnect-shell-${VERSION}`;
 
 // Vỏ ứng dụng: nạp sẵn ngay khi cài đặt.

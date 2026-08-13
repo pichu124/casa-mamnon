@@ -334,3 +334,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(userId, at DESC);
+
+-- ===== Bật/tắt từng phân hệ (xem lib/modules.js) =====
+CREATE TABLE IF NOT EXISTS module_settings (
+  moduleKey TEXT PRIMARY KEY,
+  enabled   INTEGER NOT NULL DEFAULT 1,
+  updatedAt TEXT
+);

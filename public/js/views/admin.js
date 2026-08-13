@@ -14,7 +14,7 @@ App.views.admin = {
     root.innerHTML = `
       ${UI.pageHeader('Quản trị nhà trường')}
       <div class="seg">
-        ${[['tongquan', 'Tổng quan'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
+        ${[['tongquan', 'Tổng quan'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['tinhnang', 'Tính năng'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
           .map(([k, t]) => `<button class="${this._tab === k ? 'active' : ''}" onclick="App.views.admin.go('${k}')">${t}</button>`).join('')}
       </div>
       <div id="admin-body"><div class="loading">Đang tải</div></div>`;
@@ -23,6 +23,7 @@ App.views.admin = {
     try {
       if (this._tab === 'nhaplieu') return this.tabNhapLieu(body);
       if (this._tab === 'giaovien') return this.tabGiaoVien(body);
+      if (this._tab === 'tinhnang') return this.tabTinhNang(body);
       if (this._tab === 'namhoc') return this.tabNamHoc(body);
       if (this._tab === 'nhatky') return this.tabNhatKy(body);
       return this.tabTongQuan(body);
@@ -294,6 +295,59 @@ App.views.admin = {
     };
   },
 
+  // ---------- Bật/tắt tính năng ----------
+  async tabTinhNang(body) {
+    const list = await API.get('/api/admin/modules');
+    const loi = list.filter(m => m.loi);
+    const khoi = (title, items) => items.length ? `
+      <div class="card">
+        <div class="card-title">${title}</div>
+        ${items.map(m => `
+          <div class="list-row">
+            <span class="row-icon" style="background:${UI.esc(m.bg || 'var(--bg-2)')};font-size:19px">
+              ${m.emoji ? UI.esc(m.emoji) : UI.icon(m.icon || 'info', 20)}
+            </span>
+            <div class="row-main">
+              <div class="row-title">${UI.esc(m.name)}
+                ${m.moRong ? UI.badge('Cắm thêm', 'purple') : ''}
+                ${m.required ? UI.badge('Phần lõi', 'gray') : ''}</div>
+              <div class="row-sub">${UI.esc(m.desc || '')}</div>
+              ${m.loi ? `<div class="row-sub" style="color:var(--danger)">Lỗi: ${UI.esc(m.loi)}</div>` : ''}
+            </div>
+            ${m.required
+              ? '<span class="muted small">Luôn bật</span>'
+              : `<button class="btn sm ${m.enabled ? 'success-soft' : 'outline'}"
+                   onclick="App.views.admin.doiTinhNang('${UI.esc(m.key)}', ${!m.enabled})">
+                   ${m.enabled ? 'Đang bật' : 'Đang tắt'}
+                 </button>`}
+          </div>`).join('')}
+      </div>` : '';
+
+    body.innerHTML = `
+      <div class="card">
+        <p class="muted small" style="line-height:1.6">
+          Tắt một tính năng là ẩn nó khỏi màn hình chính của <b>mọi người dùng</b> và
+          chặn luôn đường vào dữ liệu của tính năng đó. Dữ liệu đã có vẫn được giữ
+          nguyên, bật lại là dùng tiếp bình thường.
+        </p>
+      </div>
+      ${loi.length ? `<div class="card" style="border-left:4px solid var(--danger)">
+        <b>${loi.length} tính năng cắm thêm đang lỗi</b> và bị tạm ngưng.
+        Các tính năng còn lại vẫn chạy bình thường.</div>` : ''}
+      ${khoi('Trên màn hình chính', list.filter(m => !m.nav && !m.moRong))}
+      ${khoi('Trên thanh điều hướng', list.filter(m => m.nav && !m.moRong))}
+      ${khoi('Tính năng cắm thêm', list.filter(m => m.moRong))}`;
+  },
+
+  async doiTinhNang(key, bat) {
+    try {
+      const r = await API.put(`/api/admin/modules/${key}`, { enabled: bat });
+      UI.toast(r.message, 'success');
+      await App.loadModules();      // cập nhật ngay cho chính người quản trị
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
   // ---------- Chuyển năm học ----------
   async tabNamHoc(body) {
     const d = await API.get('/api/schoolyear/preview');
@@ -367,6 +421,7 @@ App.views.admin = {
       'class-update': 'Sửa lớp', 'teacher-create': 'Tạo tài khoản giáo viên',
       'student-update': 'Sửa hồ sơ học sinh', 'student-deactivate': 'Cho học sinh nghỉ học',
       'admin-create': 'Tạo tài khoản quản trị', 'schoolyear-promote': 'Chuyển năm học',
+      'module-enable': 'Bật tính năng', 'module-disable': 'Tắt tính năng',
     };
     body.innerHTML = rows.length ? `
       <div class="card">

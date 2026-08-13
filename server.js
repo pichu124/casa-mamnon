@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('./lib/db');
 const auth = require('./lib/auth');
 const password = require('./lib/password');
+const modules = require('./lib/modules');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +54,13 @@ app.use((req, res, next) => {
 
 app.use(auth.attachUser);
 
+// Nạp các phân hệ cắm thêm trong thư mục modules/ (nếu có).
+// Một phân hệ lỗi chỉ tự nó không dùng được, phần còn lại vẫn chạy bình thường.
+const moRong = modules.napMoRong();
+if (moRong.length) {
+  console.log(`Phân hệ mở rộng: ${moRong.map(m => m.key).join(', ')}`);
+}
+
 // Kiểm tra máy chủ còn sống (dịch vụ triển khai dùng để theo dõi).
 app.get('/healthz', (req, res) => {
   res.json({ ok: true, uptime: Math.round(process.uptime()), sessions: auth.sessionCount() });
@@ -64,6 +72,11 @@ app.use('/api', (req, res, next) => {
   auth.requireAuth(req, res, next);
 });
 
+// Chặn API của phân hệ đang tắt. Đặt sau lớp kiểm tra đăng nhập và trước khi
+// nạp route, để việc tắt một phân hệ chặn được cả đường vào dữ liệu chứ không
+// chỉ giấu biểu tượng ngoài giao diện.
+app.use(modules.chanApiDaTat);
+
 // Tự động nạp toàn bộ route trong thư mục routes/.
 const routesDir = path.join(__dirname, 'routes');
 for (const file of fs.readdirSync(routesDir).sort()) {
@@ -71,6 +84,17 @@ for (const file of fs.readdirSync(routesDir).sort()) {
   const mod = require(path.join(routesDir, file));
   if (typeof mod === 'function') mod(app);
 }
+
+// Nạp đường dẫn API của các phân hệ mở rộng.
+modules.napApiMoRong(app);
+
+// Phục vụ tệp giao diện của phân hệ mở rộng: /modules/<thư mục>/view.js
+app.use('/modules', express.static(modules.MODULES_DIR, {
+  index: false,
+  setHeaders(res, filePath) {
+    if (!filePath.endsWith('view.js')) res.status(404);
+  },
+}));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {

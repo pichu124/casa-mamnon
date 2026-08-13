@@ -1,4 +1,4 @@
-# Tiến độ nâng cấp B1–B5
+# Tiến độ nâng cấp
 
 Tệp này ghi lại trạng thái công việc để có thể dừng và tiếp tục bất cứ lúc nào.
 **Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.**
@@ -17,6 +17,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B3 | Cấp lại mật khẩu khi quên | ✅ **Hoàn thành** — 25/25 kiểm thử đạt |
 | B2 | Trang quản trị và nhập danh sách | ✅ **Hoàn thành** — 43/43 kiểm thử đạt |
 | B5 | Chuyển năm học và lên lớp | ✅ **Hoàn thành** — 31/31 kiểm thử đạt |
+| B6 | Bật/tắt tính năng và cắm thêm tính năng mới | ✅ **Hoàn thành** — 72/72 kiểm thử đạt |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -105,9 +106,35 @@ Toàn bộ 192 bài kiểm thử (API, bảo mật, PWA, album) đều đạt sa
 
 ---
 
+## B6 — Bật/tắt tính năng và cắm thêm tính năng mới
+
+Nhà trường tự chọn dùng phân hệ nào, và thêm được tính năng chưa từng có mà
+**không phải sửa vào phần đang chạy**.
+
+| Bước | Việc | Trạng thái |
+|------|------|-----------|
+| B6.1 | Danh mục phân hệ và bảng lưu trạng thái bật/tắt (`lib/modules.js`) | ✅ Xong |
+| B6.2 | Chặn API của phân hệ đã tắt ở tầng máy chủ, không chỉ giấu biểu tượng | ✅ Xong |
+| B6.3 | Màn hình chính dựng động từ danh sách phân hệ đang bật | ✅ Xong |
+| B6.4 | Tab **Quản trị → Tính năng** để bật/tắt, ghi nhật ký mọi thay đổi | ✅ Xong |
+| B6.5 | Cơ chế cắm thêm: máy chủ tự nạp `modules/<mã>/` khi khởi động | ✅ Xong |
+| B6.6 | Cô lập lỗi — một phân hệ hỏng không làm sập ứng dụng | ✅ Xong |
+| B6.7 | Phân hệ mẫu `modules/hocphi/` và hướng dẫn viết `modules/README.md` | ✅ Xong |
+
+**Bốn điều được bảo đảm bằng kiểm thử:**
+
+1. Tắt một phân hệ thì API của nó trả 404 cho cả đường đọc lẫn đường ghi — người
+   biết đường dẫn cũng không lấy được dữ liệu.
+2. Các phân hệ khác và việc đăng nhập **không hề bị ảnh hưởng**.
+3. Bật lại thì **dữ liệu cũ còn nguyên vẹn**, đối chiếu đúng từng bản ghi.
+4. Cắm một phân hệ cố tình viết lỗi vào thì máy chủ vẫn khởi động, người dùng vẫn
+   đăng nhập và dùng bình thường, trang quản trị nêu rõ phân hệ nào đang lỗi.
+
+---
+
 ## Tổng kết
 
-Cả năm hạng mục B1–B5 đã hoàn thành. **291 bài kiểm thử tự động đều đạt:**
+Sáu hạng mục B1–B6 đã hoàn thành. **363 bài kiểm thử tự động đều đạt:**
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -118,6 +145,8 @@ Cả năm hạng mục B1–B5 đã hoàn thành. **291 bài kiểm thử tự �
 | Cấp lại mật khẩu | 25 | Mật khẩu tạm, buộc đổi, phân quyền |
 | Quản trị và nhập liệu | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
 | Chuyển năm học | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
+| Bật/tắt tính năng (API) | 52 | Chặn API khi tắt, giữ dữ liệu, cắm thêm, cô lập lỗi |
+| Bật/tắt tính năng (giao diện) | 20 | Thao tác thật trên trình duyệt điện thoại |
 
 Việc còn lại trước khi cho trường dùng thật nằm ở phía nhà trường: thuê hạ tầng,
 soạn văn bản đồng ý của phụ huynh, nhập danh sách thật và tập huấn giáo viên.

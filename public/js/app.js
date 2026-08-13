@@ -8,6 +8,7 @@ window.App = {
     currentStudentId: null,
     badges: {},          // { diemdanh: 2, thongbao: 1, nhantin: 3, ... }
     year: null,
+    modules: [],         // các phân hệ đang bật, do máy chủ quyết định
   },
   views: {},             // các view tự đăng ký: App.views.tenview = { render(root, params) }
   _badgeTimer: null,
@@ -18,6 +19,7 @@ window.App = {
     try {
       const me = await API.get('/api/auth/me');
       this.applyMe(me);
+      await this.loadModules();
       this.route();
       this.startBadgePolling();
       this.maybeShowPushBanner();
@@ -88,6 +90,39 @@ window.App = {
     this.route(); // vẽ lại view hiện tại theo học sinh mới
   },
 
+  // Nạp danh sách phân hệ đang bật. Phân hệ cắm thêm có tệp giao diện riêng nên
+  // phải tải về trước khi định tuyến, nếu không màn hình của nó sẽ trống.
+  async loadModules() {
+    try {
+      this.state.modules = await API.get('/api/modules');
+    } catch (_) {
+      this.state.modules = [];
+      return;
+    }
+    await Promise.all(
+      this.state.modules
+        .filter(m => m.viewUrl && !this.views[m.view])
+        .map(m => this.loadScript(m.viewUrl).catch(() => {
+          console.warn(`Không tải được giao diện phân hệ "${m.key}"`);
+        }))
+    );
+  },
+
+  loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = src;
+      el.onload = resolve;
+      el.onerror = () => reject(new Error(src));
+      document.body.appendChild(el);
+    });
+  },
+
+  // Phân hệ này có đang bật với người dùng hiện tại không.
+  moduleEnabled(viewName) {
+    return this.state.modules.some(m => m.view === viewName);
+  },
+
   onUnauthorized() { this.showLogin(); },
 
   showLogin() {
@@ -119,8 +154,20 @@ window.App = {
 
     const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean);
     const name = parts[0] || 'dashboard';
-    const view = this.views[name] || this.views.dashboard;
     const root = document.getElementById('view');
+
+    // Các màn hình luôn có, không phụ thuộc việc bật/tắt phân hệ.
+    const LUON_CO = ['dashboard', 'settings', 'setpassword', 'accounts', 'admin', 'login'];
+
+    // Vào thẳng đường dẫn của phân hệ đã tắt thì báo rõ thay vì hiện màn hình trống.
+    if (!LUON_CO.includes(name) && !this.moduleEnabled(name)) {
+      root.innerHTML = UI.pageHeader('Không dùng được') +
+        UI.emptyState('🔒', 'Phân hệ này hiện đang được nhà trường tắt.');
+      this.renderBottomNav('dashboard');
+      return;
+    }
+
+    const view = this.views[name] || this.views.dashboard;
     root.innerHTML = '<div class="loading">Đang tải</div>';
     window.scrollTo(0, 0);
     Promise.resolve(view.render(root, parts.slice(1))).catch(err => {
@@ -134,10 +181,10 @@ window.App = {
     const items = [
       { key: 'back', label: 'Quay lại', icon: 'back', onclick: 'history.back()' },
       { key: 'dashboard', label: 'Trang chủ', icon: 'home', hash: '#/' },
-      { key: 'notifications', label: 'Thông báo', icon: 'bell', hash: '#/notifications', badge: this.state.badges.thongbao },
-      { key: 'messages', label: 'Nhắn tin', icon: 'chat', hash: '#/messages', badge: this.state.badges.nhantin },
+      { key: 'notifications', label: 'Thông báo', icon: 'bell', hash: '#/notifications', badge: this.state.badges.thongbao, module: 'notifications' },
+      { key: 'messages', label: 'Nhắn tin', icon: 'chat', hash: '#/messages', badge: this.state.badges.nhantin, module: 'messages' },
       { key: 'settings', label: 'Cài đặt', icon: 'settings', hash: '#/settings' },
-    ];
+    ].filter(it => !it.module || this.moduleEnabled(it.module));
     nav.innerHTML = items.map(it => `
       <button class="nav-item ${active === it.key ? 'active' : ''}"
         onclick="${it.onclick || `location.hash='${it.hash}'`}">

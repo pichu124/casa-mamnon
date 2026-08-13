@@ -114,6 +114,45 @@ Sau khi cài: app có icon riêng, mở toàn màn hình không thanh địa ch�
 - Xác nhận dặn thuốc và ghi nhật ký cho phụ huynh yên tâm
 - Nhắn tin riêng với từng phụ huynh và nhóm chung của lớp
 
+## 🎛️ Bật/tắt tính năng và thêm tính năng mới
+
+Không phải trường nào cũng dùng hết. Trường không có xe đưa đón thì tắt **Xe buýt**,
+chưa làm bán trú thì tắt **Thực đơn** — màn hình chính gọn lại, phụ huynh đỡ rối.
+
+**Cách làm:** đăng nhập tài khoản quản trị → **Quản trị → Tính năng** → bấm nút
+bên phải mỗi dòng để đổi giữa *Đang bật* và *Đang tắt*. Có hiệu lực ngay với toàn
+trường, không cần khởi động lại máy chủ.
+
+Vài điều nên biết:
+
+- **Tắt là chặn thật, không phải chỉ giấu biểu tượng.** Máy chủ khóa luôn các
+  đường dẫn API của tính năng đó, người biết đường dẫn cũng không lấy được dữ liệu.
+- **Dữ liệu đã có được giữ nguyên.** Tắt Điểm danh nửa năm rồi bật lại thì toàn bộ
+  lịch sử vẫn còn đủ.
+- **Hồ sơ học sinh không tắt được** vì mọi phần khác đều dựa vào nó, nên nó hiện
+  "Luôn bật".
+- Chỉ tài khoản quản trị mới bật/tắt được; mọi lượt thay đổi đều vào **Nhật ký**
+  (ai làm, lúc nào).
+
+### Thêm tính năng chưa từng có
+
+Tính năng mới nằm trong thư mục riêng ở `modules/`, **không phải sửa vào phần đang
+chạy**. Máy chủ tự phát hiện khi khởi động, nhà trường tự bật trong trang quản trị.
+
+```
+modules/hocphi/
+├── module.json   khai báo tên, biểu tượng, đường dẫn API
+├── schema.sql    bảng riêng của nó
+├── routes.js     API riêng
+└── view.js       màn hình riêng
+```
+
+Một tính năng cắm thêm bị lỗi thì **chỉ mình nó ngưng hoạt động**, phần còn lại của
+ứng dụng vẫn chạy — máy chủ bắt lỗi từng phân hệ khi nạp và báo trong trang quản trị.
+
+Thư mục `modules/hocphi/` là ví dụ hoàn chỉnh có sẵn (mặc định tắt, bật lên để xem).
+Hướng dẫn viết chi tiết: [`modules/README.md`](modules/README.md).
+
 ## 🌐 Đưa lên Internet cho phụ huynh dùng qua 4G
 
 ### ⚠️ Bắt buộc làm trước
@@ -235,11 +274,15 @@ Lưu ý: Apple thường từ chối app chỉ là "trang web đóng gói". Vớ
 ## Cấu trúc thư mục
 
 ```
-server.js            # Express: tự nạp routes/, phục vụ SPA
-lib/db.js            # Kho JSON + helper phân quyền
-lib/auth.js          # Phiên đăng nhập, middleware vai trò
+server.js            # Express: tự nạp routes/, nạp phân hệ cắm thêm, phục vụ SPA
+lib/db.js            # Lớp truy cập SQLite + helper phân quyền
+lib/schema.sql       # Định nghĩa toàn bộ bảng
+lib/auth.js          # Phiên đăng nhập, băm mật khẩu scrypt, middleware vai trò
+lib/modules.js       # Danh mục tính năng, bật/tắt, chặn API khi tắt
 data/seed.js         # Sinh dữ liệu mẫu (ngày tháng tương đối theo hôm nay)
 routes/*.js          # API từng phân hệ
+modules/<mã>/        # Tính năng cắm thêm, mỗi thư mục một tính năng
+scripts/*.js         # Sao lưu, khôi phục, tạo tài khoản quản trị
 public/index.html    # App shell
 public/js/views/*.js # View từng phân hệ (tự đăng ký vào App.views)
 ```

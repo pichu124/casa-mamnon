@@ -1,0 +1,13 @@
+{
+  "key": "hocphi",
+  "name": "Học phí",
+  "desc": "Phụ huynh xem các khoản phải nộp và tình trạng đã nộp",
+  "hash": "#/hocphi",
+  "view": "hocphi",
+  "emoji": "💳",
+  "bg": "linear-gradient(135deg,#f2994a,#e07b39)",
+  "api": ["/api/hocphi"],
+  "roles": ["parent", "teacher", "admin"],
+  "defaultEnabled": false,
+  "version": "1.0.0"
+}
