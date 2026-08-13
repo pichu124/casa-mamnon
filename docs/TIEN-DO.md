@@ -12,8 +12,8 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 
 | Mã | Hạng mục | Trạng thái |
 |----|----------|-----------|
-| B1 | Chuyển kho dữ liệu sang SQLite | ⏳ Đang làm |
-| B4 | Sao lưu tự động | ⬜ Chưa bắt đầu |
+| B1 | Chuyển kho dữ liệu sang SQLite | ✅ **Hoàn thành** |
+| B4 | Sao lưu tự động | ⏳ Đang làm |
 | B3 | Cấp lại mật khẩu khi quên | ⬜ Chưa bắt đầu |
 | B2 | Trang quản trị và nhập danh sách | ⬜ Chưa bắt đầu |
 | B5 | Chuyển năm học và lên lớp | ⬜ Chưa bắt đầu |
@@ -26,9 +26,18 @@ B2 phụ thuộc B1, B5 phụ thuộc B2.
 
 ## B1 — Chuyển kho dữ liệu sang SQLite
 
-Đo trên dữ liệu mô phỏng một năm học của 300 học sinh (127.500 bản ghi):
-kho JSON mất **1.803 ms mỗi lần lưu**, SQLite mất **0,029 ms** — nhanh hơn khoảng
-62.000 lần.
+**Kết quả sau khi hoàn thành**, đo trên dữ liệu mô phỏng một năm học của
+300 học sinh:
+
+| Phép đo | Kho JSON cũ | SQLite | Cải thiện |
+|---------|------------|--------|-----------|
+| Ghi một lượt điểm danh | 1.803 ms | 0,091 ms | nhanh gấp ~20.000 lần |
+| Cao điểm sáng (300 lượt) | 541 giây | 30 ms | nhanh gấp ~18.000 lần |
+| Bộ nhớ máy chủ chiếm dụng | 195 MB | 7 MB | giảm 96% |
+| Mở màn hình điểm danh cả lớp | — | 0,110 ms | |
+| Mở một phòng chat | — | 0,208 ms | |
+
+Toàn bộ 192 bài kiểm thử (API, bảo mật, PWA, album) đều đạt sau khi chuyển đổi.
 
 | Bước | Việc | Trạng thái |
 |------|------|-----------|
@@ -39,11 +48,11 @@ kho JSON mất **1.803 ms mỗi lần lưu**, SQLite mất **0,029 ms** — nhan
 | B1.5 | Script chuyển dữ liệu `db.json` cũ sang SQLite | ✅ Xong |
 | B1.6 | Sửa nhóm route 1: auth, dashboard, students | ✅ Xong |
 | B1.7 | Sửa nhóm route 2: attendance, leave, remarks, reports | ✅ Xong |
-| B1.8 | Sửa nhóm route 3: menu, timetable, plans, bus, conduct | ⏳ Đang làm |
-| B1.9 | Sửa nhóm route 4: health, medicine, surveys | ⬜ |
-| B1.10 | Sửa nhóm route 5: albums, notifications, messages | ⬜ |
-| B1.11 | Chạy lại toàn bộ 4 bộ kiểm thử | ⬜ |
-| B1.12 | Đo lại hiệu năng ở quy mô 300 học sinh | ⬜ |
+| B1.8 | Sửa nhóm route 3: menu, timetable, plans, bus, conduct | ✅ Xong |
+| B1.9 | Sửa nhóm route 4: health, medicine, surveys | ✅ Xong |
+| B1.10 | Sửa nhóm route 5: albums, notifications, messages | ✅ Xong |
+| B1.11 | Chạy lại toàn bộ 4 bộ kiểm thử | ✅ Xong — 192/192 đạt |
+| B1.12 | Đo lại hiệu năng ở quy mô 300 học sinh | ✅ Xong |
 
 ---
 
