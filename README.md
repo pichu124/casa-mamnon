@@ -168,14 +168,23 @@ viết sai chỉ làm chính nó ngưng hoạt động**:
 Kiểm chứng lại bất cứ lúc nào:
 
 ```bash
-npm test
+npm test                 # 462 bài, khoảng 3 phút, không cần trình duyệt
+npm run test:giao-dien   # thêm 106 bài chạy trên trình duyệt thật (cần Playwright)
+npm run test:tat-ca      # chạy cả hai
 ```
 
-Bộ kiểm thử cố tình phá hỏng từng thứ — viết sai một tính năng lõi, xóa mất tệp của
-một tính năng, cắm một phân hệ chiếm đường dẫn của phần khác, một `schema.sql` chứa
-`DROP TABLE students` — rồi kiểm tra app vẫn đăng nhập được, các tính năng còn lại
-vẫn chạy, và dữ liệu học sinh vẫn còn nguyên. Nó dựng máy chủ riêng với cơ sở dữ
-liệu tạm nên **không đụng dữ liệu thật của trường**.
+Trong đó `test:co-lap-loi` cố tình phá hỏng từng thứ — viết sai một tính năng lõi,
+xóa mất tệp của một tính năng, cắm một phân hệ chiếm đường dẫn của phần khác, một
+`schema.sql` chứa `DROP TABLE students` — rồi kiểm tra app vẫn đăng nhập được, các
+tính năng còn lại vẫn chạy, và dữ liệu học sinh vẫn còn nguyên.
+
+Còn `test:khe-uoc` canh những tệp mà cả ứng dụng cùng dựa vào (`lib/db.js`,
+`public/js/ui.js`…): nếu một hàm dùng chung bị xóa, đổi tên hay đổi số tham số thì
+báo đỏ ngay, vì một thay đổi như vậy làm hỏng hàng chục màn hình cùng lúc.
+
+Mọi bộ đều tự dựng máy chủ riêng với cơ sở dữ liệu tạm nên chạy được ngay sau khi
+`npm install`, không cần `npm start` chạy sẵn, và **không đụng dữ liệu thật của
+trường**.
 
 ## 🌐 Đưa lên Internet cho phụ huynh dùng qua 4G
 

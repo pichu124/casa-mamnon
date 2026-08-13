@@ -16,9 +16,19 @@
     "restore": "node scripts/restore.js",
     "restore:check": "node scripts/restore.js --kiem-tra",
     "create-admin": "node scripts/create-admin.js",
+    "test": "node test/khe-uoc.test.mjs && node test/api.test.mjs && node test/bao-mat.test.mjs && node test/mat-khau.test.mjs && node test/quan-tri.test.mjs && node test/nam-hoc.test.mjs && node test/tinh-nang.test.mjs && node test/co-lap-loi.test.mjs",
     "test:tinh-nang": "node test/tinh-nang.test.mjs",
-    "test:co-lap": "node test/co-lap-loi.test.mjs",
-    "test": "node test/tinh-nang.test.mjs && node test/co-lap-loi.test.mjs"
+    "test:khe-uoc": "node test/khe-uoc.test.mjs",
+    "test:api": "node test/api.test.mjs",
+    "test:bao-mat": "node test/bao-mat.test.mjs",
+    "test:mat-khau": "node test/mat-khau.test.mjs",
+    "test:quan-tri": "node test/quan-tri.test.mjs",
+    "test:nam-hoc": "node test/nam-hoc.test.mjs",
+    "test:co-lap-loi": "node test/co-lap-loi.test.mjs",
+    "test:album": "node test/album.test.mjs",
+    "test:pwa": "node test/pwa.test.mjs",
+    "test:giao-dien": "node test/album.test.mjs && node test/pwa.test.mjs && node test/tinh-nang-giao-dien.test.mjs",
+    "test:tat-ca": "npm test && npm run test:giao-dien"
   },
   "engines": {
     "node": ">=18"
@@ -32,6 +42,7 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^8.5.0"
+    "@capacitor/cli": "^8.5.0",
+    "playwright": "^1.62.1"
   }
 }

@@ -53,22 +53,69 @@ Theo thứ tự ưu tiên:
 
 ### Sửa một tính năng đang có
 
-Chỉ chạm vào tệp của đúng tính năng đó. Nếu buộc phải sửa tệp dùng chung
-(`lib/db.js`, `lib/auth.js`, `public/js/ui.js`, `public/js/app.js`), thì:
+Chỉ chạm vào tệp của đúng tính năng đó.
 
-- Chỉ **thêm** vào, không đổi hay bỏ thứ đang có.
-- Chạy lại toàn bộ kiểm thử trước khi commit.
+### Tệp dùng chung — nhóm nguy hiểm nhất
+
+`lib/db.js`, `lib/auth.js`, `public/js/ui.js`, `public/js/app.js` không thuộc về
+tính năng nào cả, mà **cả ứng dụng đang dựa vào chúng**: 22/22 tệp route đều gọi
+`lib/db.js`, riêng `UI.esc` có hơn 300 chỗ gọi. Cơ chế cô lập lỗi không bảo vệ
+được nhóm này — nó bảo vệ bằng cách khoanh vùng, mà tệp dùng chung thì không có
+vùng riêng.
+
+Vì vậy có hai quy định riêng cho nhóm này:
+
+1. **Chỉ được thêm, không đổi và không bỏ thứ đang có.** Cần đổi hành vi thì
+   truyền tham số hoặc thêm hàm mới bên cạnh, đừng sửa thứ đang chạy.
+2. **Sửa tệp dùng chung phải là commit riêng, không trộn chung với việc thêm hay
+   bỏ tính năng.** Trộn chung thì khi hỏng không biết gỡ phần nào, và người sửa
+   đang bận nghĩ về tính năng mới chứ không nghĩ về 300 chỗ gọi kia.
+
+Khi thật sự phải bỏ hay đổi một thứ dùng chung, làm ba bước, mỗi bước một commit
+và chạy kiểm thử sau mỗi bước: **thêm cái mới bên cạnh → chuyển từng chỗ gọi sang
+cái mới → khi không còn ai gọi mới xóa cái cũ.** Ở bất kỳ bước nào app cũng đang
+chạy được.
+
+`npm run test:khe-uoc` canh vế thứ nhất: nó chụp lại toàn bộ những gì các tệp
+dùng chung đang cung cấp và báo đỏ nếu có thứ biến mất hoặc đổi số tham số. Thêm
+hàm mới thì không báo đỏ — chạy `npm run test:khe-uoc -- --cap-nhat` để ghi nhận.
+
+Nó chỉ bắt được thay đổi về **hình dạng**. Thay đổi về **hành vi** — ví dụ đổi
+`canAccessStudent` trả `true` thay vì `false` khi không tìm thấy học sinh, khiến
+phụ huynh xem được hồ sơ con nhà khác mà app không hề báo lỗi — thì chỉ `npm test`
+đầy đủ mới bắt được. Đó là lý do phải chạy cả bộ, không chỉ bộ khế ước.
 
 ---
 
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test          # 153 bài: bật/tắt tính năng + cô lập lỗi
+npm test              # 462 bài, không cần trình duyệt, khoảng 3 phút
 ```
 
-Cả hai bộ đều tự dựng máy chủ riêng với cơ sở dữ liệu tạm, **không đụng dữ liệu
-thật của trường**.
+Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
+
+```bash
+npm run test:giao-dien   # 106 bài chạy trên trình duyệt thật, cần Playwright
+```
+
+Hoặc `npm run test:tat-ca` để chạy cả hai (568 bài).
+
+| Bộ | Số bài | Canh điều gì |
+|---|---|---|
+| `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
+| `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
+| `test:bao-mat` | 38 | Mật khẩu, cookie, header, chống dò, phiên bền vững |
+| `test:mat-khau` | 25 | Cấp lại mật khẩu, buộc đổi mật khẩu tạm |
+| `test:quan-tri` | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
+| `test:nam-hoc` | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
+| `test:tinh-nang` | 52 | Bật/tắt phân hệ, cắm thêm phân hệ mới |
+| `test:co-lap-loi` | 101 | **Nguyên tắc số 1** |
+| `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
+| `test:pwa` | 43 | Cài như app, chạy offline, khổ iPhone và Android |
+
+Mọi bộ đều tự dựng máy chủ riêng trên cổng riêng với cơ sở dữ liệu tạm trong thư
+mục tạm của hệ điều hành, **không đụng dữ liệu thật của trường**.
 
 `test/co-lap-loi.test.mjs` chính là bộ canh giữ nguyên tắc số 1. Nó cố tình phá
 hỏng từng thứ — tính năng lõi viết sai, tính năng bị gỡ mất, phân hệ mới chiếm
@@ -77,9 +124,6 @@ app vẫn đăng nhập được và các tính năng còn lại vẫn chạy.
 
 **Không được sửa hay nới lỏng bộ kiểm thử này để cho code chạy qua.** Nếu nó báo
 đỏ thì code sai, không phải bài kiểm thử sai.
-
-Khi đổi những phần dùng chung (đăng nhập, cơ sở dữ liệu, giao diện nền), chạy
-thêm các bộ trong `docs/TIEN-DO.md` để chắc chắn không có hồi quy.
 
 ---
 

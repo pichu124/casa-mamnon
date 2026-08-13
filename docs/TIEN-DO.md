@@ -161,22 +161,34 @@ Sáu tệp nền tảng (`auth`, `dashboard`, `admin`, `accounts`, `modules`,
 
 ## Tổng kết
 
-Bảy hạng mục B1–B7 đã hoàn thành. **464 bài kiểm thử tự động đều đạt:**
+Bảy hạng mục B1–B7 đã hoàn thành. **568 bài kiểm thử tự động đều đạt**, tất cả
+đều nằm trong kho mã và chạy được bằng lệnh.
+
+`npm test` — 462 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
-| API | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
-| Bảo mật | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
-| PWA và điện thoại | 43 | Cài đặt như app, chạy offline, giao diện iPhone và Android |
-| Album ảnh | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
-| Cấp lại mật khẩu | 25 | Mật khẩu tạm, buộc đổi, phân quyền |
-| Quản trị và nhập liệu | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
-| Chuyển năm học | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
-| Bật/tắt tính năng (API) | 52 | Chặn API khi tắt, giữ dữ liệu, cắm thêm, cô lập lỗi |
-| Bật/tắt tính năng (giao diện) | 20 | Thao tác thật trên trình duyệt điện thoại |
-| Cô lập lỗi | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
+| `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
+| `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
+| `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
+| `test:mat-khau` | 25 | Mật khẩu tạm, buộc đổi, phân quyền |
+| `test:quan-tri` | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
+| `test:nam-hoc` | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
+| `test:tinh-nang` | 52 | Chặn API khi tắt, giữ dữ liệu, cắm thêm phân hệ mới |
+| `test:co-lap-loi` | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
 
-Hai bộ cuối chạy được bằng một lệnh: `npm test`.
+`npm run test:giao-dien` — 106 bài chạy trên trình duyệt thật, cần Playwright:
+
+| Bộ kiểm thử | Số bài | Nội dung |
+|-------------|--------|----------|
+| `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
+| `test:pwa` | 43 | Cài đặt như app, chạy offline, khổ iPhone và Android |
+| bật/tắt tính năng | 20 | Thao tác thật trên màn hình quản trị và màn hình chính |
+
+`npm run test:tat-ca` chạy cả hai nhóm.
+
+Mọi bộ đều tự dựng máy chủ riêng trên cổng riêng với cơ sở dữ liệu tạm, không cần
+`npm start` chạy sẵn và **không đụng dữ liệu thật của trường**.
 
 Việc còn lại trước khi cho trường dùng thật nằm ở phía nhà trường: thuê hạ tầng,
 soạn văn bản đồng ý của phụ huynh, nhập danh sách thật và tập huấn giáo viên.
@@ -188,6 +200,5 @@ Xem `docs/ke-hoach-trien-khai.html`.
 
 1. Đọc bảng trạng thái ở trên, tìm dòng ⏳ hoặc ⬜ đầu tiên.
 2. Xem `git log --oneline -15` để biết phần nào đã đẩy lên.
-3. Chạy `npm test` (nếu đã có) hoặc các bộ kiểm thử trong thư mục tạm để xác nhận
-   trạng thái hiện tại còn chạy được.
+3. Chạy `npm test` để xác nhận trạng thái hiện tại còn chạy được.
 4. Làm tiếp bước đó, cập nhật bảng này, rồi commit và đẩy lên.
