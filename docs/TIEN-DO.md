@@ -14,8 +14,8 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 |----|----------|-----------|
 | B1 | Chuyển kho dữ liệu sang SQLite | ✅ **Hoàn thành** |
 | B4 | Sao lưu tự động | ✅ **Hoàn thành** |
-| B3 | Cấp lại mật khẩu khi quên | ⏳ Đang làm |
-| B2 | Trang quản trị và nhập danh sách | ⬜ Chưa bắt đầu |
+| B3 | Cấp lại mật khẩu khi quên | ✅ **Hoàn thành** — 25/25 kiểm thử đạt |
+| B2 | Trang quản trị và nhập danh sách | ⏳ Đang làm |
 | B5 | Chuyển năm học và lên lớp | ⬜ Chưa bắt đầu |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
@@ -72,11 +72,11 @@ Toàn bộ 192 bài kiểm thử (API, bảo mật, PWA, album) đều đạt sa
 
 | Bước | Việc | Trạng thái |
 |------|------|-----------|
-| B3.1 | Trường `mustChangePassword` trong bảng người dùng | ⬜ |
-| B3.2 | API cấp mật khẩu tạm (giáo viên cấp cho phụ huynh lớp mình) | ⬜ |
-| B3.3 | Buộc đổi mật khẩu ngay khi đăng nhập bằng mật khẩu tạm | ⬜ |
-| B3.4 | Ghi nhật ký mọi lượt cấp lại | ⬜ |
-| B3.5 | Giao diện cho giáo viên và màn hình buộc đổi | ⬜ |
+| B3.1 | Trường `mustChangePassword` trong bảng người dùng | ✅ Xong |
+| B3.2 | API cấp mật khẩu tạm (giáo viên cấp cho phụ huynh lớp mình) | ✅ Xong |
+| B3.3 | Buộc đổi mật khẩu ngay khi đăng nhập bằng mật khẩu tạm | ✅ Xong |
+| B3.4 | Ghi nhật ký mọi lượt cấp lại | ✅ Xong |
+| B3.5 | Giao diện cho giáo viên và màn hình buộc đổi | ✅ Xong |
 
 ---
 

@@ -37,6 +37,8 @@ const SHELL_ASSETS = [
   '/js/views/notifications.js',
   '/js/views/messages.js',
   '/js/views/settings.js',
+  '/js/views/setpassword.js',
+  '/js/views/accounts.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',

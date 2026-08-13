@@ -109,6 +109,14 @@ window.App = {
   // Định tuyến: #/tenview/param1/param2
   route() {
     if (!this.state.user) return;
+
+    // Đang dùng mật khẩu tạm thì phải đặt mật khẩu riêng trước khi vào phần khác.
+    if (this.state.user.mustChangePassword) {
+      document.getElementById('bottom-nav').style.display = 'none';
+      this.views.setpassword.render(document.getElementById('view'));
+      return;
+    }
+
     const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean);
     const name = parts[0] || 'dashboard';
     const view = this.views[name] || this.views.dashboard;

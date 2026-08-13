@@ -114,6 +114,28 @@ module.exports = (app) => {
     res.json(mePayload(req.user));
   });
 
+  // Đổi mật khẩu khi đang dùng mật khẩu tạm do giáo viên cấp.
+  // Không hỏi mật khẩu cũ vì người dùng vừa nhập nó để vào được đến đây.
+  app.post('/api/auth/set-new-password', requireAuth, (req, res) => {
+    if (!req.user.mustChangePassword) {
+      return res.status(400).json({ error: 'Tài khoản không ở trạng thái cần đổi mật khẩu' });
+    }
+    const { newPassword } = req.body || {};
+    const weak = password.checkStrength(newPassword);
+    if (weak) return res.status(400).json({ error: weak });
+    if (password.verify(String(newPassword), req.user.passwordHash)) {
+      return res.status(400).json({ error: 'Mật khẩu mới phải khác mật khẩu tạm vừa được cấp' });
+    }
+
+    db.update('users', req.user.id, {
+      passwordHash: password.hash(String(newPassword)),
+      mustChangePassword: false,
+    });
+    db.audit(req.user.id, 'set-new-password', req.user.id, null);
+    destroyUserSessions(req.user.id, req.sessionToken);
+    res.json({ ok: true, message: 'Đã đặt mật khẩu mới. Lần sau bạn đăng nhập bằng mật khẩu này nhé.' });
+  });
+
   // Đổi mật khẩu. Sau khi đổi, mọi thiết bị khác bị đăng xuất.
   app.post('/api/auth/change-password', requireAuth, (req, res) => {
     const { currentPassword, newPassword } = req.body || {};

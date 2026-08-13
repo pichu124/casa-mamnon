@@ -36,6 +36,18 @@ App.views.settings = {
         </div>
       </div>
 
+      ${user.role === 'teacher' || user.role === 'admin' ? `
+        <div class="card">
+          <div class="card-title">👪 Quản lý lớp</div>
+          <div class="list-row clickable" onclick="location.hash='#/accounts'">
+            <div class="row-main">
+              <div class="row-title">Tài khoản phụ huynh</div>
+              <div class="row-sub">Cấp lại mật khẩu khi phụ huynh quên</div>
+            </div>
+            <span class="muted">${UI.icon('chevron', 18)}</span>
+          </div>
+        </div>` : ''}
+
       <div class="card">
         <div class="card-title">${UI.icon('bell', 19)} Thông báo</div>
         <div class="list-row">
