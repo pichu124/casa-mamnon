@@ -147,11 +147,35 @@ modules/hocphi/
 └── view.js       màn hình riêng
 ```
 
-Một tính năng cắm thêm bị lỗi thì **chỉ mình nó ngưng hoạt động**, phần còn lại của
-ứng dụng vẫn chạy — máy chủ bắt lỗi từng phân hệ khi nạp và báo trong trang quản trị.
-
 Thư mục `modules/hocphi/` là ví dụ hoàn chỉnh có sẵn (mặc định tắt, bật lên để xem).
 Hướng dẫn viết chi tiết: [`modules/README.md`](modules/README.md).
+
+### Thêm hay bỏ tính năng không bao giờ làm hỏng app
+
+Đây là nguyên tắc số 1 của kho mã này, ghi trong [`CLAUDE.md`](CLAUDE.md) và được
+canh giữ bằng 101 bài kiểm thử tự động. Ứng dụng được dựng sao cho **một tính năng
+viết sai chỉ làm chính nó ngưng hoạt động**:
+
+- Máy chủ nạp **từng tệp tính năng trong khối bắt lỗi riêng**. Một tính năng hỏng
+  thì nó bị tạm ẩn, API của nó trả lỗi rõ ràng, trang quản trị nêu tên và lý do —
+  còn máy chủ vẫn chạy, mọi người vẫn đăng nhập và dùng các phần khác bình thường.
+- Gỡ hẳn một tính năng cũng vậy: máy chủ phát hiện thiếu tệp và tự ẩn nó đi, không
+  để lại một biểu tượng bấm vào chẳng có gì.
+- Tính năng mới **không đăng ký được đường dẫn đã thuộc về tính năng khác**, và
+  `schema.sql` của nó **chỉ được tạo bảng mang tên nó** — mọi câu `DROP`, `ALTER`
+  đều bị chặn trước khi chạy, nên không thể vô tình xóa dữ liệu đang dùng.
+
+Kiểm chứng lại bất cứ lúc nào:
+
+```bash
+npm test
+```
+
+Bộ kiểm thử cố tình phá hỏng từng thứ — viết sai một tính năng lõi, xóa mất tệp của
+một tính năng, cắm một phân hệ chiếm đường dẫn của phần khác, một `schema.sql` chứa
+`DROP TABLE students` — rồi kiểm tra app vẫn đăng nhập được, các tính năng còn lại
+vẫn chạy, và dữ liệu học sinh vẫn còn nguyên. Nó dựng máy chủ riêng với cơ sở dữ
+liệu tạm nên **không đụng dữ liệu thật của trường**.
 
 ## 🌐 Đưa lên Internet cho phụ huynh dùng qua 4G
 

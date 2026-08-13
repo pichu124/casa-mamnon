@@ -16,7 +16,9 @@
     "restore": "node scripts/restore.js",
     "restore:check": "node scripts/restore.js --kiem-tra",
     "create-admin": "node scripts/create-admin.js",
-    "test:tinh-nang": "node test/tinh-nang.test.mjs"
+    "test:tinh-nang": "node test/tinh-nang.test.mjs",
+    "test:co-lap": "node test/co-lap-loi.test.mjs",
+    "test": "node test/tinh-nang.test.mjs && node test/co-lap-loi.test.mjs"
   },
   "engines": {
     "node": ">=18"

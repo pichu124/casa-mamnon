@@ -53,6 +53,17 @@ modules/hocphi/
 phần khác. Luôn dùng `CREATE TABLE IF NOT EXISTS` vì tệp này chạy mỗi lần khởi
 động máy chủ.
 
+Đây không phải quy ước cho đẹp — máy chủ kiểm tra thật và **từ chối chạy** tệp
+không tuân thủ:
+
+- Chỉ chấp nhận `CREATE TABLE / INDEX / VIEW / TRIGGER ... IF NOT EXISTS`.
+  Mọi câu `DROP`, `ALTER`, `DELETE`, `UPDATE` đều bị chặn.
+- Tên bảng phải là mã phân hệ hoặc bắt đầu bằng `<mã>_`.
+- Chỉ mục và trigger phải gắn vào bảng của chính phân hệ này.
+
+Sai một điều là cả phân hệ bị đánh dấu lỗi và không chạy, nhưng **dữ liệu của phần
+còn lại không hề bị đụng tới** — đó mới là điều quan trọng.
+
 ### `routes.js`
 
 ```js
@@ -74,6 +85,11 @@ module.exports = (app, { db }) => {
 Người dùng đã được xác thực sẵn khi đến đây (`req.user` luôn có). Việc **kiểm tra
 quyền theo học sinh và theo lớp thì phân hệ phải tự làm** bằng
 `db.canAccessStudent(req.user, studentId)` hoặc `db.canAccessClass(req.user, classId)`.
+
+`app` truyền vào đây đã được bọc lại: phân hệ **chỉ đăng ký được đường dẫn nằm
+trong vùng `api` đã khai báo**. Thử đăng ký `/api/remarks` hay `/api/students` sẽ
+bị từ chối ngay khi khởi động, kèm thông báo nêu rõ lý do. Nhờ vậy một phân hệ
+viết vội không thể vô tình chiếm mất đường dẫn của tính năng đang chạy.
 
 ### `view.js`
 
@@ -100,8 +116,8 @@ của phân hệ mới trông đồng bộ với phần còn lại.
 2. Khởi động lại máy chủ — trong log sẽ thấy dòng `Phân hệ mở rộng: <mã>`.
 3. Đăng nhập bằng tài khoản quản trị → **Quản trị → Tính năng** → bật phân hệ.
 4. Người dùng thấy biểu tượng mới ở màn hình chính ngay lần mở tiếp theo.
-5. Chạy `npm run test:tinh-nang` để chắc chắn phần đang chạy không bị ảnh hưởng.
-   Bộ này dựng máy chủ riêng với cơ sở dữ liệu tạm nên **không đụng dữ liệu thật**.
+5. Chạy `npm test` để chắc chắn phần đang chạy không bị ảnh hưởng. Bộ kiểm thử
+   dựng máy chủ riêng với cơ sở dữ liệu tạm nên **không đụng dữ liệu thật**.
 
 Gỡ phân hệ: tắt trong trang quản trị, hoặc xóa hẳn thư mục rồi khởi động lại.
 Bảng dữ liệu của nó vẫn nằm trong cơ sở dữ liệu, không mất.

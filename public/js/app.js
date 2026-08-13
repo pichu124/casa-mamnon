@@ -167,7 +167,18 @@ window.App = {
       return;
     }
 
-    const view = this.views[name] || this.views.dashboard;
+    // Phân hệ đang bật nhưng tệp màn hình của nó hỏng hoặc chưa tải về được:
+    // báo đúng sự thật và chỉ đường quay lại, thay vì lặng lẽ hiện trang chủ
+    // khiến người dùng tưởng mình bấm nhầm.
+    const view = this.views[name];
+    if (!view) {
+      root.innerHTML = UI.pageHeader('Chưa mở được') +
+        UI.emptyState('🛠️', 'Phần này đang gặp sự cố. Các phần khác vẫn dùng bình thường — ' +
+          'bấm Trang chủ để quay lại.');
+      this.renderBottomNav(name);
+      return;
+    }
+
     root.innerHTML = '<div class="loading">Đang tải</div>';
     window.scrollTo(0, 0);
     Promise.resolve(view.render(root, parts.slice(1))).catch(err => {

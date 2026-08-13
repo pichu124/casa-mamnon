@@ -78,11 +78,30 @@ app.use('/api', (req, res, next) => {
 app.use(modules.chanApiDaTat);
 
 // Tự động nạp toàn bộ route trong thư mục routes/.
+//
+// Mỗi tệp nạp trong khối bắt lỗi riêng: một tính năng viết sai chỉ làm chính nó
+// ngưng hoạt động, những tính năng còn lại và cả máy chủ vẫn chạy bình thường.
+// Đây là điều bảo đảm "thêm hoặc bỏ một tính năng không làm hỏng app".
 const routesDir = path.join(__dirname, 'routes');
+modules.kiemTraThieuCaiDat(routesDir);
+
+// Nếu chính những tệp nền tảng này hỏng thì không có gì để cứu — dừng hẳn còn
+// hơn chạy tiếp với một ứng dụng không đăng nhập được.
+const NEN_TANG = ['auth.js', 'dashboard.js', 'admin.js', 'accounts.js', 'modules.js', 'schoolyear.js'];
+
 for (const file of fs.readdirSync(routesDir).sort()) {
   if (!file.endsWith('.js')) continue;
-  const mod = require(path.join(routesDir, file));
-  if (typeof mod === 'function') mod(app);
+  try {
+    const mod = require(path.join(routesDir, file));
+    if (typeof mod === 'function') mod(app);
+  } catch (err) {
+    if (NEN_TANG.includes(file)) throw err;
+    const keys = modules.danhDauLoiTheoTep(file, err.message);
+    console.error(`\n⚠️  Tính năng trong routes/${file} không nạp được: ${err.message}`);
+    console.error(keys.length
+      ? `   Đã tạm ẩn phân hệ: ${keys.join(', ')}. Các phần còn lại vẫn chạy bình thường.\n`
+      : '   Các phần còn lại vẫn chạy bình thường.\n');
+  }
 }
 
 // Nạp đường dẫn API của các phân hệ mở rộng.

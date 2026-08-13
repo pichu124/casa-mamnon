@@ -18,6 +18,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B2 | Trang quản trị và nhập danh sách | ✅ **Hoàn thành** — 43/43 kiểm thử đạt |
 | B5 | Chuyển năm học và lên lớp | ✅ **Hoàn thành** — 31/31 kiểm thử đạt |
 | B6 | Bật/tắt tính năng và cắm thêm tính năng mới | ✅ **Hoàn thành** — 72/72 kiểm thử đạt |
+| B7 | Cô lập lỗi: thêm/bỏ tính năng không làm hỏng app | ✅ **Hoàn thành** — 101/101 kiểm thử đạt |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -132,9 +133,35 @@ Nhà trường tự chọn dùng phân hệ nào, và thêm được tính năng
 
 ---
 
+## B7 — Cô lập lỗi khi thêm hoặc bỏ tính năng
+
+Nguyên tắc: **thêm hoặc bỏ một tính năng, kể cả khi tính năng đó viết sai, không
+được làm app ngừng dùng được và không được đụng tới các tính năng khác đang bật.**
+Ghi thành quy định bắt buộc trong `CLAUDE.md`.
+
+Trước B7 nguyên tắc này chỉ đúng với phân hệ cắm thêm. Đo thử bằng cách cố tình
+viết sai một tệp tính năng lõi thì **toàn bộ máy chủ sập ngay khi khởi động** —
+tức là chỉ cần một lỗi ở phần Nề nếp là cả trường mất luôn cả đăng nhập.
+
+| Bước | Việc | Trạng thái |
+|------|------|-----------|
+| B7.1 | Nạp từng tệp trong `routes/` trong khối bắt lỗi riêng | ✅ Xong |
+| B7.2 | Tính năng lỗi bị tạm ẩn, API trả 503, quản trị thấy lý do | ✅ Xong |
+| B7.3 | Tính năng bị gỡ mất tệp thì tự ẩn, không hiện biểu tượng chết | ✅ Xong |
+| B7.4 | Phân hệ mới không đăng ký được đường dẫn đã có chủ | ✅ Xong |
+| B7.5 | Phân hệ mới chỉ đăng ký được route trong vùng `api` của nó | ✅ Xong |
+| B7.6 | `schema.sql` của phân hệ mới chỉ được tạo bảng mang tên nó | ✅ Xong |
+| B7.7 | Giao diện báo rõ khi màn hình một tính năng không tải được | ✅ Xong |
+
+Sáu tệp nền tảng (`auth`, `dashboard`, `admin`, `accounts`, `modules`,
+`schoolyear`) vẫn cố tình để dừng hẳn nếu hỏng: chạy tiếp với một ứng dụng không
+đăng nhập được thì tệ hơn là dừng để người quản trị biết mà sửa.
+
+---
+
 ## Tổng kết
 
-Sáu hạng mục B1–B6 đã hoàn thành. **363 bài kiểm thử tự động đều đạt:**
+Bảy hạng mục B1–B7 đã hoàn thành. **464 bài kiểm thử tự động đều đạt:**
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -147,6 +174,9 @@ Sáu hạng mục B1–B6 đã hoàn thành. **363 bài kiểm thử tự độn
 | Chuyển năm học | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
 | Bật/tắt tính năng (API) | 52 | Chặn API khi tắt, giữ dữ liệu, cắm thêm, cô lập lỗi |
 | Bật/tắt tính năng (giao diện) | 20 | Thao tác thật trên trình duyệt điện thoại |
+| Cô lập lỗi | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
+
+Hai bộ cuối chạy được bằng một lệnh: `npm test`.
 
 Việc còn lại trước khi cho trường dùng thật nằm ở phía nhà trường: thuê hạ tầng,
 soạn văn bản đồng ý của phụ huynh, nhập danh sách thật và tập huấn giáo viên.
