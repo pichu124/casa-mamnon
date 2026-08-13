@@ -33,9 +33,9 @@ kho JSON mất **1.803 ms mỗi lần lưu**, SQLite mất **0,029 ms** — nhan
 | Bước | Việc | Trạng thái |
 |------|------|-----------|
 | B1.1 | Cài `better-sqlite3`, xác nhận biên dịch được | ✅ Xong |
-| B1.2 | Thiết kế lược đồ bảng (`lib/schema.sql`) | ⏳ Đang làm |
-| B1.3 | Viết lại `lib/db.js` trên nền SQLite | ⬜ |
-| B1.4 | Chuyển `data/seed.js` sinh thẳng vào SQLite | ⬜ |
+| B1.2 | Thiết kế lược đồ bảng (`lib/schema.sql`) | ✅ Xong |
+| B1.3 | Viết lại `lib/db.js` trên nền SQLite | ✅ Xong |
+| B1.4 | Chuyển `data/seed.js` sinh thẳng vào SQLite | ⏳ Đang làm |
 | B1.5 | Script chuyển dữ liệu `db.json` cũ sang SQLite | ⬜ |
 | B1.6 | Sửa nhóm route 1: auth, dashboard, students | ⬜ |
 | B1.7 | Sửa nhóm route 2: attendance, leave, remarks, reports | ⬜ |
