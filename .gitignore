@@ -3,6 +3,7 @@ data/db.json
 data/db.json.tmp
 data/sessions.json
 data/sessions.json.tmp
+data/uploads/
 *.log
 .DS_Store
 .env

@@ -83,14 +83,15 @@ Sau khi cài: app có icon riêng, mở toàn màn hình không thanh địa ch�
 - 🗳️ Trả lời khảo sát của nhà trường
 - 🩺 Hồ sơ y tế: khám định kỳ, tiêm chủng, sự cố
 - 💊 Dặn thuốc: gửi hướng dẫn uống thuốc, cô xác nhận và ghi nhật ký
-- 🖼️ Album ảnh hoạt động của lớp
+- 🖼️ Album ảnh hoạt động của lớp (ảnh chụp thật, xem phóng to)
 - 📖 Kế hoạch giáo dục theo tháng
 - 🔔 Thông báo từ trường/lớp, 💬 nhắn tin trực tiếp với giáo viên
 
 **Dành cho giáo viên**
 - Điểm danh cả lớp trong một chạm, duyệt đơn xin phép
 - Viết nhận xét, ghi nhận nề nếp, cập nhật hành trình xe buýt
-- Tạo khảo sát và xem kết quả tổng hợp, tạo thông báo, tạo album ảnh
+- Tạo khảo sát và xem kết quả tổng hợp, tạo thông báo
+- Đăng album ảnh: chọn nhiều ảnh từ máy hoặc chụp trực tiếp trên điện thoại, thêm/xóa ảnh bất kỳ lúc nào
 - Xác nhận dặn thuốc và ghi nhật ký cho phụ huynh yên tâm
 - Nhắn tin riêng với từng phụ huynh và nhóm chung của lớp
 
@@ -128,7 +129,7 @@ docker run -d -p 80:3000 -v schoolconnect-data:/data --restart unless-stopped sc
 |---|---|---|
 | `PORT` | `3000` | Cổng lắng nghe |
 | `HOST` | `0.0.0.0` | Địa chỉ lắng nghe (`0.0.0.0` cho phép máy khác trong mạng truy cập) |
-| `DATA_DIR` | `./data` | **Thư mục lưu dữ liệu — trỏ vào ổ đĩa gắn ngoài khi deploy** |
+| `DATA_DIR` | `./data` | **Thư mục lưu dữ liệu và ảnh album — trỏ vào ổ đĩa gắn ngoài khi deploy** |
 | `NODE_ENV` | — | Đặt `production` để bật cảnh báo mật khẩu mặc định |
 | `FORCE_HTTPS` | — | Đặt `1` để tự chuyển hướng HTTP sang HTTPS |
 | `DEMO_PASSWORD` | `123456` | Mật khẩu ban đầu khi sinh dữ liệu mẫu lần đầu |

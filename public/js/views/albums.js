@@ -1,8 +1,9 @@
 // Phân hệ Album ảnh.
 // Danh sách album (#/albums) và trang chi tiết (#/albums/<id>).
-// Giáo viên có thể tạo album mới cho lớp chủ nhiệm.
+// Giáo viên tạo album, thêm và xóa ảnh cho lớp chủ nhiệm.
 App.views.albums = {
   _detail: null,
+  _pending: [],   // ảnh đang chờ tải lên: [{ dataUrl, caption, name }]
 
   async render(root, params) {
     const albumId = params && params[0];
@@ -10,7 +11,7 @@ App.views.albums = {
     return this.renderList(root);
   },
 
-  // ---- Danh sách album ----
+  // ================= Danh sách album =================
   async renderList(root) {
     const isTeacher = App.state.user.role === 'teacher';
     const albums = await API.get('/api/albums');
@@ -18,55 +19,85 @@ App.views.albums = {
       ${UI.pageHeader('Album ảnh', isTeacher ? { action: { id: 'btn-new-album', label: 'Tạo album', icon: 'plus' } } : {})}
       ${albums.length
         ? `<div class="grid-2">${albums.map(a => this.albumCard(a)).join('')}</div>`
-        : UI.emptyState('📷', 'Chưa có album ảnh nào của lớp')}`;
+        : UI.emptyState('📷', isTeacher
+          ? 'Chưa có album nào. Bấm "Tạo album" để đăng ảnh hoạt động của lớp.'
+          : 'Chưa có album ảnh nào của lớp')}`;
     if (isTeacher) document.getElementById('btn-new-album').onclick = () => this.openCreate();
   },
 
   albumCard(a) {
-    const g = (a.cover && a.cover.g) || ['#e6eaf0', '#f2f4f8'];
-    const emoji = (a.cover && a.cover.emoji) || '📷';
     return `
       <div class="card clickable" style="margin-bottom:0" onclick="App.navigate('#/albums/${UI.esc(a.id)}')">
-        <div style="aspect-ratio:4/3;border-radius:12px;background:linear-gradient(135deg, ${UI.esc(g[0])}, ${UI.esc(g[1])});display:flex;align-items:center;justify-content:center;font-size:44px">${UI.esc(emoji)}</div>
+        ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
         <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
         <div class="mt-8">${UI.badge(a.className, 'gray')}</div>
       </div>`;
   },
 
-  // ---- Chi tiết một album ----
+  // Khung ảnh dùng chung: ảnh thật thì hiện ảnh, ảnh cũ thì hiện emoji trên nền màu.
+  thumb(photo, albumId, extraStyle = '') {
+    if (photo && photo.file) {
+      return `<img src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}" alt="${UI.esc(photo.caption || 'Ảnh của lớp')}"
+        loading="lazy" style="${extraStyle};width:100%;height:100%;object-fit:cover;background:var(--bg-2)">`;
+    }
+    const g = (photo && photo.g) || ['#e6eaf0', '#f2f4f8'];
+    const emoji = (photo && photo.emoji) || '📷';
+    return `<div style="${extraStyle};width:100%;background:linear-gradient(135deg, ${UI.esc(g[0])}, ${UI.esc(g[1])});display:flex;align-items:center;justify-content:center;font-size:44px">${UI.esc(emoji)}</div>`;
+  },
+
+  // ================= Chi tiết một album =================
   async renderDetail(root, id) {
     const a = await API.get(`/api/albums/${id}`);
     this._detail = a;
     root.innerHTML = `
-      ${UI.pageHeader(a.title)}
+      ${UI.pageHeader(a.title, a.canEdit ? { action: { id: 'btn-add-photo', label: 'Thêm ảnh', icon: 'plus' } } : {})}
       <div class="card">
         <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}</div>
         ${a.description ? `<p class="mt-8" style="font-size:.93rem;line-height:1.55">${UI.esc(a.description)}</p>` : ''}
       </div>
-      <div class="photo-grid">
-        ${a.photos.map((p, i) => `
-          <div class="photo" style="background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])})" onclick="App.views.albums.showPhoto(${i})">
-            ${UI.esc(p.emoji)}
-            ${p.caption ? `<div class="photo-cap">${UI.esc(p.caption)}</div>` : ''}
-          </div>`).join('')}
-      </div>`;
+      ${a.photos.length ? `
+        <div class="photo-grid">
+          ${a.photos.map((p, i) => `
+            <div class="photo" style="${p.file ? '' : `background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])})`}">
+              <div style="position:absolute;inset:0" onclick="App.views.albums.showPhoto(${i})">
+                ${p.file
+                  ? `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || 'Ảnh của lớp')}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+                  : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:46px">${UI.esc(p.emoji)}</div>`}
+              </div>
+              ${p.caption ? `<div class="photo-cap" style="pointer-events:none">${UI.esc(p.caption)}</div>` : ''}
+              ${a.canEdit ? `
+                <button title="Xóa ảnh" onclick="event.stopPropagation();App.views.albums.deletePhoto('${UI.esc(p.id)}')"
+                  style="position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;background:rgba(15,23,42,.62);color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)">
+                  ${UI.icon('x', 15)}
+                </button>` : ''}
+            </div>`).join('')}
+        </div>` : UI.emptyState('📷', a.canEdit ? 'Album chưa có ảnh nào. Bấm "Thêm ảnh" để đăng.' : 'Album chưa có ảnh')}
+      ${a.canEdit ? `
+        <button class="btn danger-soft block mt-14" onclick="App.views.albums.deleteAlbum()">Xóa album này</button>` : ''}`;
+
+    if (a.canEdit) document.getElementById('btn-add-photo').onclick = () => this.openAddPhotos();
   },
 
-  // Xem một ảnh phóng to trong modal.
+  // Xem một ảnh phóng to.
   showPhoto(index) {
     const a = this._detail;
     if (!a || !a.photos[index]) return;
     const p = a.photos[index];
     UI.modal(`
-      <div style="height:260px;border-radius:14px;background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])});display:flex;align-items:center;justify-content:center;font-size:90px">${UI.esc(p.emoji)}</div>
+      ${p.file
+        ? `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || '')}"
+             style="width:100%;max-height:66vh;object-fit:contain;border-radius:14px;background:var(--bg-2)">`
+        : `<div style="height:260px;border-radius:14px;background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])});display:flex;align-items:center;justify-content:center;font-size:90px">${UI.esc(p.emoji)}</div>`}
       ${p.caption ? `<div class="center mt-14" style="font-weight:700">${UI.esc(p.caption)}</div>` : ''}
       <div class="muted small center mt-8">${UI.esc(a.title)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}</div>
+      <div class="muted small center mt-8">Ảnh ${index + 1} / ${a.photos.length}</div>
     `, 'Xem ảnh');
   },
 
-  // ---- Giáo viên: tạo album mới ----
+  // ================= Giáo viên: tạo album =================
   openCreate() {
+    this._pending = [];
     UI.modal(`
       <div class="field">
         <label>Tên album</label>
@@ -76,48 +107,242 @@ App.views.albums = {
         <label>Mô tả</label>
         <textarea id="al-desc" placeholder="Đôi dòng giới thiệu về album gửi tới phụ huynh..."></textarea>
       </div>
-      <div class="field">
-        <label>Ảnh trong album</label>
-        <div id="al-photos"></div>
-        <button class="btn outline sm mt-8" onclick="App.views.albums.addPhotoRow()">+ Thêm ảnh</button>
-        <div class="hint">Mỗi ảnh gồm một emoji minh họa và chú thích.</div>
-      </div>
-      <button class="btn primary block" onclick="App.views.albums.submitCreate()">${UI.icon('plus', 18)} Đăng album</button>
+      ${this.pickerMarkup()}
+      <button class="btn primary block mt-14" id="al-submit">${UI.icon('plus', 18)} Đăng album</button>
     `, 'Tạo album mới');
-    this.addPhotoRow();
+    this.bindPicker();
+    document.getElementById('al-submit').onclick = () => this.submitCreate();
   },
 
-  addPhotoRow() {
-    const zone = document.getElementById('al-photos');
+  // ================= Giáo viên: thêm ảnh vào album có sẵn =================
+  openAddPhotos() {
+    this._pending = [];
+    UI.modal(`
+      ${this.pickerMarkup()}
+      <button class="btn primary block mt-14" id="al-submit">${UI.icon('plus', 18)} Tải ảnh lên</button>
+    `, 'Thêm ảnh vào album');
+    this.bindPicker();
+    document.getElementById('al-submit').onclick = () => this.submitAddPhotos();
+  },
+
+  // Khối chọn ảnh dùng chung cho cả hai màn hình trên.
+  pickerMarkup() {
+    return `
+      <div class="field">
+        <label>Ảnh</label>
+        <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
+        <button class="btn outline block" id="al-pick">📷 Chọn ảnh từ máy</button>
+        <div class="hint">Chọn được nhiều ảnh cùng lúc. Trên điện thoại có thể chụp ảnh trực tiếp. Ảnh sẽ tự thu nhỏ trước khi gửi để tiết kiệm dung lượng.</div>
+        <div id="al-preview" class="mt-14"></div>
+      </div>`;
+  },
+
+  bindPicker() {
+    const input = document.getElementById('al-file');
+    document.getElementById('al-pick').onclick = () => input.click();
+    input.onchange = () => this.handleFiles(input.files);
+  },
+
+  // Đọc ảnh người dùng chọn, thu nhỏ rồi đưa vào danh sách chờ.
+  async handleFiles(fileList) {
+    const files = [...(fileList || [])];
+    if (!files.length) return;
+
+    const zone = document.getElementById('al-preview');
+    if (zone) zone.insertAdjacentHTML('beforeend', '<div class="muted small" id="al-loading">Đang xử lý ảnh…</div>');
+
+    for (const f of files) {
+      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
+        UI.toast(`Bỏ qua "${f.name}" — chỉ nhận ảnh JPG, PNG, WebP`, 'error');
+        continue;
+      }
+      try {
+        const dataUrl = await this.compress(f);
+        this._pending.push({ dataUrl, caption: '', name: f.name });
+      } catch (_) {
+        UI.toast(`Không đọc được ảnh "${f.name}"`, 'error');
+      }
+    }
+
+    const loading = document.getElementById('al-loading');
+    if (loading) loading.remove();
+    this.renderPreview();
+    document.getElementById('al-file').value = ''; // cho phép chọn lại đúng ảnh đó
+  },
+
+  // Thu nhỏ ảnh về tối đa 1600px và nén JPEG ngay trên máy người dùng.
+  // Ảnh máy ảnh điện thoại thường 3-8MB, sau bước này chỉ còn vài trăm KB.
+  compress(file, maxDim = 1600, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      const done = (bitmap, width, height) => {
+        const scale = Math.min(1, maxDim / Math.max(width, height));
+        const w = Math.max(1, Math.round(width * scale));
+        const h = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+
+      // createImageBitmap xoay ảnh theo đúng chiều máy ảnh đã chụp.
+      if (window.createImageBitmap) {
+        createImageBitmap(file, { imageOrientation: 'from-image' })
+          .then(bm => done(bm, bm.width, bm.height))
+          .catch(() => this.compressViaImg(file, maxDim, quality).then(resolve, reject));
+        return;
+      }
+      this.compressViaImg(file, maxDim, quality).then(resolve, reject);
+    });
+  },
+
+  // Cách dự phòng cho trình duyệt cũ không có createImageBitmap.
+  compressViaImg(file, maxDim, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Không đọc được tệp'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Ảnh hỏng'));
+        img.onload = () => {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  },
+
+  renderPreview() {
+    const zone = document.getElementById('al-preview');
     if (!zone) return;
-    const row = document.createElement('div');
-    row.className = 'al-photo-row';
-    row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
-    row.innerHTML = `
-      <input class="al-ph-emoji" maxlength="2" placeholder="📷" style="width:58px;flex:none;text-align:center;font-size:20px;padding:9px 4px">
-      <input class="al-ph-caption" placeholder="Chú thích ảnh">
-      <button class="btn outline sm" style="flex:none;padding:9px 11px" title="Xóa ảnh" onclick="this.closest('.al-photo-row').remove()">${UI.icon('x', 16)}</button>`;
-    zone.appendChild(row);
-    row.querySelector('.al-ph-emoji').focus();
+    if (!this._pending.length) {
+      zone.innerHTML = '<div class="muted small">Chưa chọn ảnh nào.</div>';
+      return;
+    }
+    zone.innerHTML = this._pending.map((p, i) => `
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+        <img src="${p.dataUrl}" alt="" style="width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover">
+        <input class="al-cap" data-i="${i}" value="${UI.esc(p.caption)}" placeholder="Chú thích ảnh (không bắt buộc)">
+        <button class="btn outline sm" style="flex:none;padding:9px 11px" title="Bỏ ảnh này"
+          onclick="App.views.albums.removePending(${i})">${UI.icon('x', 16)}</button>
+      </div>`).join('') +
+      `<div class="muted small">Đã chọn ${this._pending.length} ảnh.</div>`;
+
+    // Ghi nhớ chú thích ngay khi gõ để không mất khi danh sách vẽ lại.
+    zone.querySelectorAll('.al-cap').forEach(inp => {
+      inp.oninput = () => { this._pending[Number(inp.dataset.i)].caption = inp.value; };
+    });
+  },
+
+  removePending(i) {
+    this._pending.splice(i, 1);
+    this.renderPreview();
+  },
+
+  // Gửi ảnh theo từng nhóm nhỏ để không vượt giới hạn dung lượng mỗi lần gửi.
+  async uploadInBatches(photos, sendBatch, onProgress) {
+    const BATCH = 3;
+    let sent = 0;
+    for (let i = 0; i < photos.length; i += BATCH) {
+      const batch = photos.slice(i, i + BATCH);
+      await sendBatch(batch);
+      sent += batch.length;
+      if (onProgress) onProgress(sent, photos.length);
+    }
+    return sent;
+  },
+
+  setSubmitting(text) {
+    const btn = document.getElementById('al-submit');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = text;
   },
 
   async submitCreate() {
     const title = document.getElementById('al-title').value.trim();
     const description = document.getElementById('al-desc').value.trim();
-    const photos = [...document.querySelectorAll('#al-photos .al-photo-row')]
-      .map(row => ({
-        emoji: row.querySelector('.al-ph-emoji').value.trim(),
-        caption: row.querySelector('.al-ph-caption').value.trim(),
-      }))
-      .filter(p => p.emoji || p.caption);
     if (!title) return UI.toast('Cô nhập tên album giúp nhé', 'error');
-    if (!photos.length) return UI.toast('Album cần có ít nhất 1 ảnh', 'error');
+    if (!this._pending.length) return UI.toast('Cô chọn ít nhất 1 ảnh nhé', 'error');
+
+    const photos = this._pending;
     try {
-      await API.post('/api/albums', { title, description, photos });
-      UI.toast('Đã đăng album ảnh cho lớp', 'success');
+      this.setSubmitting('Đang tải ảnh lên…');
+      // Tạo album với nhóm ảnh đầu, phần còn lại gửi bổ sung sau.
+      const first = photos.slice(0, 3);
+      const album = await API.post('/api/albums', { title, description, photos: first });
+
+      const rest = photos.slice(3);
+      if (rest.length) {
+        await this.uploadInBatches(
+          rest,
+          batch => API.post(`/api/albums/${album.id}/photos`, { photos: batch }),
+          (sent) => this.setSubmitting(`Đang tải ảnh lên… ${first.length + sent}/${photos.length}`),
+        );
+      }
+
+      UI.toast(`Đã đăng album với ${photos.length} ảnh`, 'success');
       UI.closeModal();
-      App.route();
+      this._pending = [];
+      App.navigate(`#/albums/${album.id}`);
       App.refreshBadges();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      const btn = document.getElementById('al-submit');
+      if (btn) { btn.disabled = false; btn.textContent = 'Đăng album'; }
+    }
+  },
+
+  async submitAddPhotos() {
+    const a = this._detail;
+    if (!a) return;
+    if (!this._pending.length) return UI.toast('Cô chọn ít nhất 1 ảnh nhé', 'error');
+
+    const photos = this._pending;
+    try {
+      this.setSubmitting('Đang tải ảnh lên…');
+      await this.uploadInBatches(
+        photos,
+        batch => API.post(`/api/albums/${a.id}/photos`, { photos: batch }),
+        (sent) => this.setSubmitting(`Đang tải ảnh lên… ${sent}/${photos.length}`),
+      );
+      UI.toast(`Đã thêm ${photos.length} ảnh vào album`, 'success');
+      UI.closeModal();
+      this._pending = [];
+      App.route();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      const btn = document.getElementById('al-submit');
+      if (btn) { btn.disabled = false; btn.textContent = 'Tải ảnh lên'; }
+    }
+  },
+
+  async deletePhoto(photoId) {
+    const a = this._detail;
+    if (!a) return;
+    if (!confirm('Xóa ảnh này khỏi album?')) return;
+    try {
+      await API.del(`/api/albums/${a.id}/photos/${photoId}`);
+      UI.toast('Đã xóa ảnh', 'success');
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  async deleteAlbum() {
+    const a = this._detail;
+    if (!a) return;
+    if (!confirm(`Xóa album "${a.title}" cùng toàn bộ ảnh bên trong?`)) return;
+    try {
+      await API.del(`/api/albums/${a.id}`);
+      UI.toast('Đã xóa album', 'success');
+      App.navigate('#/albums');
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 };

@@ -15,7 +15,8 @@ const HOST = process.env.HOST || '0.0.0.0'; // 0.0.0.0 để điện thoại cù
 if (process.env.TRUST_PROXY !== '0') app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
-app.use(express.json({ limit: '2mb' }));
+// Giới hạn nới rộng để nhận ảnh album (trình duyệt đã nén trước khi gửi).
+app.use(express.json({ limit: '12mb' }));
 
 // Buộc dùng HTTPS khi đã bật FORCE_HTTPS (nên bật khi chạy trên Internet).
 app.use((req, res, next) => {
