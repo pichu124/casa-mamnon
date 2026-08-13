@@ -8,17 +8,13 @@ module.exports = (app) => {
   // Danh sách đơn xin phép người dùng được xem.
   // Phụ huynh: đơn của các con mình. Giáo viên: đơn của học sinh lớp chủ nhiệm.
   app.get('/api/leave', (req, res) => {
-    const studentIds = db.studentsOf(req.user).map(s => s.id);
-    const list = db.get().leaveRequests
-      .filter(l => studentIds.includes(l.studentId))
-      .map(decorate)
-      .sort((a, b) => {
-        const pa = a.status === 'pending' ? 0 : 1;
-        const pb = b.status === 'pending' ? 0 : 1;
-        if (pa !== pb) return pa - pb;               // đơn chờ duyệt lên trước
-        return String(b.createdAt).localeCompare(String(a.createdAt)); // rồi mới nhất
-      });
-    res.json(list);
+    const ids = db.studentIdsOf(req.user);
+    if (!ids.length) return res.json([]);
+    // Đơn chờ duyệt lên trước, sau đó mới nhất trước.
+    const rows = db.all('leave_requests',
+      `SELECT * FROM leave_requests WHERE studentId IN (${ids.map(() => '?').join(',')})
+       ORDER BY (status = 'pending') DESC, createdAt DESC`, ids);
+    res.json(rows.map(decorate));
   });
 
   // Phụ huynh tạo đơn xin phép cho con.
@@ -48,14 +44,13 @@ module.exports = (app) => {
       reviewedBy: null,
       reviewNote: '',
     };
-    db.get().leaveRequests.push(rec);
-    db.save();
+    db.insert('leave_requests', rec);
     res.status(201).json(decorate(rec));
   });
 
   // Giáo viên duyệt / từ chối một đơn đang chờ của học sinh lớp mình.
-  app.post('/api/leave/:id/review', requireRole('teacher'), (req, res) => {
-    const rec = db.get().leaveRequests.find(l => l.id === req.params.id);
+  app.post('/api/leave/:id/review', requireRole('teacher', 'admin'), (req, res) => {
+    const rec = db.first('leave_requests', 'SELECT * FROM leave_requests WHERE id = ?', [req.params.id]);
     if (!rec) return res.status(404).json({ error: 'Không tìm thấy đơn xin phép' });
     if (!db.canAccessStudent(req.user, rec.studentId)) {
       return res.status(403).json({ error: 'Đơn này không thuộc học sinh lớp của bạn' });
@@ -70,7 +65,10 @@ module.exports = (app) => {
     rec.status = status;
     rec.reviewedBy = req.user.id;
     rec.reviewNote = String(reviewNote || '').trim();
-    db.save();
+    db.update('leave_requests', rec.id, {
+      status: rec.status, reviewedBy: rec.reviewedBy, reviewNote: rec.reviewNote,
+    });
+    db.audit(req.user.id, 'leave-review', rec.id, { status });
     res.json(decorate(rec));
   });
 };

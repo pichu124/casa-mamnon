@@ -19,33 +19,29 @@ module.exports = (app) => {
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
     }
-    const list = db.get().remarks
-      .filter(r => r.studentId === studentId)
-      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    const list = db.all('remarks',
+      'SELECT * FROM remarks WHERE studentId = ? ORDER BY date DESC, id DESC', [studentId]);
 
-    // Chụp lại giá trị parentSeen cũ trước khi đánh dấu đã xem.
+    // Giữ giá trị parentSeen CŨ trong dữ liệu trả về để giao diện biết nhận xét
+    // nào là mới, rồi mới đánh dấu đã xem.
     const out = list.map(r => {
-      const t = db.findUser(r.teacherId);
+      const t = r.teacherId ? db.findUser(r.teacherId) : null;
       return { ...r, teacherName: t ? `${t.title} ${t.name}` : '' };
     });
 
     if (req.user.role === 'parent') {
-      let changed = false;
-      for (const r of list) {
-        if (!r.parentSeen) { r.parentSeen = true; changed = true; }
-      }
-      if (changed) db.save();
+      db.run('UPDATE remarks SET parentSeen = 1 WHERE studentId = ? AND parentSeen = 0', [studentId]);
     }
     res.json(out);
   });
 
   // Giáo viên: nhận xét gần đây của cả lớp chủ nhiệm.
-  app.get('/api/remarks/class', requireRole('teacher'), (req, res) => {
-    const studentIds = db.studentsOf(req.user).map(s => s.id);
-    const list = db.get().remarks
-      .filter(r => studentIds.includes(r.studentId))
-      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
-      .slice(0, 30)
+  app.get('/api/remarks/class', requireRole('teacher', 'admin'), (req, res) => {
+    const ids = db.studentIdsOf(req.user);
+    if (!ids.length) return res.json([]);
+    const list = db.all('remarks',
+      `SELECT * FROM remarks WHERE studentId IN (${ids.map(() => '?').join(',')})
+       ORDER BY date DESC, id DESC LIMIT 30`, ids)
       .map(r => {
         const s = db.findStudent(r.studentId);
         return { ...r, studentName: s ? s.name : '', studentAvatar: s ? s.avatar : null };
@@ -54,7 +50,7 @@ module.exports = (app) => {
   });
 
   // Giáo viên viết nhận xét mới cho học sinh trong lớp.
-  app.post('/api/remarks', requireRole('teacher'), (req, res) => {
+  app.post('/api/remarks', requireRole('teacher', 'admin'), (req, res) => {
     const { studentId, date, content, rating, skills } = req.body || {};
     if (!studentId) return res.status(400).json({ error: 'Vui lòng chọn học sinh' });
     if (!db.canAccessStudent(req.user, studentId)) {
@@ -79,8 +75,7 @@ module.exports = (app) => {
       skills: skillList,
       parentSeen: false,
     };
-    db.get().remarks.push(rec);
-    db.save();
+    db.insert('remarks', rec);
     res.json(rec);
   });
 };

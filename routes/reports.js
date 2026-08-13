@@ -9,9 +9,7 @@ module.exports = (app) => {
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
     }
-    const list = db.get().reports
-      .filter(r => r.studentId === studentId)
-      .sort((a, b) => a.year.localeCompare(b.year) || a.term.localeCompare(b.term));
-    res.json(list);
+    res.json(db.all('reports',
+      'SELECT * FROM reports WHERE studentId = ? ORDER BY year, term', [studentId]));
   });
 };
