@@ -10,7 +10,11 @@
     "mobile:sync": "npx cap sync android",
     "mobile:icons": "npx @capacitor/assets generate --android --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#4f46e5' --splashBackgroundColorDark '#0a0e1a'",
     "mobile:apk": "cd android && ./gradlew assembleDebug",
-    "migrate": "node scripts/migrate-json-to-sqlite.js"
+    "migrate": "node scripts/migrate-json-to-sqlite.js",
+    "backup": "node scripts/backup.js",
+    "backup:list": "node scripts/backup.js --list",
+    "restore": "node scripts/restore.js",
+    "restore:check": "node scripts/restore.js --kiem-tra"
   },
   "engines": {
     "node": ">=18"

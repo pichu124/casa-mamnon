@@ -1,9 +1,12 @@
-node_modules/
-data/db.json
-data/db.json.tmp
-data/sessions.json
-data/sessions.json.tmp
+data/backups/
+data/school.db
+data/school.db-wal
+data/school.db-shm
+data/school.db.*
 data/uploads/
+data/db.json*
+data/sessions.json*
+node_modules/
 *.log
 .DS_Store
 .env

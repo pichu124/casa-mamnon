@@ -13,8 +13,8 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | Mã | Hạng mục | Trạng thái |
 |----|----------|-----------|
 | B1 | Chuyển kho dữ liệu sang SQLite | ✅ **Hoàn thành** |
-| B4 | Sao lưu tự động | ⏳ Đang làm |
-| B3 | Cấp lại mật khẩu khi quên | ⬜ Chưa bắt đầu |
+| B4 | Sao lưu tự động | ✅ **Hoàn thành** |
+| B3 | Cấp lại mật khẩu khi quên | ⏳ Đang làm |
 | B2 | Trang quản trị và nhập danh sách | ⬜ Chưa bắt đầu |
 | B5 | Chuyển năm học và lên lớp | ⬜ Chưa bắt đầu |
 
@@ -60,11 +60,11 @@ Toàn bộ 192 bài kiểm thử (API, bảo mật, PWA, album) đều đạt sa
 
 | Bước | Việc | Trạng thái |
 |------|------|-----------|
-| B4.1 | Script sao lưu dùng lệnh `.backup` của SQLite | ⬜ |
-| B4.2 | Vòng đời bản sao: 7 ngày / 4 tuần / 12 tháng | ⬜ |
-| B4.3 | Sao lưu kèm ảnh album | ⬜ |
-| B4.4 | Script khôi phục và hướng dẫn tập dượt | ⬜ |
-| B4.5 | Hướng dẫn cấu hình cron và đẩy ra nơi lưu ngoài | ⬜ |
+| B4.1 | Script sao lưu dùng lệnh `.backup` của SQLite | ✅ Xong |
+| B4.2 | Vòng đời bản sao: 7 ngày / 4 tuần / 12 tháng | ✅ Xong |
+| B4.3 | Sao lưu kèm ảnh album | ✅ Xong |
+| B4.4 | Script khôi phục và hướng dẫn tập dượt | ✅ Xong — đã diễn tập xóa và lấy lại thành công |
+| B4.5 | Hướng dẫn cấu hình cron và đẩy ra nơi lưu ngoài | ✅ Xong — `docs/SAO-LUU.md` |
 
 ---
 
