@@ -45,8 +45,8 @@ function taoPhanHe(ten, tep) {
 }
 
 fs.rmSync(DIR, { recursive: true, force: true });
-execSync(`DATA_DIR=${DIR} node data/seed.js --force`, { cwd: GOC });
-const out = execSync(`DATA_DIR=${DIR} node scripts/create-admin.js "Hiệu Trưởng" hieutruong`, { cwd: GOC }).toString();
+execSync('node data/seed.js --force', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } });
+const out = execSync('node scripts/create-admin.js "Hiệu Trưởng" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const mkTam = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
 
 let server, nhatKy = '';

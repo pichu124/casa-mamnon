@@ -20,8 +20,8 @@ fs.rmSync(DIR, { recursive: true, force: true });
 let pass = 0, fail = 0; const errs = [];
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✓', n); } else { fail++; errs.push(`${n} ${x != null ? JSON.stringify(x).slice(0,250) : ''}`); console.log('  ✗', n, x ?? ''); } };
 
-execSync(`DATA_DIR=${DIR} node data/seed.js --force`, { cwd: GOC });
-const out = execSync(`DATA_DIR=${DIR} node scripts/create-admin.js "Hiệu Trưởng" hieutruong`, { cwd: GOC }).toString();
+execSync('node data/seed.js --force', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } });
+const out = execSync('node scripts/create-admin.js "Hiệu Trưởng" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const adminPw = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
 
 let server;

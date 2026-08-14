@@ -216,6 +216,14 @@ trình. Nay (`test:luoi-an-toan`, 17 bài):
 - README thêm mục "Tự khởi động lại khi gặp sự cố": NSSM cho Windows, systemd
   cho Linux; Docker/Render có sẵn. Chạy thật bắt buộc có trình giám sát.
 
+**B8.6 — Bộ kiểm thử chạy được trên Windows.** Các bài kiểm thử dùng cú pháp
+`DATA_DIR=... node ...` (chỉ shell Linux/Mac hiểu) và đường dẫn trình duyệt viết
+chết `/opt/pw-browsers/chromium` (chỉ tồn tại trên CI) — tức là "chạy bằng một
+lệnh" mới đúng trên Linux, chưa đúng trên máy Windows của trường. Đã chuyển sang
+truyền biến qua tham số `env` của Node và để Playwright tự tìm trình duyệt khi
+không có `CHROMIUM_PATH`. ⚠️ Chưa có máy Windows thật để kiểm chứng — **lần chạy
+`npm test` đầu tiên trên máy trường chính là bài kiểm chứng còn thiếu.**
+
 Hai bộ canh có triết lý ngược nhau, cố ý:
 
 - **Commit riêng** — có đường thoát, và nếu bản thân nó lỗi thì cho qua. Trộn

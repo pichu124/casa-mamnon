@@ -44,14 +44,16 @@ export function thuMucTam(ten) {
 
 // Sinh dữ liệu mẫu vào cơ sở dữ liệu tạm.
 export function sinhDuLieu(dir) {
-  execSync(`DATA_DIR=${dir} node data/seed.js --force`, { cwd: GOC, stdio: 'ignore' });
+  // Truyền DATA_DIR qua tham số env, KHÔNG viết vào chuỗi lệnh: cú pháp
+  // `TEN_BIEN=... lệnh` chỉ shell của Linux/Mac hiểu, trên Windows sẽ lỗi ngay.
+  execSync('node data/seed.js --force', { cwd: GOC, stdio: 'ignore', env: { ...process.env, DATA_DIR: dir } });
 }
 
 // Tạo một tài khoản quản trị và trả về mật khẩu tạm mà script in ra.
 export function taoQuanTri(dir, hoTen, tenDangNhap) {
   const out = execSync(
-    `DATA_DIR=${dir} node scripts/create-admin.js ${JSON.stringify(hoTen)} ${tenDangNhap}`,
-    { cwd: GOC }).toString();
+    `node scripts/create-admin.js ${JSON.stringify(hoTen)} ${tenDangNhap}`,
+    { cwd: GOC, env: { ...process.env, DATA_DIR: dir } }).toString();
   const mk = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
   if (!mk) throw new Error('Không đọc được mật khẩu tạm từ scripts/create-admin.js');
   return mk;
@@ -119,8 +121,13 @@ export function taoLogin(req) {
   };
 }
 
-// Trình duyệt Playwright dùng sẵn trong môi trường, không phải tải về.
-export const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
+// Trình duyệt cho các bài kiểm thử giao diện. Thứ tự tìm:
+//   1. CHROMIUM_PATH nếu người chạy chỉ định;
+//   2. bản cài sẵn của môi trường CI (chỉ tồn tại trên Linux);
+//   3. undefined — để Playwright tự dùng trình duyệt nó tải về lúc npm install,
+//      đây là đường đi trên máy Windows của trường.
+export const CHROMIUM = process.env.CHROMIUM_PATH
+  || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
 
 // Banner mời bật thông báo là một lớp phủ cố định ở đáy màn hình. Nó che mất nút
 // mà bài kiểm thử định bấm, và che chỗ nào thì tùy kích thước cửa sổ — chạy trên

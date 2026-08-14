@@ -13,8 +13,8 @@ let pass = 0, fail = 0; const errs = [];
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✓', n); } else { fail++; errs.push(`${n} ${x != null ? JSON.stringify(x).slice(0,250) : ''}`); console.log('  ✗', n, x ?? ''); } };
 
 // Tạo dữ liệu mẫu + tài khoản quản trị trước khi chạy máy chủ
-execSync(`DATA_DIR=${DIR} node data/seed.js --force`, { cwd: GOC });
-const out = execSync(`DATA_DIR=${DIR} node scripts/create-admin.js "Nguyễn Văn Hiệu" hieutruong`, { cwd: GOC }).toString();
+execSync('node data/seed.js --force', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } });
+const out = execSync('node scripts/create-admin.js "Nguyễn Văn Hiệu" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const adminPw = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
 console.log('\n[0] Tạo tài khoản quản trị bằng script');
 check('script tạo được tài khoản quản trị', !!adminPw, adminPw);
