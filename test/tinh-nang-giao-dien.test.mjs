@@ -4,7 +4,7 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
-import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, CHROMIUM } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
 
 const DIR = thuMucTam('tinh-nang-giao-dien');
 sinhDuLieu(DIR);
@@ -27,7 +27,7 @@ const SHOT = path.join(thuMucTam('tinh-nang-anh-chup'), '/');
 fs.mkdirSync(SHOT, { recursive: true });
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const ctx = await tatBannerThongBao(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }));
 const page = await ctx.newPage();
 const loi = [];
 page.on('pageerror', e => loi.push(e.message));

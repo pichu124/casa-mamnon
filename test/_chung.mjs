@@ -121,3 +121,14 @@ export function taoLogin(req) {
 
 // Trình duyệt Playwright dùng sẵn trong môi trường, không phải tải về.
 export const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
+
+// Banner mời bật thông báo là một lớp phủ cố định ở đáy màn hình. Nó che mất nút
+// mà bài kiểm thử định bấm, và che chỗ nào thì tùy kích thước cửa sổ — chạy trên
+// máy này qua, chạy trên máy khác lại đỏ. Tắt nó đi ngay từ đầu để bài kiểm thử
+// chỉ đo đúng thứ nó định đo. Bản thân banner không có bài kiểm thử nào.
+export async function tatBannerThongBao(ctx) {
+  await ctx.addInitScript(() => {
+    try { localStorage.setItem('pushBannerDismissed', '1'); } catch { /* chưa có localStorage */ }
+  });
+  return ctx;
+}

@@ -4,7 +4,7 @@
 import { chromium, devices } from 'playwright';
 import fs from 'fs';
 import path from 'path';
-import { dungMayChu, thuMucTam, sinhDuLieu, CHROMIUM } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
 
 const DIR = thuMucTam('pwa');
 sinhDuLieu(DIR);
@@ -25,7 +25,7 @@ const browser = await chromium.launch({ executablePath: CHROMIUM });
 // ---------- 1. Manifest và icon ----------
 console.log('\n[1] Manifest & icon');
 {
-  const ctx = await browser.newContext();
+  const ctx = await tatBannerThongBao(await browser.newContext());
   const p = await ctx.newPage();
   const mres = await p.goto(BASE + '/manifest.json');
   check('manifest.json trả 200', mres.status() === 200);
@@ -52,7 +52,7 @@ console.log('\n[1] Manifest & icon');
 // ---------- 2. Service worker ----------
 console.log('\n[2] Service worker');
 {
-  const ctx = await browser.newContext();
+  const ctx = await tatBannerThongBao(await browser.newContext());
   const p = await ctx.newPage();
   const swres = await p.goto(BASE + '/sw.js');
   check('sw.js trả 200', swres.status() === 200);
@@ -106,7 +106,7 @@ console.log('\n[2] Service worker');
 // ---------- 3. Giao diện trên điện thoại thật ----------
 for (const [label, dev] of [['iphone', devices['iPhone 14']], ['android', devices['Pixel 7']]]) {
   console.log(`\n[3] Giao diện ${label} (${dev.viewport.width}x${dev.viewport.height})`);
-  const ctx = await browser.newContext({ ...dev });
+  const ctx = await tatBannerThongBao(await browser.newContext({ ...dev }));
   const p = await ctx.newPage();
   const jsErrs = [];
   p.on('pageerror', e => jsErrs.push(String(e).slice(0, 160)));
@@ -179,7 +179,7 @@ for (const [label, dev] of [['iphone', devices['iPhone 14']], ['android', device
 // ---------- 4. Chế độ đã cài (toàn màn hình, có tai thỏ) ----------
 console.log('\n[4] Chế độ đã cài như app');
 {
-  const ctx = await browser.newContext({ ...devices['iPhone 14'] });
+  const ctx = await tatBannerThongBao(await browser.newContext({ ...devices['iPhone 14'] }));
   const p = await ctx.newPage();
   await p.goto(BASE);
   await p.waitForSelector('#lg-user');

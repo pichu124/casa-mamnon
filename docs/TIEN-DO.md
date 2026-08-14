@@ -19,6 +19,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B5 | Chuyển năm học và lên lớp | ✅ **Hoàn thành** — 31/31 kiểm thử đạt |
 | B6 | Bật/tắt tính năng và cắm thêm tính năng mới | ✅ **Hoàn thành** — 72/72 kiểm thử đạt |
 | B7 | Cô lập lỗi: thêm/bỏ tính năng không làm hỏng app | ✅ **Hoàn thành** — 101/101 kiểm thử đạt |
+| B8 | Giữ độ ổn định dài hạn: kiểm thử vào kho mã, canh tệp dùng chung, chặn lộ dữ liệu | ✅ **Hoàn thành** — 174/174 kiểm thử đạt |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -156,6 +157,52 @@ tức là chỉ cần một lỗi ở phần Nề nếp là cả trường mất
 Sáu tệp nền tảng (`auth`, `dashboard`, `admin`, `accounts`, `modules`,
 `schoolyear`) vẫn cố tình để dừng hẳn nếu hỏng: chạy tiếp với một ứng dụng không
 đăng nhập được thì tệ hơn là dừng để người quản trị biết mà sửa.
+
+---
+
+## B8 — Giữ độ ổn định dài hạn
+
+Ba lỗ hổng phát hiện khi rà lại chính những gì đã hứa ở B6–B7.
+
+**B8.1 — Kiểm thử không nằm trong kho mã.** Chỉ 153 bài có trong `test/`, 291 bài
+còn lại sống trong thư mục tạm của phiên làm việc nên phiên sau không chạy lại
+được. Đúng những bộ đó mới bắt được hồi quy khi sửa `lib/db.js` hay `lib/auth.js`.
+
+| Bước | Việc | Trạng thái |
+|------|------|-----------|
+| B8.1a | Chuyển 7 bộ cũ vào `test/`, bỏ hết đường dẫn cứng | ✅ Xong |
+| B8.1b | `test/_chung.mjs`: mỗi bộ tự dựng máy chủ, cổng riêng, CSDL tạm | ✅ Xong |
+| B8.1c | `npm test` (không cần trình duyệt) và `npm run test:giao-dien` | ✅ Xong |
+
+**B8.2 — Tệp dùng chung không có gì canh.** Cô lập lỗi bảo vệ bằng cách khoanh
+vùng, mà tệp dùng chung thì không có vùng riêng.
+
+| Bước | Việc | Trạng thái |
+|------|------|-----------|
+| B8.2a | `test:khe-uoc` chụp 104 mục các tệp dùng chung cung cấp, báo đỏ khi mất | ✅ Xong |
+| B8.2b | `scripts/kiem-tra-commit.js` chặn commit trộn tệp dùng chung với tính năng | ✅ Xong |
+| B8.2c | Chạy ở ba mức: gõ tay, móc git `commit-msg`, GitHub Actions | ✅ Xong |
+| B8.2d | Đường thoát `Tron-co-y:` phải là dòng riêng và có lý do | ✅ Xong |
+
+**B8.3 — Dữ liệu thật có thể lọt lên GitHub.** `data/school.db` vẫn đang được git
+theo dõi từ B1, vì `.gitignore` không có tác dụng với tệp đã commit từ trước.
+
+| Bước | Việc | Trạng thái |
+|------|------|-----------|
+| B8.3a | Gỡ theo dõi CSDL và tệp `.khoi-phuc-*`, giữ nguyên tệp trên đĩa | ✅ Xong |
+| B8.3b | `.gitignore` chặn cả `/data/*` rồi mở lại `seed.js` | ✅ Xong |
+| B8.3c | `scripts/kiem-tra-du-lieu.js` chặn lúc commit, kể cả khi ép `git add -f` | ✅ Xong |
+| B8.3d | GitHub kiểm lại mỗi lần push, canh cả `--no-verify` | ✅ Xong |
+| B8.3e | Cảnh báo lúc khởi động khi `DATA_DIR` nằm trong thư mục mã nguồn | ✅ Xong |
+| B8.3f | README: hướng dẫn chuyển dữ liệu ra ngoài, cho cả Windows và Linux | ✅ Xong |
+
+Hai bộ canh có triết lý ngược nhau, cố ý:
+
+- **Commit riêng** — có đường thoát, và nếu bản thân nó lỗi thì cho qua. Trộn
+  chung đôi khi hợp lý thật.
+- **Dữ liệu** — không có đường thoát, và nếu bản thân nó lỗi thì chặn. Không có
+  trường hợp nào mà đẩy hồ sơ trẻ em lên kho công khai là đúng, và lộ rồi thì
+  viết lại lịch sử git cũng không thu lại được.
 
 ---
 
