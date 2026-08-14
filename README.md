@@ -233,17 +233,70 @@ khi thử trên máy cá nhân, nhưng **nguy hiểm khi chạy thật** nếu m
 bằng `git pull`: hồ sơ học sinh khi đó nằm trong thư mục làm việc của git, chỉ cần
 một lần `git add -A` theo thói quen là bị đẩy lên kho công khai.
 
-Khi chạy thật, hãy trỏ ra ngoài:
+Chạy với `NODE_ENV=production` mà dữ liệu vẫn nằm trong thư mục mã nguồn thì máy
+chủ in cảnh báo ra log. Thấy cảnh báo thì làm theo dưới đây.
+
+**Chọn chỗ đặt dữ liệu.** Một thư mục nằm ngoài thư mục mã nguồn, trên ổ đĩa
+không bị xóa khi cài lại app:
+
+| Máy chủ | Đường dẫn nên dùng |
+|---|---|
+| Windows | `C:\SchoolConnectData` |
+| Linux | `/var/lib/schoolconnect` |
+| Docker / Render | `/data` — **đã cấu hình sẵn, không phải làm gì** |
+
+> **Đừng đặt trong OneDrive, Google Drive hay Dropbox.** Các dịch vụ này đồng bộ
+> tệp trong lúc máy chủ đang ghi, có thể làm **hỏng cơ sở dữ liệu**. Cũng đừng đặt
+> trên Desktop hay Documents nếu máy đã bật đồng bộ OneDrive.
+
+**Chuyển dữ liệu — làm đúng thứ tự này.**
+
+1. **Tắt máy chủ trước.** Đang chạy mà chép thì cơ sở dữ liệu có thể hỏng vì còn
+   dữ liệu nằm trong tệp `-wal` chưa ghi xong.
+2. Sao lưu cho chắc: `npm run backup`
+3. Chép **cả thư mục `data`** sang chỗ mới, trừ `seed.js`. Trên Windows:
+   ```powershell
+   mkdir C:\SchoolConnectData
+   copy data\school.db* C:\SchoolConnectData\
+   xcopy data\uploads C:\SchoolConnectData\uploads /E /I
+   xcopy data\backups C:\SchoolConnectData\backups /E /I
+   ```
+   Trên Linux:
+   ```bash
+   sudo mkdir -p /var/lib/schoolconnect
+   sudo cp -a data/school.db* data/uploads data/backups /var/lib/schoolconnect/
+   ```
+   Nhớ chép cả `school.db-wal` và `school.db-shm` nếu có — dấu `*` ở trên đã lo.
+4. **Chép xong mới khởi động.** Khởi động khi thư mục mới còn rỗng thì máy chủ
+   tưởng đây là lần chạy đầu và **sinh ra dữ liệu mẫu giả**.
+
+**Bảo máy chủ dùng chỗ mới.** Trên Windows, tạo tệp `chay.bat` ngay trong thư mục
+mã nguồn rồi từ nay mở app bằng cách bấm đúp vào nó:
+
+```bat
+@echo off
+set DATA_DIR=C:\SchoolConnectData
+set NODE_ENV=production
+npm start
+```
+
+Trên Linux:
 
 ```bash
-sudo mkdir -p /var/lib/schoolconnect
-sudo cp -a data/school.db data/uploads /var/lib/schoolconnect/   # chuyển dữ liệu cũ sang
 DATA_DIR=/var/lib/schoolconnect NODE_ENV=production npm start
 ```
 
-Docker và Render đã cấu hình sẵn `DATA_DIR=/data` gắn vào ổ đĩa riêng nên không
-cần làm gì thêm. Chạy với `NODE_ENV=production` mà dữ liệu vẫn nằm trong thư mục
-mã nguồn thì máy chủ sẽ in cảnh báo ra log.
+**Kiểm tra đã đúng chưa.** Khởi động và đọc log — dòng `Cơ sở dữ liệu:` phải trỏ
+vào chỗ mới, và cảnh báo phải biến mất:
+
+```
+SchoolConnect đang chạy tại http://localhost:3000
+Cơ sở dữ liệu: C:\SchoolConnectData\school.db
+```
+
+Rồi đăng nhập, mở danh sách học sinh và một album ảnh để chắc chắn dữ liệu cũ còn
+đủ. Xác nhận xong mới xóa thư mục `data` cũ — trước đó cứ đổi tên thành `data-cu`
+để còn đường lùi.
 
 Ngoài ra kho mã có ba lớp chặn để dữ liệu không lọt lên GitHub:
 
