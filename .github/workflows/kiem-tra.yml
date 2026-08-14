@@ -1,0 +1,65 @@
+name: Kiểm tra
+
+# Chạy mỗi lần đẩy mã lên hoặc mở pull request. Đây là lớp canh cuối: móc git ở
+# máy cá nhân bỏ qua được bằng `git commit --no-verify`, còn lớp này thì không.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  commit-rieng:
+    name: Sửa tệp dùng chung phải là commit riêng
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # cần đủ lịch sử để biết những commit nào là mới
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Kiểm tra từng commit mới
+        run: |
+          # Trên pull request thì xét các commit chưa có ở nhánh đích.
+          # Trên push thì xét các commit vừa đẩy lên.
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            KHOANG="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
+               && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            KHOANG="${{ github.event.before }}..${{ github.sha }}"
+          else
+            # Nhánh mới tạo: chỉ xét commit trên cùng.
+            KHOANG="${{ github.sha }}~1..${{ github.sha }}"
+          fi
+          echo "Khoảng kiểm tra: $KHOANG"
+          node scripts/kiem-tra-commit.js --khoang "$KHOANG"
+
+  kiem-thu:
+    name: 462 bài kiểm thử
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  kiem-thu-giao-dien:
+    name: 106 bài trên trình duyệt thật
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Cài trình duyệt cho Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Chạy kiểm thử giao diện
+        # Playwright tự tìm trình duyệt vừa cài, không dùng đường dẫn cố định.
+        run: CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")" npm run test:giao-dien

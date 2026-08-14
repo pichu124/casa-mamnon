@@ -1,0 +1,5 @@
+#!/bin/sh
+# Móc này chạy mỗi lần `git commit`, sau khi lời commit đã được soạn xong.
+# Nó chặn commit trộn việc sửa tệp dùng chung với việc thêm/bỏ tính năng.
+# Xem lý do đầy đủ trong scripts/kiem-tra-commit.js và CLAUDE.md.
+exec node "$(dirname "$0")/../scripts/kiem-tra-commit.js" --tin-nhan "$1"

@@ -76,6 +76,28 @@ và chạy kiểm thử sau mỗi bước: **thêm cái mới bên cạnh → ch
 cái mới → khi không còn ai gọi mới xóa cái cũ.** Ở bất kỳ bước nào app cũng đang
 chạy được.
 
+Hai vế trên **đều đã được canh bằng máy**, không phải chỉ là lời hứa.
+
+Vế thứ hai — commit riêng — do `scripts/kiem-tra-commit.js` canh, chạy ở ba chỗ:
+
+| Chạy ở đâu | Lệnh | Bỏ qua được không |
+|---|---|---|
+| Gõ tay bất cứ lúc nào | `npm run test:commit-rieng` | — |
+| Tự động mỗi lần `git commit` | móc `.githooks/commit-msg` | có, bằng `--no-verify` |
+| Trên GitHub mỗi lần push | `.github/workflows/kiem-tra.yml` | không |
+
+Nó xếp tệp đã `git add` vào hai nhóm — dùng chung (bốn tệp trên) và tính năng
+(`routes/*.js`, `public/js/views/*.js`, `modules/**`) — rồi chặn nếu cùng một
+commit có cả hai. Tài liệu, kiểm thử, `lib/modules.js`, `lib/schema.sql`,
+`public/index.html`, `public/sw.js` không thuộc nhóm nào, nên **thêm một tính
+năng lõi mới vẫn commit một lần bình thường**.
+
+Khi trộn chung là có chủ ý thật (ví dụ đổi tên một biến xuyên suốt), ghi
+`[tron-co-y]` kèm lý do vào lời commit. Lý do đó nằm lại trong lịch sử.
+
+Móc git được bật tự động sau `npm install` (mục `prepare`). Bật lại bằng tay:
+`git config core.hooksPath .githooks`.
+
 `npm run test:khe-uoc` canh vế thứ nhất: nó chụp lại toàn bộ những gì các tệp
 dùng chung đang cung cấp và báo đỏ nếu có thứ biến mất hoặc đổi số tham số. Thêm
 hàm mới thì không báo đỏ — chạy `npm run test:khe-uoc -- --cap-nhat` để ghi nhận.
@@ -90,7 +112,7 @@ phụ huynh xem được hồ sơ con nhà khác mà app không hề báo lỗi 
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test              # 462 bài, không cần trình duyệt, khoảng 3 phút
+npm test              # 484 bài, không cần trình duyệt, khoảng 3 phút
 ```
 
 Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
@@ -99,11 +121,12 @@ Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
 npm run test:giao-dien   # 106 bài chạy trên trình duyệt thật, cần Playwright
 ```
 
-Hoặc `npm run test:tat-ca` để chạy cả hai (568 bài).
+Hoặc `npm run test:tat-ca` để chạy cả hai (590 bài).
 
 | Bộ | Số bài | Canh điều gì |
 |---|---|---|
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
+| `test:commit-rieng-kiemthu` | 22 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bao-mat` | 38 | Mật khẩu, cookie, header, chống dò, phiên bền vững |
 | `test:mat-khau` | 25 | Cấp lại mật khẩu, buộc đổi mật khẩu tạm |
@@ -124,6 +147,28 @@ app vẫn đăng nhập được và các tính năng còn lại vẫn chạy.
 
 **Không được sửa hay nới lỏng bộ kiểm thử này để cho code chạy qua.** Nếu nó báo
 đỏ thì code sai, không phải bài kiểm thử sai.
+
+---
+
+## Chủ động nêu ý kiến về độ ổn định dài hạn
+
+Người dùng yêu cầu: **trong lúc làm bất cứ việc gì, thấy điều gì đe dọa độ ổn
+định lâu dài của ứng dụng thì nêu ra ngay, không đợi được hỏi.**
+
+Nêu là nêu, không phải tự ý làm. Nói rõ ba ý — thấy gì, hỏng ra sao nếu để yên,
+sửa thì tốn gì — rồi để người dùng quyết. Việc đang làm dở vẫn làm cho xong.
+
+Những thứ đáng nêu, ví dụ:
+
+- Dữ liệu thật có nguy cơ bị đẩy lên GitHub, bị ghi đè, hoặc mất khi khởi động lại.
+- Một chỗ hỏng có thể kéo sập cả ứng dụng thay vì chỉ hỏng một phần.
+- Một quy định trong tệp này đang không thực thi được trên thực tế.
+- Bài kiểm thử bao phủ thiếu đúng chỗ nguy hiểm, hoặc có bài kiểm thử luôn đúng.
+- Thứ hôm nay chạy được nhưng sẽ hỏng khi trường đông lên, khi sang năm học mới,
+  hoặc khi người khác tiếp quản mã.
+
+Đừng nêu những chuyện vặt về sở thích viết mã. Chỉ nêu thứ có thể làm phụ huynh
+và giáo viên không dùng được app, hoặc làm mất dữ liệu.
 
 ---
 
