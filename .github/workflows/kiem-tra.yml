@@ -37,7 +37,7 @@ jobs:
           node scripts/kiem-tra-commit.js --khoang "$KHOANG"
 
   kiem-thu:
-    name: 462 bài kiểm thử
+    name: Kiểm thử (492 bài)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +49,7 @@ jobs:
       - run: npm test
 
   kiem-thu-giao-dien:
-    name: 106 bài trên trình duyệt thật
+    name: Kiểm thử giao diện (106 bài)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
