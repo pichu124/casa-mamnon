@@ -161,15 +161,15 @@ Sáu tệp nền tảng (`auth`, `dashboard`, `admin`, `accounts`, `modules`,
 
 ## Tổng kết
 
-Bảy hạng mục B1–B7 đã hoàn thành. **590 bài kiểm thử tự động đều đạt**, tất cả
+Bảy hạng mục B1–B7 đã hoàn thành. **598 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 484 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 492 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
-| `test:commit-rieng-kiemthu` | 22 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
+| `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
 | `test:mat-khau` | 25 | Mật khẩu tạm, buộc đổi, phân quyền |

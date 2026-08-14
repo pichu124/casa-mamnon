@@ -168,7 +168,7 @@ viết sai chỉ làm chính nó ngưng hoạt động**:
 Kiểm chứng lại bất cứ lúc nào:
 
 ```bash
-npm test                 # 484 bài, khoảng 3 phút, không cần trình duyệt
+npm test                 # 492 bài, khoảng 3 phút, không cần trình duyệt
 npm run test:giao-dien   # thêm 106 bài chạy trên trình duyệt thật (cần Playwright)
 npm run test:tat-ca      # chạy cả hai
 ```

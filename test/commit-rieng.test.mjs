@@ -12,7 +12,7 @@ import { createRequire } from 'module';
 import { GOC, taoBoDem, thuMucTam } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
-const { phanLoai } = require(path.join(GOC, 'scripts', 'kiem-tra-commit.js'));
+const { phanLoai, xinThoat } = require(path.join(GOC, 'scripts', 'kiem-tra-commit.js'));
 const { check, tongKet } = taoBoDem();
 
 console.log('\n[1] Phân loại tệp');
@@ -40,7 +40,27 @@ console.log('\n[1] Phân loại tệp');
     !phanLoai(['lib/schema.sql', 'routes/health.js']).tron);
 }
 
-console.log('\n[2] Chặn thật khi commit trong một kho git');
+console.log('\n[2] Đường thoát phải là một dòng riêng, không phải chuỗi trong bài');
+{
+  check('dòng riêng có lý do → mở đường thoát',
+    xinThoat('Sửa gì đó\n\nTron-co-y: đổi tên biến xuyên suốt') === 'đổi tên biến xuyên suốt');
+  check('không phân biệt hoa thường', !!xinThoat('x\n\ntron-co-y: lý do'));
+
+  // Đây chính là lỗi đã xảy ra thật: lời commit GIẢI THÍCH quy định, không phải
+  // xin bỏ qua nó, mà vẫn được cho qua vì bộ canh chỉ tìm chuỗi trong bài.
+  check('nhắc tới quy định trong văn xuôi thì KHÔNG mở đường thoát',
+    xinThoat('Thêm bộ canh commit riêng\n\nĐường thoát: ghi Tron-co-y kèm lý do vào lời commit.') === null,
+    'lời commit chỉ nói về quy định lại vô tình tự miễn trừ');
+  check('token cũ kiểu [tron-co-y] không còn tác dụng',
+    xinThoat('Sửa gì đó [tron-co-y] vì lý do nào đó') === null);
+
+  check('dòng thoát mà bỏ trống lý do → không cho qua', xinThoat('x\n\nTron-co-y:') === null);
+  check('dòng thoát chỉ có khoảng trắng → không cho qua', xinThoat('x\n\nTron-co-y:    ') === null);
+  check('lời commit bình thường → không cho qua', xinThoat('Xe buýt: sửa lỗi hiển thị') === null);
+  check('lời commit rỗng → không cho qua', xinThoat('') === null);
+}
+
+console.log('\n[3] Chặn thật khi commit trong một kho git');
 {
   const kho = thuMucTam('commit-rieng');
   fs.mkdirSync(kho, { recursive: true });
@@ -66,8 +86,8 @@ console.log('\n[2] Chặn thật khi commit trong một kho git');
   git('add', '-A');
   // Commit đầu tiên có cả hai loại, nhưng đây là lúc dựng kho nên phải cho qua
   // bằng đường thoát — cũng chính là dịp kiểm tra đường thoát có hoạt động không.
-  const dauTien = thu(() => git('commit', '-q', '-m', 'dựng kho [tron-co-y] khởi tạo'));
-  check('đường thoát [tron-co-y] cho commit đi qua', dauTien.ok, dauTien.loi);
+  const dauTien = thu(() => git('commit', '-q', '-m', 'dựng kho\n\nTron-co-y: commit khởi tạo, chưa có gì để tách'));
+  check('đường thoát Tron-co-y cho commit đi qua', dauTien.ok, dauTien.loi);
 
   function thu(fn) {
     try { fn(); return { ok: true }; }
@@ -103,8 +123,8 @@ console.log('\n[2] Chặn thật khi commit trong một kho git');
     conCho.length === 2, conCho);
 
   // Trộn nhưng có đường thoát → cho qua.
-  const tronCoY = thu(() => git('commit', '-q', '-m', 'Xe buýt: sửa kèm nền [tron-co-y] đổi tên biến xuyên suốt'));
-  check('trộn kèm [tron-co-y] → cho qua', tronCoY.ok, tronCoY.loi);
+  const tronCoY = thu(() => git('commit', '-q', '-m', 'Xe buýt: sửa kèm nền\n\nTron-co-y: đổi tên biến xuyên suốt, tách ra thì mã không chạy'));
+  check('trộn kèm dòng Tron-co-y → cho qua', tronCoY.ok, tronCoY.loi);
 
   // Kiểm tra một commit đã có trong lịch sử.
   const ma = git('rev-parse', 'HEAD~1').trim();
@@ -123,7 +143,7 @@ console.log('\n[2] Chặn thật khi commit trong một kho git');
   fs.rmSync(kho, { recursive: true, force: true });
 }
 
-console.log('\n[3] Bộ canh hỏng thì không được chặn việc của người dùng');
+console.log('\n[4] Bộ canh hỏng thì không được chặn việc của người dùng');
 {
   // Lời giải thích đi ra luồng lỗi, nên dùng spawnSync để đọc được cả hai luồng.
   const kq = spawnSync('node',

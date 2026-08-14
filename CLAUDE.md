@@ -92,8 +92,16 @@ commit có cả hai. Tài liệu, kiểm thử, `lib/modules.js`, `lib/schema.sq
 `public/index.html`, `public/sw.js` không thuộc nhóm nào, nên **thêm một tính
 năng lõi mới vẫn commit một lần bình thường**.
 
-Khi trộn chung là có chủ ý thật (ví dụ đổi tên một biến xuyên suốt), ghi
-`[tron-co-y]` kèm lý do vào lời commit. Lý do đó nằm lại trong lịch sử.
+Khi trộn chung là có chủ ý thật (ví dụ đổi tên một biến xuyên suốt), thêm một
+**dòng riêng** vào cuối lời commit:
+
+```
+Tron-co-y: đổi tên biến xuyên suốt, tách ra thì mã không chạy được
+```
+
+Phải là dòng riêng và phải có lý do. Nhắc tới quy định này trong văn xuôi thì
+không mở được đường thoát — bản thân lời commit thêm bộ canh này đã mắc đúng lỗi
+đó một lần.
 
 Móc git được bật tự động sau `npm install` (mục `prepare`). Bật lại bằng tay:
 `git config core.hooksPath .githooks`.
@@ -112,7 +120,7 @@ phụ huynh xem được hồ sơ con nhà khác mà app không hề báo lỗi 
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test              # 484 bài, không cần trình duyệt, khoảng 3 phút
+npm test              # 492 bài, không cần trình duyệt, khoảng 3 phút
 ```
 
 Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
@@ -121,12 +129,12 @@ Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
 npm run test:giao-dien   # 106 bài chạy trên trình duyệt thật, cần Playwright
 ```
 
-Hoặc `npm run test:tat-ca` để chạy cả hai (590 bài).
+Hoặc `npm run test:tat-ca` để chạy cả hai (598 bài).
 
 | Bộ | Số bài | Canh điều gì |
 |---|---|---|
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
-| `test:commit-rieng-kiemthu` | 22 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
+| `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bao-mat` | 38 | Mật khẩu, cookie, header, chống dò, phiên bền vững |
 | `test:mat-khau` | 25 | Cấp lại mật khẩu, buộc đổi mật khẩu tạm |

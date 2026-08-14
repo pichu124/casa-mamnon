@@ -21,16 +21,31 @@
 //
 // ĐƯỜNG THOÁT
 //
-// Đôi khi trộn chung là hợp lý thật (ví dụ đổi tên một biến xuyên suốt). Ghi
-// `[tron-co-y]` kèm lý do vào lời commit thì đi qua được, và lý do đó vẫn nằm
-// lại trong lịch sử để sau này đọc ra.
+// Đôi khi trộn chung là hợp lý thật (ví dụ đổi tên một biến xuyên suốt). Thêm
+// một dòng riêng vào cuối lời commit:
+//
+//   Tron-co-y: đổi tên biến xuyên suốt, tách ra thì mã không chạy được
+//
+// Phải là một DÒNG RIÊNG và phải có lý do đi kèm. Cố ý viết như vậy để lời
+// commit chỉ nhắc tới quy định này trong văn xuôi thì không vô tình mở đường
+// thoát — chính lỗi đó đã xảy ra một lần khi bộ canh chỉ tìm chuỗi trong bài.
 'use strict';
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const GOC = path.join(__dirname, '..');
-const CHO_PHEP_TRON = '[tron-co-y]';
+// Đường thoát phải là một dòng riêng "Tron-co-y: <lý do>", không phải chỉ là
+// một chuỗi xuất hiện đâu đó trong bài — nếu không thì chính lời commit giải
+// thích quy định này cũng vô tình mở đường thoát.
+const DONG_THOAT = /^[ \t]*Tron-co-y:[ \t]*(\S.*)$/mi;
+const VI_DU_THOAT = 'Tron-co-y: <lý do>';
+
+// Trả về lý do nếu lời commit có xin đường thoát hợp lệ, ngược lại trả null.
+function xinThoat(loi) {
+  const m = DONG_THOAT.exec(loi || '');
+  return m ? m[1].trim() : null;
+}
 
 // Bốn tệp mà cả ứng dụng đang dựa vào. Danh sách này khớp với CLAUDE.md —
 // sửa ở đây thì sửa cả ở đó.
@@ -77,8 +92,11 @@ ${lenh}
     git add ${tinhNang.join(' ')}
     npm test && git commit -m "<tính năng>: ..."
 
-  Nếu lần này trộn chung là có chủ ý, ghi ${CHO_PHEP_TRON} kèm lý do vào lời
-  commit — lý do đó sẽ nằm lại trong lịch sử cho người sau đọc.
+  Nếu lần này trộn chung là có chủ ý, thêm một dòng riêng vào cuối lời commit:
+
+    ${VI_DU_THOAT}
+
+  Lý do đó sẽ nằm lại trong lịch sử cho người sau đọc.
 `;
 }
 
@@ -121,7 +139,8 @@ function main(argv) {
     for (const ma of dsMa) {
       const loi = loiCommit(ma);
       const nhan = `Commit ${ma.slice(0, 8)} ("${loi.split('\n')[0].slice(0, 60)}")`;
-      if (loi.includes(CHO_PHEP_TRON)) { console.log(`↷ ${nhan} — bỏ qua theo ${CHO_PHEP_TRON}`); continue; }
+      const lyDo = xinThoat(loi);
+      if (lyDo) { console.log(`↷ ${nhan} — bỏ qua có chủ ý: ${lyDo}`); continue; }
       const kq = phanLoai(tepCuaCommit(ma));
       if (kq.tron) { console.error(bienBan(kq, nhan)); hong++; }
       else console.log(`✓ ${nhan}`);
@@ -132,7 +151,8 @@ function main(argv) {
 
   if (maCommit) {
     const loi = loiCommit(maCommit);
-    if (loi.includes(CHO_PHEP_TRON)) { console.log(`↷ Bỏ qua theo ${CHO_PHEP_TRON}`); return 0; }
+    const lyDo = xinThoat(loi);
+    if (lyDo) { console.log(`↷ Bỏ qua có chủ ý: ${lyDo}`); return 0; }
     const kq = phanLoai(tepCuaCommit(maCommit));
     if (kq.tron) { console.error(bienBan(kq, `Commit ${maCommit.slice(0, 8)}`)); return 1; }
     console.log(`✓ Commit ${maCommit.slice(0, 8)} không trộn tệp dùng chung với tệp tính năng.`);
@@ -141,9 +161,9 @@ function main(argv) {
 
   // Mặc định: kiểm tra vùng đã `git add`.
   if (tepLoiNhan && fs.existsSync(tepLoiNhan)) {
-    const loi = fs.readFileSync(tepLoiNhan, 'utf8');
-    if (loi.includes(CHO_PHEP_TRON)) {
-      console.log(`↷ Bỏ qua kiểm tra commit riêng theo ${CHO_PHEP_TRON}`);
+    const lyDo = xinThoat(fs.readFileSync(tepLoiNhan, 'utf8'));
+    if (lyDo) {
+      console.log(`↷ Bỏ qua kiểm tra commit riêng, lý do đã ghi: ${lyDo}`);
       return 0;
     }
   }
@@ -153,7 +173,7 @@ function main(argv) {
   return 0;
 }
 
-module.exports = { phanLoai, DUNG_CHUNG, LA_TINH_NANG, CHO_PHEP_TRON };
+module.exports = { phanLoai, xinThoat, DUNG_CHUNG, LA_TINH_NANG, VI_DU_THOAT };
 
 if (require.main === module) {
   try {
