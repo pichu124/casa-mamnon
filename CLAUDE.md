@@ -78,6 +78,20 @@ chạy được.
 
 Hai vế trên **đều đã được canh bằng máy**, không phải chỉ là lời hứa.
 
+### Dữ liệu của trường không bao giờ được lên kho mã
+
+`scripts/kiem-tra-du-lieu.js` chặn mọi commit có chứa tệp `*.db`, `uploads/`,
+`backups/`, `.khoi-phuc-*`, `.env`, khóa ký, hay CSV danh sách học sinh trong
+`data/`. Chạy ở cùng ba chỗ như bộ canh commit riêng, nhưng **không có đường
+thoát** — không có trường hợp nào mà đẩy hồ sơ trẻ em lên kho công khai là đúng,
+và lộ rồi thì viết lại lịch sử git cũng không thu lại được.
+
+Bộ này còn khác một điểm: nếu bản thân nó chạy lỗi thì nó **chặn**, chứ không cho
+qua như bộ commit riêng. Thà phiền một lần còn hơn để lọt.
+
+Khi làm việc gì đụng tới đường dẫn dữ liệu, nhớ: mặc định `DATA_DIR` là `./data`
+nằm trong kho mã — tiện lúc phát triển nhưng phải trỏ ra ngoài khi chạy thật.
+
 Vế thứ hai — commit riêng — do `scripts/kiem-tra-commit.js` canh, chạy ở ba chỗ:
 
 | Chạy ở đâu | Lệnh | Bỏ qua được không |
@@ -120,7 +134,7 @@ phụ huynh xem được hồ sơ con nhà khác mà app không hề báo lỗi 
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test              # 492 bài, không cần trình duyệt, khoảng 3 phút
+npm test              # 532 bài, không cần trình duyệt, khoảng 3 phút
 ```
 
 Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
@@ -129,10 +143,11 @@ Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
 npm run test:giao-dien   # 106 bài chạy trên trình duyệt thật, cần Playwright
 ```
 
-Hoặc `npm run test:tat-ca` để chạy cả hai (598 bài).
+Hoặc `npm run test:tat-ca` để chạy cả hai (638 bài).
 
 | Bộ | Số bài | Canh điều gì |
 |---|---|---|
+| `test:du-lieu-kiemthu` | 40 | Dữ liệu thật không lọt lên kho mã |
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |

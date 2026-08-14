@@ -1,15 +1,38 @@
-data/backups/
-data/school.db
-data/school.db-wal
-data/school.db-shm
-data/school.db.*
-data/uploads/
-data/db.json*
-data/sessions.json*
+# ---------------------------------------------------------------------------
+# Dữ liệu của trường KHÔNG BAO GIỜ được đưa lên kho mã.
+#
+# Chặn cả thư mục data/ rồi mở lại đúng những tệp thuộc về mã nguồn. Làm theo
+# chiều này thì một tệp dữ liệu mang tên lạ trong tương lai vẫn tự động bị chặn,
+# thay vì phải nhớ bổ sung từng tên một.
+#
+# Khi chạy thật, nên để dữ liệu nằm HẲN ngoài thư mục mã nguồn:
+#     DATA_DIR=/var/lib/schoolconnect npm start
+# ---------------------------------------------------------------------------
+/data/*
+!/data/seed.js
+
+# Dữ liệu nằm ở nơi khác cũng chặn, phòng khi DATA_DIR trỏ vào trong kho mã.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+uploads/
+backups/
+.khoi-phuc-*
+db.json*
+sessions.json*
+
+# Bí mật
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
 node_modules/
 *.log
 .DS_Store
-.env
 
 # Android/Capacitor: giữ mã nguồn project, bỏ file build sinh ra
 .gradle/

@@ -137,6 +137,25 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Lỗi máy chủ' });
 });
 
+// Cảnh báo khi dữ liệu thật đang nằm ngay trong thư mục mã nguồn.
+//
+// Trường hợp nguy hiểm: triển khai bằng `git pull` ngay trên máy chủ. Khi đó
+// `data/school.db` nằm trong thư mục làm việc của git, và một lần `git add -A`
+// theo thói quen là đẩy hồ sơ học sinh lên kho công khai. `.gitignore` đã chặn,
+// nhưng chặn được thì cũng bỏ qua được bằng `git add -f`, nên vẫn phải nhắc.
+function warnDataInsideRepo() {
+  const trongKhoMa = !path.relative(__dirname, db.DATA_DIR).startsWith('..');
+  if (!trongKhoMa || !fs.existsSync(path.join(__dirname, '.git'))) return;
+  console.warn(
+    '\n⚠️  Dữ liệu của trường đang nằm TRONG thư mục mã nguồn:\n' +
+    `   ${db.DATA_DIR}\n\n` +
+    '   Nếu máy chủ này cập nhật bằng `git pull`, hồ sơ học sinh có nguy cơ bị\n' +
+    '   đẩy nhầm lên GitHub. Nên chuyển dữ liệu ra ngoài:\n\n' +
+    '     DATA_DIR=/var/lib/schoolconnect npm start\n\n' +
+    '   Nhớ chuyển cả tệp cũ sang thư mục mới trước khi khởi động lại.\n'
+  );
+}
+
 // Cảnh báo nếu đưa lên Internet mà vẫn dùng mật khẩu mẫu.
 function warnDefaultPasswords() {
   const demo = process.env.DEMO_PASSWORD || '123456';
@@ -159,7 +178,10 @@ if (db.isEmpty()) {
 const server = app.listen(PORT, HOST, () => {
   console.log(`SchoolConnect đang chạy tại http://localhost:${PORT}`);
   console.log(`Cơ sở dữ liệu: ${db.DB_FILE}`);
-  if (process.env.NODE_ENV === 'production') warnDefaultPasswords();
+  if (process.env.NODE_ENV === 'production') {
+    warnDefaultPasswords();
+    warnDataInsideRepo();
+  }
 });
 
 // Tắt máy chủ êm: ghi nốt dữ liệu đang chờ rồi mới thoát, tránh mất bản ghi

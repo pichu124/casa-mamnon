@@ -8,6 +8,35 @@ on:
   pull_request:
 
 jobs:
+  du-lieu:
+    name: Không có dữ liệu của trường trong kho mã
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Lớp chặn cuối. Móc git ở máy cá nhân bỏ qua được bằng --no-verify,
+      # còn lớp này thì không. Xét cả các commit vừa đẩy lên lẫn toàn bộ cây
+      # tệp hiện tại, phòng khi dữ liệu lọt vào từ một đường khác.
+      - name: Kiểm tra các commit mới
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            KHOANG="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
+               && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            KHOANG="${{ github.event.before }}..${{ github.sha }}"
+          else
+            KHOANG="${{ github.sha }}~1..${{ github.sha }}"
+          fi
+          node scripts/kiem-tra-du-lieu.js --khoang "$KHOANG"
+
+      - name: Kiểm tra toàn bộ tệp đang được theo dõi
+        run: git ls-files | xargs node scripts/kiem-tra-du-lieu.js --tep
+
   commit-rieng:
     name: Sửa tệp dùng chung phải là commit riêng
     runs-on: ubuntu-latest
@@ -37,7 +66,7 @@ jobs:
           node scripts/kiem-tra-commit.js --khoang "$KHOANG"
 
   kiem-thu:
-    name: Kiểm thử (492 bài)
+    name: Kiểm thử (532 bài)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

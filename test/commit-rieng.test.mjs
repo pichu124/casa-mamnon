@@ -74,8 +74,10 @@ console.log('\n[3] Chặn thật khi commit trong một kho git');
   for (const d of ['lib', 'routes', 'public/js', 'public/js/views', 'scripts', '.githooks']) {
     fs.mkdirSync(path.join(kho, d), { recursive: true });
   }
-  fs.copyFileSync(path.join(GOC, 'scripts', 'kiem-tra-commit.js'),
-    path.join(kho, 'scripts', 'kiem-tra-commit.js'));
+  // Móc commit-msg chạy CẢ HAI bộ canh, nên kho thử phải có đủ cả hai.
+  for (const t of ['kiem-tra-commit.js', 'kiem-tra-du-lieu.js']) {
+    fs.copyFileSync(path.join(GOC, 'scripts', t), path.join(kho, 'scripts', t));
+  }
   fs.copyFileSync(path.join(GOC, '.githooks', 'commit-msg'),
     path.join(kho, '.githooks', 'commit-msg'));
   fs.chmodSync(path.join(kho, '.githooks', 'commit-msg'), 0o755);

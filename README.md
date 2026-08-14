@@ -168,7 +168,7 @@ viết sai chỉ làm chính nó ngưng hoạt động**:
 Kiểm chứng lại bất cứ lúc nào:
 
 ```bash
-npm test                 # 492 bài, khoảng 3 phút, không cần trình duyệt
+npm test                 # 532 bài, khoảng 3 phút, không cần trình duyệt
 npm run test:giao-dien   # thêm 106 bài chạy trên trình duyệt thật (cần Playwright)
 npm run test:tat-ca      # chạy cả hai
 ```
@@ -221,10 +221,38 @@ docker run -d -p 80:3000 -v schoolconnect-data:/data --restart unless-stopped sc
 | `PORT` | `3000` | Cổng lắng nghe |
 | `HOST` | `0.0.0.0` | Địa chỉ lắng nghe (`0.0.0.0` cho phép máy khác trong mạng truy cập) |
 | `DATA_DIR` | `./data` | **Thư mục lưu dữ liệu và ảnh album — trỏ vào ổ đĩa gắn ngoài khi deploy** |
-| `NODE_ENV` | — | Đặt `production` để bật cảnh báo mật khẩu mặc định |
+| `NODE_ENV` | — | Đặt `production` để bật các cảnh báo an toàn lúc khởi động |
 | `FORCE_HTTPS` | — | Đặt `1` để tự chuyển hướng HTTP sang HTTPS |
 | `DEMO_PASSWORD` | `123456` | Mật khẩu ban đầu khi sinh dữ liệu mẫu lần đầu |
 | `TRUST_PROXY` | bật | Đặt `0` nếu **không** chạy sau reverse proxy |
+
+### ⚠️ Để dữ liệu của trường nằm NGOÀI thư mục mã nguồn
+
+Mặc định `DATA_DIR` là `./data`, tức là **nằm ngay trong thư mục mã nguồn**. Tiện
+khi thử trên máy cá nhân, nhưng **nguy hiểm khi chạy thật** nếu máy chủ cập nhật
+bằng `git pull`: hồ sơ học sinh khi đó nằm trong thư mục làm việc của git, chỉ cần
+một lần `git add -A` theo thói quen là bị đẩy lên kho công khai.
+
+Khi chạy thật, hãy trỏ ra ngoài:
+
+```bash
+sudo mkdir -p /var/lib/schoolconnect
+sudo cp -a data/school.db data/uploads /var/lib/schoolconnect/   # chuyển dữ liệu cũ sang
+DATA_DIR=/var/lib/schoolconnect NODE_ENV=production npm start
+```
+
+Docker và Render đã cấu hình sẵn `DATA_DIR=/data` gắn vào ổ đĩa riêng nên không
+cần làm gì thêm. Chạy với `NODE_ENV=production` mà dữ liệu vẫn nằm trong thư mục
+mã nguồn thì máy chủ sẽ in cảnh báo ra log.
+
+Ngoài ra kho mã có ba lớp chặn để dữ liệu không lọt lên GitHub:
+
+1. `.gitignore` chặn cả thư mục `data/`, mọi tệp `*.db`, `uploads/`, `backups/`, `.env`.
+2. Móc git chặn commit có chứa tệp dữ liệu — **kể cả khi bị ép bằng `git add -f`**.
+   Lớp này không có đường thoát.
+3. GitHub kiểm tra lại mỗi lần push, canh cả trường hợp bỏ qua móc bằng `--no-verify`.
+
+Kiểm tra bất cứ lúc nào: `npm run test:du-lieu`.
 
 ### Bảo mật đã có sẵn
 
