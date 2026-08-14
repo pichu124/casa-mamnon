@@ -171,7 +171,7 @@ viết sai chỉ làm chính nó ngưng hoạt động**:
 Kiểm chứng lại bất cứ lúc nào:
 
 ```bash
-npm test                 # 532 bài, khoảng 3 phút, không cần trình duyệt
+npm test                 # 549 bài, khoảng 3 phút, không cần trình duyệt
 npm run test:giao-dien   # thêm 106 bài chạy trên trình duyệt thật (cần Playwright)
 npm run test:tat-ca      # chạy cả hai
 ```
@@ -309,6 +309,53 @@ Ngoài ra kho mã có ba lớp chặn để dữ liệu không lọt lên GitHub
 3. GitHub kiểm tra lại mỗi lần push, canh cả trường hợp bỏ qua móc bằng `--no-verify`.
 
 Kiểm tra bất cứ lúc nào: `npm run test:du-lieu`.
+
+### Tự khởi động lại khi gặp sự cố
+
+Khi gặp lỗi lạ không xử lý được, máy chủ **cố ý dừng lại** (thay vì chạy tiếp với
+trạng thái không tin được rồi ghi dữ liệu sai) và trông cậy vào một trình giám sát
+bên ngoài bật lại nó trong vài giây. Chạy thật thì **bắt buộc có trình giám sát** —
+không có thì app tắt là tắt luôn cho tới khi có người để ý.
+
+**Docker / Render:** đã tự khởi động lại sẵn, không phải làm gì.
+
+**Windows — dùng NSSM** (tải `nssm.exe` từ nssm.cc, chép vào `C:\nssm\`), chạy
+PowerShell quyền Administrator:
+
+```powershell
+C:\nssm\nssm.exe install SchoolConnect "C:\Program Files\nodejs\node.exe" server.js
+C:\nssm\nssm.exe set SchoolConnect AppDirectory "C:\duong\dan\toi\thu-muc-app"
+C:\nssm\nssm.exe set SchoolConnect AppEnvironmentExtra DATA_DIR=C:\SchoolConnectData NODE_ENV=production
+C:\nssm\nssm.exe start SchoolConnect
+```
+
+Từ đây app chạy như một dịch vụ Windows: tự bật khi máy khởi động, tự bật lại khi
+gặp sự cố, không cần ai đăng nhập vào máy. Xem trạng thái trong `services.msc`,
+gỡ bằng `nssm.exe remove SchoolConnect`.
+
+**Linux — dùng systemd**, tạo `/etc/systemd/system/schoolconnect.service`:
+
+```ini
+[Unit]
+Description=SchoolConnect
+After=network.target
+
+[Service]
+WorkingDirectory=/duong/dan/toi/thu-muc-app
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+Environment=DATA_DIR=/var/lib/schoolconnect
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now schoolconnect   # bật ngay và tự chạy khi khởi động máy
+journalctl -u schoolconnect -f              # xem log
+```
 
 ### Bảo mật đã có sẵn
 

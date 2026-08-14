@@ -196,6 +196,26 @@ theo dõi từ B1, vì `.gitignore` không có tác dụng với tệp đã comm
 | B8.3e | Cảnh báo lúc khởi động khi `DATA_DIR` nằm trong thư mục mã nguồn | ✅ Xong |
 | B8.3f | README: hướng dẫn chuyển dữ liệu ra ngoài, cho cả Windows và Linux | ✅ Xong |
 
+**B8.4 — Node quá cũ phải bị chặn ngay lúc cài.** `engines` ghi `>=18` trong khi
+`better-sqlite3` v13 đòi `>=22` — lời hứa đang sai, ai cài Node cũ sẽ gặp lỗi
+biên dịch khó hiểu. Siết `engines` thành `>=22`, thêm `.nvmrc`, và bật
+`engine-strict` trong `.npmrc` để `npm install` dừng hẳn kèm thông báo rõ thay vì
+chỉ cảnh cáo rồi cài tiếp.
+
+**B8.5 — Lưới an toàn cho lỗi bất đồng bộ.** Cô lập lỗi ở tầng nạp phân hệ và
+tầng xử lý yêu cầu không đỡ được lỗi nổ trong `setTimeout` hay promise bị bỏ
+quên — đo thử thì một dòng viết ẩu trong một phân hệ cắm thêm giết cả tiến
+trình. Nay (`test:luoi-an-toan`, 17 bài):
+
+- Promise bị từ chối không ai bắt → ghi log rõ rồi **chạy tiếp**: đó chỉ là giá
+  trị lỗi bị bỏ quên, mọi thao tác ghi SQLite đều đồng bộ nên không có giao dịch
+  dở dang; sập cả trường vì một dấu `.catch` thiếu thì trái nguyên tắc số 1.
+- Lỗi ném đồng bộ không ai bắt → **dừng có chủ ý** với log giải thích và mã
+  thoát 1: trạng thái bộ nhớ không còn tin được, chạy tiếp có nguy cơ ghi dữ
+  liệu sai. Trình giám sát bật lại trong vài giây.
+- README thêm mục "Tự khởi động lại khi gặp sự cố": NSSM cho Windows, systemd
+  cho Linux; Docker/Render có sẵn. Chạy thật bắt buộc có trình giám sát.
+
 Hai bộ canh có triết lý ngược nhau, cố ý:
 
 - **Commit riêng** — có đường thoát, và nếu bản thân nó lỗi thì cho qua. Trộn
@@ -208,10 +228,10 @@ Hai bộ canh có triết lý ngược nhau, cố ý:
 
 ## Tổng kết
 
-Bảy hạng mục B1–B7 đã hoàn thành. **638 bài kiểm thử tự động đều đạt**, tất cả
+Bảy hạng mục B1–B7 đã hoàn thành. **655 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 532 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 549 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -225,6 +245,7 @@ Bảy hạng mục B1–B7 đã hoàn thành. **638 bài kiểm thử tự độ
 | `test:nam-hoc` | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
 | `test:tinh-nang` | 52 | Chặn API khi tắt, giữ dữ liệu, cắm thêm phân hệ mới |
 | `test:co-lap-loi` | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
+| `test:luoi-an-toan` | 17 | Lỗi bất đồng bộ: promise bỏ quên thì sống, nổ đồng bộ thì dừng sạch |
 
 `npm run test:giao-dien` — 106 bài chạy trên trình duyệt thật, cần Playwright:
 

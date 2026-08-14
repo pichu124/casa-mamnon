@@ -197,4 +197,37 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// ---------------------------------------------------------------------------
+// Lưới an toàn cuối cho lỗi bất đồng bộ.
+//
+// Cô lập lỗi ở tầng nạp phân hệ và tầng xử lý yêu cầu KHÔNG đỡ được lỗi ném ra
+// trong setTimeout hay trong promise bị bỏ quên — mặc định Node sập cả tiến
+// trình, nghĩa là một dòng viết ẩu trong MỘT phân hệ cắm thêm tắt app của CẢ
+// TRƯỜNG. Hai loại lỗi được đối xử khác nhau, có chủ ý:
+//
+// - Promise bị từ chối mà không ai bắt: ghi log rồi CHẠY TIẾP. Đó chỉ là một
+//   giá trị lỗi bị bỏ quên (thiếu .catch hoặc await); mọi thao tác ghi vào
+//   SQLite đều đồng bộ nên không có giao dịch nào đang dở dang. Sập cả trường
+//   vì một dấu .catch thiếu trong phân hệ Học phí thì trái nguyên tắc số 1.
+//
+// - Lỗi ném đồng bộ mà không ai bắt: trạng thái trong bộ nhớ có thể đang dở
+//   dang, chạy tiếp có nguy cơ ghi dữ liệu sai — tệ hơn là dừng. Ghi log thật
+//   rõ, đóng cơ sở dữ liệu rồi thoát mã 1 để trình giám sát (NSSM, systemd,
+//   Docker) khởi động lại. Xem README mục "Tự khởi động lại khi gặp sự cố".
+// ---------------------------------------------------------------------------
+process.on('unhandledRejection', (reason) => {
+  console.error('\n⚠️  Một promise bị từ chối mà không nơi nào bắt — thường do thiếu .catch hoặc await trong một phân hệ:');
+  console.error(reason);
+  console.error('   Ứng dụng vẫn chạy tiếp bình thường. Hãy tìm và sửa phân hệ gây ra lỗi này.\n');
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('\n✗ Lỗi không nơi nào bắt được — phải dừng để tránh ghi dữ liệu sai:');
+  console.error(err);
+  console.error('  Trình giám sát (NSSM / systemd / Docker) sẽ tự khởi động lại ứng dụng.');
+  console.error('  Nếu lỗi lặp lại, xem tên tệp trong dòng "at ..." phía trên để biết phân hệ nào gây ra.\n');
+  try { db.close(); } catch { /* đóng không được cũng không mất gì: WAL giữ nguyên dữ liệu đã ghi */ }
+  process.exit(1);
+});
+
 module.exports = app;

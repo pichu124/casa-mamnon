@@ -134,7 +134,7 @@ phụ huynh xem được hồ sơ con nhà khác mà app không hề báo lỗi 
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test              # 532 bài, không cần trình duyệt, khoảng 3 phút
+npm test              # 549 bài, không cần trình duyệt, khoảng 3 phút
 ```
 
 Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
@@ -143,7 +143,7 @@ Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
 npm run test:giao-dien   # 106 bài chạy trên trình duyệt thật, cần Playwright
 ```
 
-Hoặc `npm run test:tat-ca` để chạy cả hai (638 bài).
+Hoặc `npm run test:tat-ca` để chạy cả hai (655 bài).
 
 | Bộ | Số bài | Canh điều gì |
 |---|---|---|
@@ -157,6 +157,7 @@ Hoặc `npm run test:tat-ca` để chạy cả hai (638 bài).
 | `test:nam-hoc` | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
 | `test:tinh-nang` | 52 | Bật/tắt phân hệ, cắm thêm phân hệ mới |
 | `test:co-lap-loi` | 101 | **Nguyên tắc số 1** |
+| `test:luoi-an-toan` | 17 | Lỗi bất đồng bộ: promise bỏ quên thì sống, nổ đồng bộ thì dừng sạch |
 | `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
 | `test:pwa` | 43 | Cài như app, chạy offline, khổ iPhone và Android |
 
