@@ -19,6 +19,9 @@ Kế hoạch triển khai đầy đủ (hạ tầng, chi phí, pháp lý, vận 
 
 ## Chạy ứng dụng
 
+Cần **Node.js 22 trở lên** (tải tại nodejs.org, chọn bản LTS). Máy cài bản cũ hơn
+sẽ bị chặn ngay ở `npm install` kèm thông báo rõ, thay vì lỗi khó hiểu về sau.
+
 ```bash
 npm install
 npm start
