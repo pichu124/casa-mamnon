@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
 import { createRequire } from 'module';
-import { GOC, taoBoDem, thuMucTam } from './_chung.mjs';
+import { GOC, taoBoDem, thuMucTam, donThuMucTam } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
 const { phanLoai, xinThoat } = require(path.join(GOC, 'scripts', 'kiem-tra-commit.js'));
@@ -142,7 +142,7 @@ console.log('\n[3] Chặn thật khi commit trong một kho git');
     { cwd: kho, encoding: 'utf8' }));
   check('kiểm tra được cả một khoảng commit', khoang.ok, khoang.loi);
 
-  fs.rmSync(kho, { recursive: true, force: true });
+  donThuMucTam(kho);
 }
 
 console.log('\n[4] Bộ canh hỏng thì không được chặn việc của người dùng');

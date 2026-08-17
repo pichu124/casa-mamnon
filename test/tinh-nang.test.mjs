@@ -10,12 +10,10 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
-
-const GOC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
 const PORT = Number(process.env.TEST_PORT || 3700);
 const BASE = `http://localhost:${PORT}`;
-const DIR = path.join(os.tmpdir(), 'schoolconnect-test-tinh-nang');
-fs.rmSync(DIR, { recursive: true, force: true });
+const DIR = thuMucTam('tinh-nang');
 
 let pass = 0, fail = 0; const errs = [];
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✓', n); } else { fail++; errs.push(`${n} ${x != null ? JSON.stringify(x).slice(0,250) : ''}`); console.log('  ✗', n, x ?? ''); } };
@@ -228,6 +226,6 @@ console.log('\n[9] Phân hệ hỏng không làm sập ứng dụng');
 
 server.kill('SIGTERM');
 await new Promise(r => setTimeout(r, 600));
-fs.rmSync(DIR, { recursive: true, force: true });
+donThuMucTam(DIR);
 console.log(`\n===== PASS: ${pass}  FAIL: ${fail} =====`);
 if (errs.length) { console.log('\nLỖI:'); errs.forEach(e => console.log(' ✗', e)); process.exit(1); }

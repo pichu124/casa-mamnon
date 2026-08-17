@@ -237,6 +237,13 @@ Hai lần chạy đầu trên máy Windows thật (B8.6) lần ra thủ phạm t
   nhất có đủ tệp dựng sẵn (kiểm chứng 200 cho win32-x64 và linux-x64, hỗ trợ
   Node 20→26), toàn bộ 655 bài chạy lại đều xanh.
 
+**B8.8 — Dọn thư mục tạm kiểu Windows.** Phát hiện thứ ba từ máy trường: cả 38
+bài bảo mật ĐẠT nhưng bài văng ở khâu đổ rác cuối — Windows từ chối xóa tệp .db
+mà máy chủ thử vừa bị tắt còn giữ (EBUSY), điều Linux cho phép nên không nơi nào
+khác thấy. Nay: dọn ĐẦU lần chạy có retry là chốt chặn chính; dọn CUỐI là
+cố-gắng-hết-sức, xóa không được thì để lần sau dọn — không để việc đổ rác làm đỏ
+một bài đã đạt.
+
 ⏰ **Hẹn xem lại: đầu năm học 2027 (Node 22 hết hỗ trợ 04/2027).** Trình tự:
 kiểm tra dòng 13.x của `better-sqlite3` đã phát hành kèm tệp dựng sẵn chưa
 (soi assets trên GitHub Releases, đừng tin số phiên bản) → nâng thư viện →

@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
 import { createRequire } from 'module';
-import { GOC, taoBoDem, thuMucTam } from './_chung.mjs';
+import { GOC, taoBoDem, thuMucTam, donThuMucTam } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
 const { soiTep } = require(path.join(GOC, 'scripts', 'kiem-tra-du-lieu.js'));
@@ -129,7 +129,7 @@ console.log('\n[4] Chặn thật khi commit, kể cả khi cố tình ép bằng
   check('tệp dữ liệu vẫn còn nguyên trên đĩa, không bị xóa',
     fs.readFileSync(path.join(kho, 'data', 'school.db'), 'utf8') === 'DỮ LIỆU HỌC SINH THẬT');
 
-  fs.rmSync(kho, { recursive: true, force: true });
+  donThuMucTam(kho);
 }
 
 console.log('\n[5] Bộ canh hỏng thì CHẶN, không cho qua');

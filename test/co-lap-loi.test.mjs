@@ -11,11 +11,10 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
-
-const GOC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
 const PORT = Number(process.env.TEST_PORT || 3710);
 const BASE = `http://localhost:${PORT}`;
-const DIR = path.join(os.tmpdir(), 'schoolconnect-test-co-lap');
+const DIR = thuMucTam('co-lap');
 const ROUTES = path.join(GOC, 'routes');
 const MODULES = path.join(GOC, 'modules');
 
@@ -44,7 +43,6 @@ function taoPhanHe(ten, tep) {
   for (const [f, noiDung] of Object.entries(tep)) fs.writeFileSync(path.join(d, f), noiDung);
 }
 
-fs.rmSync(DIR, { recursive: true, force: true });
 execSync('node data/seed.js --force', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } });
 const out = execSync('node scripts/create-admin.js "Hiệu Trưởng" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const mkTam = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
@@ -251,6 +249,6 @@ console.log('\n[8] Trở về nguyên trạng — mọi thứ chạy lại đầ
 
 await stop();
 hoanTac();
-fs.rmSync(DIR, { recursive: true, force: true });
+donThuMucTam(DIR);
 console.log(`\n===== PASS: ${pass}  FAIL: ${fail} =====`);
 if (errs.length) { console.log('\nLỖI:'); errs.forEach(e => console.log(' ✗', e)); process.exit(1); }

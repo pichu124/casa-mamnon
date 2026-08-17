@@ -5,7 +5,7 @@
 // Chạy bằng:  npm run test:bao-mat
 import fs from 'fs';
 import { spawn } from 'child_process';
-import { GOC, thuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3200);
 const BASE = `http://localhost:${PORT}`;
@@ -169,7 +169,7 @@ console.log('\n[9] Chống dò mật khẩu');
 }
 
 server.kill('SIGTERM');
-fs.rmSync(TEST_DIR, { recursive: true, force: true });
+donThuMucTam(TEST_DIR);
 
 console.log(`\n===== PASS: ${pass}  FAIL: ${fail} =====`);
 if (errs.length) { console.log('\nLỖI:'); errs.forEach(e => console.log(' ✗', e)); process.exit(1); }

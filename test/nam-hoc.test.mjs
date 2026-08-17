@@ -3,7 +3,7 @@
 // Chạy bằng:  npm run test:nam-hoc
 import fs from 'fs';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3600);
 const BASE = `http://localhost:${PORT}`;
@@ -125,6 +125,6 @@ console.log('\n[6] Không cho chuyển trùng năm');
 
 server.kill('SIGTERM');
 await new Promise(r => setTimeout(r, 500));
-fs.rmSync(DIR, { recursive: true, force: true });
+donThuMucTam(DIR);
 console.log(`\n===== PASS: ${pass}  FAIL: ${fail} =====`);
 if (errs.length) { console.log('\nLỖI:'); errs.forEach(e => console.log(' ✗', e)); process.exit(1); }

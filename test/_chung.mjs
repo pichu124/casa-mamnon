@@ -36,10 +36,20 @@ export function taoBoDem() {
 }
 
 // Thư mục dữ liệu tạm riêng của một bộ kiểm thử, xóa sạch trước khi dùng.
+// Có retry vì trên Windows tệp của lần chạy trước có thể còn bị giữ thêm một nhịp.
 export function thuMucTam(ten) {
   const dir = path.join(os.tmpdir(), `schoolconnect-test-${ten}`);
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   return dir;
+}
+
+// Dọn thư mục tạm ở CUỐI bài. Trên Windows, máy chủ thử vừa bị tắt có thể còn
+// giữ tệp .db thêm một lát và hệ điều hành sẽ từ chối xóa (EBUSY) — khác Linux.
+// Xóa không được thì bỏ qua: thuMucTam() của lần chạy sau sẽ dọn nốt. Đừng để
+// việc đổ rác làm đỏ một bài kiểm thử đã đạt.
+export function donThuMucTam(dir) {
+  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); }
+  catch { /* Windows còn giữ tệp — lần chạy sau dọn */ }
 }
 
 // Sinh dữ liệu mẫu vào cơ sở dữ liệu tạm.
