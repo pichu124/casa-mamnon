@@ -224,6 +224,17 @@ truyền biến qua tham số `env` của Node và để Playwright tự tìm tr
 không có `CHROMIUM_PATH`. ⚠️ Chưa có máy Windows thật để kiểm chứng — **lần chạy
 `npm test` đầu tiên trên máy trường chính là bài kiểm chứng còn thiếu.**
 
+**B8.7 — Ghim đúng dòng Node 22, có hẹn ngày xem lại.** Lần chạy đầu trên máy
+Windows thật bắt được: Node 24 lọt qua khai báo `>=22` rồi vỡ ở `better-sqlite3`
+vì bản mới nhất của thư viện này (13.0.3, ngày 05/08/2026) chưa kèm bản dựng sẵn
+cho Node 24 trên Windows — nó đòi tự biên dịch bằng Visual Studio. Đã ghim
+`engines: 22.x`; sai dòng là `npm install` chặn ngay kèm giải thích.
+
+⏰ **Hẹn xem lại: đầu năm học 2027 (Node 22 hết hỗ trợ 04/2027).** Trình tự nâng:
+cập nhật `better-sqlite3` lên bản có bản dựng sẵn Node 24 → chạy đủ 655 bài trên
+cả hai dòng Node → kiểm trên Windows → mới nới `engines` thành `22.x || 24.x`.
+Không đảo thứ tự.
+
 Hai bộ canh có triết lý ngược nhau, cố ý:
 
 - **Commit riêng** — có đường thoát, và nếu bản thân nó lỗi thì cho qua. Trộn
