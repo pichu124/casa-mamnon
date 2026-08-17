@@ -223,8 +223,8 @@ lệnh" mới đúng trên Linux, chưa đúng trên máy Windows của trườn
 truyền biến qua tham số `env` của Node và để Playwright tự tìm trình duyệt khi
 không có `CHROMIUM_PATH`.
 
-✅ **Đã kiểm chứng ngày 17/08/2026 trên chính máy Windows của trường: 549/549
-bài đạt.** Ba lần chạy đầu lần lượt bắt được ba khác biệt thật mà Linux không
+✅ **Đã kiểm chứng ngày 17/08/2026 trên chính máy Windows của trường: trọn bộ
+655/655 bài đạt** (549 bài `npm test` + 106 bài giao diện trên trình duyệt thật). Ba lần chạy đầu lần lượt bắt được ba khác biệt thật mà Linux không
 thể thấy (B8.7 — thư viện thiếu tệp dựng sẵn, B8.8 — Windows khóa tệp khi dọn),
 sửa xong thì xanh trọn bộ. Bộ kiểm thử nay được chứng minh trên cả ba môi
 trường: máy phát triển (Linux), CI của GitHub (Linux), máy trường (Windows).
