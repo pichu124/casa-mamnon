@@ -37,7 +37,7 @@
     "test:tat-ca": "npm test && npm run test:giao-dien"
   },
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "license": "MIT",
   "dependencies": {

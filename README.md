@@ -19,8 +19,10 @@ Kế hoạch triển khai đầy đủ (hạ tầng, chi phí, pháp lý, vận 
 
 ## Chạy ứng dụng
 
-Cần **Node.js 22 trở lên** (tải tại nodejs.org, chọn bản LTS). Máy cài bản cũ hơn
-sẽ bị chặn ngay ở `npm install` kèm thông báo rõ, thay vì lỗi khó hiểu về sau.
+Cần **đúng dòng Node.js 22 (LTS)** — tải tệp `-x64.msi` tại
+https://nodejs.org/dist/latest-v22.x/. Bản khác dòng 22 (kể cả MỚI HƠN như Node 24)
+sẽ bị chặn ngay ở `npm install`: thư viện cơ sở dữ liệu cần bản dựng sẵn khớp đúng
+phiên bản Node, sai dòng là nó quay ra tự biên dịch và đòi cài Visual Studio.
 
 ```bash
 npm install
