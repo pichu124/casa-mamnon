@@ -19,7 +19,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B5 | Chuyển năm học và lên lớp | ✅ **Hoàn thành** — 31/31 kiểm thử đạt |
 | B6 | Bật/tắt tính năng và cắm thêm tính năng mới | ✅ **Hoàn thành** — 72/72 kiểm thử đạt |
 | B7 | Cô lập lỗi: thêm/bỏ tính năng không làm hỏng app | ✅ **Hoàn thành** — 101/101 kiểm thử đạt |
-| B8 | Giữ độ ổn định dài hạn: kiểm thử vào kho mã, canh tệp dùng chung, chặn lộ dữ liệu | ✅ **Hoàn thành** — 174/174 kiểm thử đạt |
+| B8 | Giữ độ ổn định dài hạn: kiểm thử vào kho mã, canh tệp dùng chung, chặn lộ dữ liệu | ✅ **Hoàn thành** — 191/191 kiểm thử đạt, đã kiểm chứng trên máy Windows của trường |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -221,8 +221,13 @@ trình. Nay (`test:luoi-an-toan`, 17 bài):
 chết `/opt/pw-browsers/chromium` (chỉ tồn tại trên CI) — tức là "chạy bằng một
 lệnh" mới đúng trên Linux, chưa đúng trên máy Windows của trường. Đã chuyển sang
 truyền biến qua tham số `env` của Node và để Playwright tự tìm trình duyệt khi
-không có `CHROMIUM_PATH`. ⚠️ Chưa có máy Windows thật để kiểm chứng — **lần chạy
-`npm test` đầu tiên trên máy trường chính là bài kiểm chứng còn thiếu.**
+không có `CHROMIUM_PATH`.
+
+✅ **Đã kiểm chứng ngày 17/08/2026 trên chính máy Windows của trường: 549/549
+bài đạt.** Ba lần chạy đầu lần lượt bắt được ba khác biệt thật mà Linux không
+thể thấy (B8.7 — thư viện thiếu tệp dựng sẵn, B8.8 — Windows khóa tệp khi dọn),
+sửa xong thì xanh trọn bộ. Bộ kiểm thử nay được chứng minh trên cả ba môi
+trường: máy phát triển (Linux), CI của GitHub (Linux), máy trường (Windows).
 
 **B8.7 — Ghim Node 22 và ghim thư viện cơ sở dữ liệu ở bản có tệp dựng sẵn.**
 Hai lần chạy đầu trên máy Windows thật (B8.6) lần ra thủ phạm theo hai lớp:
