@@ -175,9 +175,13 @@ Kiểm chứng lại bất cứ lúc nào:
 
 ```bash
 npm test                 # 549 bài, khoảng 3 phút, không cần trình duyệt
-npm run test:giao-dien   # thêm 106 bài chạy trên trình duyệt thật (cần Playwright)
+npm run test:giao-dien   # thêm 106 bài chạy trên trình duyệt thật (xem ghi chú dưới)
 npm run test:tat-ca      # chạy cả hai
 ```
+
+> Bộ giao diện cần trình duyệt riêng của Playwright. Lần đầu trên mỗi máy, chạy
+> `npx playwright install chromium` (tải một lần, ~150MB) rồi mới
+> `npm run test:giao-dien`. Thiếu bước này sẽ gặp lỗi "Executable doesn't exist".
 
 Trong đó `test:co-lap-loi` cố tình phá hỏng từng thứ — viết sai một tính năng lõi,
 xóa mất tệp của một tính năng, cắm một phân hệ chiếm đường dẫn của phần khác, một
