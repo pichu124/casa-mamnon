@@ -7,10 +7,14 @@
 //
 // Nhà trường cần một tệp Word để đọc, in và lưu hồ sơ — nhưng tệp Word thì
 // không theo dõi thay đổi cùng mã nguồn được. Nên nguồn của tài liệu nằm ở đây
-// (chữ) và ở docs/so-do-trien-khai.svg (sơ đồ), cùng nằm trong kho mã: khi app
-// đổi cách triển khai thì sửa hai tệp nguồn này rồi chạy lệnh trên, bản Word
+// (chữ) và ở docs/so-do-trien-khai*.svg (sơ đồ), cùng nằm trong kho mã: khi app
+// đổi cách triển khai thì sửa các tệp nguồn này rồi chạy lệnh trên, bản Word
 // mới sinh ra luôn khớp với phiên bản app hiện tại (tài liệu tự đóng dấu số
 // phiên bản mã nguồn ở trang đầu).
+//
+// Tài liệu trình bày HAI phương án đặt máy chủ:
+//   A — máy chủ tại trường (Windows + NSSM)
+//   B — thuê VPS (Ubuntu + systemd + Caddy), máy trường chỉ giữ bản sao lưu
 //
 // Cần: thư viện `docx` (đã nằm trong devDependencies) và trình duyệt Playwright
 // (dùng để vẽ sơ đồ SVG thành ảnh — cùng trình duyệt của bộ kiểm thử giao diện).
@@ -27,13 +31,13 @@ const {
 } = require('docx');
 
 // ---------------------------------------------------------------------------
-// 1. Vẽ sơ đồ SVG thành ảnh PNG bằng trình duyệt của Playwright
+// 1. Vẽ các sơ đồ SVG thành ảnh PNG bằng trình duyệt của Playwright
 // ---------------------------------------------------------------------------
-async function veSoDo() {
+async function veSoDo(tenTepSvg) {
   const { chromium } = require('playwright');
   const CHROMIUM = process.env.CHROMIUM_PATH
     || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
-  const svg = fs.readFileSync(path.join(GOC, 'docs', 'so-do-trien-khai.svg'), 'utf8');
+  const svg = fs.readFileSync(path.join(GOC, 'docs', tenTepSvg), 'utf8');
   const browser = await chromium.launch({ executablePath: CHROMIUM });
   const page = await browser.newPage({ viewport: { width: 1600, height: 1100 }, deviceScaleFactor: 2 });
   await page.setContent(`<body style="margin:0;background:#fff">${svg}</body>`);
@@ -63,6 +67,12 @@ const lenh = (...dong) => dong.map(d => new Paragraph({
   children: [new TextRun({ text: d, font: 'Consolas', size: 19 })],
 }));
 const trang = () => new Paragraph({ children: [new PageBreak()] });
+const hinh = (anh, ghiChu) => [
+  new Paragraph({ spacing: { before: 120, after: 60 }, alignment: AlignmentType.CENTER,
+    children: [new ImageRun({ data: anh, type: 'png', transformation: { width: 640, height: 417 } })] }),
+  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 },
+    children: [new TextRun({ text: ghiChu, size: 18, italics: true, color: XAM })] }),
+];
 
 const RONG_BANG = 9638; // A4 trừ lề 2cm mỗi bên, tính bằng DXA
 function bang(cot, hang) { // cot: [{ten, rong}], hang: [[ô, ...]]
@@ -88,7 +98,8 @@ function bang(cot, hang) { // cot: [{ten, rong}], hang: [[ô, ...]]
 // 3. Nội dung tài liệu
 // ---------------------------------------------------------------------------
 async function main() {
-  const anhSoDo = await veSoDo();
+  const anhTruong = await veSoDo('so-do-trien-khai.svg');
+  const anhVps = await veSoDo('so-do-trien-khai-vps.svg');
   const phienBan = (() => {
     try { return execSync('git rev-parse --short HEAD', { cwd: GOC }).toString().trim(); }
     catch { return 'không rõ'; }
@@ -100,7 +111,7 @@ async function main() {
     new Paragraph({ spacing: { before: 2200, after: 200 }, alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: 'QUY TRÌNH TRIỂN KHAI SCHOOLCONNECT', bold: true, size: 52, color: XANH_DAM })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 500 },
-      children: [new TextRun({ text: 'Đưa sổ liên lạc điện tử vào sử dụng thật cho trường khoảng 300 học sinh', size: 26, color: XAM })] }),
+      children: [new TextRun({ text: 'Đưa sổ liên lạc điện tử vào sử dụng thật cho trường khoảng 300 học sinh — hai phương án: máy chủ tại trường hoặc thuê VPS', size: 26, color: XAM })] }),
     new Paragraph({ alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: `Sinh tự động từ kho mã — bản mã nguồn ${phienBan}, ngày ${homNay}`, size: 20, color: XAM })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 300 },
@@ -109,44 +120,69 @@ async function main() {
 
     // ---------- Cách dùng + lộ trình ----------
     h1('Cách dùng tài liệu này'),
-    p('Tài liệu chia việc triển khai thành 7 giai đoạn, làm theo đúng thứ tự. Cuối mỗi giai đoạn có một bảng kiểm — ',
+    p('Việc triển khai chia thành 7 giai đoạn, làm theo đúng thứ tự. Cuối mỗi giai đoạn có một bảng kiểm — ',
       { text: 'đánh dấu đủ mọi ô rồi mới sang giai đoạn sau. ', bold: true },
-      'Các lệnh trong khung xám gõ vào PowerShell, mỗi lần một dòng, tại thư mục app (ví dụ C:\\Users\\Administrator\\School).'),
-    p('Giai đoạn 1–5 hoàn toàn trong mạng nội bộ của trường, không phụ thuộc Internet ổn định hay tên miền. Giai đoạn 6 (mở ra Internet cho phụ huynh dùng 4G) là tùy chọn và làm sau cùng.'),
+      'Các lệnh trong khung xám gõ mỗi lần một dòng: lệnh Windows gõ vào PowerShell tại thư mục app; lệnh VPS gõ trong phiên SSH.'),
+    p({ text: 'Giai đoạn 2 và 3 là hai phương án đặt máy chủ — chỉ làm MỘT trong hai', bold: true },
+      ' (chọn ở giai đoạn 1). Các giai đoạn còn lại dùng chung; chỗ nào hai phương án khác nhau, tài liệu đánh dấu rõ [A] / [B].'),
     bang(
       [{ ten: 'Giai đoạn', rong: 1200 }, { ten: 'Việc chính', rong: 5438 }, { ten: 'Thời lượng ước tính', rong: 3000 }],
       [
-        ['1', 'Chuẩn bị máy chủ, cài phần mềm, chạy đủ kiểm thử', 'nửa buổi'],
-        ['2', 'Cấu hình chạy thật: dữ liệu ra ngoài, chạy như dịch vụ Windows', 'nửa buổi'],
-        ['3', 'An toàn dữ liệu: tài khoản, mật khẩu, sao lưu hằng đêm, pháp lý', '1 buổi + chờ ký giấy'],
-        ['4', 'Nhập danh sách học sinh thật, in phiếu tài khoản', '1 buổi'],
-        ['5', 'Tập huấn giáo viên, phát phiếu, cài app cho người dùng', '1–2 tuần đầu năm học'],
-        ['6', '(Tùy chọn) Mở ra Internet cho phụ huynh dùng qua 4G', '1 buổi'],
+        ['1', 'Chọn phương án đặt máy chủ, chuẩn bị chung', '1 buổi bàn bạc'],
+        ['2', '[A] Dựng máy chủ tại trường (Windows + NSSM)', 'nửa buổi — 1 buổi'],
+        ['3', '[B] Thuê và dựng VPS (Ubuntu + systemd + Caddy)', '1 buổi'],
+        ['4', 'An toàn dữ liệu: tài khoản, mật khẩu, sao lưu hằng đêm, pháp lý', '1 buổi + chờ ký giấy'],
+        ['5', 'Nhập danh sách học sinh thật, in phiếu tài khoản', '1 buổi'],
+        ['6', 'Tập huấn giáo viên, phát phiếu, cài app cho người dùng', '1–2 tuần đầu năm học'],
         ['7', 'Vận hành định kỳ: sao lưu, cập nhật, cuối năm học', 'lặp lại quanh năm'],
       ]),
-
-    h1('Sơ đồ triển khai tổng thể'),
-    new Paragraph({ spacing: { before: 120, after: 60 }, alignment: AlignmentType.CENTER,
-      children: [new ImageRun({ data: anhSoDo, type: 'png', transformation: { width: 640, height: 402 } })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 },
-      children: [new TextRun({ text: 'Mũi tên liền: luồng hằng ngày, tự động. Mũi tên đứt: định kỳ / tùy chọn. Nguồn hình: docs/so-do-trien-khai.svg', size: 18, italics: true, color: XAM })] }),
-    p('Đọc sơ đồ theo bốn ý chính:'),
-    bullet('Trái trên — máy chủ của trường: app chạy bên trong dịch vụ Windows (NSSM) nên tự bật khi khởi động máy và tự hồi phục khi gặp sự cố; toàn bộ dữ liệu nằm ở C:\\SchoolConnectData, tách hẳn khỏi thư mục mã nguồn; đêm nào cũng tự sao lưu.'),
-    bullet('Phải trên — người dùng trong trường kết nối qua Wi-Fi nội bộ tới địa chỉ IP của máy chủ; phụ huynh ở nhà chỉ dùng được khi đã làm giai đoạn 6.'),
-    bullet('Phải dưới — GitHub chỉ giữ mã nguồn và bộ kiểm thử, có 4 lớp canh tự động để không bao giờ chứa dữ liệu học sinh.'),
-    bullet('Trái dưới — cập nhật app luôn theo một nhịp ba bước: tải mã, chạy kiểm thử, xanh hết mới khởi động lại.'),
     trang(),
 
-    // ---------- GĐ 1 ----------
-    h1('Giai đoạn 1 — Chuẩn bị máy chủ'),
-    h2('1.1  Chọn máy'),
-    bullet('Một máy Windows để cố định tại trường, chạy liên tục trong giờ làm việc (máy bàn văn phòng là đủ; 4GB RAM trở lên).'),
-    bullet('Cắm dây mạng hoặc Wi-Fi ổn định; nên có UPS hoặc ít nhất ổ cắm không bị rút nhầm.'),
-    bullet('Đặt IP tĩnh cho máy này (hoặc nhờ người quản lý router "gán IP cố định theo địa chỉ máy") — để địa chỉ app không đổi mỗi lần mất điện.'),
-    h2('1.2  Cài phần mềm nền'),
-    bullet('Node.js đúng dòng 22 (LTS): tải tệp -x64.msi tại https://nodejs.org/dist/latest-v22.x/ — bản khác dòng 22 sẽ bị chặn ngay khi cài app, kèm thông báo rõ.'),
-    bullet('Git for Windows: https://git-scm.com/download/win (cài mặc định, Next liên tục).'),
-    h2('1.3  Tải app và kiểm chứng toàn bộ'),
+    // ---------- GĐ 1: chọn phương án ----------
+    h1('Giai đoạn 1 — Chọn phương án đặt máy chủ'),
+    bang(
+      [{ ten: 'Tiêu chí', rong: 2438 }, { ten: 'A — Máy chủ tại trường', rong: 3600 }, { ten: 'B — Thuê VPS', rong: 3600 }],
+      [
+        ['Chi phí', 'Không tốn thêm (tận dụng máy sẵn có)', '~100–200 nghìn/tháng + tên miền ~300–800 nghìn/năm'],
+        ['Phụ huynh dùng 4G từ nhà', 'Không có sẵn — phải mở thêm đường Internet', 'Có ngay từ đầu, qua HTTPS'],
+        ['Phụ thuộc điện, mạng của trường', 'Có — trường mất điện là app nghỉ', 'Không — VPS chạy 24/7 ở trung tâm dữ liệu'],
+        ['Dữ liệu học sinh nằm ở đâu', 'Trong khuôn viên trường', 'Tại nhà cung cấp VPS — chọn máy chủ đặt ở Việt Nam, ghi rõ trong văn bản đồng ý của phụ huynh'],
+        ['Kỹ năng cần có', 'Dùng Windows cơ bản', 'Biết vào máy chủ bằng SSH (tài liệu có sẵn lệnh từng bước)'],
+        ['Vai trò của máy ở trường', 'Là máy chủ chính', 'Chỉ nhận bản sao lưu kéo về hằng đêm'],
+      ]),
+    p({ text: 'Khuyến nghị: ', bold: true },
+      'muốn phụ huynh dùng qua 4G ngay từ đầu và không phụ thuộc điện/mạng của trường thì chọn B; app và mọi kiểm thử chạy tốt như nhau trên cả hai. Chuyển từ A sang B (hay ngược lại) sau này cũng được — dữ liệu chỉ là một thư mục, chép sang là chạy.'),
+    p('Chuẩn bị chung cho cả hai phương án:'),
+    bullet('Máy chủ luôn chạy Node.js đúng dòng 22 (LTS) — bản khác bị chặn ngay khi cài, kèm thông báo rõ.'),
+    bullet('Thước đo trước khi cho dùng thật là bộ kiểm thử đi kèm: npm test phải xanh toàn bộ trên chính máy sẽ chạy app.'),
+    bullet('Phương án B: chọn nhà cung cấp VPS có trung tâm dữ liệu tại Việt Nam (truy cập nhanh, thuận về pháp lý), cấu hình từ 1 vCPU / 1–2GB RAM / 20GB SSD, hệ điều hành Ubuntu LTS; mua thêm một tên miền và trỏ bản ghi A về địa chỉ IP của VPS.'),
+    h2('Bảng kiểm giai đoạn 1'),
+    oKiem('Đã chốt phương án:  A ☐   /   B ☐'),
+    oKiem('[B] Đã thuê VPS (ghi IP: ______________) và có tên miền trỏ về IP đó'),
+    oKiem('Đã phân công người phụ trách kỹ thuật: ______________________'),
+    trang(),
+
+    // ---------- Sơ đồ ----------
+    h1('Sơ đồ triển khai tổng thể'),
+    h2('Phương án A — máy chủ tại trường'),
+    ...hinh(anhTruong, 'Mũi tên liền: hằng ngày, tự động. Mũi tên đứt: định kỳ / tùy chọn. Nguồn: docs/so-do-trien-khai.svg'),
+    h2('Phương án B — thuê VPS, máy trường chỉ giữ bản sao lưu'),
+    ...hinh(anhVps, 'Mũi tên liền: hằng ngày, tự động. Mũi tên đứt: định kỳ / khi có việc. Nguồn: docs/so-do-trien-khai-vps.svg'),
+    p('Bốn ý chung cho cả hai sơ đồ:'),
+    bullet('App luôn chạy bên trong một trình giám sát (NSSM trên Windows, systemd trên Linux): tự chạy khi bật máy, gặp sự cố thì tự bật lại sau vài giây.'),
+    bullet('Dữ liệu luôn nằm NGOÀI thư mục mã nguồn (C:\\SchoolConnectData hoặc /var/lib/schoolconnect) — cập nhật app không bao giờ đụng tới dữ liệu.'),
+    bullet('Đêm nào cũng tự sao lưu, và luôn có một bản nằm ở nơi thứ hai (phương án B: kéo về máy trường).'),
+    bullet('GitHub chỉ giữ mã nguồn và bộ kiểm thử; cập nhật app theo nhịp: tải mã → chạy kiểm thử → xanh hết mới khởi động lại.'),
+    trang(),
+
+    // ---------- GĐ 2: Phương án A ----------
+    h1('Giai đoạn 2 — [A] Dựng máy chủ tại trường'),
+    p({ text: 'Chỉ làm giai đoạn này nếu đã chọn phương án A. ', bold: true }, 'Chọn B thì bỏ qua, sang thẳng giai đoạn 3.'),
+    h2('2.1  Chọn máy và cài phần mềm nền'),
+    bullet('Một máy Windows để cố định, chạy liên tục trong giờ làm việc (máy bàn văn phòng, 4GB RAM trở lên); nên có UPS.'),
+    bullet('Đặt IP tĩnh cho máy (hoặc nhờ người quản lý router gán IP cố định) — để địa chỉ app không đổi.'),
+    bullet('Cài Node.js dòng 22: tải tệp -x64.msi tại https://nodejs.org/dist/latest-v22.x/ ; cài Git for Windows: https://git-scm.com/download/win'),
+    h2('2.2  Tải app và kiểm chứng toàn bộ'),
     ...lenh(
       'git clone https://github.com/pichu124/School C:\\Users\\Administrator\\School',
       'cd C:\\Users\\Administrator\\School',
@@ -155,18 +191,9 @@ async function main() {
       'npx playwright install chromium   # tải trình duyệt kiểm thử, chỉ lần đầu',
       'npm run test:giao-dien            # 106 bài trên trình duyệt thật',
     ),
-    p('Mỗi bộ kiểm thử phải kết thúc bằng dòng ', { text: 'PASS: …  FAIL: 0', font: 'Consolas' },
-      '. Có bài đỏ thì dừng lại xử lý trước — không mang một hệ thống chưa xanh vào dùng thật.'),
-    h2('Bảng kiểm giai đoạn 1'),
-    oKiem('node --version in ra v22.x'),
-    oKiem('npm test: toàn bộ 549 bài đạt trên chính máy này'),
-    oKiem('npm run test:giao-dien: toàn bộ 106 bài đạt'),
-    oKiem('Máy chủ đã có IP tĩnh, ghi lại địa chỉ: ______________________'),
-
-    // ---------- GĐ 2 ----------
-    h1('Giai đoạn 2 — Cấu hình chạy thật'),
-    h2('2.1  Đưa dữ liệu ra ngoài thư mục mã nguồn'),
-    p('Mặc định dữ liệu nằm trong thư mục app — tiện khi thử nhưng nguy hiểm khi dùng thật. Chuyển ra C:\\SchoolConnectData theo ĐÚNG thứ tự (tắt app trước khi chép, chép xong mới khởi động):'),
+    p('Mỗi bộ phải kết thúc bằng ', { text: 'PASS: …  FAIL: 0', font: 'Consolas' }, '. Có bài đỏ thì dừng lại xử lý trước.'),
+    h2('2.3  Đưa dữ liệu ra ngoài thư mục mã nguồn'),
+    p('Làm ĐÚNG thứ tự: tắt app trước khi chép, chép xong mới khởi động.'),
     ...lenh(
       'mkdir C:\\SchoolConnectData',
       'copy data\\school.db* C:\\SchoolConnectData\\',
@@ -174,109 +201,163 @@ async function main() {
       'xcopy data\\backups  C:\\SchoolConnectData\\backups  /E /I',
     ),
     chuY('Không đặt C:\\SchoolConnectData trong vùng OneDrive/Google Drive đồng bộ — đồng bộ lúc app đang ghi có thể làm hỏng cơ sở dữ liệu.'),
-    h2('2.2  Chạy như dịch vụ Windows bằng NSSM'),
-    p('NSSM làm app tự chạy khi bật máy, tự bật lại trong vài giây khi gặp sự cố, không cần ai đăng nhập vào máy. Tải nssm.exe tại nssm.cc, chép vào C:\\nssm\\, rồi chạy PowerShell quyền Administrator:'),
+    h2('2.4  Chạy như dịch vụ Windows bằng NSSM'),
+    p('Tải nssm.exe tại nssm.cc, chép vào C:\\nssm\\, rồi chạy PowerShell quyền Administrator:'),
     ...lenh(
       'C:\\nssm\\nssm.exe install SchoolConnect "C:\\Program Files\\nodejs\\node.exe" server.js',
       'C:\\nssm\\nssm.exe set SchoolConnect AppDirectory "C:\\Users\\Administrator\\School"',
       'C:\\nssm\\nssm.exe set SchoolConnect AppEnvironmentExtra DATA_DIR=C:\\SchoolConnectData NODE_ENV=production',
       'C:\\nssm\\nssm.exe start SchoolConnect',
+      'New-NetFirewallRule -DisplayName "SchoolConnect" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow',
     ),
-    h2('2.3  Mở tường lửa cho máy khác trong trường truy cập'),
-    ...lenh('New-NetFirewallRule -DisplayName "SchoolConnect" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow'),
-    h2('2.4  Kiểm chứng'),
-    bullet('Trên chính máy chủ mở http://localhost:3000 — thấy màn hình đăng nhập.'),
-    bullet('Trên một điện thoại cùng Wi-Fi mở http://<IP máy chủ>:3000 — cũng vào được.'),
-    bullet('Khởi động lại máy chủ (restart Windows) — không gõ gì cả, chờ máy lên là app tự chạy lại.'),
-    bullet('Xem log của dịch vụ (services.msc → SchoolConnect) hoặc chạy tay một lần: dòng "Cơ sở dữ liệu:" phải trỏ vào C:\\SchoolConnectData\\school.db và KHÔNG còn cảnh báo dữ liệu nằm trong thư mục mã nguồn.'),
-    h2('Bảng kiểm giai đoạn 2'),
-    oKiem('Dữ liệu đã ở C:\\SchoolConnectData (log ghi đúng đường dẫn này)'),
-    oKiem('Restart Windows xong app tự chạy, không cần đăng nhập'),
-    oKiem('Điện thoại cùng Wi-Fi vào được app qua địa chỉ IP'),
-    oKiem('Thư mục data cũ trong thư mục app đã đổi tên thành data-cu (xóa hẳn sau 1 tuần yên ổn)'),
+    h2('2.5  (Tùy chọn) Cho phụ huynh dùng 4G khi máy chủ vẫn ở trường'),
+    p('Cách nhanh nhất là một đường hầm HTTPS: ', { text: 'npx cloudflared tunnel --url http://localhost:3000', font: 'Consolas', size: 19 },
+      ' (địa chỉ đổi mỗi lần chạy; bản có tài khoản Cloudflare thì cố định được). Nếu nhu cầu 4G là quan trọng, cân nhắc chuyển hẳn sang phương án B — ổn định và đơn giản hơn về lâu dài.'),
+    h2('Bảng kiểm giai đoạn 2 [A]'),
+    oKiem('npm test 549 bài + test:giao-dien 106 bài đều đạt trên chính máy này'),
+    oKiem('Dữ liệu đã ở C:\\SchoolConnectData (log ghi đúng đường dẫn, hết cảnh báo)'),
+    oKiem('Restart Windows xong app tự chạy; điện thoại cùng Wi-Fi vào được qua IP'),
+    oKiem('Thư mục data cũ đã đổi tên thành data-cu (xóa hẳn sau 1 tuần yên ổn)'),
     trang(),
 
-    // ---------- GĐ 3 ----------
-    h1('Giai đoạn 3 — An toàn dữ liệu và pháp lý'),
-    h2('3.1  Tài khoản quản trị và mật khẩu'),
-    ...lenh('npm run create-admin "Nguyễn Văn Hiệu" hieutruong'),
-    p('Lệnh in ra mật khẩu tạm — đăng nhập ngay và đặt mật khẩu riêng (app sẽ tự bắt buộc). Sau đó ',
-      { text: 'đổi mật khẩu cả 8 tài khoản mẫu', bold: true },
-      ' (phuhuynh, phuhuynh2, ph.tuan, ph.lan, ph.minh, ph.huong, giaovien, giaovien2) — tất cả đang dùng chung "123456". Chạy với NODE_ENV=production, app sẽ tự cảnh báo trong log nếu còn sót tài khoản dùng mật khẩu mẫu.'),
-    p('Học sinh mẫu (8 em, tên giả): sau khi nhập danh sách thật ở giai đoạn 4, vào Quản trị → Học sinh và cho từng em mẫu "nghỉ học" để ẩn khỏi danh sách hằng ngày.'),
-    h2('3.2  Sao lưu tự động hằng đêm'),
-    p('Tạo tệp sao-luu.bat trong thư mục app với nội dung:'),
-    ...lenh('@echo off', 'cd /d C:\\Users\\Administrator\\School', 'set DATA_DIR=C:\\SchoolConnectData', 'npm run backup'),
-    p('Rồi hẹn giờ chạy hằng đêm lúc 02:00 (PowerShell quyền Administrator):'),
-    ...lenh('schtasks /Create /TN "SchoolConnect-SaoLuu" /SC DAILY /ST 02:00 /TR "C:\\Users\\Administrator\\School\\sao-luu.bat"'),
-    p('Bản sao nằm ở C:\\SchoolConnectData\\backups, tự giữ vòng đời 7 ngày / 4 tuần / 12 tháng. ',
-      { text: 'Mỗi tuần một lần', bold: true }, ', chép thư mục backups sang USB hoặc máy khác — sao lưu nằm cùng ổ đĩa với dữ liệu thì hỏng ổ là mất cả hai. Chi tiết và cách diễn tập khôi phục: docs/SAO-LUU.md.'),
-    h2('3.3  Pháp lý — dữ liệu trẻ em dưới 16 tuổi'),
-    p('Hồ sơ học sinh (họ tên, ngày sinh, sức khỏe, liên hệ phụ huynh) thuộc nhóm dữ liệu nhạy cảm theo Nghị định 13/2023/NĐ-CP. Trước khi nhập dữ liệu thật, trường cần có văn bản phụ huynh đồng ý, nêu rõ: dữ liệu gì được lưu, dùng vào việc gì, lưu ở đâu (máy chủ đặt tại trường), ai xem được (giáo viên chủ nhiệm và ban giám hiệu), lưu bao lâu và cách yêu cầu xóa. Nên tham khảo ý kiến tư vấn pháp lý cho mẫu văn bản này.'),
-    h2('Bảng kiểm giai đoạn 3'),
-    oKiem('Đã có tài khoản quản trị riêng, mật khẩu mạnh, ghi nơi an toàn'),
-    oKiem('8 tài khoản mẫu đã đổi hết mật khẩu (log không còn cảnh báo)'),
-    oKiem('Sao lưu 02:00 đã chạy thử ít nhất 1 lần (chạy tay sao-luu.bat và thấy tệp mới trong backups)'),
-    oKiem('npm run restore:check báo bản sao lưu mới nhất mở được'),
-    oKiem('Đã có lịch chép backups ra USB/máy khác hằng tuần, giao cho: ______________'),
-    oKiem('Văn bản đồng ý của phụ huynh đã được duyệt'),
+    // ---------- GĐ 3: Phương án B ----------
+    h1('Giai đoạn 3 — [B] Thuê và dựng VPS'),
+    p({ text: 'Chỉ làm giai đoạn này nếu đã chọn phương án B.', bold: true },
+      ' Mọi lệnh dưới đây gõ trong phiên SSH trên VPS (Ubuntu LTS). Từ máy Windows, mở PowerShell và gõ: ',
+      { text: 'ssh root@<IP-VPS>', font: 'Consolas', size: 19 }, ' (mật khẩu do nhà cung cấp phát khi thuê).'),
+    h2('3.1  Cài phần mềm nền trên VPS'),
+    ...lenh(
+      'apt update && apt -y upgrade',
+      'curl -fsSL https://deb.nodesource.com/setup_22.x | bash -',
+      'apt -y install nodejs git',
+      'node --version        # phải in ra v22.x',
+    ),
+    h2('3.2  Tải app và kiểm chứng'),
+    ...lenh(
+      'git clone https://github.com/pichu124/School /opt/schoolconnect',
+      'cd /opt/schoolconnect',
+      'npm install',
+      'npm test              # 549 bài — phải PASS toàn bộ, FAIL: 0',
+    ),
+    p('Bộ giao diện 106 bài cần trình duyệt — không cần chạy trên VPS; chạy trên máy cá nhân của người phụ trách là đủ.'),
+    h2('3.3  Chạy như dịch vụ systemd'),
+    p('Tạo tệp /etc/systemd/system/schoolconnect.service (dùng lệnh nano tên-tệp để soạn) với nội dung:'),
+    ...lenh(
+      '[Unit]', 'Description=SchoolConnect', 'After=network.target', '',
+      '[Service]', 'WorkingDirectory=/opt/schoolconnect', 'ExecStart=/usr/bin/node server.js',
+      'Restart=always', 'RestartSec=3',
+      'Environment=DATA_DIR=/var/lib/schoolconnect', 'Environment=NODE_ENV=production', 'Environment=FORCE_HTTPS=1', '',
+      '[Install]', 'WantedBy=multi-user.target',
+    ),
+    p('Rồi bật lên và kiểm tra:'),
+    ...lenh(
+      'mkdir -p /var/lib/schoolconnect',
+      'systemctl enable --now schoolconnect',
+      'curl http://localhost:3000/healthz     # phải trả về {"ok":true,...}',
+    ),
+    h2('3.4  HTTPS bằng Caddy và tên miền'),
+    p('Caddy nhận tên miền của trường, tự xin và tự gia hạn chứng chỉ HTTPS — không phải làm gì thêm về sau. Cài theo hướng dẫn chính thức:'),
+    ...lenh(
+      'apt -y install debian-keyring debian-archive-keyring apt-transport-https curl',
+      "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg",
+      "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list",
+      'apt update && apt -y install caddy',
+    ),
+    p('Mở tệp /etc/caddy/Caddyfile, xóa nội dung mẫu và thay bằng đúng ba dòng (đổi tên miền thành của trường):'),
+    ...lenh('lienlac.truong-cua-ban.vn {', '    reverse_proxy localhost:3000', '}'),
+    ...lenh('systemctl reload caddy'),
+    p('Chờ khoảng một phút rồi mở https://lienlac.truong-cua-ban.vn từ điện thoại dùng 4G — phải thấy màn hình đăng nhập kèm ổ khóa.'),
+    h2('3.5  Khóa cửa VPS'),
+    ...lenh(
+      'ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable',
+      'apt -y install unattended-upgrades     # hệ điều hành tự vá bảo mật',
+    ),
+    p('KHÔNG mở cổng 3000 ra ngoài — Caddy nói chuyện với app trong nội bộ VPS. Và chuyển SSH sang đăng nhập bằng khóa thay vì mật khẩu: trên máy Windows chạy ',
+      { text: 'ssh-keygen', font: 'Consolas', size: 19 }, ' (Enter liên tục), chép nội dung tệp ',
+      { text: 'C:\\Users\\<tên>\\.ssh\\id_ed25519.pub', font: 'Consolas', size: 19 }, ' vào tệp ',
+      { text: '~/.ssh/authorized_keys', font: 'Consolas', size: 19 },
+      ' trên VPS, thử đăng nhập lại không cần mật khẩu, rồi tắt đăng nhập bằng mật khẩu (PasswordAuthentication no trong /etc/ssh/sshd_config, sau đó systemctl restart ssh).'),
+    h2('Bảng kiểm giai đoạn 3 [B]'),
+    oKiem('npm test 549 bài đạt toàn bộ trên VPS'),
+    oKiem('systemctl status schoolconnect báo active (running); reboot VPS xong app tự chạy lại'),
+    oKiem('https://tên-miền mở được từ 4G, có ổ khóa trình duyệt'),
+    oKiem('ufw đã bật, chỉ mở 22/80/443; SSH đăng nhập bằng khóa, đã tắt mật khẩu'),
+    trang(),
 
     // ---------- GĐ 4 ----------
-    h1('Giai đoạn 4 — Nhập danh sách học sinh thật'),
-    bullet('Đăng nhập quản trị → Quản trị → Nhập danh sách → tải tệp CSV mẫu (mở đúng tiếng Việt trong Excel).'),
-    bullet('Điền danh sách: mỗi dòng một học sinh kèm lớp, họ tên và số điện thoại phụ huynh. Hai anh em chung một phụ huynh sẽ tự gộp về một tài khoản.'),
-    bullet('Bấm Xem trước — app liệt kê mọi dòng lỗi (thiếu lớp, trùng mã, thiếu phụ huynh…) và CHƯA ghi gì cả. Sửa trong Excel tới khi hết lỗi.'),
-    bullet('Bấm Nhập — app tạo học sinh, lớp còn thiếu, tài khoản phụ huynh kèm mật khẩu ban đầu, và trả về danh sách phiếu tài khoản để in phát từng nhà.'),
-    bullet('Ai đăng nhập lần đầu cũng bị buộc đổi mật khẩu ngay — không ai dùng lâu mật khẩu in trên giấy.'),
-    p({ text: 'Trường không dùng hết tính năng? ', bold: true },
-      'Vào Quản trị → Tính năng và tắt phân hệ chưa cần (chưa có xe đưa đón thì tắt Xe buýt…). Tắt là API bị chặn thật và dữ liệu giữ nguyên, bật lại lúc nào cũng được.'),
+    h1('Giai đoạn 4 — An toàn dữ liệu và pháp lý'),
+    h2('4.1  Tài khoản quản trị và mật khẩu'),
+    ...lenh('npm run create-admin "Nguyễn Văn Hiệu" hieutruong     # [B] chạy trong SSH, tại /opt/schoolconnect'),
+    p('Lệnh in ra mật khẩu tạm — đăng nhập ngay và đặt mật khẩu riêng (app tự bắt buộc). Sau đó ',
+      { text: 'đổi mật khẩu cả 8 tài khoản mẫu', bold: true },
+      ' (phuhuynh, phuhuynh2, ph.tuan, ph.lan, ph.minh, ph.huong, giaovien, giaovien2) — tất cả đang dùng chung "123456". App chạy production sẽ tự cảnh báo trong log nếu còn sót. Học sinh mẫu (8 em, tên giả): sau khi nhập danh sách thật, vào Quản trị → Học sinh và cho từng em "nghỉ học" để ẩn đi.'),
+    h2('4.2  Sao lưu hằng đêm'),
+    p({ text: '[A] Máy chủ tại trường: ', bold: true }, 'tạo tệp sao-luu.bat trong thư mục app rồi hẹn giờ Windows:'),
+    ...lenh(
+      '@echo off', 'cd /d C:\\Users\\Administrator\\School', 'set DATA_DIR=C:\\SchoolConnectData', 'npm run backup',
+    ),
+    ...lenh('schtasks /Create /TN "SchoolConnect-SaoLuu" /SC DAILY /ST 02:00 /TR "C:\\Users\\Administrator\\School\\sao-luu.bat"'),
+    p('Và mỗi tuần chép thư mục C:\\SchoolConnectData\\backups ra USB hoặc máy khác.'),
+    p({ text: '[B] VPS: ', bold: true }, 'trên VPS chạy ', { text: 'crontab -e', font: 'Consolas', size: 19 }, ' và thêm dòng:'),
+    ...lenh("0 2 * * * cd /opt/schoolconnect && DATA_DIR=/var/lib/schoolconnect npm run backup"),
+    p('Rồi cho ', { text: 'máy ở trường làm kho dự phòng', bold: true },
+      ' — vai trò duy nhất của nó trong phương án B: hằng đêm tự kéo thư mục sao lưu từ VPS về. Trên máy trường tạo keo-sao-luu.bat:'),
+    ...lenh(
+      '@echo off',
+      'scp -r truong@<IP-VPS>:/var/lib/schoolconnect/backups C:\\SchoolConnectBackup\\',
+    ),
+    ...lenh('schtasks /Create /TN "SchoolConnect-KeoSaoLuu" /SC DAILY /ST 03:00 /TR "C:\\SchoolConnectBackup\\keo-sao-luu.bat"'),
+    p('Kéo về (chứ không phải VPS đẩy tới) nên máy trường không cần mở cổng nào. Khi album ảnh nhiều làm mỗi đêm chép nặng, chuyển sang WinSCP ở chế độ đồng bộ — chỉ tải phần mới. Kết quả đạt nguyên tắc 3-2-1: bản chính trên VPS, bản sao trên VPS, bản kéo về trường.'),
+    p('Thi thoảng kiểm tra bản sao lưu mở được thật: ', { text: 'npm run restore:check', font: 'Consolas', size: 19 }, ' (chi tiết và cách diễn tập khôi phục: docs/SAO-LUU.md).'),
+    h2('4.3  Pháp lý — dữ liệu trẻ em dưới 16 tuổi'),
+    p('Hồ sơ học sinh thuộc nhóm dữ liệu nhạy cảm theo Nghị định 13/2023/NĐ-CP. Trước khi nhập dữ liệu thật, trường cần văn bản phụ huynh đồng ý, nêu rõ: dữ liệu gì được lưu, dùng vào việc gì, ',
+      { text: 'lưu ở đâu (phương án B phải ghi rõ: trên máy chủ thuê của nhà cung cấp X đặt tại Việt Nam, bản dự phòng tại trường)', bold: true },
+      ', ai xem được, lưu bao lâu và cách yêu cầu xóa. Với phương án B, xem thêm điều khoản bảo mật/khả năng ký thỏa thuận xử lý dữ liệu của nhà cung cấp VPS. Nên tham khảo tư vấn pháp lý cho mẫu văn bản.'),
     h2('Bảng kiểm giai đoạn 4'),
-    oKiem('Nhập xong không còn dòng lỗi; sĩ số trong app khớp sổ của trường'),
-    oKiem('Phiếu tài khoản đã in, niêm phong theo lớp'),
-    oKiem('Học sinh mẫu đã cho nghỉ học (ẩn khỏi danh sách)'),
-    oKiem('Đã tắt các phân hệ trường chưa dùng'),
-    oKiem('Sao lưu tay 1 bản ngay sau khi nhập xong: npm run backup'),
+    oKiem('Tài khoản quản trị riêng đã tạo, mật khẩu mạnh, cất nơi an toàn'),
+    oKiem('8 tài khoản mẫu đã đổi hết mật khẩu (log không còn cảnh báo)'),
+    oKiem('Sao lưu 02:00 đã chạy thử thật ít nhất 1 lần, restore:check báo tốt'),
+    oKiem('[B] Máy trường đã kéo được bản sao lưu đầu tiên về C:\\SchoolConnectBackup'),
+    oKiem('Văn bản đồng ý của phụ huynh đã duyệt, có ghi nơi lưu dữ liệu'),
     trang(),
 
     // ---------- GĐ 5 ----------
-    h1('Giai đoạn 5 — Đưa đến tay giáo viên và phụ huynh'),
-    h2('5.1  Tập huấn giáo viên (1 buổi)'),
-    bullet('Cài app vào màn hình chính điện thoại (xem 5.2), đăng nhập, đổi mật khẩu.'),
+    h1('Giai đoạn 5 — Nhập danh sách học sinh thật'),
+    bullet('Đăng nhập quản trị → Quản trị → Nhập danh sách → tải tệp CSV mẫu (mở đúng tiếng Việt trong Excel).'),
+    bullet('Điền danh sách: mỗi dòng một học sinh kèm lớp, họ tên và số điện thoại phụ huynh. Hai anh em chung phụ huynh sẽ tự gộp về một tài khoản.'),
+    bullet('Bấm Xem trước — app liệt kê mọi dòng lỗi và CHƯA ghi gì cả. Sửa trong Excel tới khi hết lỗi.'),
+    bullet('Bấm Nhập — app tạo học sinh, lớp còn thiếu, tài khoản phụ huynh kèm mật khẩu ban đầu, và trả về phiếu tài khoản để in phát từng nhà.'),
+    bullet('Ai đăng nhập lần đầu cũng bị buộc đổi mật khẩu ngay.'),
+    p({ text: 'Trường không dùng hết tính năng? ', bold: true },
+      'Quản trị → Tính năng: tắt phân hệ chưa cần. Tắt là API bị chặn thật, dữ liệu giữ nguyên, bật lại lúc nào cũng được.'),
+    h2('Bảng kiểm giai đoạn 5'),
+    oKiem('Nhập xong không còn dòng lỗi; sĩ số trong app khớp sổ của trường'),
+    oKiem('Phiếu tài khoản đã in, niêm phong theo lớp'),
+    oKiem('Học sinh mẫu đã cho nghỉ học; phân hệ chưa dùng đã tắt'),
+    oKiem('Sao lưu tay 1 bản ngay sau khi nhập xong: npm run backup'),
+
+    // ---------- GĐ 6 ----------
+    h1('Giai đoạn 6 — Đưa đến tay giáo viên và phụ huynh'),
+    p('Địa chỉ in lên phiếu và hướng dẫn: phương án A là ', { text: 'http://<IP máy chủ>:3000', font: 'Consolas', size: 19 },
+      ' (dùng trong Wi-Fi trường); phương án B là ', { text: 'https://tên-miền-của-trường', font: 'Consolas', size: 19 }, ' (dùng ở mọi nơi).'),
+    h2('6.1  Tập huấn giáo viên (1 buổi)'),
+    bullet('Cài app vào màn hình chính điện thoại (bảng dưới), đăng nhập, đổi mật khẩu.'),
     bullet('Thao tác hằng ngày: điểm danh cả lớp một chạm; viết nhận xét; duyệt đơn xin phép; xác nhận dặn thuốc; đăng album ảnh.'),
-    bullet('Cấp lại mật khẩu khi phụ huynh lớp mình quên (trong app, không cần gọi quản trị).'),
-    h2('5.2  Hướng dẫn cài app (in kèm phiếu tài khoản)'),
+    bullet('Cấp lại mật khẩu khi phụ huynh lớp mình quên — ngay trong app, không cần gọi quản trị.'),
+    h2('6.2  Hướng dẫn cài app (in kèm phiếu tài khoản)'),
     bang(
       [{ ten: 'Thiết bị', rong: 2400 }, { ten: 'Cách cài', rong: 7238 }],
       [
         ['Android (Chrome)', 'Mở địa chỉ app → menu ⋮ → "Thêm vào Màn hình chính" / "Cài đặt ứng dụng"'],
         ['iPhone/iPad (Safari)', 'Mở địa chỉ app → nút Chia sẻ (ô vuông mũi tên) → "Thêm vào MH chính"'],
       ]),
-    p('Sau khi cài, app có biểu tượng riêng, mở toàn màn hình như app tải từ cửa hàng.'),
-    h2('5.3  Tuần đầu tiên'),
-    bullet('Chạy song song với cách cũ (sổ giấy/Zalo) trong 1–2 tuần, chọn 1–2 lớp làm trước nếu muốn thận trọng.'),
-    bullet('Cử một đầu mối hỗ trợ (thường là người quản trị) nhận câu hỏi qua nhóm giáo viên.'),
-    bullet('Cuối tuần đầu: xem Quản trị → Nhật ký để biết mức độ sử dụng thật.'),
-    h2('Bảng kiểm giai đoạn 5'),
+    h2('6.3  Tuần đầu tiên'),
+    bullet('Chạy song song với cách cũ (sổ giấy/Zalo) trong 1–2 tuần; chọn 1–2 lớp làm trước nếu muốn thận trọng.'),
+    bullet('Cử một đầu mối hỗ trợ nhận câu hỏi qua nhóm giáo viên; cuối tuần xem Quản trị → Nhật ký để biết mức dùng thật.'),
+    h2('Bảng kiểm giai đoạn 6'),
     oKiem('100% giáo viên chủ nhiệm đã đăng nhập và điểm danh thử'),
     oKiem('Phiếu tài khoản + hướng dẫn cài đã phát đến từng nhà'),
-    oKiem('Có đầu mối hỗ trợ, giáo viên biết cách tự cấp lại mật khẩu cho phụ huynh'),
-
-    // ---------- GĐ 6 ----------
-    h1('Giai đoạn 6 (tùy chọn) — Mở ra Internet cho phụ huynh dùng 4G'),
-    p('Chưa làm giai đoạn này thì app vẫn đầy đủ trong Wi-Fi của trường. Làm khi trường muốn phụ huynh xem được từ nhà. ',
-      { text: 'Điều kiện tiên quyết: đã xong giai đoạn 3 (đổi hết mật khẩu mẫu) và bắt buộc chạy qua HTTPS.', bold: true }),
-    bang(
-      [{ ten: 'Cách', rong: 2600 }, { ten: 'Phù hợp khi', rong: 4038 }, { ten: 'Ghi chú', rong: 3000 }],
-      [
-        ['Cloudflare Tunnel', 'Dùng thử nhanh, miễn phí', 'npx cloudflared tunnel --url http://localhost:3000 — địa chỉ đổi mỗi lần chạy; bản có tài khoản thì cố định được'],
-        ['Render + Docker', 'Muốn chạy 24/7 không phụ thuộc máy ở trường', 'repo có sẵn Dockerfile và render.yaml; dữ liệu khi đó nằm trên cloud — cân nhắc điều khoản với phụ huynh'],
-        ['VPS riêng', 'Trường có người quản trị hệ thống', 'Linux + systemd, hướng dẫn trong README'],
-      ]),
-    p('Khi đã có HTTPS, đặt thêm biến FORCE_HTTPS=1 (thêm vào dòng AppEnvironmentExtra của NSSM) để mọi truy cập HTTP tự chuyển sang HTTPS.'),
-    h2('Bảng kiểm giai đoạn 6'),
-    oKiem('Địa chỉ https:// mở được từ 4G, có ổ khóa trình duyệt'),
-    oKiem('FORCE_HTTPS=1 đã bật'),
-    oKiem('Đã báo địa chỉ mới cho phụ huynh (app cài lại theo địa chỉ mới)'),
+    oKiem('Có đầu mối hỗ trợ; giáo viên biết tự cấp lại mật khẩu cho phụ huynh'),
     trang(),
 
     // ---------- GĐ 7 ----------
@@ -285,22 +366,24 @@ async function main() {
       [{ ten: 'Nhịp', rong: 1900 }, { ten: 'Việc', rong: 7738 }],
       [
         ['Hằng ngày', 'Không phải làm gì — điểm danh, sao lưu, hồi phục sự cố đều tự động.'],
-        ['Hằng tuần', 'Chép C:\\SchoolConnectData\\backups ra USB/máy khác. Thi thoảng chạy npm run restore:check.'],
-        ['Khi có bản cập nhật', 'git pull → npm test → xanh hết mới nssm restart SchoolConnect. Bài đỏ thì DỪNG, app đang chạy vẫn là bản cũ tốt.'],
+        ['Hằng tuần', '[A] Chép backups ra USB/máy khác. [B] Liếc C:\\SchoolConnectBackup xem bản kéo về đêm qua có mới không. Thi thoảng npm run restore:check.'],
+        ['Khi có bản cập nhật', '[A] Tại máy trường / [B] ssh vào VPS rồi: git pull → npm test → xanh hết mới khởi động lại ([A] nssm restart SchoolConnect · [B] systemctl restart schoolconnect). Bài đỏ thì DỪNG — app đang chạy vẫn là bản cũ tốt.'],
+        ['Hằng tháng [B]', 'Kiểm tra hạn thuê VPS và hạn tên miền — đặt nhắc tự gia hạn, đứt hạn là app nghỉ.'],
         ['Cuối năm học', 'npm run backup trước, rồi Quản trị → Năm học: lên lớp hàng loạt, khối cuối ra trường, dữ liệu năm cũ giữ để tra cứu.'],
-        ['Đầu năm học mới', 'Nhập danh sách khối mới (lặp giai đoạn 4), phân công lại giáo viên chủ nhiệm.'],
+        ['Đầu năm học mới', 'Nhập danh sách khối mới (lặp giai đoạn 5), phân công lại giáo viên chủ nhiệm.'],
         ['Trước 04/2027', 'Node 22 hết hỗ trợ — xem lịch hẹn nâng cấp trong docs/TIEN-DO.md (mục B8.7).'],
       ]),
     h2('Sự cố thường gặp'),
     bang(
       [{ ten: 'Hiện tượng', rong: 3400 }, { ten: 'Xử lý', rong: 6238 }],
       [
-        ['App không mở được', 'services.msc → SchoolConnect → Start. Vẫn không được: xem log dịch vụ, gọi đầu mối kỹ thuật.'],
-        ['Điện thoại không vào được, máy chủ vẫn chạy', 'Kiểm tra cùng Wi-Fi chưa; IP máy chủ có đổi không (nếu chưa đặt IP tĩnh); tường lửa cổng 3000.'],
-        ['Phụ huynh quên mật khẩu', 'Giáo viên chủ nhiệm cấp lại ngay trong app — không cần tới quản trị.'],
+        ['App không mở được [A]', 'services.msc → SchoolConnect → Start; xem log dịch vụ.'],
+        ['App không mở được [B]', 'ssh vào VPS: systemctl status schoolconnect · xem log: journalctl -u schoolconnect -n 50. VPS không vào được SSH: dùng trang quản lý của nhà cung cấp để khởi động lại VPS.'],
+        ['Ổ khóa HTTPS mất / báo hết hạn [B]', 'systemctl status caddy; kiểm tra tên miền còn trỏ đúng IP và còn hạn.'],
+        ['Phụ huynh quên mật khẩu', 'Giáo viên chủ nhiệm cấp lại ngay trong app.'],
         ['Quên mật khẩu quản trị', 'Chạy npm run create-admin tạo tài khoản quản trị mới.'],
-        ['Nghi dữ liệu hỏng / xóa nhầm', 'ĐỪNG thao tác thêm. Tắt dịch vụ, dùng npm run restore theo docs/SAO-LUU.md để quay về bản sao lưu gần nhất.'],
-        ['Máy chủ hỏng hẳn', 'Cài máy mới theo giai đoạn 1–2, chép C:\\SchoolConnectData từ bản sao lưu ngoài (USB/máy khác) vào, khởi động dịch vụ.'],
+        ['Nghi dữ liệu hỏng / xóa nhầm', 'ĐỪNG thao tác thêm. Tắt dịch vụ, dùng npm run restore theo docs/SAO-LUU.md quay về bản sao lưu gần nhất.'],
+        ['Mất hẳn máy chủ', '[A] Dựng máy mới theo GĐ2, chép dữ liệu từ bản sao ngoài vào. [B] Thuê VPS mới theo GĐ3, tải bản sao lưu từ máy trường lên /var/lib/schoolconnect, systemctl start — đây chính là lý do máy trường giữ kho dự phòng.'],
       ]),
 
     // ---------- Phụ lục ----------
@@ -310,12 +393,13 @@ async function main() {
       [
         ['Chạy đủ kiểm thử', 'npm test  ·  npm run test:giao-dien'],
         ['Sao lưu ngay / xem danh sách / kiểm tra', 'npm run backup  ·  backup:list  ·  restore:check'],
-        ['Khởi động lại app', 'nssm restart SchoolConnect'],
+        ['Khởi động lại app', '[A] nssm restart SchoolConnect  ·  [B] systemctl restart schoolconnect'],
+        ['Xem app đang chạy không, xem log', '[A] services.msc  ·  [B] systemctl status schoolconnect · journalctl -u schoolconnect -f'],
         ['Tạo tài khoản quản trị', 'npm run create-admin "Họ Tên" tendangnhap'],
         ['Bật/tắt tính năng, xem nhật ký', 'trong app: Quản trị → Tính năng / Nhật ký'],
         ['Hướng dẫn chi tiết từng mảng', 'README.md · docs/SAO-LUU.md · modules/README.md (viết tính năng mới)'],
         ['Sổ tiến độ và các mốc hẹn', 'docs/TIEN-DO.md'],
-        ['Tạo lại chính tài liệu này', 'npm run tai-lieu:quy-trinh (nguồn: scripts/xuat-quy-trinh.js + docs/so-do-trien-khai.svg)'],
+        ['Tạo lại chính tài liệu này', 'npm run tai-lieu:quy-trinh (nguồn: scripts/xuat-quy-trinh.js + docs/so-do-trien-khai*.svg)'],
       ]),
   ];
 
