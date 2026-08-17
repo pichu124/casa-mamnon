@@ -145,6 +145,49 @@ const manKhPH = await page.locator('#view').innerText();
 check('phụ huynh thấy kế hoạch cô vừa soạn', /Tháng của kiểm thử/.test(manKhPH), manKhPH.slice(0, 250));
 check('phụ huynh KHÔNG thấy nút Soạn kế hoạch', await page.locator('#btn-soan-kh').count() === 0);
 
+// ============================================================
+// 4. BÁO CÁO HỌC TẬP
+// ============================================================
+console.log('\n[7] Báo cáo — GVCN soạn ngay trên màn hình');
+await dangXuat();
+await dangNhap('giaovien', '123456');
+await page.goto(BASE + '/#/reports', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+check('giáo viên thấy nút Soạn báo cáo', await page.locator('#btn-soan-bc').count() === 1);
+// Soạn cho đúng bé mà phụ huynh 'phuhuynh' sẽ kiểm tra ở phần sau.
+await page.selectOption('#rp-student', { label: 'Nguyễn Minh Khang' });
+await page.waitForTimeout(900);
+const soKyTruoc = await page.locator('.seg button').count();
+
+await page.click('#btn-soan-bc');
+await page.waitForTimeout(700);
+check('màn soạn có bảng điểm và ô chuyên cần bị khóa', await page.locator('#bc-diem-0').count() === 1
+  && await page.locator('input[disabled]').count() === 1);
+await page.fill('#bc-diem-0', '9.5');
+await page.fill('#bc-nhanxet', 'Nhận xét trình duyệt cho học kỳ mới');
+await page.locator('button', { hasText: 'Lưu báo cáo' }).click();
+await page.waitForTimeout(1200);
+const soKySau = await page.locator('.seg button').count();
+check('lưu xong có thêm một học kỳ trên thanh chọn', soKySau === soKyTruoc + 1, `${soKyTruoc} → ${soKySau}`);
+await page.locator('.seg button').nth(soKySau - 1).click();
+await page.waitForTimeout(900);
+const manBc = await page.locator('#view').innerText();
+check('mở kỳ mới thấy điểm và nhận xét vừa soạn', /9\.5/.test(manBc) && /Nhận xét trình duyệt cho học kỳ mới/.test(manBc), manBc.slice(0, 300));
+
+console.log('\n[8] Báo cáo — phụ huynh chỉ xem');
+await dangXuat();
+await dangNhap('phuhuynh', '123456');
+await page.goto(BASE + '/#/reports', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+await page.locator('.student-chip', { hasText: 'Nguyễn Minh Khang' }).click();
+await page.waitForTimeout(900);
+check('phụ huynh KHÔNG thấy nút Soạn báo cáo', await page.locator('#btn-soan-bc').count() === 0);
+const soKyPH = await page.locator('.seg button').count();
+await page.locator('.seg button').nth(soKyPH - 1).click();
+await page.waitForTimeout(900);
+const manBcPH = await page.locator('#view').innerText();
+check('phụ huynh xem được báo cáo kỳ mới cô vừa soạn', /Nhận xét trình duyệt cho học kỳ mới/.test(manBcPH), manBcPH.slice(0, 300));
+
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 
 await browser.close();

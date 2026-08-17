@@ -290,5 +290,122 @@ console.log('\n[11] Kế hoạch — quản trị soạn lớp bất kỳ, phụ
     !!ph.plan && ph.plan.theme === 'Quản trị cập nhật', ph.plan?.theme);
 }
 
+// ============================================================
+// 4. BÁO CÁO HỌC TẬP
+// ============================================================
+
+// Năm học hiện tại, tính giống seed: năm học bắt đầu từ tháng 8.
+const namHoc = (() => {
+  const d = new Date();
+  const y = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${y}-${y + 1}`;
+})();
+
+console.log('\n[12] Báo cáo — phân quyền và dữ liệu sai');
+{
+  const hopLe = {
+    term: 1, year: namHoc,
+    subjects: [{ name: 'Toán', score: 8, level: 'Hoàn thành tốt' }],
+    conduct: 'Tốt', overall: 'Hoàn thành tốt nhiệm vụ học tập',
+  };
+  let r = await req('PUT', '/api/reports/s1', { cookie: PH, body: hopLe });
+  check('phụ huynh KHÔNG soạn được báo cáo → 403', r.status === 403, r);
+  r = await req('PUT', '/api/reports/s2', { cookie: T1, body: hopLe });
+  check('GVCN KHÔNG soạn được cho học sinh lớp khác → 403', r.status === 403, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, term: 3 } });
+  check('học kỳ 3 → 400', r.status === 400, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, year: '2026-2028' } });
+  check('năm học lệch → 400', r.status === 400, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, subjects: [] } });
+  check('bảng điểm rỗng → 400', r.status === 400, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, subjects: [{ score: 8 }] } });
+  check('môn thiếu tên → 400', r.status === 400, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, subjects: [{ name: 'Toán', score: 11 }] } });
+  check('điểm vượt thang 10 → 400', r.status === 400, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, subjects: [{ name: 'Toán', score: 'tám' }] } });
+  check('điểm không phải số → 400', r.status === 400, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, conduct: '' } });
+  check('thiếu hạnh kiểm → 400', r.status === 400, r);
+  r = await req('PUT', '/api/reports/s1', { cookie: T1, body: { ...hopLe, overall: '' } });
+  check('thiếu đánh giá chung → 400', r.status === 400, r);
+}
+
+console.log('\n[13] Báo cáo — GVCN soạn, chuyên cần tự tính từ sổ điểm danh');
+{
+  // Chuyên cần kỳ vọng: đếm thẳng trong CSDL tạm, đúng khoảng HK1 (01/08–31/12).
+  const require3 = createRequire(import.meta.url);
+  const Database3 = require3('better-sqlite3');
+  const db3 = new Database3(path.join(DIR, 'school.db'));
+  const namDau = Number(namHoc.split('-')[0]);
+  const dem = db3.prepare(
+    'SELECT status, COUNT(*) n FROM attendance WHERE studentId = ? AND date BETWEEN ? AND ? GROUP BY status')
+    .all('s1', `${namDau}-08-01`, `${namDau}-12-31`);
+  db3.close();
+  const kyVong = { present: 0, late: 0, absent: 0 };
+  for (const d of dem) {
+    if (d.status === 'present') kyVong.present = d.n;
+    else if (d.status === 'late') kyVong.late = d.n;
+    else kyVong.absent += d.n;
+  }
+
+  const truoc = (await req('GET', '/api/reports?studentId=s1', { cookie: T1 })).data;
+  const seedCu = JSON.stringify(truoc[0]);
+
+  let r = await req('PUT', '/api/reports/s1', {
+    cookie: T1,
+    body: {
+      term: 1, year: namHoc,
+      subjects: [
+        { name: 'Toán', score: 8.55, level: 'Hoàn thành tốt' },
+        { name: 'Tiếng Việt', score: '7.5', level: 'Hoàn thành xuất sắc' },
+        { name: 'Thể dục', score: '', level: 'Hoàn thành' },
+      ],
+      conduct: 'Tốt', overall: 'Hoàn thành xuất sắc nhiệm vụ học tập',
+      teacherComment: 'Nhận xét kiểm thử học kỳ mới',
+    },
+  });
+  check('GVCN soạn được báo cáo học kỳ mới → 200', r.status === 200, r);
+  check('tên học kỳ ghép đúng chuẩn', r.data.term === `Học kỳ 1 (${namHoc})`, r.data.term);
+  check('chuyên cần đúng với sổ điểm danh, không nhập tay', bang(r.data.attendanceSummary, kyVong),
+    { traVe: r.data.attendanceSummary, kyVong });
+  check('điểm làm tròn 1 chữ số thập phân (8.55 → 8.6)', r.data.subjects[0].score === 8.6, r.data.subjects[0]);
+  check('điểm gửi dạng chuỗi vẫn nhận (7.5)', r.data.subjects[1].score === 7.5, r.data.subjects[1]);
+  check('môn không chấm điểm để trống thành null', r.data.subjects[2].score === null, r.data.subjects[2]);
+
+  r = await req('PUT', '/api/reports/s1', {
+    cookie: T1,
+    body: {
+      term: 1, year: namHoc,
+      subjects: [{ name: 'Toán', score: 9, level: 'Hoàn thành xuất sắc' }],
+      conduct: 'Tốt', overall: 'Đánh giá đã sửa lại',
+    },
+  });
+  check('soạn lại cùng học kỳ → 200', r.status === 200, r);
+
+  const sau = (await req('GET', '/api/reports?studentId=s1', { cookie: T1 })).data;
+  const kyMoi = sau.filter(x => x.term === `Học kỳ 1 (${namHoc})`);
+  check('cùng học kỳ chỉ có MỘT bản, không nhân bản',
+    kyMoi.length === 1 && kyMoi[0].overall === 'Đánh giá đã sửa lại', kyMoi.map(x => x.overall));
+  check('tổng số báo cáo = 2 kỳ cũ + 1 kỳ mới', sau.length === truoc.length + 1, sau.length);
+  check('báo cáo cũ trong seed không bị đụng tới', JSON.stringify(sau[0]) === seedCu);
+}
+
+console.log('\n[14] Báo cáo — phụ huynh thấy ngay, quản trị soạn học sinh bất kỳ');
+{
+  const ph = (await req('GET', '/api/reports?studentId=s1', { cookie: PH })).data;
+  const moi = ph.find(x => x.term === `Học kỳ 1 (${namHoc})`);
+  check('phụ huynh thấy ngay báo cáo kỳ mới', !!moi && moi.subjects[0].score === 9, moi?.subjects);
+
+  const r = await req('PUT', '/api/reports/s2', {
+    cookie: A,
+    body: {
+      term: 1, year: namHoc,
+      subjects: [{ name: 'Toán', score: 8, level: 'Hoàn thành tốt' }],
+      conduct: 'Tốt', overall: 'Hoàn thành tốt nhiệm vụ học tập',
+    },
+  });
+  check('quản trị soạn được cho học sinh lớp bất kỳ → 200', r.status === 200, r);
+}
+
 tongKet();
 process.exit(0);
