@@ -6,6 +6,8 @@
 // để chuyện "màn hình đẹp nhưng không nhập được" không tái diễn.
 //
 // Chạy bằng:  npm run test:bien-soan
+import path from 'path';
+import { createRequire } from 'module';
 import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan');
@@ -122,6 +124,95 @@ console.log('\n[5] TKB — quản trị sửa lớp bất kỳ, lập mới cho 
   check('lập TKB lần đầu cho lớp mới → 200', r.status === 200, r);
   r = await req('GET', `/api/timetable?classId=${lopId}`, { cookie: A });
   check('đọc lại được TKB vừa lập', r.status === 200 && r.data.days['1'][0] === 'Toán' && r.data.days['2'][0] === '—', r.data);
+}
+
+// ============================================================
+// 2. THỰC ĐƠN
+// ============================================================
+
+// Tính ngày giống hệt máy chủ (cùng máy, cùng múi giờ khi chạy kiểm thử).
+const fmtNgay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const ngayTuan = (week, i) => {
+  const now = new Date();
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + week * 7);
+  const d = new Date(monday);
+  d.setDate(monday.getDate() + i);
+  return fmtNgay(d);
+};
+
+console.log('\n[6] Thực đơn — phân quyền và thân yêu cầu sai');
+{
+  const homNay = ngayTuan(0, (new Date().getDay() + 6) % 7 > 4 ? 0 : (new Date().getDay() + 6) % 7);
+  const buaHopLe = [{ type: 'lunch', label: 'Bữa trưa', time: '10:45', items: ['Cơm trắng'] }];
+  let r = await req('PUT', `/api/menu/${homNay}`, { cookie: PH, body: { meals: buaHopLe } });
+  check('phụ huynh KHÔNG soạn được thực đơn → 403', r.status === 403, r);
+  r = await req('PUT', `/api/menu/${homNay}`, { cookie: T1, body: { meals: buaHopLe } });
+  check('giáo viên KHÔNG soạn được thực đơn → 403', r.status === 403, r);
+  r = await req('PUT', '/api/menu/07-09-2026', { cookie: A, body: { meals: buaHopLe } });
+  check('ngày sai dạng → 400', r.status === 400, r);
+  r = await req('PUT', `/api/menu/${homNay}`, { cookie: A, body: { meals: 'hong' } });
+  check('meals không phải mảng → 400', r.status === 400, r);
+  r = await req('PUT', `/api/menu/${homNay}`, { cookie: A, body: { meals: [] } });
+  check('meals rỗng → 400', r.status === 400, r);
+  r = await req('PUT', `/api/menu/${homNay}`, { cookie: A, body: { meals: [{ time: '10:45', items: [] }] } });
+  check('bữa thiếu tên → 400', r.status === 400, r);
+}
+
+console.log('\n[7] Thực đơn — quản trị soạn, phụ huynh thấy ngay');
+{
+  const thuTu = ngayTuan(0, 2); // Thứ Tư tuần này
+  const r = await req('PUT', `/api/menu/${thuTu}`, {
+    cookie: A,
+    body: { meals: [
+      { type: 'lunch', label: 'Bữa trưa', time: '10:45', items: ['Cơm gà kiểm thử', '   ', 'Canh chua'] },
+      { type: 'snack', label: 'Bữa xế', time: '14:30', items: ['x'.repeat(150)] },
+    ] },
+  });
+  check('quản trị soạn được một ngày → 200', r.status === 200, r);
+  check('món để trống bị loại, món thật giữ nguyên',
+    bang(r.data.meals[0].items, ['Cơm gà kiểm thử', 'Canh chua']), r.data.meals[0]);
+  check('tên món quá dài bị cắt còn 100 ký tự', r.data.meals[1].items[0].length === 100, r.data.meals[1]);
+
+  const ph = await req('GET', '/api/menu?week=0', { cookie: PH });
+  const ngay = (ph.data.menus || []).find(m => m.date === thuTu);
+  check('phụ huynh thấy ngay thực đơn vừa soạn', !!ngay && ngay.meals[0].items[0] === 'Cơm gà kiểm thử', ngay?.meals?.[0]);
+}
+
+console.log('\n[8] Thực đơn — xem tuần trước và chép tuần');
+{
+  // Tuần trước seed không tạo — soạn mới một ngày rồi đọc lại bằng ?week=-1.
+  const thuHaiTruoc = ngayTuan(-1, 0);
+  let r = await req('PUT', `/api/menu/${thuHaiTruoc}`, {
+    cookie: A, body: { meals: [{ type: 'lunch', label: 'Bữa trưa', time: '10:45', items: ['Món tuần trước'] }] },
+  });
+  check('soạn được ngày chưa từng có thực đơn → 200', r.status === 200, r);
+  r = await req('GET', '/api/menu?week=-1', { cookie: PH });
+  check('phụ huynh xem lại được tuần trước (?week=-1)',
+    r.status === 200 && (r.data.menus || []).some(m => m.date === thuHaiTruoc), r.data?.menus?.length);
+
+  // Đánh dấu Thứ Tư tuần này, xóa Thứ Tư tuần sau (thao tác thẳng vào CSDL tạm
+  // vì app cố ý không có API xóa), rồi chép: chỉ ngày trống được đổ vào.
+  const thuTuSau = ngayTuan(1, 2);
+  const truocKhiChep = (await req('GET', '/api/menu?week=1', { cookie: A })).data.menus.find(m => m.date === ngayTuan(1, 0));
+  const require2 = createRequire(import.meta.url);
+  const Database = require2('better-sqlite3');
+  const dbTruc = new Database(path.join(DIR, 'school.db'));
+  dbTruc.prepare('DELETE FROM menus WHERE date = ?').run(thuTuSau);
+  dbTruc.close();
+
+  r = await req('POST', '/api/menu/copy-week', { cookie: PH, body: { week: 1 } });
+  check('phụ huynh KHÔNG chép được tuần → 403', r.status === 403, r);
+  r = await req('POST', '/api/menu/copy-week', { cookie: A, body: { week: 5 } });
+  check('tuần đích lạ → 400', r.status === 400, r);
+  r = await req('POST', '/api/menu/copy-week', { cookie: A, body: { week: 1 } });
+  check('chép tuần: chỉ 1 ngày trống được chép', r.status === 200 && r.data.daChep === 1, r.data);
+
+  const sau = (await req('GET', '/api/menu?week=1', { cookie: A })).data.menus;
+  const tuSau = sau.find(m => m.date === thuTuSau);
+  check('ngày trống nhận đúng nội dung của tuần trước nó',
+    !!tuSau && tuSau.meals[0].items[0] === 'Cơm gà kiểm thử', tuSau?.meals?.[0]);
+  check('ngày đã soạn sẵn không bị ghi đè',
+    bang(sau.find(m => m.date === ngayTuan(1, 0)), truocKhiChep), sau.find(m => m.date === ngayTuan(1, 0)));
 }
 
 tongKet();

@@ -3,11 +3,25 @@
 //
 // Cần trình duyệt Playwright. Chạy bằng:  npm run test:giao-dien
 import { chromium } from 'playwright';
-import { dungMayChu, thuMucTam, sinhDuLieu, taoBoDem, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, taoBoDem, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan-giao-dien');
 sinhDuLieu(DIR);
+const mkTam = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3950), dir: DIR });
+
+// Đổi mật khẩu tạm của quản trị qua API để đăng nhập được trên trình duyệt.
+{
+  const r = await fetch(BASE + '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'hieutruong', password: mkTam }),
+  });
+  const ck = r.headers.get('set-cookie').split(';')[0];
+  await fetch(BASE + '/api/auth/set-new-password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: ck },
+    body: JSON.stringify({ newPassword: 'quantri2026' }),
+  });
+}
 
 const { check, tongKet } = taoBoDem();
 
@@ -67,6 +81,36 @@ const manPH = await page.locator('#view').innerText();
 check('phụ huynh vẫn xem được TKB (có môn GV vừa sửa)', /Đọc sách đầu tuần/.test(manPH), manPH.slice(0, 200));
 check('phụ huynh KHÔNG thấy nút Chỉnh sửa', await page.locator('#btn-sua-tkb').count() === 0);
 check('màn hình phụ huynh không có ô nhập nào', await page.locator('#view input').count() === 0);
+
+// ============================================================
+// 2. THỰC ĐƠN
+// ============================================================
+console.log('\n[3] Thực đơn — quản trị soạn ngay trên màn hình');
+await dangXuat();
+await dangNhap('hieutruong', 'quantri2026');
+await page.goto(BASE + '/#/menu', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+check('quản trị thấy nút Chép tuần trước', await page.locator('#btn-chep-tuan').count() === 1);
+const soNutSua = await page.locator('#view .card .head-action').count();
+check('mỗi ngày trong tuần có nút Sửa/Soạn', soNutSua === 5, soNutSua);
+
+await page.locator('#view .card .head-action').first().click();
+await page.waitForTimeout(800);
+check('mở được màn soạn thực đơn', await page.locator('#td-items-0').count() === 1);
+await page.fill('#td-items-0', 'Phở bò kiểm thử\nSữa chua');
+await page.locator('button', { hasText: 'Lưu thực đơn' }).click();
+await page.waitForTimeout(1200);
+const sauLuuTd = await page.locator('#view').innerText();
+check('lưu xong thấy món vừa soạn trên thẻ ngày', /Phở bò kiểm thử/.test(sauLuuTd), sauLuuTd.slice(0, 250));
+
+console.log('\n[4] Thực đơn — phụ huynh chỉ xem');
+await dangXuat();
+await dangNhap('phuhuynh', '123456');
+await page.goto(BASE + '/#/menu', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+const manTdPH = await page.locator('#view').innerText();
+check('phụ huynh thấy món quản trị vừa soạn', /Phở bò kiểm thử/.test(manTdPH), manTdPH.slice(0, 250));
+check('phụ huynh KHÔNG có nút soạn/sửa/chép nào', await page.locator('#view .head-action').count() === 0);
 
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 

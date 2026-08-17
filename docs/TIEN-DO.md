@@ -20,7 +20,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B6 | Bật/tắt tính năng và cắm thêm tính năng mới | ✅ **Hoàn thành** — 72/72 kiểm thử đạt |
 | B7 | Cô lập lỗi: thêm/bỏ tính năng không làm hỏng app | ✅ **Hoàn thành** — 101/101 kiểm thử đạt |
 | B8 | Giữ độ ổn định dài hạn: kiểm thử vào kho mã, canh tệp dùng chung, chặn lộ dữ liệu | ✅ **Hoàn thành** — 191/191 kiểm thử đạt, đã kiểm chứng trên máy Windows của trường |
-| B9 | Đường soạn nội dung cho 4 phân hệ chỉ-đọc (TKB, thực đơn, kế hoạch, báo cáo) | ⏳ **Đang làm** — B9.1 Thời khóa biểu xong |
+| B9 | Đường soạn nội dung cho 4 phân hệ chỉ-đọc (TKB, thực đơn, kế hoạch, báo cáo) | ⏳ **Đang làm** — B9.1 Thời khóa biểu, B9.2 Thực đơn xong |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -277,7 +277,7 @@ nhưng không có bài "giáo viên tạo được".
 | Bước | Việc | Trạng thái |
 |---|---|---|
 | B9.1 | **Thời khóa biểu**: `PUT /api/timetable/:classId` — GVCN sửa lớp mình, quản trị sửa lớp bất kỳ, phụ huynh bị chặn; sửa từng thứ ngay trên màn hình xem, lập mới cho lớp chưa có; máy chủ tự làm sạch dữ liệu nhập tay | ✅ Xong — 23 bài API + 8 bài trình duyệt |
-| B9.2 | **Thực đơn**: quản trị soạn theo tuần (5 ngày × 3 bữa), chép tuần trước | ⬜ |
+| B9.2 | **Thực đơn**: `PUT /api/menu/:date` + `POST /api/menu/copy-week` — quản trị soạn từng ngày (tên bữa, giờ ăn, mỗi dòng một món), ngày trống có nút soạn ngay, chép tuần trước chỉ đổ vào ngày còn trống; thêm `?week=-1` xem lại tuần trước | ✅ Xong — 17 bài API + 6 bài trình duyệt |
 | B9.3 | **Kế hoạch giáo dục**: GVCN soạn theo tháng — chủ đề, mục tiêu, 4 tuần, lời nhắn phụ huynh | ⬜ |
 | B9.4 | **Báo cáo học tập**: GVCN nhập theo học kỳ — điểm môn, hạnh kiểm, nhận xét; chuyên cần tự tính từ dữ liệu điểm danh | ⬜ |
 
@@ -290,10 +290,10 @@ làm hỏng dữ liệu cũ.
 
 ## Tổng kết
 
-Tám hạng mục B1–B8 đã hoàn thành, B9 đang làm dở. **686 bài kiểm thử tự động đều
+Tám hạng mục B1–B8 đã hoàn thành, B9 đang làm dở. **709 bài kiểm thử tự động đều
 đạt**, tất cả đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 572 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 589 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -301,7 +301,7 @@ Tám hạng mục B1–B8 đã hoàn thành, B9 đang làm dở. **686 bài ki�
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
-| `test:bien-soan` | 23 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
+| `test:bien-soan` | 40 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
 | `test:mat-khau` | 25 | Mật khẩu tạm, buộc đổi, phân quyền |
 | `test:quan-tri` | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
@@ -310,14 +310,14 @@ Tám hạng mục B1–B8 đã hoàn thành, B9 đang làm dở. **686 bài ki�
 | `test:co-lap-loi` | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
 | `test:luoi-an-toan` | 17 | Lỗi bất đồng bộ: promise bỏ quên thì sống, nổ đồng bộ thì dừng sạch |
 
-`npm run test:giao-dien` — 114 bài chạy trên trình duyệt thật, cần Playwright:
+`npm run test:giao-dien` — 120 bài chạy trên trình duyệt thật, cần Playwright:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
 | `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
 | `test:pwa` | 43 | Cài đặt như app, chạy offline, khổ iPhone và Android |
 | bật/tắt tính năng | 20 | Thao tác thật trên màn hình quản trị và màn hình chính |
-| soạn nội dung | 8 | Giáo viên sửa TKB trên màn hình thật, phụ huynh không thấy nút soạn |
+| soạn nội dung | 14 | Giáo viên sửa TKB, quản trị soạn thực đơn trên màn hình thật; phụ huynh không thấy nút soạn |
 
 `npm run test:tat-ca` chạy cả hai nhóm.
 

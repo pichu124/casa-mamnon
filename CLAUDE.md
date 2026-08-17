@@ -134,16 +134,16 @@ phụ huynh xem được hồ sơ con nhà khác mà app không hề báo lỗi 
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test              # 572 bài, không cần trình duyệt, khoảng 3 phút
+npm test              # 589 bài, không cần trình duyệt, khoảng 3 phút
 ```
 
 Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
 
 ```bash
-npm run test:giao-dien   # 114 bài chạy trên trình duyệt thật, cần Playwright
+npm run test:giao-dien   # 120 bài chạy trên trình duyệt thật, cần Playwright
 ```
 
-Hoặc `npm run test:tat-ca` để chạy cả hai (686 bài).
+Hoặc `npm run test:tat-ca` để chạy cả hai (709 bài).
 
 | Bộ | Số bài | Canh điều gì |
 |---|---|---|
@@ -151,7 +151,7 @@ Hoặc `npm run test:tat-ca` để chạy cả hai (686 bài).
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
-| `test:bien-soan` | 23 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
+| `test:bien-soan` | 40 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Mật khẩu, cookie, header, chống dò, phiên bền vững |
 | `test:mat-khau` | 25 | Cấp lại mật khẩu, buộc đổi mật khẩu tạm |
 | `test:quan-tri` | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
