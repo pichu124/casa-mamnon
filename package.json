@@ -18,7 +18,7 @@
     "create-admin": "node scripts/create-admin.js",
     "tai-lieu:quy-trinh": "node scripts/xuat-quy-trinh.js",
     "prepare": "node scripts/cai-hook.js",
-    "test": "node test/du-lieu.test.mjs && node test/khe-uoc.test.mjs && node test/commit-rieng.test.mjs && node test/api.test.mjs && node test/bao-mat.test.mjs && node test/mat-khau.test.mjs && node test/quan-tri.test.mjs && node test/nam-hoc.test.mjs && node test/tinh-nang.test.mjs && node test/co-lap-loi.test.mjs && node test/luoi-an-toan.test.mjs",
+    "test": "node test/du-lieu.test.mjs && node test/khe-uoc.test.mjs && node test/commit-rieng.test.mjs && node test/api.test.mjs && node test/bien-soan.test.mjs && node test/bao-mat.test.mjs && node test/mat-khau.test.mjs && node test/quan-tri.test.mjs && node test/nam-hoc.test.mjs && node test/tinh-nang.test.mjs && node test/co-lap-loi.test.mjs && node test/luoi-an-toan.test.mjs",
     "test:commit-rieng": "node scripts/kiem-tra-commit.js",
     "test:du-lieu": "node scripts/kiem-tra-du-lieu.js",
     "test:du-lieu-kiemthu": "node test/du-lieu.test.mjs",
@@ -26,6 +26,7 @@
     "test:tinh-nang": "node test/tinh-nang.test.mjs",
     "test:khe-uoc": "node test/khe-uoc.test.mjs",
     "test:api": "node test/api.test.mjs",
+    "test:bien-soan": "node test/bien-soan.test.mjs",
     "test:bao-mat": "node test/bao-mat.test.mjs",
     "test:mat-khau": "node test/mat-khau.test.mjs",
     "test:quan-tri": "node test/quan-tri.test.mjs",
@@ -34,7 +35,7 @@
     "test:luoi-an-toan": "node test/luoi-an-toan.test.mjs",
     "test:album": "node test/album.test.mjs",
     "test:pwa": "node test/pwa.test.mjs",
-    "test:giao-dien": "node test/album.test.mjs && node test/pwa.test.mjs && node test/tinh-nang-giao-dien.test.mjs",
+    "test:giao-dien": "node test/album.test.mjs && node test/pwa.test.mjs && node test/tinh-nang-giao-dien.test.mjs && node test/bien-soan-giao-dien.test.mjs",
     "test:tat-ca": "npm test && npm run test:giao-dien"
   },
   "engines": {
