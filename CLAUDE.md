@@ -210,3 +210,8 @@ và giáo viên không dùng được app, hoặc làm mất dữ liệu.
   **phải gọi `db.canAccessStudent(req.user, studentId)`** hoặc
   `db.canAccessClass(req.user, classId)`.
 - Luôn bọc dữ liệu động bằng `UI.esc(...)` trước khi chèn vào HTML.
+- **Tài liệu triển khai cho nhà trường** là `docs/QUY-TRINH-TRIEN-KHAI.docx`,
+  sinh từ `scripts/xuat-quy-trinh.js` (chữ) + `docs/so-do-trien-khai.svg` (sơ đồ).
+  Thay đổi nào ảnh hưởng tới cách triển khai/vận hành (lệnh, đường dẫn, cổng,
+  phiên bản Node, quy trình sao lưu…) thì sửa hai tệp nguồn đó rồi chạy
+  `npm run tai-lieu:quy-trinh` để bản Word khớp lại với app, trong cùng đợt commit.

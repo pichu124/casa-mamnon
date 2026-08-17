@@ -16,6 +16,7 @@
     "restore": "node scripts/restore.js",
     "restore:check": "node scripts/restore.js --kiem-tra",
     "create-admin": "node scripts/create-admin.js",
+    "tai-lieu:quy-trinh": "node scripts/xuat-quy-trinh.js",
     "prepare": "node scripts/cai-hook.js",
     "test": "node test/du-lieu.test.mjs && node test/khe-uoc.test.mjs && node test/commit-rieng.test.mjs && node test/api.test.mjs && node test/bao-mat.test.mjs && node test/mat-khau.test.mjs && node test/quan-tri.test.mjs && node test/nam-hoc.test.mjs && node test/tinh-nang.test.mjs && node test/co-lap-loi.test.mjs && node test/luoi-an-toan.test.mjs",
     "test:commit-rieng": "node scripts/kiem-tra-commit.js",
@@ -49,6 +50,7 @@
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.0",
-    "playwright": "^1.62.1"
+    "playwright": "^1.62.1",
+    "docx": "^9.5.0"
   }
 }

@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 1020" font-family="Segoe UI, Arial, sans-serif">
+  <!--
+    Sơ đồ triển khai SchoolConnect cho trường ~300 học sinh.
+    Là NGUỒN của hình trong docs/QUY-TRINH-TRIEN-KHAI.docx — sửa ở đây rồi chạy
+    `npm run tai-lieu:quy-trinh` để tài liệu nhận hình mới.
+    Mũi tên liền = luồng hằng ngày, tự động. Mũi tên đứt = định kỳ / tùy chọn.
+  -->
+  <defs>
+    <marker id="m" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="1560" height="1020" fill="#ffffff"/>
+
+  <!-- ============ VÙNG MÁY CHỦ CỦA TRƯỜNG ============ -->
+  <rect x="40" y="40" width="710" height="590" rx="14" fill="#eef2ff" stroke="#6366f1" stroke-width="2.5"/>
+  <text x="70" y="78" font-size="21" font-weight="bold" fill="#312e81">MÁY CHỦ CỦA TRƯỜNG — Windows, để cố định</text>
+
+  <rect x="70" y="98" width="650" height="180" rx="10" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.6"/>
+  <text x="90" y="126" font-size="16.5" font-weight="bold" fill="#1e1b4b">Dịch vụ Windows (NSSM)</text>
+  <text x="315" y="126" font-size="13.5" fill="#3730a3">tự chạy khi bật máy · gặp sự cố thì tự bật lại sau vài giây</text>
+  <rect x="100" y="142" width="590" height="112" rx="8" fill="#ffffff" stroke="#4f46e5" stroke-width="2.2"/>
+  <text x="122" y="176" font-size="17.5" font-weight="bold" fill="#1e1b4b">SchoolConnect — Node.js dòng 22 · cổng 3000</text>
+  <text x="122" y="202" font-size="13.5" fill="#475569">NODE_ENV=production · chặn dò mật khẩu · cô lập lỗi từng tính năng</text>
+  <text x="122" y="224" font-size="13.5" fill="#475569">655 bài kiểm thử đã đạt trên chính máy này trước khi đưa vào dùng</text>
+
+  <rect x="70" y="330" width="290" height="128" rx="8" fill="#fef9c3" stroke="#ca8a04" stroke-width="2"/>
+  <text x="90" y="360" font-size="16" font-weight="bold" fill="#713f12">C:\SchoolConnectData</text>
+  <text x="90" y="385" font-size="13.5" fill="#57534e">school.db — toàn bộ dữ liệu (SQLite)</text>
+  <text x="90" y="406" font-size="13.5" fill="#57534e">uploads\ — ảnh album</text>
+  <text x="90" y="432" font-size="12.5" font-style="italic" fill="#92400e">nằm NGOÀI thư mục mã nguồn — git không đụng tới</text>
+  <line x1="220" y1="254" x2="220" y2="326" stroke="#334155" stroke-width="2" marker-end="url(#m)"/>
+  <text x="232" y="296" font-size="12.5" fill="#475569">đọc / ghi</text>
+
+  <rect x="430" y="330" width="290" height="76" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.6"/>
+  <text x="450" y="358" font-size="15" font-weight="bold" fill="#0f172a">Task Scheduler — 02:00 hằng đêm</text>
+  <text x="450" y="382" font-size="13" fill="#475569">chạy sao-luu.bat (npm run backup)</text>
+  <line x1="575" y1="406" x2="575" y2="436" stroke="#334155" stroke-width="2" marker-end="url(#m)"/>
+
+  <rect x="430" y="440" width="290" height="76" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="450" y="468" font-size="15" font-weight="bold" fill="#064e3b">C:\SchoolConnectData\backups</text>
+  <text x="450" y="492" font-size="13" fill="#475569">tự giữ vòng đời 7 ngày · 4 tuần · 12 tháng</text>
+  <path d="M 360 394 L 400 394 L 400 478 L 426 478" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#m)"/>
+
+  <rect x="430" y="546" width="290" height="62" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.8" stroke-dasharray="7 5"/>
+  <text x="450" y="572" font-size="14.5" font-weight="bold" fill="#064e3b">USB / máy khác / Google Drive</text>
+  <text x="450" y="593" font-size="12.5" fill="#475569">chép tay mỗi tuần — phòng hỏng ổ, cháy nổ, mất máy</text>
+  <line x1="575" y1="516" x2="575" y2="542" stroke="#334155" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#m)"/>
+
+  <!-- ============ VÙNG WI-FI TRƯỜNG ============ -->
+  <rect x="790" y="40" width="730" height="245" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="2.5"/>
+  <text x="820" y="78" font-size="21" font-weight="bold" fill="#064e3b">MẠNG WI-FI CỦA TRƯỜNG</text>
+
+  <rect x="820" y="98" width="330" height="94" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.8"/>
+  <text x="840" y="128" font-size="15.5" font-weight="bold" fill="#0f172a">Điện thoại giáo viên</text>
+  <text x="840" y="152" font-size="13" fill="#475569">app PWA cài từ trình duyệt</text>
+  <text x="840" y="172" font-size="13" fill="#475569">điểm danh · nhận xét · duyệt xin phép</text>
+
+  <rect x="1170" y="98" width="320" height="94" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.8"/>
+  <text x="1190" y="128" font-size="15.5" font-weight="bold" fill="#0f172a">Máy văn phòng / Ban giám hiệu</text>
+  <text x="1190" y="152" font-size="13" fill="#475569">trình duyệt — trang Quản trị</text>
+  <text x="1190" y="172" font-size="13" fill="#475569">nhập danh sách · bật tắt tính năng</text>
+
+  <text x="820" y="232" font-size="13.5" fill="#065f46">Truy cập:  http://&lt;IP máy chủ&gt;:3000   —   đặt IP tĩnh cho máy chủ để địa chỉ không bao giờ đổi</text>
+  <text x="820" y="256" font-size="13" font-style="italic" fill="#475569">(mở cổng 3000 trong tường lửa Windows; chỉ dùng trong mạng nội bộ của trường)</text>
+  <line x1="786" y1="150" x2="726" y2="150" stroke="#334155" stroke-width="2.4" marker-end="url(#m)"/>
+
+  <!-- ============ VÙNG INTERNET (TÙY CHỌN) ============ -->
+  <rect x="790" y="320" width="730" height="240" rx="14" fill="#fff7ed" stroke="#f97316" stroke-width="2.5" stroke-dasharray="10 7"/>
+  <text x="820" y="358" font-size="21" font-weight="bold" fill="#7c2d12">INTERNET — TÙY CHỌN, LÀM SAU CÙNG (Giai đoạn 6)</text>
+
+  <rect x="820" y="378" width="330" height="94" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.8"/>
+  <text x="840" y="408" font-size="15.5" font-weight="bold" fill="#0f172a">Cổng HTTPS</text>
+  <text x="840" y="432" font-size="13" fill="#475569">Cloudflare Tunnel (thử nhanh, miễn phí)</text>
+  <text x="840" y="452" font-size="13" fill="#475569">hoặc Render / VPS chạy 24/7 · FORCE_HTTPS=1</text>
+
+  <rect x="1170" y="378" width="320" height="94" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.8"/>
+  <text x="1190" y="408" font-size="15.5" font-weight="bold" fill="#0f172a">Phụ huynh ở nhà (4G)</text>
+  <text x="1190" y="432" font-size="13" fill="#475569">app PWA — xem điểm danh, thực đơn,</text>
+  <text x="1190" y="452" font-size="13" fill="#475569">nhận thông báo, nhắn tin với giáo viên</text>
+
+  <line x1="1166" y1="425" x2="1154" y2="425" stroke="#334155" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#m)"/>
+  <path d="M 816 425 L 750 425" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#m)"/>
+  <text x="820" y="500" font-size="13" font-style="italic" fill="#7c2d12">Chưa mở Internet thì phụ huynh dùng khi đến trường qua Wi-Fi, hoặc nhận thông tin giấy — app trong LAN vẫn đầy đủ.</text>
+  <text x="820" y="524" font-size="13" font-style="italic" fill="#7c2d12">Khi mở: BẮT BUỘC qua HTTPS và đã đổi hết mật khẩu mẫu trước đó.</text>
+
+  <!-- ============ VÙNG GITHUB ============ -->
+  <rect x="790" y="595" width="730" height="205" rx="14" fill="#f1f5f9" stroke="#64748b" stroke-width="2.5"/>
+  <text x="820" y="633" font-size="21" font-weight="bold" fill="#0f172a">GITHUB — KHO MÃ NGUỒN (công khai)</text>
+  <text x="820" y="658" font-size="13.5" fill="#475569">4 lớp canh tự động bảo đảm kho KHÔNG BAO GIỜ chứa dữ liệu học sinh</text>
+
+  <rect x="820" y="676" width="330" height="100" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+  <text x="840" y="706" font-size="15.5" font-weight="bold" fill="#0f172a">Mã nguồn SchoolConnect</text>
+  <text x="840" y="730" font-size="13" fill="#475569">kèm 655 bài kiểm thử tự động</text>
+  <text x="840" y="750" font-size="13" fill="#475569">và toàn bộ tài liệu (kể cả tệp này)</text>
+
+  <rect x="1170" y="676" width="320" height="100" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+  <text x="1190" y="706" font-size="15.5" font-weight="bold" fill="#0f172a">CI — máy của GitHub</text>
+  <text x="1190" y="730" font-size="13" fill="#475569">tự chạy đủ kiểm thử mỗi lần đẩy mã;</text>
+  <text x="1190" y="750" font-size="13" fill="#475569">đỏ là biết ngay phiên bản đó có vấn đề</text>
+  <line x1="1154" y1="726" x2="1166" y2="726" stroke="#334155" stroke-width="2" marker-end="url(#m)"/>
+
+  <!-- ============ VÙNG CẬP NHẬT APP ============ -->
+  <rect x="40" y="660" width="710" height="230" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2.5"/>
+  <text x="70" y="698" font-size="21" font-weight="bold" fill="#075985">CẬP NHẬT APP — khi có phiên bản mới</text>
+
+  <rect x="70" y="718" width="185" height="88" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
+  <text x="90" y="748" font-size="15.5" font-weight="bold" fill="#0f172a">① git pull</text>
+  <text x="90" y="772" font-size="12.5" fill="#475569">chỉ tải MÃ về —</text>
+  <text x="90" y="790" font-size="12.5" fill="#475569">không đụng dữ liệu</text>
+
+  <rect x="290" y="718" width="220" height="88" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
+  <text x="310" y="748" font-size="15.5" font-weight="bold" fill="#0f172a">② npm test</text>
+  <text x="310" y="772" font-size="12.5" fill="#475569">549 bài, ~3 phút —</text>
+  <text x="310" y="790" font-size="12.5" fill="#475569">XANH HẾT mới sang bước ③</text>
+
+  <rect x="545" y="718" width="175" height="88" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
+  <text x="565" y="748" font-size="15.5" font-weight="bold" fill="#0f172a">③ nssm restart</text>
+  <text x="565" y="772" font-size="12.5" fill="#475569">SchoolConnect —</text>
+  <text x="565" y="790" font-size="12.5" fill="#475569">gián đoạn vài giây</text>
+
+  <line x1="255" y1="762" x2="286" y2="762" stroke="#334155" stroke-width="2.2" marker-end="url(#m)"/>
+  <line x1="510" y1="762" x2="541" y2="762" stroke="#334155" stroke-width="2.2" marker-end="url(#m)"/>
+  <path d="M 786 762 L 754 762" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#m)"/>
+  <text x="70" y="850" font-size="13" font-style="italic" fill="#075985">Bước ② đỏ thì DỪNG, không khởi động lại — app đang chạy vẫn là bản cũ tốt. Sự cố sau cập nhật: git revert quay về bản trước, dữ liệu không ảnh hưởng.</text>
+
+  <!-- ============ CHÚ GIẢI ============ -->
+  <line x1="70" y1="950" x2="130" y2="950" stroke="#334155" stroke-width="2.4" marker-end="url(#m)"/>
+  <text x="145" y="955" font-size="14" fill="#0f172a">luồng hằng ngày, tự động</text>
+  <line x1="400" y1="950" x2="460" y2="950" stroke="#334155" stroke-width="2.2" stroke-dasharray="6 5" marker-end="url(#m)"/>
+  <text x="475" y="955" font-size="14" fill="#0f172a">định kỳ / tùy chọn / khi có việc</text>
+  <text x="790" y="955" font-size="13" font-style="italic" fill="#64748b">Nguồn: docs/so-do-trien-khai.svg — sửa xong chạy `npm run tai-lieu:quy-trinh` để tài liệu Word nhận hình mới.</text>
+</svg>

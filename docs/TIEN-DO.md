@@ -304,6 +304,15 @@ Xem `docs/ke-hoach-trien-khai.html`.
 
 ---
 
+## Tài liệu triển khai cho nhà trường
+
+`docs/QUY-TRINH-TRIEN-KHAI.docx` — quy trình 7 giai đoạn kèm sơ đồ, sinh tự
+động bằng `npm run tai-lieu:quy-trinh` từ `scripts/xuat-quy-trinh.js` và
+`docs/so-do-trien-khai.svg`. Tài liệu tự đóng dấu bản mã nguồn ở trang bìa;
+CLAUDE.md có quy định tạo lại nó mỗi khi thay đổi ảnh hưởng tới triển khai.
+
+---
+
 ## Cách tiếp tục khi phiên làm việc bị gián đoạn
 
 1. Đọc bảng trạng thái ở trên, tìm dòng ⏳ hoặc ⬜ đầu tiên.
