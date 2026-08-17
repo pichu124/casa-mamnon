@@ -1,6 +1,10 @@
 // Phân hệ Kế hoạch giáo dục tháng.
 // Phụ huynh: xem theo lớp của con đang chọn. Giáo viên: xem theo lớp chủ nhiệm.
+// GVCN/quản trị soạn kế hoạch từng tháng ngay tại đây (chủ đề, mục tiêu, tuần, lời nhắn).
 App.views.plans = {
+  _classId: null,
+  _plans: [],
+
   async render(root) {
     const user = App.state.user;
     let classId;
@@ -14,11 +18,23 @@ App.views.plans = {
       }
       classId = current.classId;
     }
+    this._classId = classId;
     const data = await API.get(`/api/plans?classId=${encodeURIComponent(classId)}`);
+    this._plans = data.plans || [];
+    const suaDuoc = this.canEdit();
     root.innerHTML = `
-      ${UI.pageHeader('Kế hoạch giáo dục')}
+      ${UI.pageHeader('Kế hoạch giáo dục', suaDuoc ? { action: { id: 'btn-soan-kh', label: 'Soạn kế hoạch', icon: 'edit' } } : {})}
       ${UI.studentBar()}
       ${data.plan ? this.renderPlan(data.plan) : UI.emptyState('📖', 'Chưa có kế hoạch giáo dục cho tháng này')}`;
+    if (suaDuoc) document.getElementById('btn-soan-kh').onclick = () => this.moSoan();
+  },
+
+  // GVCN soạn lớp mình; quản trị soạn lớp bất kỳ; phụ huynh chỉ xem.
+  canEdit() {
+    const u = App.state.user;
+    if (!u) return false;
+    if (u.role === 'admin') return true;
+    return u.role === 'teacher' && !!u.classId && u.classId === this._classId;
   },
 
   renderPlan(p) {
@@ -53,5 +69,86 @@ App.views.plans = {
         <div class="card" style="background:#fff8e1;border-radius:12px">
           💌 <b>Nhắn gửi phụ huynh:</b> ${UI.esc(p.note)}
         </div>` : ''}`;
+  },
+
+  // ---- GVCN / quản trị: soạn kế hoạch một tháng ----
+
+  // Danh sách tháng chọn được: tháng trước → 4 tháng tới, gộp thêm các tháng đã soạn.
+  cacThangChonDuoc() {
+    const now = new Date();
+    const ds = new Map();
+    for (let i = -1; i <= 4; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      ds.set(`${d.getFullYear()}-${d.getMonth() + 1}`, { year: d.getFullYear(), month: d.getMonth() + 1 });
+    }
+    for (const p of this._plans) ds.set(`${p.year}-${p.month}`, { year: p.year, month: p.month });
+    return [...ds.values()].sort((a, b) => a.year - b.year || a.month - b.month);
+  },
+
+  // Mở modal soạn cho tháng `ym` dạng "YYYY-M" (mặc định: tháng hiện tại).
+  moSoan(ym) {
+    const now = new Date();
+    const [year, month] = (ym || `${now.getFullYear()}-${now.getMonth() + 1}`).split('-').map(Number);
+    const p = this._plans.find(x => x.year === year && x.month === month) || null;
+    const weeks = (p && p.weeks && p.weeks.length ? p.weeks : []).slice(0, 6);
+    while (weeks.length < 4) weeks.push({ week: weeks.length + 1, focus: '', activities: '' });
+
+    UI.modal(`
+      <div class="field">
+        <label>Kế hoạch cho tháng</label>
+        <select id="kh-thang" onchange="App.views.plans.moSoan(this.value)">
+          ${this.cacThangChonDuoc().map(t => `
+            <option value="${t.year}-${t.month}" ${t.year === year && t.month === month ? 'selected' : ''}>
+              Tháng ${t.month}/${t.year}${this._plans.some(x => x.year === t.year && x.month === t.month) ? ' — đã soạn' : ''}
+            </option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Chủ đề của tháng</label>
+        <input id="kh-chude" value="${UI.esc(p ? p.theme : '')}" placeholder="VD: Trường học thân thiện">
+      </div>
+      <div class="field">
+        <label>Mục tiêu tháng — mỗi dòng một mục tiêu</label>
+        <textarea id="kh-muctieu" rows="3" placeholder="VD: Đọc trôi chảy đoạn văn 60 tiếng">${UI.esc((p && p.goals ? p.goals : []).join('\n'))}</textarea>
+      </div>
+      ${weeks.map((w, i) => `
+        <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:12px">
+          <div style="font-weight:700;margin-bottom:8px">Tuần ${i + 1}</div>
+          <div class="field">
+            <label>Trọng tâm</label>
+            <input id="kh-tt-${i}" value="${UI.esc(w.focus || '')}" placeholder="VD: Ổn định nền nếp, ôn tập kiến thức">
+          </div>
+          <div class="field">
+            <label>Hoạt động</label>
+            <textarea id="kh-hd-${i}" rows="2" placeholder="VD: Ôn bảng nhân chia; luyện đọc nhóm đôi">${UI.esc(w.activities || '')}</textarea>
+          </div>
+        </div>`).join('')}
+      <div class="field" style="border-top:1px solid var(--line);padding-top:10px;margin-top:12px">
+        <label>💌 Nhắn gửi phụ huynh (không bắt buộc)</label>
+        <textarea id="kh-loinhan" rows="2" placeholder="VD: Nhờ ba mẹ nhắc con ôn bảng cửu chương mỗi tối">${UI.esc(p ? (p.note || '') : '')}</textarea>
+      </div>
+      <button class="btn primary block" onclick="App.views.plans.luuKeHoach(${year}, ${month}, ${weeks.length})">${UI.icon('check', 18)} Lưu kế hoạch</button>
+    `, 'Soạn kế hoạch giáo dục');
+  },
+
+  async luuKeHoach(year, month, soTuan) {
+    const theme = document.getElementById('kh-chude').value.trim();
+    if (!theme) return UI.toast('Cô nhập chủ đề của tháng giúp nhé', 'error');
+    const goals = document.getElementById('kh-muctieu').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const weeks = [];
+    for (let i = 0; i < soTuan; i++) {
+      weeks.push({
+        week: i + 1,
+        focus: document.getElementById(`kh-tt-${i}`).value.trim(),
+        activities: document.getElementById(`kh-hd-${i}`).value.trim(),
+      });
+    }
+    const note = document.getElementById('kh-loinhan').value.trim();
+    try {
+      await API.put(`/api/plans/${encodeURIComponent(this._classId)}/${year}/${month}`, { theme, goals, weeks, note });
+      UI.toast(`Đã lưu kế hoạch tháng ${month}/${year}`, 'success');
+      UI.closeModal();
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
   },
 };

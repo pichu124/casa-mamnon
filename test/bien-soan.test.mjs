@@ -215,5 +215,80 @@ console.log('\n[8] Thực đơn — xem tuần trước và chép tuần');
     bang(sau.find(m => m.date === ngayTuan(1, 0)), truocKhiChep), sau.find(m => m.date === ngayTuan(1, 0)));
 }
 
+// ============================================================
+// 3. KẾ HOẠCH GIÁO DỤC
+// ============================================================
+const namNay = new Date().getFullYear();
+const thangNay = new Date().getMonth() + 1;
+const thangToi = new Date(namNay, thangNay, 1); // ngày 1 của tháng kế tiếp
+const namSau = thangToi.getFullYear(), thangSau = thangToi.getMonth() + 1;
+
+console.log('\n[9] Kế hoạch — phân quyền và dữ liệu sai');
+{
+  const hopLe = { theme: 'Chủ đề kiểm thử', goals: ['Mục tiêu 1'], weeks: [{ week: 1, focus: 'x', activities: 'y' }] };
+  let r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: PH, body: hopLe });
+  check('phụ huynh KHÔNG soạn được kế hoạch → 403', r.status === 403, r);
+  r = await req('PUT', `/api/plans/c2/${namNay}/${thangNay}`, { cookie: T1, body: hopLe });
+  check('GVCN KHÔNG soạn được cho lớp khác → 403', r.status === 403, r);
+  r = await req('PUT', `/api/plans/c999/${namNay}/${thangNay}`, { cookie: T1, body: hopLe });
+  check('lớp không tồn tại → 404', r.status === 404, r);
+  r = await req('PUT', `/api/plans/c1/${namNay}/13`, { cookie: T1, body: hopLe });
+  check('tháng 13 → 400', r.status === 400, r);
+  r = await req('PUT', `/api/plans/c1/1999/5`, { cookie: T1, body: hopLe });
+  check('năm 1999 → 400', r.status === 400, r);
+  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: T1, body: { ...hopLe, theme: '   ' } });
+  check('thiếu chủ đề → 400', r.status === 400, r);
+  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: T1, body: { ...hopLe, goals: 'hong' } });
+  check('goals không phải mảng → 400', r.status === 400, r);
+  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: T1, body: { ...hopLe, weeks: 'hong' } });
+  check('weeks không phải mảng → 400', r.status === 400, r);
+}
+
+console.log('\n[10] Kế hoạch — GVCN soạn tháng tới, sửa lại không nhân bản');
+{
+  const truoc = (await req('GET', '/api/plans?classId=c1', { cookie: T1 })).data;
+  const chuDeThangNay = truoc.plan ? truoc.plan.theme : null;
+
+  let r = await req('PUT', `/api/plans/c1/${namSau}/${thangSau}`, {
+    cookie: T1,
+    body: {
+      theme: 'Em yêu khoa học',
+      goals: ['Mục tiêu 1', '   ', '  Mục tiêu 2  '],
+      weeks: [
+        { week: 1, focus: 'Trọng tâm 1', activities: 'Hoạt động 1' },
+        { focus: '', activities: '' },                    // tuần bỏ trống → phải bị loại
+        { week: 3, focus: 'x'.repeat(300), activities: 'Hoạt động 3' },
+      ],
+      note: 'Nhờ ba mẹ cùng ôn bài với con',
+    },
+  });
+  check('GVCN soạn được kế hoạch tháng tới → 200', r.status === 200, r);
+  check('mục tiêu trống bị loại, còn lại được cắt gọn', bang(r.data.goals, ['Mục tiêu 1', 'Mục tiêu 2']), r.data.goals);
+  check('tuần bỏ trống hẳn bị loại', r.data.weeks.length === 2, r.data.weeks);
+  check('trọng tâm quá dài bị cắt còn 120 ký tự', r.data.weeks[1].focus.length === 120, r.data.weeks[1].focus.length);
+  check('ghi nhận người soạn và tên lớp', r.data.createdBy === 't1' && r.data.className === 'Lớp 3A', r.data);
+
+  r = await req('PUT', `/api/plans/c1/${namSau}/${thangSau}`, {
+    cookie: T1, body: { theme: 'Đổi chủ đề tháng tới', goals: [], weeks: [{ week: 1, focus: 'Mới', activities: '' }] },
+  });
+  check('soạn lại cùng tháng → 200', r.status === 200, r);
+  const sau = (await req('GET', '/api/plans?classId=c1', { cookie: T1 })).data;
+  const cungThang = sau.plans.filter(p => p.year === namSau && p.month === thangSau);
+  check('cùng tháng chỉ có MỘT bản, không nhân bản', cungThang.length === 1 && cungThang[0].theme === 'Đổi chủ đề tháng tới', cungThang);
+  check('kế hoạch tháng hiện tại không bị đụng tới',
+    (sau.plan ? sau.plan.theme : null) === chuDeThangNay, sau.plan?.theme);
+}
+
+console.log('\n[11] Kế hoạch — quản trị soạn lớp bất kỳ, phụ huynh thấy ngay');
+{
+  const r = await req('PUT', `/api/plans/c2/${namNay}/${thangNay}`, {
+    cookie: A, body: { theme: 'Quản trị cập nhật', goals: ['Mục tiêu mới'], weeks: [] },
+  });
+  check('quản trị soạn được lớp bất kỳ → 200', r.status === 200, r);
+  const ph = (await req('GET', '/api/plans?classId=c2', { cookie: PH })).data;
+  check('phụ huynh thấy ngay kế hoạch tháng này vừa cập nhật',
+    !!ph.plan && ph.plan.theme === 'Quản trị cập nhật', ph.plan?.theme);
+}
+
 tongKet();
 process.exit(0);

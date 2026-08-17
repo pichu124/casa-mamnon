@@ -112,6 +112,39 @@ const manTdPH = await page.locator('#view').innerText();
 check('phụ huynh thấy món quản trị vừa soạn', /Phở bò kiểm thử/.test(manTdPH), manTdPH.slice(0, 250));
 check('phụ huynh KHÔNG có nút soạn/sửa/chép nào', await page.locator('#view .head-action').count() === 0);
 
+// ============================================================
+// 3. KẾ HOẠCH GIÁO DỤC
+// ============================================================
+console.log('\n[5] Kế hoạch — GVCN soạn ngay trên màn hình');
+await dangXuat();
+await dangNhap('giaovien', '123456');
+await page.goto(BASE + '/#/plans', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+check('giáo viên thấy nút Soạn kế hoạch', await page.locator('#btn-soan-kh').count() === 1);
+
+await page.click('#btn-soan-kh');
+await page.waitForTimeout(700);
+check('mở được màn soạn với đủ chủ đề, mục tiêu, 4 tuần', await page.locator('#kh-chude').count() === 1
+  && await page.locator('#kh-tt-3').count() === 1);
+await page.fill('#kh-chude', 'Tháng của kiểm thử');
+await page.fill('#kh-muctieu', 'Mục tiêu trình duyệt 1\nMục tiêu trình duyệt 2');
+await page.locator('button', { hasText: 'Lưu kế hoạch' }).click();
+await page.waitForTimeout(1200);
+const sauLuuKh = await page.locator('#view').innerText();
+check('lưu xong màn hình hiện chủ đề vừa soạn', /Tháng của kiểm thử/.test(sauLuuKh)
+  && /Mục tiêu trình duyệt 1/.test(sauLuuKh), sauLuuKh.slice(0, 250));
+
+console.log('\n[6] Kế hoạch — phụ huynh chỉ xem');
+await dangXuat();
+await dangNhap('phuhuynh', '123456');
+await page.goto(BASE + '/#/plans', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+await page.locator('.student-chip', { hasText: 'Nguyễn Minh Khang' }).click();
+await page.waitForTimeout(900);
+const manKhPH = await page.locator('#view').innerText();
+check('phụ huynh thấy kế hoạch cô vừa soạn', /Tháng của kiểm thử/.test(manKhPH), manKhPH.slice(0, 250));
+check('phụ huynh KHÔNG thấy nút Soạn kế hoạch', await page.locator('#btn-soan-kh').count() === 0);
+
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 
 await browser.close();
