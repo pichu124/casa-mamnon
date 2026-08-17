@@ -19,10 +19,11 @@ Kế hoạch triển khai đầy đủ (hạ tầng, chi phí, pháp lý, vận 
 
 ## Chạy ứng dụng
 
-Cần **đúng dòng Node.js 22 (LTS)** — tải tệp `-x64.msi` tại
-https://nodejs.org/dist/latest-v22.x/. Bản khác dòng 22 (kể cả MỚI HƠN như Node 24)
-sẽ bị chặn ngay ở `npm install`: thư viện cơ sở dữ liệu cần bản dựng sẵn khớp đúng
-phiên bản Node, sai dòng là nó quay ra tự biên dịch và đòi cài Visual Studio.
+Cần **Node.js dòng 22 (LTS)** — tải tệp `-x64.msi` tại
+https://nodejs.org/dist/latest-v22.x/. Bản khác dòng 22 bị chặn ngay ở `npm install`
+kèm thông báo rõ: dòng 22 là dòng duy nhất mà toàn bộ kiểm thử đã được chạy trên đó.
+Không cần cài Visual Studio hay công cụ biên dịch nào — thư viện cơ sở dữ liệu được
+ghim ở bản có sẵn tệp dựng cho Windows, Linux và Mac.
 
 ```bash
 npm install

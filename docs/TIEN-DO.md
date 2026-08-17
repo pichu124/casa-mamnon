@@ -224,16 +224,23 @@ truyền biến qua tham số `env` của Node và để Playwright tự tìm tr
 không có `CHROMIUM_PATH`. ⚠️ Chưa có máy Windows thật để kiểm chứng — **lần chạy
 `npm test` đầu tiên trên máy trường chính là bài kiểm chứng còn thiếu.**
 
-**B8.7 — Ghim đúng dòng Node 22, có hẹn ngày xem lại.** Lần chạy đầu trên máy
-Windows thật bắt được: Node 24 lọt qua khai báo `>=22` rồi vỡ ở `better-sqlite3`
-vì bản mới nhất của thư viện này (13.0.3, ngày 05/08/2026) chưa kèm bản dựng sẵn
-cho Node 24 trên Windows — nó đòi tự biên dịch bằng Visual Studio. Đã ghim
-`engines: 22.x`; sai dòng là `npm install` chặn ngay kèm giải thích.
+**B8.7 — Ghim Node 22 và ghim thư viện cơ sở dữ liệu ở bản có tệp dựng sẵn.**
+Hai lần chạy đầu trên máy Windows thật (B8.6) lần ra thủ phạm theo hai lớp:
 
-⏰ **Hẹn xem lại: đầu năm học 2027 (Node 22 hết hỗ trợ 04/2027).** Trình tự nâng:
-cập nhật `better-sqlite3` lên bản có bản dựng sẵn Node 24 → chạy đủ 655 bài trên
-cả hai dòng Node → kiểm trên Windows → mới nới `engines` thành `22.x || 24.x`.
-Không đảo thứ tự.
+- Lớp một (đoán ban đầu, đúng một nửa): máy trường chạy Node 24, lọt qua khai
+  báo `>=22`. Đã ghim `engines: 22.x` — dòng duy nhất mọi kiểm thử chạy trên đó.
+- Lớp hai (gốc rễ, lộ ra khi Node 22 vẫn vỡ y hệt): `better-sqlite3` 13.0.3 —
+  bản mới nhất — **không phát hành kèm tệp dựng sẵn cho bất kỳ hệ điều hành
+  nào** (kiểm chứng: GitHub trả 404 cho cả win32 lẫn linux). Máy nào không có
+  trình biên dịch C++ là chết `npm install`; Linux thường có sẵn gcc nên không
+  ai để ý, Windows thì không. Đã ghim `better-sqlite3` = **12.11.1**: bản mới
+  nhất có đủ tệp dựng sẵn (kiểm chứng 200 cho win32-x64 và linux-x64, hỗ trợ
+  Node 20→26), toàn bộ 655 bài chạy lại đều xanh.
+
+⏰ **Hẹn xem lại: đầu năm học 2027 (Node 22 hết hỗ trợ 04/2027).** Trình tự:
+kiểm tra dòng 13.x của `better-sqlite3` đã phát hành kèm tệp dựng sẵn chưa
+(soi assets trên GitHub Releases, đừng tin số phiên bản) → nâng thư viện →
+chạy đủ 655 bài → kiểm trên Windows → mới nới `engines`. Không đảo thứ tự.
 
 Hai bộ canh có triết lý ngược nhau, cố ý:
 
