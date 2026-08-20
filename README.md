@@ -17,6 +17,12 @@ npm run restore:check                                # kiểm tra bản sao lưu
 Kế hoạch triển khai đầy đủ (hạ tầng, chi phí, pháp lý, vận hành):
 `docs/ke-hoach-trien-khai.html`. Hướng dẫn sao lưu: `docs/SAO-LUU.md`.
 
+Quy trình triển khai từng bước cho nhà trường (bản Word, in ra được):
+`docs/QUY-TRINH-TRIEN-KHAI.docx`. Muốn tập dượt trọn quy trình trên một máy chủ
+thật trước khi làm cho trường: [`docs/MAY-CHU-THU-ORACLE.md`](docs/MAY-CHU-THU-ORACLE.md)
+— dựng máy chủ thử miễn phí trên Oracle Cloud, kèm mọi chỗ vấp đã gặp.
+Sau khi dựng xong, chạy `npm run kiem-tra-may-chu` để soát lại cấu hình máy chủ.
+
 ## Chạy ứng dụng
 
 Cần **Node.js dòng 22 (LTS)** — tải tệp `-x64.msi` tại
