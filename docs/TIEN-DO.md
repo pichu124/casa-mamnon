@@ -21,6 +21,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B7 | Cô lập lỗi: thêm/bỏ tính năng không làm hỏng app | ✅ **Hoàn thành** — 101/101 kiểm thử đạt |
 | B8 | Giữ độ ổn định dài hạn: kiểm thử vào kho mã, canh tệp dùng chung, chặn lộ dữ liệu | ✅ **Hoàn thành** — 191/191 kiểm thử đạt, đã kiểm chứng trên máy Windows của trường |
 | B9 | Đường soạn nội dung cho 4 phân hệ chỉ-đọc (TKB, thực đơn, kế hoạch, báo cáo) | ✅ **Hoàn thành** — 105/105 kiểm thử đạt (80 API + 25 trình duyệt) |
+| B10 | Kiểm tra máy chủ thật: bịt khoảng trống giữa kho mã và bản cài đặt đang chạy | ✅ **Hoàn thành** — 34/34 kiểm thử đạt |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -288,18 +289,60 @@ làm hỏng dữ liệu cũ.
 
 ---
 
+## B10 — Kiểm tra máy chủ thật
+
+Phát hiện khi tập dượt triển khai lên một VPS Ubuntu thật: tài liệu hẹn cron sao
+lưu lúc `0 2 * * *` nhưng **không có bước nào đặt múi giờ**. VPS mới cài luôn chạy
+UTC, nên lịch đó thực ra chạy 9 giờ sáng giờ Việt Nam — đúng lúc giáo viên điểm
+danh và phụ huynh mở app.
+
+Điều đáng nói: **không bộ kiểm thử nào bắt được lỗi này.** Cả 760 bài đều xanh,
+kể cả `test:co-lap-loi` vốn cố tình phá từng thứ. Vì lỗi không nằm trong mã — nó
+nằm ở khoảng cách giữa tài liệu và việc thực sự làm trên máy. Một máy chủ đặt sai
+múi giờ, chưa hề sao lưu, để dữ liệu trong thư mục mã nguồn và còn nguyên mật khẩu
+mẫu vẫn qua đủ 760 bài.
+
+| Bước | Việc | Trạng thái |
+|---|---|---|
+| B10.1 | Tài liệu: thêm `timedatectl set-timezone Asia/Ho_Chi_Minh` vào Giai đoạn 3.1, kèm giải thích hậu quả | ✅ Xong |
+| B10.2 | Tài liệu: thay cron bằng **systemd timer** với `OnCalendar=... Asia/Ho_Chi_Minh` — lịch tự mang múi giờ, đặt sai múi giờ máy chủ cũng không lệch. Thêm `Persistent=true` để chạy bù nếu máy tắt đúng giờ đó | ✅ Xong |
+| B10.3 | `scripts/kiem-tra-may-chu.js` — kiểm 8 mục trên **máy chủ đang phục vụ**: múi giờ, vị trí dữ liệu, CSDL mở được, mật khẩu mẫu, lịch sao lưu, bản sao lưu còn mới, bản sao lưu **mở ra được thật**, dung lượng đĩa, hạn chứng chỉ HTTPS | ✅ Xong |
+| B10.4 | Đưa vào bảng kiểm Giai đoạn 3 và 4, thêm dòng "hằng tháng" trong bảng bảo trì | ✅ Xong |
+
+Vài quyết định thiết kế đáng ghi lại:
+
+- **Chỉ báo, không tự sửa.** Mỗi mục hỏng in kèm câu lệnh khắc phục để người phụ
+  trách ở trường tự làm. Tự sửa thì có ngày nó sửa nhầm thứ đang chạy tốt.
+- **Mở cơ sở dữ liệu ở chế độ chỉ đọc, bắt buộc tệp phải có sẵn.** Một bộ kiểm tra
+  không được phép tạo ra thứ nó đang đi kiểm — nếu không, chạy lần đầu ở máy chủ
+  sai `DATA_DIR` sẽ luôn báo "đạt". Có bài kiểm thử canh đúng điểm này.
+- **Mỗi mục kiểm chạy trong khối bắt lỗi riêng.** Một phép kiểm hỏng không được
+  làm cả bản báo cáo tắt ngóm — đúng lúc máy chủ có vấn đề là lúc cần đọc các mục
+  còn lại nhất.
+- **Thoát mã 1 khi có mục cần sửa**, để đặt lịch chạy tự động và biết mà báo.
+- Bộ kiểm thử `test:may-chu` thử **cả hai chiều** cho từng mục: dựng tình huống
+  hỏng xem có báo không, rồi sửa tình huống đó xem có thôi báo không. Thử một
+  chiều thì không phân biệt được "bắt đúng" với "lúc nào cũng kêu".
+
+Giới hạn phải nói rõ: bộ này **không thay được người chịu đọc kết quả**. Nếu trường
+không phân công ai chạy hằng tháng thì nó cũng thành một thứ nữa bị bỏ quên. Vì vậy
+nó được gắn vào bảng kiểm bàn giao — chỗ chắc chắn có người chạy ít nhất một lần.
+
+---
+
 ## Tổng kết
 
-Chín hạng mục B1–B9 đã hoàn thành. **760 bài kiểm thử tự động đều đạt**, tất cả
+Chín hạng mục B1–B9 đã hoàn thành. **794 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 629 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 663 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
 | `test:du-lieu-kiemthu` | 40 | Dữ liệu thật không lọt lên kho mã |
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
+| `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
