@@ -578,6 +578,68 @@ console.log('\n[15] B4 — "Cả lớp có mặt" KHÔNG được xóa những e
 }
 
 // ===========================================================================
+console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơn nghỉ được duyệt');
+{
+  const GV = (await login('giaovien2', '123456')).cookie;   // chủ nhiệm c1 sau bài [11]
+  const PH = (await login('phuhuynh', '123456')).cookie;
+  const NGAY = '2026-11-03';
+
+  const lop = async () => (await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: GV })).data;
+  const dau = await lop();
+  check('trường mới có mặt trong danh sách điểm danh',
+    dau.students.every(x => 'donNghiDaDuyet' in x), Object.keys(dau.students[0] || {}));
+  check('chưa có đơn thì trường đó rỗng', dau.students.every(x => x.donNghiDaDuyet === null));
+
+  // Phụ huynh gửi đơn cho một em của lớp này, cô duyệt. Phải chọn đúng con của
+  // CHÍNH phụ huynh đó, không phải em đầu danh sách lớp.
+  const conCuaPh = (await req('GET', '/api/students', { cookie: PH })).data.map(x => x.id);
+  const em = dau.students.map(x => x.student.id).find(id => conCuaPh.includes(id));
+  check('tìm được một con của phụ huynh trong lớp này để thử', !!em, { conCuaPh, em });
+  const don = await req('POST', '/api/leave', {
+    cookie: PH,
+    body: { studentId: em, fromDate: '2026-11-02', toDate: '2026-11-04', reason: 'Con về quê giỗ ông' },
+  });
+  const donId = don.data?.id;
+  check('phụ huynh gửi được đơn', don.status === 201 || don.status === 200, don.data?.error);
+
+  check('đơn CHỜ duyệt thì sổ điểm danh chưa hiện gì',
+    (await lop()).students.find(x => x.student.id === em)?.donNghiDaDuyet === null);
+
+  const duyet = await req('POST', `/api/leave/${donId}/review`, { cookie: GV, body: { status: 'approved' } });
+  check('cô duyệt được đơn', duyet.status === 200, duyet.data?.error);
+
+  const sau = (await lop()).students.find(x => x.student.id === em);
+  check('DUYỆT XONG THÌ SỔ ĐIỂM DANH BIẾT NGAY', !!sau?.donNghiDaDuyet, sau?.donNghiDaDuyet);
+  check('kèm khoảng ngày để cô đối chiếu',
+    sau?.donNghiDaDuyet?.fromDate === '2026-11-02' && sau?.donNghiDaDuyet?.toDate === '2026-11-04',
+    sau?.donNghiDaDuyet);
+  check('kèm lý do để cô khỏi phải mở màn khác', /giỗ ông/.test(sau?.donNghiDaDuyet?.reason || ''));
+  check('các em khác không bị gắn nhầm đơn',
+    (await lop()).students.filter(x => x.donNghiDaDuyet).length === 1);
+
+  // Ngày ngoài khoảng đơn thì không hiện.
+  const ngoai = (await req('GET', '/api/attendance/class?date=2026-11-05', { cookie: GV })).data;
+  check('ngày ngoài khoảng của đơn thì KHÔNG hiện', ngoai.students.every(x => !x.donNghiDaDuyet));
+  const trong = (await req('GET', '/api/attendance/class?date=2026-11-04', { cookie: GV })).data;
+  check('ngày cuối của đơn vẫn tính là trong khoảng',
+    !!trong.students.find(x => x.student.id === em)?.donNghiDaDuyet);
+
+  // Đơn bị TỪ CHỐI thì không được hiện — nếu không cô sẽ chấm nhầm thành có phép.
+  const don2 = await req('POST', '/api/leave', {
+    cookie: PH,
+    body: { studentId: em, fromDate: '2026-12-01', toDate: '2026-12-01', reason: 'Xin nghỉ đi chơi' },
+  });
+  await req('POST', `/api/leave/${don2.data.id}/review`, { cookie: GV, body: { status: 'rejected' } });
+  const tuChoi = (await req('GET', '/api/attendance/class?date=2026-12-01', { cookie: GV })).data;
+  check('đơn bị TỪ CHỐI thì KHÔNG hiện trên sổ điểm danh',
+    tuChoi.students.every(x => !x.donNghiDaDuyet));
+
+  // Bản vá chỉ THÊM thông tin, tuyệt đối không tự sinh bản ghi điểm danh.
+  check('duyệt đơn KHÔNG tự sinh bản ghi điểm danh (hệ thống chưa biết ngày nghỉ lễ)',
+    (await lop()).students.every(x => !x.record), (await lop()).filter);
+}
+
+// ===========================================================================
 console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại được sau khi chuyển năm học');
 {
   // Máy chủ riêng: bài này CHUYỂN NĂM HỌC, một việc không hoàn tác được, nên

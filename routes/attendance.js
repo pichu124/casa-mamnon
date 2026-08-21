@@ -45,17 +45,38 @@ module.exports = (app) => {
     // Lấy một lần toàn bộ bản ghi trong ngày rồi ghép, thay vì tra từng em.
     const ids = students.map(s => s.id);
     const byStudent = new Map();
+    const donNghi = new Map();
     if (ids.length) {
+      const marks = ids.map(() => '?').join(',');
       const rows = db.all('attendance',
-        `SELECT * FROM attendance WHERE date = ? AND studentId IN (${ids.map(() => '?').join(',')})`,
+        `SELECT * FROM attendance WHERE date = ? AND studentId IN (${marks})`,
         [date, ...ids]);
       for (const r of rows) byStudent.set(r.studentId, r);
+
+      // Cho sổ điểm danh BIẾT em nào đã có đơn nghỉ được duyệt trong ngày.
+      //
+      // Trước đây cô duyệt đơn xong mà sổ điểm danh không hay biết gì, vẫn cho
+      // chấm "Nghỉ không phép" đúng vào ngày đơn đã duyệt — cùng một việc phải
+      // nhập hai lần, và chỉ cần quên là phụ huynh thấy chữ đỏ "Nghỉ không phép"
+      // cho con mình dù cô đã duyệt đơn.
+      //
+      // CỐ Ý chỉ THÊM THÔNG TIN, tuyệt đối không tự sinh bản ghi điểm danh khi
+      // duyệt đơn: hệ thống không có khái niệm ngày học / ngày lễ / cuối tuần,
+      // nên một đơn từ thứ Sáu đến thứ Hai sẽ sinh cả thứ Bảy và Chủ nhật, thổi
+      // phồng số buổi nghỉ trong báo cáo học kỳ — đúng con số mà việc này định
+      // cứu. Muốn làm phần đó phải có lịch năm học trước.
+      for (const d of db.all('leave_requests',
+        `SELECT * FROM leave_requests WHERE status = 'approved' AND fromDate <= ? AND toDate >= ?
+           AND studentId IN (${marks})`, [date, date, ...ids])) {
+        donNghi.set(d.studentId, { id: d.id, fromDate: d.fromDate, toDate: d.toDate, reason: d.reason });
+      }
     }
     res.json({
       date,
       students: students.map(s => ({
         student: { id: s.id, name: s.name, code: s.code, avatar: s.avatar },
         record: byStudent.get(s.id) || null,
+        donNghiDaDuyet: donNghi.get(s.id) || null,
       })),
     });
   });

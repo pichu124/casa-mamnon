@@ -436,6 +436,73 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   await page.setViewportSize({ width: 390, height: 844 });
 }
 
+console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm danh');
+{
+  await page.evaluate(() => UI.closeModal());
+  await page.waitForTimeout(400);
+  const NGAY = '2026-12-15';
+
+  // Phụ huynh gửi đơn cho con mình, cô duyệt — làm qua API cho gọn, phần cần
+  // kiểm là màn hình điểm danh.
+  const daTao = await page.evaluate(async (ngay) => {
+    // Đang đăng nhập bằng giáo viên; mượn fetch của trang để giữ đúng phiên.
+    const dsLop = await (await fetch(`/api/attendance/class?date=${ngay}`)).json();
+    return dsLop.students.map(x => x.student.id);
+  }, NGAY);
+  check('lấy được danh sách lớp của cô', daTao.length > 0, daTao.length);
+
+  await dangXuat();
+  await dangNhap('phuhuynh', '123456');
+  const donId = await page.evaluate(async ({ ngay, ids }) => {
+    const con = await (await fetch('/api/students')).json();
+    const em = con.map(c => c.id).find(id => ids.includes(id));
+    if (!em) return null;
+    const r = await fetch('/api/leave', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId: em, fromDate: ngay, toDate: ngay, reason: 'Con đi khám răng' }),
+    });
+    return (await r.json()).id || null;
+  }, { ngay: NGAY, ids: daTao });
+  check('phụ huynh gửi được đơn xin nghỉ', !!donId, donId);
+
+  await dangXuat();
+  await dangNhap('giaovien', '123456');
+  const duyet = await page.evaluate(async (id) => {
+    const r = await fetch(`/api/leave/${id}/review`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'approved' }),
+    });
+    return r.status;
+  }, donId);
+  check('cô duyệt được đơn', duyet === 200, duyet);
+
+  await page.goto(BASE + '/#/attendance', { waitUntil: 'networkidle' });
+  await page.waitForSelector('[id^="att-dong-"]', { timeout: 8000 });
+  await page.evaluate(ngay => App.views.attendance.setDate(ngay), NGAY);
+  await page.waitForTimeout(1000);
+
+  const man = await page.locator('#view').innerText();
+  check('MÀN ĐIỂM DANH HIỆN HUY HIỆU ĐƠN NGHỈ ĐÃ DUYỆT', /Có đơn nghỉ đã duyệt/.test(man), man.slice(0, 400));
+  check('kèm lý do để cô khỏi phải mở màn khác', /khám răng/.test(man));
+
+  // Chấm "Nghỉ KP" cho em đó phải bị hỏi lại.
+  const dong = page.locator('.list-row', { hasText: 'Có đơn nghỉ đã duyệt' }).first();
+  await dong.locator('button', { hasText: 'Nghỉ KP' }).click();
+  await page.waitForTimeout(700);
+  const hoi = await page.locator('.modal').innerText();
+  check('chấm Nghỉ KP đúng ngày có đơn thì bị hỏi lại', /đã có/.test(hoi), hoi.slice(0, 200));
+  check('nói rõ hậu quả với phụ huynh', /chữ đỏ|phụ huynh/.test(hoi));
+  check('có nút đi thẳng sang Nghỉ có phép', await page.locator('#att-dung-cp').count() === 1);
+  check('vẫn cho cô toàn quyền quyết định', await page.locator('#att-van-kp').count() === 1);
+
+  await page.locator('#att-dung-cp').click();
+  await page.waitForTimeout(1200);
+  const sau = await page.locator('#view').innerText();
+  check('chọn đúng thì ghi Nghỉ có phép, không còn hộp thoại', await page.locator('.modal').count() === 0);
+  check('em khác không bị gắn nhầm huy hiệu',
+    (sau.match(/Có đơn nghỉ đã duyệt/g) || []).length === 1, sau.match(/Có đơn nghỉ đã duyệt/g)?.length);
+}
+
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 
 await browser.close();

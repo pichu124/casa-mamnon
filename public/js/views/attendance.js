@@ -166,22 +166,34 @@ App.views.attendance = {
       </div>`;
   },
 
-  rosterRow({ student: s, record }) {
+  rosterRow({ student: s, record, donNghiDaDuyet }) {
     const times = record
       ? [record.checkIn ? `Vào ${record.checkIn}` : null, record.checkOut ? `Ra ${record.checkOut}` : null].filter(Boolean).join(' · ')
       : '';
+    // Đơn nghỉ đã duyệt: gợi ý sẵn ô "Nghỉ CP" khi cô chưa chấm gì, để cô không
+    // phải nhớ lại xem em này đã có đơn hay chưa.
+    const goiY = donNghiDaDuyet && !record ? 'absent_excused' : null;
     return `
       <div class="list-row" id="att-dong-${UI.esc(s.id)}" style="align-items:flex-start">
         ${UI.avatar(s.avatar, 42)}
         <div class="row-main">
           <div class="row-title">${UI.esc(s.name)}</div>
           <div class="row-sub">${UI.esc(s.code)}${times ? ` · ${UI.esc(times)}` : ''}${record && record.note ? ` · ${UI.esc(record.note)}` : ''}</div>
+          ${donNghiDaDuyet ? `
+            <div class="small mt-8" style="color:var(--info)">
+              ${UI.icon('check', 14)} Có đơn nghỉ đã duyệt${donNghiDaDuyet.fromDate !== donNghiDaDuyet.toDate
+                ? ` (${UI.esc(UI.fmtDateShort(donNghiDaDuyet.fromDate))} – ${UI.esc(UI.fmtDateShort(donNghiDaDuyet.toDate))})`
+                : ''}${donNghiDaDuyet.reason ? ` · ${UI.esc(donNghiDaDuyet.reason.slice(0, 60))}` : ''}
+            </div>` : ''}
           <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:8px">
             ${this.STATUS_KEYS.map(k => {
               const conf = UI.ATT_STATUS[k];
               const sel = record && record.status === k;
-              return `<button class="badge ${conf.cls}" title="${UI.esc(conf.label)}"
-                style="cursor:pointer;${sel ? `background:${conf.color};color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)` : 'opacity:.55'}"
+              const nhac = !record && goiY === k;
+              return `<button class="badge ${conf.cls}" title="${UI.esc(nhac ? `${conf.label} — em này đã có đơn nghỉ được duyệt` : conf.label)}"
+                style="cursor:pointer;${sel
+                  ? `background:${conf.color};color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)`
+                  : nhac ? `opacity:1;border:1.5px dashed ${conf.color};color:${conf.color}` : 'opacity:.55'}"
                 onclick="App.views.attendance.mark('${UI.esc(s.id)}', '${k}')">${UI.esc(this.SHORT[k])}</button>`;
             }).join('')}
           </div>
@@ -201,6 +213,43 @@ App.views.attendance = {
   // xong bị ném về đầu danh sách, phải cuộn lại từ đầu cho từng em — điểm danh
   // một lớp thành 30 lần cuộn. Chỉ vẽ lại đúng dòng vừa đổi và hai ô đếm.
   async mark(studentId, status) {
+    // Chấm "Nghỉ không phép" đúng vào ngày em đã có đơn được duyệt gần như luôn
+    // là nhầm — và phụ huynh sẽ thấy chữ đỏ cho con mình dù cô đã duyệt đơn.
+    // Hỏi lại chứ không chặn: quyền quyết định vẫn là của cô.
+    const co = this._roster.find(x => x.student.id === studentId);
+    if (status === 'absent_unexcused' && co && co.donNghiDaDuyet) {
+      return this.hoiLaiNghiKhongPhep(studentId, co);
+    }
+    return this.ghiDiemDanh(studentId, status);
+  },
+
+  hoiLaiNghiKhongPhep(studentId, dong) {
+    const d = dong.donNghiDaDuyet;
+    UI.modal(`
+      <p style="line-height:1.6">
+        <b>${UI.esc(dong.student.name)}</b> đã có <b>đơn xin nghỉ được duyệt</b> cho ngày này${d.reason ? `:` : '.'}
+      </p>
+      ${d.reason ? `<p class="muted small" style="line-height:1.6">"${UI.esc(d.reason.slice(0, 200))}"</p>` : ''}
+      <p class="muted small" style="line-height:1.6">
+        Chấm <b>Nghỉ không phép</b> thì phụ huynh sẽ thấy chữ đỏ cho con mình
+        dù cô đã duyệt đơn. Cô có chắc không?
+      </p>
+      <button class="btn primary block mt-14" id="att-dung-cp">Ghi "Nghỉ có phép" (đúng với đơn)</button>
+      <button class="btn outline block mt-8" id="att-van-kp">Vẫn ghi "Nghỉ không phép"</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, 'Em này đã có đơn nghỉ');
+
+    document.getElementById('att-dung-cp').onclick = () => {
+      UI.closeModal();
+      this.ghiDiemDanh(studentId, 'absent_excused');
+    };
+    document.getElementById('att-van-kp').onclick = () => {
+      UI.closeModal();
+      this.ghiDiemDanh(studentId, 'absent_unexcused');
+    };
+  },
+
+  async ghiDiemDanh(studentId, status) {
     const ngayLucBam = this.date;
     try {
       const rec = await API.post('/api/attendance/mark', { studentId, date: ngayLucBam, status });
