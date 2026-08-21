@@ -24,6 +24,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B10 | Kiểm tra máy chủ thật: bịt khoảng trống giữa kho mã và bản cài đặt đang chạy | ✅ **Hoàn thành** — 34/34 kiểm thử đạt |
 | B11 | Vá 5 lỗ hổng do đợt rà soát nhiều tác nhân tìm ra (Đợt 1) | ✅ **Hoàn thành** |
 | B12 | Đợt 2: chặn XSS qua `onclick`, sửa lớp/học sinh, cảnh báo nhập trùng, bắt lỗi bảng mã CSV, sửa màn hình điểm danh | ✅ **Hoàn thành** — 195/195 kiểm thử đạt (122 API + 73 trình duyệt) |
+| B13 | Đợt 3: album lớp đã đóng, huy hiệu đơn nghỉ, trần cho màn dày theo năm, sửa/thu hồi bốn phân hệ, ghi lịch sử lớp | ✅ **Hoàn thành** — 123/123 kiểm thử đạt (93 API + 30 trình duyệt) |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -419,17 +420,79 @@ Bốn điều đáng ghi lại:
 Bộ `test:lo-hong` lên **122 bài** và bộ soạn nội dung trên trình duyệt lên
 **73 bài**, canh từng lỗ ở trên không tái phát.
 
-Đợt 2 đã xong. Còn toàn bộ Đợt 3 (5 việc, đều là việc cải thiện chứ không
-phải lỗ hổng) chưa làm.
+Đợt 2 đã xong. Đợt 3 làm tiếp ở mục B13 bên dưới.
+
+---
+
+## B13 — Đợt 3: những thứ chỉ bùng ra khi năm học chuyển hoặc dữ liệu dày lên
+
+| Mã | Vấn đề | Cách sửa |
+|---|---|---|
+| B6 | Quyền xem album đi qua danh sách lớp **đang mở**, nên ngay khi bấm "Chuyển năm học" toàn bộ album năm cũ rơi khỏi tầm với của **mọi vai**, kể cả quản trị. Ảnh vẫn nằm nguyên trên ổ đĩa mà không ai xem được, cũng không ai xóa được | Quản trị và giáo viên **từng** chủ nhiệm lớp đó xem và xóa được album của lớp đã đóng. Danh sách mặc định không đổi — album lớp cũ chỉ hiện khi hỏi kèm `?keCaLopCu=1` |
+| B5 | Cô duyệt đơn xin nghỉ xong mà sổ điểm danh không hay biết gì, vẫn cho chấm "Nghỉ không phép" đúng ngày đơn đã duyệt. Cùng một việc nhập hai lần, quên là phụ huynh thấy chữ đỏ cho con mình | `/api/attendance/class` trả kèm đơn nghỉ đã duyệt của từng em; màn hình hiện huy hiệu kèm ngày và lý do, viền sẵn ô "Nghỉ CP". Chấm "Nghỉ không phép" đúng ngày có đơn thì hỏi lại |
+| B3 | Màn Nề nếp của **giáo viên** lấy toàn bộ ghi nhận từ trước tới nay, nặng thêm mỗi năm (đo: 2 năm ~1,9 giây, 5 năm ~4,7 giây trên điện thoại tầm trung qua 4G) | Trả 50 bản ghi gần nhất kèm tổng số, có nút "Xem thêm". Bảng xếp hạng giữ nguyên vì tổng điểm do `SUM` trên toàn bộ bảng |
+| B7 | Bốn phân hệ ghi nội dung quan trọng nhất — Thông báo, Nề nếp, Y tế, Nhận xét — **chỉ có đường ghi thêm**. Ghi nhầm một "nhắc nhở" trừ điểm hay một ghi nhận y tế sang em khác là gắn vĩnh viễn vào hồ sơ đứa trẻ, hiệu trưởng cũng không gỡ được. Rủi ro NĐ 13/2023 | Mỗi phân hệ có đường **sửa** và đường **thu hồi** cho người đã tạo hoặc quản trị. Thu hồi là **đánh dấu ẩn, không xóa**. Y tế và Nề nếp nay nhận **ngày do người nhập chọn** |
+| — | Cơ sở dữ liệu **không lưu lịch sử lớp**: học sinh chỉ có một `classId`, bị ghi đè ngay lúc chuyển năm. Mỗi lần chuyển năm trôi qua là mất thêm một năm thông tin không lấy lại được | **Bắt đầu ghi lại từ bây giờ** — bảng `student_class_history`, ghi ngay tại lúc chuyển năm trước khi `classId` bị đè, kèm đường đọc `/api/schoolyear/lich-su-lop`. Phần *dùng* nó vẫn để ngỏ, xem mục dưới |
+
+Bốn điều đáng ghi lại:
+
+- **Không được cắt danh sách mà quên các ô đếm.** Màn Nề nếp của **phụ huynh**
+  cố ý KHÔNG giới hạn: hai ô "Tuyên dương" và "Nhắc nhở" đếm ngay trên mảng
+  `records`, cắt bớt là hai con số đó sai mà không có lỗi nào báo. Cùng lý do,
+  đơn xin nghỉ **chờ duyệt** và đơn dặn thuốc **chưa hoàn tất** lấy hết không
+  bao giờ cắt — màn hình đếm "Chờ duyệt (N)" trên chính danh sách đó, và đó là
+  việc cô phải làm hôm nay. Chỉ phần lịch sử đã xử lý mới giới hạn.
+- **`ALTER TABLE` trong `lib/schema.sql` sẽ giết app, chậm.** Lược đồ được chạy
+  lại ở mỗi lần khởi động và `lib/db.js` gọi `sqlite.exec` thẳng, không bọc bắt
+  lỗi. `ALTER TABLE ADD COLUMN` chạy được lần đầu rồi báo lỗi trùng cột ở **mọi**
+  lần khởi động sau — app chạy bình thường ngay sau khi triển khai rồi chết lặng
+  lẽ vài ngày sau, sau khi mọi bài kiểm thử đã xanh. Trạng thái sửa/thu hồi vì
+  thế nằm ở bảng phụ `record_edits` tạo bằng `CREATE TABLE IF NOT EXISTS`, và có
+  bài kiểm thử đọc lại chính `lib/schema.sql` để chắc chắn không có câu `ALTER`.
+- **Thu hồi phải kéo theo mọi con số nó ảnh hưởng.** Thông báo đã thu hồi phải bị
+  loại khỏi bộ đếm "chưa đọc", nếu không phụ huynh thấy một con số không bao giờ
+  về 0 (thông báo đã biến khỏi danh sách nên không còn cách nào bấm vào để đánh
+  dấu đã đọc). Ghi nhận nề nếp đã thu hồi phải được **trả lại điểm thi đua**, nếu
+  không việc thu hồi chẳng còn nghĩa gì với gia đình.
+- **KHÔNG tự sinh bản ghi điểm danh khi duyệt đơn nghỉ.** Hệ thống không có khái
+  niệm ngày học / ngày lễ / cuối tuần, nên một đơn từ thứ Sáu đến thứ Hai sẽ sinh
+  bản ghi nghỉ cho cả thứ Bảy và Chủ nhật, thổi phồng số buổi nghỉ trong báo cáo
+  học kỳ — đúng con số mà việc này định cứu. Chỉ thêm thông tin cho cô, không tự
+  quyết thay cô.
+
+### Còn để ngỏ — cần nhà trường quyết
+
+**Cho phụ huynh xem lại nội dung của năm học cũ** (album, thông báo lớp, kế
+hoạch, khảo sát của năm trước). Đây là việc lớn nhất trong báo cáo rà soát.
+
+Phần **không hoàn tác được** đã làm xong: từ nay mỗi lần chuyển năm học, lớp của
+từng em được ghi vào `student_class_history` trước khi bị ghi đè. Nếu không làm
+bước này, mỗi năm trôi qua là mất vĩnh viễn thông tin "năm ngoái em này học lớp
+nào" — mà đó chính là thứ cần để mở lại nội dung năm cũ.
+
+Phần còn lại là quyết định của nhà trường, vì nó chạm tới dữ liệu nhạy cảm:
+
+- Album chứa mặt **nhiều trẻ khác**. Nếu mở cho phụ huynh cũ xem lại thì phải
+  giới hạn đúng khoảng thời gian con họ còn học lớp đó, chứ mở cả lớp cũ thì một
+  em chuyển đi giữa năm vẫn xem được ảnh chụp sau khi đã rời lớp.
+- Việc này chạm vào cách tính danh sách lớp — thứ mà **mọi** phân hệ khóa theo lớp
+  đang dựa vào. Sửa không cẩn thận là phụ huynh năm nay thấy nhầm nội dung lớp
+  khác.
+- Album của **các năm đã chuyển trước khi có bản này** vẫn không có lịch sử lớp
+  nên không cứu được bằng cách này. Với chúng, đường duy nhất là quản trị mở ra
+  và tải về (đã làm ở B6).
+
+Ước lượng nếu làm: 2–3 ngày, chạm vào `lib/db.js` (tệp dùng chung, phải tách
+commit riêng theo quy định trong `CLAUDE.md`).
 
 ---
 
 ## Tổng kết
 
-Chín hạng mục B1–B9 đã hoàn thành. **1079 bài kiểm thử tự động đều đạt**, tất cả
+Chín hạng mục B1–B9 đã hoàn thành. **1087 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 870 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 878 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -437,7 +500,7 @@ Chín hạng mục B1–B9 đã hoàn thành. **1079 bài kiểm thử tự đ�
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
-| `test:lo-hong` | 207 | Các lỗ hổng đã vá không tái phát |
+| `test:lo-hong` | 215 | Các lỗ hổng đã vá không tái phát |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |

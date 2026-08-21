@@ -920,6 +920,26 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   check('xóa xong thì biến khỏi danh sách',
     !(await r3('GET', '/api/albums?keCaLopCu=1', { cookie: A })).data.some(x => x.id === alb.id));
 
+  // -- Lịch sử lớp: phải được ghi lại NGAY TẠI LÚC chuyển năm, trước khi classId
+  // bị ghi đè. Mỗi lần chuyển năm trôi qua mà không ghi là mất thêm một năm
+  // thông tin không lấy lại được.
+  const conPh3 = (await r3('GET', '/api/students', { cookie: PH })).data;
+  const emCon = conPh3[0]?.id;
+  check('phụ huynh vẫn còn con đang học sau khi chuyển năm', !!emCon, conPh3.map(x => x.name));
+  const ls = await r3('GET', `/api/schoolyear/lich-su-lop?studentId=${emCon}`, { cookie: PH });
+  check('tra được lịch sử lớp của con', ls.status === 200, ls.data);
+  check('CÓ GHI LẠI LỚP CỦA NĂM VỪA KẾT THÚC', ls.data.some(x => !x.hienTai), ls.data);
+  check('lịch sử kèm đúng tên lớp cũ, không chỉ mã lớp',
+    ls.data.filter(x => !x.hienTai).every(x => /\S/.test(x.className || '')), ls.data);
+  check('và kèm năm học để biết là năm nào',
+    ls.data.filter(x => !x.hienTai).every(x => /^\d{4}-\d{4}$/.test(x.year || '')), ls.data);
+  check('lớp đang học của năm mới cũng có trong danh sách', ls.data.some(x => x.hienTai));
+  check('lớp cũ trong lịch sử KHÁC lớp đang học',
+    new Set(ls.data.map(x => x.classId)).size === ls.data.length, ls.data.map(x => x.classId));
+
+  const nguoiLa = (await r3('GET', '/api/schoolyear/lich-su-lop?studentId=s2', { cookie: GV1 })).status;
+  check('cô không xem được lịch sử lớp của em không thuộc quyền mình', nguoiLa === 403, nguoiLa);
+
   sv.dung();
   donThuMucTam(DIR3);
 }

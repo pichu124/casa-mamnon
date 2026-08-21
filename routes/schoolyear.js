@@ -110,6 +110,23 @@ module.exports = (app) => {
         const hocSinh = db.all('students',
           'SELECT id FROM students WHERE classId = ? AND active = 1', [c.id]);
 
+        // GHI LỊCH SỬ LỚP TRƯỚC KHI GHI ĐÈ.
+        //
+        // Học sinh chỉ có một trường classId duy nhất. Vài dòng bên dưới sẽ ghi
+        // đè nó bằng lớp của năm mới, và sau đó không còn cách nào biết năm vừa
+        // rồi em học lớp nào. Mỗi lần chuyển năm trôi qua mà không ghi lại là
+        // mất thêm một năm thông tin KHÔNG lấy lại được — nên ghi ngay tại đây,
+        // dù phần dùng tới nó (cho phụ huynh xem lại nội dung năm cũ) chưa làm.
+        for (const s of hocSinh) {
+          db.upsert('student_class_history', {
+            studentId: s.id,
+            year: c.year || school.currentYear || '',
+            classId: c.id,
+            className: c.name,
+            ghiLuc: new Date().toISOString(),
+          }, ['studentId', 'year']);
+        }
+
         if (!tenMoi) {
           // Khối cuối cấp: học sinh ra trường, giữ lại dữ liệu để tra cứu.
           for (const s of hocSinh) {
@@ -160,6 +177,31 @@ module.exports = (app) => {
       ...s,
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',
     })));
+  });
+
+  // Lịch sử lớp của một học sinh qua các năm.
+  //
+  // Đường ĐỌC cho phần dữ liệu đang được ghi ở trên. Có đường đọc thì nhà trường
+  // kiểm chứng được là dữ liệu thật sự đang được ghi, thay vì tin vào một bảng
+  // chỉ ghi mà không ai nhìn thấy bao giờ.
+  app.get('/api/schoolyear/lich-su-lop', (req, res) => {
+    const studentId = String(req.query.studentId || '');
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
+    }
+    const hs = db.findStudent(studentId);
+    const lopHienTai = hs && hs.classId ? db.findClass(hs.classId) : null;
+    const namNay = lopHienTai ? [{
+      year: lopHienTai.year || (db.school() || {}).currentYear || '',
+      classId: lopHienTai.id,
+      className: lopHienTai.name,
+      hienTai: true,
+    }] : [];
+    const cu = db.all('student_class_history',
+      'SELECT * FROM student_class_history WHERE studentId = ? ORDER BY year DESC', [studentId])
+      .map(r => ({ year: r.year, classId: r.classId, className: r.className, hienTai: false }));
+    res.json([...namNay, ...cu.filter(r => !namNay.some(n => n.year === r.year))]);
   });
 };
 

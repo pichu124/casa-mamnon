@@ -178,6 +178,44 @@ giữ bản giao diện cũ trong bộ nhớ đệm**, không phải máy chủ 
 hẳn app rồi mở lại (điện thoại đã cài app: vuốt tắt khỏi danh sách ứng dụng đang
 chạy). Số phiên bản đã tăng nên chậm nhất là lần mở thứ hai sẽ nhận bản mới.
 
+### Đợt vá tháng 08/2026 (đợt 3) — năm học cũ và sửa/thu hồi
+
+Đợt này thêm **hai bảng mới** vào cơ sở dữ liệu, nhưng **không có việc phải làm
+thêm bằng tay**: cả hai đều được tạo bằng câu `CREATE TABLE IF NOT EXISTS` và
+chạy tự động khi máy chủ khởi động lại. Không có bảng cũ nào bị đổi cấu trúc,
+không có dữ liệu nào bị đụng vào.
+
+| Bảng mới | Để làm gì |
+|---|---|
+| `record_edits` | Nhớ bản ghi nào đã sửa, bản ghi nào đã thu hồi (Thông báo, Nề nếp, Y tế, Nhận xét) |
+| `student_class_history` | Ghi lại lớp của từng em **trước khi** chuyển năm học ghi đè mất |
+
+**Việc duy nhất cần biết trước, và nó gấp:** bảng `student_class_history` chỉ ghi
+được **từ lần chuyển năm học tiếp theo trở đi**. Nếu nhà trường đã bấm "Chuyển
+năm học" trước khi cập nhật bản này thì năm đó **không lấy lại được** — cơ sở dữ
+liệu không còn dấu vết em nào học lớp nào. Vì vậy: **cập nhật bản này TRƯỚC khi
+bấm chuyển năm học lần đầu.**
+
+#### Kiểm bằng tay sau khi cập nhật — 5 việc
+
+| # | Làm gì | Phải thấy gì |
+|---|---|---|
+| 1 | **Khởi động lại máy chủ hai lần liên tiếp**, mỗi lần `systemctl status schoolconnect` | Cả hai lần đều `active (running)`. Đây là phép thử cho hai bảng mới: nếu lược đồ viết sai kiểu `ALTER TABLE` thì lần đầu chạy được, **lần thứ hai mới chết** |
+| 2 | Mở một **thông báo cô vừa gửi** | Có nút **Sửa lại** và **Thu hồi**. Thu hồi xong thông báo biến mất và số "chưa đọc" giảm theo |
+| 3 | **Nề nếp** → ghi một nhắc nhở trừ điểm → **Thu hồi** | Điểm thi đua của em **trở lại đúng như trước**, không còn bị trừ |
+| 4 | **Y tế** → Thêm ghi nhận | Có ô **Ngày ghi nhận** để nhập bù đợt tiêm chủng đã làm trước đó |
+| 5 | **Điểm danh** một ngày mà lớp có đơn nghỉ đã duyệt | Dòng của em đó hiện **"Có đơn nghỉ đã duyệt"** kèm lý do |
+
+Ba thay đổi hành vi nên báo trước cho nhà trường:
+
+1. **Thu hồi là ẩn, không phải xóa.** Nội dung vẫn nằm trong cơ sở dữ liệu và
+   trong bản sao lưu — để tra khi có khiếu nại. Phụ huynh đã đọc rồi thì không
+   lấy lại được điều họ đã thấy; thu hồi chỉ gỡ khỏi màn hình từ lúc đó trở đi.
+2. **Sửa một nhận xét sẽ báo "mới" lại cho phụ huynh** và hiện kèm chữ "đã chỉnh
+   sửa". Cố ý như vậy, để không ai tưởng mình nhớ nhầm nội dung cũ.
+3. **Màn Nề nếp của cô chỉ hiện 50 ghi nhận gần nhất**, có nút "Xem thêm" ở cuối.
+   Bảng điểm thi đua vẫn tính trên toàn bộ, không đổi.
+
 ---
 
 ## Bảng kiểm sau mỗi lần cập nhật

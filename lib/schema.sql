@@ -366,3 +366,23 @@ CREATE TABLE IF NOT EXISTS record_edits (
   PRIMARY KEY (bang, recordId)
 );
 CREATE INDEX IF NOT EXISTS idx_record_edits_thuhoi ON record_edits(bang, thuHoi);
+
+-- ===== Lịch sử lớp của học sinh =====
+--
+-- Học sinh chỉ có MỘT trường `classId` duy nhất, bị GHI ĐÈ ngay lúc chuyển năm
+-- học. Nghĩa là sau lần chuyển năm đầu tiên, không còn cách nào biết năm ngoái
+-- một em học lớp nào — và đó là thông tin cần để cho phụ huynh xem lại album,
+-- thông báo, kế hoạch của năm cũ.
+--
+-- Bảng này được ghi ngay tại lúc chuyển năm, TRƯỚC khi `classId` bị ghi đè. Ghi
+-- lại từ bây giờ là việc rẻ; mỗi lần chuyển năm trôi qua mà không ghi là mất
+-- thêm một năm thông tin KHÔNG lấy lại được.
+CREATE TABLE IF NOT EXISTS student_class_history (
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  year      TEXT NOT NULL,
+  classId   TEXT NOT NULL,
+  className TEXT NOT NULL DEFAULT '',
+  ghiLuc    TEXT,
+  PRIMARY KEY (studentId, year)
+);
+CREATE INDEX IF NOT EXISTS idx_sch_hist_class ON student_class_history(classId);
