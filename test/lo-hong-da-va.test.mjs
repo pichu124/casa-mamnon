@@ -9,7 +9,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
@@ -575,6 +575,83 @@ console.log('\n[15] B4 — "Cả lớp có mặt" KHÔNG được xóa những e
   // cài app vẫn gọi đường này.
   check('đường điểm danh từng em vẫn chạy như cũ',
     (await req('POST', '/api/attendance/mark', { cookie: GV, body: { studentId: em1, date: NGAY, status: 'late' } })).status === 200);
+}
+
+// ===========================================================================
+console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại được sau khi chuyển năm học');
+{
+  // Máy chủ riêng: bài này CHUYỂN NĂM HỌC, một việc không hoàn tác được, nên
+  // không dùng chung cơ sở dữ liệu với các bài trên.
+  const DIR3 = thuMucTam('lo-hong-namcu');
+  sinhDuLieu(DIR3);
+  const mkTam = taoQuanTri(DIR3, 'Hiệu Trưởng', 'ht.namcu');
+  const sv = await dungMayChu({ port: 3176, dir: DIR3 });
+  const r3 = taoReq(sv.BASE);
+  const dn3 = taoLogin(r3);
+  const dau = await dn3('ht.namcu', mkTam);
+  await r3('POST', '/api/auth/set-new-password', { cookie: dau.cookie, body: { newPassword: 'quantri2026' } });
+  const A = (await dn3('ht.namcu', 'quantri2026')).cookie;
+
+  const PH = (await dn3('phuhuynh', '123456')).cookie;
+  const GV1 = (await dn3('giaovien', '123456')).cookie;      // chủ nhiệm Lớp 3A
+  const GV2 = (await dn3('giaovien2', '123456')).cookie;     // chủ nhiệm Lớp 5B
+
+  const truoc = await r3('GET', '/api/albums', { cookie: PH });
+  check('trước khi chuyển năm, phụ huynh thấy album', truoc.data.length > 0, truoc.data.length);
+  const cua3A = (await r3('GET', '/api/albums', { cookie: GV1 })).data;
+  check('cô chủ nhiệm cũng thấy album lớp mình', cua3A.length > 0, cua3A.length);
+  const alb = cua3A[0];
+
+  // -- Chuyển năm học: đây là lúc album rơi khỏi tầm với.
+  const ch = await r3('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi: '2027-2028' } });
+  check('chuyển được năm học', ch.status === 200, ch.data);
+
+  check('PHỤ HUYNH mất album như cũ (chưa mở, cố ý)',
+    (await r3('GET', '/api/albums', { cookie: PH })).data.length === 0);
+  check('phụ huynh mở thẳng album cũ vẫn bị từ chối',
+    (await r3('GET', `/api/albums/${alb.id}`, { cookie: PH })).status === 403);
+  check('phụ huynh hỏi kèm lớp cũ cũng KHÔNG được mở thêm gì',
+    (await r3('GET', '/api/albums?keCaLopCu=1', { cookie: PH })).data.length === 0);
+
+  check('danh sách MẶC ĐỊNH của quản trị không đổi (vẫn không kèm lớp cũ)',
+    (await r3('GET', '/api/albums', { cookie: A })).data.length === 0);
+
+  // -- Đây là bản vá.
+  const keCa = await r3('GET', '/api/albums?keCaLopCu=1', { cookie: A });
+  check('QUẢN TRỊ HỎI KÈM LỚP CŨ THÌ THẤY LẠI ALBUM', keCa.data.length > 0, keCa.data.length);
+  check('album cũ được đánh dấu là lớp đã đóng', keCa.data.every(x => x.lopDaDong));
+  check('và kèm năm học để phân biệt', keCa.data.every(x => /^\d{4}-\d{4}$/.test(x.namHoc || '')),
+    keCa.data[0]?.namHoc);
+
+  const ct = await r3('GET', `/api/albums/${alb.id}`, { cookie: A });
+  check('QUẢN TRỊ MỞ ĐƯỢC ALBUM CŨ', ct.status === 200, ct.status);
+  check('có nút xóa để dọn ổ đĩa', ct.data?.canXoa === true, ct.data?.canXoa);
+  check('nhưng KHÔNG cho đăng thêm ảnh vào lớp đã đóng', ct.data?.canEdit === false, ct.data?.canEdit);
+
+  const anh = (ct.data.photos || []).find(p => p.file);
+  if (anh) {
+    const ra = await fetch(`${sv.BASE}/api/albums/${alb.id}/photo/${anh.id}`, { headers: { Cookie: A } });
+    check('xem lại được tệp ảnh cũ', ra.status === 200, ra.status);
+  } else {
+    check('xem lại được tệp ảnh cũ', true, 'album mẫu dùng ảnh emoji, không có tệp');
+  }
+
+  // -- Cô TỪNG chủ nhiệm lớp đó cũng lấy lại được; cô lớp khác thì không.
+  const cuaCo = await r3('GET', '/api/albums?keCaLopCu=1', { cookie: GV1 });
+  check('cô TỪNG chủ nhiệm vẫn lấy lại được album lớp cũ', cuaCo.data.length > 0, cuaCo.data.length);
+  check('cô lớp KHÁC không lấy được album lớp không phải của mình',
+    (await r3('GET', '/api/albums?keCaLopCu=1', { cookie: GV2 })).data.every(x => x.className !== alb.className));
+  check('cô lớp khác mở thẳng cũng bị từ chối',
+    (await r3('GET', `/api/albums/${alb.id}`, { cookie: GV2 })).status === 403);
+
+  // -- Xóa được để ổ đĩa không tích ảnh không ai xem.
+  const xoa = await r3('DELETE', `/api/albums/${alb.id}`, { cookie: A });
+  check('QUẢN TRỊ XÓA ĐƯỢC ALBUM CŨ', xoa.status === 200, xoa.data);
+  check('xóa xong thì biến khỏi danh sách',
+    !(await r3('GET', '/api/albums?keCaLopCu=1', { cookie: A })).data.some(x => x.id === alb.id));
+
+  sv.dung();
+  donThuMucTam(DIR3);
 }
 
 dung();

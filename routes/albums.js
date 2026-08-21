@@ -57,20 +57,70 @@ function removeFiles(photos) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Album của lớp ĐÃ ĐÓNG
+//
+// Quyền xem album đi qua danh sách lớp ĐANG MỞ, nên ngay khi bấm "Chuyển năm
+// học" toàn bộ album của năm cũ rơi khỏi tầm với của MỌI vai — kể cả quản trị.
+// Ảnh vẫn nằm nguyên trong cơ sở dữ liệu và trên ổ đĩa, chỉ là không ai xem
+// được, và cũng không ai xóa được nên ổ đĩa cứ đầy dần.
+//
+// Mở lại đúng hai vai, và chỉ với lớp đã đóng:
+//   • quản trị — để nhà trường lấy lại được ảnh cũ và dọn được ổ đĩa;
+//   • giáo viên TỪNG chủ nhiệm chính lớp đó. Lúc chuyển năm, `classes.teacherId`
+//     được giữ nguyên (chỉ `users.classId` bị gỡ), nên vẫn nhận ra được là ai.
+//
+// CỐ Ý KHÔNG mở cho phụ huynh. Album chứa mặt nhiều trẻ khác, và một em chuyển
+// đi giữa năm vẫn sẽ xem được ảnh chụp sau khi đã rời lớp. Muốn mở đúng khoảng
+// thời gian con họ còn học lớp đó thì phải có lịch sử lớp của học sinh — một
+// việc lớn hơn nhiều, xem docs/TIEN-DO.md.
+// ---------------------------------------------------------------------------
+function lopDaDong(classId) {
+  const lop = classId ? db.findClass(classId) : null;
+  return lop && !lop.active ? lop : null;
+}
+function laNguoiGiuLopCu(user, lop) {
+  if (!lop) return false;
+  return user.role === 'admin' || (user.role === 'teacher' && lop.teacherId === user.id);
+}
+function xemDuocAlbum(user, classId) {
+  if (db.canAccessClass(user, classId)) return true;
+  return laNguoiGiuLopCu(user, lopDaDong(classId));
+}
+function xoaDuocAlbum(user, classId) {
+  if (classId && classId === user.classId) return true;   // giữ nguyên đường cũ
+  return laNguoiGiuLopCu(user, lopDaDong(classId));
+}
+
 module.exports = (app) => {
   // Danh sách album các lớp liên quan, mới nhất trước (không kèm toàn bộ ảnh).
   app.get('/api/albums', (req, res) => {
     const classIds = db.classIdsOf(req.user);
-    if (!classIds.length) return res.json([]);
-    const marks = classIds.map(() => '?').join(',');
+
+    // Lớp đã đóng chỉ hiện khi được HỎI, để danh sách mặc định không đổi một chữ
+    // nào so với trước: phụ huynh và giáo viên đang dạy vẫn thấy đúng những gì
+    // họ vẫn thấy.
+    const keCaLopCu = String(req.query.keCaLopCu || '') === '1';
+    const lopCu = keCaLopCu
+      ? db.all('classes', 'SELECT * FROM classes WHERE active = 0')
+        .filter(c => laNguoiGiuLopCu(req.user, c))
+        .map(c => c.id)
+      : [];
+
+    const tatCa = [...new Set([...classIds, ...lopCu])];
+    if (!tatCa.length) return res.json([]);
+    const marks = tatCa.map(() => '?').join(',');
     const albums = db.all('albums',
-      `SELECT * FROM albums WHERE classId IN (${marks}) ORDER BY date DESC`, classIds);
+      `SELECT * FROM albums WHERE classId IN (${marks}) ORDER BY date DESC`, tatCa);
 
     const list = albums.map(a => {
       const cls = db.findClass(a.classId);
       return {
         ...a,
         className: cls ? cls.name : '',
+        // Để giao diện tách được "album năm nay" và "album các năm trước".
+        lopDaDong: !!(cls && !cls.active),
+        namHoc: cls ? cls.year || '' : '',
         photoCount: db.count('SELECT COUNT(*) FROM album_photos WHERE albumId = ?', [a.id]),
         cover: db.first('album_photos',
           'SELECT * FROM album_photos WHERE albumId = ? ORDER BY position, rowid LIMIT 1', [a.id]) || null,
@@ -83,7 +133,7 @@ module.exports = (app) => {
   app.get('/api/albums/:id', (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!db.canAccessClass(req.user, album.classId)) {
+    if (!xemDuocAlbum(req.user, album.classId)) {
       return res.status(403).json({ error: 'Không có quyền xem album này' });
     }
     album.photos = photosOf(album.id);
@@ -92,8 +142,13 @@ module.exports = (app) => {
     res.json({
       ...album,
       className: cls ? cls.name : '',
+      namHoc: cls ? cls.year || '' : '',
+      lopDaDong: !!(cls && !cls.active),
       authorName: author ? `${author.title} ${author.name}` : '',
+      // canEdit = thêm/xóa ảnh, chỉ cô đang dạy lớp đó. Giữ nguyên nghĩa cũ:
+      // lớp đã đóng thì không đăng thêm ảnh nữa.
       canEdit: req.user.role === 'teacher' && req.user.classId === album.classId,
+      canXoa: xoaDuocAlbum(req.user, album.classId),
     });
   });
 
@@ -102,7 +157,7 @@ module.exports = (app) => {
   app.get('/api/albums/:id/photo/:photoId', (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!db.canAccessClass(req.user, album.classId)) {
+    if (!xemDuocAlbum(req.user, album.classId)) {
       return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
     }
     const photo = db.first('album_photos',
@@ -208,8 +263,8 @@ module.exports = (app) => {
   app.delete('/api/albums/:id', requireRole('teacher', 'admin'), (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (album.classId !== req.user.classId) {
-      return res.status(403).json({ error: 'Chỉ giáo viên chủ nhiệm lớp mới xóa được album' });
+    if (!xoaDuocAlbum(req.user, album.classId)) {
+      return res.status(403).json({ error: 'Chỉ giáo viên chủ nhiệm lớp hoặc quản trị mới xóa được album' });
     }
     const photos = photosOf(album.id);
     db.remove('albums', album.id);   // ảnh trong bảng con tự xóa theo ràng buộc khóa ngoại

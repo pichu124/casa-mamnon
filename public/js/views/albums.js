@@ -14,24 +14,40 @@ App.views.albums = {
   // ================= Danh sách album =================
   async renderList(root) {
     const isTeacher = App.state.user.role === 'teacher';
-    const albums = await API.get('/api/albums');
+    // Chỉ quản trị và giáo viên mới có album lớp cũ để mà lấy lại — hỏi thêm cho
+    // họ. Phụ huynh gọi y như trước.
+    const coTheXemLopCu = App.state.user.role === 'admin' || isTeacher;
+    const albums = await API.get(`/api/albums${coTheXemLopCu ? '?keCaLopCu=1' : ''}`);
+    const namNay = albums.filter(a => !a.lopDaDong);
+    const namCu = albums.filter(a => a.lopDaDong);
+
     root.innerHTML = `
       ${UI.pageHeader('Album ảnh', isTeacher ? { action: { id: 'btn-new-album', label: 'Tạo album', icon: 'plus' } } : {})}
-      ${albums.length
-        ? `<div class="grid-2">${albums.map(a => this.albumCard(a)).join('')}</div>`
+      ${namNay.length
+        ? `<div class="grid-2">${namNay.map(a => this.albumCard(a)).join('')}</div>`
         : UI.emptyState('📷', isTeacher
           ? 'Chưa có album nào. Bấm "Tạo album" để đăng ảnh hoạt động của lớp.'
-          : 'Chưa có album ảnh nào của lớp')}`;
+          : 'Chưa có album ảnh nào của lớp')}
+      ${namCu.length ? `
+        <div class="card mt-14" style="border-left:4px solid var(--info)">
+          <div class="card-title">Album của các năm học trước</div>
+          <div class="muted small" style="line-height:1.6">
+            ${namCu.length} album thuộc lớp đã đóng sau khi chuyển năm học. Phụ huynh
+            không còn xem được, nhưng ảnh vẫn còn nguyên — tải về giữ lại hoặc xóa
+            cho nhẹ máy chủ.
+          </div>
+        </div>
+        <div class="grid-2">${namCu.map(a => this.albumCard(a)).join('')}</div>` : ''}`;
     if (isTeacher) document.getElementById('btn-new-album').onclick = () => this.openCreate();
   },
 
   albumCard(a) {
     return `
-      <div class="card clickable" style="margin-bottom:0" onclick="App.navigate('#/albums/${UI.esc(a.id)}')">
+      <div class="card clickable" style="margin-bottom:0${a.lopDaDong ? ';opacity:.8' : ''}" onclick="App.navigate('#/albums/${UI.esc(a.id)}')">
         ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
         <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
-        <div class="mt-8">${UI.badge(a.className, 'gray')}</div>
+        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.lopDaDong ? ` ${UI.badge(a.namHoc || 'năm trước', 'orange')}` : ''}</div>
       </div>`;
   },
 
@@ -55,6 +71,10 @@ App.views.albums = {
       <div class="card">
         <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}</div>
         ${a.description ? `<p class="mt-8" style="font-size:.93rem;line-height:1.55">${UI.esc(a.description)}</p>` : ''}
+        ${a.lopDaDong ? `<div class="muted small mt-8" style="line-height:1.6">
+          Lớp này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''}.
+          Phụ huynh không còn xem được album này; không đăng thêm ảnh được nữa.
+        </div>` : ''}
       </div>
       ${a.photos.length ? `
         <div class="photo-grid">
@@ -73,7 +93,7 @@ App.views.albums = {
                 </button>` : ''}
             </div>`).join('')}
         </div>` : UI.emptyState('📷', a.canEdit ? 'Album chưa có ảnh nào. Bấm "Thêm ảnh" để đăng.' : 'Album chưa có ảnh')}
-      ${a.canEdit ? `
+      ${a.canXoa ? `
         <button class="btn danger-soft block mt-14" onclick="App.views.albums.deleteAlbum()">Xóa album này</button>` : ''}`;
 
     if (a.canEdit) document.getElementById('btn-add-photo').onclick = () => this.openAddPhotos();
