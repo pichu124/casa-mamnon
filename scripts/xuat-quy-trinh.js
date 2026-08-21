@@ -275,6 +275,12 @@ async function main() {
     ...lenh('systemctl reload caddy'),
     p('Chờ khoảng một phút rồi mở https://lienlac.truong-cua-ban.vn từ điện thoại dùng 4G — phải thấy màn hình đăng nhập kèm ổ khóa.'),
     h2('3.5  Khóa cửa VPS'),
+    p({ text: 'TRUST_PROXY — đặt đúng theo phương án. ', bold: true },
+      'Cơ chế chống dò mật khẩu đếm số lần nhập sai theo địa chỉ người dùng, mà địa chỉ đó được xác định khác nhau tùy có máy chủ trung gian phía trước hay không. ',
+      { text: 'Phương án B (VPS có Caddy): giữ mặc định, ĐỪNG đặt TRUST_PROXY. ', bold: true },
+      'Caddy nối địa chỉ thật của người dùng vào cuối danh sách chuyển tiếp nên app lấy đúng giá trị đó; đặt TRUST_PROXY=0 ở đây là sai, khi ấy mọi người dùng mang chung địa chỉ của Caddy và một người nhập sai 8 lần là khóa luôn cả trường. ',
+      { text: 'Phương án A (máy tại trường, không có máy chủ trung gian): BẮT BUỘC đặt TRUST_PROXY=0', bold: true },
+      ' — không có gì kiểm chứng địa chỉ chuyển tiếp, nên phải bỏ qua nó hoàn toàn, nếu không người lạ tự khai địa chỉ giả mỗi lần thử là thoát được khóa.'),
     ...lenh(
       'ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable',
       'apt -y install unattended-upgrades     # hệ điều hành tự vá bảo mật',
@@ -409,7 +415,7 @@ async function main() {
       [
         ['Hằng ngày', 'Không phải làm gì — điểm danh, sao lưu, hồi phục sự cố đều tự động.'],
         ['Hằng tuần', '[A] Chép backups ra USB/máy khác. [B] Liếc C:\\SchoolConnectBackup xem bản kéo về đêm qua có mới không. Thi thoảng npm run restore:check.'],
-        ['Khi có bản cập nhật', '[A] Tại máy trường / [B] ssh vào VPS rồi: git pull → npm test → xanh hết mới khởi động lại ([A] nssm restart SchoolConnect · [B] systemctl restart schoolconnect). Bài đỏ thì DỪNG — app đang chạy vẫn là bản cũ tốt.'],
+        ['Khi có bản cập nhật', 'Quy trình đầy đủ ở docs/CAP-NHAT-MAY-CHU.md. Tóm tắt: npm run backup → git pull → npm ci → npm test → xanh hết mới khởi động lại ([A] nssm restart SchoolConnect · [B] systemctl restart schoolconnect) → npm run kiem-tra-may-chu. Bài đỏ thì DỪNG — app đang chạy vẫn là bản cũ tốt, quay lui luôn an toàn vì dữ liệu nằm ở thư mục khác.'],
         ['Hằng tháng', 'Chạy npm run kiem-tra-may-chu (mục 4.4) và sửa hết các mục "CẦN SỬA".'],
         ['Hằng tháng [B]', 'Kiểm tra hạn thuê VPS và hạn tên miền — đặt nhắc tự gia hạn, đứt hạn là app nghỉ.'],
         ['Cuối năm học', 'npm run backup trước, rồi Quản trị → Năm học: lên lớp hàng loạt, khối cuối ra trường, dữ liệu năm cũ giữ để tra cứu.'],

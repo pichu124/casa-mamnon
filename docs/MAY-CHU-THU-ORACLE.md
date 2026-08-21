@@ -417,6 +417,31 @@ Thử luôn **Thêm vào màn hình chính** — có HTTPS thật thì PWA mới
 
 ---
 
+## Giai đoạn 11 — Cập nhật khi có bản mới
+
+Quy trình đầy đủ (kèm cách quay lui và bảng kiểm) ở
+[`docs/CAP-NHAT-MAY-CHU.md`](CAP-NHAT-MAY-CHU.md). Với đúng máy Oracle dựng theo
+hướng dẫn này, các lệnh là:
+
+```bash
+cd /opt/schoolconnect
+DATA_DIR=/var/lib/schoolconnect npm run backup
+git pull origin claude/school-communication-app-wqjitt
+npm ci --omit=dev
+npm test
+sudo systemctl restart schoolconnect
+curl -I https://casa-school.duckdns.org/healthz
+DATA_DIR=/var/lib/schoolconnect npm run kiem-tra-may-chu -- --ten-mien=casa-school.duckdns.org
+```
+
+`npm test` có bài đỏ thì **dừng, đừng khởi động lại** — bản đang chạy vẫn tốt.
+
+**Riêng máy dựng theo hướng dẫn này: giữ nguyên `TRUST_PROXY` mặc định.** Có Caddy
+đứng trước nên app lấy đúng địa chỉ thật của người dùng. Đặt `TRUST_PROXY=0` ở đây
+là sai và sẽ khiến một người nhập sai mật khẩu 8 lần là khóa luôn cả trường.
+
+---
+
 ## Xóa máy khi xong
 
 **Nếu dùng shape trả phí (E4/E5.Flex) thì đừng quên bước này** — máy tiêu khoảng

@@ -22,6 +22,8 @@ Quy trình triển khai từng bước cho nhà trường (bản Word, in ra đ�
 thật trước khi làm cho trường: [`docs/MAY-CHU-THU-ORACLE.md`](docs/MAY-CHU-THU-ORACLE.md)
 — dựng máy chủ thử miễn phí trên Oracle Cloud, kèm mọi chỗ vấp đã gặp.
 Sau khi dựng xong, chạy `npm run kiem-tra-may-chu` để soát lại cấu hình máy chủ.
+Khi có bản mới: [`docs/CAP-NHAT-MAY-CHU.md`](docs/CAP-NHAT-MAY-CHU.md) — quy trình
+cập nhật, cách quay lui, và các việc phải làm thêm theo từng đợt vá.
 
 ## Chạy ứng dụng
 
