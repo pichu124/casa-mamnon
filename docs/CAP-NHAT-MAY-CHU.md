@@ -120,6 +120,33 @@ mẫu nghỉ học để ẩn đi.
 **3. Kiểm `TRUST_PROXY` theo bảng ở trên.** Đây là lần đầu cấu hình này thật sự có
 ảnh hưởng, nên đáng soát lại một lượt.
 
+### Đợt vá tháng 08/2026 (đợt 2) — quản trị và điểm danh
+
+Đợt này **không có việc phải làm thêm trên máy chủ**: chỉ cần quy trình chuẩn ở
+đầu tệp này. Không có bảng nào đổi cấu trúc, không có biến môi trường mới, không
+có lệnh nào phải chạy một lần.
+
+Nhưng có ba thay đổi **hành vi** nên báo trước cho nhà trường, kẻo tưởng app hỏng:
+
+**1. Danh sách lớp giờ tô đỏ lớp chưa có chủ nhiệm.** Nếu sau khi cập nhật thấy
+vài lớp đỏ, đó không phải lỗi — đó là tình trạng có thật, trước đây không hiện ra.
+Bấm **Sửa** ở dòng đó để phân công.
+
+**2. "Cả lớp có mặt" nay hỏi lại, và mặc định KHÔNG ghi đè.** Cô đánh dấu vài em
+nghỉ trước rồi bấm nút này thì mấy em đó **giữ nguyên**, chỉ những em chưa điểm
+danh mới thành có mặt. Muốn ghi đè cả lớp phải bấm nút thứ hai trong hộp thoại.
+Đây là chủ ý: trước bản này một lần chạm nhầm xóa sạch phần cô vừa nhập tay.
+
+**3. Nhập lại tệp danh sách cũ nay bị chặn thay vì tạo bản sao.** Nếu văn thư
+quen nhập lại cả tệp mỗi lần thêm vài em, màn hình sẽ báo "N em đã có trong hệ
+thống" và chỉ nhập những em mới. Đó là đúng — trước đây việc này nhân đôi cả
+trường kèm tài khoản phụ huynh mới mà không báo gì.
+
+Một điều **phải kiểm ngay** sau khi cập nhật đợt này: thử **nhập một tệp CSV**
+vào **Quản trị → Nhập danh sách**. Bản vá trước đó (cùng tháng) có một lỗi làm
+trình duyệt từ chối mọi tệp có dấu cách, tức mọi tệp thật. Lỗi đã sửa, nhưng đây
+là thứ đáng thử một lần để chắc chắn bản đang chạy là bản đã sửa.
+
 ---
 
 ## Bảng kiểm sau mỗi lần cập nhật
