@@ -142,10 +142,41 @@ quen nhập lại cả tệp mỗi lần thêm vài em, màn hình sẽ báo "N 
 thống" và chỉ nhập những em mới. Đó là đúng — trước đây việc này nhân đôi cả
 trường kèm tài khoản phụ huynh mới mà không báo gì.
 
-Một điều **phải kiểm ngay** sau khi cập nhật đợt này: thử **nhập một tệp CSV**
-vào **Quản trị → Nhập danh sách**. Bản vá trước đó (cùng tháng) có một lỗi làm
-trình duyệt từ chối mọi tệp có dấu cách, tức mọi tệp thật. Lỗi đã sửa, nhưng đây
-là thứ đáng thử một lần để chắc chắn bản đang chạy là bản đã sửa.
+#### Kiểm bằng tay sau khi cập nhật — 6 việc, khoảng 10 phút
+
+`npm test` đã canh toàn bộ những thứ này rồi, nhưng nó chạy trên máy chủ tạm.
+Sáu việc dưới đây kiểm **đúng bản đang chạy thật, qua trình duyệt điện thoại**.
+Làm bằng tài khoản quản trị trừ khi ghi khác.
+
+| # | Làm gì | Phải thấy gì |
+|---|---|---|
+| 1 | **Quản trị → Nhập danh sách**, chọn một tệp CSV bất kỳ (tải **Tệp mẫu CSV** ngay trên màn hình đó là được) | Hiện bảng xem trước. **Nếu báo "Tệp bị lỗi phông chữ" với một tệp bình thường thì máy chủ đang chạy bản CŨ chưa vá** — xem ghi chú dưới bảng |
+| 2 | Tải lên đúng tệp vừa nhập lần nữa | Hiện thẻ vàng "N em đã có trong hệ thống", nút ghi "Nhập 0 học sinh" và bị khóa |
+| 3 | **Quản trị → Tổng quan**, bấm **Sửa** ở một lớp | Mở được hộp sửa, có ô chọn giáo viên chủ nhiệm, **không có** ô năm học |
+| 4 | Bấm **Xem** ở một lớp | Mỗi em có nút **Sửa** và **Cho nghỉ** |
+| 5 | Đăng nhập **bằng tài khoản giáo viên**, mở **Điểm danh**, cuộn xuống cuối rồi chạm một nút trạng thái | Màn hình **đứng yên tại chỗ**, không nhảy về đầu; hai ô đếm đổi ngay |
+| 6 | Vẫn ở màn đó, bấm **Cả lớp có mặt** | Hiện hộp hỏi lại, có nút ghi đè riêng và nút Quay lại |
+
+**Về việc 1 — vì sao phải kiểm.** Bản vá C1 đẩy lên ngày 21/08 có một lỗi: bộ lọc
+bảng mã chạy ở trình duyệt nhận nhầm **dấu cách** là ký tự hỏng, nên nó từ chối
+mọi tệp CSV có dấu cách — tức mọi tệp thật — ngay tại máy người dùng, tệp không
+bao giờ được gửi lên nên máy chủ không hề biết. Bộ kiểm thử API không bắt được vì
+nó gọi thẳng máy chủ. Lỗi đã sửa trong cùng đợt này, nhưng nếu kéo mã đúng vào
+khoảng giữa hai bản thì máy chủ có thể đang chạy bản hỏng. Kiểm một lần cho chắc.
+
+Thấy lỗi đó thì kéo mã mới rồi khởi động lại — không cần đụng dữ liệu:
+
+```bash
+cd /opt/schoolconnect
+git pull origin claude/school-communication-app-wqjitt
+npm ci --omit=dev && npm test
+sudo systemctl restart schoolconnect
+```
+
+**Nếu việc 5 vẫn nhảy về đầu trang** thì gần như chắc chắn là **điện thoại đang
+giữ bản giao diện cũ trong bộ nhớ đệm**, không phải máy chủ chưa cập nhật. Đóng
+hẳn app rồi mở lại (điện thoại đã cài app: vuốt tắt khỏi danh sách ứng dụng đang
+chạy). Số phiên bản đã tăng nên chậm nhất là lần mở thứ hai sẽ nhận bản mới.
 
 ---
 
