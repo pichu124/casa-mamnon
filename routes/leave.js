@@ -12,11 +12,24 @@ module.exports = (app) => {
   app.get('/api/leave', (req, res) => {
     const ids = db.studentIdsOf(req.user);
     if (!ids.length) return res.json([]);
-    // Đơn chờ duyệt lên trước, sau đó mới nhất trước.
-    const rows = db.all('leave_requests',
-      `SELECT * FROM leave_requests WHERE studentId IN (${ids.map(() => '?').join(',')})
-       ORDER BY (status = 'pending') DESC, createdAt DESC`, ids);
-    res.json(rows.map(decorate));
+    const marks = ids.map(() => '?').join(',');
+
+    // Đơn CHỜ DUYỆT: lấy hết, không bao giờ cắt. Đây là việc cô phải làm, và màn
+    // hình đếm "Chờ duyệt (N)" ngay trên danh sách này — cắt bớt là con số đó sai
+    // mà không có lỗi nào báo.
+    const cho = db.all('leave_requests',
+      `SELECT * FROM leave_requests WHERE studentId IN (${marks}) AND status = 'pending'
+       ORDER BY createdAt DESC`, ids);
+
+    // Đơn ĐÃ XỬ LÝ chỉ là lịch sử, và nó dày lên mãi theo năm. Giữ 60 đơn gần
+    // nhất là đủ cho việc tra cứu thường ngày.
+    const TOI_DA_LICH_SU = 60;
+    const gioiHan = Math.min(Math.max(Number(req.query.gioiHan) || TOI_DA_LICH_SU, 1), 500);
+    const xong = db.all('leave_requests',
+      `SELECT * FROM leave_requests WHERE studentId IN (${marks}) AND status != 'pending'
+       ORDER BY createdAt DESC LIMIT ?`, [...ids, gioiHan]);
+
+    res.json([...cho, ...xong].map(decorate));
   });
 
   // Phụ huynh tạo đơn xin phép cho con.

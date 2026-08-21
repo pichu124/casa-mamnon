@@ -14,10 +14,23 @@ module.exports = (app) => {
   app.get('/api/medicine', (req, res) => {
     const ids = db.studentIdsOf(req.user);
     if (!ids.length) return res.json([]);
-    const rows = db.all('medicine_requests',
-      `SELECT * FROM medicine_requests WHERE studentId IN (${ids.map(() => '?').join(',')})
+    const marks = ids.map(() => '?').join(',');
+
+    // Đơn CHƯA XONG (chờ xác nhận + đang theo dõi): lấy hết, không bao giờ cắt.
+    // Đây là thuốc cô phải cho các con uống hôm nay, và màn hình đếm "Chờ xác
+    // nhận (N)" / "Đang theo dõi (N)" ngay trên danh sách này.
+    const dangLam = db.all('medicine_requests',
+      `SELECT * FROM medicine_requests WHERE studentId IN (${marks}) AND status != 'done'
        ORDER BY (status = 'pending') DESC, createdAt DESC`, ids);
-    res.json(rows.map(decorate));
+
+    // Đơn ĐÃ HOÀN TẤT chỉ là lịch sử và dày lên mãi theo năm.
+    const TOI_DA_LICH_SU = 60;
+    const gioiHan = Math.min(Math.max(Number(req.query.gioiHan) || TOI_DA_LICH_SU, 1), 500);
+    const xong = db.all('medicine_requests',
+      `SELECT * FROM medicine_requests WHERE studentId IN (${marks}) AND status = 'done'
+       ORDER BY createdAt DESC LIMIT ?`, [...ids, gioiHan]);
+
+    res.json([...dangLam, ...xong].map(decorate));
   });
 
   // Phụ huynh gửi lời dặn thuốc cho con.

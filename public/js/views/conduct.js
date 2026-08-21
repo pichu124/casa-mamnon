@@ -30,8 +30,13 @@ App.views.conduct = {
   },
 
   // ---- Giáo viên ----
+  // Số ghi nhận hiện trên màn hình. Mặc định máy chủ trả 50 bản ghi gần nhất —
+  // học sinh mang lịch sử nề nếp qua từng năm nên lấy hết là màn này nặng thêm
+  // mỗi năm. Bấm "Xem thêm" thì nâng dần.
+  _soGhiNhan: 50,
+
   async renderTeacher(root) {
-    const data = await API.get('/api/conduct/class');
+    const data = await API.get(`/api/conduct/class?gioiHan=${this._soGhiNhan}`);
     const cls = App.state.classes.find(c => c.id === App.state.user.classId);
     const medals = ['🥇', '🥈', '🥉'];
     root.innerHTML = `
@@ -48,9 +53,14 @@ App.views.conduct = {
       <div class="section-label">Ghi nhận gần đây</div>
       ${data.recent.length
         ? `<div class="card">${data.recent.map(r => this.recordRow(r)).join('')}</div>`
-        : UI.emptyState('📋', 'Chưa có ghi nhận nào trong lớp')}`;
+        : UI.emptyState('📋', 'Chưa có ghi nhận nào trong lớp')}
+      ${data.tongGhiNhan > data.recent.length ? `
+        <div class="muted small center">Đang hiện ${data.recent.length} ghi nhận gần nhất trong tổng số ${data.tongGhiNhan}</div>
+        <button class="btn outline block mt-8" id="conduct-them">Xem thêm</button>` : ''}`;
 
     document.getElementById('conduct-add').onclick = () => this.openModal();
+    const nutThem = document.getElementById('conduct-them');
+    if (nutThem) nutThem.onclick = () => { this._soGhiNhan += 50; App.route(); };
   },
 
   // Một dòng ghi nhận (dùng chung; có studentName thì hiện kèm).

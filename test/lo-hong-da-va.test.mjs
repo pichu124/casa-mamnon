@@ -578,6 +578,78 @@ console.log('\n[15] B4 — "Cả lớp có mặt" KHÔNG được xóa những e
 }
 
 // ===========================================================================
+console.log('\n[18] B3 — màn dày lên theo năm phải có trần, nhưng KHÔNG được làm sai ô đếm');
+{
+  const GV = (await login('giaovien2', '123456')).cookie;   // chủ nhiệm c1 sau bài [11]
+  const PH = (await login('phuhuynh', '123456')).cookie;
+
+  // Dựng 120 ghi nhận nề nếp cho một em — bằng khoảng 4-5 năm dữ liệu thật.
+  const lopGv = (await req('GET', '/api/students', { cookie: GV })).data;
+  const em = lopGv[0]?.id;
+  check('tìm được học sinh trong lớp của cô', !!em, em);
+  // Con của PHỤ HUYNH mà cũng nằm trong lớp CÔ đang dạy — phụ huynh có hai con ở
+  // hai lớp khác nhau nên lấy con đầu tiên là gửi nhầm sang lớp khác.
+  const conPh = (await req('GET', '/api/students', { cookie: PH })).data.map(x => x.id);
+  const emCuaPh = lopGv.map(x => x.id).find(id => conPh.includes(id));
+  check('tìm được con của phụ huynh trong chính lớp đó', !!emCuaPh, { conPh, emCuaPh });
+  let diemCong = 0;
+  for (let i = 0; i < 120; i++) {
+    diemCong += 1;
+    await req('POST', '/api/conduct', {
+      cookie: GV,
+      body: { studentId: em, type: 'praise', title: `Ghi nhận thứ ${i + 1}`, points: 1 },
+    });
+  }
+
+  const macDinh = await req('GET', '/api/conduct/class', { cookie: GV });
+  check('màn Nề nếp của GIÁO VIÊN có trần mặc định', macDinh.data.recent.length === 50, macDinh.data.recent.length);
+  check('và nói rõ tổng số để giao diện hiện nút Xem thêm',
+    macDinh.data.tongGhiNhan >= 120, macDinh.data.tongGhiNhan);
+
+  // Đây là chỗ dễ hỏng nhất: cắt danh sách mà cộng điểm trên danh sách đã cắt.
+  const xepHang = macDinh.data.ranking.find(r => r.studentId === em);
+  check('BẢNG XẾP HẠNG VẪN CỘNG TRÊN TOÀN BỘ, KHÔNG CỘNG TRÊN PHẦN ĐÃ CẮT',
+    xepHang && xepHang.points >= diemCong, { points: xepHang?.points, diemCong });
+
+  const themNua = await req('GET', '/api/conduct/class?gioiHan=200', { cookie: GV });
+  check('bấm Xem thêm thì lấy được nhiều hơn', themNua.data.recent.length > 50, themNua.data.recent.length);
+  check('trần trên chặn số vô lý',
+    (await req('GET', '/api/conduct/class?gioiHan=999999', { cookie: GV })).data.recent.length <= 500);
+
+  // Màn của PHỤ HUYNH cố ý KHÔNG cắt: hai ô Tuyên dương / Nhắc nhở đếm trên
+  // chính danh sách này, cắt là hai con số đó sai mà không báo lỗi gì.
+  const ph = await req('GET', `/api/conduct?studentId=${em}`, { cookie: GV });
+  check('màn Nề nếp của PHỤ HUYNH KHÔNG bị cắt (giữ đúng hai ô đếm)',
+    ph.data.records.length >= 120, ph.data.records.length);
+  check('tổng điểm của em khớp với số ghi nhận',
+    ph.data.records.filter(r => r.type === 'praise').length >= 120,
+    ph.data.records.filter(r => r.type === 'praise').length);
+
+  // Xin nghỉ: đơn CHỜ DUYỆT không bao giờ bị cắt — màn hình đếm "Chờ duyệt (N)"
+  // ngay trên danh sách đó.
+  const truocDon = (await req('GET', '/api/leave', { cookie: GV })).data.filter(l => l.status === 'pending').length;
+  for (let i = 0; i < 8; i++) {
+    await req('POST', '/api/leave', {
+      cookie: PH,
+      body: { studentId: emCuaPh, fromDate: `2027-03-0${i + 1}`, toDate: `2027-03-0${i + 1}`, reason: `Đơn thử ${i}` },
+    });
+  }
+  const sauDon = (await req('GET', '/api/leave', { cookie: GV })).data;
+  check('MỌI đơn chờ duyệt đều được trả về, không cắt',
+    sauDon.filter(l => l.status === 'pending').length === truocDon + 8,
+    sauDon.filter(l => l.status === 'pending').length);
+  check('đơn chờ duyệt vẫn nằm trên đầu danh sách',
+    sauDon.slice(0, truocDon + 8).every(l => l.status === 'pending'));
+
+  // Dặn thuốc: đơn CHƯA XONG không bao giờ bị cắt.
+  const thuoc = (await req('GET', '/api/medicine', { cookie: GV })).data;
+  check('danh sách dặn thuốc vẫn đọc được bình thường', Array.isArray(thuoc), typeof thuoc);
+  check('đơn chưa hoàn tất nằm trước đơn đã hoàn tất',
+    thuoc.findIndex(m => m.status === 'done') === -1
+      || thuoc.slice(0, thuoc.findIndex(m => m.status === 'done')).every(m => m.status !== 'done'));
+}
+
+// ===========================================================================
 console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơn nghỉ được duyệt');
 {
   const GV = (await login('giaovien2', '123456')).cookie;   // chủ nhiệm c1 sau bài [11]
