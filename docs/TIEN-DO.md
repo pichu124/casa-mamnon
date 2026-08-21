@@ -22,7 +22,8 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B8 | Giữ độ ổn định dài hạn: kiểm thử vào kho mã, canh tệp dùng chung, chặn lộ dữ liệu | ✅ **Hoàn thành** — 191/191 kiểm thử đạt, đã kiểm chứng trên máy Windows của trường |
 | B9 | Đường soạn nội dung cho 4 phân hệ chỉ-đọc (TKB, thực đơn, kế hoạch, báo cáo) | ✅ **Hoàn thành** — 105/105 kiểm thử đạt (80 API + 25 trình duyệt) |
 | B10 | Kiểm tra máy chủ thật: bịt khoảng trống giữa kho mã và bản cài đặt đang chạy | ✅ **Hoàn thành** — 34/34 kiểm thử đạt |
-| B11 | Vá 5 lỗ hổng do đợt rà soát nhiều tác nhân tìm ra (Đợt 1) | ✅ **Hoàn thành** — 39/39 kiểm thử đạt |
+| B11 | Vá 5 lỗ hổng do đợt rà soát nhiều tác nhân tìm ra (Đợt 1) | ✅ **Hoàn thành** |
+| B12 | Đợt 2: chặn XSS qua `onclick`, sửa lớp/học sinh, cảnh báo nhập trùng, bắt lỗi bảng mã CSV | ✅ **Hoàn thành** — 161/161 kiểm thử đạt (103 API + 58 trình duyệt) |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -366,19 +367,53 @@ Kèm theo: `scripts/sua-quyen-chu-nhiem.js` dọn dữ liệu đã lỡ lệch t
 đang chạy (mặc định **chỉ xem**, phải thêm `--sua` mới ghi), và bộ kiểm tra máy
 chủ có thêm một mục phát hiện tình trạng lệch này.
 
-Bộ `test:lo-hong` (39 bài) canh cả năm lỗ không tái phát — bộ kiểm thử cũ không
-bắt được bất kỳ lỗ nào trong số đó, đấy chính là lý do bộ này ra đời.
+Bộ `test:lo-hong` canh cả năm lỗ không tái phát — bộ kiểm thử cũ không bắt được
+bất kỳ lỗ nào trong số đó, đấy chính là lý do bộ này ra đời.
 
-Còn Đợt 2 (7 việc, ~4–5 ngày) và Đợt 3 (5 việc) trong báo cáo rà soát chưa làm.
+---
+
+## B12 — Đợt 2: năm việc còn thiếu ở màn hình quản trị
+
+| Mã | Vấn đề | Cách sửa |
+|---|---|---|
+| A7 | Tên do người dùng nhập được nhét vào tham số chuỗi của `onclick`. `UI.esc` đổi `'` thành `&#39;`, nhưng trình duyệt giải mã thực thể HTML **trước** khi trình phân tích JS nhìn thấy — nên một tên lớp `');window.__pwn=1;//` vẫn chạy được | `accounts.js` và `admin.js` chỉ truyền mã (id) qua `onclick`, tên tra lại từ danh sách đã tải. Giữ chữ ký hai tham số để bản giao diện cũ trong bộ nhớ đệm điện thoại vẫn gọi được |
+| A4 | Không có màn hình nào phân công lại giáo viên chủ nhiệm; nút "Đi phân công" sau khi chuyển năm học dẫn về một danh sách chỉ để đọc. `datChuNhiem()` của Đợt 1 lại chỉ gỡ **một chiều** — lớp cũ của cô mới vẫn hiện tên cô | Thêm màn hình Sửa lớp (tên, phòng, khối, chủ nhiệm) + thẻ cảnh báo đếm lớp chưa có chủ nhiệm và tô đỏ dòng lớp đó. Máy chủ: `datChuNhiem()` gỡ đủ **hai chiều**, và từ chối tên lớp rỗng |
+| A6a | Danh sách học sinh trong lớp chỉ để xem: không sửa được tên/mã/ngày sinh, không chuyển lớp được, không cho nghỉ học được, và em đã cho nghỉ thì không có đường nào nhận lại | Nút **Sửa** và **Cho nghỉ** ngay trong màn hình lớp, kèm mục "đã nghỉ" có nút **Nhận lại**. Máy chủ chặn tên rỗng và mã trùng em khác; `?keCaNghi=1` để tìm lại em đã nghỉ. Cho nghỉ vẫn chỉ là **đánh dấu, không xóa gì** |
+| A6b | Nhập lại đúng tệp cũ (trường hay làm khi thêm vài em mới) tạo bản sao của cả trường kèm tài khoản phụ huynh mới, **không cảnh báo gì** | Nhận ra em đã có theo họ tên bỏ dấu + ngày sinh + lớp, cả với dữ liệu sẵn có lẫn trùng ngay trong tệp. Mặc định **bỏ qua** dòng trùng, màn hình liệt kê từng em; quản trị tích một ô là nhập được cả em trùng nếu trường thật sự có |
+| C1 | Tệp CSV lưu sai bảng mã (Excel bản Việt hay lưu kiểu cũ) nhập vào thành tên hỏng hàng loạt, mà app không có đường sửa lại hàng loạt | `lib/csv.js` thêm `kiemTraBangMa()` phát hiện U+FFFD và byte 0 **trên chuỗi đã giải mã**, áp dụng ở **cả hai** đường xem trước và ghi thật. Giao diện chỉ từng bước cách lưu lại bằng "CSV UTF-8" trong Excel |
+
+Kèm theo: `routes/schoolyear.js` kiểm tra định dạng `namMoi` ở đường xem trước
+(trước đây nhận bất kỳ chuỗi nào từ query).
+
+Ba điều đáng ghi lại:
+
+- **Bộ lọc bảng mã ở trình duyệt suýt chặn mọi tệp thật.** Bản đầu gõ thẳng hai
+  ký tự vào lớp ký tự `/[…]/`. Byte 0 không tồn tại được trong tệp mã nguồn nên
+  nó lặng lẽ thành **dấu cách** — và mọi tệp CSV có dấu cách, tức mọi tệp thật,
+  đều bị chặn ngay tại máy người dùng mà máy chủ không hề biết vì tệp không bao
+  giờ được gửi lên. Bộ kiểm thử API không bắt được vì nó gọi thẳng máy chủ. Chỉ
+  bài kiểm thử **trình duyệt** tải tệp lên thật mới lộ ra. Nay viết bằng
+  `[\\uFFFD\\u0000]` và có bài canh riêng cho đúng lỗi này.
+- **Số dòng trùng để riêng khỏi số dòng lỗi.** Ba chỗ trong giao diện và hai bài
+  kiểm thử đang tính "số dòng nhập được = tổng − lỗi". Gộp trùng vào lỗi là làm
+  sai tất cả những chỗ đó cùng lúc.
+- **Bỏ qua chứ không chặn cả tệp.** Điện thoại đã cài app có thể còn giữ bản
+  `admin.js` cũ trong bộ nhớ đệm; nếu máy chủ chặn cả tệp thì bản cũ chỉ hiện một
+  lỗi trống không giải thích được gì.
+
+Bộ `test:lo-hong` lên **103 bài** và bộ soạn nội dung trên trình duyệt lên
+**58 bài**, canh từng lỗ ở trên không tái phát.
+
+Còn A6c, B1, B4 của Đợt 2 và toàn bộ Đợt 3 (5 việc) chưa làm.
 
 ---
 
 ## Tổng kết
 
-Chín hạng mục B1–B9 đã hoàn thành. **851 bài kiểm thử tự động đều đạt**, tất cả
+Chín hạng mục B1–B9 đã hoàn thành. **930 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 718 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 766 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -386,7 +421,7 @@ Chín hạng mục B1–B9 đã hoàn thành. **851 bài kiểm thử tự độ
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
-| `test:lo-hong` | 55 | Các lỗ hổng đã vá không tái phát |
+| `test:lo-hong` | 103 | Các lỗ hổng đã vá không tái phát |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
@@ -397,14 +432,14 @@ Chín hạng mục B1–B9 đã hoàn thành. **851 bài kiểm thử tự độ
 | `test:co-lap-loi` | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
 | `test:luoi-an-toan` | 17 | Lỗi bất đồng bộ: promise bỏ quên thì sống, nổ đồng bộ thì dừng sạch |
 
-`npm run test:giao-dien` — 133 bài chạy trên trình duyệt thật, cần Playwright:
+`npm run test:giao-dien` — 164 bài chạy trên trình duyệt thật, cần Playwright:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
 | `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
 | `test:pwa` | 43 | Cài đặt như app, chạy offline, khổ iPhone và Android |
 | bật/tắt tính năng | 20 | Thao tác thật trên màn hình quản trị và màn hình chính |
-| soạn nội dung | 36 | GV sửa TKB, soạn kế hoạch và báo cáo, quản trị soạn thực đơn — thao tác thật trên màn hình; phụ huynh không thấy nút soạn nào |
+| soạn nội dung | 58 | GV sửa TKB, soạn kế hoạch và báo cáo, quản trị soạn thực đơn — thao tác thật trên màn hình; phụ huynh không thấy nút soạn nào |
 
 `npm run test:tat-ca` chạy cả hai nhóm.
 

@@ -1,6 +1,17 @@
 // Trang quản trị dành cho ban giám hiệu: quản lý lớp, giáo viên, học sinh
 // và nhập danh sách đầu năm từ tệp Excel/CSV.
+
 App.views.admin = {
+  // Dấu hiệu tệp CSV lưu sai bảng mã: ký tự thay thế U+FFFD (chữ có dấu đã hỏng)
+  // hoặc byte 0 (tệp UTF-16 bị đọc như UTF-8).
+  //
+  // BẮT BUỘC viết bằng \u…, không gõ thẳng ký tự vào lớp ký tự: byte 0 không tồn
+  // tại được trong tệp mã nguồn nên nó lặng lẽ thành dấu cách, và lúc đó MỌI tệp
+  // có dấu cách — tức mọi tệp thật — đều bị chặn. Đã xảy ra đúng một lần.
+  //
+  // KHÔNG đặt cờ /g: cùng một biểu thức dùng cho nhiều lần .test() sẽ nhớ vị trí
+  // lần trước rồi trả kết quả đúng/sai xen kẽ.
+  _hongBangMa: /[\uFFFD\u0000]/,
   _tab: 'tongquan',
   _csv: null,
 
@@ -174,19 +185,136 @@ App.views.admin = {
       const c = (this._lop || []).find(x => x.id === classId);
       tenLop = c ? c.name : 'Lớp';
     }
-    const students = await API.get(`/api/admin/students?classId=${encodeURIComponent(classId)}`);
-    const danhSach = students.map(s => `
-      <div class="list-row">
+    // Nhớ lại để các nút bên trong modal mở lại đúng lớp này sau khi lưu.
+    this._lopDangXem = { classId, tenLop };
+    // Lấy cả em đã nghỉ: quản trị bấm nhầm "Cho nghỉ học" thì phải thấy em ở đâu
+    // mà nhận lại, chứ không phải mở cơ sở dữ liệu ra sửa tay.
+    const students = await API.get(`/api/admin/students?classId=${encodeURIComponent(classId)}&keCaNghi=1`);
+    const dangHoc = students.filter(s => s.active !== false && s.active !== 0);
+    const daNghi = students.filter(s => !(s.active !== false && s.active !== 0));
+
+    // Chỉ mã học sinh (do hệ thống sinh) mới được đặt vào tham số của onclick.
+    // Họ tên do người nhập gõ nên không bao giờ đi qua đường này — xem ghi chú ở
+    // App.views.accounts.reset.
+    const dong = (s, daNghiHoc) => `
+      <div class="list-row"${daNghiHoc ? ' style="opacity:.65"' : ''}>
         <div class="row-main">
-          <div class="row-title">${UI.esc(s.name)}</div>
-          <div class="row-sub">${UI.esc(s.code || '')} · PH: ${UI.esc(s.parents.map(p => p.name).join(', ') || 'chưa có')}</div>
+          <div class="row-title">${UI.esc(s.name)}${daNghiHoc ? ` ${UI.badge('Đã nghỉ', 'gray')}` : ''}</div>
+          <div class="row-sub">${UI.esc(s.code || 'chưa có mã')} · PH: ${UI.esc(s.parents.map(p => p.name).join(', ') || 'chưa có')}</div>
         </div>
-      </div>`).join('');
+        <div class="row-end" style="display:flex;gap:6px">
+          ${daNghiHoc
+            ? `<button class="btn sm outline" onclick="App.views.admin.nhanLaiHocSinh('${UI.esc(s.id)}')">Nhận lại</button>`
+            : `<button class="btn sm outline" onclick="App.views.admin.suaHocSinh('${UI.esc(s.id)}')">Sửa</button>
+               <button class="btn sm outline" onclick="App.views.admin.choNghiHoc('${UI.esc(s.id)}')">Cho nghỉ</button>`}
+        </div>
+      </div>`;
+
+    const phanDaNghi = daNghi.length ? `
+      <div class="muted small mt-14 mb-8">${daNghi.length} em đã nghỉ học — dữ liệu vẫn giữ nguyên, tra cứu được</div>
+      ${daNghi.map(s => dong(s, true)).join('')}` : '';
+
     UI.modal(
-      students.length
-        ? `<div class="muted small mb-8">${students.length} học sinh</div>${danhSach}`
+      dangHoc.length || daNghi.length
+        ? `<div class="muted small mb-8">${dangHoc.length} học sinh đang học</div>
+           ${dangHoc.map(s => dong(s, false)).join('')}${phanDaNghi}`
         : UI.emptyState('🎒', 'Lớp chưa có học sinh'),
       tenLop);
+  },
+
+  // UI.modal đóng modal đang mở trước khi mở cái mới, nên sau khi sửa xong phải
+  // vẽ lại danh sách lớp bằng tay thì quản trị mới thấy kết quả ngay.
+  async lamMoiLop() {
+    const l = this._lopDangXem;
+    if (!l) return UI.closeModal();
+    await this.xemLop(l.classId, l.tenLop);
+  },
+
+  async suaHocSinh(studentId) {
+    const l = this._lopDangXem || {};
+    const [students, d] = await Promise.all([
+      API.get(`/api/admin/students?classId=${encodeURIComponent(l.classId || '')}&keCaNghi=1`),
+      API.get('/api/admin/overview'),
+    ]);
+    const s = students.find(x => x.id === studentId);
+    if (!s) return UI.toast('Không tìm thấy học sinh này', 'error');
+    const lop = d.classes || [];
+
+    UI.modal(`
+      <div class="field"><label>Họ và tên</label><input id="ad-hs-ten" value="${UI.esc(s.name)}"></div>
+      <div class="field"><label>Mã học sinh</label><input id="ad-hs-ma" value="${UI.esc(s.code || '')}" placeholder="Để trống nếu trường không dùng mã">
+        <div class="hint">Mỗi em một mã riêng. Trùng mã sẽ báo lỗi khi lưu.</div>
+      </div>
+      <div class="field"><label>Ngày sinh</label><input id="ad-hs-ns" type="date" value="${UI.esc(s.dob || '')}"></div>
+      <div class="field"><label>Giới tính</label>
+        <select id="ad-hs-gt">
+          <option value="">— Chưa ghi —</option>
+          <option value="Nam" ${s.gender === 'Nam' ? 'selected' : ''}>Nam</option>
+          <option value="Nữ" ${s.gender === 'Nữ' ? 'selected' : ''}>Nữ</option>
+        </select>
+      </div>
+      <div class="field"><label>Địa chỉ</label><input id="ad-hs-dc" value="${UI.esc(s.address || '')}"></div>
+      <div class="field"><label>Lớp</label>
+        <select id="ad-hs-lop">
+          <option value="">— Chưa xếp lớp —</option>
+          ${lop.map(c => `<option value="${UI.esc(c.id)}" ${c.id === s.classId ? 'selected' : ''}>${UI.esc(c.name)}</option>`).join('')}
+        </select>
+        <div class="hint">Chuyển lớp sẽ đổi luôn giáo viên chủ nhiệm được xem hồ sơ của em.</div>
+      </div>
+      <button class="btn primary block" id="ad-hs-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
+    `, `Sửa hồ sơ ${s.name}`);
+
+    document.getElementById('ad-hs-luu').onclick = async () => {
+      const name = document.getElementById('ad-hs-ten').value.trim();
+      if (!name) return UI.toast('Vui lòng nhập họ tên học sinh', 'error');
+      try {
+        await API.put(`/api/admin/students/${encodeURIComponent(studentId)}`, {
+          name,
+          code: document.getElementById('ad-hs-ma').value.trim(),
+          dob: document.getElementById('ad-hs-ns').value,
+          gender: document.getElementById('ad-hs-gt').value,
+          address: document.getElementById('ad-hs-dc').value.trim(),
+          classId: document.getElementById('ad-hs-lop').value || null,
+        });
+        UI.toast('Đã lưu hồ sơ học sinh', 'success');
+        App.route();
+        await this.lamMoiLop();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // "Cho nghỉ học" chỉ đánh dấu ngừng theo học. Không xóa gì cả: điểm danh, sổ
+  // liên lạc, học bạ, hồ sơ sức khỏe của em vẫn còn để tra cứu và bàn giao.
+  choNghiHoc(studentId) {
+    UI.modal(`
+      <p style="line-height:1.6">Đánh dấu em này <b>đã nghỉ học</b>?</p>
+      <p class="muted small" style="line-height:1.6">
+        Em sẽ không còn trong danh sách điểm danh và phụ huynh không nhận thông báo
+        của lớp nữa. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b> — điểm danh, sổ
+        liên lạc, học bạ, hồ sơ sức khỏe đều tra cứu được. Nhận lại bất cứ lúc nào
+        bằng nút "Nhận lại" ngay dưới danh sách lớp.
+      </p>
+      <button class="btn primary block mt-14" id="ad-nghi-ok">Xác nhận cho nghỉ học</button>
+      <button class="btn outline block mt-8" onclick="App.views.admin.lamMoiLop()">Quay lại</button>
+    `, 'Xác nhận');
+
+    document.getElementById('ad-nghi-ok').onclick = async () => {
+      try {
+        await API.del(`/api/admin/students/${encodeURIComponent(studentId)}`);
+        UI.toast('Đã đánh dấu nghỉ học', 'success');
+        App.route();
+        await this.lamMoiLop();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  async nhanLaiHocSinh(studentId) {
+    try {
+      await API.put(`/api/admin/students/${encodeURIComponent(studentId)}`, { active: true });
+      UI.toast('Đã nhận lại học sinh', 'success');
+      App.route();
+      await this.lamMoiLop();
+    } catch (err) { UI.toast(err.message, 'error'); }
   },
 
   // ---------- Nhập danh sách ----------
@@ -222,7 +350,7 @@ App.views.admin = {
         const text = String(reader.result);
         // Chặn ngay tại chỗ để văn thư biết mà sửa tệp, khỏi phải chờ gửi lên
         // máy chủ. Máy chủ vẫn chặn lần nữa — đây chỉ là báo sớm cho tiện.
-        if (/[� ]/.test(text)) { this._csv = null; this.baoLoiPhongChu(f.name, text); return; }
+        if (this._hongBangMa.test(text)) { this._csv = null; this.baoLoiPhongChu(f.name, text); return; }
         this._csv = text;
         this.xemTruoc();
       };
@@ -236,8 +364,8 @@ App.views.admin = {
   // hàng loạt, mà app chưa có màn hình nào sửa lại được hàng loạt.
   baoLoiPhongChu(tenTep, text) {
     const dong = String(text).split(/\r?\n/);
-    const i = dong.findIndex(d => /[� ]/.test(d));
-    const viDu = (dong[i] || '').replace(/ /g, '').slice(0, 60);
+    const i = dong.findIndex(d => this._hongBangMa.test(d));
+    const viDu = (dong[i] || '').replace(/\u0000/g, '').slice(0, 60);
     document.getElementById('ad-preview').innerHTML = `
       <div class="card mt-14" style="border-left:4px solid var(--danger)">
         <div class="card-title">Tệp bị lỗi phông chữ tiếng Việt</div>
@@ -264,14 +392,37 @@ App.views.admin = {
     try {
       const r = await API.post('/api/admin/import/preview', { csv: this._csv });
       const loi = r.rows.filter(x => x.loi.length);
+      // Máy chủ cũ chưa có trường `trung` — mặc định 0 để bản giao diện mới vẫn
+      // chạy đúng nếu người dùng mở app trước khi máy chủ kịp cập nhật.
+      const soTrung = r.trung || 0;
+      const dsTrung = r.rows.filter(x => x.trung);
+      const soNhap = r.total - r.loi - soTrung;
+      this._nhapCaTrung = false;
       zone.innerHTML = `
         <div class="stat-row mt-14">
           <div class="stat-box"><div class="stat-num">${r.total}</div><div class="stat-label">Dòng đọc được</div></div>
-          <div class="stat-box"><div class="stat-num" style="color:var(--success)">${r.total - r.loi}</div><div class="stat-label">Hợp lệ</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:var(--success)">${soNhap}</div><div class="stat-label">Sẽ nhập</div></div>
           <div class="stat-box"><div class="stat-num" style="color:${r.loi ? 'var(--danger)' : 'var(--muted)'}">${r.loi}</div><div class="stat-label">Có lỗi</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:${soTrung ? 'var(--warning)' : 'var(--muted)'}">${soTrung}</div><div class="stat-label">Đã có</div></div>
         </div>
         ${r.lopMoi.length ? `<div class="card" style="border-left:4px solid var(--info)">
           Sẽ tạo mới ${r.lopMoi.length} lớp: <b>${UI.esc(r.lopMoi.join(', '))}</b></div>` : ''}
+        ${soTrung ? `
+          <div class="card" style="border-left:4px solid var(--warning)">
+            <div class="card-title">${soTrung} em đã có trong hệ thống — sẽ được bỏ qua</div>
+            <div class="muted small" style="line-height:1.6">
+              Nhận ra theo họ tên, ngày sinh và lớp. Nhập lại sẽ tạo ra hai hồ sơ
+              cho cùng một em, kèm hai tài khoản phụ huynh khác nhau.
+            </div>
+            ${dsTrung.slice(0, 15).map(x => `<div class="small mt-8">
+              <b>Dòng ${x.line}</b> ${UI.esc(x.hoTen)} — ${UI.esc(x.trung)}</div>`).join('')}
+            ${dsTrung.length > 15 ? `<div class="muted small mt-8">…và ${dsTrung.length - 15} em khác</div>` : ''}
+            <label class="mt-14" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
+              <input type="checkbox" id="ad-trung-ok" style="margin-top:3px">
+              <span class="small">Trường tôi có những em trùng cả họ tên, ngày sinh lẫn lớp —
+                cứ nhập cả ${soTrung} em này.</span>
+            </label>
+          </div>` : ''}
         ${loi.length ? `
           <div class="card" style="border-left:4px solid var(--danger)">
             <div class="card-title">Các dòng sẽ bị bỏ qua</div>
@@ -282,18 +433,26 @@ App.views.admin = {
         <div class="table-wrap mt-14">
           <table class="simple">
             <thead><tr><th>Học sinh</th><th>Lớp</th><th>Phụ huynh</th><th>Tên đăng nhập</th></tr></thead>
-            <tbody>${r.rows.filter(x => !x.loi.length).slice(0, 20).map(x => `
+            <tbody>${r.rows.filter(x => !x.loi.length && !x.trung).slice(0, 20).map(x => `
               <tr><td>${UI.esc(x.hoTen)}</td><td>${UI.esc(x.tenLop)}</td>
                   <td>${UI.esc(x.phHoTen)}</td><td>${UI.esc(x.username)}</td></tr>`).join('')}</tbody>
           </table>
         </div>
-        ${r.total - r.loi > 20 ? `<div class="muted small center mt-8">Hiển thị 20 dòng đầu trong ${r.total - r.loi} dòng hợp lệ</div>` : ''}
-        <button class="btn primary block mt-14" id="ad-commit" ${r.total === r.loi ? 'disabled' : ''}>
-          Nhập ${r.total - r.loi} học sinh vào hệ thống
+        ${soNhap > 20 ? `<div class="muted small center mt-8">Hiển thị 20 dòng đầu trong ${soNhap} dòng sẽ nhập</div>` : ''}
+        <button class="btn primary block mt-14" id="ad-commit" ${soNhap ? '' : 'disabled'}>
+          Nhập ${soNhap} học sinh vào hệ thống
         </button>`;
 
       const btn = document.getElementById('ad-commit');
-      if (btn) btn.onclick = () => this.nhapThat(r.total - r.loi);
+      const oTrung = document.getElementById('ad-trung-ok');
+      const veLaiNut = () => {
+        this._nhapCaTrung = !!(oTrung && oTrung.checked);
+        const n = this._nhapCaTrung ? soNhap + soTrung : soNhap;
+        btn.disabled = !n;
+        btn.textContent = `Nhập ${n} học sinh vào hệ thống`;
+      };
+      if (oTrung) oTrung.onchange = veLaiNut;
+      if (btn) btn.onclick = () => this.nhapThat(this._nhapCaTrung ? soNhap + soTrung : soNhap);
     } catch (err) {
       zone.innerHTML = `<div class="card" style="border-left:4px solid var(--danger)">${UI.esc(err.message)}</div>`;
     }
@@ -305,7 +464,10 @@ App.views.admin = {
     btn.disabled = true;
     btn.textContent = 'Đang nhập…';
     try {
-      const r = await API.post('/api/admin/import/commit', { csv: this._csv });
+      const r = await API.post('/api/admin/import/commit', {
+        csv: this._csv,
+        nhapCaTrung: this._nhapCaTrung === true,
+      });
       this.hienPhieu(r);
     } catch (err) {
       UI.toast(err.message, 'error');
@@ -317,7 +479,7 @@ App.views.admin = {
   hienPhieu(r) {
     const rows = r.taiKhoan;
     UI.modal(`
-      <p>Đã nhập <b>${r.imported}</b> học sinh${r.boQua ? `, bỏ qua ${r.boQua} dòng có lỗi` : ''}.</p>
+      <p>Đã nhập <b>${r.imported}</b> học sinh${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} em đã có sẵn trong hệ thống)` : ''}.</p>
       <p class="muted small">Danh sách tài khoản dưới đây <b>chỉ hiện một lần</b>. Hãy tải về và in
       phát cho phụ huynh. Mật khẩu sẽ được yêu cầu đổi khi đăng nhập lần đầu.</p>
       <button class="btn primary block mt-14" id="ad-tai">⬇ Tải danh sách tài khoản (CSV)</button>

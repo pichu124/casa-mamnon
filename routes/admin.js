@@ -201,9 +201,14 @@ module.exports = (app) => {
   // ---------- Học sinh ----------
   app.get('/api/admin/students', onlyAdmin, (req, res) => {
     const classId = req.query.classId;
+    // Mặc định chỉ trả học sinh đang học — giữ nguyên hành vi cũ cho mọi chỗ gọi.
+    // Quản trị cần thấy cả em đã nghỉ thì mới gửi kèm ?keCaNghi=1, để còn nhận lại
+    // được em bấm nhầm nút "Cho nghỉ học".
+    const keCaNghi = String(req.query.keCaNghi || '') === '1';
+    const loc = keCaNghi ? '' : ' AND active = 1';
     const rows = classId
-      ? db.all('students', 'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId])
-      : db.all('students', 'SELECT * FROM students WHERE active = 1 ORDER BY name');
+      ? db.all('students', `SELECT * FROM students WHERE classId = ?${loc} ORDER BY name`, [classId])
+      : db.all('students', `SELECT * FROM students WHERE 1 = 1${loc} ORDER BY name`);
     res.json(db.withParents(rows).map(s => ({
       ...s,
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',
@@ -214,7 +219,7 @@ module.exports = (app) => {
     })));
   });
 
-  // Chuyển học sinh sang lớp khác.
+  // Sửa thông tin học sinh, chuyển lớp, hoặc nhận lại em đã cho nghỉ.
   app.put('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy học sinh' });
@@ -222,11 +227,28 @@ module.exports = (app) => {
     for (const k of ['name', 'code', 'dob', 'gender', 'address']) {
       if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
     }
+    // Tên rỗng làm học sinh biến mất khỏi mọi danh sách mà không ai biết em là ai
+    // nữa — điểm danh, sổ liên lạc, báo cáo đều hiện một dòng trống.
+    if (patch.name !== undefined && !patch.name) {
+      return res.status(400).json({ error: 'Vui lòng nhập họ tên học sinh' });
+    }
+    // Mã học sinh là thứ trường dùng để đối chiếu với sổ giấy; trùng mã thì hai em
+    // khác nhau trông như một.
+    if (patch.code) {
+      const trung = db.first('students', 'SELECT id, name FROM students WHERE code = ? AND id != ?', [patch.code, s.id]);
+      if (trung) return res.status(400).json({ error: `Mã "${patch.code}" đã dùng cho học sinh ${trung.name}` });
+    }
     if (req.body.classId !== undefined) {
       if (req.body.classId && !db.findClass(req.body.classId)) {
         return res.status(400).json({ error: 'Lớp không tồn tại' });
       }
       patch.classId = req.body.classId || null;
+    }
+    // Nhận lại em đã cho nghỉ. Xóa luôn ngày nghỉ để hồ sơ không mâu thuẫn:
+    // đang học mà vẫn còn ngày rời trường.
+    if (req.body.active !== undefined) {
+      patch.active = req.body.active ? 1 : 0;
+      if (patch.active) patch.leftAt = null;
     }
     db.update('students', s.id, patch);
     db.audit(req.user.id, 'student-update', s.id, patch);
@@ -247,11 +269,45 @@ module.exports = (app) => {
   //
   // Luôn chạy hai bước: xem trước để soát lỗi, rồi mới ghi thật. Nhập nhầm 300
   // học sinh rồi sửa tay là cơn ác mộng, nên bắt buộc phải xem trước.
+  // Chìa khóa nhận ra "vẫn là em này" khi tệp không có mã học sinh.
+  //
+  // Trường nhỏ hay nhập lại cả tệp cũ kèm vài em mới, và nhiều tệp không có cột
+  // mã. Trước đây mỗi lần nhập lại là mỗi lần sinh thêm một bản sao của cả
+  // trường — kèm tài khoản phụ huynh mới — mà không ai được báo gì.
+  //
+  // Chỉ dùng để SO SÁNH. Ngày sinh vẫn được lưu xuống đúng như người dùng gõ.
+  function chuanNgaySinh(s) {
+    const t = String(s || '').trim();
+    if (!t) return '';
+    let m = t.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);          // 2018-05-01
+    if (!m) {
+      const d = t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);       // 01/05/2018
+      if (d) m = [t, d[3], d[2], d[1]];
+    }
+    if (!m) return t.toLowerCase();
+    return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+  }
+  function khoaHocSinh(hoTen, ngaySinh, tenLop) {
+    return [
+      csv.boDau(String(hoTen || '')).toLowerCase().replace(/\s+/g, ' ').trim(),
+      chuanNgaySinh(ngaySinh),
+      csv.boDau(String(tenLop || '')).toLowerCase().replace(/\s+/g, ' ').trim(),
+    ].join('|');
+  }
+
   function phanTich(text) {
     const { rows } = csv.parse(text);
     const daDungTen = new Set();
     const ketQua = [];
     const maDaGap = new Set();
+
+    // Chụp một lần danh sách em đang học để đối chiếu, thay vì truy vấn mỗi dòng.
+    const daCo = new Map();
+    for (const s of db.all('students', 'SELECT name, dob, classId FROM students WHERE active = 1')) {
+      const ten = s.classId ? (db.findClass(s.classId) || {}).name || '' : '';
+      daCo.set(khoaHocSinh(s.name, s.dob, ten), ten);
+    }
+    const khoaTrongTep = new Map();
 
     for (const row of rows) {
       const hoTen = lay(row, 'Họ tên', 'Ho ten', 'Họ và tên', 'Tên học sinh', 'name');
@@ -259,6 +315,7 @@ module.exports = (app) => {
       const phHoTen = lay(row, 'Họ tên phụ huynh', 'Phụ huynh', 'Ho ten phu huynh', 'parent');
       const phSdt = lay(row, 'Điện thoại', 'SĐT', 'SDT', 'Số điện thoại', 'phone');
       const ma = lay(row, 'Mã học sinh', 'Mã HS', 'Ma HS', 'code');
+      const ngaySinh = lay(row, 'Ngày sinh', 'Ngay sinh', 'dob');
 
       const loi = [];
       if (!hoTen) loi.push('thiếu họ tên học sinh');
@@ -270,6 +327,20 @@ module.exports = (app) => {
         loi.push(`mã học sinh "${ma}" đã có trong hệ thống`);
       }
 
+      // Trùng là CẢNH BÁO, không phải lỗi — để riêng khỏi `loi`. Có trường hợp
+      // thật sự có hai em trùng cả họ tên, ngày sinh lẫn lớp, và quản trị phải
+      // được quyền nói "đúng, cứ nhập".
+      let trung = null;
+      if (hoTen && tenLop && !loi.length) {
+        const khoa = khoaHocSinh(hoTen, ngaySinh, tenLop);
+        if (khoaTrongTep.has(khoa)) {
+          trung = `trùng với dòng ${khoaTrongTep.get(khoa)} ngay trong tệp này`;
+        } else if (daCo.has(khoa)) {
+          trung = `đã có trong hệ thống (${daCo.get(khoa) || 'chưa xếp lớp'})`;
+        }
+        if (!khoaTrongTep.has(khoa)) khoaTrongTep.set(khoa, row.__line);
+      }
+
       const lop = tenLop
         ? db.first('classes', 'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenLop])
         : null;
@@ -279,13 +350,14 @@ module.exports = (app) => {
         hoTen, tenLop, ma,
         phHoTen, phSdt,
         phEmail: lay(row, 'Email', 'Email phụ huynh', 'email'),
-        ngaySinh: lay(row, 'Ngày sinh', 'Ngay sinh', 'dob'),
+        ngaySinh,
         gioiTinh: lay(row, 'Giới tính', 'Gioi tinh', 'gender'),
         diaChi: lay(row, 'Địa chỉ', 'Dia chi', 'address'),
         classId: lop ? lop.id : null,
         taoLopMoi: !!tenLop && !lop,
         username: phHoTen ? sinhTenDangNhap(phHoTen, phSdt, daDungTen) : '',
         loi,
+        trung,
       });
     }
     return ketQua;
@@ -320,6 +392,10 @@ module.exports = (app) => {
     res.json({
       total: rows.length,
       loi: rows.filter(r => r.loi.length).length,
+      // Trường riêng, KHÔNG gộp vào `loi`: dòng trùng vẫn là dòng hợp lệ, chỉ là
+      // mặc định không nhập. Gộp vào sẽ làm sai mọi chỗ đang tính "số dòng nhập
+      // được = total - loi".
+      trung: rows.filter(r => r.trung).length,
       lopMoi: [...new Set(rows.filter(r => r.taoLopMoi).map(r => r.tenLop))],
       rows,
     });
@@ -330,8 +406,19 @@ module.exports = (app) => {
     if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
     if (chanBangMaSai(text, res)) return;
     const rows = phanTich(text);
-    const hopLe = rows.filter(r => !r.loi.length);
-    if (!hopLe.length) return res.status(400).json({ error: 'Không có dòng nào hợp lệ để nhập' });
+    // Mặc định BỎ QUA dòng trùng thay vì chặn cả tệp. Chặn cả tệp thì bản giao
+    // diện cũ còn trong bộ nhớ đệm của điện thoại sẽ báo lỗi mà không nói được
+    // vì sao; bỏ qua thì phần còn lại vẫn nhập được và số liệu trả về nói rõ.
+    const nhapCaTrung = (req.body || {}).nhapCaTrung === true;
+    const trungBiBoQua = nhapCaTrung ? [] : rows.filter(r => !r.loi.length && r.trung);
+    const hopLe = rows.filter(r => !r.loi.length && (nhapCaTrung || !r.trung));
+    if (!hopLe.length) {
+      return res.status(400).json({
+        error: trungBiBoQua.length
+          ? `Tất cả ${trungBiBoQua.length} học sinh trong tệp đều đã có trong hệ thống nên không có gì để nhập.`
+          : 'Không có dòng nào hợp lệ để nhập',
+      });
+    }
 
     const school = db.school() || {};
     const taiKhoan = [];   // để xuất phiếu phát cho phụ huynh
@@ -404,11 +491,16 @@ module.exports = (app) => {
       }
     });
 
-    db.audit(req.user.id, 'import-students', null, { soDong: hopLe.length });
+    db.audit(req.user.id, 'import-students', null, {
+      soDong: hopLe.length,
+      boQuaTrung: trungBiBoQua.length,
+      nhapCaTrung,
+    });
     res.json({
       ok: true,
       imported: hopLe.length,
       boQua: rows.length - hopLe.length,
+      boQuaTrung: trungBiBoQua.length,
       taiKhoan,
     });
   });

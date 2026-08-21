@@ -359,6 +359,156 @@ console.log('\n[12] C1 — tệp danh sách lưu sai bảng mã bị chặn ở 
 
   r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: sach } });
   check('tệp UTF-8 đúng chuẩn vẫn xem trước được bình thường', r.status === 200, r.data?.error);
+
+  // Bộ lọc chạy trước ở trình duyệt cũng phải nhận đúng hai ký tự đó và KHÔNG
+  // nhận nhầm dấu cách. Bản đầu tiên gõ thẳng ký tự vào lớp ký tự, byte 0 lặng
+  // lẽ biến thành dấu cách, và mọi tệp thật đều bị chặn ngay tại máy người dùng
+  // — máy chủ không hề biết vì tệp không bao giờ được gửi lên.
+  const nguon = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  const bieuThuc = (nguon.match(/_hongBangMa:\s*\/\[(.*?)\]\//) || [])[1];
+  check('giao diện có bộ lọc bảng mã riêng', !!bieuThuc, bieuThuc);
+  check('bộ lọc KHÔNG coi dấu cách là ký tự hỏng (đã từng chặn nhầm mọi tệp thật)',
+    !bieuThuc.includes(String.fromCharCode(32)), JSON.stringify(bieuThuc));
+  check('bộ lọc nhận U+FFFD', /uFFFD|�/i.test(bieuThuc || ''), bieuThuc);
+  check('bộ lọc nhận byte 0', /u0000/i.test(bieuThuc || ''), bieuThuc);
+
+  // Chạy thử chính biểu thức đó trên một tệp sạch có dấu cách.
+  const loc = new RegExp(bieuThuc ? `[${bieuThuc}]` : '$^');
+  check('bộ lọc cho tệp sạch đi qua', !loc.test(sach));
+  check('bộ lọc chặn tệp hỏng dấu', loc.test(hong));
+  check('bộ lọc chặn tệp có byte 0', loc.test(utf16));
+}
+
+// ===========================================================================
+console.log('\n[13] A6a — sửa hồ sơ học sinh và cho nghỉ học mà KHÔNG mất dữ liệu');
+{
+  const QT = (await login('ht.lohong', 'quantri2026')).cookie;
+  const goc = (await req('GET', '/api/students/s4', { cookie: QT })).data;
+  check('lấy được hồ sơ học sinh để đối chiếu', goc?.id === 's4', goc?.id);
+
+  // -- Tên rỗng: em sẽ biến thành một dòng trống trong mọi danh sách.
+  let r = await req('PUT', '/api/admin/students/s4', { cookie: QT, body: { name: '   ' } });
+  check('sửa học sinh với tên rỗng → 400', r.status === 400, r.status);
+  check('bị chặn thì tên cũ còn nguyên',
+    (await req('GET', '/api/students/s4', { cookie: QT })).data?.name === goc.name);
+
+  // -- Trùng mã: hai em khác nhau trông như một khi đối chiếu với sổ giấy.
+  const s3 = (await req('GET', '/api/students/s3', { cookie: QT })).data;
+  r = await req('PUT', '/api/admin/students/s4', { cookie: QT, body: { code: s3.code } });
+  check('sửa học sinh với mã trùng em khác → 400', r.status === 400, r.status);
+  check('báo lỗi nói rõ mã đang thuộc về ai', new RegExp(s3.name).test(r.data?.error || ''), r.data?.error);
+  check('bị chặn thì mã cũ còn nguyên',
+    (await req('GET', '/api/students/s4', { cookie: QT })).data?.code === goc.code);
+
+  // -- Sửa hợp lệ vẫn phải chạy.
+  r = await req('PUT', '/api/admin/students/s4', { cookie: QT, body: { name: 'Vũ Đức Anh (đã sửa)', address: '99 Thử Nghiệm' } });
+  check('sửa hợp lệ → 200', r.status === 200, r.status);
+  check('tên mới đã được lưu', r.data?.name === 'Vũ Đức Anh (đã sửa)', r.data?.name);
+  check('mã học sinh không bị xóa oan khi không gửi lên', r.data?.code === goc.code, r.data?.code);
+
+  // -- Cho nghỉ học: đánh dấu, KHÔNG xóa.
+  const truoc = (await req('GET', '/api/remarks?studentId=s4', { cookie: QT })).data;
+  r = await req('DELETE', '/api/admin/students/s4', { cookie: QT });
+  check('cho nghỉ học → 200', r.status === 200, r.status);
+
+  const macDinh = (await req('GET', '/api/admin/students?classId=c1', { cookie: QT })).data;
+  check('em đã nghỉ biến khỏi danh sách mặc định', !macDinh.some(s => s.id === 's4'));
+
+  const keCa = (await req('GET', '/api/admin/students?classId=c1&keCaNghi=1', { cookie: QT })).data;
+  const trongDs = keCa.find(s => s.id === 's4');
+  check('nhưng vẫn tìm lại được bằng ?keCaNghi=1', !!trongDs);
+  check('và được đánh dấu là đã nghỉ', trongDs && !trongDs.active, trongDs?.active);
+  check('có ghi lại ngày nghỉ', /^\d{4}-\d{2}-\d{2}$/.test(trongDs?.leftAt || ''), trongDs?.leftAt);
+
+  const hoSo = await req('GET', '/api/students/s4', { cookie: QT });
+  check('HỒ SƠ CỦA EM KHÔNG BỊ XÓA', hoSo.status === 200 && hoSo.data?.id === 's4', hoSo.status);
+  const sau = (await req('GET', '/api/remarks?studentId=s4', { cookie: QT })).data;
+  check('SỔ LIÊN LẠC CŨ CỦA EM CÒN NGUYÊN',
+    Array.isArray(sau) && sau.length === (truoc || []).length, `${truoc?.length} → ${sau?.length}`);
+
+  // -- Nhận lại em bấm nhầm.
+  r = await req('PUT', '/api/admin/students/s4', { cookie: QT, body: { active: true } });
+  check('nhận lại học sinh → 200', r.status === 200, r.status);
+  const lai = (await req('GET', '/api/admin/students?classId=c1', { cookie: QT })).data;
+  check('em trở lại danh sách đang học', lai.some(s => s.id === 's4'));
+  check('ngày nghỉ được xóa để hồ sơ không mâu thuẫn',
+    !(await req('GET', '/api/students/s4', { cookie: QT })).data?.leftAt);
+
+  // -- Giáo viên không được đụng vào.
+  const GV = (await login('giaovien2', '123456')).cookie;
+  check('giáo viên KHÔNG sửa được hồ sơ học sinh',
+    (await req('PUT', '/api/admin/students/s4', { cookie: GV, body: { name: 'Đổi trộm' } })).status === 403);
+  check('giáo viên KHÔNG cho học sinh nghỉ học được',
+    (await req('DELETE', '/api/admin/students/s4', { cookie: GV })).status === 403);
+
+  // Trả lại như cũ để các bài sau (nếu có) không phụ thuộc thứ tự chạy.
+  await req('PUT', '/api/admin/students/s4', { cookie: QT, body: { name: goc.name, address: goc.address || '' } });
+}
+
+// ===========================================================================
+console.log('\n[14] A6b — nhập lại cùng một tệp KHÔNG được nhân đôi cả trường');
+{
+  const QT = (await login('ht.lohong', 'quantri2026')).cookie;
+  const dem = async () => (await req('GET', '/api/admin/overview', { cookie: QT })).data.counts.students;
+
+  const TEP = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
+Lý Thị Mai,2018-02-14,Lớp Trùng,Lý Văn Cha,0977000001
+Ngô Văn Nam,2018-06-20,Lớp Trùng,Ngô Thị Mẹ,0977000002`;
+
+  const truoc = await dem();
+  let r = await req('POST', '/api/admin/import/commit', { cookie: QT, body: { csv: TEP } });
+  check('nhập lần đầu → 2 em', r.status === 200 && r.data.imported === 2, r.data);
+  check('lần đầu không có em nào bị coi là trùng', r.data?.boQuaTrung === 0, r.data?.boQuaTrung);
+  check('sĩ số tăng đúng 2', (await dem()) === truoc + 2);
+
+  // -- Xem trước lần hai: phải báo trùng, và KHÔNG được tính vào `loi`.
+  r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: TEP } });
+  check('xem trước lần hai vẫn đọc được tệp', r.status === 200, r.status);
+  check('đếm đúng 2 em đã có trong hệ thống', r.data?.trung === 2, r.data?.trung);
+  check('KHÔNG gộp vào số dòng lỗi (số cũ phải giữ nguyên ý nghĩa)', r.data?.loi === 0, r.data?.loi);
+  check('tổng số dòng vẫn là 2', r.data?.total === 2, r.data?.total);
+  check('mỗi dòng nói rõ trùng ở đâu',
+    r.data.rows.every(x => /đã có trong hệ thống/.test(x.trung || '')), r.data.rows.map(x => x.trung));
+
+  // -- Ghi thật lần hai: mặc định BỎ QUA, không nhân đôi.
+  const truocLan2 = await dem();
+  r = await req('POST', '/api/admin/import/commit', { cookie: QT, body: { csv: TEP } });
+  check('nhập lại toàn bộ tệp cũ → 400 vì không còn gì để nhập', r.status === 400, r.status);
+  check('báo lỗi nói rõ là do đã có sẵn', /đã có trong hệ thống/.test(r.data?.error || ''), r.data?.error);
+  check('SĨ SỐ KHÔNG ĐỔI — không nhân đôi cả trường', (await dem()) === truocLan2, await dem());
+
+  // -- Tệp cũ có thêm em mới: em mới vẫn phải vào được.
+  const THEM = `${TEP}\nHồ Bảo Long,2018-09-09,Lớp Trùng,Hồ Văn Ba,0977000003`;
+  r = await req('POST', '/api/admin/import/commit', { cookie: QT, body: { csv: THEM } });
+  check('tệp cũ thêm 1 em mới → chỉ nhập đúng em mới', r.status === 200 && r.data.imported === 1, r.data);
+  check('và nói rõ đã bỏ qua 2 em có sẵn', r.data?.boQuaTrung === 2, r.data?.boQuaTrung);
+  check('sĩ số tăng đúng 1', (await dem()) === truocLan2 + 1);
+
+  // -- Trùng ngay trong một tệp cũng phải bắt được.
+  const TRONG_TEP = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
+Đinh Song Sinh,2019-01-01,Lớp Trùng,Đinh Văn Cha,0977000004
+Đinh Song Sinh,2019-01-01,Lớp Trùng,Đinh Văn Cha,0977000004`;
+  r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: TRONG_TEP } });
+  check('bắt được hai dòng giống nhau trong cùng một tệp', r.data?.trung === 1, r.data?.trung);
+  check('chỉ ra đúng dòng bị lặp', /dòng 2/.test(r.data.rows[1]?.trung || ''), r.data.rows[1]?.trung);
+
+  // -- Khác ngày sinh thì là hai em khác nhau, không được coi là trùng.
+  const KHAC = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
+Lý Thị Mai,2019-02-14,Lớp Trùng,Lý Văn Cha,0977000001`;
+  r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: KHAC } });
+  check('cùng tên cùng lớp nhưng khác ngày sinh → KHÔNG coi là trùng', r.data?.trung === 0, r.data?.trung);
+
+  // -- Ngày sinh gõ kiểu Việt Nam vẫn nhận ra là cùng một em.
+  const VN = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
+Lý Thị Mai,14/02/2018,Lớp Trùng,Lý Văn Cha,0977000001`;
+  r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: VN } });
+  check('ngày sinh gõ 14/02/2018 vẫn khớp với 2018-02-14 đã lưu', r.data?.trung === 1, r.data?.trung);
+
+  // -- Quản trị vẫn phải có quyền nói "đúng, trường tôi có hai em như thế".
+  const truocEp = await dem();
+  r = await req('POST', '/api/admin/import/commit', { cookie: QT, body: { csv: TEP, nhapCaTrung: true } });
+  check('quản trị chủ động chọn nhập cả em trùng → vẫn nhập được', r.status === 200 && r.data.imported === 2, r.data);
+  check('lúc đó sĩ số mới tăng', (await dem()) === truocEp + 2);
 }
 
 dung();

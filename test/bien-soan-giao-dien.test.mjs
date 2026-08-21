@@ -253,6 +253,110 @@ console.log('\n[10] Nút Sửa lớp: phân công lại giáo viên chủ nhiệ
   check('dòng lớp được đánh dấu Chưa có chủ nhiệm', /Chưa có chủ nhiệm/.test(man));
 }
 
+console.log('\n[11] Sửa hồ sơ học sinh và cho nghỉ học ngay trong màn hình lớp');
+{
+  await page.evaluate(() => UI.closeModal());
+  await page.waitForTimeout(400);
+  await page.goto(BASE + '/#/admin', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+  await page.locator('.list-row', { hasText: 'Lớp 3A' }).first()
+    .locator('button', { hasText: 'Xem' }).click();
+  await page.waitForTimeout(900);
+
+  const hs = page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first();
+  check('dòng học sinh có nút Sửa', await hs.locator('button', { hasText: 'Sửa' }).count() === 1);
+  check('dòng học sinh có nút Cho nghỉ', await hs.locator('button', { hasText: 'Cho nghỉ' }).count() === 1);
+
+  // -- Sửa hồ sơ
+  await hs.locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForTimeout(900);
+  check('mở được form sửa hồ sơ học sinh', await page.locator('#ad-hs-ten').count() === 1);
+  check('form có ô chuyển lớp', await page.locator('#ad-hs-lop').count() === 1);
+  await page.fill('#ad-hs-dc', '99 Ngõ Kiểm Thử');
+  await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
+  await page.waitForTimeout(1400);
+  check('lưu xong quay lại đúng danh sách lớp vừa xem',
+    (await page.locator('.modal-title').innerText()).includes('Lớp 3A'),
+    await page.locator('.modal-title').innerText());
+
+  // -- Cho nghỉ học: phải hỏi lại, và phải nói rõ dữ liệu được giữ
+  await page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first()
+    .locator('button', { hasText: 'Cho nghỉ' }).click();
+  await page.waitForTimeout(700);
+  const hoi = await page.locator('.modal').innerText();
+  check('hỏi lại trước khi cho nghỉ học', /Xác nhận/.test(hoi), hoi.slice(0, 120));
+  check('nói rõ dữ liệu cũ vẫn được giữ nguyên', /giữ nguyên/.test(hoi));
+  check('có đường quay lại nếu bấm nhầm', await page.locator('button', { hasText: 'Quay lại' }).count() >= 1);
+
+  await page.locator('#ad-nghi-ok').click();
+  await page.waitForTimeout(1500);
+  const sau = await page.locator('.modal').innerText();
+  check('em chuyển xuống mục đã nghỉ, không biến mất khỏi màn hình', /Đã nghỉ/.test(sau), sau.slice(0, 200));
+  check('màn hình nói rõ dữ liệu vẫn tra cứu được', /tra cứu được/.test(sau));
+
+  // -- Nhận lại
+  await page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first()
+    .locator('button', { hasText: 'Nhận lại' }).click();
+  await page.waitForTimeout(1500);
+  const cuoi = await page.locator('.modal').innerText();
+  check('nhận lại xong em về mục đang học', !/Đã nghỉ/.test(cuoi), cuoi.slice(0, 200));
+}
+
+console.log('\n[12] Nhập lại tệp cũ: màn hình cảnh báo trùng thay vì âm thầm nhân đôi');
+{
+  await page.evaluate(() => UI.closeModal());
+  await page.waitForTimeout(400);
+
+  const TEP = 'Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại\n'
+    + 'Trịnh Thu Thảo,2018-03-03,Lớp Nhập Thử,Trịnh Văn Cha,0966000001\n'
+    + 'Vương Chí Kiên,2018-04-04,Lớp Nhập Thử,Vương Thị Mẹ,0966000002';
+  const tepCsv = { name: 'danh-sach.csv', mimeType: 'text/csv', buffer: Buffer.from(TEP, 'utf8') };
+
+  const nhapTep = async () => {
+    await page.goto(BASE + '/#/admin/nhaplieu', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(900);
+    await page.setInputFiles('#ad-file', tepCsv);
+    await page.waitForSelector('#ad-commit', { timeout: 8000 });
+    await page.waitForTimeout(400);
+  };
+
+  // -- Lần đầu: không có cảnh báo nào.
+  await nhapTep();
+  check('lần đầu KHÔNG hiện cảnh báo trùng', await page.locator('#ad-trung-ok').count() === 0);
+  check('nút nhập ghi đúng 2 học sinh',
+    /Nhập 2 học sinh/.test(await page.locator('#ad-commit').innerText()),
+    await page.locator('#ad-commit').innerText());
+
+  // Bài [9] đã cài sẵn một bộ bắt hộp thoại luôn bấm Hủy — gỡ đi, nếu không lời
+  // xác nhận "Nhập N học sinh?" bị hủy và không có gì được ghi.
+  page.removeAllListeners('dialog');
+  page.once('dialog', d => d.accept());
+  await page.locator('#ad-commit').click();
+  await page.waitForSelector('.modal', { timeout: 10000 });
+  await page.waitForTimeout(600);
+  check('nhập xong hiện phiếu tài khoản phụ huynh',
+    /Đã nhập/.test(await page.locator('.modal').innerText()));
+  await page.evaluate(() => UI.closeModal());
+  await page.waitForTimeout(400);
+
+  // -- Lần hai với đúng tệp đó: phải cảnh báo và KHÔNG cho nhập.
+  await nhapTep();
+  const man = await page.locator('#ad-preview').innerText();
+  check('lần hai hiện cảnh báo đã có trong hệ thống', /đã có trong hệ thống/.test(man), man.slice(0, 300));
+  check('nói rõ hậu quả nếu cứ nhập', /hai hồ sơ/.test(man));
+  check('liệt kê tên từng em bị trùng', /Trịnh Thu Thảo/.test(man));
+  const nut = page.locator('#ad-commit');
+  check('nút nhập bị khóa vì không còn gì để nhập', await nut.isDisabled());
+  check('nút ghi rõ là 0 học sinh', /Nhập 0 học sinh/.test(await nut.innerText()), await nut.innerText());
+
+  // -- Quản trị vẫn được quyền chủ động nhập cả em trùng.
+  check('có ô tích để chủ động nhập cả em trùng', await page.locator('#ad-trung-ok').count() === 1);
+  await page.check('#ad-trung-ok');
+  await page.waitForTimeout(300);
+  check('tích vào thì nút mở lại', !(await nut.isDisabled()));
+  check('và nút đếm lại đúng 2 học sinh', /Nhập 2 học sinh/.test(await nut.innerText()), await nut.innerText());
+}
+
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 
 await browser.close();
