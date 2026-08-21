@@ -33,7 +33,12 @@ module.exports = (app) => {
   app.get('/api/schoolyear/preview', onlyAdmin, (req, res) => {
     const school = db.school() || {};
     const khoiToiDa = Number(req.query.khoiToiDa) || 5;   // tiểu học 5 khối
-    const namMoi = req.query.namMoi || namKeTiep(school.currentYear);
+    // Kiểm định năm học nhận từ tham số truy vấn. Đường ghi thật đã kiểm rồi,
+    // đường xem trước thì chưa — mà giá trị này được trả về rồi hiện thẳng lên
+    // màn hình quản trị, nên chuỗi lạ lọt vào đây là chuỗi lạ hiện trên màn hình.
+    const namMoi = /^\d{4}-\d{4}$/.test(String(req.query.namMoi || ''))
+      ? String(req.query.namMoi)
+      : namKeTiep(school.currentYear);
 
     const lop = db.classes();
     const buoc = lop.map(c => {

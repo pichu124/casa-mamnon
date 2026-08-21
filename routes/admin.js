@@ -85,12 +85,23 @@ module.exports = (app) => {
   //     hiện đúng tên cô, nhưng cô đăng nhập vào lại thấy "Sĩ số 0".
   // Mọi chỗ đổi chủ nhiệm đều phải đi qua hàm này, đừng ghi tay từng bảng.
   function datChuNhiem(classId, teacherIdMoi) {
+    // Chiều 1 — gỡ những giáo viên đang gắn với LỚP NÀY mà không phải người mới.
     const dangGan = db.all('users',
       `SELECT id FROM users WHERE role = 'teacher' AND classId = ?`, [classId]);
     for (const t of dangGan) {
       if (t.id !== teacherIdMoi) db.update('users', t.id, { classId: null });
     }
-    if (teacherIdMoi) db.update('users', teacherIdMoi, { classId });
+    // Chiều 2 — gỡ LỚP CŨ của chính người mới. Thiếu bước này thì chuyển cô B từ
+    // lớp 5B sang 3A sẽ để lại 5B mang tên cô B ở màn hình quản trị, trong khi cô
+    // đăng nhập vào chỉ thấy 3A — 5B thành lớp có chủ nhiệm ma, và hiệu trưởng
+    // tưởng đã phân công xong nên không tìm nữa.
+    if (teacherIdMoi) {
+      const nguoiMoi = db.findUser(teacherIdMoi);
+      if (nguoiMoi && nguoiMoi.classId && nguoiMoi.classId !== classId) {
+        db.update('classes', nguoiMoi.classId, { teacherId: null });
+      }
+      db.update('users', teacherIdMoi, { classId });
+    }
     db.update('classes', classId, { teacherId: teacherIdMoi || null });
   }
 
@@ -122,6 +133,11 @@ module.exports = (app) => {
   app.put('/api/admin/classes/:id', onlyAdmin, (req, res) => {
     const cls = db.findClass(req.params.id);
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp' });
+    // Tên lớp rỗng làm dòng lớp trắng trơn trên mọi màn hình mà không báo lỗi gì.
+    // Đường tạo lớp đã chặn từ đầu; đường sửa thì chưa, nên chặn cho khớp.
+    if (req.body.name !== undefined && !String(req.body.name).trim()) {
+      return res.status(400).json({ error: 'Vui lòng nhập tên lớp' });
+    }
     const patch = {};
     for (const k of ['name', 'room', 'year']) {
       if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
@@ -275,9 +291,30 @@ module.exports = (app) => {
     return ketQua;
   }
 
+  // Từ chối cả tệp khi chữ có dấu đã hỏng vì lưu sai bảng mã.
+  //
+  // Phải chặn ở CẢ HAI đường: đường ghi thật đọc lại nội dung tệp độc lập với
+  // đường xem trước, nên chỉ chặn ở xem trước là còn lối vòng qua. Chặn ở trình
+  // duyệt cũng không thay được chỗ này — đó chỉ là để báo sớm cho đỡ chờ mạng.
+  //
+  // Từ chối chứ không tự đoán rồi chuyển đổi bảng mã: đoán sai thì tên học sinh
+  // lưu xuống vẫn sai mà không ai biết, còn từ chối thì người nhập sửa tệp một
+  // phút là xong và chắc chắn đúng.
+  function chanBangMaSai(text, res) {
+    const kt = csv.kiemTraBangMa(text);
+    if (kt.ok) return false;
+    res.status(400).json({
+      error: 'Tệp bị lỗi phông chữ tiếng Việt: chữ có dấu đã biến thành ký tự lạ '
+        + `(dòng ${kt.dongDau}: "${kt.viDu}"). Xin mở lại tệp bằng Excel, chọn `
+        + 'Tệp → Lưu dưới dạng → kiểu "CSV UTF-8 (Comma delimited) (*.csv)", rồi tải lên lần nữa.',
+    });
+    return true;
+  }
+
   app.post('/api/admin/import/preview', onlyAdmin, (req, res) => {
     const text = String((req.body || {}).csv || '');
     if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
+    if (chanBangMaSai(text, res)) return;
     const rows = phanTich(text);
     if (!rows.length) return res.status(400).json({ error: 'Tệp không có dòng dữ liệu nào' });
     res.json({
@@ -291,6 +328,7 @@ module.exports = (app) => {
   app.post('/api/admin/import/commit', onlyAdmin, (req, res) => {
     const text = String((req.body || {}).csv || '');
     if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
+    if (chanBangMaSai(text, res)) return;
     const rows = phanTich(text);
     const hopLe = rows.filter(r => !r.loi.length);
     if (!hopLe.length) return res.status(400).json({ error: 'Không có dòng nào hợp lệ để nhập' });

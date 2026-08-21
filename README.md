@@ -188,8 +188,8 @@ viết sai chỉ làm chính nó ngưng hoạt động**:
 Kiểm chứng lại bất cứ lúc nào:
 
 ```bash
-npm test                 # 702 bài, khoảng 3 phút, không cần trình duyệt
-npm run test:giao-dien   # thêm 131 bài chạy trên trình duyệt thật (xem ghi chú dưới)
+npm test                 # 718 bài, khoảng 3 phút, không cần trình duyệt
+npm run test:giao-dien   # thêm 133 bài chạy trên trình duyệt thật (xem ghi chú dưới)
 npm run test:tat-ca      # chạy cả hai
 ```
 

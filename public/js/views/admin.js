@@ -37,6 +37,8 @@ App.views.admin = {
   // ---------- Tổng quan ----------
   async tabTongQuan(body) {
     const d = await API.get('/api/admin/overview');
+    this._lop = d.classes;
+    const chuaCoGv = d.classes.filter(c => !c.teacherId).length;
     body.innerHTML = `
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${d.counts.students}</div><div class="stat-label">Học sinh</div></div>
@@ -50,17 +52,30 @@ App.views.admin = {
           <div class="muted small mt-8">Nhắc họ đăng nhập và đặt mật khẩu riêng để bảo vệ thông tin học sinh.</div>
         </div>` : ''}
 
+      ${chuaCoGv ? `
+        <div class="card" style="border-left:4px solid var(--danger)">
+          <b>${chuaCoGv} lớp chưa có giáo viên chủ nhiệm.</b>
+          <div class="muted small mt-8">
+            Cô chưa được phân công sẽ đăng nhập vào và thấy "Lớp chưa có học sinh nào" —
+            không điểm danh, không nhận xét, không nhắn tin với phụ huynh được.
+            Bấm <b>Sửa</b> ở dòng lớp được tô đỏ bên dưới để phân công.
+          </div>
+        </div>` : ''}
+
       <div class="card">
         <div class="card-title">Danh sách lớp<span class="spacer"></span>
           <button class="btn sm primary" onclick="App.views.admin.themLop()">+ Thêm lớp</button>
         </div>
         ${d.classes.length ? d.classes.map(c => `
-          <div class="list-row">
+          <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
             <div class="row-main">
-              <div class="row-title">${UI.esc(c.name)}</div>
+              <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có chủ nhiệm', 'red')}`}</div>
               <div class="row-sub">${UI.esc(c.teacherName || 'chưa phân công giáo viên')} · ${c.studentCount} học sinh${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
             </div>
-            <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}','${UI.esc(c.name)}')">Xem</button>
+            <div class="row-end" style="display:flex;gap:8px">
+              <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
+              <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem</button>
+            </div>
           </div>`).join('') : '<div class="muted small">Chưa có lớp nào. Bấm "Thêm lớp" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>`;
   },
@@ -95,7 +110,70 @@ App.views.admin = {
     };
   },
 
+  // Sửa thông tin lớp và phân công giáo viên chủ nhiệm.
+  //
+  // Đây là màn hình mà nút "Đi phân công giáo viên chủ nhiệm" sau khi chuyển năm
+  // học vẫn luôn chỉ tới — trước đây nó dẫn về một danh sách chỉ để đọc, nên cả
+  // trường không có cách nào phân công lại chủ nhiệm ngoài việc sửa tay dữ liệu.
+  //
+  // CỐ Ý KHÔNG cho sửa năm học: routes/schoolyear.js dùng cặp (tên lớp, năm học)
+  // để nhận ra lớp của năm mới đã tồn tại chưa. Sửa tay năm học ở đây sẽ làm lần
+  // chuyển năm sau tạo lớp trùng tên.
+  async suaLop(classId) {
+    const [d, teachers] = await Promise.all([
+      API.get('/api/admin/overview'),
+      API.get('/api/admin/teachers'),
+    ]);
+    const c = (d.classes || []).find(x => x.id === classId);
+    if (!c) return UI.toast('Không tìm thấy lớp này', 'error');
+
+    // Giữ chủ nhiệm hiện tại trong danh sách kể cả khi cô đã ngừng hoạt động,
+    // nếu không bấm Lưu sẽ vô tình gỡ mất chủ nhiệm mà không ai chủ ý.
+    const ds = (!c.teacherId || teachers.some(t => t.id === c.teacherId))
+      ? teachers
+      : [{ id: c.teacherId, title: '', name: c.teacherName || '(giáo viên đã ngừng hoạt động)' }, ...teachers];
+
+    UI.modal(`
+      <div class="field"><label>Tên lớp</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
+      <div class="field"><label>Phòng học</label><input id="ad-sl-phong" value="${UI.esc(c.room || '')}" placeholder="Ví dụ: Phòng 203"></div>
+      <div class="field"><label>Khối</label><input id="ad-sl-khoi" type="number" min="1" max="12" value="${UI.esc(c.grade ?? '')}"></div>
+      <div class="field"><label>Giáo viên chủ nhiệm</label>
+        <select id="ad-sl-gv">
+          <option value="">— Chưa phân công —</option>
+          ${ds.map(t => `<option value="${UI.esc(t.id)}" ${t.id === c.teacherId ? 'selected' : ''}>${UI.esc(`${t.title} ${t.name}`.trim())}</option>`).join('')}
+        </select>
+        <div class="muted small mt-8">Đổi chủ nhiệm sẽ thu quyền xem hồ sơ lớp này của cô cũ ngay lập tức.</div>
+      </div>
+      <button class="btn primary block" id="ad-sl-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
+    `, `Sửa ${c.name}`);
+
+    document.getElementById('ad-sl-luu').onclick = async () => {
+      const name = document.getElementById('ad-sl-ten').value.trim();
+      if (!name) return UI.toast('Vui lòng nhập tên lớp', 'error');
+      try {
+        await API.put(`/api/admin/classes/${encodeURIComponent(classId)}`, {
+          name,
+          room: document.getElementById('ad-sl-phong').value.trim(),
+          grade: document.getElementById('ad-sl-khoi').value,
+          teacherId: document.getElementById('ad-sl-gv').value || null,
+        });
+        UI.toast('Đã lưu thay đổi', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // Tên lớp KHÔNG được truyền qua thuộc tính onclick nữa mà tra lại từ đây —
+  // cùng lý do như App.views.accounts.reset: trình duyệt giải mã thực thể HTML
+  // trước khi JS phân tích, nên dấu nháy trong tên lớp thoát ra khỏi chuỗi và
+  // chạy được mã. Giữ chữ ký hai tham số để bản giao diện cũ trong bộ nhớ đệm
+  // của điện thoại đã cài app vẫn gọi được.
   async xemLop(classId, tenLop) {
+    if (!tenLop) {
+      const c = (this._lop || []).find(x => x.id === classId);
+      tenLop = c ? c.name : 'Lớp';
+    }
     const students = await API.get(`/api/admin/students?classId=${encodeURIComponent(classId)}`);
     const danhSach = students.map(s => `
       <div class="list-row">
@@ -140,9 +218,44 @@ App.views.admin = {
       const f = input.files[0];
       if (!f) return;
       const reader = new FileReader();
-      reader.onload = () => { this._csv = String(reader.result); this.xemTruoc(); };
+      reader.onload = () => {
+        const text = String(reader.result);
+        // Chặn ngay tại chỗ để văn thư biết mà sửa tệp, khỏi phải chờ gửi lên
+        // máy chủ. Máy chủ vẫn chặn lần nữa — đây chỉ là báo sớm cho tiện.
+        if (/[� ]/.test(text)) { this._csv = null; this.baoLoiPhongChu(f.name, text); return; }
+        this._csv = text;
+        this.xemTruoc();
+      };
       reader.readAsText(f, 'utf-8');
+      input.value = '';   // để chọn lại đúng tệp đó sau khi sửa vẫn kích hoạt onchange
     };
+  },
+
+  // Tệp lưu sai bảng mã: nói rõ hỏng ở đâu và chỉ từng bước cách sửa trong Excel.
+  // Cố ý KHÔNG cho nhập tiếp: nhập vào thì tên học sinh và tên phụ huynh sai
+  // hàng loạt, mà app chưa có màn hình nào sửa lại được hàng loạt.
+  baoLoiPhongChu(tenTep, text) {
+    const dong = String(text).split(/\r?\n/);
+    const i = dong.findIndex(d => /[� ]/.test(d));
+    const viDu = (dong[i] || '').replace(/ /g, '').slice(0, 60);
+    document.getElementById('ad-preview').innerHTML = `
+      <div class="card mt-14" style="border-left:4px solid var(--danger)">
+        <div class="card-title">Tệp bị lỗi phông chữ tiếng Việt</div>
+        <p class="small">Tệp <b>${UI.esc(tenTep)}</b> đang lưu theo kiểu chữ cũ nên tên có dấu
+        đã biến thành ký tự lạ. Ở dòng ${i + 1} hệ thống đọc được:</p>
+        <p class="small"><code>${UI.esc(viDu)}</code></p>
+        <p class="small">Nhập tệp này vào thì tên học sinh và tên phụ huynh sẽ sai, và không
+        sửa lại hàng loạt được. Xin sửa tệp trước, chỉ mất khoảng một phút:</p>
+        <ol class="small" style="line-height:1.7;padding-left:18px">
+          <li>Mở tệp bằng Excel.</li>
+          <li>Chọn <b>Tệp</b> (File) → <b>Lưu dưới dạng</b> (Save As).</li>
+          <li>Ở ô chọn kiểu tệp, chọn dòng <b>CSV UTF-8 (Comma delimited) (*.csv)</b> —
+              nhớ chọn đúng dòng <b>có chữ UTF-8</b>.</li>
+          <li>Lưu lại, rồi bấm <b>Chọn tệp từ máy</b> và tải lên lần nữa.</li>
+        </ol>
+        <p class="small muted">Nếu máy không có dòng "CSV UTF-8", bấm <b>Tải tệp mẫu CSV</b>
+        ở trên, chép danh sách vào tệp mẫu đó rồi lưu lại.</p>
+      </div>`;
   },
 
   async xemTruoc() {

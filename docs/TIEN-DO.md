@@ -375,10 +375,10 @@ Còn Đợt 2 (7 việc, ~4–5 ngày) và Đợt 3 (5 việc) trong báo cáo r
 
 ## Tổng kết
 
-Chín hạng mục B1–B9 đã hoàn thành. **833 bài kiểm thử tự động đều đạt**, tất cả
+Chín hạng mục B1–B9 đã hoàn thành. **851 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 702 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 718 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -386,7 +386,7 @@ Chín hạng mục B1–B9 đã hoàn thành. **833 bài kiểm thử tự độ
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
-| `test:lo-hong` | 39 | Các lỗ hổng đã vá không tái phát |
+| `test:lo-hong` | 55 | Các lỗ hổng đã vá không tái phát |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
@@ -397,14 +397,14 @@ Chín hạng mục B1–B9 đã hoàn thành. **833 bài kiểm thử tự độ
 | `test:co-lap-loi` | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
 | `test:luoi-an-toan` | 17 | Lỗi bất đồng bộ: promise bỏ quên thì sống, nổ đồng bộ thì dừng sạch |
 
-`npm run test:giao-dien` — 131 bài chạy trên trình duyệt thật, cần Playwright:
+`npm run test:giao-dien` — 133 bài chạy trên trình duyệt thật, cần Playwright:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
 | `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
 | `test:pwa` | 43 | Cài đặt như app, chạy offline, khổ iPhone và Android |
 | bật/tắt tính năng | 20 | Thao tác thật trên màn hình quản trị và màn hình chính |
-| soạn nội dung | 25 | GV sửa TKB, soạn kế hoạch và báo cáo, quản trị soạn thực đơn — thao tác thật trên màn hình; phụ huynh không thấy nút soạn nào |
+| soạn nội dung | 36 | GV sửa TKB, soạn kế hoạch và báo cáo, quản trị soạn thực đơn — thao tác thật trên màn hình; phụ huynh không thấy nút soạn nào |
 
 `npm run test:tat-ca` chạy cả hai nhóm.
 

@@ -188,6 +188,71 @@ await page.waitForTimeout(900);
 const manBcPH = await page.locator('#view').innerText();
 check('phụ huynh xem được báo cáo kỳ mới cô vừa soạn', /Nhận xét trình duyệt cho học kỳ mới/.test(manBcPH), manBcPH.slice(0, 300));
 
+// ============================================================
+// 5. TÊN CHỨA DẤU NHÁY KHÔNG ĐƯỢC CHẠY THÀNH MÃ
+// ============================================================
+console.log('\n[9] Tên lớp có dấu nháy: hiện đúng chữ, không chạy thành mã');
+{
+  // Đây là bài canh HÀNH VI trên trình duyệt thật. Bộ quét tĩnh ở test:lo-hong
+  // canh khuôn mẫu nguy hiểm trong mã; bài này chứng minh trên trình duyệt thật
+  // là dấu nháy trong tên lớp nay chỉ còn là chữ.
+  const TEN_BAY = `Lớp Bé Ong's');window.__pwn=1;//`;
+  const ck = await (async () => {
+    const r = await fetch(BASE + '/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'hieutruong', password: 'quantri2026' }),
+    });
+    return r.headers.get('set-cookie').split(';')[0];
+  })();
+  const tao = await fetch(BASE + '/api/admin/classes', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: ck },
+    body: JSON.stringify({ name: TEN_BAY, room: 'P999', grade: 1 }),
+  });
+  check('tạo được lớp có tên chứa dấu nháy', tao.status === 201, tao.status);
+
+  let hopThoai = false;
+  page.on('dialog', d => { hopThoai = true; d.dismiss().catch(() => {}); });
+
+  await dangXuat();
+  await dangNhap('hieutruong', 'quantri2026');
+  await page.goto(BASE + '/#/admin', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+
+  const dong = page.locator('.list-row', { hasText: "Bé Ong's" }).first();
+  check('dòng lớp hiện đúng tên có dấu nháy', await dong.count() > 0);
+  await dong.locator('button', { hasText: 'Xem' }).click();
+  await page.waitForTimeout(900);
+
+  check('KHÔNG chạy được mã chèn trong tên lớp',
+    await page.evaluate(() => window.__pwn) === undefined);
+  check('không bung hộp thoại lạ', !hopThoai);
+  const tieuDe = await page.locator('.modal-title').innerText();
+  check('tiêu đề vẫn hiện nguyên tên lớp, không nuốt chữ', tieuDe.includes("Bé Ong's"), tieuDe);
+}
+
+console.log('\n[10] Nút Sửa lớp: phân công lại giáo viên chủ nhiệm ngay trên màn hình');
+{
+  await page.evaluate(() => UI.closeModal());   // đóng modal của bài trước, nếu không nó che nút
+  await page.waitForTimeout(400);
+  await page.goto(BASE + '/#/admin', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+  const dong = page.locator('.list-row', { hasText: 'Lớp 3A' }).first();
+  check('dòng lớp có nút Sửa', await dong.locator('button', { hasText: 'Sửa' }).count() === 1);
+  await dong.locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForTimeout(800);
+  check('mở được form sửa lớp', await page.locator('#ad-sl-ten').count() === 1);
+  check('form có ô chọn giáo viên chủ nhiệm', await page.locator('#ad-sl-gv').count() === 1);
+  check('form KHÔNG có ô năm học (cố ý, tránh làm hỏng việc chuyển năm)',
+    await page.locator('#ad-sl-nam').count() === 0);
+
+  await page.selectOption('#ad-sl-gv', '');
+  await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
+  await page.waitForTimeout(1400);
+  const man = await page.locator('#view').innerText();
+  check('gỡ chủ nhiệm xong màn hình nhắc việc ngay', /chưa có giáo viên chủ nhiệm/i.test(man), man.slice(0, 200));
+  check('dòng lớp được đánh dấu Chưa có chủ nhiệm', /Chưa có chủ nhiệm/.test(man));
+}
+
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 
 await browser.close();

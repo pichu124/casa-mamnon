@@ -263,6 +263,104 @@ console.log('\n[9] B2 — chế độ phát triển vẫn tự sinh dữ liệu 
   donThuMucTam(dev);
 }
 
+// ===========================================================================
+console.log('\n[10] A7 — không view nào nhét dữ liệu người dùng vào thuộc tính sự kiện');
+{
+  // Bài quét tĩnh. Lý do: UI.esc đổi dấu nháy đơn thành &#39;, đúng cho nội dung
+  // HTML nhưng KHÔNG đủ trong tham số chuỗi của onclick — trình duyệt giải mã
+  // thực thể trước rồi mới đưa cho JS, nên dấu nháy thoát ra và chạy được mã.
+  // Chỉ mã định danh do hệ thống sinh mới an toàn để đặt vào đó.
+  // Danh sách trắng: chỉ những biểu thức mà giá trị KHÔNG do người dùng gõ ra.
+  //   id/…Id      — mã do db.nextId() sinh, chỉ gồm chữ và số
+  //   k           — khóa lặp qua bảng hằng số viết thẳng trong mã (tên tab, mã trạng thái)
+  //   dateStr     — chuỗi ngày do chính giao diện dựng
+  //   namMoi      — năm học, máy chủ đã ép về đúng dạng YYYY-YYYY trước khi trả
+  // Thêm tên mới vào đây thì phải tự kiểm chứng giá trị đó không bao giờ chứa
+  // dấu nháy do người dùng nhập — đừng nới lỏng chỉ để bài kiểm thử hết đỏ.
+  const AN_TOAN = /(^|\.)(id|Id|ID|userId|classId|studentId|key|k|date|dateStr|hash|status|term|year|namMoi|month|week|type)$/;
+  const thuMuc = [path.join(GOC, 'public/js/views')];
+  const modDir = path.join(GOC, 'modules');
+  if (fs.existsSync(modDir)) {
+    for (const m of fs.readdirSync(modDir)) {
+      const p = path.join(modDir, m);
+      if (fs.statSync(p).isDirectory()) thuMuc.push(p);
+    }
+  }
+  const viPham = [];
+  for (const d of thuMuc) {
+    for (const f of fs.readdirSync(d).filter(x => x.endsWith('.js'))) {
+      const ma = fs.readFileSync(path.join(d, f), 'utf8');
+      for (const m of ma.matchAll(/\bon(?:click|change|input|submit|focus|blur|keyup|keydown)="([^"]*)"/g)) {
+        for (const t of m[1].matchAll(/'[^']*\$\{([^}]*)\}[^']*'/g)) {
+          const bieuThuc = t[1].replace(/UI\.esc\(|\)\s*$/g, '').trim();
+          if (!AN_TOAN.test(bieuThuc)) viPham.push(`${f}: ${bieuThuc}`);
+        }
+      }
+    }
+  }
+  check('không view nào đặt dữ liệu người dùng vào tham số chuỗi của onclick',
+    viPham.length === 0, viPham.join(' | '));
+
+  const acc = fs.readFileSync(path.join(GOC, 'public/js/views/accounts.js'), 'utf8');
+  check('accounts.js KHÔNG truyền tên phụ huynh vào onclick', !/accounts\.reset\('[^']*',\s*'/.test(acc));
+  const adm = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  check('admin.js KHÔNG truyền tên lớp vào onclick', !/xemLop\('[^']*',\s*'/.test(adm));
+}
+
+// ===========================================================================
+console.log('\n[11] A4 — đổi chủ nhiệm ghi đủ hai chiều, không để lớp có chủ nhiệm ma');
+{
+  const QT = (await login('ht.lohong', 'quantri2026')).cookie;
+  // Đưa lớp c1 về cô t1 cho sạch trạng thái, rồi chuyển t2 (đang chủ nhiệm c2) sang c1.
+  await req('PUT', '/api/admin/classes/c1', { cookie: QT, body: { teacherId: 't1' } });
+  await req('PUT', '/api/admin/classes/c2', { cookie: QT, body: { teacherId: 't2' } });
+  await req('PUT', '/api/admin/classes/c1', { cookie: QT, body: { teacherId: 't2' } });
+
+  const ov = await req('GET', '/api/admin/overview', { cookie: QT });
+  const c1 = ov.data.classes.find(c => c.id === 'c1');
+  const c2 = ov.data.classes.find(c => c.id === 'c2');
+  check('lớp mới nhận đúng cô vừa chuyển sang', c1?.teacherId === 't2', c1?.teacherId);
+  check('lớp CŨ của cô đó không còn mang tên cô nữa', !c2?.teacherId, c2?.teacherId);
+  check('không cô nào là chủ nhiệm của hai lớp cùng lúc',
+    new Set(ov.data.classes.filter(c => c.teacherId).map(c => c.teacherId)).size
+      === ov.data.classes.filter(c => c.teacherId).length);
+
+  const nhin = await req('GET', '/api/students', { cookie: (await login('giaovien2', '123456')).cookie });
+  check('cô chỉ thấy đúng một lớp — lớp mới', nhin.status === 200 && nhin.data.every(s => s.classId === 'c1'), nhin.data?.length);
+
+  const r = await req('PUT', '/api/admin/classes/c1', { cookie: QT, body: { name: '   ' } });
+  check('sửa lớp với tên rỗng → 400', r.status === 400, r.status);
+  const van = await req('GET', '/api/admin/overview', { cookie: QT });
+  check('bị chặn thì tên lớp cũ còn nguyên',
+    van.data.classes.find(c => c.id === 'c1')?.name === 'Lớp 3A', van.data.classes.find(c => c.id === 'c1')?.name);
+}
+
+// ===========================================================================
+console.log('\n[12] C1 — tệp danh sách lưu sai bảng mã bị chặn ở CẢ HAI đường');
+{
+  const QT = (await login('ht.lohong', 'quantri2026')).cookie;
+  const FFFD = String.fromCharCode(0xFFFD);
+  const NUL = String.fromCharCode(0);
+  const sach = 'Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại\nTrần Văn An,2018-05-01,Lớp 2A,Trần Văn Bố,0900000001';
+  const hong = `Ho ten,Ngay sinh,Lop,Ho ten phu huynh,Dien thoai\nTr${FFFD}n V${FFFD}n An,2018-05-01,Lop 2A,Tr${FFFD}n B,0900000001`;
+  const utf16 = `H${NUL}o${NUL} ${NUL}t${NUL}e${NUL}n${NUL}`;
+
+  let r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: hong } });
+  check('xem trước tệp hỏng phông → 400', r.status === 400, r.status);
+  check('báo lỗi nói rõ là lỗi phông chữ', /phông chữ/i.test(r.data?.error || ''), r.data?.error);
+  check('báo lỗi chỉ đúng cách sửa trong Excel', /UTF-8/.test(r.data?.error || ''));
+  check('báo lỗi trích được dòng hỏng để người dùng đối chiếu', /dòng \d+/.test(r.data?.error || ''));
+
+  r = await req('POST', '/api/admin/import/commit', { cookie: QT, body: { csv: hong } });
+  check('ghi thẳng bỏ qua bước xem trước cũng bị chặn → 400', r.status === 400, r.status);
+
+  r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: utf16 } });
+  check('tệp UTF-16 thiếu BOM cũng bị chặn → 400', r.status === 400, r.status);
+
+  r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: sach } });
+  check('tệp UTF-8 đúng chuẩn vẫn xem trước được bình thường', r.status === 200, r.data?.error);
+}
+
 dung();
 svNoProxy.dung();
 donThuMucTam(DIR);
