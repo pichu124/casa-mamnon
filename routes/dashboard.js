@@ -3,6 +3,7 @@
 // Mỗi con số là một câu đếm riêng trên cơ sở dữ liệu — nhanh hơn nhiều so với
 // việc nạp toàn bộ dữ liệu lên rồi lọc trong bộ nhớ.
 const db = require('../lib/db');
+const st = require('../lib/sua-thu-hoi');
 
 function todayStr() {
   const d = new Date();
@@ -21,10 +22,14 @@ function audienceFilter(user) {
 
 function unreadNotifications(user) {
   const f = audienceFilter(user);
+  // Thông báo ĐÃ THU HỒI phải bị loại khỏi bộ đếm này. Nếu không, phụ huynh sẽ
+  // thấy một con số "chưa đọc" không bao giờ về 0: thông báo đã biến khỏi danh
+  // sách nên không còn cách nào bấm vào để đánh dấu đã đọc.
   return db.count(
     `SELECT COUNT(*) FROM notifications n
      WHERE ${f.sql}
        AND n.createdBy IS NOT ?
+       AND ${st.dieuKienConHien('notifications', 'n.id')}
        AND NOT EXISTS (SELECT 1 FROM notification_reads r WHERE r.notificationId = n.id AND r.userId = ?)`,
     [...f.params, user.id, user.id]);
 }

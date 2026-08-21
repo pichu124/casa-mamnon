@@ -341,3 +341,28 @@ CREATE TABLE IF NOT EXISTS module_settings (
   enabled   INTEGER NOT NULL DEFAULT 1,
   updatedAt TEXT
 );
+
+-- ===== Sửa và thu hồi bản ghi (Thông báo, Nề nếp, Y tế, Nhận xét) =====
+--
+-- Bảng PHỤ, cố ý KHÔNG thêm cột vào bốn bảng gốc.
+--
+-- Tệp lược đồ này được chạy lại ở MỖI lần khởi động và không có khối bắt lỗi
+-- nào bọc quanh (lib/db.js gọi sqlite.exec thẳng). Một câu ALTER TABLE ADD
+-- COLUMN vì thế chạy được lần đầu rồi báo lỗi "duplicate column" ở mọi lần
+-- khởi động sau — app chạy bình thường ngay sau khi triển khai rồi chết lặng
+-- lẽ ở lần khởi động lại tiếp theo, sau khi mọi bài kiểm thử đã xanh. Bảng
+-- phụ tạo bằng CREATE TABLE IF NOT EXISTS thì chạy lại bao nhiêu lần cũng được.
+--
+-- "Thu hồi" là ĐÁNH DẤU ẨN, không xóa: giữ đúng nguyên tắc không mất dữ liệu,
+-- và còn vết để tra khi có khiếu nại.
+CREATE TABLE IF NOT EXISTS record_edits (
+  bang      TEXT NOT NULL,          -- notifications | conduct | health | remarks
+  recordId  TEXT NOT NULL,
+  thuHoi    INTEGER NOT NULL DEFAULT 0,
+  suaLuc    TEXT,
+  suaBoi    TEXT,
+  thuHoiLuc TEXT,
+  thuHoiBoi TEXT,
+  PRIMARY KEY (bang, recordId)
+);
+CREATE INDEX IF NOT EXISTS idx_record_edits_thuhoi ON record_edits(bang, thuHoi);

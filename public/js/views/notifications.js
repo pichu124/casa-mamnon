@@ -68,7 +68,13 @@ App.views.notifications = {
       </div>
       <h3 style="margin:6px 0 8px">${UI.esc(n.title)}</h3>
       <div style="white-space:pre-wrap;font-size:.94rem;line-height:1.55">${UI.esc(n.body)}</div>
-      <div class="muted small mt-14">${UI.esc(n.authorName)} · ${UI.esc(UI.fmtDate(n.createdAt))} lúc ${UI.esc(UI.fmtTime(n.createdAt))}</div>
+      <div class="muted small mt-14">${UI.esc(n.authorName)} · ${UI.esc(UI.fmtDate(n.createdAt))} lúc ${UI.esc(UI.fmtTime(n.createdAt))}${
+        n.daSua ? ` · đã chỉnh sửa lúc ${UI.esc(UI.fmtTime(n.suaLuc))} ${UI.esc(UI.fmtDateShort(n.suaLuc))}` : ''}</div>
+      ${n.coTheSua ? `
+        <div class="flex mt-14" style="gap:8px">
+          <button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>
+          <button class="btn danger-soft" style="flex:1" onclick="App.views.notifications.hoiThuHoi('${UI.esc(n.id)}')">Thu hồi</button>
+        </div>` : ''}
     `, 'Chi tiết thông báo');
     if (!n.read) {
       try {
@@ -142,5 +148,70 @@ App.views.notifications = {
       App.route();
       App.refreshBadges();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // ---- Sửa lại và thu hồi thông báo đã gửi ----
+  //
+  // Trước đây gõ nhầm giờ họp phụ huynh rồi gửi đi là hết cách: chỉ còn gửi thêm
+  // một thông báo đính chính rồi hai cái cùng nằm đó.
+  openSua(id) {
+    const n = this._list.find(x => x.id === id);
+    if (!n) return;
+    UI.modal(`
+      <div class="field"><label>Tiêu đề</label><input id="nt-s-title" value="${UI.esc(n.title)}"></div>
+      <div class="field"><label>Nội dung</label><textarea id="nt-s-body">${UI.esc(n.body)}</textarea></div>
+      <div class="field">
+        <label>Phân loại</label>
+        <select id="nt-s-cat">
+          ${['Lớp học', 'Nhà trường', 'Y tế', 'Học phí', 'Khác']
+            .map(c => `<option ${c === n.category ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="muted small" style="line-height:1.6">
+        Phụ huynh sẽ thấy dòng "đã chỉnh sửa lúc…" bên dưới thông báo, để không ai
+        tưởng mình nhớ nhầm nội dung cũ. Phạm vi gửi không đổi được sau khi đã gửi.
+      </div>
+      <button class="btn primary block mt-14" id="nt-s-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
+    `, 'Sửa thông báo');
+
+    document.getElementById('nt-s-luu').onclick = async () => {
+      const title = document.getElementById('nt-s-title').value.trim();
+      const body = document.getElementById('nt-s-body').value.trim();
+      if (!title) return UI.toast('Vui lòng nhập tiêu đề thông báo', 'error');
+      if (!body) return UI.toast('Vui lòng nhập nội dung thông báo', 'error');
+      try {
+        await API.put(`/api/notifications/${encodeURIComponent(id)}`, {
+          title, body, category: document.getElementById('nt-s-cat').value,
+        });
+        UI.toast('Đã lưu thay đổi', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  hoiThuHoi(id) {
+    const n = this._list.find(x => x.id === id);
+    if (!n) return;
+    UI.modal(`
+      <p style="line-height:1.6">Thu hồi thông báo <b>"${UI.esc(n.title)}"</b>?</p>
+      <p class="muted small" style="line-height:1.6">
+        Thông báo sẽ biến khỏi màn hình của phụ huynh và không còn tính vào số
+        "chưa đọc". <b>Nội dung vẫn được giữ lại</b> trong hệ thống để tra khi cần.
+        Phụ huynh đã đọc rồi thì không lấy lại được điều họ đã thấy.
+      </p>
+      <button class="btn primary block mt-14" id="nt-th-ok">Xác nhận thu hồi</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, 'Thu hồi thông báo');
+
+    document.getElementById('nt-th-ok').onclick = async () => {
+      try {
+        await API.del(`/api/notifications/${encodeURIComponent(id)}`);
+        UI.toast('Đã thu hồi thông báo', 'success');
+        UI.closeModal();
+        App.route();
+        App.refreshBadges();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 };

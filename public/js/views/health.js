@@ -124,7 +124,13 @@ App.views.health = {
         ${r.weight !== undefined && r.weight !== null ? infoRowHealth('Cân nặng', `${r.weight} kg`) : ''}
         ${r.vision ? infoRowHealth('Thị lực', r.vision) : ''}
         ${r.bmiNote ? infoRowHealth('Đánh giá thể trạng', r.bmiNote) : ''}
-      </div>`, 'Chi tiết ghi nhận y tế');
+        ${r.daSua ? `<div class="muted small mt-8">Đã chỉnh sửa lúc ${UI.esc(UI.fmtTime(r.suaLuc))} ${UI.esc(UI.fmtDateShort(r.suaLuc))}</div>` : ''}
+      </div>
+      ${r.coTheSua ? `
+        <div class="flex mt-14" style="gap:8px">
+          <button class="btn outline" style="flex:1" onclick="App.views.health.openSua('${UI.esc(r.id)}')">Sửa lại</button>
+          <button class="btn danger-soft" style="flex:1" onclick="App.views.health.hoiThuHoi('${UI.esc(r.id)}')">Thu hồi</button>
+        </div>` : ''}`, 'Chi tiết ghi nhận y tế');
   },
 
   // ---- Giáo viên: thêm ghi nhận ----
@@ -164,6 +170,11 @@ App.views.health = {
           <input type="number" id="ht-weight" min="0" step="0.1" placeholder="VD: 28">
         </div>
       </div>
+      <div class="field">
+        <label>Ngày ghi nhận</label>
+        <input type="date" id="ht-date" value="${UI.todayStr()}">
+        <div class="hint">Mặc định hôm nay. Đổi lại khi nhập kết quả khám định kỳ hay đợt tiêm chủng đã làm trước đó.</div>
+      </div>
       <button class="btn primary block" onclick="App.views.health.submitCreate()">${UI.icon('check', 18)} Lưu ghi nhận</button>
     `, 'Thêm ghi nhận y tế');
   },
@@ -182,6 +193,8 @@ App.views.health = {
     const detail = document.getElementById('ht-detail').value.trim();
     if (!title) return UI.toast('Cô nhập tiêu đề ghi nhận giúp nhé', 'error');
     const body = { studentId, type, title, detail };
+    const ngay = (document.getElementById('ht-date') || {}).value;
+    if (ngay) body.date = ngay;
     if (type === 'checkup') {
       const h = document.getElementById('ht-height').value;
       const w = document.getElementById('ht-weight').value;
@@ -196,6 +209,80 @@ App.views.health = {
       App.route();
       App.refreshBadges();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // ---- Sửa lại và thu hồi một ghi nhận y tế ----
+  //
+  // Một ghi nhận kiểu "sốt, nghi tay chân miệng" bấm nhầm sang học sinh khác
+  // trước đây gắn vĩnh viễn vào hồ sơ đứa trẻ, mà hiệu trưởng cũng không gỡ được.
+  openSua(id) {
+    const r = (this._records || []).find(x => x.id === id);
+    if (!r) return UI.toast('Không tìm thấy ghi nhận này', 'error');
+    this._typeSua = r.type;
+    UI.modal(`
+      <div class="field">
+        <label>Loại ghi nhận</label>
+        <div class="seg" id="ht-s-seg" style="margin-bottom:0">
+          <button data-type="checkup" class="${r.type === 'checkup' ? 'active' : ''}" onclick="App.views.health.pickTypeSua('checkup')">🩺 Khám</button>
+          <button data-type="vaccination" class="${r.type === 'vaccination' ? 'active' : ''}" onclick="App.views.health.pickTypeSua('vaccination')">💉 Tiêm chủng</button>
+          <button data-type="incident" class="${r.type === 'incident' ? 'active' : ''}" onclick="App.views.health.pickTypeSua('incident')">🩹 Sự cố</button>
+        </div>
+      </div>
+      <div class="field"><label>Tiêu đề</label><input id="ht-s-title" value="${UI.esc(r.title)}"></div>
+      <div class="field"><label>Chi tiết</label><textarea id="ht-s-detail">${UI.esc(r.detail || '')}</textarea></div>
+      <div class="grid-2">
+        <div class="field"><label>Chiều cao (cm)</label><input type="number" id="ht-s-height" min="0" step="0.1" value="${UI.esc(r.height ?? '')}"></div>
+        <div class="field"><label>Cân nặng (kg)</label><input type="number" id="ht-s-weight" min="0" step="0.1" value="${UI.esc(r.weight ?? '')}"></div>
+      </div>
+      <div class="field"><label>Ngày ghi nhận</label><input type="date" id="ht-s-date" value="${UI.esc(r.date)}"></div>
+      <button class="btn primary block" id="ht-s-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
+    `, 'Sửa ghi nhận y tế');
+
+    document.getElementById('ht-s-luu').onclick = async () => {
+      const title = document.getElementById('ht-s-title').value.trim();
+      if (!title) return UI.toast('Cô nhập tiêu đề ghi nhận giúp nhé', 'error');
+      try {
+        await API.put(`/api/health/${encodeURIComponent(id)}`, {
+          type: this._typeSua,
+          title,
+          detail: document.getElementById('ht-s-detail').value.trim(),
+          height: document.getElementById('ht-s-height').value || null,
+          weight: document.getElementById('ht-s-weight').value || null,
+          date: document.getElementById('ht-s-date').value || undefined,
+        });
+        UI.toast('Đã lưu thay đổi', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  pickTypeSua(t) {
+    this._typeSua = t;
+    document.querySelectorAll('#ht-s-seg button').forEach(b => b.classList.toggle('active', b.dataset.type === t));
+  },
+
+  hoiThuHoi(id) {
+    const r = (this._records || []).find(x => x.id === id);
+    if (!r) return UI.toast('Không tìm thấy ghi nhận này', 'error');
+    UI.modal(`
+      <p style="line-height:1.6">Thu hồi ghi nhận <b>"${UI.esc(r.title)}"</b>?</p>
+      <p class="muted small" style="line-height:1.6">
+        Ghi nhận sẽ biến khỏi hồ sơ sức khỏe của em. <b>Nội dung vẫn được giữ lại</b>
+        trong hệ thống để tra khi có khiếu nại. Dùng khi ghi nhầm sang học sinh khác.
+      </p>
+      <button class="btn primary block mt-14" id="ht-th-ok">Xác nhận thu hồi</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, 'Thu hồi ghi nhận y tế');
+
+    document.getElementById('ht-th-ok').onclick = async () => {
+      try {
+        await API.del(`/api/health/${encodeURIComponent(id)}`);
+        UI.toast('Đã thu hồi ghi nhận', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 };
 

@@ -503,6 +503,106 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
     (sau.match(/Có đơn nghỉ đã duyệt/g) || []).length === 1, sau.match(/Có đơn nghỉ đã duyệt/g)?.length);
 }
 
+console.log('\n[15] Sửa lại và thu hồi: thông báo, nề nếp, y tế, nhận xét');
+{
+  await page.evaluate(() => UI.closeModal());
+  await page.waitForTimeout(400);
+  // Đang đăng nhập bằng giaovien từ bài trước.
+
+  // ---- Thông báo ----
+  // Tạo trước rồi mới mở màn hình: `page.goto` tới đúng URL đang mở (kể cả phần
+  // sau dấu #) không nạp lại trang, nên vào trước là thấy danh sách cũ.
+  const daGui = await page.evaluate(async () => {
+    const r = await fetch('/api/notifications', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Họp phụ huynh 19h', body: 'Kính mời quý phụ huynh', audience: 'class' }),
+    });
+    return (await r.json()).id || null;
+  });
+  check('gửi được thông báo để thử', !!daGui, daGui);
+
+  await page.goto(BASE + '/#/notifications', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  await page.locator('.list-row', { hasText: 'Họp phụ huynh 19h' }).first().click();
+  await page.waitForTimeout(700);
+  check('người gửi thấy nút Sửa lại', await page.locator('button', { hasText: 'Sửa lại' }).count() >= 1);
+  check('người gửi thấy nút Thu hồi', await page.locator('button', { hasText: 'Thu hồi' }).count() >= 1);
+
+  await page.locator('button', { hasText: 'Sửa lại' }).first().click();
+  await page.waitForTimeout(700);
+  check('mở được form sửa thông báo', await page.locator('#nt-s-title').count() === 1);
+  await page.fill('#nt-s-title', 'Họp phụ huynh 19h30');
+  await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
+  await page.waitForTimeout(1400);
+  const manTb = await page.locator('#view').innerText();
+  check('thông báo hiện nội dung đã sửa', /19h30/.test(manTb), manTb.slice(0, 250));
+
+  // ---- Nề nếp ----
+  await page.goto(BASE + '/#/conduct', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+  await page.locator('button', { hasText: 'Ghi nhận' }).first().click();
+  await page.waitForTimeout(700);
+  check('form ghi nhận có ô chọn NGÀY (ghi bù hôm trước)', await page.locator('#cd-date').count() === 1);
+  await page.fill('#cd-title', 'Nhắc nhở ghi nhầm em');
+  await page.locator('button', { hasText: 'Lưu ghi nhận' }).click();
+  await page.waitForTimeout(1500);
+
+  const dongNn = page.locator('.list-row', { hasText: 'Nhắc nhở ghi nhầm em' }).first();
+  check('ghi nhận vừa tạo có nút Thu hồi', await dongNn.locator('button', { hasText: 'Thu hồi' }).count() === 1);
+  await dongNn.locator('button', { hasText: 'Thu hồi' }).click();
+  await page.waitForTimeout(700);
+  const hoiNn = await page.locator('.modal').innerText();
+  check('hỏi lại trước khi thu hồi ghi nhận', /Thu hồi/.test(hoiNn));
+  check('nói rõ điểm thi đua được trả lại', /điểm thi đua/.test(hoiNn), hoiNn.slice(0, 250));
+  check('nói rõ dữ liệu vẫn được giữ', /vẫn được giữ|giữ trong hệ thống/.test(hoiNn));
+  await page.locator('#cd-th-ok').click();
+  await page.waitForTimeout(1500);
+  check('THU HỒI XONG GHI NHẬN BIẾN KHỎI MÀN HÌNH',
+    !/Nhắc nhở ghi nhầm em/.test(await page.locator('#view').innerText()));
+
+  // ---- Y tế ----
+  await page.goto(BASE + '/#/health', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+  await page.locator('button', { hasText: 'Thêm ghi nhận' }).first().click();
+  await page.waitForTimeout(700);
+  check('form y tế có ô chọn NGÀY (nhập bù đợt tiêm chủng)', await page.locator('#ht-date').count() === 1);
+  await page.fill('#ht-title', 'Sốt nghi tay chân miệng');
+  await page.locator('button', { hasText: 'Lưu ghi nhận' }).click();
+  await page.waitForTimeout(1500);
+
+  await page.locator('.list-row', { hasText: 'Sốt nghi tay chân miệng' }).first().click();
+  await page.waitForTimeout(700);
+  check('chi tiết y tế có nút Thu hồi', await page.locator('button', { hasText: 'Thu hồi' }).count() >= 1);
+  await page.locator('button', { hasText: 'Thu hồi' }).first().click();
+  await page.waitForTimeout(700);
+  await page.locator('#ht-th-ok').click();
+  await page.waitForTimeout(1500);
+  check('THU HỒI XONG GHI NHẬN Y TẾ BIẾN KHỎI HỒ SƠ',
+    !/Sốt nghi tay chân miệng/.test(await page.locator('#view').innerText()));
+
+  // ---- Nhận xét ----
+  await page.goto(BASE + '/#/remarks', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+  await page.locator('button', { hasText: 'Viết nhận xét' }).first().click();
+  await page.waitForTimeout(700);
+  await page.fill('#rm-content', 'Con hôm nay chưa tập trung');
+  await page.locator('#rm-submit').click();
+  await page.waitForTimeout(1500);
+
+  const dongNx = page.locator('.list-row', { hasText: 'Con hôm nay chưa tập trung' }).first();
+  check('nhận xét vừa viết có nút Sửa', await dongNx.locator('button', { hasText: 'Sửa' }).count() === 1);
+  await dongNx.locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForTimeout(700);
+  check('mở được form sửa nhận xét', await page.locator('#rm-s-content').count() === 1);
+  check('form sửa có ô chọn ngày', await page.locator('#rm-s-date').count() === 1);
+  await page.fill('#rm-s-content', 'Con hôm nay rất cố gắng');
+  await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
+  await page.waitForTimeout(1500);
+  const manNx = await page.locator('#view').innerText();
+  check('nhận xét hiện nội dung đã sửa', /rất cố gắng/.test(manNx));
+  check('và được đánh dấu là đã chỉnh sửa', /đã chỉnh sửa/.test(manNx), manNx.slice(0, 300));
+}
+
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 
 await browser.close();

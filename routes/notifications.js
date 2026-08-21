@@ -2,6 +2,9 @@
 // người dùng xem và đánh dấu đã đọc.
 const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
+const st = require('../lib/sua-thu-hoi');
+
+const BANG = 'notifications';
 
 const CATEGORIES = ['Lớp học', 'Nhà trường', 'Y tế', 'Học phí', 'Khác'];
 
@@ -29,7 +32,7 @@ module.exports = (app) => {
       `SELECT n.*, (r.userId IS NOT NULL) AS read
        FROM notifications n
        LEFT JOIN notification_reads r ON r.notificationId = n.id AND r.userId = ?
-       WHERE ${f.sql}
+       WHERE ${f.sql} AND ${st.dieuKienConHien(BANG, 'n.id')}
        ORDER BY n.pinned DESC, n.createdAt DESC`,
       [req.user.id, ...f.params])
       .map(n => {
@@ -38,9 +41,10 @@ module.exports = (app) => {
           ...n,
           read: !!n.read,
           authorName: author ? `${author.title} ${author.name}` : '',
+          coTheSua: st.laChuBanGhi(req.user, n.createdBy),
         };
       });
-    res.json(list);
+    res.json(st.ganDauDaSua(BANG, list));
   });
 
   // Đánh dấu đã đọc một thông báo.
@@ -93,5 +97,45 @@ module.exports = (app) => {
     db.insert('notifications', rec);
     db.audit(req.user.id, 'notification-create', rec.id, { audience: rec.audience });
     res.status(201).json({ ...rec, readBy: [] });
+  });
+
+  // Sửa lại một thông báo đã gửi. Chỉ người gửi hoặc quản trị.
+  app.put('/api/notifications/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const n = db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [req.params.id]);
+    if (!n || st.daThuHoi(BANG, n.id)) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
+    if (!st.laChuBanGhi(req.user, n.createdBy)) {
+      return res.status(403).json({ error: 'Chỉ người gửi hoặc quản trị mới sửa được thông báo này' });
+    }
+    const patch = {};
+    if (req.body.title !== undefined) {
+      if (!String(req.body.title).trim()) return res.status(400).json({ error: 'Vui lòng nhập tiêu đề thông báo' });
+      patch.title = String(req.body.title).trim();
+    }
+    if (req.body.body !== undefined) {
+      if (!String(req.body.body).trim()) return res.status(400).json({ error: 'Vui lòng nhập nội dung thông báo' });
+      patch.body = String(req.body.body).trim();
+    }
+    if (req.body.category !== undefined) {
+      patch.category = CATEGORIES.includes(req.body.category) ? req.body.category : 'Khác';
+    }
+    // CỐ Ý không cho đổi `audience`: đổi phạm vi gửi sau khi đã gửi nghĩa là một
+    // nhóm phụ huynh mất thông báo họ đã đọc, một nhóm khác bỗng thấy thông báo
+    // không dành cho mình.
+    db.update('notifications', n.id, patch);
+    st.ghiDaSua(BANG, n.id, req.user.id);
+    db.audit(req.user.id, 'notification-update', n.id, patch);
+    res.json({ ...db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [n.id]), daSua: true });
+  });
+
+  // Thu hồi một thông báo: ẩn khỏi mọi danh sách, KHÔNG xóa dữ liệu.
+  app.delete('/api/notifications/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const n = db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [req.params.id]);
+    if (!n) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
+    if (!st.laChuBanGhi(req.user, n.createdBy)) {
+      return res.status(403).json({ error: 'Chỉ người gửi hoặc quản trị mới thu hồi được thông báo này' });
+    }
+    st.ghiThuHoi(BANG, n.id, req.user.id);
+    db.audit(req.user.id, 'notification-withdraw', n.id, { title: n.title });
+    res.json({ ok: true });
   });
 };

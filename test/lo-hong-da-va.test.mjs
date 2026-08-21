@@ -578,6 +578,142 @@ console.log('\n[15] B4 — "Cả lớp có mặt" KHÔNG được xóa những e
 }
 
 // ===========================================================================
+console.log('\n[19] B7 — sửa và thu hồi được, mà KHÔNG mất dữ liệu');
+{
+  const QT = (await login('ht.lohong', 'quantri2026')).cookie;
+  const GV = (await login('giaovien2', '123456')).cookie;   // chủ nhiệm c1 sau bài [11]
+  const GV_KHAC = (await login('giaovien', '123456')).cookie;
+  const PH = (await login('phuhuynh', '123456')).cookie;
+  const lopGv = (await req('GET', '/api/students', { cookie: GV })).data;
+  const conPh = (await req('GET', '/api/students', { cookie: PH })).data.map(x => x.id);
+  const em = lopGv.map(x => x.id).find(id => conPh.includes(id));
+  check('tìm được một con của phụ huynh trong lớp của cô', !!em, em);
+
+  // --- Lược đồ: bảng phụ, KHÔNG phải cột thêm bằng ALTER TABLE ---
+  const luocDo = fs.readFileSync(path.join(GOC, 'lib/schema.sql'), 'utf8');
+  // Bỏ dòng chú thích trước khi soát: chính chú thích trong tệp đang giải thích
+  // VÌ SAO không được dùng ALTER TABLE, nên soát cả chú thích là báo đỏ oan.
+  const cauLenh = luocDo.split('\n').filter(d => !d.trim().startsWith('--')).join('\n');
+  check('lược đồ lõi KHÔNG có câu ALTER TABLE nào', !/\bALTER\s+TABLE\b/i.test(cauLenh),
+    cauLenh.match(/.{0,60}ALTER TABLE.{0,60}/i)?.[0]);
+  check('trạng thái sửa/thu hồi nằm ở BẢNG PHỤ tạo bằng IF NOT EXISTS',
+    /CREATE TABLE IF NOT EXISTS record_edits/.test(luocDo));
+
+  // --- THÔNG BÁO ---
+  const tb = await req('POST', '/api/notifications', {
+    cookie: GV, body: { title: 'Họp phụ huynh 19h', body: 'Kính mời quý phụ huynh', audience: 'class' },
+  });
+  check('cô gửi được thông báo', tb.status === 201, tb.data?.error);
+  const tbId = tb.data.id;
+  const phThay = async () => (await req('GET', '/api/notifications', { cookie: PH })).data;
+  check('phụ huynh thấy thông báo', (await phThay()).some(n => n.id === tbId));
+
+  let r = await req('PUT', `/api/notifications/${tbId}`, { cookie: GV, body: { title: 'Họp phụ huynh 19h30' } });
+  check('SỬA ĐƯỢC thông báo đã gửi', r.status === 200, r.data?.error);
+  const daSua = (await phThay()).find(n => n.id === tbId);
+  check('phụ huynh thấy nội dung mới', daSua?.title === 'Họp phụ huynh 19h30', daSua?.title);
+  check('và thấy dấu "đã chỉnh sửa" để khỏi tưởng mình nhớ nhầm', daSua?.daSua === true, daSua?.daSua);
+  check('cô KHÔNG đổi được phạm vi gửi sau khi đã gửi',
+    (await req('PUT', `/api/notifications/${tbId}`, { cookie: GV, body: { audience: 'all' } })).status === 200
+      && (await req('GET', '/api/notifications', { cookie: QT })).data.find(n => n.id === tbId)?.audience !== 'all');
+
+  const truocBadge = (await req('GET', '/api/dashboard/badges', { cookie: PH })).data.thongbao;
+  r = await req('DELETE', `/api/notifications/${tbId}`, { cookie: GV });
+  check('THU HỒI ĐƯỢC thông báo', r.status === 200, r.data?.error);
+  check('thông báo biến khỏi màn hình phụ huynh', !(await phThay()).some(n => n.id === tbId));
+  const sauBadge = (await req('GET', '/api/dashboard/badges', { cookie: PH })).data.thongbao;
+  check('BỘ ĐẾM CHƯA ĐỌC GIẢM THEO (không kẹt một số không bao giờ về 0)',
+    sauBadge < truocBadge || truocBadge === 0, { truocBadge, sauBadge });
+  check('DỮ LIỆU VẪN CÒN, chỉ là bị ẩn',
+    (await req('PUT', `/api/notifications/${tbId}`, { cookie: GV, body: { title: 'x' } })).status === 404);
+
+  // --- NỀ NẾP: thu hồi phải trừ luôn khỏi điểm thi đua ---
+  const diemCua = async () => (await req('GET', `/api/conduct?studentId=${em}`, { cookie: GV })).data.totalPoints;
+  const diemTruoc = await diemCua();
+  const nn = await req('POST', '/api/conduct', {
+    cookie: GV, body: { studentId: em, type: 'reminder', title: 'Nhắc nhở nhầm em', points: -50 },
+  });
+  check('cô ghi nhận được nề nếp', nn.status === 200, nn.data?.error);
+  check('điểm bị trừ đúng', (await diemCua()) === diemTruoc - 50, await diemCua());
+
+  r = await req('DELETE', `/api/conduct/${nn.data.id}`, { cookie: GV });
+  check('THU HỒI ĐƯỢC ghi nhận nề nếp', r.status === 200, r.data?.error);
+  check('ĐIỂM THI ĐUA ĐƯỢC TRẢ LẠI ĐÚNG', (await diemCua()) === diemTruoc, await diemCua());
+  const dsNn = (await req('GET', `/api/conduct?studentId=${em}`, { cookie: GV })).data.records;
+  check('ghi nhận biến khỏi hồ sơ của em', !dsNn.some(x => x.id === nn.data.id));
+
+  // Ngày do người nhập chọn.
+  const nnCu = await req('POST', '/api/conduct', {
+    cookie: GV, body: { studentId: em, type: 'praise', title: 'Ghi bù hôm trước', points: 5, date: '2026-09-01' },
+  });
+  check('NỀ NẾP nhận ngày do người nhập chọn', nnCu.data?.date === '2026-09-01', nnCu.data?.date);
+  check('không gửi ngày thì vẫn mặc định hôm nay',
+    /^\d{4}-\d{2}-\d{2}$/.test((await req('POST', '/api/conduct', {
+      cookie: GV, body: { studentId: em, type: 'praise', title: 'Hôm nay', points: 1 },
+    })).data?.date || ''));
+
+  // --- Y TẾ ---
+  const yt = await req('POST', '/api/health', {
+    cookie: GV, body: { studentId: em, type: 'incident', title: 'Sốt, nghi tay chân miệng', detail: 'Ghi nhầm em' },
+  });
+  check('cô thêm được ghi nhận y tế', yt.status === 201, yt.data?.error);
+  const ytCu = await req('POST', '/api/health', {
+    cookie: GV, body: { studentId: em, type: 'vaccination', title: 'Tiêm sởi đợt trạm y tế', date: '2026-08-05' },
+  });
+  check('Y TẾ nhận ngày do người nhập chọn (nhập bù đợt tiêm chủng)',
+    ytCu.data?.date === '2026-08-05', ytCu.data?.date);
+
+  r = await req('PUT', `/api/health/${yt.data.id}`, { cookie: GV, body: { title: 'Sốt nhẹ' } });
+  check('SỬA ĐƯỢC ghi nhận y tế', r.status === 200, r.data?.error);
+  r = await req('DELETE', `/api/health/${yt.data.id}`, { cookie: QT });
+  check('QUẢN TRỊ THU HỒI ĐƯỢC ghi nhận y tế ghi nhầm', r.status === 200, r.data?.error);
+  const hoSoYt = (await req('GET', `/api/health?studentId=${em}`, { cookie: PH })).data.records;
+  check('ghi nhận biến khỏi hồ sơ sức khỏe của em', !hoSoYt.some(x => x.id === yt.data.id));
+  check('nhưng ghi nhận khác của em còn nguyên', hoSoYt.some(x => x.id === ytCu.data.id));
+
+  // --- NHẬN XÉT ---
+  const nx = await req('POST', '/api/remarks', {
+    cookie: GV, body: { studentId: em, content: 'Con hôm nay chưa tập trung', rating: 'needs_effort' },
+  });
+  check('cô viết được nhận xét', nx.status === 200, nx.data?.error);
+  r = await req('PUT', `/api/remarks/${nx.data.id}`, {
+    cookie: GV, body: { content: 'Con hôm nay rất cố gắng', rating: 'good' },
+  });
+  check('SỬA ĐƯỢC nhận xét', r.status === 200, r.data?.error);
+  const dsNx = (await req('GET', `/api/remarks?studentId=${em}`, { cookie: GV })).data;
+  const nxSua = dsNx.find(x => x.id === nx.data.id);
+  check('nội dung mới đã lưu', nxSua?.content === 'Con hôm nay rất cố gắng', nxSua?.content);
+  check('sửa xong phụ huynh được báo lại là MỚI', nxSua?.parentSeen === false, nxSua?.parentSeen);
+  check('có dấu đã chỉnh sửa', nxSua?.daSua === true);
+
+  r = await req('DELETE', `/api/remarks/${nx.data.id}`, { cookie: GV });
+  check('THU HỒI ĐƯỢC nhận xét', r.status === 200, r.data?.error);
+  check('nhận xét biến khỏi sổ liên lạc',
+    !(await req('GET', `/api/remarks?studentId=${em}`, { cookie: PH })).data.some(x => x.id === nx.data.id));
+
+  // --- Phân quyền ---
+  const nn2 = await req('POST', '/api/conduct', {
+    cookie: GV, body: { studentId: em, type: 'praise', title: 'Của cô này', points: 3 },
+  });
+  check('PHỤ HUYNH không sửa được ghi nhận nề nếp',
+    (await req('PUT', `/api/conduct/${nn2.data.id}`, { cookie: PH, body: { title: 'đổi trộm' } })).status === 403);
+  check('PHỤ HUYNH không thu hồi được ghi nhận nề nếp',
+    (await req('DELETE', `/api/conduct/${nn2.data.id}`, { cookie: PH })).status === 403);
+  check('cô lớp KHÁC không sửa được ghi nhận của lớp này',
+    (await req('PUT', `/api/conduct/${nn2.data.id}`, { cookie: GV_KHAC, body: { title: 'đổi trộm' } })).status === 403);
+  check('QUẢN TRỊ thì sửa được (để gỡ khi phụ huynh khiếu nại)',
+    (await req('PUT', `/api/conduct/${nn2.data.id}`, { cookie: QT, body: { title: 'Quản trị sửa' } })).status === 200);
+
+  const tb2 = await req('POST', '/api/notifications', {
+    cookie: GV, body: { title: 'Của cô hai', body: 'nội dung', audience: 'class' },
+  });
+  check('cô KHÁC không sửa được thông báo mình không gửi',
+    (await req('PUT', `/api/notifications/${tb2.data.id}`, { cookie: GV_KHAC, body: { title: 'x' } })).status === 403);
+  check('PHỤ HUYNH không thu hồi được thông báo',
+    (await req('DELETE', `/api/notifications/${tb2.data.id}`, { cookie: PH })).status === 403);
+}
+
+// ===========================================================================
 console.log('\n[18] B3 — màn dày lên theo năm phải có trần, nhưng KHÔNG được làm sai ô đếm');
 {
   const GV = (await login('giaovien2', '123456')).cookie;   // chủ nhiệm c1 sau bài [11]
