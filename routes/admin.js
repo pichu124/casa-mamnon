@@ -3,6 +3,7 @@
 // Đây là phần cho phép nhà trường tự đưa dữ liệu thật vào hệ thống — không có
 // nó thì không thể tạo hàng trăm tài khoản phụ huynh.
 const db = require('../lib/db');
+const lsl = require('../lib/lich-su-lop');
 const csv = require('../lib/csv');
 const password = require('../lib/password');
 const { requireRole, destroyUserSessions } = require('../lib/auth');
@@ -244,11 +245,19 @@ module.exports = (app) => {
       }
       patch.classId = req.body.classId || null;
     }
+    // Ghi vết chuyển lớp TRƯỚC khi ghi đè, để còn đọc được lớp cũ. Không có bước
+    // này thì lịch sử lớp chỉ đúng với em học trọn năm, còn em chuyển lớp giữa
+    // năm sẽ mất đoạn đầu.
+    if (patch.classId !== undefined && patch.classId !== s.classId) {
+      lsl.ghiChuyenLop(s.id, patch.classId, lsl.homNay());
+    }
     // Nhận lại em đã cho nghỉ. Xóa luôn ngày nghỉ để hồ sơ không mâu thuẫn:
     // đang học mà vẫn còn ngày rời trường.
     if (req.body.active !== undefined) {
       patch.active = req.body.active ? 1 : 0;
       if (patch.active) patch.leftAt = null;
+      if (!patch.active) lsl.ghiRoiLop(s.id, lsl.homNay());
+      else if (s.classId) lsl.baoDamCoKhoang(s.id);
     }
     db.update('students', s.id, patch);
     db.audit(req.user.id, 'student-update', s.id, patch);
@@ -260,6 +269,7 @@ module.exports = (app) => {
   app.delete('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy học sinh' });
+    lsl.ghiRoiLop(s.id, lsl.homNay());
     db.update('students', s.id, { active: false, leftAt: new Date().toISOString().slice(0, 10) });
     db.audit(req.user.id, 'student-deactivate', s.id, { name: s.name });
     res.json({ ok: true });
@@ -478,6 +488,7 @@ module.exports = (app) => {
           createdAt: new Date().toISOString(),
         };
         db.insert('students', student);
+        if (classId) lsl.moKhoang(student.id, classId, lsl.homNay());
         db.run('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)',
           [student.id, parent.id]);
 

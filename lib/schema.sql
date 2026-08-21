@@ -370,19 +370,28 @@ CREATE INDEX IF NOT EXISTS idx_record_edits_thuhoi ON record_edits(bang, thuHoi)
 -- ===== Lịch sử lớp của học sinh =====
 --
 -- Học sinh chỉ có MỘT trường `classId` duy nhất, bị GHI ĐÈ ngay lúc chuyển năm
--- học. Nghĩa là sau lần chuyển năm đầu tiên, không còn cách nào biết năm ngoái
--- một em học lớp nào — và đó là thông tin cần để cho phụ huynh xem lại album,
--- thông báo, kế hoạch của năm cũ.
+-- học hoặc lúc quản trị chuyển lớp giữa năm. Nghĩa là sau lần chuyển đầu tiên,
+-- không còn cách nào biết trước đó em học lớp nào — và đó là thông tin cần để
+-- cho phụ huynh xem lại album, thông báo, kế hoạch của năm cũ.
 --
--- Bảng này được ghi ngay tại lúc chuyển năm, TRƯỚC khi `classId` bị ghi đè. Ghi
--- lại từ bây giờ là việc rẻ; mỗi lần chuyển năm trôi qua mà không ghi là mất
--- thêm một năm thông tin KHÔNG lấy lại được.
-CREATE TABLE IF NOT EXISTS student_class_history (
+-- Mỗi dòng là một KHOẢNG THỜI GIAN em học một lớp: `den = NULL` nghĩa là đang
+-- học. Phải là khoảng chứ không phải "mỗi năm một dòng": em chuyển lớp giữa năm
+-- thì có hai khoảng trong cùng một năm, và album phải giới hạn đúng khoảng em
+-- còn ở lớp đó — mở cả lớp cũ thì một em chuyển đi tháng 10 vẫn xem được ảnh
+-- chụp tháng 12, trong khi album có mặt nhiều trẻ khác.
+--
+-- Ghi lại từ bây giờ là việc rẻ; mỗi lần chuyển năm trôi qua mà không ghi là
+-- mất thêm một năm thông tin KHÔNG lấy lại được.
+CREATE TABLE IF NOT EXISTS student_class_periods (
+  id        TEXT PRIMARY KEY,
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  year      TEXT NOT NULL,
   classId   TEXT NOT NULL,
   className TEXT NOT NULL DEFAULT '',
-  ghiLuc    TEXT,
-  PRIMARY KEY (studentId, year)
+  year      TEXT NOT NULL DEFAULT '',
+  tu        TEXT NOT NULL,           -- ngày bắt đầu học lớp đó (YYYY-MM-DD)
+  den       TEXT,                    -- NULL = đang học
+  ghiLuc    TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_sch_hist_class ON student_class_history(classId);
+CREATE INDEX IF NOT EXISTS idx_scp_student ON student_class_periods(studentId, tu DESC);
+CREATE INDEX IF NOT EXISTS idx_scp_class ON student_class_periods(classId);
+CREATE INDEX IF NOT EXISTS idx_scp_dang_hoc ON student_class_periods(studentId, den);

@@ -928,17 +928,49 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   check('phụ huynh vẫn còn con đang học sau khi chuyển năm', !!emCon, conPh3.map(x => x.name));
   const ls = await r3('GET', `/api/schoolyear/lich-su-lop?studentId=${emCon}`, { cookie: PH });
   check('tra được lịch sử lớp của con', ls.status === 200, ls.data);
-  check('CÓ GHI LẠI LỚP CỦA NĂM VỪA KẾT THÚC', ls.data.some(x => !x.hienTai), ls.data);
-  check('lịch sử kèm đúng tên lớp cũ, không chỉ mã lớp',
-    ls.data.filter(x => !x.hienTai).every(x => /\S/.test(x.className || '')), ls.data);
-  check('và kèm năm học để biết là năm nào',
-    ls.data.filter(x => !x.hienTai).every(x => /^\d{4}-\d{4}$/.test(x.year || '')), ls.data);
-  check('lớp đang học của năm mới cũng có trong danh sách', ls.data.some(x => x.hienTai));
+  const cu = ls.data.filter(x => !x.hienTai);
+  check('CÓ GHI LẠI LỚP CỦA NĂM VỪA KẾT THÚC', cu.length > 0, ls.data);
+  check('lịch sử kèm đúng tên lớp cũ, không chỉ mã lớp', cu.every(x => /\S/.test(x.className || '')), ls.data);
+  check('và kèm năm học để biết là năm nào', cu.every(x => /^\d{4}-\d{4}$/.test(x.year || '')), ls.data);
+  check('MỖI KHOẢNG CÓ NGÀY BẮT ĐẦU', cu.every(x => /^\d{4}-\d{2}-\d{2}$/.test(x.tu || '')), cu);
+  check('KHOẢNG ĐÃ ĐÓNG CÓ NGÀY KẾT THÚC', cu.every(x => /^\d{4}-\d{2}-\d{2}$/.test(x.den || '')), cu);
+  check('ngày bắt đầu không sau ngày kết thúc', cu.every(x => x.tu <= x.den), cu);
+  const dangHoc = ls.data.filter(x => x.hienTai);
+  check('lớp đang học của năm mới cũng có trong danh sách', dangHoc.length === 1, ls.data);
+  check('khoảng đang mở KHÔNG có ngày kết thúc', dangHoc.every(x => !x.den), dangHoc);
   check('lớp cũ trong lịch sử KHÁC lớp đang học',
     new Set(ls.data.map(x => x.classId)).size === ls.data.length, ls.data.map(x => x.classId));
 
   const nguoiLa = (await r3('GET', '/api/schoolyear/lich-su-lop?studentId=s2', { cookie: GV1 })).status;
   check('cô không xem được lịch sử lớp của em không thuộc quyền mình', nguoiLa === 403, nguoiLa);
+
+  // Chuyển lớp GIỮA NĂM cũng phải để lại vết, nếu không lịch sử chỉ đúng với em
+  // học trọn năm.
+  // Sau khi chuyển năm, dữ liệu mẫu chỉ còn một lớp — tạo thêm một lớp để có chỗ
+  // chuyển tới.
+  const lopKhac = (await r3('POST', '/api/admin/classes', {
+    cookie: A, body: { name: 'Lớp 4B kiểm thử', grade: 4 },
+  })).data;
+  {
+    const chuyen = await r3('PUT', `/api/admin/students/${emCon}`, { cookie: A, body: { classId: lopKhac.id } });
+    check('chuyển lớp giữa năm → 200', chuyen.status === 200, chuyen.data?.error);
+    const ls2 = (await r3('GET', `/api/schoolyear/lich-su-lop?studentId=${emCon}`, { cookie: A })).data;
+    check('CHUYỂN LỚP GIỮA NĂM CŨNG ĐƯỢC GHI VẾT', ls2.length === ls.data.length + 1,
+      { truoc: ls.data.length, sau: ls2.length });
+    check('khoảng ở lớp cũ đã được đóng lại',
+      ls2.filter(x => x.classId === dangHoc[0].classId).every(x => !!x.den), ls2);
+    check('chỉ còn ĐÚNG MỘT khoảng đang mở', ls2.filter(x => !x.den).length === 1, ls2);
+    check('khoảng đang mở là lớp vừa chuyển tới',
+      ls2.find(x => !x.den)?.classId === lopKhac.id, ls2.find(x => !x.den));
+    check('khoảng mới bắt đầu từ ngày chuyển, không phải đầu năm',
+      /^\d{4}-\d{2}-\d{2}$/.test(ls2.find(x => !x.den)?.tu || ''), ls2.find(x => !x.den)?.tu);
+  }
+
+  // Cho nghỉ học thì đóng khoảng, không mở khoảng mới.
+  await r3('DELETE', `/api/admin/students/${emCon}`, { cookie: A });
+  const ls3 = (await r3('GET', `/api/schoolyear/lich-su-lop?studentId=${emCon}`, { cookie: A })).data;
+  check('cho nghỉ học thì đóng khoảng, KHÔNG mở khoảng mới',
+    ls3.every(x => !!x.den), ls3);
 
   sv.dung();
   donThuMucTam(DIR3);

@@ -4,6 +4,7 @@
 // liệu nên luôn chạy hai bước: xem trước rồi mới thực hiện, và mọi thay đổi nằm
 // trong một giao dịch — hoặc xong trọn vẹn, hoặc không đổi gì cả.
 const db = require('../lib/db');
+const lsl = require('../lib/lich-su-lop');
 const { requireRole } = require('../lib/auth');
 
 const onlyAdmin = requireRole('admin');
@@ -82,6 +83,7 @@ module.exports = (app) => {
     }
 
     const ketQua = { lenLop: 0, raTruong: 0, lopTao: 0, lopDong: 0 };
+    const ngayChuyen = new Date().toISOString().slice(0, 10);
 
     db.tx(() => {
       const lopCu = db.classes();
@@ -115,30 +117,20 @@ module.exports = (app) => {
         // Học sinh chỉ có một trường classId duy nhất. Vài dòng bên dưới sẽ ghi
         // đè nó bằng lớp của năm mới, và sau đó không còn cách nào biết năm vừa
         // rồi em học lớp nào. Mỗi lần chuyển năm trôi qua mà không ghi lại là
-        // mất thêm một năm thông tin KHÔNG lấy lại được — nên ghi ngay tại đây,
-        // dù phần dùng tới nó (cho phụ huynh xem lại nội dung năm cũ) chưa làm.
-        for (const s of hocSinh) {
-          db.upsert('student_class_history', {
-            studentId: s.id,
-            year: c.year || school.currentYear || '',
-            classId: c.id,
-            className: c.name,
-            ghiLuc: new Date().toISOString(),
-          }, ['studentId', 'year']);
-        }
+        // mất thêm một năm thông tin KHÔNG lấy lại được.
+        for (const s of hocSinh) lsl.baoDamCoKhoang(s.id);
 
         if (!tenMoi) {
           // Khối cuối cấp: học sinh ra trường, giữ lại dữ liệu để tra cứu.
           for (const s of hocSinh) {
-            db.update('students', s.id, {
-              active: false,
-              leftAt: new Date().toISOString().slice(0, 10),
-            });
+            lsl.ghiRoiLop(s.id, ngayChuyen);
+            db.update('students', s.id, { active: false, leftAt: ngayChuyen });
             ketQua.raTruong++;
           }
         } else {
           const dichId = lopMoiTheoTen.get(tenMoi);
           for (const s of hocSinh) {
+            lsl.ghiChuyenLop(s.id, dichId, ngayChuyen);
             db.update('students', s.id, { classId: dichId });
             ketQua.lenLop++;
           }
@@ -190,18 +182,15 @@ module.exports = (app) => {
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
     }
-    const hs = db.findStudent(studentId);
-    const lopHienTai = hs && hs.classId ? db.findClass(hs.classId) : null;
-    const namNay = lopHienTai ? [{
-      year: lopHienTai.year || (db.school() || {}).currentYear || '',
-      classId: lopHienTai.id,
-      className: lopHienTai.name,
-      hienTai: true,
-    }] : [];
-    const cu = db.all('student_class_history',
-      'SELECT * FROM student_class_history WHERE studentId = ? ORDER BY year DESC', [studentId])
-      .map(r => ({ year: r.year, classId: r.classId, className: r.className, hienTai: false }));
-    res.json([...namNay, ...cu.filter(r => !namNay.some(n => n.year === r.year))]);
+    lsl.baoDamCoKhoang(studentId);
+    res.json(lsl.khoangCuaHocSinh(studentId).map(k => ({
+      year: k.year,
+      classId: k.classId,
+      className: k.className,
+      tu: k.tu,
+      den: k.den,
+      hienTai: !k.den,
+    })));
   });
 };
 
