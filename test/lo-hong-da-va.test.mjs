@@ -1102,6 +1102,71 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
       dsA.some(a => a.id === 'alb_trong') && dsA.some(a => a.id === 'alb_ngoai'), dsA.map(a => a.id));
   }
 
+  // -- Phân hệ "Năm học trước": thông báo, kế hoạch, khảo sát, TKB của lớp cũ.
+  {
+    const ds = await r3('GET', '/api/namhoccu', { cookie: PH });
+    check('phụ huynh tra được danh sách lớp cũ của con', ds.status === 200, ds.data);
+    // Chọn khoảng đã đóng của một lớp KHÁC lớp con đang học (xem giải thích ở
+    // khối album phía trên).
+    const lsNay = (await r3('GET', `/api/schoolyear/lich-su-lop?studentId=${emCon}`, { cookie: A })).data;
+    const dangHocNay = lsNay.find(x => !x.den);
+    const lopCu = lsNay.find(x => x.den && x.classId !== dangHocNay?.classId);
+    const truocKhiRoi = lopCu.tu;
+    const sauKhiRoi = (() => {
+      const d = new Date(`${lopCu.den}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + 30);
+      return d.toISOString().slice(0, 10);
+    })();
+    const { default: Db2 } = await import('better-sqlite3');
+
+    const k = (ds.data.khoang || []).find(x => x.classId === lopCu.classId);
+    check('CÓ LỚP CŨ TRONG DANH SÁCH', !!k, ds.data.khoang);
+    check('kèm tên con để nhà nhiều con phân biệt được', !!k?.studentName, k);
+    check('kèm khoảng thời gian con còn ở lớp đó', !!(k?.tu && k?.den), k);
+
+    // Dựng nội dung: một cái trong khoảng, một cái sau khi con đã rời lớp.
+    const c4 = new Db2(path.join(DIR3, 'school.db'));
+    c4.prepare(`INSERT INTO notifications (id, title, body, category, audience, createdBy, createdAt, pinned)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0)`)
+      .run('nt_trong', 'Thông báo khi con còn học', 'nội dung', 'Lớp học', lopCu.classId, null, `${truocKhiRoi}T08:00:00.000Z`);
+    c4.prepare(`INSERT INTO notifications (id, title, body, category, audience, createdBy, createdAt, pinned)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0)`)
+      .run('nt_ngoai', 'Thông báo sau khi con đã rời lớp', 'nội dung', 'Lớp học', lopCu.classId, null, `${sauKhiRoi}T08:00:00.000Z`);
+    c4.prepare(`INSERT INTO surveys (id, title, questions, createdBy, createdAt, deadline, audience)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run('sv_trong', 'Khảo sát khi con còn học', '[]', null, `${truocKhiRoi}T08:00:00.000Z`, null, lopCu.classId);
+    c4.close();
+
+    const ct = await r3('GET', `/api/namhoccu/${k.id}`, { cookie: PH });
+    check('MỞ ĐƯỢC NỘI DUNG LỚP CŨ', ct.status === 200, ct.data?.error);
+    check('THÔNG BÁO TRONG KHOẢNG ĐƯỢC TRẢ VỀ',
+      ct.data.thongBao.some(n => n.id === 'nt_trong'), ct.data.thongBao.map(n => n.title));
+    check('THÔNG BÁO SAU KHI CON RỜI LỚP THÌ KHÔNG',
+      !ct.data.thongBao.some(n => n.id === 'nt_ngoai'), ct.data.thongBao.map(n => n.title));
+    check('khảo sát trong khoảng được trả về', ct.data.khaoSat.some(x => x.id === 'sv_trong'));
+    check('có mục kế hoạch giáo dục', Array.isArray(ct.data.keHoach));
+    check('nói rõ khoảng thời gian để gia đình không hiểu nhầm',
+      !!(ct.data.khoang?.tu && ct.data.khoang?.den), ct.data.khoang);
+
+    // Thông báo lớp cũ KHÔNG được lọt vào màn Thông báo bình thường — đó là
+    // đường của lớp đang học, không được đổi hành vi.
+    check('màn Thông báo thường KHÔNG mọc thêm thông báo lớp cũ',
+      !(await r3('GET', '/api/notifications', { cookie: PH })).data.some(n => n.id === 'nt_trong'));
+
+    // Phân quyền.
+    check('phụ huynh KHÔNG mở được khoảng lớp cũ của nhà khác',
+      (await r3('GET', '/api/namhoccu/khong-ton-tai', { cookie: PH })).status === 404);
+    const GVx = (await dn3('giaovien', '123456')).cookie;
+    check('giáo viên không có lớp cũ nào ở đây (chỉ dành cho phụ huynh)',
+      ((await r3('GET', '/api/namhoccu', { cookie: GVx })).data.khoang || []).length === 0);
+    check('người chưa đăng nhập không vào được',
+      (await r3('GET', '/api/namhoccu')).status === 401);
+
+    // Chỉ đọc: không có đường ghi nào.
+    check('không có đường ghi nào trong phân hệ này',
+      !/app\.(post|put|delete|patch)\(/.test(fs.readFileSync(path.join(GOC, 'routes/namhoccu.js'), 'utf8')));
+  }
+
   sv.dung();
   donThuMucTam(DIR3);
 }

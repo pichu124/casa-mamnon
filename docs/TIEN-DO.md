@@ -25,6 +25,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B11 | Vá 5 lỗ hổng do đợt rà soát nhiều tác nhân tìm ra (Đợt 1) | ✅ **Hoàn thành** |
 | B12 | Đợt 2: chặn XSS qua `onclick`, sửa lớp/học sinh, cảnh báo nhập trùng, bắt lỗi bảng mã CSV, sửa màn hình điểm danh | ✅ **Hoàn thành** — 195/195 kiểm thử đạt (122 API + 73 trình duyệt) |
 | B13 | Đợt 3: album lớp đã đóng, huy hiệu đơn nghỉ, trần cho màn dày theo năm, sửa/thu hồi bốn phân hệ, ghi lịch sử lớp | ✅ **Hoàn thành** — 123/123 kiểm thử đạt (93 API + 30 trình duyệt) |
+| B14 | Đợt 4: mở lại nội dung năm học cũ — khoảng lớp có thời gian, hồ sơ con đã ra trường, album lớp cũ cho phụ huynh, phân hệ Năm học trước | ✅ **Hoàn thành** — 42/42 kiểm thử đạt |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -420,7 +421,7 @@ Bốn điều đáng ghi lại:
 Bộ `test:lo-hong` lên **122 bài** và bộ soạn nội dung trên trình duyệt lên
 **73 bài**, canh từng lỗ ở trên không tái phát.
 
-Đợt 2 đã xong. Đợt 3 làm tiếp ở mục B13 bên dưới.
+Đợt 2 đã xong. Đợt 3 ở mục B13, Đợt 4 ở mục B14 bên dưới.
 
 ---
 
@@ -460,7 +461,13 @@ Bốn điều đáng ghi lại:
   học kỳ — đúng con số mà việc này định cứu. Chỉ thêm thông tin cho cô, không tự
   quyết thay cô.
 
-### Còn để ngỏ — cần nhà trường quyết
+### Phần còn để ngỏ ở đây ĐÃ LÀM XONG ở Đợt 4 (mục B14)
+
+Ghi lại nguyên văn phần bàn bạc bên dưới vì nó là lý do của những quyết định
+trong B14. Nhà trường đã chọn: làm cả ba việc, giữ hồ sơ con đã ra trường
+**12 tháng**, và thêm ngay hai cột thời gian vào bảng lịch sử lớp.
+
+#### (Nguyên văn lúc còn để ngỏ) — cần nhà trường quyết
 
 **Cho phụ huynh xem lại nội dung của năm học cũ** (album, thông báo lớp, kế
 hoạch, khảo sát của năm trước). Đây là việc lớn nhất trong báo cáo rà soát.
@@ -487,12 +494,80 @@ commit riêng theo quy định trong `CLAUDE.md`).
 
 ---
 
+## B14 — Đợt 4: mở lại nội dung của năm học cũ cho phụ huynh
+
+Đây là phần "còn để ngỏ" của Đợt 3, sau khi đo lại bằng mã thật thì phạm vi
+khác hẳn mô tả ban đầu.
+
+### Đo lại: chính xác thì chuyển năm học làm mất gì
+
+Quyền của phụ huynh đi theo **hai** đường khác nhau, và chỉ một đường bị phá:
+
+| Đường | Khóa theo | Sau khi chuyển năm |
+|---|---|---|
+| `db.canAccessStudent` — học bạ, sổ liên lạc, điểm danh, nề nếp, y tế, xin nghỉ, dặn thuốc | **con**, và **không** kiểm `active` | **Còn nguyên** |
+| `db.classIdsOf` — album, thông báo gửi riêng lớp, khảo sát lớp, kế hoạch, thời khóa biểu | **lớp đang mở** | **Mất** |
+
+Nên với con **lên lớp bình thường**, thứ thật sự mất chỉ là album lớp cũ, cộng
+vài thứ giá trị thấp. Nhưng với con **đã ra trường** thì `db.studentsOf` lọc
+`active = 1`, em biến khỏi ô chọn con trên màn hình, và phụ huynh mất luôn học
+bạ và sổ liên lạc của 5 năm tiểu học — dù máy chủ vẫn sẵn sàng trả về. Đó mới là
+mất mát lớn nhất, và trước nay không ai nhìn thấy vì nó im lặng.
+
+### Bốn việc đã làm
+
+| Việc | Vấn đề | Cách sửa |
+|---|---|---|
+| 0 | Bảng lịch sử lớp của Đợt 3 lưu **mỗi năm một dòng**, không đủ để giới hạn album theo thời gian, và không chịu được em chuyển lớp giữa năm | Đổi thành `student_class_periods` — mỗi dòng là một **khoảng** `(tu, den)`, `den = NULL` là đang học. Ghi vết ở **bốn** chỗ: chuyển năm, chuyển lớp giữa năm, cho nghỉ/nhận lại, nhập CSV |
+| 1 | Con đã ra trường biến khỏi ô chọn con → mất học bạ và sổ liên lạc | Phân hệ **mới** `Hồ sơ con đã ra trường`: học bạ, sổ liên lạc, tổng kết chuyên cần. Giữ **12 tháng** kể từ ngày rời trường |
+| 2 | Album lớp cũ chỉ quản trị lấy được (Đợt 3), phụ huynh vẫn không xem lại được ảnh của con | Phụ huynh xem được album lớp cũ, **chỉ phần chụp trong đúng khoảng con còn ở lớp đó** |
+| 3 | Thông báo lớp, khảo sát, kế hoạch, TKB của năm cũ rơi khỏi tầm với | Phân hệ **mới** `Năm học trước`, chỉ đọc, cũng giới hạn theo khoảng |
+
+### Bốn quyết định đáng ghi lại
+
+- **Giữ 12 tháng, không giữ vĩnh viễn.** Đủ để gia đình tải học bạ về khi con
+  chuyển cấp rồi tự đóng. Dữ liệu trẻ em thuộc nhóm nhạy cảm theo Nghị định
+  13/2023 nên mở quyền truy cập vô thời hạn là không nên. Hết hạn thì **chỉ đóng
+  đường xem**, tuyệt đối không xóa: nhà trường vẫn phải giữ hồ sơ theo quy định
+  lưu trữ, và quản trị vẫn mở được. Có bài kiểm thử ghi thẳng ngày rời trường lùi
+  hai năm vào cơ sở dữ liệu rồi đối chiếu đúng điều đó.
+
+- **Giới hạn theo KHOẢNG là điều kiện bắt buộc, không phải chi tiết cho đẹp.**
+  Album có mặt nhiều trẻ khác. Mở cả lớp cũ thì một em chuyển đi tháng 10 vẫn xem
+  được ảnh các bạn chụp tháng 12. Bài kiểm thử dựng đúng cảnh đó: hai album cùng
+  một lớp, một trong khoảng và một 30 ngày sau khi con rời lớp — phụ huynh thấy
+  cái đầu, bị 403 với cái sau ở cả ba đường (danh sách, mở album, tải tệp ảnh).
+
+- **CỐ Ý không nới `db.classIdsOf`.** Một dòng là xong, mọi thứ chạy ngay. Nhưng
+  hàm đó đang được **8 chỗ** dùng — điểm danh, huy hiệu trang chủ, thông báo,
+  khảo sát, kế hoạch, thời khóa biểu, album — nên nới ra là đổi hành vi cả 8 chỗ
+  trong một lần đẩy. Huy hiệu "chưa đọc" sẽ đếm cả thông báo lớp cũ. Thay vào đó
+  là một hàm mới bên cạnh, và từng phân hệ tự chọn dùng.
+
+- **Việc 1 và Việc 3 làm thành PHÂN HỆ MỚI, không sửa vào phân hệ đang chạy.**
+  Nhét con cũ vào ô chọn con thì phải sửa `App.state.students` và `UI.studentBar`
+  — hai tệp dùng chung, mà quy định là chỉ được thêm chứ không đổi. Mở nội dung
+  năm cũ trong năm phân hệ hiện có thì phải chạm năm tệp giáo viên và phụ huynh
+  dùng hằng ngày, chỉ để phục vụ một việc tra cứu hiếm. Gói thành phân hệ mới
+  thì: **không đụng tệp dùng chung nào**, cơ chế cô lập lỗi bao luôn, và nhà
+  trường tắt được trong Quản trị → Tính năng nếu thấy không cần.
+
+### Còn hạn chế
+
+- **Các năm đã chuyển TRƯỚC bản này không có lịch sử lớp** nên không cứu được
+  bằng cách này. Với chúng chỉ còn đường quản trị mở album ra và tải về (B6).
+- **Thời khóa biểu chỉ lưu một bản cho mỗi lớp**, không lưu theo tuần, nên bản
+  hiện ở "Năm học trước" là bản gần nhất của lớp đó — màn hình nói rõ điều này
+  thay vì để gia đình hiểu nhầm.
+
+---
+
 ## Tổng kết
 
-Chín hạng mục B1–B9 đã hoàn thành. **1126 bài kiểm thử tự động đều đạt**, tất cả
+Chín hạng mục B1–B9 đã hoàn thành. **1141 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 917 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 932 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -500,7 +575,7 @@ Chín hạng mục B1–B9 đã hoàn thành. **1126 bài kiểm thử tự đ�
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
-| `test:lo-hong` | 254 | Các lỗ hổng đã vá không tái phát |
+| `test:lo-hong` | 269 | Các lỗ hổng đã vá không tái phát |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |

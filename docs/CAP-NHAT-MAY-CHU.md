@@ -216,6 +216,49 @@ Ba thay đổi hành vi nên báo trước cho nhà trường:
 3. **Màn Nề nếp của cô chỉ hiện 50 ghi nhận gần nhất**, có nút "Xem thêm" ở cuối.
    Bảng điểm thi đua vẫn tính trên toàn bộ, không đổi.
 
+### Đợt vá tháng 08/2026 (đợt 4) — mở lại nội dung năm học cũ
+
+Thêm **một bảng mới** (`student_class_periods`) và **hai phân hệ mới**. Bảng tự
+tạo khi khởi động, hai phân hệ tự bật. **Không có việc phải làm bằng tay.**
+
+**Việc gấp, đọc kỹ:** bảng lịch sử lớp chỉ ghi được **từ lần chuyển năm học tiếp
+theo trở đi**. Đã bấm "Chuyển năm học" trước khi cập nhật bản này thì năm đó
+**không lấy lại được** — cơ sở dữ liệu không còn dấu vết em nào học lớp nào. Vì
+vậy: **cập nhật bản này TRƯỚC khi bấm chuyển năm học lần đầu.**
+
+**Nếu máy đã kéo bản `a021b71` rồi:** bản đó có một bảng tên
+`student_class_history` mà bản này không dùng nữa (đổi sang bảng khoảng để giới
+hạn được theo thời gian). Bảng cũ **không bị xóa** và **không có dữ liệu** trừ
+khi trường đã chuyển năm học trong khoảng giữa hai bản. Không phải làm gì cả.
+
+#### Hai phân hệ mới, phụ huynh sẽ thấy hai biểu tượng mới
+
+| Phân hệ | Ai thấy | Làm gì |
+|---|---|---|
+| **Hồ sơ con đã ra trường** | phụ huynh | Học bạ, sổ liên lạc, tổng kết chuyên cần của con đã rời trường. Giữ **12 tháng** kể từ ngày rời trường |
+| **Năm học trước** | phụ huynh | Thông báo lớp, kế hoạch, khảo sát, thời khóa biểu của lớp con **từng** học |
+
+Nhà trường thấy không cần thì tắt trong **Quản trị → Tính năng** như mọi phân hệ
+khác. Tắt đi thì chỉ mất đường xem, dữ liệu không suy suyển.
+
+#### Kiểm bằng tay sau khi cập nhật — 4 việc
+
+| # | Làm gì | Phải thấy gì |
+|---|---|---|
+| 1 | **Khởi động lại máy chủ hai lần liên tiếp** | Cả hai lần `active (running)` — phép thử cho bảng mới |
+| 2 | Đăng nhập bằng **tài khoản phụ huynh**, xem trang chủ | Có hai biểu tượng mới. Bấm vào khi chưa có dữ liệu thì hiện lời giải thích, không phải màn hình trống |
+| 3 | **Quản trị → Tính năng** | Có hai dòng mới, tắt/bật được |
+| 4 | Vào **Album ảnh** bằng tài khoản phụ huynh | Danh sách album hiện tại **không đổi** — album lớp cũ chỉ hiện sau khi trường đã chuyển năm học |
+
+Hai điều nên báo trước cho nhà trường:
+
+1. **Hồ sơ con đã ra trường tự đóng sau 12 tháng.** Nên nhắc gia đình tải hoặc
+   chụp lại phần cần giữ trong năm đầu. Hết hạn thì **chỉ đóng đường xem của phụ
+   huynh** — dữ liệu vẫn còn nguyên và quản trị vẫn tra được.
+2. **Phụ huynh chỉ xem lại được phần nội dung trong đúng khoảng con còn học lớp
+   đó.** Em chuyển đi giữa năm sẽ không xem được ảnh và thông báo của lớp sau
+   ngày em rời lớp. Đây là chủ ý: album có mặt nhiều trẻ khác.
+
 ---
 
 ## Bảng kiểm sau mỗi lần cập nhật
