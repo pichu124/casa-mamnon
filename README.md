@@ -92,6 +92,12 @@ Sau khi cài: app có icon riêng, mở toàn màn hình không thanh địa ch�
 
 ## Tài khoản dùng thử
 
+> Các tài khoản dưới đây **chỉ tồn tại khi chạy ở chế độ phát triển**. Máy chủ
+> chạy thật (`NODE_ENV=production`) không tự sinh dữ liệu mẫu: gặp cơ sở dữ liệu
+> trống, nó dừng lại và hướng dẫn tạo tài khoản quản trị, thay vì dựng một trường
+> học giả với tám tài khoản dùng chung mật khẩu `123456`. Màn hình đăng nhập cũng
+> không hiển thị chúng ở bất kỳ chế độ nào.
+
 | Vai trò | Tên đăng nhập | Mật khẩu | Ghi chú |
 |---|---|---|---|
 | Phụ huynh | `phuhuynh` | `123456` | Có 2 con ở 2 lớp (3A và 5B) |
@@ -180,7 +186,7 @@ viết sai chỉ làm chính nó ngưng hoạt động**:
 Kiểm chứng lại bất cứ lúc nào:
 
 ```bash
-npm test                 # 663 bài, khoảng 3 phút, không cần trình duyệt
+npm test                 # 702 bài, khoảng 3 phút, không cần trình duyệt
 npm run test:giao-dien   # thêm 131 bài chạy trên trình duyệt thật (xem ghi chú dưới)
 npm run test:tat-ca      # chạy cả hai
 ```

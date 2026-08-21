@@ -3,6 +3,9 @@ const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TOI_DA_SO_THUOC = 10;
+const TOI_DA_O_THUOC = 100;
+const TOI_DA_GHI_CHU = 500;
 
 module.exports = (app) => {
   // Danh sách đơn dặn thuốc người dùng được xem.
@@ -32,10 +35,16 @@ module.exports = (app) => {
     if (!Array.isArray(medicines) || medicines.length < 1) {
       return res.status(400).json({ error: 'Vui lòng thêm ít nhất một loại thuốc' });
     }
+    // Chặn số dòng và cắt độ dài: đây là đường mà PHỤ HUYNH gọi được. Không chặn
+    // thì một đơn vài trăm nghìn dòng thuốc đủ làm màn hình Dặn thuốc của cả lớp
+    // đông cứng, mà app lại chưa có đường nào để xóa một đơn đã gửi.
+    if (medicines.length > TOI_DA_SO_THUOC) {
+      return res.status(400).json({ error: `Mỗi đơn chỉ dặn tối đa ${TOI_DA_SO_THUOC} loại thuốc` });
+    }
     const meds = medicines.map(m => ({
-      name: String((m && m.name) || '').trim(),
-      dose: String((m && m.dose) || '').trim(),
-      timing: String((m && m.timing) || '').trim(),
+      name: String((m && m.name) || '').trim().slice(0, TOI_DA_O_THUOC),
+      dose: String((m && m.dose) || '').trim().slice(0, TOI_DA_O_THUOC),
+      timing: String((m && m.timing) || '').trim().slice(0, TOI_DA_O_THUOC),
     }));
     if (meds.some(m => !m.name)) {
       return res.status(400).json({ error: 'Vui lòng nhập tên cho từng loại thuốc' });
@@ -47,7 +56,7 @@ module.exports = (app) => {
       fromDate,
       toDate,
       medicines: meds,
-      note: String(note || '').trim(),
+      note: String(note || '').trim().slice(0, TOI_DA_GHI_CHU),
       status: 'pending',
       createdAt: new Date().toISOString(),
       confirmedBy: null,
@@ -81,7 +90,7 @@ module.exports = (app) => {
     if (rec.status !== 'received') {
       return res.status(400).json({ error: 'Chỉ ghi nhật ký cho đơn đang theo dõi' });
     }
-    const text = String((req.body || {}).text || '').trim();
+    const text = String((req.body || {}).text || '').trim().slice(0, TOI_DA_GHI_CHU);
     if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung nhật ký' });
     rec.log = [...(rec.log || []), { time: new Date().toISOString(), text }];
     db.update('medicine_requests', rec.id, { log: rec.log });

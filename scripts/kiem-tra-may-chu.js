@@ -135,6 +135,34 @@ kiem('Mật khẩu mẫu', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 3b. Quyền của giáo viên chủ nhiệm có khớp với lớp không
+//
+// Quan hệ chủ nhiệm lưu ở hai chỗ (classes.teacherId và users.classId). Lệch hai
+// chỗ này nghĩa là có giáo viên đang đọc được hồ sơ một lớp không còn là của cô.
+// ---------------------------------------------------------------------------
+kiem('Quyền giáo viên chủ nhiệm', () => {
+  if (!sqlite) { boQua('Quyền giáo viên chủ nhiệm', 'chưa mở được cơ sở dữ liệu'); return; }
+  const thua = sqlite.prepare(
+    `SELECT u.id, u.name FROM users u
+     LEFT JOIN classes c ON c.id = u.classId
+     WHERE u.role = 'teacher' AND u.classId IS NOT NULL
+       AND (c.id IS NULL OR c.teacherId IS NOT u.id)`).all();
+  const thieu = sqlite.prepare(
+    `SELECT c.id, c.name FROM classes c
+     LEFT JOIN users u ON u.id = c.teacherId
+     WHERE c.teacherId IS NOT NULL AND (u.id IS NULL OR u.classId IS NOT c.id)`).all();
+  if (!thua.length && !thieu.length) {
+    dat('Quyền giáo viên chủ nhiệm', 'mọi giáo viên khớp đúng lớp đang chủ nhiệm');
+    return;
+  }
+  const phan = [];
+  if (thua.length) phan.push(`${thua.length} giáo viên còn giữ quyền với lớp không còn là của mình (${thua.map(t => t.name).join(', ')})`);
+  if (thieu.length) phan.push(`${thieu.length} lớp ghi tên chủ nhiệm nhưng cô không nhận được lớp (${thieu.map(c => c.name).join(', ')})`);
+  canSua('Quyền giáo viên chủ nhiệm', phan.join('; '),
+    `DATA_DIR=${DATA_DIR} npm run sua-quyen-chu-nhiem   (xem trước; thêm -- --sua để sửa thật)`);
+});
+
+// ---------------------------------------------------------------------------
 // 4. Có lịch sao lưu tự động không
 // ---------------------------------------------------------------------------
 kiem('Lịch sao lưu tự động', () => {

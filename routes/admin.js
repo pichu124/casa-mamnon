@@ -74,9 +74,33 @@ module.exports = (app) => {
   });
 
   // ---------- Lớp học ----------
+
+  // Quan hệ "giáo viên chủ nhiệm ↔ lớp" được lưu ở HAI chỗ: `classes.teacherId`
+  // và `users.classId`. Quyền đọc hồ sơ học sinh đi theo `users.classId`, còn
+  // màn hình quản trị đọc `classes.teacherId` — nên ghi lệch hai chỗ này sinh ra
+  // hai lỗi thật đã gặp:
+  //   - Đổi chủ nhiệm mà chỉ gán cho người mới: giáo viên cũ giữ NGUYÊN quyền
+  //     đọc và ghi hồ sơ cả lớp cũ, nhà trường không có cách nào thu hồi.
+  //   - Tạo lớp kèm chủ nhiệm mà chỉ ghi `classes.teacherId`: màn hình quản trị
+  //     hiện đúng tên cô, nhưng cô đăng nhập vào lại thấy "Sĩ số 0".
+  // Mọi chỗ đổi chủ nhiệm đều phải đi qua hàm này, đừng ghi tay từng bảng.
+  function datChuNhiem(classId, teacherIdMoi) {
+    const dangGan = db.all('users',
+      `SELECT id FROM users WHERE role = 'teacher' AND classId = ?`, [classId]);
+    for (const t of dangGan) {
+      if (t.id !== teacherIdMoi) db.update('users', t.id, { classId: null });
+    }
+    if (teacherIdMoi) db.update('users', teacherIdMoi, { classId });
+    db.update('classes', classId, { teacherId: teacherIdMoi || null });
+  }
+
   app.post('/api/admin/classes', onlyAdmin, (req, res) => {
     const { name, room, grade, teacherId, year } = req.body || {};
     if (!String(name || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập tên lớp' });
+    if (teacherId) {
+      const t = db.findUser(teacherId);
+      if (!t || t.role !== 'teacher') return res.status(400).json({ error: 'Giáo viên không hợp lệ' });
+    }
     const school = db.school() || {};
     const rec = {
       id: db.nextId('c'),
@@ -87,7 +111,10 @@ module.exports = (app) => {
       year: String(year || school.currentYear || ''),
       active: true,
     };
-    db.insert('classes', rec);
+    db.tx(() => {
+      db.insert('classes', rec);
+      if (rec.teacherId) datChuNhiem(rec.id, rec.teacherId);
+    });
     db.audit(req.user.id, 'class-create', rec.id, { name: rec.name });
     res.status(201).json(rec);
   });
@@ -100,16 +127,19 @@ module.exports = (app) => {
       if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
     }
     if (req.body.grade !== undefined) patch.grade = Number(req.body.grade) || null;
+    let doiChuNhiem = false;
     if (req.body.teacherId !== undefined) {
       const t = req.body.teacherId ? db.findUser(req.body.teacherId) : null;
       if (req.body.teacherId && (!t || t.role !== 'teacher')) {
         return res.status(400).json({ error: 'Giáo viên không hợp lệ' });
       }
       patch.teacherId = req.body.teacherId || null;
-      // Giáo viên chủ nhiệm lớp nào thì gắn với lớp đó.
-      if (t) db.update('users', t.id, { classId: cls.id });
+      doiChuNhiem = true;
     }
-    db.update('classes', cls.id, patch);
+    db.tx(() => {
+      db.update('classes', cls.id, patch);
+      if (doiChuNhiem) datChuNhiem(cls.id, patch.teacherId);
+    });
     db.audit(req.user.id, 'class-update', cls.id, patch);
     res.json(db.findClass(cls.id));
   });
@@ -146,7 +176,7 @@ module.exports = (app) => {
     };
     db.tx(() => {
       db.insert('users', rec);
-      if (classId) db.update('classes', classId, { teacherId: rec.id });
+      if (classId) datChuNhiem(classId, rec.id);
     });
     db.audit(req.user.id, 'teacher-create', rec.id, { name: rec.name });
     res.status(201).json({ id: rec.id, name: rec.name, username, temporaryPassword: matKhau });

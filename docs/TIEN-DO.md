@@ -22,6 +22,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B8 | Giữ độ ổn định dài hạn: kiểm thử vào kho mã, canh tệp dùng chung, chặn lộ dữ liệu | ✅ **Hoàn thành** — 191/191 kiểm thử đạt, đã kiểm chứng trên máy Windows của trường |
 | B9 | Đường soạn nội dung cho 4 phân hệ chỉ-đọc (TKB, thực đơn, kế hoạch, báo cáo) | ✅ **Hoàn thành** — 105/105 kiểm thử đạt (80 API + 25 trình duyệt) |
 | B10 | Kiểm tra máy chủ thật: bịt khoảng trống giữa kho mã và bản cài đặt đang chạy | ✅ **Hoàn thành** — 34/34 kiểm thử đạt |
+| B11 | Vá 5 lỗ hổng do đợt rà soát nhiều tác nhân tìm ra (Đợt 1) | ✅ **Hoàn thành** — 39/39 kiểm thử đạt |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -330,12 +331,54 @@ nó được gắn vào bảng kiểm bàn giao — chỗ chắc chắn có ngư
 
 ---
 
+## B11 — Vá 5 lỗ hổng từ đợt rà soát nhiều tác nhân
+
+Một đợt rà soát 27 tác nhân: ba tác nhân dùng thử app bằng trình duyệt theo vai
+phụ huynh, giáo viên và quản trị; năm tác nhân đào theo phân quyền, chèn mã độc,
+quy mô 300 học sinh, nghiệp vụ trường học và độ bền. Mỗi phát hiện sau đó bị một
+tác nhân khác cố tình bác bỏ, mặc định là loại nếu không tự tái hiện lại được.
+Kết quả: 44 phát hiện thô → 17 đứng vững, 1 bị bác bỏ.
+
+Đợt 1 vá 5 lỗ phải xong **trước khi phụ huynh đầu tiên đăng nhập**.
+
+| Mã | Lỗ hổng | Cách vá |
+|---|---|---|
+| A1 | Màn hình đăng nhập in sẵn `phuhuynh / 123456` và `giaovien / 123456` kèm nút bấm-là-vào, viết cứng trong mã nên bản chạy thật hiện y hệt bản demo | Gỡ hẳn khối đó khỏi `public/js/views/login.js`, đồng bộ sang bản sao dùng cho APK Android |
+| B2 | Máy chủ tự sinh dữ liệu mẫu kèm 8 tài khoản `123456` khi thư mục dữ liệu trống, kể cả ở chế độ chạy thật | `NODE_ENV=production` + cơ sở dữ liệu trống → in hướng dẫn rồi **dừng hẳn**, không tự seed |
+| A3 | Khóa chống dò mật khẩu bị vô hiệu hoàn toàn: `clientIp` đọc thẳng header `X-Forwarded-For` do chính người gõ mật khẩu tự khai. 60 lần sai với 60 giá trị khác nhau không lần nào bị chặn | Bỏ đọc header, dùng `req.ip`; **thêm bộ đếm thứ hai theo tên đăng nhập** kiểu chậm dần; đặt trần số mục cho cả hai bộ đếm; băm giả khi không tìm thấy tài khoản để không lộ tên nào có thật |
+| A2 | Ba đường ghi mà **phụ huynh** gọi được (Xin nghỉ, Dặn thuốc, Khảo sát) không giới hạn độ dài — một đơn 8 MB hoặc 200.000 dòng thuốc làm màn hình của cả lớp đông cứng, mà app không có đường xóa đơn | Cắt độ dài từng ô: lý do nghỉ 1.000 ký tự, tối đa 10 loại thuốc × 100 ký tự mỗi ô, câu trả lời khảo sát 1.000 ký tự |
+| A5 | Đổi giáo viên chủ nhiệm chỉ gán `classId` cho cô mới, **không xóa của cô cũ** — cô đã chuyển lớp vẫn đọc và ghi được hồ sơ cả lớp cũ vĩnh viễn. Ngược lại, tạo lớp kèm chủ nhiệm chỉ ghi `classes.teacherId` nên cô đăng nhập vào thấy "Sĩ số 0" | Gom về một hàm `datChuNhiem()` ghi đủ cả hai chiều, dùng ở cả ba chỗ (tạo lớp, sửa lớp, tạo giáo viên) |
+
+Hai điểm đáng ghi lại về cách vá A3:
+
+- **Cố ý KHÔNG khóa cứng theo tên đăng nhập.** Tên đăng nhập của phụ huynh sinh
+  từ số điện thoại nên người ngoài đoán được; khóa cứng theo tên là đổi một lỗ
+  hổng lấy một lỗ hổng khác — nhập sai vài lần để khóa phụ huynh khác khỏi app.
+  Dùng cách chậm dần (0,5s → 8s) nên chủ tài khoản thật hầu như không thấy phiền,
+  còn tốc độ dò tụt từ ~19 lần/giây xuống dưới 1 lần/8 giây. Có bài kiểm thử canh
+  đúng điều này: bị dò nhiều lần thì chủ tài khoản **vẫn đăng nhập được**.
+- **Dùng `req.ip` là chưa đủ khi đặt máy chủ tại trường.** Với `trust proxy` bật
+  mặc định, Express vẫn lấy giá trị từ header nếu không có proxy thật phía trước.
+  Vì vậy phương án A phải đặt `TRUST_PROXY=0`; bài kiểm thử dựng riêng một máy chủ
+  với cấu hình đó để chứng minh lúc ấy header giả hoàn toàn vô tác dụng.
+
+Kèm theo: `scripts/sua-quyen-chu-nhiem.js` dọn dữ liệu đã lỡ lệch trên máy chủ
+đang chạy (mặc định **chỉ xem**, phải thêm `--sua` mới ghi), và bộ kiểm tra máy
+chủ có thêm một mục phát hiện tình trạng lệch này.
+
+Bộ `test:lo-hong` (39 bài) canh cả năm lỗ không tái phát — bộ kiểm thử cũ không
+bắt được bất kỳ lỗ nào trong số đó, đấy chính là lý do bộ này ra đời.
+
+Còn Đợt 2 (7 việc, ~4–5 ngày) và Đợt 3 (5 việc) trong báo cáo rà soát chưa làm.
+
+---
+
 ## Tổng kết
 
-Chín hạng mục B1–B9 đã hoàn thành. **794 bài kiểm thử tự động đều đạt**, tất cả
+Chín hạng mục B1–B9 đã hoàn thành. **833 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 663 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 702 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -343,6 +386,7 @@ Chín hạng mục B1–B9 đã hoàn thành. **794 bài kiểm thử tự độ
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
+| `test:lo-hong` | 39 | Các lỗ hổng đã vá không tái phát |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |

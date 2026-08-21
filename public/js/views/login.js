@@ -19,13 +19,9 @@ App.views.login = {
             </div>
             <button class="btn primary block" type="submit">Đăng nhập</button>
           </form>
-          <div class="demo-accounts">
-            <p>Tài khoản dùng thử</p>
-            <div class="demo-row">
-              <button class="btn outline block sm" id="demo-parent">👩 Phụ huynh<br><small class="muted">phuhuynh / 123456</small></button>
-              <button class="btn outline block sm" id="demo-teacher">👩‍🏫 Giáo viên<br><small class="muted">giaovien / 123456</small></button>
-            </div>
-          </div>
+          <p class="sub" style="margin-top:16px;font-size:.86rem">
+            Quên mật khẩu? Nhờ giáo viên chủ nhiệm cấp lại giúp.
+          </p>
         </div>
       </div>`;
 
@@ -48,7 +44,5 @@ App.views.login = {
       e.preventDefault();
       doLogin(document.getElementById('lg-user').value.trim(), document.getElementById('lg-pass').value);
     };
-    document.getElementById('demo-parent').onclick = () => doLogin('phuhuynh', '123456');
-    document.getElementById('demo-teacher').onclick = () => doLogin('giaovien', '123456');
   },
 };

@@ -3,6 +3,8 @@ const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TOI_DA_LY_DO = 1000;
+const TOI_DA_GHI_CHU_DUYET = 500;
 
 module.exports = (app) => {
   // Danh sách đơn xin phép người dùng được xem.
@@ -31,6 +33,12 @@ module.exports = (app) => {
     }
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập lý do xin nghỉ cho con' });
+    }
+    // Cắt độ dài: đây là đường mà PHỤ HUYNH gọi được. Không cắt thì một đơn dài
+    // vài MB đủ làm màn hình Xin nghỉ của cả lớp không mở nổi trên điện thoại,
+    // mà app lại chưa có đường nào để xóa hay ẩn một đơn đã gửi.
+    if (String(reason).trim().length > TOI_DA_LY_DO) {
+      return res.status(400).json({ error: `Lý do xin nghỉ quá dài, vui lòng viết ngắn gọn trong ${TOI_DA_LY_DO} ký tự` });
     }
     const rec = {
       id: db.nextId('lv'),
@@ -64,7 +72,7 @@ module.exports = (app) => {
     }
     rec.status = status;
     rec.reviewedBy = req.user.id;
-    rec.reviewNote = String(reviewNote || '').trim();
+    rec.reviewNote = String(reviewNote || '').trim().slice(0, TOI_DA_GHI_CHU_DUYET);
     db.update('leave_requests', rec.id, {
       status: rec.status, reviewedBy: rec.reviewedBy, reviewNote: rec.reviewNote,
     });

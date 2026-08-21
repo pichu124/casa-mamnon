@@ -170,7 +170,26 @@ function warnDefaultPasswords() {
 }
 
 // Cơ sở dữ liệu trống (lần chạy đầu) thì sinh dữ liệu mẫu để có cái xem ngay.
+//
+// KHÔNG làm việc này khi chạy thật. Dữ liệu mẫu kèm 8 tài khoản dùng chung mật
+// khẩu "123456" — sinh ra chúng trên một máy chủ đang mở ra Internet là tự mở
+// cửa cho người lạ. Ở chế độ production, cơ sở dữ liệu trống nghĩa là người
+// triển khai chưa nhập danh sách thật hoặc đang trỏ nhầm DATA_DIR: báo rõ rồi
+// dừng, để họ biết mà sửa, còn hơn lặng lẽ dựng một trường học giả.
 if (db.isEmpty()) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '\n⛔ Cơ sở dữ liệu đang TRỐNG trong khi máy chủ chạy ở chế độ thật.\n' +
+      `   Thư mục dữ liệu: ${db.DATA_DIR}\n\n` +
+      '   Máy chủ KHÔNG tự sinh dữ liệu mẫu ở chế độ này, vì dữ liệu mẫu kèm\n' +
+      '   các tài khoản dùng mật khẩu "123456".\n\n' +
+      '   Nếu đây là lần cài đầu, hãy tạo tài khoản quản trị rồi nhập danh sách thật:\n' +
+      `     DATA_DIR=${db.DATA_DIR} npm run create-admin "Họ tên" tendangnhap\n\n` +
+      '   Nếu trường đã có dữ liệu, nhiều khả năng DATA_DIR đang trỏ nhầm thư mục.\n'
+    );
+    db.close();
+    process.exit(1);
+  }
   console.log('Cơ sở dữ liệu trống — đang sinh dữ liệu mẫu...');
   require('./data/seed').generate();
 }

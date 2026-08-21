@@ -3,6 +3,7 @@ const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TOI_DA_CAU_TRA_LOI = 1000;
 
 // Khảo sát có hiển thị với người dùng này không (theo phạm vi gửi).
 function visibleTo(user, sv) {
@@ -111,7 +112,9 @@ module.exports = (app) => {
       if (q.type === 'choice' && !(q.options || []).includes(String(val))) {
         return res.status(400).json({ error: 'Lựa chọn không hợp lệ' });
       }
-      answers[q.id] = String(val).trim();
+      // Cắt độ dài: đây là đường mà PHỤ HUYNH gọi được. Nhẹ hơn Xin nghỉ và Dặn
+      // thuốc vì mỗi người chỉ trả lời được một lần, nhưng vẫn phải chặn.
+      answers[q.id] = String(val).trim().slice(0, TOI_DA_CAU_TRA_LOI);
     }
     for (const q of sv.questions) {
       if (q.type === 'choice' && !answers[q.id]) {

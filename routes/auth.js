@@ -6,15 +6,49 @@ const {
   sessionCookie, clearCookie, requireAuth,
 } = require('../lib/auth');
 
-// ---- Chống dò mật khẩu: giới hạn số lần đăng nhập sai theo địa chỉ IP ----
+// ---------------------------------------------------------------------------
+// Chống dò mật khẩu — HAI bộ đếm, cố ý khác nhau
+//
+// Bộ thứ nhất đếm theo ĐỊA CHỈ và khóa cứng 15 phút. Một mình nó là chưa đủ:
+// địa chỉ mà máy chủ nhìn thấy có thể do chính người gõ mật khẩu tự khai qua
+// header X-Forwarded-For, nên đổi giá trị đó mỗi lần thử là bộ đếm về không.
+// Vì vậy ở đây KHÔNG đọc thẳng header nữa mà dùng req.ip — giá trị do Express
+// tính, có tính tới cấu hình 'trust proxy'. Khi đặt máy chủ tại trường mà không
+// có lớp proxy phía trước, phải đặt TRUST_PROXY=0 thì req.ip mới đáng tin.
+//
+// Bộ thứ hai đếm theo TÊN ĐĂNG NHẬP và CHẬM DẦN chứ không khóa. Đây mới là thứ
+// bịt được lỗ trên, vì kẻ dò đổi địa chỉ kiểu gì cũng vẫn phải nhắm vào một tên
+// đăng nhập. Cố ý không khóa cứng theo tên: tên đăng nhập của phụ huynh sinh từ
+// số điện thoại nên người ngoài đoán được, khóa cứng là mở ra một cách phá mới —
+// nhập sai vài lần để khóa phụ huynh khác khỏi app.
+// ---------------------------------------------------------------------------
 const MAX_ATTEMPTS = 8;
 const LOCK_MS = 15 * 60 * 1000; // khóa 15 phút
-const attempts = new Map(); // ip -> { count, firstAt, lockedUntil }
+const NGUONG_CHAM = 3;          // sai quá số lần này thì bắt đầu trả lời chậm dần
+const CHAM_TOI_DA_MS = 8000;
+const TRAN_SO_MUC = 5000;       // trần số mục mỗi bộ đếm, để bộ nhớ không phình
+
+const attempts = new Map(); // địa chỉ -> { count, firstAt, lockedUntil }
+const theoTen = new Map();  // tên đăng nhập -> { count, firstAt }
 
 function clientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd) return fwd.split(',')[0].trim();
   return req.ip || req.socket.remoteAddress || 'unknown';
+}
+
+// Ghi vào bộ đếm nhưng không để nó phình vô hạn: chạm trần thì bỏ bớt các mục cũ
+// nhất. Mất vài mục cũ chỉ làm việc chặn lỏng đi một chút, còn để Map phình tự do
+// thì máy chủ 1GB RAM hết bộ nhớ — đằng nào cũng hỏng, chọn cái hỏng nhẹ hơn.
+function datVaoBo(bo, khoa, rec) {
+  if (!bo.has(khoa) && bo.size >= TRAN_SO_MUC) {
+    const canBo = Math.ceil(TRAN_SO_MUC / 10);
+    const cu = [...bo.entries()].sort((a, b) => a[1].firstAt - b[1].firstAt).slice(0, canBo);
+    for (const [k] of cu) bo.delete(k);
+  }
+  bo.set(khoa, rec);
+}
+
+function khoaTen(username) {
+  return String(username || '').trim().toLowerCase();
 }
 
 function lockRemaining(ip) {
@@ -25,23 +59,57 @@ function lockRemaining(ip) {
   return left;
 }
 
-function noteFailure(ip) {
+// Số mili giây phải chờ trước khi trả lời, tính theo số lần sai của TÊN ĐĂNG NHẬP.
+// Tăng gấp đôi mỗi lần: 0,5s → 1s → 2s → 4s → 8s rồi dừng ở đó. Đủ để hạ tốc độ
+// dò từ khoảng 19 lần/giây xuống dưới 1 lần/8 giây, mà người gõ nhầm mật khẩu
+// thật thì hầu như không thấy phiền.
+function choChamTheoTen(username) {
+  const rec = theoTen.get(khoaTen(username));
+  if (!rec) return 0;
+  if (Date.now() - rec.firstAt > LOCK_MS) return 0;
+  if (rec.count <= NGUONG_CHAM) return 0;
+  return Math.min(250 * 2 ** (rec.count - NGUONG_CHAM), CHAM_TOI_DA_MS);
+}
+
+function noteFailure(ip, username) {
   const now = Date.now();
   const rec = attempts.get(ip) || { count: 0, firstAt: now, lockedUntil: 0 };
   // Quá 15 phút kể từ lần sai đầu tiên thì đếm lại từ đầu.
   if (now - rec.firstAt > LOCK_MS) { rec.count = 0; rec.firstAt = now; }
   rec.count += 1;
   if (rec.count >= MAX_ATTEMPTS) rec.lockedUntil = now + LOCK_MS;
-  attempts.set(ip, rec);
+  datVaoBo(attempts, ip, rec);
+
+  const ten = khoaTen(username);
+  if (ten) {
+    const r2 = theoTen.get(ten) || { count: 0, firstAt: now };
+    if (now - r2.firstAt > LOCK_MS) { r2.count = 0; r2.firstAt = now; }
+    r2.count += 1;
+    datVaoBo(theoTen, ten, r2);
+  }
 }
 
-function clearFailures(ip) { attempts.delete(ip); }
+function clearFailures(ip, username) {
+  attempts.delete(ip);
+  const ten = khoaTen(username);
+  if (ten) theoTen.delete(ten);
+}
+
+const nghi = (ms) => (ms > 0 ? new Promise(r => setTimeout(r, ms)) : Promise.resolve());
+
+// Băm giả dùng khi không tìm thấy tài khoản. Không có nó, tài khoản không tồn
+// tại trả lời trong ~1ms còn tài khoản có thật mất ~60ms — chênh lệch đó để lộ
+// tên đăng nhập nào có thật, đúng thứ mà câu báo lỗi chung chung đang cố giấu.
+const BAM_GIA = password.hash('bam-gia-de-can-bang-thoi-gian-tra-loi');
 
 // Dọn bản ghi cũ để Map không phình vô hạn.
 const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [ip, rec] of attempts) {
     if (now - rec.firstAt > LOCK_MS && (!rec.lockedUntil || rec.lockedUntil < now)) attempts.delete(ip);
+  }
+  for (const [ten, rec] of theoTen) {
+    if (now - rec.firstAt > LOCK_MS) theoTen.delete(ten);
   }
 }, 10 * 60 * 1000);
 cleanupTimer.unref();
@@ -75,8 +143,10 @@ function mePayload(user) {
 }
 
 module.exports = (app) => {
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     const ip = clientIp(req);
+    const { username, password: plain } = req.body || {};
+
     const locked = lockRemaining(ip);
     if (locked) {
       const minutes = Math.ceil(locked / 60000);
@@ -85,18 +155,25 @@ module.exports = (app) => {
       });
     }
 
-    const { username, password: plain } = req.body || {};
+    // Tên đăng nhập này vừa sai nhiều lần thì trả lời chậm lại. Chờ TRƯỚC khi
+    // kiểm mật khẩu, để người dò không đo được gì qua thời gian phản hồi.
+    await nghi(choChamTheoTen(username));
+
     const user = db.findUserByUsername(username);
 
     // So khớp mật khẩu đã băm. Câu báo lỗi cố ý không nói rõ sai tên hay sai
-    // mật khẩu, để không giúp người lạ dò ra tài khoản nào có thật.
-    const ok = user && user.active && password.verify(String(plain || ''), user.passwordHash);
+    // mật khẩu, để không giúp người lạ dò ra tài khoản nào có thật. Không tìm
+    // thấy tài khoản thì vẫn băm một lần với chuỗi giả, cho thời gian trả lời
+    // giống hệt trường hợp có tài khoản.
+    const ok = user && user.active
+      ? password.verify(String(plain || ''), user.passwordHash)
+      : (password.verify(String(plain || ''), BAM_GIA), false);
     if (!ok) {
-      noteFailure(ip);
+      noteFailure(ip, username);
       return res.status(401).json({ error: 'Sai tên đăng nhập hoặc mật khẩu' });
     }
 
-    clearFailures(ip);
+    clearFailures(ip, username);
     const token = createSession(user.id);
     db.audit(user.id, 'login', null, { ip });
     res.setHeader('Set-Cookie', sessionCookie(req, token));
