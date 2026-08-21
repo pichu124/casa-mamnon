@@ -972,6 +972,68 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   check('cho nghỉ học thì đóng khoảng, KHÔNG mở khoảng mới',
     ls3.every(x => !!x.den), ls3);
 
+  // -- Con ĐÃ RA TRƯỜNG: phụ huynh vẫn tra được học bạ và sổ liên lạc trong 1 năm.
+  //
+  // db.studentsOf lọc active=1 nên em biến khỏi ô chọn con ở mọi màn hình khác —
+  // phụ huynh mất luôn học bạ 5 năm tiểu học, dù canAccessStudent vẫn cho đọc.
+  {
+    const ds = await r3('GET', '/api/hocsinh-cu', { cookie: PH });
+    check('phụ huynh tra được danh sách con đã rời trường', ds.status === 200, ds.data);
+    check('nói rõ giữ bao lâu để gia đình biết mà tải về', ds.data?.soThangGiu === 12, ds.data?.soThangGiu);
+    const emCu = ds.data.students[0];
+    check('CÓ CON ĐÃ RỜI TRƯỜNG TRONG DANH SÁCH', !!emCu, ds.data.students);
+    check('kèm lớp cuối và năm cuối để gia đình nhận ra',
+      !!(emCu && emCu.lopCuoi && emCu.namCuoi), emCu);
+
+    const ct = await r3('GET', `/api/hocsinh-cu/${emCu.id}`, { cookie: PH });
+    check('MỞ ĐƯỢC HỒ SƠ CON ĐÃ RỜI TRƯỜNG', ct.status === 200, ct.data?.error);
+    check('có học bạ', Array.isArray(ct.data?.baoCao), ct.data?.baoCao);
+    check('có sổ liên lạc', Array.isArray(ct.data?.nhanXet), ct.data?.nhanXet);
+    check('có tổng kết chuyên cần cả quá trình',
+      typeof ct.data?.chuyenCan?.tong === 'number', ct.data?.chuyenCan);
+
+    // Phân quyền: không mở được hồ sơ con nhà khác.
+    const conNguoiKhac = (await r3('GET', '/api/schoolyear/alumni', { cookie: A })).data
+      .find(x => x.id !== emCu.id);
+    if (conNguoiKhac) {
+      check('phụ huynh KHÔNG mở được hồ sơ con nhà khác',
+        (await r3('GET', `/api/hocsinh-cu/${conNguoiKhac.id}`, { cookie: PH })).status === 403);
+    } else {
+      check('phụ huynh KHÔNG mở được hồ sơ con nhà khác', true, 'chỉ có một em đã ra trường');
+    }
+    check('người chưa đăng nhập không vào được',
+      (await r3('GET', '/api/hocsinh-cu')).status === 401);
+
+    // Quá hạn thì ĐÓNG ĐƯỜNG XEM, nhưng dữ liệu KHÔNG mất.
+    // Đẩy ngày rời trường lùi 2 năm bằng cách ghi thẳng vào cơ sở dữ liệu — app
+    // không có đường nào đặt ngày đó, mà đây đúng là thứ cần thử.
+    const { default: Database } = await import('better-sqlite3');
+    const conn = new Database(path.join(DIR3, 'school.db'));
+    const cuLam = new Date();
+    cuLam.setFullYear(cuLam.getFullYear() - 2);
+    conn.prepare('UPDATE students SET leftAt = ? WHERE id = ?')
+      .run(cuLam.toISOString().slice(0, 10), emCu.id);
+    conn.close();
+
+    const quaHan = await r3('GET', '/api/hocsinh-cu', { cookie: PH });
+    check('QUÁ HẠN THÌ KHÔNG CÒN TRONG DANH SÁCH',
+      !quaHan.data.students.some(x => x.id === emCu.id), quaHan.data.students);
+    check('nhưng màn hình nói rõ còn bao nhiêu hồ sơ đã quá hạn',
+      quaHan.data.soDaQuaHan >= 1, quaHan.data.soDaQuaHan);
+
+    const moQuaHan = await r3('GET', `/api/hocsinh-cu/${emCu.id}`, { cookie: PH });
+    check('quá hạn thì mở thẳng cũng bị từ chối', moQuaHan.status === 403, moQuaHan.status);
+    check('báo lỗi chỉ đường cho gia đình chứ không cụt lủn',
+      /liên hệ.*nhà trường/i.test(moQuaHan.data?.error || ''), moQuaHan.data?.error);
+
+    // Đây là điều quan trọng nhất: đóng đường xem KHÔNG phải là xóa dữ liệu.
+    const quanTriVanXem = await r3('GET', `/api/hocsinh-cu/${emCu.id}`, { cookie: A });
+    check('DỮ LIỆU VẪN CÒN NGUYÊN — quản trị vẫn mở được',
+      quanTriVanXem.status === 200, quanTriVanXem.status);
+    check('học bạ của em vẫn còn đủ',
+      Array.isArray(quanTriVanXem.data?.baoCao), quanTriVanXem.data?.baoCao?.length);
+  }
+
   sv.dung();
   donThuMucTam(DIR3);
 }

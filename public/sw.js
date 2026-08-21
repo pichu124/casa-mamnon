@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v15';
+const VERSION = 'v16';
 const SHELL_CACHE = `schoolconnect-shell-${VERSION}`;
 
 // Vỏ ứng dụng: nạp sẵn ngay khi cài đặt.
@@ -34,6 +34,7 @@ const SHELL_ASSETS = [
   '/js/views/medicine.js',
   '/js/views/albums.js',
   '/js/views/plans.js',
+  '/js/views/hocsinhcu.js',
   '/js/views/notifications.js',
   '/js/views/messages.js',
   '/js/views/settings.js',
