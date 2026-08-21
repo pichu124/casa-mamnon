@@ -357,6 +357,85 @@ console.log('\n[12] Nhập lại tệp cũ: màn hình cảnh báo trùng thay v
   check('và nút đếm lại đúng 2 học sinh', /Nhập 2 học sinh/.test(await nut.innerText()), await nut.innerText());
 }
 
+console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu danh sách');
+{
+  await page.evaluate(() => UI.closeModal());
+  await page.waitForTimeout(400);
+  // Bài [10] cố tình gỡ chủ nhiệm Lớp 3A để thử thẻ cảnh báo — phân công lại,
+  // nếu không cô đăng nhập vào sẽ thấy lớp trống.
+  const phanCong = await page.evaluate(() => API.put('/api/admin/classes/c1', { teacherId: 't1' }).then(() => 'ok', e => e.message));
+  check('phân công lại chủ nhiệm để thử điểm danh', phanCong === 'ok', phanCong);
+
+  await dangXuat();
+  await dangNhap('giaovien', '123456');
+
+  // Màn hình thấp lại để danh sách chắc chắn phải cuộn — đúng cảnh lớp 30 em
+  // trên điện thoại thật.
+  await page.setViewportSize({ width: 390, height: 480 });
+  await page.goto(BASE + '/#/attendance', { waitUntil: 'networkidle' });
+  await page.waitForSelector('[id^="att-dong-"]', { timeout: 8000 });
+  // Chọn một ngày chưa có dữ liệu mẫu để bắt đầu từ lớp chưa điểm danh.
+  await page.evaluate(() => App.views.attendance.setDate('2026-11-20'));
+  await page.waitForTimeout(900);
+
+  const soDong = await page.locator('[id^="att-dong-"]').count();
+  check('màn hình điểm danh hiện danh sách lớp', soDong > 0, soDong);
+  check('ngày mới chọn chưa em nào được điểm danh',
+    Number(await page.locator('#att-so-da').innerText()) === 0,
+    await page.locator('#att-so-da').innerText());
+
+  // Đánh dấu để biết trang có bị vẽ lại toàn bộ hay không: App.route() thay sạch
+  // #view nên dấu này sẽ biến mất.
+  await page.evaluate(() => { document.getElementById('view').dataset.moc = 'con-nguyen'; });
+
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(300);
+  const truoc = await page.evaluate(() => window.scrollY);
+  check('cuộn xuống được (danh sách dài hơn màn hình)', truoc > 0, truoc);
+
+  const cuoi = page.locator('[id^="att-dong-"]').last();
+  const tenEm = await cuoi.locator('.row-title').innerText();
+  await cuoi.locator('button', { hasText: 'Nghỉ CP' }).click();
+  await page.waitForTimeout(1200);
+
+  const sau = await page.evaluate(() => window.scrollY);
+  check('CHẠM XONG VẪN Ở NGUYÊN CHỖ CŨ, không nhảy về đầu trang',
+    Math.abs(sau - truoc) < 40, `${truoc} → ${sau}`);
+  check('trang KHÔNG bị vẽ lại toàn bộ',
+    await page.evaluate(() => document.getElementById('view').dataset.moc) === 'con-nguyen');
+
+  // Dòng vừa chạm phải cập nhật thật, không phải chỉ nằm im.
+  const dongMoi = page.locator('[id^="att-dong-"]').last();
+  check('vẫn đúng em vừa chạm', (await dongMoi.locator('.row-title').innerText()) === tenEm, tenEm);
+  check('hai ô đếm cập nhật ngay',
+    Number(await page.locator('#att-so-da').innerText()) === 1,
+    await page.locator('#att-so-da').innerText());
+  check('số em chưa điểm danh giảm đi một',
+    Number(await page.locator('#att-so-chua').innerText()) === soDong - 1,
+    await page.locator('#att-so-chua').innerText());
+
+  // -- "Cả lớp có mặt" phải hỏi lại và giữ nguyên em vừa đánh dấu nghỉ.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator('button', { hasText: 'Cả lớp có mặt' }).click();
+  await page.waitForTimeout(700);
+  const hoi = await page.locator('.modal').innerText();
+  check('hỏi lại trước khi điểm danh cả lớp', /Cả lớp có mặt/.test(hoi), hoi.slice(0, 150));
+  check('nói rõ em đã đánh dấu sẽ được giữ nguyên', /giữ nguyên/.test(hoi), hoi.slice(0, 300));
+  check('có nút riêng để ghi đè, không phải mặc định',
+    await page.locator('#att-ghi-de').count() === 1);
+  check('có đường quay lại nếu bấm nhầm', await page.locator('button', { hasText: 'Quay lại' }).count() >= 1);
+
+  await page.locator('#att-tat-ca').click();
+  await page.waitForTimeout(1500);
+  const man = await page.locator('#view').innerText();
+  check('điểm danh cả lớp xong không còn ai chưa đánh dấu',
+    Number(await page.locator('#att-so-chua').innerText()) === 0,
+    await page.locator('#att-so-chua').innerText());
+  check('EM NGHỈ CÓ PHÉP KHÔNG BỊ GHI ĐÈ THÀNH CÓ MẶT', /Nghỉ CP/.test(man));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+}
+
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);
 
 await browser.close();

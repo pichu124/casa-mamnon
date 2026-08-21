@@ -23,7 +23,7 @@ Xem kế hoạch đầy đủ và lý do từng hạng mục trong `docs/KE-HOAC
 | B9 | Đường soạn nội dung cho 4 phân hệ chỉ-đọc (TKB, thực đơn, kế hoạch, báo cáo) | ✅ **Hoàn thành** — 105/105 kiểm thử đạt (80 API + 25 trình duyệt) |
 | B10 | Kiểm tra máy chủ thật: bịt khoảng trống giữa kho mã và bản cài đặt đang chạy | ✅ **Hoàn thành** — 34/34 kiểm thử đạt |
 | B11 | Vá 5 lỗ hổng do đợt rà soát nhiều tác nhân tìm ra (Đợt 1) | ✅ **Hoàn thành** |
-| B12 | Đợt 2: chặn XSS qua `onclick`, sửa lớp/học sinh, cảnh báo nhập trùng, bắt lỗi bảng mã CSV | ✅ **Hoàn thành** — 161/161 kiểm thử đạt (103 API + 58 trình duyệt) |
+| B12 | Đợt 2: chặn XSS qua `onclick`, sửa lớp/học sinh, cảnh báo nhập trùng, bắt lỗi bảng mã CSV, sửa màn hình điểm danh | ✅ **Hoàn thành** — 195/195 kiểm thử đạt (122 API + 73 trình duyệt) |
 
 Thứ tự thực hiện: **B1 → B4 → B3 → B2 → B5**.
 B1 là nền tảng cho mọi việc còn lại. B4 làm sớm để dữ liệu được an toàn ngay.
@@ -372,7 +372,7 @@ bất kỳ lỗ nào trong số đó, đấy chính là lý do bộ này ra đ�
 
 ---
 
-## B12 — Đợt 2: năm việc còn thiếu ở màn hình quản trị
+## B12 — Đợt 2: bảy việc ở màn hình quản trị và màn hình điểm danh
 
 | Mã | Vấn đề | Cách sửa |
 |---|---|---|
@@ -385,7 +385,18 @@ bất kỳ lỗ nào trong số đó, đấy chính là lý do bộ này ra đ�
 Kèm theo: `routes/schoolyear.js` kiểm tra định dạng `namMoi` ở đường xem trước
 (trước đây nhận bất kỳ chuỗi nào từ query).
 
-Ba điều đáng ghi lại:
+Hai việc còn lại của Đợt 2, đều ở màn hình cô dùng nhiều nhất mỗi sáng:
+
+| Mã | Vấn đề | Cách sửa |
+|---|---|---|
+| B1 | Mỗi lần chạm một em, `App.route()` vẽ lại cả trang rồi **cuộn về đầu**. Lớp 30 em thì điểm danh xong em thứ 25 là bị ném về đầu danh sách, phải cuộn lại từ đầu cho từng em — 30 lần cuộn cho một buổi sáng | Chỉ vẽ lại đúng dòng vừa đổi (`veLaiDong`) và hai ô đếm (`veLaiSoDem`). Có bài kiểm thử trình duyệt đo `window.scrollY` trước và sau khi chạm, cộng một dấu mốc trên `#view` để chắc chắn trang không bị vẽ lại toàn bộ |
+| B4 | "Cả lớp có mặt" ghi ngay không hỏi, và **ghi đè cả những em cô vừa đánh dấu nghỉ**. Nó còn bắn N yêu cầu HTTP tuần tự — lớp 30 em là 30 lượt chờ mạng | Hỏi lại trước khi ghi; **mặc định chỉ ghi cho em CHƯA điểm danh**, em cô đã đánh dấu được giữ nguyên; muốn ghi đè phải bấm một nút riêng có ghi rõ hậu quả. Máy chủ có đường `POST /api/attendance/mark-all` mới, ghi cả lớp trong một giao dịch |
+
+Đường ghi từng em `POST /api/attendance/mark` **giữ nguyên không đụng tới**: bản
+giao diện cũ còn trong bộ nhớ đệm của điện thoại đã cài app vẫn gọi đường đó, và
+hai bộ kiểm thử cũ cũng gọi nó.
+
+Bốn điều đáng ghi lại:
 
 - **Bộ lọc bảng mã ở trình duyệt suýt chặn mọi tệp thật.** Bản đầu gõ thẳng hai
   ký tự vào lớp ký tự `/[…]/`. Byte 0 không tồn tại được trong tệp mã nguồn nên
@@ -400,20 +411,25 @@ Ba điều đáng ghi lại:
 - **Bỏ qua chứ không chặn cả tệp.** Điện thoại đã cài app có thể còn giữ bản
   `admin.js` cũ trong bộ nhớ đệm; nếu máy chủ chặn cả tệp thì bản cũ chỉ hiện một
   lỗi trống không giải thích được gì.
+- **"Cả lớp có mặt" mặc định KHÔNG ghi đè.** Cô hay đánh dấu vài em nghỉ trước
+  rồi mới bấm nút cho phần còn lại. Ghi đè hết là xóa đúng phần cô vừa nhập tay,
+  mà app không có đường hoàn tác. Bài kiểm thử dựng đúng cảnh đó: đánh dấu hai em
+  nghỉ, bấm cả lớp có mặt, rồi kiểm tra hai em vẫn là nghỉ.
 
-Bộ `test:lo-hong` lên **103 bài** và bộ soạn nội dung trên trình duyệt lên
-**58 bài**, canh từng lỗ ở trên không tái phát.
+Bộ `test:lo-hong` lên **122 bài** và bộ soạn nội dung trên trình duyệt lên
+**73 bài**, canh từng lỗ ở trên không tái phát.
 
-Còn A6c, B1, B4 của Đợt 2 và toàn bộ Đợt 3 (5 việc) chưa làm.
+Đợt 2 đã xong. Còn toàn bộ Đợt 3 (5 việc, đều là việc cải thiện chứ không
+phải lỗ hổng) chưa làm.
 
 ---
 
 ## Tổng kết
 
-Chín hạng mục B1–B9 đã hoàn thành. **930 bài kiểm thử tự động đều đạt**, tất cả
+Chín hạng mục B1–B9 đã hoàn thành. **964 bài kiểm thử tự động đều đạt**, tất cả
 đều nằm trong kho mã và chạy được bằng lệnh.
 
-`npm test` — 766 bài, không cần trình duyệt, khoảng 3 phút:
+`npm test` — 785 bài, không cần trình duyệt, khoảng 3 phút:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
@@ -421,7 +437,7 @@ Chín hạng mục B1–B9 đã hoàn thành. **930 bài kiểm thử tự độ
 | `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
 | `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
 | `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
-| `test:lo-hong` | 103 | Các lỗ hổng đã vá không tái phát |
+| `test:lo-hong` | 122 | Các lỗ hổng đã vá không tái phát |
 | `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
 | `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
 | `test:bao-mat` | 38 | Băm mật khẩu, cookie, header, chống dò, phiên bền vững |
@@ -432,14 +448,14 @@ Chín hạng mục B1–B9 đã hoàn thành. **930 bài kiểm thử tự độ
 | `test:co-lap-loi` | 101 | Cố tình phá từng tính năng, kiểm tra phần còn lại vẫn chạy |
 | `test:luoi-an-toan` | 17 | Lỗi bất đồng bộ: promise bỏ quên thì sống, nổ đồng bộ thì dừng sạch |
 
-`npm run test:giao-dien` — 164 bài chạy trên trình duyệt thật, cần Playwright:
+`npm run test:giao-dien` — 179 bài chạy trên trình duyệt thật, cần Playwright:
 
 | Bộ kiểm thử | Số bài | Nội dung |
 |-------------|--------|----------|
 | `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
 | `test:pwa` | 43 | Cài đặt như app, chạy offline, khổ iPhone và Android |
 | bật/tắt tính năng | 20 | Thao tác thật trên màn hình quản trị và màn hình chính |
-| soạn nội dung | 58 | GV sửa TKB, soạn kế hoạch và báo cáo, quản trị soạn thực đơn — thao tác thật trên màn hình; phụ huynh không thấy nút soạn nào |
+| soạn nội dung | 73 | GV sửa TKB, soạn kế hoạch và báo cáo, quản trị soạn thực đơn — thao tác thật trên màn hình; phụ huynh không thấy nút soạn nào |
 
 `npm run test:tat-ca` chạy cả hai nhóm.
 

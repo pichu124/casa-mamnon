@@ -155,8 +155,8 @@ App.views.attendance = {
       </div>
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Sĩ số</div></div>
-        <div class="stat-box"><div class="stat-num" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
-        <div class="stat-box"><div class="stat-num" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
+        <div class="stat-box"><div class="stat-num" id="att-so-da" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
+        <div class="stat-box"><div class="stat-num" id="att-so-chua" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
       </div>
       <button class="btn success-soft block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả lớp có mặt</button>
       <div class="card mt-14">
@@ -171,7 +171,7 @@ App.views.attendance = {
       ? [record.checkIn ? `Vào ${record.checkIn}` : null, record.checkOut ? `Ra ${record.checkOut}` : null].filter(Boolean).join(' · ')
       : '';
     return `
-      <div class="list-row" style="align-items:flex-start">
+      <div class="list-row" id="att-dong-${UI.esc(s.id)}" style="align-items:flex-start">
         ${UI.avatar(s.avatar, 42)}
         <div class="row-main">
           <div class="row-title">${UI.esc(s.name)}</div>
@@ -195,29 +195,84 @@ App.views.attendance = {
     App.route();
   },
 
+  // CỐ Ý không gọi App.route() sau mỗi lần chạm.
+  //
+  // App.route() vẽ lại cả trang rồi cuộn về đầu. Lớp 30 em thì cô chạm em thứ 25
+  // xong bị ném về đầu danh sách, phải cuộn lại từ đầu cho từng em — điểm danh
+  // một lớp thành 30 lần cuộn. Chỉ vẽ lại đúng dòng vừa đổi và hai ô đếm.
   async mark(studentId, status) {
+    const ngayLucBam = this.date;
     try {
-      await API.post('/api/attendance/mark', { studentId, date: this.date, status });
+      const rec = await API.post('/api/attendance/mark', { studentId, date: ngayLucBam, status });
+      // Cô có thể đã đổi ngày trong lúc chờ mạng — lúc đó danh sách trên màn hình
+      // là của ngày khác, ghi vào sẽ hiện sai.
+      if (this.date !== ngayLucBam) return;
+      const dong = this._roster.find(x => x.student.id === studentId);
+      if (dong) dong.record = rec;
+      this.veLaiDong(studentId);
+      this.veLaiSoDem();
       UI.toast('Đã lưu điểm danh', 'success');
-      UI.closeModal();
-      App.route();
       App.refreshBadges();
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  async markAll() {
-    if (!this._roster.length) return;
-    try {
-      for (const r of this._roster) {
-        await API.post('/api/attendance/mark', { studentId: r.student.id, date: this.date, status: 'present' });
-      }
-      UI.toast('Cả lớp đã được điểm danh có mặt', 'success');
-      UI.closeModal();
-      App.route();
-      App.refreshBadges();
-    } catch (err) {
-      UI.toast(err.message, 'error');
-      App.route();
+  veLaiDong(studentId) {
+    const dong = this._roster.find(x => x.student.id === studentId);
+    const el = document.getElementById(`att-dong-${studentId}`);
+    if (!dong || !el) return;   // trang đã vẽ lại vì lý do khác — bỏ qua, không nổ
+    el.outerHTML = this.rosterRow(dong);
+  },
+
+  veLaiSoDem() {
+    const tong = this._roster.length;
+    const daDiem = this._roster.filter(x => x.record).length;
+    const oDa = document.getElementById('att-so-da');
+    const oChua = document.getElementById('att-so-chua');
+    if (oDa) oDa.textContent = daDiem;
+    if (oChua) {
+      oChua.textContent = tong - daDiem;
+      oChua.style.color = tong - daDiem ? 'var(--warning)' : 'var(--muted)';
     }
+  },
+
+  // Hỏi lại trước khi ghi hàng loạt. Trước đây một lần chạm nhầm ghi đè toàn bộ
+  // những em cô vừa đánh dấu nghỉ, mà app không có đường hoàn tác.
+  markAll() {
+    const tong = this._roster.length;
+    if (!tong) return;
+    const chua = this._roster.filter(r => !r.record).length;
+    const daCo = tong - chua;
+
+    UI.modal(`
+      ${chua
+        ? `<p style="line-height:1.6">Đánh dấu <b>${chua} em chưa điểm danh</b> là có mặt?</p>`
+        : `<p style="line-height:1.6">Cả lớp đã điểm danh xong rồi — không còn em nào chưa đánh dấu.</p>`}
+      ${daCo
+        ? `<p class="muted small" style="line-height:1.6">${daCo} em cô đã đánh dấu sẽ <b>giữ nguyên</b>,
+           kể cả em nghỉ có phép hay nghỉ không phép.</p>`
+        : ''}
+      ${chua ? `<button class="btn primary block mt-14" id="att-tat-ca">Đánh dấu ${chua} em còn lại có mặt</button>` : ''}
+      ${daCo ? `<button class="btn outline block mt-8" id="att-ghi-de">
+                  Ghi đè cả lớp thành có mặt
+                  <span class="muted small">(${daCo} em đã đánh dấu sẽ bị thay)</span>
+                </button>` : ''}
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, 'Cả lớp có mặt');
+
+    const chay = async (ghiDe) => {
+      try {
+        const r = await API.post('/api/attendance/mark-all', { date: this.date, status: 'present', ghiDe });
+        UI.closeModal();
+        UI.toast(r.soGiuNguyen
+          ? `Đã đánh dấu ${r.soDaGhi} em có mặt, giữ nguyên ${r.soGiuNguyen} em`
+          : `Đã đánh dấu ${r.soDaGhi} em có mặt`, 'success');
+        App.route();
+        App.refreshBadges();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+    const nut = document.getElementById('att-tat-ca');
+    if (nut) nut.onclick = () => chay(false);
+    const nutGhiDe = document.getElementById('att-ghi-de');
+    if (nutGhiDe) nutGhiDe.onclick = () => chay(true);
   },
 };

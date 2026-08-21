@@ -511,6 +511,72 @@ Lý Thị Mai,14/02/2018,Lớp Trùng,Lý Văn Cha,0977000001`;
   check('lúc đó sĩ số mới tăng', (await dem()) === truocEp + 2);
 }
 
+// ===========================================================================
+console.log('\n[15] B4 — "Cả lớp có mặt" KHÔNG được xóa những em cô vừa đánh dấu nghỉ');
+{
+  // Dùng giaovien2: bài [11] đã chuyển cô sang chủ nhiệm lớp c1, còn giaovien cũ
+  // bị gỡ khỏi lớp — chính là thứ bài [11] canh.
+  const GV = (await login('giaovien2', '123456')).cookie;
+  const NGAY = '2026-10-15';
+  const lop = async () => (await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: GV })).data;
+
+  const dau = await lop();
+  check('lấy được danh sách lớp để điểm danh', dau?.students?.length > 0, dau?.students?.length);
+  const siSo = dau.students.length;
+  const em1 = dau.students[0].student.id;
+  const em2 = dau.students[1].student.id;
+
+  // Cô đánh dấu hai em nghỉ trước — đúng thói quen thật.
+  await req('POST', '/api/attendance/mark', { cookie: GV, body: { studentId: em1, date: NGAY, status: 'absent_excused' } });
+  await req('POST', '/api/attendance/mark', { cookie: GV, body: { studentId: em2, date: NGAY, status: 'absent_unexcused' } });
+
+  let r = await req('POST', '/api/attendance/mark-all', { cookie: GV, body: { date: NGAY, status: 'present' } });
+  check('điểm danh cả lớp một lượt → 200', r.status === 200, r.data);
+  check('chỉ ghi cho những em CHƯA điểm danh', r.data?.soDaGhi === siSo - 2, r.data?.soDaGhi);
+  check('nói rõ đã giữ nguyên bao nhiêu em', r.data?.soGiuNguyen === 2, r.data?.soGiuNguyen);
+
+  const sau = await lop();
+  const tra = id => sau.students.find(x => x.student.id === id)?.record;
+  check('EM NGHỈ CÓ PHÉP VẪN LÀ NGHỈ CÓ PHÉP', tra(em1)?.status === 'absent_excused', tra(em1)?.status);
+  check('EM NGHỈ KHÔNG PHÉP VẪN LÀ NGHỈ KHÔNG PHÉP', tra(em2)?.status === 'absent_unexcused', tra(em2)?.status);
+  check('những em còn lại đều đã có mặt',
+    sau.students.filter(x => x.record?.status === 'present').length === siSo - 2);
+  check('cả lớp không còn ai chưa điểm danh', sau.students.every(x => x.record));
+  check('em có mặt được ghi giờ vào lớp',
+    /^\d{2}:\d{2}$/.test(sau.students.find(x => x.record?.status === 'present')?.record?.checkIn || ''));
+  check('em nghỉ KHÔNG bị gán giờ vào lớp', !tra(em1)?.checkIn, tra(em1)?.checkIn);
+
+  // Chạy lại lần nữa: không còn gì để ghi, và vẫn không phá dữ liệu cũ.
+  r = await req('POST', '/api/attendance/mark-all', { cookie: GV, body: { date: NGAY, status: 'present' } });
+  check('bấm lại lần nữa thì không ghi thêm gì', r.data?.soDaGhi === 0, r.data?.soDaGhi);
+  check('và vẫn giữ nguyên hai em nghỉ',
+    (await lop()).students.find(x => x.student.id === em1)?.record?.status === 'absent_excused');
+
+  // Chỉ khi cô CHỦ ĐỘNG chọn ghi đè thì mới ghi đè.
+  r = await req('POST', '/api/attendance/mark-all', { cookie: GV, body: { date: NGAY, status: 'present', ghiDe: true } });
+  check('chọn ghi đè thì mới ghi lại cả lớp', r.data?.soDaGhi === siSo, r.data?.soDaGhi);
+  check('lúc đó em nghỉ mới đổi thành có mặt',
+    (await lop()).students.find(x => x.student.id === em1)?.record?.status === 'present');
+
+  // Phân quyền và đầu vào.
+  check('ngày sai định dạng → 400',
+    (await req('POST', '/api/attendance/mark-all', { cookie: GV, body: { date: '15/10/2026' } })).status === 400);
+  check('trạng thái lạ → 400',
+    (await req('POST', '/api/attendance/mark-all', { cookie: GV, body: { date: NGAY, status: 'nghi-choi' } })).status === 400);
+  const PH = (await login('phuhuynh', '123456')).cookie;
+  check('phụ huynh KHÔNG điểm danh cả lớp được',
+    (await req('POST', '/api/attendance/mark-all', { cookie: PH, body: { date: NGAY } })).status === 403);
+  // giaovien (cô cũ) đã bị gỡ khỏi c1 ở bài [11] — cô không được điểm danh hộ nữa.
+  const GV_CU = (await login('giaovien', '123456')).cookie;
+  const rCu = await req('POST', '/api/attendance/mark-all', { cookie: GV_CU, body: { date: NGAY, classId: 'c1' } });
+  check('cô đã chuyển lớp KHÔNG điểm danh hộ lớp cũ được', rCu.status === 403 || rCu.status === 400, rCu.status);
+
+  // Đường ghi từng em vẫn nguyên vẹn — bản giao diện cũ trong máy điện thoại đã
+  // cài app vẫn gọi đường này.
+  check('đường điểm danh từng em vẫn chạy như cũ',
+    (await req('POST', '/api/attendance/mark', { cookie: GV, body: { studentId: em1, date: NGAY, status: 'late' } })).status === 200);
+}
+
 dung();
 svNoProxy.dung();
 donThuMucTam(DIR);
