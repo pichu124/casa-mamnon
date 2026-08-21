@@ -14,12 +14,15 @@ App.views.albums = {
   // ================= Danh sách album =================
   async renderList(root) {
     const isTeacher = App.state.user.role === 'teacher';
-    // Chỉ quản trị và giáo viên mới có album lớp cũ để mà lấy lại — hỏi thêm cho
-    // họ. Phụ huynh gọi y như trước.
-    const coTheXemLopCu = App.state.user.role === 'admin' || isTeacher;
-    const albums = await API.get(`/api/albums${coTheXemLopCu ? '?keCaLopCu=1' : ''}`);
-    const namNay = albums.filter(a => !a.lopDaDong);
-    const namCu = albums.filter(a => a.lopDaDong);
+    // Hỏi kèm album của lớp đã đóng cho mọi vai. Máy chủ tự quyết ai được thấy
+    // gì: quản trị và cô cũ thấy cả lớp; phụ huynh chỉ thấy ảnh chụp trong đúng
+    // khoảng con còn học lớp đó.
+    const albums = await API.get('/api/albums?keCaLopCu=1');
+    // Tách theo "con/lớp mình còn ở đó hay không", chứ không theo "lớp đã đóng":
+    // em chuyển lớp giữa năm thì lớp cũ vẫn đang mở nhưng con đã rời rồi.
+    const laCu = a => a.lopCuCuaCon || a.lopDaDong;
+    const namNay = albums.filter(a => !laCu(a));
+    const namCu = albums.filter(laCu);
 
     root.innerHTML = `
       ${UI.pageHeader('Album ảnh', isTeacher ? { action: { id: 'btn-new-album', label: 'Tạo album', icon: 'plus' } } : {})}
@@ -32,9 +35,10 @@ App.views.albums = {
         <div class="card mt-14" style="border-left:4px solid var(--info)">
           <div class="card-title">Album của các năm học trước</div>
           <div class="muted small" style="line-height:1.6">
-            ${namCu.length} album thuộc lớp đã đóng sau khi chuyển năm học. Phụ huynh
-            không còn xem được, nhưng ảnh vẫn còn nguyên — tải về giữ lại hoặc xóa
-            cho nhẹ máy chủ.
+            ${namCu.length} album thuộc lớp đã đóng sau khi chuyển năm học.
+            ${isTeacher || App.state.user.role === 'admin'
+              ? 'Ảnh vẫn còn nguyên — tải về giữ lại hoặc xóa cho nhẹ máy chủ.'
+              : 'Đây là ảnh của lớp con từng học. Gia đình nên tải về giữ lại.'}
           </div>
         </div>
         <div class="grid-2">${namCu.map(a => this.albumCard(a)).join('')}</div>` : ''}`;
@@ -43,11 +47,11 @@ App.views.albums = {
 
   albumCard(a) {
     return `
-      <div class="card clickable" style="margin-bottom:0${a.lopDaDong ? ';opacity:.8' : ''}" onclick="App.navigate('#/albums/${UI.esc(a.id)}')">
+      <div class="card clickable" style="margin-bottom:0${a.lopDaDong || a.lopCuCuaCon ? ';opacity:.8' : ''}" onclick="App.navigate('#/albums/${UI.esc(a.id)}')">
         ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
         <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
-        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.lopDaDong ? ` ${UI.badge(a.namHoc || 'năm trước', 'orange')}` : ''}</div>
+        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'lớp cũ', 'orange')}` : ''}</div>
       </div>`;
   },
 
@@ -72,8 +76,8 @@ App.views.albums = {
         <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}</div>
         ${a.description ? `<p class="mt-8" style="font-size:.93rem;line-height:1.55">${UI.esc(a.description)}</p>` : ''}
         ${a.lopDaDong ? `<div class="muted small mt-8" style="line-height:1.6">
-          Lớp này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''}.
-          Phụ huynh không còn xem được album này; không đăng thêm ảnh được nữa.
+          Lớp này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''},
+          nên không đăng thêm ảnh được nữa. Gia đình nên tải về phần muốn giữ lại.
         </div>` : ''}
       </div>
       ${a.photos.length ? `

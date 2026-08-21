@@ -1034,6 +1034,74 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
       Array.isArray(quanTriVanXem.data?.baoCao), quanTriVanXem.data?.baoCao?.length);
   }
 
+  // -- Phụ huynh xem lại album lớp cũ, nhưng CHỈ trong khoảng con còn học lớp đó.
+  {
+    // Bài trên vừa cho em này nghỉ học để thử — nhận lại để có một con đang học.
+    await r3('PUT', `/api/admin/students/${emCon}`, { cookie: A, body: { active: true } });
+    const emDangHoc = (await r3('GET', '/api/students', { cookie: PH })).data
+      .find(x => x.id === emCon);
+    check('phụ huynh còn ít nhất một con đang học để thử', !!emDangHoc, emDangHoc?.name);
+    const ls = (await r3('GET', `/api/schoolyear/lich-su-lop?studentId=${emDangHoc.id}`, { cookie: A })).data;
+    // Phải chọn khoảng đã đóng của một lớp KHÁC lớp hiện tại. Em này từng nghỉ
+    // rồi được nhận lại nên có cả khoảng đã đóng của chính lớp đang học.
+    const lopHienTai = ls.find(x => !x.den);
+    const lopCu = ls.find(x => x.den && x.classId !== lopHienTai?.classId);
+    check('con có ít nhất một lớp cũ đã đóng khoảng', !!lopCu, ls);
+
+    const { default: Db2 } = await import('better-sqlite3');
+    const c2 = new Db2(path.join(DIR3, 'school.db'));
+    const themAlbum = (id, classId, date, title) => c2.prepare(
+      'INSERT INTO albums (id, classId, title, description, date, createdBy) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, classId, title, '', date, null);
+    // Một album TRONG khoảng con còn học, một album SAU khi con đã rời lớp.
+    const truocKhiRoi = lopCu.tu;
+    const sauKhiRoi = (() => {
+      const d = new Date(`${lopCu.den}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + 30);
+      return d.toISOString().slice(0, 10);
+    })();
+    themAlbum('alb_trong', lopCu.classId, truocKhiRoi, 'Ảnh khi con còn học lớp này');
+    themAlbum('alb_ngoai', lopCu.classId, sauKhiRoi, 'Ảnh chụp sau khi con đã rời lớp');
+    c2.close();
+
+    const ds = (await r3('GET', '/api/albums?keCaLopCu=1', { cookie: PH })).data;
+    check('PHỤ HUYNH XEM LẠI ĐƯỢC ALBUM LỚP CŨ', ds.some(a => a.id === 'alb_trong'), ds.map(a => a.title));
+    check('NHƯNG KHÔNG XEM ĐƯỢC ẢNH CHỤP SAU KHI CON ĐÃ RỜI LỚP',
+      !ds.some(a => a.id === 'alb_ngoai'), ds.map(a => a.title));
+    check('album lớp cũ được đánh dấu để giao diện tách riêng',
+      ds.find(a => a.id === 'alb_trong')?.lopCuCuaCon === true,
+      ds.find(a => a.id === 'alb_trong'));
+
+    check('mở thẳng album trong khoảng → 200',
+      (await r3('GET', '/api/albums/alb_trong', { cookie: PH })).status === 200);
+    check('MỞ THẲNG ALBUM NGOÀI KHOẢNG → 403',
+      (await r3('GET', '/api/albums/alb_ngoai', { cookie: PH })).status === 403);
+    check('xem thẳng tệp ảnh ngoài khoảng cũng bị chặn',
+      (await fetch(`${sv.BASE}/api/albums/alb_ngoai/photo/bat-ky`, { headers: { Cookie: PH } })).status === 403);
+
+    // Phụ huynh không mò được album của lớp con mình CHƯA BAO GIỜ học.
+    const lopLa = (await r3('POST', '/api/admin/classes', {
+      cookie: A, body: { name: 'Lớp lạ kiểm thử', grade: 2 },
+    })).data;
+    const c3 = new Db2(path.join(DIR3, 'school.db'));
+    c3.prepare('INSERT INTO albums (id, classId, title, description, date, createdBy) VALUES (?, ?, ?, ?, ?, ?)')
+      .run('alb_la', lopLa.id, 'Ảnh lớp con chưa từng học', '', truocKhiRoi, null);
+    c3.close();
+    check('phụ huynh KHÔNG xem được album của lớp con chưa từng học',
+      (await r3('GET', '/api/albums/alb_la', { cookie: PH })).status === 403);
+    check('và nó cũng không lọt vào danh sách',
+      !(await r3('GET', '/api/albums?keCaLopCu=1', { cookie: PH })).data.some(a => a.id === 'alb_la'));
+
+    // Danh sách MẶC ĐỊNH của phụ huynh không đổi — không tự nhiên mọc thêm album cũ.
+    check('không hỏi kèm thì danh sách vẫn như cũ',
+      !(await r3('GET', '/api/albums', { cookie: PH })).data.some(a => a.id === 'alb_trong'));
+
+    // Quản trị vẫn thấy cả hai, không bị giới hạn theo khoảng.
+    const dsA = (await r3('GET', '/api/albums?keCaLopCu=1', { cookie: A })).data;
+    check('quản trị vẫn thấy CẢ HAI album, không bị cắt theo khoảng',
+      dsA.some(a => a.id === 'alb_trong') && dsA.some(a => a.id === 'alb_ngoai'), dsA.map(a => a.id));
+  }
+
   sv.dung();
   donThuMucTam(DIR3);
 }
