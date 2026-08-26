@@ -360,19 +360,58 @@ ngược: dựng một tệp bẩn rồi soi bằng chính hàm quét đó — *
 là một bài canh vô dụng**. Mục `[3]` chứng minh nó không bắt nhầm tên biến tiếng
 Anh của tầng dữ liệu (`studentsOf`, `classIdsOf`), đúng như `CLAUDE.md` cho phép.
 
+### Script chữa cháy phân công cô: thu hồi THẬT, không chỉ dọn cái gương ✅ *(N8)*
+
+Ghi chú N8 lúc đầu của tôi **sai ở phần chẩn đoán**. Sự thật khó chịu hơn.
+
+**Sai chỗ nào.** Tôi ghi "chạy script xong cô vẫn chưa nhận lại nhóm cho tới lần
+khởi động lại". Không đúng: nạp `lib/db.js` là chạy `backfillClassTeachers()`,
+mà script cũng nạp `lib/db.js` — nên nhóm được dựng lại **ngay lúc script khởi
+động**, và máy chủ đang chạy nhìn thấy ngay (chung một tệp SQLite). Chiều
+"cô mất nhóm" tự lành.
+
+**Chỗ thật sự hỏng là chiều ngược lại — chiều nguy hiểm.** Bài test mới bắt được:
+
+> Script gỡ `users.classId` của cô đang giữ thừa quyền, báo "đã sửa" — nhưng
+> dòng trong `class_teachers` thì còn nguyên. Mà từ G0.4 **quyền đọc hồ sơ trẻ
+> đi theo `class_teachers`**. Nên cô vẫn đọc được hồ sơ trẻ của nhóm không còn
+> là của cô, đúng cái lỗ hổng mà script này sinh ra để đóng.
+
+Tệ hơn: chính phần chuyển đổi lúc khởi động đã *dựng dòng đó lên* từ cái gương
+lệch, ngay trước khi script kịp nhìn.
+
+**Đã sửa:** `--sua` nay thu hồi ở **cả hai nơi**. Dám tự gỡ ở đây vì cặp
+"`users.classId` trỏ vào nhóm mà cô không phải cô chính" là dấu vết của gương
+lệch, không phải phân công có chủ ý — cô được xếp làm cô **phụ** có chủ ý thì
+`users.classId` của cô không trỏ vào nhóm đó (xem `mirrorLegacyHomeroom`). Và
+với quyền thì **gỡ nhầm còn sửa lại được, để sót thì không ai biết**.
+
+Thêm hai điều:
+
+- **Kiểu 4 — nhóm đang mở mà không còn cô nào: chỉ BÁO, không tự đoán.** Chọn cô
+  nào cho nhóm nào là việc của nhà trường; máy đoán hộ là sai người mà không ai hay.
+- **Nói thật về chế độ "chỉ xem".** Nó không hoàn toàn chỉ đọc và không thể làm
+  cho nó chỉ đọc — nạp `lib/db.js` là đã ghi. Script nay chụp bảng quyền bằng một
+  kết nối riêng **trước khi** nạp, để báo đúng cái vừa xảy ra thay vì nói một câu
+  sai với người đang chữa cháy.
+
+**16 bài test mới** ở `test/nhom-lop.test.mjs` mục `[9b]`. Script này ra đời từ
+app 1 và **chưa từng có bài test nào** — đó chính là lý do nó trôi khỏi sự thật
+mà không ai hay.
+
 ### G0.6 — Con số kiểm thử hiện tại
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1085**, FAIL 0 |
+| `npm test` (không cần trình duyệt) | **1100**, FAIL 0 |
 | trong đó `test:thuchup` (phân hệ mới) | 55 |
-| trong đó `test:nhom-lop` (G0.4 + G0.5) | 79 |
+| trong đó `test:nhom-lop` (G0.4 · G0.5 · N8) | 94 |
 | trong đó `test:goi-ten` (N9/N10) | 10 |
 | `npm run test:giao-dien` (cần Playwright) | **210**, FAIL 0 *(đã chạy lại ở kho này)* |
 
 Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 55 (thuchup, thêm 15 bài canh
-ranh giới nháp của cô) + 79 (nhóm lớp) + 10 (canh cách gọi tên) + 9 (mục khế ước
-của các hàm mới trong `lib/db.js`) = 1085. Con số này sẽ **giảm**
+ranh giới nháp của cô) + 94 (nhóm lớp) + 10 (canh cách gọi tên) + 9 (mục khế ước
+của các hàm mới trong `lib/db.js`) = 1100. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -390,7 +429,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | Ảnh khuôn mặt trẻ 2–6 tuổi. Phải trỏ ra ngoài **ngay lần chạy thật đầu tiên** | Trước khi triển khai |
 | N6 | Bài test canh QUY TẮC 4 (quét giao diện tìm %, điểm số, xếp hạng) chưa có | Không có nó thì QUY TẮC 4 chỉ là lời hứa | GĐ 2 |
 | N7 | Chưa đăng ký VPS Việt Nam + tên miền đứng tên trường | Việc của nhà trường; chặn phần triển khai | Nhà trường làm |
-| N8 | `scripts/sua-quyen-chu-nhiem.js` **chỉ dọn được cái gương**, không dọn `class_teachers` | Sau G0.4 quyền đi theo `class_teachers`. Chạy script khi có sự cố thật thì nó báo "đã sửa" mà cô **vẫn chưa nhận lại nhóm** cho tới lần khởi động lại kế tiếp. Đã ghi cảnh báo ngay trong tệp; cần bản dọn thẳng cho bảng mới | GĐ 1, ~nửa buổi |
+| ~~N8~~ | ~~`sua-quyen-chu-nhiem.js` chỉ dọn được cái gương~~ | **✅ xong** — và hoá ra nguy hiểm hơn tôi ghi lúc đầu, xem mục bên dưới | 26/08/2026 |
 | ~~N9~~ | ~~Giao diện nói tiếng tiểu học~~ | **✅ xong** — xem mục "Đổi cách gọi tên" bên dưới | 26/08/2026 |
 | ~~N10~~ | ~~Chưa có bài test canh cách gọi tên~~ | **✅ xong** — `test/goi-ten.test.mjs`, 10 bài | 26/08/2026 |
 | ~~N11~~ | ~~Ô "Khối cuối cấp" là ô điều khiển chết~~ | **✅ xong** — máy chủ trả thêm cờ `theoBac`, màn hình giấu hẳn ô đó khi mọi nhóm đi theo bậc | 26/08/2026 |
@@ -412,3 +451,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Vá lỗi nền: đáy modal nằm ngoài vùng chạm được khi bàn phím bật | Lỗi nền chung |
 | 26/08/2026 | Dữ liệu mẫu kể chuyện bé An — nhóm Chồi 2, cơ sở 1; không còn một điểm số nào | G0.5 |
 | 26/08/2026 | Đổi cách gọi tên toàn app (250+ chỗ / 45 tệp) + bài canh `test:goi-ten` + giấu ô điều khiển đã chết | N9 · N10 · N11 |
+| 26/08/2026 | Script chữa cháy phân công cô: thu hồi quyền THẬT ở cả hai nơi, + 16 bài test | N8 |

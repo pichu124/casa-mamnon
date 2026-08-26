@@ -247,6 +247,63 @@ console.log('\n[9] Phần chuyển đổi lúc khởi động CHỈ THÊM, khôn
   db.setHomeroomTeacher('c1', 't1');
 }
 
+// ===========================================================================
+console.log('\n[9b] Script chữa cháy dọn được CẢ bảng quyền, không chỉ hai cột cũ');
+{
+  // `scripts/sua-quyen-chu-nhiem.js` ra đời từ app 1, lúc quyền còn đi theo
+  // `users.classId`. Sau G0.4 quyền đi theo `class_teachers`, nên script phải
+  // nói được điều gì thật sự xảy ra — nếu không, người vận hành chạy nó trong
+  // lúc chữa cháy rồi tin vào một câu báo cáo sai.
+  const chay = (themCo) => {
+    try {
+      return { ma: 0, ra: execFileSync('node', ['scripts/sua-quyen-chu-nhiem.js', ...(themCo ? ['--sua'] : [])],
+        { cwd: GOC, env: { ...process.env, DATA_DIR: DIR }, encoding: 'utf8' }) };
+    } catch (e) {
+      return { ma: e.status, ra: String(e.stdout || '') };
+    }
+  };
+
+  // -- Kiểu 3: hai cột cũ đúng, bảng quyền mất phân công.
+  db.run('DELETE FROM class_teachers WHERE teacherId = ?', ['t1']);
+  check('đã cố ý làm cô mất nhóm trong bảng quyền', db.classIdsOfTeacher('t1').length === 0);
+  const r1 = chay(false);
+  check('script báo đúng là vừa dựng lại phân công', /vừa được DỰNG LẠI/.test(r1.ra), r1.ra.slice(0, 200));
+  check('và nêu đích danh cô nào, nhóm nào', /Mai Anh/.test(r1.ra) && /Chồi 2/.test(r1.ra));
+  check('cô nhận lại được nhóm ngay, không cần khởi động lại máy chủ',
+    db.classIdsOfTeacher('t1').join(',') === 'c1', db.classIdsOfTeacher('t1'));
+  check('chế độ chỉ xem vẫn thoát bằng mã khác 0 để người dùng biết là chưa xong', r1.ma === 1, r1.ma);
+
+  // -- Kiểu 1: cô còn gắn với nhóm không còn là của mình.
+  db.run(`UPDATE users SET classId = 'c1' WHERE id = 't2'`);
+  const r2 = chay(false);
+  check('script thấy cô đang giữ thừa quyền', /GIỮ THỪA QUYỀN/.test(r2.ra), r2.ra.slice(0, 200));
+  check('chỉ xem thì KHÔNG đụng vào hai cột đời cũ', coCu('t2').classId === 'c1', coCu('t2').classId);
+  const r3 = chay(true);
+  // Script gỡ cô khỏi nhóm không phải của cô (kiểu 1), rồi gắn cô về đúng nhóm
+  // mà `classes.teacherId` đang ghi (kiểu 2) — chứ không bỏ cô lơ lửng không nhóm.
+  check('sửa thật thì trả cô về đúng nhóm của mình', coCu('t2').classId === 'c2', coCu('t2').classId);
+  // Đây là phép thử quan trọng nhất của mục này: THU HỒI THẬT. Gỡ mỗi cột đời cũ
+  // là chưa thu hồi được gì — quyền đọc hồ sơ trẻ đi theo `class_teachers`.
+  check('và quyền với nhóm không phải của cô bị THU HỒI THẬT trong bảng quyền',
+    !db.isTeacherOfClass('t2', 'c1'), ten(db.teachersOfClass('c1')));
+  const beC1 = db.studentsOf(coCu('t1'))[0];
+  check('cô không đọc được hồ sơ bé của nhóm đó nữa',
+    !db.canAccessStudent(coCu('t2'), beC1.id), beC1.id);
+  check('sửa xong thoát sạch', r3.ma === 0, r3.ma);
+  check('nói rõ không cần khởi động lại máy chủ', /không cần khởi động lại/i.test(r3.ra));
+
+  // -- Kiểu 4: nhóm đang mở mà không còn cô nào. CHỈ báo, KHÔNG tự đoán.
+  db.setClassTeachers('c2', [], null);
+  const r4 = chay(false);
+  check('script báo nhóm đang mở không còn cô nào', /KHÔNG còn cô nào phụ trách/.test(r4.ra), r4.ra.slice(0, 300));
+  check('và KHÔNG tự gán bừa một cô vào nhóm đó',
+    db.teachersOfClass('c2').length === 0, ten(db.teachersOfClass('c2')));
+  check('nói rõ đây là việc của nhà trường', /việc của nhà trường/.test(r4.ra));
+
+  db.setHomeroomTeacher('c2', 't2');
+  db.setHomeroomTeacher('c1', 't1');
+}
+
 db.close();
 donThuMucTam(DIR);
 
