@@ -91,7 +91,7 @@ kiem('Vị trí dữ liệu', () => {
     boQua('Vị trí dữ liệu', `${DATA_DIR} nằm trong thư mục app, nhưng đây không phải kho git nên rủi ro thấp`);
   } else {
     canSua('Vị trí dữ liệu',
-      `${DATA_DIR} nằm TRONG kho mã. Một lần "git add -A" theo thói quen là hồ sơ học sinh lên GitHub.`,
+      `${DATA_DIR} nằm TRONG kho mã. Một lần "git add -A" theo thói quen là hồ sơ của bé lên GitHub.`,
       'Chuyển dữ liệu ra ngoài rồi khởi động lại với DATA_DIR trỏ tới chỗ mới ' +
       '(Linux: /var/lib/schoolconnect — Windows: C:\\SchoolConnectData).');
   }
@@ -115,7 +115,7 @@ kiem('Cơ sở dữ liệu', () => {
   const soHs = sqlite.prepare('SELECT COUNT(*) n FROM students WHERE active = 1').get().n;
   const soNd = sqlite.prepare('SELECT COUNT(*) n FROM users WHERE active = 1').get().n;
   const mb = (fs.statSync(DB_FILE).size / 1024 / 1024).toFixed(1);
-  dat('Cơ sở dữ liệu', `mở được — ${soHs} học sinh, ${soNd} người dùng, ${mb} MB`);
+  dat('Cơ sở dữ liệu', `mở được — ${soHs} bé, ${soNd} người dùng, ${mb} MB`);
 });
 
 kiem('Mật khẩu mẫu', () => {
@@ -143,8 +143,8 @@ kiem('Mật khẩu mẫu', () => {
 // chính chúng khi khôi phục từ bản sao lưu đời cũ — nên chúng lệch nhau vẫn là
 // chuyện phải sửa, chỉ khác là hậu quả bây giờ nằm ở đường khôi phục.
 // ---------------------------------------------------------------------------
-kiem('Quyền giáo viên chủ nhiệm', () => {
-  if (!sqlite) { boQua('Quyền giáo viên chủ nhiệm', 'chưa mở được cơ sở dữ liệu'); return; }
+kiem('Hai cột phân công đời cũ', () => {
+  if (!sqlite) { boQua('Hai cột phân công đời cũ', 'chưa mở được cơ sở dữ liệu'); return; }
   const thua = sqlite.prepare(
     `SELECT u.id, u.name FROM users u
      LEFT JOIN classes c ON c.id = u.classId
@@ -155,13 +155,13 @@ kiem('Quyền giáo viên chủ nhiệm', () => {
      LEFT JOIN users u ON u.id = c.teacherId
      WHERE c.teacherId IS NOT NULL AND (u.id IS NULL OR u.classId IS NOT c.id)`).all();
   if (!thua.length && !thieu.length) {
-    dat('Quyền giáo viên chủ nhiệm', 'mọi giáo viên khớp đúng lớp đang chủ nhiệm');
+    dat('Hai cột phân công đời cũ', 'khớp nhau — phần chuyển đổi lúc khởi động dựng lại đúng');
     return;
   }
   const phan = [];
-  if (thua.length) phan.push(`${thua.length} giáo viên còn giữ quyền với lớp không còn là của mình (${thua.map(t => t.name).join(', ')})`);
-  if (thieu.length) phan.push(`${thieu.length} lớp ghi tên chủ nhiệm nhưng cô không nhận được lớp (${thieu.map(c => c.name).join(', ')})`);
-  canSua('Quyền giáo viên chủ nhiệm', phan.join('; '),
+  if (thua.length) phan.push(`${thua.length} cô còn gắn với nhóm không còn là của mình (${thua.map(t => t.name).join(', ')})`);
+  if (thieu.length) phan.push(`${thieu.length} nhóm ghi tên cô nhưng cô không nhận được nhóm (${thieu.map(c => c.name).join(', ')})`);
+  canSua('Hai cột phân công đời cũ', phan.join('; '),
     `DATA_DIR=${DATA_DIR} npm run sua-quyen-chu-nhiem   (xem trước; thêm -- --sua để sửa thật)`);
 });
 

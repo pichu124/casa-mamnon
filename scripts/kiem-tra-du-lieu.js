@@ -8,13 +8,13 @@
 // lần gõ `git add -A` theo thói quen là toàn bộ hồ sơ 300 học sinh — họ tên, ngày
 // sinh, hồ sơ sức khỏe, số điện thoại phụ huynh — bị đẩy lên một kho công khai.
 //
-// Đây là thông tin trẻ em dưới 16 tuổi và dữ liệu sức khỏe, thuộc nhóm nhạy cảm
+// Đây là ảnh khuôn mặt và hồ sơ sức khỏe của trẻ 2–6 tuổi, thuộc nhóm nhạy cảm
 // theo Nghị định 13/2023/NĐ-CP. Lộ rồi thì không thu lại được: viết lại lịch sử
 // git cũng không xóa được thứ người khác đã tải về.
 //
 // Vì vậy bộ canh này **KHÔNG CÓ ĐƯỜNG THOÁT**. Khác với quy định commit riêng
 // (nơi trộn chung đôi khi hợp lý), ở đây không có trường hợp nào mà việc đẩy cơ
-// sở dữ liệu hay ảnh học sinh lên GitHub là đúng.
+// sở dữ liệu hay ảnh của bé lên GitHub là đúng.
 //
 // CÁCH DÙNG
 //
@@ -30,13 +30,13 @@ const GOC = path.join(__dirname, '..');
 // Mỗi mục: nhận diện một loại tệp không bao giờ được đưa lên kho mã.
 const CAM = [
   { ten: 'cơ sở dữ liệu', re: /(^|\/)[^/]+\.(db|sqlite|sqlite3)(-wal|-shm|\.\d+)?$/i },
-  { ten: 'ảnh học sinh đã tải lên', re: /(^|\/)uploads?\// },
+  { ten: 'ảnh của bé đã tải lên', re: /(^|\/)uploads?\// },
   { ten: 'bản sao lưu', re: /(^|\/)backups?\// },
   { ten: 'bản lưu trước khi khôi phục', re: /(^|\/)\.khoi-phuc-/ },
   { ten: 'kho dữ liệu JSON đời cũ', re: /(^|\/)(db|sessions)\.json/ },
   { ten: 'tệp bí mật (mật khẩu, khóa)', re: /(^|\/)\.env($|\.)/ },
   { ten: 'khóa ký ứng dụng', re: /\.(jks|keystore|pem|key|p12)$/i },
-  { ten: 'danh sách học sinh chưa nhập', re: /(^|\/)data\/.*\.(csv|xlsx|xls)$/i },
+  { ten: 'danh sách bé chưa nhập', re: /(^|\/)data\/.*\.(csv|xlsx|xls)$/i },
 ];
 
 // Dữ liệu mẫu dùng cho kiểm thử thì được phép — nó không phải của trẻ em thật.
@@ -66,7 +66,7 @@ function bienBan(dinh, nhan) {
 ${dinh.map(d => `    ${d.tep}\n      → ${d.loai}`).join('\n')}
 
   Kho mã này là nơi chứa MÃ NGUỒN, không phải nơi chứa dữ liệu của trường.
-  Hồ sơ học sinh là thông tin trẻ em dưới 16 tuổi và dữ liệu sức khỏe — thuộc
+  Hồ sơ của bé gồm ảnh khuôn mặt và dữ liệu sức khỏe của trẻ 2–6 tuổi — thuộc
   nhóm nhạy cảm theo Nghị định 13/2023/NĐ-CP. Một khi đã đẩy lên thì không thu
   lại được: người khác có thể đã tải về trước khi kịp xóa.
 

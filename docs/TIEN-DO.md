@@ -354,8 +354,15 @@ nhóm đều theo bậc, và câu hỏi lại nói đúng con số thật ("3 b�
 vì nhắc tới một "khối" mà mầm non không có.
 
 **N10 — bài canh, để nó không trôi ngược.** `npm run test:goi-ten`, 10 bài. Quét
-`public/`, `routes/`, `modules/`, `lib/modules.js`, `data/seed.js`; bỏ qua dòng
-chú thích; ngoại lệ phải **ghi rõ lý do** ngay trong tệp. Mục `[2]` là phép thử
+`public/`, `routes/`, `modules/`, `scripts/`, `lib/modules.js`, `data/seed.js`;
+bỏ qua dòng chú thích; ngoại lệ phải **ghi rõ lý do** ngay trong tệp.
+
+Quét cả `scripts/` vì người vận hành đọc chúng **đúng lúc đang chữa cháy** —
+`npm run kiem-tra-may-chu` báo "8 học sinh" thì không sai về số liệu, nhưng nói
+sai tiếng ở đúng lúc người ta căng thẳng nhất. `scripts/xuat-quy-trinh.js` là
+ngoại lệ có ghi lý do: đó là **nội dung tài liệu triển khai của app 1** đã dán
+cảnh báo "chưa cập nhật" (N1) — đổi chữ trong đó là làm nó *trông như* đã cập
+nhật trong khi quy trình thì chưa. Mục `[2]` là phép thử
 ngược: dựng một tệp bẩn rồi soi bằng chính hàm quét đó — **một bài canh luôn xanh
 là một bài canh vô dụng**. Mục `[3]` chứng minh nó không bắt nhầm tên biến tiếng
 Anh của tầng dữ liệu (`studentsOf`, `classIdsOf`), đúng như `CLAUDE.md` cho phép.

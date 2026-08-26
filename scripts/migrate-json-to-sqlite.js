@@ -66,8 +66,8 @@ if (fs.existsSync(SESSIONS_PATH)) {
 
 console.log('\nĐã chuyển sang cơ sở dữ liệu:');
 const nhan = {
-  classes: 'lớp học', users: 'người dùng', students: 'học sinh',
-  student_parents: 'liên kết học sinh–phụ huynh', attendance: 'lượt điểm danh',
+  classes: 'nhóm lớp', users: 'người dùng', students: 'bé',
+  student_parents: 'liên kết bé–phụ huynh', attendance: 'lượt điểm danh',
   leave_requests: 'đơn xin phép', remarks: 'nhận xét', reports: 'báo cáo học tập',
   conduct: 'ghi nhận nề nếp', health: 'hồ sơ y tế', medicine_requests: 'đơn dặn thuốc',
   menus: 'thực đơn', timetable: 'thời khóa biểu', edu_plans: 'kế hoạch giáo dục',

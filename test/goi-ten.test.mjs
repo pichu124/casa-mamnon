@@ -33,6 +33,9 @@ const VUNG_QUET = [
   'modules/hocphi',
   'modules/thuchup',
   'data/seed.js',
+  // Script cũng nói chuyện với người: người vận hành đọc chúng đúng lúc đang
+  // chữa cháy, và một câu nói sai tiếng ở đó thì khó chịu hơn ở màn hình.
+  'scripts',
 ];
 
 const CAM = [
@@ -58,6 +61,13 @@ const NGOAI_LE = [
   {
     chua: "'Mã của bé', 'Mã bé', 'Mã học sinh'",
     vi_sao: 'Cùng lý do: nhận vào thì rộng, xuất ra thì đúng.',
+  },
+  {
+    tep: 'scripts/xuat-quy-trinh.js',
+    vi_sao: 'Đây là NỘI DUNG của tài liệu triển khai app 1, đã dán cảnh báo "chưa cập '
+      + 'nhật cho app 2" ngay trang đầu (N1). Đổi chữ trong đó là làm nó TRÔNG như '
+      + 'đã cập nhật trong khi quy trình thì chưa — nguy hiểm hơn là để nguyên. '
+      + 'Chính khối cảnh báo cũng phải trích nguyên mấy từ cũ để nói rõ cái gì đã đổi.',
   },
 ];
 
@@ -85,7 +95,8 @@ export function quet(vung = VUNG_QUET) {
   const viPham = [];
   for (const muc of vung) {
     for (const tep of cacTep(muc)) {
-      const tuongDoi = path.relative(GOC, tep);
+      const tuongDoi = path.relative(GOC, tep).split(path.sep).join('/');
+      if (NGOAI_LE.some((n) => n.tep === tuongDoi)) continue;
       const dongs = boChuThich(fs.readFileSync(tep, 'utf8')).split('\n');
       dongs.forEach((dong, i) => {
         const thap = dong.toLowerCase();

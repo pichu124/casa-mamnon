@@ -69,7 +69,7 @@ try {
 }
 
 console.log('Kiểm tra toàn vẹn: đạt');
-console.log(`  ${thongKe.users} người dùng · ${thongKe.students} học sinh · ` +
+console.log(`  ${thongKe.users} người dùng · ${thongKe.students} bé · ` +
   `${thongKe.attendance} lượt điểm danh · ${thongKe.messages} tin nhắn`);
 
 if (chiKiemTra) {

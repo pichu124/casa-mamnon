@@ -118,10 +118,10 @@ if (!thuaQuyen.length && !thieuGan.length && !vuaDungLai.length && !nhomTrong.le
 }
 
 if (thuaQuyen.length) {
-  console.log(`  ✗ ${thuaQuyen.length} giáo viên đang GIỮ THỪA QUYỀN với lớp không còn chủ nhiệm:`);
+  console.log(`  ✗ ${thuaQuyen.length} cô đang GIỮ THỪA QUYỀN với nhóm không còn là của cô:`);
   for (const t of thuaQuyen) {
     const c = lopTheoId.get(t.classId);
-    const chuMoi = c && c.teacherId ? tenGv(c.teacherId) : '(lớp chưa có chủ nhiệm)';
+    const chuMoi = c && c.teacherId ? tenGv(c.teacherId) : '(nhóm chưa có cô phụ trách)';
     console.log(`      ${t.title} ${t.name} — còn gắn với ${c ? c.name : t.classId}, `
       + `mà lớp đó nay là của ${chuMoi}`);
   }
@@ -132,7 +132,7 @@ if (thuaQuyen.length) {
 }
 
 if (thieuGan.length) {
-  console.log(`  ✗ ${thieuGan.length} lớp ghi tên chủ nhiệm nhưng cô KHÔNG nhận được lớp:`);
+  console.log(`  ✗ ${thieuGan.length} nhóm ghi tên cô nhưng cô KHÔNG nhận được nhóm:`);
   for (const c of thieuGan) {
     console.log(`      ${c.name} — ghi là của ${tenGv(c.teacherId)}, nhưng cô đăng nhập vào thấy "Sĩ số 0"`);
   }
