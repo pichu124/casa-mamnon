@@ -441,7 +441,7 @@ Ba điều đáng ghi lại:
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1112**, FAIL 0 |
+| `npm test` (không cần trình duyệt) | **1119**, FAIL 0 |
 | trong đó `test:thuchup` (phân hệ mới) | 55 |
 | trong đó `test:nhom-lop` (G0.4 · G0.5 · N8) | 94 |
 | trong đó `test:goi-ten` (N9/N10) | 10 |
@@ -465,7 +465,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | N2 | `android/`, `capacitor.config.json`, `render.yaml` là vỏ đóng gói của app 1 | App 2 đã chốt chỉ làm PWA. Để nguyên thì vô hại nhưng gây hiểu nhầm | GĐ 1 |
 | N3 | Phân hệ riêng của tiểu học vẫn còn: `hocsinh-cu`, `namhoccu`, học bạ theo học kỳ, **nề nếp/thi đua có xếp hạng** | Xếp hạng trẻ **đi ngược QUY TẮC 4**. Tuyệt đối không để lọt sang màn hình mầm non | GĐ 1, gỡ theo đúng quy trình "bỏ tính năng" |
 | N4 | Chưa có tầng **cơ sở** (3 cơ sở) và vai **quản lý cơ sở** | Là mô hình thật của trường; càng để muộn càng phải sửa nhiều chỗ | GĐ 0/1 |
-| N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | Ảnh khuôn mặt trẻ 2–6 tuổi. Phải trỏ ra ngoài **ngay lần chạy thật đầu tiên** | Trước khi triển khai |
+| N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | **✅ đã canh bằng máy** — chạy `NODE_ENV=production` với dữ liệu trong kho mã thì máy chủ **DỪNG trước khi mở cổng**, không chỉ nhắc vào log. Mặc định vẫn là `./data` cho lúc chạy thử | 26/08/2026 |
 | N6 | Bài test canh QUY TẮC 4 | **✅ có rồi** — `test/quy-tac-4.test.mjs`, kiểu **bánh cóc**: món nợ N3 chỉ được giảm. Gỡ xong N3 thì hạ số trong `NO_DA_BIET` về 0 và bài test tự siết chặt | 26/08/2026 |
 | N7 | Chưa đăng ký VPS Việt Nam + tên miền đứng tên trường | Việc của nhà trường; chặn phần triển khai | Nhà trường làm |
 | ~~N8~~ | ~~`sua-quyen-chu-nhiem.js` chỉ dọn được cái gương~~ | **✅ xong** — và hoá ra nguy hiểm hơn tôi ghi lúc đầu, xem mục bên dưới | 26/08/2026 |
@@ -492,3 +492,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Đổi cách gọi tên toàn app (250+ chỗ / 45 tệp) + bài canh `test:goi-ten` + giấu ô điều khiển đã chết | N9 · N10 · N11 |
 | 26/08/2026 | Script chữa cháy phân công cô: thu hồi quyền THẬT ở cả hai nơi, + 16 bài test | N8 |
 | 26/08/2026 | Bài canh QUY TẮC 4 kiểu bánh cóc — món nợ N3 thành con số máy đếm được | N6 |
+| 26/08/2026 | Chạy thật mà dữ liệu nằm trong kho mã → máy chủ DỪNG trước khi mở cổng | N5 |

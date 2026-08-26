@@ -137,24 +137,63 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Lỗi máy chủ' });
 });
 
-// Cảnh báo khi dữ liệu thật đang nằm ngay trong thư mục mã nguồn.
+// Dữ liệu của trường nằm TRONG thư mục mã nguồn: nhắc khi chạy thử, CHẶN khi
+// chạy thật.
 //
 // Trường hợp nguy hiểm: triển khai bằng `git pull` ngay trên máy chủ. Khi đó
 // `data/school.db` nằm trong thư mục làm việc của git, và một lần `git add -A`
-// theo thói quen là đẩy hồ sơ học sinh lên kho công khai. `.gitignore` đã chặn,
-// nhưng chặn được thì cũng bỏ qua được bằng `git add -f`, nên vẫn phải nhắc.
-function warnDataInsideRepo() {
+// theo thói quen là đẩy hồ sơ trẻ lên kho công khai. `.gitignore` đã chặn, nhưng
+// chặn được thì cũng bỏ qua được bằng `git add -f`.
+//
+// VÌ SAO ĐỔI TỪ NHẮC SANG CHẶN (app 2)
+//
+// Bản cũ chỉ `console.warn`, và in RA SAU khi máy chủ đã mở cổng — tức đã bắt đầu
+// phục vụ dữ liệu trẻ rồi mới nhắc, vào một dòng log không ai đọc. Ở app 1 đó là
+// hồ sơ học sinh tiểu học; ở đây là **ảnh khuôn mặt trẻ 2–6 tuổi và hồ sơ sức
+// khỏe** — nhóm nhạy cảm theo Nghị định 13/2023/NĐ-CP. Lộ rồi thì viết lại lịch
+// sử git cũng không thu lại được.
+//
+// Không có đường thoát bằng biến môi trường, cùng lý do với
+// `scripts/kiem-tra-du-lieu.js`: một đường thoát có sẵn là một đường thoát sẽ
+// được dùng vào lúc 11 giờ đêm. Cách sửa chỉ là đặt đúng một biến, và câu báo
+// lỗi nói thẳng ra đó là biến nào.
+//
+// Hai đường triển khai sẵn có KHÔNG bị ảnh hưởng: `Dockerfile` và `render.yaml`
+// đều đã đặt `DATA_DIR=/data`, nằm ngoài thư mục mã nguồn.
+function kiemTraViTriDuLieu() {
   const trongKhoMa = !path.relative(__dirname, db.DATA_DIR).startsWith('..');
-  if (!trongKhoMa || !fs.existsSync(path.join(__dirname, '.git'))) return;
+  if (!trongKhoMa) return;
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '\n⛔ Dữ liệu của trường đang nằm TRONG thư mục mã nguồn, mà máy chủ chạy ở\n' +
+      '   chế độ thật. Máy chủ dừng lại để không phục vụ dữ liệu trẻ từ chỗ này.\n\n' +
+      `   Thư mục dữ liệu: ${db.DATA_DIR}\n` +
+      `   Thư mục mã nguồn: ${__dirname}\n\n` +
+      '   Ở đây có ảnh khuôn mặt trẻ và hồ sơ sức khỏe. Nếu máy chủ này cập nhật\n' +
+      '   bằng `git pull`, một lần `git add -A` theo thói quen là đẩy tất cả lên\n' +
+      '   GitHub — lộ rồi thì không thu lại được.\n\n' +
+      '   Cách sửa: trỏ dữ liệu ra ngoài thư mục mã nguồn.\n\n' +
+      '     DATA_DIR=/var/lib/casa-mamnon npm start\n\n' +
+      '   Nhớ CHUYỂN cả tệp cũ sang thư mục mới trước khi khởi động lại:\n' +
+      `     mkdir -p /var/lib/casa-mamnon && mv ${db.DATA_DIR}/* /var/lib/casa-mamnon/\n`
+    );
+    db.close();
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(path.join(__dirname, '.git'))) return;
   console.warn(
-    '\n⚠️  Dữ liệu của trường đang nằm TRONG thư mục mã nguồn:\n' +
+    '\n⚠️  Dữ liệu đang nằm TRONG thư mục mã nguồn:\n' +
     `   ${db.DATA_DIR}\n\n` +
-    '   Nếu máy chủ này cập nhật bằng `git pull`, hồ sơ học sinh có nguy cơ bị\n' +
-    '   đẩy nhầm lên GitHub. Nên chuyển dữ liệu ra ngoài:\n\n' +
-    '     DATA_DIR=/var/lib/schoolconnect npm start\n\n' +
-    '   Nhớ chuyển cả tệp cũ sang thư mục mới trước khi khởi động lại.\n'
+    '   Chạy thử thì không sao. Nhưng đặt NODE_ENV=production với thư mục này thì\n' +
+    '   máy chủ sẽ DỪNG — hãy trỏ ra ngoài trước khi triển khai thật:\n\n' +
+    '     DATA_DIR=/var/lib/casa-mamnon npm start\n'
   );
 }
+
+// Gọi TRƯỚC khi mở cổng. Nhắc sau khi đã phục vụ được vài lượt là nhắc muộn.
+kiemTraViTriDuLieu();
 
 // Cảnh báo nếu đưa lên Internet mà vẫn dùng mật khẩu mẫu.
 function warnDefaultPasswords() {
@@ -199,7 +238,6 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`Cơ sở dữ liệu: ${db.DB_FILE}`);
   if (process.env.NODE_ENV === 'production') {
     warnDefaultPasswords();
-    warnDataInsideRepo();
   }
 });
 

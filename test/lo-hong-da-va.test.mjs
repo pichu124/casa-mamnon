@@ -247,6 +247,43 @@ console.log('\n[8] B2 — chạy thật mà cơ sở dữ liệu trống thì D�
   donThuMucTam(rong);
 }
 
+// ===========================================================================
+console.log('\n[8b] N5 — chạy thật mà dữ liệu nằm TRONG kho mã thì DỪNG');
+{
+  // Ở app 1 chỗ này chỉ `console.warn`, và in ra SAU khi máy chủ đã mở cổng —
+  // tức đã bắt đầu phục vụ dữ liệu trẻ rồi mới nhắc, vào một dòng log không ai
+  // đọc. Ở app 2 đây là ảnh khuôn mặt trẻ 2–6 tuổi và hồ sơ sức khỏe: lộ lên
+  // GitHub rồi thì viết lại lịch sử git cũng không thu lại được.
+  const trongKho = path.join(GOC, 'data');
+  const r = spawnSync('node', ['server.js'], {
+    cwd: GOC, encoding: 'utf8', timeout: 30000,
+    env: { ...process.env, DATA_DIR: trongKho, NODE_ENV: 'production', PORT: '3181' },
+  });
+  const chu = `${r.stdout || ''}${r.stderr || ''}`;
+  check('máy chủ dừng lại với mã lỗi', r.status === 1, r.status);
+  check('nói rõ dữ liệu đang nằm trong thư mục mã nguồn', /TRONG thư mục mã nguồn/.test(chu));
+  check('nêu đích danh cả hai thư mục để người triển khai đối chiếu',
+    chu.includes(trongKho) && chu.includes(GOC));
+  check('nói rõ hậu quả: đẩy nhầm lên GitHub thì không thu lại được',
+    /git add -A/.test(chu) && /không thu lại được/.test(chu));
+  check('chỉ luôn cách sửa, kèm lệnh chuyển tệp cũ sang', /DATA_DIR=/.test(chu) && /mv /.test(chu));
+  check('KHÔNG mở cổng trước khi dừng — dừng trước khi phục vụ lượt nào',
+    !/đang chạy tại http/.test(chu), chu.slice(0, 200));
+
+  // Không đặt NODE_ENV=production thì vẫn chạy thử được như thường, chỉ nhắc.
+  const thu = spawnSync('node', ['-e',
+    "process.env.DATA_DIR = process.argv[1]; require('./server.js');"], {
+    cwd: GOC, encoding: 'utf8', timeout: 15000,
+    env: { ...process.env, DATA_DIR: trongKho, PORT: '3182' },
+  });
+  check('chạy thử (không production) thì chỉ NHẮC, không chặn',
+    /Dữ liệu đang nằm TRONG thư mục mã nguồn/.test(`${thu.stdout || ''}${thu.stderr || ''}`),
+    `${thu.stdout || ''}${thu.stderr || ''}`.slice(0, 200));
+  fs.rmSync(path.join(trongKho, 'school.db'), { force: true });
+  fs.rmSync(path.join(trongKho, 'school.db-wal'), { force: true });
+  fs.rmSync(path.join(trongKho, 'school.db-shm'), { force: true });
+}
+
 console.log('\n[9] B2 — chế độ phát triển vẫn tự sinh dữ liệu mẫu như cũ');
 {
   const dev = thuMucTam('lo-hong-dev');
