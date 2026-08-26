@@ -448,17 +448,35 @@ Ba điều đáng ghi lại:
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1119**, FAIL 0 |
-| trong đó `test:thuchup` (phân hệ mới) | 55 |
-| trong đó `test:nhom-lop` (G0.4 · G0.5 · N8) | 94 |
-| trong đó `test:goi-ten` (N9/N10) | 10 |
-| trong đó `test:quy-tac-4` (N6) | 12 |
-| `npm run test:giao-dien` (cần Playwright) | **210**, FAIL 0 *(đã chạy lại ở kho này)* |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1119**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **210**, FAIL 0 |
 
-Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 55 (thuchup, thêm 15 bài canh
-ranh giới nháp của cô) + 94 (nhóm lớp) + 10 (canh cách gọi tên) + 12 (canh QUY TẮC 4)
-+ 9 (mục khế ước của các hàm mới trong `lib/db.js`) = 1112. Con số này sẽ **giảm**
-khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
+Bốn bộ lớn nhất, và việc chúng canh:
+
+| Bộ | Bài | Canh gì |
+|---|---|---|
+| `test:lo-hong` | 276 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
+| `test:khe-uoc` | 114 | Hình dạng của các tệp dùng chung |
+| `test:co-lap-loi` | 101 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
+| `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
+
+Bốn bộ **mới của app 2**, không có ở app 1:
+
+| Bộ | Bài | Canh gì |
+|---|---|---|
+| `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
+| `test:thuchup` | 55 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
+| `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
+| `test:goi-ten` | 10 | App nói tiếng của trường mầm non |
+
+Nền lấy từ app 1 là **932 bài**. Phần tăng thêm không chỉ nằm ở bốn bộ mới: các
+bộ cũ cũng dày lên khi mô hình đổi (ví dụ `test:lo-hong` nhận thêm mục `[8b]` canh
+việc máy chủ dừng khi dữ liệu nằm trong kho mã). Con số tổng sẽ **giảm** khi gỡ
+các phân hệ riêng của tiểu học (N3) và **tăng** khi thêm phần mầm non.
+
+Ba bộ canh dưới đây đều có một mục **"phép thử ngược"** — dựng dữ liệu bẩn rồi soi
+bằng chính hàm quét đó: `test:du-lieu`, `test:goi-ten`, `test:quy-tac-4`. Một bài
+canh luôn xanh là một bài canh vô dụng.
 
 ---
 
