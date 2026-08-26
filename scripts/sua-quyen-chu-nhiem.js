@@ -7,8 +7,8 @@
 // VÌ SAO CÓ SCRIPT NÀY
 //
 // Quan hệ chủ nhiệm được lưu ở hai chỗ: `classes.teacherId` và `users.classId`.
-// Quyền đọc hồ sơ học sinh đi theo `users.classId`. Trước bản vá, các đường đổi
-// chủ nhiệm chỉ ghi một chiều, nên có thể còn tồn đọng hai kiểu lệch:
+// Trước bản vá, các đường đổi chủ nhiệm chỉ ghi một chiều, nên có thể còn tồn
+// đọng hai kiểu lệch:
 //
 //   1. Giáo viên còn gắn với một lớp mà lớp đó đã có chủ nhiệm khác — cô cũ vẫn
 //      đọc và ghi được hồ sơ cả lớp cũ. Đây là kiểu nguy hiểm.
@@ -18,6 +18,21 @@
 // Bản vá đã chặn không cho sinh thêm lệch mới. Script này dọn phần đã lỡ sinh ra.
 // Mặc định CHỈ XEM; phải thêm --sua mới ghi. Nên chạy `npm run backup` trước khi
 // thêm --sua.
+//
+// ĐỌC KỸ TRƯỚC KHI DÙNG SAU G0.4
+//
+// Từ G0.4, quyền đọc hồ sơ trẻ KHÔNG còn đi theo `users.classId` nữa mà đi theo
+// bảng `class_teachers` (xem `lib/db.js`, mục "Cô phụ trách nhóm lớp"). Script
+// này CHỈ dọn hai cột đời cũ — tức chỉ dọn CÁI GƯƠNG, không dọn quyền.
+//
+// Hệ quả khi có sự cố thật: chạy xong script báo "đã sửa", nhưng cô vẫn chưa
+// nhận lại được nhóm cho tới lần KHỞI ĐỘNG LẠI kế tiếp — lúc đó
+// `db.backfillClassTeachers()` mới dựng lại bảng mới từ hai cột vừa dọn. Nếu
+// phải dùng script này để chữa cháy, hãy khởi động lại máy chủ ngay sau đó, rồi
+// chạy `npm run kiem-tra-may-chu` và xem mục "3c. Cô phụ trách nhóm lớp".
+//
+// Việc còn nợ (N8 trong docs/TIEN-DO.md): viết bản dọn thẳng cho `class_teachers`
+// để không phải phụ thuộc vào một lần khởi động lại.
 'use strict';
 
 const db = require('../lib/db');

@@ -238,11 +238,11 @@ một hàm `doDuocBanGhi`, và đường đọc ảnh cũng chuyển sang gọi 
 
 #### Việc G0.4 mở ra, chưa làm
 
-| Việc | Vì sao chưa làm ngay |
-|---|---|
-| Đổi cách gọi tên khắp giao diện: *bé/trẻ* thay *học sinh*, *nhóm lớp* thay *lớp*, *cô* thay *giáo viên chủ nhiệm* | Chạm gần như mọi tệp trong `public/js/views/`. Trộn vào G0.4 là commit không đọc nổi và không revert riêng được. Xứng đáng một commit riêng của nó |
-| Dữ liệu mẫu chưa có nhóm nào 2–3 cô | `data/seed.js` vẫn là câu chuyện tiểu học của app 1. Sửa đúng chỗ này là việc của **G0.5** |
-| `scripts/sua-quyen-chu-nhiem.js` vẫn chỉ sửa hai cột cũ | Nó vẫn đúng với cái nó nhận sửa (cái gương). Cần bản sửa cho `class_teachers` khi có sự cố thật |
+Đã chuyển hết vào bảng **"Việc đã biết trước, chưa làm"** ở cuối tệp này để chỉ
+có một chỗ phải nhớ: **N8** (`sua-quyen-chu-nhiem.js` chỉ dọn được cái gương),
+**N9** (giao diện còn nói tiếng tiểu học), **N10** (chưa có bài test canh cách
+gọi tên). Riêng "dữ liệu mẫu chưa có nhóm nào 2–3 cô" là việc của **G0.5** ngay
+bên dưới.
 
 ### G0.5 — Dữ liệu mẫu kể một câu chuyện ⏳ *(việc tiếp theo)*
 
@@ -280,6 +280,9 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | Ảnh khuôn mặt trẻ 2–6 tuổi. Phải trỏ ra ngoài **ngay lần chạy thật đầu tiên** | Trước khi triển khai |
 | N6 | Bài test canh QUY TẮC 4 (quét giao diện tìm %, điểm số, xếp hạng) chưa có | Không có nó thì QUY TẮC 4 chỉ là lời hứa | GĐ 2 |
 | N7 | Chưa đăng ký VPS Việt Nam + tên miền đứng tên trường | Việc của nhà trường; chặn phần triển khai | Nhà trường làm |
+| N8 | `scripts/sua-quyen-chu-nhiem.js` **chỉ dọn được cái gương**, không dọn `class_teachers` | Sau G0.4 quyền đi theo `class_teachers`. Chạy script khi có sự cố thật thì nó báo "đã sửa" mà cô **vẫn chưa nhận lại nhóm** cho tới lần khởi động lại kế tiếp. Đã ghi cảnh báo ngay trong tệp; cần bản dọn thẳng cho bảng mới | GĐ 1, ~nửa buổi |
+| N9 | Giao diện vẫn nói tiếng tiểu học: *học sinh, lớp, giáo viên chủ nhiệm, sĩ số* — **14/24 tệp trong `public/js/views/`**, khoảng 97 chỗ | Trái quy định gọi tên trong `CLAUDE.md`. Nên làm **trước khi trường nhìn thấy màn hình lần đầu**. Cố ý tách khỏi G0.4 vì trộn vào là commit không đọc nổi và không revert riêng được | Một commit riêng, trước GĐ 1 |
+| N10 | Chưa có bài test canh cách gọi tên (quét `public/` tìm "học sinh", "lớp học", "GVCN") | Không có nó thì N9 làm xong vẫn trôi ngược lại ở lần thêm màn hình sau. Cùng họ với bài test canh QUY TẮC 4 ở N6 | Cùng lúc với N9 |
 
 ---
 
