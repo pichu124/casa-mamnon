@@ -5,9 +5,8 @@
 mới tới phần hành trình học tập theo triết lý CASA.
 
 Kho mã này **nhân bản từ app 1 (SchoolConnect** — trường tiểu học, đang chạy thật
-cho ~300 học sinh**)** tại tag `nen-tu-app1-2026-08-26`. Toàn bộ lịch sử git của
-phần nền được giữ nguyên, nên tra `git log` vẫn thấy vì sao mỗi dòng nền được viết
-như vậy.
+cho ~300 học sinh**)** tại điểm tách `bc9dfa3`. Toàn bộ lịch sử git của phần nền
+được giữ nguyên, nên tra `git log` vẫn thấy vì sao mỗi dòng nền được viết như vậy.
 
 Đọc `docs/KE-HOACH.md` để biết đang xây cái gì và theo thứ tự nào.
 Đọc `docs/TIEN-DO.md` để biết **hiện đang đứng ở đâu**.

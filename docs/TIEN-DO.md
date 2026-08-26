@@ -8,11 +8,11 @@ Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.
 - Vá lỗi phần nền chung với app 1 → `docs/LOI-NEN-CHUNG.md`
 
 > Nhật ký nâng cấp của **app 1** (các mục B1…B14) không nằm ở đây nữa. Nó vẫn còn
-> nguyên trong lịch sử git: `git show nen-tu-app1-2026-08-26:docs/TIEN-DO.md`.
+> nguyên trong lịch sử git: `git show bc9dfa3:docs/TIEN-DO.md`.
 
 | | |
 |---|---|
-| Nền nhân bản từ | app 1 (SchoolConnect), tag `nen-tu-app1-2026-08-26` |
+| Nền nhân bản từ | app 1 (SchoolConnect), điểm tách `bc9dfa3` |
 | Giai đoạn hiện tại | **GĐ 0 — dựng nền** |
 | Đã chạy thật ở trường | **chưa** |
 
@@ -28,7 +28,8 @@ khắc của trẻ trong dưới 20 giây không?
 
 Clone toàn bộ kho app 1 (giữ nguyên lịch sử git) rồi tách ra:
 
-- Nhánh làm việc: `main`. Tag điểm tách: `nen-tu-app1-2026-08-26`.
+- Nhánh làm việc: `main`. Điểm tách: `bc9dfa3` (tag `nen-tu-app1-2026-08-26`, mới
+  có ở bản trên máy — môi trường làm việc từ chối đẩy tag lên GitHub, 403).
 - Không có remote trỏ về kho app 1 → **không có đường đẩy nhầm code app 2 sang
   kho đang chạy thật**. Đây là điều quan trọng nhất của bước này.
 - `npm install` chạy được, móc git đã tự bật (`.githooks/`).

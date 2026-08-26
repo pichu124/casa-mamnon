@@ -28,7 +28,7 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 ## Kho mã này đến từ đâu
 
 Nhân bản từ **SchoolConnect** (app 1 — trường tiểu học, đang chạy thật cho ~300
-học sinh) tại tag `nen-tu-app1-2026-08-26`, giữ nguyên toàn bộ lịch sử git.
+học sinh) tại điểm tách **`bc9dfa3`**, giữ nguyên toàn bộ lịch sử git.
 
 Mang sang được khoảng **70% phần nền**: đăng nhập và băm mật khẩu, phân quyền
 theo vai, cơ chế phân hệ cắm thêm có cô lập lỗi, sao lưu/khôi phục, bộ canh
@@ -41,8 +41,8 @@ Hai kho **phát triển độc lập**. Kho này không có remote nào trỏ v�
 Xem lịch sử phần nền:
 
 ```bash
-git log nen-tu-app1-2026-08-26                       # toàn bộ quá trình xây app 1
-git show nen-tu-app1-2026-08-26:docs/TIEN-DO.md      # nhật ký nâng cấp của app 1
+git log bc9dfa3                       # toàn bộ quá trình xây app 1
+git show bc9dfa3:docs/TIEN-DO.md      # nhật ký nâng cấp của app 1
 ```
 
 ---

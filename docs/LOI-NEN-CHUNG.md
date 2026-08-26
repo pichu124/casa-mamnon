@@ -1,8 +1,14 @@
 # Lỗi ở phần nền — vá thế nào khi có hai kho mã
 
 App 1 (**SchoolConnect**, trường tiểu học, đang chạy thật) và app 2 (**CASA Mầm
-non**, kho mã này) dùng chung một phần nền. App 2 nhân bản từ app 1 tại tag
-`nen-tu-app1-2026-08-26`, sau đó hai bên đi hai hướng.
+non**, kho mã này) dùng chung một phần nền. App 2 nhân bản từ app 1 tại **điểm
+tách `bc9dfa3078f3e2e3b646e806b6a3c9a204bdb8f7`** (tag `nen-tu-app1-2026-08-26`),
+sau đó hai bên đi hai hướng.
+
+> Tag mới chỉ có ở bản trên máy, **chưa đẩy được lên GitHub** — máy chủ trung
+> gian của môi trường làm việc từ chối đẩy tag (403). Vì vậy mọi chỗ dưới đây
+> ghi kèm mã commit đầy đủ: mã commit thì luôn tra được, tag thì chưa chắc.
+> Tạo lại tag trên GitHub bất cứ lúc nào cũng được, trỏ vào đúng mã commit trên.
 
 Cái giá của việc tách kho là: **một lỗi ở phần nền tồn tại ở cả hai nơi**, và sửa
 một bên không tự lan sang bên kia. Tệp này quy định khi nào bắt buộc phải vá cả
@@ -23,8 +29,8 @@ hai, khi nào không.
 | Tính năng | `routes/*.js`, `public/js/views/*.js`, `modules/**` | **Không** — hai bên khác nhau từ GĐ 1 |
 | Cấu trúc bảng | `lib/schema.sql` | **Một phần** — bảng nền chung, bảng riêng thì không |
 
-Cách nhận ra nhanh: **mở `git log <tệp>`, nếu commit gần nhất nằm trước tag
-`nen-tu-app1-2026-08-26` thì tệp đó vẫn còn là nền chung.**
+Cách nhận ra nhanh: **mở `git log <tệp>`, nếu commit gần nhất nằm trước điểm tách
+`bc9dfa3` thì tệp đó vẫn còn là nền chung.**
 
 ---
 
