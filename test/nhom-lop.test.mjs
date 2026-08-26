@@ -46,16 +46,24 @@ function khoiDongLai() {
 }
 
 // ===========================================================================
-console.log('\n[1] Phân công đời cũ tự chuyển sang bảng mới khi khởi động');
+console.log('\n[1] Dữ liệu mẫu tự kể được mô hình nhiều cô một nhóm');
 {
-  check('cô Mai Anh (t1) nhận đúng nhóm c1',
+  // Từ G0.5, dữ liệu mẫu KHÔNG còn là "một cô một lớp" của app 1: nhóm Chồi 2
+  // có hai cô, và cô Bích Ngọc (t3) phụ trách cả hai nhóm. Nếu bài này đỏ vì
+  // dữ liệu mẫu quay về một cô một lớp thì mô hình mầm non đã mất khỏi màn hình
+  // đầu tiên người ta nhìn thấy — đó là lý do nó được canh ở đây.
+  check('cô Mai Anh (t1) phụ trách nhóm Chồi 2',
     db.classIdsOfTeacher('t1').join(',') === 'c1', db.classIdsOfTeacher('t1'));
-  check('nhóm c1 có đúng một cô', ten(db.teachersOfClass('c1')) === 't1', ten(db.teachersOfClass('c1')));
-  check('cô được ghi là người phụ trách chính',
-    db.teachersOfClass('c1')[0]?.vaiTro === 'chinh', db.teachersOfClass('c1')[0]?.vaiTro);
+  check('nhóm Chồi 2 có HAI cô cùng phụ trách',
+    db.teachersOfClass('c1').length === 2, ten(db.teachersOfClass('c1')));
+  check('cô Mai Anh là người phụ trách chính, đứng đầu danh sách',
+    db.teachersOfClass('c1')[0]?.id === 't1' && db.teachersOfClass('c1')[0]?.vaiTro === 'chinh',
+    db.teachersOfClass('c1').map(t => `${t.id}:${t.vaiTro}`));
+  check('cô Bích Ngọc (t3) phụ trách CẢ HAI nhóm — điều app 1 không tả nổi',
+    db.classIdsOfTeacher('t3').slice().sort().join(',') === 'c1,c2', db.classIdsOfTeacher('t3'));
   check('danh sách cô KHÔNG kèm mật khẩu đã băm',
     db.teachersOfClass('c1').every(t => !('passwordHash' in t)));
-  check('thầy Hùng (t2) nhận đúng nhóm c2',
+  check('cô Thu Hương (t2) phụ trách nhóm Lá 1',
     db.classIdsOfTeacher('t2').join(',') === 'c2', db.classIdsOfTeacher('t2'));
 }
 
@@ -104,8 +112,9 @@ console.log('\n[4] Hai cột đời cũ vẫn được ghi và vẫn đúng — 
   check('nhóm CŨ của cô đó không còn mang tên cô nữa (không có "chủ nhiệm ma")',
     !lopCu('c2').teacherId, lopCu('c2').teacherId);
   check('nhưng cô vẫn còn trong nhóm cũ với vai phụ — đây mới là mầm non',
-    db.isTeacherOfClass('t2', 'c2') && db.teachersOfClass('c2')[0]?.vaiTro === 'phu',
-    ten(db.teachersOfClass('c2')));
+    db.isTeacherOfClass('t2', 'c2')
+    && db.teachersOfClass('c2').find(t => t.id === 't2')?.vaiTro === 'phu',
+    db.teachersOfClass('c2').map(t => `${t.id}:${t.vaiTro}`));
 
   db.setClassTeachers('c1', ['t1'], 't1');
   db.setClassTeachers('c2', ['t2'], 't2');

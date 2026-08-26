@@ -75,7 +75,7 @@ await dangNhap('phuhuynh', '123456');
 await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 // Nhà có 2 con hai lớp — chọn đúng bé học lớp 3A (lớp cô vừa sửa TKB).
-await page.locator('.student-chip', { hasText: 'Nguyễn Minh Khang' }).click();
+await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
 await page.waitForTimeout(900);
 const manPH = await page.locator('#view').innerText();
 check('phụ huynh vẫn xem được TKB (có môn GV vừa sửa)', /Đọc sách đầu tuần/.test(manPH), manPH.slice(0, 200));
@@ -139,7 +139,7 @@ await dangXuat();
 await dangNhap('phuhuynh', '123456');
 await page.goto(BASE + '/#/plans', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
-await page.locator('.student-chip', { hasText: 'Nguyễn Minh Khang' }).click();
+await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
 await page.waitForTimeout(900);
 const manKhPH = await page.locator('#view').innerText();
 check('phụ huynh thấy kế hoạch cô vừa soạn', /Tháng của kiểm thử/.test(manKhPH), manKhPH.slice(0, 250));
@@ -155,7 +155,7 @@ await page.goto(BASE + '/#/reports', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 check('giáo viên thấy nút Soạn báo cáo', await page.locator('#btn-soan-bc').count() === 1);
 // Soạn cho đúng bé mà phụ huynh 'phuhuynh' sẽ kiểm tra ở phần sau.
-await page.selectOption('#rp-student', { label: 'Nguyễn Minh Khang' });
+await page.selectOption('#rp-student', { label: 'Nguyễn Bảo An' });
 await page.waitForTimeout(900);
 const soKyTruoc = await page.locator('.seg button').count();
 
@@ -197,7 +197,7 @@ await dangXuat();
 await dangNhap('phuhuynh', '123456');
 await page.goto(BASE + '/#/reports', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
-await page.locator('.student-chip', { hasText: 'Nguyễn Minh Khang' }).click();
+await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
 await page.waitForTimeout(900);
 check('phụ huynh KHÔNG thấy nút Soạn báo cáo', await page.locator('#btn-soan-bc').count() === 0);
 const soKyPH = await page.locator('.seg button').count();
@@ -254,7 +254,7 @@ console.log('\n[10] Nút Sửa lớp: phân công lại giáo viên chủ nhiệ
   await page.waitForTimeout(400);
   await page.goto(BASE + '/#/admin', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
-  const dong = page.locator('.list-row', { hasText: 'Lớp 3A' }).first();
+  const dong = page.locator('.list-row', { hasText: 'Chồi 2' }).first();
   check('dòng lớp có nút Sửa', await dong.locator('button', { hasText: 'Sửa' }).count() === 1);
   await dong.locator('button', { hasText: 'Sửa' }).click();
   await page.waitForTimeout(800);
@@ -277,7 +277,7 @@ console.log('\n[11] Sửa hồ sơ học sinh và cho nghỉ học ngay trong m�
   await page.waitForTimeout(400);
   await page.goto(BASE + '/#/admin', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
-  await page.locator('.list-row', { hasText: 'Lớp 3A' }).first()
+  await page.locator('.list-row', { hasText: 'Chồi 2' }).first()
     .locator('button', { hasText: 'Xem' }).click();
   await page.waitForTimeout(900);
 
@@ -294,7 +294,7 @@ console.log('\n[11] Sửa hồ sơ học sinh và cho nghỉ học ngay trong m�
   await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
   await page.waitForTimeout(1400);
   check('lưu xong quay lại đúng danh sách lớp vừa xem',
-    (await page.locator('.modal-title').innerText()).includes('Lớp 3A'),
+    (await page.locator('.modal-title').innerText()).includes('Chồi 2'),
     await page.locator('.modal-title').innerText());
 
   // -- Cho nghỉ học: phải hỏi lại, và phải nói rõ dữ liệu được giữ
@@ -379,8 +379,8 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
 {
   await page.evaluate(() => UI.closeModal());
   await page.waitForTimeout(400);
-  // Bài [10] cố tình gỡ chủ nhiệm Lớp 3A để thử thẻ cảnh báo — phân công lại,
-  // nếu không cô đăng nhập vào sẽ thấy lớp trống.
+  // Bài [10] cố tình gỡ cô phụ trách nhóm Chồi 2 để thử thẻ cảnh báo — phân công
+  // lại, nếu không cô đăng nhập vào sẽ thấy nhóm trống.
   const phanCong = await page.evaluate(() => API.put('/api/admin/classes/c1', { teacherId: 't1' }).then(() => 'ok', e => e.message));
   check('phân công lại chủ nhiệm để thử điểm danh', phanCong === 'ok', phanCong);
 

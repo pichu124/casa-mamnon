@@ -21,7 +21,42 @@ function namKeTiep(nam) {
 
 // Lớp năm sau của một lớp: giữ nguyên chữ cái, tăng khối lên một.
 // "Lớp 3A" → "Lớp 4A". Khối cuối cấp thì không có lớp kế tiếp.
+// Bậc mầm non đi theo LỚP TUỔI, không theo số: Nhà trẻ → Mầm → Chồi → Lá, hết
+// bậc Lá là bé vào lớp 1.
+//
+// Con số phía sau tên nhóm ("Chồi 2") là nhóm SONG SONG thứ mấy trong cùng một
+// bậc, KHÔNG phải khối lớp. Quy tắc tăng số của tiểu học vì thế sai hoàn toàn ở
+// đây: nó biến "Chồi 2" thành "Chồi 3" — một bậc không tồn tại — và cho "Lá 1"
+// lên "Lá 2" trong khi thực tế bé rời trường vào lớp 1.
+const BAC_MAM_NON = ['Nhà trẻ', 'Mầm', 'Chồi', 'Lá'];
+
+// Trả về ba thứ khác nhau, cố ý:
+//   chuỗi     → tên nhóm của năm sau
+//   null      → hết bậc, bé vào lớp 1 (ra trường)
+//   undefined → KHÔNG phải tên nhóm mầm non, để quy tắc theo số xử lý tiếp
+function nhomKeTiepMamNon(ten) {
+  const t = String(ten || '').trim();
+  for (let i = 0; i < BAC_MAM_NON.length; i++) {
+    // Khớp trọn tên: "Lá 1" tách thành bậc "Lá" và phần đuôi "1". Không dùng \b
+    // vì tên bậc kết thúc bằng chữ có dấu, mà \b của JS chỉ hiểu chữ ASCII.
+    const m = t.match(new RegExp(`^${BAC_MAM_NON[i]}(?:\\s+(.*))?$`, 'i'));
+    if (!m) continue;
+    if (i === BAC_MAM_NON.length - 1) return null;   // hết Lá → vào lớp 1
+    return `${BAC_MAM_NON[i + 1]}${m[1] ? ` ${m[1]}` : ''}`;
+  }
+  return undefined;
+}
+
+// Tên lớp/nhóm của năm sau. `null` nghĩa là cuối cấp, học sinh ra trường.
+//
+// Hai quy tắc, thử bậc mầm non TRƯỚC: nhóm mầm non đi theo bậc, còn lại thì
+// tăng số cuối tên như app 1 vẫn làm ("Lớp 3A" → "Lớp 4A"). Quy tắc cũ được giữ
+// nguyên vẹn chứ không thay, vì một trường có thể còn lớp đặt tên theo kiểu cũ,
+// và `khoiToiDa` chỉ có nghĩa với quy tắc đó.
 function tenLopKeTiep(ten, khoiToiDa) {
+  const mamNon = nhomKeTiepMamNon(ten);
+  if (mamNon !== undefined) return mamNon;
+
   const m = String(ten || '').match(/^(.*?)(\d+)(\D*)$/);
   if (!m) return null;
   const khoi = Number(m[2]);

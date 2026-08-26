@@ -37,26 +37,36 @@ function generate() {
   const schoolYear = `${YEAR}-${YEAR + 1}`;
 
   const school = {
-    name: 'Trường Tiểu học Ánh Dương',
-    address: '25 Nguyễn Văn Trỗi, Q. Phú Nhuận, TP.HCM',
+    name: 'Trường Mầm non CASA',
+    address: 'Cơ sở 1 — 25 Nguyễn Văn Trỗi, Q. Phú Nhuận, TP.HCM',
     phone: '028 3844 5566',
-    email: 'lienhe@anhduong.edu.vn',
+    email: 'lienhe@casamamnon.edu.vn',
     years: [`${YEAR - 1}-${YEAR}`, schoolYear],
     currentYear: schoolYear,
   };
 
+  // Hai nhóm lớp của cơ sở 1. Tên nhóm đi theo bậc mầm non (Nhà trẻ → Mầm →
+  // Chồi → Lá), số phía sau là nhóm song song thứ mấy trong cùng bậc — KHÔNG
+  // phải khối lớp. `grade` giữ lại tuổi của bậc cho những màn hình cũ còn đọc.
+  //
+  // Trường có 3 cơ sở, nhưng app CHƯA có tầng cơ sở (N4 trong docs/TIEN-DO.md),
+  // nên cơ sở tạm nằm trong tên phòng để ít nhất còn hiện ra trên màn hình.
   const classes = [
-    { id: 'c1', name: 'Lớp 3A', teacherId: 't1', room: 'Phòng 203', year: schoolYear },
-    { id: 'c2', name: 'Lớp 5B', teacherId: 't2', room: 'Phòng 305', year: schoolYear },
+    { id: 'c1', name: 'Chồi 2', teacherId: 't1', teacherIds: ['t1', 't3'], room: 'Cơ sở 1 — Phòng Hoa Sen', grade: 4, year: schoolYear },
+    { id: 'c2', name: 'Lá 1', teacherId: 't2', teacherIds: ['t2', 't3'], room: 'Cơ sở 1 — Phòng Hướng Dương', grade: 5, year: schoolYear },
   ];
 
   // Các tài khoản mẫu dùng chung một mật khẩu nên chỉ cần băm một lần.
   // Mật khẩu không bao giờ được lưu ở dạng đọc được.
   const DEMO_HASH = password.hash(DEMO_PASSWORD);
 
+  // Ba cô, hai nhóm — và cô Bích Ngọc phụ trách CẢ HAI nhóm. Đó là mô hình thật
+  // của trường mầm non, và cũng là thứ dữ liệu mẫu cũ (một cô một lớp) không kể
+  // được: xem G0.4 trong docs/TIEN-DO.md.
   const users = [
-    { id: 't1', username: 'giaovien', passwordHash: DEMO_HASH, role: 'teacher', name: 'Nguyễn Thị Mai Anh', title: 'Cô', phone: '0903 111 222', email: 'maianh@anhduong.edu.vn', classId: 'c1', avatar: { emoji: '👩‍🏫', bg: '#7c5cbf' } },
-    { id: 't2', username: 'giaovien2', passwordHash: DEMO_HASH, role: 'teacher', name: 'Trần Văn Hùng', title: 'Thầy', phone: '0903 333 444', email: 'vanhung@anhduong.edu.vn', classId: 'c2', avatar: { emoji: '👨‍🏫', bg: '#2980b9' } },
+    { id: 't1', username: 'giaovien', passwordHash: DEMO_HASH, role: 'teacher', name: 'Nguyễn Thị Mai Anh', title: 'Cô', phone: '0903 111 222', email: 'maianh@casamamnon.edu.vn', classId: 'c1', avatar: { emoji: '👩‍🏫', bg: '#7c5cbf' } },
+    { id: 't2', username: 'giaovien2', passwordHash: DEMO_HASH, role: 'teacher', name: 'Trần Thu Hương', title: 'Cô', phone: '0903 333 444', email: 'thuhuong@casamamnon.edu.vn', classId: 'c2', avatar: { emoji: '👩‍🏫', bg: '#2980b9' } },
+    { id: 't3', username: 'giaovien3', passwordHash: DEMO_HASH, role: 'teacher', name: 'Lê Thị Bích Ngọc', title: 'Cô', phone: '0903 555 666', email: 'bichngoc@casamamnon.edu.vn', classId: null, avatar: { emoji: '👩‍🏫', bg: '#16a085' } },
     { id: 'p1', username: 'phuhuynh', passwordHash: DEMO_HASH, role: 'parent', name: 'Lê Thị Thu Hà', title: 'Chị', phone: '0912 345 678', email: 'thuha@gmail.com', avatar: { emoji: '👩', bg: '#e0576f' } },
     { id: 'p2', username: 'phuhuynh2', passwordHash: DEMO_HASH, role: 'parent', name: 'Phạm Quốc Bảo', title: 'Anh', phone: '0987 654 321', email: 'quocbao@gmail.com', avatar: { emoji: '👨', bg: '#27ae60' } },
     { id: 'p3', username: 'ph.tuan', passwordHash: DEMO_HASH, role: 'parent', name: 'Vũ Anh Tuấn', title: 'Anh', phone: '0909 100 300', email: 'anhtuan@gmail.com', avatar: { emoji: '👨', bg: '#d68910' } },
@@ -65,15 +75,23 @@ function generate() {
     { id: 'p6', username: 'ph.huong', passwordHash: DEMO_HASH, role: 'parent', name: 'Bùi Thu Hương', title: 'Chị', phone: '0909 700 800', email: 'thuhuong@gmail.com', avatar: { emoji: '👩', bg: '#c0392b' } },
   ];
 
+  // Trung tâm của cả bộ dữ liệu mẫu là BÉ AN — nhóm Chồi 2, cơ sở 1. Bé xuất
+  // hiện xuyên suốt: điểm danh, nhận xét, dặn thuốc, album, tin nhắn, đơn xin
+  // nghỉ. Anh của bé (bé Nam) học nhóm Lá 1, cùng một mẹ — nhờ vậy màn hình
+  // "đổi con đang xem" của phụ huynh có thật sự hai bé để đổi.
+  //
+  // Tuổi khớp với bậc: Chồi 2 là 4–5 tuổi, Lá 1 là 5–6 tuổi.
+  const namChoi = YEAR - 4;   // các bé nhóm Chồi sinh năm này
+  const namLa = YEAR - 5;     // các bé nhóm Lá
   const students = [
-    { id: 's1', name: 'Nguyễn Minh Khang', dob: '2018-04-12', gender: 'Nam', classId: 'c1', parentIds: ['p1'], avatar: { emoji: '👦', bg: '#3f6ad8' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Không', code: 'HS2018041' },
-    { id: 's2', name: 'Nguyễn Bảo Ngọc', dob: '2016-09-03', gender: 'Nữ', classId: 'c2', parentIds: ['p1'], avatar: { emoji: '👧', bg: '#e0576f' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Tôm, cua', code: 'HS2016093' },
-    { id: 's3', name: 'Phạm Gia Hân', dob: '2018-01-25', gender: 'Nữ', classId: 'c1', parentIds: ['p2'], avatar: { emoji: '👧', bg: '#27ae60' }, address: '45 Trường Sa, Q. Bình Thạnh', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: 'HS2018012' },
-    { id: 's4', name: 'Vũ Đức Anh', dob: '2018-07-19', gender: 'Nam', classId: 'c1', parentIds: ['p3'], avatar: { emoji: '🧒', bg: '#d68910' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Đậu phộng', code: 'HS2018071' },
-    { id: 's5', name: 'Đỗ Khánh Vy', dob: '2018-11-08', gender: 'Nữ', classId: 'c1', parentIds: ['p4'], avatar: { emoji: '👧', bg: '#16a085' }, address: '102 Nguyễn Kiệm, Q. Gò Vấp', ethnicity: 'Kinh', bloodType: 'AB', allergies: 'Không', code: 'HS2018118' },
-    { id: 's6', name: 'Hoàng Gia Bảo', dob: '2018-03-30', gender: 'Nam', classId: 'c1', parentIds: ['p5'], avatar: { emoji: '👦', bg: '#8e44ad' }, address: '5 Đặng Văn Ngữ, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Không', code: 'HS2018033' },
-    { id: 's7', name: 'Bùi Minh Thư', dob: '2016-05-16', gender: 'Nữ', classId: 'c2', parentIds: ['p6'], avatar: { emoji: '👧', bg: '#c0392b' }, address: '210 Lê Văn Sỹ, Q.3', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Sữa bò', code: 'HS2016051' },
-    { id: 's8', name: 'Vũ Hải Đăng', dob: '2016-12-01', gender: 'Nam', classId: 'c2', parentIds: ['p3'], avatar: { emoji: '👦', bg: '#2c3e50' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: 'HS2016121' },
+    { id: 's1', name: 'Nguyễn Bảo An', dob: `${namChoi}-04-12`, gender: 'Nữ', classId: 'c1', parentIds: ['p1'], avatar: { emoji: '👧', bg: '#3f6ad8' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Không', code: `MN${namChoi}041` },
+    { id: 's2', name: 'Nguyễn Bảo Nam', dob: `${namLa}-09-03`, gender: 'Nam', classId: 'c2', parentIds: ['p1'], avatar: { emoji: '👦', bg: '#e0576f' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Tôm, cua', code: `MN${namLa}093` },
+    { id: 's3', name: 'Phạm Gia Hân', dob: `${namChoi}-01-25`, gender: 'Nữ', classId: 'c1', parentIds: ['p2'], avatar: { emoji: '👧', bg: '#27ae60' }, address: '45 Trường Sa, Q. Bình Thạnh', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${namChoi}012` },
+    { id: 's4', name: 'Vũ Đức Anh', dob: `${namChoi}-07-19`, gender: 'Nam', classId: 'c1', parentIds: ['p3'], avatar: { emoji: '🧒', bg: '#d68910' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Đậu phộng', code: `MN${namChoi}071` },
+    { id: 's5', name: 'Đỗ Khánh Vy', dob: `${namChoi}-11-08`, gender: 'Nữ', classId: 'c1', parentIds: ['p4'], avatar: { emoji: '👧', bg: '#16a085' }, address: '102 Nguyễn Kiệm, Q. Gò Vấp', ethnicity: 'Kinh', bloodType: 'AB', allergies: 'Không', code: `MN${namChoi}118` },
+    { id: 's6', name: 'Hoàng Gia Bảo', dob: `${namChoi}-03-30`, gender: 'Nam', classId: 'c1', parentIds: ['p5'], avatar: { emoji: '👦', bg: '#8e44ad' }, address: '5 Đặng Văn Ngữ, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Không', code: `MN${namChoi}033` },
+    { id: 's7', name: 'Bùi Minh Thư', dob: `${namLa}-05-16`, gender: 'Nữ', classId: 'c2', parentIds: ['p6'], avatar: { emoji: '👧', bg: '#c0392b' }, address: '210 Lê Văn Sỹ, Q.3', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Sữa bò', code: `MN${namLa}051` },
+    { id: 's8', name: 'Vũ Hải Đăng', dob: `${namLa}-12-01`, gender: 'Nam', classId: 'c2', parentIds: ['p3'], avatar: { emoji: '👦', bg: '#2c3e50' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${namLa}121` },
   ];
 
   // ---- Điểm danh: 20 ngày học gần nhất ----
@@ -82,7 +100,7 @@ function generate() {
   const days = recentWeekdays(20);
   students.forEach((s, si) => {
     days.forEach((d, di) => {
-      // hôm nay: lớp 3A đã điểm danh, lớp 5B chưa
+      // hôm nay: nhóm Chồi 2 đã điểm danh, nhóm Lá 1 chưa
       if (di === 0 && s.classId === 'c2') return;
       let status = 'present';
       if ((di + si) % 11 === 5) status = 'late';
@@ -94,7 +112,7 @@ function generate() {
         status,
         checkIn: status === 'present' ? `07:${String(15 + ((di + si * 7) % 30)).padStart(2, '0')}` : status === 'late' ? '08:05' : null,
         checkOut: status === 'absent_excused' ? null : (di === 0 ? null : '16:30'),
-        note: status === 'absent_excused' ? 'Nghỉ có phép (gia đình xin phép)' : status === 'late' ? 'Đến muộn do kẹt xe' : '',
+        note: status === 'absent_excused' ? 'Nghỉ có phép (gia đình xin phép)' : status === 'late' ? 'Gia đình đưa bé tới muộn' : '',
         markedBy: s.classId === 'c1' ? 't1' : 't2',
       };
       attendance.push(rec);
@@ -105,11 +123,11 @@ function generate() {
   const leaveRequests = [
     { id: 'lv_1', studentId: 's1', parentId: 'p1', fromDate: fmt(daysAhead(1)), toDate: fmt(daysAhead(1)), reason: 'Gia đình có việc riêng, xin phép cho con nghỉ 1 ngày.', status: 'pending', createdAt: iso(daysAgo(0), 8, 30), reviewedBy: null, reviewNote: '' },
     { id: 'lv_2', studentId: 's1', parentId: 'p1', fromDate: fmt(daysAgo(9)), toDate: fmt(daysAgo(8)), reason: 'Con bị sốt nhẹ, gia đình cho con ở nhà theo dõi.', status: 'approved', createdAt: iso(daysAgo(10), 20, 15), reviewedBy: 't1', reviewNote: 'Cô đã nhận thông tin. Chúc con mau khỏe!' },
-    { id: 'lv_3', studentId: 's3', parentId: 'p2', fromDate: fmt(daysAgo(4)), toDate: fmt(daysAgo(4)), reason: 'Con về quê dự đám giỗ cùng gia đình.', status: 'approved', createdAt: iso(daysAgo(6), 19, 0), reviewedBy: 't1', reviewNote: 'Đồng ý. Gia đình nhắc con ôn bài nhé.' },
-    { id: 'lv_4', studentId: 's2', parentId: 'p1', fromDate: fmt(daysAgo(15)), toDate: fmt(daysAgo(15)), reason: 'Xin nghỉ buổi chiều đi khám răng.', status: 'rejected', createdAt: iso(daysAgo(16), 9, 45), reviewedBy: 't2', reviewNote: 'Chiều đó lớp có bài kiểm tra giữa kỳ, mong gia đình đổi lịch giúp.' },
+    { id: 'lv_3', studentId: 's3', parentId: 'p2', fromDate: fmt(daysAgo(4)), toDate: fmt(daysAgo(4)), reason: 'Con về quê cùng gia đình một hôm.', status: 'approved', createdAt: iso(daysAgo(6), 19, 0), reviewedBy: 't1', reviewNote: 'Cô đã nhận thông tin ạ. Gia đình đi đường cẩn thận nhé.' },
+    { id: 'lv_4', studentId: 's2', parentId: 'p1', fromDate: fmt(daysAgo(15)), toDate: fmt(daysAgo(15)), reason: 'Xin cho con nghỉ buổi chiều đi tiêm nhắc mũi cúm.', status: 'rejected', createdAt: iso(daysAgo(16), 9, 45), reviewedBy: 't2', reviewNote: 'Chiều đó nhóm có buổi làm quen với cô lớp 1, cô mong gia đình đổi lịch tiêm giúp ạ.' },
   ];
 
-  // ---- Thực đơn bán trú: tuần này + tuần sau ----
+  // ---- Thực đơn bữa ăn ở trường: tuần này + tuần sau ----
   const breakfasts = [
     ['Phở bò', 'Sữa tươi'], ['Bánh mì ốp la', 'Sữa đậu nành'], ['Xôi gà', 'Nước cam'],
     ['Bún riêu cua', 'Sữa chua'], ['Hủ tiếu Nam Vang', 'Sữa tươi'], ['Cháo gà cà rốt', 'Chuối'],
@@ -150,47 +168,56 @@ function generate() {
     }
   }
 
-  // ---- Thời khóa biểu ----
-  const tt = (subjects) => subjects; // [môn theo tiết]
+  // ---- Lịch sinh hoạt một ngày ----
+  //
+  // Mầm non không có "tiết học" như tiểu học mà có MỐC SINH HOẠT trong ngày, và
+  // gia đình quan tâm nhất là mấy giờ con ăn, mấy giờ con ngủ. Cấu trúc dữ liệu
+  // của app 1 (khung giờ + việc theo từng mốc) tả được đúng như vậy nên giữ
+  // nguyên, chỉ đổi nội dung — không phải tính năng nào cũng cần viết lại.
+  const tt = (hoatDong) => hoatDong; // [hoạt động theo mốc giờ]
   const periodTimes = [
-    { p: 1, time: '07:30 – 08:05' }, { p: 2, time: '08:10 – 08:45' }, { p: 3, time: '09:00 – 09:35' },
-    { p: 4, time: '09:40 – 10:15' }, { p: 5, time: '14:00 – 14:35' }, { p: 6, time: '14:40 – 15:15' }, { p: 7, time: '15:25 – 16:00' },
+    { p: 1, time: '07:00 – 08:00' }, { p: 2, time: '08:00 – 08:30' }, { p: 3, time: '08:30 – 09:15' },
+    { p: 4, time: '09:15 – 10:30' }, { p: 5, time: '10:30 – 11:15' }, { p: 6, time: '11:15 – 14:00' }, { p: 7, time: '14:00 – 16:30' },
   ];
   const timetable = [
     {
       classId: 'c1',
       periodTimes,
       days: {
-        1: tt(['Chào cờ', 'Toán', 'Tiếng Việt', 'Tiếng Việt', 'Đạo đức', 'Tự nhiên & Xã hội', 'Ôn tập']),
-        2: tt(['Toán', 'Tiếng Việt', 'Tiếng Anh', 'Tiếng Anh', 'Mỹ thuật', 'Toán (ôn)', 'Hoạt động trải nghiệm']),
-        3: tt(['Tiếng Việt', 'Toán', 'Thể dục', 'Tự nhiên & Xã hội', 'Tin học', 'Tiếng Việt (ôn)', 'Đọc sách thư viện']),
-        4: tt(['Toán', 'Tiếng Anh', 'Tiếng Việt', 'Âm nhạc', 'Thể dục', 'Toán (ôn)', 'Câu lạc bộ']),
-        5: tt(['Tiếng Việt', 'Toán', 'Tin học', 'Tiếng Việt', 'Hoạt động trải nghiệm', 'Sinh hoạt lớp', '—']),
+        1: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Khám phá: Trường mầm non của bé', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Chơi góc · Trả bé']),
+        2: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Tạo hình: Vẽ và nặn', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Kể chuyện · Trả bé']),
+        3: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Âm nhạc: Hát và vận động', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Chơi góc · Trả bé']),
+        4: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Làm quen với sách và chữ', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Chơi vận động · Trả bé']),
+        5: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Bé tập làm nội trợ', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Nêu gương cuối tuần · Trả bé']),
       },
     },
     {
       classId: 'c2',
       periodTimes,
       days: {
-        1: tt(['Chào cờ', 'Toán', 'Tiếng Việt', 'Khoa học', 'Đạo đức', 'Lịch sử & Địa lý', 'Ôn tập']),
-        2: tt(['Toán', 'Tiếng Việt', 'Tiếng Anh', 'Tiếng Anh', 'Tin học', 'Khoa học', 'Hoạt động trải nghiệm']),
-        3: tt(['Tiếng Việt', 'Toán', 'Thể dục', 'Lịch sử & Địa lý', 'Mỹ thuật', 'Toán (ôn)', 'Đọc sách thư viện']),
-        4: tt(['Toán', 'Tiếng Anh', 'Tiếng Việt', 'Âm nhạc', 'Thể dục', 'Tiếng Việt (ôn)', 'Câu lạc bộ']),
-        5: tt(['Tiếng Việt', 'Toán', 'Tin học', 'Khoa học', 'Hoạt động trải nghiệm', 'Sinh hoạt lớp', '—']),
+        1: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Khám phá: Nước và hiện tượng tự nhiên', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Chơi góc · Trả bé']),
+        2: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Làm quen chữ cái', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Kể chuyện · Trả bé']),
+        3: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Làm quen với toán: Đếm và so sánh', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Chơi góc · Trả bé']),
+        4: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Tạo hình: Cắt dán', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Ăn xế · Chơi vận động · Trả bé']),
+        5: tt(['Đón bé, chơi tự chọn', 'Thể dục sáng', 'Ăn sáng', 'Bé chuẩn bị vào lớp 1', 'Chơi ngoài trời', 'Ăn trưa · Ngủ trưa', 'Nêu gương cuối tuần · Trả bé']),
       },
     },
   ];
 
   // ---- Nhận xét hằng ngày ----
+  // Viết theo QUY TẮC 1: MÔ TẢ điều cô đã thấy, không phán xét con.
+  // Câu mở đầu luôn là việc quan sát được, không phải lời khen chung chung.
   const remarkTexts = [
-    { content: 'Con học tập tập trung, hăng hái phát biểu xây dựng bài. Con ăn hết suất và ngủ trưa ngoan.', rating: 'great' },
-    { content: 'Con hoàn thành tốt bài tập trên lớp. Giờ ăn trưa con hơi chậm, cô đã động viên con.', rating: 'good' },
-    { content: 'Con tích cực tham gia hoạt động nhóm, biết giúp đỡ bạn. Cô khen con trước lớp.', rating: 'great' },
-    { content: 'Hôm nay con còn nói chuyện riêng trong giờ học, cô nhắc nhở và con đã sửa ngay. Mong gia đình động viên thêm.', rating: 'needs_effort' },
-    { content: 'Con viết bài sạch đẹp, đọc to rõ ràng. Con vui vẻ hòa đồng với các bạn.', rating: 'great' },
-    { content: 'Con làm toán còn vài lỗi nhỏ do vội, cô đã hướng dẫn con kiểm tra lại bài. Con tiếp thu nhanh.', rating: 'good' },
+    { content: 'Hôm nay con tự xúc hết bát cơm mà không cần cô nhắc, ngủ trưa một mạch tới 14 giờ.', rating: 'great' },
+    { content: 'Giờ chơi góc, con xếp khối gỗ thành một cái cầu rồi cho ô tô chạy qua, làm đi làm lại bốn lần.', rating: 'great' },
+    { content: 'Con rủ bạn Gia Hân cùng chơi bán hàng, hai bạn chơi với nhau gần hết giờ hoạt động góc.', rating: 'great' },
+    { content: 'Sáng nay con khóc khi mẹ về, cô bế con ra xem cá khoảng năm phút thì con nín và vào chơi cùng các bạn.', rating: 'good' },
+    { content: 'Con còn nhờ cô xúc giúp mấy thìa cuối bữa trưa. Cô để con tự xúc trước rồi mới giúp phần còn lại.', rating: 'good' },
+    { content: 'Con cất dép vào đúng ô của mình, không cần cô nhắc. Ba hôm nay con đều tự làm việc này.', rating: 'great' },
   ];
-  const skillsPool = [['Tập trung', 'Phát biểu'], ['Hợp tác nhóm'], ['Chữ viết', 'Đọc hiểu'], ['Tự phục vụ'], ['Lễ phép'], ['Sáng tạo']];
+  // Lĩnh vực phát triển theo chương trình mầm non — cô gắn SAU khi đã mô tả,
+  // và có thể không gắn (QUY TẮC 1: quan sát ≠ đánh giá).
+  const skillsPool = [['Tự phục vụ'], ['Nhận thức', 'Sáng tạo'], ['Tình cảm — kỹ năng xã hội'], ['Ngôn ngữ'], ['Thể chất'], ['Thẩm mỹ']];
   const remarks = [];
   let rmId = 1;
   students.forEach((s, si) => {
@@ -211,9 +238,23 @@ function generate() {
   });
 
   // ---- Báo cáo học tập ----
-  const subjectSet3 = ['Toán', 'Tiếng Việt', 'Tiếng Anh', 'Tự nhiên & Xã hội', 'Đạo đức', 'Âm nhạc', 'Mỹ thuật', 'Thể dục', 'Tin học'];
-  const subjectSet5 = ['Toán', 'Tiếng Việt', 'Tiếng Anh', 'Khoa học', 'Lịch sử & Địa lý', 'Đạo đức', 'Âm nhạc', 'Mỹ thuật', 'Thể dục', 'Tin học'];
-  const evalLevels = ['Hoàn thành tốt', 'Hoàn thành xuất sắc', 'Hoàn thành'];
+  // KHÔNG MỘT ĐIỂM SỐ NÀO trong dữ liệu mẫu — QUY TẮC 4.
+  //
+  // Cột `score` của bảng `reports` vẫn còn (đó là phân hệ học bạ đời tiểu học,
+  // sẽ gỡ ở N3), nhưng nó là cột TÙY CHỌN, nên dữ liệu mẫu để trống và chỉ dùng
+  // `level` — một câu mô tả. Người mở app lần đầu phải thấy ngay rằng app này
+  // không chấm điểm trẻ; dữ liệu mẫu là thứ họ nhìn trước cả tài liệu.
+  // Tên ngắn, đúng cách cô gọi hằng ngày. Tên dài kiểu "Phát triển tình cảm —
+  // kỹ năng xã hội" xuống dòng ba lần trên màn hình điện thoại, đẩy nút Lưu ra
+  // khỏi tầm tay — thử trên trình duyệt thật mới thấy.
+  const linhVucPhatTrien = ['Thể chất', 'Nhận thức', 'Ngôn ngữ', 'Tình cảm — xã hội', 'Thẩm mỹ'];
+  const subjectSet3 = linhVucPhatTrien;
+  const subjectSet5 = linhVucPhatTrien;
+  const evalLevels = [
+    'Con làm được, thường xuyên',
+    'Con làm được khi có cô gợi ý',
+    'Cô đang tiếp tục quan sát thêm',
+  ];
   const reports = [];
   students.forEach((s, si) => {
     const subs = s.classId === 'c1' ? subjectSet3 : subjectSet5;
@@ -225,17 +266,25 @@ function generate() {
         year: `${YEAR - 1}-${YEAR}`,
         subjects: subs.map((name, i) => ({
           name,
-          score: ['Toán', 'Tiếng Việt', 'Tiếng Anh', 'Khoa học', 'Tin học', 'Lịch sử & Địa lý', 'Tự nhiên & Xã hội'].includes(name) ? 7 + ((si + i + ti) % 4) : null,
+          score: null,   // QUY TẮC 4 — không chấm điểm trẻ
           level: pick(evalLevels, si + i + ti),
           comment: '',
         })),
+        // Ô "Hạnh kiểm" của học bạ đời tiểu học chỉ nhận 4 mức Tốt/Khá/Trung
+        // bình/Cần cố gắng — tức là xếp loại trẻ, đi ngược QUY TẮC 4. Màn hình
+        // đó sẽ gỡ ở N3. Chừng nào chưa gỡ, dữ liệu mẫu để MỌI bé cùng một mức
+        // để không bé nào bị xếp trên hay dưới bé nào.
         conduct: 'Tốt',
-        overall: pick(['Hoàn thành xuất sắc nhiệm vụ học tập', 'Hoàn thành tốt nhiệm vụ học tập'], si + ti),
+        overall: pick([
+          'Con đã quen nền nếp của nhóm, tự phục vụ được phần lớn việc của mình.',
+          'Con mạnh dạn hơn hẳn so với đầu năm, chủ động rủ bạn cùng chơi.',
+        ], si + ti),
         attendanceSummary: { present: 85 + ((si * 3) % 6), absent: (si + ti) % 3, late: si % 2 },
+        // QUY TẮC 5 — mỗi nhận định đi kèm một việc làm được, ở lớp và ở nhà.
         teacherComment: pick([
-          'Con chăm ngoan, tiếp thu bài tốt, tích cực tham gia các hoạt động của lớp. Cần phát huy hơn nữa ở môn Toán.',
-          'Con có nhiều tiến bộ trong học kỳ, đọc viết trôi chảy, tính toán nhanh. Cô mong con mạnh dạn phát biểu hơn.',
-          'Con học đều các môn, có năng khiếu mỹ thuật. Gia đình nhắc con rèn thêm chữ viết nhé.',
+          'Con tự xúc ăn và tự cất dép được rồi. Ở lớp cô sẽ để con tự lấy nước uống; ở nhà gia đình thử cho con tự xúc bữa tối nhé.',
+          'Con thích xếp khối và chơi rất lâu với một thứ. Ở lớp cô sẽ thêm khối vào góc xây dựng; ở nhà nhà mình thử xếp cốc, xếp hộp cùng con.',
+          'Con còn ngại nói trước đông người. Ở lớp cô sẽ mời con kể chuyện trong nhóm nhỏ ba bạn trước; ở nhà gia đình hỏi con "hôm nay con chơi gì" mỗi tối nhé.',
         ], si + ti),
       });
     });
@@ -244,7 +293,7 @@ function generate() {
   // ---- Xe buýt ----
   const busRoutes = [
     {
-      id: 'bus1', name: 'Tuyến 01 – Phú Nhuận', plate: '51B-123.45',
+      id: 'bus1', name: 'Tuyến 01 – Phú Nhuận (Cơ sở 1)', plate: '51B-123.45',
       driver: { name: 'Chú Trần Văn Tám', phone: '0918 000 111' },
       monitor: { name: 'Cô Lê Thị Xuân', phone: '0918 000 222' },
       studentIds: ['s1', 's4', 's6'],
@@ -252,15 +301,15 @@ function generate() {
         { name: 'Ngã tư Phú Nhuận', pickup: '06:40', dropoff: '17:05' },
         { name: 'Chợ Nguyễn Đình Chiểu', pickup: '06:50', dropoff: '16:55' },
         { name: 'Công viên Gia Định', pickup: '07:00', dropoff: '16:45' },
-        { name: 'Trường Tiểu học Ánh Dương', pickup: '07:15', dropoff: '16:35' },
+        { name: 'Trường Mầm non CASA — Cơ sở 1', pickup: '07:15', dropoff: '16:35' },
       ],
       log: [
-        { time: iso(today, 6, 38), text: 'Xe bắt đầu đón học sinh tại Ngã tư Phú Nhuận' },
-        { time: iso(today, 7, 12), text: 'Xe đã về đến trường, đủ sĩ số 3/3 học sinh' },
+        { time: iso(today, 6, 38), text: 'Xe bắt đầu đón bé tại Ngã tư Phú Nhuận' },
+        { time: iso(today, 7, 12), text: 'Xe đã về tới trường, đủ 3/3 bé, cô đã bàn giao cho lớp' },
       ],
     },
     {
-      id: 'bus2', name: 'Tuyến 02 – Bình Thạnh', plate: '51B-678.90',
+      id: 'bus2', name: 'Tuyến 02 – Bình Thạnh (Cơ sở 1)', plate: '51B-678.90',
       driver: { name: 'Chú Ngô Văn Sáu', phone: '0918 333 444' },
       monitor: { name: 'Cô Phan Mỹ Duyên', phone: '0918 555 666' },
       studentIds: ['s2', 's7'],
@@ -268,11 +317,11 @@ function generate() {
         { name: 'Chợ Bà Chiểu', pickup: '06:35', dropoff: '17:10' },
         { name: 'Ngã ba Hàng Xanh', pickup: '06:45', dropoff: '17:00' },
         { name: 'Cầu Thị Nghè', pickup: '06:55', dropoff: '16:50' },
-        { name: 'Trường Tiểu học Ánh Dương', pickup: '07:10', dropoff: '16:35' },
+        { name: 'Trường Mầm non CASA — Cơ sở 1', pickup: '07:10', dropoff: '16:35' },
       ],
       log: [
-        { time: iso(today, 6, 33), text: 'Xe bắt đầu đón học sinh tại Chợ Bà Chiểu' },
-        { time: iso(today, 7, 8), text: 'Xe đã về đến trường, đủ sĩ số 2/2 học sinh' },
+        { time: iso(today, 6, 33), text: 'Xe bắt đầu đón bé tại Chợ Bà Chiểu' },
+        { time: iso(today, 7, 8), text: 'Xe đã về tới trường, đủ 2/2 bé, cô đã bàn giao cho lớp' },
       ],
     },
   ];
@@ -280,12 +329,18 @@ function generate() {
   // ---- Nề nếp ----
   const conduct = [];
   let cdId = 1;
+  // MỌI bản ghi đều `points: 0` — QUY TẮC 4, không xếp hạng trẻ.
+  //
+  // Phân hệ Nề nếp cộng điểm rồi xếp hạng cả lớp là phần của app 1 tiểu học, sẽ
+  // gỡ ở N3. Chừng nào chưa gỡ, dữ liệu mẫu tuyệt đối không được tiếp tay: để
+  // điểm bằng 0 hết thì bảng xếp hạng phẳng lì, không bé nào đứng trên bé nào.
+  // Nội dung cũng đổi sang MÔ TẢ việc đã thấy thay vì tuyên dương/nhắc nhở.
   const conductItems = [
-    { type: 'praise', title: 'Tuyên dương giữ gìn vệ sinh lớp học', content: 'Con chủ động nhặt rác và sắp xếp kệ sách gọn gàng.', points: 10 },
-    { type: 'praise', title: 'Gương mặt tiêu biểu tuần', content: 'Con đạt nhiều hoa điểm tốt trong tuần, gương mẫu trong giờ tự quản.', points: 20 },
-    { type: 'reminder', title: 'Nhắc nhở đồng phục', content: 'Con quên đeo khăn quàng, gia đình nhắc con chuẩn bị trước khi đến lớp nhé.', points: -5 },
-    { type: 'praise', title: 'Giúp đỡ bạn học tập', content: 'Con hướng dẫn bạn cùng bàn làm bài tập toán rất nhiệt tình.', points: 15 },
-    { type: 'reminder', title: 'Nhắc nhở xếp hàng', content: 'Con còn đùa nghịch khi xếp hàng xuống sân, cô đã nhắc nhở.', points: -5 },
+    { type: 'praise', title: 'Con tự cất dép vào đúng ô', content: 'Sáng nay con vào lớp, tự tháo dép và để vào ô có ảnh của mình, không cần cô nhắc.', points: 0 },
+    { type: 'praise', title: 'Con giúp bạn lau bàn sau giờ ăn', content: 'Ăn xong con lấy khăn lau chỗ mình ngồi rồi lau giúp cả chỗ bạn ngồi cạnh.', points: 0 },
+    { type: 'reminder', title: 'Con chưa quen chờ tới lượt', content: 'Ở góc xây dựng con muốn lấy khối bạn đang cầm. Cô ngồi xuống cùng hai bạn và hướng dẫn con hỏi mượn.', points: 0 },
+    { type: 'praise', title: 'Con kể lại được câu chuyện vừa nghe', content: 'Cuối giờ con kể lại chuyện Ba chú lợn con cho các bạn, nhớ đúng thứ tự.', points: 0 },
+    { type: 'reminder', title: 'Con còn ngại rửa tay bằng xà phòng', content: 'Con rửa rất nhanh rồi bỏ đi. Cô rửa cùng con và đếm tới 20, hôm nay con làm theo được.', points: 0 },
   ];
   students.forEach((s, si) => {
     recentWeekdays(15).forEach((d, di) => {
@@ -299,35 +354,35 @@ function generate() {
   const surveys = [
     {
       id: 'sv1',
-      title: 'Khảo sát chất lượng bữa ăn bán trú',
-      description: 'Nhà trường mong nhận được ý kiến của quý phụ huynh về chất lượng bữa ăn bán trú học kỳ này để phục vụ các con tốt hơn.',
+      title: 'Khảo sát bữa ăn của bé tại trường',
+      description: 'Nhà trường mong nhận được ý kiến của gia đình về bữa ăn của các bé, để bếp điều chỉnh cho hợp khẩu vị lứa tuổi.',
       createdBy: 't1', createdAt: iso(daysAgo(3), 9, 0), deadline: fmt(daysAhead(5)),
       audience: 'all', status: 'open',
       questions: [
         { id: 'q1', text: 'Mức độ hài lòng của gia đình về thực đơn hiện tại?', type: 'choice', options: ['Rất hài lòng', 'Hài lòng', 'Bình thường', 'Chưa hài lòng'] },
-        { id: 'q2', text: 'Con có thường kể về bữa ăn ở trường không?', type: 'choice', options: ['Thường xuyên', 'Thỉnh thoảng', 'Hiếm khi'] },
-        { id: 'q3', text: 'Gia đình muốn bổ sung món ăn nào vào thực đơn?', type: 'text' },
+        { id: 'q2', text: 'Bé có kể về bữa ăn ở trường khi về nhà không?', type: 'choice', options: ['Thường xuyên', 'Thỉnh thoảng', 'Hiếm khi'] },
+        { id: 'q3', text: 'Gia đình muốn bếp bổ sung món nào cho bé?', type: 'text' },
       ],
       responses: [
-        { userId: 'p2', studentId: 's3', submittedAt: iso(daysAgo(1), 20, 30), answers: { q1: 'Hài lòng', q2: 'Thường xuyên', q3: 'Mong có thêm món súp và trái cây đa dạng hơn.' } },
+        { userId: 'p2', studentId: 's3', submittedAt: iso(daysAgo(1), 20, 30), answers: { q1: 'Hài lòng', q2: 'Thường xuyên', q3: 'Mong bếp có thêm món súp và trái cây mềm cho bé dễ ăn.' } },
         { userId: 'p4', studentId: 's5', submittedAt: iso(daysAgo(2), 21, 10), answers: { q1: 'Rất hài lòng', q2: 'Thỉnh thoảng', q3: 'Không có, thực đơn hiện tại rất tốt.' } },
       ],
     },
     {
       id: 'sv2',
-      title: 'Đăng ký câu lạc bộ ngoại khóa học kỳ mới',
-      description: 'Phụ huynh vui lòng cho biết nguyện vọng đăng ký câu lạc bộ ngoại khóa cho con (Cờ vua, Bóng rổ, Mỹ thuật, STEM, Aerobic).',
+      title: 'Đăng ký hoạt động ngoài giờ cho bé',
+      description: 'Gia đình cho biết nguyện vọng đăng ký hoạt động ngoài giờ cho bé (Aerobic, Vẽ, Âm nhạc, Bé khéo tay).',
       createdBy: 't1', createdAt: iso(daysAgo(12), 8, 0), deadline: fmt(daysAgo(2)),
       audience: 'all', status: 'closed',
       questions: [
-        { id: 'q1', text: 'Gia đình đăng ký câu lạc bộ nào cho con?', type: 'choice', options: ['Cờ vua', 'Bóng rổ', 'Mỹ thuật', 'STEM', 'Aerobic', 'Không đăng ký'] },
-        { id: 'q2', text: 'Khung giờ phù hợp để đón con sau giờ CLB?', type: 'choice', options: ['16:30', '17:00', '17:30'] },
+        { id: 'q1', text: 'Gia đình đăng ký hoạt động nào cho bé?', type: 'choice', options: ['Aerobic', 'Vẽ', 'Âm nhạc', 'Bé khéo tay', 'Không đăng ký'] },
+        { id: 'q2', text: 'Mấy giờ gia đình đón bé được?', type: 'choice', options: ['16:30', '17:00', '17:30'] },
       ],
       responses: [
-        { userId: 'p1', studentId: 's1', submittedAt: iso(daysAgo(10), 19, 0), answers: { q1: 'STEM', q2: '17:00' } },
-        { userId: 'p2', studentId: 's3', submittedAt: iso(daysAgo(9), 18, 30), answers: { q1: 'Mỹ thuật', q2: '16:30' } },
-        { userId: 'p3', studentId: 's4', submittedAt: iso(daysAgo(9), 21, 45), answers: { q1: 'Bóng rổ', q2: '17:30' } },
-        { userId: 'p6', studentId: 's7', submittedAt: iso(daysAgo(8), 20, 0), answers: { q1: 'Cờ vua', q2: '17:00' } },
+        { userId: 'p1', studentId: 's1', submittedAt: iso(daysAgo(10), 19, 0), answers: { q1: 'Âm nhạc', q2: '17:00' } },
+        { userId: 'p2', studentId: 's3', submittedAt: iso(daysAgo(9), 18, 30), answers: { q1: 'Vẽ', q2: '16:30' } },
+        { userId: 'p3', studentId: 's4', submittedAt: iso(daysAgo(9), 21, 45), answers: { q1: 'Aerobic', q2: '17:30' } },
+        { userId: 'p6', studentId: 's7', submittedAt: iso(daysAgo(8), 20, 0), answers: { q1: 'Bé khéo tay', q2: '17:00' } },
       ],
     },
   ];
@@ -337,11 +392,13 @@ function generate() {
   let htId = 1;
   students.forEach((s, si) => {
     health.push(
-      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(40 + si)), type: 'checkup', title: 'Khám sức khỏe định kỳ đầu năm', detail: 'Sức khỏe tổng quát tốt. Răng miệng bình thường.', height: s.classId === 'c1' ? 128 + si : 140 + si, weight: s.classId === 'c1' ? 26 + si : 34 + si, vision: '10/10', bmiNote: 'Cân đối' },
-      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(70 + si)), type: 'vaccination', title: 'Tiêm nhắc vắc-xin Sởi – Rubella', detail: 'Tiêm tại trường theo chương trình y tế học đường. Không phản ứng phụ.' },
+      // Chiều cao / cân nặng đúng lứa 4–6 tuổi. Số liệu sai lứa tuổi là thứ cô
+      // và y tế trường nhận ra ngay, và nhận ra là mất tin vào cả bộ dữ liệu.
+      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(40 + si)), type: 'checkup', title: 'Cân đo định kỳ đầu năm', detail: 'Bé ăn ngủ bình thường, răng miệng sạch. Không có gì bất thường.', height: s.classId === 'c1' ? 102 + si : 110 + si, weight: s.classId === 'c1' ? 16 + si : 19 + si, vision: 'Bình thường', bmiNote: 'Cân đối theo tuổi' },
+      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(70 + si)), type: 'vaccination', title: 'Tiêm nhắc vắc-xin Sởi – Rubella', detail: 'Tiêm tại trạm y tế phường, gia đình gửi lại sổ tiêm cho nhà trường. Không phản ứng phụ.' },
     );
     if (si % 3 === 0) {
-      health.push({ id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(6)), type: 'incident', title: 'Trầy xước nhẹ khi chơi ở sân trường', detail: 'Con bị trầy nhẹ ở đầu gối, y tế trường đã sát khuẩn và dán băng cá nhân. Con vui vẻ trở lại lớp ngay sau đó.' });
+      health.push({ id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(6)), type: 'incident', title: 'Trầy nhẹ đầu gối khi chơi ngoài trời', detail: 'Bé ngã khi chạy ở sân cỏ, trầy nhẹ đầu gối. Y tế trường rửa sạch và dán băng cá nhân, bé nín ngay và vào chơi tiếp. Cô đã nhắn báo gia đình lúc 09:40.' });
     }
   });
 
@@ -354,15 +411,15 @@ function generate() {
         { name: 'Siro ho Prospan', dose: '5ml', timing: 'Sau bữa trưa' },
         { name: 'Vitamin C 500mg', dose: '1 viên', timing: 'Sau bữa xế' },
       ],
-      note: 'Con mới hết ho, nhờ cô cho con uống đúng giờ giúp gia đình. Thuốc để trong ba lô, ngăn trước.',
+      note: 'Bé mới hết ho, nhờ cô cho bé uống đúng giờ giúp gia đình. Thuốc để trong ba lô, ngăn trước, có dán tên bé.',
       status: 'received', createdAt: iso(daysAgo(0), 6, 50), confirmedBy: 't1', confirmedAt: iso(daysAgo(0), 7, 40),
-      log: [{ time: iso(daysAgo(0), 11, 15), text: 'Đã cho con uống Siro ho Prospan sau bữa trưa' }],
+      log: [{ time: iso(daysAgo(0), 11, 15), text: 'Cô đã cho bé uống Siro ho Prospan sau bữa trưa' }],
     },
     {
       id: 'md_2', studentId: 's3', parentId: 'p2',
       fromDate: fmt(daysAgo(5)), toDate: fmt(daysAgo(3)),
       medicines: [{ name: 'Men vi sinh Enterogermina', dose: '1 ống', timing: 'Trước bữa trưa 30 phút' }],
-      note: 'Con hơi rối loạn tiêu hóa, bác sĩ kê men vi sinh 3 ngày.',
+      note: 'Bé hơi rối loạn tiêu hóa, bác sĩ kê men vi sinh 3 ngày.',
       status: 'done', createdAt: iso(daysAgo(5), 7, 0), confirmedBy: 't1', confirmedAt: iso(daysAgo(5), 7, 30),
       log: [{ time: iso(daysAgo(3), 11, 0), text: 'Hoàn tất đợt uống thuốc theo dặn của gia đình' }],
     },
@@ -371,48 +428,48 @@ function generate() {
   // ---- Album ảnh (ảnh minh họa bằng gradient + emoji) ----
   const albums = [
     {
-      id: 'al1', classId: 'c1', title: 'Lễ khai giảng năm học ' + schoolYear, date: fmt(daysAgo(25)),
-      description: 'Những khoảnh khắc đáng nhớ của các con trong ngày khai giảng năm học mới.',
+      id: 'al1', classId: 'c1', title: 'Ngày hội đến trường của bé ' + schoolYear, date: fmt(daysAgo(25)),
+      description: 'Buổi sáng đầu tiên của năm học mới ở nhóm Chồi 2.',
       createdBy: 't1',
       photos: [
         { id: 'ph1', emoji: '🎈', g: ['#ff9a9e', '#fad0c4'], caption: 'Cổng trường rực rỡ cờ hoa' },
         { id: 'ph2', emoji: '🥁', g: ['#a18cd1', '#fbc2eb'], caption: 'Tiết mục trống hội khai trường' },
-        { id: 'ph3', emoji: '🎓', g: ['#84fab0', '#8fd3f4'], caption: 'Các con lớp 3A chào đón năm học mới' },
+        { id: 'ph3', emoji: '🧸', g: ['#84fab0', '#8fd3f4'], caption: 'Các bé nhóm Chồi 2 ngày đầu tới lớp' },
         { id: 'ph4', emoji: '🎏', g: ['#ffecd2', '#fcb69f'], caption: 'Thả bóng bay ước mơ' },
-        { id: 'ph5', emoji: '📚', g: ['#89f7fe', '#66a6ff'], caption: 'Nhận sách vở đầu năm' },
-        { id: 'ph6', emoji: '🤝', g: ['#fddb92', '#d1fdff'], caption: 'Chụp ảnh cùng cô chủ nhiệm' },
+        { id: 'ph5', emoji: '🎒', g: ['#89f7fe', '#66a6ff'], caption: 'Bé tự cất ba lô vào ô của mình' },
+        { id: 'ph6', emoji: '🤝', g: ['#fddb92', '#d1fdff'], caption: 'Chụp ảnh cùng cô Mai Anh và cô Bích Ngọc' },
       ],
     },
     {
-      id: 'al2', classId: 'c1', title: 'Hoạt động trải nghiệm: Một ngày làm nông dân', date: fmt(daysAgo(11)),
-      description: 'Các con được tự tay trồng rau, thu hoạch củ quả tại nông trại giáo dục.',
+      id: 'al2', classId: 'c1', title: 'Bé tập làm vườn ở góc thiên nhiên', date: fmt(daysAgo(11)),
+      description: 'Cả nhóm gieo hạt, tưới cây và quan sát góc thiên nhiên của lớp suốt hai tuần.',
       createdBy: 't1',
       photos: [
         { id: 'ph7', emoji: '🌱', g: ['#d4fc79', '#96e6a1'], caption: 'Gieo hạt trồng rau' },
         { id: 'ph8', emoji: '🥕', g: ['#fbc2eb', '#a6c1ee'], caption: 'Thu hoạch cà rốt' },
-        { id: 'ph9', emoji: '🐄', g: ['#fdfbfb', '#ebedee'], caption: 'Thăm chuồng bò sữa' },
+        { id: 'ph9', emoji: '💧', g: ['#fdfbfb', '#ebedee'], caption: 'Bé tự tưới cây mỗi sáng' },
         { id: 'ph10', emoji: '🍅', g: ['#ff9a9e', '#fecfef'], caption: 'Hái cà chua chín' },
-        { id: 'ph11', emoji: '😄', g: ['#a1c4fd', '#c2e9fb'], caption: 'Giờ ăn trưa dã ngoại' },
+        { id: 'ph11', emoji: '😄', g: ['#a1c4fd', '#c2e9fb'], caption: 'Ăn xế ngay ở sân trường' },
       ],
     },
     {
-      id: 'al3', classId: 'c2', title: 'Hội thao chào mừng 20/11', date: fmt(daysAgo(18)),
-      description: 'Lớp 5B thi đấu kéo co, nhảy bao bố và tiếp sức chào mừng ngày Nhà giáo Việt Nam.',
+      id: 'al3', classId: 'c2', title: 'Ngày hội vận động của nhóm Lá 1', date: fmt(daysAgo(18)),
+      description: 'Các bé nhóm Lá 1 chơi ném vòng, bò chui ống và kéo co cùng cô.',
       createdBy: 't2',
       photos: [
-        { id: 'ph12', emoji: '🏃', g: ['#f6d365', '#fda085'], caption: 'Chạy tiếp sức 4x100m' },
-        { id: 'ph13', emoji: '💪', g: ['#84fab0', '#8fd3f4'], caption: 'Kéo co gay cấn' },
-        { id: 'ph14', emoji: '🏆', g: ['#fccb90', '#d57eeb'], caption: 'Lớp 5B đạt giải Nhì toàn đoàn' },
-        { id: 'ph15', emoji: '🎖️', g: ['#e0c3fc', '#8ec5fc'], caption: 'Trao huy chương' },
+        { id: 'ph12', emoji: '🏃', g: ['#f6d365', '#fda085'], caption: 'Bé bò chui qua ống' },
+        { id: 'ph13', emoji: '💪', g: ['#84fab0', '#8fd3f4'], caption: 'Kéo co cùng cô' },
+        { id: 'ph14', emoji: '🪀', g: ['#fccb90', '#d57eeb'], caption: 'Trò chơi ném vòng cổ chai' },
+        { id: 'ph15', emoji: '🎈', g: ['#e0c3fc', '#8ec5fc'], caption: 'Cả nhóm cùng thả bóng' },
       ],
     },
     {
-      id: 'al4', classId: 'c1', title: 'Sinh nhật các bạn tháng này', date: fmt(daysAgo(2)),
-      description: 'Cả lớp cùng chúc mừng sinh nhật các bạn, ăn bánh kem và chơi trò chơi.',
+      id: 'al4', classId: 'c1', title: 'Sinh nhật các bé tháng này', date: fmt(daysAgo(2)),
+      description: 'Cả nhóm cùng hát mừng sinh nhật các bé, ăn bánh và chơi trò chơi.',
       createdBy: 't1',
       photos: [
         { id: 'ph16', emoji: '🎂', g: ['#ffd1ff', '#fad0c4'], caption: 'Thổi nến sinh nhật' },
-        { id: 'ph17', emoji: '🎁', g: ['#a8edea', '#fed6e3'], caption: 'Tặng quà cho bạn' },
+        { id: 'ph17', emoji: '🎁', g: ['#a8edea', '#fed6e3'], caption: 'Bé tự tay tặng quà cho bạn' },
         { id: 'ph18', emoji: '🥳', g: ['#fff1eb', '#ace0f9'], caption: 'Cùng nhau ca hát' },
       ],
     },
@@ -423,39 +480,39 @@ function generate() {
   const eduPlans = [
     {
       id: 'ep1', classId: 'c1', month: m0, year: today.getFullYear(),
-      theme: 'Em yêu trường em',
-      goals: ['Rèn nền nếp tự quản, xếp hàng nhanh nhẹn', 'Hoàn thành bảng nhân chia trong phạm vi 1000', 'Đọc trôi chảy và kể lại được câu chuyện đã học', 'Biết giữ gìn vệ sinh cá nhân và lớp học'],
+      theme: 'Trường mầm non của bé',
+      goals: ['Bé nhớ tên cô, tên bạn và tên nhóm của mình', 'Bé tự cất ba lô, cất dép vào đúng ô', 'Bé tự xúc ăn và tự uống nước', 'Bé biết rửa tay bằng xà phòng trước khi ăn'],
       weeks: [
-        { week: 1, focus: 'Ổn định nền nếp, ôn tập kiến thức', activities: 'Ôn bảng nhân chia; luyện đọc nhóm đôi; trang trí góc học tập của lớp.' },
-        { week: 2, focus: 'Chủ đề "Trường học thân thiện"', activities: 'Vẽ tranh về trường em; thi kể chuyện theo tranh; sinh hoạt CLB đọc sách.' },
-        { week: 3, focus: 'Học qua trải nghiệm', activities: 'Thực hành đo độ dài trong sân trường; chăm sóc bồn hoa lớp phụ trách.' },
-        { week: 4, focus: 'Tổng kết chủ đề', activities: 'Trưng bày sản phẩm học tập; đánh giá nhận xét cuối tháng; khen thưởng gương tiêu biểu.' },
+        { week: 1, focus: 'Làm quen cô, bạn và các góc chơi', activities: 'Chơi trò gọi tên; cô dẫn bé đi thăm từng góc; tập cất ba lô vào ô có ảnh của mình.' },
+        { week: 2, focus: 'Bé tự phục vụ', activities: 'Tập tự xúc ăn; tập rửa tay theo sáu bước, cô đếm cùng bé tới 20; tập tự kéo ghế.' },
+        { week: 3, focus: 'Bé chơi cùng bạn', activities: 'Chơi đóng vai bán hàng theo nhóm ba bé; xây nhà bằng khối gỗ; hát và vận động theo nhạc.' },
+        { week: 4, focus: 'Nhìn lại một tháng', activities: 'Trưng bày tranh bé vẽ ở góc phụ huynh; cô ghi lại một khoảnh khắc của từng bé để kể cho gia đình.' },
       ],
-      note: 'Rất mong quý phụ huynh đồng hành nhắc con ôn bảng nhân chia mỗi tối 10 phút.',
+      note: 'Ở nhà gia đình thử để bé tự xúc bữa tối và tự cất dép nhé — ở lớp bé đang tập đúng hai việc này.',
       createdBy: 't1',
     },
     {
       id: 'ep2', classId: 'c2', month: m0, year: today.getFullYear(),
-      theme: 'Em là đội viên chăm ngoan',
-      goals: ['Nắm vững phân số và các phép tính với phân số', 'Viết được bài văn tả cảnh hoàn chỉnh', 'Rèn kỹ năng thuyết trình trước lớp', 'Tích cực tham gia phong trào Đội'],
+      theme: 'Bé chuẩn bị vào lớp 1',
+      goals: ['Bé ngồi vào bàn làm một việc trong 15 phút', 'Bé nhận ra tên mình khi nhìn thấy chữ', 'Bé tự đi vệ sinh và tự mặc áo khoác', 'Bé kể lại được việc đã xảy ra trong ngày'],
       weeks: [
-        { week: 1, focus: 'Củng cố kiến thức nền', activities: 'Ôn tập phân số; luyện viết đoạn mở bài, kết bài; sinh hoạt Đội đầu tháng.' },
-        { week: 2, focus: 'Dự án nhóm "Quê hương em"', activities: 'Sưu tầm tư liệu về địa phương; làm poster nhóm; thuyết trình trước lớp.' },
-        { week: 3, focus: 'Ứng dụng thực tế', activities: 'Toán thực tế: tính chu vi diện tích vườn trường; viết bài tả cảnh sân trường giờ ra chơi.' },
-        { week: 4, focus: 'Tổng kết và đánh giá', activities: 'Kiểm tra cuối tháng; bình chọn đội viên tiêu biểu; chuẩn bị chủ đề tháng sau.' },
+        { week: 1, focus: 'Ngồi vào bàn và làm cho xong', activities: 'Tô màu theo nét; xâu hạt theo mẫu; cô ngồi cạnh nhắc bé làm nốt phần còn lại.' },
+        { week: 2, focus: 'Làm quen mặt chữ', activities: 'Tìm tên mình trong ô đựng đồ; ghép chữ cái đầu của tên; nghe và kể lại chuyện.' },
+        { week: 3, focus: 'Bé tự làm việc của mình', activities: 'Tự mặc và cởi áo khoác; tự chuẩn bị chỗ ngủ trưa; tự rót nước.' },
+        { week: 4, focus: 'Nhìn lại một tháng', activities: 'Bé kể lại một ngày ở lớp cho cả nhóm nghe; cô ghi lại và gửi về cho gia đình.' },
       ],
-      note: 'Phụ huynh hỗ trợ con sưu tầm hình ảnh, tư liệu về quê hương cho dự án tuần 2 nhé.',
+      note: 'Buổi tối gia đình thử hỏi bé "hôm nay con chơi gì" và chờ bé kể hết — đó chính là việc nhóm đang tập ở tuần 4.',
       createdBy: 't2',
     },
   ];
 
   // ---- Thông báo ----
   const notifications = [
-    { id: 'nt1', title: 'Thông báo nghỉ Lễ Quốc khánh 2/9', body: 'Nhà trường thông báo lịch nghỉ Lễ Quốc khánh: học sinh nghỉ học từ ngày 01/09 đến hết ngày 02/09. Lịch học trở lại bình thường vào ngày kế tiếp. Kính chúc quý gia đình kỳ nghỉ lễ vui vẻ, an toàn.', category: 'Nhà trường', audience: 'all', createdBy: 't1', createdAt: iso(daysAgo(1), 10, 0), pinned: true, readBy: [] },
-    { id: 'nt2', title: 'Thu học phí và tiền ăn bán trú tháng này', body: 'Kính mời quý phụ huynh hoàn tất học phí và tiền ăn bán trú trước ngày 10. Phụ huynh có thể chuyển khoản qua tài khoản của trường hoặc đóng trực tiếp tại phòng kế toán. Chi tiết đã gửi trong sổ liên lạc của từng con.', category: 'Học phí', audience: 'all', createdBy: 't1', createdAt: iso(daysAgo(2), 8, 30), pinned: false, readBy: ['p2'] },
-    { id: 'nt3', title: 'Lớp 3A: Chuẩn bị đồ dùng tiết Mỹ thuật thứ Ba', body: 'Cô nhờ gia đình chuẩn bị cho con: giấy A4, màu sáp, kéo và hồ dán cho tiết Mỹ thuật sáng thứ Ba tuần này. Các con sẽ làm sản phẩm thủ công chủ đề "Trường em".', category: 'Lớp học', audience: 'c1', createdBy: 't1', createdAt: iso(daysAgo(0), 7, 45), pinned: false, readBy: [] },
-    { id: 'nt4', title: 'Lịch khám sức khỏe định kỳ học kỳ này', body: 'Trạm y tế phường phối hợp cùng nhà trường tổ chức khám sức khỏe định kỳ cho học sinh toàn trường vào tuần sau. Phụ huynh vui lòng cho con ăn sáng đầy đủ trước khi đến trường.', category: 'Y tế', audience: 'all', createdBy: 't2', createdAt: iso(daysAgo(4), 15, 20), pinned: false, readBy: ['p1', 'p2'] },
-    { id: 'nt5', title: 'Lớp 5B: Nộp bài dự thi "Viết về thầy cô"', body: 'Các con lớp 5B hoàn thành bài dự thi viết về thầy cô và nộp cho lớp trưởng trước thứ Sáu tuần này. Bài viết tay trên giấy ô ly, tối thiểu 1 trang.', category: 'Lớp học', audience: 'c2', createdBy: 't2', createdAt: iso(daysAgo(1), 16, 0), pinned: false, readBy: [] },
+    { id: 'nt1', title: 'Thông báo nghỉ Lễ Quốc khánh 2/9', body: 'Nhà trường thông báo lịch nghỉ Lễ Quốc khánh: các bé nghỉ từ ngày 01/09 đến hết ngày 02/09, ngày kế tiếp đón bé bình thường. Kính chúc quý gia đình kỳ nghỉ lễ vui vẻ, an toàn.', category: 'Nhà trường', audience: 'all', createdBy: 't1', createdAt: iso(daysAgo(1), 10, 0), pinned: true, readBy: [] },
+    { id: 'nt2', title: 'Thu học phí và tiền ăn tháng này', body: 'Kính mời quý phụ huynh hoàn tất học phí và tiền ăn trước ngày 10. Gia đình có thể chuyển khoản qua tài khoản của trường hoặc đóng trực tiếp tại văn phòng cơ sở 1. Chi tiết từng khoản đã gửi trong mục Học phí của từng bé.', category: 'Học phí', audience: 'all', createdBy: 't1', createdAt: iso(daysAgo(2), 8, 30), pinned: false, readBy: ['p2'] },
+    { id: 'nt3', title: 'Nhóm Chồi 2: gửi thêm một bộ quần áo dự phòng', body: 'Tuần này nhóm mình chơi với nước và cát ở sân, cô nhờ gia đình gửi thêm cho bé một bộ quần áo dự phòng để trong ba lô. Cô sẽ thay cho bé ngay khi bé bị ướt ạ.', category: 'Lớp học', audience: 'c1', createdBy: 't1', createdAt: iso(daysAgo(0), 7, 45), pinned: false, readBy: [] },
+    { id: 'nt4', title: 'Lịch cân đo định kỳ toàn trường', body: 'Nhà trường phối hợp trạm y tế phường cân đo định kỳ cho các bé vào tuần sau. Gia đình cho bé ăn sáng bình thường trước khi tới lớp, kết quả sẽ hiện trong mục Y tế của từng bé.', category: 'Y tế', audience: 'all', createdBy: 't2', createdAt: iso(daysAgo(4), 15, 20), pinned: false, readBy: ['p1', 'p2'] },
+    { id: 'nt5', title: 'Nhóm Lá 1: buổi làm quen với cô giáo lớp 1', body: 'Thứ Sáu tuần này các bé nhóm Lá 1 sẽ sang trường tiểu học bên cạnh, làm quen với cô giáo lớp 1 và ngồi thử vào bàn học. Gia đình cho bé mang giày dễ đi và một chai nước nhé.', category: 'Lớp học', audience: 'c2', createdBy: 't2', createdAt: iso(daysAgo(1), 16, 0), pinned: false, readBy: [] },
   ];
 
   // ---- Hội thoại nhắn tin ----
@@ -463,37 +520,37 @@ function generate() {
     {
       id: 'cv1', type: 'direct', participantIds: ['p1', 't1'],
       messages: [
-        { id: 'ms1', senderId: 'p1', text: 'Chào cô Mai Anh, hôm nay Khang về kể được cô khen bài toán ạ. Gia đình cảm ơn cô nhiều!', createdAt: iso(daysAgo(1), 17, 20) },
-        { id: 'ms2', senderId: 't1', text: 'Chào chị Hà, đúng rồi ạ. Hôm nay con làm nhanh và đúng cả 5 bài, cô tuyên dương con trước lớp. Con dạo này tiến bộ rõ lắm chị ạ.', createdAt: iso(daysAgo(1), 17, 45) },
-        { id: 'ms3', senderId: 'p1', text: 'Dạ vui quá cô ạ. À cô ơi, mai con có tiết Tin học, con cần mang tai nghe không cô?', createdAt: iso(daysAgo(1), 18, 2) },
-        { id: 'ms4', senderId: 't1', text: 'Dạ không cần chị nhé, phòng máy của trường có sẵn tai nghe cho các con rồi ạ.', createdAt: iso(daysAgo(1), 18, 10) },
-        { id: 'ms5', senderId: 't1', text: 'Chị Hà ơi, sáng nay cô đã nhận thuốc và cho Khang uống siro ho sau bữa trưa đúng giờ rồi nhé. Con ăn hết suất, chị yên tâm ạ.', createdAt: iso(daysAgo(0), 12, 30) },
+        { id: 'ms1', senderId: 'p1', text: 'Chào cô Mai Anh, tối qua An về khoe tự xúc hết bát cơm ở lớp ạ. Ở nhà cháu vẫn đòi mẹ đút cô ạ.', createdAt: iso(daysAgo(1), 17, 20) },
+        { id: 'ms2', senderId: 't1', text: 'Chào chị Hà, đúng rồi ạ. Hai hôm nay bé tự xúc hết, cô không phải nhắc. Chị thử ở nhà để bé tự xúc bữa tối, mình ngồi cạnh chứ đừng đút, khoảng một tuần là bé quen ạ.', createdAt: iso(daysAgo(1), 17, 45) },
+        { id: 'ms3', senderId: 'p1', text: 'Dạ em sẽ thử ạ. À cô ơi, mai nhóm mình chơi với nước, em cần gửi thêm gì cho bé không cô?', createdAt: iso(daysAgo(1), 18, 2) },
+        { id: 'ms4', senderId: 't1', text: 'Dạ chị gửi thêm một bộ quần áo dự phòng để trong ba lô giúp cô nhé, bé ướt là cô thay ngay ạ.', createdAt: iso(daysAgo(1), 18, 10) },
+        { id: 'ms5', senderId: 't1', text: 'Chị Hà ơi, sáng nay cô đã nhận thuốc và cho An uống siro ho sau bữa trưa đúng giờ rồi nhé. Bé ăn hết suất, ngủ trưa ngon, chị yên tâm ạ.', createdAt: iso(daysAgo(0), 12, 30) },
       ],
       lastRead: { p1: iso(daysAgo(1), 18, 12), t1: iso(daysAgo(0), 12, 30) },
     },
     {
       id: 'cv2', type: 'direct', participantIds: ['p1', 't2'],
       messages: [
-        { id: 'ms6', senderId: 't2', text: 'Chào chị Hà, tuần này Bảo Ngọc làm bài văn tả cảnh rất tốt, thầy đọc mẫu trước lớp. Thầy gửi lời khen đến gia đình ạ.', createdAt: iso(daysAgo(2), 16, 40) },
-        { id: 'ms7', senderId: 'p1', text: 'Dạ em cảm ơn thầy Hùng ạ. Ở nhà cháu cũng rất thích đọc sách văn học ạ.', createdAt: iso(daysAgo(2), 19, 5) },
+        { id: 'ms6', senderId: 't2', text: 'Chào chị Hà, chiều nay Nam ngồi tô màu liền một mạch gần 20 phút mới đứng dậy — trước đây bé chỉ ngồi được vài phút. Cô ghi lại để gia đình biết ạ.', createdAt: iso(daysAgo(2), 16, 40) },
+        { id: 'ms7', senderId: 'p1', text: 'Dạ em cảm ơn cô Hương ạ. Ở nhà cháu cũng bắt đầu chịu ngồi lâu hơn khi xếp hình ạ.', createdAt: iso(daysAgo(2), 19, 5) },
       ],
       lastRead: { p1: iso(daysAgo(2), 19, 5), t2: iso(daysAgo(2), 19, 6) },
     },
     {
       id: 'cv3', type: 'direct', participantIds: ['p2', 't1'],
       messages: [
-        { id: 'ms8', senderId: 'p2', text: 'Cô ơi, Gia Hân về nhà nói hơi đau bụng, cô để ý giúp em bữa trưa mai của con với ạ.', createdAt: iso(daysAgo(0), 6, 30) },
+        { id: 'ms8', senderId: 'p2', text: 'Cô ơi, tối qua Gia Hân kêu đau bụng một lúc rồi thôi. Mai cô để ý giúp em bữa trưa của bé với ạ.', createdAt: iso(daysAgo(0), 6, 30) },
       ],
       lastRead: { p2: iso(daysAgo(0), 6, 30), t1: iso(daysAgo(3), 8, 0) },
     },
     {
-      id: 'cv4', type: 'group', name: 'Lớp 3A – Thông tin chung', classId: 'c1',
+      id: 'cv4', type: 'group', name: 'Nhóm Chồi 2 – Thông tin chung', classId: 'c1',
       participantIds: ['t1', 'p1', 'p2', 'p3', 'p4', 'p5'],
       messages: [
-        { id: 'ms9', senderId: 't1', text: 'Cô chào cả nhà lớp 3A! Tuần này lớp mình sẽ có tiết trải nghiệm ngoài trời vào thứ Năm, phụ huynh cho con mang theo mũ và chai nước cá nhân nhé.', createdAt: iso(daysAgo(2), 9, 0) },
+        { id: 'ms9', senderId: 't1', text: 'Cô chào cả nhà nhóm Chồi 2! Thứ Năm tuần này nhóm mình chơi ngoài trời cả buổi sáng, gia đình cho bé đội mũ và mang theo một chai nước nhỏ nhé.', createdAt: iso(daysAgo(2), 9, 0) },
         { id: 'ms10', senderId: 'p3', text: 'Dạ cảm ơn cô đã thông báo ạ.', createdAt: iso(daysAgo(2), 9, 25) },
         { id: 'ms11', senderId: 'p4', text: 'Gia đình em đã nắm thông tin. Cảm ơn cô ạ!', createdAt: iso(daysAgo(2), 10, 12) },
-        { id: 'ms12', senderId: 't1', text: 'Cô gửi cả nhà thực đơn tuần mới đã cập nhật trên mục Thực đơn của ứng dụng ạ. Phụ huynh nào có con dị ứng thực phẩm nhắn riêng cho cô nhé.', createdAt: iso(daysAgo(0), 8, 15) },
+        { id: 'ms12', senderId: 't1', text: 'Cô gửi cả nhà thực đơn tuần mới trên mục Thực đơn của ứng dụng ạ. Gia đình nào có bé dị ứng thức ăn nhắn riêng cho cô để cô báo bếp nhé.', createdAt: iso(daysAgo(0), 8, 15) },
       ],
       lastRead: { t1: iso(daysAgo(0), 8, 15), p1: iso(daysAgo(2), 10, 30), p2: iso(daysAgo(2), 9, 30), p3: iso(daysAgo(2), 9, 25), p4: iso(daysAgo(2), 10, 12), p5: iso(daysAgo(3), 7, 0) },
     },

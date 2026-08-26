@@ -43,11 +43,14 @@ let namMoi;
   namMoi = r.data.namMoi;
   check('tính đúng năm học kế tiếp', /^\d{4}-\d{4}$/.test(namMoi) && namMoi !== r.data.namHienTai, { cu: r.data.namHienTai, moi: namMoi });
 
-  const lop3A = r.data.buoc.find(b => b.tenHienTai === 'Lớp 3A');
-  check('Lớp 3A sẽ lên Lớp 4A', lop3A?.tenLopMoi === 'Lớp 4A', lop3A);
-  check('Lớp 3A không phải khối cuối cấp', lop3A?.raTruong === false);
-  const lop5B = r.data.buoc.find(b => b.tenHienTai === 'Lớp 5B');
-  check('Lớp 5B (khối 5) sẽ ra trường', lop5B?.raTruong === true, lop5B);
+  // Mầm non đi theo BẬC (Nhà trẻ → Mầm → Chồi → Lá), không theo số cuối tên
+  // nhóm. Số "2" trong "Chồi 2" là nhóm song song thứ mấy, nên nó phải đi theo
+  // bé sang bậc mới: Chồi 2 → Lá 2. Hết bậc Lá là bé vào lớp 1.
+  const choi2 = r.data.buoc.find(b => b.tenHienTai === 'Chồi 2');
+  check('Chồi 2 sẽ lên Lá 2 — theo bậc, không tăng số', choi2?.tenLopMoi === 'Lá 2', choi2);
+  check('Chồi 2 không phải bậc cuối', choi2?.raTruong === false);
+  const la1 = r.data.buoc.find(b => b.tenHienTai === 'Lá 1');
+  check('Lá 1 là bậc cuối — các bé vào lớp 1', la1?.raTruong === true, la1);
   check('đếm đúng số em lên lớp', r.data.tongLenLop === 5, r.data.tongLenLop);
   check('đếm đúng số em ra trường', r.data.tongRaTruong === 3, r.data.tongRaTruong);
   check('xem trước KHÔNG thay đổi dữ liệu',
@@ -65,8 +68,8 @@ console.log('\n[2] Phân quyền');
 console.log('\n[3] Thực hiện chuyển năm học');
 {
   const truoc = await req('GET', '/api/admin/students', { cookie: A.cookie });
-  const khangTruoc = truoc.data.find(s => s.name === 'Nguyễn Minh Khang');
-  check('Khang đang học Lớp 3A', khangTruoc?.className === 'Lớp 3A', khangTruoc?.className);
+  const anTruoc = truoc.data.find(s => s.name === 'Nguyễn Bảo An');
+  check('bé An đang học nhóm Chồi 2', anTruoc?.className === 'Chồi 2', anTruoc?.className);
 
   const r = await req('POST', '/api/schoolyear/promote', { cookie: A.cookie, body: { namMoi, khoiToiDa: 5 } });
   check('chuyển năm học thành công', r.status === 200, r.data);
@@ -75,9 +78,9 @@ console.log('\n[3] Thực hiện chuyển năm học');
   check('tạo lớp mới cho năm sau', r.data?.lopTao >= 1, r.data?.lopTao);
 
   const sau = await req('GET', '/api/admin/students', { cookie: A.cookie });
-  const khangSau = sau.data.find(s => s.name === 'Nguyễn Minh Khang');
-  check('Khang đã lên Lớp 4A', khangSau?.className === 'Lớp 4A', khangSau?.className);
-  check('học sinh đang học còn 5 em', sau.data.length === 5, sau.data.length);
+  const anSau = sau.data.find(s => s.name === 'Nguyễn Bảo An');
+  check('bé An đã lên nhóm Lá 2', anSau?.className === 'Lá 2', anSau?.className);
+  check('còn 5 bé đang học', sau.data.length === 5, sau.data.length);
 
   const ov = await req('GET', '/api/admin/overview', { cookie: A.cookie });
   check('năm học của trường đã cập nhật', ov.data.school.currentYear === namMoi, ov.data?.school?.currentYear);
@@ -92,9 +95,9 @@ console.log('\n[4] Học sinh ra trường vẫn tra cứu được');
 {
   const r = await req('GET', '/api/schoolyear/alumni', { cookie: A.cookie });
   check('xem được danh sách đã ra trường', r.status === 200 && r.data.length === 3, r.data?.length);
-  const ngoc = r.data.find(s => s.name === 'Nguyễn Bảo Ngọc');
-  check('có ngày rời trường', !!ngoc?.leftAt, ngoc?.leftAt);
-  check('vẫn giữ liên kết phụ huynh', ngoc?.parentIds?.length === 1, ngoc?.parentIds);
+  const nam = r.data.find(s => s.name === 'Nguyễn Bảo Nam');
+  check('có ngày rời trường', !!nam?.leftAt, nam?.leftAt);
+  check('vẫn giữ liên kết phụ huynh', nam?.parentIds?.length === 1, nam?.parentIds);
 }
 
 console.log('\n[5] Dữ liệu học tập năm cũ không mất');

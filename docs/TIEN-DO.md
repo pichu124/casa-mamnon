@@ -244,25 +244,85 @@ có một chỗ phải nhớ: **N8** (`sua-quyen-chu-nhiem.js` chỉ dọn đư�
 gọi tên). Riêng "dữ liệu mẫu chưa có nhóm nào 2–3 cô" là việc của **G0.5** ngay
 bên dưới.
 
-### G0.5 — Dữ liệu mẫu kể một câu chuyện ⏳ *(việc tiếp theo)*
+### G0.5 — Dữ liệu mẫu kể một câu chuyện ✅
 
 Thay dữ liệu mẫu tiểu học bằng câu chuyện mầm non nhất quán: **bé An, nhóm Chồi
 2, cơ sở 1** — cùng một bé xuất hiện xuyên suốt mọi màn hình và mọi bài kiểm thử.
 Học từ bản kế hoạch CASA (ở đó là bé Anna): dữ liệu mẫu rời rạc làm người xem
 không hình dung nổi app dùng thật ra sao.
 
+#### Câu chuyện
+
+| | |
+|---|---|
+| Trường | **Trường Mầm non CASA**, cơ sở 1 — 25 Nguyễn Văn Trỗi, Q. Phú Nhuận |
+| Nhóm | **Chồi 2** (4–5 tuổi, 5 bé) và **Lá 1** (5–6 tuổi, 3 bé) |
+| Cô | Cô Mai Anh (chính Chồi 2) · Cô Thu Hương (chính Lá 1) · **Cô Bích Ngọc phụ trách CẢ HAI nhóm** |
+| Bé | **Nguyễn Bảo An** — nhóm Chồi 2. Anh của bé, bé Nam, học nhóm Lá 1, cùng một mẹ |
+
+Bé An có mặt ở điểm danh, nhận xét hằng ngày, dặn thuốc, album, đơn xin nghỉ và
+tin nhắn giữa mẹ và cô — mở màn hình nào cũng gặp lại đúng bé đó. Hai anh em ở
+hai nhóm khác nhau để màn hình "đổi con đang xem" của phụ huynh có thật sự hai
+bé để đổi, và để quyền của cô nhóm này với bé nhóm kia được thử bằng dữ liệu
+thật chứ không phải bằng dữ liệu dựng riêng cho bài test.
+
+Cô Bích Ngọc phụ trách hai nhóm là chỗ dữ liệu mẫu **tự kể được G0.4**. Trước
+đây một cô một lớp nên nhìn dữ liệu mẫu không thấy mô hình mới ở đâu cả.
+`test/nhom-lop.test.mjs` mục `[1]` canh đúng điều này: dữ liệu mẫu mà quay về một
+cô một lớp là bài đó đỏ.
+
+#### Dữ liệu mẫu KHÔNG chứa một điểm số nào — QUY TẮC 4
+
+Đây là phần đáng kể nhất, vì dữ liệu mẫu là thứ người ta nhìn trước cả tài liệu.
+
+| Chỗ cũ | Chỗ mới |
+|---|---|
+| Học bạ: 9–10 môn kèm điểm thang 10 | 5 **lĩnh vực phát triển**, cột `score` bỏ trống hẳn (cột này vốn tùy chọn), chỉ còn một câu mô tả |
+| Nề nếp: `points` +20/+15/−5 rồi xếp hạng cả lớp | **Mọi bản ghi `points: 0`** → bảng xếp hạng phẳng lì, không bé nào đứng trên bé nào |
+| Nhận xét: "hăng hái phát biểu xây dựng bài" | **Mô tả điều cô đã thấy** (QUY TẮC 1), ví dụ "con xếp khối thành cầu rồi cho ô tô chạy qua, làm lại bốn lần" |
+| Lời cô cuối kỳ: "cần phát huy hơn ở môn Toán" | **Kèm việc làm được** (QUY TẮC 5): ở lớp cô làm gì tiếp, ở nhà gia đình chơi gì cùng con |
+| Thời khóa biểu: Toán, Tiếng Việt, Tin học | **Lịch sinh hoạt một ngày**: đón bé, thể dục sáng, ăn, ngủ trưa, chơi góc, trả bé |
+| Y tế: cao 128–140cm, nặng 26–34kg | Đúng lứa 4–6 tuổi: 102–115cm, 16–21kg |
+
+Ô "Hạnh kiểm" của học bạ chỉ nhận 4 mức Tốt/Khá/Trung bình/Cần cố gắng — tức vẫn
+là xếp loại trẻ. Màn hình đó là phần tiểu học sẽ gỡ ở **N3**; chừng nào chưa gỡ,
+dữ liệu mẫu để **mọi bé cùng một mức** để không tiếp tay cho việc xếp loại.
+
+#### Kèm theo: dạy máy chuyển năm học bậc mầm non
+
+Không định làm, nhưng buộc phải làm thì câu chuyện mới không tự mâu thuẫn.
+
+Máy chuyển năm của app 1 **tăng số cuối tên lớp** (`Lớp 3A` → `Lớp 4A`, khối 5 ra
+trường). Số trong "Chồi 2" lại là **nhóm song song thứ mấy**, không phải khối —
+nên quy tắc cũ cho ra *`Chồi 2` → `Chồi 3`* (một bậc không tồn tại) và *`Lá 1` →
+`Lá 2`* trong khi thực tế bé rời trường vào lớp 1. Tức là màn hình Quản trị sẽ
+đề xuất đúng chiều ngược lại.
+
+Đã thêm quy tắc theo **bậc**: Nhà trẻ → Mầm → Chồi → Lá → vào lớp 1. Thêm **bên
+cạnh**, không thay: tên không phải bậc mầm non vẫn đi theo quy tắc số cũ, nên
+trường nào còn lớp đặt tên kiểu cũ vẫn chạy y như trước.
+
+#### Một lỗi giao diện lộ ra nhờ việc này
+
+Màn "Soạn báo cáo" ngắn lại (5 lĩnh vực thay cho 9 môn) làm bài kiểm thử trình
+duyệt đang xanh chuyển sang đỏ mà **không ai đụng vào mã giao diện**. Đào ra thì
+là lỗi có sẵn từ nền app 1: `.modal-overlay` căng theo khung bố cục nên đáy modal
+tụt xuống dưới mép màn hình khi bàn phím bật lên — nút Lưu vẫn cuộn tới được
+nhưng không chạm vào được, và modal ngắn thì cuộn hết cỡ cũng không cứu được.
+Đã vá ở **commit riêng** trước G0.5 (`height: 100dvh`), kèm bài canh đáy modal.
+
 ### G0.6 — Con số kiểm thử hiện tại
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1074**, FAIL 0 |
+| `npm test` (không cần trình duyệt) | **1075**, FAIL 0 |
 | trong đó `test:thuchup` (phân hệ mới) | 55 |
-| trong đó `test:nhom-lop` (G0.4) | 77 |
-| `npm run test:giao-dien` (cần Playwright) | **209**, FAIL 0 *(đã chạy lại ở kho này)* |
+| trong đó `test:nhom-lop` (G0.4 + G0.5) | 78 |
+| `npm run test:giao-dien` (cần Playwright) | **210**, FAIL 0 *(đã chạy lại ở kho này)* |
 
 Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 55 (thuchup, thêm 15 bài canh
-ranh giới nháp của cô) + 77 (nhóm lớp) + 10 (mục khế ước của các hàm mới trong
-`lib/db.js`) = 1074. Con số này sẽ **giảm**
+ranh giới nháp của cô) + 78 (nhóm lớp) + 10 (mục khế ước của các hàm mới trong
+`lib/db.js`) = 1075. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -296,3 +356,6 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Nhiều cô một nhóm, **bước 2/3**: chuyển 12 tệp tính năng sang hàm mới; chặn rò rỉ ghi chú thô của cô | G0.4 |
 | 26/08/2026 | Nhiều cô một nhóm, **bước 3/3**: đường quyền thôi đọc hai cột cũ — G0.4 xong | G0.4 |
 | 26/08/2026 | Vá nốt chỗ thứ tư của `thuchup`: đường chống trùng mã trả nguyên bản nháp của cô khác | G0.4 |
+| 26/08/2026 | Ghi lại việc còn nợ N8–N10, sửa một chú thích đã sai sau G0.4 | — |
+| 26/08/2026 | Vá lỗi nền: đáy modal nằm ngoài vùng chạm được khi bàn phím bật | Lỗi nền chung |
+| 26/08/2026 | Dữ liệu mẫu kể chuyện bé An — nhóm Chồi 2, cơ sở 1; không còn một điểm số nào | G0.5 |

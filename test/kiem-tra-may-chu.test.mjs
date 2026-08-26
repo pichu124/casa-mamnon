@@ -71,7 +71,9 @@ console.log('\n[3] Mật khẩu mẫu — chặn trước khi phụ huynh dùng 
 {
   const truoc = chay(DIR);
   check('dữ liệu mẫu còn mật khẩu "123456" → CẦN SỬA', trangThai(truoc.out, 'Mật khẩu mẫu') === 'CẦN SỬA', trangThai(truoc.out, 'Mật khẩu mẫu'));
-  check('đếm đúng 8 tài khoản', /8 tài khoản còn dùng/.test(truoc.out), truoc.out.match(/\d+ tài khoản còn dùng/)?.[0]);
+  // 9 = 3 cô + 6 phụ huynh của dữ liệu mẫu. Con số này đi theo data/seed.js:
+  // G0.5 thêm cô thứ ba (cô phụ trách cả hai nhóm) nên nó nhích từ 8 lên 9.
+  check('đếm đúng 9 tài khoản', /9 tài khoản còn dùng/.test(truoc.out), truoc.out.match(/\d+ tài khoản còn dùng/)?.[0]);
   check('nêu đích danh tài khoản để biết đường mà sửa', /giaovien/.test(truoc.out) && /phuhuynh/.test(truoc.out));
 
   // Đổi hết mật khẩu rồi kiểm lại — phải thôi báo.

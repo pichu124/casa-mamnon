@@ -266,7 +266,7 @@ console.log('\n[10] Kế hoạch — GVCN soạn tháng tới, sửa lại khôn
   check('mục tiêu trống bị loại, còn lại được cắt gọn', bang(r.data.goals, ['Mục tiêu 1', 'Mục tiêu 2']), r.data.goals);
   check('tuần bỏ trống hẳn bị loại', r.data.weeks.length === 2, r.data.weeks);
   check('trọng tâm quá dài bị cắt còn 120 ký tự', r.data.weeks[1].focus.length === 120, r.data.weeks[1].focus.length);
-  check('ghi nhận người soạn và tên lớp', r.data.createdBy === 't1' && r.data.className === 'Lớp 3A', r.data);
+  check('ghi nhận người soạn và tên nhóm', r.data.createdBy === 't1' && r.data.className === 'Chồi 2', r.data);
 
   r = await req('PUT', `/api/plans/c1/${namSau}/${thangSau}`, {
     cookie: T1, body: { theme: 'Đổi chủ đề tháng tới', goals: [], weeks: [{ week: 1, focus: 'Mới', activities: '' }] },

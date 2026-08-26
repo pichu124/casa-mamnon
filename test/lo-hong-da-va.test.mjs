@@ -331,8 +331,8 @@ console.log('\n[11] A4 — đổi chủ nhiệm ghi đủ hai chiều, không đ
   const r = await req('PUT', '/api/admin/classes/c1', { cookie: QT, body: { name: '   ' } });
   check('sửa lớp với tên rỗng → 400', r.status === 400, r.status);
   const van = await req('GET', '/api/admin/overview', { cookie: QT });
-  check('bị chặn thì tên lớp cũ còn nguyên',
-    van.data.classes.find(c => c.id === 'c1')?.name === 'Lớp 3A', van.data.classes.find(c => c.id === 'c1')?.name);
+  check('bị chặn thì tên nhóm cũ còn nguyên',
+    van.data.classes.find(c => c.id === 'c1')?.name === 'Chồi 2', van.data.classes.find(c => c.id === 'c1')?.name);
 }
 
 // ===========================================================================
@@ -863,8 +863,8 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   const A = (await dn3('ht.namcu', 'quantri2026')).cookie;
 
   const PH = (await dn3('phuhuynh', '123456')).cookie;
-  const GV1 = (await dn3('giaovien', '123456')).cookie;      // chủ nhiệm Lớp 3A
-  const GV2 = (await dn3('giaovien2', '123456')).cookie;     // chủ nhiệm Lớp 5B
+  const GV1 = (await dn3('giaovien', '123456')).cookie;      // cô chính nhóm Chồi 2
+  const GV2 = (await dn3('giaovien2', '123456')).cookie;     // cô chính nhóm Lá 1
 
   const truoc = await r3('GET', '/api/albums', { cookie: PH });
   check('trước khi chuyển năm, phụ huynh thấy album', truoc.data.length > 0, truoc.data.length);
