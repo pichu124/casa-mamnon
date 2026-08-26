@@ -399,19 +399,58 @@ Thêm hai điều:
 app 1 và **chưa từng có bài test nào** — đó chính là lý do nó trôi khỏi sự thật
 mà không ai hay.
 
+### Bài canh QUY TẮC 4: bánh cóc, không phải công tắc ✅ *(N6)*
+
+`CLAUDE.md` xếp QUY TẮC 4 ngang hàng Nguyên tắc số 1 và nói thẳng nó phải được
+**canh bằng máy, không bằng trí nhớ**. G0.5 đã dọn sạch dữ liệu mẫu, nhưng không
+có gì giữ cho nó ở nguyên như thế qua lần sửa sau.
+
+**Vấn đề:** app vẫn còn hai màn hình tiểu học chưa gỡ (N3) — Nề nếp xếp hạng trẻ
+theo điểm thi đua, và Học bạ có ô nhập điểm thang 10. Viết một bài test bắt chúng
+biến mất ngay thì hoặc phải gỡ tính năng khi chưa được duyệt, hoặc phải sống chung
+với một bài test luôn đỏ. Cả hai đều sai.
+
+**Cách làm:** ghi lại **chính xác món nợ đang có** rồi bắt con số ấy chỉ được
+GIẢM.
+
+| Tệp | Nợ | Là gì |
+|---|---|---|
+| `routes/conduct.js` | 7 dòng | máy chủ cộng điểm rồi sắp xếp trẻ |
+| `public/js/views/conduct.js` | 5 dòng | bảng xếp hạng trên màn hình |
+| `routes/reports.js` | 4 dòng | kiểm điểm 0–10 |
+| `public/js/views/reports.js` | 1 dòng | ô nhập điểm từng môn |
+
+Thêm một chỗ vi phạm **mới** ở bất cứ đâu → đỏ ngay. Gỡ xong N3 → hạ số về 0,
+bài test tự siết chặt. Món nợ thành con số máy đếm được, không còn là một dòng
+ghi chú người ta quên.
+
+Ba điều đáng ghi lại:
+
+- **Không phải mọi phần trăm đều vi phạm.** `public/js/views/surveys.js` in tỉ lệ
+  phụ huynh chọn mỗi phương án — con số về người lớn, không phải về một đứa trẻ.
+  Đó là ngoại lệ có ghi lý do. Bài canh cũng chỉ bắt dạng `${...}%` (phần trăm
+  được TÍNH rồi in ra) chứ không bắt `width:100%` của bố cục — mục `[4]` chứng
+  minh đúng điều đó.
+- **Mục `[3]` canh riêng dữ liệu mẫu**, chặt hơn hẳn phần còn lại: không một
+  `points` khác 0, không một `score` nào, và **mọi bé cùng một mức hạnh kiểm** —
+  vì đó là thứ người ta nhìn thấy đầu tiên khi mở app.
+- **Mục `[4]` là phép thử ngược**, giống `test:goi-ten`: dựng tệp bẩn rồi soi bằng
+  chính hàm quét đó.
+
 ### G0.6 — Con số kiểm thử hiện tại
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1100**, FAIL 0 |
+| `npm test` (không cần trình duyệt) | **1112**, FAIL 0 |
 | trong đó `test:thuchup` (phân hệ mới) | 55 |
 | trong đó `test:nhom-lop` (G0.4 · G0.5 · N8) | 94 |
 | trong đó `test:goi-ten` (N9/N10) | 10 |
+| trong đó `test:quy-tac-4` (N6) | 12 |
 | `npm run test:giao-dien` (cần Playwright) | **210**, FAIL 0 *(đã chạy lại ở kho này)* |
 
 Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 55 (thuchup, thêm 15 bài canh
-ranh giới nháp của cô) + 94 (nhóm lớp) + 10 (canh cách gọi tên) + 9 (mục khế ước
-của các hàm mới trong `lib/db.js`) = 1100. Con số này sẽ **giảm**
+ranh giới nháp của cô) + 94 (nhóm lớp) + 10 (canh cách gọi tên) + 12 (canh QUY TẮC 4)
++ 9 (mục khế ước của các hàm mới trong `lib/db.js`) = 1112. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -427,7 +466,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | N3 | Phân hệ riêng của tiểu học vẫn còn: `hocsinh-cu`, `namhoccu`, học bạ theo học kỳ, **nề nếp/thi đua có xếp hạng** | Xếp hạng trẻ **đi ngược QUY TẮC 4**. Tuyệt đối không để lọt sang màn hình mầm non | GĐ 1, gỡ theo đúng quy trình "bỏ tính năng" |
 | N4 | Chưa có tầng **cơ sở** (3 cơ sở) và vai **quản lý cơ sở** | Là mô hình thật của trường; càng để muộn càng phải sửa nhiều chỗ | GĐ 0/1 |
 | N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | Ảnh khuôn mặt trẻ 2–6 tuổi. Phải trỏ ra ngoài **ngay lần chạy thật đầu tiên** | Trước khi triển khai |
-| N6 | Bài test canh QUY TẮC 4 (quét giao diện tìm %, điểm số, xếp hạng) chưa có | Không có nó thì QUY TẮC 4 chỉ là lời hứa | GĐ 2 |
+| N6 | Bài test canh QUY TẮC 4 | **✅ có rồi** — `test/quy-tac-4.test.mjs`, kiểu **bánh cóc**: món nợ N3 chỉ được giảm. Gỡ xong N3 thì hạ số trong `NO_DA_BIET` về 0 và bài test tự siết chặt | 26/08/2026 |
 | N7 | Chưa đăng ký VPS Việt Nam + tên miền đứng tên trường | Việc của nhà trường; chặn phần triển khai | Nhà trường làm |
 | ~~N8~~ | ~~`sua-quyen-chu-nhiem.js` chỉ dọn được cái gương~~ | **✅ xong** — và hoá ra nguy hiểm hơn tôi ghi lúc đầu, xem mục bên dưới | 26/08/2026 |
 | ~~N9~~ | ~~Giao diện nói tiếng tiểu học~~ | **✅ xong** — xem mục "Đổi cách gọi tên" bên dưới | 26/08/2026 |
@@ -452,3 +491,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Dữ liệu mẫu kể chuyện bé An — nhóm Chồi 2, cơ sở 1; không còn một điểm số nào | G0.5 |
 | 26/08/2026 | Đổi cách gọi tên toàn app (250+ chỗ / 45 tệp) + bài canh `test:goi-ten` + giấu ô điều khiển đã chết | N9 · N10 · N11 |
 | 26/08/2026 | Script chữa cháy phân công cô: thu hồi quyền THẬT ở cả hai nơi, + 16 bài test | N8 |
+| 26/08/2026 | Bài canh QUY TẮC 4 kiểu bánh cóc — món nợ N3 thành con số máy đếm được | N6 |
