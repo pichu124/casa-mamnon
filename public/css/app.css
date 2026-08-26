@@ -665,6 +665,14 @@ table.simple tbody tr:hover td { background: var(--surface-2); }
 /* ===== Hộp thoại ===== */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 80;
+  /* `inset: 0` căng theo khung BỐ CỤC, không phải khung NHÌN THẤY. Trên điện
+     thoại hai khung này lệch nhau bất cứ lúc nào thanh trình duyệt còn hiện,
+     hoặc ngay khi bàn phím bật lên — mà bàn phím thì bật đúng lúc cô vừa gõ
+     xong nhận xét và với tay xuống nút Lưu. Khi đó đáy modal tụt xuống dưới mép
+     màn hình: nút Lưu vẫn nằm trong trang, vẫn cuộn tới được, nhưng KHÔNG chạm
+     vào được, và modal ngắn thì cuộn hết cỡ cũng không kéo nó lên nổi.
+     `100dvh` bám theo khung nhìn thấy nên đáy modal luôn ở đúng mép màn hình. */
+  height: 100dvh;
   display: flex; align-items: flex-end; justify-content: center;
   background: rgba(10, 14, 26, .55);
   backdrop-filter: blur(5px);

@@ -163,6 +163,24 @@ await page.click('#btn-soan-bc');
 await page.waitForTimeout(700);
 check('màn soạn có bảng điểm và ô chuyên cần bị khóa', await page.locator('#bc-diem-0').count() === 1
   && await page.locator('input[disabled]').count() === 1);
+
+// Đáy modal phải nằm trong khung NHÌN THẤY, không phải khung BỐ CỤC.
+//
+// Hai khung này lệch nhau ngay khi bàn phím bật lên — đúng lúc cô vừa gõ xong
+// nhận xét và với tay xuống nút Lưu. Lệch là nút cuối modal vẫn nằm trong trang,
+// vẫn cuộn tới được, nhưng KHÔNG chạm vào được; modal ngắn thì cuộn hết cỡ cũng
+// không kéo nó lên nổi. Xem ghi chú ở `.modal-overlay` trong public/css/app.css.
+{
+  const khung = await page.evaluate(() => {
+    const m = document.querySelector('.modal');
+    return {
+      dayModal: Math.round(m.getBoundingClientRect().bottom),
+      nhinThay: Math.round(window.visualViewport ? window.visualViewport.height : window.innerHeight),
+    };
+  });
+  check('đáy modal nằm trong vùng nhìn thấy được, nút cuối chạm tới được',
+    khung.dayModal <= khung.nhinThay + 1, khung);
+}
 await page.fill('#bc-diem-0', '9.5');
 await page.fill('#bc-nhanxet', 'Nhận xét trình duyệt cho học kỳ mới');
 await page.locator('button', { hasText: 'Lưu báo cáo' }).click();
