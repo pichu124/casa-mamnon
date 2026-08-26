@@ -216,8 +216,25 @@ Kèm theo:
   "quyền CHƯA đổi"; bước 3 nó canh "quyền ĐÃ đi theo bảng mới", cộng mục `[6b]`
   canh nhóm đã đóng không còn cấp quyền cho ai. Đây là bài test được viết sẵn để
   lật — không phải nới lỏng một bài đang canh lỗi.
-- **`test/thuchup.test.mjs` mục `[10]`** canh chỗ nguy hiểm nhất mà chính việc
-  này tạo ra: hai cô cùng một nhóm **không** đọc được ghi chú thô của nhau.
+- **`test/thuchup.test.mjs` mục `[10]` và `[11]`** canh chỗ nguy hiểm nhất mà
+  chính việc này tạo ra: hai cô cùng một nhóm **không** đọc được ghi chú thô của
+  nhau.
+
+#### Vá bổ sung — đường chống trùng mã cũng là một đường ĐỌC
+
+Soát lại `modules/thuchup/` sau khi khoá ba đường đọc, còn sót một chỗ thứ tư:
+`POST /api/thuchup` gửi lại đúng một mã thì trả về **nguyên bản ghi cũ**, kèm cả
+dòng ghi chú và tên tệp ảnh — tức đọc lớp dữ liệu 1 ngay bên trong một đường ghi.
+Nhìn vào chỉ thấy nó là `POST` nên rất dễ bỏ qua khi soát quyền.
+
+Mã ghi nhận do máy của cô sinh (`crypto.randomUUID`) nên trùng nhau gần như
+không xảy ra — nhưng "gần như không xảy ra" không phải là kiểm soát truy cập, và
+đây là dữ liệu trẻ dưới 6 tuổi.
+
+Đã vá cả hai nhánh trả về (đường thường và nhánh bắt lỗi khoá chính) bằng cùng
+một hàm `doDuocBanGhi`, và đường đọc ảnh cũng chuyển sang gọi nó thay vì lặp lại
+điều kiện — một luật, một chỗ. **Lời hứa "không nhân đôi" còn nguyên**: chính cô
+đã ghi gửi lại vẫn nhận về bản cũ, mục `[11]` canh đúng điều đó.
 
 #### Việc G0.4 mở ra, chưa làm
 
@@ -238,14 +255,14 @@ không hình dung nổi app dùng thật ra sao.
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1068**, FAIL 0 |
-| trong đó `test:thuchup` (phân hệ mới) | 49 |
+| `npm test` (không cần trình duyệt) | **1074**, FAIL 0 |
+| trong đó `test:thuchup` (phân hệ mới) | 55 |
 | trong đó `test:nhom-lop` (G0.4) | 77 |
 | `npm run test:giao-dien` (cần Playwright) | **209**, FAIL 0 *(đã chạy lại ở kho này)* |
 
-Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 49 (thuchup, thêm 9 bài canh
+Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 55 (thuchup, thêm 15 bài canh
 ranh giới nháp của cô) + 77 (nhóm lớp) + 10 (mục khế ước của các hàm mới trong
-`lib/db.js`) = 1068. Con số này sẽ **giảm**
+`lib/db.js`) = 1074. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -275,3 +292,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Nhiều cô một nhóm, **bước 1/3**: bảng `class_teachers` + 9 hàm mới, chưa ai gọi | G0.4 |
 | 26/08/2026 | Nhiều cô một nhóm, **bước 2/3**: chuyển 12 tệp tính năng sang hàm mới; chặn rò rỉ ghi chú thô của cô | G0.4 |
 | 26/08/2026 | Nhiều cô một nhóm, **bước 3/3**: đường quyền thôi đọc hai cột cũ — G0.4 xong | G0.4 |
+| 26/08/2026 | Vá nốt chỗ thứ tư của `thuchup`: đường chống trùng mã trả nguyên bản nháp của cô khác | G0.4 |

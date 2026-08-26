@@ -36,6 +36,12 @@ module.exports = (app, { db }) => {
     return user.role === 'teacher' ? user.id : null;
   }
 
+  // Một bản ghi cụ thể có thuộc về người đang hỏi không. Dùng cho những đường
+  // trả về NGUYÊN một bản ghi, nơi không lọc được bằng câu truy vấn.
+  function doDuocBanGhi(user, r) {
+    return !!r && (user.role !== 'teacher' || r.byTeacherId === user.id);
+  }
+
   // Danh sách ghi nhanh gần đây của các bé cô đang phụ trách.
   app.get('/api/thuchup', requireRole('teacher', 'admin'), (req, res) => {
     const students = db.studentsOf(req.user);
@@ -78,7 +84,18 @@ module.exports = (app, { db }) => {
 
     const daCo = db.first('thuchup_ghinhanh',
       'SELECT * FROM thuchup_ghinhanh WHERE id = ?', [id]);
-    if (daCo) return res.json({ ...daCo, ngoaiTuyen: !!daCo.ngoaiTuyen, trungLap: true });
+    if (daCo) {
+      // Đường chống trùng trả về NGUYÊN bản ghi cũ, kèm cả dòng ghi chú và tên
+      // tệp ảnh. Đó là một đường ĐỌC lớp dữ liệu 1, dù nó nằm trong một đường
+      // ghi — nên phải hỏi ai đã ghi, y như đường đọc danh sách và đường đọc
+      // ảnh. Mã do máy của cô sinh (crypto.randomUUID) nên trùng nhau là chuyện
+      // gần như không xảy ra, nhưng "gần như không xảy ra" không phải là kiểm
+      // soát truy cập.
+      if (!doDuocBanGhi(req.user, daCo)) {
+        return res.status(403).json({ error: 'Mã ghi nhận này thuộc bản nháp của cô khác, bạn không có quyền xem' });
+      }
+      return res.json({ ...daCo, ngoaiTuyen: !!daCo.ngoaiTuyen, trungLap: true });
+    }
 
     const note = String(b.note || '').trim().slice(0, MAX_NOTE);
     if (!note && !b.dataUrl) {
@@ -117,7 +134,12 @@ module.exports = (app, { db }) => {
       const lai = db.first('thuchup_ghinhanh',
         'SELECT * FROM thuchup_ghinhanh WHERE id = ?', [id]);
       if (!lai) throw err;
+      // Dọn tệp vừa lưu TRƯỚC khi rẽ nhánh, để đường từ chối bên dưới không bỏ
+      // lại một tệp ảnh mồ côi trên đĩa.
       if (file) uploads.remove(file);
+      if (!doDuocBanGhi(req.user, lai)) {
+        return res.status(403).json({ error: 'Mã ghi nhận này thuộc bản nháp của cô khác, bạn không có quyền xem' });
+      }
       return res.json({ ...lai, ngoaiTuyen: !!lai.ngoaiTuyen, trungLap: true });
     }
 
@@ -133,7 +155,7 @@ module.exports = (app, { db }) => {
     if (!db.canAccessStudent(req.user, r.studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
     }
-    if (req.user.role === 'teacher' && r.byTeacherId !== req.user.id) {
+    if (!doDuocBanGhi(req.user, r)) {
       return res.status(403).json({ error: 'Đây là bản nháp của cô khác' });
     }
 

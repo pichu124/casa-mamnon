@@ -229,6 +229,42 @@ console.log('\n[10] Ba lớp dữ liệu: hai cô cùng nhóm KHÔNG đọc nhá
     kq.data?.soLan === 1, kq.data);
 }
 
+console.log('\n[11] Đường chống trùng mã cũng là một đường ĐỌC, phải khoá theo');
+{
+  // Gửi lại đúng một mã thì máy chủ trả lại NGUYÊN bản ghi cũ, kèm cả dòng ghi
+  // chú và tên tệp ảnh. Đó là đọc lớp dữ liệu 1 ngay bên trong một đường ghi —
+  // chỗ dễ quên nhất, vì nhìn vào chỉ thấy nó là POST.
+  const ID = 'aaaaaaaa-1111-2222-3333-444444444444';   // bản ghi của cô T, mục [2]
+  const truoc = await req('GET', '/api/thuchup', { cookie: T });
+  const soBanGhiCuaCoT = (truoc.data?.ghiNhan || []).length;
+
+  const trom = await req('POST', '/api/thuchup', { cookie: T2, body: {
+    id: ID, studentId: BE, note: 'thử lấy bản nháp của cô kia' } });
+  check('cô cùng nhóm gửi trùng mã của cô kia → 403', trom.status === 403, trom.status);
+  check('và KHÔNG lộ một chữ nào trong bản nháp đó',
+    !trom.data?.note && !trom.data?.file && !trom.data?.studentId, trom.data);
+
+  const sau = await req('GET', '/api/thuchup', { cookie: T });
+  check('bản nháp của cô kia còn NGUYÊN, không bị ghi đè',
+    (sau.data?.ghiNhan || []).length === soBanGhiCuaCoT
+    && (sau.data?.ghiNhan || []).some(r => r.id === ID),
+    sau.data?.ghiNhan?.length);
+
+  // Lời hứa "không nhân đôi" phải còn nguyên vẹn cho CHÍNH cô đã ghi: điện
+  // thoại mất sóng gửi lại lần hai vẫn phải nhận về bản cũ, không đẻ bản mới.
+  const lai = await req('POST', '/api/thuchup', { cookie: T, body: {
+    id: ID, studentId: BE, note: 'gửi lại lần nữa' } });
+  check('chính cô đã ghi gửi lại thì vẫn nhận về bản cũ', lai.status === 200 && lai.data?.trungLap === true,
+    lai.data?.trungLap);
+  check('và vẫn chỉ một bản ghi, không nhân đôi',
+    ((await req('GET', '/api/thuchup', { cookie: T })).data?.ghiNhan || []).length === soBanGhiCuaCoT);
+
+  const qt = await req('POST', '/api/thuchup', { cookie: A.cookie, body: {
+    id: ID, studentId: BE, note: 'quản trị xem lại' } });
+  check('quản trị vẫn đọc được, đúng bảng ba lớp dữ liệu',
+    qt.status === 200 && qt.data?.trungLap === true, qt.status);
+}
+
 may.dung();
 donThuMucTam(DIR);
 tongKet();
