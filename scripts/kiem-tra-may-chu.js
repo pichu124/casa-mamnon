@@ -135,10 +135,13 @@ kiem('Mật khẩu mẫu', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3b. Quyền của giáo viên chủ nhiệm có khớp với lớp không
+// 3b. Hai cột chủ nhiệm đời cũ có còn khớp nhau không
 //
-// Quan hệ chủ nhiệm lưu ở hai chỗ (classes.teacherId và users.classId). Lệch hai
-// chỗ này nghĩa là có giáo viên đang đọc được hồ sơ một lớp không còn là của cô.
+// Từ G0.4, quyền đọc hồ sơ trẻ KHÔNG còn đi theo hai cột này nữa mà đi theo bảng
+// `class_teachers` (xem mục 3c). Hai cột `classes.teacherId` và `users.classId`
+// vẫn được ghi làm gương, và phần chuyển đổi lúc khởi động dựng lại bảng mới từ
+// chính chúng khi khôi phục từ bản sao lưu đời cũ — nên chúng lệch nhau vẫn là
+// chuyện phải sửa, chỉ khác là hậu quả bây giờ nằm ở đường khôi phục.
 // ---------------------------------------------------------------------------
 kiem('Quyền giáo viên chủ nhiệm', () => {
   if (!sqlite) { boQua('Quyền giáo viên chủ nhiệm', 'chưa mở được cơ sở dữ liệu'); return; }
@@ -160,6 +163,32 @@ kiem('Quyền giáo viên chủ nhiệm', () => {
   if (thieu.length) phan.push(`${thieu.length} lớp ghi tên chủ nhiệm nhưng cô không nhận được lớp (${thieu.map(c => c.name).join(', ')})`);
   canSua('Quyền giáo viên chủ nhiệm', phan.join('; '),
     `DATA_DIR=${DATA_DIR} npm run sua-quyen-chu-nhiem   (xem trước; thêm -- --sua để sửa thật)`);
+});
+
+// ---------------------------------------------------------------------------
+// 3c. Nhóm lớp đang mở đã có cô phụ trách chưa
+//
+// Đây mới là chỗ quyết định quyền từ G0.4: cô đọc được hồ sơ trẻ của những nhóm
+// có tên cô trong `class_teachers`. Nhóm đang mở mà bảng này trống thì cô đăng
+// nhập vào thấy "Nhóm chưa có bé nào" — không điểm danh, không nhận xét, không
+// nhắn tin với gia đình được, và không có gì báo cho ai biết.
+// ---------------------------------------------------------------------------
+kiem('Cô phụ trách nhóm lớp', () => {
+  if (!sqlite) { boQua('Cô phụ trách nhóm lớp', 'chưa mở được cơ sở dữ liệu'); return; }
+  const trong = sqlite.prepare(
+    `SELECT c.id, c.name FROM classes c
+     WHERE c.active = 1
+       AND NOT EXISTS (
+         SELECT 1 FROM class_teachers ct JOIN users u ON u.id = ct.teacherId
+         WHERE ct.classId = c.id AND u.active = 1)
+     ORDER BY c.name`).all();
+  if (!trong.length) {
+    dat('Cô phụ trách nhóm lớp', 'nhóm lớp nào đang mở cũng có cô phụ trách');
+    return;
+  }
+  canSua('Cô phụ trách nhóm lớp',
+    `${trong.length} nhóm lớp đang mở chưa có cô nào phụ trách (${trong.map(c => c.name).join(', ')})`,
+    'Vào Quản trị → Lớp, bấm Sửa ở dòng nhóm được tô đỏ rồi chọn cô phụ trách.');
 });
 
 // ---------------------------------------------------------------------------

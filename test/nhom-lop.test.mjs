@@ -129,22 +129,49 @@ console.log('\n[5] Nhóm đã đóng: giữ vết, KHÔNG giữ quyền');
 }
 
 // ===========================================================================
-console.log('\n[6] BƯỚC 1 chưa đổi hành vi của đường quyền cũ');
+console.log('\n[6] BƯỚC 3: đường quyền đi theo bảng mới, KHÔNG theo hai cột cũ nữa');
 {
-  // Đây là mục quan trọng nhất của bước 1. Bảng mới đã có dữ liệu, nhưng
-  // studentsOf / classIdsOf / canAccessStudent vẫn phải đi theo `users.classId`
-  // y như trước. Hết bước 3 mục này sẽ được viết lại cho đúng bước 3.
-  db.addClassTeacher('c1', 't2', 'phu');   // t2 là cô PHỤ của c1, users.classId(t2) vẫn = c2
+  // Mục quan trọng nhất của cả ba bước. Ở bước 1 và 2 mục này canh điều ngược
+  // lại — rằng quyền CHƯA đổi. Bước 3 lật nó, và đó chính là việc bước 3 làm.
+  const beC1 = db.studentsOf(coCu('t1'))[0];
+
+  db.addClassTeacher('c1', 't2', 'phu');   // cô t2 là cô PHỤ của c1
   const t2 = coCu('t2');
   check('cô phụ đã có trong bảng mới', db.isTeacherOfClass('t2', 'c1'));
-  check('users.classId của cô phụ vẫn là nhóm cũ', t2.classId === 'c2', t2.classId);
-  check('classIdsOf vẫn đi theo users.classId, chưa theo bảng mới',
-    db.classIdsOf(t2).join(',') === 'c2', db.classIdsOf(t2));
-  check('studentsOf vẫn chỉ trả về trẻ của nhóm trong users.classId',
-    db.studentsOf(t2).every(s => s.classId === 'c2'), db.studentsOf(t2).map(s => s.classId));
-  const beC1 = db.studentsOf(coCu('t1'))[0];
-  check('canAccessStudent chưa mở cho cô phụ', !db.canAccessStudent(t2, beC1.id), beC1.id);
+  check('cột users.classId đời cũ vẫn chỉ ghi nổi MỘT nhóm', t2.classId === 'c2', t2.classId);
+  check('classIdsOf đi theo bảng mới nên thấy đủ cả hai nhóm',
+    db.classIdsOf(t2).slice().sort().join(',') === 'c1,c2', db.classIdsOf(t2));
+  check('studentsOf trả về trẻ của CẢ HAI nhóm',
+    new Set(db.studentsOf(t2).map(s => s.classId)).size === 2,
+    [...new Set(db.studentsOf(t2).map(s => s.classId))]);
+  check('cô phụ mở được hồ sơ bé của nhóm mình phụ trách',
+    db.canAccessStudent(t2, beC1.id), beC1.id);
+  check('canAccessClass cũng mở theo', db.canAccessClass(t2, 'c1'));
+
   db.removeClassTeacher('c1', 't2');
+  check('gỡ cô khỏi nhóm là mất quyền NGAY, không đợi đăng nhập lại',
+    !db.canAccessStudent(coCu('t2'), beC1.id));
+  check('và trẻ của nhóm đó rơi khỏi studentsOf ngay',
+    db.studentsOf(coCu('t2')).every(s => s.classId === 'c2'),
+    db.studentsOf(coCu('t2')).map(s => s.classId));
+  check('phụ huynh không hề bị ảnh hưởng — vẫn đúng các con của mình',
+    db.studentsOf(coCu('p1')).length > 0
+    && db.studentsOf(coCu('p1')).every(s => (s.parentIds || []).includes('p1')),
+    db.studentsOf(coCu('p1')).map(s => s.id));
+}
+
+console.log('\n[6b] BƯỚC 3: nhóm đã đóng không còn cấp quyền cho ai');
+{
+  const beC2 = db.studentsOf(coCu('t2'))[0];
+  check('trước khi đóng, cô đọc được hồ sơ bé', db.canAccessStudent(coCu('t2'), beC2.id));
+  db.update('classes', 'c2', { active: false });
+  check('nhóm đóng rồi thì cô mất quyền đọc hồ sơ trẻ của nhóm đó',
+    !db.canAccessStudent(coCu('t2'), beC2.id), beC2.id);
+  check('classIdsOf cũng không còn nhóm đã đóng',
+    !db.classIdsOf(coCu('t2')).includes('c2'), db.classIdsOf(coCu('t2')));
+  check('nhưng vết "cô từng phụ trách nhóm này" còn nguyên cho album năm cũ',
+    db.classIdsEverOfTeacher('t2').includes('c2'), db.classIdsEverOfTeacher('t2'));
+  db.update('classes', 'c2', { active: true });
 }
 
 // ===========================================================================
@@ -315,7 +342,9 @@ console.log('\n[13] Danh sách cô không nhận người ngoài');
 
 console.log('\n[14] Sổ điểm danh mở được từng nhóm');
 {
+  // Dọn về một cô một nhóm trước, vì bài [11]–[12] đã xếp cô t1 vào cả hai nhóm.
   await req('PUT', '/api/admin/classes/c1/teachers', { cookie: qt, body: { teacherIds: ['t1'], chinhId: 't1' } });
+  await req('PUT', '/api/admin/classes/c2/teachers', { cookie: qt, body: { teacherIds: ['t2'], chinhId: 't2' } });
   const co = await dangNhap('giaovien', '123456');
   const tatCa = await req('GET', '/api/attendance/class', { cookie: co });
   check('không chọn nhóm thì giữ nguyên hành vi cũ', tatCa.status === 200 && tatCa.data.students.length > 0,
@@ -334,10 +363,16 @@ console.log('\n[15] Gia đình nhắn được cho MỌI cô của nhóm, không
   await req('PUT', '/api/admin/classes/c1/teachers', {
     cookie: qt, body: { teacherIds: ['t1', 't2'], chinhId: 't1' },
   });
-  const ph = await dangNhap('phuhuynh', '123456');
+  // Dùng phụ huynh p2: con chỉ học MỘT nhóm (c1). Phụ huynh p1 có hai con ở hai
+  // nhóm khác nhau nên cô t2 xuất hiện với vai cô chính của nhóm kia — đúng,
+  // nhưng không nói được gì về vai của cô ấy ở nhóm này.
+  const ph = await dangNhap('phuhuynh2', '123456');
   const ds = await req('GET', '/api/messages', { cookie: ph });
   const co = (ds.data?.contacts || []).filter(x => ['t1', 't2'].includes(x.userId));
   check('phụ huynh thấy cả hai cô của nhóm con mình', co.length === 2, ds.data?.contacts);
+  check('cô chính được gọi đúng vai',
+    co.find(x => x.userId === 't1')?.subtitle?.startsWith('Giáo viên chủ nhiệm'),
+    co.map(x => x.subtitle));
   check('cô phụ được gọi đúng vai, không gọi nhầm là chủ nhiệm',
     co.find(x => x.userId === 't2')?.subtitle?.startsWith('Cô phụ trách'),
     co.map(x => x.subtitle));

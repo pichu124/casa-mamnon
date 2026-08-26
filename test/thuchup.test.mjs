@@ -183,6 +183,52 @@ console.log('\n[9] Phân hệ này không được đụng tới phần đang ch
   check('huy hiệu trang chủ vẫn tải được', tc.status === 200, tc.status);
 }
 
+console.log('\n[10] Ba lớp dữ liệu: hai cô cùng nhóm KHÔNG đọc nháp của nhau');
+{
+  // Từ G0.4, một nhóm có 2–3 cô cùng phụ trách. Ghi chú thô của cô là LỚP DỮ
+  // LIỆU 1 — "chỉ cô đã ghi (+ quản trị khi cần)" theo CLAUDE.md. Trước G0.4
+  // điều đó đúng một cách TÌNH CỜ: một cô một lớp nên `canAccessStudent` cũng
+  // vừa đúng là "chỉ cô đã ghi". Bài này canh cho sự trùng khớp tình cờ đó
+  // không biến mất cùng với mô hình cũ.
+  const ID = 'aaaaaaaa-1111-2222-3333-444444444444';   // bản ghi của cô T, mục [2]
+
+  const gan = await req('PUT', '/api/admin/classes/c1/teachers',
+    { cookie: A.cookie, body: { teacherIds: ['t1', 't2'], chinhId: 't1' } });
+  check('quản trị xếp thêm cô thứ hai vào nhóm → 200', gan.status === 200, gan.data);
+
+  const be = await req('GET', '/api/students', { cookie: T2 });
+  check('cô thứ hai giờ đọc được hồ sơ bé của nhóm',
+    (be.data || []).some(s => s.id === BE), be.data?.length);
+
+  const ds2 = await req('GET', '/api/thuchup', { cookie: T2 });
+  check('nhưng danh sách ghi nhanh của cô ấy KHÔNG có nháp của cô kia',
+    ds2.status === 200 && !(ds2.data?.ghiNhan || []).some(r => r.id === ID),
+    ds2.data?.ghiNhan?.map(r => r.id));
+
+  const anh2 = await fetch(`${may.BASE}/api/thuchup/anh/${ID}`, { headers: { Cookie: T2 } });
+  check('và không mở được ảnh trong bản nháp của cô kia', anh2.status === 403, anh2.status);
+
+  const anhQt = await fetch(`${may.BASE}/api/thuchup/anh/${ID}`, { headers: { Cookie: A.cookie } });
+  check('quản trị thì vẫn mở được, đúng bảng ba lớp dữ liệu', anhQt.status === 200, anhQt.status);
+
+  const rieng = await req('POST', '/api/thuchup', { cookie: T2, body: {
+    id: 'ffffffff-1111-2222-3333-444444444444', studentId: BE,
+    note: 'nháp của cô thứ hai', giay: 9.1 } });
+  check('cô thứ hai ghi được nháp của riêng mình', rieng.status === 200, rieng.data);
+
+  const lai2 = await req('GET', '/api/thuchup', { cookie: T2 });
+  check('cô thứ hai chỉ thấy đúng nháp của mình',
+    (lai2.data?.ghiNhan || []).length === 1, lai2.data?.ghiNhan?.length);
+  const lai1 = await req('GET', '/api/thuchup', { cookie: T });
+  check('cô thứ nhất cũng không thấy nháp của cô thứ hai',
+    !(lai1.data?.ghiNhan || []).some(r => r.id === 'ffffffff-1111-2222-3333-444444444444'),
+    lai1.data?.ghiNhan?.map(r => r.id));
+
+  const kq = await req('GET', '/api/thuchup/ket-qua', { cookie: T2 });
+  check('số liệu phép thử cũng chỉ tính lần ghi của chính cô ấy',
+    kq.data?.soLan === 1, kq.data);
+}
+
 may.dung();
 donThuMucTam(DIR);
 tongKet();

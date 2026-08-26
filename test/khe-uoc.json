@@ -5,6 +5,7 @@
     "addClassTeacher": "ham(2)",
     "all": "ham(2)",
     "audit": "ham(4)",
+    "backfillClassTeachers": "ham(0)",
     "canAccessClass": "ham(2)",
     "canAccessStudent": "ham(2)",
     "classIdsEverOfTeacher": "ham(1)",

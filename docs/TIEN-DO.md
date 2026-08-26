@@ -96,7 +96,7 @@ người dùng, không lao tiếp sang GĐ 1. Lý do: toàn bộ GĐ 2 đứng t
 > app kế tiếp. Đó là giới hạn của hệ điều hành, không phải lỗi — nhưng cô cần
 > được nói trước, và màn hình có ô "đang chờ gửi" để cô nhìn thấy điều đó.
 
-### G0.4 — Chuyển mô hình lớp: một cô một lớp → nhiều cô một nhóm ⏳
+### G0.4 — Chuyển mô hình lớp: một cô một lớp → nhiều cô một nhóm ✅
 
 Thay đổi lớn nhất và nguy hiểm nhất của GĐ 0. App 1 gắn cứng *một giáo viên chủ
 nhiệm cho một lớp*; mầm non thì **một nhóm 2–3 cô cùng phụ trách**, và một cô có
@@ -114,8 +114,12 @@ mỗi bước:**
 
 1. **✅ Thêm bảng `class_teachers` + hàm mới bên cạnh, chưa ai gọi.**
 2. **✅ Chuyển từng chỗ gọi sang hàm mới; hai cột cũ vẫn còn và vẫn đúng.**
-3. ⏳ Khi không còn ai đọc hai cột cũ mới bỏ chúng khỏi đường đọc — **cột dữ
-   liệu vẫn giữ**, không `DROP`.
+3. **✅ Khi không còn ai đọc hai cột cũ mới bỏ chúng khỏi đường đọc — cột dữ
+   liệu vẫn giữ, không `DROP`.**
+
+Đã đi đủ ba bước, `npm test` xanh sau mỗi bước, mỗi bước một commit và **không
+commit nào trộn tệp dùng chung với tệp tính năng** (`npm run test:commit-rieng`
+xanh cả ba lần).
 
 #### Bước 1/3 ✅ — thêm bên cạnh, chưa ai gọi
 
@@ -180,16 +184,50 @@ Ba điều đáng ghi lại:
   trống trơn. Hai câu `INSERT OR IGNORE` hiện đang nằm ở hai nơi; **bước 3 gộp
   lại một chỗ**.
 
-> **Trạng thái tạm ở giữa hai bước, cố ý và có kiểm soát:** sau bước 2, quản trị
-> đã tích được 2–3 cô cho một nhóm, nhưng đường quyền vẫn đọc `users.classId`
-> (chỉ chứa nổi cô phụ trách chính) nên **cô phụ chưa mở được hồ sơ trẻ** — bước
-> 3 mới mở. Không có gì hỏng, không có gì lùi lại; chỉ là phần mới chưa nối điện
-> xong. Ba commit đi cùng một lần đẩy nên không người dùng thật nào gặp trạng
-> thái này. Đây là cái giá của quy định "sửa tệp dùng chung phải là commit
-> riêng", và trả bằng một commit lưng chừng thì rẻ hơn nhiều so với trộn việc sửa
-> `lib/db.js` vào cùng chỗ với 12 tệp tính năng.
+#### Bước 3/3 ✅ — đường quyền thôi đọc hai cột cũ
 
-### G0.5 — Dữ liệu mẫu kể một câu chuyện ⏳
+Chỉ chạm `lib/db.js` (+ mấy tệp không thuộc tính năng nào), đúng quy định "sửa
+tệp dùng chung phải là commit riêng".
+
+| Hàm | Trước | Sau |
+|---|---|---|
+| `studentsOf` | trẻ của `users.classId` (một nhóm) | trẻ của **mọi** nhóm cô phụ trách, nhóm còn mở |
+| `canAccessStudent` | bé có `classId = users.classId` | bé thuộc một nhóm cô phụ trách, nhóm còn mở |
+| `classIdsOf` | `[users.classId]` | `classIdsOfTeacher(user.id)` |
+
+**Từ đây `class_teachers` là nguồn sự thật DUY NHẤT của quyền.** Hai cột
+`classes.teacherId` và `users.classId` vẫn được **ghi** làm gương và **cột dữ
+liệu còn nguyên** — không `DROP`, đúng quy định. Ba lý do giữ:
+
+1. lỡ bảng mới sai thì còn đường quay lại;
+2. `scripts/kiem-tra-may-chu.js` vẫn soát chúng như cũ;
+3. phần chuyển đổi lúc khởi động **dựng lại bảng mới từ chính hai cột đó** khi
+   nhà trường khôi phục từ bản sao lưu đời cũ.
+
+Kèm theo:
+
+- **Gộp phần chuyển đổi về một chỗ.** Bước 2 phải chép tạm hai câu `INSERT OR
+  IGNORE` sang `lib/importer.js`; bước 3 xuất `db.backfillClassTeachers` ra và
+  importer gọi lại đúng bản gốc. Không còn hai nơi cùng viết một logic.
+- **Bộ canh máy chủ có mục mới `3c. Cô phụ trách nhóm lớp`** — báo đỏ khi một
+  nhóm đang mở không còn cô nào phụ trách. Mục `3b` cũ vẫn còn nhưng đã ghi rõ
+  nó chỉ còn soát cái gương, không còn soát quyền.
+- **Mục `[6]` của `test/nhom-lop.test.mjs` bị lật ngược.** Ở bước 1–2 nó canh
+  "quyền CHƯA đổi"; bước 3 nó canh "quyền ĐÃ đi theo bảng mới", cộng mục `[6b]`
+  canh nhóm đã đóng không còn cấp quyền cho ai. Đây là bài test được viết sẵn để
+  lật — không phải nới lỏng một bài đang canh lỗi.
+- **`test/thuchup.test.mjs` mục `[10]`** canh chỗ nguy hiểm nhất mà chính việc
+  này tạo ra: hai cô cùng một nhóm **không** đọc được ghi chú thô của nhau.
+
+#### Việc G0.4 mở ra, chưa làm
+
+| Việc | Vì sao chưa làm ngay |
+|---|---|
+| Đổi cách gọi tên khắp giao diện: *bé/trẻ* thay *học sinh*, *nhóm lớp* thay *lớp*, *cô* thay *giáo viên chủ nhiệm* | Chạm gần như mọi tệp trong `public/js/views/`. Trộn vào G0.4 là commit không đọc nổi và không revert riêng được. Xứng đáng một commit riêng của nó |
+| Dữ liệu mẫu chưa có nhóm nào 2–3 cô | `data/seed.js` vẫn là câu chuyện tiểu học của app 1. Sửa đúng chỗ này là việc của **G0.5** |
+| `scripts/sua-quyen-chu-nhiem.js` vẫn chỉ sửa hai cột cũ | Nó vẫn đúng với cái nó nhận sửa (cái gương). Cần bản sửa cho `class_teachers` khi có sự cố thật |
+
+### G0.5 — Dữ liệu mẫu kể một câu chuyện ⏳ *(việc tiếp theo)*
 
 Thay dữ liệu mẫu tiểu học bằng câu chuyện mầm non nhất quán: **bé An, nhóm Chồi
 2, cơ sở 1** — cùng một bé xuất hiện xuyên suốt mọi màn hình và mọi bài kiểm thử.
@@ -200,13 +238,14 @@ không hình dung nổi app dùng thật ra sao.
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1049**, FAIL 0 |
-| trong đó `test:thuchup` (phân hệ mới) | 40 |
-| trong đó `test:nhom-lop` (G0.4) | 68 |
+| `npm test` (không cần trình duyệt) | **1068**, FAIL 0 |
+| trong đó `test:thuchup` (phân hệ mới) | 49 |
+| trong đó `test:nhom-lop` (G0.4) | 77 |
 | `npm run test:giao-dien` (cần Playwright) | **209**, FAIL 0 *(đã chạy lại ở kho này)* |
 
-Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 40 (thuchup) + 68 (nhóm lớp)
-+ 9 (mục khế ước của các hàm mới trong `lib/db.js`) = 1049. Con số này sẽ **giảm**
+Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 49 (thuchup, thêm 9 bài canh
+ranh giới nháp của cô) + 77 (nhóm lớp) + 10 (mục khế ước của các hàm mới trong
+`lib/db.js`) = 1068. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -235,3 +274,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Phân hệ `thuchup` + 40 bài kiểm thử — phần mã của phép thử quyết định | G0.3 |
 | 26/08/2026 | Nhiều cô một nhóm, **bước 1/3**: bảng `class_teachers` + 9 hàm mới, chưa ai gọi | G0.4 |
 | 26/08/2026 | Nhiều cô một nhóm, **bước 2/3**: chuyển 12 tệp tính năng sang hàm mới; chặn rò rỉ ghi chú thô của cô | G0.4 |
+| 26/08/2026 | Nhiều cô một nhóm, **bước 3/3**: đường quyền thôi đọc hai cột cũ — G0.4 xong | G0.4 |
