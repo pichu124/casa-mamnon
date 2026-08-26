@@ -395,3 +395,29 @@ CREATE TABLE IF NOT EXISTS student_class_periods (
 CREATE INDEX IF NOT EXISTS idx_scp_student ON student_class_periods(studentId, tu DESC);
 CREATE INDEX IF NOT EXISTS idx_scp_class ON student_class_periods(classId);
 CREATE INDEX IF NOT EXISTS idx_scp_dang_hoc ON student_class_periods(studentId, den);
+
+-- ===== Cô phụ trách nhóm lớp — quan hệ NHIỀU CÔ ↔ MỘT NHÓM =====
+--
+-- App 1 là trường tiểu học: một lớp có đúng MỘT giáo viên chủ nhiệm. Quan hệ đó
+-- nằm ở hai cột phải luôn ghi khớp nhau — `classes.teacherId` (màn hình quản trị
+-- đọc) và `users.classId` (quyền đọc hồ sơ học sinh đi theo). Trường mầm non thì
+-- khác hẳn: một nhóm lớp có 2–3 cô cùng phụ trách, và một cô có thể phụ trách
+-- nhiều nhóm. Hai cột kia không diễn tả nổi điều đó, dù ghi khớp đến đâu.
+--
+-- Bảng PHỤ, cố ý KHÔNG đụng vào hai cột cũ: chúng vẫn được ghi và vẫn đúng, nên
+-- lỡ bảng này sai thì còn đường quay lại. Xem `lib/db.js` mục "Cô phụ trách nhóm
+-- lớp" để biết ba bước chuyển đổi.
+--
+-- `vaiTro` chỉ có hai giá trị: 'chinh' (cô phụ trách chính của nhóm — đúng thứ
+-- hai cột đời cũ diễn tả được) và 'phu'. Dòng của nhóm ĐÃ ĐÓNG được GIỮ LẠI để
+-- còn nhận ra "cô từng phụ trách nhóm này" khi mở lại album năm cũ; quyền đọc hồ
+-- sơ trẻ thì lọc thêm `classes.active = 1` nên không rò rỉ theo.
+CREATE TABLE IF NOT EXISTS class_teachers (
+  classId   TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  teacherId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  vaiTro    TEXT NOT NULL DEFAULT 'phu',    -- chinh | phu
+  ganLuc    TEXT,
+  PRIMARY KEY (classId, teacherId)
+);
+CREATE INDEX IF NOT EXISTS idx_ct_teacher ON class_teachers(teacherId);
+CREATE INDEX IF NOT EXISTS idx_ct_class ON class_teachers(classId, vaiTro);

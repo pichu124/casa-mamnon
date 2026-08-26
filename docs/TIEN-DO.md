@@ -99,17 +99,52 @@ người dùng, không lao tiếp sang GĐ 1. Lý do: toàn bộ GĐ 2 đứng t
 ### G0.4 — Chuyển mô hình lớp: một cô một lớp → nhiều cô một nhóm ⏳
 
 Thay đổi lớn nhất và nguy hiểm nhất của GĐ 0. App 1 gắn cứng *một giáo viên chủ
-nhiệm cho một lớp* (`classes.homeroomTeacherId`); mầm non thì **một nhóm 2–3 cô
-cùng phụ trách**, và một cô có thể phụ trách nhiều nhóm.
+nhiệm cho một lớp*; mầm non thì **một nhóm 2–3 cô cùng phụ trách**, và một cô có
+thể phụ trách nhiều nhóm.
 
-Chạm vào `lib/db.js` (`classIdsOf`, `studentsOf`, `canAccessClass`) — nhóm tệp
+> **Đính chính bản kế hoạch:** app 1 không có cột `classes.homeroomTeacherId`.
+> Quan hệ chủ nhiệm nằm ở **hai** cột phải luôn ghi khớp nhau —
+> `classes.teacherId` (màn hình quản trị đọc) và `users.classId` (**quyền đọc hồ
+> sơ học sinh đi theo cột này**). Hai cột chứ không phải một, nên chỗ dễ hỏng
+> nhiều gấp đôi so với lúc lập kế hoạch tưởng.
+
+Chạm vào `lib/db.js` (`classIdsOf`, `studentsOf`, `canAccessStudent`) — nhóm tệp
 dùng chung. **Bắt buộc đi đủ ba bước, mỗi bước một commit, chạy `npm test` sau
 mỗi bước:**
 
-1. Thêm bảng `class_teachers` + hàm mới bên cạnh, chưa ai gọi.
-2. Chuyển từng chỗ gọi sang hàm mới; `homeroomTeacherId` vẫn còn và vẫn đúng.
-3. Khi không còn ai đọc `homeroomTeacherId` mới bỏ nó khỏi đường đọc — **cột dữ
+1. **✅ Thêm bảng `class_teachers` + hàm mới bên cạnh, chưa ai gọi.**
+2. ⏳ Chuyển từng chỗ gọi sang hàm mới; hai cột cũ vẫn còn và vẫn đúng.
+3. ⏳ Khi không còn ai đọc hai cột cũ mới bỏ chúng khỏi đường đọc — **cột dữ
    liệu vẫn giữ**, không `DROP`.
+
+#### Bước 1/3 ✅ — thêm bên cạnh, chưa ai gọi
+
+| Thêm gì | Ở đâu |
+|---|---|
+| Bảng `class_teachers (classId, teacherId, vaiTro, ganLuc)` | `lib/schema.sql` |
+| 9 hàm mới: `teachersOfClass`, `teacherIdsOfClass`, `classIdsOfTeacher`, `classIdsEverOfTeacher`, `isTeacherOfClass`, `setClassTeachers`, `addClassTeacher`, `removeClassTeacher`, `setHomeroomTeacher` | `lib/db.js` |
+| 46 bài kiểm thử | `test/nhom-lop.test.mjs` (`npm run test:nhom-lop`) |
+
+Bốn quyết định đáng ghi lại:
+
+- **Hai cột cũ được giữ làm gương, không bỏ.** Mọi đường ghi đều đi qua
+  `mirrorLegacyHomeroom`, ghi đúng ba chiều mà `datChuNhiem` của app 1 đã trả giá
+  để học. Nhờ vậy lỡ bảng mới sai thì còn đường quay lại, và
+  `scripts/kiem-tra-may-chu.js` vẫn soát được như cũ.
+- **Vai trò `chinh` vẫn độc quyền một nhóm mỗi cô**, vì hai cột cũ chỉ chứa nổi
+  bấy nhiêu. Nhưng khi cô nhận nhóm mới, ở nhóm cũ cô bị **hạ xuống `phu` chứ
+  không bị gỡ** — đó chính là chỗ mầm non khác tiểu học.
+- **Nhóm đã đóng: giữ vết, không giữ quyền.** Dòng của nhóm đã đóng được giữ để
+  còn nhận ra "cô từng phụ trách nhóm này" khi mở album năm cũ; `classIdsOfTeacher`
+  lọc thêm `classes.active = 1` nên quyền đọc hồ sơ trẻ không rò rỉ theo.
+- **Phần chuyển đổi chạy ở MỖI lần khởi động và chỉ THÊM.** Chạy một lần rồi thôi
+  thì mỗi lần khôi phục từ bản sao lưu (`lib/importer.js` ghi thẳng hai cột cũ)
+  là cô mất sạch nhóm mà không ai biết. Chỉ thêm thì không bao giờ dựng dậy được
+  một phân công đã gỡ có chủ ý, vì hai cột cũ luôn là tập con của bảng mới.
+
+Mục `[6]` của `test/nhom-lop.test.mjs` là mục quan trọng nhất của bước này: nó
+chứng minh bước 1 **chưa đổi hành vi** của `studentsOf` / `classIdsOf` /
+`canAccessStudent` — "thêm bên cạnh" đúng nghĩa bên cạnh.
 
 ### G0.5 — Dữ liệu mẫu kể một câu chuyện ⏳
 
@@ -122,11 +157,13 @@ không hình dung nổi app dùng thật ra sao.
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **972**, FAIL 0 |
+| `npm test` (không cần trình duyệt) | **1027**, FAIL 0 |
 | trong đó `test:thuchup` (phân hệ mới) | 40 |
+| trong đó `test:nhom-lop` (G0.4) | 46 |
 | `npm run test:giao-dien` (cần Playwright) | 209 *(chưa chạy lại ở kho này)* |
 
-Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 40 = 972. Con số này sẽ **giảm**
+Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 40 (thuchup) + 46 (nhóm lớp)
++ 9 (mục khế ước của các hàm mới trong `lib/db.js`) = 1027. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -153,3 +190,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 |---|---|---|
 | 26/08/2026 | Nhân bản nền từ app 1, viết `CLAUDE.md` + bộ docs định hướng | G0.1, G0.2 |
 | 26/08/2026 | Phân hệ `thuchup` + 40 bài kiểm thử — phần mã của phép thử quyết định | G0.3 |
+| 26/08/2026 | Nhiều cô một nhóm, **bước 1/3**: bảng `class_teachers` + 9 hàm mới, chưa ai gọi | G0.4 |
