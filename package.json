@@ -1,7 +1,7 @@
 {
-  "name": "school-connect",
-  "version": "1.0.0",
-  "description": "Sổ liên lạc điện tử - Cổng thông tin kết nối nhà trường và gia đình",
+  "name": "casa-mamnon",
+  "version": "0.1.0",
+  "description": "CASA Mầm non - Liên lạc nhà trường và gia đình cho trường mầm non 3 cơ sở",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

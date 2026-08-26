@@ -1,7 +1,16 @@
 # Quy định bắt buộc cho mọi thay đổi trong kho mã này
 
-Đây là ứng dụng đang chạy thật cho một trường khoảng 300 học sinh. Phụ huynh và
-giáo viên dùng nó hằng ngày. Vì vậy có một nguyên tắc đứng trên mọi thứ khác.
+**CASA Mầm non** — app liên lạc nhà trường ↔ gia đình cho một trường mầm non
+**3 cơ sở**, trẻ 2–6 tuổi. Mục tiêu số một: **thay hẳn sổ liên lạc giấy**. Sau đó
+mới tới phần hành trình học tập theo triết lý CASA.
+
+Kho mã này **nhân bản từ app 1 (SchoolConnect** — trường tiểu học, đang chạy thật
+cho ~300 học sinh**)** tại tag `nen-tu-app1-2026-08-26`. Toàn bộ lịch sử git của
+phần nền được giữ nguyên, nên tra `git log` vẫn thấy vì sao mỗi dòng nền được viết
+như vậy.
+
+Đọc `docs/KE-HOACH.md` để biết đang xây cái gì và theo thứ tự nào.
+Đọc `docs/TIEN-DO.md` để biết **hiện đang đứng ở đâu**.
 
 ---
 
@@ -11,13 +20,54 @@ giáo viên dùng nó hằng ngày. Vì vậy có một nguyên tắc đứng tr
 
 1. **App vẫn khởi động và vẫn đăng nhập được**, kể cả khi tính năng vừa thêm hoặc
    vừa bỏ có lỗi.
-2. **Mọi tính năng khác đang bật vẫn chạy y như cũ** — không đổi hành vi, không
-   đổi đường dẫn API, không đổi cấu trúc bảng của chúng.
+2. **Mọi tính năng khác đang bật vẫn chạy y như cũ** — không đổi hành vi, không đổi
+   đường dẫn API, không đổi cấu trúc bảng của chúng.
 3. **Dữ liệu đã có không được mất hay hỏng.** Bỏ một tính năng là ngưng dùng nó,
    không phải xóa dữ liệu của nó.
 
-Nếu một yêu cầu không thể làm mà vẫn giữ được ba điều trên, **phải nói rõ với
-người dùng trước khi làm**, không được tự ý đánh đổi.
+Nếu một yêu cầu không thể làm mà vẫn giữ được ba điều trên, **phải nói rõ với người
+dùng trước khi làm**, không được tự ý đánh đổi.
+
+Ở giai đoạn đầu app 2 chưa có người dùng thật, nhưng quy định này **có hiệu lực
+ngay từ bây giờ**: nền của nó là nền đang chạy thật ở app 1, và mọi thói quen nới
+ra lúc này sẽ còn nguyên khi trường mầm non bắt đầu dùng.
+
+---
+
+## 5 QUY TẮC giáo dục — phần hồn của app này
+
+Năm quy tắc dưới đây đến từ bản kế hoạch CASA và **đứng ngang hàng với Nguyên tắc
+số 1**. Chúng quyết định app này khác một phần mềm quản lý học sinh thông thường ở
+chỗ nào.
+
+1. **Quan sát ≠ đánh giá.** Một ghi chép về đứa trẻ trước hết là mô tả điều đã thấy.
+   Việc gắn nó vào lĩnh vực phát triển nào là một bước riêng, do cô làm sau, có thể
+   không làm.
+2. **Chưa quan sát thấy ≠ không làm được.** Màn hình không bao giờ được trình bày
+   "Chưa quan sát thấy" như một thất bại, một ô đỏ, hay một khoảng trống cần lấp.
+3. **AI gợi ý ≠ cô quyết định.** Mọi thứ AI sinh ra đều là *nháp chờ cô duyệt*. AI
+   không bao giờ tự đánh giá một đứa trẻ, không bao giờ ghi thẳng vào hồ sơ.
+4. **Không phần trăm, không điểm số, không xếp hạng trẻ.** Không có bảng xếp hạng,
+   không có "hoàn thành 78%", không so sánh bé này với bé khác hay với "chuẩn của
+   độ tuổi" trên bất kỳ màn hình nào phụ huynh hoặc cô nhìn thấy.
+5. **Đánh giá phải dẫn tới hành động.** Mỗi nhận định đi kèm một gợi ý làm được:
+   ở lớp cô làm gì tiếp, ở nhà gia đình chơi gì cùng con.
+
+**QUY TẮC 4 được canh bằng máy** (bài test quét giao diện), không bằng trí nhớ.
+Bốn quy tắc còn lại canh bằng bài test phân quyền và bài test luồng. **Nhóm bài
+test canh 5 quy tắc này là bất khả xâm phạm** — muốn đổi phải ghi rõ lý do và chờ
+người dùng duyệt, giống hệt `test/co-lap-loi.test.mjs`.
+
+### Ba lớp dữ liệu của một quan sát
+
+| Lớp | Ai đọc được | Ghi chú |
+|---|---|---|
+| Ghi chú thô của cô | **chỉ cô đã ghi** (+ quản trị khi cần) | Nháp dở dang được phép tồn tại. **Không bao giờ** lộ sang phụ huynh. |
+| Nhận định chuyên môn | cô trong nhóm, quản lý cơ sở | Gắn lĩnh vực phát triển, mức độ, minh chứng. |
+| Câu chuyện kể cho gia đình | phụ huynh của chính bé đó | Do cô chủ động chọn công bố, không tự động. |
+
+Ranh giới lớp 1 → phụ huynh có **bài test phân quyền riêng**. Đây là chỗ dễ rò rỉ
+nhất và cũng là chỗ mất lòng tin của cô giáo nhanh nhất.
 
 ---
 
@@ -30,8 +80,8 @@ Xem `modules/README.md`. Cơ chế này đã được thiết kế để một p
 cũng không lây sang phần khác:
 
 - Máy chủ nạp từng phân hệ trong khối bắt lỗi riêng.
-- Phân hệ mới chỉ đăng ký được đường dẫn trong vùng `api` đã khai báo; đường dẫn
-  đã có chủ thì bị từ chối ngay khi khởi động.
+- Phân hệ mới chỉ đăng ký được đường dẫn trong vùng `api` đã khai báo; đường dẫn đã
+  có chủ thì bị từ chối ngay khi khởi động.
 - `schema.sql` của nó chỉ được `CREATE ... IF NOT EXISTS` với tên bắt đầu bằng mã
   phân hệ. Mọi câu `DROP`, `ALTER`, `DELETE` đều bị chặn trước khi chạy.
 
@@ -42,57 +92,49 @@ một tính năng lõi đã có**. Khi đó chỉ chạm vào tệp của đúng
 
 Theo thứ tự ưu tiên:
 
-1. **Tắt trong Quản trị → Tính năng.** Đây là cách đúng trong hầu hết trường hợp:
-   tính năng biến khỏi màn hình, API bị chặn, **dữ liệu giữ nguyên**, bật lại
-   được bất cứ lúc nào.
-2. Nếu người dùng muốn gỡ hẳn mã: xóa tệp trong `routes/` và `public/js/views/`,
-   **giữ nguyên bảng dữ liệu**. Máy chủ tự phát hiện tệp thiếu và tạm ẩn phân hệ
-   đó, không sập.
+1. **Tắt trong Quản trị → Tính năng.** Tính năng biến khỏi màn hình, API bị chặn,
+   **dữ liệu giữ nguyên**, bật lại được bất cứ lúc nào.
+2. Nếu muốn gỡ hẳn mã: xóa tệp trong `routes/` và `public/js/views/`, **giữ nguyên
+   bảng dữ liệu**. Máy chủ tự phát hiện tệp thiếu và tạm ẩn phân hệ đó, không sập.
 3. **Không bao giờ tự ý `DROP TABLE`** hay xóa dữ liệu. Muốn xóa dữ liệu phải hỏi
    người dùng và nhắc họ chạy `npm run backup` trước.
-
-### Sửa một tính năng đang có
-
-Chỉ chạm vào tệp của đúng tính năng đó.
 
 ### Tệp dùng chung — nhóm nguy hiểm nhất
 
 `lib/db.js`, `lib/auth.js`, `public/js/ui.js`, `public/js/app.js` không thuộc về
-tính năng nào cả, mà **cả ứng dụng đang dựa vào chúng**: 22/22 tệp route đều gọi
-`lib/db.js`, riêng `UI.esc` có hơn 300 chỗ gọi. Cơ chế cô lập lỗi không bảo vệ
-được nhóm này — nó bảo vệ bằng cách khoanh vùng, mà tệp dùng chung thì không có
-vùng riêng.
+tính năng nào cả, mà **cả ứng dụng đang dựa vào chúng**. Cơ chế cô lập lỗi không
+bảo vệ được nhóm này — nó bảo vệ bằng cách khoanh vùng, mà tệp dùng chung thì không
+có vùng riêng.
 
-Vì vậy có hai quy định riêng cho nhóm này:
+Hai quy định riêng cho nhóm này:
 
-1. **Chỉ được thêm, không đổi và không bỏ thứ đang có.** Cần đổi hành vi thì
-   truyền tham số hoặc thêm hàm mới bên cạnh, đừng sửa thứ đang chạy.
-2. **Sửa tệp dùng chung phải là commit riêng, không trộn chung với việc thêm hay
-   bỏ tính năng.** Trộn chung thì khi hỏng không biết gỡ phần nào, và người sửa
-   đang bận nghĩ về tính năng mới chứ không nghĩ về 300 chỗ gọi kia.
+1. **Chỉ được thêm, không đổi và không bỏ thứ đang có.** Cần đổi hành vi thì truyền
+   tham số hoặc thêm hàm mới bên cạnh.
+2. **Sửa tệp dùng chung phải là commit riêng**, không trộn chung với việc thêm hay
+   bỏ tính năng.
 
-Khi thật sự phải bỏ hay đổi một thứ dùng chung, làm ba bước, mỗi bước một commit
-và chạy kiểm thử sau mỗi bước: **thêm cái mới bên cạnh → chuyển từng chỗ gọi sang
-cái mới → khi không còn ai gọi mới xóa cái cũ.** Ở bất kỳ bước nào app cũng đang
-chạy được.
+Khi thật sự phải bỏ hay đổi một thứ dùng chung, làm ba bước, mỗi bước một commit và
+chạy kiểm thử sau mỗi bước: **thêm cái mới bên cạnh → chuyển từng chỗ gọi sang cái
+mới → khi không còn ai gọi mới xóa cái cũ.** Ở bất kỳ bước nào app cũng đang chạy được.
+
+> **Việc lớn nhất của GĐ 0 rơi đúng vào nhóm này:** app 1 gắn cứng *một cô – một
+> lớp*, mầm non cần *nhiều cô – một nhóm*. Bắt buộc đi đủ ba bước trên, không được
+> sửa thẳng `classIdsOf`/`studentsOf` trong một lần.
 
 Hai vế trên **đều đã được canh bằng máy**, không phải chỉ là lời hứa.
 
 ### Dữ liệu của trường không bao giờ được lên kho mã
 
 `scripts/kiem-tra-du-lieu.js` chặn mọi commit có chứa tệp `*.db`, `uploads/`,
-`backups/`, `.khoi-phuc-*`, `.env`, khóa ký, hay CSV danh sách học sinh trong
-`data/`. Chạy ở cùng ba chỗ như bộ canh commit riêng, nhưng **không có đường
-thoát** — không có trường hợp nào mà đẩy hồ sơ trẻ em lên kho công khai là đúng,
-và lộ rồi thì viết lại lịch sử git cũng không thu lại được.
+`backups/`, `.khoi-phuc-*`, `.env`, khóa ký, hay CSV danh sách trẻ trong `data/`.
+**Không có đường thoát** — lộ rồi thì viết lại lịch sử git cũng không thu lại được.
+Nếu bản thân bộ canh chạy lỗi thì nó **chặn**, không cho qua.
 
-Bộ này còn khác một điểm: nếu bản thân nó chạy lỗi thì nó **chặn**, chứ không cho
-qua như bộ commit riêng. Thà phiền một lần còn hơn để lọt.
+Ở app này mức độ nhạy cảm còn cao hơn app 1: trẻ 2–6 tuổi, **ảnh và video khuôn mặt
+trẻ**, hồ sơ sức khỏe. Thư mục `uploads/` của app 2 phải nằm ngoài kho mã ngay từ
+lần chạy đầu tiên (`DATA_DIR` trỏ ra ngoài).
 
-Khi làm việc gì đụng tới đường dẫn dữ liệu, nhớ: mặc định `DATA_DIR` là `./data`
-nằm trong kho mã — tiện lúc phát triển nhưng phải trỏ ra ngoài khi chạy thật.
-
-Vế thứ hai — commit riêng — do `scripts/kiem-tra-commit.js` canh, chạy ở ba chỗ:
+Vế commit riêng do `scripts/kiem-tra-commit.js` canh, chạy ở ba chỗ:
 
 | Chạy ở đâu | Lệnh | Bỏ qua được không |
 |---|---|---|
@@ -100,121 +142,87 @@ Vế thứ hai — commit riêng — do `scripts/kiem-tra-commit.js` canh, chạ
 | Tự động mỗi lần `git commit` | móc `.githooks/commit-msg` | có, bằng `--no-verify` |
 | Trên GitHub mỗi lần push | `.github/workflows/kiem-tra.yml` | không |
 
-Nó xếp tệp đã `git add` vào hai nhóm — dùng chung (bốn tệp trên) và tính năng
-(`routes/*.js`, `public/js/views/*.js`, `modules/**`) — rồi chặn nếu cùng một
-commit có cả hai. Tài liệu, kiểm thử, `lib/modules.js`, `lib/schema.sql`,
-`public/index.html`, `public/sw.js` không thuộc nhóm nào, nên **thêm một tính
-năng lõi mới vẫn commit một lần bình thường**.
-
-Khi trộn chung là có chủ ý thật (ví dụ đổi tên một biến xuyên suốt), thêm một
-**dòng riêng** vào cuối lời commit:
+Khi trộn chung là có chủ ý thật, thêm một **dòng riêng** vào cuối lời commit:
 
 ```
 Tron-co-y: đổi tên biến xuyên suốt, tách ra thì mã không chạy được
 ```
 
-Phải là dòng riêng và phải có lý do. Nhắc tới quy định này trong văn xuôi thì
-không mở được đường thoát — bản thân lời commit thêm bộ canh này đã mắc đúng lỗi
-đó một lần.
-
-Móc git được bật tự động sau `npm install` (mục `prepare`). Bật lại bằng tay:
+Móc git được bật tự động sau `npm install`. Bật lại bằng tay:
 `git config core.hooksPath .githooks`.
 
-`npm run test:khe-uoc` canh vế thứ nhất: nó chụp lại toàn bộ những gì các tệp
-dùng chung đang cung cấp và báo đỏ nếu có thứ biến mất hoặc đổi số tham số. Thêm
-hàm mới thì không báo đỏ — chạy `npm run test:khe-uoc -- --cap-nhat` để ghi nhận.
+`npm run test:khe-uoc` canh vế thứ nhất: chụp lại toàn bộ những gì các tệp dùng
+chung đang cung cấp và báo đỏ nếu có thứ biến mất hoặc đổi số tham số. Thêm hàm mới
+thì không báo đỏ — chạy `npm run test:khe-uoc -- --cap-nhat` để ghi nhận.
 
-Nó chỉ bắt được thay đổi về **hình dạng**. Thay đổi về **hành vi** — ví dụ đổi
-`canAccessStudent` trả `true` thay vì `false` khi không tìm thấy học sinh, khiến
-phụ huynh xem được hồ sơ con nhà khác mà app không hề báo lỗi — thì chỉ `npm test`
-đầy đủ mới bắt được. Đó là lý do phải chạy cả bộ, không chỉ bộ khế ước.
+### Lỗi ở phần nền phải vá cả hai kho
+
+App 1 và app 2 dùng chung một phần nền đã tách đôi. Quy ước xử lý ở
+**`docs/LOI-NEN-CHUNG.md`** — đọc trước khi sửa bất cứ thứ gì trong `lib/`,
+`scripts/`, `public/js/ui.js`, `public/js/app.js`, `public/sw.js`.
 
 ---
 
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test              # 932 bài, không cần trình duyệt, khoảng 3 phút
+npm test              # bộ đầy đủ, không cần trình duyệt, khoảng 3 phút
 ```
 
 Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:
 
 ```bash
-npm run test:giao-dien   # 209 bài chạy trên trình duyệt thật, cần Playwright
+npm run test:giao-dien   # chạy trên trình duyệt thật, cần Playwright
 ```
 
-Hoặc `npm run test:tat-ca` để chạy cả hai (1141 bài).
+Hoặc `npm run test:tat-ca` để chạy cả hai.
 
-| Bộ | Số bài | Canh điều gì |
-|---|---|---|
-| `test:du-lieu-kiemthu` | 40 | Dữ liệu thật không lọt lên kho mã |
-| `test:khe-uoc` | 104 | Tệp dùng chung không bị bỏ hay đổi hình dạng |
-| `test:commit-rieng-kiemthu` | 30 | Bộ canh commit riêng vẫn chặn đúng thứ cần chặn |
-| `test:may-chu` | 34 | Bộ kiểm tra máy chủ thật bắt đúng lỗi cấu hình khi triển khai |
-| `test:lo-hong` | 269 | Các lỗ hổng đã vá không tái phát |
-| `test:api` | 68 | Toàn bộ nghiệp vụ và phân quyền hai vai trò |
-| `test:bien-soan` | 80 | Giáo viên/quản trị soạn được nội dung, phụ huynh bị chặn đường ghi |
-| `test:bao-mat` | 38 | Mật khẩu, cookie, header, chống dò, phiên bền vững |
-| `test:mat-khau` | 25 | Cấp lại mật khẩu, buộc đổi mật khẩu tạm |
-| `test:quan-tri` | 43 | Nhập CSV, bắt lỗi, sinh tài khoản, nhật ký |
-| `test:nam-hoc` | 31 | Lên lớp, ra trường, giữ dữ liệu năm cũ |
-| `test:tinh-nang` | 52 | Bật/tắt phân hệ, cắm thêm phân hệ mới |
-| `test:co-lap-loi` | 101 | **Nguyên tắc số 1** |
-| `test:luoi-an-toan` | 17 | Lỗi bất đồng bộ: promise bỏ quên thì sống, nổ đồng bộ thì dừng sạch |
-| `test:album` | 43 | Tải ảnh, phân quyền xem, chặn tệp giả danh ảnh |
-| `test:pwa` | 43 | Cài như app, chạy offline, khổ iPhone và Android |
+Số bài của app 2 sẽ lệch dần khỏi app 1 khi gỡ phân hệ tiểu học và thêm phân hệ mầm
+non — **con số hiện tại luôn ghi ở `docs/TIEN-DO.md`**, không ghi cứng ở đây để
+tránh hai chỗ nói khác nhau.
 
-Mọi bộ đều tự dựng máy chủ riêng trên cổng riêng với cơ sở dữ liệu tạm trong thư
-mục tạm của hệ điều hành, **không đụng dữ liệu thật của trường**.
+`test/co-lap-loi.test.mjs` là bộ canh giữ Nguyên tắc số 1. Nó cố tình phá hỏng từng
+thứ rồi kiểm tra app vẫn đăng nhập được và các tính năng còn lại vẫn chạy.
 
-`test/co-lap-loi.test.mjs` chính là bộ canh giữ nguyên tắc số 1. Nó cố tình phá
-hỏng từng thứ — tính năng lõi viết sai, tính năng bị gỡ mất, phân hệ mới chiếm
-đường dẫn của phần khác, `schema.sql` chứa `DROP TABLE students` — rồi kiểm tra
-app vẫn đăng nhập được và các tính năng còn lại vẫn chạy.
-
-**Không được sửa hay nới lỏng bộ kiểm thử này để cho code chạy qua.** Nếu nó báo
-đỏ thì code sai, không phải bài kiểm thử sai.
+**Không được sửa hay nới lỏng bộ kiểm thử này để cho code chạy qua.** Nếu nó báo đỏ
+thì code sai, không phải bài kiểm thử sai. Quy định này áp dụng y hệt cho nhóm bài
+test canh 5 QUY TẮC giáo dục và nhóm bài test phân quyền.
 
 ---
 
 ## Chủ động nêu ý kiến về độ ổn định dài hạn
 
-Người dùng yêu cầu: **trong lúc làm bất cứ việc gì, thấy điều gì đe dọa độ ổn
-định lâu dài của ứng dụng thì nêu ra ngay, không đợi được hỏi.**
+**Trong lúc làm bất cứ việc gì, thấy điều gì đe dọa độ ổn định lâu dài của ứng dụng
+thì nêu ra ngay, không đợi được hỏi.**
 
-Nêu là nêu, không phải tự ý làm. Nói rõ ba ý — thấy gì, hỏng ra sao nếu để yên,
-sửa thì tốn gì — rồi để người dùng quyết. Việc đang làm dở vẫn làm cho xong.
+Nêu là nêu, không phải tự ý làm. Nói rõ ba ý — thấy gì, hỏng ra sao nếu để yên, sửa
+thì tốn gì — rồi để người dùng quyết. Việc đang làm dở vẫn làm cho xong.
 
-Những thứ đáng nêu, ví dụ:
+Đáng nêu: dữ liệu thật có nguy cơ lên GitHub / bị ghi đè / mất khi khởi động lại;
+một chỗ hỏng kéo sập cả app; một quy định trong tệp này không thực thi được trên
+thực tế; bài kiểm thử luôn đúng hoặc bao phủ thiếu đúng chỗ nguy hiểm; thứ hôm nay
+chạy được nhưng hỏng khi trường đông lên, sang năm học mới, hoặc khi người khác
+tiếp quản mã.
 
-- Dữ liệu thật có nguy cơ bị đẩy lên GitHub, bị ghi đè, hoặc mất khi khởi động lại.
-- Một chỗ hỏng có thể kéo sập cả ứng dụng thay vì chỉ hỏng một phần.
-- Một quy định trong tệp này đang không thực thi được trên thực tế.
-- Bài kiểm thử bao phủ thiếu đúng chỗ nguy hiểm, hoặc có bài kiểm thử luôn đúng.
-- Thứ hôm nay chạy được nhưng sẽ hỏng khi trường đông lên, khi sang năm học mới,
-  hoặc khi người khác tiếp quản mã.
-
-Đừng nêu những chuyện vặt về sở thích viết mã. Chỉ nêu thứ có thể làm phụ huynh
-và giáo viên không dùng được app, hoặc làm mất dữ liệu.
+Đừng nêu chuyện vặt về sở thích viết mã.
 
 ---
 
 ## Vài điều khác cần nhớ
 
-- **Sau mỗi phần hoàn thiện: cập nhật `docs/TIEN-DO.md`, commit, rồi push** lên
-  nhánh `claude/school-communication-app-wqjitt`. Người dùng yêu cầu điều này để
-  công việc không mất khi phiên làm việc bị gián đoạn.
+- **Sau mỗi phần hoàn thiện: cập nhật `docs/TIEN-DO.md`, commit, rồi push.**
 - Đổi bất cứ tệp nào trong `public/` thì **tăng số `VERSION` trong `public/sw.js`**,
   nếu không điện thoại đã cài app sẽ kẹt ở bản cũ.
-- Giao diện và mọi thông báo lỗi viết **bằng tiếng Việt**, dễ hiểu với giáo viên
-  và phụ huynh không rành máy tính. Đừng để lộ thuật ngữ kỹ thuật ra màn hình.
-- Dữ liệu ở đây là thông tin trẻ em dưới 16 tuổi và hồ sơ sức khỏe — thuộc nhóm
-  nhạy cảm theo Nghị định 13/2023/NĐ-CP. Mọi đường dẫn mới đọc dữ liệu học sinh
-  **phải gọi `db.canAccessStudent(req.user, studentId)`** hoặc
-  `db.canAccessClass(req.user, classId)`.
+- Giao diện và mọi thông báo lỗi viết **bằng tiếng Việt**, dễ hiểu với giáo viên và
+  phụ huynh không rành máy tính. Đừng để lộ thuật ngữ kỹ thuật ra màn hình.
+- **Gọi đúng tên của bậc mầm non**: *bé / trẻ* (không phải "học sinh"), *nhóm lớp*
+  (không phải "lớp học"), *cô* (không phải "giáo viên bộ môn"). Mã nguồn kế thừa từ
+  app 1 còn dùng `student`/`class` — được phép giữ ở tầng dữ liệu, nhưng **màn hình
+  phải nói tiếng của trường mầm non**.
+- Dữ liệu ở đây là thông tin trẻ dưới 6 tuổi, ảnh khuôn mặt và hồ sơ sức khỏe —
+  nhóm nhạy cảm theo Nghị định 13/2023/NĐ-CP và Luật Bảo vệ dữ liệu cá nhân
+  91/2025/QH15. Mọi đường dẫn mới đọc dữ liệu của bé **phải gọi
+  `db.canAccessStudent(req.user, studentId)`** hoặc `db.canAccessClass(req.user, classId)`.
+- **Ảnh nhóm**: một ảnh chỉ hiện cho gia đình khác khi **mọi bé trong ảnh** đều có
+  đồng ý chia sẻ. Lọc ở tầng dữ liệu, không che ở giao diện.
 - Luôn bọc dữ liệu động bằng `UI.esc(...)` trước khi chèn vào HTML.
-- **Tài liệu triển khai cho nhà trường** là `docs/QUY-TRINH-TRIEN-KHAI.docx`,
-  sinh từ `scripts/xuat-quy-trinh.js` (chữ) + `docs/so-do-trien-khai.svg` (sơ đồ).
-  Thay đổi nào ảnh hưởng tới cách triển khai/vận hành (lệnh, đường dẫn, cổng,
-  phiên bản Node, quy trình sao lưu…) thì sửa hai tệp nguồn đó rồi chạy
-  `npm run tai-lieu:quy-trinh` để bản Word khớp lại với app, trong cùng đợt commit.
