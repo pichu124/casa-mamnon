@@ -1,5 +1,6 @@
 // Phân hệ Điểm danh: phụ huynh xem theo tháng, giáo viên điểm danh lớp theo ngày.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
 const STATUSES = ['present', 'late', 'absent_excused', 'absent_unexcused'];
@@ -41,7 +42,16 @@ module.exports = (app) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
     }
-    const students = db.studentsOf(req.user);
+    // Cô phụ trách nhiều nhóm thì sổ điểm danh phải mở được TỪNG nhóm, chứ
+    // không dồn trẻ hai nhóm vào một danh sách. Không truyền `classId` thì giữ
+    // nguyên hành vi cũ: toàn bộ trẻ cô được xem.
+    const locNhom = String(req.query.classId || '');
+    if (locNhom && !db.canAccessClass(req.user, locNhom)) {
+      return res.status(403).json({ error: 'Nhóm lớp này không thuộc quyền của bạn' });
+    }
+    const students = locNhom
+      ? db.studentsOf(req.user).filter(s => s.classId === locNhom)
+      : db.studentsOf(req.user);
     // Lấy một lần toàn bộ bản ghi trong ngày rồi ghép, thay vì tra từng em.
     const ids = students.map(s => s.id);
     const byStudent = new Map();
@@ -73,6 +83,10 @@ module.exports = (app) => {
     }
     res.json({
       date,
+      // Các nhóm cô đang phụ trách, để màn hình dựng được ô chọn nhóm. Cô chỉ
+      // có một nhóm thì mảng này một phần tử và giao diện không hiện ô chọn.
+      nhom: nl.nhomCuaCo(req.user.id),
+      dangXemNhom: locNhom || null,
       students: students.map(s => ({
         student: { id: s.id, name: s.name, code: s.code, avatar: s.avatar },
         record: byStudent.get(s.id) || null,
@@ -137,8 +151,10 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Trạng thái điểm danh không hợp lệ' });
     }
 
-    // Quản trị phải nói rõ lớp nào; giáo viên thì lấy lớp chủ nhiệm.
-    const classId = String((req.body || {}).classId || req.user.classId || '');
+    // Quản trị phải nói rõ nhóm nào; cô thì lấy nhóm mình phụ trách — và cũng
+    // phải nói rõ khi cô đang phụ trách nhiều nhóm.
+    const classId = String((req.body || {}).classId || '')
+      || nl.nhomDangThaoTac(req.user, null);
     if (!classId) return res.status(400).json({ error: 'Thiếu mã lớp cần điểm danh' });
     if (!db.canAccessClass(req.user, classId)) {
       return res.status(403).json({ error: 'Lớp này không thuộc quyền quản lý của bạn' });

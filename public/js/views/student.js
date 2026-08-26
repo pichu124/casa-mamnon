@@ -38,7 +38,7 @@ App.views.student = {
       <div class="card">
         <div class="card-title">${UI.icon('student', 19)} Lớp học</div>
         ${infoRow('Lớp', `${s.className} · ${s.room}`)}
-        ${infoRow('Giáo viên chủ nhiệm', s.teacherName)}
+        ${infoRow('Cô phụ trách', s.teacherNames || s.teacherName)}
         ${infoRow('Điện thoại GVCN', s.teacherPhone)}
         <button class="btn primary block mt-14" onclick="location.hash='#/messages'">${UI.icon('chat', 18)} Nhắn tin với giáo viên</button>
       </div>
@@ -59,9 +59,9 @@ App.views.student = {
   // ---- Giáo viên: danh sách lớp ----
   async renderRoster(root) {
     const students = await API.get('/api/students');
-    const cls = App.state.classes.find(c => c.id === App.state.user.classId);
+    const tenNhom = (App.state.user.nhomCuaCo || []).map(n => n.name).join(', ');
     root.innerHTML = `
-      ${UI.pageHeader(`Học sinh ${cls ? cls.name : ''}`)}
+      ${UI.pageHeader(`Học sinh ${tenNhom}`)}
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${students.length}</div><div class="stat-label">Sĩ số</div></div>
         <div class="stat-box"><div class="stat-num">${students.filter(s => s.gender === 'Nam').length}</div><div class="stat-label">Nam</div></div>

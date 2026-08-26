@@ -1,5 +1,6 @@
 // Phân hệ Kế hoạch giáo dục tháng của lớp: phụ huynh xem, GVCN/quản trị soạn.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
@@ -40,11 +41,10 @@ function lamSachTuan(weeks) {
 // Ghép thêm tên lớp + tên GVCN cho một kế hoạch.
 function decorate(p) {
   const cls = db.findClass(p.classId);
-  const teacher = cls && cls.teacherId ? db.findUser(cls.teacherId) : null;
   return {
     ...p,
     className: cls ? cls.name : '',
-    teacherName: teacher ? `${teacher.title} ${teacher.name}` : '',
+    ...nl.tomTat(p.classId),
   };
 }
 

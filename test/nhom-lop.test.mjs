@@ -21,7 +21,7 @@
 // đúng nghĩa "bên cạnh".
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
-import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu } from './_chung.mjs';
+import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoQuanTri } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
 const { check, tongKet } = taoBoDem();
@@ -213,4 +213,136 @@ console.log('\n[9] Phần chuyển đổi lúc khởi động CHỈ THÊM, khôn
 
 db.close();
 donThuMucTam(DIR);
+
+// ===========================================================================
+// Phần hai: qua HTTP, trên một máy chủ thật và một cơ sở dữ liệu riêng.
+//
+// Phần trên gọi thẳng lib/db.js. Phần này đi đúng đường mà quản trị bấm trên màn
+// hình, vì chỗ dễ sai nhất không phải câu SQL mà là đường API nào gọi hàm nào.
+// ===========================================================================
+const PORT = Number(process.env.TEST_PORT || 3760);
+const BASE = `http://localhost:${PORT}`;
+const DIR2 = thuMucTam('nhom-lop-http');
+const may = await dungMayChu({ port: PORT, dir: DIR2 });
+
+async function req(method, duong, { body, cookie } = {}) {
+  const res = await fetch(BASE + duong, {
+    method,
+    headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null; try { data = await res.json(); } catch { /* không phải JSON */ }
+  return { status: res.status, data };
+}
+async function dangNhap(u, p) {
+  const res = await fetch(BASE + '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: u, password: p }),
+  });
+  const sc = res.headers.get('set-cookie');
+  return sc ? sc.split(';')[0] : null;
+}
+
+const mkQt = taoQuanTri(DIR2, 'Hiệu trưởng Nhóm Lớp', 'ht.nhomlop');
+let qt = await dangNhap('ht.nhomlop', mkQt);
+await req('POST', '/api/auth/set-new-password', { cookie: qt, body: { newPassword: 'quantri2026' } });
+qt = await dangNhap('ht.nhomlop', 'quantri2026');
+
+console.log('\n[10] Quản trị phân công nhiều cô cho một nhóm, qua màn hình');
+{
+  const r = await req('PUT', '/api/admin/classes/c1/teachers', {
+    cookie: qt, body: { teacherIds: ['t1', 't2'], chinhId: 't1' },
+  });
+  check('đặt được danh sách cô của nhóm → 200', r.status === 200, r.data);
+  check('trả về đủ hai cô', (r.data?.teachers || []).length === 2, r.data?.teachers);
+  check('cô phụ trách chính đứng đầu', r.data?.teachers?.[0]?.vaiTro === 'chinh', r.data?.teachers);
+  check('tên các cô ghép lại đủ cả hai', (r.data?.teacherNames || '').split(', ').length === 2,
+    r.data?.teacherNames);
+
+  const ov = await req('GET', '/api/admin/overview', { cookie: qt });
+  const c1 = (ov.data?.classes || []).find(c => c.id === 'c1');
+  check('màn hình quản trị nêu đủ các cô của nhóm',
+    (c1?.teacherNames || '').split(', ').length === 2, c1?.teacherNames);
+  check('cột chủ nhiệm đời cũ vẫn trỏ đúng cô chính', c1?.teacherId === 't1', c1?.teacherId);
+}
+
+console.log('\n[11] Một cô phụ trách nhiều nhóm — không nhóm nào gỡ mất nhóm nào');
+{
+  await req('PUT', '/api/admin/classes/c2/teachers', {
+    cookie: qt, body: { teacherIds: ['t2', 't1'], chinhId: 't2' },
+  });
+  const gv = await req('GET', '/api/admin/teachers', { cookie: qt });
+  const t1 = (gv.data || []).find(t => t.id === 't1');
+  check('cô t1 hiện đang phụ trách hai nhóm', (t1?.classIds || []).length === 2, t1?.classIds);
+  check('màn hình nêu đủ tên hai nhóm', (t1?.className || '').split(', ').length === 2, t1?.className);
+
+  const c1 = await req('GET', '/api/admin/overview', { cookie: qt });
+  check('nhóm đầu KHÔNG bị gỡ mất cô khi cô nhận thêm nhóm sau',
+    ((c1.data?.classes || []).find(c => c.id === 'c1')?.teachers || []).some(t => t.id === 't1'));
+}
+
+console.log('\n[12] Đường API cũ vẫn giữ đúng nghĩa "một cô một lớp"');
+{
+  // Bản giao diện cũ nằm trong điện thoại đã cài app vẫn gửi trường `teacherId`
+  // qua đường này. Nó phải tiếp tục gỡ cô khỏi các nhóm khác, đúng như trước.
+  const r = await req('PUT', '/api/admin/classes/c2', { cookie: qt, body: { teacherId: 't1' } });
+  check('đường cũ vẫn chạy → 200', r.status === 200, r.status);
+  const gv = await req('GET', '/api/admin/teachers', { cookie: qt });
+  const t1 = (gv.data || []).find(t => t.id === 't1');
+  check('đường cũ gỡ cô khỏi nhóm khác, chỉ còn nhóm vừa gán',
+    (t1?.classIds || []).join(',') === 'c2', t1?.classIds);
+}
+
+console.log('\n[13] Danh sách cô không nhận người ngoài');
+{
+  check('gán một phụ huynh làm cô → 400',
+    (await req('PUT', '/api/admin/classes/c1/teachers',
+      { cookie: qt, body: { teacherIds: ['p1'] } })).status === 400);
+  check('cô chính không nằm trong danh sách → 400',
+    (await req('PUT', '/api/admin/classes/c1/teachers',
+      { cookie: qt, body: { teacherIds: ['t1'], chinhId: 't2' } })).status === 400);
+  check('thiếu hẳn danh sách → 400',
+    (await req('PUT', '/api/admin/classes/c1/teachers', { cookie: qt, body: {} })).status === 400);
+  check('nhóm không có thật → 404',
+    (await req('PUT', '/api/admin/classes/khong-co/teachers',
+      { cookie: qt, body: { teacherIds: [] } })).status === 404);
+
+  const co = await dangNhap('giaovien', '123456');
+  check('cô KHÔNG tự phân công được cô cho nhóm',
+    (await req('PUT', '/api/admin/classes/c1/teachers',
+      { cookie: co, body: { teacherIds: ['t1'] } })).status === 403);
+}
+
+console.log('\n[14] Sổ điểm danh mở được từng nhóm');
+{
+  await req('PUT', '/api/admin/classes/c1/teachers', { cookie: qt, body: { teacherIds: ['t1'], chinhId: 't1' } });
+  const co = await dangNhap('giaovien', '123456');
+  const tatCa = await req('GET', '/api/attendance/class', { cookie: co });
+  check('không chọn nhóm thì giữ nguyên hành vi cũ', tatCa.status === 200 && tatCa.data.students.length > 0,
+    tatCa.data?.students?.length);
+  check('kèm danh sách nhóm để màn hình dựng ô chọn',
+    Array.isArray(tatCa.data?.nhom) && tatCa.data.nhom.length >= 1, tatCa.data?.nhom);
+  const mot = await req('GET', '/api/attendance/class?classId=c1', { cookie: co });
+  check('chọn nhóm thì chỉ còn trẻ của nhóm đó', mot.status === 200 && mot.data.students.length > 0,
+    mot.data?.students?.length);
+  check('chọn nhóm không thuộc quyền → 403',
+    (await req('GET', '/api/attendance/class?classId=c2', { cookie: co })).status === 403);
+}
+
+console.log('\n[15] Gia đình nhắn được cho MỌI cô của nhóm, không chỉ một cô');
+{
+  await req('PUT', '/api/admin/classes/c1/teachers', {
+    cookie: qt, body: { teacherIds: ['t1', 't2'], chinhId: 't1' },
+  });
+  const ph = await dangNhap('phuhuynh', '123456');
+  const ds = await req('GET', '/api/messages', { cookie: ph });
+  const co = (ds.data?.contacts || []).filter(x => ['t1', 't2'].includes(x.userId));
+  check('phụ huynh thấy cả hai cô của nhóm con mình', co.length === 2, ds.data?.contacts);
+  check('cô phụ được gọi đúng vai, không gọi nhầm là chủ nhiệm',
+    co.find(x => x.userId === 't2')?.subtitle?.startsWith('Cô phụ trách'),
+    co.map(x => x.subtitle));
+}
+
+await may.dung();
+donThuMucTam(DIR2);
 tongKet();

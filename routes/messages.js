@@ -1,5 +1,6 @@
 // Phân hệ Nhắn tin: kênh trao đổi trực tiếp giáo viên ↔ phụ huynh và nhóm lớp.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
 const GROUP_AVATAR = { emoji: '👥', bg: '#5b6ceb' };
@@ -28,23 +29,28 @@ function directConvId(a, b) {
 }
 
 // Danh sách người có thể bắt đầu trò chuyện mới.
-// Phụ huynh: GVCN các lớp của con mình. Giáo viên: phụ huynh học sinh lớp mình.
+//
+// Phụ huynh: TẤT CẢ các cô phụ trách nhóm của con mình — nhóm mầm non có 2–3 cô
+// cùng phụ trách, chỉ hiện một cô thì gia đình không nhắn được cho cô đang trực
+// hôm đó. Giáo viên: phụ huynh của trẻ trong nhóm mình.
 function contactsFor(user) {
   const out = [];
   const seen = new Set();
   if (user.role === 'parent') {
     for (const s of db.studentsOf(user)) {
       const cls = s.classId ? db.findClass(s.classId) : null;
-      const teacher = cls && cls.teacherId ? db.findUser(cls.teacherId) : null;
-      if (!teacher || seen.has(teacher.id)) continue;
-      seen.add(teacher.id);
-      out.push({
-        userId: teacher.id,
-        name: displayName(teacher),
-        subtitle: `Giáo viên chủ nhiệm ${cls.name}`,
-        avatar: teacher.avatar,
-        existingConversationId: directConvId(user.id, teacher.id),
-      });
+      if (!cls) continue;
+      for (const teacher of db.teachersOfClass(cls.id)) {
+        if (seen.has(teacher.id)) continue;
+        seen.add(teacher.id);
+        out.push({
+          userId: teacher.id,
+          name: displayName(teacher),
+          subtitle: `${teacher.vaiTro === 'chinh' ? 'Giáo viên chủ nhiệm' : 'Cô phụ trách'} ${cls.name}`,
+          avatar: teacher.avatar,
+          existingConversationId: directConvId(user.id, teacher.id),
+        });
+      }
     }
   } else if (user.role === 'teacher') {
     for (const s of db.studentsOf(user)) {
@@ -75,17 +81,19 @@ function convMeta(cv, user, members) {
   if (!other) return { title: 'Người dùng', subtitle: '', avatar: null };
   let subtitle = '';
   if (other.role === 'teacher') {
-    const cls = other.classId ? db.findClass(other.classId) : null;
-    subtitle = `Giáo viên chủ nhiệm ${cls ? cls.name : ''}`;
+    subtitle = `Giáo viên chủ nhiệm ${nl.tenCacNhomCuaCo(other.id)}`.trim();
   } else if (other.role === 'parent') {
-    // Với giáo viên, chỉ nêu tên con đang học lớp mình.
-    const child = db.first('students',
+    // Với cô, chỉ nêu tên con đang học nhóm của cô — nhóm nào trong số các nhóm
+    // cô phụ trách cũng được, nên lọc bằng IN chứ không bằng một mã nhóm.
+    const nhom = user.role === 'teacher' ? db.classIdsOfTeacher(user.id) : [];
+    const marks = nhom.map(() => '?').join(',');
+    const child = (user.role === 'teacher' && !nhom.length) ? null : db.first('students',
       user.role === 'teacher'
         ? `SELECT s.name FROM students s JOIN student_parents sp ON sp.studentId = s.id
-           WHERE sp.parentId = ? AND s.classId = ? AND s.active = 1 LIMIT 1`
+           WHERE sp.parentId = ? AND s.classId IN (${marks}) AND s.active = 1 LIMIT 1`
         : `SELECT s.name FROM students s JOIN student_parents sp ON sp.studentId = s.id
            WHERE sp.parentId = ? AND s.active = 1 LIMIT 1`,
-      user.role === 'teacher' ? [other.id, user.classId] : [other.id]);
+      user.role === 'teacher' ? [other.id, ...nhom] : [other.id]);
     subtitle = child ? `Phụ huynh em ${child.name}` : 'Phụ huynh';
   }
   return { title: displayName(other), subtitle, avatar: other.avatar };

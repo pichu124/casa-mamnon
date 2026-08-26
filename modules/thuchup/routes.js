@@ -24,6 +24,18 @@ module.exports = (app, { db }) => {
     return new Date().toISOString();
   }
 
+  // LỚP DỮ LIỆU 1 — ghi chú thô của cô: chỉ chính cô đã ghi đọc được, cộng quản
+  // trị khi cần (CLAUDE.md, "Ba lớp dữ liệu của một quan sát").
+  //
+  // Trước G0.4 điều này đúng một cách TÌNH CỜ: app 1 gắn một cô một lớp, nên
+  // `db.canAccessStudent` cũng vừa đúng là "chỉ cô đã ghi". Nhóm mầm non có 2–3
+  // cô cùng phụ trách thì sự trùng khớp đó biến mất — không chặn thêm ở đây là
+  // nháp dở dang của cô này hiện thẳng ra cho cô kia đọc. Đó là chỗ mất lòng tin
+  // của cô giáo nhanh nhất, nên chặn ở tầng dữ liệu chứ không che ở giao diện.
+  function chiCuaChinhCo(user) {
+    return user.role === 'teacher' ? user.id : null;
+  }
+
   // Danh sách ghi nhanh gần đây của các bé cô đang phụ trách.
   app.get('/api/thuchup', requireRole('teacher', 'admin'), (req, res) => {
     const students = db.studentsOf(req.user);
@@ -32,9 +44,11 @@ module.exports = (app, { db }) => {
 
     const marks = ids.map(() => '?').join(',');
     const byId = new Map(students.map(s => [s.id, s]));
+    const cuaCo = chiCuaChinhCo(req.user);
     const rows = db.all('thuchup_ghinhanh',
       `SELECT * FROM thuchup_ghinhanh WHERE studentId IN (${marks})
-       ORDER BY taoLuc DESC LIMIT ?`, [...ids, GIOI_HAN]);
+         AND (? IS NULL OR byTeacherId = ?)
+       ORDER BY taoLuc DESC LIMIT ?`, [...ids, cuaCo, cuaCo, GIOI_HAN]);
 
     res.json({
       soBe: ids.length,
@@ -119,6 +133,9 @@ module.exports = (app, { db }) => {
     if (!db.canAccessStudent(req.user, r.studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
     }
+    if (req.user.role === 'teacher' && r.byTeacherId !== req.user.id) {
+      return res.status(403).json({ error: 'Đây là bản nháp của cô khác' });
+    }
 
     const filePath = uploads.pathOf(r.file);
     if (!filePath || !fs.existsSync(filePath)) {
@@ -137,9 +154,11 @@ module.exports = (app, { db }) => {
     if (!ids.length) return res.json({ soLan: 0 });
 
     const marks = ids.map(() => '?').join(',');
+    const cuaCo = chiCuaChinhCo(req.user);
     const rows = db.all('thuchup_ghinhanh',
       `SELECT giay, ngoaiTuyen FROM thuchup_ghinhanh
-       WHERE studentId IN (${marks}) AND giay IS NOT NULL`, ids);
+       WHERE studentId IN (${marks}) AND giay IS NOT NULL
+         AND (? IS NULL OR byTeacherId = ?)`, [...ids, cuaCo, cuaCo]);
     if (!rows.length) return res.json({ soLan: 0 });
 
     const giay = rows.map(r => Number(r.giay)).sort((a, b) => a - b);

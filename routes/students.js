@@ -1,16 +1,18 @@
 // Phân hệ Học sinh: hồ sơ học sinh, danh sách lớp (giáo viên).
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const { publicUser } = require('./auth');
 
 function decorate(s) {
   const cls = s.classId ? db.findClass(s.classId) : null;
-  const teacher = cls && cls.teacherId ? db.findUser(cls.teacherId) : null;
   return {
     ...s,
     className: cls ? cls.name : '',
     room: cls ? cls.room : '',
-    teacherName: teacher ? `${teacher.title} ${teacher.name}` : '',
-    teacherPhone: teacher ? teacher.phone : '',
+    // Nhóm mầm non có 2–3 cô cùng phụ trách. `teacherName` giữ nguyên hình dạng
+    // cũ (một cô — cô phụ trách chính) cho màn hình chưa đổi; `teachers` và
+    // `teacherNames` là chỗ các cô còn lại hiện ra.
+    ...nl.tomTat(s.classId),
   };
 }
 

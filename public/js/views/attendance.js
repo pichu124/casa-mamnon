@@ -3,6 +3,7 @@
 App.views.attendance = {
   month: null,   // phụ huynh: tháng đang xem 'YYYY-MM'
   date: null,    // giáo viên: ngày đang điểm danh 'YYYY-MM-DD'
+  nhomId: null,  // cô: nhóm đang điểm danh, chỉ dùng khi cô phụ trách nhiều nhóm
   _byDate: {},   // phụ huynh: bản ghi theo ngày của tháng đang xem
   _roster: [],   // giáo viên: [{ student, record }] của ngày đang chọn
 
@@ -136,18 +137,38 @@ App.views.attendance = {
     App.route();
   },
 
-  // ---- Giáo viên: điểm danh lớp theo ngày ----
+  // ---- Cô: điểm danh nhóm theo ngày ----
+  //
+  // Cô mầm non có thể phụ trách 2–3 nhóm. Dồn trẻ của mấy nhóm vào một danh sách
+  // là cô điểm danh nhầm nhóm mà không hay biết, nên khi cô có nhiều hơn một
+  // nhóm thì màn hình bắt chọn nhóm trước. Cô một nhóm không thấy ô chọn này và
+  // số thao tác không đổi một chút nào.
   async renderTeacher(root) {
     if (!this.date) this.date = UI.todayStr();
-    const data = await API.get(`/api/attendance/class?date=${this.date}`);
+    const dsNhom = (App.state.user.nhomCuaCo || []);
+    if (dsNhom.length > 1 && !dsNhom.some(n => n.id === this.nhomId)) {
+      this.nhomId = dsNhom[0].id;
+    }
+    if (dsNhom.length <= 1) this.nhomId = null;
+    const data = await API.get(`/api/attendance/class?date=${this.date}`
+      + (this.nhomId ? `&classId=${encodeURIComponent(this.nhomId)}` : ''));
     this._roster = data.students;
-    const cls = App.state.classes.find(c => c.id === App.state.user.classId);
+    const tenNhom = this.nhomId
+      ? (dsNhom.find(n => n.id === this.nhomId) || {}).name || ''
+      : dsNhom.map(n => n.name).join(', ');
     const total = this._roster.length;
     const marked = this._roster.filter(r => r.record).length;
 
     root.innerHTML = `
-      ${UI.pageHeader(`Điểm danh ${cls ? cls.name : ''}`)}
+      ${UI.pageHeader(`Điểm danh ${tenNhom}`)}
       <div class="card">
+        ${dsNhom.length > 1 ? `
+          <div class="field">
+            <label>Nhóm lớp</label>
+            <select onchange="App.views.attendance.setNhom(this.value)">
+              ${dsNhom.map(n => `<option value="${UI.esc(n.id)}" ${n.id === this.nhomId ? 'selected' : ''}>${UI.esc(n.name)}</option>`).join('')}
+            </select>
+          </div>` : ''}
         <div class="field" style="margin-bottom:0">
           <label>Ngày điểm danh</label>
           <input type="date" value="${UI.esc(this.date)}" onchange="App.views.attendance.setDate(this.value)">
@@ -162,7 +183,7 @@ App.views.attendance = {
       <div class="card mt-14">
         ${total
           ? this._roster.map(r => this.rosterRow(r)).join('')
-          : UI.emptyState('🎒', 'Lớp chưa có học sinh nào')}
+          : UI.emptyState('🎒', 'Nhóm chưa có bé nào')}
       </div>`;
   },
 
@@ -204,6 +225,12 @@ App.views.attendance = {
   setDate(value) {
     if (!value) return;
     this.date = value;
+    App.route();
+  },
+
+  setNhom(value) {
+    if (!value) return;
+    this.nhomId = value;
     App.route();
   },
 
@@ -310,7 +337,8 @@ App.views.attendance = {
 
     const chay = async (ghiDe) => {
       try {
-        const r = await API.post('/api/attendance/mark-all', { date: this.date, status: 'present', ghiDe });
+        const r = await API.post('/api/attendance/mark-all',
+          { date: this.date, status: 'present', ghiDe, classId: this.nhomId || undefined });
         UI.closeModal();
         UI.toast(r.soGiuNguyen
           ? `Đã đánh dấu ${r.soDaGhi} em có mặt, giữ nguyên ${r.soGiuNguyen} em`

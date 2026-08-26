@@ -8,6 +8,7 @@ const db = require('../lib/db');
 const uploads = require('../lib/uploads');
 const { requireRole } = require('../lib/auth');
 const lsl = require('../lib/lich-su-lop');
+const nl = require('../lib/nhom-lop');
 
 // Bảng cặp màu gradient pastel cho ảnh minh họa bằng emoji.
 const GRADIENTS = [
@@ -68,8 +69,9 @@ function removeFiles(photos) {
 //
 // Mở lại cho ba vai, và chỉ với lớp đã đóng:
 //   • quản trị — để nhà trường lấy lại được ảnh cũ và dọn được ổ đĩa;
-//   • giáo viên TỪNG chủ nhiệm chính lớp đó. Lúc chuyển năm, `classes.teacherId`
-//     được giữ nguyên (chỉ `users.classId` bị gỡ), nên vẫn nhận ra được là ai;
+//   • cô TỪNG phụ trách nhóm đó. Lúc chuyển năm, dòng trong `class_teachers`
+//     được giữ nguyên (nhóm chỉ bị đánh dấu đã đóng), nên vẫn nhận ra được là ai
+//     — và nhận ra được CẢ 2–3 cô của nhóm, không riêng cô phụ trách chính;
 //   • phụ huynh — nhưng CHỈ phần ảnh chụp trong đúng khoảng con còn học lớp đó.
 //
 // Vế cuối là điều kiện bắt buộc, không phải chi tiết làm cho đẹp: album chứa mặt
@@ -87,7 +89,8 @@ function lopDaDong(classId) {
 }
 function laNguoiGiuLopCu(user, lop) {
   if (!lop) return false;
-  return user.role === 'admin' || (user.role === 'teacher' && lop.teacherId === user.id);
+  return user.role === 'admin'
+    || (user.role === 'teacher' && db.isTeacherOfClass(user.id, lop.id));
 }
 function xemDuocAlbum(user, classId, ngayAlbum) {
   if (db.canAccessClass(user, classId)) return true;
@@ -99,7 +102,9 @@ function xemDuocAlbum(user, classId, ngayAlbum) {
   return lsl.xemDuocNoiDungLopCu(user, classId, ngayAlbum);
 }
 function xoaDuocAlbum(user, classId) {
-  if (classId && classId === user.classId) return true;   // giữ nguyên đường cũ
+  // Cô của nhóm đang mở — giữ nguyên đường cũ, chỉ đổi cách hỏi "có phải cô của
+  // nhóm này không" từ một cột sang bảng nhiều cô.
+  if (user.role === 'teacher' && db.isTeacherOfClass(user.id, classId)) return true;
   return laNguoiGiuLopCu(user, lopDaDong(classId));
 }
 
@@ -170,7 +175,7 @@ module.exports = (app) => {
       authorName: author ? `${author.title} ${author.name}` : '',
       // canEdit = thêm/xóa ảnh, chỉ cô đang dạy lớp đó. Giữ nguyên nghĩa cũ:
       // lớp đã đóng thì không đăng thêm ảnh nữa.
-      canEdit: req.user.role === 'teacher' && req.user.classId === album.classId,
+      canEdit: req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId),
       canXoa: xoaDuocAlbum(req.user, album.classId),
     });
   });
@@ -211,8 +216,15 @@ module.exports = (app) => {
     if (photos.length > MAX_PHOTOS_PER_ALBUM) {
       return res.status(400).json({ error: `Mỗi album tối đa ${MAX_PHOTOS_PER_ALBUM} ảnh` });
     }
-    if (!req.user.classId) {
-      return res.status(400).json({ error: 'Tài khoản chưa gắn với lớp chủ nhiệm' });
+    // Cô phụ trách nhiều nhóm phải nói rõ album thuộc nhóm nào. Cô một nhóm
+    // thì không phải chọn gì — đúng số thao tác như trước.
+    const nhomAlbum = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
+    if (!nhomAlbum) {
+      return res.status(400).json({
+        error: nl.nhomCuaCo(req.user.id).length > 1
+          ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm cho album này'
+          : 'Tài khoản chưa gắn với nhóm lớp nào',
+      });
     }
 
     let built;
@@ -224,7 +236,7 @@ module.exports = (app) => {
 
     const rec = {
       id: db.nextId('al'),
-      classId: req.user.classId,
+      classId: nhomAlbum,
       title: String(title).trim(),
       date: todayStr(),
       description: String(description || '').trim(),
@@ -241,8 +253,8 @@ module.exports = (app) => {
   app.post('/api/albums/:id/photos', requireRole('teacher', 'admin'), (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (album.classId !== req.user.classId) {
-      return res.status(403).json({ error: 'Chỉ giáo viên chủ nhiệm lớp mới thêm được ảnh' });
+    if (!(req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId))) {
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới thêm được ảnh' });
     }
     const { photos } = req.body || {};
     if (!Array.isArray(photos) || !photos.length) {
@@ -270,8 +282,8 @@ module.exports = (app) => {
   app.delete('/api/albums/:id/photos/:photoId', requireRole('teacher', 'admin'), (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (album.classId !== req.user.classId) {
-      return res.status(403).json({ error: 'Chỉ giáo viên chủ nhiệm lớp mới xóa được ảnh' });
+    if (!(req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId))) {
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới xóa được ảnh' });
     }
     const photo = db.first('album_photos',
       'SELECT * FROM album_photos WHERE id = ? AND albumId = ?', [req.params.photoId, album.id]);

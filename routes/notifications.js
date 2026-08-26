@@ -1,6 +1,7 @@
 // Phân hệ Thông báo: giáo viên gửi thông báo cho lớp mình hoặc toàn trường,
 // người dùng xem và đánh dấu đã đọc.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 const st = require('../lib/sua-thu-hoi');
 
@@ -81,15 +82,27 @@ module.exports = (app) => {
     if (audience !== 'all' && audience !== 'class') {
       return res.status(400).json({ error: 'Phạm vi gửi không hợp lệ' });
     }
-    if (audience === 'class' && !req.user.classId) {
-      return res.status(400).json({ error: 'Tài khoản chưa gắn với lớp chủ nhiệm' });
+    // Cô mầm non có thể phụ trách nhiều nhóm, nên "gửi cho nhóm" phải hỏi cho
+    // rõ nhóm nào. Cô chỉ có một nhóm thì vẫn không phải chọn gì — giữ nguyên
+    // đúng số thao tác như trước.
+    let nhomNhan = '';
+    if (audience === 'class') {
+      const nhomCuaCo = nl.nhomCuaCo(req.user.id);
+      nhomNhan = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
+      if (!nhomNhan) {
+        return res.status(400).json({
+          error: nhomCuaCo.length > 1
+            ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm nhận thông báo'
+            : 'Tài khoản chưa gắn với nhóm lớp nào',
+        });
+      }
     }
     const rec = {
       id: db.nextId('nt'),
       title: String(title).trim(),
       body: String(body).trim(),
       category: CATEGORIES.includes(category) ? category : 'Khác',
-      audience: audience === 'class' ? req.user.classId : 'all',
+      audience: audience === 'class' ? nhomNhan : 'all',
       createdBy: req.user.id,
       createdAt: new Date().toISOString(),
       pinned: false,

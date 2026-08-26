@@ -1,5 +1,6 @@
 // Đăng nhập / đăng xuất / thông tin phiên hiện tại / đổi mật khẩu.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const password = require('../lib/password');
 const {
   createSession, destroySession, destroyUserSessions,
@@ -126,16 +127,20 @@ function publicUser(u) {
 function mePayload(user) {
   const students = db.studentsOf(user).map(s => {
     const cls = s.classId ? db.findClass(s.classId) : null;
-    const teacher = cls && cls.teacherId ? db.findUser(cls.teacherId) : null;
+    const co = nl.tomTat(s.classId);
     return {
       ...s,
       className: cls ? cls.name : '',
-      teacherName: teacher ? `${teacher.title} ${teacher.name}` : '',
-      teacherId: teacher ? teacher.id : null,
+      ...co,
+      teacherId: co.teachers[0] ? co.teachers[0].id : null,
     };
   });
+  // Nhóm lớp của cô đi kèm ngay từ lúc đăng nhập, để giao diện không phải đoán
+  // qua `user.classId` — cột đó chỉ chứa nổi MỘT nhóm, còn cô mầm non có thể
+  // phụ trách nhiều nhóm.
+  const nhom = user.role === 'teacher' ? nl.nhomCuaCo(user.id) : [];
   return {
-    user: publicUser(user),
+    user: { ...publicUser(user), nhomCuaCo: nhom, classIds: nhom.map(c => c.id) },
     students,
     classes: db.classes(),
     school: db.school(),

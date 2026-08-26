@@ -81,7 +81,7 @@ App.views.admin = {
           <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
             <div class="row-main">
               <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có chủ nhiệm', 'red')}`}</div>
-              <div class="row-sub">${UI.esc(c.teacherName || 'chưa phân công giáo viên')} · ${c.studentCount} học sinh${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
+              <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công giáo viên')} · ${c.studentCount} học sinh${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
             </div>
             <div class="row-end" style="display:flex;gap:8px">
               <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
@@ -143,6 +143,8 @@ App.views.admin = {
     const ds = (!c.teacherId || teachers.some(t => t.id === c.teacherId))
       ? teachers
       : [{ id: c.teacherId, title: '', name: c.teacherName || '(giáo viên đã ngừng hoạt động)' }, ...teachers];
+    // Các cô đang phụ trách nhóm này, để tích sẵn ô của họ.
+    const dangPhuTrach = new Set((c.teachers || []).map(t => t.id));
 
     UI.modal(`
       <div class="field"><label>Tên lớp</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
@@ -155,18 +157,54 @@ App.views.admin = {
         </select>
         <div class="muted small mt-8">Đổi chủ nhiệm sẽ thu quyền xem hồ sơ lớp này của cô cũ ngay lập tức.</div>
       </div>
+      <div class="field"><label>Các cô cùng phụ trách nhóm này</label>
+        <div id="ad-sl-cac-co" class="card" style="max-height:220px;overflow:auto;padding:8px">
+          ${ds.map(t => `
+            <label class="list-row" style="cursor:pointer;padding:6px 4px">
+              <input type="checkbox" class="ad-sl-co" value="${UI.esc(t.id)}" ${dangPhuTrach.has(t.id) ? 'checked' : ''}>
+              <div class="row-main"><div class="row-title">${UI.esc(`${t.title} ${t.name}`.trim())}</div></div>
+            </label>`).join('')}
+        </div>
+        <div class="muted small mt-8">
+          Nhóm mầm non thường có 2–3 cô cùng phụ trách. Cô được tích ở đây sẽ xem
+          được hồ sơ các bé của nhóm; cô chọn ở ô trên là cô phụ trách chính.
+          Một cô có thể phụ trách nhiều nhóm — tích thêm ở nhóm khác KHÔNG gỡ cô
+          khỏi nhóm này.
+        </div>
+      </div>
       <button class="btn primary block" id="ad-sl-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
     `, `Sửa ${c.name}`);
+
+    // Ô "Giáo viên chủ nhiệm" và danh sách cô phải nói cùng một chuyện, nếu
+    // không quản trị gỡ chủ nhiệm mà nhóm vẫn còn cô, rồi không hiểu vì sao thẻ
+    // nhắc việc không tắt. Chọn "— Chưa phân công —" nghĩa là nhóm này chưa có
+    // ai phụ trách; chọn một cô thì tích sẵn ô của cô ấy.
+    const oChinh = document.getElementById('ad-sl-gv');
+    oChinh.onchange = () => {
+      const cac = [...document.querySelectorAll('.ad-sl-co')];
+      if (!oChinh.value) { cac.forEach(o => { o.checked = false; }); return; }
+      const o = cac.find(x => x.value === oChinh.value);
+      if (o) o.checked = true;
+    };
 
     document.getElementById('ad-sl-luu').onclick = async () => {
       const name = document.getElementById('ad-sl-ten').value.trim();
       if (!name) return UI.toast('Vui lòng nhập tên lớp', 'error');
+      const chinhId = document.getElementById('ad-sl-gv').value || null;
+      const teacherIds = [...document.querySelectorAll('.ad-sl-co:checked')].map(o => o.value);
+      // Cô phụ trách chính luôn nằm trong danh sách cô của nhóm, kể cả khi quản
+      // trị quên tích ô của cô ấy.
+      if (chinhId && !teacherIds.includes(chinhId)) teacherIds.unshift(chinhId);
       try {
         await API.put(`/api/admin/classes/${encodeURIComponent(classId)}`, {
           name,
           room: document.getElementById('ad-sl-phong').value.trim(),
           grade: document.getElementById('ad-sl-khoi').value,
-          teacherId: document.getElementById('ad-sl-gv').value || null,
+        });
+        // Ghi danh sách cô ở bước riêng: đường trên là đường CŨ "một cô một lớp",
+        // gửi `teacherId` qua đó sẽ gỡ cô khỏi các nhóm khác của cô.
+        await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/teachers`, {
+          teacherIds, chinhId,
         });
         UI.toast('Đã lưu thay đổi', 'success');
         UI.closeModal();

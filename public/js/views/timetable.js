@@ -20,7 +20,7 @@ App.views.timetable = {
     const user = App.state.user;
     let classId = null;
     if (user.role === 'teacher') {
-      classId = user.classId;
+      classId = (user.nhomCuaCo || [])[0]?.id || user.classId;
     } else {
       const current = App.currentStudent();
       if (!current) {
@@ -73,7 +73,7 @@ App.views.timetable = {
         <div class="card-title">${UI.icon('info', 19)} Ghi chú</div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Lớp</div><div class="row-title">${UI.esc(data.className)}</div></div></div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Lịch học</div><div class="row-title">Buổi sáng 4 tiết, buổi chiều 3 tiết</div></div></div>
-        <div class="list-row"><div class="row-main"><div class="row-sub">Giáo viên chủ nhiệm</div><div class="row-title">${UI.esc(data.teacherName || '—')}</div></div></div>
+        <div class="list-row"><div class="row-main"><div class="row-sub">Cô phụ trách</div><div class="row-title">${UI.esc(data.teacherNames || data.teacherName || '—')}</div></div></div>
       </div>`;
     if (suaDuoc) document.getElementById('btn-sua-tkb').onclick = () => this.batDauSua();
     this.renderDay();
@@ -84,7 +84,7 @@ App.views.timetable = {
     const u = App.state.user;
     if (!u) return false;
     if (u.role === 'admin') return true;
-    return u.role === 'teacher' && !!u.classId && u.classId === this.classId;
+    return u.role === 'teacher' && (u.classIds || []).includes(this.classId);
   },
 
   setDay(d) {

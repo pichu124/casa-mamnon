@@ -113,7 +113,7 @@ dùng chung. **Bắt buộc đi đủ ba bước, mỗi bước một commit, ch
 mỗi bước:**
 
 1. **✅ Thêm bảng `class_teachers` + hàm mới bên cạnh, chưa ai gọi.**
-2. ⏳ Chuyển từng chỗ gọi sang hàm mới; hai cột cũ vẫn còn và vẫn đúng.
+2. **✅ Chuyển từng chỗ gọi sang hàm mới; hai cột cũ vẫn còn và vẫn đúng.**
 3. ⏳ Khi không còn ai đọc hai cột cũ mới bỏ chúng khỏi đường đọc — **cột dữ
    liệu vẫn giữ**, không `DROP`.
 
@@ -146,6 +146,49 @@ Mục `[6]` của `test/nhom-lop.test.mjs` là mục quan trọng nhất của b
 chứng minh bước 1 **chưa đổi hành vi** của `studentsOf` / `classIdsOf` /
 `canAccessStudent` — "thêm bên cạnh" đúng nghĩa bên cạnh.
 
+#### Bước 2/3 ✅ — chuyển từng chỗ gọi sang hàm mới
+
+Không chạm `lib/db.js`: đường quyền vẫn đọc `users.classId` như cũ, nên hành vi
+của mọi màn hình đang có **không đổi một chút nào**. Cái đổi là chỗ các route hỏi
+"cô nào của nhóm này" và "cô này phụ trách nhóm nào".
+
+| Chỗ gọi | Trước | Sau |
+|---|---|---|
+| Hiển thị cô của một nhóm (hồ sơ bé, kế hoạch, TKB, quản trị, đăng nhập) | `classes.teacherId` → **một** cô | `db.teachersOfClass` → **đủ** các cô, qua `lib/nhom-lop.js` |
+| Phân công cô | `datChuNhiem` trong `routes/admin.js` | `db.setHomeroomTeacher` (đường cũ) + `PUT /api/admin/classes/:id/teachers` (đường mới) |
+| Cấp lại mật khẩu phụ huynh | trẻ của `actor.classId` | trẻ của **mọi** nhóm cô phụ trách |
+| Album, thông báo, điểm danh cả lớp | `req.user.classId` | nhóm cô chọn, hoặc nhóm duy nhất của cô |
+| Người giữ album nhóm đã đóng | riêng cô chủ nhiệm chính | **mọi** cô từng phụ trách nhóm |
+| Gia đình nhắn tin | một cô chủ nhiệm | **mọi** cô của nhóm con mình |
+
+Ba điều đáng ghi lại:
+
+- **Chặn rò rỉ ghi chú thô của cô (`modules/thuchup/`).** Lớp dữ liệu 1 là "chỉ
+  cô đã ghi đọc được". Trước G0.4 điều đó đúng một cách **tình cờ**: app 1 gắn
+  một cô một lớp nên `canAccessStudent` vô tình cũng có nghĩa là "chỉ cô đã ghi".
+  Nhóm 2–3 cô thì sự trùng khớp đó biến mất — không chặn thêm là nháp dở dang của
+  cô này hiện thẳng cho cô kia đọc. Đã chặn ở tầng dữ liệu (lọc `byTeacherId`),
+  không che ở giao diện. Quản trị vẫn xem được, đúng như bảng ba lớp dữ liệu.
+- **Sổ điểm danh có ô chọn nhóm.** Dồn trẻ của mấy nhóm vào một danh sách là cô
+  điểm danh nhầm nhóm mà không hay biết. Cô chỉ có một nhóm thì **không thấy ô
+  này** và số thao tác không đổi.
+- **`lib/importer.js` cũng phải dựng bảng mới.** Phần chuyển đổi ở `lib/db.js`
+  chỉ chạy lúc KHỞI ĐỘNG; dữ liệu xuất hiện sau đó (máy chủ tự sinh dữ liệu mẫu ở
+  lần chạy đầu, hoặc nhập kho JSON đời cũ) thì lúc ấy nó đã chạy xong trên một cơ
+  sở dữ liệu rỗng. Bài `test/mat-khau.test.mjs` bắt được đúng lỗi này — máy chủ
+  tự sinh dữ liệu mẫu SAU khi `lib/db.js` đã nạp, cô đăng nhập vào thấy nhóm
+  trống trơn. Hai câu `INSERT OR IGNORE` hiện đang nằm ở hai nơi; **bước 3 gộp
+  lại một chỗ**.
+
+> **Trạng thái tạm ở giữa hai bước, cố ý và có kiểm soát:** sau bước 2, quản trị
+> đã tích được 2–3 cô cho một nhóm, nhưng đường quyền vẫn đọc `users.classId`
+> (chỉ chứa nổi cô phụ trách chính) nên **cô phụ chưa mở được hồ sơ trẻ** — bước
+> 3 mới mở. Không có gì hỏng, không có gì lùi lại; chỉ là phần mới chưa nối điện
+> xong. Ba commit đi cùng một lần đẩy nên không người dùng thật nào gặp trạng
+> thái này. Đây là cái giá của quy định "sửa tệp dùng chung phải là commit
+> riêng", và trả bằng một commit lưng chừng thì rẻ hơn nhiều so với trộn việc sửa
+> `lib/db.js` vào cùng chỗ với 12 tệp tính năng.
+
 ### G0.5 — Dữ liệu mẫu kể một câu chuyện ⏳
 
 Thay dữ liệu mẫu tiểu học bằng câu chuyện mầm non nhất quán: **bé An, nhóm Chồi
@@ -157,13 +200,13 @@ không hình dung nổi app dùng thật ra sao.
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1027**, FAIL 0 |
+| `npm test` (không cần trình duyệt) | **1049**, FAIL 0 |
 | trong đó `test:thuchup` (phân hệ mới) | 40 |
-| trong đó `test:nhom-lop` (G0.4) | 46 |
-| `npm run test:giao-dien` (cần Playwright) | 209 *(chưa chạy lại ở kho này)* |
+| trong đó `test:nhom-lop` (G0.4) | 68 |
+| `npm run test:giao-dien` (cần Playwright) | **209**, FAIL 0 *(đã chạy lại ở kho này)* |
 
-Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 40 (thuchup) + 46 (nhóm lớp)
-+ 9 (mục khế ước của các hàm mới trong `lib/db.js`) = 1027. Con số này sẽ **giảm**
+Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 40 (thuchup) + 68 (nhóm lớp)
++ 9 (mục khế ước của các hàm mới trong `lib/db.js`) = 1049. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -191,3 +234,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Nhân bản nền từ app 1, viết `CLAUDE.md` + bộ docs định hướng | G0.1, G0.2 |
 | 26/08/2026 | Phân hệ `thuchup` + 40 bài kiểm thử — phần mã của phép thử quyết định | G0.3 |
 | 26/08/2026 | Nhiều cô một nhóm, **bước 1/3**: bảng `class_teachers` + 9 hàm mới, chưa ai gọi | G0.4 |
+| 26/08/2026 | Nhiều cô một nhóm, **bước 2/3**: chuyển 12 tệp tính năng sang hàm mới; chặn rò rỉ ghi chú thô của cô | G0.4 |

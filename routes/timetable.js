@@ -2,6 +2,7 @@
 // và cho giáo viên chủ nhiệm / quản trị cập nhật TKB của lớp.
 // Phụ huynh: lớp của một trong các con. Giáo viên: lớp chủ nhiệm.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
 // Giới hạn kích thước để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
@@ -51,11 +52,10 @@ module.exports = (app) => {
     const tt = db.first('timetable', 'SELECT * FROM timetable WHERE classId = ?', [classId]);
     if (!tt) return res.status(404).json({ error: 'Lớp chưa có thời khóa biểu' });
 
-    const teacher = cls.teacherId ? db.findUser(cls.teacherId) : null;
     res.json({
       ...tt,
       className: cls.name,
-      teacherName: teacher ? `${teacher.title} ${teacher.name}` : '',
+      ...nl.tomTat(cls.id),
     });
   });
 
@@ -82,11 +82,10 @@ module.exports = (app) => {
     db.upsert('timetable', { classId, periodTimes, days }, ['classId']);
     db.audit(req.user.id, 'timetable-update', classId, { className: cls.name });
 
-    const teacher = cls.teacherId ? db.findUser(cls.teacherId) : null;
     res.json({
       classId, periodTimes, days,
       className: cls.name,
-      teacherName: teacher ? `${teacher.title} ${teacher.name}` : '',
+      ...nl.tomTat(cls.id),
     });
   });
 };

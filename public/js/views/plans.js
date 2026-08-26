@@ -1,5 +1,5 @@
 // Phân hệ Kế hoạch giáo dục tháng.
-// Phụ huynh: xem theo lớp của con đang chọn. Giáo viên: xem theo lớp chủ nhiệm.
+// Phụ huynh: xem theo lớp của con đang chọn. Cô: xem theo nhóm mình phụ trách.
 // GVCN/quản trị soạn kế hoạch từng tháng ngay tại đây (chủ đề, mục tiêu, tuần, lời nhắn).
 App.views.plans = {
   _classId: null,
@@ -9,7 +9,9 @@ App.views.plans = {
     const user = App.state.user;
     let classId;
     if (user.role === 'teacher') {
-      classId = user.classId;
+      // Cô phụ trách nhiều nhóm thì mở nhóm đầu tiên; ô chọn nhóm nằm ở màn
+      // hình Điểm danh, chỗ cô đổi nhóm thường xuyên nhất.
+      classId = (user.nhomCuaCo || [])[0]?.id || user.classId;
     } else {
       const current = App.currentStudent();
       if (!current) {
@@ -34,7 +36,7 @@ App.views.plans = {
     const u = App.state.user;
     if (!u) return false;
     if (u.role === 'admin') return true;
-    return u.role === 'teacher' && !!u.classId && u.classId === this._classId;
+    return u.role === 'teacher' && (u.classIds || []).includes(this._classId);
   },
 
   renderPlan(p) {
@@ -43,7 +45,7 @@ App.views.plans = {
     return `
       <div class="card">
         <div style="font-size:1.18rem;font-weight:800">Tháng ${p.month} – ${UI.esc(p.theme)}</div>
-        <div class="muted small mt-8">GVCN: ${UI.esc(p.teacherName)}${p.className ? ` · ${UI.esc(p.className)}` : ''}</div>
+        <div class="muted small mt-8">Cô phụ trách: ${UI.esc(p.teacherNames || p.teacherName)}${p.className ? ` · ${UI.esc(p.className)}` : ''}</div>
       </div>
 
       <div class="card">

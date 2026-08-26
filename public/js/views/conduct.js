@@ -38,10 +38,10 @@ App.views.conduct = {
   async renderTeacher(root) {
     const data = await API.get(`/api/conduct/class?gioiHan=${this._soGhiNhan}`);
     this._recent = data.recent;
-    const cls = App.state.classes.find(c => c.id === App.state.user.classId);
+    const tenNhom = (App.state.user.nhomCuaCo || []).map(n => n.name).join(', ');
     const medals = ['🥇', '🥈', '🥉'];
     root.innerHTML = `
-      ${UI.pageHeader(`Nề nếp ${cls ? cls.name : ''}`, { action: { id: 'conduct-add', label: 'Ghi nhận', icon: 'plus' } })}
+      ${UI.pageHeader(`Nề nếp ${tenNhom}`, { action: { id: 'conduct-add', label: 'Ghi nhận', icon: 'plus' } })}
       <div class="card">
         <div class="card-title">${UI.icon('star', 19)} Bảng điểm thi đua</div>
         ${data.ranking.length ? data.ranking.map((r, i) => `

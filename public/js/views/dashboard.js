@@ -60,8 +60,8 @@ App.views.dashboard = {
     return 'Chào buổi tối';
   },
 
+  // Cô mầm non có thể phụ trách nhiều nhóm — nêu đủ, đừng chỉ nêu nhóm đầu.
   teacherClassName() {
-    const cls = App.state.classes.find(c => c.id === App.state.user.classId);
-    return cls ? cls.name : '';
+    return ((App.state.user || {}).nhomCuaCo || []).map(n => n.name).join(', ');
   },
 };

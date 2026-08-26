@@ -19,18 +19,22 @@ function sinhMatKhauTam() {
 }
 
 // Người dùng mà tài khoản hiện tại được phép cấp lại mật khẩu.
-// Giáo viên: phụ huynh của học sinh lớp mình. Quản trị: mọi người trừ chính mình.
+// Cô: phụ huynh của trẻ trong CÁC nhóm mình phụ trách. Quản trị: mọi người trừ
+// chính mình.
 function coQuyenCapLai(actor, target) {
   if (!target || !target.active) return false;
   if (actor.id === target.id) return false;
   if (actor.role === 'admin') return true;
-  if (actor.role !== 'teacher' || !actor.classId) return false;
+  if (actor.role !== 'teacher') return false;
   if (target.role !== 'parent') return false;
+  const nhom = db.classIdsOfTeacher(actor.id);
+  if (!nhom.length) return false;
+  const marks = nhom.map(() => '?').join(',');
   return db.count(
     `SELECT COUNT(*) FROM student_parents sp
      JOIN students s ON s.id = sp.studentId
-     WHERE sp.parentId = ? AND s.classId = ? AND s.active = 1`,
-    [target.id, actor.classId]) > 0;
+     WHERE sp.parentId = ? AND s.classId IN (${marks}) AND s.active = 1`,
+    [target.id, ...nhom]) > 0;
 }
 
 module.exports = (app) => {

@@ -4,6 +4,7 @@
 // nó thì không thể tạo hàng trăm tài khoản phụ huynh.
 const db = require('../lib/db');
 const lsl = require('../lib/lich-su-lop');
+const nl = require('../lib/nhom-lop');
 const csv = require('../lib/csv');
 const password = require('../lib/password');
 const { requireRole, destroyUserSessions } = require('../lib/auth');
@@ -63,47 +64,27 @@ module.exports = (app) => {
         parents: db.count(`SELECT COUNT(*) FROM users WHERE role = 'parent' AND active = 1`),
         mustChange: db.count('SELECT COUNT(*) FROM users WHERE mustChangePassword = 1 AND active = 1'),
       },
-      classes: db.classes().map(c => {
-        const t = c.teacherId ? db.findUser(c.teacherId) : null;
-        return {
-          ...c,
-          teacherName: t ? `${t.title} ${t.name}` : '',
-          studentCount: db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [c.id]),
-        };
-      }),
+      classes: db.classes().map(c => ({
+        ...c,
+        ...nl.tomTat(c.id),
+        studentCount: db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [c.id]),
+      })),
     });
   });
 
   // ---------- Lớp học ----------
 
-  // Quan hệ "giáo viên chủ nhiệm ↔ lớp" được lưu ở HAI chỗ: `classes.teacherId`
-  // và `users.classId`. Quyền đọc hồ sơ học sinh đi theo `users.classId`, còn
-  // màn hình quản trị đọc `classes.teacherId` — nên ghi lệch hai chỗ này sinh ra
-  // hai lỗi thật đã gặp:
-  //   - Đổi chủ nhiệm mà chỉ gán cho người mới: giáo viên cũ giữ NGUYÊN quyền
-  //     đọc và ghi hồ sơ cả lớp cũ, nhà trường không có cách nào thu hồi.
-  //   - Tạo lớp kèm chủ nhiệm mà chỉ ghi `classes.teacherId`: màn hình quản trị
-  //     hiện đúng tên cô, nhưng cô đăng nhập vào lại thấy "Sĩ số 0".
-  // Mọi chỗ đổi chủ nhiệm đều phải đi qua hàm này, đừng ghi tay từng bảng.
+  // Đường CŨ "một cô một lớp": gán cô vào lớp này thì gỡ cô khỏi mọi lớp khác.
+  //
+  // Ba chiều ghi mà đường này phải làm đúng (gỡ cô cũ khỏi lớp, gỡ lớp cũ khỏi
+  // cô mới, ghi khớp cả hai cột) đã dời vào `db.setHomeroomTeacher` — cùng chỗ
+  // với bảng `class_teachers`, để không còn hai nơi cùng ghi một quan hệ.
+  //
+  // Giữ nguyên nghĩa cũ chứ không nới ra, vì bản giao diện cũ nằm trong điện
+  // thoại đã cài app vẫn gửi trường `teacherId` với đúng nghĩa đó. Trường mầm
+  // non dùng đường mới `PUT /api/admin/classes/:id/teachers` bên dưới.
   function datChuNhiem(classId, teacherIdMoi) {
-    // Chiều 1 — gỡ những giáo viên đang gắn với LỚP NÀY mà không phải người mới.
-    const dangGan = db.all('users',
-      `SELECT id FROM users WHERE role = 'teacher' AND classId = ?`, [classId]);
-    for (const t of dangGan) {
-      if (t.id !== teacherIdMoi) db.update('users', t.id, { classId: null });
-    }
-    // Chiều 2 — gỡ LỚP CŨ của chính người mới. Thiếu bước này thì chuyển cô B từ
-    // lớp 5B sang 3A sẽ để lại 5B mang tên cô B ở màn hình quản trị, trong khi cô
-    // đăng nhập vào chỉ thấy 3A — 5B thành lớp có chủ nhiệm ma, và hiệu trưởng
-    // tưởng đã phân công xong nên không tìm nữa.
-    if (teacherIdMoi) {
-      const nguoiMoi = db.findUser(teacherIdMoi);
-      if (nguoiMoi && nguoiMoi.classId && nguoiMoi.classId !== classId) {
-        db.update('classes', nguoiMoi.classId, { teacherId: null });
-      }
-      db.update('users', teacherIdMoi, { classId });
-    }
-    db.update('classes', classId, { teacherId: teacherIdMoi || null });
+    db.setHomeroomTeacher(classId, teacherIdMoi || null);
   }
 
   app.post('/api/admin/classes', onlyAdmin, (req, res) => {
@@ -161,13 +142,49 @@ module.exports = (app) => {
     res.json(db.findClass(cls.id));
   });
 
+  // Đặt TOÀN BỘ danh sách cô phụ trách một nhóm — mô hình của trường mầm non.
+  //
+  // Khác đường cũ ở đúng một điểm, và đó là toàn bộ lý do nó tồn tại: gán cô vào
+  // nhóm này KHÔNG gỡ cô khỏi các nhóm khác. Một cô dạy cả Chồi 2 lẫn Lá 1 là
+  // chuyện bình thường ở mầm non, ở tiểu học thì không.
+  app.put('/api/admin/classes/:id/teachers', onlyAdmin, (req, res) => {
+    const cls = db.findClass(req.params.id);
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+
+    const xin = (req.body || {}).teacherIds;
+    if (!Array.isArray(xin)) {
+      return res.status(400).json({ error: 'Thiếu danh sách cô phụ trách nhóm' });
+    }
+    for (const id of xin) {
+      const t = db.findUser(id);
+      if (!t || t.role !== 'teacher' || t.active === false) {
+        return res.status(400).json({ error: 'Danh sách có người không phải giáo viên đang làm việc' });
+      }
+    }
+    const chinhId = (req.body || {}).chinhId || null;
+    if (chinhId && !xin.includes(chinhId)) {
+      return res.status(400).json({ error: 'Cô phụ trách chính phải nằm trong danh sách cô của nhóm' });
+    }
+
+    const daGhi = db.setClassTeachers(cls.id, xin, chinhId);
+    db.audit(req.user.id, 'class-teachers-set', cls.id, { teacherIds: daGhi, chinhId });
+    res.json({ ok: true, classId: cls.id, ...nl.tomTat(cls.id) });
+  });
+
   // ---------- Giáo viên ----------
   app.get('/api/admin/teachers', onlyAdmin, (req, res) => {
     res.json(db.all('users', `SELECT * FROM users WHERE role = 'teacher' AND active = 1 ORDER BY name`)
-      .map(({ passwordHash, ...u }) => ({
-        ...u,
-        className: u.classId ? (db.findClass(u.classId) || {}).name || '' : '',
-      })));
+      .map(({ passwordHash, ...u }) => {
+        // Một cô có thể phụ trách nhiều nhóm, nên `className` (một tên) không đủ
+        // nữa. Giữ lại cho màn hình cũ, thêm `classNames` + `classIds` cho mới.
+        const nhom = nl.nhomCuaCo(u.id);
+        return {
+          ...u,
+          className: nhom.map(c => c.name).join(', '),
+          classNames: nhom.map(c => c.name),
+          classIds: nhom.map(c => c.id),
+        };
+      }));
   });
 
   app.post('/api/admin/teachers', onlyAdmin, (req, res) => {

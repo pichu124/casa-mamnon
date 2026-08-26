@@ -43,9 +43,9 @@ App.views.remarks = {
   async renderTeacher(root) {
     const list = await API.get('/api/remarks/class');
     this._lop = list;
-    const cls = App.state.classes.find(c => c.id === App.state.user.classId);
+    const tenNhom = (App.state.user.nhomCuaCo || []).map(n => n.name).join(', ');
     root.innerHTML = `
-      ${UI.pageHeader(`Nhận xét ${cls ? cls.name : ''}`, { action: { id: 'btn-new-remark', label: 'Viết nhận xét', icon: 'plus' } })}
+      ${UI.pageHeader(`Nhận xét ${tenNhom}`, { action: { id: 'btn-new-remark', label: 'Viết nhận xét', icon: 'plus' } })}
       ${list.length ? `
         <div class="card">
           <div class="card-title">${UI.icon('remark', 19)} Nhận xét gần đây</div>
