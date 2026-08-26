@@ -18,9 +18,9 @@ module.exports = (app) => {
   // response giữ giá trị CŨ để giao diện biết nhận xét nào là mới.
   app.get('/api/remarks', (req, res) => {
     const studentId = req.query.studentId;
-    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem bé này' });
     }
     const list = st.ganDauDaSua(BANG, db.all('remarks',
       `SELECT * FROM remarks WHERE studentId = ? AND ${st.dieuKienConHien(BANG, 'id')}
@@ -66,9 +66,9 @@ module.exports = (app) => {
   // Giáo viên viết nhận xét mới cho học sinh trong lớp.
   app.post('/api/remarks', requireRole('teacher', 'admin'), (req, res) => {
     const { studentId, date, content, rating, skills } = req.body || {};
-    if (!studentId) return res.status(400).json({ error: 'Vui lòng chọn học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Vui lòng chọn bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
     }
     const text = String(content || '').trim();
     if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung nhận xét' });
@@ -98,7 +98,7 @@ module.exports = (app) => {
     const r = db.first('remarks', 'SELECT * FROM remarks WHERE id = ?', [req.params.id]);
     if (!r || st.daThuHoi(BANG, r.id)) return res.status(404).json({ error: 'Không tìm thấy nhận xét' });
     if (!db.canAccessStudent(req.user, r.studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
     }
     if (!st.laChuBanGhi(req.user, r.teacherId)) {
       return res.status(403).json({ error: 'Chỉ cô đã viết hoặc quản trị mới sửa được nhận xét này' });
@@ -138,7 +138,7 @@ module.exports = (app) => {
     const r = db.first('remarks', 'SELECT * FROM remarks WHERE id = ?', [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Không tìm thấy nhận xét' });
     if (!db.canAccessStudent(req.user, r.studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
     }
     if (!st.laChuBanGhi(req.user, r.teacherId)) {
       return res.status(403).json({ error: 'Chỉ cô đã viết hoặc quản trị mới thu hồi được nhận xét này' });

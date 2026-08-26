@@ -37,7 +37,7 @@ module.exports = (app) => {
   app.post('/api/medicine', requireRole('parent'), (req, res) => {
     const { studentId, fromDate, toDate, medicines, note } = req.body || {};
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền dặn thuốc cho học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền dặn thuốc cho bé này' });
     }
     if (!DATE_RE.test(String(fromDate || '')) || !DATE_RE.test(String(toDate || ''))) {
       return res.status(400).json({ error: 'Ngày dùng thuốc không hợp lệ' });
@@ -134,7 +134,7 @@ function findOwn(req, res) {
     return null;
   }
   if (!db.canAccessStudent(req.user, rec.studentId)) {
-    res.status(403).json({ error: 'Đơn này không thuộc học sinh lớp của bạn' });
+    res.status(403).json({ error: 'Đơn này không thuộc bé nào của nhóm cô' });
     return null;
   }
   return rec;

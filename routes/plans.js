@@ -72,7 +72,7 @@ module.exports = (app) => {
     const classId = String(req.params.classId || '').trim();
     if (!db.findClass(classId)) return res.status(404).json({ error: 'Không tìm thấy lớp' });
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Chỉ giáo viên chủ nhiệm của lớp mới được soạn kế hoạch lớp này' });
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới được soạn kế hoạch của nhóm này' });
     }
 
     const year = Number(req.params.year), month = Number(req.params.month);

@@ -75,9 +75,9 @@ module.exports = (app) => {
   // đang chạy. Đọc gọn ở đây an toàn hơn.
   app.get('/api/hocsinh-cu/:id', (req, res) => {
     const hs = db.findStudent(req.params.id);
-    if (!hs) return res.status(404).json({ error: 'Không tìm thấy học sinh' });
+    if (!hs) return res.status(404).json({ error: 'Không tìm thấy bé' });
     if (!db.canAccessStudent(req.user, hs.id)) {
-      return res.status(403).json({ error: 'Không có quyền xem hồ sơ học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem hồ sơ của bé này' });
     }
     if (req.user.role === 'parent' && hetHan(hs.leftAt)) {
       return res.status(403).json({

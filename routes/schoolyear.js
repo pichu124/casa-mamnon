@@ -90,6 +90,11 @@ module.exports = (app) => {
         siSo,
         tenLopMoi: tenMoi,
         raTruong: !tenMoi,
+        // Nhóm này đi theo BẬC mầm non hay theo số cuối tên lớp. Màn hình cần
+        // biết để không hiện ô "Khối cuối cấp" — với nhóm mầm non ô đó không có
+        // tác dụng gì, mà một ô điều khiển đã chết vẫn hiện thì hiệu trưởng gõ
+        // số vào rồi tưởng nó quyết định ai ra trường.
+        theoBac: nhomKeTiepMamNon(c.name) !== undefined,
         taoLopMoi: !!tenMoi && !lopDich,
         lopDichId: lopDich ? lopDich.id : null,
       };
@@ -134,7 +139,7 @@ module.exports = (app) => {
         const id = db.nextId('c');
         db.insert('classes', {
           id, name: tenMoi, room: c.room, grade: (Number(c.grade) || 0) + 1,
-          teacherId: null,      // phân công lại giáo viên chủ nhiệm cho năm mới
+          teacherId: null,      // phân công lại cô phụ trách cho năm mới
           year: namMoi, active: true,
         });
         lopMoiTheoTen.set(tenMoi, id);
@@ -190,9 +195,9 @@ module.exports = (app) => {
       ok: true,
       namMoi,
       ...ketQua,
-      message: `Đã chuyển sang năm học ${namMoi}: ${ketQua.lenLop} học sinh lên lớp, ` +
-        `${ketQua.raTruong} học sinh ra trường, tạo ${ketQua.lopTao} lớp mới. ` +
-        'Hãy phân công lại giáo viên chủ nhiệm cho các lớp.',
+      message: `Đã chuyển sang năm học ${namMoi}: ${ketQua.lenLop} bé lên nhóm, ` +
+        `${ketQua.raTruong} bé ra trường, tạo ${ketQua.lopTao} nhóm mới. ` +
+        'Hãy phân công lại cô phụ trách cho các nhóm.',
     });
   });
 
@@ -213,9 +218,9 @@ module.exports = (app) => {
   // chỉ ghi mà không ai nhìn thấy bao giờ.
   app.get('/api/schoolyear/lich-su-lop', (req, res) => {
     const studentId = String(req.query.studentId || '');
-    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem bé này' });
     }
     lsl.baoDamCoKhoang(studentId);
     res.json(lsl.khoangCuaHocSinh(studentId).map(k => ({

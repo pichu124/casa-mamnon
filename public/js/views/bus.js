@@ -1,5 +1,5 @@
 // Phân hệ Xe buýt.
-// Phụ huynh: tuyến của con đang chọn. Giáo viên: các tuyến có học sinh lớp mình + cập nhật hành trình.
+// Phụ huynh: tuyến của con đang chọn. Giáo viên: các tuyến có bé của nhóm mình + cập nhật hành trình.
 App.views.bus = {
   async render(root) {
     const routes = await API.get('/api/bus');
@@ -9,7 +9,7 @@ App.views.bus = {
         ${UI.pageHeader('Xe buýt')}
         ${routes.length
           ? routes.map(r => this.routeCards(r, true)).join('')
-          : UI.emptyState('🚌', 'Lớp bạn chưa có học sinh nào đăng ký xe đưa đón')}`;
+          : UI.emptyState('🚌', 'Nhóm của cô chưa có bé nào đăng ký xe đưa đón')}`;
       return;
     }
 
@@ -30,7 +30,7 @@ App.views.bus = {
     return `
       <div class="card">
         <div class="card-title">${UI.icon('bus', 19)} ${UI.esc(r.name)} <span class="spacer"></span> ${UI.badge(r.plate, 'blue')}</div>
-        ${names.length ? `<div class="muted small" style="margin:-6px 0 6px">${isTeacher ? 'Học sinh lớp mình trên tuyến' : 'Con đi tuyến này'}: ${names.map(n => UI.esc(n)).join(', ')}</div>` : ''}
+        ${names.length ? `<div class="muted small" style="margin:-6px 0 6px">${isTeacher ? 'Bé của nhóm mình trên tuyến' : 'Con đi tuyến này'}: ${names.map(n => UI.esc(n)).join(', ')}</div>` : ''}
         ${this.contactRow('Tài xế', r.driver)}
         ${this.contactRow('Cô phụ trách', r.monitor)}
       </div>
@@ -57,7 +57,7 @@ App.views.bus = {
           : '<div class="muted small">Chưa có cập nhật hôm nay</div>'}
         ${isTeacher ? `
           <div class="flex mt-14">
-            <input id="bus-log-${UI.esc(r.id)}" placeholder="VD: Xe bắt đầu trả học sinh"
+            <input id="bus-log-${UI.esc(r.id)}" placeholder="VD: Xe bắt đầu trả bé"
               style="flex:1;min-width:0;border:1.5px solid var(--line);border-radius:12px;padding:10px 13px;outline:none">
             <button class="btn primary sm" onclick="App.views.bus.addLog('${UI.esc(r.id)}')">Cập nhật</button>
           </div>` : ''}

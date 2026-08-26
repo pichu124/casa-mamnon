@@ -1,6 +1,6 @@
-// Phân hệ Thời khóa biểu: lịch học theo lớp, xem theo từng thứ trong tuần.
-// Phụ huynh xem theo lớp của con đang chọn; giáo viên xem lớp chủ nhiệm.
-// Giáo viên chủ nhiệm và quản trị sửa được TKB của lớp ngay trên màn hình này.
+// Phân hệ Thời khóa biểu: lịch học theo nhóm, xem theo từng thứ trong tuần.
+// Phụ huynh xem theo nhóm của con đang chọn; giáo viên xem nhóm mình phụ trách.
+// Cô phụ trách và quản trị sửa được TKB của nhóm ngay trên màn hình này.
 App.views.timetable = {
   day: null,      // 1 = Thứ Hai ... 5 = Thứ Sáu
   data: null,     // bản ghi TKB đang hiển thị
@@ -8,7 +8,7 @@ App.views.timetable = {
   editing: false, // đang ở chế độ sửa
   draft: null,    // bản nháp khi sửa: { periodTimes, days }
 
-  // Khung giờ mặc định khi một lớp lập TKB lần đầu.
+  // Khung giờ mặc định khi một nhóm lập TKB lần đầu.
   KHUNG_GIO_MAC_DINH: [
     { p: 1, time: '07:30 – 08:05' }, { p: 2, time: '08:10 – 08:45' },
     { p: 3, time: '09:00 – 09:35' }, { p: 4, time: '09:40 – 10:15' },
@@ -24,12 +24,12 @@ App.views.timetable = {
     } else {
       const current = App.currentStudent();
       if (!current) {
-        root.innerHTML = UI.pageHeader('Thời khóa biểu') + UI.emptyState('🎒', 'Chưa có học sinh liên kết với tài khoản này');
+        root.innerHTML = UI.pageHeader('Thời khóa biểu') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
         return;
       }
       classId = current.classId;
     }
-    // Đổi lớp giữa chừng (quản trị chuyển học sinh) thì bỏ bản nháp đang sửa.
+    // Đổi nhóm giữa chừng (quản trị chuyển bé sang nhóm khác) thì bỏ bản nháp đang sửa.
     if (this.classId !== classId) { this.editing = false; this.draft = null; }
     this.classId = classId;
     if (!this.day) {
@@ -39,7 +39,7 @@ App.views.timetable = {
 
     if (this.editing && this.draft) return this.renderEditor(root);
 
-    let data = null, thongBao = 'Lớp chưa có thời khóa biểu';
+    let data = null, thongBao = 'Nhóm chưa có thời khóa biểu';
     try {
       data = await API.get(`/api/timetable?classId=${encodeURIComponent(classId)}`);
     } catch (err) {
@@ -48,7 +48,7 @@ App.views.timetable = {
     this.data = data;
 
     if (!data) {
-      // Chỉ mời tạo mới khi máy chủ xác nhận lớp CHƯA có TKB. Lỗi mạng thì không —
+      // Chỉ mời tạo mới khi máy chủ xác nhận nhóm CHƯA có TKB. Lỗi mạng thì không —
       // kẻo lưu bản mặc định đè lên TKB thật đang có.
       const chuaCo = /chưa có thời khóa biểu/i.test(thongBao);
       root.innerHTML = `
@@ -71,7 +71,7 @@ App.views.timetable = {
       <div id="tkb-day"></div>
       <div class="card">
         <div class="card-title">${UI.icon('info', 19)} Ghi chú</div>
-        <div class="list-row"><div class="row-main"><div class="row-sub">Lớp</div><div class="row-title">${UI.esc(data.className)}</div></div></div>
+        <div class="list-row"><div class="row-main"><div class="row-sub">Nhóm</div><div class="row-title">${UI.esc(data.className)}</div></div></div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Lịch học</div><div class="row-title">Buổi sáng 4 tiết, buổi chiều 3 tiết</div></div></div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Cô phụ trách</div><div class="row-title">${UI.esc(data.teacherNames || data.teacherName || '—')}</div></div></div>
       </div>`;
@@ -79,7 +79,7 @@ App.views.timetable = {
     this.renderDay();
   },
 
-  // Giáo viên chủ nhiệm sửa lớp mình; quản trị sửa lớp bất kỳ; phụ huynh chỉ xem.
+  // Cô phụ trách sửa nhóm mình; quản trị sửa nhóm bất kỳ; phụ huynh chỉ xem.
   canEdit() {
     const u = App.state.user;
     if (!u) return false;
@@ -144,7 +144,7 @@ App.views.timetable = {
     return cur >= (+m[1] * 60 + +m[2]) && cur <= (+m[3] * 60 + +m[4]);
   },
 
-  // ---- Chế độ sửa (giáo viên chủ nhiệm / quản trị) ----
+  // ---- Chế độ sửa (cô phụ trách / quản trị) ----
 
   batDauSua() {
     if (!this.data) return;
@@ -156,7 +156,7 @@ App.views.timetable = {
     App.route();
   },
 
-  // Lớp chưa có TKB: bắt đầu từ khung giờ mặc định, các tiết để trống.
+  // Nhóm chưa có TKB: bắt đầu từ khung giờ mặc định, các tiết để trống.
   batDauTao() {
     const soTiet = this.KHUNG_GIO_MAC_DINH.length;
     const days = {};

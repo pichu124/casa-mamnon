@@ -1,5 +1,5 @@
 // Phân hệ Nhận xét hằng ngày.
-// Phụ huynh: dòng thời gian nhận xét của con. Giáo viên: viết nhận xét + xem cả lớp.
+// Phụ huynh: dòng thời gian nhận xét của con. Giáo viên: viết nhận xét + xem cả nhóm.
 App.views.remarks = {
   async render(root) {
     if (App.state.user.role === 'teacher') return this.renderTeacher(root);
@@ -10,7 +10,7 @@ App.views.remarks = {
   async renderParent(root) {
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Nhận xét hằng ngày') + UI.emptyState('📝', 'Chưa có học sinh liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Nhận xét hằng ngày') + UI.emptyState('📝', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     const remarks = await API.get(`/api/remarks?studentId=${encodeURIComponent(current.id)}`);
@@ -39,7 +39,7 @@ App.views.remarks = {
       </div>`;
   },
 
-  // ---- Giáo viên: nhận xét gần đây cả lớp + viết mới ----
+  // ---- Giáo viên: nhận xét gần đây cả nhóm + viết mới ----
   async renderTeacher(root) {
     const list = await API.get('/api/remarks/class');
     this._lop = list;
@@ -75,10 +75,10 @@ App.views.remarks = {
 
   openForm() {
     const students = App.state.students || [];
-    if (!students.length) return UI.toast('Lớp chưa có học sinh', 'error');
+    if (!students.length) return UI.toast('Nhóm chưa có bé nào', 'error');
     UI.modal(`
       <div class="field">
-        <label>Học sinh</label>
+        <label>Bé</label>
         <select id="rm-student">
           ${students.map(s => `<option value="${UI.esc(s.id)}">${UI.esc(s.name)}</option>`).join('')}
         </select>

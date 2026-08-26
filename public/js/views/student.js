@@ -1,5 +1,5 @@
-// Phân hệ Học sinh.
-// Phụ huynh: hồ sơ của con. Giáo viên: danh sách học sinh lớp chủ nhiệm.
+// Phân hệ Hồ sơ bé.
+// Phụ huynh: hồ sơ của con. Giáo viên: danh sách bé nhóm mình phụ trách.
 App.views.student = {
   async render(root) {
     if (App.state.user.role === 'teacher') return this.renderRoster(root);
@@ -10,13 +10,13 @@ App.views.student = {
   async renderProfile(root) {
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Học sinh') + UI.emptyState('🎒', 'Chưa có học sinh liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Hồ sơ bé') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     const s = await API.get(`/api/students/${current.id}`);
     const age = new Date().getFullYear() - UI.parseDate(s.dob).getFullYear();
     root.innerHTML = `
-      ${UI.pageHeader('Hồ sơ học sinh')}
+      ${UI.pageHeader('Hồ sơ của bé')}
       ${UI.studentBar()}
       <div class="card center" style="padding-top:24px">
         ${UI.avatar(s.avatar, 84)}
@@ -36,10 +36,10 @@ App.views.student = {
       </div>
 
       <div class="card">
-        <div class="card-title">${UI.icon('student', 19)} Lớp học</div>
-        ${infoRow('Lớp', `${s.className} · ${s.room}`)}
+        <div class="card-title">${UI.icon('student', 19)} Nhóm lớp</div>
+        ${infoRow('Nhóm', `${s.className} · ${s.room}`)}
         ${infoRow('Cô phụ trách', s.teacherNames || s.teacherName)}
-        ${infoRow('Điện thoại GVCN', s.teacherPhone)}
+        ${infoRow('Điện thoại của cô', s.teacherPhone)}
         <button class="btn primary block mt-14" onclick="location.hash='#/messages'">${UI.icon('chat', 18)} Nhắn tin với giáo viên</button>
       </div>
 
@@ -56,12 +56,12 @@ App.views.student = {
       </div>`;
   },
 
-  // ---- Giáo viên: danh sách lớp ----
+  // ---- Cô: danh sách bé của nhóm ----
   async renderRoster(root) {
     const students = await API.get('/api/students');
     const tenNhom = (App.state.user.nhomCuaCo || []).map(n => n.name).join(', ');
     root.innerHTML = `
-      ${UI.pageHeader(`Học sinh ${tenNhom}`)}
+      ${UI.pageHeader(`Các bé nhóm ${tenNhom}`)}
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${students.length}</div><div class="stat-label">Sĩ số</div></div>
         <div class="stat-box"><div class="stat-num">${students.filter(s => s.gender === 'Nam').length}</div><div class="stat-label">Nam</div></div>
@@ -91,7 +91,7 @@ App.views.student = {
           ${infoRow('Địa chỉ', s.address)}
           ${infoRow('Dị ứng', s.allergies)}
           ${s.parents.map(p => infoRow(`PH: ${p.title} ${p.name}`, p.phone)).join('')}
-        </div>`, 'Hồ sơ học sinh');
+        </div>`, 'Hồ sơ của bé');
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 };

@@ -1,4 +1,4 @@
-// Trang quản trị dành cho ban giám hiệu: quản lý lớp, giáo viên, học sinh
+// Trang quản trị dành cho ban giám hiệu: quản lý nhóm lớp, cô, bé
 // và nhập danh sách đầu năm từ tệp Excel/CSV.
 
 App.views.admin = {
@@ -52,61 +52,61 @@ App.views.admin = {
     const chuaCoGv = d.classes.filter(c => !c.teacherId).length;
     body.innerHTML = `
       <div class="stat-row">
-        <div class="stat-box"><div class="stat-num">${d.counts.students}</div><div class="stat-label">Học sinh</div></div>
-        <div class="stat-box"><div class="stat-num">${d.counts.classes}</div><div class="stat-label">Lớp</div></div>
+        <div class="stat-box"><div class="stat-num">${d.counts.students}</div><div class="stat-label">Bé</div></div>
+        <div class="stat-box"><div class="stat-num">${d.counts.classes}</div><div class="stat-label">Nhóm</div></div>
         <div class="stat-box"><div class="stat-num">${d.counts.teachers}</div><div class="stat-label">Giáo viên</div></div>
         <div class="stat-box"><div class="stat-num">${d.counts.parents}</div><div class="stat-label">Phụ huynh</div></div>
       </div>
       ${d.counts.mustChange ? `
         <div class="card" style="border-left:4px solid var(--warning)">
           <b>${d.counts.mustChange} tài khoản</b> đang dùng mật khẩu tạm và chưa đổi.
-          <div class="muted small mt-8">Nhắc họ đăng nhập và đặt mật khẩu riêng để bảo vệ thông tin học sinh.</div>
+          <div class="muted small mt-8">Nhắc họ đăng nhập và đặt mật khẩu riêng để bảo vệ thông tin của bé.</div>
         </div>` : ''}
 
       ${chuaCoGv ? `
         <div class="card" style="border-left:4px solid var(--danger)">
-          <b>${chuaCoGv} lớp chưa có giáo viên chủ nhiệm.</b>
+          <b>${chuaCoGv} nhóm lớp chưa có cô phụ trách.</b>
           <div class="muted small mt-8">
-            Cô chưa được phân công sẽ đăng nhập vào và thấy "Lớp chưa có học sinh nào" —
+            Cô chưa được phân công sẽ đăng nhập vào và thấy "Nhóm chưa có bé nào" —
             không điểm danh, không nhận xét, không nhắn tin với phụ huynh được.
-            Bấm <b>Sửa</b> ở dòng lớp được tô đỏ bên dưới để phân công.
+            Bấm <b>Sửa</b> ở dòng nhóm được tô đỏ bên dưới để phân công.
           </div>
         </div>` : ''}
 
       <div class="card">
-        <div class="card-title">Danh sách lớp<span class="spacer"></span>
-          <button class="btn sm primary" onclick="App.views.admin.themLop()">+ Thêm lớp</button>
+        <div class="card-title">Danh sách nhóm lớp<span class="spacer"></span>
+          <button class="btn sm primary" onclick="App.views.admin.themLop()">+ Thêm nhóm</button>
         </div>
         ${d.classes.length ? d.classes.map(c => `
           <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
             <div class="row-main">
-              <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có chủ nhiệm', 'red')}`}</div>
-              <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công giáo viên')} · ${c.studentCount} học sinh${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
+              <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có cô phụ trách', 'red')}`}</div>
+              <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công cô')} · ${c.studentCount} bé${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
             </div>
             <div class="row-end" style="display:flex;gap:8px">
               <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
               <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem</button>
             </div>
-          </div>`).join('') : '<div class="muted small">Chưa có lớp nào. Bấm "Thêm lớp" hoặc nhập danh sách để tạo tự động.</div>'}
+          </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>`;
   },
 
   async themLop() {
     const teachers = await API.get('/api/admin/teachers');
     UI.modal(`
-      <div class="field"><label>Tên lớp</label><input id="ad-lop-ten" placeholder="Ví dụ: Lớp 3A"></div>
+      <div class="field"><label>Tên nhóm</label><input id="ad-lop-ten" placeholder="Ví dụ: Chồi 2"></div>
       <div class="field"><label>Phòng học</label><input id="ad-lop-phong" placeholder="Ví dụ: Phòng 203"></div>
       <div class="field"><label>Khối</label><input id="ad-lop-khoi" type="number" min="1" max="12" placeholder="3"></div>
-      <div class="field"><label>Giáo viên chủ nhiệm</label>
+      <div class="field"><label>Cô phụ trách</label>
         <select id="ad-lop-gv"><option value="">— Chưa phân công —</option>
           ${teachers.map(t => `<option value="${UI.esc(t.id)}">${UI.esc(t.title)} ${UI.esc(t.name)}</option>`).join('')}
         </select>
       </div>
-      <button class="btn primary block" id="ad-lop-luu">Tạo lớp</button>
-    `, 'Thêm lớp mới');
+      <button class="btn primary block" id="ad-lop-luu">Tạo nhóm</button>
+    `, 'Thêm nhóm mới');
     document.getElementById('ad-lop-luu').onclick = async () => {
       const name = document.getElementById('ad-lop-ten').value.trim();
-      if (!name) return UI.toast('Vui lòng nhập tên lớp', 'error');
+      if (!name) return UI.toast('Vui lòng nhập tên nhóm', 'error');
       try {
         await API.post('/api/admin/classes', {
           name,
@@ -114,32 +114,32 @@ App.views.admin = {
           grade: document.getElementById('ad-lop-khoi').value,
           teacherId: document.getElementById('ad-lop-gv').value || null,
         });
-        UI.toast('Đã tạo lớp', 'success');
+        UI.toast('Đã tạo nhóm', 'success');
         UI.closeModal();
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); }
     };
   },
 
-  // Sửa thông tin lớp và phân công giáo viên chủ nhiệm.
+  // Sửa thông tin nhóm và phân công cô phụ trách.
   //
-  // Đây là màn hình mà nút "Đi phân công giáo viên chủ nhiệm" sau khi chuyển năm
+  // Đây là màn hình mà nút "Đi phân công cô phụ trách" sau khi chuyển năm
   // học vẫn luôn chỉ tới — trước đây nó dẫn về một danh sách chỉ để đọc, nên cả
-  // trường không có cách nào phân công lại chủ nhiệm ngoài việc sửa tay dữ liệu.
+  // trường không có cách nào phân công lại cô phụ trách ngoài việc sửa tay dữ liệu.
   //
-  // CỐ Ý KHÔNG cho sửa năm học: routes/schoolyear.js dùng cặp (tên lớp, năm học)
-  // để nhận ra lớp của năm mới đã tồn tại chưa. Sửa tay năm học ở đây sẽ làm lần
-  // chuyển năm sau tạo lớp trùng tên.
+  // CỐ Ý KHÔNG cho sửa năm học: routes/schoolyear.js dùng cặp (tên nhóm, năm học)
+  // để nhận ra nhóm của năm mới đã tồn tại chưa. Sửa tay năm học ở đây sẽ làm lần
+  // chuyển năm sau tạo nhóm trùng tên.
   async suaLop(classId) {
     const [d, teachers] = await Promise.all([
       API.get('/api/admin/overview'),
       API.get('/api/admin/teachers'),
     ]);
     const c = (d.classes || []).find(x => x.id === classId);
-    if (!c) return UI.toast('Không tìm thấy lớp này', 'error');
+    if (!c) return UI.toast('Không tìm thấy nhóm này', 'error');
 
-    // Giữ chủ nhiệm hiện tại trong danh sách kể cả khi cô đã ngừng hoạt động,
-    // nếu không bấm Lưu sẽ vô tình gỡ mất chủ nhiệm mà không ai chủ ý.
+    // Giữ cô phụ trách hiện tại trong danh sách kể cả khi cô đã ngừng hoạt động,
+    // nếu không bấm Lưu sẽ vô tình gỡ mất cô phụ trách mà không ai chủ ý.
     const ds = (!c.teacherId || teachers.some(t => t.id === c.teacherId))
       ? teachers
       : [{ id: c.teacherId, title: '', name: c.teacherName || '(giáo viên đã ngừng hoạt động)' }, ...teachers];
@@ -147,15 +147,15 @@ App.views.admin = {
     const dangPhuTrach = new Set((c.teachers || []).map(t => t.id));
 
     UI.modal(`
-      <div class="field"><label>Tên lớp</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
+      <div class="field"><label>Tên nhóm</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
       <div class="field"><label>Phòng học</label><input id="ad-sl-phong" value="${UI.esc(c.room || '')}" placeholder="Ví dụ: Phòng 203"></div>
       <div class="field"><label>Khối</label><input id="ad-sl-khoi" type="number" min="1" max="12" value="${UI.esc(c.grade ?? '')}"></div>
-      <div class="field"><label>Giáo viên chủ nhiệm</label>
+      <div class="field"><label>Cô phụ trách</label>
         <select id="ad-sl-gv">
           <option value="">— Chưa phân công —</option>
           ${ds.map(t => `<option value="${UI.esc(t.id)}" ${t.id === c.teacherId ? 'selected' : ''}>${UI.esc(`${t.title} ${t.name}`.trim())}</option>`).join('')}
         </select>
-        <div class="muted small mt-8">Đổi chủ nhiệm sẽ thu quyền xem hồ sơ lớp này của cô cũ ngay lập tức.</div>
+        <div class="muted small mt-8">Đổi cô phụ trách sẽ thu quyền xem hồ sơ nhóm này của cô cũ ngay lập tức.</div>
       </div>
       <div class="field"><label>Các cô cùng phụ trách nhóm này</label>
         <div id="ad-sl-cac-co" class="card" style="max-height:220px;overflow:auto;padding:8px">
@@ -175,8 +175,8 @@ App.views.admin = {
       <button class="btn primary block" id="ad-sl-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
     `, `Sửa ${c.name}`);
 
-    // Ô "Giáo viên chủ nhiệm" và danh sách cô phải nói cùng một chuyện, nếu
-    // không quản trị gỡ chủ nhiệm mà nhóm vẫn còn cô, rồi không hiểu vì sao thẻ
+    // Ô "Cô phụ trách" và danh sách cô phải nói cùng một chuyện, nếu
+    // không quản trị gỡ cô phụ trách mà nhóm vẫn còn cô, rồi không hiểu vì sao thẻ
     // nhắc việc không tắt. Chọn "— Chưa phân công —" nghĩa là nhóm này chưa có
     // ai phụ trách; chọn một cô thì tích sẵn ô của cô ấy.
     const oChinh = document.getElementById('ad-sl-gv');
@@ -189,7 +189,7 @@ App.views.admin = {
 
     document.getElementById('ad-sl-luu').onclick = async () => {
       const name = document.getElementById('ad-sl-ten').value.trim();
-      if (!name) return UI.toast('Vui lòng nhập tên lớp', 'error');
+      if (!name) return UI.toast('Vui lòng nhập tên nhóm', 'error');
       const chinhId = document.getElementById('ad-sl-gv').value || null;
       const teacherIds = [...document.querySelectorAll('.ad-sl-co:checked')].map(o => o.value);
       // Cô phụ trách chính luôn nằm trong danh sách cô của nhóm, kể cả khi quản
@@ -213,17 +213,17 @@ App.views.admin = {
     };
   },
 
-  // Tên lớp KHÔNG được truyền qua thuộc tính onclick nữa mà tra lại từ đây —
+  // Tên nhóm KHÔNG được truyền qua thuộc tính onclick nữa mà tra lại từ đây —
   // cùng lý do như App.views.accounts.reset: trình duyệt giải mã thực thể HTML
-  // trước khi JS phân tích, nên dấu nháy trong tên lớp thoát ra khỏi chuỗi và
+  // trước khi JS phân tích, nên dấu nháy trong tên nhóm thoát ra khỏi chuỗi và
   // chạy được mã. Giữ chữ ký hai tham số để bản giao diện cũ trong bộ nhớ đệm
   // của điện thoại đã cài app vẫn gọi được.
   async xemLop(classId, tenLop) {
     if (!tenLop) {
       const c = (this._lop || []).find(x => x.id === classId);
-      tenLop = c ? c.name : 'Lớp';
+      tenLop = c ? c.name : 'Nhóm';
     }
-    // Nhớ lại để các nút bên trong modal mở lại đúng lớp này sau khi lưu.
+    // Nhớ lại để các nút bên trong modal mở lại đúng nhóm này sau khi lưu.
     this._lopDangXem = { classId, tenLop };
     // Lấy cả em đã nghỉ: quản trị bấm nhầm "Cho nghỉ học" thì phải thấy em ở đâu
     // mà nhận lại, chứ không phải mở cơ sở dữ liệu ra sửa tay.
@@ -231,7 +231,7 @@ App.views.admin = {
     const dangHoc = students.filter(s => s.active !== false && s.active !== 0);
     const daNghi = students.filter(s => !(s.active !== false && s.active !== 0));
 
-    // Chỉ mã học sinh (do hệ thống sinh) mới được đặt vào tham số của onclick.
+    // Chỉ mã của bé (do hệ thống sinh) mới được đặt vào tham số của onclick.
     // Họ tên do người nhập gõ nên không bao giờ đi qua đường này — xem ghi chú ở
     // App.views.accounts.reset.
     const dong = (s, daNghiHoc) => `
@@ -254,14 +254,14 @@ App.views.admin = {
 
     UI.modal(
       dangHoc.length || daNghi.length
-        ? `<div class="muted small mb-8">${dangHoc.length} học sinh đang học</div>
+        ? `<div class="muted small mb-8">${dangHoc.length} bé đang học</div>
            ${dangHoc.map(s => dong(s, false)).join('')}${phanDaNghi}`
-        : UI.emptyState('🎒', 'Lớp chưa có học sinh'),
+        : UI.emptyState('🎒', 'Nhóm chưa có bé nào'),
       tenLop);
   },
 
   // UI.modal đóng modal đang mở trước khi mở cái mới, nên sau khi sửa xong phải
-  // vẽ lại danh sách lớp bằng tay thì quản trị mới thấy kết quả ngay.
+  // vẽ lại danh sách nhóm bằng tay thì quản trị mới thấy kết quả ngay.
   async lamMoiLop() {
     const l = this._lopDangXem;
     if (!l) return UI.closeModal();
@@ -275,12 +275,12 @@ App.views.admin = {
       API.get('/api/admin/overview'),
     ]);
     const s = students.find(x => x.id === studentId);
-    if (!s) return UI.toast('Không tìm thấy học sinh này', 'error');
+    if (!s) return UI.toast('Không tìm thấy bé này', 'error');
     const lop = d.classes || [];
 
     UI.modal(`
       <div class="field"><label>Họ và tên</label><input id="ad-hs-ten" value="${UI.esc(s.name)}"></div>
-      <div class="field"><label>Mã học sinh</label><input id="ad-hs-ma" value="${UI.esc(s.code || '')}" placeholder="Để trống nếu trường không dùng mã">
+      <div class="field"><label>Mã của bé</label><input id="ad-hs-ma" value="${UI.esc(s.code || '')}" placeholder="Để trống nếu trường không dùng mã">
         <div class="hint">Mỗi em một mã riêng. Trùng mã sẽ báo lỗi khi lưu.</div>
       </div>
       <div class="field"><label>Ngày sinh</label><input id="ad-hs-ns" type="date" value="${UI.esc(s.dob || '')}"></div>
@@ -292,19 +292,19 @@ App.views.admin = {
         </select>
       </div>
       <div class="field"><label>Địa chỉ</label><input id="ad-hs-dc" value="${UI.esc(s.address || '')}"></div>
-      <div class="field"><label>Lớp</label>
+      <div class="field"><label>Nhóm</label>
         <select id="ad-hs-lop">
-          <option value="">— Chưa xếp lớp —</option>
+          <option value="">— Chưa xếp nhóm —</option>
           ${lop.map(c => `<option value="${UI.esc(c.id)}" ${c.id === s.classId ? 'selected' : ''}>${UI.esc(c.name)}</option>`).join('')}
         </select>
-        <div class="hint">Chuyển lớp sẽ đổi luôn giáo viên chủ nhiệm được xem hồ sơ của em.</div>
+        <div class="hint">Chuyển nhóm sẽ đổi luôn cô phụ trách được xem hồ sơ của em.</div>
       </div>
       <button class="btn primary block" id="ad-hs-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
     `, `Sửa hồ sơ ${s.name}`);
 
     document.getElementById('ad-hs-luu').onclick = async () => {
       const name = document.getElementById('ad-hs-ten').value.trim();
-      if (!name) return UI.toast('Vui lòng nhập họ tên học sinh', 'error');
+      if (!name) return UI.toast('Vui lòng nhập họ tên của bé', 'error');
       try {
         await API.put(`/api/admin/students/${encodeURIComponent(studentId)}`, {
           name,
@@ -314,7 +314,7 @@ App.views.admin = {
           address: document.getElementById('ad-hs-dc').value.trim(),
           classId: document.getElementById('ad-hs-lop').value || null,
         });
-        UI.toast('Đã lưu hồ sơ học sinh', 'success');
+        UI.toast('Đã lưu hồ sơ của bé', 'success');
         App.route();
         await this.lamMoiLop();
       } catch (err) { UI.toast(err.message, 'error'); }
@@ -328,9 +328,9 @@ App.views.admin = {
       <p style="line-height:1.6">Đánh dấu em này <b>đã nghỉ học</b>?</p>
       <p class="muted small" style="line-height:1.6">
         Em sẽ không còn trong danh sách điểm danh và phụ huynh không nhận thông báo
-        của lớp nữa. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b> — điểm danh, sổ
+        của nhóm nữa. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b> — điểm danh, sổ
         liên lạc, học bạ, hồ sơ sức khỏe đều tra cứu được. Nhận lại bất cứ lúc nào
-        bằng nút "Nhận lại" ngay dưới danh sách lớp.
+        bằng nút "Nhận lại" ngay dưới danh sách nhóm.
       </p>
       <button class="btn primary block mt-14" id="ad-nghi-ok">Xác nhận cho nghỉ học</button>
       <button class="btn outline block mt-8" onclick="App.views.admin.lamMoiLop()">Quay lại</button>
@@ -349,7 +349,7 @@ App.views.admin = {
   async nhanLaiHocSinh(studentId) {
     try {
       await API.put(`/api/admin/students/${encodeURIComponent(studentId)}`, { active: true });
-      UI.toast('Đã nhận lại học sinh', 'success');
+      UI.toast('Đã nhận lại bé', 'success');
       App.route();
       await this.lamMoiLop();
     } catch (err) { UI.toast(err.message, 'error'); }
@@ -359,10 +359,10 @@ App.views.admin = {
   async tabNhapLieu(body) {
     body.innerHTML = `
       <div class="card">
-        <div class="card-title">📋 Nhập danh sách học sinh từ Excel</div>
+        <div class="card-title">📋 Nhập danh sách bé từ Excel</div>
         <p class="muted small" style="line-height:1.6">
-          Xuất danh sách của trường ra tệp CSV rồi tải lên đây. Hệ thống tự tạo lớp,
-          học sinh và tài khoản phụ huynh. Phụ huynh có nhiều con dùng chung một tài
+          Xuất danh sách của trường ra tệp CSV rồi tải lên đây. Hệ thống tự tạo nhóm,
+          bé và tài khoản phụ huynh. Phụ huynh có nhiều con dùng chung một tài
           khoản nếu trùng số điện thoại.
         </p>
         <a class="btn outline block mt-14" href="/api/admin/import/template" download>⬇ Tải tệp mẫu CSV</a>
@@ -373,7 +373,7 @@ App.views.admin = {
           <label>Chọn tệp CSV</label>
           <input type="file" id="ad-file" accept=".csv,text/csv" style="display:none">
           <button class="btn outline block" id="ad-pick">📄 Chọn tệp từ máy</button>
-          <div class="hint">Cột cần có: Họ tên, Lớp, Họ tên phụ huynh. Các cột khác không bắt buộc.</div>
+          <div class="hint">Cột cần có: Họ tên, Nhóm, Họ tên phụ huynh. Các cột khác không bắt buộc.</div>
         </div>
         <div id="ad-preview"></div>
       </div>`;
@@ -398,7 +398,7 @@ App.views.admin = {
   },
 
   // Tệp lưu sai bảng mã: nói rõ hỏng ở đâu và chỉ từng bước cách sửa trong Excel.
-  // Cố ý KHÔNG cho nhập tiếp: nhập vào thì tên học sinh và tên phụ huynh sai
+  // Cố ý KHÔNG cho nhập tiếp: nhập vào thì tên bé và tên phụ huynh sai
   // hàng loạt, mà app chưa có màn hình nào sửa lại được hàng loạt.
   baoLoiPhongChu(tenTep, text) {
     const dong = String(text).split(/\r?\n/);
@@ -410,7 +410,7 @@ App.views.admin = {
         <p class="small">Tệp <b>${UI.esc(tenTep)}</b> đang lưu theo kiểu chữ cũ nên tên có dấu
         đã biến thành ký tự lạ. Ở dòng ${i + 1} hệ thống đọc được:</p>
         <p class="small"><code>${UI.esc(viDu)}</code></p>
-        <p class="small">Nhập tệp này vào thì tên học sinh và tên phụ huynh sẽ sai, và không
+        <p class="small">Nhập tệp này vào thì tên bé và tên phụ huynh sẽ sai, và không
         sửa lại hàng loạt được. Xin sửa tệp trước, chỉ mất khoảng một phút:</p>
         <ol class="small" style="line-height:1.7;padding-left:18px">
           <li>Mở tệp bằng Excel.</li>
@@ -444,12 +444,12 @@ App.views.admin = {
           <div class="stat-box"><div class="stat-num" style="color:${soTrung ? 'var(--warning)' : 'var(--muted)'}">${soTrung}</div><div class="stat-label">Đã có</div></div>
         </div>
         ${r.lopMoi.length ? `<div class="card" style="border-left:4px solid var(--info)">
-          Sẽ tạo mới ${r.lopMoi.length} lớp: <b>${UI.esc(r.lopMoi.join(', '))}</b></div>` : ''}
+          Sẽ tạo mới ${r.lopMoi.length} nhóm: <b>${UI.esc(r.lopMoi.join(', '))}</b></div>` : ''}
         ${soTrung ? `
           <div class="card" style="border-left:4px solid var(--warning)">
             <div class="card-title">${soTrung} em đã có trong hệ thống — sẽ được bỏ qua</div>
             <div class="muted small" style="line-height:1.6">
-              Nhận ra theo họ tên, ngày sinh và lớp. Nhập lại sẽ tạo ra hai hồ sơ
+              Nhận ra theo họ tên, ngày sinh và nhóm. Nhập lại sẽ tạo ra hai hồ sơ
               cho cùng một em, kèm hai tài khoản phụ huynh khác nhau.
             </div>
             ${dsTrung.slice(0, 15).map(x => `<div class="small mt-8">
@@ -457,7 +457,7 @@ App.views.admin = {
             ${dsTrung.length > 15 ? `<div class="muted small mt-8">…và ${dsTrung.length - 15} em khác</div>` : ''}
             <label class="mt-14" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
               <input type="checkbox" id="ad-trung-ok" style="margin-top:3px">
-              <span class="small">Trường tôi có những em trùng cả họ tên, ngày sinh lẫn lớp —
+              <span class="small">Trường tôi có những em trùng cả họ tên, ngày sinh lẫn nhóm —
                 cứ nhập cả ${soTrung} em này.</span>
             </label>
           </div>` : ''}
@@ -470,7 +470,7 @@ App.views.admin = {
           </div>` : ''}
         <div class="table-wrap mt-14">
           <table class="simple">
-            <thead><tr><th>Học sinh</th><th>Lớp</th><th>Phụ huynh</th><th>Tên đăng nhập</th></tr></thead>
+            <thead><tr><th>Bé</th><th>Nhóm</th><th>Phụ huynh</th><th>Tên đăng nhập</th></tr></thead>
             <tbody>${r.rows.filter(x => !x.loi.length && !x.trung).slice(0, 20).map(x => `
               <tr><td>${UI.esc(x.hoTen)}</td><td>${UI.esc(x.tenLop)}</td>
                   <td>${UI.esc(x.phHoTen)}</td><td>${UI.esc(x.username)}</td></tr>`).join('')}</tbody>
@@ -478,7 +478,7 @@ App.views.admin = {
         </div>
         ${soNhap > 20 ? `<div class="muted small center mt-8">Hiển thị 20 dòng đầu trong ${soNhap} dòng sẽ nhập</div>` : ''}
         <button class="btn primary block mt-14" id="ad-commit" ${soNhap ? '' : 'disabled'}>
-          Nhập ${soNhap} học sinh vào hệ thống
+          Nhập ${soNhap} bé vào hệ thống
         </button>`;
 
       const btn = document.getElementById('ad-commit');
@@ -487,7 +487,7 @@ App.views.admin = {
         this._nhapCaTrung = !!(oTrung && oTrung.checked);
         const n = this._nhapCaTrung ? soNhap + soTrung : soNhap;
         btn.disabled = !n;
-        btn.textContent = `Nhập ${n} học sinh vào hệ thống`;
+        btn.textContent = `Nhập ${n} bé vào hệ thống`;
       };
       if (oTrung) oTrung.onchange = veLaiNut;
       if (btn) btn.onclick = () => this.nhapThat(this._nhapCaTrung ? soNhap + soTrung : soNhap);
@@ -497,7 +497,7 @@ App.views.admin = {
   },
 
   async nhapThat(soLuong) {
-    if (!confirm(`Nhập ${soLuong} học sinh vào hệ thống?\n\nHệ thống sẽ tạo tài khoản phụ huynh kèm mật khẩu ban đầu.`)) return;
+    if (!confirm(`Nhập ${soLuong} bé vào hệ thống?\n\nHệ thống sẽ tạo tài khoản phụ huynh kèm mật khẩu ban đầu.`)) return;
     const btn = document.getElementById('ad-commit');
     btn.disabled = true;
     btn.textContent = 'Đang nhập…';
@@ -517,13 +517,13 @@ App.views.admin = {
   hienPhieu(r) {
     const rows = r.taiKhoan;
     UI.modal(`
-      <p>Đã nhập <b>${r.imported}</b> học sinh${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} em đã có sẵn trong hệ thống)` : ''}.</p>
+      <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} em đã có sẵn trong hệ thống)` : ''}.</p>
       <p class="muted small">Danh sách tài khoản dưới đây <b>chỉ hiện một lần</b>. Hãy tải về và in
       phát cho phụ huynh. Mật khẩu sẽ được yêu cầu đổi khi đăng nhập lần đầu.</p>
       <button class="btn primary block mt-14" id="ad-tai">⬇ Tải danh sách tài khoản (CSV)</button>
       <div class="table-wrap mt-14" style="max-height:40vh;overflow-y:auto">
         <table class="simple">
-          <thead><tr><th>Học sinh</th><th>Phụ huynh</th><th>Tên đăng nhập</th><th>Mật khẩu</th></tr></thead>
+          <thead><tr><th>Bé</th><th>Phụ huynh</th><th>Tên đăng nhập</th><th>Mật khẩu</th></tr></thead>
           <tbody>${rows.map(t => `<tr>
             <td>${UI.esc(t.hocSinh)}</td><td>${UI.esc(t.phuHuynh)}</td>
             <td><code>${UI.esc(t.username)}</code></td><td><code>${UI.esc(t.matKhau)}</code></td></tr>`).join('')}
@@ -533,7 +533,7 @@ App.views.admin = {
     `, 'Tài khoản đã tạo');
 
     document.getElementById('ad-tai').onclick = () => {
-      const head = ['Học sinh', 'Lớp', 'Phụ huynh', 'Tên đăng nhập', 'Mật khẩu'];
+      const head = ['Bé', 'Nhóm', 'Phụ huynh', 'Tên đăng nhập', 'Mật khẩu'];
       const esc = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
       const noiDung = '﻿' + [head.join(',')]
         .concat(rows.map(t => [t.hocSinh, t.lop, t.phuHuynh, t.username, t.matKhau].map(esc).join(',')))
@@ -560,7 +560,7 @@ App.views.admin = {
             ${UI.avatar(t.avatar, 40)}
             <div class="row-main">
               <div class="row-title">${UI.esc(t.title)} ${UI.esc(t.name)}</div>
-              <div class="row-sub">${UI.esc(t.className || 'chưa chủ nhiệm lớp nào')} · ${UI.esc(t.username)}</div>
+              <div class="row-sub">${UI.esc(t.className || 'chưa chưa phụ trách nhóm nào')} · ${UI.esc(t.username)}</div>
             </div>
             ${t.mustChangePassword ? UI.badge('Chưa đổi mật khẩu', 'orange') : ''}
           </div>`).join('') : '<div class="muted small">Chưa có giáo viên nào.</div>'}
@@ -575,7 +575,7 @@ App.views.admin = {
         <select id="ad-gv-xung"><option value="Cô">Cô</option><option value="Thầy">Thầy</option></select></div>
       <div class="field"><label>Điện thoại</label><input id="ad-gv-sdt" placeholder="0903111222"></div>
       <div class="field"><label>Email</label><input id="ad-gv-email" type="email" placeholder="maianh@truong.edu.vn"></div>
-      <div class="field"><label>Chủ nhiệm lớp</label>
+      <div class="field"><label>Phụ trách nhóm</label>
         <select id="ad-gv-lop"><option value="">— Chưa phân công —</option>
           ${d.classes.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
         </select></div>
@@ -664,12 +664,18 @@ App.views.admin = {
   // ---------- Chuyển năm học ----------
   async tabNamHoc(body) {
     const d = await API.get('/api/schoolyear/preview');
+    // Nhớ lại bản xem trước để câu hỏi lại nói đúng con số thật, thay vì nhắc
+    // tới một "khối cuối cấp" mà nhóm mầm non không hề dùng tới.
+    this._xemTruocNam = d;
+    // Mọi nhóm đều đi theo bậc mầm non thì ô "Khối cuối cấp" không có tác dụng
+    // gì — giấu hẳn đi thay vì để nó nằm đó nhận số của hiệu trưởng rồi bỏ qua.
+    const theoBacHet = (d.buoc || []).length > 0 && d.buoc.every(b => b.theoBac);
     body.innerHTML = `
       <div class="card" style="border-left:4px solid var(--warning)">
         <div class="card-title">⚠️ Việc này ảnh hưởng toàn trường</div>
         <p class="muted small" style="line-height:1.6">
-          Chuyển năm học sẽ đưa toàn bộ học sinh lên lớp kế tiếp, cho khối cuối cấp
-          ra trường và đóng các lớp của năm cũ. Chỉ làm khi đã kết thúc năm học.
+          Chuyển năm học sẽ đưa toàn bộ các bé lên nhóm kế tiếp, cho các bé lớn nhất
+          ra trường và đóng các nhóm của năm cũ. Chỉ làm khi đã kết thúc năm học.
           <b>Hãy sao lưu dữ liệu trước</b> bằng lệnh <code>npm run backup</code>.
         </p>
       </div>
@@ -677,13 +683,13 @@ App.views.admin = {
       <div class="card">
         <div class="card-title">Chuyển từ ${UI.esc(d.namHienTai || 'chưa đặt')} sang ${UI.esc(d.namMoi)}</div>
         <div class="stat-row">
-          <div class="stat-box"><div class="stat-num" style="color:var(--success)">${d.tongLenLop}</div><div class="stat-label">Học sinh lên lớp</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:var(--success)">${d.tongLenLop}</div><div class="stat-label">Bé lên nhóm</div></div>
           <div class="stat-box"><div class="stat-num" style="color:var(--warning)">${d.tongRaTruong}</div><div class="stat-label">Ra trường</div></div>
-          <div class="stat-box"><div class="stat-num">${d.buoc.filter(b => b.taoLopMoi).length}</div><div class="stat-label">Lớp tạo mới</div></div>
+          <div class="stat-box"><div class="stat-num">${d.buoc.filter(b => b.taoLopMoi).length}</div><div class="stat-label">Nhóm tạo mới</div></div>
         </div>
         <div class="table-wrap">
           <table class="simple">
-            <thead><tr><th>Lớp hiện tại</th><th>Sĩ số</th><th>Chuyển thành</th></tr></thead>
+            <thead><tr><th>Nhóm hiện tại</th><th>Sĩ số</th><th>Chuyển thành</th></tr></thead>
             <tbody>${d.buoc.map(b => `
               <tr>
                 <td>${UI.esc(b.tenHienTai)}</td>
@@ -694,10 +700,16 @@ App.views.admin = {
               </tr>`).join('')}</tbody>
           </table>
         </div>
-        <div class="field mt-14">
-          <label>Khối cuối cấp (học sinh khối này sẽ ra trường)</label>
-          <input type="number" id="ny-khoi" value="${d.khoiToiDa}" min="1" max="12">
-        </div>
+        ${theoBacHet ? `
+          <div class="hint mt-14">
+            Các nhóm đi theo bậc mầm non: Nhà trẻ → Mầm → Chồi → Lá → vào lớp 1.
+            Bảng trên đã nói rõ nhóm nào lên nhóm nào, không cần chọn gì thêm.
+          </div>` : `
+          <div class="field mt-14">
+            <label>Khối cuối cấp — chỉ dùng cho lớp đặt tên theo số, ví dụ "Lớp 5A"</label>
+            <input type="number" id="ny-khoi" value="${UI.esc(d.khoiToiDa)}" min="1" max="12">
+            <div class="hint">Nhóm đặt tên theo bậc (Chồi, Lá…) không dùng tới ô này.</div>
+          </div>`}
         <button class="btn danger-soft block" onclick="App.views.admin.chuyenNamHoc('${UI.esc(d.namMoi)}')">
           Chuyển sang năm học ${UI.esc(d.namMoi)}
         </button>
@@ -705,20 +717,27 @@ App.views.admin = {
   },
 
   async chuyenNamHoc(namMoi) {
-    const khoiToiDa = Number(document.getElementById('ny-khoi').value) || 5;
-    if (!confirm(`Chuyển toàn trường sang năm học ${namMoi}?\n\nHọc sinh khối ${khoiToiDa} sẽ ra trường. Việc này không tự hoàn tác được — hãy chắc chắn đã sao lưu dữ liệu.`)) return;
+    // Ô "Khối cuối cấp" bị giấu khi mọi nhóm đi theo bậc mầm non, nên phải đọc
+    // phòng hờ. 5 là giá trị mặc định của máy chủ, giữ nguyên cho lớp kiểu cũ.
+    const oKhoi = document.getElementById('ny-khoi');
+    const khoiToiDa = oKhoi ? (Number(oKhoi.value) || 5) : 5;
+    // Nói đúng con số thật của bản xem trước, thay vì nhắc tới "khối" — với nhóm
+    // mầm non thì "khối" không có nghĩa gì cả.
+    const d = this._xemTruocNam || {};
+    const soRaTruong = d.tongRaTruong == null ? '' : `${d.tongRaTruong} bé sẽ ra trường. `;
+    if (!confirm(`Chuyển toàn trường sang năm học ${namMoi}?\n\n${soRaTruong}Việc này không tự hoàn tác được — hãy chắc chắn đã sao lưu dữ liệu.`)) return;
     if (!confirm('Xác nhận lần nữa: bạn đã chạy "npm run backup" chưa?')) return;
     try {
       const r = await API.post('/api/schoolyear/promote', { namMoi, khoiToiDa });
       UI.modal(`
         <p>${UI.esc(r.message)}</p>
         <div class="stat-row mt-14">
-          <div class="stat-box"><div class="stat-num">${r.lenLop}</div><div class="stat-label">Lên lớp</div></div>
+          <div class="stat-box"><div class="stat-num">${r.lenLop}</div><div class="stat-label">Lên nhóm</div></div>
           <div class="stat-box"><div class="stat-num">${r.raTruong}</div><div class="stat-label">Ra trường</div></div>
-          <div class="stat-box"><div class="stat-num">${r.lopTao}</div><div class="stat-label">Lớp mới</div></div>
+          <div class="stat-box"><div class="stat-num">${r.lopTao}</div><div class="stat-label">Nhóm mới</div></div>
         </div>
         <button class="btn primary block mt-14" onclick="UI.closeModal();App.views.admin.go('tongquan')">
-          Đi phân công giáo viên chủ nhiệm
+          Đi phân công cô phụ trách
         </button>`, `Đã chuyển sang ${namMoi}`);
     } catch (err) { UI.toast(err.message, 'error'); }
   },
@@ -730,9 +749,9 @@ App.views.admin = {
       login: 'Đăng nhập', 'change-password': 'Đổi mật khẩu', 'set-new-password': 'Đặt mật khẩu mới',
       'reset-password': 'Cấp lại mật khẩu', 'leave-review': 'Duyệt đơn xin phép',
       'notification-create': 'Tạo thông báo', 'album-delete': 'Xóa album',
-      'import-students': 'Nhập danh sách học sinh', 'class-create': 'Tạo lớp',
-      'class-update': 'Sửa lớp', 'teacher-create': 'Tạo tài khoản giáo viên',
-      'student-update': 'Sửa hồ sơ học sinh', 'student-deactivate': 'Cho học sinh nghỉ học',
+      'import-students': 'Nhập danh sách bé', 'class-create': 'Tạo nhóm',
+      'class-update': 'Sửa nhóm', 'teacher-create': 'Tạo tài khoản giáo viên',
+      'student-update': 'Sửa hồ sơ của bé', 'student-deactivate': 'Cho bé nghỉ học',
       'admin-create': 'Tạo tài khoản quản trị', 'schoolyear-promote': 'Chuyển năm học',
       'module-enable': 'Bật tính năng', 'module-disable': 'Tắt tính năng',
     };

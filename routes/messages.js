@@ -46,7 +46,7 @@ function contactsFor(user) {
         out.push({
           userId: teacher.id,
           name: displayName(teacher),
-          subtitle: `${teacher.vaiTro === 'chinh' ? 'Giáo viên chủ nhiệm' : 'Cô phụ trách'} ${cls.name}`,
+          subtitle: `${teacher.vaiTro === 'chinh' ? 'Cô phụ trách chính' : 'Cô phụ trách'} ${cls.name}`,
           avatar: teacher.avatar,
           existingConversationId: directConvId(user.id, teacher.id),
         });
@@ -81,7 +81,7 @@ function convMeta(cv, user, members) {
   if (!other) return { title: 'Người dùng', subtitle: '', avatar: null };
   let subtitle = '';
   if (other.role === 'teacher') {
-    subtitle = `Giáo viên chủ nhiệm ${nl.tenCacNhomCuaCo(other.id)}`.trim();
+    subtitle = `Cô phụ trách ${nl.tenCacNhomCuaCo(other.id)}`.trim();
   } else if (other.role === 'parent') {
     // Với cô, chỉ nêu tên con đang học nhóm của cô — nhóm nào trong số các nhóm
     // cô phụ trách cũng được, nên lọc bằng IN chứ không bằng một mã nhóm.

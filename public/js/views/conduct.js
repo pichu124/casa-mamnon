@@ -1,5 +1,5 @@
 // Phân hệ Nề nếp.
-// Phụ huynh: điểm thi đua + ghi nhận của con. Giáo viên: bảng xếp hạng lớp + ghi nhận mới.
+// Phụ huynh: điểm thi đua + ghi nhận của con. Giáo viên: bảng xếp hạng nhóm + ghi nhận mới.
 App.views.conduct = {
   async render(root) {
     if (App.state.user.role === 'teacher') return this.renderTeacher(root);
@@ -10,7 +10,7 @@ App.views.conduct = {
   async renderParent(root) {
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Nề nếp') + UI.emptyState('🎒', 'Chưa có học sinh liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Nề nếp') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     const data = await API.get(`/api/conduct?studentId=${encodeURIComponent(current.id)}`);
@@ -31,7 +31,7 @@ App.views.conduct = {
 
   // ---- Giáo viên ----
   // Số ghi nhận hiện trên màn hình. Mặc định máy chủ trả 50 bản ghi gần nhất —
-  // học sinh mang lịch sử nề nếp qua từng năm nên lấy hết là màn này nặng thêm
+  // bé mang lịch sử nề nếp qua từng năm nên lấy hết là màn này nặng thêm
   // mỗi năm. Bấm "Xem thêm" thì nâng dần.
   _soGhiNhan: 50,
 
@@ -49,12 +49,12 @@ App.views.conduct = {
             ${UI.avatar(r.avatar, 40)}
             <div class="row-main"><div class="row-title">${i < 3 ? medals[i] + ' ' : ''}${UI.esc(r.studentName)}</div></div>
             <span class="row-end">${this.pointBadge(r.points)}</span>
-          </div>`).join('') : UI.emptyState('🏆', 'Lớp chưa có học sinh nào')}
+          </div>`).join('') : UI.emptyState('🏆', 'Nhóm chưa có bé nào')}
       </div>
       <div class="section-label">Ghi nhận gần đây</div>
       ${data.recent.length
         ? `<div class="card">${data.recent.map(r => this.recordRow(r)).join('')}</div>`
-        : UI.emptyState('📋', 'Chưa có ghi nhận nào trong lớp')}
+        : UI.emptyState('📋', 'Chưa có ghi nhận nào trong nhóm')}
       ${data.tongGhiNhan > data.recent.length ? `
         <div class="muted small center">Đang hiện ${data.recent.length} ghi nhận gần nhất trong tổng số ${data.tongGhiNhan}</div>
         <button class="btn outline block mt-8" id="conduct-them">Xem thêm</button>` : ''}`;
@@ -96,7 +96,7 @@ App.views.conduct = {
     this._type = 'praise';
     UI.modal(`
       <div class="field">
-        <label>Học sinh</label>
+        <label>Bé</label>
         <select id="cd-student">
           ${App.state.students.map(s => `<option value="${UI.esc(s.id)}">${UI.esc(s.name)}</option>`).join('')}
         </select>
@@ -157,7 +157,7 @@ App.views.conduct = {
 
   // ---- Sửa lại và thu hồi một ghi nhận ----
   //
-  // Một "nhắc nhở" trừ điểm thi đua bấm nhầm sang học sinh khác trước đây gắn
+  // Một "nhắc nhở" trừ điểm thi đua bấm nhầm sang bé khác trước đây gắn
   // vĩnh viễn vào hồ sơ đứa trẻ: phụ huynh nhìn thấy và khiếu nại mà hiệu trưởng
   // cũng không gỡ được.
   openSua(id) {

@@ -20,7 +20,7 @@ App.views.login = {
             <button class="btn primary block" type="submit">Đăng nhập</button>
           </form>
           <p class="sub" style="margin-top:16px;font-size:.86rem">
-            Quên mật khẩu? Nhờ giáo viên chủ nhiệm cấp lại giúp.
+            Quên mật khẩu? Nhờ cô phụ trách cấp lại giúp.
           </p>
         </div>
       </div>`;

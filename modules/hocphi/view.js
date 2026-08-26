@@ -6,7 +6,7 @@ App.views.hocphi = {
     const student = isTeacher ? null : App.currentStudent();
     const sid = student ? student.id : (App.state.students[0] || {}).id;
     if (!sid) {
-      root.innerHTML = UI.pageHeader('Học phí') + UI.emptyState('💳', 'Chưa có học sinh nào');
+      root.innerHTML = UI.pageHeader('Học phí') + UI.emptyState('💳', 'Chưa có bé nào');
       return;
     }
 
@@ -57,7 +57,7 @@ App.views.hocphi = {
   chonHocSinh(sid) {
     const list = App.state.students;
     this._sid = this._sid || sid;
-    return `<div class="field"><label>Chọn học sinh</label>
+    return `<div class="field"><label>Chọn bé</label>
       <select id="hp-hs">${list.map(s => `
         <option value="${UI.esc(s.id)}" ${s.id === sid ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
       </select></div>`;

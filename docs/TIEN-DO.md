@@ -311,18 +311,68 @@ tụt xuống dưới mép màn hình khi bàn phím bật lên — nút Lưu v�
 nhưng không chạm vào được, và modal ngắn thì cuộn hết cỡ cũng không cứu được.
 Đã vá ở **commit riêng** trước G0.5 (`height: 100dvh`), kèm bài canh đáy modal.
 
+### Đổi cách gọi tên: app nói tiếng của trường mầm non ✅ *(N9 · N10 · N11)*
+
+Không nằm trong danh sách G0.x, nhưng phải làm trước khi trường nhìn thấy màn
+hình lần đầu — ấn tượng đầu tiên của cô giáo là thứ không làm lại được.
+
+**250+ chỗ trong 45 tệp.** Ba cặp từ mà `CLAUDE.md` quy định:
+
+| Cũ | Mới | Số chỗ |
+|---|---|---|
+| học sinh | **bé** (hoặc *trẻ*) | ~150 |
+| lớp / lớp học | **nhóm** / **nhóm lớp** | ~100 |
+| giáo viên chủ nhiệm · GVCN · chủ nhiệm | **cô phụ trách** | ~40 |
+
+Chạm cả ba tầng, vì cả ba đều hiện lên màn hình:
+
+- `public/js/views/` — 24 tệp, chữ trên màn hình;
+- `routes/` + `modules/` — **53 câu báo lỗi**. Câu báo lỗi cũng là giao diện:
+  cô đọc "Học sinh không thuộc lớp của bạn" thì biết ngay app này không phải làm
+  cho trường mình;
+- `lib/modules.js` — tên và mô tả của 18 phân hệ trong Quản trị → Tính năng.
+
+Ba quyết định đáng ghi lại:
+
+- **Loại thông báo `'Lớp học'` → `'Nhóm lớp'` là một GIÁ TRỊ trong cơ sở dữ
+  liệu**, không phải nhãn. Phải đổi đồng thời ở ba chỗ (danh sách hợp lệ của máy
+  chủ, dữ liệu mẫu, bảng màu của giao diện) — lệch một chỗ là thông báo cũ mất
+  màu, mất biểu tượng mà không báo lỗi gì.
+- **Nhập tệp Excel: NHẬN VÀO thì rộng, XUẤT RA thì đúng.** Tệp có sẵn của nhà
+  trường rất có thể còn ghi "Tên học sinh", "Lớp" theo mẫu cũ của Phòng. Từ chối
+  một tệp thật vì cái tên cột là bắt trường gõ lại 300 dòng — nên danh sách tên
+  cột chấp nhận được **giữ nguyên tên cũ và thêm tên mới**. Tệp CSV mẫu mà nhà
+  trường tải về thì nói đúng tiếng mầm non.
+- **Chú thích trong mã được phép nhắc mô hình cũ.** "một cô một lớp", "quan hệ
+  chủ nhiệm" là lịch sử có thật của phần nền, người đọc mã cần biết. Bài canh vì
+  vậy bỏ qua dòng chú thích và chỉ soi phần chữ đi ra màn hình.
+
+**N11 — ô điều khiển đã chết thì phải giấu, không phải đổi chữ.** Màn Chuyển năm
+học có ô "Khối cuối cấp"; từ G0.5 nhóm mầm non đi theo bậc và **bỏ qua hẳn ô
+đó**. Máy chủ nay trả thêm cờ `theoBac` cho từng nhóm, màn hình giấu ô khi mọi
+nhóm đều theo bậc, và câu hỏi lại nói đúng con số thật ("3 bé sẽ ra trường") thay
+vì nhắc tới một "khối" mà mầm non không có.
+
+**N10 — bài canh, để nó không trôi ngược.** `npm run test:goi-ten`, 10 bài. Quét
+`public/`, `routes/`, `modules/`, `lib/modules.js`, `data/seed.js`; bỏ qua dòng
+chú thích; ngoại lệ phải **ghi rõ lý do** ngay trong tệp. Mục `[2]` là phép thử
+ngược: dựng một tệp bẩn rồi soi bằng chính hàm quét đó — **một bài canh luôn xanh
+là một bài canh vô dụng**. Mục `[3]` chứng minh nó không bắt nhầm tên biến tiếng
+Anh của tầng dữ liệu (`studentsOf`, `classIdsOf`), đúng như `CLAUDE.md` cho phép.
+
 ### G0.6 — Con số kiểm thử hiện tại
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt) | **1075**, FAIL 0 |
+| `npm test` (không cần trình duyệt) | **1085**, FAIL 0 |
 | trong đó `test:thuchup` (phân hệ mới) | 55 |
-| trong đó `test:nhom-lop` (G0.4 + G0.5) | 78 |
+| trong đó `test:nhom-lop` (G0.4 + G0.5) | 79 |
+| trong đó `test:goi-ten` (N9/N10) | 10 |
 | `npm run test:giao-dien` (cần Playwright) | **210**, FAIL 0 *(đã chạy lại ở kho này)* |
 
 Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 55 (thuchup, thêm 15 bài canh
-ranh giới nháp của cô) + 78 (nhóm lớp) + 10 (mục khế ước của các hàm mới trong
-`lib/db.js`) = 1075. Con số này sẽ **giảm**
+ranh giới nháp của cô) + 79 (nhóm lớp) + 10 (canh cách gọi tên) + 9 (mục khế ước
+của các hàm mới trong `lib/db.js`) = 1085. Con số này sẽ **giảm**
 khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
@@ -341,9 +391,10 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | N6 | Bài test canh QUY TẮC 4 (quét giao diện tìm %, điểm số, xếp hạng) chưa có | Không có nó thì QUY TẮC 4 chỉ là lời hứa | GĐ 2 |
 | N7 | Chưa đăng ký VPS Việt Nam + tên miền đứng tên trường | Việc của nhà trường; chặn phần triển khai | Nhà trường làm |
 | N8 | `scripts/sua-quyen-chu-nhiem.js` **chỉ dọn được cái gương**, không dọn `class_teachers` | Sau G0.4 quyền đi theo `class_teachers`. Chạy script khi có sự cố thật thì nó báo "đã sửa" mà cô **vẫn chưa nhận lại nhóm** cho tới lần khởi động lại kế tiếp. Đã ghi cảnh báo ngay trong tệp; cần bản dọn thẳng cho bảng mới | GĐ 1, ~nửa buổi |
-| N9 | Giao diện vẫn nói tiếng tiểu học: *học sinh, lớp, giáo viên chủ nhiệm, sĩ số* — **14/24 tệp trong `public/js/views/`**, khoảng 97 chỗ | Trái quy định gọi tên trong `CLAUDE.md`. Nên làm **trước khi trường nhìn thấy màn hình lần đầu**. Cố ý tách khỏi G0.4 vì trộn vào là commit không đọc nổi và không revert riêng được | Một commit riêng, trước GĐ 1 |
-| N10 | Chưa có bài test canh cách gọi tên (quét `public/` tìm "học sinh", "lớp học", "GVCN") | Không có nó thì N9 làm xong vẫn trôi ngược lại ở lần thêm màn hình sau. Cùng họ với bài test canh QUY TẮC 4 ở N6 | Cùng lúc với N9 |
-| N11 | Màn Chuyển năm học vẫn có ô **"Khối cuối cấp (học sinh khối này sẽ ra trường)"** | Từ G0.5, nhóm mầm non đi theo bậc (Chồi → Lá → vào lớp 1) và **bỏ qua hẳn ô này**. Hiệu trưởng gõ một con số vào đó rồi tưởng nó có tác dụng — ô điều khiển chết mà vẫn hiện là nguy hiểm hơn không có ô nào | Cùng lúc với N9 |
+| ~~N9~~ | ~~Giao diện nói tiếng tiểu học~~ | **✅ xong** — xem mục "Đổi cách gọi tên" bên dưới | 26/08/2026 |
+| ~~N10~~ | ~~Chưa có bài test canh cách gọi tên~~ | **✅ xong** — `test/goi-ten.test.mjs`, 10 bài | 26/08/2026 |
+| ~~N11~~ | ~~Ô "Khối cuối cấp" là ô điều khiển chết~~ | **✅ xong** — máy chủ trả thêm cờ `theoBac`, màn hình giấu hẳn ô đó khi mọi nhóm đi theo bậc | 26/08/2026 |
+| N12 | Phân hệ vẫn tên là **"Thời khóa biểu"**, nội dung bên trong đã là **lịch sinh hoạt một ngày** (đón bé, ăn, ngủ trưa, trả bé) | Dữ liệu và cái tên đang nói hai chuyện khác nhau. Không sai tới mức hỏng, nhưng cô sẽ đọc "thời khóa biểu" rồi tìm "tiết học". Cố ý KHÔNG gộp vào N9 vì `CLAUDE.md` chỉ liệt kê ba cặp từ (bé, nhóm lớp, cô) — đổi tên một phân hệ là quyết định của nhà trường | Hỏi nhà trường rồi làm |
 
 ---
 
@@ -360,3 +411,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Ghi lại việc còn nợ N8–N10, sửa một chú thích đã sai sau G0.4 | — |
 | 26/08/2026 | Vá lỗi nền: đáy modal nằm ngoài vùng chạm được khi bàn phím bật | Lỗi nền chung |
 | 26/08/2026 | Dữ liệu mẫu kể chuyện bé An — nhóm Chồi 2, cơ sở 1; không còn một điểm số nào | G0.5 |
+| 26/08/2026 | Đổi cách gọi tên toàn app (250+ chỗ / 45 tệp) + bài canh `test:goi-ten` + giấu ô điều khiển đã chết | N9 · N10 · N11 |

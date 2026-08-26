@@ -1,7 +1,7 @@
 // Phân hệ Hồ sơ con đã ra trường.
 //
 // Con rời trường thì biến khỏi ô chọn con ở các màn hình khác (danh sách đó chỉ
-// lấy học sinh đang học), nên phụ huynh mất luôn học bạ và sổ liên lạc. Màn hình
+// lấy bé đang học), nên phụ huynh mất luôn học bạ và sổ liên lạc. Màn hình
 // này mở lại đúng phần đó, trong thời hạn nhà trường đặt.
 //
 // Chỉ ĐỌC: không có đường ghi nào ở đây.

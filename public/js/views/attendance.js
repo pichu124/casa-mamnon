@@ -1,5 +1,5 @@
 // Phân hệ Điểm danh.
-// Phụ huynh: lịch điểm danh theo tháng của con. Giáo viên: điểm danh cả lớp theo ngày.
+// Phụ huynh: lịch điểm danh theo tháng của con. Giáo viên: điểm danh cả nhóm theo ngày.
 App.views.attendance = {
   month: null,   // phụ huynh: tháng đang xem 'YYYY-MM'
   date: null,    // giáo viên: ngày đang điểm danh 'YYYY-MM-DD'
@@ -19,7 +19,7 @@ App.views.attendance = {
   async renderParent(root) {
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Điểm danh') + UI.emptyState('🎒', 'Chưa có học sinh liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Điểm danh') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     if (!this.month) this.month = UI.todayStr().slice(0, 7);
@@ -120,7 +120,7 @@ App.views.attendance = {
         <div class="mt-8">${UI.badge(st.label, st.cls)}</div>
       </div>
       <div class="mt-14">
-        ${this.detailRow('Giờ vào lớp', r.checkIn || '—')}
+        ${this.detailRow('Giờ đến lớp', r.checkIn || '—')}
         ${this.detailRow('Giờ ra về', r.checkOut || '—')}
         ${this.detailRow('Ghi chú của cô', r.note || 'Không có ghi chú')}
       </div>`, 'Chi tiết điểm danh');
@@ -179,7 +179,7 @@ App.views.attendance = {
         <div class="stat-box"><div class="stat-num" id="att-so-da" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
         <div class="stat-box"><div class="stat-num" id="att-so-chua" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
       </div>
-      <button class="btn success-soft block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả lớp có mặt</button>
+      <button class="btn success-soft block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt</button>
       <div class="card mt-14">
         ${total
           ? this._roster.map(r => this.rosterRow(r)).join('')
@@ -236,9 +236,9 @@ App.views.attendance = {
 
   // CỐ Ý không gọi App.route() sau mỗi lần chạm.
   //
-  // App.route() vẽ lại cả trang rồi cuộn về đầu. Lớp 30 em thì cô chạm em thứ 25
+  // App.route() vẽ lại cả trang rồi cuộn về đầu. Nhóm 30 bé thì cô chạm bé thứ 25
   // xong bị ném về đầu danh sách, phải cuộn lại từ đầu cho từng em — điểm danh
-  // một lớp thành 30 lần cuộn. Chỉ vẽ lại đúng dòng vừa đổi và hai ô đếm.
+  // một nhóm thành 30 lần cuộn. Chỉ vẽ lại đúng dòng vừa đổi và hai ô đếm.
   async mark(studentId, status) {
     // Chấm "Nghỉ không phép" đúng vào ngày em đã có đơn được duyệt gần như luôn
     // là nhầm — và phụ huynh sẽ thấy chữ đỏ cho con mình dù cô đã duyệt đơn.
@@ -322,18 +322,18 @@ App.views.attendance = {
     UI.modal(`
       ${chua
         ? `<p style="line-height:1.6">Đánh dấu <b>${chua} em chưa điểm danh</b> là có mặt?</p>`
-        : `<p style="line-height:1.6">Cả lớp đã điểm danh xong rồi — không còn em nào chưa đánh dấu.</p>`}
+        : `<p style="line-height:1.6">Cả nhóm đã điểm danh xong rồi — không còn em nào chưa đánh dấu.</p>`}
       ${daCo
         ? `<p class="muted small" style="line-height:1.6">${daCo} em cô đã đánh dấu sẽ <b>giữ nguyên</b>,
            kể cả em nghỉ có phép hay nghỉ không phép.</p>`
         : ''}
       ${chua ? `<button class="btn primary block mt-14" id="att-tat-ca">Đánh dấu ${chua} em còn lại có mặt</button>` : ''}
       ${daCo ? `<button class="btn outline block mt-8" id="att-ghi-de">
-                  Ghi đè cả lớp thành có mặt
+                  Ghi đè cả nhóm thành có mặt
                   <span class="muted small">(${daCo} em đã đánh dấu sẽ bị thay)</span>
                 </button>` : ''}
       <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
-    `, 'Cả lớp có mặt');
+    `, 'Cả nhóm có mặt');
 
     const chay = async (ghiDe) => {
       try {

@@ -44,7 +44,7 @@ const dangXuat = async () => { await page.evaluate(() => App.logout()); await pa
 // ============================================================
 // 1. THỜI KHÓA BIỂU
 // ============================================================
-console.log('\n[1] TKB — giáo viên chủ nhiệm sửa ngay trên màn hình');
+console.log('\n[1] TKB — cô phụ trách sửa ngay trên màn hình');
 await dangNhap('giaovien', '123456');
 await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
@@ -115,7 +115,7 @@ check('phụ huynh KHÔNG có nút soạn/sửa/chép nào', await page.locator(
 // ============================================================
 // 3. KẾ HOẠCH GIÁO DỤC
 // ============================================================
-console.log('\n[5] Kế hoạch — GVCN soạn ngay trên màn hình');
+console.log('\n[5] Kế hoạch — cô phụ trách soạn ngay trên màn hình');
 await dangXuat();
 await dangNhap('giaovien', '123456');
 await page.goto(BASE + '/#/plans', { waitUntil: 'networkidle' });
@@ -148,7 +148,7 @@ check('phụ huynh KHÔNG thấy nút Soạn kế hoạch', await page.locator('
 // ============================================================
 // 4. BÁO CÁO HỌC TẬP
 // ============================================================
-console.log('\n[7] Báo cáo — GVCN soạn ngay trên màn hình');
+console.log('\n[7] Báo cáo — cô phụ trách soạn ngay trên màn hình');
 await dangXuat();
 await dangNhap('giaovien', '123456');
 await page.goto(BASE + '/#/reports', { waitUntil: 'networkidle' });
@@ -248,7 +248,7 @@ console.log('\n[9] Tên lớp có dấu nháy: hiện đúng chữ, không chạ
   check('tiêu đề vẫn hiện nguyên tên lớp, không nuốt chữ', tieuDe.includes("Bé Ong's"), tieuDe);
 }
 
-console.log('\n[10] Nút Sửa lớp: phân công lại giáo viên chủ nhiệm ngay trên màn hình');
+console.log('\n[10] Nút Sửa nhóm: phân công lại cô phụ trách ngay trên màn hình');
 {
   await page.evaluate(() => UI.closeModal());   // đóng modal của bài trước, nếu không nó che nút
   await page.waitForTimeout(400);
@@ -259,7 +259,7 @@ console.log('\n[10] Nút Sửa lớp: phân công lại giáo viên chủ nhiệ
   await dong.locator('button', { hasText: 'Sửa' }).click();
   await page.waitForTimeout(800);
   check('mở được form sửa lớp', await page.locator('#ad-sl-ten').count() === 1);
-  check('form có ô chọn giáo viên chủ nhiệm', await page.locator('#ad-sl-gv').count() === 1);
+  check('form có ô chọn cô phụ trách', await page.locator('#ad-sl-gv').count() === 1);
   check('form KHÔNG có ô năm học (cố ý, tránh làm hỏng việc chuyển năm)',
     await page.locator('#ad-sl-nam').count() === 0);
 
@@ -267,11 +267,11 @@ console.log('\n[10] Nút Sửa lớp: phân công lại giáo viên chủ nhiệ
   await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
   await page.waitForTimeout(1400);
   const man = await page.locator('#view').innerText();
-  check('gỡ chủ nhiệm xong màn hình nhắc việc ngay', /chưa có giáo viên chủ nhiệm/i.test(man), man.slice(0, 200));
-  check('dòng lớp được đánh dấu Chưa có chủ nhiệm', /Chưa có chủ nhiệm/.test(man));
+  check('gỡ cô phụ trách xong màn hình nhắc việc ngay', /chưa có cô phụ trách/i.test(man), man.slice(0, 200));
+  check('dòng nhóm được đánh dấu Chưa có cô phụ trách', /Chưa có cô phụ trách/.test(man));
 }
 
-console.log('\n[11] Sửa hồ sơ học sinh và cho nghỉ học ngay trong màn hình lớp');
+console.log('\n[11] Sửa hồ sơ bé và cho nghỉ học ngay trong màn hình nhóm');
 {
   await page.evaluate(() => UI.closeModal());
   await page.waitForTimeout(400);
@@ -282,13 +282,13 @@ console.log('\n[11] Sửa hồ sơ học sinh và cho nghỉ học ngay trong m�
   await page.waitForTimeout(900);
 
   const hs = page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first();
-  check('dòng học sinh có nút Sửa', await hs.locator('button', { hasText: 'Sửa' }).count() === 1);
-  check('dòng học sinh có nút Cho nghỉ', await hs.locator('button', { hasText: 'Cho nghỉ' }).count() === 1);
+  check('dòng của bé có nút Sửa', await hs.locator('button', { hasText: 'Sửa' }).count() === 1);
+  check('dòng của bé có nút Cho nghỉ', await hs.locator('button', { hasText: 'Cho nghỉ' }).count() === 1);
 
   // -- Sửa hồ sơ
   await hs.locator('button', { hasText: 'Sửa' }).click();
   await page.waitForTimeout(900);
-  check('mở được form sửa hồ sơ học sinh', await page.locator('#ad-hs-ten').count() === 1);
+  check('mở được form sửa hồ sơ của bé', await page.locator('#ad-hs-ten').count() === 1);
   check('form có ô chuyển lớp', await page.locator('#ad-hs-lop').count() === 1);
   await page.fill('#ad-hs-dc', '99 Ngõ Kiểm Thử');
   await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
@@ -341,12 +341,12 @@ console.log('\n[12] Nhập lại tệp cũ: màn hình cảnh báo trùng thay v
   // -- Lần đầu: không có cảnh báo nào.
   await nhapTep();
   check('lần đầu KHÔNG hiện cảnh báo trùng', await page.locator('#ad-trung-ok').count() === 0);
-  check('nút nhập ghi đúng 2 học sinh',
-    /Nhập 2 học sinh/.test(await page.locator('#ad-commit').innerText()),
+  check('nút nhập ghi đúng 2 bé',
+    /Nhập 2 bé/.test(await page.locator('#ad-commit').innerText()),
     await page.locator('#ad-commit').innerText());
 
   // Bài [9] đã cài sẵn một bộ bắt hộp thoại luôn bấm Hủy — gỡ đi, nếu không lời
-  // xác nhận "Nhập N học sinh?" bị hủy và không có gì được ghi.
+  // xác nhận "Nhập N bé?" bị hủy và không có gì được ghi.
   page.removeAllListeners('dialog');
   page.once('dialog', d => d.accept());
   await page.locator('#ad-commit').click();
@@ -365,14 +365,14 @@ console.log('\n[12] Nhập lại tệp cũ: màn hình cảnh báo trùng thay v
   check('liệt kê tên từng em bị trùng', /Trịnh Thu Thảo/.test(man));
   const nut = page.locator('#ad-commit');
   check('nút nhập bị khóa vì không còn gì để nhập', await nut.isDisabled());
-  check('nút ghi rõ là 0 học sinh', /Nhập 0 học sinh/.test(await nut.innerText()), await nut.innerText());
+  check('nút ghi rõ là 0 bé', /Nhập 0 bé/.test(await nut.innerText()), await nut.innerText());
 
   // -- Quản trị vẫn được quyền chủ động nhập cả em trùng.
   check('có ô tích để chủ động nhập cả em trùng', await page.locator('#ad-trung-ok').count() === 1);
   await page.check('#ad-trung-ok');
   await page.waitForTimeout(300);
   check('tích vào thì nút mở lại', !(await nut.isDisabled()));
-  check('và nút đếm lại đúng 2 học sinh', /Nhập 2 học sinh/.test(await nut.innerText()), await nut.innerText());
+  check('và nút đếm lại đúng 2 bé', /Nhập 2 bé/.test(await nut.innerText()), await nut.innerText());
 }
 
 console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu danh sách');
@@ -382,7 +382,7 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   // Bài [10] cố tình gỡ cô phụ trách nhóm Chồi 2 để thử thẻ cảnh báo — phân công
   // lại, nếu không cô đăng nhập vào sẽ thấy nhóm trống.
   const phanCong = await page.evaluate(() => API.put('/api/admin/classes/c1', { teacherId: 't1' }).then(() => 'ok', e => e.message));
-  check('phân công lại chủ nhiệm để thử điểm danh', phanCong === 'ok', phanCong);
+  check('phân công lại cô phụ trách để thử điểm danh', phanCong === 'ok', phanCong);
 
   await dangXuat();
   await dangNhap('giaovien', '123456');
@@ -432,12 +432,12 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
     Number(await page.locator('#att-so-chua').innerText()) === soDong - 1,
     await page.locator('#att-so-chua').innerText());
 
-  // -- "Cả lớp có mặt" phải hỏi lại và giữ nguyên em vừa đánh dấu nghỉ.
+  // -- "Cả nhóm có mặt" phải hỏi lại và giữ nguyên em vừa đánh dấu nghỉ.
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.locator('button', { hasText: 'Cả lớp có mặt' }).click();
+  await page.locator('button', { hasText: 'Cả nhóm có mặt' }).click();
   await page.waitForTimeout(700);
   const hoi = await page.locator('.modal').innerText();
-  check('hỏi lại trước khi điểm danh cả lớp', /Cả lớp có mặt/.test(hoi), hoi.slice(0, 150));
+  check('hỏi lại trước khi điểm danh cả nhóm', /Cả nhóm có mặt/.test(hoi), hoi.slice(0, 150));
   check('nói rõ em đã đánh dấu sẽ được giữ nguyên', /giữ nguyên/.test(hoi), hoi.slice(0, 300));
   check('có nút riêng để ghi đè, không phải mặc định',
     await page.locator('#att-ghi-de').count() === 1);

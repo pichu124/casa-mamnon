@@ -26,9 +26,9 @@ module.exports = (app) => {
   // + lần khám định kỳ gần nhất để hiển thị chỉ số.
   app.get('/api/health', (req, res) => {
     const studentId = req.query.studentId;
-    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem hồ sơ y tế của học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem hồ sơ y tế của bé này' });
     }
     // Cùng ngày thì bản ghi thêm sau lên trước (rowid tăng dần theo thứ tự thêm).
     const records = st.ganDauDaSua(BANG, db.all('health',
@@ -43,7 +43,7 @@ module.exports = (app) => {
   app.post('/api/health', requireRole('teacher', 'admin'), (req, res) => {
     const { studentId, type, title, detail, height, weight } = req.body || {};
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền thêm ghi nhận cho học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền thêm ghi nhận cho bé này' });
     }
     if (!TYPES.includes(type)) {
       return res.status(400).json({ error: 'Loại ghi nhận không hợp lệ' });
@@ -78,7 +78,7 @@ module.exports = (app) => {
     const h = db.first('health', 'SELECT * FROM health WHERE id = ?', [req.params.id]);
     if (!h || st.daThuHoi(BANG, h.id)) return res.status(404).json({ error: 'Không tìm thấy ghi nhận' });
     if (!coTheSuaYTe(req.user, h.studentId)) {
-      return res.status(403).json({ error: 'Không có quyền sửa ghi nhận của học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền sửa ghi nhận của bé này' });
     }
     const patch = {};
     if (req.body.type !== undefined) {
@@ -112,7 +112,7 @@ module.exports = (app) => {
     const h = db.first('health', 'SELECT * FROM health WHERE id = ?', [req.params.id]);
     if (!h) return res.status(404).json({ error: 'Không tìm thấy ghi nhận' });
     if (!coTheSuaYTe(req.user, h.studentId)) {
-      return res.status(403).json({ error: 'Không có quyền thu hồi ghi nhận của học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền thu hồi ghi nhận của bé này' });
     }
     st.ghiThuHoi(BANG, h.id, req.user.id);
     db.audit(req.user.id, 'health-withdraw', h.id, { title: h.title, studentId: h.studentId });

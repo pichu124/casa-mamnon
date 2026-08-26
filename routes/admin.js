@@ -1,4 +1,4 @@
-// Phân hệ Quản trị: quản lý lớp, giáo viên, học sinh và nhập danh sách đầu năm.
+// Phân hệ Quản trị: quản lý nhóm lớp, cô, hồ sơ bé và nhập danh sách đầu năm.
 //
 // Đây là phần cho phép nhà trường tự đưa dữ liệu thật vào hệ thống — không có
 // nó thì không thể tạo hàng trăm tài khoản phụ huynh.
@@ -240,7 +240,7 @@ module.exports = (app) => {
   // Sửa thông tin học sinh, chuyển lớp, hoặc nhận lại em đã cho nghỉ.
   app.put('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
-    if (!s) return res.status(404).json({ error: 'Không tìm thấy học sinh' });
+    if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     const patch = {};
     for (const k of ['name', 'code', 'dob', 'gender', 'address']) {
       if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
@@ -248,13 +248,13 @@ module.exports = (app) => {
     // Tên rỗng làm học sinh biến mất khỏi mọi danh sách mà không ai biết em là ai
     // nữa — điểm danh, sổ liên lạc, báo cáo đều hiện một dòng trống.
     if (patch.name !== undefined && !patch.name) {
-      return res.status(400).json({ error: 'Vui lòng nhập họ tên học sinh' });
+      return res.status(400).json({ error: 'Vui lòng nhập họ tên của bé' });
     }
     // Mã học sinh là thứ trường dùng để đối chiếu với sổ giấy; trùng mã thì hai em
     // khác nhau trông như một.
     if (patch.code) {
       const trung = db.first('students', 'SELECT id, name FROM students WHERE code = ? AND id != ?', [patch.code, s.id]);
-      if (trung) return res.status(400).json({ error: `Mã "${patch.code}" đã dùng cho học sinh ${trung.name}` });
+      if (trung) return res.status(400).json({ error: `Mã "${patch.code}" đã dùng cho bé ${trung.name}` });
     }
     if (req.body.classId !== undefined) {
       if (req.body.classId && !db.findClass(req.body.classId)) {
@@ -285,7 +285,7 @@ module.exports = (app) => {
   // để dữ liệu học tập của năm cũ vẫn tra cứu được.
   app.delete('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
-    if (!s) return res.status(404).json({ error: 'Không tìm thấy học sinh' });
+    if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     lsl.ghiRoiLop(s.id, lsl.homNay());
     db.update('students', s.id, { active: false, leftAt: new Date().toISOString().slice(0, 10) });
     db.audit(req.user.id, 'student-deactivate', s.id, { name: s.name });
@@ -337,21 +337,25 @@ module.exports = (app) => {
     const khoaTrongTep = new Map();
 
     for (const row of rows) {
-      const hoTen = lay(row, 'Họ tên', 'Ho ten', 'Họ và tên', 'Tên học sinh', 'name');
-      const tenLop = lay(row, 'Lớp', 'Lop', 'class');
+      // Danh sách tên cột NHẬN VÀO cố ý rộng: trường gửi tệp Excel có sẵn, và
+      // tệp đó rất có thể còn ghi "Tên học sinh", "Lớp" theo mẫu cũ của Phòng.
+      // Từ chối một tệp thật vì cái tên cột là bắt nhà trường gõ lại 300 dòng.
+      // Chỗ XUẤT RA (tệp mẫu, câu báo lỗi) thì nói đúng tiếng mầm non.
+      const hoTen = lay(row, 'Họ tên', 'Ho ten', 'Họ và tên', 'Tên bé', 'Tên học sinh', 'name');
+      const tenLop = lay(row, 'Nhóm', 'Nhom', 'Nhóm lớp', 'Lớp', 'Lop', 'class');
       const phHoTen = lay(row, 'Họ tên phụ huynh', 'Phụ huynh', 'Ho ten phu huynh', 'parent');
       const phSdt = lay(row, 'Điện thoại', 'SĐT', 'SDT', 'Số điện thoại', 'phone');
-      const ma = lay(row, 'Mã học sinh', 'Mã HS', 'Ma HS', 'code');
+      const ma = lay(row, 'Mã của bé', 'Mã bé', 'Mã học sinh', 'Mã HS', 'Ma HS', 'code');
       const ngaySinh = lay(row, 'Ngày sinh', 'Ngay sinh', 'dob');
 
       const loi = [];
-      if (!hoTen) loi.push('thiếu họ tên học sinh');
-      if (!tenLop) loi.push('thiếu lớp');
+      if (!hoTen) loi.push('thiếu họ tên của bé');
+      if (!tenLop) loi.push('thiếu nhóm lớp');
       if (!phHoTen) loi.push('thiếu họ tên phụ huynh');
-      if (ma && maDaGap.has(ma)) loi.push(`mã học sinh "${ma}" bị lặp trong tệp`);
+      if (ma && maDaGap.has(ma)) loi.push(`mã của bé "${ma}" bị lặp trong tệp`);
       if (ma) maDaGap.add(ma);
       if (ma && db.first('students', 'SELECT id FROM students WHERE code = ?', [ma])) {
-        loi.push(`mã học sinh "${ma}" đã có trong hệ thống`);
+        loi.push(`mã của bé "${ma}" đã có trong hệ thống`);
       }
 
       // Trùng là CẢNH BÁO, không phải lỗi — để riêng khỏi `loi`. Có trường hợp
@@ -442,7 +446,7 @@ module.exports = (app) => {
     if (!hopLe.length) {
       return res.status(400).json({
         error: trungBiBoQua.length
-          ? `Tất cả ${trungBiBoQua.length} học sinh trong tệp đều đã có trong hệ thống nên không có gì để nhập.`
+          ? `Tất cả ${trungBiBoQua.length} bé trong tệp đều đã có trong hệ thống nên không có gì để nhập.`
           : 'Không có dòng nào hợp lệ để nhập',
       });
     }
@@ -535,15 +539,16 @@ module.exports = (app) => {
 
   // Tệp CSV mẫu để nhà trường điền theo.
   app.get('/api/admin/import/template', onlyAdmin, (req, res) => {
-    const headers = ['Mã học sinh', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Lớp', 'Địa chỉ',
+    const headers = ['Mã của bé', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Nhóm', 'Địa chỉ',
       'Họ tên phụ huynh', 'Điện thoại', 'Email'];
+    const namSinhMau = new Date().getFullYear() - 4;   // bé nhóm Chồi, 4 tuổi
     const mau = [{
-      'Mã học sinh': 'HS2026001', 'Họ tên': 'Nguyễn Minh Khang', 'Ngày sinh': '2018-04-12',
-      'Giới tính': 'Nam', 'Lớp': 'Lớp 3A', 'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',
+      'Mã của bé': 'MN2026001', 'Họ tên': 'Nguyễn Bảo An', 'Ngày sinh': `${namSinhMau}-04-12`,
+      'Giới tính': 'Nữ', 'Nhóm': 'Chồi 2', 'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',
       'Họ tên phụ huynh': 'Lê Thị Thu Hà', 'Điện thoại': '0912345678', 'Email': 'thuha@gmail.com',
     }];
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="mau-danh-sach-hoc-sinh.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="mau-danh-sach-be.csv"');
     res.send(csv.stringify(headers, mau));
   });
 

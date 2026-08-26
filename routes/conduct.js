@@ -16,9 +16,9 @@ module.exports = (app) => {
   // Bản ghi nề nếp của một học sinh (mới nhất trước) + tổng điểm.
   app.get('/api/conduct', (req, res) => {
     const studentId = req.query.studentId;
-    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem bé này' });
     }
     // CỐ Ý KHÔNG giới hạn danh sách này. Hai ô "Tuyên dương" và "Nhắc nhở" trên
     // màn hình phụ huynh đếm ngay trên mảng records, nên cắt bớt ở đây sẽ làm hai
@@ -87,7 +87,7 @@ module.exports = (app) => {
   app.post('/api/conduct', requireRole('teacher', 'admin'), (req, res) => {
     const { studentId, type, title, content, points } = req.body || {};
     if (!studentId || !db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
     }
     if (!['praise', 'reminder'].includes(type)) {
       return res.status(400).json({ error: 'Loại ghi nhận không hợp lệ' });
@@ -123,7 +123,7 @@ module.exports = (app) => {
     const c = db.first('conduct', 'SELECT * FROM conduct WHERE id = ?', [req.params.id]);
     if (!c || st.daThuHoi(BANG, c.id)) return res.status(404).json({ error: 'Không tìm thấy ghi nhận' });
     if (!db.canAccessStudent(req.user, c.studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
     }
     if (!st.laChuBanGhi(req.user, c.byTeacherId)) {
       return res.status(403).json({ error: 'Chỉ người đã ghi nhận hoặc quản trị mới sửa được' });
@@ -161,7 +161,7 @@ module.exports = (app) => {
     const c = db.first('conduct', 'SELECT * FROM conduct WHERE id = ?', [req.params.id]);
     if (!c) return res.status(404).json({ error: 'Không tìm thấy ghi nhận' });
     if (!db.canAccessStudent(req.user, c.studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
     }
     if (!st.laChuBanGhi(req.user, c.byTeacherId)) {
       return res.status(403).json({ error: 'Chỉ người đã ghi nhận hoặc quản trị mới thu hồi được' });

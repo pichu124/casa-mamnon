@@ -1,4 +1,4 @@
-// Giáo viên cấp lại mật khẩu cho phụ huynh lớp mình khi họ quên.
+// Giáo viên cấp lại mật khẩu cho phụ huynh nhóm mình khi họ quên.
 App.views.accounts = {
   _parents: [],
 
@@ -29,7 +29,7 @@ App.views.accounts = {
                 Cấp mật khẩu tạm
               </button>
             </div>`).join('')}
-        </div>` : UI.emptyState('👪', 'Lớp chưa có phụ huynh nào trong hệ thống')}`;
+        </div>` : UI.emptyState('👪', 'Nhóm chưa có phụ huynh nào trong hệ thống')}`;
   },
 
   // Tên phụ huynh KHÔNG được truyền qua thuộc tính onclick nữa mà tra lại từ đây.

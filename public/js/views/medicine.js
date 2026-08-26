@@ -78,7 +78,7 @@ App.views.medicine = {
       <div class="field">
         <label>Ghi chú gửi cô</label>
         <textarea id="md-note" placeholder="Ví dụ: Thuốc để trong ba lô, ngăn trước. Nhờ cô cho con uống đúng giờ giúp gia đình ạ."></textarea>
-        <div class="hint">Cô giáo chủ nhiệm sẽ xác nhận khi đã nhận thuốc của con.</div>
+        <div class="hint">Cô phụ trách sẽ xác nhận khi đã nhận thuốc của con.</div>
       </div>
       <button class="btn primary block" onclick="App.views.medicine.submitCreate()">${UI.icon('send', 18)} Gửi lời dặn thuốc</button>
     `, 'Dặn thuốc cho con');
@@ -187,7 +187,7 @@ App.views.medicine = {
         </div>` : ''}`;
   },
 
-  // Phần đầu thẻ đơn phía giáo viên: học sinh, phụ huynh, khoảng ngày.
+  // Phần đầu thẻ đơn phía giáo viên: bé, phụ huynh, khoảng ngày.
   teacherHead(m) {
     return `
       <div class="list-row" style="border-bottom:none;padding-top:0">

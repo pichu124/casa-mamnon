@@ -36,7 +36,7 @@ module.exports = (app) => {
   app.post('/api/leave', requireRole('parent'), (req, res) => {
     const { studentId, fromDate, toDate, reason } = req.body || {};
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền tạo đơn cho học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền tạo đơn cho bé này' });
     }
     if (!DATE_RE.test(String(fromDate || '')) || !DATE_RE.test(String(toDate || ''))) {
       return res.status(400).json({ error: 'Ngày nghỉ không hợp lệ' });
@@ -74,7 +74,7 @@ module.exports = (app) => {
     const rec = db.first('leave_requests', 'SELECT * FROM leave_requests WHERE id = ?', [req.params.id]);
     if (!rec) return res.status(404).json({ error: 'Không tìm thấy đơn xin phép' });
     if (!db.canAccessStudent(req.user, rec.studentId)) {
-      return res.status(403).json({ error: 'Đơn này không thuộc học sinh lớp của bạn' });
+      return res.status(403).json({ error: 'Đơn này không thuộc bé nào của nhóm cô' });
     }
     if (rec.status !== 'pending') {
       return res.status(400).json({ error: 'Đơn này đã được xử lý trước đó' });

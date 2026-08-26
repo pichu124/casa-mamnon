@@ -41,7 +41,7 @@ App.views.settings = {
           <div class="card-title">🏫 Quản trị nhà trường</div>
           <div class="list-row clickable" onclick="location.hash='#/admin'">
             <div class="row-main">
-              <div class="row-title">Lớp, giáo viên, nhập danh sách</div>
+              <div class="row-title">Nhóm lớp, cô, nhập danh sách</div>
               <div class="row-sub">Quản lý toàn trường và xem nhật ký thao tác</div>
             </div>
             <span class="muted">${UI.icon('chevron', 18)}</span>
@@ -50,7 +50,7 @@ App.views.settings = {
 
       ${user.role === 'teacher' || user.role === 'admin' ? `
         <div class="card">
-          <div class="card-title">👪 Quản lý lớp</div>
+          <div class="card-title">👪 Quản lý nhóm lớp</div>
           <div class="list-row clickable" onclick="location.hash='#/accounts'">
             <div class="row-main">
               <div class="row-title">Tài khoản phụ huynh</div>

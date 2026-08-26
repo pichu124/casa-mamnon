@@ -299,7 +299,7 @@ module.exports = (app) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
     if (!xoaDuocAlbum(req.user, album.classId)) {
-      return res.status(403).json({ error: 'Chỉ giáo viên chủ nhiệm lớp hoặc quản trị mới xóa được album' });
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm hoặc quản trị mới xóa được album' });
     }
     const photos = photosOf(album.id);
     db.remove('albums', album.id);   // ảnh trong bảng con tự xóa theo ràng buộc khóa ngoại

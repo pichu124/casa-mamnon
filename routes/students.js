@@ -25,10 +25,10 @@ module.exports = (app) => {
   // Hồ sơ chi tiết một học sinh.
   app.get('/api/students/:id', (req, res) => {
     if (!db.canAccessStudent(req.user, req.params.id)) {
-      return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem bé này' });
     }
     const s = db.findStudent(req.params.id);
-    if (!s) return res.status(404).json({ error: 'Không tìm thấy học sinh' });
+    if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     const parents = s.parentIds.map(pid => publicUser(db.findUser(pid))).filter(Boolean);
     res.json({ ...decorate(s), parents });
   });

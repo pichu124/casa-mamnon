@@ -1,5 +1,5 @@
 // Phân hệ Xin phép nghỉ học.
-// Phụ huynh: tạo đơn và theo dõi đơn của từng con. Giáo viên: duyệt đơn của lớp.
+// Phụ huynh: tạo đơn và theo dõi đơn của từng con. Giáo viên: duyệt đơn của nhóm.
 App.views.leave = {
   STATUS: {
     pending: { label: 'Chờ duyệt', cls: 'orange' },
@@ -18,7 +18,7 @@ App.views.leave = {
     this._list = await API.get('/api/leave');
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Xin phép nghỉ học') + UI.emptyState('🎒', 'Chưa có học sinh liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Xin phép nghỉ học') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     const list = this._list.filter(l => l.studentId === current.id);
@@ -67,7 +67,7 @@ App.views.leave = {
       <div class="field">
         <label>Lý do xin nghỉ</label>
         <textarea id="lv-reason" placeholder="Ví dụ: Con bị sốt nhẹ, gia đình xin phép cho con ở nhà theo dõi."></textarea>
-        <div class="hint">Đơn sẽ được gửi tới giáo viên chủ nhiệm của con để duyệt.</div>
+        <div class="hint">Đơn sẽ được gửi tới cô phụ trách của con để duyệt.</div>
       </div>
       <button class="btn primary block" onclick="App.views.leave.submitCreate()">${UI.icon('send', 18)} Gửi đơn xin phép</button>
     `, 'Tạo đơn xin phép');
@@ -108,7 +108,7 @@ App.views.leave = {
         ${infoRowLeave('Lý do', l.reason)}
       </div>
       ${l.status === 'pending'
-        ? `<div class="muted small center mt-14">Đơn đang chờ giáo viên chủ nhiệm duyệt, gia đình đợi thêm chút nhé.</div>`
+        ? `<div class="muted small center mt-14">Đơn đang chờ cô phụ trách duyệt, gia đình đợi thêm chút nhé.</div>`
         : `<div class="card" style="background:${l.status === 'approved' ? '#e3f7ec' : '#fde8e6'};box-shadow:none;margin:14px 0 0">
             <div class="small" style="font-weight:700;margin-bottom:4px">Phản hồi của ${UI.esc(l.reviewerName || 'giáo viên')}</div>
             <div class="small">${l.reviewNote ? UI.esc(l.reviewNote) : `${st.label === 'Đã duyệt' ? 'Cô đã duyệt đơn cho con.' : 'Cô chưa đồng ý với đơn này.'}`}</div>
@@ -116,7 +116,7 @@ App.views.leave = {
     `, 'Chi tiết đơn xin phép');
   },
 
-  // ---- Giáo viên: duyệt đơn của lớp ----
+  // ---- Giáo viên: duyệt đơn của nhóm ----
   async renderTeacher(root) {
     this._list = await API.get('/api/leave');
     const pending = this._list.filter(l => l.status === 'pending');
@@ -140,7 +140,7 @@ App.views.leave = {
             <button class="btn success-soft" onclick="App.views.leave.openReview('${UI.esc(l.id)}','approved')">${UI.icon('check', 18)} Duyệt</button>
             <button class="btn danger-soft" onclick="App.views.leave.openReview('${UI.esc(l.id)}','rejected')">${UI.icon('x', 18)} Từ chối</button>
           </div>
-        </div>`).join('') : UI.emptyState('✅', 'Không có đơn nào chờ duyệt. Lớp mình đi học đầy đủ, tuyệt quá!')}
+        </div>`).join('') : UI.emptyState('✅', 'Không có đơn nào chờ duyệt. Nhóm mình đi học đầy đủ, tuyệt quá!')}
 
       <div class="section-label">Lịch sử</div>
       ${history.length ? `<div class="card">
@@ -173,7 +173,7 @@ App.views.leave = {
         <label>Lời nhắn phản hồi gửi gia đình</label>
         <textarea id="lv-review-note" placeholder="${approve
           ? 'Ví dụ: Cô đã nhận thông tin. Chúc con mau khỏe!'
-          : 'Ví dụ: Hôm đó lớp có bài kiểm tra, mong gia đình đổi lịch giúp cô.'}"></textarea>
+          : 'Ví dụ: Hôm đó nhóm có buổi làm quen với cô lớp 1, mong gia đình đổi lịch giúp cô.'}"></textarea>
       </div>
       <button class="btn ${approve ? 'success-soft' : 'danger-soft'} block" onclick="App.views.leave.submitReview('${UI.esc(l.id)}','${UI.esc(status)}')">
         ${UI.icon(approve ? 'check' : 'x', 18)} ${approve ? 'Duyệt đơn' : 'Từ chối đơn'}

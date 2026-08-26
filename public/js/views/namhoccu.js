@@ -1,9 +1,9 @@
 // Phân hệ Năm học trước.
 //
-// Sau khi chuyển năm học, mọi nội dung khóa theo lớp — thông báo gửi riêng lớp,
+// Sau khi chuyển năm học, mọi nội dung khóa theo nhóm — thông báo gửi riêng nhóm,
 // khảo sát, kế hoạch giáo dục, thời khóa biểu — rơi khỏi tầm với của phụ huynh
-// vì lớp cũ đã đóng. Màn hình này mở lại đúng phần của lớp con TỪNG học, và chỉ
-// phần rơi vào khoảng con còn ở lớp đó.
+// vì nhóm cũ đã đóng. Màn hình này mở lại đúng phần của nhóm con TỪNG học, và chỉ
+// phần rơi vào khoảng con còn ở nhóm đó.
 //
 // Chỉ ĐỌC: không có đường ghi nào ở đây.
 App.views.namhoccu = {
@@ -22,9 +22,9 @@ App.views.namhoccu = {
       ${ds.length ? `
         <div class="card" style="border-left:4px solid var(--info)">
           <div class="muted small" style="line-height:1.6">
-            Thông báo, khảo sát, kế hoạch và thời khóa biểu của lớp con từng học.
-            Chỉ hiện phần trong khoảng thời gian con còn ở lớp đó.
-            Ảnh của lớp nằm ở màn <b>Album ảnh</b>, mục "Album của các năm học trước".
+            Thông báo, khảo sát, kế hoạch và thời khóa biểu của nhóm con từng học.
+            Chỉ hiện phần trong khoảng thời gian con còn ở nhóm đó.
+            Ảnh của nhóm nằm ở màn <b>Album ảnh</b>, mục "Album của các năm học trước".
           </div>
         </div>
         <div class="card">
@@ -32,14 +32,14 @@ App.views.namhoccu = {
             <div class="list-row clickable" onclick="App.navigate('#/namhoccu/${UI.esc(k.id)}')">
               <div class="row-icon" style="background:#eef1f5;font-size:20px">🗂️</div>
               <div class="row-main">
-                <div class="row-title">${UI.esc(k.className || 'Lớp cũ')}${k.year ? ` · ${UI.esc(k.year)}` : ''}</div>
+                <div class="row-title">${UI.esc(k.className || 'Nhóm cũ')}${k.year ? ` · ${UI.esc(k.year)}` : ''}</div>
                 <div class="row-sub">${UI.esc(k.studentName)} · ${UI.esc(UI.fmtDateShort(k.tu))} – ${UI.esc(UI.fmtDateShort(k.den))}</div>
               </div>
               <span class="muted">${UI.icon('chevron', 18)}</span>
             </div>`).join('')}
         </div>`
-        : UI.emptyState('🗂️', 'Chưa có lớp cũ nào. Khi con lên lớp hoặc chuyển lớp, '
-          + 'nội dung của lớp cũ sẽ hiện ở đây để gia đình xem lại.')}`;
+        : UI.emptyState('🗂️', 'Chưa có nhóm cũ nào. Khi con lên nhóm hoặc chuyển nhóm, '
+          + 'nội dung của nhóm cũ sẽ hiện ở đây để gia đình xem lại.')}`;
   },
 
   async renderChiTiet(root, id) {
@@ -47,16 +47,16 @@ App.views.namhoccu = {
     const k = d.khoang;
 
     root.innerHTML = `
-      ${UI.pageHeader(k.className || 'Lớp cũ')}
+      ${UI.pageHeader(k.className || 'Nhóm cũ')}
       <div class="card">
         <div class="muted small" style="line-height:1.6">
-          <b>${UI.esc(k.studentName)}</b> học lớp này từ ${UI.esc(UI.fmtDate(k.tu, { weekday: false }))}
+          <b>${UI.esc(k.studentName)}</b> học nhóm này từ ${UI.esc(UI.fmtDate(k.tu, { weekday: false }))}
           đến ${UI.esc(UI.fmtDate(k.den, { weekday: false }))}${k.year ? ` · năm học ${UI.esc(k.year)}` : ''}.
           Dưới đây chỉ là phần nội dung trong khoảng thời gian đó.
         </div>
       </div>
 
-      <div class="section-label">Thông báo của lớp (${d.thongBao.length})</div>
+      <div class="section-label">Thông báo của nhóm (${d.thongBao.length})</div>
       ${d.thongBao.length ? `
         <div class="card">
           ${d.thongBao.map(n => `
@@ -68,7 +68,7 @@ App.views.namhoccu = {
               </div>
             </div>`).join('')}
         </div>`
-        : UI.emptyState('🔔', 'Không có thông báo riêng của lớp trong khoảng này')}
+        : UI.emptyState('🔔', 'Không có thông báo riêng của nhóm trong khoảng này')}
 
       <div class="section-label">Kế hoạch giáo dục (${d.keHoach.length})</div>
       ${d.keHoach.length ? `
@@ -100,18 +100,18 @@ App.views.namhoccu = {
         : UI.emptyState('📊', 'Không có khảo sát nào trong khoảng này')}
 
       ${d.tkb ? `
-        <div class="section-label">Thời khóa biểu của lớp</div>
+        <div class="section-label">Thời khóa biểu của nhóm</div>
         <div class="card">
           <div class="muted small" style="line-height:1.6">
-            Thời khóa biểu được lưu một bản duy nhất cho mỗi lớp, không lưu theo
-            từng tuần — nên đây là bản gần nhất của lớp này, có thể đã được sửa
-            sau khi con rời lớp.
+            Thời khóa biểu được lưu một bản duy nhất cho mỗi nhóm, không lưu theo
+            từng tuần — nên đây là bản gần nhất của nhóm này, có thể đã được sửa
+            sau khi con rời nhóm.
           </div>
           ${this.bangTkb(d.tkb)}
         </div>` : ''}
 
       <button class="btn outline block mt-14" onclick="App.navigate('#/albums')">
-        Xem ảnh của lớp trong màn Album ảnh
+        Xem ảnh của nhóm trong màn Album ảnh
       </button>`;
   },
 
@@ -121,7 +121,7 @@ App.views.namhoccu = {
   bangTkb(tkb) {
     const days = (tkb && tkb.days) || {};
     const thu = Object.keys(days).sort((a, b) => Number(a) - Number(b));
-    if (!thu.length) return '<div class="muted small mt-8">Lớp này chưa có thời khóa biểu.</div>';
+    if (!thu.length) return '<div class="muted small mt-8">Nhóm này chưa có thời khóa biểu.</div>';
     return `
       <div class="table-wrap mt-14">
         <table class="simple">

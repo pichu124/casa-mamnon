@@ -25,7 +25,7 @@ App.views.dashboard = {
             <small>${this.greeting()},</small>
             <b>${UI.esc(user.title)} ${UI.esc(user.name)}</b>
             <i>${user.role === 'teacher'
-              ? `Giáo viên chủ nhiệm ${UI.esc(this.teacherClassName())}`
+              ? `Cô phụ trách ${UI.esc(this.teacherClassName())}`
               : child ? `Phụ huynh em ${UI.esc(child.name)} · ${UI.esc(child.className || '')}` : 'Phụ huynh'}</i>
           </div>
         </div>

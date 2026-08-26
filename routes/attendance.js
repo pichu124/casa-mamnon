@@ -24,12 +24,12 @@ module.exports = (app) => {
   app.get('/api/attendance', (req, res) => {
     const studentId = req.query.studentId;
     const month = req.query.month || currentMonth();
-    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!/^\d{4}-\d{2}$/.test(month)) {
       return res.status(400).json({ error: 'Tháng không hợp lệ (định dạng YYYY-MM)' });
     }
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem điểm danh của học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem điểm danh của bé này' });
     }
     res.json(db.all('attendance',
       'SELECT * FROM attendance WHERE studentId = ? AND date LIKE ? ORDER BY date',
@@ -108,7 +108,7 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Trạng thái điểm danh không hợp lệ' });
     }
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp chủ nhiệm của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
     }
 
     const existing = db.first('attendance',
@@ -162,13 +162,13 @@ module.exports = (app) => {
 
     const students = db.all('students',
       'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId]);
-    if (!students.length) return res.status(400).json({ error: 'Lớp chưa có học sinh nào' });
+    if (!students.length) return res.status(400).json({ error: 'Nhóm chưa có bé nào' });
 
     // Soát quyền cho TỪNG em trước khi mở giao dịch: nếu để trong giao dịch mà
     // dừng giữa chừng thì một phần đã ghi, một phần chưa, và cô không biết.
     for (const s of students) {
       if (!db.canAccessStudent(req.user, s.id)) {
-        return res.status(403).json({ error: 'Có học sinh không thuộc lớp chủ nhiệm của bạn' });
+        return res.status(403).json({ error: 'Có bé không thuộc nhóm cô phụ trách' });
       }
     }
 

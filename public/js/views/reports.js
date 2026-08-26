@@ -1,15 +1,15 @@
 // Phân hệ Báo cáo học tập: kết quả từng học kỳ.
-// Phụ huynh: xem theo từng con. Giáo viên: chọn học sinh trong lớp và soạn
+// Phụ huynh: xem theo từng con. Giáo viên: chọn bé trong nhóm và soạn
 // báo cáo từng học kỳ ngay tại đây; chuyên cần tự tính từ sổ điểm danh.
 App.views.reports = {
   termIdx: 0,
   teacherStudentId: null,
-  _student: null,  // học sinh đang xem
-  _reports: [],    // các báo cáo đã tải của học sinh đó
+  _student: null,  // bé đang xem
+  _reports: [],    // các báo cáo đã tải của bé đó
 
   MUC_DANH_GIA: ['Hoàn thành xuất sắc', 'Hoàn thành tốt', 'Hoàn thành', 'Chưa hoàn thành'],
   MUC_HANH_KIEM: ['Tốt', 'Khá', 'Trung bình', 'Cần cố gắng'],
-  // Bộ môn mặc định khi học sinh chưa từng có báo cáo nào.
+  // Bộ môn mặc định khi bé chưa từng có báo cáo nào.
   MON_MAC_DINH: ['Toán', 'Tiếng Việt', 'Tiếng Anh', 'Đạo đức', 'Tự nhiên & Xã hội', 'Âm nhạc', 'Mỹ thuật', 'Thể dục', 'Tin học'],
 
   async render(root) {
@@ -18,7 +18,7 @@ App.views.reports = {
     if (isTeacher) {
       const students = App.state.students || [];
       if (!students.length) {
-        root.innerHTML = UI.pageHeader('Báo cáo học tập') + UI.emptyState('📊', 'Lớp chưa có học sinh nào');
+        root.innerHTML = UI.pageHeader('Báo cáo học tập') + UI.emptyState('📊', 'Nhóm chưa có bé nào');
         return;
       }
       if (!this.teacherStudentId || !students.some(s => s.id === this.teacherStudentId)) {
@@ -28,7 +28,7 @@ App.views.reports = {
     } else {
       student = App.currentStudent();
       if (!student) {
-        root.innerHTML = UI.pageHeader('Báo cáo học tập') + UI.emptyState('📊', 'Chưa có học sinh liên kết với tài khoản này');
+        root.innerHTML = UI.pageHeader('Báo cáo học tập') + UI.emptyState('📊', 'Chưa có bé nào liên kết với tài khoản này');
         return;
       }
     }
@@ -44,7 +44,7 @@ App.views.reports = {
       ${UI.pageHeader('Báo cáo học tập', suaDuoc ? { action: { id: 'btn-soan-bc', label: 'Soạn báo cáo', icon: 'edit' } } : {})}
       ${isTeacher ? `
         <div class="field">
-          <label>Học sinh</label>
+          <label>Bé</label>
           <select id="rp-student">
             ${App.state.students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === student.id ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
           </select>
@@ -66,7 +66,7 @@ App.views.reports = {
     if (suaDuoc) document.getElementById('btn-soan-bc').onclick = () => this.moSoan();
   },
 
-  // Giáo viên soạn cho học sinh lớp mình; quản trị cho học sinh bất kỳ.
+  // Giáo viên soạn cho bé của nhóm mình; quản trị cho bé bất kỳ.
   canEdit() {
     const u = App.state.user;
     return !!u && (u.role === 'teacher' || u.role === 'admin');
@@ -120,7 +120,7 @@ App.views.reports = {
       </div>`;
   },
 
-  // ---- GVCN / quản trị: soạn báo cáo một học kỳ ----
+  // ---- Cô phụ trách / quản trị: soạn báo cáo một học kỳ ----
 
   // Các học kỳ chọn được: HK1/HK2 của năm học hiện tại + các kỳ đã có báo cáo.
   cacKyChonDuoc() {

@@ -1,10 +1,10 @@
 // Phân hệ Thông báo.
 // Danh sách thông báo (ghim trước, mới nhất trước), đánh dấu đã đọc,
-// giáo viên tạo thông báo gửi lớp mình hoặc toàn trường.
+// giáo viên tạo thông báo gửi nhóm mình hoặc toàn trường.
 App.views.notifications = {
   CATS: {
     'Nhà trường': { emoji: '🏫', bg: '#e6efff' },
-    'Lớp học': { emoji: '📚', bg: '#f1e8fd' },
+    'Nhóm lớp': { emoji: '📚', bg: '#f1e8fd' },
     'Y tế': { emoji: '🩺', bg: '#e3f7ec' },
     'Học phí': { emoji: '💳', bg: '#fef0e0' },
   },
@@ -112,7 +112,7 @@ App.views.notifications = {
       <div class="field">
         <label>Phân loại</label>
         <select id="nt-cat">
-          <option>Lớp học</option>
+          <option>Nhóm lớp</option>
           <option>Nhà trường</option>
           <option>Y tế</option>
           <option>Học phí</option>
@@ -122,7 +122,7 @@ App.views.notifications = {
       <div class="field">
         <label>Phạm vi gửi</label>
         <div class="seg" id="nt-aud" style="margin-bottom:0">
-          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">Lớp mình</button>
+          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">Nhóm mình</button>
           <button data-aud="all" onclick="App.views.notifications.setAud('all')">Toàn trường</button>
         </div>
       </div>
@@ -163,7 +163,7 @@ App.views.notifications = {
       <div class="field">
         <label>Phân loại</label>
         <select id="nt-s-cat">
-          ${['Lớp học', 'Nhà trường', 'Y tế', 'Học phí', 'Khác']
+          ${['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Khác']
             .map(c => `<option ${c === n.category ? 'selected' : ''}>${c}</option>`).join('')}
         </select>
       </div>

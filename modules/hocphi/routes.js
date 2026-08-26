@@ -9,9 +9,9 @@ module.exports = (app, { db }) => {
   // Các khoản của một học sinh.
   app.get('/api/hocphi', (req, res) => {
     const studentId = req.query.studentId;
-    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem học phí của học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem học phí của bé này' });
     }
     const khoan = db.all('hocphi_khoan',
       'SELECT * FROM hocphi_khoan WHERE studentId = ? ORDER BY hanNop DESC, rowid DESC', [studentId]);
@@ -27,7 +27,7 @@ module.exports = (app, { db }) => {
   app.post('/api/hocphi', requireRole('teacher', 'admin'), (req, res) => {
     const { studentId, kyThu, noiDung, soTien, hanNop } = req.body || {};
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Học sinh không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
     }
     if (!String(kyThu || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập kỳ thu' });
     if (!String(noiDung || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập nội dung khoản thu' });

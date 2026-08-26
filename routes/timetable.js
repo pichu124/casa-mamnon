@@ -43,7 +43,7 @@ module.exports = (app) => {
     if (!classId) return res.status(400).json({ error: 'Thiếu mã lớp (classId)' });
 
     const cls = db.findClass(classId);
-    if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học' });
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
 
     if (!db.canAccessClass(req.user, classId)) {
       return res.status(403).json({ error: 'Không có quyền xem thời khóa biểu của lớp này' });
@@ -64,10 +64,10 @@ module.exports = (app) => {
   app.put('/api/timetable/:classId', requireRole('teacher', 'admin'), (req, res) => {
     const classId = String(req.params.classId || '').trim();
     const cls = db.findClass(classId);
-    if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học' });
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
 
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Chỉ giáo viên chủ nhiệm của lớp mới được sửa thời khóa biểu lớp này' });
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới được sửa thời khóa biểu của nhóm này' });
     }
 
     const periodTimes = lamSachKhungGio((req.body || {}).periodTimes);

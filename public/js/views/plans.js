@@ -1,6 +1,6 @@
 // Phân hệ Kế hoạch giáo dục tháng.
-// Phụ huynh: xem theo lớp của con đang chọn. Cô: xem theo nhóm mình phụ trách.
-// GVCN/quản trị soạn kế hoạch từng tháng ngay tại đây (chủ đề, mục tiêu, tuần, lời nhắn).
+// Phụ huynh: xem theo nhóm của con đang chọn. Cô: xem theo nhóm mình phụ trách.
+// Cô phụ trách/quản trị soạn kế hoạch từng tháng ngay tại đây (chủ đề, mục tiêu, tuần, lời nhắn).
 App.views.plans = {
   _classId: null,
   _plans: [],
@@ -15,7 +15,7 @@ App.views.plans = {
     } else {
       const current = App.currentStudent();
       if (!current) {
-        root.innerHTML = UI.pageHeader('Kế hoạch giáo dục') + UI.emptyState('🎒', 'Chưa có học sinh liên kết với tài khoản này');
+        root.innerHTML = UI.pageHeader('Kế hoạch giáo dục') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
         return;
       }
       classId = current.classId;
@@ -31,7 +31,7 @@ App.views.plans = {
     if (suaDuoc) document.getElementById('btn-soan-kh').onclick = () => this.moSoan();
   },
 
-  // GVCN soạn lớp mình; quản trị soạn lớp bất kỳ; phụ huynh chỉ xem.
+  // Cô phụ trách soạn cho nhóm mình; quản trị soạn nhóm bất kỳ; phụ huynh chỉ xem.
   canEdit() {
     const u = App.state.user;
     if (!u) return false;
@@ -73,7 +73,7 @@ App.views.plans = {
         </div>` : ''}`;
   },
 
-  // ---- GVCN / quản trị: soạn kế hoạch một tháng ----
+  // ---- Cô phụ trách / quản trị: soạn kế hoạch một tháng ----
 
   // Danh sách tháng chọn được: tháng trước → 4 tháng tới, gộp thêm các tháng đã soạn.
   cacThangChonDuoc() {

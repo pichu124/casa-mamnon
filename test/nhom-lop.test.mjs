@@ -379,11 +379,15 @@ console.log('\n[15] Gia đình nhắn được cho MỌI cô của nhóm, không
   const ds = await req('GET', '/api/messages', { cookie: ph });
   const co = (ds.data?.contacts || []).filter(x => ['t1', 't2'].includes(x.userId));
   check('phụ huynh thấy cả hai cô của nhóm con mình', co.length === 2, ds.data?.contacts);
-  check('cô chính được gọi đúng vai',
-    co.find(x => x.userId === 't1')?.subtitle?.startsWith('Giáo viên chủ nhiệm'),
-    co.map(x => x.subtitle));
-  check('cô phụ được gọi đúng vai, không gọi nhầm là chủ nhiệm',
-    co.find(x => x.userId === 't2')?.subtitle?.startsWith('Cô phụ trách'),
+  // Hai vai phải phân biệt được BẰNG CHỮ, không chỉ bằng dữ liệu. Kiểm tách bạch
+  // chứ không dùng startsWith cho cả hai: "Cô phụ trách chính" cũng bắt đầu bằng
+  // "Cô phụ trách", nên một phép thử lỏng sẽ xanh cả khi hai vai bị gọi giống nhau.
+  const vaiChinh = co.find(x => x.userId === 't1')?.subtitle || '';
+  const vaiPhu = co.find(x => x.userId === 't2')?.subtitle || '';
+  check('cô chính được gọi là "Cô phụ trách chính"',
+    vaiChinh.startsWith('Cô phụ trách chính'), co.map(x => x.subtitle));
+  check('cô phụ được gọi là "Cô phụ trách", KHÔNG kèm chữ "chính"',
+    vaiPhu.startsWith('Cô phụ trách') && !vaiPhu.includes('chính'),
     co.map(x => x.subtitle));
 }
 

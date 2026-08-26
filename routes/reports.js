@@ -62,9 +62,9 @@ module.exports = (app) => {
   // Danh sách báo cáo học tập của một học sinh, sắp theo học kỳ.
   app.get('/api/reports', (req, res) => {
     const studentId = req.query.studentId;
-    if (!studentId) return res.status(400).json({ error: 'Thiếu mã học sinh' });
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền xem bé này' });
     }
     res.json(db.all('reports',
       'SELECT * FROM reports WHERE studentId = ? ORDER BY year, term', [studentId]));
@@ -75,7 +75,7 @@ module.exports = (app) => {
   app.put('/api/reports/:studentId', requireRole('teacher', 'admin'), (req, res) => {
     const studentId = String(req.params.studentId || '').trim();
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền soạn báo cáo cho học sinh này' });
+      return res.status(403).json({ error: 'Không có quyền soạn báo cáo cho bé này' });
     }
 
     const body = req.body || {};

@@ -1,6 +1,6 @@
 // Phân hệ Album ảnh.
 // Danh sách album (#/albums) và trang chi tiết (#/albums/<id>).
-// Giáo viên tạo album, thêm và xóa ảnh cho lớp chủ nhiệm.
+// Giáo viên tạo album, thêm và xóa ảnh cho nhóm mình phụ trách.
 App.views.albums = {
   _detail: null,
   _pending: [],   // ảnh đang chờ tải lên: [{ dataUrl, caption, name }]
@@ -14,12 +14,12 @@ App.views.albums = {
   // ================= Danh sách album =================
   async renderList(root) {
     const isTeacher = App.state.user.role === 'teacher';
-    // Hỏi kèm album của lớp đã đóng cho mọi vai. Máy chủ tự quyết ai được thấy
-    // gì: quản trị và cô cũ thấy cả lớp; phụ huynh chỉ thấy ảnh chụp trong đúng
-    // khoảng con còn học lớp đó.
+    // Hỏi kèm album của nhóm đã đóng cho mọi vai. Máy chủ tự quyết ai được thấy
+    // gì: quản trị và cô cũ thấy cả nhóm; phụ huynh chỉ thấy ảnh chụp trong đúng
+    // khoảng con còn học nhóm đó.
     const albums = await API.get('/api/albums?keCaLopCu=1');
-    // Tách theo "con/lớp mình còn ở đó hay không", chứ không theo "lớp đã đóng":
-    // em chuyển lớp giữa năm thì lớp cũ vẫn đang mở nhưng con đã rời rồi.
+    // Tách theo "con/nhóm mình còn ở đó hay không", chứ không theo "nhóm đã đóng":
+    // bé chuyển nhóm giữa năm thì nhóm cũ vẫn đang mở nhưng con đã rời rồi.
     const laCu = a => a.lopCuCuaCon || a.lopDaDong;
     const namNay = albums.filter(a => !laCu(a));
     const namCu = albums.filter(laCu);
@@ -29,16 +29,16 @@ App.views.albums = {
       ${namNay.length
         ? `<div class="grid-2">${namNay.map(a => this.albumCard(a)).join('')}</div>`
         : UI.emptyState('📷', isTeacher
-          ? 'Chưa có album nào. Bấm "Tạo album" để đăng ảnh hoạt động của lớp.'
-          : 'Chưa có album ảnh nào của lớp')}
+          ? 'Chưa có album nào. Bấm "Tạo album" để đăng ảnh hoạt động của nhóm.'
+          : 'Chưa có album ảnh nào của nhóm')}
       ${namCu.length ? `
         <div class="card mt-14" style="border-left:4px solid var(--info)">
           <div class="card-title">Album của các năm học trước</div>
           <div class="muted small" style="line-height:1.6">
-            ${namCu.length} album thuộc lớp đã đóng sau khi chuyển năm học.
+            ${namCu.length} album thuộc nhóm đã đóng sau khi chuyển năm học.
             ${isTeacher || App.state.user.role === 'admin'
               ? 'Ảnh vẫn còn nguyên — tải về giữ lại hoặc xóa cho nhẹ máy chủ.'
-              : 'Đây là ảnh của lớp con từng học. Gia đình nên tải về giữ lại.'}
+              : 'Đây là ảnh của nhóm con từng học. Gia đình nên tải về giữ lại.'}
           </div>
         </div>
         <div class="grid-2">${namCu.map(a => this.albumCard(a)).join('')}</div>` : ''}`;
@@ -58,7 +58,7 @@ App.views.albums = {
   // Khung ảnh dùng chung: ảnh thật thì hiện ảnh, ảnh cũ thì hiện emoji trên nền màu.
   thumb(photo, albumId, extraStyle = '') {
     if (photo && photo.file) {
-      return `<img src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}" alt="${UI.esc(photo.caption || 'Ảnh của lớp')}"
+      return `<img src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}" alt="${UI.esc(photo.caption || 'Ảnh của nhóm')}"
         loading="lazy" style="${extraStyle};width:100%;height:100%;object-fit:cover;background:var(--bg-2)">`;
     }
     const g = (photo && photo.g) || ['#e6eaf0', '#f2f4f8'];
@@ -76,7 +76,7 @@ App.views.albums = {
         <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}</div>
         ${a.description ? `<p class="mt-8" style="font-size:.93rem;line-height:1.55">${UI.esc(a.description)}</p>` : ''}
         ${a.lopDaDong ? `<div class="muted small mt-8" style="line-height:1.6">
-          Lớp này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''},
+          Nhóm này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''},
           nên không đăng thêm ảnh được nữa. Gia đình nên tải về phần muốn giữ lại.
         </div>` : ''}
       </div>
@@ -86,7 +86,7 @@ App.views.albums = {
             <div class="photo" style="${p.file ? '' : `background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])})`}">
               <div style="position:absolute;inset:0" onclick="App.views.albums.showPhoto(${i})">
                 ${p.file
-                  ? `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || 'Ảnh của lớp')}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+                  ? `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || 'Ảnh của nhóm')}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
                   : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:46px">${UI.esc(p.emoji)}</div>`}
               </div>
               ${p.caption ? `<div class="photo-cap" style="pointer-events:none">${UI.esc(p.caption)}</div>` : ''}

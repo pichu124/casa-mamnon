@@ -1,5 +1,5 @@
 // Phân hệ Y tế học đường.
-// Phụ huynh: xem hồ sơ sức khỏe của từng con. Giáo viên: xem theo học sinh và thêm ghi nhận.
+// Phụ huynh: xem hồ sơ sức khỏe của từng con. Cô: xem theo bé và thêm ghi nhận.
 App.views.health = {
   TYPES: {
     checkup: { label: 'Khám định kỳ', cls: 'blue', emoji: '🩺', bg: '#e6efff' },
@@ -7,7 +7,7 @@ App.views.health = {
     incident: { label: 'Sự cố y tế', cls: 'orange', emoji: '🩹', bg: '#fef0e0' },
   },
   _records: [],
-  _sid: null,          // học sinh đang chọn (phía giáo viên)
+  _sid: null,          // bé đang chọn (phía giáo viên)
   _newType: 'checkup', // loại ghi nhận đang chọn trong biểu mẫu
 
   async render(root) {
@@ -19,7 +19,7 @@ App.views.health = {
   async renderParent(root) {
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Y tế học đường') + UI.emptyState('🎒', 'Chưa có học sinh liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Y tế học đường') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     const data = await API.get(`/api/health?studentId=${current.id}`);
@@ -31,11 +31,11 @@ App.views.health = {
       ${this.recordsHtml()}`;
   },
 
-  // ---- Giáo viên: chọn học sinh trong lớp + thêm ghi nhận ----
+  // ---- Giáo viên: chọn bé trong nhóm + thêm ghi nhận ----
   async renderTeacher(root) {
     const students = App.state.students || [];
     if (!students.length) {
-      root.innerHTML = UI.pageHeader('Y tế học đường') + UI.emptyState('🎒', 'Lớp chưa có học sinh nào');
+      root.innerHTML = UI.pageHeader('Y tế học đường') + UI.emptyState('🎒', 'Nhóm chưa có bé nào');
       return;
     }
     if (!this._sid || !students.some(s => s.id === this._sid)) this._sid = students[0].id;
@@ -139,7 +139,7 @@ App.views.health = {
     this._newType = 'checkup';
     UI.modal(`
       <div class="field">
-        <label>Học sinh</label>
+        <label>Bé</label>
         <select id="ht-c-student">
           ${students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === this._sid ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
         </select>
@@ -213,7 +213,7 @@ App.views.health = {
 
   // ---- Sửa lại và thu hồi một ghi nhận y tế ----
   //
-  // Một ghi nhận kiểu "sốt, nghi tay chân miệng" bấm nhầm sang học sinh khác
+  // Một ghi nhận kiểu "sốt, nghi tay chân miệng" bấm nhầm sang bé khác
   // trước đây gắn vĩnh viễn vào hồ sơ đứa trẻ, mà hiệu trưởng cũng không gỡ được.
   openSua(id) {
     const r = (this._records || []).find(x => x.id === id);
@@ -269,7 +269,7 @@ App.views.health = {
       <p style="line-height:1.6">Thu hồi ghi nhận <b>"${UI.esc(r.title)}"</b>?</p>
       <p class="muted small" style="line-height:1.6">
         Ghi nhận sẽ biến khỏi hồ sơ sức khỏe của em. <b>Nội dung vẫn được giữ lại</b>
-        trong hệ thống để tra khi có khiếu nại. Dùng khi ghi nhầm sang học sinh khác.
+        trong hệ thống để tra khi có khiếu nại. Dùng khi ghi nhầm sang bé khác.
       </p>
       <button class="btn primary block mt-14" id="ht-th-ok">Xác nhận thu hồi</button>
       <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>

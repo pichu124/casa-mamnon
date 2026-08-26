@@ -7,7 +7,11 @@ const st = require('../lib/sua-thu-hoi');
 
 const BANG = 'notifications';
 
-const CATEGORIES = ['Lớp học', 'Nhà trường', 'Y tế', 'Học phí', 'Khác'];
+// Đổi 'Lớp học' → 'Nhóm lớp' ở G0.5/N9. Đây là GIÁ TRỊ lưu trong cột
+// `notifications.category`, nên phải đổi đồng thời với data/seed.js và bảng
+// màu trong public/js/views/notifications.js — lệch một chỗ là thông báo cũ
+// mất màu, mất biểu tượng mà không báo lỗi gì.
+const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Khác'];
 
 // Điều kiện SQL lọc theo phạm vi gửi mà người dùng được thấy.
 function audienceFilter(user) {

@@ -56,7 +56,7 @@ check('liệt kê đủ các phân hệ', soHang >= 15, soHang);
 const tieuDe = (await page.locator('.card-title').allTextContents()).join(' | ');
 check('chia nhóm rõ ràng cho người không rành máy tính', /màn hình chính/i.test(tieuDe) && /cắm thêm/i.test(tieuDe), tieuDe);
 check('phân hệ lõi hiện "Luôn bật", không có nút tắt',
-  await page.locator('.list-row', { hasText: 'Học sinh' }).first().locator('text=Luôn bật').count() > 0);
+  await page.locator('.list-row', { hasText: 'Hồ sơ bé' }).first().locator('text=Luôn bật').count() > 0);
 await page.screenshot({ path: SHOT + '01-tab-tinhnang.png', fullPage: true });
 
 console.log('\n[2] Tắt một tính năng → biến mất khỏi màn hình chính');
