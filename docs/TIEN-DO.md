@@ -58,19 +58,42 @@ ChatGPT, chỉ dịch sang tiếng Việt. QUY TẮC 4 (không phần trăm, kh�
 trẻ) sẽ được canh bằng bài test quét giao diện ở GĐ 2 — **chưa có bài test đó thì
 quy tắc mới chỉ là lời hứa**, ghi ở đây để không quên.
 
-### G0.3 — Phép thử quyết định: ghi lại một khoảnh khắc ⏳
+### G0.3 — Phép thử quyết định: ghi lại một khoảnh khắc ✅ *(phần mã)*
 
-Phân hệ `modules/thuchup/` — bản thử, **không phải bản dùng thật**:
+Phân hệ `modules/thuchup/` đã dựng xong — bản thử, **không phải bản dùng thật**.
+Mặc định TẮT, nhà trường bật trong Quản trị → Tính năng khi muốn thử.
 
-- Cô chọn bé → chụp ảnh → gõ một dòng → lưu. Đo thời gian thật từ lúc mở tới lúc
-  lưu xong, hiện số giây lên cho chính cô thấy.
-- Tắt mạng vẫn lưu được; mở lại app thì tự gửi lên; **không mất, không nhân đôi**.
-- Thử trên **iPhone thật và Android thật của cô giáo**, không dùng giả lập.
+Luồng: cô chạm **một nút** → máy ảnh mở ngay → chụp → chọn bé bằng chip → gõ một
+dòng → Lưu. Bấm giờ **từ lúc chạm nút**, không phải từ lúc màn hình hiện ra — đo
+từ lúc màn hình hiện ra sẽ ra con số đẹp giả tạo nếu cô để máy nằm đó một lúc.
 
-**Đây là cổng DỪNG.** Phép thử trượt ở đâu thì dừng lại bàn với người dùng, không
-lao tiếp sang GĐ 1. Lý do: toàn bộ GĐ 2 đứng trên giả định "ghi lại nhanh tới mức
-cô không thấy phiền". Giả định đó sai thì kế hoạch phải đổi, chứ không phải cố
-làm cho xong.
+Ba lời hứa và cách canh:
+
+| Lời hứa | Cách làm | Canh ở đâu |
+|---|---|---|
+| **Nhanh** — dưới 20 giây | Máy tự bấm giờ, hiện số giây ngay sau khi lưu; màn hình có ô thống kê trung vị / nhanh nhất / chậm nhất | Chỉ đo được **trên tay cô giáo thật** |
+| **Không mất** | Lưu vào IndexedDB của máy TRƯỚC, gửi lên máy chủ sau. Chỉ xoá khỏi máy **sau khi** máy chủ xác nhận | Thử tay khi tắt mạng |
+| **Không nhân đôi** | Mã ghi nhận do máy của cô sinh (`crypto.randomUUID`), máy chủ thấy mã trùng thì trả lại bản cũ chứ không tạo bản mới | `test/thuchup.test.mjs` mục [3] |
+
+Dùng IndexedDB chứ không dùng `localStorage`: một ảnh đã nén vẫn vài trăm KB,
+`localStorage` chỉ khoảng 5MB cho cả app và khi đầy thì ném lỗi giữa chừng —
+đúng lúc cô đang vội thì mất bài ghi.
+
+`npm run test:thuchup` — **40 bài, xanh**. Bao gồm: gửi lại cùng mã 3 lần và 4
+lần cùng lúc vẫn chỉ một bản ghi; cô nhóm khác và phụ huynh không mở được ảnh
+(đây là bản nháp của cô, thuộc lớp dữ liệu 1); tắt phân hệ thì API bị chặn nhưng
+dữ liệu còn nguyên; điểm danh và trang chủ không bị ảnh hưởng.
+
+**Còn lại — và đây mới là cổng DỪNG thật:** thử trên **iPhone thật và Android
+thật của cô giáo**, không dùng giả lập. Phép thử trượt ở đâu thì dừng lại bàn với
+người dùng, không lao tiếp sang GĐ 1. Lý do: toàn bộ GĐ 2 đứng trên giả định
+"ghi lại nhanh tới mức cô không thấy phiền". Giả định đó sai thì kế hoạch phải
+đổi, chứ không phải cố làm cho xong.
+
+> Điều cần biết trước khi thử trên iPhone: iOS **không** cho PWA gửi dữ liệu khi
+> app đang đóng. Bài ghi nằm an toàn trong máy và chỉ lên máy chủ vào lần cô mở
+> app kế tiếp. Đó là giới hạn của hệ điều hành, không phải lỗi — nhưng cô cần
+> được nói trước, và màn hình có ô "đang chờ gửi" để cô nhìn thấy điều đó.
 
 ### G0.4 — Chuyển mô hình lớp: một cô một lớp → nhiều cô một nhóm ⏳
 
@@ -94,10 +117,16 @@ Thay dữ liệu mẫu tiểu học bằng câu chuyện mầm non nhất quán:
 Học từ bản kế hoạch CASA (ở đó là bé Anna): dữ liệu mẫu rời rạc làm người xem
 không hình dung nổi app dùng thật ra sao.
 
-### G0.6 — Chạy toàn bộ kiểm thử ở kho mới ⏳
+### G0.6 — Con số kiểm thử hiện tại
 
-Chạy `npm test` và `npm run test:giao-dien` để biết **con số nền** của app 2
-trước khi sửa gì. Ghi lại kết quả ở đây.
+| Bộ | Số bài |
+|---|---|
+| `npm test` (không cần trình duyệt) | **972**, FAIL 0 |
+| trong đó `test:thuchup` (phân hệ mới) | 40 |
+| `npm run test:giao-dien` (cần Playwright) | 209 *(chưa chạy lại ở kho này)* |
+
+Nền lấy từ app 1 là 932 bài; app 2 hiện là 932 + 40 = 972. Con số này sẽ **giảm**
+khi gỡ các phân hệ riêng của tiểu học (mục N3) và **tăng** khi thêm phần mầm non.
 
 ---
 
@@ -122,3 +151,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | Ngày | Việc | Mục |
 |---|---|---|
 | 26/08/2026 | Nhân bản nền từ app 1, viết `CLAUDE.md` + bộ docs định hướng | G0.1, G0.2 |
+| 26/08/2026 | Phân hệ `thuchup` + 40 bài kiểm thử — phần mã của phép thử quyết định | G0.3 |

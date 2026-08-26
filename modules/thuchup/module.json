@@ -1,0 +1,13 @@
+{
+  "key": "thuchup",
+  "name": "Ghi nhanh",
+  "desc": "Phép thử GĐ 0: cô chụp ảnh và ghi một dòng về bé, máy tự bấm giờ",
+  "hash": "#/thuchup",
+  "view": "thuchup",
+  "emoji": "📸",
+  "bg": "linear-gradient(135deg,#5fb36a,#3d8f52)",
+  "api": ["/api/thuchup"],
+  "roles": ["teacher", "admin"],
+  "defaultEnabled": false,
+  "version": "0.1.0"
+}
