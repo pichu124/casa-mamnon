@@ -118,6 +118,29 @@ async function main() {
       children: [new TextRun({ text: 'Tạo lại tài liệu sau mỗi lần cập nhật app:  npm run tai-lieu:quy-trinh', size: 20, italics: true, color: XAM })] }),
     trang(),
 
+    // ---------- Cảnh báo: tài liệu này còn là của app 1 ----------
+    //
+    // Đặt NGAY TRANG ĐẦU phần nội dung, không nhét xuống cuối. Người cầm tệp Word
+    // này là người sắp dựng máy chủ thật — họ phải biết ngay từ dòng đầu rằng
+    // quy trình bên dưới viết cho trường tiểu học, chưa cập nhật cho mầm non.
+    h1('Trước khi đọc tiếp'),
+    chuY('Tài liệu này viết cho APP 1 — SchoolConnect, trường tiểu học — và được mang sang '
+      + 'cùng phần nền lúc tách kho cho CASA Mầm non. ĐỪNG làm theo nguyên văn cho app 2 '
+      + 'trước khi cập nhật.'),
+    p({ text: 'Còn dùng được: ', bold: true },
+      'quy trình chung — sao lưu hằng đêm, cập nhật bằng git pull, dựng dịch vụ tự bật lại, '
+      + 'cấu hình HTTPS. Phần này không phụ thuộc vào bậc học.'),
+    p({ text: 'KHÔNG còn đúng: ', bold: true },
+      'tên dịch vụ và thư mục "schoolconnect"; máy chủ thử trên Oracle Cloud; và cách gọi '
+      + '"học sinh / lớp / giáo viên chủ nhiệm" — app 2 nói "bé / nhóm lớp / cô".'),
+    p({ text: 'Chưa chốt: ', bold: true },
+      'app 2 chạy VPS đặt tại Việt Nam với tên miền đứng tên nhà trường. Nhà trường chưa '
+      + 'đăng ký hai thứ này, nên phần lớn Giai đoạn 3 bên dưới còn phải sửa lại theo nhà '
+      + 'cung cấp thật.'),
+    p('Việc cập nhật bộ tài liệu này được ghi là N1 trong docs/TIEN-DO.md. Nó chờ nhà trường '
+      + 'chốt nhà cung cấp VPS và tên miền — không có hai thứ đó thì viết ra cũng chỉ là đoán.'),
+    trang(),
+
     // ---------- Cách dùng + lộ trình ----------
     h1('Cách dùng tài liệu này'),
     p('Việc triển khai chia thành 7 giai đoạn, làm theo đúng thứ tự. Cuối mỗi giai đoạn có một bảng kiểm — ',

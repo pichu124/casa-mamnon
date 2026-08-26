@@ -461,7 +461,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 
 | # | Việc | Vì sao quan trọng | Làm ở |
 |---|---|---|---|
-| N1 | `docs/CAP-NHAT-MAY-CHU.md`, `docs/MAY-CHU-THU-ORACLE.md`, `docs/QUY-TRINH-TRIEN-KHAI.docx`, `docs/so-do-*.svg` vẫn mô tả **máy chủ Oracle của app 1** | Người triển khai app 2 đọc nhầm sẽ dựng sai chỗ. App 2 chạy VPS Việt Nam, trường đứng tên | Trước khi triển khai thật |
+| N1 | Bộ tài liệu triển khai vẫn mô tả **máy chủ của app 1** | **⏳ đã dán cảnh báo, chưa viết lại.** Cả 5 tệp (2 markdown, 1 html, 1 Word, + `docs/SAO-LUU.md`) nay mở đầu bằng một khối nói rõ phần nào còn dùng được, phần nào KHÔNG. **Viết lại thì phải chờ nhà trường chốt VPS và tên miền (N7)** — không có hai thứ đó thì viết ra cũng chỉ là đoán | Sau N7 |
 | N2 | `android/`, `capacitor.config.json`, `render.yaml` là vỏ đóng gói của app 1 | App 2 đã chốt chỉ làm PWA. Để nguyên thì vô hại nhưng gây hiểu nhầm | GĐ 1 |
 | N3 | Phân hệ riêng của tiểu học vẫn còn: `hocsinh-cu`, `namhoccu`, học bạ theo học kỳ, **nề nếp/thi đua có xếp hạng** | Xếp hạng trẻ **đi ngược QUY TẮC 4**. Tuyệt đối không để lọt sang màn hình mầm non | GĐ 1, gỡ theo đúng quy trình "bỏ tính năng" |
 | N4 | Chưa có tầng **cơ sở** (3 cơ sở) và vai **quản lý cơ sở** | Là mô hình thật của trường; càng để muộn càng phải sửa nhiều chỗ | GĐ 0/1 |
@@ -493,3 +493,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Script chữa cháy phân công cô: thu hồi quyền THẬT ở cả hai nơi, + 16 bài test | N8 |
 | 26/08/2026 | Bài canh QUY TẮC 4 kiểu bánh cóc — món nợ N3 thành con số máy đếm được | N6 |
 | 26/08/2026 | Chạy thật mà dữ liệu nằm trong kho mã → máy chủ DỪNG trước khi mở cổng | N5 |
+| 26/08/2026 | Dán cảnh báo "tài liệu này của app 1" lên cả 5 tệp triển khai | N1 (một phần) |

@@ -1,5 +1,21 @@
 # Hướng dẫn sao lưu và khôi phục
 
+> ## ⚠️ Tài liệu này viết cho APP 1, chưa cập nhật cho CASA Mầm non
+>
+> Nội dung bên dưới mô tả việc triển khai **SchoolConnect — trường tiểu học**, và
+> được mang sang cùng phần nền lúc tách kho. **Đừng làm theo nguyên văn cho app 2
+> trước khi cập nhật.**
+>
+> | | |
+> |---|---|
+> | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
+> | **KHÔNG** còn đúng | Tên dịch vụ và thư mục `schoolconnect`; máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
+> | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
+>
+> Việc cập nhật bộ tài liệu này là **N1** trong `docs/TIEN-DO.md`. Nó chờ nhà
+> trường chốt nhà cung cấp VPS và tên miền, vì không có hai thứ đó thì viết ra
+> cũng chỉ là đoán.
+
 Dữ liệu của trường gồm hai phần, đều nằm trong thư mục `DATA_DIR`:
 
 | Phần | Tệp | Ghi chú |
