@@ -343,6 +343,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | N8 | `scripts/sua-quyen-chu-nhiem.js` **chỉ dọn được cái gương**, không dọn `class_teachers` | Sau G0.4 quyền đi theo `class_teachers`. Chạy script khi có sự cố thật thì nó báo "đã sửa" mà cô **vẫn chưa nhận lại nhóm** cho tới lần khởi động lại kế tiếp. Đã ghi cảnh báo ngay trong tệp; cần bản dọn thẳng cho bảng mới | GĐ 1, ~nửa buổi |
 | N9 | Giao diện vẫn nói tiếng tiểu học: *học sinh, lớp, giáo viên chủ nhiệm, sĩ số* — **14/24 tệp trong `public/js/views/`**, khoảng 97 chỗ | Trái quy định gọi tên trong `CLAUDE.md`. Nên làm **trước khi trường nhìn thấy màn hình lần đầu**. Cố ý tách khỏi G0.4 vì trộn vào là commit không đọc nổi và không revert riêng được | Một commit riêng, trước GĐ 1 |
 | N10 | Chưa có bài test canh cách gọi tên (quét `public/` tìm "học sinh", "lớp học", "GVCN") | Không có nó thì N9 làm xong vẫn trôi ngược lại ở lần thêm màn hình sau. Cùng họ với bài test canh QUY TẮC 4 ở N6 | Cùng lúc với N9 |
+| N11 | Màn Chuyển năm học vẫn có ô **"Khối cuối cấp (học sinh khối này sẽ ra trường)"** | Từ G0.5, nhóm mầm non đi theo bậc (Chồi → Lá → vào lớp 1) và **bỏ qua hẳn ô này**. Hiệu trưởng gõ một con số vào đó rồi tưởng nó có tác dụng — ô điều khiển chết mà vẫn hiện là nguy hiểm hơn không có ô nào | Cùng lúc với N9 |
 
 ---
 
