@@ -271,14 +271,27 @@ console.log('\n[8b] N5 — chạy thật mà dữ liệu nằm TRONG kho mã th�
     !/đang chạy tại http/.test(chu), chu.slice(0, 200));
 
   // Không đặt NODE_ENV=production thì vẫn chạy thử được như thường, chỉ nhắc.
-  const thu = spawnSync('node', ['-e',
-    "process.env.DATA_DIR = process.argv[1]; require('./server.js');"], {
+  //
+  // DATA_DIR truyền qua `env`, KHÔNG qua `process.argv`. Bản đầu viết
+  // `process.env.DATA_DIR = process.argv[1]` mà không truyền tham số nào — với
+  // `node -e` thì argv[1] là `undefined`, Node ép thành CHUỖI "undefined", và
+  // máy chủ đẻ ra một thư mục `undefined/` ngay giữa kho mã. Bài này vẫn xanh,
+  // vì thư mục đó cũng nằm trong kho mã nên lời nhắc vẫn in ra. Xanh vì lý do
+  // sai còn nguy hơn đỏ: nó để lại `undefined/school.db` 520 KB với hồ sơ 8 bé
+  // nằm trong kho mã, và `.gitignore` giấu nó đi nên không ai thấy.
+  //
+  // `process.exit(0)` ngay sau `require`: lời nhắc in ra ĐỒNG BỘ trước
+  // `app.listen`, nên không cần chờ hết timeout mới đọc được.
+  const thu = spawnSync('node', ['-e', "require('./server.js'); process.exit(0);"], {
     cwd: GOC, encoding: 'utf8', timeout: 15000,
     env: { ...process.env, DATA_DIR: trongKho, PORT: '3182' },
   });
   check('chạy thử (không production) thì chỉ NHẮC, không chặn',
     /Dữ liệu đang nằm TRONG thư mục mã nguồn/.test(`${thu.stdout || ''}${thu.stderr || ''}`),
     `${thu.stdout || ''}${thu.stderr || ''}`.slice(0, 200));
+  check('bài này KHÔNG đẻ ra thư mục dữ liệu lạ trong kho mã',
+    !fs.existsSync(path.join(GOC, 'undefined')));
+
   fs.rmSync(path.join(trongKho, 'school.db'), { force: true });
   fs.rmSync(path.join(trongKho, 'school.db-wal'), { force: true });
   fs.rmSync(path.join(trongKho, 'school.db-shm'), { force: true });

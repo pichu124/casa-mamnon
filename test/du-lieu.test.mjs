@@ -13,7 +13,7 @@ import { createRequire } from 'module';
 import { GOC, taoBoDem, thuMucTam, donThuMucTam } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
-const { soiTep } = require(path.join(GOC, 'scripts', 'kiem-tra-du-lieu.js'));
+const { soiTep, quetKho } = require(path.join(GOC, 'scripts', 'kiem-tra-du-lieu.js'));
 const { check, tongKet } = taoBoDem();
 const git = (...a) => execFileSync('git', a, { cwd: GOC, encoding: 'utf8' });
 
@@ -141,5 +141,85 @@ console.log('\n[5] Bộ canh hỏng thì CHẶN, không cho qua');
   check('nói rõ vì sao chặn',
     /chặn commit để an toàn/i.test(kq.stdout + kq.stderr), (kq.stdout + kq.stderr).slice(0, 150));
 }
+
+console.log('\n[6] Tệp dữ liệu LẠC trong kho mã — thứ .gitignore giấu đi');
+{
+  // VÌ SAO CÓ MỤC NÀY
+  //
+  // Bốn mục trên đều canh đường vào git. Nhưng có một lối rò mà chúng không bao
+  // giờ thấy: tệp dữ liệu nằm ngay trong kho mã và bị .gitignore GIẤU ĐI. Nó
+  // không hiện trong `git status`, không vào commit nào — nên ai cũng tưởng là
+  // không có, kể cả người đang đi soát.
+  //
+  // Đã xảy ra thật ở kho này: một `undefined/school.db` 520 KB với hồ sơ 8 bé
+  // nằm im nhiều ngày, do một bài kiểm thử đặt DATA_DIR thành chuỗi "undefined".
+  // Cả `npm test` lẫn `git status` đều xanh trong suốt thời gian đó.
+  check('hiện tại kho mã sạch — không có tệp dữ liệu nào nằm lạc',
+    quetKho().length === 0, quetKho().map(d => `${d.tep} (${d.loai})`));
+
+  // Phép thử ngược: một bài canh luôn xanh là một bài canh vô dụng.
+  const kho = thuMucTam('quet-kho');
+  fs.mkdirSync(path.join(kho, 'undefined'), { recursive: true });
+  fs.writeFileSync(path.join(kho, 'undefined', 'school.db'), 'DỮ LIỆU CỦA BÉ');
+  fs.mkdirSync(path.join(kho, 'routes'), { recursive: true });
+  fs.writeFileSync(path.join(kho, 'routes', 'attendance.js'), 'module.exports = {};');
+  const bat = quetKho(kho);
+  check('bắt được cơ sở dữ liệu nằm ở thư mục lạ',
+    bat.length === 1 && bat[0].tep === 'undefined/school.db', bat);
+  check('KHÔNG bắt nhầm mã nguồn thường', !bat.some(d => d.tep.endsWith('.js')), bat);
+
+  // data/ được bỏ qua CÓ CHỦ Ý: đó là chỗ máy chủ tự đặt dữ liệu khi chạy thử
+  // không đặt DATA_DIR, và server.js đã có lời nhắc riêng cho nó. Mục này đi tìm
+  // thứ NẰM SAI CHỖ — thứ không ai chờ đợi nên không ai đi dọn.
+  fs.mkdirSync(path.join(kho, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(kho, 'data', 'school.db'), 'DỮ LIỆU CHẠY THỬ');
+  check('data/ được bỏ qua có chủ ý — server.js đã nhắc riêng chỗ đó',
+    quetKho(kho).length === 1, quetKho(kho));
+  donThuMucTam(kho);
+
+  // Chạy qua dòng lệnh cũng phải chặn được, vì đó là cách người ta dùng thật.
+  const kq = spawnSync('node',
+    [path.join(GOC, 'scripts', 'kiem-tra-du-lieu.js'), '--quet-kho'],
+    { cwd: GOC, encoding: 'utf8' });
+  check('lệnh --quet-kho chạy được và báo sạch', kq.status === 0,
+    (kq.stdout + kq.stderr).slice(0, 200));
+}
+
+console.log('\n[7] .dockerignore chặn đúng những gì .gitignore chặn');
+{
+  // VÌ SAO
+  //
+  // `docker build` KHÔNG đọc .gitignore. `COPY . .` đóng gói mọi thứ trong thư
+  // mục, kể cả tệp mà .gitignore đang giấu. Ảnh đó đẩy lên registry rồi kéo về
+  // mọi máy chủ — lộ rộng hơn cả đẩy nhầm lên GitHub, mà lại lặng lẽ hơn.
+  //
+  // Bản .dockerignore cũ chỉ chặn `data/db.json` và `data/sessions.json` của
+  // thời kho JSON. Từ khi chuyển sang SQLite, `data/school.db` KHÔNG bị chặn.
+  const chu = fs.readFileSync(path.join(GOC, '.dockerignore'), 'utf8');
+  const dong = chu.split('\n').map(d => d.trim()).filter(d => d && !d.startsWith('#'));
+
+  // Đúng những loại mà scripts/kiem-tra-du-lieu.js gọi là dữ liệu của trường.
+  const PHAI_CO = [
+    'data/*', '*.db', '*.db-wal', '*.db-shm', '*.sqlite', '*.sqlite3',
+    'uploads/', 'backups/', '.khoi-phuc-*', 'db.json*', 'sessions.json*',
+    '.env', '.env.*', '*.pem', '*.key', '*.p12',
+  ];
+  for (const mau of PHAI_CO) {
+    check(`chặn ${mau}`, dong.includes(mau), dong);
+  }
+  check('vẫn cho data/seed.js vào ảnh (đó là mã nguồn, không phải dữ liệu)',
+    dong.includes('!data/seed.js'), dong);
+
+  // Hai tệp phải nói cùng một chuyện. Quên đồng bộ là lối rò quay lại ngay.
+  const gitig = fs.readFileSync(path.join(GOC, '.gitignore'), 'utf8')
+    .split('\n').map(d => d.trim()).filter(d => d && !d.startsWith('#'));
+  const thieu = gitig
+    .filter(d => !d.startsWith('!'))
+    .filter(d => /\.db|\.sqlite|uploads|backups|khoi-phuc|db\.json|sessions\.json|\.env|\.pem|\.key|\.p12|jks|keystore/.test(d))
+    .filter(d => !dong.includes(d.replace(/^\//, '')));
+  check('mọi loại dữ liệu .gitignore chặn thì .dockerignore cũng chặn',
+    thieu.length === 0, thieu);
+}
+
 
 tongKet();

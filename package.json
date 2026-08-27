@@ -20,6 +20,7 @@
     "prepare": "node scripts/cai-hook.js",
     "test": "node test/du-lieu.test.mjs && node test/khe-uoc.test.mjs && node test/commit-rieng.test.mjs && node test/kiem-tra-may-chu.test.mjs && node test/lo-hong-da-va.test.mjs && node test/api.test.mjs && node test/bien-soan.test.mjs && node test/bao-mat.test.mjs && node test/mat-khau.test.mjs && node test/quan-tri.test.mjs && node test/nam-hoc.test.mjs && node test/nhom-lop.test.mjs && node test/goi-ten.test.mjs && node test/quy-tac-4.test.mjs && node test/tinh-nang.test.mjs && node test/thuchup.test.mjs && node test/co-lap-loi.test.mjs && node test/luoi-an-toan.test.mjs",
     "test:commit-rieng": "node scripts/kiem-tra-commit.js",
+    "test:quet-kho": "node scripts/kiem-tra-du-lieu.js --quet-kho",
     "test:du-lieu": "node scripts/kiem-tra-du-lieu.js",
     "kiem-tra-may-chu": "node scripts/kiem-tra-may-chu.js",
     "sua-quyen-chu-nhiem": "node scripts/sua-quyen-chu-nhiem.js",

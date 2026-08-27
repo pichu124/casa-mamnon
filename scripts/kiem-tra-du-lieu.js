@@ -21,8 +21,10 @@
 //   node scripts/kiem-tra-du-lieu.js                  # kiểm tra vùng đã `git add`
 //   node scripts/kiem-tra-du-lieu.js --khoang A..B    # kiểm tra mọi commit trong khoảng
 //   node scripts/kiem-tra-du-lieu.js --tep a b c      # kiểm tra một danh sách tệp
+//   node scripts/kiem-tra-du-lieu.js --quet-kho       # soi tệp dữ liệu LẠC trong kho mã
 'use strict';
 const { execFileSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const GOC = path.join(__dirname, '..');
@@ -87,6 +89,70 @@ ${dinh.map(d => `    ${d.tep}\n      → ${d.loai}`).join('\n')}
 `;
 }
 
+// ---------------------------------------------------------------------------
+// Soi tệp dữ liệu LẠC trong thư mục mã nguồn.
+//
+// Ba mục ở trên đều soi thứ đang chờ vào git. Nhưng có một loại nguy hiểm mà
+// chúng không bao giờ thấy: tệp dữ liệu nằm ngay trong kho mã và bị `.gitignore`
+// GIẤU ĐI. Nó không hiện trong `git status`, không vào commit nào — nên ai cũng
+// tưởng là không có. Trong khi đó:
+//
+//   • `docker build` không đọc `.gitignore`. `COPY . .` đóng gói nó vào ảnh.
+//   • `rsync`, `scp -r`, `tar czf` cả thư mục cũng mang nó đi theo.
+//   • Người tiếp quản mã `zip` cả thư mục gửi cho người khác.
+//
+// Đã xảy ra thật: một `undefined/school.db` 520 KB với hồ sơ 8 bé nằm trong kho
+// mã nhiều ngày, do một bài kiểm thử đặt `DATA_DIR` thành chuỗi "undefined".
+//
+// `data/` được BỎ QUA có chủ ý: đó là chỗ máy chủ tự đặt dữ liệu khi chạy thử
+// mà không đặt DATA_DIR, và `server.js` đã có lời nhắc riêng cho nó. Mục này
+// chỉ đi tìm thứ NẰM SAI CHỖ — thứ không ai chờ đợi nên không ai đi dọn.
+const BO_QUA_KHI_QUET = new Set(['node_modules', '.git', 'data', 'android']);
+
+function quetKho(goc = GOC) {
+  const dinh = [];
+  (function di(thuMuc, tienTo) {
+    let muc;
+    try { muc = fs.readdirSync(thuMuc, { withFileTypes: true }); }
+    catch { return; }
+    for (const m of muc) {
+      if (m.isSymbolicLink()) continue;
+      const duong = tienTo ? `${tienTo}/${m.name}` : m.name;
+      if (m.isDirectory()) {
+        if (BO_QUA_KHI_QUET.has(m.name)) continue;
+        di(path.join(thuMuc, m.name), duong);
+        continue;
+      }
+      if (NGOAI_LE.some(re => re.test(duong))) continue;
+      const loai = CAM.find(c => c.re.test(duong));
+      if (loai) dinh.push({ tep: duong, loai: loai.ten });
+    }
+  })(goc, '');
+  return dinh;
+}
+
+function bienBanKho(dinh) {
+  return `
+✗ Có tệp DỮ LIỆU nằm lạc trong thư mục mã nguồn:
+
+${dinh.map(d => `    ${d.tep}\n      → ${d.loai}`).join('\n')}
+
+  Những tệp này KHÔNG hiện trong \`git status\` vì .gitignore đã giấu chúng đi —
+  nên rất dễ tưởng là không có. Nhưng \`docker build\` không đọc .gitignore, và
+  \`rsync\`/\`tar\`/\`zip\` cả thư mục thì mang chúng đi theo.
+
+  Xem chúng chứa gì rồi xóa:
+
+    ls -la ${[...new Set(dinh.map(d => path.dirname(d.tep)))].join(' ')}
+    rm -rf ${[...new Set(dinh.map(d => d.tep.split('/')[0]))].join(' ')}
+
+  Nếu đó là dữ liệu CẦN GIỮ, chuyển ra ngoài kho mã trước khi xóa. Khi chạy
+  thật, hãy để dữ liệu nằm hẳn ngoài thư mục mã nguồn:
+
+    DATA_DIR=/var/lib/casa-mamnon npm start
+`;
+}
+
 function main(argv) {
   const cf = (ten) => { const i = argv.indexOf(ten); return i >= 0 ? argv[i + 1] : null; };
   const danhSachTep = argv.indexOf('--tep');
@@ -96,6 +162,13 @@ function main(argv) {
     const dinh = soiTep(argv.slice(danhSachTep + 1).filter(f => !f.startsWith('--')));
     if (dinh.length) { console.error(bienBan(dinh, 'Danh sách tệp này')); return 1; }
     console.log('✓ Không có tệp dữ liệu nào trong danh sách.');
+    return 0;
+  }
+
+  if (argv.includes('--quet-kho')) {
+    const dinh = quetKho();
+    if (dinh.length) { console.error(bienBanKho(dinh)); return 1; }
+    console.log('✓ Không có tệp dữ liệu nào nằm lạc trong kho mã.');
     return 0;
   }
 
@@ -121,7 +194,7 @@ function main(argv) {
   return 0;
 }
 
-module.exports = { soiTep, CAM, NGOAI_LE };
+module.exports = { soiTep, quetKho, CAM, NGOAI_LE };
 
 if (require.main === module) {
   try {

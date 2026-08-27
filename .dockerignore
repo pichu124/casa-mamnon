@@ -1,8 +1,59 @@
+# ---------------------------------------------------------------------------
+# Ảnh Docker KHÔNG BAO GIỜ được mang dữ liệu của trường theo.
+#
+# VÌ SAO TỆP NÀY QUAN TRỌNG NGANG .gitignore
+#
+# `.gitignore` chặn dữ liệu lên GitHub, nhưng nó KHÔNG chặn `docker build`.
+# Docker đọc `.dockerignore`, không đọc `.gitignore`. Nghĩa là một tệp bị
+# `.gitignore` giấu đi — không hiện trong `git status`, không ai nhìn thấy —
+# vẫn được `COPY . .` đóng gói nguyên vẹn vào ảnh, rồi theo ảnh đó lên registry
+# và sang mọi máy chủ kéo ảnh về.
+#
+# Đúng chuyện đó đã suýt xảy ra: một `undefined/school.db` 520 KB với hồ sơ 8 bé
+# nằm trong kho mã nhiều ngày. `.gitignore` giấu nó nên không ai thấy; bản
+# `.dockerignore` cũ chỉ chặn `data/db.json` và `data/sessions.json` của thời
+# kho JSON, nên `docker build` sẽ đóng gói nó vào ảnh.
+#
+# Danh sách dưới đây giữ ĐỒNG BỘ với `.gitignore`. `test/du-lieu.test.mjs`
+# đối chiếu hai tệp và báo đỏ nếu tệp này thiếu mất một loại.
+# ---------------------------------------------------------------------------
+
+# Thứ không cần trong ảnh
 node_modules
 npm-debug.log
 .git
 .gitignore
-data/db.json
-data/sessions.json
 *.log
 .DS_Store
+
+# --- Dữ liệu của trường -----------------------------------------------------
+# Chặn cả thư mục data/ rồi mở lại đúng tệp thuộc về mã nguồn, giống .gitignore:
+# một tệp dữ liệu mang tên lạ trong tương lai vẫn tự động bị chặn.
+data/*
+!data/seed.js
+
+# Dữ liệu nằm ở nơi khác cũng chặn — kể cả thư mục sinh ra do đặt DATA_DIR sai.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+uploads/
+backups/
+.khoi-phuc-*
+db.json*
+sessions.json*
+
+# --- Bí mật -----------------------------------------------------------------
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# --- Android/Capacitor: ảnh máy chủ không cần ---------------------------------
+android/
+*.apk
+*.aab
+*.jks
+*.keystore
