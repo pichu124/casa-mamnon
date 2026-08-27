@@ -88,7 +88,10 @@ console.log('\n[1] Promise bị bỏ quên → app chạy tiếp, chỉ ghi log'
   check('tiến trình VẪN SỐNG', maThoat === null, maThoat);
   const song = await fetch(BASE + '/healthz').then(x => x.ok).catch(() => false);
   check('máy chủ vẫn trả lời', song);
-  const khac = await fetch(BASE + '/api/remarks?studentId=s1', { headers: { Cookie: P } });
+  // Dùng Y tế làm phép thử "phân hệ khác vẫn chạy", KHÔNG dùng Nhận xét: Nhận
+  // xét nay tắt sẵn (A2) nên nó trả 404 vì ĐANG TẮT chứ không phải vì HỎNG — hai
+  // chuyện khác hẳn, và một phép thử không phân biệt được chúng thì vô nghĩa.
+  const khac = await fetch(BASE + '/api/health?studentId=s1', { headers: { Cookie: P } });
   check('các phân hệ khác vẫn dùng bình thường', khac.status === 200, khac.status);
 
   const log = doiLog();

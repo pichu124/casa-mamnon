@@ -7,10 +7,10 @@ import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHR
 
 const DIR = thuMucTam('bien-soan-giao-dien');
 sinhDuLieu(DIR);
-// Bộ này soi màn "Soạn báo cáo" và màn ghi nhận Nề nếp — hai phân hệ nay tắt
-// sẵn (N3). Bật tường minh: đường soạn của chúng phải vẫn đúng vào lúc nhà
-// trường bật lại.
-batPhanHe(DIR, ['baocao', 'nenep']);
+// Bộ này soi màn "Soạn báo cáo", màn ghi nhận Nề nếp và màn Viết nhận xét — ba
+// phân hệ nay tắt sẵn (N3 · A2). Bật tường minh: đường soạn của chúng phải vẫn
+// đúng vào lúc nhà trường bật lại.
+batPhanHe(DIR, ['baocao', 'nenep', 'nhanxet']);
 const mkTam = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3950), dir: DIR });
 

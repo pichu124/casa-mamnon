@@ -3,7 +3,7 @@
 // Chạy bằng:  npm run test:nam-hoc
 import fs from 'fs';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, batPhanHe } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3600);
 const BASE = `http://localhost:${PORT}`;
@@ -13,6 +13,10 @@ let pass = 0, fail = 0; const errs = [];
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✓', n); } else { fail++; errs.push(`${n} ${x != null ? JSON.stringify(x).slice(0,250) : ''}`); console.log('  ✗', n, x ?? ''); } };
 
 execSync('node data/seed.js --force', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } });
+// Bài này dùng Nhận xét làm bằng chứng "dữ liệu cũ KHÔNG mất khi chuyển năm".
+// Nhận xét nay tắt sẵn (A2), nhưng dữ liệu của nó vẫn còn nguyên — đó chính là
+// điều đang cần chứng minh. Bật tường minh để hỏi được nó.
+batPhanHe(DIR, ['nhanxet']);
 const out = execSync('node scripts/create-admin.js "Hiệu Trưởng" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const adminPw = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
 

@@ -579,7 +579,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1301**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1307**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **245**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -637,6 +637,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | ~~N11~~ | ~~Ô "Khối cuối cấp" là ô điều khiển chết~~ | **✅ xong** — máy chủ trả thêm cờ `theoBac`, màn hình giấu hẳn ô đó khi mọi nhóm đi theo bậc | 26/08/2026 |
 | N13 | **Lần triển khai đầu tiên lên Render là một vòng kẹt** | Ổ đĩa mới là ổ trống; `NODE_ENV=production` + CSDL trống → máy chủ dừng có chủ ý (đúng). Nhưng Shell của Render chỉ mở được khi dịch vụ đang chạy → không tạo được tài khoản quản trị → dịch vụ không bao giờ chạy. **Đã viết thẳng vòng kẹt và hai đường ra vào `render.yaml`**, chưa vá bằng mã: cách vá (nhận tài khoản quản trị đầu tiên qua biến môi trường) là quyết định về triển khai, mà nơi triển khai còn chờ N7 | Sau N7 |
 | N14 | `docs/` vẫn ghi `/var/lib/schoolconnect`, `scripts/` nay ghi `/var/lib/casa-mamnon` | Người vận hành làm theo lời nhắc của máy chủ rồi chạy script theo lời nhắc của tài liệu — script mở một CSDL TRỐNG và báo "mọi thứ đều sạch". Trấn an sai còn tệ hơn báo lỗi. `scripts/` đã thống nhất và có bài canh; `docs/` để nguyên vì đang mang cảnh báo "chưa cập nhật cho app 2" (N1) — sửa đường dẫn trong đó là làm nó TRÔNG như đã cập nhật | Cùng N1 |
+| **A2** | Nhà trường không dùng **Nhận xét hàng ngày** và **Xe buýt** | **✅ xong 27/08** — tắt sẵn, dữ liệu giữ nguyên, bật lại được. Cùng cách với N3. Chỗ của Nhận xét hàng ngày ở app 2 do **Ghi nhanh** thay, mà Ghi nhanh làm việc khác hẳn: cô mô tả điều **đã thấy**, không phán xét (QUY TẮC 1) | 27/08/2026 |
 | ~~N12~~ | ~~Phân hệ vẫn tên là "Thời khóa biểu" trong khi ruột đã là lịch sinh hoạt một ngày~~ | **✅ xong** — nhà trường chốt đổi thành **"Lịch sinh hoạt"**, và bỏ luôn chữ *"tiết"* bên trong ("Thứ 2 — hoạt động từng mốc"). Thêm hai từ vào `test:goi-ten` để tên cũ không trôi ngược; biểu thức tự chừa *"chi tiết"*, *"tiết kiệm"*, *"tiết mục"* thay vì mở ngoại lệ — ngoại lệ chừa CẢ DÒNG, dễ chừa lây chữ sai nằm cạnh | 27/08/2026 |
 
 ---
@@ -683,3 +684,5 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Tầng cơ sở **bước 2/3**: khai báo, gắn nhóm, dữ liệu mẫu ba cơ sở | N4 |
 | 27/08/2026 | Tầng cơ sở **bước 3/3**: đường quyền cách ly thật sự các cơ sở (+36 bài) | N4 |
 | 27/08/2026 | Gán tài khoản quản trị vào cơ sở, kèm hai chốt chặn không cho tự khoá cửa | N4 |
+| 27/08/2026 | Lứa tuổi thật của trường: **12 tháng – 6 tuổi**, không phải 2–6 | A1 |
+| 27/08/2026 | **TẮT SẴN** Nhận xét hàng ngày và Xe buýt (**nhà trường quyết**) | A2 |

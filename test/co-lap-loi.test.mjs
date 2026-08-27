@@ -92,7 +92,7 @@ async function phanConLaiVanChay(nhan) {
   check(`${nhan}: giáo viên vẫn đăng nhập được`, gv.status === 200, gv.status);
   const c = ph.cookie;
   for (const [ten, duong] of [['học sinh', '/api/students'], ['điểm danh', '/api/attendance?studentId=s1'],
-    ['nhận xét', '/api/remarks?studentId=s1'], ['thông báo', '/api/notifications'],
+    ['y tế', '/api/health?studentId=s1'], ['thông báo', '/api/notifications'],
     ['thực đơn', '/api/menu'], ['album', '/api/albums']]) {
     const r = await req('GET', duong, { cookie: c });
     check(`${nhan}: ${ten} vẫn dùng được`, r.status === 200, r.status);
@@ -187,8 +187,9 @@ console.log('\n[5] Phân hệ mới đăng ký lạc ra ngoài vùng của nó t
   await khoiDongLai();
   check('nhật ký nêu rõ vì sao bị chặn', /chỉ được đăng ký đường dẫn/.test(nhatKy), nhatKy.slice(-400));
   const ph = await login('phuhuynh', '123456');
-  const nx = await req('GET', '/api/remarks?studentId=s1', { cookie: ph.cookie });
-  check('nhận xét vẫn trả dữ liệu thật của phần lõi', nx.status === 200 && Array.isArray(nx.data), nx.data?.length);
+  const nx = await req('GET', '/api/health?studentId=s1', { cookie: ph.cookie });
+  check('phân hệ lõi vẫn trả dữ liệu thật của nó',
+    nx.status === 200 && Array.isArray(nx.data?.records), nx.data);
   check('phân hệ lạc đường bị đánh dấu lỗi, không hiện ra',
     !(await req('GET', '/api/modules', { cookie: ph.cookie })).data.some(m => m.key === 'lacduong'));
   await phanConLaiVanChay('lạc đường');
@@ -239,14 +240,24 @@ console.log('\n[8] Trở về nguyên trạng — mọi thứ chạy lại đầ
   check('không còn tính năng nào bị đánh dấu lỗi', !/không nạp được/.test(nhatKy), nhatKy.slice(-300));
   const ph = await login('phuhuynh', '123456');
   const ds = await req('GET', '/api/modules', { cookie: ph.cookie });
-  check('đủ 16 tính năng lõi trở lại', ds.data.length >= 16, ds.data?.length);
+  // 16 phân hệ lõi, trong đó BỐN cái tắt sẵn theo quyết định của nhà trường —
+  // Nề nếp, Báo cáo (N3), Nhận xét, Xe buýt (A2) — nên phụ huynh thấy 12, cộng
+  // các phân hệ cắm thêm đang bật. Đếm "còn đủ" ở đây là đếm cái CÒN BẬT.
+  check('đủ số tính năng lõi đang bật trở lại', ds.data.length >= 12, ds.data?.length);
   // Dùng Nhận xét làm phép thử, không dùng Nề nếp: Nề nếp nay TẮT SẴN (N3) nên
   // nó trả 404 vì đang tắt chứ không phải vì hỏng — hai chuyện khác hẳn, và một
   // phép thử không phân biệt được chúng thì không nói lên điều gì.
-  const ne = await req('GET', '/api/remarks?studentId=s1', { cookie: ph.cookie });
+  const ne = await req('GET', '/api/health?studentId=s1', { cookie: ph.cookie });
   check('tính năng từng bị phá nay chạy lại bình thường', ne.status === 200, ne.status);
-  const bus = await req('GET', '/api/bus', { cookie: ph.cookie });
-  check('tính năng từng bị gỡ nay chạy lại bình thường', bus.status === 200, bus.status);
+  // Phân hệ bị gỡ tệp ở mục [3] là Xe buýt, mà Xe buýt nay TẮT SẴN (A2) nên nó
+  // trả 404 vì đang tắt chứ không phải vì thiếu tệp. Hỏi thẳng danh sách phân hệ
+  // thay vì hỏi đường dẫn: điều cần chứng minh là máy chủ đã NHẬN LẠI tệp route,
+  // không phải là phân hệ đó đang bật.
+  const dsQt = (await req('GET', '/api/modules', { cookie: ph.cookie })).data;
+  check('tính năng từng bị gỡ nay KHÔNG còn bị đánh dấu lỗi',
+    !dsQt.some(m => m.key === 'xebuyt' && m.loi), dsQt.find(m => m.key === 'xebuyt'));
+  check('nhật ký không còn báo thiếu tệp routes/bus.js',
+    !/thiếu tệp routes\/bus\.js/.test(nhatKy), nhatKy.slice(-300));
   await phanConLaiVanChay('nguyên trạng');
 }
 

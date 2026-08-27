@@ -178,9 +178,10 @@ console.log('\n[4b] Quản trị: biết mình là ai, và biết đang xem hồ
   check('KHÔNG còn ghi cô hiệu trưởng là "Phụ huynh"',
     !/Phụ huynh/.test(trangChu.split('\n').slice(0, 6).join('\n')), trangChu.slice(0, 200));
 
-  // Dùng Sức khỏe thay cho Nề nếp: Nề nếp nay TẮT SẴN (N3) nên màn của nó chỉ
-  // hiện "Phân hệ này đang được nhà trường tắt" — không còn soi được ô chọn bé.
-  for (const [duong, ten] of [['/#/student', 'Hồ sơ bé'], ['/#/remarks', 'Nhận xét'], ['/#/health', 'Sức khỏe']]) {
+  // Ba màn này đều là màn MỘT BÉ và đều đang bật. Nề nếp và Nhận xét từng nằm ở
+  // đây nhưng nay TẮT SẴN (N3 · A2) nên chỉ hiện "Phân hệ đang được nhà trường
+  // tắt" — soi ô chọn bé trên một màn đang tắt là soi nhầm chỗ.
+  for (const [duong, ten] of [['/#/student', 'Hồ sơ bé'], ['/#/health', 'Sức khỏe'], ['/#/leave', 'Xin phép']]) {
     await mo(duong);
     const chu = await chuTrenMan();
     check(`${ten}: có ô chọn bé, không còn đoán bé nào`,

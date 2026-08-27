@@ -74,7 +74,9 @@ await page.goto(BASE + '/#/', { waitUntil: 'networkidle' });
 await page.waitForTimeout(800);
 const nhan = await page.locator('.tile-label').allTextContents();
 check('biểu tượng Thực đơn biến khỏi màn hình chính', !nhan.includes('Thực đơn'), nhan);
-check('các biểu tượng khác vẫn còn nguyên', nhan.includes('Điểm danh') && nhan.includes('Nhận xét'), nhan);
+// Dùng Sức khỏe thay Nhận xét: Nhận xét nay tắt sẵn (A2) nên biểu tượng của nó
+// vốn đã không có trên màn hình chính — hỏi nó ở đây là hỏi nhầm.
+check('các biểu tượng khác vẫn còn nguyên', nhan.includes('Điểm danh') && nhan.includes('Sức khỏe'), nhan);
 await page.screenshot({ path: SHOT + '03-trangchu-thieu-thucdon.png', fullPage: true });
 
 console.log('\n[3] Vào thẳng đường dẫn đã tắt');

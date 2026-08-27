@@ -87,7 +87,7 @@ console.log('\n[2] Tắt một phân hệ — chặn cả API chứ không chỉ
   check('phân hệ đã tắt biến khỏi danh sách của người dùng',
     !list.data.some(m => m.key === 'diemdanh'), list.data?.map(m => m.key));
 
-  const khac = await req('GET', '/api/remarks?studentId=s1', { cookie: P });
+  const khac = await req('GET', '/api/health?studentId=s1', { cookie: P });
   check('các phân hệ khác KHÔNG bị ảnh hưởng', khac.status === 200, khac.status);
   const auth = await req('GET', '/api/auth/me', { cookie: P });
   check('đăng nhập và hệ thống vẫn chạy bình thường', auth.status === 200, auth.status);
@@ -214,7 +214,7 @@ console.log('\n[9] Phân hệ hỏng không làm sập ứng dụng');
   check('máy chủ vẫn khởi động được dù có phân hệ hỏng', A3.status === 200, A3.status);
   const P3 = (await login('phuhuynh', '123456')).cookie;
   check('người dùng vẫn đăng nhập bình thường', !!P3);
-  check('các phân hệ khác vẫn chạy', (await req('GET', '/api/remarks?studentId=s1', { cookie: P3 })).status === 200);
+  check('các phân hệ khác vẫn chạy', (await req('GET', '/api/health?studentId=s1', { cookie: P3 })).status === 200);
   const adm = await req('GET', '/api/admin/modules', { cookie: A3.cookie });
   const loi = adm.data.find(m => m.key === 'loithu');
   check('quản trị thấy phân hệ hỏng và lý do', !!loi?.loi, loi);
@@ -224,7 +224,7 @@ console.log('\n[9] Phân hệ hỏng không làm sập ứng dụng');
   fs.rmSync(xau, { recursive: true, force: true });
 }
 
-console.log('\n[10] Nề nếp và Báo cáo TẮT SẴN, nhưng dữ liệu còn nguyên (N3)');
+console.log('\n[10] Bốn phân hệ TẮT SẴN, nhưng dữ liệu còn nguyên (N3 · A2)');
 {
   // VÌ SAO CÓ MỤC NÀY
   //
@@ -242,15 +242,21 @@ console.log('\n[10] Nề nếp và Báo cáo TẮT SẴN, nhưng dữ liệu cò
   const co = (k) => ds.some((m) => m.key === k);
   check('phụ huynh KHÔNG thấy ô Nề nếp trên trang chủ', !co('nenep'), ds.map((m) => m.key));
   check('phụ huynh KHÔNG thấy ô Báo cáo trên trang chủ', !co('baocao'), ds.map((m) => m.key));
+  check('phụ huynh KHÔNG thấy ô Nhận xét trên trang chủ', !co('nhanxet'), ds.map((m) => m.key));
+  check('phụ huynh KHÔNG thấy ô Xe buýt trên trang chủ', !co('xebuyt'), ds.map((m) => m.key));
 
   // Giấu ô mà vẫn gọi được API thì chưa gọi là tắt.
   check('API Nề nếp bị chặn, không chỉ ẩn biểu tượng',
     (await req('GET', '/api/conduct?studentId=s1', { cookie: P })).status === 404);
   check('API Báo cáo bị chặn, không chỉ ẩn biểu tượng',
     (await req('GET', '/api/reports?studentId=s1', { cookie: P })).status === 404);
+  check('API Nhận xét bị chặn, không chỉ ẩn biểu tượng',
+    (await req('GET', '/api/remarks?studentId=s1', { cookie: P })).status === 404);
+  check('API Xe buýt bị chặn, không chỉ ẩn biểu tượng',
+    (await req('GET', '/api/bus', { cookie: P })).status === 404);
 
   // Các phân hệ khác không được đi theo.
-  check('phân hệ khác vẫn bật bình thường', co('diemdanh') && co('nhanxet') && co('album'),
+  check('phân hệ khác vẫn bật bình thường', co('diemdanh') && co('yte') && co('album'),
     ds.map((m) => m.key));
 
   // Quản trị vẫn thấy chúng trong danh sách để bật lại — tắt mà biến mất khỏi

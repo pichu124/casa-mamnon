@@ -15,11 +15,11 @@ const { check, tongKet } = taoBoDem();
 
 const DIR = thuMucTam('lo-hong');
 sinhDuLieu(DIR);
-// Mục [19] canh một lỗ hổng ĐÃ VÁ bên trong phân hệ Nề nếp — phân hệ nay tắt
-// sẵn (N3, nó xếp trẻ trên dưới nhau). Lỗ hổng đó KHÔNG biến mất chỉ vì phân hệ
-// đang tắt: nhà trường bật lại là nó quay về. Nên bật tường minh ở đây, và bài
-// canh giữ nguyên từng chữ.
-batPhanHe(DIR, ['nenep']);
+// Mục [13] và [19] canh những lỗ hổng ĐÃ VÁ bên trong hai phân hệ nay TẮT SẴN —
+// Nề nếp (N3, nó xếp trẻ trên dưới nhau) và Nhận xét (A2, nhà trường không
+// dùng). Lỗ hổng đó KHÔNG biến mất chỉ vì phân hệ đang tắt: nhà trường bật lại
+// là nó quay về. Nên bật tường minh ở đây, và bài canh giữ nguyên từng chữ.
+batPhanHe(DIR, ['nenep', 'nhanxet']);
 const { BASE, dung } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3170), dir: DIR });
 const req = taoReq(BASE);
 const login = taoLogin(req);
