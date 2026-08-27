@@ -51,9 +51,6 @@ sessions.json*
 *.key
 *.p12
 
-# --- Android/Capacitor: ảnh máy chủ không cần ---------------------------------
-android/
-*.apk
-*.aab
+# --- Khóa ký: không bao giờ vào ảnh ------------------------------------------
 *.jks
 *.keystore

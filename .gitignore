@@ -34,13 +34,10 @@ node_modules/
 *.log
 .DS_Store
 
-# Android/Capacitor: giữ mã nguồn project, bỏ file build sinh ra
-.gradle/
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-*.apk
-*.aab
+# Khóa ký ứng dụng. App 2 chỉ làm PWA nên không còn sinh ra thứ này (N2 đã gỡ
+# vỏ Android), nhưng GIỮ mấy dòng dưới đây: chặn một loại tệp không bao giờ được
+# lên kho mã thì không có lý do gì phải bỏ đi, và `scripts/kiem-tra-du-lieu.js`
+# vẫn canh đúng mẫu này.
 *.jks
 *.keystore
+*.p12

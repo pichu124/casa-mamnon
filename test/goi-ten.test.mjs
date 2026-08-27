@@ -119,12 +119,6 @@ const NGOAI_LE = [
     vi_sao: 'Cùng lý do: nhận vào thì rộng, xuất ra thì đúng.',
   },
   {
-    tep: 'scripts/prepare-mobile.js',
-    vi_sao: 'Vỏ đóng gói Android/Capacitor của app 1. App 2 đã chốt CHỈ làm PWA và '
-      + 'cả thư mục này nằm trong món nợ N2 chờ gỡ. Đổi tên trong một thứ sắp bỏ là '
-      + 'làm nó trông như đang được dùng — nguy hiểm hơn để nguyên.',
-  },
-  {
     tu: 'SchoolConnect',
     re: /TEN_DICH_VU|SchoolConnect-SaoLuu/,
     vi_sao: 'Chỗ NHẬN DIỆN lịch sao lưu trên máy chủ. Máy dựng theo quy trình app 1 '

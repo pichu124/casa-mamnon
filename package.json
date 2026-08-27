@@ -6,10 +6,6 @@
   "scripts": {
     "start": "node server.js",
     "seed": "node data/seed.js --force",
-    "mobile:prepare": "node scripts/prepare-mobile.js",
-    "mobile:sync": "npx cap sync android",
-    "mobile:icons": "npx @capacitor/assets generate --android --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#4f46e5' --splashBackgroundColorDark '#0a0e1a'",
-    "mobile:apk": "cd android && ./gradlew assembleDebug",
     "migrate": "node scripts/migrate-json-to-sqlite.js",
     "backup": "node scripts/backup.js",
     "backup:list": "node scripts/backup.js --list",
@@ -54,14 +50,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@capacitor/android": "^8.5.0",
-    "@capacitor/core": "^8.5.0",
     "better-sqlite3": "12.11.1",
     "express": "^5.2.1"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^8.5.0",
     "playwright": "^1.62.1",
     "docx": "^9.5.0"
   }

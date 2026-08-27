@@ -46,15 +46,18 @@ console.log('\n[1] A1 — màn hình đăng nhập không được lộ tài kho
   check('KHÔNG còn khối "Tài khoản dùng thử"', !/Tài khoản dùng thử/.test(ma));
   check('vẫn còn biểu mẫu đăng nhập bình thường', /lg-user/.test(ma) && /lg-pass/.test(ma));
 
-  // Bản dùng cho ứng dụng Android là một bản sao riêng — sửa bản web mà quên bản
-  // này thì điện thoại đã cài vẫn hiện nguyên hai nút đó.
-  const web = fs.readFileSync(path.join(GOC, 'public/js/views/login.js'), 'utf8');
-  const apk = path.join(GOC, 'android/app/src/main/assets/public/js/views/login.js');
-  if (fs.existsSync(apk)) {
-    check('bản Android khớp đúng bản web', fs.readFileSync(apk, 'utf8') === web);
-  } else {
-    check('bản Android khớp đúng bản web', true, 'không có thư mục android, bỏ qua');
-  }
+  // App 1 đóng gói kèm một BẢN SAO RIÊNG của toàn bộ `public/` cho ứng dụng
+  // Android. Bản sao đó là chỗ rò kinh điển: sửa bản web mà quên bản kia thì
+  // điện thoại đã cài vẫn hiện nguyên hai nút đăng nhập nhanh kèm mật khẩu mẫu.
+  //
+  // App 2 đã chốt CHỈ làm PWA và gỡ hẳn vỏ Android (N2), nên cách canh đúng
+  // không còn là "hai bản phải khớp nhau" mà là "KHÔNG được có bản thứ hai".
+  // Bản trước tự bỏ qua khi thiếu thư mục — tức nó thành một check luôn xanh
+  // đúng vào lúc nó hết việc để làm.
+  check('KHÔNG còn bản sao thứ hai của giao diện để mà lệch nhau',
+    !fs.existsSync(path.join(GOC, 'android')));
+  check('và cũng không còn cấu hình đóng gói của app 1',
+    !fs.existsSync(path.join(GOC, 'capacitor.config.json')));
 }
 
 // ===========================================================================
