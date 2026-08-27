@@ -222,4 +222,49 @@ console.log('\n[7] .dockerignore chặn đúng những gì .gitignore chặn');
 }
 
 
+console.log('\n[8] Mọi chỗ đều chỉ về CÙNG MỘT thư mục dữ liệu');
+{
+  // VÌ SAO
+  //
+  // Người vận hành đọc lời nhắc của `server.js`, tạo `/var/lib/casa-mamnon`,
+  // rồi chạy một script khác mà phần hướng dẫn của nó ghi
+  // `/var/lib/schoolconnect`. Kết quả: script mở một cơ sở dữ liệu TRỐNG và
+  // báo mọi thứ đều sạch. Nhầm lẫn này xảy ra đúng lúc đang chữa cháy, và nó
+  // trấn an sai — tệ hơn là báo lỗi.
+  const nguon = ['server.js', ...fs.readdirSync(path.join(GOC, 'scripts'))
+    .filter(f => f.endsWith('.js'))
+    // scripts/xuat-quy-trinh.js là NỘI DUNG tài liệu triển khai của app 1, đã
+    // dán cảnh báo "chưa cập nhật cho app 2" ở trang đầu (N1). Sửa đường dẫn
+    // trong đó là làm nó TRÔNG như đã cập nhật trong khi quy trình thì chưa.
+    .filter(f => f !== 'xuat-quy-trinh.js')
+    .map(f => `scripts/${f}`)];
+
+  const thay = new Map();
+  for (const tep of nguon) {
+    const chu = fs.readFileSync(path.join(GOC, tep), 'utf8');
+    for (const m of chu.matchAll(/\/var\/lib\/([a-z0-9-]+)/g)) {
+      if (!thay.has(m[1])) thay.set(m[1], []);
+      if (!thay.get(m[1]).includes(tep)) thay.get(m[1]).push(tep);
+    }
+  }
+  check('máy chủ và mọi script chỉ nói về đúng một thư mục dữ liệu',
+    thay.size <= 1, [...thay].map(([ten, ts]) => `${ten}: ${ts.join(', ')}`));
+  check('và đó là thư mục mang tên app 2', thay.size === 0 || thay.has('casa-mamnon'),
+    [...thay.keys()]);
+}
+
+console.log('\n[9] Lệnh chuyển dữ liệu ra ngoài KHÔNG được cuốn theo mã nguồn');
+{
+  // `mv <DATA_DIR>/* <đích>/` là lệnh trông thì gọn, nhưng khi DATA_DIR là
+  // `data/` trong kho mã thì nó cuốn luôn `data/seed.js` — tệp mã nguồn duy
+  // nhất nằm trong đó. Người vận hành làm theo lời nhắc, và tự tay làm hỏng
+  // kho mã ngay giữa lúc đang sửa một chuyện khác.
+  const chu = fs.readFileSync(path.join(GOC, 'server.js'), 'utf8');
+  check('không mách lệnh `mv .../data/*`', !/mv \$\{db\.DATA_DIR\}\/\*/.test(chu),
+    (chu.match(/.*mv .*/g) || []).slice(0, 4));
+  check('vẫn có mách lệnh chuyển tệp cũ sang', /mv \$\{db\.DATA_DIR\}\//.test(chu));
+  check('nói rõ vì sao phải chuyển đích danh', /seed\.js/.test(chu));
+}
+
+
 tongKet();

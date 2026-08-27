@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Rà và dọn quan hệ "giáo viên chủ nhiệm ↔ lớp" bị ghi lệch.
 //
-//   DATA_DIR=/var/lib/schoolconnect npm run sua-quyen-chu-nhiem          # chỉ xem, không sửa
-//   DATA_DIR=/var/lib/schoolconnect npm run sua-quyen-chu-nhiem -- --sua # sửa thật
+//   DATA_DIR=/var/lib/casa-mamnon npm run sua-quyen-chu-nhiem          # chỉ xem, không sửa
+//   DATA_DIR=/var/lib/casa-mamnon npm run sua-quyen-chu-nhiem -- --sua # sửa thật
 //
 // VÌ SAO CÓ SCRIPT NÀY
 //

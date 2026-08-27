@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Kiểm tra một BẢN CÀI ĐẶT ĐANG CHẠY của SchoolConnect.
 //
-//   DATA_DIR=/var/lib/schoolconnect npm run kiem-tra-may-chu
-//   DATA_DIR=/var/lib/schoolconnect npm run kiem-tra-may-chu -- --ten-mien=lienlac.truong.vn
+//   DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
+//   DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu -- --ten-mien=lienlac.truong.vn
 //
 // VÌ SAO CẦN BỘ NÀY, TRONG KHI ĐÃ CÓ 760 BÀI KIỂM THỬ
 //
@@ -93,7 +93,7 @@ kiem('Vị trí dữ liệu', () => {
     canSua('Vị trí dữ liệu',
       `${DATA_DIR} nằm TRONG kho mã. Một lần "git add -A" theo thói quen là hồ sơ của bé lên GitHub.`,
       'Chuyển dữ liệu ra ngoài rồi khởi động lại với DATA_DIR trỏ tới chỗ mới ' +
-      '(Linux: /var/lib/schoolconnect — Windows: C:\\SchoolConnectData).');
+      '(Linux: /var/lib/casa-mamnon — Windows: C:\\CasaMamNonData).');
   }
 });
 

@@ -82,7 +82,7 @@ ${dinh.map(d => `    ${d.tep}\n      → ${d.loai}`).join('\n')}
 
   Khi chạy thật, hãy để dữ liệu NẰM NGOÀI thư mục mã nguồn:
 
-    DATA_DIR=/var/lib/schoolconnect npm start
+    DATA_DIR=/var/lib/casa-mamnon npm start
 
   Bộ canh này không có đường thoát. Nếu thấy nó chặn nhầm, sửa danh sách NGOAI_LE
   trong scripts/kiem-tra-du-lieu.js ở một commit riêng, có giải thích.

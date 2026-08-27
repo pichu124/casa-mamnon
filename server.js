@@ -175,8 +175,13 @@ function kiemTraViTriDuLieu() {
       '   GitHub — lộ rồi thì không thu lại được.\n\n' +
       '   Cách sửa: trỏ dữ liệu ra ngoài thư mục mã nguồn.\n\n' +
       '     DATA_DIR=/var/lib/casa-mamnon npm start\n\n' +
-      '   Nhớ CHUYỂN cả tệp cũ sang thư mục mới trước khi khởi động lại:\n' +
-      `     mkdir -p /var/lib/casa-mamnon && mv ${db.DATA_DIR}/* /var/lib/casa-mamnon/\n`
+      '   Nhớ CHUYỂN cả tệp cũ sang thư mục mới trước khi khởi động lại. Chuyển\n' +
+      '   ĐÍCH DANH từng thứ — đừng dùng `mv .../data/*`, vì trong thư mục đó còn\n' +
+      '   `data/seed.js`, là mã nguồn chứ không phải dữ liệu:\n\n' +
+      '     mkdir -p /var/lib/casa-mamnon\n' +
+      `     mv ${db.DATA_DIR}/school.db* /var/lib/casa-mamnon/\n` +
+      `     mv ${db.DATA_DIR}/uploads ${db.DATA_DIR}/backups /var/lib/casa-mamnon/\n` +
+      '   (thứ nào không có thì bỏ khỏi lệnh)\n'
     );
     db.close();
     process.exit(1);

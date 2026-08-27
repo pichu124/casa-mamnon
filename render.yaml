@@ -1,5 +1,28 @@
 # Cấu hình triển khai lên Render (https://render.com).
 # Cách dùng: đẩy mã nguồn lên GitHub → Render → New → Blueprint → chọn kho này.
+#
+# ---------------------------------------------------------------------------
+# ⚠️  LẦN TRIỂN KHAI ĐẦU TIÊN SẼ KHÔNG LÊN ĐƯỢC — ĐỌC TRƯỚC KHI BẤM DEPLOY
+#
+# Ổ đĩa mới là ổ trống. Với NODE_ENV=production, máy chủ DỪNG có chủ ý khi cơ
+# sở dữ liệu trống, thay vì tự sinh dữ liệu mẫu — vì dữ liệu mẫu kèm 9 tài
+# khoản dùng chung mật khẩu "123456". Đó là hành vi ĐÚNG, không phải lỗi.
+#
+# Nhưng trên Render nó thành một vòng kẹt: Shell chỉ mở được khi dịch vụ đang
+# chạy → dịch vụ không chạy được vì chưa có tài khoản quản trị → không mở được
+# Shell để tạo tài khoản quản trị.
+#
+# ĐỪNG đi đường tắt "tạm bỏ NODE_ENV=production cho nó lên đã". Làm vậy là dựng
+# 9 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
+#
+# Hai đường đi thật, chọn một trước khi triển khai:
+#   [A] Máy chủ riêng / VPS thay cho Render — chạy `npm run create-admin` qua
+#       SSH trước khi bật dịch vụ. Đây là hướng đang chờ quyết định ở mục N7
+#       của docs/TIEN-DO.md.
+#   [B] Ở lại Render thì phải chạy được một lệnh một lần trên ổ đĩa đó trước
+#       (Render Job gắn cùng disk, hoặc tải sẵn cơ sở dữ liệu đã có tài khoản
+#       quản trị lên). Chưa thử đường này lần nào — thử trước khi hẹn với trường.
+# ---------------------------------------------------------------------------
 services:
   - type: web
     name: schoolconnect
