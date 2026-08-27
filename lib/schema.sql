@@ -396,6 +396,53 @@ CREATE INDEX IF NOT EXISTS idx_scp_student ON student_class_periods(studentId, t
 CREATE INDEX IF NOT EXISTS idx_scp_class ON student_class_periods(classId);
 CREATE INDEX IF NOT EXISTS idx_scp_dang_hoc ON student_class_periods(studentId, den);
 
+-- ===== CƠ SỞ — trường có 3 cơ sở, dữ liệu giữa các cơ sở phải ĐỘC LẬP =====
+--
+-- App 1 là một trường tiểu học MỘT điểm, nên không có khái niệm cơ sở. Trường
+-- mầm non này có ba, và quy định phân quyền của nhà trường nói rất rõ:
+-- "Cấp 3 Cơ sở A không thể xem dữ liệu của Cấp 3 Cơ sở B."
+--
+-- VÌ SAO LÀ BẢNG PHỤ, KHÔNG PHẢI CỘT THÊM VÀO `classes`
+--
+-- Lược đồ lõi KHÔNG được có câu ALTER TABLE nào — `test/lo-hong-da-va.test.mjs`
+-- canh đúng điều đó, vì một câu ALTER chạy nửa chừng trên cơ sở dữ liệu thật là
+-- hỏng không lùi được. Nên quan hệ nhóm ↔ cơ sở nằm ở bảng riêng, đúng cách mà
+-- `class_teachers` và `student_class_periods` đã làm.
+--
+-- TÍNH CHẤT AN TOÀN QUAN TRỌNG NHẤT: chừng nào bảng `campuses` còn TRỐNG thì
+-- toàn bộ tầng cơ sở nằm im, không đổi hành vi của bất kỳ ai. Trường một cơ sở
+-- dùng app này không hề biết tầng đó tồn tại.
+CREATE TABLE IF NOT EXISTS campuses (
+  id      TEXT PRIMARY KEY,
+  name    TEXT NOT NULL,
+  address TEXT NOT NULL DEFAULT '',
+  phone   TEXT NOT NULL DEFAULT '',   -- hotline văn phòng cơ sở
+  email   TEXT NOT NULL DEFAULT '',
+  active  INTEGER NOT NULL DEFAULT 1,
+  taoLuc  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_campus_active ON campuses(active, name);
+
+-- Mỗi nhóm lớp thuộc đúng MỘT cơ sở.
+CREATE TABLE IF NOT EXISTS class_campus (
+  classId  TEXT PRIMARY KEY REFERENCES classes(id) ON DELETE CASCADE,
+  campusId TEXT NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
+  ganLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_cc_campus ON class_campus(campusId);
+
+-- Tài khoản bị KHOÁ VÀO một cơ sở (Cấp 3 theo quy định phân quyền).
+--
+-- Không có dòng nào ở đây = tài khoản KHÔNG bị khoá vào cơ sở nào. Với vai quản
+-- trị, đó chính là Cấp 1 (toàn hệ thống). Nhờ vậy mọi tài khoản quản trị đang có
+-- giữ nguyên quyền như trước — thêm tầng cơ sở không lấy đi quyền của ai.
+CREATE TABLE IF NOT EXISTS user_campus (
+  userId   TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  campusId TEXT NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
+  ganLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_uc_campus ON user_campus(campusId);
+
 -- ===== Cô phụ trách nhóm lớp — quan hệ NHIỀU CÔ ↔ MỘT NHÓM =====
 --
 -- App 1 là trường tiểu học: một lớp có đúng MỘT giáo viên chủ nhiệm. Quan hệ đó
