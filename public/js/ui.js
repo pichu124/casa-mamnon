@@ -109,6 +109,21 @@ window.UI = (() => {
       </button>`).join('')}</div>`;
   }
 
+  // Nối tên nhiều nhóm lớp thành một cụm ĐỌC ĐƯỢC.
+  //
+  // Bốn màn hình đang nối bằng `join(', ')`, nên cô phụ trách hai nhóm thấy
+  // "Các bé nhóm Chồi 2, Lá 1" — đọc lướt thành TÊN MỘT NHÓM, vì "Chồi 2, Lá 1"
+  // trông y như một cái tên dài. Với hai nhóm thì tiếng Việt nối bằng "và".
+  //
+  // Để ở đây thay vì chép vào bốn màn: một quy tắc chép bốn lần là một quy tắc
+  // sẽ trôi khỏi nhau ở lần sửa thứ hai.
+  function noiTenNhom(ds) {
+    const ten = (ds || []).map(n => (typeof n === 'string' ? n : n && n.name)).filter(Boolean);
+    if (!ten.length) return '';
+    if (ten.length === 1) return ten[0];
+    return `${ten.slice(0, -1).join(', ')} và ${ten[ten.length - 1]}`;
+  }
+
   // Ô chọn bé dành cho vai QUẢN TRỊ.
   //
   // VÌ SAO LÀ HÀM RIÊNG, KHÔNG NỚI `studentBar`
@@ -187,7 +202,7 @@ window.UI = (() => {
 
   return {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
-    pageHeader, avatar, emptyState, studentBar, thanhChonBe, toast, modal, closeModal,
+    pageHeader, avatar, emptyState, studentBar, thanhChonBe, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, RATING, DOW,
   };
 })();
