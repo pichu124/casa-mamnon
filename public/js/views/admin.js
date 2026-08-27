@@ -98,12 +98,14 @@ App.views.admin = {
   // Chưa khai báo cơ sở nào thì cả tầng cơ sở nằm im và app chạy y như trước;
   // màn này nói thẳng điều đó thay vì hiện một danh sách trống không lời.
   async tabCoSo(body) {
-    const [ds, d] = await Promise.all([
+    const [ds, d, qt] = await Promise.all([
       API.get('/api/admin/campuses'),
       API.get('/api/admin/overview'),
+      API.get('/api/admin/managers'),
     ]);
     this._coso = ds;
     this._lop = d.classes;
+    this._quanTri = qt;
     const chuaGan = d.classes.filter(c => !c.campusId);
     body.innerHTML = `
       ${ds.length ? '' : `
@@ -135,6 +137,27 @@ App.views.admin = {
       </div>
 
       ${ds.length ? `
+        <div class="card">
+          <div class="card-title">Tài khoản quản trị</div>
+          <div class="muted small mb-8" style="line-height:1.6">
+            Tài khoản <b>không gắn cơ sở</b> nhìn thấy toàn hệ thống. Gắn vào một
+            cơ sở là chỉ còn thấy đúng cơ sở đó — dùng cho quản lý từng cơ sở.
+          </div>
+          ${(this._quanTri || []).map(u => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(`${u.title || ''} ${u.name}`.trim())}</div>
+                <div class="row-sub">${UI.esc(u.username)} · ${u.campusId ? 'quản lý cơ sở' : 'toàn hệ thống'}</div>
+              </div>
+              <div class="row-end">
+                <select onchange="App.views.admin.datCoSoChoQuanTri('${UI.esc(u.id)}', this.value)">
+                  <option value="">— Toàn hệ thống —</option>
+                  ${ds.map(cs => `<option value="${UI.esc(cs.id)}" ${cs.id === u.campusId ? 'selected' : ''}>${UI.esc(cs.name)}</option>`).join('')}
+                </select>
+              </div>
+            </div>`).join('')}
+        </div>
+
         <div class="card">
           <div class="card-title">Nhóm lớp thuộc cơ sở nào</div>
           ${chuaGan.length ? `
@@ -213,6 +236,17 @@ App.views.admin = {
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); }
     };
+  },
+
+  async datCoSoChoQuanTri(userId, campusId) {
+    try {
+      await API.put(`/api/admin/managers/${encodeURIComponent(userId)}/campus`, { campusId });
+      UI.toast(campusId ? 'Tài khoản nay chỉ thấy cơ sở đó' : 'Tài khoản nay thấy toàn hệ thống', 'success');
+      App.route();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      App.route();   // vẽ lại để ô chọn quay về đúng trạng thái thật
+    }
   },
 
   async datCoSoChoNhom(classId, campusId) {

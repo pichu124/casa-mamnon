@@ -579,7 +579,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1254**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1301**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **245**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -587,7 +587,7 @@ Bốn bộ lớn nhất, và việc chúng canh:
 | Bộ | Bài | Canh gì |
 |---|---|---|
 | `test:lo-hong` | 283 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
-| `test:khe-uoc` | 116 | Hình dạng của các tệp dùng chung |
+| `test:khe-uoc` | 127 | Hình dạng của các tệp dùng chung |
 | `test:co-lap-loi` | 101 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
 
@@ -597,6 +597,7 @@ Bốn bộ **mới của app 2**, không có ở app 1:
 |---|---|---|
 | `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
 | `test:thuchup` | 55 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
+| `test:co-so` | 36 | Cách ly dữ liệu giữa ba cơ sở (Cấp 1 ↔ Cấp 3) |
 | `test:sao-luu` | 48 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
 | `test:goi-ten` | 38 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
@@ -626,7 +627,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | N1 | Bộ tài liệu triển khai vẫn mô tả **máy chủ của app 1** | **⏳ đã dán cảnh báo, chưa viết lại.** Cả 5 tệp (2 markdown, 1 html, 1 Word, + `docs/SAO-LUU.md`) nay mở đầu bằng một khối nói rõ phần nào còn dùng được, phần nào KHÔNG. **Viết lại thì phải chờ nhà trường chốt VPS và tên miền (N7)** — không có hai thứ đó thì viết ra cũng chỉ là đoán | Sau N7 |
 | ~~N2~~ | ~~`android/`, `capacitor.config.json` là vỏ đóng gói của app 1~~ | **✅ xong** — gỡ 7,9 MB / 77 tệp, cùng `scripts/prepare-mobile.js` và 4 gói `@capacitor/*`. **Giữ `render.yaml`**: nó đang mang lời cảnh báo về vòng kẹt triển khai lần đầu (N13). Bài canh cũ *"bản Android khớp đúng bản web"* tự bỏ qua khi thiếu thư mục — tức luôn xanh đúng lúc hết việc — nay đổi thành **"KHÔNG được có bản thứ hai"** | 27/08/2026 |
 | N3 | Hai phân hệ **xếp hạng trẻ**: Nề nếp và Báo cáo | **🟡 bước 1/2 xong** — nhà trường quyết **TẮT SẴN** cả hai (27/08). Màn hình biến mất, API trả 404, **dữ liệu giữ nguyên**, bật lại bằng một lượt bấm. Bước 2 (xóa hẳn mã, vẫn giữ bảng dữ liệu) để sau, khi đã sống vài hôm mà không ai nhớ tới chúng — chỉ khi đó món nợ 17 của `test:quy-tac-4` mới về 0, vì bài canh đó soi **mã nguồn** chứ không soi trạng thái bật/tắt. **Hai phân hệ cùng nhóm được GIỮ LẠI, khác với ghi chép ban đầu:** *"Năm học trước"* phục vụ đúng nhu cầu mầm non (phụ huynh xem lại album, thông báo của nhóm con từng học), *"Hồ sơ con đã ra trường"* đúng ý tưởng, chỉ cần đổi từ vựng | GĐ 1 |
-| N4 | Chưa có tầng **cơ sở** (3 cơ sở) và vai **quản lý cơ sở** | Là mô hình thật của trường; càng để muộn càng phải sửa nhiều chỗ | GĐ 0/1 |
+| ~~N4~~ | ~~Chưa có tầng **cơ sở** và vai **quản lý cơ sở**~~ | **✅ xong 27/08** — đi đủ **ba bước ba commit** như G0.4. Cấp 1 (toàn hệ thống) và Cấp 3 (một cơ sở) phân biệt bằng bảng `user_campus`, **không đụng cột `role`** — nhờ vậy mọi tài khoản quản trị đang có giữ nguyên quyền. Cô và phụ huynh không bị đụng tới: quyền của cô đi theo nhóm lớp, của phụ huynh đi theo con, cả hai đã chặt hơn cơ sở. `test:co-so` 36 bài. **Cấp 2 (HR / Marketing / Kế toán) chưa làm** — xem mục yêu cầu mới bên dưới | 27/08/2026 |
 | N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | **✅ đã canh bằng máy** — chạy `NODE_ENV=production` với dữ liệu trong kho mã thì máy chủ **DỪNG trước khi mở cổng**, không chỉ nhắc vào log. Mặc định vẫn là `./data` cho lúc chạy thử | 26/08/2026 |
 | N6 | Bài test canh QUY TẮC 4 | **✅ có rồi** — `test/quy-tac-4.test.mjs`, kiểu **bánh cóc**: món nợ N3 chỉ được giảm. Gỡ xong N3 thì hạ số trong `NO_DA_BIET` về 0 và bài test tự siết chặt | 26/08/2026 |
 | N7 | Chưa đăng ký VPS Việt Nam + tên miền đứng tên trường | Việc của nhà trường; chặn phần triển khai | Nhà trường làm |
@@ -678,3 +679,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Gỡ vỏ đóng gói Android của app 1 — app 2 chỉ làm PWA | N2 |
 | 27/08/2026 | "Thời khóa biểu" → **"Lịch sinh hoạt"**, bỏ chữ "tiết" | N12 |
 | 27/08/2026 | **TẮT SẴN** Nề nếp và Báo cáo — hai phân hệ xếp hạng trẻ (**nhà trường quyết**) | N3 bước 1/2 |
+| 27/08/2026 | Tầng cơ sở **bước 1/3**: bảng và hàm, chưa ai gọi tới | N4 |
+| 27/08/2026 | Tầng cơ sở **bước 2/3**: khai báo, gắn nhóm, dữ liệu mẫu ba cơ sở | N4 |
+| 27/08/2026 | Tầng cơ sở **bước 3/3**: đường quyền cách ly thật sự các cơ sở (+36 bài) | N4 |
+| 27/08/2026 | Gán tài khoản quản trị vào cơ sở, kèm hai chốt chặn không cho tự khoá cửa | N4 |

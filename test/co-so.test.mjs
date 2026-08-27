@@ -136,6 +136,48 @@ console.log('\n[4] Cô và phụ huynh KHÔNG bị tầng cơ sở đụng tới
     (await req('GET', '/api/students/s_cs2', { cookie: PH })).status === 403);
 }
 
+console.log('\n[4b] Gán tài khoản quản trị vào cơ sở — và hai chốt chặn không cho tự khoá cửa');
+{
+  const ds = await req('GET', '/api/admin/managers', { cookie: C1 });
+  check('liệt kê được tài khoản quản trị kèm cấp', ds.status === 200 && ds.data.length >= 2, ds.data);
+  const c1 = ds.data.find(u => u.username === 'cap1');
+  const c3 = ds.data.find(u => u.username === 'cap3');
+  check('cap1 là Cấp 1 (toàn hệ thống)', c1 && c1.cap === 1 && !c1.campusId, c1);
+  check('cap3 là Cấp 3, khoá vào cơ sở 1', c3 && c3.cap === 3 && c3.campusId === 'cs1', c3);
+
+  // CHỐT 1: không cho tự khoá chính mình.
+  //
+  // Người bấm nút đang là Cấp 1. Tự khoá mình lại là mất ngay quyền nhìn toàn
+  // hệ thống — kể cả quyền mở lại chính màn hình này để tự gỡ ra.
+  const tuKhoa = await req('PUT', `/api/admin/managers/${c1.id}/campus`,
+    { cookie: C1, body: { campusId: 'cs2' } });
+  check('KHÔNG cho tự khoá tài khoản của mình vào một cơ sở', tuKhoa.status === 400, tuKhoa.data);
+  check('và nói rõ phải nhờ ai làm hộ', /quản trị toàn hệ thống khác/.test(tuKhoa.data?.error || ''),
+    tuKhoa.data?.error);
+  check('tự khoá hỏng thì tài khoản vẫn nguyên là Cấp 1',
+    (await req('GET', '/api/students', { cookie: C1 })).data.length >= 9);
+
+  // CHỐT 2: phải luôn còn ít nhất một tài khoản Cấp 1.
+  //
+  // Khoá nốt tài khoản Cấp 1 cuối cùng là không còn ai mở được màn hình này nữa.
+  // Sửa lại phải đụng thẳng vào cơ sở dữ liệu.
+  const khoaNot = await req('PUT', `/api/admin/managers/${c1.id}/campus`,
+    { cookie: C3, body: { campusId: 'cs2' } });
+  check('KHÔNG cho khoá nốt tài khoản toàn hệ thống cuối cùng', khoaNot.status === 400, khoaNot.data);
+  check('và nói rõ phải tạo tài khoản toàn hệ thống khác trước',
+    /toàn hệ thống cuối cùng/.test(khoaNot.data?.error || ''), khoaNot.data?.error);
+
+  // Gỡ khoá thì quay lại Cấp 1 ngay, không cần khởi động lại.
+  const go = await req('PUT', `/api/admin/managers/${c3.id}/campus`, { cookie: C1, body: { campusId: '' } });
+  check('gỡ khoá được', go.status === 200 && go.data.cap === 1, go.data);
+  check('GỠ XONG LÀ THẤY TOÀN HỆ THỐNG NGAY',
+    (await req('GET', '/api/students', { cookie: C3 })).data.some(b => b.id === 's_cs2'));
+  // Khoá lại để phần sau của bài chạy đúng bối cảnh.
+  await req('PUT', `/api/admin/managers/${c3.id}/campus`, { cookie: C1, body: { campusId: 'cs1' } });
+  check('khoá lại được, và lại chỉ thấy cơ sở mình',
+    !(await req('GET', '/api/students', { cookie: C3 })).data.some(b => b.id === 's_cs2'));
+}
+
 sv.dung();
 donThuMucTam(DIR);
 

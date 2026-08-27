@@ -118,6 +118,62 @@ module.exports = (app) => {
     res.json({ classId: lop.id, campusId: campusId || null });
   });
 
+  // Danh sách tài khoản QUẢN TRỊ, kèm cơ sở mà mỗi tài khoản bị khoá vào.
+  //
+  // Không có cơ sở = Cấp 1, toàn hệ thống. Có = Cấp 3, chỉ cơ sở đó.
+  app.get('/api/admin/managers', onlyAdmin, (req, res) => {
+    const ds = db.all('users',
+      `SELECT id, username, name, title, active FROM users
+       WHERE role = 'admin' AND active = 1 ORDER BY name`);
+    res.json(ds.map(u => {
+      const campusId = db.campusOfUser(u.id);
+      return { ...u, campusId, cap: campusId ? 3 : 1 };
+    }));
+  });
+
+  // Khoá một tài khoản quản trị vào một cơ sở, hoặc gỡ khoá (campusId rỗng).
+  app.put('/api/admin/managers/:id/campus', onlyAdmin, (req, res) => {
+    const u = db.findUser(req.params.id);
+    if (!u || u.role !== 'admin') return res.status(404).json({ error: 'Không tìm thấy tài khoản quản trị này' });
+
+    const campusId = String((req.body || {}).campusId || '').trim();
+    if (campusId && !db.findCampus(campusId)) {
+      return res.status(400).json({ error: 'Không tìm thấy cơ sở' });
+    }
+
+    // KHÔNG cho tự khoá chính mình vào một cơ sở.
+    //
+    // Người bấm nút này đang là Cấp 1. Tự khoá mình lại là mất ngay quyền nhìn
+    // toàn hệ thống — kể cả quyền mở lại chính màn hình này để tự gỡ ra. Nếu
+    // trường chỉ có một tài khoản quản trị, đó là khoá cửa rồi bỏ chìa vào trong.
+    if (u.id === req.user.id && campusId) {
+      return res.status(400).json({
+        error: 'Không thể tự khoá tài khoản của mình vào một cơ sở. '
+          + 'Nhờ một tài khoản quản trị toàn hệ thống khác làm việc này.',
+      });
+    }
+
+    // Phải luôn còn ít nhất MỘT tài khoản Cấp 1.
+    //
+    // Khoá nốt tài khoản Cấp 1 cuối cùng là không còn ai mở được màn hình này
+    // nữa, và cũng không còn ai nhìn thấy toàn hệ thống. Sửa lại phải đụng thẳng
+    // vào cơ sở dữ liệu.
+    if (campusId) {
+      const conCap1 = db.all('users', `SELECT id FROM users WHERE role = 'admin' AND active = 1`)
+        .filter(x => x.id !== u.id && !db.campusOfUser(x.id));
+      if (!conCap1.length) {
+        return res.status(400).json({
+          error: 'Đây là tài khoản quản trị toàn hệ thống cuối cùng. '
+            + 'Tạo thêm một tài khoản toàn hệ thống khác trước khi khoá tài khoản này vào cơ sở.',
+        });
+      }
+    }
+
+    db.setUserCampus(u.id, campusId || null);
+    db.audit(req.user, 'manager-campus', { userId: u.id, campusId: campusId || null });
+    res.json({ id: u.id, campusId: campusId || null, cap: campusId ? 3 : 1 });
+  });
+
   app.get('/api/admin/overview', onlyAdmin, (req, res) => {
     res.json({
       school: db.school(),
