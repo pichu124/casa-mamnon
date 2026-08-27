@@ -225,6 +225,59 @@ console.log('\n[4b] Máy chủ bị tắt đột ngột: bản giữ lại KHÔN
 }
 
 // ===========================================================================
+console.log('\n[4c] Bản sao lưu MẤT SẠCH PHÂN CÔNG CÔ phải bị nói ra, không lặng lẽ "đạt"');
+{
+  // VÌ SAO ĐÂY LÀ CHỖ NGUY HIỂM RIÊNG
+  //
+  // `class_teachers` là nguồn quyền duy nhất của cô sau G0.4. Một bản sao lưu
+  // mất sạch bảng đó vẫn qua `integrity_check` — tệp không hỏng, chỉ thiếu nội
+  // dung. Khôi phục xong:
+  //
+  //   • phụ huynh vẫn thấy con bình thường — phía đông người hơn trông vẫn đúng;
+  //   • MỌI CÔ đăng nhập vào thấy "Nhóm chưa có bé nào": không điểm danh, không
+  //     nhận xét, không nhắn tin với gia đình được.
+  //
+  // Người vận hành đọc "Kiểm tra toàn vẹn: đạt" rồi yên tâm bấm khôi phục, và
+  // chỉ biết mình vừa làm gì vào sáng hôm sau khi ba cô cùng gọi điện.
+  const rong = thuMucTam('sao-luu-mat-phan-cong');
+  fs.mkdirSync(path.join(rong, 'backups'), { recursive: true });
+  sinhDuLieu(rong);
+  {
+    const db = new Database(path.join(rong, 'school.db'));
+    const truoc = db.prepare('SELECT COUNT(*) c FROM class_teachers').get().c;
+    check('dữ liệu mẫu có phân công cô để mà làm mất', truoc > 0, truoc);
+    db.exec('DELETE FROM class_teachers');
+    db.close();
+  }
+  const sl = spawnSync('node', [path.join(GOC, 'scripts', 'backup.js')],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: rong } });
+  check('sao lưu được bản đã mất phân công', sl.status === 0, (sl.stdout + sl.stderr).slice(0, 200));
+
+  const kq = spawnSync('node', [path.join(GOC, 'scripts', 'restore.js'), '--kiem-tra'],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: rong } });
+  const chu = kq.stdout + kq.stderr;
+  check('vẫn báo toàn vẹn đạt — vì tệp thật sự không hỏng',
+    /Kiểm tra toàn vẹn: đạt/.test(chu), chu.slice(0, 300));
+  check('NHƯNG NÓI THẲNG LÀ KHÔNG CÓ PHÂN CÔNG CÔ NÀO',
+    /KHÔNG CÓ PHÂN CÔNG CÔ NÀO/.test(chu), chu.slice(0, 600));
+  check('giải thích hậu quả bằng thứ cô sẽ nhìn thấy',
+    /Nhóm chưa có bé nào/.test(chu), chu.slice(0, 900));
+  check('nói rõ phía phụ huynh vẫn trông bình thường — chỗ dễ bỏ qua nhất',
+    /phụ huynh vẫn trông bình thường/i.test(chu), chu.slice(0, 900));
+  check('mách lệnh dựng lại phân công', /sua-quyen-chu-nhiem/.test(chu), chu.slice(0, 900));
+
+  // Chiều ngược lại: bản sao lưu bình thường thì KHÔNG được dọa người vận hành.
+  const kqTot = chay('restore.js', '--kiem-tra');
+  const chuTot = kqTot.stdout + kqTot.stderr;
+  check('bản sao lưu bình thường thì không in cảnh báo đó',
+    !/KHÔNG CÓ PHÂN CÔNG CÔ NÀO/.test(chuTot), chuTot.slice(0, 300));
+  check('và vẫn nêu số phân công cô để đối chiếu',
+    /phân công cô/.test(chuTot), chuTot.slice(0, 300));
+
+  donThuMucTam(rong);
+}
+
+// ===========================================================================
 console.log('\n[5] Bản sao lưu hỏng thì TỪ CHỐI, không đè lên dữ liệu đang có');
 {
   const soBeTruoc = demBe();

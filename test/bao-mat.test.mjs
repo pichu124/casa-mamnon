@@ -121,11 +121,28 @@ console.log('\n[5] Đổi mật khẩu');
 
 }
 
-console.log('\n[7] Health check');
+console.log('\n[7] Health check — mở cho bộ theo dõi, KÍN với người lạ');
 {
+  // Đường này bắt buộc phải mở cho người chưa đăng nhập: `render.yaml` dùng nó
+  // làm `healthCheckPath`, `Dockerfile` dùng làm HEALTHCHECK. Nhưng bộ theo dõi
+  // chỉ đọc MÃ TRẢ VỀ, không đọc phần thân.
+  //
+  // Bản trước trả luôn `uptime` và `sessions` cho bất kỳ ai hỏi — và bài này
+  // khẳng định điều đó là ĐÚNG. Khi app ra Internet, mỗi lượt quét cổng đọc
+  // được máy chủ vừa khởi động lại lúc nào, còn `sessions` thì nhích lên nhích
+  // xuống theo từng lần cô hay phụ huynh đăng nhập. Không có dữ liệu của bé nào
+  // ở đây, nhưng đó là thông tin vận hành của trường, rơi ra miễn phí.
   const r = await req('GET', '/healthz');
-  check('/healthz trả 200', r.status === 200);
-  check('/healthz báo ok + uptime', r.data?.ok === true && typeof r.data.uptime === 'number', r.data);
+  check('/healthz trả 200 cho người chưa đăng nhập (bộ theo dõi cần đúng cái này)',
+    r.status === 200 && r.data?.ok === true, r.data);
+  check('KHÔNG lộ uptime cho người lạ', r.data?.uptime === undefined, r.data);
+  check('KHÔNG lộ số phiên đang mở cho người lạ', r.data?.sessions === undefined, r.data);
+
+  // Phụ huynh và cô cũng không cần biết — chỉ quản trị mới cần để chẩn đoán.
+  const ph = await login('phuhuynh', '123456');
+  const rPh = await req('GET', '/healthz', { cookie: ph.cookie });
+  check('phụ huynh đăng nhập rồi cũng không thấy thông tin vận hành',
+    rPh.data?.uptime === undefined && rPh.data?.sessions === undefined, rPh.data);
 }
 
 console.log('\n[8] Phiên và dữ liệu sống sót qua khởi động lại máy chủ');

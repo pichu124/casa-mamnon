@@ -514,6 +514,8 @@ nói ra thứ nó đang hiện.**
 | Người áp tải xe cũng được gọi là **"Cô phụ trách"** | Một chữ mang hai nghĩa trong cùng một app: ở màn Xe buýt là cô đi cùng xe, ở màn Hồ sơ là cô đứng nhóm của bé. Phụ huynh gọi nhầm số khi con có chuyện ở lớp | "Cô đi cùng xe" |
 | "Y tế **học đường**", "Thực đơn **bán trú**", "**Sĩ số**" | Chữ của trường phổ thông | "Sức khỏe của bé", "Thực đơn của bé", "Số bé" |
 | Tên phân hệ ≠ tên trang của cùng tính năng | Phân hệ "Hồ sơ bé" mở ra trang "Hồ sơ của bé"; phân hệ "Y tế" mở ra "Y tế học đường" | Chốt một tên cho mỗi tính năng |
+| `/healthz` trả `uptime` và số phiên cho **mọi lượt quét cổng** | Đường này buộc phải mở — `render.yaml` và `Dockerfile` dùng nó để theo dõi. Nhưng bộ theo dõi chỉ đọc mã 200, không đọc phần thân. Người ngoài dò được máy chủ vừa bật lại lúc nào, và số phiên nhích theo từng lần cô hay phụ huynh đăng nhập | Người lạ chỉ nhận `{ok:true}`; chi tiết vận hành chỉ cho quản trị đã đăng nhập. Bài canh cũ **khẳng định điều sai** là công khai `uptime` — sửa nó là SIẾT lại, không phải nới ra |
+| `restore:check` báo **"đạt"** cho bản sao lưu mất sạch phân công cô | Tệp không hỏng, qua `integrity_check` bình thường — chỉ thiếu một bảng. Khôi phục xong: phụ huynh vẫn thấy con, còn **mọi cô** thấy "Nhóm chưa có bé nào". Phía đông người hơn trông vẫn đúng nên không ai báo động; người vận hành chỉ biết vào sáng hôm sau | Đếm cả `class_teachers`, và cảnh báo thẳng trước khi người ta bấm khôi phục, kèm lệnh dựng lại phân công |
 
 > **Điểm chung của cả tám dòng:** không dòng nào làm app hỏng, không dòng nào
 > rò dữ liệu, và không dòng nào bài kiểm thử bắt được — vì bài kiểm thử hỏi
@@ -526,14 +528,14 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1222**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1234**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **245**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
-| `test:lo-hong` | 277 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
+| `test:lo-hong` | 278 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
 | `test:khe-uoc` | 116 | Hình dạng của các tệp dùng chung |
 | `test:co-lap-loi` | 101 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
@@ -544,7 +546,7 @@ Bốn bộ **mới của app 2**, không có ở app 1:
 |---|---|---|
 | `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
 | `test:thuchup` | 55 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
-| `test:sao-luu` | 39 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
+| `test:sao-luu` | 48 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
 | `test:goi-ten` | 34 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
 | `test:nhieu-nhom` | 35 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
@@ -620,3 +622,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Quản trị biết mình là ai và đang xem hồ sơ bé nào; phụ huynh vào nhầm được nói tử tế | Đợt soát |
 | 27/08/2026 | Thêm `UI.noiTenNhom()` — nối tên nhóm bằng "và" (**commit riêng**, tệp dùng chung) | Đợt soát |
 | 27/08/2026 | Dọn nốt nhãn còn lệch: xưng hô với cô, số đo sai lứa tuổi, chữ của trường phổ thông | Đợt soát |
+| 27/08/2026 | `/healthz` thôi lộ thông tin vận hành; `restore` đếm cả phân công cô | Đợt soát |

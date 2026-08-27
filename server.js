@@ -62,7 +62,20 @@ if (moRong.length) {
 }
 
 // Kiểm tra máy chủ còn sống (dịch vụ triển khai dùng để theo dõi).
+//
+// Đường này BẮT BUỘC phải mở cho người chưa đăng nhập: `render.yaml` dùng nó
+// làm `healthCheckPath` và `Dockerfile` dùng làm HEALTHCHECK. Nhưng bộ theo dõi
+// chỉ cần mã 200 — nó không đọc phần thân.
+//
+// Bản trước trả luôn `uptime` và `sessions` cho bất kỳ ai hỏi. Khi app ra
+// Internet, người ngoài dò được máy chủ vừa khởi động lại lúc nào, và số phiên
+// còn hạn nhích lên nhích xuống theo từng lần cô hay phụ huynh đăng nhập. Không
+// phải lỗ hổng quyền — không có dữ liệu của bé nào ở đây — nhưng là thông tin
+// vận hành của trường, và nó rơi ra miễn phí cho mọi lượt quét cổng.
+//
+// `auth.attachUser` chạy trước chỗ này nên `req.user` đã có sẵn.
 app.get('/healthz', (req, res) => {
+  if (!req.user || req.user.role !== 'admin') return res.json({ ok: true });
   res.json({ ok: true, uptime: Math.round(process.uptime()), sessions: auth.sessionCount() });
 });
 

@@ -295,6 +295,14 @@ console.log('\n[8b] N5 — chạy thật mà dữ liệu nằm TRONG kho mã th�
   fs.rmSync(path.join(trongKho, 'school.db'), { force: true });
   fs.rmSync(path.join(trongKho, 'school.db-wal'), { force: true });
   fs.rmSync(path.join(trongKho, 'school.db-shm'), { force: true });
+  fs.rmSync(path.join(trongKho, 'uploads'), { recursive: true, force: true });
+
+  // Bài này BUỘC phải trỏ DATA_DIR vào `data/` của kho mã — đó chính là thứ nó
+  // đi kiểm. Nên nó cũng là bài duy nhất đẻ dữ liệu vào đúng chỗ mà bộ canh
+  // `--quet-kho` cố ý bỏ qua. Dọn xong phải trả `data/` về đúng trạng thái ban
+  // đầu: chỉ còn `seed.js`, không sót một tệp dữ liệu nào.
+  check('dọn sạch: data/ chỉ còn mã nguồn, không sót tệp dữ liệu nào',
+    fs.readdirSync(trongKho).every(f => f === 'seed.js'), fs.readdirSync(trongKho));
 }
 
 console.log('\n[9] B2 — chế độ phát triển vẫn tự sinh dữ liệu mẫu như cũ');

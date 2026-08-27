@@ -116,11 +116,21 @@ try {
   const kq = db.pragma('integrity_check');
   const ok = kq.length === 1 && kq[0].integrity_check === 'ok';
   if (!ok) throw new Error('Cơ sở dữ liệu trong bản sao lưu bị hỏng');
+  // Đếm cả PHÂN CÔNG CÔ, không chỉ người và bé.
+  //
+  // Một bản sao lưu mất sạch `class_teachers` vẫn qua được `integrity_check` —
+  // tệp không hỏng, chỉ thiếu một bảng nội dung. Khôi phục xong thì phụ huynh
+  // vẫn thấy con bình thường, còn CẢ BA CÔ đăng nhập vào thấy "Nhóm chưa có bé
+  // nào". Không ai báo động, vì phía phụ huynh — phía đông người hơn — trông
+  // vẫn đúng. Con số này đưa nó ra ánh sáng trước khi người ta bấm khôi phục.
+  const dem = (sql) => { try { return db.prepare(sql).get().c; } catch { return null; } };
   thongKe = {
-    users: db.prepare('SELECT COUNT(*) c FROM users').get().c,
-    students: db.prepare('SELECT COUNT(*) c FROM students').get().c,
-    attendance: db.prepare('SELECT COUNT(*) c FROM attendance').get().c,
-    messages: db.prepare('SELECT COUNT(*) c FROM messages').get().c,
+    users: dem('SELECT COUNT(*) c FROM users'),
+    students: dem('SELECT COUNT(*) c FROM students'),
+    attendance: dem('SELECT COUNT(*) c FROM attendance'),
+    messages: dem('SELECT COUNT(*) c FROM messages'),
+    classes: dem('SELECT COUNT(*) c FROM classes WHERE active = 1'),
+    phanCong: dem('SELECT COUNT(*) c FROM class_teachers'),
   };
   db.close();
 } catch (err) {
@@ -138,6 +148,28 @@ for (const hau of ['-wal', '-shm']) {
 console.log('Kiểm tra toàn vẹn: đạt');
 console.log(`  ${thongKe.users} người dùng · ${thongKe.students} bé · ` +
   `${thongKe.attendance} lượt điểm danh · ${thongKe.messages} tin nhắn`);
+console.log(`  ${thongKe.classes} nhóm lớp đang mở · ` +
+  `${thongKe.phanCong == null ? 'KHÔNG CÓ BẢNG phân công cô' : `${thongKe.phanCong} phân công cô`}`);
+
+// Nhóm có, cô có, mà không dòng phân công nào: đây là bản sao lưu sẽ khôi phục
+// thành một trường mà không cô nào mở được nhóm của mình.
+if (thongKe.classes > 0 && !thongKe.phanCong) {
+  console.warn(`
+⚠️  BẢN SAO LƯU NÀY KHÔNG CÓ PHÂN CÔNG CÔ NÀO.
+
+   Tệp không hỏng — nó qua được kiểm tra toàn vẹn. Nhưng khôi phục từ đây xong
+   thì MỌI CÔ đăng nhập vào đều thấy "Nhóm chưa có bé nào": không điểm danh,
+   không nhận xét, không nhắn tin với gia đình được.
+
+   Phía phụ huynh vẫn trông bình thường, nên rất dễ không ai báo động ngay.
+
+   Nếu trường đang có phân công thật, hãy chọn một bản sao lưu khác. Nếu vẫn
+   khôi phục từ bản này, sau đó chạy:
+
+     npm run sua-quyen-chu-nhiem            # xem trước, không sửa gì
+     npm run sua-quyen-chu-nhiem -- --sua   # dựng lại phân công
+`);
+}
 
 if (chiKiemTra) {
   donTam(tmp);
