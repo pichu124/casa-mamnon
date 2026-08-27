@@ -138,27 +138,27 @@ App.views.plans = {
       </div>
       <div class="field">
         <label>Chủ đề của tháng</label>
-        <input id="kh-chude" value="${UI.esc(p ? p.theme : '')}" placeholder="VD: Trường học thân thiện">
+        <input id="kh-chude" value="${UI.esc(p ? p.theme : '')}" placeholder="VD: Trường mầm non của bé">
       </div>
       <div class="field">
         <label>Mục tiêu tháng — mỗi dòng một mục tiêu</label>
-        <textarea id="kh-muctieu" rows="3" placeholder="VD: Đọc trôi chảy đoạn văn 60 tiếng">${UI.esc((p && p.goals ? p.goals : []).join('\n'))}</textarea>
+        <textarea id="kh-muctieu" rows="3" placeholder="VD: Bé tự cất ba lô, cất dép vào đúng ô">${UI.esc((p && p.goals ? p.goals : []).join('\n'))}</textarea>
       </div>
       ${weeks.map((w, i) => `
         <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:12px">
           <div style="font-weight:700;margin-bottom:8px">Tuần ${i + 1}</div>
           <div class="field">
             <label>Trọng tâm</label>
-            <input id="kh-tt-${i}" value="${UI.esc(w.focus || '')}" placeholder="VD: Ổn định nền nếp, ôn tập kiến thức">
+            <input id="kh-tt-${i}" value="${UI.esc(w.focus || '')}" placeholder="VD: Làm quen cô, bạn và các góc chơi">
           </div>
           <div class="field">
             <label>Hoạt động</label>
-            <textarea id="kh-hd-${i}" rows="2" placeholder="VD: Ôn bảng nhân chia; luyện đọc nhóm đôi">${UI.esc(w.activities || '')}</textarea>
+            <textarea id="kh-hd-${i}" rows="2" placeholder="VD: Chơi đóng vai bán hàng theo nhóm ba bé; xây nhà bằng khối gỗ">${UI.esc(w.activities || '')}</textarea>
           </div>
         </div>`).join('')}
       <div class="field" style="border-top:1px solid var(--line);padding-top:10px;margin-top:12px">
         <label>💌 Nhắn gửi phụ huynh (không bắt buộc)</label>
-        <textarea id="kh-loinhan" rows="2" placeholder="VD: Nhờ ba mẹ nhắc con ôn bảng cửu chương mỗi tối">${UI.esc(p ? (p.note || '') : '')}</textarea>
+        <textarea id="kh-loinhan" rows="2" placeholder="VD: Ở nhà gia đình thử để bé tự xúc bữa tối nhé">${UI.esc(p ? (p.note || '') : '')}</textarea>
       </div>
       <button class="btn primary block" onclick="App.views.plans.luuKeHoach(${year}, ${month}, ${weeks.length})">${UI.icon('check', 18)} Lưu kế hoạch</button>
     `, 'Soạn kế hoạch giáo dục');

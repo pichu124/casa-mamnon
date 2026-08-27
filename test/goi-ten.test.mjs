@@ -62,6 +62,15 @@ const CAM = [
   { tu: 'HS', thay: 'bé', re: new RegExp(truoc(sau('HS')), 'u') },
   { tu: 'PH', thay: 'phụ huynh / gia đình', re: new RegExp(truoc(sau('PH')), 'u') },
 
+  // Gợi ý mẫu trong ô nhập cũng là chữ hiện lên màn hình. Màn "Soạn kế hoạch"
+  // còn mời cô "Ôn bảng nhân chia; luyện đọc nhóm đôi" — nguyên văn kế thừa từ
+  // app 1. Cô mầm non mở ra đọc câu đó sẽ hiểu app này không làm cho mình.
+  {
+    tu: 'chữ của bậc tiểu học',
+    thay: 'hoạt động của trường mầm non',
+    re: /bảng cửu chương|bảng nhân|nhân chia|luyện đọc|chính tả|đoạn văn|ôn tập kiến thức|bài tập về nhà|kiểm tra giữa kỳ|kiểm tra cuối kỳ/i,
+  },
+
   // "lớp" là từ ĐÚNG trong nhiều câu của trường mầm non — "ở lớp", "tới lớp",
   // "vào lớp 1", "đứng lớp". Chỉ SAI khi nó thay chỗ cho ĐƠN VỊ, tức chỗ mà
   // màn hình đang gọi là "nhóm". Nên chặn đúng những cụm đó, không chặn cả từ.
@@ -305,6 +314,59 @@ console.log('\n[4] Không có chữ nào bị lặp đôi ("chưa chưa", "nhóm
   check('bắt được "chưa chưa" nếu ai đó lỡ tay lần nữa',
     bat.length === 1 && bat[0].tu === 'chưa', bat);
   fs.rmSync(tam, { recursive: true, force: true });
+}
+
+// ===========================================================================
+console.log('\n[5] Tuổi của bé nói theo cách của trường mầm non');
+{
+  // VÌ SAO CÓ MỤC NÀY
+  //
+  // Màn Hồ sơ bé từng tính tuổi bằng `nămNay − nămSinh`. Với trẻ 2–6 tuổi thì
+  // lệch một năm là lệch rất nhiều: bé sinh tháng 12 bị ghi già hơn tuổi thật
+  // gần trọn một năm, suốt từ tháng 1 cho tới sinh nhật. Cô nhìn con số đó rồi
+  // chờ đợi ở bé những việc bé chưa tới tuổi làm — và ở tuổi này, sáu tháng là
+  // một khoảng cách thật sự.
+  //
+  // Hàm nằm trong tệp chạy ở trình duyệt, không phải mô-đun Node. Nạp bằng cách
+  // dựng sẵn hai thứ nó cần (`App`, `UI.parseDate`) rồi chạy tệp — vẫn là chạy
+  // đúng đoạn mã thật, không phải chép lại một bản song song.
+  const nguon = fs.readFileSync(path.join(GOC, 'public/js/views/student.js'), 'utf8');
+  const App = { views: {} };
+  const UI = {
+    parseDate(x) {
+      if (x instanceof Date) return x;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(x)) { const [y, m, d] = x.split('-').map(Number); return new Date(y, m - 1, d); }
+      return new Date(x);
+    },
+  };
+  // eslint-disable-next-line no-new-func
+  new Function('App', 'UI', nguon)(App, UI);
+  const tuoi = (dob, moc) => App.views.student.tuoiCuaBe(dob, moc);
+
+  check('tròn năm thì nói tròn năm', tuoi('2021-08-27', '2026-08-27') === '5 tuổi',
+    tuoi('2021-08-27', '2026-08-27'));
+  check('chưa tới sinh nhật thì KHÔNG cộng thêm một tuổi',
+    tuoi('2021-12-20', '2026-08-27') === '4 tuổi 8 tháng', tuoi('2021-12-20', '2026-08-27'));
+  check('cách tính cũ (hiệu hai con số năm) sẽ ra 5 — lệch gần trọn một năm',
+    2026 - 2021 === 5);
+  check('qua sinh nhật một tháng thì nói kèm tháng',
+    tuoi('2022-07-15', '2026-08-27') === '4 tuổi 1 tháng', tuoi('2022-07-15', '2026-08-27'));
+  check('kém một ngày nữa mới tròn tuổi thì vẫn là tuổi cũ',
+    tuoi('2022-08-28', '2026-08-27') === '3 tuổi 11 tháng', tuoi('2022-08-28', '2026-08-27'));
+
+  // Nhà trẻ nhận bé từ 18–24 tháng. Ở tuổi đó cả trường lẫn gia đình đều đếm
+  // bằng THÁNG, không ai nói "1 tuổi 8 tháng".
+  check('bé chưa tròn một tuổi thì đếm bằng tháng',
+    tuoi('2025-02-27', '2026-01-27') === '11 tháng', tuoi('2025-02-27', '2026-01-27'));
+
+  check('chưa có ngày sinh thì không bịa ra tuổi', tuoi(null) === null && tuoi('') === null);
+  check('ngày sinh nhập nhầm sang tương lai thì không hiện tuổi âm',
+    tuoi('2030-01-01', '2026-08-27') === null, tuoi('2030-01-01', '2026-08-27'));
+  check('ngày sinh hỏng thì không nổ, chỉ không hiện',
+    tuoi('không phải ngày', '2026-08-27') === null, tuoi('không phải ngày', '2026-08-27'));
+
+  check('màn hình KHÔNG còn tính tuổi bằng hiệu hai con số năm',
+    !/getFullYear\(\)\s*-\s*UI\.parseDate/.test(nguon));
 }
 
 tongKet();
