@@ -936,10 +936,45 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
 
   check('PHỤ HUYNH mất album như cũ (chưa mở, cố ý)',
     (await r3('GET', '/api/albums', { cookie: PH })).data.length === 0);
-  check('phụ huynh mở thẳng album cũ vẫn bị từ chối',
-    (await r3('GET', `/api/albums/${alb.id}`, { cookie: PH })).status === 403);
-  check('phụ huynh hỏi kèm lớp cũ cũng KHÔNG được mở thêm gì',
-    (await r3('GET', '/api/albums?keCaLopCu=1', { cookie: PH })).data.length === 0);
+
+  // -- Phụ huynh và nhóm cũ: luật là NGÀY, không phải cấm sạch.
+  //
+  // Hai check ở đây từng khẳng định phụ huynh KHÔNG mở được album nhóm cũ, và
+  // chúng xanh — nhưng xanh vì một con bug, không phải vì thiết kế. Khoảng vá
+  // cho hồ sơ cũ lấy `tu = createdAt`, tức NGÀY NHẬP HỒ SƠ vào app, muộn hơn
+  // mọi tấm ảnh đã chụp; nên mọi album đều rơi ra ngoài khoảng và bị chặn sạch.
+  //
+  // Chặn sạch lại mâu thuẫn với chính mục cuối tệp này ("PHỤ HUYNH XEM LẠI ĐƯỢC
+  // ALBUM LỚP CŨ") và với CLAUDE.md. Cả hai chỉ cùng xanh được nhờ đúng con bug
+  // đó. Nay `tu` lấy sớm hơn trong hai mốc — ngày nhập hồ sơ và đầu năm học của
+  // nhóm — nên luật NGÀY mới thật sự được kiểm.
+  //
+  // Ba check dưới đây đòi hỏi NHIỀU hơn hai check cũ: chúng canh cả hai phía
+  // của đường ranh, chứ không chỉ canh một câu "cấm hết".
+  {
+    const { default: Db1 } = await import('better-sqlite3');
+    const c1 = new Db1(path.join(DIR3, 'school.db'));
+    const khoang = c1.prepare(
+      'SELECT tu, den FROM student_class_periods WHERE classId = ? ORDER BY tu LIMIT 1').get(alb.classId);
+    // Một tấm chụp SAU khi nhóm đã đóng — nằm ngoài khoảng con còn học.
+    const sauKhiDong = (() => {
+      const d = new Date(`${khoang.den}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + 30);
+      return d.toISOString().slice(0, 10);
+    })();
+    c1.prepare('INSERT INTO albums (id, classId, title, description, date, createdBy) VALUES (?, ?, ?, ?, ?, ?)')
+      .run('alb_sau_khi_dong', alb.classId, 'Ảnh chụp sau khi nhóm đã đóng', '', sauKhiDong, null);
+    c1.close();
+
+    check('PHỤ HUYNH MỞ LẠI ĐƯỢC ALBUM TRONG KHOẢNG CON CÒN HỌC',
+      (await r3('GET', `/api/albums/${alb.id}`, { cookie: PH })).status === 200);
+    check('NHƯNG KHÔNG MỞ ĐƯỢC ẢNH CHỤP SAU KHI NHÓM ĐÃ ĐÓNG',
+      (await r3('GET', '/api/albums/alb_sau_khi_dong', { cookie: PH })).status === 403);
+    const keCaPH = (await r3('GET', '/api/albums?keCaLopCu=1', { cookie: PH })).data;
+    check('hỏi kèm nhóm cũ thì thấy lại album trong khoảng, và CHỈ trong khoảng',
+      keCaPH.some(a => a.id === alb.id) && !keCaPH.some(a => a.id === 'alb_sau_khi_dong'),
+      keCaPH.map(a => a.id));
+  }
 
   check('danh sách MẶC ĐỊNH của quản trị không đổi (vẫn không kèm lớp cũ)',
     (await r3('GET', '/api/albums', { cookie: A })).data.length === 0);
@@ -1149,6 +1184,36 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
       (await r3('GET', '/api/albums/alb_la', { cookie: PH })).status === 403);
     check('và nó cũng không lọt vào danh sách',
       !(await r3('GET', '/api/albums?keCaLopCu=1', { cookie: PH })).data.some(a => a.id === 'alb_la'));
+
+    // -- Ảnh chụp TRƯỚC ngày nhập hồ sơ vào app cũng phải xem lại được.
+    //
+    // Khoảng vá cho hồ sơ có từ trước bảng này từng lấy cứng `createdAt`, tức
+    // ngày NHẬP HỒ SƠ chứ không phải ngày bé vào nhóm. Trường cài app giữa năm
+    // rồi nhập cả trường trong một buổi chiều thì mọi hồ sơ mang ngày hôm đó,
+    // muộn hơn hẳn mọi tấm ảnh đã chụp từ đầu năm — và toàn bộ ảnh cũ nhất biến
+    // mất khỏi máy phụ huynh ngay khi chuyển năm.
+    //
+    // Bài cũ không bắt được vì nó lấy chính `lopCu.tu` làm ngày album, nên đúng
+    // dù `tu` bằng gì. Ở đây phải lấy một ngày CÓ THẬT sớm hơn `tu` cũ.
+    {
+      // Phải soi đúng khoảng ĐƯỢC DỰNG LẠI, không phải khoảng do một lần chuyển
+      // nhóm có thật trong bài này ghi lại — mấy khoảng kia đều bắt đầu hôm nay
+      // và đúng như vậy. Khoảng dựng lại là khoảng đã đóng có `tu` sớm nhất.
+      const lopGoc = ls.filter(x => x.den).sort((a, b) => String(a.tu).localeCompare(String(b.tu)))[0];
+      const dauNamCu = `${String(lopGoc.tu).slice(0, 4)}-08-15`;   // giữa tháng 8, đầu năm học
+      const c4 = new Db2(path.join(DIR3, 'school.db'));
+      c4.prepare('INSERT INTO albums (id, classId, title, description, date, createdBy) VALUES (?, ?, ?, ?, ?, ?)')
+        .run('alb_dau_nam', lopGoc.classId, 'Ảnh ngày đầu con tới nhóm', '', dauNamCu, null);
+      c4.close();
+
+      check('khoảng dựng lại bắt đầu từ ĐẦU NĂM HỌC, không phải ngày nhập hồ sơ',
+        String(lopGoc.tu) <= dauNamCu, { tu: lopGoc.tu, ngayAnh: dauNamCu });
+      const dsDau = (await r3('GET', '/api/albums?keCaLopCu=1', { cookie: PH })).data;
+      check('PHỤ HUYNH XEM LẠI ĐƯỢC ẢNH CHỤP TRƯỚC NGÀY NHẬP HỒ SƠ',
+        dsDau.some(a => a.id === 'alb_dau_nam'), dsDau.map(a => a.title));
+      check('mở thẳng album đầu năm → 200',
+        (await r3('GET', '/api/albums/alb_dau_nam', { cookie: PH })).status === 200);
+    }
 
     // Danh sách MẶC ĐỊNH của phụ huynh không đổi — không tự nhiên mọc thêm album cũ.
     check('không hỏi kèm thì danh sách vẫn như cũ',

@@ -515,7 +515,31 @@ nói ra thứ nó đang hiện.**
 | "Y tế **học đường**", "Thực đơn **bán trú**", "**Sĩ số**" | Chữ của trường phổ thông | "Sức khỏe của bé", "Thực đơn của bé", "Số bé" |
 | Tên phân hệ ≠ tên trang của cùng tính năng | Phân hệ "Hồ sơ bé" mở ra trang "Hồ sơ của bé"; phân hệ "Y tế" mở ra "Y tế học đường" | Chốt một tên cho mỗi tính năng |
 | `/healthz` trả `uptime` và số phiên cho **mọi lượt quét cổng** | Đường này buộc phải mở — `render.yaml` và `Dockerfile` dùng nó để theo dõi. Nhưng bộ theo dõi chỉ đọc mã 200, không đọc phần thân. Người ngoài dò được máy chủ vừa bật lại lúc nào, và số phiên nhích theo từng lần cô hay phụ huynh đăng nhập | Người lạ chỉ nhận `{ok:true}`; chi tiết vận hành chỉ cho quản trị đã đăng nhập. Bài canh cũ **khẳng định điều sai** là công khai `uptime` — sửa nó là SIẾT lại, không phải nới ra |
+| Chuyển năm xong, phụ huynh **mất album nhóm cũ của con** | Khoảng lịch sử dựng lại cho hồ sơ cũ lấy mốc `createdAt` — ngày NHẬP HỒ SƠ vào app, không phải ngày bé vào nhóm. Trường nhập cả trường trong một buổi chiều thì mọi hồ sơ mang ngày hôm đó, muộn hơn mọi tấm ảnh đã chụp. Đang học thì phụ huynh xem được mọi album của nhóm; nhóm vừa đóng thì **ảnh cũ nhất biến mất** — đúng thứ người ta muốn giữ | Mốc lấy sớm hơn trong hai: ngày nhập hồ sơ và **đầu năm học của nhóm**. Luật NGÀY giữ nguyên: ảnh chụp sau khi con rời nhóm vẫn bị chặn. **Người dùng duyệt hướng này trước khi làm** — xem khung bên dưới |
 | `restore:check` báo **"đạt"** cho bản sao lưu mất sạch phân công cô | Tệp không hỏng, qua `integrity_check` bình thường — chỉ thiếu một bảng. Khôi phục xong: phụ huynh vẫn thấy con, còn **mọi cô** thấy "Nhóm chưa có bé nào". Phía đông người hơn trông vẫn đúng nên không ai báo động; người vận hành chỉ biết vào sáng hôm sau | Đếm cả `class_teachers`, và cảnh báo thẳng trước khi người ta bấm khôi phục, kèm lệnh dựng lại phân công |
+
+> ### Một quyết định phải hỏi, không được tự làm
+>
+> Bản vá album nhóm cũ làm **ĐỎ hai check** trong `test/lo-hong-da-va.test.mjs`
+> — bộ **bất khả xâm phạm** — vốn khẳng định phụ huynh KHÔNG mở được album nhóm
+> cũ. Hai check đó mâu thuẫn với chính mục cuối cùng của tệp ("PHỤ HUYNH XEM
+> LẠI ĐƯỢC ALBUM LỚP CŨ") và với `CLAUDE.md`; **cả hai chỉ cùng xanh được nhờ
+> đúng con bug này**.
+>
+> `CLAUDE.md` cấm nới một bài canh phân quyền để cho code chạy qua. Nên việc
+> làm dở được **dừng lại và hỏi người dùng**, dù hướng vá đã rõ. Người dùng
+> chọn: vá, lấy mốc đầu năm học.
+>
+> Hai check cũ được thay bằng **ba** check chặt hơn — chúng canh cả hai phía
+> của đường ranh ngày, thay vì một câu "cấm hết":
+>
+> - phụ huynh mở lại được album **trong khoảng** con còn học → 200;
+> - **không** mở được ảnh chụp sau khi nhóm đã đóng → 403;
+> - hỏi kèm nhóm cũ thì thấy đúng album trong khoảng, và **chỉ** trong khoảng.
+>
+> Cộng thêm một check đánh trúng chỗ con bug: ảnh chụp **trước ngày nhập hồ sơ**
+> cũng phải xem lại được. Bài cũ không bắt được nó vì nó lấy chính `khoang.tu`
+> làm ngày album — nên đúng dù `tu` bằng gì.
 
 > **Điểm chung của cả tám dòng:** không dòng nào làm app hỏng, không dòng nào
 > rò dữ liệu, và không dòng nào bài kiểm thử bắt được — vì bài kiểm thử hỏi
@@ -528,14 +552,14 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1234**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1238**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **245**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
-| `test:lo-hong` | 278 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
+| `test:lo-hong` | 282 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
 | `test:khe-uoc` | 116 | Hình dạng của các tệp dùng chung |
 | `test:co-lap-loi` | 101 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
@@ -623,3 +647,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Thêm `UI.noiTenNhom()` — nối tên nhóm bằng "và" (**commit riêng**, tệp dùng chung) | Đợt soát |
 | 27/08/2026 | Dọn nốt nhãn còn lệch: xưng hô với cô, số đo sai lứa tuổi, chữ của trường phổ thông | Đợt soát |
 | 27/08/2026 | `/healthz` thôi lộ thông tin vận hành; `restore` đếm cả phân công cô | Đợt soát |
+| 27/08/2026 | Phụ huynh xem lại được album nhóm cũ của con — mốc lấy đầu năm học (**người dùng duyệt**) | Đợt soát |
