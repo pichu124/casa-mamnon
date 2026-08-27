@@ -75,6 +75,22 @@ App.views.admin = {
         </div>` : ''}
 
       <div class="card">
+        <div class="card-title">Danh sách bé<span class="spacer"></span>
+          <button class="btn sm outline" onclick="App.views.admin.xuatDanhSachBe()">⬇ Xuất ra Excel</button>
+        </div>
+        <div class="muted small">Tải về một tệp mở thẳng được bằng Excel, để văn phòng làm báo cáo và đối chiếu sĩ số cuối tháng.</div>
+        <label class="mt-8" style="display:flex;gap:8px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="ad-xuat-nghi">
+          <span class="small">Xuất kèm cả bé đã nghỉ học</span>
+        </label>
+        <div class="muted small mt-8" style="border-left:3px solid var(--warning);padding-left:10px">
+          Tệp này có <b>số định danh cá nhân</b> và <b>tiền sử bệnh</b> của từng bé.
+          Đây là dữ liệu cá nhân của trẻ dưới 6 tuổi — tải xong xin giữ trong máy của trường,
+          đừng gửi qua Zalo hay email cá nhân. Mỗi lần xuất đều được ghi lại trong <b>Nhật ký</b>.
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Danh sách nhóm lớp<span class="spacer"></span>
           <button class="btn sm primary" onclick="App.views.admin.themLop()">+ Thêm nhóm</button>
         </div>
@@ -91,6 +107,31 @@ App.views.admin = {
             </div>
           </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>`;
+  },
+
+  // Tải danh sách bé về máy dưới dạng tệp Excel mở được.
+  //
+  // Không dùng API.get: hàm đó luôn cố đọc JSON, mà đây là tệp. Cũng không đổi
+  // thẳng window.location — trang này là ứng dụng một trang, điều hướng cả trang
+  // sang một đường dẫn tệp là cách nhanh nhất để mất chỗ cô đang đứng nếu trình
+  // duyệt không nhận ra đó là tệp tải về.
+  async xuatDanhSachBe() {
+    const keCaNghi = document.getElementById('ad-xuat-nghi');
+    const duong = `/api/admin/students/xuat.csv${keCaNghi && keCaNghi.checked ? '?keCaNghi=1' : ''}`;
+    try {
+      const res = await fetch(duong, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error(res.status === 403 ? 'Chỉ tài khoản quản trị mới xuất được danh sách' : `Lỗi ${res.status}`);
+      const blob = await res.blob();
+      const ten = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = ten ? ten[1] : 'danh-sach-be.csv';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      UI.toast('Đã tải danh sách bé về máy', 'success');
+    } catch (err) {
+      UI.toast(err.message || 'Không tải được danh sách. Vui lòng thử lại.', 'error');
+    }
   },
 
   // Tab Cơ sở — trường có ba cơ sở, dữ liệu giữa chúng phải độc lập.

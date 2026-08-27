@@ -360,6 +360,69 @@ module.exports = (app) => {
     })));
   });
 
+  // Xuất danh sách bé ra tệp mở được bằng Excel.
+  //
+  // Văn phòng cần cái này để làm báo cáo gửi phòng giáo dục và để đối chiếu sĩ
+  // số cuối tháng. Trước đây họ gõ tay lại từ màn hình.
+  //
+  // BA ĐIỀU PHẢI GIỮ Ở ĐƯỜNG NÀY
+  //
+  // 1. TỆP NÀY LÀ CẢ TRƯỜNG TRONG MỘT TỆP. Nó đi ra khỏi app: nằm trong thư mục
+  //    Tải về, gửi qua Zalo, chép vào USB. Nên nó CHẶT HƠN màn hình mà nó đứng
+  //    cạnh — chỉ xuất bé thuộc phạm vi cơ sở của người bấm. Quản trị Cấp 1
+  //    không bị hạn chế gì (phamViCoSo trả null), nên hành vi cũ không đổi.
+  // 2. MỖI LẦN XUẤT ĐỀU ĐỂ LẠI DẤU trong nhật ký. Dữ liệu trẻ dưới 6 tuổi theo
+  //    Nghị định 13/2023 — hỏi "ai đã tải danh sách này ra" phải trả lời được.
+  // 3. Ô BẮT ĐẦU BẰNG = + - @ BỊ VÔ HIỆU HÓA. Excel coi ô như vậy là công thức
+  //    và chạy nó. Họ tên và địa chỉ do người nhập gõ, nên một cái tên bắt đầu
+  //    bằng "=" đủ để biến tệp danh sách thành thứ chạy được trên máy văn phòng.
+  app.get('/api/admin/students/xuat.csv', onlyAdmin, (req, res) => {
+    const nhomTrongPhamVi = phamViNhom(req.user);
+    const keCaNghi = String(req.query.keCaNghi || '') === '1';
+    const rows = db.all('students',
+      `SELECT * FROM students WHERE 1 = 1${keCaNghi ? '' : ' AND active = 1'} ORDER BY name`)
+      .filter(s => nhomTrongPhamVi === null || nhomTrongPhamVi.includes(s.classId));
+
+    const COT = ['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
+      'Số định danh cá nhân', 'Dân tộc', 'Nhóm máu', 'Tiền sử bệnh / lưu ý đặc biệt',
+      'Địa chỉ', 'Bố / mẹ', 'Người liên hệ khẩn cấp', 'Tình trạng'];
+
+    const duLieu = db.withParents(rows).map(s => {
+      const lop = s.classId ? db.findClass(s.classId) : null;
+      const cs = s.classId ? db.findCampus(db.campusOfClass(s.classId)) : null;
+      const hs = db.hoSoBe(s.id) || {};
+      return {
+        'Mã bé': s.code || '',
+        'Họ và tên': s.name || '',
+        'Ngày sinh': s.dob || '',
+        'Tuổi': tuoiCuaBe(s.dob),
+        'Giới tính': s.gender || '',
+        'Nhóm lớp': lop ? lop.name : '',
+        'Cơ sở': cs ? cs.name : '',
+        'Số định danh cá nhân': hs.soDinhDanh || '',
+        'Dân tộc': s.ethnicity || '',
+        'Nhóm máu': s.bloodType || '',
+        'Tiền sử bệnh / lưu ý đặc biệt': hs.tienSuBenh || '',
+        'Địa chỉ': s.address || '',
+        'Bố / mẹ': (s.parentIds || []).map(id => {
+          const p = db.findUser(id);
+          return p ? `${p.title} ${p.name}${p.phone ? ` (${p.phone})` : ''}` : '';
+        }).filter(Boolean).join(' · '),
+        'Người liên hệ khẩn cấp': (hs.lienHeKhanCap || [])
+          .map(l => `${l.hoTen}${l.quanHe ? ` — ${l.quanHe}` : ''}${l.dienThoai ? ` (${l.dienThoai})` : ''}`)
+          .join(' · '),
+        'Tình trạng': s.active === false || s.active === 0 ? 'Đã nghỉ' : 'Đang học',
+      };
+    }).map(khoaCongThuc);
+
+    db.audit(req.user.id, 'students-export', null, { soBe: duLieu.length, keCaNghi });
+
+    const ngay = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="danh-sach-be-${ngay}.csv"`);
+    res.send(csv.stringify(COT, duLieu));
+  });
+
   // Sửa thông tin học sinh, chuyển lớp, hoặc nhận lại em đã cho nghỉ.
   app.put('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
@@ -702,3 +765,37 @@ module.exports = (app) => {
     }));
   });
 };
+
+// Danh sách nhóm mà người này được phép nhìn, hoặc null nghĩa là KHÔNG hạn chế.
+// null chứ không phải "mọi nhóm": trường chưa khai cơ sở nào thì tầng cơ sở nằm
+// im hoàn toàn, và quản trị Cấp 1 giữ nguyên quyền như trước khi có N4.
+function phamViNhom(user) {
+  const coSo = db.phamViCoSo(user);
+  return coSo === null ? null : db.classIdsOfCampus(coSo);
+}
+
+// Tuổi để đọc trong báo cáo. Trường nhận bé từ 12 tháng nên dưới một tuổi phải
+// đếm bằng tháng — ghi "0 tuổi" cho bé 15 tháng là vô nghĩa với người đọc.
+function tuoiCuaBe(dob) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dob || ''))) return '';
+  const sinh = new Date(`${dob}T00:00:00Z`);
+  const nay = new Date();
+  if (Number.isNaN(sinh.getTime()) || sinh > nay) return '';
+  let thang = (nay.getUTCFullYear() - sinh.getUTCFullYear()) * 12
+    + (nay.getUTCMonth() - sinh.getUTCMonth());
+  if (nay.getUTCDate() < sinh.getUTCDate()) thang -= 1;
+  if (thang < 0) return '';
+  return thang < 12 ? `${thang} tháng` : `${Math.floor(thang / 12)} tuổi`;
+}
+
+// Vô hiệu hóa ô bị Excel hiểu là công thức. Thêm dấu nháy đơn ở đầu: Excel hiện
+// đúng chữ người nhập gõ và không chạy gì cả.
+const DAU_CONG_THUC = /^[=+\-@\t\r]/;
+function khoaCongThuc(hang) {
+  const ra = {};
+  for (const [k, v] of Object.entries(hang)) {
+    const t = v == null ? '' : String(v);
+    ra[k] = DAU_CONG_THUC.test(t) ? `'${t}` : t;
+  }
+  return ra;
+}
