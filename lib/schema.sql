@@ -99,6 +99,26 @@ CREATE TABLE IF NOT EXISTS student_emergency_contacts (
 );
 CREATE INDEX IF NOT EXISTS idx_sec_student ON student_emergency_contacts(studentId);
 
+-- Hồ sơ mở rộng của NGƯỜI LỚN — hiện chỉ có số CCCD.
+--
+-- Nhà trường cần số CCCD của phụ huynh để đối chiếu khi ký hợp đồng và khi giao
+-- bé cho người tới đón. Cùng lý do bảng phụ như `student_profile`: lược đồ lõi
+-- không được có câu ALTER TABLE nào.
+--
+-- CÓ MỘT LÝ DO THỨ HAI, RIÊNG CHO BẢNG NÀY, VÀ NÓ QUAN TRỌNG HƠN.
+--
+-- `routes/auth.js` có hàm `publicUser(u)` gạt đúng một trường ra: `passwordHash`.
+-- Mọi cột khác của `users` đi thẳng tới bất cứ ai xem được hồ sơ bé — cô của
+-- nhóm, và cả phụ huynh còn lại của bé đó. Thêm `soCccd` thành một cột của
+-- `users` là gửi số CCCD của bố cho mẹ và cho cô, ngay lập tức, không ai phải
+-- viết thêm dòng nào. Để ở bảng phụ thì mỗi chỗ muốn hiện nó phải ghép TAY —
+-- tức là phải cố ý, và chỗ nào cố ý thì chỗ đó canh được.
+CREATE TABLE IF NOT EXISTS user_profile (
+  userId     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  soCccd     TEXT NOT NULL DEFAULT '',
+  capNhatLuc TEXT
+);
+
 -- Một học sinh có thể có nhiều phụ huynh, một phụ huynh có nhiều con.
 CREATE TABLE IF NOT EXISTS student_parents (
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
