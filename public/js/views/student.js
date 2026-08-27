@@ -59,14 +59,16 @@ App.views.student = {
         ${infoRow('Dân tộc', s.ethnicity)}
         ${infoRow('Địa chỉ', s.address)}
         ${infoRow('Nhóm máu', s.bloodType)}
-        ${infoRow('Dị ứng', s.allergies)}
+        ${infoRow('Tiền sử bệnh / lưu ý đặc biệt', s.tienSuBenh)}
       </div>
 
+      ${this.theLienHeKhanCap(s)}
+
       <div class="card">
-        <div class="card-title">${UI.icon('student', 19)} Nhóm lớp</div>
-        ${infoRow('Nhóm', `${s.className} · ${s.room}`)}
+        <div class="card-title">${UI.icon('student', 19)} Trường và nhóm lớp</div>
+        ${infoRow('Nhóm', `${s.className}${s.room ? ` · ${s.room}` : ''}`)}
         ${infoRow('Cô phụ trách', s.teacherNames || s.teacherName)}
-        ${infoRow('Điện thoại của cô', s.teacherPhone)}
+        ${this.theLienHeTruong(s)}
         <button class="btn primary block mt-14" onclick="location.hash='#/messages'">${UI.icon('chat', 18)} Nhắn tin với cô</button>
       </div>
 
@@ -79,6 +81,45 @@ App.views.student = {
               <div class="row-title">${UI.esc(p.title)} ${UI.esc(p.name)}</div>
               <div class="row-sub">${UI.esc(p.phone)} · ${UI.esc(p.email)}</div>
             </div>
+          </div>`).join('')}
+      </div>`;
+  },
+
+  // Thông tin liên hệ của TRƯỜNG, không phải của cô.
+  //
+  // Nhà trường yêu cầu bỏ số điện thoại riêng của cô khỏi màn này và thay bằng
+  // hotline văn phòng. Lý do rất thực tế: cô đang đứng nhóm với 20 bé thì không
+  // cầm điện thoại, còn văn phòng thì luôn có người nghe. Muốn nhắn riêng cho
+  // cô thì đã có nút Nhắn tin ngay bên dưới — nó vào đúng hộp thư của cô, và có
+  // lưu lại, khác hẳn một cuộc gọi không ai nhớ nội dung.
+  theLienHeTruong(s) {
+    const t = s.lienHeTruong || {};
+    if (!t.hotline && !t.email && !t.tenCoSo) return '';
+    return `
+      ${t.tenCoSo ? infoRow('Cơ sở', t.tenCoSo) : ''}
+      ${t.diaChi ? infoRow('Địa chỉ', t.diaChi) : ''}
+      ${t.hotline ? infoRow('Hotline văn phòng', t.hotline) : ''}
+      ${t.email ? infoRow('Email trường', t.email) : ''}`;
+  },
+
+  // Người liên hệ khẩn cấp ngoài bố mẹ.
+  //
+  // Chưa có ai thì KHÔNG hiện một ô trống — hiện ô trống trên màn hình của phụ
+  // huynh là bảo họ đi điền một thứ mà chỉ nhà trường mới nhập được.
+  theLienHeKhanCap(s) {
+    const ds = s.lienHeKhanCap || [];
+    if (!ds.length) return '';
+    return `
+      <div class="card">
+        <div class="card-title">${UI.icon('bell', 19)} Liên hệ khẩn cấp</div>
+        <div class="muted small mb-8">Nhà trường gọi những số này khi không liên lạc được với bố mẹ.</div>
+        ${ds.map(x => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(x.hoTen)}${x.quanHe ? ` · ${UI.esc(x.quanHe)}` : ''}</div>
+              <div class="row-sub">${UI.esc(x.dienThoai || 'chưa có số điện thoại')}${x.ghiChu ? ` · ${UI.esc(x.ghiChu)}` : ''}</div>
+            </div>
+            ${x.dienThoai ? `<a class="btn sm outline" href="tel:${UI.esc(x.dienThoai.replace(/\s/g, ''))}">Gọi</a>` : ''}
           </div>`).join('')}
       </div>`;
   },
@@ -115,9 +156,13 @@ App.views.student = {
           <div class="muted small">${UI.esc(s.code)} · ${UI.esc(s.className)}</div></div>
         <div class="mt-14">
           ${infoRow('Ngày sinh', UI.fmtDate(s.dob, { weekday: false }))}
+          ${this.tuoiCuaBe(s.dob) ? infoRow('Tuổi', this.tuoiCuaBe(s.dob)) : ''}
           ${infoRow('Địa chỉ', s.address)}
-          ${infoRow('Dị ứng', s.allergies)}
+          ${infoRow('Tiền sử bệnh / lưu ý đặc biệt', s.tienSuBenh)}
+          ${s.soDinhDanh ? infoRow('Số định danh cá nhân', s.soDinhDanh) : ''}
           ${s.parents.map(p => infoRow(`Phụ huynh: ${p.title} ${p.name}`, p.phone)).join('')}
+          ${(s.lienHeKhanCap || []).map(x => infoRow(
+            `Khẩn cấp: ${x.hoTen}${x.quanHe ? ` (${x.quanHe})` : ''}`, x.dienThoai)).join('')}
         </div>`, 'Hồ sơ của bé');
     } catch (err) { UI.toast(err.message, 'error'); }
   },

@@ -351,6 +351,7 @@ module.exports = (app) => {
       : db.all('students', `SELECT * FROM students WHERE 1 = 1${loc} ORDER BY name`);
     res.json(db.withParents(rows).map(s => ({
       ...s,
+      ...db.hoSoBe(s.id),
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',
       parents: s.parentIds.map(id => {
         const p = db.findUser(id);
@@ -399,8 +400,20 @@ module.exports = (app) => {
       else if (s.classId) lsl.baoDamCoKhoang(s.id);
     }
     db.update('students', s.id, patch);
+
+    // Hồ sơ mở rộng và người liên hệ khẩn cấp nằm ở bảng riêng, nên ghi riêng.
+    // Chỉ ghi khi màn hình có gửi lên: không gửi nghĩa là không đụng tới, chứ
+    // KHÔNG phải là xóa trắng — một màn hình cũ chưa biết mấy trường này mà lưu
+    // hồ sơ bé thì không được làm mất số định danh và số gọi khẩn cấp.
+    if (req.body.soDinhDanh !== undefined || req.body.tienSuBenh !== undefined) {
+      db.luuHoSoBe(s.id, { soDinhDanh: req.body.soDinhDanh, tienSuBenh: req.body.tienSuBenh });
+    }
+    if (req.body.lienHeKhanCap !== undefined) {
+      db.datLienHeKhanCap(s.id, req.body.lienHeKhanCap);
+    }
+
     db.audit(req.user.id, 'student-update', s.id, patch);
-    res.json(db.findStudent(s.id));
+    res.json({ ...db.findStudent(s.id), ...db.hoSoBe(s.id) });
   });
 
   // Học sinh chuyển trường / nghỉ học: đánh dấu ngừng hoạt động thay vì xóa,

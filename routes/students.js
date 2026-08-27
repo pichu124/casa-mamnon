@@ -30,6 +30,35 @@ module.exports = (app) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     const parents = s.parentIds.map(pid => publicUser(db.findUser(pid))).filter(Boolean);
-    res.json({ ...decorate(s), parents });
+    const hoSo = db.hoSoBe(s.id);
+
+    // SỐ ĐỊNH DANH CÁ NHÂN chỉ về tay quản trị và văn phòng.
+    //
+    // Đây là dữ liệu cá nhân theo Nghị định 13/2023. Cô cần biết tiền sử bệnh
+    // và số gọi khẩn cấp của bé — cô KHÔNG cần số định danh để làm việc, nên
+    // không gửi. Cắt ở máy chủ chứ không giấu ở giao diện: giấu ở giao diện thì
+    // người biết đường dẫn vẫn lấy được.
+    const chiQuanTri = req.user.role === 'admin';
+
+    // Thông tin liên hệ của trường: cơ sở của nhóm bé trước, không có thì lùi
+    // về thông tin chung của trường. Nhà trường yêu cầu phụ huynh gọi HOTLINE
+    // VĂN PHÒNG chứ không gọi số riêng của cô.
+    const truong = db.school() || {};
+    const cs = db.findCampus(db.campusOfClass(s.classId)) || {};
+    const lienHeTruong = {
+      tenCoSo: cs.name || '',
+      diaChi: cs.address || truong.address || '',
+      hotline: cs.phone || truong.phone || '',
+      email: cs.email || truong.email || '',
+    };
+
+    res.json({
+      ...decorate(s),
+      parents,
+      lienHeTruong,
+      tienSuBenh: hoSo.tienSuBenh,
+      lienHeKhanCap: hoSo.lienHeKhanCap,
+      ...(chiQuanTri ? { soDinhDanh: hoSo.soDinhDanh } : {}),
+    });
   });
 };

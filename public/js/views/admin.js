@@ -434,6 +434,19 @@ App.views.admin = {
     await this.xemLop(l.classId, l.tenLop);
   },
 
+  // Thêm một dòng liên hệ khẩn cấp vào hộp thoại đang mở.
+  themDongLienHe() {
+    const hop = document.getElementById('ad-hs-lhkc');
+    if (!hop) return;
+    const d = document.createElement('div');
+    d.className = 'lhkc-dong';
+    d.style.cssText = 'display:flex;gap:6px;margin-bottom:6px';
+    d.innerHTML = '<input class="lhkc-ten" placeholder="Họ tên" style="flex:2">'
+      + '<input class="lhkc-qh" placeholder="Quan hệ" style="flex:1">'
+      + '<input class="lhkc-dt" placeholder="Điện thoại" style="flex:1.4">';
+    hop.appendChild(d);
+  },
+
   async suaHocSinh(studentId) {
     const l = this._lopDangXem || {};
     const [students, d] = await Promise.all([
@@ -458,6 +471,26 @@ App.views.admin = {
         </select>
       </div>
       <div class="field"><label>Địa chỉ</label><input id="ad-hs-dc" value="${UI.esc(s.address || '')}"></div>
+      <div class="field"><label>Số định danh cá nhân</label>
+        <input id="ad-hs-ddcn" value="${UI.esc(s.soDinhDanh || '')}" placeholder="12 chữ số trên giấy khai sinh / CCCD của bé">
+        <div class="hint">Chỉ nhà trường thấy ô này. Cô không cần số định danh để làm việc nên màn hình của cô không hiện.</div>
+      </div>
+      <div class="field"><label>Tiền sử bệnh / lưu ý đặc biệt</label>
+        <textarea id="ad-hs-tsb" rows="2" placeholder="Ví dụ: dị ứng tôm cua; hen nhẹ khi trở trời; đang uống thuốc theo toa tới 30/9">${UI.esc(s.tienSuBenh || '')}</textarea>
+        <div class="hint">Cô đọc ô này trước khi nhận bé mỗi sáng. Ghi cả thứ không phải dị ứng: hen, co giật do sốt, thuốc đang dùng.</div>
+      </div>
+      <div class="field"><label>Liên hệ khẩn cấp (ngoài bố mẹ)</label>
+        <div id="ad-hs-lhkc">
+          ${(s.lienHeKhanCap && s.lienHeKhanCap.length ? s.lienHeKhanCap : [{}]).map((x, i) => `
+            <div class="lhkc-dong" style="display:flex;gap:6px;margin-bottom:6px">
+              <input class="lhkc-ten" value="${UI.esc(x.hoTen || '')}" placeholder="Họ tên" style="flex:2">
+              <input class="lhkc-qh" value="${UI.esc(x.quanHe || '')}" placeholder="Quan hệ" style="flex:1">
+              <input class="lhkc-dt" value="${UI.esc(x.dienThoai || '')}" placeholder="Điện thoại" style="flex:1.4">
+            </div>`).join('')}
+        </div>
+        <button class="btn sm outline" onclick="App.views.admin.themDongLienHe()">+ Thêm người</button>
+        <div class="hint">Nhà trường gọi những số này khi không liên lạc được với bố mẹ. Bỏ trống họ tên là dòng đó không được lưu.</div>
+      </div>
       <div class="field"><label>Nhóm</label>
         <select id="ad-hs-lop">
           <option value="">— Chưa xếp nhóm —</option>
@@ -478,6 +511,13 @@ App.views.admin = {
           dob: document.getElementById('ad-hs-ns').value,
           gender: document.getElementById('ad-hs-gt').value,
           address: document.getElementById('ad-hs-dc').value.trim(),
+          soDinhDanh: document.getElementById('ad-hs-ddcn').value.trim(),
+          tienSuBenh: document.getElementById('ad-hs-tsb').value.trim(),
+          lienHeKhanCap: [...document.querySelectorAll('#ad-hs-lhkc .lhkc-dong')].map(d => ({
+            hoTen: d.querySelector('.lhkc-ten').value.trim(),
+            quanHe: d.querySelector('.lhkc-qh').value.trim(),
+            dienThoai: d.querySelector('.lhkc-dt').value.trim(),
+          })),
           classId: document.getElementById('ad-hs-lop').value || null,
         });
         UI.toast('Đã lưu hồ sơ của bé', 'success');

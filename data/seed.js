@@ -571,8 +571,21 @@ function generate() {
     },
   ];
 
+  // Hồ sơ mở rộng và người liên hệ khẩn cấp. Cố ý KHÔNG điền cho mọi bé: trường
+  // thật cũng không bao giờ đủ 100%, và màn hình phải chịu được ô trống.
+  const studentProfiles = [
+    { studentId: 's1', soDinhDanh: '079322001234', tienSuBenh: 'Không có gì đặc biệt' },
+    { studentId: 's2', soDinhDanh: '079321005678', tienSuBenh: 'Dị ứng tôm cua — nổi mẩn quanh miệng. Hen nhẹ khi trở trời, có ống xịt trong ba lô.' },
+    { studentId: 's4', soDinhDanh: '079322009012', tienSuBenh: 'Dị ứng đậu phộng. TUYỆT ĐỐI không cho ăn món có đậu phộng, kể cả dầu.' },
+  ];
+  const emergencyContacts = [
+    { studentId: 's1', hoTen: 'Bà Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: 'Ở cùng nhà, đón được bé buổi chiều' },
+    { studentId: 's2', hoTen: 'Bà Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: '' },
+    { studentId: 's4', hoTen: 'Chú Vũ Đình Nam', quanHe: 'Bác ruột', dienThoai: '0912 333 444', ghiChu: 'Gọi khi không liên lạc được bố mẹ' },
+  ];
+
   const db = {
-    school, campuses, classes, users, students,
+    school, campuses, classes, users, students, studentProfiles, emergencyContacts,
     attendance, leaveRequests, menus, timetable, remarks, reports,
     busRoutes, conduct, surveys, health, medicineRequests, albums, eduPlans,
     notifications, conversations,
