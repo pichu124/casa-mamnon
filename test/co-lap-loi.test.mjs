@@ -240,7 +240,10 @@ console.log('\n[8] Trở về nguyên trạng — mọi thứ chạy lại đầ
   const ph = await login('phuhuynh', '123456');
   const ds = await req('GET', '/api/modules', { cookie: ph.cookie });
   check('đủ 16 tính năng lõi trở lại', ds.data.length >= 16, ds.data?.length);
-  const ne = await req('GET', '/api/conduct?studentId=s1', { cookie: ph.cookie });
+  // Dùng Nhận xét làm phép thử, không dùng Nề nếp: Nề nếp nay TẮT SẴN (N3) nên
+  // nó trả 404 vì đang tắt chứ không phải vì hỏng — hai chuyện khác hẳn, và một
+  // phép thử không phân biệt được chúng thì không nói lên điều gì.
+  const ne = await req('GET', '/api/remarks?studentId=s1', { cookie: ph.cookie });
   check('tính năng từng bị phá nay chạy lại bình thường', ne.status === 200, ne.status);
   const bus = await req('GET', '/api/bus', { cookie: ph.cookie });
   check('tính năng từng bị gỡ nay chạy lại bình thường', bus.status === 200, bus.status);

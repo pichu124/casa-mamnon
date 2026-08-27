@@ -541,6 +541,33 @@ nói ra thứ nó đang hiện.**
 > cũng phải xem lại được. Bài cũ không bắt được nó vì nó lấy chính `khoang.tu`
 > làm ngày album — nên đúng dù `tu` bằng gì.
 
+> ### Quyết định của nhà trường, 27/08/2026 — TẮT hai phân hệ xếp hạng trẻ
+>
+> Nề nếp và Báo cáo kế thừa nguyên vẹn từ app 1 và cả hai xếp trẻ trên dưới
+> nhau. **Đây là trẻ 2–6 tuổi.** Một phụ huynh mở app ra thấy con mình 4 tuổi
+> được xếp huy chương đồng là loại mất lòng tin không sửa được bằng bản cập
+> nhật sau.
+>
+> Nhà trường chọn **[A] tắt**, không phải [B] xóa mã ngay, cũng không phải
+> [C] xóa dữ liệu. Ba lời hứa của bước "tắt" **đều được canh bằng máy** ở
+> `test/tinh-nang.test.mjs` mục `[10]`, không canh bằng trí nhớ:
+>
+> 1. **tắt thật** — ô biến khỏi trang chủ VÀ API bị chặn. Giấu ô mà vẫn gọi
+>    được API thì chưa gọi là tắt;
+> 2. **dữ liệu giữ nguyên** — bật lại là bản ghi cũ còn nguyên từng dòng;
+> 3. **bật lại được bất cứ lúc nào**, và quản trị vẫn thấy chúng trong
+>    Quản trị → Tính năng — tắt mà biến mất khỏi cả trang quản trị thì không
+>    còn đường quay lại.
+>
+> Thiếu bất kỳ vế nào thì "tắt" đã lặng lẽ biến thành "xóa".
+>
+> **Sáu bộ kiểm thử phải bật tường minh hai phân hệ này** (`batPhanHe` mới
+> trong `test/_chung.mjs`): chúng canh những lỗ hổng ĐÃ VÁ bên trong, và lỗ
+> hổng không biến mất chỉ vì phân hệ đang tắt — nhà trường bật lại là nó quay
+> về. Riêng `test:co-lap-loi` đổi phép thử từ Nề nếp sang Nhận xét: một phân hệ
+> đang tắt trả 404 vì **đang tắt**, không phải vì **hỏng**, và một phép thử
+> không phân biệt được hai chuyện đó thì không nói lên điều gì.
+
 > **Điểm chung của cả tám dòng:** không dòng nào làm app hỏng, không dòng nào
 > rò dữ liệu, và không dòng nào bài kiểm thử bắt được — vì bài kiểm thử hỏi
 > "máy chủ trả về đúng không", còn đây là "người ngồi trước màn hình có hiểu
@@ -552,7 +579,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1243**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1254**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **245**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -598,7 +625,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 |---|---|---|---|
 | N1 | Bộ tài liệu triển khai vẫn mô tả **máy chủ của app 1** | **⏳ đã dán cảnh báo, chưa viết lại.** Cả 5 tệp (2 markdown, 1 html, 1 Word, + `docs/SAO-LUU.md`) nay mở đầu bằng một khối nói rõ phần nào còn dùng được, phần nào KHÔNG. **Viết lại thì phải chờ nhà trường chốt VPS và tên miền (N7)** — không có hai thứ đó thì viết ra cũng chỉ là đoán | Sau N7 |
 | ~~N2~~ | ~~`android/`, `capacitor.config.json` là vỏ đóng gói của app 1~~ | **✅ xong** — gỡ 7,9 MB / 77 tệp, cùng `scripts/prepare-mobile.js` và 4 gói `@capacitor/*`. **Giữ `render.yaml`**: nó đang mang lời cảnh báo về vòng kẹt triển khai lần đầu (N13). Bài canh cũ *"bản Android khớp đúng bản web"* tự bỏ qua khi thiếu thư mục — tức luôn xanh đúng lúc hết việc — nay đổi thành **"KHÔNG được có bản thứ hai"** | 27/08/2026 |
-| N3 | Phân hệ riêng của tiểu học vẫn còn: `hocsinh-cu`, `namhoccu`, học bạ theo học kỳ, **nề nếp/thi đua có xếp hạng** | Xếp hạng trẻ **đi ngược QUY TẮC 4**. Tuyệt đối không để lọt sang màn hình mầm non | GĐ 1, gỡ theo đúng quy trình "bỏ tính năng" |
+| N3 | Hai phân hệ **xếp hạng trẻ**: Nề nếp và Báo cáo | **🟡 bước 1/2 xong** — nhà trường quyết **TẮT SẴN** cả hai (27/08). Màn hình biến mất, API trả 404, **dữ liệu giữ nguyên**, bật lại bằng một lượt bấm. Bước 2 (xóa hẳn mã, vẫn giữ bảng dữ liệu) để sau, khi đã sống vài hôm mà không ai nhớ tới chúng — chỉ khi đó món nợ 17 của `test:quy-tac-4` mới về 0, vì bài canh đó soi **mã nguồn** chứ không soi trạng thái bật/tắt. **Hai phân hệ cùng nhóm được GIỮ LẠI, khác với ghi chép ban đầu:** *"Năm học trước"* phục vụ đúng nhu cầu mầm non (phụ huynh xem lại album, thông báo của nhóm con từng học), *"Hồ sơ con đã ra trường"* đúng ý tưởng, chỉ cần đổi từ vựng | GĐ 1 |
 | N4 | Chưa có tầng **cơ sở** (3 cơ sở) và vai **quản lý cơ sở** | Là mô hình thật của trường; càng để muộn càng phải sửa nhiều chỗ | GĐ 0/1 |
 | N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | **✅ đã canh bằng máy** — chạy `NODE_ENV=production` với dữ liệu trong kho mã thì máy chủ **DỪNG trước khi mở cổng**, không chỉ nhắc vào log. Mặc định vẫn là `./data` cho lúc chạy thử | 26/08/2026 |
 | N6 | Bài test canh QUY TẮC 4 | **✅ có rồi** — `test/quy-tac-4.test.mjs`, kiểu **bánh cóc**: món nợ N3 chỉ được giảm. Gỡ xong N3 thì hạ số trong `NO_DA_BIET` về 0 và bài test tự siết chặt | 26/08/2026 |
@@ -650,3 +677,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Phụ huynh xem lại được album nhóm cũ của con — mốc lấy đầu năm học (**người dùng duyệt**) | Đợt soát |
 | 27/08/2026 | Gỡ vỏ đóng gói Android của app 1 — app 2 chỉ làm PWA | N2 |
 | 27/08/2026 | "Thời khóa biểu" → **"Lịch sinh hoạt"**, bỏ chữ "tiết" | N12 |
+| 27/08/2026 | **TẮT SẴN** Nề nếp và Báo cáo — hai phân hệ xếp hạng trẻ (**nhà trường quyết**) | N3 bước 1/2 |

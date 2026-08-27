@@ -59,6 +59,28 @@ export function sinhDuLieu(dir) {
   execSync('node data/seed.js --force', { cwd: GOC, stdio: 'ignore', env: { ...process.env, DATA_DIR: dir } });
 }
 
+// Bật sẵn một vài phân hệ trong cơ sở dữ liệu tạm, TRƯỚC khi dựng máy chủ.
+//
+// VÌ SAO CẦN
+//
+// "Nề nếp" và "Báo cáo" nay TẮT SẴN (nhà trường quyết ở N3 — chúng xếp hạng
+// trẻ, đi ngược QUY TẮC 4). Nhưng vài bộ kiểm thử vẫn phải soi đúng hai phân hệ
+// đó: chúng canh những lỗ hổng đã vá bên trong, và những lỗ hổng ấy không biến
+// mất chỉ vì phân hệ đang tắt — nhà trường bật lại là chúng quay về.
+//
+// Nên các bộ đó BẬT TƯỜNG MINH phân hệ mình cần, thay vì dựa vào mặc định. Viết
+// thẳng vào bảng cài đặt trước khi máy chủ chạy: không cần tài khoản quản trị,
+// và bài kiểm thử nói rõ nó đang dựng tình huống gì.
+export function batPhanHe(dir, cacKhoa) {
+  const lenh = cacKhoa
+    .map((k) => `INSERT OR REPLACE INTO module_settings (moduleKey, enabled, updatedAt) `
+      + `VALUES ('${k}', 1, '');`)
+    .join(' ');
+  execSync(`node -e ${JSON.stringify(
+    `const D=require('better-sqlite3');const db=new D(process.argv[1]);db.exec(${JSON.stringify(lenh)});db.close();`
+  )} ${JSON.stringify(path.join(dir, 'school.db'))}`, { cwd: GOC, stdio: 'ignore' });
+}
+
 // Tạo một tài khoản quản trị và trả về mật khẩu tạm mà script in ra.
 export function taoQuanTri(dir, hoTen, tenDangNhap) {
   const out = execSync(

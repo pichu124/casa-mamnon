@@ -8,10 +8,13 @@
 // Chạy bằng:  npm run test:bien-soan
 import path from 'path';
 import { createRequire } from 'module';
-import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, batPhanHe, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan');
 sinhDuLieu(DIR);
+// Bộ này canh đường GHI của phân hệ Báo cáo — phân hệ nay tắt sẵn (N3). Bật
+// tường minh: lỗ hổng bên trong không biến mất chỉ vì phân hệ đang tắt.
+batPhanHe(DIR, ['baocao']);
 const mkTam = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3150), dir: DIR });
 

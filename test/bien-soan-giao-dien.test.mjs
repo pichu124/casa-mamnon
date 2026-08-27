@@ -3,10 +3,14 @@
 //
 // Cần trình duyệt Playwright. Chạy bằng:  npm run test:giao-dien
 import { chromium } from 'playwright';
-import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, taoBoDem, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan-giao-dien');
 sinhDuLieu(DIR);
+// Bộ này soi màn "Soạn báo cáo" và màn ghi nhận Nề nếp — hai phân hệ nay tắt
+// sẵn (N3). Bật tường minh: đường soạn của chúng phải vẫn đúng vào lúc nhà
+// trường bật lại.
+batPhanHe(DIR, ['baocao', 'nenep']);
 const mkTam = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3950), dir: DIR });
 

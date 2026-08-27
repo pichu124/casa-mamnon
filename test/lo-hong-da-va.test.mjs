@@ -9,12 +9,17 @@
 import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
 const DIR = thuMucTam('lo-hong');
 sinhDuLieu(DIR);
+// Mục [19] canh một lỗ hổng ĐÃ VÁ bên trong phân hệ Nề nếp — phân hệ nay tắt
+// sẵn (N3, nó xếp trẻ trên dưới nhau). Lỗ hổng đó KHÔNG biến mất chỉ vì phân hệ
+// đang tắt: nhà trường bật lại là nó quay về. Nên bật tường minh ở đây, và bài
+// canh giữ nguyên từng chữ.
+batPhanHe(DIR, ['nenep']);
 const { BASE, dung } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3170), dir: DIR });
 const req = taoReq(BASE);
 const login = taoLogin(req);

@@ -2,10 +2,13 @@
 //
 // Chạy bằng:  npm run test:api
 // Tự dựng máy chủ riêng với cơ sở dữ liệu tạm, không đụng dữ liệu thật.
-import { dungMayChu, thuMucTam, sinhDuLieu } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe } from './_chung.mjs';
 
 const DIR = thuMucTam('api');
 sinhDuLieu(DIR);
+// Bộ này quét TOÀN BỘ mặt API, nên phải bật cả hai phân hệ nay tắt sẵn —
+// nhà trường bật lại lúc nào thì đường dẫn của chúng phải vẫn đúng lúc đó.
+batPhanHe(DIR, ['nenep', 'baocao']);
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3100), dir: DIR });
 
 let pass = 0, fail = 0;

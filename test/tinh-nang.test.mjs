@@ -224,6 +224,60 @@ console.log('\n[9] Phân hệ hỏng không làm sập ứng dụng');
   fs.rmSync(xau, { recursive: true, force: true });
 }
 
+console.log('\n[10] Nề nếp và Báo cáo TẮT SẴN, nhưng dữ liệu còn nguyên (N3)');
+{
+  // VÌ SAO CÓ MỤC NÀY
+  //
+  // Nhà trường đã quyết tắt sẵn hai phân hệ này vì chúng xếp trẻ trên dưới
+  // nhau — đi ngược QUY TẮC 4. Đây là BƯỚC 1 trong ba bước "bỏ một tính năng"
+  // của CLAUDE.md, và cả ba lời hứa của bước đó phải được canh bằng máy, không
+  // phải bằng trí nhớ:
+  //
+  //   1. tắt thật — màn hình biến mất VÀ API bị chặn;
+  //   2. DỮ LIỆU GIỮ NGUYÊN, không mất một dòng nào;
+  //   3. bật lại được bất cứ lúc nào, và bật xong là chạy như cũ.
+  //
+  // Thiếu bất kỳ vế nào thì "tắt" đã lặng lẽ biến thành "xóa".
+  const ds = (await req('GET', '/api/modules', { cookie: P })).data;
+  const co = (k) => ds.some((m) => m.key === k);
+  check('phụ huynh KHÔNG thấy ô Nề nếp trên trang chủ', !co('nenep'), ds.map((m) => m.key));
+  check('phụ huynh KHÔNG thấy ô Báo cáo trên trang chủ', !co('baocao'), ds.map((m) => m.key));
+
+  // Giấu ô mà vẫn gọi được API thì chưa gọi là tắt.
+  check('API Nề nếp bị chặn, không chỉ ẩn biểu tượng',
+    (await req('GET', '/api/conduct?studentId=s1', { cookie: P })).status === 404);
+  check('API Báo cáo bị chặn, không chỉ ẩn biểu tượng',
+    (await req('GET', '/api/reports?studentId=s1', { cookie: P })).status === 404);
+
+  // Các phân hệ khác không được đi theo.
+  check('phân hệ khác vẫn bật bình thường', co('diemdanh') && co('nhanxet') && co('album'),
+    ds.map((m) => m.key));
+
+  // Quản trị vẫn thấy chúng trong danh sách để bật lại — tắt mà biến mất khỏi
+  // cả trang quản trị thì không còn đường quay lại.
+  const dsQt = (await req('GET', '/api/admin/modules', { cookie: A.cookie })).data;
+  const qt = (k) => dsQt.find((m) => m.key === k);
+  check('quản trị VẪN THẤY cả hai trong Quản trị → Tính năng để bật lại',
+    !!qt('nenep') && !!qt('baocao'), dsQt.map((m) => m.key));
+  check('và thấy đúng trạng thái đang tắt',
+    qt('nenep').enabled === false && qt('baocao').enabled === false,
+    { nenep: qt('nenep').enabled, baocao: qt('baocao').enabled });
+
+  // LỜI HỨA QUAN TRỌNG NHẤT: dữ liệu không mất.
+  const batLai = await req('PUT', '/api/admin/modules/nenep', { cookie: A.cookie, body: { enabled: true } });
+  check('bật lại được bằng một lượt bấm', batLai.status === 200, batLai.data);
+  const nn = await req('GET', '/api/conduct?studentId=s1', { cookie: P });
+  check('bật xong là chạy lại ngay, không cần khởi động lại máy chủ', nn.status === 200, nn.status);
+  check('DỮ LIỆU CŨ CÒN NGUYÊN — tắt là ngưng dùng, không phải xóa',
+    Array.isArray(nn.data?.records) && nn.data.records.length > 0,
+    { so: nn.data?.records?.length });
+
+  // Trả lại trạng thái tắt để mục sau (nếu có) không bị ảnh hưởng.
+  await req('PUT', '/api/admin/modules/nenep', { cookie: A.cookie, body: { enabled: false } });
+  check('tắt lại được, và lại bị chặn như cũ',
+    (await req('GET', '/api/conduct?studentId=s1', { cookie: P })).status === 404);
+}
+
 server.kill('SIGTERM');
 await new Promise(r => setTimeout(r, 600));
 donThuMucTam(DIR);
