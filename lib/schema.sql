@@ -66,6 +66,39 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE INDEX IF NOT EXISTS idx_students_class ON students(classId, active);
 CREATE INDEX IF NOT EXISTS idx_students_code ON students(code);
 
+-- Hồ sơ mở rộng của bé — những trường nhà trường yêu cầu thêm.
+--
+-- VÌ SAO LÀ BẢNG PHỤ, KHÔNG PHẢI CỘT THÊM VÀO `students`
+--
+-- Lược đồ lõi không được có câu ALTER TABLE nào (`test:lo-hong` canh điều đó).
+-- Cùng lý do với `class_campus` và `class_teachers`.
+--
+-- `soDinhDanh` là SỐ ĐỊNH DANH CÁ NHÂN của bé. Đây là dữ liệu cá nhân theo
+-- Nghị định 13/2023 — app chỉ hiện nó cho quản trị và văn phòng, KHÔNG hiện cho
+-- cô, và không đưa vào bản xuất danh sách trừ khi người xuất chủ động chọn.
+CREATE TABLE IF NOT EXISTS student_profile (
+  studentId   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  soDinhDanh  TEXT NOT NULL DEFAULT '',
+  tienSuBenh  TEXT NOT NULL DEFAULT '',   -- thay chỗ cho ô "Dị ứng" đời cũ
+  capNhatLuc  TEXT
+);
+
+-- Người liên hệ khẩn cấp NGOÀI bố mẹ.
+--
+-- Nhà trường yêu cầu mỗi bé phải có, vì có lúc gọi bố mẹ không được. Đây KHÔNG
+-- phải tài khoản đăng nhập — người này không xem được gì trong app, chỉ là một
+-- cái tên và một số điện thoại để cô gọi khi cần gấp.
+CREATE TABLE IF NOT EXISTS student_emergency_contacts (
+  id        TEXT PRIMARY KEY,
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  hoTen     TEXT NOT NULL,
+  quanHe    TEXT NOT NULL DEFAULT '',     -- ông, bà, cô, bác…
+  dienThoai TEXT NOT NULL DEFAULT '',
+  ghiChu    TEXT NOT NULL DEFAULT '',
+  taoLuc    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sec_student ON student_emergency_contacts(studentId);
+
 -- Một học sinh có thể có nhiều phụ huynh, một phụ huynh có nhiều con.
 CREATE TABLE IF NOT EXISTS student_parents (
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
