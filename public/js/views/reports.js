@@ -48,7 +48,7 @@ App.views.reports = {
           <select id="rp-student">
             ${App.state.students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === student.id ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
           </select>
-        </div>` : UI.studentBar()}
+        </div>` : UI.studentBar() + UI.thanhChonBe()}
       ${reports.length ? `
         <div class="seg">
           ${reports.map((r, i) => `<button class="${i === this.termIdx ? 'active' : ''}" onclick="App.views.reports.setTerm(${i})">${UI.esc(this.termLabel(r.term))}</button>`).join('')}

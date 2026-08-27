@@ -24,7 +24,7 @@ App.views.leave = {
     const list = this._list.filter(l => l.studentId === current.id);
     root.innerHTML = `
       ${UI.pageHeader('Xin phép nghỉ học', { action: { id: 'btn-new-leave', label: 'Tạo đơn', icon: 'plus' } })}
-      ${UI.studentBar()}
+      ${UI.studentBar()}${UI.thanhChonBe()}
       ${list.length ? `<div class="card">
         ${list.map(l => `
           <div class="list-row clickable" onclick="App.views.leave.showDetail('${UI.esc(l.id)}')">

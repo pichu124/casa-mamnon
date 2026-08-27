@@ -34,7 +34,7 @@ App.views.attendance = {
 
     root.innerHTML = `
       ${UI.pageHeader('Điểm danh')}
-      ${UI.studentBar()}
+      ${UI.studentBar()}${UI.thanhChonBe()}
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px">
         <button class="btn outline sm" onclick="App.views.attendance.changeMonth(-1)" aria-label="Tháng trước">‹</button>
         <b>Tháng ${m}/${y}</b>

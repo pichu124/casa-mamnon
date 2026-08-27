@@ -24,12 +24,10 @@ App.views.dashboard = {
           <div class="hero-greet-text">
             <small>${this.greeting()},</small>
             <b>${UI.esc(user.title)} ${UI.esc(user.name)}</b>
-            <i>${user.role === 'teacher'
-              ? `Cô phụ trách ${UI.esc(this.teacherClassName())}`
-              : child ? `Phụ huynh bé ${UI.esc(child.name)} · ${UI.esc(child.className || '')}` : 'Phụ huynh'}</i>
+            <i>${this.vaiTro(user, child)}</i>
           </div>
         </div>
-        ${UI.studentBar()}
+        ${UI.studentBar()}${UI.thanhChonBe()}
       </header>
 
       <div class="tile-sheet">
@@ -58,6 +56,18 @@ App.views.dashboard = {
     if (h < 14) return 'Chào buổi trưa';
     if (h < 18) return 'Chào buổi chiều';
     return 'Chào buổi tối';
+  },
+
+  // Dòng vai trò dưới tên người đang đăng nhập.
+  //
+  // Bản đầu chỉ rẽ hai nhánh: cô, còn lại là phụ huynh. Nên cô hiệu trưởng đăng
+  // nhập vào thì trang chủ ghi thẳng là "Phụ huynh" — sai ngay dòng đầu tiên cô
+  // nhìn thấy mỗi sáng, và sai theo kiểu làm người ta nghi ngờ mọi thứ bên dưới.
+  vaiTro(user, child) {
+    if (user.role === 'admin') return 'Quản trị nhà trường';
+    if (user.role === 'teacher') return `Cô phụ trách ${UI.esc(this.teacherClassName())}`;
+    if (child) return `Phụ huynh bé ${UI.esc(child.name)} · ${UI.esc(child.className || '')}`;
+    return 'Phụ huynh';
   },
 
   // Cô mầm non có thể phụ trách nhiều nhóm — nêu đủ, đừng chỉ nêu nhóm đầu.

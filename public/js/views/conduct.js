@@ -18,7 +18,7 @@ App.views.conduct = {
     const reminder = data.records.filter(r => r.type === 'reminder').length;
     root.innerHTML = `
       ${UI.pageHeader('Nề nếp')}
-      ${UI.studentBar()}
+      ${UI.studentBar()}${UI.thanhChonBe()}
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${data.totalPoints}</div><div class="stat-label">Tổng điểm</div></div>
         <div class="stat-box"><div class="stat-num">${praise}</div><div class="stat-label">Tuyên dương</div></div>

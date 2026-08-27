@@ -44,7 +44,7 @@ App.views.student = {
     const tuoi = this.tuoiCuaBe(s.dob);
     root.innerHTML = `
       ${UI.pageHeader('Hồ sơ của bé')}
-      ${UI.studentBar()}
+      ${UI.studentBar()}${UI.thanhChonBe()}
       <div class="card center" style="padding-top:24px">
         ${UI.avatar(s.avatar, 84)}
         <h2 style="margin-top:10px">${UI.esc(s.name)}</h2>

@@ -36,7 +36,7 @@ App.views.plans = {
     const suaDuoc = this.canEdit();
     root.innerHTML = `
       ${UI.pageHeader('Kế hoạch giáo dục', suaDuoc ? { action: { id: 'btn-soan-kh', label: 'Soạn kế hoạch', icon: 'edit' } } : {})}
-      ${UI.studentBar()}
+      ${UI.studentBar()}${UI.thanhChonBe()}
       ${this.oChonNhom(dsNhom)}
       ${data.plan ? this.renderPlan(data.plan) : UI.emptyState('📖', 'Chưa có kế hoạch giáo dục cho tháng này')}`;
     if (suaDuoc) document.getElementById('btn-soan-kh').onclick = () => this.moSoan();

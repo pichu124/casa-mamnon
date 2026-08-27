@@ -3,6 +3,17 @@ App.views.accounts = {
   _parents: [],
 
   async render(root) {
+    // Chặn ngay ở đây thay vì để lời gọi API rơi vào lưới bắt lỗi chung.
+    //
+    // Phụ huynh gõ tay địa chỉ này trên trình duyệt thường sẽ nhận màn "Có lỗi
+    // xảy ra 😥 / Không có quyền thực hiện" — câu của máy chủ nói với máy, không
+    // phải câu nói với một bà mẹ. Máy chủ vẫn chặn đúng ở tầng dữ liệu, không rò
+    // gì; đây thuần là chuyện nói cho tử tế, giống hệt màn Quản trị đã làm.
+    if (!['teacher', 'admin'].includes(App.state.user.role)) {
+      root.innerHTML = UI.pageHeader('Tài khoản phụ huynh')
+        + UI.emptyState('🔒', 'Mục này dành cho cô và nhà trường');
+      return;
+    }
     const parents = await API.get('/api/accounts/parents');
     this._parents = parents;
     root.innerHTML = `
