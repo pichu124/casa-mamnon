@@ -204,7 +204,7 @@ kiem('Cô phụ trách nhóm lớp', () => {
   }
   canSua('Cô phụ trách nhóm lớp',
     `${trong.length} nhóm lớp đang mở chưa có cô nào phụ trách (${trong.map(c => c.name).join(', ')})`,
-    'Vào Quản trị → Lớp, bấm Sửa ở dòng nhóm được tô đỏ rồi chọn cô phụ trách.');
+    'Vào Quản trị → Tổng quan, bấm Sửa ở dòng nhóm được tô đỏ rồi chọn cô phụ trách.');
 });
 
 // ---------------------------------------------------------------------------

@@ -268,7 +268,7 @@ App.views.health = {
     UI.modal(`
       <p style="line-height:1.6">Thu hồi ghi nhận <b>"${UI.esc(r.title)}"</b>?</p>
       <p class="muted small" style="line-height:1.6">
-        Ghi nhận sẽ biến khỏi hồ sơ sức khỏe của em. <b>Nội dung vẫn được giữ lại</b>
+        Ghi nhận sẽ biến khỏi hồ sơ sức khỏe của bé. <b>Nội dung vẫn được giữ lại</b>
         trong hệ thống để tra khi có khiếu nại. Dùng khi ghi nhầm sang bé khác.
       </p>
       <button class="btn primary block mt-14" id="ht-th-ok">Xác nhận thu hồi</button>

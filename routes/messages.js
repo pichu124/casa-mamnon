@@ -61,7 +61,7 @@ function contactsFor(user) {
         out.push({
           userId: parent.id,
           name: displayName(parent),
-          subtitle: `PH em ${s.name}`,
+          subtitle: `Phụ huynh bé ${s.name}`,
           avatar: parent.avatar,
           existingConversationId: directConvId(user.id, parent.id),
         });
@@ -94,7 +94,7 @@ function convMeta(cv, user, members) {
         : `SELECT s.name FROM students s JOIN student_parents sp ON sp.studentId = s.id
            WHERE sp.parentId = ? AND s.active = 1 LIMIT 1`,
       user.role === 'teacher' ? [other.id, ...nhom] : [other.id]);
-    subtitle = child ? `Phụ huynh em ${child.name}` : 'Phụ huynh';
+    subtitle = child ? `Phụ huynh bé ${child.name}` : 'Phụ huynh';
   }
   return { title: displayName(other), subtitle, avatar: other.avatar };
 }

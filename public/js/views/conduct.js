@@ -209,7 +209,7 @@ App.views.conduct = {
     UI.modal(`
       <p style="line-height:1.6">Thu hồi ghi nhận <b>"${UI.esc(r.title)}"</b>${r.studentName ? ` của <b>${UI.esc(r.studentName)}</b>` : ''}?</p>
       <p class="muted small" style="line-height:1.6">
-        Ghi nhận sẽ biến khỏi hồ sơ của em và <b>điểm thi đua được cộng/trừ lại
+        Ghi nhận sẽ biến khỏi hồ sơ của bé và <b>điểm thi đua được cộng/trừ lại
         cho đúng</b>. Nội dung vẫn được giữ trong hệ thống để tra khi có khiếu nại.
       </p>
       <button class="btn primary block mt-14" id="cd-th-ok">Xác nhận thu hồi</button>

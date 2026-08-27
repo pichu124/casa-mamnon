@@ -51,7 +51,7 @@ App.views.albums = {
         ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
         <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
-        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'lớp cũ', 'orange')}` : ''}</div>
+        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
       </div>`;
   },
 

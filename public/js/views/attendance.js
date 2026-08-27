@@ -211,7 +211,7 @@ App.views.attendance = {
               const conf = UI.ATT_STATUS[k];
               const sel = record && record.status === k;
               const nhac = !record && goiY === k;
-              return `<button class="badge ${conf.cls}" title="${UI.esc(nhac ? `${conf.label} — em này đã có đơn nghỉ được duyệt` : conf.label)}"
+              return `<button class="badge ${conf.cls}" title="${UI.esc(nhac ? `${conf.label} — bé này đã có đơn nghỉ được duyệt` : conf.label)}"
                 style="cursor:pointer;${sel
                   ? `background:${conf.color};color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)`
                   : nhac ? `opacity:1;border:1.5px dashed ${conf.color};color:${conf.color}` : 'opacity:.55'}"
@@ -264,7 +264,7 @@ App.views.attendance = {
       <button class="btn primary block mt-14" id="att-dung-cp">Ghi "Nghỉ có phép" (đúng với đơn)</button>
       <button class="btn outline block mt-8" id="att-van-kp">Vẫn ghi "Nghỉ không phép"</button>
       <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
-    `, 'Em này đã có đơn nghỉ');
+    `, 'Bé này đã có đơn nghỉ');
 
     document.getElementById('att-dung-cp').onclick = () => {
       UI.closeModal();
@@ -321,16 +321,16 @@ App.views.attendance = {
 
     UI.modal(`
       ${chua
-        ? `<p style="line-height:1.6">Đánh dấu <b>${chua} em chưa điểm danh</b> là có mặt?</p>`
-        : `<p style="line-height:1.6">Cả nhóm đã điểm danh xong rồi — không còn em nào chưa đánh dấu.</p>`}
+        ? `<p style="line-height:1.6">Đánh dấu <b>${chua} bé chưa điểm danh</b> là có mặt?</p>`
+        : `<p style="line-height:1.6">Cả nhóm đã điểm danh xong rồi — không còn bé nào chưa đánh dấu.</p>`}
       ${daCo
-        ? `<p class="muted small" style="line-height:1.6">${daCo} em cô đã đánh dấu sẽ <b>giữ nguyên</b>,
-           kể cả em nghỉ có phép hay nghỉ không phép.</p>`
+        ? `<p class="muted small" style="line-height:1.6">${daCo} bé cô đã đánh dấu sẽ <b>giữ nguyên</b>,
+           kể cả bé nghỉ có phép hay nghỉ không phép.</p>`
         : ''}
-      ${chua ? `<button class="btn primary block mt-14" id="att-tat-ca">Đánh dấu ${chua} em còn lại có mặt</button>` : ''}
+      ${chua ? `<button class="btn primary block mt-14" id="att-tat-ca">Đánh dấu ${chua} bé còn lại có mặt</button>` : ''}
       ${daCo ? `<button class="btn outline block mt-8" id="att-ghi-de">
                   Ghi đè cả nhóm thành có mặt
-                  <span class="muted small">(${daCo} em đã đánh dấu sẽ bị thay)</span>
+                  <span class="muted small">(${daCo} bé đã đánh dấu sẽ bị thay)</span>
                 </button>` : ''}
       <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
     `, 'Cả nhóm có mặt');
@@ -341,8 +341,8 @@ App.views.attendance = {
           { date: this.date, status: 'present', ghiDe, classId: this.nhomId || undefined });
         UI.closeModal();
         UI.toast(r.soGiuNguyen
-          ? `Đã đánh dấu ${r.soDaGhi} em có mặt, giữ nguyên ${r.soGiuNguyen} em`
-          : `Đã đánh dấu ${r.soDaGhi} em có mặt`, 'success');
+          ? `Đã đánh dấu ${r.soDaGhi} bé có mặt, giữ nguyên ${r.soGiuNguyen} bé`
+          : `Đã đánh dấu ${r.soDaGhi} bé có mặt`, 'success');
         App.route();
         App.refreshBadges();
       } catch (err) { UI.toast(err.message, 'error'); }

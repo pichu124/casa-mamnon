@@ -57,7 +57,7 @@ module.exports = (app, { db }) => {
     const k = db.first('hocphi_khoan', 'SELECT * FROM hocphi_khoan WHERE id = ?', [req.params.id]);
     if (!k) return res.status(404).json({ error: 'Không tìm thấy khoản thu' });
     if (!db.canAccessStudent(req.user, k.studentId)) {
-      return res.status(403).json({ error: 'Khoản thu này không thuộc lớp của bạn' });
+      return res.status(403).json({ error: 'Khoản thu này không thuộc nhóm của bạn' });
     }
     if (k.daNop) return res.status(400).json({ error: 'Khoản này đã được xác nhận trước đó' });
 

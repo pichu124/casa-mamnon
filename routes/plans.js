@@ -53,10 +53,10 @@ module.exports = (app) => {
   // kèm toàn bộ kế hoạch của lớp (plans, mới nhất trước).
   app.get('/api/plans', (req, res) => {
     const classId = String(req.query.classId || '');
-    if (!classId) return res.status(400).json({ error: 'Thiếu mã lớp' });
-    if (!db.findClass(classId)) return res.status(404).json({ error: 'Không tìm thấy lớp' });
+    if (!classId) return res.status(400).json({ error: 'Thiếu mã nhóm' });
+    if (!db.findClass(classId)) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Không có quyền xem kế hoạch của lớp này' });
+      return res.status(403).json({ error: 'Không có quyền xem kế hoạch của nhóm này' });
     }
     const now = new Date();
     const plans = db.all('edu_plans',
@@ -70,7 +70,7 @@ module.exports = (app) => {
   // Mỗi lớp mỗi tháng một bản: đã có thì ghi đè, chưa có thì tạo mới.
   app.put('/api/plans/:classId/:year/:month', requireRole('teacher', 'admin'), (req, res) => {
     const classId = String(req.params.classId || '').trim();
-    if (!db.findClass(classId)) return res.status(404).json({ error: 'Không tìm thấy lớp' });
+    if (!db.findClass(classId)) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
     if (!db.canAccessClass(req.user, classId)) {
       return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới được soạn kế hoạch của nhóm này' });
     }

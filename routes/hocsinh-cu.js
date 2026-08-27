@@ -81,7 +81,7 @@ module.exports = (app) => {
     }
     if (req.user.role === 'parent' && hetHan(hs.leftAt)) {
       return res.status(403).json({
-        error: `Hồ sơ của em chỉ tra cứu được trong ${SO_THANG_GIU} tháng sau khi rời trường. `
+        error: `Hồ sơ của bé chỉ tra cứu được trong ${SO_THANG_GIU} tháng sau khi rời trường. `
           + 'Xin liên hệ nhà trường nếu gia đình cần bản sao.',
       });
     }

@@ -21,7 +21,7 @@ App.views.student = {
       <div class="card center" style="padding-top:24px">
         ${UI.avatar(s.avatar, 84)}
         <h2 style="margin-top:10px">${UI.esc(s.name)}</h2>
-        <div class="muted small mt-8">Mã HS: ${UI.esc(s.code)} · ${UI.esc(s.className)}</div>
+        <div class="muted small mt-8">Mã của bé: ${UI.esc(s.code)} · ${UI.esc(s.className)}</div>
         <div class="mt-8">${UI.badge(s.gender, 'blue')} ${UI.badge(`${age} tuổi`, 'purple')}</div>
       </div>
 
@@ -90,7 +90,7 @@ App.views.student = {
           ${infoRow('Ngày sinh', UI.fmtDate(s.dob, { weekday: false }))}
           ${infoRow('Địa chỉ', s.address)}
           ${infoRow('Dị ứng', s.allergies)}
-          ${s.parents.map(p => infoRow(`PH: ${p.title} ${p.name}`, p.phone)).join('')}
+          ${s.parents.map(p => infoRow(`Phụ huynh: ${p.title} ${p.name}`, p.phone)).join('')}
         </div>`, 'Hồ sơ của bé');
     } catch (err) { UI.toast(err.message, 'error'); }
   },

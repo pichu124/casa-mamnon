@@ -38,11 +38,44 @@ const VUNG_QUET = [
   'scripts',
 ];
 
+// Ranh giới từ tiếng Việt. `\b` của JavaScript chỉ biết chữ ASCII nên "em"
+// trong "thêm", "xem", "điểm" sẽ lọt qua nếu dùng nó. Chặn cả chữ số và dấu
+// chấm để `0.9em`, `1.2rem` trong CSS không bị bắt nhầm.
+const TR = '\\p{L}\\p{N}';
+const truoc = (t) => `(?<![${TR}.])${t}`;
+const sau = (t) => `${t}(?![${TR}])`;
+const rieng = (t) => new RegExp(truoc(sau(t)), 'iu');
+
 const CAM = [
   { tu: 'học sinh', thay: 'bé / trẻ' },
   { tu: 'chủ nhiệm', thay: 'cô phụ trách' },
   { tu: 'GVCN', thay: 'cô phụ trách' },
   { tu: 'lớp học', thay: 'nhóm lớp' },
+
+  // "em" là cách gọi của bậc phổ thông. Trẻ 2–6 tuổi là *bé*, là *con*.
+  // Gọi sai một chữ thôi nhưng nó dựng lại đúng cái không khí trường học mà
+  // app này cố tình không muốn mang sang.
+  { tu: 'em', thay: 'bé / con', re: rieng('em') },
+
+  // Viết tắt của người trong ngành. Phụ huynh không biết "HS", "PH" là gì, và
+  // CLAUDE.md quy định không để lộ thuật ngữ kỹ thuật ra màn hình.
+  { tu: 'HS', thay: 'bé', re: new RegExp(truoc(sau('HS')), 'u') },
+  { tu: 'PH', thay: 'phụ huynh / gia đình', re: new RegExp(truoc(sau('PH')), 'u') },
+
+  // "lớp" là từ ĐÚNG trong nhiều câu của trường mầm non — "ở lớp", "tới lớp",
+  // "vào lớp 1", "đứng lớp". Chỉ SAI khi nó thay chỗ cho ĐƠN VỊ, tức chỗ mà
+  // màn hình đang gọi là "nhóm". Nên chặn đúng những cụm đó, không chặn cả từ.
+  {
+    tu: 'lớp (dùng thay cho "nhóm")',
+    thay: 'nhóm',
+    // "nhóm lớp" là CÁCH GỌI ĐÚNG, nên mọi nhánh đều chừa nó ra bằng
+    // `(?<!nhóm )`. Không chừa thì sửa xong lại báo đỏ chính câu đã sửa đúng.
+    re: new RegExp(
+      `${truoc('(tên|mã|thấy|xếp|rõ)')}\\s+(?<!nhóm )lớp(?![${TR}])`
+      + `|${truoc('(?<!nhóm )lớp')}\\s+(này|cũ|đó|không tồn tại)(?![${TR}])`
+      + `|của (?<!nhóm )lớp(?![${TR}])`
+      + `|Quản trị\\s*→\\s*Lớp`, 'iu'),
+  },
 ];
 
 // Ngoại lệ phải nêu LÝ DO. Danh sách này cố ý để trống lúc mới viết — thêm vào
@@ -61,6 +94,13 @@ const NGOAI_LE = [
   {
     chua: "'Mã của bé', 'Mã bé', 'Mã học sinh'",
     vi_sao: 'Cùng lý do: nhận vào thì rộng, xuất ra thì đúng.',
+  },
+  {
+    tu: 'em',
+    re: /senderId: 'p\d+'/,
+    vi_sao: 'Lời thoại của phụ huynh trong dữ liệu mẫu. Phụ huynh tự xưng "em" khi '
+      + 'nhắn với cô — đó là tiếng Việt đúng và tự nhiên, không phải gọi trẻ là "em". '
+      + 'Chặn ở đây là ép dữ liệu mẫu nói thứ tiếng Việt không ai nói.',
   },
   {
     tep: 'scripts/xuat-quy-trinh.js',
@@ -100,9 +140,10 @@ export function quet(vung = VUNG_QUET) {
       const dongs = boChuThich(fs.readFileSync(tep, 'utf8')).split('\n');
       dongs.forEach((dong, i) => {
         const thap = dong.toLowerCase();
-        for (const { tu } of CAM) {
-          if (!thap.includes(tu.toLowerCase())) continue;
-          if (NGOAI_LE.some((n) => dong.includes(n.chua))) continue;
+        for (const { tu, re } of CAM) {
+          if (re ? !re.test(dong) : !thap.includes(tu.toLowerCase())) continue;
+          if (NGOAI_LE.some((n) => (n.tu ? n.tu === tu : true)
+            && (n.chua ? dong.includes(n.chua) : false || (n.re ? n.re.test(dong) : false)))) continue;
           viPham.push({ tep: tuongDoi, dong: i + 1, tu, trich: dong.trim().slice(0, 110) });
         }
       });
@@ -171,6 +212,52 @@ console.log('\n[2] Bộ canh này có thật sự bắt được không');
 
   fs.writeFileSync(path.join(tam, 'ban.js'), "const a = 'Danh sách bé';\n");
   check('sửa đúng rồi thì hết báo', quet(['test/__tam-goi-ten']).length === 0);
+
+  // Bốn từ thêm sau (em / HS / PH / lớp-thay-cho-nhóm) đều dùng biểu thức chính
+  // quy có ranh giới từ tiếng Việt, tinh hơn hẳn phép so chuỗi. Càng tinh thì
+  // càng phải thử ngược: một biểu thức viết hụt sẽ im lặng cho qua tất cả.
+  fs.writeFileSync(path.join(tam, 'ban.js'), [
+    "const a = 'Đánh dấu em này đã nghỉ học';",
+    "const b = 'Mã HS: 123';",
+    "const c = 'PH: Nguyễn Văn A';",
+    "const d = 'Vui lòng nhập tên lớp';",
+    "const e = 'Không có quyền xem của lớp này';",
+    '',
+  ].join('\n'));
+  const bat2 = quet(['test/__tam-goi-ten']);
+  check('bắt được "em" khi gọi bé', bat2.some((v) => v.tu === 'em'), bat2);
+  check('bắt được viết tắt "HS"', bat2.some((v) => v.tu === 'HS'), bat2);
+  check('bắt được viết tắt "PH"', bat2.some((v) => v.tu === 'PH'), bat2);
+  check('bắt được "lớp" dùng thay cho "nhóm"',
+    bat2.filter((v) => v.tu.startsWith('lớp (')).length === 2, bat2);
+
+  // Và phải KHÔNG bắt những chỗ tiếng Việt vốn đúng. Bắt nhầm thì bộ canh bị
+  // vô hiệu hóa bằng cách thêm ngoại lệ, và lúc đó nó hết tác dụng thật.
+  fs.writeFileSync(path.join(tam, 'ban.js'), [
+    "const a = 'Nhóm lớp này chưa có cô phụ trách';",   // nhóm lớp = đúng
+    "const b = 'Ở lớp cô sẽ để con tự lấy nước uống';",  // ở lớp = đúng
+    "const c = 'Bé chuẩn bị vào lớp 1';",                // lớp 1 = đúng
+    "const d = 'Giờ đến lớp';",                          // đến lớp = đúng
+    "const e = 'Xem thêm điểm danh của bé';",            // thêm / điểm ≠ em
+    "const f = 'font-size:0.9em';",                      // đơn vị CSS ≠ em
+    "const g = 'PHIẾU LIÊN LẠC';",                       // PH nằm trong từ khác
+    '',
+  ].join('\n'));
+  const sach = quet(['test/__tam-goi-ten']);
+  check('KHÔNG bắt nhầm tiếng Việt vốn đúng ("nhóm lớp", "ở lớp", "vào lớp 1", "thêm", "0.9em")',
+    sach.length === 0, sach);
+
+  // Ngoại lệ cũng phải được canh: một ngoại lệ viết rộng quá sẽ lặng lẽ mở cửa
+  // cho cả tệp, và không ai biết cho tới khi chữ sai đã ra màn hình.
+  fs.writeFileSync(path.join(tam, 'ban.js'), [
+    "{ id: 'ms1', senderId: 'p1', text: 'Dạ em cảm ơn cô ạ' },",   // lời thoại → được chừa
+    "const x = 'Đánh dấu em này đã nghỉ';",                          // nhãn → vẫn phải bắt
+    '',
+  ].join('\n'));
+  const cheLoc = quet(['test/__tam-goi-ten']);
+  check('ngoại lệ "lời thoại phụ huynh" chỉ chừa ĐÚNG DÒNG lời thoại, không chừa cả tệp',
+    cheLoc.length === 1 && cheLoc[0].dong === 2, cheLoc);
+
   fs.rmSync(tam, { recursive: true, force: true });
 }
 

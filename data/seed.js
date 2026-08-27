@@ -442,7 +442,7 @@ function generate() {
     },
     {
       id: 'al2', classId: 'c1', title: 'Bé tập làm vườn ở góc thiên nhiên', date: fmt(daysAgo(11)),
-      description: 'Cả nhóm gieo hạt, tưới cây và quan sát góc thiên nhiên của lớp suốt hai tuần.',
+      description: 'Cả nhóm gieo hạt, tưới cây và quan sát góc thiên nhiên của nhóm suốt hai tuần.',
       createdBy: 't1',
       photos: [
         { id: 'ph7', emoji: '🌱', g: ['#d4fc79', '#96e6a1'], caption: 'Gieo hạt trồng rau' },

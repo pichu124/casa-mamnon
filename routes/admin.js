@@ -89,7 +89,7 @@ module.exports = (app) => {
 
   app.post('/api/admin/classes', onlyAdmin, (req, res) => {
     const { name, room, grade, teacherId, year } = req.body || {};
-    if (!String(name || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập tên lớp' });
+    if (!String(name || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập tên nhóm' });
     if (teacherId) {
       const t = db.findUser(teacherId);
       if (!t || t.role !== 'teacher') return res.status(400).json({ error: 'Giáo viên không hợp lệ' });
@@ -114,11 +114,11 @@ module.exports = (app) => {
 
   app.put('/api/admin/classes/:id', onlyAdmin, (req, res) => {
     const cls = db.findClass(req.params.id);
-    if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp' });
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
     // Tên lớp rỗng làm dòng lớp trắng trơn trên mọi màn hình mà không báo lỗi gì.
     // Đường tạo lớp đã chặn từ đầu; đường sửa thì chưa, nên chặn cho khớp.
     if (req.body.name !== undefined && !String(req.body.name).trim()) {
-      return res.status(400).json({ error: 'Vui lòng nhập tên lớp' });
+      return res.status(400).json({ error: 'Vui lòng nhập tên nhóm' });
     }
     const patch = {};
     for (const k of ['name', 'room', 'year']) {
@@ -258,7 +258,7 @@ module.exports = (app) => {
     }
     if (req.body.classId !== undefined) {
       if (req.body.classId && !db.findClass(req.body.classId)) {
-        return res.status(400).json({ error: 'Lớp không tồn tại' });
+        return res.status(400).json({ error: 'Nhóm lớp không tồn tại' });
       }
       patch.classId = req.body.classId || null;
     }
@@ -367,7 +367,7 @@ module.exports = (app) => {
         if (khoaTrongTep.has(khoa)) {
           trung = `trùng với dòng ${khoaTrongTep.get(khoa)} ngay trong tệp này`;
         } else if (daCo.has(khoa)) {
-          trung = `đã có trong hệ thống (${daCo.get(khoa) || 'chưa xếp lớp'})`;
+          trung = `đã có trong hệ thống (${daCo.get(khoa) || 'chưa xếp nhóm'})`;
         }
         if (!khoaTrongTep.has(khoa)) khoaTrongTep.set(khoa, row.__line);
       }

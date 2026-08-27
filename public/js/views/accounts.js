@@ -22,7 +22,7 @@ App.views.accounts = {
               ${UI.avatar(p.avatar, 42)}
               <div class="row-main">
                 <div class="row-title">${UI.esc(p.name)}</div>
-                <div class="row-sub">PH em ${UI.esc(p.children.join(', '))} · ${UI.esc(p.phone || 'chưa có số điện thoại')}</div>
+                <div class="row-sub">Phụ huynh của bé ${UI.esc(p.children.join(', '))} · ${UI.esc(p.phone || 'chưa có số điện thoại')}</div>
                 ${p.mustChangePassword ? `<div class="mt-8">${UI.badge('Đang dùng mật khẩu tạm', 'orange')}</div>` : ''}
               </div>
               <button class="btn sm outline" onclick="App.views.accounts.reset('${UI.esc(p.userId)}')">

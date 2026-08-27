@@ -238,7 +238,7 @@ App.views.admin = {
       <div class="list-row"${daNghiHoc ? ' style="opacity:.65"' : ''}>
         <div class="row-main">
           <div class="row-title">${UI.esc(s.name)}${daNghiHoc ? ` ${UI.badge('Đã nghỉ', 'gray')}` : ''}</div>
-          <div class="row-sub">${UI.esc(s.code || 'chưa có mã')} · PH: ${UI.esc(s.parents.map(p => p.name).join(', ') || 'chưa có')}</div>
+          <div class="row-sub">${UI.esc(s.code || 'chưa có mã')} · Phụ huynh: ${UI.esc(s.parents.map(p => p.name).join(', ') || 'chưa có')}</div>
         </div>
         <div class="row-end" style="display:flex;gap:6px">
           ${daNghiHoc
@@ -249,7 +249,7 @@ App.views.admin = {
       </div>`;
 
     const phanDaNghi = daNghi.length ? `
-      <div class="muted small mt-14 mb-8">${daNghi.length} em đã nghỉ học — dữ liệu vẫn giữ nguyên, tra cứu được</div>
+      <div class="muted small mt-14 mb-8">${daNghi.length} bé đã nghỉ học — dữ liệu vẫn giữ nguyên, tra cứu được</div>
       ${daNghi.map(s => dong(s, true)).join('')}` : '';
 
     UI.modal(
@@ -281,7 +281,7 @@ App.views.admin = {
     UI.modal(`
       <div class="field"><label>Họ và tên</label><input id="ad-hs-ten" value="${UI.esc(s.name)}"></div>
       <div class="field"><label>Mã của bé</label><input id="ad-hs-ma" value="${UI.esc(s.code || '')}" placeholder="Để trống nếu trường không dùng mã">
-        <div class="hint">Mỗi em một mã riêng. Trùng mã sẽ báo lỗi khi lưu.</div>
+        <div class="hint">Mỗi bé một mã riêng. Trùng mã sẽ báo lỗi khi lưu.</div>
       </div>
       <div class="field"><label>Ngày sinh</label><input id="ad-hs-ns" type="date" value="${UI.esc(s.dob || '')}"></div>
       <div class="field"><label>Giới tính</label>
@@ -297,7 +297,7 @@ App.views.admin = {
           <option value="">— Chưa xếp nhóm —</option>
           ${lop.map(c => `<option value="${UI.esc(c.id)}" ${c.id === s.classId ? 'selected' : ''}>${UI.esc(c.name)}</option>`).join('')}
         </select>
-        <div class="hint">Chuyển nhóm sẽ đổi luôn cô phụ trách được xem hồ sơ của em.</div>
+        <div class="hint">Chuyển nhóm sẽ đổi luôn cô phụ trách được xem hồ sơ của bé.</div>
       </div>
       <button class="btn primary block" id="ad-hs-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
     `, `Sửa hồ sơ ${s.name}`);
@@ -325,9 +325,9 @@ App.views.admin = {
   // liên lạc, học bạ, hồ sơ sức khỏe của em vẫn còn để tra cứu và bàn giao.
   choNghiHoc(studentId) {
     UI.modal(`
-      <p style="line-height:1.6">Đánh dấu em này <b>đã nghỉ học</b>?</p>
+      <p style="line-height:1.6">Đánh dấu bé này <b>đã nghỉ học</b>?</p>
       <p class="muted small" style="line-height:1.6">
-        Em sẽ không còn trong danh sách điểm danh và phụ huynh không nhận thông báo
+        Bé sẽ không còn trong danh sách điểm danh và phụ huynh không nhận thông báo
         của nhóm nữa. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b> — điểm danh, sổ
         liên lạc, học bạ, hồ sơ sức khỏe đều tra cứu được. Nhận lại bất cứ lúc nào
         bằng nút "Nhận lại" ngay dưới danh sách nhóm.
@@ -447,18 +447,18 @@ App.views.admin = {
           Sẽ tạo mới ${r.lopMoi.length} nhóm: <b>${UI.esc(r.lopMoi.join(', '))}</b></div>` : ''}
         ${soTrung ? `
           <div class="card" style="border-left:4px solid var(--warning)">
-            <div class="card-title">${soTrung} em đã có trong hệ thống — sẽ được bỏ qua</div>
+            <div class="card-title">${soTrung} bé đã có trong hệ thống — sẽ được bỏ qua</div>
             <div class="muted small" style="line-height:1.6">
               Nhận ra theo họ tên, ngày sinh và nhóm. Nhập lại sẽ tạo ra hai hồ sơ
-              cho cùng một em, kèm hai tài khoản phụ huynh khác nhau.
+              cho cùng một bé, kèm hai tài khoản phụ huynh khác nhau.
             </div>
             ${dsTrung.slice(0, 15).map(x => `<div class="small mt-8">
               <b>Dòng ${x.line}</b> ${UI.esc(x.hoTen)} — ${UI.esc(x.trung)}</div>`).join('')}
-            ${dsTrung.length > 15 ? `<div class="muted small mt-8">…và ${dsTrung.length - 15} em khác</div>` : ''}
+            ${dsTrung.length > 15 ? `<div class="muted small mt-8">…và ${dsTrung.length - 15} bé khác</div>` : ''}
             <label class="mt-14" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
               <input type="checkbox" id="ad-trung-ok" style="margin-top:3px">
-              <span class="small">Trường tôi có những em trùng cả họ tên, ngày sinh lẫn nhóm —
-                cứ nhập cả ${soTrung} em này.</span>
+              <span class="small">Trường tôi có những bé trùng cả họ tên, ngày sinh lẫn nhóm —
+                cứ nhập cả ${soTrung} bé này.</span>
             </label>
           </div>` : ''}
         ${loi.length ? `
@@ -517,7 +517,7 @@ App.views.admin = {
   hienPhieu(r) {
     const rows = r.taiKhoan;
     UI.modal(`
-      <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} em đã có sẵn trong hệ thống)` : ''}.</p>
+      <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} bé đã có sẵn trong hệ thống)` : ''}.</p>
       <p class="muted small">Danh sách tài khoản dưới đây <b>chỉ hiện một lần</b>. Hãy tải về và in
       phát cho phụ huynh. Mật khẩu sẽ được yêu cầu đổi khi đăng nhập lần đầu.</p>
       <button class="btn primary block mt-14" id="ad-tai">⬇ Tải danh sách tài khoản (CSV)</button>
@@ -706,7 +706,7 @@ App.views.admin = {
             Bảng trên đã nói rõ nhóm nào lên nhóm nào, không cần chọn gì thêm.
           </div>` : `
           <div class="field mt-14">
-            <label>Khối cuối cấp — chỉ dùng cho lớp đặt tên theo số, ví dụ "Lớp 5A"</label>
+            <label>Khối cuối cấp — chỉ dùng cho nhóm đặt tên theo số, ví dụ "Lớp 5A"</label>
             <input type="number" id="ny-khoi" value="${UI.esc(d.khoiToiDa)}" min="1" max="12">
             <div class="hint">Nhóm đặt tên theo bậc (Chồi, Lá…) không dùng tới ô này.</div>
           </div>`}

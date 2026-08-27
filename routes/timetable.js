@@ -40,17 +40,17 @@ function lamSachCacNgay(days, soTiet) {
 module.exports = (app) => {
   app.get('/api/timetable', (req, res) => {
     const classId = String(req.query.classId || '').trim();
-    if (!classId) return res.status(400).json({ error: 'Thiếu mã lớp (classId)' });
+    if (!classId) return res.status(400).json({ error: 'Thiếu mã nhóm (classId)' });
 
     const cls = db.findClass(classId);
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
 
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Không có quyền xem thời khóa biểu của lớp này' });
+      return res.status(403).json({ error: 'Không có quyền xem thời khóa biểu của nhóm này' });
     }
 
     const tt = db.first('timetable', 'SELECT * FROM timetable WHERE classId = ?', [classId]);
-    if (!tt) return res.status(404).json({ error: 'Lớp chưa có thời khóa biểu' });
+    if (!tt) return res.status(404).json({ error: 'Nhóm chưa có thời khóa biểu' });
 
     res.json({
       ...tt,

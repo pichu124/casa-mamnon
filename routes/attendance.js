@@ -155,9 +155,9 @@ module.exports = (app) => {
     // phải nói rõ khi cô đang phụ trách nhiều nhóm.
     const classId = String((req.body || {}).classId || '')
       || nl.nhomDangThaoTac(req.user, null);
-    if (!classId) return res.status(400).json({ error: 'Thiếu mã lớp cần điểm danh' });
+    if (!classId) return res.status(400).json({ error: 'Thiếu mã nhóm cần điểm danh' });
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Lớp này không thuộc quyền quản lý của bạn' });
+      return res.status(403).json({ error: 'Nhóm này không thuộc quyền phụ trách của bạn' });
     }
 
     const students = db.all('students',

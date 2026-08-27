@@ -36,7 +36,7 @@ App.views.hocsinhcu = {
               ${UI.avatar(s.avatar, 44)}
               <div class="row-main">
                 <div class="row-title">${UI.esc(s.name)}</div>
-                <div class="row-sub">${UI.esc(s.lopCuoi || 'chưa rõ lớp')}${s.namCuoi ? ` · năm ${UI.esc(s.namCuoi)}` : ''}${
+                <div class="row-sub">${UI.esc(s.lopCuoi || 'chưa rõ nhóm')}${s.namCuoi ? ` · năm ${UI.esc(s.namCuoi)}` : ''}${
                   s.leftAt ? ` · rời trường ${UI.esc(UI.fmtDateShort(s.leftAt))}` : ''}</div>
               </div>
               <span class="muted">${UI.icon('chevron', 18)}</span>

@@ -187,7 +187,7 @@ App.views.remarks = {
     const r = (this._lop || []).find(x => x.id === id);
     if (!r) return UI.toast('Không tìm thấy nhận xét này', 'error');
     UI.modal(`
-      <p style="line-height:1.6">Thu hồi nhận xét của <b>${UI.esc(r.studentName || 'em này')}</b> ngày ${UI.esc(UI.fmtDate(r.date))}?</p>
+      <p style="line-height:1.6">Thu hồi nhận xét của <b>${UI.esc(r.studentName || 'bé này')}</b> ngày ${UI.esc(UI.fmtDate(r.date))}?</p>
       <p class="muted small" style="line-height:1.6">
         Nhận xét sẽ biến khỏi sổ liên lạc của gia đình. <b>Nội dung vẫn được giữ
         lại</b> trong hệ thống để tra khi cần. Phụ huynh đã đọc rồi thì không lấy

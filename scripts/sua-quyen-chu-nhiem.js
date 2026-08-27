@@ -123,7 +123,7 @@ if (thuaQuyen.length) {
     const c = lopTheoId.get(t.classId);
     const chuMoi = c && c.teacherId ? tenGv(c.teacherId) : '(nhóm chưa có cô phụ trách)';
     console.log(`      ${t.title} ${t.name} — còn gắn với ${c ? c.name : t.classId}, `
-      + `mà lớp đó nay là của ${chuMoi}`);
+      + `mà nhóm đó nay là của ${chuMoi}`);
   }
   console.log('      → Sẽ gỡ gắn kết của các cô này Ở CẢ HAI NƠI: hai cột đời cũ VÀ bảng');
   console.log('        quyền `class_teachers`. Gỡ mỗi cột cũ là chưa thu hồi được gì —');
@@ -136,7 +136,7 @@ if (thieuGan.length) {
   for (const c of thieuGan) {
     console.log(`      ${c.name} — ghi là của ${tenGv(c.teacherId)}, nhưng cô đăng nhập vào thấy "Sĩ số 0"`);
   }
-  console.log('      → Sẽ gắn cô vào đúng lớp mà màn hình quản trị đang hiện.\n');
+  console.log('      → Sẽ gắn cô vào đúng nhóm mà màn hình quản trị đang hiện.\n');
 }
 
 if (vuaDungLai.length) {
@@ -153,7 +153,7 @@ if (nhomTrong.length) {
   console.log(`  ⚠ ${nhomTrong.length} nhóm đang mở mà KHÔNG còn cô nào phụ trách:`);
   for (const c of nhomTrong) console.log(`      ${c.name}`);
   console.log('      → KHÔNG tự sửa: chọn cô nào cho nhóm nào là việc của nhà trường.');
-  console.log('        Vào Quản trị → Lớp, bấm Sửa ở dòng nhóm đó.\n');
+  console.log('        Vào Quản trị → Tổng quan, bấm Sửa ở dòng nhóm đó.\n');
 }
 
 if (!SUA) {

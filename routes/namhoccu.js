@@ -51,7 +51,7 @@ module.exports = (app) => {
   // Toàn bộ nội dung của MỘT khoảng lớp cũ, gom vào một lượt gọi.
   app.get('/api/namhoccu/:id', (req, res) => {
     const k = lsl.lopCuCuaPhuHuynh(req.user).find(x => x.id === req.params.id);
-    if (!k) return res.status(404).json({ error: 'Không tìm thấy lớp cũ này của con' });
+    if (!k) return res.status(404).json({ error: 'Không tìm thấy nhóm cũ này của con' });
 
     const lop = db.findClass(k.classId);
     const hs = db.findStudent(k.studentId);
