@@ -33,6 +33,11 @@ const VUNG_QUET = [
   'public/manifest.json',
   'public/sw.js',
   'lib/modules.js',
+  // Hai tệp DÙNG CHUNG cũng in chữ ra màn hình: `app.js` dựng lời mời cài app
+  // và banner bật thông báo. Quét chúng ở đây thì việc SỬA chúng vẫn phải là
+  // một commit riêng — bài canh chỉ đọc, không sửa.
+  'public/js/app.js',
+  'lib/db.js',
   'routes',
   'modules/hocphi',
   'modules/thuchup',

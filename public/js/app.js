@@ -2,7 +2,7 @@
 window.App = {
   state: {
     user: null,          // người dùng hiện tại
-    students: [],        // học sinh được phép xem (con / lớp chủ nhiệm)
+    students: [],        // bé được phép xem (con của mình / nhóm cô phụ trách)
     classes: [],
     school: null,
     currentStudentId: null,
@@ -49,7 +49,7 @@ window.App = {
     });
     window.addEventListener('appinstalled', () => {
       this.installPrompt = null;
-      UI.toast('Đã cài SchoolConnect vào màn hình chính', 'success');
+      UI.toast('Đã cài CASA Mầm non vào màn hình chính', 'success');
     });
   },
 
@@ -87,7 +87,7 @@ window.App = {
 
   setStudent(id) {
     this.state.currentStudentId = id;
-    this.route(); // vẽ lại view hiện tại theo học sinh mới
+    this.route(); // vẽ lại view hiện tại theo bé vừa chọn
   },
 
   // Nạp danh sách phân hệ đang bật. Phân hệ cắm thêm có tệp giao diện riêng nên
@@ -263,7 +263,7 @@ window.App = {
     b.id = 'push-banner';
     b.innerHTML = `
       <span class="pb-logo">🏫</span>
-      <div class="pb-text"><b>SchoolConnect</b><span>Bật để nhận thông báo kịp thời</span></div>
+      <div class="pb-text"><b>CASA Mầm non</b><span>Bật để nhận thông báo kịp thời</span></div>
       <button class="pb-bell" id="pb-enable">${UI.icon('bell', 20)}</button>
       <button class="pb-close" id="pb-close">${UI.icon('x', 18)}</button>`;
     document.body.appendChild(b);
