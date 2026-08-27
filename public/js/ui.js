@@ -109,6 +109,40 @@ window.UI = (() => {
       </button>`).join('')}</div>`;
   }
 
+  // Ô chọn bé dành cho vai QUẢN TRỊ.
+  //
+  // VÌ SAO LÀ HÀM RIÊNG, KHÔNG NỚI `studentBar`
+  //
+  // `studentBar` là dải chip ngang, làm cho phụ huynh có hai ba con. Quản trị
+  // một trường ba cơ sở nhìn thấy hàng trăm bé — dải chip đó thành băng cuộn
+  // dài vô tận. Và `studentBar` đang được 10 màn hình gọi: nới điều kiện của nó
+  // là đổi hành vi cả 10 chỗ cùng một lúc, đúng thứ Nguyên tắc số 1 cấm làm với
+  // tệp dùng chung.
+  //
+  // VÌ SAO CẦN
+  //
+  // Các màn một-bé (Hồ sơ, Nhận xét, Nề nếp, Báo cáo, Sức khỏe…) rẽ nhánh theo
+  // `role === 'teacher'`, nên vai quản trị rơi vào nhánh PHỤ HUYNH và hiện dữ
+  // liệu của bé đầu bảng chữ cái — không ô chọn, và có màn không ghi tên bé nào
+  // trên đó cả. Quản trị đang đọc nhận xét của một đứa trẻ mà không biết là đứa
+  // nào. Lúc phụ huynh gọi điện khiếu nại thì đó là chỗ nhầm rất đắt.
+  function thanhChonBe() {
+    const u = App.state.user || {};
+    const students = App.state.students || [];
+    if (u.role !== 'admin' || !students.length) return '';
+    const dang = students.find(s => s.id === App.state.currentStudentId) || students[0];
+    return `
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Đang xem hồ sơ của bé</label>
+          <select onchange="App.setStudent(this.value)">
+            ${students.map(s => `<option value="${esc(s.id)}" ${s.id === dang.id ? 'selected' : ''}>${
+              esc(s.name)}${s.className ? ` · ${esc(s.className)}` : ''}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+  }
+
   function toast(msg, type = '') {
     let zone = document.getElementById('toast-zone');
     if (!zone) { zone = document.createElement('div'); zone.id = 'toast-zone'; document.body.appendChild(zone); }
@@ -153,7 +187,7 @@ window.UI = (() => {
 
   return {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
-    pageHeader, avatar, emptyState, studentBar, toast, modal, closeModal,
+    pageHeader, avatar, emptyState, studentBar, thanhChonBe, toast, modal, closeModal,
     badge, ATT_STATUS, RATING, DOW,
   };
 })();

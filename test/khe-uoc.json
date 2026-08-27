@@ -92,6 +92,7 @@
     "pageHeader": "ham(1)",
     "parseDate": "ham(1)",
     "studentBar": "ham(0)",
+    "thanhChonBe": "ham(0)",
     "timeAgo": "ham(1)",
     "toast": "ham(1)",
     "todayStr": "ham(0)"
