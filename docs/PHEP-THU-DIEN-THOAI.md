@@ -19,7 +19,7 @@ là **con số đo trên tay người thật** — máy không tự đo hộ đ�
 > ### ⛔ CHỈ DÙNG DỮ LIỆU MẪU. TUYỆT ĐỐI KHÔNG NHẬP TRẺ THẬT.
 >
 > Buổi thử này chạy trên một máy chủ tạm, rất có thể đi qua dịch vụ đường hầm của
-> bên thứ ba. Ảnh khuôn mặt trẻ 2–6 tuổi và hồ sơ sức khỏe là dữ liệu nhạy cảm
+> bên thứ ba. Ảnh khuôn mặt trẻ 12 tháng – 6 tuổi và hồ sơ sức khỏe là dữ liệu nhạy cảm
 > theo Nghị định 13/2023/NĐ-CP — **không được đi qua đó**.
 >
 > Cô chụp gì trong buổi thử cũng được: đồ chơi, góc lớp, một tờ giấy. **Không chụp

@@ -38,7 +38,7 @@ xong là mọi người có ngay — app 1 đã chứng minh. Giới hạn thậ
 không tự gửi dữ liệu khi app đang đóng — cách né ở mục 10.
 
 **3. Máy chủ đặt tại Việt Nam, trường đứng tên.**
-Dữ liệu trẻ 2–6 tuổi kèm ảnh, video là nhóm nhạy cảm nhất theo NĐ 13/2023 và Luật
+Dữ liệu trẻ 12 tháng – 6 tuổi kèm ảnh, video là nhóm nhạy cảm nhất theo NĐ 13/2023 và Luật
 Bảo vệ dữ liệu cá nhân 91/2025 (hiệu lực 01/01/2026). Máy chủ trong nước
 (Viettel/VNPT/FPT) là cách gọn nhất để không vướng thủ tục chuyển dữ liệu ra nước
 ngoài. Trường đứng tên tài khoản và thanh toán — app không chết vì thẻ cá nhân của
@@ -194,7 +194,7 @@ Nền giống nhau ~70%. Đây là 30% khác, xếp theo mức đụng chạm.
 
 ## 6. Pháp lý và dữ liệu trẻ em
 
-Trẻ 2–6 tuổi + ảnh + video = nhóm dữ liệu được luật bảo vệ chặt nhất.
+Trẻ 12 tháng – 6 tuổi + ảnh + video = nhóm dữ liệu được luật bảo vệ chặt nhất.
 
 - **Máy chủ tại Việt Nam** (quyết định nền số 3) — né toàn bộ thủ tục chuyển dữ
   liệu ra nước ngoài. Nhân dịp này, **app 1 cũng nên dời về cùng nhà cung cấp**:

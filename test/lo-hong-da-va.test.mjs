@@ -260,7 +260,7 @@ console.log('\n[8b] N5 — chạy thật mà dữ liệu nằm TRONG kho mã th�
 {
   // Ở app 1 chỗ này chỉ `console.warn`, và in ra SAU khi máy chủ đã mở cổng —
   // tức đã bắt đầu phục vụ dữ liệu trẻ rồi mới nhắc, vào một dòng log không ai
-  // đọc. Ở app 2 đây là ảnh khuôn mặt trẻ 2–6 tuổi và hồ sơ sức khỏe: lộ lên
+  // đọc. Ở app 2 đây là ảnh khuôn mặt trẻ 12 tháng – 6 tuổi và hồ sơ sức khỏe: lộ lên
   // GitHub rồi thì viết lại lịch sử git cũng không thu lại được.
   const trongKho = path.join(GOC, 'data');
   const r = spawnSync('node', ['server.js'], {

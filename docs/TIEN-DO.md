@@ -465,7 +465,7 @@ Sáu chỗ hỏng thật, sửa hết trong đợt này:
 | Bản "giữ lại phòng khi khôi phục nhầm" **mất phần ghi cuối** | Phần vừa ghi nằm trong `-wal`; bản cũ đổi tên tệp chính rồi xóa `-wal`. Máy chủ tắt đột ngột vừa là lý do hay gặp nhất khiến phải khôi phục, vừa là lúc `-wal` chứa nhiều nhất | Gộp nhật ký ghi vào tệp chính trước khi đổi tên, kèm phép thử ngược tự chứng minh tình huống là thật |
 | Cô dạy **hai nhóm** không mở được Kế hoạch / Thời khóa biểu của nhóm thứ hai | Máy chủ cho phép, nhưng màn hình lấy cứng `nhomCuaCo[0]`. Quyền có mà lối vào thì không — và bài kiểm thử API **không bao giờ thấy** loại lỗi này | Ô chọn nhóm cho cả hai màn, chỉ hiện khi cô có hơn một nhóm; `test/nhieu-nhom-giao-dien.test.mjs` đi bằng chuột trên trình duyệt thật |
 | `'chưa chưa phụ trách nhóm nào'` trên màn Quản trị | Do chính đợt N9–N11 tìm-thay hàng loạt. Câu vẫn đúng ngữ pháp, chỉ thừa một từ — mắt người rất dễ lướt qua | Sửa, và thêm mục canh **chữ lặp đôi** vào `test:goi-ten` |
-| Tuổi bé tính bằng **hiệu hai con số năm** | Bé sinh tháng 12 bị ghi già hơn tuổi thật gần trọn một năm. Ở tuổi 2–6, sáu tháng là khoảng cách thật sự, và cô nhìn con số đó để chờ đợi ở bé | Tính theo ngày sinh, hiện kèm tháng ("4 tuổi 8 tháng"); bé chưa tròn một tuổi thì đếm bằng tháng |
+| Tuổi bé tính bằng **hiệu hai con số năm** | Bé sinh tháng 12 bị ghi già hơn tuổi thật gần trọn một năm. Ở lứa tuổi này, sáu tháng là khoảng cách thật sự, và cô nhìn con số đó để chờ đợi ở bé | Tính theo ngày sinh, hiện kèm tháng ("4 tuổi 8 tháng"); bé chưa tròn một tuổi thì đếm bằng tháng |
 
 Ba chỗ nữa thuộc loại **nói sai sự thật với người vận hành**, đã sửa cùng đợt:
 
@@ -510,7 +510,7 @@ nói ra thứ nó đang hiện.**
 | Phụ huynh gõ nhầm `#/accounts` | Nhận màn "Có lỗi xảy ra 😥 / Không có quyền thực hiện" — câu của máy chủ nói với máy | Kiểm vai ngay đầu màn, nói "Mục này dành cho cô và nhà trường" |
 | Cô phụ trách hai nhóm thấy "Các bé nhóm **Chồi 2, Lá 1**" | Đọc lướt thành TÊN MỘT NHÓM, vì "Chồi 2, Lá 1" trông y như một cái tên dài | `UI.noiTenNhom()` (tệp dùng chung, commit riêng) nối bằng "và" |
 | Câu báo lỗi nói với cô lệch **ba kiểu** xưng hô | Cùng một việc, máy chủ có ba câu: "nhóm của cô", "nhóm cô phụ trách", "nhóm lớp của bạn". Nặng nhất là một câu vừa gọi người kia là *cô* vừa gọi người đọc là *bạn* | Chốt một cách duy nhất, bỏ hẳn "bạn" ở mọi câu nói với cô |
-| Ô nhập chiều cao / cân nặng gợi ý **"130 cm", "28 kg"** | Số của trẻ lớp 4, trên form dành cho bé 2–6 tuổi — trong khi chú thích của chính `data/seed.js` đã viết "số liệu sai lứa tuổi là thứ cô và y tế trường nhận ra ngay, và nhận ra là mất tin vào cả bộ dữ liệu" | Đổi thành 105 cm / 17 kg, và "VD: Cân đo định kỳ đầu năm" |
+| Ô nhập chiều cao / cân nặng gợi ý **"130 cm", "28 kg"** | Số của trẻ lớp 4, trên form dành cho bé 12 tháng – 6 tuổi — trong khi chú thích của chính `data/seed.js` đã viết "số liệu sai lứa tuổi là thứ cô và y tế trường nhận ra ngay, và nhận ra là mất tin vào cả bộ dữ liệu" | Đổi thành 105 cm / 17 kg, và "VD: Cân đo định kỳ đầu năm" |
 | Người áp tải xe cũng được gọi là **"Cô phụ trách"** | Một chữ mang hai nghĩa trong cùng một app: ở màn Xe buýt là cô đi cùng xe, ở màn Hồ sơ là cô đứng nhóm của bé. Phụ huynh gọi nhầm số khi con có chuyện ở lớp | "Cô đi cùng xe" |
 | "Y tế **học đường**", "Thực đơn **bán trú**", "**Sĩ số**" | Chữ của trường phổ thông | "Sức khỏe của bé", "Thực đơn của bé", "Số bé" |
 | Tên phân hệ ≠ tên trang của cùng tính năng | Phân hệ "Hồ sơ bé" mở ra trang "Hồ sơ của bé"; phân hệ "Y tế" mở ra "Y tế học đường" | Chốt một tên cho mỗi tính năng |
@@ -544,7 +544,7 @@ nói ra thứ nó đang hiện.**
 > ### Quyết định của nhà trường, 27/08/2026 — TẮT hai phân hệ xếp hạng trẻ
 >
 > Nề nếp và Báo cáo kế thừa nguyên vẹn từ app 1 và cả hai xếp trẻ trên dưới
-> nhau. **Đây là trẻ 2–6 tuổi.** Một phụ huynh mở app ra thấy con mình 4 tuổi
+> nhau. **Đây là trẻ 12 tháng – 6 tuổi.** Một phụ huynh mở app ra thấy con mình 4 tuổi
 > được xếp huy chương đồng là loại mất lòng tin không sửa được bằng bản cập
 > nhật sau.
 >

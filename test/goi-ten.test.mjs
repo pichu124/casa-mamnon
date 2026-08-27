@@ -61,7 +61,7 @@ const CAM = [
   { tu: 'GVCN', thay: 'cô phụ trách' },
   { tu: 'lớp học', thay: 'nhóm lớp' },
 
-  // "em" là cách gọi của bậc phổ thông. Trẻ 2–6 tuổi là *bé*, là *con*.
+  // "em" là cách gọi của bậc phổ thông. Trẻ 12 tháng – 6 tuổi là *bé*, là *con*.
   // Gọi sai một chữ thôi nhưng nó dựng lại đúng cái không khí trường học mà
   // app này cố tình không muốn mang sang.
   { tu: 'em', thay: 'bé / con', re: rieng('em') },
@@ -366,7 +366,7 @@ console.log('\n[5] Tuổi của bé nói theo cách của trường mầm non');
 {
   // VÌ SAO CÓ MỤC NÀY
   //
-  // Màn Hồ sơ bé từng tính tuổi bằng `nămNay − nămSinh`. Với trẻ 2–6 tuổi thì
+  // Màn Hồ sơ bé từng tính tuổi bằng `nămNay − nămSinh`. Với trẻ 12 tháng – 6 tuổi thì
   // lệch một năm là lệch rất nhiều: bé sinh tháng 12 bị ghi già hơn tuổi thật
   // gần trọn một năm, suốt từ tháng 1 cho tới sinh nhật. Cô nhìn con số đó rồi
   // chờ đợi ở bé những việc bé chưa tới tuổi làm — và ở tuổi này, sáu tháng là

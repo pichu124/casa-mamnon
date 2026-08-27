@@ -8,7 +8,7 @@
 // lần gõ `git add -A` theo thói quen là toàn bộ hồ sơ 300 học sinh — họ tên, ngày
 // sinh, hồ sơ sức khỏe, số điện thoại phụ huynh — bị đẩy lên một kho công khai.
 //
-// Đây là ảnh khuôn mặt và hồ sơ sức khỏe của trẻ 2–6 tuổi, thuộc nhóm nhạy cảm
+// Đây là ảnh khuôn mặt và hồ sơ sức khỏe của trẻ 12 tháng – 6 tuổi, thuộc nhóm nhạy cảm
 // theo Nghị định 13/2023/NĐ-CP. Lộ rồi thì không thu lại được: viết lại lịch sử
 // git cũng không xóa được thứ người khác đã tải về.
 //
@@ -68,7 +68,7 @@ function bienBan(dinh, nhan) {
 ${dinh.map(d => `    ${d.tep}\n      → ${d.loai}`).join('\n')}
 
   Kho mã này là nơi chứa MÃ NGUỒN, không phải nơi chứa dữ liệu của trường.
-  Hồ sơ của bé gồm ảnh khuôn mặt và dữ liệu sức khỏe của trẻ 2–6 tuổi — thuộc
+  Hồ sơ của bé gồm ảnh khuôn mặt và dữ liệu sức khỏe của trẻ 12 tháng – 6 tuổi — thuộc
   nhóm nhạy cảm theo Nghị định 13/2023/NĐ-CP. Một khi đã đẩy lên thì không thu
   lại được: người khác có thể đã tải về trước khi kịp xóa.
 

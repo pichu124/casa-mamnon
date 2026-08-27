@@ -3,7 +3,7 @@
 App.views.student = {
   // Tuổi của bé, tính theo NGÀY SINH chứ không phải hiệu hai con số năm.
   //
-  // Bản đầu lấy `nămNay − nămSinh`. Với trẻ 2–6 tuổi thì lệch một năm là lệch
+  // Bản đầu lấy `nămNay − nămSinh`. Với trẻ 12 tháng – 6 tuổi thì lệch một năm là lệch
   // rất nhiều: một bé sinh tháng 12 bị ghi già hơn tuổi thật gần trọn một năm,
   // suốt từ tháng 1 cho tới sinh nhật. Cô nhìn con số đó rồi chờ đợi ở bé
   // những việc bé chưa tới tuổi làm được — và ở tuổi này, sáu tháng là một

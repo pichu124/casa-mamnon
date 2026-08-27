@@ -1,8 +1,15 @@
 # Quy định bắt buộc cho mọi thay đổi trong kho mã này
 
 **CASA Mầm non** — app liên lạc nhà trường ↔ gia đình cho một trường mầm non
-**3 cơ sở**, trẻ 2–6 tuổi. Mục tiêu số một: **thay hẳn sổ liên lạc giấy**. Sau đó
-mới tới phần hành trình học tập theo triết lý CASA.
+**3 cơ sở**. Mục tiêu số một: **thay hẳn sổ liên lạc giấy**. Sau đó mới tới phần
+hành trình học tập theo triết lý CASA.
+
+**Lứa tuổi: 12 tháng – 6 tuổi.** Trường nhận hầu hết từ **18 tháng**, và nhận sớm
+hơn từ **12 tháng** khi trường đồng ý. Con số này đáng ghi ngay dòng đầu vì nó
+quyết định nhiều thứ ở dưới: bé 14 tháng thì màn hình phải nói *"14 tháng"* chứ
+không phải *"1 tuổi"*; nhóm nhà trẻ cần nhật ký thay bỉm và bú bình mà nhóm Lá
+không cần; và ô nhập chiều cao/cân nặng gợi ý sai lứa tuổi là thứ cô với y tế
+trường nhận ra ngay.
 
 Kho mã này **nhân bản từ app 1 (SchoolConnect** — trường tiểu học, đang chạy thật
 cho ~300 học sinh**)** tại điểm tách `bc9dfa3`. Toàn bộ lịch sử git của phần nền
@@ -129,7 +136,7 @@ Hai vế trên **đều đã được canh bằng máy**, không phải chỉ l�
 **Không có đường thoát** — lộ rồi thì viết lại lịch sử git cũng không thu lại được.
 Nếu bản thân bộ canh chạy lỗi thì nó **chặn**, không cho qua.
 
-Ở app này mức độ nhạy cảm còn cao hơn app 1: trẻ 2–6 tuổi, **ảnh và video khuôn mặt
+Ở app này mức độ nhạy cảm còn cao hơn app 1: trẻ 12 tháng – 6 tuổi, **ảnh và video khuôn mặt
 trẻ**, hồ sơ sức khỏe. Thư mục `uploads/` của app 2 phải nằm ngoài kho mã ngay từ
 lần chạy đầu tiên (`DATA_DIR` trỏ ra ngoài).
 
