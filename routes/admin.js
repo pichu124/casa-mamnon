@@ -54,9 +54,74 @@ function lay(row, ...ten) {
 
 module.exports = (app) => {
   // ---------- Tổng quan ----------
+  // ---- Cơ sở ----
+  //
+  // Trường có ba cơ sở, và quy định phân quyền của nhà trường nói rõ dữ liệu
+  // giữa các cơ sở phải độc lập. Ba đường dưới đây là chỗ nhà trường khai báo
+  // và sửa danh sách đó.
+  app.get('/api/admin/campuses', onlyAdmin, (req, res) => {
+    res.json(db.campuses().map(cs => ({
+      ...cs,
+      classCount: db.classIdsOfCampus(cs.id).length,
+      studentCount: db.classIdsOfCampus(cs.id)
+        .reduce((n, id) => n + db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [id]), 0),
+    })));
+  });
+
+  app.post('/api/admin/campuses', onlyAdmin, (req, res) => {
+    const name = String((req.body || {}).name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Vui lòng nhập tên cơ sở' });
+    if (db.campuses().some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      return res.status(400).json({ error: 'Đã có cơ sở trùng tên này' });
+    }
+    const rec = {
+      id: db.nextId('cs'),
+      name,
+      address: String((req.body || {}).address || '').trim(),
+      phone: String((req.body || {}).phone || '').trim(),
+      email: String((req.body || {}).email || '').trim(),
+      active: true,
+      taoLuc: new Date().toISOString(),
+    };
+    db.insert('campuses', rec);
+    db.audit(req.user, 'campus-create', { campusId: rec.id, name: rec.name });
+    res.json(rec);
+  });
+
+  app.put('/api/admin/campuses/:id', onlyAdmin, (req, res) => {
+    const cs = db.findCampus(req.params.id);
+    if (!cs) return res.status(404).json({ error: 'Không tìm thấy cơ sở' });
+    const body = req.body || {};
+    const thayDoi = {};
+    for (const k of ['name', 'address', 'phone', 'email']) {
+      if (body[k] !== undefined) thayDoi[k] = String(body[k]).trim();
+    }
+    if (thayDoi.name === '') return res.status(400).json({ error: 'Vui lòng nhập tên cơ sở' });
+    // Đóng một cơ sở là NGƯNG DÙNG, không xóa: nhóm lớp, hồ sơ bé và mọi thứ
+    // gắn với nó vẫn còn nguyên, tra cứu lại được bất cứ lúc nào.
+    if (body.active !== undefined) thayDoi.active = !!body.active;
+    db.update('campuses', cs.id, thayDoi);
+    db.audit(req.user, 'campus-update', { campusId: cs.id, thayDoi });
+    res.json(db.findCampus(cs.id));
+  });
+
+  // Gắn một nhóm lớp vào cơ sở. Truyền campusId rỗng để gỡ ra.
+  app.put('/api/admin/classes/:id/campus', onlyAdmin, (req, res) => {
+    const lop = db.findClass(req.params.id);
+    if (!lop) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    const campusId = String((req.body || {}).campusId || '').trim();
+    if (campusId && !db.findCampus(campusId)) {
+      return res.status(400).json({ error: 'Không tìm thấy cơ sở' });
+    }
+    db.setClassCampus(lop.id, campusId || null);
+    db.audit(req.user, 'class-campus', { classId: lop.id, campusId: campusId || null });
+    res.json({ classId: lop.id, campusId: campusId || null });
+  });
+
   app.get('/api/admin/overview', onlyAdmin, (req, res) => {
     res.json({
       school: db.school(),
+      campuses: db.campuses(),
       counts: {
         classes: db.count('SELECT COUNT(*) FROM classes WHERE active = 1'),
         students: db.count('SELECT COUNT(*) FROM students WHERE active = 1'),
@@ -67,6 +132,7 @@ module.exports = (app) => {
       classes: db.classes().map(c => ({
         ...c,
         ...nl.tomTat(c.id),
+        campusId: db.campusOfClass(c.id),
         studentCount: db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [c.id]),
       })),
     });

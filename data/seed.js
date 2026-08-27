@@ -45,15 +45,30 @@ function generate() {
     currentYear: schoolYear,
   };
 
-  // Hai nhóm lớp của cơ sở 1. Tên nhóm đi theo bậc mầm non (Nhà trẻ → Mầm →
-  // Chồi → Lá), số phía sau là nhóm song song thứ mấy trong cùng bậc — KHÔNG
-  // phải khối lớp. `grade` giữ lại tuổi của bậc cho những màn hình cũ còn đọc.
+  // Ba cơ sở thật của trường. Số điện thoại và email ở đây là HOTLINE VĂN PHÒNG
+  // của từng cơ sở — thứ phụ huynh cần khi có việc gấp, và cũng là thứ thay chỗ
+  // cho số điện thoại riêng của cô trên màn hình hồ sơ bé.
+  const campuses = [
+    { id: 'cs1', name: 'Cơ sở 1', address: '25 Nguyễn Văn Trỗi, Q. Phú Nhuận, TP.HCM',
+      phone: '028 3844 5566', email: 'coso1@casamamnon.edu.vn' },
+    { id: 'cs2', name: 'Cơ sở 2', address: '112 Nguyễn Thị Minh Khai, Q. 3, TP.HCM',
+      phone: '028 3844 5577', email: 'coso2@casamamnon.edu.vn' },
+    { id: 'cs3', name: 'Cơ sở 3', address: '48 Phan Xích Long, Q. Phú Nhuận, TP.HCM',
+      phone: '028 3844 5588', email: 'coso3@casamamnon.edu.vn' },
+  ];
+
+  // Tên nhóm đi theo bậc mầm non (Nhà trẻ → Mầm → Chồi → Lá), số phía sau là
+  // nhóm song song thứ mấy trong cùng bậc — KHÔNG phải khối lớp. `grade` giữ
+  // lại tuổi của bậc cho những màn hình cũ còn đọc.
   //
-  // Trường có 3 cơ sở, nhưng app CHƯA có tầng cơ sở (N4 trong docs/TIEN-DO.md),
-  // nên cơ sở tạm nằm trong tên phòng để ít nhất còn hiện ra trên màn hình.
+  // Câu chuyện của bộ dữ liệu mẫu nằm ở CƠ SỞ 1 (bé An, nhóm Chồi 2). Nhóm
+  // Mầm 1 ở cơ sở 2 tồn tại để phép thử "cơ sở A không thấy cơ sở B" có thật
+  // hai cơ sở mà so — một tính năng cách ly mà dữ liệu mẫu chỉ có một cơ sở thì
+  // không bài kiểm thử nào chứng minh được.
   const classes = [
-    { id: 'c1', name: 'Chồi 2', teacherId: 't1', teacherIds: ['t1', 't3'], room: 'Cơ sở 1 — Phòng Hoa Sen', grade: 4, year: schoolYear },
-    { id: 'c2', name: 'Lá 1', teacherId: 't2', teacherIds: ['t2', 't3'], room: 'Cơ sở 1 — Phòng Hướng Dương', grade: 5, year: schoolYear },
+    { id: 'c1', name: 'Chồi 2', teacherId: 't1', teacherIds: ['t1', 't3'], campusId: 'cs1', room: 'Cơ sở 1 — Phòng Hoa Sen', grade: 4, year: schoolYear },
+    { id: 'c2', name: 'Lá 1', teacherId: 't2', teacherIds: ['t2', 't3'], campusId: 'cs1', room: 'Cơ sở 1 — Phòng Hướng Dương', grade: 5, year: schoolYear },
+    { id: 'c3', name: 'Mầm 1', teacherId: null, teacherIds: [], campusId: 'cs2', room: 'Cơ sở 2 — Phòng Hoa Mai', grade: 3, year: schoolYear },
   ];
 
   // Các tài khoản mẫu dùng chung một mật khẩu nên chỉ cần băm một lần.
@@ -557,7 +572,7 @@ function generate() {
   ];
 
   const db = {
-    school, classes, users, students,
+    school, campuses, classes, users, students,
     attendance, leaveRequests, menus, timetable, remarks, reports,
     busRoutes, conduct, surveys, health, medicineRequests, albums, eduPlans,
     notifications, conversations,

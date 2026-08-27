@@ -101,7 +101,10 @@ console.log('\n[5] Nhập thật');
 
   const ov = await req('GET', '/api/admin/overview', { cookie: A.cookie });
   check('tổng học sinh tăng lên 11', ov.data.counts.students === 11, ov.data?.counts?.students);
-  check('đã tự tạo 2 lớp mới', ov.data.counts.classes === 5, ov.data?.counts?.classes);
+  // Dữ liệu mẫu nay có 3 nhóm (Chồi 2 và Lá 1 ở cơ sở 1, Mầm 1 ở cơ sở 2 — nhóm
+  // thứ ba tồn tại để phép thử cách ly giữa hai cơ sở có thật hai cơ sở mà so).
+  // Tệp nhập mẫu thêm 3 nhóm nữa, nên tổng là 6.
+  check('đã tự tạo 3 nhóm mới', ov.data.counts.classes === 6, ov.data?.counts?.classes);
 
   // Hai con cùng một phụ huynh (trùng SĐT) phải dùng chung một tài khoản
   const dungChung = r.data.taiKhoan.filter(t => t.username === '0911111111');

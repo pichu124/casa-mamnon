@@ -25,13 +25,14 @@ App.views.admin = {
     root.innerHTML = `
       ${UI.pageHeader('Quản trị nhà trường')}
       <div class="seg">
-        ${[['tongquan', 'Tổng quan'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['tinhnang', 'Tính năng'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
+        ${[['tongquan', 'Tổng quan'], ['coso', 'Cơ sở'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['tinhnang', 'Tính năng'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
           .map(([k, t]) => `<button class="${this._tab === k ? 'active' : ''}" onclick="App.views.admin.go('${k}')">${t}</button>`).join('')}
       </div>
       <div id="admin-body"><div class="loading">Đang tải</div></div>`;
 
     const body = document.getElementById('admin-body');
     try {
+      if (this._tab === 'coso') return this.tabCoSo(body);
       if (this._tab === 'nhaplieu') return this.tabNhapLieu(body);
       if (this._tab === 'giaovien') return this.tabGiaoVien(body);
       if (this._tab === 'tinhnang') return this.tabTinhNang(body);
@@ -81,7 +82,8 @@ App.views.admin = {
           <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
             <div class="row-main">
               <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có cô phụ trách', 'red')}`}</div>
-              <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công cô')} · ${c.studentCount} bé${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
+              <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công cô')} · ${c.studentCount} bé${
+              c.campusId ? ' · ' + UI.esc((d.campuses.find(x => x.id === c.campusId) || {}).name || '') : ''}${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
             </div>
             <div class="row-end" style="display:flex;gap:8px">
               <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
@@ -89,6 +91,136 @@ App.views.admin = {
             </div>
           </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>`;
+  },
+
+  // Tab Cơ sở — trường có ba cơ sở, dữ liệu giữa chúng phải độc lập.
+  //
+  // Chưa khai báo cơ sở nào thì cả tầng cơ sở nằm im và app chạy y như trước;
+  // màn này nói thẳng điều đó thay vì hiện một danh sách trống không lời.
+  async tabCoSo(body) {
+    const [ds, d] = await Promise.all([
+      API.get('/api/admin/campuses'),
+      API.get('/api/admin/overview'),
+    ]);
+    this._coso = ds;
+    this._lop = d.classes;
+    const chuaGan = d.classes.filter(c => !c.campusId);
+    body.innerHTML = `
+      ${ds.length ? '' : `
+        <div class="card">
+          <div class="card-title">Trường chưa khai báo cơ sở nào</div>
+          <div class="muted small" style="line-height:1.6">
+            Trường một cơ sở thì để trống mục này cũng được — app chạy y như cũ.
+            Khai báo cơ sở khi trường có từ hai điểm trở lên, để dữ liệu của mỗi
+            cơ sở tách riêng và quản lý cơ sở chỉ nhìn thấy phần của mình.
+          </div>
+        </div>`}
+
+      <div class="card">
+        <div class="card-title">Danh sách cơ sở<span class="spacer"></span>
+          <button class="btn sm primary" onclick="App.views.admin.themCoSo()">+ Thêm cơ sở</button>
+        </div>
+        ${ds.length ? ds.map(cs => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(cs.name)}</div>
+              <div class="row-sub">${cs.classCount} nhóm · ${cs.studentCount} bé${
+                cs.address ? ' · ' + UI.esc(cs.address) : ''}</div>
+              <div class="row-sub">${UI.esc(cs.phone || 'chưa có hotline')} · ${UI.esc(cs.email || 'chưa có email')}</div>
+            </div>
+            <div class="row-end">
+              <button class="btn sm outline" onclick="App.views.admin.suaCoSo('${UI.esc(cs.id)}')">Sửa</button>
+            </div>
+          </div>`).join('') : '<div class="muted small">Chưa có cơ sở nào.</div>'}
+      </div>
+
+      ${ds.length ? `
+        <div class="card">
+          <div class="card-title">Nhóm lớp thuộc cơ sở nào</div>
+          ${chuaGan.length ? `
+            <div class="muted small mb-8" style="line-height:1.6">
+              <b>${chuaGan.length} nhóm chưa gắn cơ sở.</b> Nhóm chưa gắn thì chỉ
+              tài khoản quản trị toàn hệ thống nhìn thấy — quản lý cơ sở sẽ không
+              thấy nhóm đó trong danh sách của mình.
+            </div>` : ''}
+          ${d.classes.map(c => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(c.name)}</div>
+                <div class="row-sub">${c.studentCount} bé</div>
+              </div>
+              <div class="row-end">
+                <select onchange="App.views.admin.datCoSoChoNhom('${UI.esc(c.id)}', this.value)">
+                  <option value="">— Chưa gắn —</option>
+                  ${ds.map(cs => `<option value="${UI.esc(cs.id)}" ${cs.id === c.campusId ? 'selected' : ''}>${UI.esc(cs.name)}</option>`).join('')}
+                </select>
+              </div>
+            </div>`).join('')}
+        </div>` : ''}`;
+  },
+
+  themCoSo() {
+    UI.modal(`
+      <div class="field"><label>Tên cơ sở</label><input id="ad-cs-ten" placeholder="Ví dụ: Cơ sở 2"></div>
+      <div class="field"><label>Địa chỉ</label><input id="ad-cs-dc" placeholder="Ví dụ: 112 Nguyễn Thị Minh Khai, Q. 3"></div>
+      <div class="field"><label>Hotline văn phòng</label><input id="ad-cs-dt" placeholder="Ví dụ: 028 3844 5577"></div>
+      <div class="field"><label>Email cơ sở</label><input id="ad-cs-email" placeholder="Ví dụ: coso2@truong.edu.vn"></div>
+      <div class="muted small mb-8" style="line-height:1.6">
+        Hotline và email ở đây là số của <b>văn phòng cơ sở</b> — thứ gia đình cần
+        khi có việc gấp. Màn hồ sơ của bé sẽ hiện số này chứ không hiện số riêng của cô.
+      </div>
+      <button class="btn primary block" id="ad-cs-luu">Tạo cơ sở</button>
+    `, 'Thêm cơ sở mới');
+    document.getElementById('ad-cs-luu').onclick = async () => {
+      const name = document.getElementById('ad-cs-ten').value.trim();
+      if (!name) return UI.toast('Vui lòng nhập tên cơ sở', 'error');
+      try {
+        await API.post('/api/admin/campuses', {
+          name,
+          address: document.getElementById('ad-cs-dc').value.trim(),
+          phone: document.getElementById('ad-cs-dt').value.trim(),
+          email: document.getElementById('ad-cs-email').value.trim(),
+        });
+        UI.toast('Đã tạo cơ sở', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  suaCoSo(id) {
+    const cs = (this._coso || []).find(x => x.id === id);
+    if (!cs) return UI.toast('Không tìm thấy cơ sở này', 'error');
+    UI.modal(`
+      <div class="field"><label>Tên cơ sở</label><input id="ad-cs-ten" value="${UI.esc(cs.name)}"></div>
+      <div class="field"><label>Địa chỉ</label><input id="ad-cs-dc" value="${UI.esc(cs.address || '')}"></div>
+      <div class="field"><label>Hotline văn phòng</label><input id="ad-cs-dt" value="${UI.esc(cs.phone || '')}"></div>
+      <div class="field"><label>Email cơ sở</label><input id="ad-cs-email" value="${UI.esc(cs.email || '')}"></div>
+      <button class="btn primary block" id="ad-cs-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
+    `, `Sửa ${cs.name}`);
+    document.getElementById('ad-cs-luu').onclick = async () => {
+      const name = document.getElementById('ad-cs-ten').value.trim();
+      if (!name) return UI.toast('Vui lòng nhập tên cơ sở', 'error');
+      try {
+        await API.put(`/api/admin/campuses/${encodeURIComponent(id)}`, {
+          name,
+          address: document.getElementById('ad-cs-dc').value.trim(),
+          phone: document.getElementById('ad-cs-dt').value.trim(),
+          email: document.getElementById('ad-cs-email').value.trim(),
+        });
+        UI.toast('Đã lưu thay đổi', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  async datCoSoChoNhom(classId, campusId) {
+    try {
+      await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/campus`, { campusId });
+      UI.toast(campusId ? 'Đã gắn nhóm vào cơ sở' : 'Đã gỡ nhóm khỏi cơ sở', 'success');
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
   },
 
   async themLop() {
