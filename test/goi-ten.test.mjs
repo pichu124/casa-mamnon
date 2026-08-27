@@ -76,6 +76,22 @@ const CAM = [
   // non CASA. Cô mở app ra và thấy hai cái tên không khớp nhau.
   { tu: 'SchoolConnect', thay: 'CASA Mầm non', re: /schoolconnect/i },
 
+  // Phân hệ này tên "Thời khóa biểu" nhưng ruột đã là lịch sinh hoạt một ngày từ
+  // lâu — đón bé, thể dục sáng, ăn, ngủ trưa, trả bé. Cô đọc "thời khóa biểu"
+  // rồi đi tìm "tiết học", không thấy. Nhà trường đã chốt đổi tên (N12).
+  { tu: 'thời khóa biểu', thay: 'lịch sinh hoạt', re: /thời khóa biểu/i },
+
+  // "tiết" là đơn vị giờ học của phổ thông. Mầm non có MỐC SINH HOẠT.
+  //
+  // Chừa "chi tiết", "tiết kiệm", "tiết mục" — ba từ khác hẳn, chỉ trùng âm.
+  // Chừa bằng chính biểu thức thay vì bằng ngoại lệ: ngoại lệ chừa CẢ DÒNG,
+  // nên một dòng có "tiết kiệm" sẽ vô tình chừa luôn chữ "tiết" sai nằm cạnh.
+  {
+    tu: 'tiết (giờ học của phổ thông)',
+    thay: 'mốc sinh hoạt',
+    re: /(?<!chi )(?<![\p{L}])tiết(?!\s*(kiệm|mục))(?![\p{L}])/iu,
+  },
+
   // Gợi ý mẫu trong ô nhập cũng là chữ hiện lên màn hình. Màn "Soạn kế hoạch"
   // còn mời cô "Ôn bảng nhân chia; luyện đọc nhóm đôi" — nguyên văn kế thừa từ
   // app 1. Cô mầm non mở ra đọc câu đó sẽ hiểu app này không làm cho mình.
@@ -252,6 +268,8 @@ console.log('\n[2] Bộ canh này có thật sự bắt được không');
     "const c = 'PH: Nguyễn Văn A';",
     "const d = 'Vui lòng nhập tên lớp';",
     "const e = 'Không có quyền xem của lớp này';",
+    "const f = 'Lưu thời khóa biểu';",
+    "const g = 'Thứ 2 — môn học từng tiết';",
     '',
   ].join('\n'));
   const bat2 = quet(['test/__tam-goi-ten']);
@@ -260,6 +278,9 @@ console.log('\n[2] Bộ canh này có thật sự bắt được không');
   check('bắt được viết tắt "PH"', bat2.some((v) => v.tu === 'PH'), bat2);
   check('bắt được "lớp" dùng thay cho "nhóm"',
     bat2.filter((v) => v.tu.startsWith('lớp (')).length === 2, bat2);
+  check('bắt được "thời khóa biểu"', bat2.some((v) => v.tu === 'thời khóa biểu'), bat2);
+  check('bắt được "tiết" kiểu giờ học phổ thông',
+    bat2.some((v) => v.tu.startsWith('tiết (')), bat2);
 
   // Và phải KHÔNG bắt những chỗ tiếng Việt vốn đúng. Bắt nhầm thì bộ canh bị
   // vô hiệu hóa bằng cách thêm ngoại lệ, và lúc đó nó hết tác dụng thật.
@@ -271,10 +292,13 @@ console.log('\n[2] Bộ canh này có thật sự bắt được không');
     "const e = 'Xem thêm điểm danh của bé';",            // thêm / điểm ≠ em
     "const f = 'font-size:0.9em';",                      // đơn vị CSS ≠ em
     "const g = 'PHIẾU LIÊN LẠC';",                       // PH nằm trong từ khác
+    "const h = 'Ảnh tự thu nhỏ để tiết kiệm dung lượng';",  // tiết kiệm ≠ tiết học
+    "const i = 'Tiết mục trống hội';",                       // tiết mục ≠ tiết học
+    "const j = 'Xem chi tiết thông báo';",                   // chi tiết ≠ tiết học
     '',
   ].join('\n'));
   const sach = quet(['test/__tam-goi-ten']);
-  check('KHÔNG bắt nhầm tiếng Việt vốn đúng ("nhóm lớp", "ở lớp", "vào lớp 1", "thêm", "0.9em")',
+  check('KHÔNG bắt nhầm tiếng Việt vốn đúng ("nhóm lớp", "ở lớp", "vào lớp 1", "thêm", "0.9em", "chi tiết", "tiết kiệm", "tiết mục")',
     sach.length === 0, sach);
 
   // Ngoại lệ cũng phải được canh: một ngoại lệ viết rộng quá sẽ lặng lẽ mở cửa

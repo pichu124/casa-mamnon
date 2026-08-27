@@ -552,14 +552,14 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1238**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1243**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **245**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
-| `test:lo-hong` | 282 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
+| `test:lo-hong` | 283 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
 | `test:khe-uoc` | 116 | Hình dạng của các tệp dùng chung |
 | `test:co-lap-loi` | 101 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
@@ -571,7 +571,7 @@ Bốn bộ **mới của app 2**, không có ở app 1:
 | `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
 | `test:thuchup` | 55 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
 | `test:sao-luu` | 48 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
-| `test:goi-ten` | 34 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
+| `test:goi-ten` | 38 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
 | `test:nhieu-nhom` | 35 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
 
@@ -609,7 +609,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | ~~N11~~ | ~~Ô "Khối cuối cấp" là ô điều khiển chết~~ | **✅ xong** — máy chủ trả thêm cờ `theoBac`, màn hình giấu hẳn ô đó khi mọi nhóm đi theo bậc | 26/08/2026 |
 | N13 | **Lần triển khai đầu tiên lên Render là một vòng kẹt** | Ổ đĩa mới là ổ trống; `NODE_ENV=production` + CSDL trống → máy chủ dừng có chủ ý (đúng). Nhưng Shell của Render chỉ mở được khi dịch vụ đang chạy → không tạo được tài khoản quản trị → dịch vụ không bao giờ chạy. **Đã viết thẳng vòng kẹt và hai đường ra vào `render.yaml`**, chưa vá bằng mã: cách vá (nhận tài khoản quản trị đầu tiên qua biến môi trường) là quyết định về triển khai, mà nơi triển khai còn chờ N7 | Sau N7 |
 | N14 | `docs/` vẫn ghi `/var/lib/schoolconnect`, `scripts/` nay ghi `/var/lib/casa-mamnon` | Người vận hành làm theo lời nhắc của máy chủ rồi chạy script theo lời nhắc của tài liệu — script mở một CSDL TRỐNG và báo "mọi thứ đều sạch". Trấn an sai còn tệ hơn báo lỗi. `scripts/` đã thống nhất và có bài canh; `docs/` để nguyên vì đang mang cảnh báo "chưa cập nhật cho app 2" (N1) — sửa đường dẫn trong đó là làm nó TRÔNG như đã cập nhật | Cùng N1 |
-| N12 | Phân hệ vẫn tên là **"Thời khóa biểu"**, nội dung bên trong đã là **lịch sinh hoạt một ngày** (đón bé, ăn, ngủ trưa, trả bé) | Dữ liệu và cái tên đang nói hai chuyện khác nhau. Không sai tới mức hỏng, nhưng cô sẽ đọc "thời khóa biểu" rồi tìm "tiết học". Cố ý KHÔNG gộp vào N9 vì `CLAUDE.md` chỉ liệt kê ba cặp từ (bé, nhóm lớp, cô) — đổi tên một phân hệ là quyết định của nhà trường | Hỏi nhà trường rồi làm |
+| ~~N12~~ | ~~Phân hệ vẫn tên là "Thời khóa biểu" trong khi ruột đã là lịch sinh hoạt một ngày~~ | **✅ xong** — nhà trường chốt đổi thành **"Lịch sinh hoạt"**, và bỏ luôn chữ *"tiết"* bên trong ("Thứ 2 — hoạt động từng mốc"). Thêm hai từ vào `test:goi-ten` để tên cũ không trôi ngược; biểu thức tự chừa *"chi tiết"*, *"tiết kiệm"*, *"tiết mục"* thay vì mở ngoại lệ — ngoại lệ chừa CẢ DÒNG, dễ chừa lây chữ sai nằm cạnh | 27/08/2026 |
 
 ---
 
@@ -648,3 +648,5 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Dọn nốt nhãn còn lệch: xưng hô với cô, số đo sai lứa tuổi, chữ của trường phổ thông | Đợt soát |
 | 27/08/2026 | `/healthz` thôi lộ thông tin vận hành; `restore` đếm cả phân công cô | Đợt soát |
 | 27/08/2026 | Phụ huynh xem lại được album nhóm cũ của con — mốc lấy đầu năm học (**người dùng duyệt**) | Đợt soát |
+| 27/08/2026 | Gỡ vỏ đóng gói Android của app 1 — app 2 chỉ làm PWA | N2 |
+| 27/08/2026 | "Thời khóa biểu" → **"Lịch sinh hoạt"**, bỏ chữ "tiết" | N12 |

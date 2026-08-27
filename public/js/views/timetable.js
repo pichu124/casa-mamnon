@@ -1,4 +1,10 @@
-// Phân hệ Thời khóa biểu: lịch học theo nhóm, xem theo từng thứ trong tuần.
+// Phân hệ Lịch sinh hoạt: một ngày ở nhóm, xem theo từng thứ trong tuần.
+//
+// Tên cũ là "Thời khóa biểu" — chữ của trường phổ thông. Nội dung bên trong đã
+// là lịch sinh hoạt một ngày từ lâu (đón bé, thể dục sáng, ăn, ngủ trưa, trả bé),
+// nên cái tên và cái ruột đang nói hai chuyện khác nhau: cô đọc "thời khóa biểu"
+// rồi đi tìm "tiết học", không thấy. Tên biến `periodTimes`, `p`, `TOI_DA_TIET`
+// giữ nguyên — CLAUDE.md cho phép tầng dữ liệu nói tiếng Anh của app 1.
 // Phụ huynh xem theo nhóm của con đang chọn; giáo viên xem nhóm mình phụ trách.
 // Cô phụ trách và quản trị sửa được TKB của nhóm ngay trên màn hình này.
 //
@@ -35,7 +41,7 @@ App.views.timetable = {
     } else {
       const current = App.currentStudent();
       if (!current) {
-        root.innerHTML = UI.pageHeader('Thời khóa biểu') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
+        root.innerHTML = UI.pageHeader('Lịch sinh hoạt') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
         return;
       }
       classId = current.classId;
@@ -50,7 +56,7 @@ App.views.timetable = {
 
     if (this.editing && this.draft) return this.renderEditor(root);
 
-    let data = null, thongBao = 'Nhóm chưa có thời khóa biểu';
+    let data = null, thongBao = 'Nhóm chưa có lịch sinh hoạt';
     try {
       data = await API.get(`/api/timetable?classId=${encodeURIComponent(classId)}`);
     } catch (err) {
@@ -61,19 +67,19 @@ App.views.timetable = {
     if (!data) {
       // Chỉ mời tạo mới khi máy chủ xác nhận nhóm CHƯA có TKB. Lỗi mạng thì không —
       // kẻo lưu bản mặc định đè lên TKB thật đang có.
-      const chuaCo = /chưa có thời khóa biểu/i.test(thongBao);
+      const chuaCo = /chưa có lịch sinh hoạt/i.test(thongBao);
       root.innerHTML = `
-        ${UI.pageHeader('Thời khóa biểu')}
+        ${UI.pageHeader('Lịch sinh hoạt')}
         ${UI.studentBar()}${UI.thanhChonBe()}
         ${UI.emptyState('📚', thongBao)}
         ${this.canEdit() && chuaCo ? `
-          <button class="btn primary block" onclick="App.views.timetable.batDauTao()">${UI.icon('plus', 18)} Lập thời khóa biểu</button>` : ''}`;
+          <button class="btn primary block" onclick="App.views.timetable.batDauTao()">${UI.icon('plus', 18)} Lập lịch sinh hoạt</button>` : ''}`;
       return;
     }
 
     const suaDuoc = this.canEdit();
     root.innerHTML = `
-      ${UI.pageHeader('Thời khóa biểu', suaDuoc ? { action: { id: 'btn-sua-tkb', label: 'Chỉnh sửa', icon: 'edit' } } : {})}
+      ${UI.pageHeader('Lịch sinh hoạt', suaDuoc ? { action: { id: 'btn-sua-tkb', label: 'Chỉnh sửa', icon: 'edit' } } : {})}
       ${UI.studentBar()}${UI.thanhChonBe()}
       ${this.oChonNhom(dsNhom)}
       <div class="seg" id="tkb-seg">
@@ -84,7 +90,7 @@ App.views.timetable = {
       <div class="card">
         <div class="card-title">${UI.icon('info', 19)} Ghi chú</div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Nhóm</div><div class="row-title">${UI.esc(data.className)}</div></div></div>
-        <div class="list-row"><div class="row-main"><div class="row-sub">Lịch học</div><div class="row-title">Buổi sáng 4 tiết, buổi chiều 3 tiết</div></div></div>
+        <div class="list-row"><div class="row-main"><div class="row-sub">Một ngày ở nhóm</div><div class="row-title">Từ lúc đón bé tới lúc trả bé</div></div></div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Cô phụ trách</div><div class="row-title">${UI.esc(data.teacherNames || data.teacherName || '—')}</div></div></div>
       </div>`;
     if (suaDuoc) document.getElementById('btn-sua-tkb').onclick = () => this.batDauSua();
@@ -108,7 +114,7 @@ App.views.timetable = {
   setNhom(value) {
     if (!value || value === this.classId) return;
     // Đang sửa dở TKB nhóm này mà chuyển sang nhóm khác thì bỏ bản nháp, kẻo
-    // lưu nhầm tiết học của nhóm này sang nhóm kia.
+    // lưu nhầm hoạt động của nhóm này sang nhóm kia.
     this.editing = false;
     this.draft = null;
     this.classId = value;
@@ -138,20 +144,20 @@ App.views.timetable = {
     this.renderDay();
   },
 
-  // Vẽ bảng tiết học của thứ đang chọn.
+  // Vẽ lịch sinh hoạt của thứ đang chọn.
   renderDay() {
     const zone = document.getElementById('tkb-day');
     if (!zone || !this.data) return;
     const subjects = (this.data.days && this.data.days[String(this.day)]) || [];
     if (!subjects.length) {
-      zone.innerHTML = UI.emptyState('📚', 'Chưa có thời khóa biểu cho ngày này');
+      zone.innerHTML = UI.emptyState('📚', 'Chưa có lịch sinh hoạt cho ngày này');
       return;
     }
     const isToday = new Date().getDay() === this.day;
     zone.innerHTML = `<div class="card">${subjects.map((sub, i) => this.periodRow(sub, i, isToday)).join('')}</div>`;
   },
 
-  // Một tiết học: số tiết + tên môn + khung giờ; tô sáng nếu đang diễn ra.
+  // Một mốc sinh hoạt: số thứ tự + tên hoạt động + khung giờ; tô sáng nếu đang diễn ra.
   periodRow(subject, i, isToday) {
     const pt = (this.data.periodTimes || [])[i] || {};
     const time = pt.time || '';
@@ -192,7 +198,7 @@ App.views.timetable = {
     App.route();
   },
 
-  // Nhóm chưa có TKB: bắt đầu từ khung giờ mặc định, các tiết để trống.
+  // Nhóm chưa có lịch: bắt đầu từ khung giờ mặc định, các mốc để trống.
   batDauTao() {
     const soTiet = this.KHUNG_GIO_MAC_DINH.length;
     const days = {};
@@ -206,14 +212,14 @@ App.views.timetable = {
     const d = this.draft;
     const mon = (d.days[String(this.day)] || []);
     root.innerHTML = `
-      ${UI.pageHeader('Sửa thời khóa biểu')}
+      ${UI.pageHeader('Sửa lịch sinh hoạt')}
       <div class="seg" id="tkb-seg">
         ${[1, 2, 3, 4, 5].map(x => `
           <button class="${x === this.day ? 'active' : ''}" onclick="App.views.timetable.setDay(${x})">T${x + 1}</button>`).join('')}
       </div>
       <div class="card">
-        <div class="card-title">${UI.icon('calendar', 19)} Thứ ${this.day + 1} — môn học từng tiết</div>
-        <div class="muted small" style="margin-bottom:10px">Để trống hoặc ghi "—" nếu tiết đó nghỉ. Khung giờ dùng chung cho cả tuần.</div>
+        <div class="card-title">${UI.icon('calendar', 19)} Thứ ${this.day + 1} — hoạt động từng mốc</div>
+        <div class="muted small" style="margin-bottom:10px">Để trống hoặc ghi "—" nếu mốc đó không có hoạt động riêng. Khung giờ dùng chung cho cả tuần.</div>
         ${d.periodTimes.map((pt, i) => `
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
             <span class="row-icon" style="background:#e6efff;color:var(--primary);font-weight:800;flex:none">${UI.esc(pt.p || i + 1)}</span>
@@ -225,7 +231,7 @@ App.views.timetable = {
             </div>
           </div>`).join('')}
       </div>
-      <button class="btn primary block" onclick="App.views.timetable.luuSua()">${UI.icon('check', 18)} Lưu thời khóa biểu</button>
+      <button class="btn primary block" onclick="App.views.timetable.luuSua()">${UI.icon('check', 18)} Lưu lịch sinh hoạt</button>
       <button class="btn block" style="margin-top:8px" onclick="App.views.timetable.huySua()">Hủy</button>`;
   },
 
@@ -252,7 +258,7 @@ App.views.timetable = {
       this.data = kq;
       this.editing = false;
       this.draft = null;
-      UI.toast('Đã lưu thời khóa biểu', 'success');
+      UI.toast('Đã lưu lịch sinh hoạt', 'success');
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }
   },

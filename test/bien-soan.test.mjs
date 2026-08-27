@@ -1,4 +1,4 @@
-// Kiểm thử đường GHI của các phân hệ nội dung: Thời khóa biểu, Thực đơn,
+// Kiểm thử đường GHI của các phân hệ nội dung: Lịch sinh hoạt, Thực đơn,
 // Kế hoạch giáo dục, Báo cáo học tập — giáo viên/quản trị soạn, phụ huynh chỉ xem.
 //
 // Ra đời sau khi phát hiện 4 phân hệ này chỉ có đường đọc (dữ liệu vào bằng seed),
@@ -116,7 +116,8 @@ console.log('\n[5] TKB — quản trị sửa lớp bất kỳ, lập mới cho 
   check('tạo được lớp mới để thử', lop.status === 201 && lop.data.id, lop);
   const lopId = lop.data.id;
   r = await req('GET', `/api/timetable?classId=${lopId}`, { cookie: A });
-  check('lớp mới chưa có TKB → 404 báo rõ', r.status === 404 && /chưa có thời khóa biểu/i.test(r.data?.error || ''), r);
+  check('nhóm mới chưa có lịch sinh hoạt → 404 báo rõ',
+    r.status === 404 && /chưa có lịch sinh hoạt/i.test(r.data?.error || ''), r);
   r = await req('PUT', `/api/timetable/${lopId}`, {
     cookie: A,
     body: { periodTimes: [{ p: 1, time: '07:30 – 08:05' }, { p: 2, time: '08:10 – 08:45' }], days: { 1: ['Toán', 'Tiếng Việt'] } },

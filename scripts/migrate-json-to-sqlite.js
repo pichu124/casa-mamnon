@@ -70,7 +70,7 @@ const nhan = {
   student_parents: 'liên kết bé–phụ huynh', attendance: 'lượt điểm danh',
   leave_requests: 'đơn xin phép', remarks: 'nhận xét', reports: 'báo cáo học tập',
   conduct: 'ghi nhận nề nếp', health: 'hồ sơ y tế', medicine_requests: 'đơn dặn thuốc',
-  menus: 'thực đơn', timetable: 'thời khóa biểu', edu_plans: 'kế hoạch giáo dục',
+  menus: 'thực đơn', timetable: 'lịch sinh hoạt', edu_plans: 'kế hoạch giáo dục',
   bus_routes: 'tuyến xe', surveys: 'khảo sát', survey_responses: 'lượt trả lời khảo sát',
   albums: 'album', album_photos: 'ảnh', notifications: 'thông báo',
   conversations: 'hội thoại', messages: 'tin nhắn',

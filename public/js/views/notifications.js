@@ -103,7 +103,7 @@ App.views.notifications = {
     UI.modal(`
       <div class="field">
         <label>Tiêu đề</label>
-        <input id="nt-title" placeholder="Ví dụ: Chuẩn bị đồ dùng tiết Mỹ thuật">
+        <input id="nt-title" placeholder="Ví dụ: Mai nhóm mình chơi với nước, gia đình gửi thêm một bộ quần áo">
       </div>
       <div class="field">
         <label>Nội dung</label>

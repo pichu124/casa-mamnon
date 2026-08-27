@@ -1,7 +1,7 @@
 // Phân hệ Năm học trước.
 //
 // Sau khi chuyển năm học, mọi nội dung khóa theo nhóm — thông báo gửi riêng nhóm,
-// khảo sát, kế hoạch giáo dục, thời khóa biểu — rơi khỏi tầm với của phụ huynh
+// khảo sát, kế hoạch giáo dục, lịch sinh hoạt — rơi khỏi tầm với của phụ huynh
 // vì nhóm cũ đã đóng. Màn hình này mở lại đúng phần của nhóm con TỪNG học, và chỉ
 // phần rơi vào khoảng con còn ở nhóm đó.
 //
@@ -22,7 +22,7 @@ App.views.namhoccu = {
       ${ds.length ? `
         <div class="card" style="border-left:4px solid var(--info)">
           <div class="muted small" style="line-height:1.6">
-            Thông báo, khảo sát, kế hoạch và thời khóa biểu của nhóm con từng học.
+            Thông báo, khảo sát, kế hoạch và lịch sinh hoạt của nhóm con từng học.
             Chỉ hiện phần trong khoảng thời gian con còn ở nhóm đó.
             Ảnh của nhóm nằm ở màn <b>Album ảnh</b>, mục "Album của các năm học trước".
           </div>
@@ -100,10 +100,10 @@ App.views.namhoccu = {
         : UI.emptyState('📊', 'Không có khảo sát nào trong khoảng này')}
 
       ${d.tkb ? `
-        <div class="section-label">Thời khóa biểu của nhóm</div>
+        <div class="section-label">Lịch sinh hoạt của nhóm</div>
         <div class="card">
           <div class="muted small" style="line-height:1.6">
-            Thời khóa biểu được lưu một bản duy nhất cho mỗi nhóm, không lưu theo
+            Lịch sinh hoạt được lưu một bản duy nhất cho mỗi nhóm, không lưu theo
             từng tuần — nên đây là bản gần nhất của nhóm này, có thể đã được sửa
             sau khi con rời nhóm.
           </div>
@@ -121,7 +121,7 @@ App.views.namhoccu = {
   bangTkb(tkb) {
     const days = (tkb && tkb.days) || {};
     const thu = Object.keys(days).sort((a, b) => Number(a) - Number(b));
-    if (!thu.length) return '<div class="muted small mt-8">Nhóm này chưa có thời khóa biểu.</div>';
+    if (!thu.length) return '<div class="muted small mt-8">Nhóm này chưa có lịch sinh hoạt.</div>';
     return `
       <div class="table-wrap mt-14">
         <table class="simple">

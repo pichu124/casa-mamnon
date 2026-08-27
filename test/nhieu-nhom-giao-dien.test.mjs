@@ -7,7 +7,7 @@
 // G0.4 chuyển tầng dữ liệu từ "một cô một lớp" sang "nhiều cô một nhóm", và
 // tầng đó đã đúng: máy chủ cho cô mở bất kỳ nhóm nào cô phụ trách. Nhưng màn
 // hình thì chưa theo. `plans.js` và `timetable.js` lấy CỨNG `nhomCuaCo[0]`, nên
-// cô dạy hai nhóm không có đường nào mở kế hoạch hay thời khóa biểu của nhóm
+// cô dạy hai nhóm không có đường nào mở kế hoạch hay lịch sinh hoạt của nhóm
 // thứ hai — quyền có mà lối vào thì không.
 //
 // Đây đúng là loại lỗi mà bài kiểm thử API không bao giờ thấy: gọi thẳng
@@ -72,7 +72,7 @@ const oChon = () => page.$('#view select');
 const chuTrenMan = () => page.innerText('#view');
 
 // ===========================================================================
-console.log('\n[1] Cô phụ trách HAI nhóm — Thời khóa biểu');
+console.log('\n[1] Cô phụ trách HAI nhóm — Lịch sinh hoạt');
 {
   await dangNhap('giaovien3', '123456');   // cô Bích Ngọc: Chồi 2 và Lá 1
   await mo('/#/timetable');
@@ -135,9 +135,9 @@ console.log('\n[3] Cô phụ trách MỘT nhóm — màn hình không đổi m�
   // một bước thừa mỗi ngày, cho mọi cô, để phục vụ một số ít cô dạy hai nhóm.
   await dangNhap('giaovien2', '123456');   // cô Thu Hà: chỉ Lá 1
   await mo('/#/timetable');
-  check('Thời khóa biểu: KHÔNG hiện ô chọn nhóm', !(await oChon()));
+  check('Lịch sinh hoạt: KHÔNG hiện ô chọn nhóm', !(await oChon()));
   const tkb = await chuTrenMan();
-  check('vẫn mở đúng thời khóa biểu của nhóm cô', tkb.includes('Lá 1'), tkb.slice(0, 200));
+  check('vẫn mở đúng lịch sinh hoạt của nhóm cô', tkb.includes('Lá 1'), tkb.slice(0, 200));
 
   await mo('/#/plans');
   check('Kế hoạch: KHÔNG hiện ô chọn nhóm', !(await oChon()));
@@ -153,7 +153,7 @@ console.log('\n[4] Phụ huynh không bị đụng tới');
   // Thêm ô chọn cho cô mà làm phụ huynh thấy ô đó là rò quyền ra màn hình.
   await dangNhap('phuhuynh', '123456');
   await mo('/#/timetable');
-  check('Thời khóa biểu: phụ huynh KHÔNG thấy ô chọn nhóm lớp', !(await oChon()));
+  check('Lịch sinh hoạt: phụ huynh KHÔNG thấy ô chọn nhóm lớp', !(await oChon()));
   await mo('/#/plans');
   check('Kế hoạch: phụ huynh KHÔNG thấy ô chọn nhóm lớp', !(await oChon()));
 }

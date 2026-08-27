@@ -55,7 +55,7 @@ await page.waitForTimeout(700);
 check('mở được màn hình sửa', await page.locator('#tkb-mon-0').count() === 1);
 
 await page.fill('#tkb-mon-0', 'Đọc sách đầu tuần');
-await page.locator('button', { hasText: 'Lưu thời khóa biểu' }).click();
+await page.locator('button', { hasText: 'Lưu lịch sinh hoạt' }).click();
 await page.waitForTimeout(1200);
 const sauLuu = await page.locator('#view').innerText();
 check('lưu xong quay về màn hình xem, thấy môn vừa sửa', /Đọc sách đầu tuần/.test(sauLuu), sauLuu.slice(0, 200));

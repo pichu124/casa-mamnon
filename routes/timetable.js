@@ -1,4 +1,4 @@
-// Phân hệ Thời khóa biểu: trả TKB của lớp mà người dùng có quyền xem,
+// Phân hệ Lịch sinh hoạt: trả lịch một ngày của nhóm mà người dùng có quyền xem,
 // và cho giáo viên chủ nhiệm / quản trị cập nhật TKB của lớp.
 // Phụ huynh: lớp của một trong các con. Giáo viên: lớp chủ nhiệm.
 const db = require('../lib/db');
@@ -6,11 +6,11 @@ const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
 // Giới hạn kích thước để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
-const TOI_DA_TIET = 12;      // số tiết mỗi ngày
+const TOI_DA_TIET = 12;      // số mốc sinh hoạt tối đa trong một ngày
 const TOI_DA_MON = 60;       // độ dài tên môn
 const TOI_DA_GIO = 40;       // độ dài khung giờ "07:30 – 08:05"
 
-// Chuẩn hóa danh sách khung giờ tiết học. Trả về null nếu không hợp lệ.
+// Chuẩn hóa danh sách khung giờ trong ngày. Trả về null nếu không hợp lệ.
 function lamSachKhungGio(periodTimes) {
   if (!Array.isArray(periodTimes) || !periodTimes.length || periodTimes.length > TOI_DA_TIET) return null;
   return periodTimes.map((pt, i) => {
@@ -22,7 +22,7 @@ function lamSachKhungGio(periodTimes) {
   });
 }
 
-// Chuẩn hóa lịch các thứ trong tuần theo đúng số tiết. Trả về null nếu không hợp lệ.
+// Chuẩn hóa lịch các thứ trong tuần theo đúng số mốc. Trả về null nếu không hợp lệ.
 function lamSachCacNgay(days, soTiet) {
   if (!days || typeof days !== 'object' || Array.isArray(days)) return null;
   const out = {};
@@ -46,11 +46,11 @@ module.exports = (app) => {
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
 
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Không có quyền xem thời khóa biểu của nhóm này' });
+      return res.status(403).json({ error: 'Không có quyền xem lịch sinh hoạt của nhóm này' });
     }
 
     const tt = db.first('timetable', 'SELECT * FROM timetable WHERE classId = ?', [classId]);
-    if (!tt) return res.status(404).json({ error: 'Nhóm chưa có thời khóa biểu' });
+    if (!tt) return res.status(404).json({ error: 'Nhóm chưa có lịch sinh hoạt' });
 
     res.json({
       ...tt,
@@ -67,12 +67,12 @@ module.exports = (app) => {
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
 
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới được sửa thời khóa biểu của nhóm này' });
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới được sửa lịch sinh hoạt của nhóm này' });
     }
 
     const periodTimes = lamSachKhungGio((req.body || {}).periodTimes);
     if (!periodTimes) {
-      return res.status(400).json({ error: 'Khung giờ tiết học chưa hợp lệ. Vui lòng kiểm tra lại.' });
+      return res.status(400).json({ error: 'Khung giờ trong ngày chưa hợp lệ. Vui lòng kiểm tra lại.' });
     }
     const days = lamSachCacNgay((req.body || {}).days, periodTimes.length);
     if (!days) {

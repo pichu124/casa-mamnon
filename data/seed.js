@@ -433,7 +433,7 @@ function generate() {
       createdBy: 't1',
       photos: [
         { id: 'ph1', emoji: '🎈', g: ['#ff9a9e', '#fad0c4'], caption: 'Cổng trường rực rỡ cờ hoa' },
-        { id: 'ph2', emoji: '🥁', g: ['#a18cd1', '#fbc2eb'], caption: 'Tiết mục trống hội khai trường' },
+        { id: 'ph2', emoji: '🥁', g: ['#a18cd1', '#fbc2eb'], caption: 'Màn trống hội ngày khai trường' },
         { id: 'ph3', emoji: '🧸', g: ['#84fab0', '#8fd3f4'], caption: 'Các bé nhóm Chồi 2 ngày đầu tới lớp' },
         { id: 'ph4', emoji: '🎏', g: ['#ffecd2', '#fcb69f'], caption: 'Thả bóng bay ước mơ' },
         { id: 'ph5', emoji: '🎒', g: ['#89f7fe', '#66a6ff'], caption: 'Bé tự cất ba lô vào ô của mình' },
