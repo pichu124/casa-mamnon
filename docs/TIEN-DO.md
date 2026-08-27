@@ -501,7 +501,7 @@ xưng "em" với cô.
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1219**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1220**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **228**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -520,7 +520,7 @@ Bốn bộ **mới của app 2**, không có ở app 1:
 | `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
 | `test:thuchup` | 55 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
 | `test:sao-luu` | 39 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
-| `test:goi-ten` | 33 | App nói tiếng của trường mầm non, kể cả cách nói tuổi bé |
+| `test:goi-ten` | 34 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
 | `test:nhieu-nhom` | 18 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai |
 
@@ -589,3 +589,5 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Cô dạy hai nhóm mở được cả hai: ô chọn nhóm cho Kế hoạch và Thời khóa biểu | Đợt soát · G0.4 |
 | 27/08/2026 | Quét nốt tiếng của trường mầm non: "em", "HS", "PH", "lớp" thay cho "nhóm" (59 chỗ) | Đợt soát · N9 |
 | 27/08/2026 | Tuổi bé tính theo ngày sinh; màn Soạn kế hoạch thôi dạy bài tiểu học | Đợt soát |
+| 27/08/2026 | App tự xưng đúng tên mình: CASA Mầm non, không phải SchoolConnect | Đợt soát |
+| 27/08/2026 | Tệp dùng chung nói đúng tên app (**commit riêng**), bỏ 2 chú thích sai từ sau G0.4 | Đợt soát |
