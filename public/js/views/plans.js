@@ -1,6 +1,12 @@
 // Phân hệ Kế hoạch giáo dục tháng.
 // Phụ huynh: xem theo nhóm của con đang chọn. Cô: xem theo nhóm mình phụ trách.
 // Cô phụ trách/quản trị soạn kế hoạch từng tháng ngay tại đây (chủ đề, mục tiêu, tuần, lời nhắn).
+//
+// Cô mầm non có thể phụ trách 2–3 nhóm, và mỗi nhóm có kế hoạch riêng. Bản đầu
+// lấy cứng `nhomCuaCo[0]` và ghi chú là "ô chọn nhóm nằm ở màn Điểm danh" —
+// nhưng ô đó chỉ đổi nhóm cho màn Điểm danh, không đổi cho màn này. Nghĩa là cô
+// dạy hai nhóm KHÔNG có đường nào soạn kế hoạch cho nhóm thứ hai. Ô chọn chỉ
+// hiện khi cô có nhiều hơn một nhóm; cô một nhóm không thấy nó.
 App.views.plans = {
   _classId: null,
   _plans: [],
@@ -8,10 +14,14 @@ App.views.plans = {
   async render(root) {
     const user = App.state.user;
     let classId;
+    const dsNhom = user.role === 'teacher' ? (user.nhomCuaCo || []) : [];
     if (user.role === 'teacher') {
-      // Cô phụ trách nhiều nhóm thì mở nhóm đầu tiên; ô chọn nhóm nằm ở màn
-      // hình Điểm danh, chỗ cô đổi nhóm thường xuyên nhất.
-      classId = (user.nhomCuaCo || [])[0]?.id || user.classId;
+      // Giữ nhóm cô đang chọn, nếu nhóm đó vẫn còn thuộc về cô. Quản trị vừa rút
+      // cô khỏi một nhóm thì rơi về nhóm đầu, không kẹt ở nhóm không còn quyền.
+      if (!dsNhom.some(n => n.id === this._classId)) {
+        this._classId = dsNhom[0]?.id || user.classId || null;
+      }
+      classId = this._classId;
     } else {
       const current = App.currentStudent();
       if (!current) {
@@ -27,8 +37,29 @@ App.views.plans = {
     root.innerHTML = `
       ${UI.pageHeader('Kế hoạch giáo dục', suaDuoc ? { action: { id: 'btn-soan-kh', label: 'Soạn kế hoạch', icon: 'edit' } } : {})}
       ${UI.studentBar()}
+      ${this.oChonNhom(dsNhom)}
       ${data.plan ? this.renderPlan(data.plan) : UI.emptyState('📖', 'Chưa có kế hoạch giáo dục cho tháng này')}`;
     if (suaDuoc) document.getElementById('btn-soan-kh').onclick = () => this.moSoan();
+  },
+
+  // Ô chọn nhóm — chỉ hiện khi cô phụ trách nhiều hơn một nhóm.
+  oChonNhom(dsNhom) {
+    if (!dsNhom || dsNhom.length < 2) return '';
+    return `
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Nhóm lớp</label>
+          <select onchange="App.views.plans.setNhom(this.value)">
+            ${dsNhom.map(n => `<option value="${UI.esc(n.id)}" ${n.id === this._classId ? 'selected' : ''}>${UI.esc(n.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+  },
+
+  setNhom(value) {
+    if (!value || value === this._classId) return;
+    this._classId = value;
+    App.route();
   },
 
   // Cô phụ trách soạn cho nhóm mình; quản trị soạn nhóm bất kỳ; phụ huynh chỉ xem.

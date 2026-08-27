@@ -1,10 +1,15 @@
 // Phân hệ Thời khóa biểu: lịch học theo nhóm, xem theo từng thứ trong tuần.
 // Phụ huynh xem theo nhóm của con đang chọn; giáo viên xem nhóm mình phụ trách.
 // Cô phụ trách và quản trị sửa được TKB của nhóm ngay trên màn hình này.
+//
+// Cô mầm non có thể phụ trách 2–3 nhóm. Bản đầu lấy cứng `nhomCuaCo[0]`, nên cô
+// dạy hai nhóm KHÔNG có đường nào mở TKB của nhóm thứ hai — kể cả khi máy chủ
+// vẫn cho phép. Ô chọn nhóm chỉ hiện khi cô có nhiều hơn một nhóm; cô một nhóm
+// không thấy nó và số thao tác không đổi một chút nào. Giống hệt màn Điểm danh.
 App.views.timetable = {
   day: null,      // 1 = Thứ Hai ... 5 = Thứ Sáu
   data: null,     // bản ghi TKB đang hiển thị
-  classId: null,  // lớp đang xem
+  classId: null,  // nhóm đang xem
   editing: false, // đang ở chế độ sửa
   draft: null,    // bản nháp khi sửa: { periodTimes, days }
 
@@ -19,8 +24,14 @@ App.views.timetable = {
   async render(root) {
     const user = App.state.user;
     let classId = null;
+    const dsNhom = user.role === 'teacher' ? (user.nhomCuaCo || []) : [];
     if (user.role === 'teacher') {
-      classId = (user.nhomCuaCo || [])[0]?.id || user.classId;
+      // Nhóm cô đang chọn, nếu nhóm đó vẫn còn thuộc về cô. Quản trị vừa rút cô
+      // khỏi một nhóm thì rơi về nhóm đầu, không kẹt ở một nhóm không còn quyền.
+      if (!dsNhom.some(n => n.id === this.classId)) {
+        this.classId = dsNhom[0]?.id || user.classId || null;
+      }
+      classId = this.classId;
     } else {
       const current = App.currentStudent();
       if (!current) {
@@ -64,6 +75,7 @@ App.views.timetable = {
     root.innerHTML = `
       ${UI.pageHeader('Thời khóa biểu', suaDuoc ? { action: { id: 'btn-sua-tkb', label: 'Chỉnh sửa', icon: 'edit' } } : {})}
       ${UI.studentBar()}
+      ${this.oChonNhom(dsNhom)}
       <div class="seg" id="tkb-seg">
         ${[1, 2, 3, 4, 5].map(d => `
           <button class="${d === this.day ? 'active' : ''}" onclick="App.views.timetable.setDay(${d})">T${d + 1}</button>`).join('')}
@@ -77,6 +89,30 @@ App.views.timetable = {
       </div>`;
     if (suaDuoc) document.getElementById('btn-sua-tkb').onclick = () => this.batDauSua();
     this.renderDay();
+  },
+
+  // Ô chọn nhóm — chỉ hiện khi cô phụ trách nhiều hơn một nhóm.
+  oChonNhom(dsNhom) {
+    if (!dsNhom || dsNhom.length < 2) return '';
+    return `
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Nhóm lớp</label>
+          <select onchange="App.views.timetable.setNhom(this.value)">
+            ${dsNhom.map(n => `<option value="${UI.esc(n.id)}" ${n.id === this.classId ? 'selected' : ''}>${UI.esc(n.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+  },
+
+  setNhom(value) {
+    if (!value || value === this.classId) return;
+    // Đang sửa dở TKB nhóm này mà chuyển sang nhóm khác thì bỏ bản nháp, kẻo
+    // lưu nhầm tiết học của nhóm này sang nhóm kia.
+    this.editing = false;
+    this.draft = null;
+    this.classId = value;
+    App.route();
   },
 
   // Cô phụ trách sửa nhóm mình; quản trị sửa nhóm bất kỳ; phụ huynh chỉ xem.
