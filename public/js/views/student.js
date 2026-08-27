@@ -37,7 +37,7 @@ App.views.student = {
   async renderProfile(root) {
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Hồ sơ bé') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Hồ sơ của bé') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     const s = await API.get(`/api/students/${current.id}`);
@@ -67,7 +67,7 @@ App.views.student = {
         ${infoRow('Nhóm', `${s.className} · ${s.room}`)}
         ${infoRow('Cô phụ trách', s.teacherNames || s.teacherName)}
         ${infoRow('Điện thoại của cô', s.teacherPhone)}
-        <button class="btn primary block mt-14" onclick="location.hash='#/messages'">${UI.icon('chat', 18)} Nhắn tin với giáo viên</button>
+        <button class="btn primary block mt-14" onclick="location.hash='#/messages'">${UI.icon('chat', 18)} Nhắn tin với cô</button>
       </div>
 
       <div class="card">
@@ -86,11 +86,11 @@ App.views.student = {
   // ---- Cô: danh sách bé của nhóm ----
   async renderRoster(root) {
     const students = await API.get('/api/students');
-    const tenNhom = (App.state.user.nhomCuaCo || []).map(n => n.name).join(', ');
+    const tenNhom = UI.noiTenNhom(App.state.user.nhomCuaCo);
     root.innerHTML = `
       ${UI.pageHeader(`Các bé nhóm ${tenNhom}`)}
       <div class="stat-row">
-        <div class="stat-box"><div class="stat-num">${students.length}</div><div class="stat-label">Sĩ số</div></div>
+        <div class="stat-box"><div class="stat-num">${students.length}</div><div class="stat-label">Số bé</div></div>
         <div class="stat-box"><div class="stat-num">${students.filter(s => s.gender === 'Nam').length}</div><div class="stat-label">Nam</div></div>
         <div class="stat-box"><div class="stat-num">${students.filter(s => s.gender === 'Nữ').length}</div><div class="stat-label">Nữ</div></div>
       </div>

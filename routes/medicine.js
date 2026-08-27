@@ -134,7 +134,7 @@ function findOwn(req, res) {
     return null;
   }
   if (!db.canAccessStudent(req.user, rec.studentId)) {
-    res.status(403).json({ error: 'Đơn này không thuộc bé nào của nhóm cô' });
+    res.status(403).json({ error: 'Đơn này không phải của bé nào trong nhóm cô phụ trách' });
     return null;
   }
   return rec;

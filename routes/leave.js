@@ -74,7 +74,7 @@ module.exports = (app) => {
     const rec = db.first('leave_requests', 'SELECT * FROM leave_requests WHERE id = ?', [req.params.id]);
     if (!rec) return res.status(404).json({ error: 'Không tìm thấy đơn xin phép' });
     if (!db.canAccessStudent(req.user, rec.studentId)) {
-      return res.status(403).json({ error: 'Đơn này không thuộc bé nào của nhóm cô' });
+      return res.status(403).json({ error: 'Đơn này không phải của bé nào trong nhóm cô phụ trách' });
     }
     if (rec.status !== 'pending') {
       return res.status(400).json({ error: 'Đơn này đã được xử lý trước đó' });

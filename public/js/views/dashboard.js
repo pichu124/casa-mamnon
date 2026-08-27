@@ -72,6 +72,6 @@ App.views.dashboard = {
 
   // Cô mầm non có thể phụ trách nhiều nhóm — nêu đủ, đừng chỉ nêu nhóm đầu.
   teacherClassName() {
-    return ((App.state.user || {}).nhomCuaCo || []).map(n => n.name).join(', ');
+    return UI.noiTenNhom((App.state.user || {}).nhomCuaCo);
   },
 };

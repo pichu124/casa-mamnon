@@ -497,19 +497,44 @@ xưng "em" với cô.
 
 ---
 
+### Đợt soát, phần hai: những chỗ màn hình không nói ra thứ nó đang hiện ✅
+
+Đợt soát năm góc nhìn nêu ra 60 phát hiện, mỗi phát hiện qua một lượt thẩm
+ngược. Phần đầu (bên trên) là những chỗ hỏng thẳng. Phần này là một loại khác,
+khó thấy hơn: **màn hình chạy đúng, không lỗi, không rò dữ liệu — nhưng không
+nói ra thứ nó đang hiện.**
+
+| Chỗ hỏng | Điều gì thật sự sai | Đã làm gì |
+|---|---|---|
+| Vai **quản trị** rơi vào nhánh phụ huynh ở 11 màn | Trang chủ ghi cô hiệu trưởng là "Phụ huynh". Các màn một-bé hiện hồ sơ / nhận xét / nề nếp của **bé đầu bảng chữ cái**, có màn không ghi tên bé nào, và không có đường nào đổi sang bé khác. Đây không phải chuyện quyền — `db.canAccessStudent` cho quản trị đúng theo bảng ba lớp dữ liệu. Đây là chuyện **quản trị đang đọc hồ sơ một đứa trẻ mà không biết là đứa nào** | Thêm `UI.thanhChonBe()` (tệp dùng chung, commit riêng) và `vaiTro()` ở trang chủ. Bài canh: đổi bé thì hồ sơ phải đổi theo, và phụ huynh/cô **không** được thấy ô chọn đó — nó liệt kê tên mọi bé của trường |
+| Phụ huynh gõ nhầm `#/accounts` | Nhận màn "Có lỗi xảy ra 😥 / Không có quyền thực hiện" — câu của máy chủ nói với máy | Kiểm vai ngay đầu màn, nói "Mục này dành cho cô và nhà trường" |
+| Cô phụ trách hai nhóm thấy "Các bé nhóm **Chồi 2, Lá 1**" | Đọc lướt thành TÊN MỘT NHÓM, vì "Chồi 2, Lá 1" trông y như một cái tên dài | `UI.noiTenNhom()` (tệp dùng chung, commit riêng) nối bằng "và" |
+| Câu báo lỗi nói với cô lệch **ba kiểu** xưng hô | Cùng một việc, máy chủ có ba câu: "nhóm của cô", "nhóm cô phụ trách", "nhóm lớp của bạn". Nặng nhất là một câu vừa gọi người kia là *cô* vừa gọi người đọc là *bạn* | Chốt một cách duy nhất, bỏ hẳn "bạn" ở mọi câu nói với cô |
+| Ô nhập chiều cao / cân nặng gợi ý **"130 cm", "28 kg"** | Số của trẻ lớp 4, trên form dành cho bé 2–6 tuổi — trong khi chú thích của chính `data/seed.js` đã viết "số liệu sai lứa tuổi là thứ cô và y tế trường nhận ra ngay, và nhận ra là mất tin vào cả bộ dữ liệu" | Đổi thành 105 cm / 17 kg, và "VD: Cân đo định kỳ đầu năm" |
+| Người áp tải xe cũng được gọi là **"Cô phụ trách"** | Một chữ mang hai nghĩa trong cùng một app: ở màn Xe buýt là cô đi cùng xe, ở màn Hồ sơ là cô đứng nhóm của bé. Phụ huynh gọi nhầm số khi con có chuyện ở lớp | "Cô đi cùng xe" |
+| "Y tế **học đường**", "Thực đơn **bán trú**", "**Sĩ số**" | Chữ của trường phổ thông | "Sức khỏe của bé", "Thực đơn của bé", "Số bé" |
+| Tên phân hệ ≠ tên trang của cùng tính năng | Phân hệ "Hồ sơ bé" mở ra trang "Hồ sơ của bé"; phân hệ "Y tế" mở ra "Y tế học đường" | Chốt một tên cho mỗi tính năng |
+
+> **Điểm chung của cả tám dòng:** không dòng nào làm app hỏng, không dòng nào
+> rò dữ liệu, và không dòng nào bài kiểm thử bắt được — vì bài kiểm thử hỏi
+> "máy chủ trả về đúng không", còn đây là "người ngồi trước màn hình có hiểu
+> đúng không". Chỉ đăng nhập bằng từng vai rồi đọc từng màn mới thấy.
+
+---
+
 ### G0.6 — Con số kiểm thử hiện tại
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1220**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **228**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1222**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **245**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
 | `test:lo-hong` | 277 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
-| `test:khe-uoc` | 114 | Hình dạng của các tệp dùng chung |
+| `test:khe-uoc` | 116 | Hình dạng của các tệp dùng chung |
 | `test:co-lap-loi` | 101 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
 
@@ -522,7 +547,7 @@ Bốn bộ **mới của app 2**, không có ở app 1:
 | `test:sao-luu` | 39 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
 | `test:goi-ten` | 34 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
-| `test:nhieu-nhom` | 18 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai |
+| `test:nhieu-nhom` | 35 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
 
 Nền lấy từ app 1 là **932 bài**. Phần tăng thêm không chỉ nằm ở bốn bộ mới: các
 bộ cũ cũng dày lên khi mô hình đổi (ví dụ `test:lo-hong` nhận thêm mục `[8b]` canh
@@ -591,3 +616,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | Tuổi bé tính theo ngày sinh; màn Soạn kế hoạch thôi dạy bài tiểu học | Đợt soát |
 | 27/08/2026 | App tự xưng đúng tên mình: CASA Mầm non, không phải SchoolConnect | Đợt soát |
 | 27/08/2026 | Tệp dùng chung nói đúng tên app (**commit riêng**), bỏ 2 chú thích sai từ sau G0.4 | Đợt soát |
+| 27/08/2026 | Thêm `UI.thanhChonBe()` — ô chọn bé cho quản trị (**commit riêng**, tệp dùng chung) | Đợt soát |
+| 27/08/2026 | Quản trị biết mình là ai và đang xem hồ sơ bé nào; phụ huynh vào nhầm được nói tử tế | Đợt soát |
+| 27/08/2026 | Thêm `UI.noiTenNhom()` — nối tên nhóm bằng "và" (**commit riêng**, tệp dùng chung) | Đợt soát |
+| 27/08/2026 | Dọn nốt nhãn còn lệch: xưng hô với cô, số đo sai lứa tuổi, chữ của trường phổ thông | Đợt soát |

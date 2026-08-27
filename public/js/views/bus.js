@@ -32,7 +32,7 @@ App.views.bus = {
         <div class="card-title">${UI.icon('bus', 19)} ${UI.esc(r.name)} <span class="spacer"></span> ${UI.badge(r.plate, 'blue')}</div>
         ${names.length ? `<div class="muted small" style="margin:-6px 0 6px">${isTeacher ? 'Bé của nhóm mình trên tuyến' : 'Con đi tuyến này'}: ${names.map(n => UI.esc(n)).join(', ')}</div>` : ''}
         ${this.contactRow('Tài xế', r.driver)}
-        ${this.contactRow('Cô phụ trách', r.monitor)}
+        ${this.contactRow('Cô đi cùng xe', r.monitor)}
       </div>
 
       <div class="card">

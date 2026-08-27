@@ -689,7 +689,7 @@ App.views.admin = {
         </div>
         <div class="table-wrap">
           <table class="simple">
-            <thead><tr><th>Nhóm hiện tại</th><th>Sĩ số</th><th>Chuyển thành</th></tr></thead>
+            <thead><tr><th>Nhóm hiện tại</th><th>Số bé</th><th>Chuyển thành</th></tr></thead>
             <tbody>${d.buoc.map(b => `
               <tr>
                 <td>${UI.esc(b.tenHienTai)}</td>

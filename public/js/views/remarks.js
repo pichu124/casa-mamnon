@@ -43,7 +43,7 @@ App.views.remarks = {
   async renderTeacher(root) {
     const list = await API.get('/api/remarks/class');
     this._lop = list;
-    const tenNhom = (App.state.user.nhomCuaCo || []).map(n => n.name).join(', ');
+    const tenNhom = UI.noiTenNhom(App.state.user.nhomCuaCo);
     root.innerHTML = `
       ${UI.pageHeader(`Nhận xét ${tenNhom}`, { action: { id: 'btn-new-remark', label: 'Viết nhận xét', icon: 'plus' } })}
       ${list.length ? `

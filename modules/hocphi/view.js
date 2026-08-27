@@ -69,7 +69,7 @@ App.views.hocphi = {
       <div class="field"><label>Kỳ thu</label>
         <input id="hp-ky" value="Tháng ${thang}/${new Date().getFullYear()}"></div>
       <div class="field"><label>Nội dung</label>
-        <input id="hp-nd" placeholder="Ví dụ: Tiền ăn bán trú"></div>
+        <input id="hp-nd" placeholder="Ví dụ: Tiền ăn tháng 9"></div>
       <div class="field"><label>Số tiền (đồng)</label>
         <input id="hp-tien" type="number" min="1000" step="1000" placeholder="500000"></div>
       <div class="field"><label>Hạn nộp</label><input id="hp-han" type="date"></div>

@@ -38,7 +38,7 @@ App.views.conduct = {
   async renderTeacher(root) {
     const data = await API.get(`/api/conduct/class?gioiHan=${this._soGhiNhan}`);
     this._recent = data.recent;
-    const tenNhom = (App.state.user.nhomCuaCo || []).map(n => n.name).join(', ');
+    const tenNhom = UI.noiTenNhom(App.state.user.nhomCuaCo);
     const medals = ['🥇', '🥈', '🥉'];
     root.innerHTML = `
       ${UI.pageHeader(`Nề nếp ${tenNhom}`, { action: { id: 'conduct-add', label: 'Ghi nhận', icon: 'plus' } })}

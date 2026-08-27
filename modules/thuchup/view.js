@@ -214,7 +214,7 @@ App.views.thuchup = {
 
   moForm(dataUrl) {
     const ds = App.state.students || [];
-    if (!ds.length) return UI.toast('Chưa có bé nào trong nhóm lớp của bạn', 'error');
+    if (!ds.length) return UI.toast('Chưa có bé nào trong nhóm cô phụ trách', 'error');
     this._be = this._be && ds.some(s => s.id === this._be) ? this._be : ds[0].id;
 
     UI.modal(`

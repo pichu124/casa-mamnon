@@ -47,7 +47,7 @@ module.exports = (app) => {
     // nguyên hành vi cũ: toàn bộ trẻ cô được xem.
     const locNhom = String(req.query.classId || '');
     if (locNhom && !db.canAccessClass(req.user, locNhom)) {
-      return res.status(403).json({ error: 'Nhóm lớp này không thuộc quyền của bạn' });
+      return res.status(403).json({ error: 'Nhóm lớp này không thuộc nhóm cô phụ trách' });
     }
     const students = locNhom
       ? db.studentsOf(req.user).filter(s => s.classId === locNhom)
@@ -157,7 +157,7 @@ module.exports = (app) => {
       || nl.nhomDangThaoTac(req.user, null);
     if (!classId) return res.status(400).json({ error: 'Thiếu mã nhóm cần điểm danh' });
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Nhóm này không thuộc quyền phụ trách của bạn' });
+      return res.status(403).json({ error: 'Nhóm lớp này không thuộc nhóm cô phụ trách' });
     }
 
     const students = db.all('students',

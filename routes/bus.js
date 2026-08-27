@@ -47,7 +47,7 @@ module.exports = (app) => {
       `SELECT COUNT(*) FROM bus_students WHERE routeId = ? AND studentId IN (${myIds.map(() => '?').join(',')})`,
       [route.id, ...myIds]);
     if (!onRoute) {
-      return res.status(403).json({ error: 'Tuyến xe này không có bé nào của nhóm cô' });
+      return res.status(403).json({ error: 'Tuyến xe này không có bé nào trong nhóm cô phụ trách' });
     }
 
     const text = String((req.body || {}).text || '').trim();

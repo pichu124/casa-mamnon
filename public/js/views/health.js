@@ -1,4 +1,4 @@
-// Phân hệ Y tế học đường.
+// Phân hệ Sức khỏe của bé.
 // Phụ huynh: xem hồ sơ sức khỏe của từng con. Cô: xem theo bé và thêm ghi nhận.
 App.views.health = {
   TYPES: {
@@ -19,13 +19,13 @@ App.views.health = {
   async renderParent(root) {
     const current = App.currentStudent();
     if (!current) {
-      root.innerHTML = UI.pageHeader('Y tế học đường') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
+      root.innerHTML = UI.pageHeader('Sức khỏe của bé') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
     const data = await API.get(`/api/health?studentId=${current.id}`);
     this._records = data.records;
     root.innerHTML = `
-      ${UI.pageHeader('Y tế học đường')}
+      ${UI.pageHeader('Sức khỏe của bé')}
       ${UI.studentBar()}${UI.thanhChonBe()}
       ${this.latestCard(data.latestCheckup)}
       ${this.recordsHtml()}`;
@@ -35,14 +35,14 @@ App.views.health = {
   async renderTeacher(root) {
     const students = App.state.students || [];
     if (!students.length) {
-      root.innerHTML = UI.pageHeader('Y tế học đường') + UI.emptyState('🎒', 'Nhóm chưa có bé nào');
+      root.innerHTML = UI.pageHeader('Sức khỏe của bé') + UI.emptyState('🎒', 'Nhóm chưa có bé nào');
       return;
     }
     if (!this._sid || !students.some(s => s.id === this._sid)) this._sid = students[0].id;
     const data = await API.get(`/api/health?studentId=${this._sid}`);
     this._records = data.records;
     root.innerHTML = `
-      ${UI.pageHeader('Y tế học đường', { action: { id: 'btn-new-health', label: 'Thêm ghi nhận', icon: 'plus' } })}
+      ${UI.pageHeader('Sức khỏe của bé', { action: { id: 'btn-new-health', label: 'Thêm ghi nhận', icon: 'plus' } })}
       <div class="field">
         <select id="ht-student" onchange="App.views.health.changeStudent(this.value)">
           ${students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === this._sid ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
@@ -154,7 +154,7 @@ App.views.health = {
       </div>
       <div class="field">
         <label>Tiêu đề</label>
-        <input id="ht-title" placeholder="VD: Khám sức khỏe định kỳ học kỳ này">
+        <input id="ht-title" placeholder="VD: Cân đo định kỳ đầu năm">
       </div>
       <div class="field">
         <label>Chi tiết</label>
@@ -163,11 +163,11 @@ App.views.health = {
       <div class="grid-2" id="ht-metrics">
         <div class="field">
           <label>Chiều cao (cm)</label>
-          <input type="number" id="ht-height" min="0" step="0.1" placeholder="VD: 130">
+          <input type="number" id="ht-height" min="0" step="0.1" placeholder="VD: 105">
         </div>
         <div class="field">
           <label>Cân nặng (kg)</label>
-          <input type="number" id="ht-weight" min="0" step="0.1" placeholder="VD: 28">
+          <input type="number" id="ht-weight" min="0" step="0.1" placeholder="VD: 17">
         </div>
       </div>
       <div class="field">

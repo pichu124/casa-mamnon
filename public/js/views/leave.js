@@ -85,7 +85,7 @@ App.views.leave = {
     if (!reason) return UI.toast('Gia đình nhập lý do xin nghỉ giúp cô nhé', 'error');
     try {
       await API.post('/api/leave', { studentId, fromDate, toDate, reason });
-      UI.toast('Đã gửi đơn xin phép tới giáo viên', 'success');
+      UI.toast('Đã gửi đơn xin phép tới cô', 'success');
       UI.closeModal();
       App.route();
       App.refreshBadges();
@@ -110,7 +110,7 @@ App.views.leave = {
       ${l.status === 'pending'
         ? `<div class="muted small center mt-14">Đơn đang chờ cô phụ trách duyệt, gia đình đợi thêm chút nhé.</div>`
         : `<div class="card" style="background:${l.status === 'approved' ? '#e3f7ec' : '#fde8e6'};box-shadow:none;margin:14px 0 0">
-            <div class="small" style="font-weight:700;margin-bottom:4px">Phản hồi của ${UI.esc(l.reviewerName || 'giáo viên')}</div>
+            <div class="small" style="font-weight:700;margin-bottom:4px">Phản hồi của ${UI.esc(l.reviewerName || 'cô')}</div>
             <div class="small">${l.reviewNote ? UI.esc(l.reviewNote) : `${st.label === 'Đã duyệt' ? 'Cô đã duyệt đơn cho con.' : 'Cô chưa đồng ý với đơn này.'}`}</div>
           </div>`}
     `, 'Chi tiết đơn xin phép');

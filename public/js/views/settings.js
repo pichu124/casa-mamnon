@@ -8,7 +8,7 @@ App.views.settings = {
         ${UI.avatar(user.avatar, 56)}
         <div style="flex:1">
           <div style="font-weight:800;font-size:1.05rem">${UI.esc(user.title)} ${UI.esc(user.name)}</div>
-          <div class="muted small">${user.role === 'admin' ? 'Quản trị' : user.role === 'teacher' ? 'Giáo viên' : 'Phụ huynh'} · ${UI.esc(user.username)}</div>
+          <div class="muted small">${user.role === 'admin' ? 'Quản trị' : user.role === 'teacher' ? 'Cô' : 'Phụ huynh'} · ${UI.esc(user.username)}</div>
         </div>
       </div>
 
@@ -50,7 +50,7 @@ App.views.settings = {
 
       ${user.role === 'teacher' || user.role === 'admin' ? `
         <div class="card">
-          <div class="card-title">👪 Quản lý nhóm lớp</div>
+          <div class="card-title">👪 Tài khoản của gia đình</div>
           <div class="list-row clickable" onclick="location.hash='#/accounts'">
             <div class="row-main">
               <div class="row-title">Tài khoản phụ huynh</div>

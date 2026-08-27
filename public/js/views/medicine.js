@@ -38,7 +38,7 @@ App.views.medicine = {
         <div class="mt-8">${this.medsTable(m.medicines)}</div>
         ${m.note ? `<div class="muted small mt-8">📝 ${UI.esc(m.note)}</div>` : ''}
         ${(m.status === 'received' || m.status === 'done') && m.confirmedAt
-          ? `<div class="small mt-8" style="color:#1e8e4e;font-weight:600">✅ ${UI.esc(m.confirmedByName || 'Giáo viên')} đã nhận lúc ${UI.esc(UI.fmtTime(m.confirmedAt))} ${UI.esc(UI.fmtDateShort(m.confirmedAt))}</div>`
+          ? `<div class="small mt-8" style="color:#1e8e4e;font-weight:600">✅ ${UI.esc(m.confirmedByName || 'Cô')} đã nhận lúc ${UI.esc(UI.fmtTime(m.confirmedAt))} ${UI.esc(UI.fmtDateShort(m.confirmedAt))}</div>`
           : ''}
         ${m.log && m.log.length ? `<div class="timeline mt-14">${this.logItems(m.log)}</div>` : ''}
       </div>`;

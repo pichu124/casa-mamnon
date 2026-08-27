@@ -1,4 +1,4 @@
-// Phân hệ Thực đơn bán trú: xem thực đơn tuần này / tuần sau (T2–T6).
+// Phân hệ Thực đơn của bé: xem thực đơn tuần này / tuần sau (T2–T6).
 // Quản trị soạn từng ngày ngay tại đây và chép được thực đơn tuần liền trước.
 App.views.menu = {
   week: 0, // 0 = tuần này, 1 = tuần sau
@@ -17,7 +17,7 @@ App.views.menu = {
   async render(root) {
     const qt = this.laQuanTri();
     root.innerHTML = `
-      ${UI.pageHeader('Thực đơn bán trú', qt ? { action: { id: 'btn-chep-tuan', label: 'Chép tuần trước', icon: 'plus' } } : {})}
+      ${UI.pageHeader('Thực đơn của bé', qt ? { action: { id: 'btn-chep-tuan', label: 'Chép tuần trước', icon: 'plus' } } : {})}
       <div class="seg" id="menu-seg">
         <button class="${this.week === 0 ? 'active' : ''}" onclick="App.views.menu.setWeek(0)">Tuần này</button>
         <button class="${this.week === 1 ? 'active' : ''}" onclick="App.views.menu.setWeek(1)">Tuần sau</button>

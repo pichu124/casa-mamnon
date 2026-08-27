@@ -155,7 +155,7 @@ App.views.attendance = {
     this._roster = data.students;
     const tenNhom = this.nhomId
       ? (dsNhom.find(n => n.id === this.nhomId) || {}).name || ''
-      : dsNhom.map(n => n.name).join(', ');
+      : UI.noiTenNhom(dsNhom);
     const total = this._roster.length;
     const marked = this._roster.filter(r => r.record).length;
 
@@ -175,7 +175,7 @@ App.views.attendance = {
         </div>
       </div>
       <div class="stat-row">
-        <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Sĩ số</div></div>
+        <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Số bé</div></div>
         <div class="stat-box"><div class="stat-num" id="att-so-da" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
         <div class="stat-box"><div class="stat-num" id="att-so-chua" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
       </div>

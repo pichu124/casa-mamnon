@@ -79,7 +79,7 @@ module.exports = (app, { db }) => {
       return res.status(400).json({ error: 'Mã ghi nhận không hợp lệ' });
     }
     if (!b.studentId || !db.canAccessStudent(req.user, b.studentId)) {
-      return res.status(403).json({ error: 'Bé không thuộc nhóm lớp của bạn' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
     }
 
     const daCo = db.first('thuchup_ghinhanh',
@@ -92,7 +92,7 @@ module.exports = (app, { db }) => {
       // gần như không xảy ra, nhưng "gần như không xảy ra" không phải là kiểm
       // soát truy cập.
       if (!doDuocBanGhi(req.user, daCo)) {
-        return res.status(403).json({ error: 'Mã ghi nhận này thuộc bản nháp của cô khác, bạn không có quyền xem' });
+        return res.status(403).json({ error: 'Ghi chép này là bản nháp của cô khác, cô không xem được' });
       }
       return res.json({ ...daCo, ngoaiTuyen: !!daCo.ngoaiTuyen, trungLap: true });
     }
@@ -138,7 +138,7 @@ module.exports = (app, { db }) => {
       // lại một tệp ảnh mồ côi trên đĩa.
       if (file) uploads.remove(file);
       if (!doDuocBanGhi(req.user, lai)) {
-        return res.status(403).json({ error: 'Mã ghi nhận này thuộc bản nháp của cô khác, bạn không có quyền xem' });
+        return res.status(403).json({ error: 'Ghi chép này là bản nháp của cô khác, cô không xem được' });
       }
       return res.json({ ...lai, ngoaiTuyen: !!lai.ngoaiTuyen, trungLap: true });
     }

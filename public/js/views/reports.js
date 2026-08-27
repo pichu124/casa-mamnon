@@ -113,7 +113,7 @@ App.views.reports = {
       </div>
 
       <div class="card">
-        <div class="card-title">${UI.icon('remark', 19)} Nhận xét của giáo viên</div>
+        <div class="card-title">${UI.icon('remark', 19)} Nhận xét của cô</div>
         <div class="mb-8">${UI.badge(rp.overall, 'green')}</div>
         <div class="small" style="margin:8px 0">Hạnh kiểm: <b>${UI.esc(rp.conduct)}</b></div>
         <div style="border-left:3px solid var(--primary);padding-left:10px;line-height:1.55">${UI.esc(rp.teacherComment)}</div>

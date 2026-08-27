@@ -68,7 +68,7 @@ module.exports = (app) => {
     const { studentId, date, content, rating, skills } = req.body || {};
     if (!studentId) return res.status(400).json({ error: 'Vui lòng chọn bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
     }
     const text = String(content || '').trim();
     if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung nhận xét' });
@@ -98,7 +98,7 @@ module.exports = (app) => {
     const r = db.first('remarks', 'SELECT * FROM remarks WHERE id = ?', [req.params.id]);
     if (!r || st.daThuHoi(BANG, r.id)) return res.status(404).json({ error: 'Không tìm thấy nhận xét' });
     if (!db.canAccessStudent(req.user, r.studentId)) {
-      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
     }
     if (!st.laChuBanGhi(req.user, r.teacherId)) {
       return res.status(403).json({ error: 'Chỉ cô đã viết hoặc quản trị mới sửa được nhận xét này' });
@@ -138,7 +138,7 @@ module.exports = (app) => {
     const r = db.first('remarks', 'SELECT * FROM remarks WHERE id = ?', [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Không tìm thấy nhận xét' });
     if (!db.canAccessStudent(req.user, r.studentId)) {
-      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
     }
     if (!st.laChuBanGhi(req.user, r.teacherId)) {
       return res.status(403).json({ error: 'Chỉ cô đã viết hoặc quản trị mới thu hồi được nhận xét này' });
