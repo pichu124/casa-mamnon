@@ -9,7 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, execSync } from 'child_process';
+import { spawn, execSync, execFileSync } from 'child_process';
 
 export const GOC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -72,13 +72,46 @@ export function sinhDuLieu(dir) {
 // thẳng vào bảng cài đặt trước khi máy chủ chạy: không cần tài khoản quản trị,
 // và bài kiểm thử nói rõ nó đang dựng tình huống gì.
 export function batPhanHe(dir, cacKhoa) {
-  const lenh = cacKhoa
-    .map((k) => `INSERT OR REPLACE INTO module_settings (moduleKey, enabled, updatedAt) `
-      + `VALUES ('${k}', 1, '');`)
-    .join(' ');
-  execSync(`node -e ${JSON.stringify(
-    `const D=require('better-sqlite3');const db=new D(process.argv[1]);db.exec(${JSON.stringify(lenh)});db.close();`
-  )} ${JSON.stringify(path.join(dir, 'school.db'))}`, { cwd: GOC, stdio: 'ignore' });
+  chayTrenCsdl(dir, `
+    const bat = db.prepare('INSERT OR REPLACE INTO module_settings (moduleKey, enabled, updatedAt) VALUES (?, 1, ?)');
+    for (const k of process.argv.slice(2)) bat.run(k, new Date().toISOString());
+  `, cacKhoa);
+}
+
+// Khoá một tài khoản vào một cơ sở (biến quản trị Cấp 1 thành Cấp 3).
+//
+// Nhận TÊN ĐĂNG NHẬP chứ không nhận mã: `taoQuanTri` sinh mã ngẫu nhiên, còn
+// tên đăng nhập là thứ bài kiểm thử tự đặt và biết chắc.
+//
+// Viết thẳng vào bảng, TRƯỚC khi dựng máy chủ. Màn hình để nhà trường làm việc
+// này chưa có — nó thuộc đợt sau — nhưng đường quyền thì đã phải đúng ngay từ
+// bây giờ, và bài kiểm thử không được chờ màn hình mới canh được đường quyền.
+export function khoaVaoCoSo(dir, tenDangNhap, campusId) {
+  chayTrenCsdl(dir, `
+    const u = db.prepare('SELECT id FROM users WHERE username = ?').get(process.argv[2]);
+    if (!u) throw new Error('Không có tài khoản ' + process.argv[2]);
+    db.prepare('INSERT OR REPLACE INTO user_campus (userId, campusId, ganLuc) VALUES (?, ?, ?)')
+      .run(u.id, process.argv[3], new Date().toISOString());
+  `, [tenDangNhap, campusId]);
+}
+
+// Chạy một đoạn mã ngắn trên cơ sở dữ liệu tạm, ngoài tiến trình bài kiểm thử.
+//
+// Dùng `execFileSync` chứ KHÔNG dựng chuỗi lệnh cho shell: đoạn mã nhiều dòng đi
+// qua shell sẽ bị nuốt mất xuống dòng và Node báo "Invalid or unexpected token"
+// — một lỗi khó đọc, xảy ra ở chỗ chẳng liên quan gì tới thứ đang kiểm.
+//
+// Chạy ngoài tiến trình vì `lib/db.js` giữ một kết nối mở suốt vòng đời tiến
+// trình; mở thêm một kết nối ghi trong cùng tiến trình là tự chuốc SQLITE_BUSY.
+function chayTrenCsdl(dir, ma, doiSo = []) {
+  // Với `node -e`, `process.argv[1]` là THAM SỐ ĐẦU TIÊN (không phải tên tệp).
+  // Đếm lệch một chỗ ở đây là mở nhầm một tệp không tồn tại rồi TẠO MỚI nó —
+  // SQLite không báo lỗi khi mở, chỉ báo "no such table" ở câu sau, và để lại
+  // một tệp cơ sở dữ liệu lạc ngay giữa kho mã.
+  execFileSync('node', ['-e', `const D = require('better-sqlite3');
+    const db = new D(process.argv[1]);
+    ${ma}
+    db.close();`, path.join(dir, 'school.db'), ...doiSo], { cwd: GOC, stdio: 'inherit' });
 }
 
 // Tạo một tài khoản quản trị và trả về mật khẩu tạm mà script in ra.
