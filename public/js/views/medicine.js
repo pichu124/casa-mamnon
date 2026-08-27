@@ -1,5 +1,21 @@
 // Phân hệ Dặn thuốc.
-// Phụ huynh: gửi lời dặn thuốc và theo dõi. Giáo viên: nhận thuốc, ghi nhật ký, hoàn tất.
+// Phụ huynh: gửi lời dặn thuốc và theo dõi. Cô: xác nhận đã nhận thuốc, hoàn tất đợt.
+//
+// KHÔNG CÓ Ô "ĐÃ CHO UỐNG" — ĐÂY LÀ CHỦ Ý CỦA NHÀ TRƯỜNG
+//
+// Bản đầu (kế thừa từ app 1) có thêm một bước: cô gõ tay từng dòng nhật ký
+// kiểu "đã cho con uống sau bữa trưa". Nhà trường bỏ bước đó sau khi chạy thử
+// quy trình nhận thuốc thật, vì hai lẽ:
+//
+//   • Cô đang đứng nhóm với 20 bé thì không rảnh tay mở app gõ từng dòng. Ô
+//     nào cô không kịp ghi sẽ nằm trống, mà một dòng trống trên màn hình phụ
+//     huynh đọc ra thành "cô quên cho con uống" — sai và mất lòng tin.
+//   • Nhà trường không muốn app đứng ra hứa một điều app không kiểm chứng
+//     được. Thứ app biết chắc và ghi được là: gia đình đã gửi thuốc, cô đã
+//     nhận. Chỉ ghi đúng chừng đó.
+//
+// Dòng nhật ký CŨ vẫn hiện nguyên — bỏ một bước là ngưng ghi thêm, không phải
+// xóa thứ phụ huynh đã đọc thấy.
 App.views.medicine = {
   STATUS: {
     pending: { label: 'Chờ xác nhận', cls: 'orange' },
@@ -136,7 +152,7 @@ App.views.medicine = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  // ---- Giáo viên: nhận thuốc, ghi nhật ký, hoàn tất ----
+  // ---- Cô: xác nhận đã nhận thuốc, cất đơn khi hết đợt ----
   async renderTeacher(root) {
     this._list = await API.get('/api/medicine');
     const pending = this._list.filter(m => m.status === 'pending');
@@ -156,20 +172,14 @@ App.views.medicine = {
         : UI.emptyState('✅', 'Không có đơn dặn thuốc nào chờ xác nhận')}
 
       ${received.length ? `
-        <div class="section-label">Đang theo dõi (${received.length})</div>
+        <div class="section-label">Cô đã nhận thuốc (${received.length})</div>
         ${received.map(m => `
           <div class="card">
             ${this.teacherHead(m)}
             <div class="mt-8">${this.medsTable(m.medicines)}</div>
             ${m.note ? `<div class="muted small mt-8">📝 ${UI.esc(m.note)}</div>` : ''}
             ${m.log && m.log.length ? `<div class="timeline mt-14">${this.logItems(m.log)}</div>` : ''}
-            <div class="field" style="margin:10px 0 8px">
-              <input id="md-log-${UI.esc(m.id)}" placeholder="VD: Đã cho con uống thuốc sau bữa trưa">
-            </div>
-            <div class="grid-2">
-              <button class="btn primary" onclick="App.views.medicine.submitLog('${UI.esc(m.id)}')">${UI.icon('edit', 16)} Ghi nhật ký</button>
-              <button class="btn outline" onclick="App.views.medicine.markDone('${UI.esc(m.id)}')">${UI.icon('check', 16)} Hoàn tất đợt thuốc</button>
-            </div>
+            <button class="btn outline block mt-14" onclick="App.views.medicine.markDone('${UI.esc(m.id)}')">${UI.icon('check', 16)} Hết đợt thuốc, cất khỏi danh sách</button>
           </div>`).join('')}` : ''}
 
       ${done.length ? `
@@ -210,23 +220,10 @@ App.views.medicine = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  async submitLog(id) {
-    const input = document.getElementById(`md-log-${id}`);
-    const text = input ? input.value.trim() : '';
-    if (!text) return UI.toast('Cô nhập nội dung nhật ký giúp gia đình nhé', 'error');
-    try {
-      await API.post(`/api/medicine/${id}/log`, { text });
-      UI.toast('Đã ghi nhật ký cho thuốc', 'success');
-      UI.closeModal();
-      App.route();
-      App.refreshBadges();
-    } catch (err) { UI.toast(err.message, 'error'); }
-  },
-
   async markDone(id) {
     try {
       await API.post(`/api/medicine/${id}/done`);
-      UI.toast('Đã hoàn tất đợt dùng thuốc', 'success');
+      UI.toast('Đã cất đơn thuốc khỏi danh sách đang nhận', 'success');
       UI.closeModal();
       App.route();
       App.refreshBadges();
