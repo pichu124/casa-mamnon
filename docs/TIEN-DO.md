@@ -690,3 +690,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 27/08/2026 | **TẮT SẴN** Nhận xét hàng ngày và Xe buýt (**nhà trường quyết**) | A2 |
 | 27/08/2026 | Hồ sơ bé: số định danh, tiền sử bệnh, người liên hệ khẩn cấp — **tầng dữ liệu** (**commit riêng**) | A3 bước 1/2 |
 | 27/08/2026 | Hồ sơ bé: ba trường mới lên màn hình, hotline văn phòng thay số riêng của cô (+22 bài) | A3 · A4 |
+| 27/08/2026 | Hai bộ kiểm thử trùng cổng thì **báo đỏ ngay**, thay vì lặng lẽ chạy nhầm cơ sở dữ liệu | Đợt soát |

@@ -129,6 +129,33 @@ export function taoQuanTri(dir, hoTen, tenDangNhap) {
 export async function dungMayChu({ port, dir, env = {} }) {
   let proc = null;
 
+  // Cổng đã có người trả lời TRƯỚC khi ta dựng gì cả thì phải dừng ngay.
+  //
+  // ĐÂY LÀ CHỖ MỘT BÀI KIỂM THỬ CÓ THỂ NÓI DỐI MÀ KHÔNG AI BIẾT
+  //
+  // Hai bộ kiểm thử cùng đặt một số cổng, hoặc một máy chủ thử của lần chạy
+  // trước còn sót lại: tiến trình `node server.js` mới sinh ra sẽ chết lặng lẽ
+  // vì cổng đã bị chiếm (stdio bị nuốt, không ai thấy lỗi), rồi vòng chờ bên
+  // dưới hỏi /healthz và NGƯỜI CŨ trả lời "ổn". Từ giây đó trở đi cả bài kiểm
+  // thử chạy trên một cơ sở dữ liệu khác — có khi là tệp đã bị xóa mà tiến
+  // trình cũ còn giữ. Kết quả xanh hay đỏ đều vô nghĩa, và mất rất lâu mới lần
+  // ra vì mọi thứ trông như đang chạy bình thường.
+  //
+  // Chết to còn hơn xanh giả.
+  try {
+    const cu = await fetch(`http://localhost:${port}/healthz`, { signal: AbortSignal.timeout(2000) });
+    if (cu.ok) {
+      throw new Error(
+        `Cổng ${port} đã có máy chủ khác đang trả lời.\n` +
+        '  Bài kiểm thử này sẽ chạy nhầm trên dữ liệu của máy chủ đó.\n' +
+        '  Thường là do hai bộ kiểm thử dùng chung một số cổng, hoặc một lần\n' +
+        '  chạy trước chưa tắt hẳn. Đặt TEST_PORT khác rồi chạy lại.');
+    }
+  } catch (err) {
+    // Không ai trả lời là đúng như mong đợi — chỉ ném lại lời cảnh báo của ta.
+    if (/đã có máy chủ khác/.test(err.message)) throw err;
+  }
+
   async function batDau() {
     proc = spawn('node', ['server.js'], {
       cwd: GOC, stdio: 'ignore',

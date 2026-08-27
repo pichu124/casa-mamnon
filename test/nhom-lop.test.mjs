@@ -313,7 +313,7 @@ donThuMucTam(DIR);
 // Phần trên gọi thẳng lib/db.js. Phần này đi đúng đường mà quản trị bấm trên màn
 // hình, vì chỗ dễ sai nhất không phải câu SQL mà là đường API nào gọi hàm nào.
 // ===========================================================================
-const PORT = Number(process.env.TEST_PORT || 3760);
+const PORT = Number(process.env.TEST_PORT || 3765);
 const BASE = `http://localhost:${PORT}`;
 const DIR2 = thuMucTam('nhom-lop-http');
 const may = await dungMayChu({ port: PORT, dir: DIR2 });
