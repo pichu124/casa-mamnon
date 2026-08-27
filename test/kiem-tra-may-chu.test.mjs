@@ -166,5 +166,50 @@ console.log('\n[8] Mã thoát và bảng tổng kết');
   check('nói rõ app vẫn đang chạy bình thường, không dọa người dùng', /vẫn đang phục vụ bình thường/.test(r.out));
 }
 
+// ---------------------------------------------------------------------------
+console.log('\n[9] Mục nào CHẶN máy chủ bật lại thì phải nói thẳng ra');
+{
+  // Câu trấn an "các mục trên không làm app ngừng chạy" đúng cho tới khi có
+  // chốt chặn N5. Từ đó, hai mục — dữ liệu nằm trong kho mã, và cơ sở dữ liệu
+  // trống — khiến máy chủ DỪNG ngay khi bật lại ở chế độ thật.
+  //
+  // Cái bẫy nằm ở chỗ máy đang chạy thì vẫn chạy: nó qua cửa đó từ lần khởi
+  // động trước. Nên câu trấn an cũ nghe vẫn đúng, cho tới lần bật lại tới —
+  // thường rơi vào lúc cập nhật app hoặc lúc máy vừa mất điện bật lại.
+  const rong = thuMucTam('may-chu-chan');
+  fs.mkdirSync(rong, { recursive: true });
+  const r = chay(rong);
+  check('có mục chặn khởi động → in khối cảnh báo riêng',
+    /MÁY CHỦ SẼ KHÔNG BẬT LẠI ĐƯỢC/.test(r.out), r.out.slice(-600));
+  check('nêu đích danh mục đang chặn', /• Cơ sở dữ liệu/.test(r.out), r.out.slice(-600));
+  check('giải thích vì sao máy đang chạy vẫn chạy — chỗ dễ hiểu nhầm nhất',
+    /đã qua được cửa này/.test(r.out), r.out.slice(-600));
+  check('nói rõ lần bật lại tới mới là lúc vỡ',
+    /lúc cập nhật app|mất điện bật lại/.test(r.out), r.out.slice(-600));
+  check('KHÔNG còn câu "không làm app ngừng chạy" khi thực tế là có',
+    !/không làm app ngừng chạy/.test(r.out), r.out.slice(-600));
+  donThuMucTam(rong);
+
+  // Chiều ngược lại: chỉ có mục thường thì vẫn giữ giọng trấn an như cũ, không
+  // dọa người vận hành bằng khối ⛔ cho một chuyện chưa tới mức đó.
+  const r2 = chay(DIR);
+  check('không có mục chặn → không in khối ⛔',
+    !/MÁY CHỦ SẼ KHÔNG BẬT LẠI ĐƯỢC/.test(r2.out), r2.out.slice(-400));
+  check('không có mục chặn → vẫn nói app đang chạy bình thường',
+    /vẫn đang phục vụ bình thường/.test(r2.out), r2.out.slice(-400));
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n[10] Không ghi cứng số bài kiểm thử vào chú thích');
+{
+  // Bản trước mở đầu bằng "TRONG KHI ĐÃ CÓ 760 BÀI KIỂM THỬ". Con số đó sai
+  // ngay từ lần thêm bài kiểm thử kế tiếp, và một câu chú thích sai làm người
+  // đọc hết tin cả phần còn lại. Con số thật ghi ở docs/TIEN-DO.md, một chỗ.
+  const chu = fs.readFileSync(SCRIPT, 'utf8');
+  const soCung = chu.match(/\d{3,4}\s*(BÀI KIỂM THỬ|bài kiểm thử|bài)/g) || [];
+  check('không có con số bài kiểm thử ghi cứng trong script', soCung.length === 0, soCung);
+  check('có chỉ chỗ tra con số thật', /TIEN-DO\.md/.test(chu));
+}
+
 donThuMucTam(DIR);
 tongKet();

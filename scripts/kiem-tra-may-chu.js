@@ -4,14 +4,18 @@
 //   DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
 //   DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu -- --ten-mien=lienlac.truong.vn
 //
-// VÌ SAO CẦN BỘ NÀY, TRONG KHI ĐÃ CÓ 760 BÀI KIỂM THỬ
+// VÌ SAO CẦN BỘ NÀY, TRONG KHI ĐÃ CÓ CẢ MỘT BỘ KIỂM THỬ
 //
-// Toàn bộ 760 bài chạy trên máy tạm với cơ sở dữ liệu tạm. Chúng canh phần mã
-// có đúng không — và canh rất kỹ. Nhưng chúng KHÔNG nhìn thấy máy chủ thật.
+// (Con số chính xác của `npm test` ghi ở docs/TIEN-DO.md — cố ý không ghi cứng
+// ở đây, vì một con số ghi cứng thì sai ngay từ lần thêm bài kiểm thử kế tiếp,
+// và một câu chú thích sai làm người đọc hết tin cả phần còn lại.)
+//
+// Toàn bộ bộ kiểm thử chạy trên máy tạm với cơ sở dữ liệu tạm. Chúng canh phần
+// mã có đúng không — và canh rất kỹ. Nhưng chúng KHÔNG nhìn thấy máy chủ thật.
 //
 // Một máy chủ đặt sai múi giờ, chưa hề sao lưu lần nào, để dữ liệu ngay trong
-// thư mục mã nguồn, và cả 8 tài khoản vẫn dùng mật khẩu "123456" — vẫn xanh đủ
-// 760 bài. Những lỗi ấy không nằm trong mã, chúng nằm ở khoảng cách giữa tài
+// thư mục mã nguồn, và cả 9 tài khoản vẫn dùng mật khẩu "123456" — vẫn xanh
+// toàn bộ. Những lỗi ấy không nằm trong mã, chúng nằm ở khoảng cách giữa tài
 // liệu và việc thực sự làm trên máy.
 //
 // Bộ này bịt đúng khoảng cách đó. Nó CHỈ BÁO, KHÔNG TỰ SỬA — mỗi mục hỏng đều
@@ -42,7 +46,11 @@ const tenMien = (args.find(a => a.startsWith('--ten-mien=')) || '').split('=')[1
 // ---------------------------------------------------------------------------
 const ketQua = [];
 const dat = (ten, chiTiet) => ketQua.push({ trangThai: 'ĐẠT', ten, chiTiet });
-const canSua = (ten, chiTiet, cach) => ketQua.push({ trangThai: 'CẦN SỬA', ten, chiTiet, cach });
+// `chanKhoiDongLai: true` — mục này không chỉ là chuyện để lâu thì thiệt, mà
+// sẽ CHẶN máy chủ khởi động lại ở chế độ thật. Máy đang chạy thì vẫn chạy, vì
+// nó đã qua được cửa từ lần khởi động trước; lần bật lại tới mới là lúc vỡ.
+const canSua = (ten, chiTiet, cach, chanKhoiDongLai = false) =>
+  ketQua.push({ trangThai: 'CẦN SỬA', ten, chiTiet, cach, chanKhoiDongLai });
 const boQua = (ten, chiTiet) => ketQua.push({ trangThai: 'BỎ QUA', ten, chiTiet });
 
 function kiem(ten, fn) {
@@ -93,7 +101,12 @@ kiem('Vị trí dữ liệu', () => {
     canSua('Vị trí dữ liệu',
       `${DATA_DIR} nằm TRONG kho mã. Một lần "git add -A" theo thói quen là hồ sơ của bé lên GitHub.`,
       'Chuyển dữ liệu ra ngoài rồi khởi động lại với DATA_DIR trỏ tới chỗ mới ' +
-      '(Linux: /var/lib/casa-mamnon — Windows: C:\\CasaMamNonData).');
+      '(Linux: /var/lib/casa-mamnon — Windows: C:\\CasaMamNonData).',
+      // Từ N5, chạy NODE_ENV=production với dữ liệu trong kho mã thì máy chủ
+      // DỪNG HẲN trước khi mở cổng. Máy đang chạy vẫn chạy — nó qua cửa đó từ
+      // lần khởi động trước, hoặc thư mục dữ liệu vừa bị chuyển vào sau. Lần
+      // bật lại tới mới là lúc app không lên nữa.
+      true);
   }
 });
 
@@ -107,7 +120,10 @@ let sqlite = null;
 kiem('Cơ sở dữ liệu', () => {
   if (!fs.existsSync(DB_FILE)) {
     canSua('Cơ sở dữ liệu', `không thấy tệp ${DB_FILE}`,
-      'Kiểm lại DATA_DIR có trỏ đúng thư mục dữ liệu của máy chủ này không.');
+      'Kiểm lại DATA_DIR có trỏ đúng thư mục dữ liệu của máy chủ này không.',
+      // Cơ sở dữ liệu trống ở chế độ thật thì máy chủ dừng, không tự sinh dữ
+      // liệu mẫu — vì dữ liệu mẫu kèm các tài khoản mật khẩu "123456".
+      true);
     return;
   }
   const Database = require('better-sqlite3');
@@ -321,9 +337,27 @@ async function main() {
   }
 
   const hong = ketQua.filter(k => k.trangThai === 'CẦN SỬA');
+  const chan = hong.filter(k => k.chanKhoiDongLai);
   const soDat = ketQua.filter(k => k.trangThai === 'ĐẠT').length;
   console.log(`\n${soDat} mục đạt, ${hong.length} mục cần sửa.`);
-  if (hong.length) {
+  if (chan.length) {
+    // Câu "không làm app ngừng chạy" đúng cho tới khi có chốt chặn N5. Từ đó,
+    // hai mục dưới đây khiến máy chủ DỪNG ngay khi bật lại ở chế độ thật. Máy
+    // đang chạy vẫn chạy — nên câu trấn an cũ nghe vẫn có vẻ đúng, cho tới lần
+    // khởi động lại tới. Mà lần khởi động lại tới thường là lúc cập nhật app,
+    // hoặc lúc máy chủ vừa mất điện bật lại: đúng những lúc không ai muốn app
+    // không lên.
+    console.log('\n⛔ MÁY CHỦ SẼ KHÔNG BẬT LẠI ĐƯỢC nếu chưa sửa các mục sau:\n');
+    for (const k of chan) console.log(`     • ${k.ten} — ${k.chiTiet}`);
+    console.log('\n   Máy chủ hiện tại vẫn đang phục vụ bình thường vì nó đã qua được cửa này');
+    console.log('   từ lần khởi động trước. Lần bật lại tới mới là lúc app không lên nữa —');
+    console.log('   thường rơi đúng vào lúc cập nhật app hoặc lúc máy vừa mất điện bật lại.');
+    if (hong.length > chan.length) {
+      console.log('\n   Các mục cần sửa còn lại không chặn khởi động, nhưng để lâu thì đúng lúc');
+      console.log('   cần đến mới phát hiện đã muộn.');
+    }
+    console.log('');
+  } else if (hong.length) {
     console.log('\nMáy chủ vẫn đang phục vụ bình thường — các mục trên không làm app ngừng chạy,');
     console.log('nhưng để lâu thì đúng lúc cần đến mới phát hiện đã muộn. Sửa sớm cho yên tâm.\n');
   } else {
