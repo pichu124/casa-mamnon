@@ -283,7 +283,7 @@ function generate() {
         // QUY TẮC 5 — mỗi nhận định đi kèm một việc làm được, ở lớp và ở nhà.
         teacherComment: pick([
           'Con tự xúc ăn và tự cất dép được rồi. Ở lớp cô sẽ để con tự lấy nước uống; ở nhà gia đình thử cho con tự xúc bữa tối nhé.',
-          'Con thích xếp khối và chơi rất lâu với một thứ. Ở lớp cô sẽ thêm khối vào góc xây dựng; ở nhà nhà mình thử xếp cốc, xếp hộp cùng con.',
+          'Con thích xếp khối và chơi rất lâu với một thứ. Ở lớp cô sẽ thêm khối vào góc xây dựng; ở nhà, nhà mình thử xếp cốc, xếp hộp cùng con.',
           'Con còn ngại nói trước đông người. Ở lớp cô sẽ mời con kể chuyện trong nhóm nhỏ ba bạn trước; ở nhà gia đình hỏi con "hôm nay con chơi gì" mỗi tối nhé.',
         ], si + ti),
       });

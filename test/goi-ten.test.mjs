@@ -111,6 +111,35 @@ export function quet(vung = VUNG_QUET) {
   return viPham;
 }
 
+
+// Từ lặp đôi liền nhau — "chưa chưa", "nhóm nhóm". Tiếng Việt có lặp thật
+// ("nhà nhà", "người người", "ngày ngày") nên phải chừa đường; nhưng đó là văn
+// vẻ, hiếm gặp trong nhãn giao diện, nên danh sách chừa để trống cho tới khi
+// thật sự cần.
+const LAP_DUOC_PHEP = [];
+const RE_LAP = /(?<!\p{L})(\p{L}{2,})[ \t]+\1(?!\p{L})/giu;
+
+export function quetLapDoi(vung = VUNG_QUET) {
+  const viPham = [];
+  for (const muc of vung) {
+    for (const tep of cacTep(muc)) {
+      const tuongDoi = path.relative(GOC, tep).split(path.sep).join('/');
+      const dongs = boChuThich(fs.readFileSync(tep, 'utf8')).split('\n');
+      dongs.forEach((dong, i) => {
+        for (const m of dong.matchAll(RE_LAP)) {
+          const tu = m[1].toLowerCase();
+          // Chỉ soi chữ tiếng Việt CÓ DẤU: tên biến và từ khoá tiếng Anh lặp
+          // nhau là chuyện bình thường của mã nguồn (`case case`, `x x`).
+          if (!/[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(tu)) continue;
+          if (LAP_DUOC_PHEP.includes(tu)) continue;
+          viPham.push({ tep: tuongDoi, dong: i + 1, tu, trich: dong.trim().slice(0, 110) });
+        }
+      });
+    }
+  }
+  return viPham;
+}
+
 // ===========================================================================
 console.log('\n[1] Màn hình và câu báo lỗi nói tiếng của trường mầm non');
 {
@@ -157,6 +186,37 @@ console.log('\n[3] Không đụng tới tên biến tiếng Anh của tầng d�
     "function studentsOf(u){ return db.classIdsOf(u); }\nconst datChuNhiem = 1;\n");
   check('tên biến studentsOf / classIdsOf / datChuNhiem không bị bắt nhầm',
     quet(['test/__tam-goi-ten2']).length === 0, quet(['test/__tam-goi-ten2']));
+  fs.rmSync(tam, { recursive: true, force: true });
+}
+
+
+// ===========================================================================
+console.log('\n[4] Không có chữ nào bị lặp đôi ("chưa chưa", "nhóm nhóm")');
+{
+  // VÌ SAO CÓ MỤC NÀY
+  //
+  // Đợt N9–N11 đổi 250+ chỗ bằng tìm-thay hàng loạt. Một lần thay
+  // "chưa phụ trách lớp nào" → "chưa phụ trách nhóm nào" chồng lên một lần thay
+  // trước đó đã đẻ ra `'chưa chưa phụ trách nhóm nào'` và nó nằm yên trên màn
+  // Quản trị → Giáo viên cho tới khi có người soi từng dòng.
+  //
+  // Đây đúng là kiểu lỗi mà máy bắt dễ còn mắt người bắt khó: câu vẫn đọc trôi,
+  // vẫn đúng ngữ pháp ở mọi chỗ khác, chỉ thừa một từ. Mà đợt đổi chữ hàng loạt
+  // thì còn nhiều đợt nữa.
+  const viPham = quetLapDoi();
+  check('không màn hình nào hiện một từ hai lần liền nhau',
+    viPham.length === 0,
+    viPham.slice(0, 8).map((v) => `${v.tep}:${v.dong} "${v.tu} ${v.tu}" — ${v.trich}`));
+
+  // Bộ canh phải bắt được thật, không phải luôn xanh.
+  const tam = path.join(GOC, 'test', '__tam-lap-doi');
+  fs.rmSync(tam, { recursive: true, force: true });
+  fs.mkdirSync(tam, { recursive: true });
+  fs.writeFileSync(path.join(tam, 'ban.js'),
+    "const a = 'chưa chưa phụ trách nhóm nào';\nconst b = 'Nhóm Chồi 2';\n");
+  const bat = quetLapDoi(['test/__tam-lap-doi']);
+  check('bắt được "chưa chưa" nếu ai đó lỡ tay lần nữa',
+    bat.length === 1 && bat[0].tu === 'chưa', bat);
   fs.rmSync(tam, { recursive: true, force: true });
 }
 

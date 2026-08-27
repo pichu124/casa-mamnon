@@ -560,7 +560,7 @@ App.views.admin = {
             ${UI.avatar(t.avatar, 40)}
             <div class="row-main">
               <div class="row-title">${UI.esc(t.title)} ${UI.esc(t.name)}</div>
-              <div class="row-sub">${UI.esc(t.className || 'chưa chưa phụ trách nhóm nào')} · ${UI.esc(t.username)}</div>
+              <div class="row-sub">${UI.esc(t.className || 'chưa phụ trách nhóm nào')} · ${UI.esc(t.username)}</div>
             </div>
             ${t.mustChangePassword ? UI.badge('Chưa đổi mật khẩu', 'orange') : ''}
           </div>`).join('') : '<div class="muted small">Chưa có giáo viên nào.</div>'}

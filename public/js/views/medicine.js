@@ -203,7 +203,7 @@ App.views.medicine = {
   async confirm(id) {
     try {
       await API.post(`/api/medicine/${id}/confirm`);
-      UI.toast('Đã xác nhận nhận thuốc từ gia đình', 'success');
+      UI.toast('Đã nhận thuốc từ gia đình', 'success');
       UI.closeModal();
       App.route();
       App.refreshBadges();

@@ -299,7 +299,7 @@ async function main() {
       canSua('Chứng chỉ HTTPS', `không kết nối được tới ${tenMien}: ${kq.loi}`,
         'Kiểm tên miền còn trỏ đúng IP máy chủ không, và "systemctl status caddy".');
     } else if (kq.conLai < 10) {
-      canSua('Chứng chỉ HTTPS', `${tenMien} — chứng chỉ chỉ còn ${kq.conLai.toFixed(0)} ngày`,
+      canSua('Chứng chỉ HTTPS', `${tenMien} — chứng chỉ còn ${kq.conLai.toFixed(0)} ngày`,
         'Caddy lẽ ra tự gia hạn. Xem "journalctl -u caddy -n 50" tìm nguyên nhân.');
     } else {
       dat('Chứng chỉ HTTPS', `${tenMien} — còn ${kq.conLai.toFixed(0)} ngày${kq.capBoi ? `, cấp bởi ${kq.capBoi}` : ''}`);
