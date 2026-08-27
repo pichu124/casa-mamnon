@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "SchoolConnect – Sổ liên lạc điện tử",
-  "short_name": "SchoolConnect",
-  "description": "Kết nối nhà trường và gia đình: điểm danh, nhận xét, thực đơn, xin phép, nhắn tin với giáo viên.",
+  "name": "CASA Mầm non – Sổ liên lạc điện tử",
+  "short_name": "CASA Mầm non",
+  "description": "Kết nối trường mầm non và gia đình: điểm danh, nhật ký ăn ngủ, thực đơn, xin nghỉ, dặn thuốc, nhắn tin với cô.",
   "lang": "vi",
   "dir": "ltr",
   "start_url": "/",

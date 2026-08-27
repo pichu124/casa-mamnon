@@ -11,7 +11,7 @@ App.views.dashboard = {
         <div class="hero-top">
           <span class="hero-logo">🏫</span>
           <div class="hero-brand">
-            <b>SchoolConnect</b>
+            <b>CASA Mầm non</b>
             <span>${UI.esc(school ? school.name : '')}</span>
           </div>
           <select class="hero-year" id="year-select" aria-label="Năm học">

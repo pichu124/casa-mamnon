@@ -1,13 +1,15 @@
-/* Service worker của SchoolConnect.
+/* Service worker của CASA Mầm non.
  *
  * Nguyên tắc:
  * - Giao diện (HTML/CSS/JS/icon) được lưu sẵn để mở app tức thì và xem được khi mất mạng.
- * - Dữ liệu /api/* KHÔNG BAO GIỜ lưu cache: đây là thông tin riêng của từng học sinh,
+ * - Dữ liệu /api/* KHÔNG BAO GIỜ lưu cache: đây là thông tin riêng của từng bé,
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v25';
-const SHELL_CACHE = `schoolconnect-shell-${VERSION}`;
+const VERSION = 'v26';
+// Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
+// xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
+const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
 
 // Vỏ ứng dụng: nạp sẵn ngay khi cài đặt.
 const SHELL_ASSETS = [

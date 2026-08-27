@@ -29,7 +29,7 @@ App.views.settings = {
         <div class="card-title">📱 Cài đặt ứng dụng</div>
         <div class="list-row">
           <div class="row-main">
-            <div class="row-title">Thêm SchoolConnect vào màn hình chính</div>
+            <div class="row-title">Thêm CASA Mầm non vào màn hình chính</div>
             <div class="row-sub">Mở nhanh như ứng dụng thường, không còn thanh địa chỉ</div>
           </div>
           <button class="btn sm primary" id="st-install">Cài đặt</button>
@@ -80,7 +80,7 @@ App.views.settings = {
       </div>
 
       <button class="btn danger-soft block" onclick="App.logout()">${UI.icon('logout', 18)} Đăng xuất</button>
-      <p class="center muted small mt-14">SchoolConnect v1.0 · Sổ liên lạc điện tử</p>`;
+      <p class="center muted small mt-14">CASA Mầm non v1.0 · Sổ liên lạc điện tử</p>`;
 
     const installBtn = document.getElementById('st-install');
     if (installBtn) installBtn.onclick = () => App.promptInstall();

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Kiểm tra một BẢN CÀI ĐẶT ĐANG CHẠY của SchoolConnect.
+// Kiểm tra một BẢN CÀI ĐẶT ĐANG CHẠY của CASA Mầm non.
 //
 //   DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
 //   DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu -- --ten-mien=lienlac.truong.vn
@@ -213,11 +213,17 @@ kiem('Cô phụ trách nhóm lớp', () => {
 kiem('Lịch sao lưu tự động', () => {
   const nguon = [];
   const timer = chay('systemctl', ['list-timers', '--all', '--no-pager']);
-  if (timer && /schoolconnect.*backup|backup.*schoolconnect/i.test(timer)) nguon.push('systemd timer');
+  // Nhận CẢ HAI tên: máy chủ dựng theo quy trình app 1 đặt dịch vụ tên
+  // "schoolconnect", app 2 đặt "casa-mamnon". Bỏ tên cũ đi là bộ kiểm báo
+  // "chưa từng sao lưu" trên một máy đang sao lưu đều đặn — đúng kiểu trấn an
+  // ngược khiến người vận hành hết tin bộ kiểm này.
+  const TEN_DICH_VU = /(schoolconnect|casa-?mamnon)/i;
+  if (timer && TEN_DICH_VU.test(timer) && /backup/i.test(timer)) nguon.push('systemd timer');
   const cron = chay('crontab', ['-l']);
   if (cron && /npm run backup|scripts\/backup\.js/i.test(cron)) nguon.push('cron');
-  const task = chay('schtasks', ['/Query', '/TN', 'SchoolConnect-SaoLuu']);
-  if (task) nguon.push('Task Scheduler');
+  for (const ten of ['CasaMamNon-SaoLuu', 'SchoolConnect-SaoLuu']) {
+    if (chay('schtasks', ['/Query', '/TN', ten])) { nguon.push('Task Scheduler'); break; }
+  }
 
   if (nguon.length) {
     dat('Lịch sao lưu tự động', `đã đặt qua ${nguon.join(' và ')}`);
@@ -328,7 +334,7 @@ async function main() {
   // In báo cáo
   // -------------------------------------------------------------------------
   const rong = Math.max(...ketQua.map(k => k.ten.length));
-  console.log(`\nKIỂM TRA MÁY CHỦ SCHOOLCONNECT — ${new Date().toLocaleString('vi-VN')}`);
+  console.log(`\nKIỂM TRA MÁY CHỦ CASA MẦM NON — ${new Date().toLocaleString('vi-VN')}`);
   console.log(`Thư mục dữ liệu: ${DATA_DIR}\n`);
   for (const k of ketQua) {
     const nhan = k.trangThai === 'ĐẠT' ? '  ✓ ĐẠT     ' : (k.trangThai === 'CẦN SỬA' ? '  ✗ CẦN SỬA ' : '  – BỎ QUA  ');

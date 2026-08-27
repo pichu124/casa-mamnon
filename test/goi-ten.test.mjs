@@ -28,6 +28,10 @@ const { check, tongKet } = taoBoDem();
 const VUNG_QUET = [
   'public/js/views',
   'public/index.html',
+  // Tên app hiện ở ba chỗ người dùng thấy mà không phải màn hình nào cả: thẻ
+  // tiêu đề trình duyệt, tên app khi cài lên màn hình chính, và tên kho đệm.
+  'public/manifest.json',
+  'public/sw.js',
   'lib/modules.js',
   'routes',
   'modules/hocphi',
@@ -61,6 +65,11 @@ const CAM = [
   // CLAUDE.md quy định không để lộ thuật ngữ kỹ thuật ra màn hình.
   { tu: 'HS', thay: 'bé', re: new RegExp(truoc(sau('HS')), 'u') },
   { tu: 'PH', thay: 'phụ huynh / gia đình', re: new RegExp(truoc(sau('PH')), 'u') },
+
+  // App này tên là CASA Mầm non. Màn đăng nhập tự xưng "SchoolConnect" là tên
+  // của app 1 — trường tiểu học — trong khi dữ liệu bên trong đã là Trường Mầm
+  // non CASA. Cô mở app ra và thấy hai cái tên không khớp nhau.
+  { tu: 'SchoolConnect', thay: 'CASA Mầm non', re: /schoolconnect/i },
 
   // Gợi ý mẫu trong ô nhập cũng là chữ hiện lên màn hình. Màn "Soạn kế hoạch"
   // còn mời cô "Ôn bảng nhân chia; luyện đọc nhóm đôi" — nguyên văn kế thừa từ
@@ -105,6 +114,19 @@ const NGOAI_LE = [
     vi_sao: 'Cùng lý do: nhận vào thì rộng, xuất ra thì đúng.',
   },
   {
+    tep: 'scripts/prepare-mobile.js',
+    vi_sao: 'Vỏ đóng gói Android/Capacitor của app 1. App 2 đã chốt CHỈ làm PWA và '
+      + 'cả thư mục này nằm trong món nợ N2 chờ gỡ. Đổi tên trong một thứ sắp bỏ là '
+      + 'làm nó trông như đang được dùng — nguy hiểm hơn để nguyên.',
+  },
+  {
+    tu: 'SchoolConnect',
+    re: /TEN_DICH_VU|SchoolConnect-SaoLuu/,
+    vi_sao: 'Chỗ NHẬN DIỆN lịch sao lưu trên máy chủ. Máy dựng theo quy trình app 1 '
+      + 'đặt dịch vụ tên "schoolconnect"; bỏ tên cũ đi là bộ kiểm báo "chưa từng sao '
+      + 'lưu" trên một máy đang sao lưu đều đặn. Nhận vào thì rộng, xuất ra thì đúng.',
+  },
+  {
     tu: 'em',
     re: /senderId: 'p\d+'/,
     vi_sao: 'Lời thoại của phụ huynh trong dữ liệu mẫu. Phụ huynh tự xưng "em" khi '
@@ -135,7 +157,7 @@ function cacTep(muc) {
   if (!fs.existsSync(p)) return [];
   if (fs.statSync(p).isFile()) return [p];
   return fs.readdirSync(p)
-    .filter((f) => f.endsWith('.js') || f.endsWith('.html'))
+    .filter((f) => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.json'))
     .map((f) => path.join(p, f));
 }
 

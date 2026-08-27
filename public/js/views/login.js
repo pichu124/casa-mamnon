@@ -6,7 +6,7 @@ App.views.login = {
       <div class="login-wrap">
         <div class="login-card">
           <div class="login-logo">🏫</div>
-          <h1>SchoolConnect</h1>
+          <h1>CASA Mầm non</h1>
           <p class="sub">Sổ liên lạc điện tử – Kết nối nhà trường và gia đình</p>
           <form id="login-form">
             <div class="field">

@@ -1,4 +1,4 @@
-// SchoolConnect — Sổ liên lạc điện tử kết nối nhà trường và gia đình.
+// CASA Mầm non — Sổ liên lạc điện tử kết nối trường mầm non và gia đình.
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -239,7 +239,7 @@ if (db.isEmpty()) {
 }
 
 const server = app.listen(PORT, HOST, () => {
-  console.log(`SchoolConnect đang chạy tại http://localhost:${PORT}`);
+  console.log(`CASA Mầm non đang chạy tại http://localhost:${PORT}`);
   console.log(`Cơ sở dữ liệu: ${db.DB_FILE}`);
   if (process.env.NODE_ENV === 'production') {
     warnDefaultPasswords();
