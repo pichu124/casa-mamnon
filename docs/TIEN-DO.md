@@ -444,18 +444,71 @@ Ba điều đáng ghi lại:
 - **Mục `[4]` là phép thử ngược**, giống `test:goi-ten`: dựng tệp bẩn rồi soi bằng
   chính hàm quét đó.
 
+### Đợt soát sau G0.5: sáu chỗ hỏng thật, tìm bằng cách đi lại đường của người dùng ✅
+
+Sau G0.5, thay vì làm tiếp tính năng, tôi cho **năm góc nhìn độc lập** soát lại
+app: giao diện trên trình duyệt thật, vòng sao lưu–khôi phục, đường cài đặt máy
+chủ, phân quyền tấn công bằng HTTP thật, và chất lượng tiếng Việt. Mỗi phát hiện
+đi qua một lượt **thẩm ngược** — người thẩm được yêu cầu mặc định bác bỏ.
+
+Tin tốt trước: **tầng phân quyền của G0.4 đứng vững**. Tấn công bằng HTTP thật
+qua 14 phân hệ — cô nhóm này gọi thẳng API của nhóm kia, phụ huynh gọi API của
+bé không phải con mình, cô gọi API quản trị — **tất cả đều 403**. Không màn hình
+nào của bốn vai ném lỗi JavaScript.
+
+Sáu chỗ hỏng thật, sửa hết trong đợt này:
+
+| Chỗ hỏng | Vì sao nguy hiểm | Đã làm gì |
+|---|---|---|
+| `undefined/school.db` 520 KB — hồ sơ 8 bé — **nằm trong kho mã nhiều ngày** | `.gitignore` có dòng `*.db` nên git không bao giờ nhắc tới nó: `git status` sạch, `npm test` xanh, mắt người soát cũng không thấy. Nhưng `docker build` **không đọc** `.gitignore` | Xóa tệp; vá bài kiểm thử đã đẻ ra nó (`DATA_DIR` thành chuỗi `"undefined"`); viết lại `.dockerignore`; thêm `--quet-kho` soi tệp dữ liệu nằm sai chỗ |
+| `scripts/restore.js` **không kiểm tra máy chủ có đang chạy không** | `rename` không rời tay máy chủ khỏi tệp cũ; `-wal` bị xóa dưới chân một kết nối đang mở. Không báo lỗi, màn hình vẫn chạy — **hỏng chỉ lộ ra sau lần khởi động lại kế tiếp** | Hỏi SQLite bằng khóa độc quyền trước khi động vào tệp; viết `test/sao-luu.test.mjs` (39 bài) đi trọn vòng sao lưu → hỏng → khôi phục |
+| Bản "giữ lại phòng khi khôi phục nhầm" **mất phần ghi cuối** | Phần vừa ghi nằm trong `-wal`; bản cũ đổi tên tệp chính rồi xóa `-wal`. Máy chủ tắt đột ngột vừa là lý do hay gặp nhất khiến phải khôi phục, vừa là lúc `-wal` chứa nhiều nhất | Gộp nhật ký ghi vào tệp chính trước khi đổi tên, kèm phép thử ngược tự chứng minh tình huống là thật |
+| Cô dạy **hai nhóm** không mở được Kế hoạch / Thời khóa biểu của nhóm thứ hai | Máy chủ cho phép, nhưng màn hình lấy cứng `nhomCuaCo[0]`. Quyền có mà lối vào thì không — và bài kiểm thử API **không bao giờ thấy** loại lỗi này | Ô chọn nhóm cho cả hai màn, chỉ hiện khi cô có hơn một nhóm; `test/nhieu-nhom-giao-dien.test.mjs` đi bằng chuột trên trình duyệt thật |
+| `'chưa chưa phụ trách nhóm nào'` trên màn Quản trị | Do chính đợt N9–N11 tìm-thay hàng loạt. Câu vẫn đúng ngữ pháp, chỉ thừa một từ — mắt người rất dễ lướt qua | Sửa, và thêm mục canh **chữ lặp đôi** vào `test:goi-ten` |
+| Tuổi bé tính bằng **hiệu hai con số năm** | Bé sinh tháng 12 bị ghi già hơn tuổi thật gần trọn một năm. Ở tuổi 2–6, sáu tháng là khoảng cách thật sự, và cô nhìn con số đó để chờ đợi ở bé | Tính theo ngày sinh, hiện kèm tháng ("4 tuổi 8 tháng"); bé chưa tròn một tuổi thì đếm bằng tháng |
+
+Ba chỗ nữa thuộc loại **nói sai sự thật với người vận hành**, đã sửa cùng đợt:
+
+- `kiem-tra-may-chu.js` in "các mục trên **không làm app ngừng chạy**" — sai từ
+  khi có chốt chặn N5. Máy đang chạy thì vẫn chạy vì nó qua cửa đó từ lần khởi
+  động trước; **lần bật lại tới mới là lúc vỡ**, mà lần bật lại tới thường rơi
+  đúng vào lúc cập nhật app hoặc lúc máy vừa mất điện. Nay mục nào chặn khởi
+  động thì in một khối ⛔ riêng, nêu đích danh.
+- `server.js` mách `mv <DATA_DIR>/* <đích>/`. Khi `DATA_DIR` là `data/` trong
+  kho mã — đúng trường hợp lời nhắc này tồn tại để chữa — nó **cuốn luôn
+  `data/seed.js`**. Người vận hành làm theo lời nhắc và tự tay làm hỏng kho mã.
+- Hai script bảo "Vào **Quản trị → Lớp**". **Không có tab nào tên Lớp** —
+  danh sách nhóm nằm ở tab Tổng quan. Người ta đọc câu đó đúng lúc đang chữa
+  cháy một nhóm chưa có cô phụ trách.
+
+Và một đợt quét chữ nữa: N9–N11 chỉ soát bốn từ trong danh sách cấm, nên **59
+chỗ** vẫn gọi bé là *"em"*, vẫn viết tắt *"HS"* / *"PH"*, và **17 câu báo lỗi
+của máy chủ vẫn nói "lớp" trong khi nhãn nói "nhóm"** — cô đọc câu báo lỗi mà
+không chắc nó đang nói về cái mình vừa bấm. `test:goi-ten` nay canh cả bốn nhóm
+từ ấy bằng ranh giới từ **tiếng Việt** (`\b` của JavaScript chỉ biết chữ ASCII
+nên "em" trong "thêm", "xem", "điểm" sẽ lọt), và chừa đúng những chỗ tiếng Việt
+vốn đúng: *"ở lớp"*, *"vào lớp 1"*, *"nhóm lớp"*, và lời thoại phụ huynh tự
+xưng "em" với cô.
+
+> **Bài học đáng giữ lại của đợt này:** cả sáu chỗ đều **xanh trong `npm test`**
+> ngay trước khi bị tìm ra. Chúng nằm ở chỗ bài kiểm thử không nhìn tới — tệp bị
+> `.gitignore` giấu, một script chỉ chạy lúc chữa cháy, một màn hình thiếu nút
+> bấm. Đi lại đúng đường của người dùng vẫn tìm ra thứ mà 1.200 bài không thấy.
+
+---
+
 ### G0.6 — Con số kiểm thử hiện tại
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1119**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **210**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1219**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **228**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
-| `test:lo-hong` | 276 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
+| `test:lo-hong` | 277 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
 | `test:khe-uoc` | 114 | Hình dạng của các tệp dùng chung |
 | `test:co-lap-loi` | 101 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
@@ -466,17 +519,23 @@ Bốn bộ **mới của app 2**, không có ở app 1:
 |---|---|---|
 | `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
 | `test:thuchup` | 55 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
+| `test:sao-luu` | 39 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
+| `test:goi-ten` | 33 | App nói tiếng của trường mầm non, kể cả cách nói tuổi bé |
 | `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
-| `test:goi-ten` | 10 | App nói tiếng của trường mầm non |
+| `test:nhieu-nhom` | 18 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai |
 
 Nền lấy từ app 1 là **932 bài**. Phần tăng thêm không chỉ nằm ở bốn bộ mới: các
 bộ cũ cũng dày lên khi mô hình đổi (ví dụ `test:lo-hong` nhận thêm mục `[8b]` canh
 việc máy chủ dừng khi dữ liệu nằm trong kho mã). Con số tổng sẽ **giảm** khi gỡ
 các phân hệ riêng của tiểu học (N3) và **tăng** khi thêm phần mầm non.
 
-Ba bộ canh dưới đây đều có một mục **"phép thử ngược"** — dựng dữ liệu bẩn rồi soi
-bằng chính hàm quét đó: `test:du-lieu`, `test:goi-ten`, `test:quy-tac-4`. Một bài
-canh luôn xanh là một bài canh vô dụng.
+Bốn bộ canh dưới đây đều có một mục **"phép thử ngược"** — dựng dữ liệu bẩn rồi
+soi bằng chính hàm quét đó: `test:du-lieu`, `test:goi-ten`, `test:quy-tac-4`,
+`test:sao-luu`. Một bài canh luôn xanh là một bài canh vô dụng.
+
+Riêng `test:goi-ten` còn canh cả **ngoại lệ của chính nó**: dựng một tệp có cả
+dòng được chừa lẫn dòng phải bắt, rồi kiểm rằng ngoại lệ chỉ chừa đúng một dòng.
+Một ngoại lệ viết rộng quá sẽ lặng lẽ mở cửa cho cả tệp.
 
 ---
 
@@ -497,6 +556,8 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | ~~N9~~ | ~~Giao diện nói tiếng tiểu học~~ | **✅ xong** — xem mục "Đổi cách gọi tên" bên dưới | 26/08/2026 |
 | ~~N10~~ | ~~Chưa có bài test canh cách gọi tên~~ | **✅ xong** — `test/goi-ten.test.mjs`, 10 bài | 26/08/2026 |
 | ~~N11~~ | ~~Ô "Khối cuối cấp" là ô điều khiển chết~~ | **✅ xong** — máy chủ trả thêm cờ `theoBac`, màn hình giấu hẳn ô đó khi mọi nhóm đi theo bậc | 26/08/2026 |
+| N13 | **Lần triển khai đầu tiên lên Render là một vòng kẹt** | Ổ đĩa mới là ổ trống; `NODE_ENV=production` + CSDL trống → máy chủ dừng có chủ ý (đúng). Nhưng Shell của Render chỉ mở được khi dịch vụ đang chạy → không tạo được tài khoản quản trị → dịch vụ không bao giờ chạy. **Đã viết thẳng vòng kẹt và hai đường ra vào `render.yaml`**, chưa vá bằng mã: cách vá (nhận tài khoản quản trị đầu tiên qua biến môi trường) là quyết định về triển khai, mà nơi triển khai còn chờ N7 | Sau N7 |
+| N14 | `docs/` vẫn ghi `/var/lib/schoolconnect`, `scripts/` nay ghi `/var/lib/casa-mamnon` | Người vận hành làm theo lời nhắc của máy chủ rồi chạy script theo lời nhắc của tài liệu — script mở một CSDL TRỐNG và báo "mọi thứ đều sạch". Trấn an sai còn tệ hơn báo lỗi. `scripts/` đã thống nhất và có bài canh; `docs/` để nguyên vì đang mang cảnh báo "chưa cập nhật cho app 2" (N1) — sửa đường dẫn trong đó là làm nó TRÔNG như đã cập nhật | Cùng N1 |
 | N12 | Phân hệ vẫn tên là **"Thời khóa biểu"**, nội dung bên trong đã là **lịch sinh hoạt một ngày** (đón bé, ăn, ngủ trưa, trả bé) | Dữ liệu và cái tên đang nói hai chuyện khác nhau. Không sai tới mức hỏng, nhưng cô sẽ đọc "thời khóa biểu" rồi tìm "tiết học". Cố ý KHÔNG gộp vào N9 vì `CLAUDE.md` chỉ liệt kê ba cặp từ (bé, nhóm lớp, cô) — đổi tên một phân hệ là quyết định của nhà trường | Hỏi nhà trường rồi làm |
 
 ---
@@ -519,3 +580,12 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 26/08/2026 | Bài canh QUY TẮC 4 kiểu bánh cóc — món nợ N3 thành con số máy đếm được | N6 |
 | 26/08/2026 | Chạy thật mà dữ liệu nằm trong kho mã → máy chủ DỪNG trước khi mở cổng | N5 |
 | 26/08/2026 | Dán cảnh báo "tài liệu này của app 1" lên cả 5 tệp triển khai | N1 (một phần) |
+| 26/08/2026 | Phiếu hướng dẫn phép thử trên điện thoại thật — cổng DỪNG của GĐ 0 | G0.3 |
+| 27/08/2026 | Bắt chữ lặp đôi bằng máy, sau khi `chưa chưa` lọt ra màn hình thật | Đợt soát |
+| 27/08/2026 | Dữ liệu của bé nằm lạc trong kho mã: `.gitignore` giấu nó, `docker build` đóng gói nó | Đợt soát |
+| 27/08/2026 | Khôi phục dữ liệu: từ chối khi máy chủ đang chạy, và giữ lại cho đủ (+39 bài) | Đợt soát |
+| 27/08/2026 | Đường triển khai: một tên thư mục dữ liệu, một lệnh chuyển không cuốn theo mã nguồn | Đợt soát · N13 · N14 |
+| 27/08/2026 | Bộ kiểm máy chủ nói đúng sự thật: mục nào chặn app bật lại thì nói thẳng | Đợt soát |
+| 27/08/2026 | Cô dạy hai nhóm mở được cả hai: ô chọn nhóm cho Kế hoạch và Thời khóa biểu | Đợt soát · G0.4 |
+| 27/08/2026 | Quét nốt tiếng của trường mầm non: "em", "HS", "PH", "lớp" thay cho "nhóm" (59 chỗ) | Đợt soát · N9 |
+| 27/08/2026 | Tuổi bé tính theo ngày sinh; màn Soạn kế hoạch thôi dạy bài tiểu học | Đợt soát |
