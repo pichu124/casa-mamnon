@@ -80,8 +80,11 @@ App.views.student = {
             <div class="row-main">
               <div class="row-title">${UI.esc(p.title)} ${UI.esc(p.name)}</div>
               <div class="row-sub">${UI.esc(p.phone)} · ${UI.esc(p.email)}</div>
+              ${p.soCccd ? `<div class="row-sub">CCCD: ${UI.esc(p.soCccd)}</div>` : ''}
             </div>
           </div>`).join('')}
+        <div class="muted small mt-8">Số CCCD chỉ hiện cho chính người đó và cho văn phòng.
+        Nhà trường giữ số này để đối chiếu khi giao bé cho người tới đón.</div>
       </div>`;
   },
 
@@ -160,7 +163,8 @@ App.views.student = {
           ${infoRow('Địa chỉ', s.address)}
           ${infoRow('Tiền sử bệnh / lưu ý đặc biệt', s.tienSuBenh)}
           ${s.soDinhDanh ? infoRow('Số định danh cá nhân', s.soDinhDanh) : ''}
-          ${s.parents.map(p => infoRow(`Phụ huynh: ${p.title} ${p.name}`, p.phone)).join('')}
+          ${s.parents.map(p => infoRow(`Phụ huynh: ${p.title} ${p.name}`, p.phone)
+            + (p.soCccd ? infoRow(`CCCD của ${p.title} ${p.name}`, p.soCccd) : '')).join('')}
           ${(s.lienHeKhanCap || []).map(x => infoRow(
             `Khẩn cấp: ${x.hoTen}${x.quanHe ? ` (${x.quanHe})` : ''}`, x.dienThoai)).join('')}
         </div>`, 'Hồ sơ của bé');

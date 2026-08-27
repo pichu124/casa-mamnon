@@ -355,7 +355,12 @@ module.exports = (app) => {
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',
       parents: s.parentIds.map(id => {
         const p = db.findUser(id);
-        return p ? { id: p.id, name: `${p.title} ${p.name}`, username: p.username, phone: p.phone } : null;
+        // Đường này đã là onlyAdmin nên số CCCD đi kèm được. Vẫn liệt kê từng
+        // trường một chứ không trải cả hàng `users` ra: hàng đó có passwordHash.
+        return p ? {
+          id: p.id, name: `${p.title} ${p.name}`, username: p.username, phone: p.phone,
+          soCccd: db.hoSoNguoiDung(p.id).soCccd,
+        } : null;
       }).filter(Boolean),
     })));
   });
@@ -385,7 +390,7 @@ module.exports = (app) => {
 
     const COT = ['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
       'Số định danh cá nhân', 'Dân tộc', 'Nhóm máu', 'Tiền sử bệnh / lưu ý đặc biệt',
-      'Địa chỉ', 'Bố / mẹ', 'Người liên hệ khẩn cấp', 'Tình trạng'];
+      'Địa chỉ', 'Bố / mẹ', 'Số CCCD của bố / mẹ', 'Người liên hệ khẩn cấp', 'Tình trạng'];
 
     const duLieu = db.withParents(rows).map(s => {
       const lop = s.classId ? db.findClass(s.classId) : null;
@@ -407,6 +412,11 @@ module.exports = (app) => {
         'Bố / mẹ': (s.parentIds || []).map(id => {
           const p = db.findUser(id);
           return p ? `${p.title} ${p.name}${p.phone ? ` (${p.phone})` : ''}` : '';
+        }).filter(Boolean).join(' · '),
+        'Số CCCD của bố / mẹ': (s.parentIds || []).map(id => {
+          const p = db.findUser(id);
+          const so = p ? db.hoSoNguoiDung(p.id).soCccd : '';
+          return so ? `${p.title} ${p.name}: ${so}` : '';
         }).filter(Boolean).join(' · '),
         'Người liên hệ khẩn cấp': (hs.lienHeKhanCap || [])
           .map(l => `${l.hoTen}${l.quanHe ? ` — ${l.quanHe}` : ''}${l.dienThoai ? ` (${l.dienThoai})` : ''}`)
@@ -488,6 +498,28 @@ module.exports = (app) => {
     db.update('students', s.id, { active: false, leftAt: new Date().toISOString().slice(0, 10) });
     db.audit(req.user.id, 'student-deactivate', s.id, { name: s.name });
     res.json({ ok: true });
+  });
+
+  // Ghi số CCCD của một phụ huynh.
+  //
+  // Đường RIÊNG chứ không nhét vào PUT /api/admin/students/:id, vì một phụ
+  // huynh có thể có hai con: sửa từ hồ sơ bé nào cũng phải ra CÙNG MỘT bản ghi,
+  // và nhét vào đường của bé sẽ dựng lên ảo giác "số CCCD của bố, bản dành cho
+  // bé An" và "bản dành cho bé Nam". Hai bản đó rồi sẽ lệch nhau.
+  //
+  // Chỉ nhận đúng một trường. Sửa họ tên, số điện thoại của phụ huynh là việc
+  // khác, chưa có đường nào làm, và không mượn đường này làm ké.
+  app.put('/api/admin/parents/:id/cccd', onlyAdmin, (req, res) => {
+    const u = db.findUser(req.params.id);
+    if (!u || u.role !== 'parent') {
+      return res.status(404).json({ error: 'Không tìm thấy phụ huynh này' });
+    }
+    if ((req.body || {}).soCccd === undefined) {
+      return res.status(400).json({ error: 'Thiếu số CCCD' });
+    }
+    const hoSo = db.luuHoSoNguoiDung(u.id, { soCccd: req.body.soCccd });
+    db.audit(req.user.id, 'parent-cccd', u.id, { name: u.name, coSo: !!hoSo.soCccd });
+    res.json({ id: u.id, soCccd: hoSo.soCccd });
   });
 
   // ---------- Nhập danh sách từ tệp CSV ----------

@@ -95,6 +95,22 @@ export function khoaVaoCoSo(dir, tenDangNhap, campusId) {
   `, [tenDangNhap, campusId]);
 }
 
+// Gắn thêm một phụ huynh nữa cho một bé.
+//
+// Dữ liệu mẫu cho mỗi bé đúng MỘT phụ huynh, nên tình huống "bé có cả bố lẫn
+// mẹ" không tự có. Mà đó lại đúng là tình huống nhà trường yêu cầu (*bắt buộc
+// có cả bố/mẹ*) và là chỗ ranh giới dữ liệu dễ rò nhất: hai người cùng mở được
+// một hồ sơ, nên thứ gì của riêng một người phải được cắt ra khỏi hồ sơ chung.
+//
+// Viết thẳng vào bảng, TRƯỚC khi dựng máy chủ — chưa có màn hình nào làm việc
+// này, và bài kiểm thử không được chờ màn hình mới canh được ranh giới.
+export function ganPhuHuynh(dir, studentId, parentId) {
+  chayTrenCsdl(dir, `
+    db.prepare('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)')
+      .run(process.argv[2], process.argv[3]);
+  `, [studentId, parentId]);
+}
+
 // Chạy một đoạn mã ngắn trên cơ sở dữ liệu tạm, ngoài tiến trình bài kiểm thử.
 //
 // Dùng `execFileSync` chứ KHÔNG dựng chuỗi lệnh cho shell: đoạn mã nhiều dòng đi

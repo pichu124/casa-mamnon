@@ -532,6 +532,19 @@ App.views.admin = {
         <button class="btn sm outline" onclick="App.views.admin.themDongLienHe()">+ Thêm người</button>
         <div class="hint">Nhà trường gọi những số này khi không liên lạc được với bố mẹ. Bỏ trống họ tên là dòng đó không được lưu.</div>
       </div>
+      <div class="field"><label>Số CCCD của bố / mẹ</label>
+        ${(s.parents || []).length ? `<div id="ad-hs-cccd">
+          ${(s.parents || []).map(p => `
+            <div class="cccd-dong" style="display:flex;gap:6px;align-items:center;margin-bottom:6px"
+                 data-uid="${UI.esc(p.id)}">
+              <span class="small" style="flex:1;min-width:0">${UI.esc(p.name)}</span>
+              <input class="cccd-so" value="${UI.esc(p.soCccd || '')}" placeholder="12 chữ số" style="flex:1.2">
+            </div>`).join('')}
+        </div>` : '<div class="muted small">Bé này chưa gắn tài khoản phụ huynh nào.</div>'}
+        <div class="hint">Văn phòng dùng để đối chiếu khi ký hợp đồng và khi giao bé cho người tới đón.
+        Số này là <b>của một người</b>, không phải của một bé: nhà có hai con thì sửa ở đâu cũng ra cùng một chỗ.
+        Cô không thấy ô này, và bố cũng không thấy số của mẹ.</div>
+      </div>
       <div class="field"><label>Nhóm</label>
         <select id="ad-hs-lop">
           <option value="">— Chưa xếp nhóm —</option>
@@ -561,6 +574,19 @@ App.views.admin = {
           })),
           classId: document.getElementById('ad-hs-lop').value || null,
         });
+
+        // Số CCCD đi đường RIÊNG vì nó thuộc về người lớn, không thuộc về bé.
+        // Chỉ gửi những ô người dùng thật sự sửa: gửi hết là mỗi lần lưu hồ sơ
+        // bé lại ghi đè lên bản ghi của một người có thể đang được sửa ở màn
+        // hình khác, cho bé thứ hai của cùng nhà.
+        for (const d of document.querySelectorAll('#ad-hs-cccd .cccd-dong')) {
+          const uid = d.dataset.uid;
+          const moi = d.querySelector('.cccd-so').value.trim();
+          const cu = ((s.parents || []).find(p => p.id === uid) || {}).soCccd || '';
+          if (moi === cu) continue;
+          await API.put(`/api/admin/parents/${encodeURIComponent(uid)}/cccd`, { soCccd: moi });
+        }
+
         UI.toast('Đã lưu hồ sơ của bé', 'success');
         App.route();
         await this.lamMoiLop();

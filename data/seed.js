@@ -578,6 +578,11 @@ function generate() {
     { studentId: 's2', soDinhDanh: '079321005678', tienSuBenh: 'Dị ứng tôm cua — nổi mẩn quanh miệng. Hen nhẹ khi trở trời, có ống xịt trong ba lô.' },
     { studentId: 's4', soDinhDanh: '079322009012', tienSuBenh: 'Dị ứng đậu phộng. TUYỆT ĐỐI không cho ăn món có đậu phộng, kể cả dầu.' },
   ];
+  // Số CCCD của phụ huynh. Cũng cố ý không đủ: văn phòng thu dần trong năm.
+  const userProfiles = [
+    { userId: 'p1', soCccd: '079182004321' },
+    { userId: 'p3', soCccd: '079185008765' },
+  ];
   const emergencyContacts = [
     { studentId: 's1', hoTen: 'Bà Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: 'Ở cùng nhà, đón được bé buổi chiều' },
     { studentId: 's2', hoTen: 'Bà Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: '' },
@@ -585,7 +590,7 @@ function generate() {
   ];
 
   const db = {
-    school, campuses, classes, users, students, studentProfiles, emergencyContacts,
+    school, campuses, classes, users, students, studentProfiles, userProfiles, emergencyContacts,
     attendance, leaveRequests, menus, timetable, remarks, reports,
     busRoutes, conduct, surveys, health, medicineRequests, albums, eduPlans,
     notifications, conversations,
