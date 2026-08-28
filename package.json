@@ -59,10 +59,11 @@
     "test:luoi-an-toan": "node test/luoi-an-toan.test.mjs",
     "test:album": "node test/album.test.mjs",
     "test:pwa": "node test/pwa.test.mjs",
+    "test:ngoai-tuyen": "node test/ngoai-tuyen.test.mjs",
     "test:thuchup": "node test/thuchup.test.mjs",
     "test:nhieu-nhom": "node test/nhieu-nhom-giao-dien.test.mjs",
     "test:man-phan-he": "node test/man-hinh-phan-he.test.mjs",
-    "test:giao-dien": "node test/album.test.mjs && node test/pwa.test.mjs && node test/tinh-nang-giao-dien.test.mjs && node test/nhieu-nhom-giao-dien.test.mjs && node test/bien-soan-giao-dien.test.mjs && node test/man-hinh-phan-he.test.mjs",
+    "test:giao-dien": "node test/album.test.mjs && node test/pwa.test.mjs && node test/tinh-nang-giao-dien.test.mjs && node test/nhieu-nhom-giao-dien.test.mjs && node test/bien-soan-giao-dien.test.mjs && node test/man-hinh-phan-he.test.mjs && node test/ngoai-tuyen.test.mjs",
     "test:tat-ca": "npm test && npm run test:giao-dien"
   },
   "engines": {

@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v49';
+const VERSION = 'v50';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -70,7 +70,26 @@ self.addEventListener('activate', (event) => {
 
 // Cho phép trang yêu cầu cập nhật ngay khi có phiên bản mới.
 self.addEventListener('message', (event) => {
-  if (event.data === 'skip-waiting') self.skipWaiting();
+  if (event.data === 'skip-waiting') { self.skipWaiting(); return; }
+
+  // MÀN HÌNH CỦA PHÂN HỆ CẮM THÊM KHÔNG NẰM TRONG DANH SÁCH NẠP SẴN ĐƯỢC.
+  //
+  // Đường dẫn của chúng là /modules/<mã>/view.js?v=<dấu thời gian sửa tệp> —
+  // sinh ra lúc máy chủ chạy, nên lúc cài service worker không thể biết trước.
+  // Trang tự báo xuống sau mỗi lần nạp danh sách phân hệ. Nhờ vậy lần sau mất
+  // mạng thì màn hình của phân hệ vẫn dựng lên được, và quan trọng hơn: tệp
+  // view.js của Ghi nhanh vừa nạp là bộ nghe 'online' của nó gắn vào, nên sóng
+  // về là bài ghi trong hàng đợi tự bay đi.
+  const d = event.data;
+  if (d && d.type === 'luu-man-hinh' && Array.isArray(d.urls)) {
+    event.waitUntil((async () => {
+      const cache = await caches.open(SHELL_CACHE);
+      await Promise.all(d.urls
+        .filter(u => typeof u === 'string' && u.startsWith('/modules/'))
+        .slice(0, 40)
+        .map(u => cache.add(new Request(u, { cache: 'reload' })).catch(() => {})));
+    })());
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -85,7 +104,16 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req).catch(() => new Response(
         JSON.stringify({ error: 'Không có kết nối mạng. Vui lòng kiểm tra lại đường truyền.' }),
-        { status: 503, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
+        {
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            // Đầu đề này nói rõ: câu trả lời 503 là do CHÍNH MÁY NÀY dựng ra vì
+            // không gọi được máy chủ, không phải máy chủ trường đang quá tải.
+            // Trang đọc nó để phân biệt mất mạng với hết phiên đăng nhập.
+            'X-CASA-Mat-Mang': '1',
+          },
+        }
       ))
     );
     return;
@@ -112,7 +140,10 @@ self.addEventListener('fetch', (event) => {
     const network = fetch(req).then(res => {
       if (res && res.ok) caches.open(SHELL_CACHE).then(c => c.put(req, res.clone()));
       return res;
-    }).catch(() => cached);
+    // Mất mạng mà không có bản đúng địa chỉ thì thử lại bỏ qua phần sau dấu ?.
+    // Màn hình phân hệ mang đuôi ?v=<dấu thời gian sửa tệp>: máy chủ ra bản
+    // mới là địa chỉ đổi, và bản cũ trong máy tuy hơi cũ vẫn hơn hẳn màn trắng.
+    }).catch(() => cached || caches.match(req, { ignoreSearch: true }));
     return cached || network;
   })());
 });

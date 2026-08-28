@@ -23,8 +23,15 @@ window.App = {
       this.route();
       this.startBadgePolling();
       this.maybeShowPushBanner();
-    } catch (_) {
-      this.showLogin();
+    } catch (err) {
+      // MẤT MẠNG KHÔNG PHẢI LÀ HẾT PHIÊN ĐĂNG NHẬP.
+      //
+      // Trước đây mọi lỗi ở đây đều đưa về màn đăng nhập. Nhưng màn đăng nhập
+      // cũng phải gọi máy chủ, nên cô đứng ở sân trường sóng yếu mở app ra là
+      // gặp một màn hình không làm được gì — kể cả Ghi nhanh, thứ cả GĐ 0 dựng
+      // lên để hứa "mất mạng vẫn ghi được".
+      if (API.laMatMang && API.laMatMang(err)) this.showOffline();
+      else this.showLogin();
     }
     window.addEventListener('hashchange', () => this.route());
   },
@@ -106,6 +113,7 @@ window.App = {
           console.warn(`Không tải được giao diện phân hệ "${m.key}"`);
         }))
     );
+    this.nhoManHinhPhanHe();
   },
 
   loadScript(src) {
@@ -124,6 +132,69 @@ window.App = {
   },
 
   onUnauthorized() { this.showLogin(); },
+
+  // MÀN HÌNH KHI MÁY KHÔNG CÓ MẠNG.
+  //
+  // Cố ý KHÔNG hiện màn đăng nhập: app không hề biết phiên của cô còn hay hết,
+  // và bảo cô đăng nhập lại lúc không có mạng là bảo cô làm một việc không thể
+  // làm được. Nói đúng chuyện đang xảy ra, rồi tự mở lại khi có sóng.
+  showOffline() {
+    const nav = document.getElementById('bottom-nav');
+    if (nav) nav.style.display = 'none';
+    this.stopBadgePolling();
+
+    // Nạp màn hình phân hệ từ bản đã lưu trong máy. Đây chính là chỗ hàng đợi
+    // Ghi nhanh được đánh thức: tệp view.js của nó vừa nạp xong là bộ nghe
+    // 'online' gắn vào, nên sóng về là bài ghi tự bay đi, dù cô chưa mở màn nào.
+    this.loadOfflineModuleViews();
+
+    const root = document.getElementById('view');
+    if (root) {
+      root.innerHTML = `
+        <div class="card center" style="margin-top:36px">
+          <div style="font-size:44px;line-height:1.2">📵</div>
+          <h2 style="margin:8px 0 6px;font-size:19px">Máy đang không có mạng</h2>
+          <p class="muted" style="line-height:1.7;margin:0 0 14px">
+            App chưa gọi được về trường. Có sóng trở lại là màn hình tự mở ra,
+            và những gì cô đã ghi lúc mất mạng sẽ tự gửi đi, không mất.
+          </p>
+          <button class="btn primary block" id="off-thu-lai">Thử lại</button>
+        </div>`;
+      const nut = document.getElementById('off-thu-lai');
+      if (nut) nut.onclick = () => location.reload();
+    }
+
+    if (!this._dangChoSong) {
+      this._dangChoSong = true;
+      window.addEventListener('online', () => location.reload());
+    }
+  },
+
+  // Địa chỉ tệp giao diện của các phân hệ đã bật, ghi lại lần nạp gần nhất.
+  //
+  // CHỈ ĐỊA CHỈ TỆP .js — không một chữ nào về bé, về cô, về trường. Điện thoại
+  // của cô có thể là máy dùng chung ở lớp, nên thứ duy nhất được phép nằm lại
+  // trong máy là mấy đường dẫn tĩnh này.
+  KHOA_MAN_HINH_PHAN_HE: 'casa.man-hinh-phan-he',
+
+  nhoManHinhPhanHe() {
+    const urls = (this.state.modules || []).map(m => m.viewUrl).filter(Boolean);
+    try { localStorage.setItem(this.KHOA_MAN_HINH_PHAN_HE, JSON.stringify(urls)); } catch (_) {}
+    // Nhờ service worker giữ sẵn mấy tệp đó, để lần sau mất mạng còn dựng được.
+    try {
+      const sw = navigator.serviceWorker;
+      if (sw && sw.controller) sw.controller.postMessage({ type: 'luu-man-hinh', urls });
+    } catch (_) {}
+  },
+
+  loadOfflineModuleViews() {
+    let urls = [];
+    try { urls = JSON.parse(localStorage.getItem(this.KHOA_MAN_HINH_PHAN_HE) || '[]'); } catch (_) {}
+    if (!Array.isArray(urls)) return Promise.resolve([]);
+    return Promise.all(urls
+      .filter(u => typeof u === 'string' && u.indexOf('/modules/') === 0)
+      .map(u => this.loadScript(u).catch(() => {})));
+  },
 
   showLogin() {
     document.getElementById('bottom-nav').style.display = 'none';
