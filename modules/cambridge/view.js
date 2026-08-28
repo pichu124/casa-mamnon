@@ -63,6 +63,11 @@ App.views.cambridge = {
 
         ${b.noiDung ? `<div style="line-height:1.7;white-space:pre-wrap">${UI.esc(b.noiDung)}</div>` : ''}
 
+        ${b.nhacAnhTamAn ? `
+          <div class="small mt-8" style="line-height:1.6;border-left:3px solid var(--warning);padding-left:10px">
+            ${UI.esc(b.nhacAnhTamAn)}
+          </div>` : ''}
+
         ${(b.anh || []).length ? `
           <div class="grid-2 mt-8">
             ${(b.anh || []).map(f => `
@@ -132,6 +137,17 @@ App.views.cambridge = {
           ? `Bài đang có ${b.anh.length} ảnh. Chọn ảnh mới sẽ THAY toàn bộ số ảnh cũ.`
           : 'Chọn nhiều ảnh một lần cũng được.'}</div>
       </div>
+      <div class="field">
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
+          <input type="checkbox" id="cam-khong-co-be" style="margin-top:3px" ${b && b.anhCoMatBe === false ? 'checked' : ''}>
+          <span class="small">Ảnh <b>không có mặt bé nào</b> — chỉ giáo cụ, sách, tranh chủ điểm</span>
+        </label>
+        <div class="hint">Mặc định app coi như ảnh <b>có</b> mặt bé, và giữ ảnh lại với gia đình
+          khi trong phạm vi bài có nhà chưa đồng ý cho ảnh của con hiện với các nhà khác.
+          Tích ô này khi chắc chắn trong hình không có bé nào thì ảnh hiện với mọi gia đình.
+          Không chắc thì đừng tích — ảnh có mặt bé nên đưa vào <b>Album ảnh</b>, nơi cô đánh dấu
+          được bé nào có trong từng tấm.</div>
+      </div>
       <button class="btn primary block" id="cam-luu">${UI.icon('check', 18)} Lưu nháp</button>
       <div class="muted small center mt-8">Lưu xong bài vẫn là nháp — gia đình chỉ đọc được sau khi bấm "Gửi tới gia đình".</div>
     `, id ? 'Sửa bài đăng' : 'Soạn bài mới');
@@ -155,6 +171,7 @@ App.views.cambridge = {
       noiDung: document.getElementById('cam-noidung').value.trim(),
       phamVi,
       tuan: document.getElementById('cam-tuan').value || '',
+      anhCoMatBe: !document.getElementById('cam-khong-co-be').checked,
     };
     if (phamVi === 'coso') body.campusId = (document.getElementById('cam-coso') || {}).value || '';
     if (phamVi === 'nhom') body.classId = (document.getElementById('cam-nhom') || {}).value || '';

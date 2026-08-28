@@ -16,6 +16,7 @@
 // Nên phạm vi lọc ở TẦNG DỮ LIỆU, có một hàm duy nhất quyết định, và có bài
 // test đi đủ ba mức phạm vi nhân ba loại người đọc.
 const { requireRole } = require('../../lib/auth');
+const ngay = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -28,7 +29,7 @@ const TOI_DA_ANH = 6;
 const GIOI_HAN = 60;
 
 function homNay() {
-  return new Date().toISOString().slice(0, 10);
+  return ngay.homNay();
 }
 
 function chuoi(v, tran) {
@@ -75,19 +76,108 @@ module.exports = (app, { db }) => {
     return nhomCuaToi.some(cid => db.campusOfClass(cid) === bai.campusId);
   }
 
+  // =========================================================================
+  // ẢNH CỦA BÀI CŨNG PHẢI ĐI QUA LUẬT ẢNH NHÓM
+  // =========================================================================
+  //
+  // BẢN ĐẦU CỦA PHÂN HỆ NÀY QUÊN HẲN LUẬT ẢNH NHÓM, VÀ ĐÓ LÀ MỘT LỖ THẬT.
+  //
+  // `xemDuoc` trả lời câu "người này có đọc được BÀI này không" — theo phạm vi
+  // trường / cơ sở / nhóm. Nó không nói gì về ẢNH. Nhưng CLAUDE.md có một dòng
+  // riêng cho ảnh: "một ảnh chỉ hiện cho gia đình khác khi MỌI bé trong ảnh
+  // đều có đồng ý chia sẻ. Lọc ở tầng dữ liệu, không che ở giao diện."
+  //
+  // Một tờ Home Connection của nhóm Chồi 2 gần như chắc chắn có ảnh các bé
+  // Chồi 2 đang làm việc. Nếu chỉ hỏi phạm vi thì tấm ảnh đó tới mọi gia đình
+  // trong nhóm — kể cả gia đình mà một nhà khác đã nói KHÔNG.
+  //
+  // VÌ SAO KHÔNG GẮN THẺ BÉ NHƯ ALBUM
+  //
+  // Album có bảng `photo_students` và có màn cho cô gắn thẻ. Ảnh Cambridge thì
+  // không, và thêm cả cơ chế gắn thẻ vào đây là một hạng mục riêng. Nên ảnh
+  // Cambridge rơi đúng vào NHÁNH 3 của `db.locAnhChoNguoiXem`: ảnh CHƯA GẮN
+  // THẺ — app không biết trong đó có ai.
+  //
+  // Luật của nhánh đó, chép nguyên sang đây: chưa ai trong phạm vi từ chối thì
+  // ảnh hiện như thường (đây là chỗ Nguyên tắc số 1 được giữ — trường chưa thu
+  // giấy đồng ý thì không mất tấm ảnh nào); chỉ cần MỘT gia đình nói không là
+  // ảnh của bài tạm ẩn với TẤT CẢ gia đình trong phạm vi ấy.
+  //
+  // ĐƯỜNG RA PHẢI CÓ THẬT, NẾU KHÔNG LUẬT NÀY GIẾT CHÍNH TÍNH NĂNG
+  //
+  // Bản đầu của bản vá này dừng ở đó: trong phạm vi có nhà nói không thì ẩn
+  // ảnh. Chạy thử trên dữ liệu mẫu — một trường bình thường, một nhà trong hai
+  // mươi nhà nói không — thì MỌI ảnh Cambridge biến mất vĩnh viễn, và không có
+  // cách nào lấy lại. Đó không phải "tạm ẩn", đó là gỡ bỏ tính năng.
+  //
+  // Album không rơi vào cái bẫy đó vì nó có ĐƯỜNG RA: cô gắn thẻ bé, ảnh hiện
+  // lại. Ở đây đường ra là một câu hỏi cho cả bài — ẢNH NÀY CÓ MẶT BÉ KHÔNG.
+  // Người vừa tải ảnh lên chính là người biết câu trả lời, và giáo cụ, sách,
+  // tranh chủ điểm thì chiếm phần lớn ảnh của một tờ Home Connection.
+  //
+  // MẶC ĐỊNH LÀ "CÓ MẶT BÉ", tức phía đóng. Quên tích ô thì quên theo hướng
+  // giữ ảnh lại, không phải hướng thả ảnh ra — cùng một luật với danh sách cho
+  // phép của tầng chức vụ.
+  //
+  // Cô và văn phòng vẫn thấy hết — họ là người đăng, người chịu trách nhiệm,
+  // và giấu ảnh khỏi họ thì không ai sửa được bài. Màn của họ nhận thêm một
+  // dòng nói rõ ảnh đang tạm ẩn và vì sao.
+  function anhCoMatBe(baiId) {
+    const r = baiId
+      ? db.first('cambridge_anh_be', 'SELECT coMatBe FROM cambridge_anh_be WHERE baiId = ?', [baiId])
+      : null;
+    return r ? !!r.coMatBe : true;   // không có dòng nào = coi như CÓ mặt bé
+  }
+
+  function ghiAnhCoMatBe(baiId, coMatBe) {
+    db.run(`INSERT INTO cambridge_anh_be (baiId, coMatBe, ghiLuc) VALUES (?, ?, ?)
+            ON CONFLICT(baiId) DO UPDATE SET coMatBe = excluded.coMatBe, ghiLuc = excluded.ghiLuc`,
+    [baiId, coMatBe ? 1 : 0, new Date().toISOString()]);
+  }
+
+  function nhomTrongPhamVi(bai) {
+    if (!bai) return [];
+    if (bai.phamVi === 'nhom') return bai.classId ? [bai.classId] : [];
+    if (bai.phamVi === 'coso') return bai.campusId ? db.classIdsOfCampus(bai.campusId) : [];
+    return db.classes().map(c => c.id);
+  }
+
+  function anhHienVoiGiaDinh(bai) {
+    if (!anhCoMatBe(bai.id)) return true;      // văn phòng đã nói: trong ảnh không có bé nào
+    return !nhomTrongPhamVi(bai).some(cid => db.coBeTuChoiChiaSe(cid));
+  }
+
   function tenNguoi(userId) {
     const u = userId ? db.findUser(userId) : null;
     return u ? `${u.title} ${u.name}` : '';
   }
 
-  function keml(bai) {
+  function keml(bai, user) {
+    const anh = tachAnh(bai.anh);
+    const an = !!anh.length && !anhHienVoiGiaDinh(bai);
+    const laGiaDinh = !!user && user.role === 'parent';
+    const coBe = anhCoMatBe(bai.id);
     return {
       ...bai,
-      anh: tachAnh(bai.anh),
+      // LỌC Ở TẦNG DỮ LIỆU. Gia đình không nhận về tên tệp của ảnh bị ẩn —
+      // không phải nhận rồi giao diện che bớt, vì tên tệp là thứ tải được.
+      anh: (an && laGiaDinh) ? [] : anh,
       daCongBo: !!bai.congBoLuc,
       nguoiDangTen: tenNguoi(bai.nguoiDang),
       tenNhom: bai.classId ? ((db.findClass(bai.classId) || {}).name || '') : '',
       tenCoSo: bai.campusId ? ((db.findCampus(bai.campusId) || {}).name || '') : '',
+      // Trạng thái ô tích, chỉ gửi cho người đăng được — gia đình không cần và
+      // không nên biết bài nào đang được đánh dấu là có mặt bé.
+      ...(laGiaDinh ? {} : { anhCoMatBe: coBe }),
+      // Nói cho người đăng biết ảnh đang tạm ẩn, và nói cách làm nó hiện lại.
+      // Ẩn mà không giải thích là chỗ cô mất lòng tin vào app nhanh nhất.
+      ...(an && !laGiaDinh ? {
+        nhacAnhTamAn: `${anh.length} ảnh của bài này đang tạm ẩn với gia đình. `
+          + 'Trong phạm vi bài có gia đình chưa đồng ý cho ảnh của con hiện với các nhà khác, '
+          + 'mà bài này đang được đánh dấu là ảnh CÓ mặt bé. '
+          + 'Nếu ảnh chỉ là giáo cụ, sách hay tranh chủ điểm thì sửa bài và tích ô '
+          + '"Ảnh không có mặt bé nào" — ảnh sẽ hiện lại ngay.',
+      } : {}),
     };
   }
 
@@ -101,7 +191,7 @@ module.exports = (app, { db }) => {
        ORDER BY COALESCE(NULLIF(tuan, ''), substr(taoLuc, 1, 10)) DESC, taoLuc DESC
        LIMIT ?`, loai ? [loai, GIOI_HAN * 2] : [GIOI_HAN * 2]);
 
-    const bai = rows.filter(b => xemDuoc(b, req.user)).slice(0, GIOI_HAN).map(keml);
+    const bai = rows.filter(b => xemDuoc(b, req.user)).slice(0, GIOI_HAN).map(b => keml(b, req.user));
     res.json({
       bai,
       loai: [
@@ -136,6 +226,20 @@ module.exports = (app, { db }) => {
       .find(b => tachAnh(b.anh).includes(file));
     if (!chu) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
     if (!xemDuoc(chu, req.user)) return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
+
+    // ĐÂY MỚI LÀ CHỐT CHẶN THẬT CỦA LUẬT ẢNH NHÓM Ở PHÂN HỆ NÀY.
+    //
+    // Đường này trả về đúng các byte của tấm ảnh. Lọc ở đường liệt kê chỉ làm
+    // ảnh không hiện trên màn hình; ai biết tên tệp vẫn tải được thẳng qua đây,
+    // mà tên tệp thì không bí mật — nó nằm trong gói JSON gia đình đó đã nhận ở
+    // lần xem trước, TRƯỚC khi nhà kia rút đồng ý. Kiểm đồng ý phải đứng TRƯỚC
+    // phép kiểm tệp có tồn tại: hỏi ngược thứ tự thì câu "không tìm thấy ảnh"
+    // vô tình xác nhận rằng người hỏi đáng lẽ được xem, chỉ là tệp đã mất.
+    if (req.user.role === 'parent' && !anhHienVoiGiaDinh(chu)) {
+      return res.status(403).json({
+        error: 'Ảnh này chưa hiện với gia đình: trong nhóm có bé mà gia đình chưa đồng ý chia sẻ ảnh',
+      });
+    }
     const duong = uploads.pathOf(file);
     if (!duong || !uploads.exists(file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
     res.setHeader('Content-Type', uploads.mimeOf(file));
@@ -219,6 +323,14 @@ module.exports = (app, { db }) => {
     return { anh: ten.join('\n') };
   }
 
+  // Đọc ô tích từ thân yêu cầu. KHÔNG GỬI = KHÔNG ĐỤNG TỚI, cùng luật với
+  // `luuHoSoBe`: màn hình cũ còn trong bộ nhớ đệm điện thoại không gửi trường
+  // này, và nó không được vô tình biến một bài đã đánh dấu thành chưa đánh dấu.
+  function ghiCoTich(baiId, b) {
+    if (!b || b.anhCoMatBe === undefined) return;
+    ghiAnhCoMatBe(baiId, !!b.anhCoMatBe);
+  }
+
   app.post('/api/cambridge', requireRole('teacher', 'admin'), (req, res) => {
     if (chanNeuKhongPhaiVanPhong(req, res)) return;
     const s = lamSach(req, req.body || {}, null);
@@ -232,8 +344,9 @@ module.exports = (app, { db }) => {
       congBoLuc: null, nguoiDang: req.user.id, taoLuc: luc, capNhatLuc: luc,
     };
     db.insert('cambridge_bai', rec);
+    ghiCoTich(rec.id, req.body || {});
     db.audit(req.user.id, 'cambridge-tao', rec.id, { loai: rec.loai, phamVi: rec.phamVi });
-    res.status(201).json(keml(rec));
+    res.status(201).json(keml(rec, req.user));
   });
 
   app.put('/api/cambridge/:id', requireRole('teacher', 'admin'), (req, res) => {
@@ -258,7 +371,8 @@ module.exports = (app, { db }) => {
 
     db.update('cambridge_bai', cu.id, patch);
     db.audit(req.user.id, 'cambridge-sua', cu.id, { phamVi: patch.phamVi });
-    res.json(keml(db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [cu.id])));
+    ghiCoTich(cu.id, req.body || {});
+    res.json(keml(db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [cu.id]), req.user));
   });
 
   // Công bố là một BƯỚC RIÊNG, không phải hệ quả của việc bấm Lưu.

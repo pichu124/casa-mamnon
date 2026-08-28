@@ -211,6 +211,11 @@ console.log('\n[5] Ảnh đi qua canh quyền, không phục vụ tĩnh');
     const res = await fetch(`${sv.BASE}/api/cambridge/anh/${file}`, { headers: cookie ? { cookie } : {} });
     return res.status;
   };
+  // Dữ liệu mẫu có bé s3 ở nhóm c1 mà gia đình đã NÓI KHÔNG với chia sẻ ảnh
+  // (data/seed.js:622), nên bài của c1 mặc định giữ ảnh lại với gia đình —
+  // xem mục [10]. Ở đây chỉ canh phần PHẠM VI, nên nói rõ ô tích để tách hai
+  // luật ra khỏi nhau: bài này ảnh không có mặt bé.
+  await req('PUT', `/api/cambridge/${r.data.id}`, { cookie: VP, body: { anhCoMatBe: false } });
   check('gia đình của nhóm đó xem được ảnh', await lay(PH) === 200);
   check('cô của nhóm đó xem được', await lay(GV) === 200);
   check('GIA ĐÌNH NHÓM KHÁC KHÔNG xem được', await lay(PH_NHA_TRE) === 403);
@@ -293,6 +298,104 @@ console.log('\n[9] Tắt phân hệ thì API bị chặn, dữ liệu vẫn còn
   await req('PUT', '/api/admin/modules/cambridge', { cookie: VP, body: { enabled: true } });
   check('bật lại là chạy tiếp, và bài viết còn nguyên',
     (await danhSach(VP)).length === truoc, { truoc, sau: (await danhSach(VP)).length });
+}
+
+// ===========================================================================
+console.log('\n[10] ẢNH CỦA BÀI PHẢI ĐI QUA LUẬT ẢNH NHÓM');
+{
+  // Bản đầu của phân hệ này chỉ hỏi PHẠM VI rồi trả thẳng các byte của tấm
+  // ảnh. Phạm vi trả lời câu "ai đọc được BÀI này"; luật ảnh nhóm trả lời một
+  // câu khác hẳn — "ảnh của con nhà này có được sang nhà khác không".
+  //
+  // Dữ liệu mẫu đã có sẵn tình huống thật: bé s3 ở nhóm c1, gia đình ghi rõ
+  // "xin không đăng ảnh con lên nhóm chung" (data/seed.js:622).
+  const r = await dang({
+    loai: 'ket-noi', tieuDe: 'Tuần này nhóm mình gấp khăn',
+    noiDung: 'Vài tấm hình các bé đang làm việc.', phamVi: 'nhom', classId: 'c1', anh: [ANH],
+  });
+  check('đăng được bài có ảnh', r.status === 201, r.data);
+  const baiId = r.data.id;
+  const tenAnh = (r.data.anh || [])[0];
+  check('bài có đúng một tấm ảnh', !!tenAnh, r.data.anh);
+
+  const anhCua = async (cookie) => {
+    const b = (await danhSach(cookie)).find(x => x.id === baiId);
+    return (b && b.anh) || [];
+  };
+  const tai = async (cookie) => (await req('GET', `/api/cambridge/anh/${tenAnh}`, { cookie })).status;
+
+  // MẶC ĐỊNH LÀ PHÍA ĐÓNG. Không tích gì cả thì app coi như trong ảnh có bé,
+  // và trong nhóm có nhà nói không, nên ảnh giữ lại với gia đình.
+  check('mặc định coi như ảnh CÓ mặt bé', r.data.anhCoMatBe === true, r.data.anhCoMatBe);
+  check('nên ảnh tạm ẩn với gia đình', (await anhCua(PH)).length === 0, await anhCua(PH));
+
+  // ĐÂY MỚI LÀ CHỐT CHẶN THẬT. Lọc ở đường liệt kê chỉ làm ảnh không hiện trên
+  // màn hình; ai biết tên tệp vẫn tải thẳng được — mà tên tệp thì gia đình đó
+  // đã nhận ở lần xem TRƯỚC, trước khi nhà kia rút đồng ý.
+  const byte = await req('GET', `/api/cambridge/anh/${tenAnh}`, { cookie: PH });
+  check('VÀ KHÔNG TẢI ĐƯỢC TỆP ẢNH DÙ BIẾT TÊN TỆP', byte.status === 403, byte.status);
+  check('câu từ chối nói tiếng của trường, không lộ thuật ngữ',
+    /chưa đồng ý chia sẻ/i.test(String(byte.data?.error || '')), byte.data);
+
+  // Cô và văn phòng vẫn thấy — họ là người đăng, giấu ảnh khỏi họ thì không ai
+  // sửa được bài.
+  check('cô vẫn thấy ảnh', (await anhCua(GV)).length === 1, await anhCua(GV));
+  check('văn phòng vẫn thấy ảnh', (await anhCua(VP)).length === 1, await anhCua(VP));
+  check('văn phòng tải được tệp ảnh', (await tai(VP)) === 200);
+
+  // Và màn hình của họ phải NÓI RÕ vì sao, kèm cách làm nó hiện lại. Ẩn mà
+  // không giải thích là chỗ cô mất lòng tin vào app nhanh nhất.
+  const baiVP = (await danhSach(VP)).find(x => x.id === baiId);
+  check('màn của văn phòng nói rõ ảnh đang tạm ẩn', !!baiVP.nhacAnhTamAn, Object.keys(baiVP));
+  check('và nói luôn cách làm ảnh hiện lại',
+    /không có mặt bé/i.test(baiVP.nhacAnhTamAn || ''), baiVP.nhacAnhTamAn);
+  const baiPH = (await danhSach(PH)).find(x => x.id === baiId);
+  check('nhưng KHÔNG kể chuyện nội bộ đó cho gia đình', !baiPH.nhacAnhTamAn, Object.keys(baiPH));
+  check('và không lộ cả trạng thái ô tích cho gia đình',
+    baiPH.anhCoMatBe === undefined, baiPH.anhCoMatBe);
+
+  // ĐƯỜNG RA. Không có nó thì luật này không phải "tạm ẩn" mà là gỡ bỏ tính
+  // năng: một nhà nói không là mọi ảnh Cambridge chết vĩnh viễn.
+  const tich = await req('PUT', `/api/cambridge/${baiId}`, { cookie: VP, body: { anhCoMatBe: false } });
+  check('văn phòng tích được ô "ảnh không có mặt bé"', tich.data?.anhCoMatBe === false, tich.data?.anhCoMatBe);
+  check('tích xong thì ảnh hiện với gia đình', (await anhCua(PH)).length === 1, await anhCua(PH));
+  check('và tải được tệp ảnh', (await tai(PH)) === 200);
+
+  // Bỏ tích là quay lại phía đóng ngay, không phải làm gì thêm.
+  await req('PUT', `/api/cambridge/${baiId}`, { cookie: VP, body: { anhCoMatBe: true } });
+  check('bỏ tích thì ảnh đóng lại ngay', (await anhCua(PH)).length === 0, await anhCua(PH));
+
+  // KHÔNG GỬI TRƯỜNG NÀY = KHÔNG ĐỤNG TỚI. Màn hình cũ còn trong bộ nhớ đệm
+  // điện thoại không biết ô tích này; nó sửa tiêu đề mà không được vô tình
+  // lật ngược quyết định đã ghi.
+  await req('PUT', `/api/cambridge/${baiId}`, { cookie: VP, body: { anhCoMatBe: false } });
+  await req('PUT', `/api/cambridge/${baiId}`, { cookie: VP, body: { tieuDe: 'Đổi mỗi tiêu đề' } });
+  const sauKhiSuaTen = (await danhSach(VP)).find(x => x.id === baiId);
+  check('màn hình cũ sửa tiêu đề KHÔNG lật ngược ô tích',
+    sauKhiSuaTen.anhCoMatBe === false, sauKhiSuaTen.anhCoMatBe);
+
+  // Bé được gia đình đồng ý lại thì ảnh CÓ mặt bé cũng hiện lại.
+  await req('PUT', `/api/cambridge/${baiId}`, { cookie: VP, body: { anhCoMatBe: true } });
+  await req('PUT', '/api/admin/students/s3/dong-y', { cookie: VP, body: { chiaSeGiaDinh: true } });
+  check('cả nhóm đồng ý thì ảnh có mặt bé cũng hiện', (await anhCua(PH)).length === 1, await anhCua(PH));
+  await req('PUT', '/api/admin/students/s3/dong-y', { cookie: VP, body: { chiaSeGiaDinh: false } });
+
+  // Bài CẢ TRƯỜNG kèm ảnh trẻ chính là thứ mà lời từ chối đó cấm, nên nó cũng
+  // phải đóng — dù nhà nói không nằm ở một nhóm khác hẳn.
+  const rt = await dang({ loai: 'cambridge', tieuDe: 'Hội chợ cuối năm', phamVi: 'truong', anh: [ANH] });
+  const anhTruong = async (cookie) => {
+    const b = (await danhSach(cookie)).find(x => x.id === rt.data.id);
+    return (b && b.anh) || [];
+  };
+  check('bài cả trường cũng giữ ảnh lại khi trong trường có nhà nói không',
+    (await anhTruong(PH_NHA_TRE)).length === 0, await anhTruong(PH_NHA_TRE));
+  check('nhưng CHỮ thì vẫn tới gia đình — chỉ ảnh bị giữ lại',
+    !!(await danhSach(PH_NHA_TRE)).find(x => x.id === rt.data.id));
+
+  // Bài KHÔNG có ảnh thì không bao giờ mang lời nhắc — nhắc thừa cũng là nhiễu.
+  const rk = await dang({ loai: 'cambridge', tieuDe: 'Chỉ có chữ', noiDung: 'Không kèm ảnh nào.', phamVi: 'nhom', classId: 'c1' });
+  const baiKhongAnh = (await danhSach(VP)).find(x => x.id === rk.data.id);
+  check('bài không ảnh thì không có lời nhắc thừa', !baiKhongAnh.nhacAnhTamAn, baiKhongAnh.nhacAnhTamAn);
 }
 
 sv.dung();

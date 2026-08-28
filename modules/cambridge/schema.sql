@@ -44,3 +44,26 @@ CREATE TABLE IF NOT EXISTS cambridge_bai (
 );
 CREATE INDEX IF NOT EXISTS cambridge_bai_theo_tuan ON cambridge_bai(tuan DESC);
 CREATE INDEX IF NOT EXISTS cambridge_bai_theo_pham_vi ON cambridge_bai(phamVi, campusId, classId);
+
+-- ẢNH CỦA BÀI CÓ MẶT BÉ HAY KHÔNG — bảng riêng, vì cột thì không thêm được.
+--
+-- Luật ảnh nhóm cần biết trong ảnh có trẻ hay không. Album trả lời bằng cách
+-- cho cô GẮN THẺ từng bé; ở đây thì không có cơ chế đó, và thêm nó vào là một
+-- hạng mục riêng.
+--
+-- Nên chỉ hỏi đúng một câu, cho cả bài: ảnh này CÓ MẶT BÉ không.
+--
+-- KHÔNG CÓ DÒNG NÀO = COI NHƯ CÓ MẶT BÉ. Đây là chỗ quan trọng nhất của bảng
+-- này. Mặc định phải là phía AN TOÀN, vì người quên tích ô thì quên theo hướng
+-- đóng lại chứ không phải mở ra — cùng một luật với danh sách cho phép của
+-- tầng chức vụ. Văn phòng phải chủ động nói "ảnh này không có bé nào" thì ảnh
+-- mới đi rộng ra được.
+--
+-- Bảng riêng chứ không phải cột mới trong `cambridge_bai`: lược đồ của phân hệ
+-- chỉ được CREATE ... IF NOT EXISTS, nên thêm cột vào một bảng đã tồn tại thì
+-- câu lệnh im lặng không chạy — đúng loại lỗi không ai phát hiện.
+CREATE TABLE IF NOT EXISTS cambridge_anh_be (
+  baiId    TEXT PRIMARY KEY,
+  coMatBe  INTEGER NOT NULL DEFAULT 1,
+  ghiLuc   TEXT
+);
