@@ -181,7 +181,7 @@ console.log('\n[4b] Quản trị: biết mình là ai, và biết đang xem hồ
   // Ba màn này đều là màn MỘT BÉ và đều đang bật. Nề nếp và Nhận xét từng nằm ở
   // đây nhưng nay TẮT SẴN (N3 · A2) nên chỉ hiện "Phân hệ đang được nhà trường
   // tắt" — soi ô chọn bé trên một màn đang tắt là soi nhầm chỗ.
-  for (const [duong, ten] of [['/#/student', 'Hồ sơ bé'], ['/#/health', 'Sức khỏe'], ['/#/leave', 'Xin phép']]) {
+  for (const [duong, ten] of [['/#/student', 'Hồ sơ bé'], ['/#/health', 'Sức khỏe']]) {
     await mo(duong);
     const chu = await chuTrenMan();
     check(`${ten}: có ô chọn bé, không còn đoán bé nào`,
@@ -190,6 +190,20 @@ console.log('\n[4b] Quản trị: biết mình là ai, và biết đang xem hồ
     const soBe = o ? (await o.$$('option')).length : 0;
     check(`${ten}: ô chọn liệt kê mọi bé của trường`, soBe >= 8, soBe);
   }
+
+  // XIN PHÉP KHÔNG CÒN LÀ MÀN MỘT BÉ VỚI QUẢN TRỊ — và đó là cách giải TỐT HƠN
+  // cho đúng nỗi lo của N10.
+  //
+  // Từ Y2, văn phòng là người duyệt đơn nghỉ, nên màn của họ liệt kê MỌI đơn
+  // đang chờ, mỗi đơn kèm tên bé và tên phụ huynh. Không còn "một bé được chọn
+  // hộ" nào để mà nhầm. Ô chọn bé là cách chữa cho màn một bé; ở đây không cần
+  // chữa vì bệnh không còn.
+  await mo('/#/leave');
+  const xinPhep = await chuTrenMan();
+  check('Xin phép: quản trị vào thẳng màn duyệt của văn phòng, không phải màn một bé',
+    !xinPhep.includes('Đang xem hồ sơ của bé'), xinPhep.slice(0, 200));
+  check('và màn đó nói rõ đang có bao nhiêu đơn chờ văn phòng duyệt',
+    /chờ duyệt \(\d+\)/.test(xinPhep.toLowerCase()), xinPhep.slice(0, 200));
 
   // Đổi bé thì nội dung phải đổi theo — nếu không thì ô chọn chỉ là trang trí.
   await mo('/#/student');
@@ -218,6 +232,25 @@ console.log('\n[4c] Phụ huynh và cô KHÔNG thấy ô chọn của quản tr�
     check(`cô KHÔNG thấy ô chọn của quản trị ở ${duong}`,
       !(await chuTrenMan()).includes('Đang xem hồ sơ của bé'));
   }
+
+  // Y2: cô ĐỌC được đơn nghỉ của nhóm mình, nhưng KHÔNG có nút duyệt.
+  //
+  // Đây là bản kiểm trên trình duyệt thật của thứ mà test:nghi-hoc chỉ soi được
+  // trong mã nguồn. Hai chỗ cùng canh một điều, và chỗ này là chỗ cô thật sự
+  // nhìn thấy.
+  await mo('/#/leave');
+  const manCo = await chuTrenMan();
+  check('cô vẫn mở được màn Xin phép để biết bé nào sắp nghỉ',
+    /chờ duyệt \(\d+\)/.test(manCo.toLowerCase()), manCo.slice(0, 200));
+  const nutDuyet = await page.$$('#view button');
+  const chuNut = await Promise.all(nutDuyet.map(b => b.innerText()));
+  check('nhưng KHÔNG có nút Duyệt hay Từ chối nào trên màn của cô',
+    !chuNut.some(t => /Duyệt|Từ chối/.test(t)), chuNut);
+  // Nhóm của cô có thể đang không có đơn nào chờ — lúc đó không có dòng nhắc
+  // nào để mà soi, và bắt nó phải có là bài test sai chứ không phải app sai.
+  const coDonCho = !/chờ duyệt \(0\)/.test(manCo.toLowerCase());
+  check('có đơn đang chờ thì màn hình nói rõ ai mới là người duyệt',
+    !coDonCho || /Văn phòng duyệt đơn này/.test(manCo), { coDonCho, chu: manCo.slice(0, 300) });
 }
 
 // ===========================================================================

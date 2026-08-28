@@ -1,10 +1,48 @@
-// Phân hệ Xin phép nghỉ học: phụ huynh tạo đơn, giáo viên duyệt / từ chối.
+// Phân hệ Xin phép nghỉ học: phụ huynh tạo đơn, VĂN PHÒNG duyệt / từ chối.
+//
+// AI DUYỆT — VÀ VÌ SAO ĐỔI
+//
+// Bản kế thừa từ app 1 cho cô duyệt. Nhà trường mầm non yêu cầu khác: "cô chỉ
+// biết, văn phòng mới duyệt, và khi duyệt thì ghi luôn có hoàn tiền ăn hay
+// không". Lý do rất thực tế — duyệt một đơn nghỉ ở đây không chỉ là gật đầu,
+// nó kéo theo tiền ăn của tháng đó, mà tiền thì cô không cầm và không đối
+// chiếu. Cô vẫn ĐỌC được mọi đơn của nhóm mình để biết hôm nào bé vắng.
 const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_LY_DO = 1000;
 const TOI_DA_GHI_CHU_DUYET = 500;
+
+// Hai giá trị, cố ý là CHỮ chứ không phải 0/1 — xem chú thích bảng `leave_refund`.
+const HOAN = ['co', 'khong'];
+
+// Số ngày dương lịch một đơn trải qua, tính cả ngày đầu và ngày cuối.
+function soNgayTrongDon(from, to) {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 0;
+  return Math.round((b - a) / 86400000) + 1;
+}
+
+// Số ngày ĐI HỌC trong đơn — chỉ là CON SỐ GỢI Ý cho văn phòng bấm một nhát,
+// không phải con số app tự chốt.
+//
+// Nó đếm thứ Hai đến thứ Sáu, khớp với thực đơn của trường (bảng `menus` chỉ
+// có năm ngày mỗi tuần). Nhưng lịch nghỉ lễ, ngày trường có sự kiện, hay tuần
+// trường mở cửa thứ Bảy thì app KHÔNG biết — nên văn phòng sửa lại được, và
+// con số văn phòng gõ mới là con số được lưu.
+function soNgayHocTrongDon(from, to) {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 0;
+  let dem = 0;
+  for (let t = a; t <= b; t += 86400000) {
+    const thu = new Date(t).getUTCDay();
+    if (thu >= 1 && thu <= 5) dem += 1;
+  }
+  return dem;
+}
 
 module.exports = (app) => {
   // Danh sách đơn xin phép người dùng được xem.
@@ -69,27 +107,86 @@ module.exports = (app) => {
     res.status(201).json(decorate(rec));
   });
 
-  // Giáo viên duyệt / từ chối một đơn đang chờ của học sinh lớp mình.
+  // VĂN PHÒNG duyệt / từ chối một đơn đang chờ.
   app.post('/api/leave/:id/review', requireRole('teacher', 'admin'), (req, res) => {
+    // Cô vào được đường này thì nhận một câu giải thích, không phải câu
+    // "Không có quyền thực hiện" cụt lủn. Hôm qua cô còn bấm duyệt được, nên
+    // im lặng chặn là cô tưởng app hỏng và gọi điện hỏi văn phòng.
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Đơn xin nghỉ do văn phòng duyệt. Cô vẫn xem được đơn của nhóm mình '
+          + 'để biết hôm nào bé nghỉ, còn phần duyệt và hoàn tiền ăn là việc của văn phòng.',
+      });
+    }
     const rec = db.first('leave_requests', 'SELECT * FROM leave_requests WHERE id = ?', [req.params.id]);
     if (!rec) return res.status(404).json({ error: 'Không tìm thấy đơn xin phép' });
     if (!db.canAccessStudent(req.user, rec.studentId)) {
-      return res.status(403).json({ error: 'Đơn này không phải của bé nào trong nhóm cô phụ trách' });
+      return res.status(403).json({ error: 'Đơn này không phải của bé nào thuộc cơ sở mình' });
     }
     if (rec.status !== 'pending') {
       return res.status(400).json({ error: 'Đơn này đã được xử lý trước đó' });
     }
-    const { status, reviewNote } = req.body || {};
+    const { status, reviewNote, hoanTienAn, soNgayHoan, ghiChuHoan } = req.body || {};
     if (status !== 'approved' && status !== 'rejected') {
       return res.status(400).json({ error: 'Trạng thái duyệt không hợp lệ' });
     }
+
+    // DUYỆT LÀ PHẢI CHỐT LUÔN TIỀN ĂN.
+    //
+    // Nhà trường nói "khi duyệt thì ghi luôn có hoàn tiền ăn hay không". Cho
+    // phép bỏ trống là cuối tháng bảng đối chiếu (Y3) có một cột trống mà
+    // không ai nhớ vì sao — rồi gia đình hỏi thì không tra lại được.
+    let hoan = null;
+    if (status === 'approved') {
+      const ht = String(hoanTienAn || '').trim();
+      if (!HOAN.includes(ht)) {
+        return res.status(400).json({
+          error: 'Duyệt đơn thì chọn giúp có hoàn tiền ăn cho gia đình hay không',
+        });
+      }
+      let ngay = null;
+      if (ht === 'co') {
+        const toiDa = soNgayTrongDon(rec.fromDate, rec.toDate);
+        // Bỏ trống thì lấy con số gợi ý — văn phòng bấm Duyệt một nhát là xong
+        // cho trường hợp thường gặp nhất (nghỉ mấy ngày đi học liền nhau).
+        ngay = (soNgayHoan === undefined || soNgayHoan === null || soNgayHoan === '')
+          ? soNgayHocTrongDon(rec.fromDate, rec.toDate)
+          : Number(soNgayHoan);
+        if (!Number.isInteger(ngay) || ngay < 1 || ngay > toiDa) {
+          return res.status(400).json({
+            error: `Số ngày hoàn tiền ăn phải là số nguyên từ 1 đến ${toiDa}`,
+          });
+        }
+      }
+      hoan = {
+        hoanTienAn: ht,
+        soNgay: ngay,
+        ghiChu: String(ghiChuHoan || '').trim().slice(0, TOI_DA_GHI_CHU_DUYET),
+      };
+    }
+
     rec.status = status;
     rec.reviewedBy = req.user.id;
     rec.reviewNote = String(reviewNote || '').trim().slice(0, TOI_DA_GHI_CHU_DUYET);
-    db.update('leave_requests', rec.id, {
-      status: rec.status, reviewedBy: rec.reviewedBy, reviewNote: rec.reviewNote,
+    // Một giao dịch: không để đơn thành "đã duyệt" mà phần tiền ăn thì rơi mất.
+    db.tx(() => {
+      db.update('leave_requests', rec.id, {
+        status: rec.status, reviewedBy: rec.reviewedBy, reviewNote: rec.reviewNote,
+      });
+      if (hoan) {
+        db.upsert('leave_refund', {
+          leaveId: rec.id,
+          ...hoan,
+          nguoiGhi: req.user.id,
+          capNhatLuc: new Date().toISOString(),
+        }, ['leaveId']);
+      }
     });
-    db.audit(req.user.id, 'leave-review', rec.id, { status });
+    db.audit(req.user.id, 'leave-review', rec.id, {
+      status,
+      hoanTienAn: hoan ? hoan.hoanTienAn : null,
+      soNgay: hoan ? hoan.soNgay : null,
+    });
     res.json(decorate(rec));
   });
 };
@@ -100,6 +197,7 @@ function decorate(l) {
   const cls = s ? db.findClass(s.classId) : null;
   const parent = db.findUser(l.parentId);
   const reviewer = l.reviewedBy ? db.findUser(l.reviewedBy) : null;
+  const hoan = db.first('leave_refund', 'SELECT * FROM leave_refund WHERE leaveId = ?', [l.id]);
   return {
     ...l,
     studentName: s ? s.name : '',
@@ -107,5 +205,11 @@ function decorate(l) {
     className: cls ? cls.name : '',
     parentName: parent ? `${parent.title} ${parent.name}` : '',
     reviewerName: reviewer ? `${reviewer.title} ${reviewer.name}` : '',
+    // KHÔNG có hàng = văn phòng chưa quyết, khác hẳn "đã quyết là không hoàn".
+    hoanTien: hoan
+      ? { hoanTienAn: hoan.hoanTienAn, soNgay: hoan.soNgay, ghiChu: hoan.ghiChu }
+      : null,
+    soNgayTrongDon: soNgayTrongDon(l.fromDate, l.toDate),
+    soNgayHocDeXuat: soNgayHocTrongDon(l.fromDate, l.toDate),
   };
 }

@@ -487,16 +487,21 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
   }, { ngay: NGAY, ids: daTao });
   check('phụ huynh gửi được đơn xin nghỉ', !!donId, donId);
 
+  // Y2: VĂN PHÒNG duyệt đơn nghỉ, không phải cô. Bài này canh chuyện sổ điểm
+  // danh nhìn thấy đơn đã duyệt, nên chỉ đổi tài khoản bấm duyệt.
   await dangXuat();
-  await dangNhap('giaovien', '123456');
+  await dangNhap('hieutruong', 'quantri2026');
   const duyet = await page.evaluate(async (id) => {
     const r = await fetch(`/api/leave/${id}/review`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'approved' }),
+      body: JSON.stringify({ status: 'approved', hoanTienAn: 'co' }),
     });
     return r.status;
   }, donId);
-  check('cô duyệt được đơn', duyet === 200, duyet);
+  check('văn phòng duyệt được đơn', duyet === 200, duyet);
+
+  await dangXuat();
+  await dangNhap('giaovien', '123456');
 
   await page.goto(BASE + '/#/attendance', { waitUntil: 'networkidle' });
   await page.waitForSelector('[id^="att-dong-"]', { timeout: 8000 });

@@ -579,14 +579,14 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **1588**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **247**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~4 phút) | **1632**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **250**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
-| `test:lo-hong` | 283 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
+| `test:lo-hong` | 286 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
 | `test:khe-uoc` | 139 | Hình dạng của các tệp dùng chung |
 | `test:co-lap-loi` | 102 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
@@ -601,7 +601,7 @@ Bốn bộ **mới của app 2**, không có ở app 1:
 | `test:sao-luu` | 48 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
 | `test:goi-ten` | 38 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
-| `test:nhieu-nhom` | 35 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
+| `test:nhieu-nhom` | 38 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
 
 Nền lấy từ app 1 là **932 bài**. Phần tăng thêm không chỉ nằm ở bốn bộ mới: các
 bộ cũ cũng dày lên khi mô hình đổi (ví dụ `test:lo-hong` nhận thêm mục `[8b]` canh
@@ -645,6 +645,8 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | **N21** | **Bé 14 tháng hiện là "1 tuổi"** — sai đúng ví dụ mở đầu của CLAUDE.md | **✅ xong 28/08** — hàm tính tuổi chỉ đếm tháng cho bé **dưới 12 tháng**, nên bé 14 tháng ra đúng *"1 tuổi"*, thứ CLAUDE.md dòng đầu nói không được. Không ai thấy suốt một thời gian dài **vì dữ liệu mẫu không có bé nào dưới 4 tuổi** — lỗi chỉ lộ ra khi làm N20. Nay **dưới 36 tháng nói bằng tháng**, trùng mốc tách nhà trẻ / mẫu giáo nên cả app chỉ một mốc. Hai bản của hàm (máy chủ cho tệp Excel, trình duyệt cho màn hồ sơ) có bài canh không cho trôi khỏi nhau | 28/08/2026 |
 | **N22** | 17 chỗ ghi cứng số đếm của dữ liệu mẫu | **✅ xong 28/08** — thêm một bé vào dữ liệu mẫu làm **17 bài đỏ ở 7 bộ**, không bài nào sai về ý. Nay hình dáng dữ liệu mẫu khai ở **đúng một chỗ** (`MAU` trong `test/_chung.mjs`), và `test:quan-tri` đối chiếu hằng số đó với dữ liệu mẫu thật — lệch thì đúng **một** bài đỏ kèm cả hai bên để so | 28/08/2026 |
 | **Y1** | **Nhật ký ngày chưa nối với thực đơn; giờ ngủ là hai ô gõ tay** | **✅ xong 28/08** — nhà trường yêu cầu thẳng: *"link luôn với thực đơn từng ngày, tránh phải gõ tay lại"*. Nay `GET /api/nhatky` gửi kèm **thực đơn của đúng ngày đó** (đọc bảng `menus`, chỉ ĐỌC — thực đơn là của cả trường, do văn phòng soạn), hiện ở **cả màn của cô lẫn màn của gia đình**. Nhờ vậy cô không chép tên món vào ô ghi chú của từng bé, và hai màn hình của cùng một trường không còn nói hai chuyện khác nhau về cùng một bữa ăn. **Tắt phân hệ Thực đơn thì thực đơn biến khỏi đây luôn** — nhật ký đọc thẳng bảng `menus` nên nếu không hỏi công tắc, trường tắt Thực đơn xong vẫn thấy thực đơn cũ hiện ra, dữ liệu không còn ai cập nhật mà màn hình vẫn nói như thật. Giờ ngủ trưa đổi từ hai ô gõ tự do sang **ô chọn theo mốc 15 phút**, khung 10:30–15:30 — rộng hơn 12h–14h nhà trường nói ở hai đầu, vì bé ngủ sớm hay dậy muộn là chuyện thường và ô chọn thiếu mất giờ cô cần là cô lại quay về gõ tay. **Khung là để bấm nhanh, không phải hàng rào**: máy chủ vẫn nhận mọi giờ hợp lệ, và màn hình **ghép giờ đã lưu vào danh sách chọn** — thiếu bước này thì mở lại bản ghi 09:50 sẽ thấy ô trống, cô bấm Lưu lần nữa là xoá mất giờ cũ. `test:nhat-ky` **44 → 71 bài** | 28/08/2026 |
+| **Y2** | **Cô đang duyệt đơn nghỉ, nhà trường muốn văn phòng duyệt** | **✅ xong 28/08** — nhà trường ghi rõ: *"cô chỉ biết, văn phòng mới duyệt, và khi duyệt thì ghi luôn có hoàn tiền ăn hay không"*. Lý do rất thực tế: duyệt một đơn nghỉ ở mầm non kéo theo tiền ăn của tháng, mà tiền thì cô không cầm và không đối chiếu. Nay `POST /api/leave/:id/review` **chỉ quản trị gọi được**, và **cô vẫn đọc được mọi đơn của nhóm mình** — siết quyền duyệt, không cắt quyền biết. Cô gọi thẳng đường dẫn thì nhận một câu giải thích, không phải câu *"Không có quyền thực hiện"* cụt lủn: hôm qua cô còn bấm duyệt được nên im lặng chặn là cô tưởng app hỏng. **Duyệt là phải chốt luôn tiền ăn** — bỏ trống thì bị từ chối, vì cuối tháng bảng đối chiếu (Y3) có một cột trống mà không ai nhớ vì sao là thứ không tra lại được. **Ba giá trị, không phải hai**: có hoàn / không hoàn / **văn phòng chưa quyết** — bảng `leave_refund` KHÔNG có hàng nghĩa là chưa quyết, khác hẳn *đã quyết là không hoàn*; gộp hai cái đó lại là gia đình đọc ra "trường không hoàn tiền" trong khi chưa ai xem tới đơn. Số ngày hoàn có **con số gợi ý** (thứ Hai–thứ Sáu trong đơn) để văn phòng bấm một nhát, nhưng gợi ý chỉ là gợi ý: app không biết lịch nghỉ lễ, nên con số văn phòng gõ mới là con số được lưu. Bảng **riêng**, không `ALTER` bảng `leave_requests` đang có dữ liệu. `test:nghi-hoc` 40 bài | 28/08/2026 |
+| **Y2‑b** | Chuông trên ô *Xin phép* của cô vẫn đếm đơn chờ duyệt | **Cố ý giữ.** Cô không duyệt nữa, nhưng con số đó với cô là *"nhóm mình có mấy bé sắp nghỉ"* — vẫn là thông tin cô cần. Màn hình bên trong nay nói thẳng *"Văn phòng duyệt đơn này"* nên không còn đọc ra thành việc-phải-làm. Nêu ra ở đây để lần sau ai đọc thấy thì biết là đã cân nhắc | 28/08/2026 |
 | **N17** | Ba cơ sở nấu bếp chung hay riêng? | **Chờ nhà trường trả lời.** Bảng `menus` hiện có MỘT bản ghi mỗi ngày, tức mô hình đang nói "cả trường ăn chung một thực đơn" — khớp với yêu cầu *"thực đơn và TKB sẽ do admin làm và up lên"*. N15 tạm chặn quản lý cơ sở sửa thực đơn. Nếu ba bếp nấu riêng thì phải **thêm cột cơ sở vào `menus` TRƯỚC**, rồi mới mở đường ra — mở trước mà giữ nguyên bảng thì người sửa sau ghi đè người sửa trước, âm thầm, mỗi ngày | **Chờ nhà trường** |
 | ~~N16~~ | ~~Nhà trường xin **số CCCD của phụ huynh**, A3 mới làm **số định danh của bé**~~ | **✅ xong 27/08** — bảng phụ `user_profile`, **không `ALTER` bảng `users`**. Lý do thứ hai của bảng phụ mới là lý do chính: `publicUser()` chỉ gạt `passwordHash`, mọi cột khác của `users` đi thẳng tới ai xem được hồ sơ bé — thêm `soCccd` thành một cột là gửi số của bố cho mẹ và cho cô ngay, không ai phải viết sai thêm dòng nào. **Ranh giới khác số định danh của bé**: quản trị đọc được, **chính người đó** đọc được, còn cô và **người phối ngẫu** thì không — bố mẹ ly hôn là chuyện có thật, app không được là nơi một bên lấy số giấy tờ của bên kia. Đường ghi là `PUT /api/admin/parents/:id/cccd` **riêng**, không nhét vào đường của bé: một phụ huynh có hai con thì sửa ở đâu cũng phải ra cùng một bản ghi. `test:cccd-phu-huynh` 22 bài | 27/08/2026 |
 | **A2** | Nhà trường không dùng **Nhận xét hàng ngày** và **Xe buýt** | **✅ xong 27/08** — tắt sẵn, dữ liệu giữ nguyên, bật lại được. Cùng cách với N3. Chỗ của Nhận xét hàng ngày ở app 2 do **Ghi nhanh** thay, mà Ghi nhanh làm việc khác hẳn: cô mô tả điều **đã thấy**, không phán xét (QUY TẮC 1) | 27/08/2026 |
@@ -714,6 +716,7 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | Đồng ý chia sẻ ảnh lên màn hình: cô gắn thẻ bé, văn phòng ghi giấy (+38 bài) | N18 |
 | 28/08/2026 | **Nhật ký ngày**: ăn / ngủ / vệ sinh / thay bỉm — phân hệ cắm thêm (+44 bài) | GĐ 1 |
 | 28/08/2026 | Nhật ký ngày **nối với thực đơn từng ngày** + khung giờ ngủ chọn sẵn (+21 bài) | Y1 |
+| 28/08/2026 | **Văn phòng duyệt đơn nghỉ**, chốt luôn hoàn tiền ăn (+40 bài, +3 bài ở `test:lo-hong`) | Y2 |
 | 28/08/2026 | Bộ canh QUY TẮC 4 nay nhìn tới MỌI phân hệ, không chỉ hai cái viết tay | N19 |
 | 28/08/2026 | Dữ liệu mẫu có **nhóm nhà trẻ**: ba bé 14 / 34 / 38 tháng | N20 |
 | 28/08/2026 | Bé 14 tháng thôi bị gọi là "1 tuổi" — vá cả hai bản của hàm tính tuổi | N21 |

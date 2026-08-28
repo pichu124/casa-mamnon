@@ -1,5 +1,13 @@
 // Phân hệ Xin phép nghỉ học.
-// Phụ huynh: tạo đơn và theo dõi đơn của từng con. Giáo viên: duyệt đơn của nhóm.
+//
+// Ba màn, ba việc khác nhau:
+//   • Phụ huynh gửi đơn và theo dõi đơn của từng con.
+//   • CÔ chỉ ĐỌC đơn của nhóm mình, để biết hôm nào bé vắng. Không có nút duyệt.
+//   • VĂN PHÒNG duyệt, và ngay lúc duyệt thì chốt luôn có hoàn tiền ăn hay không.
+//
+// Vì sao cô không duyệt nữa: nhà trường yêu cầu như vậy. Duyệt một đơn nghỉ ở
+// mầm non kéo theo tiền ăn của tháng, mà tiền thì cô không cầm và không đối
+// chiếu — bắt cô quyết là bắt cô chịu trách nhiệm về thứ cô không nắm.
 App.views.leave = {
   STATUS: {
     pending: { label: 'Chờ duyệt', cls: 'orange' },
@@ -9,8 +17,24 @@ App.views.leave = {
   _list: [],
 
   async render(root) {
-    if (App.state.user.role === 'teacher') return this.renderTeacher(root);
+    const vai = App.state.user.role;
+    // Quản trị trước đây rơi vào màn của phụ huynh — mà quản trị thì không có
+    // "con đang chọn", nên màn đó vốn đã không dùng được. Nay văn phòng là
+    // người duyệt, nên phải vào đúng màn duyệt.
+    if (vai === 'teacher' || vai === 'admin') return this.renderTeacher(root);
     return this.renderParent(root);
+  },
+
+  laVanPhong() { return App.state.user.role === 'admin'; },
+
+  // Một câu tiếng Việt cho kết quả tiền ăn. Dùng chung cho cả ba màn để không
+  // có chỗ nào nói khác chỗ nào.
+  cauHoanTien(l) {
+    if (!l || l.status !== 'approved') return '';
+    if (!l.hoanTien) return 'Văn phòng chưa ghi phần tiền ăn';
+    if (l.hoanTien.hoanTienAn === 'khong') return 'Không hoàn tiền ăn';
+    const n = l.hoanTien.soNgay;
+    return `Hoàn tiền ăn ${n === null || n === undefined ? '' : `${n} ngày`}`.trim();
   },
 
   // ---- Phụ huynh: danh sách đơn của con đang chọn ----
@@ -67,7 +91,7 @@ App.views.leave = {
       <div class="field">
         <label>Lý do xin nghỉ</label>
         <textarea id="lv-reason" placeholder="Ví dụ: Con bị sốt nhẹ, gia đình xin phép cho con ở nhà theo dõi."></textarea>
-        <div class="hint">Đơn sẽ được gửi tới cô phụ trách của con để duyệt.</div>
+        <div class="hint">Đơn được gửi tới văn phòng nhà trường để duyệt. Cô phụ trách cũng đọc được đơn để biết hôm đó con nghỉ.</div>
       </div>
       <button class="btn primary block" onclick="App.views.leave.submitCreate()">${UI.icon('send', 18)} Gửi đơn xin phép</button>
     `, 'Tạo đơn xin phép');
@@ -85,7 +109,7 @@ App.views.leave = {
     if (!reason) return UI.toast('Gia đình nhập lý do xin nghỉ giúp cô nhé', 'error');
     try {
       await API.post('/api/leave', { studentId, fromDate, toDate, reason });
-      UI.toast('Đã gửi đơn xin phép tới cô', 'success');
+      UI.toast('Đã gửi đơn xin phép tới nhà trường', 'success');
       UI.closeModal();
       App.route();
       App.refreshBadges();
@@ -108,15 +132,17 @@ App.views.leave = {
         ${infoRowLeave('Lý do', l.reason)}
       </div>
       ${l.status === 'pending'
-        ? `<div class="muted small center mt-14">Đơn đang chờ cô phụ trách duyệt, gia đình đợi thêm chút nhé.</div>`
+        ? `<div class="muted small center mt-14">Đơn đang chờ văn phòng nhà trường duyệt, gia đình đợi thêm chút nhé.</div>`
         : `<div class="card" style="background:${l.status === 'approved' ? '#e3f7ec' : '#fde8e6'};box-shadow:none;margin:14px 0 0">
-            <div class="small" style="font-weight:700;margin-bottom:4px">Phản hồi của ${UI.esc(l.reviewerName || 'cô')}</div>
-            <div class="small">${l.reviewNote ? UI.esc(l.reviewNote) : `${st.label === 'Đã duyệt' ? 'Cô đã duyệt đơn cho con.' : 'Cô chưa đồng ý với đơn này.'}`}</div>
+            <div class="small" style="font-weight:700;margin-bottom:4px">Phản hồi của ${UI.esc(l.reviewerName || 'nhà trường')}</div>
+            <div class="small">${l.reviewNote ? UI.esc(l.reviewNote) : `${st.label === 'Đã duyệt' ? 'Nhà trường đã duyệt đơn cho con.' : 'Nhà trường chưa đồng ý với đơn này.'}`}</div>
+            ${l.status === 'approved' ? `<div class="small mt-8" style="font-weight:700">${UI.esc(this.cauHoanTien(l))}</div>
+              ${l.hoanTien && l.hoanTien.ghiChu ? `<div class="small">${UI.esc(l.hoanTien.ghiChu)}</div>` : ''}` : ''}
           </div>`}
     `, 'Chi tiết đơn xin phép');
   },
 
-  // ---- Giáo viên: duyệt đơn của nhóm ----
+  // ---- Cô ĐỌC, văn phòng DUYỆT ----
   async renderTeacher(root) {
     this._list = await API.get('/api/leave');
     const pending = this._list.filter(l => l.status === 'pending');
@@ -136,11 +162,15 @@ App.views.leave = {
           </div>
           <div class="small" style="margin:2px 0 8px">${UI.esc(l.reason)}</div>
           <div class="muted small mb-8">Phụ huynh: ${UI.esc(l.parentName)} · Gửi ${UI.esc(UI.timeAgo(l.createdAt))}</div>
-          <div class="grid-2">
-            <button class="btn success-soft" onclick="App.views.leave.openReview('${UI.esc(l.id)}','approved')">${UI.icon('check', 18)} Duyệt</button>
-            <button class="btn danger-soft" onclick="App.views.leave.openReview('${UI.esc(l.id)}','rejected')">${UI.icon('x', 18)} Từ chối</button>
-          </div>
-        </div>`).join('') : UI.emptyState('✅', 'Không có đơn nào chờ duyệt. Nhóm mình đi học đầy đủ, tuyệt quá!')}
+          ${this.laVanPhong() ? `
+            <div class="grid-2">
+              <button class="btn success-soft" onclick="App.views.leave.openReview('${UI.esc(l.id)}','approved')">${UI.icon('check', 18)} Duyệt</button>
+              <button class="btn danger-soft" onclick="App.views.leave.openReview('${UI.esc(l.id)}','rejected')">${UI.icon('x', 18)} Từ chối</button>
+            </div>`
+            : `<div class="muted small">Văn phòng duyệt đơn này. Cô xem trước để biết hôm đó bé nghỉ.</div>`}
+        </div>`).join('') : UI.emptyState('✅', this.laVanPhong()
+          ? 'Không có đơn nào chờ duyệt.'
+          : 'Không có đơn nào chờ duyệt. Nhóm mình đi học đầy đủ, tuyệt quá!')}
 
       <div class="section-label">Lịch sử</div>
       ${history.length ? `<div class="card">
@@ -150,6 +180,7 @@ App.views.leave = {
             <div class="row-main">
               <div class="row-title">${UI.esc(l.studentName)} · ${UI.esc(this.fmtRange(l))}</div>
               <div class="row-sub">${UI.esc(l.reason)}${l.reviewNote ? ` — Phản hồi: ${UI.esc(l.reviewNote)}` : ''}</div>
+              ${l.status === 'approved' ? `<div class="row-sub">${UI.esc(this.cauHoanTien(l))}</div>` : ''}
             </div>
             <div class="row-end">${this.statusBadge(l.status)}</div>
           </div>`).join('')}
@@ -169,6 +200,25 @@ App.views.leave = {
         </div>
       </div>
       <div class="small" style="margin:2px 0 12px">${UI.esc(l.reason)}</div>
+      ${approve ? `
+        <div class="field">
+          <label>Tiền ăn của những ngày nghỉ này</label>
+          <select id="lv-hoan">
+            <option value="co" selected>Có hoàn tiền ăn</option>
+            <option value="khong">Không hoàn tiền ăn</option>
+          </select>
+        </div>
+        <div class="field" id="lv-hoan-ngay-o">
+          <label>Số ngày được hoàn</label>
+          <input type="number" id="lv-hoan-ngay" min="1" max="${UI.esc(String(l.soNgayTrongDon || 1))}"
+            value="${UI.esc(String(l.soNgayHocDeXuat || l.soNgayTrongDon || 1))}">
+          <div class="hint">Đơn xin nghỉ ${UI.esc(String(l.soNgayTrongDon || 1))} ngày, trong đó ${UI.esc(String(l.soNgayHocDeXuat || 0))} ngày rơi vào thứ Hai–thứ Sáu.
+            Đây chỉ là con số gợi ý — nghỉ lễ hay ngày trường có việc riêng thì văn phòng sửa lại.</div>
+        </div>
+        <div class="field">
+          <label>Ghi chú nội bộ về tiền ăn</label>
+          <input id="lv-hoan-ghichu" placeholder="Ví dụ: đã báo bếp cắt suất từ thứ Ba">
+        </div>` : ''}
       <div class="field">
         <label>Lời nhắn phản hồi gửi gia đình</label>
         <textarea id="lv-review-note" placeholder="${approve
@@ -179,12 +229,28 @@ App.views.leave = {
         ${UI.icon(approve ? 'check' : 'x', 18)} ${approve ? 'Duyệt đơn' : 'Từ chối đơn'}
       </button>
     `, approve ? 'Duyệt đơn xin phép' : 'Từ chối đơn xin phép');
+
+    // Chọn "không hoàn" thì ô số ngày biến đi, chứ không để đó mờ mờ — ô mờ vẫn
+    // làm người nhập tưởng mình phải điền gì đó.
+    const chon = document.getElementById('lv-hoan');
+    if (chon) {
+      const o = document.getElementById('lv-hoan-ngay-o');
+      chon.onchange = () => { o.style.display = chon.value === 'co' ? '' : 'none'; };
+    }
   },
 
   async submitReview(id, status) {
     const reviewNote = document.getElementById('lv-review-note').value.trim();
+    const chon = document.getElementById('lv-hoan');
+    const oNgay = document.getElementById('lv-hoan-ngay');
+    const oGhiChu = document.getElementById('lv-hoan-ghichu');
+    const them = chon ? {
+      hoanTienAn: chon.value,
+      soNgayHoan: chon.value === 'co' && oNgay ? Number(oNgay.value) : null,
+      ghiChuHoan: oGhiChu ? oGhiChu.value.trim() : '',
+    } : {};
     try {
-      await API.post(`/api/leave/${id}/review`, { status, reviewNote });
+      await API.post(`/api/leave/${id}/review`, { status, reviewNote, ...them });
       UI.toast(status === 'approved' ? 'Đã duyệt đơn xin phép' : 'Đã từ chối đơn xin phép', 'success');
       UI.closeModal();
       App.route();

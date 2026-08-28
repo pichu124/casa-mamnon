@@ -2,13 +2,15 @@
 //
 // Chạy bằng:  npm run test:api
 // Tự dựng máy chủ riêng với cơ sở dữ liệu tạm, không đụng dữ liệu thật.
-import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri } from './_chung.mjs';
 
 const DIR = thuMucTam('api');
 sinhDuLieu(DIR);
 // Bộ này quét TOÀN BỘ mặt API, nên phải bật cả bốn phân hệ nay tắt sẵn —
 // nhà trường bật lại lúc nào thì đường dẫn của chúng phải vẫn đúng lúc đó.
 batPhanHe(DIR, ['nenep', 'baocao', 'nhanxet', 'xebuyt']);
+// Từ Y2, đơn xin nghỉ do VĂN PHÒNG duyệt — bộ này cần thêm một tài khoản quản trị.
+const MK_VP = taoQuanTri(DIR, 'Văn Phòng', 'vanphong');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3100), dir: DIR });
 
 let pass = 0, fail = 0;
@@ -41,6 +43,9 @@ function check(name, cond, extra) {
 const P = await login('phuhuynh', '123456');   // parent p1, con s1 (3A), s2 (5B)
 const T = await login('giaovien', '123456');   // teacher t1, lớp 3A
 const T2 = await login('giaovien2', '123456'); // teacher t2, lớp 5B
+const VPtam = await login('vanphong', MK_VP);
+await call(VPtam.cookie, 'POST', '/api/auth/set-new-password', { newPassword: 'quantri2026' });
+const A = await login('vanphong', 'quantri2026');  // văn phòng (quản trị)
 check('login parent', P.me.user && P.me.user.id === 'p1' && !('password' in P.me.user));
 check('login teacher', T.me.user && T.me.user.id === 't1');
 
@@ -69,8 +74,11 @@ r = await call(P.cookie, 'GET', '/api/leave'); check('P leave list', r.status ==
 r = await call(P.cookie, 'POST', '/api/leave', { studentId: 's1', fromDate: '2026-08-10', toDate: '2026-08-10', reason: 'Test đơn' });
 check('P tạo leave', r.status === 200 || r.status === 201, r);
 const newLeave = r.data;
-r = await call(T.cookie, 'POST', `/api/leave/${(newLeave && newLeave.id) || 'lv_1'}/review`, { status: 'approved', reviewNote: 'OK test' });
-check('T duyệt leave', r.status === 200, r);
+// Y2: cô chỉ đọc, VĂN PHÒNG duyệt.
+r = await call(T.cookie, 'POST', `/api/leave/${(newLeave && newLeave.id) || 'lv_1'}/review`, { status: 'approved', hoanTienAn: 'khong' });
+check('T duyệt leave -> 403', r.status === 403, r);
+r = await call(A.cookie, 'POST', `/api/leave/${(newLeave && newLeave.id) || 'lv_1'}/review`, { status: 'approved', reviewNote: 'OK test', hoanTienAn: 'khong' });
+check('A duyệt leave', r.status === 200, r);
 r = await call(P.cookie, 'POST', '/api/leave', { studentId: 's3', fromDate: '2026-08-10', toDate: '2026-08-10', reason: 'x' });
 check('P tạo leave con người khác -> 403', r.status === 403, r);
 

@@ -158,6 +158,28 @@ CREATE TABLE IF NOT EXISTS leave_requests (
 CREATE INDEX IF NOT EXISTS idx_leave_student ON leave_requests(studentId, createdAt DESC);
 CREATE INDEX IF NOT EXISTS idx_leave_status ON leave_requests(status);
 
+-- ===== Hoàn tiền ăn khi bé nghỉ =====
+--
+-- Bảng RIÊNG chứ không thêm cột vào `leave_requests`, vì hai lẽ:
+--
+--   1. Lược đồ lõi cấm `ALTER TABLE` — trường đang chạy thật ở app 1 dùng chung
+--      nền này, và một câu ALTER chạy nửa chừng là hỏng bảng đang có dữ liệu.
+--   2. Có hàng nghĩa là VĂN PHÒNG ĐÃ QUYẾT. Không có hàng nghĩa là chưa quyết —
+--      khác hẳn "đã quyết là không hoàn". Nhập hai chuyện đó vào một cột mặc
+--      định 0 là gia đình đọc ra "trường không hoàn" trong khi văn phòng còn
+--      chưa xem tới đơn.
+--
+-- `hoanTienAn` để dạng chữ ('co' / 'khong') chứ không phải 0/1: cột kiểu số ở
+-- kho mã này đi qua BOOL_COLS, mà chỗ đó biến null thành 0 — đúng cái bẫy trên.
+CREATE TABLE IF NOT EXISTS leave_refund (
+  leaveId    TEXT PRIMARY KEY REFERENCES leave_requests(id) ON DELETE CASCADE,
+  hoanTienAn TEXT NOT NULL DEFAULT '',
+  soNgay     INTEGER,
+  ghiChu     TEXT NOT NULL DEFAULT '',
+  nguoiGhi   TEXT,
+  capNhatLuc TEXT
+);
+
 -- ===== Nhận xét hằng ngày — khoảng 34.800 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS remarks (
   id         TEXT PRIMARY KEY,

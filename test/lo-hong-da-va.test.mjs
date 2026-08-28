@@ -856,6 +856,11 @@ console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơ
 {
   const GV = (await login('giaovien2', '123456')).cookie;   // chủ nhiệm c1 sau bài [11]
   const PH = (await login('phuhuynh', '123456')).cookie;
+  // Y2: VĂN PHÒNG duyệt đơn nghỉ, không phải cô. Bài này canh chuyện khác —
+  // "duyệt xong thì sổ điểm danh biết ngay" — nên nó chỉ đổi tài khoản bấm
+  // duyệt, mọi câu khẳng định giữ nguyên từng chữ. Chiều ngược lại (cô bấm
+  // duyệt phải bị chặn) có bài canh riêng ở ngay dưới.
+  const VP = (await login('ht.lohong', 'quantri2026')).cookie;
   const NGAY = '2026-11-03';
 
   const lop = async () => (await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: GV })).data;
@@ -879,8 +884,20 @@ console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơ
   check('đơn CHỜ duyệt thì sổ điểm danh chưa hiện gì',
     (await lop()).students.find(x => x.student.id === em)?.donNghiDaDuyet === null);
 
-  const duyet = await req('POST', `/api/leave/${donId}/review`, { cookie: GV, body: { status: 'approved' } });
-  check('cô duyệt được đơn', duyet.status === 200, duyet.data?.error);
+  const coDuyet = await req('POST', `/api/leave/${donId}/review`, {
+    cookie: GV, body: { status: 'approved', hoanTienAn: 'khong' },
+  });
+  check('CÔ KHÔNG duyệt được đơn nữa — việc này là của văn phòng',
+    coDuyet.status === 403, coDuyet.status);
+  check('và câu từ chối nói rõ vì sao, không phải "Không có quyền thực hiện"',
+    /văn phòng/i.test(coDuyet.data?.error || ''), coDuyet.data?.error);
+  check('đơn vẫn còn nguyên trạng thái chờ sau lần bấm hụt đó',
+    (await lop()).students.find(x => x.student.id === em)?.donNghiDaDuyet === null);
+
+  const duyet = await req('POST', `/api/leave/${donId}/review`, {
+    cookie: VP, body: { status: 'approved', hoanTienAn: 'khong' },
+  });
+  check('văn phòng duyệt được đơn', duyet.status === 200, duyet.data?.error);
 
   const sau = (await lop()).students.find(x => x.student.id === em);
   check('DUYỆT XONG THÌ SỔ ĐIỂM DANH BIẾT NGAY', !!sau?.donNghiDaDuyet, sau?.donNghiDaDuyet);
@@ -903,7 +920,7 @@ console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơ
     cookie: PH,
     body: { studentId: em, fromDate: '2026-12-01', toDate: '2026-12-01', reason: 'Xin nghỉ đi chơi' },
   });
-  await req('POST', `/api/leave/${don2.data.id}/review`, { cookie: GV, body: { status: 'rejected' } });
+  await req('POST', `/api/leave/${don2.data.id}/review`, { cookie: VP, body: { status: 'rejected' } });
   const tuChoi = (await req('GET', '/api/attendance/class?date=2026-12-01', { cookie: GV })).data;
   check('đơn bị TỪ CHỐI thì KHÔNG hiện trên sổ điểm danh',
     tuChoi.students.every(x => !x.donNghiDaDuyet));
