@@ -1,0 +1,13 @@
+{
+  "key": "kehoachbe",
+  "name": "Kế hoạch của bé",
+  "desc": "Kế hoạch tháng cho từng bé theo góc lĩnh vực, quản lý duyệt, cuối tháng nhìn lại",
+  "hash": "#/kehoachbe",
+  "view": "kehoachbe",
+  "emoji": "🧭",
+  "bg": "linear-gradient(135deg,#8f8bf0,#6a63dd)",
+  "api": ["/api/kehoachbe"],
+  "roles": ["teacher", "admin"],
+  "defaultEnabled": false,
+  "version": "0.1.0"
+}

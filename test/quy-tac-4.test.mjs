@@ -42,10 +42,16 @@ const VUNG_QUET = [
 ];
 
 // Mỗi dấu hiệu là một CÁCH xếp trẻ trên dưới nhau.
+// Mọi mẫu đều có cờ `i`.
+//
+// Bản trước không có, nên "ĐIỂM SỐ" ở một tiêu đề viết hoa, "Thi đua" đầu câu,
+// hay "XẾP HẠNG" trong một nhãn nút đều lọt sạch — bộ canh xanh trong khi chữ
+// vi phạm nằm ngay trên màn hình. Thêm cờ `i` không làm đỏ chỗ nào đang có,
+// nghĩa là nó chỉ bịt lỗ chứ không đổi luật.
 const DAU_HIEU = [
-  { ten: 'xếp hạng trẻ', re: /xếp hạng|Xếp hạng|\branking\b/ },
-  { ten: 'điểm thi đua', re: /thi đua/ },
-  { ten: 'điểm số của trẻ', re: /điểm thang 10|Bảng điểm|bảng điểm|điểm số/ },
+  { ten: 'xếp hạng trẻ', re: /xếp hạng|\branking\b|xep_hang|xepHang/i },
+  { ten: 'điểm thi đua', re: /thi đua|thi_dua|thiDua/i },
+  { ten: 'điểm số của trẻ', re: /điểm thang 10|bảng điểm|điểm số|diem_so|diemSo/i },
   // "78%" hiện ra màn hình. Chỉ bắt dạng `${...}%` — đó là phần trăm ĐƯỢC TÍNH
   // rồi in ra, khác hẳn `width:100%` của bố cục.
   { ten: 'phần trăm hiện ra màn hình', re: /\}%/ },
@@ -87,7 +93,12 @@ function cacTep(muc) {
   for (const f of fs.readdirSync(p)) {
     const con = path.join(p, f);
     if (fs.statSync(con).isDirectory()) ra.push(...cacTep(path.relative(GOC, con)));
-    else if (f.endsWith('.js')) ra.push(con);
+    // Quét cả `.sql` và `.json`, không chỉ `.js`.
+    //
+    // Một cột tên `diem_so` trong schema.sql, hay một nhãn "Bảng xếp hạng"
+    // trong module.json, là vi phạm y hệt — nhưng bản trước chỉ đọc `.js` nên
+    // hai chỗ đó là cửa sau bỏ ngỏ.
+    else if (/\.(js|sql|json)$/.test(f)) ra.push(con);
   }
   return ra;
 }
