@@ -3,7 +3,7 @@
 //
 // Cần trình duyệt Playwright. Chạy bằng:  npm run test:giao-dien
 import { chromium } from 'playwright';
-import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerMoiCai } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan-giao-dien');
 sinhDuLieu(DIR);
@@ -30,7 +30,7 @@ const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3950),
 const { check, tongKet } = taoBoDem();
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
-const ctx = await tatBannerThongBao(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }));
+const ctx = await tatBannerMoiCai(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }));
 const page = await ctx.newPage();
 const loiJs = [];
 page.on('pageerror', e => loiJs.push(e.message));

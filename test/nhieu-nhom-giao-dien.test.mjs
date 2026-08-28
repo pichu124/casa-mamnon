@@ -16,7 +16,7 @@
 //
 // Nên bài này chạy trên trình duyệt thật và đi bằng chuột, không gọi API.
 import { chromium } from 'playwright';
-import { dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, CHROMIUM, tatBannerThongBao, taoBoDem } from './_chung.mjs';
+import { dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, CHROMIUM, tatBannerMoiCai, taoBoDem } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('nhieu-nhom-gd');
@@ -40,7 +40,7 @@ const MK_QUANTRI = 'quantri2026';
 }
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
-const ctx = await tatBannerThongBao(await browser.newContext({
+const ctx = await tatBannerMoiCai(await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
 }));
 const page = await ctx.newPage();

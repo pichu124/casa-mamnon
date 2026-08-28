@@ -22,7 +22,7 @@ window.App = {
       await this.loadModules();
       this.route();
       this.startBadgePolling();
-      this.maybeShowPushBanner();
+      this.moiCaiVaoManHinhChinh();
     } catch (err) {
       // MẤT MẠNG KHÔNG PHẢI LÀ HẾT PHIÊN ĐĂNG NHẬP.
       //
@@ -325,32 +325,49 @@ window.App = {
     });
   },
 
-  // Banner mời bật thông báo (giống ANS Portal)
-  maybeShowPushBanner() {
-    if (localStorage.getItem('pushBannerDismissed')) return;
-    if (!('Notification' in window) || Notification.permission === 'granted') return;
+  // BANNER MỜI CÀI APP VÀO MÀN HÌNH CHÍNH.
+  //
+  // TRƯỚC ĐÂY BANNER NÀY HỨA MỘT THỨ APP HOÀN TOÀN KHÔNG LÀM ĐƯỢC.
+  //
+  // Nó ghi "Bật để nhận thông báo kịp thời", xin quyền Notification, rồi báo
+  // "Đã bật thông báo". Nhưng `public/sw.js` không có một bộ nghe `push` nào,
+  // cả kho mã không có `pushManager.subscribe`, không khoá VAPID, không gói
+  // gửi thông báo, và máy chủ không có chỗ nào lưu đăng ký. Nghĩa là gia đình
+  // bấm đồng ý xong sẽ KHÔNG BAO GIỜ nhận được một thông báo nào — kể cả khi
+  // cô báo con sốt.
+  //
+  // Đây đúng bài học của A5 (dặn thuốc): app chỉ nên hứa thứ nó biết chắc.
+  // Một lời hứa sai còn tệ hơn thiếu hẳn tính năng, vì gia đình sẽ THÔI mở app
+  // ra xem — họ tưởng có tin thì máy sẽ báo.
+  //
+  // Nay banner mời đúng một việc app làm được thật: cài vào màn hình chính, để
+  // mở nhanh và mở được cả khi mất mạng (Đ12).
+  moiCaiVaoManHinhChinh() {
+    if (localStorage.getItem('casa.moi-cai-app-da-tat')) return;
+    // Đã chạy như app rồi thì không mời nữa.
+    try {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
+    } catch (_) {}
     const b = document.createElement('div');
     b.className = 'push-banner';
     b.id = 'push-banner';
     b.innerHTML = `
       <span class="pb-logo">🏫</span>
-      <div class="pb-text"><b>CASA Mầm non</b><span>Bật để nhận thông báo kịp thời</span></div>
-      <button class="pb-bell" id="pb-enable">${UI.icon('bell', 20)}</button>
+      <div class="pb-text"><b>CASA Mầm non</b><span>Cài vào màn hình chính cho mở nhanh</span></div>
+      <button class="pb-bell" id="pb-enable">${UI.icon('plus', 20)}</button>
       <button class="pb-close" id="pb-close">${UI.icon('x', 18)}</button>`;
     document.body.appendChild(b);
-    document.getElementById('pb-enable').onclick = async () => {
-      try {
-        const perm = await Notification.requestPermission();
-        UI.toast(perm === 'granted' ? 'Đã bật thông báo' : 'Bạn có thể bật lại trong Cài đặt', perm === 'granted' ? 'success' : '');
-      } catch (_) {}
-      b.remove();
-      localStorage.setItem('pushBannerDismissed', '1');
-    };
-    document.getElementById('pb-close').onclick = () => {
-      b.remove();
-      localStorage.setItem('pushBannerDismissed', '1');
-    };
+    const tat = () => { b.remove(); localStorage.setItem('casa.moi-cai-app-da-tat', '1'); };
+    document.getElementById('pb-enable').onclick = () => { this.promptInstall(); tat(); };
+    document.getElementById('pb-close').onclick = tat;
   },
+
+  // Tên cũ, giữ lại cho khỏi phá khế ước tệp dùng chung.
+  //
+  // CLAUDE.md bắt đi ba bước khi bỏ một thứ dùng chung: thêm cái mới bên cạnh →
+  // chuyển từng chỗ gọi → khi không còn ai gọi mới xóa. Đây là bước 2; bước 3
+  // để lại cho một commit riêng sau, khi chắc chắn không còn chỗ nào gọi.
+  maybeShowPushBanner() { return this.moiCaiVaoManHinhChinh(); },
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init());

@@ -143,6 +143,7 @@
     "logout": "ham(0)",
     "maybeShowPushBanner": "ham(0)",
     "moduleEnabled": "ham(1)",
+    "moiCaiVaoManHinhChinh": "ham(0)",
     "navigate": "ham(1)",
     "nhoManHinhPhanHe": "ham(0)",
     "onUnauthorized": "ham(0)",

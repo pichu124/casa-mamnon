@@ -301,13 +301,20 @@ export function taoLogin(req) {
 export const CHROMIUM = process.env.CHROMIUM_PATH
   || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
 
-// Banner mời bật thông báo là một lớp phủ cố định ở đáy màn hình. Nó che mất nút
-// mà bài kiểm thử định bấm, và che chỗ nào thì tùy kích thước cửa sổ — chạy trên
-// máy này qua, chạy trên máy khác lại đỏ. Tắt nó đi ngay từ đầu để bài kiểm thử
-// chỉ đo đúng thứ nó định đo. Bản thân banner không có bài kiểm thử nào.
-export async function tatBannerThongBao(ctx) {
+// Banner mời cài app vào màn hình chính là một lớp phủ cố định ở đáy màn hình.
+// Nó che mất nút mà bài kiểm thử định bấm, và che chỗ nào thì tùy kích thước cửa
+// sổ — chạy trên máy này qua, chạy trên máy khác lại đỏ. Tắt nó đi ngay từ đầu
+// để bài kiểm thử chỉ đo đúng thứ nó định đo.
+//
+// Đặt CẢ HAI khoá: khoá cũ `pushBannerDismissed` của banner "bật thông báo" đã
+// gỡ ở Đ14, và khoá mới của banner mời cài. Giữ khoá cũ vì máy nào còn giữ bản
+// giao diện đời trước thì vẫn cần nó — bỏ đi là bài test đỏ tuỳ lúc.
+export async function tatBannerMoiCai(ctx) {
   await ctx.addInitScript(() => {
-    try { localStorage.setItem('pushBannerDismissed', '1'); } catch { /* chưa có localStorage */ }
+    try {
+      localStorage.setItem('casa.moi-cai-app-da-tat', '1');
+      localStorage.setItem('pushBannerDismissed', '1');
+    } catch { /* chưa có localStorage */ }
   });
   return ctx;
 }

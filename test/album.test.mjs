@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { chromium, devices } from 'playwright';
-import { GOC, thuMucTam, donThuMucTam, CHROMIUM, tatBannerThongBao } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, CHROMIUM, tatBannerMoiCai } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3300);
 const BASE = `http://localhost:${PORT}`;
@@ -183,7 +183,7 @@ console.log('\n[7] Giao diện: chọn ảnh và đăng album trên trình duy�
   fs.writeFileSync(tmpImg, Buffer.from(JPEG_B64, 'base64'));
 
   const browser = await chromium.launch({ executablePath: CHROMIUM });
-  const ctx = await tatBannerThongBao(await browser.newContext({ ...devices['Pixel 7'] }));
+  const ctx = await tatBannerMoiCai(await browser.newContext({ ...devices['Pixel 7'] }));
   const page = await ctx.newPage();
   const jsErr = [];
   page.on('pageerror', e => jsErr.push(String(e).slice(0, 200)));
@@ -244,7 +244,7 @@ console.log('\n[7] Giao diện: chọn ảnh và đăng album trên trình duy�
   check('xóa ảnh trên giao diện hoạt động (còn 2)', imgs3 === 2, imgs3);
 
   // Phụ huynh không thấy nút sửa
-  const ctx2 = await tatBannerThongBao(await browser.newContext({ ...devices['Pixel 7'] }));
+  const ctx2 = await tatBannerMoiCai(await browser.newContext({ ...devices['Pixel 7'] }));
   const p2 = await ctx2.newPage();
   await p2.goto(BASE);
   await p2.waitForSelector('#lg-user');

@@ -21,7 +21,7 @@
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, batPhanHe,
-  CHROMIUM, tatBannerThongBao,
+  CHROMIUM, tatBannerMoiCai,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -56,7 +56,7 @@ async function dangNhapCo(page) {
 
 // ===========================================================================
 console.log('\n[1] Có mạng: cô đăng nhập bình thường, và máy nhớ lại màn hình phân hệ');
-const ctx1 = await tatBannerThongBao(await browser.newContext());
+const ctx1 = await tatBannerMoiCai(await browser.newContext());
 const p = await ctx1.newPage();
 {
   await p.goto(sv.BASE);
@@ -105,7 +105,7 @@ const p = await ctx1.newPage();
 
 // ===========================================================================
 console.log('\n[2] MẤT MẠNG: cô KHÔNG bị đá về màn đăng nhập');
-const ctx2 = await tatBannerThongBao(await browser.newContext({ serviceWorkers: 'block' }));
+const ctx2 = await tatBannerMoiCai(await browser.newContext({ serviceWorkers: 'block' }));
 const q = await ctx2.newPage();
 {
   await q.goto(sv.BASE);

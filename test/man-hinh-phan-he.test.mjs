@@ -26,7 +26,7 @@
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, CHROMIUM, tatBannerThongBao, batPhanHe,
+  taoBoDem, CHROMIUM, tatBannerMoiCai, batPhanHe,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -60,7 +60,7 @@ const TAI_KHOAN = {
 };
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
-const ctx = await tatBannerThongBao(await browser.newContext({
+const ctx = await tatBannerMoiCai(await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
 }));
 const page = await ctx.newPage();
