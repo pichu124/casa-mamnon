@@ -345,9 +345,26 @@ App.views.admin = {
   },
 
   async themLop() {
-    const teachers = await API.get('/api/admin/teachers');
+    const [teachers, coSo] = await Promise.all([
+      API.get('/api/admin/teachers'),
+      // Quản lý cơ sở không chọn cơ sở — nhóm mới tự vào cơ sở của họ. Nuốt lỗi
+      // để hộp thoại vẫn mở được nếu đường này bị chặn.
+      API.get('/api/admin/campuses').catch(() => []),
+    ]);
+    const chonCoSo = (coSo || []).length > 1;
     UI.modal(`
       <div class="field"><label>Tên nhóm</label><input id="ad-lop-ten" placeholder="Ví dụ: Chồi 2"></div>
+      ${chonCoSo ? `
+        <div class="field">
+          <label>Cơ sở</label>
+          <select id="ad-lop-coso">
+            <option value="">— Chưa gắn cơ sở —</option>
+            ${coSo.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
+          </select>
+          <div class="hint">Nhóm chưa gắn cơ sở thì <b>quản lý cơ sở không nhìn thấy</b>, và
+            sau lần chuyển năm học tiếp theo thì nhóm kế tiếp của nó cũng vậy.
+            Trường ba cơ sở hay đặt trùng tên nhóm, nên chọn ngay ở đây là chắc nhất.</div>
+        </div>` : ''}
       <div class="field"><label>Phòng học</label><input id="ad-lop-phong" placeholder="Ví dụ: Phòng 203"></div>
       <div class="field"><label>Khối</label><input id="ad-lop-khoi" type="number" min="1" max="12" placeholder="3"></div>
       <div class="field"><label>Cô phụ trách</label>
@@ -366,6 +383,7 @@ App.views.admin = {
           room: document.getElementById('ad-lop-phong').value.trim(),
           grade: document.getElementById('ad-lop-khoi').value,
           teacherId: document.getElementById('ad-lop-gv').value || null,
+          campusId: (document.getElementById('ad-lop-coso') || {}).value || '',
         });
         UI.toast('Đã tạo nhóm', 'success');
         UI.closeModal();

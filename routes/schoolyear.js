@@ -83,6 +83,34 @@ function phamViNhomLop(user) {
   return coSo === null ? null : db.classIdsOfCampus(coSo);
 }
 
+// =============================================================================
+// NHÓM CỦA NĂM MỚI PHẢI TÁCH THEO CƠ SỞ
+// =============================================================================
+//
+// Bản đầu của quy trình chuyển năm gom nhóm mới vào một `Map` khoá theo TÊN, và
+// tra nhóm đã có bằng `WHERE name = ? AND year = ?` — không một chữ nào về cơ
+// sở. Trường có ba cơ sở và cả ba đều có nhóm tên "Chồi 2".
+//
+// Hậu quả: sau một lần bấm "Chuyển năm học", ba nhóm Chồi 2 của ba cơ sở nhập
+// làm MỘT. Trẻ của cả ba cơ sở nằm chung một nhóm, cô của cơ sở này mở được hồ
+// sơ bé của cơ sở kia, và toàn bộ tầng cơ sở dựng ở N15 bay sạch trong đúng một
+// giao dịch. Không có nút hoàn tác, và quy trình này chạy mỗi năm một lần nên
+// không ai kịp nhận ra trước khi nó đã xảy ra.
+//
+// Khoá gom nhóm nay là CƠ SỞ + TÊN. Nhóm chưa gắn cơ sở dùng chuỗi rỗng, nên
+// trường một cơ sở chạy y như cũ — đúng Nguyên tắc số 1.
+function khoaNhom(campusId, ten) {
+  return `${campusId || ''}\n${String(ten).toLowerCase()}`;
+}
+
+// Tìm nhóm CÙNG TÊN, CÙNG NĂM, VÀ CÙNG CƠ SỞ. Không lọc cơ sở thì lần chuyển
+// năm thứ hai lại nối nhóm của cơ sở này vào nhóm của cơ sở kia.
+function timNhomCuaNam(ten, nam, campusId) {
+  const ungVien = db.all('classes',
+    'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND year = ?', [ten, nam]);
+  return ungVien.find(c => (db.campusOfClass(c.id) || '') === (campusId || '')) || null;
+}
+
 module.exports = (app) => {
   // Xem trước việc chuyển năm học: lớp nào lên lớp nào, bao nhiêu em ra trường.
   app.get('/api/schoolyear/preview', onlyAdmin, (req, res) => {
@@ -102,9 +130,9 @@ module.exports = (app) => {
     const buoc = lop.map(c => {
       const tenMoi = tenLopKeTiep(c.name, khoiToiDa);
       const siSo = db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [c.id]);
-      const lopDich = tenMoi
-        ? db.first('classes', 'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenMoi])
-        : null;
+      // Cùng cơ sở, cùng tên — nếu không thì màn XEM TRƯỚC nói bé cơ sở 2 sẽ
+      // sang nhóm của cơ sở 1, tức là báo trước một việc sẽ không xảy ra.
+      const lopDich = tenMoi ? timNhomCuaNam(tenMoi, namMoi, db.campusOfClass(c.id)) : null;
       return {
         classId: c.id,
         tenHienTai: c.name,
@@ -155,26 +183,36 @@ module.exports = (app) => {
       const lopCu = db.classes();
       const lopMoiTheoTen = new Map();
 
-      // Tạo trước các lớp của năm mới.
+      // Tạo trước các nhóm của năm mới.
       for (const c of lopCu) {
         const tenMoi = tenLopKeTiep(c.name, khoiToiDa);
-        if (!tenMoi || lopMoiTheoTen.has(tenMoi)) continue;
-        const daCo = db.first('classes',
-          'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND year = ?', [tenMoi, namMoi]);
-        if (daCo) { lopMoiTheoTen.set(tenMoi, daCo.id); continue; }
+        if (!tenMoi) continue;
+        const coSoCu = db.campusOfClass(c.id);
+        const khoa = khoaNhom(coSoCu, tenMoi);
+        if (lopMoiTheoTen.has(khoa)) continue;
+
+        const daCo = timNhomCuaNam(tenMoi, namMoi, coSoCu);
+        if (daCo) { lopMoiTheoTen.set(khoa, daCo.id); continue; }
         const id = db.nextId('c');
         db.insert('classes', {
           id, name: tenMoi, room: c.room, grade: (Number(c.grade) || 0) + 1,
           teacherId: null,      // phân công lại cô phụ trách cho năm mới
           year: namMoi, active: true,
         });
-        lopMoiTheoTen.set(tenMoi, id);
+        // GẮN NHÓM MỚI VÀO ĐÚNG CƠ SỞ CỦA NHÓM CŨ.
+        //
+        // Bỏ dòng này thì nhóm của năm mới không thuộc cơ sở nào, mà quản lý cơ
+        // sở nhìn thấy gì đều đi qua `classIdsOfCampus`. Sáng đầu năm học mới
+        // họ mở app ra thấy trống trơn, và không ai đoán được vì sao.
+        if (coSoCu) db.setClassCampus(id, coSoCu);
+        lopMoiTheoTen.set(khoa, id);
         ketQua.lopTao++;
       }
 
-      // Chuyển học sinh.
+      // Chuyển bé sang nhóm mới.
       for (const c of lopCu) {
         const tenMoi = tenLopKeTiep(c.name, khoiToiDa);
+        const khoa = tenMoi ? khoaNhom(db.campusOfClass(c.id), tenMoi) : '';
         const hocSinh = db.all('students',
           'SELECT id FROM students WHERE classId = ? AND active = 1', [c.id]);
 
@@ -194,7 +232,7 @@ module.exports = (app) => {
             ketQua.raTruong++;
           }
         } else {
-          const dichId = lopMoiTheoTen.get(tenMoi);
+          const dichId = lopMoiTheoTen.get(khoa);
           for (const s of hocSinh) {
             lsl.ghiChuyenLop(s.id, dichId, ngayChuyen);
             db.update('students', s.id, { classId: dichId });

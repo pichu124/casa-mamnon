@@ -351,7 +351,25 @@ module.exports = (app) => {
     // không sửa được, không xếp bé vào được — mà app thì báo "tạo thành công".
     // Gắn ngay là cách duy nhất giữ được cả hai vế: cách ly đúng, và người dùng
     // không rơi vào ngõ cụt.
-    const coSoNguoiTao = db.phamViCoSo(req.user);
+    // CẤP 1 THÌ PHẢI NÓI RÕ, VÌ HỎI AI CŨNG KHÔNG RA.
+    //
+    // `phamViCoSo` trả null cho ban giám hiệu — họ không thuộc cơ sở nào, nên
+    // không có cơ sở nào để gắn theo. Bản cũ dừng ở đó và tạo ra một nhóm không
+    // thuộc cơ sở nào: quản lý cơ sở không thấy nó, và sau lần chuyển năm tiếp
+    // theo thì nhóm con của nó cũng mồ côi theo.
+    //
+    // Nay nhận `campusId` từ thân yêu cầu khi người tạo là Cấp 1. KHÔNG bắt
+    // buộc: màn hình cũ còn trong bộ nhớ đệm điện thoại không gửi trường này,
+    // và bắt buộc là làm hỏng đường tạo nhóm đang chạy. Nhóm chưa gắn cơ sở
+    // vẫn hiện rõ ở thẻ "Nhóm lớp thuộc cơ sở nào" của màn Quản trị.
+    let coSoNguoiTao = db.phamViCoSo(req.user);
+    if (coSoNguoiTao === null) {
+      const xin = String((req.body || {}).campusId || '').trim();
+      if (xin && !db.findCampus(xin)) {
+        return res.status(400).json({ error: 'Không tìm thấy cơ sở' });
+      }
+      coSoNguoiTao = xin || null;
+    }
     db.tx(() => {
       db.insert('classes', rec);
       if (coSoNguoiTao) db.setClassCampus(rec.id, coSoNguoiTao);
@@ -809,20 +827,47 @@ module.exports = (app) => {
         if (!khoaTrongTep.has(khoa)) khoaTrongTep.set(khoa, row.__line);
       }
 
-      let lop = tenLop
-        ? db.first('classes', 'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenLop])
-        : null;
-      // Nhóm trùng tên nhưng thuộc cơ sở khác thì coi như KHÔNG THẤY — nếu
-      // không, một tệp nhập của cơ sở 1 sẽ đổ bé vào nhóm "Lá 1" của cơ sở 2
-      // chỉ vì hai nơi đặt trùng tên nhóm, và điều đó rất hay xảy ra.
-      if (lop && phamNhap !== null && !phamNhap.includes(lop.id)) {
-        loi.push(`nhóm "${tenLop}" không thuộc cơ sở của bạn`);
-        lop = null;
+      // TRA NHÓM THEO TÊN — VÀ KHÔNG ĐOÁN KHI TÊN ẤY CÓ Ở NHIỀU CƠ SỞ.
+      //
+      // Ba cơ sở đều có nhóm "Chồi 2". Bản cũ lấy `db.first(... WHERE name = ?)`
+      // tức là lấy nhóm nào ra trước thì lấy — nên một tệp nhập của cơ sở 2 đổ
+      // trẻ vào nhóm Chồi 2 của cơ sở 1, im lặng, và không ai phát hiện cho tới
+      // khi phụ huynh hỏi vì sao con mình có trong danh sách một cơ sở khác.
+      //
+      // Cấp 3 thì tầng cơ sở đã trả lời hộ: chỉ nhìn nhóm trong phạm vi mình.
+      // Cấp 1 nhìn cả ba cơ sở, nên phải HỎI chứ không được đoán — đó là lý do
+      // tệp mẫu có thêm cột "Cơ sở".
+      const tenCoSo = lay(row, 'Cơ sở', 'Co so', 'campus');
+      let maCoSo = '';
+      let lop = null;
+      if (tenLop) {
+        let ungVien = db.all('classes',
+          'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenLop]);
+        if (phamNhap !== null) ungVien = ungVien.filter(c => phamNhap.includes(c.id));
+        if (tenCoSo) {
+          const cs = db.campuses().find(x => csv.boDau(x.name) === csv.boDau(tenCoSo));
+          if (!cs) loi.push(`không có cơ sở nào tên "${tenCoSo}"`);
+          else { maCoSo = cs.id; ungVien = ungVien.filter(c => db.campusOfClass(c.id) === cs.id); }
+        }
+
+        if (ungVien.length === 1) {
+          lop = ungVien[0];
+        } else if (ungVien.length > 1) {
+          const ten = ungVien
+            .map(c => (db.findCampus(db.campusOfClass(c.id)) || {}).name || 'chưa gắn cơ sở');
+          loi.push(`nhóm "${tenLop}" có ở nhiều cơ sở (${ten.join(', ')}) — `
+            + 'xin ghi rõ cơ sở ở cột "Cơ sở"');
+        } else if (phamNhap !== null && db.first('classes',
+          'SELECT id FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenLop])) {
+          // Có nhóm tên đó thật, nhưng của cơ sở khác.
+          loi.push(`nhóm "${tenLop}" không thuộc cơ sở của bạn`);
+        }
       }
 
       ketQua.push({
         line: row.__line,
         hoTen, tenLop, ma,
+        campusId: maCoSo,
         phHoTen, phSdt,
         phEmail: lay(row, 'Email', 'Email phụ huynh', 'email'),
         ngaySinh,
@@ -911,7 +956,13 @@ module.exports = (app) => {
         });
         // Cùng lý do như POST /api/admin/classes: không gắn thì chính người vừa
         // nhập cũng không thấy lại nhóm mình vừa tạo.
+        //
+        // Cấp 1 không thuộc cơ sở nào, nên lấy theo cột "Cơ sở" của chính dòng
+        // đó nếu tệp có ghi. Không ghi thì vẫn tạo như trước — CỐ Ý không chặn:
+        // chặn ở đây là làm hỏng đường nhập danh sách đầu năm đang chạy, mà
+        // nhóm chưa gắn cơ sở thì màn Quản trị đã có sẵn một dòng đếm và nhắc.
         if (coSoNguoiNhap) db.setClassCampus(id, coSoNguoiNhap);
+        else if (r.campusId) db.setClassCampus(id, r.campusId);
         lopTheoTen.set(r.tenLop, id);
       }
 
@@ -987,12 +1038,17 @@ module.exports = (app) => {
 
   // Tệp CSV mẫu để nhà trường điền theo.
   app.get('/api/admin/import/template', onlyAdmin, (req, res) => {
-    const headers = ['Mã của bé', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Nhóm', 'Địa chỉ',
+    // Cột "Cơ sở" chỉ cần khi trường có từ hai cơ sở và hai nơi đặt trùng tên
+    // nhóm — nhưng để sẵn trong mẫu thì rẻ hơn nhiều so với để văn phòng nhập
+    // xong mới báo lỗi và phải sửa lại cả tệp.
+    const headers = ['Mã của bé', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Nhóm', 'Cơ sở', 'Địa chỉ',
       'Họ tên phụ huynh', 'Điện thoại', 'Email'];
     const namSinhMau = Number(ngayVN.homNay().slice(0, 4)) - 4;   // bé nhóm Chồi, 4 tuổi
     const mau = [{
       'Mã của bé': 'MN2026001', 'Họ tên': 'Nguyễn Bảo An', 'Ngày sinh': `${namSinhMau}-04-12`,
-      'Giới tính': 'Nữ', 'Nhóm': 'Chồi 2', 'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',
+      'Giới tính': 'Nữ', 'Nhóm': 'Chồi 2',
+      'Cơ sở': (db.campuses()[0] || {}).name || '',
+      'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',
       'Họ tên phụ huynh': 'Lê Thị Thu Hà', 'Điện thoại': '0912345678', 'Email': 'thuha@gmail.com',
     }];
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
