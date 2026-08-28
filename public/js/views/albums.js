@@ -252,54 +252,7 @@ App.views.albums = {
     document.getElementById('al-file').value = ''; // cho phép chọn lại đúng ảnh đó
   },
 
-  // Thu nhỏ ảnh về tối đa 1600px và nén JPEG ngay trên máy người dùng.
-  // Ảnh máy ảnh điện thoại thường 3-8MB, sau bước này chỉ còn vài trăm KB.
-  compress(file, maxDim = 1600, quality = 0.82) {
-    return new Promise((resolve, reject) => {
-      const done = (bitmap, width, height) => {
-        const scale = Math.min(1, maxDim / Math.max(width, height));
-        const w = Math.max(1, Math.round(width * scale));
-        const h = Math.max(1, Math.round(height * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(bitmap, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
 
-      // createImageBitmap xoay ảnh theo đúng chiều máy ảnh đã chụp.
-      if (window.createImageBitmap) {
-        createImageBitmap(file, { imageOrientation: 'from-image' })
-          .then(bm => done(bm, bm.width, bm.height))
-          .catch(() => this.compressViaImg(file, maxDim, quality).then(resolve, reject));
-        return;
-      }
-      this.compressViaImg(file, maxDim, quality).then(resolve, reject);
-    });
-  },
-
-  // Cách dự phòng cho trình duyệt cũ không có createImageBitmap.
-  compressViaImg(file, maxDim, quality) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error('Không đọc được tệp'));
-      reader.onload = () => {
-        const img = new Image();
-        img.onerror = () => reject(new Error('Ảnh hỏng'));
-        img.onload = () => {
-          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.max(1, Math.round(img.width * scale));
-          canvas.height = Math.max(1, Math.round(img.height * scale));
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.src = reader.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  },
 
   renderPreview() {
     const zone = document.getElementById('al-preview');

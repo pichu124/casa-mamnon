@@ -143,4 +143,102 @@ if (themMoi.length) {
   console.log('\n  Chạy `npm run test:khe-uoc -- --cap-nhat` để ghi nhận vào bản chụp.');
 }
 
+// ===========================================================================
+// MỘT BẢN NÉN ẢNH DUY NHẤT — VÀ KHÔNG AI ĐƯỢC CHÉP BẢN THỨ SÁU
+// ===========================================================================
+//
+// Khế ước có hai vế. Phần trên canh vế thứ nhất: "tệp dùng chung còn cung cấp
+// đủ những gì nó từng cung cấp". Phần này canh vế còn lại — *và mọi người thật
+// sự đang dùng nó*, thay vì chép một bản riêng.
+//
+// Trước đợt Đ21 hàm nén ảnh tồn tại thành NĂM bản gần giống nhau: albums
+// 1600px, Cambridge 1400, Hành trình 1280, Ghi nhanh 1280/0.75, Đón trả 640.
+// Ba trong năm bản không xoay ảnh theo chiều máy ảnh đã chụp.
+//
+// Lý do canh KHÔNG phải là cho gọn mã. Vẽ lại ảnh qua canvas rồi `toDataURL`
+// là bước duy nhất bỏ được phần thông tin đi kèm tệp gốc: ngày giờ, kiểu máy,
+// và TOẠ ĐỘ NƠI CHỤP. Ảnh trẻ chụp trong lớp mà còn kèm toạ độ trường là thứ
+// không được để lọt ra ngoài. Một bản thứ sáu gửi thẳng tệp gốc lên máy chủ sẽ
+// không bộ test nào khác bắt được — nên bắt ở đây, ở mức đọc mã.
+console.log('\n[Một bản nén ảnh duy nhất]');
+{
+  const CHO_PHEP = 'public/js/ui.js';
+  const DAU_HIEU = [
+    [/createElement\((['"`])canvas\1\)/, 'tự dựng thẻ canvas'],
+    [/\.toDataURL\s*\(/, 'tự gọi toDataURL'],
+  ];
+
+  // Mọi tệp chạy trên máy người dùng: view lõi, ui/app, và view của phân hệ.
+  function tepTrinhDuyet() {
+    const ds = [];
+    const themThuMuc = (tuongDoi, loc = () => true) => {
+      const tm = path.join(GOC, tuongDoi);
+      if (!fs.existsSync(tm)) return;
+      for (const ten of fs.readdirSync(tm)) {
+        if (ten.endsWith('.js') && loc(ten)) ds.push(path.join(tuongDoi, ten));
+      }
+    };
+    themThuMuc('public/js');
+    themThuMuc('public/js/views');
+    const goc = path.join(GOC, 'modules');
+    if (fs.existsSync(goc)) {
+      for (const ma of fs.readdirSync(goc)) {
+        const v = path.join('modules', ma, 'view.js');
+        if (fs.existsSync(path.join(GOC, v))) ds.push(v);
+      }
+    }
+    return ds;
+  }
+
+  // Trả về danh sách "tệp — vì sao bị bắt". Tách hẳn ra để phép thử ngược ở
+  // dưới chạy được chính hàm này trên một chuỗi mã bịa ra.
+  function batChepLai(danhSach, docTep) {
+    const bat = [];
+    for (const tep of danhSach) {
+      if (tep === CHO_PHEP) continue;
+      const ma = docTep(tep);
+      for (const [re, vi] of DAU_HIEU) if (re.test(ma)) bat.push(`${tep} — ${vi}`);
+    }
+    return bat;
+  }
+
+  const ds = tepTrinhDuyet();
+  check('có tìm thấy tệp để quét (bộ canh không quét vào khoảng không)',
+    ds.length >= 20 && ds.includes(CHO_PHEP), ds.length);
+
+  const doc = (tep) => fs.readFileSync(path.join(GOC, tep), 'utf8');
+  const bat = batChepLai(ds, doc);
+  check('KHÔNG TỆP NÀO NGOÀI public/js/ui.js TỰ NÉN ẢNH', bat.length === 0,
+    bat.length ? `${bat.join(' · ')}\n\n  Dùng UI.nenAnh(file, { canhToiDa, chatLuong }) thay vì chép lại.` : undefined);
+
+  // Và năm màn hình có gửi ảnh phải thật sự gọi tới bản dùng chung — nếu không
+  // thì bài trên vẫn xanh trong khi ảnh đi thẳng lên máy chủ, không qua bước
+  // xoá toạ độ.
+  for (const tep of [
+    'public/js/views/albums.js',
+    'modules/thuchup/view.js',
+    'modules/hanhtrinh/view.js',
+    'modules/cambridge/view.js',
+    'modules/dontra/view.js',
+  ]) {
+    check(`${tep} gọi UI.nenAnh`, /UI\.nenAnh\s*\(/.test(doc(tep)));
+  }
+
+  check('UI.nenAnh có thật và nhận (file, tuỳ chọn)',
+    typeof UI.nenAnh === 'function' && UI.nenAnh.length === 1,
+    typeof UI.nenAnh === 'function' ? UI.nenAnh.length : typeof UI.nenAnh);
+
+  // --- Phép thử ngược: bộ canh này có bắt được thật không? ------------------
+  const maBia = {
+    'modules/bia-dat/view.js': "const cv = document.createElement('canvas');",
+    'public/js/views/bia-dat.js': "resolve(cv.toDataURL('image/jpeg', 0.8));",
+    'public/js/ui.js': "document.createElement('canvas'); x.toDataURL('image/jpeg');",
+  };
+  const batBia = batChepLai(Object.keys(maBia), (t) => maBia[t]);
+  check('PHÉP THỬ NGƯỢC — bắt được bản chép thứ sáu ở cả modules/ lẫn public/js/views/',
+    batBia.length === 2, batBia);
+  check('và KHÔNG bắt nhầm chính public/js/ui.js',
+    !batBia.some(x => x.startsWith('public/js/ui.js')), batBia);
+}
+
 tongKet();

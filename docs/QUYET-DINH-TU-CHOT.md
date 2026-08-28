@@ -450,6 +450,46 @@ quyền khó dùng, nhất là với chuyện ảnh của con.
 app (ví dụ có chữ ký điện tử), phần đó thêm vào được — nhưng đó là một hạng mục
 riêng và phải bàn về giá trị pháp lý của chữ ký trước.
 
+## 23. Nén ảnh: một bản dùng chung, và chọn tuỳ chọn có tên thay vì tham số vị trí
+
+**Chọn:** gom năm bản hàm nén ảnh về `UI.nenAnh(file, { canhToiDa, chatLuong })`
+trong `public/js/ui.js`, và giữ nguyên năm bộ số cũ ở từng chỗ gọi.
+
+**Vì sao không nhân dịp này thống nhất luôn một bộ số:**
+
+Năm bộ số ấy khác nhau có lý do, không phải do viết ẩu:
+
+| Màn hình | Cạnh dài | Chất lượng | Vì sao |
+|---|---|---|---|
+| Album | 1600 | 0.82 | ảnh gia đình xem lại nhiều năm sau |
+| Cambridge | 1400 | 0.82 | ảnh tờ bài học, có chữ, mờ là không đọc được |
+| Hành trình | 1280 | 0.82 | ảnh minh chứng kèm quan sát |
+| Ghi nhanh | 1280 | **0.75** | phải nằm chờ trong máy lúc mất mạng |
+| Đón trả | **640** | 0.82 | ảnh để nhận mặt người đón, không phải để in |
+
+Ép cả năm về một số là hoặc làm nặng thêm hàng đợi ngoại tuyến của Ghi nhanh,
+hoặc làm mờ ảnh album. Việc phải gom là **mã**, không phải **số**.
+
+**Vì sao tuỳ chọn có tên, không phải `nenAnh(f, 1280, 0.75)`:**
+
+Đọc lại sau ba tháng thì không ai đoán ra số nào là cạnh, số nào là chất lượng.
+`{ chatLuong: 0.75 }` thì đọc là hiểu, và thiếu một tuỳ chọn cũng không sai chỗ.
+
+**Cái được thêm mà không ai đòi:** ba trong năm bản cũ (Cambridge, Hành trình,
+Đón trả) không xoay ảnh theo chiều máy ảnh đã chụp. Bản dùng chung có, nên ảnh
+dọc chụp bằng điện thoại thôi lên màn hình gia đình ở tư thế nằm ngang.
+
+**Lý do thật sự đáng gom, và cũng là lý do có bộ canh riêng:** vẽ lại ảnh qua
+canvas rồi `toDataURL` là bước **duy nhất** bỏ được toạ độ GPS nhúng trong ảnh
+gốc. Ảnh trẻ chụp trong lớp mà còn kèm toạ độ trường là thứ không được để lọt.
+Bản chép thứ sáu nào gửi thẳng tệp gốc lên máy chủ sẽ **không bộ test nào khác
+bắt được** — nên `test/khe-uoc.test.mjs` đọc thẳng mã nguồn: ngoài
+`public/js/ui.js`, không tệp nào chạy trên máy người dùng được tự dựng canvas
+hay tự gọi `toDataURL`.
+
+**Đổi hướng thì tốn gì:** rẻ, vì giờ chỉ còn một chỗ. Nhận ảnh HEIC của iPhone,
+hạ trần dung lượng sau khi đo số thật ở nhóm thí điểm — đều sửa một chỗ.
+
 ---
 
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)

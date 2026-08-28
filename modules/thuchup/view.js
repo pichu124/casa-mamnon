@@ -295,49 +295,6 @@ App.views.thuchup = {
     const r = () => Math.floor(Math.random() * 1e9).toString(36);
     return `tc-${Date.now().toString(36)}-${r()}-${r()}`;
   },
-
-  // Ảnh máy ảnh điện thoại 3-8MB, sau bước này còn vài trăm KB — quan trọng vì
-  // ảnh phải nằm vừa trong máy lúc mất mạng rồi mới gửi đi sau.
-  nenAnh(file, maxDim = 1280, quality = 0.75) {
-    return new Promise((resolve, reject) => {
-      const xong = (bm, w0, h0) => {
-        const scale = Math.min(1, maxDim / Math.max(w0, h0));
-        const cv = document.createElement('canvas');
-        cv.width = Math.max(1, Math.round(w0 * scale));
-        cv.height = Math.max(1, Math.round(h0 * scale));
-        cv.getContext('2d').drawImage(bm, 0, 0, cv.width, cv.height);
-        resolve(cv.toDataURL('image/jpeg', quality));
-      };
-      if (window.createImageBitmap) {
-        createImageBitmap(file, { imageOrientation: 'from-image' })
-          .then(bm => xong(bm, bm.width, bm.height))
-          .catch(() => this.nenQuaImg(file, maxDim, quality).then(resolve, reject));
-        return;
-      }
-      this.nenQuaImg(file, maxDim, quality).then(resolve, reject);
-    });
-  },
-
-  nenQuaImg(file, maxDim, quality) {
-    return new Promise((resolve, reject) => {
-      const doc = new FileReader();
-      doc.onerror = () => reject(new Error('Không đọc được tệp'));
-      doc.onload = () => {
-        const img = new Image();
-        img.onerror = () => reject(new Error('Ảnh hỏng'));
-        img.onload = () => {
-          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-          const cv = document.createElement('canvas');
-          cv.width = Math.max(1, Math.round(img.width * scale));
-          cv.height = Math.max(1, Math.round(img.height * scale));
-          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-          resolve(cv.toDataURL('image/jpeg', quality));
-        };
-        img.src = doc.result;
-      };
-      doc.readAsDataURL(file);
-    });
-  },
 };
 
 // ===========================================================================
