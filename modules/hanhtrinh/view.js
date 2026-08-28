@@ -587,7 +587,7 @@ App.views.hanhtrinh = {
       const f = o.files && o.files[0];
       if (!f) return;
       try {
-        this._anhMoi = await this.nenAnh(f);
+        this._anhMoi = await UI.nenAnh(f);
         document.getElementById('ht-anh-xem').innerHTML =
           `<img src="${this._anhMoi}" alt="" style="width:100%;height:100%;object-fit:cover">`;
       } catch (err) {

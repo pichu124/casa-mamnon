@@ -212,7 +212,7 @@ App.views.cambridge = {
       if (!fs.length) return;
       try {
         this._anhMoi = [];
-        for (const f of fs) this._anhMoi.push(await this.nenAnh(f));
+        for (const f of fs) this._anhMoi.push(await UI.nenAnh(f, { canhToiDa: 1400 }));
         document.getElementById('cam-anh-nhac').textContent =
           `Đã chọn ${this._anhMoi.length} ảnh. Lưu xong sẽ thay toàn bộ ảnh cũ của bài.`;
       } catch (err) {

@@ -214,7 +214,7 @@ App.views.thuchup = {
       inp.remove();
       let dataUrl = null;
       if (f) {
-        try { dataUrl = await this.nenAnh(f); }
+        try { dataUrl = await UI.nenAnh(f, { chatLuong: 0.75 }); }
         catch (err) { UI.toast('Không đọc được ảnh, cô ghi chữ cũng được', 'error'); }
       }
       this.moForm(dataUrl);

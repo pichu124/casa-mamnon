@@ -239,7 +239,7 @@ App.views.albums = {
         continue;
       }
       try {
-        const dataUrl = await this.compress(f);
+        const dataUrl = await UI.nenAnh(f, { canhToiDa: 1600 });
         this._pending.push({ dataUrl, caption: '', name: f.name });
       } catch (_) {
         UI.toast(`Không đọc được ảnh "${f.name}"`, 'error');
