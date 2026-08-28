@@ -93,12 +93,63 @@ console.log('\n[2] Service worker');
   });
   check('KHÔNG lưu cache dữ liệu /api (bảo mật)', apiCached === false);
 
-  // Chạy khi mất mạng
+  // --- CHẠY KHI MẤT MẠNG -----------------------------------------------
+  //
+  // BẢN CŨ CỦA HAI PHÉP KIỂM NÀY LUÔN XANH DÙ APP HỎNG HẲN.
+  //
+  // Nó tắt mạng rồi chỉ hỏi hai điều: trang trả mã dưới 400, và trong DOM có
+  // phần tử `#app`. Cả hai luôn đúng — `#app` là một thẻ TĨNH viết cứng trong
+  // `public/index.html`, nên chỉ cần vỏ index.html nằm trong cache là nó có,
+  // kể cả khi service worker không lưu được một tệp JS nào và người dùng nhìn
+  // vào một trang trắng.
+  //
+  // Nay hỏi thứ chỉ đúng khi service worker thật sự làm việc:
+  //
+  //   1. Mã JS của vỏ ứng dụng CHẠY ĐƯỢC — `window.UI` và `window.App` tồn
+  //      tại. Nếu `/js/ui.js` không nằm trong cache thì thẻ <script> hỏng và
+  //      hai biến này không có, trong khi `#app` vẫn có.
+  //   2. MỌI tệp cần để dựng màn hình đầu tiên đều đã nằm trong cache. Đây là
+  //      thứ quyết định lần mở app lúc mất mạng có ra màn hình hay ra trang
+  //      trắng, và nó kiểm được chắc chắn vì đọc thẳng nội dung cache.
+  //
+  // CHỖ BÀI NÀY KHÔNG KIỂM ĐƯỢC, VÀ VÌ SAO
+  //
+  // `setOffline` của Playwright KHÔNG chặn fetch do service worker phát ra —
+  // đã thử: gọi `/api/auth/me` sau khi tắt mạng vẫn nhận 401 THẬT từ máy chủ,
+  // nghĩa là yêu cầu đi lọt ra ngoài. Nên nhánh 503 + `X-CASA-Mat-Mang` của
+  // service worker không thể kiểm ở đây; kiểm ở đây là tự lừa mình.
+  //
+  // Phần đó — cùng với đăng nhập rồi mất mạng, và hàng đợi Ghi nhanh tự gửi
+  // khi có sóng lại — nằm ở `test/ngoai-tuyen.test.mjs`, nơi service worker bị
+  // chặn hẳn (`serviceWorkers: 'block'`) và mạng bị cắt ở tầng route.
   await p.context().setOffline(true);
   const offl = await p.goto(BASE, { waitUntil: 'domcontentloaded' }).catch(() => null);
   check('mở được app khi mất mạng', !!offl && offl.status() < 400);
   const hasShell = await p.locator('#app').count();
   check('vỏ giao diện hiển thị khi offline', hasShell > 0);
+
+  const voChay = await p.evaluate(() => ({
+    ui: typeof window.UI, app: typeof window.App, esc: typeof (window.UI || {}).esc,
+  }));
+  check('MÃ JS CỦA VỎ ỨNG DỤNG CHẠY ĐƯỢC KHI MẤT MẠNG, không chỉ có cái khung rỗng',
+    voChay.ui === 'object' && voChay.app === 'object' && voChay.esc === 'function', voChay);
+
+  // Mọi tệp cần để dựng màn hình đầu tiên phải nằm sẵn trong cache. Thiếu một
+  // tệp trong danh sách này là lần mở app lúc mất mạng ra trang trắng — mà
+  // `#app` thì vẫn có, nên phép kiểm cũ vẫn xanh.
+  const CAN_CO = ['/index.html', '/css/app.css', '/js/api.js', '/js/ui.js',
+    '/js/app.js', '/js/views/login.js', '/js/views/dashboard.js'];
+  const thieu = await p.evaluate(async (ds) => {
+    const co = new Set();
+    for (const n of await caches.keys()) {
+      const c = await caches.open(n);
+      for (const k of await c.keys()) co.add(new URL(k.url).pathname);
+    }
+    return ds.filter(x => !co.has(x));
+  }, CAN_CO);
+  check('MỌI TỆP CẦN ĐỂ DỰNG MÀN HÌNH ĐẦU TIÊN ĐỀU ĐÃ NẰM TRONG CACHE',
+    thieu.length === 0, thieu);
+
   await p.context().setOffline(false);
   await ctx.close();
 }

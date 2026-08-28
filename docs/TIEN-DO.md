@@ -595,7 +595,7 @@ nói ra thứ nó đang hiện.**
 | Bộ | Số bài |
 |---|---|
 | `npm test` (không cần trình duyệt, ~12 phút) | **2435**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **368**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **370**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -630,7 +630,7 @@ Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so
 | `test:bien-soan-gd` | 112 | kế thừa | Cô soạn thật trên Chromium: điểm danh, thực đơn, đơn nghỉ, hồ sơ bé |
 | `test:man-phan-he` | 88 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng |
 | `test:album` | 45 | kế thừa | Tải ảnh thật lên, và đường nén ảnh dùng chung đi qua đây |
-| `test:pwa` | 43 | kế thừa | Cài được lên màn hình chính, service worker, icon |
+| `test:pwa` | 45 | kế thừa | Cài được lên màn hình chính, service worker, icon, và **mọi tệp cần để mở app lúc mất mạng đều nằm sẵn trong cache** |
 | `test:nhieu-nhom` | 38 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
 | `tinh-nang-giao-dien` | 27 | kế thừa | Bật/tắt phân hệ trên màn Quản trị |
 | `test:ngoai-tuyen` | 15 | **mới** | Mất mạng: app vẫn mở, vẫn ghi được, sóng về thì hàng đợi tự bay đi |
@@ -800,3 +800,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ23** — vòng sao lưu → mất → khôi phục nay kiểm đúng **byte của một tấm ảnh thật**; `restore.js` thôi im lặng bỏ qua ảnh trên đĩa khác với bản sao | Sổ việc 3 |
 | 28/08/2026 | **Đ24** — tầng chức vụ nay được thử THẬT với bốn phân hệ nhạy cảm nhất (Ghi nhanh, Hành trình, Kế hoạch của bé, Nhật ký ngày), cả chiều cấm lẫn chiều cho phép | Sổ việc 4 |
 | 28/08/2026 | **Đ25** — hai bộ canh QUY TẮC 2 và QUY TẮC 4 nay nhìn cả `public/js/ui.js` và `public/js/app.js` (trước chỉ quét `public/js/views`, nên hai tệp cả app dựa vào nằm ngoài tầm) | Sổ việc 10 |
+| 28/08/2026 | **Đ26** — hai phép kiểm "chạy khi mất mạng" của `test:pwa` thôi luôn xanh: thay bằng phép kiểm đọc thẳng nội dung cache, và ghi rõ chỗ `setOffline` của Playwright không kiểm được | Sổ việc 9 |
