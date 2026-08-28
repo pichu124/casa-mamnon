@@ -171,6 +171,34 @@ CREATE INDEX IF NOT EXISTS idx_leave_status ON leave_requests(status);
 --
 -- `hoanTienAn` để dạng chữ ('co' / 'khong') chứ không phải 0/1: cột kiểu số ở
 -- kho mã này đi qua BOOL_COLS, mà chỗ đó biến null thành 0 — đúng cái bẫy trên.
+-- ===== Chức vụ: tầng hẹp thêm bên cạnh vai =====
+--
+-- App có bốn VAI: parent · teacher · admin (+ chưa đăng nhập). Bốn vai đó là
+-- xương sống, và chúng KHÔNG đổi. Chức vụ là một tầng HẸP THÊM đặt bên cạnh,
+-- chỉ áp cho tài khoản `admin`:
+--
+--   Cấp 1  hieu-truong    — ban giám hiệu, thấy cả ba cơ sở
+--   Cấp 3  quanly-coso    — quản lý một cơ sở (đúng như Cấp 3 hiện có)
+--   Cấp 3  vanphong-coso  — văn phòng một cơ sở: hẹp hơn, không đụng tài khoản
+--   Cấp 2  nhansu · marketing · ketoan — nhân viên chéo cơ sở, mỗi người chỉ
+--          mở được đúng phần việc của mình
+--
+-- KHÔNG KHAI CHỨC VỤ = Y NHƯ HÔM NAY.
+--
+-- Đây là điều quan trọng nhất của cả tầng này. Bảng rỗng thì mọi tài khoản
+-- đang có chạy đúng như trước khi có nó — thêm một chức vụ chỉ BỚT quyền đi,
+-- không bao giờ thêm. Nhờ vậy tầng này không thể làm hỏng trường đang chạy,
+-- và bật nó lên là việc của nhà trường chứ không phải của một lần cập nhật mã.
+--
+-- Bảng RIÊNG chứ không thêm cột vào `users`: lược đồ lõi cấm ALTER TABLE, và
+-- `publicUser()` chỉ gạt `passwordHash` nên mọi cột khác của `users` đi thẳng
+-- tới ai xem được hồ sơ bé.
+CREATE TABLE IF NOT EXISTS user_chucvu (
+  userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  chucVu TEXT NOT NULL,
+  ganLuc TEXT
+);
+
 CREATE TABLE IF NOT EXISTS leave_refund (
   leaveId    TEXT PRIMARY KEY REFERENCES leave_requests(id) ON DELETE CASCADE,
   hoanTienAn TEXT NOT NULL DEFAULT '',
