@@ -377,5 +377,88 @@ console.log('\n[7] ẢNH TRONG BẢN SAO cũng phải được dọn — nhưng 
   donThuMucTam(D);
 }
 
+// ===========================================================================
+console.log('\n[8] VÒNG SAO LƯU → MẤT → KHÔI PHỤC PHẢI TRẢ LẠI ĐÚNG BYTE CỦA ẢNH');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Bảy mục trên chỉ đếm số bé trong tệp SQLite. Nhưng ảnh khuôn mặt trẻ, ảnh
+  // người được uỷ quyền đón, ảnh Ghi nhanh đều nằm NGOÀI cơ sở dữ liệu, trong
+  // `uploads/`. Và ảnh là thứ duy nhất trong cả app KHÔNG DỰNG LẠI ĐƯỢC nếu
+  // mất: bé đã lớn, khoảnh khắc đã qua, không ai chụp lại được nữa.
+  //
+  // `scripts/restore.js` có đoạn chép ảnh từ bản sao về (dòng ~247), nhưng
+  // trước mục này không bài nào chạy tới đoạn đó. Nó có thể hỏng hoàn toàn —
+  // đổi tên thư mục, đọc nhầm cấp, chép rỗng — mà cả 58 bài của tệp này vẫn
+  // xanh. Đúng kiểu "bài canh luôn đúng".
+  //
+  // Mục này đi trọn vòng đời thật: có ảnh → sao lưu → MẤT SẠCH uploads/ →
+  // khôi phục → so từng byte.
+  const D = thuMucTam('sao-luu-vong-anh');
+  fs.mkdirSync(D, { recursive: true });
+  sinhDuLieu(D);
+  const UP = path.join(D, 'uploads');
+  const chayD = (script, ...a) => spawnSync('node', [path.join(GOC, 'scripts', script), ...a],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D } });
+
+  // Ảnh JPEG thật 2x2 pixel — cùng tấm mà test/album.test.mjs dùng, nên đây là
+  // byte của một tệp ảnh hợp lệ chứ không phải chuỗi 'x' lặp lại.
+  const JPEG = Buffer.from(
+    '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a'
+    + 'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAACAAIBAREA/8QAHwAAAQUBAQEB'
+    + 'AQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1Fh'
+    + 'ByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZ'
+    + 'WmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXG'
+    + 'x8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/APn+iiiv/9k=', 'base64');
+  const TEN = 'a1b2c3d4e5f60718293a4b5c6d7e8f90.jpg';   // đúng dạng tên thật: 16 byte ngẫu nhiên
+  fs.mkdirSync(UP, { recursive: true });
+  fs.writeFileSync(path.join(UP, TEN), JPEG);
+
+  const l1 = chayD('backup.js');
+  check('sao lưu chạy xong khi có ảnh trong uploads/', l1.status === 0, (l1.stdout + l1.stderr).slice(-300));
+
+  // MẤT SẠCH — ổ hỏng, xoá nhầm, container dựng lại mà DATA_DIR trỏ vào chỗ trống.
+  fs.rmSync(UP, { recursive: true, force: true });
+  check('đã xoá sạch uploads/ để giả lập mất ảnh', !fs.existsSync(path.join(UP, TEN)));
+
+  // Làm hỏng luôn cơ sở dữ liệu để restore.js đi đúng đường thật của nó.
+  {
+    const db = new Database(path.join(D, 'school.db'));
+    db.pragma('foreign_keys = OFF');
+    db.exec('DELETE FROM students');
+    db.close();
+  }
+
+  const l2 = chayD('restore.js');
+  const chu2 = l2.stdout + l2.stderr;
+  check('khôi phục chạy xong không lỗi', l2.status === 0, chu2.slice(-400));
+  check('ẢNH QUAY LẠI SAU KHI KHÔI PHỤC', fs.existsSync(path.join(UP, TEN)),
+    fs.existsSync(UP) ? fs.readdirSync(UP) : 'không có thư mục uploads/');
+  check('VÀ QUAY LẠI ĐÚNG TỪNG BYTE, không phải một tệp rỗng cùng tên',
+    fs.existsSync(path.join(UP, TEN)) && fs.readFileSync(path.join(UP, TEN)).equals(JPEG),
+    fs.existsSync(path.join(UP, TEN)) ? fs.statSync(path.join(UP, TEN)).size : null);
+  check('và nói ra là đã khôi phục bao nhiêu ảnh', /Khôi phục thêm \d+ ảnh/.test(chu2), chu2.slice(-400));
+
+  // --- Chiều ngược: ảnh đang có mà KHÁC bản sao thì phải NÓI RA -------------
+  //
+  // restore.js cố ý không đè lên tệp đã có. Chọn vậy là đúng: tên tệp là 16 byte
+  // ngẫu nhiên nên trùng tên nghĩa là trùng ảnh, mà bản trên đĩa có thể mới hơn
+  // bản sao. Nhưng im lặng bỏ qua thì người vận hành — đang khôi phục vì nghi
+  // dữ liệu hỏng — không hề biết còn một tấm ảnh chưa được chữa.
+  fs.writeFileSync(path.join(UP, TEN), Buffer.from('hong'));   // tệp cụt, coi như hỏng
+  const l3 = chayD('restore.js');
+  const chu3 = l3.stdout + l3.stderr;
+  check('khôi phục lần hai vẫn chạy xong', l3.status === 0, chu3.slice(-400));
+  check('KHÔNG ĐÈ LÊN TỆP ĐANG CÓ — bản trên đĩa có thể mới hơn bản sao',
+    fs.readFileSync(path.join(UP, TEN)).toString() === 'hong',
+    fs.statSync(path.join(UP, TEN)).size);
+  check('NHƯNG NÓI RA LÀ CÓ ẢNH KHÁC VỚI BẢN SAO, không im lặng bỏ qua',
+    /khác với bản sao/i.test(chu3), chu3.slice(-500));
+  check('và chỉ đúng tên tấm ảnh đó để người vận hành soi được',
+    chu3.includes(TEN), chu3.slice(-500));
+
+  donThuMucTam(D);
+}
+
 donThuMucTam(DIR);
 tongKet();

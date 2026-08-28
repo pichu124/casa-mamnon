@@ -243,17 +243,44 @@ if (fs.existsSync(DB_FILE)) {
 
 fs.renameSync(tmp, DB_FILE);
 
-// Khôi phục ảnh album nếu bản sao lưu có kèm.
+// Khôi phục ảnh nếu bản sao lưu có kèm.
+//
+// Ảnh khuôn mặt trẻ, ảnh người được uỷ quyền đón, ảnh Ghi nhanh nằm NGOÀI cơ sở
+// dữ liệu. Đây là thứ duy nhất trong cả app không dựng lại được nếu mất.
+//
+// KHÔNG ĐÈ LÊN TỆP ĐANG CÓ. Tên tệp ảnh là 16 byte ngẫu nhiên (lib/uploads.js),
+// nên trùng tên nghĩa là trùng đúng tấm ảnh đó — mà bản trên đĩa có thể mới hơn
+// bản sao. Đè xuống là lấy bản cũ ghi chồng lên bản mới, mất luôn.
+//
+// NHƯNG PHẢI NÓI RA khi tệp trên đĩa KHÁC dung lượng với bản trong bản sao.
+// Người đang chạy lệnh này là người vừa nghi dữ liệu hỏng; im lặng bỏ qua một
+// tấm ảnh cụt là để họ tin rằng đã chữa xong trong khi chưa. Việc quyết định
+// lấy bản nào là của họ, không phải của script — script chỉ có nhiệm vụ đừng
+// giấu.
 const anhBackup = path.join(BACKUP_DIR, 'uploads');
 const anhDich = path.join(DATA_DIR, 'uploads');
 if (fs.existsSync(anhBackup)) {
   fs.mkdirSync(anhDich, { recursive: true });
   let n = 0;
+  const khac = [];
   for (const f of fs.readdirSync(anhBackup)) {
+    const src = path.join(anhBackup, f);
     const dst = path.join(anhDich, f);
-    if (!fs.existsSync(dst)) { fs.copyFileSync(path.join(anhBackup, f), dst); n++; }
+    if (!fs.existsSync(dst)) { fs.copyFileSync(src, dst); n++; continue; }
+    let cs = -1;
+    let cd = -2;
+    try { cs = fs.statSync(src).size; cd = fs.statSync(dst).size; } catch (_) { /* đọc không được thì coi như khác */ }
+    if (cs !== cd) khac.push({ ten: f, banSao: cs, trenDia: cd });
   }
   if (n) console.log(`Khôi phục thêm ${n} ảnh album`);
+  if (khac.length) {
+    console.log(`\n⚠  ${khac.length} ảnh trên đĩa KHÁC với bản sao — KHÔNG bị đè, xin tự xem:`);
+    for (const k of khac.slice(0, 20)) {
+      console.log(`   ${k.ten}  (trên đĩa ${k.trenDia} byte · bản sao ${k.banSao} byte)`);
+    }
+    if (khac.length > 20) console.log(`   … và ${khac.length - 20} tấm nữa`);
+    console.log(`   Bản trong bản sao nằm ở: ${anhBackup}`);
+  }
 }
 
 console.log('\nĐã khôi phục xong. Khởi động lại máy chủ và kiểm tra dữ liệu.');

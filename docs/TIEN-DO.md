@@ -594,7 +594,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2402**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2412**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **368**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -612,7 +612,7 @@ Các bộ **mới của app 2**, không có ở app 1:
 |---|---|---|
 | `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
 | `test:thuchup` | 69 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
-| `test:sao-luu` | 58 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
+| `test:sao-luu` | 68 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm — kể cả **byte của một tấm ảnh** |
 | `test:goi-ten` | 56 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:co-so` | 39 | Cách ly dữ liệu giữa ba cơ sở (Cấp 1 ↔ Cấp 3) |
 | `test:quy-tac-2` | 34 | QUY TẮC 2 — "chưa quan sát thấy" không bao giờ là một thất bại |
@@ -796,3 +796,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ18** — gia đình tự xem và tự rút được giấy đồng ý; đồng ý thì vẫn phải ký giấy ở văn phòng | Sổ việc 48 |
 | 28/08/2026 | **Đ21** — năm bản hàm nén ảnh gom về `UI.nenAnh`; ba màn thôi để ảnh dọc nằm ngang; bộ canh đọc mã cấm bản chép thứ sáu (bước duy nhất xoá toạ độ GPS trong ảnh) | Sổ việc 94, 146 |
 | 28/08/2026 | **Đ22** — bộ canh mới: mọi đường API trong `routes/` và `modules/*/routes.js` đọc dữ liệu của bé đều phải đi qua một hàm canh quyền (trước chỉ canh cho `routes/admin.js`) | Sổ việc 8 |
+| 28/08/2026 | **Đ23** — vòng sao lưu → mất → khôi phục nay kiểm đúng **byte của một tấm ảnh thật**; `restore.js` thôi im lặng bỏ qua ảnh trên đĩa khác với bản sao | Sổ việc 3 |

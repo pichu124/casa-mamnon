@@ -117,15 +117,16 @@ cho tới khi trả hết. Trống là tốt.
 | 28/08 | Bộ canh dữ liệu **bỏ lọt chính tệp mà `restore.js` sinh ra**: `school.db.truoc-khi-khoi-phuc-<số>` không khớp mẫu `*.db` của cả bộ canh lẫn `.gitignore` | app 2 — Đ4 | **app 1** | Loại 1, và là lỗ do chính kho mã tự mở ra sau mỗi lần khôi phục |
 | 28/08 | Hai bộ canh mật khẩu mẫu (`server.js`, `scripts/kiem-tra-may-chu.js`) chỉ soát đúng chuỗi trong `DEMO_PASSWORD`. Đặt biến đó thành một chuỗi ngẫu nhiên (`render.yaml` làm đúng vậy) là **mọi tài khoản còn giữ "123456" đều lọt, và bộ canh báo xanh trong khi cửa vẫn mở** | app 2 — Đ12 | **app 1** | Loại 1. Bản vá là soát CẢ chuỗi cấu hình LẪN "123456" — vài dòng, không đổi hành vi nào khác |
 | 28/08 | `scripts/backup.js` chép ảnh sang `backups/uploads` và **không bao giờ xoá**: vòng đời 7 ngày / 4 tuần / 12 tháng chỉ áp cho `school-*.db.gz`. Chỗ ảnh trong `DATA_DIR` luôn gấp đôi và chỉ tăng, tới lúc đầy ổ thì cô đăng ảnh giữa buổi là hỏng | app 2 — Đ17 | **app 1** | Loại 2 (đầy ổ → không ghi được nữa). Ở app 1 nhẹ hơn nhiều vì trường tiểu học gần như không có ảnh, nên **ưu tiên thấp** — nhưng cùng một đoạn mã |
+| 28/08 | `scripts/restore.js` **im lặng bỏ qua** mọi ảnh đã có sẵn trong `uploads/`, kể cả khi tệp trên đĩa khác hẳn bản trong bản sao (cụt, rỗng, hỏng). Người vận hành vừa khôi phục xong tưởng đã chữa hết, trong khi ảnh khuôn mặt trẻ vẫn đang hỏng — và ảnh là thứ duy nhất không dựng lại được | app 2 — Đ23 | **app 1** | Loại 2. Bản vá KHÔNG đè lên tệp đang có (tên tệp là 16 byte ngẫu nhiên nên trùng tên là trùng ảnh, mà bản trên đĩa có thể mới hơn) — chỉ **nói ra** danh sách tệp lệch dung lượng để người vận hành tự soi. Ở app 1 nhẹ hơn vì trường tiểu học gần như không có ảnh |
 
-> **Sáu món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
+> **Bảy món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
 > Ghi nợ ở đây là việc làm được ngay; trả nợ cần mở kho kia và đối chiếu từng
-> tệp, vì không chắc app 1 có dính đủ cả sáu hay không — mà ghi sổ sai còn tệ
+> tệp, vì không chắc app 1 có dính đủ cả bảy hay không — mà ghi sổ sai còn tệ
 > hơn sổ trống.
 
-### Còn hai món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn bốn món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Hai chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Bốn chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -136,6 +137,16 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
 - **`Dockerfile` dựng trên `node:22-alpine`** trong khi `better-sqlite3` chỉ có
   bản dựng sẵn cho glibc — lệnh build gãy ngay bước cài, và gãy ở chỗ khó đọc.
   Vá ở app 2 tại Đ12 bằng cách đổi sang `node:22-bookworm-slim`.
+- **Hàm nén ảnh bị chép nhiều bản** (`public/js/ui.js`, `public/js/views/albums.js`
+  — gom ở app 2 tại Đ21 thành `UI.nenAnh`). App 1 chỉ có một bản trong
+  `albums.js`, nên chưa phải nợ. Nhưng bản dùng chung có hai thứ app 1 cũng cần:
+  xoay ảnh theo chiều máy ảnh đã chụp, và một chỗ duy nhất để sau này thêm bước
+  xoá toạ độ GPS.
+- **Bộ canh "mọi đường API đọc dữ liệu của bé phải qua một hàm canh quyền"**
+  (`test/quyen-du-lieu-be.test.mjs`, thêm ở app 2 tại Đ22). Không phải bản vá
+  cho lỗi nào cả, nên không bắt buộc — nhưng app 1 đang chạy thật cho ~300 gia
+  đình và cũng chỉ canh quy định đó cho đúng một tệp. Chép sang được gần như
+  nguyên vẹn; chỉ phải chỉnh danh sách hàm canh cho khớp `lib/` bên đó.
 
 ---
 
