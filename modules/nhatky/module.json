@@ -1,0 +1,19 @@
+{
+  "key": "nhatky",
+  "name": "Nhật ký ngày",
+  "desc": "Ăn, ngủ, vệ sinh — trang sổ giấy gia đình đọc mỗi chiều",
+  "hash": "#/nhatky",
+  "view": "nhatky",
+  "emoji": "📔",
+  "bg": "linear-gradient(135deg,#7bb2f0,#4a86d8)",
+  "api": [
+    "/api/nhatky"
+  ],
+  "roles": [
+    "parent",
+    "teacher",
+    "admin"
+  ],
+  "defaultEnabled": false,
+  "version": "0.1.0"
+}
