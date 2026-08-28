@@ -187,6 +187,70 @@ window.UI = (() => {
     if (ov) ov.remove();
   }
 
+  // ===========================================================================
+  // NÉN ẢNH TRƯỚC KHI GỬI — MỘT BẢN DUY NHẤT CHO CẢ APP
+  // ===========================================================================
+  //
+  // Trước đợt này hàm nén ảnh có NĂM bản gần giống nhau (albums, Ghi nhanh,
+  // Hành trình, Cambridge, Đón trả), mỗi bản một bộ tham số. Ba trong năm bản
+  // không xoay ảnh theo chiều máy ảnh đã chụp, nên ảnh dọc chụp bằng điện thoại
+  // lên tới màn hình gia đình thì nằm ngang.
+  //
+  // Gom về một chỗ vì những việc sắp phải làm đều phải làm ĐỦ NĂM CHỖ nếu để
+  // nguyên: nhận ảnh HEIC của iPhone, hạ trần dung lượng khi đo được số thật ở
+  // nhóm thí điểm, và quan trọng nhất là XOÁ TOẠ ĐỘ GPS trong ảnh.
+  //
+  // Về GPS: vẽ lại ảnh qua canvas rồi `toDataURL` là ĐÃ bỏ toàn bộ phần thông
+  // tin đi kèm của tệp gốc — ngày giờ, kiểu máy, và toạ độ nơi chụp. Ảnh trẻ
+  // chụp trong lớp mà còn kèm toạ độ trường là thứ không được để lọt ra ngoài.
+  // Đây là lý do MỌI ảnh phải đi qua hàm này, kể cả khi tệp đã đủ nhỏ.
+  //
+  //   UI.nenAnh(file)                          → tối đa 1280px, chất lượng 0.82
+  //   UI.nenAnh(file, { canhToiDa: 640 })      → ảnh nhận mặt người đón
+  //   UI.nenAnh(file, { chatLuong: 0.75 })     → ảnh phải nằm chờ trong máy
+  //
+  // Trả về một Promise cho chuỗi data URL JPEG. Ném lỗi bằng tiếng Việt để chỗ
+  // gọi hiện thẳng ra được cho cô.
+  function nenAnh(file, tuyChon = {}) {
+    const canhToiDa = Number(tuyChon.canhToiDa) > 0 ? Number(tuyChon.canhToiDa) : 1280;
+    const chatLuong = Number(tuyChon.chatLuong) > 0 ? Number(tuyChon.chatLuong) : 0.82;
+
+    const veLai = (nguon, rong, cao) => {
+      const ti = Math.min(1, canhToiDa / Math.max(rong, cao));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(rong * ti));
+      canvas.height = Math.max(1, Math.round(cao * ti));
+      canvas.getContext('2d').drawImage(nguon, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', chatLuong);
+    };
+
+    // Cách dự phòng cho trình duyệt cũ không có createImageBitmap.
+    const quaTheImg = () => new Promise((resolve, reject) => {
+      const doc = new FileReader();
+      doc.onerror = () => reject(new Error('Không đọc được tệp ảnh'));
+      doc.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Tệp này không phải ảnh, hoặc ảnh bị hỏng'));
+        img.onload = () => {
+          try { resolve(veLai(img, img.width, img.height)); } catch (e) { reject(e); }
+        };
+        img.src = doc.result;
+      };
+      doc.readAsDataURL(file);
+    });
+
+    return new Promise((resolve, reject) => {
+      // createImageBitmap xoay ảnh theo đúng chiều máy ảnh đã chụp.
+      if (window.createImageBitmap) {
+        createImageBitmap(file, { imageOrientation: 'from-image' })
+          .then(bm => resolve(veLai(bm, bm.width, bm.height)))
+          .catch(() => quaTheImg().then(resolve, reject));
+        return;
+      }
+      quaTheImg().then(resolve, reject);
+    });
+  }
+
   const ATT_STATUS = {
     present: { label: 'Có mặt', cls: 'green', color: '#27ae60' },
     late: { label: 'Đến muộn', cls: 'orange', color: '#f2994a' },
@@ -204,5 +268,6 @@ window.UI = (() => {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
     pageHeader, avatar, emptyState, studentBar, thanhChonBe, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, RATING, DOW,
+    nenAnh,
   };
 })();
