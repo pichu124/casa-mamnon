@@ -17,6 +17,15 @@ module.exports = (app) => {
 
   // Bật hoặc tắt một phân hệ.
   app.put('/api/admin/modules/:key', requireRole('admin'), (req, res) => {
+    // CHỈ CẤP 1. Bật hay tắt một phân hệ là bật/tắt cho CẢ BA CƠ SỞ — cài đặt
+    // này nằm ở một bảng chung, không có bản riêng cho từng cơ sở. Quản lý cơ
+    // sở 1 tắt "Dặn thuốc" là cơ sở 2 và 3 cũng mất, mà họ không hiểu vì sao.
+    if (db.phamViCoSo(req.user) !== null) {
+      return res.status(403).json({
+        error: 'Bật hoặc tắt một tính năng ảnh hưởng tới cả ba cơ sở, nên chỉ '
+          + 'tài khoản quản trị toàn hệ thống mới làm được. Xin liên hệ ban giám hiệu.',
+      });
+    }
     const bat = !!(req.body || {}).enabled;
     try {
       modules.datTrangThai(req.params.key, bat);

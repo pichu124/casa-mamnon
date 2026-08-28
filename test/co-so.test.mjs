@@ -157,15 +157,32 @@ console.log('\n[4b] Gán tài khoản quản trị vào cơ sở — và hai ch�
   check('tự khoá hỏng thì tài khoản vẫn nguyên là Cấp 1',
     (await req('GET', '/api/students', { cookie: C1 })).data.length >= 9);
 
-  // CHỐT 2: phải luôn còn ít nhất một tài khoản Cấp 1.
+  // CHỐT 2 (SIẾT LẠI Ở N15): Cấp 3 KHÔNG CHẠM ĐƯỢC vào đường này.
   //
-  // Khoá nốt tài khoản Cấp 1 cuối cùng là không còn ai mở được màn hình này nữa.
-  // Sửa lại phải đụng thẳng vào cơ sở dữ liệu.
+  // Bản đầu để Cấp 3 gọi được và chỉ chặn bằng luật "phải còn ít nhất một Cấp
+  // 1". Luật đó canh chiều KHOÁ VÀO nhưng không canh chiều GỠ RA, nên Cấp 3
+  // chỉ cần gỡ khoá của CHÍNH MÌNH là thành Cấp 1 trong một lời gọi. Nay chặn
+  // ngay từ cửa: gán tài khoản vào cơ sở là việc của ban giám hiệu.
+  //
+  // Bài này CHẶT HƠN bản cũ chứ không lỏng hơn — người dùng đã duyệt việc siết.
   const khoaNot = await req('PUT', `/api/admin/managers/${c1.id}/campus`,
     { cookie: C3, body: { campusId: 'cs2' } });
-  check('KHÔNG cho khoá nốt tài khoản toàn hệ thống cuối cùng', khoaNot.status === 400, khoaNot.data);
-  check('và nói rõ phải tạo tài khoản toàn hệ thống khác trước',
-    /toàn hệ thống cuối cùng/.test(khoaNot.data?.error || ''), khoaNot.data?.error);
+  check('CẤP 3 KHÔNG GÁN ĐƯỢC CƠ SỞ CHO BẤT KỲ TÀI KHOẢN NÀO', khoaNot.status === 403, khoaNot.data);
+  check('và nói rõ đây là việc của quản trị toàn hệ thống',
+    /toàn hệ thống/.test(khoaNot.data?.error || ''), khoaNot.data?.error);
+
+  // Lối leo thang ngắn nhất: Cấp 3 tự gỡ khoá của chính mình.
+  const tuGo = await req('PUT', `/api/admin/managers/${c3.id}/campus`,
+    { cookie: C3, body: { campusId: '' } });
+  check('CẤP 3 KHÔNG TỰ GỠ KHOÁ CỦA MÌNH ĐỂ THÀNH CẤP 1', tuGo.status === 403, tuGo.data);
+  check('tự gỡ hỏng thì vẫn chỉ thấy cơ sở mình',
+    !(await req('GET', '/api/students', { cookie: C3 })).data.some(b => b.id === 's_cs2'));
+
+  // Và bất biến cũ vẫn đúng: sau mọi thao tác, luôn còn ít nhất một Cấp 1.
+  const conLai = await req('GET', '/api/admin/managers', { cookie: C1 });
+  check('LUÔN CÒN ÍT NHẤT MỘT TÀI KHOẢN CẤP 1 sau mọi thao tác ở trên',
+    (conLai.data || []).filter(u => u.cap === 1).length >= 1,
+    (conLai.data || []).map(u => `${u.username}:cấp ${u.cap}`));
 
   // Gỡ khoá thì quay lại Cấp 1 ngay, không cần khởi động lại.
   const go = await req('PUT', `/api/admin/managers/${c3.id}/campus`, { cookie: C1, body: { campusId: '' } });

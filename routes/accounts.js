@@ -20,11 +20,35 @@ function sinhMatKhauTam() {
 
 // Người dùng mà tài khoản hiện tại được phép cấp lại mật khẩu.
 // Cô: phụ huynh của trẻ trong CÁC nhóm mình phụ trách. Quản trị: mọi người trừ
-// chính mình.
+// chính mình — TRỪ hai chỗ nói ở dưới.
+//
+// ĐƯỜNG NÀY TỪNG LÀ LỐI LEO THANG QUYỀN NGẮN NHẤT TRONG CẢ APP (N15)
+//
+// Đường cấp lại mật khẩu TRẢ THẲNG mật khẩu tạm về cho người bấm — phải thế,
+// vì cô đọc nó qua điện thoại cho phụ huynh. Nhưng cộng với `role === 'admin'
+// thì được cấp cho mọi người`, một quản trị Cấp 3 chỉ cần ba lời gọi để thành
+// Cấp 1: xem danh sách quản trị, cấp lại mật khẩu cho tài khoản Cấp 1, rồi
+// đăng nhập bằng chính mật khẩu vừa nhận. Đã dựng lại được, và thành công.
+//
+// Mọi chốt chặn khác của tầng cơ sở đều vô nghĩa khi lối này còn mở, nên hai
+// vế dưới đây là phần quan trọng nhất của N15:
+//
+//   1. Quản trị Cấp 3 KHÔNG cấp lại mật khẩu cho tài khoản quản trị nào khác.
+//      Không phân biệt Cấp 1 hay Cấp 3 khác: cấp cho một Cấp 3 khác cũng là
+//      chiếm được cơ sở của người ta.
+//   2. Quản trị Cấp 3 chỉ cấp lại được cho cô và phụ huynh CỦA CƠ SỞ MÌNH.
+//
+// Trường chưa khai cơ sở nào thì `db.phamViCoSo` trả null và cả khối này nằm
+// im — quản trị giữ nguyên quyền như trước khi có N4.
 function coQuyenCapLai(actor, target) {
   if (!target || !target.active) return false;
   if (actor.id === target.id) return false;
-  if (actor.role === 'admin') return true;
+  if (actor.role === 'admin') {
+    const pham = db.phamViCoSo(actor);
+    if (pham === null) return true;
+    if (target.role === 'admin') return false;
+    return trongCoSo(target, pham);
+  }
   if (actor.role !== 'teacher') return false;
   if (target.role !== 'parent') return false;
   const nhom = db.classIdsOfTeacher(actor.id);
@@ -35,6 +59,28 @@ function coQuyenCapLai(actor, target) {
      JOIN students s ON s.id = sp.studentId
      WHERE sp.parentId = ? AND s.classId IN (${marks}) AND s.active = 1`,
     [target.id, ...nhom]) > 0;
+}
+
+// Một tài khoản cô hoặc phụ huynh có thuộc cơ sở này không.
+//
+// Cả hai đều KHÔNG có cơ sở của riêng mình — quan hệ đi vòng qua nhóm lớp:
+// cô thì qua nhóm cô phụ trách, phụ huynh thì qua nhóm con đang học. Người nào
+// không nối được tới nhóm nào của cơ sở này thì không thuộc về nó.
+function trongCoSo(target, campusId) {
+  const nhom = db.classIdsOfCampus(campusId);
+  if (!nhom.length) return false;
+  const marks = nhom.map(() => '?').join(',');
+  if (target.role === 'teacher') {
+    return db.classIdsOfTeacher(target.id).some(id => nhom.includes(id));
+  }
+  if (target.role === 'parent') {
+    return db.count(
+      `SELECT COUNT(*) FROM student_parents sp
+       JOIN students s ON s.id = sp.studentId
+       WHERE sp.parentId = ? AND s.classId IN (${marks}) AND s.active = 1`,
+      [target.id, ...nhom]) > 0;
+  }
+  return false;
 }
 
 module.exports = (app) => {

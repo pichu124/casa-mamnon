@@ -87,10 +87,30 @@ function lopDaDong(classId) {
   const lop = classId ? db.findClass(classId) : null;
   return lop && !lop.active ? lop : null;
 }
+// Ai còn "giữ" một nhóm ĐÃ ĐÓNG: cô từng phụ trách nhóm đó, và quản trị.
+//
+// QUẢN TRỊ CẤP 3 CHỈ GIỮ NHÓM CŨ CỦA CƠ SỞ MÌNH (N15).
+//
+// Chỗ này từng là lỗ rò nặng nhất còn sót lại sau khi vá routes/admin.js, và
+// nó nặng vì ba lẽ cộng lại:
+//
+//   • Nội dung là ẢNH KHUÔN MẶT TRẺ — nhóm dữ liệu nhạy cảm nhất của app.
+//   • Hàm này cũng quyết định quyền XOÁ (xoaDuocAlbum bên dưới), nên không chỉ
+//     là đọc trộm mà là XOÁ MẤT dữ liệu của cơ sở khác.
+//   • Nó chỉ mở ra với nhóm ĐÃ ĐÓNG, mà sau mỗi lần chuyển năm học thì mọi
+//     nhóm của năm cũ, ở CẢ BA CƠ SỞ, đều đã đóng. Tức là hết năm đầu tiên là
+//     gần như toàn bộ album của trường rơi vào diện này — lỗ rò lớn dần theo
+//     thời gian, đúng kiểu không ai để ý.
+//
+// Đã dựng lại được trước khi vá: quản lý cơ sở 1 liệt kê, mở (4 ảnh) và XOÁ
+// được album của nhóm đã đóng thuộc cơ sở 2.
 function laNguoiGiuLopCu(user, lop) {
   if (!lop) return false;
-  return user.role === 'admin'
-    || (user.role === 'teacher' && db.isTeacherOfClass(user.id, lop.id));
+  if (user.role === 'admin') {
+    const pham = db.phamViCoSo(user);
+    return pham === null || db.campusOfClass(lop.id) === pham;
+  }
+  return user.role === 'teacher' && db.isTeacherOfClass(user.id, lop.id);
 }
 function xemDuocAlbum(user, classId, ngayAlbum) {
   if (db.canAccessClass(user, classId)) return true;

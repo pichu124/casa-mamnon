@@ -111,6 +111,20 @@ export function ganPhuHuynh(dir, studentId, parentId) {
   `, [studentId, parentId]);
 }
 
+// Đóng một nhóm lớp (giả lập trạng thái sau khi chuyển năm học).
+//
+// Chưa có đường API nào đóng nhóm — việc đó chỉ xảy ra bên trong
+// POST /api/schoolyear/promote, và gọi cả quy trình chuyển năm chỉ để có một
+// nhóm đã đóng là kéo theo hàng chục thay đổi khác vào bài kiểm thử.
+//
+// Nhóm ĐÃ ĐÓNG là trạng thái đáng canh nhất của album: sau mỗi lần chuyển năm
+// học, MỌI nhóm của năm cũ ở CẢ BA CƠ SỞ đều rơi vào diện này.
+export function dongNhom(dir, classId) {
+  chayTrenCsdl(dir, `
+    db.prepare('UPDATE classes SET active = 0 WHERE id = ?').run(process.argv[2]);
+  `, [classId]);
+}
+
 // Chạy một đoạn mã ngắn trên cơ sở dữ liệu tạm, ngoài tiến trình bài kiểm thử.
 //
 // Dùng `execFileSync` chứ KHÔNG dựng chuỗi lệnh cho shell: đoạn mã nhiều dòng đi
