@@ -180,6 +180,77 @@ phản xạ, và lời hỏi thành vô dụng.
 
 ---
 
+## 11. Mất mạng thì giữ cô ở lại, không đá về màn đăng nhập
+
+**Chọn:** app phân biệt *mất mạng* với *hết phiên*. Mất mạng thì hiện một màn
+nói đúng chuyện đang xảy ra, có nút Thử lại, và **tự mở lại khi có sóng**. Đồng
+thời nạp sẵn màn hình của phân hệ từ bản lưu trong máy, để hàng đợi Ghi nhanh
+còn có người đẩy.
+
+**Vì sao:** trước đây mọi lỗi lúc khởi động đều đưa về màn đăng nhập — mà màn
+đăng nhập cũng phải gọi máy chủ. Cô đứng ở sân trường sóng yếu mở app ra là gặp
+một màn hình không làm gì được, kể cả Ghi nhanh, đúng thứ cả GĐ 0 dựng lên để
+hứa *"mất mạng vẫn ghi được"*.
+
+**Chỗ tôi tự quyết mà đáng anh biết:** máy chỉ nhớ lại **địa chỉ mấy tệp .js của
+phân hệ**, không nhớ một chữ nào về bé, về cô hay về trường. Điện thoại của cô
+có thể là máy dùng chung ở lớp, nên tôi cố ý KHÔNG lưu danh sách bé để "xem
+nguội" — dù làm vậy thì màn mất mạng sẽ hữu ích hơn. Có một bài test canh điều
+này: nó quét sạch bộ nhớ trong máy và đòi không có tên bé nào ở đó.
+
+**Đổi hướng thì tốn gì:** vừa. Muốn cô xem được danh sách bé lúc mất mạng thì
+phải bàn riêng chuyện dữ liệu trẻ nằm lại trong máy bao lâu và xoá lúc nào.
+
+---
+
+## 12. Bộ canh mật khẩu mẫu nay soát cả "123456", không chỉ chuỗi đang cấu hình
+
+**Chọn:** hai bộ canh (`server.js` và `scripts/kiem-tra-may-chu.js`) soát **cả
+hai**: chuỗi trong `DEMO_PASSWORD` lẫn `"123456"`.
+
+**Vì sao:** `render.yaml` đặt `DEMO_PASSWORD` bằng một chuỗi ngẫu nhiên. Bộ canh
+chỉ so đúng chuỗi đó, nên mọi tài khoản còn giữ `"123456"` — bản khôi phục từ
+sao lưu cũ, tài khoản tạo trước khi có biến này — đều lọt, và **bộ canh báo xanh
+trong khi cửa vẫn mở**. Đây là kiểu hỏng tệ nhất của một bộ canh.
+
+**Đổi hướng thì tốn gì:** rẻ.
+
+---
+
+## 13. `render.yaml` bị dán nhãn "chỉ để chạy thử"
+
+**Chọn:** giữ tệp lại nhưng mở đầu bằng một khối cảnh báo: Render không có máy
+ở Việt Nam, nên tệp này **không được dùng cho dữ liệu trẻ thật**. Đồng thời sửa
+tên dịch vụ và ổ đĩa về `casa-mamnon`, và nâng ổ từ 1 GB lên 20 GB. Có bài test
+canh: chừng nào còn `region: singapore` thì tệp phải còn cảnh báo.
+
+**Vì sao:** xoá tệp đi thì mất luôn đường dựng bản chạy thử. Để nguyên thì người
+triển khai sau tưởng dùng thật được — mà 1 GB ổ đĩa thì một tuần chụp ảnh là
+đầy, và đầy ổ nghĩa là cô đăng ảnh giữa buổi thì hỏng. Dán nhãn là đường ở giữa,
+và nó **canh được bằng máy**.
+
+**Cần anh gật:** hướng đúng vẫn là VPS trong nước đứng tên trường (mục N7) — chỗ
+này chỉ mua thời gian, không thay thế được.
+
+---
+
+## 14. Ảnh trong bản sao lưu nay được dọn — theo một luật cố ý dè dặt
+
+**Chọn:** ảnh trong `backups/uploads` chỉ bị xoá khi **mọi bản sao còn giữ đều
+được chụp SAU lúc tấm ảnh biến mất khỏi thư mục gốc**. Mốc "biến mất lúc nào"
+ghi vào một sổ nhỏ (`backups/uploads-da-vang.json`).
+
+**Vì sao:** vòng đời 7 ngày / 4 tuần / 12 tháng chỉ áp cho tệp `.db.gz`; ảnh thì
+chép vào rồi nằm đó vĩnh viễn. Chỗ ảnh trong `DATA_DIR` luôn gấp đôi và chỉ
+tăng, mà bản kế hoạch dự trù 80–160 GB ảnh cho ba cơ sở. Nhưng **dọn sai còn tệ
+hơn không dọn**: xoá tấm ảnh mà một bản sao cũ còn nhắc tới là khôi phục về
+album thủng lỗ, không lấy lại được. Nên luật ở trên sai về phía **giữ lâu hơn**,
+và mốc ghi lại cũng luôn muộn hơn lúc xoá thật.
+
+**Đổi hướng thì tốn gì:** rẻ — bỏ đoạn dọn đi là quay lại như cũ, không mất gì.
+
+---
+
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)
 
 Những mục dưới đây tôi **cố ý không tự chọn**, vì chọn sai thì phải sửa lược đồ

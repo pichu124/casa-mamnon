@@ -1,5 +1,15 @@
-# Ảnh chạy SchoolConnect. Dùng được cho Render, Railway, Fly.io hoặc máy chủ riêng.
-FROM node:22-alpine
+# Ảnh chạy CASA Mầm non. Dùng được cho Render, Railway, Fly.io hoặc máy chủ riêng.
+#
+# VÌ SAO KHÔNG DÙNG ALPINE
+#
+# Bản đầu ghi `node:22-alpine`. Alpine dùng thư viện C là musl, trong khi
+# better-sqlite3 chỉ phát hành bản dựng sẵn cho glibc — nên trên alpine nó phải
+# tự biên dịch lại từ mã C++, mà node:22-alpine không có python3, make hay g++.
+# Kết quả: `npm ci` gãy ngay bước cài, và gãy ở chỗ khó đọc.
+#
+# bookworm-slim là Debian, dùng glibc, nên bản dựng sẵn cài được thẳng. Ảnh nặng
+# hơn alpine chừng vài chục MB — đổi lấy một lệnh build chạy được.
+FROM node:22-bookworm-slim
 
 # Chạy bằng người dùng thường thay vì root cho an toàn.
 WORKDIR /app

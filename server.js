@@ -222,9 +222,17 @@ kiemTraViTriDuLieu();
 
 // Cảnh báo nếu đưa lên Internet mà vẫn dùng mật khẩu mẫu.
 function warnDefaultPasswords() {
-  const demo = process.env.DEMO_PASSWORD || '123456';
+  // SOÁT CẢ HAI MẬT KHẨU MẪU, KHÔNG CHỈ CÁI ĐANG CẤU HÌNH.
+  //
+  // render.yaml đặt DEMO_PASSWORD bằng một chuỗi Render tự sinh. Nếu chỉ soát
+  // đúng chuỗi đó thì mọi tài khoản còn giữ "123456" — bản khôi phục từ sao lưu
+  // cũ, tài khoản tạo trước khi có biến môi trường này — đều lọt, và bộ canh
+  // báo xanh trong khi cửa vẫn mở. Soát cả hai thì không sót đường nào.
+  const mauCu = '123456';
+  const demo = process.env.DEMO_PASSWORD || mauCu;
+  const dsMau = [...new Set([demo, mauCu])];
   const weak = db.all('users', 'SELECT id, passwordHash FROM users')
-    .filter(u => password.verify(demo, u.passwordHash));
+    .filter(u => dsMau.some(m => password.verify(m, u.passwordHash)));
   if (!weak.length) return;
   console.warn(
     `\n⚠️  CẢNH BÁO BẢO MẬT: ${weak.length} tài khoản vẫn dùng mật khẩu mẫu "${demo}".\n` +

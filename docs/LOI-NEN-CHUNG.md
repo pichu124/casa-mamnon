@@ -115,11 +115,27 @@ cho tới khi trả hết. Trống là tốt.
 | 27/08 | Khôi phục dữ liệu chạy được trong lúc máy chủ ĐANG chạy → SQLite ghi đè lẫn nhau, hỏng âm thầm | app 2 — `8560f9c` | **app 1** | Loại 2 (mất dữ liệu) |
 | 27/08 | `/healthz` công khai kể số phiên đăng nhập và thời gian chạy cho người **chưa đăng nhập** | app 2 — `616ce0c` | **app 1** | Loại 1. Cùng commit còn vá `restore:check` không đếm bảng phân công cô |
 | 28/08 | Bộ canh dữ liệu **bỏ lọt chính tệp mà `restore.js` sinh ra**: `school.db.truoc-khi-khoi-phuc-<số>` không khớp mẫu `*.db` của cả bộ canh lẫn `.gitignore` | app 2 — Đ4 | **app 1** | Loại 1, và là lỗ do chính kho mã tự mở ra sau mỗi lần khôi phục |
+| 28/08 | Hai bộ canh mật khẩu mẫu (`server.js`, `scripts/kiem-tra-may-chu.js`) chỉ soát đúng chuỗi trong `DEMO_PASSWORD`. Đặt biến đó thành một chuỗi ngẫu nhiên (`render.yaml` làm đúng vậy) là **mọi tài khoản còn giữ "123456" đều lọt, và bộ canh báo xanh trong khi cửa vẫn mở** | app 2 — Đ12 | **app 1** | Loại 1. Bản vá là soát CẢ chuỗi cấu hình LẪN "123456" — vài dòng, không đổi hành vi nào khác |
+| 28/08 | `scripts/backup.js` chép ảnh sang `backups/uploads` và **không bao giờ xoá**: vòng đời 7 ngày / 4 tuần / 12 tháng chỉ áp cho `school-*.db.gz`. Chỗ ảnh trong `DATA_DIR` luôn gấp đôi và chỉ tăng, tới lúc đầy ổ thì cô đăng ảnh giữa buổi là hỏng | app 2 — Đ17 | **app 1** | Loại 2 (đầy ổ → không ghi được nữa). Ở app 1 nhẹ hơn nhiều vì trường tiểu học gần như không có ảnh, nên **ưu tiên thấp** — nhưng cùng một đoạn mã |
 
-> **Bốn món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
+> **Sáu món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
 > Ghi nợ ở đây là việc làm được ngay; trả nợ cần mở kho kia và đối chiếu từng
-> tệp, vì không chắc app 1 có dính đủ cả bốn hay không — mà ghi sổ sai còn tệ
+> tệp, vì không chắc app 1 có dính đủ cả sáu hay không — mà ghi sổ sai còn tệ
 > hơn sổ trống.
+
+### Còn hai món KHÔNG bắt buộc, ghi lại cho khỏi quên
+
+Hai chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
+để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
+
+- **Mở app lúc mất mạng thì rơi về màn đăng nhập** (`public/js/app.js`,
+  `public/js/api.js`, `public/sw.js` — vá ở app 2 tại Đ12). Ở app 1 hậu quả nhẹ
+  hơn: phụ huynh tiểu học mở app lúc mất sóng thì chỉ chờ, không có việc gì đang
+  làm dở. Ở app 2 thì nó cắt đúng lời hứa "mất mạng vẫn ghi được" của cô.
+- **`Dockerfile` dựng trên `node:22-alpine`** trong khi `better-sqlite3` chỉ có
+  bản dựng sẵn cho glibc — lệnh build gãy ngay bước cài, và gãy ở chỗ khó đọc.
+  Vá ở app 2 tại Đ12 bằng cách đổi sang `node:22-bookworm-slim`.
 
 ---
 

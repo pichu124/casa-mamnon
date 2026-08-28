@@ -458,4 +458,51 @@ console.log('\n[9] Vùng quét không được thu hẹp lặng lẽ');
   }
 }
 
+// ===========================================================================
+console.log('\n[10] Tệp cấu hình triển khai — chỗ bộ quét ở trên KHÔNG với tới');
+{
+  // `cacTep` chỉ nhận .js, .html, .json, nên render.yaml và Dockerfile nằm
+  // ngoài tầm với của mọi mục phía trên. Đó đúng là chỗ tên của app 1 sống dai
+  // nhất: tên dịch vụ, tên ổ đĩa, dòng đầu Dockerfile — ba chỗ không ai mở ra
+  // đọc cho tới lúc triển khai.
+  //
+  // Ở đây so chữ thẳng, không lọc chú thích: mấy tệp này không có chú thích
+  // nào cần nhắc tên app 1 cả.
+  for (const t of ['render.yaml', 'Dockerfile', '.dockerignore']) {
+    const p = path.join(GOC, t);
+    if (!fs.existsSync(p)) { check(`${t} tồn tại`, false, 'không tìm thấy'); continue; }
+    const noiDung = fs.readFileSync(p, 'utf8');
+    check(`${t} không còn mang tên app 1`, !/schoolconnect/i.test(noiDung),
+      (noiDung.split('\n').find(d => /schoolconnect/i.test(d)) || '').trim());
+  }
+
+  // HAI CON SỐ TRONG render.yaml ĐÁNG CANH RIÊNG, VÌ SAI THÌ KHÔNG AI THẤY.
+  const rd = fs.readFileSync(path.join(GOC, 'render.yaml'), 'utf8');
+
+  // (1) Ổ đĩa. 1 GB là con số kế thừa từ app 1 — trường tiểu học gần như không
+  //     có ảnh. Ở đây một tuần chụp là đầy, và đầy ổ nghĩa là cô đăng ảnh lên
+  //     thì hỏng, giữa buổi, không ai hiểu vì sao.
+  const co = /sizeGB:\s*(\d+)/.exec(rd);
+  check('render.yaml khai ổ đĩa lớn hơn con số kế thừa từ app 1',
+    !!co && Number(co[1]) >= 10, co && co[1]);
+
+  // (2) Máy đặt ngoài Việt Nam. Render không có vùng nào trong nước, nên chừng
+  //     nào tệp này còn `region: singapore` thì nó PHẢI mang cảnh báo — dữ liệu
+  //     ở đây là ảnh khuôn mặt và hồ sơ sức khoẻ của trẻ dưới 6 tuổi, thuộc
+  //     nhóm nhạy cảm của NĐ 13/2023 và Luật 91/2025. Bỏ cảnh báo đi là để
+  //     người triển khai sau tưởng tệp này dùng thật được.
+  if (/region:\s*singapore/.test(rd)) {
+    check('render.yaml nói rõ máy đặt NGOÀI Việt Nam', /NGOÀI/i.test(rd));
+    check('và nói rõ chỉ dùng để chạy thử, không dùng cho dữ liệu trẻ thật',
+      /CHỈ ĐỂ CHẠY THỬ/i.test(rd) && /13\/2023/.test(rd));
+  }
+
+  // Alpine + better-sqlite3 = phải biên dịch lại từ mã C++, mà ảnh alpine của
+  // Node không có sẵn python3/make/g++. Lệnh build gãy ngay bước cài.
+  const df = fs.readFileSync(path.join(GOC, 'Dockerfile'), 'utf8');
+  check('Dockerfile KHÔNG dựng trên alpine (better-sqlite3 không có bản dựng sẵn cho musl)',
+    !/^FROM\s+\S*alpine/mi.test(df),
+    (df.split('\n').find(d => /^FROM/i.test(d)) || '').trim());
+}
+
 tongKet();

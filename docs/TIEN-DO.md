@@ -13,8 +13,14 @@ Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.
 | | |
 |---|---|
 | Nền nhân bản từ | app 1 (SchoolConnect), điểm tách `bc9dfa3` |
-| Giai đoạn hiện tại | **GĐ 0 — dựng nền** |
+| Giai đoạn hiện tại | **sau GĐ 2** — GĐ 0, GĐ 1, GĐ 2 đã xong phần mã; đang dọn tồn đọng |
+| Ba cổng DỪNG | **cả ba chưa mở** — chưa thử trên điện thoại thật của cô (GĐ 0), chưa có nhóm thí điểm chạy song song sổ giấy (GĐ 1), chưa có bé nào có câu chuyện học tập gia đình đọc được (GĐ 2) |
 | Đã chạy thật ở trường | **chưa** |
+
+> **Đọc bảng trên cho đúng.** "Đã xong phần mã" của một giai đoạn KHÔNG có nghĩa
+> là giai đoạn đó đã qua. Mỗi giai đoạn có một cổng DỪNG mà chỉ nhà trường mở
+> được — và cả ba cổng đều đang đóng. Tám phân hệ mầm non hiện **mặc định TẮT**,
+> nghĩa là chưa ai từng nhìn app ở đúng trạng thái trường sẽ dùng.
 
 ---
 
@@ -748,3 +754,11 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | Dữ liệu mẫu có **nhóm nhà trẻ**: ba bé 14 / 34 / 38 tháng | N20 |
 | 28/08/2026 | Bé 14 tháng thôi bị gọi là "1 tuổi" — vá cả hai bản của hàm tính tuổi | N21 |
 | 28/08/2026 | Số đếm của dữ liệu mẫu khai một chỗ, có bài canh cho chính hằng số đó | N22 |
+| 28/08/2026 | **Đ1** — ảnh Cambridge phải đi qua luật ảnh nhóm, kèm ô "ảnh không có mặt bé nào" làm đường ra | Sổ việc 31 |
+| 28/08/2026 | **Đ2** — một định nghĩa duy nhất cho chữ "hôm nay" (`lib/ngay.js`, UTC+7 đóng cứng) | Sổ việc 43 |
+| 28/08/2026 | **Đ3** — chuyển năm học giữ đúng cơ sở, không gộp nhóm trùng tên của ba cơ sở | Sổ việc 27, 32, 42 |
+| 28/08/2026 | **Đ4** — bộ canh dữ liệu bỏ lọt chính tệp mà `restore.js` sinh ra | Sổ việc 41 |
+| 28/08/2026 | **Đ5 + Đ6** — tắt sẵn màn "Hồ sơ con đã ra trường" và gỡ phần điểm số; dấu phiên bản cho `view.js` của phân hệ | Sổ việc 37, 10, 36 |
+| 28/08/2026 | **Đ7 + Đ8 + Đ10** — tám màn phân hệ chạy trên Chromium thật lần đầu; Nhật ký "áp cả nhóm" thôi ghi đè và giữ nháp; hàng đợi Ghi nhanh tự gửi khi có mạng lại | Sổ việc 1, 6, 11, 26, 38, 54 |
+| 28/08/2026 | **Đ9 + Đ11** — Hành trình hiện lại ảnh và chép được cả chữ lẫn ảnh từ Ghi nhanh; ba bộ canh thôi tự cho mình qua | Sổ việc 39, 40, 50, 51 · 2, 5, 7 |
+| 28/08/2026 | **Đ17** — ảnh trong bản sao lưu được dọn (theo luật cố ý dè dặt); hai bộ canh mật khẩu mẫu thôi báo xanh oan; `render.yaml` và `Dockerfile` thôi mang tên app 1 và thôi gãy lúc build | Sổ việc 45, 33, 105, 115, 116 |

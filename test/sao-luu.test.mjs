@@ -311,5 +311,71 @@ console.log('\n[6] Không có bản sao lưu nào thì nói rõ, không nổ');
   donThuMucTam(rong);
 }
 
+// ===========================================================================
+console.log('\n[7] ẢNH TRONG BẢN SAO cũng phải được dọn — nhưng không dọn sớm một giây nào');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Vòng đời 7 ngày / 4 tuần / 12 tháng ở mục 3 của backup.js chỉ áp cho tệp
+  // school-*.db.gz. Ảnh thì chép vào backups/uploads rồi nằm đó VĨNH VIỄN, kể
+  // cả khi cô đã xoá tấm ảnh khỏi album từ lâu. Nghĩa là chỗ ảnh trong DATA_DIR
+  // luôn gấp đôi và chỉ tăng — bản kế hoạch dự trù 80–160 GB ảnh cho ba cơ sở,
+  // tức phải chuẩn bị 160–320 GB thật.
+  //
+  // Nhưng dọn sai còn tệ hơn không dọn: xoá tấm ảnh mà một bản sao cũ còn nhắc
+  // tới là khôi phục về album thủng lỗ, không lấy lại được. Nên bài này canh cả
+  // hai chiều, và chiều KHÔNG ĐƯỢC XOÁ đứng trước.
+  const D = thuMucTam('sao-luu-anh');
+  fs.mkdirSync(D, { recursive: true });
+  sinhDuLieu(D);
+  const UP = path.join(D, 'uploads');
+  const BK = path.join(D, 'backups');
+  const BKUP = path.join(BK, 'uploads');
+  fs.mkdirSync(UP, { recursive: true });
+  const chayD = (...a) => spawnSync('node', [path.join(GOC, 'scripts', 'backup.js'), ...a],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D } });
+
+  fs.writeFileSync(path.join(UP, 'anh-con-dung.jpg'), 'x'.repeat(600));
+  fs.writeFileSync(path.join(UP, 'anh-se-bi-xoa.jpg'), 'y'.repeat(600));
+  chayD();
+  check('lần sao lưu đầu chép cả hai tấm ảnh sang bản sao',
+    fs.existsSync(path.join(BKUP, 'anh-con-dung.jpg'))
+    && fs.existsSync(path.join(BKUP, 'anh-se-bi-xoa.jpg')));
+
+  // Cô xoá một tấm khỏi album. Bản sao vừa chụp ở trên VẪN CÒN nhắc tới nó.
+  fs.unlinkSync(path.join(UP, 'anh-se-bi-xoa.jpg'));
+  const l2 = chayD();
+  check('ẢNH VỪA XOÁ VẪN CÒN TRONG BẢN SAO — bản sao cũ hơn còn cần tới nó',
+    fs.existsSync(path.join(BKUP, 'anh-se-bi-xoa.jpg')), l2.stdout.slice(-300));
+  check('và sổ ghi lại mốc lần đầu thấy nó vắng mặt',
+    fs.existsSync(path.join(BK, 'uploads-da-vang.json')));
+
+  // Nay dồn cho mọi bản sao còn giữ đều MỚI HƠN lúc ảnh biến mất. Lúc đó không
+  // bản nào nhắc tới tấm ảnh nữa, và chỗ đĩa nó chiếm là chỗ chết.
+  const soVang = JSON.parse(fs.readFileSync(path.join(BK, 'uploads-da-vang.json'), 'utf8'));
+  check('sổ ghi đúng tên tấm ảnh đã vắng', !!soVang['anh-se-bi-xoa.jpg'], soVang);
+  soVang['anh-se-bi-xoa.jpg'] = new Date(Date.now() - 400 * 86400000).toISOString();
+  fs.writeFileSync(path.join(BK, 'uploads-da-vang.json'), JSON.stringify(soVang));
+
+  const l3 = chayD();
+  check('KHI KHÔNG BẢN SAO NÀO CÒN CẦN, ẢNH TRONG BẢN SAO ĐƯỢC DỌN',
+    !fs.existsSync(path.join(BKUP, 'anh-se-bi-xoa.jpg')), l3.stdout.slice(-400));
+  check('và nói ra là đã dọn bao nhiêu', /Đã dọn \d+ ảnh/.test(l3.stdout), l3.stdout.slice(-400));
+
+  // Chiều còn lại, quan trọng hơn: ảnh vẫn đang dùng thì tuyệt đối không đụng.
+  check('ẢNH CÒN ĐANG DÙNG KHÔNG BAO GIỜ BỊ DỌN',
+    fs.existsSync(path.join(BKUP, 'anh-con-dung.jpg')));
+  check('và nó vẫn còn nguyên trong thư mục gốc',
+    fs.existsSync(path.join(UP, 'anh-con-dung.jpg')));
+
+  // Nói thẳng chuyện bản sao nằm cùng ổ đĩa với dữ liệu gốc.
+  check('CẢNH BÁO bản sao nằm cùng ổ đĩa với dữ liệu gốc',
+    /CÙNG Ổ ĐĨA/.test(l3.stdout), l3.stdout.slice(-400));
+  check('và mách luôn lệnh sao lưu ra nơi khác',
+    /--out/.test(l3.stdout), l3.stdout.slice(-400));
+
+  donThuMucTam(D);
+}
+
 donThuMucTam(DIR);
 tongKet();

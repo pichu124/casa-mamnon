@@ -137,9 +137,15 @@ kiem('Cơ sở dữ liệu', () => {
 kiem('Mật khẩu mẫu', () => {
   if (!sqlite) { boQua('Mật khẩu mẫu', 'chưa mở được cơ sở dữ liệu'); return; }
   const password = require('../lib/password');
-  const mau = process.env.DEMO_PASSWORD || '123456';
+  // Soát CẢ HAI mật khẩu mẫu — xem chú thích cùng nội dung ở server.js. Chỉ
+  // soát chuỗi Render tự sinh thì tài khoản còn giữ "123456" lọt hết.
+  const MAU_CU = '123456';
+  const mau = process.env.DEMO_PASSWORD || MAU_CU;
+  const dsMau = [...new Set([mau, MAU_CU])];
   const yeu = sqlite.prepare('SELECT id, username, passwordHash FROM users WHERE active = 1').all()
-    .filter(u => { try { return password.verify(mau, u.passwordHash); } catch { return false; } });
+    .filter(u => {
+      try { return dsMau.some(m => password.verify(m, u.passwordHash)); } catch { return false; }
+    });
   if (!yeu.length) {
     dat('Mật khẩu mẫu', 'không còn tài khoản nào dùng mật khẩu mẫu');
     return;

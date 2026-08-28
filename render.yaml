@@ -1,6 +1,21 @@
 # Cấu hình triển khai lên Render (https://render.com).
 # Cách dùng: đẩy mã nguồn lên GitHub → Render → New → Blueprint → chọn kho này.
 #
+# ===========================================================================
+# ⛔  TỆP NÀY CHỈ ĐỂ CHẠY THỬ. KHÔNG ĐƯỢC DÙNG CHO DỮ LIỆU TRẺ THẬT.
+#
+# Render không có máy chủ đặt tại Việt Nam. Ổ gần nhất là Singapore, tức là
+# NGOÀI LÃNH THỔ. Dữ liệu ở app này là thông tin trẻ 12 tháng – 6 tuổi, ảnh
+# khuôn mặt và hồ sơ sức khoẻ — nhóm dữ liệu nhạy cảm theo Nghị định
+# 13/2023/NĐ-CP và Luật 91/2025/QH15. Đưa nhóm dữ liệu đó ra nước ngoài kéo
+# theo thủ tục chuyển dữ liệu xuyên biên giới mà trường chưa làm, và cũng
+# không nên phải làm.
+#
+# Hướng đúng là VPS đặt trong nước, đứng tên trường — mục N7 của
+# docs/TIEN-DO.md, đang chờ nhà trường quyết. Chừng nào chưa có, tệp này chỉ
+# dùng để dựng bản chạy thử với DỮ LIỆU GIẢ.
+# ===========================================================================
+#
 # ---------------------------------------------------------------------------
 # ⚠️  LẦN TRIỂN KHAI ĐẦU TIÊN SẼ KHÔNG LÊN ĐƯỢC — ĐỌC TRƯỚC KHI BẤM DEPLOY
 #
@@ -18,17 +33,17 @@
 # Hai đường đi thật, chọn một trước khi triển khai:
 #   [A] Máy chủ riêng / VPS thay cho Render — chạy `npm run create-admin` qua
 #       SSH trước khi bật dịch vụ. Đây là hướng đang chờ quyết định ở mục N7
-#       của docs/TIEN-DO.md.
+#       của docs/TIEN-DO.md, và cũng là hướng duy nhất dùng được với trẻ thật.
 #   [B] Ở lại Render thì phải chạy được một lệnh một lần trên ổ đĩa đó trước
 #       (Render Job gắn cùng disk, hoặc tải sẵn cơ sở dữ liệu đã có tài khoản
 #       quản trị lên). Chưa thử đường này lần nào — thử trước khi hẹn với trường.
 # ---------------------------------------------------------------------------
 services:
   - type: web
-    name: schoolconnect
+    name: casa-mamnon
     runtime: node
     plan: starter          # gói starter trở lên mới gắn được ổ đĩa lưu dữ liệu
-    region: singapore      # gần Việt Nam nhất
+    region: singapore      # NGOÀI VIỆT NAM — xem cảnh báo đầu tệp
     buildCommand: npm install --omit=dev
     startCommand: node server.js
     healthCheckPath: /healthz
@@ -39,9 +54,23 @@ services:
         value: /data       # trỏ vào ổ đĩa bên dưới để dữ liệu không mất
       - key: FORCE_HTTPS
         value: "1"
+      # DEMO_PASSWORD chỉ có tác dụng với dữ liệu mẫu, mà dữ liệu mẫu KHÔNG
+      # được sinh ở chế độ production. Để Render tự sinh một chuỗi ngẫu nhiên
+      # cho chắc; hai bộ canh mật khẩu mẫu (server.js và scripts/kiem-tra-may-chu.js)
+      # nay soát CẢ chuỗi này LẪN "123456", nên đặt gì ở đây cũng không làm
+      # chúng ngơ đi được.
       - key: DEMO_PASSWORD
-        generateValue: true  # Render tự sinh mật khẩu ban đầu, xem trong tab Environment
+        generateValue: true
     disk:
-      name: schoolconnect-data
+      name: casa-mamnon-data
       mountPath: /data
-      sizeGB: 1
+      # ẢNH LÀ THỨ CHIẾM CHỖ, KHÔNG PHẢI CHỮ.
+      #
+      # 1 GB là con số kế thừa từ app 1 (tiểu học, gần như không có ảnh). Bản
+      # kế hoạch dự trù 80–160 GB ảnh cho ba cơ sở mầm non, và bản sao lưu nằm
+      # cùng ổ nên phải cộng thêm phần của nó. Một tuần chụp ảnh là 1 GB đầy.
+      #
+      # Con số dưới đây là mức TỐI THIỂU để chạy thử vài tuần với dữ liệu giả.
+      # Trước khi trường dùng thật phải tính lại theo docs/KE-HOACH.md mục 7 —
+      # và lúc đó thì đã sang VPS trong nước rồi, không dùng tệp này nữa.
+      sizeGB: 20
