@@ -505,3 +505,33 @@ hoặc phải làm lại quy trình — đắt hơn nhiều so với chờ một
 | — | Nội dung tờ Cambridge & Kết nối ở nhà gồm những gì | Lược đồ đang để rộng có chủ ý; chốt rồi mới thêm ô được |
 | — | Mẫu báo cáo phòng GD yêu cầu | Chưa có mẫu thì không xuất đúng mẫu được |
 | — | Chọn nhóm thí điểm, phát và thu giấy đồng ý | Ba cổng DỪNG của GĐ 0, GĐ 1, GĐ 2 đều đang chờ chỗ này |
+
+### Một chỗ tôi thấy nhưng KHÔNG tự sửa: `UI.RATING`
+
+`public/js/ui.js` còn hằng `UI.RATING` — ba mức **"Con làm rất tốt" / "Con làm
+tốt" / "Cần cố gắng thêm"**, kế thừa từ app 1. Ba tệp còn gọi tới nó:
+`views/remarks.js`, `views/hocsinhcu.js`, và `routes/remarks.js` (hằng `RATINGS`
+với `great` / `good` / `needs_effort`).
+
+**Vì sao tôi nêu:** ba mức xếp trên dưới về một đứa trẻ là đúng thứ QUY TẮC 4
+cấm — chỉ khác là nó không dùng chữ "điểm" hay "xếp hạng" nên không bộ canh nào
+bắt được, kể cả sau khi Đ25 mở rộng vùng quét tới `ui.js`.
+
+**Vì sao tôi không tự sửa:**
+
+1. `public/js/ui.js` là **tệp dùng chung** — luật là *chỉ được thêm, không đổi
+   và không bỏ thứ đang có*.
+2. Cả hai màn dùng nó (Nhận xét hàng ngày, Hồ sơ con đã ra trường) **đã tắt sẵn**
+   từ A2 và Đ5, nên hôm nay không phụ huynh nào nhìn thấy ba mức đó.
+3. Gỡ hẳn thuộc bước 2 của món nợ N3 — phần **không được duyệt**.
+
+**Ba đường đi, tôi nghiêng về đường 2:**
+
+| | Làm gì | Được | Mất |
+|---|---|---|---|
+| 1 | Để nguyên | Không tốn gì | Bật lại Nhận xét hàng ngày là vi phạm QUY TẮC 4 ngay, mà không bộ canh nào kêu |
+| 2 | **Thêm một dấu hiệu cho bộ canh QUY TẮC 4 bắt được ba mức này, và ghi `ui.js` vào sổ nợ N3** | Từ nay không ai vô tình chép mẫu ba-mức sang chỗ khác | Phải nới luật "danh sách tệp nợ chỉ được ngắn đi" của `test/quy-tac-4.test.mjs` — mà đó là bộ canh bất khả xâm phạm, nên **phải hỏi** |
+| 3 | Gỡ `UI.RATING` theo ba bước của luật tệp dùng chung | Sạch hẳn | Thuộc phần gỡ chưa được duyệt |
+
+Đường 2 chỉ đắt ở chỗ nó đụng vào một bộ canh bất khả xâm phạm. Cần một câu
+"được" của anh là làm trong một commit.

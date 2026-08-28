@@ -37,7 +37,10 @@ const { check, tongKet } = taoBoDem();
 
 // Quét đúng những nơi CHỮ VÀ MÀU được quyết định, cộng máy chủ vì chỉ tiêu và
 // phép đếm sinh ra ở đó.
-const VUNG_QUET = ['public/js/views', 'modules', 'routes', 'data/seed.js'];
+// Quét CẢ `public/js`, không chỉ `public/js/views` — `ui.js` và `app.js` cũng
+// vẽ chữ và màu ra màn hình, mà lại là hai tệp cả ứng dụng dựa vào. Đổi chứ
+// không thêm: `cacTep` đi vào cả thư mục con, để cả hai là đếm hai lần.
+const VUNG_QUET = ['public/js', 'modules', 'routes', 'data/seed.js'];
 
 // Nhãn của hai trạng thái "chưa". Đây là thứ bài này đi tìm xung quanh.
 const NHAN_CHUA = /chua-quan-sat-thay|chua-day|Chưa quan sát thấy|Chưa dạy/;
@@ -267,7 +270,8 @@ console.log('\n[7] Bộ canh quét đúng chỗ, và không bị thu hẹp lặn
   // mục thật, và lạc hậu về phía NỚI RA.
   check('quét cả thư mục modules, không liệt kê tay từng phân hệ',
     VUNG_QUET.includes('modules') && !VUNG_QUET.some(v => v.startsWith('modules/')), VUNG_QUET);
-  check('quét cả màn hình lõi', VUNG_QUET.includes('public/js/views'), VUNG_QUET);
+  check('quét cả màn hình lõi VÀ hai tệp dùng chung ui.js/app.js',
+    VUNG_QUET.includes('public/js'), VUNG_QUET);
   check('quét cả máy chủ — chỉ tiêu và phép đếm sinh ra ở đó', VUNG_QUET.includes('routes'), VUNG_QUET);
 
   // BÀI NÀY TỪNG NÓI MỘT ĐẰNG, KIỂM MỘT NẺO.

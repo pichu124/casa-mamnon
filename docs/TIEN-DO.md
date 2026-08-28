@@ -799,3 +799,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ22** — bộ canh mới: mọi đường API trong `routes/` và `modules/*/routes.js` đọc dữ liệu của bé đều phải đi qua một hàm canh quyền (trước chỉ canh cho `routes/admin.js`) | Sổ việc 8 |
 | 28/08/2026 | **Đ23** — vòng sao lưu → mất → khôi phục nay kiểm đúng **byte của một tấm ảnh thật**; `restore.js` thôi im lặng bỏ qua ảnh trên đĩa khác với bản sao | Sổ việc 3 |
 | 28/08/2026 | **Đ24** — tầng chức vụ nay được thử THẬT với bốn phân hệ nhạy cảm nhất (Ghi nhanh, Hành trình, Kế hoạch của bé, Nhật ký ngày), cả chiều cấm lẫn chiều cho phép | Sổ việc 4 |
+| 28/08/2026 | **Đ25** — hai bộ canh QUY TẮC 2 và QUY TẮC 4 nay nhìn cả `public/js/ui.js` và `public/js/app.js` (trước chỉ quét `public/js/views`, nên hai tệp cả app dựa vào nằm ngoài tầm) | Sổ việc 10 |

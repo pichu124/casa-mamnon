@@ -37,7 +37,17 @@ const { check, tongKet } = taoBoDem();
 // CLAUDE.md dặn phải nêu: một danh sách viết tay thì luôn lạc hậu so với thư
 // mục thật, và lạc hậu về phía NỚI RA.
 const VUNG_QUET = [
-  'public/js/views', 'routes', 'modules',
+  // QUÉT CẢ `public/js`, KHÔNG CHỈ `public/js/views`.
+  //
+  // Bản trước chỉ quét thư mục `views`, nên `public/js/ui.js`, `public/js/app.js`
+  // và `public/js/api.js` nằm NGOÀI tầm nhìn của bộ canh. Đó là ba tệp mà cả
+  // ứng dụng đang dựa vào: thêm bao nhiêu dấu hiệu vào `DAU_HIEU` cũng không
+  // chạm tới một dòng nào trong đó.
+  //
+  // Đổi `public/js/views` thành `public/js` chứ KHÔNG thêm vào bên cạnh: hàm
+  // `cacTep` đi vào cả thư mục con, nên để cả hai là mỗi tệp trong `views` bị
+  // đếm hai lần và món nợ tự nhân đôi.
+  'public/js', 'public/sw.js', 'routes', 'modules',
   'lib/modules.js', 'data/seed.js',
 ];
 
