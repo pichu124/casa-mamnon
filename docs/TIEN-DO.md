@@ -583,41 +583,65 @@ nói ra thứ nó đang hiện.**
 
 ### G0.6 — Con số kiểm thử hiện tại
 
+> **Đo ngày 28/08/2026.** Con số này rơi rớt rất nhanh — mỗi đợt thêm bài là
+> lệch. Đếm lại bằng chính hai lệnh dưới, đừng tin bảng nếu commit gần nhất
+> có đụng vào `test/`:
+>
+> ```bash
+> npm test              | grep -E "PASS: " | awk '{s+=$3} END {print s}'
+> npm run test:giao-dien | grep -E "PASS: " | awk '{s+=$3} END {print s}'
+> ```
+
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~4 phút) | **2183**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **265**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2388**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **368**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
-| `test:lo-hong` | 286 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
-| `test:khe-uoc` | 146 | Hình dạng của các tệp dùng chung |
+| `test:lo-hong` | 291 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
+| `test:khe-uoc` | 164 | Hình dạng của các tệp dùng chung, và **không ai được chép lại** hàm nén ảnh |
 | `test:co-lap-loi` | 102 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
 
-Bốn bộ **mới của app 2**, không có ở app 1:
+Các bộ **mới của app 2**, không có ở app 1:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
 | `test:nhom-lop` | 93 | Mô hình nhiều cô một nhóm, và script chữa cháy phân công |
-| `test:thuchup` | 55 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
+| `test:thuchup` | 69 | Phép thử ghi nhanh + ranh giới nháp của cô (lớp dữ liệu 1) |
+| `test:sao-luu` | 58 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
+| `test:goi-ten` | 56 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:co-so` | 39 | Cách ly dữ liệu giữa ba cơ sở (Cấp 1 ↔ Cấp 3) |
-| `test:sao-luu` | 48 | Vòng sao lưu → hỏng → khôi phục, chạy thật trên dữ liệu tạm |
-| `test:goi-ten` | 47 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
-| `test:quy-tac-4` | 12 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
-| `test:quy-tac-2` | 32 | QUY TẮC 2 — "chưa quan sát thấy" không bao giờ là một thất bại |
-| `test:nhieu-nhom` | 38 *(trình duyệt)* | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
+| `test:quy-tac-2` | 34 | QUY TẮC 2 — "chưa quan sát thấy" không bao giờ là một thất bại |
+| `test:du-lieu-mau-phan-he` | 34 | Bật phân hệ lên là có cái để xem — câu chuyện bé An chạy suốt tám phân hệ |
+| `test:quy-tac-4` | 17 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
+| `test:khong-hua-suong` | 11 | App không được hứa thứ nó không làm được (bài học A5) |
 
-Nền lấy từ app 1 là **932 bài**. Phần tăng thêm không chỉ nằm ở bốn bộ mới: các
+Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so với điểm tách
+`bc9dfa3` ngày 21/08):
+
+| Bộ | Bài | Mới? | Canh gì |
+|---|---|---|---|
+| `test:bien-soan-gd` | 112 | kế thừa | Cô soạn thật trên Chromium: điểm danh, thực đơn, đơn nghỉ, hồ sơ bé |
+| `test:man-phan-he` | 88 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng |
+| `test:album` | 45 | kế thừa | Tải ảnh thật lên, và đường nén ảnh dùng chung đi qua đây |
+| `test:pwa` | 43 | kế thừa | Cài được lên màn hình chính, service worker, icon |
+| `test:nhieu-nhom` | 38 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
+| `tinh-nang-giao-dien` | 27 | kế thừa | Bật/tắt phân hệ trên màn Quản trị |
+| `test:ngoai-tuyen` | 15 | **mới** | Mất mạng: app vẫn mở, vẫn ghi được, sóng về thì hàng đợi tự bay đi |
+
+Nền lấy từ app 1 là **932 bài**. Phần tăng thêm không chỉ nằm ở các bộ mới: các
 bộ cũ cũng dày lên khi mô hình đổi (ví dụ `test:lo-hong` nhận thêm mục `[8b]` canh
 việc máy chủ dừng khi dữ liệu nằm trong kho mã). Con số tổng sẽ **giảm** khi gỡ
 các phân hệ riêng của tiểu học (N3) và **tăng** khi thêm phần mầm non.
 
-Bốn bộ canh dưới đây đều có một mục **"phép thử ngược"** — dựng dữ liệu bẩn rồi
-soi bằng chính hàm quét đó: `test:du-lieu`, `test:goi-ten`, `test:quy-tac-4`,
-`test:sao-luu`. Một bài canh luôn xanh là một bài canh vô dụng.
+Các bộ canh dưới đây đều có một mục **"phép thử ngược"** — dựng dữ liệu bẩn hoặc
+mã bẩn rồi soi bằng chính hàm quét đó: `test:du-lieu`, `test:goi-ten`,
+`test:quy-tac-4`, `test:sao-luu`, `test:khong-hua-suong`, và mục nén ảnh của
+`test:khe-uoc`. Một bài canh luôn xanh là một bài canh vô dụng.
 
 Riêng `test:goi-ten` còn canh cả **ngoại lệ của chính nó**: dựng một tệp có cả
 dòng được chừa lẫn dòng phải bắt, rồi kiểm rằng ngoại lệ chỉ chừa đúng một dòng.
