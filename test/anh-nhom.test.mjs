@@ -238,6 +238,67 @@ console.log('\n[9] Nhóm KHÔNG có ai từ chối thì mọi thứ y như trư�
 }
 
 // ===========================================================================
+console.log('\n[9b] GIA ĐÌNH TỰ XEM VÀ TỰ RÚT ĐƯỢC GIẤY ĐỒNG Ý CỦA MÌNH');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Ba ô đồng ý trước đây chỉ ghi được qua đường quản trị, và không một màn
+  // hình nào của phụ huynh chạm tới. Gia đình muốn rút phải gọi điện cho văn
+  // phòng, và cũng không có chỗ nào tự kiểm mình đã ký gì. Nghị định 13/2023
+  // cho chủ thể dữ liệu quyền rút lại — một quyền chỉ thực hiện được qua điện
+  // thoại bàn thì trên thực tế là một quyền khó dùng.
+  const xem = await req('GET', '/api/dong-y?studentId=s1', { cookie: PH1 });
+  check('MẸ BÉ s1 XEM ĐƯỢC GIẤY ĐỒNG Ý CỦA CON MÌNH', xem.status === 200, xem.data);
+  check('thấy đủ ba mục', ['hoSoHocTap', 'chiaSeGiaDinh', 'truyenThong']
+    .every(k => k in (xem.data?.dongY || {})), xem.data?.dongY);
+  check('và biết mình rút lại được', xem.data?.tuRutDuoc === true, xem.data?.tuRutDuoc);
+
+  const trom = await req('GET', '/api/dong-y?studentId=s3', { cookie: PH1 });
+  check('KHÔNG xem được giấy của con nhà khác', trom.status === 403, trom.status);
+
+  // ---- Chiều CẤM: gia đình KHÔNG tự đồng ý được ----
+  //
+  // Đồng ý là một tờ giấy CÓ CHỮ KÝ. Nếu bấm một nút trong app cũng ghi được
+  // "đã đồng ý" thì nhà trường có một bản ghi đồng ý mà không chữ ký nào đứng
+  // sau — lúc có chuyện thì không ai chứng minh được gia đình đã đồng ý thật.
+  const tuDongY = await req('PUT', '/api/dong-y', {
+    cookie: PH1, body: { studentId: 's1', truyenThong: true },
+  });
+  check('GIA ĐÌNH KHÔNG TỰ ĐÁNH DẤU ĐỒNG Ý ĐƯỢC', tuDongY.status === 400, tuDongY.data);
+  check('và câu từ chối nói rõ phải ký giấy ở văn phòng',
+    /ký giấy/i.test(tuDongY.data?.error || ''), tuDongY.data);
+
+  const daXem = (await req('GET', '/api/dong-y?studentId=s1', { cookie: PH1 })).data;
+  check('lời từ chối đó KHÔNG làm đổi gì cả', daXem?.dongY?.truyenThong === false, daXem?.dongY);
+
+  // ---- Chiều CHO PHÉP: rút lại được, và có hiệu lực NGAY ----
+  const truocKhiRut = await soAnhXemDuoc(PH1);
+  const rut = await req('PUT', '/api/dong-y', {
+    cookie: PH1, body: { studentId: 's1', chiaSeGiaDinh: false },
+  });
+  check('MẸ BÉ s1 TỰ RÚT LẠI ĐƯỢC', rut.status === 200, rut.data);
+  check('và giấy ghi lại đúng là đã rút', rut.data?.dongY?.chiaSeGiaDinh === false, rut.data?.dongY);
+
+  // Rút xong thì luật ảnh nhóm phải đổi theo ngay — không cần ai bấm gì thêm.
+  const sauKhiRut = await soAnhXemDuoc(PH1);
+  check('RÚT XONG LÀ LUẬT ẢNH NHÓM ĐỔI NGAY, không phải chờ ai làm gì',
+    sauKhiRut <= truocKhiRut, { truocKhiRut, sauKhiRut });
+
+  // ---- Cô KHÔNG đi qua đường này ----
+  const coGiaoRut = await req('PUT', '/api/dong-y', {
+    cookie: GV, body: { studentId: 's1', hoSoHocTap: false },
+  });
+  check('CÔ KHÔNG rút hộ được — đây là quyền của gia đình', coGiaoRut.status === 403, coGiaoRut.status);
+  check('và câu từ chối chỉ đúng chỗ văn phòng phải làm',
+    /Quản trị/i.test(coGiaoRut.data?.error || ''), coGiaoRut.data);
+
+  // Trả lại trạng thái cũ để mục [10] phía dưới chạy trên nền như trước.
+  await req('PUT', '/api/admin/students/s1/dong-y', {
+    cookie: A, body: { chiaSeGiaDinh: true },
+  });
+}
+
+// ===========================================================================
 console.log('\n[10] CHUYỂN NĂM HỌC KHÔNG ĐƯỢC LÀM LỜI TỪ CHỐI HẾT HIỆU LỰC');
 {
   // ĐÂY LÀ MỤC ĐÁNG GIÁ NHẤT CỦA CẢ TỆP, VÌ NÓ CANH MỘT THỨ TỰ HẾT HẠN.

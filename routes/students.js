@@ -82,4 +82,83 @@ module.exports = (app) => {
       ...(chiQuanTri ? { soDinhDanh: hoSo.soDinhDanh } : {}),
     });
   });
+
+  // =========================================================================
+  // GIẤY ĐỒNG Ý — GIA ĐÌNH XEM MÌNH ĐÃ KÝ GÌ, VÀ RÚT LẠI ĐƯỢC
+  // =========================================================================
+  //
+  // VÌ SAO CẦN
+  //
+  // Ba ô đồng ý (① hồ sơ học tập ② chia sẻ ảnh cho gia đình khác ③ dùng ảnh
+  // truyền thông) trước đây chỉ ghi được qua đường quản trị, và KHÔNG một màn
+  // hình nào của phụ huynh chạm tới dữ liệu đó. Gia đình muốn rút phải gọi
+  // điện cho văn phòng, và cũng không có chỗ nào để tự kiểm mình đã ký gì.
+  //
+  // `docs/KE-HOACH.md` ghi "rút lại được bất cứ lúc nào", và Nghị định
+  // 13/2023 cho chủ thể dữ liệu quyền đó. Một quyền mà chỉ thực hiện được qua
+  // điện thoại bàn thì trên thực tế là một quyền khó dùng.
+  app.get('/api/dong-y', (req, res) => {
+    const studentId = String((req.query || {}).studentId || '');
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem giấy đồng ý của bé này' });
+    }
+    const be = db.findStudent(studentId);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    res.json({
+      be: { id: be.id, hoTen: be.name },
+      dongY: db.dongYCuaBe(be.id),
+      // Gia đình sửa được hay không — để màn hình khỏi phải đoán theo vai.
+      tuRutDuoc: req.user.role === 'parent',
+    });
+  });
+
+  // GIA ĐÌNH CHỈ RÚT ĐƯỢC, KHÔNG TỰ ĐỒNG Ý ĐƯỢC.
+  //
+  // Đây là chỗ dễ làm sai nhất của cả tính năng, nên nói rõ:
+  //
+  // Đồng ý là một tờ giấy CÓ CHỮ KÝ, do văn phòng thu và ghi lại. Nếu bấm một
+  // nút trong app cũng ghi được "đã đồng ý" thì nhà trường sẽ có một bản ghi
+  // đồng ý mà không có chữ ký nào đứng sau — và lúc có chuyện thì không ai
+  // chứng minh được gia đình đã đồng ý thật.
+  //
+  // Rút lại thì ngược hẳn: nó KHÔNG cần chữ ký. Nghị định 13/2023 nói rút lại
+  // là quyền, và một quyền thì không được đặt điều kiện thủ tục lên nó. Nên
+  // đường này nhận đúng MỘT chiều: đưa một mục về "không đồng ý".
+  app.put('/api/dong-y', (req, res) => {
+    if (req.user.role !== 'parent') {
+      return res.status(403).json({
+        error: 'Đường này dành cho gia đình tự rút lại đồng ý. '
+          + 'Văn phòng ghi giấy đồng ý ở màn Quản trị → Hồ sơ bé.',
+      });
+    }
+    const b = req.body || {};
+    const studentId = String(b.studentId || '');
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền sửa giấy đồng ý của bé này' });
+    }
+    const be = db.findStudent(studentId);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+
+    const MUC = ['hoSoHocTap', 'chiaSeGiaDinh', 'truyenThong'];
+    const nhan = {};
+    for (const k of MUC) {
+      if (!(k in b)) continue;
+      if (b[k] !== false) {
+        return res.status(400).json({
+          error: 'Gia đình rút lại được bất cứ lúc nào, nhưng phần ĐỒNG Ý thì phải '
+            + 'ký giấy ở văn phòng — app không thay được chữ ký.',
+        });
+      }
+      nhan[k] = false;
+    }
+    if (!Object.keys(nhan).length) {
+      return res.status(400).json({ error: 'Không có mục nào để rút lại' });
+    }
+
+    const ket = db.datDongY(be.id, nhan);
+    // Ghi rõ CHÍNH GIA ĐÌNH tự rút, không phải văn phòng sửa hộ — khi có khiếu
+    // nại thì hai chuyện đó khác hẳn nhau.
+    db.audit(req.user.id, 'consent-rut-lai', be.id, { name: be.name, ...nhan });
+    res.json({ id: be.id, dongY: ket });
+  });
 };

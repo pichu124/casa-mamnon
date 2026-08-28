@@ -418,6 +418,40 @@ quan sát sai bé nghĩa là giữ lại ảnh của một đứa trẻ trong h�
 
 ---
 
+## 22. Gia đình RÚT được đồng ý trong app, nhưng KHÔNG tự đồng ý được
+
+**Chọn:** thêm thẻ *"Giấy đồng ý của gia đình"* vào màn hồ sơ bé cho phụ huynh.
+Họ xem được đã ký gì, ai ký, ký ngày nào — và **rút lại ngay trên màn hình**.
+Nhưng chiều ngược lại thì máy chủ từ chối: muốn **đồng ý** phải nhờ văn phòng.
+
+**Vì sao lệch hai chiều như vậy:**
+
+*Đồng ý* là một tờ giấy **có chữ ký**. Nếu bấm một nút trong app cũng ghi được
+"đã đồng ý" thì nhà trường sẽ có một bản ghi đồng ý mà **không chữ ký nào đứng
+sau** — và lúc có chuyện thì không ai chứng minh được gia đình đã đồng ý thật.
+Chữ ký là thứ bảo vệ cả hai bên, không phải thủ tục thừa.
+
+*Rút lại* thì ngược hẳn. Nghị định 13/2023 nói rút lại là **quyền** của chủ thể
+dữ liệu, và một quyền thì không được đặt điều kiện thủ tục lên nó. Trước đây
+gia đình muốn rút phải **gọi điện cho văn phòng** — trên thực tế đó là một
+quyền khó dùng, nhất là với chuyện ảnh của con.
+
+**Ba chi tiết nhỏ, cả ba đều cố ý:**
+
+- Rút xong có hiệu lực **ngay** — luật lọc ảnh đọc đồng ý đúng lúc hiển thị,
+  nên không phải chờ ai làm gì. Có phép kiểm cho đúng điều đó.
+- **Cô cũng không rút hộ được.** Đây là quyền của gia đình, không phải việc của
+  cô; và câu từ chối chỉ thẳng chỗ văn phòng phải làm.
+- Màn hình giữ **ba trạng thái**, không phải hai: *Đã đồng ý* · *Không đồng ý* ·
+  **Chưa nộp giấy**. Gộp hai cái sau lại là hoặc vu cho gia đình đã từ chối,
+  hoặc coi im lặng là đồng ý.
+
+**Đổi hướng thì tốn gì:** rẻ. Nếu trường muốn gia đình đồng ý được ngay trong
+app (ví dụ có chữ ký điện tử), phần đó thêm vào được — nhưng đó là một hạng mục
+riêng và phải bàn về giá trị pháp lý của chữ ký trước.
+
+---
+
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)
 
 Những mục dưới đây tôi **cố ý không tự chọn**, vì chọn sai thì phải sửa lược đồ
