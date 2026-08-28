@@ -52,7 +52,12 @@ const P = (await login('phuhuynh', '123456')).cookie;
 console.log('\n[1] Danh sách phân hệ');
 {
   const r = await req('GET', '/api/modules', { cookie: P });
-  check('phụ huynh lấy được danh sách', r.status === 200 && r.data.length >= 14, r.data?.length);
+  // Con số hạ 14 → 13 khi tắt sẵn "Hồ sơ con đã ra trường" (Đ5): phân hệ đó là
+  // của app 1 và màn của nó bày ra học bạ, học kỳ, điểm từng môn cho gia đình.
+  // Dữ liệu giữ nguyên, bật lại được — chỉ là không còn nằm trong số mặc định.
+  check('phụ huynh lấy được danh sách', r.status === 200 && r.data.length >= 13, r.data?.length);
+  check('màn học bạ của app 1 KHÔNG còn bật sẵn cho gia đình',
+    !r.data.some(m => m.key === 'hocsinhcu'), r.data.filter(m => m.key === 'hocsinhcu'));
   check('mặc định các phân hệ lõi đều bật', r.data.some(m => m.key === 'diemdanh'));
   check('phân hệ cắm thêm mặc định TẮT nên không xuất hiện',
     !r.data.some(m => m.key === 'hocphi'), r.data.filter(m => m.key === 'hocphi'));
@@ -134,7 +139,16 @@ console.log('\n[5] Phân hệ cắm thêm: bật lên là dùng được ngay');
   const list = await req('GET', '/api/modules', { cookie: P });
   const hp = list.data.find(m => m.key === 'hocphi');
   check('xuất hiện trên màn hình chính của phụ huynh', !!hp, list.data?.map(m => m.key));
-  check('kèm đường dẫn tệp giao diện để tải về', hp?.viewUrl === '/modules/hocphi/view.js', hp?.viewUrl);
+  check('kèm đường dẫn tệp giao diện để tải về',
+    String(hp?.viewUrl || '').startsWith('/modules/hocphi/view.js'), hp?.viewUrl);
+  // DẤU PHIÊN BẢN, KHÔNG PHẢI TRANG TRÍ.
+  //
+  // `modules/*/view.js` nằm ngoài `public/`, nên quy định "sửa public/ thì tăng
+  // VERSION trong sw.js" không với tới nó. Không có dấu này thì điện thoại đã
+  // cài app giữ bản màn hình cũ MÃI: service worker trả bản đã lưu trước, và
+  // lần nào cũng vậy. Cô báo "sửa rồi mà máy em vẫn thế", không ai đoán ra.
+  check('CÓ DẤU PHIÊN BẢN để máy đã cài app không kẹt ở bản cũ',
+    /\?v=\d+$/.test(String(hp?.viewUrl || '')), hp?.viewUrl);
 
   const js = await fetch(BASE + '/modules/hocphi/view.js', { headers: { Cookie: P } });
   check('tải được tệp giao diện của phân hệ mới', js.status === 200, js.status);

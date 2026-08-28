@@ -55,6 +55,18 @@ const DAU_HIEU = [
   // "78%" hiện ra màn hình. Chỉ bắt dạng `${...}%` — đó là phần trăm ĐƯỢC TÍNH
   // rồi in ra, khác hẳn `width:100%` của bố cục.
   { ten: 'phần trăm hiện ra màn hình', re: /\}%/ },
+  // ĐIỂM SỐ KHI NÓ KHÔNG TỰ GỌI TÊN MÌNH.
+  //
+  // Bốn dấu hiệu trên đều đi tìm CHỮ: "điểm số", "xếp hạng", "thi đua". Nhưng
+  // mã nguồn thì hay không nói chữ nào cả. `public/js/views/hocsinhcu.js` in
+  // điểm từng môn cho phụ huynh bằng `m.score ?? m.level` — không khớp mẫu nào,
+  // nên tệp đó không nằm trong món nợ và bộ canh vẫn xanh trong khi con số về
+  // một đứa trẻ đang hiện ngay trên màn hình gia đình.
+  //
+  // Nên thêm một dấu hiệu bắt theo TÊN TRƯỜNG DỮ LIỆU, không theo lời văn.
+  // `\b` của JS chỉ hiểu chữ ASCII, mà `score`/`diem` đều là ASCII nên dùng
+  // được ở đây.
+  { ten: 'điểm số của trẻ (tên trường dữ liệu)', re: /\b(score|diem|diemTrungBinh|hocLuc)\b|\.score\b/i },
 ];
 
 // Được phép, kèm lý do. Không phải mọi phần trăm đều là xếp hạng trẻ.
@@ -76,12 +88,30 @@ const NGOAI_LE = [
 //
 // Hai màn hình dưới đây là phần tiểu học của app 1, sẽ gỡ ở N3 theo đúng quy
 // trình "bỏ tính năng" của CLAUDE.md. Con số là số DÒNG có dấu hiệu vi phạm.
+//
+// CON SỐ TĂNG VÌ CÁI THƯỚC DÀI RA, KHÔNG PHẢI VÌ NỢ PHÌNH RA.
+//
+// Bốn con số dưới đây vừa được nâng khi thêm dấu hiệu "điểm số của trẻ (tên
+// trường dữ liệu)". Không một dòng vi phạm nào mới được viết — bộ canh chỉ
+// nhìn thấy thêm những dòng vốn đã nằm đó, ở đúng bốn tệp đã biết.
+//
+// Đây là ngoại lệ duy nhất được phép của luật bánh cóc, và nó có canh riêng:
+// mục [2b] bên dưới khoá cứng DANH SÁCH TỆP. Số dòng có thể tăng khi thước dài
+// ra, nhưng DANH SÁCH TỆP thì không bao giờ được dài thêm — một tệp mới xuất
+// hiện ở đây nghĩa là có vi phạm mới thật, và mục [1] sẽ bắt nó trước.
 const NO_DA_BIET = {
+  // Hai tệp Nề nếp KHÔNG đổi số: dấu hiệu mới không tìm thấy gì thêm ở đó, vì
+  // chúng vốn đã gọi thẳng tên "điểm thi đua" và "xếp hạng".
   'public/js/views/conduct.js': { so: 5, vi_sao: 'Nề nếp: bảng xếp hạng trẻ theo điểm thi đua. Gỡ ở N3.' },
   'routes/conduct.js': { so: 7, vi_sao: 'Nề nếp: máy chủ tính tổng điểm rồi sắp xếp trẻ. Gỡ ở N3.' },
-  'public/js/views/reports.js': { so: 1, vi_sao: 'Học bạ: ô nhập điểm thang 10 cho từng môn. Gỡ ở N3.' },
-  'routes/reports.js': { so: 4, vi_sao: 'Học bạ: máy chủ kiểm điểm 0–10. Gỡ ở N3.' },
+  // Hai tệp Học bạ tăng 1 → 6 và 4 → 9. Toàn bộ phần tăng là những dòng dùng
+  // `score` mà không nói chữ "điểm" nào — đúng lỗ mà dấu hiệu mới sinh ra để bịt.
+  'public/js/views/reports.js': { so: 6, vi_sao: 'Học bạ: ô nhập điểm thang 10 cho từng môn. Gỡ ở N3.' },
+  'routes/reports.js': { so: 9, vi_sao: 'Học bạ: máy chủ kiểm điểm 0–10. Gỡ ở N3.' },
 };
+
+// Danh sách tệp còn nợ, KHOÁ CỨNG. Chỉ được ngắn đi.
+const TEP_CON_NO = Object.keys(NO_DA_BIET);
 
 // Đi vào cả thư mục con. Không có phần này thì 'modules' quét ra rỗng, vì mọi
 // tệp của phân hệ nằm trong thư mục con của nó.
@@ -144,6 +174,22 @@ console.log('\n[2] Món nợ cũ chỉ được GIẢM, không được phình r
 }
 
 // ===========================================================================
+console.log('\n[2b] Danh sách tệp còn nợ chỉ được NGẮN ĐI, không bao giờ dài ra');
+{
+  // Số dòng nợ được phép tăng khi bộ canh siết chặt thêm (thước dài ra thì đo
+  // được nhiều hơn). Nhưng DANH SÁCH TỆP thì không: một tệp mới ở đây nghĩa là
+  // có chỗ vi phạm mới thật, và cách duy nhất đúng là sửa chỗ đó chứ không
+  // phải ghi thêm một dòng nợ.
+  check('vẫn đúng bốn tệp của phần tiểu học, không thêm tệp nào',
+    TEP_CON_NO.length === 4, TEP_CON_NO);
+  check('cả bốn đều thuộc hai phân hệ đã tắt sẵn (Nề nếp, Báo cáo)',
+    TEP_CON_NO.every(t => /conduct|reports/.test(t)), TEP_CON_NO);
+  check('mọi tệp còn nợ đều tồn tại thật — sổ nợ không có mục ruỗng',
+    TEP_CON_NO.every(t => fs.existsSync(path.join(GOC, t))),
+    TEP_CON_NO.filter(t => !fs.existsSync(path.join(GOC, t))));
+}
+
+// ===========================================================================
 console.log('\n[3] Dữ liệu mẫu tuyệt đối sạch — đây là thứ người ta nhìn đầu tiên');
 {
   // G0.5 đã dọn. Bài này giữ cho nó ở nguyên như thế.
@@ -170,6 +216,20 @@ console.log('\n[4] Bộ canh này có thật sự bắt được không');
   check('bắt được phần trăm in ra màn hình', ds.some((v) => v.dau.includes('phần trăm')), ds);
   check('bắt được bảng xếp hạng', ds.some((v) => v.dau.includes('xếp hạng')), ds);
   check('bắt được điểm thi đua', ds.some((v) => v.dau.includes('thi đua')), ds);
+
+  // Dấu hiệu mới: điểm số viết bằng tên trường dữ liệu, không có chữ nào tố cáo.
+  fs.writeFileSync(path.join(tam, 'ban.js'),
+    "const x = mon.score ?? mon.level;\nconst y = { diem: 8.5 };\n");
+  const batNgam = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
+  check('BẮT ĐƯỢC ĐIỂM SỐ KHI NÓ KHÔNG TỰ GỌI TÊN MÌNH',
+    batNgam.length >= 2 && batNgam.every(v => v.dau.includes('tên trường dữ liệu')), batNgam);
+
+  // Và không bắt nhầm những chữ chỉ TRÔNG giống.
+  fs.writeFileSync(path.join(tam, 'ban.js'),
+    "const a = 'diemDanh';\nconst b = scoreboardHidden;\nconst c = 'điểm đón bé';\n");
+  const khongBat = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
+  check('KHÔNG bắt nhầm "diemDanh", "scoreboard", hay "điểm đón bé"',
+    khongBat.length === 0, khongBat);
 
   fs.writeFileSync(path.join(tam, 'ban.js'), "const a = '<div style=\"width:100%\"></div>';\n");
   check('KHÔNG bắt nhầm width:100% của bố cục',

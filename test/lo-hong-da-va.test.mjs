@@ -937,6 +937,13 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   // không dùng chung cơ sở dữ liệu với các bài trên.
   const DIR3 = thuMucTam('lo-hong-namcu');
   sinhDuLieu(DIR3);
+  // `hocsinhcu` nay TẮT SẴN (Đ5): phân hệ đó là của app 1 và màn của nó bày ra
+  // học bạ, học kỳ, điểm từng môn cho gia đình — trái QUY TẮC 4. Nhưng LỖ HỔNG
+  // mà mục này canh KHÔNG biến mất vì phân hệ đang tắt: nhà trường bật lại là
+  // nó quay về. Cùng lý do và cùng cách xử lý với `nenep`/`nhanxet` ở đầu tệp.
+  //
+  // KHÔNG một phép kiểm nào bị bỏ hay nới — chỉ thêm một dòng dựng bối cảnh.
+  batPhanHe(DIR3, ['hocsinhcu']);
   const mkTam = taoQuanTri(DIR3, 'Hiệu Trưởng', 'ht.namcu');
   const sv = await dungMayChu({ port: 3176, dir: DIR3 });
   const r3 = taoReq(sv.BASE);

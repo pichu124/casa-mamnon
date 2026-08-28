@@ -78,22 +78,18 @@ App.views.hocsinhcu = {
           <div class="stat-box"><div class="stat-num" style="color:var(--danger)">${cc.vang}</div><div class="stat-label">Vắng</div></div>
         </div>` : ''}
 
-      <div class="section-label">Học bạ</div>
+      <div class="section-label">Lời cô nhận xét</div>
       ${d.baoCao.length ? `
         <div class="card">
           ${d.baoCao.map(b => `
             <div class="list-row">
               <div class="row-main">
-                <div class="row-title">Học kỳ ${UI.esc(b.term)} · năm ${UI.esc(b.year)}</div>
+                <div class="row-title">Năm học ${UI.esc(b.year)}</div>
                 ${b.comment ? `<div class="row-sub" style="line-height:1.45">${UI.esc(b.comment)}</div>` : ''}
-                ${Array.isArray(b.subjects) && b.subjects.length ? `
-                  <div class="small mt-8" style="line-height:1.6">
-                    ${b.subjects.map(m => `${UI.esc(m.name)}: <b>${UI.esc(m.score ?? m.level ?? '—')}</b>`).join(' · ')}
-                  </div>` : ''}
               </div>
             </div>`).join('')}
         </div>`
-        : UI.emptyState('📘', 'Không có học bạ nào được lưu cho con')}
+        : UI.emptyState('📘', 'Không có nhận xét nào được lưu cho con')}
 
       <div class="section-label">Sổ liên lạc</div>
       ${d.nhanXet.length ? `
