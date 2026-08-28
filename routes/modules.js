@@ -22,7 +22,7 @@ module.exports = (app) => {
     // sở 1 tắt "Dặn thuốc" là cơ sở 2 và 3 cũng mất, mà họ không hiểu vì sao.
     if (db.phamViCoSo(req.user) !== null) {
       return res.status(403).json({
-        error: 'Bật hoặc tắt một tính năng ảnh hưởng tới cả ba cơ sở, nên chỉ '
+        error: 'Bật hoặc tắt một tính năng ảnh hưởng tới MỌI cơ sở, nên chỉ '
           + 'tài khoản quản trị toàn hệ thống mới làm được. Xin liên hệ ban giám hiệu.',
       });
     }

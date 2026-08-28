@@ -133,10 +133,55 @@ App.views.health = {
         </div>` : ''}`, 'Chi tiết ghi nhận y tế');
   },
 
+  // GỢI Ý CÂN ĐO PHẢI ĐI THEO TUỔI THẬT CỦA BÉ.
+  //
+  // Hai ô này từng để sẵn gợi ý "VD: 105" cm và "VD: 17" kg — đúng cho bé 4–5
+  // tuổi, sai hẳn với nhóm nhà trẻ 12–18 tháng (khoảng 76 cm, 10 kg) mà trường
+  // đã có thật. CLAUDE.md nêu đúng chuyện này ngay dòng đầu là thứ cô và y tế
+  // trường nhận ra ngay.
+  //
+  // ĐÂY LÀ CHỖ PHẢI CẨN THẬN VỚI QUY TẮC 4.
+  //
+  // "Không so sánh bé với chuẩn của độ tuổi" — nên tôi CỐ Ý chỉ đổi chữ mờ
+  // trong ô TRỐNG, và KHÔNG thêm dòng nào kiểu "bé tuổi này thường 103 cm" nằm
+  // cạnh con số thật của bé. Chữ mờ biến mất ngay khi cô gõ, nên nó là gợi ý
+  // nhập liệu; một dòng chú thích nằm lại bên cạnh con số thì thành lời so
+  // sánh, và đó đúng thứ QUY TẮC 4 cấm.
+  goiYCanDo(thang) {
+    if (!Number.isFinite(thang) || thang < 0) return { cao: 'VD: 105', nang: 'VD: 17' };
+    const t = Math.min(Math.max(thang, 12), 72);
+    const cao = Math.round(75 + (t - 12) * 0.72);
+    const nang = Math.round((9.5 + (t - 12) * 0.2) * 10) / 10;
+    return { cao: `VD: ${cao}`, nang: `VD: ${nang}` };
+  },
+
+  thangTuoiCuaBe(studentId) {
+    const s = (App.state.students || []).find(x => x.id === studentId);
+    if (!s || !s.dob) return null;
+    const ns = UI.parseDate(s.dob);
+    if (!ns || Number.isNaN(ns.getTime())) return null;
+    const nay = new Date();
+    let thang = (nay.getFullYear() - ns.getFullYear()) * 12 + (nay.getMonth() - ns.getMonth());
+    if (nay.getDate() < ns.getDate()) thang -= 1;
+    return thang >= 0 ? thang : null;
+  },
+
+  // Đổi bé trong ô chọn thì chữ mờ đổi theo — không thì cô chọn bé nhà trẻ mà
+  // vẫn thấy gợi ý của bé nhóm Lá.
+  capNhatGoiYCanDo() {
+    const o = document.getElementById('ht-c-student');
+    const g = this.goiYCanDo(this.thangTuoiCuaBe(o && o.value));
+    const cao = document.getElementById('ht-height');
+    const nang = document.getElementById('ht-weight');
+    if (cao) cao.placeholder = g.cao;
+    if (nang) nang.placeholder = g.nang;
+  },
+
   // ---- Giáo viên: thêm ghi nhận ----
   openCreate() {
     const students = App.state.students || [];
     this._newType = 'checkup';
+    const goiY = this.goiYCanDo(this.thangTuoiCuaBe(this._sid || (students[0] || {}).id));
     UI.modal(`
       <div class="field">
         <label>Bé</label>
@@ -163,11 +208,11 @@ App.views.health = {
       <div class="grid-2" id="ht-metrics">
         <div class="field">
           <label>Chiều cao (cm)</label>
-          <input type="number" id="ht-height" min="0" step="0.1" placeholder="VD: 105">
+          <input type="number" id="ht-height" min="0" step="0.1" placeholder="${UI.esc(goiY.cao)}">
         </div>
         <div class="field">
           <label>Cân nặng (kg)</label>
-          <input type="number" id="ht-weight" min="0" step="0.1" placeholder="VD: 17">
+          <input type="number" id="ht-weight" min="0" step="0.1" placeholder="${UI.esc(goiY.nang)}">
         </div>
       </div>
       <div class="field">
@@ -177,6 +222,9 @@ App.views.health = {
       </div>
       <button class="btn primary block" onclick="App.views.health.submitCreate()">${UI.icon('check', 18)} Lưu ghi nhận</button>
     `, 'Thêm ghi nhận y tế');
+
+    const oBe = document.getElementById('ht-c-student');
+    if (oBe) oBe.onchange = () => this.capNhatGoiYCanDo();
   },
 
   pickType(t) {

@@ -763,4 +763,5 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ9 + Đ11** — Hành trình hiện lại ảnh và chép được cả chữ lẫn ảnh từ Ghi nhanh; ba bộ canh thôi tự cho mình qua | Sổ việc 39, 40, 50, 51 · 2, 5, 7 |
 | 28/08/2026 | **Đ13** — lời từ chối chia sẻ ảnh thôi hết hiệu lực theo lịch nhà trường (album năm cũ và tờ Cambridge cũ) | Sổ việc 44 |
 | 28/08/2026 | **Đ14** — gỡ hẳn lời hứa "thông báo đẩy" mà app không làm được; thêm bộ canh `test:khong-hua-suong` | Sổ việc 25, 49 |
+| 28/08/2026 | **Đ19** — đợt chữ còn nói tiếng trường phổ thông: ô "Tên môn học", ô "Khối 1–12", hộp thoại hứa giữ "học bạ", mô tả "cô duyệt" đơn nghỉ, và các câu ghi cứng "ba cơ sở". Ô cân đo gợi ý theo tuổi thật + chặn số gõ nhầm | Sổ việc 96, 128, 132, 133, 147, 161 |
 | 28/08/2026 | **Đ17** — ảnh trong bản sao lưu được dọn (theo luật cố ý dè dặt); hai bộ canh mật khẩu mẫu thôi báo xanh oan; `render.yaml` và `Dockerfile` thôi mang tên app 1 và thôi gãy lúc build | Sổ việc 45, 33, 105, 115, 116 |

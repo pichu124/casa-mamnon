@@ -224,7 +224,7 @@ App.views.timetable = {
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
             <span class="row-icon" style="background:#e6efff;color:var(--primary);font-weight:800;flex:none">${UI.esc(pt.p || i + 1)}</span>
             <div class="field" style="flex:1.7;margin:0">
-              <input id="tkb-mon-${i}" value="${UI.esc(mon[i] === '—' ? '' : (mon[i] || ''))}" placeholder="Tên môn học">
+              <input id="tkb-mon-${i}" value="${UI.esc(mon[i] === '—' ? '' : (mon[i] || ''))}" placeholder="Đón bé, thể dục sáng, ăn trưa…">
             </div>
             <div class="field" style="flex:1;margin:0">
               <input id="tkb-gio-${i}" value="${UI.esc(pt.time || '')}" placeholder="07:30 – 08:05">

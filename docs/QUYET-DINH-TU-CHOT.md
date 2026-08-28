@@ -320,6 +320,48 @@ khai đoán sai còn nguy hơn không có: người làm theo sẽ tin nó.
 
 ---
 
+## 18. Ô "Khối 1–12" đổi thành ô chọn bậc, nhưng cột dữ liệu giữ nguyên
+
+**Chọn:** hai biểu mẫu thêm/sửa nhóm nay có ô chọn **Nhà trẻ · Mầm · Chồi · Lá**
+thay cho ô số 1–12. Cột `grade` ở tầng dữ liệu **không đổi** — vẫn là số.
+
+**Vì sao:** mầm non không có khối 1–12, người của văn phòng khai nhóm mới phải
+đoán điền số gì. Nhưng đổi cột dữ liệu là việc lớn và không cần: CLAUDE.md cho
+phép giữ tên và kiểu cũ ở tầng dữ liệu, miễn màn hình nói đúng tiếng.
+
+**Chỗ đáng anh biết:** khi mở biểu mẫu **sửa** một nhóm cũ, ô chọn hiện bậc đoán
+theo **TÊN nhóm** (nhóm "Chồi 2" → Chồi), không theo con số cũ (dữ liệu mẫu để
+Chồi 2 là `grade = 4`, số kế thừa từ app 1). Nghĩa là bấm Lưu mà không đổi gì
+thì con số cũ **bị chuẩn hoá** về số bậc. Tôi thấy đây là đúng — đoán theo tên
+là cách chính phần chuyển năm học đang làm — nhưng nó là một lần ghi đè âm thầm,
+nên ghi ra đây.
+
+**Đổi hướng thì tốn gì:** rẻ.
+
+---
+
+## 19. Cân đo: chặn số gõ nhầm bằng một khoảng CỐ Ý RỘNG
+
+**Chọn:** máy chủ từ chối chiều cao ngoài **40–160 cm** và cân nặng ngoài
+**2–60 kg**. Ô nhập gợi ý theo **tuổi thật của bé** thay cho "VD: 105 / VD: 17"
+ghi cứng.
+
+**Vì sao khoảng lại rộng đến thế:** đây là chỗ va vào QUY TẮC 4. Một trần hẹp
+theo tuổi chính là app đang so bé với *"chuẩn của độ tuổi"* — thứ CLAUDE.md cấm.
+Khoảng trên phủ trọn mọi bé 12 tháng – 6 tuổi có thật, **kể cả bé nhẹ cân hay
+cao lớn khác thường**, nên nó chỉ bắt được thứ chắc chắn là gõ nhầm (170 cm cho
+bé 3 tuổi, 12 cm vì thiếu một chữ số). Câu từ chối cũng nói về **chữ số**, không
+nói một chữ nào về đứa trẻ, và có bài test canh đúng điều đó.
+
+**Cùng lý do, tôi KHÔNG thêm dòng nào kiểu "bé tuổi này thường 103 cm"** nằm
+cạnh con số thật. Chữ mờ trong ô trống thì biến mất ngay khi cô gõ — nó là gợi ý
+nhập liệu. Một dòng chú thích nằm lại bên cạnh con số thì thành lời so sánh.
+
+**Đổi hướng thì tốn gì:** rẻ để nới; **đắt để siết**, vì siết là bước sang phía
+QUY TẮC 4 cấm, và phải hỏi nhà trường trước.
+
+---
+
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)
 
 Những mục dưới đây tôi **cố ý không tự chọn**, vì chọn sai thì phải sửa lược đồ

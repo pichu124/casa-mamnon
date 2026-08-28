@@ -143,6 +143,72 @@ console.log('\n[5] Liên hệ của TRƯỜNG thay cho số riêng của cô');
   check('và đã có dòng hotline văn phòng', /Hotline văn phòng/.test(chu));
 }
 
+// ===========================================================================
+console.log('\n[6] Cân đo: chặn số GÕ NHẦM, và chỉ chặn số gõ nhầm');
+{
+  // Bản cũ chỉ kiểm `> 0`, không có trần trên. Gõ nhầm 170 cm cho một bé 3 tuổi
+  // — thừa một số 0, hoặc gõ nhầm chiều cao của mẹ — được nhận và lưu im lặng,
+  // rồi nằm trong hồ sơ sức khoẻ của bé đó mãi.
+  //
+  // NHƯNG CHẶN CHẶT LÀ VI PHẠM QUY TẮC 4. Một trần hẹp theo tuổi chính là app
+  // đang so bé với "chuẩn của độ tuổi" — thứ CLAUDE.md cấm. Nên khoảng nhận vào
+  // cố ý RỘNG HẾT MỨC: nó chỉ bắt thứ chắc chắn là gõ nhầm, và câu từ chối nói
+  // về CHỮ SỐ chứ không nói gì về đứa trẻ.
+  const them = (body) => req('POST', '/api/health', {
+    cookie: GV, body: { studentId: 's1', type: 'checkup', title: 'Cân đo định kỳ', ...body },
+  });
+
+  const caoQua = await them({ height: 170 });
+  check('CHIỀU CAO 170 cm CHO MỘT BÉ MẦM NON BỊ TỪ CHỐI', caoQua.status === 400, caoQua.data);
+  check('và câu từ chối nói về GÕ NHẦM, không phán gì về bé',
+    /gõ nhầm/i.test(caoQua.data?.error || '')
+    && !/thấp|còi|béo|suy dinh dưỡng|chuẩn/i.test(caoQua.data?.error || ''), caoQua.data);
+
+  const nangQua = await them({ weight: 170 });
+  check('CÂN NẶNG 170 kg cũng bị từ chối', nangQua.status === 400, nangQua.data);
+
+  const caoIt = await them({ height: 12 });
+  check('chiều cao 12 cm bị từ chối (thiếu một chữ số)', caoIt.status === 400, caoIt.data);
+
+  // Và chiều còn lại, quan trọng hơn: bé thật thì phải nhập được.
+  const beNhaTre = await them({ height: 76, weight: 10 });
+  check('BÉ NHÀ TRẺ 76 cm / 10 kg NHẬP ĐƯỢC BÌNH THƯỜNG',
+    beNhaTre.status === 200 || beNhaTre.status === 201, beNhaTre.data);
+
+  const beLa = await them({ height: 118, weight: 22 });
+  check('bé nhóm Lá 118 cm / 22 kg cũng vậy',
+    beLa.status === 200 || beLa.status === 201, beLa.data);
+
+  // Bé nhẹ cân hay cao lớn khác thường vẫn phải ghi được — app không có quyền
+  // nói bé nào là "bất thường".
+  const beNheCan = await them({ height: 82, weight: 8 });
+  check('BÉ NHẸ CÂN KHÁC THƯỜNG VẪN GHI ĐƯỢC — app không phán xét bé nào cả',
+    beNheCan.status === 200 || beNheCan.status === 201, beNheCan.data);
+
+  // Không gửi cân đo thì vẫn ghi được như cũ (Nguyên tắc số 1).
+  const khongCanDo = await them({});
+  check('không nhập cân đo thì vẫn ghi nhận được như trước',
+    khongCanDo.status === 200 || khongCanDo.status === 201, khongCanDo.data);
+}
+
+// ===========================================================================
+console.log('\n[7] Sửa lại ghi nhận cũng đi qua đúng chốt chặn đó');
+{
+  const tao = await req('POST', '/api/health', {
+    cookie: GV,
+    body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng 9', height: 100, weight: 16 },
+  });
+  const id = tao.data?.id;
+  check('tạo được ghi nhận để sửa', !!id, tao.data);
+
+  const sai = await req('PUT', `/api/health/${id}`, { cookie: GV, body: { height: 300 } });
+  check('SỬA THÀNH 300 cm CŨNG BỊ TỪ CHỐI — không thể lách qua đường sửa',
+    sai.status === 400, sai.data);
+
+  const dung = await req('PUT', `/api/health/${id}`, { cookie: GV, body: { height: 103 } });
+  check('sửa sang một con số hợp lệ thì được', dung.status === 200, dung.data);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

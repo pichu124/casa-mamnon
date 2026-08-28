@@ -1156,7 +1156,7 @@ function coConTrongPhamVi(user, parentId) {
 function chanNeuChiMotCoSo(req, res, viec) {
   if (db.phamViCoSo(req.user) === null) return false;
   res.status(403).json({
-    error: `${viec} ảnh hưởng tới cả ba cơ sở, nên chỉ tài khoản quản trị `
+    error: `${viec} ảnh hưởng tới MỌI cơ sở, nên chỉ tài khoản quản trị `
       + 'toàn hệ thống mới làm được. Xin liên hệ ban giám hiệu.',
   });
   return true;

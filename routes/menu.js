@@ -62,7 +62,7 @@ function lamSachBuaAn(meals) {
 function chanNeuChiMotCoSo(req, res) {
   if (db.phamViCoSo(req.user) === null) return false;
   res.status(403).json({
-    error: 'Thực đơn hiện dùng chung cho cả ba cơ sở, nên chỉ tài khoản quản trị '
+    error: 'Thực đơn hiện dùng chung cho MỌI cơ sở, nên chỉ tài khoản quản trị '
       + 'toàn hệ thống mới soạn được. Xin liên hệ ban giám hiệu.',
   });
   return true;

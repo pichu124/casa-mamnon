@@ -85,6 +85,19 @@ const CAM = [
   // non CASA. Cô mở app ra và thấy hai cái tên không khớp nhau.
   { tu: 'SchoolConnect', thay: 'CASA Mầm non', re: /schoolconnect/i },
 
+  // "Môn học" là đơn vị chương trình của phổ thông. Màn Lịch sinh hoạt là chỗ cô
+  // soạn một ngày của nhóm — đón bé, thể dục sáng, ăn, ngủ trưa, trả bé — mà ô
+  // nhập của nó vẫn để gợi ý "Tên môn học". Cô mở ra thấy chữ đó là hiểu ngay
+  // app này làm cho trường phổ thông.
+  //
+  // Chừa "chuyên môn", "môn ăn", "món" — trùng âm chứ khác nghĩa. Chừa bằng
+  // chính biểu thức, không bằng ngoại lệ: ngoại lệ chừa CẢ DÒNG.
+  { tu: 'môn học', thay: 'hoạt động', re: /(?<!chuyên\s)môn\s+học/iu },
+
+  // "Khối" 1–12 là cách xếp của phổ thông. Mầm non đi theo bậc Nhà trẻ → Mầm →
+  // Chồi → Lá. Chừa "khối lượng", "khối chữ", "một khối".
+  { tu: 'khối (lớp 1–12)', thay: 'bậc mầm non', re: /\bKhối\b(?!\s*(lượng|chữ|dữ liệu|nhà))/u },
+
   // Phân hệ này tên "Thời khóa biểu" nhưng ruột đã là lịch sinh hoạt một ngày từ
   // lâu — đón bé, thể dục sáng, ăn, ngủ trưa, trả bé. Cô đọc "thời khóa biểu"
   // rồi đi tìm "tiết học", không thấy. Nhà trường đã chốt đổi tên (N12).
@@ -142,6 +155,14 @@ const NGOAI_LE = [
   {
     chua: "'Mã của bé', 'Mã bé', 'Mã học sinh'",
     vi_sao: 'Cùng lý do: nhận vào thì rộng, xuất ra thì đúng.',
+  },
+  {
+    tu: 'khối (lớp 1–12)',
+    chua: 'Khối cuối cấp',
+    vi_sao: 'Ô này ở màn Chuyển năm học và ĐÃ BỊ GIẤU khi mọi nhóm đi theo bậc mầm '
+      + 'non (N11). Nó chỉ hiện với nhóm đặt tên theo số kiểu "Lớp 5A" — mà với '
+      + 'nhóm như vậy thì "khối" đúng là từ đúng. Giấu đi rồi mà vẫn đổi tên nó là '
+      + 'làm hỏng đúng chỗ nó còn dùng được.',
   },
   {
     tu: 'SchoolConnect',

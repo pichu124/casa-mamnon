@@ -2,6 +2,41 @@
 // và nhập danh sách đầu năm từ tệp Excel/CSV.
 
 App.views.admin = {
+  // BẬC MẦM NON THAY CHO Ô "KHỐI 1–12".
+  //
+  // Cả biểu mẫu thêm nhóm lẫn biểu mẫu sửa nhóm đều từng có một ô nhãn "Khối",
+  // kiểu số, giới hạn 1–12, gợi ý mẫu là "3" — kế thừa nguyên từ app 1. Mầm non
+  // không có khối 1–12: nhóm đi theo bậc Nhà trẻ → Mầm → Chồi → Lá, đúng như
+  // phần chuyển năm học đã dạy máy (`BAC_MAM_NON` trong routes/schoolyear.js).
+  // Người của văn phòng khai một nhóm mới sẽ phải đoán điền số gì vào ô đó.
+  //
+  // Cột `grade` ở TẦNG DỮ LIỆU giữ nguyên, chỉ đổi thứ hiện ra màn hình —
+  // CLAUDE.md cho phép giữ tên tiếng Anh và kiểu số ở tầng dữ liệu.
+  BAC_MAM_NON: ['Nhà trẻ', 'Mầm', 'Chồi', 'Lá'],
+
+  // Bậc của một nhóm: đoán theo TÊN trước, rồi mới tới con số cũ.
+  //
+  // Đoán theo tên vì đó là thứ đáng tin nhất — chính phần chuyển năm học cũng
+  // đọc tên nhóm chứ không đọc số. Dữ liệu cũ mang số của app 1 (nhóm "Chồi 2"
+  // có grade 4) thì tên vẫn nói đúng bậc.
+  bacCuaNhom(ten, grade) {
+    const t = String(ten || '').trim().toLowerCase();
+    const i = this.BAC_MAM_NON.findIndex(b => t.startsWith(b.toLowerCase()));
+    if (i >= 0) return i + 1;
+    const n = Number(grade);
+    return Number.isInteger(n) && n >= 1 && n <= this.BAC_MAM_NON.length ? n : '';
+  },
+
+  oChonBac(id, chon) {
+    return `<div class="field"><label>Bậc</label>
+      <select id="${id}">
+        <option value="">— Chưa xếp bậc —</option>
+        ${this.BAC_MAM_NON.map((b, i) => `<option value="${i + 1}"${String(chon) === String(i + 1) ? ' selected' : ''}>${b}</option>`).join('')}
+      </select>
+      <div class="hint">Nhà trẻ → Mầm → Chồi → Lá. Chỉ để xếp thứ tự nhóm;
+        việc chuyển năm học đi theo <b>tên nhóm</b>, không theo ô này.</div>
+    </div>`;
+  },
   // Dấu hiệu tệp CSV lưu sai bảng mã: ký tự thay thế U+FFFD (chữ có dấu đã hỏng)
   // hoặc byte 0 (tệp UTF-16 bị đọc như UTF-8).
   //
@@ -192,7 +227,7 @@ App.views.admin = {
         <div class="muted small mb-8" style="line-height:1.6">
           Hai chức vụ <b>Quản lý cơ sở</b> và <b>Văn phòng cơ sở</b> cần được gắn vào
           một cơ sở ở thẻ <b>Tài khoản quản trị</b> bên dưới — không gắn thì họ vẫn
-          nhìn thấy cả ba cơ sở.
+          nhìn thấy <b>mọi cơ sở</b>.
         </div>
         ${(this._quanTri || []).map(u => `
           <div class="list-row">
@@ -363,10 +398,10 @@ App.views.admin = {
           </select>
           <div class="hint">Nhóm chưa gắn cơ sở thì <b>quản lý cơ sở không nhìn thấy</b>, và
             sau lần chuyển năm học tiếp theo thì nhóm kế tiếp của nó cũng vậy.
-            Trường ba cơ sở hay đặt trùng tên nhóm, nên chọn ngay ở đây là chắc nhất.</div>
+            Trường nhiều cơ sở hay đặt trùng tên nhóm, nên chọn ngay ở đây là chắc nhất.</div>
         </div>` : ''}
       <div class="field"><label>Phòng học</label><input id="ad-lop-phong" placeholder="Ví dụ: Phòng 203"></div>
-      <div class="field"><label>Khối</label><input id="ad-lop-khoi" type="number" min="1" max="12" placeholder="3"></div>
+      ${this.oChonBac('ad-lop-khoi', '')}
       <div class="field"><label>Cô phụ trách</label>
         <select id="ad-lop-gv"><option value="">— Chưa phân công —</option>
           ${teachers.map(t => `<option value="${UI.esc(t.id)}">${UI.esc(t.title)} ${UI.esc(t.name)}</option>`).join('')}
@@ -420,7 +455,7 @@ App.views.admin = {
     UI.modal(`
       <div class="field"><label>Tên nhóm</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
       <div class="field"><label>Phòng học</label><input id="ad-sl-phong" value="${UI.esc(c.room || '')}" placeholder="Ví dụ: Phòng 203"></div>
-      <div class="field"><label>Khối</label><input id="ad-sl-khoi" type="number" min="1" max="12" value="${UI.esc(c.grade ?? '')}"></div>
+      ${this.oChonBac('ad-sl-khoi', this.bacCuaNhom(c.name, c.grade))}
       <div class="field"><label>Cô phụ trách</label>
         <select id="ad-sl-gv">
           <option value="">— Chưa phân công —</option>
@@ -696,16 +731,20 @@ App.views.admin = {
     };
   },
 
-  // "Cho nghỉ học" chỉ đánh dấu ngừng theo học. Không xóa gì cả: điểm danh, sổ
-  // liên lạc, học bạ, hồ sơ sức khỏe của em vẫn còn để tra cứu và bàn giao.
+  // "Cho nghỉ học" chỉ đánh dấu ngừng theo học. Không xóa gì cả: điểm danh, nhật
+  // ký ngày, album, hành trình học tập và hồ sơ sức khoẻ của bé vẫn còn để tra
+  // cứu và bàn giao.
+  //
+  // KHÔNG hứa giữ "học bạ": mầm non không có học bạ, và app 2 đã tắt phân hệ Báo
+  // cáo — tức là app đang hứa giữ một thứ nó không còn tạo ra.
   choNghiHoc(studentId) {
     UI.modal(`
       <p style="line-height:1.6">Đánh dấu bé này <b>đã nghỉ học</b>?</p>
       <p class="muted small" style="line-height:1.6">
         Bé sẽ không còn trong danh sách điểm danh và phụ huynh không nhận thông báo
-        của nhóm nữa. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b> — điểm danh, sổ
-        liên lạc, học bạ, hồ sơ sức khỏe đều tra cứu được. Nhận lại bất cứ lúc nào
-        bằng nút "Nhận lại" ngay dưới danh sách nhóm.
+        của nhóm nữa. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b> — điểm danh,
+        nhật ký ngày, album, hành trình học tập, hồ sơ sức khoẻ đều tra cứu được.
+        Nhận lại bất cứ lúc nào bằng nút "Nhận lại" ngay dưới danh sách nhóm.
       </p>
       <button class="btn primary block mt-14" id="ad-nghi-ok">Xác nhận cho nghỉ học</button>
       <button class="btn outline block mt-8" onclick="App.views.admin.lamMoiLop()">Quay lại</button>
