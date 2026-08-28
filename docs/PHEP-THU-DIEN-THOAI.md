@@ -46,6 +46,11 @@ cả trên `http://`. Nhưng hai thứ khác thì **không**:
 | **Cài app lên màn hình chính (PWA)** | ❌ không cài được |
 | **Mở lại app trong lúc VẪN đang mất sóng** | ❌ trắng trang — không có service worker thì không có gì để tải |
 
+> Vế cuối là **Lời hứa 2b** ở mục 4. Lưu ý một chỗ bản trước của phiếu này
+> nói sai: nó kết luận việc đó chỉ hỏng khi thiếu HTTPS. Thực ra trước đợt Đ12
+> nó hỏng **cả khi có HTTPS**, vì `App.init` gọi `/api/auth/me` và hiểu nhầm
+> lỗi mạng thành hết phiên đăng nhập. Đã vá; Lời hứa 2b là chỗ đo lại.
+
 Vế cuối đánh thẳng vào **Lời hứa 2** bên dưới. Chạy phép thử trên `http://` rồi
 kết luận "app mất bài ghi khi offline" là **kết luận sai** — cái hỏng là môi
 trường thử, không phải app.
@@ -112,6 +117,9 @@ Và một điều phải nói trước, nếu không cô sẽ tưởng app hỏn
 
 ## 4. Ba lời hứa và cách đo
 
+> Bốn mục: **1 · 2 · 2b · 3**. Mục 2b thêm sau đợt Đ12, đo đúng cái mà bản
+> trước của phiếu này nghĩ là chỉ hỏng khi thiếu HTTPS.
+
 ### Lời hứa 1 — NHANH: dưới 20 giây
 
 Làm **5 lượt liên tiếp** trên mỗi máy. Bấm giờ **từ lúc ngón tay chạm nút
@@ -151,9 +159,47 @@ Ghi thêm: cô vấp ở bước nào? Bước nào cô phải nghĩ mới biế
 
 **Đạt:** đủ 2 bài lên máy chủ, không mất, không phải làm gì thủ công.
 
+### Lời hứa 2b — MỞ LẠI APP TRONG LÚC VẪN ĐANG MẤT SÓNG
+
+Bước 3 của Lời hứa 2 chỉ đóng app rồi **bật sóng lại** mới mở. Nhưng ngoài đời
+cô không chờ có sóng mới mở app: cô đang ở sân, sóng chập chờn, app bị hệ điều
+hành đóng để nhường bộ nhớ, rồi cô mở lại — **vẫn đang mất sóng** — và ghi tiếp.
+
+Trước đợt Đ12, đúng lúc đó app đá cô về màn đăng nhập: `App.init` gọi
+`/api/auth/me`, gọi hỏng thì mã cũ hiểu là "hết phiên". Cô mất luôn cả hàng đợi
+đang chờ gửi trên màn hình. Mục 1 phía trên từng đổ lỗi chỗ này cho việc thiếu
+HTTPS — **sai**: nó hỏng cả khi có HTTPS, vì một lý do khác hẳn.
+
+Nay app phân biệt được mất mạng với hết phiên và hiện màn *"Máy đang không có
+mạng"* kèm nút **Thử lại**, giữ nguyên hàng đợi. Phép thử này là chỗ đo lời hứa
+đó trên máy thật.
+
+1. Bật chế độ máy bay.
+2. Cô ghi **1 bài**. Màn hình hiện "1 bài ghi đang chờ gửi lên".
+3. **Đóng hẳn app** (vuốt khỏi danh sách app đang chạy).
+4. **VẪN GIỮ chế độ máy bay.** Mở lại app.
+5. Ghi thêm **1 bài nữa** ngay lúc còn mất sóng.
+6. Tắt chế độ máy bay, chờ khoảng 10 giây.
+
+| | iPhone | Android |
+|---|---|---|
+| Mở lại app KHÔNG bị đá về màn đăng nhập | ☐ | ☐ |
+| Hiện màn "Máy đang không có mạng" (không phải trang trắng) | ☐ | ☐ |
+| Bài ghi lúc trước **vẫn còn** trong hàng đợi | ☐ | ☐ |
+| Ghi thêm được bài mới khi vẫn đang mất sóng | ☐ | ☐ |
+| Có sóng lại thì **tự gửi cả hai**, không phải bấm gì | ☐ | ☐ |
+
+**Đạt:** cả 5 ô. Trượt ở ô đầu là hỏng nặng nhất — cô sẽ nghĩ mình bị đăng
+xuất và bỏ luôn những gì đang ghi dở.
+
+> **Nếu đang thử trên `http://192.168.x.x`:** bỏ qua mục này và ghi *"không đo
+> được"*, đừng ghi *"trượt"*. Không có HTTPS thì không có service worker, mà
+> không có service worker thì không có gì để mở app lên cả — cái hỏng là môi
+> trường thử. Xem mục 1.
+
 ### Lời hứa 3 — KHÔNG NHÂN ĐÔI
 
-Ngay sau Lời hứa 2, đếm số bài ghi trong danh sách.
+Ngay sau Lời hứa 2 và 2b, đếm số bài ghi trong danh sách.
 
 - [ ] Đúng bằng số cô đã ghi, **không có bài nào lặp**.
 - [ ] Thử thêm: mất sóng, ghi 1 bài, mở lại app **hai lần liên tiếp** → vẫn chỉ
@@ -190,6 +236,7 @@ gì. Rồi bàn lại, vì mỗi kiểu trượt dẫn tới một hướng khá
 | Chậm vì bước chọn bé | Đổi cách chọn bé, hoặc cho ghi cho **cả nhóm** rồi tách sau |
 | Chậm vì gõ chữ | Cho ghi âm thay vì gõ |
 | Mất bài khi offline | Lỗi thật trong `modules/thuchup/` — sửa rồi thử lại |
+| Mở lại app lúc mất sóng bị đá về màn đăng nhập (Lời hứa 2b) | Bản vá Đ12 chưa tới máy đó. Kiểm `public/sw.js` đã lên bản mới chưa (`VERSION`), rồi gỡ app và cài lại |
 | Cô thấy phiền dù nhanh | Vấn đề không nằm ở tốc độ. **Đây là kiểu trượt nặng nhất** — nó nói rằng chỗ đặt việc ghi chép đang sai, và GĐ 2 phải nghĩ lại từ đầu |
 
 Dọn dẹp: xóa thư mục dữ liệu tạm, đóng đường hầm, tắt máy chủ thử.

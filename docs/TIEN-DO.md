@@ -801,3 +801,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ24** — tầng chức vụ nay được thử THẬT với bốn phân hệ nhạy cảm nhất (Ghi nhanh, Hành trình, Kế hoạch của bé, Nhật ký ngày), cả chiều cấm lẫn chiều cho phép | Sổ việc 4 |
 | 28/08/2026 | **Đ25** — hai bộ canh QUY TẮC 2 và QUY TẮC 4 nay nhìn cả `public/js/ui.js` và `public/js/app.js` (trước chỉ quét `public/js/views`, nên hai tệp cả app dựa vào nằm ngoài tầm) | Sổ việc 10 |
 | 28/08/2026 | **Đ26** — hai phép kiểm "chạy khi mất mạng" của `test:pwa` thôi luôn xanh: thay bằng phép kiểm đọc thẳng nội dung cache, và ghi rõ chỗ `setOffline` của Playwright không kiểm được | Sổ việc 9 |
+| 28/08/2026 | **Đ27** — phiếu thử điện thoại thêm **Lời hứa 2b**: mở lại app trong lúc VẪN đang mất sóng (bản trước kết luận nhầm rằng chỗ đó chỉ hỏng khi thiếu HTTPS) | Sổ việc 22 |
