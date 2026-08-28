@@ -21,6 +21,7 @@
 // các bé cạnh nhau theo mức ăn. Một bé ăn ít ba hôm liền là thông tin cho cô
 // và cho gia đình, không phải một chỗ đứng cao thấp so với bạn.
 const { requireRole } = require('../../lib/auth');
+const ngay = require('../../lib/ngay');
 
 // Mức ăn hợp lệ. Cố ý là NHÃN CHỮ, không phải số — để là số thì sớm muộn có
 // người cộng lại rồi sắp các bé trên dưới nhau.
@@ -34,7 +35,7 @@ const TOI_DA_SO_LAN = 20;      // trần cho mọi ô đếm — chặn số vô
 const TOI_DA_ML = 2000;
 
 function homNay() {
-  return new Date().toISOString().slice(0, 10);
+  return ngay.homNay();
 }
 
 // Ba bữa của nhật ký khớp với ba `type` mà màn Thực đơn đang dùng.

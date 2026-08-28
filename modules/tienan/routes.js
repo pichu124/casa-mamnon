@@ -17,6 +17,7 @@
 // đi ra khỏi tay quản trị. Bé nghỉ nhiều là chuyện của gia đình và của khoản
 // tiền ăn, không phải một chỗ đứng cao thấp so với bạn.
 const { requireRole } = require('../../lib/auth');
+const ngay = require('../../lib/ngay');
 const csv = require('../../lib/csv');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -30,7 +31,7 @@ const TOI_DA_LECH_NGAY = 31;
 const CO_MAT = ['present', 'late'];
 
 function homNay() {
-  return new Date().toISOString().slice(0, 10);
+  return ngay.homNay();
 }
 
 function lechNgay(a, b) {

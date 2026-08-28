@@ -4,6 +4,7 @@
 // ở đâu. Mọi hàm kiểm tra quyền dùng chung với phần lõi, nhờ vậy phân hệ mới
 // không thể vô tình để lộ dữ liệu của học sinh lớp khác.
 module.exports = (app, { db }) => {
+  const ngay = require('../../lib/ngay');
   const { requireRole } = require('../../lib/auth');
 
   // Các khoản của một học sinh.
@@ -63,7 +64,7 @@ module.exports = (app, { db }) => {
 
     db.update('hocphi_khoan', k.id, {
       daNop: 1,
-      ngayNop: new Date().toISOString().slice(0, 10),
+      ngayNop: ngay.homNay(),
       ghiChu: String((req.body || {}).ghiChu || '').trim(),
     });
     db.audit(req.user.id, 'hocphi-confirm', k.id, null);

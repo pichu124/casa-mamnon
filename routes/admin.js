@@ -3,6 +3,7 @@
 // Đây là phần cho phép nhà trường tự đưa dữ liệu thật vào hệ thống — không có
 // nó thì không thể tạo hàng trăm tài khoản phụ huynh.
 const db = require('../lib/db');
+const ngayVN = require('../lib/ngay');
 const lsl = require('../lib/lich-su-lop');
 const nl = require('../lib/nhom-lop');
 const csv = require('../lib/csv');
@@ -588,9 +589,9 @@ module.exports = (app) => {
 
     db.audit(req.user.id, 'students-export', null, { soBe: duLieu.length, keCaNghi });
 
-    const ngay = new Date().toISOString().slice(0, 10);
+    const ngayXuat = ngayVN.homNay();
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="danh-sach-be-${ngay}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="danh-sach-be-${ngayXuat}.csv"`);
     res.send(csv.stringify(COT, duLieu));
   });
 
@@ -658,7 +659,7 @@ module.exports = (app) => {
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     if (!duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
     lsl.ghiRoiLop(s.id, lsl.homNay());
-    db.update('students', s.id, { active: false, leftAt: new Date().toISOString().slice(0, 10) });
+    db.update('students', s.id, { active: false, leftAt: ngayVN.homNay() });
     db.audit(req.user.id, 'student-deactivate', s.id, { name: s.name });
     res.json({ ok: true });
   });
@@ -988,7 +989,7 @@ module.exports = (app) => {
   app.get('/api/admin/import/template', onlyAdmin, (req, res) => {
     const headers = ['Mã của bé', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Nhóm', 'Địa chỉ',
       'Họ tên phụ huynh', 'Điện thoại', 'Email'];
-    const namSinhMau = new Date().getFullYear() - 4;   // bé nhóm Chồi, 4 tuổi
+    const namSinhMau = Number(ngayVN.homNay().slice(0, 4)) - 4;   // bé nhóm Chồi, 4 tuổi
     const mau = [{
       'Mã của bé': 'MN2026001', 'Họ tên': 'Nguyễn Bảo An', 'Ngày sinh': `${namSinhMau}-04-12`,
       'Giới tính': 'Nữ', 'Nhóm': 'Chồi 2', 'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',

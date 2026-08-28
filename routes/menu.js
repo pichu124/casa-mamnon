@@ -1,6 +1,7 @@
 // Phân hệ Thực đơn bán trú: xem thực đơn tuần trước / tuần này / tuần sau
 // (cả phụ huynh và giáo viên); quản trị (văn phòng, nhà bếp) soạn và sửa.
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
@@ -9,15 +10,29 @@ const TOI_DA_MON_BUA = 20;   // số món mỗi bữa
 const TOI_DA_TEN_MON = 100;  // độ dài tên món
 const TOI_DA_NGAY_MOT_LAN = 7;  // số ngày gửi lên trong một lần soạn cả tuần
 
-// YYYY-MM-DD theo giờ máy chủ.
-function fmt(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Thứ Hai của tuần cách tuần hiện tại `week` tuần (âm = quá khứ), trả về
+// YYYY-MM-DD theo GIỜ VIỆT NAM.
+//
+// Bản cũ tính bằng giờ máy chủ (`new Date()` rồi getFullYear/getMonth/getDate).
+// Sáng sớm ở Việt Nam mà máy chủ đứng ở UTC thì "tuần này" của thực đơn lệch
+// một ngày so với "hôm nay" của sổ điểm danh — hai màn cô mở cạnh nhau mỗi
+// sáng. Nay cả app chỉ có một định nghĩa, ở lib/ngay.js.
+function thuHaiCuaTuan(week) {
+  return congNgay(ngay.homNay(), -lechThuHai(ngay.homNay()) + week * 7);
 }
 
-// Thứ Hai của tuần cách tuần hiện tại `week` tuần (âm = quá khứ).
-function thuHaiCuaTuan(week) {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + week * 7);
+// Cộng n ngày vào một chuỗi YYYY-MM-DD. Neo vào T00:00:00Z rồi cộng theo mili
+// giây: phép này không đi qua múi giờ nào cả nên không bao giờ lệch một ngày.
+function congNgay(ngayStr, n) {
+  const t = Date.parse(`${ngayStr}T00:00:00Z`);
+  if (Number.isNaN(t)) return '';
+  return new Date(t + n * 86400000).toISOString().slice(0, 10);
+}
+
+// Hôm đó cách thứ Hai của tuần mấy ngày (thứ Hai = 0, Chủ nhật = 6).
+function lechThuHai(ngayStr) {
+  const t = Date.parse(`${ngayStr}T00:00:00Z`);
+  return (new Date(t).getUTCDay() + 6) % 7;
 }
 
 // Chuẩn hóa danh sách bữa ăn của một ngày. Trả về null nếu không hợp lệ.
@@ -57,10 +72,8 @@ module.exports = (app) => {
   // Thực đơn theo tuần: ?week=0 (tuần này, mặc định) | 1 (tuần sau) | -1 (tuần trước).
   app.get('/api/menu', (req, res) => {
     const week = req.query.week === '1' ? 1 : (req.query.week === '-1' ? -1 : 0);
-    const monday = thuHaiCuaTuan(week);
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const from = fmt(monday), to = fmt(friday);
+    const from = thuHaiCuaTuan(week);
+    const to = congNgay(from, 4);
     const menus = db.all('menus',
       'SELECT * FROM menus WHERE date BETWEEN ? AND ? ORDER BY date', [from, to]);
     res.json({ week, from, to, menus });
@@ -174,13 +187,13 @@ module.exports = (app) => {
     let daChep = 0;
     db.tx(() => {
       for (let d = 0; d < 5; d++) {
-        const ngayNguon = new Date(nguon); ngayNguon.setDate(nguon.getDate() + d);
-        const ngayDich = new Date(dich); ngayDich.setDate(dich.getDate() + d);
-        const mNguon = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [fmt(ngayNguon)]);
+        const ngayNguon = congNgay(nguon, d);
+        const ngayDich = congNgay(dich, d);
+        const mNguon = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngayNguon]);
         if (!mNguon) continue;
-        const mDich = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [fmt(ngayDich)]);
+        const mDich = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngayDich]);
         if (mDich) continue; // ngày đã soạn thì giữ nguyên
-        db.insert('menus', { id: db.nextId('menu'), date: fmt(ngayDich), meals: mNguon.meals });
+        db.insert('menus', { id: db.nextId('menu'), date: ngayDich, meals: mNguon.meals });
         daChep++;
       }
     });

@@ -10,6 +10,7 @@
 // thể tạo ra bản sao hỏng không khôi phục được.
 const fs = require('fs');
 const path = require('path');
+const ngay = require('../lib/ngay');
 const zlib = require('zlib');
 const Database = require('better-sqlite3');
 
@@ -28,9 +29,15 @@ const BACKUP_DIR = outIdx >= 0 && args[outIdx + 1]
 // Vòng đời bản sao: giữ 7 bản gần nhất theo ngày, 4 bản theo tuần, 12 theo tháng.
 const GIU_NGAY = 7, GIU_TUAN = 4, GIU_THANG = 12;
 
-function stamp(d = new Date()) {
-  const p = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+// Tên bản sao lưu đọc theo GIỜ VIỆT NAM.
+//
+// Người đọc tên tệp này là nhà trường, đứng ở Việt Nam. Máy chủ thì có thể ở
+// bất cứ đâu — hôm nay Singapore, mai là VPS trong nước — nên lấy giờ máy chủ
+// là tên bản sao lúc đúng lúc lệch, mà lệch thì không ai nhận ra cho tới lúc
+// cần khôi phục đúng bản của một buổi chiều nào đó.
+function stamp(moc = Date.now()) {
+  const t = moc instanceof Date ? moc.getTime() : moc;
+  return `${ngay.ngayCua(t).replace(/-/g, '')}-${ngay.gioCua(t).replace(':', '')}`;
 }
 
 function mb(bytes) { return (bytes / 1024 / 1024).toFixed(1) + ' MB'; }
@@ -110,11 +117,13 @@ db.backup(tmp).then(() => {
   const theoNgay = new Map(), theoTuan = new Map(), theoThang = new Map();
 
   for (const b of list) {
-    const d = b.at;
-    const khoaNgay = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    const khoaThang = `${d.getFullYear()}-${d.getMonth()}`;
-    const tuan = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / (7 * 86400000));
-    const khoaTuan = `${d.getFullYear()}-${tuan}`;
+    // Khoá gom nhóm cũng theo giờ Việt Nam, để "một bản mỗi ngày" nghĩa là một
+    // bản mỗi ngày CỦA TRƯỜNG, không phải mỗi ngày của máy chủ.
+    const ngayVN = ngay.ngayCua(b.at.getTime());
+    const khoaNgay = ngayVN;
+    const khoaThang = ngayVN.slice(0, 7);
+    const tuan = Math.floor(Date.parse(`${ngayVN}T00:00:00Z`) / (7 * 86400000));
+    const khoaTuan = String(tuan);
     if (!theoNgay.has(khoaNgay)) theoNgay.set(khoaNgay, b.file);
     if (!theoTuan.has(khoaTuan)) theoTuan.set(khoaTuan, b.file);
     if (!theoThang.has(khoaThang)) theoThang.set(khoaThang, b.file);

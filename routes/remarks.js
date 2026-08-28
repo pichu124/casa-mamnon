@@ -1,5 +1,6 @@
 // Phân hệ Nhận xét hằng ngày: giáo viên gửi nhận xét, phụ huynh theo dõi.
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 const st = require('../lib/sua-thu-hoi');
 
@@ -8,8 +9,7 @@ const BANG = 'remarks';
 const RATINGS = ['great', 'good', 'needs_effort'];
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return ngay.homNay();
 }
 
 module.exports = (app) => {

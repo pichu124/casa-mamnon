@@ -4,6 +4,7 @@
 // liệu nên luôn chạy hai bước: xem trước rồi mới thực hiện, và mọi thay đổi nằm
 // trong một giao dịch — hoặc xong trọn vẹn, hoặc không đổi gì cả.
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const lsl = require('../lib/lich-su-lop');
 const { requireRole } = require('../lib/auth');
 
@@ -13,7 +14,7 @@ const onlyAdmin = requireRole('admin');
 function namKeTiep(nam) {
   const m = String(nam || '').match(/^(\d{4})-(\d{4})$/);
   if (!m) {
-    const y = new Date().getFullYear();
+    const y = Number(ngay.homNay().slice(0, 4));
     return `${y}-${y + 1}`;
   }
   return `${Number(m[1]) + 1}-${Number(m[2]) + 1}`;
@@ -148,7 +149,7 @@ module.exports = (app) => {
     }
 
     const ketQua = { lenLop: 0, raTruong: 0, lopTao: 0, lopDong: 0 };
-    const ngayChuyen = new Date().toISOString().slice(0, 10);
+    const ngayChuyen = ngay.homNay();
 
     db.tx(() => {
       const lopCu = db.classes();

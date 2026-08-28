@@ -3,11 +3,11 @@
 // Mỗi con số là một câu đếm riêng trên cơ sở dữ liệu — nhanh hơn nhiều so với
 // việc nạp toàn bộ dữ liệu lên rồi lọc trong bộ nhớ.
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const st = require('../lib/sua-thu-hoi');
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return ngay.homNay();
 }
 
 // Điều kiện SQL cho các thông báo mà người dùng được xem.

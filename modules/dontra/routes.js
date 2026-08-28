@@ -16,6 +16,7 @@
 //
 // Việc của cô là việc ở cổng: NHÌN, ĐỐI CHIẾU ẢNH, và GHI LẠI đã trả cho ai.
 const { requireRole } = require('../../lib/auth');
+const ngay = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,7 +33,7 @@ const TOI_DA_NGUOI_MOI_BE = 12;
 const TOI_DA_UY_QUYEN_DANG_HIEU_LUC = 10;
 
 function homNay() {
-  return new Date().toISOString().slice(0, 10);
+  return ngay.homNay();
 }
 
 function chuoi(v, tran) {

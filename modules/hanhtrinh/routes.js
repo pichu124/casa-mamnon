@@ -22,6 +22,7 @@
 // QUY TẮC 3 (AI gợi ý khác cô quyết định) chưa có đất ở đây vì phân hệ này
 // chưa gọi AI. Điều kiện bật AI nằm ở docs/KE-HOACH.md mục 6.
 const { requireRole } = require('../../lib/auth');
+const ngay = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,7 +68,7 @@ const GIOI_HAN_DANH_SACH = 60;
 const NGAY_COI_LA_LAU = 14;
 
 function homNay() {
-  return new Date().toISOString().slice(0, 10);
+  return ngay.homNay();
 }
 
 function chuoi(v, tran) {
@@ -297,7 +298,7 @@ module.exports = (app, { db, modules }) => {
   app.get('/api/hanhtrinh/nhac-nhe', requireRole('teacher', 'admin'), (req, res) => {
     const ids = db.studentIdsOf(req.user);
     if (!ids.length) return res.json({ be: [] });
-    const moc = new Date(Date.now() - NGAY_COI_LA_LAU * 86400000).toISOString().slice(0, 10);
+    const moc = ngay.ngayCua(Date.now() - NGAY_COI_LA_LAU * 86400000);
     const marks = ids.map(() => '?').join(',');
     const coGanDay = new Set(db.all('hanhtrinh_quansat',
       `SELECT DISTINCT studentId FROM hanhtrinh_quansat

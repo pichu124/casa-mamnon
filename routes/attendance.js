@@ -1,5 +1,6 @@
 // Phân hệ Điểm danh: phụ huynh xem theo tháng, giáo viên điểm danh lớp theo ngày.
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
@@ -7,16 +8,13 @@ const STATUSES = ['present', 'late', 'absent_excused', 'absent_unexcused'];
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  return ngay.thangNay();
 }
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return ngay.homNay();
 }
 function nowTime() {
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return ngay.bayGio();
 }
 
 module.exports = (app) => {

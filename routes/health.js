@@ -1,5 +1,6 @@
 // Phân hệ Y tế học đường: hồ sơ sức khỏe của học sinh, giáo viên thêm ghi nhận mới.
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 const st = require('../lib/sua-thu-hoi');
 
@@ -17,8 +18,7 @@ function coTheSuaYTe(user, studentId) {
 }
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return ngay.homNay();
 }
 
 module.exports = (app) => {

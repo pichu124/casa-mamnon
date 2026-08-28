@@ -1,5 +1,6 @@
 // Phân hệ Nề nếp: tuyên dương / nhắc nhở và điểm thi đua.
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 const st = require('../lib/sua-thu-hoi');
 
@@ -8,8 +9,7 @@ const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Ngày hôm nay theo giờ địa phương, định dạng YYYY-MM-DD (khớp seed).
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return ngay.homNay();
 }
 
 module.exports = (app) => {

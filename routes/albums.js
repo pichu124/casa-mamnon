@@ -5,6 +5,7 @@
 //   - Ảnh minh họa bằng emoji (dữ liệu cũ) → { id, emoji, g: [màu1, màu2], caption }
 const fs = require('fs');
 const db = require('../lib/db');
+const ngay = require('../lib/ngay');
 const uploads = require('../lib/uploads');
 const { requireRole } = require('../lib/auth');
 const lsl = require('../lib/lich-su-lop');
@@ -25,8 +26,7 @@ const GRADIENTS = [
 const MAX_PHOTOS_PER_ALBUM = 60;
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return ngay.homNay();
 }
 
 // Dựng bản ghi ảnh từ dữ liệu trình duyệt gửi lên.

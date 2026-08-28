@@ -25,6 +25,7 @@
 //      cả chú thích, và một bộ canh có ngoại lệ "trong ngoặc kép thì không
 //      tính" là một bộ canh có lỗ.
 const { requireRole } = require('../../lib/auth');
+const ngay = require('../../lib/ngay');
 
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -63,7 +64,7 @@ const TOI_DA_MUC_MOI_BE = 12;
 const TOI_DA_BE_MOT_LAN = 60;
 
 function thangNay() {
-  return new Date().toISOString().slice(0, 7);
+  return ngay.thangNay();
 }
 
 function thangTruoc(thang) {
