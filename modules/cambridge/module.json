@@ -1,0 +1,13 @@
+{
+  "key": "cambridge",
+  "name": "Cambridge & Kết nối ở nhà",
+  "desc": "Văn phòng đăng nội dung Cambridge và gợi ý làm cùng con ở nhà, gia đình đọc",
+  "hash": "#/cambridge",
+  "view": "cambridge",
+  "emoji": "🎓",
+  "bg": "linear-gradient(135deg,#4fa8d8,#2c7bb0)",
+  "api": ["/api/cambridge"],
+  "roles": ["parent", "teacher", "admin"],
+  "defaultEnabled": false,
+  "version": "0.1.0"
+}
