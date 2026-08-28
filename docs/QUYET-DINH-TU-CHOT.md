@@ -251,6 +251,75 @@ và mốc ghi lại cũng luôn muộn hơn lúc xoá thật.
 
 ---
 
+## 15. Lời từ chối chia sẻ ảnh tính theo "TỪNG HỌC", không theo ngày chụp
+
+**Chọn:** ảnh chưa gắn thẻ của một nhóm bị ẩn với gia đình khác nếu **bất kỳ bé
+nào TỪNG học nhóm đó** đã từ chối — kể cả bé đã chuyển nhóm hoặc đã ra trường.
+
+**Vì sao:** bản cũ hỏi bằng hai điều kiện đều nói về hiện tại, nên sau mỗi lần
+chuyển năm học thì lời từ chối **tự hết hiệu lực** và những tấm ảnh từng bị ẩn
+hiện trở lại trong album năm cũ. Không ai bấm gì, không ai rút. Đó là kiểu rò rỉ
+tệ nhất: im lặng, đúng hạn, không ai biết.
+
+**Chỗ tôi tự quyết:** bảng lịch sử có sẵn cột *từ ngày – đến ngày*, nên tôi
+**có thể** so theo đúng ngày chụp ảnh, chặt hơn hẳn. Tôi cố ý **không** làm vậy.
+So theo ngày mà sai một ly là lộ ảnh trẻ; cách hiện tại sai về phía **ẩn thừa**,
+và ẩn thừa thì cô gắn thẻ bé một lượt là ảnh hiện lại.
+
+**Đổi hướng thì tốn gì:** rẻ, nhưng nên đợi tới khi trường dùng thật và thấy
+đúng là có ảnh bị ẩn oan. Sửa vì lo xa ở đây là đổi phía an toàn lấy sự gọn gàng.
+
+---
+
+## 16. Gỡ hẳn lời hứa "thông báo đẩy", không làm nửa vời
+
+**Chọn:** gỡ băng-rôn *"Bật để nhận thông báo kịp thời"* và nút *"Bật thông báo
+đẩy"* trong Cài đặt. Thay bằng một dòng nói đúng sự thật: app chưa gửi được
+thông báo ra ngoài, tin mới hiện khi mở app. Băng-rôn nay mời **cài app vào màn
+hình chính** — thứ app làm được thật.
+
+**Vì sao:** cả kho mã không có một dòng nào cho thông báo đẩy — không sự kiện
+`push` trong service worker, không đăng ký, không khoá, không đường máy chủ. Gia
+đình bấm đồng ý xong sẽ **không bao giờ** nhận được gì, kể cả khi cô báo con
+sốt. Đây đúng bài học A5 (dặn thuốc): lời hứa sai tệ hơn thiếu tính năng, vì
+người ta sẽ **thôi mở app ra xem** — họ tưởng có tin thì máy sẽ báo.
+
+**Tôi chọn gỡ chứ không làm thật**, vì làm thật cần khoá VAPID, một chỗ lưu đăng
+ký trên máy chủ, và một quyết định về việc gửi thông tin trẻ qua dịch vụ đẩy của
+Google/Apple — chuyện thuộc nhóm dữ liệu nhạy cảm, phải hỏi nhà trường trước.
+
+**Bộ canh mới:** `test/khong-hua-suong.test.mjs` không cấm làm thông báo đẩy. Nó
+đọc `public/sw.js` rồi đòi hai thứ đi cùng nhau: **hễ còn xin quyền thì phải có
+đường đẩy thật**. Ngày nào dựng xong, bài test tự nới ra, không cần sửa dòng nào.
+
+**Cần trường trả lời:** có muốn thông báo đẩy thật không? Nếu có thì phải chấp
+nhận tên bé / tiêu đề thông báo đi qua máy chủ của Google hoặc Apple.
+
+**Đổi hướng thì tốn gì:** vừa. Băng-rôn và nút gỡ đi rồi thì viết lại nhanh,
+nhưng phần đường đẩy thật là một hạng mục riêng.
+
+---
+
+## 17. Viết tài liệu triển khai MỚI cho app 2, không sửa hai tệp của app 1
+
+**Chọn:** thêm `docs/TRIEN-KHAI.md` — chỉ gồm phần **không phụ thuộc vào việc
+chọn máy chủ nào**, kèm một bảng ghi rõ *còn thiếu gì và vì sao*. Hai tệp
+`CAP-NHAT-MAY-CHU.md` và `MAY-CHU-THU-ORACLE.md` giữ nguyên.
+
+**Vì sao:** hai tệp cũ mô tả **máy chủ thật của app 1**, đang chạy cho ~300 học
+sinh. Chúng vẫn đúng cho app 1. Sửa đường dẫn trong đó thành `casa-mamnon` là
+làm hỏng tài liệu vận hành của một hệ thống đang sống — để lấy một tài liệu app
+2 vẫn sai, vì app 2 chưa có máy chủ.
+
+**Chỗ tôi cố ý dừng lại:** phần địa chỉ máy, tên miền, HTTPS, lệnh cài dịch vụ
+và lịch cron — tôi **không viết**, và ghi thẳng lý do vào một bảng ở cuối tài
+liệu. Viết trước khi biết chạy ở đâu thì chỉ là đoán, mà một tài liệu triển
+khai đoán sai còn nguy hơn không có: người làm theo sẽ tin nó.
+
+**Đổi hướng thì tốn gì:** rẻ. Chốt xong N7 thì phần còn lại viết trong một buổi.
+
+---
+
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)
 
 Những mục dưới đây tôi **cố ý không tự chọn**, vì chọn sai thì phải sửa lược đồ

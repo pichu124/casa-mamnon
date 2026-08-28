@@ -61,13 +61,14 @@ App.views.settings = {
         </div>` : ''}
 
       <div class="card">
-        <div class="card-title">${UI.icon('bell', 19)} Thông báo</div>
+        <div class="card-title">${UI.icon('bell', 19)} Tin mới</div>
         <div class="list-row">
           <div class="row-main">
-            <div class="row-title">Thông báo đẩy trên thiết bị</div>
-            <div class="row-sub">Nhận tin nhắn và thông báo mới kịp thời</div>
+            <div class="row-title">App chưa gửi thông báo ra ngoài</div>
+            <div class="row-sub" style="line-height:1.6">Tin nhắn và thông báo mới hiện ngay trên
+              màn hình chính khi mở app, kèm dấu chấm đỏ ở mục có tin. Máy sẽ không kêu khi
+              app đang đóng — nên vẫn nhớ mở app xem mỗi ngày.</div>
           </div>
-          <button class="btn sm outline" id="st-push">Bật</button>
         </div>
       </div>
 
@@ -87,11 +88,13 @@ App.views.settings = {
 
     document.getElementById('st-change-pw').onclick = () => this.showChangePassword();
 
-    document.getElementById('st-push').onclick = async () => {
-      if (!('Notification' in window)) return UI.toast('Trình duyệt không hỗ trợ thông báo', 'error');
-      const perm = await Notification.requestPermission();
-      UI.toast(perm === 'granted' ? 'Đã bật thông báo đẩy' : 'Thông báo chưa được cấp quyền', perm === 'granted' ? 'success' : '');
-    };
+    // Nút "Bật thông báo đẩy" đã được gỡ ở Đ14.
+    //
+    // Nó xin quyền `Notification` rồi báo "Đã bật thông báo đẩy", trong khi
+    // `public/sw.js` không có sự kiện `push` nào và máy chủ không có chỗ lưu
+    // đăng ký — tức là gia đình bấm xong sẽ KHÔNG BAO GIỜ nhận được gì. Bài
+    // học A5: app chỉ nên hứa thứ nó biết chắc. `test/khong-hua-suong.test.mjs`
+    // canh chỗ này, và sẽ tự nới ra khi nào có đường đẩy thật.
   },
 
   showChangePassword() {
