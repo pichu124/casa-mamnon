@@ -521,6 +521,30 @@ module.exports = (app, { db, modules }) => {
     const b = req.body || {};
     const patch = { capNhatLuc: new Date().toISOString() };
 
+    // ĐỔI BÉ — ĐƯỜNG LÙI CHO MỘT CÚ BẤM NHẦM.
+    //
+    // Hộp thoại ghi quan sát từng chọn sẵn bé đầu danh sách, nên cô bấm Lưu mà
+    // quên đổi tên bé là quan sát nằm vĩnh viễn trong hành trình của bé khác.
+    // Trước đây không có đường lùi nào: đường này không nhận `studentId`, và
+    // không phân hệ nào có đường xoá.
+    //
+    // Phải qua canh quyền HAI LẦN, cho cả bé cũ lẫn bé mới — `duocSua` ở trên
+    // đã kiểm bé cũ. Không kiểm bé mới thì đây thành đường chuyển một quan sát
+    // sang nhóm mà cô không dạy.
+    if (b.studentId !== undefined && b.studentId !== cu.studentId) {
+      const beMoi = chuoi(b.studentId, 40);
+      if (!beMoi) return res.status(400).json({ error: 'Chưa chọn bé' });
+      if (!db.canAccessStudent(req.user, beMoi)) {
+        return res.status(403).json({ error: 'Không có quyền ghi quan sát cho bé này' });
+      }
+      if (!db.findStudent(beMoi)) return res.status(404).json({ error: 'Không tìm thấy bé' });
+      // Câu chuyện ĐÃ CÔNG BỐ thì gia đình bé cũ đã đọc rồi. Chuyển sang bé
+      // khác mà vẫn để nguyên trạng thái công bố là đưa câu chuyện của bé này
+      // sang nhà bé kia. Thu hồi trước, cô công bố lại nếu vẫn muốn kể.
+      if (cu.congBoLuc) patch.congBoLuc = null;
+      patch.studentId = beMoi;
+    }
+
     if (b.moTa !== undefined) {
       const m = chuoi(b.moTa, TOI_DA_MO_TA);
       if (!m) return res.status(400).json({ error: 'Phần mô tả không được để trống' });
@@ -567,6 +591,45 @@ module.exports = (app, { db, modules }) => {
     });
     const moi = db.first('hanhtrinh_quansat', 'SELECT * FROM hanhtrinh_quansat WHERE id = ?', [cu.id]);
     res.json(choNguoiXem(moi, req.user));
+  });
+
+  // =========================================================================
+  // XOÁ MỘT QUAN SÁT GHI NHẦM
+  // =========================================================================
+  //
+  // VÌ SAO CẦN, VÀ VÌ SAO PHẢI DỌN CẢ ẢNH
+  //
+  // Đổi bé ở đường trên lo được phần lớn cú bấm nhầm. Nhưng có những bản ghi
+  // đúng là RÁC: cô bấm Lưu hai lần, hay ghi vào giữa chừng rồi bỏ. Không có
+  // đường xoá thì chúng nằm lại vĩnh viễn trong hành trình của một đứa trẻ.
+  //
+  // `uploads.remove` được gọi ở dontra, cambridge, thuchup và albums, nhưng
+  // KHÔNG hề có trong phân hệ này — nên ảnh của một quan sát không bao giờ được
+  // dọn. Ổ đĩa chỉ có tăng, và tấm ảnh khuôn mặt trẻ vẫn nằm đó sau khi bản ghi
+  // đã biến mất khỏi màn hình. Đó mới là phần đáng lo, không phải dung lượng.
+  app.delete('/api/hanhtrinh/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const cu = db.first('hanhtrinh_quansat', 'SELECT * FROM hanhtrinh_quansat WHERE id = ?', [req.params.id]);
+    if (!cu) return res.status(404).json({ error: 'Không tìm thấy quan sát này' });
+    if (!duocSua(req.user, cu)) {
+      return res.status(403).json({
+        error: 'Đây là ghi chép riêng của cô đã ghi. Xoá thì chỉ chính cô ấy hoặc văn phòng.',
+      });
+    }
+
+    // Ảnh chỉ được dọn khi KHÔNG bản ghi nào khác còn dùng tới nó. Đường chép
+    // từ Ghi nhanh tạo bản ảnh riêng nên bình thường là một-một, nhưng hỏi một
+    // câu ở đây rẻ hơn nhiều so với việc xoá mất ảnh của một quan sát khác.
+    if (cu.anh) {
+      const conAiDung = db.all('hanhtrinh_quansat',
+        'SELECT id FROM hanhtrinh_quansat WHERE anh = ? AND id <> ?', [cu.anh, cu.id]).length;
+      if (!conAiDung) { try { uploads.remove(cu.anh); } catch (_) {} }
+    }
+
+    db.run('DELETE FROM hanhtrinh_quansat WHERE id = ?', [cu.id]);
+    db.audit(req.user.id, 'hanhtrinh-xoa', cu.studentId, {
+      id: cu.id, ngay: cu.ngay, daCongBo: !!cu.congBoLuc,
+    });
+    res.json({ ok: true });
   });
 
   // =========================================================================

@@ -157,6 +157,8 @@ App.views.thuchup = {
               <div class="row-end">
                 ${g.giay != null ? UI.badge(g.giay + 's', g.giay < 20 ? 'green' : 'orange') : ''}
                 ${g.ngoaiTuyen ? UI.badge('ngoại tuyến', 'gray') : ''}
+                <button class="btn sm outline" data-xoa-gn="${UI.esc(g.id)}"
+                  title="Ghi nhầm bé — xoá bản này">${UI.icon('x', 14)}</button>
               </div>
             </div>`).join('')}
         </div>`
@@ -167,6 +169,23 @@ App.views.thuchup = {
       </div></div>` : ''}`;
 
     document.getElementById('tc-ghi').onclick = () => this.batDau();
+
+    // GHI NHẦM BÉ — đường lùi cho một cú bấm nhầm.
+    //
+    // Ghi nhanh là ghi chép thô của cô, và cô ghi nhanh nghĩa là ghi vội. Không
+    // có đường xoá thì một bản ghi sai bé nằm lại trong danh sách của đứa trẻ
+    // khác, kèm ảnh của đứa trẻ khác.
+    for (const el of root.querySelectorAll('[data-xoa-gn]')) {
+      el.onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm('Xoá bản ghi này? Ảnh kèm theo cũng được dọn, và không lấy lại được.')) return;
+        try {
+          await API.del(`/api/thuchup/${encodeURIComponent(el.dataset.xoaGn)}`);
+          UI.toast('Đã xoá bản ghi', 'success');
+          App.route();
+        } catch (err) { UI.toast(err.message, 'error'); }
+      };
+    }
     const btnGui = document.getElementById('tc-gui');
     if (btnGui) btnGui.onclick = async () => {
       const { gui, con: conLai } = await this.guiHangDoi();

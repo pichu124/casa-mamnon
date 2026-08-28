@@ -9,6 +9,8 @@
 //   KHÔNG LỘT QUYỀN — cô chỉ ghi và xem được bé trong nhóm lớp mình.
 //
 // Bài kiểm thử tự dựng máy chủ riêng với cơ sở dữ liệu tạm, KHÔNG đụng dữ liệu thật.
+import fs from 'fs';
+import path from 'path';
 import {
   GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo,
   dungMayChu, taoReq, taoLogin,
@@ -292,6 +294,52 @@ console.log('\n[11] Đường chống trùng mã cũng là một đường ĐỌ
     !cheo.data?.note && !cheo.data?.file && !cheo.data?.studentId, cheo.data);
 
   await req('PUT', '/api/admin/classes/c2/campus', { cookie: A.cookie, body: { campusId: 'cs1' } });
+}
+
+// ===========================================================================
+console.log('\n[+] GHI NHẦM BÉ — xoá được, và ẢNH PHẢI ĐƯỢC DỌN THEO');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Cô ghi nhanh nghĩa là ghi vội, nên ghi nhầm bé là chuyện sẽ xảy ra. Trước
+  // đợt Đ15 không có một `app.delete` nào trong cả thư mục modules/, nên bản
+  // ghi sai nằm lại vĩnh viễn trong danh sách của một đứa trẻ khác.
+  //
+  // Và phần đáng lo hơn dung lượng: `uploads.remove` được gọi ở dontra,
+  // cambridge, albums — nhưng không ở đây. Nên TẤM ẢNH KHUÔN MẶT TRẺ vẫn nằm
+  // trên ổ đĩa sau khi bản ghi đã biến mất khỏi màn hình.
+  const MA = 'dddddddd-1111-2222-3333-444444444444';
+  const tao = await req('POST', '/api/thuchup', {
+    cookie: T, body: { id: MA, studentId: BE, note: 'Ghi nhầm bé', dataUrl: ANH, giay: 8 },
+  });
+  check('ghi được một bản có ảnh để thử', tao.status === 200 || tao.status === 201, tao.data);
+
+  const tep = tao.data?.file;
+  check('bản ghi có tên tệp ảnh', !!tep, tao.data);
+  const duongAnh = path.join(DIR, 'uploads', tep || '__khong_co__');
+  check('và tệp ảnh CÓ THẬT trên ổ đĩa trước khi xoá', fs.existsSync(duongAnh), duongAnh);
+
+  // Canh quyền trước, rồi mới tới việc xoá.
+  const coKhac = await req('DELETE', `/api/thuchup/${MA}`, { cookie: T2 });
+  check('cô nhóm khác KHÔNG xoá được', coKhac.status === 403, coKhac.status);
+  check('và tệp ảnh vẫn còn nguyên sau lần thử đó', fs.existsSync(duongAnh));
+
+  const phuHuynh = await req('DELETE', `/api/thuchup/${MA}`, { cookie: P });
+  check('phụ huynh KHÔNG xoá được', phuHuynh.status === 403, phuHuynh.status);
+
+  const xoa = await req('DELETE', `/api/thuchup/${MA}`, { cookie: T });
+  check('CÔ ĐÃ GHI THÌ XOÁ ĐƯỢC', xoa.status === 200, xoa.data);
+
+  const ds = (await req('GET', '/api/thuchup', { cookie: T })).data?.ghiNhan || [];
+  check('bản ghi biến mất khỏi danh sách', !ds.some(g => g.id === MA), ds.map(g => g.id));
+  check('ẢNH CŨNG BỊ DỌN KHỎI Ổ ĐĨA — không để lại ảnh mặt trẻ mồ côi bản ghi',
+    !fs.existsSync(duongAnh), duongAnh);
+
+  const anh = await req('GET', `/api/thuchup/anh/${MA}`, { cookie: T });
+  check('và đường xem ảnh trả về không tìm thấy', anh.status === 404, anh.status);
+
+  const lai = await req('DELETE', `/api/thuchup/${MA}`, { cookie: T });
+  check('xoá lần hai thì báo không tìm thấy, không nổ', lai.status === 404, lai.status);
 }
 
 may.dung();

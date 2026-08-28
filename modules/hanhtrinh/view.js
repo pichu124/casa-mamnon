@@ -137,6 +137,9 @@ App.views.hanhtrinh = {
         });
       };
     }
+    for (const el of than.querySelectorAll('[data-ghinham]')) {
+      el.onclick = () => this.moGhiNham(el.dataset.ghinham);
+    }
     for (const el of than.querySelectorAll('[data-suyngam]')) {
       el.onclick = () => this.moSuyNgam(el.dataset.suyngam);
     }
@@ -179,10 +182,75 @@ App.views.hanhtrinh = {
             ${UI.icon('send', 16)} ${q.daCongBo ? 'Sửa câu chuyện' : 'Kể cho gia đình'}
           </button>
         </div>
+        ${q.cuaToi || App.state.user.role === 'admin' ? `
+          <button class="btn danger-soft block" style="margin-top:8px" data-ghinham="${UI.esc(q.id)}">
+            ${UI.icon('x', 16)} Ghi nhầm bé
+          </button>` : ''}
       </div>`;
   },
 
+  // ---- Hộp thoại: GHI NHẦM BÉ ----
+  //
+  // Hai đường ra, và đường CHUYỂN đứng trước đường XOÁ.
+  //
+  // Cú bấm nhầm thường gặp nhất là quên đổi tên bé trong ô chọn, và lúc đó việc
+  // cô muốn làm là chuyển sang đúng bé — không phải gõ lại từ đầu. Xoá chỉ dành
+  // cho bản ghi đúng là rác.
+  moGhiNham(id) {
+    const q = (this._data.quanSat || []).find(x => x.id === id);
+    if (!q) return;
+    const ds = ((this._data || {}).danhSachBe || []).filter(b => b.id !== q.studentId);
+    UI.modal(`
+      <p class="muted small" style="line-height:1.7">Quan sát này đang nằm trong hành trình của
+        <b>${UI.esc(q.hoTen || 'bé')}</b>.</p>
+      <div class="field">
+        <label>Chuyển sang bé khác</label>
+        <select id="ht-nham-be">
+          <option value="">— Chọn bé —</option>
+          ${ds.map(b => `<option value="${UI.esc(b.id)}">${UI.esc(b.hoTen)}</option>`).join('')}
+        </select>
+        ${q.daCongBo ? `<div class="hint">Câu chuyện này đã kể cho gia đình rồi, nên khi chuyển
+          sang bé khác app sẽ <b>thu lại</b> — cô kể lại nếu vẫn muốn.</div>` : ''}
+      </div>
+      <button class="btn primary block" id="ht-nham-chuyen">${UI.icon('check', 18)} Chuyển sang bé đã chọn</button>
+      <p class="muted small center" style="margin:14px 0 8px">hoặc, nếu bản ghi này là ghi thừa</p>
+      <button class="btn danger-soft block" id="ht-nham-xoa">Xoá hẳn quan sát này</button>
+    `, 'Ghi nhầm bé');
+
+    document.getElementById('ht-nham-chuyen').onclick = async () => {
+      const be = document.getElementById('ht-nham-be').value;
+      if (!be) return UI.toast('Cô chọn giúp bé đúng nhé', 'error');
+      try {
+        await API.put(`/api/hanhtrinh/${encodeURIComponent(id)}`, { studentId: be });
+        UI.toast('Đã chuyển sang đúng bé', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+
+    document.getElementById('ht-nham-xoa').onclick = async () => {
+      if (!confirm('Xoá hẳn quan sát này? Ảnh kèm theo cũng được dọn, và không lấy lại được.')) return;
+      try {
+        await API.del(`/api/hanhtrinh/${encodeURIComponent(id)}`);
+        UI.toast('Đã xoá quan sát', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
   // ---- Hộp thoại: ghi một quan sát (lớp 1) ----
+  //
+  // DÒNG "— Chọn bé —" TRONG Ô CHỌN LÀ MỘT QUYẾT ĐỊNH, KHÔNG PHẢI BỎ QUÊN.
+  //
+  // Không có nó thì bé đầu danh sách luôn được chọn sẵn, và cô bấm Lưu mà quên
+  // đổi tên bé là quan sát nằm vĩnh viễn trong hành trình của bé khác — kèm ảnh
+  // của bé khác. Bắt chọn tường minh tốn của cô một thao tác; ghi nhầm tốn của
+  // một đứa trẻ cả một trang hồ sơ.
+  //
+  // Chú thích này để ở đây, KHÔNG để trong chuỗi HTML: chú thích `<!-- -->` đi
+  // thẳng ra trình duyệt, nên bộ canh QUY TẮC 2 đọc nó như chữ trên màn hình —
+  // và nó đọc đúng.
   moGhi(id, tu = {}) {
     this._anhMoi = null;
     const ds = (this._data || {}).danhSachBe || [];
@@ -190,6 +258,7 @@ App.views.hanhtrinh = {
       <div class="field">
         <label>Quan sát về bé nào</label>
         <select id="ht-be">
+          <option value="">— Chọn bé —</option>
           ${ds.map(b => `<option value="${UI.esc(b.id)}" ${tu.studentId === b.id ? 'selected' : ''}>${UI.esc(b.hoTen)}</option>`).join('')}
         </select>
       </div>
@@ -224,6 +293,7 @@ App.views.hanhtrinh = {
       ghiNhanhId,
     };
     if (this._anhMoi) body.anh = this._anhMoi;
+    if (!body.studentId) return UI.toast('Cô chọn giúp quan sát này là về bé nào nhé', 'error');
     if (!body.moTa) return UI.toast('Cô mô tả giúp điều đã thấy ở bé nhé', 'error');
     try {
       await API.post('/api/hanhtrinh', body);

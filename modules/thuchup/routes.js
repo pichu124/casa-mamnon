@@ -178,6 +178,31 @@ module.exports = (app, { db }) => {
     res.sendFile(filePath);
   });
 
+  // Xoá một bản Ghi nhanh ghi nhầm.
+  //
+  // Ghi nhanh là ghi chép THÔ của cô — lớp 1 của bảng ba lớp trong CLAUDE.md.
+  // Nháp dở dang được phép tồn tại, nhưng nháp SAI BÉ thì không: nó nằm trong
+  // danh sách của một đứa trẻ khác, và nếu có ảnh thì là ảnh của đứa trẻ khác.
+  //
+  // Chỉ chính cô đã ghi hoặc văn phòng xoá được — cùng luật với `doDuocBanGhi`
+  // đang canh đường xem ảnh. Và ảnh phải được dọn cùng, nếu không thì tấm ảnh
+  // khuôn mặt trẻ vẫn nằm trên ổ đĩa sau khi bản ghi đã biến mất.
+  app.delete('/api/thuchup/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const r = db.first('thuchup_ghinhanh',
+      'SELECT * FROM thuchup_ghinhanh WHERE id = ?', [req.params.id]);
+    if (!r) return res.status(404).json({ error: 'Không tìm thấy bản ghi này' });
+    if (!db.canAccessStudent(req.user, r.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xoá bản ghi của bé này' });
+    }
+    if (!doDuocBanGhi(req.user, r)) {
+      return res.status(403).json({ error: 'Đây là ghi chép riêng của cô khác' });
+    }
+    if (r.file) { try { uploads.remove(r.file); } catch (_) {} }
+    db.run('DELETE FROM thuchup_ghinhanh WHERE id = ?', [r.id]);
+    db.audit(req.user.id, 'thuchup-xoa', r.studentId, { id: r.id });
+    res.json({ ok: true });
+  });
+
   // Số liệu của phép thử: bao nhiêu lần ghi, nhanh nhất/chậm nhất bao lâu.
   // Đây chính là bằng chứng để quyết định đi tiếp hay dừng lại bàn.
   app.get('/api/thuchup/ket-qua', requireRole('teacher', 'admin'), (req, res) => {

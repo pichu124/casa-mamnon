@@ -525,6 +525,73 @@ console.log('\n[13] Tắt phân hệ thì API bị chặn, dữ liệu vẫn cò
     ((await hoSo(PH)).quanSat || []).length > 0);
 }
 
+// ===========================================================================
+console.log('\n[+] GHI NHẦM BÉ — phải có đường lùi, và đường lùi cũng phải canh quyền');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Hộp thoại ghi quan sát từng dựng ô chọn bé KHÔNG có dòng trống, nên bé đầu
+  // danh sách luôn được chọn sẵn. Cô bấm Lưu mà quên đổi tên bé thì quan sát
+  // nằm vĩnh viễn trong hành trình của bé khác, kèm ảnh của bé khác — và không
+  // có đường lùi nào: đường sửa không nhận `studentId`, và không phân hệ nào
+  // trong modules/ có một `app.delete` nào cả.
+  const tao = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', moTa: 'Ghi nhầm: quan sát này là của bé khác.', anh: ANH },
+  });
+  const id = tao.data?.id;
+  check('ghi được một quan sát để thử', !!id, tao.data);
+
+  // ---- Chuyển sang đúng bé ----
+  const chuyen = await req('PUT', `/api/hanhtrinh/${id}`, { cookie: GV, body: { studentId: 's3' } });
+  check('CHUYỂN ĐƯỢC QUAN SÁT SANG ĐÚNG BÉ', chuyen.status === 200, chuyen.data);
+  const sau = (await hoSo(GV, 's3')).quanSat.find(q => q.id === id);
+  check('quan sát nay nằm trong hành trình của bé mới', !!sau, sau);
+  const cuaBeCu = (await hoSo(GV, 's1')).quanSat.find(q => q.id === id);
+  check('và KHÔNG còn trong hành trình của bé cũ', !cuaBeCu, cuaBeCu);
+
+  // ---- Không được chuyển sang bé mình không dạy ----
+  const langNhang = await req('PUT', `/api/hanhtrinh/${id}`, { cookie: GV, body: { studentId: 's7' } });
+  check('KHÔNG chuyển được sang bé của nhóm mình không dạy', langNhang.status === 403, langNhang.status);
+
+  // ---- Câu chuyện đã công bố thì chuyển bé phải THU LẠI ----
+  await req('PUT', `/api/hanhtrinh/${id}`, {
+    cookie: GV,
+    body: { linhVuc: 'thuc-hanh-cuoc-song', trangThai: 'dang-hinh-thanh', oLopLamGi: 'Cho con làm lại vào ngày mai' },
+  });
+  await req('PUT', `/api/hanhtrinh/${id}`, {
+    cookie: GV,
+    body: {
+      cauChuyen: 'Hôm nay con làm được một việc rất hay.',
+      cungConONha: 'Bố mẹ cho con làm lại việc đó ở nhà cuối tuần nhé.',
+    },
+  });
+  const congBo = await req('POST', `/api/hanhtrinh/${id}/cong-bo`, { cookie: GV });
+  check('công bố được câu chuyện', congBo.status === 200, congBo.data);
+  const daCongBo = (await hoSo(GV, 's3')).quanSat.find(q => q.id === id);
+  check('và nó ĐANG ở trạng thái đã công bố trước khi chuyển bé',
+    daCongBo && daCongBo.daCongBo === true, daCongBo);
+
+  await req('PUT', `/api/hanhtrinh/${id}`, { cookie: GV, body: { studentId: 's4' } });
+  const sauChuyen = (await hoSo(GV, 's4')).quanSat.find(q => q.id === id);
+  check('CHUYỂN BÉ THÌ CÂU CHUYỆN ĐÃ CÔNG BỐ BỊ THU LẠI — không đưa chuyện nhà này sang nhà kia',
+    sauChuyen && sauChuyen.daCongBo === false, sauChuyen);
+
+  // ---- Xoá ----
+  const coKhac = await req('DELETE', `/api/hanhtrinh/${id}`, { cookie: GV2 });
+  check('cô nhóm khác KHÔNG xoá được', coKhac.status === 403 || coKhac.status === 404, coKhac.status);
+
+  const phuHuynh = await req('DELETE', `/api/hanhtrinh/${id}`, { cookie: PH });
+  check('phụ huynh KHÔNG xoá được', phuHuynh.status === 403, phuHuynh.status);
+
+  const xoa = await req('DELETE', `/api/hanhtrinh/${id}`, { cookie: GV });
+  check('CÔ ĐÃ GHI THÌ XOÁ ĐƯỢC', xoa.status === 200, xoa.data);
+  const conKhong = (await hoSo(GV, 's4')).quanSat.find(q => q.id === id);
+  check('và quan sát biến mất thật', !conKhong, conKhong);
+
+  const xoaLai = await req('DELETE', `/api/hanhtrinh/${id}`, { cookie: GV });
+  check('xoá lần hai thì báo không tìm thấy, không nổ', xoaLai.status === 404, xoaLai.status);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
