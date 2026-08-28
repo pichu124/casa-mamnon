@@ -594,7 +594,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2388**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2402**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **368**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -618,6 +618,7 @@ Các bộ **mới của app 2**, không có ở app 1:
 | `test:quy-tac-2` | 34 | QUY TẮC 2 — "chưa quan sát thấy" không bao giờ là một thất bại |
 | `test:du-lieu-mau-phan-he` | 34 | Bật phân hệ lên là có cái để xem — câu chuyện bé An chạy suốt tám phân hệ |
 | `test:quy-tac-4` | 17 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
+| `test:quyen-du-lieu-be` | 14 | **Mọi** đường API đọc dữ liệu của bé phải đi qua một hàm canh quyền |
 | `test:khong-hua-suong` | 11 | App không được hứa thứ nó không làm được (bài học A5) |
 
 Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so với điểm tách
@@ -794,3 +795,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ17** — ảnh trong bản sao lưu được dọn (theo luật cố ý dè dặt); hai bộ canh mật khẩu mẫu thôi báo xanh oan; `render.yaml` và `Dockerfile` thôi mang tên app 1 và thôi gãy lúc build | Sổ việc 45, 33, 105, 115, 116 |
 | 28/08/2026 | **Đ18** — gia đình tự xem và tự rút được giấy đồng ý; đồng ý thì vẫn phải ký giấy ở văn phòng | Sổ việc 48 |
 | 28/08/2026 | **Đ21** — năm bản hàm nén ảnh gom về `UI.nenAnh`; ba màn thôi để ảnh dọc nằm ngang; bộ canh đọc mã cấm bản chép thứ sáu (bước duy nhất xoá toạ độ GPS trong ảnh) | Sổ việc 94, 146 |
+| 28/08/2026 | **Đ22** — bộ canh mới: mọi đường API trong `routes/` và `modules/*/routes.js` đọc dữ liệu của bé đều phải đi qua một hàm canh quyền (trước chỉ canh cho `routes/admin.js`) | Sổ việc 8 |
