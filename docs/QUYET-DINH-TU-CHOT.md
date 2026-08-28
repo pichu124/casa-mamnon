@@ -389,6 +389,35 @@ dữ liệu** và **không dòng nào trỏ vào bé đã bị xoá**.
 
 ---
 
+## 21. Ghi nhầm bé: ưu tiên CHUYỂN, xoá chỉ là đường sau
+
+**Chọn:** thêm hộp thoại *"Ghi nhầm bé"* với hai đường ra, và đường **chuyển
+sang đúng bé** đứng trước đường **xoá**. Ô chọn bé nay có dòng trống *"— Chọn
+bé —"* nên không còn bé nào được chọn sẵn.
+
+**Vì sao:** cú bấm nhầm thường gặp nhất là quên đổi tên bé trong ô chọn — và
+lúc đó việc cô muốn làm là chuyển sang đúng bé, không phải gõ lại từ đầu. Trước
+đây không có đường lùi nào: đường sửa không nhận `studentId`, và **không phân
+hệ nào trong `modules/` có một `app.delete` nào cả**.
+
+**Ba quyết định nhỏ bên trong, cả ba đều nghiêng về phía an toàn:**
+
+1. **Chuyển bé thì câu chuyện đã công bố bị THU LẠI.** Gia đình bé cũ đã đọc
+   rồi; để nguyên trạng thái công bố là đưa câu chuyện của bé này sang nhà bé
+   kia. Cô công bố lại nếu vẫn muốn kể.
+2. **Kiểm quyền hai lần**, cho cả bé cũ lẫn bé mới. Chỉ kiểm bé cũ thì đây
+   thành đường chuyển một quan sát sang nhóm mà cô không dạy.
+3. **Ảnh được dọn khi xoá** — và chỉ khi không bản ghi nào khác còn dùng tới
+   nó. `uploads.remove` có ở dontra, cambridge, albums nhưng **không** ở hai
+   phân hệ này, nên ảnh khuôn mặt trẻ vẫn nằm trên ổ đĩa sau khi bản ghi đã
+   biến mất khỏi màn hình. Đó mới là phần đáng lo, không phải dung lượng.
+
+**Đổi hướng thì tốn gì:** rẻ. Nếu trường muốn "xoá là ẩn đi chứ không xoá hẳn"
+(giữ lại để tra khi có khiếu nại) thì đổi được, nhưng phải bàn: giữ lại một
+quan sát sai bé nghĩa là giữ lại ảnh của một đứa trẻ trong hồ sơ đứa trẻ khác.
+
+---
+
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)
 
 Những mục dưới đây tôi **cố ý không tự chọn**, vì chọn sai thì phải sửa lược đồ
