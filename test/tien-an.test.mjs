@@ -19,7 +19,7 @@
 // Bảng đối chiếu đặt các bé cạnh nhau kèm con số, nên mục [9] canh nó luôn xếp
 // theo TÊN chứ không theo con số nào. Xếp theo số ngày vắng là biến sổ tiền
 // thành một cách sắp các bé trên dưới nhau.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, HOM_NAY as homNayVN } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -47,7 +47,9 @@ const GV = (await login('giaovien', '123456')).cookie;    // cô nhóm c1 (Chồ
 const GV2 = (await login('giaovien2', '123456')).cookie;  // cô nhóm khác
 const PH = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1
 
-const HOM_NAY = new Date().toISOString().slice(0, 10);
+// Hỏi chung một chỗ với máy chủ (lib/ngay.js), không tự tính bằng giờ UTC —
+// xem chú thích ở test/_chung.mjs. Tự tính là bài test đỏ vào buổi tối.
+const HOM_NAY = homNayVN();
 function ngayLui(n) {
   return new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
 }

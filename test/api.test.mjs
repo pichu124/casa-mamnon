@@ -2,7 +2,7 @@
 //
 // Chạy bằng:  npm run test:api
 // Tự dựng máy chủ riêng với cơ sở dữ liệu tạm, không đụng dữ liệu thật.
-import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, HOM_NAY as homNayVN } from './_chung.mjs';
 
 const DIR = thuMucTam('api');
 sinhDuLieu(DIR);
@@ -64,9 +64,9 @@ r = await call(P.cookie, 'GET', '/api/attendance?studentId=s1'); check('P attend
 r = await call(P.cookie, 'GET', '/api/attendance?studentId=s3'); check('P attendance s3 -> 403', r.status === 403, r);
 r = await call(P.cookie, 'GET', '/api/attendance/class'); check('P attendance/class -> 403', r.status === 403, r);
 r = await call(T.cookie, 'GET', '/api/attendance/class'); check('T attendance/class', r.status === 200 && (r.data.students || r.data).length === 5, r);
-r = await call(T.cookie, 'POST', '/api/attendance/mark', { studentId: 's3', date: new Date().toISOString().slice(0,10), status: 'present' });
+r = await call(T.cookie, 'POST', '/api/attendance/mark', { studentId: 's3', date: homNayVN(), status: 'present' });
 check('T mark s3 present', r.status === 200 || r.status === 201, r);
-r = await call(T.cookie, 'POST', '/api/attendance/mark', { studentId: 's2', date: new Date().toISOString().slice(0,10), status: 'present' });
+r = await call(T.cookie, 'POST', '/api/attendance/mark', { studentId: 's2', date: homNayVN(), status: 'present' });
 check('T mark hs lớp khác -> 403', r.status === 403, r);
 
 // ---- leave ----

@@ -24,7 +24,7 @@
 //   4. ẢNH ĐI QUA CANH QUYỀN. Ảnh khuôn mặt một người trưởng thành gắn với một
 //      đứa trẻ cụ thể — biết ai đón bé nào cũng là thông tin về đứa trẻ đó.
 //      Mục [7].
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, HOM_NAY as homNayVN } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -53,7 +53,9 @@ const GV2 = (await login('giaovien2', '123456')).cookie;   // cô nhóm khác
 const PH = (await login('phuhuynh', '123456')).cookie;     // mẹ bé s1
 const PH2 = (await login('phuhuynh2', '123456')).cookie;   // phụ huynh nhà khác
 
-const HOM_NAY = new Date().toISOString().slice(0, 10);
+// Hỏi chung một chỗ với máy chủ (lib/ngay.js), không tự tính bằng giờ UTC —
+// xem chú thích ở test/_chung.mjs. Tự tính là bài test đỏ vào buổi tối.
+const HOM_NAY = homNayVN();
 const dich = (n) => new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 // Ảnh PNG 1×1 thật — `lib/uploads` nhận dạng loại ảnh bằng BYTE ĐẦU TỆP chứ

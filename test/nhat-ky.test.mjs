@@ -27,7 +27,7 @@
 // Nhật ký ăn uống là chỗ dễ trượt sang chấm điểm trẻ nhất trong cả app: chỉ
 // cần đổi "ăn hết" thành 10 điểm là có ngay một bảng xếp hạng. Mục [7] canh
 // điều đó ngay trong mã nguồn của phân hệ.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, MAU } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, MAU, HOM_NAY as homNayVN } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -55,7 +55,9 @@ const GV = (await login('giaovien', '123456')).cookie;    // cô nhóm c1 (Chồ
 const GV2 = (await login('giaovien2', '123456')).cookie;  // cô nhóm khác
 const PH = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1
 
-const HOM_NAY = new Date().toISOString().slice(0, 10);
+// Hỏi chung một chỗ với máy chủ (lib/ngay.js), không tự tính bằng giờ UTC —
+// xem chú thích ở test/_chung.mjs. Tự tính là bài test đỏ vào buổi tối.
+const HOM_NAY = homNayVN();
 
 // Cô Phạm Thị Hồng phụ trách nhóm Nhà trẻ 1 (c4) — nhóm 12–36 tháng của dữ
 // liệu mẫu. Bài này KHÔNG còn phải tự đổi ngày sinh một bé để dựng tình huống

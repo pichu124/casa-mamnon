@@ -8,6 +8,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { spawn, execSync, execFileSync } from 'child_process';
 
@@ -34,6 +35,18 @@ export const MAU = {
   soBeNhaTre: 3,      // nhóm c4 — lứa 12–36 tháng
   soBeCoSo1: 11,      // cả ba nhóm có bé đều ở cơ sở 1
 };
+
+// "HÔM NAY" CỦA BÀI TEST PHẢI GIỐNG "HÔM NAY" CỦA MÁY CHỦ.
+//
+// Máy chủ hỏi `lib/ngay.js` — ngày theo giờ Việt Nam (Đ2). Bài test mà tự tính
+// bằng `new Date().toISOString()` là hỏi giờ UTC, và hai bên lệch nhau suốt từ
+// 17 giờ chiều tới nửa đêm giờ UTC. Bài test đỏ vào buổi tối, xanh vào buổi
+// sáng — kiểu đỏ ngẫu nhiên tệ nhất, vì người ta sẽ chạy lại cho tới khi xanh.
+//
+// Nạp thẳng chính tệp mà máy chủ dùng, không chép lại phép tính. Chép lại là
+// đẻ ra định nghĩa thứ hai, đúng thứ Đ2 vừa dọn đi.
+export const ngay = createRequire(import.meta.url)(path.join(GOC, 'lib', 'ngay.js'));
+export const HOM_NAY = () => ngay.homNay();
 
 // Bộ đếm kết quả kèm hàm kiểm tra, dùng chung một kiểu in ra màn hình.
 export function taoBoDem() {

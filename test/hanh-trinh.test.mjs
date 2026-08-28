@@ -20,7 +20,7 @@
 //   QUY TẮC 2 — mục [5] và bộ riêng test/quy-tac-2.test.mjs.
 //   QUY TẮC 4 — mục [9]: nhắc nhẹ về bé KHÔNG kèm con số nào.
 //   QUY TẮC 5 — mục [4] và [6]: nhận định phải dẫn tới việc làm được.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, HOM_NAY as homNayVN } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -50,7 +50,9 @@ const GV2 = (await login('giaovien2', '123456')).cookie;  // cô nhóm khác
 const PH = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1
 const PH2 = (await login('phuhuynh2', '123456')).cookie;
 
-const HOM_NAY = new Date().toISOString().slice(0, 10);
+// Hỏi chung một chỗ với máy chủ (lib/ngay.js), không tự tính bằng giờ UTC —
+// xem chú thích ở test/_chung.mjs. Tự tính là bài test đỏ vào buổi tối.
+const HOM_NAY = homNayVN();
 const ANH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 const hoSo = async (cookie, studentId = 's1') =>

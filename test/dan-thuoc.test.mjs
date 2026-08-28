@@ -17,7 +17,7 @@
 //
 // Kèm theo: bỏ một bước là NGƯNG GHI THÊM, không phải xóa thứ phụ huynh đã đọc
 // thấy. Dòng nhật ký cũ phải còn nguyên.
-import { thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, taoReq, taoLogin, HOM_NAY as homNayVN } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('dan-thuoc');
@@ -51,7 +51,7 @@ console.log('\n[1] Màn hình của cô KHÔNG còn bước "đã cho uống"');
 // ===========================================================================
 console.log('\n[2] Luồng thật: gia đình gửi thuốc → cô nhận → gia đình thấy');
 {
-  const hnay = new Date().toISOString().slice(0, 10);
+  const hnay = homNayVN();
   const gui = await req('POST', '/api/medicine', {
     cookie: PH,
     body: {
@@ -88,7 +88,7 @@ console.log('\n[2] Luồng thật: gia đình gửi thuốc → cô nhận → g
 console.log('\n[3] Dòng nhật ký CŨ vẫn còn — bỏ bước ≠ xóa thứ đã đọc thấy');
 {
   // Giả lập một đơn đời cũ: có nhật ký cô từng ghi trước khi nhà trường bỏ bước.
-  const hnay = new Date().toISOString().slice(0, 10);
+  const hnay = homNayVN();
   const gui = await req('POST', '/api/medicine', {
     cookie: PH,
     body: { studentId: 's1', fromDate: hnay, toDate: hnay, medicines: [{ name: 'Hapacol' }] },

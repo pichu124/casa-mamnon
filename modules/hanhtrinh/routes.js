@@ -22,7 +22,7 @@
 // QUY TẮC 3 (AI gợi ý khác cô quyết định) chưa có đất ở đây vì phân hệ này
 // chưa gọi AI. Điều kiện bật AI nằm ở docs/KE-HOACH.md mục 6.
 const { requireRole } = require('../../lib/auth');
-const ngay = require('../../lib/ngay');
+const ngay2 = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -68,7 +68,7 @@ const GIOI_HAN_DANH_SACH = 60;
 const NGAY_COI_LA_LAU = 14;
 
 function homNay() {
-  return ngay.homNay();
+  return ngay2.homNay();
 }
 
 function chuoi(v, tran) {
@@ -252,11 +252,17 @@ module.exports = (app, { db, modules }) => {
     try {
       const marks = ids.map(() => '?').join(',');
       const cuaCo = user.role === 'teacher' ? user.id : null;
+      // LỌC THEO KHOẢNG UTC, KHÔNG CẮT CHUỖI.
+      //
+      // `substr(taoLuc, 1, 10) = ?` cắt ra ngày theo giờ UTC, trong khi `ngay`
+      // là ngày theo giờ Việt Nam. Sáng sớm thì bản Ghi nhanh cô vừa tạo rơi
+      // vào ngày hôm trước và biến mất khỏi màn suy ngẫm — đúng lúc cô cần nó.
+      const [tu, den] = ngay2.khoangUtcCuaNgay(ngay);
       const rows = db.all('thuchup_ghinhanh',
         `SELECT * FROM thuchup_ghinhanh
-         WHERE studentId IN (${marks}) AND substr(taoLuc, 1, 10) = ?
+         WHERE studentId IN (${marks}) AND taoLuc >= ? AND taoLuc < ?
            AND (? IS NULL OR byTeacherId = ?)
-         ORDER BY taoLuc DESC LIMIT 50`, [...ids, ngay, cuaCo, cuaCo]);
+         ORDER BY taoLuc DESC LIMIT 50`, [...ids, tu, den, cuaCo, cuaCo]);
       const daDung = new Set(db.all('hanhtrinh_quansat',
         'SELECT ghiNhanhId FROM hanhtrinh_quansat WHERE ngay = ?', [ngay])
         .map(x => x.ghiNhanhId).filter(Boolean));
@@ -298,7 +304,7 @@ module.exports = (app, { db, modules }) => {
   app.get('/api/hanhtrinh/nhac-nhe', requireRole('teacher', 'admin'), (req, res) => {
     const ids = db.studentIdsOf(req.user);
     if (!ids.length) return res.json({ be: [] });
-    const moc = ngay.ngayCua(Date.now() - NGAY_COI_LA_LAU * 86400000);
+    const moc = ngay2.ngayCua(Date.now() - NGAY_COI_LA_LAU * 86400000);
     const marks = ids.map(() => '?').join(',');
     const coGanDay = new Set(db.all('hanhtrinh_quansat',
       `SELECT DISTINCT studentId FROM hanhtrinh_quansat

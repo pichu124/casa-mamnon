@@ -6,34 +6,47 @@ const { importSnapshot } = require('../lib/importer');
 // Mật khẩu dùng thử; có thể đổi khi triển khai bằng biến môi trường DEMO_PASSWORD.
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || '123456';
 
-function fmt(d) {
-  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+// DỮ LIỆU MẪU NEO VÀO CÙNG MỘT "HÔM NAY" VỚI MÁY CHỦ.
+//
+// Trước đây tệp này tính ngày bằng giờ MÁY (`new Date()` rồi getFullYear /
+// getMonth / getDate), trong khi máy chủ hỏi `lib/ngay.js` — ngày theo giờ Việt
+// Nam. Hai bên lệch nhau suốt từ 17 giờ UTC tới nửa đêm, nên "đơn xin nghỉ cho
+// NGÀY MAI" mà dữ liệu mẫu dựng ra lại rơi vào hôm nay của máy chủ.
+//
+// Hậu quả không chỉ ở bài test: người mở app lần đầu vào buổi tối sẽ thấy dữ
+// liệu mẫu lệch một ngày so với mọi màn hình, và sẽ tưởng app tính sai.
+//
+// Neo vào NỬA ĐÊM THEO GIỜ VIỆT NAM của hôm nay, biểu diễn bằng mốc UTC. Nhờ
+// vậy `toISOString().slice(0, 10)` trả về đúng ngày Việt Nam, không cần đổi
+// múi giờ lần thứ hai.
+const ngay = require('../lib/ngay');
+const MOC = Date.parse(`${ngay.homNay()}T00:00:00Z`);
+
+function fmt(d) { return new Date(d).toISOString().slice(0, 10); }
+function daysAgo(n) { return new Date(MOC - n * 86400000); }
+function daysAhead(n) { return new Date(MOC + n * 86400000); }
+function iso(d, h, min) {
+  return new Date(Date.parse(`${fmt(d)}T00:00:00Z`) + (h * 60 + (min || 0)) * 60000).toISOString();
 }
-function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d; }
-function daysAhead(n) { const d = new Date(); d.setDate(d.getDate() + n); return d; }
-function iso(d, h, min) { const x = new Date(d); x.setHours(h, min || 0, 0, 0); return x.toISOString(); }
 // n ngày học (T2-T6) gần nhất, mới nhất trước
 function recentWeekdays(n) {
   const out = [];
   for (let i = 0; out.length < n && i < n * 3; i++) {
     const d = daysAgo(i);
-    if (d.getDay() !== 0 && d.getDay() !== 6) out.push(d);
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) out.push(d);
   }
   return out;
 }
 // Thứ Hai của tuần chứa d
 function mondayOf(d) {
-  const x = new Date(d);
-  const diff = (x.getDay() + 6) % 7;
-  x.setDate(x.getDate() - diff);
-  return x;
+  const t = Date.parse(`${fmt(d)}T00:00:00Z`);
+  return new Date(t - ((new Date(t).getUTCDay() + 6) % 7) * 86400000);
 }
 function pick(arr, i) { return arr[i % arr.length]; }
 
 function generate() {
-  const today = new Date();
-  const YEAR = today.getMonth() >= 7 ? today.getFullYear() : today.getFullYear() - 1; // năm học bắt đầu tháng 8
+  const today = new Date(MOC);
+  const YEAR = today.getUTCMonth() >= 7 ? today.getUTCFullYear() : today.getUTCFullYear() - 1; // năm học bắt đầu tháng 8
   const schoolYear = `${YEAR}-${YEAR + 1}`;
 
   const school = {
@@ -107,7 +120,7 @@ function generate() {
   // ghi cứng "sinh 2024-06" thì sang năm sau thành 26 tháng, và bài canh mốc
   // 36 tháng sẽ đổi kết quả mà không ai đụng vào mã.
   function thangTruoc(n) {
-    const d = new Date(Date.UTC(today.getFullYear(), today.getMonth() - n, 12));
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - n, 12));
     return d.toISOString().slice(0, 10);
   }
 
@@ -202,7 +215,7 @@ function generate() {
   for (let w = 0; w < 2; w++) {
     for (let d = 0; d < 5; d++) {
       const date = new Date(monday);
-      date.setDate(monday.getDate() + w * 7 + d);
+      date.setUTCDate(monday.getUTCDate() + w * 7 + d);
       const k = w * 5 + d;
       menus.push({
         id: `menu_${w}_${d}`,
@@ -524,10 +537,10 @@ function generate() {
   ];
 
   // ---- Kế hoạch giáo dục ----
-  const m0 = today.getMonth() + 1;
+  const m0 = today.getUTCMonth() + 1;
   const eduPlans = [
     {
-      id: 'ep1', classId: 'c1', month: m0, year: today.getFullYear(),
+      id: 'ep1', classId: 'c1', month: m0, year: today.getUTCFullYear(),
       theme: 'Trường mầm non của bé',
       goals: ['Bé nhớ tên cô, tên bạn và tên nhóm của mình', 'Bé tự cất ba lô, cất dép vào đúng ô', 'Bé tự xúc ăn và tự uống nước', 'Bé biết rửa tay bằng xà phòng trước khi ăn'],
       weeks: [
@@ -540,7 +553,7 @@ function generate() {
       createdBy: 't1',
     },
     {
-      id: 'ep2', classId: 'c2', month: m0, year: today.getFullYear(),
+      id: 'ep2', classId: 'c2', month: m0, year: today.getUTCFullYear(),
       theme: 'Bé chuẩn bị vào lớp 1',
       goals: ['Bé ngồi vào bàn làm một việc trong 15 phút', 'Bé nhận ra tên mình khi nhìn thấy chữ', 'Bé tự đi vệ sinh và tự mặc áo khoác', 'Bé kể lại được việc đã xảy ra trong ngày'],
       weeks: [

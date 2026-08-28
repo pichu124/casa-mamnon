@@ -26,7 +26,11 @@ const { check, tongKet } = taoBoDem();
 // Vùng quét: mã chạy trên MÁY CHỦ. Cố ý KHÔNG quét public/ — trình duyệt chạy
 // trên điện thoại của cô, đang ở Việt Nam, nên giờ máy ở đó chính là giờ Việt
 // Nam. Ép public/ đi qua lib/ngay là ép nó nạp thêm mã máy chủ mà không được gì.
-const VUNG_QUET = ['routes', 'modules', 'lib', 'scripts'];
+// `data/seed.js` cũng nằm trong vùng quét. Bỏ sót nó là bỏ sót đúng chỗ đã sập:
+// dữ liệu mẫu tính ngày bằng giờ máy trong khi máy chủ hỏi giờ Việt Nam, nên
+// "đơn xin nghỉ cho NGÀY MAI" rơi vào hôm nay của máy chủ — và người mở app lần
+// đầu vào buổi tối sẽ thấy dữ liệu lệch một ngày so với mọi màn hình.
+const VUNG_QUET = ['routes', 'modules', 'lib', 'scripts', 'data'];
 
 // `modules/<mã>/view.js` là mã CHẠY TRÊN TRÌNH DUYỆT, y hệt public/js/views —
 // chỉ khác chỗ đứng trong cây thư mục. Nó không nạp được lib/ngay, và cũng
@@ -79,6 +83,19 @@ const DAU_HIEU = [
     re: /\bd\.getHours\(\)/,
     vi_sao: 'Cùng lý do trên. Dùng ngay.bayGio().',
   },
+  // ĐỊNH NGHĨA THỨ BA, GIẤU TRONG CÂU SQL.
+  //
+  // `substr(taoLuc, 1, 10) = ?` cắt ngày ra khỏi một mốc ISO — tức là ngày theo
+  // giờ UTC — rồi đem so với một ngày theo giờ Việt Nam. Nó gọn, nó chạy, và ba
+  // dấu hiệu trên KHÔNG bắt được vì nó nằm trong chuỗi SQL chứ không phải một
+  // lời gọi JavaScript. Sáng sớm thì bản ghi vừa tạo rơi vào ngày hôm trước.
+  //
+  // Cách đúng: `ngay.khoangUtcCuaNgay(ngay)` rồi lọc theo khoảng.
+  {
+    ten: 'cắt ngày ra khỏi mốc thời gian trong SQL',
+    re: /substr\s*\(\s*\w*(taoLuc|createdAt|nhanLuc|capNhatLuc|luc)\w*\s*,\s*1\s*,\s*(10|7)\s*\)\s*(=|>=|<=|<|>|IN)/i,
+    vi_sao: 'So ngày UTC với ngày Việt Nam. Dùng ngay.khoangUtcCuaNgay() rồi lọc theo khoảng.',
+  },
 ];
 
 const tatCaTep = VUNG_QUET.flatMap(cacTep);
@@ -86,12 +103,13 @@ const tatCaTep = VUNG_QUET.flatMap(cacTep);
 // ===========================================================================
 console.log('\n[1] Bộ canh có thật sự nhìn tới nơi cần nhìn');
 {
-  check('quét cả bốn vùng mã máy chủ', VUNG_QUET.length === 4, VUNG_QUET);
+  check('quét cả năm vùng mã máy chủ', VUNG_QUET.length === 5, VUNG_QUET);
   check('tìm được kha khá tệp để soi', tatCaTep.length >= 40, tatCaTep.length);
   check('có nhìn vào thư mục con của phân hệ',
     tatCaTep.some(t => /^modules\/[^/]+\/routes\.js$/.test(t)),
     tatCaTep.filter(t => t.startsWith('modules/')).slice(0, 4));
   check('có nhìn vào routes lõi', tatCaTep.includes('routes/attendance.js'));
+  check('có nhìn vào dữ liệu mẫu', tatCaTep.includes('data/seed.js'));
   check('danh sách miễn vẫn đúng 1 mục — thêm mục mới phải có lý do',
     Object.keys(MIEN).length === 1, Object.keys(MIEN));
   check('tệp được miễn còn tồn tại thật',
@@ -168,6 +186,19 @@ console.log('\n[4] Hàm tính ngày trả đúng số');
   check('hôm nay đúng dạng YYYY-MM-DD', /^\d{4}-\d{2}-\d{2}$/.test(ngay.homNay()), ngay.homNay());
   check('mốc không đọc được thì trả chuỗi rỗng chứ không trả NaN',
     ngay.ngayCua('không phải số') === '', ngay.ngayCua('không phải số'));
+
+  // Khoảng UTC của một ngày Việt Nam — dùng để lọc bản ghi lưu mốc thời gian.
+  const [tu, den] = ngay.khoangUtcCuaNgay('2026-09-12');
+  check('ngày 12 ở Việt Nam bắt đầu từ 17 giờ UTC ngày 11',
+    tu === '2026-09-11T17:00:00.000Z', tu);
+  check('và kết thúc lúc 17 giờ UTC ngày 12', den === '2026-09-12T17:00:00.000Z', den);
+  check('khoảng dài đúng một ngày', Date.parse(den) - Date.parse(tu) === 86400000);
+  // Mốc 6h50 sáng ngày 12 giờ Việt Nam phải nằm TRONG khoảng của ngày 12.
+  const sang = '2026-09-11T23:50:00.000Z';
+  check('bản ghi lúc 6h50 sáng nằm trong ngày 12, không phải ngày 11',
+    sang >= tu && sang < den, { sang, tu, den });
+  check('ngày không đọc được thì trả khoảng rỗng',
+    ngay.khoangUtcCuaNgay('bậy bạ')[0] === '', ngay.khoangUtcCuaNgay('bậy bạ'));
 }
 
 tongKet();
