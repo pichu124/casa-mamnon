@@ -124,7 +124,18 @@ App.views.hanhtrinh = {
     document.getElementById('ht-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };
     document.getElementById('ht-them').onclick = () => this.moGhi(null);
     for (const el of than.querySelectorAll('[data-tu-ghinhanh]')) {
-      el.onclick = () => this.moGhi(null, { ghiNhanhId: el.dataset.tuGhinhanh, studentId: el.dataset.be });
+      el.onclick = () => {
+        // Mang sẵn chữ và cờ "có ảnh" sang hộp thoại. Không mang thì cô bấm
+        // "chép sang" rồi phải gõ lại từ đầu đúng câu mình vừa viết — nút đó
+        // không giúp được gì cả.
+        const g = (d.ghiNhanhChuaDung || []).find(x => x.id === el.dataset.tuGhinhanh) || {};
+        this.moGhi(null, {
+          ghiNhanhId: el.dataset.tuGhinhanh,
+          studentId: el.dataset.be,
+          moTa: g.note || '',
+          coAnh: !!g.coAnh,
+        });
+      };
     }
     for (const el of than.querySelectorAll('[data-suyngam]')) {
       el.onclick = () => this.moSuyNgam(el.dataset.suyngam);
@@ -154,6 +165,10 @@ App.views.hanhtrinh = {
           ${q.daCongBo ? UI.badge('Đã kể cho gia đình', 'green') : ''}
         </div>
         <div class="small" style="line-height:1.6;margin:2px 0 8px">${UI.esc(q.moTa || '')}</div>
+        ${q.anh ? `
+          <img src="/api/hanhtrinh/anh/${UI.esc(q.anh)}" alt=""
+            style="width:100%;max-height:220px;border-radius:12px;object-fit:cover;background:var(--line);margin-bottom:8px">`
+    : ''}
         ${q.oLopLamGi ? `<div class="muted small" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px;margin-bottom:8px">
           Ở lớp: ${UI.esc(q.oLopLamGi)}</div>` : ''}
         <div class="grid-2">
@@ -181,7 +196,7 @@ App.views.hanhtrinh = {
       <div class="field">
         <label>Cô đã thấy gì</label>
         <textarea id="ht-mota" rows="4"
-          placeholder="Chỉ mô tả điều đã thấy, chưa cần nhận xét. Ví dụ: Bin tự xúc hết bát cơm, làm rơi hai lần rồi tự lấy khăn lau."></textarea>
+          placeholder="Chỉ mô tả điều đã thấy, chưa cần nhận xét. Ví dụ: Bin tự xúc hết bát cơm, làm rơi hai lần rồi tự lấy khăn lau.">${UI.esc(tu.moTa || '')}</textarea>
         <div class="hint">Đây là ghi chép riêng của cô. Gia đình <b>không</b> đọc được phần này —
           chỉ đọc câu chuyện cô chủ động kể sau.</div>
       </div>
@@ -192,6 +207,8 @@ App.views.hanhtrinh = {
             display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden">🌱</div>
           <input type="file" id="ht-anh" accept="image/*" style="flex:1;min-width:0">
         </div>
+        ${tu.coAnh ? `<div class="hint">Bản Ghi nhanh này có sẵn một tấm ảnh — cô không chọn ảnh
+          mới thì app dùng luôn tấm đó.</div>` : ''}
       </div>
       <button class="btn primary block" id="ht-luu">${UI.icon('check', 18)} Lưu quan sát</button>
     `, 'Ghi một quan sát');

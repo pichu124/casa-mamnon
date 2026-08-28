@@ -50,6 +50,9 @@ const VP = await vao('hieutruong', mk1);
 const VP3 = await vao('quanlycs1', mk3);
 const GV = (await login('giaovien', '123456')).cookie;     // cô nhóm c1, có bé s1
 const GV2 = (await login('giaovien2', '123456')).cookie;   // cô nhóm khác
+// Cô Bích Ngọc (t3) phụ trách CẢ c1 lẫn c2 — dữ liệu mẫu dựng sẵn tình huống
+// NHIỀU CÔ MỘT NHÓM, thay đổi nền lớn nhất của app 2.
+const GV3 = (await login('giaovien3', '123456')).cookie;
 const PH = (await login('phuhuynh', '123456')).cookie;     // mẹ bé s1
 const PH2 = (await login('phuhuynh2', '123456')).cookie;   // phụ huynh nhà khác
 
@@ -403,6 +406,20 @@ console.log('\n[13] Tắt phân hệ thì API bị chặn, dữ liệu vẫn cò
   check('bật lại là chạy tiếp', (d.nguoiThuongXuyen || []).length > 0, d.nguoiThuongXuyen?.length);
   check('VÀ SỔ ĐÓN TRẢ CÒN NGUYÊN — tắt là ngưng dùng, không phải xoá',
     (d.soGanDay || []).length > 0, d.soGanDay?.length);
+}
+
+// ===========================================================================
+console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không chỉ chiều CẤM');
+{
+  // Bộ canh của Đón trả bé đi đủ chiều CẤM: cô nhóm khác bị từ chối. Nhưng chiều
+  // còn lại thì bỏ trống — CÔ THỨ HAI CỦA CÙNG MỘT NHÓM có làm được không.
+  //
+  // Đó mới là thay đổi nền lớn nhất của app 2 (app 1 gắn cứng một cô một lớp),
+  // và một bộ canh chỉ đo chiều cấm thì vẫn xanh nguyên nếu ngày mai ai đó siết
+  // nhầm thành "chỉ cô phụ trách CHÍNH mới làm được" — tức là làm hỏng đúng thứ
+  // GĐ 0 đã bỏ ba commit ra để dựng.
+  const doc = await req('GET', `/api/dontra/nhom?ngay=${HOM_NAY}&classId=c1`, { cookie: GV3 });
+  check('CÔ THỨ HAI MỞ ĐƯỢC SỔ ĐÓN TRẢ CỦA NHÓM CHUNG', doc.status === 200, doc.data);
 }
 
 sv.dung();

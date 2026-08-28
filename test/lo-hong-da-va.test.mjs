@@ -962,6 +962,24 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   check('cô chủ nhiệm cũng thấy album lớp mình', cua3A.length > 0, cua3A.length);
   const alb = cua3A[0];
 
+  // ĐĂNG MỘT TẤM ẢNH THẬT VÀO ALBUM TRƯỚC KHI ĐÓNG NHÓM.
+  //
+  // Dữ liệu mẫu chỉ có ảnh emoji (không có tệp trên đĩa), nên nhánh kiểm đường
+  // trả BYTE ở cuối mục này chưa bao giờ chạy — nó tự cho mình qua với một lời
+  // ghi chú. Đường trả byte lại đúng là đường nguy hiểm nhất của cả phân hệ
+  // Album: nó trả về các byte của ảnh khuôn mặt trẻ, và ai biết mã ảnh là tải
+  // được. Đăng một tấm thật ở đây để nhánh ấy luôn chạy.
+  //
+  // Chỉ THÊM bối cảnh, không bỏ hay nới một phép kiểm nào.
+  {
+    const ANH_THAT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const them = await r3('POST', `/api/albums/${alb.id}/photos`, {
+      cookie: GV1, body: { photos: [{ dataUrl: ANH_THAT, caption: 'Bé rửa tay trước khi ăn' }] },
+    });
+    check('cô đăng được một tấm ảnh THẬT vào album trước khi nhóm đóng',
+      them.status === 200 || them.status === 201, them.data);
+  }
+
   // -- Chuyển năm học: đây là lúc album rơi khỏi tầm với.
   const ch = await r3('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi: '2027-2028' } });
   check('chuyển được năm học', ch.status === 200, ch.data);
@@ -1023,12 +1041,29 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   check('có nút xóa để dọn ổ đĩa', ct.data?.canXoa === true, ct.data?.canXoa);
   check('nhưng KHÔNG cho đăng thêm ảnh vào lớp đã đóng', ct.data?.canEdit === false, ct.data?.canEdit);
 
+  // ĐƯỜNG TRẢ BYTE CỦA TẤM ẢNH — CHỖ CHƯA BAO GIỜ ĐƯỢC CHẠY THỬ.
+  //
+  // Bản cũ đi tìm một ảnh CÓ TỆP trong album mẫu, không thấy thì tự cho mình
+  // qua với lời ghi chú "album mẫu dùng ảnh emoji". Nghĩa là nhánh `if` chưa
+  // bao giờ chạy, và đường nguy hiểm nhất của cả phân hệ Album — đường trả về
+  // đúng các byte của ảnh khuôn mặt trẻ — chưa từng được thử một lần nào.
+  //
+  // Nay TỰ ĐĂNG một tấm ảnh thật vào album đó trước khi đóng nhóm, nên nhánh
+  // này luôn chạy, và chạy trên một tệp có thật trên đĩa.
   const anh = (ct.data.photos || []).find(p => p.file);
-  if (anh) {
+  check('album cũ có một tấm ảnh THẬT để thử đường trả byte', !!anh, (ct.data.photos || []).length);
+  {
     const ra = await fetch(`${sv.BASE}/api/albums/${alb.id}/photo/${anh.id}`, { headers: { Cookie: A } });
-    check('xem lại được tệp ảnh cũ', ra.status === 200, ra.status);
-  } else {
-    check('xem lại được tệp ảnh cũ', true, 'album mẫu dùng ảnh emoji, không có tệp');
+    check('QUẢN TRỊ XEM LẠI ĐƯỢC TỆP ẢNH CŨ', ra.status === 200, ra.status);
+    check('và nhận về đúng một tấm ảnh, không phải trang lỗi',
+      String(ra.headers.get('content-type') || '').startsWith('image/'), ra.headers.get('content-type'));
+
+    // Cô của nhóm KHÁC biết mã ảnh cũng không tải được. Đây mới là chốt chặn
+    // thật: lọc ở đường liệt kê chỉ làm ảnh không hiện trên màn hình.
+    const trom = await fetch(`${sv.BASE}/api/albums/${alb.id}/photo/${anh.id}`, { headers: { Cookie: GV2 } });
+    check('CÔ NHÓM KHÁC KHÔNG TẢI ĐƯỢC TỆP ẢNH DÙ BIẾT MÃ', trom.status === 403 || trom.status === 404, trom.status);
+    check('và không nhận về byte ảnh nào',
+      !String(trom.headers.get('content-type') || '').startsWith('image/'), trom.headers.get('content-type'));
   }
 
   // -- Cô TỪNG chủ nhiệm lớp đó cũng lấy lại được; cô lớp khác thì không.

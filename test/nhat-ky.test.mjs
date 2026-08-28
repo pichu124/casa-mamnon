@@ -53,6 +53,9 @@ const C1 = await vao('hieutruong', mk1);
 const C3 = await vao('quanlycs1', mk3);
 const GV = (await login('giaovien', '123456')).cookie;    // cô nhóm c1 (Chồi 2)
 const GV2 = (await login('giaovien2', '123456')).cookie;  // cô nhóm khác
+// Cô Bích Ngọc (t3) phụ trách CẢ c1 lẫn c2 — dữ liệu mẫu dựng sẵn tình huống
+// NHIỀU CÔ MỘT NHÓM, thay đổi nền lớn nhất của app 2.
+const GV3 = (await login('giaovien3', '123456')).cookie;
 const PH = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1
 
 // Hỏi chung một chỗ với máy chủ (lib/ngay.js), không tự tính bằng giờ UTC —
@@ -443,6 +446,32 @@ console.log('\n[12] Giờ ngủ trưa: cô CHỌN trong khung, nhưng khung khô
     /gioChon\([\s\S]*?!ds\.includes\(dangChon\)/.test(view));
   check('và không còn ô gõ giờ tự do cho giấc ngủ trưa',
     !/type="time"[^>]*ngu(TuLuc|DenLuc)/.test(view) && !/id="nk-ca-ngu-tu"[^>]*type="time"/.test(view));
+}
+
+// ===========================================================================
+console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không chỉ chiều CẤM');
+{
+  // Bộ canh của Nhật ký ngày đi đủ chiều CẤM: cô nhóm khác bị từ chối. Nhưng chiều
+  // còn lại thì bỏ trống — CÔ THỨ HAI CỦA CÙNG MỘT NHÓM có làm được không.
+  //
+  // Đó mới là thay đổi nền lớn nhất của app 2 (app 1 gắn cứng một cô một lớp),
+  // và một bộ canh chỉ đo chiều cấm thì vẫn xanh nguyên nếu ngày mai ai đó siết
+  // nhầm thành "chỉ cô phụ trách CHÍNH mới làm được" — tức là làm hỏng đúng thứ
+  // GĐ 0 đã bỏ ba commit ra để dựng.
+  // Cô thứ hai GHI được nhật ký cho bé của nhóm chung.
+  const ghi = await req('PUT', '/api/nhatky', {
+    cookie: GV3, body: { ngay: HOM_NAY, danhSach: [{ studentId: 's1', anTrua: 'het' }] },
+  });
+  check('CÔ THỨ HAI GHI ĐƯỢC NHẬT KÝ CHO BÉ CỦA NHÓM CHUNG', ghi.status === 200, ghi.data);
+  const doc = await req('GET', `/api/nhatky?classId=c1&ngay=${HOM_NAY}`, { cookie: GV3 });
+  check('và MỞ ĐƯỢC MÀN CẢ NHÓM của nhóm chung', doc.status === 200, doc.data);
+  const be = (doc.data?.danhSach || []).find(b => b.studentId === 's1');
+  check('đọc lại đúng dòng cô vừa ghi', be?.daGhi === true && be?.anTrua === 'het', be);
+
+  // Và cô thứ hai vẫn KHÔNG với sang được nhóm mình không dạy — nới chiều cho
+  // phép mà làm thủng chiều cấm thì còn tệ hơn.
+  const ngoai = await req('GET', '/api/nhatky?classId=c3', { cookie: GV3 });
+  check('nhưng vẫn không với sang nhóm mình không dạy', ngoai.status === 403, ngoai.status);
 }
 
 sv.dung();

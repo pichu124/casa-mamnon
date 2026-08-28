@@ -416,7 +416,86 @@ console.log('\n[11] Nối với Ghi nhanh — nhưng KHÔNG phụ thuộc vào n
 }
 
 // ===========================================================================
-console.log('\n[12] Tầng cơ sở vẫn canh ở phân hệ mới');
+console.log('\n[12] CHÉP TỪ GHI NHANH — chép được chữ, chép được ảnh, và KHÔNG chép của cô khác');
+{
+  const ANH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  // Cô ghi nhanh một bản có CẢ chữ lẫn ảnh.
+  const ma = `gn2-${Date.now()}-abcdef`;
+  const gn = await req('POST', '/api/thuchup', {
+    cookie: GV, body: { id: ma, studentId: 's1', note: 'Bé rót nước không đổ một giọt nào.', dataUrl: ANH, giay: 9 },
+  });
+  check('cô ghi nhanh được bản có ảnh', gn.status === 200 || gn.status === 201, gn.data);
+
+  // CHÉP SANG MÀ KHÔNG GÕ LẠI GÌ CẢ.
+  //
+  // Bản đầu để `moTa` trống và bỏ luôn ảnh, nên nút "chép sang" bắt cô gõ lại
+  // từ đầu đúng câu mình vừa viết mười phút trước — nút đó không giúp được gì.
+  const chep = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', ngay: HOM_NAY, ghiNhanhId: ma },
+  });
+  check('chép sang được mà không phải gõ lại', chep.status === 201, chep.data);
+  check('CHỮ ĐƯỢC MANG SANG', /rót nước/.test(chep.data?.moTa || ''), chep.data?.moTa);
+  check('ẢNH CŨNG ĐƯỢC MANG SANG', !!chep.data?.anh, chep.data?.anh);
+  check('nhưng là một TỆP KHÁC, không dùng chung với bản Ghi nhanh',
+    chep.data?.anh !== gn.data?.file, { moi: chep.data?.anh, goc: gn.data?.file });
+
+  // Tệp mới phải tải được thật, không phải một cái tên suông.
+  const tai = await req('GET', `/api/hanhtrinh/anh/${chep.data.anh}`, { cookie: GV });
+  check('và tải được tệp ảnh mới đó', tai.status === 200, tai.status);
+
+  // Cô gõ đè thì phần cô gõ thắng — chép sang là gợi ý, không phải ép.
+  const ma2 = `gn3-${Date.now()}-abcdef`;
+  await req('POST', '/api/thuchup', { cookie: GV, body: { id: ma2, studentId: 's1', note: 'Câu gốc' } });
+  const de = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', ngay: HOM_NAY, ghiNhanhId: ma2, moTa: 'Cô viết lại kỹ hơn' },
+  });
+  check('cô gõ đè thì phần cô gõ thắng', de.data?.moTa === 'Cô viết lại kỹ hơn', de.data?.moTa);
+
+  // ---- LỖ QUYỀN: gắn quan sát của mình vào bản Ghi nhanh của cô KHÁC ----
+  //
+  // `ghiNhanhId` đi vào từ thân yêu cầu, và bản đầu lưu thẳng chuỗi đó xuống mà
+  // không tra bản Ghi nhanh nào cả. Cô A gắn được vào bản của cô B, và bản đó
+  // biến khỏi màn suy ngẫm của cô B — ghi chú thô của cô B là dữ liệu LỚP 1.
+  // Dùng cô Bích Ngọc (GV3) — cô CŨNG phụ trách nhóm c1, nên cả hai cô đều mở
+  // được hồ sơ bé s1. Nhờ vậy `canAccessStudent` không chặn trước, và chốt mới
+  // là thứ DUY NHẤT đứng giữa. Lấy một cô nhóm khác thì bài canh đi qua vô ích:
+  // nó đo tầng nhóm lớp chứ không đo chốt vừa thêm.
+  const maB = `gnB-${Date.now()}-abcdef`;
+  const cuaCoB = await req('POST', '/api/thuchup', {
+    cookie: GV3, body: { id: maB, studentId: 's1', note: 'Ghi chép riêng của cô B' },
+  });
+  check('cô B ghi nhanh được cho bé cùng nhóm', cuaCoB.status === 200 || cuaCoB.status === 201, cuaCoB.data);
+  check('và cô A vẫn mở được hồ sơ bé đó — nên tầng nhóm KHÔNG chặn trước',
+    (await req('GET', '/api/hanhtrinh?studentId=s1', { cookie: GV })).status === 200);
+
+  const trom = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', ngay: HOM_NAY, ghiNhanhId: maB },
+  });
+  check('CÔ A KHÔNG GẮN ĐƯỢC VÀO BẢN GHI NHANH CỦA CÔ B', trom.status === 403, trom.status);
+  check('và câu từ chối nói rõ đó là ghi chép riêng của cô khác',
+    /cô khác/i.test(String(trom.data?.error || '')), trom.data);
+  check('KHÔNG một chữ nào của cô B lọt sang', !/Ghi chép riêng của cô B/.test(JSON.stringify(trom.data)), trom.data);
+
+  // Bản Ghi nhanh của bé KHÁC cũng không gắn được — hai giá trị phải khớp nhau,
+  // đúng bài học N24(a): kiểm quyền trên một giá trị rồi tra bản ghi theo giá
+  // trị kia là không kiểm gì cả.
+  const lechBe = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's3', ngay: HOM_NAY, ghiNhanhId: ma2 },
+  });
+  check('bản Ghi nhanh của bé này KHÔNG gắn sang bé kia được', lechBe.status === 403, lechBe.status);
+  check('và nói rõ vì sao', /bé khác/i.test(String(lechBe.data?.error || '')), lechBe.data);
+
+  // Mã bịa ra thì từ chối, không im lặng lưu xuống.
+  const bia = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', ngay: HOM_NAY, moTa: 'x', ghiNhanhId: 'khong-co-that' },
+  });
+  check('mã Ghi nhanh bịa ra thì từ chối', bia.status === 403, bia.status);
+}
+
+
+// ===========================================================================
+console.log('\n[13] Tầng cơ sở vẫn canh ở phân hệ mới');
 {
   await req('PUT', '/api/admin/classes/c1/campus', { cookie: VP, body: { campusId: 'cs2' } });
   const doc = await req('GET', '/api/hanhtrinh?studentId=s1', { cookie: VP3 });

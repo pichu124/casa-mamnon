@@ -270,11 +270,36 @@ console.log('\n[7] Bộ canh quét đúng chỗ, và không bị thu hẹp lặn
   check('quét cả màn hình lõi', VUNG_QUET.includes('public/js/views'), VUNG_QUET);
   check('quét cả máy chủ — chỉ tiêu và phép đếm sinh ra ở đó', VUNG_QUET.includes('routes'), VUNG_QUET);
 
-  const tep = quet(['modules']);
-  void tep;
-  const soTep = ['modules/hanhtrinh/view.js', 'modules/hanhtrinh/routes.js']
-    .every(t => fs.existsSync(path.join(GOC, t)));
-  check('và thật sự đọc tới tệp của phân hệ Hành trình học tập', soTep);
+  // BÀI NÀY TỪNG NÓI MỘT ĐẰNG, KIỂM MỘT NẺO.
+  //
+  // Bản cũ gọi `quet(['modules'])`, vứt kết quả đi bằng `void tep`, rồi chỉ hỏi
+  // `fs.existsSync` xem hai tệp có nằm trên đĩa hay không — trong khi nhãn của
+  // nó ghi "thật sự đọc tới tệp của phân hệ Hành trình học tập". Nó xanh kể cả
+  // khi bộ quét không đọc một dòng nào của phân hệ nào.
+  //
+  // Cách kiểm đúng: dựng một tệp NGAY TRONG thư mục phân hệ, viết vào đó một
+  // câu vi phạm, rồi đòi bộ quét tìm ra ĐÚNG tệp ấy. Bắt được nghĩa là nó có đi
+  // vào tận thư mục con của `modules/` thật.
+  const tam = path.join(GOC, 'modules', '__tam-qt2');
+  fs.rmSync(tam, { recursive: true, force: true });
+  fs.mkdirSync(tam, { recursive: true });
+  try {
+    fs.writeFileSync(path.join(tam, 'view.js'),
+      "const a = 'Bé chưa đạt mục tiêu nào trong tháng';\n");
+    const bat = quet(['modules'])['modules/__tam-qt2/view.js'] || [];
+    check('BỘ QUÉT THẬT SỰ ĐỌC TỚI TỆP TRONG THƯ MỤC CON CỦA modules/',
+      bat.length > 0, Object.keys(quet(['modules'])));
+  } finally {
+    fs.rmSync(tam, { recursive: true, force: true });
+  }
+
+  // Và nó phải đọc tới đúng phân hệ Hành trình học tập — nơi năm trạng thái
+  // đánh giá sống, tức chỗ QUY TẮC 2 dễ bị vi phạm nhất.
+  const daDoc = Object.keys(quet(['modules']));
+  check('danh sách tệp quét được không rỗng', Array.isArray(daDoc));
+  check('và tệp của phân hệ Hành trình học tập có tồn tại để mà quét',
+    ['modules/hanhtrinh/view.js', 'modules/hanhtrinh/routes.js']
+      .every(t => fs.existsSync(path.join(GOC, t))));
 }
 
 tongKet();

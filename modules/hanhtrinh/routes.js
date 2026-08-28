@@ -24,6 +24,19 @@
 const { requireRole } = require('../../lib/auth');
 const ngay2 = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
+const fs = require('fs');
+
+// Chép một tệp ảnh đã có thành một tệp MỚI trong kho ảnh.
+//
+// Đọc lại rồi cho đi qua `uploads.saveDataUrl` thay vì `fs.copyFileSync`: như
+// vậy tệp mới được đặt tên theo đúng quy tắc của kho ảnh, và đi qua đủ phép
+// kiểm định dạng lẫn dung lượng — không có đường tắt nào bỏ qua chúng.
+function chepAnh(file) {
+  const duong = uploads.pathOf(file);
+  if (!duong || !uploads.exists(file)) return '';
+  const buf = fs.readFileSync(duong);
+  return uploads.saveDataUrl(`data:${uploads.mimeOf(file)};base64,${buf.toString('base64')}`).file;
+}
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -319,6 +332,41 @@ module.exports = (app, { db, modules }) => {
   // =========================================================================
   // GHI — LỚP 1
   // =========================================================================
+  // BẢN GHI NHANH ĐƯỢC CHÉP SANG PHẢI LÀ CỦA CHÍNH CÔ ĐÓ, VÀ CỦA CHÍNH BÉ ĐÓ.
+  //
+  // `ghiNhanhId` đi vào từ thân yêu cầu. Bản đầu lưu thẳng chuỗi đó xuống mà
+  // KHÔNG tra bản Ghi nhanh nào cả — trong khi `ghiNhanhChuaDung` ở trên thì lọc
+  // `byTeacherId` rất cẩn thận. Hai chỗ nói hai luật khác nhau về cùng một thứ.
+  //
+  // Hậu quả: cô A gắn quan sát của mình vào bản Ghi nhanh của cô B, và bản Ghi
+  // nhanh đó biến khỏi màn suy ngẫm của cô B (nó bị coi là "đã dùng"). Ghi chú
+  // thô của cô B là dữ liệu LỚP 1 — thứ CLAUDE.md nói không bao giờ được lộ.
+  // Đây cùng họ với lỗ N24(a).
+  //
+  // Trả về { loi } hoặc { ban } — `ban` là null khi không chép từ đâu cả.
+  function banGhiNhanhChepDuoc(user, ghiNhanhId, studentId) {
+    if (!ghiNhanhId) return { ban: null };
+    if (!modules || typeof modules.dangBat !== 'function' || !modules.dangBat('thuchup')) {
+      return { loi: 'Phân hệ Ghi nhanh đang tắt nên không chép sang được' };
+    }
+    let ban = null;
+    try {
+      ban = db.first('thuchup_ghinhanh', 'SELECT * FROM thuchup_ghinhanh WHERE id = ?', [ghiNhanhId]);
+    } catch (_) {
+      return { loi: 'Phân hệ Ghi nhanh đang tắt nên không chép sang được' };
+    }
+    if (!ban) return { loi: 'Không tìm thấy bản Ghi nhanh đó' };
+    // Cô chỉ chép được bản của CHÍNH MÌNH. Quản trị thì đi theo tầng cơ sở như
+    // mọi chỗ khác — `canAccessStudent` bên dưới đã lo phần đó.
+    if (user.role === 'teacher' && ban.byTeacherId !== user.id) {
+      return { loi: 'Bản Ghi nhanh này là ghi chép riêng của cô khác' };
+    }
+    if (ban.studentId !== studentId) {
+      return { loi: 'Bản Ghi nhanh này là của một bé khác' };
+    }
+    return { ban };
+  }
+
   app.post('/api/hanhtrinh', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const be = db.findStudent(chuoi(b.studentId, 40));
@@ -329,19 +377,34 @@ module.exports = (app, { db, modules }) => {
     const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
     if (ngay > homNay()) return res.status(400).json({ error: 'Chưa ghi quan sát cho ngày chưa tới được' });
 
-    const moTa = chuoi(b.moTa, TOI_DA_MO_TA);
+    const ghiNhanhId = chuoi(b.ghiNhanhId, 80);
+    const kt = banGhiNhanhChepDuoc(req.user, ghiNhanhId, be.id);
+    if (kt.loi) return res.status(403).json({ error: kt.loi });
+    const nguon = kt.ban;
+
+    // Chép chữ sang khi cô không gõ gì thêm. Bản đầu để trống, nên cô bấm vào
+    // một bản Ghi nhanh để "chép sang" rồi phải gõ lại từ đầu đúng câu mình
+    // vừa viết mười phút trước — nút đó không giúp được gì cả.
+    const moTa = chuoi(b.moTa, TOI_DA_MO_TA) || chuoi(nguon && nguon.note, TOI_DA_MO_TA);
     if (!moTa) return res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé nhé' });
 
     let anh = '';
     if (b.anh) {
       try { anh = uploads.saveDataUrl(b.anh).file; }
       catch (err) { return res.status(400).json({ error: err.message || 'Ảnh không hợp lệ' }); }
+    } else if (nguon && nguon.file) {
+      // CHÉP TỆP, KHÔNG DÙNG CHUNG TÊN TỆP.
+      //
+      // Dùng chung thì hai bản ghi có vòng đời buộc vào nhau: xoá bản Ghi nhanh
+      // là ảnh của quan sát trắng theo, mà người xoá không hề biết. Một tấm ảnh
+      // vài trăm KB là cái giá rẻ hơn nhiều so với một tấm ảnh biến mất.
+      try { anh = chepAnh(nguon.file); } catch (_) { anh = ''; }
     }
 
     const luc = new Date().toISOString();
     const rec = {
       id: db.nextId('ht'), studentId: be.id, ngay,
-      moTa, anh, ghiNhanhId: chuoi(b.ghiNhanhId, 80),
+      moTa, anh, ghiNhanhId,
       linhVuc: '', trangThai: '', minhChung: '', oLopLamGi: '',
       suyNgamLuc: null, giaySuyNgam: null,
       cauChuyen: '', cungConONha: '', congBoLuc: null,

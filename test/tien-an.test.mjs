@@ -45,6 +45,9 @@ const VP = await vao('hieutruong', mk1);
 const VP3 = await vao('quanlycs1', mk3);
 const GV = (await login('giaovien', '123456')).cookie;    // cô nhóm c1 (Chồi 2)
 const GV2 = (await login('giaovien2', '123456')).cookie;  // cô nhóm khác
+// Cô Bích Ngọc (t3) phụ trách CẢ c1 lẫn c2 — dữ liệu mẫu dựng sẵn tình huống
+// NHIỀU CÔ MỘT NHÓM, thay đổi nền lớn nhất của app 2.
+const GV3 = (await login('giaovien3', '123456')).cookie;
 const PH = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1
 
 // Hỏi chung một chỗ với máy chủ (lib/ngay.js), không tự tính bằng giờ UTC —
@@ -401,6 +404,34 @@ console.log('\n[12] Tắt phân hệ thì API bị chặn, dữ liệu vẫn cò
   check('bật lại là chạy tiếp', !!n, n);
   check('VÀ SỐ ĐÃ CHỐT CÒN NGUYÊN — tắt là ngưng dùng, không phải xoá',
     n?.chot?.soSuat === 1, n?.chot);
+}
+
+// ===========================================================================
+console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không chỉ chiều CẤM');
+{
+  // Bộ canh của Báo ăn & tiền ăn đi đủ chiều CẤM: cô nhóm khác bị từ chối. Nhưng chiều
+  // còn lại thì bỏ trống — CÔ THỨ HAI CỦA CÙNG MỘT NHÓM có làm được không.
+  //
+  // Đó mới là thay đổi nền lớn nhất của app 2 (app 1 gắn cứng một cô một lớp),
+  // và một bộ canh chỉ đo chiều cấm thì vẫn xanh nguyên nếu ngày mai ai đó siết
+  // nhầm thành "chỉ cô phụ trách CHÍNH mới làm được" — tức là làm hỏng đúng thứ
+  // GĐ 0 đã bỏ ba commit ra để dựng.
+  const doc = await req('GET', `/api/tienan/bao-an?ngay=${HOM_NAY}`, { cookie: GV3 });
+  check('CÔ THỨ HAI MỞ ĐƯỢC BÁO ĂN', doc.status === 200, doc.data);
+  const dsId = (doc.data?.nhom || []).map(n => n.classId).sort();
+  check('và thấy ĐỦ CẢ HAI NHÓM mình đang dạy, không chỉ một',
+    dsId.join(',') === 'c1,c2', dsId);
+
+  const chot = await req('POST', '/api/tienan/bao-an', {
+    cookie: GV3, body: { ngay: HOM_NAY, classId: 'c1', soSuat: 1, ghiChu: 'cô thứ hai chốt' },
+  });
+  check('CÔ THỨ HAI CHỐT ĐƯỢC SỐ SUẤT CHO NHÓM CHUNG', chot.status === 200, chot.data);
+
+  // Và cô thứ hai vẫn KHÔNG chốt hộ được nhóm mình không dạy.
+  const ngoai = await req('POST', '/api/tienan/bao-an', {
+    cookie: GV3, body: { ngay: HOM_NAY, classId: 'c3', soSuat: 0 },
+  });
+  check('nhưng vẫn không chốt hộ nhóm mình không dạy', ngoai.status === 403, ngoai.status);
 }
 
 sv.dung();
