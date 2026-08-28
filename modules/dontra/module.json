@@ -1,0 +1,13 @@
+{
+  "key": "dontra",
+  "name": "Đón trả bé",
+  "desc": "Ai được đón bé, uỷ quyền đón một lần có kèm ảnh, và sổ ghi đã trả cho ai",
+  "hash": "#/dontra",
+  "view": "dontra",
+  "emoji": "🤝",
+  "bg": "linear-gradient(135deg,#5ec2a6,#2f9e7e)",
+  "api": ["/api/dontra"],
+  "roles": ["parent", "teacher", "admin"],
+  "defaultEnabled": false,
+  "version": "0.1.0"
+}
