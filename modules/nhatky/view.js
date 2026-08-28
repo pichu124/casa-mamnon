@@ -160,9 +160,43 @@ App.views.nhatky = {
       ${(d.danhSach || []).length ? `
         <button class="btn primary block mt-14" id="nk-luu">${UI.icon('check', 18)} Lưu nhật ký cả nhóm</button>` : ''}`;
 
-    document.getElementById('nk-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };
+    // ĐỔI NGÀY HAY ĐỔI NHÓM LÀ VẼ LẠI TOÀN BỘ — nên phải hỏi khi cô đang gõ dở.
+    //
+    // `App.route()` thay sạch nội dung `#view`, nghĩa là mọi ô cô vừa điền mà
+    // chưa bấm Lưu đều mất. Cô nhập nhật ký cho hai mươi bé, chạm nhầm ô ngày,
+    // mất cả buổi làm — và app không nói một lời nào.
+    //
+    // Chỉ hỏi khi THẬT SỰ có thay đổi chưa lưu. Hỏi khi không có gì để mất thì
+    // lần thứ ba cô sẽ bấm "Đồng ý" theo phản xạ, và lời hỏi thành vô dụng.
+    const nhoMoc = () => {
+      this._moc = [...document.querySelectorAll('.nk-o')].map(o => o.value).join('\u0001');
+    };
+    const dangGoDo = () => {
+      if (this._moc === undefined) return false;
+      return [...document.querySelectorAll('.nk-o')].map(o => o.value).join('\u0001') !== this._moc;
+    };
+    const doiMan = (dat) => {
+      if (dangGoDo() && !confirm('Cô đang nhập dở mà chưa bấm Lưu.\n\n'
+        + 'Chuyển sang ngày hoặc nhóm khác sẽ mất phần vừa nhập. Cô vẫn chuyển chứ?')) {
+        App.route();      // vẽ lại để ô chọn quay về đúng chỗ cũ
+        return;
+      }
+      dat();
+      App.route();
+    };
+    nhoMoc();
+
+    document.getElementById('nk-ngay').onchange = (e) => {
+      const v = e.target.value;
+      doiMan(() => { this._ngay = v; });
+    };
     const selNhom = document.getElementById('nk-nhom');
-    if (selNhom) selNhom.onchange = (e) => { this._classId = e.target.value; App.route(); };
+    if (selNhom) {
+      selNhom.onchange = (e) => {
+        const v = e.target.value;
+        doiMan(() => { this._classId = v; });
+      };
+    }
     document.getElementById('nk-ap').onclick = () => this.apCaNhom();
     const btn = document.getElementById('nk-luu');
     if (btn) btn.onclick = () => this.luu();
@@ -227,19 +261,62 @@ App.views.nhatky = {
   },
 
   // Áp một lựa chọn cho mọi bé — chỗ giúp cô xong cả nhóm trong vài phút.
+  //
+  // MẶC ĐỊNH CHỈ ĐIỀN Ô CÒN TRỐNG, KHÔNG GHI ĐÈ PHẦN CÔ ĐÃ CHỈNH RIÊNG.
+  //
+  // Bản đầu gán thẳng giá trị cho MỌI ô cùng tên trường: không hỏi lại, không
+  // đếm, không chừa ô nào. Mà biểu mẫu được nạp sẵn bằng giá trị ĐÃ LƯU của
+  // từng bé, nên một lần chạm nhầm rồi bấm Lưu là xoá cả phần đã ghi trong
+  // ngày — bé dị ứng ăn nửa suất, bé ốm ngủ ngắn, tất cả về cùng một giá trị.
+  //
+  // Màn điểm danh của app 1 đã trả giá cho đúng bài học này và làm ngược lại
+  // (`public/js/views/attendance.js` — hàm `markAll`): đếm rõ bao nhiêu ô còn
+  // trống, bao nhiêu ô đã có, và tách hẳn hai nút. Chép nguyên cách đó sang đây.
   apCaNhom() {
     const trua = document.getElementById('nk-ca-trua').value;
     const tu = document.getElementById('nk-ca-ngu-tu').value;
     const den = document.getElementById('nk-ca-ngu-den').value;
     if (!trua && !tu && !den) return UI.toast('Cô chọn ít nhất một mục để áp nhé', 'error');
-    let dem = 0;
-    for (const o of document.querySelectorAll('.nk-o')) {
-      if (trua && o.dataset.truong === 'anTrua') { o.value = trua; dem++; }
-      if (tu && o.dataset.truong === 'nguTuLuc') { o.value = tu; dem++; }
-      if (den && o.dataset.truong === 'nguDenLuc') { o.value = den; dem++; }
-    }
-    UI.toast(`Đã áp cho cả nhóm. Cô sửa lại riêng bé nào khác rồi bấm Lưu.`, 'success');
-    void dem;
+
+    const muon = [['anTrua', trua], ['nguTuLuc', tu], ['nguDenLuc', den]].filter(([, v]) => v);
+    const o = [...document.querySelectorAll('.nk-o')]
+      .filter(x => muon.some(([truong]) => x.dataset.truong === truong));
+    const trong = o.filter(x => !x.value);
+    const daCo = o.length - trong.length;
+
+    const dien = (ghiDe) => {
+      const dich = ghiDe ? o : trong;
+      for (const x of dich) {
+        const v = (muon.find(([truong]) => truong === x.dataset.truong) || [])[1];
+        if (v) x.value = v;
+      }
+      UI.closeModal();
+      UI.toast(`Đã điền ${dich.length} ô. Cô sửa lại riêng bé nào khác rồi bấm Lưu.`, 'success');
+    };
+
+    // Không có gì để giữ thì đừng bắt cô bấm thêm một lần — hỏi khi không có gì
+    // để hỏi cũng là một kiểu làm phiền.
+    if (!daCo) return dien(false);
+
+    UI.modal(`
+      <p style="line-height:1.6">Điền <b>${trong.length} ô còn trống</b> của cả nhóm?</p>
+      <p class="muted small" style="line-height:1.6">
+        <b>${daCo} ô cô đã điền riêng sẽ giữ nguyên</b> — bé ăn nửa suất, bé ngủ ngắn,
+        cô đã ghi thế nào thì vẫn thế.
+      </p>
+      ${trong.length
+    ? `<button class="btn primary block mt-14" id="nk-ap-trong">Điền ${trong.length} ô còn trống</button>`
+    : '<p class="muted small mt-8">Không còn ô trống nào.</p>'}
+      <button class="btn outline block mt-8" id="nk-ap-de">
+        Ghi đè cả nhóm
+        <span class="muted small">(${daCo} ô cô đã điền sẽ bị thay)</span>
+      </button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, 'Áp cho cả nhóm');
+
+    const nutTrong = document.getElementById('nk-ap-trong');
+    if (nutTrong) nutTrong.onclick = () => dien(false);
+    document.getElementById('nk-ap-de').onclick = () => dien(true);
   },
 
   async luu() {
@@ -251,6 +328,9 @@ App.views.nhatky = {
     }
     try {
       const r = await API.put('/api/nhatky', { ngay: this._ngay, danhSach: [...theoBe.values()] });
+      // Lưu xong là hết "gõ dở". Không xoá mốc thì lần đổi ngày ngay sau đó vẫn
+      // bị hỏi lại, và một lời hỏi sai lúc thì lần sau người ta bấm cho xong.
+      this._moc = undefined;
       UI.toast(`Đã lưu nhật ký cho ${r.daGhi} bé`, 'success');
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }

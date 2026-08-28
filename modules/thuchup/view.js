@@ -88,13 +88,6 @@ App.views.thuchup = {
 
   // ---- Màn hình ---------------------------------------------------------
   async render(root) {
-    if (!this._nghe) {
-      this._nghe = true;
-      window.addEventListener('online', () => {
-        this.guiHangDoi().then(({ gui }) => { if (gui) App.route(); });
-      });
-    }
-
     const con = await this.dangCho().catch(() => []);
     let kq = { soLan: 0 };
     let ds = { ghiNhan: [], soBe: 0 };
@@ -327,3 +320,40 @@ App.views.thuchup = {
     });
   },
 };
+
+// ===========================================================================
+// ĐẨY HÀNG ĐỢI NGAY KHI APP MỞ — KHÔNG CHỜ CÔ MỞ ĐÚNG MÀN NÀY
+// ===========================================================================
+//
+// Bản đầu gắn máy nghe sự kiện `online` bên trong `render()`. Nghĩa là hàng đợi
+// chỉ được đẩy đi khi cô MỞ ĐÚNG màn Ghi nhanh. Cô chụp lúc mất sóng ở sân
+// trường, rồi cả ngày không mở lại đúng màn đó — bài ghi nằm im trong máy, và
+// màn hình không nói gì cả.
+//
+// Đó là hỏng đúng thứ phép thử quyết định của GĐ 0 đang đo: "tắt mạng, đóng
+// app, mở lại → tự gửi lên, không mất".
+//
+// Chỗ đúng để gắn là NGAY KHI TỆP NÀY ĐƯỢC NẠP. `App.loadModules()` tải view.js
+// của MỌI phân hệ đang bật ngay sau khi đăng nhập (public/js/app.js), nên đoạn
+// dưới chạy mỗi lần cô mở app — dù cô đang định vào màn nào.
+//
+// Cố ý KHÔNG đụng `public/js/app.js`: đó là tệp dùng chung, sửa nó phải là một
+// commit riêng và một phân hệ cắm thêm thì không được quyền bắt cả app biết về
+// mình. Đặt ở đây thì phân hệ tự lo phần của nó, gỡ phân hệ đi là mất luôn.
+(() => {
+  const V = App.views.thuchup;
+  if (V._daGanDay) return;
+  V._daGanDay = true;
+
+  const day = () => V.guiHangDoi()
+    // Chỉ vẽ lại khi cô ĐANG đứng ở màn này. Gọi App.route() lúc cô đang ở màn
+    // khác là màn của cô tự nhiên nhấp nháy vì một việc chạy ngầm.
+    .then(({ gui }) => { if (gui && String(location.hash || '').startsWith('#/thuchup')) App.route(); })
+    .catch(() => { /* mất mạng hoặc chưa mở được kho — lần sau đẩy tiếp */ });
+
+  window.addEventListener('online', day);
+
+  // Và đẩy luôn một lần lúc mở app: iOS KHÔNG cho gửi ngầm khi app đóng, nên
+  // sự kiện `online` có thể đã xảy ra từ lúc app còn đang tắt và không ai nghe.
+  if (navigator.onLine) day();
+})();
