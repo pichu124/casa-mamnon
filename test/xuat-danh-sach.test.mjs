@@ -17,7 +17,9 @@
 //   • KHÔNG BIẾN THÀNH THỨ CHẠY ĐƯỢC. Excel coi ô bắt đầu bằng = + - @ là công
 //     thức và chạy nó. Họ tên và địa chỉ do người nhập gõ. Một cái tên bắt đầu
 //     bằng "=" là đủ để tệp danh sách bé thành thứ chạy được trên máy văn phòng.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo } from './_chung.mjs';
+import fs from 'fs';
+import path from 'path';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, MAU, GOC } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('xuat-danh-sach');
@@ -105,13 +107,36 @@ console.log('\n[2] Nội dung đủ để văn phòng làm báo cáo');
     'Số định danh cá nhân', 'Tiền sử bệnh / lưu ý đặc biệt', 'Bố / mẹ', 'Người liên hệ khẩn cấp']) {
     check(`có cột "${cot}"`, dau.includes(cot), dau);
   }
-  check('xuất đủ 8 bé đang học của dữ liệu mẫu', dong.length - 1 === 8, dong.length - 1);
+  check('xuất đủ mọi bé đang học của dữ liệu mẫu', dong.length - 1 === MAU.soBe, dong.length - 1);
 
   const an = dong.find(h => h[1] === 'Nguyễn Bảo An');
   check('bé An có đủ nhóm lớp và cơ sở', an && an[dau.indexOf('Nhóm lớp')] === 'Chồi 2'
     && an[dau.indexOf('Cơ sở')] === 'Cơ sở 1', an);
   check('cột Tuổi nói bằng tiếng người, không phải một con số trần',
-    /^\d+ (tuổi|tháng)$/.test(an[dau.indexOf('Tuổi')] || ''), an && an[dau.indexOf('Tuổi')]);
+    /^\d+ (tuổi|tháng)( \d+ tháng)?$/.test(an[dau.indexOf('Tuổi')] || ''), an && an[dau.indexOf('Tuổi')]);
+
+  // BÉ 14 THÁNG PHẢI ĐỌC LÀ "14 THÁNG", KHÔNG PHẢI "1 TUỔI".
+  //
+  // Đây là ví dụ mở đầu của CLAUDE.md, và nó từng SAI thật: hàm tính tuổi chỉ
+  // đếm tháng cho bé dưới 12 tháng, nên bé 14 tháng ra đúng "1 tuổi". Không ai
+  // thấy suốt một thời gian dài vì dữ liệu mẫu không có bé nào dưới 4 tuổi —
+  // chỉ tới khi thêm nhóm nhà trẻ (N20) thì lỗi mới lộ ra.
+  const huy = dong.find(h => h[1] === 'Ngô Gia Huy');       // 14 tháng
+  const khoi = dong.find(h => h[1] === 'Trịnh Minh Khôi');  // 38 tháng
+  check('BÉ 14 THÁNG ĐỌC LÀ "14 tháng", KHÔNG phải "1 tuổi"',
+    huy && huy[dau.indexOf('Tuổi')] === '14 tháng', huy && huy[dau.indexOf('Tuổi')]);
+  check('bé đã qua 36 tháng thì mới nói bằng năm',
+    khoi && /^3 tuổi/.test(khoi[dau.indexOf('Tuổi')] || ''), khoi && khoi[dau.indexOf('Tuổi')]);
+
+  // Hai bản của hàm tính tuổi — một ở máy chủ cho tệp Excel, một ở trình duyệt
+  // cho màn hồ sơ bé — buộc phải ở hai nơi vì trình duyệt không nạp được tệp
+  // trong lib/. Canh để chúng không trôi ra khỏi nhau: lệch mốc là cùng một bé
+  // đọc ra hai tuổi khác nhau ở hai màn hình.
+  const maMayChu = fs.readFileSync(path.join(GOC, 'routes/admin.js'), 'utf8');
+  const maManHinh = fs.readFileSync(path.join(GOC, 'public/js/views/student.js'), 'utf8');
+  check('HAI BẢN CỦA HÀM TÍNH TUỔI DÙNG CÙNG MỘT MỐC 36 THÁNG',
+    /thang < 36/.test(maMayChu) && /thang < 36/.test(maManHinh),
+    [/thang < 36/.test(maMayChu), /thang < 36/.test(maManHinh)]);
 
   const ducAnh = dong.find(h => h[1] === 'Vũ Đức Anh');
   check('tiền sử bệnh đi theo bé ra tệp — thứ văn phòng cần khi làm hồ sơ sức khỏe',

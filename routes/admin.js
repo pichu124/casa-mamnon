@@ -1041,8 +1041,20 @@ function khongThuocCoSo(res, thu) {
   res.status(404).json({ error: `Không tìm thấy ${thu}` });
 }
 
-// Tuổi để đọc trong báo cáo. Trường nhận bé từ 12 tháng nên dưới một tuổi phải
-// đếm bằng tháng — ghi "0 tuổi" cho bé 15 tháng là vô nghĩa với người đọc.
+// Tuổi để đọc trong báo cáo.
+//
+// DƯỚI 36 THÁNG THÌ NÓI BẰNG THÁNG. Đây là ví dụ mở đầu của CLAUDE.md: "bé 14
+// tháng thì màn hình phải nói *14 tháng* chứ không phải *1 tuổi*". Bản đầu của
+// hàm này chỉ đếm tháng cho bé DƯỚI 12 tháng, nên bé 14 tháng ra đúng "1 tuổi"
+// — sai đúng chỗ tài liệu lấy làm ví dụ. Không ai phát hiện suốt một thời gian
+// dài vì dữ liệu mẫu không có bé nào dưới 4 tuổi (xem N20).
+//
+// Mốc 36 tháng trùng với mốc tách nhà trẻ / mẫu giáo mà trường đang dùng, nên
+// chỉ có một mốc cho cả app thay vì hai mốc gần nhau dễ lẫn.
+//
+// PHẢI KHỚP TỪNG CHỮ với `tuoiCuaBe` trong public/js/views/student.js. Trình
+// duyệt không nạp được tệp trong lib/ nên hai bản này buộc phải ở hai nơi;
+// `test:xuat-danh-sach` canh để chúng không trôi ra khỏi nhau.
 function tuoiCuaBe(dob) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dob || ''))) return '';
   const sinh = new Date(`${dob}T00:00:00Z`);
@@ -1052,7 +1064,10 @@ function tuoiCuaBe(dob) {
     + (nay.getUTCMonth() - sinh.getUTCMonth());
   if (nay.getUTCDate() < sinh.getUTCDate()) thang -= 1;
   if (thang < 0) return '';
-  return thang < 12 ? `${thang} tháng` : `${Math.floor(thang / 12)} tuổi`;
+  if (thang < 36) return `${thang} tháng`;
+  const nam = Math.floor(thang / 12);
+  const du = thang % 12;
+  return du ? `${nam} tuổi ${du} tháng` : `${nam} tuổi`;
 }
 
 // Vô hiệu hóa ô bị Excel hiểu là công thức. Thêm dấu nháy đơn ở đầu: Excel hiện

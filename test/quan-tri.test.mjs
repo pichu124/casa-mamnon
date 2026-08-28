@@ -3,7 +3,7 @@
 // Chạy bằng:  npm run test:quan-tri
 import fs from 'fs';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam , MAU } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3500);
 const BASE = `http://localhost:${PORT}`;
@@ -55,7 +55,17 @@ console.log('\n[2] Phân quyền trang quản trị');
 console.log('\n[3] Tổng quan và quản lý lớp');
 {
   const r = await req('GET', '/api/admin/overview', { cookie: A.cookie });
-  check('xem được tổng quan', r.status === 200 && r.data.counts.students === 8, r.data?.counts);
+  check('xem được tổng quan', r.status === 200 && r.data.counts.students === MAU.soBe, r.data?.counts);
+
+  // BỘ CANH CHO CHÍNH MẤY HẰNG SỐ Ở test/_chung.mjs.
+  //
+  // Hằng số mô tả dữ liệu mẫu chỉ đáng tin khi có người đối chiếu nó với dữ
+  // liệu mẫu thật. Không có dòng này thì đổi dữ liệu mẫu mà quên sửa hằng số
+  // sẽ làm cả chục bài khác đỏ ở những chỗ chẳng liên quan gì tới nguyên nhân.
+  check('HẰNG SỐ MÔ TẢ DỮ LIỆU MẪU KHỚP VỚI DỮ LIỆU MẪU THẬT',
+    r.data.counts.students === MAU.soBe && r.data.counts.classes === MAU.soNhom
+    && r.data.counts.teachers === MAU.soCo && r.data.counts.parents === MAU.soPhuHuynh,
+    { thatSu: r.data.counts, hangSo: MAU });
   const c = await req('POST', '/api/admin/classes', { cookie: A.cookie, body: { name: 'Lớp 1A', room: 'P101', grade: 1 } });
   check('tạo lớp mới → 201', c.status === 201, c.data);
   const up = await req('PUT', `/api/admin/classes/${c.data.id}`, { cookie: A.cookie, body: { room: 'P102' } });
@@ -89,7 +99,7 @@ HS005,Hoàng Thiếu PH,2018-01-01,Nam,Lớp 2A,,,,`;
   check('bắt được dòng thiếu phụ huynh', loiPh?.loi?.some(e => /phụ huynh/.test(e)), loiPh?.loi);
   check('sinh tên đăng nhập từ số điện thoại', r.data.rows[0].username === '0911111111', r.data.rows[0]?.username);
   check('không ghi gì khi mới xem trước',
-    (await req('GET', '/api/admin/overview', { cookie: A.cookie })).data.counts.students === 8);
+    (await req('GET', '/api/admin/overview', { cookie: A.cookie })).data.counts.students === MAU.soBe);
 }
 
 console.log('\n[5] Nhập thật');
@@ -100,11 +110,12 @@ console.log('\n[5] Nhập thật');
   check('trả về danh sách tài khoản để in phiếu', r.data?.taiKhoan?.length === 3, r.data?.taiKhoan?.length);
 
   const ov = await req('GET', '/api/admin/overview', { cookie: A.cookie });
-  check('tổng học sinh tăng lên 11', ov.data.counts.students === 11, ov.data?.counts?.students);
-  // Dữ liệu mẫu nay có 3 nhóm (Chồi 2 và Lá 1 ở cơ sở 1, Mầm 1 ở cơ sở 2 — nhóm
-  // thứ ba tồn tại để phép thử cách ly giữa hai cơ sở có thật hai cơ sở mà so).
-  // Tệp nhập mẫu thêm 3 nhóm nữa, nên tổng là 6.
-  check('đã tự tạo 3 nhóm mới', ov.data.counts.classes === 6, ov.data?.counts?.classes);
+  check(`tổng số bé tăng thêm 3 sau khi nhập`, ov.data.counts.students === MAU.soBe + 3, ov.data?.counts?.students);
+  // Dữ liệu mẫu có 4 nhóm (Chồi 2, Lá 1, Nhà trẻ 1 ở cơ sở 1; Mầm 1 ở cơ sở 2
+  // — nhóm này tồn tại để phép thử cách ly giữa hai cơ sở có thật hai cơ sở mà
+  // so). Mục [3] ở trên tạo thêm 1 nhóm, tệp nhập mẫu thêm 2 nhóm nữa.
+  check('đã tự tạo nhóm mới cho các nhóm chưa có trong hệ thống',
+    ov.data.counts.classes === MAU.soNhom + 3, ov.data?.counts?.classes);
 
   // Hai con cùng một phụ huynh (trùng SĐT) phải dùng chung một tài khoản
   const dungChung = r.data.taiKhoan.filter(t => t.username === '0911111111');
@@ -123,16 +134,16 @@ console.log('\n[5] Nhập thật');
 console.log('\n[6] Quản lý học sinh');
 {
   const list = await req('GET', '/api/admin/students', { cookie: A.cookie });
-  check('xem được toàn bộ học sinh', list.status === 200 && list.data.length === 11, list.data?.length);
+  check('xem được toàn bộ bé', list.status === 200 && list.data.length === MAU.soBe + 3, list.data?.length);
   const hs = list.data.find(s => s.name === 'Lê Minh Cường');
   check('học sinh có gắn phụ huynh', hs?.parents?.length === 1, hs?.parents);
 
   const nghi = await req('DELETE', `/api/admin/students/${hs.id}`, { cookie: A.cookie });
   check('cho học sinh nghỉ học → 200', nghi.status === 200);
   const sau = await req('GET', '/api/admin/students', { cookie: A.cookie });
-  check('học sinh nghỉ không còn trong danh sách', sau.data.length === 10, sau.data?.length);
+  check('bé đã nghỉ không còn trong danh sách', sau.data.length === MAU.soBe + 2, sau.data?.length);
   check('nhưng dữ liệu vẫn giữ để tra cứu (không xóa hẳn)',
-    (await req('GET', '/api/admin/overview', { cookie: A.cookie })).data.counts.students === 10);
+    (await req('GET', '/api/admin/overview', { cookie: A.cookie })).data.counts.students === MAU.soBe + 2);
 }
 
 console.log('\n[7] Tệp mẫu và nhật ký thao tác');

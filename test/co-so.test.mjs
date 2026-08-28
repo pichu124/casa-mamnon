@@ -20,7 +20,7 @@ import path from 'path';
 import { createRequire } from 'module';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo,
-  dungMayChu, taoBoDem, taoReq, taoLogin,
+  dungMayChu, taoBoDem, taoReq, taoLogin, MAU,
 } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
@@ -74,7 +74,7 @@ console.log('\n[2] Cấp 3 — CHỈ thấy cơ sở mình, đây là câu quan 
   const bes = await req('GET', '/api/students', { cookie: C3 });
   check('KHÔNG thấy bé của cơ sở khác trong danh sách',
     !bes.data.some(b => b.id === 's_cs2'), bes.data.map(b => b.name));
-  check('vẫn thấy đủ bé của cơ sở mình', bes.data.length === 8, bes.data.length);
+  check('vẫn thấy đủ bé của cơ sở mình', bes.data.length === MAU.soBeCoSo1, bes.data.length);
 
   check('MỞ THẲNG HỒ SƠ BÉ CƠ SỞ KHÁC → 403',
     (await req('GET', '/api/students/s_cs2', { cookie: C3 })).status === 403);
@@ -126,7 +126,7 @@ console.log('\n[4] Cô và phụ huynh KHÔNG bị tầng cơ sở đụng tới
   const GV = (await login('giaovien', '123456')).cookie;
   const PH = (await login('phuhuynh', '123456')).cookie;
   check('cô vẫn thấy đúng bé nhóm mình',
-    (await req('GET', '/api/students', { cookie: GV })).data.length === 5,
+    (await req('GET', '/api/students', { cookie: GV })).data.length === MAU.soBeNhomChoi2,
     (await req('GET', '/api/students', { cookie: GV })).data.length);
   check('cô KHÔNG với sang bé cơ sở khác',
     (await req('GET', '/api/students/s_cs2', { cookie: GV })).status === 403);
@@ -222,13 +222,13 @@ console.log('\n[5] Chưa khai báo cơ sở nào thì tầng cơ sở nằm im, 
   const A = (await login2('hieutruong', 'hieutruong2026')).cookie;
 
   const bes = await req2('GET', '/api/students', { cookie: A });
-  check('quản trị thấy đủ mọi bé như trước', bes.data.length === 8, bes.data.length);
+  check('quản trị thấy đủ mọi bé như trước', bes.data.length === MAU.soBe, bes.data.length);
   check('mở được nhóm bất kỳ', (await req2('GET', '/api/plans?classId=c3', { cookie: A })).status === 200);
   check('danh sách cơ sở rỗng, và đó không phải lỗi',
     (await req2('GET', '/api/admin/campuses', { cookie: A })).data.length === 0);
 
   const GV = (await login2('giaovien', '123456')).cookie;
-  check('cô vẫn thấy đúng bé nhóm mình', (await req2('GET', '/api/students', { cookie: GV })).data.length === 5);
+  check('cô vẫn thấy đúng bé nhóm mình', (await req2('GET', '/api/students', { cookie: GV })).data.length === MAU.soBeNhomChoi2);
 
   sv2.dung();
   donThuMucTam(DIR2);

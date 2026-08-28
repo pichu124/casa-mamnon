@@ -14,6 +14,15 @@ App.views.student = {
   //
   // `moc` chỉ để bài kiểm thử cố định được ngày hôm nay; app luôn gọi không
   // truyền tham số này.
+  // Tuổi của bé.
+  //
+  // DƯỚI 36 THÁNG THÌ NÓI BẰNG THÁNG — ví dụ mở đầu của CLAUDE.md: bé 14 tháng
+  // phải đọc là "14 tháng", không phải "1 tuổi". Mốc 36 tháng trùng mốc tách
+  // nhà trẻ / mẫu giáo, nên cả app chỉ có một mốc.
+  //
+  // PHẢI KHỚP TỪNG CHỮ với `tuoiCuaBe` trong routes/admin.js (tệp xuất Excel).
+  // Trình duyệt không nạp được tệp trong lib/ nên hai bản buộc phải ở hai nơi;
+  // `test:xuat-danh-sach` canh để chúng không trôi ra khỏi nhau.
   tuoiCuaBe(dob, moc) {
     if (!dob) return null;
     const ns = UI.parseDate(dob);
@@ -22,9 +31,9 @@ App.views.student = {
     let thang = (nay.getFullYear() - ns.getFullYear()) * 12 + (nay.getMonth() - ns.getMonth());
     if (nay.getDate() < ns.getDate()) thang -= 1;
     if (thang < 0) return null;          // ngày sinh nhập nhầm sang tương lai
+    if (thang < 36) return `${thang} tháng`;
     const nam = Math.floor(thang / 12);
     const du = thang % 12;
-    if (nam < 1) return `${thang} tháng`;
     return du ? `${nam} tuổi ${du} tháng` : `${nam} tuổi`;
   },
 

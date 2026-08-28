@@ -13,6 +13,28 @@ import { spawn, execSync, execFileSync } from 'child_process';
 
 export const GOC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+// HÌNH DÁNG CỦA DỮ LIỆU MẪU — khai ở ĐÚNG MỘT CHỖ.
+//
+// Trước đây mỗi bài canh tự ghi cứng "8 bé", "9 tài khoản", "5 bé nhóm này".
+// Thêm một nhóm nhà trẻ vào dữ liệu mẫu (N20) làm 17 chỗ như vậy báo đỏ cùng
+// lúc, ở 7 bộ khác nhau — mà không chỗ nào sai về ý, tất cả chỉ là con số cũ.
+//
+// Đổi dữ liệu mẫu lần sau thì sửa ở đây, một chỗ. Và `test/quan-tri.test.mjs`
+// canh để mấy con số này KHÔNG được nói dối: nó đối chiếu từng số với dữ liệu
+// mẫu thật, nên hằng số lệch khỏi dữ liệu là đúng MỘT bài đỏ, kèm cả hai bên
+// để so — thay vì 17 bài đỏ rải rác chẳng bài nào nói được chuyện gì.
+export const MAU = {
+  soBe: 11,           // tổng số bé đang học
+  soNhom: 4,          // Chồi 2, Lá 1, Mầm 1 (cơ sở 2, chưa có bé), Nhà trẻ 1
+  soCo: 4,
+  soPhuHuynh: 9,
+  soTaiKhoan: 13,     // cô + phụ huynh, chưa tính tài khoản quản trị tạo thêm
+  soBeNhomChoi2: 5,   // nhóm c1 — nhóm cô `giaovien` phụ trách
+  soBeNhomLa1: 3,     // nhóm c2
+  soBeNhaTre: 3,      // nhóm c4 — lứa 12–36 tháng
+  soBeCoSo1: 11,      // cả ba nhóm có bé đều ở cơ sở 1
+};
+
 // Bộ đếm kết quả kèm hàm kiểm tra, dùng chung một kiểu in ra màn hình.
 export function taoBoDem() {
   const trangThai = { pass: 0, fail: 0, errs: [] };

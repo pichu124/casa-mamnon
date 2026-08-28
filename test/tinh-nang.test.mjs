@@ -10,7 +10,8 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, MAU,
+} from './_chung.mjs';
 const PORT = Number(process.env.TEST_PORT || 3700);
 const BASE = `http://localhost:${PORT}`;
 const DIR = thuMucTam('tinh-nang');
@@ -175,7 +176,7 @@ console.log('\n[7] Bảng riêng của phân hệ mới không đụng dữ li�
   check('bảng riêng của phân hệ được tạo tự động', bang.includes('hocphi_khoan'), bang.filter(b => b.startsWith('hocphi')));
   check('các bảng lõi vẫn nguyên vẹn',
     ['users', 'students', 'attendance', 'remarks', 'messages'].every(b => bang.includes(b)));
-  check('học sinh không bị mất', raw.prepare('SELECT COUNT(*) c FROM students').get().c === 8);
+  check('bé không bị mất', raw.prepare('SELECT COUNT(*) c FROM students').get().c === MAU.soBe);
   raw.close();
 }
 

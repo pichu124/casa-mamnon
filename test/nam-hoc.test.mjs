@@ -3,7 +3,8 @@
 // Chạy bằng:  npm run test:nam-hoc
 import fs from 'fs';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam, batPhanHe } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, batPhanHe, MAU,
+} from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3600);
 const BASE = `http://localhost:${PORT}`;
@@ -55,10 +56,10 @@ let namMoi;
   check('Chồi 2 không phải bậc cuối', choi2?.raTruong === false);
   const la1 = r.data.buoc.find(b => b.tenHienTai === 'Lá 1');
   check('Lá 1 là bậc cuối — các bé vào lớp 1', la1?.raTruong === true, la1);
-  check('đếm đúng số em lên lớp', r.data.tongLenLop === 5, r.data.tongLenLop);
-  check('đếm đúng số em ra trường', r.data.tongRaTruong === 3, r.data.tongRaTruong);
+  check('đếm đúng số bé lên nhóm trên', r.data.tongLenLop === MAU.soBe - MAU.soBeNhomLa1, r.data.tongLenLop);
+  check('đếm đúng số bé ra trường', r.data.tongRaTruong === MAU.soBeNhomLa1, r.data.tongRaTruong);
   check('xem trước KHÔNG thay đổi dữ liệu',
-    (await req('GET', '/api/admin/overview', { cookie: A.cookie })).data.counts.students === 8);
+    (await req('GET', '/api/admin/overview', { cookie: A.cookie })).data.counts.students === MAU.soBe);
 }
 
 console.log('\n[2] Phân quyền');
@@ -77,14 +78,14 @@ console.log('\n[3] Thực hiện chuyển năm học');
 
   const r = await req('POST', '/api/schoolyear/promote', { cookie: A.cookie, body: { namMoi, khoiToiDa: 5 } });
   check('chuyển năm học thành công', r.status === 200, r.data);
-  check('5 học sinh lên lớp', r.data?.lenLop === 5, r.data?.lenLop);
-  check('3 học sinh ra trường', r.data?.raTruong === 3, r.data?.raTruong);
+  check('bé lên nhóm trên đúng số đã xem trước', r.data?.lenLop === MAU.soBe - MAU.soBeNhomLa1, r.data?.lenLop);
+  check('bé ra trường đúng số đã xem trước', r.data?.raTruong === MAU.soBeNhomLa1, r.data?.raTruong);
   check('tạo lớp mới cho năm sau', r.data?.lopTao >= 1, r.data?.lopTao);
 
   const sau = await req('GET', '/api/admin/students', { cookie: A.cookie });
   const anSau = sau.data.find(s => s.name === 'Nguyễn Bảo An');
   check('bé An đã lên nhóm Lá 2', anSau?.className === 'Lá 2', anSau?.className);
-  check('còn 5 bé đang học', sau.data.length === 5, sau.data.length);
+  check('còn đúng số bé chưa ra trường', sau.data.length === MAU.soBe - MAU.soBeNhomLa1, sau.data.length);
 
   const ov = await req('GET', '/api/admin/overview', { cookie: A.cookie });
   check('năm học của trường đã cập nhật', ov.data.school.currentYear === namMoi, ov.data?.school?.currentYear);

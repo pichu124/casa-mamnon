@@ -27,7 +27,7 @@
 // Nhật ký ăn uống là chỗ dễ trượt sang chấm điểm trẻ nhất trong cả app: chỉ
 // cần đổi "ăn hết" thành 10 điểm là có ngay một bảng xếp hạng. Mục [7] canh
 // điều đó ngay trong mã nguồn của phân hệ.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, MAU } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -57,13 +57,10 @@ const PH = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1
 
 const HOM_NAY = new Date().toISOString().slice(0, 10);
 
-// Dựng một bé NHÀ TRẺ thật: đổi ngày sinh bé s5 thành khoảng 20 tháng tuổi.
-// Dữ liệu mẫu chưa có nhóm nhà trẻ, mà trường thì nhận bé từ 12 tháng — nên
-// tình huống này phải dựng ra, không được bỏ qua.
-const nay = new Date();
-const dobNhaTre = new Date(Date.UTC(nay.getUTCFullYear(), nay.getUTCMonth() - 20, 12))
-  .toISOString().slice(0, 10);
-await req('PUT', '/api/admin/students/s5', { cookie: C1, body: { dob: dobNhaTre } });
+// Cô Phạm Thị Hồng phụ trách nhóm Nhà trẻ 1 (c4) — nhóm 12–36 tháng của dữ
+// liệu mẫu. Bài này KHÔNG còn phải tự đổi ngày sinh một bé để dựng tình huống
+// nữa: từ N20, lứa nhà trẻ có thật trong dữ liệu mẫu.
+const GV_NT = (await login('giaovien4', '123456')).cookie;
 
 // ===========================================================================
 console.log('\n[1] Cô mở màn hình lên là thấy CẢ NHÓM, chưa ghi gì cũng thấy');
@@ -78,10 +75,31 @@ console.log('\n[1] Cô mở màn hình lên là thấy CẢ NHÓM, chưa ghi gì
   check('mỗi bé kèm cờ laNhaTre để màn hình biết hiện ô nào',
     ds.every(b => typeof b.laNhaTre === 'boolean'), ds[0]);
 
-  const nhaTre = ds.find(b => b.studentId === 's5');
-  check('BÉ 20 THÁNG được nhận là nhóm nhà trẻ', nhaTre?.laNhaTre === true, nhaTre);
   const beLon = ds.find(b => b.studentId === 's1');
-  check('bé 4 tuổi thì không', beLon?.laNhaTre === false, beLon);
+  check('bé 4 tuổi KHÔNG phải nhóm nhà trẻ', beLon?.laNhaTre === false, beLon);
+}
+
+// ===========================================================================
+console.log('\n[1b] Nhóm NHÀ TRẺ thật của dữ liệu mẫu — và mốc 36 tháng');
+{
+  const r = await req('GET', '/api/nhatky?classId=c4', { cookie: GV_NT });
+  check('cô nhóm nhà trẻ mở được nhóm mình', r.status === 200, r.status);
+  const ds = r.data?.danhSach || [];
+  check('nhóm Nhà trẻ 1 có ba bé', ds.length === MAU.soBeNhaTre, ds.length);
+
+  const huy = ds.find(b => b.studentId === 's9');     // 14 tháng
+  const ngoc = ds.find(b => b.studentId === 's10');   // 34 tháng
+  const khoi = ds.find(b => b.studentId === 's11');   // 38 tháng
+  check('bé 14 tháng: có ô thay bỉm và bú bình', huy?.laNhaTre === true, huy);
+  check('bé 34 tháng: vẫn có — chưa qua mốc 36 tháng', ngoc?.laNhaTre === true, ngoc);
+
+  // ĐÂY LÀ BÀI ĐÁNG GIÁ NHẤT CỦA CẢ MỤC NÀY.
+  //
+  // Bé Khôi 38 tháng NẰM TRONG nhóm tên là "Nhà trẻ 1" — bé vừa qua mốc giữa
+  // năm học và trường không chuyển nhóm giữa chừng. Nếu app quyết định theo
+  // TÊN NHÓM thì bé này sẽ có ô thay bỉm; quyết định theo NGÀY SINH thì không.
+  check('BÉ 38 THÁNG TRONG NHÓM "NHÀ TRẺ" THÌ KHÔNG — luật đi theo NGÀY SINH, không theo tên nhóm',
+    khoi?.laNhaTre === false, khoi);
 }
 
 // ===========================================================================
@@ -122,13 +140,28 @@ console.log('\n[2] Ghi CẢ NHÓM một lượt — thứ quyết định cô c�
 // ===========================================================================
 console.log('\n[3] Ô NHÀ TRẺ chỉ dành cho bé nhà trẻ');
 {
-  const ds = (await req('GET', '/api/nhatky?classId=c1', { cookie: GV })).data.danhSach;
-  const nhaTre = ds.find(b => b.studentId === 's5');
-  const beLon = ds.find(b => b.studentId === 's1');
-  check('bé nhà trẻ GIỮ số lần thay bỉm', nhaTre.bimSoLan === 3, nhaTre.bimSoLan);
-  check('và giữ lượng sữa bú bình', nhaTre.buBinhMl === 300, nhaTre.buBinhMl);
-  check('BÉ LỚN THÌ MÁY CHỦ BỎ mấy ô đó đi, dù cô có lỡ gửi lên',
-    beLon.bimSoLan === null && beLon.buBinhSoLan === null && beLon.buBinhMl === null, beLon);
+  // Ghi cho nhóm nhà trẻ thật, gửi kèm ô bỉm và bú bình cho CẢ BA bé.
+  await req('PUT', '/api/nhatky', {
+    cookie: GV_NT,
+    body: {
+      ngay: HOM_NAY,
+      danhSach: ['s9', 's10', 's11'].map(id => ({
+        studentId: id, anTrua: 'het', bimSoLan: 3, buBinhSoLan: 2, buBinhMl: 300,
+      })),
+    },
+  });
+  const ds = (await req('GET', '/api/nhatky?classId=c4', { cookie: GV_NT })).data.danhSach;
+  const huy = ds.find(b => b.studentId === 's9');     // 14 tháng
+  const khoi = ds.find(b => b.studentId === 's11');   // 38 tháng
+  check('bé nhà trẻ GIỮ số lần thay bỉm', huy.bimSoLan === 3, huy.bimSoLan);
+  check('và giữ lượng sữa bú bình', huy.buBinhMl === 300, huy.buBinhMl);
+  check('BÉ ĐÃ QUA MỐC THÌ MÁY CHỦ BỎ mấy ô đó đi, dù cô có lỡ gửi lên',
+    khoi.bimSoLan === null && khoi.buBinhSoLan === null && khoi.buBinhMl === null, khoi);
+
+  const beLon = (await req('GET', '/api/nhatky?classId=c1', { cookie: GV })).data.danhSach
+    .find(b => b.studentId === 's1');
+  check('bé 4 tuổi ở nhóm khác cũng vậy',
+    beLon.bimSoLan === null && beLon.buBinhSoLan === null, beLon);
 }
 
 // ===========================================================================
