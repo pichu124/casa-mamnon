@@ -422,6 +422,7 @@ module.exports = (app) => {
     res.json(db.withParents(rows).map(s => ({
       ...s,
       ...db.hoSoBe(s.id),
+      dongY: db.dongYCuaBe(s.id),
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',
       parents: s.parentIds.map(id => {
         const p = db.findUser(id);
@@ -461,7 +462,9 @@ module.exports = (app) => {
 
     const COT = ['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
       'Số định danh cá nhân', 'Dân tộc', 'Nhóm máu', 'Tiền sử bệnh / lưu ý đặc biệt',
-      'Địa chỉ', 'Bố / mẹ', 'Số CCCD của bố / mẹ', 'Người liên hệ khẩn cấp', 'Tình trạng'];
+      'Địa chỉ', 'Bố / mẹ', 'Số CCCD của bố / mẹ', 'Người liên hệ khẩn cấp',
+      'Đồng ý hồ sơ học tập', 'Đồng ý chia sẻ ảnh', 'Đồng ý truyền thông',
+      'Người ký giấy', 'Ngày ký', 'Tình trạng'];
 
     const duLieu = db.withParents(rows).map(s => {
       const lop = s.classId ? db.findClass(s.classId) : null;
@@ -492,6 +495,19 @@ module.exports = (app) => {
         'Người liên hệ khẩn cấp': (hs.lienHeKhanCap || [])
           .map(l => `${l.hoTen}${l.quanHe ? ` — ${l.quanHe}` : ''}${l.dienThoai ? ` (${l.dienThoai})` : ''}`)
           .join(' · '),
+        ...(() => {
+          // Ba giá trị, nên viết ra chữ chứ không viết x / trống: người đọc
+          // bảng phải phân biệt được "gia đình nói không" với "chưa thu giấy".
+          const d = db.dongYCuaBe(s.id);
+          const noi = (v) => (v === true ? 'Đồng ý' : v === false ? 'Không đồng ý' : 'Chưa trả lời');
+          return {
+            'Đồng ý hồ sơ học tập': noi(d.hoSoHocTap),
+            'Đồng ý chia sẻ ảnh': noi(d.chiaSeGiaDinh),
+            'Đồng ý truyền thông': noi(d.truyenThong),
+            'Người ký giấy': d.nguoiKy,
+            'Ngày ký': d.ngayKy,
+          };
+        })(),
         'Tình trạng': s.active === false || s.active === 0 ? 'Đã nghỉ' : 'Đang học',
       };
     }).map(khoaCongThuc);
@@ -571,6 +587,38 @@ module.exports = (app) => {
     db.update('students', s.id, { active: false, leftAt: new Date().toISOString().slice(0, 10) });
     db.audit(req.user.id, 'student-deactivate', s.id, { name: s.name });
     res.json({ ok: true });
+  });
+
+  // Văn phòng ghi lại giấy đồng ý gia đình đã ký.
+  //
+  // Ba mục tách riêng, đúng như tờ giấy: ① hồ sơ học tập ② chia sẻ ảnh và câu
+  // chuyện cho gia đình khác ③ dùng ảnh cho truyền thông. Mỗi mục ba giá trị:
+  // true / false / null là chưa trả lời.
+  //
+  // KHÔNG GỬI MỘT MỤC = KHÔNG ĐỤNG TỚI MỤC ĐÓ. Gửi null mới là chủ ý đưa mục
+  // đó về "chưa trả lời" — dùng khi gia đình rút lại đồng ý và trường chưa kịp
+  // hỏi lại. Rút lại được bất cứ lúc nào là quyền của họ theo Nghị định
+  // 13/2023, nên app phải làm được cả chiều đó chứ không chỉ chiều đồng ý.
+  app.put('/api/admin/students/:id/dong-y', onlyAdmin, (req, res) => {
+    const be = db.findStudent(req.params.id);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!duocChamBe(req.user, be.id)) return khongThuocCoSo(res, 'bé');
+
+    const body = req.body || {};
+    const nhan = {};
+    for (const k of ['hoSoHocTap', 'chiaSeGiaDinh', 'truyenThong']) {
+      if (k in body) nhan[k] = body[k] === null ? null : !!body[k];
+    }
+    for (const k of ['nguoiKy', 'ngayKy', 'ghiChu']) {
+      if (body[k] !== undefined) nhan[k] = String(body[k]);
+    }
+    if (!Object.keys(nhan).length) {
+      return res.status(400).json({ error: 'Không có mục nào để ghi' });
+    }
+
+    const ket = db.datDongY(be.id, nhan);
+    db.audit(req.user.id, 'consent-update', be.id, { name: be.name, ...nhan });
+    res.json({ id: be.id, dongY: ket });
   });
 
   // Ghi số CCCD của một phụ huynh.

@@ -545,6 +545,34 @@ App.views.admin = {
         Số này là <b>của một người</b>, không phải của một bé: nhà có hai con thì sửa ở đâu cũng ra cùng một chỗ.
         Cô không thấy ô này, và bố cũng không thấy số của mẹ.</div>
       </div>
+      <div class="field"><label>Giấy đồng ý gia đình đã ký</label>
+        <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+          Ba mục tách riêng đúng như tờ giấy. Mục <b>chia sẻ ảnh</b> quyết định ảnh của bé
+          có hiện với các gia đình khác trong nhóm hay không — <b>lọc thật ở máy chủ</b>,
+          không phải chỉ ẩn trên màn hình.
+        </div>
+        ${[['dy-hoso', 'hoSoHocTap', '① Trường giữ hồ sơ học tập của con'],
+           ['dy-chiase', 'chiaSeGiaDinh', '② Chia sẻ ảnh và câu chuyện cho gia đình khác trong nhóm'],
+           ['dy-tt', 'truyenThong', '③ Dùng ảnh cho truyền thông / tuyển sinh']]
+          .map(([id, khoa, nhan]) => {
+            const v = (s.dongY || {})[khoa];
+            return `<div style="margin-bottom:8px">
+              <div class="small" style="margin-bottom:4px">${UI.esc(nhan)}</div>
+              <select id="ad-${UI.esc(id)}" data-khoa="${UI.esc(khoa)}" class="ad-dongy">
+                <option value="" ${v === null || v === undefined ? 'selected' : ''}>Chưa trả lời</option>
+                <option value="1" ${v === true ? 'selected' : ''}>Đồng ý</option>
+                <option value="0" ${v === false ? 'selected' : ''}>Không đồng ý</option>
+              </select>
+            </div>`;
+          }).join('')}
+        <div class="grid-2">
+          <input id="ad-dy-nguoiky" value="${UI.esc((s.dongY || {}).nguoiKy || '')}" placeholder="Người ký giấy">
+          <input id="ad-dy-ngayky" type="date" value="${UI.esc((s.dongY || {}).ngayKy || '')}">
+        </div>
+        <div class="hint">"Chưa trả lời" khác hẳn "Không đồng ý": chưa thu được giấy thì để nguyên
+        mục đó, đừng chọn "Không đồng ý" thay gia đình. Gia đình rút lại đồng ý lúc nào cũng được —
+        chọn lại "Chưa trả lời" hoặc "Không đồng ý" là ảnh của bé thôi hiện với nhà khác ngay.</div>
+      </div>
       <div class="field"><label>Nhóm</label>
         <select id="ad-hs-lop">
           <option value="">— Chưa xếp nhóm —</option>
@@ -574,6 +602,16 @@ App.views.admin = {
           })),
           classId: document.getElementById('ad-hs-lop').value || null,
         });
+
+        // Giấy đồng ý đi đường riêng: nó là căn cứ pháp lý, có nhật ký riêng,
+        // và ba mục của nó có BA giá trị chứ không phải bật/tắt.
+        const dy = {};
+        for (const o of document.querySelectorAll('.ad-dongy')) {
+          dy[o.dataset.khoa] = o.value === '' ? null : o.value === '1';
+        }
+        dy.nguoiKy = document.getElementById('ad-dy-nguoiky').value.trim();
+        dy.ngayKy = document.getElementById('ad-dy-ngayky').value;
+        await API.put(`/api/admin/students/${encodeURIComponent(studentId)}/dong-y`, dy);
 
         // Số CCCD đi đường RIÊNG vì nó thuộc về người lớn, không thuộc về bé.
         // Chỉ gửi những ô người dùng thật sự sửa: gửi hết là mỗi lần lưu hồ sơ

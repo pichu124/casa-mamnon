@@ -578,6 +578,20 @@ function generate() {
     { studentId: 's2', soDinhDanh: '079321005678', tienSuBenh: 'Dị ứng tôm cua — nổi mẩn quanh miệng. Hen nhẹ khi trở trời, có ống xịt trong ba lô.' },
     { studentId: 's4', soDinhDanh: '079322009012', tienSuBenh: 'Dị ứng đậu phộng. TUYỆT ĐỐI không cho ăn món có đậu phộng, kể cả dầu.' },
   ];
+  // Giấy đồng ý. CỐ Ý dựng đủ ba trạng thái để mọi màn hình và mọi bài canh
+  // đều gặp cả ba: đồng ý, từ chối, và chưa thu được giấy.
+  //
+  // Bé s3 (Phạm Gia Hân) là bé gia đình KHÔNG đồng ý chia sẻ ảnh. Nhờ có bé đó
+  // trong nhóm Chồi 2 mà luật ảnh nhóm thật sự chạy trên dữ liệu mẫu, thay vì
+  // nằm im vì không có gì để chặn.
+  const consents = [
+    { studentId: 's1', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 0, nguoiKy: 'Lê Thị Thu Hà', ngayKy: `${YEAR}-08-15` },
+    { studentId: 's3', hoSoHocTap: 1, chiaSeGiaDinh: 0, truyenThong: 0, nguoiKy: 'Phạm Quốc Bảo', ngayKy: `${YEAR}-08-16`, ghiChu: 'Gia đình xin không đăng ảnh con lên nhóm chung' },
+    { studentId: 's4', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 1, nguoiKy: 'Vũ Đình Khoa', ngayKy: `${YEAR}-08-15` },
+    { studentId: 's5', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 0, nguoiKy: 'Đỗ Minh Tuấn', ngayKy: `${YEAR}-08-18` },
+    // s2, s6, s7, s8 chưa nộp giấy — đúng thực tế đầu năm học.
+  ];
+
   // Số CCCD của phụ huynh. Cũng cố ý không đủ: văn phòng thu dần trong năm.
   const userProfiles = [
     { userId: 'p1', soCccd: '079182004321' },
@@ -591,6 +605,7 @@ function generate() {
 
   const db = {
     school, campuses, classes, users, students, studentProfiles, userProfiles, emergencyContacts,
+    consents,
     attendance, leaveRequests, menus, timetable, remarks, reports,
     busRoutes, conduct, surveys, health, medicineRequests, albums, eduPlans,
     notifications, conversations,

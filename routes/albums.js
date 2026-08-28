@@ -128,6 +128,59 @@ function xoaDuocAlbum(user, classId) {
   return laNguoiGiuLopCu(user, lopDaDong(classId));
 }
 
+// Ghép danh sách bé được gắn thẻ vào một tấm ảnh.
+//
+// Chỉ cô và quản trị nhận được danh sách này. Với phụ huynh, "trong ảnh còn có
+// bé nào" không phải việc của họ — biết tên và mã của con nhà khác trong một
+// tấm ảnh là chính thứ mà đồng ý chia sẻ đang bảo vệ.
+function ganThemDanhSachBe(anh, user) {
+  if (!user || user.role === 'parent') return anh;
+  const ids = db.beTrongAnh(anh.id);
+  return {
+    ...anh,
+    beTrongAnh: ids.map(id => {
+      const b = db.findStudent(id);
+      return b ? { id: b.id, name: b.name, dongYChiaSe: db.dongYCuaBe(b.id).chiaSeGiaDinh } : null;
+    }).filter(Boolean),
+  };
+}
+
+// Lời nhắc cho PHỤ HUYNH khi có ảnh đang chờ cô gắn thẻ.
+//
+// Không có dòng này thì phụ huynh mở album ra thấy trống trơn và kết luận app
+// hỏng — hoặc tệ hơn, kết luận cô không chụp ảnh con mình. Nói thật lý do vừa
+// đúng, vừa giữ được lòng tin, vừa là cách phụ huynh nhắc cô nhanh nhất.
+//
+// KHÔNG nói nhà nào từ chối. Đó là chuyện riêng của gia đình đó.
+function nhacChoPhuHuynh(tatCaAnh, anhXemDuoc, classId) {
+  const con = (tatCaAnh || []).length - (anhXemDuoc || []).length;
+  if (con <= 0 || !db.coBeTuChoiChiaSe(classId)) return {};
+  return {
+    nhacChoPhuHuynh: `Album này còn ${con} ảnh chưa hiện với gia đình. `
+      + 'Trong nhóm có bé mà gia đình chưa đồng ý chia sẻ ảnh, nên cô cần đánh dấu '
+      + 'bé nào có trong từng tấm trước khi ảnh hiện ra. Gia đình nhắn cô một câu là được ạ.',
+  };
+}
+
+// Lời nhắc cho cô: nhóm này có gia đình nói không, và còn bao nhiêu ảnh chưa
+// gắn thẻ đang tạm ẩn với các gia đình khác.
+//
+// Trả về object rỗng khi không có gì phải nhắc, để màn hình cũ không đổi một
+// chữ nào ở trường hợp thường gặp nhất.
+function nhacGanThe(tatCaAnh, classId) {
+  if (!db.coBeTuChoiChiaSe(classId)) return {};
+  const chuaGan = (tatCaAnh || []).filter(a => !db.beTrongAnh(a.id).length);
+  if (!chuaGan.length) return {};
+  return {
+    nhacGanThe: {
+      soAnhTamAn: chuaGan.length,
+      loiNhac: `Nhóm này có gia đình chưa đồng ý cho ảnh của con hiện với các nhà khác. `
+        + `${chuaGan.length} ảnh chưa gắn thẻ bé nên đang tạm ẩn với gia đình khác. `
+        + `Cô gắn thẻ bé vào ảnh là ảnh hiện lại ngay với những nhà được phép xem.`,
+    },
+  };
+}
+
 module.exports = (app) => {
   // Danh sách album các lớp liên quan, mới nhất trước (không kèm toàn bộ ảnh).
   app.get('/api/albums', (req, res) => {
@@ -169,9 +222,13 @@ module.exports = (app) => {
         lopDaDong: !!(cls && !cls.active),
         lopCuCuaCon: !db.canAccessClass(req.user, a.classId),
         namHoc: cls ? cls.year || '' : '',
-        photoCount: db.count('SELECT COUNT(*) FROM album_photos WHERE albumId = ?', [a.id]),
-        cover: db.first('album_photos',
-          'SELECT * FROM album_photos WHERE albumId = ? ORDER BY position, rowid LIMIT 1', [a.id]) || null,
+        // Ảnh bìa cũng là một tấm ảnh, nên cũng phải qua lọc — nếu không thì
+        // ảnh bị ẩn bên trong vẫn hiện ngay ngoài danh sách, to bằng nửa màn
+        // hình. Và số đếm phải là số ảnh NGƯỜI NÀY xem được, không phải tổng.
+        ...(() => {
+          const xemDuoc = db.locAnhChoNguoiXem(photosOf(a.id), req.user, a.classId);
+          return { photoCount: xemDuoc.length, cover: xemDuoc[0] || null };
+        })(),
       };
     });
     res.json(list);
@@ -184,7 +241,11 @@ module.exports = (app) => {
     if (!xemDuocAlbum(req.user, album.classId, album.date)) {
       return res.status(403).json({ error: 'Không có quyền xem album này' });
     }
-    album.photos = photosOf(album.id);
+    // LỌC Ở TẦNG DỮ LIỆU. Phụ huynh chỉ nhận về những ảnh mình được xem —
+    // không phải nhận hết rồi giao diện che bớt.
+    const tatCaAnh = photosOf(album.id);
+    album.photos = db.locAnhChoNguoiXem(tatCaAnh, req.user, album.classId)
+      .map(a => ganThemDanhSachBe(a, req.user));
     const cls = db.findClass(album.classId);
     const author = album.createdBy ? db.findUser(album.createdBy) : null;
     res.json({
@@ -197,6 +258,11 @@ module.exports = (app) => {
       // lớp đã đóng thì không đăng thêm ảnh nữa.
       canEdit: req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId),
       canXoa: xoaDuocAlbum(req.user, album.classId),
+      // Cô cần biết ảnh nào đang tạm ẩn với gia đình khác và VÌ SAO. Ẩn mà
+      // không giải thích là chỗ cô mất lòng tin vào app nhanh nhất.
+      ...(req.user.role === 'parent'
+        ? nhacChoPhuHuynh(tatCaAnh, album.photos, album.classId)
+        : nhacGanThe(tatCaAnh, album.classId)),
     });
   });
 
@@ -210,7 +276,21 @@ module.exports = (app) => {
     }
     const photo = db.first('album_photos',
       'SELECT * FROM album_photos WHERE id = ? AND albumId = ?', [req.params.photoId, album.id]);
-    if (!photo || !photo.file) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    if (!photo) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+
+    // ĐÂY MỚI LÀ CHỐT CHẶN THẬT SỰ CỦA LUẬT ẢNH NHÓM.
+    //
+    // Đường này trả về đúng các byte của tấm ảnh. Lọc ở hai đường trên chỉ làm
+    // ảnh không hiện trong danh sách; ai biết mã ảnh vẫn tải được thẳng qua
+    // đây. Mã ảnh thì không bí mật — nó nằm trong gói JSON của album mà chính
+    // phụ huynh đó nhận được ở lần xem trước, trước khi gia đình kia rút đồng ý.
+    // Kiểm đồng ý TRƯỚC khi kiểm tệp có tồn tại: hỏi hai câu theo thứ tự ngược
+    // lại thì câu trả lời "không tìm thấy ảnh" vô tình xác nhận rằng người hỏi
+    // đáng lẽ được xem, chỉ là tệp đã mất.
+    if (!db.locAnhChoNguoiXem([photo], req.user, album.classId).length) {
+      return res.status(403).json({ error: 'Ảnh này có bé mà gia đình chưa đồng ý chia sẻ' });
+    }
+    if (!photo.file) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
 
     const filePath = uploads.pathOf(photo.file);
     if (!filePath || !fs.existsSync(filePath)) {
@@ -295,7 +375,56 @@ module.exports = (app) => {
     db.tx(() => {
       built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: album.id, position: dangCo + i }));
     });
-    res.status(201).json({ added: built.length, photos: built });
+    // Nhắc NGAY LÚC ĐĂNG, không đợi cô mở lại album.
+    //
+    // Lúc vừa chụp xong là lúc duy nhất cô còn nhớ chắc trong ảnh là bé nào.
+    // Để tới hôm sau mới nhắc thì cô phải ngồi đoán lại 30 tấm, và đoán sai
+    // thì chính cơ chế bảo vệ này thành ra sai chỗ.
+    res.status(201).json({
+      added: built.length,
+      photos: built,
+      ...(db.coBeTuChoiChiaSe(album.classId) ? {
+        nhacGanThe: {
+          soAnhTamAn: built.length,
+          loiNhac: 'Nhóm này có gia đình chưa đồng ý cho ảnh của con hiện với các nhà khác, '
+            + 'nên ảnh vừa đăng đang tạm ẩn với gia đình khác. Cô bấm vào từng ảnh để gắn '
+            + 'thẻ bé — làm ngay bây giờ là nhanh nhất, vì cô còn nhớ trong ảnh là bé nào.',
+        },
+      } : {}),
+    });
+  });
+
+  // Cô gắn thẻ bé vào một tấm ảnh — đặt TOÀN BỘ danh sách một lượt.
+  //
+  // Gắn thẻ là thứ quyết định ảnh hiện với nhà nào, nên nó là quyền của CÔ ĐANG
+  // DẠY nhóm đó, giống hệt quyền thêm ảnh. Quản trị không gắn thay: quản trị
+  // không ở trong lớp và không biết trong ảnh là bé nào.
+  //
+  // Chỉ nhận bé ĐANG HỌC nhóm của album. Gắn một bé nhóm khác vào ảnh là vừa
+  // sai sự thật, vừa mở đường cho ảnh hiện sang gia đình của nhóm đó.
+  app.put('/api/albums/:id/photos/:photoId/be', requireRole('teacher'), (req, res) => {
+    const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
+    if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
+    if (!db.isTeacherOfClass(req.user.id, album.classId)) {
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới gắn thẻ được' });
+    }
+    const photo = db.first('album_photos',
+      'SELECT * FROM album_photos WHERE id = ? AND albumId = ?', [req.params.photoId, album.id]);
+    if (!photo) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+
+    const xin = (req.body || {}).studentIds;
+    if (!Array.isArray(xin)) return res.status(400).json({ error: 'Thiếu danh sách bé' });
+
+    const trongNhom = new Set(db.all('students',
+      'SELECT id FROM students WHERE classId = ? AND active = 1', [album.classId]).map(b => b.id));
+    const lac = xin.filter(id => !trongNhom.has(id));
+    if (lac.length) {
+      return res.status(400).json({ error: 'Danh sách có bé không thuộc nhóm của album này' });
+    }
+
+    const daGan = db.datBeTrongAnh(photo.id, xin);
+    db.audit(req.user.id, 'photo-tag', photo.id, { albumId: album.id, soBe: daGan.length });
+    res.json({ photoId: photo.id, studentIds: daGan });
   });
 
   // Xóa một ảnh khỏi album.
