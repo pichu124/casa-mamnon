@@ -37,6 +37,22 @@ function homNay() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Ba bữa của nhật ký khớp với ba `type` mà màn Thực đơn đang dùng.
+const BUA = [['anSang', 'breakfast'], ['anTrua', 'lunch'], ['anXe', 'snack']];
+
+// KHUNG GIỜ NGỦ TRƯA — cô CHỌN, không gõ.
+//
+// Nhà trường nói rõ: "thời gian ngủ từ 12h đến 2h chiều, lựa trong khung đó sao
+// cho giáo viên chọn tiện nhất". Hai ô nhập giờ tự do bắt cô gõ bốn chữ số hai
+// lần cho mỗi bé — với nhóm 20 bé là 160 lần gõ mỗi ngày.
+//
+// Khung rộng hơn 12h–14h một chút ở hai đầu: bé ngủ sớm hay dậy muộn là chuyện
+// thường, và ô chọn thiếu mất giờ cô cần là cô lại quay về gõ tay.
+const GIO_NGU = [];
+for (let phut = 10 * 60 + 30; phut <= 15 * 60 + 30; phut += 15) {
+  GIO_NGU.push(`${String(Math.floor(phut / 60)).padStart(2, '0')}:${String(phut % 60).padStart(2, '0')}`);
+}
+
 // Bé này có cần ghi thay bỉm và bú bình không.
 //
 // Quyết định theo NGÀY SINH, không theo tên nhóm: trường nhận bé từ 12 tháng,
@@ -56,7 +72,7 @@ function laNhaTre(dob) {
   return thang < 36;
 }
 
-module.exports = (app, { db }) => {
+module.exports = (app, { db, modules }) => {
   // Làm sạch một bản ghi người dùng gửi lên.
   //
   // Trả về { loi } nếu có gì không hợp lệ. Từ chối chứ không tự sửa: một ô số
@@ -69,6 +85,11 @@ module.exports = (app, { db }) => {
       if (v && !MUC_AN.includes(v)) return { loi: `Mức ăn "${v}" không hợp lệ` };
       ra[k] = v;
     }
+    // Vẫn nhận MỌI giờ hợp lệ, không chỉ giờ trong khung chọn sẵn.
+    //
+    // Khung GIO_NGU là thứ giúp cô bấm nhanh, không phải hàng rào. Bé ngủ 09:50
+    // vì sáng đó mệt là chuyện có thật, và app từ chối ghi điều đã xảy ra thì
+    // cô quay lại quyển sổ giấy — ở đó cô viết được mọi thứ.
     for (const k of ['nguTuLuc', 'nguDenLuc']) {
       const v = String(x[k] || '').trim();
       if (v && !GIO_RE.test(v)) return { loi: 'Giờ ngủ phải có dạng 11:30' };
@@ -129,9 +150,17 @@ module.exports = (app, { db }) => {
       const rows = db.all('nhatky_ngay',
         'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay BETWEEN ? AND ? ORDER BY ngay DESC',
         [studentId, tu, den]);
+      // Gia đình cũng thấy hôm đó trường cho ăn món gì — ngay cạnh dòng bé ăn
+      // được bao nhiêu. Không có phần này thì cô phải gõ lại tên món vào ô ghi
+      // chú cho từng bé, đúng thứ nhà trường bảo là mất công.
+      const td = thucDonKhoang(tu, den);
       return res.json({
         be: { id: be.id, hoTen: be.name, laNhaTre: laNhaTre(be.dob) },
-        ngayCo: rows.map(r => ({ ...r, nguoiGhiTen: tenNguoiGhi(r.nguoiGhi) })),
+        ngayCo: rows.map(r => ({
+          ...r,
+          nguoiGhiTen: tenNguoiGhi(r.nguoiGhi),
+          thucDon: td.get(r.ngay) || null,
+        })),
       });
     }
 
@@ -168,9 +197,60 @@ module.exports = (app, { db }) => {
     res.json({
       ngay,
       classId,
+      // THỰC ĐƠN CỦA ĐÚNG NGÀY ĐÓ, GỬI KÈM LUÔN.
+      //
+      // Nhà trường yêu cầu thẳng: "link luôn với thực đơn từng ngày, tránh phải
+      // gõ tay lại". Không có phần này thì cô phải nhớ hôm nay ăn món gì rồi tự
+      // gõ vào ô ghi chú — vừa mất thời gian, vừa là chỗ hai màn hình của cùng
+      // một trường nói hai chuyện khác nhau về cùng một bữa ăn.
+      //
+      // Chỉ ĐỌC thực đơn, không sửa: thực đơn là của cả trường, do văn phòng
+      // soạn. Cô ghi bé ăn được bao nhiêu phần của bữa đó, thế thôi.
+      thucDon: thucDonCuaNgay(ngay),
+      khungGioNgu: GIO_NGU,
       danhSach: dsBe.map(b => keml(b, daCo.get(b.id))),
     });
   });
+
+  // Một bản ghi thực đơn → đúng ba ô ăn của nhật ký.
+  function gomBua(m) {
+    const buaAn = (m && Array.isArray(m.meals)) ? m.meals : [];
+    const ra = {};
+    for (const [o, kieu] of BUA) {
+      const b = buaAn.find(x => x && x.type === kieu);
+      ra[o] = b ? { ten: b.label || '', gio: b.time || '', mon: b.items || [] } : null;
+    }
+    return ra;
+  }
+
+  // TẮT THỰC ĐƠN LÀ TẮT Ở MỌI MÀN HÌNH, KỂ CẢ MÀN HÌNH NÀY.
+  //
+  // Quy trình "bỏ một tính năng" của CLAUDE.md hứa rằng tắt trong Quản trị →
+  // Tính năng thì nó "biến khỏi màn hình". Nhật ký đọc thẳng bảng `menus` nên
+  // nếu không hỏi công tắc, trường tắt Thực đơn xong vẫn thấy thực đơn cũ hiện
+  // ra ở đây — vừa sai lời hứa, vừa là dữ liệu không còn ai cập nhật.
+  //
+  // Trả `null` chứ không phải object rỗng: màn hình cần phân biệt "trường không
+  // dùng phần thực đơn" với "hôm đó chưa ai soạn thực đơn".
+  function thucDonBat() {
+    return !!(modules && typeof modules.dangBat === 'function' && modules.dangBat('thucdon'));
+  }
+
+  function thucDonCuaNgay(ngay) {
+    if (!thucDonBat()) return null;
+    return gomBua(db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngay]));
+  }
+
+  // Cả khoảng ngày trong MỘT câu truy vấn — gia đình xem hai tuần một lần mở.
+  function thucDonKhoang(tu, den) {
+    const ra = new Map();
+    if (!thucDonBat()) return ra;
+    for (const m of db.all('menus',
+      'SELECT * FROM menus WHERE date BETWEEN ? AND ?', [tu, den])) {
+      ra.set(m.date, gomBua(m));
+    }
+    return ra;
+  }
 
   function tenNguoiGhi(userId) {
     const u = userId ? db.findUser(userId) : null;

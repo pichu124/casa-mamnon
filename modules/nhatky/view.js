@@ -23,8 +23,55 @@ App.views.nhatky = {
     ['long', 'Lỏng'],
     ['tao', 'Táo'],
   ],
+  BUA_NHAN: [['anSang', 'Sáng'], ['anTrua', 'Trưa'], ['anXe', 'Xế']],
   _ngay: null,
   _classId: null,
+  _data: null,
+
+  // Danh sách giờ ngủ để cô CHỌN thay vì gõ.
+  //
+  // Giờ đã lưu mà nằm ngoài khung vẫn được ghép vào danh sách. Không có phần
+  // này thì mở lại một bản ghi cũ sẽ thấy ô trống, và cô bấm Lưu lần nữa là
+  // xoá mất giờ chính cô đã ghi hôm trước — mất dữ liệu mà không ai kịp thấy.
+  gioChon(dangChon) {
+    const khung = (this._data && this._data.khungGioNgu) || [];
+    const ds = khung.slice();
+    if (dangChon && !ds.includes(dangChon)) { ds.push(dangChon); ds.sort(); }
+    return ds;
+  },
+
+  oGio(thuocTinh, dangChon, nhan) {
+    return `
+      <select ${thuocTinh}>
+        <option value="">— ${UI.esc(nhan)} —</option>
+        ${this.gioChon(dangChon).map(g =>
+          `<option value="${UI.esc(g)}" ${g === dangChon ? 'selected' : ''}>${UI.esc(g)}</option>`).join('')}
+      </select>`;
+  },
+
+  // Thực đơn của đúng ngày đang ghi. Rỗng thì không hiện thẻ nào — màn hình
+  // trống sạch vẫn tốt hơn một thẻ nói "chưa có".
+  theThucDon(td) {
+    if (!td) return '';
+    const dong = this.BUA_NHAN.map(([k, t]) => {
+      const b = td[k];
+      if (!b || !(b.mon || []).length) return '';
+      return `
+        <div class="list-row"><div class="row-main">
+          <div class="row-sub">${UI.esc(b.ten || t)}${b.gio ? ` · ${UI.esc(b.gio)}` : ''}</div>
+          <div class="row-title" style="font-weight:400">${UI.esc((b.mon || []).join(', '))}</div>
+        </div></div>`;
+    }).filter(Boolean).join('');
+    if (!dong) return '';
+    return `
+      <div class="card">
+        <div class="card-title">Thực đơn hôm đó</div>
+        <div class="muted small" style="margin-bottom:6px">
+          Lấy thẳng từ màn Thực đơn của trường, cô không phải gõ lại tên món.
+        </div>
+        ${dong}
+      </div>`;
+  },
 
   nhanMucAn(ma) {
     const t = this.MUC_AN.find(x => x[0] === ma);
@@ -83,6 +130,8 @@ App.views.nhatky = {
         </div>
       </div>
 
+      ${this.theThucDon(d.thucDon)}
+
       <div class="card">
         <div class="card-title">Đặt nhanh cho cả nhóm</div>
         <div class="muted small" style="margin-bottom:10px">Chọn ở đây rồi sửa lại riêng bé nào khác.</div>
@@ -97,8 +146,8 @@ App.views.nhatky = {
           <div class="field" style="margin:0">
             <label>Ngủ trưa</label>
             <div class="flex" style="gap:6px">
-              <input type="time" id="nk-ca-ngu-tu" placeholder="Từ" style="flex:1;min-width:0">
-              <input type="time" id="nk-ca-ngu-den" placeholder="Đến" style="flex:1;min-width:0">
+              ${this.oGio('id="nk-ca-ngu-tu" style="flex:1;min-width:0"', '', 'từ')}
+              ${this.oGio('id="nk-ca-ngu-den" style="flex:1;min-width:0"', '', 'đến')}
             </div>
           </div>
         </div>
@@ -150,8 +199,8 @@ App.views.nhatky = {
 
         <div class="section-label">Ngủ</div>
         <div class="flex" style="gap:6px">
-          <input type="time" class="nk-o" data-be="${id}" data-truong="nguTuLuc" value="${UI.esc(b.nguTuLuc || '')}" style="flex:1;min-width:0">
-          <input type="time" class="nk-o" data-be="${id}" data-truong="nguDenLuc" value="${UI.esc(b.nguDenLuc || '')}" style="flex:1;min-width:0">
+          ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguTuLuc" style="flex:1;min-width:0"`, b.nguTuLuc || '', 'từ')}
+          ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguDenLuc" style="flex:1;min-width:0"`, b.nguDenLuc || '', 'đến')}
         </div>
         <input class="nk-o mt-8" data-be="${id}" data-truong="nguGhiChu" placeholder="Ví dụ: ngủ ngon, hoặc trằn trọc đầu giờ"
           value="${UI.esc(b.nguGhiChu || '')}">
@@ -235,9 +284,16 @@ App.views.nhatky = {
         <div class="row-title">${gt ? UI.esc(gt) : '<span class="muted" style="font-weight:400">cô chưa ghi</span>'}</div>
       </div></div>`;
 
-    const bua = [['Sáng', n.anSang], ['Trưa', n.anTrua], ['Xế', n.anXe]]
+    const bua = this.BUA_NHAN
+      .map(([k, t]) => [t, n[k]])
       .filter(([, v]) => v)
       .map(([t, v]) => `${t}: ${this.nhanMucAn(v)}`).join(' · ');
+    // Món của hôm đó, lấy từ thực đơn trường. Cô không gõ lại, gia đình vẫn đọc
+    // được ngay cạnh dòng "bé ăn hết / ăn ít".
+    const mon = this.BUA_NHAN.map(([k, t]) => {
+      const b = n.thucDon ? n.thucDon[k] : null;
+      return b && (b.mon || []).length ? `${t}: ${(b.mon || []).join(', ')}` : '';
+    }).filter(Boolean);
     const ngu = n.nguTuLuc && n.nguDenLuc ? `${n.nguTuLuc} – ${n.nguDenLuc}` : '';
     const vs = [
       n.veSinhSoLan === null || n.veSinhSoLan === undefined ? '' : `${n.veSinhSoLan} lần`,
@@ -251,6 +307,11 @@ App.views.nhatky = {
           ${n.nguoiGhiTen ? `<span class="muted small" style="font-weight:400">${UI.esc(n.nguoiGhiTen)}</span>` : ''}
         </div>
         ${dong('Ăn', bua)}
+        ${mon.length ? `
+          <div class="muted small" style="padding:0 0 8px;line-height:1.6">
+            Thực đơn của trường hôm đó:
+            ${mon.map(t => `<div>${UI.esc(t)}</div>`).join('')}
+          </div>` : ''}
         ${n.anGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.anGhiChu)}</div>` : ''}
         ${dong('Ngủ trưa', ngu)}
         ${n.nguGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.nguGhiChu)}</div>` : ''}

@@ -338,6 +338,111 @@ console.log('\n[9] Tầng cơ sở vẫn canh ở phân hệ mới');
   check('nhưng nhóm của cơ sở mình thì vẫn bình thường', cuaMinh.status === 200, cuaMinh.status);
 }
 
+// ===========================================================================
+console.log('\n[10] Nhật ký nối thẳng với THỰC ĐƠN của ngày đó');
+{
+  // Nhà trường yêu cầu thẳng: "link luôn với thực đơn từng ngày, tránh phải gõ
+  // tay lại". Không có phần này thì cô phải nhớ hôm nay ăn món gì rồi tự gõ vào
+  // ô ghi chú — và hai màn hình của cùng một trường nói hai chuyện khác nhau về
+  // cùng một bữa ăn.
+  const td = await req('GET', '/api/menu?week=0', { cookie: GV });
+  const menus = (td.data?.menus || []).filter(m => m.date <= HOM_NAY);
+  const NGAY = menus[0]?.date;
+  check('dữ liệu mẫu có ít nhất một ngày đã soạn thực đơn để đối chiếu', !!NGAY, td.data?.from);
+
+  const r = await req('GET', `/api/nhatky?classId=c1&ngay=${NGAY}`, { cookie: GV });
+  check('màn nhật ký của cô có kèm thực đơn', !!r.data?.thucDon, Object.keys(r.data || {}));
+
+  // Không chỉ "có gì đó": phải là ĐÚNG món của màn Thực đơn. Sai chỗ này thì
+  // app tự bịa ra một bữa ăn không ai nấu.
+  const truaMenu = (menus[0].meals || []).find(m => m.type === 'lunch');
+  check('bữa trưa trong nhật ký khớp TỪNG MÓN với màn Thực đơn',
+    JSON.stringify(r.data?.thucDon?.anTrua?.mon) === JSON.stringify(truaMenu?.items),
+    r.data?.thucDon?.anTrua);
+  check('và mang theo tên bữa lẫn giờ ăn của trường',
+    r.data?.thucDon?.anTrua?.ten === truaMenu?.label
+    && r.data?.thucDon?.anTrua?.gio === truaMenu?.time, r.data?.thucDon?.anTrua);
+
+  const ngayTrong = await req('GET', '/api/nhatky?classId=c1&ngay=2019-01-01', { cookie: GV });
+  check('ngày chưa ai soạn thực đơn thì ba ô đều rỗng, KHÔNG phải lỗi',
+    ngayTrong.status === 200 && ngayTrong.data?.thucDon
+    && ngayTrong.data.thucDon.anTrua === null, ngayTrong.data?.thucDon);
+
+  // Gia đình cũng phải thấy — đây mới là chỗ tiết kiệm công gõ thật sự: cô
+  // không phải chép tên món vào ô ghi chú của từng bé.
+  await req('PUT', '/api/nhatky', {
+    cookie: GV, body: { ngay: NGAY, danhSach: [{ studentId: 's1', anTrua: 'het' }] },
+  });
+  const ph = await req('GET', `/api/nhatky?studentId=s1&tu=${NGAY}&den=${NGAY}`, { cookie: PH });
+  check('màn của gia đình cũng kèm thực đơn hôm đó',
+    JSON.stringify(ph.data?.ngayCo?.[0]?.thucDon?.anTrua?.mon) === JSON.stringify(truaMenu?.items),
+    ph.data?.ngayCo?.[0]?.thucDon);
+}
+
+// ===========================================================================
+console.log('\n[11] Tắt phân hệ Thực đơn thì nhật ký KHÔNG hiện thực đơn nữa');
+{
+  // CLAUDE.md hứa: tắt một tính năng thì "tính năng biến khỏi màn hình". Nhật
+  // ký đọc thẳng bảng `menus`, nên nếu không hỏi công tắc thì trường tắt Thực
+  // đơn xong vẫn thấy thực đơn cũ hiện ra ở đây — dữ liệu không còn ai cập
+  // nhật, mà màn hình vẫn nói như thật.
+  const tat = await req('PUT', '/api/admin/modules/thucdon', { cookie: C1, body: { enabled: false } });
+  check('quản trị tắt được phân hệ Thực đơn', tat.status === 200, tat.status);
+
+  const r = await req('GET', '/api/nhatky?classId=c1', { cookie: GV });
+  check('NHẬT KÝ VẪN CHẠY BÌNH THƯỜNG — tắt phân hệ khác không kéo theo phân hệ này',
+    r.status === 200 && (r.data?.danhSach || []).length > 0, r.status);
+  check('nhưng không còn thực đơn trong đó', r.data?.thucDon === null, r.data?.thucDon);
+
+  const ph = await req('GET', '/api/nhatky?studentId=s1', { cookie: PH });
+  check('màn của gia đình cũng vậy', ph.status === 200
+    && (ph.data?.ngayCo || []).every(n => n.thucDon === null), ph.data?.ngayCo?.[0]?.thucDon);
+
+  await req('PUT', '/api/admin/modules/thucdon', { cookie: C1, body: { enabled: true } });
+  const lai = await req('GET', '/api/nhatky?classId=c1', { cookie: GV });
+  check('bật lại là thực đơn hiện lại, dữ liệu còn nguyên', !!lai.data?.thucDon, lai.data?.thucDon);
+}
+
+// ===========================================================================
+console.log('\n[12] Giờ ngủ trưa: cô CHỌN trong khung, nhưng khung không phải hàng rào');
+{
+  const r = await req('GET', '/api/nhatky?classId=c1', { cookie: GV });
+  const khung = r.data?.khungGioNgu || [];
+  check('máy chủ gửi kèm khung giờ ngủ để cô bấm', khung.length > 0, khung.length);
+  check('mọi mốc đều đúng dạng HH:MM', khung.every(g => /^([01]\d|2[0-3]):[0-5]\d$/.test(g)), khung[0]);
+  check('và xếp theo thứ tự tăng dần', khung.join(',') === khung.slice().sort().join(','));
+  check('phủ đủ khung 12h–14h nhà trường nói',
+    khung.includes('12:00') && khung.includes('13:00') && khung.includes('14:00'), khung);
+  check('rộng hơn 12h–14h ở hai đầu — bé ngủ sớm hay dậy muộn là chuyện thường',
+    khung[0] < '12:00' && khung[khung.length - 1] > '14:00', [khung[0], khung[khung.length - 1]]);
+
+  // KHUNG LÀ ĐỂ BẤM NHANH, KHÔNG PHẢI ĐỂ CHẶN.
+  //
+  // Bé ngủ 09:50 vì sáng đó mệt là chuyện có thật. App từ chối ghi điều đã xảy
+  // ra thì cô quay lại quyển sổ giấy — ở đó cô viết được mọi thứ.
+  const ngoai = await req('PUT', '/api/nhatky', {
+    cookie: GV,
+    body: { ngay: HOM_NAY, danhSach: [{ studentId: 's1', nguTuLuc: '09:50', nguDenLuc: '10:20' }] },
+  });
+  check('giờ NGOÀI khung vẫn ghi được', ngoai.status === 200, ngoai.data);
+  const doc = await req('GET', '/api/nhatky?classId=c1', { cookie: GV });
+  const be = (doc.data?.danhSach || []).find(b => b.studentId === 's1');
+  check('và đọc lại đúng như đã ghi', be?.nguTuLuc === '09:50' && be?.nguDenLuc === '10:20', be);
+
+  const sai = await req('PUT', '/api/nhatky', {
+    cookie: GV, body: { ngay: HOM_NAY, danhSach: [{ studentId: 's1', nguTuLuc: '25:00' }] },
+  });
+  check('nhưng giờ vô nghĩa thì vẫn bị từ chối', sai.status === 400, sai.status);
+
+  // Màn hình phải GHÉP giờ đã lưu vào danh sách chọn. Thiếu bước này thì mở lại
+  // bản ghi 09:50 sẽ thấy ô trống, và cô bấm Lưu lần nữa là XOÁ MẤT giờ cũ.
+  const view = fs.readFileSync(path.join(GOC, 'modules/nhatky/view.js'), 'utf8');
+  check('màn của cô ghép giờ đã lưu vào danh sách chọn, không bỏ rơi',
+    /gioChon\([\s\S]*?!ds\.includes\(dangChon\)/.test(view));
+  check('và không còn ô gõ giờ tự do cho giấc ngủ trưa',
+    !/type="time"[^>]*ngu(TuLuc|DenLuc)/.test(view) && !/id="nk-ca-ngu-tu"[^>]*type="time"/.test(view));
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
