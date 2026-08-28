@@ -31,10 +31,21 @@ const GOC = path.join(__dirname, '..');
 
 // Mỗi mục: nhận diện một loại tệp không bao giờ được đưa lên kho mã.
 const CAM = [
-  { ten: 'cơ sở dữ liệu', re: /(^|\/)[^/]+\.(db|sqlite|sqlite3)(-wal|-shm|\.\d+)?$/i },
+  // Bắt cả tên có ĐUÔI THÊM phía sau, không chỉ tên kết thúc bằng `.db`.
+  //
+  // Chỗ này từng có một lỗ, và lỗ đó do CHÍNH KHO MÃ NÀY sinh ra: khi khôi phục
+  // dữ liệu, `scripts/restore.js` đổi tên cơ sở dữ liệu cũ thành
+  // `school.db.truoc-khi-khoi-phuc-<số>`. Tên ấy không khớp mẫu cũ (vì phần
+  // đuôi không phải -wal, -shm hay một con số), và cũng không khớp `*.db` trong
+  // .gitignore. Tức là một bản sao NGUYÊN VẸN hồ sơ của cả trường nằm ngay
+  // trong thư mục làm việc, git nhìn thấy, và bộ canh này nói "sạch".
+  //
+  // CLAUDE.md viết bộ canh này "không có đường thoát". Có một đường, và nó tự
+  // mở ra sau mỗi lần khôi phục — đúng lúc người ta đang thao tác vội.
+  { ten: 'cơ sở dữ liệu', re: /(^|\/)[^/]+\.(db|sqlite|sqlite3)([-.][^/]*)?$/i },
   { ten: 'ảnh của bé đã tải lên', re: /(^|\/)uploads?\// },
   { ten: 'bản sao lưu', re: /(^|\/)backups?\// },
-  { ten: 'bản lưu trước khi khôi phục', re: /(^|\/)\.khoi-phuc-/ },
+  { ten: 'bản lưu trước khi khôi phục', re: /(^|\/)\.khoi-phuc-|truoc-khi-khoi-phuc/ },
   { ten: 'kho dữ liệu JSON đời cũ', re: /(^|\/)(db|sessions)\.json/ },
   { ten: 'tệp bí mật (mật khẩu, khóa)', re: /(^|\/)\.env($|\.)/ },
   { ten: 'khóa ký ứng dụng', re: /\.(jks|keystore|pem|key|p12)$/i },

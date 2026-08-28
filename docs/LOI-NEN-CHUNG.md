@@ -111,7 +111,15 @@ cho tới khi trả hết. Trống là tốt.
 
 | Ngày | Lỗi | Đã vá | Còn nợ | Ghi chú |
 |---|---|---|---|---|
-| _(chưa có)_ | | | | |
+| 27/08 | Hồ sơ trẻ lọt vào ảnh Docker: `.gitignore` giấu tệp `.db` khỏi mắt người soát, nhưng `docker build` **không đọc** `.gitignore` nên vẫn đóng gói nó vào ảnh | app 2 — `2551b2a` | **app 1** | Loại 1 (rò rỉ dữ liệu). Cần đối chiếu `.dockerignore` của app 1 trước khi vá — chưa mở kho app 1 nên chưa biết bên đó có dính không |
+| 27/08 | Khôi phục dữ liệu chạy được trong lúc máy chủ ĐANG chạy → SQLite ghi đè lẫn nhau, hỏng âm thầm | app 2 — `8560f9c` | **app 1** | Loại 2 (mất dữ liệu) |
+| 27/08 | `/healthz` công khai kể số phiên đăng nhập và thời gian chạy cho người **chưa đăng nhập** | app 2 — `616ce0c` | **app 1** | Loại 1. Cùng commit còn vá `restore:check` không đếm bảng phân công cô |
+| 28/08 | Bộ canh dữ liệu **bỏ lọt chính tệp mà `restore.js` sinh ra**: `school.db.truoc-khi-khoi-phuc-<số>` không khớp mẫu `*.db` của cả bộ canh lẫn `.gitignore` | app 2 — Đ4 | **app 1** | Loại 1, và là lỗ do chính kho mã tự mở ra sau mỗi lần khôi phục |
+
+> **Bốn món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
+> Ghi nợ ở đây là việc làm được ngay; trả nợ cần mở kho kia và đối chiếu từng
+> tệp, vì không chắc app 1 có dính đủ cả bốn hay không — mà ghi sổ sai còn tệ
+> hơn sổ trống.
 
 ---
 

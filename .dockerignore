@@ -36,6 +36,9 @@ data/*
 *.db
 *.db-wal
 *.db-shm
+# Bản giữ lại của lệnh khôi phục: school.db.truoc-khi-khoi-phuc-<số>.
+# `*.db` KHÔNG khớp tên này vì nó còn đuôi phía sau.
+*.db.*
 *.sqlite
 *.sqlite3
 uploads/

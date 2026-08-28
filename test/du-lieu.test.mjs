@@ -30,6 +30,17 @@ console.log('\n[1] Nhận diện tệp dữ liệu');
   check('ảnh học sinh đã tải lên', chan('data/uploads/a1b2c3.jpg'));
   check('thư mục sao lưu', chan('data/backups/2026-08-14.db'));
   check('bản lưu trước khi khôi phục', chan('data/.khoi-phuc-1786636306300.db-shm'));
+  // TÊN CHÍNH XÁC MÀ scripts/restore.js ĐỂ LẠI. Bộ canh từng bỏ lọt tên này:
+  // mẫu cũ đòi tên KẾT THÚC bằng `.db`, `-wal`, `-shm` hoặc một con số, mà tên
+  // này còn cả một cụm chữ phía sau. `.gitignore` với `*.db` cũng không khớp.
+  // Tức một bản sao NGUYÊN VẸN hồ sơ cả trường nằm trong thư mục làm việc, git
+  // nhìn thấy, và bộ canh nói "sạch" — đúng lúc người ta đang thao tác vội.
+  check('BẢN GIỮ LẠI CỦA LỆNH KHÔI PHỤC (tên thật restore.js sinh ra)',
+    chan('data/school.db.truoc-khi-khoi-phuc-1756000000000'));
+  check('kể cả khi nó nằm ngay gốc kho mã',
+    chan('school.db.truoc-khi-khoi-phuc-1756000000000'));
+  check('và bản chép tay đặt tên kiểu khác cũng bị chặn',
+    chan('data/school.db.bak') && chan('data/school.db.2026-08-28'));
   check('kho JSON đời cũ', chan('data/db.json') && chan('data/sessions.json'));
   check('tệp bí mật .env', chan('.env') && chan('.env.production'));
   check('khóa ký ứng dụng Android', chan('android/app/khoa.jks'));
@@ -43,6 +54,10 @@ console.log('\n[1] Nhận diện tệp dữ liệu');
   check('tệp trong test/ → cho qua', choQua('test/album.test.mjs'));
   check('tệp CSV mẫu kèm hướng dẫn → cho qua', choQua('docs/mau-danh-sach.csv'));
   check('tên tệp có chữ "db" nhưng không phải CSDL → cho qua', choQua('lib/db.js'));
+  // Mẫu mới rộng hơn hẳn mẫu cũ, nên phải kiểm cả chiều KHÔNG chặn nhầm —
+  // một bộ canh chặn cả mã nguồn thì lần sau người ta tắt nó đi.
+  check('mã nguồn có chữ "db" trong đường dẫn → cho qua',
+    choQua('lib/db-nang-cap.js') && choQua('scripts/migrate-json-to-sqlite.js'));
   check('không nhầm chữ "uploads" trong tên tệp', choQua('lib/uploads.js'));
 }
 
@@ -58,6 +73,8 @@ console.log('\n[2] .gitignore chặn thật');
   check('tệp dữ liệu tên lạ trong data/ cũng bị chặn', bichan('data/gi-do-moi.dat'));
   check('.env bị chặn', bichan('.env'));
   check('data/seed.js KHÔNG bị chặn', !bichan('data/seed.js'));
+  check('bản giữ lại của lệnh khôi phục cũng bị .gitignore chặn',
+    bichan('data/school.db.truoc-khi-khoi-phuc-1756000000000'));
 }
 
 console.log('\n[3] Git không còn theo dõi tệp dữ liệu nào');
