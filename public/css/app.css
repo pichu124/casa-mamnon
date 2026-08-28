@@ -983,6 +983,18 @@ body:has(.chat-screen) #toast-zone { bottom: 96px; }
 .flex .spacer { flex: 1; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 13px; }
 
+/* ===== Thực đơn: cả tuần nhìn một lượt trên máy tính =====
+   Nhà trường nói "giao diện máy tính hơi khó nhìn": 5 ngày xếp dọc thành một
+   cột hẹp dài, phải cuộn mới so được thứ Hai với thứ Sáu. Trên màn rộng thì
+   xếp ngang; trên điện thoại vẫn một cột như cũ. */
+.luoi-tuan { display: grid; gap: 13px; }
+.luoi-tuan > .card { margin: 0; }
+@media (min-width: 700px) {
+  .luoi-tuan { grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); align-items: start; }
+  /* Khi ĐANG SOẠN thì mỗi ô cần chỗ để gõ, nên cột rộng hơn và ít cột hơn. */
+  .luoi-tuan.dang-soan { grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+}
+
 /* ===== Màn hình lớn ===== */
 @media (min-width: 700px) {
   body { font-size: 16px; }

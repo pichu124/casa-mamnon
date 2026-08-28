@@ -7,6 +7,7 @@ const { requireRole } = require('../lib/auth');
 const TOI_DA_BUA = 5;        // số bữa mỗi ngày
 const TOI_DA_MON_BUA = 20;   // số món mỗi bữa
 const TOI_DA_TEN_MON = 100;  // độ dài tên món
+const TOI_DA_NGAY_MOT_LAN = 7;  // số ngày gửi lên trong một lần soạn cả tuần
 
 // YYYY-MM-DD theo giờ máy chủ.
 function fmt(d) {
@@ -63,6 +64,66 @@ module.exports = (app) => {
     const menus = db.all('menus',
       'SELECT * FROM menus WHERE date BETWEEN ? AND ? ORDER BY date', [from, to]);
     res.json({ week, from, to, menus });
+  });
+
+  // SOẠN CẢ TUẦN TRONG MỘT LẦN LƯU.
+  //
+  // Nhà trường nói thẳng: "giao diện máy tính hơi khó nhìn", và muốn nhập liệu
+  // nhanh nhất có thể. Soạn một tuần bằng đường cũ là mở 5 hộp thoại và bấm
+  // Lưu 5 lần — mỗi tuần một lần, mỗi năm gần 40 lần.
+  //
+  // ĐẶT TRƯỚC `/api/menu/:date`. Express khớp đường dẫn theo thứ tự đăng ký,
+  // nên để sau thì "tuan" rơi vào chỗ :date và người soạn nhận được câu
+  // "Ngày chưa đúng dạng" khó hiểu.
+  //
+  // MỘT GIAO DỊCH, KHÔNG PHẢI 5 LỜI GỌI. Gọi 5 lần thì lỗi ở ngày thứ ba để
+  // lại một tuần soạn dở — hai ngày đã lưu, ba ngày chưa — mà màn hình vừa
+  // báo lỗi nên người soạn không biết mình đang đứng ở đâu.
+  app.put('/api/menu/tuan', requireRole('admin'), (req, res) => {
+    if (chanNeuChiMotCoSo(req, res)) return;
+    const ds = (req.body || {}).ngay;
+    if (!Array.isArray(ds) || !ds.length || ds.length > TOI_DA_NGAY_MOT_LAN) {
+      return res.status(400).json({
+        error: `Danh sách ngày chưa hợp lệ (gửi từ 1 đến ${TOI_DA_NGAY_MOT_LAN} ngày một lần)`,
+      });
+    }
+
+    // Kiểm TOÀN BỘ trước khi ghi dòng nào.
+    const sach = [];
+    const daThay = new Set();
+    for (const x of ds) {
+      const date = String((x || {}).date || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: `Ngày "${date}" chưa đúng dạng, ví dụ đúng: 2026-09-07` });
+      }
+      if (daThay.has(date)) {
+        return res.status(400).json({ error: `Ngày ${date} bị gửi lên hai lần trong cùng một lần lưu` });
+      }
+      daThay.add(date);
+
+      const cu = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [date]);
+      // Ngày người soạn để trống hẳn mà trước đó cũng chưa có gì: BỎ QUA. Tạo
+      // một bản ghi rỗng là màn hình của gia đình hiện ra một ngày trắng trông
+      // như bếp quên soạn.
+      const trongHan = Array.isArray((x || {}).meals)
+        && (x.meals || []).every(m => !((m && m.items) || []).length);
+      if (!cu && trongHan) continue;
+
+      const meals = lamSachBuaAn((x || {}).meals);
+      if (!meals) {
+        return res.status(400).json({ error: `Thực đơn ngày ${date} chưa hợp lệ. Mỗi bữa cần có tên bữa.` });
+      }
+      sach.push({ date, meals, cu });
+    }
+
+    db.tx(() => {
+      for (const { date, meals, cu } of sach) {
+        if (cu) db.update('menus', cu.id, { meals });
+        else db.insert('menus', { id: db.nextId('menu'), date, meals });
+      }
+    });
+    db.audit(req.user.id, 'menu-update-tuan', null, { soNgay: sach.length });
+    res.json({ daLuu: sach.length, ngay: sach.map(x => x.date) });
   });
 
   // Quản trị soạn/sửa thực đơn một ngày. Mỗi ngày một bản ghi, ghi đè cả ngày.

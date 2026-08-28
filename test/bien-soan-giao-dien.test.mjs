@@ -107,6 +107,44 @@ await page.waitForTimeout(1200);
 const sauLuuTd = await page.locator('#view').innerText();
 check('lưu xong thấy món vừa soạn trên thẻ ngày', /Phở bò kiểm thử/.test(sauLuuTd), sauLuuTd.slice(0, 250));
 
+console.log('\n[3b] Thực đơn — soạn CẢ TUẦN trên một trang (Y4)');
+// Nhà trường muốn "nhập liệu nhanh nhất có thể". Đây là bản kiểm trên trình
+// duyệt thật của con đường nhanh đó: mở một lần, gõ cả tuần, bấm Lưu một lần.
+await page.goto(BASE + '/#/menu', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+check('quản trị thấy nút Soạn cả tuần', await page.locator('#btn-soan-tuan').count() === 1);
+
+await page.locator('#btn-soan-tuan').click();
+await page.waitForTimeout(1000);
+check('mở ra cả 5 ngày trên CÙNG MỘT TRANG',
+  await page.locator('#tt-mon-0-1').count() === 1 && await page.locator('#tt-mon-4-1').count() === 1);
+check('và chỉ có MỘT nút Lưu cho cả tuần', await page.locator('#td-luu-tuan').count() === 1);
+check('tên bữa và giờ ăn gấp lại, không chiếm chỗ khi không cần',
+  await page.locator('#view details').count() === 5, await page.locator('#view details').count());
+
+await page.fill('#tt-mon-0-1', 'Cơm gà kiểm thử tuần\nCanh cải');
+await page.fill('#tt-mon-2-1', 'Bún chả kiểm thử tuần');
+
+// "Giống hôm trước" phải chép đúng ngày liền trước, VÀ không được làm bay chữ
+// đang gõ dở ở ngày khác — đó là lỗi khó chịu nhất của kiểu màn nhiều ô này.
+await page.locator('[data-chep-tu="4"]').click();
+await page.waitForTimeout(600);
+const monT5 = await page.inputValue('#tt-mon-3-1');
+const monT6 = await page.inputValue('#tt-mon-4-1');
+check('bấm "Giống hôm trước" chép đúng nội dung ngày liền trước', monT6 === monT5, { monT5, monT6 });
+check('và KHÔNG làm bay chữ đang gõ ở ngày khác',
+  /Cơm gà kiểm thử tuần/.test(await page.inputValue('#tt-mon-0-1'))
+  && /Bún chả kiểm thử tuần/.test(await page.inputValue('#tt-mon-2-1')));
+
+await page.locator('#td-luu-tuan').click();
+await page.waitForTimeout(1500);
+const sauLuuTuan = await page.locator('#view').innerText();
+check('lưu MỘT lần là cả tuần hiện ra trên màn xem',
+  /Cơm gà kiểm thử tuần/.test(sauLuuTuan) && /Bún chả kiểm thử tuần/.test(sauLuuTuan),
+  sauLuuTuan.slice(0, 300));
+check('soạn xong thì quay về màn xem, không kẹt lại ở màn soạn',
+  await page.locator('#td-luu-tuan').count() === 0);
+
 console.log('\n[4] Thực đơn — phụ huynh chỉ xem');
 await dangXuat();
 await dangNhap('phuhuynh', '123456');
