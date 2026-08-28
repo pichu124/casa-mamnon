@@ -16,7 +16,11 @@
 //   bảo mật làm app ngừng dùng được thì nhà trường sẽ tắt nó đi.
 //
 // Nên mục [1] canh chiều siết quá TRƯỚC, rồi mới tới các mục canh chiều hở ra.
+import fs from 'fs';
+import path from 'path';
+import { createRequire } from 'module';
 import {
+  GOC,
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, dongNhom,
 } from './_chung.mjs';
@@ -342,6 +346,88 @@ console.log('\n[9] DANH MỤC CHỨC VỤ');
   // vào là báo lỗi.
   const cs3 = await req('GET', '/api/admin/chuc-vu', { cookie: QL });
   check('quản lý cơ sở không đọc được danh mục chức vụ', cs3.status === 403, cs3.status);
+}
+
+// ===========================================================================
+console.log('\n[+] DANH SÁCH CHO PHÉP VIẾT TAY PHẢI THEO KỊP THƯ MỤC modules/');
+
+// VÌ SAO MỤC NÀY ĐÁNG GIÁ HƠN VẺ NGOÀI CỦA NÓ
+//
+// Tầng chức vụ chặn theo DANH SÁCH CHO PHÉP, cố ý để "quên thì quên theo hướng
+// đóng lại". Nhưng danh sách đó là mảng chuỗi VIẾT TAY trong hằng `CHUC_VU` của
+// lib/db.js — một tệp dùng chung, tức mỗi lần thêm phân hệ lại phải sửa tệp
+// dùng chung ở một commit riêng.
+//
+// Chuyện sẽ xảy ra: thêm phân hệ mới cho GĐ 3, quên cập nhật, rồi tài khoản Văn
+// phòng cơ sở hay Kế toán bấm vào ô mới nhận 403 kèm câu "Cần thêm quyền thì
+// nhờ ban giám hiệu đổi chức vụ giúp" — trong khi BAN GIÁM HIỆU KHÔNG CÓ CÁCH
+// NÀO SỬA QUA GIAO DIỆN. Người của trường sẽ đi hỏi vòng vòng rồi kết luận là
+// app hỏng.
+//
+// Bài này KHÔNG đòi mọi chức vụ phải mở mọi phân hệ — phần lớn phân hệ đúng là
+// không thuộc việc của Kế toán. Nó chỉ đòi một điều: mỗi vùng `api` của một
+// phân hệ phải được QUYẾT ĐỊNH tường minh, hoặc nằm trong danh sách cho phép
+// của ít nhất một chức vụ, hoặc nằm trong sổ dưới đây kèm lý do.
+{
+  const require2 = createRequire(import.meta.url);
+  const dbLib = require2(path.join(GOC, 'lib', 'db.js'));
+  const chucVu = dbLib.CHUC_VU;
+  check('đọc được danh mục chức vụ từ lib/db.js', Array.isArray(chucVu), typeof chucVu);
+
+  // Vùng api của mọi phân hệ có trong thư mục — đọc thư mục, KHÔNG liệt kê tay.
+  // Liệt kê tay ở đây thì bài canh này lại mắc đúng bệnh nó đang canh.
+  const MODULES = path.join(GOC, 'modules');
+  const vungPhanHe = [];
+  for (const ten of fs.readdirSync(MODULES)) {
+    const tep = path.join(MODULES, ten, 'module.json');
+    if (!fs.existsSync(tep)) continue;
+    let mj = null;
+    try { mj = JSON.parse(fs.readFileSync(tep, 'utf8')); } catch (_) { mj = null; }
+    for (const a of (mj && mj.api) || []) vungPhanHe.push({ key: mj.key || ten, api: a });
+  }
+  check('tìm được vùng api của các phân hệ', vungPhanHe.length >= 8, vungPhanHe.length);
+
+  // SỔ GHI NHỮNG PHÂN HỆ CỐ Ý KHÔNG CẤP CHO CHỨC VỤ CẤP 2 / CẤP 3 NÀO.
+  //
+  // Mỗi dòng phải nêu LÝ DO. Thêm vào đây là một quyết định, không phải một
+  // cách cho qua — y hệt danh sách ngoại lệ của test/goi-ten.test.mjs.
+  const CO_Y_KHONG_CAP = {
+    nhatky: 'Nhật ký ngày là chuyện đi vệ sinh, thay bỉm, ăn uống của TỪNG bé. '
+      + 'Văn phòng cơ sở không cần đọc để làm việc của mình, và Kế toán thì '
+      + 'càng không. Mở ra là mở nguyên trang sổ của 20 bé cho người không dạy các bé đó.',
+    hanhtrinh: 'Ba lớp dữ liệu của một quan sát là ranh giới chặt nhất trong cả '
+      + 'app — lớp 1 chỉ cô đã ghi đọc được. Không chức vụ hành chính nào có '
+      + 'phần trong đó.',
+    kehoachbe: 'Kế hoạch từng bé là việc chuyên môn giữa cô và quản lý nhóm. '
+      + 'Quản lý cơ sở đã thấy qua tầng cơ sở (api: null), không cần cấp thêm.',
+    thuchup: 'Ghi nhanh là ghi chép thô của cô, đúng lớp 1 của bảng ba lớp.',
+  };
+
+  const thieu = [];
+  for (const v of vungPhanHe) {
+    const duocCap = (chucVu || []).some(c => c.api === null
+      || (Array.isArray(c.api) && c.api.some(x => v.api === x || v.api.startsWith(`${x}/`))));
+    // `api: null` nghĩa là chức vụ đó không bị tầng này chặn gì cả (Cấp 1 và
+    // Quản lý cơ sở). Nó không tính là "đã quyết định" cho Cấp 2, nên hỏi tiếp.
+    const duocCapCoDanhSach = (chucVu || []).some(c => Array.isArray(c.api)
+      && c.api.some(x => v.api === x || v.api.startsWith(`${x}/`)));
+    if (!duocCap) { thieu.push(`${v.key} (${v.api}) — không chức vụ nào đọc tới`); continue; }
+    if (!duocCapCoDanhSach && !CO_Y_KHONG_CAP[v.key]) {
+      thieu.push(`${v.key} (${v.api}) — chưa có chức vụ Cấp 2/3 nào được cấp, và chưa ghi lý do`);
+    }
+  }
+  check('MỌI PHÂN HỆ ĐỀU ĐÃ ĐƯỢC QUYẾT ĐỊNH TƯỜNG MINH — cấp cho ai, hoặc ghi rõ vì sao không cấp',
+    thieu.length === 0, thieu);
+
+  // Chiều ngược lại: sổ lý do không được phình ra vì những phân hệ đã bị gỡ.
+  const cacKey = new Set(vungPhanHe.map(v => v.key));
+  const thua = Object.keys(CO_Y_KHONG_CAP).filter(k => !cacKey.has(k));
+  check('sổ lý do không còn nhắc tới phân hệ đã bị gỡ', thua.length === 0, thua);
+
+  // Và bài này phải thật sự đọc được — không thì hai phép kiểm trên luôn xanh.
+  check('bộ canh thật sự đọc tới module.json của từng phân hệ',
+    vungPhanHe.some(v => v.key === 'nhatky') && vungPhanHe.some(v => v.key === 'tienan'),
+    vungPhanHe.map(v => v.key));
 }
 
 await sv.dung();
