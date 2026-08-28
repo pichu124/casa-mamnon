@@ -144,7 +144,10 @@ module.exports = (app, { db }) => {
 
   function anhHienVoiGiaDinh(bai) {
     if (!anhCoMatBe(bai.id)) return true;      // văn phòng đã nói: trong ảnh không có bé nào
-    return !nhomTrongPhamVi(bai).some(cid => db.coBeTuChoiChiaSe(cid));
+    // Bản TỪNG HỌC, không phải bản chỉ nhìn nhóm hiện tại. Tờ Home Connection
+    // của năm ngoái vẫn còn trên màn hình gia đình, nên lời từ chối cũng phải
+    // còn hiệu lực ở đó — xem chú thích dài ở `coBeTuChoiChiaSeTungHoc`.
+    return !nhomTrongPhamVi(bai).some(cid => db.coBeTuChoiChiaSeTungHoc(cid));
   }
 
   function tenNguoi(userId) {
