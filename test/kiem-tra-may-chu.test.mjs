@@ -10,7 +10,8 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { createRequire } from 'module';
-import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoBoDem } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoBoDem, MAU,
+} from './_chung.mjs';
 
 const require2 = createRequire(import.meta.url);
 const { check, tongKet } = taoBoDem();
@@ -71,9 +72,12 @@ console.log('\n[3] Mật khẩu mẫu — chặn trước khi phụ huynh dùng 
 {
   const truoc = chay(DIR);
   check('dữ liệu mẫu còn mật khẩu "123456" → CẦN SỬA', trangThai(truoc.out, 'Mật khẩu mẫu') === 'CẦN SỬA', trangThai(truoc.out, 'Mật khẩu mẫu'));
-  // 9 = 3 cô + 6 phụ huynh của dữ liệu mẫu. Con số này đi theo data/seed.js:
-  // G0.5 thêm cô thứ ba (cô phụ trách cả hai nhóm) nên nó nhích từ 8 lên 9.
-  check('đếm đúng 9 tài khoản', /9 tài khoản còn dùng/.test(truoc.out), truoc.out.match(/\d+ tài khoản còn dùng/)?.[0]);
+  // Số này đi theo data/seed.js nên lấy từ hằng số dùng chung, không ghi cứng:
+  // mỗi lần dữ liệu mẫu thêm người là mỗi lần con số ghi cứng ở đây báo đỏ ở
+  // một chỗ chẳng liên quan gì tới thứ bài này đang kiểm.
+  check(`đếm đúng ${MAU.soTaiKhoan} tài khoản còn dùng mật khẩu mẫu`,
+    new RegExp(`${MAU.soTaiKhoan} tài khoản còn dùng`).test(truoc.out),
+    truoc.out.match(/\d+ tài khoản còn dùng/)?.[0]);
   check('nêu đích danh tài khoản để biết đường mà sửa', /giaovien/.test(truoc.out) && /phuhuynh/.test(truoc.out));
 
   // Đổi hết mật khẩu rồi kiểm lại — phải thôi báo.

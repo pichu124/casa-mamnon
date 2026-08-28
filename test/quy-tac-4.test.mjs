@@ -26,8 +26,18 @@ import { GOC, taoBoDem } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
+// Quét CẢ THƯ MỤC `modules`, không liệt kê từng phân hệ một.
+//
+// Bản đầu ghi tay 'modules/hocphi' và 'modules/thuchup'. Nghĩa là mọi phân hệ
+// THÊM SAU đó đều lọt khỏi bộ canh này mà không ai được báo gì — bộ canh vẫn
+// xanh, chỉ là nó không nhìn vào chỗ mới. Phát hiện khi thêm phân hệ Nhật ký
+// ngày: nó không nằm trong danh sách nên không được quét một dòng nào.
+//
+// Đây đúng là kiểu "bài kiểm thử bao phủ thiếu đúng chỗ nguy hiểm" mà
+// CLAUDE.md dặn phải nêu: một danh sách viết tay thì luôn lạc hậu so với thư
+// mục thật, và lạc hậu về phía NỚI RA.
 const VUNG_QUET = [
-  'public/js/views', 'routes', 'modules/hocphi', 'modules/thuchup',
+  'public/js/views', 'routes', 'modules',
   'lib/modules.js', 'data/seed.js',
 ];
 
@@ -67,11 +77,19 @@ const NO_DA_BIET = {
   'routes/reports.js': { so: 4, vi_sao: 'Học bạ: máy chủ kiểm điểm 0–10. Gỡ ở N3.' },
 };
 
+// Đi vào cả thư mục con. Không có phần này thì 'modules' quét ra rỗng, vì mọi
+// tệp của phân hệ nằm trong thư mục con của nó.
 function cacTep(muc) {
   const p = path.join(GOC, muc);
   if (!fs.existsSync(p)) return [];
   if (fs.statSync(p).isFile()) return [p];
-  return fs.readdirSync(p).filter((f) => f.endsWith('.js')).map((f) => path.join(p, f));
+  const ra = [];
+  for (const f of fs.readdirSync(p)) {
+    const con = path.join(p, f);
+    if (fs.statSync(con).isDirectory()) ra.push(...cacTep(path.relative(GOC, con)));
+    else if (f.endsWith('.js')) ra.push(con);
+  }
+  return ra;
 }
 
 export function quet(vung = VUNG_QUET) {

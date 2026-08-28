@@ -66,6 +66,59 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE INDEX IF NOT EXISTS idx_students_class ON students(classId, active);
 CREATE INDEX IF NOT EXISTS idx_students_code ON students(code);
 
+-- Hồ sơ mở rộng của bé — những trường nhà trường yêu cầu thêm.
+--
+-- VÌ SAO LÀ BẢNG PHỤ, KHÔNG PHẢI CỘT THÊM VÀO `students`
+--
+-- Lược đồ lõi không được có câu ALTER TABLE nào (`test:lo-hong` canh điều đó).
+-- Cùng lý do với `class_campus` và `class_teachers`.
+--
+-- `soDinhDanh` là SỐ ĐỊNH DANH CÁ NHÂN của bé. Đây là dữ liệu cá nhân theo
+-- Nghị định 13/2023 — app chỉ hiện nó cho quản trị và văn phòng, KHÔNG hiện cho
+-- cô, và không đưa vào bản xuất danh sách trừ khi người xuất chủ động chọn.
+CREATE TABLE IF NOT EXISTS student_profile (
+  studentId   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  soDinhDanh  TEXT NOT NULL DEFAULT '',
+  tienSuBenh  TEXT NOT NULL DEFAULT '',   -- thay chỗ cho ô "Dị ứng" đời cũ
+  capNhatLuc  TEXT
+);
+
+-- Người liên hệ khẩn cấp NGOÀI bố mẹ.
+--
+-- Nhà trường yêu cầu mỗi bé phải có, vì có lúc gọi bố mẹ không được. Đây KHÔNG
+-- phải tài khoản đăng nhập — người này không xem được gì trong app, chỉ là một
+-- cái tên và một số điện thoại để cô gọi khi cần gấp.
+CREATE TABLE IF NOT EXISTS student_emergency_contacts (
+  id        TEXT PRIMARY KEY,
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  hoTen     TEXT NOT NULL,
+  quanHe    TEXT NOT NULL DEFAULT '',     -- ông, bà, cô, bác…
+  dienThoai TEXT NOT NULL DEFAULT '',
+  ghiChu    TEXT NOT NULL DEFAULT '',
+  taoLuc    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sec_student ON student_emergency_contacts(studentId);
+
+-- Hồ sơ mở rộng của NGƯỜI LỚN — hiện chỉ có số CCCD.
+--
+-- Nhà trường cần số CCCD của phụ huynh để đối chiếu khi ký hợp đồng và khi giao
+-- bé cho người tới đón. Cùng lý do bảng phụ như `student_profile`: lược đồ lõi
+-- không được có câu ALTER TABLE nào.
+--
+-- CÓ MỘT LÝ DO THỨ HAI, RIÊNG CHO BẢNG NÀY, VÀ NÓ QUAN TRỌNG HƠN.
+--
+-- `routes/auth.js` có hàm `publicUser(u)` gạt đúng một trường ra: `passwordHash`.
+-- Mọi cột khác của `users` đi thẳng tới bất cứ ai xem được hồ sơ bé — cô của
+-- nhóm, và cả phụ huynh còn lại của bé đó. Thêm `soCccd` thành một cột của
+-- `users` là gửi số CCCD của bố cho mẹ và cho cô, ngay lập tức, không ai phải
+-- viết thêm dòng nào. Để ở bảng phụ thì mỗi chỗ muốn hiện nó phải ghép TAY —
+-- tức là phải cố ý, và chỗ nào cố ý thì chỗ đó canh được.
+CREATE TABLE IF NOT EXISTS user_profile (
+  userId     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  soCccd     TEXT NOT NULL DEFAULT '',
+  capNhatLuc TEXT
+);
+
 -- Một học sinh có thể có nhiều phụ huynh, một phụ huynh có nhiều con.
 CREATE TABLE IF NOT EXISTS student_parents (
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -258,6 +311,54 @@ CREATE TABLE IF NOT EXISTS albums (
   createdBy   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_albums_class ON albums(classId, date DESC);
+
+-- ĐỒNG Ý CỦA GIA ĐÌNH — tách theo TỪNG MỤC ĐÍCH, không gộp một ô
+--
+-- Trẻ 12 tháng – 6 tuổi cộng ảnh khuôn mặt là nhóm dữ liệu được luật bảo vệ
+-- chặt nhất (Nghị định 13/2023, Luật 91/2025). Gia đình đồng ý cho trường giữ
+-- hồ sơ học tập của con KHÔNG có nghĩa là đồng ý cho ảnh con hiện trên màn hình
+-- nhà khác, càng không có nghĩa là đồng ý cho trường dùng ảnh đi tuyển sinh.
+-- Ba việc khác nhau nên là ba ô tích khác nhau, đúng như giấy đồng ý trường
+-- phát cho phụ huynh ký.
+--
+-- BA GIÁ TRỊ, KHÔNG PHẢI HAI. NULL = CHƯA TRẢ LỜI, khác hẳn 0 = TỪ CHỐI.
+--
+-- Đầu năm học có hàng chục tờ giấy chưa thu về. "Chưa thu được giấy của bé An"
+-- và "gia đình bé An nói không" là hai chuyện hoàn toàn khác nhau, và cách xử
+-- của app với chúng cũng khác nhau — xem `locAnhChoNguoiXem` trong lib/db.js.
+-- Gộp hai thứ đó làm một là hoặc vu cho gia đình đã từ chối, hoặc coi im lặng
+-- là đồng ý. Cả hai đều sai.
+--
+-- Vì lẽ đó ba cột này CỐ Ý KHÔNG khai trong BOOL_COLS của lib/db.js: hàm
+-- `encode` ở đó biến null thành 0, tức là biến "chưa trả lời" thành "từ chối".
+CREATE TABLE IF NOT EXISTS student_consent (
+  studentId     TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  hoSoHocTap    INTEGER,                    -- ① trường giữ hồ sơ học tập của con
+  chiaSeGiaDinh INTEGER,                    -- ② ảnh/câu chuyện hiện cho gia đình khác trong nhóm
+  truyenThong   INTEGER,                    -- ③ dùng ảnh cho truyền thông/tuyển sinh
+  nguoiKy       TEXT NOT NULL DEFAULT '',   -- ai ký giấy
+  ngayKy        TEXT NOT NULL DEFAULT '',
+  ghiChu        TEXT NOT NULL DEFAULT '',
+  capNhatLuc    TEXT
+);
+
+-- BÉ NÀO CÓ MẶT TRONG MỘT TẤM ẢNH — GẮN TAY, KHÔNG BAO GIỜ NHẬN DIỆN KHUÔN MẶT
+--
+-- Không có bảng này thì quy định "ảnh nhóm" trong CLAUDE.md không thể thực thi
+-- được: app không biết trong ảnh có ai thì không thể biết ảnh đó được phép hiện
+-- cho nhà nào.
+--
+-- GẮN TAY là một quyết định, không phải chỗ chưa kịp làm. Chạy nhận diện khuôn
+-- mặt trên ảnh trẻ dưới 6 tuổi là tạo ra dữ liệu sinh trắc học của trẻ — thứ
+-- luật xếp vào nhóm nhạy cảm nhất, và thứ không gia đình nào ký đồng ý cho làm.
+-- Cô gắn thẻ bằng một lượt bấm; máy không được đoán thay.
+CREATE TABLE IF NOT EXISTS photo_students (
+  photoId   TEXT NOT NULL REFERENCES album_photos(id) ON DELETE CASCADE,
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  ganLuc    TEXT,
+  PRIMARY KEY (photoId, studentId)
+);
+CREATE INDEX IF NOT EXISTS idx_ps_student ON photo_students(studentId);
 
 CREATE TABLE IF NOT EXISTS album_photos (
   id       TEXT PRIMARY KEY,

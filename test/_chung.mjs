@@ -13,6 +13,28 @@ import { spawn, execSync, execFileSync } from 'child_process';
 
 export const GOC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+// HÌNH DÁNG CỦA DỮ LIỆU MẪU — khai ở ĐÚNG MỘT CHỖ.
+//
+// Trước đây mỗi bài canh tự ghi cứng "8 bé", "9 tài khoản", "5 bé nhóm này".
+// Thêm một nhóm nhà trẻ vào dữ liệu mẫu (N20) làm 17 chỗ như vậy báo đỏ cùng
+// lúc, ở 7 bộ khác nhau — mà không chỗ nào sai về ý, tất cả chỉ là con số cũ.
+//
+// Đổi dữ liệu mẫu lần sau thì sửa ở đây, một chỗ. Và `test/quan-tri.test.mjs`
+// canh để mấy con số này KHÔNG được nói dối: nó đối chiếu từng số với dữ liệu
+// mẫu thật, nên hằng số lệch khỏi dữ liệu là đúng MỘT bài đỏ, kèm cả hai bên
+// để so — thay vì 17 bài đỏ rải rác chẳng bài nào nói được chuyện gì.
+export const MAU = {
+  soBe: 11,           // tổng số bé đang học
+  soNhom: 4,          // Chồi 2, Lá 1, Mầm 1 (cơ sở 2, chưa có bé), Nhà trẻ 1
+  soCo: 4,
+  soPhuHuynh: 9,
+  soTaiKhoan: 13,     // cô + phụ huynh, chưa tính tài khoản quản trị tạo thêm
+  soBeNhomChoi2: 5,   // nhóm c1 — nhóm cô `giaovien` phụ trách
+  soBeNhomLa1: 3,     // nhóm c2
+  soBeNhaTre: 3,      // nhóm c4 — lứa 12–36 tháng
+  soBeCoSo1: 11,      // cả ba nhóm có bé đều ở cơ sở 1
+};
+
 // Bộ đếm kết quả kèm hàm kiểm tra, dùng chung một kiểu in ra màn hình.
 export function taoBoDem() {
   const trangThai = { pass: 0, fail: 0, errs: [] };
@@ -95,6 +117,36 @@ export function khoaVaoCoSo(dir, tenDangNhap, campusId) {
   `, [tenDangNhap, campusId]);
 }
 
+// Gắn thêm một phụ huynh nữa cho một bé.
+//
+// Dữ liệu mẫu cho mỗi bé đúng MỘT phụ huynh, nên tình huống "bé có cả bố lẫn
+// mẹ" không tự có. Mà đó lại đúng là tình huống nhà trường yêu cầu (*bắt buộc
+// có cả bố/mẹ*) và là chỗ ranh giới dữ liệu dễ rò nhất: hai người cùng mở được
+// một hồ sơ, nên thứ gì của riêng một người phải được cắt ra khỏi hồ sơ chung.
+//
+// Viết thẳng vào bảng, TRƯỚC khi dựng máy chủ — chưa có màn hình nào làm việc
+// này, và bài kiểm thử không được chờ màn hình mới canh được ranh giới.
+export function ganPhuHuynh(dir, studentId, parentId) {
+  chayTrenCsdl(dir, `
+    db.prepare('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)')
+      .run(process.argv[2], process.argv[3]);
+  `, [studentId, parentId]);
+}
+
+// Đóng một nhóm lớp (giả lập trạng thái sau khi chuyển năm học).
+//
+// Chưa có đường API nào đóng nhóm — việc đó chỉ xảy ra bên trong
+// POST /api/schoolyear/promote, và gọi cả quy trình chuyển năm chỉ để có một
+// nhóm đã đóng là kéo theo hàng chục thay đổi khác vào bài kiểm thử.
+//
+// Nhóm ĐÃ ĐÓNG là trạng thái đáng canh nhất của album: sau mỗi lần chuyển năm
+// học, MỌI nhóm của năm cũ ở CẢ BA CƠ SỞ đều rơi vào diện này.
+export function dongNhom(dir, classId) {
+  chayTrenCsdl(dir, `
+    db.prepare('UPDATE classes SET active = 0 WHERE id = ?').run(process.argv[2]);
+  `, [classId]);
+}
+
 // Chạy một đoạn mã ngắn trên cơ sở dữ liệu tạm, ngoài tiến trình bài kiểm thử.
 //
 // Dùng `execFileSync` chứ KHÔNG dựng chuỗi lệnh cho shell: đoạn mã nhiều dòng đi
@@ -128,6 +180,33 @@ export function taoQuanTri(dir, hoTen, tenDangNhap) {
 // và `khoiDongLai()` để thử các tình huống khởi động lại.
 export async function dungMayChu({ port, dir, env = {} }) {
   let proc = null;
+
+  // Cổng đã có người trả lời TRƯỚC khi ta dựng gì cả thì phải dừng ngay.
+  //
+  // ĐÂY LÀ CHỖ MỘT BÀI KIỂM THỬ CÓ THỂ NÓI DỐI MÀ KHÔNG AI BIẾT
+  //
+  // Hai bộ kiểm thử cùng đặt một số cổng, hoặc một máy chủ thử của lần chạy
+  // trước còn sót lại: tiến trình `node server.js` mới sinh ra sẽ chết lặng lẽ
+  // vì cổng đã bị chiếm (stdio bị nuốt, không ai thấy lỗi), rồi vòng chờ bên
+  // dưới hỏi /healthz và NGƯỜI CŨ trả lời "ổn". Từ giây đó trở đi cả bài kiểm
+  // thử chạy trên một cơ sở dữ liệu khác — có khi là tệp đã bị xóa mà tiến
+  // trình cũ còn giữ. Kết quả xanh hay đỏ đều vô nghĩa, và mất rất lâu mới lần
+  // ra vì mọi thứ trông như đang chạy bình thường.
+  //
+  // Chết to còn hơn xanh giả.
+  try {
+    const cu = await fetch(`http://localhost:${port}/healthz`, { signal: AbortSignal.timeout(2000) });
+    if (cu.ok) {
+      throw new Error(
+        `Cổng ${port} đã có máy chủ khác đang trả lời.\n` +
+        '  Bài kiểm thử này sẽ chạy nhầm trên dữ liệu của máy chủ đó.\n' +
+        '  Thường là do hai bộ kiểm thử dùng chung một số cổng, hoặc một lần\n' +
+        '  chạy trước chưa tắt hẳn. Đặt TEST_PORT khác rồi chạy lại.');
+    }
+  } catch (err) {
+    // Không ai trả lời là đúng như mong đợi — chỉ ném lại lời cảnh báo của ta.
+    if (/đã có máy chủ khác/.test(err.message)) throw err;
+  }
 
   async function batDau() {
     proc = spawn('node', ['server.js'], {

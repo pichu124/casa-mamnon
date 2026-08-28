@@ -1,4 +1,9 @@
-// Phân hệ Dặn thuốc: phụ huynh gửi lời dặn, giáo viên nhận thuốc, ghi nhật ký và hoàn tất.
+// Phân hệ Dặn thuốc: phụ huynh gửi lời dặn, cô xác nhận đã nhận thuốc, cất đơn
+// khi hết đợt.
+//
+// Nhà trường đã bỏ bước "cô ghi đã cho uống" khỏi màn hình — lý do ghi ở đầu
+// public/js/views/medicine.js. Đường /api/medicine/:id/log bên dưới CỐ Ý còn
+// sống, xem chú thích ngay tại chỗ.
 const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
 
@@ -18,7 +23,7 @@ module.exports = (app) => {
 
     // Đơn CHƯA XONG (chờ xác nhận + đang theo dõi): lấy hết, không bao giờ cắt.
     // Đây là thuốc cô phải cho các con uống hôm nay, và màn hình đếm "Chờ xác
-    // nhận (N)" / "Đang theo dõi (N)" ngay trên danh sách này.
+    // nhận (N)" / "Cô đã nhận thuốc (N)" ngay trên danh sách này.
     const dangLam = db.all('medicine_requests',
       `SELECT * FROM medicine_requests WHERE studentId IN (${marks}) AND status != 'done'
        ORDER BY (status = 'pending') DESC, createdAt DESC`, ids);
@@ -96,7 +101,19 @@ module.exports = (app) => {
     res.json(decorate(rec));
   });
 
-  // Giáo viên ghi nhật ký cho thuốc của một đơn đang theo dõi.
+  // Ghi nhật ký cho một đơn đang nhận.
+  //
+  // KHÔNG MÀN HÌNH NÀO CÒN GỌI ĐƯỜNG NÀY. Nhà trường đã bỏ bước "đã cho uống".
+  // Vẫn giữ nguyên vì hai lẽ, giống hệt cách xử lý Nề nếp và Báo cáo ở N3:
+  //
+  //   • Điện thoại nào còn giữ bản app cũ trong bộ nhớ đệm vẫn gọi đường này
+  //     cho tới khi service worker cập nhật. Trả 404 lúc đó là bắt cô nhìn
+  //     một lỗi đỏ vì việc cô làm đúng theo màn hình cô đang thấy.
+  //   • Dòng nhật ký đã ghi trước đây vẫn phải đọc được. Bỏ một bước là ngưng
+  //     ghi thêm, không phải xóa thứ phụ huynh đã đọc thấy.
+  //
+  // Xóa hẳn được, nhưng để sau — khi app đã sống vài tuần mà không điện thoại
+  // nào còn gọi tới. Ghi ở docs/TIEN-DO.md, mục A5.
   app.post('/api/medicine/:id/log', requireRole('teacher', 'admin'), (req, res) => {
     const rec = findOwn(req, res);
     if (!rec) return;
@@ -110,7 +127,7 @@ module.exports = (app) => {
     res.json(decorate(rec));
   });
 
-  // Giáo viên đánh dấu hoàn tất đợt dùng thuốc.
+  // Cô cất đơn khỏi danh sách đang nhận, khi đợt thuốc đã hết.
   app.post('/api/medicine/:id/done', requireRole('teacher', 'admin'), (req, res) => {
     const rec = findOwn(req, res);
     if (!rec) return;

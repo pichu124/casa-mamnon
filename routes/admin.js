@@ -69,6 +69,7 @@ module.exports = (app) => {
   });
 
   app.post('/api/admin/campuses', onlyAdmin, (req, res) => {
+    if (chanNeuChiMotCoSo(req, res, 'Thêm một cơ sở mới')) return;
     const name = String((req.body || {}).name || '').trim();
     if (!name) return res.status(400).json({ error: 'Vui lòng nhập tên cơ sở' });
     if (db.campuses().some(c => c.name.toLowerCase() === name.toLowerCase())) {
@@ -84,11 +85,17 @@ module.exports = (app) => {
       taoLuc: new Date().toISOString(),
     };
     db.insert('campuses', rec);
-    db.audit(req.user, 'campus-create', { campusId: rec.id, name: rec.name });
+    db.audit(req.user.id, 'campus-create', rec.id, { name: rec.name });
     res.json(rec);
   });
 
   app.put('/api/admin/campuses/:id', onlyAdmin, (req, res) => {
+    // Sửa tên hay ĐÓNG một cơ sở là việc của ban giám hiệu. Đặc biệt là đóng:
+    // đóng cơ sở của chính mình thì `campuses` có thể còn 0 dòng đang hoạt
+    // động, và lúc đó `db.coTangCoSo()` trả false — cả tầng cơ sở tắt ngóm,
+    // mọi quản trị Cấp 3 lập tức thành Cấp 1. Đó là lối leo thang bằng cách
+    // phá sập hàng rào chứ không phải trèo qua nó.
+    if (chanNeuChiMotCoSo(req, res, 'Sửa hoặc đóng một cơ sở')) return;
     const cs = db.findCampus(req.params.id);
     if (!cs) return res.status(404).json({ error: 'Không tìm thấy cơ sở' });
     const body = req.body || {};
@@ -101,12 +108,16 @@ module.exports = (app) => {
     // gắn với nó vẫn còn nguyên, tra cứu lại được bất cứ lúc nào.
     if (body.active !== undefined) thayDoi.active = !!body.active;
     db.update('campuses', cs.id, thayDoi);
-    db.audit(req.user, 'campus-update', { campusId: cs.id, thayDoi });
+    db.audit(req.user.id, 'campus-update', cs.id, thayDoi);
     res.json(db.findCampus(cs.id));
   });
 
   // Gắn một nhóm lớp vào cơ sở. Truyền campusId rỗng để gỡ ra.
   app.put('/api/admin/classes/:id/campus', onlyAdmin, (req, res) => {
+    // CHỈ CẤP 1. Đây là đường VẼ LẠI RANH GIỚI, không phải đường làm việc bên
+    // trong một ranh giới. Cho Cấp 3 dùng thì họ vừa có thể kéo nhóm của cơ sở
+    // khác về mình, vừa có thể đẩy nhóm của mình đi rồi mất luôn quyền với nó.
+    if (chanNeuChiMotCoSo(req, res, 'Chuyển nhóm lớp sang cơ sở khác')) return;
     const lop = db.findClass(req.params.id);
     if (!lop) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
     const campusId = String((req.body || {}).campusId || '').trim();
@@ -114,7 +125,7 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Không tìm thấy cơ sở' });
     }
     db.setClassCampus(lop.id, campusId || null);
-    db.audit(req.user, 'class-campus', { classId: lop.id, campusId: campusId || null });
+    db.audit(req.user.id, 'class-campus', lop.id, { campusId: campusId || null });
     res.json({ classId: lop.id, campusId: campusId || null });
   });
 
@@ -133,6 +144,10 @@ module.exports = (app) => {
 
   // Khoá một tài khoản quản trị vào một cơ sở, hoặc gỡ khoá (campusId rỗng).
   app.put('/api/admin/managers/:id/campus', onlyAdmin, (req, res) => {
+    // CHỈ CẤP 1 — nếu không thì Cấp 3 tự gỡ khoá của chính mình và thành Cấp 1
+    // trong đúng một lời gọi. Hai chốt chặn viết ở N4 (không tự khoá mình, phải
+    // còn ít nhất một Cấp 1) đều canh chiều KHOÁ VÀO, không canh chiều GỠ RA.
+    if (chanNeuChiMotCoSo(req, res, 'Gán tài khoản quản trị vào cơ sở')) return;
     const u = db.findUser(req.params.id);
     if (!u || u.role !== 'admin') return res.status(404).json({ error: 'Không tìm thấy tài khoản quản trị này' });
 
@@ -170,26 +185,56 @@ module.exports = (app) => {
     }
 
     db.setUserCampus(u.id, campusId || null);
-    db.audit(req.user, 'manager-campus', { userId: u.id, campusId: campusId || null });
+    db.audit(req.user.id, 'manager-campus', u.id, { campusId: campusId || null });
     res.json({ id: u.id, campusId: campusId || null, cap: campusId ? 3 : 1 });
   });
 
   app.get('/api/admin/overview', onlyAdmin, (req, res) => {
+    // Màn Tổng quan là chỗ Cấp 3 hay đứng nhất, nên nó phải nói đúng SỐ CỦA CƠ
+    // SỞ MÌNH. Trả số toàn trường ở đây không chỉ là rò rỉ nhỏ — nó còn khiến
+    // quản lý cơ sở đọc sai sĩ số và làm sai báo cáo, mà con số thì trông rất
+    // đáng tin. Sai thầm lặng tệ hơn con số bị giấu đi.
+    const pham = phamViNhom(req.user);
+    const nhom = db.classes().filter(c => pham === null || pham.includes(c.id));
+    const beTrongPhamVi = db.all('students', 'SELECT * FROM students WHERE active = 1')
+      .filter(s => pham === null || pham.includes(s.classId));
+
+    // Tập phụ huynh trong phạm vi: dựng MỘT LẦN từ danh sách bé đã lọc. Hỏi
+    // lại cho từng phụ huynh là 300 lượt truy vấn cho một màn hình.
+    const phTrongPhamVi = new Set(
+      db.withParents(beTrongPhamVi).flatMap(s => s.parentIds || []));
+
+    const nguoiTrongPhamVi = (vaiTro) => db
+      .all('users', `SELECT * FROM users WHERE role = ? AND active = 1`, [vaiTro])
+      .filter(u => pham === null
+        || (vaiTro === 'teacher'
+          ? db.classIdsOfTeacher(u.id).some(id => pham.includes(id))
+          : phTrongPhamVi.has(u.id)));
+
+    const co = nguoiTrongPhamVi('teacher');
+    const ph = nguoiTrongPhamVi('parent');
+
     res.json({
       school: db.school(),
+      // Danh sách cơ sở giữ nguyên cho MỌI quản trị: Cấp 3 vẫn cần biết trường
+      // có mấy cơ sở và mình đang ở cơ sở nào. Đây là tên và địa chỉ của một
+      // toà nhà, không phải dữ liệu của bé.
       campuses: db.campuses(),
       counts: {
-        classes: db.count('SELECT COUNT(*) FROM classes WHERE active = 1'),
-        students: db.count('SELECT COUNT(*) FROM students WHERE active = 1'),
-        teachers: db.count(`SELECT COUNT(*) FROM users WHERE role = 'teacher' AND active = 1`),
-        parents: db.count(`SELECT COUNT(*) FROM users WHERE role = 'parent' AND active = 1`),
-        mustChange: db.count('SELECT COUNT(*) FROM users WHERE mustChangePassword = 1 AND active = 1'),
+        classes: nhom.length,
+        students: beTrongPhamVi.length,
+        teachers: co.length,
+        parents: ph.length,
+        mustChange: [...co, ...ph].filter(u => u.mustChangePassword).length
+          + (pham === null
+            ? db.count(`SELECT COUNT(*) FROM users WHERE role = 'admin' AND mustChangePassword = 1 AND active = 1`)
+            : 0),
       },
-      classes: db.classes().map(c => ({
+      classes: nhom.map(c => ({
         ...c,
         ...nl.tomTat(c.id),
         campusId: db.campusOfClass(c.id),
-        studentCount: db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [c.id]),
+        studentCount: beTrongPhamVi.filter(s => s.classId === c.id).length,
       })),
     });
   });
@@ -226,17 +271,27 @@ module.exports = (app) => {
       year: String(year || school.currentYear || ''),
       active: true,
     };
+    // NHÓM MỚI DO CẤP 3 TẠO PHẢI VÀO NGAY CƠ SỞ CỦA NGƯỜI TẠO.
+    //
+    // Để trống là một cái hố sập: nhóm chưa gắn cơ sở thì `duocChamNhom` trả
+    // false, nên chính người vừa tạo cũng không thấy lại nhóm mình vừa tạo,
+    // không sửa được, không xếp bé vào được — mà app thì báo "tạo thành công".
+    // Gắn ngay là cách duy nhất giữ được cả hai vế: cách ly đúng, và người dùng
+    // không rơi vào ngõ cụt.
+    const coSoNguoiTao = db.phamViCoSo(req.user);
     db.tx(() => {
       db.insert('classes', rec);
+      if (coSoNguoiTao) db.setClassCampus(rec.id, coSoNguoiTao);
       if (rec.teacherId) datChuNhiem(rec.id, rec.teacherId);
     });
-    db.audit(req.user.id, 'class-create', rec.id, { name: rec.name });
+    db.audit(req.user.id, 'class-create', rec.id, { name: rec.name, campusId: coSoNguoiTao || null });
     res.status(201).json(rec);
   });
 
   app.put('/api/admin/classes/:id', onlyAdmin, (req, res) => {
     const cls = db.findClass(req.params.id);
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!duocChamNhom(req.user, cls.id)) return khongThuocCoSo(res, 'nhóm lớp');
     // Tên lớp rỗng làm dòng lớp trắng trơn trên mọi màn hình mà không báo lỗi gì.
     // Đường tạo lớp đã chặn từ đầu; đường sửa thì chưa, nên chặn cho khớp.
     if (req.body.name !== undefined && !String(req.body.name).trim()) {
@@ -272,6 +327,7 @@ module.exports = (app) => {
   app.put('/api/admin/classes/:id/teachers', onlyAdmin, (req, res) => {
     const cls = db.findClass(req.params.id);
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!duocChamNhom(req.user, cls.id)) return khongThuocCoSo(res, 'nhóm lớp');
 
     const xin = (req.body || {}).teacherIds;
     if (!Array.isArray(xin)) {
@@ -295,7 +351,12 @@ module.exports = (app) => {
 
   // ---------- Giáo viên ----------
   app.get('/api/admin/teachers', onlyAdmin, (req, res) => {
+    const pham = phamViNhom(req.user);
     res.json(db.all('users', `SELECT * FROM users WHERE role = 'teacher' AND active = 1 ORDER BY name`)
+      // Cô CHƯA phụ trách nhóm nào thì Cấp 3 không thấy — cô đó chưa thuộc về
+      // cơ sở nào. Cấp 1 vẫn thấy, nên không cô nào bị bỏ quên; và đó cũng
+      // đúng người cần thấy, vì phân công cô là việc của ban giám hiệu.
+      .filter(u => pham === null || db.classIdsOfTeacher(u.id).some(id => pham.includes(id)))
       .map(({ passwordHash, ...u }) => {
         // Một cô có thể phụ trách nhiều nhóm, nên `className` (một tên) không đủ
         // nữa. Giữ lại cho màn hình cũ, thêm `classNames` + `classIds` cho mới.
@@ -312,6 +373,10 @@ module.exports = (app) => {
   app.post('/api/admin/teachers', onlyAdmin, (req, res) => {
     const { name, title, phone, email, classId } = req.body || {};
     if (!String(name || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập họ tên giáo viên' });
+    // Tạo cô rồi gắn thẳng vào một nhóm của cơ sở khác là mở một cánh cửa vào
+    // cơ sở đó: cô mới đọc được hồ sơ bé của nhóm ấy, và người tạo biết mật
+    // khẩu tạm của cô mới.
+    if (classId && !duocChamNhom(req.user, classId)) return khongThuocCoSo(res, 'nhóm lớp');
     const daDung = new Set();
     const username = sinhTenDangNhap(name, phone, daDung);
     const matKhau = sinhMatKhau();
@@ -346,23 +411,120 @@ module.exports = (app) => {
     // được em bấm nhầm nút "Cho nghỉ học".
     const keCaNghi = String(req.query.keCaNghi || '') === '1';
     const loc = keCaNghi ? '' : ' AND active = 1';
-    const rows = classId
+    // Quản trị Cấp 3 chỉ thấy bé của cơ sở mình. Lọc SAU khi truy vấn thay vì
+    // ghép thêm điều kiện vào câu SQL: danh sách nhóm của một cơ sở là một mảng
+    // ngắn (vài chục), còn ghép động vào SQL là chỗ dễ sinh lỗi trích dẫn.
+    const trongPhamVi = phamViNhom(req.user);
+    const rows = (classId
       ? db.all('students', `SELECT * FROM students WHERE classId = ?${loc} ORDER BY name`, [classId])
-      : db.all('students', `SELECT * FROM students WHERE 1 = 1${loc} ORDER BY name`);
+      : db.all('students', `SELECT * FROM students WHERE 1 = 1${loc} ORDER BY name`))
+      .filter(s => trongPhamVi === null || trongPhamVi.includes(s.classId));
     res.json(db.withParents(rows).map(s => ({
       ...s,
+      ...db.hoSoBe(s.id),
+      dongY: db.dongYCuaBe(s.id),
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',
       parents: s.parentIds.map(id => {
         const p = db.findUser(id);
-        return p ? { id: p.id, name: `${p.title} ${p.name}`, username: p.username, phone: p.phone } : null;
+        // Đường này đã là onlyAdmin nên số CCCD đi kèm được. Vẫn liệt kê từng
+        // trường một chứ không trải cả hàng `users` ra: hàng đó có passwordHash.
+        return p ? {
+          id: p.id, name: `${p.title} ${p.name}`, username: p.username, phone: p.phone,
+          soCccd: db.hoSoNguoiDung(p.id).soCccd,
+        } : null;
       }).filter(Boolean),
     })));
+  });
+
+  // Xuất danh sách bé ra tệp mở được bằng Excel.
+  //
+  // Văn phòng cần cái này để làm báo cáo gửi phòng giáo dục và để đối chiếu sĩ
+  // số cuối tháng. Trước đây họ gõ tay lại từ màn hình.
+  //
+  // BA ĐIỀU PHẢI GIỮ Ở ĐƯỜNG NÀY
+  //
+  // 1. TỆP NÀY LÀ CẢ TRƯỜNG TRONG MỘT TỆP. Nó đi ra khỏi app: nằm trong thư mục
+  //    Tải về, gửi qua Zalo, chép vào USB. Nên nó CHẶT HƠN màn hình mà nó đứng
+  //    cạnh — chỉ xuất bé thuộc phạm vi cơ sở của người bấm. Quản trị Cấp 1
+  //    không bị hạn chế gì (phamViCoSo trả null), nên hành vi cũ không đổi.
+  // 2. MỖI LẦN XUẤT ĐỀU ĐỂ LẠI DẤU trong nhật ký. Dữ liệu trẻ dưới 6 tuổi theo
+  //    Nghị định 13/2023 — hỏi "ai đã tải danh sách này ra" phải trả lời được.
+  // 3. Ô BẮT ĐẦU BẰNG = + - @ BỊ VÔ HIỆU HÓA. Excel coi ô như vậy là công thức
+  //    và chạy nó. Họ tên và địa chỉ do người nhập gõ, nên một cái tên bắt đầu
+  //    bằng "=" đủ để biến tệp danh sách thành thứ chạy được trên máy văn phòng.
+  app.get('/api/admin/students/xuat.csv', onlyAdmin, (req, res) => {
+    const nhomTrongPhamVi = phamViNhom(req.user);
+    const keCaNghi = String(req.query.keCaNghi || '') === '1';
+    const rows = db.all('students',
+      `SELECT * FROM students WHERE 1 = 1${keCaNghi ? '' : ' AND active = 1'} ORDER BY name`)
+      .filter(s => nhomTrongPhamVi === null || nhomTrongPhamVi.includes(s.classId));
+
+
+    const COT = ['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
+      'Số định danh cá nhân', 'Dân tộc', 'Nhóm máu', 'Tiền sử bệnh / lưu ý đặc biệt',
+      'Địa chỉ', 'Bố / mẹ', 'Số CCCD của bố / mẹ', 'Người liên hệ khẩn cấp',
+      'Đồng ý hồ sơ học tập', 'Đồng ý chia sẻ ảnh', 'Đồng ý truyền thông',
+      'Người ký giấy', 'Ngày ký', 'Tình trạng'];
+
+    const duLieu = db.withParents(rows).map(s => {
+      const lop = s.classId ? db.findClass(s.classId) : null;
+      const cs = s.classId ? db.findCampus(db.campusOfClass(s.classId)) : null;
+      const hs = db.hoSoBe(s.id) || {};
+      return {
+        'Mã bé': s.code || '',
+        'Họ và tên': s.name || '',
+        'Ngày sinh': s.dob || '',
+        'Tuổi': tuoiCuaBe(s.dob),
+        'Giới tính': s.gender || '',
+        'Nhóm lớp': lop ? lop.name : '',
+        'Cơ sở': cs ? cs.name : '',
+        'Số định danh cá nhân': hs.soDinhDanh || '',
+        'Dân tộc': s.ethnicity || '',
+        'Nhóm máu': s.bloodType || '',
+        'Tiền sử bệnh / lưu ý đặc biệt': hs.tienSuBenh || '',
+        'Địa chỉ': s.address || '',
+        'Bố / mẹ': (s.parentIds || []).map(id => {
+          const p = db.findUser(id);
+          return p ? `${p.title} ${p.name}${p.phone ? ` (${p.phone})` : ''}` : '';
+        }).filter(Boolean).join(' · '),
+        'Số CCCD của bố / mẹ': (s.parentIds || []).map(id => {
+          const p = db.findUser(id);
+          const so = p ? db.hoSoNguoiDung(p.id).soCccd : '';
+          return so ? `${p.title} ${p.name}: ${so}` : '';
+        }).filter(Boolean).join(' · '),
+        'Người liên hệ khẩn cấp': (hs.lienHeKhanCap || [])
+          .map(l => `${l.hoTen}${l.quanHe ? ` — ${l.quanHe}` : ''}${l.dienThoai ? ` (${l.dienThoai})` : ''}`)
+          .join(' · '),
+        ...(() => {
+          // Ba giá trị, nên viết ra chữ chứ không viết x / trống: người đọc
+          // bảng phải phân biệt được "gia đình nói không" với "chưa thu giấy".
+          const d = db.dongYCuaBe(s.id);
+          const noi = (v) => (v === true ? 'Đồng ý' : v === false ? 'Không đồng ý' : 'Chưa trả lời');
+          return {
+            'Đồng ý hồ sơ học tập': noi(d.hoSoHocTap),
+            'Đồng ý chia sẻ ảnh': noi(d.chiaSeGiaDinh),
+            'Đồng ý truyền thông': noi(d.truyenThong),
+            'Người ký giấy': d.nguoiKy,
+            'Ngày ký': d.ngayKy,
+          };
+        })(),
+        'Tình trạng': s.active === false || s.active === 0 ? 'Đã nghỉ' : 'Đang học',
+      };
+    }).map(khoaCongThuc);
+
+    db.audit(req.user.id, 'students-export', null, { soBe: duLieu.length, keCaNghi });
+
+    const ngay = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="danh-sach-be-${ngay}.csv"`);
+    res.send(csv.stringify(COT, duLieu));
   });
 
   // Sửa thông tin học sinh, chuyển lớp, hoặc nhận lại em đã cho nghỉ.
   app.put('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
     const patch = {};
     for (const k of ['name', 'code', 'dob', 'gender', 'address']) {
       if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
@@ -399,8 +561,20 @@ module.exports = (app) => {
       else if (s.classId) lsl.baoDamCoKhoang(s.id);
     }
     db.update('students', s.id, patch);
+
+    // Hồ sơ mở rộng và người liên hệ khẩn cấp nằm ở bảng riêng, nên ghi riêng.
+    // Chỉ ghi khi màn hình có gửi lên: không gửi nghĩa là không đụng tới, chứ
+    // KHÔNG phải là xóa trắng — một màn hình cũ chưa biết mấy trường này mà lưu
+    // hồ sơ bé thì không được làm mất số định danh và số gọi khẩn cấp.
+    if (req.body.soDinhDanh !== undefined || req.body.tienSuBenh !== undefined) {
+      db.luuHoSoBe(s.id, { soDinhDanh: req.body.soDinhDanh, tienSuBenh: req.body.tienSuBenh });
+    }
+    if (req.body.lienHeKhanCap !== undefined) {
+      db.datLienHeKhanCap(s.id, req.body.lienHeKhanCap);
+    }
+
     db.audit(req.user.id, 'student-update', s.id, patch);
-    res.json(db.findStudent(s.id));
+    res.json({ ...db.findStudent(s.id), ...db.hoSoBe(s.id) });
   });
 
   // Học sinh chuyển trường / nghỉ học: đánh dấu ngừng hoạt động thay vì xóa,
@@ -408,10 +582,68 @@ module.exports = (app) => {
   app.delete('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
     lsl.ghiRoiLop(s.id, lsl.homNay());
     db.update('students', s.id, { active: false, leftAt: new Date().toISOString().slice(0, 10) });
     db.audit(req.user.id, 'student-deactivate', s.id, { name: s.name });
     res.json({ ok: true });
+  });
+
+  // Văn phòng ghi lại giấy đồng ý gia đình đã ký.
+  //
+  // Ba mục tách riêng, đúng như tờ giấy: ① hồ sơ học tập ② chia sẻ ảnh và câu
+  // chuyện cho gia đình khác ③ dùng ảnh cho truyền thông. Mỗi mục ba giá trị:
+  // true / false / null là chưa trả lời.
+  //
+  // KHÔNG GỬI MỘT MỤC = KHÔNG ĐỤNG TỚI MỤC ĐÓ. Gửi null mới là chủ ý đưa mục
+  // đó về "chưa trả lời" — dùng khi gia đình rút lại đồng ý và trường chưa kịp
+  // hỏi lại. Rút lại được bất cứ lúc nào là quyền của họ theo Nghị định
+  // 13/2023, nên app phải làm được cả chiều đó chứ không chỉ chiều đồng ý.
+  app.put('/api/admin/students/:id/dong-y', onlyAdmin, (req, res) => {
+    const be = db.findStudent(req.params.id);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!duocChamBe(req.user, be.id)) return khongThuocCoSo(res, 'bé');
+
+    const body = req.body || {};
+    const nhan = {};
+    for (const k of ['hoSoHocTap', 'chiaSeGiaDinh', 'truyenThong']) {
+      if (k in body) nhan[k] = body[k] === null ? null : !!body[k];
+    }
+    for (const k of ['nguoiKy', 'ngayKy', 'ghiChu']) {
+      if (body[k] !== undefined) nhan[k] = String(body[k]);
+    }
+    if (!Object.keys(nhan).length) {
+      return res.status(400).json({ error: 'Không có mục nào để ghi' });
+    }
+
+    const ket = db.datDongY(be.id, nhan);
+    db.audit(req.user.id, 'consent-update', be.id, { name: be.name, ...nhan });
+    res.json({ id: be.id, dongY: ket });
+  });
+
+  // Ghi số CCCD của một phụ huynh.
+  //
+  // Đường RIÊNG chứ không nhét vào PUT /api/admin/students/:id, vì một phụ
+  // huynh có thể có hai con: sửa từ hồ sơ bé nào cũng phải ra CÙNG MỘT bản ghi,
+  // và nhét vào đường của bé sẽ dựng lên ảo giác "số CCCD của bố, bản dành cho
+  // bé An" và "bản dành cho bé Nam". Hai bản đó rồi sẽ lệch nhau.
+  //
+  // Chỉ nhận đúng một trường. Sửa họ tên, số điện thoại của phụ huynh là việc
+  // khác, chưa có đường nào làm, và không mượn đường này làm ké.
+  app.put('/api/admin/parents/:id/cccd', onlyAdmin, (req, res) => {
+    const u = db.findUser(req.params.id);
+    if (!u || u.role !== 'parent') {
+      return res.status(404).json({ error: 'Không tìm thấy phụ huynh này' });
+    }
+    // Phụ huynh không thuộc cơ sở nào cả — CON của họ mới thuộc. Cấp 3 chạm
+    // được người này khi có ÍT NHẤT MỘT con đang học ở cơ sở mình.
+    if (!coConTrongPhamVi(req.user, u.id)) return khongThuocCoSo(res, 'phụ huynh này');
+    if ((req.body || {}).soCccd === undefined) {
+      return res.status(400).json({ error: 'Thiếu số CCCD' });
+    }
+    const hoSo = db.luuHoSoNguoiDung(u.id, { soCccd: req.body.soCccd });
+    db.audit(req.user.id, 'parent-cccd', u.id, { name: u.name, coSo: !!hoSo.soCccd });
+    res.json({ id: u.id, soCccd: hoSo.soCccd });
   });
 
   // ---------- Nhập danh sách từ tệp CSV ----------
@@ -444,15 +676,23 @@ module.exports = (app) => {
     ].join('|');
   }
 
-  function phanTich(text) {
+  function phanTich(text, phamNhap) {
     const { rows } = csv.parse(text);
     const daDungTen = new Set();
     const ketQua = [];
     const maDaGap = new Set();
 
     // Chụp một lần danh sách em đang học để đối chiếu, thay vì truy vấn mỗi dòng.
+    //
+    // CHỈ TRONG PHẠM VI CỦA NGƯỜI ĐANG NHẬP. Câu cảnh báo "đã có trong hệ thống
+    // (Lá 1)" nói ra hai điều về một bé mà người nhập có thể không được biết:
+    // bé đó tồn tại, và bé đó học nhóm nào. Với cơ sở khác thì cả hai đều
+    // không phải việc của họ. Đổi lại, người nhập có thể tạo trùng một bé đã
+    // học ở cơ sở khác — đúng: bé chuyển cơ sở là hồ sơ mới ở cơ sở mới, và
+    // việc gộp hai hồ sơ là việc của ban giám hiệu.
     const daCo = new Map();
     for (const s of db.all('students', 'SELECT name, dob, classId FROM students WHERE active = 1')) {
+      if (phamNhap !== null && !phamNhap.includes(s.classId)) continue;
       const ten = s.classId ? (db.findClass(s.classId) || {}).name || '' : '';
       daCo.set(khoaHocSinh(s.name, s.dob, ten), ten);
     }
@@ -494,9 +734,16 @@ module.exports = (app) => {
         if (!khoaTrongTep.has(khoa)) khoaTrongTep.set(khoa, row.__line);
       }
 
-      const lop = tenLop
+      let lop = tenLop
         ? db.first('classes', 'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenLop])
         : null;
+      // Nhóm trùng tên nhưng thuộc cơ sở khác thì coi như KHÔNG THẤY — nếu
+      // không, một tệp nhập của cơ sở 1 sẽ đổ bé vào nhóm "Lá 1" của cơ sở 2
+      // chỉ vì hai nơi đặt trùng tên nhóm, và điều đó rất hay xảy ra.
+      if (lop && phamNhap !== null && !phamNhap.includes(lop.id)) {
+        loi.push(`nhóm "${tenLop}" không thuộc cơ sở của bạn`);
+        lop = null;
+      }
 
       ketQua.push({
         line: row.__line,
@@ -540,7 +787,7 @@ module.exports = (app) => {
     const text = String((req.body || {}).csv || '');
     if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
     if (chanBangMaSai(text, res)) return;
-    const rows = phanTich(text);
+    const rows = phanTich(text, phamViNhom(req.user));
     if (!rows.length) return res.status(400).json({ error: 'Tệp không có dòng dữ liệu nào' });
     res.json({
       total: rows.length,
@@ -558,7 +805,7 @@ module.exports = (app) => {
     const text = String((req.body || {}).csv || '');
     if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
     if (chanBangMaSai(text, res)) return;
-    const rows = phanTich(text);
+    const rows = phanTich(text, phamViNhom(req.user));
     // Mặc định BỎ QUA dòng trùng thay vì chặn cả tệp. Chặn cả tệp thì bản giao
     // diện cũ còn trong bộ nhớ đệm của điện thoại sẽ báo lỗi mà không nói được
     // vì sao; bỏ qua thì phần còn lại vẫn nhập được và số liệu trả về nói rõ.
@@ -574,6 +821,7 @@ module.exports = (app) => {
     }
 
     const school = db.school() || {};
+    const coSoNguoiNhap = db.phamViCoSo(req.user);
     const taiKhoan = [];   // để xuất phiếu phát cho phụ huynh
 
     db.tx(() => {
@@ -586,6 +834,9 @@ module.exports = (app) => {
           id, name: r.tenLop, room: '', grade: Number((r.tenLop.match(/\d+/) || [])[0]) || null,
           teacherId: null, year: school.currentYear || '', active: true,
         });
+        // Cùng lý do như POST /api/admin/classes: không gắn thì chính người vừa
+        // nhập cũng không thấy lại nhóm mình vừa tạo.
+        if (coSoNguoiNhap) db.setClassCampus(id, coSoNguoiNhap);
         lopTheoTen.set(r.tenLop, id);
       }
 
@@ -676,7 +927,22 @@ module.exports = (app) => {
 
   // ---------- Nhật ký thao tác ----------
   app.get('/api/admin/audit', onlyAdmin, (req, res) => {
-    const rows = db.all('audit_log', 'SELECT * FROM audit_log ORDER BY at DESC LIMIT 200');
+    // Nhật ký của Cấp 3 chỉ gồm việc CHÍNH HỌ làm.
+    //
+    // Cách chặt hơn — lọc theo cơ sở của đối tượng bị tác động — nghe hợp lý
+    // hơn nhưng không làm được cho ra hồn: `target` chỉ là một mã, và mã của
+    // một bé đã chuyển đi hay một nhóm đã xoá thì không tra ngược ra cơ sở nào
+    // nữa. Lọc nửa vời sẽ vừa để lọt dòng của cơ sở khác, vừa giấu mất dòng
+    // của chính cơ sở mình — tệ hơn cả hai cách dứt khoát.
+    //
+    // "Việc của chính mình" thì luôn đúng, luôn đủ để quản lý cơ sở tự soát
+    // lại thao tác của mình, và không bao giờ lộ tên bé của cơ sở khác. Muốn
+    // tra toàn hệ thống thì hỏi ban giám hiệu — đúng thẩm quyền.
+    const pham = db.phamViCoSo(req.user);
+    const rows = pham === null
+      ? db.all('audit_log', 'SELECT * FROM audit_log ORDER BY at DESC LIMIT 200')
+      : db.all('audit_log', 'SELECT * FROM audit_log WHERE userId = ? ORDER BY at DESC LIMIT 200',
+        [req.user.id]);
     res.json(rows.map(r => {
       const u = r.userId ? db.findUser(r.userId) : null;
       return {
@@ -689,3 +955,129 @@ module.exports = (app) => {
     }));
   });
 };
+
+// ===========================================================================
+// TẦNG CƠ SỞ CHO CÁC ĐƯỜNG QUẢN TRỊ (N15)
+//
+// N4 dựng tầng cơ sở trong `db.studentsOf` / `db.canAccessStudent` /
+// `db.classIdsOf`. Nhưng tệp này hỏi THẲNG bảng `students`, `classes`, `users`
+// bằng db.all/db.first, nên đi vòng qua cả ba. Kết quả: quản trị Cấp 3 của cơ
+// sở 1 đọc, sửa và cho nghỉ học được bé của cơ sở 2.
+//
+// Bốn hàm dưới đây là chỗ duy nhất tệp này hỏi "người đó có được chạm vào thứ
+// này không". Đường nào cũng phải đi qua một trong bốn hàm — thêm một đường mới
+// mà quên gọi thì `test:co-so-quan-tri` báo đỏ.
+//
+// LUẬT CHUNG: `db.phamViCoSo` trả null nghĩa là KHÔNG HẠN CHẾ, và null xảy ra ở
+// hai trường hợp — quản trị Cấp 1, hoặc trường chưa khai báo cơ sở nào. Trường
+// hợp thứ hai là lý do cả tầng này nằm im với trường một cơ sở, đúng như
+// Nguyên tắc số 1 đòi hỏi.
+// ===========================================================================
+
+// Danh sách nhóm mà người này được phép nhìn, hoặc null nghĩa là KHÔNG hạn chế.
+// null chứ không phải "mọi nhóm": trường chưa khai cơ sở nào thì tầng cơ sở nằm
+// im hoàn toàn, và quản trị Cấp 1 giữ nguyên quyền như trước khi có N4.
+function phamViNhom(user) {
+  const coSo = db.phamViCoSo(user);
+  return coSo === null ? null : db.classIdsOfCampus(coSo);
+}
+
+// Người này có được chạm vào nhóm lớp này không.
+//
+// NHÓM CHƯA GẮN CƠ SỞ THÌ CẤP 3 KHÔNG CHẠM ĐƯỢC — cố ý chọn "đóng" chứ không
+// "mở". Một nhóm chưa khai cơ sở là nhóm chưa ai nhận, và đoán bừa nó thuộc về
+// người đang hỏi là cách rò rỉ êm ái nhất: không ai thấy gì bất thường, dữ liệu
+// cứ thế đi sang cơ sở khác. Cấp 1 vẫn thấy hết nên nhóm đó không bị bỏ quên.
+function duocChamNhom(user, classId) {
+  const pham = db.phamViCoSo(user);
+  if (pham === null) return true;
+  if (!classId) return false;
+  return db.campusOfClass(classId) === pham;
+}
+
+// Bé này có nằm trong phạm vi của người này không. Bé CHƯA XẾP NHÓM cũng theo
+// luật trên: Cấp 1 thấy, Cấp 3 không.
+function duocChamBe(user, studentId) {
+  const be = db.findStudent(studentId);
+  if (!be) return false;
+  return duocChamNhom(user, be.classId);
+}
+
+// Một phụ huynh có nằm trong tầm của người này không.
+//
+// Phụ huynh KHÔNG thuộc cơ sở nào cả — con của họ mới thuộc. Nhà có hai con học
+// hai cơ sở là chuyện có thật, nên luật là "có ÍT NHẤT MỘT con trong phạm vi".
+// Rộng hơn một chút so với cách chặt nhất, nhưng chặt hơn thì quản lý cơ sở 1
+// không sửa nổi hồ sơ một phụ huynh đang gửi con ở chính cơ sở mình.
+function coConTrongPhamVi(user, parentId) {
+  const pham = phamViNhom(user);
+  if (pham === null) return true;
+  if (!pham.length) return false;
+  const marks = pham.map(() => '?').join(',');
+  return db.count(
+    `SELECT COUNT(*) FROM student_parents sp
+     JOIN students s ON s.id = sp.studentId
+     WHERE sp.parentId = ? AND s.classId IN (${marks})`, [parentId, ...pham]) > 0;
+}
+
+// Chặn một việc ảnh hưởng TOÀN HỆ THỐNG khi người bấm chỉ phụ trách một cơ sở.
+// Trả về true nghĩa là ĐÃ gửi lỗi, chỗ gọi phải return ngay.
+function chanNeuChiMotCoSo(req, res, viec) {
+  if (db.phamViCoSo(req.user) === null) return false;
+  res.status(403).json({
+    error: `${viec} ảnh hưởng tới cả ba cơ sở, nên chỉ tài khoản quản trị `
+      + 'toàn hệ thống mới làm được. Xin liên hệ ban giám hiệu.',
+  });
+  return true;
+}
+
+// Từ chối vì thứ được hỏi không thuộc cơ sở của người hỏi.
+//
+// Trả 404 chứ không 403, và đây là lựa chọn có cân nhắc: 403 tự nó đã nói "có
+// tồn tại một bé mang mã này, chỉ là bạn không được xem". Với cơ sở khác thì
+// đến sự tồn tại cũng không nên lộ. Người dùng thật không bao giờ gặp câu này
+// — màn hình của họ không hiện thứ ngoài cơ sở mình để mà bấm nhầm.
+function khongThuocCoSo(res, thu) {
+  res.status(404).json({ error: `Không tìm thấy ${thu}` });
+}
+
+// Tuổi để đọc trong báo cáo.
+//
+// DƯỚI 36 THÁNG THÌ NÓI BẰNG THÁNG. Đây là ví dụ mở đầu của CLAUDE.md: "bé 14
+// tháng thì màn hình phải nói *14 tháng* chứ không phải *1 tuổi*". Bản đầu của
+// hàm này chỉ đếm tháng cho bé DƯỚI 12 tháng, nên bé 14 tháng ra đúng "1 tuổi"
+// — sai đúng chỗ tài liệu lấy làm ví dụ. Không ai phát hiện suốt một thời gian
+// dài vì dữ liệu mẫu không có bé nào dưới 4 tuổi (xem N20).
+//
+// Mốc 36 tháng trùng với mốc tách nhà trẻ / mẫu giáo mà trường đang dùng, nên
+// chỉ có một mốc cho cả app thay vì hai mốc gần nhau dễ lẫn.
+//
+// PHẢI KHỚP TỪNG CHỮ với `tuoiCuaBe` trong public/js/views/student.js. Trình
+// duyệt không nạp được tệp trong lib/ nên hai bản này buộc phải ở hai nơi;
+// `test:xuat-danh-sach` canh để chúng không trôi ra khỏi nhau.
+function tuoiCuaBe(dob) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dob || ''))) return '';
+  const sinh = new Date(`${dob}T00:00:00Z`);
+  const nay = new Date();
+  if (Number.isNaN(sinh.getTime()) || sinh > nay) return '';
+  let thang = (nay.getUTCFullYear() - sinh.getUTCFullYear()) * 12
+    + (nay.getUTCMonth() - sinh.getUTCMonth());
+  if (nay.getUTCDate() < sinh.getUTCDate()) thang -= 1;
+  if (thang < 0) return '';
+  if (thang < 36) return `${thang} tháng`;
+  const nam = Math.floor(thang / 12);
+  const du = thang % 12;
+  return du ? `${nam} tuổi ${du} tháng` : `${nam} tuổi`;
+}
+
+// Vô hiệu hóa ô bị Excel hiểu là công thức. Thêm dấu nháy đơn ở đầu: Excel hiện
+// đúng chữ người nhập gõ và không chạy gì cả.
+const DAU_CONG_THUC = /^[=+\-@\t\r]/;
+function khoaCongThuc(hang) {
+  const ra = {};
+  for (const [k, v] of Object.entries(hang)) {
+    const t = v == null ? '' : String(v);
+    ra[k] = DAU_CONG_THUC.test(t) ? `'${t}` : t;
+  }
+  return ra;
+}

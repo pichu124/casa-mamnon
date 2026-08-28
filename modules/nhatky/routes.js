@@ -1,0 +1,224 @@
+// NHẬT KÝ NGÀY — ăn, ngủ, vệ sinh, thay bỉm, bú bình.
+//
+// Đây là trang sổ giấy mà gia đình đọc mỗi chiều. Mục tiêu số một của cả app
+// là thay được quyển sổ đó, nên phân hệ này là phân hệ quyết định.
+//
+// HAI ĐIỀU QUYẾT ĐỊNH CÔ CÓ DÙNG HAY KHÔNG
+//
+// 1. GHI CẢ NHÓM MỘT LƯỢT. Cô có 20 bé và khoảng 10 phút cuối giờ. Bắt cô mở
+//    20 màn hình rồi bấm lưu 20 lần là bảo đảm cô quay lại quyển sổ giấy —
+//    ở đó cô viết một dòng "cả lớp ngủ 11h30–14h" là xong. Nên đường ghi nhận
+//    MỘT MẢNG bản ghi và lưu trong một giao dịch.
+//
+// 2. KHÔNG BẮT ĐIỀN ĐỦ. Ô nào cô không kịp ghi thì để trống, và trống nghĩa là
+//    "cô chưa ghi", không phải "bé không ăn". Máy chủ không bao giờ tự điền
+//    thay, và màn hình gia đình phải nói đúng chữ "chưa ghi".
+//
+// QUY TẮC 4 CỦA CLAUDE.md Ở PHÂN HỆ NÀY
+//
+// Mức ăn ghi theo SUẤT ĂN chứ không theo đứa trẻ: "ăn hết", "khoảng nửa suất",
+// "ăn ít". Không quy ra con số nào, không cộng dồn, và không màn hình nào đặt
+// các bé cạnh nhau theo mức ăn. Một bé ăn ít ba hôm liền là thông tin cho cô
+// và cho gia đình, không phải một chỗ đứng cao thấp so với bạn.
+const { requireRole } = require('../../lib/auth');
+
+// Mức ăn hợp lệ. Cố ý là NHÃN CHỮ, không phải số — để là số thì sớm muộn có
+// người cộng lại rồi sắp các bé trên dưới nhau.
+const MUC_AN = ['het', 'gan-het', 'nua-suat', 'it', 'khong-an'];
+const TINH_CHAT = ['binh-thuong', 'hoi-long', 'long', 'tao'];
+
+const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const GIO_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TOI_DA_GHI_CHU = 500;
+const TOI_DA_SO_LAN = 20;      // trần cho mọi ô đếm — chặn số vô lý gõ nhầm
+const TOI_DA_ML = 2000;
+
+function homNay() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Bé này có cần ghi thay bỉm và bú bình không.
+//
+// Quyết định theo NGÀY SINH, không theo tên nhóm: trường nhận bé từ 12 tháng,
+// và một bé 20 tháng có thể đang học nhóm mà phần lớn các bạn đã 3 tuổi. Đi
+// theo tên nhóm là bỏ sót đúng bé cần nhất.
+//
+// Mốc 36 tháng là mốc trường dùng để tách nhà trẻ với mẫu giáo. Bé quanh mốc
+// đó thì cô vẫn ghi được — ô hiện ra, cô để trống nếu không cần.
+function laNhaTre(dob) {
+  if (!NGAY_RE.test(String(dob || ''))) return false;
+  const sinh = new Date(`${dob}T00:00:00Z`);
+  const nay = new Date();
+  if (Number.isNaN(sinh.getTime()) || sinh > nay) return false;
+  let thang = (nay.getUTCFullYear() - sinh.getUTCFullYear()) * 12
+    + (nay.getUTCMonth() - sinh.getUTCMonth());
+  if (nay.getUTCDate() < sinh.getUTCDate()) thang -= 1;
+  return thang < 36;
+}
+
+module.exports = (app, { db }) => {
+  // Làm sạch một bản ghi người dùng gửi lên.
+  //
+  // Trả về { loi } nếu có gì không hợp lệ. Từ chối chứ không tự sửa: một ô số
+  // lần vệ sinh gõ nhầm thành 200 mà máy tự cắt về 20 thì gia đình đọc được
+  // một con số không ai từng gõ.
+  function lamSach(x) {
+    const ra = {};
+    for (const k of ['anSang', 'anTrua', 'anXe']) {
+      const v = String(x[k] || '').trim();
+      if (v && !MUC_AN.includes(v)) return { loi: `Mức ăn "${v}" không hợp lệ` };
+      ra[k] = v;
+    }
+    for (const k of ['nguTuLuc', 'nguDenLuc']) {
+      const v = String(x[k] || '').trim();
+      if (v && !GIO_RE.test(v)) return { loi: 'Giờ ngủ phải có dạng 11:30' };
+      ra[k] = v;
+    }
+    if (ra.nguTuLuc && ra.nguDenLuc && ra.nguDenLuc <= ra.nguTuLuc) {
+      return { loi: 'Giờ dậy phải sau giờ ngủ' };
+    }
+    const tc = String(x.veSinhTinhChat || '').trim();
+    if (tc && !TINH_CHAT.includes(tc)) return { loi: 'Tình trạng vệ sinh không hợp lệ' };
+    ra.veSinhTinhChat = tc;
+
+    for (const [k, tran] of [['veSinhSoLan', TOI_DA_SO_LAN], ['bimSoLan', TOI_DA_SO_LAN],
+      ['buBinhSoLan', TOI_DA_SO_LAN], ['buBinhMl', TOI_DA_ML]]) {
+      // Trống khác 0. "Cô chưa ghi" khác "không lần nào".
+      if (x[k] === undefined || x[k] === null || x[k] === '') { ra[k] = null; continue; }
+      const n = Number(x[k]);
+      if (!Number.isInteger(n) || n < 0 || n > tran) {
+        return { loi: `Con số ở ô "${k}" chưa hợp lệ (0 đến ${tran})` };
+      }
+      ra[k] = n;
+    }
+    for (const k of ['anGhiChu', 'nguGhiChu', 'ghiChu']) {
+      ra[k] = String(x[k] || '').trim().slice(0, TOI_DA_GHI_CHU);
+    }
+    return ra;
+  }
+
+  function keml(be, hang) {
+    return {
+      studentId: be.id,
+      hoTen: be.name,
+      avatar: be.avatar,
+      laNhaTre: laNhaTre(be.dob),
+      ...(hang || {}),
+      // `daGhi` để màn hình phân biệt "cô chưa mở tới bé này" với "cô đã ghi
+      // và hôm nay bé không ăn gì". Hai chuyện khác hẳn nhau.
+      daGhi: !!hang,
+    };
+  }
+
+  // Đọc nhật ký.
+  //
+  //   ?classId=&ngay=      cô xem cả nhóm một ngày
+  //   ?studentId=&tu=&den= gia đình xem con mình một khoảng ngày
+  app.get('/api/nhatky', (req, res) => {
+    const { classId, studentId } = req.query;
+    const ngay = NGAY_RE.test(String(req.query.ngay || '')) ? req.query.ngay : homNay();
+
+    if (studentId) {
+      if (!db.canAccessStudent(req.user, studentId)) {
+        return res.status(403).json({ error: 'Không có quyền xem nhật ký của bé này' });
+      }
+      const be = db.findStudent(studentId);
+      if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+      const tu = NGAY_RE.test(String(req.query.tu || '')) ? req.query.tu : ngay;
+      const den = NGAY_RE.test(String(req.query.den || '')) ? req.query.den : ngay;
+      const rows = db.all('nhatky_ngay',
+        'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay BETWEEN ? AND ? ORDER BY ngay DESC',
+        [studentId, tu, den]);
+      return res.json({
+        be: { id: be.id, hoTen: be.name, laNhaTre: laNhaTre(be.dob) },
+        ngayCo: rows.map(r => ({ ...r, nguoiGhiTen: tenNguoiGhi(r.nguoiGhi) })),
+      });
+    }
+
+    if (!classId) return res.status(400).json({ error: 'Cần chọn nhóm hoặc chọn bé' });
+
+    // MÀN CẢ NHÓM CHỈ DÀNH CHO CÔ VÀ VĂN PHÒNG — KHÔNG CHO PHỤ HUYNH.
+    //
+    // `db.canAccessClass` trả true cho phụ huynh với nhóm của con họ, và đúng
+    // là như vậy cho thông báo hay album — những thứ vốn dành cho cả nhóm.
+    // Nhưng nhật ký ngày thì khác hẳn: nó là chuyện đi vệ sinh, thay bỉm, ăn
+    // uống của TỪNG ĐỨA TRẺ. Dùng lại canAccessClass ở đây là mở nguyên trang
+    // sổ của 20 bé cho bố mẹ của một bé.
+    //
+    // Phụ huynh có đường riêng: ?studentId= — và đường đó đi qua
+    // db.canAccessStudent, tức chỉ con mình.
+    if (req.user.role === 'parent') {
+      return res.status(403).json({
+        error: 'Gia đình xem nhật ký của con mình, không xem được cả nhóm',
+      });
+    }
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Không có quyền xem nhật ký của nhóm này' });
+    }
+    const dsBe = db.all('students',
+      'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId]);
+    if (!dsBe.length) return res.json({ ngay, danhSach: [] });
+
+    const marks = dsBe.map(() => '?').join(',');
+    const daCo = new Map();
+    for (const r of db.all('nhatky_ngay',
+      `SELECT * FROM nhatky_ngay WHERE ngay = ? AND studentId IN (${marks})`, [ngay, ...dsBe.map(b => b.id)])) {
+      daCo.set(r.studentId, r);
+    }
+    res.json({
+      ngay,
+      classId,
+      danhSach: dsBe.map(b => keml(b, daCo.get(b.id))),
+    });
+  });
+
+  function tenNguoiGhi(userId) {
+    const u = userId ? db.findUser(userId) : null;
+    return u ? `${u.title} ${u.name}` : '';
+  }
+
+  // Cô ghi nhật ký — CẢ NHÓM MỘT LƯỢT.
+  //
+  // Nhận một mảng, lưu trong MỘT giao dịch: nửa chừng lỗi thì không để lại một
+  // nhóm ghi được nửa số bé, mà gia đình nửa còn lại thì đọc thấy trống trơn
+  // và tưởng con mình bị bỏ quên.
+  app.put('/api/nhatky', requireRole('teacher', 'admin'), (req, res) => {
+    const ngay = NGAY_RE.test(String((req.body || {}).ngay || '')) ? req.body.ngay : homNay();
+    if (ngay > homNay()) {
+      return res.status(400).json({ error: 'Chưa ghi nhật ký cho ngày chưa tới được' });
+    }
+    const ban = (req.body || {}).danhSach;
+    if (!Array.isArray(ban) || !ban.length) {
+      return res.status(400).json({ error: 'Chưa có bé nào để ghi' });
+    }
+
+    // Kiểm quyền và kiểm dữ liệu cho TOÀN BỘ danh sách trước khi ghi dòng nào.
+    const sach = [];
+    for (const x of ban) {
+      const be = db.findStudent(x && x.studentId);
+      if (!be) return res.status(404).json({ error: 'Danh sách có bé không tồn tại' });
+      if (!db.canAccessStudent(req.user, be.id)) {
+        return res.status(403).json({ error: `Không có quyền ghi nhật ký cho bé ${be.name}` });
+      }
+      const s = lamSach(x);
+      if (s.loi) return res.status(400).json({ error: `${be.name}: ${s.loi}` });
+      // Ô của nhóm nhà trẻ không nhận cho bé lớn — tránh dữ liệu vô nghĩa lọt
+      // vào rồi màn hình gia đình hiện "thay bỉm 3 lần" cho một bé 5 tuổi.
+      if (!laNhaTre(be.dob)) { s.bimSoLan = null; s.buBinhSoLan = null; s.buBinhMl = null; }
+      sach.push({ be, s });
+    }
+
+    const luc = new Date().toISOString();
+    db.tx(() => {
+      for (const { be, s } of sach) {
+        const cu = db.first('nhatky_ngay',
+          'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
+        const rec = { ...s, studentId: be.id, ngay, nguoiGhi: req.user.id, capNhatLuc: luc };
+        if (cu) db.update('nhatky_ngay', cu.id, rec);
+        else db.insert('nhatky_ngay', { id: db.nextId('nk'), ...rec });
+      }
+    });
+    db.audit(req.user.id, 'nhatky-ghi', null, { ngay, soBe: sach.length });
+    res.json({ ok: true, ngay, daGhi: sach.length });
+  });
+};

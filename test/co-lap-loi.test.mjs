@@ -11,7 +11,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam , MAU } from './_chung.mjs';
 const PORT = Number(process.env.TEST_PORT || 3710);
 const BASE = `http://localhost:${PORT}`;
 const DIR = thuMucTam('co-lap');
@@ -213,7 +213,7 @@ console.log('\n[6] Phân hệ mới KHÔNG được đụng vào bảng dữ li�
   const { default: Database } = await import('better-sqlite3');
   const raw = new Database(path.join(DIR, 'school.db'), { readonly: true });
   check('kiểm tra thẳng trong cơ sở dữ liệu: học sinh không mất',
-    raw.prepare('SELECT COUNT(*) c FROM students').get().c === 8);
+    raw.prepare('SELECT COUNT(*) c FROM students').get().c === MAU.soBe);
   check('bảng của phân hệ phá hoại cũng không được tạo',
     !raw.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all().map(r => r.name).includes('phahoai_x'));
   raw.close();

@@ -75,6 +75,22 @@ App.views.admin = {
         </div>` : ''}
 
       <div class="card">
+        <div class="card-title">Danh sách bé<span class="spacer"></span>
+          <button class="btn sm outline" onclick="App.views.admin.xuatDanhSachBe()">⬇ Xuất ra Excel</button>
+        </div>
+        <div class="muted small">Tải về một tệp mở thẳng được bằng Excel, để văn phòng làm báo cáo và đối chiếu sĩ số cuối tháng.</div>
+        <label class="mt-8" style="display:flex;gap:8px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="ad-xuat-nghi">
+          <span class="small">Xuất kèm cả bé đã nghỉ học</span>
+        </label>
+        <div class="muted small mt-8" style="border-left:3px solid var(--warning);padding-left:10px">
+          Tệp này có <b>số định danh cá nhân</b> và <b>tiền sử bệnh</b> của từng bé.
+          Đây là dữ liệu cá nhân của trẻ dưới 6 tuổi — tải xong xin giữ trong máy của trường,
+          đừng gửi qua Zalo hay email cá nhân. Mỗi lần xuất đều được ghi lại trong <b>Nhật ký</b>.
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Danh sách nhóm lớp<span class="spacer"></span>
           <button class="btn sm primary" onclick="App.views.admin.themLop()">+ Thêm nhóm</button>
         </div>
@@ -91,6 +107,31 @@ App.views.admin = {
             </div>
           </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>`;
+  },
+
+  // Tải danh sách bé về máy dưới dạng tệp Excel mở được.
+  //
+  // Không dùng API.get: hàm đó luôn cố đọc JSON, mà đây là tệp. Cũng không đổi
+  // thẳng window.location — trang này là ứng dụng một trang, điều hướng cả trang
+  // sang một đường dẫn tệp là cách nhanh nhất để mất chỗ cô đang đứng nếu trình
+  // duyệt không nhận ra đó là tệp tải về.
+  async xuatDanhSachBe() {
+    const keCaNghi = document.getElementById('ad-xuat-nghi');
+    const duong = `/api/admin/students/xuat.csv${keCaNghi && keCaNghi.checked ? '?keCaNghi=1' : ''}`;
+    try {
+      const res = await fetch(duong, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error(res.status === 403 ? 'Chỉ tài khoản quản trị mới xuất được danh sách' : `Lỗi ${res.status}`);
+      const blob = await res.blob();
+      const ten = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = ten ? ten[1] : 'danh-sach-be.csv';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      UI.toast('Đã tải danh sách bé về máy', 'success');
+    } catch (err) {
+      UI.toast(err.message || 'Không tải được danh sách. Vui lòng thử lại.', 'error');
+    }
   },
 
   // Tab Cơ sở — trường có ba cơ sở, dữ liệu giữa chúng phải độc lập.
@@ -434,6 +475,19 @@ App.views.admin = {
     await this.xemLop(l.classId, l.tenLop);
   },
 
+  // Thêm một dòng liên hệ khẩn cấp vào hộp thoại đang mở.
+  themDongLienHe() {
+    const hop = document.getElementById('ad-hs-lhkc');
+    if (!hop) return;
+    const d = document.createElement('div');
+    d.className = 'lhkc-dong';
+    d.style.cssText = 'display:flex;gap:6px;margin-bottom:6px';
+    d.innerHTML = '<input class="lhkc-ten" placeholder="Họ tên" style="flex:2">'
+      + '<input class="lhkc-qh" placeholder="Quan hệ" style="flex:1">'
+      + '<input class="lhkc-dt" placeholder="Điện thoại" style="flex:1.4">';
+    hop.appendChild(d);
+  },
+
   async suaHocSinh(studentId) {
     const l = this._lopDangXem || {};
     const [students, d] = await Promise.all([
@@ -458,6 +512,67 @@ App.views.admin = {
         </select>
       </div>
       <div class="field"><label>Địa chỉ</label><input id="ad-hs-dc" value="${UI.esc(s.address || '')}"></div>
+      <div class="field"><label>Số định danh cá nhân</label>
+        <input id="ad-hs-ddcn" value="${UI.esc(s.soDinhDanh || '')}" placeholder="12 chữ số trên giấy khai sinh / CCCD của bé">
+        <div class="hint">Chỉ nhà trường thấy ô này. Cô không cần số định danh để làm việc nên màn hình của cô không hiện.</div>
+      </div>
+      <div class="field"><label>Tiền sử bệnh / lưu ý đặc biệt</label>
+        <textarea id="ad-hs-tsb" rows="2" placeholder="Ví dụ: dị ứng tôm cua; hen nhẹ khi trở trời; đang uống thuốc theo toa tới 30/9">${UI.esc(s.tienSuBenh || '')}</textarea>
+        <div class="hint">Cô đọc ô này trước khi nhận bé mỗi sáng. Ghi cả thứ không phải dị ứng: hen, co giật do sốt, thuốc đang dùng.</div>
+      </div>
+      <div class="field"><label>Liên hệ khẩn cấp (ngoài bố mẹ)</label>
+        <div id="ad-hs-lhkc">
+          ${(s.lienHeKhanCap && s.lienHeKhanCap.length ? s.lienHeKhanCap : [{}]).map((x, i) => `
+            <div class="lhkc-dong" style="display:flex;gap:6px;margin-bottom:6px">
+              <input class="lhkc-ten" value="${UI.esc(x.hoTen || '')}" placeholder="Họ tên" style="flex:2">
+              <input class="lhkc-qh" value="${UI.esc(x.quanHe || '')}" placeholder="Quan hệ" style="flex:1">
+              <input class="lhkc-dt" value="${UI.esc(x.dienThoai || '')}" placeholder="Điện thoại" style="flex:1.4">
+            </div>`).join('')}
+        </div>
+        <button class="btn sm outline" onclick="App.views.admin.themDongLienHe()">+ Thêm người</button>
+        <div class="hint">Nhà trường gọi những số này khi không liên lạc được với bố mẹ. Bỏ trống họ tên là dòng đó không được lưu.</div>
+      </div>
+      <div class="field"><label>Số CCCD của bố / mẹ</label>
+        ${(s.parents || []).length ? `<div id="ad-hs-cccd">
+          ${(s.parents || []).map(p => `
+            <div class="cccd-dong" style="display:flex;gap:6px;align-items:center;margin-bottom:6px"
+                 data-uid="${UI.esc(p.id)}">
+              <span class="small" style="flex:1;min-width:0">${UI.esc(p.name)}</span>
+              <input class="cccd-so" value="${UI.esc(p.soCccd || '')}" placeholder="12 chữ số" style="flex:1.2">
+            </div>`).join('')}
+        </div>` : '<div class="muted small">Bé này chưa gắn tài khoản phụ huynh nào.</div>'}
+        <div class="hint">Văn phòng dùng để đối chiếu khi ký hợp đồng và khi giao bé cho người tới đón.
+        Số này là <b>của một người</b>, không phải của một bé: nhà có hai con thì sửa ở đâu cũng ra cùng một chỗ.
+        Cô không thấy ô này, và bố cũng không thấy số của mẹ.</div>
+      </div>
+      <div class="field"><label>Giấy đồng ý gia đình đã ký</label>
+        <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+          Ba mục tách riêng đúng như tờ giấy. Mục <b>chia sẻ ảnh</b> quyết định ảnh của bé
+          có hiện với các gia đình khác trong nhóm hay không — <b>lọc thật ở máy chủ</b>,
+          không phải chỉ ẩn trên màn hình.
+        </div>
+        ${[['dy-hoso', 'hoSoHocTap', '① Trường giữ hồ sơ học tập của con'],
+           ['dy-chiase', 'chiaSeGiaDinh', '② Chia sẻ ảnh và câu chuyện cho gia đình khác trong nhóm'],
+           ['dy-tt', 'truyenThong', '③ Dùng ảnh cho truyền thông / tuyển sinh']]
+          .map(([id, khoa, nhan]) => {
+            const v = (s.dongY || {})[khoa];
+            return `<div style="margin-bottom:8px">
+              <div class="small" style="margin-bottom:4px">${UI.esc(nhan)}</div>
+              <select id="ad-${UI.esc(id)}" data-khoa="${UI.esc(khoa)}" class="ad-dongy">
+                <option value="" ${v === null || v === undefined ? 'selected' : ''}>Chưa trả lời</option>
+                <option value="1" ${v === true ? 'selected' : ''}>Đồng ý</option>
+                <option value="0" ${v === false ? 'selected' : ''}>Không đồng ý</option>
+              </select>
+            </div>`;
+          }).join('')}
+        <div class="grid-2">
+          <input id="ad-dy-nguoiky" value="${UI.esc((s.dongY || {}).nguoiKy || '')}" placeholder="Người ký giấy">
+          <input id="ad-dy-ngayky" type="date" value="${UI.esc((s.dongY || {}).ngayKy || '')}">
+        </div>
+        <div class="hint">"Chưa trả lời" khác hẳn "Không đồng ý": chưa thu được giấy thì để nguyên
+        mục đó, đừng chọn "Không đồng ý" thay gia đình. Gia đình rút lại đồng ý lúc nào cũng được —
+        chọn lại "Chưa trả lời" hoặc "Không đồng ý" là ảnh của bé thôi hiện với nhà khác ngay.</div>
+      </div>
       <div class="field"><label>Nhóm</label>
         <select id="ad-hs-lop">
           <option value="">— Chưa xếp nhóm —</option>
@@ -478,8 +593,38 @@ App.views.admin = {
           dob: document.getElementById('ad-hs-ns').value,
           gender: document.getElementById('ad-hs-gt').value,
           address: document.getElementById('ad-hs-dc').value.trim(),
+          soDinhDanh: document.getElementById('ad-hs-ddcn').value.trim(),
+          tienSuBenh: document.getElementById('ad-hs-tsb').value.trim(),
+          lienHeKhanCap: [...document.querySelectorAll('#ad-hs-lhkc .lhkc-dong')].map(d => ({
+            hoTen: d.querySelector('.lhkc-ten').value.trim(),
+            quanHe: d.querySelector('.lhkc-qh').value.trim(),
+            dienThoai: d.querySelector('.lhkc-dt').value.trim(),
+          })),
           classId: document.getElementById('ad-hs-lop').value || null,
         });
+
+        // Giấy đồng ý đi đường riêng: nó là căn cứ pháp lý, có nhật ký riêng,
+        // và ba mục của nó có BA giá trị chứ không phải bật/tắt.
+        const dy = {};
+        for (const o of document.querySelectorAll('.ad-dongy')) {
+          dy[o.dataset.khoa] = o.value === '' ? null : o.value === '1';
+        }
+        dy.nguoiKy = document.getElementById('ad-dy-nguoiky').value.trim();
+        dy.ngayKy = document.getElementById('ad-dy-ngayky').value;
+        await API.put(`/api/admin/students/${encodeURIComponent(studentId)}/dong-y`, dy);
+
+        // Số CCCD đi đường RIÊNG vì nó thuộc về người lớn, không thuộc về bé.
+        // Chỉ gửi những ô người dùng thật sự sửa: gửi hết là mỗi lần lưu hồ sơ
+        // bé lại ghi đè lên bản ghi của một người có thể đang được sửa ở màn
+        // hình khác, cho bé thứ hai của cùng nhà.
+        for (const d of document.querySelectorAll('#ad-hs-cccd .cccd-dong')) {
+          const uid = d.dataset.uid;
+          const moi = d.querySelector('.cccd-so').value.trim();
+          const cu = ((s.parents || []).find(p => p.id === uid) || {}).soCccd || '';
+          if (moi === cu) continue;
+          await API.put(`/api/admin/parents/${encodeURIComponent(uid)}/cccd`, { soCccd: moi });
+        }
+
         UI.toast('Đã lưu hồ sơ của bé', 'success');
         App.route();
         await this.lamMoiLop();

@@ -69,6 +69,7 @@ function generate() {
     { id: 'c1', name: 'Chồi 2', teacherId: 't1', teacherIds: ['t1', 't3'], campusId: 'cs1', room: 'Cơ sở 1 — Phòng Hoa Sen', grade: 4, year: schoolYear },
     { id: 'c2', name: 'Lá 1', teacherId: 't2', teacherIds: ['t2', 't3'], campusId: 'cs1', room: 'Cơ sở 1 — Phòng Hướng Dương', grade: 5, year: schoolYear },
     { id: 'c3', name: 'Mầm 1', teacherId: null, teacherIds: [], campusId: 'cs2', room: 'Cơ sở 2 — Phòng Hoa Mai', grade: 3, year: schoolYear },
+    { id: 'c4', name: 'Nhà trẻ 1', teacherId: 't4', teacherIds: ['t4'], campusId: 'cs1', room: 'Cơ sở 1 — Phòng Búp Sen', grade: 1, year: schoolYear },
   ];
 
   // Các tài khoản mẫu dùng chung một mật khẩu nên chỉ cần băm một lần.
@@ -88,6 +89,10 @@ function generate() {
     { id: 'p4', username: 'ph.lan', passwordHash: DEMO_HASH, role: 'parent', name: 'Đỗ Ngọc Lan', title: 'Chị', phone: '0909 200 400', email: 'ngoclan@gmail.com', avatar: { emoji: '👩', bg: '#16a085' } },
     { id: 'p5', username: 'ph.minh', passwordHash: DEMO_HASH, role: 'parent', name: 'Hoàng Nhật Minh', title: 'Anh', phone: '0909 500 600', email: 'nhatminh@gmail.com', avatar: { emoji: '👨', bg: '#8e44ad' } },
     { id: 'p6', username: 'ph.huong', passwordHash: DEMO_HASH, role: 'parent', name: 'Bùi Thu Hương', title: 'Chị', phone: '0909 700 800', email: 'thuhuong@gmail.com', avatar: { emoji: '👩', bg: '#c0392b' } },
+    { id: 't4', username: 'giaovien4', passwordHash: DEMO_HASH, role: 'teacher', name: 'Phạm Thị Hồng', title: 'Cô', phone: '0903 777 888', email: 'thihong@casamamnon.edu.vn', classId: 'c4', avatar: { emoji: '👩‍🏫', bg: '#e67e22' } },
+    { id: 'p7', username: 'ph.trang', passwordHash: DEMO_HASH, role: 'parent', name: 'Ngô Thùy Trang', title: 'Chị', phone: '0909 111 555', email: 'thuytrang@gmail.com', avatar: { emoji: '👩', bg: '#9b59b6' } },
+    { id: 'p8', username: 'ph.duy', passwordHash: DEMO_HASH, role: 'parent', name: 'Lý Khánh Duy', title: 'Anh', phone: '0909 222 666', email: 'khanhduy@gmail.com', avatar: { emoji: '👨', bg: '#34495e' } },
+    { id: 'p9', username: 'ph.nga', passwordHash: DEMO_HASH, role: 'parent', name: 'Trịnh Hồng Nga', title: 'Chị', phone: '0909 333 777', email: 'hongnga@gmail.com', avatar: { emoji: '👩', bg: '#1abc9c' } },
   ];
 
   // Trung tâm của cả bộ dữ liệu mẫu là BÉ AN — nhóm Chồi 2, cơ sở 1. Bé xuất
@@ -96,6 +101,16 @@ function generate() {
   // "đổi con đang xem" của phụ huynh có thật sự hai bé để đổi.
   //
   // Tuổi khớp với bậc: Chồi 2 là 4–5 tuổi, Lá 1 là 5–6 tuổi.
+  // Ngày sinh của một bé đúng N tháng tuổi tính từ hôm nay.
+  //
+  // Lứa nhà trẻ phải giữ đúng số tháng dù dữ liệu mẫu chạy vào lúc nào: một bé
+  // ghi cứng "sinh 2024-06" thì sang năm sau thành 26 tháng, và bài canh mốc
+  // 36 tháng sẽ đổi kết quả mà không ai đụng vào mã.
+  function thangTruoc(n) {
+    const d = new Date(Date.UTC(today.getFullYear(), today.getMonth() - n, 12));
+    return d.toISOString().slice(0, 10);
+  }
+
   const namChoi = YEAR - 4;   // các bé nhóm Chồi sinh năm này
   const namLa = YEAR - 5;     // các bé nhóm Lá
   const students = [
@@ -107,6 +122,24 @@ function generate() {
     { id: 's6', name: 'Hoàng Gia Bảo', dob: `${namChoi}-03-30`, gender: 'Nam', classId: 'c1', parentIds: ['p5'], avatar: { emoji: '👦', bg: '#8e44ad' }, address: '5 Đặng Văn Ngữ, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Không', code: `MN${namChoi}033` },
     { id: 's7', name: 'Bùi Minh Thư', dob: `${namLa}-05-16`, gender: 'Nữ', classId: 'c2', parentIds: ['p6'], avatar: { emoji: '👧', bg: '#c0392b' }, address: '210 Lê Văn Sỹ, Q.3', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Sữa bò', code: `MN${namLa}051` },
     { id: 's8', name: 'Vũ Hải Đăng', dob: `${namLa}-12-01`, gender: 'Nam', classId: 'c2', parentIds: ['p3'], avatar: { emoji: '👦', bg: '#2c3e50' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${namLa}121` },
+    // NHÓM NHÀ TRẺ — ba bé nhỏ nhất trường.
+    //
+    // Trường nhận bé từ 12 tháng, nhưng dữ liệu mẫu cũ toàn bé 4–6 tuổi. Nghĩa
+    // là phần app dành riêng cho lứa nhỏ nhất — thay bỉm, bú bình, cách nói
+    // tuổi bằng THÁNG thay vì bằng năm — không có bé nào chạm tới, và bài kiểm
+    // thử nào cũng phải tự dựng tình huống. Ba bé dưới đây làm cho lứa đó có
+    // thật trong dữ liệu mẫu.
+    //
+    // Ngày sinh tính LÙI TỪ HÔM NAY chứ không theo năm cố định: bé phải luôn
+    // đúng 14 / 34 / 38 tháng dù chạy dữ liệu mẫu vào lúc nào.
+    //
+    // BÉ KHÔI 38 THÁNG NẰM TRONG NHÓM NHÀ TRẺ LÀ CỐ Ý. Bé vừa qua mốc 36 tháng
+    // giữa năm học, và trường thì không chuyển nhóm cho bé giữa chừng — chuyện
+    // rất thường. Nhờ có bé đó mà chứng minh được app quyết định hiện ô thay
+    // bỉm theo NGÀY SINH của từng bé, không theo tên nhóm bé đang học.
+    { id: 's9', name: 'Ngô Gia Huy', dob: thangTruoc(14), gender: 'Nam', classId: 'c4', parentIds: ['p7'], avatar: { emoji: '👶', bg: '#9b59b6' }, address: '33 Nguyễn Đình Chiểu, Q.1', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Không', code: `MN${YEAR}201` },
+    { id: 's10', name: 'Lý Bảo Ngọc', dob: thangTruoc(34), gender: 'Nữ', classId: 'c4', parentIds: ['p8'], avatar: { emoji: '👶', bg: '#34495e' }, address: '17 Cách Mạng Tháng 8, Q.3', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Không', code: `MN${YEAR}202` },
+    { id: 's11', name: 'Trịnh Minh Khôi', dob: thangTruoc(38), gender: 'Nam', classId: 'c4', parentIds: ['p9'], avatar: { emoji: '🧒', bg: '#1abc9c' }, address: '88 Điện Biên Phủ, Q. Bình Thạnh', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${YEAR}203` },
   ];
 
   // ---- Điểm danh: 20 ngày học gần nhất ----
@@ -571,8 +604,41 @@ function generate() {
     },
   ];
 
+  // Hồ sơ mở rộng và người liên hệ khẩn cấp. Cố ý KHÔNG điền cho mọi bé: trường
+  // thật cũng không bao giờ đủ 100%, và màn hình phải chịu được ô trống.
+  const studentProfiles = [
+    { studentId: 's1', soDinhDanh: '079322001234', tienSuBenh: 'Không có gì đặc biệt' },
+    { studentId: 's2', soDinhDanh: '079321005678', tienSuBenh: 'Dị ứng tôm cua — nổi mẩn quanh miệng. Hen nhẹ khi trở trời, có ống xịt trong ba lô.' },
+    { studentId: 's4', soDinhDanh: '079322009012', tienSuBenh: 'Dị ứng đậu phộng. TUYỆT ĐỐI không cho ăn món có đậu phộng, kể cả dầu.' },
+  ];
+  // Giấy đồng ý. CỐ Ý dựng đủ ba trạng thái để mọi màn hình và mọi bài canh
+  // đều gặp cả ba: đồng ý, từ chối, và chưa thu được giấy.
+  //
+  // Bé s3 (Phạm Gia Hân) là bé gia đình KHÔNG đồng ý chia sẻ ảnh. Nhờ có bé đó
+  // trong nhóm Chồi 2 mà luật ảnh nhóm thật sự chạy trên dữ liệu mẫu, thay vì
+  // nằm im vì không có gì để chặn.
+  const consents = [
+    { studentId: 's1', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 0, nguoiKy: 'Lê Thị Thu Hà', ngayKy: `${YEAR}-08-15` },
+    { studentId: 's3', hoSoHocTap: 1, chiaSeGiaDinh: 0, truyenThong: 0, nguoiKy: 'Phạm Quốc Bảo', ngayKy: `${YEAR}-08-16`, ghiChu: 'Gia đình xin không đăng ảnh con lên nhóm chung' },
+    { studentId: 's4', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 1, nguoiKy: 'Vũ Đình Khoa', ngayKy: `${YEAR}-08-15` },
+    { studentId: 's5', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 0, nguoiKy: 'Đỗ Minh Tuấn', ngayKy: `${YEAR}-08-18` },
+    // s2, s6, s7, s8 chưa nộp giấy — đúng thực tế đầu năm học.
+  ];
+
+  // Số CCCD của phụ huynh. Cũng cố ý không đủ: văn phòng thu dần trong năm.
+  const userProfiles = [
+    { userId: 'p1', soCccd: '079182004321' },
+    { userId: 'p3', soCccd: '079185008765' },
+  ];
+  const emergencyContacts = [
+    { studentId: 's1', hoTen: 'Bà Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: 'Ở cùng nhà, đón được bé buổi chiều' },
+    { studentId: 's2', hoTen: 'Bà Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: '' },
+    { studentId: 's4', hoTen: 'Chú Vũ Đình Nam', quanHe: 'Bác ruột', dienThoai: '0912 333 444', ghiChu: 'Gọi khi không liên lạc được bố mẹ' },
+  ];
+
   const db = {
-    school, campuses, classes, users, students,
+    school, campuses, classes, users, students, studentProfiles, userProfiles, emergencyContacts,
+    consents,
     attendance, leaveRequests, menus, timetable, remarks, reports,
     busRoutes, conduct, surveys, health, medicineRequests, albums, eduPlans,
     notifications, conversations,

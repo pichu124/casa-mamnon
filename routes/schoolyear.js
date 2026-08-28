@@ -64,9 +64,30 @@ function tenLopKeTiep(ten, khoiToiDa) {
   return `${m[1]}${khoi + 1}${m[3]}`;
 }
 
+// Chặn một việc ảnh hưởng TOÀN TRƯỜNG khi người bấm chỉ phụ trách một cơ sở.
+// Trả về true nghĩa là ĐÃ gửi lỗi. Cùng luật với routes/admin.js: `phamViCoSo`
+// trả null nghĩa là không hạn chế (Cấp 1, hoặc trường chưa khai cơ sở nào).
+function chiCap1(req, res, viec) {
+  if (db.phamViCoSo(req.user) === null) return false;
+  res.status(403).json({
+    error: `${viec} ảnh hưởng tới cả ba cơ sở, nên chỉ tài khoản quản trị `
+      + 'toàn hệ thống mới làm được. Xin liên hệ ban giám hiệu.',
+  });
+  return true;
+}
+
+// Danh sách nhóm trong tầm của người này, null nghĩa là không hạn chế.
+function phamViNhomLop(user) {
+  const coSo = db.phamViCoSo(user);
+  return coSo === null ? null : db.classIdsOfCampus(coSo);
+}
+
 module.exports = (app) => {
   // Xem trước việc chuyển năm học: lớp nào lên lớp nào, bao nhiêu em ra trường.
   app.get('/api/schoolyear/preview', onlyAdmin, (req, res) => {
+    // Xem trước cho một việc mà người xem không được làm thì chỉ gây hiểu nhầm
+    // — họ thấy một bản kế hoạch cho cả trường rồi bấm nút và bị từ chối.
+    if (chiCap1(req, res, 'Chuyển năm học')) return;
     const school = db.school() || {};
     const khoiToiDa = Number(req.query.khoiToiDa) || 5;   // tiểu học 5 khối
     // Kiểm định năm học nhận từ tham số truy vấn. Đường ghi thật đã kiểm rồi,
@@ -112,6 +133,10 @@ module.exports = (app) => {
 
   // Thực hiện chuyển năm học.
   app.post('/api/schoolyear/promote', onlyAdmin, (req, res) => {
+    // CHỈ CẤP 1. Chuyển năm học đụng vào TOÀN BỘ nhóm lớp và hồ sơ bé của cả ba
+    // cơ sở trong một lần bấm: lên nhóm, đóng nhóm cũ, cho ra trường. Một quản
+    // lý cơ sở bấm nhầm là cả trường đổi năm học, và không có nút hoàn tác.
+    if (chiCap1(req, res, 'Chuyển năm học')) return;
     const school = db.school() || {};
     const khoiToiDa = Number(req.body.khoiToiDa) || 5;
     const namMoi = String(req.body.namMoi || namKeTiep(school.currentYear)).trim();
@@ -203,8 +228,13 @@ module.exports = (app) => {
 
   // Tra cứu học sinh đã ra trường hoặc chuyển đi.
   app.get('/api/schoolyear/alumni', onlyAdmin, (req, res) => {
+    // Bé đã ra trường vẫn giữ `classId` của nhóm cuối cùng, nên vẫn tra được
+    // cơ sở. Bé nào không còn nhóm thì chỉ Cấp 1 thấy — cùng luật "đóng chứ
+    // không mở" đã dùng ở routes/admin.js.
+    const pham = phamViNhomLop(req.user);
     const rows = db.all('students',
-      'SELECT * FROM students WHERE active = 0 ORDER BY leftAt DESC, name LIMIT 500');
+      'SELECT * FROM students WHERE active = 0 ORDER BY leftAt DESC, name LIMIT 500')
+      .filter(s => pham === null || pham.includes(s.classId));
     res.json(db.withParents(rows).map(s => ({
       ...s,
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',

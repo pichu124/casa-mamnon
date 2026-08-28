@@ -78,8 +78,24 @@ console.log('\n[2] Xem ảnh và phân quyền');
   const buf = Buffer.from(await asTeacher.arrayBuffer());
   check('nội dung trả về đúng là ảnh JPEG', buf[0] === 0xff && buf[1] === 0xd8, buf.slice(0, 3));
 
+  // LUẬT ẢNH NHÓM (N18) ĐỔI CÂU TRẢ LỜI Ở ĐÂY, VÀ ĐỔI THEO HƯỚNG CHẶT HƠN.
+  //
+  // Nhóm Chồi 2 trong dữ liệu mẫu có bé s3 mà gia đình đã ký "không đồng ý
+  // chia sẻ ảnh". Ảnh vừa đăng CHƯA GẮN THẺ bé nào, nên máy chủ không biết
+  // trong ảnh có bé s3 hay không — và tạm ẩn với mọi gia đình cho tới khi cô
+  // gắn thẻ. Đây là chủ ý, người dùng đã duyệt.
+  const chuaGanThe = await fetch(BASE + url, { headers: { Cookie: P } });
+  check('ảnh CHƯA GẮN THẺ trong nhóm có gia đình từ chối: phụ huynh chưa xem được',
+    chuaGanThe.status === 403, chuaGanThe.status);
+
+  // Gắn thẻ một bé mà gia đình ĐÃ đồng ý -> ảnh hiện lại ngay với cả nhóm.
+  // Đây là vế phải giữ: cơ chế bảo vệ không được biến thành cái khoá chết.
+  const gan = await req('PUT', `/api/albums/${albumId}/photos/${photoId}/be`,
+    { cookie: T, body: { studentIds: ['s1'] } });
+  check('cô gắn thẻ được bé vào ảnh', gan.status === 200, gan.data);
+
   const parentSameClass = await fetch(BASE + url, { headers: { Cookie: P } });
-  check('phụ huynh lớp 3A xem được ảnh lớp con mình', parentSameClass.status === 200, parentSameClass.status);
+  check('GẮN THẺ XONG LÀ PHỤ HUYNH XEM ĐƯỢC NGAY', parentSameClass.status === 200, parentSameClass.status);
 
   const T2 = await login('giaovien2', '123456'); // chủ nhiệm lớp 5B
   const other = await fetch(BASE + url, { headers: { Cookie: T2 } });
