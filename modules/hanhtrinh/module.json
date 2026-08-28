@@ -1,0 +1,13 @@
+{
+  "key": "hanhtrinh",
+  "name": "Hành trình học tập",
+  "desc": "Quan sát ba lớp, suy ngẫm cuối ngày, chủ đề tuần và Cùng con ở nhà",
+  "hash": "#/hanhtrinh",
+  "view": "hanhtrinh",
+  "emoji": "🌱",
+  "bg": "linear-gradient(135deg,#6fbf8b,#3f9d6a)",
+  "api": ["/api/hanhtrinh"],
+  "roles": ["parent", "teacher", "admin"],
+  "defaultEnabled": false,
+  "version": "0.1.0"
+}
