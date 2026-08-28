@@ -117,6 +117,21 @@ export function khoaVaoCoSo(dir, tenDangNhap, campusId) {
   `, [tenDangNhap, campusId]);
 }
 
+// Gán chức vụ cho một tài khoản quản trị (Nhân sự, Marketing, Kế toán, Văn phòng
+// cơ sở…). Nhận TÊN ĐĂNG NHẬP, cùng lý do như `khoaVaoCoSo`.
+//
+// Viết thẳng vào bảng, TRƯỚC khi dựng máy chủ. Có màn hình cho việc này rồi,
+// nhưng đi qua màn hình thì mỗi bài kiểm thử phải đăng nhập thêm một tài khoản
+// ban giám hiệu chỉ để dựng bối cảnh — dài, chậm, và làm mờ mất thứ đang kiểm.
+export function datChucVu(dir, tenDangNhap, ma) {
+  chayTrenCsdl(dir, `
+    const u = db.prepare('SELECT id FROM users WHERE username = ?').get(process.argv[2]);
+    if (!u) throw new Error('Không có tài khoản ' + process.argv[2]);
+    db.prepare('INSERT OR REPLACE INTO user_chucvu (userId, chucVu, ganLuc) VALUES (?, ?, ?)')
+      .run(u.id, process.argv[3], new Date().toISOString());
+  `, [tenDangNhap, ma]);
+}
+
 // Gắn thêm một phụ huynh nữa cho một bé.
 //
 // Dữ liệu mẫu cho mỗi bé đúng MỘT phụ huynh, nên tình huống "bé có cả bố lẫn

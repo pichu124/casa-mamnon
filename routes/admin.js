@@ -138,8 +138,80 @@ module.exports = (app) => {
        WHERE role = 'admin' AND active = 1 ORDER BY name`);
     res.json(ds.map(u => {
       const campusId = db.campusOfUser(u.id);
-      return { ...u, campusId, cap: campusId ? 3 : 1 };
+      const ma = db.chucVu(u.id);
+      const mo = db.moTaChucVu(ma);
+      return {
+        ...u, campusId,
+        // `cap` giữ nguyên nghĩa cũ (có cơ sở = 3) để màn hình cũ còn trong bộ
+        // nhớ đệm điện thoại vẫn đọc đúng. Chức vụ là ba trường thêm bên cạnh.
+        cap: campusId ? 3 : 1,
+        chucVu: ma || '',
+        chucVuTen: mo ? mo.ten : '',
+        chucVuCap: mo ? mo.cap : null,
+      };
     }));
+  });
+
+  // Danh mục chức vụ để màn hình dựng ô chọn. Chỉ là bảng chữ, không phải dữ liệu.
+  //
+  // Vẫn canh tầng cơ sở, dù ở đây không có một chữ nào của bé. Lý do là gán chức
+  // vụ vốn chỉ ban giám hiệu làm được, nên cũng chỉ họ cần bảng này — và một
+  // đường quản trị KHÔNG canh gì cả là một ngoại lệ phải giải trình, mà ngoại lệ
+  // thì nên hiếm. Màn hình của quản lý cơ sở tự ẩn thẻ chức vụ khi không đọc được.
+  app.get('/api/admin/chuc-vu', onlyAdmin, (req, res) => {
+    if (chanNeuChiMotCoSo(req, res, 'Xem danh mục chức vụ')) return;
+    res.json(db.CHUC_VU.map(c => ({ ma: c.ma, ten: c.ten, cap: c.cap, moTa: c.moTa })));
+  });
+
+  // Gán hoặc gỡ chức vụ của một tài khoản quản trị.
+  //
+  // CHỈ BAN GIÁM HIỆU. Chức vụ là thứ quyết định người khác mở được phần nào,
+  // nên ai đổi được chức vụ thì đổi được quyền của chính mình. Ba chốt chặn,
+  // cùng một họ với ba chốt chặn của đường gán cơ sở ngay bên trên:
+  //
+  //   1. Người bấm phải là Cấp 1 — không khoá vào cơ sở nào VÀ không mang chức
+  //      vụ Cấp 2/Cấp 3. Nếu không thì một tài khoản Nhân sự tự gỡ chức vụ của
+  //      mình là thành ban giám hiệu trong đúng một lời gọi.
+  //   2. Không tự đổi chức vụ của chính mình.
+  //   3. Phải luôn còn ít nhất một tài khoản ban giám hiệu.
+  app.put('/api/admin/managers/:id/chuc-vu', onlyAdmin, (req, res) => {
+    if (chanNeuChiMotCoSo(req, res, 'Đổi chức vụ của một tài khoản quản trị')) return;
+    // Chốt này hôm nay chưa ai chạm tới được: không chức vụ Cấp 2 nào có
+    // `/api/admin/managers` trong danh sách cho phép, nên họ dừng ở tầng
+    // middleware trước khi tới đây. Giữ lại vì nó canh một thứ có thể đổi —
+    // ngày nào đó thêm `/api/admin` vào danh sách của Nhân sự là đường này mở
+    // ra ngay. Khác với một chốt không bao giờ chạy được vì lý do lô-gíc.
+    const capMinh = db.capChucVu(req.user);
+    if (capMinh !== null && capMinh !== 1) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu mới đổi được chức vụ của tài khoản quản trị. '
+          + 'Xin liên hệ ban giám hiệu.',
+      });
+    }
+
+    const u = db.findUser(req.params.id);
+    if (!u || u.role !== 'admin') return res.status(404).json({ error: 'Không tìm thấy tài khoản quản trị này' });
+    if (u.id === req.user.id) {
+      return res.status(400).json({
+        error: 'Không thể tự đổi chức vụ của mình. Nhờ một tài khoản ban giám hiệu khác làm việc này.',
+      });
+    }
+
+    const ma = String((req.body || {}).chucVu || '').trim();
+    if (ma && !db.moTaChucVu(ma)) return res.status(400).json({ error: 'Không có chức vụ này' });
+
+    // CỐ Ý KHÔNG có chốt "phải còn ít nhất một ban giám hiệu" ở đây, dù đường
+    // gán cơ sở ngay bên trên có một chốt như vậy. Lý do: hai chốt chặn trên
+    // cộng lại đã bảo đảm điều đó rồi. Người bấm được tới dòng này chắc chắn
+    // đang là ban giám hiệu (không cơ sở, không chức vụ hạn chế), và chắc chắn
+    // không phải người sắp bị đổi. Nên sau lệnh ghi, họ vẫn là ban giám hiệu.
+    //
+    // Viết thêm một chốt nữa thì nó KHÔNG BAO GIỜ chạy — và một chốt không bao
+    // giờ chạy là một lời hứa không ai kiểm được, tệ hơn là không có.
+    db.datChucVu(u.id, ma);
+    db.audit(req.user.id, 'manager-chuc-vu', u.id, { chucVu: ma || null });
+    const mo = db.moTaChucVu(ma);
+    res.json({ id: u.id, chucVu: ma || '', chucVuTen: mo ? mo.ten : '', chucVuCap: mo ? mo.cap : null });
   });
 
   // Khoá một tài khoản quản trị vào một cơ sở, hoặc gỡ khoá (campusId rỗng).
@@ -325,6 +397,7 @@ module.exports = (app) => {
   // nhóm này KHÔNG gỡ cô khỏi các nhóm khác. Một cô dạy cả Chồi 2 lẫn Lá 1 là
   // chuyện bình thường ở mầm non, ở tiểu học thì không.
   app.put('/api/admin/classes/:id/teachers', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Phân công cô phụ trách nhóm')) return;
     const cls = db.findClass(req.params.id);
     if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
     if (!duocChamNhom(req.user, cls.id)) return khongThuocCoSo(res, 'nhóm lớp');
@@ -371,6 +444,7 @@ module.exports = (app) => {
   });
 
   app.post('/api/admin/teachers', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Tạo tài khoản cho cô')) return;
     const { name, title, phone, email, classId } = req.body || {};
     if (!String(name || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập họ tên giáo viên' });
     // Tạo cô rồi gắn thẳng vào một nhóm của cơ sở khác là mở một cánh cửa vào
@@ -1027,6 +1101,29 @@ function chanNeuChiMotCoSo(req, res, viec) {
   res.status(403).json({
     error: `${viec} ảnh hưởng tới cả ba cơ sở, nên chỉ tài khoản quản trị `
       + 'toàn hệ thống mới làm được. Xin liên hệ ban giám hiệu.',
+  });
+  return true;
+}
+
+// Chặn một việc thuộc về BAN GIÁM HIỆU khi người bấm là "Văn phòng cơ sở".
+//
+// Cấp 3 của trường mầm non là hai vai, không phải một: quản lý cơ sở chịu trách
+// nhiệm về con người, văn phòng cơ sở lo việc hằng ngày. Danh sách API cho phép
+// của `vanphong-coso` mở cả `/api/admin` vì họ cần hồ sơ bé, nhóm lớp và danh
+// sách để làm việc — nhưng hai việc dưới đây thì không:
+//
+//   • TẠO TÀI KHOẢN CÔ. Đường này trả thẳng mật khẩu tạm về màn hình. Ai tạo
+//     được tài khoản cô là tự tạo cho mình một tài khoản cô và biết mật khẩu
+//     của nó.
+//   • PHÂN CÔNG CÔ VÀO NHÓM. Gắn một cô vào nhóm là mở hồ sơ của cả nhóm bé
+//     cho cô ấy. Đó là quyết định về con người, tức việc của quản lý cơ sở.
+//
+// Trả về true nghĩa là ĐÃ gửi lỗi, chỗ gọi phải return ngay.
+function chanNeuVanPhong(req, res, viec) {
+  if (db.chucVu(req.user) !== 'vanphong-coso') return false;
+  res.status(403).json({
+    error: `${viec} là việc của quản lý cơ sở, không phải của văn phòng. `
+      + 'Xin nhờ quản lý cơ sở hoặc ban giám hiệu làm giúp.',
   });
   return true;
 }

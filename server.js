@@ -90,6 +90,13 @@ app.use('/api', (req, res, next) => {
 // chỉ giấu biểu tượng ngoài giao diện.
 app.use(modules.chanApiDaTat);
 
+// Chặn API nằm ngoài phần việc của một CHỨC VỤ (Cấp 2, và Cấp 3 tách đôi).
+//
+// Đặt ngay sau lớp trên và vẫn TRƯỚC khi nạp route, nên không đường dẫn nào
+// đi vòng qua được — kể cả đường thêm sau này. Tài khoản chưa khai chức vụ thì
+// lớp này chỉ là một lần next(), tức trường đang chạy không đổi gì.
+app.use(modules.chanApiNgoaiChucVu);
+
 // Tự động nạp toàn bộ route trong thư mục routes/.
 //
 // Mỗi tệp nạp trong khối bắt lỗi riêng: một tính năng viết sai chỉ làm chính nó

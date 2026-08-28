@@ -181,6 +181,46 @@ function nhacGanThe(tatCaAnh, classId) {
   };
 }
 
+// LỌC ẢNH — THÊM MỘT NẤC CHO CHỨC VỤ MARKETING.
+//
+// Luật ảnh nhóm (`db.locAnhChoNguoiXem`) trả lời câu hỏi "gia đình này có được
+// nhìn tấm ảnh này không". Marketing hỏi một câu khác hẳn: "tấm ảnh này có được
+// mang ra ngoài trường không". Giấy đồng ý của trường tách riêng hai ô, và ô
+// truyền thông MẶC ĐỊNH KHÔNG TÍCH — nên câu trả lời cũng phải khác.
+//
+// Ba đường đọc ảnh ở dưới đều gọi hàm này thay vì gọi thẳng `db.locAnhChoNguoiXem`,
+// kể cả đường trả về đúng các byte của tấm ảnh. Lọc thiếu ở đường đó thì hai
+// đường kia chỉ là giấu biểu tượng đi.
+function locAnhChoNguoiXem(photos, user, classId) {
+  const thay = db.locAnhChoNguoiXem(photos, user, classId);
+  if (db.chucVu(user) !== 'marketing') return thay;
+  return db.locAnhChoTruyenThong(thay);
+}
+
+// Marketing CHỈ ĐỌC ảnh. Đăng ảnh vào album của một nhóm là việc của cô — cô
+// mới biết hôm đó có bé nào vắng, bé nào gia đình vừa rút đồng ý. Xoá thì càng
+// không: ảnh xoá rồi không lấy lại được, mà đây là kỷ niệm của gia đình.
+//
+// CHỈ GẮN Ở HAI ĐƯỜNG, KHÔNG PHẢI BỐN. Thêm ảnh và xoá một tấm ảnh vốn đã chỉ
+// dành cho CÔ ĐANG DẠY nhóm, nên mọi tài khoản quản trị — Marketing gồm cả —
+// đã nhận 403 ở đó từ trước. Gắn thêm chốt vào hai đường ấy trông thì cẩn thận,
+// nhưng nó không bao giờ chạy, và một chốt không bao giờ chạy là một lời hứa
+// không ai kiểm được. Hai chỗ nó thật sự đỡ được:
+//
+//   • TẠO ALBUM — luật cũ trả 400 "Tài khoản chưa gắn với nhóm lớp nào", một
+//     câu sai sự thật với Marketing và không nói được họ phải làm gì.
+//   • XOÁ CẢ ALBUM của nhóm ĐÃ ĐÓNG — chỗ này thì hở thật: `xoaDuocAlbum` cho
+//     quản trị không khoá cơ sở xoá album của mọi nhóm đã đóng, mà sau mỗi lần
+//     chuyển năm học thì gần như toàn bộ album của trường đều đã đóng.
+function chanNeuChiXemAnh(req, res) {
+  if (db.chucVu(req.user) !== 'marketing') return false;
+  res.status(403).json({
+    error: 'Tài khoản Marketing chỉ xem ảnh, không đăng và không xoá ảnh của nhóm. '
+      + 'Xin nhờ cô phụ trách nhóm hoặc văn phòng.',
+  });
+  return true;
+}
+
 module.exports = (app) => {
   // Danh sách album các lớp liên quan, mới nhất trước (không kèm toàn bộ ảnh).
   app.get('/api/albums', (req, res) => {
@@ -226,7 +266,7 @@ module.exports = (app) => {
         // ảnh bị ẩn bên trong vẫn hiện ngay ngoài danh sách, to bằng nửa màn
         // hình. Và số đếm phải là số ảnh NGƯỜI NÀY xem được, không phải tổng.
         ...(() => {
-          const xemDuoc = db.locAnhChoNguoiXem(photosOf(a.id), req.user, a.classId);
+          const xemDuoc = locAnhChoNguoiXem(photosOf(a.id), req.user, a.classId);
           return { photoCount: xemDuoc.length, cover: xemDuoc[0] || null };
         })(),
       };
@@ -244,7 +284,7 @@ module.exports = (app) => {
     // LỌC Ở TẦNG DỮ LIỆU. Phụ huynh chỉ nhận về những ảnh mình được xem —
     // không phải nhận hết rồi giao diện che bớt.
     const tatCaAnh = photosOf(album.id);
-    album.photos = db.locAnhChoNguoiXem(tatCaAnh, req.user, album.classId)
+    album.photos = locAnhChoNguoiXem(tatCaAnh, req.user, album.classId)
       .map(a => ganThemDanhSachBe(a, req.user));
     const cls = db.findClass(album.classId);
     const author = album.createdBy ? db.findUser(album.createdBy) : null;
@@ -287,7 +327,7 @@ module.exports = (app) => {
     // Kiểm đồng ý TRƯỚC khi kiểm tệp có tồn tại: hỏi hai câu theo thứ tự ngược
     // lại thì câu trả lời "không tìm thấy ảnh" vô tình xác nhận rằng người hỏi
     // đáng lẽ được xem, chỉ là tệp đã mất.
-    if (!db.locAnhChoNguoiXem([photo], req.user, album.classId).length) {
+    if (!locAnhChoNguoiXem([photo], req.user, album.classId).length) {
       return res.status(403).json({ error: 'Ảnh này có bé mà gia đình chưa đồng ý chia sẻ' });
     }
     if (!photo.file) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
@@ -306,6 +346,7 @@ module.exports = (app) => {
 
   // Giáo viên tạo album mới cho lớp chủ nhiệm.
   app.post('/api/albums', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuChiXemAnh(req, res)) return;
     const { title, description, photos } = req.body || {};
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập tên album' });
@@ -445,6 +486,7 @@ module.exports = (app) => {
 
   // Xóa cả album kèm toàn bộ ảnh của nó.
   app.delete('/api/albums/:id', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuChiXemAnh(req, res)) return;
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
     if (!xoaDuocAlbum(req.user, album.classId)) {

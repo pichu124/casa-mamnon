@@ -40,10 +40,23 @@ function sinhMatKhauTam() {
 //
 // Trường chưa khai cơ sở nào thì `db.phamViCoSo` trả null và cả khối này nằm
 // im — quản trị giữ nguyên quyền như trước khi có N4.
+// CHỨC VỤ CẤP 2 CŨNG KHÔNG ĐỤNG TỚI TÀI KHOẢN QUẢN TRỊ
+//
+// N15 bịt lối leo thang cho Cấp 3 bằng cách hỏi `db.phamViCoSo`. Chức vụ Cấp 2
+// (Nhân sự) đi lọt qua đúng chỗ đó: nó là tài khoản quản trị KHÔNG khoá vào cơ
+// sở nào, nên `phamViCoSo` trả `null` và dòng `return true` ở trên nhận nó là
+// ban giám hiệu. Ba lời gọi sau đó là thành Cấp 1: mở danh sách quản trị, cấp
+// lại mật khẩu cho ban giám hiệu, đọc mật khẩu tạm ngay trên màn hình rồi đăng
+// nhập. Đúng lối cũ, chỉ đổi người đi.
+//
+// Nên Cấp 2 dừng ở đây: cô và phụ huynh thì được, tài khoản quản trị thì không
+// — kể cả một tài khoản Cấp 2 khác, vì chiếm được nó là chiếm được phần việc
+// của người ta.
 function coQuyenCapLai(actor, target) {
   if (!target || !target.active) return false;
   if (actor.id === target.id) return false;
   if (actor.role === 'admin') {
+    if (db.capChucVu(actor) === 2 && target.role === 'admin') return false;
     const pham = db.phamViCoSo(actor);
     if (pham === null) return true;
     if (target.role === 'admin') return false;

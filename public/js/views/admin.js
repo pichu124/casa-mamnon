@@ -139,14 +139,18 @@ App.views.admin = {
   // Chưa khai báo cơ sở nào thì cả tầng cơ sở nằm im và app chạy y như trước;
   // màn này nói thẳng điều đó thay vì hiện một danh sách trống không lời.
   async tabCoSo(body) {
-    const [ds, d, qt] = await Promise.all([
+    const [ds, d, qt, cv] = await Promise.all([
       API.get('/api/admin/campuses'),
       API.get('/api/admin/overview'),
       API.get('/api/admin/managers'),
+      // Quản lý cơ sở không gán chức vụ cho ai, nên cũng không đọc được bảng này.
+      // Nuốt lỗi và trả mảng rỗng để cả tab không sập vì một thẻ họ không dùng.
+      API.get('/api/admin/chuc-vu').catch(() => []),
     ]);
     this._coso = ds;
     this._lop = d.classes;
     this._quanTri = qt;
+    this._chucVu = cv;
     const chuaGan = d.classes.filter(c => !c.campusId);
     body.innerHTML = `
       ${ds.length ? '' : `
@@ -176,6 +180,37 @@ App.views.admin = {
             </div>
           </div>`).join('') : '<div class="muted small">Chưa có cơ sở nào.</div>'}
       </div>
+
+      ${(this._chucVu || []).length ? `
+      <div class="card">
+        <div class="card-title">Chức vụ của tài khoản quản trị</div>
+        <div class="muted small mb-8" style="line-height:1.6">
+          Chức vụ quyết định <b>mở được phần nào</b>. Để trống là <b>ban giám hiệu</b> —
+          làm được mọi việc, y như từ trước tới nay. Chọn một chức vụ là <b>bớt đi</b>,
+          không bao giờ thêm quyền.
+        </div>
+        <div class="muted small mb-8" style="line-height:1.6">
+          Hai chức vụ <b>Quản lý cơ sở</b> và <b>Văn phòng cơ sở</b> cần được gắn vào
+          một cơ sở ở thẻ <b>Tài khoản quản trị</b> bên dưới — không gắn thì họ vẫn
+          nhìn thấy cả ba cơ sở.
+        </div>
+        ${(this._quanTri || []).map(u => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(`${u.title || ''} ${u.name}`.trim())}</div>
+              <div class="row-sub">${UI.esc(u.username)} · ${UI.esc(u.chucVuTen || 'Ban giám hiệu')}</div>
+              ${u.chucVu ? `<div class="row-sub muted">${UI.esc(
+    ((this._chucVu || []).find(c => c.ma === u.chucVu) || {}).moTa || '')}</div>` : ''}
+            </div>
+            <div class="row-end">
+              <select onchange="App.views.admin.datChucVu('${UI.esc(u.id)}', this.value)">
+                <option value="">— Ban giám hiệu —</option>
+                ${(this._chucVu || []).filter(c => c.ma !== 'hieu-truong').map(c => `
+                  <option value="${UI.esc(c.ma)}" ${c.ma === u.chucVu ? 'selected' : ''}>${UI.esc(c.ten)}</option>`).join('')}
+              </select>
+            </div>
+          </div>`).join('')}
+      </div>` : ''}
 
       ${ds.length ? `
         <div class="card">
@@ -283,6 +318,17 @@ App.views.admin = {
     try {
       await API.put(`/api/admin/managers/${encodeURIComponent(userId)}/campus`, { campusId });
       UI.toast(campusId ? 'Tài khoản nay chỉ thấy cơ sở đó' : 'Tài khoản nay thấy toàn hệ thống', 'success');
+      App.route();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      App.route();   // vẽ lại để ô chọn quay về đúng trạng thái thật
+    }
+  },
+
+  async datChucVu(userId, ma) {
+    try {
+      const r = await API.put(`/api/admin/managers/${encodeURIComponent(userId)}/chuc-vu`, { chucVu: ma });
+      UI.toast(ma ? `Tài khoản nay là ${r.chucVuTen}` : 'Tài khoản nay là ban giám hiệu', 'success');
       App.route();
     } catch (err) {
       UI.toast(err.message, 'error');

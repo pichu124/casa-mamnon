@@ -9,6 +9,9 @@ import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, CHROMIUM, tatBannerThong
 const DIR = thuMucTam('tinh-nang-giao-dien');
 sinhDuLieu(DIR);
 const mkTam = taoQuanTri(DIR, 'Hieu Truong', 'htruong');
+// Tài khoản quản trị THỨ HAI, để thử màn gán chức vụ: không ai tự đổi chức vụ
+// của chính mình được, nên một tài khoản thì không có gì để bấm.
+taoQuanTri(DIR, 'Chi Ke Toan', 'ketoan2');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3900), dir: DIR });
 
 let pass = 0, fail = 0; const failures = [];
@@ -129,6 +132,43 @@ const manTd = await page.locator('#view').innerText();
 check('Thực đơn mở lại được ngay', !/tắt|có lỗi xảy ra/i.test(manTd), manTd.slice(0, 150));
 check('thực đơn vẫn có nội dung cũ', manTd.length > 60, manTd.length);
 await page.screenshot({ path: SHOT + '07-bat-lai-thucdon.png', fullPage: true });
+
+console.log('\n[7] Quản trị: gán chức vụ cho một tài khoản quản trị khác');
+{
+  await page.goto(BASE + '/#/admin', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(700);
+  await page.locator('.admin-tabs button, .tabs button, button', { hasText: 'Cơ sở' }).first().click();
+  await page.waitForTimeout(1000);
+
+  const the = page.locator('.card', { hasText: 'Chức vụ của tài khoản quản trị' }).first();
+  check('thẻ Chức vụ hiện ra ngay cả khi trường chưa khai cơ sở nào',
+    await the.count() > 0, await page.locator('#view').innerText().then(t => t.slice(0, 200)));
+  check('thẻ nói rõ để trống nghĩa là gì',
+    /ban giám hiệu/i.test(await the.innerText()), (await the.innerText()).slice(0, 200));
+
+  const dong = the.locator('.list-row', { hasText: 'Chi Ke Toan' }).first();
+  check('có dòng của tài khoản quản trị thứ hai', await dong.count() > 0);
+  check('người chưa khai thì hiện "Ban giám hiệu", không phải một ô trống',
+    /Ban giám hiệu/.test(await dong.innerText()), await dong.innerText());
+
+  await dong.locator('select').selectOption('ketoan');
+  await page.waitForTimeout(1500);
+  const dong2 = page.locator('.card', { hasText: 'Chức vụ của tài khoản quản trị' })
+    .first().locator('.list-row', { hasText: 'Chi Ke Toan' }).first();
+  check('gán xong thì dòng đó đổi sang "Kế toán"',
+    /Kế toán/.test(await dong2.innerText()), await dong2.innerText());
+  check('và nói luôn chức vụ đó mở được những gì',
+    /học phí/i.test(await dong2.innerText()), await dong2.innerText());
+  await page.screenshot({ path: SHOT + '08-chuc-vu.png', fullPage: true });
+
+  // Gỡ ra là quay về đúng như trước — không có đường một chiều.
+  await dong2.locator('select').selectOption('');
+  await page.waitForTimeout(1500);
+  const dong3 = page.locator('.card', { hasText: 'Chức vụ của tài khoản quản trị' })
+    .first().locator('.list-row', { hasText: 'Chi Ke Toan' }).first();
+  check('gỡ chức vụ thì quay lại "Ban giám hiệu"',
+    /Ban giám hiệu/.test(await dong3.innerText()), await dong3.innerText());
+}
 
 check('không có lỗi JavaScript trong suốt quá trình', loi.length === 0, loi);
 
