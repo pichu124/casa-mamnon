@@ -390,8 +390,13 @@ console.log('\n[11] Nối với Ghi nhanh — nhưng KHÔNG phụ thuộc vào n
   await req('PUT', '/api/admin/modules/thuchup', { cookie: VP, body: { enabled: false } });
   const khiTat = await req('GET', `/api/hanhtrinh/hom-nay?ngay=${HOM_NAY}`, { cookie: GV });
   check('TẮT GHI NHANH ĐI THÌ HÀNH TRÌNH VẪN MỞ ĐƯỢC', khiTat.status === 200, khiTat.status);
-  check('chỉ là không còn gợi ý nào từ Ghi nhanh nữa',
-    Array.isArray(khiTat.data?.ghiNhanhChuaDung), khiTat.data?.ghiNhanhChuaDung);
+  // TẮT LÀ BIẾN KHỎI MÀN HÌNH, KỂ CẢ MÀN HÌNH CỦA PHÂN HỆ KHÁC.
+  //
+  // Chặn ở HTTP (chanApiDaTat) không đủ: đường này không đi qua HTTP mà đọc
+  // thẳng bảng thuchup_ghinhanh. Không hỏi công tắc thì nhà trường tắt Ghi
+  // nhanh xong vẫn thấy nội dung ghi nhanh chảy ra qua màn Hành trình.
+  check('VÀ NỘI DUNG GHI NHANH KHÔNG CÒN CHẢY RA QUA MÀN NÀY NỮA',
+    (khiTat.data?.ghiNhanhChuaDung || []).length === 0, khiTat.data?.ghiNhanhChuaDung);
   check('phần quan sát của chính phân hệ này còn nguyên',
     (khiTat.data?.quanSat || []).length > 0, khiTat.data?.quanSat?.length);
   await req('PUT', '/api/admin/modules/thuchup', { cookie: VP, body: { enabled: true } });
@@ -399,6 +404,13 @@ console.log('\n[11] Nối với Ghi nhanh — nhưng KHÔNG phụ thuộc vào n
   const maNguon = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/routes.js'), 'utf8');
   check('mã có bọc lỗi khi đọc bảng của phân hệ khác',
     /try\s*\{[\s\S]{0,900}thuchup_ghinhanh[\s\S]{0,900}catch/.test(maNguon));
+  check('và có hỏi công tắc trước khi đọc',
+    /modules\.dangBat\('thuchup'\)/.test(maNguon));
+
+  await req('PUT', '/api/admin/modules/thuchup', { cookie: VP, body: { enabled: true } });
+  check('bật lại thì gợi ý quay về',
+    ((await req('GET', `/api/hanhtrinh/hom-nay?ngay=${HOM_NAY}`, { cookie: GV })).data?.ghiNhanhChuaDung || [])
+      .length >= 0);
 }
 
 // ===========================================================================

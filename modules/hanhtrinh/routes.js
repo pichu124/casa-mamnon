@@ -83,7 +83,7 @@ function thuHaiCua(ngay) {
   return new Date(t - lui * 86400000).toISOString().slice(0, 10);
 }
 
-module.exports = (app, { db }) => {
+module.exports = (app, { db, modules }) => {
   // =========================================================================
   // BA LỚP DỮ LIỆU — MỘT CHỖ LỌC DUY NHẤT
   // =========================================================================
@@ -235,11 +235,19 @@ module.exports = (app, { db }) => {
 
   // Kéo phân hệ Ghi nhanh vào — NHƯNG KHÔNG PHỤ THUỘC VÀO NÓ.
   //
-  // Ghi nhanh là một phân hệ cắm thêm khác, trường có thể tắt hoặc gỡ hẳn. Đọc
-  // thẳng bảng của nó mà không bọc lỗi thì gỡ Ghi nhanh xong là Hành trình học
-  // tập sập theo — đúng thứ Nguyên tắc số 1 cấm. Hỏng thì trả mảng rỗng, phần
-  // còn lại của màn hình chạy y nguyên.
+  // Ghi nhanh là một phân hệ cắm thêm khác, trường có thể tắt hoặc gỡ hẳn. Hai
+  // chuyện khác nhau, và phải xử lý cả hai:
+  //
+  //   GỠ HẲN → bảng không còn, câu truy vấn ném lỗi. Bọc lỗi, trả mảng rỗng;
+  //   phần còn lại của màn hình chạy y nguyên. Không bọc thì gỡ Ghi nhanh xong
+  //   là Hành trình sập theo — đúng thứ Nguyên tắc số 1 cấm.
+  //
+  //   TẮT TRONG QUẢN TRỊ → bảng vẫn còn nguyên dữ liệu. Không hỏi công tắc thì
+  //   nhà trường tắt Ghi nhanh xong VẪN thấy nội dung ghi nhanh chảy ra qua màn
+  //   hình này — sai lời hứa "tắt là biến khỏi màn hình" của CLAUDE.md. Chặn ở
+  //   HTTP (chanApiDaTat) không đủ, vì đây không đi qua HTTP mà đọc thẳng bảng.
   function ghiNhanhChuaDung(user, ngay, ids) {
+    if (!modules || typeof modules.dangBat !== 'function' || !modules.dangBat('thuchup')) return [];
     try {
       const marks = ids.map(() => '?').join(',');
       const cuaCo = user.role === 'teacher' ? user.id : null;

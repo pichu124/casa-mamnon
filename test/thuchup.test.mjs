@@ -10,7 +10,7 @@
 //
 // Bài kiểm thử tự dựng máy chủ riêng với cơ sở dữ liệu tạm, KHÔNG đụng dữ liệu thật.
 import {
-  GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri,
+  GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo,
   dungMayChu, taoReq, taoLogin,
 } from './_chung.mjs';
 
@@ -263,6 +263,35 @@ console.log('\n[11] Đường chống trùng mã cũng là một đường ĐỌ
     id: ID, studentId: BE, note: 'quản trị xem lại' } });
   check('quản trị vẫn đọc được, đúng bảng ba lớp dữ liệu',
     qt.status === 200 && qt.data?.trungLap === true, qt.status);
+
+  // HAI GIÁ TRỊ, PHẢI ĐỐI CHIẾU VỚI NHAU.
+  //
+  // Đường này kiểm quyền trên `studentId` do NGƯỜI GỬI khai, rồi tra bản ghi
+  // theo `id`. Chỉ kiểm một vế thì một quản trị Cấp 3 khai studentId của bé cơ
+  // sở MÌNH cộng với id của bản ghi thuộc cơ sở KHÁC sẽ đọc được nguyên ghi
+  // chú và tên tệp ảnh của cơ sở kia. `doDuocBanGhi` không bắt được vì nó chỉ
+  // hỏi "có phải cô đã ghi không", mà quản trị thì không phải cô nào cả.
+  //
+  // Mã là UUID nên khó đoán — nhưng "khó đoán" không phải kiểm soát truy cập.
+  const mk3 = taoQuanTri(DIR, 'Quản lý CS2', 'quanlycs2');
+  khoaVaoCoSo(DIR, 'quanlycs2', 'cs2');
+  const tam3 = await login('quanlycs2', mk3);
+  await req('POST', '/api/auth/set-new-password', { cookie: tam3.cookie, body: { newPassword: 'quantri2026' } });
+  const C3 = (await login('quanlycs2', 'quantri2026')).cookie;
+
+  // Dữ liệu mẫu xếp mọi nhóm vào cơ sở 1, nên phải chuyển một nhóm sang cơ sở 2
+  // thì quản lý cơ sở 2 mới có bé nào để dựng tình huống.
+  await req('PUT', '/api/admin/classes/c2/campus', { cookie: A.cookie, body: { campusId: 'cs2' } });
+  const beCuaC3 = ((await req('GET', '/api/students', { cookie: C3 })).data || [])[0]?.id;
+  check('quản lý cơ sở 2 có ít nhất một bé của mình để dựng tình huống', !!beCuaC3, beCuaC3);
+  const cheo = await req('POST', '/api/thuchup', { cookie: C3, body: {
+    id: ID, studentId: beCuaC3, note: 'khai bé của mình, lấy bản ghi cơ sở khác' } });
+  check('QUẢN TRỊ CẤP 3 KHÔNG ĐỌC ĐƯỢC BẢN GHI CỦA CƠ SỞ KHÁC qua đường chống trùng',
+    cheo.status === 403, cheo.status);
+  check('và cũng không lộ một chữ nào',
+    !cheo.data?.note && !cheo.data?.file && !cheo.data?.studentId, cheo.data);
+
+  await req('PUT', '/api/admin/classes/c2/campus', { cookie: A.cookie, body: { campusId: 'cs1' } });
 }
 
 may.dung();

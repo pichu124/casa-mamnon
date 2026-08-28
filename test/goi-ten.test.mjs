@@ -39,8 +39,17 @@ const VUNG_QUET = [
   'public/js/app.js',
   'lib/db.js',
   'routes',
-  'modules/hocphi',
-  'modules/thuchup',
+  // QUÉT CẢ THƯ MỤC `modules`, KHÔNG LIỆT KÊ TAY TỪNG PHÂN HỆ.
+  //
+  // Bản trước ghi tay 'modules/hocphi' và 'modules/thuchup', nên năm phân hệ
+  // thêm sau đó (Nhật ký ngày, Báo ăn & tiền ăn, Đón trả bé, Hành trình học
+  // tập, và mọi cái sau nữa) lọt hết mà bài canh vẫn xanh — nó không sai, nó
+  // chỉ không nhìn tới chỗ mới.
+  //
+  // Đây đúng là lỗi N19 đã sửa cho `test/quy-tac-4.test.mjs` nhưng quên sửa
+  // sang đây. Một danh sách viết tay thì luôn lạc hậu so với thư mục thật, và
+  // lạc hậu về phía NỚI RA.
+  'modules',
   'data/seed.js',
   // Script cũng nói chuyện với người: người vận hành đọc chúng đúng lúc đang
   // chữa cháy, và một câu nói sai tiếng ở đó thì khó chịu hơn ở màn hình.
@@ -167,13 +176,27 @@ function boChuThich(noiDung) {
     .join('\n');
 }
 
+// ĐI VÀO CẢ THƯ MỤC CON.
+//
+// Không có phần này thì 'modules' quét ra rỗng, vì mọi tệp của một phân hệ
+// nằm trong thư mục con của nó — đúng cái bẫy đi kèm với việc bỏ danh sách
+// viết tay ở trên.
 function cacTep(muc) {
   const p = path.join(GOC, muc);
   if (!fs.existsSync(p)) return [];
   if (fs.statSync(p).isFile()) return [p];
-  return fs.readdirSync(p)
-    .filter((f) => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.json'))
-    .map((f) => path.join(p, f));
+  const ra = [];
+  for (const f of fs.readdirSync(p)) {
+    const con = path.join(p, f);
+    if (fs.statSync(con).isDirectory()) ra.push(...cacTep(path.relative(GOC, con)));
+    // KHÔNG quét .sql. Bộ lọc bỏ chú thích của bài này hiểu `//` và `/* */` của
+    // JavaScript, không hiểu `--` của SQL — nên mọi chú thích trong schema.sql
+    // sẽ bị đọc như chữ hiện ra màn hình. Mà lược đồ thì không in gì cho ai
+    // đọc cả: CLAUDE.md cho phép giữ `student`/`class` ở TẦNG DỮ LIỆU, đây
+    // đúng là tầng đó.
+    else if (/\.(js|html|json)$/.test(f)) ra.push(con);
+  }
+  return ra;
 }
 
 // Trả về danh sách vi phạm: { tep, dong, tu, trich }
@@ -412,6 +435,27 @@ console.log('\n[5] Tuổi của bé nói theo cách của trường mầm non');
 
   check('màn hình KHÔNG còn tính tuổi bằng hiệu hai con số năm',
     !/getFullYear\(\)\s*-\s*UI\.parseDate/.test(nguon));
+}
+
+// ===========================================================================
+console.log('\n[9] Vùng quét không được thu hẹp lặng lẽ');
+{
+  // Bài học N19: một danh sách viết tay thì luôn lạc hậu so với thư mục thật,
+  // và lạc hậu về phía NỚI RA. Bản trước của chính bài này ghi tay hai phân hệ,
+  // nên năm phân hệ thêm sau đó lọt hết mà bài canh vẫn xanh.
+  check('quét CẢ thư mục modules, không liệt kê tay từng phân hệ',
+    VUNG_QUET.includes('modules') && !VUNG_QUET.some(v => v.startsWith('modules/')), VUNG_QUET);
+
+  // Mảng đúng mà hàm đi tìm tệp không đệ quy thì vẫn quét ra rỗng — đó chính
+  // là lỗi đã có ở quy-tac-4.
+  const dsTep = [];
+  for (const m of ['modules']) dsTep.push(...cacTep(m));
+  const tuongDoi = dsTep.map(t => path.relative(GOC, t).split(path.sep).join('/'));
+  for (const phanHe of fs.readdirSync(path.join(GOC, 'modules'))
+    .filter(f => fs.statSync(path.join(GOC, 'modules', f)).isDirectory())) {
+    check(`thật sự đọc tới tệp của phân hệ "${phanHe}"`,
+      tuongDoi.some(t => t.startsWith(`modules/${phanHe}/`)), tuongDoi.slice(0, 5));
+  }
 }
 
 tongKet();

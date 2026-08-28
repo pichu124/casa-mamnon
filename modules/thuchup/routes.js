@@ -91,7 +91,17 @@ module.exports = (app, { db }) => {
       // ảnh. Mã do máy của cô sinh (crypto.randomUUID) nên trùng nhau là chuyện
       // gần như không xảy ra, nhưng "gần như không xảy ra" không phải là kiểm
       // soát truy cập.
-      if (!doDuocBanGhi(req.user, daCo)) {
+      // HAI ĐIỀU KIỆN, KHÔNG PHẢI MỘT.
+      //
+      // `doDuocBanGhi` hỏi "cô có phải người đã ghi không" — đủ cho cô giáo,
+      // KHÔNG đủ cho quản trị. Phía trên mới chỉ kiểm quyền trên `b.studentId`
+      // do NGƯỜI GỬI khai, còn bản ghi thì tra theo `id`; hai giá trị đó chưa
+      // được đối chiếu với nhau. Nghĩa là một quản trị Cấp 3 khai studentId của
+      // bé cơ sở mình cộng với id của bản ghi thuộc cơ sở khác thì đọc được
+      // nguyên ghi chú và tên tệp ảnh của cơ sở khác.
+      //
+      // Mã là UUID nên khó đoán, nhưng "khó đoán" không phải kiểm soát truy cập.
+      if (!doDuocBanGhi(req.user, daCo) || !db.canAccessStudent(req.user, daCo.studentId)) {
         return res.status(403).json({ error: 'Ghi chép này là bản nháp của cô khác, cô không xem được' });
       }
       return res.json({ ...daCo, ngoaiTuyen: !!daCo.ngoaiTuyen, trungLap: true });
