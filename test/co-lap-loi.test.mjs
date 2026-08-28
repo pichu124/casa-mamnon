@@ -43,7 +43,12 @@ function taoPhanHe(ten, tep) {
   for (const [f, noiDung] of Object.entries(tep)) fs.writeFileSync(path.join(d, f), noiDung);
 }
 
-execSync('node data/seed.js --force', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } });
+execSync('node data/seed.js --force', {
+  cwd: GOC,
+  // Tắt dữ liệu mẫu của phân hệ — cùng lý do với `sinhDuLieu` trong
+  // test/_chung.mjs: bộ test dựng trên nền phân hệ chưa có dòng nào.
+  env: { ...process.env, DATA_DIR: DIR, CASA_SEED_PHAN_HE: '0' },
+});
 const out = execSync('node scripts/create-admin.js "Hiệu Trưởng" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const mkTam = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
 

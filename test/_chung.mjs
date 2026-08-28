@@ -88,10 +88,24 @@ export function donThuMucTam(dir) {
 }
 
 // Sinh dữ liệu mẫu vào cơ sở dữ liệu tạm.
-export function sinhDuLieu(dir) {
+export function sinhDuLieu(dir, { phanHe = false } = {}) {
+  // DỮ LIỆU MẪU CỦA PHÂN HỆ TẮT SẴN TRONG KIỂM THỬ.
+  //
+  // Mọi bộ test phân hệ đều dựng trên nền "phân hệ này chưa có dòng nào": tự
+  // ghi rồi tự đếm. Đổ dữ liệu mẫu vào là hỏng hàng loạt phép kiểm — mà đó
+  // đúng là những phép kiểm về ranh giới nháp ↔ đã công bố và nhà mình ↔ nhà
+  // khác, tức chỗ đáng canh nhất.
+  //
+  // Bài nào muốn nhìn đúng thứ người của trường sẽ thấy thì gọi
+  // `sinhDuLieu(dir, { phanHe: true })`.
+  //
   // Truyền DATA_DIR qua tham số env, KHÔNG viết vào chuỗi lệnh: cú pháp
   // `TEN_BIEN=... lệnh` chỉ shell của Linux/Mac hiểu, trên Windows sẽ lỗi ngay.
-  execSync('node data/seed.js --force', { cwd: GOC, stdio: 'ignore', env: { ...process.env, DATA_DIR: dir } });
+  execSync('node data/seed.js --force', {
+    cwd: GOC,
+    stdio: 'ignore',
+    env: { ...process.env, DATA_DIR: dir, CASA_SEED_PHAN_HE: phanHe ? '1' : '0' },
+  });
 }
 
 // Bật sẵn một vài phân hệ trong cơ sở dữ liệu tạm, TRƯỚC khi dựng máy chủ.

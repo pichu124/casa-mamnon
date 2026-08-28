@@ -13,7 +13,12 @@ let pass = 0, fail = 0; const errs = [];
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✓', n); } else { fail++; errs.push(`${n} ${x != null ? JSON.stringify(x).slice(0,250) : ''}`); console.log('  ✗', n, x ?? ''); } };
 
 // Tạo dữ liệu mẫu + tài khoản quản trị trước khi chạy máy chủ
-execSync('node data/seed.js --force', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } });
+execSync('node data/seed.js --force', {
+  cwd: GOC,
+  // Tắt dữ liệu mẫu của phân hệ — cùng lý do với `sinhDuLieu` trong
+  // test/_chung.mjs: bộ test dựng trên nền phân hệ chưa có dòng nào.
+  env: { ...process.env, DATA_DIR: DIR, CASA_SEED_PHAN_HE: '0' },
+});
 const out = execSync('node scripts/create-admin.js "Nguyễn Văn Hiệu" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const adminPw = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
 console.log('\n[0] Tạo tài khoản quản trị bằng script');

@@ -1,5 +1,7 @@
 // Sinh dữ liệu mẫu vào cơ sở dữ liệu. Ngày tháng được tính tương đối so với hôm
 // nay để dữ liệu demo luôn "sống". Chạy lại: npm run seed
+const fs = require('fs');
+const path = require('path');
 const password = require('../lib/password');
 const { importSnapshot } = require('../lib/importer');
 
@@ -43,6 +45,349 @@ function mondayOf(d) {
   return new Date(t - ((new Date(t).getUTCDay() + 6) % 7) * 86400000);
 }
 function pick(arr, i) { return arr[i % arr.length]; }
+
+// Dữ liệu mẫu cho TÁM PHÂN HỆ MẦM NON.
+//
+// VÌ SAO TÁCH RA MỘT TỆP RIÊNG
+//
+// `data/seed.js` đi qua `lib/importer.js`, mà tệp đó chỉ biết các bảng LÕI —
+// và phải giữ như vậy: phân hệ là thứ cắm thêm được, gỡ ra được, nên bộ nhập
+// dữ liệu lõi không được biết tên bảng của chúng.
+//
+// VÌ SAO CẦN CÓ
+//
+// `docs/KE-HOACH.md` mục G0 chốt: *"Seed kể một câu chuyện nhất quán — bé An,
+// nhóm Chồi 2, cơ sở 1, chạy xuyên suốt mọi màn hình"*. Nhưng cho tới trước
+// đợt này, chạy `npm run seed` rồi bật tám phân hệ mầm non lên thì **màn nào
+// cũng trắng trơn**: không một dòng nhật ký, không một bản báo ăn, không một
+// quan sát nào. Người của trường mở app xem thử sẽ tưởng phân hệ hỏng.
+//
+// HAI VIỆC TỆP NÀY LÀM, VÀ VIỆC THỨ HAI DỄ QUÊN
+//
+//   1. Dựng bảng của phân hệ nếu chưa có. `npm run seed` chạy được mà không
+//      cần khởi động máy chủ, nên lúc đó `lib/modules.js` chưa kịp chạy
+//      `schema.sql` của phân hệ nào cả.
+//
+//   2. XOÁ SẠCH bảng của phân hệ trước khi ghi. Danh sách xoá của
+//      `lib/importer.js` không nhắc tới bảng nào của phân hệ, nên chạy lại
+//      seed sẽ để lại dòng cũ trỏ vào những bé vừa bị xoá — nhật ký của một
+//      bé không còn tồn tại, báo ăn của một nhóm không còn tồn tại.
+//
+// CHỈ ĐƯỢC GỌI TỪ ĐƯỜNG SINH DỮ LIỆU MẪU. Không bao giờ gọi lúc máy chủ khởi
+// động: nó XOÁ DỮ LIỆU.
+const MODULES_DIR = path.join(__dirname, '..', 'modules');
+
+// Bảng của từng phân hệ, xếp theo thứ tự XOÁ (bảng con trước bảng cha).
+const BANG = [
+  'nhatky_ngay',
+  'tienan_chot',
+  'dontra_ghi', 'dontra_uyquyen', 'dontra_nguoi',
+  'hanhtrinh_quansat', 'hanhtrinh_chude',
+  'kehoachbe_muc', 'kehoachbe_ke',
+  'cambridge_anh_be', 'cambridge_bai',
+  'thuchup_ghinhanh',
+  'hocphi_khoan',
+];
+
+// Dựng bảng của mọi phân hệ có trong thư mục `modules/`.
+//
+// Đi qua đúng bộ canh mà máy chủ dùng (`modules.kiemTraSchema`), nên một
+// `schema.sql` viết sai bị chặn ở đây y như lúc khởi động — không có đường
+// vòng nào chỉ vì đang chạy seed.
+function dungBangPhanHe(db) {
+  const modules = require('../lib/modules');
+  if (!fs.existsSync(MODULES_DIR)) return;
+  for (const ten of fs.readdirSync(MODULES_DIR)) {
+    const thuMuc = path.join(MODULES_DIR, ten);
+    if (!fs.statSync(thuMuc).isDirectory()) continue;
+    const tep = path.join(thuMuc, 'schema.sql');
+    if (!fs.existsSync(tep)) continue;
+    try {
+      const sql = fs.readFileSync(tep, 'utf8');
+      modules.kiemTraSchema(sql, ten);
+      db.sqlite.exec(sql);
+    } catch (err) {
+      console.warn(`  (bỏ qua lược đồ của phân hệ "${ten}": ${err.message})`);
+    }
+  }
+}
+
+function xoaBangPhanHe(db) {
+  for (const b of BANG) {
+    try { db.run(`DELETE FROM ${b}`); } catch (_) { /* phân hệ đã bị gỡ */ }
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+function sinh(db, moc) {
+  const { fmt, daysAgo, daysAhead, thuHai, HOM_NAY, THANG_NAY } = moc;
+  const luc = (d, h, m) => `${fmt(d)}T${String(h).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}:00.000Z`;
+  let dem = 0;
+  const ma = (p) => `${p}_seed${(dem += 1).toString(36)}`;
+
+  const stats = {};
+  const them = (bang, rec) => {
+    try { db.insert(bang, rec); stats[bang] = (stats[bang] || 0) + 1; }
+    catch (err) { console.warn(`  (không ghi được vào ${bang}: ${err.message})`); }
+  };
+
+  // Ba ngày học gần nhất, mới nhất trước.
+  const ngayHoc = [];
+  for (let i = 0; ngayHoc.length < 3 && i < 12; i++) {
+    const d = daysAgo(i);
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) ngayHoc.push(d);
+  }
+
+  const beChoi2 = ['s1', 's3', 's4', 's5', 's6'];   // nhóm Chồi 2 (c1)
+  const beNhaTre = ['s9', 's10', 's11'];            // nhóm Nhà trẻ 1 (c4)
+
+  // ---- NHẬT KÝ NGÀY -------------------------------------------------------
+  // Cố ý KHÔNG điền đủ mọi bé mọi ngày: trường thật cũng không bao giờ đủ, và
+  // màn hình phải chịu được ô trống. Bé s6 của ngày gần nhất để trống hẳn, để
+  // trạng thái "cô chưa ghi" có thật trên dữ liệu mẫu.
+  const AN = ['het', 'gan-het', 'it'];
+  ngayHoc.forEach((d, i) => {
+    beChoi2.forEach((sid, j) => {
+      if (i === 0 && sid === 's6') return;
+      them('nhatky_ngay', {
+        id: ma('nk'), studentId: sid, ngay: fmt(d),
+        anSang: AN[(i + j) % 3], anTrua: AN[(i + j + 1) % 3], anXe: AN[(i + j + 2) % 3],
+        anGhiChu: sid === 's4' ? 'Món có đậu phộng đã đổi sang cháo thịt bằm' : '',
+        nguTuLuc: '11:30', nguDenLuc: j % 2 ? '14:00' : '13:45',
+        nguGhiChu: j === 1 ? 'Trằn trọc một lúc rồi mới ngủ' : '',
+        veSinhSoLan: 1 + ((i + j) % 3), veSinhTinhChat: 'binh-thuong',
+        ghiChu: i === 0 && sid === 's1' ? 'Hôm nay con tự xúc hết bát cơm, làm rơi hai lần rồi tự lấy khăn lau.' : '',
+        nguoiGhi: 't1', capNhatLuc: luc(d, 16, 10),
+      });
+    });
+
+    // Nhóm nhà trẻ có thêm ba ô thay bỉm và bú bình.
+    beNhaTre.forEach((sid, j) => {
+      const laNhaTre = sid !== 's11';   // s11 đã 38 tháng — qua mốc 36
+      them('nhatky_ngay', {
+        id: ma('nk'), studentId: sid, ngay: fmt(d),
+        anSang: AN[j % 3], anTrua: AN[(j + 1) % 3], anXe: '',
+        nguTuLuc: '11:15', nguDenLuc: '14:15',
+        veSinhSoLan: 2, veSinhTinhChat: 'binh-thuong',
+        bimSoLan: laNhaTre ? 3 + (j % 2) : null,
+        buBinhSoLan: laNhaTre ? 2 : null,
+        buBinhMl: laNhaTre ? 240 + j * 30 : null,
+        ghiChu: '', nguoiGhi: 't4', capNhatLuc: luc(d, 16, 20),
+      });
+    });
+  });
+
+  // ---- BÁO ĂN & TIỀN ĂN ---------------------------------------------------
+  // Chốt cho hôm qua và hôm kia; HÔM NAY CỐ Ý ĐỂ TRỐNG, để cô mở màn ra là
+  // thấy đúng việc còn phải làm sáng nay.
+  for (const d of ngayHoc.slice(1)) {
+    them('tienan_chot', {
+      id: ma('ta'), ngay: fmt(d), classId: 'c1', soSuat: 5, soSuatMay: 5,
+      ghiChu: '', nguoiChot: 't1', chotLuc: luc(d, 7, 40),
+    });
+    them('tienan_chot', {
+      id: ma('ta'), ngay: fmt(d), classId: 'c2', soSuat: 3, soSuatMay: 3,
+      ghiChu: '', nguoiChot: 't2', chotLuc: luc(d, 7, 35),
+    });
+    them('tienan_chot', {
+      id: ma('ta'), ngay: fmt(d), classId: 'c4', soSuat: 3, soSuatMay: 3,
+      ghiChu: 'Bé Huy mới ốm dậy, bếp nấu cháo riêng', nguoiChot: 't4', chotLuc: luc(d, 7, 45),
+    });
+  }
+
+  // ---- ĐÓN TRẢ BÉ ---------------------------------------------------------
+  const nguoiDon = [
+    { id: 'dt_ba_lan', studentId: 's1', hoTen: 'Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: 'Ở cùng nhà, đón chiều thứ Ba và thứ Năm' },
+    { id: 'dt_me_ha', studentId: 's1', hoTen: 'Lê Thị Thu Hà', quanHe: 'Mẹ', dienThoai: '0903 222 111', ghiChu: '' },
+    { id: 'dt_bo_bao', studentId: 's3', hoTen: 'Phạm Quốc Bảo', quanHe: 'Bố', dienThoai: '0912 555 333', ghiChu: '' },
+    { id: 'dt_bac_nam', studentId: 's4', hoTen: 'Vũ Đình Nam', quanHe: 'Bác ruột', dienThoai: '0912 333 444', ghiChu: 'Chỉ đón khi bố mẹ báo trước' },
+  ];
+  for (const n of nguoiDon) {
+    them('dontra_nguoi', {
+      ...n, anh: '', dangDung: 1, nguoiTao: 't1',
+      taoLuc: luc(daysAgo(30), 8), capNhatLuc: luc(daysAgo(30), 8),
+    });
+  }
+
+  // Một giấy uỷ quyền còn hiệu lực trong tuần này — để màn hình có cái để hiện.
+  them('dontra_uyquyen', {
+    id: ma('uq'), studentId: 's5', hoTen: 'Đỗ Minh Tuấn', quanHe: 'Chú ruột',
+    dienThoai: '0977 888 999', anh: '',
+    tuNgay: fmt(daysAgo(1)), denNgay: fmt(new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) + 3 * 86400000)),
+    lyDo: 'Bố mẹ đi công tác tỉnh, chú đón giúp ba ngày',
+    huyLuc: null, huyBoi: null, nguoiTao: 't1', taoLuc: luc(daysAgo(1), 7, 50),
+  });
+
+  // Sổ đón trả của hai ngày gần nhất.
+  ngayHoc.slice(0, 2).forEach((d, i) => {
+    beChoi2.slice(0, 4).forEach((sid, j) => {
+      them('dontra_ghi', {
+        id: ma('dg'), studentId: sid, ngay: fmt(d),
+        luc: `1${6 + (j % 2)}:${j % 2 ? '30' : '05'}`,
+        nguoiDon: sid === 's1' && i === 0 ? 'Trần Thị Lan (Bà ngoại)' : 'Mẹ',
+        nguonLoai: sid === 's1' && i === 0 ? 'nguoi' : '',
+        nguonId: sid === 's1' && i === 0 ? 'dt_ba_lan' : '',
+        ghiChu: '', coGhi: 't1', capNhatLuc: luc(d, 17, 0),
+      });
+    });
+  });
+
+  // ---- HÀNH TRÌNH HỌC TẬP -------------------------------------------------
+  const tuanNay = fmt(thuHai(daysAgo(0)));
+  them('hanhtrinh_chude', {
+    id: ma('ct'), classId: 'c1', tuan: tuanNay,
+    chuDe: 'Nước quanh ta',
+    moTa: 'Cả tuần cả nhóm chơi với nước: rót, đong, thả vật nổi vật chìm, tưới cây góc sân.',
+    cungConONha: 'Cho con phụ rửa rau, rót nước vào bình. Hỏi con "cái này nổi hay chìm?" rồi thả thử.',
+    coGhi: 't1', taoLuc: luc(daysAgo(3), 17), capNhatLuc: luc(daysAgo(3), 17),
+  });
+  them('hanhtrinh_chude', {
+    id: ma('ct'), classId: 'c4', tuan: tuanNay,
+    chuDe: 'Bàn tay của con',
+    moTa: 'Nhận biết bàn tay, tập cầm nắm, in bàn tay lên giấy.',
+    cungConONha: 'Cùng con vỗ tay theo nhịp, chơi ú oà bằng hai bàn tay.',
+    coGhi: 't4', taoLuc: luc(daysAgo(3), 17), capNhatLuc: luc(daysAgo(3), 17),
+  });
+
+  // BA QUAN SÁT, CỐ Ý Ở BA LỚP DỮ LIỆU KHÁC NHAU — đúng bảng ba lớp trong
+  // CLAUDE.md. Không có đủ ba thì màn hình chỉ chứng minh được một lớp.
+  //
+  //   1. Ghi chú thô, cô chưa gắn lĩnh vực   → chỉ cô đã ghi đọc được
+  //   2. Đã suy ngẫm, chưa công bố            → cô trong nhóm và quản lý đọc được
+  //   3. Đã công bố                           → gia đình bé đó đọc được
+  them('hanhtrinh_quansat', {
+    id: ma('ht'), studentId: 's4', ngay: fmt(ngayHoc[0]),
+    moTa: 'Đức Anh xếp chồng năm khối gỗ, đổ hai lần, lần thứ ba đặt khối to xuống dưới rồi mới xếp tiếp.',
+    anh: '', ghiNhanhId: '', linhVuc: '', trangThai: '', minhChung: '', oLopLamGi: '',
+    suyNgamLuc: null, giaySuyNgam: null, cauChuyen: '', cungConONha: '', congBoLuc: null,
+    coGhi: 't1', taoLuc: luc(ngayHoc[0], 10, 20), capNhatLuc: luc(ngayHoc[0], 10, 20),
+  });
+  them('hanhtrinh_quansat', {
+    id: ma('ht'), studentId: 's3', ngay: fmt(ngayHoc[1]),
+    moTa: 'Gia Hân tự lấy khăn lau chỗ nước đổ ra sàn, không ai nhắc.',
+    anh: '', ghiNhanhId: '',
+    linhVuc: 'thuc-hanh-cuoc-song', trangThai: 'dang-lam-duoc',
+    minhChung: 'Lặp lại ba lần trong tuần', oLopLamGi: 'Đặt khăn lau ở tầm với của bé để con tự lấy được.',
+    suyNgamLuc: luc(ngayHoc[1], 17, 5), giaySuyNgam: 96,
+    cauChuyen: '', cungConONha: '', congBoLuc: null,
+    coGhi: 't1', taoLuc: luc(ngayHoc[1], 9, 40), capNhatLuc: luc(ngayHoc[1], 17, 5),
+  });
+  them('hanhtrinh_quansat', {
+    id: ma('ht'), studentId: 's1', ngay: fmt(ngayHoc[2]),
+    moTa: 'Bảo An rót nước từ bình sang ba cái cốc, dừng lại đúng lúc gần đầy, không tràn cốc nào.',
+    anh: '', ghiNhanhId: '',
+    linhVuc: 'thuc-hanh-cuoc-song', trangThai: 'lam-duoc-mot-minh',
+    minhChung: 'Làm lại được vào hôm sau mà không cần nhắc',
+    oLopLamGi: 'Đưa bình nặng hơn một chút để con tập giữ thăng bằng tay.',
+    suyNgamLuc: luc(ngayHoc[2], 17, 10), giaySuyNgam: 132,
+    cauChuyen: 'Tuần này ở góc thực hành cuộc sống, Bảo An rót nước từ bình sang ba cái cốc. '
+      + 'Con nghiêng bình rất chậm và dừng lại đúng lúc nước gần đầy — cả ba cốc đều không tràn.',
+    cungConONha: 'Ở nhà bố mẹ cho con rót nước vào cốc của cả nhà lúc ăn cơm nhé.',
+    congBoLuc: luc(ngayHoc[2], 17, 30),
+    coGhi: 't1', taoLuc: luc(ngayHoc[2], 10, 5), capNhatLuc: luc(ngayHoc[2], 17, 30),
+  });
+
+  // ---- KẾ HOẠCH CỦA BÉ ----------------------------------------------------
+  // Ba trạng thái duyệt, mỗi bé một trạng thái — để màn quản lý có đủ việc.
+  const GOC = ['toan', 'tieng-viet', 'cambridge', 'thuc-hanh-cuoc-song', 'giac-quan'];
+  const NOI_DUNG = {
+    toan: 'Đếm và ghép số lượng trong phạm vi 5',
+    'tieng-viet': 'Kể lại một việc con đã làm trong ngày',
+    cambridge: 'Nghe và làm theo hai chỉ dẫn liên tiếp bằng tiếng Anh',
+    'thuc-hanh-cuoc-song': 'Rót nước, xúc hạt, tự cài cúc áo',
+    'giac-quan': 'Phân biệt vật nổi vật chìm bằng tay và mắt',
+  };
+  const keCuaBe = [
+    { sid: 's1', trangThai: 'da-duyet' },
+    { sid: 's3', trangThai: 'cho-duyet' },
+    { sid: 's5', trangThai: 'nhap' },
+  ];
+  for (const k of keCuaBe) {
+    const keId = ma('kb');
+    them('kehoachbe_ke', {
+      id: keId, studentId: k.sid, classId: 'c1', thang: THANG_NAY,
+      trangThai: k.trangThai, coLap: 't1', lapLuc: luc(daysAgo(6), 16),
+      guiLuc: k.trangThai === 'nhap' ? null : luc(daysAgo(5), 16),
+      // NGƯỜI DUYỆT ĐỂ TRỐNG CÓ CHỦ Ý: dữ liệu mẫu KHÔNG có tài khoản quản trị
+      // nào — tài khoản đó do `npm run create-admin` tạo riêng, và mã của nó
+      // sinh ra lúc chạy nên ở đây không đoán được. Ghi một mã bịa vào là màn
+      // hình hiện tên người không tồn tại. Để trống còn là một phép thử nhỏ:
+      // màn duyệt phải chịu được ô "người duyệt" rỗng.
+      nguoiDuyet: '',
+      duyetLuc: k.trangThai === 'da-duyet' ? luc(daysAgo(4), 9) : null,
+      yKienDuyet: '', capNhatLuc: luc(daysAgo(4), 9),
+    });
+    GOC.forEach((g, i) => {
+      them('kehoachbe_muc', {
+        id: ma('km'), keId, gocLinhVuc: g, noiDung: NOI_DUNG[g],
+        ketQua: k.trangThai === 'da-duyet' && i < 2 ? 'dang-lam-duoc' : '',
+        nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc(daysAgo(4), 9),
+      });
+    });
+  }
+
+  // ---- CAMBRIDGE & KẾT NỐI Ở NHÀ ------------------------------------------
+  them('cambridge_bai', {
+    id: ma('cb'), loai: 'cambridge', tieuDe: 'Cambridge tuần này: Colours',
+    noiDung: 'Từ vựng tuần này: red, blue, yellow, green.\n\n'
+      + 'Ở lớp các con nghe bài hát về màu sắc và chỉ đúng màu khi cô gọi tên.',
+    tuan: tuanNay, phamVi: 'truong', campusId: '', classId: '', anh: '',
+    congBoLuc: luc(daysAgo(2), 15), nguoiDang: '',
+    taoLuc: luc(daysAgo(2), 14), capNhatLuc: luc(daysAgo(2), 15),
+  });
+  them('cambridge_bai', {
+    id: ma('cb'), loai: 'ketnoi', tieuDe: 'Kết nối ở nhà: chơi với nước',
+    noiDung: 'Cuối tuần này bố mẹ cho con phụ rửa rau, rót nước vào bình, '
+      + 'và cùng con thả thử vài thứ vào chậu nước xem cái nào nổi cái nào chìm.',
+    tuan: tuanNay, phamVi: 'nhom', campusId: 'cs1', classId: 'c1', anh: '',
+    congBoLuc: null, nguoiDang: '',   // CỐ Ý còn là nháp, chưa công bố
+    taoLuc: luc(daysAgo(1), 11), capNhatLuc: luc(daysAgo(1), 11),
+  });
+
+  // ---- GHI NHANH ----------------------------------------------------------
+  // Hai bản chưa ai chép sang Hành trình — đúng thứ nút "chép sang quan sát"
+  // cần có để bấm thử.
+  them('thuchup_ghinhanh', {
+    id: ma('gn'), studentId: 's5', file: null,
+    note: 'Khánh Vy tự cài được hai cúc áo khoác, cúc thứ ba nhờ cô.',
+    giay: 14.2, ngoaiTuyen: 0, choBaoLau: null,
+    taoLuc: luc(ngayHoc[0], 9, 15), nhanLuc: luc(ngayHoc[0], 9, 15), byTeacherId: 't1',
+  });
+  them('thuchup_ghinhanh', {
+    id: ma('gn'), studentId: 's6', file: null,
+    note: 'Gia Bảo rủ bạn cùng bê chậu cây ra sân, hai bạn bê được tới nơi.',
+    giay: 11.8, ngoaiTuyen: 1, choBaoLau: 2340,   // ghi lúc mất sóng, gửi lên sau
+    taoLuc: luc(ngayHoc[0], 10, 40), nhanLuc: luc(ngayHoc[0], 11, 19), byTeacherId: 't1',
+  });
+
+  // ---- HỌC PHÍ ------------------------------------------------------------
+  // Phân hệ này còn nguyên bản mẫu của app 1 và đang TẮT. Vẫn sinh vài dòng để
+  // ai bật lên xem thử không gặp màn trắng.
+  for (const sid of ['s1', 's3', 's4']) {
+    them('hocphi_khoan', {
+      id: ma('hp'), studentId: sid, kyThu: `Tháng ${Number(THANG_NAY.slice(5)) }/${THANG_NAY.slice(0, 4)}`,
+      noiDung: 'Học phí và tiền ăn tháng này', soTien: 4500000,
+      hanNop: fmt(daysAhead(5)), daNop: sid === 's1' ? 1 : 0,
+      ngayNop: sid === 's1' ? fmt(daysAgo(2)) : null,
+      ghiChu: '', taoBoi: '', taoLuc: luc(daysAgo(10), 8),
+    });
+  }
+
+  return stats;
+}
+
+function sinhDuLieuPhanHe(db, moc) {
+  dungBangPhanHe(db);
+  let stats = {};
+  db.tx(() => {
+    xoaBangPhanHe(db);
+    stats = sinh(db, moc);
+  });
+  return stats;
+}
+
+// ---------------------------------------------------------------------------
 
 function generate() {
   const today = new Date(MOC);
@@ -658,8 +1003,46 @@ function generate() {
   };
 
   const stats = importSnapshot(db);
+
+  // DỮ LIỆU MẪU CHO TÁM PHÂN HỆ MẦM NON.
+  //
+  // `importSnapshot` chỉ biết các bảng LÕI, và phải giữ như vậy — phân hệ là
+  // thứ cắm thêm được, gỡ ra được. Nhưng nếu dừng ở đó thì bật phân hệ lên là
+  // màn nào cũng trắng trơn, trong khi bản kế hoạch chốt "seed kể một câu
+  // chuyện nhất quán, mở màn hình nào cũng gặp lại đúng bé đó".
+  //
+  // Nuốt lỗi ở đây là CÓ CHỦ Ý: gỡ một phân hệ đi thì bảng của nó không còn,
+  // và dữ liệu mẫu của phần lõi không được phép chết theo.
+  //
+  // TẮT ĐƯỢC BẰNG `CASA_SEED_PHAN_HE=0`, VÀ BỘ KIỂM THỬ TẮT SẴN.
+  //
+  // Mọi bộ test phân hệ đều dựng trên nền "phân hệ này chưa có dòng nào": chúng
+  // tự ghi rồi tự đếm. Đổ dữ liệu mẫu vào là hỏng hàng loạt phép kiểm — mà đó
+  // là những phép kiểm về ranh giới nháp ↔ đã công bố, về nhà mình ↔ nhà khác,
+  // tức đúng chỗ đáng canh nhất.
+  //
+  // Bẻ dữ liệu mẫu để né từng bài test là sai hướng: nó làm câu chuyện của dữ
+  // liệu mẫu méo đi (kế hoạch của bé An phải chuyển sang nhóm khác chỉ vì một
+  // bài test), mà vẫn sẽ hỏng lại ở bài test tiếp theo. Tách hai đường thì mỗi
+  // đường được là chính nó.
+  let statsPhanHe = {};
+  try {
+    if (process.env.CASA_SEED_PHAN_HE === '0') throw new Error('__bo_qua__');
+    const dbThat = require('../lib/db');
+    statsPhanHe = sinhDuLieuPhanHe(dbThat, {
+      fmt, daysAgo, daysAhead, thuHai: mondayOf,
+      HOM_NAY: ngay.homNay(), THANG_NAY: ngay.thangNay(),
+    });
+  } catch (err) {
+    if (err.message !== '__bo_qua__') {
+      console.warn(`Không sinh được dữ liệu mẫu cho phân hệ: ${err.message}`);
+    }
+  }
+
   const tong = Object.values(stats).reduce((a, b) => a + b, 0);
-  console.log(`Đã sinh dữ liệu mẫu vào cơ sở dữ liệu (${tong.toLocaleString('vi-VN')} bản ghi).`);
+  const tongPhanHe = Object.values(statsPhanHe).reduce((a, b) => a + b, 0);
+  console.log(`Đã sinh dữ liệu mẫu vào cơ sở dữ liệu (${tong.toLocaleString('vi-VN')} bản ghi lõi`
+    + `${tongPhanHe ? ` + ${tongPhanHe.toLocaleString('vi-VN')} bản ghi của phân hệ` : ''}).`);
   return db;
 }
 

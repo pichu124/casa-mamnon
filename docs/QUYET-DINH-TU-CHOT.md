@@ -362,6 +362,33 @@ QUY TẮC 4 cấm, và phải hỏi nhà trường trước.
 
 ---
 
+## 20. Dữ liệu mẫu của phân hệ TẮT SẴN trong kiểm thử, BẬT SẴN cho người dùng
+
+**Chọn:** `npm run seed` sinh dữ liệu mẫu cho cả tám phân hệ mầm non. Bộ kiểm
+thử thì tắt nó đi (`CASA_SEED_PHAN_HE=0`), trừ một bài duy nhất bật lên để canh
+chính đường đó.
+
+**Vì sao:** mọi bộ test phân hệ đều dựng trên nền *"phân hệ này chưa có dòng
+nào"* — tự ghi rồi tự đếm. Đổ dữ liệu mẫu vào là hỏng hàng loạt phép kiểm, mà
+đúng là những phép kiểm đáng giá nhất: ranh giới **nháp ↔ đã công bố** của một
+quan sát, và ranh giới **nhà mình ↔ nhà khác**.
+
+**Chỗ tôi đã đi sai rồi quay lại:** ban đầu tôi bẻ dữ liệu mẫu để né từng bài
+test — chuyển kế hoạch của bé An sang nhóm khác, chuyển ba quan sát sang nhóm
+nhà trẻ. Nó làm câu chuyện méo đi (bản kế hoạch đòi *"mở màn hình nào cũng gặp
+lại đúng bé đó"*) mà vẫn hỏng lại ở bài test tiếp theo. Tách hai đường thì mỗi
+đường được là chính nó.
+
+**Cái giá phải trả, và cách tôi trả:** không bộ test nào đang chạy còn nhìn tới
+đường sinh dữ liệu mẫu của phân hệ, nên nó có thể hỏng hoàn toàn mà cả bộ kiểm
+thử vẫn xanh — đúng kiểu *"bài canh luôn đúng"*. Nên có `test:du-lieu-mau-phan-he`
+bật nó lên và canh 34 điểm, trong đó có cả việc **chạy lại seed không nhân đôi
+dữ liệu** và **không dòng nào trỏ vào bé đã bị xoá**.
+
+**Đổi hướng thì tốn gì:** rẻ.
+
+---
+
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)
 
 Những mục dưới đây tôi **cố ý không tự chọn**, vì chọn sai thì phải sửa lược đồ
