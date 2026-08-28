@@ -28,7 +28,8 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('chuc-vu');
 sinhDuLieu(DIR);
-batPhanHe(DIR, ['hocphi', 'tienan', 'cambridge', 'hanhtrinh']);
+batPhanHe(DIR, ['hocphi', 'tienan', 'cambridge', 'hanhtrinh',
+  'thuchup', 'nhatky', 'dontra', 'kehoachbe']);
 
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkNS = taoQuanTri(DIR, 'Chị Nhân Sự', 'nhansu');
@@ -213,6 +214,83 @@ console.log('\n[6] CẤP 3 TÁCH ĐÔI — văn phòng khác quản lý cơ sở
     cookie: QL, body: { teacherIds: [idGV, r4.data.id], chinhId: idGV },
   });
   check('Quản lý cơ sở phân công được cô', r5.status === 200, r5.data);
+}
+
+// ===========================================================================
+console.log('\n[6b] BỐN PHÂN HỆ NHẠY CẢM NHẤT — thử THẬT, không chỉ tin danh sách');
+{
+  // VÌ SAO MỤC NÀY PHẢI CÓ
+  //
+  // Mục [+] ở cuối tệp đọc `lib/db.js` và đòi mỗi phân hệ phải được quyết định
+  // tường minh. Nhưng nó chỉ đọc DANH SÁCH. Nếu chốt chặn thật sự — hàm
+  // `chanApiNgoaiChucVu` trong `lib/modules.js` — không được gắn vào, hoặc so
+  // sai tiền tố, thì danh sách vẫn đẹp mà cửa vẫn mở. Mục này gọi thật vào bốn
+  // đường và đọc mã trả về.
+  //
+  // Bốn phân hệ này được chọn không phải ngẫu nhiên:
+  //
+  //   /api/thuchup   Ghi nhanh — GHI CHÉP THÔ CỦA CÔ, đúng lớp 1 của bảng ba
+  //                  lớp trong CLAUDE.md: "chỉ cô đã ghi (+ quản trị khi cần)",
+  //                  "nháp dở dang được phép tồn tại". Đây là chỗ dễ mất lòng
+  //                  tin của cô giáo nhanh nhất.
+  //   /api/hanhtrinh Hành trình học tập — nhận định chuyên môn về từng bé.
+  //   /api/kehoachbe Kế hoạch của bé — việc chuyên môn giữa cô và quản lý nhóm.
+  //   /api/nhatky    Nhật ký ngày — ăn, ngủ, đi vệ sinh, thay bỉm của TỪNG bé.
+  //
+  // Ba cái đầu CỐ Ý không có trong danh sách của Văn phòng cơ sở. Cái thứ tư
+  // thì CÓ, vì văn phòng phải trả lời gia đình gọi điện hỏi hôm nay con ăn thế
+  // nào. Bài này canh cả hai chiều, và chiều CHO PHÉP đứng trước — siết nhầm
+  // vào việc hằng ngày của văn phòng là app ngừng dùng được.
+
+  // --- Chiều CHO PHÉP: việc hằng ngày của văn phòng cơ sở phải chạy ---------
+  check('Văn phòng MỞ ĐƯỢC nhật ký ngày của nhóm mình',
+    (await ma(VP, '/api/nhatky?classId=c1')) === 200);
+  check('Văn phòng MỞ ĐƯỢC sổ đón trả của một bé',
+    (await ma(VP, '/api/dontra?studentId=s1')) === 200);
+  check('Văn phòng MỞ ĐƯỢC báo ăn', (await ma(VP, '/api/tienan/bao-an')) === 200);
+
+  // --- Chiều CẤM: ba phân hệ chuyên môn thì không -------------------------
+  for (const [ten, duong] of [
+    ['Ghi nhanh (ghi chép thô của cô)', '/api/thuchup'],
+    ['Hành trình học tập', '/api/hanhtrinh?studentId=s1'],
+    ['Kế hoạch của bé', '/api/kehoachbe?classId=c1'],
+  ]) {
+    const st = await ma(VP, duong);
+    check(`Văn phòng KHÔNG mở được ${ten}`, st === 403, st);
+  }
+
+  // Chốt quan trọng nhất của cả mục: câu từ chối phải đến từ TẦNG CHỨC VỤ,
+  // không phải tình cờ 403 vì một lý do khác (ví dụ requireRole). Nếu tầng chức
+  // vụ bị gỡ mà requireRole vẫn chặn thì bài trên vẫn xanh — nên đọc câu chữ.
+  {
+    const r = await req('GET', '/api/thuchup', { cookie: VP });
+    const loi = String(r.data?.error || '');
+    check('và từ chối ĐÚNG VÌ CHỨC VỤ, không phải tình cờ trùng mã 403',
+      loi.includes('Văn phòng cơ sở'), loi);
+    check('câu từ chối chỉ ra ai gỡ được', loi.includes('ban giám hiệu'), loi);
+  }
+
+  // --- Ba chức vụ Cấp 2 thì không đường nào trong bốn đường ----------------
+  for (const [ten, cookie] of [['Nhân sự', NS], ['Kế toán', KT], ['Marketing', MK]]) {
+    for (const duong of ['/api/thuchup', '/api/nhatky?classId=c1',
+      '/api/dontra?studentId=s1', '/api/kehoachbe?classId=c1']) {
+      const st = await ma(cookie, duong);
+      check(`${ten} KHÔNG mở được ${duong.split('?')[0]}`, st === 403, st);
+    }
+  }
+
+  // --- Quản lý cơ sở (api: null) thì mở được, vì giới hạn của vai này đến từ
+  // TẦNG CƠ SỞ chứ không từ chức vụ. Không có phép kiểm này thì không phân biệt
+  // được "tầng chức vụ đang chặn đúng" với "tầng chức vụ chặn tất".
+  check('Quản lý cơ sở VẪN mở được Ghi nhanh — giới hạn của vai này ở tầng cơ sở',
+    (await ma(QL, '/api/thuchup')) === 200);
+  check('và mở được Kế hoạch của bé', (await ma(QL, '/api/kehoachbe?classId=c1')) === 200);
+
+  // --- Và ban giám hiệu (chưa khai chức vụ) không bị đụng tới --------------
+  check('Ban giám hiệu vẫn mở được cả bốn', (await Promise.all([
+    ma(BGH, '/api/thuchup'), ma(BGH, '/api/nhatky?classId=c1'),
+    ma(BGH, '/api/dontra?studentId=s1'), ma(BGH, '/api/kehoachbe?classId=c1'),
+  ])).every(s => s === 200));
 }
 
 // ===========================================================================
