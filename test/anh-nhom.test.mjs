@@ -237,6 +237,60 @@ console.log('\n[9] Nhóm KHÔNG có ai từ chối thì mọi thứ y như trư�
   }
 }
 
+// ===========================================================================
+console.log('\n[10] CHUYỂN NĂM HỌC KHÔNG ĐƯỢC LÀM LỜI TỪ CHỐI HẾT HIỆU LỰC');
+{
+  // ĐÂY LÀ MỤC ĐÁNG GIÁ NHẤT CỦA CẢ TỆP, VÌ NÓ CANH MỘT THỨ TỰ HẾT HẠN.
+  //
+  // Luật ảnh nhóm với ảnh CHƯA GẮN THẺ quyết định bằng câu hỏi "nhóm này có bé
+  // nào từ chối chưa". Câu hỏi đó trước đây hỏi bằng hai điều kiện đều nói về
+  // HIỆN TẠI: bé còn ở nhóm này không, và bé còn đang học không. Cả hai đều hết
+  // đúng ngay sau khi chuyển năm học.
+  //
+  // Mà album năm cũ thì vẫn còn, và gia đình vẫn xem lại được qua màn "Năm học
+  // trước". Nên những tấm ảnh từng bị ẩn sẽ HIỆN TRỞ LẠI — không ai bấm gì,
+  // không ai rút lời từ chối, nó tự hết hiệu lực theo lịch nhà trường.
+  //
+  // Bài này đi đúng chuỗi sự việc đó một lượt.
+  const ANH_THAT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const tao = await req('POST', '/api/albums', {
+    cookie: GV,
+    body: {
+      title: 'Tuần lễ chơi với nước', classId: 'c1',
+      photos: [{ dataUrl: ANH_THAT, caption: 'Cả nhóm nghịch nước ngoài sân' }],
+    },
+  });
+  check('cô tạo được album mới của nhóm Chồi 2', tao.status === 200 || tao.status === 201, tao.data);
+  const albumMoi = tao.data && (tao.data.id || (tao.data.album && tao.data.album.id));
+  check('lấy được mã album vừa tạo', !!albumMoi, tao.data);
+
+  // TRƯỚC khi chuyển năm: ảnh chưa gắn thẻ, nhóm có bé s3 từ chối → phải ẩn.
+  const truoc = await req('GET', `/api/albums/${albumMoi}`, { cookie: PH1 });
+  const anhTruoc = (truoc.data?.photos || []).length;
+  check('TRƯỚC chuyển năm: mẹ bé s1 KHÔNG thấy ảnh chưa gắn thẻ', anhTruoc === 0, anhTruoc);
+
+  // Chuyển năm học. Bé s3 sang nhóm mới, nhóm Chồi 2 đóng lại.
+  const ch = await req('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi: '2027-2028' } });
+  check('chuyển được năm học', ch.status === 200, ch.data);
+
+  const beS3 = (await req('GET', '/api/admin/students', { cookie: A })).data
+    ?.find(b => b.id === 's3');
+  check('bé s3 ĐÃ RỜI nhóm Chồi 2 — tình huống của lỗi này đã dựng xong',
+    !!beS3 && beS3.classId !== 'c1', beS3 && beS3.classId);
+
+  // SAU khi chuyển năm: gia đình vẫn xem lại được album cũ...
+  const dsCu = (await req('GET', '/api/albums?keCaLopCu=1', { cookie: PH1 })).data || [];
+  const alCu = dsCu.find(x => x.id === albumMoi);
+  check('gia đình vẫn tìm lại được album của năm cũ', !!alCu, dsCu.map(x => x.title));
+
+  // ...và ĐÂY LÀ PHÉP KIỂM CHÍNH.
+  const sau = await req('GET', `/api/albums/${albumMoi}`, { cookie: PH1 });
+  const anhSau = (sau.data?.photos || []).length;
+  check('SAU CHUYỂN NĂM: ẢNH CHƯA GẮN THẺ VẪN PHẢI ẨN — lời từ chối không hết hạn theo năm học',
+    anhSau === 0, { status: sau.status, anhSau });
+  check('và ảnh bìa ngoài danh sách cũng vẫn ẩn', !alCu || !alCu.cover, alCu && alCu.cover);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
