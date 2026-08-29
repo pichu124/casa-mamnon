@@ -170,5 +170,59 @@ console.log('\n[7] Tắt được, và bộ kiểm thử đang tắt nó');
   donThuMucTam(DIR2);
 }
 
+// ===========================================================================
+console.log('\n[8] NHẬP LẠI DỮ LIỆU KHÔNG ĐỂ GHI CHÉP CỦA BÉ ĐÃ XOÁ NẰM LẠI');
+{
+  // VÌ SAO MỤC NÀY LÀ CHUYỆN BẢO VỆ DỮ LIỆU, KHÔNG PHẢI CHUYỆN GỌN GÀNG
+  //
+  // `lib/importer.js` xoá dữ liệu cũ theo một danh sách bảng VIẾT TAY, và danh
+  // sách đó chỉ có bảng lõi. Trước đợt Đ32, nhập lại một kho JSON đời cũ hay
+  // chạy `npm run seed -- --force` sẽ xoá sạch bé và nhóm nhưng ĐỂ NGUYÊN nhật
+  // ký ăn ngủ vệ sinh, quan sát, kế hoạch, sổ đón trả của những bé vừa bị xoá.
+  //
+  // Nghị định 13/2023 cho chủ thể dữ liệu quyền xoá. Xoá bé mà nhật ký thay bỉm
+  // của bé vẫn nằm lại trong máy là CHƯA XOÁ — và không ai nhìn thấy, vì không
+  // màn hình nào hiện dữ liệu của một bé không còn tồn tại.
+  const require2 = createRequire(import.meta.url);
+  const bangPh = require2(path.join(GOC, 'lib', 'importer.js')).bangCuaPhanHe;
+  check('lib/importer.js có hàm tìm bảng của phân hệ', typeof bangPh === 'function');
+
+  const D = thuMucTam('nhap-lai-phan-he');
+  sinhDuLieu(D, { phanHe: true });
+  const db4 = new Database(path.join(D, 'school.db'), { readonly: true });
+  const truoc = db4.prepare('SELECT COUNT(*) n FROM nhatky_ngay').get().n;
+  const beTruoc = db4.prepare('SELECT COUNT(*) n FROM students').get().n;
+  db4.close();
+  check('có dữ liệu phân hệ để mà kiểm', truoc > 0 && beTruoc > 0, { truoc, beTruoc });
+
+  // Nhập lại NHƯNG KHÔNG sinh dữ liệu mẫu phân hệ. Đây đúng cảnh nhập lại kho
+  // JSON đời cũ: phần lõi được thay mới, phần phân hệ không ai đụng tới.
+  sinhDuLieu(D);   // CASA_SEED_PHAN_HE=0
+  const db5 = new Database(path.join(D, 'school.db'), { readonly: true });
+  const sau = db5.prepare('SELECT COUNT(*) n FROM nhatky_ngay').get().n;
+  check('GHI CHÉP CỦA PHÂN HỆ ĐƯỢC DỌN THEO KHI NHẬP LẠI DỮ LIỆU LÕI',
+    sau === 0, { truoc, sau });
+
+  // Chốt quan trọng nhất: không dòng nào trỏ vào một bé không còn tồn tại.
+  let mocoi = 0;
+  for (const b of ['nhatky_ngay', 'hanhtrinh_quansat', 'kehoachbe_ke', 'dontra_nguoi', 'thuchup_ghinhanh']) {
+    try {
+      mocoi += db5.prepare(
+        `SELECT COUNT(*) n FROM ${b} WHERE studentId NOT IN (SELECT id FROM students)`).get().n;
+    } catch (_) { /* bảng không có cột đó thì bỏ qua */ }
+  }
+  check('KHÔNG DÒNG NÀO CÒN TRỎ VÀO MỘT BÉ KHÔNG CÒN TỒN TẠI', mocoi === 0, mocoi);
+
+  // Và phần lõi vẫn được nhập đủ — dọn quá tay thì cũng hỏng y như dọn thiếu.
+  check('phần lõi vẫn nhập đủ, không bị dọn nhầm',
+    db5.prepare('SELECT COUNT(*) n FROM students').get().n === beTruoc,
+    db5.prepare('SELECT COUNT(*) n FROM students').get().n);
+  check('và album ảnh của phần lõi còn nguyên — tiền tố `album_` không tóm nhầm bảng lõi',
+    db5.prepare('SELECT COUNT(*) n FROM album_photos').get().n > 0,
+    db5.prepare('SELECT COUNT(*) n FROM album_photos').get().n);
+  db5.close();
+  donThuMucTam(D);
+}
+
 donThuMucTam(DIR);
 tongKet();

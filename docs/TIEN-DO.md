@@ -595,7 +595,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2477**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2483**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **379**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -617,7 +617,7 @@ Các bộ **mới của app 2**, không có ở app 1:
 | `test:goi-ten` | 56 | App nói tiếng của trường mầm non, tên app, và cách nói tuổi bé |
 | `test:co-so` | 39 | Cách ly dữ liệu giữa ba cơ sở (Cấp 1 ↔ Cấp 3) |
 | `test:quy-tac-2` | 34 | QUY TẮC 2 — "chưa quan sát thấy" không bao giờ là một thất bại |
-| `test:du-lieu-mau-phan-he` | 34 | Bật phân hệ lên là có cái để xem — câu chuyện bé An chạy suốt tám phân hệ |
+| `test:du-lieu-mau-phan-he` | 40 | Bật phân hệ lên là có cái để xem — câu chuyện bé An chạy suốt tám phân hệ |
 | `test:quy-tac-4` | 26 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm; ngoại lệ chừa **đúng dòng**, không chừa cả tệp |
 | `test:chuc-vu` | 106 | Tầng chức vụ: chiều cấm VÀ chiều cho phép, trên bốn phân hệ nhạy cảm nhất |
 | `test:sw-version-kiemthu` | 28 | Đổi `public/` mà quên tăng `VERSION` là điện thoại đã cài kẹt bản cũ |
@@ -809,3 +809,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ29** — quy định "đổi `public/` thì tăng `VERSION`" nay canh bằng máy ở ba chỗ; đối chiếu lịch sử thấy Đ14 và Đ19 đã quên thật | Sổ việc 65, 72 |
 | 28/08/2026 | **Đ30** — ngoại lệ của bộ canh QUY TẮC 4 thôi chừa cả tệp (chừa đúng dòng, và có phép kiểm canh chính ngoại lệ); QUY TẮC 2 quét thêm `.sql` và `.json` | Sổ việc 61, 63 |
 | 28/08/2026 | **Đ31** — bộ canh mới: **mọi phân hệ trong thư mục đều phải nạp được**, không cái nào mang cờ lỗi. Hai tài liệu máy chủ của app 1 nay chỉ thẳng sang `docs/TRIEN-KHAI.md` và đúng thư mục dữ liệu của app 2 | Sổ việc 67, 87 |
+| 28/08/2026 | **Đ32** — nhập lại dữ liệu lõi nay dọn theo cả ghi chép của phân hệ; trước đó nhật ký và quan sát của bé vừa bị xoá vẫn nằm lại trong máy | Sổ việc 85 |
