@@ -19,7 +19,7 @@
 // Bảng đối chiếu đặt các bé cạnh nhau kèm con số, nên mục [9] canh nó luôn xếp
 // theo TÊN chứ không theo con số nào. Xếp theo số ngày vắng là biến sổ tiền
 // thành một cách sắp các bé trên dưới nhau.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, HOM_NAY as homNayVN } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, MAU, HOM_NAY as homNayVN } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -89,7 +89,19 @@ console.log('\n[1] Cô mở màn báo ăn là thấy ngay con số của nhóm m
   const { r, n } = await nhomC1();
   check('mở được', r.status === 200, r.status);
   check('thấy nhóm mình', !!n, (r.data?.nhom || []).map(x => x.classId));
-  check('có sĩ số', n?.siSo > 0, n?.siSo);
+  // NEO VÀO HÌNH DÁNG DỮ LIỆU MẪU, KHÔNG NEO VÀO CHÍNH CÂU TRẢ LỜI.
+  //
+  // Bản trước chỉ hỏi `siSo > 0` rồi so `suatDuKien === siSo` — tức là so hai
+  // trường của CÙNG một câu trả lời. Máy chủ đếm sai sĩ số theo cùng một cách
+  // cho cả hai trường (ví dụ đếm gộp bé của cả hai nhóm cô đang phụ trách) thì
+  // bài này vẫn xanh.
+  //
+  // Đây là con số về sau dùng để tính tiền ăn của phụ huynh. Sai một suất là
+  // sai tiền thật, mỗi ngày, cho tới khi có người đối chiếu bằng tay.
+  check('SĨ SỐ ĐÚNG BẰNG SỐ BÉ CỦA NHÓM CHỒI 2 TRONG DỮ LIỆU MẪU',
+    n?.siSo === MAU.soBeNhomChoi2, { thay: n?.siSo, phaiLa: MAU.soBeNhomChoi2 });
+  check('và KHÔNG gộp nhầm bé của nhóm khác cô cũng phụ trách',
+    n?.siSo !== MAU.soBeNhomChoi2 + MAU.soBeNhomLa1, n?.siSo);
   check('chưa ai nghỉ thì suất dự kiến bằng sĩ số', n?.suatDuKien === n?.siSo, n);
   check('chưa chốt thì nói rõ là chưa', n?.chot === null, n?.chot);
 

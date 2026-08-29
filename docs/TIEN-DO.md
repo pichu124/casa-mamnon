@@ -595,7 +595,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2528**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2533**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **346**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -619,7 +619,7 @@ Các bộ **mới của app 2**, không có ở app 1:
 | `test:quy-tac-2` | 34 | QUY TẮC 2 — "chưa quan sát thấy" không bao giờ là một thất bại |
 | `test:du-lieu-mau-phan-he` | 40 | Bật phân hệ lên là có cái để xem — câu chuyện bé An chạy suốt tám phân hệ |
 | `test:quy-tac-4` | 26 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm; ngoại lệ chừa **đúng dòng**, không chừa cả tệp |
-| `test:chuc-vu` | 106 | Tầng chức vụ: chiều cấm VÀ chiều cho phép, trên bốn phân hệ nhạy cảm nhất |
+| `test:chuc-vu` | 113 | Tầng chức vụ: chiều cấm VÀ chiều cho phép, trên bốn phân hệ nhạy cảm nhất |
 | `test:album-api` | 33 | Chống tệp giả danh ảnh, phân quyền xem ảnh — **không cần trình duyệt** |
 | `test:bai-canh-that` | 12 | Bài canh phải canh thật: không tệp test nào bị bỏ quên, không phép kiểm nào tự cho mình qua |
 | `test:sw-version-kiemthu` | 28 | Đổi `public/` mà quên tăng `VERSION` là điện thoại đã cài kẹt bản cũ |
@@ -814,3 +814,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ32** — nhập lại dữ liệu lõi nay dọn theo cả ghi chép của phân hệ; trước đó nhật ký và quan sát của bé vừa bị xoá vẫn nằm lại trong máy | Sổ việc 85 |
 | 28/08/2026 | **Đ33** — hai chỗ bài canh im lặng biến mất khi không dựng được tình huống nay tính là ĐỎ; thêm `test:bai-canh-that` canh chính bộ kiểm thử | Sổ việc 56, 69 |
 | 28/08/2026 | **Đ34** — tách phần API của bộ album ra `test:album-api` và đưa vào `npm test`; trước đó sửa `routes/albums.js` rồi chạy `npm test` là mọi chốt chống tệp giả danh ảnh đều không chạy | Sổ việc 64 |
+| 28/08/2026 | **Đ35** — sĩ số báo ăn nay neo vào hình dáng dữ liệu mẫu (trước chỉ so hai trường của cùng một câu trả lời); tầng chức vụ thử thêm vai Văn phòng cơ sở | Sổ việc 68, 70 |

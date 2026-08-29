@@ -145,10 +145,33 @@ console.log('\n[4] ĐƯỜNG THÊM SAU NÀY MẶC ĐỊNH BỊ TỪ CHỐI');
   // `hanhtrinh` là phân hệ viết sau tầng chức vụ và không nằm trong danh sách
   // cho phép của ai. Nếu tầng này là danh sách CẤM thì cả bốn chức vụ đã mở
   // được nó mà không ai nhận ra.
-  for (const [ten, cookie] of [['Nhân sự', NS], ['Marketing', MK], ['Kế toán', KT]]) {
+  // VĂN PHÒNG CƠ SỞ CŨNG PHẢI CÓ TRONG DANH SÁCH NÀY.
+  //
+  // Bản trước chỉ thử ba vai Cấp 2. Nhưng Văn phòng cơ sở cũng có danh sách cho
+  // phép cứng trong `lib/db.js`, và `/api/hanhtrinh` cũng không nằm trong đó —
+  // nên đây là một vai BỊ BỎ SÓT, không phải một vai không cần canh.
+  for (const [ten, cookie] of [['Nhân sự', NS], ['Marketing', MK], ['Kế toán', KT],
+    ['Văn phòng cơ sở', VP]]) {
     const s = await ma(cookie, '/api/hanhtrinh?studentId=s1');
     check(`${ten} không tự mở được phân hệ mới`, s === 403, s);
   }
+
+  // VÀ MỘT CHỖ RỘNG HƠN MỌI NGƯỜI TƯỞNG: TIỀN TỐ `/api/admin`.
+  //
+  // Danh sách của Văn phòng cơ sở có `/api/admin`, mà hàm so khớp của tầng chức
+  // vụ khớp theo TIỀN TỐ. Nghĩa là mọi đường `/api/admin/...` thêm sau này tự
+  // động mở cho vai đó, không ai phải quyết định gì.
+  //
+  // Điều đó KHÔNG sai — việc hằng ngày của văn phòng nằm phần lớn ở `/api/admin`
+  // — nhưng nó là thứ phải biết. Hai phép kiểm dưới đây ghim lại đúng hai chốt
+  // mà tầng CƠ SỞ và tầng VAI (chứ không phải tầng chức vụ) đang giữ, để nếu
+  // mai này ai đó gỡ hai chốt kia thì có bài đỏ ngay.
+  check('tiền tố /api/admin có mở đường quản trị cho Văn phòng — đó là chủ ý',
+    (await ma(VP, '/api/admin/teachers')) === 200);
+  check('NHƯNG tầng khác vẫn chặn việc tạo tài khoản cô',
+    (await req('POST', '/api/admin/teachers', { cookie: VP, body: { name: 'Cô Thử' } })).status === 403);
+  check('và vẫn chặn việc phân công cô vào nhóm',
+    (await req('PUT', '/api/admin/classes/c1/teachers', { cookie: VP, body: { teacherIds: [] } })).status === 403);
 }
 
 // ===========================================================================
