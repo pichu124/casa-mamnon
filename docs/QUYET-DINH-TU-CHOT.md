@@ -490,6 +490,41 @@ hay tự gọi `toDataURL`.
 **Đổi hướng thì tốn gì:** rẻ, vì giờ chỉ còn một chỗ. Nhận ảnh HEIC của iPhone,
 hạ trần dung lượng sau khi đo số thật ở nhóm thí điểm — đều sửa một chỗ.
 
+## 24. Nháp Nhật ký ngày: HỎI cô, không tự điền đè
+
+**Chọn:** phần cô gõ dở trong Nhật ký ngày được cất vào máy (`localStorage`,
+khoá theo **nhóm + ngày**, hạn 24 giờ). Mở lại app thấy có nháp thì hiện một
+dải nhắc với hai nút *Điền lại phần dở* / *Bỏ phần dở* — **không tự điền**.
+
+**Vì sao không tự điền, dù tự điền tiện hơn:**
+
+Một nhóm có **nhiều cô**. Trong lúc bản nháp nằm trong máy cô A, cô B có thể đã
+ghi và lưu từ máy của mình. Tự điền đè là lấy bản cũ của cô A ghi chồng lên bản
+mới của cô B ngay ở lần bấm Lưu tiếp theo — âm thầm, và không ai biết. Đây đúng
+là kiểu mất dữ liệu mà Nguyên tắc số 1 cấm.
+
+Một dải nhắc tốn của cô một cú bấm. Ghi đè mất của cô B cả buổi làm.
+
+**Vì sao vẫn cần, dù đã có lời hỏi khi đổi ngày:**
+
+Lời hỏi (Đ8) chỉ đỡ được chỗ **chạm nhầm ô ngày**. Nó không đỡ được thứ hay xảy
+ra hơn trên điện thoại: có người gọi tới, cô chuyển sang app khác, hệ điều hành
+đóng trình duyệt để lấy bộ nhớ. Chỉ tiêu của bản kế hoạch là *cả nhóm dưới 5
+phút*, nghĩa là luôn có tới năm phút công việc chỉ nằm trong DOM.
+
+**Ba chi tiết cố ý:**
+
+- **Chỉ nhắc khi nháp KHÁC dữ liệu máy chủ vừa trả về.** Trùng khít thì nó đã
+  được lưu rồi; nhắc lúc đó là dạy cô bỏ qua mọi lời nhắc sau này.
+- **Hạn 24 giờ.** Nhật ký là của đúng một ngày; một bản nháp ba hôm trước không
+  còn là thứ cô muốn điền lại.
+- **Lưu xong thì dọn nháp ngay.** Giữ lại là lần mở sau app nhắc một phần dở
+  không còn dở nữa.
+
+**Chỗ hở đã biết:** nháp ghi theo (nhóm, ngày), mà app mở lại luôn về ngày hôm
+nay. Nếu cô đang ghi cho **hôm qua** lúc app bị đóng, dải nhắc chỉ hiện khi cô
+quay lại đúng ngày đó. Nháp không mất, chỉ là không tự đập vào mắt.
+
 ---
 
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)

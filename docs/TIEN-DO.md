@@ -595,7 +595,7 @@ nói ra thứ nó đang hiện.**
 | Bộ | Số bài |
 |---|---|
 | `npm test` (không cần trình duyệt, ~12 phút) | **2435**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **370**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **379**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -628,7 +628,7 @@ Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so
 | Bộ | Bài | Mới? | Canh gì |
 |---|---|---|---|
 | `test:bien-soan-gd` | 112 | kế thừa | Cô soạn thật trên Chromium: điểm danh, thực đơn, đơn nghỉ, hồ sơ bé |
-| `test:man-phan-he` | 88 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng |
+| `test:man-phan-he` | 97 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng; và **nháp Nhật ký ngày sống qua một lần app bị đóng** |
 | `test:album` | 45 | kế thừa | Tải ảnh thật lên, và đường nén ảnh dùng chung đi qua đây |
 | `test:pwa` | 45 | kế thừa | Cài được lên màn hình chính, service worker, icon, và **mọi tệp cần để mở app lúc mất mạng đều nằm sẵn trong cache** |
 | `test:nhieu-nhom` | 38 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
@@ -802,3 +802,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ25** — hai bộ canh QUY TẮC 2 và QUY TẮC 4 nay nhìn cả `public/js/ui.js` và `public/js/app.js` (trước chỉ quét `public/js/views`, nên hai tệp cả app dựa vào nằm ngoài tầm) | Sổ việc 10 |
 | 28/08/2026 | **Đ26** — hai phép kiểm "chạy khi mất mạng" của `test:pwa` thôi luôn xanh: thay bằng phép kiểm đọc thẳng nội dung cache, và ghi rõ chỗ `setOffline` của Playwright không kiểm được | Sổ việc 9 |
 | 28/08/2026 | **Đ27** — phiếu thử điện thoại thêm **Lời hứa 2b**: mở lại app trong lúc VẪN đang mất sóng (bản trước kết luận nhầm rằng chỗ đó chỉ hỏng khi thiếu HTTPS) | Sổ việc 22 |
+| 28/08/2026 | **Đ28** — Nhật ký ngày cất phần cô gõ dở vào máy theo (nhóm, ngày); mở lại app thì HỎI cô có điền lại không, không tự điền đè lên phần cô khác vừa lưu | Sổ việc 38 |

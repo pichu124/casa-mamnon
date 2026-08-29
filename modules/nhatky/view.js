@@ -82,6 +82,127 @@ App.views.nhatky = {
     return t ? t[1] : '';
   },
 
+  // ===========================================================================
+  // NHÁP TRONG MÁY — GIỮ PHẦN CÔ ĐANG GÕ QUA MỘT LẦN APP BỊ ĐÓNG
+  // ===========================================================================
+  //
+  // Màn của cô là một trang dài: hai mươi bé, mỗi bé khoảng mười ô, một nút Lưu
+  // duy nhất ở cuối. Chỉ tiêu của bản kế hoạch là CẢ NHÓM DƯỚI 5 PHÚT — nghĩa
+  // là có tới năm phút công việc chỉ nằm trong DOM, chưa ở đâu cả.
+  //
+  // Lời hỏi lại khi đổi ngày / đổi nhóm (bên dưới) đã đỡ được chỗ chạm nhầm.
+  // Nhưng nó không đỡ được thứ hay xảy ra hơn trên điện thoại của cô: có người
+  // gọi tới, cô chuyển sang app khác, hệ điều hành đóng trình duyệt để lấy bộ
+  // nhớ. Mở lại là trắng. Mất một lượt nhập của hai mươi bé đúng là cách làm cô
+  // bỏ app quay về sổ giấy.
+  //
+  // VÌ SAO KHÔNG TỰ ĐIỀN LẠI, MÀ HỎI
+  //
+  // Một nhóm có nhiều cô. Trong lúc bản nháp nằm trong máy cô A, cô B có thể đã
+  // ghi và lưu từ máy của mình. Tự điền đè lên là lấy bản cũ của cô A ghi chồng
+  // lên bản mới của cô B ngay lần bấm Lưu tiếp theo — âm thầm, và không ai biết.
+  // Nên app hiện một dải nhắc và để cô chọn.
+  KHOA_NHAP: 'casa.nhatky-nhap',
+  HAN_NHAP_MS: 24 * 60 * 60 * 1000,   // nhật ký là của ĐÚNG một ngày; quá hạn thì bỏ
+
+  khoaNhap(classId, ngay) {
+    return `${this.KHOA_NHAP}.${classId}.${ngay}`;
+  },
+
+  // Đọc mọi ô đang hiện thành { "<mã bé>|<tên trường>": giá trị }.
+  ganhO() {
+    const o = {};
+    for (const el of document.querySelectorAll('.nk-o')) {
+      o[`${el.dataset.be}|${el.dataset.truong}`] = el.value;
+    }
+    return o;
+  },
+
+  luuNhap() {
+    try {
+      const o = this.ganhO();
+      if (!Object.keys(o).length) return;
+      localStorage.setItem(this.khoaNhap(this._classId, this._ngay),
+        JSON.stringify({ luc: Date.now(), o }));
+    } catch (_) { /* hết chỗ hay bị chặn: không phải lý do làm hỏng màn hình */ }
+  },
+
+  xoaNhap(classId, ngay) {
+    try { localStorage.removeItem(this.khoaNhap(classId || this._classId, ngay || this._ngay)); } catch (_) { }
+  },
+
+  docNhap() {
+    try {
+      const raw = localStorage.getItem(this.khoaNhap(this._classId, this._ngay));
+      if (!raw) return null;
+      const n = JSON.parse(raw);
+      if (!n || typeof n.o !== 'object' || !n.o) return null;
+      if (!Number.isFinite(n.luc) || Date.now() - n.luc > this.HAN_NHAP_MS) {
+        this.xoaNhap();
+        return null;
+      }
+      return n;
+    } catch (_) { return null; }
+  },
+
+  // Nháp chỉ đáng nhắc khi nó KHÁC những gì máy chủ vừa trả về. Trùng khít thì
+  // nó đã được lưu rồi — nhắc lúc đó là dạy cô bỏ qua mọi lời nhắc sau này.
+  napLaiNhap() {
+    const n = this.docNhap();
+    if (!n) return;
+    const dangCo = this.ganhO();
+    const khac = Object.keys(n.o).filter(k => k in dangCo && n.o[k] !== dangCo[k]);
+    if (!khac.length) { this.xoaNhap(); return; }
+
+    const dai = document.createElement('div');
+    dai.className = 'card';
+    dai.style.borderLeft = '3px solid #f2994a';
+    dai.innerHTML = `
+      <div style="line-height:1.7">
+        <b>Cô có phần nhập dở chưa lưu</b> của đúng ngày và nhóm này
+        (${UI.esc(String(khac.length))} ô), còn lại từ lần mở trước.
+      </div>
+      <div class="muted small mt-8" style="line-height:1.6">
+        Trong lúc đó cô khác cùng nhóm có thể đã ghi và lưu rồi, nên app không tự
+        điền đè. Cô xem rồi chọn giúp.
+      </div>
+      <div class="flex mt-14" style="gap:8px">
+        <button class="btn primary sm" id="nk-nhap-dung">Điền lại phần dở</button>
+        <button class="btn outline sm" id="nk-nhap-bo">Bỏ phần dở</button>
+      </div>`;
+    const neo = document.getElementById('nk-ap');
+    const the = neo && neo.closest('.card');
+    if (the && the.parentNode) the.parentNode.insertBefore(dai, the.nextSibling);
+    else document.getElementById('view').appendChild(dai);
+
+    document.getElementById('nk-nhap-dung').onclick = () => {
+      for (const el of document.querySelectorAll('.nk-o')) {
+        const k = `${el.dataset.be}|${el.dataset.truong}`;
+        if (k in n.o) el.value = n.o[k];
+      }
+      dai.remove();
+      UI.toast('Đã điền lại phần cô nhập dở — nhớ bấm Lưu', 'success');
+    };
+    document.getElementById('nk-nhap-bo').onclick = () => {
+      this.xoaNhap();
+      dai.remove();
+    };
+  },
+
+  // Ghi nháp sau mỗi lần cô gõ, nhưng gom lại — gõ một chữ ghi một lần thì
+  // localStorage bị đập liên tục trên đúng loại máy yếu mà trường đang dùng.
+  ganGhiNhap() {
+    const view = document.getElementById('view');
+    if (!view) return;
+    let hen = null;
+    const dat = () => {
+      clearTimeout(hen);
+      hen = setTimeout(() => this.luuNhap(), 500);
+    };
+    view.addEventListener('input', (e) => { if (e.target.classList.contains('nk-o')) dat(); });
+    view.addEventListener('change', (e) => { if (e.target.classList.contains('nk-o')) dat(); });
+  },
+
   async render(root) {
     if (App.state.user.role === 'parent') return this.manGiaDinh(root);
     return this.manCoGiao(root);
@@ -200,6 +321,9 @@ App.views.nhatky = {
     document.getElementById('nk-ap').onclick = () => this.apCaNhom();
     const btn = document.getElementById('nk-luu');
     if (btn) btn.onclick = () => this.luu();
+
+    this.napLaiNhap();
+    this.ganGhiNhap();
   },
 
   // Một thẻ cho một bé.
@@ -291,6 +415,10 @@ App.views.nhatky = {
         if (v) x.value = v;
       }
       UI.closeModal();
+      // Đặt `.value` bằng mã KHÔNG phát ra sự kiện `input`, nên bộ ghi nháp
+      // không nghe thấy gì. Gọi thẳng, nếu không thì đúng thao tác điền nhanh
+      // nhất của cô lại là thao tác duy nhất không được giữ.
+      this.luuNhap();
       UI.toast(`Đã điền ${dich.length} ô. Cô sửa lại riêng bé nào khác rồi bấm Lưu.`, 'success');
     };
 
@@ -331,6 +459,9 @@ App.views.nhatky = {
       // Lưu xong là hết "gõ dở". Không xoá mốc thì lần đổi ngày ngay sau đó vẫn
       // bị hỏi lại, và một lời hỏi sai lúc thì lần sau người ta bấm cho xong.
       this._moc = undefined;
+      // Lưu lên máy chủ xong thì bản nháp trong máy hết việc. Giữ lại là lần mở
+      // sau app nhắc một phần dở KHÔNG còn dở nữa.
+      this.xoaNhap();
       UI.toast(`Đã lưu nhật ký cho ${r.daGhi} bé`, 'success');
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }

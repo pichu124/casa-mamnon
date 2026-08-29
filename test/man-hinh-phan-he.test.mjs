@@ -289,6 +289,79 @@ console.log('\n[5] Nhật ký ngày: đổi ngày lúc đang gõ dở thì phả
   check('ĐANG GÕ DỞ MÀ ĐỔI NGÀY THÌ PHẢI HỎI LẠI', daHoi === true, daHoi);
 }
 
+// ===========================================================================
+console.log('\n[6] Nhật ký ngày: app bị đóng giữa chừng thì phần cô gõ dở KHÔNG mất');
+{
+  // Lời hỏi ở mục [5] chỉ đỡ được chỗ CHẠM NHẦM. Nó không đỡ được thứ hay xảy
+  // ra hơn trên điện thoại của cô: có người gọi tới, cô chuyển sang app khác,
+  // hệ điều hành đóng trình duyệt để lấy bộ nhớ. Mở lại là trắng — và cô vừa
+  // mất một lượt nhập của hai mươi bé.
+  //
+  // Bài này mô phỏng đúng cảnh đó: gõ dở → tải lại trang (mọi thứ trong DOM
+  // biến mất, y như bị đóng) → mở lại màn.
+  //
+  // TẢI LẠI HẲN TRANG TRƯỚC KHI BẮT ĐẦU. `page.goto` tới một địa chỉ chỉ khác
+  // phần sau dấu `#` là điều hướng TRONG TRANG — không nạp lại mã, nên
+  // `App.views.nhatky._ngay` còn giữ nguyên ngày mà mục [5] vừa đổi sang. Nháp
+  // ghi theo (nhóm, ngày), nên nếu không tải lại thì bài này ghi nháp cho ngày
+  // hôm kia rồi đi tìm nó ở ngày hôm nay.
+  await page.goto(`${sv.BASE}/#/nhatky`, { waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+
+  // Dọn nháp cũ do các mục trước để lại, để bài này đo đúng thứ nó dựng ra.
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('casa.nhatky-nhap')) localStorage.removeItem(k);
+    }
+  });
+
+  const o1 = page.locator('.nk-o[data-truong="anGhiChu"]').first();
+  await o1.fill('bé ăn chậm, cô đút thêm');
+  await page.locator('.nk-o[data-truong="anSang"]').first().selectOption('it');
+  await page.waitForTimeout(900);   // chờ bộ ghi nháp (gom 500ms)
+
+  const coNhap = await page.evaluate(() =>
+    Object.keys(localStorage).filter(k => k.startsWith('casa.nhatky-nhap')).length);
+  check('phần cô gõ được cất vào máy ngay trong lúc gõ', coNhap === 1, coNhap);
+
+  // ĐÓNG APP: tải lại trang. Mọi thứ trong DOM mất sạch.
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+
+  const chu = await page.locator('body').innerText();
+  check('MỞ LẠI THÌ APP NHẮC CÓ PHẦN NHẬP DỞ', /nhập dở chưa lưu/i.test(chu), chu.slice(0, 300));
+  check('và nói rõ vì sao không tự điền đè (cô khác cùng nhóm có thể đã lưu)',
+    /cô khác cùng nhóm/i.test(chu), chu.slice(0, 400));
+
+  // KHÔNG tự điền — đó là chủ ý, vì nhóm có nhiều cô.
+  const truocKhiBam = await page.locator('.nk-o[data-truong="anGhiChu"]').first().inputValue();
+  check('KHÔNG tự điền đè khi chưa hỏi cô', truocKhiBam === '', JSON.stringify(truocKhiBam));
+
+  await page.click('#nk-nhap-dung');
+  await page.waitForTimeout(400);
+  check('CÔ BẤM "ĐIỀN LẠI" THÌ PHẦN GÕ DỞ QUAY VỀ ĐÚNG NGUYÊN VĂN',
+    (await page.locator('.nk-o[data-truong="anGhiChu"]').first().inputValue()) === 'bé ăn chậm, cô đút thêm',
+    await page.locator('.nk-o[data-truong="anGhiChu"]').first().inputValue());
+  check('cả ô chọn cũng quay về',
+    (await page.locator('.nk-o[data-truong="anSang"]').first().inputValue()) === 'it');
+  check('dải nhắc biến mất sau khi cô chọn xong',
+    (await page.locator('#nk-nhap-dung').count()) === 0);
+
+  // Lưu xong thì nháp hết việc — giữ lại là lần sau app nhắc một phần dở KHÔNG
+  // còn dở nữa, và cô sẽ thôi tin mọi lời nhắc.
+  await page.click('#nk-luu');
+  await page.waitForTimeout(1200);
+  const conNhap = await page.evaluate(() =>
+    Object.keys(localStorage).filter(k => k.startsWith('casa.nhatky-nhap')).length);
+  check('LƯU LÊN MÁY CHỦ XONG THÌ NHÁP TRONG MÁY ĐƯỢC DỌN', conNhap === 0, conNhap);
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  check('và mở lại KHÔNG còn dải nhắc nào',
+    (await page.locator('#nk-nhap-dung').count()) === 0);
+}
+
 await ctx.close();
 await browser.close();
 await sv.dung();
