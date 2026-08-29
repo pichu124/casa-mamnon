@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2615 bài**, `npm run test:giao-dien` **434 bài**, FAIL 0 (đo 29/08/2026) |
+| Bộ kiểm thử | `npm test` **2627 bài**, `npm run test:giao-dien` **449 bài**, FAIL 0 (đo 29/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **có, 3 nhóm việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
@@ -46,6 +46,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ28** | Nhật ký ngày cất phần cô gõ dở vào máy. App bị đóng giữa chừng thì mở lại **hỏi cô có điền lại không** |
 | **Đ29** | Quy định *"đổi `public/` thì tăng `VERSION`"* nay canh bằng máy ở ba chỗ. Đối chiếu lịch sử thấy **đã quên thật hai lần** (Đ14, Đ19) |
 | **Đ27** | Phiếu thử điện thoại thêm **Lời hứa 2b**: mở lại app trong lúc *vẫn đang* mất sóng |
+| **Đ41** | Đo được rồi: với nhóm **20 bé**, phần **máy** của cả việc ghi nhật ký hết **dưới 1 giây**. Nghĩa là gần trọn 5 phút là thời gian của **người** — nếu buổi thí điểm trượt chỉ tiêu này thì đi sửa số lần chạm và cách bày màn hình, **đừng đi tối ưu máy chủ** |
 
 ### 2.3 Việc làm cho bộ kiểm thử thôi nói dối
 
@@ -55,6 +56,8 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ26** | Hai phép kiểm *"chạy khi mất mạng"* của `test:pwa` **luôn xanh dù app hỏng hẳn**. Thay bằng phép kiểm đọc thẳng nội dung cache |
 | — | Bảng số kiểm thử ở `docs/TIEN-DO.md` ghi 2183/265, số thật là 2469/379. Sửa số, và sửa luôn cái làm số ấy lệch: thêm ngày đo và hai lệnh tự đếm lại |
 | **Đ39** | Bài học **B9** — *"màn nào hiện dữ liệu thì phải tạo được qua giao diện"* — trước chỉ được canh cho mười màn **lõi kế thừa từ app 1**. Nay phủ đủ **tám phân hệ mầm non**, mỗi phân hệ đi đủ vòng: mở màn → điền → lưu → **thấy lại**. Kèm một bộ canh cho chính món nợ đó: thêm phân hệ thứ chín mà quên đường ghi là bài đỏ ngay |
+| **Đ40** | Bộ canh VERSION **tự mở một lỗ** ở đúng chế độ GitHub chạy: một commit xin thoát hợp lệ (sửa chú thích) là miễn kiểm tra cho **cả loạt commit**, kể cả commit sửa thật màn hình mà quên tăng số. Nay đường thoát chỉ miễn cho tệp của chính commit đó |
+| **Đ41** | Chỉ tiêu *"nhật ký cả nhóm dưới 5 phút"* — một trong ba chỉ tiêu bản kế hoạch hứa **đo được ngay trong bài test** — trước không có bài nào chạm tới. Nay có, và nó nói thẳng phần nào bài test đo được, phần nào không |
 
 ---
 
@@ -162,4 +165,4 @@ Sổ việc gốc có **161 mục**. Sau đợt này:
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ39.*
+*Cập nhật lần cuối: sau đợt Đ41.*

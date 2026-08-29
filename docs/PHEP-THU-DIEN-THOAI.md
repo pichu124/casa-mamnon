@@ -119,6 +119,10 @@ Và một điều phải nói trước, nếu không cô sẽ tưởng app hỏn
 
 > Bốn mục: **1 · 2 · 2b · 3**. Mục 2b thêm sau đợt Đ12, đo đúng cái mà bản
 > trước của phiếu này nghĩ là chỉ hỏng khi thiếu HTTPS.
+>
+> **Bản kế hoạch còn hai chỉ tiêu thời gian nữa** (nhật ký cả nhóm dưới 5 phút,
+> một quan sát ≤ 3 phút). Chúng cần một nhóm thật với đủ sĩ số nên không đo
+> trong buổi này được — xem **mục 4b** ở dưới, và mang sang buổi thí điểm.
 
 ### Lời hứa 1 — NHANH: dưới 20 giây
 
@@ -204,6 +208,58 @@ Ngay sau Lời hứa 2 và 2b, đếm số bài ghi trong danh sách.
 - [ ] Đúng bằng số cô đã ghi, **không có bài nào lặp**.
 - [ ] Thử thêm: mất sóng, ghi 1 bài, mở lại app **hai lần liên tiếp** → vẫn chỉ
       một bài.
+
+---
+
+## 4b. Hai chỉ tiêu thời gian còn lại — đo ở buổi thí điểm, không phải hôm nay
+
+`docs/KE-HOACH.md` hứa **ba** chỉ tiêu thời gian, không phải một. Lời hứa 1 ở
+trên đo chỉ tiêu thứ nhất. Hai chỉ tiêu còn lại thuộc về **buổi thí điểm một
+nhóm** (GĐ 1 và GĐ 2), vì chúng cần một nhóm thật với đủ sĩ số — không đo được
+trong một buổi ngồi thử.
+
+Chép mục này sang buổi thí điểm. Ghi ở đây để **không chỉ tiêu nào bị bỏ quên**:
+`test/chi-tieu-thoi-gian.test.mjs` canh đúng việc đó, và sẽ báo đỏ nếu mục này
+biến mất.
+
+### Chỉ tiêu B — NHẬT KÝ CẢ NHÓM DƯỚI 5 PHÚT
+
+Đo vào đúng lúc cô làm thật: **khoảng 13:30**, sau giờ ngủ trưa, nhóm đủ sĩ số.
+
+Bấm giờ **từ lúc cô mở màn Nhật ký ngày**, dừng khi màn hình báo đã lưu.
+Cô làm theo đường nhanh nhất: *Đặt nhanh cho cả nhóm* → *Áp cho cả nhóm* →
+chỉnh riêng 2–3 bé khác biệt → *Lưu nhật ký cả nhóm*.
+
+| | Lần 1 | Lần 2 | Lần 3 |
+|---|---|---|---|
+| Sĩ số nhóm hôm đó | ……… bé | ……… bé | ……… bé |
+| Số bé cô phải chỉnh riêng | ……… | ……… | ……… |
+| **Tổng thời gian** | ……… phút | ……… phút | ……… phút |
+
+**Đạt:** dưới **5 phút** với nhóm đủ sĩ số.
+
+> **Phần máy đã đo được rồi, và nó rất nhỏ.** Bài
+> `test/chi-tieu-thoi-gian.test.mjs` dựng một nhóm 20 bé rồi đo đúng ba đoạn mà
+> máy chịu trách nhiệm — vẽ màn, áp cho cả nhóm, gửi lên và vẽ lại — hết **dưới
+> một giây**. Nghĩa là gần như trọn 5 phút là thời gian của **người**: cô nghĩ,
+> cô nhớ bé nào khác biệt, cô gõ. Nếu buổi thí điểm trượt chỉ tiêu này thì
+> nguyên nhân gần như chắc chắn nằm ở **số lần chạm và cách sắp xếp màn hình**,
+> không nằm ở tốc độ máy chủ — đừng đi tối ưu nhầm chỗ.
+
+### Chỉ tiêu C — MỘT QUAN SÁT ≤ 3 PHÚT *(GĐ 2)*
+
+Đo ở màn **Suy ngẫm cuối ngày**: từ lúc cô chạm vào một quan sát cho tới lúc cô
+lưu xong phần nhận định (lĩnh vực, mức độ, ở lớp cô làm gì tiếp).
+
+| | Lần 1 | Lần 2 | Lần 3 | Lần 4 | Lần 5 |
+|---|---|---|---|---|---|
+| **Thời gian** | ……… | ……… | ……… | ……… | ……… |
+
+**Đạt:** trung vị **≤ 3 phút** một quan sát.
+
+> App tự bấm giờ đoạn này và lưu vào cột `giaySuyNgam`, nhưng **số đó do trình
+> duyệt gửi lên**. Nó tốt để nhìn xu hướng qua nhiều tuần; nó không thay được
+> một lần bấm giờ tay để đối chiếu ở lần đầu.
 
 ---
 

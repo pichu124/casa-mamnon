@@ -342,6 +342,51 @@ console.log('\n[+] GHI NHẦM BÉ — xoá được, và ẢNH PHẢI ĐƯỢC D
   check('xoá lần hai thì báo không tìm thấy, không nổ', lai.status === 404, lai.status);
 }
 
+console.log('\n[12] SỐ GIÂY BỊA KHÔNG ĐƯỢC ĐẦU ĐỘC BẢNG TỔNG KẾT CỔNG DỪNG GĐ 0');
+{
+  // Ba con số ở mục [7] — nhanh nhất, trung vị, "số lần dưới 20 giây" — là bằng
+  // chứng nhà trường dùng để quyết định đi tiếp hay dừng. Nhưng chúng do TRÌNH
+  // DUYỆT gửi lên. Một bản ghi mang số âm hay số khổng lồ kéo lệch cả ba, và
+  // lệch theo hướng khó thấy nhất: số âm làm "nhanh nhất" đẹp lên.
+  const truoc = (await req('GET', '/api/thuchup/ket-qua', { cookie: T })).data;
+
+  const bia = [
+    ['số âm', 'f0000000-1111-2222-3333-000000000001', -5],
+    ['số không', 'f0000000-1111-2222-3333-000000000002', 0],
+    ['dài hơn một giờ', 'f0000000-1111-2222-3333-000000000003', 999999],
+  ];
+  for (const [ten, id, giay] of bia) {
+    const r = await req('POST', '/api/thuchup', { cookie: T, body: {
+      id, studentId: BE, note: `số giây ${ten}`, giay } });
+    check(`vẫn NHẬN ghi chép của cô dù số giây ${ten}`, r.status === 200, r.data);
+  }
+
+  const sau = (await req('GET', '/api/thuchup/ket-qua', { cookie: T })).data;
+  check('ba bản ghi đó KHÔNG được tính vào bảng tổng kết',
+    sau?.soLan === truoc?.soLan, `trước ${truoc?.soLan} → sau ${sau?.soLan}`);
+  check('"nhanh nhất" không bị số âm kéo xuống',
+    sau?.nhanhNhat === truoc?.nhanhNhat, sau?.nhanhNhat);
+  check('"chậm nhất" không bị số khổng lồ kéo lên',
+    sau?.chamNhat === truoc?.chamNhat, sau?.chamNhat);
+  check('và số lần dưới 20 giây giữ nguyên',
+    sau?.duoi20Giay === truoc?.duoi20Giay, sau?.duoi20Giay);
+
+  // Nhưng ghi chép của cô về đứa trẻ thì KHÔNG được mất chỉ vì cái đồng hồ.
+  const ds = (await req('GET', '/api/thuchup', { cookie: T })).data?.ghiNhan || [];
+  const conDu = bia.every(([, id]) => ds.some(g => g.id === id));
+  check('CẢ BA GHI CHÉP VẪN CÒN NGUYÊN TRONG DANH SÁCH CỦA CÔ', conDu,
+    ds.map(g => g.id));
+
+  // Số giây thật thì vẫn phải lọt qua — nếu không thì bộ lọc đã ăn cả số đúng.
+  await req('POST', '/api/thuchup', { cookie: T, body: {
+    id: 'f0000000-1111-2222-3333-000000000009', studentId: BE,
+    note: 'số giây thật', giay: 8.5 } });
+  const cuoi = (await req('GET', '/api/thuchup/ket-qua', { cookie: T })).data;
+  check('số giây HỢP LỆ vẫn được tính bình thường',
+    cuoi?.soLan === truoc?.soLan + 1 && cuoi?.nhanhNhat === 8.5,
+    `soLan ${cuoi?.soLan} · nhanhNhat ${cuoi?.nhanhNhat}`);
+}
+
 may.dung();
 donThuMucTam(DIR);
 tongKet();

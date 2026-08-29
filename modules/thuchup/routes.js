@@ -20,6 +20,11 @@ module.exports = (app, { db }) => {
   const MAX_NOTE = 500;
   const GIOI_HAN = 50;
 
+  // Khoảng hợp lý cho hai con số do trình duyệt gửi lên. Rộng rãi có chủ ý:
+  // chúng chỉ chặn thứ KHÔNG THỂ đúng, không đoán thay cô.
+  const GIAY_TOI_DA = 3600;             // một giờ cho một khoảnh khắc
+  const CHO_TOI_DA = 30 * 24 * 3600;    // ba mươi ngày nằm trong hàng đợi
+
   function nowIso() {
     return new Date().toISOString();
   }
@@ -121,16 +126,30 @@ module.exports = (app, { db }) => {
       }
     }
 
+    // SỐ GIÂY LÀ DO TRÌNH DUYỆT GỬI LÊN, NÊN PHẢI LỌC TRƯỚC KHI LƯU.
+    //
+    // Ba con số của phép thử GĐ 0 — nhanh nhất, trung vị, "số lần dưới 20
+    // giây" — là bằng chứng nhà trường dùng để quyết định đi tiếp hay dừng.
+    // Một bản ghi mang `giay: -5` hay `giay: 1e9` (đồng hồ máy nhảy, một tab
+    // mở từ hôm qua, hay ai đó gửi tay) kéo lệch cả ba, và lệch theo hướng
+    // KHÓ THẤY NHẤT: số âm làm "nhanh nhất" đẹp lên, số khổng lồ làm trung vị
+    // xấu đi.
+    //
+    // Ngoài khoảng hợp lý thì lưu `null` = "lần này không đo được", chứ KHÔNG
+    // từ chối bản ghi: ghi chép của cô về một đứa trẻ không được mất chỉ vì
+    // cái đồng hồ. Bảng tổng kết đã lọc `giay IS NOT NULL` sẵn.
     const soGiay = Number(b.giay);
+    const giayHopLe = Number.isFinite(soGiay) && soGiay > 0 && soGiay <= GIAY_TOI_DA;
     const cho = Number(b.choBaoLau);
+    const choHopLe = Number.isFinite(cho) && cho >= 0 && cho <= CHO_TOI_DA;
     const record = {
       id,
       studentId: b.studentId,
       file,
       note,
-      giay: Number.isFinite(soGiay) ? Math.round(soGiay * 10) / 10 : null,
+      giay: giayHopLe ? Math.round(soGiay * 10) / 10 : null,
       ngoaiTuyen: b.ngoaiTuyen ? 1 : 0,
-      choBaoLau: Number.isFinite(cho) ? Math.round(cho * 10) / 10 : null,
+      choBaoLau: choHopLe ? Math.round(cho * 10) / 10 : null,
       taoLuc: String(b.taoLuc || '').slice(0, 40) || nowIso(),
       nhanLuc: nowIso(),
       byTeacherId: req.user.id,

@@ -596,8 +596,8 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2615**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **434**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2627**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **449**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -820,3 +820,5 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ37** — đóng nhóm là cắt quyền cô ngay **dù nhóm đó vẫn còn bé**, nhưng bảng phân công không bị xoá; trước đó điều này chỉ nằm trong một dòng chú thích | Sổ việc 57 |
 | 28/08/2026 | **Đ38** — vai **Cấp 3** lần đầu được mở trên trình duyệt thật: không lọt tên bé của cơ sở khác lên màn hình, không lọt vào ô chọn nhóm, và gọi thẳng API từ trong phiên cũng bị từ chối | Sổ việc 74 |
 | 29/08/2026 | **Đ39** — bài học **B9** (*màn nào hiện dữ liệu thì phải tạo được qua giao diện*) lần đầu phủ **cả tám phân hệ mầm non**, đi đủ vòng mở màn → điền → lưu → thấy lại. Tìm ra và vá lỗi thật: ô *Chọn bé* của màn Học phí không có tác dụng, nên khoản thu văn phòng tạo ra rơi vào **nhà người khác** | Sổ việc 71 |
+| 29/08/2026 | **Đ40** — bộ canh VERSION tự mở một lỗ ở chế độ `--khoang` (chế độ GitHub chạy): **một** commit có dòng `Khong-can-sw:` miễn kiểm tra cho **cả khoảng**. Nay đường thoát chỉ miễn cho tệp của chính commit đó | — |
+| 29/08/2026 | **Đ41** — chỉ tiêu *nhật ký cả nhóm dưới 5 phút* lần đầu có phép đo: dựng nhóm **20 bé** rồi đo đúng ba đoạn máy chịu trách nhiệm (**dưới 1 giây**), và đo *một lần chạm lấp được bao nhiêu ô*. Phiếu thử máy thật thêm chỗ đo cho **hai chỉ tiêu còn lại**. Siết `modules/thuchup/routes.js`: số giây bịa không còn đầu độc bảng tổng kết cổng DỪNG GĐ 0 | Sổ việc 55 |
