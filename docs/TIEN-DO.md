@@ -6,6 +6,7 @@ Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.
 - Đang xây cái gì, theo thứ tự nào → `docs/KE-HOACH.md`
 - Quy định bắt buộc khi sửa mã → `CLAUDE.md`
 - Vá lỗi phần nền chung với app 1 → `docs/LOI-NEN-CHUNG.md`
+- **Báo cáo gọn cho người dùng** (đã làm gì, tự quyết gì, chờ gì) → `docs/BAO-CAO-TU-LAM.md`
 
 > Nhật ký nâng cấp của **app 1** (các mục B1…B14) không nằm ở đây nữa. Nó vẫn còn
 > nguyên trong lịch sử git: `git show bc9dfa3:docs/TIEN-DO.md`.
@@ -594,7 +595,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2435**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2463**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **379**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -619,6 +620,8 @@ Các bộ **mới của app 2**, không có ở app 1:
 | `test:du-lieu-mau-phan-he` | 34 | Bật phân hệ lên là có cái để xem — câu chuyện bé An chạy suốt tám phân hệ |
 | `test:quy-tac-4` | 17 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm |
 | `test:chuc-vu` | 106 | Tầng chức vụ: chiều cấm VÀ chiều cho phép, trên bốn phân hệ nhạy cảm nhất |
+| `test:sw-version-kiemthu` | 28 | Đổi `public/` mà quên tăng `VERSION` là điện thoại đã cài kẹt bản cũ |
+| `test:sw-version-kiemthu` | 28 | Đổi `public/` mà quên tăng `VERSION` là điện thoại đã cài kẹt bản cũ |
 | `test:quyen-du-lieu-be` | 14 | **Mọi** đường API đọc dữ liệu của bé phải đi qua một hàm canh quyền |
 | `test:khong-hua-suong` | 11 | App không được hứa thứ nó không làm được (bài học A5) |
 
@@ -803,3 +806,5 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ26** — hai phép kiểm "chạy khi mất mạng" của `test:pwa` thôi luôn xanh: thay bằng phép kiểm đọc thẳng nội dung cache, và ghi rõ chỗ `setOffline` của Playwright không kiểm được | Sổ việc 9 |
 | 28/08/2026 | **Đ27** — phiếu thử điện thoại thêm **Lời hứa 2b**: mở lại app trong lúc VẪN đang mất sóng (bản trước kết luận nhầm rằng chỗ đó chỉ hỏng khi thiếu HTTPS) | Sổ việc 22 |
 | 28/08/2026 | **Đ28** — Nhật ký ngày cất phần cô gõ dở vào máy theo (nhóm, ngày); mở lại app thì HỎI cô có điền lại không, không tự điền đè lên phần cô khác vừa lưu | Sổ việc 38 |
+| 28/08/2026 | **Đ29** — quy định "đổi `public/` thì tăng `VERSION`" nay canh bằng máy ở ba chỗ; đối chiếu lịch sử thấy Đ14 và Đ19 đã quên thật | Sổ việc 65, 72 |
+| 28/08/2026 | **Đ29** — quy định "đổi `public/` thì tăng `VERSION`" nay canh bằng máy ở ba chỗ; đối chiếu lịch sử thấy Đ14 và Đ19 đã quên thật | Sổ việc 65, 72 |

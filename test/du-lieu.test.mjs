@@ -102,7 +102,13 @@ console.log('\n[4] Chặn thật khi commit, kể cả khi cố tình ép bằng
   g('init', '-q');
   g('config', 'user.email', 'kiemthu@example.com');
   g('config', 'user.name', 'Kiem Thu');
-  for (const t of ['kiem-tra-du-lieu.js', 'kiem-tra-commit.js']) {
+  // Chép ĐÚNG những script mà móc `commit-msg` gọi tới — đọc từ chính móc đó,
+  // không liệt kê tay. Liệt kê tay thì thêm một chốt chặn mới vào móc là bài
+  // này đỏ vì lý do không liên quan tới thứ nó đang canh (đã xảy ra một lần khi
+  // thêm `kiem-tra-sw.js`).
+  const noiDungMoc = fs.readFileSync(path.join(GOC, '.githooks', 'commit-msg'), 'utf8');
+  const scriptCuaMoc = [...noiDungMoc.matchAll(/scripts\/([\w-]+\.js)/g)].map(m => m[1]);
+  for (const t of new Set(scriptCuaMoc)) {
     fs.copyFileSync(path.join(GOC, 'scripts', t), path.join(kho, 'scripts', t));
   }
   fs.copyFileSync(path.join(GOC, '.githooks', 'commit-msg'), path.join(kho, '.githooks', 'commit-msg'));

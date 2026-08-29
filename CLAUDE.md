@@ -218,7 +218,11 @@ tiếp quản mã.
 
 - **Sau mỗi phần hoàn thiện: cập nhật `docs/TIEN-DO.md`, commit, rồi push.**
 - Đổi bất cứ tệp nào trong `public/` thì **tăng số `VERSION` trong `public/sw.js`**,
-  nếu không điện thoại đã cài app sẽ kẹt ở bản cũ.
+  nếu không điện thoại đã cài app sẽ kẹt ở bản cũ. **Đã canh bằng máy**:
+  `npm run test:sw-version`, móc `.githooks/commit-msg`, và một job riêng trên
+  GitHub. Bộ canh so với **nhánh chính**, không so với commit ngay trước — cả
+  nhánh chỉ cần tăng một lần là đủ. Thật sự không cần tăng thì thêm một dòng
+  riêng vào lời commit: `Khong-can-sw: <lý do>`.
 - Giao diện và mọi thông báo lỗi viết **bằng tiếng Việt**, dễ hiểu với giáo viên và
   phụ huynh không rành máy tính. Đừng để lộ thuật ngữ kỹ thuật ra màn hình.
 - **Gọi đúng tên của bậc mầm non**: *bé / trẻ* (không phải "học sinh"), *nhóm lớp*

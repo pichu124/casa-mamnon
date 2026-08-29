@@ -75,7 +75,13 @@ console.log('\n[3] Chặn thật khi commit trong một kho git');
     fs.mkdirSync(path.join(kho, d), { recursive: true });
   }
   // Móc commit-msg chạy CẢ HAI bộ canh, nên kho thử phải có đủ cả hai.
-  for (const t of ['kiem-tra-commit.js', 'kiem-tra-du-lieu.js']) {
+  // Chép ĐÚNG những script mà móc `commit-msg` gọi tới — đọc từ chính móc đó,
+  // không liệt kê tay. Liệt kê tay thì thêm một chốt chặn mới vào móc là bài
+  // này đỏ vì lý do không liên quan tới thứ nó đang canh (đã xảy ra một lần khi
+  // thêm `kiem-tra-sw.js`).
+  const noiDungMoc = fs.readFileSync(path.join(GOC, '.githooks', 'commit-msg'), 'utf8');
+  const scriptCuaMoc = [...noiDungMoc.matchAll(/scripts\/([\w-]+\.js)/g)].map(m => m[1]);
+  for (const t of new Set(scriptCuaMoc)) {
     fs.copyFileSync(path.join(GOC, 'scripts', t), path.join(kho, 'scripts', t));
   }
   fs.copyFileSync(path.join(GOC, '.githooks', 'commit-msg'),

@@ -65,8 +65,39 @@ jobs:
           echo "Khoảng kiểm tra: $KHOANG"
           node scripts/kiem-tra-commit.js --khoang "$KHOANG"
 
+  sw-version:
+    name: Đổi public/ thì phải tăng VERSION của service worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # cần đủ lịch sử để biết những commit nào là mới
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Không tăng VERSION thì điện thoại đã cài app chạy mãi bản cũ, và không
+      # ai tái hiện được vì máy của người sửa chưa cài app.
+      #
+      # Xét CẢ KHOẢNG như một đơn vị, không xét từng commit: quy định commit
+      # riêng bắt tách một đợt việc làm hai ba commit, và chỉ một trong số đó
+      # tăng VERSION. Thứ đi tới máy của cô là trạng thái cuối khoảng.
+      - name: Kiểm tra khoảng commit mới
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            KHOANG="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
+               && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            KHOANG="${{ github.event.before }}..${{ github.sha }}"
+          else
+            KHOANG="${{ github.sha }}~1..${{ github.sha }}"
+          fi
+          echo "Khoảng kiểm tra: $KHOANG"
+          node scripts/kiem-tra-sw.js --khoang "$KHOANG"
+
   kiem-thu:
-    name: Kiểm thử (932 bài)
+    name: Kiểm thử (không cần trình duyệt)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +109,7 @@ jobs:
       - run: npm test
 
   kiem-thu-giao-dien:
-    name: Kiểm thử giao diện (209 bài)
+    name: Kiểm thử giao diện (Chromium thật)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

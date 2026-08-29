@@ -1,6 +1,6 @@
 #!/bin/sh
 # Chạy mỗi lần `git commit`, sau khi lời commit đã soạn xong.
-# Xem lý do đầy đủ trong hai script bên dưới và trong CLAUDE.md.
+# Xem lý do đầy đủ trong ba script bên dưới và trong CLAUDE.md.
 DIR="$(dirname "$0")/.."
 
 # 1. Không để dữ liệu thật của trường lọt lên kho mã. Không có đường thoát.
@@ -8,3 +8,6 @@ node "$DIR/scripts/kiem-tra-du-lieu.js" || exit 1
 
 # 2. Sửa tệp dùng chung phải là commit riêng.
 node "$DIR/scripts/kiem-tra-commit.js" --tin-nhan "$1" || exit 1
+
+# 3. Đổi public/ thì phải tăng VERSION, nếu không máy đã cài app kẹt bản cũ.
+node "$DIR/scripts/kiem-tra-sw.js" --tin-nhan "$1" || exit 1
