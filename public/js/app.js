@@ -44,7 +44,57 @@ window.App = {
       navigator.serviceWorker.register('/sw.js').catch(() => {
         /* không hỗ trợ hoặc không chạy qua HTTPS — app vẫn dùng bình thường */
       });
+      this.ngheBanMoi();
     });
+  },
+
+  // CÓ BẢN MỚI THÌ PHẢI NÓI, NHƯNG TUYỆT ĐỐI KHÔNG TỰ TẢI LẠI.
+  //
+  // Cả bộ máy VERSION (Đ29, Đ40, Đ43) chỉ lo một việc: bản mới TỚI ĐƯỢC máy của
+  // cô. Nhưng service worker mới nhận quyền xong thì TRANG ĐANG MỞ vẫn chạy mã
+  // cũ nằm trong bộ nhớ — cô đọc tài liệu thấy có nút mới, mở máy ra không thấy,
+  // và không ai hiểu vì sao. Đây là nửa sau của cùng một vấn đề.
+  //
+  // VÌ SAO KHÔNG `location.reload()` NGAY:
+  //
+  // Cô có thể đang gõ dở nhật ký của hai mươi bé. Tải lại là mất sạch phần chưa
+  // bấm Lưu — đúng thứ Đ28 dựng cả cơ chế giữ nháp để tránh. Một dải nhắc tốn
+  // của cô một cú bấm; tự tải lại tốn của cô cả buổi làm.
+  //
+  // `controllerchange` bắn khi service worker MỚI đã nhận quyền điều khiển
+  // trang. Từ giây đó, mọi tệp trang xin về đều là bản mới, còn mã đang chạy
+  // thì vẫn là bản cũ — nên đây đúng là lúc phải nói.
+  ngheBanMoi() {
+    try {
+      const sw = navigator.serviceWorker;
+      if (!sw || this._daNgheBanMoi) return;
+      this._daNgheBanMoi = true;
+      sw.addEventListener('controllerchange', () => {
+        // Lần đầu cài app cũng bắn sự kiện này, mà lúc đó KHÔNG có bản cũ nào
+        // để thay — nhắc là nhắc sai. Chỉ nhắc khi trang đã có người điều khiển
+        // từ trước, tức thật sự là một lần ĐỔI bản.
+        if (!this._daCoNguoiDieuKhien) return;
+        this.baoCoBanMoi();
+      });
+      this._daCoNguoiDieuKhien = !!sw.controller;
+    } catch (_) { /* trình duyệt cũ thì thôi, app vẫn chạy */ }
+  },
+
+  baoCoBanMoi() {
+    if (document.getElementById('ban-moi-banner')) return;
+    const b = document.createElement('div');
+    b.className = 'push-banner';
+    b.id = 'ban-moi-banner';
+    b.innerHTML = `
+      <span class="pb-logo">🔄</span>
+      <div class="pb-text"><b>Đã có bản mới</b><span>Bấm để dùng bản mới. Phần đang gõ dở nên lưu trước.</span></div>
+      <button class="pb-bell" id="bm-tai-lai">${UI.icon('check', 20)}</button>
+      <button class="pb-close" id="bm-de-sau">${UI.icon('x', 18)}</button>`;
+    document.body.appendChild(b);
+    document.getElementById('bm-tai-lai').onclick = () => location.reload();
+    // "Để sau" chỉ tắt dải nhắc của lần này, KHÔNG ghi nhớ vào máy: lần mở app
+    // sau cô vẫn đang ở bản cũ, nên vẫn đáng được nhắc lại.
+    document.getElementById('bm-de-sau').onclick = () => b.remove();
   },
 
   // Ghi lại lời mời cài đặt của Chrome/Edge để hiện nút "Cài đặt ứng dụng" trong Cài đặt.

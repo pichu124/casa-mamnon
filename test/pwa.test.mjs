@@ -250,6 +250,87 @@ console.log('\n[4] Chế độ đã cài như app');
   await ctx.close();
 }
 
+// ---------- 5. Có bản mới thì app phải NÓI, và không được tự tải lại ----------
+console.log('\n[5] Có bản mới thì app nói, nhưng KHÔNG tự tải lại');
+{
+  // Cả bộ máy VERSION lo cho bản mới TỚI ĐƯỢC máy của cô. Nhưng trang đang mở
+  // vẫn chạy mã cũ trong bộ nhớ — cô đọc tài liệu thấy có nút mới, mở máy ra
+  // không thấy, và không ai hiểu vì sao.
+  //
+  // Không dựng được một lần đổi service worker thật trong bài này (phải sửa
+  // byte của sw.js giữa chừng), nên đo hai thứ đo được và chúng đủ để chặn cả
+  // hai kiểu hỏng: app có NGHE sự kiện đó không, và dải nhắc có đúng nết không.
+  const ctx = await tatBannerMoiCai(await browser.newContext({ ...devices['iPhone 14'] }));
+  const p = await ctx.newPage();
+  const jsLoi = [];
+  p.on('pageerror', e => jsLoi.push(e.message));
+  await p.goto(BASE);
+  await p.waitForSelector('#lg-user');
+  await p.fill('#lg-user', 'giaovien'); await p.fill('#lg-pass', '123456');
+  await p.click('#login-form button[type=submit]');
+  await p.waitForSelector('.tile-grid');
+
+  check('app có gắn máy nghe "đổi bản" của service worker',
+    await p.evaluate(() => typeof App.ngheBanMoi === 'function' && App._daNgheBanMoi === true));
+  check('và có hàm dựng dải nhắc bản mới',
+    await p.evaluate(() => typeof App.baoCoBanMoi === 'function'));
+
+  // Chưa đổi bản thì TUYỆT ĐỐI không được nhắc — nhắc sai một lần là lần sau
+  // cô bỏ qua mọi lời nhắc.
+  check('chưa có bản mới thì KHÔNG có dải nhắc nào',
+    await p.locator('#ban-moi-banner').count() === 0);
+
+  // BẮN ĐÚNG SỰ KIỆN THẬT, KHÔNG GỌI TẮT VÀO HÀM DỰNG DẢI NHẮC.
+  //
+  // Bản đầu của mục này gọi thẳng `App.baoCoBanMoi()`. Phép thử ngược cho thấy
+  // nó bỏ lọt đúng kiểu hỏng nặng nhất: đổi máy nghe thành `location.reload()`
+  // thì bài vẫn xanh, vì bài không bao giờ đi qua máy nghe. Nay bắn
+  // `controllerchange` trên chính `navigator.serviceWorker`, đúng như trình
+  // duyệt bắn khi service worker mới nhận quyền.
+  await p.evaluate(() => {
+    App._daCoNguoiDieuKhien = true;   // giả cảnh trang đã có bản cũ điều khiển
+    navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+  });
+  await p.waitForTimeout(500);
+  check('DẢI NHẮC HIỆN LÊN', await p.locator('#ban-moi-banner').count() === 1);
+  const chu = await p.locator('#ban-moi-banner').innerText();
+  check('nói bằng tiếng Việt dễ hiểu, không lộ thuật ngữ',
+    /bản mới/i.test(chu) && !/service worker|cache|version/i.test(chu), chu);
+  check('và nhắc cô lưu phần đang gõ dở trước', /gõ dở|lưu/i.test(chu), chu);
+
+  check('có nút tải lại', await p.locator('#bm-tai-lai').count() === 1);
+  check('và có nút để sau', await p.locator('#bm-de-sau').count() === 1);
+
+  // KHÔNG TỰ TẢI LẠI. Cô có thể đang gõ dở nhật ký của hai mươi bé.
+  //
+  // Đo bằng một dấu vết chỉ sống trong trang: tải lại là nó biến mất. So
+  // `location.href` không đủ — tải lại xong địa chỉ vẫn y hệt.
+  await p.evaluate(() => { window.__dauVetTruocKhiNhac = 'con-nguyen'; });
+  await p.evaluate(() => {
+    navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+  });
+  await p.waitForTimeout(1500);
+  check('KHÔNG TỰ TẢI LẠI TRANG — cô có thể đang gõ dở',
+    (await p.evaluate(() => window.__dauVetTruocKhiNhac)) === 'con-nguyen'
+    && await p.locator('#ban-moi-banner').count() === 1);
+
+  // Và nhắc hai lần cũng chỉ một dải, không chồng lên nhau.
+  check('bắn sự kiện lần nữa vẫn chỉ MỘT dải nhắc',
+    await p.locator('#ban-moi-banner').count() === 1);
+
+  await p.locator('#bm-de-sau').click();
+  await p.waitForTimeout(300);
+  check('bấm "để sau" thì dải nhắc biến đi', await p.locator('#ban-moi-banner').count() === 0);
+
+  // Và KHÔNG ghi nhớ vào máy: lần mở sau cô vẫn đang ở bản cũ nên vẫn đáng nhắc.
+  check('"để sau" KHÔNG ghi nhớ vào máy',
+    await p.evaluate(() => !Object.keys(localStorage).some(k => /ban-moi/i.test(k))),
+    await p.evaluate(() => Object.keys(localStorage)));
+
+  check('không có lỗi JavaScript trong suốt mục này', jsLoi.length === 0, jsLoi);
+  await ctx.close();
+}
+
 await browser.close();
 console.log(`\n===== PASS: ${pass}  FAIL: ${fail} =====`);
 if (errs.length) { console.log('\nLỖI:'); errs.forEach(e => console.log(' ✗', e)); process.exit(1); }

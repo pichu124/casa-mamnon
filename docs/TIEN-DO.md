@@ -597,7 +597,7 @@ nói ra thứ nó đang hiện.**
 | Bộ | Số bài |
 |---|---|
 | `npm test` (không cần trình duyệt, ~12 phút) | **2793**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **454**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **467**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -830,3 +830,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 29/08/2026 | **Đ47** — bước *"đọc bảng của phân hệ khác thì hỏi công tắc trước"* nay có **máy canh** (`test:doc-cheo`) và được `modules/README.md` dạy hẳn hoi. Đây là bước đã bị quên **ba lần** (Y1, N24, Đ46); bộ canh mới thử ngược đúng lỗi Đ46 và bắt được | Sổ việc 93 |
 | 29/08/2026 | **Đ48** — `GET /api/kehoachbe/be` là mặt API trả dữ liệu của trẻ mà **chưa màn hình nào gọi và chưa bài nào chạm**. Nay có 10 phép kiểm: ranh giới nhóm, ranh giới nhà, tầng cơ sở, và QUY TẮC 4. Số phận của nó (dựng màn hình hay gỡ) vẫn chờ nhà trường | Sổ việc 91 |
 | 29/08/2026 | **Đ50** — mẹo nhận diện *"nền chung"* trong `docs/LOI-NEN-CHUNG.md` **ghi ngược**, và bảng chỉ có **13 tệp trong khi thực tế 28** — thiếu cả `server.js`, `lib/password.js`, `lib/importer.js`. Nay mẹo đúng chiều, bảng đủ, và `test:nen-chung` suy danh sách thẳng từ git nên không bỏ sót lại được | Sổ việc 102, 103 |
+| 29/08/2026 | **Đ51** — có bản mới thì app **nói một câu**, và **tuyệt đối không tự tải lại**: cô có thể đang gõ dở nhật ký của hai mươi bé. Cả bộ máy VERSION trước đó chỉ lo cho bản mới TỚI ĐƯỢC máy cô, còn trang đang mở vẫn chạy mã cũ mà không ai báo | Sổ việc 98 |
