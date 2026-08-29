@@ -362,6 +362,56 @@ console.log('\n[6] Nhật ký ngày: app bị đóng giữa chừng thì phần 
     (await page.locator('#nk-nhap-dung').count()) === 0);
 }
 
+// ===========================================================================
+console.log('\n[7] BỐ CỤC ĐIỆN THOẠI CỦA TÁM MÀN PHÂN HỆ — vai CÔ, không phải vai gia đình');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `test/pwa.test.mjs` có kiểm cuộn ngang và vùng chạm, nhưng chỉ trên NĂM màn
+  // lõi kế thừa từ app 1, và chỉ với vai PHỤ HUYNH. Tám màn mầm non — những màn
+  // cô dùng thật, một tay bế trẻ một tay cầm điện thoại — chưa từng được đo.
+  //
+  // Hai thứ đo ở đây đều là thứ chỉ trình duyệt thật trả lời được:
+  //
+  //   CUỘN NGANG. Một bảng rộng hay một dòng chữ không xuống dòng là cả trang
+  //   trượt sang ngang. Trên điện thoại, cô sẽ mất nút Lưu ở mép phải màn hình
+  //   và không hiểu vì sao.
+  //
+  //   VÙNG CHẠM DƯỚI 32px. Ngón tay người lớn cầm điện thoại một tay không bấm
+  //   trúng. Cô sẽ bấm hai ba lần, hoặc bấm nhầm nút bên cạnh — mà ở màn Nhật ký
+  //   thì nút bên cạnh là của một bé khác.
+  //
+  // Bài này KHÔNG đòi màn nào đẹp. Nó chỉ đòi hai điều trên, và đo trên khổ
+  // 390x844 — đúng khổ iPhone phổ biến nhất.
+  await dangNhap(TAI_KHOAN.co.u, TAI_KHOAN.co.p);
+
+  const CUA_CO = MAN.filter(m => m.vai.includes('co'));
+  check('có đủ màn của cô để đo', CUA_CO.length >= 6, CUA_CO.map(m => m.ma));
+
+  for (const m of CUA_CO) {
+    await page.goto(`${sv.BASE}/${m.hash}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(900);
+
+    const tran = await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    check(`${m.ten}: KHÔNG cuộn ngang trên khổ điện thoại`, tran <= 1, `tràn ${tran}px`);
+
+    const nhoQua = await page.evaluate(() => {
+      const ra = [];
+      for (const el of document.querySelectorAll('button, a[href], select, input[type=checkbox]')) {
+        const r = el.getBoundingClientRect();
+        // Bỏ qua phần tử đang ẩn: chiều rộng hoặc cao bằng 0.
+        if (r.width <= 0 || r.height <= 0) continue;
+        if (r.height < 32 || r.width < 32) {
+          ra.push(`${el.tagName}.${el.className || '-'}:${Math.round(r.width)}x${Math.round(r.height)}`);
+        }
+      }
+      return ra.slice(0, 5);
+    });
+    check(`${m.ten}: không nút nào nhỏ hơn đầu ngón tay`, nhoQua.length === 0, nhoQua);
+  }
+}
+
 await ctx.close();
 await browser.close();
 await sv.dung();

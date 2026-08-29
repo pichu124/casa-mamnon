@@ -596,7 +596,7 @@ nói ra thứ nó đang hiện.**
 | Bộ | Số bài |
 |---|---|
 | `npm test` (không cần trình duyệt, ~12 phút) | **2533**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **346**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **363**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -633,7 +633,7 @@ Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so
 | Bộ | Bài | Mới? | Canh gì |
 |---|---|---|---|
 | `test:bien-soan-gd` | 112 | kế thừa | Cô soạn thật trên Chromium: điểm danh, thực đơn, đơn nghỉ, hồ sơ bé |
-| `test:man-phan-he` | 97 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng; và **nháp Nhật ký ngày sống qua một lần app bị đóng** |
+| `test:man-phan-he` | 114 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng; và **nháp Nhật ký ngày sống qua một lần app bị đóng** |
 | `test:album` | 12 | kế thừa | Cô chọn ảnh và đăng album trên Chromium thật; đường nén ảnh dùng chung đi qua đây |
 | `test:pwa` | 45 | kế thừa | Cài được lên màn hình chính, service worker, icon, và **mọi tệp cần để mở app lúc mất mạng đều nằm sẵn trong cache** |
 | `test:nhieu-nhom` | 38 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
@@ -815,3 +815,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ33** — hai chỗ bài canh im lặng biến mất khi không dựng được tình huống nay tính là ĐỎ; thêm `test:bai-canh-that` canh chính bộ kiểm thử | Sổ việc 56, 69 |
 | 28/08/2026 | **Đ34** — tách phần API của bộ album ra `test:album-api` và đưa vào `npm test`; trước đó sửa `routes/albums.js` rồi chạy `npm test` là mọi chốt chống tệp giả danh ảnh đều không chạy | Sổ việc 64 |
 | 28/08/2026 | **Đ35** — sĩ số báo ăn nay neo vào hình dáng dữ liệu mẫu (trước chỉ so hai trường của cùng một câu trả lời); tầng chức vụ thử thêm vai Văn phòng cơ sở | Sổ việc 68, 70 |
+| 28/08/2026 | **Đ36** — đo bố cục điện thoại cho tám màn phân hệ với vai CÔ; tìm ra và vá lỗi thật: bốn ô nhập của Nhật ký ngày cao 21px, nhỏ hơn đầu ngón tay | Sổ việc 73 |

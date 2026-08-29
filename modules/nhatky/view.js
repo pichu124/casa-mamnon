@@ -327,6 +327,15 @@ App.views.nhatky = {
   },
 
   // Một thẻ cho một bé.
+  //
+  // MỌI Ô NHẬP ĐỀU NẰM TRONG `.field`, KHÔNG CÓ Ô NÀO ĐỨNG TRẦN.
+  //
+  // CSS chung chỉ cấp đệm cho ô nằm trong `.field`. Ô đứng trần cao đúng 21px
+  // trên khổ điện thoại — nhỏ hơn đầu ngón tay người lớn cầm máy một tay. Cô sẽ
+  // bấm hai ba lần, hoặc bấm nhầm sang ô của BÉ KHÁC ngay bên cạnh.
+  //
+  // Chỗ này từng sai đúng như vậy ở hai ô giờ ngủ và hai ô ghi chú; bộ canh bố
+  // cục điện thoại trong `test/man-hinh-phan-he.test.mjs` mục [7] tìm ra.
   theBe(b, coNhaTre) {
     const id = UI.esc(b.studentId);
     const chon = (ten, ma, ds, dangChon) => `
@@ -352,16 +361,22 @@ App.views.nhatky = {
           <div class="field" style="margin:0"><label>Trưa</label>${chon('Trưa', 'anTrua', this.MUC_AN, b.anTrua)}</div>
         </div>
         <div class="field mt-8" style="margin-bottom:0"><label>Bữa xế</label>${chon('Xế', 'anXe', this.MUC_AN, b.anXe)}</div>
-        <input class="nk-o mt-8" data-be="${id}" data-truong="anGhiChu" placeholder="Ghi chú về bữa ăn"
-          value="${UI.esc(b.anGhiChu || '')}">
+        <div class="field mt-8" style="margin-bottom:0">
+          <input class="nk-o" data-be="${id}" data-truong="anGhiChu" placeholder="Ghi chú về bữa ăn"
+            value="${UI.esc(b.anGhiChu || '')}">
+        </div>
 
         <div class="section-label">Ngủ</div>
-        <div class="flex" style="gap:6px">
-          ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguTuLuc" style="flex:1;min-width:0"`, b.nguTuLuc || '', 'từ')}
-          ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguDenLuc" style="flex:1;min-width:0"`, b.nguDenLuc || '', 'đến')}
+        <div class="grid-2">
+          <div class="field" style="margin:0"><label>Từ</label>
+            ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguTuLuc"`, b.nguTuLuc || '', 'từ')}</div>
+          <div class="field" style="margin:0"><label>Đến</label>
+            ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguDenLuc"`, b.nguDenLuc || '', 'đến')}</div>
         </div>
-        <input class="nk-o mt-8" data-be="${id}" data-truong="nguGhiChu" placeholder="Ví dụ: ngủ ngon, hoặc trằn trọc đầu giờ"
-          value="${UI.esc(b.nguGhiChu || '')}">
+        <div class="field mt-8" style="margin-bottom:0">
+          <input class="nk-o" data-be="${id}" data-truong="nguGhiChu" placeholder="Ví dụ: ngủ ngon, hoặc trằn trọc đầu giờ"
+            value="${UI.esc(b.nguGhiChu || '')}">
+        </div>
 
         <div class="section-label">Vệ sinh</div>
         <div class="grid-2">
@@ -379,8 +394,10 @@ App.views.nhatky = {
         : (coNhaTre ? '' : '')}
 
         <div class="section-label">Lời nhắn cho gia đình</div>
-        <textarea class="nk-o" data-be="${id}" data-truong="ghiChu" rows="2"
-          placeholder="Hôm nay có gì gia đình cần biết ạ">${UI.esc(b.ghiChu || '')}</textarea>
+        <div class="field" style="margin:0">
+          <textarea class="nk-o" data-be="${id}" data-truong="ghiChu" rows="2"
+            placeholder="Hôm nay có gì gia đình cần biết ạ">${UI.esc(b.ghiChu || '')}</textarea>
+        </div>
       </div>`;
   },
 
