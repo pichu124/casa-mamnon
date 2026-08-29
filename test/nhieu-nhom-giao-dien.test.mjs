@@ -16,28 +16,38 @@
 //
 // Nên bài này chạy trên trình duyệt thật và đi bằng chuột, không gọi API.
 import { chromium } from 'playwright';
-import { dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, CHROMIUM, tatBannerMoiCai, taoBoDem } from './_chung.mjs';
+import { dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo, datChucVu, CHROMIUM, tatBannerMoiCai, taoBoDem } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('nhieu-nhom-gd');
 sinhDuLieu(DIR);
 const mkTam = taoQuanTri(DIR, 'Cô Hiệu Trưởng', 'quantri');
+
+// Một tài khoản CẤP 3 — khoá vào cơ sở 1. Đây là vai chưa từng được mở trên
+// trình duyệt thật lần nào, dù tầng cơ sở là khác biệt lớn nhất giữa app 2 và
+// app 1. Mục [6] ở cuối tệp dùng nó.
+const mkCs1 = taoQuanTri(DIR, 'Quản Lý Cơ Sở 1', 'quanlycs1');
+datChucVu(DIR, 'quanlycs1', 'quanly-coso');
+khoaVaoCoSo(DIR, 'quanlycs1', 'cs1');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3907), dir: DIR });
 const BASE = sv.BASE;
 
 // Đổi mật khẩu tạm ngay, vì lần đăng nhập đầu app bắt đổi trước khi vào được.
 const MK_QUANTRI = 'quantri2026';
-{
+async function doiMatKhauTam(tenDangNhap, mkTamThoi, mkMoi) {
   const dn = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'quantri', password: mkTam }),
+    body: JSON.stringify({ username: tenDangNhap, password: mkTamThoi }),
   });
   const ck = dn.headers.get('set-cookie').split(';')[0];
   await fetch(`${BASE}/api/auth/set-new-password`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: ck },
-    body: JSON.stringify({ newPassword: MK_QUANTRI }),
+    body: JSON.stringify({ newPassword: mkMoi }),
   });
+  return ck;
 }
+await doiMatKhauTam('quantri', mkTam, MK_QUANTRI);
+await doiMatKhauTam('quanlycs1', mkCs1, MK_QUANTRI);
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
 const ctx = await tatBannerMoiCai(await browser.newContext({
@@ -266,6 +276,99 @@ console.log('\n[4d] Phụ huynh gõ nhầm vào màn của cô: nói tử tế, 
   check('không còn câu của máy chủ nói với máy',
     !/Không có quyền thực hiện/.test(chu), chu.slice(0, 200));
   check('nói bằng tiếng của người', /dành cho cô và nhà trường/.test(chu), chu.slice(0, 200));
+}
+
+// ===========================================================================
+console.log('\n[6] CẤP 3 TRÊN TRÌNH DUYỆT THẬT — không thấy bé của cơ sở khác');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Tầng cơ sở là khác biệt lớn nhất giữa app 2 và app 1 — ba cơ sở, mỗi quản
+  // lý chỉ được thấy cơ sở mình. Nhưng cho tới trước đợt Đ38, vai Cấp 3 CHƯA
+  // TỪNG được mở trên một trình duyệt thật lần nào: mọi bài về tầng cơ sở đều
+  // gọi API bằng `fetch`.
+  //
+  // Chỗ API đúng mà màn hình vẫn sai là chuyện có thật và hay xảy ra: màn hình
+  // giữ lại danh sách của lần tải trước, một ô chọn dựng từ nguồn khác, một
+  // đường gọi quên tham số lọc. Không mở màn thì không thấy.
+  //
+  // Bài này dựng đúng cảnh nguy hiểm: chuyển MỘT BÉ sang nhóm của cơ sở 2, rồi
+  // đăng nhập bằng tài khoản khoá vào cơ sở 1 và đi qua các màn có tên bé.
+  const A = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'quantri', password: MK_QUANTRI }),
+  });
+  const ckA = A.headers.get('set-cookie').split(';')[0];
+  const api = async (m, p, body) => {
+    const r = await fetch(`${BASE}${p}`, {
+      method: m,
+      headers: { 'Content-Type': 'application/json', Cookie: ckA },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let d = null; try { d = await r.json(); } catch { /* không phải JSON */ }
+    return { status: r.status, data: d };
+  };
+
+  // c3 "Mầm 1" thuộc cơ sở 2 và chưa có bé nào — chuyển một bé sang đó.
+  const dsBe = (await api('GET', '/api/admin/students')).data || [];
+  const be = dsBe.find(b => b.classId === 'c1');
+  check('có bé của cơ sở 1 để chuyển sang cơ sở 2', !!be, dsBe.length);
+  const chuyen = await api('PUT', `/api/admin/students/${be.id}`, { classId: 'c3' });
+  check('chuyển bé sang nhóm của cơ sở 2 → 200', chuyen.status === 200, chuyen.data);
+
+  await dangNhap('quanlycs1', MK_QUANTRI);
+
+  // Một bé của cơ sở 1 để làm CHỨNG CỨ MÀN HÌNH CÓ DỰNG THẬT.
+  const beCs1 = dsBe.find(b => b.classId === 'c1' && b.id !== be.id);
+  check('có một bé khác của cơ sở 1 để đối chứng', !!beCs1, dsBe.map(b => b.classId));
+
+  // Hai màn có tên bé. Mỗi màn hỏi BA điều, và câu hỏi thứ hai là câu quan
+  // trọng nhất:
+  //
+  //   1. màn dựng lên được, không rơi vào màn lỗi;
+  //   2. MÀN CÓ THẬT SỰ HIỆN TÊN BÉ KHÔNG — nếu không thì câu 3 vô nghĩa;
+  //   3. và không lọt tên bé của cơ sở khác.
+  //
+  // Thiếu câu 2 là bẫy đã sập một lần ngay trong đợt này: bản đầu của mục này
+  // mở `#/students`, mà phân hệ đó đang TẮT trong dữ liệu mẫu — màn hình hiện
+  // "Phân hệ này hiện đang được nhà trường tắt", không có tên bé nào, nên phép
+  // kiểm "không lọt tên bé của cơ sở khác" báo xanh mà chẳng kiểm gì.
+  for (const [hash, ten] of [['#/attendance', 'Điểm danh']]) {
+    await page.goto(`${BASE}/${hash}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    const chu = await page.locator('body').innerText();
+    check(`${ten}: Cấp 3 mở được, không rơi vào màn lỗi hay màn "đang tắt"`,
+      !/Có lỗi xảy ra|đang được nhà trường tắt/.test(chu), chu.slice(0, 150));
+    check(`${ten}: MÀN CÓ HIỆN TÊN BÉ — nếu không thì phép kiểm sau vô nghĩa`,
+      chu.includes(beCs1.name), `không thấy "${beCs1?.name}" trên ${hash}`);
+    check(`${ten}: KHÔNG lọt tên bé của cơ sở khác lên màn hình`,
+      !chu.includes(be.name), `thấy "${be.name}" trên ${hash}`);
+  }
+
+  // ĐI THẲNG TỪ TRONG PHIÊN CỦA TRÌNH DUYỆT.
+  //
+  // Hai phép kiểm trên đọc thứ HIỆN RA. Phép kiểm này hỏi thứ nằm phía sau: gọi
+  // API bằng chính phiên đăng nhập của trình duyệt, cho mã bé của cơ sở khác.
+  // Màn hình lọc đúng mà đường API còn mở thì chỉ cần một địa chỉ gõ tay là ra —
+  // và đó mới là chốt chặn thật.
+  const thangTay = await page.evaluate(async (id) => {
+    const r = await fetch(`/api/students/${id}`, { headers: { Accept: 'application/json' } });
+    return r.status;
+  }, be.id);
+  check('gọi thẳng API từ trong phiên của Cấp 3 cũng bị từ chối',
+    thangTay === 403 || thangTay === 404, thangTay);
+
+  // Và ô chọn nhóm — chỗ dễ quên lọc nhất, vì nó thường dựng từ một nguồn khác
+  // với danh sách chính.
+  await page.goto(`${BASE}/#/attendance`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  const nhomTrenMan = await page.evaluate(() =>
+    [...document.querySelectorAll('select option')].map(o => o.value).filter(Boolean));
+  check('ô chọn nhóm KHÔNG liệt kê nhóm của cơ sở khác',
+    !nhomTrenMan.includes('c3'), nhomTrenMan);
+
+  // Trả bé về chỗ cũ để các mục sau (nếu có) đo trên nền như thường.
+  await api('PUT', `/api/admin/students/${be.id}`, { classId: 'c1' });
 }
 
 // ===========================================================================

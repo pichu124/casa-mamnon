@@ -596,7 +596,7 @@ nói ra thứ nó đang hiện.**
 | Bộ | Số bài |
 |---|---|
 | `npm test` (không cần trình duyệt, ~12 phút) | **2546**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **363**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **371**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -636,7 +636,7 @@ Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so
 | `test:man-phan-he` | 114 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng; và **nháp Nhật ký ngày sống qua một lần app bị đóng** |
 | `test:album` | 12 | kế thừa | Cô chọn ảnh và đăng album trên Chromium thật; đường nén ảnh dùng chung đi qua đây |
 | `test:pwa` | 45 | kế thừa | Cài được lên màn hình chính, service worker, icon, và **mọi tệp cần để mở app lúc mất mạng đều nằm sẵn trong cache** |
-| `test:nhieu-nhom` | 38 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
+| `test:nhieu-nhom` | 46 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
 | `tinh-nang-giao-dien` | 27 | kế thừa | Bật/tắt phân hệ trên màn Quản trị |
 | `test:ngoai-tuyen` | 15 | **mới** | Mất mạng: app vẫn mở, vẫn ghi được, sóng về thì hàng đợi tự bay đi |
 
@@ -817,3 +817,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ35** — sĩ số báo ăn nay neo vào hình dáng dữ liệu mẫu (trước chỉ so hai trường của cùng một câu trả lời); tầng chức vụ thử thêm vai Văn phòng cơ sở | Sổ việc 68, 70 |
 | 28/08/2026 | **Đ36** — đo bố cục điện thoại cho tám màn phân hệ với vai CÔ; tìm ra và vá lỗi thật: bốn ô nhập của Nhật ký ngày cao 21px, nhỏ hơn đầu ngón tay | Sổ việc 73 |
 | 28/08/2026 | **Đ37** — đóng nhóm là cắt quyền cô ngay **dù nhóm đó vẫn còn bé**, nhưng bảng phân công không bị xoá; trước đó điều này chỉ nằm trong một dòng chú thích | Sổ việc 57 |
+| 28/08/2026 | **Đ38** — vai **Cấp 3** lần đầu được mở trên trình duyệt thật: không lọt tên bé của cơ sở khác lên màn hình, không lọt vào ô chọn nhóm, và gọi thẳng API từ trong phiên cũng bị từ chối | Sổ việc 74 |
