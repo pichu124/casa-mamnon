@@ -180,12 +180,32 @@ function main(argv) {
     const [tu, den] = khoang.includes('..') ? khoang.split('..') : [`${khoang}^`, khoang];
     const dsMa = git('rev-list', khoang).split('\n').map(s => s.trim()).filter(Boolean);
     if (!dsMa.length) { console.log('✓ Không có commit nào trong khoảng để kiểm tra.'); return 0; }
+
+    // ĐƯỜNG THOÁT CHỈ MIỄN CHO TỆP CỦA CHÍNH COMMIT ĐÓ, KHÔNG MIỄN CẢ KHOẢNG.
+    //
+    // Bản đầu của chỗ này thấy MỘT commit có dòng thoát là `return 0` cho cả
+    // khoảng. Nghĩa là một commit sửa chú thích (thoát hợp lệ) đứng cạnh một
+    // commit sửa thật `public/js/views/*.js` mà quên tăng VERSION thì bộ canh
+    // im lặng — đúng loại lỗi nó sinh ra để bắt, và nó tự mở cửa cho.
+    //
+    // Nay: gom tệp `public/` của cả khoảng, rồi TRỪ ĐI những tệp mà CHỈ các
+    // commit có dòng thoát đụng tới. Tệp bị cả hai loại commit đụng thì vẫn
+    // tính — commit sau không được núp sau lời xin phép của commit trước.
+    const tepCuaThoat = new Map();   // tệp → chỉ toàn commit xin thoát?
+    const lyDoThoat = [];
     for (const ma of dsMa) {
-      const lyDo = xinThoat(loiCommit(ma));
-      if (lyDo) { console.log(`↷ ${ma.slice(0, 8)} — bỏ qua có chủ ý: ${lyDo}`); return 0; }
+      const coThoat = !!xinThoat(loiCommit(ma));
+      if (coThoat) lyDoThoat.push(`${ma.slice(0, 8)} — ${xinThoat(loiCommit(ma))}`);
+      for (const f of tepCuaCommit(ma)) {
+        if (!laPublic(f)) continue;
+        tepCuaThoat.set(f, (tepCuaThoat.get(f) !== false) && coThoat);
+      }
     }
+    for (const d of lyDoThoat) console.log(`↷ ${d}`);
+
     const tep = git('diff', '--name-only', '--diff-filter=ACMR', `${tu}..${den}`)
-      .split('\n').map(s => s.trim()).filter(Boolean);
+      .split('\n').map(s => s.trim()).filter(Boolean)
+      .filter(f => tepCuaThoat.get(f) !== true);
     let cu = null;
     let moi = null;
     try { cu = docVersion(git('show', `${tu}:${SW}`)); } catch (_) { cu = null; }

@@ -28,6 +28,7 @@
 // đi tới máy của cô là NHÁNH; nên mốc so sánh là nơi nhánh tách khỏi nhánh
 // chính.
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
@@ -121,6 +122,72 @@ console.log('\n[5] Đường thoát phải là một DÒNG RIÊNG kèm lý do');
   check('không có dòng nào thì trả null', canh.xinThoat('sửa lặt vặt') === null);
   check('dòng thoát mà thiếu lý do thì KHÔNG tính',
     canh.xinThoat('sửa gì đó\n\nKhong-can-sw:') === null);
+}
+
+// ===========================================================================
+console.log('\n[5b] MỘT DÒNG THOÁT KHÔNG ĐƯỢC MIỄN CHO CẢ KHOẢNG');
+{
+  // LỖ HỔNG NÀY CÓ THẬT, VÀ NẰM TRONG CHÍNH BỘ CANH NÀY CHO TỚI ĐỢT Đ40.
+  //
+  // Chế độ `--khoang` (chế độ GitHub chạy) thấy MỘT commit có dòng thoát là
+  // `return 0` cho cả khoảng. Nghĩa là một commit sửa chú thích — xin thoát
+  // hoàn toàn chính đáng — đứng cạnh một commit sửa thật `public/js/views/*.js`
+  // mà quên tăng VERSION thì bộ canh im lặng. Đúng loại lỗi nó sinh ra để bắt.
+  //
+  // Dựng một kho git riêng để thử, không đụng lịch sử thật.
+  const tam = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-khoang-'));
+  const g = (...a) => execFileSync('git', a, { cwd: tam, encoding: 'utf8' });
+  const ghi = (duong, noiDung) => {
+    fs.mkdirSync(path.join(tam, path.dirname(duong)), { recursive: true });
+    fs.writeFileSync(path.join(tam, duong), noiDung);
+  };
+  // CHÉP script vào chính kho tạm, không gọi bản trong kho thật: `GOC` của
+  // script là thư mục cha của chính nó, nên chạy bản trong kho thật sẽ đi hỏi
+  // git về lịch sử của kho THẬT. Bản đầu của mục này làm vậy và "xanh" nhờ
+  // đúng lỗi đó — git báo `Invalid revision range`, tiến trình thoát mã 1, và
+  // phép kiểm "phải bắt được" đọc mã 1 là đủ.
+  const chayTrong = (...a) => {
+    try {
+      return { ma: 0, chu: execFileSync('node',
+        [path.join(tam, 'scripts', 'kiem-tra-sw.js'), ...a], { cwd: tam, encoding: 'utf8' }) };
+    } catch (e) { return { ma: e.status ?? 1, chu: `${e.stdout || ''}${e.stderr || ''}` }; }
+  };
+
+  fs.mkdirSync(path.join(tam, 'scripts'), { recursive: true });
+  fs.copyFileSync(path.join(GOC, 'scripts', 'kiem-tra-sw.js'),
+    path.join(tam, 'scripts', 'kiem-tra-sw.js'));
+
+  g('init', '-q', '-b', 'main');
+  g('config', 'user.email', 'thu@casa.test');
+  g('config', 'user.name', 'Phép thử');
+  ghi('public/sw.js', "const VERSION = 'v1';\n");
+  ghi('public/js/views/nhatky.js', '// bản đầu\n');
+  g('add', '-A'); g('commit', '-q', '-m', 'nền');
+  const goc = g('rev-parse', 'HEAD').trim();
+
+  // Commit A: sửa chú thích trong public/, xin thoát — hợp lệ.
+  ghi('public/js/views/nhatky.js', '// bản đầu\n// thêm một dòng chú thích\n');
+  g('add', '-A');
+  g('commit', '-q', '-m', 'sửa chú thích\n\nKhong-can-sw: chỉ thêm một dòng chú thích');
+
+  // Commit B: sửa THẬT một màn hình khác, KHÔNG tăng VERSION — phải bị bắt.
+  ghi('public/js/views/tienan.js', 'App.views.tienan = {};\n');
+  g('add', '-A'); g('commit', '-q', '-m', 'thêm màn báo ăn');
+  const cuoi = g('rev-parse', 'HEAD').trim();
+
+  const kq = chayTrong('--khoang', `${goc}..${cuoi}`);
+  check('BẮT ĐƯỢC: commit quên tăng VERSION đứng SAU một commit có dòng thoát',
+    kq.ma === 1 && /KHÔNG tăng VERSION/.test(kq.chu), kq.chu.slice(0, 300));
+  check('và biên bản chỉ đúng tệp của commit quên, không phải tệp đã xin thoát',
+    kq.chu.includes('public/js/views/tienan.js') && !kq.chu.includes('public/js/views/nhatky.js'),
+    kq.chu.slice(0, 300));
+
+  // Còn khoảng chỉ có commit A thì vẫn phải ĐẠT — đường thoát vẫn là đường thoát.
+  const chiA = g('rev-parse', 'HEAD^').trim();
+  const kq2 = chayTrong('--khoang', `${goc}..${chiA}`);
+  check('ĐẠT: khoảng chỉ gồm commit đã xin thoát', kq2.ma === 0, kq2.chu.slice(0, 200));
+
+  fs.rmSync(tam, { recursive: true, force: true });
 }
 
 // ===========================================================================
