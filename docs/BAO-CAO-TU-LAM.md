@@ -15,9 +15,9 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2747 bài**, `npm run test:giao-dien` **454 bài**, FAIL 0 (đo 29/08/2026) |
+| Bộ kiểm thử | `npm test` **2779 bài**, `npm run test:giao-dien` **454 bài**, FAIL 0 (đo 29/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
-| Còn việc nào cần anh quyết | **có, 3 nhóm việc**, xem mục 4 |
+| Còn việc nào cần anh quyết | **có, 4 nhóm việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
 
 ---
@@ -64,6 +64,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ41** | Chỉ tiêu *"nhật ký cả nhóm dưới 5 phút"* — một trong ba chỉ tiêu bản kế hoạch hứa **đo được ngay trong bài test** — trước không có bài nào chạm tới. Nay có, và nó nói thẳng phần nào bài test đo được, phần nào không |
 | **Đ42** | Học phí là phân hệ **duy nhất chưa có tệp kiểm thử riêng** — nay có `test:hoc-phi`. Một phép kiểm trong đó lúc đầu **vô dụng**: nó dò mã nguồn màn hình bằng biểu thức, nên vẫn xanh cả khi cổng đã mở toang. Đã thay bằng phép kiểm đếm nút trên trình duyệt thật |
 | **Đ43** | `public/sw.js` — đoạn mã quyết định app có mở được khi mất mạng hay không — trước chỉ được canh bằng *"tệp có tải về được không"* và *"trong tệp có chữ này không"*. Nay `test:vo-app` nạp chính đoạn mã đó vào một hộp cát rồi **gọi đúng các móc trình duyệt sẽ gọi**, nên đo được hành vi thật mà không cần trình duyệt |
+| **Đ47** | Bước *"đọc bảng của phân hệ khác thì hỏi công tắc trước"* đã bị quên **ba lần** (Y1, N24, Đ46), và cả ba lần đều do người đọc mã phát hiện. Nay có máy canh — nó thử ngược đúng lỗi Đ46 và bắt được — cộng một mục hướng dẫn hẳn hoi trong `modules/README.md`, nơi người viết phân hệ mới đọc trước |
 
 ---
 
@@ -104,36 +105,27 @@ lúc bản nháp nằm trong máy cô A, cô B có thể đã ghi và lưu từ 
 
 ## 4. Việc đang chờ anh
 
-### 4.1 Hai chỗ tôi thấy nhưng KHÔNG tự sửa
+### 4.1 Những chỗ tôi thấy nhưng KHÔNG tự sửa
 
-**Chỗ thứ nhất — `UI.RATING`: ba mức "Con làm rất tốt / Con làm tốt / Cần cố
-gắng thêm".**
+Năm chỗ. Không chỗ nào gấp — đều **đang không gây hại cho ai hôm nay** — nhưng
+đều là thứ sẽ thành vấn đề đúng lúc trường bắt đầu dùng thật.
 
-Ba mức xếp trên dưới về một đứa trẻ đúng là thứ QUY TẮC 4 cấm. Nhưng nó không
-dùng chữ "điểm" hay "xếp hạng" nên **không bộ canh nào bắt được**, kể cả sau khi
-Đ25 mở rộng vùng quét.
+| # | Chỗ nào | Vì sao tôi không tự sửa | Anh cần quyết gì |
+|---|---|---|---|
+| 1 | **`UI.RATING`** — ba mức *"Con làm rất tốt / Con làm tốt / Cần cố gắng thêm"* trong `public/js/ui.js` | Ba mức xếp trên dưới về một đứa trẻ là thứ QUY TẮC 4 cấm, nhưng nó không dùng chữ "điểm" nên **không bộ canh nào bắt được**. Sửa thì đụng cả ba ranh giới anh đã dặn: tệp dùng chung, phần gỡ chưa duyệt, và một bộ canh bất khả xâm phạm | Chọn một trong ba đường ở `docs/QUYET-DINH-TU-CHOT.md`. Tôi nghiêng về đường 2 |
+| 2 | **Một câu thông báo nói sai với gia đình** | Gia đình gõ đường dẫn một phân hệ chỉ dành cho trường thì màn hình nói *"Phân hệ này hiện đang được nhà trường tắt"* — nhà trường **không** tắt, nó chỉ không dành cho gia đình. Câu đó ở `public/js/app.js`, tệp dùng chung, phải là commit riêng | Gật một câu là tôi sửa trong một đợt riêng |
+| 3 | **Chức vụ Nhân sự cấp lại được mật khẩu cho tài khoản gia đình** | Đây **không phải lỗ hổng cần vá gấp**: app buộc phụ huynh đổi mật khẩu ở lần đăng nhập kế, đá mọi thiết bị của họ ra, và ghi lại ai bấm cho ai. Tức là đọc lén được nhưng **để lại dấu rõ ràng** | Trường có chấp nhận mức đó cho vai Nhân sự không? Nếu không, tôi siết lại |
+| 4 | **`GET /api/kehoachbe/be`** — mặt API trả kế hoạch tháng của một bé, **chưa màn hình nào gọi** | Nó được viết cho một màn *"kế hoạch tháng của bé này"* mở từ Hồ sơ của bé. Dựng màn đó là thêm tính năng; gỡ đường đi là phần gỡ chưa duyệt. Đợt Đ48 đã bọc nó bằng 10 phép kiểm nên **chừng nào còn sống thì còn kín** | Dựng màn hình, hay gỡ đường đi? |
+| 5 | **Hai ô chết trong hồ sơ sức khoẻ** — *"Đánh giá thể trạng"* và *"Thị lực"* | Màn hình hiện chúng, nhưng máy chủ **không có đường nào ghi** — chúng chỉ có giá trị nếu nhập từ kho dữ liệu cũ. Không hại ai (ô trống thì không hiện), nhưng y tế trường sẽ hỏi vì sao khám xong không nhập được | Cho y tế nhập hai ô đó, hay bỏ hẳn khỏi màn hình? |
 
-Tôi không tự sửa vì cả ba đường đều đụng ranh giới anh đã dặn: `public/js/ui.js`
-là tệp dùng chung (chỉ được thêm); gỡ hẳn thuộc **phần gỡ chưa được duyệt**; còn
-thêm dấu hiệu cho bộ canh thì phải nới luật của một bộ canh **bất khả xâm phạm**.
-
-> **Hôm nay chưa ai nhìn thấy ba mức đó** — cả hai màn dùng nó (Nhận xét hàng
-> ngày, Hồ sơ con đã ra trường) đều đã tắt sẵn. Nên việc này **không gấp**, chỉ
-> là không được quên khi bật lại.
-
-Ba đường đi và giá của từng đường ghi đủ ở `docs/QUYET-DINH-TU-CHOT.md`.
-
-**Chỗ thứ hai — một câu thông báo nói sai sự thật với gia đình.**
-
-Gia đình gõ thẳng đường dẫn của một phân hệ chỉ dành cho người trong trường
-(Báo ăn, Ghi nhanh, Kế hoạch của bé) thì màn hình hiện: *"Phân hệ này hiện đang
-được nhà trường tắt."* Nhưng nhà trường **không** tắt nó — nó đang bật, chỉ là
-không dành cho gia đình. Bộ canh mới ở Đ39 đi qua đúng ba màn này nên nhìn thấy.
-
-Câu đó nằm ở `public/js/app.js`, tức **tệp dùng chung**: theo quy định của
-`CLAUDE.md` nó phải là một commit riêng, không trộn với đợt thêm bài canh. Hại
-thì nhỏ (chỉ ai gõ tay đường dẫn mới gặp) nhưng nói sai với phụ huynh là thứ
-không nên để lâu. **Sửa được trong một đợt riêng, chỉ chờ anh gật.**
+> **Một việc nữa, không cần anh quyết mà cần anh biết:** đường liệt kê album
+> (`GET /api/albums`) đếm số ảnh bằng cách nạp **từng tấm ảnh của từng album**,
+> rồi với mỗi tấm lại hỏi tiếp ai được gắn thẻ và nhà đó đồng ý chưa. Hôm nay
+> chưa ai thấy chậm vì dữ liệu còn ít. Sau vài năm học, một lần gia đình mở màn
+> Album là hàng nghìn câu truy vấn. Tôi **chưa sửa** vì cách sửa nhanh nhất —
+> nhớ tạm lời đồng ý của từng bé — có thể làm app hiện một tấm ảnh mà gia đình
+> **vừa mới rút đồng ý**, và đó là loại lỗi tệ hơn hẳn cái chậm. Cách sửa an
+> toàn cần đo trước; tôi để lại đây thay vì làm vội.
 
 ### 4.2 Những việc chỉ nhà trường mở được
 
@@ -169,13 +161,35 @@ Anh mở quyền vào kho `pichu124/School` là tôi đối chiếu và vá đư
 
 Sổ việc gốc có **161 mục**. Sau đợt này:
 
-- **Đã xong hoặc đã hết hạn:** phần lớn nhóm *cao*. Nhiều mục trong sổ đã lạc
-  hậu — tôi đối chiếu lại từng mục với mã hiện tại trước khi làm, và bỏ qua
-  những mục đã được vá ở đợt trước (ví dụ mục 5 *"chỉ canh chiều cấm"* — cả bốn
-  tệp hiện đã canh cả chiều cho phép bằng tài khoản cô thứ hai).
-- **Còn lại:** chủ yếu là nhóm *Chờ nhà trường* ở mục 4.2, cộng một số món nợ
-  kỹ thuật mức *vừa* và *thấp* mà tôi làm tiếp.
+- **Đã xong:** toàn bộ nhóm *cao* mà mã sửa được, cộng phần lớn nhóm *vừa*.
+- **Đã lạc hậu, bỏ qua có đối chiếu:** kha khá. Tôi **đọc lại mã hiện tại trước
+  khi làm từng mục**, và nhiều mục hoá ra đã được vá ở đợt trước. Ví dụ đợt này:
+  sổ việc còn ghi *"màn Lịch sinh hoạt mời cô gõ Tên môn học"*, *"màn Quản trị
+  bắt khai Khối 1–12"*, *"ô cân đo gợi ý sai lứa tuổi"*, *"mô tả Xin phép nói cô
+  là người duyệt"* — cả bốn đã đúng từ lâu. **Ghi ra đây vì con số "còn N mục"
+  trong một cuốn sổ cũ dễ làm người đọc hoảng hơn thực tế.**
+- **Còn lại:** nhóm *Chờ nhà trường* ở mục 4.2 (không phải việc của mã), năm chỗ
+  chờ anh quyết ở mục 4.1, cộng một ít nợ kỹ thuật mức *thấp* — đổi tên biến,
+  gọn lại tài liệu — không chỗ nào đe doạ dữ liệu hay chặn cổng DỪNG nào.
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ46.*
+## 6. Nếu tôi phải dừng giữa chừng
+
+Phiên làm việc có thể hết lượt bất cứ lúc nào. Mọi thứ cần để đi tiếp đều nằm
+trong kho mã, không nằm trong trí nhớ của phiên:
+
+| Muốn biết gì | Đọc tệp nào |
+|---|---|
+| Đang đứng ở đâu, đợt nào đã làm gì | `docs/TIEN-DO.md` — nhật ký từng đợt, mới nhất ở cuối |
+| Tóm tắt cho anh, và việc gì chờ anh quyết | **chính tệp này** |
+| Vì sao tôi chọn hướng này chứ không hướng kia | `docs/QUYET-DINH-TU-CHOT.md` |
+| Món nợ phải vá sang app 1 | `docs/LOI-NEN-CHUNG.md`, mục *Sổ nợ* |
+| Quy định bắt buộc khi sửa kho này | `CLAUDE.md` |
+
+Nhắn **"làm tiếp"** là đủ: tôi đọc lại năm tệp trên rồi đi tiếp đúng chỗ đang dở.
+Không cần anh nhắc lại bối cảnh.
+
+---
+
+*Cập nhật lần cuối: sau đợt Đ48.*
