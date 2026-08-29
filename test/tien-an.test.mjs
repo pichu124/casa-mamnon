@@ -446,6 +446,106 @@ console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không ch
   check('nhưng vẫn không chốt hộ nhóm mình không dạy', ngoai.status === 403, ngoai.status);
 }
 
+// ===========================================================================
+console.log('\n[+] TẮT ĐIỂM DANH HOẶC XIN PHÉP THÌ DỮ LIỆU CỦA CHÚNG THÔI CHẢY SANG ĐÂY');
+{
+  // Báo ăn đọc THẲNG ba bảng của phần lõi: `attendance`, `leave_requests`,
+  // `leave_refund`. Chặn ở HTTP không đủ vì đường đi này không qua HTTP — cùng
+  // chỗ hở mà Y1 đã vá cho Thực đơn và N24 đã vá cho Ghi nhanh.
+  //
+  // Nhà trường tắt Điểm danh xong, màn báo ăn vẫn nói "bé Bin đã điểm danh
+  // vắng" dựa trên một bảng không còn ai cập nhật. Bếp nấu thiếu một suất, và
+  // không ai lần ra vì sao — trên màn Quản trị thì Điểm danh đang tắt hẳn.
+  const doiCongTac = (ma, bat) =>
+    req('PUT', `/api/admin/modules/${ma}`, { cookie: VP, body: { enabled: bat } });
+
+  // -- Vế khẳng định trước: TỰ DỰNG một ngày mà lý do trừ suất CHỈ đến từ đơn
+  //    nghỉ. Mượn lại ngày mà mục khác của bài này đã đụng vào là đo nhầm: bản
+  //    đầu của mục này dùng NGÀY MAI, nơi mục [2] đã ghi một buổi điểm danh
+  //    vắng, nên phép kiểm "đơn nghỉ thôi trừ suất" XANH GIẢ — không còn đơn
+  //    nghỉ nào ở đó để mà thôi trừ.
+  const NGAY = new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) + 5 * 86400000).toISOString().slice(0, 10);
+  const donMoi = await req('POST', '/api/leave', {
+    cookie: PH, body: { studentId: 's1', fromDate: NGAY, toDate: NGAY, reason: 'Nhà có việc' },
+  });
+  check('gia đình gửi được đơn nghỉ cho một ngày chưa ai đụng tới',
+    donMoi.status === 200 || donMoi.status === 201, donMoi.data);
+  const duyetMoi = await req('POST', `/api/leave/${donMoi.data.id}/review`, {
+    cookie: VP, body: { status: 'approved', hoanTienAn: 'co', soNgayHoan: 1 },
+  });
+  check('văn phòng duyệt đơn và đánh dấu có hoàn tiền ăn', duyetMoi.status === 200, duyetMoi.data);
+
+  const truoc = (await nhomC1(GV, NGAY)).n;
+  check('dựng được tình huống: hôm đó CHỈ có đơn nghỉ trừ suất',
+    truoc.khongAn.length === 1 && /đơn nghỉ/.test(truoc.khongAn[0].vi)
+    && truoc.suatDuKien === truoc.siSo - 1,
+    { siSo: truoc.siSo, suat: truoc.suatDuKien, khongAn: truoc.khongAn });
+
+  // Đo bảng tháng NGAY BÂY GIỜ, lúc phân hệ còn bật. Bản đầu của mục này đo
+  // sau khi đã tắt, nên con số "trước khi tắt" luôn bằng 0 và phép kiểm mất
+  // hết ý nghĩa.
+  // Tên trường là `donHoan`, không phải `hoan` — đọc nhầm tên là bài luôn đếm
+  // ra 0 và cả hai vế đều vô nghĩa. Đây là lý do vế "trước khi tắt" phải có.
+  const demHoan = (d) => (d?.danhSach || []).reduce((s, b) => s + (b.donHoan || []).length, 0);
+  const thangCo = await req('GET', `/api/tienan/thang?thang=${NGAY.slice(0, 7)}`, { cookie: VP });
+  check('trước khi tắt, bảng tháng CÓ dòng hoàn tiền ăn của đơn vừa duyệt',
+    demHoan(thangCo.data) >= 1, { thang: NGAY.slice(0, 7), so: demHoan(thangCo.data) });
+
+  // -- Tắt Xin phép: bé nghỉ theo ĐƠN phải thôi bị trừ.
+  const tatXp = await doiCongTac('xinphep', false);
+  check('tắt được phân hệ Xin phép', tatXp.status === 200, tatXp.data);
+  const khiTat = (await nhomC1(GV, NGAY)).n;
+  check('TẮT XIN PHÉP THÌ ĐƠN NGHỈ THÔI TRỪ SUẤT',
+    !khiTat.khongAn.some(b => /đơn nghỉ/.test(b.vi)), khiTat.khongAn);
+  // KHÔNG đòi "bằng đúng sĩ số", cũng không đòi "phải tăng": ngày mai còn bé bị
+  // trừ vì ĐIỂM DANH do mục khác của bài này ghi, nên tổng có thể đứng yên.
+  // Đòi cho đúng hai thứ chắc chắn đúng: lý do "đơn nghỉ" phải biến mất, và số
+  // suất phải luôn khớp với danh sách bé không ăn.
+  check('và số suất báo bếp tăng trở lại đúng bằng sĩ số',
+    khiTat.suatDuKien === khiTat.siSo && khiTat.khongAn.length === 0,
+    { siSo: khiTat.siSo, suat: khiTat.suatDuKien, khongAn: khiTat.khongAn });
+
+  // Bảng đối chiếu tháng cũng không được lấy số hoàn tiền cũ ra dùng tiếp.
+  //
+  // Phải đo có–rồi–mất, không đo mất–là–xong: bản đầu của mục này chỉ hỏi
+  // "còn dòng hoàn nào không" sau khi tắt, và nó XANH CẢ KHI CHỐT BỊ GỠ —
+  // vì bảng tháng đó vốn đã không có dòng nào để mà mất.
+  const thangTat = await req('GET', `/api/tienan/thang?thang=${NGAY.slice(0, 7)}`, { cookie: VP });
+  check('bảng tháng vẫn mở được, không nổ', thangTat.status === 200, thangTat.status);
+  check('TẮT XIN PHÉP THÌ DÒNG HOÀN TIỀN ĂN CŨNG THÔI HIỆN',
+    demHoan(thangTat.data) === 0, demHoan(thangTat.data));
+
+  await doiCongTac('xinphep', true);
+  const batLai = (await nhomC1(GV, NGAY)).n;
+  check('BẬT LẠI THÌ SỐ CŨ QUAY VỀ NGUYÊN VẸN — tắt là ngưng dùng, không phải xoá',
+    batLai.suatDuKien === truoc.suatDuKien && batLai.khongAn.length === truoc.khongAn.length,
+    { truoc: truoc.suatDuKien, sau: batLai.suatDuKien });
+
+  // -- Tắt Điểm danh: sổ điểm danh phải thôi quyết định suất ăn.
+  //
+  // Ghi một buổi vắng cho HÔM NAY rồi tắt, để đo đúng nhánh điểm danh chứ
+  // không đo nhầm nhánh đơn nghỉ.
+  const ghi = await req('POST', '/api/attendance/mark', { cookie: GV, body: {
+    studentId: 's3', date: HOM_NAY, status: 'absent_excused',
+  } });
+  check('ghi được một buổi vắng cho hôm nay', ghi.status === 200 || ghi.status === 201,
+    `${ghi.status} ${JSON.stringify(ghi.data).slice(0, 120)}`);
+  const coCham = (await nhomC1(GV, HOM_NAY)).n;
+  check('điểm danh vắng có trừ suất', coCham.khongAn.some(b => /điểm danh/.test(b.vi)),
+    coCham.khongAn);
+
+  const tatDd = await doiCongTac('diemdanh', false);
+  check('tắt được phân hệ Điểm danh', tatDd.status === 200, tatDd.data);
+  const hetCham = (await nhomC1(GV, HOM_NAY)).n;
+  check('TẮT ĐIỂM DANH THÌ SỔ ĐIỂM DANH THÔI QUYẾT ĐỊNH SUẤT ĂN',
+    !hetCham.khongAn.some(b => /điểm danh/.test(b.vi)), hetCham.khongAn);
+
+  await doiCongTac('diemdanh', true);
+  const veLai = (await nhomC1(GV, HOM_NAY)).n;
+  check('bật lại thì sổ điểm danh quay về, không mất buổi nào',
+    veLai.khongAn.some(b => /điểm danh/.test(b.vi)), veLai.khongAn);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

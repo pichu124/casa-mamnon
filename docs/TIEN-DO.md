@@ -596,7 +596,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2732**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2747**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **454**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -826,3 +826,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 29/08/2026 | **Đ43** — **màn hình phân hệ sống qua một lần đổi phiên bản**: móc `activate` mang theo phần `/modules/` rồi mới xoá kho đệm cũ. Trước đó cô cập nhật app xong đi ra sân sóng yếu là không mở được đúng tám màn mầm non. Thêm `test:vo-app` — bài đầu tiên CHẠY MÃ THẬT của `public/sw.js` (hộp cát Node, không cần trình duyệt) | Sổ việc 99 |
 | 29/08/2026 | **Đ44** — **quyền của gia đình với con đã rời trường nay có hạn thật**. Mốc 12 tháng trước chỉ nằm trong `routes/hocsinh-cu.js`, còn `db.canAccessStudent` nhánh phụ huynh trả `true` mãi mãi — gõ thẳng `/api/nhatky`, `/api/health`, `/api/medicine` là đọc được hồ sơ một đứa trẻ đã rời trường nhiều năm. Luật nay ở `lib/db.js`, một nguồn sự thật | Sổ việc 112 |
 | 29/08/2026 | **Đ45** — `routes/hocsinh-cu.js` bỏ bản luật riêng, mượn lại luật của `lib/db.js`; và giữ được câu chỉ đường cho gia đình (*"liên hệ nhà trường nếu cần bản sao"*) mà bản vá Đ44 suýt làm mất | Sổ việc 112 |
+| 29/08/2026 | **Đ46** — **Báo ăn nay hỏi công tắc trước khi đọc bảng của phân hệ khác**. Nó đọc thẳng `attendance`, `leave_requests`, `leave_refund` mà không hỏi Điểm danh và Xin phép còn bật không — nhà trường tắt Điểm danh xong màn báo ăn vẫn trừ suất theo một sổ không còn ai cập nhật, và **bếp nấu thiếu**. Cùng chỗ hở Y1 đã vá cho Thực đơn và N24 cho Ghi nhanh | Sổ việc 108 |

@@ -57,7 +57,7 @@ function khoaCongThuc(hang) {
   return ra;
 }
 
-module.exports = (app, { db }) => {
+module.exports = (app, { db, modules }) => {
   // Nhóm người dùng được xem. `db.classIdsOf` đã lo tầng cơ sở: quản trị Cấp 3
   // chỉ thấy nhóm của cơ sở mình, cô chỉ thấy nhóm mình phụ trách.
   function nhomCuaToi(user) {
@@ -72,12 +72,30 @@ module.exports = (app, { db }) => {
       'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId]);
   }
 
+  // TẮT MỘT PHÂN HỆ THÌ DỮ LIỆU CỦA NÓ PHẢI THÔI CHẢY SANG ĐÂY.
+  //
+  // Báo ăn đọc thẳng ba bảng của phần lõi: `attendance`, `leave_requests`,
+  // `leave_refund`. Chặn ở HTTP không đủ, vì đường đi này KHÔNG qua HTTP —
+  // cùng một chỗ hở mà Y1 đã vá cho Thực đơn và N24 đã vá cho Ghi nhanh.
+  //
+  // Nhà trường tắt Điểm danh xong, màn báo ăn vẫn nói "bé Bin đã điểm danh
+  // vắng" dựa trên một bảng không còn ai cập nhật. Bếp nấu thiếu một suất, và
+  // không ai lần ra vì sao — trên màn Quản trị thì Điểm danh đang tắt hẳn.
+  //
+  // `modules` có thể không được truyền vào (bài kiểm thử cũ, hoặc phiên bản
+  // nạp khác): khi đó coi như ĐANG BẬT. Mặc định mở chứ không mặc định đóng —
+  // đóng nhầm là bếp nấu thiếu, đúng thứ nặng nhất ở phân hệ này.
+  function dangBat(ma) {
+    if (!modules || typeof modules.dangBat !== 'function') return true;
+    return !!modules.dangBat(ma);
+  }
+
   // Bé nào có đơn nghỉ ĐÃ DUYỆT phủ lên ngày này.
   //
   // Chỉ đơn đã duyệt. Đơn đang chờ mà đã trừ suất là bếp nấu thiếu cho một bé
   // vẫn đến lớp — hỏng theo kiểu đứa trẻ phải chịu.
   function nghiCoPhep(ids, ngay) {
-    if (!ids.length) return new Map();
+    if (!ids.length || !dangBat('xinphep')) return new Map();
     const marks = ids.map(() => '?').join(',');
     const ra = new Map();
     for (const l of db.all('leave_requests',
@@ -90,7 +108,7 @@ module.exports = (app, { db }) => {
   }
 
   function diemDanh(ids, ngay) {
-    if (!ids.length) return new Map();
+    if (!ids.length || !dangBat('diemdanh')) return new Map();
     const marks = ids.map(() => '?').join(',');
     const ra = new Map();
     for (const a of db.all('attendance',
@@ -256,7 +274,9 @@ module.exports = (app, { db }) => {
     // để văn phòng tự chia tay.
     const hoan = new Map();
     const vatSang = new Map();
-    if (ids.length) {
+    // Hoàn tiền ăn là một cột của đơn nghỉ — tắt Xin phép thì cột đó cũng thôi
+    // được cập nhật, và bảng đối chiếu tháng không được lấy số cũ ra dùng tiếp.
+    if (ids.length && dangBat('xinphep')) {
       const marks = ids.map(() => '?').join(',');
       const cauChung = `SELECT l.id AS id, l.studentId AS studentId, l.fromDate AS fromDate,
                                l.toDate AS toDate, r.soNgay AS soNgay, r.ghiChu AS ghiChu
