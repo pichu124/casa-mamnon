@@ -527,6 +527,39 @@ quay lại đúng ngày đó. Nháp không mất, chỉ là không tự đập v
 
 ---
 
+## 25. Ghi sổ tiền là việc của văn phòng — cô không tạo, không xác nhận
+
+**Chọn:** hai đường ghi của phân hệ Học phí (`POST /api/hocphi` và
+`POST /api/hocphi/:id/xac-nhan`) đổi từ `requireRole('teacher', 'admin')` thành
+`requireRole('admin')`. Màn hình bỏ nút *Tạo khoản* và *Xác nhận* với vai cô.
+**Đường ĐỌC giữ nguyên** — cô vẫn mở được sổ tiền của bé nhóm mình.
+
+**Vì sao đổi:**
+
+App 1 là trường tiểu học, ở đó cô chủ nhiệm thu tiền là chuyện thường. App 2 thì
+tầng chức vụ đã đặt **Kế toán** lo học phí và tiền ăn, và đợt Y3 đã tách rõ *"cô
+chốt suất, kế toán đối chiếu"*. Để cô vừa tạo khoản vừa tự xác nhận đã nhận tiền
+là để **một người vừa ghi sổ vừa duyệt sổ** — sai sót ở đó không ai đối chiếu ra,
+và khi có chuyện thì người đứng lớp là người phải giải trình về tiền.
+
+**Vì sao KHÔNG siết luôn đường đọc:**
+
+Vì cắt đường đọc là cô không trả lời được câu *"nhà em đã nộp chưa cô"* ở cổng
+trường, và gia đình phải gọi lên văn phòng cho một việc lẽ ra hỏi một câu là
+xong. Siết chỗ **ghi**, không siết chỗ **biết**.
+
+**Đây là đổi CHÍNH SÁCH, không phải vá lỗi — nên KHÔNG mang sang app 1.**
+
+`modules/hocphi/` sinh ra trước điểm tách `bc9dfa3`, tức app 1 có cùng đoạn mã.
+Nhưng ở app 1 cô đang thu tiền thật cho ~300 gia đình; đổi vai bên đó mà nhà
+trường chưa nói gì là **làm hỏng việc đang chạy**. Đã ghi rõ ở
+`docs/LOI-NEN-CHUNG.md` để người sang kho kia sau này không "vá giúp" nhầm.
+
+**Đảo ngược được:** đổi hai chữ `'admin'` về `'teacher', 'admin'` trong
+`modules/hocphi/routes.js` và một dòng trong `view.js`. Dữ liệu không đụng tới.
+
+---
+
 ## Còn chờ nhà trường trả lời (tôi không tự quyết được)
 
 Những mục dưới đây tôi **cố ý không tự chọn**, vì chọn sai thì phải sửa lược đồ

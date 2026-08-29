@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2627 bài**, `npm run test:giao-dien` **449 bài**, FAIL 0 (đo 29/08/2026) |
+| Bộ kiểm thử | `npm test` **2665 bài**, `npm run test:giao-dien` **454 bài**, FAIL 0 (đo 29/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **có, 3 nhóm việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
@@ -38,6 +38,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ24** | Tầng chức vụ thử thật với Ghi nhanh, Hành trình, Kế hoạch bé, Nhật ký | Ghi nhanh là ghi chép thô của cô — lớp 1 của bảng ba lớp, thứ *"không bao giờ lộ sang phụ huynh"*. Chốt quan trọng nhất lại chưa có bài nào chứng minh nó đang đóng |
 | **Đ21** | Gom 5 bản hàm nén ảnh về một chỗ | Vẽ lại ảnh qua canvas là bước **duy nhất** bỏ được toạ độ GPS trong ảnh. Ảnh trẻ chụp trong lớp mà còn kèm toạ độ trường là thứ không được để lọt |
 | **Đ39** | Vá lỗi **khoản thu rơi vào nhà người khác**: ô *Chọn bé* của màn Học phí không có tác dụng | Văn phòng chọn bé A, màn lặng lẽ quay về bé đầu danh sách, và khoản tiền được tạo cho bé đó. Sai tiền, sai nhà, mà trên màn hình trông vẫn bình thường. Bài canh mới tìm ra nó ngay lần chạy đầu |
+| **Đ42** | **Ghi sổ tiền là việc của văn phòng, không phải của cô** | Trước đó cô vừa tạo được khoản thu vừa tự xác nhận đã nhận tiền — một người vừa ghi sổ vừa duyệt sổ. Sai sót ở đó không ai đối chiếu ra, và khi có chuyện thì người đứng lớp phải giải trình về tiền. Cô vẫn ĐỌC được sổ của nhóm mình để trả lời gia đình ở cổng |
 
 ### 2.2 Việc giữ cho cô không mất công
 
@@ -58,10 +59,11 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ39** | Bài học **B9** — *"màn nào hiện dữ liệu thì phải tạo được qua giao diện"* — trước chỉ được canh cho mười màn **lõi kế thừa từ app 1**. Nay phủ đủ **tám phân hệ mầm non**, mỗi phân hệ đi đủ vòng: mở màn → điền → lưu → **thấy lại**. Kèm một bộ canh cho chính món nợ đó: thêm phân hệ thứ chín mà quên đường ghi là bài đỏ ngay |
 | **Đ40** | Bộ canh VERSION **tự mở một lỗ** ở đúng chế độ GitHub chạy: một commit xin thoát hợp lệ (sửa chú thích) là miễn kiểm tra cho **cả loạt commit**, kể cả commit sửa thật màn hình mà quên tăng số. Nay đường thoát chỉ miễn cho tệp của chính commit đó |
 | **Đ41** | Chỉ tiêu *"nhật ký cả nhóm dưới 5 phút"* — một trong ba chỉ tiêu bản kế hoạch hứa **đo được ngay trong bài test** — trước không có bài nào chạm tới. Nay có, và nó nói thẳng phần nào bài test đo được, phần nào không |
+| **Đ42** | Học phí là phân hệ **duy nhất chưa có tệp kiểm thử riêng** — nay có `test:hoc-phi`. Một phép kiểm trong đó lúc đầu **vô dụng**: nó dò mã nguồn màn hình bằng biểu thức, nên vẫn xanh cả khi cổng đã mở toang. Đã thay bằng phép kiểm đếm nút trên trình duyệt thật |
 
 ---
 
-## 3. Ba việc tôi tự quyết thay anh
+## 3. Những việc tôi tự quyết thay anh
 
 Anh đã dặn *"làm theo hướng bạn thấy tốt nhất"*, nên tôi chọn rồi ghi lại.
 Cả ba đều **đảo ngược được** nếu anh thấy nên đi hướng khác.
@@ -82,6 +84,13 @@ Tên tệp ảnh là 16 byte ngẫu nhiên nên trùng tên là trùng đúng t�
 bản trên đĩa có thể **mới hơn** bản sao. Đè xuống là lấy bản cũ ghi chồng lên
 bản mới. Nhưng im lặng bỏ qua cũng sai, nên nó liệt kê ra để người vận hành tự
 xem.
+
+**e) Ghi sổ tiền: siết chỗ GHI, không siết chỗ BIẾT.** Cô không còn tạo khoản
+thu và không còn xác nhận đã nhận tiền, nhưng vẫn **đọc** được sổ của bé nhóm
+mình. Cắt luôn đường đọc thì cô không trả lời được câu *"nhà em đã nộp chưa cô"*
+ở cổng trường, và gia đình phải gọi lên văn phòng cho một việc lẽ ra hỏi một câu
+là xong. **Chỗ này KHÔNG mang sang app 1** — bên đó cô đang thu tiền thật cho
+khoảng 300 gia đình, đổi vai khi nhà trường chưa nói gì là làm hỏng việc đang chạy.
 
 **d) Nháp Nhật ký ngày: HỎI cô, không tự điền đè.** Một nhóm có nhiều cô. Trong
 lúc bản nháp nằm trong máy cô A, cô B có thể đã ghi và lưu từ máy mình. Tự điền
@@ -165,4 +174,4 @@ Sổ việc gốc có **161 mục**. Sau đợt này:
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ41.*
+*Cập nhật lần cuối: sau đợt Đ42.*

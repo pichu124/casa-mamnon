@@ -162,13 +162,21 @@ console.log('\n[5] Phân hệ cắm thêm: bật lên là dùng được ngay');
 
 console.log('\n[6] Phân hệ mới dùng chung cơ chế phân quyền của phần lõi');
 {
-  const tao = await req('POST', '/api/hocphi', { cookie: T,
-    body: { studentId: 's1', kyThu: 'Tháng 9/2026', noiDung: 'Tiền ăn bán trú', soTien: 500000, hanNop: '2026-09-10' } });
-  check('giáo viên tạo được khoản thu → 201', tao.status === 201, tao.data);
+  // Mục này canh CƠ CHẾ CẮM THÊM: một phân hệ mới dùng lại đúng hàm kiểm quyền
+  // của phần lõi, không tự viết lấy. Nghiệp vụ riêng của sổ tiền nằm ở
+  // `test/hoc-phi.test.mjs`.
+  //
+  // Từ đợt Đ42, ghi sổ tiền là việc của VĂN PHÒNG chứ không phải của cô — nên
+  // vai dùng để tạo khoản ở đây đổi từ `T` sang `A.cookie`. Đây là siết chặt
+  // chứ không phải nới: phép kiểm "cô tạo được" bên dưới đổi thành "cô KHÔNG
+  // tạo được", và ranh giới nhóm vẫn được canh y như cũ bằng vai văn phòng.
+  const coTao = await req('POST', '/api/hocphi', { cookie: T,
+    body: { studentId: 's1', kyThu: 'x', noiDung: 'y', soTien: 1000 } });
+  check('CÔ KHÔNG tạo được khoản thu → 403 (Đ42)', coTao.status === 403, coTao.status);
 
-  const lopKhac = await req('POST', '/api/hocphi', { cookie: T,
-    body: { studentId: 's2', kyThu: 'x', noiDung: 'y', soTien: 1000 } });
-  check('KHÔNG tạo được cho học sinh lớp khác → 403', lopKhac.status === 403, lopKhac.status);
+  const tao = await req('POST', '/api/hocphi', { cookie: A.cookie,
+    body: { studentId: 's1', kyThu: 'Tháng 9/2026', noiDung: 'Tiền ăn bán trú', soTien: 500000, hanNop: '2026-09-10' } });
+  check('văn phòng tạo được khoản thu → 201', tao.status === 201, tao.data);
 
   const phTao = await req('POST', '/api/hocphi', { cookie: P,
     body: { studentId: 's1', kyThu: 'x', noiDung: 'y', soTien: 1000 } });
@@ -177,12 +185,23 @@ console.log('\n[6] Phân hệ mới dùng chung cơ chế phân quyền của ph
   const xemTrom = await req('GET', '/api/hocphi?studentId=s3', { cookie: P });
   check('phụ huynh KHÔNG xem được học phí con nhà khác → 403', xemTrom.status === 403, xemTrom.status);
 
+  // Ranh giới NHÓM vẫn phải được canh — chỗ này mới là cái mục [6] tồn tại vì
+  // nó: phân hệ cắm thêm gọi `db.canAccessStudent` của phần lõi chứ không tự
+  // nghĩ ra luật riêng. Đo bằng vai cô, trên đường ĐỌC.
+  const doc = await req('GET', '/api/hocphi?studentId=s1', { cookie: T });
+  check('cô đọc được sổ tiền của bé nhóm mình', doc.status === 200, doc.status);
+  const docLopKhac = await req('GET', '/api/hocphi?studentId=s2', { cookie: T });
+  check('cô KHÔNG đọc được sổ tiền của bé nhóm khác → 403', docLopKhac.status === 403, docLopKhac.status);
+
   const xem = await req('GET', '/api/hocphi?studentId=s1', { cookie: P });
   check('phụ huynh xem được khoản thu của con mình', xem.data?.khoan?.length === 1, xem.data?.khoan?.length);
   check('tính đúng số tiền còn phải nộp', xem.data?.tongChuaNop === 500000, xem.data?.tongChuaNop);
 
-  const xn = await req('POST', `/api/hocphi/${tao.data.id}/xac-nhan`, { cookie: T, body: {} });
-  check('giáo viên xác nhận đã nhận tiền', xn.status === 200, xn.data);
+  const coXn = await req('POST', `/api/hocphi/${tao.data.id}/xac-nhan`, { cookie: T, body: {} });
+  check('CÔ KHÔNG xác nhận được đã nhận tiền → 403 (Đ42)', coXn.status === 403, coXn.status);
+
+  const xn = await req('POST', `/api/hocphi/${tao.data.id}/xac-nhan`, { cookie: A.cookie, body: {} });
+  check('văn phòng xác nhận đã nhận tiền', xn.status === 200, xn.data);
   const sau = await req('GET', '/api/hocphi?studentId=s1', { cookie: P });
   check('sau xác nhận thì hết nợ', sau.data?.tongChuaNop === 0 && sau.data.khoan[0].daNop === true, sau.data);
 }

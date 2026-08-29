@@ -596,8 +596,8 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2627**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **449**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2665**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **454**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -822,3 +822,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 29/08/2026 | **Đ39** — bài học **B9** (*màn nào hiện dữ liệu thì phải tạo được qua giao diện*) lần đầu phủ **cả tám phân hệ mầm non**, đi đủ vòng mở màn → điền → lưu → thấy lại. Tìm ra và vá lỗi thật: ô *Chọn bé* của màn Học phí không có tác dụng, nên khoản thu văn phòng tạo ra rơi vào **nhà người khác** | Sổ việc 71 |
 | 29/08/2026 | **Đ40** — bộ canh VERSION tự mở một lỗ ở chế độ `--khoang` (chế độ GitHub chạy): **một** commit có dòng `Khong-can-sw:` miễn kiểm tra cho **cả khoảng**. Nay đường thoát chỉ miễn cho tệp của chính commit đó | — |
 | 29/08/2026 | **Đ41** — chỉ tiêu *nhật ký cả nhóm dưới 5 phút* lần đầu có phép đo: dựng nhóm **20 bé** rồi đo đúng ba đoạn máy chịu trách nhiệm (**dưới 1 giây**), và đo *một lần chạm lấp được bao nhiêu ô*. Phiếu thử máy thật thêm chỗ đo cho **hai chỉ tiêu còn lại**. Siết `modules/thuchup/routes.js`: số giây bịa không còn đầu độc bảng tổng kết cổng DỪNG GĐ 0 | Sổ việc 55 |
+| 29/08/2026 | **Đ42** — **ghi sổ tiền là việc của văn phòng**: cô không còn tạo khoản thu và không còn xác nhận đã nhận tiền (tầng chức vụ đã đặt Kế toán lo học phí), nhưng vẫn ĐỌC được sổ của nhóm mình. Học phí có `test:hoc-phi` — phân hệ cuối cùng chưa có tệp kiểm thử riêng | Sổ việc 97 |

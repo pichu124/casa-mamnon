@@ -419,11 +419,38 @@ console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhì
   check('GIA ĐÌNH THẤY KHOẢN VĂN PHÒNG VỪA TẠO',
     /Tiền ăn tháng thử nghiệm/.test(hpGd), hpGd.slice(0, 250));
   check('gia đình KHÔNG thấy nút tạo khoản thu', await page.locator('#hp-them').count() === 0);
+
+  // GHI SỔ TIỀN LÀ VIỆC CỦA VĂN PHÒNG (Đ42) — nên màn của cô không được bày
+  // hai nút đó. Máy chủ đã chặn; nếu màn hình vẫn bày thì cô bấm và nhận một
+  // câu từ chối, tức app hứa một việc nó không cho làm.
+  //
+  // Phép kiểm này phải ở đây chứ không ở bộ API: dò mã nguồn bằng biểu thức
+  // không bắt được — đã thử ngược và nó xanh cả khi cổng đã mở toang.
+  await dangNhap('giaovien', '123456');
+  await moMan('#/hocphi');
+  // Phải đứng ĐÚNG ở bé đang có khoản CHƯA NỘP. Đứng ở bé không nợ gì thì màn
+  // không có nút "Xác nhận" dù mã có hỏng hay không — phép kiểm phủ định bên
+  // dưới sẽ xanh vì màn trống, chứ không vì cổng đang đóng.
+  check('cô có ô chọn bé trên màn Học phí', await page.locator('#hp-hs').count() === 1);
+  await page.selectOption('#hp-hs', { label: 'Nguyễn Bảo An' });
+  await page.waitForTimeout(1400);
+  const hpCo = await chuTrenMan();
+  check('CÔ ĐỌC ĐƯỢC khoản văn phòng đã tạo — siết ghi, không siết đọc',
+    /Tiền ăn tháng thử nghiệm/.test(hpCo), hpCo.slice(0, 250));
+  check('và khoản đó đang ở trạng thái CHƯA NỘP — tức đúng chỗ lẽ ra có nút Xác nhận',
+    /Chưa nộp/.test(hpCo), hpCo.slice(0, 250));
+  check('CÔ KHÔNG THẤY NÚT "Tạo khoản"', await page.locator('#hp-them').count() === 0);
+  check('và KHÔNG thấy nút "Xác nhận" trên khoản chưa nộp đó',
+    await page.locator('#view button', { hasText: 'Xác nhận' }).count() === 0);
 }
 
 // ===========================================================================
 console.log('\n[9] Gia đình không có đường ghi ở những màn không phải của họ');
 {
+  // Đăng nhập lại bằng tài khoản gia đình: mục [8] kết thúc ở vai CÔ. Không có
+  // dòng này thì cả mục dưới đo nhầm vai — và đo nhầm theo hướng dễ dãi nhất.
+  await dangNhap('phuhuynh', '123456');
+
   // Mỗi màn hai vế: PHẢI dựng lên được và có chữ thật (nếu không thì phép kiểm
   // phủ định ở dưới xanh chỉ vì màn trống trơn), rồi mới đòi không có nút soạn.
   await moMan('#/nhatky');

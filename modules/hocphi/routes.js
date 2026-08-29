@@ -24,11 +24,24 @@ module.exports = (app, { db }) => {
     });
   });
 
-  // Giáo viên tạo khoản thu cho học sinh lớp mình.
-  app.post('/api/hocphi', requireRole('teacher', 'admin'), (req, res) => {
+  // TẠO KHOẢN THU LÀ VIỆC CỦA VĂN PHÒNG, KHÔNG PHẢI CỦA CÔ.
+  //
+  // Phân hệ này mang nguyên từ app 1 sang, và ở đó cả `teacher` lẫn `admin`
+  // đều tạo được. Ở trường mầm non thì không: tầng chức vụ đã đặt **Kế toán**
+  // là người lo học phí và tiền ăn, và đợt Y3 đã tách rõ *"cô chốt suất, kế
+  // toán đối chiếu"*.
+  //
+  // Để cô tạo rồi tự xác nhận một khoản tiền là để một người KHÔNG chịu trách
+  // nhiệm về tiền vừa ghi sổ vừa duyệt sổ. Sai sót ở đó không ai đối chiếu ra,
+  // và khi có chuyện thì người đứng lớp là người phải giải trình về tiền.
+  //
+  // Vai `admin` ở đây không có nghĩa "ai cũng vào được": tầng chức vụ vẫn siết
+  // tiếp bên trong — Kế toán và Văn phòng cơ sở có `/api/hocphi` trong phần
+  // việc, Nhân sự và Marketing thì không.
+  app.post('/api/hocphi', requireRole('admin'), (req, res) => {
     const { studentId, kyThu, noiDung, soTien, hanNop } = req.body || {};
     if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Bé không thuộc nhóm của cô' });
+      return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }
     if (!String(kyThu || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập kỳ thu' });
     if (!String(noiDung || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập nội dung khoản thu' });
@@ -53,12 +66,13 @@ module.exports = (app, { db }) => {
     res.status(201).json({ ...rec, daNop: false });
   });
 
-  // Giáo viên xác nhận đã nhận tiền.
-  app.post('/api/hocphi/:id/xac-nhan', requireRole('teacher', 'admin'), (req, res) => {
+  // Xác nhận đã nhận tiền — cùng một lý do như trên, và nặng hơn: đây là chỗ
+  // biến "nhà này còn nợ" thành "nhà này đã nộp".
+  app.post('/api/hocphi/:id/xac-nhan', requireRole('admin'), (req, res) => {
     const k = db.first('hocphi_khoan', 'SELECT * FROM hocphi_khoan WHERE id = ?', [req.params.id]);
     if (!k) return res.status(404).json({ error: 'Không tìm thấy khoản thu' });
     if (!db.canAccessStudent(req.user, k.studentId)) {
-      return res.status(403).json({ error: 'Khoản thu này không thuộc nhóm cô phụ trách' });
+      return res.status(403).json({ error: 'Khoản thu này nằm ngoài phạm vi của tài khoản' });
     }
     if (k.daNop) return res.status(400).json({ error: 'Khoản này đã được xác nhận trước đó' });
 

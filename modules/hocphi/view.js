@@ -2,7 +2,17 @@
 // chung mọi hàm trợ giúp giao diện của ứng dụng nên trông đồng bộ với phần lõi.
 App.views.hocphi = {
   async render(root) {
-    const isTeacher = App.state.user.role !== 'parent';
+    // HAI VAI, KHÔNG PHẢI MỘT.
+    //
+    //   `laNguoiTruong` — cô hoặc văn phòng: xem được cả nhóm, chọn từng bé.
+    //   `laVanPhong`    — chỉ văn phòng: mới được tạo khoản và xác nhận nộp.
+    //
+    // Tách ra vì máy chủ đã tách (Đ42): cô gọi hai đường ghi đó nhận 403. Nếu
+    // màn hình vẫn bày nút thì cô bấm và nhận một câu từ chối — app hứa một
+    // việc nó không cho làm, đúng thứ `test:khong-hua-suong` sinh ra để chặn.
+    const laNguoiTruong = App.state.user.role !== 'parent';
+    const laVanPhong = App.state.user.role === 'admin';
+    const isTeacher = laNguoiTruong;
     const student = isTeacher ? null : App.currentStudent();
     // Ô "Chọn bé" của người trong trường PHẢI được đọc lại ở đây.
     //
@@ -25,7 +35,7 @@ App.views.hocphi = {
     const tien = (n) => Number(n).toLocaleString('vi-VN') + ' đ';
 
     root.innerHTML = `
-      ${UI.pageHeader('Học phí', isTeacher ? { action: { id: 'hp-them', label: 'Tạo khoản', icon: 'plus' } } : {})}
+      ${UI.pageHeader('Học phí', laVanPhong ? { action: { id: 'hp-them', label: 'Tạo khoản', icon: 'plus' } } : {})}
       ${isTeacher ? this.chonHocSinh(sid) : UI.studentBar()}
       <div class="stat-row">
         <div class="stat-box">
@@ -52,7 +62,7 @@ App.views.hocphi = {
                 <div style="font-weight:700">${tien(k.soTien)}</div>
                 ${k.daNop
                   ? UI.badge('Đã nộp', 'green')
-                  : isTeacher
+                  : laVanPhong
                     ? `<button class="btn sm outline mt-8" onclick="App.views.hocphi.xacNhan('${UI.esc(k.id)}')">Xác nhận</button>`
                     : UI.badge('Chưa nộp', 'orange')}
               </div>

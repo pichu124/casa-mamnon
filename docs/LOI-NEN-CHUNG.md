@@ -128,6 +128,18 @@ cho tới khi trả hết. Trống là tốt.
 > git của kho này (tệp sinh ra trước điểm tách và không đổi từ đó), nên app 1
 > chắc chắn dính.
 
+### MỘT CHỖ CỐ Ý KHÁC NHAU GIỮA HAI KHO — đừng "vá giúp"
+
+**Ai được ghi sổ Học phí.** Ở app 2 (đợt Đ42) chỉ **văn phòng** tạo được khoản
+thu và xác nhận đã nhận tiền; ở app 1 cả **cô** cũng làm được. `modules/hocphi/`
+sinh ra trước điểm tách nên hai kho có cùng đoạn mã, và người sang kho kia rất
+dễ tưởng đây là bản vá còn nợ.
+
+**Không phải.** Đây là đổi chính sách theo cách trường mầm non chia việc (tầng
+chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang thu tiền thật cho
+khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
+đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
+
 ### Còn bốn món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
 Bốn chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
