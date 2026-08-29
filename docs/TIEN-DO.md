@@ -595,7 +595,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2533**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2546**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **363**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -816,3 +816,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ34** — tách phần API của bộ album ra `test:album-api` và đưa vào `npm test`; trước đó sửa `routes/albums.js` rồi chạy `npm test` là mọi chốt chống tệp giả danh ảnh đều không chạy | Sổ việc 64 |
 | 28/08/2026 | **Đ35** — sĩ số báo ăn nay neo vào hình dáng dữ liệu mẫu (trước chỉ so hai trường của cùng một câu trả lời); tầng chức vụ thử thêm vai Văn phòng cơ sở | Sổ việc 68, 70 |
 | 28/08/2026 | **Đ36** — đo bố cục điện thoại cho tám màn phân hệ với vai CÔ; tìm ra và vá lỗi thật: bốn ô nhập của Nhật ký ngày cao 21px, nhỏ hơn đầu ngón tay | Sổ việc 73 |
+| 28/08/2026 | **Đ37** — đóng nhóm là cắt quyền cô ngay **dù nhóm đó vẫn còn bé**, nhưng bảng phân công không bị xoá; trước đó điều này chỉ nằm trong một dòng chú thích | Sổ việc 57 |

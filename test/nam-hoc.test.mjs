@@ -3,7 +3,7 @@
 // Chạy bằng:  npm run test:nam-hoc
 import fs from 'fs';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam, batPhanHe, MAU,
+import { GOC, thuMucTam, donThuMucTam, batPhanHe, dongNhom, MAU,
 } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3600);
@@ -134,6 +134,113 @@ console.log('\n[6] Không cho chuyển trùng năm');
   check('chặn định dạng năm sai', bad.status === 400, bad.data);
   const log = await req('GET', '/api/admin/audit', { cookie: A.cookie });
   check('nhật ký ghi lại việc chuyển năm học', log.data.some(x => x.action === 'schoolyear-promote'));
+}
+
+console.log('\n[7] QUYỀN CỦA CÔ TRÊN NHÓM ĐÃ ĐÓNG — cắt thật, nhưng KHÔNG xoá dữ liệu');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Sau khi chuyển năm học, nhóm cũ bị đóng nhưng dòng trong bảng phân công
+  // `class_teachers` được GIỮ LẠI — để còn nhận ra "cô từng phụ trách nhóm này"
+  // khi mở lại album năm cũ. Quyền đọc hồ sơ trẻ thì bị cắt bằng bộ lọc
+  // `c.active = 1` trong `classIdsOfTeacher` (lib/db.js).
+  //
+  // Cả hai điều trên trước nay chỉ được ghi trong CHÚ THÍCH. Không bài nào chạy
+  // chuyển năm thật rồi hỏi lại. Mà đây là hai vế kéo ngược nhau: siết quá thì
+  // mất album năm cũ, lỏng quá thì cô giữ nguyên quyền đọc hồ sơ của một nhóm
+  // đã đóng — và mỗi năm học lại chồng thêm một lớp cô như vậy.
+  //
+  // Mô hình nhiều-cô-một-nhóm làm chỗ này nặng hơn app 1: ở app 1 quyền nằm ở
+  // một cột `users.classId` bị gỡ khi chuyển năm; ở đây quyền nằm ở một BẢNG
+  // không bị gỡ, nên nó chỉ đúng chừng nào bộ lọc kia còn nguyên.
+  const T3 = (await login('giaovien', '123456')).cookie;
+
+  // Chiều CẮT: cô không còn với tới bé của nhóm cũ.
+  const dsBe = await req('GET', '/api/students', { cookie: T3 });
+  check('cô mở được màn danh sách bé, không bị lỗi', dsBe.status === 200, dsBe.status);
+  check('CÔ KHÔNG CÒN THẤY BÉ NÀO CỦA NHÓM ĐÃ ĐÓNG',
+    (dsBe.data || []).length === 0,
+    (dsBe.data || []).map(b => `${b.name}:${b.className || '-'}`));
+
+  // Và không lách được bằng cách gọi thẳng theo mã bé.
+  const beCu = (await req('GET', '/api/admin/students', { cookie: A.cookie })).data[0];
+  check('có bé của năm mới để thử', !!beCu, beCu);
+  const moThang = await req('GET', `/api/attendance?studentId=${beCu.id}`, { cookie: T3 });
+  check('và KHÔNG lách được bằng cách gọi thẳng theo mã bé',
+    moThang.status === 403, moThang.status);
+
+  // DỰNG ĐÚNG TÌNH HUỐNG NGUY HIỂM, KHÔNG DỰA VÀO MAY MẮN.
+  //
+  // Hai phép kiểm trên xanh cả khi bộ lọc `c.active = 1` bị gỡ — vì chuyển năm
+  // đã dời hết bé sang nhóm mới, nên nhóm đã đóng RỖNG và không có gì để lộ.
+  // Xanh vì không có dữ liệu thì không phải là xanh vì có chốt chặn.
+  //
+  // Nên dựng thẳng cảnh đáng sợ: một nhóm CÓ BÉ rồi mới bị đóng. Ngoài đời đó
+  // là nhóm giải thể giữa năm, hoặc nhóm đóng nhầm rồi chưa kịp mở lại.
+  {
+    const lopThu = (await req('POST', '/api/admin/classes',
+      { cookie: A.cookie, body: { name: 'Nhóm thử đóng', grade: 1 } })).data;
+    const dsCo0 = (await req('GET', '/api/admin/teachers', { cookie: A.cookie })).data || [];
+    const idCo0 = (dsCo0.find(u => u.username === 'giaovien') || {}).id;
+    await req('PUT', `/api/admin/classes/${lopThu.id}/teachers`,
+      { cookie: A.cookie, body: { teacherIds: [idCo0], chinhId: idCo0 } });
+    await req('PUT', `/api/admin/students/${beCu.id}`,
+      { cookie: A.cookie, body: { classId: lopThu.id } });
+
+    const truocKhiDong = await req('GET', '/api/students', { cookie: (await login('giaovien', '123456')).cookie });
+    check('trước khi đóng, cô THẤY bé của nhóm mình — nếu không thì phép kiểm sau vô nghĩa',
+      (truocKhiDong.data || []).some(b => b.id === beCu.id),
+      (truocKhiDong.data || []).map(b => b.id));
+
+    dongNhom(DIR, lopThu.id);
+    const T3b = (await login('giaovien', '123456')).cookie;
+    const sauKhiDong = await req('GET', '/api/students', { cookie: T3b });
+    check('ĐÓNG NHÓM LÀ CẮT QUYỀN NGAY, dù nhóm đó VẪN CÒN BÉ',
+      !(sauKhiDong.data || []).some(b => b.id === beCu.id),
+      (sauKhiDong.data || []).map(b => `${b.name}:${b.classId}`));
+    check('và cũng không lách được bằng cách gọi thẳng theo mã bé',
+      (await req('GET', `/api/attendance?studentId=${beCu.id}`, { cookie: T3b })).status === 403);
+
+    // Trả bé về nhóm cũ để mục sau đo trên nền như thường.
+    await req('PUT', `/api/admin/students/${beCu.id}`,
+      { cookie: A.cookie, body: { classId: beCu.classId } });
+  }
+
+  // Chiều GIỮ: bảng phân công KHÔNG bị xoá. Đây là "tắt là ngưng dùng, không
+  // phải xoá" của Nguyên tắc số 1, áp cho phân công cô.
+  const { default: Db } = await import('better-sqlite3');
+  const cn = new Db(`${DIR}/school.db`, { readonly: true });
+  const soPhanCong = cn.prepare('SELECT COUNT(*) n FROM class_teachers').get().n;
+  const coCu = cn.prepare(
+    `SELECT COUNT(*) n FROM class_teachers ct JOIN classes c ON c.id = ct.classId
+     WHERE c.active = 0`).get().n;
+  cn.close();
+  check('BẢNG PHÂN CÔNG KHÔNG BỊ XOÁ khi chuyển năm', soPhanCong > 0, soPhanCong);
+  check('và vẫn còn dòng trỏ vào nhóm ĐÃ ĐÓNG — đó là thứ nhận ra "cô từng phụ trách"',
+    coCu > 0, coCu);
+
+  // Chiều CHO PHÉP: phân công cô vào nhóm năm mới thì quyền quay lại ngay.
+  // Chọn nhóm CÓ BÉ, không lấy đại nhóm đầu danh sách: sau khi chuyển năm có cả
+  // nhóm mới chưa bé nào, và phân công cô vào đúng nhóm rỗng thì phép kiểm dưới
+  // đây đỏ vì lý do chẳng liên quan gì tới quyền.
+  const dsAd = (await req('GET', '/api/admin/students', { cookie: A.cookie })).data || [];
+  const lopCoBe = dsAd.find(b => b.classId)?.classId;
+  const lopMoi = ((await req('GET', '/api/admin/overview', { cookie: A.cookie })).data.classes || [])
+    .find(c => c.id === lopCoBe);
+  const dsCo = (await req('GET', '/api/admin/teachers', { cookie: A.cookie })).data || [];
+  const idCo = (dsCo.find(u => u.username === 'giaovien') || {}).id;
+  check('tìm được cô và nhóm của năm mới để phân công lại', !!idCo && !!lopMoi, { idCo, lopMoi: lopMoi?.id });
+  const gan = await req('PUT', `/api/admin/classes/${lopMoi.id}/teachers`,
+    { cookie: A.cookie, body: { teacherIds: [idCo], chinhId: idCo } });
+  check('phân công lại cô vào nhóm năm mới → 200', gan.status === 200, gan.data);
+
+  const T4 = (await login('giaovien', '123456')).cookie;
+  const dsBe2 = await req('GET', '/api/students', { cookie: T4 });
+  check('PHÂN CÔNG LẠI LÀ QUYỀN QUAY VỀ NGAY, không phải chờ khởi động lại',
+    (dsBe2.data || []).length > 0, (dsBe2.data || []).length);
+  check('và chỉ thấy bé của đúng nhóm vừa được phân công',
+    (dsBe2.data || []).every(b => b.classId === lopMoi.id),
+    (dsBe2.data || []).map(b => b.classId));
 }
 
 server.kill('SIGTERM');
