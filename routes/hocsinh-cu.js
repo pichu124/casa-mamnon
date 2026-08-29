@@ -20,14 +20,20 @@ const db = require('../lib/db');
 //
 // Hết hạn thì chỉ ĐÓNG ĐƯỜNG XEM, tuyệt đối không xóa gì: nhà trường vẫn phải
 // giữ hồ sơ theo quy định lưu trữ, và quản trị vẫn tra được.
-const SO_THANG_GIU = 12;
+//
+// LUẬT NÀY TỪNG NẰM Ở ĐÂY, VÀ CHỈ Ở ĐÂY — ĐÓ LÀ MỘT LỖ HỔNG.
+//
+// Cho tới đợt Đ44, hằng `SO_THANG_GIU` và hàm `hetHan` là bản riêng của tệp
+// này, trong khi `db.canAccessStudent` — hàm mà MỌI đường đọc dữ liệu bé đều
+// gọi — không biết gì về mốc 12 tháng. Kết quả: màn hình này đóng đúng hạn,
+// còn /api/nhatky, /api/health, /api/medicine… thì mở mãi mãi.
+//
+// Nay luật ở `lib/db.js`, và tệp này chỉ mượn lại. Một luật quyền nằm cạnh một
+// màn hình là một luật chỉ đúng ở màn hình đó.
+const SO_THANG_GIU = db.SO_THANG_GIU_HO_SO;
 
 function hetHan(leftAt) {
-  if (!leftAt) return false;
-  const d = new Date(`${leftAt}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return false;
-  d.setUTCMonth(d.getUTCMonth() + SO_THANG_GIU);
-  return new Date() > d;
+  return !db.conHanXemHoSo(leftAt);
 }
 
 module.exports = (app) => {
@@ -77,13 +83,25 @@ module.exports = (app) => {
     const hs = db.findStudent(req.params.id);
     if (!hs) return res.status(404).json({ error: 'Không tìm thấy bé' });
     if (!db.canAccessStudent(req.user, hs.id)) {
+      // TỪ CHỐI THÌ AI CŨNG BỊ TỪ CHỐI, NHƯNG LỜI TỪ CHỐI THÌ KHÁC NHAU.
+      //
+      // Gia đình của chính bé đó cần biết vì sao và làm gì tiếp; người lạ gõ
+      // trúng mã thì không được biết mã đó là một đứa trẻ từng học ở đây. Nên
+      // hỏi QUAN HỆ (`laPhuHuynhCuaBe`) chứ không hỏi lại quyền.
+      //
+      // Thứ tự này quan trọng và đã từng sai: đợt Đ44 siết `canAccessStudent`
+      // theo mốc 12 tháng, và câu chỉ đường bên dưới thành không bao giờ tới
+      // được — gia đình chỉ còn nhận "Không có quyền xem hồ sơ của bé này".
+      // Bộ canh `test:lo-hong` bắt được ngay.
+      if (req.user.role === 'parent'
+        && db.laPhuHuynhCuaBe(req.user.id, hs.id)
+        && hetHan(hs.leftAt)) {
+        return res.status(403).json({
+          error: `Hồ sơ của bé chỉ tra cứu được trong ${SO_THANG_GIU} tháng sau khi rời trường. `
+            + 'Xin liên hệ nhà trường nếu gia đình cần bản sao.',
+        });
+      }
       return res.status(403).json({ error: 'Không có quyền xem hồ sơ của bé này' });
-    }
-    if (req.user.role === 'parent' && hetHan(hs.leftAt)) {
-      return res.status(403).json({
-        error: `Hồ sơ của bé chỉ tra cứu được trong ${SO_THANG_GIU} tháng sau khi rời trường. `
-          + 'Xin liên hệ nhà trường nếu gia đình cần bản sao.',
-      });
     }
 
     const cls = hs.classId ? db.findClass(hs.classId) : null;
