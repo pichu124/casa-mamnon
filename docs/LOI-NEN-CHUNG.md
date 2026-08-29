@@ -119,11 +119,14 @@ cho tới khi trả hết. Trống là tốt.
 | 28/08 | `scripts/backup.js` chép ảnh sang `backups/uploads` và **không bao giờ xoá**: vòng đời 7 ngày / 4 tuần / 12 tháng chỉ áp cho `school-*.db.gz`. Chỗ ảnh trong `DATA_DIR` luôn gấp đôi và chỉ tăng, tới lúc đầy ổ thì cô đăng ảnh giữa buổi là hỏng | app 2 — Đ17 | **app 1** | Loại 2 (đầy ổ → không ghi được nữa). Ở app 1 nhẹ hơn nhiều vì trường tiểu học gần như không có ảnh, nên **ưu tiên thấp** — nhưng cùng một đoạn mã |
 | 28/08 | `scripts/restore.js` **im lặng bỏ qua** mọi ảnh đã có sẵn trong `uploads/`, kể cả khi tệp trên đĩa khác hẳn bản trong bản sao (cụt, rỗng, hỏng). Người vận hành vừa khôi phục xong tưởng đã chữa hết, trong khi ảnh khuôn mặt trẻ vẫn đang hỏng — và ảnh là thứ duy nhất không dựng lại được | app 2 — Đ23 | **app 1** | Loại 2. Bản vá KHÔNG đè lên tệp đang có (tên tệp là 16 byte ngẫu nhiên nên trùng tên là trùng ảnh, mà bản trên đĩa có thể mới hơn) — chỉ **nói ra** danh sách tệp lệch dung lượng để người vận hành tự soi. Ở app 1 nhẹ hơn vì trường tiểu học gần như không có ảnh |
 | 28/08 | `lib/importer.js` xoá dữ liệu cũ theo một danh sách bảng **viết tay chỉ có bảng lõi**. Nhập lại kho JSON đời cũ, hay chạy `npm run seed -- --force`, xoá sạch bé và nhóm nhưng ĐỂ NGUYÊN ghi chép của phân hệ về chính những bé vừa bị xoá — nhật ký ăn ngủ vệ sinh, quan sát, kế hoạch, sổ đón trả | app 2 — Đ32 | **app 1** | Loại 1 và loại 2 cùng lúc: dữ liệu mồ côi, và **ghi chép về một đứa trẻ sống sót sau khi đứa trẻ đó đã bị xoá** — Nghị định 13/2023 cho quyền xoá. Ở app 1 nhẹ hơn vì bên đó chỉ có phân hệ `hocphi`, mà bảng của nó CÓ khoá ngoại `ON DELETE CASCADE`; vẫn nên vá vì lỗi nằm ở cách viết danh sách |
+| 29/08 | Màn **Học phí**: ô *Chọn bé* của người trong trường **không có tác dụng**. `render()` luôn lấy `students[0]`, còn `onchange` chỉ ghi `this._sid` rồi vẽ lại — nên văn phòng chọn bé A, màn lặng lẽ quay về bé đầu danh sách, và **khoản thu vừa tạo mang tên nhà khác** | app 2 — Đ39 | **app 1** | Loại 1 (dữ liệu của nhà này hiện trong hồ sơ nhà kia) **và là tiền**. Mã ở `modules/hocphi/view.js` giống hệt nhau tại điểm tách `bc9dfa3`, nên app 1 chắc chắn dính. Ở app 1 còn nặng hơn: app 1 đang thu tiền thật của ~300 gia đình, còn app 2 chưa có người dùng. **Món nợ ưu tiên cao nhất trong bảng này** |
 
-> **Tám món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
+> **Chín món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
 > Ghi nợ ở đây là việc làm được ngay; trả nợ cần mở kho kia và đối chiếu từng
-> tệp, vì không chắc app 1 có dính đủ cả tám hay không — mà ghi sổ sai còn tệ
-> hơn sổ trống.
+> tệp, vì không chắc app 1 có dính đủ cả chín hay không — mà ghi sổ sai còn tệ
+> hơn sổ trống. **Món 29/08 là ngoại lệ:** đã đối chiếu được bằng chính lịch sử
+> git của kho này (tệp sinh ra trước điểm tách và không đổi từ đó), nên app 1
+> chắc chắn dính.
 
 ### Còn bốn món KHÔNG bắt buộc, ghi lại cho khỏi quên
 

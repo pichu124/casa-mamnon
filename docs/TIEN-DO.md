@@ -584,8 +584,9 @@ nói ra thứ nó đang hiện.**
 
 ### G0.6 — Con số kiểm thử hiện tại
 
-> **Đo ngày 28/08/2026.** Con số này rơi rớt rất nhanh — mỗi đợt thêm bài là
-> lệch. Đếm lại bằng chính hai lệnh dưới, đừng tin bảng nếu commit gần nhất
+> **Đo ngày 29/08/2026.** Con số này rơi rớt rất nhanh — mỗi đợt thêm bài là
+> lệch, và bảng này đã lệch thật một lần (ghi 2546 trong khi số đo lại là
+> 2615). Đếm lại bằng chính hai lệnh dưới, đừng tin bảng nếu commit gần nhất
 > có đụng vào `test/`:
 >
 > ```bash
@@ -595,8 +596,8 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2546**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **371**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2615**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **434**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -818,3 +819,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ36** — đo bố cục điện thoại cho tám màn phân hệ với vai CÔ; tìm ra và vá lỗi thật: bốn ô nhập của Nhật ký ngày cao 21px, nhỏ hơn đầu ngón tay | Sổ việc 73 |
 | 28/08/2026 | **Đ37** — đóng nhóm là cắt quyền cô ngay **dù nhóm đó vẫn còn bé**, nhưng bảng phân công không bị xoá; trước đó điều này chỉ nằm trong một dòng chú thích | Sổ việc 57 |
 | 28/08/2026 | **Đ38** — vai **Cấp 3** lần đầu được mở trên trình duyệt thật: không lọt tên bé của cơ sở khác lên màn hình, không lọt vào ô chọn nhóm, và gọi thẳng API từ trong phiên cũng bị từ chối | Sổ việc 74 |
+| 29/08/2026 | **Đ39** — bài học **B9** (*màn nào hiện dữ liệu thì phải tạo được qua giao diện*) lần đầu phủ **cả tám phân hệ mầm non**, đi đủ vòng mở màn → điền → lưu → thấy lại. Tìm ra và vá lỗi thật: ô *Chọn bé* của màn Học phí không có tác dụng, nên khoản thu văn phòng tạo ra rơi vào **nhà người khác** | Sổ việc 71 |

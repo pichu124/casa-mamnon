@@ -4,7 +4,18 @@ App.views.hocphi = {
   async render(root) {
     const isTeacher = App.state.user.role !== 'parent';
     const student = isTeacher ? null : App.currentStudent();
-    const sid = student ? student.id : (App.state.students[0] || {}).id;
+    // Ô "Chọn bé" của người trong trường PHẢI được đọc lại ở đây.
+    //
+    // Bản đầu chỉ ghi `this._sid` rồi vẽ lại màn, mà lúc vẽ lại thì luôn lấy
+    // `students[0]`. Kết quả: văn phòng chọn bé nào cũng vô ích, màn quay về bé
+    // đầu danh sách, và KHOẢN THU VỪA TẠO RƠI VÀO NHÀ NGƯỜI KHÁC — sai tiền,
+    // sai nhà, mà trên màn trông vẫn bình thường.
+    const dsBe = App.state.students || [];
+    const sid = student
+      ? student.id
+      : (isTeacher && this._sid && dsBe.some(s => s.id === this._sid))
+        ? this._sid
+        : (dsBe[0] || {}).id;
     if (!sid) {
       root.innerHTML = UI.pageHeader('Học phí') + UI.emptyState('💳', 'Chưa có bé nào');
       return;

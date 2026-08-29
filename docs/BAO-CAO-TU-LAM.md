@@ -15,9 +15,9 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2546 bài**, `npm run test:giao-dien` **371 bài**, FAIL 0 |
+| Bộ kiểm thử | `npm test` **2615 bài**, `npm run test:giao-dien` **434 bài**, FAIL 0 (đo 29/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
-| Còn việc nào cần anh quyết | **có, 3 việc**, xem mục 4 |
+| Còn việc nào cần anh quyết | **có, 3 nhóm việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
 
 ---
@@ -37,6 +37,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ23** | Vòng sao lưu → mất → khôi phục nay kiểm **đúng byte của một tấm ảnh thật** | Ảnh khuôn mặt trẻ nằm ngoài cơ sở dữ liệu và là thứ **duy nhất không dựng lại được** nếu mất. Cả 58 bài cũ chỉ đếm số bé |
 | **Đ24** | Tầng chức vụ thử thật với Ghi nhanh, Hành trình, Kế hoạch bé, Nhật ký | Ghi nhanh là ghi chép thô của cô — lớp 1 của bảng ba lớp, thứ *"không bao giờ lộ sang phụ huynh"*. Chốt quan trọng nhất lại chưa có bài nào chứng minh nó đang đóng |
 | **Đ21** | Gom 5 bản hàm nén ảnh về một chỗ | Vẽ lại ảnh qua canvas là bước **duy nhất** bỏ được toạ độ GPS trong ảnh. Ảnh trẻ chụp trong lớp mà còn kèm toạ độ trường là thứ không được để lọt |
+| **Đ39** | Vá lỗi **khoản thu rơi vào nhà người khác**: ô *Chọn bé* của màn Học phí không có tác dụng | Văn phòng chọn bé A, màn lặng lẽ quay về bé đầu danh sách, và khoản tiền được tạo cho bé đó. Sai tiền, sai nhà, mà trên màn hình trông vẫn bình thường. Bài canh mới tìm ra nó ngay lần chạy đầu |
 
 ### 2.2 Việc giữ cho cô không mất công
 
@@ -53,6 +54,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ25** | Hai bộ canh QUY TẮC 2 và QUY TẮC 4 nay nhìn cả `ui.js` và `app.js` — hai tệp cả app dựa vào, trước nằm ngoài tầm |
 | **Đ26** | Hai phép kiểm *"chạy khi mất mạng"* của `test:pwa` **luôn xanh dù app hỏng hẳn**. Thay bằng phép kiểm đọc thẳng nội dung cache |
 | — | Bảng số kiểm thử ở `docs/TIEN-DO.md` ghi 2183/265, số thật là 2469/379. Sửa số, và sửa luôn cái làm số ấy lệch: thêm ngày đo và hai lệnh tự đếm lại |
+| **Đ39** | Bài học **B9** — *"màn nào hiện dữ liệu thì phải tạo được qua giao diện"* — trước chỉ được canh cho mười màn **lõi kế thừa từ app 1**. Nay phủ đủ **tám phân hệ mầm non**, mỗi phân hệ đi đủ vòng: mở màn → điền → lưu → **thấy lại**. Kèm một bộ canh cho chính món nợ đó: thêm phân hệ thứ chín mà quên đường ghi là bài đỏ ngay |
 
 ---
 
@@ -86,9 +88,10 @@ lúc bản nháp nằm trong máy cô A, cô B có thể đã ghi và lưu từ 
 
 ## 4. Việc đang chờ anh
 
-### 4.1 Một chỗ tôi thấy nhưng KHÔNG tự sửa
+### 4.1 Hai chỗ tôi thấy nhưng KHÔNG tự sửa
 
-**`UI.RATING` — ba mức "Con làm rất tốt / Con làm tốt / Cần cố gắng thêm".**
+**Chỗ thứ nhất — `UI.RATING`: ba mức "Con làm rất tốt / Con làm tốt / Cần cố
+gắng thêm".**
 
 Ba mức xếp trên dưới về một đứa trẻ đúng là thứ QUY TẮC 4 cấm. Nhưng nó không
 dùng chữ "điểm" hay "xếp hạng" nên **không bộ canh nào bắt được**, kể cả sau khi
@@ -103,6 +106,18 @@ thêm dấu hiệu cho bộ canh thì phải nới luật của một bộ canh 
 > là không được quên khi bật lại.
 
 Ba đường đi và giá của từng đường ghi đủ ở `docs/QUYET-DINH-TU-CHOT.md`.
+
+**Chỗ thứ hai — một câu thông báo nói sai sự thật với gia đình.**
+
+Gia đình gõ thẳng đường dẫn của một phân hệ chỉ dành cho người trong trường
+(Báo ăn, Ghi nhanh, Kế hoạch của bé) thì màn hình hiện: *"Phân hệ này hiện đang
+được nhà trường tắt."* Nhưng nhà trường **không** tắt nó — nó đang bật, chỉ là
+không dành cho gia đình. Bộ canh mới ở Đ39 đi qua đúng ba màn này nên nhìn thấy.
+
+Câu đó nằm ở `public/js/app.js`, tức **tệp dùng chung**: theo quy định của
+`CLAUDE.md` nó phải là một commit riêng, không trộn với đợt thêm bài canh. Hại
+thì nhỏ (chỉ ai gõ tay đường dẫn mới gặp) nhưng nói sai với phụ huynh là thứ
+không nên để lâu. **Sửa được trong một đợt riêng, chỉ chờ anh gật.**
 
 ### 4.2 Những việc chỉ nhà trường mở được
 
@@ -119,9 +134,15 @@ Không phải việc của mã, và tôi không làm thay được:
 
 ### 4.3 Món nợ với kho app 1
 
-Bảy bản vá thuộc loại **bắt buộc** (rò rỉ dữ liệu hoặc mất dữ liệu) đã làm ở
-app 2 nhưng **chưa mang sang app 1** — vì phiên làm việc chưa có quyền vào kho
+**Chín** bản vá thuộc loại **bắt buộc** (rò rỉ dữ liệu hoặc mất dữ liệu) đã làm
+ở app 2 nhưng **chưa mang sang app 1** — vì phiên làm việc chưa có quyền vào kho
 đó. Danh sách đầy đủ kèm mã commit ở `docs/LOI-NEN-CHUNG.md`, mục *Sổ nợ*.
+
+> **Đợt này thêm một món, và nó là món nặng nhất trong sổ.** Lỗi *Chọn bé* của
+> màn Học phí (mục 2.1 ở trên) nằm trong tệp sinh ra **trước điểm tách hai kho**
+> và không đổi từ đó — nên app 1 **chắc chắn** dính, không phải "có thể". Ở app 1
+> nó nặng hơn hẳn: bên đó đang thu tiền thật của khoảng 300 gia đình, còn app 2
+> chưa có người dùng nào.
 
 App 1 đang chạy thật cho khoảng 300 gia đình, nên đây là món nợ đáng trả sớm.
 Anh mở quyền vào kho `pichu124/School` là tôi đối chiếu và vá được.
@@ -141,4 +162,4 @@ Sổ việc gốc có **161 mục**. Sau đợt này:
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ38.*
+*Cập nhật lần cuối: sau đợt Đ39.*
