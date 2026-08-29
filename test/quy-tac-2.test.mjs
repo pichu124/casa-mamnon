@@ -108,7 +108,13 @@ function cacTep(muc) {
   for (const f of fs.readdirSync(p)) {
     const con = path.join(p, f);
     if (fs.statSync(con).isDirectory()) ra.push(...cacTep(path.relative(GOC, con)));
-    else if (f.endsWith('.js')) ra.push(con);
+    // Quét cả `.sql` và `.json`, không chỉ `.js` — giống bộ canh QUY TẮC 4.
+    //
+    // Một cột tên `chua_dat` trong `schema.sql`, hay một nhãn "Chưa đạt" trong
+    // `module.json`, là vi phạm y hệt một dòng trong `view.js`: nó lên tới màn
+    // hình của cô qua đúng cùng một đường. Bản trước chỉ đọc `.js` nên hai chỗ
+    // đó là cửa sau bỏ ngỏ.
+    else if (/\.(js|sql|json)$/.test(f)) ra.push(con);
   }
   return ra;
 }

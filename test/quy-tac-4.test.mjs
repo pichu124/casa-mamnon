@@ -80,17 +80,39 @@ const DAU_HIEU = [
 ];
 
 // Được phép, kèm lý do. Không phải mọi phần trăm đều là xếp hạng trẻ.
+//
+// NGOẠI LỆ THEO DÒNG, KHÔNG THEO CẢ TỆP.
+//
+// Bản trước bỏ qua NGUYÊN TỆP khi tên tệp có trong danh sách này. Nhưng lý do
+// miễn trừ chỉ đúng cho MỘT dấu hiệu — phần trăm phiếu khảo sát của người lớn —
+// còn cách viết thì miễn luôn cả năm. Thêm chữ "xếp hạng" hay "điểm thi đua"
+// vào `surveys.js` là bộ canh không hé một tiếng: một cửa sau bỏ ngỏ ngay
+// trong bộ canh của QUY TẮC 4.
+//
+// Bộ canh QUY TẮC 2 đã làm đúng hơn từ đầu (hàm `chiDong`), nên đưa về cùng
+// dạng: mỗi ngoại lệ phải nói rõ nó chừa ĐÚNG DÒNG NÀO.
 const NGOAI_LE = [
   {
     tep: 'public/js/views/surveys.js',
     vi_sao: 'Phần trăm ở đây là tỉ lệ PHỤ HUYNH chọn mỗi phương án trong khảo sát — '
       + 'không phải con số về một đứa trẻ. QUY TẮC 4 cấm xếp hạng TRẺ, không cấm '
       + 'đếm phiếu của người lớn.',
+    // Chỉ chừa đúng những dòng in ra tỉ lệ phiếu. Mọi dòng khác của tệp này vẫn
+    // bị soi như thường.
+    chiDong: (dong) => /\}%|phần trăm|tỉ lệ|ti le/i.test(dong),
   },
   {
     tep: 'data/seed.js',
     vi_sao: 'Chú thích trong dữ liệu mẫu giải thích vì sao mọi bản ghi nề nếp đều '
       + 'points: 0. Nhắc tới "xếp hạng" để nói rằng đang cố ý KHÔNG xếp hạng.',
+    // Chừa hai loại dòng, và chỉ hai:
+    //   1. dòng CHÚ THÍCH — nó nói về QUY TẮC 4 chứ không sinh ra dữ liệu nào;
+    //   2. dòng đặt trường đó về GIÁ TRỊ TRUNG TÍNH (`null` hoặc `0`) — tức là
+    //      chính chỗ đang thực thi QUY TẮC 4.
+    // `score: 8.5` thì vẫn bị bắt, và đó là điểm khác nhau giữa ngoại lệ này
+    // với việc bỏ qua cả tệp như bản trước.
+    chiDong: (dong) => /^\s*(\/\/|\*|\/\*)/.test(dong)
+      || /\b(score|diem\w*|points|hocLuc)\s*:\s*(null|0)\s*[,}]/.test(dong),
   },
 ];
 
@@ -148,9 +170,10 @@ export function quet(vung = VUNG_QUET) {
   for (const muc of vung) {
     for (const tep of cacTep(muc)) {
       const tuongDoi = path.relative(GOC, tep).split(path.sep).join('/');
-      if (NGOAI_LE.some((n) => n.tep === tuongDoi)) continue;
+      const nl = NGOAI_LE.filter((n) => n.tep === tuongDoi);
       const dongs = fs.readFileSync(tep, 'utf8').split('\n');
       dongs.forEach((dong, i) => {
+        if (nl.some((n) => n.chiDong(dong))) return;
         const hit = DAU_HIEU.filter((d) => d.re.test(dong));
         if (!hit.length) return;
         (theoTep[tuongDoi] ||= []).push({ dong: i + 1, dau: hit.map((h) => h.ten).join(', '), trich: dong.trim().slice(0, 100) });
@@ -245,6 +268,45 @@ console.log('\n[4] Bộ canh này có thật sự bắt được không');
   check('KHÔNG bắt nhầm width:100% của bố cục',
     Object.keys(quet(['test/__tam-qt4'])).length === 0, quet(['test/__tam-qt4']));
   fs.rmSync(tam, { recursive: true, force: true });
+}
+
+// ===========================================================================
+console.log('\n[5] NGOẠI LỆ CHỪA ĐÚNG DÒNG, KHÔNG CHỪA CẢ TỆP');
+{
+  // Bản trước bỏ qua NGUYÊN TỆP khi tên tệp có trong NGOAI_LE. Lý do miễn trừ
+  // chỉ đúng cho MỘT dấu hiệu (phần trăm phiếu khảo sát của người lớn), nhưng
+  // cách viết miễn luôn cả năm — thêm chữ "xếp hạng" vào `surveys.js` là bộ
+  // canh không hé một tiếng. Một cửa sau bỏ ngỏ ngay trong bộ canh.
+  //
+  // Mục này canh chính ngoại lệ đó: nó phải chừa đúng dòng đã nêu lý do, và
+  // KHÔNG chừa gì thêm.
+  check('mọi ngoại lệ đều nói rõ nó chừa dòng nào — không có ngoại lệ cả tệp',
+    NGOAI_LE.every(n => typeof n.chiDong === 'function'),
+    NGOAI_LE.map(n => `${n.tep}: ${typeof n.chiDong}`));
+  check('và mọi ngoại lệ đều có lý do viết thành chữ',
+    NGOAI_LE.every(n => typeof n.vi_sao === 'string' && n.vi_sao.trim().length >= 40),
+    NGOAI_LE.map(n => (n.vi_sao || '').length));
+  check('mọi tệp được nêu ngoại lệ đều còn tồn tại thật',
+    NGOAI_LE.every(n => fs.existsSync(path.join(GOC, n.tep))),
+    NGOAI_LE.filter(n => !fs.existsSync(path.join(GOC, n.tep))).map(n => n.tep));
+
+  // Phép thử ngược cho chính ngoại lệ: một dòng vi phạm THẬT nằm trong tệp
+  // được miễn trừ vẫn phải bị bắt.
+  for (const n of NGOAI_LE) {
+    check(`${n.tep}: dòng "Bảng xếp hạng của nhóm" KHÔNG được ngoại lệ chừa`,
+      !n.chiDong("const t = 'Bảng xếp hạng của nhóm';"), n.tep);
+    check(`${n.tep}: dòng "score: 8.5" KHÔNG được ngoại lệ chừa`,
+      !n.chiDong('  score: 8.5,'), n.tep);
+  }
+
+  // Và chiều còn lại: đúng dòng đã nêu lý do thì phải được chừa thật, nếu không
+  // ngoại lệ chỉ là chữ chết và bộ canh sẽ đỏ oan.
+  const ls = NGOAI_LE.find(n => n.tep === 'public/js/views/surveys.js');
+  check('surveys.js: dòng in tỉ lệ phiếu của người lớn thì ĐƯỢC chừa',
+    !!ls && ls.chiDong('return `${Math.round(pct)}%`;'), !!ls);
+  const sd = NGOAI_LE.find(n => n.tep === 'data/seed.js');
+  check('seed.js: dòng đặt điểm về giá trị trung tính thì ĐƯỢC chừa',
+    !!sd && sd.chiDong('          score: null,   // QUY TẮC 4 — không chấm điểm trẻ'), !!sd);
 }
 
 tongKet();
