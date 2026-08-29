@@ -314,15 +314,29 @@ console.log('\n[9] Album của nhóm ĐÃ ĐÓNG — ảnh khuôn mặt trẻ, v
   check('CẤP 1 vẫn thấy album nhóm cũ của mọi cơ sở', c2Cua1.length > 0, (cua1.data || []).length);
 
   // Mở thẳng theo mã và XOÁ — hai đường nguy hiểm nhất, phải chặn cả hai.
+  //
+  // KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG THÌ TÍNH LÀ ĐỎ.
+  //
+  // Bản trước bọc ba phép kiểm này trong `if (c2Cua1.length)` mà không có nhánh
+  // `else`. Cấp 1 không lấy ra được album nào của nhóm c2 — vì đổi dữ liệu mẫu,
+  // vì `dongNhom` hỏng, vì bất cứ lý do gì — là ba phép kiểm quan trọng nhất
+  // của mục này IM LẶNG BIẾN MẤT khỏi tổng số. Đây là ranh giới cách ly ba cơ
+  // sở với ảnh khuôn mặt trẻ; nó không được phép biến mất mà không ai biết.
   if (c2Cua1.length) {
     const id = c2Cua1[0].id;
     const mo = await req('GET', `/api/albums/${id}`, { cookie: C3 });
     check('KHÔNG mở được album đó dù biết mã', mo.status === 403 || mo.status === 404, mo.status);
     const xoa = await req('DELETE', `/api/albums/${id}`, { cookie: C3 });
-    check('VÀ KHÔNG XOÁ ĐƯỢC NÓ — đây là mất dữ liệu, không chỉ là đọc trộm',
+    check('VÀ KHÔNG XÓA ĐƯỢC NÓ — đây là mất dữ liệu, không chỉ là đọc trộm',
       xoa.status === 403 || xoa.status === 404, xoa.status);
     check('album vẫn còn nguyên sau khi bị thử xoá',
       (await req('GET', `/api/albums/${id}`, { cookie: C1 })).status === 200);
+  } else {
+    const vi = 'KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG: Cấp 1 không lấy ra được album nào của '
+      + 'nhóm c2 sau khi đóng nhóm, nên không có gì để thử mở trộm hay xoá trộm.';
+    check('KHÔNG mở được album đó dù biết mã', false, vi);
+    check('VÀ KHÔNG XÓA ĐƯỢC NÓ — đây là mất dữ liệu, không chỉ là đọc trộm', false, vi);
+    check('album vẫn còn nguyên sau khi bị thử xoá', false, vi);
   }
 }
 

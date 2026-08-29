@@ -1155,11 +1155,20 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
     // Phân quyền: không mở được hồ sơ con nhà khác.
     const conNguoiKhac = (await r3('GET', '/api/schoolyear/alumni', { cookie: A })).data
       .find(x => x.id !== emCu.id);
+    // KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG THÌ TÍNH LÀ ĐỎ, KHÔNG PHẢI LÀ ĐẠT.
+    //
+    // Bản trước có nhánh `else` gọi `check(..., true, ...)`: chỉ có đúng một bé
+    // đã ra trường thì phép kiểm ranh giới giữa hai nhà lặng lẽ báo xanh mà
+    // không kiểm gì. Ranh giới đó — nhà này không mở được hồ sơ con nhà khác —
+    // là thứ đáng canh nhất của cả mục, nên nó không được phép biến mất khỏi
+    // tổng số vì một lý do kỹ thuật.
     if (conNguoiKhac) {
       check('phụ huynh KHÔNG mở được hồ sơ con nhà khác',
         (await r3('GET', `/api/hocsinh-cu/${conNguoiKhac.id}`, { cookie: PH })).status === 403);
     } else {
-      check('phụ huynh KHÔNG mở được hồ sơ con nhà khác', true, 'chỉ có một em đã ra trường');
+      check('phụ huynh KHÔNG mở được hồ sơ con nhà khác', false,
+        'KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG: chỉ có một bé đã ra trường, nên không có '
+        + '"con nhà khác" để thử. Dữ liệu mẫu phải có ít nhất hai bé ra trường.');
     }
     check('người chưa đăng nhập không vào được',
       (await r3('GET', '/api/hocsinh-cu')).status === 401);
