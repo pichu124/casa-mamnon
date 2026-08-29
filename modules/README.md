@@ -67,7 +67,7 @@ còn lại không hề bị đụng tới** — đó mới là điều quan tr�
 ### `routes.js`
 
 ```js
-module.exports = (app, { db }) => {
+module.exports = (app, { db, modules }) => {
   const { requireRole } = require('../../lib/auth');
 
   app.get('/api/hocphi', (req, res) => {
@@ -81,6 +81,49 @@ module.exports = (app, { db }) => {
   });
 };
 ```
+
+#### Đọc bảng của phân hệ KHÁC thì phải hỏi công tắc trước
+
+Tham số thứ hai là `{ db, modules }`, không phải chỉ `{ db }`. `modules` có đúng
+một việc, và là việc dễ quên nhất trong cả trang này:
+
+```js
+// SAI — đọc thẳng bảng của phân hệ khác
+const td = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngay]);
+
+// ĐÚNG — hỏi trước xem nhà trường còn bật phân hệ đó không
+if (!modules.dangBat('thucdon')) return null;
+const td = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngay]);
+```
+
+**Vì sao chặn ở HTTP là không đủ:** tắt một phân hệ thì máy chủ chặn *đường dẫn
+API* của nó. Nhưng khi phân hệ của bạn đọc thẳng bảng của nó thì đường đi đó
+**không qua HTTP** — không có gì để chặn. Nhà trường tắt Điểm danh xong, màn Báo
+ăn vẫn trừ suất theo một quyển sổ không còn ai cập nhật, và bếp nấu thiếu.
+
+Đây không phải chuyện giả định: **Báo ăn đã bỏ sót đúng bước này** (vá ở Đ46),
+và trước đó Thực đơn (Y1) rồi Ghi nhanh (N24) cũng vậy. Ba lần cùng một chỗ.
+
+`modules` có thể không được truyền vào ở vài đường nạp cũ. Khi đó **coi như đang
+bật** — mặc định mở chứ không mặc định đóng, vì đóng nhầm thì tính năng biến mất
+mà không ai hiểu vì sao.
+
+#### Đường dẫn API mới mặc định BỊ TỪ CHỐI với tài khoản Cấp 2
+
+Tầng chức vụ (`CHUC_VU` trong `lib/db.js`) chặn theo **danh sách cho phép**, cố ý
+để "quên thì quên theo hướng đóng lại". Nghĩa là một `api` mới khai ở
+`module.json` sẽ **không** tự có mặt trong phần việc của Kế toán, Nhân sự,
+Marketing hay Văn phòng cơ sở.
+
+Nếu phân hệ mới thuộc phần việc của một trong các chức vụ đó thì phải thêm đường
+dẫn vào đúng mảng `api` của chức vụ ấy. `lib/db.js` là **tệp dùng chung**, nên
+việc này phải là một **commit riêng** (xem `CLAUDE.md`).
+
+Không thêm cũng không sao — người dùng vẫn vào được bằng tài khoản ban giám hiệu
+hoặc quản lý cơ sở. Chỉ là tài khoản Cấp 2 bấm vào ô mới sẽ nhận 403 kèm câu
+*"Cần thêm quyền thì nhờ ban giám hiệu đổi chức vụ giúp"* — mà ban giám hiệu
+**không có** màn hình nào sửa được danh sách đó. `npm run test:chuc-vu` canh cho
+hai danh sách khớp nhau.
 
 Người dùng đã được xác thực sẵn khi đến đây (`req.user` luôn có). Việc **kiểm tra
 quyền theo học sinh và theo lớp thì phân hệ phải tự làm** bằng
@@ -113,10 +156,17 @@ của phân hệ mới trông đồng bộ với phần còn lại.
 ## Quy trình thêm một phân hệ
 
 1. Tạo thư mục và bốn tệp như trên.
-2. Khởi động lại máy chủ — trong log sẽ thấy dòng `Phân hệ mở rộng: <mã>`.
-3. Đăng nhập bằng tài khoản quản trị → **Quản trị → Tính năng** → bật phân hệ.
-4. Người dùng thấy biểu tượng mới ở màn hình chính ngay lần mở tiếp theo.
-5. Chạy `npm test` để chắc chắn phần đang chạy không bị ảnh hưởng. Bộ kiểm thử
+2. **Đọc bảng của phân hệ khác thì gọi `modules.dangBat('<mã>')` trước.** Bước
+   hay quên nhất, và đã bị quên ba lần — xem mục `routes.js` ở trên.
+3. **Phần việc của một chức vụ Cấp 2?** Thêm đường dẫn vào mảng `api` của chức
+   vụ đó trong `lib/db.js`, bằng một **commit riêng** vì đó là tệp dùng chung.
+4. Khởi động lại máy chủ — trong log sẽ thấy dòng `Phân hệ mở rộng: <mã>`.
+5. Đăng nhập bằng tài khoản quản trị → **Quản trị → Tính năng** → bật phân hệ.
+6. Người dùng thấy biểu tượng mới ở màn hình chính ngay lần mở tiếp theo.
+7. **Viết tệp kiểm thử riêng** `test/<mã>.test.mjs` và thêm vào `npm test` trong
+   `package.json`. `npm run test:bai-canh-that` báo đỏ nếu có tệp test không ai
+   chạy; Học phí là phân hệ cuối cùng còn thiếu tệp riêng, và thiếu tới tận Đ42.
+8. Chạy `npm test` để chắc chắn phần đang chạy không bị ảnh hưởng. Bộ kiểm thử
    dựng máy chủ riêng với cơ sở dữ liệu tạm nên **không đụng dữ liệu thật**.
 
 Gỡ phân hệ: tắt trong trang quản trị, hoặc xóa hẳn thư mục rồi khởi động lại.

@@ -514,6 +514,53 @@ console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không ch
   check('nhưng vẫn không với sang nhóm mình không dạy', ngoai.status === 403, ngoai.status);
 }
 
+// ===========================================================================
+console.log('\n[+] ĐƯỜNG "KẾ HOẠCH CỦA MỘT BÉ" — chưa màn hình nào gọi, nhưng vẫn phải kín');
+{
+  // `GET /api/kehoachbe/be` được viết cho một màn "kế hoạch tháng của bé này"
+  // mở từ Hồ sơ của bé. Màn đó CHƯA CÓ: tìm chuỗi "kehoachbe/be" trong cả kho
+  // chỉ ra đúng dòng định nghĩa nó.
+  //
+  // Một mặt API đã xác thực, trả dữ liệu của trẻ, mà không bài nào chạm tới là
+  // thứ đáng canh nhất — không ai mở nó nên cũng không ai phát hiện khi nó hở.
+  // Bài này KHÔNG quyết định số phận của nó (dựng màn hình hay gỡ đi là việc
+  // của nhà trường); nó chỉ bảo đảm chừng nào đường còn sống thì đường còn kín.
+  const be = 's1';   // bé nhóm c1
+  const beNhomKhac = 's2';
+
+  const co = await req('GET', `/api/kehoachbe/be?studentId=${be}`, { cookie: GV });
+  check('cô phụ trách mở được kế hoạch của bé nhóm mình', co.status === 200, co.data);
+  check('trả về đúng bé đó', co.data?.be?.id === be, co.data?.be);
+  check('kèm danh mục góc lĩnh vực để màn hình dựng được',
+    Array.isArray(co.data?.gocLinhVuc) && co.data.gocLinhVuc.length > 0, co.data?.gocLinhVuc);
+  check('và danh mục kết quả', Array.isArray(co.data?.ketQua) && co.data.ketQua.length > 0,
+    co.data?.ketQua);
+
+  // QUY TẮC 4 — màn kế hoạch của MỘT bé là chỗ dễ lọt con số xếp hạng nhất.
+  const chuoiJson = JSON.stringify(co.data || {});
+  check('KHÔNG có phần trăm, điểm số hay thứ hạng nào trong câu trả lời',
+    !/%|"diem"|"score"|"rank"|"thuHang"|"xepLoai"/i.test(chuoiJson), chuoiJson.slice(0, 200));
+
+  const nhomKhac = await req('GET', `/api/kehoachbe/be?studentId=${beNhomKhac}`, { cookie: GV });
+  check('CÔ KHÔNG MỞ ĐƯỢC KẾ HOẠCH CỦA BÉ NHÓM KHÁC', nhomKhac.status === 403, nhomKhac.status);
+
+  const giaDinh = await req('GET', `/api/kehoachbe/be?studentId=${be}`, { cookie: PH });
+  check('GIA ĐÌNH KHÔNG MỞ ĐƯỢC — kế hoạch là việc trong nghề của cô',
+    giaDinh.status === 403, giaDinh.status);
+
+  const laBe = await req('GET', '/api/kehoachbe/be?studentId=khong-co-that', { cookie: QL });
+  check('mã bé không có thật thì trả 403 hoặc 404, không nổ',
+    laBe.status === 403 || laBe.status === 404, laBe.status);
+
+  const thieu = await req('GET', '/api/kehoachbe/be', { cookie: GV });
+  check('thiếu hẳn mã bé cũng bị từ chối', thieu.status === 403 || thieu.status === 400,
+    thieu.status);
+
+  // Cấp 3 chỉ thấy bé của cơ sở mình — đường này cũng phải qua tầng cơ sở.
+  const cap3 = await req('GET', `/api/kehoachbe/be?studentId=${be}`, { cookie: QL3 });
+  check('quản lý cơ sở 1 mở được bé của cơ sở mình', cap3.status === 200, cap3.status);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
