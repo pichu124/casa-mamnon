@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2665 bài**, `npm run test:giao-dien` **454 bài**, FAIL 0 (đo 29/08/2026) |
+| Bộ kiểm thử | `npm test` **2687 bài**, `npm run test:giao-dien` **454 bài**, FAIL 0 (đo 29/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **có, 3 nhóm việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
@@ -48,6 +48,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ29** | Quy định *"đổi `public/` thì tăng `VERSION`"* nay canh bằng máy ở ba chỗ. Đối chiếu lịch sử thấy **đã quên thật hai lần** (Đ14, Đ19) |
 | **Đ27** | Phiếu thử điện thoại thêm **Lời hứa 2b**: mở lại app trong lúc *vẫn đang* mất sóng |
 | **Đ41** | Đo được rồi: với nhóm **20 bé**, phần **máy** của cả việc ghi nhật ký hết **dưới 1 giây**. Nghĩa là gần trọn 5 phút là thời gian của **người** — nếu buổi thí điểm trượt chỉ tiêu này thì đi sửa số lần chạm và cách bày màn hình, **đừng đi tối ưu máy chủ** |
+| **Đ43** | **Cô cập nhật app xong, đi ra sân sóng yếu, và đúng tám màn mầm non không mở được.** Mỗi lần app lên bản mới, kho đệm cũ bị xoá sạch — mà màn hình của phân hệ không nằm trong danh sách nạp sẵn được (địa chỉ của chúng chỉ có lúc máy chủ chạy). Nay chúng được mang theo sang bản mới |
 
 ### 2.3 Việc làm cho bộ kiểm thử thôi nói dối
 
@@ -60,6 +61,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ40** | Bộ canh VERSION **tự mở một lỗ** ở đúng chế độ GitHub chạy: một commit xin thoát hợp lệ (sửa chú thích) là miễn kiểm tra cho **cả loạt commit**, kể cả commit sửa thật màn hình mà quên tăng số. Nay đường thoát chỉ miễn cho tệp của chính commit đó |
 | **Đ41** | Chỉ tiêu *"nhật ký cả nhóm dưới 5 phút"* — một trong ba chỉ tiêu bản kế hoạch hứa **đo được ngay trong bài test** — trước không có bài nào chạm tới. Nay có, và nó nói thẳng phần nào bài test đo được, phần nào không |
 | **Đ42** | Học phí là phân hệ **duy nhất chưa có tệp kiểm thử riêng** — nay có `test:hoc-phi`. Một phép kiểm trong đó lúc đầu **vô dụng**: nó dò mã nguồn màn hình bằng biểu thức, nên vẫn xanh cả khi cổng đã mở toang. Đã thay bằng phép kiểm đếm nút trên trình duyệt thật |
+| **Đ43** | `public/sw.js` — đoạn mã quyết định app có mở được khi mất mạng hay không — trước chỉ được canh bằng *"tệp có tải về được không"* và *"trong tệp có chữ này không"*. Nay `test:vo-app` nạp chính đoạn mã đó vào một hộp cát rồi **gọi đúng các móc trình duyệt sẽ gọi**, nên đo được hành vi thật mà không cần trình duyệt |
 
 ---
 
@@ -174,4 +176,4 @@ Sổ việc gốc có **161 mục**. Sau đợt này:
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ42.*
+*Cập nhật lần cuối: sau đợt Đ43.*

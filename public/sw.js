@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v56';
+const VERSION = 'v57';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -60,10 +60,51 @@ self.addEventListener('install', (event) => {
   })());
 });
 
+// Số màn hình phân hệ mang theo tối đa khi đổi phiên bản. Rộng hơn số phân hệ
+// đang có nhiều lần, nhưng vẫn có trần: một kho đệm cũ khổng lồ không được làm
+// bước kích hoạt treo lại.
+const TOI_DA_MAN_MANG_THEO = 40;
+
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
+    const cache = await caches.open(SHELL_CACHE);
     const names = await caches.keys();
-    await Promise.all(names.filter(n => n !== SHELL_CACHE).map(n => caches.delete(n)));
+    const kho_cu = names.filter(n => n !== SHELL_CACHE);
+
+    // MÀN HÌNH PHÂN HỆ PHẢI SỐNG QUA MỘT LẦN ĐỔI PHIÊN BẢN.
+    //
+    // `SHELL_ASSETS` không liệt kê được chúng — địa chỉ của chúng là
+    // /modules/<mã>/view.js?v=<dấu thời gian sửa tệp>, sinh ra lúc máy chủ
+    // chạy. Chúng vào kho đệm bằng lời nhắn 'luu-man-hinh' mà trang gửi xuống
+    // SAU khi nạp xong danh sách phân hệ.
+    //
+    // Nghĩa là nếu chỗ này xoá sạch kho cũ thì có một khe: cô cập nhật app
+    // xong đi ra sân sóng yếu, trang chưa kịp nạp lại danh sách phân hệ, và
+    // đúng những màn mầm non — Nhật ký ngày, Ghi nhanh, Đón trả bé — là những
+    // màn không dựng lên được. Đó là những màn app 2 tồn tại vì chúng.
+    //
+    // Nên: mang theo phần /modules/ trước, rồi mới xoá kho cũ. KHÔNG mang theo
+    // thứ gì khác — mọi tệp còn lại đều có tên trong `SHELL_ASSETS` và vừa được
+    // nạp mới ở bước cài đặt; giữ bản cũ của chúng là tự dựng lại đúng cái bẫy
+    // "máy đã cài kẹt ở bản cũ" mà hằng VERSION sinh ra để tránh.
+    let mang = 0;
+    for (const ten of kho_cu) {
+      if (mang >= TOI_DA_MAN_MANG_THEO) break;
+      try {
+        const cu = await caches.open(ten);
+        for (const req of await cu.keys()) {
+          if (mang >= TOI_DA_MAN_MANG_THEO) break;
+          if (!new URL(req.url).pathname.startsWith('/modules/')) continue;
+          if (await cache.match(req)) continue;
+          const res = await cu.match(req);
+          if (!res) continue;
+          await cache.put(req, res);
+          mang += 1;
+        }
+      } catch (_) { /* kho cũ hỏng thì bỏ qua, không được chặn bước kích hoạt */ }
+    }
+
+    await Promise.all(kho_cu.map(n => caches.delete(n)));
     await self.clients.claim();
   })());
 });

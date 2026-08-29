@@ -140,9 +140,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn bốn món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn năm món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Bốn chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Năm chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -150,6 +150,12 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   `public/js/api.js`, `public/sw.js` — vá ở app 2 tại Đ12). Ở app 1 hậu quả nhẹ
   hơn: phụ huynh tiểu học mở app lúc mất sóng thì chỉ chờ, không có việc gì đang
   làm dở. Ở app 2 thì nó cắt đúng lời hứa "mất mạng vẫn ghi được" của cô.
+- **Móc `activate` của `public/sw.js` xoá sạch kho đệm cũ mỗi lần đổi VERSION**
+  (vá ở app 2 tại Đ43 bằng cách mang theo phần `/modules/`). Ở app 1 hậu quả gần
+  như bằng không: bên đó chỉ có một phân hệ (`hocphi`), và màn học phí không
+  phải thứ ai mở lúc mất sóng. Ở app 2 thì đó là **tám màn mầm non** — đúng
+  những màn app 2 tồn tại vì chúng.
+
 - **`Dockerfile` dựng trên `node:22-alpine`** trong khi `better-sqlite3` chỉ có
   bản dựng sẵn cho glibc — lệnh build gãy ngay bước cài, và gãy ở chỗ khó đọc.
   Vá ở app 2 tại Đ12 bằng cách đổi sang `node:22-bookworm-slim`.
