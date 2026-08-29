@@ -12,7 +12,8 @@ import { createRequire } from 'module';
 import { GOC, taoBoDem, thuMucTam, donThuMucTam } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
-const { phanLoai, xinThoat } = require(path.join(GOC, 'scripts', 'kiem-tra-commit.js'));
+const canh = require(path.join(GOC, 'scripts', 'kiem-tra-commit.js'));
+const { phanLoai, xinThoat } = canh;
 const { check, tongKet } = taoBoDem();
 
 console.log('\n[1] Phân loại tệp');
@@ -160,6 +161,36 @@ console.log('\n[4] Bộ canh hỏng thì không được chặn việc của ng�
   check('mã commit không tồn tại → không chặn (mã thoát 0)', kq.status === 0, kq.status);
   check('có giải thích vì sao bỏ qua', /bỏ qua/i.test(kq.stdout + kq.stderr),
     (kq.stdout + kq.stderr).slice(0, 150));
+}
+
+// ===========================================================================
+console.log('\n[+] DÒNG THOÁT KHÔNG CẦN THIẾT THÌ PHẢI ĐƯỢC NHẮC');
+{
+  // Xin phép trộn trong khi commit KHÔNG hề trộn thì lời commit ghi lại một
+  // điều không đúng, và người sau đọc lịch sử tưởng chỗ đó từng phải đánh đổi.
+  // Nặng hơn: dùng đường thoát cho quen tay là bước đầu của việc dùng nó lúc
+  // thật sự đang trộn. Đã xảy ra thật ở đợt Đ51 — nên có phép kiểm này.
+  //
+  // CHỈ NHẮC, KHÔNG CHẶN: chặn thì người ta phải sửa lời commit vì một việc
+  // không sai về kết quả, và một bộ canh gây phiền là một bộ canh bị tắt.
+  const batLoiNhac = (fn) => {
+    const cu = console.warn;
+    let ra = '';
+    console.warn = (...a) => { ra += a.join(' '); };
+    try { fn(); } finally { console.warn = cu; }
+    return ra;
+  };
+  const khongTron = canh.phanLoai(['public/js/app.js', 'test/pwa.test.mjs']);
+  const coTron = canh.phanLoai(['lib/db.js', 'routes/students.js']);
+
+  check('dựng đúng hai tình huống để so', khongTron.tron === false && coTron.tron === true,
+    { khongTron: khongTron.tron, coTron: coTron.tron });
+  check('KHÔNG trộn mà vẫn xin thoát → CÓ nhắc',
+    /KHÔNG hề trộn/.test(batLoiNhac(() => canh.nhacThoatThua('vì gì đó', khongTron, 'Thử'))));
+  check('đang trộn thật thì lời xin phép đúng chỗ → KHÔNG nhắc',
+    batLoiNhac(() => canh.nhacThoatThua('đổi tên biến xuyên suốt', coTron, 'Thử')) === '');
+  check('không có dòng thoát thì cũng không nhắc',
+    batLoiNhac(() => canh.nhacThoatThua(null, khongTron, 'Thử')) === '');
 }
 
 tongKet();

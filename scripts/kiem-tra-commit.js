@@ -114,6 +114,25 @@ function loiCommit(ma) {
   return git('show', '--format=%B', '--no-patch', ma);
 }
 
+
+// Đường thoát KHÔNG cần thiết cũng là một lỗi, chỉ là lỗi nhẹ hơn.
+//
+// Xin phép trộn trong khi commit không hề trộn thì lời commit ghi lại một điều
+// KHÔNG ĐÚNG, và người sau đọc lịch sử sẽ tưởng chỗ đó từng phải đánh đổi.
+// Nặng hơn: dùng đường thoát cho quen tay là bước đầu của việc dùng nó lúc
+// thật sự đang trộn. Đã xảy ra thật ở đợt Đ51 — nên có dòng này.
+//
+// CỐ Ý CHỈ NHẮC, KHÔNG CHẶN: chặn thì người ta phải sửa lời commit vì một việc
+// không sai về mặt kết quả, và một bộ canh gây phiền là một bộ canh bị tắt.
+function nhacThoatThua(lyDo, kq, nhan) {
+  if (!lyDo || kq.tron) return;
+  console.warn(
+    `\n⚠  ${nhan} có dòng "${VI_DU_THOAT.split(':')[0]}:" nhưng KHÔNG hề trộn.\n` +
+    '   Bỏ dòng đó đi: lời commit đang ghi lại một điều không đúng, và dùng\n' +
+    '   đường thoát cho quen tay là bước đầu của việc dùng nó lúc đang trộn thật.\n'
+  );
+}
+
 // --- Chạy ------------------------------------------------------------------
 function main(argv) {
   const cf = (ten) => { const i = argv.indexOf(ten); return i >= 0 ? argv[i + 1] : null; };
@@ -140,8 +159,13 @@ function main(argv) {
       const loi = loiCommit(ma);
       const nhan = `Commit ${ma.slice(0, 8)} ("${loi.split('\n')[0].slice(0, 60)}")`;
       const lyDo = xinThoat(loi);
-      if (lyDo) { console.log(`↷ ${nhan} — bỏ qua có chủ ý: ${lyDo}`); continue; }
-      const kq = phanLoai(tepCuaCommit(ma));
+      const kqThoat = phanLoai(tepCuaCommit(ma));
+      if (lyDo) {
+        console.log(`↷ ${nhan} — bỏ qua có chủ ý: ${lyDo}`);
+        nhacThoatThua(lyDo, kqThoat, nhan);
+        continue;
+      }
+      const kq = kqThoat;
       if (kq.tron) { console.error(bienBan(kq, nhan)); hong++; }
       else console.log(`✓ ${nhan}`);
     }
@@ -152,8 +176,13 @@ function main(argv) {
   if (maCommit) {
     const loi = loiCommit(maCommit);
     const lyDo = xinThoat(loi);
-    if (lyDo) { console.log(`↷ Bỏ qua có chủ ý: ${lyDo}`); return 0; }
-    const kq = phanLoai(tepCuaCommit(maCommit));
+    const kqCommit = phanLoai(tepCuaCommit(maCommit));
+    if (lyDo) {
+      console.log(`↷ Bỏ qua có chủ ý: ${lyDo}`);
+      nhacThoatThua(lyDo, kqCommit, `Commit ${maCommit.slice(0, 8)}`);
+      return 0;
+    }
+    const kq = kqCommit;
     if (kq.tron) { console.error(bienBan(kq, `Commit ${maCommit.slice(0, 8)}`)); return 1; }
     console.log(`✓ Commit ${maCommit.slice(0, 8)} không trộn tệp dùng chung với tệp tính năng.`);
     return 0;
@@ -164,6 +193,7 @@ function main(argv) {
     const lyDo = xinThoat(fs.readFileSync(tepLoiNhan, 'utf8'));
     if (lyDo) {
       console.log(`↷ Bỏ qua kiểm tra commit riêng, lý do đã ghi: ${lyDo}`);
+      nhacThoatThua(lyDo, phanLoai(tepDaThemVaoVungCho()), 'Commit sắp tạo');
       return 0;
     }
   }
@@ -173,7 +203,7 @@ function main(argv) {
   return 0;
 }
 
-module.exports = { phanLoai, xinThoat, DUNG_CHUNG, LA_TINH_NANG, VI_DU_THOAT };
+module.exports = { phanLoai, xinThoat, nhacThoatThua, DUNG_CHUNG, LA_TINH_NANG, VI_DU_THOAT };
 
 if (require.main === module) {
   try {

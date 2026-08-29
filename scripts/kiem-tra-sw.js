@@ -166,6 +166,21 @@ function xet(tepThayDoi, { cu, moi }, nhan) {
   return bienBan(tep, nhan, cu, moi);
 }
 
+
+// Đường thoát KHÔNG cần thiết cũng đáng nhắc — cùng lý do như ở
+// `kiem-tra-commit.js`: lời commit ghi lại một điều không đúng, và dùng đường
+// thoát cho quen tay là bước đầu của việc dùng nó lúc thật sự cần bị chặn.
+// CHỈ NHẮC, KHÔNG CHẶN.
+function nhacThoatThua(lyDo, tepThayDoi, nhan) {
+  if (!lyDo) return;
+  if (tepThayDoi.some(laPublic)) return;   // có đụng public/ thì lời xin phép là đúng chỗ
+  console.warn(
+    `\n⚠  ${nhan} có dòng "Khong-can-sw:" nhưng KHÔNG đụng tệp nào trong public/.\n` +
+    '   Bỏ dòng đó đi: bộ canh vốn đã cho qua, và lời commit đang ghi lại một\n' +
+    '   điều không đúng.\n'
+  );
+}
+
 // --- Chạy ------------------------------------------------------------------
 function main(argv) {
   const cf = (ten) => { const i = argv.indexOf(ten); return i >= 0 ? argv[i + 1] : null; };
@@ -219,7 +234,11 @@ function main(argv) {
   if (maCommit) {
     const loi = loiCommit(maCommit);
     const lyDo = xinThoat(loi);
-    if (lyDo) { console.log(`↷ Bỏ qua có chủ ý: ${lyDo}`); return 0; }
+    if (lyDo) {
+      console.log(`↷ Bỏ qua có chủ ý: ${lyDo}`);
+      nhacThoatThua(lyDo, tepCuaCommit(maCommit), `Commit ${maCommit.slice(0, 8)}`);
+      return 0;
+    }
     const bb = xet(tepCuaCommit(maCommit), versionCuaCommit(maCommit), `Commit ${maCommit.slice(0, 8)}`);
     if (bb) { console.error(bb); return 1; }
     console.log(`✓ Commit ${maCommit.slice(0, 8)} không kẹt máy đã cài ở bản cũ.`);
@@ -228,7 +247,11 @@ function main(argv) {
 
   if (tepLoiNhan && fs.existsSync(tepLoiNhan)) {
     const lyDo = xinThoat(fs.readFileSync(tepLoiNhan, 'utf8'));
-    if (lyDo) { console.log(`↷ Bỏ qua kiểm tra VERSION, lý do đã ghi: ${lyDo}`); return 0; }
+    if (lyDo) {
+      console.log(`↷ Bỏ qua kiểm tra VERSION, lý do đã ghi: ${lyDo}`);
+      nhacThoatThua(lyDo, tepDaThemVaoVungCho(), 'Commit sắp tạo');
+      return 0;
+    }
   }
   const v = versionVungCho();
   const bb = xet(v.moc ? tepPublicTuMoc() : tepDaThemVaoVungCho(), v,
@@ -239,4 +262,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { docVersion, laPublic, xet, xinThoat };
+module.exports = { docVersion, laPublic, xet, xinThoat, nhacThoatThua };

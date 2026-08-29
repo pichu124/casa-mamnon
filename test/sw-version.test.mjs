@@ -30,7 +30,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { createRequire } from 'module';
 import { GOC, taoBoDem } from './_chung.mjs';
 
@@ -38,13 +38,16 @@ const require = createRequire(import.meta.url);
 const { check, tongKet } = taoBoDem();
 const canh = require(path.join(GOC, 'scripts', 'kiem-tra-sw.js'));
 
+// GOM CẢ HAI DÒNG RA, KHÔNG CHỈ DÒNG CHÍNH.
+//
+// Bản trước dùng `execFileSync`, vốn chỉ trả về dòng chính (stdout) khi lệnh
+// chạy thành công. Lời NHẮC của bộ canh đi ra dòng lỗi (stderr), nên mọi phép
+// kiểm về lời nhắc đều không thấy gì và báo đỏ oan — hoặc tệ hơn, xanh oan nếu
+// phép kiểm hỏi ngược lại.
 const chay = (...a) => {
-  try {
-    return { ma: 0, chu: execFileSync('node', [path.join(GOC, 'scripts', 'kiem-tra-sw.js'), ...a],
-      { cwd: GOC, encoding: 'utf8' }) };
-  } catch (e) {
-    return { ma: e.status ?? 1, chu: `${e.stdout || ''}${e.stderr || ''}` };
-  }
+  const r = spawnSync('node', [path.join(GOC, 'scripts', 'kiem-tra-sw.js'), ...a],
+    { cwd: GOC, encoding: 'utf8' });
+  return { ma: r.status ?? 1, chu: `${r.stdout || ''}${r.stderr || ''}` };
 };
 
 // ===========================================================================
@@ -188,6 +191,40 @@ console.log('\n[5b] MỘT DÒNG THOÁT KHÔNG ĐƯỢC MIỄN CHO CẢ KHOẢNG'
   check('ĐẠT: khoảng chỉ gồm commit đã xin thoát', kq2.ma === 0, kq2.chu.slice(0, 200));
 
   fs.rmSync(tam, { recursive: true, force: true });
+}
+
+// ===========================================================================
+console.log('\n[5c] DÒNG THOÁT KHÔNG CẦN THIẾT THÌ PHẢI ĐƯỢC NHẮC');
+{
+  // Xin phép bỏ qua trong khi bộ canh vốn đã cho qua thì lời commit ghi lại một
+  // điều KHÔNG ĐÚNG — người sau đọc lịch sử tưởng chỗ đó từng phải đánh đổi.
+  // Nặng hơn: dùng đường thoát cho quen tay là bước đầu của việc dùng nó lúc
+  // thật sự cần bị chặn. Đã xảy ra thật ở đợt Đ39 và Đ51.
+  //
+  // CHỈ NHẮC, KHÔNG CHẶN: chặn thì người ta phải sửa lời commit vì một việc
+  // không sai về kết quả, và một bộ canh gây phiền là một bộ canh bị tắt.
+  const batLoiNhac = (fn) => {
+    const cu = console.warn;
+    let ra = '';
+    console.warn = (...a) => { ra += a.join(' '); };
+    try { fn(); } finally { console.warn = cu; }
+    return ra;
+  };
+
+  check('KHÔNG đụng public/ mà vẫn xin thoát → có nhắc',
+    /KHÔNG đụng tệp nào trong public/.test(
+      batLoiNhac(() => canh.nhacThoatThua('lý do gì đó', ['lib/db.js', 'test/a.mjs'], 'Thử'))));
+  check('có đụng public/ thì lời xin phép đúng chỗ → KHÔNG nhắc',
+    batLoiNhac(() => canh.nhacThoatThua('chỉ sửa chú thích',
+      ['public/js/views/nhatky.js'], 'Thử')) === '');
+  check('không có dòng thoát thì cũng không nhắc',
+    batLoiNhac(() => canh.nhacThoatThua(null, ['lib/db.js'], 'Thử')) === '');
+
+  // Và nhắc trên lịch sử THẬT: Đ39 có đúng một dòng thoát thừa.
+  const kq = chay('--commit', 'd3aaa2e');
+  check('chạy trên commit Đ39 vẫn ĐẠT (chỉ nhắc, không chặn)', kq.ma === 0, kq.chu.slice(0, 200));
+  check('và có in lời nhắc dòng thoát thừa',
+    /KHÔNG đụng tệp nào trong public/.test(kq.chu), kq.chu.slice(-200));
 }
 
 // ===========================================================================
