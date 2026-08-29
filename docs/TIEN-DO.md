@@ -595,7 +595,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2472**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2477**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **379**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -808,3 +808,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ28** — Nhật ký ngày cất phần cô gõ dở vào máy theo (nhóm, ngày); mở lại app thì HỎI cô có điền lại không, không tự điền đè lên phần cô khác vừa lưu | Sổ việc 38 |
 | 28/08/2026 | **Đ29** — quy định "đổi `public/` thì tăng `VERSION`" nay canh bằng máy ở ba chỗ; đối chiếu lịch sử thấy Đ14 và Đ19 đã quên thật | Sổ việc 65, 72 |
 | 28/08/2026 | **Đ30** — ngoại lệ của bộ canh QUY TẮC 4 thôi chừa cả tệp (chừa đúng dòng, và có phép kiểm canh chính ngoại lệ); QUY TẮC 2 quét thêm `.sql` và `.json` | Sổ việc 61, 63 |
+| 28/08/2026 | **Đ31** — bộ canh mới: **mọi phân hệ trong thư mục đều phải nạp được**, không cái nào mang cờ lỗi. Hai tài liệu máy chủ của app 1 nay chỉ thẳng sang `docs/TRIEN-KHAI.md` và đúng thư mục dữ liệu của app 2 | Sổ việc 67, 87 |

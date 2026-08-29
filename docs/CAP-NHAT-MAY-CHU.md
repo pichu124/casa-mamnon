@@ -11,6 +11,7 @@
 > | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
 > | **KHÔNG** còn đúng | Tên dịch vụ và thư mục `schoolconnect`; máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
 > | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
+> | **Với app 2 thì làm theo đâu** | `docs/TRIEN-KHAI.md` — viết riêng cho CASA Mầm non. Thư mục dữ liệu của app 2 là **`/var/lib/casa-mamnon`**, không phải `/var/lib/schoolconnect` |
 >
 > Việc cập nhật bộ tài liệu này là **N1** trong `docs/TIEN-DO.md`. Nó chờ nhà
 > trường chốt nhà cung cấp VPS và tên miền, vì không có hai thứ đó thì viết ra

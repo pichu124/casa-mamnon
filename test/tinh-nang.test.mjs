@@ -304,6 +304,67 @@ console.log('\n[10] Bốn phân hệ TẮT SẴN, nhưng dữ liệu còn nguyê
     (await req('GET', '/api/conduct?studentId=s1', { cookie: P })).status === 404);
 }
 
+// ===========================================================================
+console.log('\n[11] MỌI PHÂN HỆ TRONG THƯ MỤC ĐỀU NẠP ĐƯỢC — không cái nào mang cờ lỗi');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Cơ chế cô lập lỗi nạp từng phân hệ trong một khối bắt lỗi riêng: hỏng một
+  // cái thì các cái khác vẫn chạy. Đó là Nguyên tắc số 1 và nó đúng.
+  //
+  // Nhưng cái giá của nó là SỰ IM LẶNG. Phân hệ hỏng bị gắn cờ `loi`, rồi
+  // `lib/modules.js` coi như đang tắt: biểu tượng biến mất khỏi trang chủ, API
+  // trả 503. Người của trường thấy y hệt lúc nhà trường chủ động tắt nó.
+  //
+  // Nghĩa là một lỗi cú pháp trong `modules/<mã>/routes.js` có thể đi qua cả
+  // `npm test` mà không bộ nào kêu — vì mọi bộ test phân hệ đều tự bật phân hệ
+  // của mình lên, và bộ nào không bật thì không hỏi tới nó bao giờ.
+  //
+  // Mục này hỏi thẳng máy chủ: trong thư mục `modules/` có bao nhiêu phân hệ,
+  // và có cái nào mang cờ lỗi không.
+  const thuMuc = fs.readdirSync(path.join(GOC, 'modules'))
+    .filter(t => fs.existsSync(path.join(GOC, 'modules', t, 'module.json')));
+  const dsQt = (await req('GET', '/api/admin/modules', { cookie: A.cookie })).data || [];
+
+  check('đọc được danh sách phân hệ từ máy chủ', Array.isArray(dsQt) && dsQt.length > 0, dsQt.length);
+
+  // Đối chiếu với THƯ MỤC, không với một danh sách viết tay — nếu không thì
+  // thêm phân hệ mới là nó lọt khỏi mục này mà không ai được báo gì.
+  const thieu = thuMuc.filter(t => {
+    const mj = JSON.parse(fs.readFileSync(path.join(GOC, 'modules', t, 'module.json'), 'utf8'));
+    return !dsQt.some(m => m.key === (mj.key || t));
+  });
+  check('MỌI PHÂN HỆ CÓ TRONG THƯ MỤC ĐỀU CÓ MẶT TRONG DANH SÁCH',
+    thieu.length === 0, thieu);
+
+  // Chỉ xét những phân hệ CÒN TRONG THƯ MỤC. Mục [9] bên trên cố tình dựng một
+  // phân hệ hỏng rồi xoá thư mục của nó đi, nhưng máy chủ đang chạy vẫn giữ nó
+  // trong bộ nhớ kèm cờ lỗi — đó là hành vi đúng, và lọc theo thư mục thì
+  // không phải ghi cứng tên phân hệ thử nào cả.
+  const maTrongThuMuc = new Set(thuMuc.map(t => {
+    const mj = JSON.parse(fs.readFileSync(path.join(GOC, 'modules', t, 'module.json'), 'utf8'));
+    return mj.key || t;
+  }));
+  const hong = dsQt.filter(m => m.loi && maTrongThuMuc.has(m.key));
+  check('KHÔNG PHÂN HỆ NÀO MANG CỜ LỖI',
+    hong.length === 0,
+    hong.map(m => `${m.key}: ${m.loi}`));
+
+  // Và chiều còn lại: cờ đó phải thật sự tới được nơi này. Không có phép kiểm
+  // này thì hai phép kiểm trên vẫn xanh kể cả khi `loi` không bao giờ được gửi
+  // đi — đúng kiểu bài canh luôn đúng.
+  check('trường `loi` có thật trong câu trả lời, không phải thứ không tồn tại',
+    dsQt.every(m => 'loi' in m), Object.keys(dsQt[0] || {}));
+
+  // Mục [9] bên trên đã dựng một phân hệ hỏng thật và kiểm app không sập. Ở đây
+  // chỉ cần chắc rằng nếu điều đó xảy ra thì mục này ĐỎ, chứ không im lặng.
+  // Và chắc rằng bộ lọc trên KHÔNG lặng lẽ bỏ qua mọi thứ: phân hệ hỏng của mục
+  // [9] vẫn còn trong bộ nhớ máy chủ và vẫn mang cờ lỗi. Nếu nó biến mất luôn
+  // thì phép kiểm bên trên đang lọc quá tay và sẽ không bắt được gì nữa.
+  check('bộ lọc không quét sạch — phân hệ hỏng của mục [9] vẫn thấy được cờ lỗi',
+    dsQt.some(m => m.key === 'loithu' && m.loi), dsQt.map(m => `${m.key}:${m.loi || 'ok'}`));
+}
+
 server.kill('SIGTERM');
 await new Promise(r => setTimeout(r, 600));
 donThuMucTam(DIR);
