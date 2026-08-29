@@ -595,8 +595,8 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2495**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **379**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2528**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **346**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -620,6 +620,7 @@ Các bộ **mới của app 2**, không có ở app 1:
 | `test:du-lieu-mau-phan-he` | 40 | Bật phân hệ lên là có cái để xem — câu chuyện bé An chạy suốt tám phân hệ |
 | `test:quy-tac-4` | 26 | QUY TẮC 4, kiểu **bánh cóc**: món nợ N3 chỉ được giảm; ngoại lệ chừa **đúng dòng**, không chừa cả tệp |
 | `test:chuc-vu` | 106 | Tầng chức vụ: chiều cấm VÀ chiều cho phép, trên bốn phân hệ nhạy cảm nhất |
+| `test:album-api` | 33 | Chống tệp giả danh ảnh, phân quyền xem ảnh — **không cần trình duyệt** |
 | `test:bai-canh-that` | 12 | Bài canh phải canh thật: không tệp test nào bị bỏ quên, không phép kiểm nào tự cho mình qua |
 | `test:sw-version-kiemthu` | 28 | Đổi `public/` mà quên tăng `VERSION` là điện thoại đã cài kẹt bản cũ |
 | `test:sw-version-kiemthu` | 28 | Đổi `public/` mà quên tăng `VERSION` là điện thoại đã cài kẹt bản cũ |
@@ -633,7 +634,7 @@ Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so
 |---|---|---|---|
 | `test:bien-soan-gd` | 112 | kế thừa | Cô soạn thật trên Chromium: điểm danh, thực đơn, đơn nghỉ, hồ sơ bé |
 | `test:man-phan-he` | 97 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng; và **nháp Nhật ký ngày sống qua một lần app bị đóng** |
-| `test:album` | 45 | kế thừa | Tải ảnh thật lên, và đường nén ảnh dùng chung đi qua đây |
+| `test:album` | 12 | kế thừa | Cô chọn ảnh và đăng album trên Chromium thật; đường nén ảnh dùng chung đi qua đây |
 | `test:pwa` | 45 | kế thừa | Cài được lên màn hình chính, service worker, icon, và **mọi tệp cần để mở app lúc mất mạng đều nằm sẵn trong cache** |
 | `test:nhieu-nhom` | 38 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
 | `tinh-nang-giao-dien` | 27 | kế thừa | Bật/tắt phân hệ trên màn Quản trị |
@@ -812,3 +813,4 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 28/08/2026 | **Đ31** — bộ canh mới: **mọi phân hệ trong thư mục đều phải nạp được**, không cái nào mang cờ lỗi. Hai tài liệu máy chủ của app 1 nay chỉ thẳng sang `docs/TRIEN-KHAI.md` và đúng thư mục dữ liệu của app 2 | Sổ việc 67, 87 |
 | 28/08/2026 | **Đ32** — nhập lại dữ liệu lõi nay dọn theo cả ghi chép của phân hệ; trước đó nhật ký và quan sát của bé vừa bị xoá vẫn nằm lại trong máy | Sổ việc 85 |
 | 28/08/2026 | **Đ33** — hai chỗ bài canh im lặng biến mất khi không dựng được tình huống nay tính là ĐỎ; thêm `test:bai-canh-that` canh chính bộ kiểm thử | Sổ việc 56, 69 |
+| 28/08/2026 | **Đ34** — tách phần API của bộ album ra `test:album-api` và đưa vào `npm test`; trước đó sửa `routes/albums.js` rồi chạy `npm test` là mọi chốt chống tệp giả danh ảnh đều không chạy | Sổ việc 64 |

@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2495 bài**, `npm run test:giao-dien` **379 bài**, FAIL 0 |
+| Bộ kiểm thử | `npm test` **2528 bài**, `npm run test:giao-dien` **346 bài**, FAIL 0 |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **có, 3 việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
@@ -141,4 +141,4 @@ Sổ việc gốc có **161 mục**. Sau đợt này:
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ33.*
+*Cập nhật lần cuối: sau đợt Đ34.*
