@@ -18,19 +18,46 @@ hai, khi nào không.
 
 ## Phần nào là "nền chung"
 
+### Cách nhận ra, chỉ một câu lệnh
+
+```bash
+git cat-file -e bc9dfa3:<tệp> && echo "CÓ ở điểm tách"
+```
+
+**Tệp có mặt TẠI điểm tách `bc9dfa3` thì app 1 đang chạy một bản của chính nó.**
+Đó là toàn bộ định nghĩa. Sửa nó ở app 2 bao nhiêu lần cũng không đổi điều đó.
+
+> **Mẹo cũ ở chỗ này SAI, và sai về phía bỏ sót.** Nó ghi: *"nếu commit gần nhất
+> nằm trước điểm tách thì tệp đó vẫn còn là nền chung"* — tức là hễ app 2 đụng
+> vào một tệp thì tệp ấy thôi là nền chung. Ngược hẳn. `lib/db.js` sửa ở đợt Đ44
+> vẫn là nền chung, vì bản app 1 đang chạy là bản tại điểm tách, và lỗ hổng vá ở
+> Đ44 nằm đúng trong bản đó. Ai tin mẹo cũ sẽ bỏ qua **đúng những tệp vừa sửa** —
+> tức đúng những tệp có bản vá cần mang sang.
+
+### Bảng phân loại
+
+Danh sách dưới đây là **toàn bộ** tệp nền có mặt tại `bc9dfa3` và còn sống tới
+hôm nay. `npm run test:nen-chung` canh cho không tệp nào lọt khỏi bảng.
+
 | Nhóm | Tệp | Có coi là nền chung không |
 |---|---|---|
 | Thư viện lõi | `lib/db.js`, `lib/auth.js`, `lib/modules.js`, `lib/uploads.js` | **Có** |
+| Thư viện phụ | `lib/csv.js`, `lib/password.js`, `lib/importer.js`, `lib/lich-su-lop.js`, `lib/sua-thu-hoi.js` | **Có** — ít bị sửa hơn nhưng cùng một bản mã. `lib/password.js` là chỗ băm mật khẩu, tức chỗ một lỗ hổng ở đây là lỗ hổng ở cả hai trường |
+| Máy chủ | `server.js` | **Có** — chốt vị trí dữ liệu, cảnh báo mật khẩu mẫu, vòng đời phiên đăng nhập đều ở đây |
 | Giao diện dùng chung | `public/js/ui.js`, `public/js/app.js`, `public/js/api.js` | **Có** |
 | Vỏ PWA | `public/sw.js`, `public/manifest.json` | **Có** |
-| Bộ canh | `scripts/kiem-tra-commit.js`, `scripts/kiem-tra-du-lieu.js` | **Có** |
+| Kiểu dáng | `public/css/app.css` | **Có** — một lớp CSS hỏng thì hỏng ở cả hai app |
+| Bộ canh | `scripts/kiem-tra-commit.js`, `scripts/kiem-tra-du-lieu.js`, `scripts/kiem-tra-may-chu.js`, `scripts/cai-hook.js` | **Có** |
 | Sao lưu / khôi phục | `scripts/backup.js`, `scripts/restore.js` | **Có** |
+| Việc vặt vận hành | `scripts/create-admin.js`, `scripts/prepare-mobile.js`, `scripts/xuat-quy-trinh.js`, `scripts/migrate-json-to-sqlite.js` | **Có**, nhưng gần như đóng băng. `migrate-json-to-sqlite.js` là đường một chiều của app 1 đời cũ — app 2 không bao giờ chạy nó |
+| Chữa cháy phân công | `scripts/sua-quyen-chu-nhiem.js` | **Một phần** — app 2 đã đổi sang mô hình *nhiều cô một nhóm* (G0.4) nên phần bảng `class_teachers` KHÔNG mang sang được; phần còn lại thì có |
+| Cấu trúc bảng | `lib/schema.sql` | **Một phần** — bảng nền chung, bảng riêng thì không |
 | Khung kiểm thử | `test/*.mjs` phần dựng máy chủ và tiện ích chung | **Có** |
 | Tính năng | `routes/*.js`, `public/js/views/*.js`, `modules/**` | **Không** — hai bên khác nhau từ GĐ 1 |
-| Cấu trúc bảng | `lib/schema.sql` | **Một phần** — bảng nền chung, bảng riêng thì không |
 
-Cách nhận ra nhanh: **mở `git log <tệp>`, nếu commit gần nhất nằm trước điểm tách
-`bc9dfa3` thì tệp đó vẫn còn là nền chung.**
+> **Bảng này từng chỉ có 13 tệp trong khi thực tế có 28.** Mười bốn tệp bị bỏ
+> sót, trong đó có `server.js`, `lib/password.js` và `lib/importer.js` — ba chỗ
+> mà một lỗi bảo mật rất có thể rơi vào. Sửa ở đợt Đ50, và từ đó có máy canh.
 
 ---
 

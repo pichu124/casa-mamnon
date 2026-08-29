@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2779 bài**, `npm run test:giao-dien` **454 bài**, FAIL 0 (đo 29/08/2026) |
+| Bộ kiểm thử | `npm test` **2793 bài**, `npm run test:giao-dien` **454 bài**, FAIL 0 (đo 29/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **có, 4 nhóm việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
@@ -65,6 +65,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ42** | Học phí là phân hệ **duy nhất chưa có tệp kiểm thử riêng** — nay có `test:hoc-phi`. Một phép kiểm trong đó lúc đầu **vô dụng**: nó dò mã nguồn màn hình bằng biểu thức, nên vẫn xanh cả khi cổng đã mở toang. Đã thay bằng phép kiểm đếm nút trên trình duyệt thật |
 | **Đ43** | `public/sw.js` — đoạn mã quyết định app có mở được khi mất mạng hay không — trước chỉ được canh bằng *"tệp có tải về được không"* và *"trong tệp có chữ này không"*. Nay `test:vo-app` nạp chính đoạn mã đó vào một hộp cát rồi **gọi đúng các móc trình duyệt sẽ gọi**, nên đo được hành vi thật mà không cần trình duyệt |
 | **Đ47** | Bước *"đọc bảng của phân hệ khác thì hỏi công tắc trước"* đã bị quên **ba lần** (Y1, N24, Đ46), và cả ba lần đều do người đọc mã phát hiện. Nay có máy canh — nó thử ngược đúng lỗi Đ46 và bắt được — cộng một mục hướng dẫn hẳn hoi trong `modules/README.md`, nơi người viết phân hệ mới đọc trước |
+| **Đ50** | **Cuốn sổ tôi dùng cả phiên để quyết "cái này có phải mang sang app 1 không" thì lại chỉ ghi 13 trong số 28 tệp nền — và mẹo nhận diện của nó ghi NGƯỢC.** Theo mẹo cũ, hễ app 2 sửa một tệp là tệp ấy thôi được coi là nền chung; tức người sang kho app 1 sẽ bỏ qua **đúng những tệp vừa có bản vá**. Nay sổ đủ, mẹo đúng chiều, và có máy canh suy danh sách thẳng từ git |
 
 ---
 
@@ -192,4 +193,4 @@ Không cần anh nhắc lại bối cảnh.
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ48.*
+*Cập nhật lần cuối: sau đợt Đ50.*
