@@ -121,12 +121,13 @@ cho tới khi trả hết. Trống là tốt.
 | 28/08 | `lib/importer.js` xoá dữ liệu cũ theo một danh sách bảng **viết tay chỉ có bảng lõi**. Nhập lại kho JSON đời cũ, hay chạy `npm run seed -- --force`, xoá sạch bé và nhóm nhưng ĐỂ NGUYÊN ghi chép của phân hệ về chính những bé vừa bị xoá — nhật ký ăn ngủ vệ sinh, quan sát, kế hoạch, sổ đón trả | app 2 — Đ32 | **app 1** | Loại 1 và loại 2 cùng lúc: dữ liệu mồ côi, và **ghi chép về một đứa trẻ sống sót sau khi đứa trẻ đó đã bị xoá** — Nghị định 13/2023 cho quyền xoá. Ở app 1 nhẹ hơn vì bên đó chỉ có phân hệ `hocphi`, mà bảng của nó CÓ khoá ngoại `ON DELETE CASCADE`; vẫn nên vá vì lỗi nằm ở cách viết danh sách |
 | 29/08 | Màn **Học phí**: ô *Chọn bé* của người trong trường **không có tác dụng**. `render()` luôn lấy `students[0]`, còn `onchange` chỉ ghi `this._sid` rồi vẽ lại — nên văn phòng chọn bé A, màn lặng lẽ quay về bé đầu danh sách, và **khoản thu vừa tạo mang tên nhà khác** | app 2 — Đ39 | **app 1** | Loại 1 (dữ liệu của nhà này hiện trong hồ sơ nhà kia) **và là tiền**. Mã ở `modules/hocphi/view.js` giống hệt nhau tại điểm tách `bc9dfa3`, nên app 1 chắc chắn dính. Ở app 1 còn nặng hơn: app 1 đang thu tiền thật của ~300 gia đình, còn app 2 chưa có người dùng. **Món nợ ưu tiên cao nhất trong bảng này** |
 
-> **Chín món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
+| 29/08 | `db.canAccessStudent` nhánh phụ huynh chỉ hỏi bảng `student_parents`, tức trả `true` **mãi mãi**. Mốc "gia đình còn xem hồ sơ 12 tháng sau khi bé rời trường" chỉ được cài trong `routes/hocsinh-cu.js`, nên **màn hình đó đóng đúng hạn còn mọi đường khác thì không**: gõ thẳng `/api/nhatky?studentId=`, `/api/health`, `/api/medicine`, `/api/hocphi` là đọc được hồ sơ một đứa trẻ đã rời trường nhiều năm | app 2 — Đ44 | **app 1** | Loại 1 (rò rỉ dữ liệu). Cả hai tệp — `lib/db.js` và `routes/hocsinh-cu.js` — sinh ra TRƯỚC điểm tách `bc9dfa3` và nhánh phụ huynh giống hệt nhau, nên **app 1 chắc chắn dính**. Ở app 1 nặng hơn: hồ sơ 5 năm tiểu học của ~300 gia đình, và app 1 đã chạy đủ lâu để có học sinh ra trường quá 12 tháng. Bản vá là thêm hai thứ vào `lib/db.js` (`SO_THANG_GIU_HO_SO`, `conHanXemHoSo`) rồi siết đúng nhánh phụ huynh — không đụng dữ liệu, không đổi hành vi của vai nào khác |
+> **Mười món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
 > Ghi nợ ở đây là việc làm được ngay; trả nợ cần mở kho kia và đối chiếu từng
-> tệp, vì không chắc app 1 có dính đủ cả chín hay không — mà ghi sổ sai còn tệ
-> hơn sổ trống. **Món 29/08 là ngoại lệ:** đã đối chiếu được bằng chính lịch sử
-> git của kho này (tệp sinh ra trước điểm tách và không đổi từ đó), nên app 1
-> chắc chắn dính.
+> tệp, vì không chắc app 1 có dính đủ cả mười hay không — mà ghi sổ sai còn tệ
+> hơn sổ trống. **Hai món 29/08 là ngoại lệ:** đã đối chiếu được bằng chính lịch sử
+> git của kho này (tệp sinh ra trước điểm tách và nhánh mã giống hệt nhau), nên app 1
+> chắc chắn dính cả hai.
 
 ### MỘT CHỖ CỐ Ý KHÁC NHAU GIỮA HAI KHO — đừng "vá giúp"
 

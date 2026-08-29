@@ -596,7 +596,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2687**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2732**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **454**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -824,3 +824,5 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 29/08/2026 | **Đ41** — chỉ tiêu *nhật ký cả nhóm dưới 5 phút* lần đầu có phép đo: dựng nhóm **20 bé** rồi đo đúng ba đoạn máy chịu trách nhiệm (**dưới 1 giây**), và đo *một lần chạm lấp được bao nhiêu ô*. Phiếu thử máy thật thêm chỗ đo cho **hai chỉ tiêu còn lại**. Siết `modules/thuchup/routes.js`: số giây bịa không còn đầu độc bảng tổng kết cổng DỪNG GĐ 0 | Sổ việc 55 |
 | 29/08/2026 | **Đ42** — **ghi sổ tiền là việc của văn phòng**: cô không còn tạo khoản thu và không còn xác nhận đã nhận tiền (tầng chức vụ đã đặt Kế toán lo học phí), nhưng vẫn ĐỌC được sổ của nhóm mình. Học phí có `test:hoc-phi` — phân hệ cuối cùng chưa có tệp kiểm thử riêng | Sổ việc 97 |
 | 29/08/2026 | **Đ43** — **màn hình phân hệ sống qua một lần đổi phiên bản**: móc `activate` mang theo phần `/modules/` rồi mới xoá kho đệm cũ. Trước đó cô cập nhật app xong đi ra sân sóng yếu là không mở được đúng tám màn mầm non. Thêm `test:vo-app` — bài đầu tiên CHẠY MÃ THẬT của `public/sw.js` (hộp cát Node, không cần trình duyệt) | Sổ việc 99 |
+| 29/08/2026 | **Đ44** — **quyền của gia đình với con đã rời trường nay có hạn thật**. Mốc 12 tháng trước chỉ nằm trong `routes/hocsinh-cu.js`, còn `db.canAccessStudent` nhánh phụ huynh trả `true` mãi mãi — gõ thẳng `/api/nhatky`, `/api/health`, `/api/medicine` là đọc được hồ sơ một đứa trẻ đã rời trường nhiều năm. Luật nay ở `lib/db.js`, một nguồn sự thật | Sổ việc 112 |
+| 29/08/2026 | **Đ45** — `routes/hocsinh-cu.js` bỏ bản luật riêng, mượn lại luật của `lib/db.js`; và giữ được câu chỉ đường cho gia đình (*"liên hệ nhà trường nếu cần bản sao"*) mà bản vá Đ44 suýt làm mất | Sổ việc 112 |
