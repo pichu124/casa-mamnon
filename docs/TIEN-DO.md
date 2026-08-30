@@ -431,12 +431,26 @@ GIẢM.
 |---|---|---|
 | `routes/conduct.js` | 7 dòng | máy chủ cộng điểm rồi sắp xếp trẻ |
 | `public/js/views/conduct.js` | 5 dòng | bảng xếp hạng trên màn hình |
-| `routes/reports.js` | 4 dòng | kiểm điểm 0–10 |
-| `public/js/views/reports.js` | 1 dòng | ô nhập điểm từng môn |
+| `routes/reports.js` | 9 dòng | kiểm điểm 0–10 |
+| `public/js/views/reports.js` | 6 dòng | ô nhập điểm từng môn |
+| | **27 dòng** | tổng, tính tới 30/08/2026 |
 
-Thêm một chỗ vi phạm **mới** ở bất cứ đâu → đỏ ngay. Gỡ xong N3 → hạ số về 0,
-bài test tự siết chặt. Món nợ thành con số máy đếm được, không còn là một dòng
-ghi chú người ta quên.
+**Con số này đã tăng một lần — và đó không phải bánh cóc hỏng.** Lúc mới ghi,
+món nợ là **17**; hai tệp Học bạ nhảy 4 → 9 và 1 → 6 ở Đ6 (`452cd38`), khi bộ
+canh được thêm dấu hiệu thứ năm bắt theo **tên trường dữ liệu** (`score`,
+`diem`, `hocLuc`) chứ không theo lời văn. Mã nguồn không đổi một dòng; chỉ là
+mắt của bộ canh sáng hơn nên nhìn thấy phần vẫn luôn ở đó. Bánh cóc cấm **mã
+nguồn** vi phạm thêm, không cấm **bộ canh** nhìn thấy rõ hơn — hai việc khác
+nhau, và lần nào con số đi lên vì lý do thứ hai thì phải ghi lại đúng như ở đây,
+kẻo người sau đọc thấy số tăng lại tưởng có ai đó đã nới bộ canh ra.
+
+Thêm một chỗ vi phạm **mới** ở bất cứ đâu → đỏ ngay. Món nợ thành con số máy
+đếm được, không còn là một dòng ghi chú người ta quên.
+
+**27 là con số cuối, không phải con số tạm.** Bản đầu viết "gỡ xong N3 thì hạ về
+0"; nhà trường đã quyết **giữ lại mã** hai màn đó (N3, 30/08) vì chưa chắc sẽ
+không dùng lại. Nên bánh cóc này sống chung với 27 dòng nợ lâu dài, và đó vẫn là
+cách đúng: nó không đòi mã sạch, nó đòi mã **không bẩn thêm**.
 
 Ba điều đáng ghi lại:
 
@@ -672,10 +686,10 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 |---|---|---|---|
 | N1 | Bộ tài liệu triển khai vẫn mô tả **máy chủ của app 1** | **🟢 phần QUY TRÌNH đã xong** (Đ85). `docs/TRIEN-KHAI.md` nay viết sẵn **cả hai kịch bản** — [A] VPS Việt Nam và [B] Render — mỗi cái một runbook đầy đủ, kèm lời dặn **xoá hẳn nửa không dùng** sau khi chốt. Lý lẽ: chỉ có đúng hai kịch bản, cả hai đều biết trước được; chờ tới lúc chốt mới viết là bắt nhà trường chờ thêm một buổi ở đúng lúc họ muốn đi nhanh nhất. **Còn chờ N7 thật sự:** tên miền, địa chỉ IP, chứng chỉ HTTPS cụ thể | Phần còn lại sau N7 |
 | ~~N2~~ | ~~`android/`, `capacitor.config.json` là vỏ đóng gói của app 1~~ | **✅ xong** — gỡ 7,9 MB / 77 tệp, cùng `scripts/prepare-mobile.js` và 4 gói `@capacitor/*`. **Giữ `render.yaml`**: nó đang mang lời cảnh báo về vòng kẹt triển khai lần đầu (N13). Bài canh cũ *"bản Android khớp đúng bản web"* tự bỏ qua khi thiếu thư mục — tức luôn xanh đúng lúc hết việc — nay đổi thành **"KHÔNG được có bản thứ hai"** | 27/08/2026 |
-| N3 | Hai phân hệ **xếp hạng trẻ**: Nề nếp và Báo cáo | **🟡 bước 1/2 xong** — nhà trường quyết **TẮT SẴN** cả hai (27/08). Màn hình biến mất, API trả 404, **dữ liệu giữ nguyên**, bật lại bằng một lượt bấm. Bước 2 (xóa hẳn mã, vẫn giữ bảng dữ liệu) để sau, khi đã sống vài hôm mà không ai nhớ tới chúng — chỉ khi đó món nợ 17 của `test:quy-tac-4` mới về 0, vì bài canh đó soi **mã nguồn** chứ không soi trạng thái bật/tắt. **Hai phân hệ cùng nhóm được GIỮ LẠI, khác với ghi chép ban đầu:** *"Năm học trước"* phục vụ đúng nhu cầu mầm non (phụ huynh xem lại album, thông báo của nhóm con từng học), *"Hồ sơ con đã ra trường"* đúng ý tưởng, chỉ cần đổi từ vựng | GĐ 1 |
+| N3 | Hai phân hệ **xếp hạng trẻ**: Nề nếp và Báo cáo | **🟢 chốt ở bước 1/2** — nhà trường quyết **TẮT SẴN** cả hai (27/08). Màn hình biến mất, API trả 404, **dữ liệu giữ nguyên**, bật lại bằng một lượt bấm. **Bước 2 (xóa hẳn mã) — nhà trường đã cân nhắc và quyết ĐỂ NGUYÊN (30/08):** *"chưa chắc"* sẽ không dùng lại hai màn đó, nên giữ mã lại để bật lại được bằng một lượt bấm, thay vì phải nhờ người viết lại. Đổi lại, món nợ **27 dòng** của `test:quy-tac-4` **ở nguyên chứ không về 0** — bài canh đó soi **mã nguồn** chứ không soi trạng thái bật/tắt, nên chừng nào hai tệp còn nằm trong kho thì con số còn đó. Đây là **cái giá đã biết trước và chấp nhận**, không phải việc còn sót. Bánh cóc vẫn làm đúng phần việc của nó: 27 chỉ được giảm, thêm một chỗ vi phạm mới ở bất cứ đâu là đỏ ngay. **Hai phân hệ cùng nhóm được GIỮ LẠI, khác với ghi chép ban đầu:** *"Năm học trước"* phục vụ đúng nhu cầu mầm non (phụ huynh xem lại album, thông báo của nhóm con từng học), *"Hồ sơ con đã ra trường"* đúng ý tưởng, chỉ cần đổi từ vựng. **Nhà trường xác nhận lại 30/08:** *"Nề nếp này tạm bỏ qua đi, k cần đến hiện tại"*. Riêng **Báo cáo thì trường CÓ cần** — nhưng là báo cáo kiểu CASA (tháng / 6 tháng / Cambridge), không phải học bạ điểm số của app 1, nên đó là phân hệ **viết mới**, không phải bật lại phân hệ cũ | Chốt 30/08 |
 | ~~N4~~ | ~~Chưa có tầng **cơ sở** và vai **quản lý cơ sở**~~ | **✅ xong 27/08** — đi đủ **ba bước ba commit** như G0.4. Cấp 1 (toàn hệ thống) và Cấp 3 (một cơ sở) phân biệt bằng bảng `user_campus`, **không đụng cột `role`** — nhờ vậy mọi tài khoản quản trị đang có giữ nguyên quyền. Cô và phụ huynh không bị đụng tới: quyền của cô đi theo nhóm lớp, của phụ huynh đi theo con, cả hai đã chặt hơn cơ sở. `test:co-so` 36 bài. **Cấp 2 (HR / Marketing / Kế toán) chưa làm** — xem mục yêu cầu mới bên dưới | 27/08/2026 |
 | N5 | `DATA_DIR` mặc định là `./data` nằm trong kho mã | **✅ đã canh bằng máy** — chạy `NODE_ENV=production` với dữ liệu trong kho mã thì máy chủ **DỪNG trước khi mở cổng**, không chỉ nhắc vào log. Mặc định vẫn là `./data` cho lúc chạy thử | 26/08/2026 |
-| N6 | Bài test canh QUY TẮC 4 | **✅ có rồi** — `test/quy-tac-4.test.mjs`, kiểu **bánh cóc**: món nợ N3 chỉ được giảm. Gỡ xong N3 thì hạ số trong `NO_DA_BIET` về 0 và bài test tự siết chặt | 26/08/2026 |
+| N6 | Bài test canh QUY TẮC 4 | **✅ có rồi** — `test/quy-tac-4.test.mjs`, kiểu **bánh cóc**: món nợ N3 (**27 dòng**) chỉ được giảm. Nhà trường đã chốt **giữ lại mã** hai màn đó (N3, 30/08), nên 27 nằm yên chứ không về 0 — bánh cóc vẫn chặn mọi chỗ vi phạm **mới** | 26/08/2026 |
 | N7 | Chưa đăng ký VPS Việt Nam + tên miền đứng tên trường | Việc của nhà trường; chặn phần triển khai | Nhà trường làm |
 | ~~N8~~ | ~~`sua-quyen-chu-nhiem.js` chỉ dọn được cái gương~~ | **✅ xong** — và hoá ra nguy hiểm hơn tôi ghi lúc đầu, xem mục bên dưới | 26/08/2026 |
 | ~~N9~~ | ~~Giao diện nói tiếng tiểu học~~ | **✅ xong** — xem mục "Đổi cách gọi tên" bên dưới | 26/08/2026 |
@@ -1015,3 +1029,4 @@ khung bảy tiết 35 phút đều là chữ và khung ĐÚNG.
 | 30/08/2026 | **Đ83** — `npm run ban-thu`: dựng bàn thử cho buổi thử điện thoại bằng **một lệnh**. Phiếu thử có sáu bước chuẩn bị và ba bước dễ bỏ sót nhất đều làm hỏng buổi thử theo một kiểu riêng — nặng nhất là chỉ bật MỘT phân hệ (phiếu ghi đúng "Ghi nhanh"), nên cô ngồi thử một app khác hẳn app trường sẽ dùng. Tôi tự làm hỏng tệp này **hai lần**, cả hai đều "chạy xong không lỗi": quên `napMoRong()` nên không bật gì, và lọc bằng `!m.core` nên bật luôn bốn phân hệ nhà trường đã quyết TẮT. Bộ canh vì vậy đọc thẳng CSDL và **dựng máy chủ thật** để hỏi, không đọc chữ script in ra | Hướng 3 |
 | 30/08/2026 | **Đ84** — **vòng soát thứ ba, đi theo THỜI GIAN chứ không theo chủ đề.** Hai vòng trước soát theo chủ đề nên không thấy chỗ BÀN GIAO giữa hai việc. Đi một lượt 7h→17h30 ở đúng cấu hình đủ tám phân hệ, lộ ra trong ba phút: gia đình báo con sốt 7h, văn phòng duyệt, **BẾP trừ đúng một suất** (Đ46 làm đúng) — nhưng **màn Nhật ký ngày không biết gì**. Cô bấm "áp cả nhóm" và bé nằm nhà được ghi *"ăn hết bát cơm, ngủ 11h30–14h"*; chiều tối mẹ đọc đúng dòng đó. Không mất, không rò — nhưng là mục tiêu số một của cả app nói một điều gia đình BIẾT CHẮC là sai. Sổ Đón trả cũng vậy. Vá: `lib/nghi-hoc.js` một chỗ trả lời, ba màn cùng hỏi; **nói ra, không chặn** | Hướng 1 |
 | 30/08/2026 | **Đ85** — dọn N1/N13/N14 theo hướng **chuẩn bị sẵn cả hai kịch bản**. `docs/TRIEN-KHAI.md` nay có runbook đầy đủ cho [A] VPS Việt Nam và [B] Render, kèm lời dặn xoá hẳn nửa không dùng. Sửa đường dẫn dữ liệu trong `docs/SAO-LUU.md` và `docs/CAP-NHAT-MAY-CHU.md` — bộ canh mới **tự tìm ra tệp thứ ba** tôi chưa nhìn tới, và nó là runbook cập nhật máy chủ ĐANG CHẠY. Bản đầu của bộ canh đó miễn trừ theo cờ trong tệp và vì thế **vô dụng đúng ở chỗ cần nhất**; đã đổi sang danh sách ghi tay | Hướng 2 |
+| 30/08/2026 | **N3 bước 2 — nhà trường quyết ĐỂ NGUYÊN.** Câu hỏi đặt ra là có xoá hẳn mã hai màn Nề nếp và Báo cáo không (dữ liệu vẫn giữ trong cả hai hướng). Trả lời: *"chưa chắc"* sẽ không dùng lại, nên giữ mã để bật lại bằng một lượt bấm. **Cái giá đã biết trước:** món nợ `test:quy-tac-4` ở nguyên **27 dòng** thay vì về 0, vì bài canh soi mã nguồn chứ không soi trạng thái bật/tắt. Nhân đó sửa hai chỗ ghi sai con số cũ **17** trong tài liệu — 17 là số lúc mới ghi, Đ6 (`452cd38`) thêm dấu hiệu bắt theo **tên trường dữ liệu** nên hai tệp Học bạ nhảy 4→9 và 1→6. **Mã nguồn không đổi một dòng**; bánh cóc không hỏng, chỉ là mắt bộ canh sáng hơn | N3 chốt |
