@@ -460,5 +460,102 @@ console.log('\n[8] VÒNG SAO LƯU → MẤT → KHÔI PHỤC PHẢI TRẢ LẠI 
   donThuMucTam(D);
 }
 
+console.log('\n[9] KHÔI PHỤC TỪ BẢN SAO Ở Ổ NGOÀI — đúng ca mà bản sao ra ổ ngoài sinh ra để cứu');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `backup.js` in ra lời khuyên chạy thêm một lần ra ổ ngoài (`--out`), và cả
+  // `docs/TRIEN-KHAI.md` lẫn `docs/SAO-LUU.md` đều dạy như vậy. Nhưng đường
+  // khôi phục lại đóng cứng thư mục ảnh vào `DATA_DIR/backups`. Nên khôi phục
+  // từ ổ ngoài — đúng kịch bản "ổ VPS hỏng" — thì CƠ SỞ DỮ LIỆU về đủ, còn ẢNH
+  // thì KHÔNG một tấm nào, mà script vẫn in "Đã khôi phục xong".
+  //
+  // Mục [8] không bắt được vì nó chỉ đi đường mặc định. Đây đúng là chỗ "bài
+  // canh bao phủ thiếu đúng chỗ nguy hiểm".
+  const D9 = thuMucTam('sao-luu-o-ngoai');
+  const O_NGOAI = thuMucTam('sao-luu-usb');
+  fs.mkdirSync(D9, { recursive: true });
+  fs.mkdirSync(O_NGOAI, { recursive: true });
+  sinhDuLieu(D9);
+  const UP9 = path.join(D9, 'uploads');
+  const chay9 = (script, ...a) => spawnSync('node', [path.join(GOC, 'scripts', script), ...a],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D9 } });
+
+  const ANH9 = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+  const TEN9 = 'b1c2d3e4f5061728394a5b6c7d8e9f01.png';
+  fs.mkdirSync(UP9, { recursive: true });
+  fs.writeFileSync(path.join(UP9, TEN9), ANH9);
+
+  // Sao lưu RA Ổ NGOÀI, đúng lệnh mà backup.js và tài liệu khuyên.
+  const b9 = chay9('backup.js', '--out', O_NGOAI);
+  check('sao lưu ra ổ ngoài chạy xong', b9.status === 0, (b9.stdout + b9.stderr).slice(-300));
+  const tepBanSao = fs.existsSync(O_NGOAI)
+    ? fs.readdirSync(O_NGOAI).filter(f => f.endsWith('.db.gz')).sort().pop() : null;
+  check('có tệp .db.gz nằm ở ổ ngoài', !!tepBanSao, fs.existsSync(O_NGOAI) ? fs.readdirSync(O_NGOAI) : null);
+  check('và ẢNH cũng được chép ra ổ ngoài — nếu không thì cả mục này vô nghĩa',
+    fs.existsSync(path.join(O_NGOAI, 'uploads', TEN9)),
+    fs.existsSync(path.join(O_NGOAI, 'uploads')) ? fs.readdirSync(path.join(O_NGOAI, 'uploads')) : 'không có');
+
+  // Ổ VPS hỏng: mất sạch ảnh, mất sạch bé, và mất luôn thư mục backups nội bộ.
+  fs.rmSync(UP9, { recursive: true, force: true });
+  fs.rmSync(path.join(D9, 'backups'), { recursive: true, force: true });
+  {
+    const db = new Database(path.join(D9, 'school.db'));
+    db.pragma('foreign_keys = OFF');
+    db.exec('DELETE FROM students');
+    db.close();
+  }
+
+  const r9 = chay9('restore.js', path.join(O_NGOAI, tepBanSao || 'x.db.gz'));
+  const chu9 = r9.stdout + r9.stderr;
+  check('khôi phục từ ổ ngoài chạy xong không lỗi', r9.status === 0, chu9.slice(-400));
+
+  // Vế đối chứng: cơ sở dữ liệu PHẢI về đủ. Không có phép kiểm này thì phép
+  // kiểm ảnh bên dưới xanh cả khi cả lệnh khôi phục hỏng hoàn toàn.
+  {
+    const db = new Database(path.join(D9, 'school.db'));
+    const n = db.prepare('SELECT COUNT(*) c FROM students').get().c;
+    db.close();
+    check('cơ sở dữ liệu về đủ số bé', n > 0, n);
+  }
+
+  check('ẢNH CŨNG QUAY LẠI khi khôi phục từ ổ ngoài',
+    fs.existsSync(path.join(UP9, TEN9)),
+    fs.existsSync(UP9) ? fs.readdirSync(UP9) : 'không có thư mục uploads/');
+  check('và đúng từng byte', fs.existsSync(path.join(UP9, TEN9))
+    && fs.readFileSync(path.join(UP9, TEN9)).equals(ANH9));
+
+  // ---- VÀ KHI THẬT SỰ KHÔNG TÌM THẤY ẢNH THÌ PHẢI NÓI RA ----
+  //
+  // Bản vá trên cứu được ca ảnh nằm cạnh tệp bản sao. Lời cảnh báo này cứu
+  // những ca nó không với tới — và nó là thứ duy nhất đứng giữa người vận hành
+  // với câu "Đã khôi phục xong" mà họ sẽ tin.
+  const D10 = thuMucTam('sao-luu-thieu-anh');
+  fs.mkdirSync(D10, { recursive: true });
+  sinhDuLieu(D10);
+  const LE = thuMucTam('sao-luu-le-loi');
+  fs.mkdirSync(LE, { recursive: true });
+  fs.copyFileSync(path.join(O_NGOAI, tepBanSao), path.join(LE, tepBanSao));  // CHỈ chép .db.gz
+  const r10 = spawnSync('node', [path.join(GOC, 'scripts', 'restore.js'), path.join(LE, tepBanSao)],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D10 } });
+  const chu10 = r10.stdout + r10.stderr;
+  check('không tìm thấy ảnh thì NÓI RA, không im lặng',
+    /KHÔNG tìm thấy thư mục ảnh/.test(chu10), chu10.slice(-500));
+  check('và nói rõ hậu quả bằng tiếng người vận hành hiểu',
+    /ô ảnh vỡ|ẢNH thì CHƯA/.test(chu10), chu10.slice(-500));
+  check('và chỉ đúng chỗ đã tìm', new RegExp('Đã tìm ở').test(chu10), chu10.slice(-500));
+
+  // Cờ --anh cứu nốt ca đó, và KHÔNG được nuốt mất tên tệp bản sao.
+  const r11 = spawnSync('node', [path.join(GOC, 'scripts', 'restore.js'),
+    '--anh', path.join(O_NGOAI, 'uploads'), path.join(LE, tepBanSao)],
+  { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D10 } });
+  check('cờ --anh chạy xong không lỗi', r11.status === 0, (r11.stdout + r11.stderr).slice(-400));
+  check('và mang ảnh về từ thư mục được chỉ',
+    fs.existsSync(path.join(D10, 'uploads', TEN9)),
+    fs.existsSync(path.join(D10, 'uploads')) ? fs.readdirSync(path.join(D10, 'uploads')) : 'không có');
+
+  donThuMucTam(D9); donThuMucTam(O_NGOAI); donThuMucTam(D10); donThuMucTam(LE);
+}
+
 donThuMucTam(DIR);
 tongKet();

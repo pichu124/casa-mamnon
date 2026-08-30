@@ -4,6 +4,9 @@
 //     node scripts/restore.js                        khôi phục bản mới nhất
 //     node scripts/restore.js school-20260812-0200.db.gz
 //     node scripts/restore.js --kiem-tra             chỉ kiểm tra bản sao còn tốt không
+//     node scripts/restore.js /mnt/usb/casa/school-20270115-0200.db.gz
+//                                                    khôi phục từ bản sao ở ổ ngoài
+//     node scripts/restore.js <tệp> --anh <thư mục>  khi ảnh cất tách khỏi tệp .db.gz
 //
 // LƯU Ý: dừng máy chủ trước khi khôi phục. Dữ liệu hiện tại sẽ được đổi tên giữ
 // lại chứ không bị xóa, nên nếu khôi phục nhầm vẫn quay lại được.
@@ -67,7 +70,23 @@ function mayChuDangMoCSDL() {
 
 const args = process.argv.slice(2);
 const chiKiemTra = args.includes('--kiem-tra');
-const chiDinh = args.find(a => !a.startsWith('--'));
+
+// `--anh <thư mục>` cho ca hiếm: ảnh được cất tách khỏi tệp `.db.gz`. Mặc định
+// thì không cần cờ này — ảnh được tìm ngay cạnh tệp bản sao.
+//
+// Nhận cả hai dạng `--anh X` và `--anh=X`, và phải LOẠI giá trị đó ra khỏi chỗ
+// tìm tên tệp bản sao: `args.find(a => !a.startsWith('--'))` mà gặp
+// `--anh /mnt/x school.db.gz` sẽ tưởng `/mnt/x` là tệp bản sao.
+let coCoAnh = null;
+const daDung = new Set();
+for (let i = 0; i < args.length; i++) {
+  const a = args[i];
+  if (a.startsWith('--anh=')) { coCoAnh = a.slice(6); daDung.add(i); continue; }
+  if (a === '--anh' && args[i + 1] !== undefined) {
+    coCoAnh = args[i + 1]; daDung.add(i); daDung.add(i + 1); i++;
+  }
+}
+const chiDinh = args.find((a, i) => !a.startsWith('--') && !daDung.has(i));
 
 function banMoiNhat() {
   if (!fs.existsSync(BACKUP_DIR)) return null;
@@ -257,7 +276,23 @@ fs.renameSync(tmp, DB_FILE);
 // tấm ảnh cụt là để họ tin rằng đã chữa xong trong khi chưa. Việc quyết định
 // lấy bản nào là của họ, không phải của script — script chỉ có nhiệm vụ đừng
 // giấu.
-const anhBackup = path.join(BACKUP_DIR, 'uploads');
+// ĐI TÌM THEO TỆP BẢN SAO, KHÔNG ĐI TÌM THEO `DATA_DIR`.
+//
+// `backup.js` khuyên chạy thêm một lần ra ổ ngoài (`--out /mnt/...`), và cả
+// `docs/TRIEN-KHAI.md` lẫn `docs/SAO-LUU.md` đều dạy như vậy. Nhưng đường khôi
+// phục lại đóng cứng thư mục ảnh vào `DATA_DIR/backups`. Khôi phục từ ổ ngoài —
+// đúng kịch bản "ổ VPS hỏng" mà bản sao ra ổ ngoài sinh ra để cứu — thì
+// `fs.existsSync` trả false, cả khối này bị bỏ qua, KHÔNG chép tấm ảnh nào,
+// KHÔNG in một chữ nào, rồi vẫn in "Đã khôi phục xong".
+//
+// Ảnh khuôn mặt trẻ là thứ DUY NHẤT trong cả app không dựng lại được nếu mất —
+// chính tệp này viết thế ở ngay trên.
+//
+// `backup.js` luôn ghi `.db.gz` và `uploads/` vào CÙNG một thư mục, nên ảnh
+// luôn nằm cạnh tệp bản sao. Đi tìm theo tệp mới là đi đúng; đi tìm theo
+// `DATA_DIR` chỉ TRÙNG HỢP đúng ở đường mặc định — và ở đó `path.dirname(nguon)`
+// bằng đúng `BACKUP_DIR`, nên hành vi cũ không đổi một chút nào.
+const anhBackup = coCoAnh ? path.resolve(coCoAnh) : path.join(path.dirname(nguon), 'uploads');
 const anhDich = path.join(DATA_DIR, 'uploads');
 if (fs.existsSync(anhBackup)) {
   fs.mkdirSync(anhDich, { recursive: true });
@@ -281,6 +316,18 @@ if (fs.existsSync(anhBackup)) {
     if (khac.length > 20) console.log(`   … và ${khac.length - 20} tấm nữa`);
     console.log(`   Bản trong bản sao nằm ở: ${anhBackup}`);
   }
+} else {
+  // NÓI RA KHI KHÔNG TÌM THẤY ẢNH.
+  //
+  // Cơ chế "nói ra khi lệch" ở trên chỉ chạy KHI đã tìm thấy thư mục ảnh, nên
+  // nó không bắt được đúng ca mất trắng. Người đang chạy lệnh này là người vừa
+  // nghi dữ liệu hỏng; im lặng rồi in "Đã khôi phục xong" là để họ tin đã chữa
+  // xong trong khi mọi ảnh của trẻ vẫn đang thiếu.
+  console.log('\n⚠  KHÔNG tìm thấy thư mục ảnh đi kèm bản sao lưu này.');
+  console.log(`   Đã tìm ở: ${anhBackup}`);
+  console.log('   Cơ sở dữ liệu đã về đủ, nhưng ẢNH thì CHƯA — album của nhóm,');
+  console.log('   ảnh Ghi nhanh và ảnh người được uỷ quyền đón sẽ là ô ảnh vỡ.');
+  console.log('   Nếu ảnh được cất ở nơi khác, chạy lại kèm:  --anh <thư mục uploads>');
 }
 
 console.log('\nĐã khôi phục xong. Khởi động lại máy chủ và kiểm tra dữ liệu.');
