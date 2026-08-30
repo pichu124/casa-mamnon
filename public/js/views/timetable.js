@@ -49,6 +49,15 @@ App.views.timetable = {
     // Đổi nhóm giữa chừng (quản trị chuyển bé sang nhóm khác) thì bỏ bản nháp đang sửa.
     if (this.classId !== classId) { this.editing = false; this.draft = null; }
     this.classId = classId;
+    // Cùng lý do như `views/plans.js`: không chặn ở đây thì chuỗi truy vấn
+    // thành `?classId=null` và cô nhận màn "Có lỗi xảy ra 😥 / Không tìm thấy
+    // nhóm lớp" — đổ lỗi cho một nhóm không tồn tại.
+    if (!classId) {
+      root.innerHTML = UI.pageHeader('Lịch sinh hoạt')
+        + UI.emptyState('🧭', 'Cô chưa phụ trách nhóm nào nên chưa có lịch sinh hoạt để xem. '
+          + 'Nhờ văn phòng nhà trường phân công nhóm giúp cô nhé.');
+      return;
+    }
     if (!this.day) {
       const dw = new Date().getDay();
       this.day = dw >= 1 && dw <= 5 ? dw : 1; // cuối tuần → xem Thứ Hai

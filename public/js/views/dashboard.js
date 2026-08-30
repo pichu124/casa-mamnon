@@ -31,7 +31,14 @@ App.views.dashboard = {
       </header>
 
       <div class="tile-sheet">
-        ${tiles.length ? '' : '<div class="muted small center" style="padding:24px 8px">Nhà trường chưa bật phân hệ nào.</div>'}
+        ${tiles.length ? '' : '<div class="muted small center" style="padding:24px 8px">'
+          // Câu cũ — "Nhà trường chưa bật phân hệ nào" — SAI với tài khoản Nhân
+          // sự hay Kế toán: nhà trường bật đủ cả, chỉ là phần việc của chức vụ
+          // đó không nằm ở lưới này. Và "phân hệ" là chữ chỉ có trong mã nguồn.
+          + 'Tài khoản của mình chưa có phần nào hiện ở đây. '
+          + 'Việc của mình mở trong <b>Cài đặt → Quản trị</b>. '
+          + 'Cần thêm phần nào thì nhờ ban giám hiệu mở giúp.'
+          + '</div>'}
         <div class="tile-grid">
           ${tiles.map(t => `
             <button class="tile" onclick="location.hash='${UI.esc(t.hash)}'">

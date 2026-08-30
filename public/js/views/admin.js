@@ -1090,7 +1090,7 @@ App.views.admin = {
         <p class="muted small" style="line-height:1.6">
           Chuyển năm học sẽ đưa toàn bộ các bé lên nhóm kế tiếp, cho các bé lớn nhất
           ra trường và đóng các nhóm của năm cũ. Chỉ làm khi đã kết thúc năm học.
-          <b>Hãy sao lưu dữ liệu trước</b> bằng lệnh <code>npm run backup</code>.
+          <b>Hãy nhờ người phụ trách máy chủ của trường sao lưu dữ liệu trước khi bấm.</b>
         </p>
       </div>
 
@@ -1139,8 +1139,16 @@ App.views.admin = {
     // mầm non thì "khối" không có nghĩa gì cả.
     const d = this._xemTruocNam || {};
     const soRaTruong = d.tongRaTruong == null ? '' : `${d.tongRaTruong} bé sẽ ra trường. `;
-    if (!confirm(`Chuyển toàn trường sang năm học ${namMoi}?\n\n${soRaTruong}Việc này không tự hoàn tác được — hãy chắc chắn đã sao lưu dữ liệu.`)) return;
-    if (!confirm('Xác nhận lần nữa: bạn đã chạy "npm run backup" chưa?')) return;
+    // HỎI THỨ NGƯỜI BẤM THẬT SỰ BIẾT.
+    //
+    // Hộp thoại thứ hai từng hỏi "bạn đã chạy npm run backup chưa?". Người đang
+    // bấm nút này là hiệu trưởng, ngồi trước điện thoại hoặc máy tính của
+    // trường — họ KHÔNG chạy được lệnh đó, và app cũng không có nút nào để sao
+    // lưu. Hỏi một câu người ta không trả lời thật được thì họ bấm "Đồng ý" cho
+    // xong, và cả hai lớp xác nhận thành hình thức.
+    if (!confirm(`Chuyển toàn trường sang năm học ${namMoi}?\n\n${soRaTruong}Việc này không tự hoàn tác được.`)) return;
+    if (!confirm('Xác nhận lần nữa: nhà trường ĐÃ SAO LƯU dữ liệu chưa?\n\n'
+      + 'Nếu chưa, xin bấm Huỷ và nhờ người phụ trách máy chủ sao lưu giúp trước.')) return;
     try {
       const r = await API.post('/api/schoolyear/promote', { namMoi, khoiToiDa });
       UI.modal(`

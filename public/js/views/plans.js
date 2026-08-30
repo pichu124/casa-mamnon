@@ -31,6 +31,19 @@ App.views.plans = {
       classId = current.classId;
     }
     this._classId = classId;
+    // CÔ CHƯA ĐƯỢC PHÂN CÔNG NHÓM NÀO.
+    //
+    // Không chặn ở đây thì `classId` là null, chuỗi truy vấn thành
+    // `?classId=null`, máy chủ không tìm thấy nhóm tên "null" và trả "Không tìm
+    // thấy nhóm lớp" — màn hình hiện "Có lỗi xảy ra 😥" rồi đổ lỗi cho một nhóm
+    // không tồn tại. Cô sẽ đi tìm xem mình bấm sai chỗ nào, trong khi việc cần
+    // làm là nhờ văn phòng phân công nhóm.
+    if (!classId) {
+      root.innerHTML = UI.pageHeader('Kế hoạch giáo dục')
+        + UI.emptyState('🧭', 'Cô chưa phụ trách nhóm nào nên chưa có kế hoạch để xem. '
+          + 'Nhờ văn phòng nhà trường phân công nhóm giúp cô nhé.');
+      return;
+    }
     const data = await API.get(`/api/plans?classId=${encodeURIComponent(classId)}`);
     this._plans = data.plans || [];
     const suaDuoc = this.canEdit();
