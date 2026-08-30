@@ -34,6 +34,22 @@ function todayStr() {
 function buildPhoto(input, index) {
   const p = input || {};
   const caption = String(p.caption || '').trim().slice(0, 200);
+  // VIDEO LƯU THÀNH MỘT DÒNG Y NHƯ ẢNH — và đó là cả thiết kế.
+  //
+  // Một đoạn video quay cả nhóm còn lộ nhiều hơn một tấm ảnh: có mặt, có
+  // giọng, có tên các bé gọi nhau. Nên nó KHÔNG được có một đường đi riêng.
+  //
+  // Cùng bảng `album_photos`, cùng cột `file`, cùng bảng gắn thẻ bé
+  // `photo_students` → nó đi qua đúng `locAnhChoNguoiXem` mà ảnh đang đi qua.
+  // Không phải "cũng có kiểm tra tương tự": là CÙNG MỘT ĐƯỜNG, nên không có
+  // chỗ nào để hai đường trôi khỏi nhau.
+  //
+  // Màn hình phân biệt ảnh với video bằng phần mở rộng của tên tệp
+  // (`uploads.laVideo`), không cần thêm cột nào.
+  if (p.video) {
+    const { file } = uploads.saveVideoDataUrl(p.video); // ném lỗi nếu không phải video
+    return { id: db.nextId('ph'), file, caption };
+  }
   if (p.dataUrl) {
     const { file } = uploads.saveDataUrl(p.dataUrl); // ném lỗi nếu ảnh không hợp lệ
     return { id: db.nextId('ph'), file, caption };
@@ -399,7 +415,7 @@ module.exports = (app) => {
     }
     const { photos } = req.body || {};
     if (!Array.isArray(photos) || !photos.length) {
-      return res.status(400).json({ error: 'Chưa chọn ảnh nào' });
+      return res.status(400).json({ error: 'Chưa chọn ảnh hay video nào' });
     }
     const dangCo = db.count('SELECT COUNT(*) FROM album_photos WHERE albumId = ?', [album.id]);
     if (dangCo + photos.length > MAX_PHOTOS_PER_ALBUM) {

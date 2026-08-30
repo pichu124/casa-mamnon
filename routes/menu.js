@@ -57,15 +57,84 @@ function lamSachBuaAn(meals) {
   return out;
 }
 
-// Thực đơn hiện là của CẢ TRƯỜNG (một bản ghi mỗi ngày), nên chỉ quản trị toàn
-// hệ thống soạn được. Xem chú thích dài ở PUT /api/menu/:date.
-function chanNeuChiMotCoSo(req, res) {
-  if (db.phamViCoSo(req.user) === null) return false;
-  res.status(403).json({
-    error: 'Thực đơn hiện dùng chung cho MỌI cơ sở, nên chỉ tài khoản quản trị '
-      + 'toàn hệ thống mới soạn được. Xin liên hệ ban giám hiệu.',
-  });
-  return true;
+// BA CƠ SỞ NẤU RIÊNG BẾP — nhà trường chốt ngày 30/08.
+//
+// Trước đợt này thực đơn là của CẢ TRƯỜNG: một bản ghi mỗi ngày trong `menus`,
+// và quản lý cơ sở bị chặn không cho sửa, vì hai người sửa thì người sau âm
+// thầm ghi đè người trước.
+//
+// Nay mỗi cơ sở có bảng riêng `menu_campus`. Luật đọc và ghi gói gọn trong ba
+// hàm dưới đây, để không chỗ nào trong tệp này phải tự đoán lại.
+
+// Cơ sở mà một người ĐANG XEM thực đơn của.
+//
+// • Gia đình  → cơ sở của nhóm con đang học.
+// • Cô        → cơ sở của nhóm cô phụ trách.
+// • Quản trị Cấp 3 → cơ sở mình bị khoá vào.
+// • Quản trị Cấp 1 → không cố định; lấy theo `?campusId=` nếu có, không thì
+//                    xem bản dùng chung.
+//
+// Trả về null nghĩa là "không gắn với cơ sở nào" — khi đó đọc bản dùng chung,
+// đúng như app vẫn chạy từ trước tới nay.
+function coSoDangXem(user, campusIdMuon) {
+  if (!user) return null;
+  if (user.role === 'admin') {
+    // `phamViCoSo` trả về MỘT MÃ cơ sở (chuỗi) hoặc null, không phải mảng.
+    //
+    // Bản đầu của hàm này viết `khoa.length === 1` như thể nó là mảng. Chuỗi
+    // 'cs2' cũng có `.length`, bằng 3, nên điều kiện không bao giờ đúng và mọi
+    // quản lý cơ sở rơi xuống nhánh Cấp 1 — tức ghi thẳng vào bảng dùng chung.
+    // Phép thử tay bắt được ngay: món của cơ sở 2 hiện lên màn hình gia đình
+    // cơ sở 1. Đúng cái hỏng mà chú thích cũ ở đường PUT đã cảnh báo.
+    const khoa = db.phamViCoSo(user);
+    if (khoa) return khoa;
+    return campusIdMuon && db.canAccessCampus(user, campusIdMuon) ? campusIdMuon : null;
+  }
+  const nhom = db.classIdsOf(user);
+  for (const c of (nhom || [])) {
+    const cs = db.campusOfClass(c);
+    if (cs) return cs;
+  }
+  return null;
+}
+
+// Cơ sở mà một người quản trị ĐƯỢC GHI vào.
+//
+// Cấp 3 chỉ ghi được cơ sở mình. Cấp 1 ghi được bất cứ cơ sở nào nếu nói rõ
+// `campusId`, và ghi vào bản DÙNG CHUNG nếu không nói gì — giữ nguyên đường cũ
+// cho trường một bếp.
+//
+// Trả về { ok: false, loi } nếu không được phép.
+function coSoDuocGhi(user, campusIdMuon) {
+  const khoa = db.phamViCoSo(user);
+  if (khoa) {
+    if (campusIdMuon && campusIdMuon !== khoa) {
+      return { ok: false, loi: 'Tài khoản này chỉ soạn được thực đơn của cơ sở mình phụ trách' };
+    }
+    return { ok: true, campusId: khoa };
+  }
+  if (campusIdMuon && !db.findCampus(campusIdMuon)) {
+    return { ok: false, loi: 'Không tìm thấy cơ sở này' };
+  }
+  return { ok: true, campusId: campusIdMuon || null };
+}
+
+// Thực đơn của một khoảng ngày cho một cơ sở, ĐÃ GỘP với bản dùng chung.
+//
+// Dòng riêng của cơ sở thắng; ngày nào cơ sở chưa soạn riêng thì lấy bản dùng
+// chung. Nhờ vậy trường có thể chỉ soạn riêng đúng những ngày bếp nấu khác.
+function thucDonCua(campusId, from, to) {
+  const chung = new Map(db.all('menus',
+    'SELECT * FROM menus WHERE date BETWEEN ? AND ? ORDER BY date', [from, to])
+    .map(m => [m.date, { date: m.date, meals: m.meals, rieng: false }]));
+  if (campusId) {
+    for (const m of db.all('menu_campus',
+      'SELECT * FROM menu_campus WHERE campusId = ? AND date BETWEEN ? AND ? ORDER BY date',
+      [campusId, from, to])) {
+      chung.set(m.date, { date: m.date, meals: m.meals, rieng: true, capNhatLuc: m.capNhatLuc });
+    }
+  }
+  return [...chung.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 module.exports = (app) => {
@@ -74,9 +143,20 @@ module.exports = (app) => {
     const week = req.query.week === '1' ? 1 : (req.query.week === '-1' ? -1 : 0);
     const from = thuHaiCuaTuan(week);
     const to = congNgay(from, 4);
-    const menus = db.all('menus',
-      'SELECT * FROM menus WHERE date BETWEEN ? AND ? ORDER BY date', [from, to]);
-    res.json({ week, from, to, menus });
+    const campusId = coSoDangXem(req.user, String(req.query.campusId || ''));
+    const cs = campusId ? db.findCampus(campusId) : null;
+    res.json({
+      week, from, to,
+      campusId: campusId || null,
+      tenCoSo: cs ? cs.name : '',
+      // Danh sách cơ sở CHỈ cho người soạn được nhiều cơ sở (Cấp 1), để màn
+      // hình dựng ô chọn. Gia đình và cô không cần — và cũng không nên thấy
+      // tên các cơ sở khác trong một màn thực đơn.
+      cacCoSo: req.user && req.user.role === 'admin' && db.phamViCoSo(req.user) === null
+        ? db.campuses().map(c => ({ id: c.id, name: c.name }))
+        : [],
+      menus: thucDonCua(campusId, from, to),
+    });
   });
 
   // SOẠN CẢ TUẦN TRONG MỘT LẦN LƯU.
@@ -93,7 +173,9 @@ module.exports = (app) => {
   // lại một tuần soạn dở — hai ngày đã lưu, ba ngày chưa — mà màn hình vừa
   // báo lỗi nên người soạn không biết mình đang đứng ở đâu.
   app.put('/api/menu/tuan', requireRole('admin'), (req, res) => {
-    if (chanNeuChiMotCoSo(req, res)) return;
+    const quyen = coSoDuocGhi(req.user, String((req.body || {}).campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const campusId = quyen.campusId;
     const ds = (req.body || {}).ngay;
     if (!Array.isArray(ds) || !ds.length || ds.length > TOI_DA_NGAY_MOT_LAN) {
       return res.status(400).json({
@@ -114,7 +196,9 @@ module.exports = (app) => {
       }
       daThay.add(date);
 
-      const cu = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [date]);
+      const cu = campusId
+        ? db.first('menu_campus', 'SELECT * FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, date])
+        : db.first('menus', 'SELECT * FROM menus WHERE date = ?', [date]);
       // Ngày người soạn để trống hẳn mà trước đó cũng chưa có gì: BỎ QUA. Tạo
       // một bản ghi rỗng là màn hình của gia đình hiện ra một ngày trắng trông
       // như bếp quên soạn.
@@ -129,30 +213,35 @@ module.exports = (app) => {
       sach.push({ date, meals, cu });
     }
 
+    const luc = ngay.bayGio();
     db.tx(() => {
       for (const { date, meals, cu } of sach) {
-        if (cu) db.update('menus', cu.id, { meals });
+        if (campusId) {
+          db.upsert('menu_campus',
+            { campusId, date, meals, nguoiDang: req.user.id, capNhatLuc: luc },
+            ['campusId', 'date']);
+        } else if (cu) db.update('menus', cu.id, { meals });
         else db.insert('menus', { id: db.nextId('menu'), date, meals });
       }
     });
-    db.audit(req.user.id, 'menu-update-tuan', null, { soNgay: sach.length });
-    res.json({ daLuu: sach.length, ngay: sach.map(x => x.date) });
+    db.audit(req.user.id, 'menu-update-tuan', campusId || null, { soNgay: sach.length, campusId });
+    res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null });
   });
 
   // Quản trị soạn/sửa thực đơn một ngày. Mỗi ngày một bản ghi, ghi đè cả ngày.
   app.put('/api/menu/:date', requireRole('admin'), (req, res) => {
-    // CHỈ CẤP 1 — và đây là chỗ cần nói rõ vì sao, vì nó có thể phải đổi.
+    // ĐƯỜNG NÀY TRƯỚC ĐÂY CHẶN CẤP 3, và chú thích cũ dặn "muốn mở thì thêm
+    // cột cơ sở vào `menus`". Không đi đường đó được: `menus.date` là UNIQUE,
+    // đổi khoá phải dựng lại bảng, mà lược đồ lõi cấm ALTER TABLE — và dựng
+    // lại một bảng đang có dữ liệu thật là đúng thứ Nguyên tắc số 1 cấm.
     //
-    // Bảng `menus` có MỘT bản ghi cho mỗi NGÀY, không phải mỗi ngày mỗi cơ sở.
-    // Tức là mô hình dữ liệu hiện tại nói: cả trường ăn chung một thực đơn.
-    // Điều đó khớp với yêu cầu nhà trường đưa ra ("thực đơn và lịch sinh hoạt
-    // sẽ do admin làm và up lên"), nên tạm thời đúng.
-    //
-    // Cho quản lý cơ sở sửa mà giữ nguyên bảng này thì người sửa sau ghi đè
-    // người sửa trước, âm thầm, mỗi ngày — hỏng theo kiểu khó lần ra nhất.
-    // Nếu sau này ba cơ sở nấu bếp riêng, việc phải làm là THÊM cột cơ sở vào
-    // `menus` rồi mới mở đường này ra, chứ không phải bỏ dòng chặn dưới đây.
-    if (chanNeuChiMotCoSo(req, res)) return;
+    // Đường đã đi: bảng phụ `menu_campus`. Quản lý cơ sở ghi vào cơ sở mình,
+    // Cấp 1 ghi vào cơ sở nào cũng được hoặc vào bản dùng chung. Không ai ghi
+    // đè ai nữa, vì hai người ở hai cơ sở ghi vào hai dòng khác nhau.
+    const quyen = coSoDuocGhi(req.user, String((req.body || {}).campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const campusId = quyen.campusId;
+
     const date = String(req.params.date || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-09-07' });
@@ -161,6 +250,15 @@ module.exports = (app) => {
     if (!meals) {
       return res.status(400).json({ error: 'Danh sách bữa ăn chưa hợp lệ. Mỗi bữa cần có tên bữa.' });
     }
+
+    if (campusId) {
+      db.upsert('menu_campus',
+        { campusId, date, meals, nguoiDang: req.user.id, capNhatLuc: ngay.bayGio() },
+        ['campusId', 'date']);
+      db.audit(req.user.id, 'menu-update', date, { soBua: meals.length, campusId });
+      return res.json({ date, meals, campusId, rieng: true });
+    }
+
     const cu = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [date]);
     let rec;
     if (cu) {
@@ -171,33 +269,55 @@ module.exports = (app) => {
       db.insert('menus', rec);
     }
     db.audit(req.user.id, 'menu-update', date, { soBua: meals.length });
-    res.json(rec);
+    res.json({ ...rec, campusId: null, rieng: false });
   });
 
   // Chép thực đơn của tuần liền trước sang tuần đích (0 = tuần này, 1 = tuần sau).
   // Chỉ chép vào những ngày tuần đích còn trống — không ghi đè thứ đã soạn.
   app.post('/api/menu/copy-week', requireRole('admin'), (req, res) => {
-    if (chanNeuChiMotCoSo(req, res)) return;
+    const quyen = coSoDuocGhi(req.user, String((req.body || {}).campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const campusId = quyen.campusId;
+
     const week = Number((req.body || {}).week);
     if (week !== 0 && week !== 1) {
       return res.status(400).json({ error: 'Tuần đích chưa hợp lệ (0 = tuần này, 1 = tuần sau)' });
     }
     const nguon = thuHaiCuaTuan(week - 1);
     const dich = thuHaiCuaTuan(week);
+    const luc = ngay.bayGio();
     let daChep = 0;
+
+    // CHÉP TRONG PHẠM VI CỦA CHÍNH CƠ SỞ ẤY.
+    //
+    // Nguồn lấy qua `thucDonCua` nên nếu tuần trước cơ sở chưa soạn riêng, nó
+    // chép bản dùng chung sang — đúng ý "tuần này giống tuần trước". Đích thì
+    // chỉ nhìn dòng RIÊNG: một ngày mới có bản dùng chung mà cơ sở chưa soạn
+    // riêng vẫn là "còn trống" với cơ sở đó.
     db.tx(() => {
+      const dsNguon = new Map(thucDonCua(campusId, nguon, congNgay(nguon, 4)).map(m => [m.date, m]));
       for (let d = 0; d < 5; d++) {
         const ngayNguon = congNgay(nguon, d);
         const ngayDich = congNgay(dich, d);
-        const mNguon = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngayNguon]);
+        const mNguon = dsNguon.get(ngayNguon);
         if (!mNguon) continue;
-        const mDich = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngayDich]);
-        if (mDich) continue; // ngày đã soạn thì giữ nguyên
-        db.insert('menus', { id: db.nextId('menu'), date: ngayDich, meals: mNguon.meals });
+        if (campusId) {
+          const co = db.first('menu_campus',
+            'SELECT * FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, ngayDich]);
+          if (co) continue;
+          db.insert('menu_campus', {
+            campusId, date: ngayDich, meals: mNguon.meals,
+            nguoiDang: req.user.id, capNhatLuc: luc,
+          });
+        } else {
+          const mDich = db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngayDich]);
+          if (mDich) continue; // ngày đã soạn thì giữ nguyên
+          db.insert('menus', { id: db.nextId('menu'), date: ngayDich, meals: mNguon.meals });
+        }
         daChep++;
       }
     });
-    db.audit(req.user.id, 'menu-copy-week', String(week), { daChep });
-    res.json({ daChep });
+    db.audit(req.user.id, 'menu-copy-week', String(week), { daChep, campusId });
+    res.json({ daChep, campusId: campusId || null });
   });
 };

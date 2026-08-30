@@ -676,3 +676,31 @@ không có chữ nào tự chảy từ sổ riêng của cô sang màn hình gia
 lại nhưng tắt sẵn. Phân hệ mới đặt mã khác để hai thứ không bao giờ lẫn nhau,
 và để bật cái này không vô tình bật cái kia.
 
+### 5. Trần video 8 MB, và KHÔNG nới giới hạn thân yêu cầu của máy chủ
+
+**Việc:** nhà trường muốn có video ("1 video quý hơn hàng trăm bức ảnh"). Video
+**không nén được trong trình duyệt** như ảnh — `UI.nenAnh` vẽ lại ảnh qua canvas,
+video không có đường tương đương chạy nổi trên điện thoại của cô. Nên trần phải
+đặt bằng tay.
+
+| Đường | Được gì | Mất gì |
+|---|---|---|
+| 1 | Trần cao (25–50 MB), nới `express.json` lên cho vừa | Cô quay thoải mái | **Nới một giới hạn đang che MỌI đường dẫn của app** để tiện cho một tính năng; và ổ đĩa trường đầy sau một học kỳ |
+| 2 | **Trần 8 MB, giữ nguyên giới hạn 12 MB** | Không đụng gì tới bề mặt tấn công của các đường khác; dung lượng ước tính ≈ 3 GB một năm học | Video chỉ được 10–20 giây |
+| 3 | Không làm video | Không tốn gì | Bỏ hẳn một yêu cầu nhà trường nêu rõ |
+
+**ĐÃ CHỐT: đường 2.** Con số 8 MB không phải chọn tuỳ ý — nó là hệ quả của
+`express.json({ limit: '12mb' })` trong `server.js`: tệp đi lên dưới dạng base64
+nên phình thêm 33%, và 8 MB nhị phân thành khoảng 10,7 MB chữ, vừa lọt và còn
+chỗ cho phần bọc JSON.
+
+**Chỗ cần nhà trường biết:** 10–20 giây là đủ cho thứ nhà trường mô tả (một
+khoảnh khắc con làm được việc gì đó), nhưng KHÔNG đủ cho một đoạn quay cả buổi
+hoạt động. Muốn dài hơn thì phải đổi cách lưu — tải tệp theo luồng thay vì gửi
+kèm trong JSON — và đó là một đợt việc riêng, không phải một dòng cấu hình.
+
+**Ước tính dung lượng để nhà trường quyết:** ba cơ sở, mỗi nhóm một video mỗi
+ngày học ≈ **3 GB một năm học**, đã tính cả phần sao lưu chép theo. Gói VPS nhỏ
+nhất thường có 25–40 GB, nên vẫn thoải mái — nhưng đây là con số đầu tiên trong
+cả app tăng theo GB chứ không theo MB, và nó đáng được nhìn trước khi bật.
+

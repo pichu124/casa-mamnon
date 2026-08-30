@@ -32,6 +32,14 @@ App.views.menu = {
 
   laQuanTri() { return App.state.user && App.state.user.role === 'admin'; },
 
+  // Cơ sở đang xem. Chỉ có nghĩa với quản trị Cấp 1 — người duy nhất chọn được
+  // giữa nhiều cơ sở. Quản lý cơ sở và cô, gia đình đều bị máy chủ neo sẵn vào
+  // đúng cơ sở của mình, nên ô chọn không hiện ra cho họ.
+  _coSo: '',
+  _tenCoSo: '',
+  _cacCoSo: [],
+  _dungChung: false,
+
   async render(root) {
     const qt = this.laQuanTri();
     root.innerHTML = `
@@ -40,7 +48,9 @@ App.views.menu = {
         <button class="${this.week === 0 ? 'active' : ''}" onclick="App.views.menu.setWeek(0)">Tuần này</button>
         <button class="${this.week === 1 ? 'active' : ''}" onclick="App.views.menu.setWeek(1)">Tuần sau</button>
       </div>
+      <div id="menu-coso"></div>
       ${qt ? `<button class="btn primary block mb-8" id="btn-soan-tuan">${UI.icon('edit', 18)} Soạn cả tuần một lượt</button>` : ''}
+      <div id="menu-nhac"></div>
       <div id="menu-days"></div>`;
     if (qt) {
       document.getElementById('btn-chep-tuan').onclick = () => this.chepTuanTruoc();
@@ -62,9 +72,15 @@ App.views.menu = {
     if (!zone) return;
     zone.innerHTML = '<div class="loading">Đang tải</div>';
     try {
-      const data = await API.get(`/api/menu?week=${this.week}`);
+      const data = await API.get(`/api/menu?week=${this.week}`
+        + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : ''));
       const menus = data.menus || [];
       const today = UI.todayStr();
+      this._coSo = data.campusId || '';
+      this._tenCoSo = data.tenCoSo || '';
+      this._cacCoSo = data.cacCoSo || [];
+      this.veCoSo();
+      this.veNhac(menus, data.from);
 
       if (this.laQuanTri()) {
         // Quản trị: hiện đủ 5 ngày của tuần, ngày trống có nút soạn ngay.
@@ -86,6 +102,64 @@ App.views.menu = {
     } catch (err) {
       zone.innerHTML = UI.emptyState('😥', err.message || 'Không tải được thực đơn');
     }
+  },
+
+  // BA CƠ SỞ NẤU RIÊNG BẾP — nói rõ đây là bếp nào.
+  //
+  // Với gia đình và cô thì đây chỉ là một dòng chữ: họ không chọn được, và
+  // cũng không nên thấy tên hai cơ sở kia trong màn thực đơn của con mình.
+  // Với quản trị Cấp 1 thì là một ô chọn — họ soạn hộ được cả ba bếp.
+  veCoSo() {
+    const o = document.getElementById('menu-coso');
+    if (!o) return;
+    if (this._cacCoSo.length > 1) {
+      o.innerHTML = `
+        <div class="card">
+          <div class="field" style="margin-bottom:0">
+            <label>Bếp của cơ sở</label>
+            <select id="menu-chon-coso">
+              <option value="">Dùng chung cho mọi cơ sở</option>
+              ${this._cacCoSo.map(c => `<option value="${UI.esc(c.id)}" ${c.id === this._coSo ? 'selected' : ''}>${UI.esc(c.name)}</option>`).join('')}
+            </select>
+          </div>
+        </div>`;
+      document.getElementById('menu-chon-coso').onchange = (e) => {
+        this._coSo = e.target.value;
+        this.load();
+      };
+      return;
+    }
+    o.innerHTML = this._tenCoSo
+      ? `<div class="muted small" style="margin:-4px 0 10px">Bếp ${UI.esc(this._tenCoSo)}</div>`
+      : '';
+  },
+
+  // NHẮC ĐĂNG THỰC ĐƠN TUẦN SAU VÀO THỨ SÁU.
+  //
+  // Nhà trường chốt nếp làm việc: "thực đơn này sẽ được admin cơ sở up lên vào
+  // thứ 6 hàng tuần để thông báo thực đơn và kế hoạch học tập cho tuần tới".
+  //
+  // Đây là một LỜI NHẮC, không phải một chốt chặn. Chặn không cho làm việc
+  // khác cho tới khi soạn xong là biến một nếp tốt thành một cái cửa khoá, và
+  // thứ Sáu là hôm bận nhất của văn phòng. Nhắc thì người ta làm; chặn thì
+  // người ta tìm đường vòng.
+  veNhac(menus, from) {
+    const o = document.getElementById('menu-nhac');
+    if (!o) return;
+    o.innerHTML = '';
+    if (!this.laQuanTri() || this.week !== 1) return;
+    // Thứ Sáu = 5 theo giờ Việt Nam, lấy từ chính "hôm nay" của app.
+    const t = UI.parseDate(UI.todayStr());
+    if (!t || t.getDay() !== 5) return;
+    const daSoan = (menus || []).filter(m => (m.meals || []).length).length;
+    if (daSoan >= 5) return;
+    o.innerHTML = `
+      <div class="card" style="border-left:4px solid var(--warning)">
+        <div class="small" style="line-height:1.7">
+          Hôm nay thứ Sáu. Tuần sau còn <b>${UI.esc(String(5 - daSoan))} ngày</b> chưa có thực đơn —
+          nhà trường hẹn đăng thực đơn tuần tới vào hôm nay để gia đình biết trước.
+        </div>
+      </div>`;
   },
 
   // 5 ngày T2–T6 của tuần, tính từ ngày Thứ Hai mà máy chủ trả về.
@@ -257,7 +331,10 @@ App.views.menu = {
     const thieuTen = this._tuan.some(ng => ng.meals.some(b => !b.label));
     if (thieuTen) return UI.toast('Mỗi bữa cần có tên bữa — mở "Sửa tên bữa và giờ ăn" để điền nhé', 'error');
     try {
+      // GỬI KÈM MÃ CƠ SỞ ĐANG XEM. Thiếu nó thì Cấp 1 đang mở bếp cơ sở 2 mà
+      // lưu lại rơi vào bản dùng chung — và cả ba cơ sở đổi theo, âm thầm.
       const kq = await API.put('/api/menu/tuan', {
+        campusId: this._coSo || '',
         ngay: this._tuan.map(ng => ({ date: ng.date, meals: ng.meals })),
       });
       UI.toast(kq.daLuu
@@ -308,7 +385,8 @@ App.views.menu = {
     }));
     if (meals.some(m => !m.label)) return UI.toast('Mỗi bữa cần có tên bữa', 'error');
     try {
-      await API.put(`/api/menu/${encodeURIComponent(this._editDate)}`, { meals });
+      await API.put(`/api/menu/${encodeURIComponent(this._editDate)}`,
+        { meals, campusId: this._coSo || '' });
       UI.toast('Đã lưu thực đơn', 'success');
       UI.closeModal();
       await this.load();
@@ -318,7 +396,8 @@ App.views.menu = {
   // Chép tuần liền trước vào tuần đang xem — chỉ đổ vào ngày còn trống.
   async chepTuanTruoc() {
     try {
-      const kq = await API.post('/api/menu/copy-week', { week: this.week });
+      const kq = await API.post('/api/menu/copy-week',
+        { week: this.week, campusId: this._coSo || '' });
       UI.toast(kq.daChep
         ? `Đã chép thực đơn cho ${kq.daChep} ngày còn trống`
         : 'Không có ngày nào cần chép (tuần này đã soạn đủ hoặc tuần trước trống)');

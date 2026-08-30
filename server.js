@@ -166,6 +166,20 @@ app.use((req, res, next) => {
 
 // Bắt lỗi tập trung cho API.
 app.use((err, req, res, next) => {
+  // TỆP GỬI LÊN QUÁ NẶNG KHÔNG PHẢI "LỖI MÁY CHỦ".
+  //
+  // `express.json` chặn thân yêu cầu quá 12 MB và ném `PayloadTooLargeError`
+  // TRƯỚC khi bất cứ đường dẫn nào của app chạy. Rơi vào nhánh chung bên dưới
+  // thì cô nhận đúng bốn chữ "Lỗi máy chủ" — không cho biết vì sao, không cho
+  // biết phải làm gì, và làm người ta tưởng app hỏng chứ không phải tệp nặng.
+  //
+  // Gặp lần đầu khi thêm video vào album: một đoạn quay dài rơi thẳng vào đây.
+  if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+    return res.status(413).json({
+      error: 'Tệp gửi lên nặng quá — cô chọn ảnh nhỏ hơn, '
+        + 'hoặc quay video ngắn lại (khoảng 10–20 giây) rồi gửi lại nhé',
+    });
+  }
   console.error(err);
   res.status(500).json({ error: 'Lỗi máy chủ' });
 });

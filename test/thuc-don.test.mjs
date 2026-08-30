@@ -91,7 +91,7 @@ console.log('\n[1] Soạn cả tuần trong MỘT lần lưu');
 }
 
 // ===========================================================================
-console.log('\n[2] Chỉ quản trị toàn hệ thống soạn được');
+console.log('\n[2] Cô và gia đình không soạn; quản lý cơ sở chỉ soạn bếp mình');
 {
   const co = await req('PUT', '/api/menu/tuan', {
     cookie: GV, body: { ngay: [{ date: NGAY[0], meals: bua(['Cô soạn']) }] },
@@ -103,19 +103,35 @@ console.log('\n[2] Chỉ quản trị toàn hệ thống soạn được');
   });
   check('phụ huynh KHÔNG soạn được', ph.status === 403, ph.status);
 
-  // Bảng `menus` có MỘT bản ghi cho mỗi NGÀY, không phải mỗi ngày mỗi cơ sở —
-  // cho quản lý cơ sở sửa mà giữ nguyên bảng thì người sửa sau ghi đè người
-  // sửa trước, âm thầm, mỗi ngày. Cùng luật với đường soạn từng ngày (N15).
+  // QUẢN LÝ CƠ SỞ NAY SOẠN ĐƯỢC — NHƯNG CHỈ BẾP CỦA MÌNH.
+  //
+  // Luật này ĐỔI ở đợt thực đơn theo cơ sở. Trước đó đường này chặn Cấp 3, vì
+  // bảng `menus` có một dòng mỗi ngày cho cả trường nên hai người sửa thì
+  // người sau âm thầm đè người trước. Nhà trường chốt ngày 30/08 rằng ba cơ sở
+  // nấu riêng bếp, nên đã tách bảng `menu_campus` rồi mới mở đường ra — đúng
+  // thứ tự mà chú thích cũ dặn, chỉ khác chỗ là bảng phụ chứ không thêm cột
+  // (lược đồ lõi cấm ALTER TABLE).
+  //
+  // Vế "không đè nhau" nay do `test:thuc-don-co-so` canh riêng và kỹ hơn: nó
+  // kiểm cả hai chiều, cơ sở 2 thấy món mình VÀ cơ sở 1 không bị đổi theo.
   const cs = await req('PUT', '/api/menu/tuan', {
     cookie: C3, body: { ngay: [{ date: NGAY[0], meals: bua(['Cơ sở 1 soạn']) }] },
   });
-  check('quản lý MỘT cơ sở cũng KHÔNG soạn được — thực đơn dùng chung cả trường',
-    cs.status === 403, cs.status);
-  check('và câu từ chối giải thích vì sao, có chỉ chỗ hỏi',
-    /ba cơ sở|ban giám hiệu/i.test(cs.data?.error || ''), cs.data?.error);
+  check('quản lý một cơ sở SOẠN ĐƯỢC bếp của cơ sở mình', cs.status === 200, cs.status);
+  check('và máy chủ nói rõ nó vào bếp nào', !!cs.data?.campusId, JSON.stringify(cs.data));
 
+  const csLac = await req('PUT', '/api/menu/tuan', {
+    cookie: C3, body: { campusId: 'cs2', ngay: [{ date: NGAY[0], meals: bua(['Lấn sang cơ sở 2']) }] },
+  });
+  check('nhưng KHÔNG soạn được sang bếp cơ sở khác', csLac.status === 403, csLac.status);
+  check('và câu từ chối nói rõ vì sao',
+    /cơ sở mình phụ trách/i.test(csLac.data?.error || ''), csLac.data?.error);
+
+  // BẢN DÙNG CHUNG KHÔNG BỊ ĐỘNG TỚI. Quản lý cơ sở vừa ghi vào bảng riêng của
+  // cơ sở mình, nên bản của Cấp 1 phải còn nguyên — đây là chỗ kiểm rằng việc
+  // mở đường ra KHÔNG làm sống lại cái hỏng mà nó từng bị chặn để tránh.
   const con = await docTuanSau();
-  check('sau ba lần bấm hụt, thực đơn vẫn là bản của quản trị',
+  check('bản DÙNG CHUNG vẫn là bản của quản trị toàn hệ thống',
     (con.get(NGAY[0]).meals.find(m => m.type === 'lunch')?.items || []).includes('Món ngày 1'),
     con.get(NGAY[0])?.meals);
 }

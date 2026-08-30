@@ -55,8 +55,20 @@ App.views.albums = {
       </div>`;
   },
 
+  // Tệp này là video hay ảnh — nhận theo phần mở rộng, không cần cột mới.
+  laVideo(p) { return /\.(mp4|webm)$/i.test((p && p.file) || ''); },
+
   // Khung ảnh dùng chung: ảnh thật thì hiện ảnh, ảnh cũ thì hiện emoji trên nền màu.
   thumb(photo, albumId, extraStyle = '') {
+    // Ô video trong lưới KHÔNG tự phát và không tự tải.
+    //
+    // `preload="none"` là chủ ý: một album 20 video mà mỗi ô tải sẵn vài trăm
+    // KB là gia đình mở album ra hết vài chục MB dữ liệu 4G mà chưa xem gì.
+    if (photo && photo.file && this.laVideo(photo)) {
+      return `<video src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}"
+        preload="none" playsinline controls
+        style="${extraStyle};width:100%;height:100%;object-fit:cover;background:#000"></video>`;
+    }
     if (photo && photo.file) {
       return `<img src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}" alt="${UI.esc(photo.caption || 'Ảnh của nhóm')}"
         loading="lazy" style="${extraStyle};width:100%;height:100%;object-fit:cover;background:var(--bg-2)">`;
@@ -91,9 +103,7 @@ App.views.albums = {
           ${a.photos.map((p, i) => `
             <div class="photo" style="${p.file ? '' : `background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])})`}">
               <div style="position:absolute;inset:0" onclick="App.views.albums.showPhoto(${i})">
-                ${p.file
-                  ? `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || 'Ảnh của nhóm')}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
-                  : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:46px">${UI.esc(p.emoji)}</div>`}
+                ${this.thumb(p, a.id)}
               </div>
               ${p.caption ? `<div class="photo-cap" style="pointer-events:none">${UI.esc(p.caption)}</div>` : ''}
               ${a.canEdit ? `
@@ -211,12 +221,32 @@ App.views.albums = {
   pickerMarkup() {
     return `
       <div class="field">
-        <label>Ảnh</label>
-        <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
-        <button class="btn outline block" id="al-pick">📷 Chọn ảnh từ máy</button>
-        <div class="hint">Chọn được nhiều ảnh cùng lúc. Trên điện thoại có thể chụp ảnh trực tiếp. Ảnh sẽ tự thu nhỏ trước khi gửi để tiết kiệm dung lượng.</div>
+        <label>Ảnh và video</label>
+        <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" multiple style="display:none">
+        <button class="btn outline block" id="al-pick">📷 Chọn ảnh hoặc video từ máy</button>
+        <div class="hint">
+          Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp.
+          Ảnh tự thu nhỏ trước khi gửi. <b>Video thì không thu nhỏ được</b> — cô quay
+          khoảng 10–20 giây thôi nhé, một đoạn ngắn gia đình xem hết vẫn hơn một đoạn
+          dài tải mãi không xong.
+        </div>
         <div id="al-preview" class="mt-14"></div>
       </div>`;
+  },
+
+  // Trần dung lượng video, PHẢI khớp với `MAX_VIDEO_BYTES` của máy chủ.
+  // Bài canh đối chiếu hai con số này với nhau.
+  TRAN_VIDEO: 8 * 1024 * 1024,
+
+  // Đọc tệp thành data URL. Ảnh đi qua `UI.nenAnh`, video thì đọc thẳng —
+  // không có đường nén nào chạy nổi trên điện thoại của cô.
+  docTep(f) {
+    return new Promise((ok, that) => {
+      const r = new FileReader();
+      r.onload = () => ok(r.result);
+      r.onerror = () => that(new Error('Không đọc được tệp'));
+      r.readAsDataURL(f);
+    });
   },
 
   bindPicker() {
@@ -234,8 +264,25 @@ App.views.albums = {
     if (zone) zone.insertAdjacentHTML('beforeend', '<div class="muted small" id="al-loading">Đang xử lý ảnh…</div>');
 
     for (const f of files) {
+      // VIDEO: KHÔNG NÉN ĐƯỢC, NÊN CHẶN NGAY Ở ĐÂY.
+      //
+      // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
+      // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
+      if (/^video\/(mp4|webm)$/.test(f.type)) {
+        if (f.size > this.TRAN_VIDEO) {
+          UI.toast(`"${f.name}" nặng ${Math.round(f.size / 1048576)} MB — cô quay đoạn ngắn hơn `
+            + `(tối đa ${Math.round(this.TRAN_VIDEO / 1048576)} MB) nhé`, 'error');
+          continue;
+        }
+        try {
+          this._pending.push({ video: await this.docTep(f), caption: '', name: f.name, laVideo: true });
+        } catch (_) {
+          UI.toast(`Không đọc được video "${f.name}"`, 'error');
+        }
+        continue;
+      }
       if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
-        UI.toast(`Bỏ qua "${f.name}" — chỉ nhận ảnh JPG, PNG, WebP`, 'error');
+        UI.toast(`Bỏ qua "${f.name}" — chỉ nhận ảnh JPG, PNG, WebP và video MP4, WebM`, 'error');
         continue;
       }
       try {
@@ -263,7 +310,9 @@ App.views.albums = {
     }
     zone.innerHTML = this._pending.map((p, i) => `
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
-        <img src="${p.dataUrl}" alt="" style="width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover">
+        ${p.laVideo
+          ? `<div style="width:56px;height:56px;flex:none;border-radius:10px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px">🎬</div>`
+          : `<img src="${p.dataUrl}" alt="" style="width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover">`}
         <input class="al-cap" data-i="${i}" value="${UI.esc(p.caption)}" placeholder="Chú thích ảnh (không bắt buộc)">
         <button class="btn outline sm" style="flex:none;padding:9px 11px" title="Bỏ ảnh này"
           onclick="App.views.albums.removePending(${i})">${UI.icon('x', 16)}</button>
@@ -282,11 +331,33 @@ App.views.albums = {
   },
 
   // Gửi ảnh theo từng nhóm nhỏ để không vượt giới hạn dung lượng mỗi lần gửi.
+  // GOM LÔ: ba ảnh một lượt, NHƯNG VIDEO THÌ MỘT MÌNH MỘT LƯỢT.
+  //
+  // Thân yêu cầu của máy chủ là 12 MB. Ba tấm ảnh đã nén thì thừa sức lọt; hai
+  // video 8 MB thì base64 lên hơn 21 MB và bị Express từ chối bằng một lỗi
+  // trơ trước khi tới mã của ta.
+  //
+  // Bản đầu để nguyên `BATCH = 3` cho cả hai loại. Bắt được khi đọc lại
+  // `server.js` trước lúc commit, chứ không phải khi cô đứng ở sân trường.
+  chiaLo(photos) {
+    const lo = [];
+    let hienTai = [];
+    for (const p of photos) {
+      if (p && p.laVideo) {
+        if (hienTai.length) { lo.push(hienTai); hienTai = []; }
+        lo.push([p]);
+        continue;
+      }
+      hienTai.push(p);
+      if (hienTai.length === 3) { lo.push(hienTai); hienTai = []; }
+    }
+    if (hienTai.length) lo.push(hienTai);
+    return lo;
+  },
+
   async uploadInBatches(photos, sendBatch, onProgress) {
-    const BATCH = 3;
     let sent = 0;
-    for (let i = 0; i < photos.length; i += BATCH) {
-      const batch = photos.slice(i, i + BATCH);
+    for (const batch of this.chiaLo(photos)) {
       await sendBatch(batch);
       sent += batch.length;
       if (onProgress) onProgress(sent, photos.length);
@@ -311,11 +382,13 @@ App.views.albums = {
     this._nhacGanTheSauKhiDang = false;
     try {
       this.setSubmitting('Đang tải ảnh lên…');
-      // Tạo album với nhóm ảnh đầu, phần còn lại gửi bổ sung sau.
-      const first = photos.slice(0, 3);
+      // Tạo album với nhóm đầu, phần còn lại gửi bổ sung sau.
+      // Nhóm đầu lấy theo đúng luật chia lô ở trên — nếu không thì lượt tạo
+      // album có thể ôm ba video cùng lúc và vỡ thân yêu cầu.
+      const first = this.chiaLo(photos)[0] || [];
       const album = await API.post('/api/albums', { title, description, photos: first });
 
-      const rest = photos.slice(3);
+      const rest = photos.slice(first.length);
       if (rest.length) {
         await this.uploadInBatches(
           rest,

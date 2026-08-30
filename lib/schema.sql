@@ -319,6 +319,34 @@ CREATE TABLE IF NOT EXISTS menus (
 );
 CREATE INDEX IF NOT EXISTS idx_menus_date ON menus(date);
 
+-- ===== Thực đơn RIÊNG của từng cơ sở =====
+--
+-- Nhà trường chốt ngày 30/08: "Ba cơ sở nấu riêng bếp, mỗi cơ sở có 1 thực đơn
+-- riêng, thực đơn này sẽ được admin cơ sở up lên vào thứ 6 hàng tuần".
+--
+-- BẢNG PHỤ, KHÔNG PHẢI CỘT THÊM VÀO `menus`.
+--
+-- Chú thích cũ ở `routes/menu.js` dặn "thêm cột cơ sở vào `menus` rồi mới mở
+-- đường này ra". Không làm được: `menus.date` là UNIQUE, đổi khoá phải dựng
+-- lại bảng, mà lược đồ lõi CẤM ALTER TABLE — và dựng lại một bảng đang có dữ
+-- liệu thật là đúng thứ Nguyên tắc số 1 cấm. Bảng phụ đạt cùng kết quả mà
+-- không chạm một dòng nào của `menus`.
+--
+-- CÁCH ĐỌC: thực đơn của một cơ sở trong một ngày = dòng ở đây nếu có, KHÔNG
+-- có thì rơi về `menus` (thực đơn dùng chung cả trường). Nhờ vậy:
+--   • trường một bếp vẫn chạy y như cũ, không phải nhập lại gì;
+--   • trường ba bếp chỉ cần nhập riêng ở cơ sở nào nấu khác;
+--   • thực đơn đã nhập trước đợt này KHÔNG mất và vẫn hiện đúng.
+CREATE TABLE IF NOT EXISTS menu_campus (
+  campusId   TEXT NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
+  date       TEXT NOT NULL,              -- YYYY-MM-DD
+  meals      TEXT NOT NULL,              -- JSON, cùng hình dạng với menus.meals
+  nguoiDang  TEXT,
+  capNhatLuc TEXT,
+  PRIMARY KEY (campusId, date)
+);
+CREATE INDEX IF NOT EXISTS idx_menu_campus_date ON menu_campus(date);
+
 -- ===== Thời khóa biểu (một dòng mỗi lớp) =====
 CREATE TABLE IF NOT EXISTS timetable (
   classId     TEXT PRIMARY KEY REFERENCES classes(id) ON DELETE CASCADE,

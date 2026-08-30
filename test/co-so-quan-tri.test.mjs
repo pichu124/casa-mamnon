@@ -225,8 +225,22 @@ console.log('\n[6] Việc ảnh hưởng CẢ BA CƠ SỞ thì chỉ Cấp 1 là
   check('và phân hệ đó vẫn đang bật',
     Array.isArray(dsPh) && dsPh.some(m => m.key === 'danthuoc' && m.enabled), dsPh);
 
+  // THỰC ĐƠN: LUẬT NÀY ĐỔI Ở ĐỢT THỰC ĐƠN THEO CƠ SỞ (30/08).
+  //
+  // Trước đó Cấp 3 bị chặn hoàn toàn, vì cả trường dùng chung một dòng mỗi
+  // ngày. Nay ba cơ sở nấu riêng bếp: Cấp 3 soạn được bếp CỦA MÌNH (ghi vào
+  // `menu_campus`), nhưng vẫn KHÔNG chạm được bếp cơ sở khác.
+  //
+  // Phép kiểm đổi theo cho đúng ranh giới mới, chứ không nới ra: chỗ Cấp 3
+  // không được đụng vẫn phải trả 403.
   const td = await req('PUT', '/api/menu/2026-09-07', { cookie: C3, body: { meals: [{ label: 'Bữa trưa' }] } });
-  check('Cấp 3 KHÔNG soạn được thực đơn dùng chung', td.status === 403, td.status);
+  check('Cấp 3 soạn được thực đơn bếp cơ sở mình', td.status === 200, td.status);
+  check('và nó vào đúng bảng riêng của cơ sở, không phải bản dùng chung',
+    td.data?.rieng === true && !!td.data?.campusId, JSON.stringify(td.data));
+
+  const tdLac = await req('PUT', '/api/menu/2026-09-07', {
+    cookie: C3, body: { campusId: 'cs2', meals: [{ label: 'Bữa trưa' }] } });
+  check('Cấp 3 KHÔNG soạn được thực đơn bếp cơ sở khác', tdLac.status === 403, tdLac.status);
 
   // Cấp 1 vẫn làm được tất cả những việc trên.
   check('CẤP 1 vẫn thêm được cơ sở',
