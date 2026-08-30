@@ -601,6 +601,73 @@ console.log('\n[10] NHÂN SỰ LO TÀI KHOẢN CỦA TRƯỜNG, KHÔNG CHẠM T�
     (bghDsPH.data || []).some(x => (x.children || []).length > 0), bghDsPH.data);
 }
 
+// ===========================================================================
+console.log('\n[11] ẢNH CAMBRIDGE CŨNG PHẢI THEO LỜI HỨA CỦA CHỨC VỤ MARKETING');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Mục [7] đã canh rất kỹ lời hứa "Marketing chỉ thấy ảnh mà MỌI bé trong ảnh
+  // đều có đồng ý truyền thông" — nhưng chỉ canh ở phân hệ Album. Chức vụ
+  // `marketing` còn có `/api/cambridge` trong danh sách cho phép, mà chốt duy
+  // nhất bên đó hỏi `role === 'parent'`. Marketing là `role === 'admin'` nên đi
+  // thẳng qua, cả đường liệt kê lẫn đường trả byte của ảnh.
+  //
+  // Không phải ảnh vô thưởng vô phạt: chú thích đầu phân hệ tự viết "một tờ
+  // Home Connection của nhóm Chồi 2 gần như chắc chắn có ảnh các bé Chồi 2 đang
+  // làm việc". Và ô ③ (truyền thông) MẶC ĐỊNH KHÔNG TÍCH.
+  const bai = await req('POST', '/api/cambridge', {
+    cookie: BGH,
+    body: {
+      loai: 'ket-noi', tieuDe: 'Home Connection tuần 3', phamVi: 'nhom',
+      classId: 'c2', noiDung: 'Tuần này các bé làm việc với khay rót nước.',
+      anh: [ANH],
+    },
+  });
+  check('văn phòng đăng được bài Cambridge có ảnh', bai.status === 201, `${bai.status} ${JSON.stringify(bai.data).slice(0, 140)}`);
+  const baiId = bai.data?.id;
+  await req('POST', `/api/cambridge/${baiId}/cong-bo`, { cookie: BGH });
+
+  const tenAnh = (bai.data?.anh || [])[0];
+  check('lấy được tên tệp ảnh để thử tải thẳng', !!tenAnh, bai.data?.anh);
+
+  // VẾ KHẲNG ĐỊNH TRƯỚC: văn phòng vẫn thấy ảnh. Không có phép kiểm này thì
+  // mọi phép kiểm phủ định dưới xanh cả khi bài không có ảnh nào.
+  const cuaVp = (await req('GET', '/api/cambridge', { cookie: BGH })).data;
+  const baiVp = (cuaVp?.bai || []).find(x => x.id === baiId);
+  check('văn phòng VẪN thấy ảnh của bài đó', (baiVp?.anh || []).length === 1, baiVp?.anh);
+
+  // MẶC ĐỊNH: bài được coi là ảnh CÓ mặt bé → Marketing không thấy.
+  const cuaMk = (await req('GET', '/api/cambridge', { cookie: MK })).data;
+  const baiMk = (cuaMk?.bai || []).find(x => x.id === baiId);
+  check('Marketing VẪN thấy chính bài đó — chỉ phần ảnh mới bị cắt', !!baiMk, (cuaMk?.bai || []).length);
+  check('Marketing KHÔNG nhận được tên tệp ảnh Cambridge', (baiMk?.anh || []).length === 0, baiMk?.anh);
+  check('và màn hình của họ nói rõ vì sao, kèm cách làm nó hiện lại',
+    /không có mặt bé nào/.test(baiMk?.nhacAnhTamAn || ''), baiMk?.nhacAnhTamAn);
+
+  // CHỐT CHẶN THẬT: đường trả về đúng các byte. Cắt ở danh sách là chưa đủ —
+  // tên tệp nằm trong gói JSON họ đã nhận ở lần xem trước.
+  const byteMk = await req('GET', `/api/cambridge/anh/${tenAnh}`, { cookie: MK });
+  check('Marketing KHÔNG tải được byte nào của ảnh Cambridge', byteMk.status === 403, byteMk.status);
+
+  // Và văn phòng thì tải được — nếu không, phép kiểm trên xanh vì tệp hỏng.
+  const byteVp = await req('GET', `/api/cambridge/anh/${tenAnh}`, { cookie: BGH });
+  check('văn phòng VẪN tải được đúng tệp đó', byteVp.status === 200, byteVp.status);
+
+  // ĐƯỜNG RA CÓ SẴN: văn phòng tích ô "Ảnh không có mặt bé nào" thì đồng ý
+  // truyền thông không còn là câu hỏi. Tính năng không chết.
+  await req('PUT', `/api/cambridge/${baiId}`, { cookie: BGH, body: { anhCoMatBe: false } });
+  const sau = (await req('GET', '/api/cambridge', { cookie: MK })).data;
+  const baiSau = (sau?.bai || []).find(x => x.id === baiId);
+  check('tích "ảnh không có mặt bé nào" thì Marketing thấy ảnh', (baiSau?.anh || []).length === 1, baiSau?.anh);
+  const byteSau = await req('GET', `/api/cambridge/anh/${tenAnh}`, { cookie: MK });
+  check('và tải được', byteSau.status === 200, byteSau.status);
+
+  // Bỏ tích là mất quyền ngay, không cần làm gì thêm.
+  await req('PUT', `/api/cambridge/${baiId}`, { cookie: BGH, body: { anhCoMatBe: true } });
+  const byteLai = await req('GET', `/api/cambridge/anh/${tenAnh}`, { cookie: MK });
+  check('bỏ tích thì Marketing mất quyền tải ngay', byteLai.status === 403, byteLai.status);
+}
+
 await sv.dung();
 donThuMucTam(DIR);
 tongKet();

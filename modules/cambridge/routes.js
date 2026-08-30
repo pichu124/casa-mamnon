@@ -150,6 +150,36 @@ module.exports = (app, { db }) => {
     return !nhomTrongPhamVi(bai).some(cid => db.coBeTuChoiChiaSeTungHoc(cid));
   }
 
+  // MARKETING MANG ẢNH RA NGOÀI TRƯỜNG, NÊN LUẬT CỦA HỌ CHẶT HƠN LUẬT ẢNH NHÓM.
+  //
+  // Mô tả chức vụ Marketing hứa thẳng với nhà trường: "Chỉ thấy ảnh mà MỌI bé
+  // trong ảnh đều có đồng ý truyền thông." `routes/albums.js` giữ đúng lời hứa
+  // đó bằng `db.locAnhChoTruyenThong`. Phân hệ này thì KHÔNG: chốt duy nhất ở
+  // đây hỏi `role === 'parent'`, mà Marketing là `role === 'admin'` nên đi
+  // thẳng qua — cả đường liệt kê lẫn đường trả byte của ảnh.
+  //
+  // Ảnh Cambridge KHÔNG có bảng gắn thẻ từng bé, nên không bao giờ đối chiếu
+  // được "mọi bé trong ảnh đã tích ô ③ chưa". Không biết thì KHÔNG cho — đúng
+  // tinh thần "không gắn ai thì không dùng được" của `locAnhChoTruyenThong`.
+  // Và ô ③ MẶC ĐỊNH KHÔNG TÍCH, nên mọi bé chưa thu giấy đều thuộc diện chưa
+  // cho phép.
+  //
+  // Đường ra đã có sẵn, không phải dựng thêm gì: ô "Ảnh không có mặt bé nào".
+  // Văn phòng tích thì trong ảnh không có bé nào, đồng ý truyền thông không còn
+  // là câu hỏi, Marketing dùng được ngay. Tính năng không chết.
+  function anhHienVoiTruyenThong(bai) {
+    return !anhCoMatBe(bai.id);
+  }
+
+  function laTruyenThong(user) {
+    return !!user && user.role === 'admin' && db.chucVu(user) === 'marketing';
+  }
+
+  const LOI_TRUYEN_THONG = 'Ảnh của bài này chưa dùng cho truyền thông được: bài đang '
+    + 'được đánh dấu là ảnh CÓ mặt bé, mà ảnh Cambridge không ghi được từng bé nên không '
+    + 'đối chiếu được đồng ý truyền thông của từng nhà. Nếu ảnh chỉ là giáo cụ, sách hay '
+    + 'tranh chủ điểm thì nhờ văn phòng tích ô "Ảnh không có mặt bé nào".';
+
   function tenNguoi(userId) {
     const u = userId ? db.findUser(userId) : null;
     return u ? `${u.title} ${u.name}` : '';
@@ -159,12 +189,14 @@ module.exports = (app, { db }) => {
     const anh = tachAnh(bai.anh);
     const an = !!anh.length && !anhHienVoiGiaDinh(bai);
     const laGiaDinh = !!user && user.role === 'parent';
+    const laMkt = laTruyenThong(user);
+    const anMkt = !!anh.length && laMkt && !anhHienVoiTruyenThong(bai);
     const coBe = anhCoMatBe(bai.id);
     return {
       ...bai,
       // LỌC Ở TẦNG DỮ LIỆU. Gia đình không nhận về tên tệp của ảnh bị ẩn —
       // không phải nhận rồi giao diện che bớt, vì tên tệp là thứ tải được.
-      anh: (an && laGiaDinh) ? [] : anh,
+      anh: ((an && laGiaDinh) || anMkt) ? [] : anh,
       daCongBo: !!bai.congBoLuc,
       nguoiDangTen: tenNguoi(bai.nguoiDang),
       tenNhom: bai.classId ? ((db.findClass(bai.classId) || {}).name || '') : '',
@@ -174,7 +206,10 @@ module.exports = (app, { db }) => {
       ...(laGiaDinh ? {} : { anhCoMatBe: coBe }),
       // Nói cho người đăng biết ảnh đang tạm ẩn, và nói cách làm nó hiện lại.
       // Ẩn mà không giải thích là chỗ cô mất lòng tin vào app nhanh nhất.
-      ...(an && !laGiaDinh ? {
+      // Marketing được nói lý do RIÊNG của họ. Đưa họ câu dành cho cô thì họ đi
+      // hỏi gia đình một chuyện không liên quan tới việc họ đang làm.
+      ...(anMkt ? { nhacAnhTamAn: LOI_TRUYEN_THONG } : {}),
+      ...(an && !laGiaDinh && !laMkt ? {
         nhacAnhTamAn: `${anh.length} ảnh của bài này đang tạm ẩn với gia đình. `
           + 'Trong phạm vi bài có gia đình chưa đồng ý cho ảnh của con hiện với các nhà khác, '
           + 'mà bài này đang được đánh dấu là ảnh CÓ mặt bé. '
@@ -242,6 +277,11 @@ module.exports = (app, { db }) => {
       return res.status(403).json({
         error: 'Ảnh này chưa hiện với gia đình: trong nhóm có bé mà gia đình chưa đồng ý chia sẻ ảnh',
       });
+    }
+    // Và chốt tương ứng cho Marketing. Cắt ở đường liệt kê là chưa đủ: tên tệp
+    // nằm trong gói JSON họ đã nhận ở lần xem trước.
+    if (laTruyenThong(req.user) && !anhHienVoiTruyenThong(chu)) {
+      return res.status(403).json({ error: LOI_TRUYEN_THONG });
     }
     const duong = uploads.pathOf(file);
     if (!duong || !uploads.exists(file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
