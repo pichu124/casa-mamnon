@@ -7,8 +7,9 @@
 //
 // Chạy bằng:  npm run test:bien-soan
 import path from 'path';
+import fs from 'fs';
 import { createRequire } from 'module';
-import { dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, batPhanHe, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
+import { GOC, dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, batPhanHe, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan');
 sinhDuLieu(DIR);
@@ -409,6 +410,64 @@ console.log('\n[14] Báo cáo — phụ huynh thấy ngay, quản trị soạn h
     },
   });
   check('quản trị soạn được cho học sinh lớp bất kỳ → 200', r.status === 200, r);
+}
+
+// ============================================================
+console.log('\n[15] Lịch sinh hoạt — KHUNG GIỜ MẶC ĐỊNH phải là một ngày ở nhà trẻ');
+{
+  // VÌ SAO ĐO CÁI NÀY
+  //
+  // Khung mặc định là thứ cô nhìn thấy khi nhóm LẬP LỊCH LẦN ĐẦU — tức là ấn
+  // tượng đầu tiên của cô về màn này. Bản kế thừa từ app 1 là bảy mốc 35 phút
+  // với một khoảng trống từ 10:15 tới 14:00 mà không mốc nào nói tới: ở tiểu
+  // học đó là lúc học sinh về nhà, ở nhà trẻ đó là BỮA TRƯA VÀ GIẤC NGỦ TRƯA.
+  //
+  // Cô lập lịch bằng khung đó phải xoá sạch rồi gõ lại — cái mặc định đang làm
+  // cô mất công hơn là không có gì.
+  //
+  // Đo bằng SỐ PHÚT, không bằng chữ. Một bài canh đi tìm chữ "ngủ trưa" trong
+  // mã nguồn sẽ xanh ngay cả khi cô đặt tên mốc đó mà khung giờ vẫn hở.
+  const nguon = fs.readFileSync(path.join(GOC, 'public/js/views/timetable.js'), 'utf8');
+  const khoi = nguon.slice(nguon.indexOf('KHUNG_GIO_MAC_DINH'));
+  const moc = [...khoi.slice(0, khoi.indexOf('],')).matchAll(/(\d{2}):(\d{2})\s*[–-]\s*(\d{2}):(\d{2})/g)]
+    .map(m => [+m[1] * 60 + +m[2], +m[3] * 60 + +m[4]]);
+  check('đọc được khung giờ mặc định từ màn Lịch sinh hoạt', moc.length >= 5, moc.length);
+
+  const phu = (phut) => moc.some(([a, b]) => phut >= a && phut < b);
+  check('khung mặc định có mốc phủ giờ ĂN TRƯA (11:00)', phu(11 * 60), moc);
+  check('khung mặc định có mốc phủ giờ NGỦ TRƯA (12:30)', phu(12 * 60 + 30), moc);
+  check('và phủ luôn 13:30 — giấc trưa dài, không phải một mốc 35 phút',
+    phu(13 * 60 + 30), moc);
+  check('khung mặc định có mốc phủ giờ ĂN XẾ (14:30)', phu(14 * 60 + 30), moc);
+
+  // Hai đầu ngày: trường nhận bé từ sáng sớm và trả bé lúc chiều muộn. Khung
+  // bắt đầu lúc 07:30 và kết thúc 16:00 bỏ rơi đúng hai mốc mà gia đình quan
+  // tâm nhất — giờ đón và giờ trả.
+  const dau = Math.min(...moc.map(([a]) => a));
+  const cuoi = Math.max(...moc.map(([, b]) => b));
+  check('mở màn từ 07:30 trở về trước — có mốc ĐÓN BÉ', dau <= 7 * 60 + 30, dau);
+  check('kéo tới 17:00 trở đi — có mốc TRẢ BÉ', cuoi >= 17 * 60, cuoi);
+
+  // Không mốc nào chồng lên mốc nào, và không có khe hở giữa hai mốc liền nhau:
+  // một ngày ở nhóm là liên tục, bé không biến mất 45 phút giữa hai dòng.
+  const lienTuc = moc.every((m, i) => i === 0 || m[0] === moc[i - 1][1]);
+  check('các mốc nối liền nhau, không chồng và không hở', lienTuc, moc);
+
+  // Máy chủ phải nhận được đúng khung đó — mặc định dài hơn trần thì cô lập
+  // lịch lần đầu bấm Lưu là gặp lỗi 400, và không có đường nào đi tiếp.
+  const r = await req('PUT', '/api/timetable/c1', {
+    cookie: A,
+    body: {
+      periodTimes: moc.map(([a, b], i) => ({
+        p: i + 1,
+        time: `${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`
+          + ` – ${String(Math.floor(b / 60)).padStart(2, '0')}:${String(b % 60).padStart(2, '0')}`,
+      })),
+      days: { 1: moc.map(() => '—') },
+    },
+  });
+  check('MÁY CHỦ NHẬN ĐƯỢC ĐÚNG KHUNG MẶC ĐỊNH — không vượt trần số mốc',
+    r.status === 200, `${r.status} ${JSON.stringify(r.data).slice(0, 120)}`);
 }
 
 tongKet();

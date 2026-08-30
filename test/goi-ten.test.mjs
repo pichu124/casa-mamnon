@@ -123,6 +123,26 @@ const CAM = [
     re: /bảng cửu chương|bảng nhân|nhân chia|luyện đọc|chính tả|đoạn văn|ôn tập kiến thức|bài tập về nhà|kiểm tra giữa kỳ|kiểm tra cuối kỳ/i,
   },
 
+  // "tự học" là việc của học sinh phổ thông. Một bé 18 tháng không tự học, và
+  // màn Lịch sinh hoạt từng gọi mốc chưa xếp hoạt động là "Nghỉ / tự học" —
+  // vừa sai lứa tuổi, vừa làm gia đình đọc ra là hôm đó nhóm được nghỉ.
+  { tu: 'tự học', thay: 'chưa xếp hoạt động', re: /tự\s+học/iu },
+
+  // NHÃN TRẠNG THÁI "Đang học" TRÊN MỘT MỐC SINH HOẠT.
+  //
+  // Một ngày ở nhóm mầm non có bữa trưa và giấc ngủ trưa — hai mốc dài nhất
+  // trong ngày. Nhãn "Đang học" treo lên trên dòng "Ngủ trưa" lúc 12h30 là màn
+  // hình nói sai chuyện đang xảy ra với con, ngay trên màn của gia đình.
+  //
+  // CHỈ chặn khi nó là NHÃN. "Đang học" là chữ ĐÚNG ở chỗ khác — cột Tình trạng
+  // của tệp Excel danh sách bé phân biệt "Đang học" với "Đã nghỉ", và nhiều câu
+  // có "bé đang học nhóm…". Chặn cả từ là bắt sửa đúng những chỗ đang đúng.
+  {
+    tu: 'nhãn "Đang học" trên mốc sinh hoạt',
+    thay: 'Đang diễn ra',
+    re: /UI\.badge\(\s*['"`]Đang học/iu,
+  },
+
   // "lớp" là từ ĐÚNG trong nhiều câu của trường mầm non — "ở lớp", "tới lớp",
   // "vào lớp 1", "đứng lớp". Chỉ SAI khi nó thay chỗ cho ĐƠN VỊ, tức chỗ mà
   // màn hình đang gọi là "nhóm". Nên chặn đúng những cụm đó, không chặn cả từ.

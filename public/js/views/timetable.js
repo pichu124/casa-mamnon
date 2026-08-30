@@ -19,12 +19,27 @@ App.views.timetable = {
   editing: false, // đang ở chế độ sửa
   draft: null,    // bản nháp khi sửa: { periodTimes, days }
 
-  // Khung giờ mặc định khi một nhóm lập TKB lần đầu.
+  // Khung giờ mặc định khi một nhóm lập lịch sinh hoạt lần đầu.
+  //
+  // Bản kế thừa từ app 1 là bảy tiết 35 phút, và giữa chúng có một khoảng trống
+  // từ 10:15 tới 14:00 mà không mốc nào nói tới. Ở trường tiểu học đó là buổi
+  // trưa học sinh về nhà; ở nhà trẻ đó là BỮA TRƯA VÀ GIẤC NGỦ TRƯA — hai việc
+  // chiếm nhiều thời gian nhất trong ngày của bé và là hai thứ gia đình hỏi
+  // nhiều nhất. Cô lập lịch lần đầu bằng khung đó phải tự xoá bảy dòng rồi gõ
+  // lại từ đầu, tức là cái mặc định đang làm cô mất công hơn là không có gì.
+  //
+  // Khung dưới đây là một ngày ở nhóm mầm non. Cô vẫn sửa được từng dòng —
+  // đây là chỗ bắt đầu, không phải cái khuôn.
   KHUNG_GIO_MAC_DINH: [
-    { p: 1, time: '07:30 – 08:05' }, { p: 2, time: '08:10 – 08:45' },
-    { p: 3, time: '09:00 – 09:35' }, { p: 4, time: '09:40 – 10:15' },
-    { p: 5, time: '14:00 – 14:35' }, { p: 6, time: '14:40 – 15:15' },
-    { p: 7, time: '15:25 – 16:00' },
+    { p: 1, time: '07:00 – 08:00' },   // đón bé
+    { p: 2, time: '08:00 – 08:30' },   // thể dục sáng, ăn sáng
+    { p: 3, time: '08:30 – 09:30' },   // hoạt động buổi sáng
+    { p: 4, time: '09:30 – 10:30' },   // chơi ngoài trời
+    { p: 5, time: '10:30 – 11:30' },   // ăn trưa
+    { p: 6, time: '11:30 – 14:00' },   // ngủ trưa
+    { p: 7, time: '14:00 – 14:45' },   // dậy, ăn xế
+    { p: 8, time: '14:45 – 16:00' },   // hoạt động buổi chiều
+    { p: 9, time: '16:00 – 17:30' },   // trả bé
   ],
 
   async render(root) {
@@ -167,6 +182,19 @@ App.views.timetable = {
   },
 
   // Một mốc sinh hoạt: số thứ tự + tên hoạt động + khung giờ; tô sáng nếu đang diễn ra.
+  //
+  // HAI CHỮ TRÊN MÀN NÀY TỪNG LÀ CHỮ CỦA TRƯỜNG PHỔ THÔNG.
+  //
+  // Mốc chưa xếp hoạt động hiện "Nghỉ / tự học" — một bé 18 tháng không tự học,
+  // và "nghỉ" thì gia đình đọc ra là hôm đó nhóm nghỉ. Nay nói đúng việc đang
+  // xảy ra: nhà trường CHƯA XẾP hoạt động cho mốc này. Đó cũng là cách nói
+  // QUY TẮC 2 đòi — ô để trống chỉ mô tả trạng thái của lịch, không hàm ý gì
+  // về nhóm hay về bé.
+  //
+  // Nhãn của mốc đang diễn ra hiện "Đang học". Nhưng khung 11:30–14:00 là GIẤC
+  // NGỦ TRƯA và 10:30–11:30 là BỮA TRƯA, nên đúng giờ ngủ thì màn hình của gia
+  // đình treo chữ "Đang học" lên trên dòng "Ngủ trưa". "Đang diễn ra" đúng cho
+  // cả chín mốc trong ngày.
   periodRow(subject, i, isToday) {
     const pt = (this.data.periodTimes || [])[i] || {};
     const time = pt.time || '';
@@ -179,10 +207,10 @@ App.views.timetable = {
       <div class="list-row"${rowStyle}>
         <span class="row-icon" style="background:#e6efff;color:var(--primary);font-weight:800;font-size:1.02rem">${UI.esc(pt.p || i + 1)}</span>
         <div class="row-main">
-          <div class="row-title"${free ? ' style="color:var(--muted);font-weight:500;font-style:italic"' : ''}>${free ? 'Nghỉ / tự học' : UI.esc(subject)}</div>
+          <div class="row-title"${free ? ' style="color:var(--muted);font-weight:500;font-style:italic"' : ''}>${free ? 'Chưa xếp hoạt động' : UI.esc(subject)}</div>
           <div class="row-sub">${UI.esc(time)}</div>
         </div>
-        ${live ? UI.badge('Đang học', 'green') : ''}
+        ${live ? UI.badge('Đang diễn ra', 'green') : ''}
       </div>`;
   },
 
