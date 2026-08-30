@@ -79,19 +79,51 @@ hầm biến mất.
 
 ## 2. Chuẩn bị (làm trước khi cô tới, khoảng 15 phút)
 
+```bash
+npm run ban-thu
+```
+
+**Một lệnh, làm hết năm bước đầu.** Nó dựng thư mục dữ liệu thử ở ngoài kho mã,
+sinh dữ liệu mẫu, **bật đủ tám phân hệ mầm non**, đổi mật khẩu của cả 13 tài
+khoản mẫu sang một mật khẩu mới ngẫu nhiên, tạo tài khoản quản trị, rồi in ra
+một bảng: tài khoản, địa chỉ trong mạng nội bộ, và lời nhắc HTTPS ở mục 1.
+
+Bảng mật khẩu chỉ in **một lần**. Chép lại trước khi đóng cửa sổ.
+
+> **Vì sao phải bật đủ tám phân hệ, không phải một.** Bản trước của phiếu này
+> bảo bật đúng "Ghi nhanh". Nhưng một ngày của cô đi qua Nhật ký ngày, Đón trả
+> bé, Báo ăn, Hành trình… — bật một cái là cô ngồi thử một app KHÁC HẲN app
+> trường sẽ dùng, và mọi thứ đo được hôm đó nói về app kia.
+>
+> Bốn phân hệ nhà trường đã quyết TẮT (Nhận xét, Báo cáo, Xe buýt, Nề nếp) thì
+> lệnh này **không** bật — chúng là thứ app này tồn tại để không làm.
+
+Còn lại làm tay:
+
+- [ ] Thử trước một lượt trên máy của chính bạn, để buổi thử của cô không mất
+      thời gian vì lỗi cài đặt.
+- [ ] Chuẩn bị **đồng hồ bấm giây** (điện thoại thứ hai), và giấy để ghi.
+- [ ] Nếu muốn cô dùng tài khoản mang tên chính cô:
+      `DATA_DIR=<thư mục bàn thử> npm run create-admin -- "<họ tên>" <tên đăng nhập>`
+
+Dọn sau buổi thử: `rm -rf <thư mục bàn thử>` — nó có ảnh trong `uploads/`.
+
+<details>
+<summary>Làm tay từng bước (nếu không dùng được lệnh trên)</summary>
+
 - [ ] `DATA_DIR` trỏ ra **ngoài** thư mục mã nguồn. Từ bản này, chạy
       `NODE_ENV=production` với dữ liệu nằm trong kho mã thì máy chủ **dừng hẳn**.
 - [ ] Sinh dữ liệu mẫu: `DATA_DIR=/tmp/casa-thu node data/seed.js --force`
 - [ ] **Đổi mật khẩu mẫu.** Dữ liệu mẫu có 13 tài khoản dùng chung `123456`.
       Máy chủ mở ra Internet mà còn mật khẩu đó là mở cửa cho người lạ.
       Kiểm bằng: `DATA_DIR=/tmp/casa-thu npm run kiem-tra-may-chu`
-- [ ] Bật phân hệ: đăng nhập quản trị → **Quản trị → Tính năng → Ghi nhanh**.
-      Mặc định nó TẮT.
+- [ ] Bật **đủ tám** phân hệ mầm non: đăng nhập quản trị → **Quản trị → Tính
+      năng** → bật Nhật ký ngày, Ghi nhanh, Đón trả bé, Hành trình học tập,
+      Báo ăn & tiền ăn, Kế hoạch của bé, Cambridge, Học phí. Cả tám TẮT SẴN.
 - [ ] Tạo cho cô một tài khoản thật của cô, hoặc dùng `giaovien` (cô Mai Anh,
       nhóm Chồi 2) — nhưng đã đổi mật khẩu ở bước trên.
-- [ ] Thử trước một lượt trên máy của chính bạn, để buổi thử của cô không mất
-      thời gian vì lỗi cài đặt.
-- [ ] Chuẩn bị **đồng hồ bấm giây** (điện thoại thứ hai), và giấy để ghi.
+
+</details>
 
 Cần **cả iPhone thật lẫn Android thật**. Không dùng giả lập: giả lập không tái
 hiện được độ trễ mở app máy ảnh, mà đó chính là phần tốn giây nhất.
