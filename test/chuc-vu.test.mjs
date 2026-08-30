@@ -668,6 +668,81 @@ console.log('\n[11] ẢNH CAMBRIDGE CŨNG PHẢI THEO LỜI HỨA CỦA CHỨC V
   check('bỏ tích thì Marketing mất quyền tải ngay', byteLai.status === 403, byteLai.status);
 }
 
+// ===========================================================================
+console.log('\n[12] ĐƯỜNG CŨ SỬA NHÓM KHÔNG ĐƯỢC LÀ LỐI ĐI VÒNG QUA CHỐT PHÂN CÔNG CÔ');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `PUT /api/admin/classes/:id/teachers` có `chanNeuVanPhong`, vì mô tả chức vụ
+  // Văn phòng cơ sở nói rõ họ "KHÔNG đụng tài khoản và KHÔNG phân công cô".
+  // Nhưng đường CŨ `PUT /api/admin/classes/:id` cũng phân công cô được — chỉ
+  // cần gửi kèm trường `teacherId` — và trước bản vá nó không hỏi chốt đó lần
+  // nào. Một chốt chỉ đứng ở một trong hai cửa cùng dẫn vào một phòng.
+
+  // VẾ KHẲNG ĐỊNH TRƯỚC: văn phòng vẫn phải sửa được tên nhóm. Đây là việc hằng
+  // ngày của họ, và nếu chốt gắn cho CẢ ĐƯỜNG thì mục này báo đỏ đúng lúc siết
+  // quá tay.
+  const doiTen = await req('PUT', '/api/admin/classes/c2', {
+    cookie: VP, body: { name: 'Lá 1' },
+  });
+  check('văn phòng cơ sở VẪN sửa được tên nhóm qua đường cũ', doiTen.status === 200,
+    `${doiTen.status} ${doiTen.data?.error || ''}`);
+
+  // Còn phân công cô thì không — dù gửi qua đường cũ.
+  const ganCu = await req('PUT', '/api/admin/classes/c2', {
+    cookie: VP, body: { teacherId: 't2' },
+  });
+  check('nhưng KHÔNG phân công được cô qua đường cũ', ganCu.status === 403, ganCu.status);
+  check('và lời từ chối nói đúng việc bị chặn',
+    /phân công cô/i.test(ganCu.data?.error || ''), ganCu.data);
+
+  // Đường mới vẫn chặn như cũ — hai cửa nay nói cùng một câu.
+  const ganMoi = await req('PUT', '/api/admin/classes/c2/teachers', {
+    cookie: VP, body: { teacherIds: ['t2'], chinhId: 't2' },
+  });
+  check('đường mới vẫn chặn như trước', ganMoi.status === 403, ganMoi.status);
+
+  // ---- VÀ CANH CƠ SỞ CỦA CHÍNH CÔ ẤY, KHÔNG CHỈ CỦA NHÓM TRONG ĐỊA CHỈ ----
+  //
+  // `datChuNhiem` → `db.setHomeroomTeacher` quét TOÀN BỘ các nhóm cô từng dạy
+  // rồi gỡ cô khỏi tất cả các nhóm khác. `duocChamNhom` ở đầu đường chỉ canh
+  // nhóm ghi trong địa chỉ. Nên quản lý cơ sở 1 phân công một cô là cô ấy lặng
+  // lẽ mất quyền ở cơ sở 2 — mà `class_teachers` là nguồn sự thật duy nhất của
+  // quyền đọc hồ sơ trẻ.
+  await req('PUT', '/api/admin/classes/c2/campus', { cookie: BGH, body: { campusId: 'cs1' } });
+  await req('PUT', '/api/admin/classes/c3/campus', { cookie: BGH, body: { campusId: 'cs2' } });
+  await req('PUT', '/api/admin/classes/c2/teachers', {
+    cookie: BGH, body: { teacherIds: ['t2'], chinhId: 't2' },
+  });
+  await req('PUT', '/api/admin/classes/c3/teachers', {
+    cookie: BGH, body: { teacherIds: ['t2'], chinhId: 't2' },
+  });
+  const dsTruoc = (await req('GET', '/api/admin/teachers', { cookie: BGH })).data || [];
+  const t2Truoc = dsTruoc.find(t => t.id === 't2');
+  check('dựng được cô dạy CẢ HAI cơ sở — nếu không thì phép kiểm sau rỗng',
+    (t2Truoc?.classIds || []).includes('c2') && (t2Truoc?.classIds || []).includes('c3'),
+    t2Truoc?.classIds);
+
+  const cheoCoSo = await req('PUT', '/api/admin/classes/c2', {
+    cookie: QL, body: { teacherId: 't2' },
+  });
+  check('quản lý cơ sở 1 KHÔNG phân công lại được cô đang dạy cả cơ sở 2',
+    cheoCoSo.status === 403, `${cheoCoSo.status} ${cheoCoSo.data?.error || ''}`);
+  check('và lời từ chối nói rõ vì sao, không chỉ "không có quyền"',
+    /cơ sở khác/i.test(cheoCoSo.data?.error || ''), cheoCoSo.data);
+
+  const dsSau = (await req('GET', '/api/admin/teachers', { cookie: BGH })).data || [];
+  const t2Sau = dsSau.find(t => t.id === 't2');
+  check('và cô KHÔNG bị mất nhóm nào ở cơ sở kia',
+    (t2Sau?.classIds || []).includes('c2') && (t2Sau?.classIds || []).includes('c3'),
+    t2Sau?.classIds);
+
+  // Ban giám hiệu (toàn hệ thống) thì vẫn làm được — đó đúng là người nên làm.
+  const cuaBgh = await req('PUT', '/api/admin/classes/c2', { cookie: BGH, body: { teacherId: 't2' } });
+  check('ban giám hiệu toàn hệ thống VẪN phân công được', cuaBgh.status === 200,
+    `${cuaBgh.status} ${cuaBgh.data?.error || ''}`);
+}
+
 await sv.dung();
 donThuMucTam(DIR);
 tongKet();

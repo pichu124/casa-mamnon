@@ -448,6 +448,85 @@ console.log('\n[15] Gia đình nhắn được cho MỌI cô của nhóm, không
     co.map(x => x.subtitle));
 }
 
+console.log('\n[16] TẠO CÔ MỚI KHÔNG ĐƯỢC XOÁ SẠCH PHÂN CÔNG CỦA CÁC CÔ ĐANG DẠY');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `POST /api/admin/teachers` gọi `datChuNhiem` → `db.setHomeroomTeacher`, tức
+  // ĐẶT LẠI danh sách cô của nhóm thành đúng MỘT người. Văn phòng tạo tài khoản
+  // cho cô mới rồi chọn nhóm ở ô "Phụ trách nhóm" là mọi cô đang dạy nhóm đó
+  // mất sạch quyền — mà `class_teachers` là nguồn sự thật duy nhất của quyền
+  // đọc hồ sơ trẻ. Sáng hôm sau cô mở app thấy "Nhóm chưa có bé nào".
+  //
+  // App báo "Đã tạo tài khoản" kèm mật khẩu tạm, không một lời cảnh báo. Đây là
+  // mất dữ liệu im lặng, đúng thứ Nguyên tắc số 1 cấm.
+  //
+  // Lý lẽ giữ nếp cũ "một cô một lớp" ở mục [12] là vì bản giao diện cũ trong
+  // điện thoại vẫn gửi `teacherId` qua đường ĐÓ. Nó không áp được ở đây: một cô
+  // vừa tạo ra thì không thể từng là cô duy nhất của nhóm nào.
+  await req('PUT', '/api/admin/classes/c1/teachers', {
+    cookie: qt, body: { teacherIds: ['t1', 't2'], chinhId: 't1' },
+  });
+  // Đọc danh sách cô của nhóm qua `GET /api/admin/teachers` — cùng cách mục
+  // [12] dùng. Không có đường `GET /api/admin/classes` nào cả.
+  const coCuaNhom = async (cid) => {
+    const gv = await req('GET', '/api/admin/teachers', { cookie: qt });
+    return (gv.data || []).filter(t => (t.classIds || []).includes(cid)).map(t => t.id);
+  };
+  const truoc = await coCuaNhom('c1');
+  check('dựng được nhóm HAI CÔ để làm phép thử — nếu không thì mục này rỗng',
+    truoc.length === 2, truoc);
+
+  const moi = await req('POST', '/api/admin/teachers', {
+    cookie: qt, body: { name: 'Cô Lan Mới', classId: 'c1' },
+  });
+  check('tạo được tài khoản cô mới kèm nhóm', moi.status === 201, `${moi.status} ${JSON.stringify(moi.data).slice(0, 120)}`);
+
+  const ds = await coCuaNhom('c1');
+  check('HAI CÔ CŨ VẪN CÒN NGUYÊN trong nhóm', ds.includes('t1') && ds.includes('t2'), ds);
+  check('và cô mới được thêm vào, không thay thế ai', ds.includes(moi.data?.id) && ds.length === 3, ds);
+
+  // Quyền là thứ thật sự mất, không phải chỉ một dòng trong bảng.
+  const cookieCu = await dangNhap('giaovien', '123456');
+  const beCuaCo = await req('GET', '/api/students', { cookie: cookieCu });
+  check('cô cũ VẪN mở được danh sách bé của nhóm mình',
+    beCuaCo.status === 200 && (beCuaCo.data || []).length > 0,
+    `${beCuaCo.status} ${(beCuaCo.data || []).length}`);
+
+  // Và luồng "tạo nhóm rồi tạo cô" giữ nguyên: nhóm chưa có ai thì cô mới là
+  // cô phụ trách CHÍNH, đúng như trước bản vá.
+  const nhomMoi = await req('POST', '/api/admin/classes', {
+    cookie: qt, body: { name: 'Nhà trẻ 2', year: '2026-2027' },
+  });
+  const nhomId = nhomMoi.data?.id;
+  const coDau = await req('POST', '/api/admin/teachers', {
+    cookie: qt, body: { name: 'Cô Đầu Tiên', classId: nhomId },
+  });
+  const dsMoi = await coCuaNhom(nhomId);
+  check('nhóm chưa có ai thì cô mới vào đúng nhóm đó, một mình',
+    dsMoi.length === 1 && dsMoi[0] === coDau.data?.id, { dsMoi, moi: coDau.data?.id });
+}
+
+console.log('\n[17] ĐƯỜNG CŨ KHÔNG ĐƯỢC LÀ LỐI ĐI VÒNG QUA HAI CHỐT CỦA ĐƯỜNG MỚI');
+{
+  // `PUT /api/admin/classes/:id/teachers` có `chanNeuVanPhong` vì mô tả chức vụ
+  // Văn phòng cơ sở nói rõ họ "KHÔNG đụng tài khoản và KHÔNG phân công cô".
+  // Nhưng đường CŨ `PUT /api/admin/classes/:id` cũng phân công cô được — chỉ
+  // cần gửi kèm `teacherId` — và trước bản vá nó không hỏi chốt đó lần nào.
+  //
+  // Mục này chỉ kiểm phần KHÔNG cần dựng chức vụ: vế "vẫn sửa được tên nhóm"
+  // và vế cơ sở. Vế chức vụ do test:chuc-vu canh.
+  const doiTen = await req('PUT', '/api/admin/classes/c1', {
+    cookie: qt, body: { name: 'Chồi 2' },
+  });
+  check('quản trị vẫn sửa được tên nhóm qua đường cũ — chốt không gắn cho cả đường',
+    doiTen.status === 200, doiTen.status);
+
+  const ganLai = await req('PUT', '/api/admin/classes/c1', { cookie: qt, body: { teacherId: 't1' } });
+  check('quản trị toàn hệ thống vẫn phân công cô qua đường cũ được',
+    ganLai.status === 200, `${ganLai.status} ${ganLai.data?.error || ''}`);
+}
+
 await may.dung();
 donThuMucTam(DIR2);
 tongKet();

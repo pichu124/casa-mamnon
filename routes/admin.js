@@ -395,9 +395,38 @@ module.exports = (app) => {
     if (req.body.grade !== undefined) patch.grade = Number(req.body.grade) || null;
     let doiChuNhiem = false;
     if (req.body.teacherId !== undefined) {
+      // CHỐT NÀY TỪNG CHỈ ĐỨNG Ở ĐƯỜNG MỚI, NÊN ĐƯỜNG CŨ LÀ MỘT LỐI ĐI VÒNG.
+      //
+      // `PUT /api/admin/classes/:id/teachers` ngay bên dưới có `chanNeuVanPhong`
+      // vì mô tả chức vụ Văn phòng cơ sở nói rõ họ "KHÔNG đụng tài khoản và
+      // KHÔNG phân công cô". Nhưng đường CŨ này cũng phân công cô được — chỉ
+      // cần gửi kèm trường `teacherId` — và trước bản vá thì nó không hỏi chốt
+      // đó một lần nào.
+      //
+      // Gắn vào ĐÚNG NHÁNH này, không gắn cho cả đường: văn phòng vẫn phải sửa
+      // được tên nhóm, phòng học, năm học — việc hằng ngày của họ.
+      if (chanNeuVanPhong(req, res, 'Phân công cô phụ trách nhóm')) return;
+
       const t = req.body.teacherId ? db.findUser(req.body.teacherId) : null;
       if (req.body.teacherId && (!t || t.role !== 'teacher')) {
         return res.status(400).json({ error: 'Giáo viên không hợp lệ' });
+      }
+      // VÀ CANH CƠ SỞ CỦA CHÍNH CÔ ẤY, KHÔNG CHỈ CỦA NHÓM TRONG ĐỊA CHỈ.
+      //
+      // `datChuNhiem` → `db.setHomeroomTeacher` quét TOÀN BỘ các nhóm cô từng
+      // dạy và gỡ cô khỏi tất cả các nhóm khác. `duocChamNhom` ở đầu đường chỉ
+      // canh nhóm ghi trong địa chỉ, nên quản lý cơ sở 2 phân công một cô là
+      // cô ấy lặng lẽ mất quyền ở cơ sở 1 — mà `class_teachers` là nguồn sự
+      // thật duy nhất của quyền đọc hồ sơ trẻ.
+      if (t) {
+        const ngoai = db.classIdsOfTeacher(t.id).filter(cid => !duocChamNhom(req.user, cid));
+        if (ngoai.length) {
+          return res.status(403).json({
+            error: `Cô ${t.name} đang phụ trách nhóm ở cơ sở khác. `
+              + 'Phân công lại cô này cần tài khoản quản trị toàn hệ thống, '
+              + 'nếu không cô sẽ mất quyền ở cơ sở kia mà bên đó không hay biết.',
+          });
+        }
       }
       patch.teacherId = req.body.teacherId || null;
       doiChuNhiem = true;
@@ -490,9 +519,28 @@ module.exports = (app) => {
     };
     db.tx(() => {
       db.insert('users', rec);
-      if (classId) datChuNhiem(classId, rec.id);
+      // GẮN CÔ MỚI VÀO NHÓM MÀ KHÔNG GỠ CÁC CÔ ĐANG PHỤ TRÁCH.
+      //
+      // Trước bản vá, chỗ này gọi `datChuNhiem` → `db.setHomeroomTeacher`, tức
+      // ĐẶT LẠI danh sách cô của nhóm thành đúng một người. Văn phòng tạo tài
+      // khoản cho cô mới rồi chọn "Chồi 2" ở ô Phụ trách nhóm là cả hai cô đang
+      // dạy nhóm đó mất sạch quyền — sáng hôm sau mở app thấy "Nhóm chưa có bé
+      // nào", không điểm danh, không ghi nhật ký, không mở hồ sơ bé được. App
+      // báo "Đã tạo tài khoản", không một lời cảnh báo.
+      //
+      // Lý lẽ giữ nếp cũ "một cô một lớp" ở đường `PUT /api/admin/classes/:id`
+      // là vì bản giao diện cũ trong điện thoại vẫn gửi `teacherId` với đúng
+      // nghĩa đó. Lý lẽ ấy KHÔNG áp được ở đây: một cô vừa được tạo ra thì
+      // không thể từng là cô duy nhất của nhóm nào.
+      //
+      // Nhóm chưa có ai thì cô mới là cô phụ trách chính — giữ đúng hành vi cũ
+      // cho luồng "tạo nhóm rồi tạo cô".
+      if (classId) {
+        db.addClassTeacher(classId, rec.id,
+          db.teacherIdsOfClass(classId).length ? 'phu' : 'chinh');
+      }
     });
-    db.audit(req.user.id, 'teacher-create', rec.id, { name: rec.name });
+    db.audit(req.user.id, 'teacher-create', rec.id, { name: rec.name, classId: classId || null });
     res.status(201).json({ id: rec.id, name: rec.name, username, temporaryPassword: matKhau });
   });
 
