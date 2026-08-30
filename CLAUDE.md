@@ -59,8 +59,14 @@ chỗ nào.
 5. **Đánh giá phải dẫn tới hành động.** Mỗi nhận định đi kèm một gợi ý làm được:
    ở lớp cô làm gì tiếp, ở nhà gia đình chơi gì cùng con.
 
-**QUY TẮC 4 được canh bằng máy** (bài test quét giao diện), không bằng trí nhớ.
-Bốn quy tắc còn lại canh bằng bài test phân quyền và bài test luồng. **Nhóm bài
+**QUY TẮC 2, 3 và 4 được canh bằng máy**, không bằng trí nhớ:
+`npm run test:quy-tac-2`, `test:quy-tac-3`, `test:quy-tac-4`. Hai quy tắc còn
+lại canh bằng bài test phân quyền và bài test luồng.
+
+> Bộ canh QUY TẮC 3 có mặt **trước khi kho mã có một dòng AI nào** — đó là chủ
+> ý. Ngày ai đó nối một dịch vụ AI vào, đường ngắn nhất luôn là ghi thẳng kết
+> quả vào bảng rồi để giao diện hiện ra; bài canh báo đỏ đúng lúc đó và bắt
+> người dựng đọc lại quy tắc này trước. **Nhóm bài
 test canh 5 quy tắc này là bất khả xâm phạm** — muốn đổi phải ghi rõ lý do và chờ
 người dùng duyệt, giống hệt `test/co-lap-loi.test.mjs`.
 

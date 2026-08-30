@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2802 bài**, `npm run test:giao-dien` **467 bài**, FAIL 0 (đo 29/08/2026) |
+| Bộ kiểm thử | `npm test` **2828 bài**, `npm run test:giao-dien` **467 bài**, FAIL 0 (đo 29/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **có, 4 nhóm việc**, xem mục 4 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
@@ -68,6 +68,7 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ47** | Bước *"đọc bảng của phân hệ khác thì hỏi công tắc trước"* đã bị quên **ba lần** (Y1, N24, Đ46), và cả ba lần đều do người đọc mã phát hiện. Nay có máy canh — nó thử ngược đúng lỗi Đ46 và bắt được — cộng một mục hướng dẫn hẳn hoi trong `modules/README.md`, nơi người viết phân hệ mới đọc trước |
 | **Đ50** | **Cuốn sổ tôi dùng cả phiên để quyết "cái này có phải mang sang app 1 không" thì lại chỉ ghi 13 trong số 28 tệp nền — và mẹo nhận diện của nó ghi NGƯỢC.** Theo mẹo cũ, hễ app 2 sửa một tệp là tệp ấy thôi được coi là nền chung; tức người sang kho app 1 sẽ bỏ qua **đúng những tệp vừa có bản vá**. Nay sổ đủ, mẹo đúng chiều, và có máy canh suy danh sách thẳng từ git |
 | **Đ52** | **Tôi bắt được chính mình dùng thừa một "đường thoát".** Hai bộ canh cho phép ghi một dòng vào lời commit để xin bỏ qua; hai lần tôi ghi dòng đó trong khi bộ canh vốn đã cho qua. Vô hại lần này, nhưng lời commit ghi lại một điều không đúng, và dùng cho quen tay là bước đầu của việc dùng nó lúc thật sự đang vi phạm. Nay hai bộ canh **nhắc** khi thấy dòng thoát thừa — nhắc chứ không chặn, vì một bộ canh gây phiền là một bộ canh bị tắt |
+| **Đ53** | **QUY TẮC 3 — *AI gợi ý ≠ cô quyết định* — hoá ra chưa có bộ canh nào**, dù `CLAUDE.md` nói năm quy tắc đều được canh bằng máy. Nay có, và **dựng trước khi kho mã có một dòng AI nào**: ngày ai đó nối dịch vụ AI vào, đường ngắn nhất luôn là ghi thẳng kết quả vào hồ sơ bé; bài canh báo đỏ đúng lúc đó. Nó cũng giữ **bốn điều kiện bật AI** của bản kế hoạch và canh cho **bảng đồng ý chưa có ô AI** — để không ai coi ô *chia sẻ ảnh* hay *truyền thông* là đã bao gồm |
 
 ---
 
@@ -195,4 +196,4 @@ Không cần anh nhắc lại bối cảnh.
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ52.*
+*Cập nhật lần cuối: sau đợt Đ53.*
