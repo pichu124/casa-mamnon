@@ -21,6 +21,20 @@ function todayStr() {
   return ngay.homNay();
 }
 
+// Chữ do y tế trường gõ. Cắt độ dài, không tự đổi nội dung.
+//
+// QUY TẮC 4 VÀ Ô "ĐÁNH GIÁ THỂ TRẠNG"
+//
+// Đây là NHẬN ĐỊNH CỦA NGƯỜI KHÁM, không phải con số app tính ra. App tuyệt đối
+// không được tự suy nó từ chiều cao và cân nặng rồi ghi vào — làm thế là app tự
+// xếp một đứa trẻ so với "chuẩn của độ tuổi", đúng thứ QUY TẮC 4 cấm, và cũng
+// là AI-thay-người ở dạng thô sơ nhất (QUY TẮC 3). Bài test canh đúng điều đó:
+// gửi chiều cao + cân nặng mà KHÔNG gửi ô này thì ô này phải ở nguyên trống.
+const TOI_DA_O_Y_TE = 200;
+function chuoiYTe(v) {
+  return String(v == null ? '' : v).trim().slice(0, TOI_DA_O_Y_TE);
+}
+
 module.exports = (app) => {
   // Hồ sơ y tế của một học sinh: danh sách ghi nhận (mới nhất trước)
   // + lần khám định kỳ gần nhất để hiển thị chỉ số.
@@ -103,6 +117,14 @@ module.exports = (app) => {
       const h = Number(height), w = Number(weight);
       if (Number.isFinite(h) && h > 0) rec.height = h;
       if (Number.isFinite(w) && w > 0) rec.weight = w;
+      // HAI Ô NÀY TỪNG LÀ Ô CHẾT: màn hình hiện chúng, máy chủ không nhận.
+      //
+      // Cột `vision` và `bmiNote` có sẵn trong `lib/schema.sql` và màn hồ sơ
+      // sức khoẻ đã in ra từ lâu, nhưng không đường nào ghi được — nghĩa là
+      // chúng chỉ có giá trị nếu nhập từ kho dữ liệu cũ. Y tế trường khám xong
+      // không nhập được đúng thứ mình vừa đo là chuyện họ sẽ hỏi ngay.
+      rec.vision = chuoiYTe(req.body.vision);
+      rec.bmiNote = chuoiYTe(req.body.bmiNote);
     }
     db.insert('health', rec);
     res.status(201).json(rec);
@@ -135,6 +157,9 @@ module.exports = (app) => {
       if (loi) return res.status(400).json({ error: loi });
       const n = Number(v);
       patch[k] = Number.isFinite(n) && n > 0 ? n : null;
+    }
+    for (const k of ['vision', 'bmiNote']) {
+      if (req.body[k] !== undefined) patch[k] = chuoiYTe(req.body[k]);
     }
     db.update('health', h.id, patch);
     st.ghiDaSua(BANG, h.id, req.user.id);

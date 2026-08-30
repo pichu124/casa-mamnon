@@ -209,6 +209,84 @@ console.log('\n[7] Sửa lại ghi nhận cũng đi qua đúng chốt chặn đ�
   check('sửa sang một con số hợp lệ thì được', dung.status === 200, dung.data);
 }
 
+// ===========================================================================
+console.log('\n[8] Thị lực và Đánh giá thể trạng — hai ô ĐÃ HẾT CHẾT');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `lib/schema.sql` có sẵn hai cột `vision` và `bmiNote`, và màn hồ sơ sức
+  // khoẻ in chúng ra từ lâu — nhưng KHÔNG đường nào ghi được. Nghĩa là chúng
+  // chỉ có giá trị nếu nhập từ kho dữ liệu cũ, còn y tế trường khám xong thì
+  // không nhập được đúng thứ mình vừa đo. Không hại ai (ô trống thì không
+  // hiện), nhưng là thứ y tế sẽ hỏi ngay buổi đầu.
+  const tao = await req('POST', '/api/health', {
+    cookie: GV,
+    body: {
+      studentId: 's1', type: 'checkup', title: 'Khám sức khoẻ đầu năm',
+      height: 96, weight: 14.5, vision: '10/10', bmiNote: 'Phát triển bình thường',
+    },
+  });
+  check('ghi được ghi nhận có thị lực và đánh giá thể trạng', tao.status === 201, tao.data);
+  check('máy chủ giữ lại ô thị lực', tao.data?.vision === '10/10', tao.data);
+  check('máy chủ giữ lại ô đánh giá thể trạng',
+    tao.data?.bmiNote === 'Phát triển bình thường', tao.data);
+
+  // Và chữ phải ĐỌC LẠI ĐƯỢC, không chỉ vọng lại trong câu trả lời của lệnh ghi.
+  const doc = await req('GET', '/api/health?studentId=s1', { cookie: GV });
+  const ban = (doc.data?.records || doc.data || []).find?.(x => x.id === tao.data?.id)
+    || (doc.data?.records || []).find(x => x.id === tao.data?.id);
+  check('đọc lại thấy đúng hai ô đó trong hồ sơ của bé',
+    ban && ban.vision === '10/10' && ban.bmiNote === 'Phát triển bình thường', ban);
+
+  // Sửa được, và sửa về rỗng cũng được — y tế gõ nhầm phải xoá đi được.
+  const sua = await req('PUT', `/api/health/${tao.data?.id}`, {
+    cookie: GV, body: { vision: '9/10', bmiNote: '' },
+  });
+  check('sửa lại hai ô đó thì được', sua.status === 200 && sua.data?.vision === '9/10', sua.data);
+  check('và xoá trắng một ô cũng được — gõ nhầm phải sửa lại được',
+    sua.data?.bmiNote === '', sua.data);
+
+  // ===== QUY TẮC 4 · QUY TẮC 3 =====
+  //
+  // "Đánh giá thể trạng" là NHẬN ĐỊNH CỦA NGƯỜI KHÁM. App tuyệt đối không được
+  // tự suy nó ra từ chiều cao và cân nặng: làm thế là app tự xếp một đứa trẻ so
+  // với "chuẩn của độ tuổi" (QUY TẮC 4), và là máy đánh giá trẻ thay người
+  // (QUY TẮC 3) ở dạng thô sơ nhất.
+  //
+  // Đây là phép kiểm sẽ báo đỏ đúng lúc ai đó thêm một dòng "tính BMI hộ cô".
+  const khongGoi = await req('POST', '/api/health', {
+    cookie: GV,
+    body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng 10', height: 97, weight: 14.8 },
+  });
+  check('gửi chiều cao + cân nặng mà không gửi ô đánh giá thì ô đó Ở NGUYÊN TRỐNG',
+    khongGoi.status === 201 && !khongGoi.data?.bmiNote, khongGoi.data);
+  check('và app cũng không tự điền hộ ô thị lực',
+    !khongGoi.data?.vision, khongGoi.data);
+
+  // Hai ô này chỉ thuộc về buổi KHÁM. Ghi nhận tiêm chủng hay sự cố thì không.
+  const tiem = await req('POST', '/api/health', {
+    cookie: GV,
+    body: { studentId: 's1', type: 'vaccination', title: 'Tiêm sởi mũi 2', bmiNote: 'lạc chỗ' },
+  });
+  check('ghi nhận tiêm chủng không mang theo ô của buổi khám',
+    tiem.status === 201 && !tiem.data?.bmiNote, tiem.data);
+
+  // Chữ dài bị cắt chứ không làm hỏng bản ghi.
+  const dai = await req('POST', '/api/health', {
+    cookie: GV,
+    body: { studentId: 's1', type: 'checkup', title: 'Khám dài', vision: 'x'.repeat(500) },
+  });
+  check('chữ quá dài thì bị cắt, không làm hỏng ghi nhận',
+    dai.status === 201 && (dai.data?.vision || '').length <= 200, (dai.data?.vision || '').length);
+
+  // Ranh giới quyền vẫn nguyên: phụ huynh không ghi được vào hồ sơ y tế.
+  const ph = await req('POST', '/api/health', {
+    cookie: PH,
+    body: { studentId: 's1', type: 'checkup', title: 'Nhà tự khai', bmiNote: 'con tôi rất tốt' },
+  });
+  check('gia đình vẫn KHÔNG ghi được vào hồ sơ y tế của con', ph.status === 403, ph.status);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
