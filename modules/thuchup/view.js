@@ -71,11 +71,35 @@ App.views.thuchup = {
           await this.xoaKhoiMay(rec.id);
           gui++;
         } catch (err) {
-          // Máy chủ từ chối vì dữ liệu sai (400/403) thì có gửi lại bao nhiêu
-          // lần cũng vậy — bỏ khỏi hàng đợi để không kẹt mãi. Lỗi mạng thì giữ.
-          if (err && /không hợp lệ|không thuộc|quyền/i.test(err.message || '')) {
-            await this.xoaKhoiMay(rec.id);
+          const loi = (err && err.message) || '';
+
+          // KHÔNG BAO GIỜ XOÁ BÀI GHI CỦA CÔ VÌ MỘT LỖI QUYỀN.
+          //
+          // Mẫu chữ cũ có `không thuộc` và `quyền`, tức mọi câu từ chối 403 của
+          // máy chủ đều làm bài ghi BIẾN MẤT HẲN khỏi máy cô, không một chữ báo.
+          // Mà lỗi quyền ở đây gần như luôn là chuyện TẠM THỜI và sửa được:
+          // văn phòng vừa đổi phân công nhóm, nhóm vừa được đóng lại, nhà
+          // trường vừa tắt phân hệ, hay cô bấm nhầm sang bé nhóm khác.
+          //
+          // Bài ghi là thứ cô gõ giữa lớp, về một khoảnh khắc đã qua. Xoá nó đi
+          // là mất vĩnh viễn — đúng thứ điều 2 ở đầu tệp này hứa là KHÔNG MẤT.
+          // Kẹt trong hàng đợi thì còn cứu được; xoá rồi thì không.
+          //
+          // Chỉ còn đúng một loại lỗi được phép bỏ: ẢNH HỎNG. Và ngay cả ở đó
+          // cũng GIỮ LẠI DÒNG CHỮ, chỉ bỏ tấm ảnh rồi gửi lại — chữ cô viết
+          // đáng giá hơn tấm ảnh không đọc được.
+          if (/ảnh không hợp lệ|ảnh quá lớn|ảnh hỏng/i.test(loi)) {
+            if (rec.dataUrl && (rec.note || '').trim()) {
+              await this.luuVaoMay({ ...rec, dataUrl: null, anhBiBo: true });
+            } else {
+              await this.xoaKhoiMay(rec.id);
+            }
+            continue;
           }
+
+          // Mọi lỗi khác — mạng, quyền, máy chủ bận — thì GIỮ. Nhớ lại câu từ
+          // chối để màn hình nói được cho cô biết vì sao bài còn nằm chờ.
+          this._loiHangDoi = loi;
           break;
         }
       }
@@ -122,6 +146,14 @@ App.views.thuchup = {
               ? 'Đang gửi…'
               : 'Sẽ tự gửi khi có mạng trở lại.'}
           </div>
+          ${this._loiHangDoi ? `
+          <!-- NÓI RA VÌ SAO BÀI CÒN NẰM CHỜ.
+               Trước đây máy chủ từ chối là bài BIẾN MẤT không một chữ. Nay bài
+               được giữ lại — nhưng giữ mà không nói thì cô lại tưởng app hỏng. -->
+          <div class="row-sub" style="margin-top:6px;color:var(--warning)">
+            Lần gửi gần nhất chưa được: ${UI.esc(this._loiHangDoi)}
+            <br>Bài ghi vẫn còn nguyên trong máy, không mất đi đâu cả.
+          </div>` : ''}
           <button class="btn sm outline mt-8" id="tc-gui">Thử gửi ngay</button>
         </div>` : ''}
 
