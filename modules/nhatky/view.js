@@ -338,6 +338,10 @@ App.views.nhatky = {
   // cục điện thoại trong `test/man-hinh-phan-he.test.mjs` mục [7] tìm ra.
   theBe(b, coNhaTre) {
     const id = UI.esc(b.studentId);
+    // Nhớ dấu thời gian bản ghi lúc màn hình NẠP VỀ, để lúc lưu gửi kèm.
+    // Máy chủ dùng nó để biết cô khác có vừa ghi cho bé này không — xem chú
+    // thích dài ở `PUT /api/nhatky` trong routes.js.
+    (this._goc || (this._goc = {}))[b.studentId] = b.capNhatLuc || '';
     const chon = (ten, ma, ds, dangChon) => `
       <select class="nk-o" data-be="${id}" data-truong="${UI.esc(ma)}">
         <option value="">— chưa ghi —</option>
@@ -468,7 +472,9 @@ App.views.nhatky = {
     const theoBe = new Map();
     for (const o of document.querySelectorAll('.nk-o')) {
       const be = o.dataset.be;
-      if (!theoBe.has(be)) theoBe.set(be, { studentId: be });
+      if (!theoBe.has(be)) {
+        theoBe.set(be, { studentId: be, capNhatLucGoc: (this._goc || {})[be] || '' });
+      }
       theoBe.get(be)[o.dataset.truong] = o.value;
     }
     try {
@@ -476,10 +482,23 @@ App.views.nhatky = {
       // Lưu xong là hết "gõ dở". Không xoá mốc thì lần đổi ngày ngay sau đó vẫn
       // bị hỏi lại, và một lời hỏi sai lúc thì lần sau người ta bấm cho xong.
       this._moc = undefined;
-      // Lưu lên máy chủ xong thì bản nháp trong máy hết việc. Giữ lại là lần mở
-      // sau app nhắc một phần dở KHÔNG còn dở nữa.
-      this.xoaNhap();
-      UI.toast(`Đã lưu nhật ký cho ${r.daGhi} bé`, 'success');
+      // CÔ KHÁC VỪA GHI CHO MẤY BÉ NÀY — nói ra, đừng để cô tưởng đã lưu đủ.
+      // Trước bản vá này phần của cô kia bị ghi đè im lặng và máy chủ vẫn báo
+      // "Đã lưu"; nay các bé đó được giữ nguyên và cô được mời mở lại màn.
+      //
+      // GIỮ NHÁP KHI CÓ BÉ CHƯA LƯU ĐƯỢC. Màn hình nạp lại ngay dưới đây, và
+      // phần cô vừa gõ cho mấy bé đó chưa vào máy chủ — xoá nháp lúc này là
+      // đúng thứ Nguyên tắc số 1 cấm, chỉ đổi người mất công từ cô kia sang cô.
+      // Giữ lại thì `napLaiNhap()` của lần nạp sau tự so với bản mới về, thấy
+      // khác thì mời cô "Điền lại phần dở" — cơ chế đã có sẵn từ Đ8.
+      if (r.xungDot && r.xungDot.length) {
+        UI.toast(r.nhac || 'Có bé chưa lưu được vì cô khác vừa ghi', 'error');
+      } else {
+        // Lưu lên máy chủ xong thì bản nháp trong máy hết việc. Giữ lại là lần
+        // mở sau app nhắc một phần dở KHÔNG còn dở nữa.
+        this.xoaNhap();
+        UI.toast(`Đã lưu nhật ký cho ${r.daGhi} bé`, 'success');
+      }
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }
   },

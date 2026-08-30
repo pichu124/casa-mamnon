@@ -283,23 +283,66 @@ module.exports = (app, { db, modules }) => {
       }
       const s = lamSach(x);
       if (s.loi) return res.status(400).json({ error: `${be.name}: ${s.loi}` });
+      // Dấu thời gian bản ghi lúc màn hình NẠP VỀ. `undefined` = app cũ không
+      // gửi, khi đó ghi như trước.
+      const goc = x && Object.prototype.hasOwnProperty.call(x, 'capNhatLucGoc')
+        ? x.capNhatLucGoc : undefined;
       // Ô của nhóm nhà trẻ không nhận cho bé lớn — tránh dữ liệu vô nghĩa lọt
       // vào rồi màn hình gia đình hiện "thay bỉm 3 lần" cho một bé 5 tuổi.
       if (!laNhaTre(be.dob)) { s.bimSoLan = null; s.buBinhSoLan = null; s.buBinhMl = null; }
-      sach.push({ be, s });
+      sach.push({ be, s, goc });
     }
 
+    // HAI CÔ CÙNG GHI MỘT NHÓM — NGƯỜI LƯU SAU KHÔNG ĐƯỢC XOÁ NGƯỜI LƯU TRƯỚC.
+    //
+    // Mô hình mầm non là NHIỀU CÔ MỘT NHÓM (G0.4), và cách chia việc tự nhiên
+    // nhất cuối giờ là hai cô cùng mở màn rồi chia nhau ("chị điền phần ăn, em
+    // điền phần ngủ"). Màn hình gửi lên MỌI ô của MỌI bé đang có trên màn, mà
+    // `lamSach` luôn trả về đủ mọi cột — ô cô không gõ thì thành chuỗi rỗng.
+    // Nên trước bản vá này, cô bấm Lưu sau ghi đè trọn bản ghi bằng ảnh chụp
+    // màn hình CŨ của mình: phần cô kia vừa ghi biến mất, im lặng, và máy chủ
+    // vẫn trả về "Đã lưu".
+    //
+    // `docs/QUYET-DINH-TU-CHOT.md` mục 24 đã gọi đúng tên kiểu mất dữ liệu này
+    // — "lấy bản cũ của cô A ghi chồng lên bản mới của cô B... Đây đúng là kiểu
+    // mất dữ liệu mà Nguyên tắc số 1 cấm" — nhưng lúc đó chỉ bịt đường NHÁP.
+    // Đường thường, màn hình đang mở, thì vẫn hở.
+    //
+    // CÁCH VÁ: màn hình gửi kèm `capNhatLucGoc` — dấu thời gian của bản ghi lúc
+    // nó NẠP VỀ. Bản trên máy chủ đã đổi từ lúc đó thì bỏ qua ĐÚNG BÉ ĐÓ và nói
+    // ra, các bé khác vẫn lưu bình thường. Cô đọc được câu "3 bé chưa lưu vì cô
+    // khác vừa ghi" rồi mở lại màn là thấy đủ.
+    //
+    // KHÔNG gửi trường đó thì ghi như cũ: bản app cũ còn trong bộ nhớ điện
+    // thoại vẫn phải lưu được, đúng Nguyên tắc số 1.
     const luc = new Date().toISOString();
+    const xungDot = [];
+    let daGhi = 0;
     db.tx(() => {
-      for (const { be, s } of sach) {
+      for (const { be, s, goc } of sach) {
         const cu = db.first('nhatky_ngay',
           'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
+        if (goc !== undefined && cu && String(cu.capNhatLuc || '') !== String(goc || '')) {
+          xungDot.push({ studentId: be.id, hoTen: be.name });
+          continue;
+        }
         const rec = { ...s, studentId: be.id, ngay, nguoiGhi: req.user.id, capNhatLuc: luc };
         if (cu) db.update('nhatky_ngay', cu.id, rec);
         else db.insert('nhatky_ngay', { id: db.nextId('nk'), ...rec });
+        daGhi += 1;
       }
     });
-    db.audit(req.user.id, 'nhatky-ghi', null, { ngay, soBe: sach.length });
-    res.json({ ok: true, ngay, daGhi: sach.length });
+    db.audit(req.user.id, 'nhatky-ghi', null, { ngay, soBe: daGhi, xungDot: xungDot.length });
+    res.json({
+      ok: true,
+      ngay,
+      daGhi,
+      xungDot,
+      ...(xungDot.length ? {
+        nhac: `${xungDot.length} bé chưa lưu được vì cô khác vừa ghi nhật ký cho các bé đó `
+          + 'trong lúc màn hình của cô đang mở. Cô mở lại màn này để thấy phần các cô đã ghi, '
+          + 'rồi điền tiếp phần của mình nhé — không mất gì cả.',
+      } : {}),
+    });
   });
 };

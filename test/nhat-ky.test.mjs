@@ -474,6 +474,147 @@ console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không ch
   check('nhưng vẫn không với sang nhóm mình không dạy', ngoai.status === 403, ngoai.status);
 }
 
+// ===========================================================================
+console.log('\n[13] HAI CÔ CÙNG GHI MỘT NHÓM — người lưu sau không xoá người lưu trước');
+{
+  // TÌNH HUỐNG THẬT, không phải tình huống hiếm.
+  //
+  // Nhóm có hai cô (đúng mô hình G0.4 mà GĐ 0 dựng ra). Cuối giờ hai cô chia
+  // nhau cho nhanh: cô A mở màn lúc 16h20, cô B ghi phần ngủ rồi lưu lúc 16h25,
+  // cô A quay lại màn ĐANG MỞ TỪ 16h20 của mình, điền phần ăn rồi lưu lúc 16h40.
+  //
+  // Màn hình gửi lên MỌI ô của MỌI bé đang hiện, `lamSach` luôn trả đủ mọi cột,
+  // và `db.update` ghi đè trọn bản ghi. Nên trước bản vá, cú lưu của cô A xoá
+  // sạch phần cô B vừa ghi — im lặng, và máy chủ vẫn trả "Đã lưu".
+  const ngayT = HOM_NAY;
+
+  // Cô A NẠP MÀN — đây là chỗ màn hình lấy dấu thời gian để gửi lại lúc lưu.
+  const nap = await req('GET', `/api/nhatky?classId=c1&ngay=${ngayT}`, { cookie: GV });
+  const ds = nap.data?.danhSach || [];
+  const beA = ds.find(b => b.studentId === 's1');
+  check('màn cả nhóm gửi kèm dấu thời gian của bản ghi (capNhatLuc)',
+    beA !== undefined && 'capNhatLuc' in beA, Object.keys(beA || {}));
+  const gocA = beA?.capNhatLuc || '';
+  check('và bé đã có nhật ký thì dấu đó không rỗng', !!gocA, gocA);
+
+  // Cô B ghi phần NGỦ cho đúng bé đó, từ máy của cô B.
+  const coB = await req('PUT', '/api/nhatky', {
+    cookie: GV3,
+    body: { ngay: ngayT, danhSach: [{ studentId: 's1', nguTuLuc: '12:00', nguDenLuc: '14:00' }] },
+  });
+  check('cô B ghi phần ngủ — lưu được bình thường', coB.status === 200, coB.data);
+
+  // Cô A bấm Lưu trên màn hình CŨ: ô ngủ trên màn của cô A còn rỗng.
+  const coA = await req('PUT', '/api/nhatky', {
+    cookie: GV,
+    body: {
+      ngay: ngayT,
+      danhSach: [{
+        studentId: 's1', capNhatLucGoc: gocA,
+        anTrua: 'het', nguTuLuc: '', nguDenLuc: '',
+      }],
+    },
+  });
+  check('máy chủ KHÔNG từ chối cả cú lưu — vẫn 200', coA.status === 200, coA.status);
+  check('nhưng BÁO RÕ bé nào chưa lưu được, không im lặng',
+    (coA.data?.xungDot || []).some(x => x.studentId === 's1'), coA.data);
+  check('và nói bằng tiếng cô hiểu được', typeof coA.data?.nhac === 'string'
+    && /cô khác/.test(coA.data.nhac), coA.data?.nhac);
+
+  // ĐIỀU QUAN TRỌNG NHẤT: phần cô B ghi vẫn còn.
+  const sau = await req('GET', `/api/nhatky?classId=c1&ngay=${ngayT}`, { cookie: GV });
+  const beSau = (sau.data?.danhSach || []).find(b => b.studentId === 's1');
+  check('PHẦN CÔ B VỪA GHI VẪN CÒN NGUYÊN — không bị cú lưu của cô A xoá',
+    beSau?.nguTuLuc === '12:00' && beSau?.nguDenLuc === '14:00', beSau);
+
+  // Bé KHÔNG xung đột trong cùng cú lưu thì vẫn phải lưu được — chặn một bé mà
+  // chặn luôn 19 bé còn lại là đổi một kiểu mất công lấy một kiểu mất công khác.
+  const beKhac = ds.find(b => b.studentId !== 's1');
+  check('nhóm c1 có từ hai bé trở lên để thử được vế này', !!beKhac, ds.map(b => b.studentId));
+  if (beKhac) {
+    const tron = await req('PUT', '/api/nhatky', {
+      cookie: GV,
+      body: {
+        ngay: ngayT,
+        danhSach: [
+          { studentId: 's1', capNhatLucGoc: gocA, anTrua: 'it' },
+          { studentId: beKhac.studentId, capNhatLucGoc: beKhac.capNhatLuc || '', anTrua: 'het' },
+        ],
+      },
+    });
+    check('bé không xung đột trong CÙNG cú lưu vẫn ghi được', tron.data?.daGhi === 1, tron.data);
+    check('và đúng một bé bị báo xung đột', (tron.data?.xungDot || []).length === 1, tron.data?.xungDot);
+    const lai = await req('GET', `/api/nhatky?classId=c1&ngay=${ngayT}`, { cookie: GV });
+    const kt = (lai.data?.danhSach || []).find(b => b.studentId === beKhac.studentId);
+    check('bé kia đọc lại đúng phần vừa ghi', kt?.anTrua === 'het', kt);
+  }
+
+  // BẢN APP CŨ CÒN TRONG MÁY ĐIỆN THOẠI VẪN PHẢI LƯU ĐƯỢC (Nguyên tắc số 1).
+  // Không gửi `capNhatLucGoc` thì ghi như trước — không có trường đó thì máy chủ
+  // không có cơ sở nào để đoán, và từ chối là làm hỏng app đang chạy.
+  const cu = await req('PUT', '/api/nhatky', {
+    cookie: GV, body: { ngay: ngayT, danhSach: [{ studentId: 's1', anXe: 'het' }] },
+  });
+  check('app bản cũ (không gửi capNhatLucGoc) vẫn lưu được',
+    cu.status === 200 && cu.data?.daGhi === 1 && (cu.data?.xungDot || []).length === 0, cu.data);
+
+  // Sau khi nạp lại màn, dấu thời gian MỚI phải cho cô A lưu được — nếu không
+  // thì bản vá biến thành cái khoá vĩnh viễn, và cô quay về sổ giấy.
+  const napLai = await req('GET', `/api/nhatky?classId=c1&ngay=${ngayT}`, { cookie: GV });
+  const gocMoi = (napLai.data?.danhSach || []).find(b => b.studentId === 's1')?.capNhatLuc || '';
+  const lanHai = await req('PUT', '/api/nhatky', {
+    cookie: GV,
+    body: {
+      ngay: ngayT,
+      danhSach: [{
+        studentId: 's1', capNhatLucGoc: gocMoi,
+        anTrua: 'het', nguTuLuc: '12:00', nguDenLuc: '14:00',
+      }],
+    },
+  });
+  check('NẠP LẠI MÀN RỒI THÌ LƯU ĐƯỢC — không phải cái khoá vĩnh viễn',
+    lanHai.data?.daGhi === 1 && (lanHai.data?.xungDot || []).length === 0, lanHai.data);
+
+  // Hai vế của MÀN HÌNH. Máy chủ có canh mà màn hình không gửi thì bộ canh này
+  // xanh nguyên trong khi cô vẫn mất dữ liệu.
+  const view = fs.readFileSync(path.join(GOC, 'modules/nhatky/view.js'), 'utf8');
+  check('màn của cô GỬI KÈM dấu thời gian lúc lưu', /capNhatLucGoc/.test(view));
+  check('và NHỚ dấu đó lúc dựng thẻ từng bé', /_goc[\s\S]{0,80}capNhatLuc/.test(view));
+  // ĐO BẰNG NGOẶC, KHÔNG ĐO BẰNG KHOẢNG CÁCH.
+  //
+  // Bản đầu của dòng canh này viết bằng một mẫu "xungDot ... else ... xoaNhap"
+  // trong vòng 400 ký tự — và phép thử ngược cho thấy nó VẪN XANH khi đưa
+  // `xoaNhap()` ra ngoài khối else, tức là xanh đúng lúc lỗi quay lại. Nên nay
+  // đếm ngoặc để biết lời gọi nằm TRONG hay NGOÀI nhánh "không có xung đột".
+  const than = (() => {
+    const i = view.indexOf('async luu(');
+    let mo = view.indexOf('{', i), sau = mo, d = 0;
+    for (; sau < view.length; sau++) {
+      if (view[sau] === '{') d++;
+      else if (view[sau] === '}' && --d === 0) break;
+    }
+    return { ma: view.slice(mo, sau + 1), lech: mo };
+  })();
+  const soXoa = (than.ma.match(/xoaNhap\(/g) || []).length;
+  check('trong luu() chỉ có ĐÚNG MỘT lời gọi xoá nháp', soXoa === 1, soXoa);
+  const khoiElse = (() => {
+    const i = than.ma.indexOf('r.xungDot');
+    if (i < 0) return null;
+    const e = than.ma.indexOf('else', i);
+    if (e < 0) return null;
+    let mo = than.ma.indexOf('{', e), sau = mo, d = 0;
+    for (; sau < than.ma.length; sau++) {
+      if (than.ma[sau] === '{') d++;
+      else if (than.ma[sau] === '}' && --d === 0) break;
+    }
+    return [mo, sau];
+  })();
+  const viTriXoa = than.ma.indexOf('xoaNhap(');
+  check('có bé chưa lưu được thì màn KHÔNG xoá nháp — phần cô vừa gõ còn đó',
+    !!khoiElse && viTriXoa > khoiElse[0] && viTriXoa < khoiElse[1],
+    { khoiElse, viTriXoa });
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
