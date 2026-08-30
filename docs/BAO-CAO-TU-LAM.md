@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3021 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo lại 30/08/2026, sau đợt Đ79) |
+| Bộ kiểm thử | `npm test` **3091 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo lại 30/08/2026, sau đợt Đ85) |
 | Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
@@ -46,6 +46,8 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ72** | **Hai cô cùng ghi nhật ký một nhóm: người bấm Lưu sau xoá sạch phần người bấm trước** | Nhóm mầm non có 2–3 cô, và cách chia việc tự nhiên nhất cuối giờ là hai cô cùng mở màn rồi chia nhau. Trước bản vá, cú lưu của cô A là một *ảnh chụp màn hình lúc 16h20* đè lên bản 16h25 của cô B — im lặng, và máy chủ vẫn báo "Đã lưu nhật ký cho 20 bé" |
 | **Đ73** | Cô thu hồi một nhận xét bấm nhầm sang bé khác, **màn "Hồ sơ con đã ra trường" vẫn hiện nó cho gia đình** | Là quyền chỉnh sửa và xoá dữ liệu của con theo Nghị định 13/2023. Nhà trường đã làm đúng thao tác; app mới là chỗ không thực hiện. Và đây là màn CHỈ gia đình mở — cô không có đường nào nhìn thấy để biết là chưa gỡ được |
 | **Đ75** | Bốn chỗ cảnh báo mật khẩu mẫu nói **"8" và "9" tài khoản; thật ra là 13** | Người vận hành đổi mật khẩu cho 9 tài khoản mình nhớ mặt rồi tin là đã xong — trong khi bốn tài khoản nữa vẫn dùng "123456" trên một máy chủ mở ra Internet, kèm hồ sơ và ảnh khuôn mặt trẻ dưới 6 tuổi. Đúng thứ mà chính bốn câu cảnh báo đó sinh ra để ngăn |
+
+| **Đ84** | **Bé nghỉ có phép vẫn bị ghi "ăn hết bát cơm, ngủ 11h30–14h"** | Gia đình báo con sốt lúc 7h, văn phòng duyệt, bếp trừ đúng một suất — nhưng màn Nhật ký ngày không biết gì. Cô bấm "áp cả nhóm" (đúng thao tác cả phân hệ được thiết kế quanh nó) và bé nằm nhà được ghi một ngày ăn ngủ đầy đủ. Chiều tối mẹ mở app đọc đúng dòng đó. Không mất dữ liệu, không rò dữ liệu — nhưng đây là mục tiêu số một của cả app đang nói một điều gia đình **biết chắc là sai**, và quyển sổ giấy thì không bao giờ tự ghi thay cô |
 
 ### 2.2 Việc giữ cho cô không mất công
 

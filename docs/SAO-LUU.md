@@ -9,8 +9,15 @@
 > | | |
 > |---|---|
 > | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
-> | **KHÔNG** còn đúng | Tên dịch vụ và thư mục `schoolconnect`; máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
+> | **Đã sửa cho app 2** | Mọi ĐƯỜNG DẪN trong tệp này — `/var/lib/casa-mamnon`, `casa-mamnon-backup.log`. Xem lý do ngay dưới |
+> | **KHÔNG** còn đúng | Máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
 > | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
+>
+> **Vì sao đường dẫn được sửa trước, dù cả tệp còn chờ N1.** Một đường dẫn sai
+> không làm người vận hành gặp lỗi — nó làm script mở một cơ sở dữ liệu TRỐNG
+> rồi báo *"mọi thứ đều sạch"*. Trấn an sai còn tệ hơn báo lỗi: người ta đóng
+> máy về nhà, tin rằng trường đang được sao lưu. Cách gọi tên thì chỉ khó chịu;
+> đường dẫn thì mất dữ liệu.
 >
 > Việc cập nhật bộ tài liệu này là **N1** trong `docs/TIEN-DO.md`. Nó chờ nhà
 > trường chốt nhà cung cấp VPS và tên miền, vì không có hai thứ đó thì viết ra
@@ -55,7 +62,7 @@ Sao lưu thủ công sẽ bị quên. Hãy đặt lịch chạy tự động lú
 **Trên máy chủ Linux** — mở `crontab -e` rồi thêm:
 
 ```cron
-0 2 * * * cd /duong/dan/toi/School && /usr/bin/node scripts/backup.js >> /var/log/schoolconnect-backup.log 2>&1
+0 2 * * * cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js >> /var/log/casa-mamnon-backup.log 2>&1
 ```
 
 **Trên Windows** — mở Task Scheduler, tạo tác vụ chạy hằng ngày lúc 02:00 với:
@@ -75,12 +82,12 @@ Chọn một trong các cách sau và thêm vào lệnh cron ngay sau lệnh sao
 
 **Cloudflare R2 / Backblaze B2 / Amazon S3** (khoảng 20–50 nghìn đồng/tháng):
 ```bash
-rclone sync /duong/dan/data/backups remote:schoolconnect-backup
+rclone sync /var/lib/casa-mamnon/backups remote:casa-mamnon-backup
 ```
 
 **Máy chủ khác qua SSH:**
 ```bash
-rsync -az --delete /duong/dan/data/backups/ user@may-khac:/backup/schoolconnect/
+rsync -az --delete /var/lib/casa-mamnon/backups/ user@may-khac:/backup/casa-mamnon/
 ```
 
 **Google Drive** (dùng `rclone config` để kết nối một lần):

@@ -158,16 +158,123 @@ docker run --rm -v casa-data:/data <tên-ảnh> \
 
 ---
 
+## HAI KỊCH BẢN — viết sẵn cả hai, chốt xong thì xoá nửa không dùng
+
+Bản trước của tệp này để trống toàn bộ phần triển khai với lý do *"chờ nhà
+trường chốt N7, viết trước là đoán"*. Đúng một nửa: **tên miền và địa chỉ máy
+chủ** thì đúng là phải chờ. Nhưng **quy trình** thì không — chỉ có đúng hai
+kịch bản, cả hai đều biết trước được, và chờ tới lúc chốt mới viết là để nhà
+trường phải chờ thêm một buổi nữa ở đúng lúc họ muốn đi nhanh nhất.
+
+Nên cả hai được viết sẵn ở đây. **Chốt xong thì XOÁ HẲN nửa không dùng** — hai
+quy trình cùng nằm trong một tệp là chỗ người vận hành làm lẫn bước của kịch bản
+kia, và đó là kiểu lẫn không ai phát hiện cho tới lúc chữa cháy.
+
+Chỗ nào cần nhà trường điền, ghi rõ `<…>`.
+
+---
+
+### [A] VPS đặt tại Việt Nam — hướng dùng được với trẻ thật
+
+Đây là hướng `docs/KE-HOACH.md` chọn, và là hướng duy nhất giữ được dữ liệu trẻ
+trong nước theo Nghị định 13/2023.
+
+```bash
+# 1. Trên máy chủ mới, tạo thư mục dữ liệu NGOÀI kho mã
+sudo mkdir -p /var/lib/casa-mamnon
+sudo chown -R $USER:$USER /var/lib/casa-mamnon
+
+# 2. Lấy mã về
+git clone <đường-dẫn-kho-mã> /opt/casa-mamnon
+cd /opt/casa-mamnon
+npm ci --omit=dev
+
+# 3. TẠO TÀI KHOẢN QUẢN TRỊ TRƯỚC KHI BẬT DỊCH VỤ
+#    Bước này KHÔNG được đảo xuống sau: xem mục 2 ở trên.
+DATA_DIR=/var/lib/casa-mamnon npm run create-admin -- "<họ tên hiệu trưởng>" <tên đăng nhập>
+#    → in ra mật khẩu tạm MỘT LẦN. Chép lại.
+
+# 4. Thử sao lưu và KHÔI PHỤC THỬ, trước khi có dữ liệu thật
+DATA_DIR=/var/lib/casa-mamnon npm run backup
+DATA_DIR=/var/lib/casa-mamnon npm run restore:check
+
+# 5. Dựng dịch vụ tự bật lại
+sudo tee /etc/systemd/system/casa-mamnon.service >/dev/null <<'UNIT'
+[Unit]
+Description=CASA Mam non
+After=network.target
+
+[Service]
+Type=simple
+User=<người-chạy>
+WorkingDirectory=/opt/casa-mamnon
+Environment=NODE_ENV=production
+Environment=DATA_DIR=/var/lib/casa-mamnon
+Environment=PORT=3000
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+sudo systemctl daemon-reload
+sudo systemctl enable --now casa-mamnon
+
+# 6. Sao lưu hằng đêm + MỘT BẢN RA Ổ NGOÀI
+#    Bản ra ổ ngoài là bản cứu được khi ổ máy chủ hỏng. Xem docs/SAO-LUU.md.
+crontab -e
+# 0 2 * * * cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js >> /var/log/casa-mamnon-backup.log 2>&1
+# 0 3 * * 0 cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js --out <ổ-ngoài> >> /var/log/casa-mamnon-backup.log 2>&1
+
+# 7. Soát lại
+DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
+```
+
+**HTTPS** đặt trước app bằng nginx + certbot cho `<tên miền của trường>`. Không
+có HTTPS thì app không cài được lên màn hình chính và không mở được lúc mất
+mạng — xem mục 1 của `docs/PHEP-THU-DIEN-THOAI.md`.
+
+---
+
+### [B] Render — chỉ để chạy thử, KHÔNG dùng với dữ liệu trẻ thật
+
+`render.yaml` đã ghi rõ ở đầu tệp: máy Render đặt ngoài Việt Nam.
+
+**Lần triển khai đầu tiên là một vòng kẹt, và nó có thật.** Ổ đĩa mới là ổ
+trống; với `NODE_ENV=production`, máy chủ DỪNG có chủ ý khi cơ sở dữ liệu trống
+thay vì tự sinh dữ liệu mẫu — vì dữ liệu mẫu kèm 13 tài khoản dùng chung mật
+khẩu "123456". Đó là hành vi ĐÚNG. Nhưng Shell của Render chỉ mở được khi dịch
+vụ đang chạy, nên: dịch vụ không chạy vì chưa có tài khoản quản trị → không mở
+được Shell để tạo tài khoản quản trị.
+
+**ĐỪNG đi đường tắt "tạm bỏ `NODE_ENV=production` cho nó lên đã".** Làm vậy là
+dựng 13 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
+
+Đường ra, làm theo đúng thứ tự:
+
+1. Tạo dịch vụ và ổ đĩa theo `render.yaml`, **nhưng chưa bấm deploy**.
+2. Dùng **Render Job** gắn cùng ổ đĩa đó, chạy đúng một lần:
+   `DATA_DIR=/data npm run create-admin -- "<họ tên>" <tên đăng nhập>`
+   Chép lại mật khẩu tạm từ log của Job.
+3. Giờ mới deploy dịch vụ web. Cơ sở dữ liệu đã có tài khoản quản trị nên máy
+   chủ khởi động bình thường.
+4. `npm run kiem-tra-may-chu` qua Shell để soát lại.
+
+> **Chưa ai đi hết đường này một lần nào.** Bước 2 là điểm chưa thử. Thử trước
+> khi hẹn với nhà trường, đừng thử lần đầu vào hôm có người ngồi chờ.
+
+Muốn xem app chạy mà không cần vòng kẹt trên: dùng `npm run ban-thu` trên máy
+của mình (xem `docs/PHEP-THU-DIEN-THOAI.md`).
+
+---
+
 ## Còn thiếu gì trong tài liệu này
 
 Ghi ra đây thay vì để người đọc tự phát hiện:
 
 | Phần | Vì sao chưa viết |
 |---|---|
-| Địa chỉ máy chủ, tên miền, cấu hình HTTPS | Chờ N7 — nhà trường chưa đăng ký |
-| Cách cài dịch vụ (systemd / pm2 / docker) | Tuỳ nhà cung cấp VPS, chưa chọn |
-| Lịch cron sao lưu cụ thể | Cùng lý do |
+| Tên miền, địa chỉ IP, chứng chỉ HTTPS cụ thể | Chờ N7 — nhà trường chưa đăng ký. Đây là chỗ **thật sự** phải chờ, khác với quy trình ở trên |
+| Bước 2 của kịch bản [B] (Render Job) | Viết ra rồi nhưng **chưa ai chạy thử lần nào** |
 | Hồ sơ đánh giá tác động theo Điều 24 NĐ 13/2023 | Cần phần mô tả kỹ thuật viết cùng nhà trường, chưa làm |
-
-Khi nhà trường chốt xong N7, phần trên viết được trong một buổi — và lúc đó mới
-nên viết, vì viết trước là đoán.

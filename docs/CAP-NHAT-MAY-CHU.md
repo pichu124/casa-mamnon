@@ -9,11 +9,17 @@
 > | | |
 > |---|---|
 > | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
-> | **KHÔNG** còn đúng | Tên dịch vụ và thư mục `schoolconnect`; máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
+> | **Đã sửa cho app 2** | Mọi ĐƯỜNG DẪN và tên dịch vụ trong tệp này — `/var/lib/casa-mamnon`, `/opt/casa-mamnon`, `systemctl … casa-mamnon`. Xem lý do ngay dưới |
+> | **KHÔNG** còn đúng | Máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
 > | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
 > | **Với app 2 thì làm theo đâu** | `docs/TRIEN-KHAI.md` — viết riêng cho CASA Mầm non. Thư mục dữ liệu của app 2 là **`/var/lib/casa-mamnon`**, không phải `/var/lib/schoolconnect` |
 >
-> Việc cập nhật bộ tài liệu này là **N1** trong `docs/TIEN-DO.md`. Nó chờ nhà
+> **Vì sao đường dẫn được sửa trước, dù cả tệp còn chờ N1.** Một đường dẫn sai
+> ở đây không làm người vận hành gặp lỗi — nó làm script mở một cơ sở dữ liệu
+> TRỐNG rồi báo *"mọi thứ đều sạch"*. Trấn an sai còn tệ hơn báo lỗi, và đây là
+> tài liệu người ta mở ra khi đang cập nhật một máy chủ ĐANG CHẠY.
+>
+> Việc cập nhật phần còn lại là **N1** trong `docs/TIEN-DO.md`. Nó chờ nhà
 > trường chốt nhà cung cấp VPS và tên miền, vì không có hai thứ đó thì viết ra
 > cũng chỉ là đoán.
 
@@ -34,10 +40,10 @@ luôn lưới an toàn.
 
 ```bash
 # 1. Vào thư mục app
-cd /opt/schoolconnect                    # [A] cd C:\Users\Administrator\School
+cd /opt/casa-mamnon                    # [A] cd C:\Users\Administrator\School
 
 # 2. SAO LƯU TRƯỚC KHI ĐỘNG VÀO GÌ
-DATA_DIR=/var/lib/schoolconnect npm run backup
+DATA_DIR=/var/lib/casa-mamnon npm run backup
 
 # 3. Lấy mã mới
 git pull origin claude/school-communication-app-wqjitt
@@ -47,11 +53,11 @@ npm ci --omit=dev
 npm test
 
 # 5. Khởi động lại
-sudo systemctl restart schoolconnect     # [A] nssm restart SchoolConnect
+sudo systemctl restart casa-mamnon     # [A] nssm restart SchoolConnect
 
 # 6. Kiểm tra app sống lại thật
 curl -I https://<tên-miền>/healthz       # phải ra HTTP/2 200
-DATA_DIR=/var/lib/schoolconnect npm run kiem-tra-may-chu -- --ten-mien=<tên-miền>
+DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu -- --ten-mien=<tên-miền>
 ```
 
 **Bước 4 có bài đỏ thì DỪNG LẠI, đừng khởi động lại.** App đang chạy vẫn là bản
@@ -64,7 +70,7 @@ viết phần mềm.
 git log --oneline -5                 # tìm mã bản trước, ví dụ 360284a
 git checkout 360284a
 npm ci --omit=dev
-sudo systemctl restart schoolconnect
+sudo systemctl restart casa-mamnon
 ```
 
 Dữ liệu không bị ảnh hưởng vì nó nằm ở thư mục khác. Quay lui xong báo lại để bản
@@ -114,9 +120,9 @@ nhiệm chỉ ghi một chiều, nên có thể còn giáo viên đang giữ quy
 không còn là của mình. Xem trước rồi mới sửa:
 
 ```bash
-DATA_DIR=/var/lib/schoolconnect npm run sua-quyen-chu-nhiem
+DATA_DIR=/var/lib/casa-mamnon npm run sua-quyen-chu-nhiem
 # đọc kỹ kết quả, thấy đúng thì mới chạy:
-DATA_DIR=/var/lib/schoolconnect npm run sua-quyen-chu-nhiem -- --sua
+DATA_DIR=/var/lib/casa-mamnon npm run sua-quyen-chu-nhiem -- --sua
 ```
 
 Giáo viên bị gỡ quyền sẽ không còn lớp — vào **Quản trị → Tổng quan** phân công
@@ -128,7 +134,7 @@ liệu mẫu khi chạy thật — nhưng **các tài khoản đã lỡ tạo ra
 đăng nhập được bằng cách gõ tay**. Kiểm bằng:
 
 ```bash
-DATA_DIR=/var/lib/schoolconnect npm run kiem-tra-may-chu
+DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
 ```
 
 Mục *Mật khẩu mẫu* còn báo CẦN SỬA thì làm theo mục 4.1 của
@@ -185,10 +191,10 @@ khoảng giữa hai bản thì máy chủ có thể đang chạy bản hỏng. K
 Thấy lỗi đó thì kéo mã mới rồi khởi động lại — không cần đụng dữ liệu:
 
 ```bash
-cd /opt/schoolconnect
+cd /opt/casa-mamnon
 git pull origin claude/school-communication-app-wqjitt
 npm ci --omit=dev && npm test
-sudo systemctl restart schoolconnect
+sudo systemctl restart casa-mamnon
 ```
 
 **Nếu việc 5 vẫn nhảy về đầu trang** thì gần như chắc chắn là **điện thoại đang
@@ -218,7 +224,7 @@ bấm chuyển năm học lần đầu.**
 
 | # | Làm gì | Phải thấy gì |
 |---|---|---|
-| 1 | **Khởi động lại máy chủ hai lần liên tiếp**, mỗi lần `systemctl status schoolconnect` | Cả hai lần đều `active (running)`. Đây là phép thử cho hai bảng mới: nếu lược đồ viết sai kiểu `ALTER TABLE` thì lần đầu chạy được, **lần thứ hai mới chết** |
+| 1 | **Khởi động lại máy chủ hai lần liên tiếp**, mỗi lần `systemctl status casa-mamnon` | Cả hai lần đều `active (running)`. Đây là phép thử cho hai bảng mới: nếu lược đồ viết sai kiểu `ALTER TABLE` thì lần đầu chạy được, **lần thứ hai mới chết** |
 | 2 | Mở một **thông báo cô vừa gửi** | Có nút **Sửa lại** và **Thu hồi**. Thu hồi xong thông báo biến mất và số "chưa đọc" giảm theo |
 | 3 | **Nề nếp** → ghi một nhắc nhở trừ điểm → **Thu hồi** | Điểm thi đua của em **trở lại đúng như trước**, không còn bị trừ |
 | 4 | **Y tế** → Thêm ghi nhận | Có ô **Ngày ghi nhận** để nhập bù đợt tiêm chủng đã làm trước đó |
@@ -283,7 +289,7 @@ Hai điều nên báo trước cho nhà trường:
 
 - [ ] Đã sao lưu **trước** khi kéo mã mới
 - [ ] `npm test` xanh toàn bộ trên chính máy chủ
-- [ ] `systemctl status schoolconnect` báo `active (running)`
+- [ ] `systemctl status casa-mamnon` báo `active (running)`
 - [ ] Mở `https://<tên-miền>` trên điện thoại bằng 4G, đăng nhập được
 - [ ] Thử một việc hằng ngày thật: điểm danh một em, hoặc gửi một tin nhắn
 - [ ] `npm run kiem-tra-may-chu` không còn mục nào CẦN SỬA

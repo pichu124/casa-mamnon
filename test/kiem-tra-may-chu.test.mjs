@@ -265,5 +265,87 @@ console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh 
     thuc === MAU.soTaiKhoan, [thuc, MAU.soTaiKhoan]);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\n[12] TÀI LIỆU KHÔNG ĐƯỢC CHỈ NGƯỜI VẬN HÀNH VÀO MỘT THƯ MỤC DỮ LIỆU KHÁC');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Một đường dẫn sai trong tài liệu KHÔNG làm người vận hành gặp lỗi. Nó làm
+  // script mở một cơ sở dữ liệu TRỐNG rồi báo "mọi thứ đều sạch" — và người ta
+  // đóng máy về nhà, tin rằng trường đang được sao lưu.
+  //
+  // Trấn an sai còn tệ hơn báo lỗi. Đây đúng là món nợ N14: `scripts/` đã đổi
+  // sang `/var/lib/casa-mamnon` còn `docs/` vẫn ghi `/var/lib/schoolconnect`
+  // của app 1.
+  //
+  // Thư mục chuẩn ĐO TỪ `scripts/`, không ghi cứng ở đây — ghi cứng thì bài này
+  // chỉ nói "tài liệu khớp với một con số tôi tự đặt".
+  const scripts = fs.readdirSync(path.join(GOC, 'scripts'))
+    .filter(f => f.endsWith('.js'))
+    .map(f => fs.readFileSync(path.join(GOC, 'scripts', f), 'utf8')).join('\n');
+  const dem = new Map();
+  for (const m of scripts.matchAll(/DATA_DIR=(\/[\w./-]+)/g)) {
+    dem.set(m[1], (dem.get(m[1]) || 0) + 1);
+  }
+  const CHUAN = [...dem.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  check('đọc được thư mục dữ liệu chuẩn từ scripts/', !!CHUAN, [...dem.entries()]);
+  check('và nó là thư mục của app 2, không phải của app 1',
+    CHUAN === '/var/lib/casa-mamnon', CHUAN);
+
+  // MIỄN TRỪ BẰNG DANH SÁCH GHI TAY, KHÔNG BẰNG CỜ TRONG TỆP.
+  //
+  // Bản đầu miễn trừ mọi tệp có dán cờ "viết cho app 1". Phép thử ngược cho
+  // thấy nó vô dụng đúng ở chỗ cần nhất: `docs/SAO-LUU.md` vừa được sửa đường
+  // dẫn sang app 2 nhưng VẪN mang cờ đó (phần còn lại của tệp thật sự chưa cập
+  // nhật), nên trả đường dẫn về `/var/lib/schoolconnect` mà bài canh vẫn xanh.
+  //
+  // Danh sách ghi tay thì thêm một tệp vào là một QUYẾT ĐỊNH, và người thêm
+  // phải viết ra lý do. Đó chính là điều muốn.
+  const MIEN_TRU = {
+    // Nhật ký dựng máy chủ thử của app 1 trên Oracle Cloud. Toàn bộ tệp là
+    // lịch sử của app 1; cờ ở đầu tệp đã chỉ sang docs/TRIEN-KHAI.md cho app 2.
+    'MAY-CHU-THU-ORACLE.md': true,
+  };
+
+  const xau = [];
+  for (const f of fs.readdirSync(path.join(GOC, 'docs')).filter(x => x.endsWith('.md'))) {
+    const noiDung = fs.readFileSync(path.join(GOC, 'docs', f), 'utf8');
+    const coCo = MIEN_TRU[f] === true;
+    for (const m of noiDung.matchAll(/DATA_DIR=(\/[\w./-]+)/g)) {
+      const d = m[1];
+      if (d === CHUAN) continue;
+      if (d.startsWith('/tmp/')) continue;                 // ví dụ chạy thử
+      if (d === '/data') continue;                          // ổ đĩa của Render
+      if (coCo) continue;                                   // tệp trong danh sách miễn trừ
+      xau.push(`${f}: DATA_DIR=${d}`);
+    }
+  }
+  check('không tài liệu nào chỉ vào một thư mục dữ liệu khác',
+    xau.length === 0, xau);
+
+  // Danh sách miễn trừ phải trỏ vào tệp CÓ THẬT, và tệp đó phải thật sự chứa
+  // đường dẫn cũ — không thì nó chỉ là một dòng chết làm bài canh trông chặt
+  // hơn thực tế.
+  for (const f of Object.keys(MIEN_TRU)) {
+    const duong = path.join(GOC, 'docs', f);
+    check(`tệp miễn trừ ${f} có thật`, fs.existsSync(duong));
+    check(`và nó thật sự còn đường dẫn cũ để mà cần miễn trừ`,
+      fs.existsSync(duong) && /DATA_DIR=\/var\/lib\/(?!casa-mamnon)/.test(fs.readFileSync(duong, 'utf8')));
+  }
+
+  // VẾ KHẲNG ĐỊNH. Thiếu nó thì phép kiểm trên xanh cả khi tài liệu triển khai
+  // không hề nhắc tới thư mục dữ liệu — tức xanh vì không có gì để tìm.
+  const trienKhai = fs.readFileSync(path.join(GOC, 'docs', 'TRIEN-KHAI.md'), 'utf8');
+  check('tài liệu triển khai CÓ nêu thư mục dữ liệu chuẩn',
+    trienKhai.includes(CHUAN), CHUAN);
+
+  // Và hai kịch bản phải cùng có mặt: viết sẵn cả hai là chủ ý, không phải sót.
+  check('tài liệu triển khai có kịch bản VPS', /\[A\]\s*VPS/.test(trienKhai));
+  check('và kịch bản Render', /\[B\]\s*Render/.test(trienKhai));
+  check('kèm lời dặn xoá nửa không dùng sau khi chốt',
+    /XOÁ HẲN nửa không dùng/.test(trienKhai));
+  check('và nói rõ bước nào CHƯA ai chạy thử', /chưa ai chạy thử|Chưa ai đi hết đường này/i.test(trienKhai));
+}
+
 donThuMucTam(DIR);
 tongKet();
