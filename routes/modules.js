@@ -10,6 +10,16 @@ module.exports = (app) => {
     res.json(modules.choNguoiDung(req.user));
   });
 
+  // Vì sao một màn hình không mở được cho chính người đang hỏi.
+  //
+  // Giao diện gọi đường này KHI ĐÃ BIẾT phân hệ không nằm trong danh sách của
+  // mình, chỉ để nói đúng lý do thay vì đoán. Nó không mở thêm gì: người hỏi
+  // vốn đã không dùng được phần đó, và câu trả lời chỉ gồm tên phân hệ cùng
+  // một mã lý do.
+  app.get('/api/modules/vi-sao/:view', (req, res) => {
+    res.json(modules.viSaoKhongThay(req.user, String(req.params.view || '').slice(0, 40)));
+  });
+
   // Quản trị xem toàn bộ phân hệ kèm trạng thái.
   app.get('/api/admin/modules', requireRole('admin'), (req, res) => {
     res.json(modules.choQuanTri());

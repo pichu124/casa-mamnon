@@ -10,7 +10,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam, MAU,
+import { GOC, thuMucTam, donThuMucTam, MAU, datChucVu,
 } from './_chung.mjs';
 const PORT = Number(process.env.TEST_PORT || 3700);
 const BASE = `http://localhost:${PORT}`;
@@ -382,6 +382,72 @@ console.log('\n[11] MỌI PHÂN HỆ TRONG THƯ MỤC ĐỀU NẠP ĐƯỢC — 
   // thì phép kiểm bên trên đang lọc quá tay và sẽ không bắt được gì nữa.
   check('bộ lọc không quét sạch — phân hệ hỏng của mục [9] vẫn thấy được cờ lỗi',
     dsQt.some(m => m.key === 'loithu' && m.loi), dsQt.map(m => `${m.key}:${m.loi || 'ok'}`));
+}
+
+console.log('\n[12] Màn "không mở được" phải nói ĐÚNG lý do, không đoán bừa');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `/api/modules` lọc bằng BỐN điều kiện khác hẳn nhau — nhà trường tắt,
+  // ngoài vai trò, ngoài phần việc của chức vụ, phân hệ đang lỗi — rồi trả về
+  // đúng một danh sách. Trình duyệt chỉ thấy "không có trong danh sách", nên
+  // màn hình báo lỗi từng đoán một lý do duy nhất: *"phân hệ này hiện đang
+  // được nhà trường tắt"*.
+  //
+  // Câu đó sai đúng vào trường hợp hay gặp nhất — gia đình mở một địa chỉ chỉ
+  // dành cho trường. Nhà trường không tắt gì cả. Mục này canh cho từng lý do
+  // được gọi đúng tên, và canh cả CHIỀU của lý do "ngoài vai".
+  await req('PUT', '/api/admin/modules/thuchup', { cookie: A.cookie, body: { enabled: true } });
+  await req('PUT', '/api/admin/modules/hocsinhcu', { cookie: A.cookie, body: { enabled: true } });
+
+  // TÌNH HUỐNG PHẢI CÒN SỐNG TRƯỚC ĐÃ.
+  //
+  // Không có hai phép kiểm này thì mọi phép kiểm dưới vẫn xanh kể cả khi phân
+  // hệ không bật lên được, hay khi `view` đã đổi tên và chẳng còn khớp gì.
+  const dsP = (await req('GET', '/api/modules', { cookie: P })).data || [];
+  check('gia đình KHÔNG thấy phân hệ chỉ dành cho trường',
+    !dsP.some(m => m.view === 'thuchup'), dsP.map(m => m.view));
+  check('nhưng vẫn thấy phần dành cho mình',
+    dsP.some(m => m.view === 'hocsinhcu'), dsP.map(m => m.view));
+
+  const r1 = (await req('GET', '/api/modules/vi-sao/thuchup', { cookie: P })).data;
+  check('gia đình mở phần của trường → "ngoài vai", KHÔNG phải "nhà trường tắt"',
+    r1 && r1.ly === 'ngoai-vai' && r1.danhCho === 'truong', r1);
+  check('và kèm tên phân hệ để còn nói được thành câu', !!(r1 && r1.ten), r1);
+
+  // Chiều ngược lại. Nói với cô rằng "phần này chỉ dành cho cô" thì lại sai
+  // lần nữa, chỉ là sai theo hướng khác.
+  const r2 = (await req('GET', '/api/modules/vi-sao/hocsinhcu', { cookie: T })).data;
+  check('cô mở phần của gia đình → nói đúng CHIỀU',
+    r2 && r2.ly === 'ngoai-vai' && r2.danhCho === 'gia-dinh', r2);
+
+  // Nhà trường tắt THẬT thì mới được nói là tắt.
+  await req('PUT', '/api/admin/modules/thuchup', { cookie: A.cookie, body: { enabled: false } });
+  const r3 = (await req('GET', '/api/modules/vi-sao/thuchup', { cookie: T })).data;
+  check('nhà trường tắt thật → "tắt"', r3 && r3.ly === 'tat', r3);
+  const r4 = (await req('GET', '/api/modules/vi-sao/thuchup', { cookie: P })).data;
+  check('và "tắt" thắng "ngoài vai" — đó là sự thật lớn hơn', r4 && r4.ly === 'tat', r4);
+  await req('PUT', '/api/admin/modules/thuchup', { cookie: A.cookie, body: { enabled: true } });
+
+  const r5 = (await req('GET', '/api/modules/vi-sao/dia-chi-go-nham', { cookie: P })).data;
+  check('địa chỉ gõ nhầm → "không có"', r5 && r5.ly === 'khong-co', r5);
+
+  // PHÉP KIỂM NGƯỢC. Không có nó thì cả mục này vẫn xanh kể cả khi hàm luôn
+  // trả về một lý do từ chối nào đó cho mọi câu hỏi.
+  const r6 = (await req('GET', '/api/modules/vi-sao/thuchup', { cookie: T })).data;
+  check('phần cô dùng được → "dùng được"', r6 && r6.ly === 'dung-duoc', r6);
+
+  // Tầng chức vụ là điều kiện thứ tư, và là điều kiện dễ bị bỏ quên nhất vì nó
+  // chỉ áp cho vai quản trị. Đặt cuối cùng: gắn chức vụ cho hiệu trưởng xong
+  // thì tài khoản đó thôi mở được phần lớn màn quản trị.
+  // Dùng `thuchup` chứ không phải một phân hệ bất kỳ: nó vừa được bật ở trên,
+  // nên nếu câu trả lời là "tắt" thì đó là lỗi thật, không phải tại chọn nhầm
+  // phân hệ đang tắt sẵn.
+  datChucVu(DIR, 'hieutruong', 'ketoan');
+  const r7 = (await req('GET', '/api/modules/vi-sao/thuchup', { cookie: A.cookie })).data;
+  check('ngoài phần việc của chức vụ → "ngoài chức vụ"', r7 && r7.ly === 'ngoai-chuc-vu', r7);
+  const r8 = (await req('GET', '/api/modules/vi-sao/hocphi', { cookie: A.cookie })).data;
+  check('còn phần trong tay chức vụ đó thì vẫn "dùng được"', r8 && r8.ly === 'dung-duoc', r8);
 }
 
 server.kill('SIGTERM');
