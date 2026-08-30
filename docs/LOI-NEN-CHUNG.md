@@ -149,12 +149,18 @@ cho tới khi trả hết. Trống là tốt.
 | 29/08 | Màn **Học phí**: ô *Chọn bé* của người trong trường **không có tác dụng**. `render()` luôn lấy `students[0]`, còn `onchange` chỉ ghi `this._sid` rồi vẽ lại — nên văn phòng chọn bé A, màn lặng lẽ quay về bé đầu danh sách, và **khoản thu vừa tạo mang tên nhà khác** | app 2 — Đ39 | **app 1** | Loại 1 (dữ liệu của nhà này hiện trong hồ sơ nhà kia) **và là tiền**. Mã ở `modules/hocphi/view.js` giống hệt nhau tại điểm tách `bc9dfa3`, nên app 1 chắc chắn dính. Ở app 1 còn nặng hơn: app 1 đang thu tiền thật của ~300 gia đình, còn app 2 chưa có người dùng. **Món nợ ưu tiên cao nhất trong bảng này** |
 
 | 29/08 | `db.canAccessStudent` nhánh phụ huynh chỉ hỏi bảng `student_parents`, tức trả `true` **mãi mãi**. Mốc "gia đình còn xem hồ sơ 12 tháng sau khi bé rời trường" chỉ được cài trong `routes/hocsinh-cu.js`, nên **màn hình đó đóng đúng hạn còn mọi đường khác thì không**: gõ thẳng `/api/nhatky?studentId=`, `/api/health`, `/api/medicine`, `/api/hocphi` là đọc được hồ sơ một đứa trẻ đã rời trường nhiều năm | app 2 — Đ44 | **app 1** | Loại 1 (rò rỉ dữ liệu). Cả hai tệp — `lib/db.js` và `routes/hocsinh-cu.js` — sinh ra TRƯỚC điểm tách `bc9dfa3` và nhánh phụ huynh giống hệt nhau, nên **app 1 chắc chắn dính**. Ở app 1 nặng hơn: hồ sơ 5 năm tiểu học của ~300 gia đình, và app 1 đã chạy đủ lâu để có học sinh ra trường quá 12 tháng. Bản vá là thêm hai thứ vào `lib/db.js` (`SO_THANG_GIU_HO_SO`, `conHanXemHoSo`) rồi siết đúng nhánh phụ huynh — không đụng dữ liệu, không đổi hành vi của vai nào khác |
-> **Mười món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
+| 30/08 | `scripts/restore.js` tìm ảnh ở `DATA_DIR/backups/uploads` — **ghi cứng**, trong khi `scripts/backup.js` ngay cạnh **có** `--out /mnt/usb` và tự quảng cáo điều đó ở dòng đầu tệp. Sao lưu ra ổ ngoài, ổ trong hỏng, khôi phục từ ổ ngoài: cơ sở dữ liệu về đủ (dòng 40 nhận đường dẫn tuyệt đối) còn **ảnh thì không**, vì máy đi tìm trong đúng cái thư mục vừa mất | app 2 — Đ62 | **app 1** | Loại 2 (mất dữ liệu vĩnh viễn). **Đã đối chiếu tận nơi tại `bc9dfa3`, không phải phỏng đoán:** `restore.js:95` ghi cứng, `backup.js:23` đọc `--out`. Ảnh là thứ DUY NHẤT không dựng lại được từ đâu khác. App 1 đang chạy thật cho ~300 gia đình. **Món nợ ưu tiên cao nhất trong bảng này** — và nó chỉ lộ ra đúng lúc người ta cần nó nhất |
+| 30/08 | `lib/lich-su-lop.js` — `lopCuCuaPhuHuynh` chỉ hỏi quan hệ `student_parents`, mà quan hệ cha mẹ – con thì **không bao giờ hết hạn**. Đ44 gom luật "12 tháng" về `db.canAccessStudent` nhưng hai họ đường của LỚP CŨ (album lớp cũ, màn Năm học trước) **không đi qua hàm đó** | app 2 — Đ59 | **app 1** | Loại 1 (rò rỉ dữ liệu). **Đã đối chiếu tận nơi:** ở `bc9dfa3`, `lopCuCuaPhuHuynh` không có một dòng lọc hạn nào và `lib/db.js` bên đó chưa có `conHanXemHoSo`. Nặng hơn hồ sơ của chính bé đó: album lớp là **ảnh khuôn mặt CẢ LỚP**, phần lớn các em trong ảnh vẫn đang học. Dựng lại được ở app 2: một gia đình rời trường 3 năm vẫn tải về **đúng các byte của tấm ảnh**. Cùng một tài khoản, cùng một phiên, màn "Hồ sơ con đã ra trường" trả 403 kèm câu "chỉ tra cứu được trong 12 tháng" — nên nhà trường nhìn màn thứ nhất sẽ tin là cửa đã đóng |
+| 30/08 | `server.js` phục vụ `/modules` bằng `express.static` với một cố gắng trả 404 đặt trong `setHeaders` — mà `setHeaders` chạy **sau khi** đã quyết định gửi tệp, nên nó không chặn được gì. Và khối này nằm **ngoài** lớp `auth.requireAuth` của `/api`, tức mở cho người **chưa đăng nhập** | app 2 — Đ66 | **app 1** | Loại 1 (lộ mã nguồn máy chủ). **Đã đối chiếu tận nơi:** `bc9dfa3:server.js:111-116` giống hệt, và nó đứng sau `app.use('/api', …requireAuth)` nên không được lớp đó che. App 1 có `modules/hocphi/`, nên bất kỳ ai cũng tải được `/modules/hocphi/routes.js` và `/modules/hocphi/schema.sql` — logic phân quyền và cấu trúc bảng của phần thu tiền. Bản vá là một middleware chặn thật trước `express.static`, vài dòng |
+| 30/08 | `routes/hocsinh-cu.js` đọc bảng `remarks` bằng `SELECT *` **không kèm điều kiện lọc thu hồi**. Cô bấm Thu hồi một nhận xét bấm nhầm sang bé khác → màn Nhận xét sạch, nhưng màn "Hồ sơ con đã ra trường" vẫn hiện nguyên dòng đó cho gia đình | app 2 — Đ73 | **app 1** | Loại 1 (rò rỉ) và là **quyền xoá dữ liệu theo Nghị định 13/2023** — nhà trường đã làm đúng thao tác, app mới là chỗ không thực hiện. **Đã đối chiếu tận nơi:** `bc9dfa3:routes/hocsinh-cu.js:92` là đúng câu SQL đó, và `bc9dfa3:lib/sua-thu-hoi.js` **đã có sẵn** `dieuKienConHien` — tức bản vá bên đó chỉ là gọi một hàm đang nằm sẵn trong kho. **Ở app 1 nặng hơn hẳn app 2:** app 2 đã tắt phân hệ Nhận xét từ A2, còn app 1 là trường tiểu học dùng nhận xét hằng ngày cho ~300 gia đình. Và đây là màn CHỈ GIA ĐÌNH mở — cô không có đường nào nhìn thấy để biết là chưa gỡ được |
+
+> **Mười bốn món trên chưa trả được vì phiên làm việc chưa có quyền vào kho app 1.**
 > Ghi nợ ở đây là việc làm được ngay; trả nợ cần mở kho kia và đối chiếu từng
 > tệp, vì không chắc app 1 có dính đủ cả mười hay không — mà ghi sổ sai còn tệ
 > hơn sổ trống. **Hai món 29/08 là ngoại lệ:** đã đối chiếu được bằng chính lịch sử
 > git của kho này (tệp sinh ra trước điểm tách và nhánh mã giống hệt nhau), nên app 1
-> chắc chắn dính cả hai.
+> chắc chắn dính cả hai. **Bốn món 30/08 cũng vậy** — mỗi món ghi rõ đã đối
+> chiếu tệp nào, dòng nào ở `bc9dfa3`.
 
 ### MỘT CHỖ CỐ Ý KHÁC NHAU GIỮA HAI KHO — đừng "vá giúp"
 
@@ -168,9 +174,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn bảy món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười một món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Bảy chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười một chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -215,10 +221,47 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   có QUY TẮC 4, nhưng "app không được tự suy đánh giá thể trạng từ chiều cao và
   cân nặng" thì bên nào cũng đúng).
 
+- **Mở một phòng chat kéo về CẢ NĂM HỌC tin nhắn** (`routes/messages.js` — vá ở
+  app 2 tại Đ77). **Đã đối chiếu tận nơi:** `bc9dfa3:routes/messages.js:183` là
+  đúng câu `SELECT * FROM messages WHERE conversationId = ? ORDER BY createdAt`
+  không có `LIMIT`. Không rò dữ liệu, không mất dữ liệu, nên không bắt buộc —
+  nhưng đây là món **nặng dần theo thời gian dùng**, và app 1 đã chạy thật lâu
+  hơn app 2 rất nhiều. Cùng commit còn gộp một chỗ N+1 ở màn danh sách (hỏi tin
+  cuối của từng hội thoại bằng một truy vấn riêng); `bc9dfa3:…:147` giống hệt.
+  Bản vá gồm cả đường `?truoc=` và nút "Xem tin cũ hơn" — **phải chép cả hai
+  vế**, cắt bớt tin mà không mở đường đi ngược là biến một cái chậm thành một
+  cái mất.
+- **Bốn đường đọc bảng của phân hệ khác mà không hỏi công tắc**
+  (`routes/hocsinh-cu.js`, `routes/namhoccu.js`, `routes/attendance.js`,
+  `routes/reports.js` — vá ở app 2 tại Đ65). **Đã đối chiếu:** cả bốn tệp ở
+  `bc9dfa3` không có một lần gọi `modules.dangBat` nào. Hậu quả là lời hứa của
+  quy trình "bỏ một tính năng" trong `CLAUDE.md` — *tắt trong Quản trị → Tính
+  năng thì nó biến khỏi màn hình* — không đúng ở bốn màn này. Không mất dữ
+  liệu, nên không bắt buộc.
+- **Đơn xin nghỉ không có trần số ngày** (`routes/leave.js` — vá ở app 2 tại
+  Đ67). Ở `bc9dfa3` chỉ có trần độ dài lý do, không có trần khoảng ngày, nên
+  một đơn "nghỉ từ 2026 tới 2126" được nhận và mọi màn tính toán trên nó phải
+  gánh theo. Không bắt buộc.
+- **Màn Khảo sát hỏi cơ sở dữ liệu một lần cho MỖI khảo sát, và không có trần
+  danh sách** (`routes/surveys.js` — vá ở app 2 tại Đ68). Ở `bc9dfa3`,
+  `responsesOf(sv.id)` được gọi trong vòng lặp. Không bắt buộc; cùng loại với
+  món `messages.js` ở trên và cũng nặng dần theo thời gian.
+
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức
 > vụ chưa tồn tại ở điểm tách — `lib/db.js` bên đó không có `CHUC_VU`, nên bên
 > đó không có vai Nhân sự để mà siết.
+>
+> **Đợt Đ59–Đ77 sinh thêm bốn món BẮT BUỘC** (Đ59, Đ62, Đ66, Đ73 — đã vào bảng
+> Sổ nợ) **và bốn món không bắt buộc** (Đ65, Đ67, Đ68, Đ77 — ngay trên).
+>
+> **Không áp dụng cho app 1:** Đ60, Đ63, Đ64, Đ72 (phân hệ Cambridge, Ghi
+> nhanh, Hành trình, Nhật ký ngày — không tệp nào tồn tại ở `bc9dfa3`); Đ61
+> (`db.addClassTeacher` chưa có ở điểm tách — app 1 là mô hình một cô một lớp);
+> Đ76 (màn Lịch sinh hoạt: ở app 1 chữ *"Nghỉ / tự học"* và *"Đang học"* là
+> chữ ĐÚNG, và khung giờ bảy tiết 35 phút cũng đúng — đây là trường tiểu học.
+> Chép sang là làm hỏng một màn đang đúng); Đ69–Đ71, Đ74, Đ75 (chữ trên màn
+> hình của bậc mầm non, bộ canh riêng, CI và tài liệu của app 2).
 
 ---
 
