@@ -30,7 +30,7 @@
 // routes/admin.js phải đi qua một trong các hàm canh. Thêm một đường mới mà
 // quên canh thì bài này đỏ ngay, kể cả khi chưa ai kịp nghĩ ra tình huống để
 // thử. Đó là cách duy nhất để lỗ hổng này không mọc lại sau vài tháng.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, dongNhom } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, dongNhom, batPhanHe } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -38,6 +38,14 @@ import { GOC } from './_chung.mjs';
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('co-so-quan-tri');
 sinhDuLieu(DIR);
+// BẬT MỌI PHÂN HỆ TẮT SẴN.
+//
+// `hocsinhcu` (Đ5) và `nhanxet` (A2) do nhà trường tắt. Mục [10] quét 22 đường
+// tìm dấu vết cơ sở khác; đường của phân hệ đang tắt trả về lỗi và phép quét đi
+// qua nó mà không quét gì. Lỗ hổng tầng cơ sở KHÔNG biến mất chỉ vì phân hệ
+// đang tắt — nó chỉ nằm im tới ngày nhà trường bật lại.
+batPhanHe(DIR, ['hocsinhcu', 'nhanxet', 'namhoccu', 'nhatky', 'hanhtrinh',
+  'dontra', 'hocphi', 'thucdon', 'thuchup', 'cambridge', 'kehoachbe']);
 const mk1 = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');     // Cấp 1
 const mk3 = taoQuanTri(DIR, 'Quản lý CS1', 'quanlycs1');      // Cấp 3, cơ sở 1
 khoaVaoCoSo(DIR, 'quanlycs1', 'cs1');
@@ -353,26 +361,72 @@ console.log('\n[10] Quét MỌI đường của app: không dấu vết nào c�
     ['số định danh cơ sở khác', /079321005678/],
     ['tiền sử bệnh cơ sở khác', /tôm cua/i],
   ];
-  const DUONG = [
-    'GET /api/students', 'GET /api/students/s2',
-    'GET /api/health?studentId=s2', 'GET /api/attendance?classId=c2&date=2026-08-27',
+  // Hai nhóm đường, hai kỳ vọng khác hẳn nhau — và trước đợt này cả hai bị trộn
+  // vào một danh sách, nên không có gì canh được là đường nào đang trả lời thật.
+  //
+  //   MO   — đường liệt kê theo phạm vi của chính người gọi. Phải trả 200.
+  //          Trả 403/404 nghĩa là phép quét đi qua mà không quét gì.
+  //   CHAN — đường CỐ Ý trỏ vào dữ liệu của cơ sở 2. Phải bị từ chối.
+  const MO = [
+    'GET /api/students',
     'GET /api/leave', 'GET /api/medicine', 'GET /api/notifications',
     'GET /api/messages', 'GET /api/albums', 'GET /api/albums?keCaLopCu=1',
-    'GET /api/surveys', 'GET /api/plans?classId=c2', 'GET /api/timetable?classId=c2',
+    'GET /api/surveys',
     'GET /api/accounts/parents', 'GET /api/schoolyear/alumni',
     'GET /api/hocsinh-cu', 'GET /api/namhoccu',
     'GET /api/admin/students', 'GET /api/admin/students?classId=c2',
     'GET /api/admin/teachers', 'GET /api/admin/overview', 'GET /api/admin/audit',
   ];
+  const CHAN = [
+    'GET /api/students/s2',
+    'GET /api/health?studentId=s2',
+    // ĐƯỜNG NÀY TRƯỚC ĐÂY GÕ NHẦM.
+    //
+    // Danh sách cũ ghi `GET /api/attendance?classId=c2&date=…`, mà
+    // `/api/attendance` KHÔNG nhận `classId` — nó đòi `studentId` và trả 400
+    // "Thiếu mã của bé" trước khi chạm tới bất cứ chốt cơ sở nào. Tức là suốt
+    // thời gian qua nó nằm trong danh sách 22 đường mà chưa từng thử gì.
+    // Sổ điểm danh cả nhóm nằm ở `/api/attendance/class`.
+    'GET /api/attendance/class?classId=c2&date=2026-08-27',
+    'GET /api/plans?classId=c2', 'GET /api/timetable?classId=c2',
+  ];
+  const DUONG = [...MO, ...CHAN];
   const ro = [];
+  const cam = [];
+  const lot = [];
   for (const d of DUONG) {
     const [m, u] = d.split(' ');
     const r = await req(m, u, { cookie: C3 });
+    if (MO.includes(d) && r.status !== 200) cam.push(`${d} -> ${r.status}`);
+    if (CHAN.includes(d) && r.status === 200) lot.push(`${d} -> 200`);
     const chuoi = JSON.stringify(r.data ?? '');
     for (const [ten, re] of DAU_VET) if (re.test(chuoi)) ro.push(`${d} -> ${ten}`);
   }
   check(`quét ${DUONG.length} đường, KHÔNG đường nào để lọt dấu vết cơ sở khác`,
     ro.length === 0, ro);
+
+  // MỘT PHÉP QUÉT TÌM DẤU VẾT LÀ MỘT PHÉP KIỂM PHỦ ĐỊNH, VÀ PHÉP KIỂM PHỦ ĐỊNH
+  // XANH RẤT ĐẸP KHI KHÔNG CÓ GÌ ĐỂ TÌM.
+  //
+  // Bài này không bật phân hệ nào, mà `hocsinhcu` (Đ5) và `nhanxet` (A2) tắt
+  // sẵn. Nên hai đường trong danh sách trên trả về lỗi "phân hệ đang tắt", và
+  // phép quét đi qua chúng mà không quét gì cả — vẫn đếm là 22 đường, vẫn xanh.
+  // Ngày nhà trường bật lại "Hồ sơ con đã ra trường", nếu đường đó rò dữ liệu
+  // cơ sở khác thì bài này KHÔNG bắt được, vì nó chưa bao giờ thật sự đi qua đó.
+  //
+  // Nên đòi mọi đường phải trả 200. Đường nào không trả 200 thì hoặc phải bật
+  // phân hệ của nó lên, hoặc phải bỏ khỏi danh sách — không có ô thứ ba.
+  check(`và ${MO.length} đường liệt kê đều THẬT SỰ trả lời được (200)`,
+    cam.length === 0, cam);
+  check(`còn ${CHAN.length} đường trỏ thẳng vào cơ sở 2 thì đều BỊ TỪ CHỐI`,
+    lot.length === 0, lot);
+
+  // Và vế khẳng định: quét phải NHÌN THẤY dữ liệu của chính cơ sở mình. Không
+  // có vế này thì cả mục xanh nguyên kể cả khi mọi đường trả về danh sách rỗng.
+  const cs1 = await req('GET', '/api/admin/students', { cookie: C3 });
+  check('phép quét nhìn thấy dữ liệu của CHÍNH cơ sở mình — không phải quét vào chỗ rỗng',
+    /Nguyễn Bảo An|Trần Gia Hân/.test(JSON.stringify(cs1.data ?? '')),
+    JSON.stringify(cs1.data ?? '').slice(0, 150));
 }
 
 sv.dung();
