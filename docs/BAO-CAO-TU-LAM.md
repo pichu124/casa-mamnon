@@ -19,7 +19,7 @@
 | Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
-| Còn việc gì chặn | **hai thứ, cả hai ngoài tầm tay tôi**: nhà trường (mục 4.2) và quyền vào kho app 1 (mục 4.3) |
+| Còn việc gì chặn | **một thứ, ngoài tầm tay tôi**: nhà trường (mục 4.2). Kho app 1 anh đã mở, và **bốn món nợ bắt buộc đã trả xong** — xem mục 4.3 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
 | Đợt soát nhiều tác nhân 30/08 | **đã đóng hết**: 21 phát hiện của vòng một, cộng 6 phát hiện bị cắt khỏi vòng một nay đã qua **vòng thẩm định thứ hai** (12 tác nhân, mỗi phát hiện hai người soát độc lập — 0 bị bác bỏ). Tất cả đã vá, Đ59 tới Đ77 |
 
@@ -207,11 +207,38 @@ Không phải việc của mã, và tôi không làm thay được:
 | **Ba cơ sở nấu bếp chung hay nấu riêng?** | Bảng thực đơn đang là một thực đơn cho cả trường. Nấu riêng thì phải **thêm cột cơ sở trước** — mở đường ra trước là người sửa sau ghi đè người sửa trước, âm thầm, mỗi ngày |
 | **Mẫu báo cáo phòng GD yêu cầu** | Chưa có mẫu thì không xuất đúng mẫu được |
 
-### 4.3 Món nợ với kho app 1
+### 4.3 Món nợ với kho app 1 — bốn món nặng nhất ĐÃ TRẢ XONG
 
-**Mười bốn** bản vá thuộc loại **bắt buộc** (rò rỉ dữ liệu hoặc mất dữ liệu) đã
-làm ở app 2 nhưng **chưa mang sang app 1** — vì phiên làm việc chưa có quyền vào
-kho đó. Danh sách đầy đủ kèm mã commit ở `docs/LOI-NEN-CHUNG.md`, mục *Sổ nợ*.
+Anh mở quyền vào `pichu124/School` và tôi đã vá xong **bốn món bắt buộc** của
+đợt Đ59–Đ77 bên đó, trên nhánh `claude/no-nen-chung-app2`.
+
+**Đối chiếu tại chỗ xác nhận cả bốn đều có thật ở app 1**, đúng như sổ ghi. Đây
+là ba con số ĐO ĐƯỢC trên máy chủ app 1 chạy thật, không phải suy đoán:
+
+| Đo cái gì | Trước khi vá |
+|---|---|
+| Khôi phục từ bản sao ở ổ cứng ngoài | Cơ sở dữ liệu về đủ, script in "Đã khôi phục xong" — **ảnh: "không có thư mục uploads/"**, không một tấm nào |
+| `GET /modules/hocphi/routes.js`, **chưa đăng nhập** | 404 kèm **3142 byte** mã máy chủ của phần thu tiền; `schema.sql` thêm 625 byte |
+| Tài khoản có con rời trường **2 năm** | **5 đường** trả 200: hồ sơ, sổ sức khoẻ, nhận xét, sổ nề nếp, sổ điểm danh. Và album lớp cũ trả về **đúng các byte của tấm ảnh** |
+
+Một điều tìm được tại chỗ mà sổ chưa biết, và nó làm món thứ ba nhẹ gánh hơn
+hẳn: **app 1 ĐÃ CÓ SẴN `SO_THANG_GIU = 12`** trong `routes/hocsinh-cu.js`, và
+app đang nói câu *"Hồ sơ của em chỉ tra cứu được trong 12 tháng sau khi rời
+trường"* với phụ huynh. Nên đây **không phải chuyện đổi chính sách của một
+trường khác** — luật là của chính họ, app chỉ đang không thực thi được nó ở đâu
+ngoài đúng một màn hình. Tôi vá cái không thực thi được, không đặt luật mới.
+
+`npm test` ở app 1: 932 → **1017 bài**, FAIL 0. Hai bộ canh mới bên đó, và mỗi
+bản vá đều có phép thử ngược.
+
+**Tôi KHÔNG đẩy thẳng vào nhánh mà app 1 đang chạy.** `CLAUDE.md` của kho đó bảo
+đẩy vào `claude/school-communication-app-wqjitt` — nhưng đó là nhánh của một app
+đang phục vụ ~300 gia đình thật, nên tôi để bản vá ở một nhánh riêng và **chờ
+anh gộp**. Anh gật một câu là tôi gộp.
+
+**Mười món cũ hơn** (có từ trước đợt Đ59) vẫn còn trong sổ — chúng cần một lượt
+đối chiếu riêng ở kho app 1, tôi chưa làm trong đợt này. Danh sách đầy đủ ở
+`docs/LOI-NEN-CHUNG.md`, mục *Sổ nợ*.
 
 > **Đợt Đ59–Đ77 thêm BỐN món, và một trong bốn thay chỗ đứng đầu bảng.**
 > Cả bốn tôi đã **đối chiếu tận nơi** ở điểm tách hai kho — mở đúng tệp, đúng
@@ -245,10 +272,6 @@ kho đó. Danh sách đầy đủ kèm mã commit ở `docs/LOI-NEN-CHUNG.md`, m
 App 1 đang chạy thật cho khoảng 300 gia đình, nên đây là món nợ đáng trả sớm.
 Anh mở quyền vào kho `pichu124/School` là tôi đối chiếu và vá được.
 
-> **Đợt này tôi đã THỬ tự mở quyền vào kho đó** (`add_repo`) và bị chặn — việc
-> gắn thêm một kho vào phiên làm việc cần anh đồng ý, tôi không tự làm được.
-> Anh gật một câu là tôi bắt đầu.
->
 > **Đợt Đ54–Đ58 không thêm món nợ BẮT BUỘC nào**, nhưng thêm **hai món không
 > bắt buộc mà tôi đã đối chiếu tận nơi ở điểm tách `bc9dfa3`, không phỏng đoán:**
 >
