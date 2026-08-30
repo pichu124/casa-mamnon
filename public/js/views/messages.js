@@ -72,7 +72,9 @@ App.views.messages = {
     this._type = cv.type;
     this._lastTs = null;
     this._lastDay = null;
-    let bubbles = '';
+    // Mốc của tin CŨ NHẤT đang hiện — nút "Xem tin cũ hơn" hỏi tiếp từ đây.
+    this._tuLuc = cv.tuLuc || '';
+    let bubbles = cv.conCu ? this.nutTinCu() : '';
     for (const m of cv.messages) {
       const day = new Date(m.createdAt).toDateString();
       if (day !== this._lastDay) { bubbles += this.dayLine(m.createdAt); this._lastDay = day; }
@@ -142,6 +144,52 @@ App.views.messages = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
+  // MỞ PHÒNG CHỈ NẠP CỬA SỔ TIN MỚI NHẤT, NÊN PHẢI CÓ ĐƯỜNG ĐI NGƯỢC.
+  //
+  // Máy chủ cắt bớt tin cũ để phòng chat của một năm học vẫn mở được trên máy
+  // Android rẻ tiền của trường. Nhưng cắt mà không nói là GIẤU: cô cuộn lên
+  // không thấy gì và tin rằng tin nhắn cũ đã mất. Nút này là chỗ nói ra.
+  nutTinCu() {
+    return '<div id="chat-cu" style="text-align:center;margin:8px 0">'
+      + '<button class="btn outline sm" onclick="App.views.messages.xemTinCu()">Xem tin cũ hơn</button>'
+      + '</div>';
+  },
+
+  async xemTinCu() {
+    const el = document.getElementById('chat-msgs');
+    const o = document.getElementById('chat-cu');
+    if (!el || !o) return;
+    o.innerHTML = '<span class="muted small">Đang tải…</span>';
+    try {
+      const r = await API.get(`/api/messages/${encodeURIComponent(this._convId)}`
+        + `?truoc=${encodeURIComponent(this._tuLuc || '')}`);
+      const ds = r.messages || [];
+      // Chèn LÊN ĐẦU và giữ nguyên chỗ cô đang đọc: nhảy về đầu hay về cuối
+      // khung sau khi bấm đều làm mất chỗ, và cô phải cuộn tìm lại.
+      const caoCu = el.scrollHeight;
+      let html = '';
+      let ngay = null;
+      for (const m of ds) {
+        const d = new Date(m.createdAt).toDateString();
+        if (d !== ngay) { html += this.dayLine(m.createdAt); ngay = d; }
+        html += this.bubbleHtml(m);
+      }
+      this._tuLuc = r.tuLuc || this._tuLuc;
+      o.outerHTML = (r.conCu ? this.nutTinCu() : '') + html;
+      // Chỗ nối hai mẻ có thể sinh hai vạch ngày giống hệt nhau, cạnh nhau.
+      const vach = [...el.querySelectorAll('.chat-ngay')];
+      for (let i = vach.length - 1; i > 0; i--) {
+        if (vach[i].dataset.ngay === vach[i - 1].dataset.ngay
+          && vach[i].previousElementSibling === vach[i - 1]) vach[i].remove();
+      }
+      el.scrollTop += el.scrollHeight - caoCu;
+      if (!ds.length) UI.toast('Đã hiện hết tin nhắn cũ', 'success');
+    } catch (err) {
+      o.innerHTML = '<span class="muted small">Chưa tải được tin cũ. Cô thử lại giúp.</span>';
+      UI.toast(err.message, 'error');
+    }
+  },
+
   // Nối thêm tin nhắn vào cuối khung chat (kèm vạch ngày nếu sang ngày mới).
   appendMessages(list) {
     const el = document.getElementById('chat-msgs');
@@ -162,7 +210,11 @@ App.views.messages = {
     return `<div class="bubble-row${m.mine ? ' mine' : ''}">${showSender ? UI.avatar(m.senderAvatar, 28) : ''}<div class="bubble">${showSender ? `<span class="bubble-name">${UI.esc(m.senderName)}</span>` : ''}${UI.esc(m.text)}<span class="bubble-time">${UI.esc(UI.fmtTime(m.createdAt))}</span></div></div>`;
   },
 
+  // `chat-ngay` để `xemTinCu()` nhận ra vạch ngày và bỏ vạch bị lặp ở chỗ nối
+  // giữa mẻ tin cũ vừa chèn và mẻ đang hiện.
   dayLine(iso) {
-    return `<div style="text-align:center;color:var(--muted);font-size:.78rem;margin:10px 0">${UI.esc(UI.fmtDate(iso))}</div>`;
+    return `<div class="chat-ngay" data-ngay="${UI.esc(new Date(iso).toDateString())}" `
+      + `style="text-align:center;color:var(--muted);font-size:.78rem;margin:10px 0">`
+      + `${UI.esc(UI.fmtDate(iso))}</div>`;
   },
 };

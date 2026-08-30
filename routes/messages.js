@@ -5,6 +5,23 @@ const { requireRole } = require('../lib/auth');
 
 const GROUP_AVATAR = { emoji: '👥', bg: '#5b6ceb' };
 
+// MỞ MỘT PHÒNG CHAT KHÔNG ĐƯỢC KÉO VỀ CẢ NĂM HỌC.
+//
+// `GET /api/messages/:id` trước đây trả về MỌI tin nhắn của hội thoại, không
+// giới hạn. Nhóm lớp mầm non là một hội thoại chung của cô và 20 gia đình, và
+// đây là phân hệ nhắn tin hằng ngày — vài chục tin một ngày là bình thường,
+// nên sau một năm học hội thoại đó có hàng nghìn tin.
+//
+// Ba chỗ cùng gánh: máy chủ dựng chừng ấy đối tượng trong bộ nhớ, đường truyền
+// chở chừng ấy chữ, và điện thoại của cô dựng chừng ấy bong bóng chat trước khi
+// vẽ được khung hình đầu tiên. Máy trường đang dùng là máy Android rẻ tiền; đây
+// đúng là kiểu chậm mà người dùng đọc ra là "app hỏng".
+//
+// Nên mở phòng thì lấy CỬA SỔ TIN MỚI NHẤT, và mở thêm một đường lấy tin cũ
+// hơn để không ai mất lịch sử. Con số đủ rộng để phần lớn hội thoại vẫn về đủ
+// trong một lần.
+const CUA_SO_TIN = 200;
+
 // Tên hiển thị kèm danh xưng, ví dụ "Cô Nguyễn Thị Mai Anh".
 function displayName(u) {
   return u ? `${u.title} ${u.name}` : '';
@@ -150,9 +167,28 @@ module.exports = (app) => {
        ORDER BY (SELECT MAX(createdAt) FROM messages m WHERE m.conversationId = c.id) DESC`,
       [user.id, user.id]);
 
+    // TIN CUỐI CỦA MỌI HỘI THOẠI TRONG MỘT TRUY VẤN.
+    //
+    // Bản trước hỏi riêng từng hội thoại. Cô mầm non nhắn với 20 gia đình cộng
+    // các nhóm chung, nên chỉ riêng màn danh sách đã là hơn hai chục lượt hỏi
+    // cơ sở dữ liệu — mỗi lần cô mở màn Nhắn tin, và cô mở nó nhiều lần một
+    // ngày. Câu ngay bên trên đã cố ý gộp phần đếm tin chưa đọc vào một truy
+    // vấn với đúng lý do đó; phần tin cuối thì bị bỏ sót.
+    const maHT = rows.map(r => r.id);
+    const tinCuoi = new Map();
+    if (maHT.length) {
+      for (const m of db.all('messages',
+        `SELECT * FROM (
+           SELECT m.*, ROW_NUMBER() OVER (
+                    PARTITION BY m.conversationId ORDER BY m.createdAt DESC, m.rowid DESC) AS hang
+             FROM messages m WHERE m.conversationId IN (${maHT.map(() => '?').join(',')})
+         ) WHERE hang = 1`, maHT)) {
+        tinCuoi.set(m.conversationId, m);
+      }
+    }
+
     const conversations = rows.map(cv => {
-      const last = db.first('messages',
-        'SELECT * FROM messages WHERE conversationId = ? ORDER BY createdAt DESC, rowid DESC LIMIT 1', [cv.id]);
+      const last = tinCuoi.get(cv.id) || null;
       return {
         id: cv.id,
         type: cv.type,
@@ -183,18 +219,37 @@ module.exports = (app) => {
     res.json({ id });
   });
 
-  // Chi tiết hội thoại: toàn bộ tin nhắn + đánh dấu đã đọc.
+  // Chi tiết hội thoại: cửa sổ tin mới nhất + đánh dấu đã đọc.
+  //
+  // `?truoc=<ISO>` lấy cửa sổ tin CŨ HƠN mốc đó — đường mà nút "Xem tin cũ hơn"
+  // của màn hình gọi. Không có tham số thì lấy cửa sổ mới nhất, đúng hành vi cũ
+  // với mọi hội thoại ngắn hơn CUA_SO_TIN (tức gần như toàn bộ hôm nay).
   app.get('/api/messages/:id', allow, (req, res) => {
     const cv = findConv(req, res);
     if (!cv) return;
-    const messages = db.all('messages',
-      'SELECT * FROM messages WHERE conversationId = ? ORDER BY createdAt, rowid', [cv.id]);
-    markRead(cv.id, req.user.id);
+    const truoc = req.query.truoc ? String(req.query.truoc) : '';
+    // Lấy NGƯỢC từ mới về cũ rồi lật lại: `LIMIT` phải cắt ở đầu MỚI, không
+    // phải đầu cũ. Lấy xuôi rồi cắt là mở phòng ra thấy tin của tháng Chín.
+    const nguoc = db.all('messages',
+      `SELECT * FROM messages WHERE conversationId = ?${truoc ? ' AND createdAt < ?' : ''}
+       ORDER BY createdAt DESC, rowid DESC LIMIT ?`,
+      truoc ? [cv.id, truoc, CUA_SO_TIN + 1] : [cv.id, CUA_SO_TIN + 1]);
+    // Lấy dư một tin để biết PHÍA TRƯỚC CÒN NỮA KHÔNG mà không phải đếm cả bảng.
+    const conCu = nguoc.length > CUA_SO_TIN;
+    const messages = nguoc.slice(0, CUA_SO_TIN).reverse();
+    // Chỉ đánh dấu đã đọc khi người dùng đang ở cửa sổ MỚI NHẤT. Cuộn ngược lên
+    // đọc tin tháng trước mà bị coi là đã đọc hết là mất dấu tin chưa xem.
+    if (!truoc) markRead(cv.id, req.user.id);
     res.json({
       id: cv.id,
       type: cv.type,
       ...convMeta(cv, req.user),
       messages: messages.map(m => messageDto(m, req.user)),
+      // Màn hình dùng hai trường này để hiện nút "Xem tin cũ hơn". Thiếu chúng
+      // thì cắt bớt tin biến thành GIẤU tin — người dùng không có đường nào
+      // biết là còn, và đó mới là mất dữ liệu theo cách nhìn của họ.
+      conCu,
+      tuLuc: messages.length ? messages[0].createdAt : '',
     });
   });
 

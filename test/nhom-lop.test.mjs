@@ -21,6 +21,9 @@
 // đúng nghĩa "bên cạnh".
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
+import fs from 'fs';
+import path from 'path';
+import Database from 'better-sqlite3';
 import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoQuanTri } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
@@ -525,6 +528,118 @@ console.log('\n[17] ĐƯỜNG CŨ KHÔNG ĐƯỢC LÀ LỐI ĐI VÒNG QUA HAI CH
   const ganLai = await req('PUT', '/api/admin/classes/c1', { cookie: qt, body: { teacherId: 't1' } });
   check('quản trị toàn hệ thống vẫn phân công cô qua đường cũ được',
     ganLai.status === 200, `${ganLai.status} ${ganLai.data?.error || ''}`);
+}
+
+console.log('\n[18] PHÒNG CHAT CỦA CẢ NĂM HỌC PHẢI MỞ ĐƯỢC — CỬA SỔ TIN, KHÔNG PHẢI TẤT CẢ');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Nhóm lớp mầm non là MỘT hội thoại chung của cô và 20 gia đình, và Nhắn tin
+  // là phân hệ dùng hằng ngày. Vài chục tin một ngày là bình thường, nên sau
+  // một năm học hội thoại đó có hàng nghìn tin.
+  //
+  // `GET /api/messages/:id` trước đây lấy MỌI tin, không giới hạn: máy chủ dựng
+  // chừng ấy đối tượng, đường truyền chở chừng ấy chữ, và điện thoại Android rẻ
+  // tiền của trường dựng chừng ấy bong bóng chat trước khi vẽ được khung hình
+  // đầu tiên. Người dùng đọc cái chậm đó ra là "app hỏng".
+  //
+  // Nhưng cắt bớt mà không nói là GIẤU. Nên mục này đo CẢ HAI vế: cửa sổ có
+  // chặn không, và có đường nào lấy lại tin cũ không.
+  const gv = await dangNhap('giaovien', '123456');
+  const ph = await dangNhap('phuhuynh2', '123456');
+
+  // Mở hội thoại riêng giữa cô t1 và một phụ huynh, rồi bơm tin thẳng vào cơ sở
+  // dữ liệu — gửi 600 lần qua API thì bài test chạy hàng phút mà không đo thêm
+  // được gì.
+  const batDau = await req('POST', '/api/messages/start', { cookie: ph, body: { userId: 't1' } });
+  const hoiThoai = batDau.data?.id;
+  check('mở được hội thoại riêng cô ↔ gia đình', !!hoiThoai, batDau.data);
+
+  const SO_TIN = 600;
+  const conn = new Database(path.join(DIR2, 'school.db'));
+  const them = conn.prepare(
+    'INSERT INTO messages (id, conversationId, senderId, text, createdAt) VALUES (?, ?, ?, ?, ?)');
+  // Đặt mẻ tin thử NGAY SAU tin mới nhất đang có, không đặt vào quá khứ. Bản
+  // đầu của mục này lấy mốc tháng 9/2025 nên nó nằm TRƯỚC cả dữ liệu mẫu lẫn
+  // mốc `lastRead` của gia đình — hai phép kiểm ở dưới xanh/đỏ vì lý do khác
+  // hẳn lý do chúng nói. Chính là kiểu bài canh rỗng mà Đ33 đã dọn một lượt.
+  const dangCo = conn.prepare('SELECT COUNT(*) n, MAX(createdAt) mx FROM messages WHERE conversationId = ?')
+    .get(hoiThoai);
+  const goc = (dangCo.mx ? new Date(dangCo.mx).getTime() : Date.now()) + 1000;
+  const TONG = (dangCo.n || 0) + SO_TIN;
+  conn.transaction(() => {
+    for (let i = 0; i < SO_TIN; i++) {
+      them.run(`mtest_${i}`, hoiThoai, i % 2 ? 't1' : 'p2', `tin số ${i}`,
+        new Date(goc + i * 1000).toISOString());
+    }
+  })();
+  conn.close();
+
+  const mo = await req('GET', `/api/messages/${hoiThoai}`, { cookie: gv });
+  const ds = mo.data?.messages || [];
+  check('mở phòng chat không kéo về cả năm học', ds.length < TONG, [ds.length, TONG]);
+  check('nhưng vẫn nạp đủ dày để dùng được ngay (từ 100 tin trở lên)',
+    ds.length >= 100, ds.length);
+
+  // Cắt ở đầu MỚI, không phải đầu cũ: mở phòng ra mà thấy tin của tháng Chín
+  // thì cửa sổ này vô dụng.
+  check('cửa sổ lấy các tin MỚI NHẤT', ds[ds.length - 1]?.text === `tin số ${SO_TIN - 1}`,
+    ds[ds.length - 1]?.text);
+  const xuoi = ds.every((m, i) => i === 0 || m.createdAt >= ds[i - 1].createdAt);
+  check('và trả về theo thứ tự thời gian xuôi, đúng như màn hình vẽ', xuoi);
+
+  // VẾ THỨ HAI: cắt bớt phải kèm đường lấy lại.
+  check('máy chủ NÓI RA là phía trước còn tin cũ hơn', mo.data?.conCu === true, mo.data?.conCu);
+  check('và đưa mốc để hỏi tiếp', typeof mo.data?.tuLuc === 'string' && !!mo.data.tuLuc, mo.data?.tuLuc);
+
+  const cu = await req('GET', `/api/messages/${hoiThoai}?truoc=${encodeURIComponent(mo.data.tuLuc)}`,
+    { cookie: gv });
+  const dsCu = cu.data?.messages || [];
+  check('lấy được mẻ tin CŨ HƠN', dsCu.length > 0, dsCu.length);
+  check('mẻ cũ nằm hoàn toàn TRƯỚC mẻ đang hiện — không chồng, không sót',
+    dsCu[dsCu.length - 1]?.createdAt < ds[0].createdAt
+    && dsCu[dsCu.length - 1]?.text === `tin số ${SO_TIN - ds.length - 1}`,
+    [dsCu[dsCu.length - 1]?.text, ds[0]?.text, ds.length]);
+
+  // Lật hết về đầu: không được có tin nào rơi ra ngoài mọi cửa sổ.
+  let moc = mo.data.tuLuc;
+  let dem = ds.length;
+  for (let vong = 0; vong < 20; vong++) {
+    const r = await req('GET', `/api/messages/${hoiThoai}?truoc=${encodeURIComponent(moc)}`, { cookie: gv });
+    const l = r.data?.messages || [];
+    if (!l.length) break;
+    dem += l.length;
+    moc = r.data.tuLuc;
+    if (!r.data.conCu) break;
+  }
+  check('LẬT HẾT VỀ ĐẦU THÌ ĐẾM ĐỦ MỌI TIN — không tin nào rơi ra ngoài',
+    dem === TONG, [dem, TONG]);
+
+  // Hội thoại ngắn thì y như cũ. Thiếu vế này thì mọi phép kiểm trên xanh cả
+  // khi bản vá cắt nhầm cả những phòng chat chỉ có ba tin.
+  const nhom = (await req('GET', '/api/messages', { cookie: gv })).data?.conversations || [];
+  const hoiThoaiNgan = nhom.find(c => c.id !== hoiThoai);
+  if (hoiThoaiNgan) {
+    const r = await req('GET', `/api/messages/${hoiThoaiNgan.id}`, { cookie: gv });
+    check('hội thoại ngắn: KHÔNG bị cắt, và máy chủ nói rõ là hết',
+      r.status === 200 && r.data?.conCu === false, [r.status, r.data?.conCu]);
+  }
+
+  // Cuộn ngược lên đọc tin cũ KHÔNG phải là đã đọc hết. Đánh dấu nhầm ở đây là
+  // xoá mất dấu tin chưa xem của người ta.
+  const sauKhiXemCu = await req('GET', `/api/messages/${hoiThoai}?truoc=${encodeURIComponent(mo.data.tuLuc)}`,
+    { cookie: ph });
+  check('đọc mẻ tin cũ vẫn trả lời bình thường', sauKhiXemCu.status === 200, sauKhiXemCu.status);
+  const dsPh = (await req('GET', '/api/messages', { cookie: ph })).data?.conversations || [];
+  const cua = dsPh.find(c => c.id === hoiThoai);
+  check('và KHÔNG đánh dấu đã đọc — dấu tin chưa xem còn nguyên',
+    (cua?.unreadCount || 0) > 0, cua?.unreadCount);
+
+  // Màn hình phải có nút đi ngược. Máy chủ mở đường mà màn hình không đi thì
+  // với cô, tin cũ vẫn là mất.
+  const view = fs.readFileSync(path.join(GOC, 'public/js/views/messages.js'), 'utf8');
+  check('màn chat có nút xem tin cũ hơn', /Xem tin cũ hơn/.test(view));
+  check('và nút đó gọi đúng đường ?truoc=', /\?truoc=\$\{encodeURIComponent/.test(view));
 }
 
 await may.dung();
