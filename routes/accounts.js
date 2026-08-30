@@ -52,10 +52,38 @@ function sinhMatKhauTam() {
 // Nên Cấp 2 dừng ở đây: cô và phụ huynh thì được, tài khoản quản trị thì không
 // — kể cả một tài khoản Cấp 2 khác, vì chiếm được nó là chiếm được phần việc
 // của người ta.
+// CHỨC VỤ CHỈ LO TÀI KHOẢN CỦA TRƯỜNG, KHÔNG CHẠM TÀI KHOẢN CỦA GIA ĐÌNH.
+//
+// Nhân sự có `/api/accounts` vì họ lập, khoá và cấp lại mật khẩu cho tài khoản
+// của CÔ. Nhưng chính mô tả chức vụ ấy hứa với nhà trường rằng họ "KHÔNG mở
+// được hồ sơ bé, sức khoẻ, hay ảnh của trẻ" — mà hai đường dưới đây đi vòng
+// qua đúng lời hứa đó:
+//
+//   • cấp lại mật khẩu cho một tài khoản PHỤ HUYNH thì người cấp cầm luôn mật
+//     khẩu tạm, và tài khoản đó mở được cả ba thứ vừa kể;
+//   • danh sách phụ huynh trả về kèm TÊN CÁC CON của từng nhà.
+//
+// Đây không phải lỗ hổng cần vá gấp — app buộc đổi mật khẩu ở lần đăng nhập kế,
+// đá mọi thiết bị của gia đình ra, và ghi lại ai bấm cho ai. Nhưng "để lại dấu
+// vết" là cách xử lý sau khi chuyện đã xảy ra, còn đây là chặn từ đầu, và chặn
+// mà không ai mất việc: gia đình quên mật khẩu vẫn có cô của nhóm bé (đường
+// ngay dưới), ban giám hiệu, và quản trị toàn hệ thống lo được.
+const CHUC_VU_KHONG_LO_GIA_DINH = ['nhansu'];
+
+function chiLoTaiKhoanTruong(user) {
+  return !!user && user.role === 'admin'
+    && CHUC_VU_KHONG_LO_GIA_DINH.includes(db.chucVu(user));
+}
+
+const LOI_KHONG_LO_GIA_DINH = 'Tài khoản Nhân sự lo phần tài khoản của trường. '
+  + 'Phần của gia đình do cô phụ trách nhóm của bé, ban giám hiệu, hoặc quản trị '
+  + 'toàn hệ thống làm giúp.';
+
 function coQuyenCapLai(actor, target) {
   if (!target || !target.active) return false;
   if (actor.id === target.id) return false;
   if (actor.role === 'admin') {
+    if (target.role === 'parent' && chiLoTaiKhoanTruong(actor)) return false;
     if (db.capChucVu(actor) === 2 && target.role === 'admin') return false;
     const pham = db.phamViCoSo(actor);
     if (pham === null) return true;
@@ -99,6 +127,9 @@ function trongCoSo(target, campusId) {
 module.exports = (app) => {
   // Danh sách phụ huynh lớp mình, kèm tên con — để giáo viên tìm đúng người.
   app.get('/api/accounts/parents', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiLoTaiKhoanTruong(req.user)) {
+      return res.status(403).json({ error: LOI_KHONG_LO_GIA_DINH });
+    }
     const students = db.studentsOf(req.user);
     const seen = new Map();
     for (const s of students) {
@@ -127,7 +158,11 @@ module.exports = (app) => {
     const target = db.findUser(req.params.id);
     if (!target) return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
     if (!coQuyenCapLai(req.user, target)) {
-      return res.status(403).json({ error: 'Bạn không có quyền cấp lại mật khẩu cho tài khoản này' });
+      return res.status(403).json({
+        error: target.role === 'parent' && chiLoTaiKhoanTruong(req.user)
+          ? LOI_KHONG_LO_GIA_DINH
+          : 'Bạn không có quyền cấp lại mật khẩu cho tài khoản này',
+      });
     }
 
     const matKhauTam = sinhMatKhauTam();

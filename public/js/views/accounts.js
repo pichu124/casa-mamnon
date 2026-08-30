@@ -14,7 +14,18 @@ App.views.accounts = {
         + UI.emptyState('🔒', 'Mục này dành cho cô và nhà trường');
       return;
     }
-    const parents = await API.get('/api/accounts/parents');
+    let parents;
+    try {
+      parents = await API.get('/api/accounts/parents');
+    } catch (err) {
+      // Chức vụ chỉ lo tài khoản của TRƯỜNG (Đ57) thì màn này không có việc gì
+      // cho họ. Máy chủ đã nói một câu tử tế và chỉ đúng người làm giúp được —
+      // dùng lại chính câu đó, thay vì để màn hình rơi vào "Có lỗi xảy ra 😥",
+      // đúng thứ chú thích ngay bên trên sinh ra để tránh.
+      root.innerHTML = UI.pageHeader('Tài khoản phụ huynh')
+        + UI.emptyState('🔒', err.message || 'Mục này không mở trong tài khoản của bạn');
+      return;
+    }
     this._parents = parents;
     root.innerHTML = `
       ${UI.pageHeader('Tài khoản phụ huynh')}

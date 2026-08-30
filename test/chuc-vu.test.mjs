@@ -191,10 +191,20 @@ console.log('\n[5] CHỐT LEO THANG — Cấp 2 không đụng tài khoản qu�
   const r2 = await req('POST', `/api/accounts/${idKT}/reset-password`, { cookie: NS, body: {} });
   check('kể cả cho một tài khoản Cấp 2 khác', r2.status === 403, r2.status);
 
-  // Nhưng phần việc thật của nhân sự thì vẫn chạy: cấp lại cho phụ huynh.
+  // TỪ Đ57: TÀI KHOẢN GIA ĐÌNH KHÔNG CÒN LÀ PHẦN VIỆC CỦA NHÂN SỰ.
+  //
+  // Phép kiểm này trước đây đòi điều NGƯỢC LẠI — "Nhân sự vẫn cấp lại được mật
+  // khẩu cho gia đình" — vì đó là hành vi lúc bấy giờ. Đ57 siết lại: mô tả chức
+  // vụ Nhân sự hứa họ "KHÔNG mở được hồ sơ bé, sức khoẻ, hay ảnh của trẻ", mà
+  // cấp lại mật khẩu cho một tài khoản phụ huynh là trao đúng ba thứ ấy.
+  //
+  // Đây là SIẾT CHẶT, không phải nới: mục [10] cuối tệp canh đầy đủ cả hai
+  // chiều, kể cả việc gia đình vẫn còn người lo giúp.
   const ph = (await req('GET', '/api/accounts/parents', { cookie: BGH })).data || [];
   const r3 = await req('POST', `/api/accounts/${ph[0].userId}/reset-password`, { cookie: NS, body: {} });
-  check('Nhân sự vẫn cấp lại được mật khẩu cho gia đình', r3.status === 200, r3.data);
+  check('Nhân sự KHÔNG cấp lại được mật khẩu cho gia đình (Đ57)', r3.status === 403, r3.data);
+  check('và không có mật khẩu tạm nào của gia đình lọt ra',
+    !r3.data?.temporaryPassword, Object.keys(r3.data || {}));
 
   // Và không tự đổi được chức vụ của chính mình.
   const r4 = await req('PUT', `/api/admin/managers/${idKT}/chuc-vu`, { cookie: NS, body: { chucVu: '' } });
@@ -529,6 +539,66 @@ console.log('\n[+] DANH SÁCH CHO PHÉP VIẾT TAY PHẢI THEO KỊP THƯ MỤC 
   check('bộ canh thật sự đọc tới module.json của từng phân hệ',
     vungPhanHe.some(v => v.key === 'nhatky') && vungPhanHe.some(v => v.key === 'tienan'),
     vungPhanHe.map(v => v.key));
+}
+
+// ===========================================================================
+console.log('\n[10] NHÂN SỰ LO TÀI KHOẢN CỦA TRƯỜNG, KHÔNG CHẠM TÀI KHOẢN GIA ĐÌNH');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Mô tả chức vụ Nhân sự hứa với nhà trường: "KHÔNG mở được hồ sơ bé, sức
+  // khoẻ, hay ảnh của trẻ". Nhưng họ có `/api/accounts`, và hai đường trong đó
+  // đi vòng qua đúng lời hứa ấy: cấp lại mật khẩu cho một tài khoản PHỤ HUYNH
+  // (người cấp cầm luôn mật khẩu tạm, đăng nhập vào là thấy cả ba thứ), và
+  // danh sách phụ huynh trả kèm TÊN CÁC CON của từng nhà.
+
+  // TRƯỚC HẾT: phần việc THẬT của Nhân sự phải còn nguyên. Không có phép kiểm
+  // này thì siết tay quá cũng xanh, và người thiệt là chị nhân sự.
+  const dsCo = await req('GET', '/api/admin/teachers', { cookie: NS });
+  check('Nhân sự VẪN mở được danh sách cô — phần việc của họ không bị động tới',
+    dsCo.status === 200, dsCo.status);
+
+  const capCho = async (cookie, id) =>
+    req('POST', `/api/accounts/${id}/reset-password`, { cookie, body: {} });
+
+  // Cấp lại cho một tài khoản CỦA TRƯỜNG thì vẫn được — đó là việc của họ.
+  const choCo = await capCho(NS, 't2');
+  check('Nhân sự VẪN cấp lại được mật khẩu cho tài khoản của cô',
+    choCo.status === 200 && !!choCo.data?.temporaryPassword, choCo.status);
+
+  // Còn tài khoản gia đình thì không.
+  const choPH = await capCho(NS, 'p1');
+  check('nhưng KHÔNG cấp lại được mật khẩu cho tài khoản gia đình',
+    choPH.status === 403, choPH.status);
+  check('và câu từ chối chỉ đúng người làm giúp được, không bỏ gia đình giữa đường',
+    /cô phụ trách nhóm|ban giám hiệu/i.test(choPH.data?.error || ''), choPH.data);
+
+  // Danh sách phụ huynh kèm tên con cũng vậy.
+  const dsPH = await req('GET', '/api/accounts/parents', { cookie: NS });
+  check('Nhân sự KHÔNG mở được danh sách gia đình kèm tên các con',
+    dsPH.status === 403, dsPH.status);
+
+  // ===== PHÉP THỬ NGƯỢC — ai VẪN PHẢI làm được =====
+  //
+  // Không có nhóm này thì bốn phép kiểm trên vẫn xanh kể cả khi cả app mất
+  // luôn đường cấp lại mật khẩu cho gia đình — tức là siết chặt tới mức làm
+  // hỏng việc của trường mà bài test không hé một tiếng.
+  const bghChoPH = await capCho(BGH, 'p1');
+  check('ban giám hiệu VẪN cấp lại được cho gia đình', bghChoPH.status === 200, bghChoPH.status);
+
+  // Dùng cô giaovien3 chứ không phải GV: mục [8] bên trên đã ĐÓNG nhóm c1, nên
+  // cô của c1 không còn nhóm đang mở nào để mà cấp lại. giaovien3 dạy cả c1 lẫn
+  // c2, và con thứ hai của nhà p1 đang học c2.
+  const GV3 = (await login('giaovien3', '123456')).cookie;
+  const coChoPH = await capCho(GV3, 'p1');
+  check('cô của nhóm bé VẪN cấp lại được cho gia đình nhóm mình',
+    coChoPH.status === 200, coChoPH.status);
+
+  const bghDsPH = await req('GET', '/api/accounts/parents', { cookie: BGH });
+  check('ban giám hiệu VẪN mở được danh sách gia đình',
+    bghDsPH.status === 200 && Array.isArray(bghDsPH.data), bghDsPH.status);
+  check('và danh sách đó có thật sự kèm tên con — nếu không thì phép kiểm trên rỗng',
+    (bghDsPH.data || []).some(x => (x.children || []).length > 0), bghDsPH.data);
 }
 
 await sv.dung();
