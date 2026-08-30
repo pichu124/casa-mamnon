@@ -284,6 +284,44 @@ console.log('\n[11] Lược đồ: bảng tiền ăn là bảng RIÊNG, không �
     /leave_refund[\s\S]*?REFERENCES leave_requests\(id\) ON DELETE CASCADE/.test(sql));
 }
 
+// ===========================================================================
+console.log('\n[+] TRẦN KHOẢNG NGÀY — gõ nhầm năm không được cắt suất ăn của bé cả năm');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Đơn xin nghỉ chỉ kiểm dạng ngày và thứ tự hai ngày, không kiểm ĐỘ DÀI. Mà
+  // đơn đã duyệt kéo theo hai thứ có thật ngoài đời: bé bị đánh dấu nghỉ suốt
+  // khoảng đó ở màn Điểm danh, và màn Báo ăn gợi ý cho văn phòng HOÀN TIỀN ĂN
+  // đúng số ngày ấy. Gõ nhầm một chữ số ở ô năm là hơn hai trăm ngày.
+  const homNay = new Date().toISOString().slice(0, 10);
+  const namSau = `${Number(homNay.slice(0, 4)) + 1}${homNay.slice(4)}`;
+
+  const quaDai = await req('POST', '/api/leave', {
+    cookie: PH, body: { studentId: 's1', fromDate: homNay, toDate: namSau, reason: 'Gõ nhầm năm' },
+  });
+  check('đơn nghỉ dài cả năm bị TỪ CHỐI', quaDai.status === 400, `${quaDai.status} ${quaDai.data?.error || ''}`);
+  check('và lời từ chối chỉ đúng chỗ gia đình cần xem lại',
+    /năm ở hai ô ngày|kiểm lại năm/i.test(quaDai.data?.error || ''), quaDai.data);
+
+  // VẾ KHẲNG ĐỊNH: một đợt nghỉ dài THẬT vẫn phải gửi được, nếu không là siết
+  // quá tay và bài này sẽ xanh cả khi app từ chối mọi đơn.
+  const d = new Date(`${homNay}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 30);
+  const motThang = d.toISOString().slice(0, 10);
+  const daiThat = await req('POST', '/api/leave', {
+    cookie: PH, body: { studentId: 's1', fromDate: homNay, toDate: motThang, reason: 'Bé mổ ruột thừa, nghỉ một tháng' },
+  });
+  check('nghỉ một tháng — vẫn gửi được bình thường',
+    daiThat.status === 200 || daiThat.status === 201,
+    `${daiThat.status} ${daiThat.data?.error || ''}`);
+
+  const motNgay = await req('POST', '/api/leave', {
+    cookie: PH, body: { studentId: 's1', fromDate: homNay, toDate: homNay, reason: 'Bé sốt nhẹ' },
+  });
+  check('nghỉ một ngày — vẫn gửi được bình thường',
+    motNgay.status === 200 || motNgay.status === 201, motNgay.status);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

@@ -12,6 +12,19 @@ const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_LY_DO = 1000;
+// Trần độ dài KHOẢNG NGÀY của một đơn xin nghỉ.
+//
+// Cùng lý do với trần độ dài lý do ngay trên: đây là đường PHỤ HUYNH gọi được,
+// và app chưa có đường nào xoá một đơn đã gửi. Nhưng hậu quả ở đây nặng hơn hẳn
+// một màn hình dài: đơn đã duyệt kéo theo hai thứ có thật ngoài đời — bé bị
+// đánh dấu nghỉ suốt khoảng đó ở màn Điểm danh, và màn Báo ăn gợi ý cho văn
+// phòng HOÀN TIỀN ĂN đúng số ngày ấy.
+//
+// Gõ nhầm một chữ số ở ô năm (2026 → 2027) là bé "nghỉ" cả năm và văn phòng
+// nhận gợi ý hoàn hơn hai trăm ngày tiền ăn. 60 ngày đủ rộng cho một đợt nghỉ
+// dài thật (mổ, về quê một học kỳ hè), và một đợt dài hơn thì đúng ra phải là
+// cuộc nói chuyện với nhà trường chứ không phải một đơn gửi qua app.
+const TOI_DA_NGAY_NGHI = 60;
 const TOI_DA_GHI_CHU_DUYET = 500;
 
 // Hai giá trị, cố ý là CHỮ chứ không phải 0/1 — xem chú thích bảng `leave_refund`.
@@ -81,6 +94,15 @@ module.exports = (app) => {
     }
     if (fromDate > toDate) {
       return res.status(400).json({ error: 'Ngày bắt đầu phải trước hoặc trùng ngày kết thúc' });
+    }
+    const soNgay = Math.round(
+      (Date.parse(`${toDate}T00:00:00Z`) - Date.parse(`${fromDate}T00:00:00Z`)) / 86400000) + 1;
+    if (!Number.isFinite(soNgay) || soNgay > TOI_DA_NGAY_NGHI) {
+      return res.status(400).json({
+        error: `Đơn xin nghỉ dài ${Number.isFinite(soNgay) ? soNgay : '?'} ngày — `
+          + `mỗi đơn chỉ xin nghỉ tối đa ${TOI_DA_NGAY_NGHI} ngày. `
+          + 'Xin gia đình kiểm lại năm ở hai ô ngày giúp; nghỉ dài hơn thì nhờ liên hệ nhà trường.',
+      });
     }
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập lý do xin nghỉ cho con' });
