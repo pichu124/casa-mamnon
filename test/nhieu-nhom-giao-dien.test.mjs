@@ -331,14 +331,18 @@ console.log('\n[6] CẤP 3 TRÊN TRÌNH DUYỆT THẬT — không thấy bé c�
   //
   // Thiếu câu 2 là bẫy đã sập một lần ngay trong đợt này: bản đầu của mục này
   // mở `#/students`, mà phân hệ đó đang TẮT trong dữ liệu mẫu — màn hình hiện
-  // "Phân hệ này hiện đang được nhà trường tắt", không có tên bé nào, nên phép
-  // kiểm "không lọt tên bé của cơ sở khác" báo xanh mà chẳng kiểm gì.
+  // màn "Không mở được", không có tên bé nào, nên phép kiểm "không lọt tên bé
+  // của cơ sở khác" báo xanh mà chẳng kiểm gì.
+  //
+  // Bắt theo TIÊU ĐỀ "Không mở được", không bắt theo câu giải thích: từ Đ54 câu
+  // đó đổi theo lý do (nhà trường tắt / ngoài vai / ngoài chức vụ / sự cố), còn
+  // tiêu đề thì chung cho cả bốn.
   for (const [hash, ten] of [['#/attendance', 'Điểm danh']]) {
     await page.goto(`${BASE}/${hash}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1200);
     const chu = await page.locator('body').innerText();
     check(`${ten}: Cấp 3 mở được, không rơi vào màn lỗi hay màn "đang tắt"`,
-      !/Có lỗi xảy ra|đang được nhà trường tắt/.test(chu), chu.slice(0, 150));
+      !/Có lỗi xảy ra|Không mở được/.test(chu), chu.slice(0, 150));
     check(`${ten}: MÀN CÓ HIỆN TÊN BÉ — nếu không thì phép kiểm sau vô nghĩa`,
       chu.includes(beCs1.name), `không thấy "${beCs1?.name}" trên ${hash}`);
     check(`${ten}: KHÔNG lọt tên bé của cơ sở khác lên màn hình`,

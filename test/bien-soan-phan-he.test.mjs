@@ -476,7 +476,18 @@ console.log('\n[9] Gia đình không có đường ghi ở những màn không p
     await moMan(hash);
     const chu = await chuTrenMan();
     check(`${ten} — gia đình bị chặn ở cửa, có lời báo tử tế`,
-      /Không dùng được|không có quyền|chưa được mở/i.test(chu), chu.slice(0, 160));
+      /Không mở được|không có quyền|chưa được mở/i.test(chu), chu.slice(0, 160));
+
+    // VÀ LỜI BÁO ĐÓ PHẢI NÓI ĐÚNG SỰ THẬT (Đ54).
+    //
+    // Trước Đ54 màn này nói "phân hệ đang được nhà trường tắt" cho mọi trường
+    // hợp. Ba phân hệ ở đây thì nhà trường KHÔNG hề tắt — chúng chỉ không dành
+    // cho gia đình. Một phụ huynh đọc câu cũ rồi gọi lên văn phòng hỏi vì sao
+    // trường tắt mất phần của mình là chuyện sẽ xảy ra thật.
+    check(`${ten} — và lời báo nói ĐÚNG lý do, không đổ cho nhà trường tắt`,
+      /chỉ dành cho cô và văn phòng/.test(chu) && !/nhà trường .*tắt|tắt phần/.test(chu),
+      chu.slice(0, 200));
+
     check(`${ten} — và không có đường ghi nào lọt ra`,
       await page.locator(nut).count() === 0);
   }

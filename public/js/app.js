@@ -181,6 +181,46 @@ window.App = {
     return this.state.modules.some(m => m.view === viewName);
   },
 
+  // MÀN "KHÔNG MỞ ĐƯỢC" PHẢI NÓI ĐÚNG LÝ DO.
+  //
+  // `state.modules` là danh sách máy chủ đã lọc qua BỐN tầng khác hẳn nhau:
+  // nhà trường tắt, ngoài vai trò, ngoài phần việc của chức vụ, và phân hệ
+  // đang lỗi. Trình duyệt chỉ thấy "không có trong danh sách", nên câu cũ
+  // đoán đúng một lý do — *"phân hệ này hiện đang được nhà trường tắt"*.
+  //
+  // Nó đoán sai đúng vào trường hợp hay gặp nhất: gia đình mở một địa chỉ chỉ
+  // dành cho trường. Nhà trường không tắt gì cả; còn phụ huynh đọc câu đó rồi
+  // gọi lên văn phòng hỏi vì sao trường tắt mất phần của mình, và văn phòng
+  // không hiểu họ đang nói về cái gì.
+  //
+  // VẼ CÂU TRUNG TÍNH TRƯỚC, RỒI MỚI HỎI MÁY CHỦ. Mất mạng thì màn hình vẫn
+  // đúng, chỉ ít chi tiết hơn — không bao giờ trắng, và không bao giờ nói sai.
+  async baoKhongMoDuoc(root, name) {
+    const ve = (loi) => { root.innerHTML = UI.pageHeader('Không mở được') + UI.emptyState('🔒', loi); };
+    ve('Phần này không mở trong tài khoản của bạn.');
+
+    let r = null;
+    try { r = await API.get(`/api/modules/vi-sao/${encodeURIComponent(name)}`); } catch (_) { return; }
+    if (!r || !r.ly) return;
+    // Cô có thể đã bấm đi màn khác trong lúc chờ mạng — đừng vẽ đè lên đó.
+    if ((location.hash.replace(/^#\/?/, '') || '').split('/')[0] !== name) return;
+    ve(this.loiKhongMoDuoc(r));
+  },
+
+  loiKhongMoDuoc(r) {
+    const ten = r.ten ? `“${r.ten}”` : 'này';
+    if (r.ly === 'tat') return `Nhà trường hiện đang tắt phần ${ten}.`;
+    if (r.ly === 'su-co') return `Phần ${ten} đang gặp sự cố. Các phần khác vẫn dùng bình thường.`;
+    if (r.ly === 'ngoai-vai') {
+      return r.danhCho === 'gia-dinh'
+        ? `Phần ${ten} chỉ dành cho gia đình các bé.`
+        : `Phần ${ten} chỉ dành cho cô và văn phòng nhà trường.`;
+    }
+    if (r.ly === 'ngoai-chuc-vu') return `Phần ${ten} nằm ngoài phần việc của tài khoản này.`;
+    if (r.ly === 'khong-co') return 'Không có phần nào ở địa chỉ này. Bấm Trang chủ để quay lại.';
+    return 'Phần này không mở trong tài khoản của bạn.';
+  },
+
   onUnauthorized() { this.showLogin(); },
 
   // MÀN HÌNH KHI MÁY KHÔNG CÓ MẠNG.
@@ -282,8 +322,7 @@ window.App = {
 
     // Vào thẳng đường dẫn của phân hệ đã tắt thì báo rõ thay vì hiện màn hình trống.
     if (!LUON_CO.includes(name) && !this.moduleEnabled(name)) {
-      root.innerHTML = UI.pageHeader('Không dùng được') +
-        UI.emptyState('🔒', 'Phân hệ này hiện đang được nhà trường tắt.');
+      this.baoKhongMoDuoc(root, name);
       this.renderBottomNav('dashboard');
       return;
     }
