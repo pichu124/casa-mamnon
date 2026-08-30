@@ -128,12 +128,25 @@ for (const file of fs.readdirSync(routesDir).sort()) {
 modules.napApiMoRong(app);
 
 // Phục vụ tệp giao diện của phân hệ mở rộng: /modules/<thư mục>/view.js
-app.use('/modules', express.static(modules.MODULES_DIR, {
-  index: false,
-  setHeaders(res, filePath) {
-    if (!filePath.endsWith('view.js')) res.status(404);
-  },
-}));
+//
+// CHẶN TRƯỚC KHI MỞ TỆP, KHÔNG ĐÁNH DẤU 404 LÚC ĐÃ MUỘN.
+//
+// Bản trước đặt `res.status(404)` trong `setHeaders` của `express.static`.
+// Nhưng `setHeaders` chạy TRƯỚC khi luồng tệp được mở (send gọi `setHeader()`
+// rồi mới `stream()`), nên nó chỉ đổi con số ở dòng đầu — THÂN TỆP VẪN ĐƯỢC GỬI
+// ĐI ĐỦ. Nghĩa là `routes.js`, `schema.sql` và `module.json` của mọi phân hệ
+// tải về được nguyên vẹn, kể cả khi chưa đăng nhập; chỉ khác là kèm mã 404 nên
+// không ai để ý.
+//
+// `schema.sql` lộ toàn bộ tên bảng và tên cột; `routes.js` lộ đúng chỗ nào canh
+// quyền và canh bằng gì. Đây là bản đồ cho người muốn tìm lỗ tiếp theo.
+app.use('/modules', (req, res, next) => {
+  if (!req.path.endsWith('/view.js')) {
+    return res.status(404).type('text/plain; charset=utf-8').send('Không tìm thấy tệp.');
+  }
+  return next();
+});
+app.use('/modules', express.static(modules.MODULES_DIR, { index: false }));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {

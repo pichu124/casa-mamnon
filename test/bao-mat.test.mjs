@@ -185,6 +185,44 @@ console.log('\n[9] Chống dò mật khẩu');
   check('thông báo khóa bằng tiếng Việt, có nêu thời gian', /phút/.test(blocked.data?.error || ''), blocked.data);
 }
 
+console.log('\n[+] /modules CHỈ ĐƯỢC PHỤC VỤ view.js — mã nguồn và lược đồ không được tải về');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `server.js` chặn bằng `setHeaders(res, filePath) { if (!filePath.endsWith('view.js'))
+  // res.status(404); }`. Nhưng `setHeaders` chạy TRƯỚC khi luồng tệp được mở —
+  // send gọi `setHeader()` rồi mới `stream()` — nên nó chỉ đổi con số ở dòng
+  // đầu, THÂN TỆP VẪN GỬI ĐI ĐỦ. Mã 404 làm chuyện này khó thấy chứ không chặn
+  // được gì.
+  //
+  // `schema.sql` lộ toàn bộ tên bảng và tên cột; `routes.js` lộ đúng chỗ nào
+  // canh quyền và canh bằng gì. Đây là bản đồ cho người muốn tìm lỗ tiếp theo.
+  const doc = async (duong, cookie) => {
+    const r = await fetch(BASE + duong, { headers: cookie ? { Cookie: cookie } : {} });
+    return { status: r.status, than: await r.text() };
+  };
+
+  // VẾ KHẲNG ĐỊNH TRƯỚC: view.js PHẢI tải về được, nếu không cả app hỏng.
+  const view = await doc('/modules/thuchup/view.js');
+  check('view.js của phân hệ vẫn tải về được bình thường',
+    view.status === 200 && view.than.includes('App.views'), `${view.status} ${view.than.slice(0, 80)}`);
+
+  for (const tep of ['routes.js', 'schema.sql', 'module.json']) {
+    const r = await doc(`/modules/thuchup/${tep}`);
+    check(`/modules/thuchup/${tep} → 404`, r.status === 404, r.status);
+    // ĐÂY MỚI LÀ PHÉP KIỂM THẬT: đo THÂN phản hồi, không đo con số ở dòng đầu.
+    check(`và KHÔNG gửi kèm nội dung tệp ${tep}`,
+      r.than.length < 200 && !/db\.all|CREATE TABLE|"key"/.test(r.than),
+      `${r.than.length} byte: ${r.than.slice(0, 120)}`);
+  }
+
+  // Và chưa đăng nhập cũng vậy — đây là đường tĩnh, không qua tầng phiên.
+  const chuaDangNhap = await doc('/modules/hanhtrinh/schema.sql');
+  check('chưa đăng nhập cũng không tải được lược đồ của phân hệ',
+    chuaDangNhap.status === 404 && !/CREATE TABLE/.test(chuaDangNhap.than),
+    `${chuaDangNhap.status} ${chuaDangNhap.than.slice(0, 120)}`);
+}
+
 server.kill('SIGTERM');
 donThuMucTam(TEST_DIR);
 
