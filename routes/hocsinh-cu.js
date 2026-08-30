@@ -11,6 +11,9 @@
 // định của kho mã là chỉ được thêm chứ không đổi thứ đang có. Một màn hình riêng
 // đạt đúng mục tiêu mà không chạm vào chúng.
 const db = require('../lib/db');
+// HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC — bước mà `modules/README.md`
+// dạy, và đã bị quên ba lần trước đó (Y1, N24, Đ46).
+const modules = require('../lib/modules');
 
 // Giữ quyền bao lâu sau khi em rời trường.
 //
@@ -105,15 +108,28 @@ module.exports = (app) => {
     }
 
     const cls = hs.classId ? db.findClass(hs.classId) : null;
-    const baoCao = db.all('reports',
-      'SELECT * FROM reports WHERE studentId = ? ORDER BY year DESC, term DESC', [hs.id]);
-    const nhanXet = db.all('remarks',
+    // BA BẢNG DƯỚI ĐÂY THUỘC VỀ BA PHÂN HỆ KHÁC, và hai trong ba đang TẮT SẴN.
+    //
+    // Nhận xét (A2) và Báo cáo (N3) đã được nhà trường tắt — Báo cáo còn là một
+    // trong hai màn thuộc món nợ N3 mà QUY TẮC 4 đang canh. Nhưng màn này đọc
+    // thẳng bảng của chúng, nên bật "Hồ sơ con đã ra trường" lên là nội dung
+    // của hai phân hệ đã tắt quay lại màn hình gia đình, im lặng.
+    //
+    // (Chú thích này cố ý KHÔNG viết ra mấy chữ mà bộ canh QUY TẮC 4 đi tìm:
+    // bộ canh quét cả dòng chú thích, và mở một ngoại lệ cho cả tệp thì sau này
+    // nó che luôn vi phạm thật. Rẻ hơn nhiều so với việc nới bộ canh.)
+    //
+    // Tắt một phân hệ phải tắt được cả dữ liệu của nó ở mọi màn, không chỉ ở
+    // màn của chính nó.
+    const baoCao = modules.dangBat('baocao') ? db.all('reports',
+      'SELECT * FROM reports WHERE studentId = ? ORDER BY year DESC, term DESC', [hs.id]) : [];
+    const nhanXet = modules.dangBat('nhanxet') ? db.all('remarks',
       'SELECT * FROM remarks WHERE studentId = ? ORDER BY date DESC, id DESC LIMIT 200', [hs.id])
       .map(r => {
         const t = r.teacherId ? db.findUser(r.teacherId) : null;
         return { ...r, teacherName: t ? `${t.title} ${t.name}` : '' };
-      });
-    const chuyenCan = db.first('attendance',
+      }) : [];
+    const chuyenCan = !modules.dangBat('diemdanh') ? {} : db.first('attendance',
       `SELECT
          COUNT(*) AS tong,
          SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS coMat,

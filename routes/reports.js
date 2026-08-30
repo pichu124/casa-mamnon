@@ -3,6 +3,8 @@
 // từ dữ liệu điểm danh của đúng học kỳ đó — nhập tay dễ lệch với sổ điểm danh.
 const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
+// Hỏi công tắc trước khi đọc bảng của phân hệ khác (modules/README.md).
+const modules = require('../lib/modules');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
 const TOI_DA_MON = 15;
@@ -25,7 +27,9 @@ function khoangHocKy(term, year) {
 // Đếm chuyên cần của học sinh trong một học kỳ từ bảng điểm danh.
 function tinhChuyenCan(studentId, term, year) {
   const { tu, den } = khoangHocKy(term, year);
-  const rows = db.all('attendance',
+  // Nhà trường tắt Điểm danh thì bảng này ngưng được cập nhật. Đếm tiếp là in
+  // ra một con số chuyên cần trông như thật nhưng dừng lại ở ngày tắt.
+  const rows = !modules.dangBat('diemdanh') ? [] : db.all('attendance',
     'SELECT status FROM attendance WHERE studentId = ? AND date BETWEEN ? AND ?', [studentId, tu, den]);
   return {
     present: rows.filter(r => r.status === 'present').length,

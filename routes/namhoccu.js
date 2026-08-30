@@ -15,6 +15,11 @@
 // Đây là đường CHỈ ĐỌC. Không có bất kỳ đường ghi nào.
 const db = require('../lib/db');
 const lsl = require('../lib/lich-su-lop');
+// HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC — bước mà `modules/README.md`
+// dạy. Màn này BẬT SẴN cho mọi gia đình và đọc bảng của BỐN phân hệ khác, nên
+// nhà trường tắt Thông báo / Khảo sát / Kế hoạch / Lịch sinh hoạt mà dữ liệu
+// của chúng vẫn hiện ra ở đây thì công tắc kia coi như không có tác dụng.
+const modules = require('../lib/modules');
 
 // Mỗi mục nội dung chỉ được trả về nếu nó thuộc lớp con từng học VÀ rơi vào đúng
 // khoảng con còn ở lớp đó. Album có mặt nhiều trẻ khác, thông báo lớp nhắc tên
@@ -56,7 +61,7 @@ module.exports = (app) => {
     const lop = db.findClass(k.classId);
     const hs = db.findStudent(k.studentId);
 
-    const thongBao = db.all('notifications',
+    const thongBao = !modules.dangBat('thongbao') ? [] : db.all('notifications',
       `SELECT * FROM notifications WHERE audience = ? ORDER BY createdAt DESC`, [k.classId])
       .filter(n => trongKhoang(k, n.createdAt))
       .map(n => {
@@ -68,20 +73,21 @@ module.exports = (app) => {
         };
       });
 
-    const khaoSat = db.all('surveys',
+    const khaoSat = !modules.dangBat('khaosat') ? [] : db.all('surveys',
       `SELECT * FROM surveys WHERE audience = ? ORDER BY createdAt DESC`, [k.classId])
       .filter(s => trongKhoang(k, s.createdAt))
       .map(s => ({ id: s.id, title: s.title, createdAt: s.createdAt, deadline: s.deadline }));
 
     // Kế hoạch giáo dục ghi theo tháng: dựng ngày mùng 1 của tháng đó để so.
-    const keHoach = db.all('edu_plans',
+    const keHoach = !modules.dangBat('kehoach') ? [] : db.all('edu_plans',
       'SELECT * FROM edu_plans WHERE classId = ? ORDER BY year DESC, month DESC', [k.classId])
       .filter(p => trongKhoang(k, `${p.year}-${String(p.month).padStart(2, '0')}-01`));
 
     // Thời khóa biểu không có ngày — nó là ảnh chụp hiện trạng của lớp. Trả về
     // nguyên bản của lớp cũ, kèm lời nhắc rõ để gia đình không hiểu nhầm là
     // thời khóa biểu đúng của từng tuần trong năm đó.
-    const tkb = db.first('timetable', 'SELECT * FROM timetable WHERE classId = ?', [k.classId]) || null;
+    const tkb = !modules.dangBat('tkb') ? null
+      : (db.first('timetable', 'SELECT * FROM timetable WHERE classId = ?', [k.classId]) || null);
 
     res.json({
       khoang: {

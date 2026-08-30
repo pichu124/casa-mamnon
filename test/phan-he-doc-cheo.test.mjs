@@ -47,6 +47,23 @@ const BANG_LOI = {
   leave_refund: 'xinphep',
   menus: 'thucdon',
   timetable: 'tkb',
+  // Thêm sau đợt soát 30/08: `routes/hocsinh-cu.js` đọc `reports` + `remarks`,
+  // `routes/namhoccu.js` đọc `notifications` + `surveys` + `edu_plans`. Cả năm
+  // bảng này đều thuộc phân hệ TẮT ĐƯỢC, hai trong số đó đang tắt sẵn — mà
+  // trước đó không có tên nào ở đây nên bộ canh không thấy gì.
+  reports: 'baocao',
+  remarks: 'nhanxet',
+  notifications: 'thongbao',
+  surveys: 'khaosat',
+  survey_responses: 'khaosat',
+  edu_plans: 'kehoach',
+  conduct: 'nenep',
+  health: 'yte',
+  medicine_requests: 'danthuoc',
+  albums: 'album',
+  album_photos: 'album',
+  bus_routes: 'xebuyt',
+  messages: 'nhantin',
 };
 
 const thuMucPhanHe = fs.readdirSync(path.join(GOC, 'modules'), { withFileTypes: true })
@@ -131,6 +148,56 @@ let soCapDaSoi = 0;
 }
 
 // ===========================================================================
+// ===========================================================================
+console.log('\n[2b] PHẦN LÕI CŨNG PHẢI HỎI CÔNG TẮC — không chỉ phân hệ cắm thêm');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Mục [2] chỉ quét `modules/*/routes.js`. Nhưng phần lõi cũng có phân hệ TẮT
+  // ĐƯỢC — mỗi tệp `routes/<x>.js` thuộc về một mục trong `CORE` — và chúng đọc
+  // bảng của nhau y hệt. Đợt soát 30/08 tìm được hai chỗ mà mục [2] không thể
+  // thấy:
+  //
+  //   • `routes/hocsinh-cu.js` đọc thẳng `reports` và `remarks` — hai phân hệ
+  //     ĐANG TẮT SẴN (A2, N3), một trong hai là màn xếp hạng trẻ mà QUY TẮC 4
+  //     cấm. Bật "Hồ sơ con đã ra trường" lên là chúng quay lại màn hình gia
+  //     đình, im lặng.
+  //   • `routes/namhoccu.js` — BẬT SẴN cho mọi gia đình — đọc bảng của BỐN
+  //     phân hệ khác. Nhà trường tắt Thông báo hay Khảo sát mà dữ liệu vẫn hiện
+  //     ra ở đây thì công tắc kia coi như không có tác dụng.
+  //
+  // Ánh xạ tệp → phân hệ lấy thẳng từ `mods.tepRoute`, không viết tay, nên thêm
+  // phân hệ lõi mới là mục này tự soi luôn.
+  const CORE = (mods.tatCa ? mods.tatCa() : []).filter(m => !m.moRong);
+  const capTep = [];
+  for (const m of CORE) {
+    const ten = mods.tepRoute ? mods.tepRoute(m) : null;
+    if (!ten) continue;
+    const duong = path.join(GOC, 'routes', ten);
+    if (fs.existsSync(duong)) capTep.push({ ma: m.key, tep: ten, duong });
+  }
+  check('suy được tệp route của phần lõi từ lib/modules.js, không viết tay',
+    capTep.length >= 10, capTep.length);
+
+  let soCap = 0;
+  for (const { ma: toi, tep, duong } of capTep) {
+    const nguon = fs.readFileSync(duong, 'utf8');
+    const chuKhac = new Set();
+    for (const bang of bangTrongTep(nguon)) {
+      const chu = chuCuaBang(bang);
+      if (chu && chu !== toi) chuKhac.add(chu);
+    }
+    for (const chu of [...chuKhac].sort()) {
+      soCap += 1;
+      const hoi = new RegExp(`dangBat\\(\\s*['"]${chu}['"]`).test(nguon);
+      check(`routes/${tep} (${toi}) đọc bảng của ${chu} → phải gọi dangBat('${chu}')`, hoi,
+        `Thêm \`modules.dangBat('${chu}')\` trước câu truy vấn trong routes/${tep}.`);
+    }
+  }
+  check('có soi được cặp nào không — nếu 0 thì bộ rút tên bảng đang mù',
+    soCap > 0, soCap);
+}
+
 console.log('\n[3] PHÉP THỬ NGƯỢC — bộ rút tên bảng có bắt được thật không');
 {
   const thu = (ma) => [...bangTrongTep(ma)];

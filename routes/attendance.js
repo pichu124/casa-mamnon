@@ -3,6 +3,8 @@ const db = require('../lib/db');
 const ngay = require('../lib/ngay');
 const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
+// Hỏi công tắc trước khi đọc bảng của phân hệ khác (modules/README.md).
+const modules = require('../lib/modules');
 
 const STATUSES = ['present', 'late', 'absent_excused', 'absent_unexcused'];
 
@@ -73,9 +75,13 @@ module.exports = (app) => {
       // nên một đơn từ thứ Sáu đến thứ Hai sẽ sinh cả thứ Bảy và Chủ nhật, thổi
       // phồng số buổi nghỉ trong báo cáo học kỳ — đúng con số mà việc này định
       // cứu. Muốn làm phần đó phải có lịch năm học trước.
-      for (const d of db.all('leave_requests',
+      // Nhà trường tắt Xin phép thì sổ đơn nghỉ không còn ai cập nhật. Đọc
+      // tiếp là gắn nhãn "có đơn nghỉ" cho bé theo một cuốn sổ đã ngưng — cùng
+      // hạng lỗi với Đ46, chỉ khác chỗ.
+      const donHopLe = modules.dangBat('xinphep') ? db.all('leave_requests',
         `SELECT * FROM leave_requests WHERE status = 'approved' AND fromDate <= ? AND toDate >= ?
-           AND studentId IN (${marks})`, [date, date, ...ids])) {
+           AND studentId IN (${marks})`, [date, date, ...ids]) : [];
+      for (const d of donHopLe) {
         donNghi.set(d.studentId, { id: d.id, fromDate: d.fromDate, toDate: d.toDate, reason: d.reason });
       }
     }
