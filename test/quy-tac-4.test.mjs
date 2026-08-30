@@ -142,6 +142,41 @@ const NO_DA_BIET = {
   'routes/reports.js': { so: 9, vi_sao: 'Học bạ: máy chủ kiểm điểm 0–10. Gỡ ở N3.' },
 };
 
+// XẾP TRẺ BA BẬC MÀ KHÔNG DÙNG MỘT CHỮ NÀO TRONG NĂM DẤU HIỆU TRÊN.
+//
+// `public/js/ui.js` có hằng `UI.RATING`: ba mức "Con làm rất tốt" / "Con làm
+// tốt" / "Cần cố gắng thêm", kế thừa từ app 1. Ba mức xếp trên dưới về một
+// đứa trẻ là đúng thứ QUY TẮC 4 cấm — nhưng nó không nói "điểm", không nói
+// "xếp hạng", không nói "thi đua", và tên trường là `rating` chứ không phải
+// `score`. Nên cả năm dấu hiệu trên đều trượt, kể cả sau khi vùng quét đã mở
+// rộng tới `public/js/ui.js`.
+//
+// VÌ SAO LÀ MỘT BÁNH CÓC RIÊNG, KHÔNG PHẢI THÊM VÀO `NO_DA_BIET`
+//
+// Luật của mục [2b] là "danh sách tệp chỉ được NGẮN ĐI". Ghi bốn tệp này vào
+// `NO_DA_BIET` là làm danh sách đó DÀI RA — tức phải nới một bộ canh bất khả
+// xâm phạm để bịt một lỗ của chính nó. Đổi lại: một bánh cóc thứ hai, siết
+// từ lúc sinh ra, còn bánh cóc cũ không bị chạm một dòng nào.
+//
+// Hôm nay chưa gia đình nào nhìn thấy ba mức đó: cả Nhận xét hàng ngày (A2)
+// lẫn Hồ sơ con đã ra trường (Đ5) đều TẮT SẴN. Nhưng "đang tắt" không phải là
+// "đã gỡ" — bật lại một trong hai màn là ba mức hiện lên ngay, và trước bộ
+// canh này thì không có gì kêu một tiếng.
+const DAU_HIEU_BA_MUC = [
+  { ten: 'mã của mức thấp nhất', re: /\bneeds_effort\b|\bneedsEffort\b/ },
+  { ten: 'nhãn xếp trẻ trên dưới', re: /Cần cố gắng thêm|Con làm rất tốt|Cần cố gắng</ },
+  { ten: 'bảng ba mức đánh giá trẻ', re: /\bUI\.RATING\b|^\s*const RATINGS?\s*[=]/ },
+];
+
+// Sổ nợ RIÊNG của mẫu ba mức. Cùng luật bánh cóc: chỉ được giảm.
+const NO_BA_MUC = {
+  'public/js/ui.js': { so: 3, vi_sao: 'Hằng UI.RATING — ba mức kế thừa từ app 1. Tệp DÙNG CHUNG, gỡ phải đi ba bước.' },
+  'public/js/views/remarks.js': { so: 4, vi_sao: 'Nhận xét hàng ngày — đã tắt sẵn từ A2. Gỡ cùng N3.' },
+  'public/js/views/hocsinhcu.js': { so: 1, vi_sao: 'Hồ sơ con đã ra trường — đã tắt sẵn từ Đ5. Gỡ cùng N3.' },
+  'routes/remarks.js': { so: 1, vi_sao: 'Máy chủ nhận ba mức đó. Gỡ cùng N3.' },
+};
+const TEP_NO_BA_MUC = Object.keys(NO_BA_MUC);
+
 // Danh sách tệp còn nợ, KHOÁ CỨNG. Chỉ được ngắn đi.
 const TEP_CON_NO = Object.keys(NO_DA_BIET);
 
@@ -165,7 +200,7 @@ function cacTep(muc) {
   return ra;
 }
 
-export function quet(vung = VUNG_QUET) {
+export function quet(vung = VUNG_QUET, dauHieu = DAU_HIEU) {
   const theoTep = {};
   for (const muc of vung) {
     for (const tep of cacTep(muc)) {
@@ -174,7 +209,7 @@ export function quet(vung = VUNG_QUET) {
       const dongs = fs.readFileSync(tep, 'utf8').split('\n');
       dongs.forEach((dong, i) => {
         if (nl.some((n) => n.chiDong(dong))) return;
-        const hit = DAU_HIEU.filter((d) => d.re.test(dong));
+        const hit = dauHieu.filter((d) => d.re.test(dong));
         if (!hit.length) return;
         (theoTep[tuongDoi] ||= []).push({ dong: i + 1, dau: hit.map((h) => h.ten).join(', '), trich: dong.trim().slice(0, 100) });
       });
@@ -220,6 +255,42 @@ console.log('\n[2b] Danh sách tệp còn nợ chỉ được NGẮN ĐI, không
   check('mọi tệp còn nợ đều tồn tại thật — sổ nợ không có mục ruỗng',
     TEP_CON_NO.every(t => fs.existsSync(path.join(GOC, t))),
     TEP_CON_NO.filter(t => !fs.existsSync(path.join(GOC, t))));
+}
+
+// ===========================================================================
+console.log('\n[2c] Mẫu XẾP TRẺ BA BẬC — bánh cóc riêng, siết từ lúc sinh ra');
+{
+  const theoTep = quet(VUNG_QUET, DAU_HIEU_BA_MUC);
+
+  // TRƯỚC HẾT: cái thước phải đo được thật. Không có phép kiểm này thì cả mục
+  // vẫn xanh kể cả khi ba mẫu regex trên không khớp một dòng nào — đúng kiểu
+  // bài canh luôn đúng mà CLAUDE.md dặn phải nêu.
+  check('bộ dò có thật sự nhìn thấy mẫu ba mức đang tồn tại',
+    Object.keys(theoTep).length > 0, theoTep);
+
+  const moi = Object.keys(theoTep).filter((t) => !NO_BA_MUC[t]);
+  check('KHÔNG chỗ nào mới chép lại mẫu ba mức xếp trẻ trên dưới',
+    moi.length === 0,
+    moi.map((t) => `${t}: ${theoTep[t].map((v) => v.dong + ' ' + v.trich).join(' | ')}`).slice(0, 5));
+
+  for (const [tep, { so, vi_sao }] of Object.entries(NO_BA_MUC)) {
+    const thuc = (theoTep[tep] || []).length;
+    check(`${tep} — nợ ≤ ${so} dòng (${vi_sao})`, thuc <= so, `đang là ${thuc}`);
+    if (thuc < so) {
+      console.log(`      ↓ đã giảm còn ${thuc}/${so} — hạ con số trong NO_BA_MUC xuống để siết chặt thêm.`);
+    }
+  }
+
+  check('danh sách tệp nợ mẫu ba mức chỉ được NGẮN ĐI',
+    TEP_NO_BA_MUC.length === 4, TEP_NO_BA_MUC);
+  check('mọi tệp trong sổ nợ này đều tồn tại thật',
+    TEP_NO_BA_MUC.every(t => fs.existsSync(path.join(GOC, t))),
+    TEP_NO_BA_MUC.filter(t => !fs.existsSync(path.join(GOC, t))));
+
+  // Hai bánh cóc phải TÁCH BẠCH. Trộn vào nhau là mục [2b] ("đúng bốn tệp của
+  // phần tiểu học") hỏng ngay, và đó là bộ canh bất khả xâm phạm.
+  check('bánh cóc cũ không bị chạm — vẫn đúng bốn tệp Nề nếp/Báo cáo',
+    TEP_CON_NO.length === 4 && TEP_CON_NO.every(t => /conduct|reports/.test(t)), TEP_CON_NO);
 }
 
 // ===========================================================================

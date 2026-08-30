@@ -601,5 +601,24 @@ bắt được, kể cả sau khi Đ25 mở rộng vùng quét tới `ui.js`.
 | 2 | **Thêm một dấu hiệu cho bộ canh QUY TẮC 4 bắt được ba mức này, và ghi `ui.js` vào sổ nợ N3** | Từ nay không ai vô tình chép mẫu ba-mức sang chỗ khác | Phải nới luật "danh sách tệp nợ chỉ được ngắn đi" của `test/quy-tac-4.test.mjs` — mà đó là bộ canh bất khả xâm phạm, nên **phải hỏi** |
 | 3 | Gỡ `UI.RATING` theo ba bước của luật tệp dùng chung | Sạch hẳn | Thuộc phần gỡ chưa được duyệt |
 
-Đường 2 chỉ đắt ở chỗ nó đụng vào một bộ canh bất khả xâm phạm. Cần một câu
-"được" của anh là làm trong một commit.
+**ĐÃ CHỐT (Đ55, 30/08/2026) — làm đường 2, và làm được mà KHÔNG nới bộ canh cũ.**
+
+Chỗ đắt của đường 2 là nó tưởng như bắt buộc phải nới luật *"danh sách tệp nợ
+chỉ được ngắn đi"* của `test/quy-tac-4.test.mjs` — một bộ canh bất khả xâm
+phạm. Nhưng không cần: thay vì ghi bốn tệp vào `NO_DA_BIET`, đợt này dựng một
+**bánh cóc thứ hai** (`DAU_HIEU_BA_MUC` + `NO_BA_MUC` + mục `[2c]`), siết chặt
+ngay từ lúc sinh ra và có phép kiểm riêng canh cho nó chỉ ngắn đi.
+
+Bánh cóc cũ **không bị chạm một dòng nào** — mục `[2c]` còn có một phép kiểm
+đòi đúng điều đó, để lần sau không ai gộp hai sổ nợ làm một rồi làm hỏng mục
+`[2b]`.
+
+Bốn tệp trong sổ nợ mới: `public/js/ui.js` (3 dòng), `public/js/views/remarks.js`
+(4), `public/js/views/hocsinhcu.js` (1), `routes/remarks.js` (1). Gỡ hẳn vẫn
+thuộc phần chưa được duyệt, và với `ui.js` thì còn phải đi đủ ba bước của luật
+tệp dùng chung.
+
+*Vì sao tự chốt:* anh dặn *"việc nào cần hỏi ý kiến thì làm theo hướng bạn
+thấy tốt nhất, ghi lại rồi báo"*. Đường 2 là hướng tốt nhất vì nó không gỡ gì,
+không nới gì, và từ nay không ai chép được mẫu ba mức sang chỗ mới mà bộ canh
+im lặng.
