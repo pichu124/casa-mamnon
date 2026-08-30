@@ -342,7 +342,15 @@ console.log('\n[10] Chủ đề tuần — soạn được, chép được tuầ
   check('và nói rõ vì sao, chỉ cách sửa', /sửa trực tiếp/i.test(de.data?.error || ''), de.data?.error);
 
   // Chép sang tuần sau thì được.
-  const tuanSau = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  //
+  // TÍNH TỪ "HÔM NAY" CỦA MÁY CHỦ, KHÔNG TỪ `Date.now()`.
+  //
+  // Máy chủ chia tuần theo giờ Việt Nam (Đ2). Bản cũ cộng 7 ngày vào giờ UTC,
+  // nên trong khoảng 17h UTC tới nửa đêm — tức đã sang ngày mới ở Việt Nam —
+  // "tuần sau" tính ra lại rơi vào CHÍNH tuần này, và lượt chép bị từ chối vì
+  // tuần này đã có chủ đề. Đỏ vào buổi tối, xanh vào buổi sáng.
+  const tuanSau = new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) + 7 * 86400000)
+    .toISOString().slice(0, 10);
   const chep = await req('POST', '/api/hanhtrinh/chu-de/chep-tuan-truoc', {
     cookie: GV, body: { classId: 'c1', tuan: tuanSau },
   });

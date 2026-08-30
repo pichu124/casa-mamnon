@@ -260,7 +260,22 @@ console.log('\n[6] Bảng tháng đếm đúng: ngày ăn, ngày vắng, ngày h
   check('bé đi học hôm nay được tính là một ngày ăn ở trường',
     be?.soNgayAnOTruong >= 1, be);
 
-  const be4 = (d.danhSach || []).find(x => x.studentId === 's4');
+  // DỰNG TÌNH HUỐNG, KHÔNG TRÔNG VÀO DỮ LIỆU MẪU RƠI ĐÚNG CHỖ.
+  //
+  // Bản cũ chỉ đọc dữ liệu mẫu và mong trong tháng NÀY có sẵn một buổi vắng
+  // không phép của bé s4. Dữ liệu mẫu sinh điểm danh cho 20 ngày học gần nhất,
+  // nên buổi vắng ấy rơi vào tháng nào là tuỳ hôm chạy: ngày 31 của tháng thì
+  // gần hết 20 ngày ấy nằm ở tháng TRƯỚC, và bảng tháng này đếm ra 0.
+  //
+  // Đỏ vào cuối tháng, xanh giữa tháng — và cả hai lần đều không nói lên điều
+  // gì về phép đếm. Nay bài tự chấm một buổi vắng không phép rồi mới đếm.
+  const chamVang = await req('POST', '/api/attendance/mark', { cookie: GV, body: {
+    studentId: 's4', date: HOM_NAY, status: 'absent_unexcused' } });
+  check('đối chứng — chấm được một buổi vắng không phép cho bé s4',
+    chamVang.status === 200 || chamVang.status === 201, chamVang.status);
+
+  const d2 = (await req('GET', `/api/tienan/thang?thang=${THANG}`, { cookie: VP })).data;
+  const be4 = (d2.danhSach || []).find(x => x.studentId === 's4');
   check('bé điểm danh vắng không phép được đếm riêng',
     be4?.soNgayVangKhongPhep >= 1, be4);
 

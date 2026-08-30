@@ -9,7 +9,7 @@
 import path from 'path';
 import fs from 'fs';
 import { createRequire } from 'module';
-import { GOC, dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, batPhanHe, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
+import { GOC, dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, batPhanHe, taoBoDem, taoReq, taoLogin, HOM_NAY } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan');
 sinhDuLieu(DIR);
@@ -137,12 +137,24 @@ console.log('\n[5] TKB — quản trị sửa lớp bất kỳ, lập mới cho 
 
 // Tính ngày giống hệt máy chủ (cùng máy, cùng múi giờ khi chạy kiểm thử).
 const fmtNgay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// "HÔM NAY" CỦA BÀI TEST PHẢI GIỐNG "HÔM NAY" CỦA MÁY CHỦ.
+//
+// Bản cũ tính thứ Hai bằng `new Date()` — tức GIỜ MÁY CHẠY TEST. Máy chủ thì
+// hỏi `lib/ngay.js`, tức giờ Việt Nam. Hai bên lệch nhau suốt từ 17 giờ UTC
+// tới nửa đêm UTC, và trong khoảng đó bài này tính ra tuần TRƯỚC tuần mà máy
+// chủ đang trả về, nên 4 phép kiểm về thực đơn đỏ.
+//
+// Đỏ vào buổi tối, xanh vào buổi sáng — đúng kiểu đỏ ngẫu nhiên mà Đ2 dọn đi,
+// và cũng đúng kiểu tệ nhất: người ta chạy lại cho tới khi xanh rồi đi tiếp.
+// `test/_chung.mjs` đã xuất sẵn `HOM_NAY()` chính vì việc này; bài này chỉ
+// quên dùng.
+//
+// Bắt được khi làm phần thực đơn theo cơ sở, lúc 17h26 UTC. Đã đối chiếu bằng
+// cách cất hết thay đổi của đợt ấy đi rồi chạy lại: vẫn đỏ đúng 4 bài.
 const ngayTuan = (week, i) => {
-  const now = new Date();
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + week * 7);
-  const d = new Date(monday);
-  d.setDate(monday.getDate() + i);
-  return fmtNgay(d);
+  const t = Date.parse(`${HOM_NAY()}T00:00:00Z`);
+  const thu = (new Date(t).getUTCDay() + 6) % 7;          // thứ Hai = 0
+  return new Date(t + (week * 7 - thu + i) * 86400000).toISOString().slice(0, 10);
 };
 
 console.log('\n[6] Thực đơn — phân quyền và thân yêu cầu sai');

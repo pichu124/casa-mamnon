@@ -47,6 +47,30 @@ sinhDuLieu(DIR);
 batPhanHe(DIR, mods.moRong().map(m => m.key));
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 
+// DỰNG ĐÚNG TÌNH HUỐNG BÀI NÀY NÓI: BÉ CHƯA TỚI LỚP.
+//
+// Câu chuyện của bài là "7h gia đình báo con sốt, con ở nhà". Nghĩa là hôm đó
+// bé KHÔNG có dòng điểm danh nào — cô chưa chấm vì bé chưa tới.
+//
+// Dữ liệu mẫu sinh điểm danh cho 20 ngày học gần nhất, nên vào những hôm là
+// NGÀY HỌC thì bé s1 đã được chấm "có mặt" sẵn. Mà luật của Báo ăn là ĐIỂM
+// DANH THẮNG ĐƠN NGHỈ (bé có đơn mà sáng vẫn tới lớp thì phải có suất ăn), nên
+// mục [2] đo phải một tình huống khác hẳn tình huống nó tưởng mình đang đo.
+//
+// Hệ quả: bài này XANH vào cuối tuần và ĐỎ vào ngày học — mà cả hai lần đều
+// không nói lên điều gì về thứ nó định canh. Bắt được lúc 00h26 giờ Việt Nam
+// ngày thứ Hai, và đã đối chiếu bằng cách cất hết thay đổi trong cây làm việc
+// đi rồi chạy lại: vẫn đỏ đúng hai bài.
+//
+// Xoá dòng điểm danh của bé đó TRƯỚC khi dựng máy chủ, để mọi ngày trong tuần
+// đều đi đúng một đường.
+{
+  const Database = require2(path.join(GOC, 'node_modules', 'better-sqlite3'));
+  const conn = new Database(path.join(DIR, 'school.db'));
+  conn.prepare('DELETE FROM attendance WHERE studentId = ? AND date = ?').run('s1', HOM_NAY());
+  conn.close();
+}
+
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3934), dir: DIR });
 const req = taoReq(sv.BASE);
 const login = taoLogin(req);
@@ -82,6 +106,14 @@ console.log('\n[2] 08:00 — BẾP phải biết. Đây là vế đối chứng 
   const ba = await req('GET', `/api/tienan/bao-an?classId=c1&ngay=${NGAY}`, { cookie: GV });
   const nhom = (ba.data?.nhom || [])[0] || {};
   check('màn Báo ăn mở được', ba.status === 200, ba.status);
+
+  // ĐỐI CHỨNG CHO CHÍNH TIỀN ĐỀ CỦA MỤC NÀY: bé chưa có dòng điểm danh nào.
+  // Có dòng rồi thì luật "điểm danh thắng đơn nghỉ" chạy, và hai phép kiểm
+  // dưới đo một thứ khác hẳn thứ chúng nói.
+  const dd = await req('GET', `/api/attendance/class?date=${NGAY}&classId=c1`, { cookie: GV });
+  const dongCuaBe = (dd.data?.students || []).find(x => x.student?.id === BE);
+  check('đối chứng — bé CHƯA có dòng điểm danh nào, đúng như câu chuyện của bài',
+    !!dongCuaBe && dongCuaBe.record === null, JSON.stringify(dongCuaBe?.record));
   check('BẾP BIẾT bé nghỉ — bé nằm trong danh sách không ăn',
     (nhom.khongAn || []).some(x => x.studentId === BE), nhom.khongAn);
   check('và suất dự kiến đã trừ đi bé đó',
