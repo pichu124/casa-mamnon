@@ -36,7 +36,10 @@ sinhDuLieu(DIR);
 // `hocsinhcu` (màn "Hồ sơ con đã ra trường") TẮT SẴN từ Đ5 — nhà trường quyết.
 // Bật tường minh ở đây vì mục [7] soi đúng lời từ chối của màn đó: luật quyền
 // phải đúng vào lúc nhà trường bật lại, không phải chỉ đúng khi nó đang tắt.
-batPhanHe(DIR, ['nhatky', 'hanhtrinh', 'dontra', 'hocphi', 'hocsinhcu']);
+batPhanHe(DIR, ['nhatky', 'hanhtrinh', 'dontra', 'hocphi', 'hocsinhcu',
+  // `nhanxet` cũng TẮT SẴN (A2). Bật ở đây vì mục [9] đo đúng chỗ màn
+  // "Hồ sơ con đã ra trường" đọc thẳng bảng của phân hệ này.
+  'nhanxet']);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3313), dir: DIR });
@@ -342,6 +345,78 @@ console.log('\n[8] ALBUM LỚP CŨ VÀ MÀN NĂM HỌC TRƯỚC CŨNG PHẢI THE
   const conAnh = conn3.prepare('SELECT COUNT(*) c FROM album_photos WHERE albumId = ?').get(albumId).c;
   conn3.close();
   check('ảnh trong album vẫn còn nguyên trong cơ sở dữ liệu', conAnh === 1, conAnh);
+}
+
+// ===========================================================================
+console.log('\n[9] CÔ THU HỒI MỘT NHẬN XÉT — MÀN NÀY CŨNG PHẢI THU HỒI THEO');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // `lib/sua-thu-hoi.js` sinh ra để cô gỡ được một nhận xét bấm nhầm sang bé
+  // khác. Nó ghi nhớ bằng BẢNG PHỤ `record_edits`, cố ý không thêm cột vào
+  // bảng `remarks` (lý do dài ở đầu tệp đó). Hệ quả: mọi câu
+  // `SELECT * FROM remarks` KHÔNG kèm điều kiện lọc đều đọc ra cả dòng đã gỡ.
+  //
+  // Màn "Hồ sơ con đã ra trường" là đúng một câu như vậy. Nên trước bản vá:
+  // cô bấm Thu hồi, màn Nhận xét sạch, gia đình mở màn này thì dòng đó vẫn
+  // nằm nguyên đó — và đây là màn chỉ gia đình mới mở.
+  //
+  // Nghị định 13/2023 cho cha mẹ quyền yêu cầu chỉnh sửa và xoá dữ liệu cá
+  // nhân của con. Nhà trường đã làm đúng thao tác; app mới là chỗ không làm.
+  choRoiTruong(BE, 1);            // kéo bé về trong hạn 12 tháng để mở được màn
+  const GV9 = (await login('giaovien', '123456')).cookie;
+
+  const giu = await req('POST', '/api/remarks', {
+    cookie: GV9,
+    body: { studentId: BE, content: 'Hôm nay con tự xúc ăn hết bát cơm.', rating: 'good' },
+  });
+  const go = await req('POST', '/api/remarks', {
+    cookie: GV9,
+    body: { studentId: BE, content: 'Dòng này cô bấm nhầm sang bé khác.', rating: 'good' },
+  });
+  check('cô ghi được hai nhận xét cho bé', giu.status === 200 && go.status === 200,
+    [giu.status, go.status]);
+
+  const thu = await req('DELETE', `/api/remarks/${go.data?.id}`, { cookie: GV9 });
+  check('và thu hồi được một trong hai', thu.status === 200, thu.data);
+
+  // Màn Nhận xét — nơi cơ chế thu hồi vốn đã đúng. Đo ở đây để biết tình huống
+  // đã dựng THẬT: thiếu vế này thì mục dưới xanh cả khi cả hai dòng cùng biến
+  // mất vì một lý do khác hẳn.
+  const manNX = await req('GET', `/api/remarks?studentId=${BE}`, { cookie: PH });
+  const idNX = (manNX.data || []).map(r => r.id);
+  check('màn Nhận xét: dòng còn lại vẫn hiện', idNX.includes(giu.data?.id), idNX);
+  check('màn Nhận xét: dòng đã thu hồi thì không hiện', !idNX.includes(go.data?.id), idNX);
+
+  // VÀ ĐÂY LÀ ĐIỀU MỤC NÀY ĐI TÌM.
+  const hoSo = await req('GET', `/api/hocsinh-cu/${BE}`, { cookie: PH });
+  check('gia đình mở được màn hồ sơ con đã ra trường', hoSo.status === 200, hoSo.status);
+  const idHS = (hoSo.data?.nhanXet || []).map(r => r.id);
+  check('MÀN HỒ SƠ CŨ: dòng cô đã thu hồi KHÔNG còn hiện với gia đình',
+    !idHS.includes(go.data?.id), idHS);
+  check('nhưng dòng cô KHÔNG thu hồi thì vẫn còn — không vá quá tay',
+    idHS.includes(giu.data?.id), idHS);
+
+  // THU HỒI LÀ ẨN, KHÔNG PHẢI XOÁ. Vế này giữ cho bản vá không lặng lẽ biến
+  // thành một đường xoá dữ liệu — đúng thứ Nguyên tắc số 1 cấm.
+  const conn9 = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const conDong = conn9.prepare('SELECT COUNT(*) n FROM remarks WHERE id = ?').get(go.data?.id).n;
+  conn9.close();
+  check('dòng đã thu hồi VẪN NẰM NGUYÊN trên ổ đĩa — ẩn đi, không xoá',
+    conDong === 1, conDong);
+
+  // Cô sửa lại một nhận xét thì gia đình phải thấy dấu "đã chỉnh sửa" ở CẢ HAI
+  // màn. Một màn nói có sửa, màn kia im lặng là hai màn của cùng một trường
+  // kể hai câu chuyện khác nhau về cùng một dòng chữ.
+  const sua = await req('PUT', `/api/remarks/${giu.data?.id}`, {
+    cookie: GV9,
+    body: { content: 'Hôm nay con tự xúc ăn hết bát cơm, và tự cất bát.', rating: 'good' },
+  });
+  check('cô sửa lại được nhận xét đã ghi', sua.status === 200, sua.data);
+  const hoSo2 = await req('GET', `/api/hocsinh-cu/${BE}`, { cookie: PH });
+  const dong = (hoSo2.data?.nhanXet || []).find(r => r.id === giu.data?.id);
+  check('màn hồ sơ cũ cũng gắn dấu "đã chỉnh sửa", không im lặng',
+    dong?.daSua === true && !!dong?.suaLuc, dong);
 }
 
 sv.dung();
