@@ -15,7 +15,8 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2869 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo 30/08/2026) |
+| Bộ kiểm thử | `npm test` **2911 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo 30/08/2026) |
+| Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
 | Còn việc gì chặn | **hai thứ, cả hai ngoài tầm tay tôi**: nhà trường (mục 4.2) và quyền vào kho app 1 (mục 4.3) |
@@ -137,6 +138,31 @@ lại được trong một commit.
 > **vừa mới rút đồng ý**, và đó là loại lỗi tệ hơn hẳn cái chậm. Cách sửa an
 > toàn cần đo trước; tôi để lại đây thay vì làm vội.
 
+### 4.2b 🔴 GitHub Actions không chạy từ 28/08 — việc này cần anh
+
+Lớp canh mà `CLAUDE.md` gọi là **"không bỏ qua được"** thì **đã không chạy một
+lần nào từ 28/08/2026**. Tôi đo qua GitHub API: mọi lần chạy tới 28/08 04:08 đều
+mất ~210 giây và 28/30 xanh; từ 28/08 22:24 trở đi, cả 30 lần đều "hỏng" sau
+**3–6 giây** và không tải được nhật ký nào.
+
+Một lần chạy thật thì riêng bước tải mã về đã lâu hơn thế — nghĩa là **không
+bước nào được thực thi**. Tôi đã loại trừ tệp cấu hình (GitHub vẫn tạo đủ 5 job
+đúng tên) và loại trừ nhánh (4 job y hệt bản trên `main` vốn chạy tốt).
+
+Nguyên nhân gần như chắc chắn nằm ở **tài khoản GitHub**, không nằm ở mã: hết
+hạn mức phút Actions, hoặc Actions bị tắt/hạn chế. Tôi không nhìn được phần
+thanh toán nên không xác nhận nốt được.
+
+**Nói thẳng phần thuộc về tôi:** đợt trước tôi báo với anh là nhánh "sẵn sàng"
+sau khi chạy đủ ba bộ canh khoảng **ở máy này**. Điều đó đúng, nhưng tôi đã
+không mở GitHub ra xem — nên đã không thấy CI đỏ suốt 50 commit. Từ nay tôi kiểm
+cả hai.
+
+**Việc của anh:** mở https://github.com/settings/billing xem hạn mức Actions, và
+xem Settings → Actions của kho `pichu124/casa-mamnon`.
+
+---
+
 ### 4.2 Những việc chỉ nhà trường mở được
 
 Không phải việc của mã, và tôi không làm thay được:
@@ -226,4 +252,4 @@ Không cần anh nhắc lại bối cảnh.
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ58.*
+*Cập nhật lần cuối: sau đợt Đ61 và đợt soát nhiều tác nhân 30/08.*

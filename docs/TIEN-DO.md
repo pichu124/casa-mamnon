@@ -603,7 +603,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2869**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2911**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **470**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -718,6 +718,101 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | **A5** | Dặn thuốc bắt cô gõ tay từng dòng *"đã cho con uống"* | **✅ xong 27/08** — nhà trường chạy thử quy trình nhận thuốc thật rồi chốt bỏ hẳn bước đó, app chỉ ghi **"cô đã nhận thuốc"**. Lý do không phải cho gọn màn hình: cô đang đứng nhóm với 20 bé thì không rảnh tay gõ, ô nào cô không kịp ghi sẽ nằm trống, mà một khoảng trống trên màn hình phụ huynh đọc ra thành *"cô quên cho con uống"*. App chỉ nên hứa thứ nó biết chắc. **Dòng nhật ký cũ vẫn hiện nguyên** và đường `/api/medicine/:id/log` cố ý còn sống (điện thoại còn giữ bản app cũ vẫn gọi được) — xóa hẳn để sau, cùng cách với N3. `test:dan-thuoc` 21 bài | 27/08/2026 |
 | **A6** | Văn phòng phải gõ tay lại danh sách bé từ màn hình để làm báo cáo | **✅ xong 27/08** — nút **Xuất ra Excel** ở Quản trị → Tổng quan, tải về tệp CSV có dấu BOM (Excel trên Windows mở thẳng, không lỗi phông tiếng Việt). Đủ cột cho báo cáo: mã, họ tên, ngày sinh, **tuổi tính theo ngày sinh** (dưới một tuổi đếm bằng tháng), nhóm lớp, cơ sở, số định danh, tiền sử bệnh, bố/mẹ, người liên hệ khẩn cấp. **Tệp này chặt hơn màn hình nó đứng cạnh, và đó là chủ ý** — nó đi ra khỏi app nên chỉ xuất bé trong phạm vi cơ sở của người bấm, ghi lại mỗi lần xuất vào Nhật ký, và vô hiệu hoá ô bắt đầu bằng `=` `+` `-` `@` (Excel coi ô như vậy là công thức và **chạy** nó — họ tên do người nhập gõ). `test:xuat-danh-sach` 34 bài | 27/08/2026 |
 | ~~N12~~ | ~~Phân hệ vẫn tên là "Thời khóa biểu" trong khi ruột đã là lịch sinh hoạt một ngày~~ | **✅ xong** — nhà trường chốt đổi thành **"Lịch sinh hoạt"**, và bỏ luôn chữ *"tiết"* bên trong ("Thứ 2 — hoạt động từng mốc"). Thêm hai từ vào `test:goi-ten` để tên cũ không trôi ngược; biểu thức tự chừa *"chi tiết"*, *"tiết kiệm"*, *"tiết mục"* thay vì mở ngoại lệ — ngoại lệ chừa CẢ DÒNG, dễ chừa lây chữ sai nằm cạnh | 27/08/2026 |
+
+---
+
+
+## 🔴 GITHUB ACTIONS KHÔNG CHẠY TỪ 28/08 — cần người dùng xử lý
+
+`CLAUDE.md` ghi lớp canh trên GitHub là lớp **không bỏ qua được**:
+
+| Chạy ở đâu | Bỏ qua được không |
+|---|---|
+| móc `.githooks/commit-msg` | **có**, bằng `git commit --no-verify` |
+| GitHub mỗi lần push | **không** |
+
+Thực tế thì lớp đó **đã không chạy một lần nào kể từ 28/08/2026**.
+
+**Đo được, không phải phỏng đoán** (qua GitHub API, xếp mọi lần chạy theo thời gian):
+
+| Khoảng | Số lần chạy | Thời lượng | Kết quả |
+|---|---|---|---|
+| tới **28/08 04:08** | 30 | ~210–230 giây | 28 xanh, 2 đỏ thật (đỏ vì bài test, chạy 953 giây) |
+| từ **28/08 22:24** trở đi | 30 | **3–6 giây** | **0 xanh** |
+
+Cả 5 job đều "hỏng" sau 2–4 giây và **không tải được nhật ký nào** (HTTP 404).
+Một job chạy thật thì riêng bước `actions/checkout` đã lâu hơn thế. Nghĩa là
+**không bước nào được thực thi**, kể cả checkout — đây không phải mã sai.
+
+**Đã loại trừ:**
+- Tệp `.github/workflows/kiem-tra.yml` vẫn hợp lệ: GitHub tạo đủ 5 job đúng tên,
+  kể cả job `sw-version` mà nhánh này thêm vào (Đ29).
+- Không phải do nhánh: 4 job còn lại y hệt bản trên `main` — bản chạy tốt.
+- Workflow đang ở trạng thái `active`.
+
+**Nguyên nhân gần như chắc chắn nằm ở tài khoản/kho, không nằm ở mã**: hết hạn
+mức phút Actions (kho riêng tư), hoặc Actions bị tắt/hạn chế ở cấp tài khoản.
+Phiên làm việc này **không nhìn được phần thanh toán của GitHub** nên không xác
+nhận được nốt.
+
+**Hệ quả:** khoảng 50 commit gần nhất chưa từng đi qua lớp canh cuối. Ở máy này
+tôi vẫn chạy đủ `npm test`, `npm run test:giao-dien` và cả ba bộ canh khoảng
+trước mỗi lần đẩy, nên **mã vẫn được kiểm** — nhưng đúng lớp mà tệp quy định gọi
+là "không bỏ qua được" thì đang không chạy, và nếu người khác đẩy mã lên với
+`--no-verify` thì hôm nay **không có gì chặn cả**.
+
+**Việc của người dùng:** mở https://github.com/settings/billing (hoặc phần
+Billing của tổ chức) xem hạn mức Actions, và kiểm tra Settings → Actions của kho
+`pichu124/casa-mamnon`.
+
+---
+
+## Đợt soát nhiều tác nhân (30/08/2026) — 21 phát hiện đã qua thẩm định ngược
+
+**Cách làm:** 8 tác nhân soát song song trên toàn kho theo 8 hướng khác nhau
+(rò rỉ dữ liệu trẻ · mất dữ liệu · 5 QUY TẮC · bài canh rỗng · cô lập lỗi ·
+tiếng Việt trên màn hình · đầu vào và quy mô · tài liệu nói sai). Mỗi phát hiện
+nặng nhất của từng hướng bị **một tác nhân khác cố bác bỏ**, có đọc mã thật, dò
+lớp bọc phía dưới, tra bài test đã có và tra tài liệu xem có phải chỗ cố ý hoãn
+không.
+
+**Kết quả:** 24 phát hiện đưa ra thẩm định → **21 đứng vững, 3 bị bác bỏ**.
+Ba cái bị bác bỏ (đều là chỗ CỐ Ý, đã ghi tài liệu) không đưa vào đây.
+
+**Đã vá trong đợt này:** Đ59 (rò rỉ album lớp cũ), Đ60 (ảnh Cambridge với
+Marketing), Đ61 (hai lỗ ở đường phân công cô).
+
+### Còn lại — chưa vá, xếp nặng trước
+
+| Mức | Chỗ nào | Khiếm khuyết | Tình huống hỏng |
+|---|---|---|---|
+| 🔴 cao | `scripts/restore.js`:260 | Khôi phục từ bản sao lưu để ở ổ ngoài thì TOÀN BỘ ảnh của trẻ không được mang về, và script vẫn báo "Đã khôi phục xong" | Ổ đĩa VPS hỏng (đúng kịch bản mà `backup.js` cảnh báo và khuyên chạy `--out`). Nhà trường dựng máy chủ mới, cắm ổ cứng ngoài, chạy `node scripts/restore.js /mnt/usb/casa-mamnon/school-20270115-0200.db.gz`. Script in 'Kiểm tra toàn vẹn: đạt', liệt kê đủ 300 bé, 25 nhóm, rồi 'Đã khôi phục xong'. Người |
+| 🔴 cao | `modules/thuchup/view.js`:76 | Hàng đợi ngoại tuyến của Ghi nhanh tự XOÁ HẲN bài ghi của cô khi máy chủ trả 403, không báo một chữ nào | Cuối tháng 6, nhà trường bấm 'Chuyển năm học'. Chiều hôm trước cô Bích Ngọc đứng ở sân, sóng yếu, ghi nhanh 4 khoảnh khắc của nhóm Chồi 2 kèm ảnh — app báo 'Đã lưu trong 12 giây' và '4 bài ghi đang chờ gửi lên'. Sáng hôm sau cô mở app: nhóm Chồi 2 đã `active = 0`, `canAccessStudent` trả false, máy c |
+| 🔴 cao | `modules/hanhtrinh/view.js`:399 | Nút "Lưu nháp" trên một câu chuyện ĐÃ công bố sửa thẳng màn hình gia đình và xoá được phần "Cùng con ở nhà" | Cô Mai Anh đã kể cho gia đình một câu chuyện về bé An. Hôm sau cô mở lại bằng nút "Sửa câu chuyện", xoá ô "Cùng con ở nhà" định viết lại sau, gõ dở nửa câu chuyện, rồi bấm "Lưu nháp" vì app hứa "gia đình chưa đọc được". Bản ghi vẫn đang công bố: tối đó mẹ bé An mở app thấy nửa câu dở dang, và phần " |
+| 🟠 vừa | `routes/hocsinh-cu.js`:109 | Màn "Hồ sơ con đã ra trường" đọc thẳng bảng của Nhận xét và Báo cáo mà không hỏi công tắc — bật nó lên là hai phân hệ đã tắt quay lại màn hình gia đình | Nhà trường bật thử "Nhận xét" một học kỳ rồi tắt đi, đúng quy trình "bỏ tính năng" của CLAUDE.md (màn hình biến mất, API bị chặn, dữ liệu giữ nguyên). Cuối năm văn phòng bật "Hồ sơ con đã ra trường" để gia đình tải hồ sơ con vừa vào lớp 1. Phụ huynh mở màn đó và đọc lại nguyên sổ nhận xét cũ với ba  |
+| 🔴 cao | `test/co-so.test.mjs`:106 | Phép kiểm "dặn thuốc / xin nghỉ không lọt bé của cơ sở khác" chạy trên một bé không có lấy một dòng dặn thuốc hay đơn nghỉ nào | Ai đó thêm một màn "Dặn thuốc toàn trường" cho ban giám hiệu và sửa `/api/medicine` đọc thẳng cả bảng khi `req.user.role === 'admin'`, quên `db.phamViCoSo`. Quản lý cơ sở 1 (Cấp 3) mở màn Dặn thuốc và đọc được tên thuốc, liều, ghi chú sức khoẻ của trẻ ở cơ sở 2 và 3 — đúng thứ `test:co-so` sinh ra đ |
+| 🟠 vừa | `test/quyen-du-lieu-be.test.mjs`:107 | Hàm cắt thân hàm của bộ canh quyền gán nhãn "hàm canh" cho cả những hàm phụ trợ vô can, nên một đường mất chốt vẫn qua được | Một phiên làm việc sau thêm ô "tra hồ sơ bé đã ra trường theo nhóm" cho văn phòng, sửa `GET /api/hocsinh-cu` nhận `classId` từ trình duyệt và bỏ mệnh đề `sp.parentId = ?`. Một phụ huynh gõ tay `/api/hocsinh-cu?classId=c1` đọc được danh sách và học bạ của mọi bé từng học nhóm đó. `npm run test:quyen- |
+| 🟠 vừa | `routes/namhoccu.js`:71 | Màn "Năm học trước" (bật sẵn cho mọi gia đình) đọc thẳng bảng của bốn phân hệ khác mà không hỏi công tắc — tắt một phân hệ không tắt được dữ liệu của nó | Nhà trường vào Quản trị → Tính năng tắt "Khảo sát" (hoặc "Kế hoạch giáo dục", "Lịch sinh hoạt", "Thông báo"). Ô vuông biến khỏi màn hình chính và `GET /api/surveys` trả 404 *"Phân hệ Khảo sát đang được nhà trường tắt"* — đúng như lời hứa. Nhưng phụ huynh bấm ô "Năm học trước" (vẫn còn đó, bật sẵn),  |
+| 🟠 vừa | `server.js`:134 | Chốt `res.status(404)` ở đường /modules không chặn gì cả: routes.js, schema.sql và module.json của mọi phân hệ tải về được nguyên vẹn, kể cả khi chưa đăng nhập | Người ngoài, chưa đăng nhập, gõ `https://<tên miền của trường>/modules/dontra/routes.js` — nhận đủ mã máy chủ của phân hệ Đón trả bé: toàn bộ luật kiểm quyền, tên bảng, tên cột, các đường dẫn phụ chưa công bố. Tiếp `.../schema.sql` và `.../module.json` cho cả tám phân hệ. Trình duyệt hiện "404" nên  |
+| 🔴 cao | `public/js/views/admin.js`:1093 | Màn Chuyển năm học bảo hiệu trưởng gõ lệnh `npm run backup` — người đang bấm nút không chạy được lệnh đó, và app không có đường nào khác để sao lưu | Cuối tháng 5, cô hiệu trưởng mở Quản trị → Năm học để chuyển sang năm học mới. Thẻ cảnh báo đỏ bảo "Hãy sao lưu dữ liệu trước bằng lệnh npm run backup" — chị không biết đó là gì, tìm khắp app không thấy nút sao lưu nào. Chị bấm tiếp; hộp thoại thứ hai hỏi 'bạn đã chạy "npm run backup" chưa?' và chỉ  |
+| 🟠 vừa | `public/js/views/plans.js`:34 | Cô chưa được phân công nhóm mở Kế hoạch giáo dục thì nhận màn "Có lỗi xảy ra 😥 / Không tìm thấy nhóm lớp" — đổ lỗi cho một nhóm không tồn tại thay vì nói cô chưa có nhóm | (a) Quản trị vào Quản trị → Giáo viên → Thêm giáo viên, để ô "Phụ trách nhóm" ở "— Chưa phân công —" (chính màn hình mời làm vậy, `admin.js:993`, và `routes/admin.js:490` nhận `classId: classId ·· null`). Cô mới đăng nhập lần đầu, bấm ô "Kế hoạch giáo dục" → màn "Có lỗi xảy ra 😥 — Không tìm thấy nhó |
+| 🟠 vừa | `public/js/views/dashboard.js`:34 | Trang chủ nói "Nhà trường chưa bật phân hệ nào" với tài khoản Nhân sự / Kế toán — vừa sai sự thật, vừa dùng chữ chỉ có trong mã nguồn | Ban giám hiệu vào Quản trị → Giáo viên, gán chức vụ "Kế toán" cho tài khoản chị kế toán (màn hình có sẵn ô chọn, `admin.js:243`). Chị đăng nhập: trang chủ trống trơn, chỉ một dòng "Nhà trường chưa bật phân hệ nào.", thanh dưới không còn Thông báo lẫn Nhắn tin. Chị gọi lên văn phòng báo "trường tắt h |
+| 🔴 cao | `routes/leave.js`:82 | Đơn xin nghỉ không chặn độ dài khoảng ngày — gõ nhầm năm là bé bị cắt suất ăn cả năm và văn phòng được gợi ý hoàn 261 ngày tiền ăn | Mẹ bé An mở màn Xin nghỉ trên điện thoại, chọn ngày bắt đầu 07/09/2026 rồi khi chọn ngày kết thúc thì bánh xe năm nhảy sang 2027 (rất dễ xảy ra trên ô chọn ngày của Android). Máy chủ nhận đơn 366 ngày. Văn phòng mở đơn, thấy tên bé và lý do "Con bị sốt", ô tiền ăn đã điền sẵn 261, bấm **Duyệt đơn**. |
+| 🟠 vừa | `routes/surveys.js`:45 | Màn Khảo sát nạp TOÀN BỘ câu trả lời của TOÀN BỘ khảo sát chỉ để hiện hai con số, và danh sách không có LIMIT | Tháng 5 năm thứ ba, văn phòng gửi khảo sát "Đăng ký học hè" và bấm gửi thông báo. Hàng trăm gia đình mở app trong vài phút, ai cũng vào tab Khảo sát. Mỗi lượt mở khiến máy chủ đọc và giải mã lại toàn bộ câu trả lời của mọi khảo sát ba năm qua — 135 ms CPU một lượt, nhân với số người đang mở, trên mộ |
+| 🟠 vừa | `modules/dontra/routes.js`:226 | Trần "tối đa 12 người được đón" chỉ đếm dòng ĐANG dùng, nên vòng tạo → ngưng dùng lặp vô hạn, mỗi vòng ghi thêm một ảnh 6 MB vào ổ đĩa không bao giờ được xoá | Một tài khoản phụ huynh bị lộ mật khẩu (tên đăng nhập của phụ huynh sinh từ số điện thoại — chính routes/auth.js:22-24 ghi nhận là người ngoài đoán được). Người chiếm tài khoản chạy vòng POST /api/dontra/uyquyen kèm ảnh 6 MB rồi POST .../huy, khoảng 6 lượt mỗi giây. Sau một buổi tối, thư mục uploads |
+| 🟠 vừa | `CLAUDE.md`:229 | CLAUDE.md hứa bộ canh VERSION "so với nhánh chính", nhưng job trên GitHub lại so với lần push trước — nhánh đã tăng VERSION một lần vẫn bị báo đỏ | Người sửa mã làm đúng theo CLAUDE.md: trên nhánh của mình tăng `VERSION` một lần ở commit đầu rồi push; commit sau đụng thêm `public/js/views/*.js` mà không tăng nữa rồi push lần hai. Móc `commit-msg` ở máy báo xanh (nó so với `main`), nhưng job "sw-version" trên GitHub — lớp mà CLAUDE.md nói "không |
+| 🟠 vừa | `modules/README.md`:59 | modules/README.md nói `schema.sql` của phân hệ được dùng `CREATE TRIGGER IF NOT EXISTS`, nhưng bộ kiểm tra từ chối mọi trigger có thân lệnh | Người viết phân hệ mới đọc `modules/README.md`, thấy trigger được phép, viết `CREATE TRIGGER IF NOT EXISTS abc_dem AFTER INSERT ON abc_ghi BEGIN ... END;` đúng tiền tố mã phân hệ. Khởi động máy chủ: `napApiMoRong` bắt lỗi, đặt `m.loi`, phân hệ bị đánh dấu hỏng — ô của nó biến khỏi màn hình và `chanA |
+| 🟠 vừa | `README.md`:4 | README.md — trang đầu của kho mã — ghi lứa tuổi "trẻ 2–6 tuổi", ngược với con số 12 tháng – 6 tuổi mà CLAUDE.md nói là quyết định nhiều thứ | Người tiếp quản mã (hoặc người viết phân hệ mới) đọc README trước, tin lứa tuổi nhỏ nhất là 24 tháng. Khi làm ô nhập ngày sinh hoặc bảng cân đo, họ đặt mốc chặn dưới ở 24 tháng và loại bé 14 tháng của nhóm Nhà trẻ 1 ra khỏi dữ liệu hợp lệ; hoặc khi đọc mã thấy `thang < 36 → "14 tháng"` và ô thay bỉm |
+
+> **Mỗi dòng trên đã được một tác nhân độc lập cố bác bỏ và không bác nổi**, phần
+> lớn có dựng lại trên máy chủ chạy thật. Nhưng chúng vẫn là *phát hiện*, không
+> phải *bản vá đã thử*: đọc lại mã trước khi sửa, và giữ đúng nếp của kho —
+> mỗi bản vá kèm một bài canh, và một **phép thử ngược** chứng minh bài canh có
+> bắt được thật.
+
+> **Bốn phát hiện đã bị cắt khỏi vòng thẩm định** vì mỗi hướng chỉ đưa 3 cái
+> nặng nhất đi thẩm định (ghi rõ trong nhật ký chạy). Chúng chưa được kiểm
+> chứng, nên không ghi vào bảng này — chạy lại đợt soát nếu muốn moi nốt.
 
 ---
 
@@ -846,3 +941,6 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 30/08/2026 | **Đ57** — **Nhân sự thôi chạm được vào tài khoản của gia đình**. Mô tả chức vụ hứa họ "KHÔNG mở được hồ sơ bé, sức khoẻ, hay ảnh của trẻ", nhưng cấp lại mật khẩu cho một tài khoản phụ huynh là trao đúng ba thứ ấy, còn `/api/accounts/parents` thì trả kèm **tên các con** của từng nhà. Siết cả hai đường. Gia đình không bị bỏ giữa đường: cô của nhóm bé, ban giám hiệu và quản trị toàn hệ thống vẫn làm được, và mục [10] canh đúng ba đường đó. Cũng sửa dạng in tổng kết của `test/api.test.mjs` — **69 bài của nó chưa bao giờ được lệnh đếm trong tài liệu này cộng vào** | Báo cáo 4.1 #3 |
 | 30/08/2026 | **Đ58** — `GET /api/kehoachbe/be`: **quyết định là GIỮ NGUYÊN, không dựng màn hình**. Màn nhóm đã trả kế hoạch của *mọi bé* trong nhóm rồi, nên một màn riêng cho từng bé là **thừa**. Cách đặt nó vào Hồ sơ bé thì phải để một tệp lõi (`public/js/views/student.js`) gọi vào một phân hệ cắm thêm — đảo ngược đúng chiều phụ thuộc mà `modules/README.md` dựng lên, và trong kho mã chưa có một tiền lệ nào như vậy. Đ48 đã bọc đường này bằng 10 phép kiểm nên **chừng nào còn sống thì còn kín**. Khuyến nghị của tôi là **gỡ hẳn**, nhưng gỡ thuộc phần chưa được duyệt | Báo cáo 4.1 #4 |
 | 30/08/2026 | **Đối chiếu sổ nợ nền chung sau Đ54–Đ58**: không thêm món **bắt buộc** nào, nhưng thêm **hai món không bắt buộc đã đối chiếu tận nơi ở `bc9dfa3`** — app 1 **đang** nói sai câu "nhà trường tắt" với phụ huynh (`public/js/app.js` ở điểm tách có đúng câu đó, `lib/modules.js` ở điểm tách cũng đã lọc theo `roles`), và app 1 có y hệt **hai ô chết** trong hồ sơ sức khoẻ. Đ57 **không áp dụng** cho app 1: `lib/db.js` ở điểm tách chưa có `CHUC_VU`. Cũng đã **thử `add_repo` vào `pichu124/School` và bị chặn** — gắn thêm kho cần người dùng đồng ý | `docs/LOI-NEN-CHUNG.md` |
+| 30/08/2026 | **Đ59** — **rò rỉ thật, đã dựng lại được**: mốc 12 tháng của Đ44 KHÔNG áp cho album lớp cũ và màn Năm học trước, vì `lsl.lopCuCuaPhuHuynh` chỉ hỏi quan hệ `student_parents` — mà quan hệ cha mẹ – con thì không bao giờ hết hạn. Gia đình rời trường 3 năm vẫn tải được **đúng các byte** ảnh khuôn mặt cả nhóm, phần lớn các bé trong ảnh vẫn đang học; cùng lúc màn "Hồ sơ con đã ra trường" trả 403 nên nhà trường tin là cửa đã đóng. Vá bằng cách **mượn lại `db.conHanXemHoSo`**, không viết bản luật thứ ba | Soát 30/08 #1 |
+| 30/08/2026 | **Đ60** — ảnh **Cambridge** không đi qua luật đồng ý truyền thông: chốt duy nhất hỏi `role === 'parent'`, mà Marketing là `role === 'admin'`. Họ tải được ảnh của bé mà gia đình đã nói KHÔNG với ô ③ — đúng điều mô tả chức vụ hứa là không thể xảy ra. Ảnh Cambridge không gắn thẻ bé nên **mặc định không cho**, đường ra là ô "Ảnh không có mặt bé nào" đã có sẵn | Soát 30/08 #3 |
+| 30/08/2026 | **Đ61** — hai lỗ ở đường phân công cô. **(a)** Tạo tài khoản cô mới kèm nhóm thì XOÁ SẠCH phân công của mọi cô đang dạy nhóm đó, im lặng — sáng hôm sau cô thấy "Nhóm chưa có bé nào". **(b)** Đường cũ `PUT /api/admin/classes/:id` phân công cô được mà không hỏi `chanNeuVanPhong`, lại không canh cơ sở của chính cô ấy nên quản lý cơ sở 1 gỡ được cô khỏi nhóm ở cơ sở 2 | Soát 30/08 #4, #2 |
