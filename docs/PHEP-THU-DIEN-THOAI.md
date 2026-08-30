@@ -82,7 +82,7 @@ hầm biến mất.
 - [ ] `DATA_DIR` trỏ ra **ngoài** thư mục mã nguồn. Từ bản này, chạy
       `NODE_ENV=production` với dữ liệu nằm trong kho mã thì máy chủ **dừng hẳn**.
 - [ ] Sinh dữ liệu mẫu: `DATA_DIR=/tmp/casa-thu node data/seed.js --force`
-- [ ] **Đổi mật khẩu mẫu.** Dữ liệu mẫu có 9 tài khoản dùng chung `123456`.
+- [ ] **Đổi mật khẩu mẫu.** Dữ liệu mẫu có 13 tài khoản dùng chung `123456`.
       Máy chủ mở ra Internet mà còn mật khẩu đó là mở cửa cho người lạ.
       Kiểm bằng: `DATA_DIR=/tmp/casa-thu npm run kiem-tra-may-chu`
 - [ ] Bật phân hệ: đăng nhập quản trị → **Quản trị → Tính năng → Ghi nhanh**.

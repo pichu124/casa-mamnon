@@ -28,7 +28,7 @@
 # Shell để tạo tài khoản quản trị.
 #
 # ĐỪNG đi đường tắt "tạm bỏ NODE_ENV=production cho nó lên đã". Làm vậy là dựng
-# 9 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
+# 13 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
 #
 # Hai đường đi thật, chọn một trước khi triển khai:
 #   [A] Máy chủ riêng / VPS thay cho Render — chạy `npm run create-admin` qua

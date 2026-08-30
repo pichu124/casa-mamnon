@@ -215,5 +215,55 @@ console.log('\n[10] Không ghi cứng số bài kiểm thử vào chú thích');
   check('có chỉ chỗ tra con số thật', /TIEN-DO\.md/.test(chu));
 }
 
+// ---------------------------------------------------------------------------
+console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh báo phải nói ĐÚNG N');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Bốn chỗ trong kho mã cảnh báo về mật khẩu mẫu, và cả bốn đều gắn kèm một
+  // con số. Trước đợt này chúng nói 8, 9, 9 và 9 — trong khi dữ liệu mẫu sinh
+  // ra 13 tài khoản. Con số đó lệch lại từ thời app 1 và không ai canh.
+  //
+  // Nó không phải chuyện thẩm mỹ. Người vận hành đọc "9 tài khoản", đổi mật
+  // khẩu cho 9 tài khoản mình nhớ mặt, rồi tin là đã xong — trong khi bốn tài
+  // khoản nữa vẫn dùng "123456" trên một máy chủ mở ra Internet, kèm hồ sơ và
+  // ảnh khuôn mặt trẻ dưới 6 tuổi.
+  //
+  // Chua hơn nữa: `scripts/kiem-tra-may-chu.js` mở đầu bằng đúng bài học "một
+  // con số ghi cứng thì sai ngay từ lần sau" — rồi ghi cứng con số này ba dòng
+  // dưới. Nên lần này con số được canh bằng máy, không bằng lời hứa.
+  const NOI = [
+    'server.js',
+    'render.yaml',
+    'scripts/kiem-tra-may-chu.js',
+    'docs/PHEP-THU-DIEN-THOAI.md',
+  ];
+  const lech = [];
+  let daTim = 0;
+  for (const f of NOI) {
+    const noiDung = fs.readFileSync(path.join(GOC, f), 'utf8');
+    const gap = noiDung.match(/(\d+)\s+tài khoản/g) || [];
+    if (!gap.length) { lech.push(`${f}: không còn câu cảnh báo nào`); continue; }
+    daTim += gap.length;
+    for (const g of gap) {
+      const n = Number(g.match(/\d+/)[0]);
+      if (n !== MAU.soTaiKhoan) lech.push(`${f}: "${g}" — đúng phải là ${MAU.soTaiKhoan}`);
+    }
+  }
+  check(`cả ${NOI.length} chỗ đều nói đúng ${MAU.soTaiKhoan} tài khoản`, lech.length === 0, lech);
+  // Vế khẳng định: nếu ngày mai ai đó bỏ hẳn mấy câu cảnh báo đó đi thì vòng
+  // lặp trên chạy qua và không tìm thấy gì — mục này phải đỏ, không phải xanh.
+  check('và bốn câu cảnh báo đó vẫn còn trong kho mã', daTim >= NOI.length, daTim);
+
+  // Con số dùng chung phải khớp với dữ liệu mẫu THẬT, không phải một hằng số
+  // hai bên cùng chép sai. Đếm thẳng trên cơ sở dữ liệu vừa sinh ra.
+  const Database2 = require2('better-sqlite3');
+  const conn = new Database2(path.join(DIR, 'school.db'), { readonly: true });
+  const thuc = conn.prepare("SELECT COUNT(*) n FROM users WHERE role IN ('teacher','parent')").get().n;
+  conn.close();
+  check(`và ${MAU.soTaiKhoan} đúng là số tài khoản dữ liệu mẫu sinh ra`,
+    thuc === MAU.soTaiKhoan, [thuc, MAU.soTaiKhoan]);
+}
+
 donThuMucTam(DIR);
 tongKet();
