@@ -229,6 +229,121 @@ console.log('\n[7] TỪ CHỐI THÌ AI CŨNG BỊ TỪ CHỐI, NHƯNG LỜI TỪ
   check('thiếu tham số thì trả false, không nổ', db.laPhuHuynhCuaBe(null, BE) === false);
 }
 
+// ===========================================================================
+console.log('\n[8] ALBUM LỚP CŨ VÀ MÀN NĂM HỌC TRƯỚC CŨNG PHẢI THEO MỐC 12 THÁNG');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Đ44/Đ45 gom luật "gia đình còn xem hồ sơ 12 tháng sau khi bé rời trường"
+  // về `db.canAccessStudent` và tự nhận đó là "một nguồn sự thật". Nhưng hai
+  // họ đường dành riêng cho LỚP CŨ không đi qua hàm đó — chúng đi qua
+  // `lsl.lopCuCuaPhuHuynh`, mà câu truy vấn ở đó chỉ hỏi quan hệ
+  // `student_parents`. Quan hệ cha mẹ – con thì KHÔNG BAO GIỜ hết hạn.
+  //
+  // Hậu quả nặng hơn hồ sơ của chính bé đó: album nhóm là ảnh khuôn mặt của
+  // CẢ NHÓM, phần lớn các bé trong ảnh vẫn đang học. Và cùng một tài khoản,
+  // cùng một phiên: màn "Hồ sơ con đã ra trường" trả 403 kèm câu "chỉ tra cứu
+  // được trong 12 tháng", còn màn Album vẫn trả về ảnh — nhà trường nhìn màn
+  // thứ nhất sẽ tin là cửa đã đóng.
+  //
+  // Bộ canh mốc 12 tháng này trước đó chỉ gõ các đường gác bằng
+  // `canAccessStudent`, nên nó không thể bắt được lỗ đó. Mục này thêm đúng hai
+  // họ còn thiếu, và đo cả BYTE của tấm ảnh chứ không chỉ danh sách.
+  const conn = new Database(path.join(DIR, 'school.db'));
+  const NHOM_CU = 'c1';
+
+  // Dọn lời TỪ CHỐI chia sẻ trong nhóm này trước.
+  //
+  // `db.locAnhChoNguoiXem` giấu một tấm ảnh CHƯA GẮN THẺ khỏi phụ huynh nếu
+  // trong nhóm có bất kỳ bé nào đã nói KHÔNG (lib/db.js: `if
+  // (!beDuocGan.length) return !nhomCoNguoiTuChoi`) — dữ liệu mẫu có đúng một
+  // bé như vậy. Không dọn thì đường tải ảnh trả 403 ở CẢ HAI trạng thái, và
+  // phép kiểm "rời trường 3 năm thì không tải được byte nào" xanh vì lý do
+  // khác hẳn lý do nó nói. Đó đúng là kiểu bài canh rỗng.
+  conn.prepare(`UPDATE student_consent SET chiaSeGiaDinh = 1
+                WHERE studentId IN (SELECT studentId FROM student_class_periods WHERE classId = ?)
+                   OR studentId IN (SELECT id FROM students WHERE classId = ?)`)
+    .run(NHOM_CU, NHOM_CU);
+
+  // Dựng một khoảng ĐÃ ĐÓNG cho bé — đúng thứ `lsl.ghiRoiLop` tự ghi khi văn
+  // phòng cho bé nghỉ.
+  const TU = '2023-08-01', DEN = '2024-05-31', NGAY_ANH = '2024-03-15';
+  conn.prepare(`INSERT INTO student_class_periods (id, studentId, classId, tu, den)
+                VALUES (?, ?, ?, ?, ?)`).run('scp-test-1', BE, NHOM_CU, TU, DEN);
+  conn.close();
+
+  // Cô của nhóm đăng một album có ẢNH THẬT, rồi lùi ngày album vào trong khoảng.
+  const ANH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+    + 'AAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const GV = (await login('giaovien', '123456')).cookie;
+  const tao = await req('POST', '/api/albums', { cookie: GV, body: {
+    title: 'Trung thu nhóm Chồi 2', photos: [{ dataUrl: ANH, caption: 'Bé rước đèn' }],
+  } });
+  check('cô đăng được album có ảnh thật để làm phép thử',
+    tao.status === 201 && !!tao.data?.id, `${tao.status} ${JSON.stringify(tao.data).slice(0, 120)}`);
+  const albumId = tao.data?.id;
+  {
+    const c2 = new Database(path.join(DIR, 'school.db'));
+    c2.prepare('UPDATE albums SET date = ? WHERE id = ?').run(NGAY_ANH, albumId);
+    c2.close();
+  }
+  const anhId = (tao.data?.photos || [])[0]?.id;
+
+  // Đo cả ba trạng thái bằng cùng một bộ câu hỏi.
+  async function doLopCu() {
+    const ds = await req('GET', '/api/albums?keCaLopCu=1', { cookie: PH });
+    const coAlbum = (ds.data || []).some(a => a.id === albumId);
+    const chiTiet = await req('GET', `/api/albums/${albumId}`, { cookie: PH });
+    const anh = anhId
+      ? await req('GET', `/api/albums/${albumId}/photo/${anhId}`, { cookie: PH })
+      : { status: 0 };
+    const nhc = await req('GET', '/api/namhoccu', { cookie: PH });
+    const coNhom = ((nhc.data || {}).khoang || []).some(x => x.classId === NHOM_CU);
+    // Và đường chi tiết của chính khoảng đó, không chỉ danh sách.
+    const chiTietNhc = await req('GET', '/api/namhoccu/scp-test-1', { cookie: PH });
+    return { coAlbum, chiTiet: chiTiet.status, anh: anh.status, coNhom, nhcChiTiet: chiTietNhc.status };
+  }
+
+  // (a) VẾ KHẲNG ĐỊNH — bé rời trường 1 tháng thì mọi thứ vẫn mở.
+  // Không có vế này thì ba phép kiểm ở (b) xanh cả khi bản vá siết quá tay và
+  // cắt luôn gia đình vừa mới chuyển trường tháng trước.
+  choRoiTruong(BE, 1);
+  const con = await doLopCu();
+  check('rời trường 1 tháng — album lớp cũ VẪN có trong danh sách', con.coAlbum, con);
+  check('rời trường 1 tháng — VẪN mở được album lớp cũ', con.chiTiet === 200, con);
+  check('rời trường 1 tháng — VẪN tải được ảnh trong album đó', con.anh === 200, con);
+  check('rời trường 1 tháng — màn Năm học trước VẪN thấy nhóm cũ', con.coNhom, con);
+  check('rời trường 1 tháng — VẪN mở được nội dung nhóm cũ đó', con.nhcChiTiet === 200, con);
+
+  // (b) RỜI TRƯỜNG ĐÃ 3 NĂM — cùng mốc với mục [3], mọi cửa phải đóng.
+  choRoiTruong(BE, 36);
+  const het = await doLopCu();
+  check('rời trường 3 năm — album lớp cũ BIẾN KHỎI danh sách', !het.coAlbum, het);
+  check('rời trường 3 năm — mở thẳng album lớp cũ bị từ chối', het.chiTiet === 403, het);
+  check('rời trường 3 năm — KHÔNG tải được byte nào của ảnh trong album đó',
+    het.anh === 403, het);
+  check('rời trường 3 năm — màn Năm học trước không còn nhóm cũ', !het.coNhom, het);
+  check('rời trường 3 năm — mở thẳng nội dung nhóm cũ cũng không được',
+    het.nhcChiTiet === 404, het);
+
+  // (c) VÀ ĐÚNG CÙNG LÚC ĐÓ, màn "Hồ sơ con đã ra trường" cũng đóng — hai màn
+  // phải nói cùng một câu chuyện, đó chính là chỗ trước đây lệch nhau.
+  const hoSo = await req('GET', `/api/hocsinh-cu/${BE}`, { cookie: PH });
+  check('và màn "Hồ sơ con đã ra trường" cũng đóng cùng lúc — hai màn nói cùng một chuyện',
+    hoSo.status === 403, hoSo.status);
+
+  // (d) Cô và nhà trường KHÔNG bị vạ lây: album vẫn là của nhóm, cô vẫn mở được.
+  const cuaCo = await req('GET', `/api/albums/${albumId}`, { cookie: GV });
+  check('cô phụ trách nhóm vẫn mở được album đó — bản vá chỉ đóng đường của gia đình',
+    cuaCo.status === 200, cuaCo.status);
+
+  // (e) Dữ liệu KHÔNG bị xoá — đóng đường xem không phải là xoá.
+  const conn3 = new Database(path.join(DIR, 'school.db'));
+  const conAnh = conn3.prepare('SELECT COUNT(*) c FROM album_photos WHERE albumId = ?').get(albumId).c;
+  conn3.close();
+  check('ảnh trong album vẫn còn nguyên trong cơ sở dữ liệu', conAnh === 1, conAnh);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
