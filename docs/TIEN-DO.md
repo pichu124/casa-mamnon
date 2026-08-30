@@ -584,7 +584,7 @@ nói ra thứ nó đang hiện.**
 
 ### G0.6 — Con số kiểm thử hiện tại
 
-> **Đo ngày 30/08/2026.** Con số này rơi rớt rất nhanh — mỗi đợt thêm bài là
+> **Đo lại ngày 30/08/2026, sau đợt Đ79.** Con số này rơi rớt rất nhanh — mỗi đợt thêm bài là
 > lệch, và bảng này đã lệch thật một lần (ghi 2546 trong khi số đo lại là
 > 2615). Đếm lại bằng chính hai lệnh dưới, đừng tin bảng nếu commit gần nhất
 > có đụng vào `test/`:
@@ -603,7 +603,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2911**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **3021**, FAIL 0 |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **470**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
@@ -613,7 +613,7 @@ Bốn bộ lớn nhất, và việc chúng canh:
 | `test:lo-hong` | 291 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
 | `test:khe-uoc` | 164 | Hình dạng của các tệp dùng chung, và **không ai được chép lại** hàm nén ảnh |
 | `test:co-lap-loi` | 102 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
-| `test:nhom-lop` | 93 | Nhiều cô một nhóm (G0.4 · G0.5 · N8) |
+| `test:nhom-lop` | 119 | Nhiều cô một nhóm (G0.4 · G0.5 · N8), và cửa sổ tin nhắn (Đ77 · Đ79) |
 
 Các bộ **mới của app 2**, không có ở app 1:
 
@@ -819,8 +819,49 @@ nêu: `routes/attendance.js` đọc `leave_requests` và `routes/reports.js` đ�
 > bắt được thật.
 
 > **Bốn phát hiện đã bị cắt khỏi vòng thẩm định** vì mỗi hướng chỉ đưa 3 cái
-> nặng nhất đi thẩm định (ghi rõ trong nhật ký chạy). Chúng chưa được kiểm
-> chứng, nên không ghi vào bảng này — chạy lại đợt soát nếu muốn moi nốt.
+> nặng nhất đi thẩm định (ghi rõ trong nhật ký chạy). **Đã moi nốt ở vòng hai
+> ngay dưới đây.**
+
+### Vòng thẩm định thứ hai — 6 phát hiện bị cắt, không cái nào bị bác bỏ
+
+Sáu phát hiện bị cắt khỏi vòng một được đưa lại qua **12 tác nhân, mỗi phát hiện
+hai người soát độc lập**, cùng một luật: đọc mã thật, dò lớp bọc phía dưới, tra
+bài test đã có, tra tài liệu xem có phải chỗ cố ý hoãn không.
+
+**Kết quả: 4 cả hai người xác nhận, 2 hai người đồng ý về SỰ VIỆC nhưng khác
+nhau về mức hại, 0 bị bác bỏ.** Cả sáu đã vá — Đ72 tới Đ77.
+
+| Mức | Chỗ nào | Khiếm khuyết | Vá ở |
+|---|---|---|---|
+| 🔴 cao | `modules/nhatky/routes.js` | Hai cô cùng phụ trách một nhóm cùng ghi nhật ký: cô bấm Lưu sau ghi đè trọn bản ghi bằng ảnh chụp màn hình CŨ của mình. Phần cô kia vừa ghi biến mất, im lặng, và máy chủ vẫn trả "Đã lưu" | **Đ72** |
+| 🟠 vừa | `routes/hocsinh-cu.js` | Cô thu hồi một nhận xét bấm nhầm sang bé khác → màn Nhận xét sạch, nhưng màn "Hồ sơ con đã ra trường" vẫn hiện nguyên dòng đó cho gia đình. Là quyền xoá dữ liệu theo Nghị định 13/2023 | **Đ73** |
+| 🟠 vừa | `test/co-so-quan-tri.test.mjs` | Phép quét "22 đường không đường nào rò dữ liệu cơ sở khác" có hai đường chưa từng quét gì: một vì phân hệ đang tắt, một vì **gõ nhầm đường dẫn** (`/api/attendance` không nhận `classId`) | **Đ74** |
+| 🟠 vừa | `server.js` · `render.yaml` · `scripts/kiem-tra-may-chu.js` · `docs/PHEP-THU-DIEN-THOAI.md` | Bốn chỗ cảnh báo mật khẩu mẫu nói "8" và "9" tài khoản; thật ra là **13**. Người vận hành đổi 9 cái mình nhớ rồi tin là xong, còn 4 tài khoản vẫn "123456" trên máy chủ mở ra Internet | **Đ75** |
+| 🟠 vừa | `public/js/views/timetable.js` | Nhãn "Đang học" treo lên trên dòng "Ngủ trưa" lúc 12h30; mốc trống gọi là "Nghỉ / tự học" (bé 18 tháng không tự học); và khung giờ mặc định là bảy tiết 35 phút **không có bữa trưa lẫn giấc ngủ trưa** | **Đ76** |
+| 🟠 vừa | `routes/messages.js` | Mở một phòng chat kéo về MỌI tin nhắn, không giới hạn. Nhóm lớp là một hội thoại chung của cô và 20 gia đình, dùng hằng ngày — sau một năm học là hàng nghìn tin, trên máy Android rẻ tiền của trường | **Đ77** |
+
+> **Hai chỗ "đồng ý về sự việc, khác nhau về mức hại"** là Đ74 và Đ76: một người
+> xếp 🟠, người kia xếp 🟢. Không ai bác bỏ sự việc. Đã vá cả hai — một bài canh
+> rỗng và một màn nói sai chuyện đang xảy ra với con thì rẻ hơn nhiều so với
+> việc tranh luận tiếp về mức.
+
+### Nợ nền chung sinh ra từ đợt này
+
+Đợt Đ59–Đ77 sinh **bốn món nợ BẮT BUỘC** phải vá cả sang app 1, đã ghi vào Sổ nợ
+của `docs/LOI-NEN-CHUNG.md` ở Đ78 — mỗi món có đối chiếu tận nơi tại điểm tách
+`bc9dfa3`, không phỏng đoán:
+
+| Món | Vì sao bắt buộc |
+|---|---|
+| **Đ62** `scripts/restore.js` ghi cứng thư mục ảnh | Loại 2. `backup.js` ngay cạnh CÓ `--out /mnt/usb`; sao lưu ra ổ ngoài rồi khôi phục thì cơ sở dữ liệu về đủ còn **ảnh thì không**. Ảnh là thứ duy nhất không dựng lại được. **Ưu tiên cao nhất** |
+| **Đ59** `lib/lich-su-lop.js` không có hạn 12 tháng | Loại 1. Gia đình rời trường nhiều năm vẫn tải được **ảnh khuôn mặt cả lớp**, phần lớn các em vẫn đang học |
+| **Đ66** `/modules` mở cho người chưa đăng nhập | Loại 1. App 1 có `modules/hocphi/` — ai cũng tải được `routes.js` và `schema.sql` của phần thu tiền |
+| **Đ73** `routes/hocsinh-cu.js` không lọc nhận xét đã thu hồi | Loại 1 + Nghị định 13/2023. **Ở app 1 nặng hơn app 2**: app 2 đã tắt phân hệ Nhận xét từ A2, app 1 dùng nó hằng ngày cho ~300 gia đình |
+
+Bốn món KHÔNG bắt buộc (Đ65, Đ67, Đ68, Đ77) và danh sách món **không áp dụng cho
+app 1** cũng ghi ở đó. Đáng chú ý nhất trong danh sách sau: **Đ76 tuyệt đối
+không được chép sang app 1** — ở trường tiểu học, "Nghỉ / tự học", "Đang học" và
+khung bảy tiết 35 phút đều là chữ và khung ĐÚNG.
 
 ---
 
@@ -962,3 +1003,11 @@ nêu: `routes/attendance.js` đọc `leave_requests` và `routes/reports.js` đ�
 | 30/08/2026 | **Đ69** — ba chỗ chữ trên màn hình: màn Chuyển năm học bảo hiệu trưởng **gõ `npm run backup`** (người bấm nút không chạy được lệnh đó, và app không có nút sao lưu nào); cô chưa có nhóm mở Kế hoạch/Lịch sinh hoạt thì nhận "Có lỗi xảy ra 😥" đổ lỗi cho một nhóm không tồn tại; trang chủ nói "Nhà trường chưa bật phân hệ nào" với Nhân sự/Kế toán — sai sự thật, và "phân hệ" là chữ chỉ có trong mã nguồn | Soát 30/08 #13, #14, #15 |
 | 30/08/2026 | **Đ70** — hai bộ canh tự siết: mục cách ly cơ sở chạy trên một bé **không có lấy một dòng** dặn thuốc hay xin nghỉ nào (xanh vì chẳng có gì để lọt); và hàm cắt thân hàm của bộ canh quyền gán nhãn "hàm canh" cho cả hàm phụ trợ vô can. Sửa xong, bộ canh quyền lập tức bắt được một đường — kiểm lại thì đó là **báo nhầm**, nên dạy nó nhận thêm kiểu (b) viết thẳng bằng SQL | Soát 30/08 #9, #10 |
 | 30/08/2026 | **Đ71** — ba chỗ tài liệu nói sai: job `sw-version` trên GitHub so với **lần push trước** trong khi `CLAUDE.md` hứa so với **nhánh chính** (nhánh đã tăng VERSION vẫn bị báo đỏ, người gặp sẽ tăng thêm lần nữa — mỗi lần là một lần xoá kho đệm của mọi điện thoại); `modules/README.md` nói dùng được `CREATE TRIGGER` trong khi bộ kiểm tra từ chối mọi trigger có thân lệnh; `README.md` — trang đầu kho mã — ghi lứa tuổi **2–6 tuổi** | Soát 30/08 #19, #20, #21 |
+| 30/08/2026 | **Đ72** — **hai cô cùng ghi nhật ký một nhóm: người bấm Lưu sau xoá sạch phần người bấm trước.** Màn hình gửi lên mọi ô của mọi bé đang hiện, `lamSach` luôn trả đủ 13 cột, `db.update` ghi đè trọn bản ghi — nên cú lưu lúc 16h40 là ảnh chụp màn hình lúc 16h20 đè lên bản 16h25. Im lặng, và máy chủ vẫn trả "Đã lưu". `QUYET-DINH-TU-CHOT.md` mục 24 đã gọi đúng tên kiểu mất dữ liệu này nhưng chỉ bịt đường NHÁP. Nay màn gửi kèm dấu thời gian lúc nạp; bé nào bị người khác ghi đè thì **bỏ qua đúng bé đó và nói ra**, các bé khác vẫn lưu | Vòng thẩm định 2 |
+| 30/08/2026 | **Đ73** — cô thu hồi một nhận xét bấm nhầm sang bé khác thì màn Nhận xét sạch, nhưng **màn "Hồ sơ con đã ra trường" vẫn hiện nguyên dòng đó cho gia đình** — vì `lib/sua-thu-hoi.js` ghi trạng thái ở bảng phụ, nên mọi `SELECT *` không lọc đều đọc ra dòng đã gỡ. Là quyền xoá dữ liệu theo Nghị định 13/2023, và là màn CHỈ gia đình mở | Vòng thẩm định 2 |
+| 30/08/2026 | **Đ74** — phép quét "22 đường không đường nào rò dữ liệu cơ sở khác" có **hai đường chưa từng quét gì**: `GET /api/hocsinh-cu` trả 404 vì phân hệ tắt sẵn, và `GET /api/attendance?classId=` **gõ nhầm đường dẫn** (đường đó đòi `studentId`, trả 400 trước mọi chốt cơ sở). Nay tách hai nhóm với hai kỳ vọng, bật phân hệ tắt sẵn, và thêm vế khẳng định "phép quét phải nhìn thấy dữ liệu của chính cơ sở mình" | Vòng thẩm định 2 |
+| 30/08/2026 | **Đ75** — bốn chỗ cảnh báo mật khẩu mẫu nói **8 và 9 tài khoản, thật ra là 13**. Người vận hành đổi 9 cái mình nhớ rồi tin là xong, còn 4 tài khoản vẫn "123456" trên máy chủ mở ra Internet. Chua hơn: `scripts/kiem-tra-may-chu.js` mở đầu bằng đúng bài học "một con số ghi cứng thì sai ngay từ lần sau" rồi ghi cứng con số này ba dòng dưới. Nay canh bằng máy, và đối chiếu thẳng với số tài khoản dữ liệu mẫu sinh ra | Vòng thẩm định 2 |
+| 30/08/2026 | **Đ76** — màn Lịch sinh hoạt còn ba thứ của app 1: nhãn **"Đang học" treo lên trên dòng "Ngủ trưa"** lúc 12h30; mốc chưa xếp gọi là **"Nghỉ / tự học"** (bé 18 tháng không tự học, và "nghỉ" thì gia đình đọc ra là nhóm được nghỉ); và **khung giờ mặc định bảy tiết 35 phút** với một khoảng trống 10:15–14:00 không mốc nào nói tới — đúng chỗ bữa trưa và giấc ngủ trưa. Bộ canh đo khung bằng **số phút**, không bằng chữ | Vòng thẩm định 2 |
+| 30/08/2026 | **Đ77** — mở một phòng chat kéo về **mọi tin nhắn, không giới hạn**. Nhóm lớp là một hội thoại chung của cô và 20 gia đình, dùng hằng ngày; sau một năm học là hàng nghìn tin, trên máy Android rẻ tiền của trường. Nay nạp cửa sổ tin mới nhất — cắt ở đầu MỚI, không phải đầu cũ — kèm đường `?truoc=` và nút "Xem tin cũ hơn", vì cắt bớt mà không mở đường đi ngược là biến một cái chậm thành một cái mất. Kèm gộp một chỗ N+1 ở màn danh sách | Vòng thẩm định 2 |
+| 30/08/2026 | **Đ79** — đường `?after=` của Nhắn tin (màn hình gọi bốn giây một lần) cũng **không có trần**, và nó không có trần TỰ NHIÊN nào: mốc do màn hình gửi lên, nên tab để mở qua đêm rồi máy thức dậy là một lượt hỏi kéo về cả quãng ở giữa. Cắt ở đầu **CŨ** — đây là dòng chảy nối tiếp, bỏ khúc giữa là màn hình thủng một khoảng không lấy lại được | Tự thấy khi vá Đ77 |
+| 30/08/2026 | **Đ78** — ghi **bốn món nợ nền chung BẮT BUỘC** của đợt Đ59–Đ77 vào Sổ nợ (Đ62 khôi phục từ ổ ngoài thì ảnh không về — **món nặng nhất trong sổ**; Đ59 album lớp cũ không có hạn 12 tháng; Đ66 `/modules` mở cho người chưa đăng nhập; Đ73 nhận xét đã thu hồi vẫn hiện). Cả bốn **đối chiếu tận nơi tại `bc9dfa3`**, kèm bốn món không bắt buộc và danh sách món KHÔNG áp dụng cho app 1 — trong đó Đ76 tuyệt đối không được chép sang, vì ở trường tiểu học cả ba chữ đó đều đúng | `LOI-NEN-CHUNG.md` |
