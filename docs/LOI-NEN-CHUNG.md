@@ -168,9 +168,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn năm món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn bảy món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Năm chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Bảy chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -197,6 +197,28 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   cho lỗi nào cả, nên không bắt buộc — nhưng app 1 đang chạy thật cho ~300 gia
   đình và cũng chỉ canh quy định đó cho đúng một tệp. Chép sang được gần như
   nguyên vẹn; chỉ phải chỉnh danh sách hàm canh cho khớp `lib/` bên đó.
+- **Màn "không mở được" nói sai lý do với phụ huynh** (`lib/modules.js`,
+  `routes/modules.js`, `public/js/app.js` — vá ở app 2 tại Đ54). **Đã đối chiếu
+  tận nơi, không phải phỏng đoán:** `public/js/app.js` ở điểm tách có đúng câu
+  *"Phân hệ này hiện đang được nhà trường tắt."*, và `lib/modules.js` ở điểm
+  tách cũng đã lọc theo `roles`. Nghĩa là app 1 **đang** nói câu đó với phụ
+  huynh mở nhầm một địa chỉ chỉ dành cho nhà trường — và bên đó là ~300 gia
+  đình thật, tức là văn phòng app 1 có thể đã nhận những cuộc gọi hỏi "sao
+  trường tắt mất phần của tôi" mà không ai lần ra nguyên nhân. Không rò dữ liệu,
+  không mất dữ liệu, nên không bắt buộc; nhưng đây là món **dễ vá và đáng vá
+  nhất** trong danh sách này.
+- **Hai ô chết trong hồ sơ sức khoẻ** (`routes/health.js` — vá ở app 2 tại Đ56).
+  **Cũng đã đối chiếu tận nơi:** ở điểm tách, `public/js/views/health.js` đã in
+  ra "Thị lực" và "Đánh giá thể trạng", còn `routes/health.js` **không có một
+  dòng nào** ghi hai cột đó. Nên app 1 có y hệt hai ô chết ấy tới hôm nay. Bản
+  vá chép sang được gần như nguyên vẹn, kèm cả phép kiểm QUY TẮC 4 (app 1 không
+  có QUY TẮC 4, nhưng "app không được tự suy đánh giá thể trạng từ chiều cao và
+  cân nặng" thì bên nào cũng đúng).
+
+> **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
+> app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức
+> vụ chưa tồn tại ở điểm tách — `lib/db.js` bên đó không có `CHUC_VU`, nên bên
+> đó không có vai Nhân sự để mà siết.
 
 ---
 

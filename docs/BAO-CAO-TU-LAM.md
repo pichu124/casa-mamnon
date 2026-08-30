@@ -165,6 +165,22 @@ Không phải việc của mã, và tôi không làm thay được:
 App 1 đang chạy thật cho khoảng 300 gia đình, nên đây là món nợ đáng trả sớm.
 Anh mở quyền vào kho `pichu124/School` là tôi đối chiếu và vá được.
 
+> **Đợt này tôi đã THỬ tự mở quyền vào kho đó** (`add_repo`) và bị chặn — việc
+> gắn thêm một kho vào phiên làm việc cần anh đồng ý, tôi không tự làm được.
+> Anh gật một câu là tôi bắt đầu.
+>
+> **Đợt Đ54–Đ58 không thêm món nợ BẮT BUỘC nào**, nhưng thêm **hai món không
+> bắt buộc mà tôi đã đối chiếu tận nơi ở điểm tách `bc9dfa3`, không phỏng đoán:**
+>
+> - App 1 **đang** nói với phụ huynh câu *"Phân hệ này hiện đang được nhà trường
+>   tắt"* khi họ mở nhầm một địa chỉ chỉ dành cho nhà trường — nhà trường không
+>   tắt gì cả. Với ~300 gia đình, văn phòng app 1 có thể đã nhận những cuộc gọi
+>   hỏi "sao trường tắt mất phần của tôi" mà không ai lần ra nguyên nhân.
+> - App 1 có **y hệt hai ô chết** trong hồ sơ sức khoẻ (Thị lực, Đánh giá thể
+>   trạng): màn hình in ra, máy chủ không có đường ghi.
+>
+> Chi tiết ở `docs/LOI-NEN-CHUNG.md`, mục *Còn bảy món KHÔNG bắt buộc*.
+
 ---
 
 ## 5. Còn gì trong sổ việc
