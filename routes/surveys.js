@@ -21,6 +21,10 @@ function parentName(userId) {
   return p ? `${p.title} ${p.name}` : 'Phụ huynh';
 }
 
+// Khảo sát đang mở luôn nằm đầu danh sách, nên trần này cắt phần đuôi lịch sử
+// chứ không cắt việc đang cần làm.
+const GIOI_HAN_DANH_SACH = 100;
+
 function summary(sv, user, responses) {
   const list = responses || responsesOf(sv.id);
   return {
@@ -38,11 +42,42 @@ function summary(sv, user, responses) {
 module.exports = (app) => {
   // Danh sách khảo sát người dùng được xem (không kèm chi tiết phản hồi).
   app.get('/api/surveys', (req, res) => {
+    // ĐẾM BẰNG HAI CÂU TỔNG HỢP, KHÔNG NẠP TỪNG PHIẾU CỦA TỪNG KHẢO SÁT.
+    //
+    // `summary()` chỉ cần hai con số: tổng số phiếu, và người này đã trả lời
+    // chưa. Nhưng nó gọi `responsesOf(sv.id)` cho TỪNG khảo sát, mà hàm đó nạp
+    // TOÀN BỘ phiếu — cả nội dung câu trả lời — chỉ để lấy `.length` và một
+    // phép `.some()`. Với 3 cơ sở, mỗi năm vài chục khảo sát, mỗi khảo sát vài
+    // trăm phiếu, thì một lần gia đình mở màn Khảo sát là nạp hàng chục nghìn
+    // dòng vào bộ nhớ rồi vứt đi gần hết.
+    //
+    // Hai câu dưới chạy MỘT lần cho cả danh sách và chỉ mang về đúng hai con số.
+    const dem = new Map(db.all('survey_responses',
+      'SELECT surveyId, COUNT(*) AS n FROM survey_responses GROUP BY surveyId')
+      .map(r => [r.surveyId, r.n]));
+    const daTraLoi = new Set(db.all('survey_responses',
+      'SELECT surveyId FROM survey_responses WHERE userId = ?', [req.user.id])
+      .map(r => r.surveyId));
+
     // Đang mở lên trước, rồi mới nhất trước.
+    //
+    // VÀ CÓ TRẦN: bảng này chỉ dài thêm theo mỗi năm học, không bao giờ ngắn
+    // đi. Không có trần thì sang năm thứ ba màn hình gia đình phải tải về cả
+    // lịch sử khảo sát của trường.
     const list = db.all('surveys',
-      `SELECT * FROM surveys ORDER BY (status = 'open') DESC, createdAt DESC`)
+      `SELECT * FROM surveys ORDER BY (status = 'open') DESC, createdAt DESC LIMIT ?`,
+      [GIOI_HAN_DANH_SACH])
       .filter(sv => visibleTo(req.user, sv))
-      .map(sv => summary(sv, req.user));
+      .map(sv => ({
+        id: sv.id,
+        title: sv.title,
+        description: sv.description,
+        deadline: sv.deadline,
+        status: sv.status,
+        questionCount: (sv.questions || []).length,
+        responseCount: dem.get(sv.id) || 0,
+        answered: daTraLoi.has(sv.id),
+      }));
     res.json(list);
   });
 

@@ -422,6 +422,55 @@ console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không ch
   check('CÔ THỨ HAI MỞ ĐƯỢC SỔ ĐÓN TRẢ CỦA NHÓM CHUNG', doc.status === 200, doc.data);
 }
 
+// ===========================================================================
+console.log('\n[+] TRẦN THỨ HAI: vòng tạo → ngưng dùng → tạo lại phải có điểm dừng');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Trần "tối đa 12 người được đón" chỉ đếm dòng ĐANG DÙNG. Nhưng "Ngưng dùng"
+  // là đường của chính gia đình, nên vòng tạo → ngưng dùng → tạo lại không vấp
+  // trần nào. Mỗi vòng ghi thêm một tấm ảnh vào ổ đĩa, và ảnh của dòng đã ngưng
+  // thì không có đường nào dọn.
+  //
+  // Chú thích của trần cũ tự nêu mục đích: "để một tài khoản bị chiếm không thể
+  // bơm hàng nghìn dòng vào hồ sơ bé". Mã không làm được đúng điều nó nói.
+  // Dọn trước: các mục trên đã tạo đủ người cho bé s1 nên trần THỨ NHẤT (12
+  // người đang dùng) chặn ngay từ lần đầu. Ngưng dùng hết để vòng lặp dưới thật
+  // sự đi vào trần THỨ HAI — nếu không thì mục này đo nhầm cái trần cũ.
+  {
+    const ds = await req('GET', '/api/dontra?studentId=s1', { cookie: PH });
+    for (const x of (ds.data?.nguoiThuongXuyen || [])) {
+      if (x && x.id) await req('PUT', `/api/dontra/nguoi/${x.id}`, { cookie: PH, body: { dangDung: false } });
+    }
+    const con = await req('GET', '/api/dontra?studentId=s1', { cookie: PH });
+    const conDung = (con.data?.nguoiThuongXuyen || []).filter(x => x.dangDung).length;
+    check('dọn xong, bé không còn ai "đang dùng" — để đo đúng trần thứ hai',
+      conDung === 0, conDung);
+  }
+
+  let taoDuoc = 0;
+  let chan = null;
+  for (let i = 0; i < 30; i++) {
+    const r = await req('POST', '/api/dontra/nguoi', {
+      cookie: PH, body: { studentId: 's1', hoTen: `Người thử ${i}`, quanHe: 'Bác', dienThoai: '0900000000' },
+    });
+    if (r.status === 201 || r.status === 200) {
+      taoDuoc += 1;
+      // Ngưng dùng ngay để không chạm trần "đang dùng" — đúng vòng lặp của lỗi.
+      const id = r.data?.id;
+      if (id) await req('PUT', `/api/dontra/nguoi/${id}`, { cookie: PH, body: { dangDung: false } });
+      continue;
+    }
+    chan = r;
+    break;
+  }
+  check('VÒNG LẶP CÓ ĐIỂM DỪNG — không tạo được vô hạn', !!chan, `tạo được ${taoDuoc} lần mà chưa bị chặn`);
+  check('và dừng lại trong khoảng hợp lý, không phải sau hàng trăm dòng',
+    taoDuoc > 0 && taoDuoc <= 25, taoDuoc);
+  check('lời từ chối nói bằng tiếng gia đình hiểu, có chỉ đường ra',
+    /sửa lại người đã khai|văn phòng/i.test(chan?.data?.error || ''), chan?.data);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

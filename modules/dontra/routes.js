@@ -30,6 +30,20 @@ const TOI_DA_DIEN_THOAI = 20;
 const TOI_DA_NGAY_UY_QUYEN = 31;
 // Trần để một tài khoản bị chiếm không thể bơm hàng nghìn dòng vào hồ sơ bé.
 const TOI_DA_NGUOI_MOI_BE = 12;
+// TRẦN THỨ HAI: số dòng TẠO MỚI cho mỗi bé trong 24 giờ, đếm MỌI dòng bất kể
+// còn dùng hay đã ngưng.
+//
+// Trần trên đếm số dòng ĐANG DÙNG — đó là con số đúng cho câu hỏi "bé có mấy
+// người được đón". Nhưng "Ngưng dùng" là đường của chính gia đình, nên vòng
+// tạo → ngưng dùng → tạo lại không vấp phải trần nào cả. Mỗi vòng ghi thêm một
+// tấm ảnh vào ổ đĩa, và ảnh của dòng đã ngưng thì không có đường nào dọn.
+//
+// Chú thích của trần trên tự nêu mục đích: "để một tài khoản bị chiếm không thể
+// bơm hàng nghìn dòng vào hồ sơ bé". Mã cũ không làm được đúng điều nó nói.
+//
+// 20 lần một ngày rộng hơn nhiều so với việc thật: một nhà khai đủ ông bà, cô
+// dì, bác tài đưa đón cũng chỉ vài lần, và còn sửa được thay vì tạo mới.
+const TOI_DA_TAO_MOI_24H = 20;
 const TOI_DA_UY_QUYEN_DANG_HIEU_LUC = 10;
 
 function homNay() {
@@ -223,11 +237,22 @@ module.exports = (app, { db }) => {
 
     const s = lamSachNguoi(b);
     if (s.loi) return res.status(400).json({ error: s.loi });
-    const dangCo = nguoiCuaBe(studentId).filter(x => x.dangDung).length;
+    const dsCuaBe = nguoiCuaBe(studentId);
+    const dangCo = dsCuaBe.filter(x => x.dangDung).length;
     if (dangCo >= TOI_DA_NGUOI_MOI_BE) {
       return res.status(400).json({
         error: `Mỗi bé giữ tối đa ${TOI_DA_NGUOI_MOI_BE} người được đón thường xuyên. `
           + 'Ai không còn đón nữa thì bấm "Ngưng dùng" giúp trường nhé.',
+      });
+    }
+    // Trần thứ hai — xem chú thích ở `TOI_DA_TAO_MOI_24H`.
+    const motNgayTruoc = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const taoGanDay = dsCuaBe.filter(x => String(x.taoLuc || '') >= motNgayTruoc).length;
+    if (taoGanDay >= TOI_DA_TAO_MOI_24H) {
+      return res.status(400).json({
+        error: 'Hôm nay đã khai khá nhiều người đón cho bé rồi. '
+          + 'Xin gia đình sửa lại người đã khai thay vì thêm mới, '
+          + 'hoặc nhờ văn phòng nhà trường giúp.',
       });
     }
     const a = nhanAnh(b.anh);
