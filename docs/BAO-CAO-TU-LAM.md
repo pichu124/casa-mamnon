@@ -15,12 +15,13 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2911 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo 30/08/2026) |
+| Bộ kiểm thử | `npm test` **3021 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo lại 30/08/2026, sau đợt Đ79) |
 | Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
 | Còn việc gì chặn | **hai thứ, cả hai ngoài tầm tay tôi**: nhà trường (mục 4.2) và quyền vào kho app 1 (mục 4.3) |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
+| Đợt soát nhiều tác nhân 30/08 | **đã đóng hết**: 21 phát hiện của vòng một, cộng 6 phát hiện bị cắt khỏi vòng một nay đã qua **vòng thẩm định thứ hai** (12 tác nhân, mỗi phát hiện hai người soát độc lập — 0 bị bác bỏ). Tất cả đã vá, Đ59 tới Đ77 |
 
 ---
 
@@ -42,6 +43,10 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ39** | Vá lỗi **khoản thu rơi vào nhà người khác**: ô *Chọn bé* của màn Học phí không có tác dụng | Văn phòng chọn bé A, màn lặng lẽ quay về bé đầu danh sách, và khoản tiền được tạo cho bé đó. Sai tiền, sai nhà, mà trên màn hình trông vẫn bình thường. Bài canh mới tìm ra nó ngay lần chạy đầu |
 | **Đ42** | **Ghi sổ tiền là việc của văn phòng, không phải của cô** | Trước đó cô vừa tạo được khoản thu vừa tự xác nhận đã nhận tiền — một người vừa ghi sổ vừa duyệt sổ. Sai sót ở đó không ai đối chiếu ra, và khi có chuyện thì người đứng lớp phải giải trình về tiền. Cô vẫn ĐỌC được sổ của nhóm mình để trả lời gia đình ở cổng |
 
+| **Đ72** | **Hai cô cùng ghi nhật ký một nhóm: người bấm Lưu sau xoá sạch phần người bấm trước** | Nhóm mầm non có 2–3 cô, và cách chia việc tự nhiên nhất cuối giờ là hai cô cùng mở màn rồi chia nhau. Trước bản vá, cú lưu của cô A là một *ảnh chụp màn hình lúc 16h20* đè lên bản 16h25 của cô B — im lặng, và máy chủ vẫn báo "Đã lưu nhật ký cho 20 bé" |
+| **Đ73** | Cô thu hồi một nhận xét bấm nhầm sang bé khác, **màn "Hồ sơ con đã ra trường" vẫn hiện nó cho gia đình** | Là quyền chỉnh sửa và xoá dữ liệu của con theo Nghị định 13/2023. Nhà trường đã làm đúng thao tác; app mới là chỗ không thực hiện. Và đây là màn CHỈ gia đình mở — cô không có đường nào nhìn thấy để biết là chưa gỡ được |
+| **Đ75** | Bốn chỗ cảnh báo mật khẩu mẫu nói **"8" và "9" tài khoản; thật ra là 13** | Người vận hành đổi mật khẩu cho 9 tài khoản mình nhớ mặt rồi tin là đã xong — trong khi bốn tài khoản nữa vẫn dùng "123456" trên một máy chủ mở ra Internet, kèm hồ sơ và ảnh khuôn mặt trẻ dưới 6 tuổi. Đúng thứ mà chính bốn câu cảnh báo đó sinh ra để ngăn |
+
 ### 2.2 Việc giữ cho cô không mất công
 
 | Đợt | Việc |
@@ -54,6 +59,10 @@ Toàn bộ việc dưới đây tôi tự làm, tự kiểm, tự đẩy lên. M
 | **Đ43** | **Cô cập nhật app xong, đi ra sân sóng yếu, và đúng tám màn mầm non không mở được.** Mỗi lần app lên bản mới, kho đệm cũ bị xoá sạch — mà màn hình của phân hệ không nằm trong danh sách nạp sẵn được (địa chỉ của chúng chỉ có lúc máy chủ chạy). Nay chúng được mang theo sang bản mới |
 | **Đ44 · Đ45** | **Gia đình vẫn đọc được hồ sơ con đã rời trường từ nhiều năm trước.** Nhà trường chốt giữ 12 tháng, nhưng mốc đó chỉ nằm ở đúng một màn hình; gõ thẳng địa chỉ là ra nhật ký ăn ngủ, hồ sơ sức khoẻ, đơn thuốc. Nay luật nằm ở tầng dữ liệu, một nguồn sự thật — và **app 1 chắc chắn cũng dính**, đã ghi vào sổ nợ |
 | **Đ46** | **Tắt Điểm danh xong bếp vẫn nấu thiếu suất.** Màn báo ăn đọc thẳng sổ điểm danh và đơn nghỉ mà không hỏi hai phân hệ đó còn bật không, nên nó trừ suất theo một quyển sổ không còn ai cập nhật |
+
+| **Đ76** | **Màn Lịch sinh hoạt treo chữ "Đang học" lên trên dòng "Ngủ trưa"** lúc 12h30; mốc chưa xếp gọi là "Nghỉ / tự học"; và khung giờ mặc định là bảy tiết 35 phút **không có bữa trưa lẫn giấc ngủ trưa** — cô lập lịch lần đầu phải xoá sạch rồi gõ lại |
+| **Đ77** | **Mở một phòng chat kéo về cả năm học tin nhắn.** Nhóm lớp là một hội thoại chung của cô và 20 gia đình, dùng hằng ngày — sau một năm là hàng nghìn tin, trên máy Android rẻ tiền của trường. Nay nạp cửa sổ tin mới nhất, kèm nút "Xem tin cũ hơn" để cắt bớt không biến thành giấu |
+| **Đ79** | Đường màn chat gọi **bốn giây một lần** để lấy tin mới cũng không có trần — và nó không có trần tự nhiên nào, vì mốc là do màn hình gửi lên. Tự thấy khi đang vá Đ77; để nguyên một chỗ như vậy trong đúng tệp mình vừa siết thì kỳ |
 
 ### 2.3 Việc làm cho bộ kiểm thử thôi nói dối
 
@@ -106,6 +115,28 @@ khoảng 300 gia đình, đổi vai khi nhà trường chưa nói gì là làm h
 **d) Nháp Nhật ký ngày: HỎI cô, không tự điền đè.** Một nhóm có nhiều cô. Trong
 lúc bản nháp nằm trong máy cô A, cô B có thể đã ghi và lưu từ máy mình. Tự điền
 đè là lấy bản cũ ghi chồng lên bản mới, âm thầm.
+
+**f) Đụng nhau khi hai cô cùng ghi: chặn ĐÚNG BÉ ĐÓ, không chặn cả cú lưu**
+(Đ72). Chặn cả cú lưu thì cô điền 20 bé xong bấm Lưu và bị từ chối sạch — đổi
+một kiểu mất công lấy một kiểu mất công nặng hơn. Nay 19 bé không đụng nhau vẫn
+lưu, và cô đọc được câu *"1 bé chưa lưu được vì cô khác vừa ghi"*. Kèm hai
+điều: bản app cũ còn trong máy điện thoại **không gửi dấu thời gian thì vẫn lưu
+được như trước** (Nguyên tắc số 1), và có bé chưa lưu được thì màn **không xoá
+nháp** — phần cô vừa gõ còn nguyên trong máy.
+
+**g) Tin nhắn cũ: cắt bớt thì phải mở đường đi ngược** (Đ77). Chỉ thêm giới hạn
+là nhanh nhất, nhưng cô cuộn lên không thấy gì sẽ tin rằng tin nhắn cũ đã mất —
+tức là đổi một cái chậm lấy một cái *tưởng như mất dữ liệu*. Nên máy chủ nói ra
+"phía trước còn tin cũ hơn" và màn có nút **"Xem tin cũ hơn"** giữ nguyên chỗ cô
+đang đọc. Tôi chọn cửa sổ **200 tin** thay vì cuộn vô hạn tự nạp: cuộn vô hạn
+đẹp hơn nhưng thêm một cơ chế nữa phải canh, mà nút bấm thì cô hiểu ngay.
+
+**h) Khung giờ mặc định của Lịch sinh hoạt: sửa luôn, dù phát hiện chỉ nói về
+chữ** (Đ76). Đợt soát chỉ nêu hai câu chữ sai. Nhưng mở tệp ra thì khung giờ
+mặc định — thứ cô nhìn thấy khi nhóm lập lịch lần đầu — là bảy tiết 35 phút của
+trường tiểu học, không có bữa trưa lẫn giấc ngủ trưa. Cùng một khiếm khuyết,
+cùng một tệp, và để lại thì cô lập lịch lần đầu phải xoá sạch rồi gõ lại. Rủi ro
+thấp: khung mặc định chỉ dùng khi nhóm **chưa có** lịch.
 
 ---
 
@@ -178,15 +209,38 @@ Không phải việc của mã, và tôi không làm thay được:
 
 ### 4.3 Món nợ với kho app 1
 
-**Chín** bản vá thuộc loại **bắt buộc** (rò rỉ dữ liệu hoặc mất dữ liệu) đã làm
-ở app 2 nhưng **chưa mang sang app 1** — vì phiên làm việc chưa có quyền vào kho
-đó. Danh sách đầy đủ kèm mã commit ở `docs/LOI-NEN-CHUNG.md`, mục *Sổ nợ*.
+**Mười bốn** bản vá thuộc loại **bắt buộc** (rò rỉ dữ liệu hoặc mất dữ liệu) đã
+làm ở app 2 nhưng **chưa mang sang app 1** — vì phiên làm việc chưa có quyền vào
+kho đó. Danh sách đầy đủ kèm mã commit ở `docs/LOI-NEN-CHUNG.md`, mục *Sổ nợ*.
 
-> **Đợt này thêm một món, và nó là món nặng nhất trong sổ.** Lỗi *Chọn bé* của
-> màn Học phí (mục 2.1 ở trên) nằm trong tệp sinh ra **trước điểm tách hai kho**
-> và không đổi từ đó — nên app 1 **chắc chắn** dính, không phải "có thể". Ở app 1
-> nó nặng hơn hẳn: bên đó đang thu tiền thật của khoảng 300 gia đình, còn app 2
-> chưa có người dùng nào.
+> **Đợt Đ59–Đ77 thêm BỐN món, và một trong bốn thay chỗ đứng đầu bảng.**
+> Cả bốn tôi đã **đối chiếu tận nơi** ở điểm tách hai kho — mở đúng tệp, đúng
+> dòng của app 1 tại `bc9dfa3` — chứ không suy đoán từ việc "hai kho giống nhau":
+>
+> - 🥇 **Khôi phục từ ổ cứng ngoài thì ẢNH KHÔNG VỀ.** `scripts/backup.js` có
+>   sẵn tuỳ chọn sao lưu ra ổ ngoài và tự quảng cáo điều đó ở dòng đầu tệp;
+>   `scripts/restore.js` ngay cạnh lại đi tìm ảnh trong đúng thư mục vừa mất.
+>   Nên đúng kịch bản mà app khuyên người ta chuẩn bị — ổ đĩa máy chủ hỏng — thì
+>   danh sách trẻ về đủ, script in "Đã khôi phục xong", còn **ảnh khuôn mặt của
+>   ~300 gia đình thì không về, và không ai được báo một chữ nào**. Ảnh là thứ
+>   duy nhất không dựng lại được từ đâu khác. **Đây là món nặng nhất trong sổ.**
+> - **Gia đình đã rời trường nhiều năm vẫn tải được ảnh album lớp cũ** — mà
+>   album lớp là ảnh khuôn mặt CẢ LỚP, phần lớn các em vẫn đang học. Ở app 2 tôi
+>   dựng lại được tới mức tải về đúng các byte của tấm ảnh.
+> - **Mã máy chủ của phần thu tiền tải về được mà không cần đăng nhập**
+>   (`/modules/hocphi/routes.js` và `schema.sql`). Có một chốt chặn trong mã,
+>   nhưng nó đặt sai chỗ nên không chặn gì cả.
+> - **Cô thu hồi một nhận xét bấm nhầm sang bé khác thì màn "Hồ sơ con đã ra
+>   trường" vẫn hiện nguyên dòng đó cho gia đình.** Ở app 1 nặng hơn app 2 nhiều:
+>   app 2 đã tắt phân hệ Nhận xét, app 1 dùng nó hằng ngày. Và hàm lọc **đã nằm
+>   sẵn** trong kho app 1 — bản vá chỉ là gọi nó.
+
+> **Món nặng thứ hai trong sổ, sau Đ62 ở trên.** Lỗi *Chọn bé* của màn Học phí
+> (mục 2.1) nằm trong tệp sinh ra **trước điểm tách hai kho** và không đổi từ đó
+> — nên app 1 **chắc chắn** dính, không phải "có thể". Ở app 1 nó nặng hơn hẳn:
+> bên đó đang thu tiền thật của khoảng 300 gia đình, còn app 2 chưa có người
+> dùng nào. (Đ62 vượt lên trên vì nó làm **mất hẳn** ảnh khuôn mặt trẻ, thứ
+> không dựng lại được từ đâu; lỗi Học phí thì sai sổ, mà sổ thì sửa lại được.)
 
 App 1 đang chạy thật cho khoảng 300 gia đình, nên đây là món nợ đáng trả sớm.
 Anh mở quyền vào kho `pichu124/School` là tôi đối chiếu và vá được.
@@ -205,7 +259,13 @@ Anh mở quyền vào kho `pichu124/School` là tôi đối chiếu và vá đư
 > - App 1 có **y hệt hai ô chết** trong hồ sơ sức khoẻ (Thị lực, Đánh giá thể
 >   trạng): màn hình in ra, máy chủ không có đường ghi.
 >
-> Chi tiết ở `docs/LOI-NEN-CHUNG.md`, mục *Còn bảy món KHÔNG bắt buộc*.
+> Chi tiết ở `docs/LOI-NEN-CHUNG.md`, mục *Còn mười một món KHÔNG bắt buộc*.
+>
+> **Một chỗ TUYỆT ĐỐI không được chép sang app 1:** đợt Đ76 sửa màn Lịch sinh
+> hoạt của app 2 (bỏ chữ "Nghỉ / tự học", bỏ nhãn "Đang học", đổi khung giờ
+> mặc định thành một ngày ở nhà trẻ). Ở app 1 cả ba thứ đó đều ĐÚNG — bên đó
+> là trường tiểu học. Đã ghi rõ trong Sổ nợ để người sang kho kia khỏi "vá
+> giúp" nhầm.
 
 ---
 
@@ -252,4 +312,6 @@ Không cần anh nhắc lại bối cảnh.
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ61 và đợt soát nhiều tác nhân 30/08.*
+*Cập nhật lần cuối: sau đợt Đ78 — hai vòng thẩm định của đợt soát nhiều tác
+nhân 30/08 đã vá hết (21 + 6 phát hiện), và bốn món nợ bắt buộc mới với app 1
+đã vào sổ.*
