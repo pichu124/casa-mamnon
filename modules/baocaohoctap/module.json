@@ -1,0 +1,13 @@
+{
+  "key": "baocaohoctap",
+  "name": "Báo cáo học tập",
+  "desc": "Báo cáo tháng, báo cáo 6 tháng và báo cáo Cambridge theo đúng mẫu của trường",
+  "hash": "#/baocaohoctap",
+  "view": "baocaohoctap",
+  "emoji": "📘",
+  "bg": "linear-gradient(135deg,#5eaf8c,#2f8f68)",
+  "api": ["/api/baocaohoctap"],
+  "roles": ["teacher", "admin", "parent"],
+  "defaultEnabled": false,
+  "version": "0.1.0"
+}

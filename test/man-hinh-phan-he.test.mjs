@@ -35,7 +35,8 @@ sinhDuLieu(DIR);
 
 // Cả tám đều TẮT SẴN — đó là thiết kế, nhà trường tự bật. Bật hết ở đây để soi
 // được chúng; nếu không thì bài này chỉ kiểm được màn "phân hệ đang tắt".
-const MA = ['nhatky', 'tienan', 'dontra', 'thuchup', 'hanhtrinh', 'kehoachbe', 'cambridge', 'hocphi'];
+const MA = ['nhatky', 'tienan', 'dontra', 'thuchup', 'hanhtrinh', 'kehoachbe', 'cambridge', 'hocphi',
+  'baocaohoctap'];
 batPhanHe(DIR, MA);
 
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
@@ -51,6 +52,7 @@ const MAN = [
   { ma: 'kehoachbe', hash: '#/kehoachbe', ten: 'Kế hoạch của bé', vai: ['co'] },
   { ma: 'cambridge', hash: '#/cambridge', ten: 'Cambridge & Kết nối ở nhà', vai: ['co', 'ph'] },
   { ma: 'hocphi', hash: '#/hocphi', ten: 'Học phí', vai: ['co', 'ph'] },
+  { ma: 'baocaohoctap', hash: '#/baocaohoctap', ten: 'Báo cáo học tập', vai: ['co', 'ph'] },
 ];
 
 const TAI_KHOAN = {

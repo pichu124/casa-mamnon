@@ -9,7 +9,7 @@
 // biết là nó vừa dựng sai. Bản đầu của chính tệp đó hỏng HAI lần liên tiếp,
 // mỗi lần theo một kiểu khác nhau, và cả hai lần đều "chạy xong không lỗi":
 //
-//   1. Quên gọi `modules.napMoRong()` → tám phân hệ mầm non không có mặt trong
+//   1. Quên gọi `modules.napMoRong()` → các phân hệ mầm non không có mặt trong
 //      `tatCa()`, vòng lặp bật không tìm thấy gì, và bàn thử im lặng dựng ra
 //      đúng cái app mà nó sinh ra để tránh.
 //   2. Lọc bằng `!m.core` → phân hệ lõi KHÔNG có trường `core`, nên điều kiện
@@ -52,7 +52,7 @@ check('lệnh chạy xong không lỗi', r.status === 0, chu.slice(-500));
 check('có sinh dữ liệu mẫu', fs.existsSync(path.join(DIR, 'school.db')), fs.readdirSync(DIR));
 
 // ===========================================================================
-console.log('\n[2] ĐỦ TÁM PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳng cơ sở dữ liệu');
+console.log('\n[2] ĐỦ CÁC PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳng cơ sở dữ liệu');
 {
   // Đây là phép kiểm bắt được lỗi thứ nhất. Nó KHÔNG đọc chữ script in ra.
   const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
@@ -60,11 +60,19 @@ console.log('\n[2] ĐỦ TÁM PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳ
     .map(x => [x.moduleKey, !!x.enabled]));
   conn.close();
 
+  // SỐ PHÂN HỆ CẮM THÊM — con số này ĐI LÊN mỗi lần trường đặt thêm một phần.
+  //
+  // Ghi cứng "tám" ở đây là đúng lúc viết, và nó đã sai ngay lần thêm phân hệ
+  // tiếp theo (Báo cáo học tập). Nhưng KHÔNG bỏ hẳn phép đếm: bàn thử tồn tại
+  // để cô nhìn đúng app trường sẽ dùng, nên một phân hệ mới lặng lẽ không được
+  // bật là đúng thứ bài này sinh ra để bắt. Nên giữ con số, và ghi ngay cạnh
+  // rằng sửa nó là việc bình thường — khác hẳn với việc nới một bộ canh.
+  const SO_CAM_THEM = 9;
   const camThem = modules.moRong().map(m => m.key);
-  check('kho mã có đúng tám phân hệ cắm thêm', camThem.length === 8, camThem);
+  check(`kho mã có đúng ${SO_CAM_THEM} phân hệ cắm thêm`, camThem.length === SO_CAM_THEM, camThem);
 
   const chuaBat = camThem.filter(k => dong.get(k) !== true);
-  check('CẢ TÁM đều được bật trong cơ sở dữ liệu bàn thử', chuaBat.length === 0, chuaBat);
+  check('TẤT CẢ đều được bật trong cơ sở dữ liệu bàn thử', chuaBat.length === 0, chuaBat);
 }
 
 // ===========================================================================

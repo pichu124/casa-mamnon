@@ -512,6 +512,11 @@ console.log('\n[+] DANH SÁCH CHO PHÉP VIẾT TAY PHẢI THEO KỊP THƯ MỤC 
     kehoachbe: 'Kế hoạch từng bé là việc chuyên môn giữa cô và quản lý nhóm. '
       + 'Quản lý cơ sở đã thấy qua tầng cơ sở (api: null), không cần cấp thêm.',
     thuchup: 'Ghi nhanh là ghi chép thô của cô, đúng lớp 1 của bảng ba lớp.',
+    baocaohoctap: 'Báo cáo học tập là chữ cô viết về từng bé rồi gửi thẳng cho '
+      + 'gia đình bé đó — cùng họ với Kế hoạch của bé, và cấp cho một tài khoản '
+      + 'hành chính là mở nguyên hồ sơ học tập của mọi bé trong cơ sở cho người '
+      + 'không dạy bé nào. Quản lý cơ sở đã thấy qua tầng cơ sở (api: null); '
+      + 'Văn phòng cơ sở không cần đọc để làm việc của mình.',
   };
 
   const thieu = [];
