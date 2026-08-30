@@ -89,7 +89,8 @@ App.views.dontra = {
               </select>
             </div>` : ''}
         </div>
-        <div class="muted small mt-8">Đã trả ${UI.esc(String(d.tong.soDaTra))} / ${UI.esc(String(d.tong.soBe))} bé.</div>
+        <div class="muted small mt-8">Đã trả ${UI.esc(String(d.tong.soDaTra))} / ${UI.esc(String(d.tong.soBe))} bé.${
+  d.tong.soNghi ? ` ${UI.esc(String(d.tong.soNghi))} bé nghỉ hôm nay.` : ''}</div>
       </div>
 
       ${(d.danhSach || []).length
@@ -107,15 +108,27 @@ App.views.dontra = {
   theBeCong(b) {
     const uy = b.uyQuyenHomNay || [];
     const het = b.uyQuyenKhongConHieuLuc || [];
+    // BÉ ĐANG NGHỈ CÓ PHÉP: nhãn "Chưa trả" là nhãn SAI cho bé đang ở nhà.
+    //
+    // Cuối buổi chiều cô nhìn sổ đếm "còn mấy bé chưa ai đón". Một bé nghỉ đứng
+    // đó với nhãn cam "Chưa trả" là một việc chưa xong giả, và trong ca xấu
+    // nhất là cô đi tìm một đứa trẻ không có ở trường.
+    const nghi = b.nghiPhep;
     return `
-      <div class="card">
+      <div class="card"${nghi && !b.daTra ? ' style="opacity:.75"' : ''}>
         <div class="list-row" style="border-bottom:none;padding-top:0">
           ${UI.avatar(b.avatar, 44)}
           <div class="row-main"><div class="row-title">${UI.esc(b.hoTen)}</div></div>
           ${b.daTra
             ? UI.badge(`Đã trả${b.daTra.luc ? ` ${b.daTra.luc}` : ''}`, 'green')
-            : UI.badge('Chưa trả', 'orange')}
+            : (nghi ? UI.badge('Nghỉ hôm nay', 'orange') : UI.badge('Chưa trả', 'orange'))}
         </div>
+
+        ${nghi && !b.daTra ? `
+          <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+            Gia đình đã xin nghỉ hôm nay${nghi.reason ? ` — ${UI.esc(nghi.reason)}` : ''}.
+            Cô vẫn ghi được nếu bé có tới lớp.
+          </div>` : ''}
 
         ${b.daTra ? `
           <div class="muted small" style="line-height:1.6;margin-bottom:8px">

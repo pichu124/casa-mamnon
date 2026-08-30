@@ -18,6 +18,7 @@
 // tiền ăn, không phải một chỗ đứng cao thấp so với bạn.
 const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
+const nghiHoc = require('../../lib/nghi-hoc');
 const csv = require('../../lib/csv');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -94,18 +95,10 @@ module.exports = (app, { db, modules }) => {
   //
   // Chỉ đơn đã duyệt. Đơn đang chờ mà đã trừ suất là bếp nấu thiếu cho một bé
   // vẫn đến lớp — hỏng theo kiểu đứa trẻ phải chịu.
-  function nghiCoPhep(ids, ngay) {
-    if (!ids.length || !dangBat('xinphep')) return new Map();
-    const marks = ids.map(() => '?').join(',');
-    const ra = new Map();
-    for (const l of db.all('leave_requests',
-      `SELECT * FROM leave_requests
-       WHERE status = 'approved' AND studentId IN (${marks})
-         AND fromDate <= ? AND toDate >= ?`, [...ids, ngay, ngay])) {
-      ra.set(l.studentId, l);
-    }
-    return ra;
-  }
+  // Gọi thẳng `lib/nghi-hoc.js` — cùng một câu hỏi với màn Nhật ký ngày và màn
+  // Đón trả bé, nên phải cùng một câu trả lời. Bản trước giữ một bản sao riêng
+  // ở đây, và chính vì chỉ MÀN NÀY có nó mà hai màn kia không biết bé nghỉ.
+  const nghiCoPhep = (ids, ngayD) => nghiHoc.nghiCoPhep(ids, ngayD);
 
   function diemDanh(ids, ngay) {
     if (!ids.length || !dangBat('diemdanh')) return new Map();

@@ -18,6 +18,9 @@
 const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
+// Bé nào đang nghỉ có phép hôm nay — cùng một câu hỏi với màn Báo ăn và màn
+// Nhật ký ngày, nên hỏi cùng một chỗ. Xem `lib/nghi-hoc.js`.
+const nghiHoc = require('../../lib/nghi-hoc');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const GIO_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -150,6 +153,14 @@ module.exports = (app, { db }) => {
     const dsBe = db.all('students',
       'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId]);
 
+    // BÉ ĐANG NGHỈ CÓ PHÉP THÌ SỔ ĐÓN TRẢ PHẢI NÓI RA.
+    //
+    // Không giấu dòng đi — bé có thể vẫn tới lớp dù nhà đã xin nghỉ. Nhưng để
+    // nó nằm lẫn như một bé đang chờ được đón thì cuối giờ cô đếm "còn mấy bé
+    // chưa ai đón" và đếm nhầm một bé đang ở nhà; nặng hơn, ô "chưa trả" đứng
+    // đó suốt buổi chiều như một việc chưa xong.
+    const dangNghi = nghiHoc.nghiCoPhep(dsBe.map(b => b.id), ngay);
+
     const danhSach = dsBe.map(b => {
       const uy = uyQuyenCuaBe(b.id, ngay);
       const ghi = db.first('dontra_ghi',
@@ -167,6 +178,8 @@ module.exports = (app, { db }) => {
           u.trangThai !== 'con-hieu-luc' && u.trangThai !== 'chua-toi'
           && u.denNgay >= luiNgay(ngay, 7)),
         daTra: ghi ? { ...ghi, coGhiTen: tenNguoi(ghi.coGhi) } : null,
+        // `null` = bé đi học bình thường.
+        nghiPhep: dangNghi.get(b.id) || null,
       };
     });
 
@@ -174,7 +187,13 @@ module.exports = (app, { db }) => {
       ngay,
       classId,
       danhSach,
-      tong: { soBe: danhSach.length, soDaTra: danhSach.filter(x => x.daTra).length },
+      tong: {
+        soBe: danhSach.length,
+        soDaTra: danhSach.filter(x => x.daTra).length,
+        // Đếm "còn mấy bé chưa ai đón" mà tính cả bé đang ở nhà là đếm sai, và
+        // cô sẽ đi tìm một đứa trẻ không có ở trường.
+        soNghi: danhSach.filter(x => x.nghiPhep).length,
+      },
     });
   });
 

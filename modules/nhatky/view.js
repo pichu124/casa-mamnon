@@ -342,22 +342,41 @@ App.views.nhatky = {
     // Máy chủ dùng nó để biết cô khác có vừa ghi cho bé này không — xem chú
     // thích dài ở `PUT /api/nhatky` trong routes.js.
     (this._goc || (this._goc = {}))[b.studentId] = b.capNhatLuc || '';
+    // `data-nghi` để `apCaNhom()` bỏ qua bé này. Đánh dấu ở tầng ô chứ không
+    // lọc ở tầng thẻ: cô vẫn gõ tay được cho bé, chỉ thao tác ĐIỀN HÀNG LOẠT
+    // mới né ra.
+    const dnghi = b.nghiPhep ? ' data-nghi="1"' : '';
     const chon = (ten, ma, ds, dangChon) => `
-      <select class="nk-o" data-be="${id}" data-truong="${UI.esc(ma)}">
+      <select class="nk-o"${dnghi} data-be="${id}" data-truong="${UI.esc(ma)}">
         <option value="">— chưa ghi —</option>
         ${ds.map(([v, t]) => `<option value="${UI.esc(v)}" ${dangChon === v ? 'selected' : ''}>${UI.esc(t)}</option>`).join('')}
       </select>`;
     const so = (ma, gt, ph) => `
-      <input type="number" min="0" class="nk-o" data-be="${id}" data-truong="${UI.esc(ma)}"
+      <input type="number" min="0" class="nk-o"${dnghi} data-be="${id}" data-truong="${UI.esc(ma)}"
         value="${gt === null || gt === undefined ? '' : UI.esc(String(gt))}" placeholder="${UI.esc(ph)}">`;
 
+    // BÉ ĐANG NGHỈ CÓ PHÉP: NÓI RA NGAY TRÊN THẺ.
+    //
+    // Không giấu thẻ đi — bé có thể vẫn tới lớp dù nhà đã xin nghỉ, và cô vẫn
+    // phải ghi được. Nhưng để bé nằm lẫn giữa các bạn mà không một dấu hiệu nào
+    // thì cú "áp cả nhóm" điền luôn cho bé, và chiều tối mẹ đọc được "ăn hết
+    // bát cơm, ngủ 11h30–14h" về đúng ngày con nằm nhà sốt.
+    const nghi = b.nghiPhep;
+    const daiNghi = nghi ? `
+      <div class="muted small" style="padding:0 2px 10px;line-height:1.6">
+        Gia đình đã xin nghỉ hôm nay${nghi.reason ? ` — ${UI.esc(nghi.reason)}` : ''}.
+        Cô vẫn ghi được nếu bé có tới lớp.
+      </div>` : '';
+
     return `
-      <div class="card">
+      <div class="card"${nghi ? ' style="opacity:.75"' : ''}>
         <div class="list-row" style="border-bottom:none;padding-top:0">
           ${UI.avatar(b.avatar, 40)}
           <div class="row-main"><div class="row-title">${UI.esc(b.hoTen)}</div></div>
+          ${nghi ? UI.badge('Nghỉ hôm nay', 'orange') : ''}
           ${b.daGhi ? UI.badge('Đã ghi', 'green') : ''}
         </div>
+        ${daiNghi}
 
         <div class="section-label">Ăn</div>
         <div class="grid-2">
@@ -373,9 +392,9 @@ App.views.nhatky = {
         <div class="section-label">Ngủ</div>
         <div class="grid-2">
           <div class="field" style="margin:0"><label>Từ</label>
-            ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguTuLuc"`, b.nguTuLuc || '', 'từ')}</div>
+            ${this.oGio(`class="nk-o"${dnghi} data-be="${id}" data-truong="nguTuLuc"`, b.nguTuLuc || '', 'từ')}</div>
           <div class="field" style="margin:0"><label>Đến</label>
-            ${this.oGio(`class="nk-o" data-be="${id}" data-truong="nguDenLuc"`, b.nguDenLuc || '', 'đến')}</div>
+            ${this.oGio(`class="nk-o"${dnghi} data-be="${id}" data-truong="nguDenLuc"`, b.nguDenLuc || '', 'đến')}</div>
         </div>
         <div class="field mt-8" style="margin-bottom:0">
           <input class="nk-o" data-be="${id}" data-truong="nguGhiChu" placeholder="Ví dụ: ngủ ngon, hoặc trằn trọc đầu giờ"
@@ -424,8 +443,19 @@ App.views.nhatky = {
     if (!trua && !tu && !den) return UI.toast('Cô chọn ít nhất một mục để áp nhé', 'error');
 
     const muon = [['anTrua', trua], ['nguTuLuc', tu], ['nguDenLuc', den]].filter(([, v]) => v);
+    // BỎ QUA BÉ ĐANG NGHỈ CÓ PHÉP.
+    //
+    // "Áp cả nhóm" là thao tác mà cả phân hệ được thiết kế quanh nó — ghi 20 bé
+    // dưới 5 phút. Nhưng chính vì nó điền cho MỌI ô đang hiện, bé nghỉ ăn trọn
+    // cú đó mà không ai để ý, và chiều tối gia đình đọc được "ăn hết bát cơm,
+    // ngủ 11h30–14h" về đúng ngày con nằm nhà.
+    //
+    // Bỏ qua ở đây, KHÔNG khoá ô: cô vẫn gõ tay được cho bé nếu bé có tới lớp.
     const o = [...document.querySelectorAll('.nk-o')]
-      .filter(x => muon.some(([truong]) => x.dataset.truong === truong));
+      .filter(x => muon.some(([truong]) => x.dataset.truong === truong))
+      .filter(x => !x.dataset.nghi);
+    const soNghi = new Set([...document.querySelectorAll('.nk-o[data-nghi]')]
+      .map(x => x.dataset.be)).size;
     const trong = o.filter(x => !x.value);
     const daCo = o.length - trong.length;
 
@@ -440,7 +470,9 @@ App.views.nhatky = {
       // không nghe thấy gì. Gọi thẳng, nếu không thì đúng thao tác điền nhanh
       // nhất của cô lại là thao tác duy nhất không được giữ.
       this.luuNhap();
-      UI.toast(`Đã điền ${dich.length} ô. Cô sửa lại riêng bé nào khác rồi bấm Lưu.`, 'success');
+      UI.toast(`Đã điền ${dich.length} ô.`
+        + (soNghi ? ` Bỏ qua ${soNghi} bé có đơn nghỉ hôm nay.` : '')
+        + ' Cô sửa lại riêng bé nào khác rồi bấm Lưu.', 'success');
     };
 
     // Không có gì để giữ thì đừng bắt cô bấm thêm một lần — hỏi khi không có gì
@@ -496,8 +528,18 @@ App.views.nhatky = {
       } else {
         // Lưu lên máy chủ xong thì bản nháp trong máy hết việc. Giữ lại là lần
         // mở sau app nhắc một phần dở KHÔNG còn dở nữa.
+        //
+        // Lời nhắc "bé đang nghỉ" nằm TRONG nhánh này, không tách ra thành một
+        // nhánh riêng: cú lưu đó ĐÃ THÀNH CÔNG, nên nháp phải được xoá. Tách ra
+        // là giữ lại một bản nháp cho dữ liệu đã lưu, tức lần mở sau app nhắc
+        // "phần dở" cho thứ không còn dở — đúng chỗ Đ8 dọn.
         this.xoaNhap();
-        UI.toast(`Đã lưu nhật ký cho ${r.daGhi} bé`, 'success');
+        const coNghi = r.nhacNghi && r.nhacNghi.length;
+        UI.toast(
+          coNghi
+            ? (r.nhacNghiChu || 'Có bé đang nghỉ hôm nay mà vẫn được ghi nhật ký')
+            : `Đã lưu nhật ký cho ${r.daGhi} bé`,
+          coNghi ? 'error' : 'success');
       }
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }

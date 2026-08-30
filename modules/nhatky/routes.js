@@ -22,6 +22,9 @@
 // và cho gia đình, không phải một chỗ đứng cao thấp so với bạn.
 const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
+// Bé nào đang nghỉ có phép hôm nay — xem `lib/nghi-hoc.js` để biết vì sao
+// màn này BẮT BUỘC phải hỏi câu đó.
+const nghiHoc = require('../../lib/nghi-hoc');
 
 // Mức ăn hợp lệ. Cố ý là NHÃN CHỮ, không phải số — để là số thì sớm muộn có
 // người cộng lại rồi sắp các bé trên dưới nhau.
@@ -119,12 +122,22 @@ module.exports = (app, { db, modules }) => {
     return ra;
   }
 
-  function keml(be, hang) {
+  function keml(be, hang, nghi) {
     return {
       studentId: be.id,
       hoTen: be.name,
       avatar: be.avatar,
       laNhaTre: laNhaTre(be.dob),
+      // HÔM NAY BÉ CÓ Ở LỚP KHÔNG.
+      //
+      // Trước đợt này màn hình không hề biết, nên bé nghỉ có phép nằm lẫn giữa
+      // các bạn còn lại và ăn trọn một cú "áp cả nhóm": gia đình đọc được
+      // "ăn hết bát cơm, ngủ 11h30–14h" về đúng ngày con nằm nhà. Xem chú
+      // thích dài ở `lib/nghi-hoc.js`.
+      //
+      // `null` = bé đi học bình thường. Màn hình phân biệt được "bé nghỉ" với
+      // "cô chưa ghi", hai chuyện khác hẳn nhau.
+      nghiPhep: nghi || null,
       ...(hang || {}),
       // `daGhi` để màn hình phân biệt "cô chưa mở tới bé này" với "cô đã ghi
       // và hôm nay bé không ăn gì". Hai chuyện khác hẳn nhau.
@@ -189,6 +202,8 @@ module.exports = (app, { db, modules }) => {
       'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId]);
     if (!dsBe.length) return res.json({ ngay, danhSach: [] });
 
+    const dangNghi = nghiHoc.nghiCoPhep(dsBe.map(b => b.id), ngay);
+
     const marks = dsBe.map(() => '?').join(',');
     const daCo = new Map();
     for (const r of db.all('nhatky_ngay',
@@ -209,7 +224,7 @@ module.exports = (app, { db, modules }) => {
       // soạn. Cô ghi bé ăn được bao nhiêu phần của bữa đó, thế thôi.
       thucDon: thucDonCuaNgay(ngay),
       khungGioNgu: GIO_NGU,
-      danhSach: dsBe.map(b => keml(b, daCo.get(b.id))),
+      danhSach: dsBe.map(b => keml(b, daCo.get(b.id), dangNghi.get(b.id))),
     });
   });
 
@@ -315,6 +330,7 @@ module.exports = (app, { db, modules }) => {
     //
     // KHÔNG gửi trường đó thì ghi như cũ: bản app cũ còn trong bộ nhớ điện
     // thoại vẫn phải lưu được, đúng Nguyên tắc số 1.
+    const dangNghiKhiGhi = nghiHoc.nghiCoPhep(sach.map(x => x.be.id), ngay);
     const luc = new Date().toISOString();
     const xungDot = [];
     let daGhi = 0;
@@ -332,12 +348,35 @@ module.exports = (app, { db, modules }) => {
         daGhi += 1;
       }
     });
-    db.audit(req.user.id, 'nhatky-ghi', null, { ngay, soBe: daGhi, xungDot: xungDot.length });
+    // GHI CHO BÉ ĐANG NGHỈ CÓ PHÉP: NÓI RA, KHÔNG CHẶN.
+    //
+    // Chặn là sai: bé có thể vẫn tới lớp dù nhà đã xin nghỉ, và cô có thể đang
+    // sửa lại một dòng ghi nhầm. Đây cùng một lý lẽ với khung giờ ngủ — khung
+    // là để bấm nhanh, không phải hàng rào.
+    //
+    // Nhưng im lặng cũng sai, và sai nặng hơn: cú "áp cả nhóm" điền cho MỌI ô
+    // đang hiện, nên bé nghỉ ăn trọn cú đó mà không ai để ý. Nói ra là đủ để cô
+    // nhìn lại một giây.
+    const nhacNghi = [];
+    for (const { be } of sach) {
+      const n = dangNghiKhiGhi.get(be.id);
+      if (n) nhacNghi.push({ studentId: be.id, hoTen: be.name, lyDo: n.reason });
+    }
+
+    db.audit(req.user.id, 'nhatky-ghi', null, {
+      ngay, soBe: daGhi, xungDot: xungDot.length, nghiPhep: nhacNghi.length,
+    });
     res.json({
       ok: true,
       ngay,
       daGhi,
       xungDot,
+      nhacNghi,
+      ...(nhacNghi.length ? {
+        nhacNghiChu: `${nhacNghi.length} bé đã có đơn nghỉ được duyệt cho hôm nay `
+          + `(${nhacNghi.map(x => x.hoTen).join(', ')}). Cô xem lại giúp — `
+          + 'gia đình sẽ đọc đúng dòng này về ngày con ở nhà.',
+      } : {}),
       ...(xungDot.length ? {
         nhac: `${xungDot.length} bé chưa lưu được vì cô khác vừa ghi nhật ký cho các bé đó `
           + 'trong lúc màn hình của cô đang mở. Cô mở lại màn này để thấy phần các cô đã ghi, '
