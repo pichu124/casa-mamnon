@@ -58,6 +58,7 @@ const PHU = [
   { ma: 'kehoachbe', ten: 'Kế hoạch của bé', ai: 'cô' },
   { ma: 'cambridge', ten: 'Cambridge & Kết nối ở nhà', ai: 'văn phòng' },
   { ma: 'hocphi', ten: 'Học phí', ai: 'văn phòng' },
+  { ma: 'baocaohoctap', ten: 'Báo cáo học tập', ai: 'nhà trường soạn mẫu + cô soạn báo cáo' },
 ];
 
 // ===========================================================================
@@ -442,6 +443,77 @@ console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhì
   check('CÔ KHÔNG THẤY NÚT "Tạo khoản"', await page.locator('#hp-them').count() === 0);
   check('và KHÔNG thấy nút "Xác nhận" trên khoản chưa nộp đó',
     await page.locator('#view button', { hasText: 'Xác nhận' }).count() === 0);
+}
+
+// ===========================================================================
+console.log('\n[8b] Báo cáo học tập — nhà trường soạn mẫu, cô soạn báo cáo cho bé');
+{
+  // ĐI ĐỦ CẢ HAI NỬA, vì phân hệ này có hai người dùng khác hẳn nhau: nhà
+  // trường dựng mẫu mỗi năm một lần, cô soạn báo cáo mỗi tháng. Nửa nào không
+  // đi được qua giao diện thì nửa kia thành vô dụng.
+  // Mật khẩu tạm đã được đổi ở mục [1]; từ đây dùng mật khẩu mới.
+  await dangNhap('hieutruong', 'quantri2026');
+  await moMan('#/baocaohoctap');
+  await page.click('#bc-tabs button[data-tab="mau"]');
+  await page.waitForTimeout(500);
+  check('nhà trường có nút tạo mẫu báo cáo', await page.locator('#bc-them-mau').count() === 1);
+
+  await page.click('#bc-them-mau');
+  await page.waitForSelector('#bm-ten', { timeout: 8000 });
+  await page.fill('#bm-ten', 'Báo cáo tháng thử');
+  await page.fill('#bm-tu', '0');
+  await page.fill('#bm-den', '240');
+  await page.fill('#bm-dong', 'I. KỸ NĂNG TỰ PHỤC VỤ | Lưu ý | chu\nII. PHÁT TRIỂN NHẬN THỨC | Giác quan | muc');
+  await page.click('#bm-luu');
+  await page.waitForTimeout(1500);
+
+  await moMan('#/baocaohoctap');
+  await page.click('#bc-tabs button[data-tab="mau"]');
+  await page.waitForTimeout(600);
+  const coMau = await page.locator('[data-sua]').count();
+  check('MỞ LẠI MÀN VẪN THẤY MẪU NHÀ TRƯỜNG VỪA TẠO', coMau >= 1, coMau);
+
+  // Nửa của cô.
+  await dangNhap('giaovien', '123456');
+  await moMan('#/baocaohoctap');
+  const nutSoan = await page.locator('[data-tao]').count();
+  check('cô thấy nút soạn báo cáo cho bé của nhóm mình', nutSoan > 0, nutSoan);
+
+  await page.locator('[data-tao]').first().click();
+  await page.waitForSelector('#bc-tong', { timeout: 8000 });
+  const soOChu = await page.locator('[data-chu]').count();
+  check('bản báo cáo dựng đúng các dòng của mẫu', soOChu > 0, soOChu);
+
+  await page.locator('[data-chu]').first().fill('Con tự xúc cơm và gọi cô khi cần.');
+  await page.fill('#bc-tong', 'Tháng này con vui vẻ, hợp tác với cô và các bạn.');
+  await page.click('#bc-luu');
+  await page.waitForTimeout(1800);
+
+  // QUAY VỀ SỔ RỒI MỞ LẠI, đúng đường cô đi.
+  //
+  // `moMan('#/baocaohoctap')` một mình KHÔNG đủ: màn soạn nhớ bản đang mở, nên
+  // vào lại vẫn là chính màn ấy và phép kiểm dưới sẽ đọc lại đúng ô trên màn
+  // hình chứ không đọc lại từ máy chủ — xanh mà không chứng minh được gì.
+  await page.click('#bc-quay');
+  await page.waitForTimeout(1200);
+  await page.locator('[data-mo]').first().click();
+  await page.waitForSelector('#bc-tong', { timeout: 8000 });
+  const giuChu = await page.locator('[data-chu]').first().inputValue().catch(() => '');
+  const giuTong = await page.inputValue('#bc-tong').catch(() => '');
+  check('MỞ LẠI MÀN VẪN THẤY ĐÚNG CHỮ CÔ ĐÃ GÕ TRONG Ô DÒNG',
+    giuChu.includes('tự xúc cơm'), giuChu);
+  check('và đúng phần tổng hợp cô đã gõ',
+    giuTong.includes('vui vẻ, hợp tác'), giuTong);
+
+  // NHÁP CHƯA GỬI THÌ GIA ĐÌNH KHÔNG THẤY — kiểm ngay trên trình duyệt, vì
+  // đây là ranh giới dễ hỏng nhất và cũng là chỗ chỉ nhìn API thì không thấy
+  // được màn hình gia đình thật sự hiện ra cái gì.
+  await dangNhap('phuhuynh', '123456');
+  await moMan('#/baocaohoctap');
+  const chuDoc = await page.locator('#app').innerText().catch(() => '');
+  check('gia đình KHÔNG đọc được nội dung nháp của cô',
+    !chuDoc.includes('tự xúc cơm') && !chuDoc.includes('vui vẻ, hợp tác'),
+    chuDoc.slice(0, 160));
 }
 
 // ===========================================================================

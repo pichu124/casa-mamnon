@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v61';
+const VERSION = 'v62';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;

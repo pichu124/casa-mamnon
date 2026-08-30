@@ -142,6 +142,35 @@ CREATE TABLE IF NOT EXISTS attendance (
 CREATE INDEX IF NOT EXISTS idx_att_date ON attendance(date);
 CREATE INDEX IF NOT EXISTS idx_att_student_date ON attendance(studentId, date DESC);
 
+-- ===== Ảnh điểm danh buổi sáng =====
+--
+-- Nhà trường yêu cầu (điểm 4, 30/08): điểm danh chụp được ảnh, và ảnh đó gửi
+-- thẳng cho gia đình để xác nhận con đã tới trường.
+--
+-- BẢNG PHỤ, KHÔNG PHẢI CỘT THÊM VÀO `attendance`. Lược đồ lõi cấm ALTER TABLE,
+-- và ở đây tách bảng còn đúng về nghĩa: một buổi điểm danh KHÔNG bắt buộc có
+-- ảnh, mà một cột NULL trong bảng chính thì mọi phép đếm sau này phải nhớ loại
+-- trừ nó ra.
+--
+-- MỘT ẢNH MỖI BÉ MỖI NGÀY. Đây là ảnh "con đã tới lớp" chứ không phải album:
+-- cho phép nhiều ảnh là mời cô chụp cả buổi sáng vào đây, và ảnh trẻ thì càng
+-- ít chỗ lưu càng tốt.
+--
+-- KHÔNG PHẢI ẢNH NHÓM. Ảnh này chỉ đi tới gia đình CỦA CHÍNH BÉ ĐÓ, các cô
+-- phụ trách nhóm, và quản trị trong phạm vi cơ sở. Nó không bao giờ xuất hiện
+-- trong bất cứ danh sách nào mà một gia đình khác nhìn thấy, nên luật đồng ý
+-- chia sẻ ảnh nhóm không áp dụng — nhưng chính vì thế, chốt chặn "chỉ nhà
+-- mình" phải là một dòng riêng trong đường dẫn, không được dựa vào bộ lọc ảnh.
+CREATE TABLE IF NOT EXISTS attendance_photo (
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  date      TEXT NOT NULL,              -- YYYY-MM-DD
+  file      TEXT NOT NULL,
+  taoLuc    TEXT,
+  byUserId  TEXT,
+  PRIMARY KEY (studentId, date)
+);
+CREATE INDEX IF NOT EXISTS idx_att_photo_date ON attendance_photo(date);
+
 -- ===== Xin phép nghỉ học =====
 CREATE TABLE IF NOT EXISTS leave_requests (
   id         TEXT PRIMARY KEY,

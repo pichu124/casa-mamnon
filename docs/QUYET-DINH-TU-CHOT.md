@@ -622,3 +622,57 @@ tệp dùng chung.
 thấy tốt nhất, ghi lại rồi báo"*. Đường 2 là hướng tốt nhất vì nó không gỡ gì,
 không nới gì, và từ nay không ai chép được mẫu ba mức sang chỗ mới mà bộ canh
 im lặng.
+
+---
+
+## Đợt yêu cầu 30/08 của nhà trường — bốn quyết định tự chốt
+
+Nhà trường gửi một ảnh 8 điểm và bảy tệp mẫu báo cáo. Bốn chỗ phải chọn hướng,
+và cả bốn đều rơi đúng vào chỗ "làm theo yêu cầu thì đụng một quy tắc".
+
+### 1. Thang năm bậc trên mẫu báo cáo giấy ↔ QUY TẮC 4
+
+**Việc:** cả bảy tệp mẫu dùng thang M/S/W/N/NA. Hai bậc trên cùng của thang ấy
+là hai lời khen so trẻ trên dưới nhau — đúng thứ QUY TẮC 4 cấm. Mà
+`test:quy-tac-4` là nhóm bài **bất khả xâm phạm**.
+
+| Đường | Được gì | Mất gì |
+|---|---|---|
+| 1 | Chép nguyên thang của trường | Phải nới bộ canh bất khả xâm phạm — tức đổi luật cho mã chạy qua |
+| 2 | **Dùng lại năm trạng thái Hành trình học tập, hiện kèm chữ cái M/S/W/N/NA** | Báo cáo không còn hai từ khen chê ở hai bậc trên |
+| 3 | Bỏ hẳn phần chọn mức, chỉ để ô chữ | Mất một nửa nội dung báo cáo học kỳ mà trường đang dùng thật |
+
+**ĐÃ CHỐT: đường 2.** Năm bậc của trường khớp gần như một đối một với năm
+trạng thái app đã dùng từ GĐ2‑A. Cô vẫn chạm đúng chữ cái quen tay, gia đình
+vẫn đọc đúng một thứ như cô nhập, và không bộ canh nào bị nới. Thứ duy nhất bị
+bỏ là hai từ khen chê — bỏ chúng thì báo cáo vẫn nói đủ điều nó cần nói.
+
+**Chỗ cần nhà trường xác nhận:** hai từ ấy đã in trên tờ giấy phụ huynh đọc
+nhiều năm. Nếu trường muốn giữ nguyên chữ, đó là một quyết định **đổi luật của
+kho mã**, không phải một dòng cấu hình — và phải do người dùng duyệt.
+
+### 2. Không tính BMI trong báo cáo
+
+Mẫu giấy có cột BMI. App **giữ nguyên số đo** chiều cao, cân nặng (y tế trường
+cần) nhưng **không in BMI** ra màn hình gia đình: BMI của trẻ dưới 6 tuổi chỉ
+đọc được khi đặt cạnh biểu đồ tăng trưởng theo tuổi và giới. In trơ một con số
+là mời người đọc tự so con mình với một cái chuẩn tưởng tượng — QUY TẮC 4.
+
+*Đảo lại được:* nếu trường muốn có BMI, thêm một dòng vào phần soạn mẫu.
+
+### 3. "Tự link qua báo cáo tháng" dừng ở chỗ MỜI
+
+Nhà trường yêu cầu nhận xét cuối tháng *"tự link qua báo cáo tháng"*. Làm đúng
+chữ "tự" là đổ thẳng chữ của lớp 1–2 (cô ghi cho mình và quản lý đọc) sang lớp
+3 (báo cáo gửi gia đình) — đúng chỗ CLAUDE.md gọi là dễ rò rỉ nhất.
+
+**ĐÃ CHỐT:** máy chủ mang chữ sang, màn hình hiện nút **"Chép câu này"**, cô
+bấm thì mới vào ô, và cô sửa lại trước khi gửi. Một lượt bấm thêm, đổi lấy việc
+không có chữ nào tự chảy từ sổ riêng của cô sang màn hình gia đình.
+
+### 4. Mã phân hệ là `baocaohoctap`, không phải `baocao`
+
+`baocao` đã là mã của Học bạ tiểu học — đúng phân hệ N3 nhà trường quyết giữ mã
+lại nhưng tắt sẵn. Phân hệ mới đặt mã khác để hai thứ không bao giờ lẫn nhau,
+và để bật cái này không vô tình bật cái kia.
+

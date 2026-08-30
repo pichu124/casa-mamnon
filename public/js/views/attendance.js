@@ -23,9 +23,17 @@ App.views.attendance = {
       return;
     }
     if (!this.month) this.month = UI.todayStr().slice(0, 7);
-    const records = await API.get(`/api/attendance?studentId=${encodeURIComponent(current.id)}&month=${this.month}`);
+    // Ảnh "con đã tới lớp" hỏi song song. Hỏng đường ảnh thì màn điểm danh
+    // vẫn phải dựng bình thường — nó là phần thêm, không phải phần chính.
+    const [records, kho] = await Promise.all([
+      API.get(`/api/attendance?studentId=${encodeURIComponent(current.id)}&month=${this.month}`),
+      API.get(`/api/attendance/anh?studentId=${encodeURIComponent(current.id)}&month=${this.month}`)
+        .catch(() => ({ anh: [] })),
+    ]);
     this._byDate = {};
     records.forEach(r => { this._byDate[r.date] = r; });
+    this._anhTheoNgay = {};
+    (kho.anh || []).forEach(a => { this._anhTheoNgay[a.date] = a; });
 
     const [y, m] = this.month.split('-').map(Number);
     const counts = { present: 0, late: 0, absent_excused: 0, absent_unexcused: 0 };
@@ -119,11 +127,28 @@ App.views.attendance = {
         <div class="muted small">${UI.esc(UI.fmtDate(r.date))}</div>
         <div class="mt-8">${UI.badge(st.label, st.cls)}</div>
       </div>
+      ${this.anhCuaNgay(r.date)}
       <div class="mt-14">
         ${this.detailRow('Giờ đến lớp', r.checkIn || '—')}
         ${this.detailRow('Giờ ra về', r.checkOut || '—')}
         ${this.detailRow('Ghi chú của cô', r.note || 'Không có ghi chú')}
       </div>`, 'Chi tiết điểm danh');
+  },
+
+  // Ảnh của một ngày, nếu cô có chụp.
+  //
+  // Ngày không có ảnh thì KHÔNG hiện gì cả — không khung xám, không chữ "chưa
+  // có ảnh". Cô chụp được hôm nào hay hôm ấy; biến ngày không có ảnh thành một
+  // ô trống chờ lấp là đặt lên vai cô một nghĩa vụ mỗi ngày mà không ai hứa.
+  anhCuaNgay(date) {
+    const a = (this._anhTheoNgay || {})[date];
+    if (!a) return '';
+    return `
+      <div class="mt-14 center">
+        <img src="/uploads/${UI.esc(a.file)}" alt="Ảnh con tới lớp"
+          style="max-width:100%;border-radius:12px">
+        <div class="muted small mt-8">Cô chụp lúc ${UI.esc(a.taoLuc || '')}</div>
+      </div>`;
   },
 
   detailRow(label, value) {
@@ -150,9 +175,13 @@ App.views.attendance = {
       this.nhomId = dsNhom[0].id;
     }
     if (dsNhom.length <= 1) this.nhomId = null;
-    const data = await API.get(`/api/attendance/class?date=${this.date}`
-      + (this.nhomId ? `&classId=${encodeURIComponent(this.nhomId)}` : ''));
+    const q = `date=${this.date}` + (this.nhomId ? `&classId=${encodeURIComponent(this.nhomId)}` : '');
+    const [data, raSoat] = await Promise.all([
+      API.get(`/api/attendance/class?${q}`),
+      API.get(`/api/attendance/ra-soat?${q}`).catch(() => ({ quaGio: false, danhSach: [] })),
+    ]);
     this._roster = data.students;
+    this._raSoat = raSoat;
     const tenNhom = this.nhomId
       ? (dsNhom.find(n => n.id === this.nhomId) || {}).name || ''
       : UI.noiTenNhom(dsNhom);
@@ -179,6 +208,7 @@ App.views.attendance = {
         <div class="stat-box"><div class="stat-num" id="att-so-da" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
         <div class="stat-box"><div class="stat-num" id="att-so-chua" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
       </div>
+      ${this.theRaSoat()}
       <button class="btn success-soft block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt</button>
       <div class="card mt-14">
         ${total
@@ -187,7 +217,67 @@ App.views.attendance = {
       </div>`;
   },
 
-  rosterRow({ student: s, record, donNghiDaDuyet }) {
+  // BẢNG RÀ SOÁT SAU 9 GIỜ — nhà trường yêu cầu ở điểm 4 (30/08).
+  //
+  // CHỮ Ở ĐÂY NÓI VỀ VIỆC CỦA NGƯỜI LỚN, KHÔNG NÓI GÌ VỀ ĐỨA TRẺ. "Chưa điểm
+  // danh" là cô chưa kịp chấm hoặc gia đình chưa kịp báo — không phải một lời
+  // nào về bé. QUY TẮC 2 cấm biến chữ "chưa" của một đứa trẻ thành thất bại;
+  // chỗ này không phải chữ "chưa" của đứa trẻ, và câu chữ phải giữ đúng vậy.
+  //
+  // Chưa tới giờ rà soát thì KHÔNG hiện gì cả. Hiện từ 7h30 là kêu suốt tiếng
+  // rưỡi đầu giờ, và người ta tắt nó đi trước khi nó kịp có ích một lần.
+  theRaSoat() {
+    const r = this._raSoat || {};
+    if (!r.quaGio || !(r.danhSach || []).length) return '';
+    return `
+      <div class="card" style="border-left:4px solid var(--danger)">
+        <div class="card-title" style="color:var(--danger)">
+          ${UI.icon('bell', 16)} Cần văn phòng gọi xác nhận
+        </div>
+        <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+          Đã qua ${UI.esc(String(r.gioRaSoat))} giờ mà ${UI.esc(String(r.danhSach.length))} bé
+          chưa có dòng điểm danh nào, và cũng chưa có đơn nghỉ được duyệt.
+          Có thể cô chưa kịp chấm, cũng có thể gia đình quên báo — gọi một cuộc cho chắc.
+        </div>
+        ${r.danhSach.map(x => `
+          <div class="list-row">
+            ${UI.avatar(x.avatar, 34)}
+            <div class="row-main"><div class="row-title">${UI.esc(x.hoTen)}</div></div>
+          </div>`).join('')}
+        ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
+          ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
+        </div>` : ''}
+      </div>`;
+  },
+
+  // Cô chụp một khung hình "con đã tới lớp" để gửi gia đình.
+  chonAnh(studentId) {
+    const o = document.createElement('input');
+    o.type = 'file';
+    o.accept = 'image/*';
+    o.capture = 'environment';
+    o.onchange = async () => {
+      const f = o.files && o.files[0];
+      if (!f) return;
+      try {
+        const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
+        await API.post('/api/attendance/anh', { studentId, date: this.date, anh });
+        UI.toast('Đã gửi ảnh cho gia đình', 'success');
+        App.route();
+      } catch (e) { UI.toast(e.message || 'Chưa gửi được ảnh', 'error'); }
+    };
+    o.click();
+  },
+
+  async goAnh(studentId) {
+    try {
+      await API.del(`/api/attendance/anh?studentId=${encodeURIComponent(studentId)}&date=${encodeURIComponent(this.date)}`);
+      UI.toast('Đã gỡ ảnh', 'success');
+      App.route();
+    } catch (e) { UI.toast(e.message || 'Chưa gỡ được ảnh', 'error'); }
+  },
+
+  rosterRow({ student: s, record, donNghiDaDuyet, anhDenLop }) {
     const times = record
       ? [record.checkIn ? `Vào ${record.checkIn}` : null, record.checkOut ? `Ra ${record.checkOut}` : null].filter(Boolean).join(' · ')
       : '';
@@ -217,6 +307,18 @@ App.views.attendance = {
                   : nhac ? `opacity:1;border:1.5px dashed ${conf.color};color:${conf.color}` : 'opacity:.55'}"
                 onclick="App.views.attendance.mark('${UI.esc(s.id)}', '${k}')">${UI.esc(this.SHORT[k])}</button>`;
             }).join('')}
+          </div>
+          <div class="mt-8">
+            ${anhDenLop ? `
+              <div class="flex" style="align-items:center;gap:8px">
+                <img src="/uploads/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
+                  style="width:54px;height:54px;border-radius:10px;object-fit:cover">
+                <span class="small" style="color:var(--success)">Gia đình đã thấy ảnh</span>
+                <button class="btn tiny outline" onclick="App.views.attendance.goAnh('${UI.esc(s.id)}')">Gỡ</button>
+              </div>`
+            : `<button class="btn tiny outline" onclick="App.views.attendance.chonAnh('${UI.esc(s.id)}')">
+                 ${UI.icon('album', 14)} Chụp ảnh con tới lớp
+               </button>`}
           </div>
         </div>
       </div>`;
