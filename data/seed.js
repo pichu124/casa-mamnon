@@ -267,7 +267,7 @@ function sinh(db, moc) {
     id: ma('ht'), studentId: 's3', ngay: fmt(ngayHoc[1]),
     moTa: 'Gia Hân tự lấy khăn lau chỗ nước đổ ra sàn, không ai nhắc.',
     anh: '', ghiNhanhId: '',
-    linhVuc: 'thuc-hanh-cuoc-song', trangThai: 'dang-lam-duoc',
+    linhVuc: 'thuc-hanh-cuoc-song', trangThai: 'dang-hinh-thanh',
     minhChung: 'Lặp lại ba lần trong tuần', oLopLamGi: 'Đặt khăn lau ở tầm với của bé để con tự lấy được.',
     suyNgamLuc: luc(ngayHoc[1], 17, 5), giaySuyNgam: 96,
     cauChuyen: '', cungConONha: '', congBoLuc: null,
@@ -277,7 +277,7 @@ function sinh(db, moc) {
     id: ma('ht'), studentId: 's1', ngay: fmt(ngayHoc[2]),
     moTa: 'Bảo An rót nước từ bình sang ba cái cốc, dừng lại đúng lúc gần đầy, không tràn cốc nào.',
     anh: '', ghiNhanhId: '',
-    linhVuc: 'thuc-hanh-cuoc-song', trangThai: 'lam-duoc-mot-minh',
+    linhVuc: 'thuc-hanh-cuoc-song', trangThai: 'da-vung',
     minhChung: 'Làm lại được vào hôm sau mà không cần nhắc',
     oLopLamGi: 'Đưa bình nặng hơn một chút để con tập giữ thăng bằng tay.',
     suyNgamLuc: luc(ngayHoc[2], 17, 10), giaySuyNgam: 132,
@@ -321,7 +321,7 @@ function sinh(db, moc) {
     GOC.forEach((g, i) => {
       them('kehoachbe_muc', {
         id: ma('km'), keId, gocLinhVuc: g, noiDung: NOI_DUNG[g],
-        ketQua: k.trangThai === 'da-duyet' && i < 2 ? 'dang-lam-duoc' : '',
+        ketQua: k.trangThai === 'da-duyet' && i < 2 ? 'dang-hinh-thanh' : '',
         nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc(daysAgo(4), 9),
       });
     });
@@ -360,6 +360,120 @@ function sinh(db, moc) {
     giay: 11.8, ngoaiTuyen: 1, choBaoLau: 2340,   // ghi lúc mất sóng, gửi lên sau
     taoLuc: luc(ngayHoc[0], 10, 40), nhanLuc: luc(ngayHoc[0], 11, 19), byTeacherId: 't1',
   });
+
+  // ---- BÁO CÁO HỌC TẬP ----------------------------------------------------
+  //
+  // BỐN MẪU DỰNG THEO ĐÚNG BẢY TỆP NHÀ TRƯỜNG GỬI NGÀY 30/08.
+  //
+  // Vì sao sinh sẵn thay vì để trường tự gõ từ màn trắng: mẫu là thứ dài nhất
+  // trong cả phân hệ này — riêng báo cáo học kỳ 0–3 đã hơn sáu chục dòng tiêu
+  // chí. Bắt người của trường ngồi gõ lại từ đầu để xem thử phân hệ có dùng
+  // được không là bảo đảm họ không xem tới cuối.
+  //
+  // Đây là ĐIỂM XUẤT PHÁT, không phải bản chốt: mọi dòng đều sửa được ở
+  // Quản trị → Báo cáo học tập → Mẫu báo cáo. Danh sách tiêu chí là thứ nhà
+  // trường sẽ còn sửa mỗi năm học, theo chương trình của chính họ.
+  function mauBaoCao(loai, ten, tuThang, denThang, dong) {
+    const mauId = ma('bcm');
+    them('baocaohoctap_mau', {
+      id: mauId, loai, ten, tuThang, denThang, active: 1,
+      taoLuc: luc(daysAgo(20), 8), capNhatLuc: luc(daysAgo(20), 8),
+    });
+    dong.forEach((d, i) => them('baocaohoctap_dong', {
+      id: ma('bcd'), mauId,
+      nhom: d[0] || '', nhomEn: d[1] || '', tieuDe: d[2], tieuDeEn: d[3] || '',
+      kieu: d[4] || 'chu', gocLinhVuc: d[5] || '', thuTu: i,
+    }));
+    return mauId;
+  }
+
+  const I_TU_PHUC_VU = ['I. KỸ NĂNG TỰ PHỤC VỤ', 'INDEPENDENCE SKILLS'];
+  const II_NHAN_THUC = ['II. PHÁT TRIỂN NHẬN THỨC', 'COGNITIVE DEVELOPMENT'];
+  const III_XA_HOI = ['III. PHÁT TRIỂN NGÔN NGỮ, TƯƠNG TÁC XÃ HỘI', 'LANGUAGE AND SOCIAL SKILLS'];
+  const IV_THE_CHAT = ['IV. GIÁO DỤC THỂ CHẤT', 'PHYSICAL EDUCATION'];
+
+  // Báo cáo tháng lứa nhà trẻ — bốn lĩnh vực nhận thức.
+  mauBaoCao('thang', 'Báo cáo tháng (0–3)', 0, 36, [
+    [...I_TU_PHUC_VU, 'Lưu ý', 'Note'],
+    [...II_NHAN_THUC, 'Lĩnh vực Thực hành cuộc sống', 'Practical life', 'chu', 'thuc-hanh-cuoc-song'],
+    [...II_NHAN_THUC, 'Lĩnh vực Giác quan', 'Sensory', 'chu', 'giac-quan'],
+    [...II_NHAN_THUC, 'Lĩnh vực Ngôn ngữ', 'Language', 'chu', 'tieng-viet'],
+    [...II_NHAN_THUC, 'Lĩnh vực khác', 'Other areas', 'chu', 'toan'],
+    [...III_XA_HOI, 'Ngôn ngữ giao tiếp', 'Communicative'],
+    [...III_XA_HOI, 'Khả năng tương tác', 'Interaction skills'],
+    [...III_XA_HOI, 'Tự tin', 'Confidence'],
+    [...IV_THE_CHAT, 'Lưu ý', 'Note'],
+  ]);
+
+  // Báo cáo tháng lứa mẫu giáo — thêm Tiếng Anh, Văn hoá, Toán học.
+  mauBaoCao('thang', 'Báo cáo tháng (3–6)', 36, 72, [
+    [...I_TU_PHUC_VU, 'Lưu ý', 'Note'],
+    [...II_NHAN_THUC, 'Lĩnh vực Thực hành cuộc sống', 'Practical life', 'chu', 'thuc-hanh-cuoc-song'],
+    [...II_NHAN_THUC, 'Lĩnh vực Giác quan', 'Sensory', 'chu', 'giac-quan'],
+    [...II_NHAN_THUC, 'Lĩnh vực ngôn ngữ: Tiếng Việt', 'Language: Vietnamese', 'chu', 'tieng-viet'],
+    [...II_NHAN_THUC, 'Lĩnh vực ngôn ngữ: Tiếng Anh', 'Language: English', 'chu', 'cambridge'],
+    [...II_NHAN_THUC, 'Lĩnh vực văn hoá', 'Culture'],
+    [...II_NHAN_THUC, 'Lĩnh vực toán học', 'Maths', 'chu', 'toan'],
+    [...III_XA_HOI, 'Ngôn ngữ giao tiếp', 'Communicative'],
+    [...III_XA_HOI, 'Khả năng tương tác', 'Interaction skills'],
+    [...III_XA_HOI, 'Tự tin', 'Confidence'],
+    [...IV_THE_CHAT, 'Lưu ý', 'Note'],
+  ]);
+
+  // Báo cáo 6 tháng — kiểu bảng chọn mức, sáu nhóm lĩnh vực.
+  const XH = ['PHÁT TRIỂN VỀ MẶT XÃ HỘI VÀ CẢM XÚC', 'SOCIAL AND EMOTIONAL DEVELOPMENT'];
+  const THCS = ['THỰC HÀNH CUỘC SỐNG', 'PRACTICAL LIFE'];
+  const GQ = ['GIÁC QUAN', 'SENSORIAL'];
+  const VH = ['VĂN HOÁ', 'CULTURE'];
+  const NN = ['NGÔN NGỮ', 'LANGUAGE'];
+  const TOAN = ['TOÁN', 'MATHEMATICS'];
+  mauBaoCao('hocky', 'Báo cáo 6 tháng (0–3)', 0, 36, [
+    [...XH, 'Có tinh thần trách nhiệm', 'Accepts responsibilities', 'muc'],
+    [...XH, 'Tự tin thử những điều mới mẻ', 'Confident to try something new', 'muc'],
+    [...XH, 'Có thể thực hiện theo lịch trình của nhà trường', 'Able to follow school routine', 'muc'],
+    [...XH, 'Có thể yêu cầu trợ giúp khi cần', 'Able to ask for help when needed', 'muc'],
+    [...XH, 'Tập trung trong giờ hoạt động nhóm', 'Able to give attention in a group setting', 'muc'],
+    [...XH, 'Làm việc và vui chơi hoà thuận với các bạn', 'Works and plays cooperatively with peers', 'muc'],
+    [...XH, 'Biết nói "cảm ơn" và "làm ơn" đúng lúc', 'Uses please and thank you appropriately', 'muc'],
+    [...THCS, 'Vận động thô phù hợp với lứa tuổi', 'Age-appropriate large motor control', 'muc'],
+    [...THCS, 'Vận động tinh phù hợp với lứa tuổi', 'Age-appropriate fine motor control', 'muc'],
+    [...THCS, 'Tự lập trong việc chăm sóc bản thân', 'Independent care of self', 'muc'],
+    [...GQ, 'Giáo cụ thị giác — ba màu cơ bản', 'Visual materials: three primary colors', 'muc', 'giac-quan'],
+    [...GQ, 'Giáo cụ thị giác — ba hình học cơ bản', 'Visual materials: basic shapes', 'muc', 'giac-quan'],
+    [...GQ, 'Khái niệm to — nhỏ', 'Concept: big and small', 'muc', 'giac-quan'],
+    [...GQ, 'Khái niệm nặng — nhẹ', 'Concept: heavy and light', 'muc', 'giac-quan'],
+    [...VH, 'Giáo cụ động vật học — tên gọi con vật', 'Zoology: appellation', 'muc'],
+    [...VH, 'Giáo cụ thực vật học — tên gọi hoa, quả, cây', 'Botany: appellation', 'muc'],
+    [...VH, 'Thích thú với các bài học khoa học và khám phá', 'Enjoys science and exploration', 'muc'],
+    [...NN, 'Thích nghe kể chuyện, đọc sách và thơ', 'Listens actively to stories and books', 'muc', 'tieng-viet'],
+    [...NN, 'Nghe hiểu và làm theo hướng dẫn của cô', 'Listens to and follows instructions', 'muc', 'tieng-viet'],
+    [...NN, 'Nhận biết và gọi tên đồ vật xung quanh', 'Recognizes and names objects', 'muc', 'tieng-viet'],
+    [...TOAN, 'Nhận biết biểu tượng số 1–5', 'Recognizes symbols 1–5', 'muc', 'toan'],
+    [...TOAN, 'Đếm được từ 1 đến 5', 'Able to count 1–5', 'muc', 'toan'],
+    [...TOAN, 'Nối được số và lượng', 'Able to match numerals and quantities', 'muc', 'toan'],
+  ]);
+
+  // Bản đánh giá môn thể chất — đi kèm bộ báo cáo 6 tháng.
+  const KNBT = ['KỸ NĂNG BẢN THÂN', ''];
+  const HOUSE = ['KỸ NĂNG VẬN ĐỘNG THEO HOUSE, ĐỘI', ''];
+  const THAIDO = ['THÁI ĐỘ HỌC TẬP', ''];
+  mauBaoCao('hocky', 'Bản đánh giá môn thể chất (3–6)', 36, 72, [
+    [...KNBT, 'Thực hiện động tác, kỹ thuật của bài học theo hướng dẫn của cô', '', 'muc'],
+    [...KNBT, 'Tính kiên trì và kỉ luật', '', 'muc'],
+    [...KNBT, 'Phát triển sự nhanh nhẹn cơ thể', '', 'muc'],
+    [...KNBT, 'Phát triển thể lực', '', 'muc'],
+    [...KNBT, 'Kỹ năng vận động, di chuyển', '', 'muc'],
+    [...KNBT, 'Kỹ năng phản xạ, tư duy', '', 'muc'],
+    [...KNBT, 'Kỹ năng bật xa, bật cao', '', 'muc'],
+    [...KNBT, 'Kỹ năng chạy, nhảy', '', 'muc'],
+    [...KNBT, 'Rèn luyện sức bền', '', 'muc'],
+    [...KNBT, 'Sẵn sàng tham gia những bài học và trải nghiệm mới', '', 'muc'],
+    [...HOUSE, 'Giúp đỡ nhau khi thực hành theo house, đội', '', 'muc'],
+    [...HOUSE, 'Nhận biết được tên house', '', 'muc'],
+    [...HOUSE, 'Phát triển tinh thần đội, nhóm', '', 'muc'],
+    [...THAIDO, 'Hứng thú và yêu thích giờ vận động', '', 'muc'],
+    [...THAIDO, 'Tích cực tham gia vận động', '', 'muc'],
+  ]);
 
   // ---- HỌC PHÍ ------------------------------------------------------------
   // Phân hệ này còn nguyên bản mẫu của app 1 và đang TẮT. Vẫn sinh vài dòng để

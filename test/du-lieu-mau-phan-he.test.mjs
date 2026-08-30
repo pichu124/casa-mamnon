@@ -24,6 +24,7 @@
 import { thuMucTam, donThuMucTam, sinhDuLieu, taoBoDem, GOC } from './_chung.mjs';
 import { createRequire } from 'module';
 import path from 'path';
+import fs from 'fs';
 
 const require = createRequire(import.meta.url);
 const Database = require(path.join(GOC, 'node_modules', 'better-sqlite3'));
@@ -221,6 +222,51 @@ console.log('\n[8] NHẬP LẠI DỮ LIỆU KHÔNG ĐỂ GHI CHÉP CỦA BÉ Đ�
     db5.prepare('SELECT COUNT(*) n FROM album_photos').get().n > 0,
     db5.prepare('SELECT COUNT(*) n FROM album_photos').get().n);
   db5.close();
+  donThuMucTam(D);
+}
+
+// ===========================================================================
+// MỌI TRẠNG THÁI TRONG DỮ LIỆU MẪU PHẢI LÀ MỘT TRONG NĂM TRẠNG THÁI THẬT
+//
+// Lỗi này đã có thật và nằm im rất lâu: `data/seed.js` ghi thẳng vào bảng chứ
+// không đi qua đường dẫn API, nên phép kiểm giá trị của phân hệ không chạm tới
+// nó. Ba ô trong dữ liệu mẫu mang mã 'dang-lam-duoc' và 'lam-duoc-mot-minh' —
+// tên cũ của hai trạng thái, đã đổi từ lâu mà dữ liệu mẫu không đổi theo.
+//
+// Hậu quả đúng ở chỗ đau nhất: `npm run ban-thu` dựng bàn thử từ dữ liệu mẫu,
+// cô mở màn Hành trình học tập ra và thấy một quan sát có ô trạng thái TRỐNG,
+// vì tra nhãn theo mã không ra gì. Không mất dữ liệu, không rò rỉ — nhưng là
+// đúng cái màn hình nhà trường dùng để quyết định có dùng app hay không.
+//
+// Bộ canh này đối chiếu với danh sách trong CHÍNH mã phân hệ, không chép lại
+// năm mã ra đây: chép lại là đẻ ra định nghĩa thứ ba, và lần đổi tên sau thì
+// bài canh lại xanh trong khi dữ liệu mẫu sai.
+console.log('\n[TT] Trạng thái trong dữ liệu mẫu phải khớp mã phân hệ');
+{
+  const D = thuMucTam('du-lieu-mau-trang-thai');
+  sinhDuLieu(D, { phanHe: true });
+  const conn = new Database(path.join(D, 'school.db'), { readonly: true });
+
+  // Đọc năm mã từ mã nguồn phân hệ Hành trình học tập — nguồn sự thật.
+  const nguon = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/routes.js'), 'utf8');
+  const khoi = (nguon.match(/const TRANG_THAI = \[[\s\S]*?\n\];/) || [''])[0];
+  const HOP = [...khoi.matchAll(/\['([a-z-]+)',/g)].map(m => m[1]);
+  check('đọc được năm trạng thái từ mã phân hệ Hành trình', HOP.length === 5, HOP);
+
+  for (const [bang, cot] of [['hanhtrinh_quansat', 'trangThai'], ['kehoachbe_muc', 'ketQua']]) {
+    const la = conn.prepare(`SELECT DISTINCT ${cot} AS v FROM ${bang}`).all()
+      .map(x => String(x.v || ''))
+      .filter(v => v && !HOP.includes(v));
+    check(`${bang}.${cot} không mang mã trạng thái lạ nào`, la.length === 0, la);
+  }
+
+  // ĐỐI CHỨNG: hai bảng trên PHẢI có ô đã điền trạng thái. Không có dòng này
+  // thì hai phép kiểm trên vẫn xanh khi dữ liệu mẫu rỗng trơn.
+  for (const [bang, cot] of [['hanhtrinh_quansat', 'trangThai'], ['kehoachbe_muc', 'ketQua']]) {
+    const n = conn.prepare(`SELECT COUNT(*) n FROM ${bang} WHERE ${cot} <> ''`).get().n;
+    check(`đối chứng — ${bang} có ô đã điền trạng thái, nên phép kiểm trên có nghĩa`, n > 0, n);
+  }
+  conn.close();
   donThuMucTam(D);
 }
 
