@@ -42,6 +42,26 @@ const mkCap3 = taoQuanTri(DIR, 'Quản Lý Cơ Sở Một', 'cap3');
   db.prepare(`INSERT INTO students (id, code, name, dob, gender, classId, active, createdAt)
               VALUES ('s_cs2', 'MN-CS2-01', 'Trần Khánh Linh', '2023-03-10', 'Nữ', 'c3', 1, ?)`)
     .run(new Date().toISOString());
+
+  // VÀ CHO BÉ ẤY MỘT ĐƠN DẶN THUỐC + MỘT ĐƠN XIN NGHỈ.
+  //
+  // Không có hai dòng này thì phép kiểm "danh sách KHÔNG lọt bé của cơ sở khác"
+  // ở mục dưới chạy trên một bé KHÔNG CÓ lấy một dòng nào trong hai bảng đó —
+  // nó xanh vì chẳng có gì để lọt, chứ không phải vì cửa đã đóng. Gỡ sạch tầng
+  // cơ sở ra thì nó vẫn xanh. Đúng kiểu bài canh luôn đúng.
+  //
+  // Phải chèn TRƯỚC `dungMayChu`: máy chủ giữ kết nối mở, ghi sau khi nó chạy
+  // là tự chuốc SQLITE_BUSY.
+  const nay = new Date().toISOString().slice(0, 10);
+  db.prepare(`INSERT INTO medicine_requests
+    (id, studentId, parentId, fromDate, toDate, medicines, note, status, createdAt, log)
+    VALUES ('md_cs2', 's_cs2', NULL, ?, ?, ?, '', 'pending', ?, '[]')`)
+    .run(nay, nay, JSON.stringify([{ name: 'Siro ho', dose: '5ml', timing: 'sau ăn' }]),
+      new Date().toISOString());
+  db.prepare(`INSERT INTO leave_requests
+    (id, studentId, parentId, fromDate, toDate, reason, status, createdAt)
+    VALUES ('lv_cs2', 's_cs2', NULL, ?, ?, 'Bé sốt', 'pending', ?)`)
+    .run(nay, nay, new Date().toISOString());
   db.close();
 }
 khoaVaoCoSo(DIR, 'cap3', 'cs1');   // biến tài khoản cap3 thành Cấp 3 của cơ sở 1
@@ -101,7 +121,17 @@ console.log('\n[3] Cách ly ăn xuyên mọi phân hệ, không chỉ ở màn d
   // `studentId`. Với chúng, "bị chặn" không phải là 403 mà là KHÔNG CÓ DÒNG NÀO
   // của bé cơ sở khác trong danh sách. Đòi 403 ở đây là đòi sai, và bài canh
   // đòi sai thì tới lúc nó đỏ người ta sẽ đi sửa nhầm chỗ.
-  for (const [ten, url] of [['dặn thuốc', '/api/medicine'], ['xin nghỉ', '/api/leave']]) {
+  for (const [ten, url, ma] of [
+    ['dặn thuốc', '/api/medicine', 'md_cs2'], ['xin nghỉ', '/api/leave', 'lv_cs2'],
+  ]) {
+    // VẾ ĐỐI CHỨNG TRƯỚC: dòng của bé cơ sở 2 phải CÓ THẬT trong cơ sở dữ liệu.
+    // Ban giám hiệu (Cấp 1) thấy được nó, nên nếu Cấp 3 không thấy thì đó là do
+    // tầng cơ sở, không phải do danh sách vốn đã rỗng.
+    const cap1 = await req('GET', url, { cookie: C1 });
+    check(`${ten}: dòng của bé cơ sở 2 CÓ THẬT — Cấp 1 thấy được`,
+      cap1.status === 200 && (cap1.data || []).some(x => x.id === ma || x.studentId === 's_cs2'),
+      { status: cap1.status, so: (cap1.data || []).length });
+
     const r = await req('GET', url, { cookie: C3 });
     check(`${ten}: danh sách KHÔNG lọt bé của cơ sở khác`,
       r.status === 200 && !(r.data || []).some(x => x.studentId === 's_cs2'),

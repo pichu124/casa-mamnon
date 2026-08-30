@@ -104,14 +104,38 @@ function tepCoDuongDan() {
 }
 
 // Cắt tệp thành { tên hàm nội bộ → thân hàm }.
+//
+// SIẾT CHẶT (đợt soát 30/08): "thân hàm" phải dừng ở MỐC GẦN NHẤT, kể cả khi
+// mốc đó là một `app.<verb>(`.
+//
+// Bản trước chỉ cắt tới khai báo hàm KẾ TIẾP, nên khai báo cuối cùng của tệp
+// nuốt trọn phần còn lại — gồm cả mọi khối `app.get(...)` bên dưới. Rồi
+// `boCanhCuaTep` lan theo `than.includes(c)`, nên hàm phụ trợ cuối tệp luôn
+// "thấy" tên một hàm canh nằm trong một đường dẫn nào đó và được gán nhãn "hàm
+// canh". Từ đó một đường dẫn chỉ cần gọi hàm phụ trợ vô can ấy là qua được bộ
+// canh, dù nó không canh quyền một lần nào.
+//
+// Đây là SIẾT CHẶT chứ không nới: bộ canh nay bắt được nhiều hơn, không ít hơn.
+// Tệp này thuộc nhóm bài test phân quyền — bất khả xâm phạm — nên phải nói rõ:
+// không phép kiểm nào bị bỏ, không ngoại lệ nào được thêm.
 function hamNoiBo(ma) {
   const out = {};
   const re = /(?:^|\n)\s*(?:function\s+([A-Za-z_$][\w$]*)\s*\(|const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\()/g;
   const moc = [];
   let m;
   while ((m = re.exec(ma))) moc.push({ ten: m[1] || m[2], i: m.index });
+
+  // Mọi chỗ mở một khối đường dẫn cũng là một mốc kết thúc thân hàm.
+  const mocDuong = [];
+  const reD = /app\.(?:get|post|put|delete|patch)\s*\(/g;
+  let d;
+  while ((d = reD.exec(ma))) mocDuong.push(d.index);
+
   for (let k = 0; k < moc.length; k++) {
-    out[moc[k].ten] = ma.slice(moc[k].i, k + 1 < moc.length ? moc[k + 1].i : ma.length);
+    const sau = k + 1 < moc.length ? moc[k + 1].i : ma.length;
+    const duongGanNhat = mocDuong.find(i => i > moc[k].i);
+    const het = duongGanNhat === undefined ? sau : Math.min(sau, duongGanNhat);
+    out[moc[k].ten] = ma.slice(moc[k].i, het);
   }
   return out;
 }
@@ -158,6 +182,21 @@ function quet(danhSach, docTep) {
       if (MIEN[ten]) continue;
       let co = false;
       for (const c of canh) if (k.than.includes(c)) { co = true; break; }
+      // KIỂU (b) VIẾT THẲNG BẰNG SQL cũng được tính.
+      //
+      // Phần đầu tệp này đã nêu hai kiểu canh hợp lệ, và kiểu (b) là "suy phạm
+      // vi từ chính người dùng". Danh sách `GOC_CANH` chỉ liệt kê được các HÀM
+      // làm việc đó; nhưng một đường có thể suy phạm vi ngay trong câu SQL —
+      // `WHERE sp.parentId = ?` với tham số `req.user.id`. Khi ấy KHÔNG có mã
+      // nào của trình duyệt đi vào truy vấn cả, tức là còn chặt hơn kiểu (a).
+      //
+      // Chỉ tính khi `req.user.id` (hay `req.user.classId`) THẬT SỰ là tham số
+      // truyền vào truy vấn — không tính một lần nhắc tên suông ở đâu đó.
+      if (!co && /\breq\.user\.(id|classId)\b/.test(k.than)
+        && /\bdb\.(all|first|count|rows)\s*\(/.test(k.than)
+        && /\[\s*req\.user\.(id|classId)\b|\(\s*req\.user\.(id|classId)\s*\)/.test(k.than)) {
+        co = true;
+      }
       if (!co) quen.push(`${tep}  ${ten}`);
     }
   }
