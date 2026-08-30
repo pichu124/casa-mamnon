@@ -635,6 +635,25 @@ console.log('\n[18] PHÒNG CHAT CỦA CẢ NĂM HỌC PHẢI MỞ ĐƯỢC — C
   check('và KHÔNG đánh dấu đã đọc — dấu tin chưa xem còn nguyên',
     (cua?.unreadCount || 0) > 0, cua?.unreadCount);
 
+  // ĐƯỜNG POLL CŨNG PHẢI CÓ TRẦN.
+  //
+  // `?after=` lấy tin mới hơn một mốc do MÀN HÌNH gửi lên, nên nó không có trần
+  // tự nhiên nào: tab để mở qua đêm rồi máy thức dậy là một lượt hỏi kéo về cả
+  // quãng ở giữa. Cùng đúng hình dạng vừa vá ở đường mở phòng, chỉ ít lộ hơn.
+  const polled = await req('GET', `/api/messages/${hoiThoai}/poll?after=1970-01-01T00:00:00.000Z`,
+    { cookie: gv });
+  const dsPoll = polled.data?.messages || [];
+  check('đường poll cũng không kéo về cả hội thoại', dsPoll.length < TONG, [dsPoll.length, TONG]);
+  check('nhưng vẫn trả về được một mẻ dùng ngay', dsPoll.length > 0, dsPoll.length);
+  // Cắt ở đầu CŨ, không phải đầu mới: đây là dòng chảy nối tiếp, bỏ khúc giữa
+  // là màn hình thủng một khoảng và không bao giờ lấy lại được.
+  const poll2 = await req('GET',
+    `/api/messages/${hoiThoai}/poll?after=${encodeURIComponent(dsPoll[dsPoll.length - 1].createdAt)}`,
+    { cookie: gv });
+  check('lượt poll sau nối tiếp đúng chỗ lượt trước dừng',
+    (poll2.data?.messages || []).every(m => m.createdAt > dsPoll[dsPoll.length - 1].createdAt),
+    (poll2.data?.messages || [])[0]);
+
   // Màn hình phải có nút đi ngược. Máy chủ mở đường mà màn hình không đi thì
   // với cô, tin cũ vẫn là mất.
   const view = fs.readFileSync(path.join(GOC, 'public/js/views/messages.js'), 'utf8');

@@ -258,9 +258,20 @@ module.exports = (app) => {
     const cv = findConv(req, res);
     if (!cv) return;
     const after = req.query.after ? String(req.query.after) : '';
+    // CÙNG MỘT TRẦN VỚI ĐƯỜNG MỞ PHÒNG.
+    //
+    // Đường này lấy tin mới hơn một mốc do MÀN HÌNH gửi lên, nên nó không có
+    // trần tự nhiên nào: tab để mở qua đêm rồi máy thức dậy, hay một màn hình
+    // gửi lại mốc cũ, là một lượt hỏi kéo về cả quãng ở giữa. Cùng đúng cái
+    // hình dạng vừa vá ở đường mở phòng, chỉ khác là nó ít lộ hơn.
+    //
+    // Lấy `CUA_SO_TIN` tin cũ nhất SAU mốc đó — cắt ở đầu CŨ chứ không phải đầu
+    // mới, vì đây là dòng chảy nối tiếp: bỏ khúc giữa là màn hình thủng một
+    // khoảng và không bao giờ lấy lại được. Còn dư thì lượt hỏi sau lấy tiếp.
     const fresh = db.all('messages',
-      'SELECT * FROM messages WHERE conversationId = ? AND createdAt > ? ORDER BY createdAt, rowid',
-      [cv.id, after]);
+      `SELECT * FROM messages WHERE conversationId = ? AND createdAt > ?
+       ORDER BY createdAt, rowid LIMIT ?`,
+      [cv.id, after, CUA_SO_TIN]);
     if (fresh.length) markRead(cv.id, req.user.id);
     res.json({ messages: fresh.map(m => messageDto(m, req.user)) });
   });
