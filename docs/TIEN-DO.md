@@ -782,7 +782,15 @@ Ba cái bị bác bỏ (đều là chỗ CỐ Ý, đã ghi tài liệu) không �
 **Đã vá trong đợt này:** Đ59 (rò rỉ album lớp cũ), Đ60 (ảnh Cambridge với
 Marketing), Đ61 (hai lỗ ở đường phân công cô).
 
-### Còn lại — chưa vá, xếp nặng trước
+### ✅ ĐÃ VÁ HẾT — Đ59 tới Đ71 (30/08/2026)
+
+Toàn bộ 21 phát hiện đã được vá. Bảng dưới giữ lại nguyên văn khiếm khuyết và
+tình huống hỏng để người sau đọc được **vì sao** mỗi chốt tồn tại — đừng gỡ một
+chốt nào ở đây mà chưa đọc dòng tương ứng.
+
+Trong lúc vá, bộ canh vừa mở rộng còn bắt thêm **hai chỗ nữa** mà đợt soát chưa
+nêu: `routes/attendance.js` đọc `leave_requests` và `routes/reports.js` đọc
+`attendance`, cả hai đều không hỏi công tắc. Đã vá cùng Đ65.
 
 | Mức | Chỗ nào | Khiếm khuyết | Tình huống hỏng |
 |---|---|---|---|
@@ -944,3 +952,13 @@ Marketing), Đ61 (hai lỗ ở đường phân công cô).
 | 30/08/2026 | **Đ59** — **rò rỉ thật, đã dựng lại được**: mốc 12 tháng của Đ44 KHÔNG áp cho album lớp cũ và màn Năm học trước, vì `lsl.lopCuCuaPhuHuynh` chỉ hỏi quan hệ `student_parents` — mà quan hệ cha mẹ – con thì không bao giờ hết hạn. Gia đình rời trường 3 năm vẫn tải được **đúng các byte** ảnh khuôn mặt cả nhóm, phần lớn các bé trong ảnh vẫn đang học; cùng lúc màn "Hồ sơ con đã ra trường" trả 403 nên nhà trường tin là cửa đã đóng. Vá bằng cách **mượn lại `db.conHanXemHoSo`**, không viết bản luật thứ ba | Soát 30/08 #1 |
 | 30/08/2026 | **Đ60** — ảnh **Cambridge** không đi qua luật đồng ý truyền thông: chốt duy nhất hỏi `role === 'parent'`, mà Marketing là `role === 'admin'`. Họ tải được ảnh của bé mà gia đình đã nói KHÔNG với ô ③ — đúng điều mô tả chức vụ hứa là không thể xảy ra. Ảnh Cambridge không gắn thẻ bé nên **mặc định không cho**, đường ra là ô "Ảnh không có mặt bé nào" đã có sẵn | Soát 30/08 #3 |
 | 30/08/2026 | **Đ61** — hai lỗ ở đường phân công cô. **(a)** Tạo tài khoản cô mới kèm nhóm thì XOÁ SẠCH phân công của mọi cô đang dạy nhóm đó, im lặng — sáng hôm sau cô thấy "Nhóm chưa có bé nào". **(b)** Đường cũ `PUT /api/admin/classes/:id` phân công cô được mà không hỏi `chanNeuVanPhong`, lại không canh cơ sở của chính cô ấy nên quản lý cơ sở 1 gỡ được cô khỏi nhóm ở cơ sở 2 | Soát 30/08 #4, #2 |
+| 30/08/2026 | **Đ62** — **khôi phục từ ổ ngoài KHÔNG mang ảnh của trẻ về**, mà vẫn in "Đã khôi phục xong". Đường khôi phục đóng cứng thư mục ảnh vào `DATA_DIR/backups` trong khi `backup.js` và hai tệp tài liệu đều dạy chạy `--out` ra ổ ngoài. Nay đi tìm ảnh theo TỆP BẢN SAO, thêm cờ `--anh`, và **nói ra khi không tìm thấy ảnh** | Soát 30/08 #5 |
+| 30/08/2026 | **Đ63** — hàng đợi ngoại tuyến của Ghi nhanh **tự xoá hẳn bài của cô** khi máy chủ trả 403. Mẫu chữ cũ bắt cả `không thuộc` và `quyền` — mà lỗi quyền ở đây gần như luôn tạm thời (vừa đổi phân công, nhóm vừa đóng, phân hệ vừa tắt). Nay chỉ ảnh hỏng mới được bỏ, và cũng giữ lại dòng chữ | Soát 30/08 #6 |
+| 30/08/2026 | **Đ64** — nút "Lưu nháp" trên câu chuyện **đã công bố** sửa thẳng màn hình gia đình, và **xoá trắng được "Cùng con ở nhà"** — đi vòng qua đúng QUY TẮC 5 mà đường `cong-bo` bắt buộc. Nay ép đúng hai điều kiện đó ở máy chủ; sửa lỗi chính tả thì vẫn được | Soát 30/08 #7 |
+| 30/08/2026 | **Đ65** — bộ canh "đọc bảng phân hệ khác" (Đ47) **chỉ quét `modules/`**, không quét `routes/`. Mở rộng ra thì bắt được **bốn** chỗ: `hocsinh-cu` (2 phân hệ đang tắt sẵn), `namhoccu` (4 phân hệ, màn này bật sẵn cho mọi gia đình), `attendance` và `reports`. Bảng ánh xạ từ 5 lên 18 tên bảng | Soát 30/08 #8, #11 |
+| 30/08/2026 | **Đ66** — `/modules` **gửi nguyên mã nguồn phân hệ ra ngoài**: chốt `res.status(404)` đặt trong `setHeaders` chạy TRƯỚC khi mở luồng tệp, nên chỉ đổi con số ở dòng đầu. Đo được **11.308 byte** `routes.js` thật, kèm cả `schema.sql` và `module.json`, kể cả khi chưa đăng nhập | Soát 30/08 #12 |
+| 30/08/2026 | **Đ67** — đơn xin nghỉ **không có trần khoảng ngày**: gõ nhầm năm là bé bị cắt suất ăn cả năm và văn phòng nhận gợi ý hoàn hơn 200 ngày tiền ăn. Trần 60 ngày, lời từ chối chỉ thẳng ô năm | Soát 30/08 #16 |
+| 30/08/2026 | **Đ68** — hai chỗ hỏng khi trường đông lên: Khảo sát nạp **toàn bộ phiếu của toàn bộ khảo sát** chỉ để lấy hai con số (nay hai câu tổng hợp + LIMIT); và trần "12 người được đón" chỉ đếm dòng đang dùng nên vòng tạo → ngưng dùng lặp vô hạn — đo được 30 vòng không gì chặn | Soát 30/08 #17, #18 |
+| 30/08/2026 | **Đ69** — ba chỗ chữ trên màn hình: màn Chuyển năm học bảo hiệu trưởng **gõ `npm run backup`** (người bấm nút không chạy được lệnh đó, và app không có nút sao lưu nào); cô chưa có nhóm mở Kế hoạch/Lịch sinh hoạt thì nhận "Có lỗi xảy ra 😥" đổ lỗi cho một nhóm không tồn tại; trang chủ nói "Nhà trường chưa bật phân hệ nào" với Nhân sự/Kế toán — sai sự thật, và "phân hệ" là chữ chỉ có trong mã nguồn | Soát 30/08 #13, #14, #15 |
+| 30/08/2026 | **Đ70** — hai bộ canh tự siết: mục cách ly cơ sở chạy trên một bé **không có lấy một dòng** dặn thuốc hay xin nghỉ nào (xanh vì chẳng có gì để lọt); và hàm cắt thân hàm của bộ canh quyền gán nhãn "hàm canh" cho cả hàm phụ trợ vô can. Sửa xong, bộ canh quyền lập tức bắt được một đường — kiểm lại thì đó là **báo nhầm**, nên dạy nó nhận thêm kiểu (b) viết thẳng bằng SQL | Soát 30/08 #9, #10 |
+| 30/08/2026 | **Đ71** — ba chỗ tài liệu nói sai: job `sw-version` trên GitHub so với **lần push trước** trong khi `CLAUDE.md` hứa so với **nhánh chính** (nhánh đã tăng VERSION vẫn bị báo đỏ, người gặp sẽ tăng thêm lần nữa — mỗi lần là một lần xoá kho đệm của mọi điện thoại); `modules/README.md` nói dùng được `CREATE TRIGGER` trong khi bộ kiểm tra từ chối mọi trigger có thân lệnh; `README.md` — trang đầu kho mã — ghi lứa tuổi **2–6 tuổi** | Soát 30/08 #19, #20, #21 |

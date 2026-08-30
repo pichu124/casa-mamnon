@@ -56,10 +56,19 @@ phần khác. Luôn dùng `CREATE TABLE IF NOT EXISTS` vì tệp này chạy m�
 Đây không phải quy ước cho đẹp — máy chủ kiểm tra thật và **từ chối chạy** tệp
 không tuân thủ:
 
-- Chỉ chấp nhận `CREATE TABLE / INDEX / VIEW / TRIGGER ... IF NOT EXISTS`.
+- Chỉ chấp nhận `CREATE TABLE / INDEX / VIEW ... IF NOT EXISTS`.
   Mọi câu `DROP`, `ALTER`, `DELETE`, `UPDATE` đều bị chặn.
 - Tên bảng phải là mã phân hệ hoặc bắt đầu bằng `<mã>_`.
-- Chỉ mục và trigger phải gắn vào bảng của chính phân hệ này.
+- Chỉ mục phải gắn vào bảng của chính phân hệ này.
+
+> **Chưa dùng được `TRIGGER`.** Tài liệu này từng ghi là dùng được, nhưng bộ
+> kiểm tra cắt tệp theo dấu `;`, mà thân trigger của SQLite luôn có `;` trước
+> `END` — nên mảnh `END` không khớp mẫu `CREATE ... IF NOT EXISTS` và cả phân hệ
+> bị đánh dấu lỗi. Nghĩa là **không câu trigger hợp lệ nào đi qua được**, và
+> nhánh xử lý trigger trong `lib/modules.js` là mã chết.
+>
+> Ghi lý do ở đây quan trọng hơn ghi lệnh cấm: không ghi thì người sau lại thử,
+> thấy phân hệ mình "hỏng không rõ vì sao", rồi đi tìm nhầm chỗ.
 
 Sai một điều là cả phân hệ bị đánh dấu lỗi và không chạy, nhưng **dữ liệu của phần
 còn lại không hề bị đụng tới** — đó mới là điều quan trọng.

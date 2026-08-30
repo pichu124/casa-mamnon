@@ -83,15 +83,41 @@ jobs:
       # Xét CẢ KHOẢNG như một đơn vị, không xét từng commit: quy định commit
       # riêng bắt tách một đợt việc làm hai ba commit, và chỉ một trong số đó
       # tăng VERSION. Thứ đi tới máy của cô là trạng thái cuối khoảng.
+      # SO VỚI NHÁNH CHÍNH, KHÔNG SO VỚI LẦN PUSH TRƯỚC.
+      #
+      # `CLAUDE.md` hứa: "Bộ canh so với NHÁNH CHÍNH, không so với commit ngay
+      # trước — cả nhánh chỉ cần tăng một lần là đủ." Job này thì so với lần
+      # push trước (`github.event.before`), nên một nhánh ĐÃ tăng VERSION ở lần
+      # push đầu vẫn bị báo đỏ ở lần push thứ hai nếu lần đó có đụng `public/`.
+      #
+      # Người gặp cảnh đó sẽ tăng VERSION thêm một lần nữa cho qua — mà mỗi lần
+      # tăng là một lần xoá kho đệm của mọi điện thoại đã cài app. Hoặc tệ hơn:
+      # họ thêm dòng `Khong-can-sw:` cho quen tay.
+      #
+      # Ba trường hợp, mỗi cái một mốc đúng:
+      #   • pull request → so với nhánh đích (đang đúng sẵn);
+      #   • push thẳng vào `main` → so với lần push trước, vì với main thì lần
+      #     push trước CHÍNH LÀ thứ đã tới máy của cô;
+      #   • push vào nhánh khác → so với điểm rẽ khỏi `main`.
       - name: Kiểm tra khoảng commit mới
         run: |
           if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
             KHOANG="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
-          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
+          elif [ "${{ github.ref }}" = "refs/heads/main" ] \
+               && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
                && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
             KHOANG="${{ github.event.before }}..${{ github.sha }}"
           else
-            KHOANG="${{ github.sha }}~1..${{ github.sha }}"
+            git fetch --no-tags --depth=0 origin main 2>/dev/null || git fetch --no-tags origin main
+            MOC="$(git merge-base "${{ github.sha }}" origin/main 2>/dev/null || true)"
+            if [ -n "$MOC" ]; then
+              KHOANG="$MOC..${{ github.sha }}"
+            elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
+                 && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+              KHOANG="${{ github.event.before }}..${{ github.sha }}"
+            else
+              KHOANG="${{ github.sha }}~1..${{ github.sha }}"
+            fi
           fi
           echo "Khoảng kiểm tra: $KHOANG"
           node scripts/kiem-tra-sw.js --khoang "$KHOANG"

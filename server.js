@@ -182,7 +182,7 @@ app.use((err, req, res, next) => {
 //
 // Bản cũ chỉ `console.warn`, và in RA SAU khi máy chủ đã mở cổng — tức đã bắt đầu
 // phục vụ dữ liệu trẻ rồi mới nhắc, vào một dòng log không ai đọc. Ở app 1 đó là
-// hồ sơ học sinh tiểu học; ở đây là **ảnh khuôn mặt trẻ 2–6 tuổi và hồ sơ sức
+// hồ sơ học sinh tiểu học; ở đây là **ảnh khuôn mặt trẻ 12 tháng – 6 tuổi và hồ sơ sức
 // khỏe** — nhóm nhạy cảm theo Nghị định 13/2023/NĐ-CP. Lộ rồi thì viết lại lịch
 // sử git cũng không thu lại được.
 //
