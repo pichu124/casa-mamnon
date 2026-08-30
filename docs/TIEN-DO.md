@@ -584,7 +584,7 @@ nói ra thứ nó đang hiện.**
 
 ### G0.6 — Con số kiểm thử hiện tại
 
-> **Đo ngày 29/08/2026.** Con số này rơi rớt rất nhanh — mỗi đợt thêm bài là
+> **Đo ngày 30/08/2026.** Con số này rơi rớt rất nhanh — mỗi đợt thêm bài là
 > lệch, và bảng này đã lệch thật một lần (ghi 2546 trong khi số đo lại là
 > 2615). Đếm lại bằng chính hai lệnh dưới, đừng tin bảng nếu commit gần nhất
 > có đụng vào `test/`:
@@ -593,11 +593,18 @@ nói ra thứ nó đang hiện.**
 > npm test              | grep -E "PASS: " | awk '{s+=$3} END {print s}'
 > npm run test:giao-dien | grep -E "PASS: " | awk '{s+=$3} END {print s}'
 > ```
+>
+> **Lệnh này từng đếm thiếu 69 bài, suốt nhiều tháng.** `test/api.test.mjs` in
+> tổng kết ở dạng cụt `PASS: 69  FAIL: 0` — không có hai đầu `=====` như mọi
+> bài khác — nên `$3` rơi vào chữ "FAIL" và cộng vào 0. Đ57 sửa dạng in của bài
+> đó; con số dưới đây là con số ĐÚNG, và nó cao hơn bảng cũ đúng 69 bài cộng
+> với phần mới của đợt này. Bài học: một lệnh đếm im lặng bỏ sót thì đáng ngờ
+> hơn một lệnh đếm báo lỗi.
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **2828**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **467**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **2869**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **470**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
@@ -835,3 +842,6 @@ Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ khôn
 | 29/08/2026 | **Đ53** — **QUY TẮC 3 lần đầu có bộ canh riêng**, dựng TRƯỚC khi kho mã có một dòng AI nào. `CLAUDE.md` nói năm QUY TẮC được canh bằng máy, nhưng chỉ QUY TẮC 2 và 4 có bộ canh; QUY TẮC 3 — thứ quyết định nhất khi AI tới ở GĐ 3 — không có gì. Bài canh cũng giữ **bốn điều kiện bật AI** của bản kế hoạch và canh bảng đồng ý **chưa** có ô AI, để không ai coi ô ② hay ③ là đã đủ | Sổ việc 134, 104 |
 | 30/08/2026 | **Đ54** — **màn "không mở được" nói sai lý do với gia đình**. `/api/modules` lọc bằng BỐN điều kiện khác hẳn nhau — nhà trường tắt, ngoài vai trò, ngoài phần việc của chức vụ, phân hệ đang lỗi — rồi trả về đúng một danh sách, nên màn hình đoán một lý do duy nhất: *"phân hệ này hiện đang được nhà trường tắt"*. Câu đó **sai đúng vào trường hợp hay gặp nhất**: gia đình mở một địa chỉ chỉ dành cho trường. Nhà trường không tắt gì cả, còn phụ huynh thì gọi lên văn phòng hỏi vì sao trường tắt mất phần của mình. Nay có `viSaoKhongThay()` và `GET /api/modules/vi-sao/:view`; màn hình vẽ câu trung tính trước rồi mới hỏi máy chủ, nên **mất mạng vẫn không nói sai**. Hai bài test giao diện cũ bắt theo câu chữ cũ nên sẽ lặng lẽ xanh — đã sửa, và một bài được siết thêm để đòi ĐÚNG lý do | Báo cáo 4.1 #2 |
 | 30/08/2026 | **Đ55** — **QUY TẮC 4 nay bắt được cách xếp trẻ ba bậc mà không gọi tên mình**. `UI.RATING` xếp bé thành *"Con làm rất tốt / Con làm tốt / Cần cố gắng thêm"* — đúng thứ QUY TẮC 4 cấm, nhưng không có chữ "điểm", "xếp hạng" hay "thi đua" nào nên **cả năm dấu hiệu cũ đều trượt**, kể cả sau khi vùng quét đã mở tới `public/js/ui.js`. Làm bằng một **bánh cóc THỨ HAI**, siết từ lúc sinh ra, thay vì ghi bốn tệp vào `NO_DA_BIET` — vì làm thế là bắt danh sách tệp DÀI RA, tức phải nới một bộ canh bất khả xâm phạm để bịt lỗ của chính nó. Bánh cóc cũ không bị chạm một dòng | Báo cáo 4.1 #1 |
+| 30/08/2026 | **Đ56** — **hai ô chết trong hồ sơ sức khoẻ nay ghi được**. `vision` và `bmiNote` có sẵn trong `lib/schema.sql` và màn hình in ra từ lâu, nhưng không đường nào ghi — y tế khám xong không nhập được đúng thứ vừa đo. Chọn hướng CHO NHẬP, không chọn hướng bỏ hai ô (phần gỡ chưa duyệt, và nếu trường có dữ liệu cũ thì bỏ đi là mất chỗ cất). Kèm một phép kiểm QUY TẮC 4 + QUY TẮC 3: gửi chiều cao + cân nặng mà không gửi ô đánh giá thì ô đó phải **ở nguyên trống** — app không được tự xếp trẻ so với "chuẩn của độ tuổi" | Báo cáo 4.1 #5 |
+| 30/08/2026 | **Đ57** — **Nhân sự thôi chạm được vào tài khoản của gia đình**. Mô tả chức vụ hứa họ "KHÔNG mở được hồ sơ bé, sức khoẻ, hay ảnh của trẻ", nhưng cấp lại mật khẩu cho một tài khoản phụ huynh là trao đúng ba thứ ấy, còn `/api/accounts/parents` thì trả kèm **tên các con** của từng nhà. Siết cả hai đường. Gia đình không bị bỏ giữa đường: cô của nhóm bé, ban giám hiệu và quản trị toàn hệ thống vẫn làm được, và mục [10] canh đúng ba đường đó. Cũng sửa dạng in tổng kết của `test/api.test.mjs` — **69 bài của nó chưa bao giờ được lệnh đếm trong tài liệu này cộng vào** | Báo cáo 4.1 #3 |
+| 30/08/2026 | **Đ58** — `GET /api/kehoachbe/be`: **quyết định là GIỮ NGUYÊN, không dựng màn hình**. Màn nhóm đã trả kế hoạch của *mọi bé* trong nhóm rồi, nên một màn riêng cho từng bé là **thừa**. Cách đặt nó vào Hồ sơ bé thì phải để một tệp lõi (`public/js/views/student.js`) gọi vào một phân hệ cắm thêm — đảo ngược đúng chiều phụ thuộc mà `modules/README.md` dựng lên, và trong kho mã chưa có một tiền lệ nào như vậy. Đ48 đã bọc đường này bằng 10 phép kiểm nên **chừng nào còn sống thì còn kín**. Khuyến nghị của tôi là **gỡ hẳn**, nhưng gỡ thuộc phần chưa được duyệt | Báo cáo 4.1 #4 |

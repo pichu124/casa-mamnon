@@ -162,5 +162,12 @@ r = await call('', 'GET', '/api/students'); check('không cookie -> 401', r.stat
 r = await fetch(BASE + '/api/khongtontai').then(x => x.status); check('API lạ khi chưa đăng nhập -> 401', r === 401, r);
 r = await call(P.cookie, 'GET', '/api/khongtontai'); check('API lạ khi đã đăng nhập -> 404', r.status === 404, r);
 
-console.log(`\nPASS: ${pass}  FAIL: ${fail}`);
+// In ĐÚNG dạng chung của mọi bài kiểm thử: `===== PASS: n  FAIL: n =====`.
+//
+// Bài này từng in thiếu hai đầu `=====`, và hậu quả không nằm ở chỗ xấu mã.
+// Lệnh đếm ghi trong `docs/TIEN-DO.md` là `grep "PASS: " | awk '{s+=$3}'` —
+// với dạng có `=====` thì $3 là con số, còn với dạng cụt thì $3 rơi vào chữ
+// "FAIL" và cộng vào 0. Nghĩa là 69 phép kiểm của bài này CHƯA BAO GIỜ được
+// đếm, và con số ghi trong tài liệu thấp hơn sự thật suốt từ đó tới giờ.
+console.log(`\n===== PASS: ${pass}  FAIL: ${fail} =====`);
 if (failures.length) { console.log('\nCHI TIẾT LỖI:'); failures.forEach(f => console.log(' ✗', f)); process.exit(1); }

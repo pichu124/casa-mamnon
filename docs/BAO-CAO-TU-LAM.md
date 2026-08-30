@@ -15,9 +15,10 @@
 |---|---|
 | Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **2828 bài**, `npm run test:giao-dien` **467 bài**, FAIL 0 (đo 29/08/2026) |
+| Bộ kiểm thử | `npm test` **2869 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo 30/08/2026) |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
-| Còn việc nào cần anh quyết | **có, 4 nhóm việc**, xem mục 4 |
+| Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
+| Còn việc gì chặn | **hai thứ, cả hai ngoài tầm tay tôi**: nhà trường (mục 4.2) và quyền vào kho app 1 (mục 4.3) |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
 
 ---
@@ -107,20 +108,25 @@ lúc bản nháp nằm trong máy cô A, cô B có thể đã ghi và lưu từ 
 
 ---
 
-## 4. Việc đang chờ anh
+## 4. Việc tôi đã tự chốt, và việc thật sự còn chờ
 
-### 4.1 Những chỗ tôi thấy nhưng KHÔNG tự sửa
+### 4.1 Năm chỗ tôi TỰ CHỐT thay anh — và chốt thế nào
 
-Năm chỗ. Không chỗ nào gấp — đều **đang không gây hại cho ai hôm nay** — nhưng
-đều là thứ sẽ thành vấn đề đúng lúc trường bắt đầu dùng thật.
+Bản báo cáo trước để năm chỗ này ở dạng "chờ anh quyết". Đọc lại lời anh dặn thì
+đó là tôi làm sai: anh nói **"việc nào cần hỏi ý kiến thì cứ làm theo hướng bạn
+thấy tốt nhất, ghi lại rồi báo"**. Nên đợt này tôi quyết cả năm, làm xong bốn,
+và chốt "không làm" một cách có lý do cho cái thứ năm.
 
-| # | Chỗ nào | Vì sao tôi không tự sửa | Anh cần quyết gì |
+Anh đọc bảng dưới rồi bảo tôi làm ngược lại chỗ nào cũng được — mọi thứ đều lùi
+lại được trong một commit.
+
+| # | Chỗ nào | Tôi chốt thế nào | Vì sao chốt như vậy |
 |---|---|---|---|
-| 1 | **`UI.RATING`** — ba mức *"Con làm rất tốt / Con làm tốt / Cần cố gắng thêm"* trong `public/js/ui.js` | Ba mức xếp trên dưới về một đứa trẻ là thứ QUY TẮC 4 cấm, nhưng nó không dùng chữ "điểm" nên **không bộ canh nào bắt được**. Sửa thì đụng cả ba ranh giới anh đã dặn: tệp dùng chung, phần gỡ chưa duyệt, và một bộ canh bất khả xâm phạm | Chọn một trong ba đường ở `docs/QUYET-DINH-TU-CHOT.md`. Tôi nghiêng về đường 2 |
-| 2 | **Một câu thông báo nói sai với gia đình** | Gia đình gõ đường dẫn một phân hệ chỉ dành cho trường thì màn hình nói *"Phân hệ này hiện đang được nhà trường tắt"* — nhà trường **không** tắt, nó chỉ không dành cho gia đình. Câu đó ở `public/js/app.js`, tệp dùng chung, phải là commit riêng | Gật một câu là tôi sửa trong một đợt riêng |
-| 3 | **Chức vụ Nhân sự cấp lại được mật khẩu cho tài khoản gia đình** | Đây **không phải lỗ hổng cần vá gấp**: app buộc phụ huynh đổi mật khẩu ở lần đăng nhập kế, đá mọi thiết bị của họ ra, và ghi lại ai bấm cho ai. Tức là đọc lén được nhưng **để lại dấu rõ ràng** | Trường có chấp nhận mức đó cho vai Nhân sự không? Nếu không, tôi siết lại |
-| 4 | **`GET /api/kehoachbe/be`** — mặt API trả kế hoạch tháng của một bé, **chưa màn hình nào gọi** | Nó được viết cho một màn *"kế hoạch tháng của bé này"* mở từ Hồ sơ của bé. Dựng màn đó là thêm tính năng; gỡ đường đi là phần gỡ chưa duyệt. Đợt Đ48 đã bọc nó bằng 10 phép kiểm nên **chừng nào còn sống thì còn kín** | Dựng màn hình, hay gỡ đường đi? |
-| 5 | **Hai ô chết trong hồ sơ sức khoẻ** — *"Đánh giá thể trạng"* và *"Thị lực"* | Màn hình hiện chúng, nhưng máy chủ **không có đường nào ghi** — chúng chỉ có giá trị nếu nhập từ kho dữ liệu cũ. Không hại ai (ô trống thì không hiện), nhưng y tế trường sẽ hỏi vì sao khám xong không nhập được | Cho y tế nhập hai ô đó, hay bỏ hẳn khỏi màn hình? |
+| 1 | **`UI.RATING`** — ba mức *"Con làm rất tốt / Con làm tốt / Cần cố gắng thêm"* | **Đ55 — làm đường 2**: bộ canh QUY TẮC 4 nay bắt được mẫu ba mức, ghi bốn tệp vào một **sổ nợ riêng** | Chỗ đắt của đường 2 tưởng là phải nới một bộ canh bất khả xâm phạm. Hoá ra không cần: dựng **bánh cóc thứ hai**, siết từ lúc sinh ra, bánh cóc cũ không bị chạm một dòng. Từ nay không ai chép được mẫu ba mức sang chỗ mới mà bộ canh im lặng. **Gỡ hẳn `UI.RATING` vẫn chưa được duyệt** |
+| 2 | **Câu thông báo nói sai với gia đình** | **Đ54 — sửa rồi**, và sửa tận gốc: máy chủ nay nói được LÝ DO THẬT (nhà trường tắt / ngoài vai / ngoài chức vụ / sự cố), màn hình nói đúng cả **chiều** của lý do | Nói với cô rằng "phần này chỉ dành cho cô" là sai lần thứ hai, chỉ khác hướng. Hai bài test giao diện cũ bắt theo câu chữ cũ nên sẽ lặng lẽ xanh — đã sửa cả hai, và siết thêm một bài |
+| 3 | **Nhân sự cấp lại được mật khẩu tài khoản gia đình** | **Đ57 — siết lại**. Nhân sự lo tài khoản của trường; tài khoản gia đình thì không. Chặn cả `/api/accounts/parents` (nó trả kèm **tên các con**) | Chính mô tả chức vụ ấy hứa họ "KHÔNG mở được hồ sơ bé, sức khoẻ, hay ảnh của trẻ" — mà cấp lại mật khẩu là trao đúng ba thứ đó. Chặn mà **không ai mất việc**: cô của nhóm bé, ban giám hiệu, quản trị toàn hệ thống vẫn làm được, và bài test canh đúng ba đường đó |
+| 4 | **`GET /api/kehoachbe/be`** — chưa màn hình nào gọi | **Đ58 — GIỮ NGUYÊN, không dựng màn hình.** Khuyến nghị của tôi là gỡ hẳn, nhưng gỡ chưa được duyệt | Màn nhóm **đã trả kế hoạch của mọi bé rồi**, nên màn riêng từng bé là thừa. Còn đặt nó vào Hồ sơ bé thì phải để một tệp LÕI gọi vào một phân hệ cắm thêm — đảo ngược chiều phụ thuộc mà `modules/README.md` dựng lên, và kho mã chưa có tiền lệ nào như thế. Dựng một màn hình thừa chỉ để "dùng hết" một đường API là tệ hơn để nó nằm yên, có bọc kín |
+| 5 | **Hai ô chết trong hồ sơ sức khoẻ** | **Đ56 — cho y tế nhập**, không bỏ hai ô khỏi màn hình | Bỏ đi là gỡ (chưa duyệt), và nếu trường có sẵn dữ liệu cũ để nhập thì bỏ đi là mất chỗ cất. Kèm một phép kiểm mới: gửi chiều cao + cân nặng mà không gõ ô đánh giá thì ô đó phải **ở nguyên trống** — app không bao giờ được tự xếp một đứa trẻ so với "chuẩn của độ tuổi" |
 
 > **Một việc nữa, không cần anh quyết mà cần anh biết:** đường liệt kê album
 > (`GET /api/albums`) đếm số ảnh bằng cách nạp **từng tấm ảnh của từng album**,
@@ -172,9 +178,17 @@ Sổ việc gốc có **161 mục**. Sau đợt này:
   bắt khai Khối 1–12"*, *"ô cân đo gợi ý sai lứa tuổi"*, *"mô tả Xin phép nói cô
   là người duyệt"* — cả bốn đã đúng từ lâu. **Ghi ra đây vì con số "còn N mục"
   trong một cuốn sổ cũ dễ làm người đọc hoảng hơn thực tế.**
-- **Còn lại:** nhóm *Chờ nhà trường* ở mục 4.2 (không phải việc của mã), năm chỗ
-  chờ anh quyết ở mục 4.1, cộng một ít nợ kỹ thuật mức *thấp* — đổi tên biến,
-  gọn lại tài liệu — không chỗ nào đe doạ dữ liệu hay chặn cổng DỪNG nào.
+- **Còn lại:** nhóm *Chờ nhà trường* ở mục 4.2 (không phải việc của mã), món nợ
+  với kho app 1 ở mục 4.3 (chờ anh mở quyền), cộng một ít nợ kỹ thuật mức *thấp*
+  — đổi tên biến, gọn lại tài liệu — không chỗ nào đe doạ dữ liệu hay chặn cổng
+  DỪNG nào. **Năm chỗ trước đây ghi là "chờ anh quyết" nay đã chốt xong** (mục
+  4.1); chúng không còn nằm trong nhóm này nữa.
+
+**Nói thẳng một câu về chỗ đứng hiện tại:** phần việc mà mã sửa được, tôi làm
+gần hết rồi. Thứ chặn tiếp theo không phải là mã — là **buổi thử app trên điện
+thoại thật của cô** và **máy chủ + tên miền đứng tên trường**. Chừng nào hai thứ
+đó chưa có, mọi việc tôi làm thêm đều là siết cho chặt hơn chứ không đưa app tới
+gần ngày dùng thật hơn được nữa.
 
 ---
 
@@ -196,4 +210,4 @@ Không cần anh nhắc lại bối cảnh.
 
 ---
 
-*Cập nhật lần cuối: sau đợt Đ53.*
+*Cập nhật lần cuối: sau đợt Đ58.*
