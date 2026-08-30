@@ -383,7 +383,7 @@ App.views.hanhtrinh = {
           Đây là <b>lời rủ chơi</b> gửi gia đình, không phải việc phải nộp lại cho cô.</div>
       </div>
       <div class="grid-2">
-        <button class="btn outline" id="ht-luu-nhap">Lưu nháp</button>
+        <button class="btn outline" id="ht-luu-nhap">${q.daCongBo ? 'Lưu thay đổi' : 'Lưu nháp'}</button>
         <button class="btn success-soft" id="ht-cong-bo">${UI.icon('send', 16)} Kể cho gia đình</button>
       </div>
       ${q.daCongBo ? `<button class="btn danger-soft block mt-8" id="ht-thu-hoi">Thu hồi khỏi màn hình gia đình</button>` : ''}
@@ -396,7 +396,11 @@ App.views.hanhtrinh = {
     document.getElementById('ht-luu-nhap').onclick = async () => {
       try {
         await API.put(`/api/hanhtrinh/${encodeURIComponent(id)}`, doc());
-        UI.toast('Đã lưu nháp — gia đình chưa đọc được', 'success');
+        // NÓI ĐÚNG SỰ THẬT. Bản đã công bố thì chữ vừa lưu đi THẲNG lên màn
+        // hình gia đình — câu "gia đình chưa đọc được" ở đó là nói sai.
+        UI.toast(q.daCongBo
+          ? 'Đã lưu — gia đình thấy bản mới ngay'
+          : 'Đã lưu nháp — gia đình chưa đọc được', 'success');
         UI.closeModal();
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); }

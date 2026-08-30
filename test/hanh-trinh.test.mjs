@@ -592,6 +592,68 @@ console.log('\n[+] GHI NHẦM BÉ — phải có đường lùi, và đường l
   check('xoá lần hai thì báo không tìm thấy, không nổ', xoaLai.status === 404, xoaLai.status);
 }
 
+// ===========================================================================
+console.log('\n[14] SỬA MỘT CÂU CHUYỆN ĐÃ CÔNG BỐ KHÔNG ĐƯỢC ĐI VÒNG QUA QUY TẮC 5');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Khối lớp 3 của `PUT /api/hanhtrinh/:id` từng mang tên "Lớp 3, còn là nháp",
+  // và giao diện gọi nút đó là "Lưu nháp" rồi báo "gia đình chưa đọc được". Cả
+  // ba đều SAI khi bản ghi đã công bố: chữ đi thẳng lên màn hình gia đình.
+  //
+  // Nặng hơn: `cungConONha` XOÁ TRẮNG được qua đường này, trong khi đường
+  // `cong-bo` bắt buộc phải có nó. Tức đi vòng qua đúng QUY TẮC 5 — mỗi nhận
+  // định phải kèm một việc làm được.
+  const tao = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', moTa: 'Bé tự rót nước vào cốc, không đổ giọt nào.' },
+  });
+  const id = tao.data?.id;
+  check('tạo được quan sát để thử', !!id, tao.data);
+
+  const cb = await req('POST', `/api/hanhtrinh/${id}/cong-bo`, {
+    cookie: GV,
+    body: {
+      cauChuyen: 'Hôm nay bé tự rót nước, cả nhóm cùng vỗ tay.',
+      cungConONha: 'Tối nay bố mẹ để con tự rót nước vào cốc — 5 phút, dùng luôn ca trên bàn.',
+    },
+  });
+  check('câu chuyện đã công bố — nếu không thì cả mục này rỗng',
+    cb.status === 200 && !!(cb.data?.congBoLuc || cb.data?.daCongBo),
+    `${cb.status} ${JSON.stringify(cb.data).slice(0, 160)}`);
+
+  // XOÁ TRẮNG "cùng con ở nhà" trên bản ĐÃ công bố phải bị từ chối.
+  const xoaTrang = await req('PUT', `/api/hanhtrinh/${id}`, {
+    cookie: GV, body: { cungConONha: '' },
+  });
+  check('KHÔNG xoá trắng được "cùng con ở nhà" của bản đã công bố',
+    xoaTrang.status === 400, `${xoaTrang.status} ${xoaTrang.data?.error || ''}`);
+  check('và lời từ chối chỉ đúng đường ra: thu hồi trước',
+    /thu hồi/i.test(xoaTrang.data?.error || ''), xoaTrang.data);
+
+  const xoaChuyen = await req('PUT', `/api/hanhtrinh/${id}`, {
+    cookie: GV, body: { cauChuyen: '' },
+  });
+  check('cũng KHÔNG xoá trắng được chính câu chuyện', xoaChuyen.status === 400, xoaChuyen.status);
+
+  // NHƯNG SỬA MỘT LỖI CHÍNH TẢ THÌ VẪN PHẢI ĐƯỢC — không siết tới mức làm phiền
+  // cô vì một việc đúng.
+  const sua = await req('PUT', `/api/hanhtrinh/${id}`, {
+    cookie: GV, body: { cauChuyen: 'Hôm nay bé tự rót nước, cả nhóm cùng vỗ tay khen bé.' },
+  });
+  check('sửa chữ trong câu chuyện đã công bố thì VẪN được', sua.status === 200,
+    `${sua.status} ${sua.data?.error || ''}`);
+
+  // Và trên bản CHƯA công bố thì để trống vẫn được — đó mới đúng là nháp.
+  const nhap = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', moTa: 'Bé xếp khối cao bảy tầng.' },
+  });
+  const trong = await req('PUT', `/api/hanhtrinh/${nhap.data?.id}`, {
+    cookie: GV, body: { cungConONha: '' },
+  });
+  check('bản CHƯA công bố thì vẫn để trống được — nháp dở dang là chuyện bình thường',
+    trong.status === 200, `${trong.status} ${trong.data?.error || ''}`);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
