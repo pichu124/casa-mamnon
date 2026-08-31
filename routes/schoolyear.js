@@ -83,6 +83,19 @@ function phamViNhomLop(user) {
   return coSo === null ? null : db.classIdsOfCampus(coSo);
 }
 
+// Cùng thứ, nhưng KỂ CẢ NHÓM ĐÃ ĐÓNG. Chỉ dùng cho đường nhìn lại quá khứ.
+//
+// Chuyển năm học đóng mọi nhóm của năm cũ, mà bé ra trường vẫn giữ `classId`
+// của nhóm cuối cùng. Dùng bản thường ở đường tra bé đã ra trường thì từ lần
+// chuyển năm ĐẦU TIÊN trở đi, quản lý cơ sở mở màn ấy ra thấy trống trơn —
+// vĩnh viễn, không một dòng nào nói vì sao, trong khi ban giám hiệu vẫn thấy
+// đủ. Không mất dữ liệu, không rò sang cơ sở khác: mất ĐƯỜNG TRA CỨU, và mất
+// đúng vào đầu năm học sau nên rất dễ bị quy là lỗi máy của người ngồi ở cơ sở.
+function phamViNhomLopKeCaDaDong(user) {
+  const coSo = db.phamViCoSo(user);
+  return coSo === null ? null : db.classIdsEverOfCampus(coSo);
+}
+
 // =============================================================================
 // NHÓM CỦA NĂM MỚI PHẢI TÁCH THEO CƠ SỞ
 // =============================================================================
@@ -309,9 +322,10 @@ module.exports = (app) => {
   // Tra cứu học sinh đã ra trường hoặc chuyển đi.
   app.get('/api/schoolyear/alumni', onlyAdmin, (req, res) => {
     // Bé đã ra trường vẫn giữ `classId` của nhóm cuối cùng, nên vẫn tra được
-    // cơ sở. Bé nào không còn nhóm thì chỉ Cấp 1 thấy — cùng luật "đóng chứ
-    // không mở" đã dùng ở routes/admin.js.
-    const pham = phamViNhomLop(req.user);
+    // cơ sở — NHƯNG nhóm đó đã bị đóng lúc chuyển năm, nên phải hỏi bằng bản
+    // "kể cả đã đóng". Bé nào không còn nhóm thì chỉ Cấp 1 thấy — cùng luật
+    // "đóng chứ không mở" đã dùng ở routes/admin.js.
+    const pham = phamViNhomLopKeCaDaDong(req.user);
     const rows = beRaTruongTrongPhamVi(pham);
     res.json(db.withParents(rows).map(s => ({
       ...s,

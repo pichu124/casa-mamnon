@@ -487,6 +487,53 @@ console.log('\n[11] Danh sách bé ra trường: chỗ CẮT 500 phải đứng 
   check('và không một bé ra trường nào của cơ sở 2 lọt sang',
     ds3.every(b => !String(b.id).startsWith('cs2cu-')),
     ds3.filter(b => String(b.id).startsWith('cs2cu-')).slice(0, 3).map(b => b.id));
+
+  // VÀ PHẢI CHỊU ĐƯỢC MỘT LẦN CHUYỂN NĂM HỌC.
+  //
+  // Phần trên dựng bé ra trường trong những nhóm ĐANG MỞ, nên nó không bao giờ
+  // chạm tới câu hỏi thật: chuyển năm học ĐÓNG mọi nhóm của năm cũ, mà bé ra
+  // trường vẫn giữ `classId` của nhóm đã đóng ấy. Phạm vi cơ sở tính bằng
+  // `classIdsOfCampus` (lọc `active = 1`) sẽ thôi kể tên nhóm đó, và cả danh
+  // sách bé ra trường của cơ sở biến mất — vĩnh viễn, ngay sau tháng Sáu đầu
+  // tiên, trong khi ban giám hiệu vẫn thấy đủ.
+  //
+  // Không có mục này thì phép kiểm trên vẫn xanh suốt: nó chỉ đo được cảnh
+  // "chưa ai chuyển năm bao giờ".
+  const r = await req('POST', '/api/schoolyear/promote', {
+    cookie: C1, body: { namMoi: '2031-2032' },
+  });
+  check('chuyển được năm học để dựng cảnh nhóm đã đóng', r.status === 200, r.data);
+
+  const sauNam3 = await req('GET', '/api/schoolyear/alumni', { cookie: C3 });
+  const dsSau = sauNam3.data || [];
+  check('SAU KHI CHUYỂN NĂM, QUẢN LÝ CƠ SỞ VẪN TRA ĐƯỢC BÉ RA TRƯỜNG CỦA MÌNH',
+    dsSau.some(b => String(b.id).startsWith('cs1cu-')),
+    { soDong: dsSau.length, vaiMa: dsSau.slice(0, 3).map(b => b.id) });
+  check('và vẫn KHÔNG thấy bé của cơ sở khác',
+    dsSau.every(b => !String(b.id).startsWith('cs2cu-')),
+    dsSau.filter(b => String(b.id).startsWith('cs2cu-')).slice(0, 3).map(b => b.id));
+
+  // Cùng một lỗ, hai đường khác: danh sách "kể cả bé đã nghỉ" và tệp Excel.
+  const keCaNghi = await req('GET', '/api/admin/students?keCaNghi=1', { cookie: C3 });
+  check('màn "kể cả bé đã nghỉ" cũng sống qua chuyển năm học',
+    (keCaNghi.data || []).some(b => String(b.id).startsWith('cs1cu-')),
+    (keCaNghi.data || []).length);
+  // Tệp CSV không phải JSON nên `req` không đọc được thân — lấy thẳng bằng
+  // fetch. Kiểm mã trạng thái thôi là phép kiểm rỗng: tệp trắng cũng trả 200.
+  const xuat = await fetch(`${sv.BASE}/api/admin/students/xuat.csv?keCaNghi=1`,
+    { headers: { Cookie: C3 } });
+  const chuXuat = await xuat.text();
+  check('và tệp Excel xuất ra cũng còn bé cũ của cơ sở mình',
+    xuat.status === 200 && /Bé cũ /.test(chuXuat),
+    { status: xuat.status, soDong: chuXuat.split('\n').length });
+  check('tệp Excel KHÔNG kèm bé của cơ sở khác',
+    !chuXuat.includes('cs2cu-'), chuXuat.slice(0, 120));
+
+  // Vế còn lại: danh sách bé ĐANG HỌC không được rộng ra vì bản vá này.
+  const dangHoc = await req('GET', '/api/admin/students', { cookie: C3 });
+  check('danh sách bé ĐANG HỌC không hề rộng ra — vẫn không có bé cơ sở khác',
+    (dangHoc.data || []).every(b => !String(b.id).startsWith('cs2cu-')),
+    (dangHoc.data || []).filter(b => String(b.id).startsWith('cs2cu-')).length);
 }
 
 sv.dung();

@@ -555,7 +555,7 @@ module.exports = (app) => {
     // Quản trị Cấp 3 chỉ thấy bé của cơ sở mình. Lọc SAU khi truy vấn thay vì
     // ghép thêm điều kiện vào câu SQL: danh sách nhóm của một cơ sở là một mảng
     // ngắn (vài chục), còn ghép động vào SQL là chỗ dễ sinh lỗi trích dẫn.
-    const trongPhamVi = phamViNhom(req.user);
+    const trongPhamVi = keCaNghi ? phamViNhomKeCaDaDong(req.user) : phamViNhom(req.user);
     const rows = (classId
       ? db.all('students', `SELECT * FROM students WHERE classId = ?${loc} ORDER BY name`, [classId])
       : db.all('students', `SELECT * FROM students WHERE 1 = 1${loc} ORDER BY name`))
@@ -594,8 +594,8 @@ module.exports = (app) => {
   //    và chạy nó. Họ tên và địa chỉ do người nhập gõ, nên một cái tên bắt đầu
   //    bằng "=" đủ để biến tệp danh sách thành thứ chạy được trên máy văn phòng.
   app.get('/api/admin/students/xuat.csv', onlyAdmin, (req, res) => {
-    const nhomTrongPhamVi = phamViNhom(req.user);
     const keCaNghi = String(req.query.keCaNghi || '') === '1';
+    const nhomTrongPhamVi = keCaNghi ? phamViNhomKeCaDaDong(req.user) : phamViNhom(req.user);
     const rows = db.all('students',
       `SELECT * FROM students WHERE 1 = 1${keCaNghi ? '' : ' AND active = 1'} ORDER BY name`)
       .filter(s => nhomTrongPhamVi === null || nhomTrongPhamVi.includes(s.classId));
@@ -1159,6 +1159,20 @@ module.exports = (app) => {
 function phamViNhom(user) {
   const coSo = db.phamViCoSo(user);
   return coSo === null ? null : db.classIdsOfCampus(coSo);
+}
+
+// Cùng thứ, nhưng KỂ CẢ NHÓM ĐÃ ĐÓNG — chỉ dùng cho lượt hỏi NHÌN LẠI QUÁ KHỨ.
+//
+// Bé đã cho nghỉ giữa năm rồi trường chuyển năm học: nhóm cũ của bé đóng lại,
+// và `phamViNhom` thôi kể tên nhóm ấy. Quản lý cơ sở mở "kể cả bé đã nghỉ" hay
+// xuất Excel liền mất sạch bé cũ của CHÍNH cơ sở mình, trong khi ban giám hiệu
+// vẫn thấy đủ — không mất dữ liệu, mất đường tra cứu.
+//
+// Chỉ đổi nhánh nhìn lại. Nhánh mặc định (bé đang học) giữ nguyên `phamViNhom`:
+// quyền của hôm nay phải tính trên nhóm đang mở.
+function phamViNhomKeCaDaDong(user) {
+  const coSo = db.phamViCoSo(user);
+  return coSo === null ? null : db.classIdsEverOfCampus(coSo);
 }
 
 // Người này có được chạm vào nhóm lớp này không.
