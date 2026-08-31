@@ -160,14 +160,21 @@ console.log('\n[6] Chuyển năm LẦN HAI cũng không nối nhầm hai cơ s�
   check('chuyển được năm học lần hai', r.status === 200, r.data);
 
   const sau = await nhomCua(C1);
+  const cuaNamMoi = sau.filter(x => x.year === '2028-2029');
+  // Không có dòng này thì hai phép kiểm dưới đây báo xanh cả khi lần chuyển
+  // năm thứ hai KHÔNG đẻ ra nhóm nào: đếm trên một danh sách rỗng thì không
+  // bao giờ thấy trùng, cũng không bao giờ thấy nhóm mồ côi.
+  check('lần hai có sinh ra nhóm của năm mới để mà soi',
+    cuaNamMoi.length > 0, cuaNamMoi.length);
+
   const theoTen = new Map();
-  for (const c of sau.filter(x => x.year === '2028-2029')) {
+  for (const c of cuaNamMoi) {
     const k = `${c.name}@${c.campusId}`;
     theoTen.set(k, (theoTen.get(k) || 0) + 1);
   }
   check('không nhóm nào của năm mới bị trùng cơ sở + tên',
     [...theoTen.values()].every(n => n === 1), [...theoTen.entries()]);
-  const moCoi = sau.filter(c => c.year === '2028-2029' && !c.campusId);
+  const moCoi = cuaNamMoi.filter(c => !c.campusId);
   check('lần hai cũng không đẻ ra nhóm mồ côi', moCoi.length === 0, moCoi.map(c => c.name));
 }
 

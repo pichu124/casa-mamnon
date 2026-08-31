@@ -30,7 +30,13 @@ const { check, tongKet } = taoBoDem();
 // dữ liệu mẫu tính ngày bằng giờ máy trong khi máy chủ hỏi giờ Việt Nam, nên
 // "đơn xin nghỉ cho NGÀY MAI" rơi vào hôm nay của máy chủ — và người mở app lần
 // đầu vào buổi tối sẽ thấy dữ liệu lệch một ngày so với mọi màn hình.
-const VUNG_QUET = ['routes', 'modules', 'lib', 'scripts', 'data'];
+// SIẾT CHẶT 31/08: QUÉT CẢ `test/`.
+//
+// Bản trước bỏ sót thư mục bài test, mà `test/_chung.mjs` viết hẳn ra rằng bài
+// test tự tính ngày bằng `new Date().toISOString()` sẽ "đỏ vào buổi tối, xanh
+// vào buổi sáng — kiểu đỏ ngẫu nhiên tệ nhất". Đợt Đ92 đã phải đi vá bốn bài
+// đúng loại đó, và bộ canh này lẽ ra phải là thứ chặn chúng ngay từ đầu.
+const VUNG_QUET = ['routes', 'modules', 'lib', 'scripts', 'data', 'test'];
 
 // `modules/<mã>/view.js` là mã CHẠY TRÊN TRÌNH DUYỆT, y hệt public/js/views —
 // chỉ khác chỗ đứng trong cây thư mục. Nó không nạp được lib/ngay, và cũng
@@ -53,7 +59,11 @@ function cacTep(muc) {
     const con = path.join(p, ten);
     const st = fs.statSync(con);
     if (st.isDirectory()) ra.push(...cacTep(path.join(muc, ten)));
-    else if (/\.js$/.test(ten)) ra.push(path.join(muc, ten));
+    // .mjs CŨNG PHẢI ĐƯỢC QUÉT. Bài test của kho mã này là `.mjs`, nên thêm
+    // `test` vào vùng quét mà vẫn chỉ khớp `.js` là quét đúng 0 tệp — bộ canh
+    // xanh vì không nhìn gì cả, đúng loại bài canh rỗng mà `test:bai-canh-that`
+    // sinh ra để bắt.
+    else if (/\.(js|mjs)$/.test(ten)) ra.push(path.join(muc, ten));
   }
   return ra;
 }
@@ -103,13 +113,18 @@ const tatCaTep = VUNG_QUET.flatMap(cacTep);
 // ===========================================================================
 console.log('\n[1] Bộ canh có thật sự nhìn tới nơi cần nhìn');
 {
-  check('quét cả năm vùng mã máy chủ', VUNG_QUET.length === 5, VUNG_QUET);
+  check('quét cả sáu vùng — kể cả thư mục bài test', VUNG_QUET.length === 6, VUNG_QUET);
   check('tìm được kha khá tệp để soi', tatCaTep.length >= 40, tatCaTep.length);
   check('có nhìn vào thư mục con của phân hệ',
     tatCaTep.some(t => /^modules\/[^/]+\/routes\.js$/.test(t)),
     tatCaTep.filter(t => t.startsWith('modules/')).slice(0, 4));
   check('có nhìn vào routes lõi', tatCaTep.includes('routes/attendance.js'));
   check('có nhìn vào dữ liệu mẫu', tatCaTep.includes('data/seed.js'));
+  // ĐỐI CHỨNG CHO CHÍNH VÙNG VỪA THÊM: `test` nằm trong VUNG_QUET mà không tệp
+  // `.mjs` nào lọt vào danh sách thì cả vùng đó là hư danh.
+  check('có nhìn vào bài test (.mjs), không chỉ .js',
+    tatCaTep.filter(t => t.startsWith('test/') && t.endsWith('.mjs')).length >= 20,
+    tatCaTep.filter(t => t.startsWith('test/')).length);
   check('danh sách miễn vẫn đúng 1 mục — thêm mục mới phải có lý do',
     Object.keys(MIEN).length === 1, Object.keys(MIEN));
   check('tệp được miễn còn tồn tại thật',

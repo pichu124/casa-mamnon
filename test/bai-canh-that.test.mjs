@@ -51,6 +51,16 @@ console.log('\n[1] MỌI TỆP TEST ĐỀU CÓ NGƯỜI CHẠY');
       : undefined);
 }
 
+// Mẫu nhận diện một phép kiểm tự cho mình qua. Hai nhánh, vì hai dạng viết:
+//
+//   - ba tham số — `..., true, 'lý do'` — nhánh đầu, cho phép ngoặc trong câu
+//     thông báo vì dấu phẩy ngay trước `true` đã đủ chặt.
+//   - HAI tham số — `..., true)` — nhánh sau. Dạng này lọt suốt cho tới đợt
+//     này: nó tự cho qua y hệt dạng ba tham số, lại còn không thèm ghi lý do.
+//     Nhánh sau CẤM ngoặc ở giữa, nếu không `check('x', laMoi(a, true))` —
+//     một phép kiểm hoàn toàn bình thường — sẽ bị bắt oan.
+const MAU_TU_CHO_QUA = /check\([^)]*,\s*true\s*,|check\([^()]*,\s*true\s*\)/;
+
 // ===========================================================================
 console.log('\n[2] KHÔNG PHÉP KIỂM NÀO TỰ CHO MÌNH QUA MÀ KHÔNG CÓ LÝ DO');
 {
@@ -74,7 +84,7 @@ console.log('\n[2] KHÔNG PHÉP KIỂM NÀO TỰ CHO MÌNH QUA MÀ KHÔNG CÓ L�
     // thích nó, và một bộ canh bắt nhầm lời giải thích của chính nó là vô dụng.
     const n = ma.split('\n')
       .filter(d => !/^\s*(\/\/|\*|\/\*)/.test(d))
-      .filter(d => /check\([^)]*,\s*true\s*,/.test(d)).length;
+      .filter(d => MAU_TU_CHO_QUA.test(d)).length;
     if (n) dem[t] = n;
   }
 
@@ -103,7 +113,7 @@ console.log('\n[3] PHÉP THỬ NGƯỢC — bộ canh này có bắt được th
   // Chạy chính hai phép đếm trên với dữ liệu bịa, không đụng kho mã thật.
   const demTrong = (ma) => ma.split('\n')
     .filter(d => !/^\s*(\/\/|\*|\/\*)/.test(d))
-    .filter(d => /check\([^)]*,\s*true\s*,/.test(d)).length;
+    .filter(d => MAU_TU_CHO_QUA.test(d)).length;
 
   // GHÉP TÊN HÀM TỪ MỘT BIẾN, KHÔNG VIẾT THẲNG.
   //
@@ -115,8 +125,16 @@ console.log('\n[3] PHÉP THỬ NGƯỢC — bộ canh này có bắt được th
     demTrong(`  ${K}('gì đó', true, 'không dựng được tình huống');`) === 1);
   check('bắt được cả khi có khoảng trắng thừa',
     demTrong(`  ${K}('gì đó',   true  , 'lý do');`) === 1);
+  check('BẮT ĐƯỢC cả dạng HAI THAM SỐ — không lý do, cũng không kiểm gì',
+    demTrong(`  ${K}('gì đó', true);`) === 1);
+  check('bắt được dạng hai tham số có khoảng trắng thừa',
+    demTrong(`  ${K}('gì đó',   true  );`) === 1);
   check('KHÔNG bắt nhầm phép kiểm so sánh với true',
     demTrong(`  ${K}('gì đó', x === true, y);`) === 0);
+  check('KHÔNG bắt nhầm khi `true` là tham số của một hàm khác',
+    demTrong(`  ${K}('gì đó', laMoi(a, true), a);`) === 0);
+  check('KHÔNG bắt nhầm hàm khác, dạng hai tham số',
+    demTrong(`  ${K}('gì đó', laMoi(a, true));`) === 0);
   check('KHÔNG bắt nhầm phép kiểm bình thường',
     demTrong(`  ${K}('gì đó', a.length > 0, a);`) === 0);
   check('KHÔNG bắt nhầm dòng chú thích nhắc tới mẫu đó',

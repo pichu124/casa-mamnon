@@ -20,8 +20,7 @@ import path from 'path';
 import { createRequire } from 'module';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo,
-  dungMayChu, taoBoDem, taoReq, taoLogin, MAU,
-} from './_chung.mjs';
+  dungMayChu, taoBoDem, taoReq, taoLogin, MAU, HOM_NAY } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
 const Database = require(path.join(GOC, 'node_modules', 'better-sqlite3'));
@@ -41,7 +40,7 @@ const mkCap3 = taoQuanTri(DIR, 'Quản Lý Cơ Sở Một', 'cap3');
   const db = new Database(path.join(DIR, 'school.db'));
   db.prepare(`INSERT INTO students (id, code, name, dob, gender, classId, active, createdAt)
               VALUES ('s_cs2', 'MN-CS2-01', 'Trần Khánh Linh', '2023-03-10', 'Nữ', 'c3', 1, ?)`)
-    .run(new Date().toISOString());
+    .run(`${HOM_NAY()}T00:00:00.000Z`);
 
   // VÀ CHO BÉ ẤY MỘT ĐƠN DẶN THUỐC + MỘT ĐƠN XIN NGHỈ.
   //
@@ -52,12 +51,12 @@ const mkCap3 = taoQuanTri(DIR, 'Quản Lý Cơ Sở Một', 'cap3');
   //
   // Phải chèn TRƯỚC `dungMayChu`: máy chủ giữ kết nối mở, ghi sau khi nó chạy
   // là tự chuốc SQLITE_BUSY.
-  const nay = new Date().toISOString().slice(0, 10);
+  const nay = HOM_NAY();
   db.prepare(`INSERT INTO medicine_requests
     (id, studentId, parentId, fromDate, toDate, medicines, note, status, createdAt, log)
     VALUES ('md_cs2', 's_cs2', NULL, ?, ?, ?, '', 'pending', ?, '[]')`)
     .run(nay, nay, JSON.stringify([{ name: 'Siro ho', dose: '5ml', timing: 'sau ăn' }]),
-      new Date().toISOString());
+      `${HOM_NAY()}T00:00:00.000Z`);
   db.prepare(`INSERT INTO leave_requests
     (id, studentId, parentId, fromDate, toDate, reason, status, createdAt)
     VALUES ('lv_cs2', 's_cs2', NULL, ?, ?, 'Bé sốt', 'pending', ?)`)

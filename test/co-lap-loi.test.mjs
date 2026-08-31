@@ -133,8 +133,29 @@ console.log('\n[1] Một TÍNH NĂNG LÕI viết sai — máy chủ vẫn phải
 
 console.log('\n[2] BỎ HẲN một tính năng lõi — app vẫn dùng tiếp được');
 {
+  // VẬT THỬ PHẢI LÀ MỘT PHÂN HỆ ĐANG BẬT. SIẾT CHẶT 31/08.
+  //
+  // Mục này trước đây gỡ `routes/bus.js` — Xe buýt. Nhưng Xe buýt **tắt sẵn**
+  // từ A2 (27/08, nhà trường không dùng), nên cả ba phép kiểm ở đây và ở mục
+  // [8] đều XANH BẤT KỂ có gỡ tệp hay không:
+  //
+  //   - `/api/modules` của phụ huynh chỉ trả phân hệ ĐANG BẬT, nên Xe buýt
+  //     vắng mặt vì bị tắt, không phải vì mất tệp;
+  //   - `/api/bus` trả 404 vì đang tắt, không phải vì mất tệp;
+  //   - và ở mục [8], `.some(m => m.key === 'xebuyt' && m.loi)` luôn là false
+  //     vì Xe buýt không có trong danh sách của phụ huynh ngay từ đầu.
+  //
+  // Ba phép kiểm về đúng thứ quan trọng nhất của tệp này — app còn sống sau
+  // khi mất một tệp route — mà không phép nào thật sự thử. Đổi sang **Khảo
+  // sát** (`routes/surveys.js`), một phân hệ đang BẬT, nên gỡ tệp là thấy ngay.
   hoanTac();
-  const p = path.join(ROUTES, 'bus.js');
+  // Đọc TRƯỚC KHI GỠ: sau khi gỡ tệp thì không còn cách nào biết trước đó nó
+  // có bật hay không, mà đó đúng là điều dòng đối chứng ở dưới cần.
+  const phTruoc = await login('phuhuynh', '123456');
+  const KHAO_SAT_DANG_BAT = ((await req('GET', '/api/modules', { cookie: phTruoc.cookie })).data || [])
+    .some(m => m.key === 'khaosat');
+
+  const p = path.join(ROUTES, 'surveys.js');
   const goc = fs.readFileSync(p, 'utf8');
   capCuu.push(() => fs.writeFileSync(p, goc));
   fs.rmSync(p);
@@ -142,11 +163,17 @@ console.log('\n[2] BỎ HẲN một tính năng lõi — app vẫn dùng tiếp 
   const song = await khoiDongLai();
   check('máy chủ vẫn khởi động sau khi gỡ tính năng', song === true);
   const ph = await login('phuhuynh', '123456');
+
+  // ĐỐI CHỨNG: phân hệ này PHẢI đang bật trước khi gỡ, nếu không thì phép kiểm
+  // ngay dưới lại xanh vì một lý do khác — đúng cái bẫy vừa gỡ ra.
+  check('đối chứng — Khảo sát là phân hệ ĐANG BẬT, nên phép thử có nghĩa',
+    !!KHAO_SAT_DANG_BAT, `dsach trước khi gỡ: ${KHAO_SAT_DANG_BAT}`);
+
   const dsach = await req('GET', '/api/modules', { cookie: ph.cookie });
-  check('tính năng đã gỡ không còn hiện biểu tượng', !dsach.data.some(m => m.key === 'xebuyt'),
+  check('tính năng đã gỡ không còn hiện biểu tượng', !dsach.data.some(m => m.key === 'khaosat'),
     dsach.data?.map(m => m.key));
-  const bus = await req('GET', '/api/bus', { cookie: ph.cookie });
-  check('đường dẫn của tính năng đã gỡ không trả dữ liệu', bus.status >= 400, bus.status);
+  const ks = await req('GET', '/api/surveys', { cookie: ph.cookie });
+  check('đường dẫn của tính năng đã gỡ không trả dữ liệu', ks.status >= 400, ks.status);
   await phanConLaiVanChay('gỡ tính năng');
 }
 
@@ -254,15 +281,21 @@ console.log('\n[8] Trở về nguyên trạng — mọi thứ chạy lại đầ
   // phép thử không phân biệt được chúng thì không nói lên điều gì.
   const ne = await req('GET', '/api/health?studentId=s1', { cookie: ph.cookie });
   check('tính năng từng bị phá nay chạy lại bình thường', ne.status === 200, ne.status);
-  // Phân hệ bị gỡ tệp ở mục [3] là Xe buýt, mà Xe buýt nay TẮT SẴN (A2) nên nó
-  // trả 404 vì đang tắt chứ không phải vì thiếu tệp. Hỏi thẳng danh sách phân hệ
-  // thay vì hỏi đường dẫn: điều cần chứng minh là máy chủ đã NHẬN LẠI tệp route,
-  // không phải là phân hệ đó đang bật.
-  const dsQt = (await req('GET', '/api/modules', { cookie: ph.cookie })).data;
+  // HỎI DANH SÁCH CỦA QUẢN TRỊ, KHÔNG PHẢI CỦA PHỤ HUYNH. SIẾT CHẶT 31/08.
+  //
+  // `/api/modules` của phụ huynh chỉ trả phân hệ ĐANG BẬT, nên phép kiểm cũ
+  // (`.some(m => m.key === ... && m.loi)`) luôn là false — phân hệ vắng mặt thì
+  // `.some` không tìm thấy gì, và bài canh xanh mà chẳng kiểm gì. Đường
+  // `/api/admin/modules` trả CẢ phân hệ đang tắt kèm cờ `loi`, đó mới là chỗ
+  // trả lời được câu "máy chủ đã nhận lại tệp route chưa".
+  const A8 = await login('hieutruong', 'quantri2026');
+  const dsQt = (await req('GET', '/api/admin/modules', { cookie: A8.cookie })).data;
+  check('đối chứng — danh sách quản trị CÓ nhắc tới phân hệ vừa thử',
+    dsQt.some(m => m.key === 'khaosat'), dsQt.map(m => m.key).join(','));
   check('tính năng từng bị gỡ nay KHÔNG còn bị đánh dấu lỗi',
-    !dsQt.some(m => m.key === 'xebuyt' && m.loi), dsQt.find(m => m.key === 'xebuyt'));
-  check('nhật ký không còn báo thiếu tệp routes/bus.js',
-    !/thiếu tệp routes\/bus\.js/.test(nhatKy), nhatKy.slice(-300));
+    !dsQt.some(m => m.key === 'khaosat' && m.loi), dsQt.find(m => m.key === 'khaosat'));
+  check('nhật ký không còn báo thiếu tệp routes/surveys.js',
+    !/thiếu tệp routes\/surveys\.js/.test(nhatKy), nhatKy.slice(-300));
   await phanConLaiVanChay('nguyên trạng');
 }
 

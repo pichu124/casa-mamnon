@@ -136,7 +136,13 @@ console.log('\n[5] TKB — quản trị sửa lớp bất kỳ, lập mới cho 
 // ============================================================
 
 // Tính ngày giống hệt máy chủ (cùng máy, cùng múi giờ khi chạy kiểm thử).
-const fmtNgay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Đọc bằng getter UTC, không phải getter giờ máy.
+//
+// Mọi `Date` trong tệp này đều dựng từ `HOM_NAY()` — một ngày theo giờ Việt
+// Nam — qua chuỗi `...T00:00:00Z`. Đọc lại bằng `getDate()` là đọc theo múi
+// giờ của MÁY CHẠY TEST: trên một máy ở phía tây UTC, `2026-08-31T00:00:00Z`
+// đọc ra ngày 30. Bộ canh `test:mot-hom-nay` bắt đúng chỗ này.
+const fmtNgay = d => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 // "HÔM NAY" CỦA BÀI TEST PHẢI GIỐNG "HÔM NAY" CỦA MÁY CHỦ.
 //
 // Bản cũ tính thứ Hai bằng `new Date()` — tức GIỜ MÁY CHẠY TEST. Máy chủ thì
@@ -159,7 +165,10 @@ const ngayTuan = (week, i) => {
 
 console.log('\n[6] Thực đơn — phân quyền và thân yêu cầu sai');
 {
-  const homNay = ngayTuan(0, (new Date().getDay() + 6) % 7 > 4 ? 0 : (new Date().getDay() + 6) % 7);
+  // Thứ trong tuần cũng phải suy từ HOM_NAY(), không từ giờ máy chạy test —
+  // cùng lý do đã ghi ở đầu mục này, và đúng bài học Đ92.
+  const thuHomNay = (new Date(`${HOM_NAY()}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const homNay = ngayTuan(0, thuHomNay > 4 ? 0 : thuHomNay);
   const buaHopLe = [{ type: 'lunch', label: 'Bữa trưa', time: '10:45', items: ['Cơm trắng'] }];
   let r = await req('PUT', `/api/menu/${homNay}`, { cookie: PH, body: { meals: buaHopLe } });
   check('phụ huynh KHÔNG soạn được thực đơn → 403', r.status === 403, r);
@@ -235,10 +244,13 @@ console.log('\n[8] Thực đơn — xem tuần trước và chép tuần');
 // ============================================================
 // 3. KẾ HOẠCH GIÁO DỤC
 // ============================================================
-const namNay = new Date().getFullYear();
-const thangNay = new Date().getMonth() + 1;
-const thangToi = new Date(namNay, thangNay, 1); // ngày 1 của tháng kế tiếp
-const namSau = thangToi.getFullYear(), thangSau = thangToi.getMonth() + 1;
+const namNay = Number(HOM_NAY().slice(0, 4));
+const thangNay = Number(HOM_NAY().slice(5, 7));
+// Dựng bằng `Date.UTC` chứ không phải `new Date(nam, thang, 1)`: dựng theo giờ
+// máy rồi đọc lại bằng getter UTC là lệch đúng một tháng trên máy ở phía đông
+// UTC. Dựng UTC, đọc UTC — một hệ quy chiếu từ đầu đến cuối.
+const thangToi = new Date(Date.UTC(namNay, thangNay, 1)); // ngày 1 của tháng kế tiếp
+const namSau = thangToi.getUTCFullYear(), thangSau = thangToi.getUTCMonth() + 1;
 
 console.log('\n[9] Kế hoạch — phân quyền và dữ liệu sai');
 {
@@ -294,6 +306,7 @@ console.log('\n[10] Kế hoạch — GVCN soạn tháng tới, sửa lại khôn
   check('cùng tháng chỉ có MỘT bản, không nhân bản', cungThang.length === 1 && cungThang[0].theme === 'Đổi chủ đề tháng tới', cungThang);
   check('kế hoạch tháng hiện tại không bị đụng tới',
     (sau.plan ? sau.plan.theme : null) === chuDeThangNay, sau.plan?.theme);
+
 }
 
 console.log('\n[11] Kế hoạch — quản trị soạn lớp bất kỳ, phụ huynh thấy ngay');
@@ -313,8 +326,8 @@ console.log('\n[11] Kế hoạch — quản trị soạn lớp bất kỳ, phụ
 
 // Năm học hiện tại, tính giống seed: năm học bắt đầu từ tháng 8.
 const namHoc = (() => {
-  const d = new Date();
-  const y = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+  const d = new Date(`${HOM_NAY()}T00:00:00Z`);
+  const y = d.getUTCMonth() >= 7 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
   return `${y}-${y + 1}`;
 })();
 

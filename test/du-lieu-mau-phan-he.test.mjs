@@ -190,11 +190,25 @@ console.log('\n[8] NHẬP LẠI DỮ LIỆU KHÔNG ĐỂ GHI CHÉP CỦA BÉ Đ�
 
   const D = thuMucTam('nhap-lai-phan-he');
   sinhDuLieu(D, { phanHe: true });
+  const BANG_THEO_BE = ['nhatky_ngay', 'hanhtrinh_quansat', 'kehoachbe_ke',
+    'dontra_nguoi', 'thuchup_ghinhanh'];
+
   const db4 = new Database(path.join(D, 'school.db'), { readonly: true });
   const truoc = db4.prepare('SELECT COUNT(*) n FROM nhatky_ngay').get().n;
   const beTruoc = db4.prepare('SELECT COUNT(*) n FROM students').get().n;
+  // Chốt chặn cho phép kiểm "không còn dòng mồ côi" ở cuối mục này: nó đếm
+  // trên năm bảng, và một bảng RỖNG SẴN thì không bao giờ có dòng mồ côi.
+  // Đếm trước khi nhập lại để biết chắc cả năm bảng đều thật sự có dữ liệu —
+  // và nhân tiện biết chắc cả năm bảng đều có cột `studentId` để mà tra.
+  const truocTungBang = {};
+  for (const b of BANG_THEO_BE) {
+    truocTungBang[b] = db4.prepare(
+      `SELECT COUNT(*) n FROM ${b} WHERE studentId IS NOT NULL`).get().n;
+  }
   db4.close();
   check('có dữ liệu phân hệ để mà kiểm', truoc > 0 && beTruoc > 0, { truoc, beTruoc });
+  check('CẢ NĂM BẢNG THEO BÉ ĐỀU CÓ DỮ LIỆU TRƯỚC KHI NHẬP LẠI',
+    BANG_THEO_BE.every(b => truocTungBang[b] > 0), truocTungBang);
 
   // Nhập lại NHƯNG KHÔNG sinh dữ liệu mẫu phân hệ. Đây đúng cảnh nhập lại kho
   // JSON đời cũ: phần lõi được thay mới, phần phân hệ không ai đụng tới.
@@ -205,12 +219,13 @@ console.log('\n[8] NHẬP LẠI DỮ LIỆU KHÔNG ĐỂ GHI CHÉP CỦA BÉ Đ�
     sau === 0, { truoc, sau });
 
   // Chốt quan trọng nhất: không dòng nào trỏ vào một bé không còn tồn tại.
+  // KHÔNG bọc vòng lặp này trong `try`. Nuốt lỗi ở đây thì một cái tên bảng gõ
+  // sai, hay một phân hệ đổi tên cột, biến phép kiểm thành luôn-đúng mà không
+  // ai hay: bảng nào tra lỗi cũng bị bỏ qua và đếm ra 0.
   let mocoi = 0;
-  for (const b of ['nhatky_ngay', 'hanhtrinh_quansat', 'kehoachbe_ke', 'dontra_nguoi', 'thuchup_ghinhanh']) {
-    try {
-      mocoi += db5.prepare(
-        `SELECT COUNT(*) n FROM ${b} WHERE studentId NOT IN (SELECT id FROM students)`).get().n;
-    } catch (_) { /* bảng không có cột đó thì bỏ qua */ }
+  for (const b of BANG_THEO_BE) {
+    mocoi += db5.prepare(
+      `SELECT COUNT(*) n FROM ${b} WHERE studentId NOT IN (SELECT id FROM students)`).get().n;
   }
   check('KHÔNG DÒNG NÀO CÒN TRỎ VÀO MỘT BÉ KHÔNG CÒN TỒN TẠI', mocoi === 0, mocoi);
 

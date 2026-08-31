@@ -311,6 +311,14 @@ console.log('\n[8] Nhật ký thao tác: ghi được, và Cấp 3 chỉ thấy 
     (nk.data || []).filter(r => !r.who || r.who === '(không rõ)').slice(0, 3));
 
   const nk3 = await req('GET', '/api/admin/audit', { cookie: C3 });
+  // Phép kiểm dưới chỉ bắt được lỗi LỘT RA. Vế còn lại — siết quá tay, lọc
+  // nhầm mất cả việc của chính mình, hay đường này trả 403 cho Cấp 3 — cũng
+  // cho ra một danh sách rỗng, và rỗng thì "không có ai khác" luôn đúng.
+  // Nên phải chốt trước là Cấp 3 CÓ đọc được nhật ký của mình.
+  check('CẤP 3 VẪN ĐỌC ĐƯỢC nhật ký thao tác của chính mình',
+    nk3.status === 200 && (nk3.data || []).length > 0,
+    { status: nk3.status, soDong: (nk3.data || []).length });
+
   const nguoiKhac = (nk3.data || []).filter(r => !/Quản lý CS1/.test(r.who || ''));
   check('CẤP 3 CHỈ THẤY VIỆC CỦA CHÍNH MÌNH trong nhật ký',
     nguoiKhac.length === 0, nguoiKhac.slice(0, 3));

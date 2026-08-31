@@ -16,7 +16,7 @@
 //
 // Nên bài này chạy trên trình duyệt thật và đi bằng chuột, không gọi API.
 import { chromium } from 'playwright';
-import { dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo, datChucVu, CHROMIUM, tatBannerMoiCai, taoBoDem } from './_chung.mjs';
+import { dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo, datChucVu, CHROMIUM, tatBannerMoiCai, taoBoDem, HOM_NAY } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('nhieu-nhom-gd');
@@ -349,7 +349,7 @@ console.log('\n[6] CẤP 3 TRÊN TRÌNH DUYỆT THẬT — không thấy bé c�
   //   - ngày đã qua thì `quaGio` luôn đúng, bảng luôn có nghĩa;
   //   - lấy HÔM NAY thì bài này xanh sau 9 giờ và đỏ trước 9 giờ — đúng loại
   //     đỏ theo giờ trong ngày mà Đ92 vừa phải đi vá bốn bài.
-  const NGAY_XA = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+  const NGAY_XA = new Date(Date.parse(`${HOM_NAY()}T00:00:00Z`) - 60 * 86400000).toISOString().slice(0, 10);
 
   for (const [hash, ten] of [['#/attendance', 'Điểm danh']]) {
     await page.goto(`${BASE}/${hash}`, { waitUntil: 'networkidle' });

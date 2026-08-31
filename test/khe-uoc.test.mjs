@@ -92,8 +92,27 @@ const hienTai = {
   'public/js/app.js (App)': hinhDang(App),
 };
 
-// --- Lần đầu chạy hoặc chạy với --cap-nhat thì ghi bản chụp ----------------
-if (capNhat || !fs.existsSync(BAN_CHUP)) {
+// --- Mất bản chụp thì BÁO ĐỎ, không âm thầm ghi lại một bản mới ------------
+//
+// Bản chụp `test/khe-uoc.json` chính là cái bánh cóc: nó nhớ hôm qua các tệp
+// dùng chung có những gì. Nếu thiếu nó mà bài này lẳng lặng ghi ra một bản mới
+// rồi báo xanh, thì việc XOÁ bản chụp trở thành cách dễ nhất để cho một thay
+// đổi phá vỡ khế ước đi qua — mà lại còn không để lại dấu vết nào trong kết
+// quả chạy. Thiếu bản chụp là một sự cố phải có người nhìn, không phải một
+// trạng thái tự chữa.
+if (!capNhat && !fs.existsSync(BAN_CHUP)) {
+  console.error(`\n  KHÔNG TÌM THẤY BẢN CHỤP KHẾ ƯỚC: ${path.relative(GOC, BAN_CHUP)}`);
+  console.error('\n  Tệp này được theo dõi trong git. Thiếu nó nghĩa là một trong hai:');
+  console.error('    - nó vừa bị xoá hoặc bị .gitignore nuốt mất — lấy lại bằng');
+  console.error('      `git checkout -- test/khe-uoc.json`;');
+  console.error('    - hoặc đây thật sự là lần đầu dựng bản chụp — khi đó chạy');
+  console.error('      `npm run test:khe-uoc -- --cap-nhat` và ĐỌC KỸ bản vừa ghi');
+  console.error('      trước khi commit.\n');
+  process.exit(1);
+}
+
+// --- Chạy với --cap-nhat thì ghi bản chụp ----------------------------------
+if (capNhat) {
   fs.writeFileSync(BAN_CHUP, JSON.stringify(hienTai, null, 2) + '\n');
   console.log(`Đã ghi bản chụp khế ước vào ${path.relative(GOC, BAN_CHUP)}`);
   const tong = Object.values(hienTai).reduce((n, o) => n + Object.keys(o).length, 0);

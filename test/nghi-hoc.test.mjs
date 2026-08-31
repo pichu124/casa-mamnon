@@ -24,7 +24,7 @@
 // "Có hoàn", "không hoàn", và "văn phòng chưa quyết" là ba chuyện khác nhau.
 // Gộp hai cái sau vào một là gia đình đọc ra "trường không hoàn tiền" trong
 // khi thật ra chưa ai xem tới đơn. Mục [5] canh chỗ đó.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -293,7 +293,7 @@ console.log('\n[+] TRẦN KHOẢNG NGÀY — gõ nhầm năm không được c�
   // đơn đã duyệt kéo theo hai thứ có thật ngoài đời: bé bị đánh dấu nghỉ suốt
   // khoảng đó ở màn Điểm danh, và màn Báo ăn gợi ý cho văn phòng HOÀN TIỀN ĂN
   // đúng số ngày ấy. Gõ nhầm một chữ số ở ô năm là hơn hai trăm ngày.
-  const homNay = new Date().toISOString().slice(0, 10);
+  const homNay = HOM_NAY();
   const namSau = `${Number(homNay.slice(0, 4)) + 1}${homNay.slice(4)}`;
 
   const quaDai = await req('POST', '/api/leave', {

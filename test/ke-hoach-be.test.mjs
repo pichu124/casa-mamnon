@@ -18,7 +18,7 @@
 // MỘT ĐIỀU NỮA: NGƯỜI LẬP KHÔNG DUYỆT KẾ HOẠCH CỦA CHÍNH MÌNH.
 // Cùng luật với duyệt đơn nghỉ ở Y2 — nếu không thì bước duyệt chỉ là một cái
 // nút thừa. Mục [5].
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -49,7 +49,7 @@ const GV2 = (await login('giaovien2', '123456')).cookie;  // cô nhóm khác
 const GV3 = (await login('giaovien3', '123456')).cookie;
 const PH = (await login('phuhuynh', '123456')).cookie;
 
-const THANG = new Date().toISOString().slice(0, 7);
+const THANG = HOM_NAY().slice(0, 7);
 function thangLui(n) {
   const [y, m] = THANG.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1 - n, 1)).toISOString().slice(0, 7);

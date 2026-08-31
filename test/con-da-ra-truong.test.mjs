@@ -27,8 +27,7 @@
 import path from 'path';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe,
-} from './_chung.mjs';
+  taoBoDem, taoReq, taoLogin, batPhanHe, HOM_NAY } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('con-da-ra-truong');
@@ -59,7 +58,7 @@ function choRoiTruong(studentId, soThangTruoc) {
   if (soThangTruoc === null) {
     conn.prepare('UPDATE students SET active = 1, leftAt = NULL WHERE id = ?').run(studentId);
   } else {
-    const d = new Date();
+    const d = new Date(`${HOM_NAY()}T00:00:00Z`);
     d.setMonth(d.getMonth() - soThangTruoc);
     conn.prepare('UPDATE students SET active = 0, leftAt = ? WHERE id = ?')
       .run(d.toISOString().slice(0, 10), studentId);
@@ -100,9 +99,9 @@ console.log('\n[1] BÉ ĐANG HỌC — gia đình mở được mọi đường 
   // Gửi một lời dặn thuốc trong lúc bé còn đang học. Không có dòng này thì
   // phép kiểm "đơn thuốc biến khỏi danh sách" ở mục [3] xanh vì danh sách
   // vốn đã rỗng, chứ không vì cửa đã đóng.
-  const mai = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const mai = new Date(Date.parse(`${HOM_NAY()}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
   const gui = await req('POST', '/api/medicine', { cookie: PH, body: {
-    studentId: BE, fromDate: new Date().toISOString().slice(0, 10), toDate: mai,
+    studentId: BE, fromDate: HOM_NAY(), toDate: mai,
     medicines: [{ name: 'Siro ho', dose: '5ml', timing: 'sau bữa trưa' }], note: 'Bé ho nhẹ',
   } });
   check('gia đình gửi được lời dặn thuốc lúc bé còn đang học', gui.status === 200 || gui.status === 201,
@@ -189,7 +188,7 @@ console.log('\n[6] LUẬT 12 THÁNG NẰM Ở MỘT CHỖ, VÀ ĐỌC ĐƯỢC T
   check('lib/db.js công bố số tháng giữ hồ sơ', db.SO_THANG_GIU_HO_SO === 12, db.SO_THANG_GIU_HO_SO);
   check('và công bố hàm hỏi còn hạn hay không', typeof db.conHanXemHoSo === 'function');
 
-  const luiThang = (n) => { const d = new Date(); d.setMonth(d.getMonth() - n); return d.toISOString().slice(0, 10); };
+  const luiThang = (n) => { const d = new Date(`${HOM_NAY()}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - n); return d.toISOString().slice(0, 10); };
   check('vừa rời trường thì còn hạn', db.conHanXemHoSo(luiThang(1)) === true);
   check('11 tháng vẫn còn hạn', db.conHanXemHoSo(luiThang(11)) === true);
   check('13 tháng thì hết hạn', db.conHanXemHoSo(luiThang(13)) === false);
