@@ -150,6 +150,11 @@ try {
     messages: dem('SELECT COUNT(*) c FROM messages'),
     classes: dem('SELECT COUNT(*) c FROM classes WHERE active = 1'),
     phanCong: dem('SELECT COUNT(*) c FROM class_teachers'),
+    // Số tệp ảnh mà CƠ SỞ DỮ LIỆU đang trỏ tới. Xem chú thích ở phần in ra.
+    anhTrongCsdl:
+      (dem("SELECT COUNT(*) c FROM album_photos WHERE file IS NOT NULL AND file != ''") || 0)
+      + (dem("SELECT COUNT(*) c FROM attendance_photo WHERE file IS NOT NULL AND file != ''") || 0)
+      + (dem("SELECT COUNT(*) c FROM dontra_nguoi WHERE anh IS NOT NULL AND anh != ''") || 0),
   };
   db.close();
 } catch (err) {
@@ -188,6 +193,59 @@ if (thongKe.classes > 0 && !thongKe.phanCong) {
      npm run sua-quyen-chu-nhiem            # xem trước, không sửa gì
      npm run sua-quyen-chu-nhiem -- --sua   # dựng lại phân công
 `);
+}
+
+// ẢNH CŨNG PHẢI ĐƯỢC SOÁT, KHÔNG CHỈ TỆP .db.gz.
+//
+// `restore:check` trước đây không nói MỘT CHỮ nào về ảnh. Nó giải nén tệp
+// `.db.gz`, đếm người và bé, rồi in "bản sao lưu dùng được". Mà một nửa thứ
+// trường sẽ tiếc nhất khi mất lại nằm ngoài tệp đó: ảnh khuôn mặt trẻ, ảnh
+// điểm danh cô chụp mỗi sáng, ảnh người được đón.
+//
+// Chỗ này nguy hơn một lỗ bình thường, vì `scripts/kiem-tra-may-chu.js` đọc
+// kết quả của chính lệnh này rồi kết luận "bản sao dùng được thật". Một thư
+// mục `uploads/` trống — sao lưu bằng `rsync` quên thư mục ảnh, chép bản sao
+// đi mà chỉ chép mỗi tệp `.db.gz`, hay `--out` trỏ sang ổ khác — vẫn cho ra
+// đúng câu trấn an ấy. Người vận hành đóng máy về nhà, tin rằng ảnh của trẻ
+// đang được giữ.
+//
+// Nên đếm cả hai bên và ĐỐI CHIẾU: cơ sở dữ liệu đang trỏ tới bao nhiêu tệp
+// ảnh, và thư mục ảnh đi kèm bản sao có bao nhiêu tệp thật.
+{
+  const thuMucAnh = coCoAnh ? path.resolve(coCoAnh) : path.join(path.dirname(nguon), 'uploads');
+  let soTep = null;
+  try {
+    if (fs.existsSync(thuMucAnh)) {
+      soTep = fs.readdirSync(thuMucAnh)
+        .filter(f => fs.statSync(path.join(thuMucAnh, f)).isFile()).length;
+    }
+  } catch { /* đọc không được thì coi như không có, cảnh báo bên dưới lo */ }
+
+  const canCo = thongKe.anhTrongCsdl || 0;
+  if (soTep === null) {
+    console.log(`  ẢNH: không thấy thư mục ${thuMucAnh}`);
+  } else {
+    console.log(`  ẢNH: ${soTep} tệp trong ${thuMucAnh} · cơ sở dữ liệu đang trỏ tới ${canCo} ảnh`);
+  }
+
+  if (canCo > 0 && !soTep) {
+    console.warn(`
+⚠️  BẢN SAO LƯU NÀY KHÔNG KÈM MỘT TẤM ẢNH NÀO.
+
+   Cơ sở dữ liệu trong bản sao đang trỏ tới ${canCo} tệp ảnh — ảnh album, ảnh
+   điểm danh, ảnh người được đón — nhưng thư mục ảnh đi kèm thì trống hoặc
+   không có:
+
+     ${thuMucAnh}
+
+   Khôi phục từ đây xong, app vẫn chạy và vẫn đăng nhập được, nhưng MỌI ẢNH
+   đều hiện ra là ô vỡ. Ảnh không nằm trong tệp .db.gz, nên không có cách nào
+   lấy lại từ bản sao này.
+
+   Thường là do lượt chép bản sao đi chỉ chép mỗi tệp .db.gz. Hãy chép cả thư
+   mục 'uploads' nằm cạnh nó, hoặc chạy lại kèm:  --anh <thư mục uploads>
+`);
+  }
 }
 
 if (chiKiemTra) {

@@ -6,7 +6,7 @@
 # thay vì phải nhớ bổ sung từng tên một.
 #
 # Khi chạy thật, nên để dữ liệu nằm HẲN ngoài thư mục mã nguồn:
-#     DATA_DIR=/var/lib/schoolconnect npm start
+#     DATA_DIR=/var/lib/casa-mamnon npm start
 # ---------------------------------------------------------------------------
 /data/*
 !/data/seed.js

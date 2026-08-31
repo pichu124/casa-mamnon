@@ -40,13 +40,37 @@ const { check, tongKet } = taoBoDem();
 // Quét CẢ `public/js`, không chỉ `public/js/views` — `ui.js` và `app.js` cũng
 // vẽ chữ và màu ra màn hình, mà lại là hai tệp cả ứng dụng dựa vào. Đổi chứ
 // không thêm: `cacTep` đi vào cả thư mục con, để cả hai là đếm hai lần.
-const VUNG_QUET = ['public/js', 'modules', 'routes', 'data/seed.js'];
+//
+// QUÉT CẢ `lib` — trong đó có `lib/schema.sql`, LƯỢC ĐỒ LÕI.
+//
+// `cacTep` ở dưới đọc cả `.sql` và `.json`, đúng như chú thích của nó nói.
+// Nhưng vùng quét lại không hề có `lib`, nên chỉ `schema.sql` của các phân hệ
+// cắm thêm được soi; `lib/schema.sql` — nơi khai từng cột của từng bảng cho cả
+// ứng dụng — thì nằm ngoài tầm nhìn. Một cột `chua_dat`, hay một giá trị mặc
+// định mang nghĩa thất bại đặt ở đó, đi qua sạch sẽ. Cửa sau rộng nhất lại nằm
+// ở tệp trung tâm nhất.
+//
+// Là SIẾT, không phải nới: mở rộng xong bộ canh vẫn xanh, nghĩa là nó chỉ bịt
+// một cửa sau chứ không đổi luật nào.
+const VUNG_QUET = ['public/js', 'modules', 'routes', 'lib', 'data/seed.js'];
 
 // Nhãn của hai trạng thái "chưa". Đây là thứ bài này đi tìm xung quanh.
 const NHAN_CHUA = /chua-quan-sat-thay|chua-day|Chưa quan sát thấy|Chưa dạy/;
 
 // Màu mang nghĩa SAI trong kho mã này.
-const MAU_XAU = /\bred\b|danger|--danger|#b91c1c|#ef4444/;
+//
+// KHÔNG CHỈ MÀU ĐỎ. Bảng màu của app có năm mức, và giữa xanh với đỏ còn một
+// mức CAM — `orange` / `warning` / `--warning`. Bản đầu của bộ canh này chỉ
+// biết đỏ, nên `UI.badge('Chưa quan sát thấy', 'orange')` đi qua sạch sẽ.
+//
+// Mà cam trên màn hình đọc ra đúng thứ QUY TẮC 2 cấm: *có chuyện gì đó cần
+// chú ý ở đứa trẻ này*. Cô nhìn bảng nhóm thấy một hàng cam là đi hỏi bé đó
+// trước, phụ huynh nhìn thấy cam là lo — trong khi thứ ô đó đang nói chỉ là
+// "cô CHƯA quan sát thấy", một câu về SỐ LẦN CÔ NGỒI XUỐNG QUAN SÁT chứ không
+// phải một câu về đứa trẻ.
+//
+// Nhẹ hơn đỏ không có nghĩa là được phép. Trung tính mới là đúng.
+const MAU_XAU = /\bred\b|danger|--danger|#b91c1c|#ef4444|\borange\b|warning|--warning|#f59e0b|#d97706/;
 
 // Chữ biến một khoảng chưa-thấy thành một lời chê.
 //
@@ -248,6 +272,9 @@ console.log('\n[6] Bộ canh này có thật sự bắt được không');
   fs.mkdirSync(tam, { recursive: true });
   fs.writeFileSync(path.join(tam, 'ban.js'), [
     "const a = UI.badge('Chưa quan sát thấy', 'red');",
+    // Cam cũng phải bị bắt: nhẹ hơn đỏ không có nghĩa là được phép.
+    "const a2 = UI.badge('Chưa dạy', 'orange');",
+    'const a3 = html(\'<span style="color:var(--warning)">Chưa quan sát thấy</span>\');',
     "const b = 'Bé chưa đạt mục tiêu tháng này';",
     'const TOI_THIEU_QUAN_SAT = 5;',
     '// dòng dưới là TRẦN, không phải sàn — bộ canh không được bắt nhầm nó',
@@ -258,7 +285,13 @@ console.log('\n[6] Bộ canh này có thật sự bắt được không');
 
   const bat = quet(['test/__tam-qt2']);
   const ds = bat['test/__tam-qt2/ban.js'] || [];
-  check('bắt được nhãn "chưa" bị tô đỏ', ds.some(v => v.dau.includes('tô đỏ')), ds);
+  check('bắt được nhãn "chưa" bị tô đỏ',
+    ds.some(v => v.dau.includes('tô đỏ') && /'red'/.test(v.trich)), ds);
+  // Cam là chỗ bộ canh cũ để lọt. Hai dòng này là bằng chứng nó không lọt nữa.
+  check('BẮT ĐƯỢC nhãn "chưa" bị tô CAM',
+    ds.some(v => /'orange'/.test(v.trich)), ds.map(v => v.trich));
+  check('bắt được cả biến màu cảnh báo --warning',
+    ds.some(v => /--warning/.test(v.trich)), ds.map(v => v.trich));
   check('bắt được chữ gọi "chưa" là thất bại', ds.some(v => v.dau.includes('thất bại')), ds);
   check('bắt được chỉ tiêu số quan sát', ds.some(v => v.dau.includes('chỉ tiêu')), ds);
   check('nhưng KHÔNG bắt nhầm một cái trần nhập liệu',
@@ -305,8 +338,22 @@ console.log('\n[7] Bộ canh quét đúng chỗ, và không bị thu hẹp lặn
 
   // Và nó phải đọc tới đúng phân hệ Hành trình học tập — nơi năm trạng thái
   // đánh giá sống, tức chỗ QUY TẮC 2 dễ bị vi phạm nhất.
+  // MỘT PHÉP KIỂM HẰNG ĐÚNG LÀ MỘT PHÉP KIỂM KHÔNG CANH GÌ CẢ.
+  //
+  // Dòng này trước đây là `check('danh sách tệp quét được không rỗng',
+  // Array.isArray(daDoc))` — mà `Object.keys()` LUÔN trả về một mảng, kể cả
+  // mảng rỗng. Nói cách khác: bộ quét có đọc tới 0 tệp thì phép kiểm ấy vẫn
+  // xanh, và đúng cái tên nó tự đặt cho mình ("không rỗng") lại là thứ nó
+  // không hề kiểm.
+  //
+  // Đếm SỐ TỆP ĐÃ ĐỌC, không đếm số tệp vi phạm: `quet()` chỉ trả về những tệp
+  // CÓ vi phạm, nên số đó đang là 0 và phải là 0. Con số cần canh là "bộ quét
+  // đã mở bao nhiêu tệp ra đọc".
+  const soTepDaDoc = VUNG_QUET.reduce((n, m) => n + cacTep(m).length, 0);
+  check('bộ quét thật sự đọc tới hàng chục tệp, không quét vào chỗ rỗng',
+    soTepDaDoc >= 40, soTepDaDoc);
   const daDoc = Object.keys(quet(['modules']));
-  check('danh sách tệp quét được không rỗng', Array.isArray(daDoc));
+  check('và không tệp nào trong modules/ đang vi phạm', daDoc.length === 0, daDoc);
   check('và tệp của phân hệ Hành trình học tập có tồn tại để mà quét',
     ['modules/hanhtrinh/view.js', 'modules/hanhtrinh/routes.js']
       .every(t => fs.existsSync(path.join(GOC, t))));

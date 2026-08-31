@@ -47,8 +47,27 @@ const VUNG_QUET = [
   // Đổi `public/js/views` thành `public/js` chứ KHÔNG thêm vào bên cạnh: hàm
   // `cacTep` đi vào cả thư mục con, nên để cả hai là mỗi tệp trong `views` bị
   // đếm hai lần và món nợ tự nhân đôi.
+  // QUÉT CẢ `lib` VÀ `server.js`, KHÔNG CHỈ `lib/modules.js`.
+  //
+  // Đầu bài này tự nhận nó soi `schema.sql` — và đúng, nó có đọc `.sql`. Nhưng
+  // vùng quét chỉ có `lib/modules.js`, nên **`lib/schema.sql` — lược đồ LÕI,
+  // nơi khai từng cột của từng bảng cho cả ứng dụng — nằm ngoài tầm nhìn**.
+  // Chỉ `schema.sql` của các phân hệ cắm thêm (trong `modules/`) là được soi.
+  //
+  // Một cột `xep_hang`, `diem_thi_dua` hay `hoc_luc` thêm vào `lib/schema.sql`
+  // vì thế đi qua sạch sẽ, trong khi đúng cột ấy đặt trong một phân hệ cắm
+  // thêm thì bị bắt ngay. Cửa sau rộng nhất lại nằm ở tệp trung tâm nhất.
+  //
+  // `server.js` vào cùng lượt: nó cũng dựng chữ ra màn hình (trang lỗi, trang
+  // chặn) và cũng là tệp không thuộc phân hệ nào.
+  //
+  // Là SIẾT, không phải nới. Mở rộng xong bộ canh báo đỏ đúng MỘT chỗ — một
+  // dòng chú thích ở `lib/sua-thu-hoi.js` kể lại chuyện app 1 trừ điểm thi
+  // đua. Đã sửa chính dòng chú thích ấy chứ KHÔNG thêm ngoại lệ: bộ canh này
+  // cố ý không chừa chú thích, vì thứ bị cấm là LỜI VĂN và một câu nằm trong
+  // chú thích vẫn có thể bị ai đó chép ra màn hình.
   'public/js', 'public/sw.js', 'routes', 'modules',
-  'lib/modules.js', 'data/seed.js',
+  'lib', 'server.js', 'data/seed.js',
 ];
 
 // Mỗi dấu hiệu là một CÁCH xếp trẻ trên dưới nhau.
@@ -338,6 +357,21 @@ console.log('\n[4] Bộ canh này có thật sự bắt được không');
   fs.writeFileSync(path.join(tam, 'ban.js'), "const a = '<div style=\"width:100%\"></div>';\n");
   check('KHÔNG bắt nhầm width:100% của bố cục',
     Object.keys(quet(['test/__tam-qt4'])).length === 0, quet(['test/__tam-qt4']));
+
+  // LƯỢC ĐỒ LÕI PHẢI NẰM TRONG TẦM NHÌN.
+  //
+  // Vùng quét trước đây chỉ có `lib/modules.js`, nên `lib/schema.sql` — nơi
+  // khai từng cột của từng bảng cho cả ứng dụng — không hề được đọc, dù đầu
+  // bài này tự nhận nó soi `schema.sql`. Hai phép thử dưới chứng minh cửa sau
+  // ấy đã đóng: một tệp `.sql` bẩn NGOÀI `modules/` phải bị bắt.
+  fs.writeFileSync(path.join(tam, 'ban.sql'),
+    'CREATE TABLE IF NOT EXISTS thu (\n  id TEXT PRIMARY KEY,\n  xep_hang INTEGER,\n  diem_thi_dua REAL\n);\n');
+  const batSql = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.sql'] || [];
+  check('BẮT ĐƯỢC cột xếp trẻ trong một tệp .sql NGOÀI modules/',
+    batSql.length >= 1, batSql);
+  check('và `lib/schema.sql` thật sự nằm trong vùng quét',
+    VUNG_QUET.includes('lib') && fs.existsSync(path.join(GOC, 'lib', 'schema.sql')), VUNG_QUET);
+
   fs.rmSync(tam, { recursive: true, force: true });
 }
 

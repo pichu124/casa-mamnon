@@ -22,6 +22,13 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 | [`CLAUDE.md`](CLAUDE.md) | Luật bắt buộc khi sửa mã: Nguyên tắc số 1 + 5 QUY TẮC giáo dục |
 | [`docs/LOI-NEN-CHUNG.md`](docs/LOI-NEN-CHUNG.md) | Lỗi ở phần nền thì vá hai kho ra sao |
 | [`modules/README.md`](modules/README.md) | Cách thêm một tính năng mà không đụng phần đang chạy |
+| [`docs/TRIEN-KHAI.md`](docs/TRIEN-KHAI.md) | **Cài lên máy chủ của trường**: VPS trong nước, tài khoản quản trị, dịch vụ tự bật lại, lịch sao lưu |
+| [`docs/SAO-LUU.md`](docs/SAO-LUU.md) | Sao lưu, đưa bản sao ra khỏi máy chủ, và khôi phục khi cần |
+
+> **Mọi tệp triển khai KHÁC trong `docs/` là của app 1.** Chúng đi theo phần nền
+> lúc tách kho và chưa được cập nhật cho trường mầm non — mỗi tệp có một khối cờ
+> ở ngay đầu nói rõ phần nào còn đúng, phần nào không. Đọc cờ đó trước khi làm
+> theo. Hai tệp trong bảng trên thì đã viết cho app 2.
 
 ---
 

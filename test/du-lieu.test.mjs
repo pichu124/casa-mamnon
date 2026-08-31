@@ -59,6 +59,27 @@ console.log('\n[1] Nhận diện tệp dữ liệu');
   check('mã nguồn có chữ "db" trong đường dẫn → cho qua',
     choQua('lib/db-nang-cap.js') && choQua('scripts/migrate-json-to-sqlite.js'));
   check('không nhầm chữ "uploads" trong tên tệp', choQua('lib/uploads.js'));
+
+  // MIỄN TRỪ CHO test/ CHỈ ĐƯỢC ÔM ĐÚNG MÃ CỦA BỘ TEST.
+  //
+  // Trước đây cả thư mục `test/` được miễn trừ bằng một dòng `/^test\//`. Bộ
+  // test dựng máy chủ thật, ghi cơ sở dữ liệu thật, ghi ảnh thật — chỉ cần một
+  // lần `DATA_DIR` trỏ nhầm, hay một lần chép bản sao về đó để soi, là một tệp
+  // dữ liệu CÓ THẬT của trẻ đi thẳng qua bộ canh mà không một dòng cảnh báo.
+  //
+  // CLAUDE.md ghi bộ canh này "KHÔNG có đường thoát". Một miễn trừ rộng bằng
+  // cả thư mục thì đúng là một đường thoát, nên mấy dòng dưới canh cho nó hẹp
+  // lại và ở yên như vậy.
+  check('CSDL lạc vào test/ VẪN BỊ CHẶN', chan('test/school.db'));
+  check('CSDL trong thư mục con của test/ cũng bị chặn', chan('test/tam/school.db'));
+  check('ảnh của bé lạc vào test/ VẪN BỊ CHẶN', chan('test/uploads/a1b2c3.jpg'));
+  check('thư mục sao lưu lạc vào test/ VẪN BỊ CHẶN', chan('test/backups/2026-08-14.db'));
+  check('bản lưu trước khi khôi phục trong test/ vẫn bị chặn',
+    chan('test/.khoi-phuc-1786636306300.db'));
+  check('nhưng mã của bộ test thì vẫn cho qua',
+    choQua('test/album.test.mjs') && choQua('test/_chung.mjs'));
+  check('và bản chụp đối chiếu .json của bộ test cũng cho qua',
+    choQua('test/khe-uoc.json'));
 }
 
 console.log('\n[2] .gitignore chặn thật');

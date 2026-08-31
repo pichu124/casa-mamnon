@@ -29,6 +29,19 @@ const capCuu = [];
 const hoanTac = () => { while (capCuu.length) { try { capCuu.pop()(); } catch {} } };
 process.on('exit', hoanTac);
 process.on('SIGINT', () => { hoanTac(); process.exit(1); });
+// SIGTERM VÀ SIGHUP CŨNG PHẢI DỌN — KHÔNG CHỈ Ctrl-C.
+//
+// Bài này SỬA THẲNG vào tệp trong kho mã thật rồi hoàn tác ở cuối. Móc `exit`
+// lo được ca chạy xong và ca ném lỗi; móc `SIGINT` lo được ca người ta bấm
+// Ctrl-C. Còn `SIGTERM` thì KHÔNG có móc nào — mà đó lại là tín hiệu mặc định
+// của `kill`, của `timeout`, của trình chạy CI khi hết giờ, và của trình soạn
+// thảo khi người ta bấm nút dừng. Nhận SIGTERM mà không dọn là Node thoát ngay
+// lập tức, để lại kho mã Ở TRẠNG THÁI CỐ TÌNH PHÁ HỎNG.
+//
+// Người chạy sẽ không biết: họ thấy bài test bị dừng, chạy lại, và lần này thì
+// hàng loạt bài khác đỏ vì một tệp nguồn đang bị hỏng có chủ ý từ lần trước.
+process.on('SIGTERM', () => { hoanTac(); process.exit(1); });
+process.on('SIGHUP', () => { hoanTac(); process.exit(1); });
 
 function phaTepRoute(ten, noiDung) {
   const p = path.join(ROUTES, ten);
@@ -108,25 +121,44 @@ async function phanConLaiVanChay(nhan) {
 
 console.log('\n[1] Một TÍNH NĂNG LÕI viết sai — máy chủ vẫn phải chạy');
 {
-  phaTepRoute('conduct.js', 'module.exports = (app) => { const x = undefined; x.no(); };');
+  // VẬT THỬ PHẢI LÀ MỘT PHÂN HỆ ĐANG BẬT — CÙNG BÀI HỌC VỚI MỤC [2].
+  //
+  // Mục này trước đây phá `routes/conduct.js` — Nề nếp. Nhưng Nề nếp **tắt
+  // sẵn** từ N3 (`defaultEnabled: false` trong lib/modules.js), nên phép kiểm
+  // "tính năng hỏng biến khỏi màn hình chính" XANH BẤT KỂ có phá tệp hay
+  // không: `/api/modules` của phụ huynh chỉ trả phân hệ ĐANG BẬT, và Nề nếp
+  // vắng mặt vì bị tắt, không phải vì hỏng.
+  //
+  // Đúng cái bẫy mà mục [2] đã dọn hôm 31/08, còn sót lại ở mục [1]. Đổi sang
+  // **Khảo sát** (`routes/surveys.js`) — một phân hệ lõi đang BẬT — và kèm một
+  // dòng đối chứng ĐỌC TRƯỚC KHI PHÁ, để lần sau nhà trường có tắt Khảo sát đi
+  // thì bài này báo đỏ thay vì lặng lẽ ngừng canh.
+  const phTruoc = await login('phuhuynh', '123456');
+  const KHAO_SAT_BAT_TRUOC_KHI_PHA =
+    ((await req('GET', '/api/modules', { cookie: phTruoc.cookie })).data || [])
+      .some(m => m.key === 'khaosat');
+  check('đối chứng — Khảo sát ĐANG BẬT trước khi phá, nếu không thì cả mục này vô nghĩa',
+    KHAO_SAT_BAT_TRUOC_KHI_PHA === true, KHAO_SAT_BAT_TRUOC_KHI_PHA);
+
+  phaTepRoute('surveys.js', 'module.exports = (app) => { const x = undefined; x.no(); };');
   const song = await khoiDongLai();
   check('máy chủ vẫn khởi động được', song === true);
-  check('nhật ký nêu rõ tệp nào hỏng', /routes\/conduct\.js/.test(nhatKy), nhatKy.slice(-300));
+  check('nhật ký nêu rõ tệp nào hỏng', /routes\/surveys\.js/.test(nhatKy), nhatKy.slice(-300));
   check('nhật ký trấn an phần còn lại vẫn chạy', /vẫn chạy bình thường/.test(nhatKy));
 
   const ph = await login('phuhuynh', '123456');
-  const ne = await req('GET', '/api/conduct?studentId=s1', { cookie: ph.cookie });
+  const ne = await req('GET', '/api/surveys', { cookie: ph.cookie });
   check('riêng tính năng hỏng báo 503, không trả dữ liệu sai', ne.status === 503, ne.status);
   check('thông báo lỗi bằng tiếng Việt, dễ hiểu', /sự cố/.test(ne.data?.error || ''), ne.data);
 
   const dsach = await req('GET', '/api/modules', { cookie: ph.cookie });
-  check('tính năng hỏng biến khỏi màn hình chính', !dsach.data.some(m => m.key === 'nenep'),
+  check('tính năng hỏng biến khỏi màn hình chính', !dsach.data.some(m => m.key === 'khaosat'),
     dsach.data?.map(m => m.key));
 
   const A2 = await login('hieutruong', 'quantri2026');
   const qt = await req('GET', '/api/admin/modules', { cookie: A2.cookie });
   check('trang quản trị nêu rõ tính năng nào hỏng và vì sao',
-    !!qt.data.find(m => m.key === 'nenep')?.loi, qt.data?.find(m => m.key === 'nenep'));
+    !!qt.data.find(m => m.key === 'khaosat')?.loi, qt.data?.find(m => m.key === 'khaosat'));
 
   await phanConLaiVanChay('lõi hỏng');
 }
@@ -149,6 +181,11 @@ console.log('\n[2] BỎ HẲN một tính năng lõi — app vẫn dùng tiếp 
   // khi mất một tệp route — mà không phép nào thật sự thử. Đổi sang **Khảo
   // sát** (`routes/surveys.js`), một phân hệ đang BẬT, nên gỡ tệp là thấy ngay.
   hoanTac();
+  // `hoanTac()` chỉ trả lại TỆP TRÊN ĐĨA — máy chủ đang chạy vẫn giữ bản đã bị
+  // phá ở mục [1] trong bộ nhớ. Phải khởi động lại thì dòng đối chứng ngay
+  // dưới mới đọc được trạng thái THẬT, thay vì đọc lại đúng cái hỏng mục trước
+  // vừa dựng ra.
+  await khoiDongLai();
   // Đọc TRƯỚC KHI GỠ: sau khi gỡ tệp thì không còn cách nào biết trước đó nó
   // có bật hay không, mà đó đúng là điều dòng đối chứng ở dưới cần.
   const phTruoc = await login('phuhuynh', '123456');

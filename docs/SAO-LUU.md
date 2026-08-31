@@ -9,7 +9,7 @@
 > | | |
 > |---|---|
 > | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
-> | **Đã sửa cho app 2** | Mọi ĐƯỜNG DẪN trong tệp này — `/var/lib/casa-mamnon`, `casa-mamnon-backup.log`. Xem lý do ngay dưới |
+> | **Đã sửa cho app 2** | Mọi ĐƯỜNG DẪN trong tệp này — `/var/lib/casa-mamnon`, `/var/lib/casa-mamnon/backup.log`. Xem lý do ngay dưới |
 > | **KHÔNG** còn đúng | Máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
 > | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
 >
@@ -62,13 +62,13 @@ Sao lưu thủ công sẽ bị quên. Hãy đặt lịch chạy tự động lú
 **Trên máy chủ Linux** — mở `crontab -e` rồi thêm:
 
 ```cron
-0 2 * * * cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js >> /var/log/casa-mamnon-backup.log 2>&1
+0 2 * * * cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js >> /var/lib/casa-mamnon/backup.log 2>&1
 ```
 
 **Trên Windows** — mở Task Scheduler, tạo tác vụ chạy hằng ngày lúc 02:00 với:
 - Chương trình: `node`
 - Tham số: `scripts\backup.js`
-- Thư mục bắt đầu: thư mục cài đặt SchoolConnect
+- Thư mục bắt đầu: thư mục cài đặt CASA Mầm non
 
 ---
 
@@ -78,22 +78,54 @@ Sao lưu thủ công sẽ bị quên. Hãy đặt lịch chạy tự động lú
 > hoặc máy chủ bị xóa.** Đây là sai lầm khiến nhiều nơi mất trắng dù vẫn "có
 > sao lưu đều đặn".
 
+> ### ⛔ BẢN SAO KHÔNG ĐƯỢC RỜI KHỎI LÃNH THỔ VIỆT NAM
+>
+> Bản sao lưu của app này chứa **đủ mọi thứ máy chủ chứa**: hồ sơ trẻ 12 tháng
+> – 6 tuổi, **ảnh và video khuôn mặt trẻ**, hồ sơ sức khoẻ, số điện thoại và
+> số định danh của phụ huynh. Đó là nhóm dữ liệu nhạy cảm theo **Nghị định
+> 13/2023/NĐ-CP** và **Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15**.
+>
+> Đưa nhóm dữ liệu đó lên một dịch vụ lưu trữ nước ngoài — Cloudflare R2,
+> Amazon S3, Backblaze, Google Drive, Dropbox, OneDrive — là **chuyển dữ liệu
+> xuyên biên giới**, kéo theo thủ tục mà trường chưa làm và cũng không nên
+> phải làm. Chính vì lý do này mà `render.yaml` bị đánh dấu "chỉ để chạy thử",
+> và bản sao thì còn nhạy cảm hơn máy chủ đang chạy: nó là một tệp duy nhất,
+> chép đi được, và không có màn đăng nhập nào canh.
+>
+> Ba cách dưới đây đều **giữ bản sao trong nước**.
+
 Chọn một trong các cách sau và thêm vào lệnh cron ngay sau lệnh sao lưu:
 
-**Cloudflare R2 / Backblaze B2 / Amazon S3** (khoảng 20–50 nghìn đồng/tháng):
+**① Ổ cứng ngoài cắm tại trường** — cách rẻ nhất và cũng là cách runbook app 2
+khuyên dùng (`docs/TRIEN-KHAI.md`, mục 6). Không cần tài khoản dịch vụ nào:
 ```bash
-rclone sync /var/lib/casa-mamnon/backups remote:casa-mamnon-backup
+node scripts/backup.js --out /mnt/o-ngoai/casa-mamnon
 ```
 
-**Máy chủ khác qua SSH:**
+**② Một máy khác trong phòng hành chính, qua SSH:**
 ```bash
-rsync -az --delete /var/lib/casa-mamnon/backups/ user@may-khac:/backup/casa-mamnon/
+# KHÔNG dùng --delete: xem cảnh báo ngay dưới.
+rsync -a /var/lib/casa-mamnon/backups/ user@may-hanh-chinh:/backup/casa-mamnon/
 ```
 
-**Google Drive** (dùng `rclone config` để kết nối một lần):
+**③ Nhà cung cấp lưu trữ ĐẶT TẠI VIỆT NAM** (VNG Cloud, Viettel IDC, FPT
+Cloud, CMC Cloud…), cùng nhà cung cấp với VPS thì càng gọn:
 ```bash
-rclone sync /duong/dan/data/backups gdrive:SchoolConnect-Backup
+# rclone copy — KHÔNG phải `rclone sync`. Xem cảnh báo ngay dưới.
+rclone copy /var/lib/casa-mamnon/backups vngcloud:casa-mamnon-backup
 ```
+
+> ### ⚠️ `--delete` và `rclone sync` xoá theo cả lỗi
+>
+> `rsync --delete` và `rclone sync` có nghĩa là *"làm cho bên kia GIỐNG HỆT bên
+> này"*. Bên này mất bản sao — ổ hỏng, thư mục bị xoá nhầm, `DATA_DIR` trỏ sai
+> nên thư mục `backups` trống trơn — thì lượt đồng bộ kế tiếp **xoá nốt bản ở
+> bên kia**. Máy chạy lúc 2 giờ sáng, không ai nhìn, và sáng ra cả hai bên đều
+> trống.
+>
+> Dùng `rsync -a` (không `--delete`) và `rclone copy` (không `sync`). Thư mục
+> đích phình ra thì đã có phần **Vòng đời bản sao** ngay dưới dọn giúp — dọn
+> theo luật, không dọn theo lỗi.
 
 ---
 

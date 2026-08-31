@@ -236,7 +236,7 @@ kiem('Lịch sao lưu tự động', () => {
     return;
   }
   canSua('Lịch sao lưu tự động', 'không tìm thấy lịch sao lưu nào',
-    'Xem mục 4.2 trong docs/QUY-TRINH-TRIEN-KHAI.docx để đặt lịch chạy hằng đêm.');
+    'Xem mục 6 trong docs/TRIEN-KHAI.md để đặt lịch chạy hằng đêm.');
 });
 
 // ---------------------------------------------------------------------------
@@ -262,7 +262,7 @@ kiem('Bản sao lưu gần nhất', () => {
   if (gioTuoi > 48) {
     canSua('Bản sao lưu gần nhất',
       `${moTa} — quá 48 tiếng, lịch sao lưu hằng đêm nhiều khả năng đã ngừng chạy`,
-      'Kiểm lịch sao lưu ở mục trên, và xem nhật ký /home/<tài khoản>/backup.log.');
+      `Kiểm lịch sao lưu ở mục trên, và xem nhật ký ${DATA_DIR}/backup.log.`);
   } else {
     dat('Bản sao lưu gần nhất', moTa);
   }

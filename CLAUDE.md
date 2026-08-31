@@ -178,7 +178,7 @@ App 1 và app 2 dùng chung một phần nền đã tách đôi. Quy ước xử
 ## Bắt buộc chạy trước mỗi lần commit
 
 ```bash
-npm test              # bộ đầy đủ, không cần trình duyệt, khoảng 3 phút
+npm test              # bộ đầy đủ, không cần trình duyệt, khoảng 12 phút
 ```
 
 Khi đổi bất cứ thứ gì trong `public/`, chạy thêm:

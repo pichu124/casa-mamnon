@@ -126,7 +126,17 @@ console.log('\n[5] Lịch sao lưu tự động và dung lượng đĩa');
 {
   const r = chay(DIR);
   check('máy không có lịch sao lưu → CẦN SỬA', trangThai(r.out, 'Lịch sao lưu tự động') === 'CẦN SỬA', trangThai(r.out, 'Lịch sao lưu tự động'));
-  check('chỉ đúng chỗ tra cứu cách đặt lịch', /QUY-TRINH-TRIEN-KHAI\.docx/.test(r.out));
+  // CHỖ TRA CỨU PHẢI LÀ TÀI LIỆU CỦA APP NÀY.
+  //
+  // Bản trước chốt `docs/QUY-TRINH-TRIEN-KHAI.docx` — tài liệu của APP 1, và
+  // là một tệp .docx không có trong kho mã app 2. Người vận hành đọc dòng gợi
+  // ý đó rồi đi tìm một tệp không tồn tại, ngay lúc bộ soát vừa nói "không tìm
+  // thấy lịch sao lưu nào". Bài canh thì vẫn xanh, vì nó chốt đúng cái chuỗi
+  // sai ấy.
+  check('chỉ đúng chỗ tra cứu cách đặt lịch — runbook của app 2',
+    /docs\/TRIEN-KHAI\.md/.test(r.out), r.out.match(/Xem mục[^\n]*/));
+  check('và chỗ đó có thật trong kho mã',
+    fs.existsSync(path.join(GOC, 'docs', 'TRIEN-KHAI.md')));
   check('đọc được dung lượng đĩa', trangThai(r.out, 'Dung lượng đĩa') === 'ĐẠT', trangThai(r.out, 'Dung lượng đĩa'));
 }
 
@@ -237,11 +247,27 @@ console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh 
     'render.yaml',
     'scripts/kiem-tra-may-chu.js',
     'docs/PHEP-THU-DIEN-THOAI.md',
+    'docs/TRIEN-KHAI.md',
   ];
+
+  // CÂU BỊ NGẮT DÒNG VẪN PHẢI BỊ SOI.
+  //
+  // Bản đầu dò thẳng trên nội dung thô, nên câu "…kèm 9 tài\n# khoản dùng
+  // chung…" trong `render.yaml` KHÔNG khớp mẫu: giữa "tài" và "khoản" có một
+  // dấu `#` mở đầu dòng chú thích. Con số 9 nằm đó suốt từ lúc dữ liệu mẫu lên
+  // 13 tài khoản, và bài canh này vẫn xanh — vì cùng tệp còn một câu KHÁC nói
+  // đúng 13, và chỉ cần một câu khớp là vòng lặp coi như đã soi tới tệp.
+  //
+  // Gộp dòng lại trước khi dò: bỏ tiền tố chú thích (`#`, `//`, `*`) ở đầu
+  // dòng rồi thay mọi khoảng trắng liên tiếp bằng một dấu cách.
+  const gopDong = (s) => s
+    .split('\n').map(d => d.replace(/^\s*(#|\/\/|\*)\s?/, '')).join(' ')
+    .replace(/\s+/g, ' ');
+
   const lech = [];
   let daTim = 0;
   for (const f of NOI) {
-    const noiDung = fs.readFileSync(path.join(GOC, f), 'utf8');
+    const noiDung = gopDong(fs.readFileSync(path.join(GOC, f), 'utf8'));
     const gap = noiDung.match(/(\d+)\s+tài khoản/g) || [];
     if (!gap.length) { lech.push(`${f}: không còn câu cảnh báo nào`); continue; }
     daTim += gap.length;
@@ -253,7 +279,7 @@ console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh 
   check(`cả ${NOI.length} chỗ đều nói đúng ${MAU.soTaiKhoan} tài khoản`, lech.length === 0, lech);
   // Vế khẳng định: nếu ngày mai ai đó bỏ hẳn mấy câu cảnh báo đó đi thì vòng
   // lặp trên chạy qua và không tìm thấy gì — mục này phải đỏ, không phải xanh.
-  check('và bốn câu cảnh báo đó vẫn còn trong kho mã', daTim >= NOI.length, daTim);
+  check(`và ${NOI.length} câu cảnh báo đó vẫn còn trong kho mã`, daTim >= NOI.length, daTim);
 
   // Con số dùng chung phải khớp với dữ liệu mẫu THẬT, không phải một hằng số
   // hai bên cùng chép sai. Đếm thẳng trên cơ sở dữ liệu vừa sinh ra.

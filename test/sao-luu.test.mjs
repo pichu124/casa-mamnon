@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { createRequire } from 'module';
-import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu } from './_chung.mjs';
+import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, HOM_NAY } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
 const Database = require(path.join(GOC, 'node_modules', 'better-sqlite3'));
@@ -555,6 +555,71 @@ console.log('\n[9] KHÔI PHỤC TỪ BẢN SAO Ở Ổ NGOÀI — đúng ca mà 
     fs.existsSync(path.join(D10, 'uploads')) ? fs.readdirSync(path.join(D10, 'uploads')) : 'không có');
 
   donThuMucTam(D9); donThuMucTam(O_NGOAI); donThuMucTam(D10); donThuMucTam(LE);
+}
+
+// ===========================================================================
+// `restore:check` LÀ THỨ NÓI "BẢN SAO DÙNG ĐƯỢC" — NÊN NÓ PHẢI BIẾT VỀ ẢNH.
+//
+// Mục [8] và [9] canh đường KHÔI PHỤC THẬT: chỗ đó đã nói rất to khi thiếu
+// ảnh. Nhưng nhánh `--kiem-tra` thì trước đây không nói một chữ nào về ảnh —
+// nó giải nén tệp .db.gz, đếm người và bé, rồi in ra một câu trấn an.
+//
+// Và `scripts/kiem-tra-may-chu.js` đọc đúng kết quả của nhánh ấy rồi kết luận
+// "giải nén và đọc thử thành công — bản sao dùng được thật". Nên một thư mục
+// ảnh trống đi qua được CẢ HAI lớp canh mà không ai biết, cho tới ngày cần
+// khôi phục thật.
+console.log('\n[11] --kiem-tra phải soát cả ẢNH, không chỉ tệp .db.gz');
+{
+  const D11 = thuMucTam('sao-luu-kiem-anh');
+  fs.mkdirSync(D11, { recursive: true });
+  sinhDuLieu(D11);
+
+  const chay11 = (...args) => spawnSync('node',
+    [path.join(GOC, 'scripts', 'restore.js'), ...args],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D11 } });
+
+  // Dựng một tấm ảnh thật rồi cho cơ sở dữ liệu trỏ tới nó, để bản sao có ảnh.
+  const TEN11 = 'anh-kiem-tra-11.jpg';
+  fs.mkdirSync(path.join(D11, 'uploads'), { recursive: true });
+  fs.writeFileSync(path.join(D11, 'uploads', TEN11), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+  {
+    const db = new Database(path.join(D11, 'school.db'));
+    db.prepare("INSERT OR REPLACE INTO albums (id, title, classId, date) VALUES ('alb11','Thử ảnh','c1',?)")
+      .run(HOM_NAY());
+    db.prepare("INSERT OR REPLACE INTO album_photos (id, albumId, file, position) VALUES ('ap11','alb11',?,0)")
+      .run(TEN11);
+    db.close();
+  }
+
+  const sao = spawnSync('node', [path.join(GOC, 'scripts', 'backup.js')],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D11 } });
+  check('dựng được bản sao có kèm ảnh', sao.status === 0, (sao.stdout + sao.stderr).slice(-300));
+
+  const co = chay11('--kiem-tra');
+  const chuCo = co.stdout + co.stderr;
+  check('CÓ ẢNH: --kiem-tra chạy xong không lỗi', co.status === 0, chuCo.slice(-400));
+  check('CÓ ẢNH: nói ra số tệp ảnh có thật', /ẢNH:\s*1 tệp/.test(chuCo), chuCo.slice(-500));
+  check('CÓ ẢNH: và nói cơ sở dữ liệu đang trỏ tới bao nhiêu ảnh',
+    /cơ sở dữ liệu đang trỏ tới\s*1 ảnh/.test(chuCo), chuCo.slice(-500));
+  check('CÓ ẢNH: KHÔNG cảnh báo oan', !/KHÔNG KÈM MỘT TẤM ẢNH NÀO/.test(chuCo), chuCo.slice(-400));
+
+  // Giờ dựng đúng tình huống hỏng: bản sao chỉ còn tệp .db.gz, ảnh thì không.
+  fs.rmSync(path.join(D11, 'backups', 'uploads'), { recursive: true, force: true });
+  const khong = chay11('--kiem-tra');
+  const chuKhong = khong.stdout + khong.stderr;
+  check('MẤT ẢNH: vẫn chạy xong, không nổ', khong.status === 0, chuKhong.slice(-400));
+  check('MẤT ẢNH: NÓI RA rằng bản sao không kèm tấm ảnh nào',
+    /KHÔNG KÈM MỘT TẤM ẢNH NÀO/.test(chuKhong), chuKhong.slice(-600));
+  check('MẤT ẢNH: nói rõ hậu quả bằng tiếng người vận hành hiểu',
+    /ô vỡ/.test(chuKhong), chuKhong.slice(-600));
+  check('MẤT ẢNH: và chỉ đúng cách chữa', /--anh/.test(chuKhong), chuKhong.slice(-600));
+
+  // ĐỐI CHỨNG: cảnh báo phải là CẢNH BÁO, không phải lỗi. Bản sao thiếu ảnh
+  // vẫn là bản sao khôi phục được — chặn hẳn ở đây là chặn nhầm.
+  check('MẤT ẢNH: vẫn kết luận tệp .db.gz là dùng được',
+    /Kiểm tra toàn vẹn: đạt/.test(chuKhong), chuKhong.slice(0, 300));
+
+  donThuMucTam(D11);
 }
 
 donThuMucTam(DIR);

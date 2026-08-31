@@ -52,10 +52,27 @@ const CAM = [
   { ten: 'danh sách bé chưa nhập', re: /(^|\/)data\/.*\.(csv|xlsx|xls)$/i },
 ];
 
-// Dữ liệu mẫu dùng cho kiểm thử thì được phép — nó không phải của trẻ em thật.
+// MIỄN TRỪ PHẢI HẸP TỚI MỨC KHÔNG CÒN CHỖ NÀO LỌT.
+//
+// Bản trước miễn trừ TRỌN thư mục `test/` bằng một dòng `/^test\//`, với lý do
+// "dữ liệu mẫu dùng cho kiểm thử thì không phải của trẻ em thật". Lý do đúng
+// cho MÃ của bộ test; sai cho mọi thứ khác lọt vào cùng thư mục.
+//
+// Vì các bài test dựng máy chủ thật, chạy trên cơ sở dữ liệu thật, và ghi ảnh
+// thật. Chúng nhắm vào thư mục tạm của hệ điều hành, nhưng chỉ cần một lần
+// `DATA_DIR` trỏ nhầm, một lần chép bản sao về `test/` để soi, hay một lần
+// người vận hành để tệp `school.db` của trường vào đó cho tiện — là một cơ sở
+// dữ liệu có thật của trẻ đi thẳng qua bộ canh mà không một dòng cảnh báo nào.
+//
+// Đây là bộ canh mà CLAUDE.md ghi "KHÔNG có đường thoát". Một dòng miễn trừ
+// rộng bằng cả thư mục thì đúng là một đường thoát.
+//
+// Nay chỉ miễn trừ đúng thứ cần: TỆP MÃ của bộ test, và tệp dữ liệu nhỏ dạng
+// JSON mà bộ test dùng làm bản chụp đối chiếu (ví dụ `test/khe-uoc.json`).
 const NGOAI_LE = [
-  /^test\//,
-  /^docs\/.*\.(csv|xlsx)$/i,   // tệp mẫu đính kèm hướng dẫn nhập danh sách
+  /^test\/[\w.-]+\.(test\.)?mjs$/,   // mã của bộ kiểm thử
+  /^test\/[\w.-]+\.json$/,           // bản chụp đối chiếu, ví dụ khe-uoc.json
+  /^docs\/.*\.(csv|xlsx)$/i,         // tệp mẫu đính kèm hướng dẫn nhập danh sách
 ];
 
 function git(...args) {

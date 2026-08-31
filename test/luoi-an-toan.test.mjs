@@ -46,6 +46,19 @@ module.exports = (app) => {
 const donDep = () => fs.rmSync(THU_MUC_NO, { recursive: true, force: true });
 process.on('exit', donDep);
 process.on('SIGINT', () => { donDep(); process.exit(1); });
+// SIGTERM VÀ SIGHUP CŨNG PHẢI DỌN — KHÔNG CHỈ Ctrl-C.
+//
+// Bài này SỬA THẲNG vào tệp trong kho mã thật rồi hoàn tác ở cuối. Móc `exit`
+// lo được ca chạy xong và ca ném lỗi; móc `SIGINT` lo được ca người ta bấm
+// Ctrl-C. Còn `SIGTERM` thì KHÔNG có móc nào — mà đó lại là tín hiệu mặc định
+// của `kill`, của `timeout`, của trình chạy CI khi hết giờ, và của trình soạn
+// thảo khi người ta bấm nút dừng. Nhận SIGTERM mà không dọn là Node thoát ngay
+// lập tức, để lại kho mã Ở TRẠNG THÁI CỐ TÌNH PHÁ HỎNG.
+//
+// Người chạy sẽ không biết: họ thấy bài test bị dừng, chạy lại, và lần này thì
+// hàng loạt bài khác đỏ vì một tệp nguồn đang bị hỏng có chủ ý từ lần trước.
+process.on('SIGTERM', () => { donDep(); process.exit(1); });
+process.on('SIGHUP', () => { donDep(); process.exit(1); });
 
 // --- Máy chủ có ghi log ra tệp để soi được lời giải thích -------------------
 const LOG = path.join(DIR, 'server.log');

@@ -67,9 +67,21 @@ const tatCaMa = [
 const coDangKyDay = tatCaMa.some(t => /pushManager\s*\.\s*subscribe/.test(t.noiDung));
 const coDuongDayThat = coBoNghePush && coHienThongBao && coDangKyDay;
 
-check('bộ canh tự đọc được trạng thái đường đẩy (không ghi cứng)',
-  typeof coDuongDayThat === 'boolean',
-  { coBoNghePush, coHienThongBao, coDangKyDay });
+// `typeof x === 'boolean'` LÀ MỘT PHÉP KIỂM HẰNG ĐÚNG.
+//
+// `coDuongDayThat` là kết quả của ba phép `&&` trên ba biểu thức boolean, nên
+// nó LUÔN là boolean — kể cả khi `tatCaMa` rỗng vì bộ liệt tệp hỏng, kể cả khi
+// `public/sw.js` biến mất. Dòng này tự nhận là "bộ canh tự đọc được trạng
+// thái", trong khi thứ duy nhất nó chứng minh là JavaScript có kiểu boolean.
+//
+// Thứ đáng canh là BỘ QUÉT CÓ ĐỌC ĐƯỢC GÌ KHÔNG. Cả bài này đứng trên
+// `tatCaMa`: mọi mục dưới đều hỏi "tệp nào chứa mẫu X". Danh sách rỗng thì mọi
+// mục ấy xanh hết, và bài canh trở thành một tờ giấy chứng nhận trắng.
+check('bộ quét đọc được mã giao diện và máy chủ để mà soi',
+  tatCaMa.length >= 40,
+  { soTep: tatCaMa.length, coBoNghePush, coHienThongBao, coDangKyDay });
+check('và đọc được public/sw.js — nơi đường đẩy sẽ phải xuất hiện đầu tiên',
+  sw.length > 200, sw.length);
 
 // ===========================================================================
 console.log('\n[2] CHƯA CÓ ĐƯỜNG ĐẨY THÌ KHÔNG ĐƯỢC XIN QUYỀN THÔNG BÁO');

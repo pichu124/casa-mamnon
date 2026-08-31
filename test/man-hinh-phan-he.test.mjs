@@ -162,6 +162,15 @@ console.log('\n[1b] Cô KHÔNG phụ trách nhóm đầu danh sách cũng mở �
     check(`${m.ten} — cô nhóm khác mở được, KHÔNG lỗi JavaScript`, loi.length === 0, loi.slice(0, 2));
     check(`${m.ten} — cô nhóm khác không rơi vào màn báo lỗi chung`,
       !/có lỗi xảy ra/i.test(chu), chu.slice(0, 120));
+    // MÀN TRẮNG TRƠN KHÔNG PHẢI LÀ "MỞ ĐƯỢC".
+    //
+    // Hai phép kiểm trên chỉ nói "không nổ" và "không rơi vào màn báo lỗi".
+    // Một màn hình dựng xong rồi `return` sớm vì không tìm thấy nhóm của cô —
+    // đúng cái họ lỗi mà cả mục [1b] này sinh ra để bắt — đi qua sạch cả hai:
+    // không có ngoại lệ nào, không có chữ "Có lỗi xảy ra" nào, chỉ có một
+    // khoảng trắng. Mục [1] có phép kiểm thứ ba này từ đầu; [1b] thì thiếu.
+    check(`${m.ten} — cô nhóm khác có nội dung thật, không trống trơn`,
+      chu.trim().length > 20, chu.slice(0, 120));
 
     // Ô CHỌN NHÓM KHÔNG ĐƯỢC MỜI CÔ BẤM VÀO CHỖ CHẮC CHẮN HỎNG.
     //

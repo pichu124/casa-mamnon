@@ -63,8 +63,8 @@ DATA_DIR=/var/lib/casa-mamnon npm run create-admin "Nguyễn Văn Hiệu" hieutr
 Lệnh in ra một mật khẩu tạm — ghi lại, lần đăng nhập đầu app bắt đổi ngay.
 
 **Vì sao phải làm trước:** với `NODE_ENV=production`, cơ sở dữ liệu trống thì
-máy chủ **dừng có chủ ý** thay vì tự sinh dữ liệu mẫu. Dữ liệu mẫu kèm 9 tài
-khoản dùng chung mật khẩu `123456`; sinh chúng ra trên một máy đang mở ra
+máy chủ **dừng có chủ ý** thay vì tự sinh dữ liệu mẫu. Dữ liệu mẫu kèm
+13 tài khoản dùng chung mật khẩu `123456`; sinh chúng ra trên một máy đang mở ra
 Internet là tự mở cửa cho người lạ.
 
 Đó cũng là lý do đừng đi đường tắt *"tạm bỏ NODE_ENV=production cho nó lên đã"*.
@@ -228,11 +228,29 @@ sudo systemctl enable --now casa-mamnon
 # 6. Sao lưu hằng đêm + MỘT BẢN RA Ổ NGOÀI
 #    Bản ra ổ ngoài là bản cứu được khi ổ máy chủ hỏng. Xem docs/SAO-LUU.md.
 crontab -e
-# 0 2 * * * cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js >> /var/log/casa-mamnon-backup.log 2>&1
-# 0 3 * * 0 cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js --out <ổ-ngoài> >> /var/log/casa-mamnon-backup.log 2>&1
+# 0 2 * * * cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js >> /var/lib/casa-mamnon/backup.log 2>&1
+# 0 3 * * 0 cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js --out <ổ-ngoài> >> /var/lib/casa-mamnon/backup.log 2>&1
 
-# 7. Soát lại
+# 7. Soát lại — MỘT LẦN NGAY BÂY GIỜ, VÀ MỖI TUẦN MỘT LẦN SAU ĐÓ
+#
+#    Chạy tay lúc này để biết máy vừa dựng đã đúng chưa. Nhưng thứ bộ soát này
+#    bắt được — lịch sao lưu ngừng chạy, bản sao mới nhất đã 3 ngày tuổi, ổ đĩa
+#    sắp đầy, chứng chỉ HTTPS sắp hết hạn — đều là những thứ HỎNG DẦN trong im
+#    lặng nhiều tuần sau ngày cài. Không đặt lịch thì nó chỉ soát đúng cái ngày
+#    mà mọi thứ chắc chắn đang tốt.
 DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
+
+crontab -e
+# 0 7 * * 1 cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/kiem-tra-may-chu.js >> /var/lib/casa-mamnon/soat-may-chu.log 2>&1
+```
+
+**Đọc kết quả soát ở đâu.** Dòng cron trên ghi vào
+`/var/lib/casa-mamnon/soat-may-chu.log`, cùng thư mục với `backup.log` — thư
+mục mà bước 1 đã cấp quyền ghi cho tài khoản chạy dịch vụ. Sáng thứ Hai mở tệp
+đó ra xem có dòng `CẦN SỬA` nào không:
+
+```bash
+grep "CẦN SỬA" /var/lib/casa-mamnon/soat-may-chu.log | tail -20
 ```
 
 **HTTPS** đặt trước app bằng nginx + certbot cho `<tên miền của trường>`. Không

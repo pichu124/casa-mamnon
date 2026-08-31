@@ -623,6 +623,20 @@ console.log('\n[18] PHÒNG CHAT CỦA CẢ NĂM HỌC PHẢI MỞ ĐƯỢC — C
     const r = await req('GET', `/api/messages/${hoiThoaiNgan.id}`, { cookie: gv });
     check('hội thoại ngắn: KHÔNG bị cắt, và máy chủ nói rõ là hết',
       r.status === 200 && r.data?.conCu === false, [r.status, r.data?.conCu]);
+  } else {
+    // KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG THÌ PHẢI ĐỎ, KHÔNG ĐƯỢC IM.
+    //
+    // Đây là phép kiểm DUY NHẤT canh vế chống-siết-quá-tay: bản vá cắt cửa sổ
+    // mà cắt nhầm cả phòng chat ba tin thì chỉ dòng này bắt được. Nằm trong
+    // một `if` không có `else`, nó biến mất lặng lẽ đúng vào ngày dữ liệu mẫu
+    // đổi và cô chỉ còn một hội thoại — cả mục vẫn xanh, và không ai biết vế
+    // quan trọng nhất đã ngừng chạy.
+    //
+    // Cùng khuôn với test/co-so-quan-tri.test.mjs: dựng không được thì nói ra.
+    check('hội thoại ngắn: KHÔNG bị cắt, và máy chủ nói rõ là hết', false,
+      'KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG: cô chỉ có đúng một hội thoại nên không có '
+      + 'phòng chat ngắn nào để đối chứng. Thêm một hội thoại thứ hai vào dữ '
+      + 'liệu mẫu, hoặc dựng ngay trong bài, rồi chạy lại.');
   }
 
   // Cuộn ngược lên đọc tin cũ KHÔNG phải là đã đọc hết. Đánh dấu nhầm ở đây là

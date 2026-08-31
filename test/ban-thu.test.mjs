@@ -86,8 +86,35 @@ console.log('\n[3] NĂM PHÂN HỆ NHÀ TRƯỜNG ĐÃ TẮT PHẢI VẪN TẮT'
     .map(x => [x.moduleKey, !!x.enabled]));
   conn.close();
 
-  const batNham = PHAI_TAT.filter(k => dong.get(k) === true);
-  check('không phân hệ nào trong năm cái đó bị bật', batNham.length === 0, batNham);
+  // HỎI TRẠNG THÁI CÓ HIỆU LỰC, KHÔNG HỎI MỖI BẢNG CÀI ĐẶT.
+  //
+  // `dong.get(k) === true` chỉ đúng khi bảng `module_settings` CÓ dòng cho
+  // phân hệ ấy. Bốn trong năm phân hệ này tắt bằng `defaultEnabled: false`
+  // trong `lib/modules.js`, tức KHÔNG có dòng nào trong bảng — nên
+  // `dong.get(k)` là `undefined`, và phép so `=== true` cho ra false dù thật
+  // sự chúng đang bật hay tắt.
+  //
+  // Nói cách khác: nếu ai đó đổi `defaultEnabled` của Nề nếp thành `true` thì
+  // phân hệ xếp hạng trẻ bật lên trên bàn thử cho cô xem, mà phép kiểm "quan
+  // trọng nhất của cả bài" này vẫn xanh.
+  //
+  // Trạng thái CÓ HIỆU LỰC = dòng trong bảng nếu có, không thì mặc định của
+  // phân hệ. Đúng luật mà `lib/modules.js` dùng lúc chạy thật.
+  const hieuLuc = (k) => {
+    if (dong.has(k)) return dong.get(k);
+    const m = modules.timTheoKey(k);
+    return m ? m.defaultEnabled !== false : false;
+  };
+
+  const batNham = PHAI_TAT.filter(k => hieuLuc(k) === true);
+  check('không phân hệ nào trong năm cái đó bị bật', batNham.length === 0,
+    batNham.map(k => `${k} (bảng: ${dong.get(k)}, mặc định: ${modules.timTheoKey(k)?.defaultEnabled})`));
+
+  // ĐỐI CHỨNG: `hieuLuc` phải biết nói CÓ, nếu không thì dòng trên xanh vì nó
+  // luôn trả false chứ không phải vì năm phân hệ kia đang tắt thật.
+  check('đối chứng — phép hỏi trạng thái này biết nói CÓ với một phân hệ đang bật',
+    ['nhatky', 'hanhtrinh', 'yte'].some(k => hieuLuc(k) === true),
+    ['nhatky', 'hanhtrinh', 'yte'].map(k => `${k}=${hieuLuc(k)}`));
 
   // Và chúng phải thật sự tồn tại — một danh sách gõ sai tên thì phép kiểm
   // trên xanh vì không tìm thấy gì cả.
@@ -211,8 +238,29 @@ console.log('\n[7] MÁY CHỦ DỰNG TRÊN BÀN THỬ: cô nhìn thấy đúng a
   for (const k of ['nhatky', 'thuchup', 'dontra', 'hanhtrinh']) {
     check(`cô THẤY phân hệ ${k} trên máy chủ bàn thử`, thay.includes(k), thay);
   }
-  for (const k of ['nhanxet', 'baocao', 'nenep']) {
+  // ĐỦ CẢ NĂM, KHÔNG PHẢI BA. `xebuyt` cũng nằm trong danh sách nhà trường đã
+  // tắt và cũng mở cho vai cô, nên nó phải được hỏi ở đây như ba cái kia.
+  // `hocsinhcu` thì chỉ mở cho vai phụ huynh (`roles: ['parent']`), nên hỏi
+  // bằng cookie của cô là hỏi sai chỗ — nó được hỏi riêng ngay dưới.
+  for (const k of ['nhanxet', 'baocao', 'nenep', 'xebuyt']) {
     check(`và KHÔNG thấy ${k} — thứ nhà trường đã tắt`, !thay.includes(k), thay);
+  }
+  check('danh sách PHAI_TAT không lặng lẽ dài thêm mà bài này không hỏi tới',
+    PHAI_TAT.length === 5 && PHAI_TAT.includes('hocsinhcu'), PHAI_TAT);
+
+  // `hocsinhcu` chỉ hiện với gia đình, nên phải hỏi bằng tài khoản gia đình.
+  const ph = await login('phuhuynh', mk || 'x');
+  if (ph.cookie) {
+    const dsPh = await req('GET', '/api/modules', { cookie: ph.cookie });
+    const thayPh = (dsPh.data?.modules || dsPh.data || []).map(m => m.key);
+    check('màn hình của gia đình cũng nhận được danh sách phân hệ',
+      Array.isArray(thayPh) && thayPh.length > 0, dsPh.data);
+    check('và gia đình KHÔNG thấy hocsinhcu — thứ nhà trường đã tắt',
+      !thayPh.includes('hocsinhcu'), thayPh);
+  } else {
+    check('gia đình đăng nhập được để hỏi phân hệ chỉ dành cho gia đình', false,
+      'KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG: tài khoản phụ huynh mẫu không đăng nhập được '
+      + 'bằng mật khẩu bàn thử vừa đặt, nên không hỏi được hocsinhcu.');
   }
 
   sv.dung();
