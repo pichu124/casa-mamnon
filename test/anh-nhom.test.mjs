@@ -25,7 +25,8 @@
 // Đầu năm học có hàng chục tờ giấy chưa về. Bài này canh cả hai trạng thái đó
 // riêng ra, vì gộp chúng lại là hoặc vu cho gia đình đã từ chối, hoặc coi im
 // lặng là đồng ý.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, GOC as GOC_DIR } from './_chung.mjs';
+import pathMod from 'path';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('anh-nhom');
@@ -235,6 +236,64 @@ console.log('\n[9] Nhóm KHÔNG có ai từ chối thì mọi thứ y như trư�
   } else {
     check('tìm được album nhóm Lá 1 để thử', false, dsLa.map(x => x.className));
   }
+}
+
+// ===========================================================================
+// ===========================================================================
+// BẢN LÔ PHẢI CHO ĐÚNG CÙNG KẾT QUẢ VỚI BẢN CŨ — TỪNG MÃ ẢNH MỘT.
+//
+// Đ98 thêm `db.locAnhChoNguoiXemNhieuNhom` bên cạnh `db.locAnhChoNguoiXem` để
+// bỏ N+1 (đo được 8.218 câu truy vấn cho một lượt mở tab Album ở quy mô một
+// năm học). Hai hàm phải cho kết quả GIỐNG HỆT nhau — mục này chạy cả hai
+// trên đúng dữ liệu vừa dựng ở trên rồi so từng mã một.
+//
+// Chỗ dễ trôi nhất: bé KHÔNG có dòng trong `student_consent` là CHƯA TRẢ LỜI,
+// không phải "đồng ý". Trong bản lô `Map.get(id)` trả về một bản ghi rỗng với
+// cả ba mục là null, nên phép so phải giữ nguyên `=== true`. Ai viết
+// `!== false` cho gọn là lộ ảnh cả nhóm — và mục này đỏ ngay.
+console.log('\n[9c] Bản lô của bộ lọc ảnh cho ĐÚNG cùng kết quả với bản cũ');
+{
+  const { createRequire } = await import('module');
+  // `lib/db.js` đọc `DATA_DIR` ở lúc nạp. Không đặt thì nó mở một cơ sở dữ
+  // liệu KHÁC với máy chủ của bài test, và mọi câu truy vấn trả về rỗng —
+  // hai dòng đối chứng ngay dưới bắt đúng chuyện đó.
+  process.env.DATA_DIR = DIR;
+  const db = createRequire(import.meta.url)(pathMod.join(GOC_DIR, 'lib', 'db.js'));
+
+  const ds = await req('GET', `/api/albums/${album.id}`, { cookie: PH1 });
+  check('đối chứng — album thử có ảnh để mà so', (ds.data.photos || []).length > 0,
+    `${(ds.data.photos || []).length} ảnh`);
+
+  const moiAnh = db.all('album_photos',
+    'SELECT * FROM album_photos WHERE albumId = ? ORDER BY position, rowid', [album.id]);
+  check('đối chứng — đọc thẳng cơ sở dữ liệu thấy đủ số ảnh của album',
+    moiAnh.length > 0, `${moiAnh.length} ảnh`);
+
+  const p1 = db.findUserByUsername('phuhuynh');
+  const p2 = db.findUserByUsername('phuhuynh2');
+  const gv = db.findUserByUsername('giaovien');
+
+  for (const [ten, u] of [['gia đình bé An', p1], ['gia đình bé Hân', p2], ['cô của nhóm', gv]]) {
+    const cu = db.locAnhChoNguoiXem(moiAnh, u, 'c1').map(a => a.id).sort();
+    const lo = (db.locAnhChoNguoiXemNhieuNhom({ c1: moiAnh }, u).c1 || []).map(a => a.id).sort();
+    check(`bản lô khớp bản cũ từng mã ảnh — ${ten}`,
+      JSON.stringify(cu) === JSON.stringify(lo), `cũ ${JSON.stringify(cu)} · lô ${JSON.stringify(lo)}`);
+  }
+
+  // ĐỐI CHỨNG CHO CHÍNH PHÉP SO TRÊN: nếu bộ lọc không LỌC GÌ CẢ thì ba dòng
+  // trên vẫn xanh. Phải có ít nhất một người xem được ÍT HƠN tổng số ảnh.
+  const soCua = (u) => db.locAnhChoNguoiXem(moiAnh, u, 'c1').length;
+  check('đối chứng — bộ lọc thật sự có cắt bớt với ít nhất một gia đình',
+    Math.min(soCua(p1), soCua(p2)) < moiAnh.length,
+    `${soCua(p1)} / ${soCua(p2)} trên tổng ${moiAnh.length}`);
+
+  // Hai hàm tra lô: bé chưa ký phải là "chưa trả lời", ảnh chưa gắn thẻ vẫn có khoá.
+  const theLo = db.beTrongCacAnh(moiAnh.map(a => a.id));
+  check('bản lô trả về đủ khoá cho MỌI tấm ảnh, kể cả ảnh chưa gắn thẻ',
+    moiAnh.every(a => Array.isArray(theLo.get(a.id))), 'thiếu khoá');
+  const chuaKy = db.dongYCuaCacBe(['khong-co-be-nay']).get('khong-co-be-nay');
+  check('bé chưa ký giấy là CHƯA TRẢ LỜI (null), không phải đồng ý',
+    chuaKy && chuaKy.chiaSeGiaDinh === null, JSON.stringify(chuaKy));
 }
 
 // ===========================================================================
