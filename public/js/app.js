@@ -142,6 +142,31 @@ window.App = {
     return this.state.students.find(s => s.id === this.state.currentStudentId) || this.state.students[0] || null;
   },
 
+  // NHỮNG NHÓM NGƯỜI ĐANG ĐĂNG NHẬP ĐƯỢC PHÉP MỞ.
+  //
+  // `state.classes` là danh sách nhóm của CẢ TRƯỜNG — nó có mặt để văn phòng
+  // dựng ô chọn. Cô thì chỉ mở được nhóm mình phụ trách; máy chủ trả 403 cho
+  // nhóm khác, hoàn toàn đúng. Nhưng bốn màn đang tự lọc lấy, mỗi màn một
+  // kiểu, và ba trong bốn màn đó QUÊN lọc phần ô chọn:
+  //
+  //   - mở màn ra thì đúng nhóm của cô (vì mặc định lấy `classIds[0]`),
+  //   - nhưng ô "Nhóm" vẫn liệt kê cả bốn nhóm của trường, và cô bấm vào một
+  //     nhóm không phải của mình là rơi thẳng vào màn "Có lỗi xảy ra".
+  //
+  // Đo trên bàn thử ngày 31/08: Nhật ký ngày và Đón trả bé đều như vậy với cô
+  // nhóm Nhà trẻ 1. Một danh sách chọn mà có lựa chọn nào bấm vào cũng hỏng
+  // thì đó là lỗi của màn hình, không phải của cô.
+  //
+  // Hàm này là MỘT chỗ trả lời câu đó. THÊM MỚI, không đổi và không bỏ thứ gì
+  // đang có: `state.classes` vẫn nguyên vẹn cho mọi chỗ đang dùng.
+  //
+  // Văn phòng (không có `classIds`) nhận lại đủ danh sách như trước.
+  nhomCuaCo() {
+    const cua = (this.state.user && this.state.user.classIds) || [];
+    const tatCa = this.state.classes || [];
+    return cua.length ? tatCa.filter(c => cua.includes(c.id)) : tatCa;
+  },
+
   setStudent(id) {
     this.state.currentStudentId = id;
     this.route(); // vẽ lại view hiện tại theo bé vừa chọn
