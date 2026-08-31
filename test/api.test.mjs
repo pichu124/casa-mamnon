@@ -2,7 +2,9 @@
 //
 // Chạy bằng:  npm run test:api
 // Tự dựng máy chủ riêng với cơ sở dữ liệu tạm, không đụng dữ liệu thật.
-import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, HOM_NAY as homNayVN } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, HOM_NAY as homNayVN, GOC as GOCTB } from './_chung.mjs';
+import fsTb from 'fs';
+import pathTb from 'path';
 
 const DIR = thuMucTam('api');
 sinhDuLieu(DIR);
@@ -143,6 +145,43 @@ r = await call(P.cookie, 'POST', '/api/notifications/nt1/read'); check('P đọc
 r = await call(P.cookie, 'POST', '/api/notifications/read-all'); check('P đọc tất cả', r.status === 200, r);
 r = await call(T.cookie, 'POST', '/api/notifications', { title: 'Test TB', body: 'Nội dung', category: 'Lớp học', audience: 'class' });
 check('T tạo notification', r.status === 200 || r.status === 201, r);
+
+// ---- Thông báo: cắt cửa sổ ----
+//
+// Bảng thông báo chỉ thêm vào chứ không ai dọn, nên sau vài năm học, mở màn
+// Thông báo là kéo cả lịch sử của trường về điện thoại chỉ để xem mấy dòng
+// trên cùng. Máy chủ nay cắt ở 100 dòng một lượt, và màn hình có nút "xem
+// thông báo cũ hơn" — cắt mà không có nút là GIẤU MẤT thông báo.
+{
+  const day = (await call(P.cookie, 'GET', '/api/notifications')).data;
+  const mot = await call(P.cookie, 'GET', '/api/notifications?soLuong=1');
+  check('TB: xin một dòng thì nhận đúng một', mot.data.length === 1, mot.data.length);
+  check('TB: và là dòng đứng đầu của danh sách đầy đủ',
+    mot.data[0].id === day[0].id, { mot: mot.data[0]?.id, day: day[0]?.id });
+  const hai = await call(P.cookie, 'GET', '/api/notifications?bo=1&soLuong=1');
+  check('TB: trang sau nối tiếp, không lặp lại',
+    hai.data[0].id === day[1].id && hai.data[0].id !== mot.data[0].id,
+    { hai: hai.data[0]?.id, day1: day[1]?.id });
+  const gop = [];
+  for (let i = 0; i < 20 && gop.length <= day.length; i++) {
+    const t = await call(P.cookie, 'GET', `/api/notifications?bo=${gop.length}&soLuong=2`);
+    if (!t.data.length) break;
+    gop.push(...t.data.map(n => n.id));
+  }
+  check('TB: GHÉP TỪNG TRANG LẠI RA ĐÚNG DANH SÁCH CŨ',
+    gop.join(',') === day.map(n => n.id).join(','), { ghep: gop.length, day: day.length });
+  const het = await call(P.cookie, 'GET', `/api/notifications?bo=${day.length}`);
+  check('TB: bỏ qua hết thì rỗng, không lỗi', het.status === 200 && het.data.length === 0, het.status);
+  const bay = await call(P.cookie, 'GET', '/api/notifications?bo=-3&soLuong=99999');
+  check('TB: số âm và số vượt trần đều không làm sập', bay.status === 200, bay.status);
+  check('TB: thông báo GHIM vẫn đứng đầu trang một — cắt cửa sổ không đẩy nó rơi mất',
+    !day.some((n, i) => n.pinned && day.slice(0, i).some(x => !x.pinned)),
+    day.map(n => (n.pinned ? 'ghim' : '-')));
+
+  const man = fsTb.readFileSync(pathTb.join(GOCTB, 'public/js/views/notifications.js'), 'utf8');
+  check('TB: màn hình có nút "xem thông báo cũ hơn"', /Xem thông báo cũ hơn/.test(man));
+  check('TB: và nút đó gọi máy chủ kèm chỗ bỏ qua', /bo=\$\{this\._list\.length\}/.test(man));
+}
 
 // ---- messages ----
 r = await call(P.cookie, 'GET', '/api/messages'); check('P messages list + contacts', r.status === 200 && r.data.conversations && r.data.contacts, r);

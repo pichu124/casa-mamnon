@@ -269,6 +269,10 @@ function chanNeuChiXemAnh(req, res) {
   return true;
 }
 
+// Mỗi lượt trả về bao nhiêu album, và trần cho lượt hỏi tự đặt số.
+const MOI_TRANG = 60;
+const TRANG_TOI_DA = 200;
+
 module.exports = (app) => {
   // Danh sách album các lớp liên quan, mới nhất trước (không kèm toàn bộ ảnh).
   app.get('/api/albums', (req, res) => {
@@ -290,11 +294,32 @@ module.exports = (app) => {
     const tatCa = [...new Set([...classIds, ...lopCu, ...khoangCu.map(k => k.classId)])];
     if (!tatCa.length) return res.json([]);
     const marks = tatCa.map(() => '?').join(',');
-    const albums = db.all('albums',
-      `SELECT * FROM albums WHERE classId IN (${marks}) ORDER BY date DESC`, tatCa)
+    const daLocTheoKhoang = db.all('albums',
+      `SELECT * FROM albums WHERE classId IN (${marks}) ORDER BY date DESC, rowid DESC`, tatCa)
       // Lọc lại lần nữa theo khoảng: câu truy vấn trên lấy theo LỚP, còn phụ
       // huynh chỉ được xem phần ảnh chụp trong đúng khoảng con còn ở lớp đó.
       .filter(a => xemDuocAlbum(req.user, a.classId, a.date));
+
+    // CẮT CỬA SỔ TRƯỚC KHI ĐỘNG TỚI ẢNH.
+    //
+    // Câu trên là MỘT câu, chạy trên bảng `albums` — bảng nhỏ, có chỉ mục, và
+    // một năm học của cả trường cũng chỉ vài trăm dòng. Phần đắt nằm ở dưới:
+    // mỗi album kéo theo ảnh của nó, mỗi ảnh kéo theo thẻ bé, mỗi bé kéo theo
+    // giấy đồng ý. Đ98 gom ba tầng ấy lại thành tra theo lô, nhưng khối lượng
+    // vẫn lớn dần theo số năm nhà trường dùng app, và không có gì chặn.
+    //
+    // Nên cắt ở ĐÂY — sau khi lọc quyền, trước khi hỏi ảnh. Cắt sau khi lọc
+    // thì số dòng trả về là số dòng người này THẬT SỰ xem được, nên màn hình
+    // suy ra "còn nữa hay hết" chỉ bằng cách đếm: nhận đủ `soLuong` thì còn,
+    // nhận ít hơn thì hết. Cắt trước khi lọc là con số ấy nói dối.
+    //
+    // Câu trả lời vẫn là một MẢNG như cũ, không đổi hình dạng: điện thoại đang
+    // giữ bản app cũ trong bộ nhớ đệm vẫn chạy y như trước, chỉ là danh sách
+    // dừng ở trang đầu.
+    const bo = Math.max(0, Math.floor(Number(req.query.bo) || 0));
+    const soLuong = Math.min(TRANG_TOI_DA,
+      Math.max(1, Math.floor(Number(req.query.soLuong) || MOI_TRANG)));
+    const albums = daLocTheoKhoang.slice(bo, bo + soLuong);
 
     // MỘT LƯỢT TRA CHO CẢ DANH SÁCH, thay vì một lượt cho mỗi album rồi một
     // lượt cho mỗi tấm ảnh rồi một lượt cho mỗi bé được gắn thẻ. Đo trên dữ

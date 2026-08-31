@@ -196,6 +196,74 @@ console.log('\n[6] Ảnh minh họa bằng emoji của dữ liệu cũ vẫn dù
   check('ảnh emoji giữ nguyên màu nền', Array.isArray(detail.data?.photos?.[0]?.g), detail.data?.photos?.[0]);
 }
 
+// ===========================================================================
+console.log('\n[7] CẮT CỬA SỔ danh sách album — và cắt SAU khi lọc quyền');
+{
+  // VÌ SAO PHẢI CẮT
+  //
+  // Mỗi album kéo theo ảnh của nó, mỗi ảnh kéo theo thẻ bé, mỗi bé kéo theo
+  // giấy đồng ý. Đ98 gom ba tầng ấy thành tra theo lô, nhưng khối lượng vẫn
+  // lớn dần theo số năm nhà trường dùng app và không có gì chặn: sang năm thứ
+  // ba, phụ huynh mở màn Album là kéo cả lịch sử ảnh của nhóm về điện thoại
+  // chỉ để xem mấy album trên cùng.
+  //
+  // VÌ SAO CẮT SAU KHI LỌC, KHÔNG PHẢI TRONG CÂU TRUY VẤN
+  //
+  // Phụ huynh chỉ xem được album chụp trong đúng khoảng con còn ở nhóm đó, và
+  // bộ lọc ấy chạy trong JavaScript chứ không nằm trong `WHERE`. Cắt trước khi
+  // lọc thì số dòng trả về KHÔNG phải số dòng người này xem được, và màn hình
+  // — vốn suy ra "còn nữa hay hết" bằng cách đếm — sẽ giấu mất nút "xem cũ
+  // hơn" đúng lúc vẫn còn album để xem.
+  const day = await req('GET', '/api/albums?keCaLopCu=1', { cookie: T });
+  check('không truyền gì thì trả về như cũ', day.status === 200 && day.data.length >= 3,
+    day.data?.length);
+
+  const mot = await req('GET', '/api/albums?keCaLopCu=1&soLuong=1', { cookie: T });
+  check('xin một trang một album thì nhận đúng một', mot.data?.length === 1, mot.data?.length);
+  check('và là album mới nhất — đúng album đứng đầu danh sách đầy đủ',
+    mot.data?.[0]?.id === day.data?.[0]?.id, { mot: mot.data?.[0]?.id, day: day.data?.[0]?.id });
+
+  const hai = await req('GET', '/api/albums?keCaLopCu=1&bo=1&soLuong=1', { cookie: T });
+  check('trang sau nối tiếp, KHÔNG lặp lại album của trang trước',
+    hai.data?.[0]?.id === day.data?.[1]?.id && hai.data?.[0]?.id !== mot.data?.[0]?.id,
+    { hai: hai.data?.[0]?.id, day1: day.data?.[1]?.id });
+
+  const het = await req('GET', `/api/albums?keCaLopCu=1&bo=${day.data.length}`, { cookie: T });
+  check('bỏ qua hết thì trả về danh sách rỗng, không lỗi',
+    het.status === 200 && het.data.length === 0, { status: het.status, n: het.data?.length });
+
+  // Trần và số vô nghĩa: không được để một lượt hỏi kéo cả kho về.
+  const tran = await req('GET', '/api/albums?keCaLopCu=1&soLuong=99999', { cookie: T });
+  check('số lượng vượt trần thì bị chặn lại, không sập', tran.status === 200, tran.status);
+  const am = await req('GET', '/api/albums?keCaLopCu=1&bo=-5&soLuong=0', { cookie: T });
+  check('số âm hay số không cũng không làm hỏng gì', am.status === 200 && am.data.length >= 1,
+    { status: am.status, n: am.data?.length });
+
+  // VẾ QUAN TRỌNG NHẤT: cắt cửa sổ KHÔNG được mở thêm cho ai.
+  const P2 = await login('phuhuynh', '123456');
+  const cuaPh = await req('GET', '/api/albums?keCaLopCu=1&soLuong=200', { cookie: P2 });
+  const cuaPhDay = await req('GET', '/api/albums?keCaLopCu=1', { cookie: P2 });
+  check('PHỤ HUYNH XIN CẢ TRANG LỚN CŨNG KHÔNG THẤY THÊM ALBUM NÀO',
+    cuaPh.data.length === cuaPhDay.data.length, {
+      xinLon: cuaPh.data?.length, macDinh: cuaPhDay.data?.length });
+  // Và ghép từng trang lại phải ra ĐÚNG danh sách cũ — không thừa một album
+  // nào (rò quyền), không thiếu một album nào (mất ảnh của con).
+  const gop = [];
+  for (let i = 0; i < 10 && gop.length <= cuaPhDay.data.length; i++) {
+    const t = await req('GET', `/api/albums?keCaLopCu=1&bo=${gop.length}&soLuong=2`, { cookie: P2 });
+    if (!t.data.length) break;
+    gop.push(...t.data.map(a => a.id));
+  }
+  check('GHÉP TỪNG TRANG LẠI RA ĐÚNG DANH SÁCH CŨ — không thừa, không thiếu',
+    gop.join(',') === cuaPhDay.data.map(a => a.id).join(','),
+    { ghep: gop, day: cuaPhDay.data.map(a => a.id) });
+
+  // Màn hình phải có nút, nếu không thì cắt cửa sổ là GIẤU MẤT album.
+  const man = fs.readFileSync(path.join(GOC, 'public/js/views/albums.js'), 'utf8');
+  check('MÀN ALBUM CÓ NÚT "xem album cũ hơn"', /Xem album cũ hơn/.test(man));
+  check('và nút đó gọi máy chủ kèm chỗ bỏ qua', /bo=\$\{bo\}/.test(man));
+}
+
 server.kill('SIGTERM');
 await new Promise(r => setTimeout(r, 600));
 donThuMucTam(DIR);

@@ -27,19 +27,43 @@ function canSee(user, notification) {
   return notification.audience === 'all' || db.classIdsOf(user).includes(notification.audience);
 }
 
+// Mỗi lượt trả về bao nhiêu thông báo, và trần cho lượt hỏi tự đặt số.
+const MOI_TRANG = 100;
+const TRANG_TOI_DA = 300;
+
 module.exports = (app) => {
   // Danh sách thông báo: ghim trước, rồi mới nhất trước; kèm trạng thái đã đọc
   // và tên người gửi. Trạng thái đã đọc lấy bằng một phép nối, không phải tra
   // từng thông báo một.
   app.get('/api/notifications', (req, res) => {
     const f = audienceFilter(req.user);
+
+    // CẮT CỬA SỔ NGAY TRONG CÂU TRUY VẤN.
+    //
+    // Thông báo chỉ thêm vào chứ không ai dọn, nên bảng này dài ra mãi: sau
+    // vài năm học, mở màn Thông báo là kéo cả lịch sử của trường về điện
+    // thoại, chỉ để xem mấy dòng trên cùng. Ở đây không có bộ lọc nào chạy sau
+    // câu truy vấn — `audienceFilter` đã lo phần "ai được thấy gì" ngay trong
+    // `WHERE` — nên cắt thẳng bằng LIMIT là con số trả về đúng bằng con số
+    // người này xem được, và màn hình suy ra "còn nữa hay hết" bằng cách đếm.
+    //
+    // Thông báo ghim vẫn đứng đầu nhờ `ORDER BY n.pinned DESC`, nên trang đầu
+    // luôn có chúng — cắt cửa sổ không làm rơi mất thứ nhà trường muốn nổi lên.
+    //
+    // Hình dạng câu trả lời KHÔNG đổi (vẫn là một mảng): điện thoại đang giữ
+    // bản app cũ vẫn chạy y như trước, chỉ là danh sách dừng ở trang đầu.
+    const bo = Math.max(0, Math.floor(Number(req.query.bo) || 0));
+    const soLuong = Math.min(TRANG_TOI_DA,
+      Math.max(1, Math.floor(Number(req.query.soLuong) || MOI_TRANG)));
+
     const list = db.all('notifications',
       `SELECT n.*, (r.userId IS NOT NULL) AS read
        FROM notifications n
        LEFT JOIN notification_reads r ON r.notificationId = n.id AND r.userId = ?
        WHERE ${f.sql} AND ${st.dieuKienConHien(BANG, 'n.id')}
-       ORDER BY n.pinned DESC, n.createdAt DESC`,
-      [req.user.id, ...f.params]);
+       ORDER BY n.pinned DESC, n.createdAt DESC
+       LIMIT ? OFFSET ?`,
+      [req.user.id, ...f.params, soLuong, bo]);
 
     // TÊN NGƯỜI GỬI: TRA MỘT LƯỢT CHO CẢ DANH SÁCH.
     //

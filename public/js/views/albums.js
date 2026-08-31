@@ -5,6 +5,13 @@ App.views.albums = {
   _detail: null,
   _pending: [],   // ảnh đang chờ tải lên: [{ dataUrl, caption, name }]
 
+  // Danh sách album tải theo từng trang. Máy chủ cắt ở 60 album một lượt để
+  // điện thoại không phải kéo cả lịch sử ảnh của trường về chỉ để xem mấy
+  // album trên cùng.
+  MOI_TRANG: 60,
+  _daTai: [],     // album đã tải về, cộng dồn qua các lượt "xem cũ hơn"
+  _conNua: false,
+
   async render(root, params) {
     const albumId = params && params[0];
     if (albumId) return this.renderDetail(root, albumId);
@@ -17,7 +24,12 @@ App.views.albums = {
     // Hỏi kèm album của nhóm đã đóng cho mọi vai. Máy chủ tự quyết ai được thấy
     // gì: quản trị và cô cũ thấy cả nhóm; phụ huynh chỉ thấy ảnh chụp trong đúng
     // khoảng con còn học nhóm đó.
-    const albums = await API.get('/api/albums?keCaLopCu=1');
+    // Lượt đầu luôn tải lại từ trang một: vào lại màn này là muốn thấy album
+    // mới nhất, không phải thấy lại đúng chỗ đã cuộn tới lần trước.
+    if (!this._giuTrang) { this._daTai = []; this._conNua = false; }
+    this._giuTrang = false;
+    if (!this._daTai.length) await this.taiThem();
+    const albums = this._daTai;
     // Tách theo "con/nhóm mình còn ở đó hay không", chứ không theo "nhóm đã đóng":
     // bé chuyển nhóm giữa năm thì nhóm cũ vẫn đang mở nhưng con đã rời rồi.
     const laCu = a => a.lopCuCuaCon || a.lopDaDong;
@@ -41,8 +53,39 @@ App.views.albums = {
               : 'Đây là ảnh của nhóm con từng học. Gia đình nên tải về giữ lại.'}
           </div>
         </div>
-        <div class="grid-2">${namCu.map(a => this.albumCard(a)).join('')}</div>` : ''}`;
+        <div class="grid-2">${namCu.map(a => this.albumCard(a)).join('')}</div>` : ''}
+      ${this._conNua ? `
+        <button class="btn outline block mt-14" id="btn-album-cu-hon">
+          ${UI.icon('plus', 16)} Xem album cũ hơn
+        </button>` : ''}`;
     if (isTeacher) document.getElementById('btn-new-album').onclick = () => this.openCreate();
+    const themNua = document.getElementById('btn-album-cu-hon');
+    if (themNua) {
+      themNua.onclick = async () => {
+        themNua.disabled = true;
+        themNua.textContent = 'Đang tải…';
+        try {
+          await this.taiThem();
+          this._giuTrang = true;   // đừng xoá phần vừa tải khi vẽ lại
+          App.route();
+        } catch (err) {
+          themNua.disabled = false;
+          UI.toast(err.message, 'error');
+        }
+      };
+    }
+  },
+
+  // Tải thêm một trang album, nối vào phần đã có.
+  //
+  // "Còn nữa hay hết" suy ra bằng cách ĐẾM: máy chủ cắt cửa sổ SAU khi lọc
+  // quyền, nên nhận đủ một trang nghĩa là còn, nhận thiếu nghĩa là hết. Không
+  // cần thêm ô đếm nào trong câu trả lời, và câu trả lời vẫn là một mảng như cũ.
+  async taiThem() {
+    const bo = this._daTai.length;
+    const them = await API.get(`/api/albums?keCaLopCu=1&bo=${bo}&soLuong=${this.MOI_TRANG}`);
+    this._daTai = this._daTai.concat(them);
+    this._conNua = them.length >= this.MOI_TRANG;
   },
 
   albumCard(a) {

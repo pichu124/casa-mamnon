@@ -13,10 +13,30 @@ App.views.notifications = {
   _root: null,
   _aud: 'class',
 
+  // Thông báo chỉ thêm vào chứ không ai dọn, nên máy chủ cắt ở 100 dòng một
+  // lượt. Thông báo ghim luôn đứng đầu nên trang đầu không bao giờ rơi mất
+  // thứ nhà trường muốn nổi lên.
+  MOI_TRANG: 100,
+  _conNua: false,
+
   async render(root) {
     this._root = root;
-    this._list = await API.get('/api/notifications');
+    this._list = [];
+    this._conNua = false;
+    await this.taiThem();
     this.paint();
+  },
+
+  // Tải thêm một trang thông báo, nối vào phần đã có.
+  //
+  // "Còn nữa hay hết" suy ra bằng cách ĐẾM: bộ lọc "ai được thấy gì" nằm ngay
+  // trong câu truy vấn của máy chủ, không có bộ lọc nào chạy sau nó, nên số
+  // dòng nhận về đúng bằng số dòng người này xem được.
+  async taiThem() {
+    const them = await API.get(
+      `/api/notifications?bo=${this._list.length}&soLuong=${this.MOI_TRANG}`);
+    this._list = this._list.concat(them);
+    this._conNua = them.length >= this.MOI_TRANG;
   },
 
   // Vẽ lại danh sách từ dữ liệu đã tải (không gọi lại API).
@@ -34,10 +54,23 @@ App.views.notifications = {
         </div>` : ''}
       ${this._list.length
         ? `<div class="card">${this._list.map(n => this.rowHtml(n)).join('')}</div>`
-        : UI.emptyState('🔔', 'Chưa có thông báo nào')}`;
+        : UI.emptyState('🔔', 'Chưa có thông báo nào')}
+      ${this._conNua ? `
+        <button class="btn outline block mt-14" id="btn-tb-cu-hon">
+          ${UI.icon('plus', 16)} Xem thông báo cũ hơn
+        </button>` : ''}`;
     if (isTeacher) document.getElementById('btn-new-notif').onclick = () => this.openCreate();
     const btnAll = document.getElementById('btn-read-all');
     if (btnAll) btnAll.onclick = () => this.readAll();
+    const themNua = document.getElementById('btn-tb-cu-hon');
+    if (themNua) {
+      themNua.onclick = async () => {
+        themNua.disabled = true;
+        themNua.textContent = 'Đang tải…';
+        try { await this.taiThem(); this.paint(); }
+        catch (err) { themNua.disabled = false; UI.toast(err.message, 'error'); }
+      };
+    }
   },
 
   catOf(n) { return this.CATS[n.category] || this.DEFAULT_CAT; },
