@@ -738,3 +738,44 @@ sách. Mọi lỗi kiểu "lấy phần tử [0] của danh sách cả trường
 thêm mục **[1b]** chạy lại đúng các màn ấy bằng **tài khoản cô thứ hai**, kèm một
 dòng đối chứng báo đỏ nếu sau này dữ liệu mẫu đổi cho cô ấy dạy nhóm đầu danh sách
 — lúc đó bài canh mất hết ý nghĩa mà vẫn xanh.
+
+---
+
+### 7. Rút đồng ý ① "hồ sơ học tập" — ba ranh giới tôi tự chốt
+
+**Việc:** ô ① rút được, có ghi nhật ký, đổi chữ trên màn — nhưng **không đường nào
+thi hành nó**. Nặng hơn phần thiếu chốt: màn của gia đình đang **hứa thẳng bằng
+chữ** — *"Cô ghi lại quan sát và câu chuyện học tập của con trong năm"* — nên gia
+đình bấm "Rút lại" là tin rằng trường đã ngưng ghi, trong khi mọi đường ghi vẫn
+chạy y nguyên. `docs/KE-HOACH.md` mục 6 đã đặt sẵn nghĩa vụ: *"Rút lại được bất cứ
+lúc nào — app phải định nghĩa rõ chuyện gì xảy ra khi rút."*
+
+Khảo sát mã nêu **ba chỗ phải có người quyết**, vì chúng là chính sách của trường
+chứ không phải kỹ thuật. Theo uỷ quyền, tôi chốt như sau:
+
+| Chỗ | Chốt | Vì sao |
+|---|---|---|
+| **Nhận xét hằng ngày** (`routes/remarks.js`) | **CHO QUA — không chặn** | Đây là **sổ liên lạc**, mục tiêu số một của app và là thứ gia đình trả tiền để có. Gia đình rút ① là nói *"đừng dựng hồ sơ đánh giá con tôi"*, không phải *"đừng kể hôm nay con ăn gì"*. Chặn ở đây là **phạt gia đình vì đã dùng quyền của mình** — và họ sẽ đồng ý lại chỉ để lấy lại sổ liên lạc, tức lời đồng ý ấy không còn tự nguyện. |
+| **Ảnh Cambridge** (`modules/cambridge/routes.js`) | **CHO QUA — không chặn thêm** | Đường ảnh đã đi qua ô ② (chia sẻ với gia đình) và ô ③ (truyền thông) rồi. ① nói về việc **dựng hồ sơ học tập**, không phải về việc một tấm ảnh hiện với ai. Chặn hai lần cùng một việc bằng hai ô khác nghĩa là chỗ sau này không ai gỡ ra được. |
+| **Học bạ tiểu học** (`routes/reports.js`) | **KHÔNG vá** | Phân hệ kế thừa từ app 1, đang tắt cho mầm non, và chấm điểm 0–10 — thứ QUY TẮC 4 cấm. Vá một thứ đang tắt là thêm mã chết. **Ghi rõ ở đây để người sau biết:** ngày nào bật lại phân hệ này thì phải thêm chốt ① vào `PUT /api/reports/:studentId`. |
+
+**Chặn ở đâu:** `modules/hanhtrinh` (ghi quan sát), `modules/kehoachbe` (kế hoạch
+của bé), `modules/baocaohoctap` (mở bản, sửa, gửi), `modules/thuchup` (Ghi nhanh —
+chính là lớp 1, quên chỗ này thì cô chỉ việc đổi màn hình là ghi tiếp được).
+
+**Ba ranh giới nữa, không thương lượng:**
+
+1. **Ba giá trị, không phải hai.** `hoSoHocTap` là `true` / `false` / `null`, và
+   `null` nghĩa là **chưa thu được giấy**. Chỉ `false` mới chặn. Viết
+   `if (!hoSoHocTap)` là tháng Chín cả trường không ghi được gì.
+2. **Rút là NGƯNG GHI MỚI, không phải xoá và không phải đóng đường đọc.** Phần đã
+   ghi vẫn còn, gia đình vẫn xem lại được, và mọi đường làm GIẢM dữ liệu đang hiện
+   (thu hồi, xoá) phải luôn chạy — chặn chúng là để câu chuyện đã công bố kẹt lại
+   vĩnh viễn.
+3. **Không nhét chốt vào `db.canAccessStudent`.** Hàm đó gác khoảng 40 đường đọc
+   gồm nhật ký, sức khoẻ, dặn thuốc, đón trả, học phí. Rút ① mà cắt luôn những
+   đường đó là cắt gia đình khỏi hồ sơ sức khoẻ của chính con mình.
+
+**Và một chỗ trình bày:** trạng thái "gia đình đã dừng hồ sơ học tập" là quyết định
+của **người lớn**, không phải khiếm khuyết của đứa trẻ. Không ô đỏ, không tam giác
+cảnh báo, không đếm "3/25 bé chưa có hồ sơ" — QUY TẮC 2 và QUY TẮC 4.

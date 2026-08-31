@@ -39,17 +39,32 @@ module.exports = (app) => {
        LEFT JOIN notification_reads r ON r.notificationId = n.id AND r.userId = ?
        WHERE ${f.sql} AND ${st.dieuKienConHien(BANG, 'n.id')}
        ORDER BY n.pinned DESC, n.createdAt DESC`,
-      [req.user.id, ...f.params])
-      .map(n => {
-        const author = n.createdBy ? db.findUser(n.createdBy) : null;
-        return {
-          ...n,
-          read: !!n.read,
-          authorName: author ? `${author.title} ${author.name}` : '',
-          coTheSua: st.laChuBanGhi(req.user, n.createdBy),
-        };
-      });
-    res.json(st.ganDauDaSua(BANG, list));
+      [req.user.id, ...f.params]);
+
+    // TÊN NGƯỜI GỬI: TRA MỘT LƯỢT CHO CẢ DANH SÁCH.
+    //
+    // Bản trước gọi `db.findUser` trong `.map`, tức MỘT câu truy vấn cho MỖI
+    // dòng thông báo — đo được 406 câu cho 405 dòng, chỉ để lấy vài cái tên mà
+    // phần lớn là trùng nhau (cả trường thường chỉ vài người đăng thông báo).
+    // Việc này không đụng tệp dùng chung: `db.all` đã có sẵn.
+    const maNguoi = [...new Set(list.map(n => n.createdBy).filter(Boolean))];
+    const nguoi = new Map();
+    if (maNguoi.length) {
+      const marks = maNguoi.map(() => '?').join(',');
+      for (const u of db.all('users', `SELECT * FROM users WHERE id IN (${marks})`, maNguoi)) {
+        nguoi.set(u.id, u);
+      }
+    }
+
+    res.json(st.ganDauDaSua(BANG, list.map(n => {
+      const author = n.createdBy ? nguoi.get(n.createdBy) : null;
+      return {
+        ...n,
+        read: !!n.read,
+        authorName: author ? `${author.title} ${author.name}` : '',
+        coTheSua: st.laChuBanGhi(req.user, n.createdBy),
+      };
+    })));
   });
 
   // Đánh dấu đã đọc một thông báo.

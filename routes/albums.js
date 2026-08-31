@@ -68,6 +68,25 @@ function photosOf(albumId) {
     'SELECT * FROM album_photos WHERE albumId = ? ORDER BY position, rowid', [albumId]);
 }
 
+// Ảnh của NHIỀU album một lượt — một câu thay vì một câu mỗi album.
+//
+// GIỮ NGUYÊN `position, rowid`. Ảnh bìa của mỗi album chính là phần tử [0] sau
+// khi lọc, nên xếp thiếu tiêu chí phụ là bìa của mọi album đổi tấm — không bài
+// canh nào bắt được, nhưng cô mở ra là thấy ngay.
+function photosOfNhieu(albumIds) {
+  const ra = new Map();
+  const sach = [...new Set((albumIds || []).filter(Boolean))];
+  for (const id of sach) ra.set(id, []);
+  if (!sach.length) return ra;
+  const marks = sach.map(() => '?').join(',');
+  for (const p of db.all('album_photos',
+    `SELECT * FROM album_photos WHERE albumId IN (${marks}) ORDER BY albumId, position, rowid`,
+    sach)) {
+    ra.get(p.albumId).push(p);
+  }
+  return ra;
+}
+
 // Xóa tệp ảnh khỏi đĩa (ảnh emoji thì không có tệp nào để xóa).
 function removeFiles(photos) {
   for (const p of photos || []) {
@@ -213,6 +232,19 @@ function locAnhChoNguoiXem(photos, user, classId) {
   return db.locAnhChoTruyenThong(thay);
 }
 
+// BẢN LÔ CỦA CHÍNH HÀM TRÊN — dùng cho ĐƯỜNG LIỆT KÊ, nơi có nhiều album một
+// lượt. Vẫn phải áp `locAnhChoTruyenThong` cho chức vụ Marketing: quên vế đó là
+// mở lại đúng cái lỗ mà lớp bọc này sinh ra để bịt.
+//
+// `nhom` là { classId → [ảnh] }, trả về cùng hình dạng.
+function locAnhChoNguoiXemNhieuNhom(nhom, user) {
+  const thay = db.locAnhChoNguoiXemNhieuNhom(nhom, user);
+  if (db.chucVu(user) !== 'marketing') return thay;
+  const ra = {};
+  for (const k of Object.keys(thay)) ra[k] = db.locAnhChoTruyenThong(thay[k]);
+  return ra;
+}
+
 // Marketing CHỈ ĐỌC ảnh. Đăng ảnh vào album của một nhóm là việc của cô — cô
 // mới biết hôm đó có bé nào vắng, bé nào gia đình vừa rút đồng ý. Xoá thì càng
 // không: ảnh xoá rồi không lấy lại được, mà đây là kỷ niệm của gia đình.
@@ -264,6 +296,24 @@ module.exports = (app) => {
       // huynh chỉ được xem phần ảnh chụp trong đúng khoảng con còn ở lớp đó.
       .filter(a => xemDuocAlbum(req.user, a.classId, a.date));
 
+    // MỘT LƯỢT TRA CHO CẢ DANH SÁCH, thay vì một lượt cho mỗi album rồi một
+    // lượt cho mỗi tấm ảnh rồi một lượt cho mỗi bé được gắn thẻ. Đo trên dữ
+    // liệu quy mô một năm học, đường này từng tốn 8.218 câu truy vấn.
+    const anhTheoAlbum = photosOfNhieu(albums.map(a => a.id));
+    const theoNhom = {};
+    for (const a of albums) {
+      (theoNhom[a.classId] = theoNhom[a.classId] || []).push(...(anhTheoAlbum.get(a.id) || []));
+    }
+    const daLoc = locAnhChoNguoiXemNhieuNhom(theoNhom, req.user);
+    const xemDuocTheoAlbum = new Map();
+    for (const c of Object.keys(daLoc)) {
+      const cho = new Set((daLoc[c] || []).map(x => x.id));
+      for (const a of albums) {
+        if (a.classId !== c) continue;
+        xemDuocTheoAlbum.set(a.id, (anhTheoAlbum.get(a.id) || []).filter(x => cho.has(x.id)));
+      }
+    }
+
     const list = albums.map(a => {
       const cls = db.findClass(a.classId);
       return {
@@ -282,7 +332,7 @@ module.exports = (app) => {
         // ảnh bị ẩn bên trong vẫn hiện ngay ngoài danh sách, to bằng nửa màn
         // hình. Và số đếm phải là số ảnh NGƯỜI NÀY xem được, không phải tổng.
         ...(() => {
-          const xemDuoc = locAnhChoNguoiXem(photosOf(a.id), req.user, a.classId);
+          const xemDuoc = xemDuocTheoAlbum.get(a.id) || [];
           return { photoCount: xemDuoc.length, cover: xemDuoc[0] || null };
         })(),
       };
