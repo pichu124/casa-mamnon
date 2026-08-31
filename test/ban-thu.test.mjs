@@ -113,6 +113,47 @@ console.log('\n[4] MẬT KHẨU MẪU PHẢI ĐƯỢC ĐỔI — buổi thử ha
 }
 
 // ===========================================================================
+console.log('\n[4b] BÀN THỬ PHẢI CÓ ĐỦ BA CẤP, KHÔNG CHỈ BAN GIÁM HIỆU');
+{
+  // Tầng phân quyền chia người của trường làm ba cấp. Bàn thử trước đợt này
+  // chỉ dựng MỘT tài khoản Cấp 1, nên suốt các buổi thử không ai bấm thử hai
+  // cấp còn lại — mà đó lại là chỗ dễ sai nhất: sai kiểu "thấy quá nhiều" thì
+  // màn hình vẫn chạy trơn, không có gì báo, và người thử cũng không có cách
+  // nào nhận ra.
+  const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const cv = new Map(conn.prepare(
+    `SELECT u.username AS u, c.chucVu AS c FROM user_chucvu c
+       JOIN users u ON u.id = c.userId`).all().map(r => [r.u, r.c]));
+  const coSo = new Map(conn.prepare(
+    `SELECT u.username AS u, k.campusId AS cs FROM user_campus k
+       JOIN users u ON u.id = k.userId`).all().map(r => [r.u, r.cs]));
+  conn.close();
+
+  // Viết tay như danh sách phân hệ đã tắt ở trên: bài canh phải nói "bàn thử
+  // dựng đúng những vai NHÀ TRƯỜNG có", không phải "dựng đúng như mã đang viết".
+  const CAN_CO = [
+    ['vanphong1', 'vanphong-coso'],
+    ['nhansu', 'nhansu'],
+    ['ketoan', 'ketoan'],
+    ['marketing', 'marketing'],
+  ];
+  const thieu = CAN_CO.filter(([ten, ma]) => cv.get(ten) !== ma);
+  check('BÀN THỬ DỰNG ĐỦ TÀI KHOẢN CẤP 2 VÀ CẤP 3',
+    thieu.length === 0, thieu.map(([t, m]) => `${t} cần ${m}, thực tế ${cv.get(t) || '(không có)'}`));
+  check('và văn phòng cơ sở bị KHOÁ VÀO một cơ sở — nếu không thì nó là Cấp 1 trá hình',
+    coSo.get('vanphong1') === 'cs1', coSo.get('vanphong1') || '(không khoá)');
+  check('còn ba vai Cấp 2 thì KHÔNG khoá cơ sở — họ làm việc trên cả trường',
+    ['nhansu', 'ketoan', 'marketing'].every(t => !coSo.get(t)),
+    ['nhansu', 'ketoan', 'marketing'].map(t => `${t}:${coSo.get(t) || '-'}`));
+
+  // Và bảng in ra phải nói cho người tổ chức biết bốn tài khoản đó tồn tại.
+  // Dựng ra mà không in thì cũng như không dựng.
+  for (const [ten] of CAN_CO) {
+    check(`bảng tài khoản in ra có ${ten}`, new RegExp(`\\b${ten}\\b`).test(chu), false);
+  }
+}
+
+// ===========================================================================
 console.log('\n[5] HAI CHỐT CHẶN AN TOÀN');
 {
   const that = spawnSync('node', [path.join(GOC, 'scripts', 'ban-thu.js'), '--thu-muc', DIR],

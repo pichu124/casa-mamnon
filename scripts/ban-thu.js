@@ -205,6 +205,46 @@ if (!db.findUserByUsername(tenQT)) {
   const u = db.findUserByUsername(tenQT);
   db.update('users', u.id, { passwordHash: password.hash(mkQT), mustChangePassword: 1 });
 }
+// 5. Tài khoản Cấp 2 và Cấp 3.
+//
+// VÌ SAO BÀN THỬ PHẢI CÓ ĐỦ BA CẤP
+//
+// Tầng phân quyền chia người của trường làm ba cấp: ban giám hiệu thấy cả
+// trường (Cấp 1), nhân sự / kế toán / marketing thấy đúng phần việc của mình
+// trên cả trường (Cấp 2), quản lý và văn phòng thấy trọn một cơ sở (Cấp 3).
+// Trước đợt này bàn thử chỉ có MỘT tài khoản Cấp 1, nên suốt các buổi thử
+// không ai từng bấm thử hai cấp còn lại — mà đó chính là chỗ dễ sai nhất, vì
+// sai kiểu "thấy quá nhiều" thì màn hình vẫn chạy trơn, không có gì báo.
+//
+// Bốn tài khoản dưới đây dùng chung mật khẩu với cô và gia đình: bàn thử là
+// máy trong mạng nội bộ, dựng xong dùng một buổi rồi xoá.
+const CAP_KHAC = [
+  ['vanphong1', 'Văn phòng Cơ sở 1', 'vanphong-coso', 'cs1'],
+  ['nhansu', 'Nhân sự (bàn thử)', 'nhansu', null],
+  ['ketoan', 'Kế toán (bàn thử)', 'ketoan', null],
+  ['marketing', 'Marketing (bàn thử)', 'marketing', null],
+];
+for (const [ten, hoTen, maChucVu, coSo] of CAP_KHAC) {
+  let u = db.findUserByUsername(ten);
+  if (!u) {
+    const id = db.nextId('ad');
+    db.insert('users', {
+      id, username: ten, passwordHash: password.hash(mkChung), role: 'admin',
+      name: hoTen, title: '', phone: '', email: '',
+      // BUỘC ĐỔI MẬT KHẨU y như tài khoản ban giám hiệu. Đây là tài khoản
+      // QUẢN TRỊ dùng chung một mật khẩu vừa in ra màn hình; buổi thử lại hay
+      // chạy qua một đường hầm công khai. `test/ban-thu.test.mjs` canh đúng
+      // điều này cho MỌI tài khoản quản trị, không trừ tài khoản nào.
+      mustChangePassword: 1, active: 1, createdAt: new Date().toISOString(),
+    });
+    u = db.findUserByUsername(ten);
+  } else {
+    db.update('users', u.id, { passwordHash: password.hash(mkChung), mustChangePassword: 1 });
+  }
+  db.datChucVu(u.id, maChucVu);
+  db.setUserCampus(u.id, coSo);
+}
+
 console.log('\n[4/4] Tài khoản quản trị: sẵn sàng.');
 db.close();
 
@@ -230,6 +270,12 @@ console.log(`  Quản trị    ${tenQT} / ${mkQT}   (bị buộc đổi mật kh
 console.log(`  Cô          giaovien / ${mkChung}      — nhóm Chồi 2`);
 console.log(`  Cô          giaovien4 / ${mkChung}     — nhóm Nhà trẻ 1 (có thay bỉm, bú bình)`);
 console.log(`  Gia đình    phuhuynh / ${mkChung}      — mẹ của bé An (Chồi 2) và bé Ngọc (Lá 1)`);
+console.log('');
+console.log('  Bốn tài khoản dưới đây cũng bị buộc đổi mật khẩu khi đăng nhập lần đầu.');
+console.log(`  Cấp 3       vanphong1 / ${mkChung}     — Văn phòng Cơ sở 1: chỉ thấy bé của cơ sở 1`);
+console.log(`  Cấp 2       nhansu / ${mkChung}        — tài khoản và danh sách cô, KHÔNG mở được hồ sơ bé`);
+console.log(`  Cấp 2       ketoan / ${mkChung}        — học phí và tiền ăn`);
+console.log(`  Cấp 2       marketing / ${mkChung}     — chỉ thấy ảnh mà MỌI bé trong ảnh đều đồng ý truyền thông`);
 console.log('\n  Mật khẩu trên chỉ in MỘT LẦN ở đây. Chép lại trước khi đóng cửa sổ.');
 
 console.log('\nĐỊA CHỈ');
