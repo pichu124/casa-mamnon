@@ -54,6 +54,7 @@ App.views.student = {
     // Giấy đồng ý nạp riêng và nuốt lỗi: hồ sơ bé là màn quan trọng hơn, không
     // được trắng chỉ vì phần này hỏng.
     const gd = await API.get(`/api/dong-y?studentId=${encodeURIComponent(current.id)}`).catch(() => null);
+    const lichSu = await this.lichSuNhom(current.id);
     root.innerHTML = `
       ${UI.pageHeader('Hồ sơ của bé')}
       ${UI.studentBar()}${UI.thanhChonBe()}
@@ -81,6 +82,7 @@ App.views.student = {
         ${infoRow('Nhóm', `${s.className}${s.room ? ` · ${s.room}` : ''}`)}
         ${infoRow('Cô phụ trách', s.teacherNames || s.teacherName)}
         ${this.theLienHeTruong(s)}
+        ${this.theLichSuNhom(lichSu)}
         <button class="btn primary block mt-14" onclick="location.hash='#/messages'">${UI.icon('chat', 18)} Nhắn tin với cô</button>
       </div>
 
@@ -176,6 +178,43 @@ App.views.student = {
   // cầm điện thoại, còn văn phòng thì luôn có người nghe. Muốn nhắn riêng cho
   // cô thì đã có nút Nhắn tin ngay bên dưới — nó vào đúng hộp thư của cô, và có
   // lưu lại, khác hẳn một cuộc gọi không ai nhớ nội dung.
+  // ---- Nhóm của bé qua các năm ----
+  //
+  // Nhà trường ghi lại bé từng học nhóm nào, năm nào — mỗi lần chuyển năm học
+  // là một khoảng mới. Trước đợt này chỗ ghi đã có nhưng KHÔNG MÀN HÌNH NÀO
+  // đọc, nên không ai kiểm chứng được là nó đang ghi đúng: một bảng chỉ ghi mà
+  // không ai nhìn thì hỏng lúc nào cũng không biết, và tới lúc cần tra lại một
+  // bé đã ra trường thì đã muộn.
+  //
+  // Nuốt lỗi có chủ ý: đây là phần phụ của hồ sơ bé. Hỏng thì mất một khối,
+  // không được làm trắng cả màn hình.
+  async lichSuNhom(studentId) {
+    return API.get(`/api/schoolyear/lich-su-lop?studentId=${encodeURIComponent(studentId)}`)
+      .catch(() => []);
+  },
+
+  // Chỉ hiện khi bé đã qua từ HAI năm trở lên. Bé mới vào thì khối này chẳng
+  // nói thêm được gì so với dòng "Nhóm" ngay bên trên.
+  //
+  // Và KHÔNG viết "đây là năm đầu của con ở trường" cho trường hợp một khoảng:
+  // trường mới dùng app thì mọi bé đều chỉ có một khoảng, kể cả bé đã học ba
+  // năm. Nói vậy là app tự bịa ra một điều nó không biết.
+  theLichSuNhom(ds) {
+    const ls = Array.isArray(ds) ? ds : [];
+    if (ls.length < 2) return '';
+    return `
+      <div class="mt-14">
+        <div class="row-sub">Nhóm qua các năm</div>
+        ${ls.map(k => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(k.className || 'Chưa rõ nhóm')}</div>
+              <div class="row-sub">Năm học ${UI.esc(k.year)}${k.hienTai ? ' · đang học' : ''}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  },
+
   theLienHeTruong(s) {
     const t = s.lienHeTruong || {};
     if (!t.hotline && !t.email && !t.tenCoSo) return '';
@@ -235,6 +274,7 @@ App.views.student = {
   async showDetail(id) {
     try {
       const s = await API.get(`/api/students/${id}`);
+      const lichSu = await this.lichSuNhom(id);
       UI.modal(`
         <div class="center">${UI.avatar(s.avatar, 68)}<h3 class="mt-8">${UI.esc(s.name)}</h3>
           <div class="muted small">${UI.esc(s.code)} · ${UI.esc(s.className)}</div></div>
@@ -248,6 +288,7 @@ App.views.student = {
             + (p.soCccd ? infoRow(`CCCD của ${p.title} ${p.name}`, p.soCccd) : '')).join('')}
           ${(s.lienHeKhanCap || []).map(x => infoRow(
             `Khẩn cấp: ${x.hoTen}${x.quanHe ? ` (${x.quanHe})` : ''}`, x.dienThoai)).join('')}
+          ${this.theLichSuNhom(lichSu)}
         </div>`, 'Hồ sơ của bé');
     } catch (err) { UI.toast(err.message, 'error'); }
   },

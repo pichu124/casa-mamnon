@@ -243,6 +243,38 @@ console.log('\n[7] QUYỀN CỦA CÔ TRÊN NHÓM ĐÃ ĐÓNG — cắt thật, n
     (dsBe2.data || []).map(b => b.classId));
 }
 
+// ===========================================================================
+console.log('\n[+] LỊCH SỬ NHÓM QUA CÁC NĂM — có màn hình đọc, không phải bảng chỉ ghi');
+{
+  // Bảng lịch sử nhóm được ghi mỗi lần chuyển năm học. Trước đợt này KHÔNG màn
+  // hình nào đọc nó: một bảng chỉ ghi mà không ai nhìn thì hỏng lúc nào cũng
+  // không biết, và tới lúc thật sự cần tra lại một bé đã ra trường thì đã muộn.
+  //
+  // Hai vế phải cùng đúng: đường đọc trả về đủ các năm, VÀ có màn hình gọi nó.
+  const be = 's1';
+  const ls = await req('GET', `/api/schoolyear/lich-su-lop?studentId=${be}`, { cookie: A.cookie });
+  check('đường đọc lịch sử nhóm trả lời được', ls.status === 200, ls.status);
+  check('BÉ ĐÃ QUA HAI LẦN CHUYỂN NĂM THÌ CÓ NHIỀU HƠN MỘT KHOẢNG',
+    (ls.data || []).length >= 2, (ls.data || []).map(k => `${k.year}:${k.className}`));
+  check('mỗi khoảng đều có năm học và tên nhóm để màn hình dựng được',
+    (ls.data || []).every(k => k.year && k.className),
+    (ls.data || []).filter(k => !k.year || !k.className));
+  check('đúng MỘT khoảng đang mở — năm hiện hành',
+    (ls.data || []).filter(k => k.hienTai).length === 1,
+    (ls.data || []).map(k => `${k.year}:${k.hienTai ? 'mở' : 'đóng'}`));
+
+  const manHinh = fs.readFileSync(`${GOC}/public/js/views/student.js`, 'utf8');
+  check('CÓ MÀN HÌNH GỌI ĐƯỜNG NÀY — hồ sơ của bé',
+    manHinh.includes('/api/schoolyear/lich-su-lop'),
+    'Không thấy chuỗi "/api/schoolyear/lich-su-lop" trong public/js/views/student.js');
+  check('và gọi kèm mã của bé, không gọi trống',
+    /lich-su-lop\?studentId=/.test(manHinh));
+  // Cả gia đình lẫn cô đều mở được — hai chỗ, không phải một.
+  check('cả ô hồ sơ bé của cô cũng dựng khối này',
+    (manHinh.match(/theLichSuNhom\(lichSu\)/g) || []).length === 2,
+    (manHinh.match(/theLichSuNhom\(lichSu\)/g) || []).length);
+}
+
 server.kill('SIGTERM');
 await new Promise(r => setTimeout(r, 500));
 donThuMucTam(DIR);
