@@ -307,6 +307,25 @@ console.log('\n[10] Kế hoạch — GVCN soạn tháng tới, sửa lại khôn
   check('kế hoạch tháng hiện tại không bị đụng tới',
     (sau.plan ? sau.plan.theme : null) === chuDeThangNay, sau.plan?.theme);
 
+  // KẾ HOẠCH VỪA SOẠN CHO THÁNG SAU PHẢI CÓ ĐƯỜNG RA MÀN HÌNH
+  //
+  // Cô soạn kế hoạch tháng sau vào cuối tháng này — đó là cách duy nhất soạn
+  // kịp. Trước đợt này câu trả lời chỉ có `plan` của ĐÚNG tháng hiện tại, nên
+  // bản vừa lưu xong không hiện ở đâu cả và màn hình ghi "Chưa có kế hoạch
+  // giáo dục cho tháng này". Cô không phân biệt được "app chưa lưu" với "app
+  // lưu rồi nhưng chưa tới lúc hiện" nên soạn lại lần nữa.
+  check('KẾ HOẠCH THÁNG SAU CÓ ĐƯỜNG RA MÀN HÌNH',
+    !!sau.planSapToi, sau.planSapToi);
+  check('và đúng là tháng gần nhất còn ở phía trước',
+    sau.planSapToi && sau.planSapToi.year === namSau && sau.planSapToi.month === thangSau,
+    sau.planSapToi && { year: sau.planSapToi.year, month: sau.planSapToi.month });
+  check('`plan` giữ nguyên nghĩa cũ — vẫn là tháng ĐANG chạy, không bị thay bằng tháng sau',
+    (sau.plan ? sau.plan.theme : null) === chuDeThangNay, sau.plan?.theme);
+
+  const manHinh = fs.readFileSync(`${GOC}/public/js/views/plans.js`, 'utf8');
+  check('màn Kế hoạch có dựng phần "kế hoạch tháng sau"',
+    manHinh.includes('planSapToi'),
+    'Không thấy chuỗi "planSapToi" trong public/js/views/plans.js');
 }
 
 console.log('\n[11] Kế hoạch — quản trị soạn lớp bất kỳ, phụ huynh thấy ngay');

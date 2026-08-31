@@ -373,6 +373,35 @@ console.log('\n[10] Chủ đề tuần — soạn được, chép được tuầ
 
   const ph = (await hoSo(PH)).chuDeTuan;
   check('gia đình đọc được chủ đề tuần của nhóm con', ph?.chuDe === 'Nước và những thứ nổi', ph);
+
+  // MÀN HÌNH PHẢI SOẠN ĐƯỢC CHO TUẦN SAU, KHÔNG CHỈ TUẦN ĐANG CHẠY
+  //
+  // Nếp của trường: thứ Sáu gửi thực đơn VÀ chủ đề học tập tuần tới cho gia
+  // đình. Máy chủ nhận `tuan` từ đầu — ba đường ngay trên đây đều nhận — nhưng
+  // màn hình không bao giờ gửi, nên nó luôn soạn cho tuần đang chạy. Tức là
+  // thứ Sáu, đúng hôm phải soạn tuần sau, lại là hôm DUY NHẤT không soạn được;
+  // cô phải chờ tới thứ Hai, mà thứ Hai thì gia đình đã cần biết rồi.
+  //
+  // Canh ở tầng chữ vì đây là chỗ hỏng: một máy chủ đúng cộng một màn hình
+  // không bao giờ dùng tới cái đúng đó.
+  const manChuDe = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
+  check('MÀN CHỦ ĐỀ TUẦN CÓ Ô CHỌN TUẦN', /oChonTuan\s*\(/.test(manChuDe), 'thiếu oChonTuan');
+  check('và chọn được cả tuần này lẫn tuần sau',
+    /'Tuần này'/.test(manChuDe) && /'Tuần sau'/.test(manChuDe));
+  check('lượt LƯU chủ đề gửi kèm tuần đang soạn',
+    /chu-de',\s*\{[\s\S]{0,120}?tuan:\s*this\._tuan/.test(manChuDe), 'PUT không gửi tuan');
+  check('lượt CHÉP tuần trước cũng gửi kèm tuần đang soạn',
+    /chep-tuan-truoc',\s*\n?\s*\{[\s\S]{0,120}?tuan:\s*this\._tuan/.test(manChuDe),
+    'POST chép không gửi tuan');
+  check('và lượt ĐỌC cũng hỏi đúng tuần đang soạn',
+    /chu-de\?classId=\$\{encodeURIComponent\(this\._classId\)\}`[\s\S]{0,80}?tuan=/.test(manChuDe),
+    'GET không gửi tuan');
+  check('THỨ SÁU CÓ LỜI NHẮC soạn chủ đề tuần sau',
+    /nhacThuSau\s*\(/.test(manChuDe) && /getDay\(\)\s*!==\s*5/.test(manChuDe), 'thiếu nhắc thứ Sáu');
+  check('và lời nhắc thực đơn của văn phòng cũng nói tới chủ đề học tập',
+    /chủ đề học tập tuần tới/.test(
+      fs.readFileSync(path.join(GOC, 'public/js/views/menu.js'), 'utf8')),
+    'lời nhắc thứ Sáu ở màn Thực đơn chỉ nói mỗi thực đơn');
   check('kèm gợi ý cùng con ở nhà', /thả thìa/.test(ph?.cungConONha || ''), ph);
 }
 

@@ -51,8 +51,27 @@ App.views.plans = {
       ${UI.pageHeader('Kế hoạch giáo dục', suaDuoc ? { action: { id: 'btn-soan-kh', label: 'Soạn kế hoạch', icon: 'edit' } } : {})}
       ${UI.studentBar()}${UI.thanhChonBe()}
       ${this.oChonNhom(dsNhom)}
-      ${data.plan ? this.renderPlan(data.plan) : UI.emptyState('📖', 'Chưa có kế hoạch giáo dục cho tháng này')}`;
+      ${this.thanKeHoach(data)}`;
     if (suaDuoc) document.getElementById('btn-soan-kh').onclick = () => this.moSoan();
+  },
+
+  // Thân màn hình: kế hoạch tháng này, hoặc kế hoạch tháng sau nếu đã soạn.
+  //
+  // Cô soạn kế hoạch tháng sau vào cuối tháng này — soạn xong mà màn hình vẫn
+  // ghi "Chưa có kế hoạch giáo dục cho tháng này" thì cô tưởng app không lưu
+  // được và soạn lại. Nói rõ ra là đủ; không cần cô phải nhớ.
+  thanKeHoach(data) {
+    if (data.plan) return this.renderPlan(data.plan);
+    if (data.planSapToi) {
+      const p = data.planSapToi;
+      return `
+        <div class="card" style="border-left:4px solid var(--primary)">
+          <div class="small">Tháng này chưa có kế hoạch. Dưới đây là kế hoạch
+          <b>tháng ${UI.esc(String(p.month))}/${UI.esc(String(p.year))}</b> đã soạn sẵn.</div>
+        </div>
+        ${this.renderPlan(p)}`;
+    }
+    return UI.emptyState('📖', 'Chưa có kế hoạch giáo dục cho tháng này');
   },
 
   // Ô chọn nhóm — chỉ hiện khi cô phụ trách nhiều hơn một nhóm.

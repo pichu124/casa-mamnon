@@ -1,6 +1,7 @@
 // Phân hệ Kế hoạch giáo dục tháng của lớp: phụ huynh xem, GVCN/quản trị soạn.
 const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
+const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
@@ -58,12 +59,28 @@ module.exports = (app) => {
     if (!db.canAccessClass(req.user, classId)) {
       return res.status(403).json({ error: 'Không có quyền xem kế hoạch của nhóm này' });
     }
-    const now = new Date();
+    // "Tháng này" theo giờ Việt Nam, không theo giờ của máy chủ (Đ2).
+    const [nam, thang] = ngay.thangNay().split('-').map(Number);
     const plans = db.all('edu_plans',
       'SELECT * FROM edu_plans WHERE classId = ? ORDER BY year DESC, month DESC', [classId])
       .map(decorate);
-    const plan = plans.find(p => p.month === now.getMonth() + 1 && p.year === now.getFullYear()) || null;
-    res.json({ plan, plans });
+    const plan = plans.find(p => p.month === thang && p.year === nam) || null;
+
+    // KẾ HOẠCH THÁNG SAU CŨNG PHẢI CÓ ĐƯỜNG RA MÀN HÌNH
+    //
+    // Cô soạn kế hoạch tháng 9 vào cuối tháng 8 — đó là cách duy nhất soạn
+    // kịp. Trước đợt này câu trả lời chỉ có `plan` của ĐÚNG tháng hiện tại,
+    // nên bản vừa soạn xong biến mất khỏi màn hình và chỗ đó ghi "Chưa có kế
+    // hoạch giáo dục cho tháng này". Cô không phân biệt được "app chưa lưu"
+    // với "app lưu rồi nhưng chưa tới lúc hiện", nên soạn lại lần nữa.
+    //
+    // THÊM một khoá mới bên cạnh, KHÔNG đổi ý nghĩa của `plan` — màn hình cũ
+    // và mọi bài kiểm thử đang dựa vào nó vẫn chạy y như trước.
+    const sapToi = plans
+      .filter(p => p.year > nam || (p.year === nam && p.month > thang))
+      .sort((a, b) => a.year - b.year || a.month - b.month)[0] || null;
+
+    res.json({ plan, planSapToi: sapToi, plans });
   });
 
   // GVCN soạn kế hoạch tháng cho lớp mình; quản trị soạn cho lớp bất kỳ.

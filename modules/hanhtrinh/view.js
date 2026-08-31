@@ -433,8 +433,12 @@ App.views.hanhtrinh = {
       than.innerHTML = UI.emptyState('🌱', 'Cô chưa phụ trách nhóm nào.');
       return;
     }
-    const d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(this._classId)}`);
+    // Tuần đang soạn. Mặc định là tuần này; cô chuyển sang tuần sau được.
+    this._tuan = this._tuan || this.thuHaiCua(UI.todayStr());
+    const d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(this._classId)}`
+      + `&tuan=${encodeURIComponent(this._tuan)}`);
     const c = d.chuDe || {};
+    const nhac = await this.nhacThuSau();
 
     than.innerHTML = `
       ${nhom.length > 1 ? `
@@ -446,8 +450,10 @@ App.views.hanhtrinh = {
             </select>
           </div>
         </div>` : ''}
+      ${nhac}
       <div class="card">
         <div class="card-title">Tuần từ ${UI.esc(UI.fmtDate(d.tuan, { weekday: false }))}</div>
+        ${this.oChonTuan()}
         <div class="field">
           <label>Chủ đề tuần</label>
           <input id="ht-cd-ten" value="${UI.esc(c.chuDe || '')}" placeholder="Ví dụ: Nước và những thứ nổi">
@@ -474,12 +480,90 @@ App.views.hanhtrinh = {
     document.getElementById('ht-cd-luu').onclick = () => this.luuChuDe();
     const chep = document.getElementById('ht-cd-chep');
     if (chep) chep.onclick = () => this.chepTuanTruoc();
+    for (const nut of than.querySelectorAll('[data-tuan]')) {
+      nut.onclick = () => this.chonTuan(nut.getAttribute('data-tuan'));
+    }
+  },
+
+  // ---- Tuần nào đang soạn ----
+  //
+  // VÌ SAO PHẢI CHỌN ĐƯỢC TUẦN
+  //
+  // Nếp của trường: thứ Sáu gửi thực đơn VÀ chủ đề học tập của tuần tới cho
+  // gia đình. Nhưng màn này trước đây luôn soạn cho TUẦN ĐANG CHẠY — nghĩa là
+  // thứ Sáu, đúng hôm phải soạn tuần sau, lại là hôm duy nhất không soạn được.
+  // Cô chỉ còn cách chờ tới thứ Hai, mà thứ Hai thì gia đình đã cần biết rồi.
+  //
+  // Máy chủ vẫn nhận `tuan` từ đầu; chỗ thiếu nằm ở màn hình.
+  thuHaiCua(ngayChuoi) {
+    const d = UI.parseDate(ngayChuoi);
+    if (!d) return '';
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));   // T2 = 0 … CN = 6
+    return this.chuoiNgay(d);
+  },
+
+  themNgay(ngayChuoi, soNgay) {
+    const d = UI.parseDate(ngayChuoi);
+    if (!d) return '';
+    d.setDate(d.getDate() + soNgay);
+    return this.chuoiNgay(d);
+  },
+
+  chuoiNgay(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      + `-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  oChonTuan() {
+    const nay = this.thuHaiCua(UI.todayStr());
+    const sau = this.themNgay(nay, 7);
+    const nut = (tuan, nhan) => `
+      <button class="btn ${this._tuan === tuan ? 'primary' : 'outline'}" data-tuan="${UI.esc(tuan)}">
+        ${UI.esc(nhan)}
+      </button>`;
+    return `<div class="grid-2" style="margin-bottom:12px">${nut(nay, 'Tuần này')}${nut(sau, 'Tuần sau')}</div>`;
+  },
+
+  chonTuan(tuan) {
+    if (!tuan || tuan === this._tuan) return;
+    this._tuan = tuan;
+    App.route();
+  },
+
+  // NHẮC VÀO THỨ SÁU — nhắc, không chặn.
+  //
+  // Cùng cách làm với lời nhắc thực đơn ở màn Thực đơn: chặn không cho làm
+  // việc khác cho tới khi soạn xong là biến một nếp tốt thành cái cửa khoá,
+  // và thứ Sáu là hôm bận nhất.
+  //
+  // Chỉ hỏi máy chủ vào đúng thứ Sáu: ngày thường thì không tốn thêm lần gọi
+  // nào, và cũng không có gì để nhắc.
+  async nhacThuSau() {
+    const homNay = UI.todayStr();
+    const t = UI.parseDate(homNay);
+    if (!t || t.getDay() !== 5) return '';
+    const tuanSau = this.themNgay(this.thuHaiCua(homNay), 7);
+    if (this._tuan === tuanSau) return '';
+    const d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(this._classId)}`
+      + `&tuan=${encodeURIComponent(tuanSau)}`).catch(() => null);
+    if (!d || d.chuDe) return '';
+    return `
+      <div class="card" style="border-left:4px solid var(--warning)">
+        <div class="small" style="line-height:1.7">
+          Hôm nay thứ Sáu, và <b>tuần sau chưa có chủ đề</b>. Nhà trường hẹn gửi
+          chủ đề tuần tới cho gia đình vào hôm nay, cùng lúc với thực đơn.
+        </div>
+        <button class="btn outline block mt-8" data-tuan="${UI.esc(tuanSau)}">
+          ${UI.icon('edit', 16)} Soạn chủ đề tuần sau
+        </button>
+      </div>`;
   },
 
   async luuChuDe() {
     try {
       await API.put('/api/hanhtrinh/chu-de', {
         classId: this._classId,
+        tuan: this._tuan,
         chuDe: document.getElementById('ht-cd-ten').value.trim(),
         moTa: document.getElementById('ht-cd-mota').value.trim(),
         cungConONha: document.getElementById('ht-cd-nha').value.trim(),
@@ -491,7 +575,8 @@ App.views.hanhtrinh = {
 
   async chepTuanTruoc() {
     try {
-      const r = await API.post('/api/hanhtrinh/chu-de/chep-tuan-truoc', { classId: this._classId });
+      const r = await API.post('/api/hanhtrinh/chu-de/chep-tuan-truoc',
+        { classId: this._classId, tuan: this._tuan });
       UI.toast(`Đã chép chủ đề tuần ${UI.fmtDate(r.chepTu, { weekday: false })}`, 'success');
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }

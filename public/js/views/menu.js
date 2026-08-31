@@ -158,6 +158,8 @@ App.views.menu = {
         <div class="small" style="line-height:1.7">
           Hôm nay thứ Sáu. Tuần sau còn <b>${UI.esc(String(5 - daSoan))} ngày</b> chưa có thực đơn —
           nhà trường hẹn đăng thực đơn tuần tới vào hôm nay để gia đình biết trước.
+          <div class="mt-8">Nếp của trường gồm hai việc trong cùng một hôm: thực đơn ở màn này,
+          và <b>chủ đề học tập tuần tới</b> do cô soạn ở màn Hành trình.</div>
         </div>
       </div>`;
   },
