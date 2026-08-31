@@ -354,9 +354,11 @@ module.exports = (app) => {
   // của cô vẫn in dòng "Gia đình đã thấy ảnh". Đo bằng HTTP thật trên bàn thử
   // 31/08: tải lên trả 201, tải về trả 200 + text/html + 2977 byte.
   //
-  // CÁCH VÁ NHANH NHẤT LÀ CÁCH SAI. Thêm một dòng
-  // `app.use('/uploads', express.static(DATA_DIR/uploads))` là xong trong ba
-  // giây — và là mở TOÀN BỘ thư mục ảnh cho bất kỳ ai biết một tên tệp. Thư
+  // CÁCH VÁ NHANH NHẤT LÀ CÁCH SAI. Gắn thư mục ảnh thành đường tĩnh là xong
+  // trong ba giây — và là mở TOÀN BỘ thư mục ảnh cho bất kỳ ai biết một tên
+  // tệp. (Chú thích này cố ý KHÔNG viết ra nguyên văn lệnh ấy: bộ canh
+  // `test:anh-canh-quyen` quét cả chú thích, và nó đúng khi làm vậy — một bộ
+  // canh có ngoại lệ "trong chú thích thì không tính" là một bộ canh có lỗ.) Thư
   // mục đó dùng chung cho ảnh album, ảnh Cambridge, ảnh người được đón, ảnh
   // quan sát Hành trình và ảnh Ghi nhanh. Tên tệp không phải bí mật: nó nằm
   // sẵn trong gói JSON mà mọi gia đình đã nhận. Một dòng đó đi vòng qua
