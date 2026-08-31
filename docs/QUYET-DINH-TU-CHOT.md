@@ -568,7 +568,7 @@ hoặc phải làm lại quy trình — đắt hơn nhiều so với chờ một
 | # | Câu hỏi | Chặn việc gì |
 |---|---|---|
 | N7 | Đăng ký VPS Việt Nam + tên miền đứng tên trường | Chặn N1, N13, N14 và toàn bộ phần triển khai |
-| N17 | Ba cơ sở nấu bếp chung hay nấu riêng? | Bảng `menus` đang là một thực đơn cho cả trường. Nấu riêng thì phải **thêm cột cơ sở trước**, mở đường ra trước là người sửa sau ghi đè người sửa trước, âm thầm, mỗi ngày |
+| ~~N17~~ | ~~Ba cơ sở nấu bếp chung hay nấu riêng?~~ | **Đã trả lời 30/08: NẤU RIÊNG.** Làm ở Đ90 + Đ91, đúng thứ tự dòng cũ đòi — thêm bảng theo cơ sở trước, mở đường ra sau |
 | — | Duyệt bảng thuật ngữ 5 trạng thái đánh giá | Chữ đang dùng là đề xuất trong bản kế hoạch |
 | — | Nội dung tờ Cambridge & Kết nối ở nhà gồm những gì | Lược đồ đang để rộng có chủ ý; chốt rồi mới thêm ô được |
 | — | Mẫu báo cáo phòng GD yêu cầu | Chưa có mẫu thì không xuất đúng mẫu được |
