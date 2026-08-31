@@ -123,17 +123,49 @@ function publicUser(u) {
   return rest;
 }
 
+// CHỨC VỤ KHÔNG ĐƯỢC MỞ HỒ SƠ BÉ THÌ ĐƯỜNG NÀY CŨNG KHÔNG ĐƯỢC ĐƯA RA.
+//
+// `/api/auth` mở cho MỌI chức vụ — cắt nó là app trắng màn hình ngay sau khi
+// đăng nhập, nên tầng chức vụ tự miễn trừ đường này (lib/modules.js). Lời khai
+// đi kèm chỗ miễn trừ ấy là "hai đường đầu nói về chính người đang đăng nhập".
+// Với `mePayload` thì lời khai đó SAI: nó trải `...s` — tức trọn một dòng của
+// bảng `students`, gồm địa chỉ nhà, nhóm máu và tiền sử bệnh của trẻ.
+//
+// Đo thật bằng tài khoản Kế toán: `/api/students` trả 403 đúng như thiết kế,
+// còn `/api/auth/me` trả về đủ 11 bé kèm địa chỉ, nhóm máu, dị ứng. Mà chính
+// `lib/db.js` mô tả vai Kế toán là "KHÔNG cần và KHÔNG mở được hồ sơ bé".
+//
+// Nên: chức vụ nào có khai danh sách api mà trong đó KHÔNG có `/api/students`
+// thì danh sách bé bị cắt xuống đúng những trường màn hình cần để dựng ô chọn
+// bé — mã, tên, ảnh đại diện, nhóm. Cấp 1 và Quản lý cơ sở (api = null, tức
+// toàn quyền) cùng Văn phòng cơ sở (có `/api/students` trong danh sách) không
+// đổi một chữ nào.
+const TRUONG_TOI_THIEU = ['id', 'name', 'avatar', 'classId', 'className'];
+
+function catChoChucVuKhongMoHoSo(s) {
+  const ra = {};
+  for (const k of TRUONG_TOI_THIEU) ra[k] = s[k];
+  return ra;
+}
+
+function duocDocHoSoBe(user) {
+  const api = db.apiChoPhep(user);
+  return api === null || api.includes('/api/students');
+}
+
 // Gói dữ liệu trả về sau đăng nhập: người dùng + học sinh liên quan + lớp + trường.
 function mePayload(user) {
+  const day = duocDocHoSoBe(user);
   const students = db.studentsOf(user).map(s => {
     const cls = s.classId ? db.findClass(s.classId) : null;
     const co = nl.tomTat(s.classId);
-    return {
+    const gop = {
       ...s,
       className: cls ? cls.name : '',
       ...co,
       teacherId: co.teachers[0] ? co.teachers[0].id : null,
     };
+    return day ? gop : catChoChucVuKhongMoHoSo(gop);
   });
   // Nhóm lớp của cô đi kèm ngay từ lúc đăng nhập, để giao diện không phải đoán
   // qua `user.classId` — cột đó chỉ chứa nổi MỘT nhóm, còn cô mầm non có thể

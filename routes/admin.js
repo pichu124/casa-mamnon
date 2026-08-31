@@ -685,6 +685,18 @@ module.exports = (app) => {
       if (req.body.classId && !db.findClass(req.body.classId)) {
         return res.status(400).json({ error: 'Nhóm lớp không tồn tại' });
       }
+      // CƠ SỞ CỦA NHÓM ĐÍCH, KHÔNG CHỈ CƠ SỞ CỦA BÉ.
+      //
+      // `duocChamBe` ở trên tra theo nhóm HIỆN TẠI của bé, nên nó chỉ trả lời
+      // được câu "bé này có thuộc cơ sở của mình không". Thiếu chốt dưới đây
+      // thì quản trị Cấp 3 chuyển được một bé sang nhóm của cơ sở KHÁC — và
+      // chuyển xong là mất luôn, vì lượt kéo về sẽ vướng đúng `duocChamBe`.
+      // Một chiều: đẩy đi được, kéo về 404.
+      //
+      // Đường anh em `POST /api/admin/teachers` đã có đúng chốt này từ đầu.
+      if (req.body.classId && !duocChamNhom(req.user, req.body.classId)) {
+        return khongThuocCoSo(res, 'nhóm lớp');
+      }
       patch.classId = req.body.classId || null;
     }
     // Ghi vết chuyển lớp TRƯỚC khi ghi đè, để còn đọc được lớp cũ. Không có bước

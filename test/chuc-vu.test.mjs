@@ -748,6 +748,107 @@ console.log('\n[12] ĐƯỜNG CŨ SỬA NHÓM KHÔNG ĐƯỢC LÀ LỐI ĐI VÒN
     `${cuaBgh.status} ${cuaBgh.data?.error || ''}`);
 }
 
+// ===========================================================================
+console.log('\n[13] /api/auth/me KHÔNG ĐƯỢC LÀ CỬA SAU DẪN TỚI HỒ SƠ BÉ');
+{
+  // `/api/auth` mở cho MỌI chức vụ — cắt nó là app trắng màn hình ngay sau khi
+  // đăng nhập, nên tầng chức vụ tự miễn trừ đường này. Lời khai đi kèm chỗ
+  // miễn trừ ấy là "hai đường đầu nói về chính người đang đăng nhập". Với
+  // `mePayload` thì lời khai đó SAI: nó trải trọn một dòng của bảng `students`,
+  // gồm địa chỉ nhà, nhóm máu và tiền sử bệnh của trẻ.
+  //
+  // Đo được trước khi vá: Kế toán nhận 403 ở `/api/students` đúng như thiết kế,
+  // rồi nhận đủ 11 bé kèm địa chỉ và dị ứng qua `/api/auth/me`. Mà chính
+  // `lib/db.js` mô tả vai Kế toán là "KHÔNG cần và KHÔNG mở được hồ sơ bé".
+  const NHAY_CAM = ['address', 'bloodType', 'allergies', 'ethnicity', 'dob',
+    'soDinhDanh', 'tienSuBenh', 'parentIds'];
+
+  for (const [ten, cookie] of [['Nhân sự', NS], ['Marketing', MK], ['Kế toán', KT]]) {
+    const me = (await req('GET', '/api/auth/me', { cookie })).data || {};
+    const ds = me.students || [];
+    const lo = [];
+    for (const b of ds) for (const k of NHAY_CAM) if (b[k] !== undefined) lo.push(`${k}`);
+    check(`${ten}: /api/auth/me KHÔNG mang trường nhạy cảm nào của bé`,
+      lo.length === 0, [...new Set(lo)]);
+  }
+
+  // ĐỐI CHỨNG — không có vế này thì cả mục xanh khi danh sách bé rỗng.
+  const meKT = (await req('GET', '/api/auth/me', { cookie: KT })).data || {};
+  check('đối chứng: Kế toán VẪN nhận được danh sách bé để dựng ô chọn',
+    (meKT.students || []).length > 0, (meKT.students || []).length);
+  check('và vẫn đủ mã + tên + nhóm để màn Học phí chạy',
+    (meKT.students || []).every(b => b.id && b.name && 'className' in b),
+    (meKT.students || [])[0]);
+
+  // Vế ngược: vai ĐƯỢC mở hồ sơ bé thì không bị cắt oan.
+  const meVP = (await req('GET', '/api/auth/me', { cookie: VP })).data || {};
+  check('VĂN PHÒNG CƠ SỞ (có /api/students) vẫn nhận đủ hồ sơ như cũ',
+    (meVP.students || []).some(b => 'address' in b),
+    (meVP.students || [])[0] && Object.keys((meVP.students || [])[0]).length);
+  const meBGH = (await req('GET', '/api/auth/me', { cookie: BGH })).data || {};
+  check('và ban giám hiệu cũng vậy',
+    (meBGH.students || []).some(b => 'address' in b),
+    (meBGH.students || []).length);
+}
+
+// ===========================================================================
+console.log('\n[14] CHUYỂN NHÓM CHO BÉ PHẢI HỎI CƠ SỞ CỦA NHÓM ĐÍCH');
+{
+  // `duocChamBe` tra theo nhóm HIỆN TẠI của bé, nên nó chỉ trả lời được câu
+  // "bé này có thuộc cơ sở của mình không". Thiếu chốt trên nhóm ĐÍCH thì
+  // quản trị Cấp 3 đẩy được một bé sang cơ sở khác — và đẩy xong là mất luôn,
+  // vì lượt kéo về vướng đúng `duocChamBe`. Một chiều, không hoàn tác được
+  // bằng chính màn hình vừa gây ra nó.
+  //
+  // Mục [7] của test/co-so-quan-tri.test.mjs theo thiết kế KHÔNG bắt được ca
+  // này: nó chỉ hỏi "thân đường dẫn có nhắc tên một hàm canh không", mà thân
+  // đường này có nhắc `duocChamBe`.
+  await req('PUT', '/api/admin/classes/c2/campus', { cookie: BGH, body: { campusId: 'cs2' } });
+  const cuaMinh = (await req('GET', '/api/admin/students', { cookie: QL })).data || [];
+  const be = cuaMinh[0];
+  check('quản lý cơ sở 1 có bé để thử', !!be, cuaMinh.length);
+
+  const day = await req('PUT', `/api/admin/students/${be.id}`,
+    { cookie: QL, body: { classId: 'c2' } });
+  // 404 chứ không phải 403 — đúng nếp `khongThuocCoSo` của tệp này: không nói
+  // cho Cấp 3 biết là nhóm ấy CÓ THẬT ở cơ sở khác.
+  check('KHÔNG ĐẨY ĐƯỢC BÉ SANG NHÓM CỦA CƠ SỞ KHÁC', day.status === 404,
+    `${day.status} ${JSON.stringify(day.data)}`);
+  check('và câu từ chối nói đúng thứ bị chặn là nhóm lớp',
+    /nhóm lớp/i.test(day.data?.error || ''), day.data?.error);
+
+  const conDo = (await req('GET', '/api/admin/students', { cookie: QL })).data || [];
+  check('bé vẫn còn trong tầm của quản lý cơ sở 1 — không bị đẩy đi mất',
+    conDo.some(x => x.id === be.id), conDo.length);
+
+  // Vế ngược: chuyển trong CÙNG cơ sở thì vẫn phải làm được.
+  // Nhóm đích: tự tạo một nhóm mới bằng CHÍNH tài khoản quản lý cơ sở 1 —
+  // đường tạo nhóm gắn sẵn cơ sở của người tạo, nên chắc chắn nó thuộc cs1.
+  // Không đi mò trong dữ liệu mẫu: các mục trên đã chuyển nhóm qua lại nhiều
+  // lần, và một bài canh phụ thuộc phần sót lại của mục trước là bài canh hay
+  // vỡ vì lý do chẳng liên quan gì tới thứ nó định canh.
+  const nhomMoi = await req('POST', '/api/admin/classes',
+    { cookie: QL, body: { name: 'Nhà trẻ 2 (thử chuyển nhóm)' } });
+  const dich = { id: nhomMoi.data?.id || null };
+  check('dựng được một nhóm mới thuộc chính cơ sở 1 để làm đích',
+    !!dich.id, `${nhomMoi.status} ${JSON.stringify(nhomMoi.data)}`);
+  if (dich.id) {
+    const trongCoSo = await req('PUT', `/api/admin/students/${be.id}`,
+      { cookie: QL, body: { classId: dich.id } });
+    check('nhưng chuyển sang nhóm KHÁC CỦA CHÍNH CƠ SỞ MÌNH thì vẫn được',
+      trongCoSo.status === 200, `${trongCoSo.status} ${JSON.stringify(trongCoSo.data)}`);
+  } else {
+    check('nhưng chuyển sang nhóm KHÁC CỦA CHÍNH CƠ SỞ MÌNH thì vẫn được',
+      false, 'KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG: cơ sở 1 chỉ còn một nhóm.');
+  }
+
+  // Và ban giám hiệu vẫn chuyển được qua lại giữa các cơ sở.
+  const bgh = await req('PUT', `/api/admin/students/${be.id}`,
+    { cookie: BGH, body: { classId: 'c2' } });
+  check('ban giám hiệu toàn hệ thống vẫn chuyển được giữa hai cơ sở',
+    bgh.status === 200, `${bgh.status} ${JSON.stringify(bgh.data)}`);
+}
+
 await sv.dung();
 donThuMucTam(DIR);
 tongKet();
