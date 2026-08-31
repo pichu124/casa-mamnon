@@ -26,6 +26,7 @@
 //      Mục [7].
 import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, HOM_NAY as homNayVN } from './_chung.mjs';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import { GOC } from './_chung.mjs';
 
@@ -469,6 +470,124 @@ console.log('\n[+] TRẦN THỨ HAI: vòng tạo → ngưng dùng → tạo lạ
     taoDuoc > 0 && taoDuoc <= 25, taoDuoc);
   check('lời từ chối nói bằng tiếng gia đình hiểu, có chỉ đường ra',
     /sửa lại người đã khai|văn phòng/i.test(chan?.data?.error || ''), chan?.data);
+}
+
+// ===========================================================================
+// MỐC NGÀY NẰM TRONG CÂU TRUY VẤN — VÀ MÀN CỔNG KHÔNG ĐƯỢC ĐỔI MỘT DÒNG NÀO.
+//
+// Màn cổng trước đây nạp TOÀN BỘ lịch sử uỷ quyền của từng bé rồi vứt gần hết
+// bằng JavaScript. Mỗi năm học trôi qua nó nặng thêm đúng bằng số lần các nhà
+// nhờ người đón hộ — mà uỷ quyền một lần chính là thứ nhà trường muốn gia đình
+// dùng thường xuyên. Đo được: nhét 750 dòng đã hết hạn vào nhóm c1 làm mười
+// lượt mở màn cổng chậm gần gấp ba, trong khi số dòng HIỆN RA vẫn là 0.
+//
+// Đẩy mốc ngày vào câu truy vấn là việc một dòng. Chỗ NGUY HIỂM là làm quá
+// tay: đây là màn an toàn, sai một điều kiện ngày là cô không thấy một uỷ
+// quyền đang có hiệu lực rồi trả bé cho người không được phép — hoặc ngược
+// lại, không trả bé cho người có quyền trong khi phụ huynh đang đợi ngoài
+// cổng. Nên mục này dựng ĐỦ TÁM ca, phủ mọi trạng thái `trangThaiUyQuyen`
+// sinh ra, rồi soi từng mục một.
+console.log('\n[14] MỐC NGÀY NẰM TRONG CÂU TRUY VẤN — màn cổng không đổi một dòng');
+{
+  // Uỷ quyền ĐÃ QUA thì đường API từ chối tạo ("Uỷ quyền đã qua thì không tạo
+  // mới được nữa") — đúng như nó nên thế. Nên ba ca hết hạn phải viết thẳng
+  // vào bảng, ngoài tiến trình, đúng nếp `chayTrenCsdl` của test/_chung.mjs.
+  const ghiThang = (rows) => execFileSync('node', ['-e', `
+    const D = require('better-sqlite3');
+    const db = new D(process.argv[1]);
+    const them = db.prepare('INSERT INTO dontra_uyquyen (id, studentId, hoTen, quanHe, dienThoai, anh, tuNgay, denNgay, lyDo, huyLuc, huyBoi, nguoiTao, taoLuc) VALUES (@id, @studentId, @hoTen, @quanHe, @dienThoai, @anh, @tuNgay, @denNgay, @lyDo, @huyLuc, @huyBoi, @nguoiTao, @taoLuc)');
+    const nhieu = db.transaction((ds) => { for (const r of ds) them.run(r); });
+    nhieu(JSON.parse(process.argv[2]));
+    db.close();
+  `, path.join(DIR, 'school.db'), JSON.stringify(rows)], { cwd: GOC, stdio: 'inherit' });
+
+  const BE = 's3';   // cùng nhóm c1, nhà khác — không đụng dữ liệu mục [4]
+  const luc = new Date().toISOString();
+  const thang = (id, hoTen, tuNgay, denNgay, huyLuc = null) => ({
+    id, studentId: BE, hoTen, quanHe: 'Bác', dienThoai: '', anh: '',
+    tuNgay, denNgay, lyDo: '', huyLuc, huyBoi: huyLuc ? 'p2' : null,
+    nguoiTao: 'p2', taoLuc: luc,
+  });
+
+  ghiThang([
+    // Ba ca ĐÃ QUA — đường API không tạo được.
+    thang('uq-het-2n', 'het-han-2n', dich(-3), dich(-2)),
+    thang('uq-het-8n', 'het-han-8n', dich(-9), dich(-8)),
+    thang('uq-huy-cu', 'huy-rat-cu', dich(-40), dich(-30), luc),
+  ]);
+
+  // Năm ca còn lại đi qua đúng đường gia đình dùng thật.
+  const tao = async (hoTen, tuNgay, denNgay) => {
+    const r = await req('POST', '/api/dontra/uyquyen', {
+      cookie: PH2, body: { studentId: BE, hoTen, tuNgay, denNgay },
+    });
+    check(`dựng được ca "${hoTen}"`, r.status === 201, { status: r.status, data: r.data });
+    return r.data?.id;
+  };
+  await tao('con-hieu-luc', dich(-1), dich(1));
+  await tao('bat-dau-homnay', HOM_NAY, HOM_NAY);
+  await tao('chua-toi', dich(3), dich(4));
+  const huyNgayMai = await tao('huy-ngay-mai', dich(3), dich(4));
+  const huyTrongHan = await tao('huy-trong-han', dich(-1), dich(1));
+  for (const id of [huyNgayMai, huyTrongHan]) {
+    const h = await req('POST', `/api/dontra/uyquyen/${id}/huy`, { cookie: PH2, body: {} });
+    check('huỷ được để dựng ca đã huỷ', h.status === 200, h.status);
+  }
+
+  const be = await beTrenManCong(BE, GV);
+  const homNay = (be.uyQuyenHomNay || []).map(u => u.hoTen).sort();
+  const het = (be.uyQuyenKhongConHieuLuc || []).map(u => u.hoTen).sort();
+
+  check('ĐƯỢC ĐÓN HÔM NAY: đúng hai uỷ quyền còn hiệu lực',
+    homNay.join('|') === 'bat-dau-homnay|con-hieu-luc', homNay);
+
+  // Ba phép kiểm dưới là ba mép của mốc ngày. Đây là chỗ bản vá dễ sai nhất.
+  check('uỷ quyền VỪA HẾT HẠN vẫn hiện ra — người đó có thể đang đứng ở cổng',
+    het.includes('het-han-2n'), het);
+  check('uỷ quyền hết hạn 8 ngày thì thôi — quá mốc bảy ngày',
+    !het.includes('het-han-8n'), het);
+  check('uỷ quyền ĐÃ HUỶ CỦA NGÀY MAI vẫn hiện ra',
+    het.includes('huy-ngay-mai'), het);
+  check('uỷ quyền đã huỷ trong hạn cũng hiện ra',
+    het.includes('huy-trong-han'), het);
+  check('uỷ quyền đã huỷ RẤT CŨ thì thôi', !het.includes('huy-rat-cu'), het);
+  check('uỷ quyền CHƯA TỚI không nằm ở màn cổng — cả hai mục',
+    !homNay.includes('chua-toi') && !het.includes('chua-toi'), { homNay, het });
+  check('tổng cộng đúng ba dòng ở mục không còn hiệu lực', het.length === 3, het);
+
+  // ĐỐI CHỨNG QUAN TRỌNG NHẤT: nhét thật nhiều lịch sử cũ vào rồi hỏi lại —
+  // hai danh sách phải GIỐNG HỆT. Nếu mốc ngày không nằm trong câu truy vấn
+  // thì mấy trăm dòng này vẫn được nạp lên, và bất kỳ chỗ nào lọc sai cũng lộ.
+  const cuKy = [];
+  for (let i = 0; i < 200; i++) {
+    cuKy.push(thang(`uq-cu-${i}`, `cu-${i}`, dich(-60 - i), dich(-50 - i)));
+  }
+  ghiThang(cuKy);
+
+  const be2 = await beTrenManCong(BE, GV);
+  check('THÊM 200 UỶ QUYỀN CŨ: mục được đón hôm nay không đổi',
+    (be2.uyQuyenHomNay || []).map(u => u.hoTen).sort().join('|') === homNay.join('|'),
+    be2.uyQuyenHomNay);
+  check('và mục không còn hiệu lực cũng không đổi',
+    (be2.uyQuyenKhongConHieuLuc || []).map(u => u.hoTen).sort().join('|') === het.join('|'),
+    be2.uyQuyenKhongConHieuLuc);
+
+  // Hồ sơ MỘT bé thì vẫn giữ trọn lịch sử — đường đó cố ý không cắt.
+  const ho = await hoSo(PH2, BE);
+  check('hồ sơ một bé VẪN giữ đủ lịch sử uỷ quyền, không bị cắt lây',
+    (ho.uyQuyen || []).length >= 200, (ho.uyQuyen || []).length);
+
+  // Và người đã ngưng dùng vẫn không lọt vào màn cổng — điều kiện `dangDung`
+  // phải sống sót qua lần gom câu truy vấn này.
+  const themNguoi = await req('POST', '/api/dontra/nguoi', {
+    cookie: PH2, body: { studentId: BE, hoTen: 'Người sẽ ngưng dùng', quanHe: 'Bác' },
+  });
+  check('khai được người để thử', themNguoi.status === 201, themNguoi.status);
+  await req('PUT', `/api/dontra/nguoi/${themNguoi.data.id}`, { cookie: PH2, body: { dangDung: false } });
+  const be3 = await beTrenManCong(BE, GV);
+  check('màn cổng KHÔNG liệt kê người gia đình đã ngưng dùng',
+    !(be3.nguoiThuongXuyen || []).some(n => n.hoTen === 'Người sẽ ngưng dùng'),
+    (be3.nguoiThuongXuyen || []).map(n => n.hoTen));
 }
 
 sv.dung();

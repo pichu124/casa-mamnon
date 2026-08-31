@@ -22,6 +22,19 @@ const GROUP_AVATAR = { emoji: '👥', bg: '#5b6ceb' };
 // trong một lần.
 const CUA_SO_TIN = 200;
 
+// DANH SÁCH HỘI THOẠI CŨNG PHẢI CÓ TRẦN.
+//
+// Hội thoại riêng cô ↔ gia đình chỉ SINH RA chứ không bao giờ đóng: mỗi năm
+// học trường nhận một lứa mới là thêm 20–25 hội thoại nằm lại vĩnh viễn, và
+// app không có đường nào xoá chúng. Sau vài năm, mở màn Nhắn tin là kéo cả sổ
+// liên lạc của mọi lứa cũ về điện thoại chỉ để nhắn cho nhóm năm nay.
+//
+// 40 đủ rộng để KHÔNG ai ở trường hôm nay nhìn thấy nút "xem cũ hơn": cô đông
+// việc nhất cũng chỉ chừng 25 hội thoại. Nút chỉ hiện khi trường thật sự vượt
+// qua con số đó — tức đúng lúc cần.
+const MOI_TRANG = 40;
+const TRANG_TOI_DA = 200;
+
 // Tên hiển thị kèm danh xưng, ví dụ "Cô Nguyễn Thị Mai Anh".
 function displayName(u) {
   return u ? `${u.title} ${u.name}` : '';
@@ -50,14 +63,49 @@ function directConvId(a, b) {
 // Phụ huynh: TẤT CẢ các cô phụ trách nhóm của con mình — nhóm mầm non có 2–3 cô
 // cùng phụ trách, chỉ hiện một cô thì gia đình không nhắn được cho cô đang trực
 // hôm đó. Giáo viên: phụ huynh của trẻ trong nhóm mình.
+// MỌI HỘI THOẠI RIÊNG CỦA TÔI TRONG MỘT CÂU, tra theo "người kia".
+//
+// `directConvId` ở trên đúng nhưng đắt: nó hỏi MỘT câu cho MỖI liên hệ, mà cô
+// mầm non có 30–40 liên hệ (mỗi bé 1–2 gia đình) — chỉ để trả lời đúng một câu
+// hỏi: "đã có phòng chat với người này chưa".
+//
+// Cùng đúng điều kiện với `directConvId`: hội thoại loại 'direct', có ĐÚNG hai
+// thành viên, và tôi là một trong hai. `ORDER BY c.id` để nếu lỡ có hai phòng
+// trùng nhau thì lần nào cũng chọn cùng một phòng — `LIMIT 1` của bản cũ không
+// kèm thứ tự nên chọn phòng nào là tuỳ cơ sở dữ liệu.
+function hoiThoaiRiengCua(userId) {
+  const ra = new Map();
+  for (const r of db.all('conversations',
+    `SELECT m2.userId AS nguoiKia, c.id AS maHT
+       FROM conversations c
+       JOIN conversation_members m1 ON m1.conversationId = c.id AND m1.userId = ?
+       JOIN conversation_members m2 ON m2.conversationId = c.id AND m2.userId <> ?
+      WHERE c.type = 'direct'
+        AND (SELECT COUNT(*) FROM conversation_members m WHERE m.conversationId = c.id) = 2
+      ORDER BY c.id`, [userId, userId])) {
+    if (!ra.has(r.nguoiKia)) ra.set(r.nguoiKia, r.maHT);
+  }
+  return ra;
+}
+
 function contactsFor(user) {
   const out = [];
   const seen = new Set();
+  // Một câu, thay cho một câu mỗi liên hệ.
+  const daCoPhong = hoiThoaiRiengCua(user.id);
   if (user.role === 'parent') {
-    for (const s of db.studentsOf(user)) {
-      const cls = s.classId ? db.findClass(s.classId) : null;
+    // Một nhà có 1–3 con, nên chỉ cần nhớ lại theo mã nhóm là hết trùng.
+    const dsBe = db.studentsOf(user);
+    const nhoNhom = new Map();
+    for (const s of dsBe) {
+      if (!s.classId || nhoNhom.has(s.classId)) continue;
+      nhoNhom.set(s.classId, { cls: db.findClass(s.classId), co: db.teachersOfClass(s.classId) });
+    }
+    for (const s of dsBe) {
+      const nhom = s.classId ? nhoNhom.get(s.classId) : null;
+      const cls = nhom ? nhom.cls : null;
       if (!cls) continue;
-      for (const teacher of db.teachersOfClass(cls.id)) {
+      for (const teacher of nhom.co) {
         if (seen.has(teacher.id)) continue;
         seen.add(teacher.id);
         out.push({
@@ -65,14 +113,27 @@ function contactsFor(user) {
           name: displayName(teacher),
           subtitle: `${teacher.vaiTro === 'chinh' ? 'Cô phụ trách chính' : 'Cô phụ trách'} ${cls.name}`,
           avatar: teacher.avatar,
-          existingConversationId: directConvId(user.id, teacher.id),
+          existingConversationId: daCoPhong.get(teacher.id) || null,
         });
       }
     }
   } else if (user.role === 'teacher') {
-    for (const s of db.studentsOf(user)) {
+    const dsBe = db.studentsOf(user);
+    // Tên các gia đình: MỘT câu cho cả nhóm, thay vì một câu cho mỗi gia đình.
+    const maPh = [...new Set(dsBe.flatMap(s => s.parentIds || []).filter(Boolean))];
+    const nguoi = new Map();
+    if (maPh.length) {
+      for (const u of db.all('users',
+        `SELECT * FROM users WHERE id IN (${maPh.map(() => '?').join(',')})`, maPh)) {
+        // Bỏ băm mật khẩu ngay tại chỗ tra, đúng nếp `db.teachersOfClass`:
+        // bảng này sinh ra để đổ lên màn hình, đừng bắt chỗ gọi phải nhớ gỡ.
+        const { passwordHash: _bo, ...sach } = u;
+        nguoi.set(u.id, sach);
+      }
+    }
+    for (const s of dsBe) {
       for (const pid of s.parentIds) {
-        const parent = db.findUser(pid);
+        const parent = nguoi.get(pid);
         if (!parent || seen.has(parent.id)) continue;
         seen.add(parent.id);
         out.push({
@@ -80,7 +141,7 @@ function contactsFor(user) {
           name: displayName(parent),
           subtitle: `Phụ huynh bé ${s.name}`,
           avatar: parent.avatar,
-          existingConversationId: directConvId(user.id, parent.id),
+          existingConversationId: daCoPhong.get(parent.id) || null,
         });
       }
     }
@@ -89,16 +150,28 @@ function contactsFor(user) {
 }
 
 // Tiêu đề / phụ đề / ảnh đại diện của hội thoại theo góc nhìn của user.
-function convMeta(cv, user, members) {
-  const ids = members || memberIds(cv.id);
+// Tham số `tra` là BẢNG TRA dựng sẵn cho một lượt hỏi danh sách:
+// { thanhVien, nguoi, tenNhom, tenCon }. KHÔNG truyền thì hàm hỏi lẻ y hệt như
+// cũ — đường mở MỘT phòng chat (`GET /api/messages/:id`) vẫn đi lối cũ, không
+// phải sửa một chữ nào và không đổi hành vi.
+function convMeta(cv, user, members, tra) {
+  const ids = members || (tra && tra.thanhVien.get(cv.id)) || memberIds(cv.id);
   if (cv.type === 'group') {
     return { title: cv.name, subtitle: `${ids.length} thành viên`, avatar: GROUP_AVATAR };
   }
-  const other = db.findUser(ids.find(id => id !== user.id));
+  const maKia = ids.find(id => id !== user.id);
+  const other = (tra && tra.nguoi.has(maKia)) ? tra.nguoi.get(maKia) : db.findUser(maKia);
   if (!other) return { title: 'Người dùng', subtitle: '', avatar: null };
   let subtitle = '';
   if (other.role === 'teacher') {
-    subtitle = `Cô phụ trách ${nl.tenCacNhomCuaCo(other.id)}`.trim();
+    const tenNhom = (tra && tra.tenNhom.has(other.id))
+      ? tra.tenNhom.get(other.id) : nl.tenCacNhomCuaCo(other.id);
+    subtitle = `Cô phụ trách ${tenNhom}`.trim();
+  } else if (tra && other.role === 'parent' && tra.tenCon.has(other.id)) {
+    // Đã tra sẵn cho cả danh sách. Chuỗi rỗng nghĩa là "không tìm thấy bé",
+    // đúng nhánh `child ? ... : 'Phụ huynh'` của lối hỏi lẻ ngay bên dưới.
+    const ten = tra.tenCon.get(other.id);
+    subtitle = ten ? `Phụ huynh bé ${ten}` : 'Phụ huynh';
   } else if (other.role === 'parent') {
     // Với cô, chỉ nêu tên con đang học nhóm của cô — nhóm nào trong số các nhóm
     // cô phụ trách cũng được, nên lọc bằng IN chứ không bằng một mã nhóm.
@@ -155,8 +228,36 @@ module.exports = (app) => {
   // Danh sách hội thoại của tôi + liên hệ có thể chat mới.
   app.get('/api/messages', allow, (req, res) => {
     const user = req.user;
-    // Lấy hội thoại kèm tin cuối và số tin chưa đọc trong một truy vấn, thay vì
-    // nạp toàn bộ tin nhắn lên rồi đếm trong bộ nhớ.
+
+    // CẮT CỬA SỔ NGAY TRONG CÂU TRUY VẤN.
+    //
+    // Cắt được THẲNG bằng LIMIT vì quyền tham gia nằm ngay trong phép nối
+    // `conversation_members` bên dưới: khác màn Album, ở đây KHÔNG có bộ lọc
+    // JavaScript nào chạy sau câu truy vấn, nên số dòng trả về đúng bằng số
+    // dòng người này xem được — và màn hình suy ra "còn nữa hay hết" chỉ bằng
+    // cách ĐẾM. Cùng một nếp với /api/notifications và /api/albums (Đ98b).
+    //
+    // Hình dạng câu trả lời KHÔNG đổi, vẫn `{ conversations, contacts }`:
+    // điện thoại đang giữ bản app cũ trong bộ nhớ đệm không gửi `bo`/`soLuong`
+    // nên vẫn nhận trang đầu và chạy y như trước.
+    //
+    // HUY HIỆU TIN CHƯA ĐỌC KHÔNG BỊ ẢNH HƯỞNG: `/api/dashboard/badges` đếm
+    // thẳng trên bảng `messages`, không đếm trên danh sách này; và hội thoại
+    // vừa có tin mới luôn nổi lên đầu nhờ `ORDER BY`, nên không có chuyện tin
+    // chưa đọc rơi khỏi trang một rồi mất dấu.
+    const bo = Math.max(0, Math.floor(Number(req.query.bo) || 0));
+    const soLuong = Math.min(TRANG_TOI_DA,
+      Math.max(1, Math.floor(Number(req.query.soLuong) || MOI_TRANG)));
+
+    // Lấy hội thoại kèm số tin chưa đọc trong một truy vấn, thay vì nạp toàn
+    // bộ tin nhắn lên rồi đếm trong bộ nhớ.
+    //
+    // `c.id DESC` là TIÊU CHÍ PHỤ, thêm cùng lúc với LIMIT và bắt buộc phải
+    // có: hai hội thoại cùng mốc tin cuối — hoặc cùng CHƯA có tin nào, lúc đó
+    // mốc là NULL — thì thứ tự giữa chúng trước nay là tuỳ cơ sở dữ liệu.
+    // Không sao khi trả về một mảng duy nhất; nhưng khi cắt thành trang, thứ
+    // tự lung lay nghĩa là có hội thoại lặp lại ở trang sau và có hội thoại
+    // không bao giờ hiện ra.
     const rows = db.all('conversations',
       `SELECT c.*, cm.lastRead AS myLastRead,
               (SELECT COUNT(*) FROM messages m
@@ -164,8 +265,10 @@ module.exports = (app) => {
                    AND (cm.lastRead IS NULL OR m.createdAt > cm.lastRead)) AS unreadCount
        FROM conversations c
        JOIN conversation_members cm ON cm.conversationId = c.id AND cm.userId = ?
-       ORDER BY (SELECT MAX(createdAt) FROM messages m WHERE m.conversationId = c.id) DESC`,
-      [user.id, user.id]);
+       ORDER BY (SELECT MAX(createdAt) FROM messages m WHERE m.conversationId = c.id) DESC,
+                c.id DESC
+       LIMIT ? OFFSET ?`,
+      [user.id, user.id, soLuong, bo]);
 
     // TIN CUỐI CỦA MỌI HỘI THOẠI TRONG MỘT TRUY VẤN.
     //
@@ -175,16 +278,94 @@ module.exports = (app) => {
     // ngày. Câu ngay bên trên đã cố ý gộp phần đếm tin chưa đọc vào một truy
     // vấn với đúng lý do đó; phần tin cuối thì bị bỏ sót.
     const maHT = rows.map(r => r.id);
+    const dauHT = maHT.map(() => '?').join(',');
     const tinCuoi = new Map();
     if (maHT.length) {
       for (const m of db.all('messages',
         `SELECT * FROM (
            SELECT m.*, ROW_NUMBER() OVER (
                     PARTITION BY m.conversationId ORDER BY m.createdAt DESC, m.rowid DESC) AS hang
-             FROM messages m WHERE m.conversationId IN (${maHT.map(() => '?').join(',')})
+             FROM messages m WHERE m.conversationId IN (${dauHT})
          ) WHERE hang = 1`, maHT)) {
         tinCuoi.set(m.conversationId, m);
       }
+    }
+
+    // BẢNG TRA CHO CẢ MÀN HÌNH — thay cho 4–5 câu truy vấn MỖI hội thoại.
+    //
+    // `convMeta` phải trả lời bốn câu cho từng dòng: ai trong hội thoại này,
+    // người kia là ai, cô ấy phụ trách nhóm nào, gia đình này là gia đình của
+    // bé nào. Hỏi lẻ thì đúng nhưng đắt — với một cô có gần ba chục hội thoại
+    // là hơn hai trăm câu cho MỘT lượt mở màn Nhắn tin. Cô mở màn này nhiều
+    // lần mỗi ngày, và better-sqlite3 chạy ĐỒNG BỘ: từng câu chặn thẳng vòng
+    // lặp sự kiện của máy chủ, nên đó không phải cái chậm của riêng cô ấy mà
+    // là cái chậm của mọi người đang dùng app cùng lúc.
+    const tra = { thanhVien: new Map(), nguoi: new Map(), tenNhom: new Map(), tenCon: new Map() };
+    for (const id of maHT) tra.thanhVien.set(id, []);
+    if (maHT.length) {
+      for (const r of db.all('conversation_members',
+        `SELECT conversationId, userId FROM conversation_members
+          WHERE conversationId IN (${dauHT})
+          ORDER BY conversationId, rowid`, maHT)) {
+        tra.thanhVien.get(r.conversationId).push(r.userId);
+      }
+    }
+
+    // Mọi người cần tên: người kia trong hội thoại riêng, và người gửi tin cuối.
+    const maNguoi = new Set();
+    for (const cv of rows) {
+      if (cv.type !== 'group') {
+        for (const id of tra.thanhVien.get(cv.id)) if (id !== user.id) maNguoi.add(id);
+      }
+      const cuoi = tinCuoi.get(cv.id);
+      if (cuoi && cuoi.senderId) maNguoi.add(cuoi.senderId);
+    }
+    if (maNguoi.size) {
+      const dsNguoi = [...maNguoi];
+      for (const u of db.all('users',
+        `SELECT * FROM users WHERE id IN (${dsNguoi.map(() => '?').join(',')})`, dsNguoi)) {
+        const { passwordHash: _bo, ...sach } = u;
+        tra.nguoi.set(u.id, sach);
+      }
+    }
+
+    // Với GIA ĐÌNH, người kia là cô → cần tên các nhóm cô phụ trách. Một nhà
+    // chỉ nhắn với vài cô nên nhớ lại theo mã cô là đủ. CỐ Ý không viết lại câu
+    // truy vấn đó ở đây: `lib/nhom-lop.js` phải còn là chỗ DUY NHẤT định nghĩa
+    // "nhóm của cô", chép sang đây là đẻ ra bản thứ hai rồi hai bản trôi khỏi
+    // nhau mà không ai báo.
+    for (const u of tra.nguoi.values()) {
+      if (u.role === 'teacher' && !tra.tenNhom.has(u.id)) {
+        tra.tenNhom.set(u.id, nl.tenCacNhomCuaCo(u.id));
+      }
+    }
+
+    // Với CÔ, người kia là gia đình → cần tên bé nhà đó đang học nhóm của cô.
+    // Bản cũ hỏi `db.classIdsOfTeacher(user.id)` lại từ đầu cho TỪNG dòng dù
+    // câu trả lời luôn giống hệt nhau, cộng một câu tra tên bé cho mỗi nhà.
+    const maPhuHuynh = [...tra.nguoi.values()].filter(u => u.role === 'parent').map(u => u.id);
+    if (maPhuHuynh.length) {
+      for (const id of maPhuHuynh) tra.tenCon.set(id, '');
+      const dauPh = maPhuHuynh.map(() => '?').join(',');
+      const nhomCuaToi = user.role === 'teacher' ? db.classIdsOfTeacher(user.id) : [];
+      const dong = (user.role === 'teacher' && !nhomCuaToi.length) ? [] : db.all('students',
+        user.role === 'teacher'
+          ? `SELECT sp.parentId AS maPh, s.name AS ten FROM students s
+               JOIN student_parents sp ON sp.studentId = s.id
+              WHERE sp.parentId IN (${dauPh})
+                AND s.classId IN (${nhomCuaToi.map(() => '?').join(',')})
+                AND s.active = 1
+              ORDER BY sp.parentId, s.name`
+          : `SELECT sp.parentId AS maPh, s.name AS ten FROM students s
+               JOIN student_parents sp ON sp.studentId = s.id
+              WHERE sp.parentId IN (${dauPh}) AND s.active = 1
+              ORDER BY sp.parentId, s.name`,
+        user.role === 'teacher' ? [...maPhuHuynh, ...nhomCuaToi] : maPhuHuynh);
+      // Nhà có HAI bé cùng nhóm thì lấy bé đứng đầu theo tên. Câu cũ dùng
+      // `LIMIT 1` mà KHÔNG kèm `ORDER BY`, tức bé nào hiện ra là tuỳ cơ sở dữ
+      // liệu; nay cố định theo thứ tự chữ cái để hai lượt mở màn không nói hai
+      // tên khác nhau. Đây là chỗ DUY NHẤT bản vá này đổi chữ trên màn hình.
+      for (const r of dong) if (!tra.tenCon.get(r.maPh)) tra.tenCon.set(r.maPh, r.ten);
     }
 
     const conversations = rows.map(cv => {
@@ -192,9 +373,9 @@ module.exports = (app) => {
       return {
         id: cv.id,
         type: cv.type,
-        ...convMeta(cv, user),
+        ...convMeta(cv, user, tra.thanhVien.get(cv.id), tra),
         lastMessage: last
-          ? { text: last.text, senderName: displayName(db.findUser(last.senderId)), createdAt: last.createdAt }
+          ? { text: last.text, senderName: displayName(tra.nguoi.get(last.senderId)), createdAt: last.createdAt }
           : null,
         unreadCount: Number(cv.unreadCount) || 0,
       };

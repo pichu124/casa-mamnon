@@ -14,6 +14,25 @@ const onlyAdmin = requireRole('admin');
 
 const CHU = 'abcdefghjkmnpqrstuvwxyz';
 const SO = '23456789';
+// MỘT NHÓM HỎI MỘT LẦN CHO CẢ DANH SÁCH.
+//
+// Hai màn của quản trị đổ ra toàn bộ bé trong phạm vi rồi hỏi `db.findClass`
+// cho TỪNG bé — trường 600 bé chia 23 nhóm là 600 lượt hỏi để nhận về đúng 23
+// câu trả lời. better-sqlite3 chạy đồng bộ nên chừng ấy câu chặn thẳng vòng
+// lặp sự kiện của cả máy chủ, không riêng người đang bấm.
+//
+// Trả về một hàm, và hàm ấy giữ bảng nhớ của ĐÚNG lượt gọi tạo ra nó. Nâng
+// bảng nhớ ra ngoài thành đệm dùng chung cho cả tiến trình là văn phòng đổi
+// tên nhóm xong mà màn hình vẫn nói tên cũ tới lần khởi động lại kế tiếp.
+function nhoTenNhom() {
+  const nho = new Map();
+  return (classId) => {
+    if (!classId) return '';
+    if (!nho.has(classId)) nho.set(classId, (db.findClass(classId) || {}).name || '');
+    return nho.get(classId);
+  };
+}
+
 function sinhMatKhau() {
   const pick = (s) => s[Math.floor(Math.random() * s.length)];
   let out = '';
@@ -560,11 +579,15 @@ module.exports = (app) => {
       ? db.all('students', `SELECT * FROM students WHERE classId = ?${loc} ORDER BY name`, [classId])
       : db.all('students', `SELECT * FROM students WHERE 1 = 1${loc} ORDER BY name`))
       .filter(s => trongPhamVi === null || trongPhamVi.includes(s.classId));
+    // Tên nhóm: hỏi MỘT LẦN cho mỗi nhóm, không phải một lần cho mỗi bé.
+    // Cùng cách và cùng lý do với `mePayload` ở routes/auth.js — xem khối chú
+    // thích ở đó, gồm cả lý do bảng nhớ này phải sống đúng một lượt gọi.
+    const tenNhom = nhoTenNhom();
     res.json(db.withParents(rows).map(s => ({
       ...s,
       ...db.hoSoBe(s.id),
       dongY: db.dongYCuaBe(s.id),
-      className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',
+      className: tenNhom(s.classId),
       parents: s.parentIds.map(id => {
         const p = db.findUser(id);
         // Đường này đã là onlyAdmin nên số CCCD đi kèm được. Vẫn liệt kê từng

@@ -106,6 +106,54 @@ module.exports = (app, { db }) => {
       .map(u => ({ ...u, trangThai: trangThaiUyQuyen(u, ngay) }));
   }
 
+  // UỶ QUYỀN CỦA CẢ NHÓM, MỘT CÂU — VÀ CHỈ PHẦN MÀN CỔNG THẬT SỰ HIỆN RA.
+  //
+  // Hàm trên nạp TOÀN BỘ lịch sử uỷ quyền của một bé. Đúng cho hồ sơ một bé,
+  // sai cho màn cổng: mỗi năm học trôi qua, màn này nặng thêm đúng bằng số lần
+  // các nhà nhờ người đón hộ — mà uỷ quyền một lần chính là thứ nhà trường
+  // muốn gia đình dùng thường xuyên. Đo thật trên nhóm c1 với 750 dòng uỷ
+  // quyền đã hết hạn: 40 ms lên 118 ms, trong khi số dòng HIỆN RA vẫn là 0.
+  //
+  // Đây là màn nặng nhất trong ngày — 16h30–17h30, cả ba cơ sở cùng mở, cô
+  // đứng ở cổng với điện thoại trên tay, phụ huynh đứng đợi trước mặt.
+  //
+  // VÌ SAO `denNgay >= ngày−7` LÀ ĐÚNG BẰNG PHẦN MÀN CỔNG HIỆN RA:
+  // màn cổng có đúng hai mục, và cả hai đều nằm gọn trong mốc đó —
+  //   • "được đón hôm nay" = còn hiệu lực, tức denNgay >= ngày;
+  //   • "không còn hiệu lực" đã TỰ đòi denNgay >= ngày−7 ở chỗ lọc bên dưới.
+  // Mục "chưa tới" không bao giờ được hiện ở màn này, nên không cần giữ.
+  //
+  // CỐ Ý KHÔNG thêm `tuNgay <= ngày`, dù nó trông hợp lý: một uỷ quyền của
+  // NGÀY MAI mà gia đình đã huỷ có trạng thái 'da-huy' chứ không phải
+  // 'chua-toi' (hàm `trangThaiUyQuyen` xét `huyLuc` trước), và cô vẫn phải
+  // thấy nó — người đó có thể đang đứng ở cổng và cô cần biết vì sao app nói
+  // không. Thêm điều kiện ấy là làm nó lặng lẽ biến mất.
+  function uyQuyenChoManCong(studentIds, ngay) {
+    const ra = new Map(studentIds.map(id => [id, []]));
+    if (!studentIds.length) return ra;
+    const dau = studentIds.map(() => '?').join(',');
+    for (const u of db.all('dontra_uyquyen',
+      `SELECT * FROM dontra_uyquyen WHERE studentId IN (${dau}) AND denNgay >= ?
+       ORDER BY studentId, tuNgay DESC`, [...studentIds, luiNgay(ngay, 7)])) {
+      ra.get(u.studentId).push({ ...u, trangThai: trangThaiUyQuyen(u, ngay) });
+    }
+    return ra;
+  }
+
+  // Người được đón THƯỜNG XUYÊN của cả nhóm, một câu. Chỉ người đang dùng —
+  // đúng như `nguoiCuaBe(id, false)` mà màn cổng vẫn gọi.
+  function nguoiDangDungCuaNhom(studentIds) {
+    const ra = new Map(studentIds.map(id => [id, []]));
+    if (!studentIds.length) return ra;
+    const dau = studentIds.map(() => '?').join(',');
+    for (const n of db.all('dontra_nguoi',
+      `SELECT * FROM dontra_nguoi WHERE studentId IN (${dau}) AND dangDung = 1
+       ORDER BY studentId, hoTen`, studentIds)) {
+      ra.get(n.studentId).push({ ...n, dangDung: n.dangDung !== 0 });
+    }
+    return ra;
+  }
+
   function tenNguoi(userId) {
     const u = userId ? db.findUser(userId) : null;
     return u ? `${u.title} ${u.name}` : '';
@@ -159,17 +207,45 @@ module.exports = (app, { db }) => {
     // nó nằm lẫn như một bé đang chờ được đón thì cuối giờ cô đếm "còn mấy bé
     // chưa ai đón" và đếm nhầm một bé đang ở nhà; nặng hơn, ô "chưa trả" đứng
     // đó suốt buổi chiều như một việc chưa xong.
-    const dangNghi = nghiHoc.nghiCoPhep(dsBe.map(b => b.id), ngay);
+    const maBe = dsBe.map(b => b.id);
+    const dangNghi = nghiHoc.nghiCoPhep(maBe, ngay);
+
+    // BA CÂU CHO CẢ NHÓM, KHÔNG PHẢI BA CÂU CHO MỖI BÉ.
+    //
+    // better-sqlite3 chạy ĐỒNG BỘ — mỗi câu chặn thẳng vòng lặp sự kiện của
+    // máy chủ — nên chừng ấy câu của MỘT cô cũng làm chậm mọi cô khác đang mở
+    // cùng màn ở hai cơ sở kia, đúng vào 16h30 khi cả ba cơ sở cùng trả bé.
+    const uyTheoBe = uyQuyenChoManCong(maBe, ngay);
+    const nguoiTheoBe = nguoiDangDungCuaNhom(maBe);
+    const ghiTheoBe = new Map();
+    if (maBe.length) {
+      for (const g of db.all('dontra_ghi',
+        `SELECT * FROM dontra_ghi WHERE studentId IN (${maBe.map(() => '?').join(',')})
+           AND ngay = ?`, [...maBe, ngay])) {
+        // Một bé một ngày một dòng (chỉ mục duy nhất `dontra_mot_be_mot_ngay`).
+        ghiTheoBe.set(g.studentId, g);
+      }
+    }
+
+    // Tên cô đã ghi sổ: một câu cho cả nhóm. Cả nhóm chỉ có 2–3 cô, nên bản cũ
+    // là hai mươi mấy lượt hỏi lại đúng ba câu trả lời.
+    const maCo = [...new Set([...ghiTheoBe.values()].map(g => g.coGhi).filter(Boolean))];
+    const tenCo = new Map();
+    if (maCo.length) {
+      for (const u of db.all('users',
+        `SELECT id, title, name FROM users WHERE id IN (${maCo.map(() => '?').join(',')})`, maCo)) {
+        tenCo.set(u.id, `${u.title} ${u.name}`);
+      }
+    }
 
     const danhSach = dsBe.map(b => {
-      const uy = uyQuyenCuaBe(b.id, ngay);
-      const ghi = db.first('dontra_ghi',
-        'SELECT * FROM dontra_ghi WHERE studentId = ? AND ngay = ?', [b.id, ngay]);
+      const uy = uyTheoBe.get(b.id) || [];
+      const ghi = ghiTheoBe.get(b.id) || null;
       return {
         studentId: b.id,
         hoTen: b.name,
         avatar: b.avatar,
-        nguoiThuongXuyen: nguoiCuaBe(b.id, false),
+        nguoiThuongXuyen: nguoiTheoBe.get(b.id) || [],
         // Chỉ uỷ quyền CÒN HIỆU LỰC mới nằm ở mục "được đón hôm nay"...
         uyQuyenHomNay: uy.filter(u => u.trangThai === 'con-hieu-luc'),
         // ...nhưng cái vừa hết hạn hoặc vừa bị huỷ thì vẫn nói ra, vì người đó
@@ -177,7 +253,9 @@ module.exports = (app, { db }) => {
         uyQuyenKhongConHieuLuc: uy.filter(u =>
           u.trangThai !== 'con-hieu-luc' && u.trangThai !== 'chua-toi'
           && u.denNgay >= luiNgay(ngay, 7)),
-        daTra: ghi ? { ...ghi, coGhiTen: tenNguoi(ghi.coGhi) } : null,
+        // `tenNguoi` trả '' khi không tìm thấy người; giữ đúng chữ đó ở đây để
+        // sổ cũ của một cô đã nghỉ việc vẫn hiện y như trước.
+        daTra: ghi ? { ...ghi, coGhiTen: ghi.coGhi ? (tenCo.get(ghi.coGhi) || '') : '' } : null,
         // `null` = bé đi học bình thường.
         nghiPhep: dangNghi.get(b.id) || null,
       };

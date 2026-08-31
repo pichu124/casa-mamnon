@@ -166,12 +166,23 @@ App.views.medicine = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
+  // CẮT BỚT MÀ KHÔNG NÓI RA THÌ VỚI NGƯỜI DÙNG ĐÓ LÀ GIẤU.
+  //
+  // Cùng hình dạng và cùng cách vá với màn Xin phép nghỉ — xem khối chú thích
+  // ở public/js/views/leave.js. Máy chủ cắt phần ĐÃ HOÀN TẤT ở 60 đơn gần
+  // nhất; đơn chưa xong thì không bao giờ cắt, nên hai con số "Chờ xác nhận
+  // (N)" và "Cô đã nhận thuốc (N)" luôn đúng.
+  MOI_TRANG: 60,
+  TRAN_LICH_SU: 500,
+
   // ---- Cô: xác nhận đã nhận thuốc, cất đơn khi hết đợt ----
   async renderTeacher(root) {
-    this._list = await API.get('/api/medicine');
+    this._gioiHan = this._gioiHan || this.MOI_TRANG;
+    this._list = await API.get(`/api/medicine?gioiHan=${this._gioiHan}`);
     const pending = this._list.filter(m => m.status === 'pending');
     const received = this._list.filter(m => m.status === 'received');
     const done = this._list.filter(m => m.status === 'done');
+    const conNua = done.length >= this._gioiHan && this._gioiHan < this.TRAN_LICH_SU;
     root.innerHTML = `
       ${UI.pageHeader('Dặn thuốc')}
       <div class="section-label">Chờ xác nhận (${pending.length})</div>
@@ -208,7 +219,23 @@ App.views.medicine = {
               </div>
               <div class="row-end">${UI.badge('Hoàn tất', 'green')}</div>
             </div>`).join('')}
-        </div>` : ''}`;
+        </div>
+        ${conNua ? `
+          <div class="hint mt-8">Đang hiện ${done.length} đơn đã hoàn tất gần nhất.</div>
+          <button class="btn outline block mt-8" id="btn-thuoc-cu-hon">
+            ${UI.icon('plus', 16)} Xem đơn cũ hơn
+          </button>` : ''}` : ''}`;
+
+    const themNua = document.getElementById('btn-thuoc-cu-hon');
+    if (themNua) {
+      themNua.onclick = async () => {
+        themNua.disabled = true;
+        themNua.textContent = 'Đang tải…';
+        this._gioiHan = Math.min(this.TRAN_LICH_SU, this._gioiHan + this.MOI_TRANG);
+        try { await this.renderTeacher(root); }
+        catch (err) { themNua.disabled = false; UI.toast(err.message, 'error'); }
+      };
+    }
   },
 
   // Phần đầu thẻ đơn phía giáo viên: bé, phụ huynh, khoảng ngày.

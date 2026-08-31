@@ -142,11 +142,33 @@ App.views.leave = {
     `, 'Chi tiết đơn xin phép');
   },
 
+  // CẮT BỚT MÀ KHÔNG NÓI RA THÌ VỚI NGƯỜI DÙNG ĐÓ LÀ GIẤU.
+  //
+  // Máy chủ cắt phần LỊCH SỬ ở 60 đơn gần nhất — cố ý, và đúng (đơn CHỜ DUYỆT
+  // thì không bao giờ cắt, nên con số "Chờ duyệt (N)" luôn đúng). Nhưng tham
+  // số `?gioiHan=` có sẵn ở routes/leave.js từ đầu mà KHÔNG màn hình nào gửi,
+  // và màn hình cũng không nói một chữ nào là đã cắt.
+  //
+  // Tài khoản văn phòng gom đơn của cả trường, nên chỉ sau chừng một tuần là
+  // phần lịch sử cũ không còn thấy được. Người dùng kết luận "đơn mất" chứ
+  // không kết luận "danh sách bị cắt" — đúng cái mà chú thích ở
+  // routes/messages.js gọi tên là "cắt bớt tin mà không nói là GIẤU tin".
+  //
+  // Suy ra "còn nữa" bằng cách ĐẾM, không đổi hình dạng câu trả lời: đường này
+  // trả về một MẢNG, và điện thoại giữ bản app cũ sẽ gọi `.filter` trên nó.
+  // Đổi mảng thành đối tượng để nhét thêm ô đếm là làm trắng màn hình của họ.
+  MOI_TRANG: 60,
+  TRAN_LICH_SU: 500,
+
   // ---- Cô ĐỌC, văn phòng DUYỆT ----
   async renderTeacher(root) {
-    this._list = await API.get('/api/leave');
+    this._gioiHan = this._gioiHan || this.MOI_TRANG;
+    this._list = await API.get(`/api/leave?gioiHan=${this._gioiHan}`);
     const pending = this._list.filter(l => l.status === 'pending');
     const history = this._list.filter(l => l.status !== 'pending');
+    // Nhận về đúng bằng giới hạn nghĩa là RẤT CÓ THỂ còn nữa. Máy chủ chặn
+    // `gioiHan` trong [1, 500], nên tới trần thì thôi không mời thêm.
+    const conNua = history.length >= this._gioiHan && this._gioiHan < this.TRAN_LICH_SU;
     root.innerHTML = `
       ${UI.pageHeader('Xin phép nghỉ học')}
       <div class="section-label">Chờ duyệt (${pending.length})</div>
@@ -184,7 +206,23 @@ App.views.leave = {
             </div>
             <div class="row-end">${this.statusBadge(l.status)}</div>
           </div>`).join('')}
-      </div>` : UI.emptyState('🗂️', 'Chưa có đơn xin phép nào được xử lý')}`;
+      </div>` : UI.emptyState('🗂️', 'Chưa có đơn xin phép nào được xử lý')}
+      ${conNua ? `
+        <div class="hint mt-8">Đang hiện ${history.length} đơn gần nhất.</div>
+        <button class="btn outline block mt-8" id="btn-don-cu-hon">
+          ${UI.icon('plus', 16)} Xem đơn cũ hơn
+        </button>` : ''}`;
+
+    const themNua = document.getElementById('btn-don-cu-hon');
+    if (themNua) {
+      themNua.onclick = async () => {
+        themNua.disabled = true;
+        themNua.textContent = 'Đang tải…';
+        this._gioiHan = Math.min(this.TRAN_LICH_SU, this._gioiHan + this.MOI_TRANG);
+        try { await this.renderTeacher(root); }
+        catch (err) { themNua.disabled = false; UI.toast(err.message, 'error'); }
+      };
+    }
   },
 
   openReview(id, status) {

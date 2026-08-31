@@ -780,3 +780,111 @@ chính là lớp 1, quên chỗ này thì cô chỉ việc đổi màn hình là
 **Và một chỗ trình bày:** trạng thái "gia đình đã dừng hồ sơ học tập" là quyết định
 của **người lớn**, không phải khiếm khuyết của đứa trẻ. Không ô đỏ, không tam giác
 cảnh báo, không đếm "3/25 bé chưa có hồ sơ" — QUY TẮC 2 và QUY TẮC 4.
+
+---
+
+## Vòng soát lớn 31/08 — mười quyết định tự chốt
+
+Bối cảnh: một vòng soát chín hướng trên toàn kho mã tìm được **51 phát hiện đã
+được kiểm chứng lại** (48 việc khác nhau sau khi gộp trùng). Chúng được làm
+thành mười đợt, mỗi đợt một commit. Dưới đây là những chỗ tôi **phải tự quyết**
+vì chúng là chính sách chứ không phải kỹ thuật — nhà trường xem lại và bảo tôi
+đổi bất cứ cái nào.
+
+### 1. "Gia đình đã thấy ảnh" → "Đã gửi cho gia đình"
+
+Màn Điểm danh ghi dòng đó dưới mỗi tấm ảnh cô chụp, trong khi **app không có
+bảng nào ghi việc gia đình đã mở hay chưa**. Cô đọc dòng ấy rồi yên tâm không
+gọi điện. Tôi đổi sang câu app nói được thật.
+
+**Nếu nhà trường muốn có thật** phần "gia đình đã xem": đó là một việc riêng —
+thêm bảng ghi lượt xem, và phải cân nhắc kỹ vì nó cũng là một dạng theo dõi
+hành vi của phụ huynh.
+
+### 2. Người đón đã ngưng dùng: CHẶN ghi sổ, nhưng GIỮ đường ra
+
+Gia đình bấm "Ngưng dùng" một người được đón lúc 10 giờ; 4 giờ chiều cô vẫn ghi
+sổ bằng đúng tên đó từ danh sách còn trong bộ nhớ trang. Máy chủ nay từ chối.
+
+**Chỗ tôi tự quyết là phần "giữ đường ra":** cô vẫn trả bé được bằng lựa chọn
+"Người khác" kèm tên gõ tay. Chặn cứng thì cô đứng ở cổng với phụ huynh trước
+mặt và app nói không — cô sẽ trả bé rồi ghi sổ giấy, tức mất hẳn vết. Sổ nói
+đúng chuyện đã xảy ra quan trọng hơn sổ sạch đẹp.
+
+### 3. Tắt một mẫu báo cáo phải bật lại được
+
+Nhà trường tắt một mẫu là mẫu ấy biến khỏi màn hình và **không còn nút nào bật
+lại** — phải gõ tay vào cơ sở dữ liệu hoặc soạn lại từ đầu. Tôi mở đường quay
+lại (màn Mẫu báo cáo xin cả mẫu đang tắt), giữ nguyên việc cô soạn báo cáo thì
+không thấy mẫu đã tắt.
+
+### 4. Gia đình đọc được chủ đề TUẦN SAU
+
+Cô soạn chủ đề tuần sau từ thứ Sáu, nhưng màn của gia đình chỉ hiện tuần này —
+mà "Cùng con ở nhà" là thứ nhà chơi vào **cuối tuần**. Thêm một thẻ "Tuần sau ở
+lớp", đứng sau thẻ tuần này.
+
+**Cân nhắc tôi đã làm:** có thể coi đây là lộ bản nháp của cô. Nhưng chủ đề tuần
+không phải nháp — cô bấm Lưu là đã chốt, và nó vốn dành cho gia đình đọc. Nếu
+nhà trường thấy cô cần thời gian sửa thì nói, tôi sẽ chỉ hiện tuần sau từ thứ
+Sáu trở đi.
+
+### 5. Bản sao lưu KHÔNG được rời khỏi Việt Nam
+
+`docs/SAO-LUU.md` (kế thừa từ app 1) dạy đồng bộ bản sao ra Cloudflare R2 /
+Amazon S3 / Google Drive. Bản sao chứa **ảnh khuôn mặt trẻ và hồ sơ sức khoẻ** —
+đưa ra nước ngoài là chuyển dữ liệu xuyên biên giới, đúng thứ `render.yaml` đã
+cấm cho máy chủ đang chạy. Mà bản sao còn nhạy hơn máy chủ: một tệp duy nhất,
+chép đi được, không có màn đăng nhập nào canh.
+
+Tôi thay bằng ba cách giữ trong nước: **ổ cứng ngoài cắm tại trường** (rẻ nhất,
+và là cách runbook app 2 vẫn khuyên), máy khác trong phòng hành chính, hoặc nhà
+cung cấp đặt tại Việt Nam.
+
+**Và bỏ `rsync --delete` / `rclone sync`:** hai lệnh ấy có nghĩa *"làm cho bên
+kia giống hệt bên này"*. Bên này mất bản sao — ổ hỏng, thư mục bị xoá nhầm,
+`DATA_DIR` trỏ sai — thì lượt đồng bộ 2 giờ sáng **xoá nốt bản bên kia**, không
+ai nhìn, và sáng ra cả hai bên đều trống.
+
+### 6. Đường ghi nhật ký sao lưu: `/var/lib/casa-mamnon/backup.log`
+
+Ba chỗ đang nói ba đường khác nhau, và `/var/log/...` thì tài khoản chạy dịch vụ
+thường **không ghi được** — cron chạy, ghi lỗi, `backup.js` không được gọi, và
+không ai biết cho tới ngày cần bản sao. Tôi thống nhất về thư mục dữ liệu, chỗ
+bước 1 của runbook đã cấp quyền ghi.
+
+### 7. Soát máy chủ mỗi tuần một lần
+
+Thứ bộ soát bắt được — lịch sao lưu ngừng chạy, bản sao ba ngày tuổi, ổ sắp đầy,
+chứng chỉ sắp hết hạn — đều **hỏng dần trong im lặng nhiều tuần sau ngày cài**.
+Chạy tay đúng hôm cài thì chỉ chứng minh hôm ấy mọi thứ tốt. Tôi thêm một dòng
+cron hằng tuần vào runbook, ghi ra tệp nhật ký người ta đọc được.
+
+### 8. `restore:check` phải soát cả ẢNH
+
+Lệnh này là thứ nói "bản sao dùng được", và `kiem-tra-may-chu.js` đọc kết quả
+của nó rồi kết luận "bản sao dùng được **thật**". Nhưng nó không nói **một chữ
+nào** về ảnh — một thư mục `uploads/` trống đi qua cả hai lớp canh. Nay nó đếm
+cả hai bên và đối chiếu.
+
+**Vẫn là CẢNH BÁO, không phải lỗi:** bản sao thiếu ảnh vẫn là bản sao khôi phục
+được, chặn hẳn ở đó là chặn nhầm.
+
+### 9. Bộ canh dữ liệu: thu hẹp miễn trừ cho `test/`
+
+CLAUDE.md ghi bộ canh này **"KHÔNG có đường thoát"**, trong khi nó miễn trừ trọn
+thư mục `test/` bằng một dòng. Bộ test dựng máy chủ thật, ghi cơ sở dữ liệu
+thật, ghi ảnh thật — một lần `DATA_DIR` trỏ nhầm là một cơ sở dữ liệu **có thật
+của trẻ** đi thẳng qua bộ canh. Tôi hẹp lại còn đúng tệp mã `.mjs` và bản chụp
+`.json`.
+
+Đây là **siết**, đúng phần nhà trường đã duyệt. Không chỗ nào đang xanh bị làm
+cho đỏ.
+
+### 10. Ba việc tôi CỐ Ý KHÔNG làm, và vì sao
+
+| Việc | Vì sao chưa làm |
+|---|---|
+| **Gỡ `/api/accounts/reset-log`** — đường mồ côi, không màn hình nào gọi, và chú thích của nó hứa một việc nó không làm được | Nhà trường đã dặn **"không duyệt phần gỡ"**. Tôi để nguyên đường, và sẽ chỉ sửa lại chú thích cho đúng sự thật. |
+| **Hai ô "Dân tộc" và "Nhóm máu"** hiện trên hồ sơ mọi bé và có trong tệp xuất Excel, nhưng **không màn hình nào nhập được** | Có hai hướng: mở đường ghi, hoặc gỡ khỏi màn hình. Theo dặn dò trên, tôi sẽ **mở đường ghi** chứ không gỡ — nhưng đó là quyết định về HỒ SƠ của trường, nên xin nhà trường xác nhận: hai ô này trường có dùng không? |
+| **Gộp nhánh làm việc vào `main`** | `docs/TRIEN-KHAI.md` đang phải dặn `git clone -b claude/g0-4-...` vì nhánh mặc định `main` **lùi hơn trăm commit** — bản trên đó thiếu sáu phân hệ và còn nguyên mấy lỗ đã vá. Đây là việc của người có quyền trên kho mã, không phải việc tôi tự làm. **Nên làm trước khi hẹn ngày cài.** |

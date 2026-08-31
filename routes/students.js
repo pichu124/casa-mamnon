@@ -3,8 +3,8 @@ const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
 const { publicUser } = require('./auth');
 
-function decorate(s) {
-  const cls = s.classId ? db.findClass(s.classId) : null;
+function decorate(s, nhomCua) {
+  const cls = nhomCua ? nhomCua(s.classId).cls : (s.classId ? db.findClass(s.classId) : null);
   return {
     ...s,
     className: cls ? cls.name : '',
@@ -12,14 +12,36 @@ function decorate(s) {
     // Nhóm mầm non có 2–3 cô cùng phụ trách. `teacherName` giữ nguyên hình dạng
     // cũ (một cô — cô phụ trách chính) cho màn hình chưa đổi; `teachers` và
     // `teacherNames` là chỗ các cô còn lại hiện ra.
-    ...nl.tomTat(s.classId),
+    ...(nhomCua ? nhomCua(s.classId).co : nl.tomTat(s.classId)),
+  };
+}
+
+// MỘT NHÓM HỎI MỘT LẦN CHO CẢ DANH SÁCH.
+//
+// `decorate` hỏi hai câu cho MỖI bé, mà `/api/students` của hiệu trưởng trả về
+// toàn bộ bé đang học của trường — cùng hình dạng, cùng lý do và cùng cách vá
+// với `mePayload` ở routes/auth.js. Xem khối chú thích ở đó, gồm cả lý do bảng
+// nhớ này PHẢI sống đúng một lượt gọi chứ không được nâng ra ngoài.
+function taoNhoNhom() {
+  const nho = new Map();
+  return (classId) => {
+    const khoa = classId || '';
+    if (!nho.has(khoa)) {
+      nho.set(khoa, {
+        cls: classId ? db.findClass(classId) : null,
+        co: nl.tomTat(classId),
+      });
+    }
+    return nho.get(khoa);
   };
 }
 
 module.exports = (app) => {
   // Danh sách học sinh mà người dùng được xem, kèm thông tin lớp + GVCN.
   app.get('/api/students', (req, res) => {
-    res.json(db.studentsOf(req.user).map(decorate));
+    // Một bảng nhớ cho ĐÚNG lượt gọi này — xem `taoNhoNhom` ở trên.
+    const nhomCua = taoNhoNhom();
+    res.json(db.studentsOf(req.user).map(s => decorate(s, nhomCua)));
   });
 
   // Hồ sơ chi tiết một học sinh.

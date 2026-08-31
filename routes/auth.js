@@ -156,9 +156,42 @@ function duocDocHoSoBe(user) {
 // Gói dữ liệu trả về sau đăng nhập: người dùng + học sinh liên quan + lớp + trường.
 function mePayload(user) {
   const day = duocDocHoSoBe(user);
+
+  // MỘT NHÓM HỎI MỘT LẦN, KHÔNG PHẢI MỘT LẦN CHO MỖI BÉ.
+  //
+  // Đây là đường chạy MỖI LẦN mở app, cho MỌI người: `public/js/app.js` gọi
+  // `/api/auth/me` ngay trong `App.init()`. Bản cũ hỏi lại thông tin nhóm cho
+  // TỪNG bé — hai câu mỗi bé, mà hiệu trưởng và văn phòng thì `db.studentsOf`
+  // trả về toàn bộ bé đang học của cả trường. Trường lên 600 bé là chừng
+  // 1.200 câu mỗi lượt mở app, trong đó gần hết chỉ là hỏi đi hỏi lại đúng
+  // hai chục câu trả lời (mỗi nhóm một).
+  //
+  // better-sqlite3 chạy ĐỒNG BỘ, nên chừng ấy câu chặn thẳng vòng lặp sự kiện
+  // đúng lúc 7 giờ sáng, khi cả trường cùng mở app một lượt. Hôm nay không
+  // thấy gì vì dữ liệu mẫu chỉ 11 bé; nó hiện ra đúng lúc trường đã dùng thật
+  // và đông lên.
+  //
+  // BẢNG NHỚ NÀY CỐ Ý NẰM TRONG THÂN HÀM, sống đúng một lượt gọi. Nâng nó ra
+  // ngoài thành bộ nhớ đệm dùng chung cho cả tiến trình là văn phòng đổi cô
+  // phụ trách xong mà mọi màn hình vẫn nói tên cô cũ cho tới khi khởi động lại
+  // máy chủ — và vì `mePayload` cũng là chỗ giao diện lấy `classIds` của cô,
+  // một bảng nhớ cũ ở đây là QUYỀN cũ ở đây.
+  const nhoNhom = new Map();
+  function nhomCua(classId) {
+    // Khoá là chuỗi rỗng cho bé chưa xếp nhóm, để `Map` không phải nhận
+    // `undefined` làm khoá — bé chưa xếp nhóm vẫn ra `className: ''` như cũ.
+    const khoa = classId || '';
+    if (!nhoNhom.has(khoa)) {
+      nhoNhom.set(khoa, {
+        cls: classId ? db.findClass(classId) : null,
+        co: nl.tomTat(classId),
+      });
+    }
+    return nhoNhom.get(khoa);
+  }
+
   const students = db.studentsOf(user).map(s => {
-    const cls = s.classId ? db.findClass(s.classId) : null;
-    const co = nl.tomTat(s.classId);
+    const { cls, co } = nhomCua(s.classId);
     const gop = {
       ...s,
       className: cls ? cls.name : '',

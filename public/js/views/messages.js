@@ -15,10 +15,43 @@ App.views.messages = {
   },
 
   // ---- Danh sách hội thoại ----
+  //
+  // Máy chủ cắt ở một trang. Hội thoại cô ↔ gia đình chỉ sinh ra chứ không bao
+  // giờ đóng, nên danh sách này dài thêm mỗi năm học mà không có gì chặn. Cắt
+  // mà màn hình không có đường đi tiếp thì với người dùng đó là GIẤU.
+  MOI_TRANG: 40,
+  _daTai: [],
+  _conNua: false,
+  _root: null,
+
   async renderList(root) {
-    const data = await API.get('/api/messages');
-    this._contacts = data.contacts || [];
-    const convs = data.conversations || [];
+    this._root = root;
+    this._daTai = [];
+    this._conNua = false;
+    await this.taiThemHoiThoai();
+    this.veDanhSach();
+  },
+
+  // Tải thêm một trang hội thoại, nối vào phần đã có.
+  //
+  // "Còn nữa hay hết" suy ra bằng cách ĐẾM, y như màn Thông báo và màn Album:
+  // quyền tham gia hội thoại nằm ngay trong phép nối của câu truy vấn máy chủ,
+  // không có bộ lọc nào chạy sau nó, nên số dòng nhận về đúng bằng số dòng
+  // người này xem được.
+  async taiThemHoiThoai() {
+    const data = await API.get(
+      `/api/messages?bo=${this._daTai.length}&soLuong=${this.MOI_TRANG}`);
+    // Danh sách liên hệ chỉ lấy ở lượt đầu — nó không đổi giữa các trang.
+    if (!this._daTai.length) this._contacts = data.contacts || [];
+    const them = data.conversations || [];
+    this._daTai = this._daTai.concat(them);
+    this._conNua = them.length >= this.MOI_TRANG;
+  },
+
+  // Vẽ lại danh sách từ dữ liệu đã tải (không gọi lại máy chủ).
+  veDanhSach() {
+    const root = this._root;
+    const convs = this._daTai;
     root.innerHTML = `
       ${UI.pageHeader('Nhắn tin', { action: { id: 'msg-new', label: 'Trò chuyện mới', icon: 'plus' } })}
       ${convs.length ? `<div class="card">
@@ -34,8 +67,21 @@ App.views.messages = {
               ${cv.unreadCount > 0 ? `<span style="display:inline-block;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:.7rem;font-weight:700;margin-top:3px">${cv.unreadCount > 99 ? '99+' : cv.unreadCount}</span>` : ''}
             </div>
           </div>`).join('')}
-      </div>` : UI.emptyState('💬', 'Chưa có cuộc trò chuyện nào. Bấm "Trò chuyện mới" để bắt đầu.')}`;
+      </div>` : UI.emptyState('💬', 'Chưa có cuộc trò chuyện nào. Bấm "Trò chuyện mới" để bắt đầu.')}
+      ${this._conNua ? `
+        <button class="btn outline block mt-14" id="btn-ht-cu-hon">
+          ${UI.icon('plus', 16)} Xem hội thoại cũ hơn
+        </button>` : ''}`;
     document.getElementById('msg-new').onclick = () => this.openNew();
+    const themNua = document.getElementById('btn-ht-cu-hon');
+    if (themNua) {
+      themNua.onclick = async () => {
+        themNua.disabled = true;
+        themNua.textContent = 'Đang tải…';
+        try { await this.taiThemHoiThoai(); this.veDanhSach(); }
+        catch (err) { themNua.disabled = false; UI.toast(err.message, 'error'); }
+      };
+    }
   },
 
   // Modal chọn liên hệ để bắt đầu trò chuyện mới.
