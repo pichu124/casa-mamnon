@@ -578,8 +578,22 @@ function generate() {
   // Lứa nhà trẻ phải giữ đúng số tháng dù dữ liệu mẫu chạy vào lúc nào: một bé
   // ghi cứng "sinh 2024-06" thì sang năm sau thành 26 tháng, và bài canh mốc
   // 36 tháng sẽ đổi kết quả mà không ai đụng vào mã.
+  // NGÀY TRONG THÁNG PHẢI SUY TỪ HÔM NAY, KHÔNG ĐƯỢC GHIM CỨNG.
+  //
+  // Bản cũ ghim ngày 12. Nó đúng vào ngày 12 trở đi của tháng, và SAI MỘT
+  // THÁNG vào mùng 1 đến 11: lùi 14 tháng từ mùng 1 tháng 9 ra "12 tháng 7",
+  // muộn hơn mùng 1 tháng 7 mười một ngày, nên bé đọc ra 13 tháng chứ không
+  // phải 14. Bài canh mốc 36 tháng cũng lệch theo, và cả hai chỉ đỏ vào 11
+  // ngày đầu mỗi tháng — kiểu hỏng chờ đúng ngày trường cài máy mới nổ.
+  //
+  // Nay lùi n tháng từ chính ngày hôm nay rồi lùi thêm 3 ngày, nên bé luôn
+  // hơn n tháng từ 3 đến 9 ngày: không bao giờ đứng ngay mốc, cũng không bao
+  // giờ tràn sang tháng kế. Ghim ngày ở mức tối đa 25 để tháng 28 hay 30
+  // ngày không bị tràn.
   function thangTruoc(n) {
-    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - n, 12));
+    const ngayTrongThang = Math.min(today.getUTCDate(), 25);
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - n, ngayTrongThang));
+    d.setUTCDate(d.getUTCDate() - 3);
     return d.toISOString().slice(0, 10);
   }
 

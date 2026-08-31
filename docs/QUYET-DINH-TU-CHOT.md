@@ -991,3 +991,61 @@ Ba điều đi kèm, để lần sau đọc lại còn hiểu:
   còn nêu tên nó; xoá đi là làm hỏng các đường dẫn ấy mà chẳng được gì.
 * **Bản lên `main` là bản đã chạy đủ bộ kiểm thử**: `npm test` 3704/0 và
   `npm run test:giao-dien` 526/0, chạy trên đúng commit `feeca7f` này.
+
+### 19. Tuổi bé nhà trẻ trong dữ liệu mẫu sai vào 11 ngày đầu mỗi tháng
+
+Phát hiện lúc sắp gộp nhánh, và **không phải do đợt sửa nào gây ra** — nó nằm
+đó từ N20, ngày thêm nhóm nhà trẻ.
+
+`data/seed.js` sinh ngày sinh của ba bé nhà trẻ bằng `thangTruoc(n)`, và hàm
+ấy **ghim cứng ngày 12**. Lùi 14 tháng từ *mùng 1 tháng 9* ra `2025-07-12` —
+muộn hơn mùng 1 tháng 7 đúng mười một ngày — nên bé đọc ra **13 tháng** chứ
+không phải 14.
+
+Vì sao đáng ghi lại chứ không chỉ là một lỗi vặt:
+
+* Nó **xanh 20 ngày rồi đỏ 11 ngày** mỗi tháng mà không ai đụng vào mã. Bộ
+  kiểm thử mà đỏ theo lịch là bộ kiểm thử người ta bắt đầu bỏ qua.
+* Nó rơi đúng vào **ví dụ mở đầu của CLAUDE.md** — *bé 14 tháng phải đọc là
+  "14 tháng", không phải "1 tuổi"*.
+* Nó đã đỏ **ngay trong phiên này**: bộ đầy đủ xanh lúc 23h50 ngày 31/08 giờ
+  Việt Nam, rồi đỏ lúc 00h20 ngày 01/09 — không có commit nào ở giữa.
+
+Cách vá: lùi n tháng **từ chính ngày hôm nay** rồi lùi thêm 3 ngày, ghim ngày
+trong tháng ở mức tối đa 25 để tháng 28 hoặc 30 ngày không tràn. Bé luôn hơn n
+tháng từ 3 đến 9 ngày — không bao giờ đứng ngay mốc, không bao giờ tràn sang
+tháng kế.
+
+Kèm một bài canh mới trong `test/xuat-danh-sach.test.mjs`: nó **lấy chính hàm
+đang nằm trong `data/seed.js` ra chạy** (không chép lại công thức) với mọi
+ngày của ba năm liên tiếp — 3288 trường hợp — và có một đối chứng bắt bản ghim
+cứng ngày 12 phải sai. Ai sửa công thức thì bài chạy đúng công thức mới.
+
+### 20. Bảng rà soát sau 9h: bài canh chỉ xanh hai ngày mỗi tuần
+
+Phát hiện ngay sau mục 19, cùng một buổi, và cùng một họ lỗi: **bài kiểm thử
+đỏ theo lịch chứ không theo mã**.
+
+Người viết `test/diem-danh-anh.test.mjs` mục [4] đã nghĩ tới chuyện này một
+nửa — chú thích ghi rõ *"dùng một ngày ĐÃ QUA để bảng luôn đã qua giờ: nếu lấy
+hôm nay thì bài này xanh hay đỏ tuỳ giờ chạy"*. Đúng, nhưng chưa đủ.
+
+Dữ liệu mẫu điểm danh sẵn **hai mươi ngày học gần nhất**. Nếu *hôm qua* là một
+ngày học thì mọi bé đã được chấm, danh sách "cần gọi xác nhận" **rỗng**, và cả
+ba phép so bên dưới mất hết ý nghĩa. Bài chỉ xanh khi hôm qua rơi vào thứ Bảy
+hoặc Chủ nhật — tức **hai ngày mỗi tuần**.
+
+Nó đỏ ngay trong phiên này khi giờ Việt Nam bước sang thứ Ba, không có commit
+nào ở giữa.
+
+Cách vá: lấy một ngày trong tuần **cách 45 ngày về trước**. Hai mươi ngày học
+trải tối đa 28 ngày lịch, nên 45 ngày là chắc chắn nằm ngoài vùng dữ liệu mẫu
+đã chấm; lùi tiếp tới ngày trong tuần gần nhất để đơn nghỉ còn có ngày học
+thật mà tính tiền ăn.
+
+**Điều đáng nhớ chung của mục 19 và 20:** hai lỗi này không nằm ở mã chạy thật
+mà ở **chỗ dựng tình huống của bài kiểm thử**, và cả hai đều thuộc kiểu xanh
+phần lớn thời gian rồi đỏ vào đúng vài ngày. Kiểu ấy nguy hiểm hơn đỏ hẳn: ai
+gặp cũng nghĩ *"chạy lại là xanh"*, và đó chính là thói quen làm bộ kiểm thử
+mất tác dụng. Từ đợt này, mọi bài dựng tình huống theo ngày đều phải hỏi thêm
+một câu: **"chạy vào thứ Ba, hay vào mùng 1, thì còn đúng không?"**

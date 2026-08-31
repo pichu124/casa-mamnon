@@ -217,7 +217,23 @@ try {
     // Dùng một ngày ĐÃ QUA để bảng luôn "đã qua giờ": nếu lấy hôm nay thì bài
     // này xanh hay đỏ tuỳ giờ chạy — kiểu đỏ ngẫu nhiên tệ nhất, vì người ta
     // sẽ chạy lại cho tới khi xanh.
-    const homQua = new Date(Date.parse(`${NGAY}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    //
+    // NHƯNG "HÔM QUA" THÌ CHƯA ĐỦ, và bản đầu của bài này dừng ở đó.
+    //
+    // Dữ liệu mẫu điểm danh sẵn HAI MƯƠI NGÀY HỌC gần nhất. Hôm qua mà là
+    // ngày học thì mọi bé đã được chấm, danh sách cần gọi RỖNG, và ba phép so
+    // ở dưới mất hết ý nghĩa. Bài chỉ xanh khi hôm qua rơi vào thứ Bảy hoặc
+    // Chủ nhật — tức đúng hai ngày mỗi tuần. Đỏ theo lịch cũng tệ y như đỏ
+    // theo giờ mà chú thích trên đã tránh, chỉ khó thấy hơn.
+    //
+    // 20 ngày học trải tối đa 28 ngày lịch, nên lùi 45 ngày là chắc chắn ra
+    // ngoài vùng ấy; rồi lùi tiếp tới ngày trong tuần gần nhất để đơn nghỉ có
+    // ngày học thật mà tính tiền ăn.
+    const homQua = (() => {
+      let d = new Date(Date.parse(`${NGAY}T00:00:00Z`) - 45 * 86400000);
+      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d = new Date(d.getTime() - 86400000);
+      return d.toISOString().slice(0, 10);
+    })();
 
     const r = await req('GET', `/api/attendance/ra-soat?date=${homQua}&classId=c1`, { cookie: co.cookie });
     check('ngày đã qua thì bảng rà soát luôn có nghĩa',

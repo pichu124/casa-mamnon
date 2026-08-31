@@ -212,6 +212,75 @@ console.log('\n[5] Mỗi lần xuất đều để lại dấu — hỏi "ai đ�
     dauVet[0] && dauVet[0].detail);
 }
 
+// ===========================================================================
+console.log('\n[+] TUỔI CỦA BÉ NHÀ TRẺ KHÔNG ĐƯỢC PHỤ THUỘC VÀO HÔM NAY LÀ MÙNG MẤY');
+{
+  // Bản đầu của `thangTruoc` trong data/seed.js GHIM CỨNG ngày 12. Nó đúng từ
+  // ngày 12 trở đi của tháng, và SAI ĐÚNG MỘT THÁNG vào mùng 1 đến 11: lùi 14
+  // tháng từ mùng 1 tháng 9 ra "12 tháng 7", muộn hơn mùng 1 tháng 7 mười một
+  // ngày, nên bé đọc ra 13 tháng chứ không phải 14.
+  //
+  // Mục [2] ở trên bắt được, nhưng CHỈ vào 11 ngày đầu mỗi tháng — nghĩa là bộ
+  // kiểm thử xanh 20 ngày rồi đỏ 11 ngày mà không ai đụng vào mã. Đúng kiểu
+  // hỏng nằm chờ ngày trường cài máy mới nổ, và cũng đúng kiểu làm người tiếp
+  // quản mất lòng tin vào bộ kiểm thử.
+  //
+  // Bài này lấy CHÍNH hàm đang nằm trong data/seed.js ra chạy — không chép lại
+  // công thức — rồi thử với MỌI ngày trong tháng của ba năm liên tiếp. Ai sửa
+  // công thức thì bài chạy đúng công thức mới.
+  const nguonSeed = fs.readFileSync(path.join(GOC, 'data/seed.js'), 'utf8');
+  const than = (() => {
+    const i = nguonSeed.indexOf('function thangTruoc(n)');
+    if (i < 0) return null;
+    let mo = nguonSeed.indexOf('{', i), sau = mo, d = 0;
+    for (; sau < nguonSeed.length; sau++) {
+      if (nguonSeed[sau] === '{') d++;
+      else if (nguonSeed[sau] === '}' && --d === 0) break;
+    }
+    return nguonSeed.slice(mo + 1, sau);
+  })();
+  check('đọc được hàm thangTruoc từ data/seed.js', !!than && than.includes('getUTCMonth'), than);
+
+  // Dựng lại hàm với `today` do bài này quyết định. Dịch MỘT LẦN rồi gọi lại,
+  // chứ không dịch trong vòng lặp ba nghìn vòng.
+  const thangTruocVoi = new Function('today', 'n', than);
+
+  // Đếm số tháng tròn — cùng cách máy chủ tính tuổi bé.
+  const soThangTron = (dob, hom) => {
+    const a = new Date(dob + 'T00:00:00Z'), b = new Date(hom + 'T00:00:00Z');
+    let m = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+    if (b.getUTCDate() < a.getUTCDate()) m--;
+    return m;
+  };
+
+  const sai = [];
+  let daThu = 0;
+  for (let t = Date.UTC(2026, 0, 1); t <= Date.UTC(2028, 11, 31); t += 86400000) {
+    const today = new Date(t);
+    const hom = today.toISOString().slice(0, 10);
+    for (const n of [14, 34, 38]) {      // đúng ba bé nhà trẻ của dữ liệu mẫu
+      daThu++;
+      const dob = thangTruocVoi(today, n);
+      const ra = soThangTron(dob, hom);
+      if (ra !== n) sai.push(sai.length < 5 ? { hom, muon: n, ra, dob } : null);
+    }
+  }
+  check('thử đủ mọi ngày của ba năm, không phải chỉ vài ngày', daThu >= 3000, daThu);
+  check('BÉ MẪU LUÔN ĐÚNG SỐ THÁNG, DÙ HÔM NAY LÀ MÙNG MẤY',
+    sai.length === 0, sai.filter(Boolean).slice(0, 5));
+
+  // Đối chứng: bản ghim cứng ngày 12 PHẢI sai, nếu không thì phép thử ở trên
+  // không chứng minh được gì.
+  const banCu = (today, n) => {
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - n, 12));
+    return d.toISOString().slice(0, 10);
+  };
+  const mung1 = new Date(Date.UTC(2026, 8, 1));
+  check('ĐỐI CHỨNG: bản ghim cứng ngày 12 ra sai vào mùng 1 — bài trên có bắt thật',
+    soThangTron(banCu(mung1, 14), '2026-09-01') === 13,
+    soThangTron(banCu(mung1, 14), '2026-09-01'));
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
