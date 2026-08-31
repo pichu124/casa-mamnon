@@ -14,6 +14,7 @@
 //
 // Đây là đường CHỈ ĐỌC. Không có bất kỳ đường ghi nào.
 const db = require('../lib/db');
+const st = require('../lib/sua-thu-hoi');
 const lsl = require('../lib/lich-su-lop');
 // HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC — bước mà `modules/README.md`
 // dạy. Màn này BẬT SẴN cho mọi gia đình và đọc bảng của BỐN phân hệ khác, nên
@@ -61,8 +62,20 @@ module.exports = (app) => {
     const lop = db.findClass(k.classId);
     const hs = db.findStudent(k.studentId);
 
+    // BẢN ĐÃ THU HỒI KHÔNG ĐƯỢC SỐNG LẠI Ở MÀN "NĂM HỌC TRƯỚC".
+    //
+    // Cô bấm Thu hồi một thông báo gửi nhầm cho cả nhóm; nó biến khỏi màn Thông
+    // báo (routes/notifications.js lọc đúng) nên cô và văn phòng tin là xong.
+    // Tới lần chuyển năm học kế tiếp, khoảng lớp khép lại và phân hệ này —
+    // bật sẵn cho mọi gia đình — in lại đúng dòng đó kèm tên người gửi, mà
+    // không nút thu hồi nào chạm tới được nữa.
+    //
+    // Thu hồi là lời hứa "cái này gia đình sẽ không đọc nữa". Giữ lời hứa ở
+    // một màn rồi phá nó ở màn khác thì tệ hơn không hứa.
     const thongBao = !modules.dangBat('thongbao') ? [] : db.all('notifications',
-      `SELECT * FROM notifications WHERE audience = ? ORDER BY createdAt DESC`, [k.classId])
+      `SELECT * FROM notifications WHERE audience = ?
+         AND ${st.dieuKienConHien('notifications', 'id')}
+       ORDER BY createdAt DESC`, [k.classId])
       .filter(n => trongKhoang(k, n.createdAt))
       .map(n => {
         const a = n.createdBy ? db.findUser(n.createdBy) : null;

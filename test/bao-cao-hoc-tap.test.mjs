@@ -351,6 +351,41 @@ try {
     check('KHÔNG có bảng nào của phân hệ này lưu lại chiều cao/cân nặng',
       !/height|weight|chieuCao|canNang/i.test(nguon),
       (nguon.match(/height|weight|chieuCao|canNang/gi) || []).join(', '));
+
+    // SỐ ĐO ĐÃ THU HỒI KHÔNG ĐƯỢC IN VÀO BẢN GỬI GIA ĐÌNH.
+    //
+    // Hộp thoại thu hồi ở màn Sức khoẻ tự nêu tên đúng tình huống này: "Dùng
+    // khi ghi nhầm sang bé khác". Y tế gõ nhầm số của bé khác, phát hiện, thu
+    // hồi — hồ sơ sức khoẻ sạch, nhưng bản báo cáo gửi gia đình vẫn in con số
+    // sai cạnh tên con họ, ở đúng thứ gia đình đọc kỹ nhất và giữ lại.
+    //
+    // Đọc bảng của phân hệ khác thì phải mang theo cả luật của phân hệ đó —
+    // `dieuKienConHien` — chứ không chỉ mang theo câu SELECT.
+    const CAO_LA = 137;
+    const ghi = await req('POST', '/api/health', { cookie: qt.cookie, body: {
+      studentId: 's1', type: 'checkup', title: 'Khám định kỳ (gõ nhầm bé)',
+      height: CAO_LA, weight: 31, date: '2026-03-15' } });
+    check('y tế ghi được một số đo để làm phép thử',
+      ghi.status === 200 || ghi.status === 201,
+      `${ghi.status} ${JSON.stringify(ghi.data).slice(0, 120)}`);
+
+    // Đối chứng: chưa thu hồi thì số đo PHẢI có mặt. Không có vế này thì phép
+    // kiểm dưới xanh cả khi mục số đo hỏng hẳn và luôn trả về mảng rỗng.
+    const coSo = await req('GET', `/api/baocaohoctap/ban/${globalThis.BAN}`, { cookie: co.cookie });
+    check('chưa thu hồi thì số đo CÓ trong bản báo cáo',
+      (coSo.data?.ban?.soDo || []).some(x => Number(x.chieuCao) === CAO_LA),
+      (coSo.data?.ban?.soDo || []).map(x => x.chieuCao));
+
+    const thu = await req('DELETE', `/api/health/${ghi.data?.id}`, { cookie: qt.cookie });
+    check('thu hồi được số đo vừa ghi', thu.status === 200,
+      `${thu.status} ${JSON.stringify(thu.data)}`);
+
+    const sauThu = await req('GET', `/api/baocaohoctap/ban/${globalThis.BAN}`, { cookie: co.cookie });
+    check('SỐ ĐO ĐÃ THU HỒI KHÔNG CÒN TRONG BẢN GỬI GIA ĐÌNH',
+      !(sauThu.data?.ban?.soDo || []).some(x => Number(x.chieuCao) === CAO_LA),
+      (sauThu.data?.ban?.soDo || []).map(x => x.chieuCao));
+    check('và mục số đo vẫn dựng bình thường, không vỡ',
+      Array.isArray(sauThu.data?.ban?.soDo), typeof sauThu.data?.ban?.soDo);
   }
 
   // =========================================================================

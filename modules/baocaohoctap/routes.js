@@ -38,6 +38,7 @@
 // mảng KHÔNG BAO GIỜ được dùng như một con số — y hệt lời dặn ở Hành trình.
 const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
+const st = require('../../lib/sua-thu-hoi');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -142,10 +143,22 @@ module.exports = (app, { db, modules }) => {
     // Tắt thì trả về mảng RỖNG chứ không báo lỗi: thiếu bảng số đo không làm
     // hỏng bản báo cáo, phần còn lại vẫn đọc được bình thường.
     if (!modules.dangBat('yte')) return [];
+
+    // SỐ ĐO ĐÃ THU HỒI THÌ KHÔNG ĐƯỢC IN VÀO BẢN GỬI GIA ĐÌNH.
+    //
+    // Hộp thoại thu hồi ở màn Sức khoẻ tự nêu tên đúng tình huống này: "Dùng
+    // khi ghi nhầm sang bé khác". Y tế gõ nhầm số của bé khác, phát hiện, thu
+    // hồi — hồ sơ sức khoẻ sạch, nhưng bản báo cáo tháng gửi gia đình vẫn in
+    // con số sai cạnh tên con họ, ở đúng thứ gia đình đọc kỹ nhất và giữ lại.
+    //
+    // Đây là chỗ thứ hai cùng hình dạng trong một đợt soát (chỗ kia là màn
+    // "Năm học trước"): một bảng thu hồi được, đọc từ NGOÀI tệp route gốc của
+    // nó, và quên mất điều kiện lọc.
     return db.all('health',
       `SELECT date, height, weight FROM health
         WHERE studentId = ? AND (height IS NOT NULL OR weight IS NOT NULL)
-          AND date <= ? ORDER BY date DESC LIMIT 24`,
+          AND date <= ? AND ${st.dieuKienConHien('health', 'id')}
+        ORDER BY date DESC LIMIT 24`,
       [studentId, denNgay])
       .reverse()
       .map(h => ({ ngay: h.date, chieuCao: h.height, canNang: h.weight }));

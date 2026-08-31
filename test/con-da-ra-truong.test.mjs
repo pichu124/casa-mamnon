@@ -418,6 +418,65 @@ console.log('\n[9] CÔ THU HỒI MỘT NHẬN XÉT — MÀN NÀY CŨNG PHẢI TH
     dong?.daSua === true && !!dong?.suaLuc, dong);
 }
 
+// ===========================================================================
+console.log('\n[+] THÔNG BÁO ĐÃ THU HỒI KHÔNG ĐƯỢC SỐNG LẠI Ở MÀN "NĂM HỌC TRƯỚC"');
+{
+  const NHOM_CU_TB = 'c1';
+  // Cô bấm Thu hồi một thông báo gửi nhầm cho cả nhóm; nó biến khỏi màn Thông
+  // báo (routes/notifications.js lọc đúng) nên cô và văn phòng tin là xong.
+  // Tới lần chuyển năm học kế tiếp, khoảng lớp khép lại và phân hệ "Năm học
+  // trước" — bật sẵn cho MỌI gia đình — in lại đúng dòng đó kèm tên người gửi,
+  // mà không nút thu hồi nào chạm tới được nữa vì khoảng đã đóng.
+  //
+  // Thu hồi là lời hứa "cái này gia đình sẽ không đọc nữa". Giữ lời hứa ở một
+  // màn rồi phá nó ở màn khác thì tệ hơn không hứa.
+  // Thông báo cho MỘT nhóm chỉ cô phụ trách nhóm ấy gửi được (`audience:
+  // 'class'` suy nhóm từ chính tài khoản cô), nên phải đăng nhập cô của c1.
+  const GV1 = (await login('giaovien', '123456')).cookie;
+  const tao = await req('POST', '/api/notifications', {
+    cookie: GV1,
+    body: {
+      title: 'Gửi nhầm — nhắc đóng học phí nhóm khác',
+      body: 'Dòng này lẽ ra không tới nhóm này.',
+      category: 'Lớp học',
+      audience: 'class',
+      classId: NHOM_CU_TB,
+    },
+  });
+  check('dựng được một thông báo cho nhóm cũ', tao.status === 200 || tao.status === 201,
+    `${tao.status} ${JSON.stringify(tao.data).slice(0, 120)}`);
+  const tbId = tao.data?.id;
+
+  // Lùi ngày gửi vào TRONG khoảng bé còn học nhóm đó (2023-08-01 → 2024-05-31).
+  // Màn "Năm học trước" chỉ in những gì rơi vào đúng khoảng ấy, mà app không có
+  // đường nào đặt ngày gửi về quá khứ — ghi thẳng vào bảng, cùng cách đã dùng
+  // cho ngày rời trường ở đầu tệp này.
+  {
+    const c3 = new Database(path.join(DIR, 'school.db'));
+    c3.prepare('UPDATE notifications SET createdAt = ? WHERE id = ?')
+      .run('2024-03-20T08:00:00.000Z', tbId);
+    c3.close();
+  }
+
+  // Đối chứng: chưa thu hồi thì gia đình PHẢI thấy nó ở màn Năm học trước.
+  // Không có vế này thì phép kiểm dưới xanh cả khi màn ấy hỏng hẳn.
+  choRoiTruong(BE, 1);
+  const truoc = await req('GET', '/api/namhoccu/scp-test-1', { cookie: PH });
+  check('chưa thu hồi thì màn Năm học trước CÓ thấy thông báo đó',
+    (truoc.data?.thongBao || []).some(x => x.id === tbId),
+    (truoc.data?.thongBao || []).map(x => x.id));
+
+  const thu = await req('DELETE', `/api/notifications/${tbId}`, { cookie: GV1 });
+  check('thu hồi được thông báo', thu.status === 200, `${thu.status} ${JSON.stringify(thu.data)}`);
+
+  const sau = await req('GET', '/api/namhoccu/scp-test-1', { cookie: PH });
+  check('THU HỒI RỒI THÌ MÀN NĂM HỌC TRƯỚC KHÔNG CÒN IN NÓ RA NỮA',
+    !(sau.data?.thongBao || []).some(x => x.id === tbId),
+    (sau.data?.thongBao || []).map(x => `${x.id}:${x.title}`));
+  check('và phần còn lại của màn đó vẫn dựng bình thường',
+    sau.status === 200 && Array.isArray(sau.data?.thongBao), sau.status);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
