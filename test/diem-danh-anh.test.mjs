@@ -21,7 +21,7 @@
 //   3. MÀU ĐỎ Ở ĐÂY NÓI VỀ VIỆC CỦA NGƯỜI LỚN, KHÔNG NÓI GÌ VỀ ĐỨA TRẺ. Mục
 //      [5] soi chữ trên màn hình: không câu nào quy việc chưa điểm danh về
 //      phía bé.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, MAU, GOC, HOM_NAY } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, datChucVu, MAU, GOC, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -277,6 +277,75 @@ try {
 
     const phRs = await req('GET', `/api/attendance/ra-soat?date=${NGAY}&classId=c1`, { cookie: ph.cookie });
     check('gia đình KHÔNG mở được bảng rà soát của cả nhóm', phRs.status === 403, `${phRs.status}`);
+  }
+
+  // =========================================================================
+  // VĂN PHÒNG LÀ NGƯỜI PHẢI NHẤC MÁY GỌI — VÀ TRƯỚC Đ97 CHƯA PHÉP NÀO ĐI ĐƯỜNG ẤY.
+  //
+  // Bốn lượt gọi `ra-soat` ở các mục trên đều dùng cookie của CÔ, và luôn kèm
+  // `classId`. Đường mà màn văn phòng thật sự đi — quản trị, KHÔNG kèm classId,
+  // để máy chủ tự cắt theo phạm vi — thì chưa lần nào chạy. Mục này đi đúng
+  // đường đó, và đi bằng cả hai cấp quản trị.
+  console.log('\n[4d] Văn phòng mở được bảng rà soát, đúng phạm vi của mình');
+  {
+    const vp = await req('GET', `/api/attendance/ra-soat?date=${NGAY}`, { cookie: qt.cookie });
+    check('quản trị mở được bảng rà soát mà KHÔNG cần kèm mã nhóm',
+      vp.status === 200 && Array.isArray(vp.data.danhSach),
+      `${vp.status} ${JSON.stringify(vp.data).slice(0, 140)}`);
+    check('bảng trả về đủ ba thứ màn hình cần: giờ chốt, đã qua giờ chưa, và số bé',
+      vp.data.gioRaSoat === 9 && typeof vp.data.quaGio === 'boolean'
+        && typeof vp.data.soCanRaSoat === 'number',
+      JSON.stringify({ g: vp.data.gioRaSoat, q: vp.data.quaGio, s: vp.data.soCanRaSoat }));
+
+    // ĐỐI CHỨNG: phạm vi của quản trị Cấp 1 phải RỘNG HƠN phạm vi một nhóm —
+    // nếu không thì phép so ở dưới (Cấp 3 hẹp hơn) chẳng chứng minh được gì.
+    const mot = await req('GET', `/api/attendance/ra-soat?date=${NGAY}&classId=c1`, { cookie: qt.cookie });
+    check('đối chứng — quản trị hỏi riêng một nhóm cũng được, và ra tập con',
+      mot.status === 200 && (mot.data.danhSach || []).length <= (vp.data.danhSach || []).length,
+      `${(mot.data.danhSach || []).length} vs ${(vp.data.danhSach || []).length}`);
+
+    // Vai KHÔNG được xem: Nhân sự và Kế toán không có Điểm danh trong danh sách
+    // đường dẫn cho phép của chức vụ.
+    datChucVu(DIR, 'dda_qt', 'nhansu');
+    const ns = await login('dda_qt', mkQt);
+    const nsRs = await req('GET', `/api/attendance/ra-soat?date=${NGAY}`, { cookie: ns.cookie });
+    check('chức vụ Nhân sự KHÔNG mở được bảng rà soát', nsRs.status === 403 || nsRs.status === 404,
+      `${nsRs.status}`);
+    datChucVu(DIR, 'dda_qt', '');
+  }
+
+  // =========================================================================
+  // MÀN VĂN PHÒNG PHẢI TỒN TẠI, VÀ PHẢI TÁCH BA TRẠNG THÁI.
+  //
+  // Máy chủ ép `soCanRaSoat: 0` khi chưa qua giờ, nên "7h30 sáng, các cô còn
+  // đang đón bé" và "đã qua 9 giờ, mọi bé đều xong" trông y hệt nhau nếu chỉ
+  // nhìn độ dài mảng. Gộp hai cái đó là nói dối văn phòng đúng lúc họ cần tin.
+  console.log('\n[4e] Màn của văn phòng: có thật, và tách đủ ba trạng thái');
+  {
+    const v = fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8');
+    check('có nhánh riêng cho vai quản trị, không rơi vào màn của gia đình',
+      /role === 'admin'\s*\)\s*return this\.renderVanPhong/.test(v),
+      'không thấy nhánh renderVanPhong');
+    check('màn văn phòng KHÔNG dùng lại màn điểm danh của cô',
+      !/renderVanPhong[\s\S]{0,400}renderTeacher\(/.test(v), 'có gọi renderTeacher');
+
+    const khoi = (v.match(/theRaSoatVanPhong\(r, ds, tenNhom\)\s*\{[\s\S]*?\n  \},/) || [''])[0];
+    check('đối chứng — tìm được đúng khối chữ của màn văn phòng', khoi.length > 400, `${khoi.length} ký tự`);
+    check('tách trạng thái CHƯA TỚI GIỜ, không gộp vào "đã xong"',
+      /!r\.quaGio/.test(khoi) && /còn đang điểm danh/i.test(khoi), 'không thấy nhánh chưa tới giờ');
+    check('trạng thái không còn ai cần gọi được nói như TIN TỐT, không phải ô trống',
+      /đã xong/i.test(khoi) && /var\(--success\)/.test(khoi), 'không thấy nhánh tin tốt');
+
+    // QUY TẮC 2: màn rỗng không được trình bày như một khoảng thiếu cần lấp.
+    check('màn văn phòng không nói "chưa có"/"trống"/"thiếu" về phía đứa trẻ',
+      !/(chưa có gì|trống trơn|còn thiếu|chưa đạt)/i.test(khoi), khoi.slice(0, 120));
+
+    // Không mời văn phòng bấm sang nhóm của cơ sở khác — đúng lỗi đã vá ở Đ94.
+    const khoiVP = (v.match(/async renderVanPhong\([\s\S]*?\n  \},/) || [''])[0];
+    check('màn văn phòng KHÔNG dựng ô chọn nhóm từ danh sách cả trường',
+      khoiVP.length > 200 && !/<select/.test(khoiVP), khoiVP.slice(0, 100));
+    check('và KHÔNG gửi kèm classId — để máy chủ tự cắt theo phạm vi',
+      /ra-soat\?date=/.test(khoiVP) && !/classId=/.test(khoiVP), 'có gửi classId');
   }
 
   // =========================================================================

@@ -337,9 +337,25 @@ console.log('\n[6] CẤP 3 TRÊN TRÌNH DUYỆT THẬT — không thấy bé c�
   // Bắt theo TIÊU ĐỀ "Không mở được", không bắt theo câu giải thích: từ Đ54 câu
   // đó đổi theo lý do (nhà trường tắt / ngoài vai / ngoài chức vụ / sự cố), còn
   // tiêu đề thì chung cho cả bốn.
+  // NGÀY XEM PHẢI TỰ DỰNG, KHÔNG TRÔNG VÀO DỮ LIỆU MẪU RƠI ĐÚNG CHỖ.
+  //
+  // Từ Đ97, vai quản trị mở màn Điểm danh ra là BẢNG RÀ SOÁT của cả phạm vi —
+  // không còn rơi nhầm vào lịch tháng của một bé bất kỳ như trước. Bảng ấy chỉ
+  // liệt kê bé CHƯA có dòng điểm danh và CHƯA có đơn nghỉ được duyệt, nên tên
+  // bé chỉ hiện ra khi tình huống đó có thật.
+  //
+  // Chọn một ngày ĐÃ QUA đủ xa để dữ liệu mẫu chưa chấm điểm danh (seed chỉ
+  // chấm 20 ngày học gần nhất). Hai lý do, và lý do thứ hai mới là chính:
+  //   - ngày đã qua thì `quaGio` luôn đúng, bảng luôn có nghĩa;
+  //   - lấy HÔM NAY thì bài này xanh sau 9 giờ và đỏ trước 9 giờ — đúng loại
+  //     đỏ theo giờ trong ngày mà Đ92 vừa phải đi vá bốn bài.
+  const NGAY_XA = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+
   for (const [hash, ten] of [['#/attendance', 'Điểm danh']]) {
     await page.goto(`${BASE}/${hash}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1200);
+    await page.evaluate((d) => App.views.attendance.setDate(d), NGAY_XA);
+    await page.waitForTimeout(1400);
     const chu = await page.locator('body').innerText();
     check(`${ten}: Cấp 3 mở được, không rơi vào màn lỗi hay màn "đang tắt"`,
       !/Có lỗi xảy ra|Không mở được/.test(chu), chu.slice(0, 150));

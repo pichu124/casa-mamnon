@@ -12,7 +12,121 @@ App.views.attendance = {
 
   async render(root) {
     if (App.state.user.role === 'teacher') return this.renderTeacher(root);
+    // VĂN PHÒNG CÓ MÀN RIÊNG, KHÔNG DÙNG LẠI MÀN CỦA CÔ VÀ KHÔNG RƠI VÀO MÀN
+    // CỦA GIA ĐÌNH.
+    //
+    // Trước Đ97 ở đây chỉ có hai dòng, nên quản trị rơi xuống `renderParent` và
+    // thấy lịch điểm danh tháng của MỘT BÉ BẤT KỲ — bé đứng đầu danh sách, vì
+    // `App.state.students` của quản trị là toàn bộ bé trong phạm vi.
+    //
+    // Và cũng KHÔNG dùng lại `renderTeacher`: `routes/auth.js` chỉ gán
+    // `nhomCuaCo` cho vai `teacher`, nên quản trị vào đó sẽ mở sổ điểm danh
+    // với `nhomId` rỗng — tức chấm điểm danh cho cả trường một lượt. Việc của
+    // văn phòng ở đây là RÀ SOÁT, không phải chấm thay cô.
+    if (App.state.user.role === 'admin') return this.renderVanPhong(root);
     return this.renderParent(root);
+  },
+
+  // ---- Văn phòng: bảng rà soát sau 9 giờ, cả phạm vi mình quản ----
+  //
+  // Nhà trường yêu cầu ở điểm 4 (30/08): *"báo đỏ để admin kiểm tra lại sơ sót
+  // hay con nghỉ để liên lạc với PH xác nhận"*. Người phải nhấc máy gọi là văn
+  // phòng — cô chính là người "chưa kịp chấm", nên báo cho cô là báo cho đúng
+  // người không cần được báo.
+  //
+  // Máy chủ đã trả sẵn theo phạm vi khi KHÔNG kèm `classId`: Cấp 1 nhận cả
+  // trường, Cấp 3 chỉ nhận cơ sở mình. Nên màn này CỐ Ý không có ô chọn nhóm —
+  // dựng ô chọn từ `App.state.classes` là mời quản lý cơ sở bấm sang nhóm cơ
+  // sở khác rồi nhận 403, đúng lỗi đã vá ở Đ94.
+  async renderVanPhong(root) {
+    if (!this.date) this.date = UI.todayStr();
+    let r;
+    try {
+      r = await API.get(`/api/attendance/ra-soat?date=${encodeURIComponent(this.date)}`);
+    } catch (e) {
+      root.innerHTML = UI.pageHeader('Điểm danh')
+        + UI.emptyState('🗓️', e.message || 'Chưa mở được bảng rà soát');
+      return;
+    }
+    const ds = r.danhSach || [];
+    const tenNhom = (classId) => {
+      const c = (App.state.classes || []).find(x => x.id === classId);
+      return c ? c.name : '';
+    };
+
+    root.innerHTML = `
+      ${UI.pageHeader('Điểm danh')}
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Ngày rà soát</label>
+          <input type="date" value="${UI.esc(this.date)}" max="${UI.esc(UI.todayStr())}"
+                 onchange="App.views.attendance.setDate(this.value)">
+        </div>
+        <div class="muted small mt-8" style="line-height:1.6">
+          Văn phòng xem được cả phạm vi mình phụ trách. Việc chấm điểm danh vẫn
+          là của cô ở màn nhóm.
+        </div>
+      </div>
+      ${this.theRaSoatVanPhong(r, ds, tenNhom)}`;
+  },
+
+  // BA TRẠNG THÁI, KHÔNG PHẢI HAI.
+  //
+  // Máy chủ ép `soCanRaSoat: 0` và `danhSach: []` khi chưa qua giờ rà soát, nên
+  // "7 giờ 30 sáng, chưa tới giờ" và "đã qua 9 giờ, mọi bé đều xong" trông y
+  // hệt nhau nếu chỉ nhìn độ dài mảng. Nói gộp hai cái đó là nói dối văn phòng
+  // đúng lúc họ cần tin nhất.
+  //
+  // Và màn rỗng KHÔNG phải một ô trống chờ lấp: "không bé nào cần gọi" là việc
+  // của người lớn đã xong, là tin tốt. QUY TẮC 2 cấm trình bày "chưa" như một
+  // thất bại — ở đây còn không có chữ "chưa" nào của một đứa trẻ cả.
+  theRaSoatVanPhong(r, ds, tenNhom) {
+    if (!r.quaGio) {
+      return `<div class="card">
+        <div class="card-title">Sáng nay còn đang điểm danh</div>
+        <div class="muted small" style="line-height:1.7">
+          Bảng rà soát chốt lúc ${UI.esc(String(r.gioRaSoat))} giờ. Trước giờ đó các cô
+          vẫn đang đón bé và chấm sổ, nên bảng này chỉ có nghĩa sau giờ đó.
+          Quay lại sau ${UI.esc(String(r.gioRaSoat))} giờ nhé.
+        </div>
+      </div>`;
+    }
+    if (!ds.length) {
+      return `<div class="card" style="border-left:4px solid var(--success)">
+        <div class="card-title" style="color:var(--success)">
+          ${UI.icon('check', 16)} Cả trường đã xong
+        </div>
+        <div class="muted small" style="line-height:1.7">
+          Đã qua ${UI.esc(String(r.gioRaSoat))} giờ và mọi bé đều đã có dòng điểm danh,
+          hoặc đã có đơn nghỉ được duyệt. Văn phòng không cần gọi cuộc nào.
+        </div>
+        ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
+          ${UI.esc(String(r.soDaCoDonNghi))} bé đang nghỉ có đơn đã duyệt.
+        </div>` : ''}
+      </div>`;
+    }
+    return `
+      <div class="card" style="border-left:4px solid var(--danger)">
+        <div class="card-title" style="color:var(--danger)">
+          ${UI.icon('bell', 16)} Cần gọi xác nhận: ${UI.esc(String(ds.length))} bé
+        </div>
+        <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+          Đã qua ${UI.esc(String(r.gioRaSoat))} giờ mà những bé dưới đây chưa có dòng
+          điểm danh nào, và cũng chưa có đơn nghỉ được duyệt. Có thể cô chưa kịp chấm,
+          cũng có thể gia đình quên báo — gọi một cuộc cho chắc.
+        </div>
+        ${ds.map(x => `
+          <div class="list-row">
+            ${UI.avatar(x.avatar, 34)}
+            <div class="row-main">
+              <div class="row-title">${UI.esc(x.hoTen)}</div>
+              ${tenNhom(x.classId) ? `<div class="row-sub">${UI.esc(tenNhom(x.classId))}</div>` : ''}
+            </div>
+          </div>`).join('')}
+        ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
+          ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
+        </div>` : ''}
+      </div>`;
   },
 
   // ---- Phụ huynh: lịch tháng của con ----
