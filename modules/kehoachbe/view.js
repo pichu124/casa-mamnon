@@ -198,9 +198,36 @@ App.views.kehoachbe = {
       const r = await API.put('/api/kehoachbe', {
         classId: this._classId, thang: this._thang, danhSach: [...theoBe.values()],
       });
-      UI.toast(r.daLuu ? `Đã lưu kế hoạch cho ${r.daLuu} bé` : 'Chưa có bé nào được gõ nội dung', r.daLuu ? 'success' : 'error');
+      // NHÁNH `daLuu = 0` TỪNG NÓI NGƯỢC HẲN VIỆC CÔ VỪA LÀM.
+      //
+      // Cô gõ nội dung cho đúng một bé, mà bé đó gia đình đã dừng hồ sơ học
+      // tập: máy chủ bỏ qua, `daLuu` bằng 0, và màn hình báo "Chưa có bé nào
+      // được gõ nội dung". Cô nhìn xuống thấy chữ mình vừa gõ còn nguyên trên
+      // màn hình, kết luận app hỏng, rồi gõ lại lần nữa.
+      const boQua = this.nhacBoQua(r);
+      UI.toast(
+        r.daLuu ? `Đã lưu kế hoạch cho ${r.daLuu} bé${boQua}`
+          : (boQua ? `Không lưu được bé nào${boQua}` : 'Chưa có bé nào được gõ nội dung'),
+        r.daLuu ? 'success' : 'error');
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // CÔ PHẢI ĐƯỢC BIẾT BÉ NÀO BỊ BỎ QUA.
+  //
+  // Máy chủ trả `boQuaNgungHoSo` — tên những bé mà gia đình đã dừng phần hồ sơ
+  // học tập (Đ96) — nhưng màn hình chưa bao giờ đọc tới. Cô lưu kế hoạch cho cả
+  // nhóm, đọc "Đã lưu kế hoạch cho 24 bé", và tưởng cả nhóm xong. Bé thứ 25 bị
+  // loại lặng lẽ.
+  //
+  // Im lặng bỏ qua đúng là thứ chú thích ở máy chủ đã cấm: "Im lặng bỏ qua
+  // cũng sai — cô sẽ tưởng đã lập kế hoạch cho cả nhóm."
+  nhacBoQua(r) {
+    const ds = (r && r.boQuaNgungHoSo) || [];
+    if (!ds.length) return '';
+    return ds.length === 1
+      ? ` — riêng bé ${ds[0]} thì gia đình đã dừng phần hồ sơ học tập, cô nhé`
+      : ` — riêng ${ds.length} bé (${ds.join(', ')}) thì gia đình đã dừng phần hồ sơ học tập`;
   },
 
   moDatCaNhom() {
@@ -227,7 +254,8 @@ App.views.kehoachbe = {
         const r = await API.post('/api/kehoachbe/dat-ca-nhom', {
           classId: this._classId, thang: this._thang, muc,
         });
-        UI.toast(`Đã đặt cho ${r.daDat} bé${r.boQua ? `, bỏ qua ${r.boQua} bé đang khoá` : ''}`, 'success');
+        UI.toast(`Đã đặt cho ${r.daDat} bé${r.boQua ? `, bỏ qua ${r.boQua} bé đang khoá` : ''}`
+          + this.nhacBoQua(r), 'success');
         UI.closeModal();
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); }
@@ -239,9 +267,12 @@ App.views.kehoachbe = {
       const r = await API.post('/api/kehoachbe/chep-thang-truoc', {
         classId: this._classId, thang: this._thang,
       });
+      const boQuaChep = this.nhacBoQua(r);
       UI.toast(r.daChep
-        ? `Đã chép cho ${r.daChep} bé — mục "tiếp tục ở tháng sau" xếp lên trước`
-        : 'Không có gì để chép (tháng trước trống, hoặc tháng này đã soạn rồi)',
+        ? `Đã chép cho ${r.daChep} bé — mục "tiếp tục ở tháng sau" xếp lên trước${boQuaChep}`
+        : (boQuaChep
+          ? `Không chép được bé nào${boQuaChep}`
+          : 'Không có gì để chép (tháng trước trống, hoặc tháng này đã soạn rồi)'),
       r.daChep ? 'success' : 'error');
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }

@@ -63,6 +63,21 @@ module.exports = (app, { db }) => {
 
     res.json({
       soBe: ids.length,
+      // BÉ MÀ GIA ĐÌNH ĐÃ DỪNG HỒ SƠ HỌC TẬP — GỬI KÈM ĐỂ MÀN HÌNH NGĂN TỪ GỐC.
+      //
+      // Đường ghi đã chặn đúng (Đ96), nhưng nó chặn ở phía cuối. Ghi nhanh có
+      // HÀNG ĐỢI: cô bấm là bài nằm trong máy rồi mới gửi lên, nên một lời từ
+      // chối VĨNH VIỄN ở đó khác hẳn một lời từ chối tạm thời (mất mạng, hết
+      // phiên). Bài ấy sẽ không bao giờ gửi được, mà hàng đợi lại dừng ở bản
+      // ghi lỗi đầu tiên — nghĩa là một bé đã rút đồng ý làm kẹt luôn bài của
+      // những bé khác xếp sau. Đúng vế "mọi tính năng khác vẫn chạy y như cũ"
+      // của Nguyên tắc số 1.
+      //
+      // Gửi danh sách này ra để màn hình (a) không cho bấm vào chip của bé đó,
+      // và (b) biết bài nào trong hàng đợi là vô vọng mà bỏ qua, thay vì đoán
+      // qua câu chữ của lời từ chối — cách ấy đã hỏng một lần rồi, và chú thích
+      // ở khối bắt lỗi của `modules/thuchup/view.js` kể lại đúng lần đó.
+      beNgungHoSo: [...db.dsBeNgungHoSoHocTap(ids)],
       ghiNhan: rows.map(r => ({
         ...r,
         tenBe: byId.get(r.studentId)?.name || '',

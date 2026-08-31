@@ -34,7 +34,9 @@
 //   [4] KẾ HOẠCH CẢ NHÓM: BỎ QUA BÉ ĐÓ, KHÔNG TỪ CHỐI CẢ LÔ. Một bé làm hỏng
 //       kế hoạch tháng của cả nhóm là vi phạm Nguyên tắc số 1 ở vế "mọi tính
 //       năng khác vẫn chạy y như cũ".
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, HOM_NAY } from './_chung.mjs';
+import fs from 'fs';
+import path from 'path';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, HOM_NAY, GOC } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
@@ -133,6 +135,44 @@ try {
     check('Kế hoạch của bé: bé đã dừng KHÔNG được ghi (bỏ qua, không lỗi)',
       ke.status === 200 && (ke.data.boQuaNgungHoSo || []).length === 1 && ke.data.daLuu === 0,
       `${ke.status} ${JSON.stringify(ke.data)}`);
+
+    // ĐƯỜNG THỨ CHÍN — BỊ BỎ SÓT Ở LẦN VÁ ĐẦU.
+    //
+    // "Nhìn lại cuối tháng" mới là chỗ cô xếp bé vào một trong năm mức phát
+    // triển và viết nhận xét — tức nội dung hồ sơ học tập theo nghĩa đúng nhất
+    // của nó. Đợt Đ96 chốt tám đường và quên đúng đường này, nên gia đình gạt
+    // ô ① xong thì cuối tháng cô vẫn ghi được như chưa có gì.
+    //
+    // Dựng đúng cảnh thật: cô ĐÃ lập kế hoạch cho bé từ trước, RỒI gia đình mới
+    // rút. Bật đồng ý lên một lát để lập kế hoạch qua đúng đường của app, rồi
+    // tắt lại — không ghi thẳng vào bảng, vì cảnh này app làm được thật.
+    await req('PUT', `/api/admin/students/${BE_DA_DUNG}/dong-y`,
+      { cookie: qt.cookie, body: { hoSoHocTap: true } });
+    await req('PUT', '/api/kehoachbe', { cookie: co4.cookie, body: {
+      classId: 'c4', thang: THANG,
+      danhSach: [{ studentId: BE_DA_DUNG, muc: [
+        { gocLinhVuc: 'thuc-hanh-cuoc-song', noiDung: 'Tự xúc ăn, tự cất bát' }] }] } });
+    await req('PUT', `/api/admin/students/${BE_DA_DUNG}/dong-y`,
+      { cookie: qt.cookie, body: { hoSoHocTap: false } });
+
+    const keCuaBeDaDung = await req('GET',
+      `/api/kehoachbe/be?studentId=${BE_DA_DUNG}&thang=${THANG}`, { cookie: co4.cookie });
+    const banKe = keCuaBeDaDung.data?.ke;
+    check('đối chứng — bé đã dừng vẫn CÓ bản kế hoạch cũ để nhìn lại',
+      !!banKe && !!banKe.id, JSON.stringify(keCuaBeDaDung.data || {}).slice(0, 140));
+    if (banKe && banKe.id) {
+      const nhinLai = await req('PUT', '/api/kehoachbe/nhin-lai', { cookie: co4.cookie, body: {
+        id: banKe.id,
+        muc: (banKe.muc || []).slice(0, 1).map(m => ({ id: m.id, ketQua: 'dang-hinh-thanh' })),
+      } });
+      check('Kế hoạch của bé: NHÌN LẠI CUỐI THÁNG cũng bị chặn',
+        nhinLai.status === 403, `${nhinLai.status} ${JSON.stringify(nhinLai.data)}`);
+      check('và câu từ chối nói rõ phần đã ghi vẫn giữ nguyên',
+        /vẫn giữ nguyên|xem lại được/i.test(nhinLai.data?.error || ''), nhinLai.data?.error);
+    } else {
+      check('Kế hoạch của bé: NHÌN LẠI CUỐI THÁNG cũng bị chặn',
+        false, 'KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG: bé đã dừng không có bản kế hoạch cũ nào.');
+    }
   }
 
   // =========================================================================
@@ -202,6 +242,44 @@ try {
     check('gia đình KHÔNG nhận cờ đó — không dán nhãn lên đứa trẻ',
       nha.status === 200 && nha.data.ngungHoSoHocTap === undefined,
       `${nha.status} ${JSON.stringify(nha.data.ngungHoSoHocTap)}`);
+  }
+
+  // =========================================================================
+  console.log('\n[3c] CỜ MÁY CHỦ GỬI RA PHẢI CÓ MÀN HÌNH ĐỌC');
+  {
+    // Đ96 dựng hai cờ rồi để chúng nằm chết ở máy chủ suốt một đợt: màn hình
+    // không đọc cái nào. Hậu quả không phải mất dữ liệu mà là mất lòng tin của
+    // cô — cô lưu kế hoạch cả nhóm, đọc "Đã lưu cho 24 bé", tưởng cả nhóm
+    // xong; hoặc soạn trọn một quan sát rồi mới ăn 403.
+    //
+    // Canh ở tầng chữ vì đây đúng là chỗ hỏng: máy chủ đúng, màn hình không
+    // dùng tới cái đúng đó. Cùng hình dạng với bài học Đ102.
+    const manKe = fs.readFileSync(path.join(GOC, 'modules/kehoachbe/view.js'), 'utf8');
+    check('MÀN KẾ HOẠCH ĐỌC `boQuaNgungHoSo` máy chủ trả về',
+      /boQuaNgungHoSo/.test(manKe), 'không thấy boQuaNgungHoSo trong kehoachbe/view.js');
+    check('và nói ra ở CẢ BA lượt ghi cả nhóm (lưu, đặt cả nhóm, chép tháng trước)',
+      (manKe.match(/nhacBoQua\(/g) || []).length >= 4,
+      (manKe.match(/nhacBoQua\(/g) || []).length);
+    check('nhánh "không lưu được bé nào" KHÔNG còn nói ngược việc cô vừa làm',
+      /Không lưu được bé nào/.test(manKe),
+      'nhánh daLuu = 0 vẫn báo "Chưa có bé nào được gõ nội dung"');
+
+    const manHt = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
+    check('MÀN HÀNH TRÌNH ĐỌC `ngungHoSoHocTap` và nhắc TRƯỚC khi cô gõ',
+      /ngungHoSoHocTap/.test(manHt), 'không thấy ngungHoSoHocTap trong hanhtrinh/view.js');
+
+    const manTc = fs.readFileSync(path.join(GOC, 'modules/thuchup/view.js'), 'utf8');
+    check('MÀN GHI NHANH ngăn từ gốc — chip của bé đã dừng không bấm được',
+      /_ngungHoSo/.test(manTc) && /disabled/.test(manTc), 'không thấy chốt ở chip chọn bé');
+    check('và hàng đợi BỎ QUA bài vô vọng thay vì dừng cả hàng',
+      /viNgungHoSo/.test(manTc) && /continue;/.test(manTc),
+      'hàng đợi vẫn break ở bài không bao giờ gửi được');
+
+    // Máy chủ phải thật sự gửi danh sách ấy ra, không chỉ màn hình đọc suông.
+    const ds = await req('GET', '/api/thuchup', { cookie: co4.cookie });
+    check('máy chủ gửi kèm danh sách bé đã dừng để màn hình ngăn từ gốc',
+      Array.isArray(ds.data?.beNgungHoSo) && ds.data.beNgungHoSo.includes(BE_DA_DUNG),
+      JSON.stringify(ds.data?.beNgungHoSo));
   }
 
   // =========================================================================

@@ -530,6 +530,28 @@ module.exports = (app, { db }) => {
       return res.status(403).json({ error: 'Không có quyền với kế hoạch của bé này' });
     }
 
+    // ĐƯỜNG GHI THỨ CHÍN CỦA Đ96 — BỊ BỎ SÓT LẦN ĐẦU.
+    //
+    // Đ96 chốt tám đường ghi, nhưng quên đúng đường này. Mà "nhìn lại cuối
+    // tháng" mới là chỗ cô xếp bé vào một trong năm mức phát triển và viết
+    // nhận xét — tức là nội dung hồ sơ học tập theo nghĩa đúng nhất của nó.
+    //
+    // Gia đình gạt ô ①, màn của họ hứa "trường ngưng ghi mới ngay", màn quản
+    // trị hứa "ngưng ghi quan sát, kế hoạch và báo cáo mới cho bé". Rồi cuối
+    // tháng cô vẫn ghi được. Có nhật ký thao tác chứng minh trường đã nhận lời
+    // rút, nên đây là chỗ khó giải thích nhất nếu có khiếu nại theo NĐ 13/2023.
+    //
+    // Chốt ở ĐÂY chứ không ở `gui-duyet`: gửi duyệt là thao tác trên CẢ NHÓM,
+    // chặn nó là một bé làm cô không gửi được kế hoạch của mười chín bé còn
+    // lại — đúng cái bẫy mà Đ96 đã tránh ở đường lưu cả nhóm.
+    if (db.beNgungHoSoHocTap(k.studentId)) {
+      return res.status(403).json({
+        error: 'Gia đình bé này đã dừng phần hồ sơ học tập. Phần đã ghi vẫn giữ '
+          + 'nguyên và cô xem lại được; chỉ ngưng ghi mới. Cô vẫn ghi nhật ký '
+          + 'ngày và vẫn nhắn tin với gia đình như thường.',
+      });
+    }
+
     const sach = [];
     for (const m of (b.muc || [])) {
       const cu = db.first('kehoachbe_muc', 'SELECT * FROM kehoachbe_muc WHERE id = ?', [chuoi((m || {}).id, 40)]);

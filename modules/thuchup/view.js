@@ -97,6 +97,26 @@ App.views.thuchup = {
             continue;
           }
 
+          // BÀI VÔ VỌNG THÌ BỎ QUA, KHÔNG DỪNG CẢ HÀNG.
+          //
+          // Hàng đợi này dừng ở bản ghi lỗi đầu tiên — đúng cho lỗi TẠM THỜI
+          // (mất sóng, hết phiên, máy chủ bận): gửi tiếp cũng hỏng, và giữ
+          // nguyên thứ tự thì lần sau gửi lại từ đầu là xong.
+          //
+          // Nhưng lời từ chối vì gia đình đã dừng hồ sơ học tập (Đ96) thì VĨNH
+          // VIỄN. Bài ấy không bao giờ gửi được, mà nó lại CHẶN mọi bài xếp
+          // sau nó trong cùng hàng đợi — nghĩa là một bé đã rút đồng ý làm kẹt
+          // luôn bài ghi của những bé khác. Con số "đang chờ gửi" cứ tăng, và
+          // không có nút nào để gỡ.
+          //
+          // Nhận ra bằng DANH SÁCH MÃ BÉ máy chủ gửi kèm, KHÔNG phải bằng cách
+          // dò câu chữ của lời từ chối — cách ấy đã hỏng một lần rồi, đúng như
+          // khối chú thích ngay bên trên kể lại.
+          if (this._ngungHoSo && this._ngungHoSo.has(rec.studentId)) {
+            await this.luuVaoMay({ ...rec, viNgungHoSo: true });
+            continue;
+          }
+
           // Mọi lỗi khác — mạng, quyền, máy chủ bận — thì GIỮ. Nhớ lại câu từ
           // chối để màn hình nói được cho cô biết vì sao bài còn nằm chờ.
           this._loiHangDoi = loi;
@@ -111,8 +131,20 @@ App.views.thuchup = {
   },
 
   // ---- Màn hình ---------------------------------------------------------
+  // Tên bé để nói với cô, không phải mã. `App.state.students` là danh sách bé
+  // của chính cô, đã có sẵn từ lúc đăng nhập.
+  tenBe(id) {
+    const s = (App.state.students || []).find(x => x.id === id);
+    return s ? s.name : 'bé này';
+  },
+
   async render(root) {
     const con = await this.dangCho().catch(() => []);
+    // Tách hai loại: bài còn hy vọng gửi được, và bài vô vọng vì gia đình đã
+    // dừng hồ sơ học tập. Gộp chung thì con số "đang chờ" cứ tăng mãi và cô
+    // không có cách nào biết bài nào cần mình xử lý.
+    const keta = con.filter(r => r.viNgungHoSo);
+    const cho = con.filter(r => !r.viNgungHoSo);
     let kq = { soLan: 0 };
     let ds = { ghiNhan: [], soBe: 0 };
     let mang = true;
@@ -121,6 +153,9 @@ App.views.thuchup = {
         API.get('/api/thuchup/ket-qua'),
         API.get('/api/thuchup'),
       ]);
+      // Nhớ lại để hàng đợi và ô chọn bé cùng dùng. Giữ bản cũ khi mất mạng:
+      // thà dùng danh sách hôm qua còn hơn coi như không bé nào đã dừng.
+      if (Array.isArray(ds.beNgungHoSo)) this._ngungHoSo = new Set(ds.beNgungHoSo);
     } catch (err) { mang = false; }
 
     root.innerHTML = `
@@ -138,9 +173,27 @@ App.views.thuchup = {
       <button class="btn primary block" id="tc-ghi"
         style="font-size:1.15rem;padding:18px">📸 Ghi nhanh một khoảnh khắc</button>
 
-      ${con.length ? `
+      ${keta.length ? `
         <div class="card" style="border-left:4px solid var(--warning)">
-          <div class="row-title">${con.length} bài ghi đang chờ gửi lên</div>
+          <div class="row-title">${keta.length} bài ghi KHÔNG gửi lên được</div>
+          <div class="row-sub" style="margin-top:4px;line-height:1.6">
+            Gia đình những bé này đã dừng phần hồ sơ học tập, nên bài ghi sẽ không
+            bao giờ gửi lên được. App <b>không tự xoá</b> phần cô đã gõ — cô đọc lại
+            rồi tự quyết định.
+          </div>
+          ${keta.map(r => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(this.tenBe(r.studentId))}</div>
+                <div class="row-sub">${UI.esc((r.note || '(chỉ có ảnh)').slice(0, 90))}</div>
+              </div>
+              <button class="btn sm outline" data-bo="${UI.esc(r.id)}">Bỏ bài này</button>
+            </div>`).join('')}
+        </div>` : ''}
+
+      ${cho.length ? `
+        <div class="card" style="border-left:4px solid var(--warning)">
+          <div class="row-title">${cho.length} bài ghi đang chờ gửi lên</div>
           <div class="row-sub" style="margin-top:4px">
             Đã lưu an toàn trong máy. ${mang
               ? 'Đang gửi…'
@@ -218,6 +271,16 @@ App.views.thuchup = {
         } catch (err) { UI.toast(err.message, 'error'); }
       };
     }
+    // Nút "Bỏ bài này" — chỉ cô bấm, app không bao giờ tự xoá phần cô đã gõ.
+    for (const nut of root.querySelectorAll('button[data-bo]')) {
+      nut.onclick = async () => {
+        if (!confirm('Bỏ hẳn bài ghi này khỏi máy? Không lấy lại được.')) return;
+        await this.xoaKhoiMay(nut.dataset.bo);
+        UI.toast('Đã bỏ bài ghi khỏi máy', 'success');
+        App.route();
+      };
+    }
+
     const btnGui = document.getElementById('tc-gui');
     if (btnGui) btnGui.onclick = async () => {
       const { gui, con: conLai } = await this.guiHangDoi();
@@ -226,7 +289,7 @@ App.views.thuchup = {
       App.route();
     };
 
-    if (con.length && mang) {
+    if (cho.length && mang) {
       this.guiHangDoi().then(({ gui }) => { if (gui) App.route(); });
     }
   },
@@ -259,16 +322,27 @@ App.views.thuchup = {
   moForm(dataUrl) {
     const ds = App.state.students || [];
     if (!ds.length) return UI.toast('Chưa có bé nào trong nhóm cô phụ trách', 'error');
-    this._be = this._be && ds.some(s => s.id === this._be) ? this._be : ds[0].id;
+    const moDuoc = ds.filter(s => !(this._ngungHoSo && this._ngungHoSo.has(s.id)));
+    if (!moDuoc.length) {
+      return UI.toast('Cả nhóm đều đã dừng phần hồ sơ học tập — cô ghi ở Nhật ký ngày nhé', 'error');
+    }
+    this._be = this._be && moDuoc.some(s => s.id === this._be) ? this._be : moDuoc[0].id;
 
     UI.modal(`
       ${dataUrl ? `<img src="${dataUrl}" alt=""
         style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:12px">` : ''}
       <div class="field"><label>Bé nào?</label>
         <div id="tc-be" style="display:flex;flex-wrap:wrap;gap:8px">
-          ${ds.map(s => `<button type="button" class="btn sm ${s.id === this._be ? 'primary' : 'outline'}"
-            data-id="${UI.esc(s.id)}">${UI.esc(s.name)}</button>`).join('')}
+          ${ds.map(s => {
+            const ngung = this._ngungHoSo && this._ngungHoSo.has(s.id);
+            return `<button type="button" class="btn sm ${s.id === this._be ? 'primary' : 'outline'}"
+              data-id="${UI.esc(s.id)}"${ngung ? ' disabled style="opacity:.45"' : ''}
+              >${UI.esc(s.name)}${ngung ? ' 🔒' : ''}</button>`;
+          }).join('')}
         </div>
+        ${ds.some(s => this._ngungHoSo && this._ngungHoSo.has(s.id)) ? `
+          <div class="hint">Bé có dấu 🔒 là gia đình đã dừng phần hồ sơ học tập.
+          Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường.</div>` : ''}
       </div>
       <div class="field"><label>Cô thấy gì?</label>
         <textarea id="tc-note" rows="2" maxlength="500"

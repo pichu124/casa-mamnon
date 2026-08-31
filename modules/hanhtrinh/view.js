@@ -259,8 +259,13 @@ App.views.hanhtrinh = {
         <label>Quan sát về bé nào</label>
         <select id="ht-be">
           <option value="">— Chọn bé —</option>
-          ${ds.map(b => `<option value="${UI.esc(b.id)}" ${tu.studentId === b.id ? 'selected' : ''}>${UI.esc(b.hoTen)}</option>`).join('')}
+          ${ds.map(b => `<option value="${UI.esc(b.id)}" ${tu.studentId === b.id ? 'selected' : ''}>${
+            UI.esc(b.hoTen)}${b.ngungHoSoHocTap ? ' — gia đình đã dừng hồ sơ học tập' : ''}</option>`).join('')}
         </select>
+        ${ds.some(b => b.ngungHoSoHocTap) ? `
+          <div class="hint">Vài bé trong nhóm có gia đình đã dừng phần hồ sơ học tập.
+          Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường —
+          chỉ phần quan sát học tập là ngưng ghi mới.</div>` : ''}
       </div>
       <div class="field">
         <label>Cô đã thấy gì</label>
@@ -282,6 +287,31 @@ App.views.hanhtrinh = {
       <button class="btn primary block" id="ht-luu">${UI.icon('check', 18)} Lưu quan sát</button>
     `, 'Ghi một quan sát');
     this.ganChonAnh();
+
+    // NÓI TRƯỚC KHI CÔ GÕ, KHÔNG PHẢI SAU KHI CÔ GÕ XONG.
+    //
+    // Máy chủ chặn đúng (Đ96), nhưng nó chỉ chặn lúc LƯU. Cô chọn bé, gõ trọn
+    // một quan sát, bấm Lưu, rồi mới nhận 403 — mất cả đoạn vừa gõ và mất luôn
+    // lòng tin vào màn hình. Cờ `ngungHoSoHocTap` đã đi kèm danh sách bé từ
+    // Đ96; tới đợt này mới có ai đọc nó.
+    const oBe = document.getElementById('ht-be');
+    const nhac = () => {
+      const be = ds.find(x => x.id === oBe.value);
+      const cu = document.getElementById('ht-nhac-ngung');
+      if (cu) cu.remove();
+      if (!be || !be.ngungHoSoHocTap) return;
+      oBe.closest('.field').insertAdjacentHTML('afterend', `
+        <div class="card" id="ht-nhac-ngung" style="border-left:4px solid var(--warning)">
+          <div class="small" style="line-height:1.7">
+            Gia đình bé ${UI.esc(be.hoTen)} đã dừng phần hồ sơ học tập, nên quan sát mới
+            sẽ không lưu được. Phần đã ghi vẫn giữ nguyên và cô xem lại được.
+            Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường.
+          </div>
+        </div>`);
+    };
+    oBe.onchange = nhac;
+    nhac();
+
     document.getElementById('ht-luu').onclick = () => this.luuGhi(tu.ghiNhanhId || '');
   },
 
