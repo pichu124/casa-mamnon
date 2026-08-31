@@ -149,7 +149,25 @@ App.views.baocaohoctap = {
       if (!nhom.length || nhom[nhom.length - 1].ten !== ten) nhom.push({ ten, tenEn: d.nhomEn, dong: [] });
       nhom[nhom.length - 1].dong.push(d);
     }
-    return nhom.map(g => {
+    // QUY TẮC 2 — "CHƯA QUAN SÁT THẤY" KHÔNG PHẢI MỘT THẤT BẠI.
+    //
+    // Đây là màn hình DUY NHẤT gia đình đọc được các mức đánh giá. Hai phân hệ
+    // kia đã có câu trấn an đi kèm bảng mức, riêng chỗ chữ tới tay gia đình
+    // thì chưa — mà đúng chỗ ấy mới là nơi hiểu nhầm gây đau nhất: bố mẹ đọc
+    // "Chưa quan sát thấy" cạnh tên con mình, không có gì giải thích, sẽ hiểu
+    // thành "con làm không được".
+    const coMucChua = (b.dong || []).some(d => d.muc === 'chua-quan-sat-thay' || d.muc === 'chua-day');
+    const chuGiai = coMucChua ? `
+      <div class="card" style="border-left:4px solid var(--info)">
+        <div class="small" style="line-height:1.7">
+          <b>Chưa quan sát thấy</b> nghĩa là trong khoảng thời gian này cô chưa có dịp
+          nhìn thấy con làm điều đó ở lớp — không phải con làm không được. Mỗi bé đi
+          theo nhịp riêng, và có những việc bé chỉ làm ở nhà.
+          <b>Chưa dạy</b> nghĩa là nội dung đó chưa tới lượt trong chương trình.
+        </div>
+      </div>` : '';
+
+    return chuGiai + nhom.map(g => {
       // Bỏ hẳn nhóm nào cô chưa ghi gì. Hiện một mục lớn rỗng ra trước mắt
       // gia đình là biến chỗ chưa tới lượt thành một khoảng trống cần lấp.
       const co = g.dong.filter(d => d.chu || d.muc);
@@ -353,7 +371,10 @@ App.views.baocaohoctap = {
         <div class="field"><label>Ở lớp cô sẽ làm tiếp</label>
           <textarea id="bc-lop" rows="2">${UI.esc(b.oLopLamGi)}</textarea></div>
         <div class="field"><label>Ở nhà gia đình chơi cùng con</label>
-          <textarea id="bc-nha" rows="2">${UI.esc(b.oNhaChoiGi)}</textarea></div>
+          <textarea id="bc-nha" rows="2">${UI.esc(b.oNhaChoiGi)}</textarea>
+          <div class="hint">Bản nào có ghi nhận điều cô <b>đã quan sát thấy</b> ở bé thì cần
+          ít nhất một trong hai ô trên — đây là màn hình duy nhất gia đình đọc được các mức
+          đánh giá, và đọc xong họ cần biết làm gì tiếp.</div></div>
         <div class="field"><label>Cô ký tên</label>
           <input id="bc-ky" value="${UI.esc(b.coKy)}" placeholder="Tên cô"></div>
       </div>

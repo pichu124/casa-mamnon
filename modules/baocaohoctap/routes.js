@@ -67,6 +67,15 @@ const MUC = [
 ];
 const MA_MUC = MUC.map(x => x[0]);
 
+// Ba mức nghĩa là CÔ ĐÃ THẤY BÉ LÀM. Hai mức còn lại ('chua-day',
+// 'chua-quan-sat-thay') thì chưa có gì để hành động.
+//
+// Danh sách này chép cùng nội dung với `DA_QUAN_SAT_THAY` của phân hệ Hành
+// trình, và CỐ Ý chép chứ không require sang: hai phân hệ cắm thêm không được
+// phụ thuộc nhau, tắt cái này thì cái kia phải chạy y nguyên — cùng lý do đã
+// ghi ở bảng `MUC` bên trên.
+const DA_QUAN_SAT_THAY = ['dang-hinh-thanh', 'da-vung', 'vuot-troi'];
+
 const KIEU_DONG = ['chu', 'muc'];
 const TRANG_THAI = ['nhap', 'da-gui'];
 
@@ -532,6 +541,36 @@ module.exports = (app, { db, modules }) => {
     const soO = db.count('SELECT COUNT(*) AS n FROM baocaohoctap_o WHERE banId = ?', [ban.id]);
     if (!soO && !String(ban.tongHop || '').trim()) {
       return res.status(400).json({ error: 'Báo cáo chưa có nội dung nào, cô ghi thêm rồi gửi nhé' });
+    }
+
+    // QUY TẮC 5 — ĐÁNH GIÁ PHẢI DẪN TỚI HÀNH ĐỘNG.
+    //
+    // Đây là màn hình DUY NHẤT gia đình đọc được nhãn năm mức. Phân hệ Hành
+    // trình chỉ trả `trangThai` cho cô và quản lý, không bao giờ cho phụ
+    // huynh; còn bản báo cáo thì mang thẳng nhãn ấy tới nhà. Nên chốt QUY TẮC 5
+    // của Hành trình một mình là không đủ — chỗ chữ tới tay gia đình lại là
+    // chỗ chưa có chốt nào.
+    //
+    // Không kèm việc làm được thì gia đình đọc xong chỉ còn một nhãn xếp con
+    // mình vào một trong năm ô, không biết làm gì tiếp — đúng thứ QUY TẮC 5
+    // sinh ra để tránh.
+    //
+    // CHỈ ÉP KHI CÔ NÓI ĐÃ THẤY BÉ LÀM, giống hệt Hành trình: hai mức "Chưa
+    // dạy" và "Chưa quan sát thấy" không ép, vì ép cô nghĩ ra một việc cho thứ
+    // chưa xảy ra là biến quy tắc thành thủ tục giấy tờ — và còn dựng lại đúng
+    // áp lực mà QUY TẮC 2 tránh.
+    const soODaThay = db.count(
+      `SELECT COUNT(*) AS n FROM baocaohoctap_o WHERE banId = ? AND muc IN (${
+        DA_QUAN_SAT_THAY.map(() => '?').join(',')})`,
+      [ban.id, ...DA_QUAN_SAT_THAY]);
+    if (soODaThay > 0
+      && !String(ban.oLopLamGi || '').trim() && !String(ban.oNhaChoiGi || '').trim()) {
+      return res.status(400).json({
+        error: 'Bản này đã ghi nhận điều cô quan sát thấy ở bé. Cô ghi thêm một dòng '
+          + '"ở lớp cô làm gì tiếp" hoặc "ở nhà gia đình chơi gì cùng con" giúp nhé — '
+          + 'một nhận định không kèm việc làm được thì gia đình đọc xong không biết '
+          + 'làm gì với nó.',
+      });
     }
 
     const luc = ngay.bayGio();

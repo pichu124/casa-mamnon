@@ -171,6 +171,41 @@ try {
       luu.data.ban.oLopLamGi.includes('khay rót nước') && luu.data.ban.oNhaChoiGi.includes('tự xúc'),
       JSON.stringify([luu.data.ban.oLopLamGi, luu.data.ban.oNhaChoiGi]));
 
+    // PHÉP KIỂM TRÊN CHỈ ĐO MỘT CHIỀU — GIỮ ĐƯỢC CHỮ KHI CÔ ĐÃ TỰ GÕ.
+    //
+    // Nó xanh nguyên kể cả khi máy chủ chẳng đòi hai ô ấy bao giờ. Mà đây mới
+    // là chỗ QUY TẮC 5 thật sự phải đứng: bản báo cáo là màn hình DUY NHẤT gia
+    // đình đọc được nhãn năm mức (phân hệ Hành trình chỉ trả `trangThai` cho
+    // cô và quản lý). Một bản mang nhãn "Đang hình thành" tới nhà mà không kèm
+    // việc làm được thì gia đình đọc xong chỉ còn một chỗ xếp con mình vào,
+    // không biết làm gì tiếp.
+    const xoaHaiO = await req('PUT', `/api/baocaohoctap/ban/${banId}`, { cookie: co.cookie,
+      body: { oLopLamGi: '   ', oNhaChoiGi: '' } });
+    check('dựng được cảnh: bản có mức đã quan sát thấy nhưng trống cả hai ô việc',
+      xoaHaiO.status === 200 && !xoaHaiO.data.ban.oLopLamGi && !xoaHaiO.data.ban.oNhaChoiGi,
+      JSON.stringify([xoaHaiO.data?.ban?.oLopLamGi, xoaHaiO.data?.ban?.oNhaChoiGi]));
+
+    const guiThieu = await req('POST', `/api/baocaohoctap/ban/${banId}/gui`, { cookie: co.cookie });
+    check('QUY TẮC 5 — KHÔNG GỬI ĐƯỢC bản có nhận định mà không kèm việc làm được',
+      guiThieu.status === 400, `${guiThieu.status} ${guiThieu.data?.error || ''}`);
+    check('và câu từ chối chỉ đúng hai ô cần điền',
+      /ở lớp cô làm gì tiếp|ở nhà gia đình chơi gì cùng con/i.test(guiThieu.data?.error || ''),
+      guiThieu.data?.error);
+
+    // Điền MỘT trong hai ô là đủ — không ép cô gõ cả hai.
+    const motO = await req('PUT', `/api/baocaohoctap/ban/${banId}`, { cookie: co.cookie,
+      body: { oNhaChoiGi: 'Ở nhà ba mẹ để con tự xúc bữa tối, đổ ra thì cùng lau.' } });
+    check('điền lại một ô thì lưu được', motO.status === 200, motO.status);
+    const guiDu = await req('POST', `/api/baocaohoctap/ban/${banId}/gui`, { cookie: co.cookie });
+    check('ĐIỀN MỘT Ô LÀ GỬI ĐƯỢC — không ép cô gõ cả hai',
+      guiDu.status === 200, `${guiDu.status} ${guiDu.data?.error || ''}`);
+
+    // Thu về nháp để các mục sau còn dùng đúng bối cảnh cũ.
+    await req('POST', `/api/baocaohoctap/ban/${banId}/thu-hoi`, { cookie: co.cookie });
+    await req('PUT', `/api/baocaohoctap/ban/${banId}`, { cookie: co.cookie, body: {
+      oLopLamGi: 'Đặt thêm khay rót nước ở góc thực hành.',
+      oNhaChoiGi: 'Ở nhà ba mẹ để con tự xúc bữa tối.' } });
+
     const xoa = await req('PUT', `/api/baocaohoctap/ban/${banId}`, { cookie: co.cookie, body: {
       o: [{ dongId: dong[0].id, chu: '   ' }] } });
     check('xoá trắng một ô thì ô đó mất hẳn, không để lại một dòng rỗng',

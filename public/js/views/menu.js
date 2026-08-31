@@ -72,8 +72,7 @@ App.views.menu = {
     if (!zone) return;
     zone.innerHTML = '<div class="loading">Đang tải</div>';
     try {
-      const data = await API.get(`/api/menu?week=${this.week}`
-        + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : ''));
+      const data = await API.get(this.duongDanTuan());
       const menus = data.menus || [];
       const today = UI.todayStr();
       this._coSo = data.campusId || '';
@@ -164,6 +163,24 @@ App.views.menu = {
       </div>`;
   },
 
+  // ĐƯỜNG DẪN HỎI THỰC ĐƠN MỘT TUẦN — MỘT CHỖ DUY NHẤT.
+  //
+  // Ba lượt gọi cùng hỏi một thứ: lượt xem, lượt "soạn cả tuần", lượt "sửa một
+  // ngày". Trước đợt này chỉ lượt XEM gửi kèm mã cơ sở, hai lượt SOẠN thì
+  // không — nên ban giám hiệu chọn "Bếp cơ sở 2", bấm Soạn, và ô nhập hiện lên
+  // món của thực đơn DÙNG CHUNG chứ không phải món cơ sở 2 đã soạn. Bấm Lưu là
+  // ghi đè thực đơn thật của cơ sở 2 bằng bản dùng chung, không báo gì.
+  //
+  // Chỗ này khó thấy vì màn XEM hiện đúng: người soạn không có lý do nào để
+  // nghi ngờ. Và hậu quả không dừng ở thẩm mỹ — gia đình cơ sở 2 đọc sai món
+  // con mình ăn, mà nhà có bé dị ứng thì đó là chuyện an toàn.
+  //
+  // Gom về một hàm để không còn chỗ nào chép thiếu lần nữa.
+  duongDanTuan() {
+    return `/api/menu?week=${this.week}`
+      + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : '');
+  },
+
   // 5 ngày T2–T6 của tuần, tính từ ngày Thứ Hai mà máy chủ trả về.
   ngayTrongTuan(from) {
     const monday = UI.parseDate(from);
@@ -234,7 +251,7 @@ App.views.menu = {
     try {
       // Lấy lại từ máy chủ để soạn trên bản mới nhất, tránh ghi đè thứ người
       // khác vừa lưu.
-      const data = await API.get(`/api/menu?week=${this.week}`);
+      const data = await API.get(this.duongDanTuan());
       const coSan = new Map((data.menus || []).map(m => [m.date, m]));
       this._tuan = this.ngayTrongTuan(data.from).map(date => ({
         date,
@@ -351,7 +368,7 @@ App.views.menu = {
   moSoan(date) {
     this._editDate = date;
     // Gọi lại API để soạn trên dữ liệu mới nhất, tránh ghi đè bản người khác vừa lưu.
-    API.get(`/api/menu?week=${this.week}`).then(data => {
+    API.get(this.duongDanTuan()).then(data => {
       const m = (data.menus || []).find(x => x.date === date);
       this._editMeals = JSON.parse(JSON.stringify(m ? m.meals : this.BUA_MAC_DINH));
       UI.modal(`

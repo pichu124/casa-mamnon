@@ -206,6 +206,30 @@ try {
     check('thực đơn tuần trước (dữ liệu cũ) vẫn đọc được bình thường',
       g.status === 200 && Array.isArray(g.data.menus), `${g.status}`);
   }
+
+  // =========================================================================
+  {
+    console.log('\n[+] MÀN SOẠN PHẢI HỎI ĐÚNG BẾP ĐANG CHỌN, KHÔNG PHẢI BẢN DÙNG CHUNG');
+    // Máy chủ đã tách bếp đúng từ Đ90/Đ91. Chỗ hỏng nằm ở màn hình: chỉ lượt
+    // XEM gửi kèm `campusId`, còn hai lượt SOẠN ("soạn cả tuần" và "sửa một
+    // ngày") thì không. Ban giám hiệu chọn "Bếp cơ sở 2" rồi bấm Soạn là ô nhập
+    // hiện lên món của bản DÙNG CHUNG, bấm Lưu là ghi đè thực đơn thật của cơ
+    // sở 2 — mà màn XEM vẫn hiện đúng nên không ai có lý do nghi ngờ.
+    //
+    // Canh ở tầng chữ vì đây đúng là chỗ hỏng: một máy chủ đúng cộng một màn
+    // hình quên gửi tham số.
+    const man = fs.readFileSync(path.join(GOC, 'public/js/views/menu.js'), 'utf8');
+    const goi = man.match(/API\.get\(([^)]*\/api\/menu[^)]*)\)/g) || [];
+    check('màn Thực đơn không còn lượt gọi /api/menu nào viết thẳng URL',
+      goi.length === 0,
+      goi.map(x => x.slice(0, 70)));
+    check('mọi lượt hỏi thực đơn đều đi qua MỘT hàm dựng đường dẫn',
+      (man.match(/API\.get\(this\.duongDanTuan\(\)\)/g) || []).length === 3,
+      (man.match(/API\.get\(this\.duongDanTuan\(\)\)/g) || []).length);
+    check('và hàm đó luôn kèm mã cơ sở đang chọn',
+      /duongDanTuan\(\)\s*\{[\s\S]{0,220}?campusId=\$\{encodeURIComponent\(this\._coSo\)\}/.test(man),
+      'duongDanTuan không gửi campusId');
+  }
 } finally {
   await dung();
   donThuMucTam(DIR);

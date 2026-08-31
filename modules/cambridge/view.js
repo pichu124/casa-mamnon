@@ -11,9 +11,34 @@ App.views.cambridge = {
 
   laVanPhong() { return App.state.user.role === 'admin'; },
 
-  async render(root) {
-    const d = await API.get(`/api/cambridge${this._loai ? `?loai=${encodeURIComponent(this._loai)}` : ''}`);
+  // Danh sách tải theo từng trang. Máy chủ cắt cửa sổ SAU khi lọc quyền, nên
+  // số bài nhận về đúng bằng số bài người này xem được: nhận đủ một trang
+  // nghĩa là còn, nhận thiếu nghĩa là hết. Không cần thêm ô đếm nào trong câu
+  // trả lời, và hình dạng câu trả lời không đổi.
+  MOI_TRANG: 60,
+  _daTai: [],
+  _conNua: false,
+  _loaiDaTai: null,
+
+  async taiThem() {
+    const q = [];
+    if (this._loai) q.push(`loai=${encodeURIComponent(this._loai)}`);
+    q.push(`bo=${this._daTai.length}`, `soLuong=${this.MOI_TRANG}`);
+    const d = await API.get(`/api/cambridge?${q.join('&')}`);
     this._data = d;
+    this._daTai = this._daTai.concat(d.bai || []);
+    this._conNua = (d.bai || []).length >= this.MOI_TRANG;
+  },
+
+  async render(root) {
+    // Đổi bộ lọc, hoặc vào lại màn này, thì tải lại từ trang một. Chỉ nút "xem
+    // tờ cũ hơn" mới giữ phần đã tải.
+    if (this._loai !== this._loaiDaTai || !this._giuTrang) {
+      this._daTai = []; this._conNua = false; this._loaiDaTai = this._loai;
+    }
+    this._giuTrang = false;
+    if (!this._daTai.length) await this.taiThem();
+    const d = { ...this._data, bai: this._daTai };
 
     root.innerHTML = `
       ${UI.pageHeader('Cambridge & Kết nối ở nhà')}
@@ -28,13 +53,26 @@ App.views.cambridge = {
         ? (d.bai || []).map(b => this.theBai(b, d)).join('')
         : UI.emptyState('🎓', this.laVanPhong()
           ? 'Chưa có bài nào. Bấm "Soạn bài mới" để bắt đầu.'
-          : 'Chưa có nội dung nào cho nhóm của con. Nhà trường đăng lên thì gia đình sẽ thấy ở đây.')}`;
+          : 'Chưa có nội dung nào cho nhóm của con. Nhà trường đăng lên thì gia đình sẽ thấy ở đây.')}
+      ${this._conNua ? `
+        <button class="btn outline block mt-14" id="cam-cu-hon">
+          ${UI.icon('plus', 16)} Xem tờ cũ hơn
+        </button>` : ''}`;
 
     for (const b of document.getElementById('cam-loc').querySelectorAll('button')) {
       b.onclick = () => { this._loai = b.dataset.loai; App.route(); };
     }
     const them = document.getElementById('cam-them');
     if (them) them.onclick = () => this.moSoan(null);
+    const cuHon = document.getElementById('cam-cu-hon');
+    if (cuHon) {
+      cuHon.onclick = async () => {
+        cuHon.disabled = true;
+        cuHon.textContent = 'Đang tải…';
+        try { await this.taiThem(); this._giuTrang = true; App.route(); }
+        catch (err) { cuHon.disabled = false; UI.toast(err.message, 'error'); }
+      };
+    }
     for (const b of root.querySelectorAll('[data-sua]')) b.onclick = () => this.moSoan(b.dataset.sua);
     for (const b of root.querySelectorAll('[data-cong-bo]')) b.onclick = () => this.congBo(b.dataset.congBo);
     for (const b of root.querySelectorAll('[data-thu-hoi]')) b.onclick = () => this.thuHoi(b.dataset.thuHoi);

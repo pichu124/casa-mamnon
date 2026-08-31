@@ -27,6 +27,8 @@ const TOI_DA_TIEU_DE = 200;
 const TOI_DA_NOI_DUNG = 8000;
 const TOI_DA_ANH = 6;
 const GIOI_HAN = 60;
+// Trần cho lượt hỏi tự đặt số — không để một lượt gọi kéo cả kho về.
+const TRANG_TOI_DA = 200;
 
 function homNay() {
   return ngay.homNay();
@@ -224,12 +226,36 @@ module.exports = (app, { db }) => {
   // =========================================================================
   app.get('/api/cambridge', (req, res) => {
     const loai = LOAI.includes(String(req.query.loai || '')) ? req.query.loai : '';
+
+    // CẮT CỬA SỔ SAU KHI LỌC QUYỀN, KHÔNG PHẢI TRONG CÂU TRUY VẤN.
+    //
+    // Câu cũ lấy `GIOI_HAN * 2` dòng MỚI NHẤT CỦA CẢ TRƯỜNG rồi mới lọc còn
+    // phần người này được xem. Bộ lọc ấy (`xemDuoc`) chạy trong JavaScript và
+    // nó rất chặt: gia đình chỉ thấy bài phạm vi trường, bài của nhóm con
+    // mình, hoặc bài của cơ sở con mình. Nên cửa sổ THẬT của một gia đình là
+    // 120 chia cho số nhóm đang mở — thêm một cơ sở là cửa sổ của MỌI gia đình
+    // ngắn lại, mà nháp chưa công bố cũng chiếm chỗ trong 120 dòng đó.
+    //
+    // Hỏng theo lịch chứ không hỏng ngay: năm đầu ít nhóm thì không ai nhận
+    // ra, và tới lúc nhận ra thì nhà trường đã tin vào tính năng. Gia đình kéo
+    // xuống thấy vài tờ rồi hết, không lỗi, không dòng nhắc.
+    //
+    // Cùng cách chữa với Album (Đ98b): câu SQL là MỘT câu trên một bảng có chỉ
+    // mục, phần đắt nằm ở lọc và ở ảnh phía sau. Cắt SAU khi lọc thì số dòng
+    // trả về đúng bằng số dòng người này xem được, nên màn hình suy ra "còn
+    // nữa hay hết" chỉ bằng cách đếm.
+    const bo = Math.max(0, Math.floor(Number(req.query.bo) || 0));
+    const soLuong = Math.min(TRANG_TOI_DA,
+      Math.max(1, Math.floor(Number(req.query.soLuong) || GIOI_HAN)));
+
     const rows = db.all('cambridge_bai',
       `SELECT * FROM cambridge_bai ${loai ? 'WHERE loai = ?' : ''}
-       ORDER BY COALESCE(NULLIF(tuan, ''), substr(taoLuc, 1, 10)) DESC, taoLuc DESC
-       LIMIT ?`, loai ? [loai, GIOI_HAN * 2] : [GIOI_HAN * 2]);
+       ORDER BY COALESCE(NULLIF(tuan, ''), substr(taoLuc, 1, 10)) DESC, taoLuc DESC`,
+      loai ? [loai] : []);
 
-    const bai = rows.filter(b => xemDuoc(b, req.user)).slice(0, GIOI_HAN).map(b => keml(b, req.user));
+    const bai = rows.filter(b => xemDuoc(b, req.user))
+      .slice(bo, bo + soLuong)
+      .map(b => keml(b, req.user));
     res.json({
       bai,
       loai: [

@@ -398,6 +398,60 @@ console.log('\n[10] ẢNH CỦA BÀI PHẢI ĐI QUA LUẬT ẢNH NHÓM');
   check('bài không ảnh thì không có lời nhắc thừa', !baiKhongAnh.nhacAnhTamAn, baiKhongAnh.nhacAnhTamAn);
 }
 
+// ===========================================================================
+console.log('\n[+] CẮT CỬA SỔ phải đứng SAU bộ lọc quyền, không phải trong câu truy vấn');
+{
+  // Câu cũ lấy 120 dòng MỚI NHẤT CỦA CẢ TRƯỜNG rồi mới lọc còn phần người này
+  // được xem. Bộ lọc `xemDuoc` rất chặt với gia đình — chỉ bài phạm vi trường,
+  // bài của nhóm con mình, hoặc bài của cơ sở con mình — nên cửa sổ THẬT của
+  // một gia đình là 120 chia cho số nhóm đang mở. Thêm một cơ sở là cửa sổ của
+  // MỌI gia đình ngắn lại, mà nháp chưa công bố cũng chiếm chỗ trong 120 dòng.
+  //
+  // Hỏng theo lịch chứ không hỏng ngay: năm đầu ít nhóm thì không ai nhận ra.
+  const day = await danhSach(VP);
+  check('có sẵn vài bài để soi', day.length >= 3, day.length);
+
+  const mot = (await req('GET', '/api/cambridge?soLuong=1', { cookie: VP })).data?.bai || [];
+  check('xin một trang một bài thì nhận đúng một', mot.length === 1, mot.length);
+  check('và là bài đứng đầu danh sách đầy đủ', mot[0]?.id === day[0]?.id,
+    { mot: mot[0]?.id, day: day[0]?.id });
+
+  const hai = (await req('GET', '/api/cambridge?bo=1&soLuong=1', { cookie: VP })).data?.bai || [];
+  check('trang sau nối tiếp, KHÔNG lặp lại bài của trang trước',
+    hai[0]?.id === day[1]?.id && hai[0]?.id !== mot[0]?.id,
+    { hai: hai[0]?.id, day1: day[1]?.id });
+
+  const het = (await req('GET', `/api/cambridge?bo=${day.length}`, { cookie: VP })).data?.bai || [];
+  check('bỏ qua hết thì rỗng, không lỗi', het.length === 0, het.length);
+  const bay = await req('GET', '/api/cambridge?bo=-4&soLuong=99999', { cookie: VP });
+  check('số âm và số vượt trần đều không làm sập', bay.status === 200, bay.status);
+
+  // VẾ QUAN TRỌNG NHẤT — cắt cửa sổ KHÔNG được mở thêm cho ai, và cũng KHÔNG
+  // được giấu bớt của ai. Ghép từng trang của MỘT GIA ĐÌNH phải ra đúng danh
+  // sách cũ: thừa một bài là rò quyền, thiếu một bài là gia đình mất tờ của con.
+  const cuaPh = await danhSach(PH);
+  const gop = [];
+  for (let i = 0; i < 20 && gop.length <= cuaPh.length; i++) {
+    const t = (await req('GET', `/api/cambridge?bo=${gop.length}&soLuong=2`, { cookie: PH }))
+      .data?.bai || [];
+    if (!t.length) break;
+    gop.push(...t.map(b => b.id));
+  }
+  check('GHÉP TỪNG TRANG CỦA GIA ĐÌNH RA ĐÚNG DANH SÁCH CŨ — không thừa, không thiếu',
+    gop.join(',') === cuaPh.map(b => b.id).join(','),
+    { ghep: gop.length, day: cuaPh.length });
+
+  const xinLon = (await req('GET', '/api/cambridge?soLuong=200', { cookie: PH })).data?.bai || [];
+  check('gia đình xin cả trang lớn cũng KHÔNG thấy thêm bài nào',
+    xinLon.length === cuaPh.length, { xinLon: xinLon.length, day: cuaPh.length });
+
+  // Cắt mà không có nút là GIẤU MẤT tờ của gia đình, không phải tối ưu.
+  const man = fs.readFileSync(path.join(GOC, 'modules/cambridge/view.js'), 'utf8');
+  check('MÀN HÌNH CÓ NÚT "xem tờ cũ hơn"', /Xem tờ cũ hơn/.test(man));
+  check('và nút đó hỏi máy chủ kèm chỗ bỏ qua',
+    /bo=\$\{this\._daTai\.length\}/.test(man), 'không gửi bo=');
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();
