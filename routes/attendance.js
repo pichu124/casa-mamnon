@@ -344,6 +344,43 @@ module.exports = (app) => {
     });
   });
 
+  // BYTE CỦA TẤM ẢNH — ĐI QUA CANH QUYỀN, KHÔNG PHỤC VỤ TĨNH.
+  //
+  // Bản đầu của đợt này quên hẳn đường dẫn này: hai màn hình trỏ thẳng vào
+  // `/uploads/<tên tệp>`, mà máy chủ KHÔNG hề gắn đường tĩnh nào tên `/uploads`
+  // — tệp ảnh nằm ở `DATA_DIR/uploads`, ngoài `public/`. Kết quả: mọi yêu cầu
+  // ảnh rơi vào lớp đỡ của trang đơn và nhận về `index.html` kèm
+  // `Content-Type: text/html`. Nghĩa là ô ảnh vỡ ở CẢ hai màn, trong khi màn
+  // của cô vẫn in dòng "Gia đình đã thấy ảnh". Đo bằng HTTP thật trên bàn thử
+  // 31/08: tải lên trả 201, tải về trả 200 + text/html + 2977 byte.
+  //
+  // CÁCH VÁ NHANH NHẤT LÀ CÁCH SAI. Thêm một dòng
+  // `app.use('/uploads', express.static(DATA_DIR/uploads))` là xong trong ba
+  // giây — và là mở TOÀN BỘ thư mục ảnh cho bất kỳ ai biết một tên tệp. Thư
+  // mục đó dùng chung cho ảnh album, ảnh Cambridge, ảnh người được đón, ảnh
+  // quan sát Hành trình và ảnh Ghi nhanh. Tên tệp không phải bí mật: nó nằm
+  // sẵn trong gói JSON mà mọi gia đình đã nhận. Một dòng đó đi vòng qua
+  // `db.locAnhChoNguoiXem`, `db.canAccessStudent` và luật ảnh nhóm cùng lúc.
+  //
+  // Nên đường này hỏi chủ ảnh trước, y hệt `modules/dontra/routes.js`.
+  app.get('/api/attendance/anh/:file', (req, res) => {
+    const file = String(req.params.file || '');
+    const chu = db.first('attendance_photo',
+      'SELECT studentId FROM attendance_photo WHERE file = ?', [file]);
+    // Không ai nhận tấm ảnh này thì trả 404 NGAY, trước cả khi hỏi tệp có tồn
+    // tại trên đĩa không — để không ai dò được thư mục ảnh bằng cách so hai
+    // loại lỗi khác nhau.
+    if (!chu) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    if (!db.canAccessStudent(req.user, chu.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem ảnh của bé này' });
+    }
+    const duong = uploads.pathOf(file);
+    if (!duong || !uploads.exists(file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    res.setHeader('Content-Type', uploads.mimeOf(file));
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.sendFile(duong);
+  });
+
   // =========================================================================
   // BẢNG RÀ SOÁT SAU 9 GIỜ
   // =========================================================================

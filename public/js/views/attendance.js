@@ -145,7 +145,7 @@ App.views.attendance = {
     if (!a) return '';
     return `
       <div class="mt-14 center">
-        <img src="/uploads/${UI.esc(a.file)}" alt="Ảnh con tới lớp"
+        <img src="/api/attendance/anh/${UI.esc(a.file)}" alt="Ảnh con tới lớp"
           style="max-width:100%;border-radius:12px">
         <div class="muted small mt-8">Cô chụp lúc ${UI.esc(a.taoLuc || '')}</div>
       </div>`;
@@ -311,7 +311,7 @@ App.views.attendance = {
           <div class="mt-8">
             ${anhDenLop ? `
               <div class="flex" style="align-items:center;gap:8px">
-                <img src="/uploads/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
+                <img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
                   style="width:54px;height:54px;border-radius:10px;object-fit:cover">
                 <span class="small" style="color:var(--success)">Gia đình đã thấy ảnh</span>
                 <button class="btn tiny outline" onclick="App.views.attendance.goAnh('${UI.esc(s.id)}')">Gỡ</button>

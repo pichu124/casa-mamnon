@@ -41,6 +41,24 @@ const ANH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJA
 
 const NGAY = HOM_NAY();
 
+// TẢI BYTE THẬT, KHÔNG CHỈ ĐỌC JSON.
+//
+// `taoReq` của `test/_chung.mjs` chỉ đọc JSON — dùng nó thì một đường trả về
+// `index.html` kèm `Content-Type: text/html` vẫn hiện ra là "status 200" và
+// bài canh vẫn xanh. Đó ĐÚNG là cách lỗi Đ95 lọt qua 37 bài canh của đợt Đ89.
+// Hàm nhỏ này nằm ngay đây, không sửa tệp dùng chung.
+async function taiByte(duongDan, cookie) {
+  const res = await fetch(BASE + duongDan, { headers: cookie ? { Cookie: cookie } : {} });
+  const buf = Buffer.from(await res.arrayBuffer());
+  return {
+    status: res.status,
+    ctype: res.headers.get('content-type') || '',
+    byte: buf.length,
+    laPNG: buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47,
+    laHTML: /text\/html/.test(res.headers.get('content-type') || ''),
+  };
+}
+
 try {
   const qt = await login('dda_qt', mkQt);
   const co = await login('giaovien', '123456');
@@ -68,6 +86,65 @@ try {
     const chua = (so.data.students || []).find(x => x.student.id !== 's1');
     check('bé chưa có ảnh thì trả về null, không phải khung ảnh trống',
       !!chua && chua.anhDenLop === null, JSON.stringify(chua && chua.anhDenLop));
+  }
+
+  // =========================================================================
+  // BYTE CỦA TẤM ẢNH PHẢI THẬT SỰ TẢI VỀ ĐƯỢC — VÀ CHỈ ĐÚNG NGƯỜI TẢI ĐƯỢC.
+  //
+  // Đợt Đ89 dựng đủ đường tải lên, đủ JSON, đủ 37 bài canh — mà QUÊN đường trả
+  // byte. Hai màn hình trỏ thẳng vào `/uploads/<tên tệp>`, còn máy chủ không hề
+  // gắn đường tĩnh nào tên đó, nên mọi yêu cầu ảnh rơi vào lớp đỡ của trang đơn
+  // và nhận về `index.html`. Ô ảnh vỡ ở cả hai màn, mà không bài canh nào đỏ:
+  // tất cả đều chỉ đọc JSON và đọc đĩa, không bài nào tải byte qua HTTP.
+  //
+  // Mục này đóng đúng khoảng trống đó, và đóng cả hai đầu:
+  //   - byte tải về phải LÀ ẢNH (chữ ký PNG), không phải trang HTML;
+  //   - đường tĩnh `/uploads/...` phải VẪN KHÔNG phục vụ ảnh — vì cách vá sai
+  //     là thêm một dòng `express.static` trỏ vào `DATA_DIR/uploads`, mà thư mục
+  //     đó dùng chung cho ảnh album, ảnh người được đón và ảnh quan sát của cô.
+  console.log('\n[1b] Tải BYTE của ảnh qua HTTP — và chỉ đúng người tải được');
+  {
+    const file = globalThis.FILE1;
+
+    const coTai = await taiByte(`/api/attendance/anh/${file}`, co.cookie);
+    check('cô tải về được ĐÚNG BYTE của ảnh, không phải trang HTML',
+      coTai.status === 200 && coTai.laPNG && !coTai.laHTML, JSON.stringify(coTai));
+    check('và máy chủ khai đúng loại nội dung là ảnh',
+      /^image\//.test(coTai.ctype), coTai.ctype);
+
+    const nhaTai = await taiByte(`/api/attendance/anh/${file}`, ph.cookie);
+    check('gia đình CỦA BÉ tải về được ảnh con mình',
+      nhaTai.status === 200 && nhaTai.laPNG, JSON.stringify(nhaTai));
+
+    const coKhacTai = await taiByte(`/api/attendance/anh/${file}`, co4.cookie);
+    check('cô nhóm khác KHÔNG tải được ảnh bé không thuộc nhóm mình',
+      coKhacTai.status === 403, `${coKhacTai.status} ${coKhacTai.ctype}`);
+
+    const nhaKhac = await login('phuhuynh2', '123456');
+    const nhaKhacTai = await taiByte(`/api/attendance/anh/${file}`, nhaKhac.cookie);
+    check('gia đình nhà khác KHÔNG tải được ảnh con nhà này',
+      nhaKhacTai.status === 403, `${nhaKhacTai.status}`);
+
+    const laTai = await taiByte(`/api/attendance/anh/${file}`, null);
+    check('người chưa đăng nhập KHÔNG tải được', laTai.status === 401 || laTai.status === 403,
+      `${laTai.status}`);
+
+    const bia = await taiByte('/api/attendance/anh/ffffffffffffffffffffffffffffffff.jpg', co.cookie);
+    check('tên tệp bịa ra thì trả 404, không lộ thư mục ảnh', bia.status === 404, `${bia.status}`);
+
+    // CHỐT NGƯỢC: thư mục ảnh KHÔNG được mở tĩnh. Ai đó thêm một dòng
+    // `app.use('/uploads', express.static(...))` cho tiện là dòng này đỏ.
+    const tinh = await taiByte(`/uploads/${file}`, null);
+    check('đường tĩnh /uploads KHÔNG phục vụ ảnh cho người lạ',
+      !(tinh.status === 200 && tinh.laPNG), JSON.stringify(tinh));
+
+    // BÁNH CÓC TRÊN MÃ MÀN HÌNH: không màn nào được trỏ ảnh vào đường tĩnh nữa.
+    const manHinh = fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8');
+    check('màn Điểm danh không còn trỏ thẻ ảnh vào /uploads',
+      !/src="\/uploads/.test(manHinh),
+      (manHinh.match(/src="\/uploads[^"]*/g) || []).join(', '));
+    check('đối chứng — màn Điểm danh CÓ trỏ vào đường có canh quyền',
+      /src="\/api\/attendance\/anh\//.test(manHinh), 'không thấy đường /api/attendance/anh/');
   }
 
   // =========================================================================
