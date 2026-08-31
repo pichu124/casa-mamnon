@@ -21,6 +21,7 @@
     "canAccessStudent": "ham(2)",
     "capChucVu": "ham(1)",
     "chucVu": "ham(1)",
+    "classIdsEverOfCampus": "ham(1)",
     "classIdsEverOfTeacher": "ham(1)",
     "classIdsOf": "ham(1)",
     "classIdsOfCampus": "ham(1)",
