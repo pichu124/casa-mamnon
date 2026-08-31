@@ -186,7 +186,22 @@ module.exports = (app) => {
     });
   });
 
-  // Nhật ký cấp lại mật khẩu — để tra khi có tranh chấp.
+  // NHỮNG LẦN CHÍNH NGƯỜI NÀY ĐÃ CẤP LẠI MẬT KHẨU CHO AI.
+  //
+  // CHÚ THÍCH CŨ NÓI SAI, và sai theo hướng nguy hiểm: nó ghi "nhật ký cấp lại
+  // mật khẩu — để tra khi có tranh chấp", nghe như đây là chỗ tra "tài khoản
+  // của nhà tôi bị ai đổi mật khẩu". Câu truy vấn thì lọc `userId = ?`, tức mã
+  // NGƯỜI ĐI CẤP LẠI, không phải mã tài khoản BỊ cấp lại. Ai tin theo chú thích
+  // mà mở đường này ra để điều tra một khiếu nại sẽ nhận về danh sách rỗng và
+  // kết luận "không ai đụng vào" — trong khi người đụng vào là người khác.
+  //
+  // Chỗ tra khi có tranh chấp thật là **Quản trị → Nhật ký** (`/api/admin/audit`),
+  // nơi đọc được cả bảng `audit_log` chứ không riêng phần của mình.
+  //
+  // GIỮ ĐƯỜNG NÀY, chỉ sửa lại lời: nó đúng cho một câu hỏi có thật — "tuần này
+  // tôi đã cấp lại cho những ai" — và chưa màn hình nào gọi tới, nên bỏ đi thì
+  // ngày mai dựng màn ấy lại phải viết lại. Xoá dữ liệu hay đường dẫn là việc
+  // phải hỏi nhà trường trước (CLAUDE.md).
   app.get('/api/accounts/reset-log', requireRole('teacher', 'admin'), (req, res) => {
     const rows = db.all('audit_log',
       `SELECT * FROM audit_log WHERE action = 'reset-password' AND userId = ?

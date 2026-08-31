@@ -223,6 +223,65 @@ console.log('\n[+] /modules CHỈ ĐƯỢC PHỤC VỤ view.js — mã nguồn v
     `${chuaDangNhap.status} ${chuaDangNhap.than.slice(0, 120)}`);
 }
 
+// ===========================================================================
+console.log('\n[+] MÁY DÙNG CHUNG: đăng xuất rồi người khác vào, KHÔNG được thấy album của người trước');
+{
+  // App.logout() CỐ Ý không tải lại trang (xem chú thích ở public/js/app.js),
+  // nên mọi màn hình là một đối tượng sống suốt vòng đời trang. Màn Album giữ
+  // phần đã tải trong `_daTai` để làm nút "Xem album cũ hơn". Máy tính dùng
+  // chung ở phòng hành chính là chuyện thường ở trường.
+  //
+  // Chỗ vỡ nằm ở đúng đường ấy: nút "xem cũ hơn" đặt `_giuTrang = true` RỒI mới
+  // gọi App.route(). Phiên bị đổi đúng giữa hai bước đó thì phần cũ được giữ
+  // lại và trộn vào danh sách của người mới. Ảnh khuôn mặt trẻ thì không có
+  // "xác suất thấp" nào là chấp nhận được.
+  //
+  // Bài này CHẠY THẬT mã của màn hình trong một hộp cách ly, không dò chữ:
+  // nạp public/js/views/albums.js với App/API/UI giả, rồi dựng lại đúng cảnh đó.
+  const vm = await import('node:vm');
+  const nguon = fs.readFileSync(`${GOC}/public/js/views/albums.js`, 'utf8');
+
+  // UI giả: hàm nào cũng trả chuỗi rỗng, đủ để renderList chạy hết.
+  const UI = new Proxy({}, { get: () => (() => '') });
+  let traVe = [];                      // album mà "máy chủ" trả về cho lượt tải
+  const API = { get: async () => traVe };
+  const document = { getElementById: () => null };
+  const App = { views: {}, state: { user: null }, route: () => {} };
+  const hop = { App, API, UI, document, console };
+  vm.createContext(hop);
+  vm.runInContext(nguon, hop);
+  const man = App.views.albums;
+  check('nạp được mã màn Album vào hộp cách ly', !!man && typeof man.renderList === 'function');
+
+  // Cô Lan đăng nhập, xem album, rồi bấm "xem cũ hơn" — `_giuTrang` bật lên.
+  App.state.user = { id: 't1', role: 'parent' };
+  traVe = [{ id: 'al-cua-co-lan', name: 'Ảnh nhóm Chồi 2', photos: [] }];
+  await man.renderList({ innerHTML: '' });
+  check('người thứ nhất tải được album của mình', man._daTai.length === 1, man._daTai.length);
+  man._giuTrang = true;   // đúng trạng thái sau khi bấm "Xem album cũ hơn"
+
+  // Đăng xuất, người khác đăng nhập trên cùng máy, và App.route() chạy tiếp.
+  App.state.user = { id: 'p9', role: 'parent' };
+  traVe = [{ id: 'al-cua-nha-khac', name: 'Ảnh nhóm Lá 1', photos: [] }];
+  await man.renderList({ innerHTML: '' });
+
+  const con = man._daTai.map(a => a.id);
+  check('NGƯỜI MỚI KHÔNG THẤY ALBUM CỦA NGƯỜI TRƯỚC',
+    !con.includes('al-cua-co-lan'), con);
+  check('và vẫn thấy đúng album của mình', con.includes('al-cua-nha-khac'), con);
+  check('phần đã tải nay ghi rõ là của ai', man._cuaAi === 'p9', man._cuaAi);
+
+  // Cùng một người thì nút "xem cũ hơn" phải CÒN CHẠY — vá lỗ không được làm
+  // hỏng việc đang chạy.
+  traVe = [{ id: 'al-trang-hai', name: 'Album cũ hơn', photos: [] }];
+  await man.taiThem();            // đúng việc nút "Xem album cũ hơn" làm
+  man._giuTrang = true;           // rồi mới vẽ lại màn
+  await man.renderList({ innerHTML: '' });
+  check('CÙNG MỘT NGƯỜI thì "xem album cũ hơn" vẫn cộng dồn như cũ',
+    man._daTai.map(a => a.id).join(',') === 'al-cua-nha-khac,al-trang-hai',
+    man._daTai.map(a => a.id));
+}
+
 server.kill('SIGTERM');
 donThuMucTam(TEST_DIR);
 

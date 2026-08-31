@@ -167,7 +167,9 @@ module.exports = (app, { db, modules }) => {
       // Gia đình cũng thấy hôm đó trường cho ăn món gì — ngay cạnh dòng bé ăn
       // được bao nhiêu. Không có phần này thì cô phải gõ lại tên món vào ô ghi
       // chú cho từng bé, đúng thứ nhà trường bảo là mất công.
-      const td = thucDonKhoang(tu, den);
+      // Cơ sở suy từ NHÓM BÉ ĐANG HỌC, không hỏi người đang xem: mẹ bé có thể
+      // có hai con ở hai cơ sở, nên câu hỏi đúng luôn là "bé này ăn bếp nào".
+      const td = thucDonKhoang(tu, den, db.campusOfClass(be.classId));
       return res.json({
         be: { id: be.id, hoTen: be.name, laNhaTre: laNhaTre(be.dob) },
         ngayCo: rows.map(r => ({
@@ -222,7 +224,7 @@ module.exports = (app, { db, modules }) => {
       //
       // Chỉ ĐỌC thực đơn, không sửa: thực đơn là của cả trường, do văn phòng
       // soạn. Cô ghi bé ăn được bao nhiêu phần của bữa đó, thế thôi.
-      thucDon: thucDonCuaNgay(ngay),
+      thucDon: thucDonCuaNgay(ngay, db.campusOfClass(classId)),
       khungGioNgu: GIO_NGU,
       danhSach: dsBe.map(b => keml(b, daCo.get(b.id), dangNghi.get(b.id))),
     });
@@ -252,18 +254,51 @@ module.exports = (app, { db, modules }) => {
     return !!(modules && typeof modules.dangBat === 'function' && modules.dangBat('thucdon'));
   }
 
-  function thucDonCuaNgay(ngay) {
+  // THỰC ĐƠN PHẢI LÀ BẾP CỦA CHÍNH CƠ SỞ BÉ ĐANG HỌC.
+  //
+  // Nhà trường chốt ngày 30/08: ba cơ sở nấu riêng bếp. Đợt Đ91 tách dữ liệu ra
+  // bảng phụ `menu_campus`, và luật đọc là: dòng RIÊNG của cơ sở thắng, ngày
+  // nào cơ sở chưa soạn riêng thì lấy bản dùng chung ở `menus`.
+  //
+  // Nhật ký ngày bỏ sót luật đó — nó chỉ đọc `menus`. Hậu quả không hiện ra ở
+  // đâu cả: bé ở cơ sở 2 có nhật ký ghi kèm món của một cái bếp khác, mỗi ngày,
+  // cho cả nhóm, và gia đình đọc thấy con "ăn hết" một món trường không hề nấu.
+  // Đúng chỗ nhà trường muốn khỏi phải gõ tay lại thì lại thành chỗ hai màn
+  // hình của cùng một trường nói hai chuyện khác nhau về cùng một bữa ăn.
+  //
+  // CHÉP LUẬT CHỨ KHÔNG GỌI SANG `routes/menu.js`: phân hệ không được phụ thuộc
+  // vào việc tệp lõi ấy còn hay mất. Gỡ Thực đơn đi thì Nhật ký vẫn phải khởi
+  // động được — đó là Nguyên tắc số 1.
+  //
+  // `campusId` rỗng (nhóm chưa gắn cơ sở, hoặc trường một bếp) thì đi đúng
+  // đường cũ, không đổi một chữ nào so với trước.
+  function thucDonCuaNgay(ngay, campusId) {
     if (!thucDonBat()) return null;
-    return gomBua(db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngay]));
+    const rieng = campusId
+      ? db.first('menu_campus',
+        'SELECT * FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, ngay])
+      : null;
+    return gomBua(rieng || db.first('menus', 'SELECT * FROM menus WHERE date = ?', [ngay]));
   }
 
   // Cả khoảng ngày trong MỘT câu truy vấn — gia đình xem hai tuần một lần mở.
-  function thucDonKhoang(tu, den) {
+  //
+  // Hai câu, không phải một: nạp bản dùng chung trước rồi để bản riêng của bếp
+  // GHI ĐÈ lên đúng những ngày cơ sở đã soạn. Ngược thứ tự này là cơ sở đã soạn
+  // riêng lại thấy món dùng chung.
+  function thucDonKhoang(tu, den, campusId) {
     const ra = new Map();
     if (!thucDonBat()) return ra;
     for (const m of db.all('menus',
       'SELECT * FROM menus WHERE date BETWEEN ? AND ?', [tu, den])) {
       ra.set(m.date, gomBua(m));
+    }
+    if (campusId) {
+      for (const m of db.all('menu_campus',
+        'SELECT * FROM menu_campus WHERE campusId = ? AND date BETWEEN ? AND ?',
+        [campusId, tu, den])) {
+        ra.set(m.date, gomBua(m));
+      }
     }
     return ra;
   }

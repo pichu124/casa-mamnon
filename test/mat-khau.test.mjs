@@ -107,6 +107,42 @@ console.log('\n[5] Nhật ký cấp lại mật khẩu');
   check('nhật ký nêu rõ cấp cho ai', r.data?.[0]?.targetUsername === 'phuhuynh', r.data?.[0]);
 }
 
+console.log('\n[5b] ĐƯỜNG NÀY TRẢ VỀ VIỆC MÌNH ĐÃ LÀM, không phải việc người khác làm với mình');
+{
+  // CHÚ THÍCH CŨ Ở routes/accounts.js NÓI SAI, và sai theo hướng nguy hiểm: nó
+  // ghi "nhật ký cấp lại mật khẩu — để tra khi có tranh chấp", nghe như đây là
+  // chỗ tra "tài khoản của nhà tôi bị ai đổi mật khẩu". Câu truy vấn thì lọc
+  // theo mã NGƯỜI ĐI CẤP LẠI. Ai tin theo chú thích mà mở đường này ra để điều
+  // tra một khiếu nại sẽ nhận về danh sách rỗng và kết luận "không ai đụng
+  // vào" — trong khi người đụng vào là người khác.
+  //
+  // Đợt này sửa lời chú thích và GIỮ NGUYÊN đường. Bài dưới ghim lại đúng cái
+  // nghĩa ấy để lần sau không ai sửa lời mà quên mã, hay ngược lại.
+  const T2 = (await login('giaovien2', '123456')).cookie;
+
+  const cuaCoLan = await req('GET', '/api/accounts/reset-log', { cookie: T });
+  check('cô vừa cấp lại thì thấy việc CỦA MÌNH', (cuaCoLan.data || []).length >= 1, cuaCoLan.data?.length);
+
+  const cuaCoKhac = await req('GET', '/api/accounts/reset-log', { cookie: T2 });
+  check('CÔ KHÁC KHÔNG THẤY VIỆC ĐÓ — đây là nhật ký việc mình làm',
+    (cuaCoKhac.data || []).length === 0, cuaCoKhac.data);
+
+  // Và tài khoản BỊ cấp lại cũng không tra được ở đây — đó chính là chỗ chú
+  // thích cũ đánh lừa. Gia đình không gọi được đường này (403), nên người duy
+  // nhất tra được một khiếu nại là quản trị, qua /api/admin/audit.
+  const cuaGiaDinh = await req('GET', '/api/accounts/reset-log',
+    { cookie: (await login('phuhuynh2', '123456')).cookie });
+  check('gia đình KHÔNG mở được đường này', cuaGiaDinh.status === 403, cuaGiaDinh.status);
+
+  // Lời chú thích phải nói đúng cái mã đang làm — đây là thứ vừa sửa.
+  const ma = fs.readFileSync(`${GOC}/routes/accounts.js`, 'utf8');
+  const truoc = ma.slice(Math.max(0, ma.indexOf("'/api/accounts/reset-log'") - 1400),
+    ma.indexOf("'/api/accounts/reset-log'"));
+  check('chú thích KHÔNG còn hứa đây là chỗ tra tranh chấp',
+    !/nhật ký cấp lại mật khẩu — để tra khi có tranh chấp/i.test(truoc), truoc.slice(-160));
+  check('và chỉ sang đúng chỗ tra thật', /api\/admin\/audit/.test(truoc));
+}
+
 server.kill('SIGTERM');
 await new Promise(r => setTimeout(r, 500));
 donThuMucTam(DIR);

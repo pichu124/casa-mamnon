@@ -11,6 +11,8 @@ App.views.albums = {
   MOI_TRANG: 60,
   _daTai: [],     // album đã tải về, cộng dồn qua các lượt "xem cũ hơn"
   _conNua: false,
+  // CHỦ CỦA PHẦN ĐÃ TẢI. Xem chú thích ở `renderList`.
+  _cuaAi: null,
 
   async render(root, params) {
     const albumId = params && params[0];
@@ -26,6 +28,27 @@ App.views.albums = {
     // khoảng con còn học nhóm đó.
     // Lượt đầu luôn tải lại từ trang một: vào lại màn này là muốn thấy album
     // mới nhất, không phải thấy lại đúng chỗ đã cuộn tới lần trước.
+    //
+    // ĐỔI NGƯỜI ĐĂNG NHẬP THÌ DỌN SẠCH, KHÔNG CHỜ `_giuTrang`.
+    //
+    // `App.views.albums` là một đối tượng sống suốt vòng đời trang, và
+    // `App.logout()` cố ý KHÔNG tải lại trang (xem chú thích ở public/js/app.js).
+    // Nên nếu ai đó đăng xuất rồi người khác đăng nhập trên cùng máy — máy tính
+    // dùng chung ở phòng hành chính là chuyện thường — thì `_daTai` vẫn còn
+    // nguyên album của người trước.
+    //
+    // Nó KHÔNG lộ ra ngay: `_giuTrang` là false ở lượt vào đầu tiên nên phần cũ
+    // bị dọn. Chỗ vỡ nằm ở đường "Xem album cũ hơn": nút ấy đặt `_giuTrang =
+    // true` rồi mới `App.route()`, và nếu phiên bị đổi ĐÚNG giữa hai bước đó
+    // thì phần cũ được giữ lại và trộn vào danh sách của người mới. Ảnh khuôn
+    // mặt trẻ thì không có "xác suất thấp" nào là chấp nhận được.
+    //
+    // Gắn phần đã tải với MÃ NGƯỜI DÙNG là bịt cả họ tình huống ấy, và không
+    // phải chạm `public/js/app.js` — tệp dùng chung, phải commit riêng.
+    const ai = (App.state.user || {}).id || null;
+    if (this._cuaAi !== ai) { this._daTai = []; this._conNua = false; this._giuTrang = false; }
+    this._cuaAi = ai;
+
     if (!this._giuTrang) { this._daTai = []; this._conNua = false; }
     this._giuTrang = false;
     if (!this._daTai.length) await this.taiThem();

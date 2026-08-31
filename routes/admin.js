@@ -690,7 +690,21 @@ module.exports = (app) => {
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     if (!duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
     const patch = {};
-    for (const k of ['name', 'code', 'dob', 'gender', 'address']) {
+    // `ethnicity` (dân tộc) và `bloodType` (nhóm máu) vào danh sách này từ đợt
+    // soát 31/08. Hai cột ấy có trong bảng `students` từ lúc nhân bản nền, HIỆN
+    // trên màn hồ sơ của gia đình và có trong tệp xuất Excel của văn phòng —
+    // nhưng trước bản vá này KHÔNG màn hình nào nhập được. Nghĩa là chúng chỉ
+    // có thể mang giá trị do dữ liệu cũ để lại: văn phòng nhìn thấy hai ô trống
+    // vĩnh viễn và không có cách nào điền, còn tệp gửi Phòng giáo dục thì thiếu
+    // đúng hai cột mẫu sổ đòi.
+    //
+    // MỞ ĐƯỜNG GHI chứ không gỡ hai ô đi: gỡ là bỏ một thứ nhà trường có thật
+    // trong sổ giấy, và là đổi hình dạng câu trả lời mà app cũ đang đọc.
+    //
+    // Vẫn nằm nguyên sau `onlyAdmin` + `duocChamBe`: đây là dữ liệu nhân thân
+    // và sức khoẻ của trẻ dưới 6 tuổi (Nghị định 13/2023), cô không cần nó để
+    // làm việc nên cô cũng không sửa được.
+    for (const k of ['name', 'code', 'dob', 'gender', 'address', 'ethnicity', 'bloodType']) {
       if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
     }
     // Tên rỗng làm học sinh biến mất khỏi mọi danh sách mà không ai biết em là ai
@@ -956,6 +970,11 @@ module.exports = (app) => {
         ngaySinh,
         gioiTinh: lay(row, 'Giới tính', 'Gioi tinh', 'gender'),
         diaChi: lay(row, 'Địa chỉ', 'Dia chi', 'address'),
+        // Hai cột KHÔNG bắt buộc và KHÔNG bao giờ làm dòng thành lỗi: mẫu sổ
+        // của Phòng có chúng, nhưng tệp đầu năm của trường thì thường chưa
+        // có. Thiếu cột thì `lay` trả chuỗi rỗng, y như trước đợt này.
+        danToc: lay(row, 'Dân tộc', 'Dan toc', 'ethnicity'),
+        nhomMau: lay(row, 'Nhóm máu', 'Nhom mau', 'bloodType'),
         classId: lop ? lop.id : null,
         taoLopMoi: !!tenLop && !lop,
         username: phHoTen ? sinhTenDangNhap(phHoTen, phSdt, daDungTen) : '',
@@ -1086,7 +1105,7 @@ module.exports = (app) => {
           classId,
           avatar: { emoji: /nữ|nu/i.test(r.gioiTinh) ? '👧' : '👦', bg: '#3f6ad8' },
           address: r.diaChi,
-          ethnicity: '', bloodType: '', allergies: '',
+          ethnicity: r.danToc || '', bloodType: r.nhomMau || '', allergies: '',
           active: true, leftAt: null,
           createdAt: new Date().toISOString(),
         };
@@ -1124,8 +1143,12 @@ module.exports = (app) => {
     // Cột "Cơ sở" chỉ cần khi trường có từ hai cơ sở và hai nơi đặt trùng tên
     // nhóm — nhưng để sẵn trong mẫu thì rẻ hơn nhiều so với để văn phòng nhập
     // xong mới báo lỗi và phải sửa lại cả tệp.
+    //
+    // 'Dân tộc' và 'Nhóm máu' đứng CUỐI, sau các cột bắt buộc: người điền đọc
+    // từ trái sang, và hai cột này để trống được nên không nên chen vào giữa
+    // những cột không được để trống.
     const headers = ['Mã của bé', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Nhóm', 'Cơ sở', 'Địa chỉ',
-      'Họ tên phụ huynh', 'Điện thoại', 'Email'];
+      'Họ tên phụ huynh', 'Điện thoại', 'Email', 'Dân tộc', 'Nhóm máu'];
     const namSinhMau = Number(ngayVN.homNay().slice(0, 4)) - 4;   // bé nhóm Chồi, 4 tuổi
     const mau = [{
       'Mã của bé': 'MN2026001', 'Họ tên': 'Nguyễn Bảo An', 'Ngày sinh': `${namSinhMau}-04-12`,
@@ -1133,6 +1156,7 @@ module.exports = (app) => {
       'Cơ sở': (db.campuses()[0] || {}).name || '',
       'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',
       'Họ tên phụ huynh': 'Lê Thị Thu Hà', 'Điện thoại': '0912345678', 'Email': 'thuha@gmail.com',
+      'Dân tộc': 'Kinh', 'Nhóm máu': '',
     }];
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="mau-danh-sach-be.csv"');

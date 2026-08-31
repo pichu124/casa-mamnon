@@ -16,6 +16,9 @@
 //   • LIÊN HỆ KHẨN CẤP không phải tài khoản đăng nhập. Người này không được xem
 //     bất cứ thứ gì trong app.
 import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
+import { GOC } from './_chung.mjs';
+import fs from 'fs';
+import path from 'path';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('ho-so-be');
@@ -285,6 +288,99 @@ console.log('\n[8] Thị lực và Đánh giá thể trạng — hai ô ĐÃ H�
     body: { studentId: 's1', type: 'checkup', title: 'Nhà tự khai', bmiNote: 'con tôi rất tốt' },
   });
   check('gia đình vẫn KHÔNG ghi được vào hồ sơ y tế của con', ph.status === 403, ph.status);
+}
+
+// ===========================================================================
+console.log('\n[9] Dân tộc và Nhóm máu — hai ô ĐÃ HẾT CHẾT (mở đường ghi)');
+{
+  // TRƯỚC ĐỢT NÀY: hai cột này có trong bảng `students`, có trong tệp CSV xuất
+  // ra cho Phòng, có trong dữ liệu mẫu — nhưng KHÔNG MÀN NÀO NHẬP ĐƯỢC. Danh
+  // sách trường được vá của `PUT /api/admin/students/:id` không có chúng, và
+  // đường nhập CSV ghi cứng chuỗi rỗng. Nên với một bé nhập vào sau ngày khai
+  // giảng, hai cột ấy vĩnh viễn trống, và văn phòng in sổ ra là thiếu.
+  //
+  // Cách vá theo đúng CLAUDE.md là MỞ ĐƯỜNG GHI, không phải gỡ cột đi: gỡ là
+  // bỏ dữ liệu đã có của những bé nhập từ dữ liệu mẫu, và là bỏ luôn cột trong
+  // mẫu sổ của Phòng.
+  const luu = await req('PUT', '/api/admin/students/s2', {
+    cookie: A, body: { ethnicity: 'Tày', bloodType: 'O' },
+  });
+  check('quản trị GHI được dân tộc', luu.status === 200 && luu.data?.ethnicity === 'Tày', luu.data?.ethnicity);
+  check('quản trị GHI được nhóm máu', luu.data?.bloodType === 'O', luu.data?.bloodType);
+
+  // Cùng một luật "không gửi ≠ xoá" như mục [4]: màn hình cũ còn trong bộ nhớ
+  // đệm của điện thoại chưa biết hai ô này, và nó lưu hồ sơ thì không được
+  // quét sạch hai cột.
+  const chiTen = await req('PUT', '/api/admin/students/s2', { cookie: A, body: { name: luu.data.name } });
+  check('SỬA MỖI TÊN THÌ DÂN TỘC CÒN NGUYÊN', chiTen.data?.ethnicity === 'Tày', chiTen.data?.ethnicity);
+  check('SỬA MỖI TÊN THÌ NHÓM MÁU CÒN NGUYÊN', chiTen.data?.bloodType === 'O', chiTen.data?.bloodType);
+
+  // Gửi chuỗi rỗng MỚI là xoá — gia đình khai nhầm thì sửa lại được.
+  const xoa = await req('PUT', '/api/admin/students/s2', { cookie: A, body: { bloodType: '' } });
+  check('gửi chuỗi rỗng MỚI là xoá — chủ ý thì làm được', xoa.data?.bloodType === '', xoa.data?.bloodType);
+  check('và xoá nhóm máu KHÔNG kéo theo dân tộc', xoa.data?.ethnicity === 'Tày', xoa.data?.ethnicity);
+  await req('PUT', '/api/admin/students/s2', { cookie: A, body: { bloodType: 'O' } });
+
+  check('cô KHÔNG ghi được hai ô này',
+    (await req('PUT', '/api/admin/students/s2', { cookie: GV, body: { ethnicity: 'x' } })).status === 403);
+
+  // Ghi xong phải ĐỌC LẠI được ở đúng chỗ màn Sửa hồ sơ lấy dữ liệu, nếu không
+  // thì ô mở ra vẫn trắng và người nhập tưởng máy chủ nuốt mất.
+  const ds = await req('GET', '/api/admin/students?keCaNghi=1', { cookie: A });
+  const be = (ds.data || []).find(x => x.id === 's2');
+  check('danh sách của màn Quản trị mang theo cả hai ô',
+    be?.ethnicity === 'Tày' && be?.bloodType === 'O', { e: be?.ethnicity, b: be?.bloodType });
+
+  // Và tệp xuất cho Phòng phải thấy đúng thứ vừa nhập — đây là lý do hai cột
+  // này tồn tại ngay từ đầu.
+  // Tệp CSV không phải JSON nên `req` trả data null — phải đọc thẳng chữ.
+  const taiTep = async (d) => {
+    const r = await fetch(sv.BASE + d, { headers: { cookie: A } });
+    return { status: r.status, chu: await r.text() };
+  };
+  const csv = await taiTep('/api/admin/students/xuat.csv');
+  const dong = csv.chu.split('\n').find(x => x.includes('Tày'));
+  check('tệp xuất ra có dòng mang dân tộc vừa nhập', !!dong, csv.status);
+
+  // ---- MÀN HÌNH: hai ô phải CÓ THẬT và phải ĐI THEO khi bấm Lưu ----
+  const view = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  check('màn Sửa hồ sơ có ô Dân tộc', /id="ad-hs-dt"/.test(view));
+  check('màn Sửa hồ sơ có ô Nhóm máu', /id="ad-hs-nm"/.test(view));
+  check('bấm Lưu là gửi dân tộc lên máy chủ', /ethnicity: document\.getElementById\('ad-hs-dt'\)/.test(view));
+  check('bấm Lưu là gửi nhóm máu lên máy chủ', /bloodType: document\.getElementById\('ad-hs-nm'\)/.test(view));
+  // Ô nhóm máu để TRỐNG ĐƯỢC, và màn hình phải nói ra điều đó: y tế trường
+  // không truyền máu, ghi theo trí nhớ nguy hiểm hơn để trống.
+  check('màn hình nói rõ để trống là được, không phải thiếu sót',
+    /Bỏ trống an toàn hơn/.test(view) && /cứ để trống/.test(view));
+
+  // ---- ĐƯỜNG NHẬP CSV ĐẦU NĂM ----
+  const csvNhap = 'Họ tên,Nhóm,Họ tên phụ huynh,Điện thoại,Dân tộc,Nhóm máu\n'
+    + 'Nông Thị Mai,Chồi 2,Nông Văn Sinh,0901222333,Nùng,AB\n';
+  const xem = await req('POST', '/api/admin/import/preview', { cookie: A, body: { csv: csvNhap } });
+  check('xem trước tệp CSV đọc được cột Dân tộc',
+    xem.data?.rows?.[0]?.danToc === 'Nùng', xem.data?.rows?.[0]);
+  const nhap = await req('POST', '/api/admin/import/commit', { cookie: A, body: { csv: csvNhap } });
+  check('nhập được', nhap.status === 200 && nhap.data?.imported === 1, nhap.data);
+  const ds2 = await req('GET', '/api/admin/students?classId=c1', { cookie: A });
+  const moi = (ds2.data || []).find(x => x.name === 'Nông Thị Mai');
+  check('BÉ NHẬP TỪ CSV CÓ DÂN TỘC — không còn ghi cứng chuỗi rỗng',
+    moi?.ethnicity === 'Nùng', moi?.ethnicity);
+  check('và có nhóm máu', moi?.bloodType === 'AB', moi?.bloodType);
+
+  // Tệp KHÔNG có hai cột đó vẫn nhập bình thường — tệp đầu năm của trường
+  // thường chưa có, và chặn ở đây là làm hỏng đường đang chạy.
+  const cuGiuNguyen = await req('POST', '/api/admin/import/commit', {
+    cookie: A,
+    body: { csv: 'Họ tên,Nhóm,Họ tên phụ huynh,Điện thoại\nLý Gia Bảo,Chồi 2,Lý Văn Nam,0901444555\n' },
+  });
+  check('TỆP KHÔNG CÓ HAI CỘT ĐÓ VẪN NHẬP ĐƯỢC NHƯ CŨ',
+    cuGiuNguyen.status === 200 && cuGiuNguyen.data?.imported === 1, cuGiuNguyen.data);
+
+  // Mẫu tải về phải có sẵn hai cột, nếu không thì người điền không biết là
+  // điền được.
+  const mau = await taiTep('/api/admin/import/template');
+  check('tệp mẫu tải về đã có hai cột đó',
+    /Dân tộc/.test(mau.chu) && /Nhóm máu/.test(mau.chu), mau.status);
 }
 
 sv.dung();

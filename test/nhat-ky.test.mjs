@@ -615,6 +615,108 @@ console.log('\n[13] HAI CÔ CÙNG GHI MỘT NHÓM — người lưu sau không x
     { khoiElse, viTriXoa });
 }
 
+// ===========================================================================
+console.log('\n[14] THỰC ĐƠN TRONG NHẬT KÝ PHẢI LÀ BẾP CỦA CHÍNH CƠ SỞ BÉ HỌC');
+{
+  // Nhà trường chốt ngày 30/08: ba cơ sở nấu riêng bếp. Đợt Đ91 đã tách dữ
+  // liệu ra bảng menu_campus và sửa màn Thực đơn, nhưng NHẬT KÝ NGÀY thì
+  // không ai sửa — nó vẫn đọc thẳng bảng menus dùng chung.
+  //
+  // Hậu quả không kêu lên ở đâu cả, và đó mới là chỗ tệ: bé ở cơ sở 2 có nhật
+  // ký kèm món của một cái bếp khác, mỗi ngày, cho cả nhóm. Gia đình đọc thấy
+  // con "ăn hết" một món trường không hề nấu. Đúng chỗ nhà trường muốn khỏi
+  // gõ tay lại thì lại thành chỗ hai màn hình của cùng một trường nói hai
+  // chuyện khác nhau về cùng một bữa ăn.
+  //
+  // Dữ liệu mẫu: c1 và c4 ở cs1, c3 ở cs2.
+  const NGAY = homNayVN();
+  const bua = (ten) => ([{ type: 'lunch', label: 'Bữa trưa', time: '11:00', items: [ten] }]);
+  const monTrua = (r, loc) => (loc ? loc(r) : r)?.thucDon?.anTrua?.mon?.[0];
+
+  // Bản DÙNG CHUNG trước — đây là thứ nhật ký vẫn đọc trước đợt này.
+  const chung = await req('PUT', '/api/menu/tuan', {
+    cookie: C1, body: { ngay: [{ date: NGAY, meals: bua('Cơm chung cả trường') }] },
+  });
+  check('soạn được thực đơn dùng chung', chung.status === 200, chung.data);
+
+  const truoc = await req('GET', '/api/nhatky?classId=c1&ngay=' + NGAY, { cookie: C1 });
+  check('chưa cơ sở nào soạn riêng thì nhật ký lấy bản dùng chung — ĐƯỜNG CŨ KHÔNG ĐỔI',
+    monTrua(truoc.data) === 'Cơm chung cả trường', truoc.data?.thucDon?.anTrua);
+
+  // Nay cơ sở 1 soạn riêng bếp mình.
+  const rieng = await req('PUT', '/api/menu/tuan', {
+    cookie: C1,
+    body: { campusId: 'cs1', ngay: [{ date: NGAY, meals: bua('Cháo cá bếp cơ sở 1') }] },
+  });
+  check('soạn được thực đơn riêng cho cơ sở 1', rieng.status === 200, rieng.data);
+
+  const cs1 = await req('GET', '/api/nhatky?classId=c1&ngay=' + NGAY, { cookie: C1 });
+  check('NHÓM Ở CƠ SỞ 1 THẤY MÓN CỦA BẾP CƠ SỞ 1',
+    monTrua(cs1.data) === 'Cháo cá bếp cơ sở 1', cs1.data?.thucDon?.anTrua);
+
+  // Nhóm c3 (Mầm 1, cơ sở 2) trong dữ liệu mẫu chưa có bé nào, mà đường đọc
+  // cả nhóm trả về sớm khi nhóm rỗng. Nhập một bé vào đó bằng đúng đường
+  // văn phòng vẫn dùng đầu năm — cột "Cơ sở" của tệp CSV.
+  const nhap = await req('POST', '/api/admin/import/commit', {
+    cookie: C1,
+    body: { csv: 'Họ tên,Nhóm,Cơ sở,Họ tên phụ huynh,Điện thoại\n'
+      + 'Đặng Minh Khôi,Mầm 1,Cơ sở 2,Đặng Văn Hải,0903111222\n' },
+  });
+  check('nhập được một bé vào nhóm của cơ sở 2', nhap.data?.imported === 1, nhap.data);
+
+  const cs2 = await req('GET', '/api/nhatky?classId=c3&ngay=' + NGAY, { cookie: C1 });
+  check('NHÓM Ở CƠ SỞ 2 KHÔNG BỊ KÉO THEO — chưa soạn riêng thì về bản dùng chung',
+    monTrua(cs2.data) === 'Cơm chung cả trường', cs2.data?.thucDon?.anTrua);
+
+  // Cơ sở 2 soạn bếp mình rồi thì mỗi bên một món, không bên nào đè bên nào.
+  await req('PUT', '/api/menu/tuan', {
+    cookie: C1,
+    body: { campusId: 'cs2', ngay: [{ date: NGAY, meals: bua('Bún riêu bếp cơ sở 2') }] },
+  });
+  const cs2b = await req('GET', '/api/nhatky?classId=c3&ngay=' + NGAY, { cookie: C1 });
+  check('cơ sở 2 soạn riêng rồi thì thấy đúng món của mình',
+    monTrua(cs2b.data) === 'Bún riêu bếp cơ sở 2', cs2b.data?.thucDon?.anTrua);
+  const cs1b = await req('GET', '/api/nhatky?classId=c1&ngay=' + NGAY, { cookie: C1 });
+  check('và cơ sở 1 KHÔNG bị đổi theo',
+    monTrua(cs1b.data) === 'Cháo cá bếp cơ sở 1', cs1b.data?.thucDon?.anTrua);
+
+  // ---- MÀN CỦA GIA ĐÌNH: cơ sở suy từ NHÓM BÉ ĐANG HỌC, không hỏi người xem ----
+  //
+  // Mẹ bé s1 có thể có hai con ở hai cơ sở, nên câu hỏi đúng luôn là "bé NÀY
+  // ăn bếp nào", chứ không phải "người đang mở màn hình thuộc cơ sở nào".
+  const ph = await req('GET', '/api/nhatky?studentId=s1&tu=' + NGAY + '&den=' + NGAY, { cookie: PH });
+  const ngayCo = (ph.data?.ngayCo || []).find(n => n.ngay === NGAY);
+  check('màn của gia đình cũng thấy đúng bếp của cơ sở con đang học',
+    ngayCo?.thucDon?.anTrua?.mon?.[0] === 'Cháo cá bếp cơ sở 1', ngayCo?.thucDon?.anTrua);
+
+  // Cô cũng vậy — cô nhóm c1 mở màn ghi nhật ký ra là thấy món bếp mình.
+  const co = await req('GET', '/api/nhatky?classId=c1&ngay=' + NGAY, { cookie: GV });
+  check('cô nhóm đó cũng thấy đúng món bếp mình',
+    monTrua(co.data) === 'Cháo cá bếp cơ sở 1', co.data?.thucDon?.anTrua);
+
+  // ---- TẮT PHÂN HỆ THỰC ĐƠN VẪN PHẢI IM LẶNG NHƯ MỤC [11] ----
+  // Thêm một nhánh đọc bảng mới là thêm một chỗ có thể quên hỏi công tắc.
+  await req('PUT', '/api/admin/modules/thucdon', { cookie: C1, body: { enabled: false } });
+  const tat = await req('GET', '/api/nhatky?classId=c1&ngay=' + NGAY, { cookie: C1 });
+  check('tắt phân hệ Thực đơn thì nhánh RIÊNG CỦA CƠ SỞ cũng im theo',
+    tat.status === 200 && tat.data?.thucDon === null, tat.data?.thucDon);
+  const tatPh = await req('GET', '/api/nhatky?studentId=s1&tu=' + NGAY + '&den=' + NGAY, { cookie: PH });
+  check('màn gia đình cũng vậy',
+    (tatPh.data?.ngayCo || []).every(n => n.thucDon === null), tatPh.data?.ngayCo?.[0]?.thucDon);
+  await req('PUT', '/api/admin/modules/thucdon', { cookie: C1, body: { enabled: true } });
+
+  // ---- KHÔNG ĐƯỢC GỌI SANG routes/menu.js ----
+  //
+  // Phân hệ không được phụ thuộc vào việc một tệp lõi còn hay mất: gỡ Thực đơn
+  // đi thì Nhật ký vẫn phải khởi động được (Nguyên tắc số 1). Luật đọc được
+  // CHÉP vào phân hệ, và bài này canh đúng điều đó.
+  const maPh = fs.readFileSync(path.join(GOC, 'modules/nhatky/routes.js'), 'utf8');
+  check('phân hệ tự đọc bảng menu_campus', /menu_campus/.test(maPh));
+  check('và KHÔNG require sang routes/menu.js', !/require\([^)]*routes\/menu/.test(maPh));
+  check('cơ sở suy từ NHÓM BÉ, không nhận từ tham số người gửi lên',
+    /campusOfClass\(/.test(maPh) && !/query\.campusId/.test(maPh));
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

@@ -611,6 +611,20 @@ App.views.admin = {
         </select>
       </div>
       <div class="field"><label>Địa chỉ</label><input id="ad-hs-dc" value="${UI.esc(s.address || '')}"></div>
+      <div class="field"><label>Dân tộc</label>
+        <input id="ad-hs-dt" value="${UI.esc(s.ethnicity || '')}" placeholder="Ví dụ: Kinh">
+        <div class="hint">Mẫu sổ của Phòng có cột này. Gia đình chưa khai thì cứ để trống,
+        không cần điền cho đủ ô.</div>
+      </div>
+      <div class="field"><label>Nhóm máu</label>
+        <input id="ad-hs-nm" list="ad-hs-nm-goi" value="${UI.esc(s.bloodType || '')}" placeholder="Ví dụ: O">
+        <datalist id="ad-hs-nm-goi">
+          <option value="A"></option><option value="B"></option>
+          <option value="AB"></option><option value="O"></option>
+        </datalist>
+        <div class="hint">Chỉ ghi khi gia đình đã có kết quả xét nghiệm. Bỏ trống an toàn hơn
+        ghi theo trí nhớ: y tế trường không truyền máu, ô này chỉ để đưa cho bệnh viện.</div>
+      </div>
       <div class="field"><label>Số định danh cá nhân</label>
         <input id="ad-hs-ddcn" value="${UI.esc(s.soDinhDanh || '')}" placeholder="12 chữ số trên giấy khai sinh / CCCD của bé">
         <div class="hint">Chỉ nhà trường thấy ô này. Cô không cần số định danh để làm việc nên màn hình của cô không hiện.</div>
@@ -694,6 +708,8 @@ App.views.admin = {
           dob: document.getElementById('ad-hs-ns').value,
           gender: document.getElementById('ad-hs-gt').value,
           address: document.getElementById('ad-hs-dc').value.trim(),
+          ethnicity: document.getElementById('ad-hs-dt').value.trim(),
+          bloodType: document.getElementById('ad-hs-nm').value.trim(),
           soDinhDanh: document.getElementById('ad-hs-ddcn').value.trim(),
           tienSuBenh: document.getElementById('ad-hs-tsb').value.trim(),
           lienHeKhanCap: [...document.querySelectorAll('#ad-hs-lhkc .lhkc-dong')].map(d => ({

@@ -888,3 +888,90 @@ cho đỏ.
 | **Gỡ `/api/accounts/reset-log`** — đường mồ côi, không màn hình nào gọi, và chú thích của nó hứa một việc nó không làm được | Nhà trường đã dặn **"không duyệt phần gỡ"**. Tôi để nguyên đường, và sẽ chỉ sửa lại chú thích cho đúng sự thật. |
 | **Hai ô "Dân tộc" và "Nhóm máu"** hiện trên hồ sơ mọi bé và có trong tệp xuất Excel, nhưng **không màn hình nào nhập được** | Có hai hướng: mở đường ghi, hoặc gỡ khỏi màn hình. Theo dặn dò trên, tôi sẽ **mở đường ghi** chứ không gỡ — nhưng đó là quyết định về HỒ SƠ của trường, nên xin nhà trường xác nhận: hai ô này trường có dùng không? |
 | **Gộp nhánh làm việc vào `main`** | `docs/TRIEN-KHAI.md` đang phải dặn `git clone -b claude/g0-4-...` vì nhánh mặc định `main` **lùi hơn trăm commit** — bản trên đó thiếu sáu phân hệ và còn nguyên mấy lỗ đã vá. Đây là việc của người có quyền trên kho mã, không phải việc tôi tự làm. **Nên làm trước khi hẹn ngày cài.** |
+
+---
+
+## Đợt soát 31/08 — phần cuối (Đ114a, Đ114, Đ115)
+
+### 11. Khảo sát: Cấp 1 KHÔNG lọc, cố ý
+
+Đ114 cắt phạm vi đọc kết quả khảo sát: cô thấy nhóm mình, Cấp 3 thấy cơ sở
+mình. Cách gọn nhất là lọc mọi vai theo `classIdsOf` — tôi **không** làm vậy.
+
+Lọc theo nhóm là lọc theo bé **đang học**. Một gia đình đã cho con nghỉ vẫn còn
+câu trả lời trong bảng, và với ban giám hiệu thì câu ấy vẫn phải đọc được:
+khảo sát cuối năm mà mất phiếu của những nhà đã chuyển trường là mất đúng phần
+đáng đọc nhất. Nên Cấp 1 (`phamViCoSo` trả `null`) đi thẳng, không lọc.
+
+### 12. Con số `soPhieuTrongPhamVi` — thêm bên cạnh, không đổi cái cũ
+
+`responseCount` vẫn là số phiếu **cả trường** như trước. Nếu tôi sửa nó thành
+số phiếu trong phạm vi thì mọi điện thoại còn giữ bản giao diện cũ vẫn đọc đúng
+khoá ấy nhưng nhận một ý nghĩa khác — kiểu hỏng im lặng tệ nhất.
+
+Thêm khoá mới bên cạnh, và **màn hình nói thẳng ra chênh lệch**: thiếu câu đó
+thì cô nhìn "12 phiếu" ở đầu màn, đếm được 4 tên ở dưới, và kết luận app mất
+phiếu.
+
+### 13. Phòng chat riêng KHÔNG bị cắt theo
+
+Cô bị rút khỏi nhóm thì mất quyền vào **phòng chung của nhóm** — đúng. Nhưng
+phòng riêng giữa cô và một gia đình thì **giữ nguyên**: đó là cuộc trò chuyện
+giữa hai người, không phải tài sản của nhóm lớp. Cắt luôn cả phòng riêng là
+làm mất lịch sử trao đổi của gia đình mà chẳng bảo vệ thêm được gì.
+
+Đường **mở phòng riêng MỚI** thì đã tự chặn sẵn từ trước (`contactsFor` không
+còn liệt kê gia đình đó), và tôi giữ nguyên cách ấy.
+
+### 14. Hai ô "Dân tộc / Nhóm máu": đã MỞ ĐƯỜNG GHI
+
+Mục 10 ở trên còn treo câu hỏi này. Theo đúng dặn dò **"duyệt phần siết, không
+duyệt phần gỡ"**, tôi đã mở đường ghi chứ không gỡ cột:
+
+* thêm hai ô vào màn **Quản trị → Sửa hồ sơ bé**;
+* thêm `ethnicity` / `bloodType` vào danh sách trường được vá của
+  `PUT /api/admin/students/:id` — vẫn theo luật **"không gửi ≠ xoá"**;
+* thêm hai cột vào **đường nhập CSV đầu năm** và vào **tệp mẫu** tải về.
+
+Tệp CSV **không có** hai cột đó vẫn nhập được y như cũ — tệp đầu năm của trường
+thường chưa có, chặn ở đó là làm hỏng đường đang chạy.
+
+**Vẫn cần nhà trường trả lời một câu:** trường có thật sự dùng hai ô này không?
+Nếu không dùng thì đây là hai ô nữa cô và văn phòng phải nhìn mỗi lần mở hồ sơ.
+Ô **Nhóm máu** tôi để trống được và ghi rõ trên màn hình rằng bỏ trống an toàn
+hơn ghi theo trí nhớ — y tế trường không truyền máu, ô này chỉ để đưa cho bệnh
+viện.
+
+### 15. `/api/accounts/reset-log`: giữ đường, sửa lời
+
+Cũng theo mục 10. Chú thích cũ ghi *"nhật ký cấp lại mật khẩu — để tra khi có
+tranh chấp"*, mà câu truy vấn lọc theo mã **người đi cấp lại**. Ai tin theo chú
+thích mà mở đường này ra để điều tra một khiếu nại sẽ nhận về danh sách rỗng và
+kết luận *"không ai đụng vào"* — trong khi người đụng vào là người khác.
+
+Đường vẫn còn (nó đúng cho một câu hỏi có thật: *"tuần này tôi đã cấp lại cho
+những ai"*), lời chú thích được viết lại, và có bài test ghim đúng cái nghĩa ấy
+để lần sau không ai sửa lời mà quên mã, hay ngược lại. Chỗ tra khi có tranh
+chấp thật là **Quản trị → Nhật ký**.
+
+### 16. Nhật ký ngày đọc nhầm bếp — chép luật, không gọi sang tệp lõi
+
+Luật "dòng riêng của cơ sở thắng, chưa có thì lấy bản dùng chung" đã có sẵn
+trong `routes/menu.js`. Tôi **chép lại bốn dòng** vào phân hệ thay vì `require`
+sang đó.
+
+Lý do là Nguyên tắc số 1: phân hệ không được phụ thuộc vào việc một tệp lõi còn
+hay mất. Gỡ Thực đơn đi thì Nhật ký vẫn phải khởi động được. Bốn dòng trùng lặp
+rẻ hơn một phân hệ chết theo.
+
+Cơ sở **suy từ nhóm bé đang học**, không nhận từ tham số người gửi lên và cũng
+không hỏi cơ sở của người đang xem: mẹ có thể có hai con ở hai cơ sở, nên câu
+hỏi đúng luôn là *"bé này ăn bếp nào"*.
+
+### 17. Vẫn còn treo, cần nhà trường quyết
+
+| Việc | Tình trạng |
+|---|---|
+| **Gộp nhánh vào `main`** | Vẫn nguyên như mục 10. `docs/TRIEN-KHAI.md` còn phải dặn `git clone -b claude/g0-4-...`. Việc của người có quyền trên kho mã. **Nên làm trước khi hẹn ngày cài.** |
+| **GitHub Actions không chạy từ 28/08** | Bộ canh trên GitHub là lớp duy nhất **không bỏ qua được bằng `--no-verify`**. Nó im từ 28/08 nghĩa là mấy đợt gần đây chỉ được canh bằng máy tôi. |
+| **Trường có dùng "Dân tộc / Nhóm máu" không** | Xem mục 14. |
