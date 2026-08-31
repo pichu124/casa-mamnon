@@ -972,6 +972,22 @@ hỏi đúng luôn là *"bé này ăn bếp nào"*.
 
 | Việc | Tình trạng |
 |---|---|
-| **Gộp nhánh vào `main`** | Vẫn nguyên như mục 10. `docs/TRIEN-KHAI.md` còn phải dặn `git clone -b claude/g0-4-...`. Việc của người có quyền trên kho mã. **Nên làm trước khi hẹn ngày cài.** |
+| **Gộp nhánh vào `main`** | **ĐÃ XONG 31/08/2026** — nhà trường cho phép, và vì `main` là tổ tiên trực tiếp nên gộp kiểu tua nhanh: không xung đột, không viết lại lịch sử, không mất commit nào. `docs/TRIEN-KHAI.md` đã bỏ lời dặn `git clone -b ...`; nay clone thẳng `main` là ra bản đầy đủ. |
 | **GitHub Actions không chạy từ 28/08** | Bộ canh trên GitHub là lớp duy nhất **không bỏ qua được bằng `--no-verify`**. Nó im từ 28/08 nghĩa là mấy đợt gần đây chỉ được canh bằng máy tôi. |
 | **Trường có dùng "Dân tộc / Nhóm máu" không** | Xem mục 14. |
+
+### 18. Gộp nhánh vào `main` — 31/08/2026
+
+Nhà trường cho phép, và tôi kiểm trước khi làm: `main` **là tổ tiên trực tiếp**
+của nhánh làm việc (0 commit riêng trên `main`, 140 commit riêng trên nhánh).
+Nên đây là **gộp kiểu tua nhanh** — `main` chỉ đơn giản chỉ tới đúng commit đã
+được kiểm thử, chứ không có việc trộn hai dòng lịch sử.
+
+Ba điều đi kèm, để lần sau đọc lại còn hiểu:
+
+* **Không viết lại lịch sử, không ép đẩy.** 140 commit giữ nguyên, ai đã clone
+  nhánh cũ thì bản của họ vẫn đúng.
+* **Nhánh làm việc KHÔNG bị xoá.** `docs/BAO-CAO-TU-LAM.md` và nhiều chỗ khác
+  còn nêu tên nó; xoá đi là làm hỏng các đường dẫn ấy mà chẳng được gì.
+* **Bản lên `main` là bản đã chạy đủ bộ kiểm thử**: `npm test` 3704/0 và
+  `npm run test:giao-dien` 526/0, chạy trên đúng commit `feeca7f` này.

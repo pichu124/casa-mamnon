@@ -185,11 +185,10 @@ sudo mkdir -p /var/lib/casa-mamnon
 sudo chown -R $USER:$USER /var/lib/casa-mamnon
 
 # 2. Lấy mã về
-# LẤY ĐÚNG NHÁNH. Nhánh mặc định `main` đang LÙI RẤT XA so với nhánh đang
-# làm: clone theo mặc định sẽ ra một bản THIẾU SÁU PHÂN HỆ (Đón trả bé, Hành
-# trình, Kế hoạch của bé, Báo cáo học tập, Cambridge, Tiền ăn), và còn nguyên
-# mấy lỗ đã vá — trong đó có lỗ tải được mã máy chủ khi chưa đăng nhập.
-git clone -b claude/g0-4-multi-teacher-group-yq1n9e <đường-dẫn-kho-mã> /opt/casa-mamnon
+# Nhánh mặc định `main` NAY ĐÃ LÀ BẢN ĐẦY ĐỦ — clone thẳng, không cần -b.
+# (Trước 31/08/2026 chỗ này phải dặn lấy nhánh làm việc, vì `main` khi ấy còn
+#  lùi hơn trăm commit. Nhánh đã gộp vào `main` nên lời dặn đó không còn.)
+git clone <đường-dẫn-kho-mã> /opt/casa-mamnon
 cd /opt/casa-mamnon
 npm ci --omit=dev
 
