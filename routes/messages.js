@@ -214,6 +214,29 @@ function findConv(req, res) {
     res.status(403).json({ error: 'Bạn không tham gia cuộc trò chuyện này' });
     return null;
   }
+
+  // LỚP PHÒNG THỦ THỨ HAI CHO PHÒNG CHUNG CỦA NHÓM.
+  //
+  // `conversation_members` được ghi MỘT LẦN lúc lập phòng và KHÔNG BAO GIỜ
+  // được đồng bộ lại. Gỡ một cô khỏi nhóm đóng được mọi đường khác — hồ sơ bé,
+  // điểm danh, album, nhật ký — vì tất cả đều hỏi `classIdsOf`/`canAccessClass`.
+  // Riêng phòng chung của nhóm thì vẫn mở, vì chỗ này chỉ hỏi bảng thành viên.
+  // Cô đã chuyển cơ sở vẫn đọc được mọi trao đổi hằng ngày giữa cô mới và các
+  // gia đình, kể cả tin gửi SAU khi cô đã rời nhóm, và vẫn nhắn vào đó được.
+  //
+  // Nên với phòng gắn nhóm lớp, hỏi thêm câu hỏi THẬT: người này CÒN thuộc
+  // nhóm đó không. Phòng riêng (`type='direct'`, không có classId) không đổi gì
+  // — trao đổi riêng giữa hai người vốn không đi theo phân công.
+  //
+  // Đây là LỚP PHÒNG THỦ, không phải bản vá gốc: gốc là bảng thành viên không
+  // được đồng bộ theo `class_teachers`, và mặt còn lại của nó — cô MỚI không tự
+  // vào được phòng chung — vẫn còn đó, cần một đợt riêng.
+  if (cv.type === 'group' && cv.classId && !db.canAccessClass(req.user, cv.classId)) {
+    res.status(403).json({
+      error: 'Bạn không còn trong nhóm này nên không mở được phòng chung của nhóm',
+    });
+    return null;
+  }
   return cv;
 }
 
@@ -277,7 +300,15 @@ module.exports = (app) => {
     // cơ sở dữ liệu — mỗi lần cô mở màn Nhắn tin, và cô mở nó nhiều lần một
     // ngày. Câu ngay bên trên đã cố ý gộp phần đếm tin chưa đọc vào một truy
     // vấn với đúng lý do đó; phần tin cuối thì bị bỏ sót.
-    const maHT = rows.map(r => r.id);
+    // DANH SÁCH CŨNG PHẢI THEO ĐÚNG LUẬT CỦA `findConv`.
+    //
+    // Chặn ở `findConv` mà để nguyên danh sách thì cô đã rời nhóm vẫn thấy ô
+    // phòng chung kèm TRÍCH TIN CUỐI — tức vẫn rò đúng thứ cần giấu — rồi bấm
+    // vào mới nhận câu từ chối. Vừa lộ vừa khó hiểu.
+    const nhinThay = rows.filter(cv =>
+      !(cv.type === 'group' && cv.classId) || db.canAccessClass(user, cv.classId));
+
+    const maHT = nhinThay.map(r => r.id);
     const dauHT = maHT.map(() => '?').join(',');
     const tinCuoi = new Map();
     if (maHT.length) {
@@ -313,7 +344,7 @@ module.exports = (app) => {
 
     // Mọi người cần tên: người kia trong hội thoại riêng, và người gửi tin cuối.
     const maNguoi = new Set();
-    for (const cv of rows) {
+    for (const cv of nhinThay) {
       if (cv.type !== 'group') {
         for (const id of tra.thanhVien.get(cv.id)) if (id !== user.id) maNguoi.add(id);
       }
@@ -368,7 +399,7 @@ module.exports = (app) => {
       for (const r of dong) if (!tra.tenCon.get(r.maPh)) tra.tenCon.set(r.maPh, r.ten);
     }
 
-    const conversations = rows.map(cv => {
+    const conversations = nhinThay.map(cv => {
       const last = tinCuoi.get(cv.id) || null;
       return {
         id: cv.id,

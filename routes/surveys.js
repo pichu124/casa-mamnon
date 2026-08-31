@@ -21,6 +21,58 @@ function parentName(userId) {
   return p ? `${p.title} ${p.name}` : 'Phụ huynh';
 }
 
+// AI ĐƯỢC ĐỌC CÂU TRẢ LỜI CỦA GIA ĐÌNH NÀO.
+//
+// `POST /api/surveys` ghi cứng `audience: 'all'`, nên MỌI khảo sát đều đi tới
+// cả ba cơ sở. Điều đó tự nó chưa phải lỗ hổng — nhưng chỗ đọc kết quả thì
+// trả về `respondents` (TÊN từng phụ huynh đã trả lời) và, với câu hỏi mở, cả
+// CÂU CHỮ họ viết kèm tên. Cô nhóm Chồi 2 mở một khảo sát ra là đọc được ý
+// kiến của phụ huynh cả trường, gồm hai cơ sở cô không làm việc.
+//
+// Ý kiến phụ huynh gửi cho nhà trường thường là chuyện riêng: hoàn cảnh gia
+// đình, lý do xin nghỉ, phàn nàn về một cô cụ thể. Gửi cho trường không có
+// nghĩa là gửi cho ba mươi người.
+//
+// Luật: chỉ đọc câu trả lời của gia đình có con trong PHẠM VI của mình.
+//   • cô     → nhóm cô đang phụ trách;
+//   • Cấp 3  → mọi nhóm của cơ sở mình;
+//   • Cấp 1  → cả trường, KHÔNG lọc (`phamViCoSo` trả null).
+//
+// VÌ SAO CẤP 1 KHÔNG LỌC, chứ không phải "lọc theo classIdsOf cho gọn": lọc
+// theo nhóm là lọc theo bé ĐANG HỌC. Một gia đình đã cho con nghỉ vẫn còn câu
+// trả lời trong bảng, và với ban giám hiệu thì câu ấy vẫn phải đọc được —
+// khảo sát cuối năm mà mất phiếu của những nhà đã chuyển trường là mất đúng
+// phần đáng đọc nhất.
+function locTheoPhamVi(user, responses) {
+  if (!user) return [];
+  if (user.role === 'admin' && !db.phamViCoSo(user)) return responses;
+
+  const nhom = db.classIdsOf(user);
+  if (!nhom.length) return [];
+  const duoc = new Set();
+  for (const lo of chiaLo([...new Set(responses.map(r => r.userId).filter(Boolean))])) {
+    const mp = lo.map(() => '?').join(',');
+    const mn = nhom.map(() => '?').join(',');
+    for (const r of db.all('students',
+      `SELECT DISTINCT sp.parentId AS parentId FROM students s
+         JOIN student_parents sp ON sp.studentId = s.id
+        WHERE sp.parentId IN (${mp}) AND s.classId IN (${mn}) AND s.active = 1`,
+      [...lo, ...nhom])) {
+      duoc.add(r.parentId);
+    }
+  }
+  return responses.filter(r => duoc.has(r.userId));
+}
+
+// SQLite chặn ở 999 tham số một câu; chia lô để một khảo sát 600 phiếu không
+// làm nổ câu truy vấn. Chép tại chỗ chứ không gọi sang `lib/db.js` — hàm ở đó
+// không xuất ra, và đây là bốn dòng.
+function chiaLo(ds, coLo = 400) {
+  const ra = [];
+  for (let i = 0; i < ds.length; i += coLo) ra.push(ds.slice(i, i + coLo));
+  return ra;
+}
+
 // Khảo sát đang mở luôn nằm đầu danh sách, nên trần này cắt phần đuôi lịch sử
 // chứ không cắt việc đang cần làm.
 const GIOI_HAN_DANH_SACH = 100;
@@ -100,16 +152,18 @@ module.exports = (app) => {
       });
     }
 
-    // Giáo viên: tổng hợp kết quả theo từng câu hỏi.
+    // Giáo viên và văn phòng: tổng hợp kết quả — nhưng CHỈ của gia đình trong
+    // phạm vi mình. Xem khối chú thích ở `locTheoPhamVi`.
+    const cuaToi = locTheoPhamVi(req.user, responses);
     const results = sv.questions.map(q => {
       if (q.type === 'choice') {
         const counts = (q.options || []).map(opt => ({
           option: opt,
-          count: responses.filter(r => r.answers && r.answers[q.id] === opt).length,
+          count: cuaToi.filter(r => r.answers && r.answers[q.id] === opt).length,
         }));
         return { questionId: q.id, text: q.text, type: q.type, counts };
       }
-      const answers = responses
+      const answers = cuaToi
         .filter(r => r.answers && String(r.answers[q.id] || '').trim())
         .map(r => ({ answer: String(r.answers[q.id]), parentName: parentName(r.userId) }));
       return { questionId: q.id, text: q.text, type: q.type, answers };
@@ -117,7 +171,11 @@ module.exports = (app) => {
     res.json({
       ...base,
       results,
-      respondents: responses.map(r => parentName(r.userId)),
+      respondents: cuaToi.map(r => parentName(r.userId)),
+      // Số phiếu TRONG PHẠM VI mình, đứng bên cạnh `responseCount` của cả
+      // trường. Thiếu con số này thì cô nhìn "12 phiếu" ở đầu màn rồi đếm được
+      // 4 tên ở dưới, và tưởng app mất phiếu.
+      soPhieuTrongPhamVi: cuaToi.length,
       createdByMe: sv.createdBy === req.user.id,
     });
   });

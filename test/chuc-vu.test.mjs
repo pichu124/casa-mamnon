@@ -547,6 +547,182 @@ console.log('\n[+] DANH SÁCH CHO PHÉP VIẾT TAY PHẢI THEO KỊP THƯ MỤC 
 }
 
 // ===========================================================================
+console.log('\n[9b] MỌI ĐƯỜNG /api/ ĐÃ ĐĂNG KÝ PHẢI CÓ CHỦ');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Các mục trên canh chiều "phân hệ nào cũng phải được chức vụ quyết định".
+  // Mục này canh chiều còn lại, và là chiều đã hỏng thật: một đường `/api/...`
+  // được đăng ký mà KHÔNG nằm trong vùng api của phân hệ nào cả.
+  //
+  // `/api/dong-y` là đúng ca đó, và hậu quả không nhìn thấy từ giao diện:
+  //   • `chanApiDaTat` duyệt vùng api của từng phân hệ rồi mới `next()` —
+  //     đường vô chủ rơi thẳng qua, nên tắt phân hệ Hồ sơ bé cũng không tắt
+  //     được nó;
+  //   • `kiemTraDuongDan` chỉ từ chối phân hệ cắm thêm khi đường của nó ĐỤNG
+  //     một vùng đã khai — đường không ai khai thì một phân hệ mới chiếm được,
+  //     và giấy đồng ý của gia đình đổi chủ mà không ai báo;
+  //   • ở tầng chức vụ nó rơi theo chiều ĐÓNG, nên Văn phòng cơ sở GHI được
+  //     giấy đồng ý mà ĐỌC lại thì 403.
+  //
+  // Bài này đọc mã nguồn chứ không thử tình huống. Thêm một đường mới mà quên
+  // khai chủ là đỏ ngay, kể cả khi chưa ai kịp nghĩ ra tình huống để thử.
+  const require4 = createRequire(import.meta.url);
+  const mod = require4(path.join(GOC, 'lib', 'modules.js'));
+
+  const vung = [];
+  for (const m of mod.CORE || []) for (const a of (m.api || [])) vung.push(a);
+  const MODULES3 = path.join(GOC, 'modules');
+  for (const ten of fs.readdirSync(MODULES3)) {
+    const tep = path.join(MODULES3, ten, 'module.json');
+    if (!fs.existsSync(tep)) continue;
+    for (const a of (JSON.parse(fs.readFileSync(tep, 'utf8')).api || [])) vung.push(a);
+  }
+  check('đọc được vùng api của phân hệ lõi và phân hệ cắm thêm', vung.length >= 20, vung.length);
+
+  // Đọc HE_THONG từ chính lib/modules.js, không chép tay — chép tay thì hai bên
+  // trôi khỏi nhau và bài canh nói về một danh sách không còn tồn tại.
+  const nguon = fs.readFileSync(path.join(GOC, 'lib', 'modules.js'), 'utf8');
+  const heThong = (((nguon.match(/const HE_THONG = \[([^\]]*)\]/) || [, ''])[1])
+    .match(/'([^']+)'/g) || []).map(s => s.slice(1, -1));
+  check('đọc được danh sách đường hệ thống từ lib/modules.js', heThong.length >= 5, heThong);
+
+  const coChu = (p) => vung.some(v => p === v || p.startsWith(`${v}/`))
+    || heThong.some(v => p === v || p.startsWith(v) || `${p}/` === v);
+
+  const re = /app\.(?:get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]/g;
+  const duong = [];
+  const quet = (thuMuc) => {
+    for (const m of fs.readdirSync(thuMuc, { withFileTypes: true })) {
+      const p = path.join(thuMuc, m.name);
+      if (m.isDirectory()) { quet(p); continue; }
+      if (!m.name.endsWith('.js')) continue;
+      for (const x of fs.readFileSync(p, 'utf8').matchAll(re)) {
+        if (x[1].startsWith('/api/')) duong.push({ tep: path.relative(GOC, p), duong: x[1] });
+      }
+    }
+  };
+  quet(path.join(GOC, 'routes'));
+  quet(path.join(GOC, 'modules'));
+  check('quét được đủ đường /api/ để soi — không quét vào chỗ rỗng',
+    duong.length >= 80, duong.length);
+
+  const voChu = duong.filter(d => !coChu(d.duong));
+  check('KHÔNG ĐƯỜNG /api/ NÀO VÔ CHỦ', voChu.length === 0,
+    voChu.map(d => `${d.tep} → ${d.duong}`).slice(0, 8));
+
+  // PHÉP THỬ NGƯỢC: phép dò này có bắt được thật không.
+  check('BẮT ĐƯỢC một đường không ai khai', !coChu('/api/mot-duong-chua-ai-khai'));
+  check('nhận đúng đường đã có chủ', coChu('/api/students') && coChu('/api/dong-y'));
+  check('và nhận đúng đường của hệ thống', coChu('/api/auth/login'));
+}
+
+// ===========================================================================
+console.log('\n[9d] KHẢO SÁT: Ý KIẾN GIA ĐÌNH KHÔNG ĐI RA NGOÀI PHẠM VI NGƯỜI ĐỌC');
+{
+  // `POST /api/surveys` ghi cứng `audience: 'all'`, nên MỌI khảo sát đi tới cả
+  // ba cơ sở. Điều đó tự nó chưa phải lỗ hổng — chỗ đọc kết quả mới là: nó trả
+  // `respondents` (TÊN từng phụ huynh đã trả lời) và, với câu hỏi mở, cả CÂU
+  // CHỮ họ viết kèm tên.
+  //
+  // Ý kiến phụ huynh gửi nhà trường thường là chuyện riêng: hoàn cảnh gia
+  // đình, lý do xin nghỉ, phàn nàn về một cô cụ thể. Gửi cho trường không có
+  // nghĩa là gửi cho ba mươi người.
+  const ks = await req('POST', '/api/surveys', {
+    cookie: BGH,
+    body: {
+      title: 'Khảo sát bữa ăn — thử phạm vi',
+      description: 'Bài canh',
+      deadline: '2030-12-31',
+      questions: [{ id: 'q1', text: 'Ý kiến của gia đình', type: 'text' }],
+    },
+  });
+  check('ban giám hiệu tạo được khảo sát', ks.status === 201, { status: ks.status, data: ks.data });
+  const maKS = ks.data?.id;
+
+  // Hai nhà ở hai nhóm khác nhau cùng trả lời.
+  const nhaC1 = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1, nhóm c1
+  const nhaC2 = (await login('ph.huong', '123456')).cookie;    // mẹ bé s7, nhóm c2
+  const nhaC4 = (await login('ph.trang', '123456')).cookie;    // mẹ bé s9, nhóm c4
+  for (const [ck, chu] of [[nhaC1, 'Nhà nhóm Chồi 2 nói'], [nhaC2, 'Nhà nhóm Lá 1 nói'],
+    [nhaC4, 'Nhà nhóm Nhà trẻ nói']]) {
+    const g = await req('POST', `/api/surveys/${maKS}/respond`, {
+      cookie: ck, body: { answers: { q1: chu } },
+    });
+    check(`dựng được phiếu: ${chu}`, g.status === 200 || g.status === 201,
+      { status: g.status, data: g.data });
+  }
+
+  // Dùng cô giaovien4 (nhóm Nhà trẻ, c4). Hai cô kia không dùng được ở đây:
+  // mục [8] bên trên đã ĐÓNG nhóm c1, và các mục phân công đã cho cô c2 dạy
+  // thêm nhóm khác. Cô nhà trẻ thì không mục nào đụng tới, nên bối cảnh sạch —
+  // và có dòng đối chứng ngay dưới để nếu ngày mai có mục nào đụng vào thì bài
+  // này báo đỏ thay vì lặng lẽ ngừng canh.
+  const CO4 = (await login('giaovien4', '123456')).cookie;
+  const nhomCuaCo4 = ((await req('GET', '/api/auth/me', { cookie: CO4 })).data?.user?.classIds) || [];
+  check('đối chứng — cô này phụ trách ĐÚNG nhóm nhà trẻ, không hơn',
+    nhomCuaCo4.join(',') === 'c4', nhomCuaCo4);
+
+  const cuaCoC1 = await req('GET', `/api/surveys/${maKS}`, { cookie: CO4 });
+  check('cô mở được kết quả khảo sát', cuaCoC1.status === 200, cuaCoC1.status);
+  const chu1 = JSON.stringify(cuaCoC1.data || {});
+  check('cô THẤY ý kiến của nhà trong nhóm mình', /Nhà nhóm Nhà trẻ nói/.test(chu1), chu1.slice(0, 300));
+  check('nhưng KHÔNG thấy ý kiến của hai nhà nhóm khác',
+    !/Nhà nhóm Chồi 2 nói/.test(chu1) && !/Nhà nhóm Lá 1 nói/.test(chu1), chu1.slice(0, 500));
+  check('và KHÔNG thấy TÊN phụ huynh nhóm khác trong danh sách đã trả lời',
+    !(cuaCoC1.data?.respondents || []).some(n => /Thu Hà|Bùi Thu Hương/.test(n)),
+    cuaCoC1.data?.respondents);
+  check('màn hình vẫn biết cả trường có bao nhiêu phiếu, để cô không tưởng app mất phiếu',
+    cuaCoC1.data?.responseCount >= 3, cuaCoC1.data?.responseCount);
+  check('và biết bao nhiêu phiếu thuộc phạm vi mình',
+    cuaCoC1.data?.soPhieuTrongPhamVi === 1, cuaCoC1.data?.soPhieuTrongPhamVi);
+
+  // BAN GIÁM HIỆU thì đọc được cả trường — không siết quá tay.
+  const cuaBGH = await req('GET', `/api/surveys/${maKS}`, { cookie: BGH });
+  const chuBGH = JSON.stringify(cuaBGH.data || {});
+  check('BAN GIÁM HIỆU vẫn đọc được cả BA ý kiến — khảo sát là việc của họ',
+    /Nhà nhóm Chồi 2 nói/.test(chuBGH) && /Nhà nhóm Lá 1 nói/.test(chuBGH)
+    && /Nhà nhóm Nhà trẻ nói/.test(chuBGH),
+    chuBGH.slice(0, 400));
+  check('và đếm đủ số phiếu trong phạm vi', cuaBGH.data?.soPhieuTrongPhamVi >= 3,
+    cuaBGH.data?.soPhieuTrongPhamVi);
+
+  // Gia đình vẫn chỉ thấy phiếu của chính mình — vế này vốn đã đúng, canh để
+  // bản vá không lỡ tay mở nó ra.
+  const cuaNha = await req('GET', `/api/surveys/${maKS}`, { cookie: nhaC1 });
+  const chuNha = JSON.stringify(cuaNha.data || {});
+  check('gia đình KHÔNG nhận được danh sách người trả lời',
+    cuaNha.data?.respondents === undefined, Object.keys(cuaNha.data || {}));
+  check('và KHÔNG đọc được ý kiến của nhà khác',
+    !/Nhà nhóm Lá 1 nói/.test(chuNha), chuNha.slice(0, 300));
+}
+
+// ===========================================================================
+console.log('\n[9c] VĂN PHÒNG CƠ SỞ: GHI ĐƯỢC GIẤY ĐỒNG Ý THÌ PHẢI ĐỌC LẠI ĐƯỢC');
+{
+  // Chốt quá tay cũng là một lỗi, không chỉ chốt hụt. Văn phòng nhập giấy đồng
+  // ý gia đình mang tới, rồi mở lại xem mình nhập đúng chưa — mà đường ĐỌC lại
+  // nằm ngoài mọi danh sách chức vụ nên trả 403.
+  const ghi = await req('PUT', '/api/admin/students/s1/dong-y', {
+    cookie: VP, body: { chiaSeGiaDinh: true },
+  });
+  check('văn phòng cơ sở GHI được giấy đồng ý', ghi.status === 200, { status: ghi.status, data: ghi.data });
+
+  const doc2 = await req('GET', '/api/dong-y?studentId=s1', { cookie: VP });
+  check('VÀ ĐỌC LẠI ĐƯỢC — không còn 403', doc2.status === 200,
+    { status: doc2.status, data: doc2.data });
+
+  // Không nới quá tay: đọc được giấy đồng ý KHÔNG có nghĩa là chuyển được năm
+  // học cho cả trường. '/api/schoolyear/lich-su-lop' là đường đầy đủ, không
+  // phải tiền tố '/api/schoolyear'.
+  const lichSu = await req('GET', '/api/schoolyear/lich-su-lop?studentId=s1', { cookie: VP });
+  check('tra được lịch sử nhóm của bé', lichSu.status === 200, lichSu.status);
+  const chuyenNam = await req('GET', '/api/schoolyear/preview', { cookie: VP });
+  check('NHƯNG KHÔNG chạm được phần chuyển năm học của cả trường',
+    chuyenNam.status === 403, { status: chuyenNam.status, data: chuyenNam.data });
+}
+
+// ===========================================================================
 console.log('\n[10] NHÂN SỰ LO TÀI KHOẢN CỦA TRƯỜNG, KHÔNG CHẠM TÀI KHOẢN GIA ĐÌNH');
 {
   // VÌ SAO MỤC NÀY ĐÁNG GIÁ

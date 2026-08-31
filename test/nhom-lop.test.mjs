@@ -24,7 +24,7 @@ import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoQuanTri } from './_chung.mjs';
+import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoQuanTri, HOM_NAY } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
 const { check, tongKet } = taoBoDem();
@@ -673,6 +673,99 @@ console.log('\n[18] PHÒNG CHAT CỦA CẢ NĂM HỌC PHẢI MỞ ĐƯỢC — C
   const view = fs.readFileSync(path.join(GOC, 'public/js/views/messages.js'), 'utf8');
   check('màn chat có nút xem tin cũ hơn', /Xem tin cũ hơn/.test(view));
   check('và nút đó gọi đúng đường ?truoc=', /\?truoc=\$\{encodeURIComponent/.test(view));
+}
+
+// ===========================================================================
+// PHÒNG CHUNG CỦA NHÓM PHẢI ĐÓNG LẠI KHI CÔ RỜI NHÓM.
+//
+// `conversation_members` được ghi MỘT LẦN lúc lập phòng và không bao giờ được
+// đồng bộ lại theo `class_teachers`. Gỡ một cô khỏi nhóm đóng được mọi đường
+// khác — hồ sơ bé, điểm danh, album, nhật ký, vì tất cả hỏi `canAccessClass`.
+// Riêng phòng chat chung của nhóm thì trước bản vá này vẫn mở, vì nó chỉ hỏi
+// bảng thành viên.
+//
+// Cô đã chuyển cơ sở vẫn đọc được mọi trao đổi hằng ngày giữa cô mới và các
+// gia đình, kể cả tin gửi SAU khi cô đã rời nhóm, và vẫn nhắn vào đó được.
+console.log('\n[+] CÔ ĐÃ RỜI NHÓM KHÔNG CÒN VÀO ĐƯỢC PHÒNG CHUNG CỦA NHÓM');
+{
+  const co = await dangNhap('giaovien', '123456');   // t1
+
+  // Dựng một phòng chung gắn nhóm c1, có cô t1 làm thành viên. Chưa có màn
+  // hình nào lập phòng chung, nên viết thẳng vào bảng — đúng nếp các mục trên.
+  {
+    const conn = new Database(path.join(DIR2, 'school.db'));
+    conn.prepare("INSERT OR REPLACE INTO conversations (id, type, name, classId) VALUES ('cv_c1', 'group', 'Nhóm Chồi 2', 'c1')").run();
+    for (const u of ['t1', 'p1']) {
+      conn.prepare('INSERT OR REPLACE INTO conversation_members (conversationId, userId, lastRead) VALUES (?, ?, NULL)').run('cv_c1', u);
+    }
+    conn.prepare("INSERT OR REPLACE INTO messages (id, conversationId, senderId, text, createdAt) VALUES ('m_c1', 'cv_c1', 'p1', 'Chào cô ạ', ?)")
+      .run(new Date(Date.parse(`${HOM_NAY()}T01:00:00.000Z`)).toISOString());
+    // Và một phòng RIÊNG giữa đúng hai người, để canh vế chống-siết-quá-tay.
+    conn.prepare("INSERT OR REPLACE INTO conversations (id, type, name, classId) VALUES ('cv_rieng', 'direct', NULL, NULL)").run();
+    for (const u of ['t1', 'p1']) {
+      conn.prepare('INSERT OR REPLACE INTO conversation_members (conversationId, userId, lastRead) VALUES (?, ?, NULL)').run('cv_rieng', u);
+    }
+    conn.close();
+  }
+
+  // ĐỐI CHỨNG: đang còn trong nhóm thì phải vào được. Thiếu dòng này thì hai
+  // phép kiểm dưới xanh cả khi phòng chung hỏng vì một lý do khác hẳn.
+  const truoc = await req('GET', '/api/messages/cv_c1', { cookie: co });
+  check('đối chứng — cô ĐANG phụ trách nhóm thì mở được phòng chung',
+    truoc.status === 200, { status: truoc.status, data: truoc.data });
+  const dsTruoc = (await req('GET', '/api/messages', { cookie: co })).data?.conversations || [];
+  check('và phòng chung có trong danh sách của cô',
+    dsTruoc.some(c => c.id === 'cv_c1'), dsTruoc.map(c => c.id));
+
+  // Nhà trường gỡ cô t1 khỏi nhóm c1 — đúng thao tác của văn phòng.
+  const goBo = await req('PUT', '/api/admin/classes/c1/teachers', {
+    cookie: qt, body: { teacherIds: ['t3'], chinhId: 't3' },
+  });
+  check('gỡ được cô khỏi nhóm', goBo.status === 200, { status: goBo.status, data: goBo.data });
+
+  const sau = await req('GET', '/api/messages/cv_c1', { cookie: co });
+  check('RỜI NHÓM RỒI THÌ KHÔNG MỞ ĐƯỢC PHÒNG CHUNG NỮA', sau.status === 403,
+    { status: sau.status, data: sau.data });
+  check('và câu từ chối nói đúng lý do, bằng tiếng của trường',
+    /không còn trong nhóm/i.test(sau.data?.error || ''), sau.data);
+
+  const gui = await req('POST', '/api/messages/cv_c1', {
+    cookie: co, body: { text: 'Cô cũ vẫn nhắn được?' },
+  });
+  check('và cũng KHÔNG nhắn vào đó được', gui.status === 403, gui.status);
+
+  // Danh sách phải theo cùng một luật: chặn ở đường mở phòng mà để nguyên
+  // danh sách thì cô vẫn thấy ô phòng chung kèm TRÍCH TIN CUỐI — vẫn rò đúng
+  // thứ cần giấu, rồi bấm vào mới nhận câu từ chối.
+  const dsSau = (await req('GET', '/api/messages', { cookie: co })).data?.conversations || [];
+  check('phòng chung BIẾN KHỎI danh sách, không để lộ trích tin cuối',
+    !dsSau.some(c => c.id === 'cv_c1'), dsSau.map(c => c.id));
+
+  // KHÔNG SIẾT QUÁ TAY: phòng RIÊNG giữa hai người KHÔNG đi theo phân công.
+  //
+  // Chốt mới chỉ đóng phòng CHUNG của nhóm. Một cuộc trao đổi riêng đã mở giữa
+  // cô và một gia đình là chuyện của hai người ấy — cô chuyển nhóm không làm
+  // câu chuyện dở dang đó biến mất, và gia đình vẫn đọc lại được phần đã nhắn.
+  const rieng = await req('GET', '/api/messages/cv_rieng', { cookie: co });
+  check('cô vẫn mở được phòng chat RIÊNG đã có — trao đổi riêng không theo phân công',
+    rieng.status === 200, { status: rieng.status, data: rieng.data });
+  check('và phòng riêng vẫn nằm trong danh sách của cô',
+    ((await req('GET', '/api/messages', { cookie: co })).data?.conversations || [])
+      .some(x => x.id === 'cv_rieng'));
+
+  // Nhưng MỞ MỚI một cuộc trò chuyện với nhà đó thì không — đó là đường
+  // `contactsFor`, vốn đã đi theo phân công từ đầu và không đổi ở đợt này.
+  const moMoi = await req('POST', '/api/messages/start', { cookie: co, body: { userId: 'p1' } });
+  check('nhưng KHÔNG bắt đầu được cuộc trò chuyện MỚI với nhà của nhóm cũ',
+    moMoi.status === 403, moMoi.status);
+
+  // Trả lại phân công để phần sau của bài (nếu có) không đứng trên một nền lạ.
+  await req('PUT', '/api/admin/classes/c1/teachers', {
+    cookie: qt, body: { teacherIds: ['t1', 't3'], chinhId: 't1' },
+  });
+  const veLai = await req('GET', '/api/messages/cv_c1', { cookie: co });
+  check('phân công lại thì cô vào lại được ngay — không phải khởi động lại gì',
+    veLai.status === 200, veLai.status);
 }
 
 await may.dung();

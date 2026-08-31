@@ -233,6 +233,13 @@ App.views.surveys = {
           <div class="muted small mt-8">${sv.respondents.length
             ? sv.respondents.map(n => UI.esc(n)).join(', ')
             : 'Chưa có phụ huynh nào trả lời'}</div>
+          ${sv.responseCount > (sv.soPhieuTrongPhamVi ?? sv.respondents.length) ? `
+            <div class="hint mt-8">
+              Khảo sát này gửi cho cả trường và đã có ${sv.responseCount} phiếu.
+              Ở đây chỉ hiện ${sv.soPhieuTrongPhamVi ?? sv.respondents.length} phiếu
+              của các nhóm mình phụ trách — ý kiến gia đình gửi nhà trường là
+              chuyện riêng của từng nhà.
+            </div>` : ''}
         </div>
         ${sv.status === 'open' && sv.createdByMe
           ? `<button class="btn danger-soft block mt-14" onclick="App.views.surveys.closeSurvey('${UI.esc(sv.id)}')">Đóng khảo sát</button>`
