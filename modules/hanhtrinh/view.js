@@ -666,6 +666,9 @@ App.views.hanhtrinh = {
     }
     const d = await API.get(`/api/hanhtrinh?studentId=${encodeURIComponent(be.id)}`);
     const cd = d.chuDeTuan;
+    // Tuần sau chỉ hiện khi cô đã soạn và khi nó KHÁC tuần này — không thì
+    // gia đình đọc hai thẻ giống hệt nhau và không hiểu để làm gì.
+    const cds = d.chuDeTuanSau && (!cd || d.chuDeTuanSau.id !== cd.id) ? d.chuDeTuanSau : null;
 
     root.innerHTML = `
       ${UI.pageHeader('Hành trình học tập')}
@@ -679,6 +682,16 @@ App.views.hanhtrinh = {
             <div class="section-label">Cùng con ở nhà</div>
             <div class="small" style="line-height:1.6">${UI.esc(cd.cungConONha)}</div>
             <div class="muted small mt-8">Một lời rủ chơi 5–10 phút, đồ có sẵn trong nhà — không phải việc phải nộp lại cho cô.</div>` : ''}
+        </div>` : ''}
+
+      ${cds ? `
+        <div class="card">
+          <div class="card-title">Tuần sau ở lớp: ${UI.esc(cds.chuDe)}</div>
+          ${cds.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(cds.moTa)}</div>` : ''}
+          ${cds.cungConONha ? `
+            <div class="section-label">Cùng con ở nhà</div>
+            <div class="small" style="line-height:1.6">${UI.esc(cds.cungConONha)}</div>` : ''}
+          <div class="muted small mt-8">Cô đã soạn sẵn cho tuần tới. Cuối tuần này nhà chơi trước cũng được.</div>
         </div>` : ''}
 
       <div class="section-label">Câu chuyện của con</div>

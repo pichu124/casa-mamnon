@@ -45,8 +45,16 @@ module.exports = (app) => {
   // Danh sách con đã rời trường mà phụ huynh còn được xem.
   app.get('/api/hocsinh-cu', (req, res) => {
     if (req.user.role !== 'parent') {
-      // Giáo viên và quản trị đã có đường riêng để tra học sinh cũ
-      // (Quản trị → Năm học). Không nhân đôi ở đây.
+      // Màn hình này chỉ dành cho GIA ĐÌNH: nó trả về "con của người đang đăng
+      // nhập", một câu hỏi cô và quản trị không hỏi bao giờ.
+      //
+      // Quản trị tra bé đã ra trường ở Quản trị → Năm học, qua
+      // `/api/schoolyear/alumni` — đường đó lọc theo cơ sở của người tra, còn
+      // câu ở dưới thì lọc theo quan hệ cha mẹ - con. Hai câu hỏi khác nhau,
+      // nên hai đường khác nhau, không phải một đường nhân đôi.
+      //
+      // Cô KHÔNG có đường nào tra bé đã ra trường, và đó là cố ý: bé đã rời
+      // trường thì không còn nhóm nào của cô nữa.
       return res.json({ soThangGiu: SO_THANG_GIU, students: [] });
     }
     const rows = db.all('students',

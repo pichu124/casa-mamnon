@@ -2,7 +2,21 @@
 // Phụ huynh: trả lời / xem lại khảo sát. Giáo viên: tạo khảo sát, xem kết quả, đóng khảo sát.
 App.views.surveys = {
   async render(root) {
-    if (App.state.user.role === 'teacher') return this.renderTeacher(root);
+    // VAI QUẢN TRỊ KHÔNG PHẢI PHỤ HUYNH.
+    //
+    // Nhánh cũ chỉ hỏi `role === 'teacher'`, nên hiệu trưởng và văn phòng rơi
+    // vào màn của PHỤ HUYNH: được mời điền phiếu / gửi đơn, bấm vào là nhận
+    // "Không có quyền thực hiện". Nặng hơn phần thẩm mỹ — "lấy ý kiến phụ
+    // huynh" và "nhận thuốc gia đình gửi" đều là việc của văn phòng, mà văn
+    // phòng lại là vai duy nhất không có nút để làm.
+    //
+    // Dùng được `renderTeacher` cho quản trị vì nhánh đó CHỈ hỏi máy chủ
+    // (`/api/surveys`, `/api/medicine`) — máy chủ tự cắt theo phạm vi người
+    // gọi — và mọi đường ghi của nó đã nhận `requireRole('teacher', 'admin')`
+    // từ đầu. KHÔNG dùng được ở màn Điểm danh: nhánh cô ở đó đọc
+    // `user.nhomCuaCo`, mà `routes/auth.js` chỉ gán ô ấy cho vai `teacher`
+    // (xem chú thích Đ97 ở public/js/views/attendance.js).
+    if (App.state.user.role !== 'parent') return this.renderTeacher(root);
     return this.renderParent(root);
   },
 

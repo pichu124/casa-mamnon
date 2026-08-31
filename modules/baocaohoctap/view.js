@@ -61,7 +61,18 @@ App.views.baocaohoctap = {
 
     if (this.laGiaDinh()) return this.veGiaDinh(root);
 
-    const d = await API.get('/api/baocaohoctap/mau');
+    // TẮT MỘT MẪU KHÔNG ĐƯỢC LÀ CỬA MỘT CHIỀU.
+    //
+    // Màn "Mẫu báo cáo" có sẵn nút tắt và có sẵn nhãn "Đang tắt" — nhưng danh
+    // sách lại lấy từ đường mặc định, mà đường ấy chỉ trả mẫu `active = 1`.
+    // Nên vừa bấm tắt xong là mẫu biến mất khỏi màn hình, không còn chỗ nào
+    // bấm để bật lại: nhà trường phải gõ tay vào cơ sở dữ liệu, hoặc tạo mẫu
+    // mới rồi soạn lại từ đầu.
+    //
+    // Quản trị xin CẢ mẫu đang tắt (`tatCa=1`) để còn bật lại được. Cô thì
+    // không — chỗ cô chọn mẫu lọc lại `m.active` ở dưới, để mẫu nhà trường đã
+    // ngưng dùng không quay về danh sách soạn.
+    const d = await API.get(`/api/baocaohoctap/mau${this.laQuanTri() ? '?tatCa=1' : ''}`);
     this._mau = d.mau || [];
     this._mucList = d.muc || [];
 
@@ -229,7 +240,10 @@ App.views.baocaohoctap = {
       + `&denNgay=${encodeURIComponent(this._denNgay)}&loai=${encodeURIComponent(this._loai)}`;
     const d = await API.get(`/api/baocaohoctap/nhom${q}`);
 
-    const mauHop = this._mau.filter(m => m.loai === this._loai);
+    // `m.active !== false`: quản trị xin cả mẫu đang tắt để bật lại được, nên
+    // chỗ CHỌN MẪU ĐỂ SOẠN phải tự lọc ra. Với cô thì danh sách vốn đã chỉ có
+    // mẫu đang bật — so sánh này không đổi gì.
+    const mauHop = this._mau.filter(m => m.loai === this._loai && m.active !== false);
     than.innerHTML = `
       <div class="card">
         <div class="field"><label>Loại báo cáo</label>

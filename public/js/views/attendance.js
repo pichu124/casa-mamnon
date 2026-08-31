@@ -427,7 +427,15 @@ App.views.attendance = {
               <div class="flex" style="align-items:center;gap:8px">
                 <img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
                   style="width:54px;height:54px;border-radius:10px;object-fit:cover">
-                <span class="small" style="color:var(--success)">Gia đình đã thấy ảnh</span>
+                <!-- "ĐÃ GỬI", KHÔNG PHẢI "ĐÃ THẤY".
+                     App không có đường nào biết gia đình đã mở ảnh ra xem —
+                     không ghi lượt xem ở đâu cả. Cô nhìn dòng cũ rồi kết luận
+                     mẹ bé đã biết con tới lớp an toàn nên không nhắn thêm;
+                     ngày có chuyện thật (bé tới muộn, gia đình đang lo) thì
+                     đúng dòng chữ ấy là lý do cô không gọi điện.
+                     Muốn nói "đã thấy" thật thì phải ghi lượt xem ở
+                     GET /api/attendance/anh/:file trước — việc riêng. -->
+                <span class="small" style="color:var(--success)">Đã gửi cho gia đình</span>
                 <button class="btn tiny outline" onclick="App.views.attendance.goAnh('${UI.esc(s.id)}')">Gỡ</button>
               </div>`
             : `<button class="btn tiny outline" onclick="App.views.attendance.chonAnh('${UI.esc(s.id)}')">

@@ -1129,7 +1129,56 @@ App.views.admin = {
         <button class="btn danger-soft block" onclick="App.views.admin.chuyenNamHoc('${UI.esc(d.namMoi)}')">
           Chuyển sang năm học ${UI.esc(d.namMoi)}
         </button>
+      </div>
+
+      <div class="card" id="ny-cuu">
+        <div class="card-title">Bé đã ra trường</div>
+        <p class="muted small">Đang xem…</p>
       </div>`;
+    // Tải RỜI, sau khi phần chuyển năm đã hiện xong: đây là phần tra cứu thêm,
+    // không được phép làm hỏng màn hình chuyển năm nếu nó lỗi.
+    this.taiBeRaTruong();
+  },
+
+  // Danh sách bé đã ra trường — đường đọc cho `/api/schoolyear/alumni`.
+  //
+  // Máy chủ có đường này từ lâu và lọc đúng theo cơ sở, nhưng KHÔNG màn hình
+  // nào gọi tới: `routes/hocsinh-cu.js` trả mảng rỗng cho cô và quản trị kèm
+  // chú thích "đã có đường riêng ở Quản trị → Năm học" — trong khi tab Năm học
+  // chỉ có phần chuyển năm. Nghĩa là sau khi chuyển năm, bé ra trường biến mất
+  // khỏi mọi màn hình của trường, còn gia đình thì vẫn xem được 12 tháng.
+  async taiBeRaTruong() {
+    const o = document.getElementById('ny-cuu');
+    if (!o) return;
+    let ds;
+    try {
+      ds = await API.get('/api/schoolyear/alumni');
+    } catch (err) {
+      o.innerHTML = `<div class="card-title">Bé đã ra trường</div>
+        <p class="muted small">Chưa xem được danh sách lúc này. ${UI.esc(err.message || '')}</p>`;
+      return;
+    }
+    if (!ds.length) {
+      o.innerHTML = `<div class="card-title">Bé đã ra trường</div>
+        <p class="muted small">Chưa có bé nào ra trường hoặc chuyển đi.</p>`;
+      return;
+    }
+    o.innerHTML = `
+      <div class="card-title">Bé đã ra trường (${ds.length})</div>
+      <p class="muted small">Gia đình vẫn xem lại được hồ sơ của con trong 12 tháng
+        kể từ ngày rời trường. Trường xem được lâu hơn.</p>
+      <div class="table-wrap mt-14">
+        <table class="simple">
+          <thead><tr><th>Tên bé</th><th>Nhóm cuối</th><th>Ngày rời trường</th></tr></thead>
+          <tbody>${ds.map(s => `
+            <tr>
+              <td>${UI.esc(s.name)}${s.code ? ` <span class="muted small">${UI.esc(s.code)}</span>` : ''}</td>
+              <td>${UI.esc(s.className || '—')}</td>
+              <td>${s.leftAt ? UI.fmtDate(s.leftAt, { weekday: false }) : '—'}</td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>
+      ${ds.length >= 500 ? '<div class="hint mt-14">Đang hiện 500 bé rời trường gần nhất.</div>' : ''}`;
   },
 
   async chuyenNamHoc(namMoi) {

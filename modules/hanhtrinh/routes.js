@@ -211,16 +211,39 @@ module.exports = (app, { db, modules }) => {
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       quanSat: rows.map(r => choNguoiXem(r, req.user)).filter(Boolean),
       chuDeTuan: chuDeCuaBe(be, req.user),
+      // THÊM MỘT KHOÁ BÊN CẠNH, KHÔNG ĐỔI KHOÁ CŨ.
+      //
+      // Điện thoại đang giữ bản app cũ vẫn đọc `chuDeTuan` như trước và không
+      // hề biết khoá này có mặt. Đổi hình dạng của `chuDeTuan` thì mới là thứ
+      // làm trắng màn hình của họ.
+      chuDeTuanSau: chuDeCuaBe(be, req.user, tuanSau()),
     });
   });
 
-  // Chủ đề tuần này của nhóm bé đang học — hiện chung trên màn của gia đình.
-  function chuDeCuaBe(be, user) {
+  // Thứ Hai của tuần kế tiếp.
+  function tuanSau() {
+    const t = thuHaiCua(homNay());
+    return t ? new Date(Date.parse(`${t}T00:00:00Z`) + 7 * 86400000).toISOString().slice(0, 10) : null;
+  }
+
+  // Chủ đề của một tuần ở nhóm bé đang học — hiện chung trên màn của gia đình.
+  //
+  // VÌ SAO GIA ĐÌNH CẦN ĐỌC ĐƯỢC CẢ TUẦN SAU
+  //
+  // Phần gia đình thật sự dùng trong thẻ này là "Cùng con ở nhà" — một lời rủ
+  // chơi 5–10 phút. Nhà chơi được lời rủ ấy vào lúc nào? Cuối tuần. Mà cuối
+  // tuần thì tuần hiện tại đã hết, còn tuần sau thì cô đã soạn xong từ thứ Sáu
+  // và màn hình này không cho gia đình thấy.
+  //
+  // Nên thẻ tuần sau chỉ là MỜI, không thay thế: tuần này vẫn đứng trước.
+  function chuDeCuaBe(be, user, tuan) {
     if (!be.classId) return null;
     if (!db.canAccessClass(user, be.classId)) return null;
+    const moc = tuan || thuHaiCua(homNay());
+    if (!moc) return null;
     const c = db.first('hanhtrinh_chude',
       'SELECT * FROM hanhtrinh_chude WHERE classId = ? AND tuan = ?',
-      [be.classId, thuHaiCua(homNay())]);
+      [be.classId, moc]);
     return c || null;
   }
 

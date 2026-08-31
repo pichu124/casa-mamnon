@@ -428,6 +428,27 @@ module.exports = (app, { db }) => {
       if (!n || n.studentId !== be.id) {
         return res.status(400).json({ error: 'Người được đón này không thuộc hồ sơ của bé' });
       }
+      // NGƯỜI GIA ĐÌNH ĐÃ NGƯNG DÙNG THÌ KHÔNG GHI SỔ BẰNG HỌ ĐƯỢC.
+      //
+      // Không cần kẻ tấn công nào: cô mở màn cổng lúc 7 giờ sáng, danh sách
+      // nằm trong bộ nhớ trang cả ngày; 10 giờ gia đình gỡ một tên (ly hôn,
+      // người giúp việc nghỉ, có mâu thuẫn); 4 giờ chiều cô bấm "Ghi: đã trả
+      // bé" từ danh sách cũ — và máy chủ nhận.
+      //
+      // Sổ đón trả là chứng cứ DUY NHẤT khi có tranh chấp về việc giao một đứa
+      // trẻ cho ai, và `schema.sql` của phân hệ này tự nhận nó là "phân hệ AN
+      // TOÀN, không phải phân hệ tiện lợi".
+      //
+      // Chép đúng cách đã dùng cho uỷ quyền hết hạn ngay bên dưới: GIỮ ĐƯỜNG
+      // RA cho cô. Cô vẫn trả bé được — chỉ là phải ghi "Người khác" và gõ
+      // tên, để sổ nói đúng chuyện đã xảy ra thay vì mượn một dòng danh sách
+      // gia đình đã gỡ.
+      if (n.dangDung === 0) {
+        return res.status(400).json({
+          error: `Gia đình đã ngưng dùng ${n.hoTen} trong danh sách người được đón. `
+            + 'Nếu vẫn trả bé thì cô chọn "Người khác" và ghi rõ tên giúp trường nhé.',
+        });
+      }
       if (!nguoiDon) nguoiDon = n.hoTen;
     }
     if (nguonLoai === 'uy-quyen' && nguonId) {
