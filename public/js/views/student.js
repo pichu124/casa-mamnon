@@ -111,7 +111,8 @@ App.views.student = {
   // đồng ý. Cùng luật với tầng dữ liệu.
   MUC_DONG_Y: [
     ['hoSoHocTap', 'Lập hồ sơ học tập cho con',
-      'Cô ghi lại quan sát và câu chuyện học tập của con trong năm.'],
+      'Cô ghi lại quan sát và câu chuyện học tập của con trong năm. '
+      + 'Rút lại thì trường ngưng ghi mới ngay; phần đã ghi vẫn giữ và gia đình vẫn xem lại được.'],
     ['chiaSeGiaDinh', 'Chia sẻ ảnh có mặt con cho gia đình khác trong nhóm',
       'Ảnh chụp chung cả nhóm. Rút lại thì ảnh có mặt con thôi hiện với nhà khác ngay.'],
     ['truyenThong', 'Dùng ảnh của con cho trang tin của trường',

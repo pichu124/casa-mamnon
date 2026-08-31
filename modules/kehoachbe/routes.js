@@ -211,6 +211,7 @@ module.exports = (app, { db }) => {
     // nhóm lưu dở, mà màn hình vừa báo lỗi nên cô không biết mình đang đứng ở
     // đâu.
     const sach = [];
+    const boQua = [];
     for (const x of ds) {
       const be = db.findStudent(chuoi((x || {}).studentId, 40));
       if (!be) return res.status(404).json({ error: 'Danh sách có bé không tồn tại' });
@@ -223,6 +224,19 @@ module.exports = (app, { db }) => {
       const cu = db.first('kehoachbe_ke',
         'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, thang]);
       if (chanNeuKhoa(res, cu)) return;
+
+      // GIA ĐÌNH ĐÃ DỪNG PHẦN HỒ SƠ HỌC TẬP: BỎ QUA BÉ ĐÓ, KHÔNG TỪ CHỐI CẢ LÔ.
+      //
+      // Đây là chỗ CỐ Ý làm khác ba phân hệ kia. Đường này ghi kế hoạch cho CẢ
+      // NHÓM một lượt, nên trả 403 vì một bé là làm hỏng kế hoạch tháng của
+      // hai mươi tư bé còn lại — và cô sẽ không hiểu vì sao, vì màn hình chỉ
+      // báo một câu lỗi chung. Đó là vi phạm Nguyên tắc số 1 ở vế "mọi tính
+      // năng khác vẫn chạy y như cũ".
+      //
+      // Nên: ghi cho những bé còn lại, và TRẢ VỀ TÊN những bé đã bỏ qua để màn
+      // hình nói thẳng ra. Im lặng bỏ qua cũng sai — cô sẽ tưởng đã lập kế
+      // hoạch cho cả nhóm.
+      if (db.beNgungHoSoHocTap(be.id)) { boQua.push(be.name); continue; }
 
       const muc = [];
       for (const m of ((x || {}).muc || [])) {
@@ -278,8 +292,8 @@ module.exports = (app, { db }) => {
       }
     });
 
-    db.audit(req.user.id, 'kehoachbe-luu', classId, { thang, soBe: daLuu });
-    res.json({ ok: true, thang, classId, daLuu });
+    db.audit(req.user.id, 'kehoachbe-luu', classId, { thang, soBe: daLuu, boQua: boQua.length || undefined });
+    res.json({ ok: true, thang, classId, daLuu, boQuaNgungHoSo: boQua });
   });
 
   // ĐẶT CẢ NHÓM — đường tắt số một cho khối lượng nhập liệu.
@@ -308,8 +322,12 @@ module.exports = (app, { db }) => {
     const luc = new Date().toISOString();
     let daDat = 0;
     let boQua = 0;
+    const boQuaNgungHoSo = [];
     db.tx(() => {
+      // Bé mà gia đình đã dừng phần hồ sơ học tập: bỏ qua, đếm riêng (Đ96).
+      const ngung = db.dsBeNgungHoSoHocTap(beCuaNhom(classId).map(x => x.id));
       for (const be of beCuaNhom(classId)) {
+        if (ngung.has(be.id)) { boQuaNgungHoSo.push(be.name); continue; }
         let k = db.first('kehoachbe_ke',
           'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, thang]);
         if (k && !duocSuaNoiDung(k)) { boQua += 1; continue; }
@@ -335,7 +353,7 @@ module.exports = (app, { db }) => {
       }
     });
     db.audit(req.user.id, 'kehoachbe-dat-ca-nhom', classId, { thang, daDat, soMuc: muc.length });
-    res.json({ ok: true, daDat, boQua });
+    res.json({ ok: true, daDat, boQua, boQuaNgungHoSo });
   });
 
   // CHÉP THÁNG TRƯỚC — đường tắt số hai.
@@ -357,8 +375,12 @@ module.exports = (app, { db }) => {
     const luc = new Date().toISOString();
     let daChep = 0;
     let boQua = 0;
+    const boQuaNgungHoSoChep = [];
     db.tx(() => {
+      // Bé mà gia đình đã dừng phần hồ sơ học tập: bỏ qua, đếm riêng (Đ96).
+      const ngungChep = db.dsBeNgungHoSoHocTap(beCuaNhom(classId).map(x => x.id));
       for (const be of beCuaNhom(classId)) {
+        if (ngungChep.has(be.id)) { boQuaNgungHoSoChep.push(be.name); continue; }
         const cu = db.first('kehoachbe_ke',
           'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, truoc]);
         if (!cu) continue;
@@ -391,7 +413,7 @@ module.exports = (app, { db }) => {
       }
     });
     db.audit(req.user.id, 'kehoachbe-chep-thang', classId, { thang, tuThang: truoc, daChep });
-    res.json({ ok: true, thang, tuThang: truoc, daChep, boQua });
+    res.json({ ok: true, thang, tuThang: truoc, daChep, boQua, boQuaNgungHoSo: boQuaNgungHoSoChep });
   });
 
   // =========================================================================

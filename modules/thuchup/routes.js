@@ -86,6 +86,21 @@ module.exports = (app, { db }) => {
     if (!b.studentId || !db.canAccessStudent(req.user, b.studentId)) {
       return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
     }
+    // GIA ĐÌNH ĐÃ DỪNG PHẦN HỒ SƠ HỌC TẬP THÌ NGƯNG GHI MỚI (Đ96, ô đồng ý ①).
+    //
+    // Ghi nhanh là LỚP 1 của hồ sơ học tập — ghi chú thô kèm ảnh của bé — và
+    // `hanhtrinh_quansat` có hẳn cột `ghiNhanhId` để kéo bản này sang lớp 2.
+    // Chặn ở Hành trình mà bỏ sót đây thì cô chỉ việc đổi màn hình là ghi tiếp
+    // được như chưa có gì, và chốt bên kia thành vô nghĩa.
+    //
+    // Đặt SAU phép chống trùng thì muộn: đường này trả về nguyên bản ghi cũ khi
+    // trùng mã, tức một đường đọc. Chặn trước cả chỗ đó là đúng thứ tự.
+    if (db.beNgungHoSoHocTap(b.studentId)) {
+      return res.status(403).json({
+        error: 'Gia đình bé này đã dừng phần hồ sơ học tập. '
+          + 'Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường.',
+      });
+    }
 
     const daCo = db.first('thuchup_ghinhanh',
       'SELECT * FROM thuchup_ghinhanh WHERE id = ?', [id]);

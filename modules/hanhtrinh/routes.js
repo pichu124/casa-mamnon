@@ -196,6 +196,17 @@ module.exports = (app, { db, modules }) => {
 
     res.json({
       be: { id: be.id, hoTen: be.name, avatar: be.avatar, classId: be.classId },
+      // CÔ PHẢI BIẾT TRƯỚC KHI GÕ, KHÔNG PHẢI SAU (Đ96).
+      //
+      // Chốt chặn ở đường ghi là đủ để đúng luật, nhưng chưa đủ để dùng được:
+      // cô soạn xong cả một quan sát rồi mới bị từ chối là mất công của cô, và
+      // cô sẽ nghĩ app hỏng. Nên đường liệt kê nói luôn từ đầu, để màn hình đặt
+      // câu ấy lên trước ô nhập.
+      //
+      // Gửi cho cô và văn phòng thôi. Gia đình thì đã biết — chính họ vừa gạt
+      // ô ấy — và nhắc lại trên màn của con là biến quyết định của người lớn
+      // thành một nhãn dán lên đứa trẻ.
+      ngungHoSoHocTap: req.user.role === 'parent' ? undefined : db.beNgungHoSoHocTap(be.id),
       trangThai: TRANG_THAI.map(([ma, ten]) => ({ ma, ten })),
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       quanSat: rows.map(r => choNguoiXem(r, req.user)).filter(Boolean),
@@ -367,6 +378,23 @@ module.exports = (app, { db, modules }) => {
     return { ban };
   }
 
+  // GIA ĐÌNH ĐÃ DỪNG PHẦN HỒ SƠ HỌC TẬP THÌ NGƯNG GHI MỚI (Đ96, ô đồng ý ①).
+  //
+  // Chỉ chặn đường GHI. Mọi đường ĐỌC, và mọi đường LÀM GIẢM thứ đang hiện
+  // (xoá, thu hồi) vẫn chạy như thường: rút đồng ý là ngưng dựng thêm hồ sơ,
+  // không phải xoá phần đã có và cũng không phải khoá gia đình khỏi nó.
+  //
+  // Câu từ chối nói về QUYẾT ĐỊNH CỦA NGƯỜI LỚN, không nói gì về đứa trẻ, và
+  // chỉ đường cho cô làm tiếp việc khác — QUY TẮC 2 và QUY TẮC 5.
+  function chanNeuNgungHoSo(res, studentId) {
+    if (!db.beNgungHoSoHocTap(studentId)) return false;
+    res.status(403).json({
+      error: 'Gia đình bé này đã dừng phần hồ sơ học tập. '
+        + 'Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường.',
+    });
+    return true;
+  }
+
   app.post('/api/hanhtrinh', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const be = db.findStudent(chuoi(b.studentId, 40));
@@ -374,6 +402,7 @@ module.exports = (app, { db, modules }) => {
     if (!db.canAccessStudent(req.user, be.id)) {
       return res.status(403).json({ error: `Không có quyền ghi hành trình cho bé ${be.name}` });
     }
+    if (chanNeuNgungHoSo(res, be.id)) return;
     const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
     if (ngay > homNay()) return res.status(400).json({ error: 'Chưa ghi quan sát cho ngày chưa tới được' });
 
@@ -517,6 +546,7 @@ module.exports = (app, { db, modules }) => {
           + 'nhưng sửa thì chỉ chính cô ấy hoặc văn phòng.',
       });
     }
+    if (chanNeuNgungHoSo(res, cu.studentId)) return;
 
     const b = req.body || {};
     const patch = { capNhatLuc: new Date().toISOString() };
@@ -674,6 +704,7 @@ module.exports = (app, { db, modules }) => {
     if (!duocSua(req.user, r)) {
       return res.status(403).json({ error: 'Chỉ cô đã ghi hoặc văn phòng mới công bố được' });
     }
+    if (chanNeuNgungHoSo(res, r.studentId)) return;
     const b = req.body || {};
     const cauChuyen = chuoi(b.cauChuyen !== undefined ? b.cauChuyen : r.cauChuyen, TOI_DA_CAU_CHUYEN);
     const cungCon = chuoi(b.cungConONha !== undefined ? b.cungConONha : r.cungConONha, TOI_DA_NGAN);

@@ -1094,6 +1094,14 @@ function generate() {
     { studentId: 's3', hoSoHocTap: 1, chiaSeGiaDinh: 0, truyenThong: 0, nguoiKy: 'Phạm Quốc Bảo', ngayKy: `${YEAR}-08-16`, ghiChu: 'Gia đình xin không đăng ảnh con lên nhóm chung' },
     { studentId: 's4', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 1, nguoiKy: 'Vũ Đình Khoa', ngayKy: `${YEAR}-08-15` },
     { studentId: 's5', hoSoHocTap: 1, chiaSeGiaDinh: 1, truyenThong: 0, nguoiKy: 'Đỗ Minh Tuấn', ngayKy: `${YEAR}-08-18` },
+    // BÉ s9 LÀ BÉ GIA ĐÌNH ĐÃ DỪNG PHẦN HỒ SƠ HỌC TẬP (ô ①).
+    //
+    // Cùng lý do như bé s3 ở trên với ô ②: không có một bé như vậy trong dữ
+    // liệu mẫu thì chốt chặn của Đ96 nằm im, không màn hình nào và không lượt
+    // chạy thử nào đi qua nó lấy một lần. Ô ② vẫn để 1 — gia đình chỉ dừng
+    // phần hồ sơ học tập, không nói gì về ảnh nhóm, và app phải phân biệt
+    // được hai điều đó.
+    { studentId: 's9', hoSoHocTap: 0, chiaSeGiaDinh: 1, truyenThong: 0, nguoiKy: 'Ngô Thùy Trang', ngayKy: `${YEAR}-09-02`, ghiChu: 'Gia đình xin dừng phần hồ sơ học tập, vẫn nhận nhật ký ngày như thường' },
     // s2, s6, s7, s8 chưa nộp giấy — đúng thực tế đầu năm học.
   ];
 

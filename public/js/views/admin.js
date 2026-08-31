@@ -670,7 +670,9 @@ App.views.admin = {
         </div>
         <div class="hint">"Chưa trả lời" khác hẳn "Không đồng ý": chưa thu được giấy thì để nguyên
         mục đó, đừng chọn "Không đồng ý" thay gia đình. Gia đình rút lại đồng ý lúc nào cũng được —
-        chọn lại "Chưa trả lời" hoặc "Không đồng ý" là ảnh của bé thôi hiện với nhà khác ngay.</div>
+        chọn lại "Chưa trả lời" hoặc "Không đồng ý" là ảnh của bé thôi hiện với nhà khác ngay.
+        Riêng mục <b>hồ sơ học tập</b>: chọn "Không đồng ý" là trường ngưng ghi quan sát, kế hoạch
+        và báo cáo mới cho bé — phần đã ghi vẫn giữ nguyên, và nhật ký ngày vẫn chạy như thường.</div>
       </div>
       <div class="field"><label>Nhóm</label>
         <select id="ad-hs-lop">

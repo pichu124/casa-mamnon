@@ -409,6 +409,24 @@ module.exports = (app, { db, modules }) => {
   });
 
   // Mở một bản mới cho một bé.
+  // GIA ĐÌNH ĐÃ DỪNG PHẦN HỒ SƠ HỌC TẬP THÌ NGƯNG GHI MỚI (Đ96, ô đồng ý ①).
+  //
+  // Chặn ba đường: MỞ bản mới, SỬA, và GỬI cho gia đình. Gửi cũng là một hành
+  // vi mới — nó biến một bản nháp thành thứ gia đình cầm trong tay — nên nếu
+  // gia đình đã nói dừng thì đừng đẩy thêm sang nữa.
+  //
+  // KHÔNG chặn: hai đường đọc (`cua-be`, `ban/:id`) để bản đã có vẫn xem lại
+  // được, và `thu-hoi` phải LUÔN chạy — chặn nó là để một bản đã công bố kẹt
+  // lại vĩnh viễn ở phía gia đình.
+  function chanNeuNgungHoSo(res, studentId) {
+    if (!db.beNgungHoSoHocTap(studentId)) return false;
+    res.status(403).json({
+      error: 'Gia đình bé này đã dừng phần hồ sơ học tập. '
+        + 'Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường.',
+    });
+    return true;
+  }
+
   app.post('/api/baocaohoctap/ban', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const studentId = String(b.studentId || '');
@@ -426,6 +444,7 @@ module.exports = (app, { db, modules }) => {
 
     const be = db.findStudent(studentId);
     if (!be) return res.status(404).json({ error: 'Không tìm thấy bé này' });
+    if (chanNeuNgungHoSo(res, studentId)) return;
 
     const daCo = db.first('baocaohoctap_ban',
       'SELECT * FROM baocaohoctap_ban WHERE studentId = ? AND mauId = ? AND tuNgay = ? AND denNgay = ?',
@@ -454,6 +473,7 @@ module.exports = (app, { db, modules }) => {
     if (!coQuyenSoan(req.user, ban)) {
       return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }
+    if (chanNeuNgungHoSo(res, ban.studentId)) return;
     const b = req.body || {};
     const dong = new Map(dongCuaMau(ban.mauId).map(d => [d.id, d]));
     const vao = Array.isArray(b.o) ? b.o : [];
@@ -504,6 +524,7 @@ module.exports = (app, { db, modules }) => {
     if (!coQuyenSoan(req.user, ban)) {
       return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }
+    if (chanNeuNgungHoSo(res, ban.studentId)) return;
     if (ban.trangThai === 'da-gui') return res.json({ ok: true, daGuiTruocDo: true, ban: banDayDu(ban) });
 
     // Một bản trắng trơn gửi đi thì gia đình mở ra thấy một tờ giấy trắng
