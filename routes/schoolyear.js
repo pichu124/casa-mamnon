@@ -265,15 +265,54 @@ module.exports = (app) => {
     });
   });
 
+  // CẮT 500 PHẢI ĐỨNG SAU BỘ LỌC CƠ SỞ, KHÔNG PHẢI TRƯỚC
+  //
+  // Câu cũ lấy 500 bé ra trường mới nhất của CẢ TRƯỜNG rồi mới lọc lại còn cơ
+  // sở của người đang xem. Trường có ba cơ sở, nên quản lý một cơ sở nhận về
+  // khoảng một phần ba của 500 — danh sách CỤT ĐI mà nhìn vẫn như đủ, vì màn
+  // hình không có chỗ nào nói là đã cắt.
+  //
+  // Chỗ này hỏng nặng dần theo thời gian chứ không hỏng ngay: năm đầu cả
+  // trường chưa tới 500 bé ra trường thì không ai thấy gì. Đến khi vượt mốc
+  // đó, bé ra trường của những khoá cũ bắt đầu biến mất khỏi danh sách của
+  // chính cơ sở mình, và không có lỗi nào để mà tra.
+  //
+  // Đưa bộ lọc vào câu SQL thì 500 dòng lấy về đều là dòng người xem có quyền
+  // thấy. `classId IN (...)` cũng tự loại bé không còn nhóm — đúng luật "đóng
+  // chứ không mở" đã dùng ở routes/admin.js, vì bé không nhóm thì không tra
+  // được cơ sở.
+  const LO_MA = 400;   // SQLite giới hạn số tham số một câu; chia lô cho chắc.
+
+  function beRaTruongTrongPhamVi(pham) {
+    if (pham === null) {
+      return db.all('students',
+        'SELECT * FROM students WHERE active = 0 ORDER BY leftAt DESC, name LIMIT 500');
+    }
+    if (!pham.length) return [];
+
+    const gom = [];
+    for (let i = 0; i < pham.length; i += LO_MA) {
+      const lo = pham.slice(i, i + LO_MA);
+      gom.push(...db.all('students',
+        `SELECT * FROM students WHERE active = 0 AND classId IN (${lo.map(() => '?').join(',')})
+          ORDER BY leftAt DESC, name LIMIT 500`, lo));
+    }
+    // Nhiều lô thì phải xếp lại rồi mới cắt, nếu không thứ tự là thứ tự của lô.
+    if (gom.length > 500) {
+      gom.sort((a, b) => String(b.leftAt || '').localeCompare(String(a.leftAt || ''))
+        || String(a.name || '').localeCompare(String(b.name || ''), 'vi'));
+      return gom.slice(0, 500);
+    }
+    return gom;
+  }
+
   // Tra cứu học sinh đã ra trường hoặc chuyển đi.
   app.get('/api/schoolyear/alumni', onlyAdmin, (req, res) => {
     // Bé đã ra trường vẫn giữ `classId` của nhóm cuối cùng, nên vẫn tra được
     // cơ sở. Bé nào không còn nhóm thì chỉ Cấp 1 thấy — cùng luật "đóng chứ
     // không mở" đã dùng ở routes/admin.js.
     const pham = phamViNhomLop(req.user);
-    const rows = db.all('students',
-      'SELECT * FROM students WHERE active = 0 ORDER BY leftAt DESC, name LIMIT 500')
-      .filter(s => pham === null || pham.includes(s.classId));
+    const rows = beRaTruongTrongPhamVi(pham);
     res.json(db.withParents(rows).map(s => ({
       ...s,
       className: s.classId ? (db.findClass(s.classId) || {}).name || '' : '',

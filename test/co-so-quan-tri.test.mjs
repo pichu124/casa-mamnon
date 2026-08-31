@@ -30,7 +30,7 @@
 // routes/admin.js phải đi qua một trong các hàm canh. Thêm một đường mới mà
 // quên canh thì bài này đỏ ngay, kể cả khi chưa ai kịp nghĩ ra tình huống để
 // thử. Đó là cách duy nhất để lỗ hổng này không mọc lại sau vài tháng.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, dongNhom, batPhanHe } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, dongNhom, batPhanHe, taoBeRaTruong } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
@@ -449,6 +449,44 @@ console.log('\n[10] Quét MỌI đường của app: không dấu vết nào c�
   check('phép quét nhìn thấy dữ liệu của CHÍNH cơ sở mình — không phải quét vào chỗ rỗng',
     /Nguyễn Bảo An|Trần Gia Hân/.test(JSON.stringify(cs1.data ?? '')),
     JSON.stringify(cs1.data ?? '').slice(0, 150));
+}
+
+// ===========================================================================
+console.log('\n[11] Danh sách bé ra trường: chỗ CẮT 500 phải đứng SAU bộ lọc cơ sở');
+{
+  // VÌ SAO MỤC NÀY ĐỂ CUỐI BÀI
+  //
+  // Nó đổ vào cơ sở dữ liệu hơn 500 bé đã ra trường. Mọi mục trên đều đếm bé
+  // theo cách này hay cách khác, nên chạy sớm hơn là làm hỏng bài của chính
+  // mình vì một lý do chẳng liên quan.
+  //
+  // LỖI ĐANG CANH
+  //
+  // Câu cũ lấy 500 bé ra trường MỚI NHẤT của cả trường rồi mới lọc lại còn cơ
+  // sở của người xem. Nghĩa là một cơ sở đông bé ra trường có thể đẩy sạch bé
+  // của cơ sở khác ra khỏi 500 dòng đó — và quản lý cơ sở kia mở màn hình lên
+  // thấy trống trơn, không một dòng nào nói rằng danh sách đã bị cắt.
+  //
+  // Dựng đúng cảnh đó: cơ sở 2 có 520 bé ra trường NĂM 2030, cơ sở 1 có 3 bé
+  // ra trường từ NĂM 2020. Xếp theo ngày ra trường giảm dần thì 520 bé của cơ
+  // sở 2 chiếm trọn 500 chỗ đầu.
+  taoBeRaTruong(DIR, 'c3', 520, '2030-06-30', 'cs2cu');
+  taoBeRaTruong(DIR, 'c1', 3, '2020-06-30', 'cs1cu');
+
+  // Đối chứng: Cấp 1 nhìn toàn trường nên phải thấy đám bé vừa dựng. Không có
+  // dòng này thì cả mục xanh nguyên kể cả khi việc dựng dữ liệu hỏng.
+  const toanTruong = await req('GET', '/api/schoolyear/alumni', { cookie: C1 });
+  check('dựng được hơn 500 bé ra trường ở cơ sở 2',
+    (toanTruong.data || []).length === 500, (toanTruong.data || []).length);
+
+  const cua3 = await req('GET', '/api/schoolyear/alumni', { cookie: C3 });
+  const ds3 = cua3.data || [];
+  check('QUẢN LÝ CƠ SỞ 1 VẪN THẤY BÉ RA TRƯỜNG CỦA CHÍNH MÌNH, dù cơ sở khác đông hơn 500',
+    ds3.some(b => String(b.id).startsWith('cs1cu-')),
+    { soDong: ds3.length, vaiMa: ds3.slice(0, 3).map(b => b.id) });
+  check('và không một bé ra trường nào của cơ sở 2 lọt sang',
+    ds3.every(b => !String(b.id).startsWith('cs2cu-')),
+    ds3.filter(b => String(b.id).startsWith('cs2cu-')).slice(0, 3).map(b => b.id));
 }
 
 sv.dung();

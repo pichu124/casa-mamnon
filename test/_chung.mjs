@@ -189,6 +189,32 @@ export function dongNhom(dir, classId) {
   `, [classId]);
 }
 
+// Dựng thật nhiều bé ĐÃ RA TRƯỜNG cho một nhóm.
+//
+// Danh sách bé ra trường bị cắt ở 500 dòng. Muốn canh xem chỗ cắt đó đứng
+// TRƯỚC hay SAU bộ lọc cơ sở thì phải có nhiều hơn 500 bé ra trường ở một cơ
+// sở khác — không có cách nào dựng tình huống đó bằng màn hình.
+//
+// `leftAt` nhận vào để bên gọi tự quyết bé của cơ sở nào ra trường trước: thứ
+// tự đó chính là thứ quyết định ai bị cắt.
+export function taoBeRaTruong(dir, classId, soLuong, leftAt, tienTo = 'cu') {
+  chayTrenCsdl(dir, `
+    const lop = process.argv[2];
+    const n = Number(process.argv[3]);
+    const ngay = process.argv[4];
+    const tienTo = process.argv[5];
+    const them = db.prepare(
+      'INSERT INTO students (id, name, classId, active, leftAt, createdAt) VALUES (?, ?, ?, 0, ?, ?)');
+    const nhieu = db.transaction(() => {
+      for (let i = 0; i < n; i++) {
+        them.run(tienTo + '-' + String(i).padStart(4, '0'),
+          'Bé cũ ' + i, lop, ngay, ngay);
+      }
+    });
+    nhieu();
+  `, [classId, String(soLuong), leftAt, tienTo]);
+}
+
 // Chạy một đoạn mã ngắn trên cơ sở dữ liệu tạm, ngoài tiến trình bài kiểm thử.
 //
 // Dùng `execFileSync` chứ KHÔNG dựng chuỗi lệnh cho shell: đoạn mã nhiều dòng đi
