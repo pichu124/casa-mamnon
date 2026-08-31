@@ -104,7 +104,7 @@ try {
   // =========================================================================
   console.log('\n[2] Sổ của một nhóm đúng bằng nhóm ấy, không phải cả trường');
   {
-    const q = `?classId=c1&tuNgay=${KY.tu}&denNgay=${KY.den}`;
+    const q = `?classId=c1&tuNgay=${KY.tu}&denNgay=${KY.den}&loai=thang`;
     const d = await req('GET', `/api/baocaohoctap/nhom${q}`, { cookie: co.cookie });
     check(`sổ nhóm c1 có đúng ${MAU.soBeNhomChoi2} bé, không phải ${MAU.soBe} bé cả trường`,
       d.status === 200 && (d.data.danhSach || []).length === MAU.soBeNhomChoi2,
@@ -123,7 +123,7 @@ try {
       (d.data.danhSach || []).every(x => x.banId === null && x.trangThai === null),
       JSON.stringify((d.data.danhSach || [])[0]));
 
-    const lac = await req('GET', `/api/baocaohoctap/nhom?classId=c4&tuNgay=${KY.tu}&denNgay=${KY.den}`,
+    const lac = await req('GET', `/api/baocaohoctap/nhom?classId=c4&tuNgay=${KY.tu}&denNgay=${KY.den}&loai=thang`,
       { cookie: co.cookie });
     check('cô nhóm Chồi 2 KHÔNG mở được sổ của nhóm Nhà trẻ', lac.status === 403, `${lac.status}`);
   }
@@ -220,7 +220,7 @@ try {
     // Lấy mã bé từ chính sổ của nhóm chứ không ghi cứng: ghi cứng 's2' là
     // ghi cứng một bé của nhóm KHÁC, và lượt gọi trả 403 chứ không phải 400 —
     // bài canh sẽ nói dối về chuyện nó đang canh.
-    const soNhom = await req('GET', `/api/baocaohoctap/nhom?classId=c1&tuNgay=${KY.tu}&denNgay=${KY.den}`,
+    const soNhom = await req('GET', `/api/baocaohoctap/nhom?classId=c1&tuNgay=${KY.tu}&denNgay=${KY.den}&loai=thang`,
       { cookie: co.cookie });
     const beKhac = (soNhom.data.danhSach || []).find(x => x.studentId !== 's1');
     const trang = await req('POST', '/api/baocaohoctap/ban', { cookie: co.cookie, body: {
@@ -256,6 +256,53 @@ try {
     check('thu về rồi thì gia đình lại không đọc được nữa', lai.status === 404, `${lai.status}`);
 
     await req('POST', `/api/baocaohoctap/ban/${banId}/gui`, { cookie: co.cookie, body: {} });
+  }
+
+  // =========================================================================
+  // LỖI NÀY LỘ RA TỪ BÀN THỬ, KHÔNG PHẢI TỪ MỘT LƯỢT ĐỌC MÃ.
+  //
+  // Sổ của nhóm tra theo (bé, từ ngày, đến ngày) mà bỏ mất LOẠI, nên bé mới
+  // chỉ có bản THÁNG vẫn bị đếm là đã có bản cho cả loại 6 THÁNG: màn hình
+  // hiện nút *Mở báo cáo* và bấm vào thì mở đúng bản tháng ấy ra dưới tiêu đề
+  // 6 tháng. Trên dữ liệu bàn thử, câu cũ trả về hai bé cho MỌI loại còn câu
+  // mới trả đúng một bé cho mỗi loại.
+  console.log('\n[5b] Sổ của nhóm tra theo ĐÚNG LOẠI đang xem');
+  {
+    const mauHK = await req('POST', '/api/baocaohoctap/mau', { cookie: qt.cookie, body: {
+      loai: 'hocky', ten: 'Báo cáo 6 tháng (thử)', tuThang: 0, denThang: 72,
+      dong: [{ nhom: 'I. THỂ CHẤT', tieuDe: 'Vận động thô', kieu: 'muc' }] } });
+    check('đối chứng — dựng được một mẫu loại 6 THÁNG', mauHK.status === 200, `${mauHK.status}`);
+
+    const q = `?classId=c1&tuNgay=${KY.tu}&denNgay=${KY.den}`;
+    const thang = await req('GET', `/api/baocaohoctap/nhom${q}&loai=thang`, { cookie: co.cookie });
+    const hocky = await req('GET', `/api/baocaohoctap/nhom${q}&loai=hocky`, { cookie: co.cookie });
+
+    const s1Thang = (thang.data.danhSach || []).find(x => x.studentId === 's1');
+    const s1HocKy = (hocky.data.danhSach || []).find(x => x.studentId === 's1');
+
+    // ĐỐI CHỨNG TRƯỚC: bé s1 THẬT SỰ đã có một bản THÁNG trong kỳ này (mục [3]
+    // và [5] vừa dựng). Không có dòng này thì dòng dưới vẫn xanh kể cả khi sổ
+    // rỗng vì một lý do hoàn toàn khác.
+    check('đối chứng — ở loại THÁNG, bé s1 đang có sẵn một bản',
+      !!s1Thang && !!s1Thang.banId, JSON.stringify(s1Thang));
+
+    check('sang loại 6 THÁNG thì bé s1 là CHƯA CÓ BẢN, không phải mở nhầm bản tháng',
+      !!s1HocKy && s1HocKy.banId === null && s1HocKy.trangThai === null,
+      JSON.stringify(s1HocKy));
+
+    check('cả nhóm đều chưa có bản 6 tháng nào',
+      (hocky.data.danhSach || []).length === MAU.soBeNhomChoi2
+        && (hocky.data.danhSach || []).every(x => x.banId === null),
+      JSON.stringify((hocky.data.danhSach || []).map(x => x.banId)));
+
+    check('máy chủ nói lại nó vừa tra theo loại nào', hocky.data.loai === 'hocky', hocky.data.loai);
+
+    // Bỏ trống loại thì TỪ CHỐI, không ngầm hiểu là "tháng" — ngầm hiểu chính
+    // là cách lỗi này quay lại lần sau.
+    const thieu = await req('GET', `/api/baocaohoctap/nhom${q}`, { cookie: co.cookie });
+    check('gọi mà quên loại thì bị từ chối, không ngầm chọn giúp', thieu.status === 400, `${thieu.status}`);
+    const bay = await req('GET', `/api/baocaohoctap/nhom${q}&loai=linh-tinh`, { cookie: co.cookie });
+    check('loại lạ cũng bị từ chối', bay.status === 400, `${bay.status}`);
   }
 
   // =========================================================================

@@ -310,10 +310,24 @@ module.exports = (app, { db, modules }) => {
     const classId = String(req.query.classId || '');
     const tuNgay = String(req.query.tuNgay || '');
     const denNgay = String(req.query.denNgay || '');
+    const loai = String(req.query.loai || '');
     if (!classId) return res.status(400).json({ error: 'Chưa chọn nhóm lớp' });
     if (!NGAY_RE.test(tuNgay) || !NGAY_RE.test(denNgay) || tuNgay > denNgay) {
       return res.status(400).json({ error: 'Kỳ báo cáo chưa hợp lệ' });
     }
+    // LOẠI BÁO CÁO LÀ MỘT PHẦN CỦA CÂU HỎI, KHÔNG PHẢI TRANG TRÍ TRÊN MÀN HÌNH.
+    //
+    // Một bé trong cùng một kỳ có thể có bản THÁNG, bản 6 THÁNG và bản
+    // CAMBRIDGE — ba việc khác nhau của cô. Bản đầu của đường dẫn này chỉ tra
+    // theo (bé, từ ngày, đến ngày) và bỏ mất loại, nên bé mới chỉ có bản THÁNG
+    // vẫn bị trả về là "đã có bản" cho cả loại 6 THÁNG: màn hình hiện nút
+    // *Mở báo cáo*, và bấm vào thì mở đúng bản tháng ấy ra dưới tiêu đề 6 tháng.
+    //
+    // Đo thẳng trên bàn thử, nhóm Chồi 2 kỳ tháng 8: câu cũ trả về HAI bé cho
+    // MỌI loại (một bé có bản tháng, một bé có bản 6 tháng), câu mới trả đúng
+    // một bé cho mỗi loại. Vì vậy loại là tham số BẮT BUỘC — để trống rồi ngầm
+    // hiểu là "tháng" chính là cách lỗi này quay lại.
+    if (!MA_LOAI.includes(loai)) return res.status(400).json({ error: 'Chưa chọn loại báo cáo' });
     if (!db.canAccessClass(req.user, classId)) {
       return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
     }
@@ -327,13 +341,15 @@ module.exports = (app, { db, modules }) => {
     if (dsBe.length) {
       const marks = dsBe.map(() => '?').join(',');
       for (const x of db.all('baocaohoctap_ban',
-        `SELECT * FROM baocaohoctap_ban WHERE studentId IN (${marks}) AND tuNgay = ? AND denNgay = ?`,
-        [...dsBe.map(b => b.id), tuNgay, denNgay])) {
+        `SELECT b.* FROM baocaohoctap_ban b
+           JOIN baocaohoctap_mau m ON m.id = b.mauId
+          WHERE b.studentId IN (${marks}) AND b.tuNgay = ? AND b.denNgay = ? AND m.loai = ?`,
+        [...dsBe.map(b => b.id), tuNgay, denNgay, loai])) {
         ban.set(x.studentId, x);
       }
     }
     res.json({
-      classId, tuNgay, denNgay,
+      classId, tuNgay, denNgay, loai,
       danhSach: dsBe.map(b => {
         const x = ban.get(b.id);
         return {

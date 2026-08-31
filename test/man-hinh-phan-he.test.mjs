@@ -57,6 +57,9 @@ const MAN = [
 
 const TAI_KHOAN = {
   co: { u: 'giaovien', p: '123456', ten: 'cô' },
+  // Cô nhóm Nhà trẻ 1 — CỐ Ý chọn một cô KHÔNG phụ trách nhóm đứng đầu danh
+  // sách nhóm của trường. Xem mục [1b].
+  co2: { u: 'giaovien4', p: '123456', ten: 'cô nhóm khác' },
   ph: { u: 'phuhuynh', p: '123456', ten: 'gia đình' },
   qt: { u: 'hieutruong', p: 'quantri2026', ten: 'văn phòng' },
 };
@@ -122,6 +125,62 @@ for (const vaiMa of ['co', 'ph', 'qt']) {
       !/có lỗi xảy ra/i.test(chu), chu.slice(0, 120));
     check(`${m.ten} — ${tk.ten} có nội dung thật, không trống trơn`,
       chu.trim().length > 20, chu.slice(0, 120));
+  }
+}
+
+// ===========================================================================
+// CÔ THỨ HAI — VÀ ĐÂY LÀ CHỖ MỤC [1] KHÔNG VỚI TỚI.
+//
+// Mục [1] đăng nhập bằng cô Chồi 2, mà Chồi 2 tình cờ là nhóm ĐỨNG ĐẦU danh
+// sách nhóm của trường. Màn nào lỡ lấy `App.state.classes[0]` làm nhóm mặc
+// định thì với cô ấy vẫn chạy đúng, và bài canh vẫn xanh.
+//
+// Cô Nhà trẻ 1 thì không: nhóm của cô nằm cuối danh sách. Trên bàn thử, màn
+// Báo cáo học tập mở ra là gặp thẳng "Có lỗi xảy ra" — máy chủ trả 403 vì màn
+// hình hỏi sổ của nhóm Chồi 2, nhóm cô không phụ trách.
+//
+// Bài này vì vậy chạy lại đúng các màn của cô bằng TÀI KHOẢN THỨ HAI. Rẻ, và
+// nó bắt được cả một họ lỗi chứ không riêng một màn.
+console.log('\n[1b] Cô KHÔNG phụ trách nhóm đầu danh sách cũng mở được mọi màn');
+{
+  await dangNhap(TAI_KHOAN.co2.u, TAI_KHOAN.co2.p);
+
+  // ĐỐI CHỨNG: bài trên chỉ có nghĩa khi cô này THẬT SỰ không phụ trách nhóm
+  // đứng đầu danh sách. Đổi dữ liệu mẫu cho cô ấy dạy nhóm đầu thì bài dưới
+  // vẫn xanh mà chẳng canh gì nữa — dòng này báo đỏ đúng lúc đó.
+  const boiCanh = await page.evaluate(() => ({
+    nhomDau: (App.state.classes || [])[0] && App.state.classes[0].id,
+    cuaCo: App.state.user.classIds || [],
+  }));
+  check('đối chứng — cô này không phụ trách nhóm đứng đầu danh sách trường',
+    boiCanh.cuaCo.length > 0 && !boiCanh.cuaCo.includes(boiCanh.nhomDau),
+    JSON.stringify(boiCanh));
+
+  for (const m of MAN) {
+    if (!m.vai.includes('co')) continue;
+    const { chu, loi } = await moMan(m.hash);
+    check(`${m.ten} — cô nhóm khác mở được, KHÔNG lỗi JavaScript`, loi.length === 0, loi.slice(0, 2));
+    check(`${m.ten} — cô nhóm khác không rơi vào màn báo lỗi chung`,
+      !/có lỗi xảy ra/i.test(chu), chu.slice(0, 120));
+
+    // Ô CHỌN NHÓM KHÔNG ĐƯỢC MỜI CÔ BẤM VÀO CHỖ CHẮC CHẮN HỎNG.
+    //
+    // Màn mở lên đúng nhóm của cô là chưa đủ: ô "Nhóm" của Nhật ký ngày và
+    // Đón trả bé từng liệt kê cả bốn nhóm của trường, và mỗi lựa chọn không
+    // phải nhóm của cô đều dẫn thẳng tới màn báo lỗi (403). Một danh sách
+    // chọn mà có lựa chọn nào bấm vào cũng hỏng thì đó là lỗi của màn hình.
+    //
+    // Chỉ soi những <option> mang giá trị LÀ MỘT MÃ NHÓM của trường — các ô
+    // chọn khác (loại báo cáo, tháng, ...) không liên quan.
+    const lac = await page.evaluate(() => {
+      const cuaCo = new Set(App.state.user.classIds || []);
+      const cuaTruong = new Set((App.state.classes || []).map(c => c.id));
+      return [...document.querySelectorAll('#view select option')]
+        .map(o => o.value)
+        .filter(v => cuaTruong.has(v) && !cuaCo.has(v));
+    });
+    check(`${m.ten} — ô chọn nhóm KHÔNG mời cô sang nhóm không phụ trách`,
+      lac.length === 0, JSON.stringify(lac));
   }
 }
 

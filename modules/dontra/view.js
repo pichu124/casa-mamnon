@@ -59,10 +59,10 @@ App.views.dontra = {
 
   // ================= Màn CỔNG của cô =================
   async manCong(root) {
-    const nhom = (App.state.classes || []);
-    this._classId = this._classId
-      || (App.state.user.classIds || [])[0]
-      || (nhom[0] && nhom[0].id) || '';
+    // Nhóm của cô — trước đây ô chọn liệt kê nhóm của cả trường, bấm sang nhóm
+    // không phụ trách là gặp màn "Có lỗi xảy ra" (403).
+    const nhom = App.nhomCuaCo();
+    this._classId = this._classId || (nhom[0] && nhom[0].id) || '';
     if (!this._classId) {
       root.innerHTML = UI.pageHeader('Đón trả bé')
         + UI.emptyState('🤝', 'Cô chưa phụ trách nhóm nào nên chưa có bé để trả.');

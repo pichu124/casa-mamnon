@@ -704,3 +704,37 @@ ngày học ≈ **3 GB một năm học**, đã tính cả phần sao lưu chép
 nhất thường có 25–40 GB, nên vẫn thoải mái — nhưng đây là con số đầu tiên trong
 cả app tăng theo GB chứ không theo MB, và nó đáng được nhìn trước khi bật.
 
+
+---
+
+### 6. Thêm một hàm vào tệp dùng chung để sửa lỗi ô chọn nhóm, thay vì chép ba lần
+
+**Việc:** chạy thử bàn thử bằng tài khoản **cô nhóm Nhà trẻ 1** (chứ không phải cô
+nhóm Chồi 2 như mọi lần trước) lộ ra một họ lỗi: bốn màn của cô đều tự đi tìm câu
+trả lời cho "cô mở được nhóm nào", mỗi màn một kiểu, và ba trong bốn màn quên lọc
+phần ô chọn. Cô mở màn ra thì đúng nhóm của mình, nhưng ô **"Nhóm"** vẫn liệt kê
+cả bốn nhóm của trường — bấm vào nhóm không phụ trách là rơi thẳng vào màn *"Có
+lỗi xảy ra"*. Riêng màn Báo cáo học tập còn lấy nhầm nhóm mặc định, nên cô Nhà trẻ
+mở lên là hỏng ngay, chưa bấm gì cả.
+
+| Đường | Được gì | Mất gì |
+|---|---|---|
+| 1 | Chép đoạn lọc ba dòng vào từng màn | Không đụng tệp dùng chung | **Bốn bản chép của cùng một quy tắc phân quyền** — đúng thứ `CLAUDE.md` cảnh báo sẽ trôi; lần thứ năm ai đó thêm màn mới là quên lần nữa |
+| 2 | **Thêm `App.nhomCuaCo()` vào `public/js/app.js`, bốn màn cùng gọi** | Một chỗ duy nhất giữ quy tắc; màn mới chỉ cần gọi đúng hàm | Chạm vào **tệp dùng chung** — nhóm nguy hiểm nhất theo `CLAUDE.md` |
+| 3 | Để máy chủ tự lọc danh sách nhóm gửi về | Sạch nhất | Đổi hình dạng dữ liệu `/api/auth/me` mà **cả app đang dựa vào** — vi phạm "chỉ được thêm, không đổi" |
+
+**ĐÃ CHỐT: đường 2**, làm đúng theo quy định của `CLAUDE.md` cho nhóm tệp này:
+
+- **Chỉ thêm, không đổi và không bỏ.** `state.classes` còn nguyên vẹn cho mọi chỗ
+  đang dùng; văn phòng (không có `classIds`) nhận lại đủ danh sách như trước.
+- **Commit riêng.** Hàm mới đi một commit một mình, chưa ai gọi — app ở bước đó
+  chạy y như cũ. Commit sau mới chuyển bốn màn sang gọi nó.
+- Ghi nhận lại bản chụp khế ước (`npm run test:khe-uoc -- --cap-nhat`) và tăng
+  `VERSION` của `public/sw.js`.
+
+**Bài học đáng ghi hơn cả bản vá:** bộ canh màn phân hệ chạy đủ chín màn nhưng
+chỉ bằng **một tài khoản cô** — mà cô ấy tình cờ phụ trách nhóm đứng đầu danh
+sách. Mọi lỗi kiểu "lấy phần tử [0] của danh sách cả trường" đều đi lọt. Nay có
+thêm mục **[1b]** chạy lại đúng các màn ấy bằng **tài khoản cô thứ hai**, kèm một
+dòng đối chứng báo đỏ nếu sau này dữ liệu mẫu đổi cho cô ấy dạy nhóm đầu danh sách
+— lúc đó bài canh mất hết ý nghĩa mà vẫn xanh.

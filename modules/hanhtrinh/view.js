@@ -426,8 +426,9 @@ App.views.hanhtrinh = {
 
   // ---- Tab 2: chủ đề tuần ----
   async manChuDe(than) {
-    const nhom = App.state.classes || [];
-    this._classId = this._classId || (App.state.user.classIds || [])[0] || (nhom[0] && nhom[0].id) || '';
+    // Nhóm của cô — xem chú thích ở `App.nhomCuaCo()`.
+    const nhom = App.nhomCuaCo();
+    this._classId = this._classId || (nhom[0] && nhom[0].id) || '';
     if (!this._classId) {
       than.innerHTML = UI.emptyState('🌱', 'Cô chưa phụ trách nhóm nào.');
       return;

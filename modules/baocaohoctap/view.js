@@ -186,13 +186,29 @@ App.views.baocaohoctap = {
 
   // ==================== Sổ của nhóm ====================
   async veSo(than) {
-    const cls = (App.state.classes || []);
+    // NHÓM CỦA CHÍNH CÔ, KHÔNG PHẢI NHÓM ĐẦU DANH SÁCH CỦA CẢ TRƯỜNG.
+    //
+    // `App.state.classes` là danh sách nhóm của CẢ TRƯỜNG — nó có ở đây để
+    // dựng ô chọn cho văn phòng. Lấy `classes[0]` làm nhóm mặc định thì cô nào
+    // không phụ trách nhóm đứng đầu danh sách sẽ mở màn này ra là gặp thẳng
+    // màn "Có lỗi xảy ra" (máy chủ trả 403, hoàn toàn đúng).
+    //
+    // Trên bàn thử: cô nhóm Nhà trẻ 1 bấm vào Báo cáo học tập là hỏng ngay,
+    // trong khi cô nhóm Chồi 2 thì không — vì Chồi 2 tình cờ đứng đầu danh
+    // sách. Đây là kiểu lỗi chỉ lộ ra khi thử bằng tài khoản THỨ HAI.
+    //
+    // `App.nhomCuaCo()` trả về nhóm cô đang phụ trách; văn phòng nhận đủ
+    // danh sách như trước.
+    const cls = App.nhomCuaCo();
     this._classId = this._classId || (cls[0] || {}).id || '';
     if (!this._classId) {
       than.innerHTML = UI.emptyState('📘', 'Cô chưa phụ trách nhóm nào nên chưa soạn báo cáo được.');
       return;
     }
-    const q = `?classId=${encodeURIComponent(this._classId)}&tuNgay=${encodeURIComponent(this._tuNgay)}&denNgay=${encodeURIComponent(this._denNgay)}`;
+    // Gửi kèm LOẠI báo cáo đang xem: máy chủ tra "bé này đã có bản CHƯA" theo
+    // đúng loại ấy, chứ không phải theo bất kỳ bản nào trong kỳ.
+    const q = `?classId=${encodeURIComponent(this._classId)}&tuNgay=${encodeURIComponent(this._tuNgay)}`
+      + `&denNgay=${encodeURIComponent(this._denNgay)}&loai=${encodeURIComponent(this._loai)}`;
     const d = await API.get(`/api/baocaohoctap/nhom${q}`);
 
     const mauHop = this._mau.filter(m => m.loai === this._loai);

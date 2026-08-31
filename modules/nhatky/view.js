@@ -210,9 +210,11 @@ App.views.nhatky = {
 
   // ================= Màn của cô: ghi cả nhóm một lượt =================
   async manCoGiao(root) {
-    const nhom = (App.state.user.classIds || []).length
-      ? App.state.user.classIds
-      : (App.state.classes || []).map(c => c.id);
+    // Nhóm của cô, cho cả nhóm mặc định LẪN ô chọn bên dưới. Trước đây ô chọn
+    // liệt kê nhóm của cả trường, nên cô bấm nhầm sang nhóm không phụ trách là
+    // rơi vào màn "Có lỗi xảy ra" (403).
+    const nhomCua = App.nhomCuaCo();
+    const nhom = nhomCua.map(c => c.id);
     this._classId = this._classId || nhom[0] || '';
     this._ngay = this._ngay || UI.todayStr();
 
@@ -236,11 +238,11 @@ App.views.nhatky = {
             <label>Ngày</label>
             <input type="date" id="nk-ngay" value="${UI.esc(this._ngay)}" max="${UI.esc(UI.todayStr())}">
           </div>
-          ${(App.state.classes || []).length > 1 ? `
+          ${nhomCua.length > 1 ? `
             <div class="field" style="margin:0">
               <label>Nhóm</label>
               <select id="nk-nhom">
-                ${(App.state.classes || []).map(c => `
+                ${nhomCua.map(c => `
                   <option value="${UI.esc(c.id)}" ${c.id === this._classId ? 'selected' : ''}>${UI.esc(c.name)}</option>`).join('')}
               </select>
             </div>` : ''}

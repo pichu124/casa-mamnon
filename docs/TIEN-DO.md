@@ -617,15 +617,15 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~12 phút) | **3256**, FAIL 0 |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **489**, FAIL 0 |
+| `npm test` (không cần trình duyệt, ~12 phút) | **3272**, FAIL 0 |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **517**, FAIL 0 |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
 | Bộ | Bài | Canh gì |
 |---|---|---|
 | `test:lo-hong` | 291 | Mọi lỗ hổng đã vá — **bất khả xâm phạm** |
-| `test:khe-uoc` | 164 | Hình dạng của các tệp dùng chung, và **không ai được chép lại** hàm nén ảnh |
+| `test:khe-uoc` | 173 | Hình dạng của các tệp dùng chung, và **không ai được chép lại** hàm nén ảnh |
 | `test:co-lap-loi` | 102 | Nguyên tắc số 1 — phá hỏng từng thứ rồi kiểm app vẫn đăng nhập được |
 | `test:nhom-lop` | 119 | Nhiều cô một nhóm (G0.4 · G0.5 · N8), và cửa sổ tin nhắn (Đ77 · Đ79) |
 
@@ -653,18 +653,21 @@ Các bộ **mới của app 2**, không có ở app 1:
 | `test:quyen-du-lieu-be` | 14 | **Mọi** đường API đọc dữ liệu của bé phải đi qua một hàm canh quyền |
 | `test:khong-hua-suong` | 11 | App không được hứa thứ nó không làm được (bài học A5) |
 
-Bảy tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so với điểm tách
-`bc9dfa3` ngày 21/08):
+**Chín** tệp của `test:giao-dien`, và tệp nào là **mới của app 2** (so với điểm
+tách `bc9dfa3` ngày 21/08). Bảng này trước đây ghi "bảy tệp" và bỏ sót hai bộ —
+`bien-soan-phan-he` và `chi-tieu` — cùng vài con số đã cũ; sửa lại ngày 31/08:
 
 | Bộ | Bài | Mới? | Canh gì |
 |---|---|---|---|
+| `test:man-phan-he` | 154 | **mới** | Chín màn phân hệ mầm non dựng lên được, không màn nào trắng; **nháp Nhật ký ngày sống qua một lần app bị đóng**; và mục **[1b]** chạy lại mọi màn của cô bằng **tài khoản cô thứ hai** — cô KHÔNG phụ trách nhóm đứng đầu danh sách (Đ94) |
 | `test:bien-soan-gd` | 112 | kế thừa | Cô soạn thật trên Chromium: điểm danh, thực đơn, đơn nghỉ, hồ sơ bé |
-| `test:man-phan-he` | 114 | **mới** | Tám màn phân hệ mầm non dựng lên được, không màn nào trắng; và **nháp Nhật ký ngày sống qua một lần app bị đóng** |
-| `test:album` | 12 | kế thừa | Cô chọn ảnh và đăng album trên Chromium thật; đường nén ảnh dùng chung đi qua đây |
-| `test:pwa` | 45 | kế thừa | Cài được lên màn hình chính, service worker, icon, và **mọi tệp cần để mở app lúc mất mạng đều nằm sẵn trong cache** |
+| `bien-soan-phan-he` | 78 | **mới** | Bài học B9: một vòng ghi THẬT đi hết chín phân hệ mầm non, cô ghi rồi gia đình đọc lại được |
+| `test:pwa` | 58 | kế thừa | Cài được lên màn hình chính, service worker, icon, và **mọi tệp cần để mở app lúc mất mạng đều nằm sẵn trong cache** |
 | `test:nhieu-nhom` | 46 | **mới** | Cô dạy hai nhóm mở được cả hai; quản trị biết mình đang xem bé nào |
 | `tinh-nang-giao-dien` | 27 | kế thừa | Bật/tắt phân hệ trên màn Quản trị |
+| `test:chi-tieu` | 15 | **mới** | Đo thật: cô ghi nhật ký cả nhóm trong bao lâu |
 | `test:ngoai-tuyen` | 15 | **mới** | Mất mạng: app vẫn mở, vẫn ghi được, sóng về thì hàng đợi tự bay đi |
+| `test:album` | 12 | kế thừa | Cô chọn ảnh và đăng album trên Chromium thật; đường nén ảnh dùng chung đi qua đây |
 
 Nền lấy từ app 1 là **932 bài**. Phần tăng thêm không chỉ nằm ở các bộ mới: các
 bộ cũ cũng dày lên khi mô hình đổi (ví dụ `test:lo-hong` nhận thêm mục `[8b]` canh
@@ -1039,4 +1042,5 @@ khung bảy tiết 35 phút đều là chữ và khung ĐÚNG.
 | 30/08/2026 | **Đ90 + Đ91** — **ba cơ sở nấu riêng bếp** (điểm 1). Bảng `menus` có `date UNIQUE` nên ba bếp không thể có ba thực đơn cùng ngày, và chú thích cũ dặn "thêm cột cơ sở vào `menus` rồi mới mở đường ra" — không đi được, vì đổi khoá phải dựng lại một bảng đang có dữ liệu thật. Đường đã đi: bảng phụ `menu_campus`, đọc thì **dòng riêng thắng, không có thì rơi về bản dùng chung** — trường một bếp chạy y như cũ, thực đơn đã nhập không mất. `lib/db.js` đi **commit riêng** trước (Đ90) đúng luật tệp dùng chung. **Bản đầu dựng lại đúng cái hỏng mà chú thích cũ cảnh báo:** hàm phân quyền đọc `phamViCoSo(user).length === 1` như thể nó trả về mảng, trong khi nó trả về một chuỗi — nên mọi quản lý cơ sở rơi xuống nhánh Cấp 1 và món của cơ sở 2 hiện lên màn hình gia đình cơ sở 1. Phép thử tay bắt được trước khi commit | Yêu cầu 30/08 |
 | 30/08/2026 | **Đ92** — **bốn bài canh đỏ theo giờ trong ngày, cả bốn đều có sẵn từ trước.** Phát hiện lúc 00h26 giờ Việt Nam ngày thứ Hai (17h26 UTC Chủ nhật): `bien-soan` tính thứ Hai bằng `new Date()` của máy chạy test chứ không bằng `HOM_NAY()` (4 bài); `hanh-trinh` cộng 7 ngày vào giờ UTC nên "tuần sau" rơi vào chính tuần này (1 bài); `mot-ngay-cua-co` trông vào việc dữ liệu mẫu CHƯA chấm điểm danh cho bé, mà luật là điểm danh thắng đơn nghỉ — nên nó xanh vào cuối tuần và đỏ vào ngày học, cả hai lần đều không đo đúng thứ nó nói (2 bài); `tien-an` mong tháng NÀY có sẵn một buổi vắng không phép, mà 20 ngày học gần nhất rơi sang tháng trước vào ngày 31 (1 bài). Đã đối chiếu từng bộ bằng cách cất hết thay đổi trong cây làm việc rồi chạy lại — đỏ y hệt. Vá: dùng `HOM_NAY()` và **tự dựng tình huống** thay vì trông vào dữ liệu mẫu rơi đúng chỗ | Tự thấy |
 | 30/08/2026 | **Đ93** — **video trong album** (điểm 5 của nhà trường). Video lưu thành MỘT DÒNG trong `album_photos` y như ảnh, cùng cột `file`, cùng bảng gắn thẻ bé — nên nó đi qua **đúng một đường** với ảnh, không phải "cũng có kiểm tra tương tự". Không thêm bảng, không thêm cột. Phép thử ngược cho video đi vòng qua bộ lọc đồng ý: đỏ ngay. **Hai chỗ sẽ vỡ khi gặp video thật, bắt được khi đọc lại `server.js` trước lúc commit:** trần 25 MB tôi đặt ban đầu vượt thân yêu cầu 12 MB của Express (base64 phình 33%), và lô gửi lên gom 3 tệp một lượt nên hai video là vỡ. Vá bằng cách hạ trần xuống **8 MB** và cho video đi **một mình một lượt** — KHÔNG nới giới hạn 12 MB, vì nó đang che mọi đường dẫn khác. Kèm: thân yêu cầu quá lớn nay trả lời 413 kèm câu chỉ đường, thay vì bốn chữ "Lỗi máy chủ" | Yêu cầu 30/08 |
+| 31/08/2026 | **Đ94** — **hai lỗi chỉ lộ ra khi CHẠY THẬT bàn thử, đọc mã không thấy.** (1) Sổ báo cáo của một nhóm tra theo `(bé, từ ngày, đến ngày)` mà **bỏ mất loại báo cáo**: bé mới chỉ có bản THÁNG vẫn bị đếm là "đã có bản" cho cả loại 6 THÁNG, nút *Mở báo cáo* mở đúng bản tháng ấy ra dưới tiêu đề 6 tháng. Đo trên dữ liệu bàn thử: câu cũ trả **hai bé cho MỌI loại**, câu mới trả đúng một bé cho mỗi loại. Loại nay là tham số **bắt buộc** — bỏ trống thì từ chối, không ngầm chọn giúp, vì ngầm chọn chính là cách lỗi này quay lại. (2) **Bốn màn của cô tự đi tìm câu trả lời "cô mở được nhóm nào", mỗi màn một kiểu.** Màn Báo cáo học tập lấy `App.state.classes[0]` — nhóm đầu danh sách của CẢ TRƯỜNG — làm nhóm mặc định, nên cô nhóm Nhà trẻ 1 bấm vào là gặp thẳng "Có lỗi xảy ra" (403). Ba màn còn lại (Nhật ký ngày, Đón trả bé, Hành trình) mở đúng nhóm nhưng **ô "Nhóm" vẫn liệt kê cả bốn nhóm của trường**, bấm sang nhóm không phụ trách là hỏng. Gom về **một** hàm dùng chung `App.nhomCuaCo()` (commit riêng, chỉ thêm). Bộ canh màn phân hệ trước nay chỉ chạy bằng MỘT tài khoản cô, mà cô ấy tình cờ dạy nhóm đầu danh sách — thêm mục **[1b] chạy lại mọi màn của cô bằng tài khoản thứ hai**, kèm đối chứng và một bài canh "ô chọn không mời cô bấm vào chỗ chắc chắn hỏng" | Chạy thử bàn thử |
 | 30/08/2026 | **N3 bước 2 — nhà trường quyết ĐỂ NGUYÊN.** Câu hỏi đặt ra là có xoá hẳn mã hai màn Nề nếp và Báo cáo không (dữ liệu vẫn giữ trong cả hai hướng). Trả lời: *"chưa chắc"* sẽ không dùng lại, nên giữ mã để bật lại bằng một lượt bấm. **Cái giá đã biết trước:** món nợ `test:quy-tac-4` ở nguyên **27 dòng** thay vì về 0, vì bài canh soi mã nguồn chứ không soi trạng thái bật/tắt. Nhân đó sửa hai chỗ ghi sai con số cũ **17** trong tài liệu — 17 là số lúc mới ghi, Đ6 (`452cd38`) thêm dấu hiệu bắt theo **tên trường dữ liệu** nên hai tệp Học bạ nhảy 4→9 và 1→6. **Mã nguồn không đổi một dòng**; bánh cóc không hỏng, chỉ là mắt bộ canh sáng hơn | N3 chốt |
