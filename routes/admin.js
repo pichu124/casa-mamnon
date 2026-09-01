@@ -350,8 +350,22 @@ module.exports = (app) => {
     const { name, room, grade, teacherId, year } = req.body || {};
     if (!String(name || '').trim()) return res.status(400).json({ error: 'Vui lòng nhập tên nhóm' });
     if (teacherId) {
+      // CÙNG HAI CHỐT VỚI NHÁNH `teacherId` CỦA ĐƯỜNG SỬA NGAY DƯỚI — đường
+      // TẠO từng thiếu cả hai, thành lối đi vòng: văn phòng cơ sở không phân
+      // công được cô qua đường sửa nhưng TẠO nhóm kèm teacherId thì được; và
+      // quản lý cơ sở A tạo nhóm kèm một cô đang dạy ở cơ sở B là
+      // `setHomeroomTeacher` lặng lẽ gỡ cô khỏi các nhóm bên B.
+      if (chanNeuVanPhong(req, res, 'Phân công cô phụ trách nhóm')) return;
       const t = db.findUser(teacherId);
       if (!t || t.role !== 'teacher') return res.status(400).json({ error: 'Giáo viên không hợp lệ' });
+      const ngoai = db.classIdsOfTeacher(t.id).filter(cid => !duocChamNhom(req.user, cid));
+      if (ngoai.length) {
+        return res.status(403).json({
+          error: `Cô ${t.name} đang phụ trách nhóm ở cơ sở khác. `
+            + 'Phân công lại cô này cần tài khoản quản trị toàn hệ thống, '
+            + 'nếu không cô sẽ mất quyền ở cơ sở kia mà bên đó không hay biết.',
+        });
+      }
     }
     const school = db.school() || {};
     const rec = {
@@ -473,9 +487,17 @@ module.exports = (app) => {
     if (!Array.isArray(xin)) {
       return res.status(400).json({ error: 'Thiếu danh sách cô phụ trách nhóm' });
     }
+    // Cô có tài khoản đang KHOÁ (nghỉ thai sản, nghỉ dài ngày) nhưng ĐANG có
+    // sẵn trong nhóm thì được phép GIỮ trong danh sách — giữ không phải là
+    // thêm. Không nới chỗ này thì mọi lần lưu danh sách đều buộc phải gạt cô
+    // đang nghỉ ra, tức xoá dấu phân công của cô như một tác dụng phụ.
+    // THÊM MỚI một tài khoản khoá vào nhóm thì vẫn bị từ chối như cũ.
+    const dangCoSan = new Set(db.teacherIdsOfClass(cls.id));
     for (const id of xin) {
       const t = db.findUser(id);
-      if (!t || t.role !== 'teacher' || t.active === false) {
+      const laCoDangLam = t && t.role === 'teacher' && t.active !== false;
+      const laCoDangNghiCoSan = t && t.role === 'teacher' && dangCoSan.has(id);
+      if (!laCoDangLam && !laCoDangNghiCoSan) {
         return res.status(400).json({ error: 'Danh sách có người không phải giáo viên đang làm việc' });
       }
     }

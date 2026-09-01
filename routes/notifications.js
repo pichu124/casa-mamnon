@@ -130,14 +130,30 @@ module.exports = (app) => {
     // đúng số thao tác như trước.
     let nhomNhan = '';
     if (audience === 'class') {
-      const nhomCuaCo = nl.nhomCuaCo(req.user.id);
-      nhomNhan = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
-      if (!nhomNhan) {
-        return res.status(400).json({
-          error: nhomCuaCo.length > 1
-            ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm nhận thông báo'
-            : 'Tài khoản chưa gắn với nhóm lớp nào',
-        });
+      if (req.user.role === 'admin') {
+        // Quản trị (văn phòng cơ sở, ban giám hiệu) cũng gửi được cho MỘT
+        // nhóm. Trước vá, nhánh này rơi vào `nhomDangThaoTac` — hàm chỉ trả
+        // lời cho vai cô — nên mọi tài khoản quản trị nhận câu 400 "Tài khoản
+        // chưa gắn với nhóm lớp nào", một câu sai sự thật và không có lối ra.
+        // `canAccessClass` tự siết theo cơ sở: Cấp 3 chỉ gửi được nhóm của
+        // cơ sở mình.
+        nhomNhan = String((req.body || {}).classId || '');
+        if (!nhomNhan || !db.findClass(nhomNhan)) {
+          return res.status(400).json({ error: 'Vui lòng chọn nhóm nhận thông báo' });
+        }
+        if (!db.canAccessClass(req.user, nhomNhan)) {
+          return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+        }
+      } else {
+        const nhomCuaCo = nl.nhomCuaCo(req.user.id);
+        nhomNhan = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
+        if (!nhomNhan) {
+          return res.status(400).json({
+            error: nhomCuaCo.length > 1
+              ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm nhận thông báo'
+              : 'Tài khoản chưa gắn với nhóm lớp nào',
+          });
+        }
       }
     }
     const rec = {
@@ -155,12 +171,30 @@ module.exports = (app) => {
     res.status(201).json({ ...rec, readBy: [] });
   });
 
+  // Quản trị Cấp 3 chỉ sửa/thu hồi được thông báo TRONG CƠ SỞ MÌNH.
+  //
+  // `laChuBanGhi` trả lời "người gửi hoặc quản trị" — đúng cho vai cô, nhưng
+  // với quản trị nó không hỏi cơ sở, nên quản lý cơ sở A sửa và thu hồi được
+  // thông báo nhóm của cơ sở B. Thông báo gửi cả trường (audience = 'all')
+  // vẫn như cũ: nó gửi cho cả cơ sở mình nên không tính là "của cơ sở khác".
+  // `campusOfClass` đọc được cả nhóm đã đóng, nên thông báo của năm cũ không
+  // làm chốt này chặn nhầm Cấp 1.
+  function trongPhamViCoSo(user, n) {
+    if (!user || user.role !== 'admin') return true;   // vai cô: laChuBanGhi đã giữ
+    const pham = db.phamViCoSo(user);
+    if (pham === null || !n.audience || n.audience === 'all') return true;
+    return db.campusOfClass(n.audience) === pham;
+  }
+
   // Sửa lại một thông báo đã gửi. Chỉ người gửi hoặc quản trị.
   app.put('/api/notifications/:id', requireRole('teacher', 'admin'), (req, res) => {
     const n = db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [req.params.id]);
     if (!n || st.daThuHoi(BANG, n.id)) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
     if (!st.laChuBanGhi(req.user, n.createdBy)) {
       return res.status(403).json({ error: 'Chỉ người gửi hoặc quản trị mới sửa được thông báo này' });
+    }
+    if (!trongPhamViCoSo(req.user, n)) {
+      return res.status(403).json({ error: 'Thông báo này thuộc cơ sở khác' });
     }
     const patch = {};
     if (req.body.title !== undefined) {
@@ -189,6 +223,9 @@ module.exports = (app) => {
     if (!n) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
     if (!st.laChuBanGhi(req.user, n.createdBy)) {
       return res.status(403).json({ error: 'Chỉ người gửi hoặc quản trị mới thu hồi được thông báo này' });
+    }
+    if (!trongPhamViCoSo(req.user, n)) {
+      return res.status(403).json({ error: 'Thông báo này thuộc cơ sở khác' });
     }
     st.ghiThuHoi(BANG, n.id, req.user.id);
     db.audit(req.user.id, 'notification-withdraw', n.id, { title: n.title });
