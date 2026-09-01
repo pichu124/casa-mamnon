@@ -170,6 +170,11 @@ CREATE TABLE IF NOT EXISTS attendance_photo (
   PRIMARY KEY (studentId, date)
 );
 CREATE INDEX IF NOT EXISTS idx_att_photo_date ON attendance_photo(date);
+-- Tra theo tên tệp chạy MỖI LẦN một gia đình mở một tấm ảnh điểm danh
+-- (GET /api/attendance/anh/:file hỏi "ảnh này của bé nào" trước khi trả tệp).
+-- Không có chỉ mục là một lượt quét cả bảng cho mỗi tấm ảnh — bảng này mỗi bé
+-- mỗi ngày một dòng, một năm học 300 bé là ~60.000 dòng.
+CREATE INDEX IF NOT EXISTS idx_att_photo_file ON attendance_photo(file);
 
 -- ===== Xin phép nghỉ học =====
 CREATE TABLE IF NOT EXISTS leave_requests (

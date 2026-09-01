@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS dontra_nguoi (
   capNhatLuc TEXT
 );
 CREATE INDEX IF NOT EXISTS dontra_nguoi_theo_be ON dontra_nguoi(studentId);
+-- Tra "ảnh này của ai" theo tên tệp — chạy mỗi lần mở một ảnh người đón,
+-- đúng giờ cao điểm trả bé. Không có chỉ mục là quét cả bảng mỗi tấm.
+CREATE INDEX IF NOT EXISTS dontra_nguoi_theo_anh ON dontra_nguoi(anh);
 
 -- Uỷ quyền một lần. HUỶ chứ không xoá, cùng lý do trên: cô cần thấy được
 -- "có uỷ quyền nhưng đã bị gia đình huỷ", không phải một khoảng trống.
@@ -51,6 +54,8 @@ CREATE TABLE IF NOT EXISTS dontra_uyquyen (
   taoLuc    TEXT
 );
 CREATE INDEX IF NOT EXISTS dontra_uyquyen_theo_be ON dontra_uyquyen(studentId, tuNgay);
+-- Cùng lý do với dontra_nguoi_theo_anh: đường ảnh tra cả hai bảng theo tệp.
+CREATE INDEX IF NOT EXISTS dontra_uyquyen_theo_anh ON dontra_uyquyen(anh);
 
 -- SỔ TRẢ BÉ.
 --

@@ -56,6 +56,12 @@ CREATE TABLE IF NOT EXISTS hanhtrinh_quansat (
 );
 CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_theo_be ON hanhtrinh_quansat(studentId, ngay DESC);
 CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_theo_co ON hanhtrinh_quansat(coGhi, ngay DESC);
+-- Hai truy vấn chạy thường xuyên chưa có chỉ mục đỡ:
+--   • tra "ảnh này của quan sát nào" mỗi lần một gia đình mở một tấm ảnh
+--     (WHERE anh = ?);
+--   • gom các ghi nhanh đã dùng trong ngày (WHERE ngay = ? đọc ghiNhanhId).
+CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_theo_anh ON hanhtrinh_quansat(anh);
+CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_theo_ngay ON hanhtrinh_quansat(ngay);
 
 -- CHỦ ĐỀ TUẦN của một nhóm.
 --
