@@ -13,9 +13,9 @@
 
 | | |
 |---|---|
-| Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
+| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3091 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo lại 30/08/2026, sau đợt Đ85) |
+| Bộ kiểm thử | `npm test` **3768 bài** (đo 01/09/2026, sau Đ117), `npm run test:giao-dien` **526 bài** (đo 30/08 — Đ117 không đụng `public/`), FAIL 0 |
 | Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
@@ -24,6 +24,30 @@
 | Đợt soát nhiều tác nhân 30/08 | **đã đóng hết**: 21 phát hiện của vòng một, cộng 6 phát hiện bị cắt khỏi vòng một nay đã qua **vòng thẩm định thứ hai** (12 tác nhân, mỗi phát hiện hai người soát độc lập — 0 bị bác bỏ). Tất cả đã vá, Đ59 tới Đ77 |
 
 ---
+
+## 1b. Đợt mới nhất — 01/09/2026: rà soát toàn kho + 7 bản vá (Đ117)
+
+Anh yêu cầu *"review lại toàn bộ code và tối ưu"*. Tôi rà 17 hướng song song
+trên toàn kho, thu về **96 phát hiện**, tự kiểm chứng và **vá 16 cái nặng
+nhất** trong 7 commit (Đ117a–g), mỗi bản vá kèm bộ canh đã chạy thử trên bản
+chưa vá để xác nhận nó đỏ đúng chỗ. Đáng kể nhất:
+
+- **Gõ `/API/students` thay vì `/api/students` là đi vòng qua chốt phân
+  quyền chức vụ** — dựng lại được cảnh tài khoản Kế toán đọc 11 hồ sơ bé.
+  App 1 dính một phần, **đã ghi sổ nợ**.
+- Đường phân công cô đời cũ **xoá lịch sử "cô từng phụ trách nhóm"** của các
+  năm đã đóng, và có thể hạ nhầm cô chính của một nhóm đang hoạt động.
+- Gia đình bé đã rời trường (còn hạn 12 tháng) **bị ẩn ảnh của chính con
+  mình** với chính họ.
+- `npm run seed` từng gắn cứng `--force`: một lệnh gõ nhầm trên máy chủ thật
+  là **xoá sạch dữ liệu của trường**. Nay phải gõ chủ ý mới xoá được.
+
+**80 phát hiện còn lại chưa vá** — sổ đầy đủ kèm đề xuất thứ tự ở
+`docs/RA-SOAT-2026-09.md`. Bốn cái mức cao đều nằm ở giao diện (đợt này cố ý
+không đụng `public/`); vài cái cần anh quyết: tắt/gỡ các tính năng tiểu học
+còn sót (xe đưa đón, hạnh kiểm, thời khóa biểu, Cambridge — xe đưa đón đang
+lộ mã mọi bé trên tuyến cho phụ huynh), và phân hệ Học phí chưa có đường
+sửa/hủy một khoản thu tạo nhầm.
 
 ## 2. Đã làm gì trong đợt này
 
