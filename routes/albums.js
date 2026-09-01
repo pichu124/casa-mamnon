@@ -241,7 +241,10 @@ function locAnhChoNguoiXemNhieuNhom(nhom, user) {
   const thay = db.locAnhChoNguoiXemNhieuNhom(nhom, user);
   if (db.chucVu(user) !== 'marketing') return thay;
   const ra = {};
-  for (const k of Object.keys(thay)) ra[k] = db.locAnhChoTruyenThong(thay[k]);
+  // Bản LÔ, không phải bản từng dòng: Marketing thấy album TOÀN TRƯỜNG, mà
+  // `locAnhChoTruyenThong` hỏi hai câu cho mỗi ảnh + một câu cho mỗi bé —
+  // đúng cái N+1 mà Đ98 vừa dọn ở tầng dưới, tái sinh ngay tầng trên.
+  for (const k of Object.keys(thay)) ra[k] = db.locAnhChoTruyenThongNhieuAnh(thay[k]);
   return ra;
 }
 
