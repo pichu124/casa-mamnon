@@ -5,6 +5,7 @@
 //
 // Mật khẩu được sinh ngẫu nhiên và in ra một lần duy nhất. Người dùng buộc phải
 // đổi ngay khi đăng nhập lần đầu.
+const crypto = require('crypto');
 const db = require('../lib/db');
 const password = require('../lib/password');
 
@@ -34,7 +35,9 @@ if (db.findUserByUsername(username)) {
 
 const CHU = 'abcdefghjkmnpqrstuvwxyz';
 const SO = '23456789';
-const pick = (s) => s[Math.floor(Math.random() * s.length)];
+// `crypto.randomInt`, KHÔNG phải `Math.random`: đây là mật khẩu của tài khoản
+// quản trị THẬT, mà Math.random đoán trước được khi biết vài giá trị nó sinh.
+const pick = (s) => s[crypto.randomInt(s.length)];
 let matKhau = '';
 for (let i = 0; i < 6; i++) matKhau += pick(CHU);
 for (let i = 0; i < 4; i++) matKhau += pick(SO);

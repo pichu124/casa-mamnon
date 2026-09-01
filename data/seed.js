@@ -1187,7 +1187,9 @@ if (require.main === module) {
   if (process.argv.includes('--force') || db.isEmpty()) {
     generate();
   } else {
-    console.log('Cơ sở dữ liệu đã có dữ liệu. Dùng --force để xóa và tạo lại.');
+    console.log('Cơ sở dữ liệu đã có dữ liệu — không đụng gì cả.');
+    console.log('Muốn XÓA SẠCH và tạo lại dữ liệu mẫu (chạy `npm run backup` trước đã):');
+    console.log('  npm run seed -- --force');
   }
   db.close();
 }
