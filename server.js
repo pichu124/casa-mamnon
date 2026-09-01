@@ -48,7 +48,9 @@ app.use((req, res, next) => {
     res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   }
   // Không để trình duyệt hay proxy lưu lại dữ liệu riêng tư của học sinh.
-  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  // So bằng chữ thường: Express khớp route không phân biệt hoa/thường, nên
+  // `/API/...` vẫn trả dữ liệu — mà thiếu no-store thì proxy được phép cache nó.
+  if (req.path.toLowerCase().startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
