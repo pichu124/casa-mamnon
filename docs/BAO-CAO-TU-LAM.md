@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ118); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3785 bài** (đo 02/09/2026, sau Đ118), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ118 đụng `public/`), FAIL 0 |
+| Bộ kiểm thử | `npm test` **3797 bài** (đo 02/09/2026, sau Đ118q), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ118 đụng `public/`), FAIL 0 |
 | Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
@@ -28,11 +28,12 @@
 ## 1b-mới. Đợt mới nhất — 02/09/2026: đợt hai của cuộc rà soát, khép sổ (Đ118)
 
 Anh dặn *"khi đủ token làm hết phần còn lại"* — đợt này làm đúng điều đó: vá
-nốt **77 phát hiện** trong 15 commit (Đ118a–o). Kết sổ 96 phát hiện của cuộc
-rà soát: **93 đã vá, 1 bác bỏ khi kiểm chứng lại, 1 giữ theo thiết kế, 1 còn
-lại** cần thiết kế thêm (hai cô cùng lưu kế hoạch cả nhóm ghi đè lẫn nhau —
-cần máy chủ phát hiện xung đột, tôi không ghép việc đổi hình dạng API vào một
-đợt vá). Trạng thái từng dòng ghi ở `docs/RA-SOAT-2026-09.md`. Đáng kể nhất:
+nốt **78 phát hiện** trong 16 commit (Đ118a–q). Kết sổ 96 phát hiện của cuộc
+rà soát: **94 đã vá, 1 bác bỏ khi kiểm chứng lại, 1 giữ theo thiết kế — sổ
+đã khép, không còn dòng nào chờ**. Món cuối (hai cô cùng lưu kế hoạch cả
+nhóm ghi đè lẫn nhau) anh bảo làm nốt, đóng ở Đ118q bằng đúng cơ chế
+`capNhatLucGoc` của nhật ký ngày. Trạng thái từng dòng ghi ở
+`docs/RA-SOAT-2026-09.md`. Đáng kể nhất:
 
 - **Hai chỗ anh từng phải quyết, tôi đã làm theo hướng giữ dữ liệu**: Học phí
   nay có đường *thu hồi khoản thu* và *hủy xác nhận đã nộp* — đều bắt buộc ghi
