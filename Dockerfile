@@ -16,7 +16,10 @@ WORKDIR /app
 
 # Cài phụ thuộc trước để tận dụng bộ nhớ đệm khi chỉ đổi mã nguồn.
 COPY package*.json ./
-RUN npm ci --omit=dev || npm install --omit=dev
+# CHỈ npm ci, KHÔNG lùi về npm install: vế `|| npm install` nuốt mất lỗi
+# lockfile lệch, và ảnh chạy thật lặng lẽ mang một bộ phụ thuộc KHÁC bản đã
+# chạy kiểm thử. Lockfile lệch thì build phải ĐỎ để người sửa biết mà cập nhật.
+RUN npm ci --omit=dev
 
 COPY . .
 

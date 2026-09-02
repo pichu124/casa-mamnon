@@ -104,8 +104,16 @@ db.backup(tmp).then(() => {
   db.close();
 
   // Nén lại cho gọn: dữ liệu chữ nghĩa nén rất tốt, thường còn 1/5.
+  //
+  // GHI NGUYÊN TỬ: nén vào tệp .tmp rồi mới rename sang tên thật. Ghi thẳng
+  // vào tên .gz mà chết giữa chừng (mất điện, đầy đĩa) là để lại một bản .gz
+  // CỤT mang tên hợp lệ — vòng đời dọn 7 ngày / 4 tuần đếm nó như một bản sao
+  // thật và xoá mất bản tốt cùng khe, còn restore thì tới lúc cần mới vỡ lẽ.
+  // rename trên cùng một ổ đĩa là thao tác nguyên tử của hệ tệp.
   const raw = fs.readFileSync(tmp);
-  fs.writeFileSync(dich, zlib.gzipSync(raw, { level: 9 }));
+  const dichTam = `${dich}.tmp`;
+  fs.writeFileSync(dichTam, zlib.gzipSync(raw, { level: 9 }));
+  fs.renameSync(dichTam, dich);
   fs.unlinkSync(tmp);
 
   console.log(`  ${path.basename(dich)}  ${mb(fs.statSync(dich).size)} (gốc ${mb(raw.length)})`);
@@ -117,6 +125,10 @@ db.backup(tmp).then(() => {
     fs.mkdirSync(anhDir, { recursive: true });
     let moi = 0, tongCu = 0;
     for (const f of fs.readdirSync(UPLOAD_DIR)) {
+      // Tệp .tmp là ảnh ĐANG TẢI DỞ của lib/uploads.js — chép nó vào kho bản
+      // sao là lưu vĩnh viễn một tệp cụt không ai đọc được, và mỗi lần sao lưu
+      // trúng giờ cô đang đăng ảnh lại thêm một tệp rác.
+      if (f.endsWith('.tmp')) continue;
       const src = path.join(UPLOAD_DIR, f);
       const dst = path.join(anhDir, f);
       if (fs.existsSync(dst)) { tongCu++; continue; }

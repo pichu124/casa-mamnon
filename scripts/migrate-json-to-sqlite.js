@@ -33,6 +33,19 @@ try {
   process.exit(1);
 }
 
+// CƠ SỞ DỮ LIỆU ĐANG CÓ DỮ LIỆU THÌ DỪNG LẠI HỎI, KHÔNG GHI ĐÈ IM LẶNG.
+//
+// Script này là đường một chiều của app 1 đời cũ — app 2 không bao giờ chạy
+// nó — nhưng nó vẫn nằm trong kho, vẫn gõ được, và bản cũ ghi đè TOÀN BỘ cơ
+// sở dữ liệu hiện có không một câu hỏi. Một lệnh gõ nhầm trên máy chủ thật là
+// mất sạch, cùng cái hố với `npm run seed --force` đã lấp ở Đ117g.
+if (!db.isEmpty() && !process.argv.includes('--force')) {
+  console.error('Cơ sở dữ liệu đang CÓ DỮ LIỆU — chuyển đổi sẽ GHI ĐÈ toàn bộ.');
+  console.error('Nếu đúng là muốn vậy: chạy `npm run backup` trước, rồi thêm --force:');
+  console.error('  node scripts/migrate-json-to-sqlite.js --force');
+  process.exit(1);
+}
+
 // Mật khẩu đời cũ có thể còn ở dạng đọc được — băm lại trong lúc chuyển.
 const password = require('../lib/password');
 let rehashed = 0;

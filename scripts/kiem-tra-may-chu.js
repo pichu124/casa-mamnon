@@ -29,7 +29,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const tls = require('tls');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const GOC = path.join(__dirname, '..');
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(GOC, 'data');
@@ -273,14 +273,27 @@ kiem('Bản sao lưu mở ra được', () => {
     boQua('Bản sao lưu mở ra được', 'chưa có bản sao lưu nào để thử');
     return;
   }
-  try {
-    execFileSync(process.execPath, [path.join(GOC, 'scripts', 'restore.js'), '--kiem-tra'],
-      { cwd: GOC, env: { ...process.env, DATA_DIR }, stdio: ['ignore', 'pipe', 'pipe'] });
-    dat('Bản sao lưu mở ra được', 'giải nén và đọc thử thành công — bản sao dùng được thật');
-  } catch (err) {
+  // KHÔNG NUỐT CẢNH BÁO. `restore.js --kiem-tra` thoát mã 0 cả khi nó đang
+  // KÊU — "không kèm một tấm ảnh nào", "không có phân công cô nào" — vì mở
+  // được và mở được ĐỦ là hai chuyện khác nhau. Bản cũ chỉ nhìn mã thoát nên
+  // in ĐẠT lên một bản sao đã mất sạch ảnh; người vận hành đọc dòng ĐẠT đó và
+  // yên tâm cho tới đúng cái ngày cần khôi phục thật.
+  const kq = spawnSync(process.execPath, [path.join(GOC, 'scripts', 'restore.js'), '--kiem-tra'],
+    { cwd: GOC, env: { ...process.env, DATA_DIR }, encoding: 'utf8' });
+  if (kq.status !== 0) {
     canSua('Bản sao lưu mở ra được',
       'bản sao lưu mới nhất KHÔNG mở được — coi như đang không có bản sao lưu nào',
       `Chạy "DATA_DIR=${DATA_DIR} npm run restore:check" để xem lỗi cụ thể, rồi sao lưu lại ngay.`);
+  } else {
+    const canhBao = `${kq.stdout || ''}\n${kq.stderr || ''}`.split('\n')
+      .map(l => l.trim()).filter(l => l.includes('⚠'));
+    if (canhBao.length) {
+      canSua('Bản sao lưu mở ra được',
+        `bản sao MỞ ĐƯỢC nhưng restore:check đang cảnh báo: ${canhBao[0].replace(/^⚠️?\s*/, '').slice(0, 140)}`,
+        `Chạy "DATA_DIR=${DATA_DIR} npm run restore:check" để xem đầy đủ ${canhBao.length} cảnh báo.`);
+    } else {
+      dat('Bản sao lưu mở ra được', 'giải nén và đọc thử thành công — bản sao dùng được thật');
+    }
   }
 });
 
