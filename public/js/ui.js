@@ -90,21 +90,32 @@ window.UI = (() => {
   }
 
   function avatar(av, size = 42) {
-    const bg = av && av.bg ? av.bg : '#8899aa';
+    // `bg` và `emoji` là dữ liệu trong hồ sơ người dùng, đi thẳng vào HTML.
+    // esc() chặn được ngoặc, nhưng một chuỗi style vẫn bịa thêm được thuộc
+    // tính khác ngay trong dấu nháy — nên bg chỉ nhận ĐÚNG DẠNG MÀU (#hex hoặc
+    // tên màu), sai dạng thì về màu mặc định. Emoji thì bọc esc như mọi chữ.
+    const bgTho = av && av.bg ? String(av.bg) : '';
+    const bg = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{1,25})$/.test(bgTho) ? bgTho : '#8899aa';
     const emoji = av && av.emoji ? av.emoji : '👤';
-    return `<span class="avatar" style="width:${size}px;height:${size}px;background:${esc(bg)};font-size:${Math.round(size * 0.55)}px">${emoji}</span>`;
+    return `<span class="avatar" style="width:${size}px;height:${size}px;background:${bg};font-size:${Math.round(size * 0.55)}px">${esc(emoji)}</span>`;
   }
 
   function emptyState(emoji, text) {
     return `<div class="empty-state"><div class="es-icon">${emoji}</div><p>${esc(text)}</p></div>`;
   }
 
+  // Mã (id) nhét vào CHUỖI JS bên trong thuộc tính onclick. esc() lo cho HTML
+  // chứ không lo cho chuỗi JS: &#39; qua trình phân tích thuộc tính lại thành
+  // dấu nháy thật và thoát được ra ngoài chuỗi. Mã trong app này chỉ gồm chữ,
+  // số và _ . - nên lọc trắng là đủ, không cần thoát.
+  const maAnToan = (v) => String(v ?? '').replace(/[^A-Za-z0-9_.-]/g, '');
+
   // Chip chọn con (phụ huynh nhiều con). Tự render lại view hiện tại khi đổi.
   function studentBar() {
     const students = App.state.students || [];
     if (App.state.user.role !== 'parent' || students.length < 2) return '';
     return `<div class="student-bar">${students.map(s => `
-      <button class="student-chip ${s.id === App.state.currentStudentId ? 'active' : ''}" onclick="App.setStudent('${esc(s.id)}')">
+      <button class="student-chip ${s.id === App.state.currentStudentId ? 'active' : ''}" onclick="App.setStudent('${maAnToan(s.id)}')">
         ${avatar(s.avatar, 30)}<span>${esc(s.name)}</span>
       </button>`).join('')}</div>`;
   }
@@ -117,6 +128,13 @@ window.UI = (() => {
   //
   // Để ở đây thay vì chép vào bốn màn: một quy tắc chép bốn lần là một quy tắc
   // sẽ trôi khỏi nhau ở lần sửa thứ hai.
+  // Dòng "nhãn – giá trị" trong hộp thoại chi tiết. BỐN màn từng tự chép đúng
+  // một chuỗi HTML này (Hồ sơ, Xin nghỉ, Sức khỏe, Điểm danh) — bản chép thứ
+  // năm là lúc chúng bắt đầu trôi lệch nhau, nên gom về một chỗ.
+  function dongThongTin(label, value) {
+    return `<div class="list-row"><div class="row-main"><div class="row-sub">${esc(label)}</div><div class="row-title">${esc(value ?? '—')}</div></div></div>`;
+  }
+
   function noiTenNhom(ds) {
     const ten = (ds || []).map(n => (typeof n === 'string' ? n : n && n.name)).filter(Boolean);
     if (!ten.length) return '';
@@ -269,5 +287,6 @@ window.UI = (() => {
     pageHeader, avatar, emptyState, studentBar, thanhChonBe, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, RATING, DOW,
     nenAnh,
+    maAnToan, dongThongTin,
   };
 })();
