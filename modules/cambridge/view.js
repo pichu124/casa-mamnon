@@ -126,6 +126,13 @@ App.views.cambridge = {
   moSoan(id) {
     const d = this._data;
     const b = id ? (d.bai || []).find(x => x.id === id) : null;
+    // Bấm "Sửa" mà không tìm lại được bài (danh sách vừa vẽ lại, dữ liệu chưa
+    // về kịp) thì trước đây hộp thoại mở ra TRẮNG TRƠN như soạn mới — cô gõ
+    // đè rồi bấm Lưu là tạo một bài mới thay vì sửa bài cũ. Dừng và nói rõ.
+    if (id && !b) {
+      UI.toast('Chưa mở được bài này để sửa — cô thử tải lại danh sách nhé', 'error');
+      return;
+    }
     this._anhMoi = null;
     UI.modal(`
       <div class="field">

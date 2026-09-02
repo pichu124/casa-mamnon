@@ -265,8 +265,10 @@ App.views.attendance = {
       </div>`;
   },
 
+  // Bản dùng chung nằm ở UI.dongThongTin; giữ tên cũ để chỗ gọi khỏi đổi.
+  // Khác biệt duy nhất: giá trị trống nay hiện "—" thay vì một ô trắng.
   detailRow(label, value) {
-    return `<div class="list-row"><div class="row-main"><div class="row-sub">${UI.esc(label)}</div><div class="row-title">${UI.esc(value)}</div></div></div>`;
+    return UI.dongThongTin(label, value);
   },
 
   changeMonth(delta) {

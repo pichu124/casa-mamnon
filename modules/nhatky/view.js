@@ -118,12 +118,36 @@ App.views.nhatky = {
     return o;
   },
 
+  // Ô cô ĐÃ THẬT SỰ GÕ trong phiên này, theo từng (nhóm, ngày). Nháp chỉ giữ
+  // và điền lại những ô đó: các ô còn lại trên màn là giá trị máy chủ TẠI THỜI
+  // ĐIỂM CHỤP — chụp cả chúng vào nháp rồi điền lại là lấy bản cũ ghi đè bản
+  // mới cô khác vừa lưu, đúng thứ lời nhắc bên dưới hứa sẽ không làm.
+  _oDaGo: {},
+
+  oDaGoCua(khoa) {
+    if (!this._oDaGo[khoa]) this._oDaGo[khoa] = new Set();
+    return this._oDaGo[khoa];
+  },
+
   luuNhap() {
     try {
-      const o = this.ganhO();
+      const khoa = this.khoaNhap(this._classId, this._ngay);
+      const goPhien = this.oDaGoCua(khoa);
+      if (!goPhien.size) return;   // phiên này chưa gõ gì thì đừng đụng nháp cũ
+      let cuu = null;
+      try { cuu = JSON.parse(localStorage.getItem(khoa) || 'null'); } catch (_) { cuu = null; }
+      const o = {};
+      // Phần phiên TRƯỚC còn giữ (app từng bị đóng giữa chừng): giữ nguyên giá
+      // trị đã chụp — màn hình bây giờ đang hiện giá trị máy chủ, không phải
+      // thứ cô đã gõ hôm đó.
+      if (cuu && cuu.o && Array.isArray(cuu.go)) {
+        for (const k of cuu.go) if (k in cuu.o) o[k] = cuu.o[k];
+      }
+      // Phần phiên NÀY: lấy từ màn hình, đè lên bản cũ của chính ô đó.
+      const tatCa = this.ganhO();
+      for (const k of goPhien) if (k in tatCa) o[k] = tatCa[k];
       if (!Object.keys(o).length) return;
-      localStorage.setItem(this.khoaNhap(this._classId, this._ngay),
-        JSON.stringify({ luc: Date.now(), o }));
+      localStorage.setItem(khoa, JSON.stringify({ luc: Date.now(), o, go: Object.keys(o) }));
     } catch (_) { /* hết chỗ hay bị chặn: không phải lý do làm hỏng màn hình */ }
   },
 
@@ -151,7 +175,9 @@ App.views.nhatky = {
     const n = this.docNhap();
     if (!n) return;
     const dangCo = this.ganhO();
-    const khac = Object.keys(n.o).filter(k => k in dangCo && n.o[k] !== dangCo[k]);
+    // Nháp đời cũ (chưa ghi danh sách ô đã gõ) thì đành coi mọi ô là đã gõ.
+    const goSet = Array.isArray(n.go) ? new Set(n.go) : new Set(Object.keys(n.o));
+    const khac = Object.keys(n.o).filter(k => goSet.has(k) && k in dangCo && n.o[k] !== dangCo[k]);
     if (!khac.length) { this.xoaNhap(); return; }
 
     const dai = document.createElement('div');
@@ -176,9 +202,13 @@ App.views.nhatky = {
     else document.getElementById('view').appendChild(dai);
 
     document.getElementById('nk-nhap-dung').onclick = () => {
+      // Chỉ điền đúng những ô ĐÃ GÕ và đang khác — không quét cả nháp lên màn:
+      // phần còn lại của nháp là giá trị máy chủ lúc chụp, điền lại chúng là
+      // ghi đè thứ cô khác vừa lưu bằng một bản cũ.
+      const goPhien = this.oDaGoCua(this.khoaNhap(this._classId, this._ngay));
       for (const el of document.querySelectorAll('.nk-o')) {
         const k = `${el.dataset.be}|${el.dataset.truong}`;
-        if (k in n.o) el.value = n.o[k];
+        if (khac.includes(k)) { el.value = n.o[k]; goPhien.add(k); }
       }
       dai.remove();
       UI.toast('Đã điền lại phần cô nhập dở — nhớ bấm Lưu', 'success');
@@ -192,15 +222,24 @@ App.views.nhatky = {
   // Ghi nháp sau mỗi lần cô gõ, nhưng gom lại — gõ một chữ ghi một lần thì
   // localStorage bị đập liên tục trên đúng loại máy yếu mà trường đang dùng.
   ganGhiNhap() {
+    // Gắn ĐÚNG MỘT LẦN: phần tử #view sống xuyên các lần vẽ lại màn hình,
+    // trước đây mỗi lần mở màn là chồng thêm một cặp bộ nghe với đồng hồ hẹn
+    // riêng — gõ một chữ là ghi nháp N lần trên đúng loại máy yếu đang né.
+    if (this._daGanNhap) return;
+    this._daGanNhap = true;
     const view = document.getElementById('view');
     if (!view) return;
     let hen = null;
-    const dat = () => {
+    const danhDau = (e) => {
+      if (!e.target.classList.contains('nk-o')) return;
+      // Ghi nhớ ô này là ô CÔ GÕ — nháp chỉ giữ những ô như vậy.
+      this.oDaGoCua(this.khoaNhap(this._classId, this._ngay))
+        .add(`${e.target.dataset.be}|${e.target.dataset.truong}`);
       clearTimeout(hen);
       hen = setTimeout(() => this.luuNhap(), 500);
     };
-    view.addEventListener('input', (e) => { if (e.target.classList.contains('nk-o')) dat(); });
-    view.addEventListener('change', (e) => { if (e.target.classList.contains('nk-o')) dat(); });
+    view.addEventListener('input', danhDau);
+    view.addEventListener('change', danhDau);
   },
 
   async render(root) {
@@ -561,6 +600,12 @@ App.views.nhatky = {
 
     root.innerHTML = `
       ${UI.pageHeader('Nhật ký ngày')}
+      ${
+        // Nhà hai con phải có chỗ đổi con, và màn phải GHI TÊN đang xem nhật
+        // ký của bé nào — trước đây mở ra là nhật ký của bé đầu danh sách,
+        // không một dòng nào nói đó là ai.
+        UI.studentBar()}${UI.thanhChonBe()}
+      <div class="muted small" style="margin:-2px 0 10px">Nhật ký của bé <b>${UI.esc(be.name)}</b></div>
       ${(d.ngayCo || []).length
         ? (d.ngayCo || []).map(n => this.theNgay(n, d.be)).join('')
         : UI.emptyState('📔', 'Hai tuần vừa rồi chưa có ngày nào cô ghi nhật ký cho con.')}`;

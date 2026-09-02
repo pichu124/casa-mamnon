@@ -67,13 +67,17 @@ App.views.admin = {
 
     const body = document.getElementById('admin-body');
     try {
-      if (this._tab === 'coso') return this.tabCoSo(body);
-      if (this._tab === 'nhaplieu') return this.tabNhapLieu(body);
-      if (this._tab === 'giaovien') return this.tabGiaoVien(body);
-      if (this._tab === 'tinhnang') return this.tabTinhNang(body);
-      if (this._tab === 'namhoc') return this.tabNamHoc(body);
-      if (this._tab === 'nhatky') return this.tabNhatKy(body);
-      return this.tabTongQuan(body);
+      // PHẢI await: các tab đều là hàm async, `return this.tabCoSo(body)` là
+      // trả promise ra ngoài mà không chờ — lỗi của tab không bao giờ rơi vào
+      // catch này, mà rơi về App.route() và bị vẽ đè "Có lỗi xảy ra" lên CẢ
+      // trang, mất luôn dải tab để bấm sang tab khác còn chạy được.
+      if (this._tab === 'coso') return await this.tabCoSo(body);
+      if (this._tab === 'nhaplieu') return await this.tabNhapLieu(body);
+      if (this._tab === 'giaovien') return await this.tabGiaoVien(body);
+      if (this._tab === 'tinhnang') return await this.tabTinhNang(body);
+      if (this._tab === 'namhoc') return await this.tabNamHoc(body);
+      if (this._tab === 'nhatky') return await this.tabNhatKy(body);
+      return await this.tabTongQuan(body);
     } catch (err) {
       body.innerHTML = UI.emptyState('😥', err.message);
     }
@@ -376,7 +380,10 @@ App.views.admin = {
       await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/campus`, { campusId });
       UI.toast(campusId ? 'Đã gắn nhóm vào cơ sở' : 'Đã gỡ nhóm khỏi cơ sở', 'success');
       App.route();
-    } catch (err) { UI.toast(err.message, 'error'); }
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      App.route();   // vẽ lại để ô chọn quay về đúng cơ sở thật, không đứng ở lựa chọn bị từ chối
+    }
   },
 
   async themLop() {

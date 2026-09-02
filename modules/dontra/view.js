@@ -177,6 +177,12 @@ App.views.dontra = {
     ];
     const cu = b.daTra;
     const gio = (cu && cu.luc) || new Date().toTimeString().slice(0, 5);
+    // Bản ghi cũ có thể trỏ tới người KHÔNG còn trong danh sách chọn: uỷ quyền
+    // chỉ sống trong hôm đó, người thường xuyên thì gỡ được. Trước đây các
+    // trường hợp ấy rơi im lặng về lựa chọn ĐẦU TIÊN — cô mở sổ ra chỉ để sửa
+    // giờ đón, bấm Ghi, và tên người đón đổi theo mà không ai nhận ra. Máy chủ
+    // nhận 'giu': giữ nguyên người như đã ghi.
+    const cuMoCoi = !!cu && cu.nguonLoai !== 'khac' && !chon.some(c => c.id === cu.nguonId);
 
     UI.modal(`
       <div class="list-row" style="border-bottom:none;padding-top:0">
@@ -187,6 +193,7 @@ App.views.dontra = {
       <div class="field">
         <label>Người đón</label>
         <select id="dt-ai">
+          ${cuMoCoi ? `<option value="giu|" selected>Giữ như đã ghi — ${UI.esc(cu.nguoiDon)}</option>` : ''}
           ${chon.map(c => `<option value="${UI.esc(c.loai)}|${UI.esc(c.id)}"
             ${cu && cu.nguonId === c.id ? 'selected' : ''}>${UI.esc(c.ten)}</option>`).join('')}
           <option value="khac|" ${cu && cu.nguonLoai === 'khac' ? 'selected' : ''}>Người khác — ghi rõ tên bên dưới</option>

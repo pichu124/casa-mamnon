@@ -180,6 +180,10 @@ App.views.messages = {
     if (!ta) return;
     const text = ta.value.trim();
     if (!text) return;
+    // Mạng 4G chậm thì "Gửi" đi mất một hai giây — bấm thêm lần nữa trong lúc
+    // đó là CÙNG MỘT câu được gửi hai lần. Khoá lại cho tới khi lượt trước về.
+    if (this._dangGui) return;
+    this._dangGui = true;
     try {
       const m = await API.post('/api/messages/' + encodeURIComponent(this._convId), { text });
       this.appendMessages([m]);
@@ -188,6 +192,7 @@ App.views.messages = {
       ta.focus();
       App.refreshBadges();
     } catch (err) { UI.toast(err.message, 'error'); }
+    finally { this._dangGui = false; }
   },
 
   // MỞ PHÒNG CHỈ NẠP CỬA SỔ TIN MỚI NHẤT, NÊN PHẢI CÓ ĐƯỜNG ĐI NGƯỢC.

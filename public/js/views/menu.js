@@ -59,8 +59,21 @@ App.views.menu = {
     await this.load();
   },
 
+  // Đang soạn cả tuần mà chuyển tuần / chuyển bếp là màn hình vẽ lại — mất
+  // sạch phần đã gõ, không hỏi một câu. Cờ này bật khi màn soạn dựng lên và
+  // tắt khi màn xem quay lại; mọi đường rời màn soạn đi qua một câu hỏi.
+  _dangSoanTuan: false,
+
+  boSoanNeuDongY() {
+    if (!this._dangSoanTuan) return true;
+    const dongY = confirm('Đang soạn dở thực đơn cả tuần — rời đi là mất phần đã gõ chưa lưu.\n\nVẫn rời đi?');
+    if (dongY) this._dangSoanTuan = false;
+    return dongY;
+  },
+
   async setWeek(w) {
     if (this.week === w) return;
+    if (!this.boSoanNeuDongY()) return;
     this.week = w;
     const seg = document.getElementById('menu-seg');
     if (seg) Array.from(seg.children).forEach((btn, i) => btn.classList.toggle('active', i === w));
@@ -70,6 +83,7 @@ App.views.menu = {
   async load() {
     const zone = document.getElementById('menu-days');
     if (!zone) return;
+    this._dangSoanTuan = false;
     zone.innerHTML = '<div class="loading">Đang tải</div>';
     try {
       const data = await API.get(this.duongDanTuan());
@@ -123,6 +137,7 @@ App.views.menu = {
           </div>
         </div>`;
       document.getElementById('menu-chon-coso').onchange = (e) => {
+        if (!this.boSoanNeuDongY()) { e.target.value = this._coSo; return; }
         this._coSo = e.target.value;
         this.load();
       };
@@ -265,6 +280,7 @@ App.views.menu = {
   },
 
   veSoanTuan(zone) {
+    this._dangSoanTuan = true;
     zone.innerHTML = `
       <div class="card">
         <div class="muted small" style="line-height:1.6">
@@ -281,7 +297,7 @@ App.views.menu = {
         <button class="btn primary" id="td-luu-tuan">${UI.icon('check', 18)} Lưu cả tuần</button>
       </div>`;
 
-    document.getElementById('td-huy').onclick = () => this.load();
+    document.getElementById('td-huy').onclick = () => { if (this.boSoanNeuDongY()) this.load(); };
     document.getElementById('td-luu-tuan').onclick = () => this.luuCaTuan();
     for (const b of zone.querySelectorAll('[data-chep-tu]')) {
       b.onclick = () => this.chepNgayTruoc(Number(b.dataset.chepTu));
@@ -414,6 +430,7 @@ App.views.menu = {
 
   // Chép tuần liền trước vào tuần đang xem — chỉ đổ vào ngày còn trống.
   async chepTuanTruoc() {
+    if (!this.boSoanNeuDongY()) return;
     try {
       const kq = await API.post('/api/menu/copy-week',
         { week: this.week, campusId: this._coSo || '' });

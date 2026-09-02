@@ -45,7 +45,7 @@ App.views.health = {
       ${UI.pageHeader('Sức khỏe của bé', { action: { id: 'btn-new-health', label: 'Thêm ghi nhận', icon: 'plus' } })}
       <div class="field">
         <select id="ht-student" onchange="App.views.health.changeStudent(this.value)">
-          ${students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === this._sid ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
+          ${students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === this._sid ? 'selected' : ''}>${UI.esc(s.name)}${s.className ? ` · ${UI.esc(s.className)}` : ''}</option>`).join('')}
         </select>
       </div>
       ${this.latestCard(data.latestCheckup)}
@@ -71,7 +71,11 @@ App.views.health = {
         </div>
         <div class="muted small mt-8 flex">
           <span>Khám ngày ${UI.esc(UI.fmtDate(lc.date, { weekday: false }))}</span>
-          ${lc.bmiNote ? UI.badge(lc.bmiNote, 'green') : ''}
+          ${
+            // Huy hiệu TRUNG TÍNH: bmiNote là chữ cô/y tế tự ghi — "thiếu cân
+            // so với tháng tuổi" mà khoác màu xanh "tốt" là màn hình nói ngược
+            // với lời người ghi.
+            lc.bmiNote ? UI.badge(lc.bmiNote, 'gray') : ''}
         </div>
       </div>`;
   },
@@ -186,7 +190,7 @@ App.views.health = {
       <div class="field">
         <label>Bé</label>
         <select id="ht-c-student">
-          ${students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === this._sid ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
+          ${students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === this._sid ? 'selected' : ''}>${UI.esc(s.name)}${s.className ? ` · ${UI.esc(s.className)}` : ''}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -350,7 +354,8 @@ App.views.health = {
   },
 };
 
-// Dòng thông tin nhãn – giá trị trong modal chi tiết y tế.
+// Dòng thông tin nhãn – giá trị: bản dùng chung nằm ở UI.dongThongTin,
+// giữ tên cũ để các chỗ gọi trong tệp này khỏi đổi.
 function infoRowHealth(label, value) {
-  return `<div class="list-row"><div class="row-main"><div class="row-sub">${UI.esc(label)}</div><div class="row-title">${UI.esc(value ?? '—')}</div></div></div>`;
+  return UI.dongThongTin(label, value);
 }

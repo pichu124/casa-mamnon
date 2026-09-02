@@ -51,8 +51,16 @@ App.views.dashboard = {
       </div>`;
 
     document.getElementById('year-select').onchange = (e) => {
-      App.state.year = e.target.value;
-      UI.toast(`Đang xem năm học ${e.target.value}`);
+      // Ô này TỪNG nói dối: đổi `App.state.year` rồi báo "Đang xem năm học X"
+      // trong khi không màn nào đổi theo cả — còn màn Báo cáo thì tính nhầm
+      // học kỳ vì tin vào con số đó. Dữ liệu năm cũ nằm ở màn "Năm học trước";
+      // đưa người dùng tới đúng đó, và con số năm hiện hành giữ nguyên.
+      const nam = e.target.value;
+      if (school && nam !== school.currentYear) {
+        e.target.value = school.currentYear;
+        if (App.moduleEnabled('namhoccu')) App.navigate('#/namhoccu');
+        else UI.toast('Dữ liệu năm cũ xem ở phần "Năm học trước" — nhờ nhà trường bật phần này giúp nhé');
+      }
     };
   },
 

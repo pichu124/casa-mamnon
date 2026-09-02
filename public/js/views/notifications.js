@@ -42,10 +42,13 @@ App.views.notifications = {
   // Vẽ lại danh sách từ dữ liệu đã tải (không gọi lại API).
   paint() {
     const root = this._root;
-    const isTeacher = App.state.user.role === 'teacher';
+    // Văn phòng cũng tạo được thông báo: máy chủ đã nhận vai admin từ lâu
+    // (POST /api/notifications requireRole('teacher','admin')), chỉ thiếu mỗi
+    // cái nút — văn phòng phải mượn tài khoản cô để gửi thông báo toàn trường.
+    const taoDuoc = App.state.user.role === 'teacher' || App.state.user.role === 'admin';
     const unread = this._list.filter(n => !n.read).length;
     root.innerHTML = `
-      ${UI.pageHeader('Thông báo', isTeacher ? { action: { id: 'btn-new-notif', label: 'Tạo thông báo', icon: 'plus' } } : {})}
+      ${UI.pageHeader('Thông báo', taoDuoc ? { action: { id: 'btn-new-notif', label: 'Tạo thông báo', icon: 'plus' } } : {})}
       ${unread ? `
         <div class="flex" style="margin-bottom:10px">
           <span class="muted small">${unread} thông báo chưa đọc</span>
@@ -59,7 +62,7 @@ App.views.notifications = {
         <button class="btn outline block mt-14" id="btn-tb-cu-hon">
           ${UI.icon('plus', 16)} Xem thông báo cũ hơn
         </button>` : ''}`;
-    if (isTeacher) document.getElementById('btn-new-notif').onclick = () => this.openCreate();
+    if (taoDuoc) document.getElementById('btn-new-notif').onclick = () => this.openCreate();
     const btnAll = document.getElementById('btn-read-all');
     if (btnAll) btnAll.onclick = () => this.readAll();
     const themNua = document.getElementById('btn-tb-cu-hon');
@@ -130,9 +133,17 @@ App.views.notifications = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  // ---- Giáo viên: tạo thông báo mới ----
+  // ---- Cô và văn phòng: tạo thông báo mới ----
   openCreate() {
     this._aud = 'class';
+    // Cô thấy nhóm mình phụ trách; văn phòng thấy các nhóm của trường (máy
+    // chủ tự siết theo cơ sở khi gửi). Cô MỘT nhóm thì khỏi phải chọn — máy
+    // chủ tự hiểu; từ hai nhóm trở lên, và văn phòng, thì phải nói rõ nhóm
+    // nào — trước đây máy chủ hỏi "chọn nhóm giúp" mà màn hình không có ô nào
+    // để chọn cả.
+    const nhom = App.nhomCuaCo();
+    const laVanPhong = App.state.user.role === 'admin';
+    const canChonNhom = laVanPhong || nhom.length > 1;
     UI.modal(`
       <div class="field">
         <label>Tiêu đề</label>
@@ -155,10 +166,17 @@ App.views.notifications = {
       <div class="field">
         <label>Phạm vi gửi</label>
         <div class="seg" id="nt-aud" style="margin-bottom:0">
-          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">Nhóm mình</button>
+          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Nhóm mình'}</button>
           <button data-aud="all" onclick="App.views.notifications.setAud('all')">Toàn trường</button>
         </div>
       </div>
+      ${canChonNhom ? `
+      <div class="field" id="nt-lop-o">
+        <label>Gửi cho nhóm</label>
+        <select id="nt-lop">
+          ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
+        </select>
+      </div>` : ''}
       <button class="btn primary block" onclick="App.views.notifications.submitCreate()">${UI.icon('send', 18)} Gửi thông báo</button>
     `, 'Tạo thông báo');
   },
@@ -166,6 +184,9 @@ App.views.notifications = {
   setAud(aud) {
     this._aud = aud;
     document.querySelectorAll('#nt-aud button').forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
+    // Ô chọn nhóm chỉ có nghĩa khi gửi cho một nhóm.
+    const o = document.getElementById('nt-lop-o');
+    if (o) o.style.display = aud === 'class' ? '' : 'none';
   },
 
   async submitCreate() {
@@ -174,8 +195,11 @@ App.views.notifications = {
     const category = document.getElementById('nt-cat').value;
     if (!title) return UI.toast('Vui lòng nhập tiêu đề thông báo', 'error');
     if (!body) return UI.toast('Vui lòng nhập nội dung thông báo', 'error');
+    const goi = { title, body, category, audience: this._aud };
+    const lop = document.getElementById('nt-lop');
+    if (this._aud === 'class' && lop) goi.classId = lop.value;
     try {
-      await API.post('/api/notifications', { title, body, category, audience: this._aud });
+      await API.post('/api/notifications', goi);
       UI.toast('Đã gửi thông báo', 'success');
       UI.closeModal();
       App.route();

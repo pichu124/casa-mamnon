@@ -294,7 +294,8 @@ App.views.student = {
   },
 };
 
-// Dòng thông tin nhãn – giá trị dùng chung.
+// Dòng thông tin nhãn – giá trị: bản dùng chung nằm ở UI.dongThongTin,
+// giữ tên cũ để các chỗ gọi trong tệp này khỏi đổi.
 function infoRow(label, value) {
-  return `<div class="list-row"><div class="row-main"><div class="row-sub">${UI.esc(label)}</div><div class="row-title">${UI.esc(value ?? '—')}</div></div></div>`;
+  return UI.dongThongTin(label, value);
 }

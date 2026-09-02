@@ -244,8 +244,14 @@ App.views.albums = {
     const p = a.photos[index];
     UI.modal(`
       ${p.file
-        ? `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || '')}"
-             style="width:100%;max-height:66vh;object-fit:contain;border-radius:14px;background:var(--bg-2)">`
+        // Video phóng to phải là <video>: nhét vào <img> là gia đình bấm vào
+        // đoạn quay của con chỉ thấy một ô ảnh vỡ. Lưới bên ngoài đã phân
+        // biệt đúng (this.laVideo) — màn phóng to dùng cùng một phép thử.
+        ? (this.laVideo(p)
+          ? `<video src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" controls playsinline
+               style="width:100%;max-height:66vh;border-radius:14px;background:#000"></video>`
+          : `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || '')}"
+             style="width:100%;max-height:66vh;object-fit:contain;border-radius:14px;background:var(--bg-2)">`)
         : `<div style="height:260px;border-radius:14px;background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])});display:flex;align-items:center;justify-content:center;font-size:90px">${UI.esc(p.emoji)}</div>`}
       ${p.caption ? `<div class="center mt-14" style="font-weight:700">${UI.esc(p.caption)}</div>` : ''}
       <div class="muted small center mt-8">${UI.esc(a.title)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}</div>

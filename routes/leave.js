@@ -57,6 +57,14 @@ function soNgayHocTrongDon(from, to) {
   return dem;
 }
 
+// Ghi chú hoàn tiền là ghi chú NỘI BỘ — hộp thoại duyệt ghi rõ "Ghi chú nội
+// bộ về tiền ăn", văn phòng viết cho văn phòng và cô đọc. Gia đình vẫn được
+// thấy CÓ hoàn hay không và mấy ngày; lời nội bộ thì không đi ra ngoài.
+function anGhiChuNoiBo(l, user) {
+  if (user.role !== 'parent' || !l.hoanTien) return l;
+  return { ...l, hoanTien: { ...l.hoanTien, ghiChu: '' } };
+}
+
 module.exports = (app) => {
   // Danh sách đơn xin phép người dùng được xem.
   // Phụ huynh: đơn của các con mình. Giáo viên: đơn của học sinh lớp chủ nhiệm.
@@ -80,7 +88,7 @@ module.exports = (app) => {
       `SELECT * FROM leave_requests WHERE studentId IN (${marks}) AND status != 'pending'
        ORDER BY createdAt DESC LIMIT ?`, [...ids, gioiHan]);
 
-    res.json(decorateNhieu([...cho, ...xong]));
+    res.json(decorateNhieu([...cho, ...xong]).map(l => anGhiChuNoiBo(l, req.user)));
   });
 
   // Phụ huynh tạo đơn xin phép cho con.
@@ -138,7 +146,7 @@ module.exports = (app) => {
       reviewNote: '',
     };
     db.insert('leave_requests', rec);
-    res.status(201).json(decorate(rec));
+    res.status(201).json(anGhiChuNoiBo(decorate(rec), req.user));
   });
 
   // VĂN PHÒNG duyệt / từ chối một đơn đang chờ.

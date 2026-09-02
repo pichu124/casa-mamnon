@@ -157,6 +157,10 @@ App.views.surveys = {
         <div id="sv-questions"></div>
         <button class="btn outline sm mt-8" onclick="App.views.surveys.addQuestion()">${UI.icon('plus', 15)} Thêm câu hỏi</button>
       </div>
+      <div class="muted small" style="line-height:1.6;margin-bottom:12px">
+        Khảo sát gửi tới <b>phụ huynh toàn trường</b> — chưa chọn được riêng một
+        nhóm. Việc chỉ của nhóm mình thì cô nhắn ở phần Thông báo nhóm nhé.
+      </div>
       <button class="btn primary block" onclick="App.views.surveys.submitCreate()">Tạo khảo sát</button>`, 'Tạo khảo sát mới');
     this.addQuestion();
   },
