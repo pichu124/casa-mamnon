@@ -246,7 +246,15 @@ window.App = {
     return 'Phần này không mở trong tài khoản của bạn.';
   },
 
-  onUnauthorized() { this.showLogin(); },
+  // Hết phiên: về màn đăng nhập ĐÚNG MỘT LẦN. Một màn hình thường phát vài
+  // lời gọi song song, cùng dính 401 cả loạt — vẽ lại màn đăng nhập cho từng
+  // lời là xoá mất chữ cô vừa gõ vào ô tài khoản. Đặt user = null trước để
+  // route() đang chạy dở biết đường dừng, không vẽ đè lên màn đăng nhập.
+  onUnauthorized() {
+    if (!this.state.user) return;
+    this.state.user = null;
+    this.showLogin();
+  },
 
   // MÀN HÌNH KHI MÁY KHÔNG CÓ MẠNG.
   //
@@ -367,6 +375,9 @@ window.App = {
     root.innerHTML = '<div class="loading">Đang tải</div>';
     window.scrollTo(0, 0);
     Promise.resolve(view.render(root, parts.slice(1))).catch(err => {
+      // Hết phiên giữa lúc màn hình đang vẽ: onUnauthorized đã dựng màn đăng
+      // nhập rồi — vẽ "Có lỗi xảy ra" đè lên là cô mất luôn ô đăng nhập.
+      if (!this.state.user) return;
       root.innerHTML = UI.pageHeader('Có lỗi xảy ra') + UI.emptyState('😥', err.message || 'Không tải được dữ liệu');
     });
     this.renderBottomNav(name);
@@ -393,7 +404,11 @@ window.App = {
   async refreshBadges() {
     if (!this.state.user) return;
     try {
-      this.state.badges = await API.get('/api/dashboard/badges');
+      // Gọi kiểu NỀN: đây là lời gọi định kỳ app tự phát, không phải cô bấm.
+      // Hết phiên ở đây mà để API.get() giật về màn đăng nhập là cô đang gõ dở
+      // nhật ký bỗng mất trắng — chỉ ngừng hỏi tiếp; thao tác kế của cô sẽ gặp
+      // 401 của chính nó và được đưa về màn đăng nhập đàng hoàng.
+      this.state.badges = await (API.getNen || API.get)('/api/dashboard/badges');
       const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean);
       this.renderBottomNav(parts[0] || 'dashboard');
       // cập nhật badge trên lưới icon nếu đang ở dashboard
@@ -402,7 +417,10 @@ window.App = {
         el.textContent = n > 99 ? '99+' : n;
         el.style.display = n ? '' : 'none';
       });
-    } catch (_) { /* bỏ qua lỗi mạng tạm thời */ }
+    } catch (err) {
+      if (API.laHetPhien && API.laHetPhien(err)) { this.stopBadgePolling(); return; }
+      /* còn lại là lỗi mạng tạm thời — bỏ qua */
+    }
   },
 
   startBadgePolling() {
@@ -428,7 +446,9 @@ window.App = {
         if (chat && chat._timer) { clearInterval(chat._timer); chat._timer = null; }
       } else {
         this.refreshBadges();
-        this._badgeTimer = setInterval(() => this.refreshBadges(), 15000);
+        // Không chồng đồng hồ: sự kiện visibilitychange có thể bắn "hiện" hai
+        // lần liền (đổi tab nhanh) mà đồng hồ cũ chưa từng bị dừng.
+        if (!this._badgeTimer) this._badgeTimer = setInterval(() => this.refreshBadges(), 15000);
         // Quay lại phòng chat: tải ngay tin nhắn đã nhỡ rồi bật lại theo dõi.
         const chat = this.views.messages;
         if (chat && !chat._timer && location.hash.startsWith('#/messages/') && typeof chat.poll === 'function') {
