@@ -13,10 +13,10 @@
 
 | | |
 |---|---|
-| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ119); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
+| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ120); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3822 bài** (đo 02/09/2026, sau Đ119), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ119 đụng `public/`), FAIL 0 — và **526 bài giao diện cũng xanh trên máy GitHub** |
-| Lớp canh trên GitHub | 🟡 **đã chạy lại từ 01/09** (vế tài khoản anh đã gỡ), nhưng job `npm test` đỏ vì CI clone nông — **vá ở Đ119c**, xem mục 4.2b |
+| Bộ kiểm thử | `npm test` **3842 bài** (đo 02/09/2026, sau Đ120), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ120 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
+| Lớp canh trên GitHub | 🟢 **xanh trọn 5 job** từ lần chạy #133 (02/09, sau Đ119c) — trước đó đỏ vì CI clone nông, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
 | Còn việc gì chặn | **một thứ, ngoài tầm tay tôi**: nhà trường (mục 4.2). Kho app 1 anh đã mở, và **bốn món nợ bắt buộc đã trả xong** — xem mục 4.3 |
@@ -25,7 +25,40 @@
 
 ---
 
-## 1b-mới. Đợt mới nhất — 02/09/2026: đợt hai của cuộc rà soát, khép sổ (Đ118)
+## 1b-mới-nhất. 02/09/2026 chiều — soi lại chính mã của tôi, và cái CI đỏ (Đ119c, Đ120)
+
+Anh hỏi *"còn việc gì phải làm/test không"*. Có hai việc, cả hai đều là thứ
+tôi đáng lẽ phải tự thấy sớm hơn:
+
+1. **CI trên GitHub đỏ ở mọi lần đẩy của nhánh này** — và mục 4.2b trước đó
+   báo với anh là Actions "không chạy". Mở ra xem thì Actions ĐÃ chạy lại từ
+   01/09 (vế tài khoản anh đã gỡ), bộ giao diện 526 bài xanh ngay trên máy
+   GitHub; cái đỏ là job `npm test` clone nông nên bài `nen-chung` không thấy
+   điểm tách. Một dòng cấu hình (`fetch-depth: 0`) — Đ119c. Từ đó CI **xanh
+   trọn 5 job** cho mọi lần đẩy.
+2. **30 commit trên nhánh đều do một tay viết, chưa ai soi lại.** Tôi dựng
+   một vòng rà đối kháng nhắm thẳng vào diff của nhánh (10 lăng kính, mỗi
+   phát hiện 3 người phản bác). Vòng phản bác bị hạn mức phiên cắt — nên tôi
+   tự đối chiếu 27 phát hiện bằng mã và vá 23, hoãn 4 (đều là hiệu năng ở
+   Cambridge/Album, không mất dữ liệu). Bảng đầy đủ ở mục "Vòng rà ĐỐI KHÁNG"
+   của `docs/RA-SOAT-2026-09.md`.
+
+Ba điều đáng nói thẳng với anh từ vòng đó:
+
+- **Bộ test đã bắt được tôi một lần.** Bản vá "quản trị thấy phòng chat nhóm
+  đã đóng" của tôi hỏi một cột không tồn tại → `GET /api/messages` 500 với
+  quản trị cơ sở. `npm test` đầy đủ đỏ đúng chỗ trước khi commit. Đó là lý do
+  bộ canh 3.800 bài tồn tại, và nó làm đúng việc.
+- **Một bản vá đợt trước có tác dụng phụ**: "nháp nhật ký chỉ giữ ô cô đã
+  gõ" (Đ118o) làm nút *Áp cho cả nhóm* — thao tác nhanh nhất của cô — thành
+  thao tác duy nhất không được nháp giữ. Đã vá, có bài canh.
+- **Hai lỗi nặng thật** mà không vòng nào trước bắt được: sửa mẫu báo cáo
+  tháng nhận nhầm dòng cùng tên "Lưu ý" giữa hai nhóm (ô đã điền của bản đã
+  gửi gia đình chạy sang tiêu chí khác); và ở Kế hoạch của bé, sau lời báo
+  đụng độ, bấm Lưu lần hai đè cả kế hoạch cô khác vừa lập cho bé mà cô này
+  không hề gõ. Cả hai đã vá.
+
+## 1b-mới. 02/09/2026 sáng — đợt hai của cuộc rà soát, khép sổ (Đ118)
 
 Anh dặn *"khi đủ token làm hết phần còn lại"* — đợt này làm đúng điều đó: vá
 nốt **78 phát hiện** trong 16 commit (Đ118a–q). Kết sổ 96 phát hiện của cuộc
