@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v75';
+const VERSION = 'v76';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -165,8 +165,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
-        const cache = await caches.open(SHELL_CACHE);
-        cache.put('/index.html', fresh.clone());
+        // Chỉ lưu câu trả lời TỐT. Máy chủ đang lỗi 500 mà cũng lưu đè lên
+        // /index.html thì từ đó về sau mất mạng là app dựng trang lỗi thay vì
+        // vỏ app — và kẹt luôn ở đó tới khi có bản service worker mới.
+        if (fresh.ok) {
+          const cache = await caches.open(SHELL_CACHE);
+          cache.put('/index.html', fresh.clone());
+        }
         return fresh;
       } catch (_) {
         return (await caches.match('/index.html')) || Response.error();
