@@ -59,8 +59,7 @@ v75 → v76 nên điện thoại đã cài sẽ tự nhận bản mới.
 
 **Còn chờ anh quyết, không gấp:** tắt hay gỡ ba tính năng tiểu học còn sót
 (xe đưa đón, hạnh kiểm, thời khóa biểu — lỗ lộ mã bé trên tuyến đã vá nên
-không còn gấp), và có muốn khảo sát gửi riêng một nhóm không (hiện mọi khảo
-sát là toàn trường, form đã nói rõ điều đó).
+không còn gấp). Vế khảo sát theo nhóm anh đã quyết "làm luôn" — xong ở Đ119.
 
 ## 1b. Đợt trước — 01/09/2026: rà soát toàn kho + 7 bản vá (Đ117)
 
