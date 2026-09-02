@@ -636,6 +636,8 @@ console.log('\n[+] HAI CÔ CÙNG SOẠN — người lưu sau KHÔNG xoá ngư�
   check('màn hình gửi capNhatLucGoc khi lưu cả nhóm', /capNhatLucGoc/.test(maMan));
   check('và khi đụng độ thì KHÔNG vẽ lại màn đè lên phần cô đang gõ (nạp lại riêng mốc nền)',
     /napLaiMoc/.test(maMan));
+  check('và CHỈ GỬI BÉ CÔ CÓ SỬA — bé không đụng tới thì không có gì để đè, kể cả ở lần Lưu thứ hai',
+    /coSua/.test(maMan) && /filter\(t => t\.coSua\)/.test(maMan));
 }
 
 sv.dung();

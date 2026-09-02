@@ -195,18 +195,33 @@ App.views.kehoachbe = {
         // nào) — máy chủ so nó để ảnh chụp màn hình cũ của cô này không đè
         // lên phần cô kia vừa lưu.
         const x = ((this._data || {}).danhSach || []).find(y => y.studentId === be);
+        const mucCu = (x && x.ke && x.ke.muc) || [];
         theoBe.set(be, {
           studentId: be,
           capNhatLucGoc: x && x.ke ? (x.ke.capNhatLuc || null) : null,
           muc: [],
+          mucCu,
+          coSua: false,
         });
       }
-      theoBe.get(be).muc.push({ gocLinhVuc: o.dataset.goc, noiDung: o.value.trim() });
+      const t = theoBe.get(be);
+      const cu = (t.mucCu.find(m => m.gocLinhVuc === o.dataset.goc) || {}).noiDung || '';
+      if (o.value.trim() !== cu) t.coSua = true;
+      t.muc.push({ gocLinhVuc: o.dataset.goc, noiDung: o.value.trim() });
     }
+    // CHỈ GỬI BÉ CÔ CÓ SỬA. Gửi cả mấy bé cô không đụng tới là gửi ảnh chụp
+    // màn hình của họ — mà ảnh đó có thể đã cũ: cô khác vừa lập kế hoạch cho
+    // một bé đang hiện "Chưa lập" trên màn của cô này. Lần Lưu đầu máy chủ
+    // chặn được nhờ mốc nền; nhưng sau lời báo đụng độ, lần Lưu thứ hai (mốc
+    // đã nạp lại) sẽ ghi đè cả bé đó — cô không hề gõ, chỉ vì nó nằm trên
+    // màn. Bé không sửa thì không gửi: không có gì để đè.
+    const danhSach = [...theoBe.values()].filter(t => t.coSua)
+      .map(({ mucCu: _c, coSua: _s, ...t }) => t);
     if (!theoBe.size) return UI.toast('Không có bé nào đang mở để sửa', 'error');
+    if (!danhSach.length) return UI.toast('Cô chưa sửa ô nào so với bản đang lưu', 'error');
     try {
       const r = await API.put('/api/kehoachbe', {
-        classId: this._classId, thang: this._thang, danhSach: [...theoBe.values()],
+        classId: this._classId, thang: this._thang, danhSach,
       });
 
       // CÓ BÉ ĐỤNG ĐỘ: cô khác vừa lưu trong lúc màn này đang mở. KHÔNG vẽ

@@ -160,7 +160,10 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // SPA fallback: mọi đường dẫn không phải /api trả về index.html.
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
+  // Hạ chữ thường trước khi so: Express khớp route không phân biệt hoa/thường
+  // (Đ117a), nên /API/khong-co cũng là một đường API lạc — trả JSON 404, không
+  // trả index.html 200 để client tưởng là một trang.
+  if (req.path.toLowerCase().startsWith('/api/')) {
     return res.status(404).json({ error: 'Không tìm thấy API' });
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

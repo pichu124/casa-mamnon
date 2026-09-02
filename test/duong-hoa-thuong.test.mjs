@@ -79,6 +79,15 @@ console.log('\n[3] NO-STORE — trả lời của /API/... cũng không được
     (res.headers.get('cache-control') || '') === 'no-store', res.headers.get('cache-control'));
 }
 
+console.log('\n[+] Đường /API/... không khớp route nào: JSON 404, không phải trang HTML 200');
+{
+  const bgh = await login('hieutruong', mkBGH);
+  const res = await fetch(`${sv.BASE}/API/duong-khong-co-that`, { headers: { Cookie: bgh.cookie } });
+  const chu = await res.text();
+  check('trả 404 chứ không rơi vào SPA fallback 200', res.status === 404, res.status);
+  check('và là JSON báo lỗi, không phải index.html', /"error"/.test(chu) && !/<html/i.test(chu), chu.slice(0, 80));
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

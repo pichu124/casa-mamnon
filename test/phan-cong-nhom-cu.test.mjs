@@ -47,6 +47,10 @@ sinhDuLieu(DIR);
   them.run('cux', 't4', 'chinh');
   them.run('cux', 't2', 'phu');
   d.prepare("UPDATE users SET active = 0 WHERE id = 't3'").run();
+  // Mục [3]: nhóm ĐANG MỞ 'cdo' mà cô CHÍNH là t3 — người đang khoá tài khoản.
+  d.prepare(`INSERT INTO classes (id, name, room, year, grade, active)
+             VALUES ('cdo', 'Chồi 3', '', '2026-2027', 4, 1)`).run();
+  them.run('cdo', 't3', 'chinh');
   d.close();
 }
 
@@ -107,6 +111,22 @@ console.log('\n[2] Thêm cô mới vào nhóm không được xoá nhầm cô đ
   check('cô mới vào nhóm với vai phụ',
     r.data?.id ? dongPhanCong('c1', r.data.id)?.vaiTro === 'phu' : false,
     r.data?.id && dongPhanCong('c1', r.data.id));
+}
+
+console.log('\n[3] Cô chính đang nghỉ được GIỮ dòng, nhưng nhóm không được có HAI cô chính');
+{
+  // Bản vá Đ117b giữ dòng của cô đang khoá tài khoản (không xoá dấu "từng phụ
+  // trách"). Nhưng cô ấy không đi qua vòng ghi, nên nếu đang là 'chinh' mà vai
+  // chính vừa được chọn sang người khác thì nhóm mang HAI dòng 'chinh' — màn
+  // phân công lúc coi người này, lúc coi người kia là cô chính, tuỳ dòng nào
+  // trả về trước.
+  const r = await req('POST', '/api/admin/teachers',
+    { cookie: bgh.cookie, body: { name: 'Cô Thay Ca', classId: 'cdo' } });
+  check('thêm cô mới vào nhóm có cô chính đang nghỉ chạy được', r.status === 201, { status: r.status, data: r.data });
+  check('dòng của cô chính đang nghỉ (t3) VẪN CÒN — giữ, không xoá', !!dongPhanCong('cdo', 't3'), dongPhanCong('cdo', 't3'));
+  const soChinh = doc(d => d.prepare(
+    "SELECT COUNT(*) AS n FROM class_teachers WHERE classId = 'cdo' AND vaiTro = 'chinh'").get().n);
+  check('NHÓM CHỈ CÓ ĐÚNG MỘT CÔ CHÍNH', soChinh === 1, soChinh);
 }
 
 sv.dung();

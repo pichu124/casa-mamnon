@@ -263,7 +263,9 @@ module.exports = (app) => {
 
     if (campusId) {
       db.upsert('menu_campus',
-        { campusId, date, meals, nguoiDang: req.user.id, capNhatLuc: ngay.bayGio() },
+        // ISO đủ ngày giờ, cùng đường /api/menu/tuan (Đ118f): 'HH:MM' thì
+        // không bao giờ tra được thực đơn cơ sở sửa hôm nào.
+        { campusId, date, meals, nguoiDang: req.user.id, capNhatLuc: new Date().toISOString() },
         ['campusId', 'date']);
       db.audit(req.user.id, 'menu-update', date, { soBua: meals.length, campusId });
       return res.json({ date, meals, campusId, rieng: true });

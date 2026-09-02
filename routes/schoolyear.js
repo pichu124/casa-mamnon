@@ -291,6 +291,10 @@ module.exports = (app) => {
       ...ketQua,
       message: `Đã chuyển sang năm học ${namMoi}: ${ketQua.lenLop} bé lên nhóm, ` +
         `${ketQua.raTruong} bé ra trường, tạo ${ketQua.lopTao} nhóm mới. ` +
+        (ketQua.giuNguyen
+          ? `Giữ nguyên ${ketQua.giuNguyen} nhóm vì tên không theo mẫu (${(ketQua.nhomGiuNguyen || []).join(', ')}) ` +
+            '— nhà trường tự xếp các bé đó sau. '
+          : '') +
         'Hãy phân công lại cô phụ trách cho các nhóm.',
     });
   });

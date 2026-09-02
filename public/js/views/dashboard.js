@@ -14,9 +14,16 @@ App.views.dashboard = {
             <b>CASA Mầm non</b>
             <span>${UI.esc(school ? school.name : '')}</span>
           </div>
+          ${
+            // Ô chọn năm chỉ dẫn tới màn "Năm học trước" — màn CHỈ dành cho gia
+            // đình (lib/modules.js: roles ['parent']). Vẽ ô chọn cho cô và văn
+            // phòng là mời họ bấm vào một thứ không đi tới đâu rồi bảo "nhờ
+            // nhà trường bật" — phần đó không bật được cho họ. Với họ, năm học
+            // hiện hành là một dòng chữ.
+            user.role === 'parent' ? `
           <select class="hero-year" id="year-select" aria-label="Năm học">
             ${years.map(y => `<option value="${UI.esc(y)}" ${y === App.state.year ? 'selected' : ''}>${UI.esc(y)}</option>`).join('')}
-          </select>
+          </select>` : `<span class="hero-year" aria-label="Năm học">${UI.esc(App.state.year || '')}</span>`}
         </div>
 
         <div class="hero-greet">
@@ -50,7 +57,8 @@ App.views.dashboard = {
         </div>
       </div>`;
 
-    document.getElementById('year-select').onchange = (e) => {
+    const oNam = document.getElementById('year-select');
+    if (oNam) oNam.onchange = (e) => {
       // Ô này TỪNG nói dối: đổi `App.state.year` rồi báo "Đang xem năm học X"
       // trong khi không màn nào đổi theo cả — còn màn Báo cáo thì tính nhầm
       // học kỳ vì tin vào con số đó. Dữ liệu năm cũ nằm ở màn "Năm học trước";

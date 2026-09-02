@@ -42,4 +42,22 @@ console.log('\n[3] Những gì đang chạy không đổi');
   check('CRLF vẫn đọc đúng', csv.parse('a,b\r\n1,2\r\n').rows.length === 1);
 }
 
+// ===========================================================================
+console.log('\n[4] Dấu nháy kép LẺ không được nuốt cả phần còn lại của tệp');
+{
+  // Địa chỉ kiểu `Số 5" ngõ 12` (tệp sửa tay, hay xuất từ phần mềm khác) mở
+  // một ngoặc không bao giờ đóng. Bản đầu của tachBanGhi coi đó là "trong
+  // ngoặc tới hết tệp": 300 bé thì nhập được 19 rồi im. Phải hỏng đúng dòng
+  // đó và ĐỌC TIẾP các dòng sau — như bộ phân tích cũ từng làm.
+  const dong = ['ten,diachi'];
+  for (let i = 1; i <= 30; i++) dong.push(`Bé ${i},${i === 20 ? 'Số 5" ngõ 12' : 'Ngõ ' + i}`);
+  const r = csv.parse(dong.join('\n'));
+  check('các dòng SAU dòng có dấu nháy lẻ vẫn được đọc', r.rows.length >= 29, r.rows.length);
+  check('bé cuối cùng của tệp có mặt', r.rows.some(x => x.ten === 'Bé 30'), r.rows.slice(-1));
+  check('dòng đứng TRƯỚC dấu nháy lẻ vẫn đúng như cũ', r.rows.some(x => x.ten === 'Bé 19' && x.diachi === 'Ngõ 19'));
+  // Và ô có xuống dòng hợp lệ (mục [1]) không bị phép sửa này làm hỏng.
+  const ok = csv.parse('ten,ghichu\nBé A,"dòng một\ndòng hai"\nBé B,x');
+  check('ô xuống dòng ĐÓNG NGOẶC ĐÚNG vẫn đọc thành một bản ghi', ok.rows.length === 2 && /dòng hai/.test(ok.rows[0].ghichu), ok.rows);
+}
+
 tongKet();

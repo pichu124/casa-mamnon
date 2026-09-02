@@ -205,9 +205,21 @@ function mePayload(user) {
   // phụ trách nhiều nhóm.
   const nhom = user.role === 'teacher' ? nl.nhomCuaCo(user.id) : [];
   return {
-    user: { ...publicUser(user), nhomCuaCo: nhom, classIds: nhom.map(c => c.id) },
+    user: {
+      ...publicUser(user), nhomCuaCo: nhom, classIds: nhom.map(c => c.id),
+      // Cơ sở mà tài khoản quản trị bị khoá vào (null = cả trường). Màn hình
+      // dùng để ô "Gửi cho nhóm" chỉ liệt kê nhóm của cơ sở đó — máy chủ vẫn
+      // là người chốt (canAccessClass), đây chỉ để không mời bấm vào thứ sẽ 403.
+      coSo: user.role === 'admin' ? (db.phamViCoSo(user) || null) : null,
+    },
     students,
-    classes: db.classes(),
+    // Kèm cơ sở của từng nhóm (quan hệ ở bảng class_campus) — CHỈ THÊM trường,
+    // để ô "Gửi cho nhóm" của văn phòng cơ sở lọc được nhóm của cơ sở mình.
+    classes: (() => {
+      const coSoCua = new Map(db.all('class_campus', 'SELECT classId, campusId FROM class_campus')
+        .map(r => [r.classId, r.campusId]));
+      return db.classes().map(c => ({ ...c, campusId: coSoCua.get(c.id) || null }));
+    })(),
     school: db.school(),
   };
 }

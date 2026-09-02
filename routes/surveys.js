@@ -7,8 +7,37 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_CAU_TRA_LOI = 1000;
 
 // Khảo sát có hiển thị với người dùng này không (theo phạm vi gửi).
+//
+// `classIdsOf` chỉ trả nhóm ĐANG MỞ — đủ cho gia đình (con chuyển nhóm thì
+// khảo sát của nhóm cũ không còn là chuyện của nhà), nhưng KHÔNG đủ cho người
+// trong trường: khảo sát cuối năm gửi riêng nhóm Lá 1, 25 nhà trả lời, tháng 8
+// chuyển năm học đóng nhóm — mà kết quả lại biến mất với cả cô tạo lẫn ban
+// giám hiệu thì đúng phần đáng đọc nhất bị khoá. Nên cô nhìn theo "từng phụ
+// trách", quản trị nhìn theo cơ sở, người tạo luôn thấy bản của mình.
+//
+// `taoBoLocXem` hỏi db MỘT lần cho người xem rồi trả về một hàm — đường danh
+// sách chạy nó trên tới 100 khảo sát mà không hỏi lại nhóm của người xem cho
+// từng dòng. `visibleTo` giữ nguyên chữ ký cho các đường một-khảo-sát.
+function taoBoLocXem(user) {
+  const dangMo = new Set(db.classIdsOf(user));
+  const tungDay = user.role === 'teacher' ? new Set(db.classIdsEverOfTeacher(user.id)) : null;
+  const coSo = user.role === 'admin' ? db.phamViCoSo(user) : null;
+  const coSoCuaNhom = new Map();
+  return (sv) => {
+    if (sv.audience === 'all') return true;
+    if (dangMo.has(sv.audience)) return true;
+    if (sv.createdBy === user.id) return true;
+    if (tungDay) return tungDay.has(sv.audience);
+    if (user.role === 'admin') {
+      if (!coSo) return true;
+      if (!coSoCuaNhom.has(sv.audience)) coSoCuaNhom.set(sv.audience, db.campusOfClass(sv.audience));
+      return coSoCuaNhom.get(sv.audience) === coSo;
+    }
+    return false;
+  };
+}
 function visibleTo(user, sv) {
-  return sv.audience === 'all' || db.classIdsOf(user).includes(sv.audience);
+  return taoBoLocXem(user)(sv);
 }
 
 // Câu trả lời của một khảo sát, đọc từ bảng riêng.
@@ -133,7 +162,7 @@ module.exports = (app) => {
     const list = db.all('surveys',
       `SELECT * FROM surveys ORDER BY (status = 'open') DESC, createdAt DESC LIMIT ?`,
       [GIOI_HAN_DANH_SACH])
-      .filter(sv => visibleTo(req.user, sv))
+      .filter(taoBoLocXem(req.user))
       .map(sv => ({
         id: sv.id,
         title: sv.title,
@@ -334,6 +363,14 @@ module.exports = (app) => {
     if (!sv) return res.status(404).json({ error: 'Không tìm thấy khảo sát' });
     if (sv.createdBy !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Chỉ người tạo khảo sát hoặc quản trị mới đóng được khảo sát này' });
+    }
+    // Quản trị cơ sở (Cấp 3) chỉ đóng được khảo sát của nhóm trong cơ sở mình
+    // — cùng chốt với sửa / thu hồi thông báo (Đ117e).
+    if (req.user.role === 'admin' && sv.createdBy !== req.user.id && sv.audience !== 'all') {
+      const coSo = db.phamViCoSo(req.user);
+      if (coSo && db.campusOfClass(sv.audience) !== coSo) {
+        return res.status(403).json({ error: 'Khảo sát này thuộc nhóm của cơ sở khác' });
+      }
     }
     if (sv.status !== 'open') {
       return res.status(400).json({ error: 'Khảo sát đã được đóng trước đó' });

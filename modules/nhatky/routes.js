@@ -130,12 +130,16 @@ module.exports = (app, { db, modules }) => {
     return ra;
   }
 
-  function keml(be, hang, nghi) {
+  function keml(be, hang, nghi, ngayXem) {
     return {
       studentId: be.id,
       hoTen: be.name,
       avatar: be.avatar,
-      laNhaTre: laNhaTre(be.dob),
+      // Tính theo NGÀY ĐANG XEM: PUT đã giữ số thay bỉm của ngày cũ (Đ118g),
+      // nhưng màn cô chỉ VẼ ba ô nhà trẻ khi cờ này bật — cờ tính theo hôm
+      // nay thì bé vừa qua 36 tháng mở nhật ký tuần trước ra không thấy ô,
+      // sửa một chữ ghi chú rồi bấm Lưu là số cũ bay theo đường khác.
+      laNhaTre: laNhaTre(be.dob, ngayXem),
       // HÔM NAY BÉ CÓ Ở LỚP KHÔNG.
       //
       // Trước đợt này màn hình không hề biết, nên bé nghỉ có phép nằm lẫn giữa
@@ -179,7 +183,9 @@ module.exports = (app, { db, modules }) => {
       // có hai con ở hai cơ sở, nên câu hỏi đúng luôn là "bé này ăn bếp nào".
       const td = thucDonKhoang(tu, den, db.campusOfClass(be.classId));
       return res.json({
-        be: { id: be.id, hoTen: be.name, laNhaTre: laNhaTre(be.dob) },
+        // Khoảng nhiều ngày: bé là nhà trẻ ở ĐẦU khoảng thì phần thay bỉm /
+        // bú bình của những ngày đó vẫn phải hiện với gia đình.
+        be: { id: be.id, hoTen: be.name, laNhaTre: laNhaTre(be.dob, tu) },
         ngayCo: rows.map(r => ({
           ...r,
           nguoiGhiTen: tenNguoiGhi(r.nguoiGhi),
@@ -234,7 +240,7 @@ module.exports = (app, { db, modules }) => {
       // soạn. Cô ghi bé ăn được bao nhiêu phần của bữa đó, thế thôi.
       thucDon: thucDonCuaNgay(ngay, db.campusOfClass(classId)),
       khungGioNgu: GIO_NGU,
-      danhSach: dsBe.map(b => keml(b, daCo.get(b.id), dangNghi.get(b.id))),
+      danhSach: dsBe.map(b => keml(b, daCo.get(b.id), dangNghi.get(b.id), ngay)),
     });
   });
 

@@ -1,5 +1,6 @@
 // Phân hệ Nhắn tin: kênh trao đổi trực tiếp giáo viên ↔ phụ huynh và nhóm lớp.
 const db = require('../lib/db');
+const tb = require('../lib/thong-bao');
 const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
@@ -302,7 +303,11 @@ module.exports = (app) => {
     // trong khi trang sau vẫn còn hội thoại. Đưa đúng điều kiện đó vào WHERE
     // thì lời cam kết ở chú thích trên ("không có bộ lọc nào chạy sau câu
     // truy vấn") lại đúng như ngày nó được viết.
-    const nhomMoDuoc = db.classIdsOf(user);
+    // Quản trị mở được phòng chung của nhóm ĐÃ ĐÓNG trong cơ sở mình (findConv,
+    // Đ118d — tra lại lịch sử khi có khiếu nại) thì danh sách cũng phải liệt kê
+    // phòng đó, không thì quyền mở có mà không có đường tới. `classIdsOf` chỉ
+    // trả nhóm đang mở, nên với quản trị lấy thẳng từ bảng nhóm theo cơ sở.
+    const nhomMoDuoc = tb.nhomPhongChat(user);
     const dauNhom = nhomMoDuoc.map(() => '?').join(',');
     const dieuKienPhongNhom = `(c.type != 'group' OR c.classId IS NULL OR c.classId = ''`
       + (nhomMoDuoc.length ? ` OR c.classId IN (${dauNhom})` : '') + ')';

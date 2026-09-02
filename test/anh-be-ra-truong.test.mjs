@@ -42,10 +42,14 @@ sinhDuLieu(DIR);
 //       f4 không gắn ai
 //       f5 gắn [s3, s4]    — cả hai bé đều đồng ý TRUYỀN THÔNG
 {
+  // Ngày rời trường tính TỪ HÔM NAY (2 tháng trước) — ghi cứng một ngày là bài
+  // tự đỏ đúng 12 tháng sau vì hạn xem hồ sơ so với đồng hồ thật, dù mã vẫn đúng.
+  const roi = new Date(); roi.setMonth(roi.getMonth() - 2);
+  const LEFT_AT = roi.toISOString().slice(0, 10);
   const d = new Database(path.join(DIR, 'school.db'));
-  d.prepare("UPDATE students SET active = 0, leftAt = '2026-07-15' WHERE id = 's1'").run();
+  d.prepare("UPDATE students SET active = 0, leftAt = ? WHERE id = 's1'").run(LEFT_AT);
   d.prepare(`INSERT INTO student_class_periods (id, studentId, classId, className, year, tu, den)
-             VALUES ('kcu1', 's1', 'c1', 'Chồi 2', '2025-2026', '2026-01-05', '2026-07-15')`).run();
+             VALUES ('kcu1', 's1', 'c1', 'Chồi 2', '2025-2026', '2026-01-05', ?)`).run(LEFT_AT);
   const dy = d.prepare(`INSERT OR REPLACE INTO student_consent
     (studentId, hoSoHocTap, chiaSeGiaDinh, truyenThong, nguoiKy, ngayKy, ghiChu, capNhatLuc)
     VALUES (?, ?, ?, ?, '', '', '', '')`);

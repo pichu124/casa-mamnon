@@ -508,8 +508,12 @@ App.views.nhatky = {
       }
       UI.closeModal();
       // Đặt `.value` bằng mã KHÔNG phát ra sự kiện `input`, nên bộ ghi nháp
-      // không nghe thấy gì. Gọi thẳng, nếu không thì đúng thao tác điền nhanh
-      // nhất của cô lại là thao tác duy nhất không được giữ.
+      // không nghe thấy gì — và cũng không ai ĐÁNH DẤU các ô này là "cô đã
+      // gõ". Nháp chỉ giữ ô đã gõ (Đ118o), nên phải đánh dấu trước rồi mới
+      // gọi thẳng; nếu không thì đúng thao tác điền nhanh nhất của cô lại là
+      // thao tác duy nhất không được giữ.
+      const goPhien = this.oDaGoCua(this.khoaNhap(this._classId, this._ngay));
+      for (const x of dich) goPhien.add(`${x.dataset.be}|${x.dataset.truong}`);
       this.luuNhap();
       UI.toast(`Đã điền ${dich.length} ô.`
         + (soNghi ? ` Bỏ qua ${soNghi} bé có đơn nghỉ hôm nay.` : '')
@@ -575,6 +579,10 @@ App.views.nhatky = {
         // là giữ lại một bản nháp cho dữ liệu đã lưu, tức lần mở sau app nhắc
         // "phần dở" cho thứ không còn dở — đúng chỗ Đ8 dọn.
         this.xoaNhap();
+        // Đã lên máy chủ hết thì tập "ô cô đã gõ" cũng hết việc. Giữ lại là
+        // lần gõ tiếp theo chụp lại cả những ô đã lưu với giá trị màn hình cũ,
+        // rồi có ngày mời cô "điền lại" đè lên phần cô khác vừa ghi.
+        delete this._oDaGo[this.khoaNhap(this._classId, this._ngay)];
         const coNghi = r.nhacNghi && r.nhacNghi.length;
         UI.toast(
           coNghi

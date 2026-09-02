@@ -170,6 +170,26 @@ console.log('\n[5] App đời cũ và đầu vào lạ');
     (dsC4.data || []).some(x => x.id === cu.data?.id));
 }
 
+// ===========================================================================
+console.log('\n[6] Đóng khảo sát: người tạo, quản trị trong phạm vi — Cấp 3 không với sang cơ sở khác');
+{
+  const ks = globalThis.KS_C1;   // khảo sát của nhóm c1 (cơ sở 1), cô Mai Anh tạo
+  const cs2 = await req('POST', `/api/surveys/${ks}/close`, { cookie: qlCS2.cookie });
+  check('QUẢN LÝ CƠ SỞ 2 KHÔNG ĐÓNG ĐƯỢC khảo sát nhóm của cơ sở 1', cs2.status === 403, cs2.status);
+  const conMo = await req('GET', `/api/surveys/${ks}`, { cookie: gv.cookie });
+  check('và khảo sát vẫn đang mở', conMo.data?.status === 'open', conMo.data?.status);
+
+  const gv2Dong = await req('POST', `/api/surveys/${ks}/close`, { cookie: gv2.cookie });
+  check('cô nhóm khác cũng không đóng được', gv2Dong.status === 403 || gv2Dong.status === 404, gv2Dong.status);
+
+  const bghDong = await req('POST', `/api/surveys/${ks}/close`, { cookie: bgh.cookie });
+  check('ban giám hiệu (Cấp 1) đóng được', bghDong.status === 200, bghDong.data);
+
+  // Người tạo vẫn mở lại được kết quả của mình dù khảo sát đã đóng.
+  const cuaCo = await req('GET', `/api/surveys/${ks}`, { cookie: gv.cookie });
+  check('cô tạo vẫn đọc được kết quả sau khi đóng', cuaCo.status === 200 && cuaCo.data?.status === 'closed', cuaCo.status);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet('Khảo sát gửi riêng một nhóm thì chỉ nhóm đó nhận');

@@ -512,7 +512,19 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Cô phụ trách chính phải nằm trong danh sách cô của nhóm' });
     }
 
-    const daGhi = db.setClassTeachers(cls.id, xin, chinhId);
+    // MÀN SỬA NHÓM KHÔNG BAO GIỜ GỬI MÃ CÔ ĐANG KHOÁ: ô tích dựng từ GET
+    // /api/admin/teachers (chỉ cô đang làm việc), nên vế "giữ cô đang nghỉ"
+    // ở trên chỉ có tác dụng với ai gọi API bằng tay. Tự thêm những cô đang
+    // khoá mà ĐANG CÓ SẴN trong nhóm vào danh sách — giữ, không phải thêm mới;
+    // muốn gỡ hẳn thì mở khoá tài khoản trước, đó là một hành động có chủ ý.
+    const giuCoDangNghi = [...dangCoSan].filter(id => {
+      if (xin.includes(id)) return false;
+      const t = db.findUser(id);
+      return t && t.role === 'teacher' && t.active === false;
+    });
+    const xinDu = [...xin, ...giuCoDangNghi];
+
+    const daGhi = db.setClassTeachers(cls.id, xinDu, chinhId);
     db.audit(req.user.id, 'class-teachers-set', cls.id, { teacherIds: daGhi, chinhId });
     res.json({ ok: true, classId: cls.id, ...nl.tomTat(cls.id) });
   });

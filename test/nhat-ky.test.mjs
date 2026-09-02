@@ -194,6 +194,16 @@ console.log('\n[4] Ô TRỐNG nghĩa là "cô chưa ghi", KHÔNG phải "bé kh�
   const chuFile = chu || fs.readFileSync(path.join(GOC, 'modules/nhatky/view.js'), 'utf8');
   check('màn hình gia đình nói đúng chữ "cô chưa ghi", không để trống trơn',
     /cô chưa ghi/.test(chuFile));
+
+  // NHÁP CHỈ GIỮ Ô ĐÃ GÕ (Đ118o) — nên hai chỗ điền ô KHÔNG QUA bàn phím phải
+  // tự đánh dấu, không thì đúng thao tác nhanh nhất của cô ("Áp cho cả nhóm")
+  // là thao tác duy nhất mất trắng khi app bị đóng; và lưu xong thì tập ô đã
+  // gõ phải được quên đi, không thì lần gõ sau chụp lại ô đã lưu với giá trị
+  // màn hình cũ rồi có ngày mời cô điền đè lên phần cô khác vừa ghi.
+  check('"Áp cho cả nhóm" đánh dấu các ô đã điền là ô cô đã gõ TRƯỚC khi ghi nháp',
+    /apCaNhom[\s\S]*?goPhien\.add\([\s\S]*?this\.luuNhap\(\)/.test(chuFile));
+  check('lưu thành công thì quên tập ô đã gõ của ngày đó',
+    /delete this\._oDaGo\[/.test(chuFile));
 }
 
 // ===========================================================================

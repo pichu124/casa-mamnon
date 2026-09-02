@@ -157,7 +157,10 @@ App.views.surveys = {
     // trách, văn phòng thấy các nhóm của trường (máy chủ tự siết theo cơ sở).
     // Cô MỘT nhóm thì khỏi phải chọn — máy chủ tự hiểu.
     this._aud = 'class';
-    const nhom = App.nhomCuaCo();
+    // Văn phòng cơ sở chỉ thấy nhóm của cơ sở mình — nhóm cơ sở khác bấm vào
+    // là máy chủ 403, mà một lựa chọn bấm vào là hỏng thì đừng liệt kê.
+    const coSo = (App.state.user || {}).coSo || null;
+    const nhom = App.nhomCuaCo().filter(c => !coSo || c.campusId === coSo);
     const laVanPhong = App.state.user.role === 'admin';
     const canChonNhom = laVanPhong || nhom.length > 1;
     UI.modal(`

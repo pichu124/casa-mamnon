@@ -316,7 +316,12 @@ module.exports = (app, { db, modules }) => {
         const cuDong = cu ? dongCuaMau(id) : [];
         const daNhan = new Set();
         const timDongCu = (d) => {
-          const i = cuDong.findIndex((o, k) => !daNhan.has(k) && o.tieuDe === d.tieuDe);
+          // So CẢ NHÓM lẫn tiêu đề: hai mẫu sẵn có đều mang hai dòng cùng tên
+          // "Lưu ý" ở hai nhóm khác nhau. Chỉ so tiêu đề thì xoá / kéo một nhóm
+          // là dòng "Lưu ý" của nhóm kia nhận nhầm id — mọi ô đã điền của bản
+          // báo cáo đã gửi chạy sang tiêu chí khác, lặng lẽ.
+          const i = cuDong.findIndex((o, k) => !daNhan.has(k)
+            && o.tieuDe === d.tieuDe && String(o.nhom || '') === String(d.nhom || ''));
           if (i === -1) return null;
           daNhan.add(i);
           return cuDong[i];
@@ -536,7 +541,7 @@ module.exports = (app, { db, modules }) => {
     // dưới có sẵn cho đúng việc này.
     if (ban.trangThai === 'da-gui') {
       return res.status(400).json({
-        error: 'Bản này đã gửi cho gia đình. Cô bấm "Thu hồi" trước rồi sửa — sửa xong gửi lại là gia đình thấy bản mới.',
+        error: 'Bản này đã gửi cho gia đình. Cô bấm "Thu về nháp để sửa" trước — sửa xong gửi lại là gia đình thấy bản mới.',
       });
     }
     const b = req.body || {};

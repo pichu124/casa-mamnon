@@ -325,9 +325,9 @@ module.exports = (app, { db }) => {
     res.json({
       ok: true, thang, classId, daLuu, boQuaNgungHoSo: boQua, xungDot,
       ...(xungDot.length ? {
-        nhac: `${xungDot.length} bé chưa lưu được vì cô khác vừa sửa kế hoạch của các bé đó `
-          + `(${xungDot.map(x => x.hoTen).join(', ')}) trong lúc màn hình của cô đang mở. `
-          + 'Mở lại màn để xem phần cô ấy vừa ghi; còn bấm Lưu lần nữa là giữ bản đang gõ trên màn của cô.',
+        nhac: `${xungDot.length} bé chưa lưu được vì kế hoạch của các bé đó vừa đổi trong lúc màn hình `
+          + `của cô đang mở (${xungDot.map(x => x.hoTen).join(', ')}) — cô khác vừa sửa, hoặc quản lý vừa duyệt / gửi lại. `
+          + 'Mở lại màn để xem bản mới; còn bấm Lưu lần nữa là giữ phần cô đang gõ cho đúng những bé cô có sửa.',
       } : {}),
     });
   });

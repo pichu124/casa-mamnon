@@ -183,6 +183,7 @@ App.views.dontra = {
     // giờ đón, bấm Ghi, và tên người đón đổi theo mà không ai nhận ra. Máy chủ
     // nhận 'giu': giữ nguyên người như đã ghi.
     const cuMoCoi = !!cu && cu.nguonLoai !== 'khac' && !chon.some(c => c.id === cu.nguonId);
+    this._daTra = cu || null;
 
     UI.modal(`
       <div class="list-row" style="border-bottom:none;padding-top:0">
@@ -230,7 +231,12 @@ App.views.dontra = {
 
   async luuTra(studentId) {
     const [nguonLoai, nguonId] = document.getElementById('dt-ai').value.split('|');
-    const nguoiDon = (document.getElementById('dt-ten') || {}).value || '';
+    // 'giu' gửi kèm tên người đón đã ghi: máy chủ đời cũ (lùi bản để xử lý sự
+    // cố) không biết 'giu', sẽ coi là 'khac' và cần một cái tên — có tên thì
+    // vẫn ghi được, chỉ mất mối nối tới danh sách thường xuyên.
+    const nguoiDon = nguonLoai === 'giu'
+      ? ((this._daTra && this._daTra.nguoiDon) || '')
+      : ((document.getElementById('dt-ten') || {}).value || '');
     try {
       await API.post('/api/dontra/ghi', {
         studentId, ngay: this._ngay, nguonLoai, nguonId,

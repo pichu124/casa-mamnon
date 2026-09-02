@@ -47,7 +47,9 @@ function unreadMessages(user) {
       GROUP BY c.id, c.type, c.classId`,
     [user.id, user.id]);
   if (!rows.length) return 0;
-  const nhomMoDuoc = new Set(db.classIdsOf(user));
+  // Cùng MỘT luật với danh sách hội thoại (lib/thong-bao.js) — quản trị thấy
+  // cả phòng nhóm đã đóng trong cơ sở mình, nên huy hiệu cũng phải đếm chúng.
+  const nhomMoDuoc = new Set(tb.nhomPhongChat(user));
   return rows
     .filter(r => !(r.type === 'group' && r.classId) || nhomMoDuoc.has(r.classId))
     .reduce((s, r) => s + Number(r.n || 0), 0);

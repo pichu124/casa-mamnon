@@ -1135,7 +1135,11 @@ App.views.admin = {
                 <td>${b.siSo}</td>
                 <td>${b.raTruong
                   ? '<span style="color:var(--warning);font-weight:600">Ra trường</span>'
-                  : UI.esc(b.tenLopMoi) + (b.taoLopMoi ? ' <span class="muted small">(tạo mới)</span>' : '')}</td>
+                  : (b.khongNhanDang || !b.tenLopMoi
+                    // Máy chủ đã gửi cờ này từ Đ118f; ô trống ở đây từng làm
+                    // hiệu trưởng không biết nhóm sẽ đi đâu — nó không đi đâu cả.
+                    ? '<span class="muted">Giữ nguyên — tên không theo mẫu, trường tự xếp sau</span>'
+                    : UI.esc(b.tenLopMoi) + (b.taoLopMoi ? ' <span class="muted small">(tạo mới)</span>' : ''))}</td>
               </tr>`).join('')}</tbody>
           </table>
         </div>
@@ -1231,6 +1235,7 @@ App.views.admin = {
           <div class="stat-box"><div class="stat-num">${r.lenLop}</div><div class="stat-label">Lên nhóm</div></div>
           <div class="stat-box"><div class="stat-num">${r.raTruong}</div><div class="stat-label">Ra trường</div></div>
           <div class="stat-box"><div class="stat-num">${r.lopTao}</div><div class="stat-label">Nhóm mới</div></div>
+          ${r.giuNguyen ? `<div class="stat-box"><div class="stat-num">${r.giuNguyen}</div><div class="stat-label">Giữ nguyên</div></div>` : ''}
         </div>
         <button class="btn primary block mt-14" onclick="UI.closeModal();App.views.admin.go('tongquan')">
           Đi phân công cô phụ trách
