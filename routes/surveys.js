@@ -1,5 +1,6 @@
 // Phân hệ Khảo sát: giáo viên tạo / đóng khảo sát, phụ huynh trả lời.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -23,11 +24,12 @@ function parentName(userId) {
 
 // AI ĐƯỢC ĐỌC CÂU TRẢ LỜI CỦA GIA ĐÌNH NÀO.
 //
-// `POST /api/surveys` ghi cứng `audience: 'all'`, nên MỌI khảo sát đều đi tới
-// cả ba cơ sở. Điều đó tự nó chưa phải lỗ hổng — nhưng chỗ đọc kết quả thì
-// trả về `respondents` (TÊN từng phụ huynh đã trả lời) và, với câu hỏi mở, cả
-// CÂU CHỮ họ viết kèm tên. Cô nhóm Chồi 2 mở một khảo sát ra là đọc được ý
-// kiến của phụ huynh cả trường, gồm hai cơ sở cô không làm việc.
+// Khảo sát toàn trường (`audience: 'all'` — mặc định, và là toàn bộ khảo sát
+// trước Đ119) đi tới cả ba cơ sở. Điều đó tự nó chưa phải lỗ hổng — nhưng chỗ
+// đọc kết quả thì trả về `respondents` (TÊN từng phụ huynh đã trả lời) và,
+// với câu hỏi mở, cả CÂU CHỮ họ viết kèm tên. Cô nhóm Chồi 2 mở một khảo sát
+// toàn trường ra là đọc được ý kiến của phụ huynh cả trường, gồm hai cơ sở cô
+// không làm việc.
 //
 // Ý kiến phụ huynh gửi cho nhà trường thường là chuyện riêng: hoàn cảnh gia
 // đình, lý do xin nghỉ, phàn nàn về một cô cụ thể. Gửi cho trường không có
@@ -77,6 +79,16 @@ function chiaLo(ds, coLo = 400) {
 // chứ không cắt việc đang cần làm.
 const GIOI_HAN_DANH_SACH = 100;
 
+// Tên nhóm của một khảo sát theo nhóm — để màn hình ghi rõ "khảo sát của
+// nhóm nào" thay vì bắt người đọc đoán. `findClass` chứ không phải
+// `db.classes()`: nhóm đã đóng sau chuyển năm vẫn phải hiện được tên trên
+// khảo sát cũ của nó.
+function tenNhomCua(audience) {
+  if (!audience || audience === 'all') return '';
+  const c = db.findClass(audience);
+  return c ? c.name : '';
+}
+
 function summary(sv, user, responses) {
   const list = responses || responsesOf(sv.id);
   return {
@@ -85,6 +97,8 @@ function summary(sv, user, responses) {
     description: sv.description,
     deadline: sv.deadline,
     status: sv.status,
+    audience: sv.audience,
+    tenNhom: tenNhomCua(sv.audience),
     questionCount: (sv.questions || []).length,
     responseCount: list.length,
     answered: list.some(r => r.userId === user.id),
@@ -126,6 +140,8 @@ module.exports = (app) => {
         description: sv.description,
         deadline: sv.deadline,
         status: sv.status,
+        audience: sv.audience,
+        tenNhom: tenNhomCua(sv.audience),
         questionCount: (sv.questions || []).length,
         responseCount: dem.get(sv.id) || 0,
         answered: daTraLoi.has(sv.id),
@@ -226,11 +242,45 @@ module.exports = (app) => {
     res.status(201).json({ ok: true });
   });
 
-  // Giáo viên tạo khảo sát mới (gửi tới toàn trường).
+  // Cô hoặc văn phòng tạo khảo sát mới — gửi toàn trường hoặc riêng một nhóm.
   app.post('/api/surveys', requireRole('teacher', 'admin'), (req, res) => {
-    const { title, description, deadline, questions } = req.body || {};
+    const { title, description, deadline, questions, audience } = req.body || {};
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập tiêu đề khảo sát' });
+    }
+
+    // PHẠM VI GỬI — cùng luật, gần như cùng chữ với POST /api/notifications:
+    // 'all' là toàn trường, 'class' là một nhóm (cô chỉ gửi được nhóm mình,
+    // văn phòng gửi được nhóm trong cơ sở của mình qua canAccessClass).
+    // App đời cũ KHÔNG gửi trường này thì giữ đúng nghĩa cũ: toàn trường.
+    // Tầng đọc không phải sửa gì — `visibleTo` và bộ đếm huy hiệu đã lọc theo
+    // cột `audience` từ trước, chỉ có đường tạo là chưa bao giờ ghi gì khác
+    // 'all' vào đó.
+    const phamVi = audience === undefined ? 'all' : audience;
+    if (phamVi !== 'all' && phamVi !== 'class') {
+      return res.status(400).json({ error: 'Phạm vi gửi không hợp lệ' });
+    }
+    let nhomNhan = '';
+    if (phamVi === 'class') {
+      if (req.user.role === 'admin') {
+        nhomNhan = String((req.body || {}).classId || '');
+        if (!nhomNhan || !db.findClass(nhomNhan)) {
+          return res.status(400).json({ error: 'Vui lòng chọn nhóm nhận khảo sát' });
+        }
+        if (!db.canAccessClass(req.user, nhomNhan)) {
+          return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+        }
+      } else {
+        const nhomCuaCo = nl.nhomCuaCo(req.user.id);
+        nhomNhan = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
+        if (!nhomNhan) {
+          return res.status(400).json({
+            error: nhomCuaCo.length > 1
+              ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm nhận khảo sát'
+              : 'Tài khoản chưa gắn với nhóm lớp nào',
+          });
+        }
+      }
     }
     if (!DATE_RE.test(String(deadline || ''))) {
       return res.status(400).json({ error: 'Hạn trả lời không hợp lệ' });
@@ -265,11 +315,12 @@ module.exports = (app) => {
       createdBy: req.user.id,
       createdAt: new Date().toISOString(),
       deadline,
-      audience: 'all',
+      audience: phamVi === 'class' ? nhomNhan : 'all',
       status: 'open',
       questions: qs,
     };
     db.insert('surveys', rec);
+    db.audit(req.user.id, 'survey-create', rec.id, { audience: rec.audience });
     res.status(201).json(summary(rec, req.user, []));
   });
 

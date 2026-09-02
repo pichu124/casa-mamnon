@@ -41,6 +41,10 @@ App.views.surveys = {
         <div class="flex mt-8">
           <span class="muted small">Hạn: ${UI.fmtDateShort(s.deadline)} · ${s.questionCount} câu hỏi</span>
           <span class="spacer"></span>
+          ${
+            // Khảo sát của riêng nhóm thì ghi rõ nhóm nào — nhà hai con ở hai
+            // nhóm phải biết phiếu này hỏi về nhóm của bé nào.
+            s.tenNhom ? UI.badge(`Nhóm ${s.tenNhom}`, 'blue') : ''}
           ${s.answered ? UI.badge('Đã trả lời', 'green') : UI.badge('Chưa trả lời', 'orange')}
         </div>
       </div>`;
@@ -129,6 +133,7 @@ App.views.surveys = {
         <div class="card clickable" onclick="App.views.surveys.openResults('${UI.esc(s.id)}')">
           <div class="flex">
             <div style="font-weight:700;flex:1;min-width:0">${UI.esc(s.title)}</div>
+            ${s.tenNhom ? UI.badge(`Nhóm ${s.tenNhom}`, 'blue') : UI.badge('Toàn trường', 'gray')}
             ${s.status === 'open' ? UI.badge('Đang mở', 'green') : UI.badge('Đã đóng', 'gray')}
           </div>
           ${s.description ? `<div class="muted small mt-8">${UI.esc(s.description)}</div>` : ''}
@@ -142,10 +147,19 @@ App.views.surveys = {
   },
 
   // Modal tạo khảo sát mới.
+  _aud: 'class',
+
   openCreate() {
     const d = new Date();
     d.setDate(d.getDate() + 7);
     const defDeadline = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    // Phạm vi gửi — cùng khuôn với form Tạo thông báo: cô thấy nhóm mình phụ
+    // trách, văn phòng thấy các nhóm của trường (máy chủ tự siết theo cơ sở).
+    // Cô MỘT nhóm thì khỏi phải chọn — máy chủ tự hiểu.
+    this._aud = 'class';
+    const nhom = App.nhomCuaCo();
+    const laVanPhong = App.state.user.role === 'admin';
+    const canChonNhom = laVanPhong || nhom.length > 1;
     UI.modal(`
       <div class="field"><label>Tiêu đề khảo sát</label>
         <input id="sv-title" placeholder="Ví dụ: Khảo sát ý kiến phụ huynh về..."></div>
@@ -153,16 +167,34 @@ App.views.surveys = {
         <textarea id="sv-desc" placeholder="Đôi lời gửi tới quý phụ huynh về mục đích khảo sát..."></textarea></div>
       <div class="field"><label>Hạn trả lời</label>
         <input id="sv-deadline" type="date" value="${defDeadline}"></div>
+      <div class="field">
+        <label>Gửi tới phụ huynh</label>
+        <div class="seg" id="sv-aud" style="margin-bottom:0">
+          <button class="active" data-aud="class" onclick="App.views.surveys.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Nhóm mình'}</button>
+          <button data-aud="all" onclick="App.views.surveys.setAud('all')">Toàn trường</button>
+        </div>
+      </div>
+      ${canChonNhom ? `
+      <div class="field" id="sv-lop-o">
+        <label>Gửi cho nhóm</label>
+        <select id="sv-lop">
+          ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
+        </select>
+      </div>` : ''}
       <div class="field"><label>Câu hỏi</label>
         <div id="sv-questions"></div>
         <button class="btn outline sm mt-8" onclick="App.views.surveys.addQuestion()">${UI.icon('plus', 15)} Thêm câu hỏi</button>
       </div>
-      <div class="muted small" style="line-height:1.6;margin-bottom:12px">
-        Khảo sát gửi tới <b>phụ huynh toàn trường</b> — chưa chọn được riêng một
-        nhóm. Việc chỉ của nhóm mình thì cô nhắn ở phần Thông báo nhóm nhé.
-      </div>
       <button class="btn primary block" onclick="App.views.surveys.submitCreate()">Tạo khảo sát</button>`, 'Tạo khảo sát mới');
     this.addQuestion();
+  },
+
+  setAud(aud) {
+    this._aud = aud;
+    document.querySelectorAll('#sv-aud button').forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
+    // Ô chọn nhóm chỉ có nghĩa khi gửi cho một nhóm.
+    const o = document.getElementById('sv-lop-o');
+    if (o) o.style.display = aud === 'class' ? '' : 'none';
   },
 
   // Thêm một khối câu hỏi vào form tạo khảo sát.
@@ -207,8 +239,11 @@ App.views.surveys = {
         return UI.toast(`Câu ${i + 1}: cần ít nhất 2 lựa chọn, phân cách bằng dấu phẩy`, 'error');
       }
     }
+    const goi = { title, description, deadline, questions, audience: this._aud };
+    const lop = document.getElementById('sv-lop');
+    if (this._aud === 'class' && lop) goi.classId = lop.value;
     try {
-      await API.post('/api/surveys', { title, description, deadline, questions });
+      await API.post('/api/surveys', goi);
       UI.toast('Đã tạo khảo sát mới', 'success');
       UI.closeModal();
       App.route();
@@ -223,6 +258,7 @@ App.views.surveys = {
       UI.modal(`
         <div class="flex mb-8">
           ${sv.status === 'open' ? UI.badge('Đang mở', 'green') : UI.badge('Đã đóng', 'gray')}
+          ${sv.tenNhom ? UI.badge(`Nhóm ${sv.tenNhom}`, 'blue') : UI.badge('Toàn trường', 'gray')}
           ${UI.badge(`${sv.responseCount} phản hồi`, 'blue')}
           <span class="spacer"></span>
           <span class="muted small">Hạn: ${UI.fmtDateShort(sv.deadline)}</span>

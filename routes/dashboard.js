@@ -82,12 +82,18 @@ module.exports = (app) => {
         `SELECT COUNT(*) FROM remarks
           WHERE parentSeen = 0 AND studentId IN (${marks})
             AND ${st.dieuKienConHien('remarks', 'id')}`, ids);
-      // Khảo sát đang mở mà mình chưa trả lời
+      // Khảo sát đang mở mà mình chưa trả lời — TRONG PHẠM VI mình được thấy.
+      // Từ Đ119 khảo sát gửi riêng được cho một nhóm, và cột `audience` của
+      // nó mang đúng nghĩa với cột cùng tên của thông báo, nên dùng chung một
+      // luật lọc (lib/thong-bao.js). Không lọc thì huy hiệu đếm cả khảo sát
+      // gia đình không mở được — một con số không bao giờ về 0.
+      const fKs = tb.audienceFilter(user, 's.');
       badges.khaosat = db.count(
         `SELECT COUNT(*) FROM surveys s
          WHERE s.status = 'open'
+           AND ${fKs.sql}
            AND NOT EXISTS (SELECT 1 FROM survey_responses r WHERE r.surveyId = s.id AND r.userId = ?)`,
-        [user.id]);
+        [...fKs.params, user.id]);
     }
 
     if (user.role === 'teacher' || user.role === 'admin') {
