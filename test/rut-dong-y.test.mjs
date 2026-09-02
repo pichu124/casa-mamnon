@@ -267,6 +267,13 @@ try {
     const manHt = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
     check('MÀN HÀNH TRÌNH ĐỌC `ngungHoSoHocTap` và nhắc TRƯỚC khi cô gõ',
       /ngungHoSoHocTap/.test(manHt), 'không thấy ngungHoSoHocTap trong hanhtrinh/view.js');
+    // Grep chữ trong tệp view là phép kiểm gần-như-luôn-xanh: chữ còn đó mà
+    // máy chủ thôi gửi cờ là tính năng chết không ai hay. Hỏi thẳng đường mà
+    // hộp thoại ghi quan sát đang dùng: /hom-nay phải mang cờ cho ĐÚNG bé.
+    const homNayHt = await req('GET', '/api/hanhtrinh/hom-nay', { cookie: co4.cookie });
+    const beDungTrongDs = (homNayHt.data?.danhSachBe || []).find(b => b.id === BE_DA_DUNG);
+    check('và máy chủ THẬT SỰ gửi cờ đó trong danh sách bé của màn Hôm nay',
+      !!beDungTrongDs && beDungTrongDs.ngungHoSoHocTap === true, beDungTrongDs);
 
     const manTc = fs.readFileSync(path.join(GOC, 'modules/thuchup/view.js'), 'utf8');
     check('MÀN GHI NHANH ngăn từ gốc — chip của bé đã dừng không bấm được',

@@ -111,9 +111,16 @@ console.log('\n[1] Mọi câu ĐỌC bảng thu hồi được, ngoài tệp g�
       const re = new RegExp(`FROM\\s+${bang}\\b`, 'g');
       let m;
       while ((m = re.exec(ma))) {
-        // Lấy trọn câu SQL quanh chỗ khớp: lùi về đầu chuỗi mẫu, tiến tới cuối.
-        const dau = Math.max(0, ma.lastIndexOf('`', m.index));
-        const cuoi = ma.indexOf('`', m.index);
+        // Lấy trọn câu SQL quanh chỗ khớp: lùi về đầu chuỗi mẫu, tiến tới
+        // cuối. NHẬN CẢ BA loại nháy — câu SQL viết bằng nháy đơn hay nháy kép
+        // mà chỉ dò backtick thì phần khoanh trượt sang đoạn mã bên cạnh, và
+        // một câu quên lọc có thể được miễn oan nhờ chữ dieuKienConHien của
+        // câu khác lọt vào khung nhìn.
+        const truocKhop = ma.slice(0, m.index);
+        const dau = Math.max(0,
+          truocKhop.lastIndexOf('`'), truocKhop.lastIndexOf("'"), truocKhop.lastIndexOf('"'));
+        const nhay = dau > 0 ? ma[dau] : '`';
+        const cuoi = ma.indexOf(nhay, m.index);
         const cau = ma.slice(dau, cuoi > 0 ? cuoi + 1 : m.index + 400);
         soCauDaSoi++;
 

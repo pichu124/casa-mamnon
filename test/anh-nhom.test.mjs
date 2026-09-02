@@ -343,6 +343,26 @@ console.log('\n[9b] GIA ĐÌNH TỰ XEM VÀ TỰ RÚT ĐƯỢC GIẤY ĐỒNG Ý
   check('RÚT XONG LÀ LUẬT ẢNH NHÓM ĐỔI NGAY, không phải chờ ai làm gì',
     sauKhiRut <= truocKhiRut, { truocKhiRut, sauKhiRut });
 
+  // SIẾT PHÉP ĐO (Đ118): phép so <= trên CHÍNH nhà đã rút gần như luôn xanh —
+  // nó xanh cả khi việc rút vô tác dụng, và từ Đ117c nhà đã rút VẪN thấy ảnh
+  // của chính con mình nên con số của họ vốn không phải thước đo. Người phải
+  // mất ảnh là NHÀ KHÁC, và phải mất THẬT: gắn thẻ đích danh s1 vào một tấm,
+  // nhà s3 phải thôi thấy nó; gỡ thẻ lại ngay để các mục sau chạy nền như cũ.
+  await req('PUT', `/api/albums/${album.id}/photos/${ANH[0]}/be`,
+    { cookie: GV, body: { studentIds: ['s1'] } });
+  const ph2ThayAnhDau = async () =>
+    (((await req('GET', `/api/albums/${album.id}`, { cookie: PH2 })).data || {}).photos || [])
+      .some(p => p.id === ANH[0]);
+  check('nhà KHÁC thôi thấy ảnh gắn thẻ bé vừa rút — mất thật, không phải so <=',
+    !(await ph2ThayAnhDau()), ANH[0]);
+  const ph1ThayAnhDau =
+    (((await req('GET', `/api/albums/${album.id}`, { cookie: PH1 })).data || {}).photos || [])
+      .some(p => p.id === ANH[0]);
+  check('còn CHÍNH nhà đã rút vẫn thấy ảnh của con mình (rút là với NHÀ KHÁC)',
+    ph1ThayAnhDau, ANH[0]);
+  await req('PUT', `/api/albums/${album.id}/photos/${ANH[0]}/be`,
+    { cookie: GV, body: { studentIds: [] } });
+
   // ---- Cô KHÔNG đi qua đường này ----
   const coGiaoRut = await req('PUT', '/api/dong-y', {
     cookie: GV, body: { studentId: 's1', hoSoHocTap: false },

@@ -8,7 +8,14 @@
 // quay lại.
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
 import { spawnSync } from 'child_process';
+
+// Mở CHỈ ĐỌC cơ sở dữ liệu tạm khi một phép kiểm cần nhìn thẳng vào bảng —
+// có chỗ (thu hồi ≠ xoá) mà mọi câu trả lời của API đều giống hệt nhau dù
+// dòng dữ liệu còn hay đã mất.
+const require_ = createRequire(import.meta.url);
+const DatabaseChiDoc = require_('better-sqlite3');
 import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -690,8 +697,16 @@ console.log('\n[19] B7 — sửa và thu hồi được, mà KHÔNG mất dữ l
   const sauBadge = (await req('GET', '/api/dashboard/badges', { cookie: PH })).data.thongbao;
   check('BỘ ĐẾM CHƯA ĐỌC GIẢM THEO (không kẹt một số không bao giờ về 0)',
     sauBadge < truocBadge || truocBadge === 0, { truocBadge, sauBadge });
+  // 404 ở đường sửa KHÔNG phân biệt được "ẩn" với "đã xoá hẳn" — thu hồi mà bị
+  // đổi thành DELETE thật thì phép kiểm cũ vẫn xanh. Hỏi thẳng bảng cho chắc.
   check('DỮ LIỆU VẪN CÒN, chỉ là bị ẩn',
-    (await req('PUT', `/api/notifications/${tbId}`, { cookie: GV, body: { title: 'x' } })).status === 404);
+    (await req('PUT', `/api/notifications/${tbId}`, { cookie: GV, body: { title: 'x' } })).status === 404
+    && (() => {
+      const d = new DatabaseChiDoc(path.join(DIR, 'school.db'), { readonly: true });
+      try {
+        return d.prepare('SELECT COUNT(*) AS n FROM notifications WHERE id = ?').get(tbId).n === 1;
+      } finally { d.close(); }
+    })());
 
   // --- NỀ NẾP: thu hồi phải trừ luôn khỏi điểm thi đua ---
   const diemCua = async () => (await req('GET', `/api/conduct?studentId=${em}`, { cookie: GV })).data.totalPoints;
