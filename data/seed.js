@@ -27,8 +27,21 @@ const MOC = Date.parse(`${ngay.homNay()}T00:00:00Z`);
 function fmt(d) { return new Date(d).toISOString().slice(0, 10); }
 function daysAgo(n) { return new Date(MOC - n * 86400000); }
 function daysAhead(n) { return new Date(MOC + n * 86400000); }
+// Mốc thời gian ISO cho "h giờ min phút NGÀY d, GIỜ VIỆT NAM".
+//
+// Bản cũ cộng thẳng h giờ vào 00:00Z rồi dán hậu tố Z — tức khai giờ-tường
+// Việt Nam là giờ UTC. Mọi màn hình đọc mốc bằng giờ máy (fmtTime dùng
+// getHours) nên hiện lệch +7 tiếng, và mốc từ 17h trở đi nhảy sang ngày hôm
+// sau. Trừ đúng độ lệch đã khai ở lib/ngay.js (không chép lại con số).
 function iso(d, h, min) {
-  return new Date(Date.parse(`${fmt(d)}T00:00:00Z`) + (h * 60 + (min || 0)) * 60000).toISOString();
+  return new Date(Date.parse(`${fmt(d)}T00:00:00Z`)
+    + (h * 60 + (min || 0) - ngay.LECH_PHUT) * 60000).toISOString();
+}
+// Cô CỦA ĐÚNG NHÓM ghi sổ cho nhóm mình: t1 (Chồi 2), t2 (Lá 1), t4 (Nhà
+// trẻ 1). Bản cũ rẽ nhánh "c1 thì t1, còn lại t2" nên mọi ghi chép của ba bé
+// nhà trẻ mang tên cô nhóm Lá — sai người chịu trách nhiệm.
+function coCuaNhom(cid) {
+  return { c1: 't1', c2: 't2', c4: 't4' }[cid] || 't1';
 }
 // n ngày học (T2-T6) gần nhất, mới nhất trước
 function recentWeekdays(n) {
@@ -122,7 +135,10 @@ function xoaBangPhanHe(db) {
 
 function sinh(db, moc) {
   const { fmt, daysAgo, daysAhead, thuHai, HOM_NAY, THANG_NAY } = moc;
-  const luc = (d, h, m) => `${fmt(d)}T${String(h).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}:00.000Z`;
+  // Cùng phép quy đổi giờ Việt Nam → UTC với hàm `iso` ở đầu tệp — bản cũ dán
+  // hậu tố Z vào giờ-tường nên mọi mốc hiển thị lệch +7 tiếng.
+  const luc = (d, h, m) => new Date(Date.parse(`${fmt(d)}T00:00:00Z`)
+    + ((h * 60 + (m || 0)) - ngay.LECH_PHUT) * 60000).toISOString();
   let dem = 0;
   const ma = (p) => `${p}_seed${(dem += 1).toString(36)}`;
 
@@ -647,7 +663,7 @@ function generate() {
         checkIn: status === 'present' ? `07:${String(15 + ((di + si * 7) % 30)).padStart(2, '0')}` : status === 'late' ? '08:05' : null,
         checkOut: status === 'absent_excused' ? null : (di === 0 ? null : '16:30'),
         note: status === 'absent_excused' ? 'Nghỉ có phép (gia đình xin phép)' : status === 'late' ? 'Gia đình đưa bé tới muộn' : '',
-        markedBy: s.classId === 'c1' ? 't1' : 't2',
+        markedBy: coCuaNhom(s.classId),
       };
       attendance.push(rec);
     });
@@ -761,7 +777,7 @@ function generate() {
       remarks.push({
         id: 'rm_' + rmId++,
         studentId: s.id,
-        teacherId: s.classId === 'c1' ? 't1' : 't2',
+        teacherId: coCuaNhom(s.classId),
         date: fmt(d),
         content: t.content,
         rating: t.rating,
@@ -791,6 +807,9 @@ function generate() {
   ];
   const reports = [];
   students.forEach((s, si) => {
+    // Bé nhà trẻ (14–38 tháng) không có "học bạ học kỳ" — sinh học bạ của năm
+    // học trước cho một bé 14 tháng là dữ liệu không thể có thật.
+    if (s.classId === 'c4') return;
     const subs = s.classId === 'c1' ? subjectSet3 : subjectSet5;
     [`Học kỳ 1 (${YEAR - 1}-${YEAR})`, `Học kỳ 2 (${YEAR - 1}-${YEAR})`].forEach((term, ti) => {
       reports.push({
@@ -880,7 +899,7 @@ function generate() {
     recentWeekdays(15).forEach((d, di) => {
       if ((di * 2 + si) % 7 !== 3) return;
       const it = pick(conductItems, di + si);
-      conduct.push({ id: 'cd_' + cdId++, studentId: s.id, date: fmt(d), ...it, byTeacherId: s.classId === 'c1' ? 't1' : 't2' });
+      conduct.push({ id: 'cd_' + cdId++, studentId: s.id, date: fmt(d), ...it, byTeacherId: coCuaNhom(s.classId) });
     });
   });
 
@@ -928,7 +947,10 @@ function generate() {
     health.push(
       // Chiều cao / cân nặng đúng lứa 4–6 tuổi. Số liệu sai lứa tuổi là thứ cô
       // và y tế trường nhận ra ngay, và nhận ra là mất tin vào cả bộ dữ liệu.
-      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(40 + si)), type: 'checkup', title: 'Cân đo định kỳ đầu năm', detail: 'Bé ăn ngủ bình thường, răng miệng sạch. Không có gì bất thường.', height: s.classId === 'c1' ? 102 + si : 110 + si, weight: s.classId === 'c1' ? 16 + si : 19 + si, vision: 'Bình thường', bmiNote: 'Cân đối theo tuổi' },
+      // Nhóm nhà trẻ (c4, 14–38 tháng) phải mang số đo nhà trẻ — 78–90 cm,
+      // 10–14 kg — không phải số của bé 5–6 tuổi. Số liệu sai lứa tuổi là thứ
+      // cô và y tế trường nhận ra ngay (CLAUDE.md, dòng đầu).
+      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(40 + si)), type: 'checkup', title: 'Cân đo định kỳ đầu năm', detail: 'Bé ăn ngủ bình thường, răng miệng sạch. Không có gì bất thường.', height: s.classId === 'c4' ? 78 + (si % 5) * 3 : s.classId === 'c1' ? 102 + si : 110 + si, weight: s.classId === 'c4' ? 10 + (si % 5) : s.classId === 'c1' ? 16 + si : 19 + si, vision: 'Bình thường', bmiNote: 'Cân đối theo tuổi' },
       { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(70 + si)), type: 'vaccination', title: 'Tiêm nhắc vắc-xin Sởi – Rubella', detail: 'Tiêm tại trạm y tế phường, gia đình gửi lại sổ tiêm cho nhà trường. Không phản ứng phụ.' },
     );
     if (si % 3 === 0) {
