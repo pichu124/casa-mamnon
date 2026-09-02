@@ -189,7 +189,11 @@ function ganThemDanhSachBe(anh, user) {
 // KHÔNG nói nhà nào từ chối. Đó là chuyện riêng của gia đình đó.
 function nhacChoPhuHuynh(tatCaAnh, anhXemDuoc, classId) {
   const con = (tatCaAnh || []).length - (anhXemDuoc || []).length;
-  if (con <= 0 || !db.coBeTuChoiChiaSe(classId)) return {};
+  // Phải hỏi bản TỪNG HỌC — cùng bản mà bộ lọc ảnh đang dùng. Hỏi bản chỉ nhìn
+  // hiện tại thì sau chuyển năm học, ảnh của album năm cũ vẫn bị ẩn (bộ lọc
+  // nhớ lời từ chối của bé đã rời nhóm) nhưng lời giải thích thì im bặt —
+  // phụ huynh thấy album vơi đi mà không một dòng nói vì sao.
+  if (con <= 0 || !db.coBeTuChoiChiaSeTungHoc(classId)) return {};
   return {
     nhacChoPhuHuynh: `Album này còn ${con} ảnh chưa hiện với gia đình. `
       + 'Trong nhóm có bé mà gia đình chưa đồng ý chia sẻ ảnh, nên cô cần đánh dấu '
@@ -297,11 +301,30 @@ module.exports = (app) => {
     const tatCa = [...new Set([...classIds, ...lopCu, ...khoangCu.map(k => k.classId)])];
     if (!tatCa.length) return res.json([]);
     const marks = tatCa.map(() => '?').join(',');
+
+    // CÙNG LUẬT VỚI `xemDuocAlbum`, NHƯNG TÍNH SẴN MỘT LẦN CHO CẢ DANH SÁCH.
+    //
+    // `xemDuocAlbum` hỏi `canAccessClass` — mà hàm đó chạy `classIdsOf` MỖI
+    // LẦN gọi — cho TỪNG album, TRƯỚC khi cắt trang. Toàn bộ album của vài năm
+    // học nhân với một lượt truy vấn quyền mỗi dòng là đúng hình dạng N+1 mà
+    // Đ98 vừa dọn ở tầng ảnh. Ba nguồn quyền dưới đây đã nằm sẵn trong tay
+    // (classIds, lopCu, khoangCu) — chỉ việc tra tập, không hỏi lại ai.
+    const nhomDangMo = new Set(classIds);
+    const lopCuSet = new Set(lopCu);
+    const khoangTheoLop = new Map();
+    for (const k of khoangCu) {
+      if (!khoangTheoLop.has(k.classId)) khoangTheoLop.set(k.classId, []);
+      khoangTheoLop.get(k.classId).push(k);
+    }
+    const xemNhanh = (a) => nhomDangMo.has(a.classId) || lopCuSet.has(a.classId)
+      || (khoangTheoLop.get(a.classId) || [])
+        .some(k => !a.date || (String(a.date) >= k.tu && String(a.date) <= k.den));
+
     const daLocTheoKhoang = db.all('albums',
       `SELECT * FROM albums WHERE classId IN (${marks}) ORDER BY date DESC, rowid DESC`, tatCa)
       // Lọc lại lần nữa theo khoảng: câu truy vấn trên lấy theo LỚP, còn phụ
       // huynh chỉ được xem phần ảnh chụp trong đúng khoảng con còn ở lớp đó.
-      .filter(a => xemDuocAlbum(req.user, a.classId, a.date));
+      .filter(xemNhanh);
 
     // CẮT CỬA SỔ TRƯỚC KHI ĐỘNG TỚI ẢNH.
     //
@@ -342,8 +365,13 @@ module.exports = (app) => {
       }
     }
 
+    // Một lượt tra lớp cho mỗi NHÓM khác nhau, không phải mỗi album.
+    const lopTheoId = new Map();
+    for (const a of albums) {
+      if (!lopTheoId.has(a.classId)) lopTheoId.set(a.classId, db.findClass(a.classId));
+    }
     const list = albums.map(a => {
-      const cls = db.findClass(a.classId);
+      const cls = lopTheoId.get(a.classId);
       return {
         ...a,
         className: cls ? cls.name : '',
@@ -354,7 +382,8 @@ module.exports = (app) => {
         // ví dụ em chuyển lớp giữa năm. Với phụ huynh thì cờ thứ hai mới đúng
         // là thứ cần tách ra.
         lopDaDong: !!(cls && !cls.active),
-        lopCuCuaCon: !db.canAccessClass(req.user, a.classId),
+        // Cùng câu hỏi `canAccessClass` nhưng tra tập đã tính sẵn ở trên.
+        lopCuCuaCon: !nhomDangMo.has(a.classId),
         namHoc: cls ? cls.year || '' : '',
         // Ảnh bìa cũng là một tấm ảnh, nên cũng phải qua lọc — nếu không thì
         // ảnh bị ẩn bên trong vẫn hiện ngay ngoài danh sách, to bằng nửa màn
@@ -462,13 +491,11 @@ module.exports = (app) => {
       });
     }
 
-    let built;
-    try {
-      built = photos.map(buildPhoto);
-    } catch (err) {
-      return res.status(400).json({ error: err.message });
-    }
-
+    // Gom từng ảnh đã LƯU XUỐNG ĐĨA vào một danh sách, để thất bại giữa chừng
+    // — ảnh thứ 5 không hợp lệ, hay giao dịch ghi lỗi — còn biết đường dọn.
+    // Bản cũ trả 400 rồi thôi: các tệp của ảnh 1–4 nằm lại vĩnh viễn trong
+    // uploads/, không dòng nào trong cơ sở dữ liệu trỏ tới, không ai dọn.
+    const built = [];
     const rec = {
       id: db.nextId('al'),
       classId: nhomAlbum,
@@ -477,10 +504,16 @@ module.exports = (app) => {
       description: String(description || '').trim(),
       createdBy: req.user.id,
     };
-    db.tx(() => {
-      db.insert('albums', rec);
-      built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: rec.id, position: i }));
-    });
+    try {
+      photos.forEach((p, i) => built.push(buildPhoto(p, i)));
+      db.tx(() => {
+        db.insert('albums', rec);
+        built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: rec.id, position: i }));
+      });
+    } catch (err) {
+      removeFiles(built);
+      return res.status(400).json({ error: err.message });
+    }
     res.status(201).json({ ...rec, photos: built });
   });
 
@@ -491,6 +524,16 @@ module.exports = (app) => {
     if (!(req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId))) {
       return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới thêm được ảnh' });
     }
+    // NHÓM ĐÃ ĐÓNG THÌ ALBUM CHỈ ĐỂ XEM LẠI, KHÔNG ĐĂNG THÊM.
+    //
+    // `isTeacherOfClass` cố ý giữ cả dòng của nhóm đã đóng (để cô còn mở album
+    // năm cũ), nên một mình nó không nói được "nhóm còn hoạt động không".
+    // Chính màn chi tiết đã hứa điều này trong cờ `canEdit` ("lớp đã đóng thì
+    // không đăng thêm ảnh nữa") — đây là chốt giữ lời hứa đó ở tầng API.
+    const lopCuaAlbum = db.findClass(album.classId);
+    if (!lopCuaAlbum || !lopCuaAlbum.active) {
+      return res.status(400).json({ error: 'Nhóm đã đóng sau chuyển năm học — album năm cũ chỉ để xem lại, không đăng thêm ảnh' });
+    }
     const { photos } = req.body || {};
     if (!Array.isArray(photos) || !photos.length) {
       return res.status(400).json({ error: 'Chưa chọn ảnh hay video nào' });
@@ -500,16 +543,18 @@ module.exports = (app) => {
       return res.status(400).json({ error: `Mỗi album tối đa ${MAX_PHOTOS_PER_ALBUM} ảnh` });
     }
 
-    let built;
+    // Cùng lối dọn dở dang với đường tạo album ở trên: tệp đã ghi xuống đĩa
+    // mà không vào được cơ sở dữ liệu thì phải gỡ đi, không để mồ côi.
+    const built = [];
     try {
-      built = photos.map((p, i) => buildPhoto(p, dangCo + i));
+      photos.forEach((p, i) => built.push(buildPhoto(p, dangCo + i)));
+      db.tx(() => {
+        built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: album.id, position: dangCo + i }));
+      });
     } catch (err) {
+      removeFiles(built);
       return res.status(400).json({ error: err.message });
     }
-
-    db.tx(() => {
-      built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: album.id, position: dangCo + i }));
-    });
     // Nhắc NGAY LÚC ĐĂNG, không đợi cô mở lại album.
     //
     // Lúc vừa chụp xong là lúc duy nhất cô còn nhớ chắc trong ảnh là bé nào.
@@ -550,8 +595,20 @@ module.exports = (app) => {
     const xin = (req.body || {}).studentIds;
     if (!Array.isArray(xin)) return res.status(400).json({ error: 'Thiếu danh sách bé' });
 
+    // Bé ĐANG học nhóm, CỘNG bé TỪNG học nhóm (sổ student_class_periods).
+    //
+    // Chỉ nhận bé đang học thì nhóm ĐÃ ĐÓNG có danh sách rỗng — mọi bé của nó
+    // đã sang nhóm mới hoặc ra trường — tức là ảnh chưa gắn thẻ của album năm
+    // cũ bị ẩn VĨNH VIỄN với gia đình (khi trong nhóm có người từ chối) mà
+    // không còn đường nào gắn thẻ cho nó hiện lại. Bé từng học là đúng những
+    // gương mặt có thể có trong ảnh của album đó, nên nhận cả họ; bé chưa bao
+    // giờ thuộc nhóm thì vẫn bị từ chối như cũ.
     const trongNhom = new Set(db.all('students',
       'SELECT id FROM students WHERE classId = ? AND active = 1', [album.classId]).map(b => b.id));
+    for (const r of db.all('student_class_periods',
+      'SELECT DISTINCT studentId FROM student_class_periods WHERE classId = ?', [album.classId])) {
+      trongNhom.add(r.studentId);
+    }
     const lac = xin.filter(id => !trongNhom.has(id));
     if (lac.length) {
       return res.status(400).json({ error: 'Danh sách có bé không thuộc nhóm của album này' });
