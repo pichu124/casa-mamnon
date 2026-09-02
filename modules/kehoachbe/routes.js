@@ -212,6 +212,7 @@ module.exports = (app, { db }) => {
     // đâu.
     const sach = [];
     const boQua = [];
+    const xungDot = [];
     for (const x of ds) {
       const be = db.findStudent(chuoi((x || {}).studentId, 40));
       if (!be) return res.status(404).json({ error: 'Danh sách có bé không tồn tại' });
@@ -223,6 +224,25 @@ module.exports = (app, { db }) => {
       }
       const cu = db.first('kehoachbe_ke',
         'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, thang]);
+
+      // HAI CÔ CÙNG SOẠN MỘT NHÓM — NGƯỜI LƯU SAU KHÔNG ĐƯỢC XOÁ NGƯỜI LƯU TRƯỚC.
+      //
+      // Cùng lỗ, cùng bản vá với nhật ký ngày (modules/nhatky/routes.js): màn
+      // hình gửi lên NGUYÊN ẢNH CHỤP mọi ô của mọi bé, còn phía dưới thì xoá
+      // sạch mục rồi ghi lại — nên cô bấm Lưu sau ghi đè trọn tháng kế hoạch
+      // bằng bản màn hình CŨ của mình, phần cô kia vừa soạn biến mất im lặng.
+      //
+      // Màn hình gửi kèm `capNhatLucGoc` — dấu thời gian của bản kế hoạch lúc
+      // nó NẠP VỀ (null khi bé chưa có bản nào). Bản trên máy chủ đã đổi từ
+      // lúc đó thì bỏ qua ĐÚNG BÉ ĐÓ và nói ra, các bé khác vẫn lưu bình
+      // thường. KHÔNG gửi trường đó thì ghi như cũ — bản app cũ còn trong bộ
+      // nhớ điện thoại vẫn phải lưu được, đúng Nguyên tắc số 1.
+      const goc = x && Object.prototype.hasOwnProperty.call(x, 'capNhatLucGoc')
+        ? x.capNhatLucGoc : undefined;
+      if (goc !== undefined && String((cu && cu.capNhatLuc) || '') !== String(goc || '')) {
+        xungDot.push({ studentId: be.id, hoTen: be.name });
+        continue;
+      }
       if (chanNeuKhoa(res, cu)) return;
 
       // GIA ĐÌNH ĐÃ DỪNG PHẦN HỒ SƠ HỌC TẬP: BỎ QUA BÉ ĐÓ, KHÔNG TỪ CHỐI CẢ LÔ.
@@ -299,8 +319,17 @@ module.exports = (app, { db }) => {
       }
     });
 
-    db.audit(req.user.id, 'kehoachbe-luu', classId, { thang, soBe: daLuu, boQua: boQua.length || undefined });
-    res.json({ ok: true, thang, classId, daLuu, boQuaNgungHoSo: boQua });
+    db.audit(req.user.id, 'kehoachbe-luu', classId, {
+      thang, soBe: daLuu, boQua: boQua.length || undefined, xungDot: xungDot.length || undefined,
+    });
+    res.json({
+      ok: true, thang, classId, daLuu, boQuaNgungHoSo: boQua, xungDot,
+      ...(xungDot.length ? {
+        nhac: `${xungDot.length} bé chưa lưu được vì cô khác vừa sửa kế hoạch của các bé đó `
+          + `(${xungDot.map(x => x.hoTen).join(', ')}) trong lúc màn hình của cô đang mở. `
+          + 'Mở lại màn để xem phần cô ấy vừa ghi; còn bấm Lưu lần nữa là giữ bản đang gõ trên màn của cô.',
+      } : {}),
+    });
   });
 
   // ĐẶT CẢ NHÓM — đường tắt số một cho khối lượng nhập liệu.

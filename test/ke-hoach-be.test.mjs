@@ -561,6 +561,83 @@ console.log('\n[+] ĐƯỜNG "KẾ HOẠCH CỦA MỘT BÉ" — chưa màn hình
   check('quản lý cơ sở 1 mở được bé của cơ sở mình', cap3.status === 200, cap3.status);
 }
 
+// ===========================================================================
+console.log('\n[+] HAI CÔ CÙNG SOẠN — người lưu sau KHÔNG xoá người lưu trước');
+{
+  // Cùng lỗ, cùng bản vá với nhật ký ngày: màn hình gửi lên nguyên ảnh chụp
+  // mọi ô, máy chủ thì xoá sạch mục rồi ghi lại — nên trước bản vá, cô bấm
+  // Lưu sau đè trọn tháng kế hoạch bằng bản màn hình CŨ của mình, phần cô kia
+  // vừa soạn biến mất im lặng và máy chủ vẫn trả "Đã lưu".
+  //
+  // Đo trên một tháng CHƯA MỤC NÀO ĐỤNG TỚI (ba tháng sau — các mục trên đã
+  // dùng thangLui(-1), (-2), (1) và (4)) để bắt đầu từ "bé chưa có bản nào".
+  const T2 = thangLui(-3);
+  const luuVoi = (cookie, danhSach) =>
+    req('PUT', '/api/kehoachbe', { cookie, body: { classId: 'c1', thang: T2, danhSach } });
+
+  // Cô Mai Anh mở màn (bé chưa có bản nào → mốc nền null) rồi lưu trước.
+  const luu1 = await luuVoi(GV, [{
+    studentId: 's1', capNhatLucGoc: null,
+    muc: [{ gocLinhVuc: 'toan', noiDung: 'Đếm tới 10 cùng bé' }],
+  }]);
+  check('cô thứ nhất lưu được với mốc nền null — bé chưa có bản nào',
+    luu1.status === 200 && luu1.data?.daLuu === 1, luu1.data);
+
+  // Cô Bích Ngọc (cô thứ hai của CÙNG nhóm) mở màn SAU đó — mốc nền của cô
+  // là bản cô Mai Anh vừa lưu — rồi sửa và lưu.
+  const mocB = (await cuaBe('s1', T2, GV3))?.ke?.capNhatLuc;
+  check('màn của cô thứ hai nhận được dấu thời gian của bản đang lưu', !!mocB, mocB);
+  const luu2 = await luuVoi(GV3, [{
+    studentId: 's1', capNhatLucGoc: mocB,
+    muc: [{ gocLinhVuc: 'toan', noiDung: 'Xếp khối theo mẫu cùng bé' }],
+  }]);
+  check('cô thứ hai lưu được — mốc nền của cô là bản mới nhất',
+    luu2.status === 200 && luu2.data?.daLuu === 1, luu2.data);
+
+  // Màn của cô Mai Anh VẪN ĐANG MỞ với mốc nền cũ (null — lúc cô mở màn thì
+  // bé chưa có bản nào). Cô bấm Lưu.
+  const luu3 = await luuVoi(GV, [{
+    studentId: 's1', capNhatLucGoc: null,
+    muc: [{ gocLinhVuc: 'toan', noiDung: 'Đếm tới 10 (bản đã cũ trên màn)' }],
+  }]);
+  check('PHÉP KIỂM QUAN TRỌNG NHẤT: bản màn hình cũ KHÔNG lưu được',
+    luu3.status === 200 && luu3.data?.daLuu === 0, luu3.data);
+  check('máy chủ NÓI RA đúng tên bé bị đụng độ, không im lặng',
+    (luu3.data?.xungDot || []).some(x => x.studentId === 's1' && /Bảo An/.test(x.hoTen || '')),
+    luu3.data?.xungDot);
+  check('và có lời nhắc đọc được cho cô', /cô khác vừa sửa/.test(luu3.data?.nhac || ''), luu3.data?.nhac);
+  const sau3 = (await cuaBe('s1', T2, GV))?.ke;
+  check('PHẦN CÔ THỨ HAI VỪA SOẠN CÒN NGUYÊN',
+    (sau3?.muc || []).some(m => m.noiDung === 'Xếp khối theo mẫu cùng bé'), sau3?.muc);
+
+  // Đụng độ ở MỘT bé không được giữ con tin các bé còn lại trong cùng mẻ lưu.
+  const luu4 = await luuVoi(GV, [
+    { studentId: 's1', capNhatLucGoc: null, muc: [{ gocLinhVuc: 'toan', noiDung: 'Vẫn bản cũ' }] },
+    { studentId: 's3', capNhatLucGoc: null, muc: [{ gocLinhVuc: 'giac-quan', noiDung: 'Phân biệt to nhỏ' }] },
+  ]);
+  check('bé đụng độ bị bỏ qua, bé sạch trong cùng mẻ VẪN lưu được',
+    luu4.status === 200 && luu4.data?.daLuu === 1 && (luu4.data?.xungDot || []).length === 1,
+    luu4.data);
+  check('bé sạch có kế hoạch thật trong máy',
+    ((await cuaBe('s3', T2, GV))?.ke?.muc || []).some(m => m.noiDung === 'Phân biệt to nhỏ'));
+
+  // App cũ không gửi mốc nền thì ghi như trước — Nguyên tắc số 1: bản app cũ
+  // còn nằm trong điện thoại của cô vẫn phải lưu được.
+  const luu5 = await luuVoi(GV, [{
+    studentId: 's1',
+    muc: [{ gocLinhVuc: 'toan', noiDung: 'Bản từ app đời cũ' }],
+  }]);
+  check('app cũ (không gửi mốc nền) vẫn lưu được như trước',
+    luu5.status === 200 && luu5.data?.daLuu === 1 && (luu5.data?.xungDot || []).length === 0,
+    luu5.data);
+
+  // Và màn hình phải THẬT SỰ gửi mốc nền — không thì cả cơ chế trên là mã chết.
+  const maMan = fs.readFileSync(path.join(GOC, 'modules', 'kehoachbe', 'view.js'), 'utf8');
+  check('màn hình gửi capNhatLucGoc khi lưu cả nhóm', /capNhatLucGoc/.test(maMan));
+  check('và khi đụng độ thì KHÔNG vẽ lại màn đè lên phần cô đang gõ (nạp lại riêng mốc nền)',
+    /napLaiMoc/.test(maMan));
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

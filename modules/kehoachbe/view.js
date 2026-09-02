@@ -190,7 +190,17 @@ App.views.kehoachbe = {
     const theoBe = new Map();
     for (const o of document.querySelectorAll('.kb-o')) {
       const be = o.dataset.be;
-      if (!theoBe.has(be)) theoBe.set(be, { studentId: be, muc: [] });
+      if (!theoBe.has(be)) {
+        // Gửi kèm dấu thời gian của bản đã NẠP VỀ (null khi bé chưa có bản
+        // nào) — máy chủ so nó để ảnh chụp màn hình cũ của cô này không đè
+        // lên phần cô kia vừa lưu.
+        const x = ((this._data || {}).danhSach || []).find(y => y.studentId === be);
+        theoBe.set(be, {
+          studentId: be,
+          capNhatLucGoc: x && x.ke ? (x.ke.capNhatLuc || null) : null,
+          muc: [],
+        });
+      }
       theoBe.get(be).muc.push({ gocLinhVuc: o.dataset.goc, noiDung: o.value.trim() });
     }
     if (!theoBe.size) return UI.toast('Không có bé nào đang mở để sửa', 'error');
@@ -198,6 +208,16 @@ App.views.kehoachbe = {
       const r = await API.put('/api/kehoachbe', {
         classId: this._classId, thang: this._thang, danhSach: [...theoBe.values()],
       });
+
+      // CÓ BÉ ĐỤNG ĐỘ: cô khác vừa lưu trong lúc màn này đang mở. KHÔNG vẽ
+      // lại màn — vẽ lại là phần cô đang gõ cho mấy bé đó biến mất. Chỉ nạp
+      // lại dấu thời gian nền, để nếu cô đọc lời báo xong vẫn bấm Lưu lần
+      // nữa thì đó là một lần ghi đè CÓ CHỦ Ý, không phải một tai nạn.
+      if (r.xungDot && r.xungDot.length) {
+        UI.toast(r.nhac || `${r.xungDot.length} bé chưa lưu được vì cô khác vừa sửa — bấm Lưu lần nữa nếu cô muốn giữ bản đang gõ`, 'error');
+        await this.napLaiMoc();
+        return;
+      }
       // NHÁNH `daLuu = 0` TỪNG NÓI NGƯỢC HẲN VIỆC CÔ VỪA LÀM.
       //
       // Cô gõ nội dung cho đúng một bé, mà bé đó gia đình đã dừng hồ sơ học
@@ -211,6 +231,19 @@ App.views.kehoachbe = {
         r.daLuu ? 'success' : 'error');
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // Nạp lại RIÊNG dấu thời gian nền sau một lần đụng độ — không đụng tới ô
+  // nào đang gõ trên màn. Không nạp lại thì lần Lưu sau vẫn đụng độ mãi với
+  // chính lời báo cũ, không có đường ra.
+  async napLaiMoc() {
+    try {
+      const d = await API.get(`/api/kehoachbe?classId=${encodeURIComponent(this._classId)}&thang=${encodeURIComponent(this._thang)}`);
+      const moi = new Map((d.danhSach || []).map(x => [x.studentId, x.ke]));
+      for (const x of ((this._data || {}).danhSach || [])) {
+        if (moi.has(x.studentId)) x.ke = moi.get(x.studentId);
+      }
+    } catch (_) { /* mạng chập chờn thì thôi — lần Lưu sau sẽ báo lại */ }
   },
 
   // CÔ PHẢI ĐƯỢC BIẾT BÉ NÀO BỊ BỎ QUA.
