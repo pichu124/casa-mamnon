@@ -90,12 +90,18 @@ function coSoDangXem(user, campusIdMuon) {
     if (khoa) return khoa;
     return campusIdMuon && db.canAccessCampus(user, campusIdMuon) ? campusIdMuon : null;
   }
+  // Gia đình có con học ở HAI cơ sở (cô dạy hai cơ sở cũng vậy): không được
+  // chết cứng ở cơ sở "đầu danh sách". Tôn trọng `?campusId=` khi nó nằm trong
+  // các cơ sở CỦA CHÍNH HỌ — để màn hình đổi theo bé đang chọn — còn không
+  // gửi gì thì lấy cơ sở đầu tiên, đúng hành vi cũ.
   const nhom = db.classIdsOf(user);
+  const cuaMinh = [];
   for (const c of (nhom || [])) {
     const cs = db.campusOfClass(c);
-    if (cs) return cs;
+    if (cs && !cuaMinh.includes(cs)) cuaMinh.push(cs);
   }
-  return null;
+  if (campusIdMuon && cuaMinh.includes(campusIdMuon)) return campusIdMuon;
+  return cuaMinh[0] || null;
 }
 
 // Cơ sở mà một người quản trị ĐƯỢC GHI vào.
@@ -213,7 +219,11 @@ module.exports = (app) => {
       sach.push({ date, meals, cu });
     }
 
-    const luc = ngay.bayGio();
+    // Mốc ĐẦY ĐỦ (ISO), không phải giờ-phút trong ngày: `ngay.bayGio()` chỉ trả
+    // "HH:MM", lưu vào capNhatLuc là vĩnh viễn không tra được thực đơn cơ sở
+    // này được sửa HÔM NÀO — đúng lúc cần đối chiếu "bếp đổi món khi nào" thì
+    // sổ chỉ còn giờ mà không còn ngày.
+    const luc = new Date().toISOString();
     db.tx(() => {
       for (const { date, meals, cu } of sach) {
         if (campusId) {

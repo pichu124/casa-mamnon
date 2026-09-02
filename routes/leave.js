@@ -80,7 +80,7 @@ module.exports = (app) => {
       `SELECT * FROM leave_requests WHERE studentId IN (${marks}) AND status != 'pending'
        ORDER BY createdAt DESC LIMIT ?`, [...ids, gioiHan]);
 
-    res.json([...cho, ...xong].map(decorate));
+    res.json(decorateNhieu([...cho, ...xong]));
   });
 
   // Phụ huynh tạo đơn xin phép cho con.
@@ -94,6 +94,18 @@ module.exports = (app) => {
     }
     if (fromDate > toDate) {
       return res.status(400).json({ error: 'Ngày bắt đầu phải trước hoặc trùng ngày kết thúc' });
+    }
+    // TRẦN SỐ ĐƠN ĐANG CHỜ — trần chống bơm rác, KHÔNG phải trần nghiệp vụ.
+    // Không có trần thì một tài khoản (hay một vòng lặp viết ẩu) tạo được vô
+    // hạn đơn chờ duyệt — màn của văn phòng ngập, và bảng này không có đường
+    // xoá. 30 đơn chờ cùng lúc cho MỘT bé thì không tình huống thật nào chạm
+    // tới; đơn được duyệt/từ chối xong thì gửi tiếp bình thường.
+    const dangCho = db.count(
+      `SELECT COUNT(*) FROM leave_requests WHERE studentId = ? AND status = 'pending'`, [studentId]);
+    if (dangCho >= 30) {
+      return res.status(400).json({
+        error: 'Bé đang có quá nhiều đơn chờ duyệt — chờ văn phòng duyệt xong rồi gửi thêm giúp trường nhé',
+      });
     }
     const soNgay = Math.round(
       (Date.parse(`${toDate}T00:00:00Z`) - Date.parse(`${fromDate}T00:00:00Z`)) / 86400000) + 1;
@@ -234,4 +246,59 @@ function decorate(l) {
     soNgayTrongDon: soNgayTrongDon(l.fromDate, l.toDate),
     soNgayHocDeXuat: soNgayHocTrongDon(l.fromDate, l.toDate),
   };
+}
+
+// BẢN LÔ CỦA `decorate` — cho đường danh sách, nơi có hàng chục đơn một lượt.
+//
+// `decorate` hỏi ~6 câu cho MỖI đơn (bé + phụ huynh của bé + lớp + người gửi +
+// người duyệt + hoàn tiền). Danh sách của văn phòng sau vài năm là hàng nghìn
+// câu cho một lần mở màn. Bản lô tra mỗi bảng MỘT lần bằng IN (...), rồi ghép
+// trong bộ nhớ — hình dạng từng dòng trả về GIỮ NGUYÊN từng trường so với
+// `decorate`, các đường một-đơn vẫn dùng bản cũ.
+function decorateNhieu(list) {
+  const ds = list || [];
+  if (!ds.length) return [];
+  const lo = (arr) => {
+    const ra = [];
+    for (let i = 0; i < arr.length; i += 400) ra.push(arr.slice(i, i + 400));
+    return ra;
+  };
+  const traTheoId = (bang, cot, ids, cauSql) => {
+    const ra = new Map();
+    for (const nhom of lo([...new Set(ids.filter(Boolean))])) {
+      const m = nhom.map(() => '?').join(',');
+      for (const r of db.all(bang, cauSql.replace('__IN__', m), nhom)) ra.set(r[cot], r);
+    }
+    return ra;
+  };
+
+  const be = traTheoId('students', 'id', ds.map(l => l.studentId),
+    'SELECT id, name, avatar, classId FROM students WHERE id IN (__IN__)');
+  const lop = traTheoId('classes', 'id', [...be.values()].map(s => s.classId),
+    'SELECT id, name FROM classes WHERE id IN (__IN__)');
+  const nguoi = traTheoId('users', 'id', ds.flatMap(l => [l.parentId, l.reviewedBy]),
+    'SELECT id, title, name FROM users WHERE id IN (__IN__)');
+  const hoan = traTheoId('leave_refund', 'leaveId', ds.map(l => l.id),
+    'SELECT * FROM leave_refund WHERE leaveId IN (__IN__)');
+
+  return ds.map(l => {
+    const s = be.get(l.studentId);
+    const cls = s ? lop.get(s.classId) : null;
+    const parent = nguoi.get(l.parentId);
+    const reviewer = l.reviewedBy ? nguoi.get(l.reviewedBy) : null;
+    const h = hoan.get(l.id);
+    return {
+      ...l,
+      studentName: s ? s.name : '',
+      studentAvatar: s ? s.avatar : null,
+      className: cls ? cls.name : '',
+      parentName: parent ? `${parent.title} ${parent.name}` : '',
+      reviewerName: reviewer ? `${reviewer.title} ${reviewer.name}` : '',
+      hoanTien: h
+        ? { hoanTienAn: h.hoanTienAn, soNgay: h.soNgay, ghiChu: h.ghiChu }
+        : null,
+      soNgayTrongDon: soNgayTrongDon(l.fromDate, l.toDate),
+      soNgayHocDeXuat: soNgayHocTrongDon(l.fromDate, l.toDate),
+    };
+  });
 }

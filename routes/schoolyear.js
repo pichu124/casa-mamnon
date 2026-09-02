@@ -59,7 +59,12 @@ function tenLopKeTiep(ten, khoiToiDa) {
   if (mamNon !== undefined) return mamNon;
 
   const m = String(ten || '').match(/^(.*?)(\d+)(\D*)$/);
-  if (!m) return null;
+  // KHÔNG NHẬN DẠNG ĐƯỢC ≠ CUỐI CẤP. Bản cũ trả `null` cho tên không khớp mẫu
+  // nào — mà `null` nghĩa là "ra trường", nên một nhóm đặt tên tự do ("Nhóm
+  // ghép", "Lớp năng khiếu") là TOÀN BỘ bé của nó bị cho ra trường và khoá hồ
+  // sơ trong một cú bấm chuyển năm. Trả `undefined` để nơi gọi biết đường GIỮ
+  // NGUYÊN nhóm đó và nói ra, thay vì đoán bừa theo hướng nặng nhất.
+  if (!m) return undefined;
   const khoi = Number(m[2]);
   if (khoi >= khoiToiDa) return null;   // ra trường
   return `${m[1]}${khoi + 1}${m[3]}`;
@@ -151,8 +156,11 @@ module.exports = (app) => {
         tenHienTai: c.name,
         khoi: c.grade,
         siSo,
-        tenLopMoi: tenMoi,
-        raTruong: !tenMoi,
+        tenLopMoi: tenMoi || null,
+        raTruong: tenMoi === null,
+        // Tên nhóm không khớp mẫu nào: chuyển năm sẽ GIỮ NGUYÊN nhóm này —
+        // màn xem trước phải nói vậy, không được hiện như "ra trường".
+        khongNhanDang: tenMoi === undefined,
         // Nhóm này đi theo BẬC mầm non hay theo số cuối tên lớp. Màn hình cần
         // biết để không hiện ô "Khối cuối cấp" — với nhóm mầm non ô đó không có
         // tác dụng gì, mà một ô điều khiển đã chết vẫn hiện thì hiệu trưởng gõ
@@ -225,6 +233,15 @@ module.exports = (app) => {
       // Chuyển bé sang nhóm mới.
       for (const c of lopCu) {
         const tenMoi = tenLopKeTiep(c.name, khoiToiDa);
+        // Tên không nhận dạng được: GIỮ NGUYÊN nhóm và bé của nó — không lên
+        // lớp, không ra trường, không đóng nhóm — và ghi tên vào kết quả để
+        // ban giám hiệu thấy mà xử lý tay. Đoán bừa ở đây là khoá nhầm hồ sơ
+        // của cả một nhóm bé đang học.
+        if (tenMoi === undefined) {
+          ketQua.giuNguyen = (ketQua.giuNguyen || 0) + 1;
+          (ketQua.nhomGiuNguyen = ketQua.nhomGiuNguyen || []).push(c.name);
+          continue;
+        }
         const khoa = tenMoi ? khoaNhom(db.campusOfClass(c.id), tenMoi) : '';
         const hocSinh = db.all('students',
           'SELECT id FROM students WHERE classId = ? AND active = 1', [c.id]);

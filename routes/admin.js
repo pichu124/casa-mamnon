@@ -80,12 +80,18 @@ module.exports = (app) => {
   // giữa các cơ sở phải độc lập. Ba đường dưới đây là chỗ nhà trường khai báo
   // và sửa danh sách đó.
   app.get('/api/admin/campuses', onlyAdmin, (req, res) => {
-    res.json(db.campuses().map(cs => ({
-      ...cs,
-      classCount: db.classIdsOfCampus(cs.id).length,
-      studentCount: db.classIdsOfCampus(cs.id)
-        .reduce((n, id) => n + db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [id]), 0),
-    })));
+    // Cấp 3 chỉ thấy CƠ SỞ CỦA MÌNH — kèm sĩ số và số nhóm. Trả cả ba cơ sở
+    // cho quản lý một cơ sở là đưa đúng thứ mà màn Tổng quan đã cố ý che
+    // (quy mô của cơ sở khác) ra qua một đường khác.
+    const pham = db.phamViCoSo(req.user);
+    res.json(db.campuses()
+      .filter(cs => pham === null || cs.id === pham)
+      .map(cs => ({
+        ...cs,
+        classCount: db.classIdsOfCampus(cs.id).length,
+        studentCount: db.classIdsOfCampus(cs.id)
+          .reduce((n, id) => n + db.count('SELECT COUNT(*) FROM students WHERE classId = ? AND active = 1', [id]), 0),
+      })));
   });
 
   app.post('/api/admin/campuses', onlyAdmin, (req, res) => {
@@ -652,10 +658,58 @@ module.exports = (app) => {
       'Đồng ý hồ sơ học tập', 'Đồng ý chia sẻ ảnh', 'Đồng ý truyền thông',
       'Người ký giấy', 'Ngày ký', 'Tình trạng'];
 
+    // MỘT LƯỢT TRA CHO CẢ TRƯỜNG, KHÔNG PHẢI MƯỜI CÂU CHO MỖI BÉ.
+    //
+    // Thân vòng lặp cũ hỏi lẻ từng thứ (lớp, cơ sở, hồ sơ mở rộng, liên hệ
+    // khẩn cấp, từng phụ huynh HAI lần, CCCD từng người, giấy đồng ý) — với
+    // 300 bé là vài nghìn truy vấn đồng bộ chặn cả máy chủ cho một cú bấm
+    // "Xuất danh sách". Tra mỗi bảng MỘT lần rồi ghép trong bộ nhớ; nội dung
+    // từng ô giữ nguyên từng chữ so với bản cũ.
+    const beIds = rows.map(s => s.id);
+    const chiaLo = (arr) => {
+      const ra = [];
+      for (let i = 0; i < arr.length; i += 400) ra.push(arr.slice(i, i + 400));
+      return ra;
+    };
+    const goms = (bang, sql, ids, khoa) => {
+      const ra = new Map();
+      for (const lo of chiaLo([...new Set(ids.filter(Boolean))])) {
+        const m = lo.map(() => '?').join(',');
+        for (const r of db.all(bang, sql.replace('__IN__', m), lo)) {
+          if (khoa === undefined) ra.set(r.studentId || r.userId, r);
+          else {
+            if (!ra.has(r[khoa])) ra.set(r[khoa], []);
+            ra.get(r[khoa]).push(r);
+          }
+        }
+      }
+      return ra;
+    };
+    const lopTheoId = new Map(db.all('classes', 'SELECT * FROM classes').map(c => [c.id, c]));
+    const coSoCuaLop = new Map(db.all('class_campus', 'SELECT classId, campusId FROM class_campus')
+      .map(r => [r.classId, r.campusId]));
+    const coSoTheoId = new Map(db.all('campuses', 'SELECT * FROM campuses').map(c => [c.id, c]));
+    const hoSoTheoBe = goms('student_profile',
+      'SELECT * FROM student_profile WHERE studentId IN (__IN__)', beIds);
+    const lienHeTheoBe = goms('student_emergency_contacts',
+      'SELECT * FROM student_emergency_contacts WHERE studentId IN (__IN__) ORDER BY taoLuc, rowid',
+      beIds, 'studentId');
+    const dongYTheoBe = db.dongYCuaCacBe(beIds);
+    const phuHuynhTheoId = new Map(db.all('users',
+      "SELECT id, title, name, phone FROM users WHERE role = 'parent'").map(u => [u.id, u]));
+    const cccdTheoNguoi = new Map(db.all('user_profile',
+      'SELECT userId, soCccd FROM user_profile').map(r => [r.userId, r.soCccd || '']));
+
     const duLieu = db.withParents(rows).map(s => {
-      const lop = s.classId ? db.findClass(s.classId) : null;
-      const cs = s.classId ? db.findCampus(db.campusOfClass(s.classId)) : null;
-      const hs = db.hoSoBe(s.id) || {};
+      const lop = s.classId ? lopTheoId.get(s.classId) : null;
+      const cs = s.classId ? coSoTheoId.get(coSoCuaLop.get(s.classId)) : null;
+      const mr = hoSoTheoBe.get(s.id) || {};
+      const hs = {
+        soDinhDanh: mr.soDinhDanh || '',
+        // Cùng luật lùi về ô "Dị ứng" đời cũ như db.hoSoBe.
+        tienSuBenh: mr.tienSuBenh || s.allergies || '',
+        lienHeKhanCap: lienHeTheoBe.get(s.id) || [],
+      };
       return {
         'Mã bé': s.code || '',
         'Họ và tên': s.name || '',
@@ -670,12 +724,12 @@ module.exports = (app) => {
         'Tiền sử bệnh / lưu ý đặc biệt': hs.tienSuBenh || '',
         'Địa chỉ': s.address || '',
         'Bố / mẹ': (s.parentIds || []).map(id => {
-          const p = db.findUser(id);
+          const p = phuHuynhTheoId.get(id);
           return p ? `${p.title} ${p.name}${p.phone ? ` (${p.phone})` : ''}` : '';
         }).filter(Boolean).join(' · '),
         'Số CCCD của bố / mẹ': (s.parentIds || []).map(id => {
-          const p = db.findUser(id);
-          const so = p ? db.hoSoNguoiDung(p.id).soCccd : '';
+          const p = phuHuynhTheoId.get(id);
+          const so = p ? (cccdTheoNguoi.get(p.id) || '') : '';
           return so ? `${p.title} ${p.name}: ${so}` : '';
         }).filter(Boolean).join(' · '),
         'Người liên hệ khẩn cấp': (hs.lienHeKhanCap || [])
@@ -684,7 +738,7 @@ module.exports = (app) => {
         ...(() => {
           // Ba giá trị, nên viết ra chữ chứ không viết x / trống: người đọc
           // bảng phải phân biệt được "gia đình nói không" với "chưa thu giấy".
-          const d = db.dongYCuaBe(s.id);
+          const d = dongYTheoBe.get(s.id) || db.dongYCuaBe(s.id);
           const noi = (v) => (v === true ? 'Đồng ý' : v === false ? 'Không đồng ý' : 'Chưa trả lời');
           return {
             'Đồng ý hồ sơ học tập': noi(d.hoSoHocTap),

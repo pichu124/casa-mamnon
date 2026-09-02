@@ -45,10 +45,14 @@ module.exports = (app) => {
       return res.status(403).json({ error: 'Không có quyền xem hồ sơ y tế của bé này' });
     }
     // Cùng ngày thì bản ghi thêm sau lên trước (rowid tăng dần theo thứ tự thêm).
+    // Hỏi quyền sửa MỘT lần — cùng một bé cho mọi bản ghi. Bản cũ gọi
+    // `coTheSuaYTe` (bên trong lại hỏi canAccessStudent) cho TỪNG dòng: mở hồ
+    // sơ nhiều năm của một bé là chừng ấy truy vấn quyền thừa, cùng một câu.
+    const suaDuoc = coTheSuaYTe(req.user, studentId);
     const records = st.ganDauDaSua(BANG, db.all('health',
       `SELECT * FROM health WHERE studentId = ? AND ${st.dieuKienConHien(BANG, 'id')}
        ORDER BY date DESC, rowid DESC`, [studentId]))
-      .map(r => ({ ...r, coTheSua: coTheSuaYTe(req.user, studentId) }));
+      .map(r => ({ ...r, coTheSua: suaDuoc }));
     const latestCheckup = records.find(r => r.type === 'checkup') || null;
     res.json({ records, latestCheckup });
   });
