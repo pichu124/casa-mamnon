@@ -273,12 +273,16 @@ module.exports = (app) => {
     res.status(201).json(summary(rec, req.user, []));
   });
 
-  // Người tạo khảo sát đóng khảo sát.
+  // Người tạo hoặc quản trị đóng khảo sát.
+  //
+  // Bản cũ chỉ cho ĐÚNG người tạo — cô nghỉ việc thì khảo sát của cô mở vĩnh
+  // viễn (không có hạn tự đóng), quản trị cũng bó tay. Cùng luật với sửa/thu
+  // hồi thông báo: người tạo, hoặc quản trị.
   app.post('/api/surveys/:id/close', requireRole('teacher', 'admin'), (req, res) => {
     const sv = db.first('surveys', 'SELECT * FROM surveys WHERE id = ?', [req.params.id]);
     if (!sv) return res.status(404).json({ error: 'Không tìm thấy khảo sát' });
-    if (sv.createdBy !== req.user.id) {
-      return res.status(403).json({ error: 'Chỉ người tạo khảo sát mới được đóng khảo sát này' });
+    if (sv.createdBy !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ người tạo khảo sát hoặc quản trị mới đóng được khảo sát này' });
     }
     if (sv.status !== 'open') {
       return res.status(400).json({ error: 'Khảo sát đã được đóng trước đó' });

@@ -232,10 +232,22 @@ function findConv(req, res) {
   // được đồng bộ theo `class_teachers`, và mặt còn lại của nó — cô MỚI không tự
   // vào được phòng chung — vẫn còn đó, cần một đợt riêng.
   if (cv.type === 'group' && cv.classId && !db.canAccessClass(req.user, cv.classId)) {
-    res.status(403).json({
-      error: 'Bạn không còn trong nhóm này nên không mở được phòng chung của nhóm',
-    });
-    return null;
+    // QUẢN TRỊ vẫn mở được phòng chung của nhóm ĐÃ ĐÓNG, trong phạm vi cơ sở
+    // mình — cùng luật với album năm cũ (laNguoiGiuLopCu bên routes/albums.js).
+    // `canAccessClass` chỉ nhìn nhóm ĐANG MỞ, nên sau mỗi lần chuyển năm, lịch
+    // sử trao đổi của mọi nhóm năm cũ khoá với cả ban giám hiệu — đúng người
+    // phải tra lại được khi có khiếu nại. Cô và gia đình giữ nguyên như cũ:
+    // lớp chặn này sinh ra để cô đã rời nhóm không đọc tiếp phòng chung.
+    const lop = db.findClass(cv.classId);
+    const pham = req.user.role === 'admin' ? db.phamViCoSo(req.user) : undefined;
+    const laQuanTriGiuLopCu = req.user.role === 'admin' && lop && !lop.active
+      && (pham === null || db.campusOfClass(cv.classId) === pham);
+    if (!laQuanTriGiuLopCu) {
+      res.status(403).json({
+        error: 'Bạn không còn trong nhóm này nên không mở được phòng chung của nhóm',
+      });
+      return null;
+    }
   }
   return cv;
 }
@@ -281,6 +293,19 @@ module.exports = (app) => {
     // Không sao khi trả về một mảng duy nhất; nhưng khi cắt thành trang, thứ
     // tự lung lay nghĩa là có hội thoại lặp lại ở trang sau và có hội thoại
     // không bao giờ hiện ra.
+    // LUẬT PHÒNG CHUNG NẰM TRONG WHERE, TRƯỚC KHI CẮT TRANG.
+    //
+    // Luật "cô đã rời nhóm thì không thấy phòng chung của nhóm" (xem findConv)
+    // từng đứng SAU câu truy vấn, dưới dạng một bộ lọc JavaScript — tức là
+    // đứng SAU cả LIMIT. Trang bị cắt rồi mới lọc thì con số trả về không còn
+    // bằng con số người này xem được: màn hình đếm thiếu, tưởng "hết rồi"
+    // trong khi trang sau vẫn còn hội thoại. Đưa đúng điều kiện đó vào WHERE
+    // thì lời cam kết ở chú thích trên ("không có bộ lọc nào chạy sau câu
+    // truy vấn") lại đúng như ngày nó được viết.
+    const nhomMoDuoc = db.classIdsOf(user);
+    const dauNhom = nhomMoDuoc.map(() => '?').join(',');
+    const dieuKienPhongNhom = `(c.type != 'group' OR c.classId IS NULL OR c.classId = ''`
+      + (nhomMoDuoc.length ? ` OR c.classId IN (${dauNhom})` : '') + ')';
     const rows = db.all('conversations',
       `SELECT c.*, cm.lastRead AS myLastRead,
               (SELECT COUNT(*) FROM messages m
@@ -288,10 +313,11 @@ module.exports = (app) => {
                    AND (cm.lastRead IS NULL OR m.createdAt > cm.lastRead)) AS unreadCount
        FROM conversations c
        JOIN conversation_members cm ON cm.conversationId = c.id AND cm.userId = ?
+       WHERE ${dieuKienPhongNhom}
        ORDER BY (SELECT MAX(createdAt) FROM messages m WHERE m.conversationId = c.id) DESC,
                 c.id DESC
        LIMIT ? OFFSET ?`,
-      [user.id, user.id, soLuong, bo]);
+      [user.id, user.id, ...nhomMoDuoc, soLuong, bo]);
 
     // TIN CUỐI CỦA MỌI HỘI THOẠI TRONG MỘT TRUY VẤN.
     //
@@ -300,13 +326,10 @@ module.exports = (app) => {
     // cơ sở dữ liệu — mỗi lần cô mở màn Nhắn tin, và cô mở nó nhiều lần một
     // ngày. Câu ngay bên trên đã cố ý gộp phần đếm tin chưa đọc vào một truy
     // vấn với đúng lý do đó; phần tin cuối thì bị bỏ sót.
-    // DANH SÁCH CŨNG PHẢI THEO ĐÚNG LUẬT CỦA `findConv`.
-    //
-    // Chặn ở `findConv` mà để nguyên danh sách thì cô đã rời nhóm vẫn thấy ô
-    // phòng chung kèm TRÍCH TIN CUỐI — tức vẫn rò đúng thứ cần giấu — rồi bấm
-    // vào mới nhận câu từ chối. Vừa lộ vừa khó hiểu.
-    const nhinThay = rows.filter(cv =>
-      !(cv.type === 'group' && cv.classId) || db.canAccessClass(user, cv.classId));
+    // Luật của `findConv` (cô đã rời nhóm thì không thấy phòng chung) đã nằm
+    // ngay trong WHERE của câu truy vấn trên — trước LIMIT, nên trang không
+    // bị đếm hụt. `nhinThay` giữ nguyên tên cho phần dưới đọc không đổi.
+    const nhinThay = rows;
 
     const maHT = nhinThay.map(r => r.id);
     const dauHT = maHT.map(() => '?').join(',');

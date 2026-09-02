@@ -14,22 +14,31 @@ const BANG = 'notifications';
 const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Khác'];
 
 // Điều kiện SQL lọc theo phạm vi gửi mà người dùng được thấy.
-function audienceFilter(user) {
-  const classIds = db.classIdsOf(user);
-  const marks = classIds.map(() => '?').join(',');
-  return {
-    sql: classIds.length ? `(audience = 'all' OR audience IN (${marks}))` : `audience = 'all'`,
-    params: classIds,
-  };
-}
-
-function canSee(user, notification) {
-  return notification.audience === 'all' || db.classIdsOf(user).includes(notification.audience);
-}
+// Luật "ai thấy thông báo nào" nằm ở MỘT chỗ — lib/thong-bao.js — thay cho hai
+// bản chép tay từng trôi lệch giữa tệp này và routes/dashboard.js.
+const tb = require('../lib/thong-bao');
+const audienceFilter = (user) => tb.audienceFilter(user);
+const canSee = tb.canSee;
 
 // Mỗi lượt trả về bao nhiêu thông báo, và trần cho lượt hỏi tự đặt số.
 const MOI_TRANG = 100;
 const TRANG_TOI_DA = 300;
+
+// Trần độ dài. Không có trần thì một lần dán nhầm cả một văn bản dài vào ô
+// nội dung là MỌI máy trong trường tải khối chữ đó về mãi — thông báo không
+// ai dọn, và danh sách thì tải cả trang một lượt.
+const TOI_DA_TIEU_DE = 200;
+const TOI_DA_NOI_DUNG = 5000;
+
+function loiQuaDai(title, body) {
+  if (title !== undefined && String(title).trim().length > TOI_DA_TIEU_DE) {
+    return `Tiêu đề dài quá ${TOI_DA_TIEU_DE} ký tự — rút gọn giúp trường nhé`;
+  }
+  if (body !== undefined && String(body).trim().length > TOI_DA_NOI_DUNG) {
+    return `Nội dung dài quá ${TOI_DA_NOI_DUNG} ký tự — nội dung dài nên gửi kèm trong buổi họp hoặc chia làm nhiều thông báo`;
+  }
+  return null;
+}
 
 module.exports = (app) => {
   // Danh sách thông báo: ghim trước, rồi mới nhất trước; kèm trạng thái đã đọc
@@ -122,6 +131,8 @@ module.exports = (app) => {
     if (!body || !String(body).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập nội dung thông báo' });
     }
+    const daiQua = loiQuaDai(title, body);
+    if (daiQua) return res.status(400).json({ error: daiQua });
     if (audience !== 'all' && audience !== 'class') {
       return res.status(400).json({ error: 'Phạm vi gửi không hợp lệ' });
     }
@@ -197,6 +208,8 @@ module.exports = (app) => {
       return res.status(403).json({ error: 'Thông báo này thuộc cơ sở khác' });
     }
     const patch = {};
+    const daiQuaSua = loiQuaDai(req.body.title, req.body.body);
+    if (daiQuaSua) return res.status(400).json({ error: daiQuaSua });
     if (req.body.title !== undefined) {
       if (!String(req.body.title).trim()) return res.status(400).json({ error: 'Vui lòng nhập tiêu đề thông báo' });
       patch.title = String(req.body.title).trim();
