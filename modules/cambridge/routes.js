@@ -78,6 +78,37 @@ module.exports = (app, { db }) => {
     return nhomCuaToi.some(cid => db.campusOfClass(cid) === bai.campusId);
   }
 
+  // BẢN TÍNH SẴN của `xemDuoc` cho ĐƯỜNG LIỆT KÊ — cùng luật từng chữ.
+  //
+  // `xemDuoc` hỏi cơ sở dữ liệu vài câu cho MỖI bài (phamViCoSo, classIdsOf,
+  // campusOfClass từng nhóm), mà đường liệt kê chạy nó trên TOÀN BỘ bảng
+  // trước khi cắt trang — đúng hình dạng vụ 8.218 truy vấn của Album, chỉ
+  // khác bảng. Hàm này hỏi MỘT lượt lúc tạo bộ lọc rồi trả lời từ bộ nhớ;
+  // các đường một-bài vẫn dùng `xemDuoc` cũ.
+  function taoBoLocXemDuoc(user) {
+    if (!user) return () => false;
+    if (user.role === 'admin') {
+      const pham = db.phamViCoSo(user);
+      const nhomCoSo = pham ? new Set(db.classIdsOfCampus(pham)) : null;
+      return (bai) => {
+        if (!bai) return false;
+        if (pham === null) return true;
+        if (bai.phamVi === 'truong') return true;
+        if (bai.phamVi === 'coso') return bai.campusId === pham;
+        return nhomCoSo.has(bai.classId);
+      };
+    }
+    const nhomCuaToi = db.classIdsOf(user);
+    const nhomSet = new Set(nhomCuaToi);
+    const coSoCuaToi = new Set(nhomCuaToi.map(cid => db.campusOfClass(cid)).filter(Boolean));
+    return (bai) => {
+      if (!bai || !bai.congBoLuc) return false;   // nháp: chỉ quản trị
+      if (bai.phamVi === 'truong') return true;
+      if (bai.phamVi === 'nhom') return nhomSet.has(bai.classId);
+      return coSoCuaToi.has(bai.campusId);
+    };
+  }
+
   // =========================================================================
   // ẢNH CỦA BÀI CŨNG PHẢI ĐI QUA LUẬT ẢNH NHÓM
   // =========================================================================
@@ -253,7 +284,8 @@ module.exports = (app, { db }) => {
        ORDER BY COALESCE(NULLIF(tuan, ''), substr(taoLuc, 1, 10)) DESC, taoLuc DESC`,
       loai ? [loai] : []);
 
-    const bai = rows.filter(b => xemDuoc(b, req.user))
+    const xemNhanh = taoBoLocXemDuoc(req.user);
+    const bai = rows.filter(xemNhanh)
       .slice(bo, bo + soLuong)
       .map(b => keml(b, req.user));
     res.json({

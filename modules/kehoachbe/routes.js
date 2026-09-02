@@ -272,9 +272,16 @@ module.exports = (app, { db }) => {
           });
         }
 
-        // GHI ĐÈ TOÀN BỘ MỤC, nhưng GIỮ LẠI PHẦN NHÌN LẠI của mục trùng nội
-        // dung. Cô sửa một chữ trong mục Toán không được làm bay nhận xét cuối
-        // tháng cô đã ghi cho chính mục đó.
+        // GHI ĐÈ TOÀN BỘ MỤC, giữ phần nhìn lại cho mục TRÙNG NGUYÊN nội dung.
+        //
+        // CHỦ Ý, CÓ BÀI CANH (test/ke-hoach-be.test.mjs mục [9]): nội dung ĐÃ
+        // ĐỔI là một mục tiêu KHÁC, nên phần nhìn lại của mục cũ được DỌN chứ
+        // không gán sang — một nhận xét "bé đã vững" dán nhầm lên mục tiêu
+        // vừa viết lại còn tệ hơn một ô trống. Cái giá đi kèm: sửa cả một lỗi
+        // chính tả cũng làm mục đó về ô trống — cô sửa chữ trong nội dung thì
+        // ghi lại phần nhìn lại giúp trường. Chú thích cũ ở đây từng hứa điều
+        // ngược lại ("sửa một chữ không làm bay nhận xét") — lời hứa đó chưa
+        // bao giờ đúng với mã, nay sửa lời cho khớp luật đã chọn.
         const cuMuc = mucCuaKe(keId);
         db.run('DELETE FROM kehoachbe_muc WHERE keId = ?', [keId]);
         for (const m of muc) {
@@ -369,7 +376,19 @@ module.exports = (app, { db }) => {
     }
     const thang = chuoi(b.thang, 7) || thangNay();
     if (!THANG_RE.test(thang)) return res.status(400).json({ error: 'Tháng chưa đúng dạng, ví dụ đúng: 2026-09' });
-    const truoc = thangTruoc(thang);
+    // "Tháng trước" là THÁNG GẦN NHẤT NHÓM CÓ KẾ HOẠCH, không phải tháng liền
+    // kề trên lịch. Nhìn đúng tháng liền kề thì sau nghỉ hè — và ngay tháng
+    // đầu năm học mới — nút "Chép tháng trước" thành vô dụng: tháng 8 không có
+    // bản nào để chép. Lùi tối đa 12 tháng để không chép nhầm kế hoạch của một
+    // năm học quá cũ; không tìm thấy thì lùi về tháng liền kề như cũ (kết quả
+    // vẫn là "không có gì để chép", nhưng con số tuThang không nói dối).
+    const lui12 = `${Number(thang.slice(0, 4)) - 1}${thang.slice(4)}`;
+    const nguon = db.first('kehoachbe_ke',
+      `SELECT k.thang AS thang FROM kehoachbe_ke k
+        JOIN students s ON s.id = k.studentId
+       WHERE s.classId = ? AND k.thang < ? AND k.thang >= ?
+       ORDER BY k.thang DESC LIMIT 1`, [classId, thang, lui12]);
+    const truoc = nguon ? nguon.thang : thangTruoc(thang);
     const chiTiepTuc = !!b.chiTiepTuc;
 
     const luc = new Date().toISOString();
@@ -499,6 +518,16 @@ module.exports = (app, { db }) => {
       }
       if (k.trangThai !== 'cho-duyet') {
         return res.status(400).json({ error: 'Chỉ duyệt được kế hoạch đang chờ duyệt' });
+      }
+      // NGƯỜI LẬP KHÔNG DUYỆT KẾ HOẠCH CỦA CHÍNH MÌNH — với CẢ quản lý.
+      //
+      // Chốt vai ở đầu đường chỉ chặn được cô; một tài khoản quản trị tự lập
+      // kế hoạch (đường lưu cho phép admin) rồi tự duyệt thì bước duyệt thành
+      // cái nút thừa đúng như chú thích trên đã cảnh báo.
+      if (k.coLap === req.user.id) {
+        return res.status(403).json({
+          error: 'Kế hoạch này do chính tài khoản của anh/chị lập — nhờ một quản lý khác duyệt giúp',
+        });
       }
       sach.push(k);
     }

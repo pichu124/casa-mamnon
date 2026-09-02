@@ -132,8 +132,12 @@ module.exports = (app, { db, modules }) => {
     };
 
     // LỚP 3 — ai xem được bản ghi này cũng đọc được câu chuyện ĐÃ CÔNG BỐ.
-    // Chưa công bố thì nó là nháp của cô, nằm chung số phận với lớp 1.
-    if (r.congBoLuc || doLop2) {
+    // Chưa công bố thì nó là nháp của cô, nằm chung số phận với lớp 1 — tức
+    // là `doLop1` (chỉ cô đã ghi + quản trị), KHÔNG phải `doLop2`. Bản cũ viết
+    // `doLop2` nên câu chuyện đang soạn dở của cô A lộ sang cô B cùng nhóm —
+    // trái đúng điều chú thích dài đầu hàm này cảnh báo ("lọt sang cô khác thì
+    // mất lòng tin của cô, và cô mất lòng tin thì cô ngừng ghi").
+    if (r.congBoLuc || doLop1) {
       ra.cauChuyen = r.cauChuyen || '';
       ra.cungConONha = r.cungConONha || '';
     }
@@ -189,12 +193,20 @@ module.exports = (app, { db, modules }) => {
     // vẫn để lọt SỐ LƯỢNG bản ghi, mà "cô đã ghi 12 điều về con tôi nhưng chỉ
     // kể 2" cũng là một thứ không nên rò ra.
     const chiCongBo = req.user.role === 'parent';
+    // CÓ TRANG, KHÔNG CẮT CỤT. Bản cũ LIMIT cứng: hành trình nhiều năm của một
+    // bé dừng ở 60 bản mới nhất trên MỌI màn hình, phần đầu đời — đúng phần
+    // gia đình muốn xem lại nhất — không còn đường nào mở. `bo` là khoá THÊM
+    // BÊN CẠNH: app cũ không gửi thì nhận trang đầu, y như trước.
+    const bo = Math.max(0, Math.floor(Number(req.query.bo) || 0));
     const rows = db.all('hanhtrinh_quansat',
       `SELECT * FROM hanhtrinh_quansat WHERE studentId = ?
          ${chiCongBo ? 'AND congBoLuc IS NOT NULL' : ''}
-       ORDER BY ngay DESC, taoLuc DESC LIMIT ?`, [studentId, GIOI_HAN_DANH_SACH]);
+       ORDER BY ngay DESC, taoLuc DESC LIMIT ? OFFSET ?`, [studentId, GIOI_HAN_DANH_SACH, bo]);
 
     res.json({
+      // Còn trang sau không — màn hình chỉ cần đếm, không cần đoán.
+      conNua: rows.length === GIOI_HAN_DANH_SACH,
+      bo,
       be: { id: be.id, hoTen: be.name, avatar: be.avatar, classId: be.classId },
       // CÔ PHẢI BIẾT TRƯỚC KHI GÕ, KHÔNG PHẢI SAU (Đ96).
       //
@@ -277,7 +289,17 @@ module.exports = (app, { db, modules }) => {
         daSuyNgam: !!r.suyNgamLuc,
       })),
       ghiNhanhChuaDung: ghiNhanhChuaDung(req.user, ngay, ids),
-      danhSachBe: db.studentsOf(req.user).map(s => ({ id: s.id, hoTen: s.name, avatar: s.avatar })),
+      // Kèm cờ `ngungHoSoHocTap` cho TỪNG bé — hộp thoại ghi quan sát mở từ
+      // màn này cần nói TRƯỚC khi cô gõ (Đ96), mà cờ thì trước đây chỉ đường
+      // hành trình của một bé mới có. Tra một lượt cho cả nhóm, không tra lẻ.
+      danhSachBe: (() => {
+        const ds = db.studentsOf(req.user);
+        const ngung = db.dsBeNgungHoSoHocTap(ds.map(s => s.id));
+        return ds.map(s => ({
+          id: s.id, hoTen: s.name, avatar: s.avatar,
+          ngungHoSoHocTap: ngung.has(s.id),
+        }));
+      })(),
     });
   });
 
@@ -591,6 +613,14 @@ module.exports = (app, { db, modules }) => {
         return res.status(403).json({ error: 'Không có quyền ghi quan sát cho bé này' });
       }
       if (!db.findStudent(beMoi)) return res.status(404).json({ error: 'Không tìm thấy bé' });
+      // Cùng chốt Đ96 với đường GHI MỚI: chuyển một quan sát SANG một bé mà
+      // gia đình đã dừng phần hồ sơ học tập cũng là ghi mới vào hồ sơ của bé
+      // đó — không chặn ở đây là đường vòng qua chốt đồng ý.
+      if (db.beNgungHoSoHocTap(beMoi)) {
+        return res.status(400).json({
+          error: 'Gia đình bé này đã dừng phần hồ sơ học tập, nên không chuyển quan sát sang hồ sơ của bé được',
+        });
+      }
       // Câu chuyện ĐÃ CÔNG BỐ thì gia đình bé cũ đã đọc rồi. Chuyển sang bé
       // khác mà vẫn để nguyên trạng thái công bố là đưa câu chuyện của bé này
       // sang nhà bé kia. Thu hồi trước, cô công bố lại nếu vẫn muốn kể.

@@ -247,7 +247,10 @@ module.exports = (app, { db, modules }) => {
 
     const ids = ds.map(b => b.id);
     const dem = new Map();
-    if (ids.length) {
+    // Cùng công tắc với `diemDanh` ở đường theo-ngày phía trên: phân hệ Điểm
+    // danh TẮT thì bảng đối chiếu tháng cũng không đọc bảng của nó — "tắt là
+    // biến khỏi màn hình" phải đúng ở mọi đường, kể cả đường đọc thẳng bảng.
+    if (ids.length && dangBat('diemdanh')) {
       const marks = ids.map(() => '?').join(',');
       for (const r of db.all('attendance',
         `SELECT studentId, status, COUNT(*) AS n FROM attendance

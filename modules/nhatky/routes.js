@@ -65,14 +65,22 @@ for (let phut = 10 * 60 + 30; phut <= 15 * 60 + 30; phut += 15) {
 //
 // Mốc 36 tháng là mốc trường dùng để tách nhà trẻ với mẫu giáo. Bé quanh mốc
 // đó thì cô vẫn ghi được — ô hiện ra, cô để trống nếu không cần.
-function laNhaTre(dob) {
+// Bé có thuộc lứa nhà trẻ (dưới 36 tháng) VÀO MỘT NGÀY CỤ THỂ không.
+//
+// `tinhDenNgay` mặc định là hôm nay — đúng cho màn hình đang ghi hôm nay.
+// Nhưng đường SỬA nhật ký của một NGÀY CŨ phải hỏi theo đúng ngày đó: bé vừa
+// qua mốc 36 tháng tuần này mà cô mở lại nhật ký tháng trước để sửa một chữ,
+// hỏi theo hôm nay là số thay bỉm / bú bình đã ghi của ngày cũ bị xoá âm thầm.
+function laNhaTre(dob, tinhDenNgay) {
   if (!NGAY_RE.test(String(dob || ''))) return false;
   const sinh = new Date(`${dob}T00:00:00Z`);
-  const nay = new Date();
-  if (Number.isNaN(sinh.getTime()) || sinh > nay) return false;
-  let thang = (nay.getUTCFullYear() - sinh.getUTCFullYear()) * 12
-    + (nay.getUTCMonth() - sinh.getUTCMonth());
-  if (nay.getUTCDate() < sinh.getUTCDate()) thang -= 1;
+  const moc = NGAY_RE.test(String(tinhDenNgay || ''))
+    ? new Date(`${tinhDenNgay}T00:00:00Z`)
+    : new Date();
+  if (Number.isNaN(sinh.getTime()) || Number.isNaN(moc.getTime()) || sinh > moc) return false;
+  let thang = (moc.getUTCFullYear() - sinh.getUTCFullYear()) * 12
+    + (moc.getUTCMonth() - sinh.getUTCMonth());
+  if (moc.getUTCDate() < sinh.getUTCDate()) thang -= 1;
   return thang < 36;
 }
 
@@ -339,7 +347,9 @@ module.exports = (app, { db, modules }) => {
         ? x.capNhatLucGoc : undefined;
       // Ô của nhóm nhà trẻ không nhận cho bé lớn — tránh dữ liệu vô nghĩa lọt
       // vào rồi màn hình gia đình hiện "thay bỉm 3 lần" cho một bé 5 tuổi.
-      if (!laNhaTre(be.dob)) { s.bimSoLan = null; s.buBinhSoLan = null; s.buBinhMl = null; }
+      // Tính tuổi theo NGÀY CỦA BẢN GHI, không theo hôm nay: sửa nhật ký ngày
+      // cũ sau khi bé qua mốc 36 tháng không được xoá số đã ghi của ngày đó.
+      if (!laNhaTre(be.dob, ngay)) { s.bimSoLan = null; s.buBinhSoLan = null; s.buBinhMl = null; }
       sach.push({ be, s, goc });
     }
 

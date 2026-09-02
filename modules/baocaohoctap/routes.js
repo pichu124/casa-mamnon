@@ -298,9 +298,41 @@ module.exports = (app, { db, modules }) => {
       }
       // Chỉ thay danh sách dòng khi lượt gửi CÓ mang danh sách lên. Sửa mỗi
       // tên mẫu mà cũng xoá sạch dòng thì một lần bấm nhầm là mất cả mẫu.
+      //
+      // VÀ GIỮ NGUYÊN `id` CỦA DÒNG CÒN NHẬN RA ĐƯỢC. Mọi Ô đã điền của mọi
+      // bản báo cáo — kể cả bản ĐÃ GỬI GIA ĐÌNH — trỏ vào dòng mẫu theo
+      // `dongId` (bảng baocaohoctap_o). Bản cũ xoá-tạo lại TOÀN BỘ dòng với id
+      // mới, nên chỉ cần văn phòng sửa một chữ trong mẫu là mọi bản đã soạn
+      // hiện ra trắng trơn: ô vẫn nằm trong bảng nhưng trỏ vào những id không
+      // còn tồn tại. Nhận lại dòng cũ theo TIÊU ĐỀ (mỗi dòng cũ chỉ được nhận
+      // một lần); dòng đổi hẳn tiêu đề là một tiêu chí khác — nhận id mới, các
+      // ô cũ của nó thành mồ côi đúng nghĩa (tiêu chí đó không còn trong mẫu).
+      //
+      // Ô TIẾNG ANH (nhomEn, tieuDeEn) chỉ bị thay khi lượt gửi CÓ mang giá
+      // trị: hộp thoại sửa mẫu hiện tại không chở hai cột này, nên "không gửi"
+      // nghĩa là "không đụng tới" — cùng luật với luuHoSoBe. Trước bản vá, mỗi
+      // lần bấm Lưu mẫu là hai cột tiếng Anh của MỌI dòng bị xoá trắng vĩnh viễn.
       if (dongVao) {
+        const cuDong = cu ? dongCuaMau(id) : [];
+        const daNhan = new Set();
+        const timDongCu = (d) => {
+          const i = cuDong.findIndex((o, k) => !daNhan.has(k) && o.tieuDe === d.tieuDe);
+          if (i === -1) return null;
+          daNhan.add(i);
+          return cuDong[i];
+        };
         db.run('DELETE FROM baocaohoctap_dong WHERE mauId = ?', [id]);
-        sach.forEach((d, i) => db.insert('baocaohoctap_dong', { id: db.nextId('bcd'), mauId: id, ...d, thuTu: i }));
+        sach.forEach((d, i) => {
+          const dongCu = timDongCu(d);
+          db.insert('baocaohoctap_dong', {
+            id: dongCu ? dongCu.id : db.nextId('bcd'),
+            mauId: id,
+            ...d,
+            nhomEn: d.nhomEn || (dongCu ? dongCu.nhomEn : ''),
+            tieuDeEn: d.tieuDeEn || (dongCu ? dongCu.tieuDeEn : ''),
+            thuTu: i,
+          });
+        });
       }
     });
     db.audit(req.user.id, cu ? 'baocaohoctap-sua-mau' : 'baocaohoctap-tao-mau', id, { loai, ten, soDong: dongVao ? sach.length : undefined });
@@ -496,6 +528,17 @@ module.exports = (app, { db, modules }) => {
       return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }
     if (chanNeuNgungHoSo(res, ban.studentId)) return;
+    // BẢN ĐÃ GỬI GIA ĐÌNH THÌ KHÔNG SỬA THẲNG ĐƯỢC — thu hồi trước đã.
+    //
+    // Đường /gui đứng sau đủ thứ kiểm tra và ghi audit; để đường lưu-nháp này
+    // sửa được bản 'da-gui' là mọi kiểm tra đó thành vô nghĩa: nội dung gia
+    // đình đang đọc đổi âm thầm, không vết, không ai hay. Đường /thu-hoi ngay
+    // dưới có sẵn cho đúng việc này.
+    if (ban.trangThai === 'da-gui') {
+      return res.status(400).json({
+        error: 'Bản này đã gửi cho gia đình. Cô bấm "Thu hồi" trước rồi sửa — sửa xong gửi lại là gia đình thấy bản mới.',
+      });
+    }
     const b = req.body || {};
     const dong = new Map(dongCuaMau(ban.mauId).map(d => [d.id, d]));
     const vao = Array.isArray(b.o) ? b.o : [];

@@ -427,11 +427,25 @@ module.exports = (app, { db }) => {
       return res.status(400).json({ error: 'Uỷ quyền đã qua thì không tạo mới được nữa' });
     }
 
-    const dangCo = uyQuyenCuaBe(studentId, homNay())
+    const tatCaUyQuyen = uyQuyenCuaBe(studentId, homNay());
+    const dangCo = tatCaUyQuyen
       .filter(u => u.trangThai === 'con-hieu-luc' || u.trangThai === 'chua-toi').length;
     if (dangCo >= TOI_DA_UY_QUYEN_DANG_HIEU_LUC) {
       return res.status(400).json({
         error: `Bé đang có ${dangCo} uỷ quyền còn hiệu lực. Huỷ bớt cái không dùng nữa giúp trường nhé.`,
+      });
+    }
+    // Trần thứ hai, đếm MỌI dòng tạo trong 24 giờ bất kể đã huỷ — cùng lý do
+    // và cùng con số với `TOI_DA_TAO_MOI_24H` của danh sách người thường
+    // xuyên: "Huỷ" là đường của chính gia đình, nên vòng tạo → huỷ → tạo lại
+    // lách được trần trên, mà mỗi vòng lại ghi thêm một tấm ảnh vào ổ đĩa và
+    // ảnh của uỷ quyền đã huỷ thì không có đường nào dọn.
+    const motNgayTruocUQ = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const taoGanDayUQ = tatCaUyQuyen.filter(u => String(u.taoLuc || '') >= motNgayTruocUQ).length;
+    if (taoGanDayUQ >= TOI_DA_TAO_MOI_24H) {
+      return res.status(400).json({
+        error: 'Hôm nay đã gửi khá nhiều uỷ quyền cho bé rồi. '
+          + 'Xin gia đình dùng lại uỷ quyền đã khai, hoặc nhờ văn phòng nhà trường giúp.',
       });
     }
 
@@ -497,11 +511,33 @@ module.exports = (app, { db }) => {
     // Sang năm gia đình gỡ cô giúp việc khỏi danh sách thì sổ tháng Chín vẫn
     // phải nói đúng hôm đó ai đón bé, chứ không hiện một dòng trống.
     let nguoiDon = chuoi(b.nguoiDon, TOI_DA_TEN);
-    const nguonLoai = ['thuong-xuyen', 'uy-quyen', 'khac'].includes(String(b.nguonLoai || ''))
+    let nguonLoai = ['thuong-xuyen', 'uy-quyen', 'khac', 'giu'].includes(String(b.nguonLoai || ''))
       ? b.nguonLoai : 'khac';
-    const nguonId = chuoi(b.nguonId, 40);
+    let nguonId = chuoi(b.nguonId, 40);
 
-    if (nguonLoai === 'thuong-xuyen' && nguonId) {
+    // 'giu' = GIỮ NGUYÊN NGƯỜI ĐÓN đã ghi của ngày đó, chỉ sửa giờ / ghi chú.
+    //
+    // Dành cho lúc cô mở lại một bản ghi cũ mà người đón gốc KHÔNG còn trong
+    // danh sách chọn (gia đình đã gỡ tên, uỷ quyền đã qua ngày): không có giá
+    // trị này thì ô chọn trên màn hình buộc phải nhảy sang một cái tên khác,
+    // và cô sửa mỗi giờ trả cũng thành sổ đổi tên người đón — trên đúng quyển
+    // sổ là chứng cứ duy nhất khi có tranh chấp về việc giao bé cho ai.
+    //
+    // Người đón chép NGUYÊN từ sổ nên hai khối kiểm danh sách bên dưới được
+    // miễn — chúng chỉ dành cho việc ghi nhận một người MỚI.
+    const giuNguyen = nguonLoai === 'giu';
+    if (giuNguyen) {
+      const daGhi = db.first('dontra_ghi',
+        'SELECT * FROM dontra_ghi WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
+      if (!daGhi) {
+        return res.status(400).json({ error: 'Ngày này chưa có bản ghi trả bé nào để giữ nguyên người đón' });
+      }
+      nguoiDon = daGhi.nguoiDon;
+      nguonLoai = daGhi.nguonLoai;
+      nguonId = daGhi.nguonId;
+    }
+
+    if (!giuNguyen && nguonLoai === 'thuong-xuyen' && nguonId) {
       const n = db.first('dontra_nguoi', 'SELECT * FROM dontra_nguoi WHERE id = ?', [nguonId]);
       if (!n || n.studentId !== be.id) {
         return res.status(400).json({ error: 'Người được đón này không thuộc hồ sơ của bé' });
@@ -529,7 +565,7 @@ module.exports = (app, { db }) => {
       }
       if (!nguoiDon) nguoiDon = n.hoTen;
     }
-    if (nguonLoai === 'uy-quyen' && nguonId) {
+    if (!giuNguyen && nguonLoai === 'uy-quyen' && nguonId) {
       const u = db.first('dontra_uyquyen', 'SELECT * FROM dontra_uyquyen WHERE id = ?', [nguonId]);
       if (!u || u.studentId !== be.id) {
         return res.status(400).json({ error: 'Uỷ quyền này không thuộc hồ sơ của bé' });

@@ -191,8 +191,12 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   // Phép kiểm thật cho màn hình nằm ở `test/bien-soan-phan-he.test.mjs` mục
   // [8]: đăng nhập bằng tài khoản cô trên trình duyệt thật rồi ĐẾM nút.
   const routes = fs.readFileSync(path.join(GOC, 'modules', 'hocphi', 'routes.js'), 'utf8');
-  check('cả hai đường ghi đều đòi vai văn phòng',
-    (routes.match(/requireRole\('admin'\)/g) || []).length === 2,
+  // Bốn đường ghi: tạo khoản, xác nhận đã nộp, thu hồi khoản tạo nhầm, huỷ
+  // xác nhận nhầm (hai đường sau thêm ở Đ118 — sửa sổ tiền càng phải là việc
+  // của văn phòng). Con số này là BẢN KIỂM KÊ: thêm một đường ghi mới mà quên
+  // đòi vai văn phòng thì lệch số và bài này đỏ.
+  check('cả bốn đường ghi đều đòi vai văn phòng',
+    (routes.match(/requireRole\('admin'\)/g) || []).length === 4,
     (routes.match(/requireRole\([^)]*\)/g) || []));
   check('KHÔNG còn đường ghi nào mở cho vai cô',
     !/requireRole\('teacher'/.test(routes));
