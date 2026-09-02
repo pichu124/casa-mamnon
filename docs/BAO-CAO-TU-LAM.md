@@ -13,10 +13,10 @@
 
 | | |
 |---|---|
-| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ118); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
+| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ119); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3797 bài** (đo 02/09/2026, sau Đ118q), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ118 đụng `public/`), FAIL 0 |
-| Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
+| Bộ kiểm thử | `npm test` **3822 bài** (đo 02/09/2026, sau Đ119), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ119 đụng `public/`), FAIL 0 — và **526 bài giao diện cũng xanh trên máy GitHub** |
+| Lớp canh trên GitHub | 🟡 **đã chạy lại từ 01/09** (vế tài khoản anh đã gỡ), nhưng job `npm test` đỏ vì CI clone nông — **vá ở Đ119c**, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
 | Còn việc gì chặn | **một thứ, ngoài tầm tay tôi**: nhà trường (mục 4.2). Kho app 1 anh đã mở, và **bốn món nợ bắt buộc đã trả xong** — xem mục 4.3 |
@@ -231,7 +231,18 @@ lại được trong một commit.
 > **vừa mới rút đồng ý**, và đó là loại lỗi tệ hơn hẳn cái chậm. Cách sửa an
 > toàn cần đo trước; tôi để lại đây thay vì làm vội.
 
-### 4.2b 🔴 GitHub Actions không chạy từ 28/08 — việc này cần anh
+### 4.2b 🟡 GitHub Actions — đã chạy lại, và cái đỏ còn lại là của tôi
+
+**Cập nhật 02/09:** vế tài khoản đã xong về phía anh — từ lần đẩy 01/09 05:30
+(Đ117h) trở đi, mọi lần chạy đều thực thi thật (~7 phút, đủ 5 job), và **bộ
+giao diện 526 bài xanh ngay trên máy của GitHub**. Cái còn đỏ là job `npm
+test`: bước tải mã của job đó dùng `actions/checkout` mặc định (clone nông,
+1 commit), nên `test/nen-chung.test.mjs` không tìm thấy điểm tách `bc9dfa3`
+và sập — mọi bài trước nó đều xanh, còn bài sau nó thì không được chạy. Ba
+job canh khác đã đặt `fetch-depth: 0` từ đầu, riêng job này thiếu. Vá ở
+Đ119c: thêm `fetch-depth: 0`, và bài canh đó nay nói rõ "kho clone nông"
+thay vì đổ stack trace. Phần dưới giữ nguyên làm sử.
+
 
 Lớp canh mà `CLAUDE.md` gọi là **"không bỏ qua được"** thì **đã không chạy một
 lần nào từ 28/08/2026**. Tôi đo qua GitHub API: mọi lần chạy tới 28/08 04:08 đều

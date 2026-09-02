@@ -52,6 +52,17 @@ let nenTaiDiemTach = [];
   let coDiemTach = false;
   try { git('cat-file', '-e', `${DIEM_TACH}^{commit}`); coDiemTach = true; } catch (_) { coDiemTach = false; }
   check(`điểm tách ${DIEM_TACH} có thật trong lịch sử`, coDiemTach);
+  // KHO CLONE NÔNG thì dừng ở đây với một câu nói rõ, thay vì để `git ls-tree`
+  // ném lỗi và cả bộ đổ ra một chồng stack trace không ai đọc. Đã xảy ra thật
+  // trên GitHub Actions (02/09): job npm test dùng actions/checkout mặc định
+  // (depth 1), mọi bài trước xanh, tới đây sập — và người đọc log không biết
+  // đó là cấu hình CI chứ không phải mã.
+  if (!coDiemTach) {
+    console.log(`\n  Kho mã không có commit ${DIEM_TACH} — thường là do clone NÔNG (git clone --depth,`
+      + ' hoặc actions/checkout không đặt fetch-depth: 0).\n'
+      + '  Sửa: `git fetch --unshallow` trên máy, hoặc thêm `with: { fetch-depth: 0 }` cho bước checkout của CI.');
+    tongKet('Nền chung — cần đủ lịch sử git để đối chiếu');
+  }
 
   const taiDiemTach = git('ls-tree', '-r', '--name-only', DIEM_TACH)
     .split('\n').map(s => s.trim()).filter(Boolean);
