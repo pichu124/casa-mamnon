@@ -13,9 +13,9 @@
 
 | | |
 |---|---|
-| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
+| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ118); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3768 bài** (đo 01/09/2026, sau Đ117), `npm run test:giao-dien` **526 bài** (đo 30/08 — Đ117 không đụng `public/`), FAIL 0 |
+| Bộ kiểm thử | `npm test` **3785 bài** (đo 02/09/2026, sau Đ118), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ118 đụng `public/`), FAIL 0 |
 | Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
@@ -25,7 +25,43 @@
 
 ---
 
-## 1b. Đợt mới nhất — 01/09/2026: rà soát toàn kho + 7 bản vá (Đ117)
+## 1b-mới. Đợt mới nhất — 02/09/2026: đợt hai của cuộc rà soát, khép sổ (Đ118)
+
+Anh dặn *"khi đủ token làm hết phần còn lại"* — đợt này làm đúng điều đó: vá
+nốt **77 phát hiện** trong 15 commit (Đ118a–o). Kết sổ 96 phát hiện của cuộc
+rà soát: **93 đã vá, 1 bác bỏ khi kiểm chứng lại, 1 giữ theo thiết kế, 1 còn
+lại** cần thiết kế thêm (hai cô cùng lưu kế hoạch cả nhóm ghi đè lẫn nhau —
+cần máy chủ phát hiện xung đột, tôi không ghép việc đổi hình dạng API vào một
+đợt vá). Trạng thái từng dòng ghi ở `docs/RA-SOAT-2026-09.md`. Đáng kể nhất:
+
+- **Hai chỗ anh từng phải quyết, tôi đã làm theo hướng giữ dữ liệu**: Học phí
+  nay có đường *thu hồi khoản thu* và *hủy xác nhận đã nộp* — đều bắt buộc ghi
+  lý do, đều để vết, **không xoá gì** (bảng `hocphi_thuhoi` mới). Dữ liệu mẫu
+  sửa xong cả múi giờ lẫn số đo của ba bé nhà trẻ.
+- **`ui.js` bịt một điểm XSS lưu trữ** ở `avatar()`/`studentBar()` dùng ở hơn
+  30 màn — app 1 mang cùng mã, **đã ghi sổ nợ** (cùng với CSV-xuống-dòng,
+  `record_edits` mồ côi, và sao lưu không nguyên tử: bốn món mới trong sổ).
+- **Hết phiên đăng nhập thôi xoá công của cô**: poll huy hiệu chạy nền nay gọi
+  kiểu nền (`API.getNen` — chỉ thêm, không đổi hàm cũ), gặp 401 thì ngừng hỏi
+  thay vì thay cả màn hình bằng màn đăng nhập giữa lúc cô gõ dở nhật ký.
+- **Nháp nhật ký chỉ giữ ô cô đã gõ** — bản cũ chụp cả giá trị máy chủ rồi
+  "điền lại phần dở" là điền đè bản cô khác vừa lưu, đúng thứ lời nhắc trên
+  màn hứa sẽ không làm.
+- **Sổ đón trả có "Giữ như đã ghi"** — sửa mỗi giờ đón thôi làm tên người đón
+  lặng lẽ nhảy về người đầu danh sách.
+- Sáu phép kiểm gần-như-luôn-xanh được **siết cho đỏ được thật** (chỉ siết,
+  không nới — đúng luật bộ canh bất khả xâm phạm).
+
+Tệp dùng chung đi đúng luật ba bước: `ui.js` và `app.js` mỗi tệp một commit
+riêng; khế ước chụp lại bằng `--cap-nhat` (2 mục thêm, 0 mục mất). VERSION sw
+v75 → v76 nên điện thoại đã cài sẽ tự nhận bản mới.
+
+**Còn chờ anh quyết, không gấp:** tắt hay gỡ ba tính năng tiểu học còn sót
+(xe đưa đón, hạnh kiểm, thời khóa biểu — lỗ lộ mã bé trên tuyến đã vá nên
+không còn gấp), và có muốn khảo sát gửi riêng một nhóm không (hiện mọi khảo
+sát là toàn trường, form đã nói rõ điều đó).
+
+## 1b. Đợt trước — 01/09/2026: rà soát toàn kho + 7 bản vá (Đ117)
 
 Anh yêu cầu *"review lại toàn bộ code và tối ưu"*. Tôi rà 17 hướng song song
 trên toàn kho, thu về **96 phát hiện**, tự kiểm chứng và **vá 16 cái nặng
