@@ -57,7 +57,7 @@ App.views.student = {
     const lichSu = await this.lichSuNhom(current.id);
     root.innerHTML = `
       ${UI.pageHeader('Hồ sơ của bé')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
       <div class="card center" style="padding-top:24px">
         ${UI.avatar(s.avatar, 84)}
         <h2 style="margin-top:10px">${UI.esc(s.name)}</h2>

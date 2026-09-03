@@ -106,7 +106,7 @@ App.views.baocaohoctap = {
     const d = await API.get(`/api/baocaohoctap/cua-be?studentId=${encodeURIComponent(sid)}`);
     root.innerHTML = `
       ${UI.pageHeader('Báo cáo học tập')}
-      ${UI.thanhChonBe()}
+      ${UI.thanhChonBeTheoCap()}
       ${(d.ban || []).length ? (d.ban || []).map(b => `
         <div class="card tap" data-mo="${UI.esc(b.id)}">
           <div class="card-title">${UI.esc(b.mauTen || 'Báo cáo')}</div>

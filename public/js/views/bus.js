@@ -17,7 +17,7 @@ App.views.bus = {
     const mine = current ? routes.filter(r => r.studentIds.includes(current.id)) : [];
     root.innerHTML = `
       ${UI.pageHeader('Xe buýt')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
       ${mine.length
         ? mine.map(r => this.routeCards(r, false)).join('')
         : UI.emptyState('🚌', 'Con chưa đăng ký dịch vụ xe đưa đón của trường')}`;

@@ -612,7 +612,7 @@ App.views.nhatky = {
         // Nhà hai con phải có chỗ đổi con, và màn phải GHI TÊN đang xem nhật
         // ký của bé nào — trước đây mở ra là nhật ký của bé đầu danh sách,
         // không một dòng nào nói đó là ai.
-        UI.studentBar()}${UI.thanhChonBe()}
+        UI.studentBar()}${UI.thanhChonBeTheoCap()}
       <div class="muted small" style="margin:-2px 0 10px">Nhật ký của bé <b>${UI.esc(be.name)}</b></div>
       ${(d.ngayCo || []).length
         ? (d.ngayCo || []).map(n => this.theNgay(n, d.be)).join('')

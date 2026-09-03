@@ -266,7 +266,7 @@ App.views.dontra = {
 
     root.innerHTML = `
       ${UI.pageHeader('Đón trả bé')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
 
       <div class="card">
         <div class="muted small" style="line-height:1.6">

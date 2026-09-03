@@ -16,7 +16,7 @@ App.views.remarks = {
     const remarks = await API.get(`/api/remarks?studentId=${encodeURIComponent(current.id)}`);
     root.innerHTML = `
       ${UI.pageHeader('Nhận xét hằng ngày')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
       ${remarks.length ? `
         <div class="card">
           <div class="timeline">${remarks.map(r => this.tlItem(r)).join('')}</div>

@@ -26,7 +26,7 @@ App.views.health = {
     this._records = data.records;
     root.innerHTML = `
       ${UI.pageHeader('Sức khỏe của bé')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
       ${this.latestCard(data.latestCheckup)}
       ${this.recordsHtml()}`;
   },

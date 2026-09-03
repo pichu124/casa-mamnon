@@ -33,6 +33,21 @@ App.views.surveys = {
       ${closed.length ? closed.map(s => this.parentCard(s, true)).join('') : UI.emptyState('🗂️', 'Chưa có khảo sát nào kết thúc')}`;
   },
 
+  // Đ124: thẻ khảo sát nói rõ gửi cho ai. Nhóm kèm cơ sở khi có.
+  chuPhamVi(s) {
+    if (s.tenNhom) return `Nhóm ${s.tenNhom}${s.tenCoSo ? ` · ${s.tenCoSo}` : ''}`;
+    return 'Toàn trường';
+  },
+  theoPhamVi(s) {
+    return s.tenNhom ? UI.badge(this.chuPhamVi(s), 'blue') : UI.badge('Toàn trường', 'gray');
+  },
+  nhanNhom(c) {
+    const coSo = ((App.state.school || {}).coSo) || [];
+    if (coSo.length < 2 || !c.campusId) return c.name;
+    const cs = coSo.find(x => x.id === c.campusId);
+    return cs ? `${c.name} · ${cs.name}` : c.name;
+  },
+
   parentCard(s, ended = false) {
     return `
       <div class="card clickable" ${ended ? 'style="opacity:.6"' : ''} onclick="App.views.surveys.openParent('${UI.esc(s.id)}')">
@@ -44,7 +59,7 @@ App.views.surveys = {
           ${
             // Khảo sát của riêng nhóm thì ghi rõ nhóm nào — nhà hai con ở hai
             // nhóm phải biết phiếu này hỏi về nhóm của bé nào.
-            s.tenNhom ? UI.badge(`Nhóm ${s.tenNhom}`, 'blue') : ''}
+            this.theoPhamVi(s)}
           ${s.answered ? UI.badge('Đã trả lời', 'green') : UI.badge('Chưa trả lời', 'orange')}
         </div>
       </div>`;
@@ -133,7 +148,7 @@ App.views.surveys = {
         <div class="card clickable" onclick="App.views.surveys.openResults('${UI.esc(s.id)}')">
           <div class="flex">
             <div style="font-weight:700;flex:1;min-width:0">${UI.esc(s.title)}</div>
-            ${s.tenNhom ? UI.badge(`Nhóm ${s.tenNhom}`, 'blue') : UI.badge('Toàn trường', 'gray')}
+            ${this.theoPhamVi(s)}
             ${s.status === 'open' ? UI.badge('Đang mở', 'green') : UI.badge('Đã đóng', 'gray')}
           </div>
           ${s.description ? `<div class="muted small mt-8">${UI.esc(s.description)}</div>` : ''}
@@ -181,7 +196,7 @@ App.views.surveys = {
       <div class="field" id="sv-lop-o">
         <label>Gửi cho nhóm</label>
         <select id="sv-lop">
-          ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
+          ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(this.nhanNhom(c))}</option>`).join('')}
         </select>
       </div>` : ''}
       <div class="field"><label>Câu hỏi</label>
@@ -261,7 +276,7 @@ App.views.surveys = {
       UI.modal(`
         <div class="flex mb-8">
           ${sv.status === 'open' ? UI.badge('Đang mở', 'green') : UI.badge('Đã đóng', 'gray')}
-          ${sv.tenNhom ? UI.badge(`Nhóm ${sv.tenNhom}`, 'blue') : UI.badge('Toàn trường', 'gray')}
+          ${this.theoPhamVi(sv)}
           ${UI.badge(`${sv.responseCount} phản hồi`, 'blue')}
           <span class="spacer"></span>
           <span class="muted small">Hạn: ${UI.fmtDateShort(sv.deadline)}</span>

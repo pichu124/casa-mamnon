@@ -94,7 +94,7 @@ App.views.timetable = {
       const chuaCo = /chưa có lịch sinh hoạt/i.test(thongBao);
       root.innerHTML = `
         ${UI.pageHeader('Lịch sinh hoạt')}
-        ${UI.studentBar()}${UI.thanhChonBe()}
+        ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
         ${UI.emptyState('📚', thongBao)}
         ${this.canEdit() && chuaCo ? `
           <button class="btn primary block" onclick="App.views.timetable.batDauTao()">${UI.icon('plus', 18)} Lập lịch sinh hoạt</button>` : ''}`;
@@ -104,7 +104,7 @@ App.views.timetable = {
     const suaDuoc = this.canEdit();
     root.innerHTML = `
       ${UI.pageHeader('Lịch sinh hoạt', suaDuoc ? { action: { id: 'btn-sua-tkb', label: 'Chỉnh sửa', icon: 'edit' } } : {})}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
       ${this.oChonNhom(dsNhom)}
       <div class="seg" id="tkb-seg">
         ${[1, 2, 3, 4, 5].map(d => `

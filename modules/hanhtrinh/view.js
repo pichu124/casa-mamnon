@@ -672,7 +672,7 @@ App.views.hanhtrinh = {
 
     root.innerHTML = `
       ${UI.pageHeader('Hành trình học tập')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
 
       ${cd ? `
         <div class="card">

@@ -78,6 +78,28 @@ App.views.notifications = {
 
   catOf(n) { return this.CATS[n.category] || this.DEFAULT_CAT; },
 
+  // Đ124: thông báo phải nói rõ gửi cho ai — "Toàn trường" hay "Nhóm Chồi 2 ·
+  // Cơ sở 1". Máy chủ đời cũ không trả hai ô này thì chuỗi rỗng, dòng như cũ.
+  chuPhamVi(n) {
+    if (n.toanTruong) return 'Toàn trường';
+    if (n.tenNhom) return `Nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`;
+    return '';
+  },
+  theoPhamVi(n) {
+    if (n.toanTruong) return UI.badge('Gửi toàn trường', 'purple');
+    if (n.tenNhom) return UI.badge(`Gửi nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`, 'blue');
+    return '';
+  },
+
+  // Tên nhóm trong ô chọn — kèm tên cơ sở khi trường có từ hai cơ sở, để văn
+  // phòng ba cơ sở không phải nhớ "Chồi 2" là Chồi 2 của cơ sở nào.
+  nhanNhom(c) {
+    const coSo = ((App.state.school || {}).coSo) || [];
+    if (coSo.length < 2 || !c.campusId) return c.name;
+    const cs = coSo.find(x => x.id === c.campusId);
+    return cs ? `${c.name} · ${cs.name}` : c.name;
+  },
+
   rowHtml(n) {
     const cat = this.catOf(n);
     return `
@@ -85,7 +107,8 @@ App.views.notifications = {
         <div class="row-icon" style="background:${cat.bg};font-size:20px">${cat.emoji}</div>
         <div class="row-main">
           <div class="row-title">${n.read ? '' : '<span style="color:var(--primary)">●</span> '}${UI.esc(n.title)}${n.pinned ? ' 📌' : ''}</div>
-          <div class="row-sub">${UI.esc(n.authorName)} · ${UI.esc(UI.timeAgo(n.createdAt))}</div>
+          <div class="row-sub">${UI.esc(n.authorName)} · ${UI.esc(UI.timeAgo(n.createdAt))}${
+            this.chuPhamVi(n) ? ` · ${UI.esc(this.chuPhamVi(n))}` : ''}</div>
         </div>
         <span class="muted">${UI.icon('chevron', 18)}</span>
       </div>`;
@@ -100,6 +123,7 @@ App.views.notifications = {
       <div class="flex mb-8">
         <div class="row-icon" style="background:${cat.bg};font-size:20px">${cat.emoji}</div>
         ${UI.badge(n.category || 'Khác', 'gray')}
+        ${this.theoPhamVi(n)}
         ${n.pinned ? UI.badge('📌 Ghim', 'orange') : ''}
       </div>
       <h3 style="margin:6px 0 8px">${UI.esc(n.title)}</h3>
@@ -177,7 +201,7 @@ App.views.notifications = {
       <div class="field" id="nt-lop-o">
         <label>Gửi cho nhóm</label>
         <select id="nt-lop">
-          ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
+          ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(this.nhanNhom(c))}</option>`).join('')}
         </select>
       </div>` : ''}
       <button class="btn primary block" onclick="App.views.notifications.submitCreate()">${UI.icon('send', 18)} Gửi thông báo</button>

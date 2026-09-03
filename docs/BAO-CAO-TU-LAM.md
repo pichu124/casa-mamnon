@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ120); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3858 bài** (đo 03/09/2026, sau Đ122), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ120 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
+| Bộ kiểm thử | `npm test` **3919 bài** (đo 03/09/2026, sau Đ124), `npm run test:giao-dien` **560 bài** (đo 03/09, chạy lại đủ bộ vì Đ124 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
 | Lớp canh trên GitHub | 🟢 **xanh trọn 5 job** từ lần chạy #133 (02/09, sau Đ119c) — trước đó đỏ vì CI clone nông, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được. Món cuối — tắt/gỡ tàn dư tiểu học và Cambridge — **anh đã chốt 03/09: giữ nguyên, sau này làm sau** (mục 1b-mới-nhất) |
@@ -73,6 +73,19 @@ bản mới và `git status` sạch trở lại; nếu nó vẫn báo sửa thì
 `docs/MAY-CHU-THU-ORACLE-APP2.md` cho đúng máy đó, mười bước, có đường quay
 lại app 1 bằng hai lệnh. Nhắc lại một điều để không ai quên: máy Oracle ở nước
 ngoài, chỉ dữ liệu mẫu; máy chủ thật vẫn là N7.
+
+**03/09, đêm — hai điểm anh yêu cầu sau buổi thử (Đ124).** (1) Thông báo và
+khảo sát nay ghi rõ gửi cho ai — "Toàn trường" hay "Nhóm Chồi 2 · Cơ sở 1" —
+ở cả dòng danh sách lẫn hộp chi tiết; ô chọn nhóm khi gửi kèm tên cơ sở. (2)
+Trang chủ theo vai: **cô** có bảng "Hôm nay ở nhóm" — 20–25 bé nhìn một lượt
+với chấm màu điểm danh, dấu thuốc / đơn / nhật ký / đón về, và nút việc kèm
+số còn lại; **văn phòng** có cây cơ sở → nhóm với số đếm hôm nay, bấm nhóm ra
+màn nhóm, bấm bé ra hồ sơ với ô chọn gom theo "Cơ sở › Nhóm"; giao diện của
+hai vai này co lại (hero thấp, biểu tượng nhỏ, dòng gọn), trên máy tính rộng
+hơn và xếp thành cột. **Gia đình không đổi.** Mọi con số đều là số đếm việc của
+người lớn — không phần trăm, không so bé này với bé kia. Nhân sự, Kế toán,
+Marketing thấy cây cơ sở nhưng không mở được màn từng bé. Anh cập nhật máy
+Oracle theo bước 10 của `docs/MAY-CHU-THU-ORACLE-APP2.md` là thấy ngay.
 
 Ba điều đáng nói thẳng với anh từ vòng đó:
 
