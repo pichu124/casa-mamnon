@@ -18,7 +18,7 @@
 | Bộ kiểm thử | `npm test` **3842 bài** (đo 02/09/2026, sau Đ120), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ120 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
 | Lớp canh trên GitHub | 🟢 **xanh trọn 5 job** từ lần chạy #133 (02/09, sau Đ119c) — trước đó đỏ vì CI clone nông, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
-| Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
+| Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được. Món cuối — tắt/gỡ tàn dư tiểu học và Cambridge — **anh đã chốt 03/09: giữ nguyên, sau này làm sau** (mục 1b-mới-nhất) |
 | Còn việc gì chặn | **một thứ, ngoài tầm tay tôi**: nhà trường (mục 4.2). Kho app 1 anh đã mở, và **bốn món nợ bắt buộc đã trả xong** — xem mục 4.3 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
 | Đợt soát nhiều tác nhân 30/08 | **đã đóng hết**: 21 phát hiện của vòng một, cộng 6 phát hiện bị cắt khỏi vòng một nay đã qua **vòng thẩm định thứ hai** (12 tác nhân, mỗi phát hiện hai người soát độc lập — 0 bị bác bỏ). Tất cả đã vá, Đ59 tới Đ77 |
@@ -42,6 +42,17 @@ tôi đáng lẽ phải tự thấy sớm hơn:
    tự đối chiếu 27 phát hiện bằng mã và vá 23, hoãn 4 (đều là hiệu năng ở
    Cambridge/Album, không mất dữ liệu). Bảng đầy đủ ở mục "Vòng rà ĐỐI KHÁNG"
    của `docs/RA-SOAT-2026-09.md`.
+
+**Cập nhật 03/09 — anh đã chốt món cuối:** *"lưu hết mấy tính năng tiểu học
+còn sót với Cambridge, sau này làm sau"*. Tôi hiểu là **giữ nguyên mã và dữ
+liệu, không tắt thêm, không gỡ**. Hiện trạng đã đúng ý đó từ trước: Xe buýt,
+Nề nếp và Cambridge đều **tắt sẵn** (bật lại bằng một lượt bấm trong Quản trị
+→ Tính năng), còn "thời khóa biểu" đã được đổi thành Lịch sinh hoạt của mầm
+non từ lâu và đang bật. Nên lần này **không đổi một dòng mã nào**, chỉ ghi
+quyết định vào sổ để lần sau không hỏi lại. Bốn món hiệu năng hoãn ở vòng Đ120
+vẫn hoãn: ba món Cambridge có mốc làm là *trước khi trường bật Cambridge*; món
+Album (mức thấp, chỉ quản trị gặp) **không dính gì tới quyết định này** — khi
+hỏi anh tôi đã gộp nó nhầm vào "cùng nhóm", xin ghi lại cho đúng.
 
 Ba điều đáng nói thẳng với anh từ vòng đó:
 
@@ -90,9 +101,10 @@ Tệp dùng chung đi đúng luật ba bước: `ui.js` và `app.js` mỗi tệp
 riêng; khế ước chụp lại bằng `--cap-nhat` (2 mục thêm, 0 mục mất). VERSION sw
 v75 → v76 nên điện thoại đã cài sẽ tự nhận bản mới.
 
-**Còn chờ anh quyết, không gấp:** tắt hay gỡ ba tính năng tiểu học còn sót
-(xe đưa đón, hạnh kiểm, thời khóa biểu — lỗ lộ mã bé trên tuyến đã vá nên
-không còn gấp). Vế khảo sát theo nhóm anh đã quyết "làm luôn" — xong ở Đ119.
+**~~Còn chờ anh quyết, không gấp~~ — đã chốt 03/09:** tắt hay gỡ ba tính năng
+tiểu học còn sót (xe đưa đón, hạnh kiểm, thời khóa biểu) và Cambridge — anh
+bảo **giữ nguyên, sau này làm sau**; không đụng gì thêm. Vế khảo sát theo
+nhóm anh đã quyết "làm luôn" — xong ở Đ119.
 
 ## 1b. Đợt trước — 01/09/2026: rà soát toàn kho + 7 bản vá (Đ117)
 
@@ -116,7 +128,8 @@ chưa vá để xác nhận nó đỏ đúng chỗ. Đáng kể nhất:
 không đụng `public/`); vài cái cần anh quyết: tắt/gỡ các tính năng tiểu học
 còn sót (xe đưa đón, hạnh kiểm, thời khóa biểu, Cambridge — xe đưa đón đang
 lộ mã mọi bé trên tuyến cho phụ huynh), và phân hệ Học phí chưa có đường
-sửa/hủy một khoản thu tạo nhầm.
+sửa/hủy một khoản thu tạo nhầm. *(Cả hai đã khép: Học phí có đường thu hồi /
+hủy xác nhận có vết ở Đ118g; tàn dư tiểu học anh chốt giữ nguyên 03/09.)*
 
 ## 2. Đã làm gì trong đợt này
 
