@@ -176,6 +176,52 @@ window.UI = (() => {
       </div>`;
   }
 
+  // Ô chọn bé THEO CẤP cho vai quản trị: Cơ sở › Nhóm › Bé (Đ124).
+  //
+  // `thanhChonBe` liệt kê cả trường thành MỘT danh sách phẳng — 11 bé mẫu còn
+  // nhìn được, 300 bé của ba cơ sở thì không, và hiệu trưởng thì theo dõi theo
+  // cấp chứ không theo từng bé. Bản này gom bé theo nhóm, và gom nhóm theo cơ
+  // sở khi trường có từ hai cơ sở; vẫn là MỘT ô <select> với <optgroup>, nên
+  // bộ chọn có sẵn của điện thoại và bàn phím vẫn dùng được y như cũ.
+  //
+  // HÀM MỚI BÊN CẠNH HÀM CŨ — luật ba bước của CLAUDE.md cho tệp dùng chung:
+  // thêm cái mới → chuyển từng chỗ gọi → khi không còn ai gọi mới xoá cái cũ.
+  // Tên cơ sở lấy từ `App.state.school.coSo` (máy chủ trả từ Đ124); máy chủ đời
+  // cũ không trả thì gom theo nhóm thôi — không bao giờ trắng.
+  function thanhChonBeTheoCap() {
+    const u = App.state.user || {};
+    const students = App.state.students || [];
+    if (u.role !== 'admin' || !students.length) return '';
+    const dang = students.find(s => s.id === App.state.currentStudentId) || students[0];
+    const coSo = new Map((((App.state.school || {}).coSo) || []).map(c => [c.id, c.name]));
+    const nhom = new Map((App.state.classes || []).map(c => [c.id, c]));
+    const nhieuCoSo = coSo.size > 1;
+    const theoNhom = new Map();
+    for (const s of students) {
+      const k = s.classId || '';
+      if (!theoNhom.has(k)) theoNhom.set(k, []);
+      theoNhom.get(k).push(s);
+    }
+    const nhan = (k) => {
+      if (!k) return 'Chưa xếp nhóm';
+      const c = nhom.get(k);
+      const ten = c ? c.name : ((theoNhom.get(k)[0] || {}).className || k);
+      const cs = c && c.campusId ? coSo.get(c.campusId) : '';
+      return nhieuCoSo && cs ? `${cs} › ${ten}` : ten;
+    };
+    const khoa = [...theoNhom.keys()].sort((a, b) => nhan(a).localeCompare(nhan(b), 'vi'));
+    return `
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Đang xem hồ sơ của bé</label>
+          <select onchange="App.setStudent(this.value)" aria-label="Chọn bé theo cơ sở và nhóm">
+            ${khoa.map(k => `<optgroup label="${esc(nhan(k))}">${theoNhom.get(k).map(s => `<option value="${esc(s.id)}" ${
+              s.id === dang.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</optgroup>`).join('')}
+          </select>
+        </div>
+      </div>`;
+  }
+
   function toast(msg, type = '') {
     let zone = document.getElementById('toast-zone');
     if (!zone) { zone = document.createElement('div'); zone.id = 'toast-zone'; document.body.appendChild(zone); }
@@ -284,7 +330,7 @@ window.UI = (() => {
 
   return {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
-    pageHeader, avatar, emptyState, studentBar, thanhChonBe, noiTenNhom, toast, modal, closeModal,
+    pageHeader, avatar, emptyState, studentBar, thanhChonBe, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, RATING, DOW,
     nenAnh,
     maAnToan, dongThongTin,
