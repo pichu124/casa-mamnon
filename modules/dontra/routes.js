@@ -48,6 +48,9 @@ const TOI_DA_NGUOI_MOI_BE = 12;
 // dì, bác tài đưa đón cũng chỉ vài lần, và còn sửa được thay vì tạo mới.
 const TOI_DA_TAO_MOI_24H = 20;
 const TOI_DA_UY_QUYEN_DANG_HIEU_LUC = 10;
+// Trần riêng của ảnh lúc trả bé (cùng con số với ảnh "con đã tới lớp" của
+// Điểm danh). Siết ở đây, trước khi gọi kho ảnh dùng chung.
+const TOI_DA_ANH_TRA_BYTE = 900 * 1024;
 
 function homNay() {
   return ngay.homNay();
@@ -180,9 +183,20 @@ module.exports = (app, { db }) => {
       duocSua: duocSua(req.user, studentId),
       nguoiThuongXuyen: nguoiCuaBe(studentId),
       uyQuyen: uyQuyenCuaBe(studentId, ngay).map(u => ({ ...u, nguoiTaoTen: tenNguoi(u.nguoiTao) })),
-      soGanDay: db.all('dontra_ghi',
-        'SELECT * FROM dontra_ghi WHERE studentId = ? ORDER BY ngay DESC LIMIT 30', [studentId])
-        .map(g => ({ ...g, coGhiTen: tenNguoi(g.coGhi) })),
+      soGanDay: (() => {
+        const so = db.all('dontra_ghi',
+          'SELECT * FROM dontra_ghi WHERE studentId = ? ORDER BY ngay DESC LIMIT 30', [studentId]);
+        // Ảnh lúc trả (Đ125) của đúng những ngày ấy — một câu, không N câu.
+        const anhTheoNgay = new Map();
+        if (so.length) {
+          for (const a of db.all('dontra_anh_tra',
+            `SELECT ngay, file FROM dontra_anh_tra WHERE studentId = ?
+              AND ngay IN (${so.map(() => '?').join(',')})`, [studentId, ...so.map(g => g.ngay)])) {
+            if (a.file) anhTheoNgay.set(a.ngay, a.file);
+          }
+        }
+        return so.map(g => ({ ...g, coGhiTen: tenNguoi(g.coGhi), anhTra: anhTheoNgay.get(g.ngay) || null }));
+      })(),
     });
   });
 
@@ -229,6 +243,15 @@ module.exports = (app, { db }) => {
 
     // Tên cô đã ghi sổ: một câu cho cả nhóm. Cả nhóm chỉ có 2–3 cô, nên bản cũ
     // là hai mươi mấy lượt hỏi lại đúng ba câu trả lời.
+    // Ảnh lúc trả (Đ125): một câu cho cả nhóm, không một câu cho mỗi bé.
+    const anhTraTheoBe = new Map();
+    if (maBe.length) {
+      for (const a of db.all('dontra_anh_tra',
+        `SELECT studentId, file, taoLuc FROM dontra_anh_tra
+          WHERE ngay = ? AND studentId IN (${maBe.map(() => '?').join(',')})`, [ngay, ...maBe])) {
+        if (a.file) anhTraTheoBe.set(a.studentId, { file: a.file, taoLuc: a.taoLuc });
+      }
+    }
     const maCo = [...new Set([...ghiTheoBe.values()].map(g => g.coGhi).filter(Boolean))];
     const tenCo = new Map();
     if (maCo.length) {
@@ -256,6 +279,7 @@ module.exports = (app, { db }) => {
         // `tenNguoi` trả '' khi không tìm thấy người; giữ đúng chữ đó ở đây để
         // sổ cũ của một cô đã nghỉ việc vẫn hiện y như trước.
         daTra: ghi ? { ...ghi, coGhiTen: ghi.coGhi ? (tenCo.get(ghi.coGhi) || '') : '' } : null,
+        anhTra: anhTraTheoBe.get(b.id) || null,
         // `null` = bé đi học bình thường.
         nghiPhep: dangNghi.get(b.id) || null,
       };
@@ -288,7 +312,8 @@ module.exports = (app, { db }) => {
   app.get('/api/dontra/anh/:file', (req, res) => {
     const file = String(req.params.file || '');
     const chu = db.first('dontra_nguoi', 'SELECT * FROM dontra_nguoi WHERE anh = ?', [file])
-      || db.first('dontra_uyquyen', 'SELECT * FROM dontra_uyquyen WHERE anh = ?', [file]);
+      || db.first('dontra_uyquyen', 'SELECT * FROM dontra_uyquyen WHERE anh = ?', [file])
+      || db.first('dontra_anh_tra', 'SELECT studentId FROM dontra_anh_tra WHERE file = ?', [file]);
     // Không có ai nhận ảnh này thì trả 404 — trước cả khi hỏi tệp có tồn tại
     // không, để không ai dò được thư mục ảnh bằng cách so hai loại lỗi.
     if (!chu) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
@@ -490,6 +515,71 @@ module.exports = (app, { db }) => {
   // -------------------------------------------------------------------------
   // SỔ TRẢ BÉ — việc của cô ở cổng
   // -------------------------------------------------------------------------
+  // ===== Ảnh lúc trả bé (Đ125) =====
+  //
+  // Cùng ý với ảnh "con đã tới lớp" của Điểm danh: cô chụp một khung hình lúc
+  // trao bé, gia đình mở app thấy con đã về với ai. Mỗi bé mỗi ngày một tấm,
+  // chụp lại là thay và XOÁ tệp cũ. Chỉ nhà mình xem được — ảnh đi qua
+  // GET /api/dontra/anh/:file có canAccessStudent, không phục vụ tĩnh.
+  //
+  // Cố ý KHÔNG bắt phải có dòng "đã trả" trước: cô ở cổng tay đang bận, chụp
+  // trước rồi ghi sổ sau cũng là một thứ tự hợp lý. Màn hình thì chỉ đưa nút
+  // chụp ra sau khi đã ghi sổ, để không ai chụp bé chưa được trả.
+  app.post('/api/dontra/anh-tra', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const be = db.findStudent(String(b.studentId || '').trim());
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!db.canAccessStudent(req.user, be.id)) {
+      return res.status(403).json({ error: `Không có quyền ghi sổ đón trả cho bé ${be.name}` });
+    }
+    const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
+    if (ngay > homNay()) return res.status(400).json({ error: 'Chưa chụp ảnh trả bé cho ngày chưa tới được' });
+    const anh = b.anh;
+    if (!anh || typeof anh !== 'string') return res.status(400).json({ error: 'Chưa chọn ảnh' });
+    const phay = anh.indexOf(',');
+    if (phay >= 0 && (anh.length - phay - 1) * 0.75 > TOI_DA_ANH_TRA_BYTE) {
+      return res.status(400).json({ error: 'Ảnh nặng quá, cô chụp lại một khung hình nhỏ hơn nhé' });
+    }
+    let luu;
+    try { luu = uploads.saveDataUrl(anh); }
+    catch (err) { return res.status(400).json({ error: err.message || 'Ảnh chưa gửi lên được' }); }
+
+    const cu = db.first('dontra_anh_tra',
+      'SELECT file FROM dontra_anh_tra WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
+    db.run(`INSERT INTO dontra_anh_tra (studentId, ngay, file, taoLuc, byUserId) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(studentId, ngay) DO UPDATE SET file = excluded.file, taoLuc = excluded.taoLuc, byUserId = excluded.byUserId`,
+      [be.id, ngay, luu.file, new Date().toISOString(), req.user.id]);
+    if (cu && cu.file && cu.file !== luu.file) { try { uploads.remove(cu.file); } catch (_) { /* tệp đã mất thì thôi */ } }
+    db.audit(req.user.id, 'dontra-anh-tra', be.id, { ngay });
+    res.status(201).json({ ok: true, studentId: be.id, ngay, file: luu.file });
+  });
+
+  // Gỡ ảnh — chụp nhầm bé thì phải gỡ được ngay.
+  //
+  // PHÂN HỆ NÀY KHÔNG CÓ ĐƯỜNG XOÁ DỮ LIỆU (bài canh [12] của test:don-tra):
+  // người đón thì "ngưng dùng" bằng cờ, uỷ quyền thì "huỷ" bằng mốc thời gian.
+  // Gỡ ảnh đi theo đúng luật ấy: là một lần THAY — thay tấm ảnh bằng trống.
+  // Dòng ở lại (ai gỡ, lúc nào) làm vết, còn tệp ảnh thì phải mất thật: một
+  // khung hình chụp nhầm bé nhà khác không được nằm lại trong kho ảnh của
+  // trường thêm một phút nào. Vì thế đây là POST, không phải DELETE.
+  app.post('/api/dontra/anh-tra/go', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const studentId = String(b.studentId || '').trim();
+    const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
+    }
+    const cu = db.first('dontra_anh_tra',
+      'SELECT file FROM dontra_anh_tra WHERE studentId = ? AND ngay = ?', [studentId, ngay]);
+    if (!cu || !cu.file) return res.json({ ok: true, daGoTruocDo: true });
+    db.run(`UPDATE dontra_anh_tra SET file = '', taoLuc = ?, byUserId = ? WHERE studentId = ? AND ngay = ?`,
+      [new Date().toISOString(), req.user.id, studentId, ngay]);
+    try { uploads.remove(cu.file); } catch (_) { /* tệp đã mất thì thôi */ }
+    db.audit(req.user.id, 'dontra-go-anh-tra', studentId, { ngay });
+    res.json({ ok: true });
+  });
+
   app.post('/api/dontra/ghi', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const be = db.findStudent(String(b.studentId || '').trim());

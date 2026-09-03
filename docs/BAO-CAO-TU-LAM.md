@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ120); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3919 bài** (đo 03/09/2026, sau Đ124), `npm run test:giao-dien` **560 bài** (đo 03/09, chạy lại đủ bộ vì Đ124 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
+| Bộ kiểm thử | `npm test` **3951 bài** (đo 03/09/2026, sau Đ125), `npm run test:giao-dien` **560 bài** (đo 03/09, chạy lại đủ bộ vì Đ125 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
 | Lớp canh trên GitHub | 🟢 **xanh trọn 5 job** từ lần chạy #133 (02/09, sau Đ119c) — trước đó đỏ vì CI clone nông, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được. Món cuối — tắt/gỡ tàn dư tiểu học và Cambridge — **anh đã chốt 03/09: giữ nguyên, sau này làm sau** (mục 1b-mới-nhất) |
@@ -86,6 +86,15 @@ hơn và xếp thành cột. **Gia đình không đổi.** Mọi con số đều
 người lớn — không phần trăm, không so bé này với bé kia. Nhân sự, Kế toán,
 Marketing thấy cây cơ sở nhưng không mở được màn từng bé. Anh cập nhật máy
 Oracle theo bước 10 của `docs/MAY-CHU-THU-ORACLE-APP2.md` là thấy ngay.
+
+**03/09, khuya — Đón trả bé có chụp ảnh lúc trả (Đ125).** Anh thử xong bảo "đón
+trả bé cũng nên có chụp ảnh như điểm danh". Đã làm đúng cùng luật với ảnh "con
+đã tới lớp": cô ghi sổ xong thì có nút chụp, ảnh chỉ nhà mình và cô của nhóm
+xem được, chụp lại là thay tấm cũ, gỡ được ngay nếu chụp nhầm. Có một chỗ đáng
+kể: phân hệ Đón trả có luật riêng "không có đường xoá dữ liệu", nên gỡ ảnh được
+làm thành một lần THAY bằng trống — dòng ở lại làm vết, tệp ảnh thì mất thật.
+Hai bộ canh có sẵn bắt tôi hai lần trong lúc làm (một dấu chấm phẩy trong chú
+thích lược đồ, một chỗ chèn tên tệp vào onclick) — đều sửa mã, không nới bài.
 
 Ba điều đáng nói thẳng với anh từ vòng đó:
 

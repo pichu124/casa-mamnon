@@ -79,3 +79,22 @@ CREATE TABLE IF NOT EXISTS dontra_ghi (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS dontra_mot_be_mot_ngay ON dontra_ghi(studentId, ngay);
 CREATE INDEX IF NOT EXISTS dontra_ghi_theo_ngay ON dontra_ghi(ngay);
+
+-- ===== Ảnh lúc trả bé (Đ125) =====
+-- Cô chụp một khung hình lúc trao bé cho người đón, gửi gia đình — cùng ý với
+-- ảnh "con đã tới lớp" của Điểm danh. Mỗi bé mỗi ngày MỘT tấm. Chụp lại là
+-- THAY tấm cũ (tệp cũ được bỏ đi), không chất đống. Gỡ ảnh cũng là một lần
+-- thay — thay bằng trống: dòng ở lại làm vết, tệp ảnh thì không còn. Chỉ gia
+-- đình của chính bé, cô của nhóm và văn phòng xem được — ảnh đi qua
+-- /api/dontra/anh/:file có canh quyền, không phục vụ tĩnh.
+-- (Chú thích trong tệp này cố ý không dùng dấu chấm phẩy: bài canh tách câu
+-- lệnh theo dấu đó.)
+CREATE TABLE IF NOT EXISTS dontra_anh_tra (
+  studentId TEXT NOT NULL,
+  ngay      TEXT NOT NULL,              -- YYYY-MM-DD
+  file      TEXT NOT NULL,
+  taoLuc    TEXT,
+  byUserId  TEXT,
+  PRIMARY KEY (studentId, ngay)
+);
+CREATE INDEX IF NOT EXISTS dontra_anh_tra_theo_file ON dontra_anh_tra(file);

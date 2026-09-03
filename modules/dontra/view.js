@@ -103,6 +103,65 @@ App.views.dontra = {
     for (const b of root.querySelectorAll('[data-tra]')) {
       b.onclick = () => this.moTra(b.dataset.tra);
     }
+    for (const b of root.querySelectorAll('[data-anh-tra]')) {
+      b.onclick = () => this.chonAnhTra(b.dataset.anhTra);
+    }
+    for (const b of root.querySelectorAll('[data-go-anh-tra]')) {
+      b.onclick = () => this.goAnhTra(b.dataset.goAnhTra);
+    }
+  },
+
+  // ---- Ảnh lúc trả bé (Đ125) — cùng ý với "Chụp ảnh con tới lớp" của Điểm danh ----
+  //
+  // Nút chụp chỉ hiện SAU khi đã ghi sổ: chụp là chụp khoảnh khắc trao bé,
+  // không phải chụp một bé còn đang ở lớp. "Đã gửi", không phải "đã thấy" —
+  // app không có đường nào biết gia đình đã mở ảnh ra xem.
+  oAnhTra(b) {
+    if (b.anhTra && b.anhTra.file) {
+      return `
+        <div class="flex" style="align-items:center;gap:8px;margin-bottom:8px">
+          <img src="/api/dontra/anh/${UI.esc(b.anhTra.file)}" alt="Ảnh ${UI.esc(b.hoTen)} lúc trả"
+            style="width:54px;height:54px;border-radius:10px;object-fit:cover;background:var(--line)">
+          <span class="small" style="color:var(--success)">Ảnh lúc trả đã gửi cho gia đình</span>
+          <button class="btn sm outline" data-go-anh-tra="${UI.esc(b.studentId)}">Gỡ</button>
+        </div>`;
+    }
+    return `
+      <button class="btn sm outline" style="margin-bottom:8px" data-anh-tra="${UI.esc(b.studentId)}">
+        ${UI.icon('album', 14)} Chụp ảnh lúc trả bé
+      </button>`;
+  },
+
+  chonAnhTra(studentId) {
+    const o = document.createElement('input');
+    o.type = 'file';
+    o.accept = 'image/*';
+    o.capture = 'environment';
+    o.onchange = async () => {
+      const f = o.files && o.files[0];
+      if (!f) return;
+      try {
+        const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
+        await API.post('/api/dontra/anh-tra', { studentId, ngay: this._ngay, anh });
+        UI.toast('Đã gửi ảnh lúc trả cho gia đình', 'success');
+        App.route();
+      } catch (e) { UI.toast(e.message || 'Chưa gửi được ảnh', 'error'); }
+    };
+    o.click();
+  },
+
+  async goAnhTra(studentId) {
+    try {
+      await API.post('/api/dontra/anh-tra/go', { studentId, ngay: this._ngay });
+      UI.toast('Đã gỡ ảnh', 'success');
+      App.route();
+    } catch (e) { UI.toast(e.message || 'Chưa gỡ được ảnh', 'error'); }
+  },
+
+  // Gia đình bấm vào ảnh nhỏ thì xem to.
+  xemAnhTra(file) {
+    UI.modal(`<img src="/api/dontra/anh/${UI.esc(file)}" alt="" style="width:100%;border-radius:12px;display:block">`,
+      'Ảnh lúc trả bé');
   },
 
   theBeCong(b) {
@@ -134,7 +193,8 @@ App.views.dontra = {
           <div class="muted small" style="line-height:1.6;margin-bottom:8px">
             Đã trả cho <b>${UI.esc(b.daTra.nguoiDon)}</b>${b.daTra.coGhiTen ? ` — ${UI.esc(b.daTra.coGhiTen)} ghi` : ''}
             ${b.daTra.ghiChu ? `<div>${UI.esc(b.daTra.ghiChu)}</div>` : ''}
-          </div>` : ''}
+          </div>
+          ${this.oAnhTra(b)}` : ''}
 
         ${uy.length ? `
           <div class="section-label">Hôm nay gia đình uỷ quyền</div>
@@ -306,7 +366,11 @@ App.views.dontra = {
       <div class="section-label">Sổ đón trả gần đây</div>
       ${(d.soGanDay || []).length ? `<div class="card">
         ${(d.soGanDay || []).map(g => `
-          <div class="list-row"><div class="row-main">
+          <div class="list-row">
+            ${g.anhTra ? `<img src="/api/dontra/anh/${UI.esc(g.anhTra)}" alt="Ảnh lúc trả" class="clickable"
+              style="width:54px;height:54px;flex:none;border-radius:10px;object-fit:cover;background:var(--line)"
+              data-xem-anh="${UI.esc(g.anhTra)}">` : ''}
+            <div class="row-main">
             <div class="row-title">${UI.esc(UI.fmtDate(g.ngay))}${g.luc ? ` · ${UI.esc(g.luc)}` : ''}</div>
             <div class="row-sub">Trả cho ${UI.esc(g.nguoiDon)}${g.coGhiTen ? ` — ${UI.esc(g.coGhiTen)} ghi` : ''}</div>
             ${g.ghiChu ? `<div class="row-sub">${UI.esc(g.ghiChu)}</div>` : ''}
@@ -318,6 +382,7 @@ App.views.dontra = {
     for (const b of root.querySelectorAll('[data-sua]')) b.onclick = () => this.moNguoi(b.dataset.sua);
     for (const b of root.querySelectorAll('[data-ngung]')) b.onclick = () => this.doiDangDung(b.dataset.ngung);
     for (const b of root.querySelectorAll('[data-huy]')) b.onclick = () => this.huyUyQuyen(b.dataset.huy);
+    for (const b of root.querySelectorAll('[data-xem-anh]')) b.onclick = () => this.xemAnhTra(b.dataset.xemAnh);
   },
 
   theUyQuyen(u, choHuy) {
