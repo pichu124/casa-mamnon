@@ -24,11 +24,12 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 | [`modules/README.md`](modules/README.md) | Cách thêm một tính năng mà không đụng phần đang chạy |
 | [`docs/TRIEN-KHAI.md`](docs/TRIEN-KHAI.md) | **Cài lên máy chủ của trường**: VPS trong nước, tài khoản quản trị, dịch vụ tự bật lại, lịch sao lưu |
 | [`docs/SAO-LUU.md`](docs/SAO-LUU.md) | Sao lưu, đưa bản sao ra khỏi máy chủ, và khôi phục khi cần |
+| [`docs/MAY-CHU-THU-ORACLE-APP2.md`](docs/MAY-CHU-THU-ORACLE-APP2.md) | **Chạy bản thử app 2 trên máy Oracle** đã dựng cho app 1 — dữ liệu mẫu, từng bước, có đường quay lui |
 
 > **Mọi tệp triển khai KHÁC trong `docs/` là của app 1.** Chúng đi theo phần nền
 > lúc tách kho và chưa được cập nhật cho trường mầm non — mỗi tệp có một khối cờ
 > ở ngay đầu nói rõ phần nào còn đúng, phần nào không. Đọc cờ đó trước khi làm
-> theo. Hai tệp trong bảng trên thì đã viết cho app 2.
+> theo. Ba tệp trong bảng trên thì đã viết cho app 2.
 
 ---
 

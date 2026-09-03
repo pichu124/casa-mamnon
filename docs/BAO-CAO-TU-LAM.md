@@ -68,6 +68,12 @@ một dòng mã chạy nào. **Trên máy anh:** sau khi `git pull`, tệp khóa
 bản mới và `git status` sạch trở lại; nếu nó vẫn báo sửa thì gõ
 `git checkout package-lock.json` rồi `npm install` một lần nữa.
 
+**03/09, tối — hướng dẫn chạy bản thử trên máy Oracle cũ (Đ123).** Anh hỏi cách
+đưa bản thử lên mạng, rồi hỏi chạy trên VPS đã dựng cho app 1. Tôi viết
+`docs/MAY-CHU-THU-ORACLE-APP2.md` cho đúng máy đó, mười bước, có đường quay
+lại app 1 bằng hai lệnh. Nhắc lại một điều để không ai quên: máy Oracle ở nước
+ngoài, chỉ dữ liệu mẫu; máy chủ thật vẫn là N7.
+
 Ba điều đáng nói thẳng với anh từ vòng đó:
 
 - **Bộ test đã bắt được tôi một lần.** Bản vá "quản trị thấy phòng chat nhóm
