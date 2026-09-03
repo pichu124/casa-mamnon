@@ -89,13 +89,19 @@ module.exports = (app) => {
       }
     }
 
+    // Đ124: mỗi dòng nói rõ gửi cho ai — "Toàn trường" hay "Nhóm X · Cơ sở Y".
+    const moTaPhamVi = tb.taoMoTaPhamVi();
     res.json(st.ganDauDaSua(BANG, list.map(n => {
       const author = n.createdBy ? nguoi.get(n.createdBy) : null;
+      const pv = moTaPhamVi(n.audience);
       return {
         ...n,
         read: !!n.read,
         authorName: author ? `${author.title} ${author.name}` : '',
         coTheSua: st.laChuBanGhi(req.user, n.createdBy),
+        toanTruong: pv.toanTruong,
+        tenNhom: pv.tenNhom,
+        tenCoSo: pv.tenCoSo,
       };
     })));
   });

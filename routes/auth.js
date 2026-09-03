@@ -211,6 +211,10 @@ function mePayload(user) {
       // dùng để ô "Gửi cho nhóm" chỉ liệt kê nhóm của cơ sở đó — máy chủ vẫn
       // là người chốt (canAccessClass), đây chỉ để không mời bấm vào thứ sẽ 403.
       coSo: user.role === 'admin' ? (db.phamViCoSo(user) || null) : null,
+      // Đ124: trang chủ của văn phòng chỉ mở đường "xem từng bé" khi chức vụ
+      // được mở hồ sơ bé — Nhân sự, Kế toán, Marketing thì không.
+      chucVu: user.role === 'admin' ? db.chucVu(user) : null,
+      moHoSoBe: day,
     },
     students,
     // Kèm cơ sở của từng nhóm (quan hệ ở bảng class_campus) — CHỈ THÊM trường,
@@ -220,7 +224,14 @@ function mePayload(user) {
         .map(r => [r.classId, r.campusId]));
       return db.classes().map(c => ({ ...c, campusId: coSoCua.get(c.id) || null }));
     })(),
-    school: db.school(),
+    // Đ124: kèm danh sách cơ sở để giao diện gọi được tên cơ sở (ô chọn bé theo
+    // cấp, nhãn "Nhóm X · Cơ sở Y" trên thông báo). Trường chưa có cơ sở thì
+    // mảng rỗng, mọi màn hình vẫn vẽ như trước.
+    school: (() => {
+      const truong = db.school();
+      const coSo = db.campuses().map(c => ({ id: c.id, name: c.name }));
+      return truong ? { ...truong, coSo } : truong;
+    })(),
   };
 }
 

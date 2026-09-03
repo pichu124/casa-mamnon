@@ -112,6 +112,15 @@ const GIOI_HAN_DANH_SACH = 100;
 // nhóm nào" thay vì bắt người đọc đoán. `findClass` chứ không phải
 // `db.classes()`: nhóm đã đóng sau chuyển năm vẫn phải hiện được tên trên
 // khảo sát cũ của nó.
+// Đ124: tên cơ sở của nhóm nhận, để thẻ khảo sát ghi "Nhóm Chồi 2 · Cơ sở 1"
+// với văn phòng ba cơ sở. Không có tầng cơ sở thì chuỗi rỗng.
+function tenCoSoCua(audience) {
+  if (!audience || audience === 'all') return '';
+  const csId = db.campusOfClass(audience);
+  const cs = csId ? db.findCampus(csId) : null;
+  return cs ? cs.name : '';
+}
+
 function tenNhomCua(audience) {
   if (!audience || audience === 'all') return '';
   const c = db.findClass(audience);
@@ -128,6 +137,7 @@ function summary(sv, user, responses) {
     status: sv.status,
     audience: sv.audience,
     tenNhom: tenNhomCua(sv.audience),
+    tenCoSo: tenCoSoCua(sv.audience),
     questionCount: (sv.questions || []).length,
     responseCount: list.length,
     answered: list.some(r => r.userId === user.id),
@@ -171,6 +181,7 @@ module.exports = (app) => {
         status: sv.status,
         audience: sv.audience,
         tenNhom: tenNhomCua(sv.audience),
+        tenCoSo: tenCoSoCua(sv.audience),
         questionCount: (sv.questions || []).length,
         responseCount: dem.get(sv.id) || 0,
         answered: daTraLoi.has(sv.id),
