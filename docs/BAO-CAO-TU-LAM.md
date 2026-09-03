@@ -15,7 +15,7 @@
 |---|---|
 | Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ120); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3842 bài** (đo 02/09/2026, sau Đ120), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ120 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
+| Bộ kiểm thử | `npm test` **3858 bài** (đo 03/09/2026, sau Đ122), `npm run test:giao-dien` **526 bài** (đo 02/09, chạy lại đủ bộ vì Đ120 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
 | Lớp canh trên GitHub | 🟢 **xanh trọn 5 job** từ lần chạy #133 (02/09, sau Đ119c) — trước đó đỏ vì CI clone nông, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
 | Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được. Món cuối — tắt/gỡ tàn dư tiểu học và Cambridge — **anh đã chốt 03/09: giữ nguyên, sau này làm sau** (mục 1b-mới-nhất) |
@@ -53,6 +53,20 @@ quyết định vào sổ để lần sau không hỏi lại. Bốn món hiệu 
 vẫn hoãn: ba món Cambridge có mốc làm là *trước khi trường bật Cambridge*; món
 Album (mức thấp, chỉ quản trị gặp) **không dính gì tới quyết định này** — khi
 hỏi anh tôi đã gộp nó nhầm vào "cùng nhóm", xin ghi lại cho đúng.
+
+**Cập nhật 03/09, chiều — lần đầu anh cài app 2 trên máy mình lộ ra một
+chỗ lệch sáu ngày không ai thấy (Đ122).** `npm install` báo một lỗ mức vừa và
+`git status` đỏ ngay `package-lock.json` dù anh chưa sửa gì. Nguyên nhân: hôm
+27/08 gỡ vỏ Android, `package.json` bỏ bốn gói Capacitor nhưng tệp khóa không
+được làm lại, nên nó mang 385 mục thừa và vẫn tên `school-connect` của app 1.
+CI và Docker vẫn cài đúng (tôi thử cả hai kiểu) nên không ai kêu; cái giá là
+`npm audit` báo 11 lỗ giả che mất lỗ thật duy nhất ở `qs`, gói Express dùng
+cho mọi yêu cầu. Anh bảo "sửa lock đi": đã làm lại tệp khóa, nâng `qs` lên
+6.16.0, `npm audit` về 0, và thêm bộ canh `test:khoa-goi` để tệp khóa không
+lệch âm thầm lần nữa (đã thử trên tệp khóa cũ: đỏ đúng 385 mục). Không đổi
+một dòng mã chạy nào. **Trên máy anh:** sau khi `git pull`, tệp khóa sẽ khớp
+bản mới và `git status` sạch trở lại; nếu nó vẫn báo sửa thì gõ
+`git checkout package-lock.json` rồi `npm install` một lần nữa.
 
 Ba điều đáng nói thẳng với anh từ vòng đó:
 

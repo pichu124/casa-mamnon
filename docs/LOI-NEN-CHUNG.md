@@ -208,9 +208,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười một món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười hai món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười một chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười hai chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -280,6 +280,16 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   danh sách** (`routes/surveys.js` — vá ở app 2 tại Đ68). Ở `bc9dfa3`,
   `responsesOf(sv.id)` được gọi trong vòng lặp. Không bắt buộc; cùng loại với
   món `messages.js` ở trên và cũng nặng dần theo thời gian.
+- **Gói `qs` bên trong Express ở bản 6.15.3 có lỗ làm treo máy chủ** (mức vừa,
+  GHSA-4mjr-xmp4-gh2g — vá ở app 2 tại Đ122 bằng cách nâng lên 6.16.0, chỉ đổi
+  `package-lock.json`). Không có mã nào để đối chiếu ở `bc9dfa3` — đây là phụ
+  thuộc, không phải tệp — nhưng app 1 cùng dòng Express 5 nên gần như chắc chắn
+  cùng bản; bên đó đang chạy thật cho ~300 gia đình, đáng một lệnh `npm audit
+  fix` rồi chạy đủ bộ kiểm thử. Nhân đó soi luôn tệp khóa bên ấy có mục thừa
+  không: app 2 mang 385 mục Capacitor thừa suốt sáu ngày mà không ai biết, vì
+  `npm ci` lặng lẽ bỏ qua chúng còn `npm audit` thì đếm cả. Bộ canh
+  `test/khoa-goi.test.mjs` chép sang được nguyên vẹn — nó chỉ đọc hai tệp JSON,
+  không phụ thuộc gì vào app 2.
 
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức
