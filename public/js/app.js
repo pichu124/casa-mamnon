@@ -132,6 +132,10 @@ window.App = {
     this.state.classes = me.classes || [];
     this.state.school = me.school;
     this.state.year = me.school ? me.school.currentYear : null;
+    // VAI ĐANG ĐĂNG NHẬP GẮN LÊN <body> (Đ124). CSS dựa vào đó để co giao diện
+    // cho cô và văn phòng — dữ liệu dày hơn, ô và chữ nhỏ hơn — mà không đụng
+    // màn của gia đình. THÊM MỚI, không đổi trạng thái nào đang có.
+    try { document.body.dataset.vai = (me.user && me.user.role) || ''; } catch (_) { /* không có DOM */ }
     if (!this.state.currentStudentId && this.state.students.length) {
       this.state.currentStudentId = this.state.students[0].id;
     }
@@ -320,6 +324,8 @@ window.App = {
   },
 
   showLogin() {
+    // Về màn đăng nhập thì bỏ dấu vai — người sau đăng nhập có thể là vai khác.
+    try { delete document.body.dataset.vai; } catch (_) { /* không có DOM */ }
     document.getElementById('bottom-nav').style.display = 'none';
     this.stopBadgePolling();
     const root = document.getElementById('view');
