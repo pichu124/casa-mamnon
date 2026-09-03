@@ -1,17 +1,34 @@
 // Phân hệ Điểm danh.
 // Phụ huynh: lịch điểm danh theo tháng của con. Giáo viên: điểm danh cả nhóm theo ngày.
+//
+// MỘT NGÀY CÓ HAI PHẦN (Đ126): ĐÓN BÉ và TRẢ BÉ.
+//
+// Sáng cô đón bé: chấm trạng thái, chụp một tấm "con đã tới lớp". Chiều cô trả
+// bé: ghi đã trao cho ai, chụp một tấm lúc trả. Hai việc ấy trước Đ126 nằm ở
+// hai ô khác nhau trên trang chủ (Điểm danh và Đón trả bé) — cô và gia đình
+// phải mở hai chỗ để theo dõi một ngày. Nay màn này là MỘT chỗ: với cô là hai
+// phần '#/attendance' (Đón bé) và '#/attendance/tra' (Trả bé); với gia đình
+// là một hộp chi tiết ngày có cả hai nửa.
+//
+// Phần Trả bé là việc của phân hệ Đón trả bé (cắm thêm, nhà trường tắt được),
+// nên màn này KHÔNG chép mã của nó — chỉ gọi sang qua đúng một điểm chạm
+// `phanTraBe()`; phân hệ tắt hay hỏng thì phần Đón bé vẫn y như trước.
 App.views.attendance = {
   month: null,   // phụ huynh: tháng đang xem 'YYYY-MM'
   date: null,    // giáo viên: ngày đang điểm danh 'YYYY-MM-DD'
   nhomId: null,  // cô: nhóm đang điểm danh, chỉ dùng khi cô phụ trách nhiều nhóm
   _byDate: {},   // phụ huynh: bản ghi theo ngày của tháng đang xem
   _roster: [],   // giáo viên: [{ student, record }] của ngày đang chọn
+  _soThang: new Map(),  // phụ huynh: sổ trả bé của tháng đang xem (Đ126), rỗng khi phân hệ tắt
+  _pt: null,     // phụ huynh: đối tượng phân hệ Đón trả bé đang dùng được, hoặc null
 
   STATUS_KEYS: ['present', 'late', 'absent_excused', 'absent_unexcused'],
   SHORT: { present: 'Có mặt', late: 'Muộn', absent_excused: 'Nghỉ CP', absent_unexcused: 'Nghỉ KP' },
 
-  async render(root) {
-    if (App.state.user.role === 'teacher') return this.renderTeacher(root);
+  async render(root, params = []) {
+    // '#/attendance/tra' = phần Trả bé của cô (Đ126). Gia đình và văn phòng
+    // không có phần này nên bỏ qua tham số.
+    if (App.state.user.role === 'teacher') return this.renderTeacher(root, params[0] === 'tra' ? 'tra' : 'don');
     // VĂN PHÒNG CÓ MÀN RIÊNG, KHÔNG DÙNG LẠI MÀN CỦA CÔ VÀ KHÔNG RƠI VÀO MÀN
     // CỦA GIA ĐÌNH.
     //
@@ -25,6 +42,38 @@ App.views.attendance = {
     // văn phòng ở đây là RÀ SOÁT, không phải chấm thay cô.
     if (App.state.user.role === 'admin') return this.renderVanPhong(root);
     return this.renderParent(root);
+  },
+
+  // ---- Điểm chạm DUY NHẤT sang phân hệ Đón trả bé (Đ126) ----
+  //
+  // Đây là chỗ DUY NHẤT màn lõi này biết tên một phân hệ — bài canh đếm chuỗi
+  // `App.views.dontra` trong tệp này phải bằng 1, và tệp này không được gọi
+  // thẳng đường API nào của phân hệ ấy. Trả về:
+  //   null           — phân hệ tắt (hoặc ngoài vai): màn y hệt trước Đ126;
+  //   { hong: true } — phân hệ bật mà tệp giao diện hỏng / thiếu hàm;
+  //   đối tượng view — dùng được.
+  // Mọi lời gọi vào đối tượng trả về đều phải nằm trong try/catch riêng, để
+  // một lỗi trong phân hệ không biến cả Điểm danh thành "Có lỗi xảy ra".
+  phanTraBe() {
+    if (!App.moduleEnabled('dontra')) return null;
+    const v = App.views.dontra;
+    const du = !!v && ['veTraBe', 'napSoThang', 'htmlTraBeCuaNgay', 'chuTraBeNgan', 'gioTraBe']
+      .every(t => typeof v[t] === 'function');
+    return du ? v : { hong: true };
+  },
+
+  // Ba lớp đỡ cho gia đình: phân hệ tắt → '', hỏng → '', ném lỗi → ''.
+  htmlTraBe(dateStr) {
+    if (!this._pt) return '';
+    try { return this._pt.htmlTraBeCuaNgay(dateStr) || ''; } catch (_) { return ''; }
+  },
+  chuTraBe(dateStr) {
+    if (!this._pt) return '';
+    try { return this._pt.chuTraBeNgan(dateStr) || ''; } catch (_) { return ''; }
+  },
+  gioTraBe(dateStr) {
+    if (!this._pt) return '';
+    try { return this._pt.gioTraBe(dateStr) || ''; } catch (_) { return ''; }
   },
 
   // ---- Văn phòng: bảng rà soát sau 9 giờ, cả phạm vi mình quản ----
@@ -67,7 +116,20 @@ App.views.attendance = {
           là của cô ở màn nhóm.
         </div>
       </div>
-      ${this.theRaSoatVanPhong(r, ds, tenNhom)}`;
+      ${this.theRaSoatVanPhong(r, ds, tenNhom)}
+      ${this.theChiDuongTraBe()}`;
+  },
+
+  // Văn phòng: sổ trả bé xem theo từng nhóm ở màn Đón trả bé — màn rà soát này
+  // cố ý không có ô chọn nhóm (xem chú thích renderVanPhong), nên chỉ chỉ đường.
+  theChiDuongTraBe() {
+    if (!this.phanTraBe()) return '';
+    return `<div class="card">
+      <div class="muted small" style="line-height:1.6">
+        Sổ trả bé (ai đón, lúc mấy giờ, ảnh lúc trả) xem theo từng nhóm ở phần Đón trả bé.
+      </div>
+      <button class="btn outline block mt-8" onclick="location.hash='#/dontra'">${UI.icon('chevron', 16)} Mở Đón trả bé</button>
+    </div>`;
   },
 
   // BA TRẠNG THÁI, KHÔNG PHẢI HAI.
@@ -137,17 +199,25 @@ App.views.attendance = {
       return;
     }
     if (!this.month) this.month = UI.todayStr().slice(0, 7);
-    // Ảnh "con đã tới lớp" hỏi song song. Hỏng đường ảnh thì màn điểm danh
-    // vẫn phải dựng bình thường — nó là phần thêm, không phải phần chính.
-    const [records, kho] = await Promise.all([
+    // Ảnh "con đã tới lớp" và sổ trả bé của tháng (Đ126) hỏi song song. Hỏng
+    // đường nào thì màn điểm danh vẫn phải dựng bình thường — chúng là phần
+    // thêm, không phải phần chính. Sổ trả bé do phân hệ Đón trả bé nạp: tắt
+    // hay hỏng thì là một bảng rỗng, không phải một lỗi.
+    const pt = this.phanTraBe();
+    this._pt = pt && !pt.hong ? pt : null;
+    const [records, kho, soTra] = await Promise.all([
       API.get(`/api/attendance?studentId=${encodeURIComponent(current.id)}&month=${this.month}`),
       API.get(`/api/attendance/anh?studentId=${encodeURIComponent(current.id)}&month=${this.month}`)
         .catch(() => ({ anh: [] })),
+      this._pt
+        ? Promise.resolve().then(() => this._pt.napSoThang(current.id, this.month)).catch(() => new Map())
+        : Promise.resolve(new Map()),
     ]);
     this._byDate = {};
     records.forEach(r => { this._byDate[r.date] = r; });
     this._anhTheoNgay = {};
     (kho.anh || []).forEach(a => { this._anhTheoNgay[a.date] = a; });
+    this._soThang = soTra instanceof Map ? soTra : new Map();
 
     const [y, m] = this.month.split('-').map(Number);
     const counts = { present: 0, late: 0, absent_excused: 0, absent_unexcused: 0 };
@@ -177,6 +247,10 @@ App.views.attendance = {
             <span class="small muted flex" style="gap:5px">
               <span style="width:8px;height:8px;border-radius:50%;background:${UI.ATT_STATUS[k].color};display:inline-block"></span>${UI.esc(UI.ATT_STATUS[k].label)}
             </span>`).join('')}
+          ${this._pt ? `
+            <span class="small muted flex" style="gap:5px">
+              <span class="dot tra" style="width:8px;height:8px;border-radius:50%;display:inline-block;margin:0"></span>Có ghi sổ trả bé
+            </span>` : ''}
         </div>
       </div>
       <div class="card">
@@ -184,7 +258,14 @@ App.views.attendance = {
         ${recent.length
           ? recent.map(r => this.recordRow(r)).join('')
           : UI.emptyState('🗓️', 'Tháng này chưa có dữ liệu điểm danh của con')}
-      </div>`;
+      </div>
+      ${this._pt ? `
+      <div class="card">
+        <div class="muted small" style="line-height:1.6">
+          Ai được đón bé, và uỷ quyền đón một lần khi nhờ người khác đón hộ — gia đình khai ở phần Đón trả bé.
+        </div>
+        <button class="btn outline block mt-8" onclick="location.hash='#/dontra'">${UI.icon('chevron', 16)} Mở Đón trả bé</button>
+      </div>` : ''}`;
   },
 
   // Lưới lịch tháng: hàng đầu T2..CN, ô ngoài tháng làm mờ (dim).
@@ -204,12 +285,16 @@ App.views.attendance = {
       const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
       const rec = this._byDate[dateStr];
       const st = rec ? UI.ATT_STATUS[rec.status] : null;
+      // Ngày cô quên chấm sáng nhưng có ghi sổ trả chiều vẫn mở được (Đ126).
+      const coTra = this._soThang.has(dateStr);
+      const moDuoc = !!rec || coTra;
       cells += `
-        <div class="cal-cell ${rec ? 'clickable' : ''}"
-          ${rec ? `onclick="App.views.attendance.showDay('${dateStr}')"` : ''}
+        <div class="cal-cell ${moDuoc ? 'clickable' : ''}"
+          ${moDuoc ? `onclick="App.views.attendance.showDay('${dateStr}')"` : ''}
           ${dateStr === today ? 'style="outline:2px solid var(--primary)"' : ''}>
           ${dayNum}
-          <span class="dot" style="background:${st ? st.color : 'transparent'}"></span>
+          <span class="dots"><span class="dot" style="background:${st ? st.color : 'transparent'}"></span>${
+            coTra ? '<span class="dot tra"></span>' : ''}</span>
         </div>`;
     }
     return `<div class="att-cal">
@@ -221,32 +306,42 @@ App.views.attendance = {
   recordRow(r) {
     const st = UI.ATT_STATUS[r.status] || UI.ATT_STATUS.present;
     const times = [r.checkIn ? `Vào ${r.checkIn}` : null, r.checkOut ? `Ra ${r.checkOut}` : null].filter(Boolean).join(' · ');
+    const tra = this.chuTraBe(r.date);
     return `
       <div class="list-row clickable" onclick="App.views.attendance.showDay('${UI.esc(r.date)}')">
         <span style="width:10px;height:10px;border-radius:50%;background:${st.color};flex:none"></span>
         <div class="row-main">
           <div class="row-title">${UI.esc(UI.fmtDate(r.date))}</div>
-          <div class="row-sub">${UI.esc(times || 'Không ghi nhận giờ vào/ra')}${r.note ? ` · ${UI.esc(r.note)}` : ''}</div>
+          <div class="row-sub">${UI.esc(times || 'Không ghi nhận giờ vào/ra')}${r.note ? ` · ${UI.esc(r.note)}` : ''}${tra ? ` · ${UI.esc(tra)}` : ''}</div>
         </div>
         <span class="row-end">${UI.badge(st.label, st.cls)}</span>
       </div>`;
   },
 
+  // MỘT NGÀY CỦA CON, CẢ HAI NỬA (Đ126): nửa trên là Đón bé (trạng thái, ảnh
+  // tới lớp, giờ), nửa dưới là Trả bé do phân hệ Đón trả bé vẽ (về với ai,
+  // lúc mấy giờ, ảnh lúc trả). Ngày chỉ có một nửa thì chỉ hiện nửa đó; "cô
+  // chưa chấm" là việc của người lớn, chữ xám, không đỏ.
   showDay(dateStr) {
     const r = this._byDate[dateStr];
-    if (!r) return;
-    const st = UI.ATT_STATUS[r.status] || UI.ATT_STATUS.present;
+    const traBe = this.htmlTraBe(dateStr);
+    if (!r && !traBe) return;
+    const st = r ? (UI.ATT_STATUS[r.status] || UI.ATT_STATUS.present) : null;
+    // "Giờ ra về" trống mà sổ trả có giờ thì lấy giờ đó — không hiện "—" ngay
+    // trên dòng "về với bà lúc 16:35".
+    const gioVe = (r && r.checkOut) || this.gioTraBe(dateStr) || '—';
     UI.modal(`
       <div class="center">
-        <div class="muted small">${UI.esc(UI.fmtDate(r.date))}</div>
-        <div class="mt-8">${UI.badge(st.label, st.cls)}</div>
+        <div class="muted small">${UI.esc(UI.fmtDate(dateStr))}</div>
+        <div class="mt-8">${st ? UI.badge(st.label, st.cls) : '<span class="muted small">Cô chưa chấm điểm danh ngày này</span>'}</div>
       </div>
-      ${this.anhCuaNgay(r.date)}
+      ${this.anhCuaNgay(dateStr)}
       <div class="mt-14">
-        ${this.detailRow('Giờ đến lớp', r.checkIn || '—')}
-        ${this.detailRow('Giờ ra về', r.checkOut || '—')}
-        ${this.detailRow('Ghi chú của cô', r.note || 'Không có ghi chú')}
-      </div>`, 'Chi tiết điểm danh');
+        ${this.detailRow('Giờ đến lớp', (r && r.checkIn) || '—')}
+        ${this.detailRow('Giờ ra về', gioVe)}
+        ${this.detailRow('Ghi chú của cô', (r && r.note) || 'Không có ghi chú')}
+      </div>
+      ${traBe}`, 'Chi tiết điểm danh');
   },
 
   // Ảnh của một ngày, nếu cô có chụp.
@@ -284,17 +379,30 @@ App.views.attendance = {
   // là cô điểm danh nhầm nhóm mà không hay biết, nên khi cô có nhiều hơn một
   // nhóm thì màn hình bắt chọn nhóm trước. Cô một nhóm không thấy ô chọn này và
   // số thao tác không đổi một chút nào.
-  async renderTeacher(root) {
+  //
+  // HAI PHẦN TRONG MỘT NGÀY (Đ126): `tab` là 'don' (mặc định, luôn — KHÔNG tự
+  // chọn theo giờ trong ngày, mặc định phải đoán được) hay 'tra'. Dải tab chỉ
+  // vẽ khi phân hệ Đón trả bé đang bật; tắt thì màn y hệt trước Đ126 và
+  // '#/attendance/tra' lặng lẽ về phần Đón bé. Ô ngày và ô nhóm dùng chung
+  // cho cả hai phần — màn này là CHỦ của `date` và `nhomId`, phần Trả bé nhận
+  // hai giá trị ấy, không vẽ ô riêng.
+  async renderTeacher(root, tab = 'don') {
     if (!this.date) this.date = UI.todayStr();
     const dsNhom = (App.state.user.nhomCuaCo || []);
     if (dsNhom.length > 1 && !dsNhom.some(n => n.id === this.nhomId)) {
       this.nhomId = dsNhom[0].id;
     }
     if (dsNhom.length <= 1) this.nhomId = null;
+    const pt = this.phanTraBe();
+    if (!pt) tab = 'don';
     const q = `date=${this.date}` + (this.nhomId ? `&classId=${encodeURIComponent(this.nhomId)}` : '');
+    // Phần Trả bé không cần bảng rà soát sáng — bớt một lời gọi đúng giờ
+    // cao điểm 16h30, khi cả ba cơ sở cùng mở màn này.
     const [data, raSoat] = await Promise.all([
       API.get(`/api/attendance/class?${q}`),
-      API.get(`/api/attendance/ra-soat?${q}`).catch(() => ({ quaGio: false, danhSach: [] })),
+      tab === 'don'
+        ? API.get(`/api/attendance/ra-soat?${q}`).catch(() => ({ quaGio: false, danhSach: [] }))
+        : Promise.resolve({ quaGio: false, danhSach: [] }),
     ]);
     this._roster = data.students;
     this._raSoat = raSoat;
@@ -306,6 +414,7 @@ App.views.attendance = {
 
     root.innerHTML = `
       ${UI.pageHeader(`Điểm danh ${tenNhom}`)}
+      ${pt ? this.thanhTab(tab) : ''}
       <div class="card">
         ${dsNhom.length > 1 ? `
           <div class="field">
@@ -319,6 +428,7 @@ App.views.attendance = {
           <input type="date" value="${UI.esc(this.date)}" onchange="App.views.attendance.setDate(this.value)">
         </div>
       </div>
+      ${tab === 'tra' ? '<div id="att-tra"><div class="loading">Đang tải sổ trả bé</div></div>' : `
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Số bé</div></div>
         <div class="stat-box"><div class="stat-num" id="att-so-da" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
@@ -330,7 +440,61 @@ App.views.attendance = {
         ${total
           ? this._roster.map(r => this.rosterRow(r)).join('')
           : UI.emptyState('🎒', 'Nhóm chưa có bé nào')}
-      </div>`;
+      </div>`}`;
+
+    // Đổi phần bằng hash, để nút Quay lại và liên kết sâu (nút việc trên trang
+    // chủ trỏ thẳng '#/attendance/tra') đều đúng, không có trạng thái ngầm.
+    for (const b of root.querySelectorAll('[data-tab]')) {
+      b.onclick = () => { location.hash = b.dataset.tab === 'tra' ? '#/attendance/tra' : '#/attendance'; };
+    }
+    if (tab === 'tra') await this.khoiTraBe(document.getElementById('att-tra'), pt);
+  },
+
+  thanhTab(tab) {
+    return `<div class="seg" id="att-tab">
+      <button type="button" data-tab="don" class="${tab === 'don' ? 'active' : ''}">🌅 Đón bé</button>
+      <button type="button" data-tab="tra" class="${tab === 'tra' ? 'active' : ''}">🌇 Trả bé</button>
+    </div>`;
+  },
+
+  // Phần Trả bé: giao cho phân hệ vẽ vào ô này. Phân hệ hỏng thì chỉ ô này
+  // nói sự cố, phần Đón bé và dải tab vẫn nguyên. Ngày tương lai thì không hỏi
+  // — máy chủ vốn từ chối ghi sổ cho ngày chưa tới.
+  async khoiTraBe(el, pt) {
+    if (!el) return;
+    if (!pt || pt.hong) {
+      el.innerHTML = UI.emptyState('🛠️',
+        'Phần Trả bé đang gặp sự cố. Phần Đón bé vẫn dùng bình thường — nhờ nhà trường kiểm tra giúp.');
+      return;
+    }
+    if (this.date > UI.todayStr()) {
+      el.innerHTML = `<div class="card muted small" style="line-height:1.6">
+        Sổ trả bé ghi được tới hôm nay. Chọn lại hôm nay hoặc một ngày đã qua nhé.</div>`;
+      return;
+    }
+    const dsNhom = App.state.user.nhomCuaCo || [];
+    const classId = this.nhomId || ((dsNhom[0] || {}).id) || '';
+    try {
+      await pt.veTraBe(el, { classId, ngay: this.date, diemDanh: this.diemDanhTheoBe() });
+    } catch (e) {
+      el.innerHTML = UI.emptyState('🤝', (e && e.message) || 'Chưa mở được sổ trả bé');
+    }
+  },
+
+  // Sáng nay của từng bé, đưa sang phần Trả bé để thẻ ở cổng nói "Sáng nay:
+  // Có mặt · vào 7:42" kèm ảnh tới lớp — phân hệ chỉ vẽ đường ảnh được đưa,
+  // không tự hỏi API của màn này.
+  diemDanhTheoBe() {
+    const m = new Map();
+    for (const r of this._roster || []) {
+      m.set(r.student.id, {
+        status: r.record ? r.record.status : null,
+        checkIn: r.record ? (r.record.checkIn || '') : '',
+        anhUrl: r.anhDenLop && r.anhDenLop.file
+          ? `/api/attendance/anh/${encodeURIComponent(r.anhDenLop.file)}` : '',
+      });
+    }
+    return m;
   },
 
   // BẢNG RÀ SOÁT SAU 9 GIỜ — nhà trường yêu cầu ở điểm 4 (30/08).

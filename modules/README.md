@@ -46,6 +46,7 @@ modules/hocphi/
 | `api` | **Các đường dẫn API của phân hệ — dùng để chặn khi tắt** |
 | `roles` | Vai trò được thấy phân hệ này |
 | `defaultEnabled` | `false` thì mặc định tắt, nhà trường tự bật |
+| `gopVao` | *Tuỳ chọn.* `{ "view": "attendance", "vai": ["teacher"] }` — với các vai này, ô của phân hệ **ẩn khỏi trang chủ khi màn `view` kia đang bật** (phần việc của nó đã nằm trong màn kia). Màn kia tắt thì ô tự hiện lại. Chỉ ẩn ô: đường dẫn `hash` và API của phân hệ vẫn phải tự đứng được, vì màn lõi có thể tắt bất cứ lúc nào |
 
 ### `schema.sql`
 

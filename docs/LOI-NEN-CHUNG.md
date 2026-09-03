@@ -208,9 +208,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười hai món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười ba món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười hai chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười ba chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -290,6 +290,14 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   `npm ci` lặng lẽ bỏ qua chúng còn `npm audit` thì đếm cả. Bộ canh
   `test/khoa-goi.test.mjs` chép sang được nguyên vẹn — nó chỉ đọc hai tệp JSON,
   không phụ thuộc gì vào app 2.
+- **`lib/modules.js` truyền thêm trường `gopVao` của `module.json` xuống trình
+  duyệt** (thêm ở app 2 tại Đ126, một dòng trong `choNguoiDung`). Không phải lỗi
+  — là chỗ cắm để ô của một phân hệ gấp vào màn của phân hệ khác với một vài
+  vai (Đón trả bé gấp vào Điểm danh với cô). App 1 không có phân hệ nào khai
+  trường này nên **không cần** mang sang; ghi lại để nếu bên đó có ngày muốn
+  gấp ô Học phí vào một màn nào thì biết chỗ cắm đã có sẵn ở đây, ba tệp
+  (`lib/modules.js`, `dashboard.js`, `module.json`) và một luật: chỉ ẩn ô khi
+  màn đích đang bật, màn đích tắt là ô quay lại.
 
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức

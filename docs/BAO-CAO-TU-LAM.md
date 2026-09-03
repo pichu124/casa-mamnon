@@ -96,6 +96,30 @@ làm thành một lần THAY bằng trống — dòng ở lại làm vết, tệ
 Hai bộ canh có sẵn bắt tôi hai lần trong lúc làm (một dấu chấm phẩy trong chú
 thích lược đồ, một chỗ chèn tên tệp vào onclick) — đều sửa mã, không nới bài.
 
+**03/09, tối — Điểm danh thành MỘT chỗ có hai phần Đón bé / Trả bé (Đ126).**
+Anh hỏi "có gộp Điểm danh với Đón trả bé vào một thư mục được không, kiểu một
+ngày có hai phần đón / trả, đều có chụp ảnh". Được, và đã làm: với cô, Điểm
+danh có hai phần trên cùng một màn (sáng chấm + chụp "con tới lớp", chiều ghi
+đã trả cho ai + chụp lúc trả), ô "Đón trả bé" biến khỏi trang chủ của cô vì
+việc của cô đã nằm hết trong Điểm danh; với gia đình, bấm một ngày trên lịch
+là thấy cả hai nửa trong một hộp. Điều tôi cố giữ: **gộp màn, không gộp mã** —
+phần Trả bé vẫn là của phân hệ Đón trả bé (tắt được), Điểm danh chỉ gọi sang
+qua đúng một chỗ có canh; tắt phân hệ thì Điểm danh y hệt hôm qua, tệp giao
+diện của phân hệ hỏng thì chỉ ô Trả bé nói sự cố. Gia đình và văn phòng
+**không mất cửa nào**: ô Đón trả bé của họ vẫn còn (khai người đón, uỷ quyền;
+văn phòng tra sổ theo nhóm). Ba bản thiết kế độc lập và ba giám khảo máy chấm
+trước khi dựng; hai ý hay ghép từ bản không thắng: bấm vào ảnh người đón là
+hộp ghi mở với đúng người đó chọn sẵn, và ghi xong thẻ bé đổi tại chỗ chứ
+không bị ném về đầu danh sách.
+
+Vòng rà đối kháng sau đó bắt được một lỗi của chính tôi, và là loại đáng sợ
+nhất: bảng nhớ sổ trả bé theo tháng chỉ được thay sau khi máy chủ trả lời, nên
+một lần hỏi hỏng là hộp chi tiết ngày của bé đang xem hiện tên người đón của
+**bé trước đó**. Nhà hai con thấy sai ngay; máy dùng chung ở văn phòng thì là
+dữ liệu của một nhà khác. Đã vá (xoá trước, hỏi sau) và có bài canh — tôi đã
+thử bỏ bản vá ra để chắc bài canh báo đỏ thật, không phải một bài tự cho mình
+qua.
+
 Ba điều đáng nói thẳng với anh từ vòng đó:
 
 - **Bộ test đã bắt được tôi một lần.** Bản vá "quản trị thấy phòng chat nhóm

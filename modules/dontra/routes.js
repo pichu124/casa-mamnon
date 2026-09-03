@@ -200,6 +200,56 @@ module.exports = (app, { db }) => {
     });
   });
 
+  // SỔ TRẢ BÉ CỦA MỘT BÉ THEO THÁNG (Đ126) — cho lịch tháng của màn Điểm danh.
+  //
+  // `soGanDay` ở trên là 30 lần gần nhất, không lọc tháng: gia đình mở lịch
+  // tháng Chín năm ngoái thì thiếu. Đường này trả đúng một tháng, cùng hình
+  // dạng dòng với `soGanDay` để màn hình vẽ bằng một hàm. Chỉ dữ liệu của MỘT
+  // bé, qua `canAccessStudent` — phụ huynh không có đường nào tới sổ nhóm.
+  app.get('/api/dontra/so', (req, res) => {
+    const studentId = String(req.query.studentId || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'Cần chọn bé' });
+    const thang = String(req.query.thang || '').trim() || ngay.thangNay();
+    if (!/^\d{4}-\d{2}$/.test(thang)) {
+      return res.status(400).json({ error: 'Tháng chưa đúng dạng, ví dụ đúng: 2026-09' });
+    }
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem sổ đón trả của bé này' });
+    }
+    const so = db.all('dontra_ghi',
+      'SELECT * FROM dontra_ghi WHERE studentId = ? AND ngay LIKE ? ORDER BY ngay DESC',
+      [studentId, `${thang}-%`]);
+    const anhTheoNgay = new Map();
+    if (so.length) {
+      for (const a of db.all('dontra_anh_tra',
+        `SELECT ngay, file, taoLuc FROM dontra_anh_tra WHERE studentId = ?
+          AND ngay IN (${so.map(() => '?').join(',')})`, [studentId, ...so.map(g => g.ngay)])) {
+        if (a.file) anhTheoNgay.set(a.ngay, { file: a.file, taoLuc: a.taoLuc });
+      }
+    }
+    // Tên cô đã ghi: một câu cho cả tháng, cùng cách với màn cổng.
+    const maCo = [...new Set(so.map(g => g.coGhi).filter(Boolean))];
+    const tenCo = new Map();
+    if (maCo.length) {
+      for (const u of db.all('users',
+        `SELECT id, title, name FROM users WHERE id IN (${maCo.map(() => '?').join(',')})`, maCo)) {
+        tenCo.set(u.id, `${u.title} ${u.name}`);
+      }
+    }
+    res.json({
+      studentId, thang,
+      so: so.map(g => {
+        const a = anhTheoNgay.get(g.ngay) || null;
+        return {
+          ngay: g.ngay, luc: g.luc, nguoiDon: g.nguoiDon, ghiChu: g.ghiChu,
+          coGhiTen: g.coGhi ? (tenCo.get(g.coGhi) || '') : '',
+          anhTra: a ? a.file : null,
+          anhTraLuc: a ? (a.taoLuc || '') : '',
+        };
+      }),
+    });
+  });
+
   // MÀN CỔNG của cô: cả nhóm, một ngày.
   //
   // Không cho phụ huynh vào đây. `db.canAccessClass` trả true cho phụ huynh

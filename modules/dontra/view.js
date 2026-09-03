@@ -38,12 +38,21 @@ App.views.dontra = {
   //
   // Ảnh nhỏ xíu thì cô phải bấm phóng to giữa lúc đang trả 20 bé — tức là cô
   // sẽ không bấm, và cả phân hệ này thành trang trí.
+  //
+  // `opts.chon` (Đ126): ảnh trở thành NÚT — cô bấm vào mặt người đang đứng
+  // trước cổng là hộp ghi mở ra với đúng người đó chọn sẵn. Vừa đối chiếu vừa
+  // chọn trong một chạm; ô chọn trong hộp vẫn là nguồn sự thật, cô đổi được.
   theNguoi(n, opts = {}) {
-    const anh = n.anh
+    let anh = n.anh
       ? `<img src="/api/dontra/anh/${UI.esc(n.anh)}" alt=""
            style="width:64px;height:64px;flex:none;border-radius:12px;object-fit:cover;background:var(--line)">`
       : `<div style="width:64px;height:64px;flex:none;border-radius:12px;background:var(--line);
            display:flex;align-items:center;justify-content:center;font-size:24px">👤</div>`;
+    if (opts.chon && opts.be) {
+      anh = `<button type="button" data-chon-nguoi="${UI.esc(opts.chon)}" data-be="${UI.esc(opts.be)}"
+           title="Ghi: đã trả bé cho ${UI.esc(n.hoTen)}" aria-label="Ghi: đã trả bé cho ${UI.esc(n.hoTen)}"
+           style="padding:0;border:0;background:none;width:64px;height:64px;flex:none;border-radius:12px;overflow:hidden;cursor:pointer">${anh}</button>`;
+    }
     return `
       <div class="list-row">
         ${anh}
@@ -58,6 +67,12 @@ App.views.dontra = {
   },
 
   // ================= Màn CỔNG của cô =================
+  //
+  // Từ Đ126 màn này có HAI lối vào cùng một mã: '#/dontra' (hàm này) và phần
+  // "Trả bé" của màn Điểm danh (gọi `veTraBe` bên dưới). Phần thân — nạp nhóm,
+  // vẽ danh sách, gắn sự kiện — tách thành ba hàm để không có bản chép nào
+  // trôi khỏi nhau. Ở đây vẫn giữ ô ngày / ô nhóm của riêng nó: phân hệ phải
+  // tự đứng được khi Điểm danh tắt (modules/README.md).
   async manCong(root) {
     // Nhóm của cô — trước đây ô chọn liệt kê nhóm của cả trường, bấm sang nhóm
     // không phụ trách là gặp màn "Có lỗi xảy ra" (403).
@@ -69,9 +84,7 @@ App.views.dontra = {
       return;
     }
 
-    const d = await API.get(
-      `/api/dontra/nhom?classId=${encodeURIComponent(this._classId)}&ngay=${encodeURIComponent(this._ngay)}`);
-    this._data = d;
+    const d = await this.napNhom(this._classId, this._ngay);
 
     root.innerHTML = `
       ${UI.pageHeader('Đón trả bé')}
@@ -89,19 +102,76 @@ App.views.dontra = {
               </select>
             </div>` : ''}
         </div>
-        <div class="muted small mt-8">Đã trả ${UI.esc(String(d.tong.soDaTra))} / ${UI.esc(String(d.tong.soBe))} bé.${
-  d.tong.soNghi ? ` ${UI.esc(String(d.tong.soNghi))} bé nghỉ hôm nay.` : ''}</div>
+        <div class="muted small mt-8" id="dt-tong">${this.htmlTong(d)}</div>
+        ${this.dongChiDuongDiemDanh()}
       </div>
-
-      ${(d.danhSach || []).length
-        ? (d.danhSach || []).map(b => this.theBeCong(b)).join('')
-        : UI.emptyState('🤝', 'Nhóm này chưa có bé nào.')}`;
+      <div id="dt-so">${this.htmlDanhSachCong(d)}</div>`;
 
     document.getElementById('dt-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };
     const sel = document.getElementById('dt-nhom');
     if (sel) sel.onchange = (e) => { this._classId = e.target.value; App.route(); };
+    const nutDD = root.querySelector('[data-mo-tra-be]');
+    if (nutDD) nutDD.onclick = () => { location.hash = '#/attendance/tra'; };
+    this.ganSuKienCong(root);
+  },
+
+  // Cô có Điểm danh đang bật thì sổ này cũng nằm trong đó (phần "Trả bé") —
+  // chỉ đường, không ép. Văn phòng thì không: màn Điểm danh của văn phòng là
+  // bảng rà soát, không có phần Trả bé.
+  dongChiDuongDiemDanh() {
+    if (App.state.user.role !== 'teacher' || !App.moduleEnabled('attendance')) return '';
+    return `<button type="button" class="btn outline block mt-8" data-mo-tra-be>
+      ${UI.icon('calendar', 16)} Sổ này cũng nằm trong Điểm danh → Trả bé</button>`;
+  },
+
+  async napNhom(classId, ngay) {
+    this._classId = classId;
+    this._ngay = ngay || UI.todayStr();
+    const d = await API.get(
+      `/api/dontra/nhom?classId=${encodeURIComponent(this._classId)}&ngay=${encodeURIComponent(this._ngay)}`);
+    this._data = d;
+    return d;
+  },
+
+  // Bé "nghỉ" ở màn cổng: có đơn nghỉ được duyệt, HOẶC (Đ126) sáng nay cô đã
+  // chấm nghỉ ở Điểm danh — cả hai đều là "bé đang ở nhà", không phải việc chờ.
+  laNghi(b) {
+    if (b.nghiPhep) return true;
+    const st = b._sang && b._sang.status;
+    return st === 'absent_excused' || st === 'absent_unexcused';
+  },
+
+  // Dòng đếm tính từ danh sách đang cầm (không từ `tong` của máy chủ) để sau
+  // khi ghi một bé tại chỗ, con số đổi theo mà không phải hỏi lại máy chủ.
+  htmlTong(d) {
+    const ds = (d && d.danhSach) || [];
+    const soDaTra = ds.filter(b => b.daTra).length;
+    const soNghi = ds.filter(b => !b.daTra && this.laNghi(b)).length;
+    return `Đã trả ${UI.esc(String(soDaTra))} / ${UI.esc(String(ds.length))} bé.${
+      soNghi ? ` ${UI.esc(String(soNghi))} bé nghỉ hôm nay.` : ''}`;
+  },
+
+  // Thứ tự thẻ ở cổng 16h30: bé CÒN Ở LỚP lên đầu (đó là việc còn lại của cô),
+  // rồi bé đã trả, rồi bé nghỉ — trong mỗi nhóm giữ thứ tự tên máy chủ trả.
+  xepThuTu(ds) {
+    const bac = (b) => (b.daTra ? 1 : (this.laNghi(b) ? 2 : 0));
+    return ds.map((b, i) => ({ b, i }))
+      .sort((x, y) => (bac(x.b) - bac(y.b)) || (x.i - y.i))
+      .map(x => x.b);
+  },
+
+  htmlDanhSachCong(d) {
+    const ds = (d && d.danhSach) || [];
+    if (!ds.length) return UI.emptyState('🤝', 'Nhóm này chưa có bé nào.');
+    return this.xepThuTu(ds).map(b => this.theBeCong(b)).join('');
+  },
+
+  ganSuKienCong(root) {
     for (const b of root.querySelectorAll('[data-tra]')) {
       b.onclick = () => this.moTra(b.dataset.tra);
+    }
+    for (const b of root.querySelectorAll('[data-chon-nguoi]')) {
+      b.onclick = () => this.moTra(b.dataset.be, b.dataset.chonNguoi);
     }
     for (const b of root.querySelectorAll('[data-anh-tra]')) {
       b.onclick = () => this.chonAnhTra(b.dataset.anhTra);
@@ -109,6 +179,48 @@ App.views.dontra = {
     for (const b of root.querySelectorAll('[data-go-anh-tra]')) {
       b.onclick = () => this.goAnhTra(b.dataset.goAnhTra);
     }
+  },
+
+  // ---- Phần "Trả bé" của màn Điểm danh gọi vào đây (Đ126) ----
+  //
+  // ĐIỂM DANH GỌI HÀM NÀY — đổi chữ ký là đổi cả hai chỗ. `diemDanh` là Map
+  // studentId → { status, checkIn, anhUrl } do Điểm danh dựng sẵn; phân hệ chỉ
+  // VẼ thứ được đưa, không tự hỏi API Điểm danh, nên không dựa vào màn lõi
+  // (tắt Điểm danh thì '#/dontra' vẫn nguyên). Vẽ vào `el` được đưa, không
+  // vẽ tiêu đề / ô ngày / ô nhóm — những thứ đó là của màn gọi.
+  async veTraBe(el, { classId, ngay, diemDanh } = {}) {
+    if (!classId) {
+      el.innerHTML = UI.emptyState('🤝', 'Cô chưa phụ trách nhóm nào nên chưa có bé để trả.');
+      return;
+    }
+    const d = await this.napNhom(classId, ngay);
+    if (diemDanh && typeof diemDanh.get === 'function') {
+      for (const b of d.danhSach || []) b._sang = diemDanh.get(b.studentId) || null;
+    }
+    el.innerHTML = `
+      <div class="card"><div class="muted small" id="dt-tong">${this.htmlTong(d)}</div></div>
+      <div id="dt-so">${this.htmlDanhSachCong(d)}</div>`;
+    this.ganSuKienCong(el);
+  },
+
+  // Vẽ lại ĐÚNG MỘT thẻ sau khi ghi / chụp / gỡ — không App.route().
+  //
+  // App.route() vẽ lại cả trang rồi cuộn về đầu: bé thứ 20 vừa ghi xong là cô
+  // bị ném lên đầu danh sách, phải cuộn lại tìm bé — đúng lỗi Điểm danh đã vá
+  // ở `veLaiDong`. Thẻ vẽ lại tại chỗ; thứ tự thẻ giữ nguyên tới lần mở sau
+  // (bé vừa trả không nhảy xuống dưới ngay dưới tay cô).
+  veLaiThe(studentId) {
+    const b = ((this._data || {}).danhSach || []).find(x => x.studentId === studentId);
+    const el = document.getElementById(`dt-the-${studentId}`);
+    if (!b || !el) { App.route(); return; }
+    el.outerHTML = this.theBeCong(b);
+    const moi = document.getElementById(`dt-the-${studentId}`);
+    if (moi) {
+      this.ganSuKienCong(moi);
+      try { moi.scrollIntoView({ block: 'nearest' }); } catch (_) { /* trình duyệt cũ */ }
+    }
+    const tong = document.getElementById('dt-tong');
+    if (tong) tong.innerHTML = this.htmlTong(this._data);
   },
 
   // ---- Ảnh lúc trả bé (Đ125) — cùng ý với "Chụp ảnh con tới lớp" của Điểm danh ----
@@ -142,9 +254,9 @@ App.views.dontra = {
       if (!f) return;
       try {
         const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
-        await API.post('/api/dontra/anh-tra', { studentId, ngay: this._ngay, anh });
+        const r = await API.post('/api/dontra/anh-tra', { studentId, ngay: this._ngay, anh });
         UI.toast('Đã gửi ảnh lúc trả cho gia đình', 'success');
-        App.route();
+        this.capNhatAnhTra(studentId, r && r.file ? { file: r.file } : null);
       } catch (e) { UI.toast(e.message || 'Chưa gửi được ảnh', 'error'); }
     };
     o.click();
@@ -154,8 +266,15 @@ App.views.dontra = {
     try {
       await API.post('/api/dontra/anh-tra/go', { studentId, ngay: this._ngay });
       UI.toast('Đã gỡ ảnh', 'success');
-      App.route();
+      this.capNhatAnhTra(studentId, null);
     } catch (e) { UI.toast(e.message || 'Chưa gỡ được ảnh', 'error'); }
+  },
+
+  capNhatAnhTra(studentId, anhTra) {
+    const b = ((this._data || {}).danhSach || []).find(x => x.studentId === studentId);
+    if (!b) { App.route(); return; }
+    b.anhTra = anhTra;
+    this.veLaiThe(studentId);
   },
 
   // Gia đình bấm vào ảnh nhỏ thì xem to.
@@ -167,25 +286,37 @@ App.views.dontra = {
   theBeCong(b) {
     const uy = b.uyQuyenHomNay || [];
     const het = b.uyQuyenKhongConHieuLuc || [];
-    // BÉ ĐANG NGHỈ CÓ PHÉP: nhãn "Chưa trả" là nhãn SAI cho bé đang ở nhà.
+    // BÉ ĐANG NGHỈ: nhãn "còn ở lớp" là nhãn SAI cho bé đang ở nhà.
     //
     // Cuối buổi chiều cô nhìn sổ đếm "còn mấy bé chưa ai đón". Một bé nghỉ đứng
-    // đó với nhãn cam "Chưa trả" là một việc chưa xong giả, và trong ca xấu
-    // nhất là cô đi tìm một đứa trẻ không có ở trường.
-    const nghi = b.nghiPhep;
+    // đó với nhãn "còn ở lớp" là một việc chưa xong giả, và trong ca xấu nhất
+    // là cô đi tìm một đứa trẻ không có ở trường. Nghỉ = có đơn được duyệt,
+    // hoặc (Đ126) sáng nay cô đã chấm nghỉ ở Điểm danh.
+    //
+    // Nhãn của bé còn ở lớp là "Còn ở lớp" màu xám: đó là một sự thật về buổi
+    // chiều đang diễn ra, không phải một việc trễ hạn — không cam, không đỏ.
+    const nghi = this.laNghi(b);
+    const chonBe = b.studentId;
+    let nhan;
+    if (b.daTra) nhan = UI.badge(`Đã trả${b.daTra.luc ? ` ${b.daTra.luc}` : ''}`, 'green');
+    else if (nghi) nhan = UI.badge('Nghỉ hôm nay', 'gray');
+    else nhan = UI.badge('Còn ở lớp', 'gray');
     return `
-      <div class="card"${nghi && !b.daTra ? ' style="opacity:.75"' : ''}>
+      <div class="card" id="dt-the-${UI.esc(b.studentId)}"${nghi && !b.daTra ? ' style="opacity:.75"' : ''}>
         <div class="list-row" style="border-bottom:none;padding-top:0">
           ${UI.avatar(b.avatar, 44)}
-          <div class="row-main"><div class="row-title">${UI.esc(b.hoTen)}</div></div>
-          ${b.daTra
-            ? UI.badge(`Đã trả${b.daTra.luc ? ` ${b.daTra.luc}` : ''}`, 'green')
-            : (nghi ? UI.badge('Nghỉ hôm nay', 'orange') : UI.badge('Chưa trả', 'orange'))}
+          <div class="row-main">
+            <div class="row-title">${UI.esc(b.hoTen)}</div>
+            ${this.dongSang(b)}
+          </div>
+          ${nhan}
         </div>
 
         ${nghi && !b.daTra ? `
           <div class="muted small" style="line-height:1.6;margin-bottom:8px">
-            Gia đình đã xin nghỉ hôm nay${nghi.reason ? ` — ${UI.esc(nghi.reason)}` : ''}.
+            ${b.nghiPhep
+              ? `Gia đình đã xin nghỉ hôm nay${b.nghiPhep.reason ? ` — ${UI.esc(b.nghiPhep.reason)}` : ''}.`
+              : 'Sáng nay cô đã chấm nghỉ ở Điểm danh.'}
             Cô vẫn ghi được nếu bé có tới lớp.
           </div>` : ''}
 
@@ -200,27 +331,32 @@ App.views.dontra = {
           <div class="section-label">Hôm nay gia đình uỷ quyền</div>
           ${uy.map(u => this.theNguoi(u, {
             phu: `${UI.fmtDate(u.tuNgay, { weekday: false })} – ${UI.fmtDate(u.denNgay, { weekday: false })}${u.lyDo ? ` · ${u.lyDo}` : ''}`,
+            chon: `uy-quyen|${u.id}`, be: chonBe,
           })).join('')}` : ''}
 
         <div class="section-label">Người đón thường xuyên</div>
         ${(b.nguoiThuongXuyen || []).length
-          ? (b.nguoiThuongXuyen || []).map(n => this.theNguoi(n)).join('')
+          ? (b.nguoiThuongXuyen || []).map(n => this.theNguoi(n, { chon: `thuong-xuyen|${n.id}`, be: chonBe })).join('')
           : `<div class="small" style="color:var(--danger);line-height:1.6">
                Gia đình chưa khai ai được đón bé. Cô nhắc gia đình vào mục Đón trả bé khai giúp trường nhé.
              </div>`}
 
         ${het.length ? `
-          <div class="section-label">Uỷ quyền KHÔNG còn hiệu lực</div>
-          <div class="muted small" style="margin-bottom:6px">
-            Nêu ở đây để nếu người này tới cổng thì cô biết vì sao app nói không, chứ không phải đoán.
-          </div>
-          ${het.map(u => {
-            const [nhan, mau] = this.nhanTrangThai(u.trangThai);
-            return this.theNguoi(u, {
-              phu: `${UI.fmtDate(u.tuNgay, { weekday: false })} – ${UI.fmtDate(u.denNgay, { weekday: false })}`,
-              cuoi: UI.badge(nhan, mau),
-            });
-          }).join('')}` : ''}
+          <details class="mt-8">
+            <summary class="muted small" style="cursor:pointer;padding:6px 0">
+              Uỷ quyền KHÔNG còn hiệu lực (${UI.esc(String(het.length))})
+            </summary>
+            <div class="muted small" style="margin:4px 0 6px">
+              Nêu ở đây để nếu người này tới cổng thì cô biết vì sao app nói không, chứ không phải đoán.
+            </div>
+            ${het.map(u => {
+              const [nhanUQ, mau] = this.nhanTrangThai(u.trangThai);
+              return this.theNguoi(u, {
+                phu: `${UI.fmtDate(u.tuNgay, { weekday: false })} – ${UI.fmtDate(u.denNgay, { weekday: false })}`,
+                cuoi: UI.badge(nhanUQ, mau),
+              });
+            }).join('')}
+          </details>` : ''}
 
         <button class="btn ${b.daTra ? 'outline' : 'primary'} block mt-14" data-tra="${UI.esc(b.studentId)}">
           ${UI.icon('check', 18)} ${b.daTra ? 'Sửa lại người đã đón' : 'Ghi: đã trả bé'}
@@ -228,8 +364,25 @@ App.views.dontra = {
       </div>`;
   },
 
-  moTra(studentId) {
-    const b = (this._data.danhSach || []).find(x => x.studentId === studentId);
+  // Dòng "Sáng nay" (Đ126): trạng thái điểm danh + ảnh tới lớp thu nhỏ, chỉ
+  // khi màn Điểm danh đưa sang. Mở từ '#/dontra' thì không có dòng này.
+  dongSang(b) {
+    const sang = b._sang;
+    if (!sang) return '';
+    const st = sang.status && UI.ATT_STATUS[sang.status];
+    const chu = st
+      ? `${st.label}${sang.checkIn ? ` · vào ${sang.checkIn}` : ''}`
+      : 'cô chưa chấm điểm danh';
+    return `<div class="row-sub" style="display:flex;align-items:center;gap:6px;margin-top:2px">
+      ${sang.anhUrl ? `<img src="${UI.esc(sang.anhUrl)}" alt="" style="width:28px;height:28px;flex:none;border-radius:8px;object-fit:cover;background:var(--line)">` : ''}
+      <span${st ? ` style="color:${st.color}"` : ''}>Sáng nay: ${UI.esc(chu)}</span>
+    </div>`;
+  },
+
+  // `chonSan` (Đ126): 'thuong-xuyen|<id>' hoặc 'uy-quyen|<id>' khi cô bấm vào
+  // ảnh một người đón — người đó được chọn sẵn, nếu còn trong danh sách chọn.
+  moTra(studentId, chonSan) {
+    const b = ((this._data || {}).danhSach || []).find(x => x.studentId === studentId);
     if (!b) return;
     const chon = [
       ...(b.nguoiThuongXuyen || []).map(n => ({ loai: 'thuong-xuyen', id: n.id, ten: `${n.hoTen}${n.quanHe ? ` (${n.quanHe})` : ''}` })),
@@ -244,6 +397,12 @@ App.views.dontra = {
     // nhận 'giu': giữ nguyên người như đã ghi.
     const cuMoCoi = !!cu && cu.nguonLoai !== 'khac' && !chon.some(c => c.id === cu.nguonId);
     this._daTra = cu || null;
+    // Đúng MỘT lựa chọn mang `selected`: người cô vừa bấm ảnh; không thì như
+    // đã ghi; chưa ghi thì trình duyệt lấy dòng đầu như trước.
+    const chonHopLe = chonSan && chon.some(c => `${c.loai}|${c.id}` === chonSan) ? chonSan : '';
+    const giaTriChon = chonHopLe
+      || (cuMoCoi ? 'giu|' : (cu && cu.nguonLoai === 'khac') ? 'khac|' : (cu ? `${cu.nguonLoai}|${cu.nguonId}` : ''));
+    const daChon = (v) => (v === giaTriChon ? 'selected' : '');
 
     UI.modal(`
       <div class="list-row" style="border-bottom:none;padding-top:0">
@@ -254,10 +413,10 @@ App.views.dontra = {
       <div class="field">
         <label>Người đón</label>
         <select id="dt-ai">
-          ${cuMoCoi ? `<option value="giu|" selected>Giữ như đã ghi — ${UI.esc(cu.nguoiDon)}</option>` : ''}
+          ${cuMoCoi ? `<option value="giu|" ${daChon('giu|')}>Giữ như đã ghi — ${UI.esc(cu.nguoiDon)}</option>` : ''}
           ${chon.map(c => `<option value="${UI.esc(c.loai)}|${UI.esc(c.id)}"
-            ${cu && cu.nguonId === c.id ? 'selected' : ''}>${UI.esc(c.ten)}</option>`).join('')}
-          <option value="khac|" ${cu && cu.nguonLoai === 'khac' ? 'selected' : ''}>Người khác — ghi rõ tên bên dưới</option>
+            ${daChon(`${c.loai}|${c.id}`)}>${UI.esc(c.ten)}</option>`).join('')}
+          <option value="khac|" ${daChon('khac|')}>Người khác — ghi rõ tên bên dưới</option>
         </select>
       </div>
       <div class="field" id="dt-ten-o" style="display:none">
@@ -298,7 +457,7 @@ App.views.dontra = {
       ? ((this._daTra && this._daTra.nguoiDon) || '')
       : ((document.getElementById('dt-ten') || {}).value || '');
     try {
-      await API.post('/api/dontra/ghi', {
+      const r = await API.post('/api/dontra/ghi', {
         studentId, ngay: this._ngay, nguonLoai, nguonId,
         nguoiDon: nguoiDon.trim(),
         luc: document.getElementById('dt-luc').value,
@@ -306,8 +465,75 @@ App.views.dontra = {
       });
       UI.toast('Đã ghi vào sổ đón trả', 'success');
       UI.closeModal();
-      App.route();
+      this.capNhatDaTra(studentId, r);
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // Ghi xong: cập nhật đúng thẻ đó tại chỗ (xem `veLaiThe`). Máy chủ trả về
+  // đủ dòng vừa ghi (kèm tên cô), nên không cần hỏi lại cả nhóm.
+  capNhatDaTra(studentId, r) {
+    const b = ((this._data || {}).danhSach || []).find(x => x.studentId === studentId);
+    if (!b || !r || !r.ok) { App.route(); return; }
+    b.daTra = { ...(b.daTra || {}), ...r };
+    this.veLaiThe(studentId);
+  },
+
+  // ================= Cho lịch tháng của màn Điểm danh (Đ126) =================
+  //
+  // ĐIỂM DANH GỌI BỐN HÀM NÀY — đổi chữ ký là đổi cả hai chỗ. Mọi thứ về sổ
+  // trả bé của gia đình (đường API, hình dạng dòng, chữ) nằm ở đây; màn Điểm
+  // danh chỉ hỏi "tháng này có gì" và "ngày này vẽ ra sao". Chỉ dữ liệu của
+  // MỘT bé qua `canAccessStudent` — gia đình không có đường nào tới sổ nhóm.
+  //
+  // DỌN TRƯỚC KHI HỎI, KHÔNG PHẢI SAU KHI CÓ TRẢ LỜI.
+  //
+  // Bảng này nhớ sổ của MỘT bé. Nếu chỉ gán sau khi máy chủ trả lời thì lần
+  // hỏi nào hỏng — mất sóng giữa chừng, 403, máy chủ đời cũ chưa có đường này
+  // — bảng vẫn giữ nguyên sổ của bé TRƯỚC ĐÓ, và hộp chi tiết ngày của bé
+  // đang xem hiện tên người đón của bé kia. Nhà hai con thấy sai ngay; máy
+  // dùng chung ở văn phòng thì là dữ liệu của một nhà khác.
+  //
+  // Nên: xoá trước, hỏi sau. Hỏng thì là một bảng RỖNG — màn hình không hiện
+  // gì cả, đúng như ngày chưa có ai ghi sổ; không bao giờ hiện của người khác.
+  async napSoThang(studentId, thang) {
+    this._soThang = new Map();
+    const d = await API.get(
+      `/api/dontra/so?studentId=${encodeURIComponent(studentId)}&thang=${encodeURIComponent(thang)}`);
+    const theoNgay = new Map();
+    for (const g of (d && d.so) || []) theoNgay.set(g.ngay, g);
+    this._soThang = theoNgay;
+    return theoNgay;
+  },
+
+  // Khối "Trả bé" của một ngày trong hộp chi tiết. Ngày không có dòng trả thì
+  // trả '' — không khung xám, không chữ "chưa": cô ghi được hôm nào hay hôm ấy.
+  htmlTraBeCuaNgay(ngay) {
+    const g = this._soThang && this._soThang.get(ngay);
+    if (!g) return '';
+    return `
+      <div class="section-label">Trả bé</div>
+      <div class="list-row"><div class="row-main">
+        <div class="row-title">Về với ${UI.esc(g.nguoiDon)}${g.luc ? ` lúc ${UI.esc(g.luc)}` : ''}</div>
+        ${g.coGhiTen ? `<div class="row-sub">${UI.esc(g.coGhiTen)} ghi sổ</div>` : ''}
+        ${g.ghiChu ? `<div class="row-sub">${UI.esc(g.ghiChu)}</div>` : ''}
+      </div></div>
+      ${g.anhTra ? `<div class="mt-8 center">
+        <img src="/api/dontra/anh/${UI.esc(g.anhTra)}" alt="Ảnh lúc trả bé" style="max-width:100%;border-radius:12px">
+      </div>` : ''}`;
+  },
+
+  // Một cụm ngắn cho danh sách "Bản ghi gần nhất": "về với Bà ngoại 16:35".
+  chuTraBeNgan(ngay) {
+    const g = this._soThang && this._soThang.get(ngay);
+    if (!g) return '';
+    return `về với ${g.nguoiDon}${g.luc ? ` ${g.luc}` : ''}`;
+  },
+
+  // Giờ trả bé của một ngày, để dòng "Giờ ra về" của Điểm danh không hiện "—"
+  // ngay trên dòng "về với bà lúc 16:35".
+  gioTraBe(ngay) {
+    const g = this._soThang && this._soThang.get(ngay);
+    return (g && g.luc) || '';
   },
 
   // ================= Màn của GIA ĐÌNH =================

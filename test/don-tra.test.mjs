@@ -670,6 +670,88 @@ console.log('\n[15] ẢNH LÚC TRẢ BÉ — cùng luật với ảnh "con đã 
   check('và màn cổng lại có ảnh', !!(be4 && be4.anhTra && be4.anhTra.file === chup3.data.file), be4 && be4.anhTra);
 }
 
+// ===========================================================================
+console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho lịch Điểm danh, và ranh giới lõi ↔ phân hệ (Đ126)');
+{
+  const BE = 's1';
+  const thangNay = HOM_NAY.slice(0, 7);
+  // Một dòng ở THÁNG TRƯỚC để chứng minh đường mới lọc đúng tháng (soGanDay
+  // thì không lọc — đó là lý do đường này tồn tại).
+  const [y, m] = thangNay.split('-').map(Number);
+  const thangTruoc = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
+  const ngayCu = `${thangTruoc}-10`;
+  const ghiCu = await req('POST', '/api/dontra/ghi', {
+    cookie: GV, body: { studentId: BE, ngay: ngayCu, nguonLoai: 'khac', nguoiDon: 'Bà nội', luc: '16:10' },
+  });
+  check('cô ghi được một dòng của tháng trước (ngày đã qua)', ghiCu.status === 200, ghiCu.data);
+
+  const so = async (cookie, q) => req('GET', `/api/dontra/so?${q}`, { cookie });
+  const me = await so(PH, `studentId=${BE}&thang=${thangNay}`);
+  check('mẹ bé xem được sổ trả bé của tháng này', me.status === 200 && Array.isArray(me.data && me.data.so), me.data);
+  const dongNay = (me.data.so || []).find(g => g.ngay === HOM_NAY);
+  check('có dòng hôm nay, đúng người đón, kèm tên cô và ảnh lúc trả',
+    !!dongNay && dongNay.nguoiDon === 'Mẹ bé' && !!dongNay.coGhiTen && typeof dongNay.anhTra === 'string' && dongNay.anhTra.length > 0,
+    dongNay);
+  check('mọi dòng đều thuộc đúng tháng hỏi', (me.data.so || []).every(g => g.ngay.startsWith(`${thangNay}-`)), me.data.so);
+  check('dòng tháng trước KHÔNG lẫn vào', !(me.data.so || []).some(g => g.ngay === ngayCu));
+  const cu = await so(PH, `studentId=${BE}&thang=${thangTruoc}`);
+  check('hỏi tháng trước thì thấy dòng "Bà nội", không có ảnh',
+    cu.status === 200 && (cu.data.so || []).some(g => g.ngay === ngayCu && g.nguoiDon === 'Bà nội' && g.anhTra === null), cu.data);
+  const macDinh = await so(PH, `studentId=${BE}`);
+  check('không nói tháng thì mặc định tháng này', macDinh.status === 200 && macDinh.data.thang === thangNay, macDinh.data && macDinh.data.thang);
+
+  check('cô của nhóm xem được', (await so(GV, `studentId=${BE}&thang=${thangNay}`)).status === 200);
+  check('văn phòng xem được', (await so(VP, `studentId=${BE}&thang=${thangNay}`)).status === 200);
+  check('phụ huynh nhà khác KHÔNG xem được (403)', (await so(PH2, `studentId=${BE}&thang=${thangNay}`)).status === 403);
+  check('cô nhóm khác KHÔNG xem được (403)', (await so(GV2, `studentId=${BE}&thang=${thangNay}`)).status === 403);
+  check('thiếu mã bé → 400', (await so(PH, `thang=${thangNay}`)).status === 400);
+  const saiThang = await so(PH, `studentId=${BE}&thang=9-2026`);
+  check('tháng sai dạng → 400 và nói tiếng Việt',
+    saiThang.status === 400 && /tháng/i.test((saiThang.data && saiThang.data.error) || ''), saiThang.data);
+
+  // Tắt phân hệ thì đường mới cũng bị chặn như mọi đường /api/dontra khác.
+  await req('PUT', '/api/admin/modules/dontra', { cookie: VP, body: { enabled: false } });
+  check('tắt Đón trả bé → sổ theo tháng 404', (await so(PH, `studentId=${BE}&thang=${thangNay}`)).status === 404);
+  await req('PUT', '/api/admin/modules/dontra', { cookie: VP, body: { enabled: true } });
+  check('bật lại → 200', (await so(PH, `studentId=${BE}&thang=${thangNay}`)).status === 200);
+
+  // Ô "Đón trả bé" gấp vào Điểm danh với CÔ: máy chủ chỉ TRUYỀN cờ, không quyết.
+  const mj = JSON.parse(fs.readFileSync(path.join(GOC, 'modules/dontra/module.json'), 'utf8'));
+  check('module.json khai gopVao vào màn attendance, chỉ với vai cô',
+    !!mj.gopVao && mj.gopVao.view === 'attendance' && Array.isArray(mj.gopVao.vai)
+      && mj.gopVao.vai.includes('teacher') && !mj.gopVao.vai.includes('parent') && !mj.gopVao.vai.includes('admin'),
+    mj.gopVao);
+  const dsCo = await req('GET', '/api/modules', { cookie: GV });
+  const dtCo = (dsCo.data || []).find(x => x.key === 'dontra');
+  check('GET /api/modules đưa gopVao xuống cho cô — phân hệ vẫn CÓ trong danh sách, chỉ ô là ẩn',
+    !!dtCo && !!dtCo.gopVao && dtCo.gopVao.view === 'attendance', dtCo);
+  const dsPH = await req('GET', '/api/modules', { cookie: PH });
+  const dtPH = (dsPH.data || []).find(x => x.key === 'dontra');
+  check('gia đình vẫn thấy phân hệ, kèm cùng cờ (trình duyệt tự xét vai)', !!dtPH && !!dtPH.gopVao, dtPH);
+  const dsHS = await req('GET', '/api/modules', { cookie: GV });
+  check('phân hệ không khai gopVao thì cờ là null, không phải undefined',
+    (dsHS.data || []).filter(x => x.key !== 'dontra').every(x => x.gopVao === null), (dsHS.data || []).map(x => [x.key, x.gopVao]));
+
+  // RANH GIỚI LÕI ↔ PHÂN HỆ, canh bằng máy: màn Điểm danh chỉ chạm phân hệ ở
+  // ĐÚNG MỘT chỗ và không gọi thẳng API của nó; phân hệ không đọc màn lõi.
+  const boChuThich = (v) => v.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  const dd = boChuThich(fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8'));
+  check('attendance.js nhắc tới App.views.dontra ĐÚNG MỘT lần (ngoài chú thích)',
+    (dd.match(/App\.views\.dontra/g) || []).length === 1, (dd.match(/App\.views\.dontra/g) || []).length);
+  check('attendance.js KHÔNG gọi thẳng đường /api/dontra nào', !/['"`]\/api\/dontra/.test(dd));
+  check('attendance.js canh cả ba lớp: tắt (moduleEnabled), thiếu hàm (typeof), lỗi khi gọi (catch)',
+    /moduleEnabled\('dontra'\)/.test(dd) && /typeof v\[t\] === 'function'/.test(dd) && /catch \(e\)/.test(dd));
+  const vw = boChuThich(fs.readFileSync(path.join(GOC, 'modules/dontra/view.js'), 'utf8'));
+  check('modules/dontra/view.js KHÔNG đọc App.views.attendance (phân hệ không dựa vào màn lõi)',
+    !/App\.views\.attendance/.test(vw));
+  check('phân hệ không tự gọi API Điểm danh — chỉ vẽ đường ảnh được đưa', !/\/api\/attendance/.test(vw));
+  for (const ten of ['veTraBe', 'napSoThang', 'htmlTraBeCuaNgay', 'chuTraBeNgan', 'gioTraBe']) {
+    check(`phân hệ có hàm ${ten} mà Điểm danh gọi`, new RegExp(`\\b${ten}\\(`).test(vw));
+  }
+  check('nhãn bé còn chờ đón là "Còn ở lớp" màu xám — không cam, không đỏ (QUY TẮC 2)',
+    /badge\('Còn ở lớp', 'gray'\)/.test(vw) && !/Chưa trả/.test(vw));
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

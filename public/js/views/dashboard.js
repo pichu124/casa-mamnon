@@ -28,7 +28,12 @@ App.views.dashboard = {
 
     const { school, user, badges } = App.state;
     // Lưới biểu tượng dựng từ danh sách phân hệ đang bật, do máy chủ quyết định.
-    const tiles = (App.state.modules || []).filter(m => !m.nav);
+    //
+    // `gopVao` (Đ126): ô của phân hệ gấp vào màn khác với một vài vai — với
+    // cô, ô "Đón trả bé" ẩn khi màn Điểm danh đang bật vì phần Trả bé nằm
+    // trong đó. Chỉ ẩn khi màn đích THẬT SỰ mở được với người này; màn đích
+    // tắt thì ô quay lại ngay, không có ngõ cụt.
+    const tiles = (App.state.modules || []).filter(m => !m.nav && !this.gopVaoManKhac(m, user));
     const years = school ? school.years : [];
     const child = user.role === 'parent' ? App.currentStudent() : null;
     const laCo = user.role === 'teacher';
@@ -261,6 +266,12 @@ App.views.dashboard = {
     return `<div class="dem-hang">${muc.join('')}</div>`;
   },
 
+  gopVaoManKhac(m, user) {
+    const g = m && m.gopVao;
+    if (!g || !g.view || !Array.isArray(g.vai)) return false;
+    return g.vai.includes(user && user.role) && App.moduleEnabled(g.view);
+  },
+
   // Nút việc hằng ngày kèm số còn lại — chỉ những phần đang bật với người này.
   nutViec(d) {
     const dem = d.dem || {};
@@ -278,7 +289,10 @@ App.views.dashboard = {
         con ? `đã ghi ${dem.nhatKyDaGhi} · còn ${con}` : 'đã ghi đủ', !!con);
     }
     if (dem.daTra !== null && dem.daTra !== undefined) {
-      nut('dontra', '#/dontra', 'Đón trả bé', `đã đón về ${dem.daTra}`, false);
+      // Nút việc là "việc trong ngày" nên trỏ vào phần Trả bé của Điểm danh
+      // (Đ126); Điểm danh tắt thì về màn cổng của phân hệ như trước.
+      nut('dontra', App.moduleEnabled('attendance') ? '#/attendance/tra' : '#/dontra',
+        'Đón trả bé', `đã đón về ${dem.daTra}`, false);
     }
     nut('thuchup', '#/thuchup', 'Ghi nhanh', 'một khoảnh khắc của bé', false);
     if (dem.donCho) nut('leave', '#/leave', 'Xin phép', `${dem.donCho} đơn chờ duyệt`, true);
