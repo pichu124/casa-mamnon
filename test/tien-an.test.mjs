@@ -23,6 +23,23 @@ import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, 
 import fs from 'fs';
 import path from 'path';
 import { GOC } from './_chung.mjs';
+import Database from 'better-sqlite3';
+
+// ĐIỂM DANH CHO MỘT NGÀY KHÁC HÔM NAY: GHI THẲNG VÀO CƠ SỞ DỮ LIỆU.
+//
+// Từ Đ127, `POST /api/attendance/mark` chỉ nhận đúng ngày hôm nay — nhà trường
+// chốt "điểm danh ngày nào chỉ ghi và sửa trong ngày đó". Mục dưới đây đo
+// chuyện KHÁC: bảng báo ăn của ngày mai đọc sổ điểm danh ra sao. Nên tình
+// huống được dựng thẳng vào bảng, còn luật ngày thì đã có bài canh riêng ở
+// `test/lo-hong-da-va.test.mjs` [15].
+function chamThang(dir, studentId, date, status) {
+  const conn = new Database(path.join(dir, 'school.db'));
+  conn.prepare(`INSERT INTO attendance (id, studentId, date, status, checkIn, checkOut, note, markedBy)
+    VALUES (?, ?, ?, ?, ?, NULL, '', 'u_gv1')
+    ON CONFLICT(studentId, date) DO UPDATE SET status = excluded.status, checkIn = excluded.checkIn`)
+    .run(`att_thu_${studentId}_${date}`, studentId, date, status, status === 'present' ? '07:20' : null);
+  conn.close();
+}
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('tien-an');
@@ -139,9 +156,7 @@ console.log('\n[2] Trừ suất của ai: chỉ đơn ĐÃ DUYỆT và điểm d
   //
   // Chuyện này xảy ra thật: gia đình xin nghỉ hôm trước, sáng con khỏe lại nên
   // vẫn đưa tới. App tin SỔ ĐIỂM DANH chứ không tin cái đơn.
-  await req('POST', '/api/attendance/mark', {
-    cookie: GV, body: { studentId: 's1', date: MAI, status: 'present' },
-  });
+  chamThang(DIR, 's1', MAI, 'present');
   const toiLop = (await nhomC1(GV, MAI)).n;
   check('BÉ CÓ ĐƠN MÀ VẪN TỚI LỚP THÌ VẪN ĐƯỢC TÍNH SUẤT',
     toiLop.suatDuKien === truoc.suatDuKien, { truoc: truoc.suatDuKien, nay: toiLop.suatDuKien });
@@ -149,9 +164,7 @@ console.log('\n[2] Trừ suất của ai: chỉ đơn ĐÃ DUYỆT và điểm d
     !toiLop.khongAn.some(b => b.studentId === 's1'), toiLop.khongAn);
 
   // Điểm danh vắng thì trừ, kể cả khi không có đơn nào.
-  await req('POST', '/api/attendance/mark', {
-    cookie: GV, body: { studentId: 's4', date: MAI, status: 'absent_unexcused' },
-  });
+  chamThang(DIR, 's4', MAI, 'absent_unexcused');
   const vang = (await nhomC1(GV, MAI)).n;
   check('điểm danh vắng thì trừ suất, dù không có đơn',
     vang.suatDuKien === truoc.suatDuKien - 1, vang.suatDuKien);

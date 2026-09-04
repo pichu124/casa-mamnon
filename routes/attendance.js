@@ -19,6 +19,36 @@ const STATUSES = ['present', 'late', 'absent_excused', 'absent_unexcused'];
 // giữ đúng nghĩa đó, và bài canh QUY TẮC 2 giữ nó.
 const GIO_RA_SOAT = 9;
 
+// SỔ ĐIỂM DANH CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH NGÀY HÔM ĐÓ (Đ127).
+//
+// Nhà trường yêu cầu 04/09: "điểm danh hôm nào chỉ được điểm danh ngày hôm đó,
+// chỉ được chỉnh sửa ngày hôm đó chứ không được điểm danh hay chỉnh sửa ngày
+// khác".
+//
+// Đây là luật của SỔ, không phải một mẹo giao diện, nên nó phải nằm ở máy chủ:
+// điện thoại đã cài app còn giữ bản giao diện cũ trong bộ nhớ đệm, và bản cũ
+// vẫn gửi được ngày bất kỳ.
+//
+// VÌ SAO ĐÚNG: sổ điểm danh là căn cứ cho suất ăn, cho tiền ăn cuối tháng, và
+// là thứ gia đình đọc để biết hôm qua con có tới lớp không. Sửa được ngày cũ
+// nghĩa là con số đã chốt đổi sau lưng mọi người — không ai được báo, và không
+// có đường nào lần lại. Ghi trước cho ngày mai thì còn vô lý hơn: chưa xảy ra.
+//
+// XEM LẠI THÌ KHÔNG CHẶN. Cô và văn phòng vẫn mở được mọi ngày để đối chiếu;
+// chỉ đường GHI mới khoá. Câu từ chối phải nói rõ đang khoá vì lý do gì, và
+// nói bằng tiếng của trường.
+function chanNgoaiNgay(res, ngayGhi, viec) {
+  const hn = todayStr();
+  if (ngayGhi === hn) return false;
+  res.status(400).json({
+    error: `Sổ điểm danh chỉ ${viec} được trong chính ngày hôm đó. `
+      + `Ngày ${ngayGhi} ${ngayGhi > hn ? 'chưa tới' : 'đã khoá'} — cô vẫn xem lại được, nhưng không sửa nữa.`,
+    ngayKhoa: ngayGhi,
+    homNay: hn,
+  });
+  return true;
+}
+
 // Ảnh điểm danh: nhỏ hơn ảnh album nhiều. Đây là một khung hình "con đã tới
 // lớp", không phải ảnh để phóng to xem.
 const TOI_DA_ANH_BYTE = 900 * 1024;
@@ -139,6 +169,7 @@ module.exports = (app) => {
     if (!STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Trạng thái điểm danh không hợp lệ' });
     }
+    if (chanNgoaiNgay(res, String(date), 'ghi và sửa')) return;
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
     }
@@ -182,6 +213,7 @@ module.exports = (app) => {
     if (!STATUSES.includes(trangThai)) {
       return res.status(400).json({ error: 'Trạng thái điểm danh không hợp lệ' });
     }
+    if (chanNgoaiNgay(res, ngay, 'ghi và sửa')) return;
 
     // Quản trị phải nói rõ nhóm nào; cô thì lấy nhóm mình phụ trách — và cũng
     // phải nói rõ khi cô đang phụ trách nhiều nhóm.
@@ -251,6 +283,9 @@ module.exports = (app) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ngayGhi)) {
       return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
     }
+    // Ảnh "con đã tới lớp" là một phần của dòng điểm danh ngày đó, nên theo
+    // đúng luật của dòng ấy: chỉ gắn được trong ngày (Đ127).
+    if (chanNgoaiNgay(res, ngayGhi, 'gắn ảnh')) return;
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }
@@ -309,6 +344,7 @@ module.exports = (app) => {
     const studentId = String(req.query.studentId || '');
     const ngayGhi = String(req.query.date || todayStr());
     if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (chanNgoaiNgay(res, ngayGhi, 'gỡ ảnh')) return;
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }

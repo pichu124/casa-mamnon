@@ -590,7 +590,20 @@ console.log('\n[15] B4 — "Cả lớp có mặt" KHÔNG được xóa những e
   // Dùng giaovien2: bài [11] đã chuyển cô sang chủ nhiệm lớp c1, còn giaovien cũ
   // bị gỡ khỏi lớp — chính là thứ bài [11] canh.
   const GV = (await login('giaovien2', '123456')).cookie;
-  const NGAY = '2026-10-15';
+  // NGÀY PHẢI LÀ HÔM NAY (Đ127): sổ điểm danh chỉ ghi và sửa được trong chính
+  // ngày hôm đó, nên một ngày cố định trong tương lai như bản trước ('2026-10-15')
+  // nay bị máy chủ từ chối — và cả mục này sẽ đo nhầm một câu từ chối.
+  //
+  // Dữ liệu mẫu đã chấm sẵn hôm nay cho nhóm c1, nên xoá đúng ngày đó của
+  // nhóm này trước, để bài dựng lại tình huống "cô đánh dấu vài em nghỉ rồi
+  // mới bấm cả lớp có mặt" từ một tờ giấy trắng, y như bản cũ.
+  const NGAY = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  {
+    const conn = new DatabaseChiDoc(path.join(DIR, 'school.db'));
+    conn.prepare(`DELETE FROM attendance WHERE date = ? AND studentId IN
+      (SELECT id FROM students WHERE classId = 'c1')`).run(NGAY);
+    conn.close();
+  }
   const lop = async () => (await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: GV })).data;
 
   const dau = await lop();
@@ -648,6 +661,30 @@ console.log('\n[15] B4 — "Cả lớp có mặt" KHÔNG được xóa những e
   // cài app vẫn gọi đường này.
   check('đường điểm danh từng em vẫn chạy như cũ',
     (await req('POST', '/api/attendance/mark', { cookie: GV, body: { studentId: em1, date: NGAY, status: 'late' } })).status === 200);
+
+  // SỔ ĐIỂM DANH CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH NGÀY HÔM ĐÓ (Đ127).
+  //
+  // Nhà trường chốt 04/09. Luật này phải nằm ở MÁY CHỦ: điện thoại đã cài app
+  // còn giữ bản giao diện cũ trong bộ nhớ đệm, mà bản cũ gửi được ngày bất kỳ.
+  const dich = (n) => new Date(Date.parse(`${NGAY}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  for (const [ten, ngay] of [['hôm qua', dich(-1)], ['ngày mai', dich(1)], ['tháng trước', dich(-31)]]) {
+    const mot = await req('POST', '/api/attendance/mark',
+      { cookie: GV, body: { studentId: em1, date: ngay, status: 'present' } });
+    check(`KHÔNG chấm được cho ${ten} (${ngay})`, mot.status === 400, `${mot.status} ${JSON.stringify(mot.data).slice(0, 120)}`);
+    check(`câu từ chối ${ten} nói bằng tiếng của trường, nêu rõ ngày`,
+      /chỉ ghi và sửa được trong chính ngày hôm đó/.test(mot.data?.error || '')
+        && (mot.data?.error || '').includes(ngay), mot.data?.error);
+    const caLop = await req('POST', '/api/attendance/mark-all', { cookie: GV, body: { date: ngay, status: 'present' } });
+    check(`KHÔNG điểm danh cả nhóm cho ${ten} được`, caLop.status === 400, caLop.status);
+    const anh = await req('POST', '/api/attendance/anh',
+      { cookie: GV, body: { studentId: em1, date: ngay, anh: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' } });
+    check(`KHÔNG gắn được ảnh "con tới lớp" cho ${ten}`, anh.status === 400, anh.status);
+    const go = await req('DELETE', `/api/attendance/anh?studentId=${em1}&date=${ngay}`, { cookie: GV });
+    check(`KHÔNG gỡ được ảnh của ${ten}`, go.status === 400, go.status);
+  }
+  // XEM LẠI THÌ KHÔNG CHẶN — khoá là khoá đường GHI, không phải khoá cuốn sổ.
+  const xemCu = await req('GET', `/api/attendance/class?date=${dich(-1)}`, { cookie: GV });
+  check('vẫn MỞ ĐƯỢC ngày cũ để xem lại', xemCu.status === 200, xemCu.status);
 }
 
 // ===========================================================================

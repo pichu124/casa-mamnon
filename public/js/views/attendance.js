@@ -110,6 +110,7 @@ App.views.attendance = {
           <label>Ngày rà soát</label>
           <input type="date" value="${UI.esc(this.date)}" max="${UI.esc(UI.todayStr())}"
                  onchange="App.views.attendance.setDate(this.value)">
+          ${UI.dongNgayViet(this.date)}
         </div>
         <div class="muted small mt-8" style="line-height:1.6">
           Văn phòng xem được cả phạm vi mình phụ trách. Việc chấm điểm danh vẫn
@@ -425,17 +426,20 @@ App.views.attendance = {
           </div>` : ''}
         <div class="field" style="margin-bottom:0">
           <label>Ngày điểm danh</label>
-          <input type="date" value="${UI.esc(this.date)}" onchange="App.views.attendance.setDate(this.value)">
+          <input type="date" value="${UI.esc(this.date)}" max="${UI.esc(UI.todayStr())}"
+                 onchange="App.views.attendance.setDate(this.value)">
+          ${UI.dongNgayViet(this.date)}
         </div>
       </div>
       ${tab === 'tra' ? '<div id="att-tra"><div class="loading">Đang tải sổ trả bé</div></div>' : `
+      ${this.theNgayDaKhoa()}
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Số bé</div></div>
         <div class="stat-box"><div class="stat-num" id="att-so-da" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
         <div class="stat-box"><div class="stat-num" id="att-so-chua" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
       </div>
       ${this.theRaSoat()}
-      <button class="btn success-soft block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt</button>
+      ${this.ngayDaKhoa() ? '' : `<button class="btn success-soft block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt</button>`}
       <div class="card mt-14">
         ${total
           ? this._roster.map(r => this.rosterRow(r)).join('')
@@ -448,6 +452,34 @@ App.views.attendance = {
       b.onclick = () => { location.hash = b.dataset.tab === 'tra' ? '#/attendance/tra' : '#/attendance'; };
     }
     if (tab === 'tra') await this.khoiTraBe(document.getElementById('att-tra'), pt);
+  },
+
+  // NGÀY KHÁC HÔM NAY THÌ CHỈ XEM LẠI (Đ127).
+  //
+  // Nhà trường chốt: điểm danh ngày nào chỉ ghi và sửa trong ngày đó. Máy chủ
+  // là chỗ giữ luật (`routes/attendance.js`); màn hình chỉ cần đừng mời cô bấm
+  // vào thứ chắc chắn bị từ chối, và nói rõ vì sao.
+  //
+  // CÂU CHỮ Ở ĐÂY NÓI VỀ CUỐN SỔ, KHÔNG NÓI GÌ VỀ ĐỨA TRẺ.
+  ngayDaKhoa() {
+    return this.date !== UI.todayStr();
+  },
+
+  theNgayDaKhoa() {
+    if (!this.ngayDaKhoa()) return '';
+    const mai = this.date > UI.todayStr();
+    return `<div class="card" style="border-left:4px solid var(--line-strong)">
+      <div class="card-title">${UI.icon('clock', 16)} ${mai ? 'Ngày này chưa tới' : 'Ngày này đã khoá'}</div>
+      <div class="muted small" style="line-height:1.7">
+        Sổ điểm danh chỉ ghi và sửa được trong chính ngày hôm đó, nên ${mai
+          ? 'ngày chưa tới thì chưa chấm được.'
+          : 'ngày đã qua chỉ mở ra xem lại.'}
+        Cô xem lại thoải mái — chỉ không sửa được nữa.
+      </div>
+      <button class="btn outline block mt-8" onclick="App.views.attendance.setDate(UI.todayStr())">
+        ${UI.icon('calendar', 16)} Về ngày hôm nay
+      </button>
+    </div>`;
   },
 
   thanhTab(tab) {
@@ -558,6 +590,7 @@ App.views.attendance = {
   },
 
   rosterRow({ student: s, record, donNghiDaDuyet, anhDenLop }) {
+    if (this.ngayDaKhoa()) return this.dongChiXem({ student: s, record, anhDenLop });
     const times = record
       ? [record.checkIn ? `Vào ${record.checkIn}` : null, record.checkOut ? `Ra ${record.checkOut}` : null].filter(Boolean).join(' · ')
       : '';
@@ -609,6 +642,30 @@ App.views.attendance = {
                </button>`}
           </div>
         </div>
+      </div>`;
+  },
+
+  // Dòng bé của một ngày đã khoá: đúng những gì đã ghi, không nút nào.
+  //
+  // "Cô chưa chấm" là việc của người lớn hôm đó, chữ xám — KHÔNG phải một lời
+  // nào về đứa trẻ, và không phải một ô trống chờ lấp (QUY TẮC 2).
+  dongChiXem({ student: s, record, anhDenLop }) {
+    const st = record ? (UI.ATT_STATUS[record.status] || null) : null;
+    const times = record
+      ? [record.checkIn ? `Vào ${record.checkIn}` : null, record.checkOut ? `Ra ${record.checkOut}` : null].filter(Boolean).join(' · ')
+      : '';
+    return `
+      <div class="list-row" id="att-dong-${UI.esc(s.id)}">
+        ${anhDenLop && anhDenLop.file
+          ? `<img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
+               style="width:42px;height:42px;flex:none;border-radius:10px;object-fit:cover">`
+          : UI.avatar(s.avatar, 42)}
+        <div class="row-main">
+          <div class="row-title">${UI.esc(s.name)}</div>
+          <div class="row-sub">${UI.esc(times || (record ? '' : 'Hôm đó cô chưa chấm điểm danh'))}${
+            record && record.note ? ` · ${UI.esc(record.note)}` : ''}</div>
+        </div>
+        ${st ? UI.badge(st.label, st.cls) : ''}
       </div>`;
   },
 

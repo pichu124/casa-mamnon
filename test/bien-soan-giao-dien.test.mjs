@@ -3,6 +3,8 @@
 //
 // Cần trình duyệt Playwright. Chạy bằng:  npm run test:giao-dien
 import { chromium } from 'playwright';
+import path from 'path';
+import Database from 'better-sqlite3';
 import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerMoiCai } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan-giao-dien');
@@ -434,9 +436,23 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   await page.setViewportSize({ width: 390, height: 480 });
   await page.goto(BASE + '/#/attendance', { waitUntil: 'networkidle' });
   await page.waitForSelector('[id^="att-dong-"]', { timeout: 8000 });
-  // Chọn một ngày chưa có dữ liệu mẫu để bắt đầu từ lớp chưa điểm danh.
-  await page.evaluate(() => App.views.attendance.setDate('2026-11-20'));
-  await page.waitForTimeout(900);
+  // BẮT ĐẦU TỪ MỘT LỚP CHƯA ĐIỂM DANH, NHƯNG PHẢI LÀ HÔM NAY.
+  //
+  // Bản trước nhảy sang một ngày cố định trong tương lai ('2026-11-20') cho
+  // chắc chắn sạch dữ liệu. Từ Đ127 thì ngày đó đã khoá — màn hình chuyển sang
+  // thể chỉ xem, không còn nút nào để chạm, và cả mục này đứng chờ một nút
+  // không bao giờ hiện. Nay xoá đúng dòng dữ liệu mẫu của nhóm này trong hôm
+  // nay, rồi mở lại màn: vẫn là một lớp chưa điểm danh, mà đúng luật mới.
+  {
+    const conn = new Database(path.join(DIR, 'school.db'));
+    conn.prepare(`DELETE FROM attendance WHERE date = ? AND studentId IN
+      (SELECT id FROM students WHERE classId = 'c1')`)
+      .run(new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10));
+    conn.close();
+  }
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('[id^="att-dong-"]', { timeout: 8000 });
+  await page.waitForTimeout(600);
 
   const soDong = await page.locator('[id^="att-dong-"]').count();
   check('màn hình điểm danh hiện danh sách lớp', soDong > 0, soDong);
@@ -500,7 +516,11 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
 {
   await page.evaluate(() => UI.closeModal());
   await page.waitForTimeout(400);
-  const NGAY = '2026-12-15';
+  // NGÀY PHẢI LÀ HÔM NAY (Đ127): sổ điểm danh chỉ ghi và sửa được trong chính
+  // ngày hôm đó, nên một ngày cố định trong tương lai như bản trước
+  // ('2026-12-15') nay mở ra ở thể chỉ xem — không còn nút "Nghỉ KP" để chạm,
+  // và mục này sẽ đứng chờ một nút không bao giờ hiện.
+  const NGAY = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
 
   // Phụ huynh gửi đơn cho con mình, cô duyệt — làm qua API cho gọn, phần cần
   // kiểm là màn hình điểm danh.

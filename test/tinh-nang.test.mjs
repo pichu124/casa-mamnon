@@ -91,7 +91,11 @@ console.log('\n[2] Tắt một phân hệ — chặn cả API chứ không chỉ
   check('sau khi tắt: API bị chặn (404)', after.status === 404, after.status);
   check('báo lỗi giải thích rõ cho người dùng', /tắt/.test(after.data?.error || ''), after.data);
 
-  const post = await req('POST', '/api/attendance/mark', { cookie: T, body: { studentId: 's1', date: '2026-08-13', status: 'present' } });
+  // Ngày là HÔM NAY: từ Đ127 sổ điểm danh chỉ ghi được trong ngày, nên một
+  // ngày cố định sẽ bị chặn vì lý do KHÁC với lý do mục này đang đo (phân hệ
+  // đang tắt thì mọi đường /api/attendance đều 404).
+  const post = await req('POST', '/api/attendance/mark',
+    { cookie: T, body: { studentId: 's1', date: new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10), status: 'present' } });
   check('cả đường ghi dữ liệu cũng bị chặn', post.status === 404, post.status);
 
   const list = await req('GET', '/api/modules', { cookie: P });
