@@ -316,7 +316,7 @@ App.views.dontra = {
           <div class="muted small" style="line-height:1.6;margin-bottom:8px">
             ${b.nghiPhep
               ? `Gia đình đã xin nghỉ hôm nay${b.nghiPhep.reason ? ` — ${UI.esc(b.nghiPhep.reason)}` : ''}.`
-              : 'Sáng nay cô đã chấm nghỉ ở Điểm danh.'}
+              : 'Cô đã chấm nghỉ ở phần Đón bé.'}
             Cô vẫn ghi được nếu bé có tới lớp.
           </div>` : ''}
 
@@ -364,8 +364,12 @@ App.views.dontra = {
       </div>`;
   },
 
-  // Dòng "Sáng nay" (Đ126): trạng thái điểm danh + ảnh tới lớp thu nhỏ, chỉ
-  // khi màn Điểm danh đưa sang. Mở từ '#/dontra' thì không có dòng này.
+  // Dòng "Đón bé" (Đ126): trạng thái điểm danh + ảnh tới lớp thu nhỏ, chỉ khi
+  // màn Điểm danh đưa sang. Mở từ '#/dontra' thì không có dòng này.
+  //
+  // KHÔNG viết "Sáng nay". Mầm non có bé học nửa buổi, vào lớp đầu giờ chiều —
+  // dòng "Sáng nay: Có mặt · vào 13:55" tự nó nói ngược. "Đón bé" là tên đúng
+  // của việc đó và cũng là tên phần bên cạnh, nên cô đọc là hiểu ngay.
   dongSang(b) {
     const sang = b._sang;
     if (!sang) return '';
@@ -375,7 +379,7 @@ App.views.dontra = {
       : 'cô chưa chấm điểm danh';
     return `<div class="row-sub" style="display:flex;align-items:center;gap:6px;margin-top:2px">
       ${sang.anhUrl ? `<img src="${UI.esc(sang.anhUrl)}" alt="" style="width:28px;height:28px;flex:none;border-radius:8px;object-fit:cover;background:var(--line)">` : ''}
-      <span${st ? ` style="color:${st.color}"` : ''}>Sáng nay: ${UI.esc(chu)}</span>
+      <span${st ? ` style="color:${st.color}"` : ''}>Đón bé: ${UI.esc(chu)}</span>
     </div>`;
   },
 
@@ -463,10 +467,47 @@ App.views.dontra = {
         luc: document.getElementById('dt-luc').value,
         ghiChu: document.getElementById('dt-ghichu').value.trim(),
       });
-      UI.toast('Đã ghi vào sổ đón trả', 'success');
       UI.closeModal();
       this.capNhatDaTra(studentId, r);
+      this.nhacChupAnhTra(studentId);
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // GHI XONG THÌ CHỈ NGAY VÀO NÚT CHỤP (Đ126b).
+  //
+  // Nút "Chụp ảnh lúc trả bé" cố ý chỉ hiện SAU khi đã ghi sổ — chụp là chụp
+  // khoảnh khắc trao bé, không phải chụp một bé còn đang ở lớp. Nhưng luật đó
+  // khó đoán: cô mở màn ra, thấy thẻ bé chưa trả không có nút chụp nào, và kết
+  // luận phần này chưa làm được ảnh. Người dùng thử app đã vấp đúng chỗ này.
+  //
+  // KHÔNG DÙNG HỘP THOẠI ĐỂ MỜI, dù đó là cách gọn nhất để viết.
+  //
+  // Bản đầu của Đ126b làm đúng vậy và `test:bien-soan-phan-he` bắt được ngay:
+  // hộp thoại của app phủ kín màn hình và KHÔNG tự đóng khi người dùng bấm đi
+  // màn khác (`App.route()` không đụng tới hộp thoại — đó là hành vi chung của
+  // cả app, không sửa ở đây cho một lời mời). Cô ghi xong, bấm sang phần khác,
+  // và gặp một lớp phủ chặn mọi thao tác cho tới khi tìm ra nút đóng.
+  //
+  // Nên chỉ tay thay vì chặn đường: một dòng nhắn, cuộn đúng nút chụp vào tầm
+  // mắt và viền sáng nó vài giây. Cô bấm là máy ảnh mở ngay trong lần chạm đó.
+  nhacChupAnhTra(studentId) {
+    const b = ((this._data || {}).danhSach || []).find(x => x.studentId === studentId);
+    if (!b) return;
+    // Ngày đó đã có ảnh rồi (cô mở lại chỉ để sửa người đón): không nhắc nữa.
+    if (b.anhTra && b.anhTra.file) { UI.toast('Đã ghi vào sổ đón trả', 'success'); return; }
+    UI.toast('Đã ghi vào sổ. Chụp ảnh lúc trả bé ở nút ngay dưới nhé', 'success');
+    const the = document.getElementById(`dt-the-${studentId}`);
+    const nut = the && the.querySelector('[data-anh-tra]');
+    if (!nut) return;
+    try { nut.scrollIntoView({ block: 'center' }); } catch (_) { /* trình duyệt cũ */ }
+    nut.style.outline = '2px solid var(--primary)';
+    nut.style.outlineOffset = '2px';
+    setTimeout(() => {
+      // Thẻ có thể đã được vẽ lại trong lúc chờ — nút cũ lúc đó không còn trên
+      // màn hình nữa, gỡ viền của nó cũng không hại gì.
+      nut.style.outline = '';
+      nut.style.outlineOffset = '';
+    }, 4000);
   },
 
   // Ghi xong: cập nhật đúng thẻ đó tại chỗ (xem `veLaiThe`). Máy chủ trả về

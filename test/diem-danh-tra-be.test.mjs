@@ -121,7 +121,9 @@ console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi t
   check('có dòng đếm "Đã trả x / y bé"', /Đã trả \d+ \/ \d+ bé/.test(manTra), manTra.slice(0, 200));
   // Dữ liệu mẫu đã ghi trả sẵn vài bé hôm nay, nên đo bằng HIỆU SỐ, không đoán số tuyệt đối.
   const soDaTraTruoc = Number((manTra.match(/Đã trả (\d+) \//) || [])[1] || 0);
-  check('thẻ bé nói "Sáng nay: …" — trạng thái sáng đưa sang phần chiều', /Sáng nay:/.test(manTra));
+  check('thẻ bé nói "Đón bé: …" — trạng thái lúc đón đưa sang phần trả', /Đón bé:/.test(manTra));
+  check('KHÔNG viết "Sáng nay" — bé học nửa buổi vào lớp đầu giờ chiều thì câu đó nói ngược',
+    !/Sáng nay/.test(manTra), (manTra.match(/.{0,40}Sáng nay.{0,40}/) || [])[0]);
   check('không còn nhãn "Chưa trả" cam — bé chờ đón là "Còn ở lớp"', !/Chưa trả/.test(manTra) && /Còn ở lớp|Đã trả|Nghỉ hôm nay/.test(manTra));
   check('không lộ tiếng tiểu học ở phần Trả bé', !XAU.test(manTra), (manTra.match(XAU) || [])[0]);
   await doBoCuc('Trả bé');
@@ -153,6 +155,23 @@ console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi t
   await page.click('#dt-luu');
   await page.waitForTimeout(1500);
   loiJs.length === 0 || console.log('  lỗi JS:', loiJs);
+
+  // GHI XONG THÌ APP CHỈ NGAY VÀO NÚT CHỤP. Nút chụp cố ý chỉ hiện sau khi ghi
+  // (chụp là chụp khoảnh khắc trao bé), nên nếu app không nhắc thì cô mở màn
+  // ra, thấy thẻ bé chưa trả không có nút chụp nào, và kết luận phần này chưa
+  // làm được ảnh — người dùng thử đã vấp đúng chỗ đó.
+  const nhac = await page.locator('#toast-zone .toast').last().innerText().catch(() => '');
+  check('ghi xong → có dòng nhắn chỉ đường tới nút chụp ảnh', /Chụp ảnh lúc trả bé/.test(nhac), nhac);
+  check('nút chụp của bé đó được viền sáng cho dễ thấy',
+    await page.locator(`#dt-the-${maBeAn} [data-anh-tra]`).evaluate(el => !!el.style.outline).catch(() => false));
+
+  // NHẮC BẰNG DÒNG NHẮN, KHÔNG BẰNG HỘP THOẠI.
+  //
+  // Hộp thoại của app không tự đóng khi đi màn khác, nên một lời mời dạng hộp
+  // thoại là một lớp phủ chặn mọi thao tác ở màn sau. Bản đầu của Đ126b làm
+  // đúng vậy và `test:bien-soan-phan-he` chết đứng vì lớp phủ ấy.
+  check('KHÔNG để lại hộp thoại nào chặn màn hình sau khi ghi', await dem('#modal-overlay') === 0);
+
   const the = await page.locator(`#dt-the-${maBeAn}`).innerText();
   check('GHI XONG THẺ BÉ ĐỔI TẠI CHỖ: "Sửa lại người đã đón" + ghi chú vừa gõ',
     /Sửa lại người đã đón/.test(the) && /Đối chiếu ảnh ở cổng/.test(the), the.slice(0, 250));
@@ -172,6 +191,8 @@ console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi t
   await page.fill('#dt-ten', 'Mẹ bé');
   await page.click('#dt-luu');
   await page.waitForTimeout(1500);
+  await page.evaluate(() => UI.closeModal());
+  await page.waitForTimeout(400);
   check('hộp thoại đóng sau khi ghi (không kẹt vì lỗi nhập)', await dem('#modal-overlay') === 0);
   const soDaTraSau = Number(((await page.locator('#dt-tong').innerText()).match(/Đã trả (\d+) \//) || [])[1] || 0);
   check('ghi cho bé còn ở lớp → dòng đếm tăng đúng một mà không tải lại trang',
