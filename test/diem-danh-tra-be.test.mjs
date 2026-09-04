@@ -56,6 +56,18 @@ let loiJs = [];
 page.on('pageerror', e => loiJs.push(e.message));
 page.on('dialog', (d) => { d.accept().catch(() => {}); });
 
+// Máy nghe hộp chọn tệp phải gắn TỪ ĐÂY, không gắn ngay trước lần bấm:
+// Playwright chỉ chặn được hộp sau khi báo xuống trình duyệt, mà đó là một
+// vòng đi–về; gắn sát lần bấm thì hộp có thể bị trình duyệt tự huỷ trước và
+// bài đứng chờ một sự kiện không bao giờ tới.
+const ANH_THU = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64');
+page.on('filechooser', async (fc) => {
+  try { await fc.setFiles({ name: 'tra-be.png', mimeType: 'image/png', buffer: ANH_THU }); }
+  catch (_) { /* hộp đã đóng */ }
+});
+
 async function dangNhap(u, p) {
   await page.goto(sv.BASE, { waitUntil: 'networkidle' });
   await page.evaluate(() => { try { App.logout(); } catch (_) {} });
@@ -146,7 +158,32 @@ console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi t
   await page.evaluate(() => UI.closeModal());
   await page.waitForTimeout(300);
 
-  // Đường ghi thường: nút "Ghi: đã trả bé" → hộp → Ghi vào sổ.
+  // TRẢ BÉ CHỈ BẰNG MỘT TẤM ẢNH (Đ128) — nút chính trên thẻ bé chưa trả.
+  //
+  // Đây là câu trả lời cho đúng chỗ người dùng vấp hai lần: nút chụp trước đây
+  // chỉ mọc ra SAU khi ghi sổ, nên mở màn ra là không thấy ảnh đâu.
+  const theCon0 = page.locator('#dt-so .card', { has: page.locator('.badge', { hasText: 'Còn ở lớp' }) }).first();
+  const maBeChup = ((await theCon0.getAttribute('id')) || '').replace(/^dt-the-/, '');
+  check('bé CHƯA trả đã có sẵn nút "Chụp ảnh trả bé"', await dem(`#dt-the-${maBeChup} [data-tra-anh]`) === 1);
+  const nhanNut = await page.locator(`#dt-the-${maBeChup} [data-tra-anh]`).innerText();
+  check('nút đó nói đúng việc cô làm ở cổng', /Chụp ảnh trả bé/.test(nhanNut), nhanNut);
+  check('và vẫn còn đường gõ tên khi cần', await dem(`#dt-the-${maBeChup} [data-tra]`) === 1);
+
+  await page.locator(`#dt-the-${maBeChup} [data-tra-anh]`).click();
+  await page.waitForTimeout(2500);
+  const theSauChup = await page.locator(`#dt-the-${maBeChup}`).innerText();
+  const soDaTraSau = Number(((await page.locator('#dt-tong').innerText()).match(/Đã trả (\d+) \//) || [])[1] || 0);
+  check('dòng đếm tăng đúng một mà không tải lại trang', soDaTraSau === soDaTraTruoc + 1, [soDaTraTruoc, soDaTraSau]);
+  check('CHỤP MỘT TẤM LÀ GHI SỔ LUÔN — không phải gõ tên',
+    /Đã trả/.test(theSauChup) && /xác nhận bằng ảnh/i.test(theSauChup), theSauChup.slice(0, 250));
+  check('thẻ hiện ảnh vừa chụp, kèm "đã gửi cho gia đình"',
+    await dem(`#dt-the-${maBeChup} img[src^="/api/dontra/anh/"]`) === 1
+      && /đã gửi cho gia đình/i.test(theSauChup), theSauChup.slice(0, 250));
+  check('KHÔNG có hộp thoại nào phải bấm qua', await dem('#modal-overlay') === 0);
+  check('vẫn sửa lại được người đã đón nếu cô muốn ghi rõ tên',
+    await dem(`#dt-the-${maBeChup} [data-tra]`) === 1);
+
+  // Đường ghi thường: nút "Ghi tên người đón" → hộp → Ghi vào sổ.
   await page.evaluate(() => window.scrollTo(0, 600));
   await page.waitForTimeout(200);
   await page.locator(`[data-tra="${maBeAn}"]`).click();
@@ -179,27 +216,6 @@ console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi t
   check('đường dẫn vẫn là #/attendance/tra — không bật sang #/dontra', await page.evaluate(() => location.hash) === '#/attendance/tra');
   check('sau khi ghi có nút "Chụp ảnh lúc trả bé" (ảnh check-out) ngay trong thẻ',
     await dem(`#dt-the-${maBeAn} [data-anh-tra]`) === 1);
-  // Bé An có thể đã được ghi trả sẵn trong dữ liệu mẫu (ghi lại là ĐÈ, không
-  // tăng số). Nên chọn một bé CÒN Ở LỚP để chứng minh số đếm đổi tại chỗ.
-  const theCon = page.locator('#dt-so .card', { has: page.locator('.badge', { hasText: 'Còn ở lớp' }) }).first();
-  check('còn ít nhất một bé chưa được đón để thử', await theCon.count() === 1, await theCon.count());
-  const maBeCon = ((await theCon.getAttribute('id')) || '').replace(/^dt-the-/, '');
-  await page.locator(`[data-tra="${maBeCon}"]`).click();
-  await page.waitForSelector('#dt-luu', { timeout: 5000 });
-  // Bé này có thể chưa khai ai được đón — cô chọn "Người khác" và gõ tên, đúng như ở cổng.
-  await page.selectOption('#dt-ai', 'khac|');
-  await page.fill('#dt-ten', 'Mẹ bé');
-  await page.click('#dt-luu');
-  await page.waitForTimeout(1500);
-  await page.evaluate(() => UI.closeModal());
-  await page.waitForTimeout(400);
-  check('hộp thoại đóng sau khi ghi (không kẹt vì lỗi nhập)', await dem('#modal-overlay') === 0);
-  const soDaTraSau = Number(((await page.locator('#dt-tong').innerText()).match(/Đã trả (\d+) \//) || [])[1] || 0);
-  check('ghi cho bé còn ở lớp → dòng đếm tăng đúng một mà không tải lại trang',
-    soDaTraSau === soDaTraTruoc + 1, [soDaTraTruoc, soDaTraSau]);
-  check('thẻ bé đó đổi tại chỗ sang "Đã trả"',
-    /Đã trả/.test(await page.locator(`#dt-the-${maBeCon} .badge`).first().innerText()));
-  check('đường dẫn vẫn là #/attendance/tra', await page.evaluate(() => location.hash) === '#/attendance/tra');
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 
   // '#/dontra' của cô vẫn là màn cổng đầy đủ, và chỉ đường về Điểm danh.

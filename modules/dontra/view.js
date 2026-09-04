@@ -195,6 +195,9 @@ App.views.dontra = {
     for (const b of root.querySelectorAll('[data-tra]')) {
       b.onclick = () => this.moTra(b.dataset.tra);
     }
+    for (const b of root.querySelectorAll('[data-tra-anh]')) {
+      b.onclick = () => this.traBangAnh(b.dataset.traAnh);
+    }
     for (const b of root.querySelectorAll('[data-chon-nguoi]')) {
       b.onclick = () => this.moTra(b.dataset.be, b.dataset.chonNguoi);
     }
@@ -270,6 +273,40 @@ App.views.dontra = {
       <button class="btn sm outline" style="margin-bottom:8px" data-anh-tra="${UI.esc(b.studentId)}">
         ${UI.icon('album', 14)} Chụp ảnh lúc trả bé
       </button>`;
+  },
+
+  // TRẢ BÉ CHỈ BẰNG MỘT TẤM ẢNH (Đ128).
+  //
+  // Nhà trường 04/09: "cô giáo không cần nhập tên người trả bé cho mất thời
+  // gian, chỉ cần chụp ảnh để xác nhận đã trả bé là được".
+  //
+  // 16h30 cô đứng ở cổng, một tay dắt bé. Mở máy ảnh phải nằm NGAY TRONG lần
+  // chạm của cô — trình duyệt chỉ cho mở hộp chọn tệp trong một cử chỉ thật,
+  // nên không được chờ thêm một `await` nào trước đó.
+  //
+  // Một lời gọi duy nhất ghi cả sổ lẫn ảnh: hai lời gọi thì mạng rớt giữa
+  // chừng để lại một dòng sổ không ảnh, hoặc một tấm ảnh không dòng sổ, mà cô
+  // không có cách nào biết.
+  traBangAnh(studentId) {
+    const o = document.createElement('input');
+    o.type = 'file';
+    o.accept = 'image/*';
+    o.capture = 'environment';
+    o.onchange = async () => {
+      const f = o.files && o.files[0];
+      if (!f) return;
+      try {
+        const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
+        const r = await API.post('/api/dontra/tra-bang-anh', { studentId, ngay: this._ngay, anh });
+        UI.toast('Đã ghi vào sổ và gửi ảnh cho gia đình', 'success');
+        const b = ((this._data || {}).danhSach || []).find(x => x.studentId === studentId);
+        if (!b || !r || !r.ok) { App.route(); return; }
+        b.daTra = { ...(b.daTra || {}), ...r };
+        b.anhTra = { file: r.file };
+        this.veLaiThe(studentId);
+      } catch (e) { UI.toast(e.message || 'Chưa ghi được, cô thử lại giúp nhé', 'error'); }
+    };
+    o.click();
   },
 
   chonAnhTra(studentId) {
@@ -350,7 +387,9 @@ App.views.dontra = {
 
         ${b.daTra ? `
           <div class="muted small" style="line-height:1.6;margin-bottom:8px">
-            Đã trả cho <b>${UI.esc(b.daTra.nguoiDon)}</b>${b.daTra.coGhiTen ? ` — ${UI.esc(b.daTra.coGhiTen)} ghi` : ''}
+            ${b.daTra.nguonLoai === 'anh'
+              ? `Cô đã trao bé, xác nhận bằng ảnh${b.daTra.coGhiTen ? ` — ${UI.esc(b.daTra.coGhiTen)} ghi` : ''}`
+              : `Đã trả cho <b>${UI.esc(b.daTra.nguoiDon)}</b>${b.daTra.coGhiTen ? ` — ${UI.esc(b.daTra.coGhiTen)} ghi` : ''}`}
             ${b.daTra.ghiChu ? `<div>${UI.esc(b.daTra.ghiChu)}</div>` : ''}
           </div>
           ${this.oAnhTra(b)}` : ''}
@@ -388,10 +427,16 @@ App.views.dontra = {
             }).join('')}
           </details>` : ''}
 
-        ${this.ngayDaKhoa() ? '' : `
-        <button class="btn ${b.daTra ? 'outline' : 'primary'} block mt-14" data-tra="${UI.esc(b.studentId)}">
-          ${UI.icon('check', 18)} ${b.daTra ? 'Sửa lại người đã đón' : 'Ghi: đã trả bé'}
-        </button>`}
+        ${this.ngayDaKhoa() ? '' : (b.daTra ? `
+        <button class="btn outline block mt-14" data-tra="${UI.esc(b.studentId)}">
+          ${UI.icon('check', 18)} Sửa lại người đã đón
+        </button>` : `
+        <button class="btn primary block mt-14" data-tra-anh="${UI.esc(b.studentId)}">
+          ${UI.icon('album', 18)} Chụp ảnh trả bé
+        </button>
+        <button class="btn outline block mt-8" data-tra="${UI.esc(b.studentId)}">
+          ${UI.icon('check', 18)} Ghi tên người đón
+        </button>`)}
       </div>`;
   },
 
@@ -582,10 +627,15 @@ App.views.dontra = {
   htmlTraBeCuaNgay(ngay) {
     const g = this._soThang && this._soThang.get(ngay);
     if (!g) return '';
+    // Cô trao bé rồi chụp một tấm mà không gõ tên (Đ128): nói đúng thứ đã xảy
+    // ra — "cô đã trao bé, có ảnh" — chứ không bịa ra một cái tên người đón.
+    const tieuDe = g.nguonLoai === 'anh'
+      ? `Cô đã trao bé${g.luc ? ` lúc ${g.luc}` : ''}`
+      : `Về với ${g.nguoiDon}${g.luc ? ` lúc ${g.luc}` : ''}`;
     return `
       <div class="section-label">Trả bé</div>
       <div class="list-row"><div class="row-main">
-        <div class="row-title">Về với ${UI.esc(g.nguoiDon)}${g.luc ? ` lúc ${UI.esc(g.luc)}` : ''}</div>
+        <div class="row-title">${UI.esc(tieuDe)}</div>
         ${g.coGhiTen ? `<div class="row-sub">${UI.esc(g.coGhiTen)} ghi sổ</div>` : ''}
         ${g.ghiChu ? `<div class="row-sub">${UI.esc(g.ghiChu)}</div>` : ''}
       </div></div>
@@ -598,6 +648,7 @@ App.views.dontra = {
   chuTraBeNgan(ngay) {
     const g = this._soThang && this._soThang.get(ngay);
     if (!g) return '';
+    if (g.nguonLoai === 'anh') return `cô đã trao bé${g.luc ? ` ${g.luc}` : ''}`;
     return `về với ${g.nguoiDon}${g.luc ? ` ${g.luc}` : ''}`;
   },
 
@@ -670,7 +721,9 @@ App.views.dontra = {
               data-xem-anh="${UI.esc(g.anhTra)}">` : ''}
             <div class="row-main">
             <div class="row-title">${UI.esc(UI.fmtDate(g.ngay))}${g.luc ? ` · ${UI.esc(g.luc)}` : ''}</div>
-            <div class="row-sub">Trả cho ${UI.esc(g.nguoiDon)}${g.coGhiTen ? ` — ${UI.esc(g.coGhiTen)} ghi` : ''}</div>
+            <div class="row-sub">${g.nguonLoai === 'anh'
+              ? `Cô đã trao bé, xác nhận bằng ảnh${g.coGhiTen ? ` — ${UI.esc(g.coGhiTen)} ghi` : ''}`
+              : `Trả cho ${UI.esc(g.nguoiDon)}${g.coGhiTen ? ` — ${UI.esc(g.coGhiTen)} ghi` : ''}`}</div>
             ${g.ghiChu ? `<div class="row-sub">${UI.esc(g.ghiChu)}</div>` : ''}
           </div></div>`).join('')}
       </div>` : UI.emptyState('📖', 'Chưa có ngày nào cô ghi sổ đón trả cho con.')}`;

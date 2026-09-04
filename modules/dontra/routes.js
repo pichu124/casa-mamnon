@@ -52,6 +52,17 @@ const TOI_DA_UY_QUYEN_DANG_HIEU_LUC = 10;
 // Điểm danh). Siết ở đây, trước khi gọi kho ảnh dùng chung.
 const TOI_DA_ANH_TRA_BYTE = 900 * 1024;
 
+// Nhãn của dòng sổ khi cô trao bé xong chụp một tấm mà không gõ tên (Đ128).
+//
+// Nhà trường yêu cầu 04/09: "phần trả bé cô giáo không cần nhập tên người trả
+// bé cho mất thời gian, chỉ cần chụp ảnh để xác nhận đã trả bé là được".
+//
+// Ô `nguoiDon` KHÔNG được để trống — cả sổ dựa vào nó, và một dòng trống thì
+// sau này không ai đọc ra nổi chuyện gì đã xảy ra. Nên nó nói đúng thứ đã xảy
+// ra: người đón được xác nhận bằng ẢNH, không phải bằng một cái tên gõ tay.
+// Màn hình của gia đình đọc `nguonLoai = 'anh'` rồi viết lại cho tử tế.
+const NHAN_TRA_BANG_ANH = 'Xác nhận bằng ảnh lúc trả';
+
 function homNay() {
   return ngay.homNay();
 }
@@ -271,7 +282,7 @@ module.exports = (app, { db }) => {
       so: so.map(g => {
         const a = anhTheoNgay.get(g.ngay) || null;
         return {
-          ngay: g.ngay, luc: g.luc, nguoiDon: g.nguoiDon, ghiChu: g.ghiChu,
+          ngay: g.ngay, luc: g.luc, nguoiDon: g.nguoiDon, nguonLoai: g.nguonLoai, ghiChu: g.ghiChu,
           coGhiTen: g.coGhi ? (tenCo.get(g.coGhi) || '') : '',
           anhTra: a ? a.file : null,
           anhTraLuc: a ? (a.taoLuc || '') : '',
@@ -661,6 +672,80 @@ module.exports = (app, { db }) => {
     res.json({ ok: true });
   });
 
+  // ===== TRẢ BÉ CHỈ BẰNG MỘT TẤM ẢNH (Đ128) =====
+  //
+  // Nhà trường 04/09: "cô giáo không cần nhập tên người trả bé cho mất thời
+  // gian, chỉ cần chụp ảnh để xác nhận đã trả bé là được".
+  //
+  // 16h30 cô đứng ở cổng, tay đang dắt bé, người lớn đứng chờ trước mặt. Gõ
+  // một cái tên vào điện thoại lúc đó là việc chỉ làm được khi buông tay bé
+  // ra. Một tấm ảnh thì bấm được bằng một ngón.
+  //
+  // MỘT ĐƯỜNG, KHÔNG PHẢI HAI. Ghi sổ và tải ảnh phải cùng đứng cùng ngã: nếu
+  // là hai lời gọi thì mạng rớt giữa chừng để lại một dòng sổ không có ảnh
+  // (hoặc ngược lại), mà cô ở cổng không có cách nào biết. Ở đây ảnh được lưu
+  // trước, ghi sổ sau; ghi hỏng thì tệp ảnh vừa lưu được bỏ đi ngay.
+  //
+  // ĐƯỜNG GÕ TÊN VẪN CÒN NGUYÊN (`/api/dontra/ghi`): người lạ tới đón, hay
+  // hôm máy hết pin không chụp được, cô vẫn ghi rõ tên được. Đây là đường
+  // NHANH, không phải đường THAY THẾ.
+  app.post('/api/dontra/tra-bang-anh', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const be = db.findStudent(String(b.studentId || '').trim());
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!db.canAccessStudent(req.user, be.id)) {
+      return res.status(403).json({ error: `Không có quyền ghi sổ đón trả cho bé ${be.name}` });
+    }
+    const ngayGhi = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
+    if (chanNgoaiNgay(res, ngayGhi, 'ghi và sửa')) return;
+    const luc = chuoi(b.luc, 5) || ngay.bayGio();
+    if (luc && !GIO_RE.test(luc)) {
+      return res.status(400).json({ error: 'Giờ trả bé phải có dạng 16:30' });
+    }
+    const anh = b.anh;
+    if (!anh || typeof anh !== 'string') return res.status(400).json({ error: 'Chưa chọn ảnh' });
+    const phay = anh.indexOf(',');
+    if (phay >= 0 && (anh.length - phay - 1) * 0.75 > TOI_DA_ANH_TRA_BYTE) {
+      return res.status(400).json({ error: 'Ảnh nặng quá, cô chụp lại một khung hình nhỏ hơn nhé' });
+    }
+    let luu;
+    try { luu = uploads.saveDataUrl(anh); }
+    catch (err) { return res.status(400).json({ error: err.message || 'Ảnh chưa gửi lên được' }); }
+
+    try {
+      const anhCu = db.first('dontra_anh_tra',
+        'SELECT file FROM dontra_anh_tra WHERE studentId = ? AND ngay = ?', [be.id, ngayGhi]);
+      db.run(`INSERT INTO dontra_anh_tra (studentId, ngay, file, taoLuc, byUserId) VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(studentId, ngay) DO UPDATE SET file = excluded.file, taoLuc = excluded.taoLuc, byUserId = excluded.byUserId`,
+        [be.id, ngayGhi, luu.file, new Date().toISOString(), req.user.id]);
+
+      // GIỮ NGUYÊN dòng đã ghi nếu cô đã ghi tên người đón từ trước: chụp thêm
+      // một tấm không được xoá mất cái tên cô đã ghi rõ.
+      const cu = db.first('dontra_ghi',
+        'SELECT * FROM dontra_ghi WHERE studentId = ? AND ngay = ?', [be.id, ngayGhi]);
+      const rec = {
+        studentId: be.id, ngay: ngayGhi, luc,
+        nguoiDon: cu ? cu.nguoiDon : NHAN_TRA_BANG_ANH,
+        nguonLoai: cu ? cu.nguonLoai : 'anh',
+        nguonId: cu ? cu.nguonId : '',
+        ghiChu: cu ? cu.ghiChu : '',
+        coGhi: req.user.id, capNhatLuc: new Date().toISOString(),
+      };
+      if (cu) db.update('dontra_ghi', cu.id, rec);
+      else db.insert('dontra_ghi', { id: db.nextId('dtg'), ...rec });
+      if (anhCu && anhCu.file && anhCu.file !== luu.file) {
+        try { uploads.remove(anhCu.file); } catch (_) { /* tệp đã mất thì thôi */ }
+      }
+      db.audit(req.user.id, 'dontra-tra-bang-anh', be.id, { ngay: ngayGhi, luc });
+      res.status(201).json({ ok: true, ...rec, file: luu.file, coGhiTen: tenNguoi(req.user.id) });
+    } catch (err) {
+      // Ghi sổ hỏng thì tấm ảnh vừa lưu không còn ai trỏ tới — bỏ đi ngay,
+      // đừng để lại một khung hình mồ côi trong kho ảnh của trường.
+      try { uploads.remove(luu.file); } catch (_) { /* thôi */ }
+      throw err;
+    }
+  });
+
   app.post('/api/dontra/ghi', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const be = db.findStudent(String(b.studentId || '').trim());
@@ -680,8 +765,12 @@ module.exports = (app, { db }) => {
     // Sang năm gia đình gỡ cô giúp việc khỏi danh sách thì sổ tháng Chín vẫn
     // phải nói đúng hôm đó ai đón bé, chứ không hiện một dòng trống.
     let nguoiDon = chuoi(b.nguoiDon, TOI_DA_TEN);
-    let nguonLoai = ['thuong-xuyen', 'uy-quyen', 'khac', 'giu'].includes(String(b.nguonLoai || ''))
+    let nguonLoai = ['thuong-xuyen', 'uy-quyen', 'khac', 'giu', 'anh'].includes(String(b.nguonLoai || ''))
       ? b.nguonLoai : 'khac';
+    // 'anh' = trao bé xong chụp một tấm, KHÔNG gõ tên (Đ128) — xem đường
+    // /api/dontra/tra-bang-anh bên dưới. Tên người đón là chính tấm ảnh, nên
+    // ô tên được điền sẵn một nhãn cố định thay vì để trống.
+    if (nguonLoai === 'anh') nguoiDon = nguoiDon || NHAN_TRA_BANG_ANH;
     let nguonId = chuoi(b.nguonId, 40);
 
     // 'giu' = GIỮ NGUYÊN NGƯỜI ĐÓN đã ghi của ngày đó, chỉ sửa giờ / ghi chú.

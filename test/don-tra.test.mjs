@@ -808,6 +808,73 @@ console.log('\n[17] SỔ ĐÓN TRẢ CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH N
   check('gia đình vẫn uỷ quyền TRƯỚC cho ngày mai được', uyMoi.status === 201, uyMoi.status);
 }
 
+// ===========================================================================
+console.log('\n[18] TRẢ BÉ CHỈ BẰNG MỘT TẤM ẢNH — cô không phải gõ tên (Đ128)');
+{
+  const BE = 's3';   // bé chưa dính tới các mục trên, để đếm cho sạch
+  const tep = (file) => path.join(DIR, 'uploads', file);
+  const soCua = async (studentId = BE, cookie = GV) =>
+    (await req('GET', `/api/dontra/nhom?classId=c1&ngay=${HOM_NAY}`, { cookie }))
+      .data?.danhSach?.find(x => x.studentId === studentId);
+
+  const truoc = await soCua();
+  check('đối chứng — bé này chưa có dòng trả nào hôm nay', !truoc?.daTra, truoc?.daTra);
+
+  const r = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: ANH } });
+  check('MỘT LỜI GỌI: chụp ảnh là ghi sổ luôn → 201', r.status === 201, `${r.status} ${JSON.stringify(r.data).slice(0, 140)}`);
+  check('trả về tên tệp ảnh', !!(r.data && r.data.file), r.data);
+  check('và ghi nguồn là "anh" — sổ nói đúng thứ đã xảy ra', r.data?.nguonLoai === 'anh', r.data?.nguonLoai);
+  check('ô người đón KHÔNG để trống, mà nói rõ xác nhận bằng ảnh',
+    /ảnh/i.test(r.data?.nguoiDon || ''), r.data?.nguoiDon);
+  check('giờ trả được ghi tự động theo giờ Việt Nam', /^\d{2}:\d{2}$/.test(r.data?.luc || ''), r.data?.luc);
+  check('tệp ảnh nằm trong kho', fs.existsSync(tep(r.data.file)), r.data.file);
+
+  const sau = await soCua();
+  check('màn cổng thấy bé đã trả', !!sau?.daTra, sau?.daTra);
+  check('và thấy ảnh lúc trả', sau?.anhTra?.file === r.data.file, sau?.anhTra);
+
+  const ho = await hoSo(PH2, BE);
+  check('gia đình của bé đó thấy dòng trong sổ',
+    (ho.soGanDay || []).some(g => g.ngay === HOM_NAY && g.nguonLoai === 'anh'),
+    (ho.soGanDay || []).slice(0, 2));
+
+  // CHỤP LẠI: thay ảnh, KHÔNG sinh dòng thứ hai, và tệp cũ được dọn.
+  const lai = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: ANH } });
+  check('chụp lại → tên tệp mới', lai.status === 201 && lai.data.file !== r.data.file, [r.data.file, lai.data.file]);
+  check('tệp cũ đã bị dọn khỏi kho', !fs.existsSync(tep(r.data.file)), r.data.file);
+  const hoLai = await hoSo(PH2, BE);
+  check('vẫn CHỈ MỘT dòng cho ngày đó', (hoLai.soGanDay || []).filter(g => g.ngay === HOM_NAY).length === 1);
+
+  // ĐƯỜNG GÕ TÊN VẪN CÒN, và tên cô đã ghi rõ thì chụp thêm KHÔNG xoá mất.
+  const ghiTen = await req('POST', '/api/dontra/ghi', {
+    cookie: GV, body: { studentId: BE, nguonLoai: 'khac', nguoiDon: 'Bà ngoại bé', luc: '16:40' },
+  });
+  check('cô vẫn ghi rõ tên người đón được khi cần', ghiTen.status === 200, ghiTen.status);
+  const themAnh = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: ANH } });
+  check('chụp thêm một tấm sau khi đã ghi tên → vẫn 201', themAnh.status === 201, themAnh.status);
+  check('TÊN CÔ ĐÃ GHI RÕ KHÔNG BỊ THAY BẰNG NHÃN ẢNH',
+    themAnh.data?.nguoiDon === 'Bà ngoại bé' && themAnh.data?.nguonLoai === 'khac', themAnh.data);
+
+  // Phân quyền và đầu vào — cùng luật với mọi đường ghi khác của phân hệ.
+  check('phụ huynh KHÔNG dùng được đường này (403)',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: PH, body: { studentId: BE, anh: ANH } })).status === 403);
+  check('cô nhóm khác KHÔNG dùng được (403)',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV2, body: { studentId: BE, anh: ANH } })).status === 403);
+  check('không có ảnh → 400',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE } })).status === 400);
+  check('bé không tồn tại → 404',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: 'khong-co', anh: ANH } })).status === 404);
+  const nang = 'data:image/png;base64,' + 'A'.repeat(1300 * 1024);
+  const rNang = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: nang } });
+  check('ảnh nặng quá trần → 400, nói bằng tiếng của trường',
+    rNang.status === 400 && /nặng/.test(rNang.data?.error || ''), rNang.data);
+  const ngayCu = await req('POST', '/api/dontra/tra-bang-anh',
+    { cookie: GV, body: { studentId: BE, ngay: dich(-1), anh: ANH } });
+  check('ngày đã khoá thì đường nhanh cũng bị chặn (Đ127b)', ngayCu.status === 400, ngayCu.status);
+  check('và không để lại tấm ảnh mồ côi nào trong kho',
+    !(ngayCu.data && ngayCu.data.file), ngayCu.data);
+}
+
 sv.dung();
 donThuMucTam(DIR);
 tongKet();

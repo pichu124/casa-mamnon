@@ -130,6 +130,19 @@ sửa **cách dựng** của chúng, không nới một câu khẳng định nà
 phép kiểm cho chính luật mới, kể cả phép kiểm rằng gọi thẳng máy chủ (không
 qua giao diện) cũng bị từ chối.
 
+**04/09, chiều — trả bé chỉ bằng một tấm ảnh (Đ128).** Anh thử ở cổng và nói
+gọn: cô không cần gõ tên người đón cho mất thời gian, chụp một tấm là đủ. Nay
+thẻ bé chưa trả có nút "Chụp ảnh trả bé" ngay từ đầu — bấm là mở máy ảnh, chụp
+xong app tự ghi sổ và gửi ảnh cho gia đình. Đường gõ tên vẫn còn làm đường phụ.
+
+Một chỗ tôi phải nói thẳng vì nó là đánh đổi thật: khi cô chỉ chụp ảnh, sổ ghi
+"Xác nhận bằng ảnh lúc trả" thay cho một cái tên, và gia đình đọc thành "Cô đã
+trao bé lúc 16:35" kèm tấm ảnh. Nghĩa là sau này muốn tra "hôm đó ai đón bé"
+thì phải nhận mặt qua ảnh, chứ không đọc được một cái tên. Với việc thường
+ngày thì ảnh chắc hơn tên gõ tay; nhưng nếu có ngày phải tra lại một buổi
+chiều cách đây ba tháng, đó là chỗ khác biệt. Nút ghi tên vẫn còn để cô dùng
+những hôm cần chắc.
+
 Vòng rà đối kháng sau đó bắt được một lỗi của chính tôi, và là loại đáng sợ
 nhất: bảng nhớ sổ trả bé theo tháng chỉ được thay sau khi máy chủ trả lời, nên
 một lần hỏi hỏng là hộp chi tiết ngày của bé đang xem hiện tên người đón của
