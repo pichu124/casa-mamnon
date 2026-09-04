@@ -28,6 +28,7 @@ import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, 
 import fs from 'fs';
 import { execFileSync } from 'child_process';
 import path from 'path';
+import Database from 'better-sqlite3';
 import { GOC } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -680,10 +681,21 @@ console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho l�
   const [y, m] = thangNay.split('-').map(Number);
   const thangTruoc = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
   const ngayCu = `${thangTruoc}-10`;
-  const ghiCu = await req('POST', '/api/dontra/ghi', {
-    cookie: GV, body: { studentId: BE, ngay: ngayCu, nguonLoai: 'khac', nguoiDon: 'Bà nội', luc: '16:10' },
-  });
-  check('cô ghi được một dòng của tháng trước (ngày đã qua)', ghiCu.status === 200, ghiCu.data);
+  // DÒNG CỦA THÁNG TRƯỚC GHI THẲNG VÀO BẢNG.
+  //
+  // Từ Đ127b, `POST /api/dontra/ghi` chỉ nhận đúng ngày hôm nay. Mục này đo
+  // chuyện KHÁC: sổ theo tháng có lọc đúng tháng không. Nên tình huống dựng
+  // thẳng vào bảng, còn luật ngày thì có mục [17] canh riêng ngay dưới.
+  {
+    const conn = new Database(path.join(DIR, 'school.db'));
+    conn.prepare(`INSERT INTO dontra_ghi (id, studentId, ngay, luc, nguoiDon, nguonLoai, nguonId, ghiChu, coGhi, capNhatLuc)
+      VALUES ('dtg_thu_cu', ?, ?, '16:10', 'Bà nội', 'khac', '', '', NULL, ?)
+      ON CONFLICT(studentId, ngay) DO UPDATE SET nguoiDon = excluded.nguoiDon`)
+      .run(BE, ngayCu, `${ngayCu}T09:10:00.000Z`);
+    conn.close();
+  }
+  check('dựng được một dòng của tháng trước để thử phép lọc tháng',
+    (await req('GET', `/api/dontra/so?studentId=${BE}&thang=${thangTruoc}`, { cookie: PH })).status === 200);
 
   const so = async (cookie, q) => req('GET', `/api/dontra/so?${q}`, { cookie });
   const me = await so(PH, `studentId=${BE}&thang=${thangNay}`);
@@ -750,6 +762,50 @@ console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho l�
   }
   check('nhãn bé còn chờ đón là "Còn ở lớp" màu xám — không cam, không đỏ (QUY TẮC 2)',
     /badge\('Còn ở lớp', 'gray'\)/.test(vw) && !/Chưa trả/.test(vw));
+}
+
+// ===========================================================================
+console.log('\n[17] SỔ ĐÓN TRẢ CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH NGÀY HÔM ĐÓ (Đ127b)');
+{
+  const BE = 's1';
+  // Nhà trường chốt 04/09, cùng luật với sổ điểm danh. Ở cuốn sổ này lý do còn
+  // nặng hơn: mỗi dòng nói trường đã trao một đứa trẻ cho ai, và đó là chứng
+  // cứ duy nhất khi có tranh chấp.
+  for (const [ten, ngay] of [['hôm qua', dich(-1)], ['ngày mai', dich(1)], ['tháng trước', dich(-31)]]) {
+    const ghi = await req('POST', '/api/dontra/ghi',
+      { cookie: GV, body: { studentId: BE, ngay, nguonLoai: 'khac', nguoiDon: 'Mẹ bé', luc: '16:30' } });
+    check(`KHÔNG ghi sổ trả bé cho ${ten} (${ngay})`, ghi.status === 400, `${ghi.status} ${JSON.stringify(ghi.data).slice(0, 120)}`);
+    check(`câu từ chối ${ten} nói bằng tiếng của trường, nêu rõ ngày`,
+      /chỉ ghi và sửa được trong chính ngày hôm đó/.test(ghi.data?.error || '')
+        && (ghi.data?.error || '').includes(ngay), ghi.data?.error);
+    const chup = await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE, ngay, anh: ANH } });
+    check(`KHÔNG gắn được ảnh lúc trả cho ${ten}`, chup.status === 400, chup.status);
+    const go = await req('POST', '/api/dontra/anh-tra/go', { cookie: GV, body: { studentId: BE, ngay } });
+    check(`KHÔNG gỡ được ảnh lúc trả của ${ten}`, go.status === 400, go.status);
+  }
+  // Văn phòng cũng không có ngoại lệ — luật là của cuốn sổ, không của vai.
+  const vp = await req('POST', '/api/dontra/ghi',
+    { cookie: VP, body: { studentId: BE, ngay: dich(-1), nguonLoai: 'khac', nguoiDon: 'Mẹ bé' } });
+  check('văn phòng cũng KHÔNG sửa được sổ của ngày đã qua', vp.status === 400, vp.status);
+
+  // XEM LẠI THÌ KHÔNG CHẶN — khoá là khoá đường ghi, không phải khoá cuốn sổ.
+  const xemNhom = await req('GET', `/api/dontra/nhom?classId=c1&ngay=${dich(-1)}`, { cookie: GV });
+  check('màn cổng vẫn mở được ngày đã qua để xem lại', xemNhom.status === 200, xemNhom.status);
+  const xemSo = await req('GET', `/api/dontra/so?studentId=${BE}&thang=${HOM_NAY.slice(0, 7)}`, { cookie: PH });
+  check('gia đình vẫn tra được sổ theo tháng', xemSo.status === 200, xemSo.status);
+
+  // Hồ sơ của GIA ĐÌNH thì KHÔNG dính luật ngày: người được đón và uỷ quyền
+  // một lần không gắn với một ngày nào, và uỷ quyền vốn là khai TRƯỚC.
+  // Bé s2 — con thứ hai của cùng nhà: bé s1 đã bị mục [10] bơm đầy tới trần
+  // người đón, nên dùng nó ở đây là đo nhầm cái trần đó.
+  const BE2 = 's2';
+  const nguoiMoi = await req('POST', '/api/dontra/nguoi',
+    { cookie: PH, body: { studentId: BE2, hoTen: 'Bác Tư hàng xóm', quanHe: 'Hàng xóm' } });
+  check('gia đình vẫn khai thêm được người đón thường xuyên', nguoiMoi.status === 201,
+    `${nguoiMoi.status} ${JSON.stringify(nguoiMoi.data).slice(0, 120)}`);
+  const uyMoi = await req('POST', '/api/dontra/uyquyen',
+    { cookie: PH, body: { studentId: BE2, hoTen: 'Chú Năm', tuNgay: dich(1), denNgay: dich(2), lyDo: 'Bố mẹ đi công tác' } });
+  check('gia đình vẫn uỷ quyền TRƯỚC cho ngày mai được', uyMoi.status === 201, uyMoi.status);
 }
 
 sv.dung();

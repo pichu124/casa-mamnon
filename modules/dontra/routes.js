@@ -56,6 +56,36 @@ function homNay() {
   return ngay.homNay();
 }
 
+// SỔ ĐÓN TRẢ CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH NGÀY HÔM ĐÓ (Đ127b).
+//
+// Nhà trường chốt 04/09, cùng luật với sổ điểm danh: "các cô chỉ được phép sửa
+// thông tin trong ngày".
+//
+// Ở cuốn sổ NÀY thì lý do còn nặng hơn. Sổ điểm danh sai là một con số suất ăn
+// sai; sổ đón trả sai là một dòng nói trường đã trao đứa trẻ cho ai — và đó là
+// chứng cứ DUY NHẤT khi có tranh chấp. Một dòng sửa được sau nhiều ngày thì
+// không còn là chứng cứ nữa, kể cả khi không ai định gian: chỉ cần nhớ nhầm
+// một buổi chiều cách đây hai tuần là sổ ghi sai mà không ai biết.
+//
+// BA ĐƯỜNG BỊ KHOÁ, VÀ CHỈ BA: ghi sổ trả bé, gắn ảnh lúc trả, gỡ ảnh lúc trả.
+// Danh sách người được đón và uỷ quyền một lần KHÔNG đụng tới — chúng là hồ sơ
+// của GIA ĐÌNH, không gắn với một ngày, và uỷ quyền thì bản chất là khai trước
+// cho những ngày sắp tới.
+//
+// XEM LẠI THÌ KHÔNG CHẶN. Màn cổng và sổ theo tháng của gia đình mở được mọi
+// ngày; chỉ đường GHI mới khoá.
+function chanNgoaiNgay(res, ngayGhi, viec) {
+  const hn = homNay();
+  if (ngayGhi === hn) return false;
+  res.status(400).json({
+    error: `Sổ đón trả chỉ ${viec} được trong chính ngày hôm đó. `
+      + `Ngày ${ngayGhi} ${ngayGhi > hn ? 'chưa tới' : 'đã khoá'} — cô vẫn xem lại được, nhưng không sửa nữa.`,
+    ngayKhoa: ngayGhi,
+    homNay: hn,
+  });
+  return true;
+}
+
 function chuoi(v, tran) {
   return String(v == null ? '' : v).trim().slice(0, tran);
 }
@@ -583,7 +613,7 @@ module.exports = (app, { db }) => {
       return res.status(403).json({ error: `Không có quyền ghi sổ đón trả cho bé ${be.name}` });
     }
     const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
-    if (ngay > homNay()) return res.status(400).json({ error: 'Chưa chụp ảnh trả bé cho ngày chưa tới được' });
+    if (chanNgoaiNgay(res, ngay, 'gắn ảnh')) return;
     const anh = b.anh;
     if (!anh || typeof anh !== 'string') return res.status(400).json({ error: 'Chưa chọn ảnh' });
     const phay = anh.indexOf(',');
@@ -617,6 +647,7 @@ module.exports = (app, { db }) => {
     const studentId = String(b.studentId || '').trim();
     const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
     if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (chanNgoaiNgay(res, ngay, 'gỡ ảnh')) return;
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }
@@ -638,9 +669,7 @@ module.exports = (app, { db }) => {
       return res.status(403).json({ error: `Không có quyền ghi sổ đón trả cho bé ${be.name}` });
     }
     const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
-    if (ngay > homNay()) {
-      return res.status(400).json({ error: 'Chưa ghi sổ trả bé cho ngày chưa tới được' });
-    }
+    if (chanNgoaiNgay(res, ngay, 'ghi và sửa')) return;
     const luc = chuoi(b.luc, 5);
     if (luc && !GIO_RE.test(luc)) {
       return res.status(400).json({ error: 'Giờ trả bé phải có dạng 16:30' });

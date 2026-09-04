@@ -112,6 +112,24 @@ trước khi dựng; hai ý hay ghép từ bản không thắng: bấm vào ản
 hộp ghi mở với đúng người đó chọn sẵn, và ghi xong thẻ bé đổi tại chỗ chứ
 không bị ném về đầu danh sách.
 
+**04/09, trưa — giờ Việt Nam, ngày tiếng Việt, và sổ điểm danh khoá ngoài
+ngày (Đ127).** Anh nêu ba việc sau buổi thử. Thứ nhất, giờ: máy chủ vốn đã
+đóng cứng UTC+7, nhưng phía điện thoại thì app vẫn hỏi giờ MÁY — đúng khi máy
+đặt đúng múi giờ, và chỉ khi ấy. Nay trình duyệt có định nghĩa riêng cộng đúng
+7 tiếng vào đồng hồ tuyệt đối, mười ba chỗ trong app chuyển sang dùng, và có
+bộ canh mới để không màn nào quay về hỏi giờ máy. Thứ hai, ô chọn ngày là ô
+của hệ điều hành nên máy để tiếng Anh thì mùng 4 tháng 9 hiện ra "09/04/2026";
+app không đổi được cách ô đó hiện, nên tôi viết thêm một dòng tiếng Việt ngay
+bên cạnh. Thứ ba, sổ điểm danh nay chỉ ghi và sửa được trong chính ngày hôm
+đó — luật đặt ở máy chủ chứ không ở màn hình, vì điện thoại đã cài app còn giữ
+giao diện cũ và bản cũ gửi được ngày bất kỳ. Xem lại thì không chặn: khoá là
+khoá đường ghi, không phải khoá cuốn sổ.
+
+Hai bài canh cũ dựng tình huống bằng cách chấm điểm danh cho ngày khác. Tôi
+sửa **cách dựng** của chúng, không nới một câu khẳng định nào — và thêm 20
+phép kiểm cho chính luật mới, kể cả phép kiểm rằng gọi thẳng máy chủ (không
+qua giao diện) cũng bị từ chối.
+
 Vòng rà đối kháng sau đó bắt được một lỗi của chính tôi, và là loại đáng sợ
 nhất: bảng nhớ sổ trả bé theo tháng chỉ được thay sau khi máy chủ trả lời, nên
 một lần hỏi hỏng là hộp chi tiết ngày của bé đang xem hiện tên người đón của

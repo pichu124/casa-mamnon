@@ -19,6 +19,29 @@ App.views.dontra = {
 
   laGiaDinh() { return App.state.user.role === 'parent'; },
 
+  // NGÀY KHÁC HÔM NAY THÌ CHỈ XEM LẠI (Đ127b).
+  //
+  // Cùng luật với sổ điểm danh, và cùng lý do — mạnh hơn: sổ này là dòng nói
+  // trường đã trao đứa trẻ cho ai, và là chứng cứ duy nhất khi có tranh chấp.
+  // Máy chủ giữ luật; màn hình chỉ cần đừng mời cô bấm vào thứ chắc chắn bị từ
+  // chối, và nói rõ vì sao.
+  ngayDaKhoa() {
+    return this._ngay !== UI.todayStr();
+  },
+
+  theNgayDaKhoa() {
+    if (!this.ngayDaKhoa()) return '';
+    const mai = this._ngay > UI.todayStr();
+    return `<div class="card" style="border-left:4px solid var(--line-strong)">
+      <div class="card-title">${UI.icon('clock', 16)} ${mai ? 'Ngày này chưa tới' : 'Ngày này đã khoá'}</div>
+      <div class="muted small" style="line-height:1.7">
+        Sổ đón trả chỉ ghi và sửa được trong chính ngày hôm đó, nên ${mai
+          ? 'ngày chưa tới thì chưa ghi được.'
+          : 'ngày đã qua chỉ mở ra xem lại — đây là chỗ tra sau cùng khi cần biết hôm đó trường trao bé cho ai.'}
+      </div>
+    </div>`;
+  },
+
   async render(root) {
     this._ngay = this._ngay || UI.todayStr();
     if (this.laGiaDinh()) return this.manGiaDinh(root);
@@ -93,6 +116,7 @@ App.views.dontra = {
           <div class="field" style="margin:0">
             <label>Ngày</label>
             <input type="date" id="dt-ngay" value="${UI.esc(this._ngay)}" max="${UI.esc(UI.todayStr())}">
+            ${UI.dongNgayViet(this._ngay)}
           </div>
           ${nhom.length > 1 ? `
             <div class="field" style="margin:0">
@@ -105,6 +129,7 @@ App.views.dontra = {
         <div class="muted small mt-8" id="dt-tong">${this.htmlTong(d)}</div>
         ${this.dongChiDuongDiemDanh()}
       </div>
+      ${this.theNgayDaKhoa()}
       <div id="dt-so">${this.htmlDanhSachCong(d)}</div>`;
 
     document.getElementById('dt-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };
@@ -199,6 +224,7 @@ App.views.dontra = {
     }
     el.innerHTML = `
       <div class="card"><div class="muted small" id="dt-tong">${this.htmlTong(d)}</div></div>
+      ${this.theNgayDaKhoa()}
       <div id="dt-so">${this.htmlDanhSachCong(d)}</div>`;
     this.ganSuKienCong(el);
   },
@@ -229,15 +255,17 @@ App.views.dontra = {
   // không phải chụp một bé còn đang ở lớp. "Đã gửi", không phải "đã thấy" —
   // app không có đường nào biết gia đình đã mở ảnh ra xem.
   oAnhTra(b) {
+    const khoa = this.ngayDaKhoa();
     if (b.anhTra && b.anhTra.file) {
       return `
         <div class="flex" style="align-items:center;gap:8px;margin-bottom:8px">
           <img src="/api/dontra/anh/${UI.esc(b.anhTra.file)}" alt="Ảnh ${UI.esc(b.hoTen)} lúc trả"
             style="width:54px;height:54px;border-radius:10px;object-fit:cover;background:var(--line)">
           <span class="small" style="color:var(--success)">Ảnh lúc trả đã gửi cho gia đình</span>
-          <button class="btn sm outline" data-go-anh-tra="${UI.esc(b.studentId)}">Gỡ</button>
+          ${khoa ? '' : `<button class="btn sm outline" data-go-anh-tra="${UI.esc(b.studentId)}">Gỡ</button>`}
         </div>`;
     }
+    if (khoa) return '';
     return `
       <button class="btn sm outline" style="margin-bottom:8px" data-anh-tra="${UI.esc(b.studentId)}">
         ${UI.icon('album', 14)} Chụp ảnh lúc trả bé
@@ -331,12 +359,14 @@ App.views.dontra = {
           <div class="section-label">Hôm nay gia đình uỷ quyền</div>
           ${uy.map(u => this.theNguoi(u, {
             phu: `${UI.fmtDate(u.tuNgay, { weekday: false })} – ${UI.fmtDate(u.denNgay, { weekday: false })}${u.lyDo ? ` · ${u.lyDo}` : ''}`,
-            chon: `uy-quyen|${u.id}`, be: chonBe,
+            chon: this.ngayDaKhoa() ? '' : `uy-quyen|${u.id}`, be: chonBe,
           })).join('')}` : ''}
 
         <div class="section-label">Người đón thường xuyên</div>
         ${(b.nguoiThuongXuyen || []).length
-          ? (b.nguoiThuongXuyen || []).map(n => this.theNguoi(n, { chon: `thuong-xuyen|${n.id}`, be: chonBe })).join('')
+          ? (b.nguoiThuongXuyen || []).map(n => this.theNguoi(n, {
+              chon: this.ngayDaKhoa() ? '' : `thuong-xuyen|${n.id}`, be: chonBe,
+            })).join('')
           : `<div class="small" style="color:var(--danger);line-height:1.6">
                Gia đình chưa khai ai được đón bé. Cô nhắc gia đình vào mục Đón trả bé khai giúp trường nhé.
              </div>`}
@@ -358,9 +388,10 @@ App.views.dontra = {
             }).join('')}
           </details>` : ''}
 
+        ${this.ngayDaKhoa() ? '' : `
         <button class="btn ${b.daTra ? 'outline' : 'primary'} block mt-14" data-tra="${UI.esc(b.studentId)}">
           ${UI.icon('check', 18)} ${b.daTra ? 'Sửa lại người đã đón' : 'Ghi: đã trả bé'}
-        </button>
+        </button>`}
       </div>`;
   },
 
@@ -393,7 +424,7 @@ App.views.dontra = {
       ...(b.uyQuyenHomNay || []).map(u => ({ loai: 'uy-quyen', id: u.id, ten: `${u.hoTen} — uỷ quyền hôm nay` })),
     ];
     const cu = b.daTra;
-    const gio = (cu && cu.luc) || new Date().toTimeString().slice(0, 5);
+    const gio = (cu && cu.luc) || UI.gioVN();   // giờ Việt Nam, không phải giờ máy
     // Bản ghi cũ có thể trỏ tới người KHÔNG còn trong danh sách chọn: uỷ quyền
     // chỉ sống trong hôm đó, người thường xuyên thì gỡ được. Trước đây các
     // trường hợp ấy rơi im lặng về lựa chọn ĐẦU TIÊN — cô mở sổ ra chỉ để sửa

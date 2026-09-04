@@ -409,6 +409,106 @@ console.log('\n[6] Trang chủ: cô chỉ còn một cửa, gia đình và văn 
     await page.locator('.tile-label').allInnerTexts());
 }
 
+// ===========================================================================
+console.log('\n[7] Giờ Việt Nam, ngày viết bằng tiếng Việt, và ngày khác thì chỉ xem lại');
+{
+  await dangNhap('giaovien', '123456');
+  loiJs = [];
+  await moMan('#/attendance');
+
+  // GIỜ VIỆT NAM, KHÔNG PHẢI GIỜ MÁY (Đ127). Máy chạy bài test có thể đang ở
+  // múi giờ bất kỳ, nên bài tự tính mốc chuẩn từ đồng hồ tuyệt đối rồi so.
+  const giờ = await page.evaluate(() => {
+    const vn = new Date(Date.now() + 7 * 3600 * 1000).toISOString();
+    return {
+      homNayApp: UI.todayStr(), homNayVN: vn.slice(0, 10),
+      gioApp: UI.gioVN(), gioVN: vn.slice(11, 16),
+      fmtApp: UI.fmtTime('2026-09-04T03:26:00.000Z'),
+      thuApp: UI.thuVN(), thuVN: new Date(Date.now() + 7 * 3600 * 1000).getUTCDay(),
+    };
+  });
+  check('"hôm nay" của app là hôm nay của Việt Nam', giờ.homNayApp === giờ.homNayVN, giờ);
+  check('giờ phút của app là giờ Việt Nam', giờ.gioApp === giờ.gioVN, giờ);
+  check('mốc thời gian đầy đủ đọc ra giờ Việt Nam (03:26 UTC → 10:26)', giờ.fmtApp === '10:26', giờ.fmtApp);
+  check('thứ trong tuần cũng theo giờ Việt Nam', giờ.thuApp === giờ.thuVN, giờ);
+
+  // DÒNG NGÀY TIẾNG VIỆT. Ô ngày là ô của hệ điều hành: máy để tiếng Anh thì
+  // mùng 4 tháng 9 hiện ra "09/04/2026" và cô đọc thành mùng 9 tháng 4.
+  const man = await chu();
+  const hnVN = giờ.homNayVN;
+  const ngayViet = `${hnVN.slice(8, 10)}/${hnVN.slice(5, 7)}/${hnVN.slice(0, 4)}`;
+  check('cạnh ô ngày có dòng ngày tiếng Việt kèm thứ', new RegExp(`Thứ .*${ngayViet}|Chủ nhật, ${ngayViet}`).test(man), man.slice(0, 300));
+  check('và nói rõ đang là hôm nay', /· hôm nay/.test(man), man.slice(0, 300));
+  check('ô ngày không cho chọn ngày mai (trần là hôm nay)',
+    await page.locator('#view input[type=date]').first().getAttribute('max') === hnVN);
+
+  // NGÀY KHÁC HÔM NAY: CHỈ XEM LẠI.
+  const soNutTruoc = await dem('[id^="att-dong-"] button');
+  check('đối chứng — hôm nay có nút chấm điểm danh', soNutTruoc > 0, soNutTruoc);
+  const homQua = await page.evaluate(() => {
+    const d = new Date(Date.now() + 7 * 3600 * 1000 - 86400000);
+    return d.toISOString().slice(0, 10);
+  });
+  await page.evaluate((d) => App.views.attendance.setDate(d), homQua);
+  await page.waitForTimeout(1200);
+  const manCu = await chu();
+  check('ngày đã qua → nói rõ "Ngày này đã khoá"', /Ngày này đã khoá/.test(manCu), manCu.slice(0, 300));
+  check('nói rõ vì sao, bằng tiếng của trường',
+    /chỉ ghi và sửa được trong chính ngày hôm đó/.test(manCu), manCu.slice(0, 400));
+  check('KHÔNG còn nút chấm điểm danh nào', await dem('[id^="att-dong-"] button') === 0);
+  check('KHÔNG còn nút "Cả nhóm có mặt"', !/Cả nhóm có mặt/.test(manCu));
+  check('KHÔNG còn nút chụp ảnh con tới lớp', !/Chụp ảnh con tới lớp/.test(manCu));
+  check('vẫn xem lại được — có tên bé và trạng thái đã ghi hôm đó',
+    /Nguyễn Bảo An/.test(manCu) && /(Có mặt|Nghỉ|Đến muộn|cô chưa chấm)/.test(manCu), manCu.slice(0, 400));
+  check('dòng ngày tiếng Việt đổi theo ngày đang xem, và bỏ chữ "hôm nay"',
+    !/· hôm nay/.test(manCu), manCu.slice(0, 200));
+
+  // Máy chủ giữ luật, không chỉ giao diện: gọi thẳng đường ghi cũng bị từ chối.
+  const thu = await page.evaluate(async (d) => {
+    const be = (App.views.attendance._roster || [])[0];
+    try {
+      await API.post('/api/attendance/mark', { studentId: be.student.id, date: d, status: 'present' });
+      return { ok: true };
+    } catch (e) { return { ok: false, loi: e.message || '' }; }
+  }, homQua);
+  check('gọi thẳng máy chủ cho ngày cũ vẫn bị từ chối', thu.ok === false, thu);
+  check('câu từ chối của máy chủ nói bằng tiếng của trường',
+    /chỉ ghi và sửa được trong chính ngày hôm đó/.test(thu.loi || ''), thu.loi);
+
+  await page.locator('button', { hasText: 'Về ngày hôm nay' }).click();
+  await page.waitForTimeout(1200);
+  check('bấm "Về ngày hôm nay" → chấm lại được', await dem('[id^="att-dong-"] button') > 0);
+
+  // SỔ ĐÓN TRẢ CŨNG KHOÁ NGOÀI NGÀY (Đ127b) — nhà trường chốt cùng luật.
+  await page.evaluate((d) => { App.views.attendance.setDate(d); }, homQua);
+  await page.waitForTimeout(600);
+  await page.evaluate(() => { location.hash = '#/attendance/tra'; });
+  await page.waitForTimeout(1500);
+  const manTraCu = await chu();
+  check('phần Trả bé của ngày cũ cũng nói "Ngày này đã khoá"', /Ngày này đã khoá/.test(manTraCu), manTraCu.slice(0, 300));
+  check('nói rõ đây là chỗ tra lại xem hôm đó trường trao bé cho ai',
+    /trao bé cho ai/.test(manTraCu), manTraCu.slice(0, 400));
+  check('KHÔNG còn nút ghi trả bé nào', await dem('[data-tra]') === 0);
+  check('KHÔNG còn nút chụp hay gỡ ảnh lúc trả',
+    await dem('[data-anh-tra]') === 0 && await dem('[data-go-anh-tra]') === 0);
+  check('ảnh người đón KHÔNG còn bấm được để mở hộp ghi', await dem('[data-chon-nguoi]') === 0);
+  check('vẫn xem lại được — có tên bé của nhóm', /Nguyễn Bảo An/.test(manTraCu), manTraCu.slice(0, 300));
+  const thuTra = await page.evaluate(async (d) => {
+    try {
+      await API.post('/api/dontra/ghi', { studentId: 's1', ngay: d, nguonLoai: 'khac', nguoiDon: 'Ai đó' });
+      return { ok: true };
+    } catch (e) { return { ok: false, loi: e.message || '' }; }
+  }, homQua);
+  check('gọi thẳng máy chủ để ghi sổ trả cho ngày cũ vẫn bị từ chối', thuTra.ok === false, thuTra);
+  check('câu từ chối là của SỔ ĐÓN TRẢ, nói bằng tiếng của trường',
+    /Sổ đón trả chỉ ghi và sửa được trong chính ngày hôm đó/.test(thuTra.loi || ''), thuTra.loi);
+
+  await page.evaluate(() => { App.views.attendance.setDate(UI.todayStr()); });
+  await page.waitForTimeout(1500);
+  check('về hôm nay thì phần Trả bé ghi lại được', await dem('[data-tra]') > 0);
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+}
+
 check('không có lỗi JavaScript nào còn sót', loiJs.length === 0, loiJs);
 await browser.close();
 sv.dung();
