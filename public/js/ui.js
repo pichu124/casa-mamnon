@@ -44,6 +44,55 @@ window.UI = (() => {
   }
 
   // ---- Định dạng ngày giờ tiếng Việt ----
+  //
+  // GIỜ VIỆT NAM, KHÔNG PHẢI GIỜ CỦA MÁY (Đ127).
+  //
+  // Máy chủ có một định nghĩa duy nhất cho chữ "hôm nay": UTC+7, đóng cứng
+  // trong `lib/ngay.js`, có bộ canh riêng. Trình duyệt trước đây hỏi giờ MÁY —
+  // và điều đó chỉ đúng khi máy của cô đang đặt múi giờ Việt Nam.
+  //
+  // Nó không đúng thường xuyên hơn ta tưởng: điện thoại mua xách tay còn để
+  // múi giờ nước ngoài, máy tính của văn phòng cài lại hệ điều hành xong quên
+  // đổi, máy tính bảng dùng chung ở lớp đặt sai từ đầu. Khi đó màn hình nói
+  // một ngày, máy chủ ghi một ngày khác — và từ Đ127 thì cô còn bị máy chủ từ
+  // chối vì "ngày này đã khoá", trong khi trên màn hình rõ ràng là hôm nay.
+  //
+  // ĐỒNG HỒ TUYỆT ĐỐI CỦA MÁY VẪN DÙNG ĐƯỢC. `Date.now()` là số mili giây kể
+  // từ mốc UTC, không phụ thuộc múi giờ máy đang đặt; chỉ cách ĐỌC ra ngày giờ
+  // mới phụ thuộc. Nên cộng đúng 7 tiếng rồi đọc theo UTC là ra giờ Việt Nam,
+  // dù máy đang đặt múi giờ nào.
+  const LECH_PHUT_VN = 7 * 60;   // Việt Nam: UTC+7, không có giờ mùa hè
+  function mocVN(moc) {
+    const t = moc === undefined ? Date.now()
+      : (moc instanceof Date ? moc.getTime() : (typeof moc === 'number' ? moc : Date.parse(moc)));
+    return Number.isFinite(t) ? new Date(t + LECH_PHUT_VN * 60000) : null;
+  }
+  // Ngày (YYYY-MM-DD) theo giờ Việt Nam của một mốc bất kỳ; không truyền thì là bây giờ.
+  function ngayVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.toISOString().slice(0, 10) : '';
+  }
+  // Tháng (YYYY-MM) theo giờ Việt Nam.
+  function thangVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.toISOString().slice(0, 7) : '';
+  }
+  // Giờ phút (HH:MM) theo giờ Việt Nam.
+  function gioVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.toISOString().slice(11, 16) : '';
+  }
+  // Giờ trong ngày (0–23) theo giờ Việt Nam — cho câu chào và các mốc trong ngày.
+  function soGioVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.getUTCHours() : 0;
+  }
+  // Thứ trong tuần (0 = Chủ nhật) theo giờ Việt Nam.
+  function thuVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.getUTCDay() : 0;
+  }
+
   const DOW = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
   function parseDate(s) {
     if (s instanceof Date) return s;
@@ -59,9 +108,9 @@ window.UI = (() => {
     const d = parseDate(s);
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
+  // Mốc thời gian đầy đủ (ISO) → giờ phút. Theo GIỜ VIỆT NAM, xem khối đầu mục.
   function fmtTime(s) {
-    const d = new Date(s);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return gioVN(s);
   }
   function timeAgo(s) {
     const diff = Date.now() - new Date(s).getTime();
@@ -74,9 +123,25 @@ window.UI = (() => {
     if (dd < 7) return `${dd} ngày trước`;
     return fmtDate(s, { weekday: false });
   }
+  // "Hôm nay" của TRƯỜNG, theo giờ Việt Nam — cùng một định nghĩa với
+  // `lib/ngay.homNay()` của máy chủ. Giữ nguyên tên và cách gọi để mọi màn
+  // đang dùng không phải sửa; chỉ ruột đổi.
   function todayStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return ngayVN();
+  }
+
+  // Ngày hôm nay viết bằng tiếng Việt, để đặt cạnh ô chọn ngày.
+  //
+  // Ô `<input type="date">` là ô của HỆ ĐIỀU HÀNH: nó hiện theo ngôn ngữ máy,
+  // nên máy để tiếng Anh thì mùng 4 tháng 9 hiện ra "09/04/2026" và cô đọc
+  // thành mùng 9 tháng 4. App không đổi được cách ô đó hiện, nhưng viết được
+  // một dòng bên cạnh bằng tiếng của trường.
+  function dongNgayViet(ngayStr, opts = {}) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ngayStr || ''))) return '';
+    const homNay = todayStr();
+    const phu = ngayStr === homNay ? ' · hôm nay'
+      : (opts.moc && ngayStr === opts.moc ? ` · ${opts.tenMoc || ''}` : '');
+    return `<div class="muted small" style="margin-top:6px">${esc(fmtDate(ngayStr))}${esc(phu)}</div>`;
   }
 
   // ---- Thành phần dựng sẵn ----
@@ -330,6 +395,7 @@ window.UI = (() => {
 
   return {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
+    ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
     pageHeader, avatar, emptyState, studentBar, thanhChonBe, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, RATING, DOW,
     nenAnh,
