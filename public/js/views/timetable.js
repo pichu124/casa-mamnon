@@ -74,7 +74,7 @@ App.views.timetable = {
       return;
     }
     if (!this.day) {
-      const dw = new Date().getDay();
+      const dw = UI.thuVN();   // thứ theo giờ Việt Nam
       this.day = dw >= 1 && dw <= 5 ? dw : 1; // cuối tuần → xem Thứ Hai
     }
 
@@ -177,7 +177,7 @@ App.views.timetable = {
       zone.innerHTML = UI.emptyState('📚', 'Chưa có lịch sinh hoạt cho ngày này');
       return;
     }
-    const isToday = new Date().getDay() === this.day;
+    const isToday = UI.thuVN() === this.day;
     zone.innerHTML = `<div class="card">${subjects.map((sub, i) => this.periodRow(sub, i, isToday)).join('')}</div>`;
   },
 
@@ -218,8 +218,10 @@ App.views.timetable = {
   inPeriod(timeStr) {
     const m = String(timeStr).match(/(\d{1,2}):(\d{2})\D+(\d{1,2}):(\d{2})/);
     if (!m) return false;
-    const now = new Date();
-    const cur = now.getHours() * 60 + now.getMinutes();
+    // Giờ Việt Nam, không phải giờ máy — khung "Đang học" phải đúng với đồng
+    // hồ treo tường ở lớp.
+    const [gio, phut] = UI.gioVN().split(':').map(Number);
+    const cur = gio * 60 + phut;
     return cur >= (+m[1] * 60 + +m[2]) && cur <= (+m[3] * 60 + +m[4]);
   },
 

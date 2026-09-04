@@ -140,7 +140,7 @@ App.views.plans = {
 
   // Danh sách tháng chọn được: tháng trước → 4 tháng tới, gộp thêm các tháng đã soạn.
   cacThangChonDuoc() {
-    const now = new Date();
+    const now = UI.parseDate(UI.todayStr());   // hôm nay của trường, giờ Việt Nam
     const ds = new Map();
     for (let i = -1; i <= 4; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
@@ -152,7 +152,7 @@ App.views.plans = {
 
   // Mở modal soạn cho tháng `ym` dạng "YYYY-M" (mặc định: tháng hiện tại).
   moSoan(ym) {
-    const now = new Date();
+    const now = UI.parseDate(UI.todayStr());
     const [year, month] = (ym || `${now.getFullYear()}-${now.getMonth() + 1}`).split('-').map(Number);
     const p = this._plans.find(x => x.year === year && x.month === month) || null;
     const weeks = (p && p.weeks && p.weeks.length ? p.weeks : []).slice(0, 6);

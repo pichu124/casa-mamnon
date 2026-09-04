@@ -164,7 +164,8 @@ App.views.health = {
     if (!s || !s.dob) return null;
     const ns = UI.parseDate(s.dob);
     if (!ns || Number.isNaN(ns.getTime())) return null;
-    const nay = new Date();
+    // "Bây giờ" theo giờ Việt Nam, không theo múi giờ máy (Đ127).
+    const nay = UI.parseDate(UI.todayStr());
     let thang = (nay.getFullYear() - ns.getFullYear()) * 12 + (nay.getMonth() - ns.getMonth());
     if (nay.getDate() < ns.getDate()) thang -= 1;
     return thang >= 0 ? thang : null;

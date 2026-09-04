@@ -113,7 +113,7 @@ App.views.dashboard = {
 
   // Lời chào theo giờ trong ngày.
   greeting() {
-    const h = new Date().getHours();
+    const h = UI.soGioVN();   // giờ Việt Nam, không phải giờ máy
     if (h < 11) return 'Chào buổi sáng';
     if (h < 14) return 'Chào buổi trưa';
     if (h < 18) return 'Chào buổi chiều';

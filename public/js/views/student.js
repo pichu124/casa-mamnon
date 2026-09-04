@@ -27,7 +27,8 @@ App.views.student = {
     if (!dob) return null;
     const ns = UI.parseDate(dob);
     if (!ns || Number.isNaN(ns.getTime())) return null;
-    const nay = moc ? UI.parseDate(moc) : new Date();
+    // "Bây giờ" theo giờ Việt Nam, không theo múi giờ máy (Đ127).
+    const nay = UI.parseDate(moc || UI.todayStr());
     let thang = (nay.getFullYear() - ns.getFullYear()) * 12 + (nay.getMonth() - ns.getMonth());
     if (nay.getDate() < ns.getDate()) thang -= 1;
     if (thang < 0) return null;          // ngày sinh nhập nhầm sang tương lai

@@ -165,7 +165,7 @@ App.views.surveys = {
   _aud: 'class',
 
   openCreate() {
-    const d = new Date();
+    const d = UI.parseDate(UI.todayStr());   // hôm nay của trường, giờ Việt Nam
     d.setDate(d.getDate() + 7);
     const defDeadline = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     // Phạm vi gửi — cùng khuôn với form Tạo thông báo: cô thấy nhóm mình phụ

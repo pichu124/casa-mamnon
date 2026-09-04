@@ -85,10 +85,11 @@ App.views.hocphi = {
   },
 
   moTao(sid) {
-    const thang = new Date().getMonth() + 1;
+    const homNay = UI.todayStr();              // giờ Việt Nam
+    const thang = Number(homNay.slice(5, 7));
     UI.modal(`
       <div class="field"><label>Kỳ thu</label>
-        <input id="hp-ky" value="Tháng ${thang}/${new Date().getFullYear()}"></div>
+        <input id="hp-ky" value="Tháng ${thang}/${homNay.slice(0, 4)}"></div>
       <div class="field"><label>Nội dung</label>
         <input id="hp-nd" placeholder="Ví dụ: Tiền ăn tháng 9"></div>
       <div class="field"><label>Số tiền (đồng)</label>

@@ -140,7 +140,7 @@ App.views.reports = {
 
   // Học kỳ mặc định khi mở màn soạn: theo tháng hiện tại của năm học đang chạy.
   kyMacDinh() {
-    const thang = new Date().getMonth() + 1;
+    const thang = Number(UI.todayStr().slice(5, 7));   // tháng theo giờ Việt Nam
     return `${thang >= 8 || thang === 1 ? 1 : 2}|${App.state.year || ''}`;
   },
 

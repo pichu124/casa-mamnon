@@ -308,8 +308,9 @@ App.views.leave = {
     return `${UI.fmtDate(l.fromDate, { weekday: false })} – ${UI.fmtDate(l.toDate, { weekday: false })} (${days} ngày)`;
   },
 
+  // Ngày mai tính từ HÔM NAY CỦA TRƯỜNG (giờ Việt Nam), không từ múi giờ máy.
   tomorrowStr() {
-    const d = new Date();
+    const d = UI.parseDate(UI.todayStr());
     d.setDate(d.getDate() + 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   },
