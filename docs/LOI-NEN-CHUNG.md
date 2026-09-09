@@ -208,9 +208,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười lăm món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười sáu món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười lăm chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười sáu chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -316,6 +316,13 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   trường về điện thoại thì mang nguyên `lib/day.js` + bảng `push_dang_ky` +
   `routes/push.js` + đoạn sw.js là đủ, không phải nghĩ lại; nhớ bài học Đ14 —
   `test/khong-hua-suong.test.mjs` chỉ cho xin quyền khi sw.js có bộ nghe thật.
+- **`lib/modules.js` truyền thêm trường `dieuKienHien` của `module.json` xuống
+  trình duyệt** (thêm ở app 2 tại Đ141, một dòng trong `choNguoiDung`, cùng
+  chỗ và cùng luật với `gopVao`). Là đường API mà trang chủ *hỏi trước khi vẽ
+  ô*: trả `{ hien: false }` thì ô không vẽ với người này — dùng để ô Nhật ký
+  ngày chỉ hiện với cô có bé nhà trẻ trong nhóm. Máy chủ chỉ truyền qua, không
+  quyết gì; phân hệ không khai thì `null` và mọi thứ y như trước. App 1 không
+  có phân hệ nào khai nên **không cần** mang sang.
 
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức
