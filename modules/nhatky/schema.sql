@@ -39,3 +39,31 @@ CREATE TABLE IF NOT EXISTS nhatky_ngay (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS nhatky_mot_be_mot_ngay ON nhatky_ngay(studentId, ngay);
 CREATE INDEX IF NOT EXISTS nhatky_theo_ngay ON nhatky_ngay(ngay);
+
+-- TỪNG BỮA MỘT — BẢNG PHỤ, KHÔNG ĐỔI CỘT BẢNG TRÊN.
+--
+-- Nhà trường 07/09: "Bữa nào ăn sẽ cập nhật bữa đó, chứ không phải cuối ngày
+-- mới làm một loạt — tách riêng từng bữa theo thực đơn của nhà trường. Hiện tại
+-- đang chỉ có bữa trưa." Thực đơn của trường nay có NĂM bữa (sáng, phụ sáng,
+-- trưa, phụ chiều, sữa), còn `nhatky_ngay` chỉ có ba cột anSang/anTrua/anXe.
+--
+-- Bảng đã có thì không đổi cột — quy ước của modules/README.md — nên mỗi bữa
+-- là MỘT DÒNG ở đây, khoá theo (bé, ngày, bữa). `bua` là đúng `type` mà màn
+-- Thực đơn dùng (breakfast, snack_sang, lunch, snack, milk), để hai màn của
+-- cùng một trường nói cùng một tên bữa.
+--
+-- Ba bữa trùng với ba cột cũ được máy chủ ĐỒNG BỘ NGƯỢC vào `nhatky_ngay`
+-- (routes.js, `dongBoCotCu`), nên màn gia đình đời cũ còn trong bộ nhớ điện
+-- thoại vẫn đọc đúng — Nguyên tắc số 1.
+CREATE TABLE IF NOT EXISTS nhatky_bua (
+  id             TEXT PRIMARY KEY,
+  studentId      TEXT NOT NULL,
+  ngay           TEXT NOT NULL,          -- YYYY-MM-DD
+  bua            TEXT NOT NULL,          -- type của thực đơn: breakfast / snack_sang / lunch / snack / milk
+  muc            TEXT NOT NULL DEFAULT '',   -- MUC_AN: het / gan-het / nua-suat / it / khong-an; '' = cô chưa ghi
+  ghiChu         TEXT NOT NULL DEFAULT '',
+  nguoiGhi       TEXT,
+  capNhatLuc     TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS nhatky_bua_mot_be_mot_bua ON nhatky_bua(studentId, ngay, bua);
+CREATE INDEX IF NOT EXISTS nhatky_bua_theo_ngay ON nhatky_bua(ngay);

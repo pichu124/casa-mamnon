@@ -85,8 +85,15 @@ console.log('\n[1] Cô: bảng "Hôm nay ở nhóm" trên điện thoại');
   const soChip = await page.locator('#hn-panel .be-chip').count();
   check(`đủ ${MAU.soBeNhomChoi2} bé của nhóm Chồi 2 thành chip`, soChip === MAU.soBeNhomChoi2, soChip);
   check('có dãy số đếm với tổng bé', t.includes(`bé ${MAU.soBeNhomChoi2}`), t.slice(0, 400));
-  check('có nút việc Điểm danh, Nhật ký ngày, Đón trả bé, Ghi nhanh',
-    ['Điểm danh', 'Nhật ký ngày', 'Đón trả bé', 'Ghi nhanh'].every(x => t.includes(x)), t.slice(0, 500));
+  check('có nút việc Điểm danh, Đón trả bé, Ghi nhanh',
+    ['Điểm danh', 'Đón trả bé', 'Ghi nhanh'].every(x => t.includes(x)), t.slice(0, 500));
+  // Nhà trường 07/09: "Nhật ký ngày sẽ được tự động bỏ đi với các bạn không
+  // phải lớp nhà trẻ." Chồi 2 không có bé nhà trẻ → không ô, không nút việc
+  // (module.json `dieuKienHien` → /api/nhatky/pham-vi). Xem test/nhat-ky-bua.
+  await page.waitForTimeout(600);
+  check('KHÔNG có nút việc / ô "Nhật ký ngày" với cô nhóm toàn bé lớn (Đ141)',
+    !(await page.locator('.viec-nut', { hasText: 'Nhật ký ngày' }).count())
+    && !(await page.locator('.tile[data-tile-key="nhatky"]').count()), t.slice(0, 500));
   check('có dòng "Đã ghi nhật ký" (phân hệ đang bật)', t.includes('Đã ghi nhật ký'), t.slice(0, 500));
   check('lưới biểu tượng vẫn còn bên dưới', (await page.locator('.tile-label').count()) >= 8);
   await page.screenshot({ path: SHOT + 'co-trang-chu.png', fullPage: true });

@@ -9,6 +9,7 @@
   "api": [
     "/api/nhatky"
   ],
+  "dieuKienHien": "/api/nhatky/pham-vi",
   "roles": [
     "parent",
     "teacher",

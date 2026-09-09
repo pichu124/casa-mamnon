@@ -92,7 +92,7 @@ const MODULES_DIR = path.join(__dirname, '..', 'modules');
 
 // Bảng của từng phân hệ, xếp theo thứ tự XOÁ (bảng con trước bảng cha).
 const BANG = [
-  'nhatky_ngay',
+  'nhatky_bua', 'nhatky_ngay',
   'tienan_chot',
   'dontra_ghi', 'dontra_uyquyen', 'dontra_nguoi',
   'hanhtrinh_quansat', 'hanhtrinh_chude',
@@ -163,10 +163,23 @@ function sinh(db, moc) {
   // màn hình phải chịu được ô trống. Bé s6 của ngày gần nhất để trống hẳn, để
   // trạng thái "cô chưa ghi" có thật trên dữ liệu mẫu.
   const AN = ['het', 'gan-het', 'it'];
+  // TỪNG BỮA (Đ141) đi kèm mỗi dòng nhật ký: ba bữa sáng / trưa / xế của bảng
+  // phụ `nhatky_bua` chép đúng ba cột cũ, để màn cô đời mới (ghi theo bước
+  // từng bữa) và màn gia đình đời cũ đọc cùng một chuyện. Bữa trống thì không
+  // sinh dòng — trống là "cô chưa ghi".
+  const themBua = (rec) => {
+    for (const [cot, bua] of [['anSang', 'breakfast'], ['anTrua', 'lunch'], ['anXe', 'snack']]) {
+      if (!rec[cot]) continue;
+      them('nhatky_bua', {
+        id: ma('nkb'), studentId: rec.studentId, ngay: rec.ngay, bua, muc: rec[cot], ghiChu: '',
+        nguoiGhi: rec.nguoiGhi, capNhatLuc: rec.capNhatLuc,
+      });
+    }
+  };
   ngayHoc.forEach((d, i) => {
     beChoi2.forEach((sid, j) => {
       if (i === 0 && sid === 's6') return;
-      them('nhatky_ngay', {
+      const rec = {
         id: ma('nk'), studentId: sid, ngay: fmt(d),
         anSang: AN[(i + j) % 3], anTrua: AN[(i + j + 1) % 3], anXe: AN[(i + j + 2) % 3],
         anGhiChu: sid === 's4' ? 'Món có đậu phộng đã đổi sang cháo thịt bằm' : '',
@@ -175,13 +188,15 @@ function sinh(db, moc) {
         veSinhSoLan: 1 + ((i + j) % 3), veSinhTinhChat: 'binh-thuong',
         ghiChu: i === 0 && sid === 's1' ? 'Hôm nay con tự xúc hết bát cơm, làm rơi hai lần rồi tự lấy khăn lau.' : '',
         nguoiGhi: 't1', capNhatLuc: luc(d, 16, 10),
-      });
+      };
+      them('nhatky_ngay', rec);
+      themBua(rec);
     });
 
     // Nhóm nhà trẻ có thêm ba ô thay bỉm và bú bình.
     beNhaTre.forEach((sid, j) => {
       const laNhaTre = sid !== 's11';   // s11 đã 38 tháng — qua mốc 36
-      them('nhatky_ngay', {
+      const rec = {
         id: ma('nk'), studentId: sid, ngay: fmt(d),
         anSang: AN[j % 3], anTrua: AN[(j + 1) % 3], anXe: '',
         nguTuLuc: '11:15', nguDenLuc: '14:15',
@@ -190,7 +205,9 @@ function sinh(db, moc) {
         buBinhSoLan: laNhaTre ? 2 : null,
         buBinhMl: laNhaTre ? 240 + j * 30 : null,
         ghiChu: '', nguoiGhi: 't4', capNhatLuc: luc(d, 16, 20),
-      });
+      };
+      them('nhatky_ngay', rec);
+      themBua(rec);
     });
   });
 

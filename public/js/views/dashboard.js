@@ -34,6 +34,8 @@ App.views.dashboard = {
     // trong đó. Chỉ ẩn khi màn đích THẬT SỰ mở được với người này; màn đích
     // tắt thì ô quay lại ngay, không có ngõ cụt.
     const tiles = (App.state.modules || []).filter(m => !m.nav && !this.gopVaoManKhac(m, user));
+    // Ô có ĐIỀU KIỆN HIỆN (`dieuKienHien`, Đ141) — xem `apDieuKienHien` bên dưới.
+    this._anView = new Set();
     const years = school ? school.years : [];
     const child = user.role === 'parent' ? App.currentStudent() : null;
     const laCo = user.role === 'teacher';
@@ -84,7 +86,8 @@ App.views.dashboard = {
           + '</div>'}
         <div class="tile-grid">
           ${tiles.map(t => `
-            <button class="tile" onclick="location.hash='${UI.esc(t.hash)}'">
+            <button class="tile" data-tile-key="${UI.esc(t.key)}"${t.dieuKienHien ? ' style="display:none"' : ''}
+              onclick="location.hash='${UI.esc(t.hash)}'">
               <span class="tile-icon" style="background:${UI.esc(t.bg || 'linear-gradient(135deg,#5b6ceb,#3f4fd8)')}">${
                 t.emoji ? `<span style="font-size:27px">${UI.esc(t.emoji)}</span>` : UI.icon(t.icon, 29)}</span>
               <span class="tile-badge" data-tile-badge="${t.key}" style="${badges[t.key] ? '' : 'display:none'}">${badges[t.key] || ''}</span>
@@ -107,8 +110,48 @@ App.views.dashboard = {
       }
     };
 
+    this._dieuKienDangHoi = this.apDieuKienHien(tiles);
+
     if (laCo) this.napHomNayCo();
     else if (laVanPhong) this.napTongQuan();
+  },
+
+  // Ô CÓ ĐIỀU KIỆN HIỆN: HỎI MÁY CHỦ TRƯỚC KHI LỘ Ô.
+  //
+  // Nhà trường 07/09, về Nhật ký ngày: "sẽ được tự động bỏ đi với các bạn
+  // không phải lớp nhà trẻ". Nhưng trang chủ không biết bé nào là nhà trẻ, và
+  // không nên biết — mỗi phân hệ tự biết mình có ích với ai. Nên làm TỔNG QUÁT
+  // theo trường `dieuKienHien` của module.json (một đường API trả
+  // { hien: true | false }), không viết tên phân hệ nào ở đây.
+  //
+  // Ô được vẽ sẵn nhưng giấu đi, rồi hỏi tất cả cùng lúc. Máy chủ nói
+  // { hien: false } thì bỏ ô; MỌI trường hợp khác — lỗi mạng, máy chủ đời cũ
+  // chưa có đường đó, trả lời lạ — thì lộ ô ra. Ẩn ô là tiện, không phải chốt
+  // chặn: chốt thật nằm ở tầng API của phân hệ.
+  //
+  // Trả về tập `view` bị ẩn để phần "việc hôm nay" của cô (nutViec) cũng thôi
+  // mời cô làm một việc mà ô của nó đã biến mất.
+  async apDieuKienHien(tiles) {
+    const an = new Set();
+    const co = (tiles || []).filter(t => t && t.dieuKienHien);
+    if (!co.length) return an;
+    const antoan = (k) => ((window.CSS && CSS.escape) ? CSS.escape(String(k)) : String(k));
+    await Promise.all(co.map(async (t) => {
+      let hien = true;
+      try {
+        const r = await API.get(t.dieuKienHien);
+        if (r && r.hien === false) hien = false;
+      } catch (_) { hien = true; }
+      const o = document.querySelector(`.tile[data-tile-key="${antoan(t.key)}"]`);
+      if (!hien) {
+        an.add(t.view || t.key);
+        if (o) o.remove();
+      } else if (o) {
+        o.style.display = '';
+      }
+    }));
+    this._anView = an;
+    return an;
   },
 
   // Lời chào theo giờ trong ngày.
@@ -147,6 +190,9 @@ App.views.dashboard = {
     if (!dsNhom.length) { o.remove(); return; }
     if (!dsNhom.some(n => n.id === this._nhomId)) this._nhomId = dsNhom[0].id;
     o.innerHTML = '<div class="hn-sheet muted small center">Đang xem hôm nay ở nhóm…</div>';
+    // Chờ biết ô nào bị ẩn theo điều kiện, để nút việc bên dưới không mời cô
+    // làm việc của một ô đã biến mất. Hỏi lỗi thì coi như không ẩn gì.
+    try { if (this._dieuKienDangHoi) await this._dieuKienDangHoi; } catch (_) { /* vẫn vẽ */ }
     let d;
     try {
       d = await API.get(`/api/dashboard/hom-nay?classId=${encodeURIComponent(this._nhomId)}`);
@@ -278,6 +324,8 @@ App.views.dashboard = {
     const viec = [];
     const nut = (view, hash, ten, phu, con) => {
       if (!App.moduleEnabled(view)) return;
+      // Ô của phân hệ này đã ẩn theo `dieuKienHien` thì nút việc cũng thôi.
+      if (this._anView && this._anView.has(view)) return;
       viec.push(`<button class="viec-nut ${con ? 'con' : ''}" onclick="location.hash='${hash}'">
         <b>${UI.esc(ten)}</b><span>${UI.esc(phu)}</span></button>`);
     };

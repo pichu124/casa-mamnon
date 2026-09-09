@@ -154,6 +154,16 @@ const moMan = async (hash) => {
   await page.waitForTimeout(1000);
 };
 const chuTrenMan = () => page.locator('#view').innerText();
+// Màn nhật ký của cô đi theo BƯỚC (Đ141); bước mở sẵn tuỳ giờ trong ngày, nên
+// phải tự bấm sang bước Bữa trưa trước khi đo.
+async function moBuocTrua() {
+  const nut = page.locator('.seg [data-buoc="bua:lunch"]');
+  if (!(await nut.count())) return;
+  if ((await nut.getAttribute('class')) !== 'active') {
+    await nut.click();
+    await page.waitForTimeout(700);
+  }
+}
 
 // Một tấm PNG 1×1 thật, dựng bằng mã chứ không kèm tệp ảnh vào kho: bộ canh dữ
 // liệu chặn ảnh trong kho mã, và đúng như vậy.
@@ -164,21 +174,26 @@ const ANH_THU = Buffer.from(
 // ===========================================================================
 console.log('\n[1] Nhật ký ngày — cô ghi và thấy lại phần vừa ghi');
 {
-  await dangNhap('giaovien', '123456');
+  // Từ Đ141 màn của cô đi theo BƯỚC từng bữa (nhà trường 07/09), và "tự bỏ đi
+  // với các bạn không phải lớp nhà trẻ" — nên đo trên cô nhóm Nhà trẻ 1, ở
+  // bước Bữa trưa.
+  await dangNhap('giaovien4', '123456');
   await moMan('#/nhatky');
+  await moBuocTrua();
 
-  check('cô thấy nút lưu nhật ký cả nhóm', await page.locator('#nk-luu').count() === 1);
+  check('cô thấy nút lưu bước này cho cả nhóm', await page.locator('#nk-luu').count() === 1);
   const soO = await page.locator('.nk-o').count();
   check('màn có ô nhập cho từng bé', soO > 0, soO);
-  check('màn hiện tên bé thật của nhóm', /Nguyễn Bảo An/.test(await chuTrenMan()));
+  check('màn hiện tên bé thật của nhóm', /Ngô Gia Huy/.test(await chuTrenMan()));
 
   // Ghi cho ĐÚNG MỘT bé, và ghi cả ô chữ tự do — ô chữ là thứ chỉ đường ghi
   // qua giao diện tạo được, khác với mấy ô chọn có thể sinh từ "Áp cho cả nhóm".
   const beDau = await page.locator('.nk-o').first().getAttribute('data-be');
-  await page.selectOption(`select.nk-o[data-be="${beDau}"][data-truong="anTrua"]`, 'het');
-  await page.fill(`input.nk-o[data-be="${beDau}"][data-truong="anGhiChu"]`, 'Bé tự xúc, ăn thêm nửa bát');
+  await page.selectOption(`select.nk-o[data-be="${beDau}"][data-truong="bua.lunch.muc"]`, 'het');
+  await page.fill(`input.nk-o[data-be="${beDau}"][data-truong="bua.lunch.ghiChu"]`, 'Bé tự xúc, ăn thêm nửa bát');
   await page.click('#nk-luu');
   await page.waitForTimeout(1600);
+  await moBuocTrua();
 
   const sauLuu = await chuTrenMan();
   check('LƯU XONG MÀN HIỆN NGAY DẤU "Đã ghi"', /Đã ghi/.test(sauLuu), sauLuu.slice(0, 160));
@@ -187,10 +202,11 @@ console.log('\n[1] Nhật ký ngày — cô ghi và thấy lại phần vừa gh
   await moMan('#/nhatky');
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(1400);
-  const ghiChu = await page.inputValue(`input.nk-o[data-be="${beDau}"][data-truong="anGhiChu"]`).catch(() => '');
+  await moBuocTrua();
+  const ghiChu = await page.inputValue(`input.nk-o[data-be="${beDau}"][data-truong="bua.lunch.ghiChu"]`).catch(() => '');
   check('MỞ LẠI MÀN VẪN THẤY ĐÚNG CHỮ CÔ ĐÃ GÕ',
     ghiChu === 'Bé tự xúc, ăn thêm nửa bát', ghiChu);
-  const buaTrua = await page.inputValue(`select.nk-o[data-be="${beDau}"][data-truong="anTrua"]`).catch(() => '');
+  const buaTrua = await page.inputValue(`select.nk-o[data-be="${beDau}"][data-truong="bua.lunch.muc"]`).catch(() => '');
   check('và ô bữa trưa vẫn giữ lựa chọn cô đã chọn', buaTrua === 'het', buaTrua);
 }
 

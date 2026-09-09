@@ -2,10 +2,14 @@
 //
 // Hai màn khác hẳn nhau vì hai việc khác hẳn nhau:
 //
-//   • CÔ ghi cho cả nhóm, cuối giờ chiều, trong khoảng 10 phút, tay còn bận.
-//     Chỉ tiêu của bản kế hoạch là CẢ NHÓM DƯỚI 5 PHÚT. Nên màn của cô là một
-//     bảng dài, mọi bé trên cùng một trang, có hàng "đặt cho cả nhóm" ở trên
-//     cùng và một nút Lưu duy nhất ở dưới cùng.
+//   • CÔ ghi cho cả nhóm, NGAY SAU MỖI BỮA, tay còn bận. Nhà trường 07/09:
+//     "Bữa nào ăn sẽ cập nhật bữa đó, chứ không phải cuối ngày mới làm một
+//     loạt — tách riêng từng bữa theo thực đơn của nhà trường." Nên màn của
+//     cô là một DẢI BƯỚC: [Bữa sáng] [Phụ sáng] [Bữa trưa] [Phụ chiều] [Sữa]
+//     [Ngủ trưa] [Vệ sinh · Bỉm] [Ghi chú]. Mỗi bước là danh sách bé với đúng
+//     một hai ô, có "Áp cho cả nhóm" và MỘT nút Lưu cho bước đó. Các bữa lấy
+//     theo THỰC ĐƠN NGÀY ĐÓ của bếp cơ sở, máy chủ đưa xuống — hôm nào bếp
+//     soạn bốn bữa thì có bốn bước bữa.
 //
 //   • GIA ĐÌNH đọc, buổi tối, trên điện thoại, mỗi lần một bé. Nên màn của gia
 //     đình là từng ngày một, viết thành câu tiếng Việt chứ không phải bảng.
@@ -23,9 +27,19 @@ App.views.nhatky = {
     ['long', 'Lỏng'],
     ['tao', 'Táo'],
   ],
+  // Ba bữa đời cũ — chỉ còn dùng để đọc dữ liệu từ máy chủ đời cũ chưa gửi
+  // `buaAn`. Máy chủ mới thì màn gia đình đọc theo `buaAn` (năm bữa).
   BUA_NHAN: [['anSang', 'Sáng'], ['anTrua', 'Trưa'], ['anXe', 'Xế']],
+  // Ba bước không phải bữa ăn, đứng sau các bữa. `truong` là các cột mà bước
+  // đó gửi lên — máy chủ chỉ ghi đúng các cột này, phần khác giữ nguyên.
+  BUOC_KHAC: [
+    { ma: 'ngu', ten: 'Ngủ trưa', kieu: 'ngu', truong: ['nguTuLuc', 'nguDenLuc', 'nguGhiChu'] },
+    { ma: 'vesinh', ten: 'Vệ sinh · Bỉm', kieu: 'vesinh', truong: ['veSinhSoLan', 'veSinhTinhChat', 'bimSoLan', 'buBinhSoLan', 'buBinhMl'] },
+    { ma: 'ghichu', ten: 'Ghi chú', kieu: 'ghichu', truong: ['anGhiChu', 'ghiChu'] },
+  ],
   _ngay: null,
   _classId: null,
+  _buoc: null,
   _data: null,
 
   // Danh sách giờ ngủ để cô CHỌN thay vì gõ.
@@ -49,30 +63,6 @@ App.views.nhatky = {
       </select>`;
   },
 
-  // Thực đơn của đúng ngày đang ghi. Rỗng thì không hiện thẻ nào — màn hình
-  // trống sạch vẫn tốt hơn một thẻ nói "chưa có".
-  theThucDon(td) {
-    if (!td) return '';
-    const dong = this.BUA_NHAN.map(([k, t]) => {
-      const b = td[k];
-      if (!b || !(b.mon || []).length) return '';
-      return `
-        <div class="list-row"><div class="row-main">
-          <div class="row-sub">${UI.esc(b.ten || t)}${b.gio ? ` · ${UI.esc(b.gio)}` : ''}</div>
-          <div class="row-title" style="font-weight:400">${UI.esc((b.mon || []).join(', '))}</div>
-        </div></div>`;
-    }).filter(Boolean).join('');
-    if (!dong) return '';
-    return `
-      <div class="card">
-        <div class="card-title">Thực đơn hôm đó</div>
-        <div class="muted small" style="margin-bottom:6px">
-          Lấy thẳng từ màn Thực đơn của trường, cô không phải gõ lại tên món.
-        </div>
-        ${dong}
-      </div>`;
-  },
-
   nhanMucAn(ma) {
     const t = this.MUC_AN.find(x => x[0] === ma);
     return t ? t[1] : '';
@@ -82,19 +72,46 @@ App.views.nhatky = {
     return t ? t[1] : '';
   },
 
+  // Các bước của một ngày: từng bữa theo thực đơn ngày đó, rồi ngủ, vệ sinh,
+  // ghi chú. Máy chủ đời cũ không gửi `buaAn` thì về ba bữa sáng / trưa / xế.
+  cacBuoc(d) {
+    const ds = (d && Array.isArray(d.buaAn) && d.buaAn.length) ? d.buaAn
+      : [{ bua: 'breakfast', ten: 'Bữa sáng' }, { bua: 'lunch', ten: 'Bữa trưa' }, { bua: 'snack', ten: 'Bữa phụ chiều' }];
+    return [
+      ...ds.map(b => ({ ma: `bua:${b.bua}`, ten: b.ten, kieu: 'bua', bua: b })),
+      ...this.BUOC_KHAC,
+    ];
+  },
+
+  buocHienTai() {
+    const ds = this.cacBuoc(this._data);
+    return ds.find(b => b.ma === this._buoc) || ds[0];
+  },
+
+  // Bước mở sẵn khi cô vào màn: BỮA GẦN NHẤT ĐÃ TỚI GIỜ trong ngày hôm nay —
+  // 11 giờ mở ra là đứng ở Bữa trưa, không phải Bữa sáng. Ngày cũ thì bước
+  // đầu. Cô bấm dải chọn để đi bước khác, và app nhớ bước đó cho tới khi đổi.
+  buocMacDinh(d) {
+    const ds = this.cacBuoc(d);
+    if (this._ngay !== UI.todayStr()) return ds[0].ma;
+    const gio = UI.gioVN();
+    let chon = ds[0];
+    for (const b of ds) if (b.kieu === 'bua' && b.bua.gio && b.bua.gio <= gio) chon = b;
+    return chon.ma;
+  },
+
+  // Mức và ghi chú của một bé cho bữa `kieu`, từ `buaAn` máy chủ gửi kèm.
+  buaCuaBe(b, kieu) {
+    return ((b && b.buaAn) || []).find(x => x.bua === kieu) || { muc: '', ghiChu: '', capNhatLuc: '' };
+  },
+
   // ===========================================================================
   // NHÁP TRONG MÁY — GIỮ PHẦN CÔ ĐANG GÕ QUA MỘT LẦN APP BỊ ĐÓNG
   // ===========================================================================
   //
-  // Màn của cô là một trang dài: hai mươi bé, mỗi bé khoảng mười ô, một nút Lưu
-  // duy nhất ở cuối. Chỉ tiêu của bản kế hoạch là CẢ NHÓM DƯỚI 5 PHÚT — nghĩa
-  // là có tới năm phút công việc chỉ nằm trong DOM, chưa ở đâu cả.
-  //
-  // Lời hỏi lại khi đổi ngày / đổi nhóm (bên dưới) đã đỡ được chỗ chạm nhầm.
-  // Nhưng nó không đỡ được thứ hay xảy ra hơn trên điện thoại của cô: có người
-  // gọi tới, cô chuyển sang app khác, hệ điều hành đóng trình duyệt để lấy bộ
-  // nhớ. Mở lại là trắng. Mất một lượt nhập của hai mươi bé đúng là cách làm cô
-  // bỏ app quay về sổ giấy.
+  // Mỗi bước là một trang ngắn, nhưng vẫn là hai mươi bé chưa ở đâu cả cho tới
+  // lúc bấm Lưu. Trên điện thoại của cô: có người gọi tới, cô chuyển sang app
+  // khác, hệ điều hành đóng trình duyệt để lấy bộ nhớ. Mở lại là trắng.
   //
   // VÌ SAO KHÔNG TỰ ĐIỀN LẠI, MÀ HỎI
   //
@@ -102,11 +119,14 @@ App.views.nhatky = {
   // ghi và lưu từ máy của mình. Tự điền đè lên là lấy bản cũ của cô A ghi chồng
   // lên bản mới của cô B ngay lần bấm Lưu tiếp theo — âm thầm, và không ai biết.
   // Nên app hiện một dải nhắc và để cô chọn.
+  //
+  // NHÁP THEO TỪNG BƯỚC (nhóm, ngày, bước): lưu xong Bữa trưa thì chỉ nháp của
+  // Bữa trưa hết việc; phần gõ dở ở bước Ngủ trưa vẫn còn đó chờ cô quay lại.
   KHOA_NHAP: 'casa.nhatky-nhap',
   HAN_NHAP_MS: 24 * 60 * 60 * 1000,   // nhật ký là của ĐÚNG một ngày; quá hạn thì bỏ
 
-  khoaNhap(classId, ngay) {
-    return `${this.KHOA_NHAP}.${classId}.${ngay}`;
+  khoaNhap(classId, ngay, buoc) {
+    return `${this.KHOA_NHAP}.${classId}.${ngay}.${buoc || this._buoc || ''}`;
   },
 
   // Đọc mọi ô đang hiện thành { "<mã bé>|<tên trường>": giá trị }.
@@ -118,10 +138,10 @@ App.views.nhatky = {
     return o;
   },
 
-  // Ô cô ĐÃ THẬT SỰ GÕ trong phiên này, theo từng (nhóm, ngày). Nháp chỉ giữ
-  // và điền lại những ô đó: các ô còn lại trên màn là giá trị máy chủ TẠI THỜI
-  // ĐIỂM CHỤP — chụp cả chúng vào nháp rồi điền lại là lấy bản cũ ghi đè bản
-  // mới cô khác vừa lưu, đúng thứ lời nhắc bên dưới hứa sẽ không làm.
+  // Ô cô ĐÃ THẬT SỰ GÕ trong phiên này, theo từng (nhóm, ngày, bước). Nháp chỉ
+  // giữ và điền lại những ô đó: các ô còn lại trên màn là giá trị máy chủ TẠI
+  // THỜI ĐIỂM CHỤP — chụp cả chúng vào nháp rồi điền lại là lấy bản cũ ghi đè
+  // bản mới cô khác vừa lưu, đúng thứ lời nhắc bên dưới hứa sẽ không làm.
   _oDaGo: {},
 
   oDaGoCua(khoa) {
@@ -151,8 +171,8 @@ App.views.nhatky = {
     } catch (_) { /* hết chỗ hay bị chặn: không phải lý do làm hỏng màn hình */ }
   },
 
-  xoaNhap(classId, ngay) {
-    try { localStorage.removeItem(this.khoaNhap(classId || this._classId, ngay || this._ngay)); } catch (_) { }
+  xoaNhap(classId, ngay, buoc) {
+    try { localStorage.removeItem(this.khoaNhap(classId || this._classId, ngay || this._ngay, buoc)); } catch (_) { }
   },
 
   docNhap() {
@@ -185,7 +205,7 @@ App.views.nhatky = {
     dai.style.borderLeft = '3px solid #f2994a';
     dai.innerHTML = `
       <div style="line-height:1.7">
-        <b>Cô có phần nhập dở chưa lưu</b> của đúng ngày và nhóm này
+        <b>Cô có phần nhập dở chưa lưu</b> của đúng bước này, ngày và nhóm này
         (${UI.esc(String(khac.length))} ô), còn lại từ lần mở trước.
       </div>
       <div class="muted small mt-8" style="line-height:1.6">
@@ -196,9 +216,8 @@ App.views.nhatky = {
         <button class="btn primary sm" id="nk-nhap-dung">Điền lại phần dở</button>
         <button class="btn outline sm" id="nk-nhap-bo">Bỏ phần dở</button>
       </div>`;
-    const neo = document.getElementById('nk-ap');
-    const the = neo && neo.closest('.card');
-    if (the && the.parentNode) the.parentNode.insertBefore(dai, the.nextSibling);
+    const neo = document.getElementById('nk-dau');
+    if (neo && neo.parentNode) neo.parentNode.insertBefore(dai, neo.nextSibling);
     else document.getElementById('view').appendChild(dai);
 
     document.getElementById('nk-nhap-dung').onclick = () => {
@@ -247,7 +266,7 @@ App.views.nhatky = {
     return this.manCoGiao(root);
   },
 
-  // ================= Màn của cô: ghi cả nhóm một lượt =================
+  // ================= Màn của cô: từng bước, cả nhóm một lượt =================
   async manCoGiao(root) {
     // Nhóm của cô, cho cả nhóm mặc định LẪN ô chọn bên dưới. Trước đây ô chọn
     // liệt kê nhóm của cả trường, nên cô bấm nhầm sang nhóm không phụ trách là
@@ -266,12 +285,15 @@ App.views.nhatky = {
     const d = await API.get(
       `/api/nhatky?classId=${encodeURIComponent(this._classId)}&ngay=${encodeURIComponent(this._ngay)}`);
     this._data = d;
+    const cacBuoc = this.cacBuoc(d);
+    if (!cacBuoc.some(b => b.ma === this._buoc)) this._buoc = this.buocMacDinh(d);
+    const buoc = this.buocHienTai();
 
-    const coNhaTre = (d.danhSach || []).some(b => b.laNhaTre);
+    const dsBe = d.danhSach || [];
+    const coNhaTre = dsBe.some(b => b.laNhaTre);
 
-    root.innerHTML = `
-      ${UI.pageHeader('Nhật ký ngày')}
-      <div class="card">
+    const theDau = `
+      <div class="card" id="nk-dau">
         <div class="grid-2">
           <div class="field" style="margin:0">
             <label>Ngày</label>
@@ -286,50 +308,77 @@ App.views.nhatky = {
               </select>
             </div>` : ''}
         </div>
-        <div class="muted small mt-8" style="line-height:1.6">
-          Ô nào cô chưa kịp ghi thì để trống — màn hình của gia đình sẽ nói
-          <b>"cô chưa ghi"</b>, chứ không nói bé không ăn.
-        </div>
+      </div>`;
+
+    // NHÓM TOÀN BÉ LỚN: KHÔNG PHẢI LỖI, CHỈ LÀ KHÔNG DÙNG.
+    //
+    // Nhà trường 07/09: "Nhật ký ngày sẽ được tự động bỏ đi với các bạn không
+    // phải lớp nhà trẻ." Ô ở trang chủ đã ẩn (dieuKienHien), nhưng cô vẫn có
+    // thể tới đây bằng địa chỉ cũ hay từ nhóm khác — nói nhẹ nhàng, giữ ô chọn
+    // nhóm để cô phụ trách hai nhóm chuyển sang nhóm nhà trẻ của mình.
+    if (dsBe.length && !coNhaTre) {
+      root.innerHTML = `
+        ${UI.pageHeader('Nhật ký ngày')}
+        ${theDau}
+        ${UI.emptyState('📔', 'Nhóm này không có bé nhà trẻ nên không dùng Nhật ký ngày.')}
+        <div class="muted small center" style="padding:0 16px 16px;line-height:1.6">
+          Nhật ký ăn, ngủ, vệ sinh, bỉm là của lứa nhà trẻ (dưới 36 tháng).
+          Với các bé lớn hơn, gia đình theo dõi qua ảnh đón bé, thực đơn và lịch sinh hoạt.
+        </div>`;
+      this.ganDoiNgayNhom();
+      return;
+    }
+
+    root.innerHTML = `
+      ${UI.pageHeader('Nhật ký ngày')}
+      ${theDau}
+
+      <div class="seg" role="tablist" aria-label="Bước ghi" style="overflow-x:auto">
+        ${cacBuoc.map(b => `
+          <button class="${b.ma === buoc.ma ? 'active' : ''}" data-buoc="${UI.esc(b.ma)}" role="tab"
+            aria-selected="${b.ma === buoc.ma ? 'true' : 'false'}">${UI.esc(b.ten)}</button>`).join('')}
       </div>
 
-      ${this.theThucDon(d.thucDon)}
+      ${this.theBuoc(buoc)}
 
-      <div class="card">
-        <div class="card-title">Đặt nhanh cho cả nhóm</div>
-        <div class="muted small" style="margin-bottom:10px">Chọn ở đây rồi sửa lại riêng bé nào khác.</div>
-        <div class="grid-2">
-          <div class="field" style="margin:0">
-            <label>Bữa trưa</label>
-            <select id="nk-ca-trua">
-              <option value="">— không đặt —</option>
-              ${this.MUC_AN.map(([v, t]) => `<option value="${UI.esc(v)}">${UI.esc(t)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field" style="margin:0">
-            <label>Ngủ trưa</label>
-            <div class="flex" style="gap:6px">
-              ${this.oGio('id="nk-ca-ngu-tu" style="flex:1;min-width:0"', '', 'từ')}
-              ${this.oGio('id="nk-ca-ngu-den" style="flex:1;min-width:0"', '', 'đến')}
-            </div>
-          </div>
-        </div>
-        <button class="btn outline block mt-14" id="nk-ap">Áp cho cả nhóm</button>
-      </div>
-
-      ${(d.danhSach || []).length ? (d.danhSach || []).map(b => this.theBe(b, coNhaTre)).join('')
+      ${dsBe.length ? dsBe.map(b => this.theBe(b, buoc)).join('')
         : UI.emptyState('📔', 'Nhóm này chưa có bé nào.')}
 
-      ${(d.danhSach || []).length ? `
-        <button class="btn primary block mt-14" id="nk-luu">${UI.icon('check', 18)} Lưu nhật ký cả nhóm</button>` : ''}`;
+      ${dsBe.length ? `
+        <button class="btn primary block mt-14" id="nk-luu">${UI.icon('check', 18)} Lưu ${UI.esc(buoc.ten)} cho cả nhóm</button>` : ''}`;
 
-    // ĐỔI NGÀY HAY ĐỔI NHÓM LÀ VẼ LẠI TOÀN BỘ — nên phải hỏi khi cô đang gõ dở.
-    //
-    // `App.route()` thay sạch nội dung `#view`, nghĩa là mọi ô cô vừa điền mà
-    // chưa bấm Lưu đều mất. Cô nhập nhật ký cho hai mươi bé, chạm nhầm ô ngày,
-    // mất cả buổi làm — và app không nói một lời nào.
-    //
-    // Chỉ hỏi khi THẬT SỰ có thay đổi chưa lưu. Hỏi khi không có gì để mất thì
-    // lần thứ ba cô sẽ bấm "Đồng ý" theo phản xạ, và lời hỏi thành vô dụng.
+    this.ganDoiNgayNhom();
+    const nutAp = document.getElementById('nk-ap');
+    if (nutAp) nutAp.onclick = () => this.apCaNhom();
+    const btn = document.getElementById('nk-luu');
+    if (btn) btn.onclick = () => this.luu();
+
+    // Nút "+1" bỉm: bấm một cái là thêm một lần — cô đang bế bé, không gõ số.
+    for (const nut of document.querySelectorAll('.nk-bim-them')) {
+      nut.onclick = () => {
+        const o = document.querySelector(`.nk-o[data-be="${nut.dataset.be}"][data-truong="bimSoLan"]`);
+        if (!o) return;
+        const n = Number(o.value);
+        o.value = String((Number.isInteger(n) && n >= 0 ? n : 0) + 1);
+        // Đặt `.value` bằng mã không phát sự kiện — phát tay để bộ ghi nháp và
+        // bộ "đang gõ dở" nghe thấy như một lần gõ thật.
+        o.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+    }
+
+    this.napLaiNhap();
+    this.ganGhiNhap();
+  },
+
+  // ĐỔI NGÀY, ĐỔI NHÓM, ĐỔI BƯỚC LÀ VẼ LẠI TOÀN BỘ — nên phải hỏi khi cô đang gõ dở.
+  //
+  // `App.route()` thay sạch nội dung `#view`, nghĩa là mọi ô cô vừa điền mà
+  // chưa bấm Lưu đều mất. Cô nhập cho hai mươi bé, chạm nhầm ô ngày, mất cả
+  // lượt — và app không nói một lời nào.
+  //
+  // Chỉ hỏi khi THẬT SỰ có thay đổi chưa lưu. Hỏi khi không có gì để mất thì
+  // lần thứ ba cô sẽ bấm "Đồng ý" theo phản xạ, và lời hỏi thành vô dụng.
+  ganDoiNgayNhom() {
     const nhoMoc = () => {
       this._moc = [...document.querySelectorAll('.nk-o')].map(o => o.value).join('\u0001');
     };
@@ -339,7 +388,7 @@ App.views.nhatky = {
     };
     const doiMan = (dat) => {
       if (dangGoDo() && !confirm('Cô đang nhập dở mà chưa bấm Lưu.\n\n'
-        + 'Chuyển sang ngày hoặc nhóm khác sẽ mất phần vừa nhập. Cô vẫn chuyển chứ?')) {
+        + 'Chuyển sang ngày, nhóm hay bước khác sẽ mất phần vừa nhập. Cô vẫn chuyển chứ?')) {
         App.route();      // vẽ lại để ô chọn quay về đúng chỗ cũ
         return;
       }
@@ -348,9 +397,10 @@ App.views.nhatky = {
     };
     nhoMoc();
 
-    document.getElementById('nk-ngay').onchange = (e) => {
+    const oNgay = document.getElementById('nk-ngay');
+    if (oNgay) oNgay.onchange = (e) => {
       const v = e.target.value;
-      doiMan(() => { this._ngay = v; });
+      doiMan(() => { this._ngay = v; this._buoc = null; });
     };
     const selNhom = document.getElementById('nk-nhom');
     if (selNhom) {
@@ -359,15 +409,70 @@ App.views.nhatky = {
         doiMan(() => { this._classId = v; });
       };
     }
-    document.getElementById('nk-ap').onclick = () => this.apCaNhom();
-    const btn = document.getElementById('nk-luu');
-    if (btn) btn.onclick = () => this.luu();
-
-    this.napLaiNhap();
-    this.ganGhiNhap();
+    for (const nut of document.querySelectorAll('.seg [data-buoc]')) {
+      nut.onclick = () => {
+        const v = nut.dataset.buoc;
+        if (v === this._buoc) return;
+        doiMan(() => { this._buoc = v; });
+      };
+    }
   },
 
-  // Một thẻ cho một bé.
+  // Thẻ đầu bước: món của bữa (từ thực đơn, cô không gõ lại) và "Áp cho cả nhóm".
+  theBuoc(buoc) {
+    let mon = '';
+    if (buoc.kieu === 'bua') {
+      const b = buoc.bua || {};
+      mon = (b.mon || []).length ? `
+        <div class="muted small" style="margin-bottom:10px;line-height:1.6">
+          ${b.gio ? `${UI.esc(b.gio)} · ` : ''}<b>${UI.esc((b.mon || []).join(', '))}</b>
+          <span class="muted">— theo thực đơn của bếp, cô không phải gõ lại</span>
+        </div>` : '';
+    }
+    let ap = '';
+    if (buoc.kieu === 'bua') {
+      ap = `
+        <div class="field" style="margin:0">
+          <label>Cả nhóm ăn</label>
+          <select id="nk-ca-muc">
+            <option value="">— không đặt —</option>
+            ${this.MUC_AN.map(([v, t]) => `<option value="${UI.esc(v)}">${UI.esc(t)}</option>`).join('')}
+          </select>
+        </div>`;
+    } else if (buoc.kieu === 'ngu') {
+      ap = `
+        <div class="grid-2">
+          <div class="field" style="margin:0"><label>Ngủ từ</label>
+            ${this.oGio('id="nk-ca-ngu-tu"', '', 'từ')}</div>
+          <div class="field" style="margin:0"><label>Dậy lúc</label>
+            ${this.oGio('id="nk-ca-ngu-den"', '', 'đến')}</div>
+        </div>`;
+    } else if (buoc.kieu === 'vesinh') {
+      ap = `
+        <div class="field" style="margin:0">
+          <label>Tình trạng cả nhóm</label>
+          <select id="nk-ca-vs">
+            <option value="">— không đặt —</option>
+            ${this.TINH_CHAT.map(([v, t]) => `<option value="${UI.esc(v)}">${UI.esc(t)}</option>`).join('')}
+          </select>
+        </div>`;
+    }
+    return `
+      <div class="card">
+        <div class="card-title">${UI.esc(buoc.ten)}</div>
+        ${mon}
+        ${ap ? `
+          <div class="muted small" style="margin-bottom:10px">Đặt nhanh cho cả nhóm rồi sửa lại riêng bé nào khác.</div>
+          ${ap}
+          <button class="btn outline block mt-14" id="nk-ap">Áp cho cả nhóm</button>` : `
+          <div class="muted small" style="line-height:1.6">
+            Ô nào cô chưa kịp ghi thì để trống — màn hình của gia đình sẽ nói
+            <b>"cô chưa ghi"</b>, chứ không nói bé không ăn.
+          </div>`}
+      </div>`;
+  },
+
+  // Một thẻ cho một bé, chỉ các ô của BƯỚC đang mở.
   //
   // MỌI Ô NHẬP ĐỀU NẰM TRONG `.field`, KHÔNG CÓ Ô NÀO ĐỨNG TRẦN.
   //
@@ -377,17 +482,19 @@ App.views.nhatky = {
   //
   // Chỗ này từng sai đúng như vậy ở hai ô giờ ngủ và hai ô ghi chú; bộ canh bố
   // cục điện thoại trong `test/man-hinh-phan-he.test.mjs` mục [7] tìm ra.
-  theBe(b, coNhaTre) {
+  theBe(b, buoc) {
     const id = UI.esc(b.studentId);
+    const bua = buoc.kieu === 'bua' ? this.buaCuaBe(b, buoc.bua.bua) : null;
     // Nhớ dấu thời gian bản ghi lúc màn hình NẠP VỀ, để lúc lưu gửi kèm.
     // Máy chủ dùng nó để biết cô khác có vừa ghi cho bé này không — xem chú
-    // thích dài ở `PUT /api/nhatky` trong routes.js.
-    (this._goc || (this._goc = {}))[b.studentId] = b.capNhatLuc || '';
+    // thích dài ở `PUT /api/nhatky` trong routes.js. Bước bữa ăn thì là dấu
+    // của ĐÚNG DÒNG BỮA ĐÓ, không phải của cả ngày.
+    (this._goc || (this._goc = {}))[b.studentId] = (bua ? bua.capNhatLuc : b.capNhatLuc) || '';
     // `data-nghi` để `apCaNhom()` bỏ qua bé này. Đánh dấu ở tầng ô chứ không
     // lọc ở tầng thẻ: cô vẫn gõ tay được cho bé, chỉ thao tác ĐIỀN HÀNG LOẠT
     // mới né ra.
     const dnghi = b.nghiPhep ? ' data-nghi="1"' : '';
-    const chon = (ten, ma, ds, dangChon) => `
+    const chon = (ma, ds, dangChon) => `
       <select class="nk-o"${dnghi} data-be="${id}" data-truong="${UI.esc(ma)}">
         <option value="">— chưa ghi —</option>
         ${ds.map(([v, t]) => `<option value="${UI.esc(v)}" ${dangChon === v ? 'selected' : ''}>${UI.esc(t)}</option>`).join('')}
@@ -395,6 +502,11 @@ App.views.nhatky = {
     const so = (ma, gt, ph) => `
       <input type="number" min="0" class="nk-o"${dnghi} data-be="${id}" data-truong="${UI.esc(ma)}"
         value="${gt === null || gt === undefined ? '' : UI.esc(String(gt))}" placeholder="${UI.esc(ph)}">`;
+    const chu = (ma, gt, ph) => `
+      <div class="field mt-8" style="margin-bottom:0">
+        <input class="nk-o" data-be="${id}" data-truong="${UI.esc(ma)}" placeholder="${UI.esc(ph)}"
+          value="${UI.esc(gt || '')}">
+      </div>`;
 
     // BÉ ĐANG NGHỈ CÓ PHÉP: NÓI RA NGAY TRÊN THẺ.
     //
@@ -409,59 +521,67 @@ App.views.nhatky = {
         Cô vẫn ghi được nếu bé có tới lớp.
       </div>` : '';
 
-    return `
-      <div class="card"${nghi ? ' style="opacity:.75"' : ''}>
-        <div class="list-row" style="border-bottom:none;padding-top:0">
-          ${UI.avatar(b.avatar, 40)}
-          <div class="row-main"><div class="row-title">${UI.esc(b.hoTen)}</div></div>
-          ${nghi ? UI.badge('Nghỉ hôm nay', 'orange') : ''}
-          ${b.daGhi ? UI.badge('Đã ghi', 'green') : ''}
-        </div>
-        ${daiNghi}
-
-        <div class="section-label">Ăn</div>
-        <div class="grid-2">
-          <div class="field" style="margin:0"><label>Sáng</label>${chon('Sáng', 'anSang', this.MUC_AN, b.anSang)}</div>
-          <div class="field" style="margin:0"><label>Trưa</label>${chon('Trưa', 'anTrua', this.MUC_AN, b.anTrua)}</div>
-        </div>
-        <div class="field mt-8" style="margin-bottom:0"><label>Bữa xế</label>${chon('Xế', 'anXe', this.MUC_AN, b.anXe)}</div>
-        <div class="field mt-8" style="margin-bottom:0">
-          <input class="nk-o" data-be="${id}" data-truong="anGhiChu" placeholder="Ghi chú về bữa ăn"
-            value="${UI.esc(b.anGhiChu || '')}">
-        </div>
-
-        <div class="section-label">Ngủ</div>
+    let than = '';
+    let daGhi = false;
+    if (buoc.kieu === 'bua') {
+      daGhi = !!(bua.muc || bua.ghiChu);
+      const ma = `bua.${buoc.bua.bua}`;
+      than = `
+        <div class="field" style="margin:0"><label>${UI.esc(buoc.ten)}</label>${chon(`${ma}.muc`, this.MUC_AN, bua.muc)}</div>
+        ${chu(`${ma}.ghiChu`, bua.ghiChu, 'Ghi chú ngắn về bữa này')}`;
+    } else if (buoc.kieu === 'ngu') {
+      daGhi = !!(b.nguTuLuc || b.nguDenLuc);
+      than = `
         <div class="grid-2">
           <div class="field" style="margin:0"><label>Từ</label>
             ${this.oGio(`class="nk-o"${dnghi} data-be="${id}" data-truong="nguTuLuc"`, b.nguTuLuc || '', 'từ')}</div>
           <div class="field" style="margin:0"><label>Đến</label>
             ${this.oGio(`class="nk-o"${dnghi} data-be="${id}" data-truong="nguDenLuc"`, b.nguDenLuc || '', 'đến')}</div>
         </div>
-        <div class="field mt-8" style="margin-bottom:0">
-          <input class="nk-o" data-be="${id}" data-truong="nguGhiChu" placeholder="Ví dụ: ngủ ngon, hoặc trằn trọc đầu giờ"
-            value="${UI.esc(b.nguGhiChu || '')}">
-        </div>
-
-        <div class="section-label">Vệ sinh</div>
+        ${chu('nguGhiChu', b.nguGhiChu, 'Ví dụ: ngủ ngon, hoặc trằn trọc đầu giờ')}`;
+    } else if (buoc.kieu === 'vesinh') {
+      daGhi = (b.veSinhSoLan !== null && b.veSinhSoLan !== undefined) || !!b.veSinhTinhChat
+        || (b.bimSoLan !== null && b.bimSoLan !== undefined);
+      // Ô bỉm và sữa CHỈ cho bé nhà trẻ — bé lớn không thấy ô, đúng như sổ giấy
+      // của nhóm Lá không có cột thay bỉm.
+      than = `
         <div class="grid-2">
-          <div class="field" style="margin:0"><label>Số lần</label>${so('veSinhSoLan', b.veSinhSoLan, 'số lần')}</div>
-          <div class="field" style="margin:0"><label>Tình trạng</label>${chon('Tình trạng', 'veSinhTinhChat', this.TINH_CHAT, b.veSinhTinhChat)}</div>
+          <div class="field" style="margin:0"><label>Vệ sinh (lần)</label>${so('veSinhSoLan', b.veSinhSoLan, 'số lần')}</div>
+          <div class="field" style="margin:0"><label>Tình trạng</label>${chon('veSinhTinhChat', this.TINH_CHAT, b.veSinhTinhChat)}</div>
         </div>
-
         ${b.laNhaTre ? `
-          <div class="section-label">Nhà trẻ</div>
+          <div class="section-label">Bỉm · Sữa</div>
           <div class="grid-2">
-            <div class="field" style="margin:0"><label>Thay bỉm</label>${so('bimSoLan', b.bimSoLan, 'số lần')}</div>
-            <div class="field" style="margin:0"><label>Bú bình</label>${so('buBinhSoLan', b.buBinhSoLan, 'số lần')}</div>
+            <div class="field" style="margin:0"><label>Thay bỉm (lần)</label>
+              <div class="flex" style="gap:6px;align-items:stretch">
+                <div style="flex:1;min-width:0">${so('bimSoLan', b.bimSoLan, 'số lần')}</div>
+                <button type="button" class="btn primary nk-bim-them" data-be="${id}" style="padding:0 18px;font-size:1.05rem" aria-label="Thêm một lần thay bỉm">+1</button>
+              </div>
+            </div>
+            <div class="field" style="margin:0"><label>Bú bình (lần)</label>${so('buBinhSoLan', b.buBinhSoLan, 'số lần')}</div>
           </div>
-          <div class="field mt-8" style="margin-bottom:0"><label>Tổng lượng sữa (ml)</label>${so('buBinhMl', b.buBinhMl, 'ml')}</div>`
-        : (coNhaTre ? '' : '')}
-
-        <div class="section-label">Lời nhắn cho gia đình</div>
-        <div class="field" style="margin:0">
+          <div class="field mt-8" style="margin-bottom:0"><label>Tổng lượng sữa (ml)</label>${so('buBinhMl', b.buBinhMl, 'ml')}</div>` : ''}`;
+    } else {
+      daGhi = !!(b.ghiChu || b.anGhiChu);
+      than = `
+        ${chu('anGhiChu', b.anGhiChu, 'Ghi chú chung về ăn uống hôm nay')}
+        <div class="field mt-8" style="margin:0">
+          <label>Lời nhắn cho gia đình</label>
           <textarea class="nk-o" data-be="${id}" data-truong="ghiChu" rows="2"
             placeholder="Hôm nay có gì gia đình cần biết ạ">${UI.esc(b.ghiChu || '')}</textarea>
+        </div>`;
+    }
+
+    return `
+      <div class="card"${nghi ? ' style="opacity:.75"' : ''}>
+        <div class="list-row" style="border-bottom:none;padding-top:0">
+          ${UI.avatar(b.avatar, 40)}
+          <div class="row-main"><div class="row-title">${UI.esc(b.hoTen)}</div></div>
+          ${nghi ? UI.badge('Nghỉ hôm nay', 'orange') : ''}
+          ${daGhi ? UI.badge('Đã ghi', 'green') : ''}
         </div>
+        ${daiNghi}
+        ${than}
       </div>`;
   },
 
@@ -478,12 +598,15 @@ App.views.nhatky = {
   // (`public/js/views/attendance.js` — hàm `markAll`): đếm rõ bao nhiêu ô còn
   // trống, bao nhiêu ô đã có, và tách hẳn hai nút. Chép nguyên cách đó sang đây.
   apCaNhom() {
-    const trua = document.getElementById('nk-ca-trua').value;
-    const tu = document.getElementById('nk-ca-ngu-tu').value;
-    const den = document.getElementById('nk-ca-ngu-den').value;
-    if (!trua && !tu && !den) return UI.toast('Cô chọn ít nhất một mục để áp nhé', 'error');
+    const buoc = this.buocHienTai();
+    const gt = (id) => { const o = document.getElementById(id); return o ? o.value : ''; };
+    let muon = [];
+    if (buoc.kieu === 'bua') muon = [[`bua.${buoc.bua.bua}.muc`, gt('nk-ca-muc')]];
+    else if (buoc.kieu === 'ngu') muon = [['nguTuLuc', gt('nk-ca-ngu-tu')], ['nguDenLuc', gt('nk-ca-ngu-den')]];
+    else if (buoc.kieu === 'vesinh') muon = [['veSinhTinhChat', gt('nk-ca-vs')]];
+    muon = muon.filter(([, v]) => v);
+    if (!muon.length) return UI.toast('Cô chọn ít nhất một mục để áp nhé', 'error');
 
-    const muon = [['anTrua', trua], ['nguTuLuc', tu], ['nguDenLuc', den]].filter(([, v]) => v);
     // BỎ QUA BÉ ĐANG NGHỈ CÓ PHÉP.
     //
     // "Áp cả nhóm" là thao tác mà cả phân hệ được thiết kế quanh nó — ghi 20 bé
@@ -545,7 +668,11 @@ App.views.nhatky = {
     document.getElementById('nk-ap-de').onclick = () => dien(true);
   },
 
+  // LƯU MỘT BƯỚC cho cả nhóm. Bước bữa ăn đi đường `/api/nhatky/bua`; ba bước
+  // còn lại đi đường cũ `/api/nhatky` với `truong` = đúng các cột của bước đó,
+  // nên phần cô khác ghi ở bước khác không bị đụng tới.
   async luu() {
+    const buoc = this.buocHienTai();
     const theoBe = new Map();
     for (const o of document.querySelectorAll('.nk-o')) {
       const be = o.dataset.be;
@@ -555,7 +682,23 @@ App.views.nhatky = {
       theoBe.get(be)[o.dataset.truong] = o.value;
     }
     try {
-      const r = await API.put('/api/nhatky', { ngay: this._ngay, danhSach: [...theoBe.values()] });
+      let r;
+      if (buoc.kieu === 'bua') {
+        const kieu = buoc.bua.bua;
+        r = await API.put('/api/nhatky/bua', {
+          classId: this._classId,
+          ngay: this._ngay,
+          bua: kieu,
+          danhSach: [...theoBe.values()].map(x => ({
+            studentId: x.studentId,
+            capNhatLucGoc: x.capNhatLucGoc,
+            muc: x[`bua.${kieu}.muc`] || '',
+            ghiChu: x[`bua.${kieu}.ghiChu`] || '',
+          })),
+        });
+      } else {
+        r = await API.put('/api/nhatky', { ngay: this._ngay, truong: buoc.truong, danhSach: [...theoBe.values()] });
+      }
       // Lưu xong là hết "gõ dở". Không xoá mốc thì lần đổi ngày ngay sau đó vẫn
       // bị hỏi lại, và một lời hỏi sai lúc thì lần sau người ta bấm cho xong.
       this._moc = undefined;
@@ -587,7 +730,8 @@ App.views.nhatky = {
         UI.toast(
           coNghi
             ? (r.nhacNghiChu || 'Có bé đang nghỉ hôm nay mà vẫn được ghi nhật ký')
-            : `Đã lưu nhật ký cho ${r.daGhi} bé`,
+            : `Đã lưu ${buoc.ten} cho ${r.daGhi} bé`
+              + (r.daBao ? ` · đã báo gia đình ${r.daBao} bé` : ''),
           coNghi ? 'error' : 'success');
       }
       App.route();
@@ -606,6 +750,10 @@ App.views.nhatky = {
     const d = await API.get(
       `/api/nhatky?studentId=${encodeURIComponent(be.id)}&tu=${tu}&den=${den}`);
 
+    // Bé đã qua lứa nhà trẻ và hai tuần qua không có trang nào: nói đúng lý do,
+    // không nói "cô chưa ghi" — cô không ghi là đúng, vì nhật ký ngày là của
+    // lứa nhà trẻ (nhà trường 07/09). Còn có trang cũ thì vẫn đọc được.
+    const daLon = d.be && d.be.laNhaTre === false;
     root.innerHTML = `
       ${UI.pageHeader('Nhật ký ngày')}
       ${
@@ -616,28 +764,45 @@ App.views.nhatky = {
       <div class="muted small" style="margin:-2px 0 10px">Nhật ký của bé <b>${UI.esc(be.name)}</b></div>
       ${(d.ngayCo || []).length
         ? (d.ngayCo || []).map(n => this.theNgay(n, d.be)).join('')
-        : UI.emptyState('📔', 'Hai tuần vừa rồi chưa có ngày nào cô ghi nhật ký cho con.')}`;
+        : (daLon
+          ? UI.emptyState('📔', 'Nhật ký ăn, ngủ, vệ sinh là của lứa nhà trẻ. Bé đã lớn nên cô không ghi phần này nữa — gia đình theo dõi con qua ảnh đón bé, thực đơn và lịch sinh hoạt.')
+          : UI.emptyState('📔', 'Hai tuần vừa rồi chưa có ngày nào cô ghi nhật ký cho con.'))}`;
   },
 
   theNgay(n, be) {
     // Viết thành CÂU, không phải bảng: gia đình đọc trên điện thoại buổi tối.
     // Ô trống thì nói "cô chưa ghi" — không bao giờ để người đọc tự suy ra.
-    const dong = (nhan, gt) => `
+    const chuaGhi = '<span class="muted" style="font-weight:400">cô chưa ghi</span>';
+    const dong = (nhan, gt, phu) => `
       <div class="list-row"><div class="row-main">
-        <div class="row-sub">${UI.esc(nhan)}</div>
-        <div class="row-title">${gt ? UI.esc(gt) : '<span class="muted" style="font-weight:400">cô chưa ghi</span>'}</div>
+        <div class="row-sub">${UI.esc(nhan)}${phu ? ` · <span style="font-weight:400">${UI.esc(phu)}</span>` : ''}</div>
+        <div class="row-title">${gt ? UI.esc(gt) : chuaGhi}</div>
       </div></div>`;
 
-    const bua = this.BUA_NHAN
-      .map(([k, t]) => [t, n[k]])
-      .filter(([, v]) => v)
-      .map(([t, v]) => `${t}: ${this.nhanMucAn(v)}`).join(' · ');
-    // Món của hôm đó, lấy từ thực đơn trường. Cô không gõ lại, gia đình vẫn đọc
-    // được ngay cạnh dòng "bé ăn hết / ăn ít".
-    const mon = this.BUA_NHAN.map(([k, t]) => {
-      const b = n.thucDon ? n.thucDon[k] : null;
-      return b && (b.mon || []).length ? `${t}: ${(b.mon || []).join(', ')}` : '';
-    }).filter(Boolean);
+    // NĂM BỮA THEO THỰC ĐƠN NGÀY ĐÓ (máy chủ mới gửi `buaAn`): mỗi bữa một
+    // dòng — tên bữa, món của bếp, và bé ăn được bao nhiêu phần. Máy chủ đời cũ
+    // không có `buaAn` thì đọc ba cột cũ như trước.
+    let phanAn = '';
+    if (Array.isArray(n.buaAn) && n.buaAn.length) {
+      phanAn = n.buaAn.map(b => dong(b.ten, this.nhanMucAn(b.muc), (b.mon || []).join(', '))
+        + (b.ghiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(b.ghiChu)}</div>` : '')).join('');
+    } else {
+      const bua = this.BUA_NHAN
+        .map(([k, t]) => [t, n[k]])
+        .filter(([, v]) => v)
+        .map(([t, v]) => `${t}: ${this.nhanMucAn(v)}`).join(' · ');
+      // Món của hôm đó, lấy từ thực đơn trường. Cô không gõ lại, gia đình vẫn đọc
+      // được ngay cạnh dòng "bé ăn hết / ăn ít".
+      const mon = this.BUA_NHAN.map(([k, t]) => {
+        const b = n.thucDon ? n.thucDon[k] : null;
+        return b && (b.mon || []).length ? `${t}: ${(b.mon || []).join(', ')}` : '';
+      }).filter(Boolean);
+      phanAn = dong('Ăn', bua) + (mon.length ? `
+          <div class="muted small" style="padding:0 0 8px;line-height:1.6">
+            Thực đơn của trường hôm đó:
+            ${mon.map(t => `<div>${UI.esc(t)}</div>`).join('')}
+          </div>` : '');
+    }
     const ngu = n.nguTuLuc && n.nguDenLuc ? `${n.nguTuLuc} – ${n.nguDenLuc}` : '';
     const vs = [
       n.veSinhSoLan === null || n.veSinhSoLan === undefined ? '' : `${n.veSinhSoLan} lần`,
@@ -650,12 +815,7 @@ App.views.nhatky = {
           <span class="spacer"></span>
           ${n.nguoiGhiTen ? `<span class="muted small" style="font-weight:400">${UI.esc(n.nguoiGhiTen)}</span>` : ''}
         </div>
-        ${dong('Ăn', bua)}
-        ${mon.length ? `
-          <div class="muted small" style="padding:0 0 8px;line-height:1.6">
-            Thực đơn của trường hôm đó:
-            ${mon.map(t => `<div>${UI.esc(t)}</div>`).join('')}
-          </div>` : ''}
+        ${phanAn}
         ${n.anGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.anGhiChu)}</div>` : ''}
         ${dong('Ngủ trưa', ngu)}
         ${n.nguGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.nguGhiChu)}</div>` : ''}
