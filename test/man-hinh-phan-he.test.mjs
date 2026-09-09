@@ -45,13 +45,16 @@ const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3960), dir: 
 // Mỗi màn: mã phân hệ, đường dẫn, và những vai PHẢI mở được nó.
 const MAN = [
   { ma: 'nhatky', hash: '#/nhatky', ten: 'Nhật ký ngày', vai: ['co', 'ph'] },
-  { ma: 'tienan', hash: '#/tienan', ten: 'Báo ăn & tiền ăn', vai: ['co'] },
+  // Đ140: Báo ăn là việc của văn phòng (bảng phân quyền của trường 07/09) — ô
+  // không còn hiện với cô, nên vai phải mở được là văn phòng.
+  { ma: 'tienan', hash: '#/tienan', ten: 'Báo ăn & tiền ăn', vai: ['qt'] },
   { ma: 'dontra', hash: '#/dontra', ten: 'Đón trả bé', vai: ['co', 'ph'] },
   { ma: 'thuchup', hash: '#/thuchup', ten: 'Ghi nhanh', vai: ['co'] },
   { ma: 'hanhtrinh', hash: '#/hanhtrinh', ten: 'Hành trình học tập', vai: ['co', 'ph'] },
   { ma: 'kehoachbe', hash: '#/kehoachbe', ten: 'Kế hoạch của bé', vai: ['co'] },
   { ma: 'cambridge', hash: '#/cambridge', ten: 'Cambridge & Kết nối ở nhà', vai: ['co', 'ph'] },
-  { ma: 'hocphi', hash: '#/hocphi', ten: 'Học phí', vai: ['co', 'ph'] },
+  // Đ140: Học phí ẩn với cô (trường: "ở giao diện giáo viên bỏ đi luôn").
+  { ma: 'hocphi', hash: '#/hocphi', ten: 'Học phí', vai: ['qt', 'ph'] },
   { ma: 'baocaohoctap', hash: '#/baocaohoctap', ten: 'Báo cáo học tập', vai: ['co', 'ph'] },
 ];
 

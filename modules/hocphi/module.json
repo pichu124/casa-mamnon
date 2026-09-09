@@ -6,8 +6,13 @@
   "view": "hocphi",
   "emoji": "💳",
   "bg": "linear-gradient(135deg,#f2994a,#e07b39)",
-  "api": ["/api/hocphi"],
-  "roles": ["parent", "teacher", "admin"],
+  "api": [
+    "/api/hocphi"
+  ],
+  "roles": [
+    "parent",
+    "admin"
+  ],
   "defaultEnabled": false,
   "version": "1.0.0"
 }

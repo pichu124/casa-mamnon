@@ -6,8 +6,12 @@
   "view": "tienan",
   "emoji": "🍲",
   "bg": "linear-gradient(135deg,#f0a24a,#d97b1f)",
-  "api": ["/api/tienan"],
-  "roles": ["teacher", "admin"],
+  "api": [
+    "/api/tienan"
+  ],
+  "roles": [
+    "admin"
+  ],
   "defaultEnabled": false,
   "version": "0.1.0"
 }
