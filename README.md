@@ -23,6 +23,7 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 | [`docs/LOI-NEN-CHUNG.md`](docs/LOI-NEN-CHUNG.md) | Lỗi ở phần nền thì vá hai kho ra sao |
 | [`modules/README.md`](modules/README.md) | Cách thêm một tính năng mà không đụng phần đang chạy |
 | [`docs/TRIEN-KHAI.md`](docs/TRIEN-KHAI.md) | **Cài lên máy chủ của trường**: VPS trong nước, tài khoản quản trị, dịch vụ tự bật lại, lịch sao lưu |
+| [`docs/XIN-BAO-GIA-VPS.md`](docs/XIN-BAO-GIA-VPS.md) | **Bản yêu cầu xin báo giá máy chủ** — chép thẳng gửi nhà cung cấp, kèm bảng so sánh và ba chỗ dễ bị hớ |
 | [`docs/SAO-LUU.md`](docs/SAO-LUU.md) | Sao lưu, đưa bản sao ra khỏi máy chủ, và khôi phục khi cần |
 | [`docs/MAY-CHU-THU-ORACLE-APP2.md`](docs/MAY-CHU-THU-ORACLE-APP2.md) | **Chạy bản thử app 2 trên máy Oracle** đã dựng cho app 1 — dữ liệu mẫu, từng bước, có đường quay lui |
 

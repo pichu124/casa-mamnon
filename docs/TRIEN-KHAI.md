@@ -176,6 +176,9 @@ Chỗ nào cần nhà trường điền, ghi rõ `<…>`.
 
 ### [A] VPS đặt tại Việt Nam — hướng dùng được với trẻ thật
 
+> **Chưa thuê máy?** `docs/XIN-BAO-GIA-VPS.md` có sẵn bản yêu cầu chép thẳng gửi
+> nhà cung cấp, kèm mười câu phải hỏi rõ trong báo giá và bảng so sánh ba nơi.
+
 Đây là hướng `docs/KE-HOACH.md` chọn, và là hướng duy nhất giữ được dữ liệu trẻ
 trong nước theo Nghị định 13/2023.
 
