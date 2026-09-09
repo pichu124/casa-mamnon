@@ -44,3 +44,6 @@ node_modules/
 *.jks
 *.keystore
 *.p12
+
+# Worktree tạm của tác nhân làm việc song song — không bao giờ lên kho
+.claude/worktrees/

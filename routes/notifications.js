@@ -106,23 +106,16 @@ module.exports = (app) => {
       };
     }));
 
-    // THÔNG BÁO RIÊNG VỀ CON (Đ137) — gộp vào TRANG ĐẦU của gia đình.
-    //
-    // Hai nguồn, hai bảng, một danh sách trên màn hình. Gộp ở mọi trang thì
-    // `bo` (offset) không còn nghĩa — hai nguồn mỗi bên một con đếm. Nên chỉ
-    // trang đầu mang kèm tối đa 50 tin riêng mới nhất (đủ cho vài tuần), các
-    // trang sau thuần thông báo nhà trường; màn hình khử trùng theo mã. Ghim
-    // của nhà trường vẫn đứng đầu; còn lại xếp theo thời gian.
-    if (bo === 0 && req.user.role === 'parent') {
-      const rieng = tbb.danhSachCua(req.user, { soLuong: 50, bo: 0 });
-      if (rieng.length) {
-        const ghim = cuaTruong.filter(n => n.pinned);
-        const conLai = cuaTruong.filter(n => !n.pinned).concat(rieng)
-          .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-        return res.json(ghim.concat(conLai));
-      }
-    }
     res.json(cuaTruong);
+  });
+
+  // THÔNG BÁO RIÊNG VỀ CON (Đ137) — một đường RIÊNG, không gộp vào danh sách
+  // trên. Danh sách trên có khế ước `bo`/`soLuong` (xin một dòng nhận đúng một
+  // dòng, ghép từng trang ra đúng danh sách) mà app cũ và bài canh đang dựa
+  // vào; nhét thêm nguồn thứ hai vào là hai con đếm giẫm lên nhau. Màn Thông
+  // báo tự ghép hai nguồn ở trang đầu. Cô, văn phòng: mảng rỗng.
+  app.get('/api/notifications/rieng-be', (req, res) => {
+    res.json(tbb.danhSachCua(req.user, { soLuong: 50, bo: 0 }));
   });
 
   // Đánh dấu đã đọc một thông báo.

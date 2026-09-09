@@ -3,6 +3,7 @@ const db = require('../lib/db');
 const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 const st = require('../lib/sua-thu-hoi');
+const tbb = require('../lib/thong-bao-be');
 
 const TYPES = ['checkup', 'vaccination', 'incident'];
 const BANG = 'health';
@@ -54,7 +55,128 @@ module.exports = (app) => {
        ORDER BY date DESC, rowid DESC`, [studentId]))
       .map(r => ({ ...r, coTheSua: suaDuoc }));
     const latestCheckup = records.find(r => r.type === 'checkup') || null;
-    res.json({ records, latestCheckup });
+    // LỊCH SỬ CÂN ĐO (Đ138). Nhà trường 07/09: "Sức khoẻ: bổ sung thêm có thể
+    // xem lại các thời gian cân đo khác". Chỉ những lần có số, mới nhất trước.
+    // KHÔNG kèm chênh lệch, không kèm "so với tháng trước tăng x" — con số của
+    // từng lần là đủ, gia đình tự đọc (QUY TẮC 4: app không phán về bé).
+    const lichSuCanDo = records
+      .filter(r => r.type === 'checkup' && (Number.isFinite(r.height) || Number.isFinite(r.weight)))
+      .map(r => ({ id: r.id, date: r.date, height: r.height ?? null, weight: r.weight ?? null, title: r.title }));
+    res.json({ records, latestCheckup, lichSuCanDo });
+  });
+
+  // BẢNG CÂN ĐO CẢ NHÓM THEO THÁNG (Đ138).
+  //
+  // Nhà trường 07/09: "Giao diện hơi khó nhìn. Nên để theo cấu trúc cơ sở →
+  // lớp, xong hiện một loạt danh sách bé của lớp thể hiện được cân nặng, chiều
+  // cao cả lớp, có ô tháng để chọn xem lại; bấm vào từng bạn xem chi tiết."
+  //
+  // Mỗi bé hai cột: LẦN ĐO TRONG THÁNG ĐANG XEM (không có thì nói "chưa đo
+  // tháng này" — chữ về việc của người lớn) và lần đo GẦN NHẤT bất kể tháng.
+  // Không cột nào so bé với bé, không trung bình nhóm, không xếp theo số đo
+  // — xếp theo tên (QUY TẮC 4).
+  app.get('/api/health/nhom', requireRole('teacher', 'admin'), (req, res) => {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Thiếu mã nhóm' });
+    const cls = db.findClass(classId);
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+    }
+    const thang = /^\d{4}-\d{2}$/.test(String(req.query.thang || '')) ? String(req.query.thang) : ngay.thangNay();
+    const dsBe = db.all('students',
+      'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId]);
+    if (!dsBe.length) return res.json({ classId, className: cls.name, thang, danhSach: [] });
+
+    const marks = dsBe.map(() => '?').join(',');
+    // Mọi lần cân đo còn hiện (chưa thu hồi) của cả nhóm, một câu truy vấn.
+    const rows = db.all('health',
+      `SELECT id, studentId, date, height, weight FROM health
+        WHERE type = 'checkup' AND studentId IN (${marks})
+          AND (height IS NOT NULL OR weight IS NOT NULL)
+          AND ${st.dieuKienConHien(BANG, 'id')}
+        ORDER BY date DESC, rowid DESC`, dsBe.map(b => b.id));
+    const trongThang = new Map();
+    const ganNhat = new Map();
+    for (const r of rows) {
+      if (!ganNhat.has(r.studentId)) ganNhat.set(r.studentId, r);
+      if (r.date.slice(0, 7) === thang && !trongThang.has(r.studentId)) trongThang.set(r.studentId, r);
+    }
+    const gon = r => r ? { id: r.id, date: r.date, height: r.height ?? null, weight: r.weight ?? null } : null;
+    res.json({
+      classId, className: cls.name, thang,
+      danhSach: dsBe.map(b => ({
+        studentId: b.id, hoTen: b.name, avatar: b.avatar, dob: b.dob,
+        doTrongThang: gon(trongThang.get(b.id)),
+        doGanNhat: gon(ganNhat.get(b.id)),
+      })),
+    });
+  });
+
+  // NHẬP CÂN ĐO CẢ NHÓM MỘT LƯỢT (Đ138).
+  //
+  // "Cân đo hàng tháng do GV thực hiện trước mùng 5 hàng tháng. Để tiện thì
+  // sổ hết một loạt danh sách bé, GV điền chiều cao, cân nặng là xong."
+  //
+  // Kiểm TOÀN BỘ trước khi ghi dòng nào: một bé gõ nhầm 170 cm thì cả lượt
+  // dừng và nói rõ bé nào, không để nửa nhóm đã ghi nửa chưa. Cùng ngày cùng
+  // bé đã có dòng cân đo tháng thì SỬA dòng đó, không tạo dòng thứ hai.
+  app.post('/api/health/can-do-nhom', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const classId = String(b.classId || '').trim();
+    const cls = classId ? db.findClass(classId) : null;
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+    }
+    const date = NGAY_RE.test(String(b.date || '')) ? String(b.date) : todayStr();
+    if (date > todayStr()) return res.status(400).json({ error: 'Chưa ghi cân đo cho ngày chưa tới được' });
+    const ds = Array.isArray(b.danhSach) ? b.danhSach : [];
+    if (!ds.length) return res.status(400).json({ error: 'Chưa có bé nào để ghi' });
+
+    const tieuDe = `Cân đo tháng ${date.slice(5, 7)}/${date.slice(0, 4)}`;
+    const sach = [];
+    for (const x of ds) {
+      const be = db.findStudent(x && x.studentId);
+      if (!be || be.classId !== classId) return res.status(400).json({ error: 'Danh sách có bé không thuộc nhóm này' });
+      if (!db.canAccessStudent(req.user, be.id)) {
+        return res.status(403).json({ error: `Không có quyền ghi cho bé ${be.name}` });
+      }
+      const h = x.height === '' || x.height === undefined || x.height === null ? null : Number(x.height);
+      const w = x.weight === '' || x.weight === undefined || x.weight === null ? null : Number(x.weight);
+      if (h === null && w === null) continue;   // dòng bỏ trống: bỏ qua, không tạo dòng rỗng
+      for (const [cot, v] of [['height', h], ['weight', w]]) {
+        const loi = loiCanDo(cot, v);
+        if (loi) return res.status(400).json({ error: `${be.name}: ${loi}` });
+      }
+      sach.push({ be, h: Number.isFinite(h) && h > 0 ? h : null, w: Number.isFinite(w) && w > 0 ? w : null });
+    }
+    if (!sach.length) return res.status(400).json({ error: 'Chưa có số đo nào để ghi — cô điền ít nhất một bé nhé' });
+
+    let daThem = 0, daSua = 0;
+    db.tx(() => {
+      for (const { be, h, w } of sach) {
+        const cu = db.first('health',
+          `SELECT * FROM health WHERE studentId = ? AND date = ? AND type = 'checkup' AND title = ?
+             AND ${st.dieuKienConHien(BANG, 'id')} ORDER BY rowid DESC`, [be.id, date, tieuDe]);
+        if (cu) {
+          db.update('health', cu.id, { height: h, weight: w });
+          daSua += 1;
+        } else {
+          db.insert('health', { id: db.nextId('ht'), studentId: be.id, date, type: 'checkup', title: tieuDe, detail: '', height: h, weight: w });
+          daThem += 1;
+        }
+      }
+    });
+    db.audit(req.user.id, 'health-can-do-nhom', classId, { date, daThem, daSua });
+    // Báo gia đình từng bé (Đ137) — một tin mỗi bé mỗi lượt lưu.
+    for (const { be } of sach) {
+      tbb.gui({ studentId: be.id, loai: 'suc-khoe', nguoiTao: req.user.id,
+        tieuDe: `Cô vừa ghi cân đo của ${be.name}`,
+        noiDung: `Số đo ngày ${date.slice(8, 10)}/${date.slice(5, 7)} đã có trong Sức khoẻ của bé.`,
+        hash: '#/health' });
+    }
+    res.json({ ok: true, date, daThem, daSua, soBe: sach.length });
   });
 
   // CHẶN SỐ GÕ NHẦM — NHƯNG CHỈ SỐ GÕ NHẦM.
@@ -131,6 +253,16 @@ module.exports = (app) => {
       rec.bmiNote = chuoiYTe(req.body.bmiNote);
     }
     db.insert('health', rec);
+    // Báo gia đình (Đ137): cân đo, khám hay sự cố đều là chuyện gia đình muốn
+    // biết ngay — nhất là sự cố.
+    {
+      const be = db.findStudent(studentId);
+      tbb.gui({ studentId, loai: 'suc-khoe', nguoiTao: req.user.id,
+        tieuDe: type === 'incident'
+          ? `Cô ghi một sự cố y tế của ${be ? be.name : 'con'}`
+          : `Cô vừa ghi ${type === 'checkup' ? 'khám / cân đo' : 'sức khoẻ'} của ${be ? be.name : 'con'}`,
+        noiDung: rec.title, hash: '#/health' });
+    }
     res.status(201).json(rec);
   });
 

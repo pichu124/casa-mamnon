@@ -249,6 +249,39 @@ App.views.student = {
   },
 
   // ---- Cô: danh sách bé của nhóm ----
+  // SINH NHẬT TRONG THÁNG (Đ139). Nhà trường 07/09: "Hiện ở phần trên sinh
+  // nhật các bạn trong tháng để GV nhớ chuẩn bị thông báo cho PH". Tháng theo
+  // giờ Việt Nam; xếp theo ngày trong tháng; bé đã qua sinh nhật vẫn hiện (cô
+  // vẫn cần biết để nhắc gia đình album/ảnh).
+  theSinhNhatThang(students) {
+    const thang = Number(UI.thangVN().slice(5, 7));
+    const homNay = UI.todayStr();
+    const ds = students
+      .map(s => ({ s, d: UI.parseDate(s.dob) }))
+      .filter(x => x.d && !Number.isNaN(x.d.getTime()) && (x.d.getMonth() + 1) === thang)
+      .sort((a, b) => a.d.getDate() - b.d.getDate());
+    if (!ds.length) return '';
+    const ngayNay = Number(homNay.slice(8, 10));
+    return `
+      <div class="card" style="border-left:4px solid var(--warning)">
+        <div class="card-title">🎂 Sinh nhật tháng ${thang}</div>
+        ${ds.map(({ s, d }) => {
+          const tuoi = UI.parseDate(homNay).getFullYear() - d.getFullYear();
+          const ngay = d.getDate();
+          const nhan = ngay === ngayNay ? 'Hôm nay!' : (ngay < ngayNay ? 'đã qua' : `còn ${ngay - ngayNay} ngày`);
+          return `
+          <div class="list-row">
+            ${UI.avatar(s.avatar, 36)}
+            <div class="row-main">
+              <div class="row-title">${UI.esc(s.name)}</div>
+              <div class="row-sub">Ngày ${ngay} · tròn ${tuoi} tuổi</div>
+            </div>
+            ${UI.badge(nhan, ngay === ngayNay ? 'orange' : 'gray')}
+          </div>`;
+        }).join('')}
+      </div>`;
+  },
+
   async renderRoster(root) {
     const students = await API.get('/api/students');
     const tenNhom = UI.noiTenNhom(App.state.user.nhomCuaCo);
@@ -259,6 +292,7 @@ App.views.student = {
         <div class="stat-box"><div class="stat-num">${students.filter(s => s.gender === 'Nam').length}</div><div class="stat-label">Nam</div></div>
         <div class="stat-box"><div class="stat-num">${students.filter(s => s.gender === 'Nữ').length}</div><div class="stat-label">Nữ</div></div>
       </div>
+      ${this.theSinhNhatThang(students)}
       <div class="card">
         ${students.map(s => `
           <div class="list-row clickable" onclick="App.views.student.showDetail('${UI.esc(s.id)}')">
@@ -269,6 +303,20 @@ App.views.student = {
             </div>
             <span class="muted">${UI.icon('chevron', 18)}</span>
           </div>`).join('')}
+      </div>`;
+  },
+
+  // Dòng số điện thoại có nút Gọi (Đ139): "đủ số điện thoại của bố, mẹ và
+  // người liên hệ khẩn cấp" — và bấm là gọi, không phải chép số sang ứng dụng khác.
+  dongGoi(nhan, so) {
+    const sach = String(so || '').replace(/\s/g, '');
+    return `
+      <div class="list-row">
+        <div class="row-main">
+          <div class="row-sub">${UI.esc(nhan)}</div>
+          <div class="row-title">${UI.esc(so || '—')}</div>
+        </div>
+        ${sach ? `<a class="btn sm outline" href="tel:${UI.esc(sach)}">Gọi</a>` : ''}
       </div>`;
   },
 
@@ -285,10 +333,12 @@ App.views.student = {
           ${infoRow('Địa chỉ', s.address)}
           ${infoRow('Tiền sử bệnh / lưu ý đặc biệt', s.tienSuBenh)}
           ${s.soDinhDanh ? infoRow('Số định danh cá nhân', s.soDinhDanh) : ''}
-          ${s.parents.map(p => infoRow(`Phụ huynh: ${p.title} ${p.name}`, p.phone)
+          ${s.parents.map(p => this.dongGoi(`Phụ huynh: ${p.title} ${p.name}`, p.phone)
             + (p.soCccd ? infoRow(`CCCD của ${p.title} ${p.name}`, p.soCccd) : '')).join('')}
-          ${(s.lienHeKhanCap || []).map(x => infoRow(
+          ${(s.lienHeKhanCap || []).map(x => this.dongGoi(
             `Khẩn cấp: ${x.hoTen}${x.quanHe ? ` (${x.quanHe})` : ''}`, x.dienThoai)).join('')}
+          ${!s.parents.length && !(s.lienHeKhanCap || []).length
+            ? '<div class="muted small mt-8">Hồ sơ chưa có số điện thoại nào — nhờ văn phòng bổ sung.</div>' : ''}
           ${this.theLichSuNhom(lichSu)}
         </div>`, 'Hồ sơ của bé');
     } catch (err) { UI.toast(err.message, 'error'); }

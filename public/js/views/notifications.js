@@ -22,6 +22,7 @@ App.views.notifications = {
   async render(root) {
     this._root = root;
     this._list = [];
+    this._rieng = [];
     this._conNua = false;
     await this.taiThem();
     this.paint();
@@ -33,13 +34,31 @@ App.views.notifications = {
   // trong câu truy vấn của máy chủ, không có bộ lọc nào chạy sau nó, nên số
   // dòng nhận về đúng bằng số dòng người này xem được.
   async taiThem() {
-    const them = await API.get(
-      `/api/notifications?bo=${this._list.length}&soLuong=${this.MOI_TRANG}`);
-    // Khử trùng theo mã: trang đầu có kèm tin riêng về con (Đ137), trang sau
-    // thuần thông báo nhà trường, nên `bo` chỉ đếm đúng cho nguồn nhà trường.
-    const daCo = new Set(this._list.map(n => n.id));
-    this._list = this._list.concat(them.filter(n => !daCo.has(n.id)));
+    // `_list` CHỈ là thông báo nhà trường, nên `bo` = độ dài của nó vẫn đúng.
+    // Tin riêng về con (Đ137) nằm ở `_rieng`, tải một lần ở lượt đầu, và chỉ
+    // ghép lúc VẼ (`danhSachVe`) — hai nguồn không giẫm lên con đếm của nhau.
+    const laDau = this._list.length === 0;
+    const [them, rieng] = await Promise.all([
+      API.get(`/api/notifications?bo=${this._list.length}&soLuong=${this.MOI_TRANG}`),
+      laDau && App.state.user.role === 'parent'
+        ? API.get('/api/notifications/rieng-be').catch(() => [])
+        : Promise.resolve(null),
+    ]);
+    this._list = this._list.concat(them);
+    if (rieng) this._rieng = rieng;
     this._conNua = them.length >= this.MOI_TRANG;
+  },
+
+  // Danh sách để vẽ: ghim của nhà trường đứng đầu, còn lại mới nhất trước —
+  // tin riêng về con xếp lẫn theo thời gian với thông báo nhà trường.
+  danhSachVe() {
+    return this._list.concat(this._rieng || [])
+      .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)
+        || String(b.createdAt).localeCompare(String(a.createdAt)));
+  },
+
+  timTin(id) {
+    return this._list.find(x => x.id === id) || (this._rieng || []).find(x => x.id === id);
   },
 
   // Vẽ lại danh sách từ dữ liệu đã tải (không gọi lại API).
@@ -49,7 +68,8 @@ App.views.notifications = {
     // (POST /api/notifications requireRole('teacher','admin')), chỉ thiếu mỗi
     // cái nút — văn phòng phải mượn tài khoản cô để gửi thông báo toàn trường.
     const taoDuoc = App.state.user.role === 'teacher' || App.state.user.role === 'admin';
-    const unread = this._list.filter(n => !n.read).length;
+    const ds = this.danhSachVe();
+    const unread = ds.filter(n => !n.read).length;
     root.innerHTML = `
       ${UI.pageHeader('Thông báo', taoDuoc ? { action: { id: 'btn-new-notif', label: 'Tạo thông báo', icon: 'plus' } } : {})}
       ${unread ? `
@@ -58,8 +78,8 @@ App.views.notifications = {
           <span class="spacer"></span>
           <button class="btn sm outline" id="btn-read-all">${UI.icon('check', 16)} Đọc tất cả</button>
         </div>` : ''}
-      ${this._list.length
-        ? `<div class="card">${this._list.map(n => this.rowHtml(n)).join('')}</div>`
+      ${ds.length
+        ? `<div class="card">${ds.map(n => this.rowHtml(n)).join('')}</div>`
         : UI.emptyState('🔔', 'Chưa có thông báo nào')}
       ${this._conNua ? `
         <button class="btn outline block mt-14" id="btn-tb-cu-hon">
@@ -136,7 +156,7 @@ App.views.notifications = {
 
   // Modal chi tiết + đánh dấu đã đọc.
   async showDetail(id) {
-    const n = this._list.find(x => x.id === id);
+    const n = this.timTin(id);
     if (!n) return;
     if (n.laRiengBe) return this.moTinRiengBe(n);
     const cat = this.catOf(n);
@@ -191,6 +211,7 @@ App.views.notifications = {
     try {
       await API.post('/api/notifications/read-all');
       this._list.forEach(n => { n.read = true; });
+      (this._rieng || []).forEach(n => { n.read = true; });
       UI.toast('Đã đánh dấu đã đọc tất cả thông báo', 'success');
       this.paint();
       App.refreshBadges();

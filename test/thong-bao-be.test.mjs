@@ -39,7 +39,7 @@ try {
   // =========================================================================
   console.log('\n[1] Ảnh con tới lớp → gia đình có tin riêng, nhà khác không');
   {
-    const truoc = await req('GET', '/api/notifications', { cookie: ph.cookie });
+    const truoc = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     const soRiengTruoc = (truoc.data || []).filter(n => n.laRiengBe).length;
     const hs = await req('GET', '/api/dashboard/badges', { cookie: ph.cookie });
     const huyHieuTruoc = hs.status === 200 ? Number(hs.data.thongbao || 0) : null;
@@ -47,21 +47,25 @@ try {
     const r = await req('POST', '/api/attendance/anh', { cookie: co.cookie, body: { studentId: 's1', date: NGAY, anh: ANH } });
     check('đối chứng — cô gắn được ảnh tới lớp cho s1', r.status === 201, `${r.status}`);
 
-    const sau = await req('GET', '/api/notifications', { cookie: ph.cookie });
+    const sau = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     const rieng = (sau.data || []).filter(n => n.laRiengBe);
     check('mẹ s1 thấy thêm một tin riêng về con', rieng.length === soRiengTruoc + 1, `${soRiengTruoc} → ${rieng.length}`);
     const tin = rieng[0] || {};
     check('tin nói đúng tên bé và giờ tới lớp', /Nguyễn Bảo An đã tới lớp lúc \d{2}:\d{2}/.test(tin.title || ''), tin.title);
     check('tin mang tên bé, loại và chỗ mở', tin.tenBe === 'Nguyễn Bảo An' && tin.loai === 'toi-lop' && tin.hash === '#/attendance', JSON.stringify({ tenBe: tin.tenBe, loai: tin.loai, hash: tin.hash }));
     check('tin chưa đọc', tin.read === false, tin.read);
-    check('tin riêng xếp lẫn theo thời gian, không đứng dưới thông báo cũ của trường',
-      (sau.data || []).findIndex(n => n.id === tin.id) < 3, (sau.data || []).findIndex(n => n.id === tin.id));
+    check('đường riêng trả mới nhất trước', (sau.data || [])[0] && (sau.data || [])[0].id === tin.id);
+    const truong = await req('GET', '/api/notifications?bo=0&soLuong=1', { cookie: ph.cookie });
+    check('danh sách nhà trường GIỮ khế ước bo/soLuong: xin một nhận đúng một, không lẫn tin riêng',
+      truong.status === 200 && truong.data.length === 1 && !truong.data[0].laRiengBe, JSON.stringify(truong.data).slice(0, 120));
+    const v = fs.readFileSync(path.join(GOC, 'public/js/views/notifications.js'), 'utf8');
+    check('màn Thông báo ghép hai nguồn ở trang đầu và xếp lẫn theo thời gian', /rieng-be/.test(v) && /laRiengBe/.test(v) && /localeCompare\(String\(a\.createdAt\)\)/.test(v));
 
-    const nhaKhac = await req('GET', '/api/notifications', { cookie: ph2.cookie });
+    const nhaKhac = await req('GET', '/api/notifications/rieng-be', { cookie: ph2.cookie });
     check('NHÀ KHÁC không thấy tin về s1', !(nhaKhac.data || []).some(n => n.id === tin.id));
-    const cuaCo = await req('GET', '/api/notifications', { cookie: co.cookie });
+    const cuaCo = await req('GET', '/api/notifications/rieng-be', { cookie: co.cookie });
     check('cô không thấy tin riêng của gia đình', !(cuaCo.data || []).some(n => n.laRiengBe));
-    const cuaVp = await req('GET', '/api/notifications', { cookie: qt.cookie });
+    const cuaVp = await req('GET', '/api/notifications/rieng-be', { cookie: qt.cookie });
     check('văn phòng cũng không', !(cuaVp.data || []).some(n => n.laRiengBe));
 
     if (huyHieuTruoc !== null) {
@@ -74,7 +78,7 @@ try {
 
     // Chụp lại tấm thứ hai trong ngày: KHÔNG báo lần nữa.
     await req('POST', '/api/attendance/anh', { cookie: co.cookie, body: { studentId: 's1', date: NGAY, anh: ANH } });
-    const sau2 = await req('GET', '/api/notifications', { cookie: ph.cookie });
+    const sau2 = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     check('chụp lại không sinh tin thứ hai', (sau2.data || []).filter(n => n.laRiengBe).length === soRiengTruoc + 1);
 
     // Đánh dấu đã đọc: nhà khác không đánh dấu hộ được.
@@ -82,7 +86,7 @@ try {
     check('nhà khác KHÔNG đánh dấu đã đọc hộ được', docNham.status === 403, `${docNham.status}`);
     const doc = await req('POST', `/api/notifications/${tin.id}/read`, { cookie: ph.cookie });
     check('mẹ đánh dấu đã đọc được', doc.status === 200, `${doc.status}`);
-    const sau3 = await req('GET', '/api/notifications', { cookie: ph.cookie });
+    const sau3 = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     check('đọc rồi thì tin hiện là đã đọc', ((sau3.data || []).find(n => n.id === tin.id) || {}).read === true);
     const bia = await req('POST', '/api/notifications/tbb_khongco/read', { cookie: ph.cookie });
     check('mã bịa → 404', bia.status === 404, `${bia.status}`);
@@ -93,12 +97,12 @@ try {
   {
     const co2 = await login('giaovien2', '123456');   // cô nhóm Lá 1 — có s2
     await req('POST', '/api/attendance/anh', { cookie: co2.cookie, body: { studentId: 's2', date: NGAY, anh: ANH } });
-    const ds = await req('GET', '/api/notifications', { cookie: ph.cookie });
+    const ds = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     const ten = new Set((ds.data || []).filter(n => n.laRiengBe).map(n => n.tenBe));
     check('mẹ hai con thấy tin của cả An lẫn Nam', ten.has('Nguyễn Bảo An') && ten.has('Nguyễn Bảo Nam'), [...ten]);
     const r = await req('POST', '/api/notifications/read-all', { cookie: ph.cookie });
     check('đọc tất cả chạy được', r.status === 200, `${r.status}`);
-    const sau = await req('GET', '/api/notifications', { cookie: ph.cookie });
+    const sau = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     check('không còn tin riêng nào chưa đọc', !(sau.data || []).some(n => n.laRiengBe && !n.read));
     const hs = await req('GET', '/api/dashboard/badges', { cookie: ph.cookie });
     check('huy hiệu chuông về 0', hs.status !== 200 || Number(hs.data.thongbao) === 0, hs.data && hs.data.thongbao);
@@ -131,7 +135,7 @@ try {
     // gọn, không 500, và máy chủ vẫn sống.
     const thu = await req('POST', '/api/push/thu', { cookie: ph.cookie, body: {} });
     check('gửi thử tới địa chỉ giả không làm sập máy chủ', thu.status === 200 || thu.status === 503, `${thu.status} ${JSON.stringify(thu.data).slice(0, 100)}`);
-    const song = await req('GET', '/api/notifications', { cookie: ph.cookie });
+    const song = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     check('máy chủ vẫn trả lời sau khi đẩy hỏng', song.status === 200, `${song.status}`);
 
     const huy = await req('DELETE', `/api/push/dang-ky?endpoint=${encodeURIComponent(sub.endpoint)}`, { cookie: ph.cookie });
