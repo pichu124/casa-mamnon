@@ -445,7 +445,7 @@ function sinh(db, moc) {
     [...II_NHAN_THUC, 'Lĩnh vực Giác quan', 'Sensory', 'chu', 'giac-quan'],
     [...II_NHAN_THUC, 'Lĩnh vực ngôn ngữ: Tiếng Việt', 'Language: Vietnamese', 'chu', 'tieng-viet'],
     [...II_NHAN_THUC, 'Lĩnh vực ngôn ngữ: Tiếng Anh', 'Language: English', 'chu', 'cambridge'],
-    [...II_NHAN_THUC, 'Lĩnh vực văn hoá', 'Culture'],
+    [...II_NHAN_THUC, 'Lĩnh vực văn hoá', 'Culture', 'chu', 'van-hoa'],
     [...II_NHAN_THUC, 'Lĩnh vực toán học', 'Maths', 'chu', 'toan'],
     [...III_XA_HOI, 'Ngôn ngữ giao tiếp', 'Communicative'],
     [...III_XA_HOI, 'Khả năng tương tác', 'Interaction skills'],

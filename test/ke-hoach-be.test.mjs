@@ -66,8 +66,10 @@ console.log('\n[1] Màn của cô: cả nhóm một tháng, kèm đủ danh mụ
   const d = await nhom();
   check('cô mở được', Array.isArray(d.danhSach), d);
   check('thấy đủ bé của nhóm', (d.danhSach || []).length > 0, d.danhSach?.length);
-  check('kèm NĂM góc lĩnh vực nhà trường liệt kê',
-    (d.gocLinhVuc || []).map(x => x.ma).join(',') === 'toan,tieng-viet,cambridge,thuc-hanh-cuoc-song,giac-quan',
+  // SÁU góc từ đợt 2: "Văn hoá" thêm cho khớp mẫu báo cáo tháng lứa 3–6 của
+  // chính nhà trường. Năm mã cũ giữ nguyên thứ tự — kế hoạch đã lưu không đổi nghĩa.
+  check('kèm SÁU góc lĩnh vực nhà trường liệt kê, năm mã cũ giữ nguyên',
+    (d.gocLinhVuc || []).map(x => x.ma).join(',') === 'toan,tieng-viet,cambridge,thuc-hanh-cuoc-song,giac-quan,van-hoa',
     (d.gocLinhVuc || []).map(x => x.ma));
   check('và NĂM kết quả nhìn lại', (d.ketQua || []).length === 5, (d.ketQua || []).map(x => x.ma));
   check('chưa lập gì thì mọi bé đều rỗng', (d.danhSach || []).every(x => x.ke === null));

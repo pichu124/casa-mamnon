@@ -15,11 +15,26 @@
 // đúng năm trạng thái của Hành trình học tập, không cái nào màu đỏ, và ô tích
 // "Tiếp tục ở tháng sau" là một lựa chọn bình thường chứ không phải dấu hiệu
 // một việc đã hỏng.
+//
+// ĐỢT 2 (phản hồi nhà trường 07/09)
+//
+//   • Mỗi góc có DANH MỤC BÀI HỌC để cô TÍCH thay vì gõ: bấm một bài là "Học
+//     mới", bấm nữa là "Ôn tập", bấm nữa là "Mở rộng", bấm nữa là bỏ tích. Ô
+//     chữ tự do vẫn còn đó cho việc không có trong danh mục.
+//   • Kế hoạch ĐÃ DUYỆT thì cô không sửa thẳng: nút "Đề xuất sửa" mở một hộp
+//     bắt ghi lý do; quản lý duyệt thì kế hoạch mở lại cho cô sửa.
+//   • Nhìn lại từng bài ở HAI mức: "Đã thấy con làm được" và "Tiếp tục cùng
+//     con". Bài "tiếp tục" được tích sẵn (ôn tập) khi cô lập tháng sau.
 App.views.kehoachbe = {
   _classId: null,
   _thang: null,
   _data: null,
   _tab: 'lap',
+
+  // Vòng bấm của một chip bài học: bỏ tích → học mới → ôn tập → mở rộng → bỏ tích.
+  VONG_NHAN: ['', 'hoc-moi', 'on-tap', 'mo-rong'],
+  // Hai mức nhìn lại từng bài — không cái nào đỏ, không cái nào cam.
+  MAU_KET_LUAN: { 'da-thay': 'green', 'tiep-tuc': 'blue' },
 
   // Không cái nào đỏ — cùng luật với phân hệ Hành trình học tập.
   MAU_KET_QUA: {
@@ -62,7 +77,8 @@ App.views.kehoachbe = {
       ${this.laQuanLy() ? `
         <div class="seg" id="kb-tabs">
           <button class="${this._tab === 'lap' ? 'active' : ''}" data-tab="lap">Kế hoạch cả nhóm</button>
-          <button class="${this._tab === 'duyet' ? 'active' : ''}" data-tab="duyet">Chờ duyệt (${UI.esc(String(d.tong.choDuyet))})</button>
+          <button class="${this._tab === 'duyet' ? 'active' : ''}" data-tab="duyet">Chờ duyệt (${UI.esc(String(d.tong.choDuyet + (d.tong.deXuatCho || 0)))})</button>
+          <button class="${this._tab === 'baihoc' ? 'active' : ''}" data-tab="baihoc">Bài học</button>
         </div>` : ''}
 
       <div class="card">
@@ -98,7 +114,13 @@ App.views.kehoachbe = {
 
     const than = document.getElementById('kb-than');
     if (this.laQuanLy() && this._tab === 'duyet') return this.veDuyet(than);
+    if (this.laQuanLy() && this._tab === 'baihoc') return this.veBaiHoc(than);
     return this.veLap(than);
+  },
+
+  // Bài học của một góc (danh mục đang bật).
+  baiCuaGoc(ma) {
+    return ((this._data || {}).baiHoc || []).filter(b => b.gocLinhVuc === ma);
   },
 
   // ================= Màn lập kế hoạch =================
@@ -108,8 +130,8 @@ App.views.kehoachbe = {
       <div class="card">
         <div class="card-title">Ba đường tắt</div>
         <div class="muted small" style="line-height:1.6;margin-bottom:10px">
-          Nhóm ${UI.esc(String(d.tong.soBe))} bé nhân 5 góc là ${UI.esc(String(d.tong.soBe * 5))} ô.
-          Đừng gõ từng ô — dùng ba nút này rồi chỉ sửa lẻ bé nào khác.
+          Nhóm ${UI.esc(String(d.tong.soBe))} bé nhân ${UI.esc(String((d.gocLinhVuc || []).length))} góc là ${UI.esc(String(d.tong.soBe * (d.gocLinhVuc || []).length))} ô.
+          Đừng gõ từng ô — tích bài trong danh mục, hoặc dùng ba nút này rồi chỉ sửa lẻ bé nào khác.
         </div>
         <button class="btn outline block" id="kb-chep">${UI.icon('plus', 16)} Chép kế hoạch tháng ${UI.esc(d.thangTruoc)}</button>
         <button class="btn outline block mt-8" id="kb-ca-nhom">${UI.icon('edit', 16)} Đặt một kế hoạch cho cả nhóm</button>
@@ -130,6 +152,34 @@ App.views.kehoachbe = {
     for (const b of than.querySelectorAll('[data-rut-lai]')) {
       b.onclick = () => this.rutLai(b.dataset.rutLai);
     }
+    for (const b of than.querySelectorAll('[data-de-xuat]')) {
+      b.onclick = () => this.moDeXuat(b.dataset.deXuat);
+    }
+    this.gangChip(than);
+  },
+
+  // CHIP BÀI HỌC — gắn sự kiện SAU khi vẽ, không nhét dữ liệu vào onclick.
+  gangChip(vung) {
+    for (const c of vung.querySelectorAll('.kb-bai')) {
+      c.onclick = () => {
+        const i = this.VONG_NHAN.indexOf(c.dataset.nhan || '');
+        this.datChip(c, this.VONG_NHAN[(i + 1) % this.VONG_NHAN.length]);
+      };
+    }
+  },
+
+  tenNhan(ma) { return this.ten((this._data || {}).nhanBai, ma); },
+
+  datChip(c, nhan) {
+    c.dataset.nhan = nhan;
+    c.className = `btn sm kb-bai ${nhan ? 'primary' : 'outline'}`;
+    c.textContent = nhan ? `${c.dataset.ten} · ${this.tenNhan(nhan)}` : c.dataset.ten;
+  },
+
+  chip(be, bai, nhan) {
+    return `<button type="button" class="btn sm kb-bai ${nhan ? 'primary' : 'outline'}"
+      data-be="${UI.esc(be)}" data-bai="${UI.esc(bai.id)}" data-ten="${UI.esc(bai.ten)}" data-nhan="${UI.esc(nhan || '')}"
+      ${bai.moTa ? `title="${UI.esc(bai.moTa)}"` : ''}>${UI.esc(nhan ? `${bai.ten} · ${this.tenNhan(nhan)}` : bai.ten)}</button>`;
   },
 
   theBe(x) {
@@ -139,24 +189,43 @@ App.views.kehoachbe = {
     const khoa = !!k && k.trangThai !== 'nhap' && k.trangThai !== 'tra-lai';
     const muc = k ? k.muc : [];
 
+    const baiDaTich = k ? (k.baiHoc || []) : [];
+    // Bé chưa có bản: bài "Tiếp tục cùng con" của tháng gần nhất được TÍCH SẴN
+    // là ôn tập. Chỉ tích trên màn — chưa ghi gì cho tới khi cô bấm Lưu.
+    const goiY = !k && x.goiY ? x.goiY : null;
+    const nhanSan = (baiId) => {
+      const t = baiDaTich.find(b => b.baiHocId === baiId);
+      if (t) return t.nhan;
+      return goiY && (goiY.baiHoc || []).some(b => b.baiHocId === baiId) ? 'on-tap' : '';
+    };
+
     const oGoc = (goc) => {
       const m = muc.find(y => y.gocLinhVuc === goc.ma);
       const gt = m ? m.noiDung : '';
+      const ds = this.baiCuaGoc(goc.ma);
       if (khoa) {
+        const bg = baiDaTich.filter(b => b.gocLinhVuc === goc.ma);
+        if (!gt && !bg.length) return '';
         return `
           <div class="list-row"><div class="row-main">
             <div class="row-sub">${UI.esc(goc.ten)}</div>
-            <div class="row-title" style="font-weight:400">${gt ? UI.esc(gt) : '<span class="muted">—</span>'}</div>
+            ${bg.length ? `<div class="small" style="line-height:1.7">${bg.map(b =>
+              `${UI.esc(b.ten)} <span class="muted">· ${UI.esc(this.tenNhan(b.nhan))}</span>${
+                b.ketQua ? ` ${UI.badge(this.ten(d.ketLuanBai, b.ketQua), this.MAU_KET_LUAN[b.ketQua] || 'gray')}` : ''}`).join('<br>')}</div>` : ''}
+            ${gt ? `<div class="row-title" style="font-weight:400">${UI.esc(gt)}</div>` : ''}
             ${m && m.ketQua ? `<div class="row-sub">${UI.esc(this.ten(d.ketQua, m.ketQua))}${m.tiepTucThangSau ? ' · tiếp tục ở tháng sau' : ''}</div>` : ''}
           </div></div>`;
       }
       return `
         <div class="field" style="margin-bottom:8px">
           <label>${UI.esc(goc.ten)}</label>
+          ${ds.length ? `<div class="flex" style="flex-wrap:wrap;gap:6px;margin-bottom:6px">${
+            ds.map(b => this.chip(x.studentId, b, nhanSan(b.id))).join('')}</div>` : ''}
           <input class="kb-o" data-be="${UI.esc(x.studentId)}" data-goc="${UI.esc(goc.ma)}"
-            value="${UI.esc(gt)}" placeholder="Tháng này cô định làm gì cùng bé ở góc này">
+            value="${UI.esc(gt)}" placeholder="Việc khác ngoài danh mục (không bắt buộc)">
         </div>`;
     };
+    const dx = k && k.deXuat;
 
     return `
       <div class="card">
@@ -174,6 +243,21 @@ App.views.kehoachbe = {
             Quản lý gửi lại: ${UI.esc(k.yKienDuyet)}
           </div>` : ''}
 
+        ${goiY && (goiY.baiHoc || []).length ? `
+          <div class="small muted" style="line-height:1.6;margin-bottom:8px">
+            Tháng ${UI.esc(goiY.tuThang)} cô ghi <b>Tiếp tục cùng con</b>: ${UI.esc((goiY.baiHoc || []).map(b => b.ten).join(', '))}
+            — đã tích sẵn là ôn tập, cô bỏ tích được.
+          </div>` : ''}
+
+        ${dx && dx.trangThai === 'cho-duyet' ? `
+          <div class="small mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px;margin-bottom:10px">
+            Đề xuất sửa đang chờ quản lý: ${UI.esc(dx.lyDo)}
+          </div>` : ''}
+        ${dx && dx.trangThai === 'tu-choi' && k.trangThai === 'da-duyet' ? `
+          <div class="small mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px;margin-bottom:10px">
+            Quản lý chưa đồng ý mở lại: ${UI.esc(dx.yKien || '')}
+          </div>` : ''}
+
         ${(d.gocLinhVuc || []).map(g => oGoc(g)).join('')}
 
         ${k ? `
@@ -181,33 +265,80 @@ App.views.kehoachbe = {
             <button class="btn outline" data-nhin-lai="${UI.esc(k.id)}">${UI.icon('star', 16)} Nhìn lại cuối tháng</button>
             ${k.trangThai === 'cho-duyet'
               ? `<button class="btn danger-soft" data-rut-lai="${UI.esc(k.id)}">Rút lại để sửa</button>`
-              : '<span></span>'}
+              : (k.trangThai === 'da-duyet' && !(dx && dx.trangThai === 'cho-duyet')
+                ? `<button class="btn outline" data-de-xuat="${UI.esc(k.id)}">${UI.icon('edit', 16)} Đề xuất sửa</button>`
+                : '<span></span>')}
           </div>` : ''}
       </div>`;
   },
 
+  // ĐỀ XUẤT SỬA KẾ HOẠCH ĐÃ DUYỆT — lý do là bắt buộc, đúng lời nhà trường.
+  moDeXuat(keId) {
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6;margin-bottom:12px">
+        Kế hoạch này quản lý đã duyệt. Cô ghi <b>vì sao</b> muốn đổi và định đổi gì;
+        quản lý đồng ý thì kế hoạch mở lại cho cô sửa, sửa xong gửi duyệt lại.
+      </div>
+      <div class="field">
+        <label>Lý do</label>
+        <textarea id="kb-dx-lydo" rows="2" placeholder="Ví dụ: bé nghỉ ốm hai tuần, bài Gậy số chưa kịp bắt đầu"></textarea>
+      </div>
+      <div class="field">
+        <label>Định đổi gì (mỗi dòng một ý, không bắt buộc)</label>
+        <textarea id="kb-dx-nd" rows="3" placeholder="Toán: bỏ Gậy số, thêm Số nhám"></textarea>
+      </div>
+      <button class="btn primary block" id="kb-dx-gui">${UI.icon('send', 16)} Gửi đề xuất</button>
+    `, 'Đề xuất sửa kế hoạch');
+    document.getElementById('kb-dx-gui').onclick = async () => {
+      const lyDo = document.getElementById('kb-dx-lydo').value.trim();
+      if (!lyDo) return UI.toast('Cô ghi rõ lý do nhé — quản lý đọc dòng này để quyết', 'error');
+      try {
+        await API.post(`/api/kehoachbe/${encodeURIComponent(keId)}/de-xuat`, {
+          lyDo, noiDung: document.getElementById('kb-dx-nd').value.trim(),
+        });
+        UI.toast('Đã gửi đề xuất — quản lý duyệt thì kế hoạch mở lại cho cô', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
   async luuCaNhom() {
     const theoBe = new Map();
-    for (const o of document.querySelectorAll('.kb-o')) {
-      const be = o.dataset.be;
+    const layBe = (be) => {
       if (!theoBe.has(be)) {
         // Gửi kèm dấu thời gian của bản đã NẠP VỀ (null khi bé chưa có bản
         // nào) — máy chủ so nó để ảnh chụp màn hình cũ của cô này không đè
         // lên phần cô kia vừa lưu.
         const x = ((this._data || {}).danhSach || []).find(y => y.studentId === be);
         const mucCu = (x && x.ke && x.ke.muc) || [];
+        const baiCu = (x && x.ke && x.ke.baiHoc) || [];
         theoBe.set(be, {
           studentId: be,
           capNhatLucGoc: x && x.ke ? (x.ke.capNhatLuc || null) : null,
           muc: [],
+          baiHoc: [],
           mucCu,
+          baiCu,
           coSua: false,
         });
       }
-      const t = theoBe.get(be);
+      return theoBe.get(be);
+    };
+    for (const o of document.querySelectorAll('.kb-o')) {
+      const t = layBe(o.dataset.be);
       const cu = (t.mucCu.find(m => m.gocLinhVuc === o.dataset.goc) || {}).noiDung || '';
       if (o.value.trim() !== cu) t.coSua = true;
       t.muc.push({ gocLinhVuc: o.dataset.goc, noiDung: o.value.trim() });
+    }
+    // Chip bài học: so với bản đã nạp để biết cô có đổi gì không. Bé chưa có
+    // bản mà có chip tích sẵn từ gợi ý thì đó là một thay đổi thật — lưu.
+    for (const c of document.querySelectorAll('.kb-bai')) {
+      const t = layBe(c.dataset.be);
+      const nhan = c.dataset.nhan || '';
+      const cu = (t.baiCu.find(b => b.baiHocId === c.dataset.bai) || {}).nhan || '';
+      if (nhan !== cu) t.coSua = true;
+      if (nhan) t.baiHoc.push({ baiHocId: c.dataset.bai, nhan });
     }
     // CHỈ GỬI BÉ CÔ CÓ SỬA. Gửi cả mấy bé cô không đụng tới là gửi ảnh chụp
     // màn hình của họ — mà ảnh đó có thể đã cũ: cô khác vừa lập kế hoạch cho
@@ -216,7 +347,7 @@ App.views.kehoachbe = {
     // đã nạp lại) sẽ ghi đè cả bé đó — cô không hề gõ, chỉ vì nó nằm trên
     // màn. Bé không sửa thì không gửi: không có gì để đè.
     const danhSach = [...theoBe.values()].filter(t => t.coSua)
-      .map(({ mucCu: _c, coSua: _s, ...t }) => t);
+      .map(({ mucCu: _c, baiCu: _b, coSua: _s, ...t }) => t);
     if (!theoBe.size) return UI.toast('Không có bé nào đang mở để sửa', 'error');
     if (!danhSach.length) return UI.toast('Cô chưa sửa ô nào so với bản đang lưu', 'error');
     try {
@@ -288,19 +419,25 @@ App.views.kehoachbe = {
       ${(d.gocLinhVuc || []).map(g => `
         <div class="field">
           <label>${UI.esc(g.ten)}</label>
-          <input id="kb-cn-${UI.esc(g.ma)}" placeholder="Để trống thì bỏ qua góc này">
+          ${this.baiCuaGoc(g.ma).length ? `<div class="flex" style="flex-wrap:wrap;gap:6px;margin-bottom:6px">${
+            this.baiCuaGoc(g.ma).map(b => this.chip('*', b, '')).join('')}</div>` : ''}
+          <input id="kb-cn-${UI.esc(g.ma)}" placeholder="Việc khác ngoài danh mục — để trống thì bỏ qua">
         </div>`).join('')}
       <button class="btn primary block" id="kb-cn-luu">${UI.icon('check', 18)} Đặt cho cả nhóm</button>
     `, 'Đặt một kế hoạch cho cả nhóm');
+    const ov = document.getElementById('modal-overlay');
+    if (ov) this.gangChip(ov);
     document.getElementById('kb-cn-luu').onclick = async () => {
       const muc = (d.gocLinhVuc || []).map(g => ({
         gocLinhVuc: g.ma,
         noiDung: (document.getElementById(`kb-cn-${g.ma}`) || {}).value || '',
       })).filter(m => m.noiDung.trim());
-      if (!muc.length) return UI.toast('Cô gõ ít nhất một góc nhé', 'error');
+      const baiHoc = [...(ov ? ov.querySelectorAll('.kb-bai') : [])]
+        .filter(c => c.dataset.nhan).map(c => ({ baiHocId: c.dataset.bai, nhan: c.dataset.nhan }));
+      if (!muc.length && !baiHoc.length) return UI.toast('Cô tích ít nhất một bài hoặc gõ một góc nhé', 'error');
       try {
         const r = await API.post('/api/kehoachbe/dat-ca-nhom', {
-          classId: this._classId, thang: this._thang, muc,
+          classId: this._classId, thang: this._thang, muc, baiHoc,
         });
         UI.toast(`Đã đặt cho ${r.daDat} bé${r.boQua ? `, bỏ qua ${r.boQua} bé đang khoá` : ''}`
           + this.nhacBoQua(r), 'success');
@@ -364,8 +501,17 @@ App.views.kehoachbe = {
         Việc gì cần làm tiếp thì tích "Tiếp tục ở tháng sau", nút <i>Chép tháng trước</i>
         sẽ mang nó sang giúp cô.
       </div>
-      ${(k.muc || []).map((m, i) => `
+      ${(k.baiHoc || []).map((b, i) => `
         <div style="${i ? 'border-top:1px solid var(--line);padding-top:10px;margin-top:12px' : ''}">
+          <div class="small" style="font-weight:700">${UI.esc(this.ten(d.gocLinhVuc, b.gocLinhVuc))} · ${UI.esc(b.ten)}
+            <span class="muted" style="font-weight:400">· ${UI.esc(this.tenNhan(b.nhan))}</span></div>
+          <div class="seg mt-8" data-kl-cua="${UI.esc(b.id)}">
+            ${(d.ketLuanBai || []).map(t => `<button type="button" class="${b.ketQua === t.ma ? 'active' : ''}" data-kl="${UI.esc(t.ma)}">${UI.esc(t.ten)}</button>`).join('')}
+          </div>
+          <input class="kb-bnx mb-8" data-bai-id="${UI.esc(b.id)}" value="${UI.esc(b.nhanXet || '')}" placeholder="Ghi chú thêm (không bắt buộc)">
+        </div>`).join('')}
+      ${(k.muc || []).map((m, i) => `
+        <div style="${i || (k.baiHoc || []).length ? 'border-top:1px solid var(--line);padding-top:10px;margin-top:12px' : ''}">
           <div class="small" style="font-weight:700">${UI.esc(this.ten(d.gocLinhVuc, m.gocLinhVuc))}</div>
           <div class="small" style="line-height:1.6;margin-bottom:8px">${UI.esc(m.noiDung)}</div>
           <div class="field" style="margin-bottom:8px">
@@ -385,6 +531,18 @@ App.views.kehoachbe = {
       <button class="btn primary block mt-14" id="kb-nl-luu">${UI.icon('check', 18)} Lưu phần nhìn lại</button>
     `, 'Nhìn lại cuối tháng');
 
+    const ov = document.getElementById('modal-overlay');
+    // Hai nút một hàng: bấm lại nút đang chọn là bỏ chọn — "chưa kết luận"
+    // cũng là một trạng thái hợp lệ, không ép cô phải chọn một trong hai.
+    for (const seg of ov.querySelectorAll('[data-kl-cua]')) {
+      for (const nut of seg.querySelectorAll('button')) {
+        nut.onclick = () => {
+          const dangChon = nut.classList.contains('active');
+          for (const x of seg.querySelectorAll('button')) x.classList.remove('active');
+          if (!dangChon) nut.classList.add('active');
+        };
+      }
+    }
     document.getElementById('kb-nl-luu').onclick = async () => {
       const muc = (k.muc || []).map((m, i) => ({
         id: document.getElementById(`kb-id-${i}`).value,
@@ -392,8 +550,13 @@ App.views.kehoachbe = {
         nhanXet: document.getElementById(`kb-nx-${i}`).value.trim(),
         tiepTucThangSau: document.getElementById(`kb-tt-${i}`).checked,
       }));
+      const baiHoc = [...ov.querySelectorAll('[data-kl-cua]')].map(seg => {
+        const chon = seg.querySelector('button.active');
+        const nx = ov.querySelector(`.kb-bnx[data-bai-id="${seg.dataset.klCua}"]`);
+        return { id: seg.dataset.klCua, ketQua: chon ? chon.dataset.kl : '', nhanXet: nx ? nx.value.trim() : '' };
+      });
       try {
-        await API.put('/api/kehoachbe/nhin-lai', { id: keId, muc });
+        await API.put('/api/kehoachbe/nhin-lai', { id: keId, muc, baiHoc });
         UI.toast('Đã lưu phần nhìn lại', 'success');
         UI.closeModal();
         App.route();
@@ -405,6 +568,7 @@ App.views.kehoachbe = {
   veDuyet(than) {
     const d = this._data;
     const cho = (d.danhSach || []).filter(x => x.ke && x.ke.trangThai === 'cho-duyet');
+    const dxCho = (d.danhSach || []).filter(x => x.ke && x.ke.deXuat && x.ke.deXuat.trangThai === 'cho-duyet');
     than.innerHTML = `
       ${cho.length ? `
         <div class="card">
@@ -418,10 +582,40 @@ App.views.kehoachbe = {
           </div>
         </div>` : ''}
 
-      ${cho.length
-        ? cho.map(x => this.theDuyet(x)).join('')
-        : UI.emptyState('🧭', 'Không có kế hoạch nào đang chờ duyệt.')}`;
+      ${cho.length ? cho.map(x => this.theDuyet(x)).join('') : ''}
 
+      ${dxCho.length ? `
+        <div class="card">
+          <div class="card-title">Đề xuất sửa kế hoạch đã duyệt</div>
+          <div class="muted small" style="line-height:1.6">
+            Đồng ý thì kế hoạch <b>mở lại</b> cho cô sửa, sửa xong cô gửi duyệt lại. Từ chối thì ghi một dòng vì sao.
+          </div>
+        </div>
+        ${dxCho.map(x => `
+          <div class="card">
+            <div class="list-row" style="border-bottom:none;padding-top:0">
+              ${UI.avatar(x.avatar, 40)}
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.hoTen)}</div>
+                <div class="row-sub">${UI.esc(x.ke.deXuat.coDeXuatTen || '')} đề xuất ${UI.esc(UI.timeAgo(x.ke.deXuat.taoLuc))}</div>
+              </div>
+            </div>
+            <div class="small" style="line-height:1.6"><b>Lý do:</b> ${UI.esc(x.ke.deXuat.lyDo)}</div>
+            ${x.ke.deXuat.noiDung ? `<div class="small mt-8" style="white-space:pre-wrap;line-height:1.6">${UI.esc(x.ke.deXuat.noiDung)}</div>` : ''}
+            <div class="grid-2 mt-8">
+              <button class="btn success-soft" data-dx-duyet="${UI.esc(x.ke.deXuat.id)}">${UI.icon('check', 16)} Đồng ý, mở lại</button>
+              <button class="btn danger-soft" data-dx-tu-choi="${UI.esc(x.ke.deXuat.id)}">Từ chối</button>
+            </div>
+          </div>`).join('')}` : ''}
+
+      ${!cho.length && !dxCho.length ? UI.emptyState('🧭', 'Không có kế hoạch hay đề xuất nào đang chờ duyệt.') : ''}`;
+
+    for (const b of than.querySelectorAll('[data-dx-duyet]')) {
+      b.onclick = () => this.duyetDeXuat(b.dataset.dxDuyet, 'da-duyet');
+    }
+    for (const b of than.querySelectorAll('[data-dx-tu-choi]')) {
+      b.onclick = () => this.moTuChoiDeXuat(b.dataset.dxTuChoi);
+    }
     const het = document.getElementById('kb-duyet-het');
     if (het) het.onclick = () => this.duyet(cho.map(x => x.ke.id), 'da-duyet');
     const tra = document.getElementById('kb-tra-het');
@@ -445,6 +639,14 @@ App.views.kehoachbe = {
             <div class="row-sub">${UI.esc(x.ke.coLapTen || '')} gửi ${UI.esc(UI.timeAgo(x.ke.guiLuc))}</div>
           </div>
         </div>
+        ${(d.gocLinhVuc || []).map(g => {
+          const bg = (x.ke.baiHoc || []).filter(b => b.gocLinhVuc === g.ma);
+          if (!bg.length) return '';
+          return `<div class="list-row"><div class="row-main">
+            <div class="row-sub">${UI.esc(g.ten)}</div>
+            <div class="small" style="line-height:1.7">${bg.map(b => `${UI.esc(b.ten)} <span class="muted">· ${UI.esc(this.tenNhan(b.nhan))}</span>`).join('<br>')}</div>
+          </div></div>`;
+        }).join('')}
         ${(x.ke.muc || []).map(m => `
           <div class="list-row"><div class="row-main">
             <div class="row-sub">${UI.esc(this.ten(d.gocLinhVuc, m.gocLinhVuc))}</div>
@@ -479,6 +681,99 @@ App.views.kehoachbe = {
       const y = document.getElementById('kb-ykien').value.trim();
       if (!y) return UI.toast('Quản lý ghi giúp cô một dòng vì sao nhé', 'error');
       this.duyet(ids, 'tra-lai', y);
+    };
+  },
+
+  async duyetDeXuat(id, quyetDinh, yKien = '') {
+    try {
+      await API.post(`/api/kehoachbe/de-xuat/${encodeURIComponent(id)}/duyet`, { quyetDinh, yKien });
+      UI.toast(quyetDinh === 'da-duyet' ? 'Đã mở lại kế hoạch cho cô sửa' : 'Đã từ chối đề xuất', 'success');
+      UI.closeModal();
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  moTuChoiDeXuat(id) {
+    UI.modal(`
+      <div class="field">
+        <label>Vì sao từ chối</label>
+        <textarea id="kb-dx-ykien" rows="3" placeholder="Ví dụ: giữ lộ trình tới hết tháng rồi tính, tháng sau đổi."></textarea>
+        <div class="hint">Cô đọc dòng này — bỏ trống thì không từ chối được.</div>
+      </div>
+      <button class="btn danger-soft block" id="kb-dx-tc">Từ chối đề xuất</button>
+    `, 'Từ chối đề xuất sửa');
+    document.getElementById('kb-dx-tc').onclick = () => {
+      const y = document.getElementById('kb-dx-ykien').value.trim();
+      if (!y) return UI.toast('Quản lý ghi giúp cô một dòng vì sao nhé', 'error');
+      this.duyetDeXuat(id, 'tu-choi', y);
+    };
+  },
+
+  // ================= Danh mục bài học (văn phòng / quản lý) =================
+  async veBaiHoc(than) {
+    let d;
+    try { d = await API.get('/api/kehoachbe/bai-hoc?tatCa=1'); }
+    catch (err) { than.innerHTML = UI.emptyState('🧭', err.message); return; }
+    const goc = d.gocLinhVuc || [];
+    than.innerHTML = `
+      <div class="card">
+        <div class="muted small" style="line-height:1.7">
+          Đây là danh mục cô nhìn thấy khi tích bài cho từng bé. Thêm, sửa tên, hoặc
+          <b>ẩn</b> bài không dùng nữa — không xoá, vì kế hoạch tháng cũ vẫn phải hiện đúng tên bài.
+        </div>
+        <button class="btn primary block mt-8" id="kb-bh-them">${UI.icon('plus', 16)} Thêm bài học</button>
+      </div>
+      ${goc.map(g => {
+        const ds = (d.baiHoc || []).filter(b => b.gocLinhVuc === g.ma);
+        return `
+          <div class="card">
+            <div class="card-title">${UI.esc(g.ten)}</div>
+            ${ds.length ? ds.map(b => `
+              <div class="list-row">
+                <div class="row-main">
+                  <div class="row-title" style="font-weight:${b.active ? 600 : 400}">${UI.esc(b.ten)}${b.active ? '' : ' <span class="muted">· đang ẩn</span>'}</div>
+                  ${b.moTa ? `<div class="row-sub">${UI.esc(b.moTa)}</div>` : ''}
+                </div>
+                <button class="btn sm outline" data-sua-bai="${UI.esc(b.id)}">Sửa</button>
+              </div>`).join('') : '<div class="muted small">Chưa có bài nào ở góc này.</div>'}
+          </div>`;
+      }).join('')}`;
+    document.getElementById('kb-bh-them').onclick = () => this.moSuaBai(null, goc, d.baiHoc || []);
+    for (const b of than.querySelectorAll('[data-sua-bai]')) {
+      b.onclick = () => this.moSuaBai(b.dataset.suaBai, goc, d.baiHoc || []);
+    }
+  },
+
+  moSuaBai(id, goc, ds) {
+    const b = id ? (ds.find(x => x.id === id) || {}) : { gocLinhVuc: (goc[0] || {}).ma, ten: '', moTa: '', active: true };
+    UI.modal(`
+      <div class="field"><label>Góc lĩnh vực</label>
+        <select id="kb-bh-goc">${goc.map(g => `<option value="${UI.esc(g.ma)}" ${g.ma === b.gocLinhVuc ? 'selected' : ''}>${UI.esc(g.ten)}</option>`).join('')}</select></div>
+      <div class="field"><label>Tên bài</label>
+        <input id="kb-bh-ten" value="${UI.esc(b.ten || '')}" placeholder="Ví dụ: Rót nước"></div>
+      <div class="field"><label>Mô tả ngắn (không bắt buộc)</label>
+        <input id="kb-bh-mota" value="${UI.esc(b.moTa || '')}" placeholder="Giáo cụ, gợi ý cách mời bé"></div>
+      ${id ? `<label class="row-between" style="padding:8px 0">
+        <span>Đang dùng (bỏ tích để ẩn)</span>
+        <input type="checkbox" id="kb-bh-active" ${b.active ? 'checked' : ''}></label>` : ''}
+      <button class="btn primary block mt-8" id="kb-bh-luu">${UI.icon('check', 18)} Lưu</button>
+    `, id ? 'Sửa bài học' : 'Thêm bài học');
+    document.getElementById('kb-bh-luu').onclick = async () => {
+      const goi = {
+        gocLinhVuc: document.getElementById('kb-bh-goc').value,
+        ten: document.getElementById('kb-bh-ten').value.trim(),
+        moTa: document.getElementById('kb-bh-mota').value.trim(),
+      };
+      const ac = document.getElementById('kb-bh-active');
+      if (ac) goi.active = ac.checked;
+      if (!goi.ten) return UI.toast('Bài học cần có tên', 'error');
+      try {
+        if (id) await API.put(`/api/kehoachbe/bai-hoc/${encodeURIComponent(id)}`, goi);
+        else await API.post('/api/kehoachbe/bai-hoc', goi);
+        UI.closeModal();
+        UI.toast('Đã lưu danh mục', 'success');
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
     };
   },
 };

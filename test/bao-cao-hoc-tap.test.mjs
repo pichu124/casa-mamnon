@@ -25,7 +25,7 @@
 //      hai vế: có lấy được chữ sang thật, và lấy xong thì bản báo cáo VẪN
 //      TRỐNG cho tới khi cô tự điền. Kèm chốt chặn: tắt Kế hoạch của bé thì
 //      đường này không đọc được một dòng nào của bảng bên đó.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, MAU, GOC } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, MAU, GOC, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -277,6 +277,18 @@ try {
       gui.status === 200 && gui.data.ban.daGui === true && !!gui.data.ban.guiLuc,
       `${gui.status} ${JSON.stringify(gui.data.ban && gui.data.ban.trangThai)}`);
 
+    // ĐỢT 2 (phản hồi 07/09): "gửi" là gửi QUẢN LÝ DUYỆT. Gia đình chỉ thấy
+    // khi quản lý duyệt và tới ngày công bố — bài canh riêng ở
+    // test/bao-cao-duyet.test.mjs đi hết các nhánh; ở đây chỉ giữ mạch cũ.
+    check('nhưng đó là gửi QUẢN LÝ DUYỆT, chưa phải gửi gia đình',
+      gui.data.choDuyet === true && gui.data.ban.buoc === 'cho-duyet', JSON.stringify([gui.data.choDuyet, gui.data.ban.buoc]));
+    const chuaDuyet = await req('GET', `/api/baocaohoctap/ban/${banId}`, { cookie: ph.cookie });
+    check('quản lý chưa duyệt thì gia đình VẪN chưa đọc được', chuaDuyet.status === 404, `${chuaDuyet.status}`);
+
+    const duyet = await req('POST', `/api/baocaohoctap/ban/${banId}/duyet`, { cookie: qt.cookie, body: { quyetDinh: 'da-duyet' } });
+    check('quản lý duyệt được, ngày công bố mặc định là hôm nay',
+      duyet.status === 200 && duyet.data.ngayCongBo === HOM_NAY(), `${duyet.status} ${JSON.stringify(duyet.data).slice(0, 120)}`);
+
     const doc = await req('GET', `/api/baocaohoctap/ban/${banId}`, { cookie: ph.cookie });
     check('giờ gia đình đọc được, và đọc đúng tên con mình',
       doc.status === 200 && doc.data.ban.hoTen && doc.data.ban.dong.length === 3,
@@ -290,7 +302,12 @@ try {
     const lai = await req('GET', `/api/baocaohoctap/ban/${banId}`, { cookie: ph.cookie });
     check('thu về rồi thì gia đình lại không đọc được nữa', lai.status === 404, `${lai.status}`);
 
-    await req('POST', `/api/baocaohoctap/ban/${banId}/gui`, { cookie: co.cookie, body: {} });
+    // Quản lý tự gửi = duyệt luôn (giữ tương thích với cách gửi cũ).
+    const qtGui = await req('POST', `/api/baocaohoctap/ban/${banId}/gui`, { cookie: qt.cookie, body: {} });
+    check('quản lý bấm gửi thì duyệt luôn, gia đình thấy ngay',
+      qtGui.status === 200 && qtGui.data.ban.buoc === 'da-cong-bo'
+        && (await req('GET', `/api/baocaohoctap/ban/${banId}`, { cookie: ph.cookie })).status === 200,
+      `${qtGui.status} ${qtGui.data.ban && qtGui.data.ban.buoc}`);
   }
 
   // =========================================================================

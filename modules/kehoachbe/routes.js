@@ -24,20 +24,89 @@
 //      Chú thích này CỐ Ý không chép lại nguyên văn cặp từ kia. Bài test quét
 //      cả chú thích, và một bộ canh có ngoại lệ "trong ngoặc kép thì không
 //      tính" là một bộ canh có lỗ.
+//
+// ĐỢT 2 — PHẢN HỒI NHÀ TRƯỜNG 07/09, ba việc thêm vào tệp này:
+//
+//   • DANH MỤC BÀI HỌC theo góc lĩnh vực, cô TÍCH CHỌN thay vì gõ. Nhà trường:
+//     "Từ những tên bài học có sẵn, cô sẽ tích chọn trong tháng đó bé sẽ được
+//     học những bài nào, cần ôn tập thêm hay mở rộng thêm." Ô chữ tự do giữ
+//     nguyên làm tuỳ chọn — hai cách lập cùng tồn tại, không cách nào bắt buộc.
+//   • ĐỀ XUẤT SỬA kế hoạch ĐÃ DUYỆT: "Khi có điều chỉnh khác lộ trình ban đầu
+//     thì có quyền đề xuất sửa, ghi rõ lý do rồi quản lý mới phê duyệt."
+//   • NHÌN LẠI TỪNG BÀI ở HAI MỨC, chữ trung tính: "Đã thấy con làm được" và
+//     "Tiếp tục cùng con". Bài "tiếp tục" tự được gợi ý khi lập tháng sau.
 const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
 
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-// NĂM GÓC LĨNH VỰC của lớp học CASA — do nhà trường liệt kê.
+// SÁU GÓC LĨNH VỰC của lớp học CASA — do nhà trường liệt kê.
+//
+// Bản đầu có năm; "Văn hoá" thêm ở đợt 2 cho khớp mẫu báo cáo tháng lứa 3–6
+// của chính nhà trường (mẫu ấy có sáu lĩnh vực nhận thức). Mã 'cambridge' giữ
+// nguyên vì kế hoạch đã lưu và mẫu báo cáo đang trỏ vào mã đó; chỉ đổi nhãn.
 const GOC_LINH_VUC = [
   ['toan', 'Toán'],
   ['tieng-viet', 'Tiếng Việt'],
-  ['cambridge', 'Cambridge'],
+  ['cambridge', 'Tiếng Anh (Cambridge)'],
   ['thuc-hanh-cuoc-song', 'Thực hành cuộc sống'],
   ['giac-quan', 'Giác quan'],
+  ['van-hoa', 'Văn hoá'],
 ];
 const MA_GOC = GOC_LINH_VUC.map(x => x[0]);
+
+// BA NHÃN cho một bài đã tích — đúng ba chữ của nhà trường.
+const NHAN_BAI = [
+  ['hoc-moi', 'Học mới'],
+  ['on-tap', 'Ôn tập'],
+  ['mo-rong', 'Mở rộng'],
+];
+const MA_NHAN = NHAN_BAI.map(x => x[0]);
+
+// HAI MỨC NHÌN LẠI CHO TỪNG BÀI — CHỮ TRUNG TÍNH, ĐÚNG QUY TẮC 2.
+//
+// Nhà trường tả bước cuối tháng bằng một cặp từ đúng/sai. Ở đây giữ đúng hai
+// mức như nhà trường cần, nhưng mức thứ hai là một VIỆC-LÀM-TIẾP ("tiếp tục
+// cùng con"), không phải một dấu trừ. Và cũng chính nó là thứ được gợi ý sẵn
+// khi lập kế hoạch tháng sau — QUY TẮC 5.
+const KET_LUAN_BAI = [
+  ['da-thay', 'Đã thấy con làm được'],
+  ['tiep-tuc', 'Tiếp tục cùng con'],
+];
+const MA_KET_LUAN = KET_LUAN_BAI.map(x => x[0]);
+
+// DANH MỤC MẶC ĐỊNH theo tinh thần Montessori, nạp LƯỜI khi bảng còn trống.
+//
+// Đây là điểm xuất phát để cô có thứ mà tích ngay ngày đầu, không phải bản
+// chốt: văn phòng thêm / sửa / ẩn từng bài ở màn Quản trị. Không INSERT trong
+// schema.sql vì tệp đó chạy mỗi lần khởi động và bộ kiểm tra lược đồ chỉ nhận
+// CREATE.
+const BAI_MAC_DINH = {
+  'toan': [
+    'Gậy số', 'Số nhám', 'Hộp con quay', 'Thẻ số và hạt', 'Hạt cườm vàng',
+    'Bảng Seguin 1 (11–19)', 'Bảng Seguin 2 (10–99)', 'Chuỗi hạt 100', 'Bảng cộng', 'Bảng trừ',
+  ],
+  'tieng-viet': [
+    'Trò chơi âm thanh', 'Chữ nhám', 'Bảng chữ rời', 'Hộp đồ vật – chữ cái',
+    'Ghép từ ba âm', 'Thẻ từ – tranh', 'Đọc sách cùng cô', 'Kể chuyện theo tranh', 'Tô hình – cầm bút',
+  ],
+  'cambridge': [
+    'Colours', 'Numbers 1–10', 'Animals', 'My family', 'Body parts',
+    'Food', 'Shapes', 'Greetings & songs', 'Classroom objects', 'Weather',
+  ],
+  'thuc-hanh-cuoc-song': [
+    'Rót nước', 'Xúc hạt', 'Cài khuy', 'Gấp khăn', 'Lau bàn', 'Rửa tay',
+    'Mang khay', 'Đi trên vạch', 'Mặc áo khoác', 'Cắm hoa', 'Tưới cây',
+  ],
+  'giac-quan': [
+    'Tháp hồng', 'Cầu thang nâu', 'Gậy đỏ', 'Trụ có núm', 'Hộp màu 1', 'Hộp màu 2',
+    'Hộp màu 3', 'Túi bí mật', 'Hộp âm thanh', 'Bảng nhám', 'Tam giác dựng hình',
+  ],
+  'van-hoa': [
+    'Quả địa cầu cát – nước', 'Bản đồ ghép châu lục', 'Thẻ động vật – nơi sống',
+    'Vòng đời của bướm', 'Chìm – nổi', 'Nam châm hút gì', 'Bộ phận của cây', 'Bốn mùa trong năm', 'Cờ các nước',
+  ],
+};
 
 // NĂM TRẠNG THÁI — PHẢI TRÙNG KHỚP với phân hệ Hành trình học tập.
 //
@@ -62,6 +131,13 @@ const TOI_DA_MUC_MOI_BE = 12;
 // Trần cho một lần lưu cả nhóm — nhóm đông nhất của trường vẫn dưới xa con số
 // này, còn số lớn hơn thì gần như chắc chắn là lỗi ở phía gửi.
 const TOI_DA_BE_MOT_LAN = 60;
+// Trần cho số bài tích một bé một tháng, và cho tên / mô tả / lý do — đều là
+// TRẦN chặn dữ liệu lỗi, không phải sàn nào về đứa trẻ.
+const TOI_DA_BAI_MOI_BE = 40;
+const TOI_DA_TEN_BAI = 120;
+const TOI_DA_MO_TA = 300;
+const TOI_DA_LY_DO = 500;
+const TOI_DA_DE_XUAT_NOI_DUNG = 1500;
 
 function thangNay() {
   return ngay.thangNay();
@@ -99,6 +175,51 @@ module.exports = (app, { db }) => {
     return u ? `${u.title} ${u.name}` : '';
   }
 
+  // ---------------------------------------------------------- DANH MỤC BÀI
+
+  // Nạp bộ mặc định đúng MỘT LẦN, khi bảng còn trống. Văn phòng ẩn hết đi
+  // rồi thì bảng vẫn có dòng (active = 0) nên không nạp lại — ẩn là quyết
+  // định của trường, không phải một lỗi cần máy sửa.
+  function napDanhMucNeuTrong() {
+    if (db.count('SELECT COUNT(*) AS n FROM kehoachbe_baihoc')) return;
+    const luc = new Date().toISOString();
+    db.tx(() => {
+      for (const [goc, ds] of Object.entries(BAI_MAC_DINH)) {
+        ds.forEach((ten, i) => db.insert('kehoachbe_baihoc', {
+          id: db.nextId('khbh'), gocLinhVuc: goc, ten, moTa: '', thuTu: i,
+          active: 1, nguoiTao: null, taoLuc: luc,
+        }));
+      }
+    });
+  }
+
+  function danhMucBai({ tatCa = false } = {}) {
+    napDanhMucNeuTrong();
+    return db.all('kehoachbe_baihoc',
+      `SELECT * FROM kehoachbe_baihoc ${tatCa ? '' : 'WHERE active = 1'} ORDER BY gocLinhVuc, thuTu, rowid`)
+      .map(b => ({ ...b, active: b.active !== 0 }));
+  }
+
+  // Bài đã tích của một kế hoạch, kèm tên và góc lấy từ danh mục. Bài đã bị
+  // ẨN sau này vẫn hiện đúng tên — kế hoạch tháng cũ không được đổi nghĩa.
+  function baiCuaKe(keId) {
+    return db.all('kehoachbe_muc_bai',
+      `SELECT mb.*, b.ten AS ten, b.gocLinhVuc AS gocLinhVuc
+         FROM kehoachbe_muc_bai mb LEFT JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+        WHERE mb.keId = ? ORDER BY mb.rowid`, [keId])
+      .map(m => ({ ...m, ten: m.ten || '(bài đã gỡ khỏi danh mục)', gocLinhVuc: m.gocLinhVuc || '',
+        tiepTucThangSau: m.tiepTucThangSau !== 0 }));
+  }
+
+  // Đề xuất gần nhất của một kế hoạch (đang chờ thì ưu tiên).
+  function deXuatCuaKe(keId) {
+    const cho = db.first('kehoachbe_de_xuat',
+      "SELECT * FROM kehoachbe_de_xuat WHERE keId = ? AND trangThai = 'cho-duyet' ORDER BY taoLuc DESC LIMIT 1", [keId]);
+    const d = cho || db.first('kehoachbe_de_xuat',
+      'SELECT * FROM kehoachbe_de_xuat WHERE keId = ? ORDER BY taoLuc DESC LIMIT 1', [keId]);
+    return d ? { ...d, coDeXuatTen: tenNguoi(d.coDeXuat), nguoiDuyetTen: tenNguoi(d.nguoiDuyet) } : null;
+  }
+
   function keCuaBe(studentId, thang) {
     const k = db.first('kehoachbe_ke',
       'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [studentId, thang]);
@@ -108,7 +229,78 @@ module.exports = (app, { db }) => {
       coLapTen: tenNguoi(k.coLap),
       nguoiDuyetTen: tenNguoi(k.nguoiDuyet),
       muc: mucCuaKe(k.id),
+      baiHoc: baiCuaKe(k.id),
+      deXuat: deXuatCuaKe(k.id),
     };
+  }
+
+  // "Tháng trước" của một bé = THÁNG GẦN NHẤT bé có kế hoạch, lùi tối đa 12
+  // tháng — cùng luật với nút "Chép tháng trước" (xem chú thích ở đó).
+  function keGanNhatTruoc(studentId, thang) {
+    const lui12 = `${Number(thang.slice(0, 4)) - 1}${thang.slice(4)}`;
+    return db.first('kehoachbe_ke',
+      `SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang < ? AND thang >= ?
+        ORDER BY thang DESC LIMIT 1`, [studentId, thang, lui12]);
+  }
+
+  // GỢI Ý CHO THÁNG SAU — QUY TẮC 5 thành một việc máy làm giúp.
+  //
+  // Bài cô kết luận "Tiếp tục cùng con" (hoặc tích "tiếp tục ở tháng sau") ở
+  // tháng gần nhất được đưa lên sẵn khi lập tháng này. Chỉ là GỢI Ý: màn hình
+  // tích sẵn, cô bỏ tích được, và không có gì được ghi cho tới khi cô bấm Lưu.
+  function goiYChoThang(studentId, thang) {
+    const cu = keGanNhatTruoc(studentId, thang);
+    if (!cu) return { tuThang: '', baiHoc: [], muc: [] };
+    return {
+      tuThang: cu.thang,
+      baiHoc: baiCuaKe(cu.id)
+        .filter(m => m.ketQua === 'tiep-tuc' || m.tiepTucThangSau)
+        .map(m => ({ baiHocId: m.baiHocId, ten: m.ten, gocLinhVuc: m.gocLinhVuc, nhanXet: m.nhanXet })),
+      muc: mucCuaKe(cu.id)
+        .filter(m => m.tiepTucThangSau)
+        .map(m => ({ gocLinhVuc: m.gocLinhVuc, noiDung: m.noiDung, nhanXet: m.nhanXet })),
+    };
+  }
+
+  // Đọc danh sách bài tích từ thân yêu cầu. Trả về null khi màn hình KHÔNG
+  // gửi trường này (bản app cũ) — null nghĩa là "không đụng tới", khác với
+  // mảng rỗng nghĩa là "bỏ tích hết".
+  function docBaiHoc(x, res) {
+    if (!x || !Array.isArray(x.baiHoc)) return null;
+    const ra = [];
+    const daCo = new Set();
+    for (const b of x.baiHoc) {
+      const id = chuoi((b || {}).baiHocId, 40);
+      if (!id || daCo.has(id)) continue;
+      const bai = db.first('kehoachbe_baihoc', 'SELECT * FROM kehoachbe_baihoc WHERE id = ?', [id]);
+      if (!bai) { res.status(400).json({ error: 'Có bài học không còn trong danh mục' }); return undefined; }
+      const nhan = chuoi((b || {}).nhan, 20) || 'hoc-moi';
+      if (!MA_NHAN.includes(nhan)) { res.status(400).json({ error: 'Nhãn bài học phải là học mới, ôn tập hoặc mở rộng' }); return undefined; }
+      daCo.add(id);
+      ra.push({ baiHocId: id, nhan });
+    }
+    if (ra.length > TOI_DA_BAI_MOI_BE) {
+      res.status(400).json({ error: `Mỗi bé tối đa ${TOI_DA_BAI_MOI_BE} bài một tháng` });
+      return undefined;
+    }
+    return ra;
+  }
+
+  // GHI ĐÈ danh sách bài của một kế hoạch, GIỮ phần nhìn lại cho bài còn được
+  // tích — đổi nhãn (học mới → ôn tập) không đổi bài, nên nhận xét đi theo bài.
+  function ghiBaiHoc(keId, ds, luc) {
+    const cu = baiCuaKe(keId);
+    db.run('DELETE FROM kehoachbe_muc_bai WHERE keId = ?', [keId]);
+    for (const b of ds) {
+      const giong = cu.find(o => o.baiHocId === b.baiHocId);
+      db.insert('kehoachbe_muc_bai', {
+        id: db.nextId('khmb'), keId, baiHocId: b.baiHocId, nhan: b.nhan,
+        ketQua: giong ? giong.ketQua : '',
+        nhanXet: giong ? giong.nhanXet : '',
+        tiepTucThangSau: giong && giong.tiepTucThangSau ? 1 : 0,
+        capNhatLuc: luc,
+      });
+    }
   }
 
   // KHOÁ KHI ĐANG CHỜ DUYỆT, VÀ KHOÁ KHI ĐÃ DUYỆT.
@@ -146,15 +338,24 @@ module.exports = (app, { db }) => {
     }
     const thang = THANG_RE.test(String(req.query.thang || '')) ? req.query.thang : thangNay();
 
-    const danhSach = beCuaNhom(classId).map(b => ({
-      studentId: b.id, hoTen: b.name, avatar: b.avatar, ke: keCuaBe(b.id, thang),
-    }));
+    const danhSach = beCuaNhom(classId).map(b => {
+      const ke = keCuaBe(b.id, thang);
+      return {
+        studentId: b.id, hoTen: b.name, avatar: b.avatar, ke,
+        // Gợi ý từ tháng gần nhất — chỉ khi bé CHƯA có bản tháng này; đã có
+        // bản thì cô đã quyết rồi, gợi ý nữa là nói chen.
+        goiY: ke ? null : goiYChoThang(b.id, thang),
+      };
+    });
 
     res.json({
       thang, classId,
       thangTruoc: thangTruoc(thang),
       gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       ketQua: KET_QUA.map(([ma, ten]) => ({ ma, ten })),
+      nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
+      ketLuanBai: KET_LUAN_BAI.map(([ma, ten]) => ({ ma, ten })),
+      baiHoc: danhMucBai(),
       laQuanLy: req.user.role === 'admin',
       nhom: nhomCuaToi(req.user).map(c => ({ id: c.id, name: c.name })),
       danhSach,
@@ -166,8 +367,64 @@ module.exports = (app, { db }) => {
         choDuyet: danhSach.filter(x => x.ke && x.ke.trangThai === 'cho-duyet').length,
         daDuyet: danhSach.filter(x => x.ke && x.ke.trangThai === 'da-duyet').length,
         traLai: danhSach.filter(x => x.ke && x.ke.trangThai === 'tra-lai').length,
+        deXuatCho: danhSach.filter(x => x.ke && x.ke.deXuat && x.ke.deXuat.trangThai === 'cho-duyet').length,
       },
     });
+  });
+
+  // DANH MỤC BÀI HỌC — cô đọc, văn phòng / quản lý soạn.
+  app.get('/api/kehoachbe/bai-hoc', requireRole('teacher', 'admin'), (req, res) => {
+    const tatCa = req.user.role === 'admin' && String(req.query.tatCa || '') === '1';
+    res.json({
+      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
+      nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
+      baiHoc: danhMucBai({ tatCa }),
+    });
+  });
+
+  function luuBai(req, res, cu) {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Danh mục bài học do văn phòng / quản lý soạn. Cô chỉ tích chọn từ danh mục.' });
+    }
+    const b = req.body || {};
+    const goc = b.gocLinhVuc === undefined && cu ? cu.gocLinhVuc : chuoi(b.gocLinhVuc, 40);
+    if (!MA_GOC.includes(goc)) return res.status(400).json({ error: `Góc lĩnh vực "${goc}" không hợp lệ` });
+    const ten = b.ten === undefined && cu ? cu.ten : chuoi(b.ten, TOI_DA_TEN_BAI);
+    if (!ten) return res.status(400).json({ error: 'Bài học cần có tên' });
+    const moTa = b.moTa === undefined && cu ? cu.moTa : chuoi(b.moTa, TOI_DA_MO_TA);
+    const thuTu = b.thuTu === undefined
+      ? (cu ? cu.thuTu : db.count('SELECT COUNT(*) AS n FROM kehoachbe_baihoc WHERE gocLinhVuc = ?', [goc]))
+      : Number(b.thuTu);
+    if (!Number.isInteger(thuTu) || thuTu < 0) return res.status(400).json({ error: 'Thứ tự chưa hợp lệ' });
+    const active = b.active === undefined ? (cu ? cu.active : 1) : (b.active ? 1 : 0);
+
+    napDanhMucNeuTrong();
+    const id = cu ? cu.id : db.nextId('khbh');
+    if (cu) db.update('kehoachbe_baihoc', id, { gocLinhVuc: goc, ten, moTa, thuTu, active });
+    else db.insert('kehoachbe_baihoc', { id, gocLinhVuc: goc, ten, moTa, thuTu, active, nguoiTao: req.user.id, taoLuc: new Date().toISOString() });
+    db.audit(req.user.id, cu ? 'kehoachbe-sua-bai' : 'kehoachbe-them-bai', id, { gocLinhVuc: goc, ten, active });
+    const r = db.first('kehoachbe_baihoc', 'SELECT * FROM kehoachbe_baihoc WHERE id = ?', [id]);
+    res.json({ ok: true, baiHoc: { ...r, active: r.active !== 0 } });
+  }
+
+  app.post('/api/kehoachbe/bai-hoc', requireRole('teacher', 'admin'), (req, res) => luuBai(req, res, null));
+
+  // ẨN chứ không xoá (active = 0): bài đã tích trong kế hoạch cũ vẫn phải
+  // hiện đúng tên. Không có đường DELETE, cố ý.
+  app.put('/api/kehoachbe/bai-hoc/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const cu = db.first('kehoachbe_baihoc', 'SELECT * FROM kehoachbe_baihoc WHERE id = ?', [chuoi(req.params.id, 40)]);
+    if (!cu) return res.status(404).json({ error: 'Không tìm thấy bài học này' });
+    return luuBai(req, res, cu);
+  });
+
+  // GỢI Ý cho một bé một tháng: bài "Tiếp tục cùng con" của tháng gần nhất.
+  app.get('/api/kehoachbe/goi-y', requireRole('teacher', 'admin'), (req, res) => {
+    const studentId = chuoi(req.query.studentId, 40);
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem kế hoạch của bé này' });
+    }
+    const thang = THANG_RE.test(String(req.query.thang || '')) ? req.query.thang : thangNay();
+    res.json({ studentId, thang, ...goiYChoThang(studentId, thang) });
   });
 
   app.get('/api/kehoachbe/be', requireRole('teacher', 'admin'), (req, res) => {
@@ -178,12 +435,17 @@ module.exports = (app, { db }) => {
     const be = db.findStudent(studentId);
     if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
     const thang = THANG_RE.test(String(req.query.thang || '')) ? req.query.thang : thangNay();
+    const ke = keCuaBe(studentId, thang);
     res.json({
       be: { id: be.id, hoTen: be.name, avatar: be.avatar },
       thang,
       gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       ketQua: KET_QUA.map(([ma, ten]) => ({ ma, ten })),
-      ke: keCuaBe(studentId, thang),
+      nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
+      ketLuanBai: KET_LUAN_BAI.map(([ma, ten]) => ({ ma, ten })),
+      baiHoc: danhMucBai(),
+      ke,
+      goiY: ke ? null : goiYChoThang(studentId, thang),
     });
   });
 
@@ -269,16 +531,21 @@ module.exports = (app, { db }) => {
       if (muc.length > TOI_DA_MUC_MOI_BE) {
         return res.status(400).json({ error: `Mỗi bé tối đa ${TOI_DA_MUC_MOI_BE} mục một tháng` });
       }
-      sach.push({ be, cu, muc });
+      // Bài tích chọn (đợt 2). `null` = màn hình không gửi trường này = không
+      // đụng tới bài đã tích — bản app cũ trong điện thoại vẫn lưu ô chữ được.
+      const baiHoc = docBaiHoc(x, res);
+      if (baiHoc === undefined) return;
+      sach.push({ be, cu, muc, baiHoc });
     }
 
     const luc = new Date().toISOString();
     let daLuu = 0;
     db.tx(() => {
-      for (const { be, cu, muc } of sach) {
-        // Bé không có mục nào và cũng chưa có bản cũ: bỏ qua. Tạo một bản rỗng
-        // là màn hình quản lý hiện ra một kế hoạch trắng trông như cô đã lập.
-        if (!muc.length && !cu) continue;
+      for (const { be, cu, muc, baiHoc } of sach) {
+        // Bé không có mục nào, không tích bài nào và cũng chưa có bản cũ: bỏ
+        // qua. Tạo một bản rỗng là màn hình quản lý hiện ra một kế hoạch trắng
+        // trông như cô đã lập.
+        if (!muc.length && !(baiHoc && baiHoc.length) && !cu) continue;
 
         let keId = cu && cu.id;
         if (cu) {
@@ -315,6 +582,7 @@ module.exports = (app, { db }) => {
             capNhatLuc: luc,
           });
         }
+        if (baiHoc) ghiBaiHoc(keId, baiHoc, luc);
         daLuu += 1;
       }
     });
@@ -353,7 +621,14 @@ module.exports = (app, { db }) => {
       const noiDung = chuoi((m || {}).noiDung, TOI_DA_NOI_DUNG);
       if (noiDung) muc.push({ gocLinhVuc: goc, noiDung });
     }
-    if (!muc.length) return res.status(400).json({ error: 'Cô gõ ít nhất một mục để đặt cho cả nhóm nhé' });
+    // Đặt cả nhóm cũng tích được bài — cả nhóm cùng học "Tháp hồng" tháng này
+    // là chuyện thường ở lớp Montessori.
+    const baiHocDoc = docBaiHoc(b, res);
+    if (baiHocDoc === undefined) return;   // đã trả lỗi
+    const baiHoc = baiHocDoc || [];
+    if (!muc.length && !baiHoc.length) {
+      return res.status(400).json({ error: 'Cô gõ ít nhất một mục hoặc tích ít nhất một bài để đặt cho cả nhóm nhé' });
+    }
 
     const luc = new Date().toISOString();
     let daDat = 0;
@@ -385,10 +660,18 @@ module.exports = (app, { db }) => {
             ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc,
           });
         }
+        const baiDangCo = baiCuaKe(k.id);
+        for (const bh of baiHoc) {
+          if (baiDangCo.some(o => o.baiHocId === bh.baiHocId)) continue;  // bài cô đã tích riêng thì giữ nhãn cô chọn
+          db.insert('kehoachbe_muc_bai', {
+            id: db.nextId('khmb'), keId: k.id, baiHocId: bh.baiHocId, nhan: bh.nhan,
+            ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc,
+          });
+        }
         daDat += 1;
       }
     });
-    db.audit(req.user.id, 'kehoachbe-dat-ca-nhom', classId, { thang, daDat, soMuc: muc.length });
+    db.audit(req.user.id, 'kehoachbe-dat-ca-nhom', classId, { thang, daDat, soMuc: muc.length, soBai: baiHoc.length });
     res.json({ ok: true, daDat, boQua, boQuaNgungHoSo });
   });
 
@@ -441,7 +724,14 @@ module.exports = (app, { db }) => {
         let muc = mucCuaKe(cu.id);
         if (chiTiepTuc) muc = muc.filter(m => m.tiepTucThangSau);
         else muc = [...muc.filter(m => m.tiepTucThangSau), ...muc.filter(m => !m.tiepTucThangSau)];
-        if (!muc.length) continue;
+        // Bài đã tích cũng chép sang, cùng luật: bài "Tiếp tục cùng con" lên
+        // trước và mang nhãn ÔN TẬP — tháng sau làm lại thì không còn là học
+        // mới nữa. Bài đã thấy con làm được thì chép nguyên nhãn cô chọn.
+        const laTiep = (m) => m.ketQua === 'tiep-tuc' || m.tiepTucThangSau;
+        let bai = baiCuaKe(cu.id).filter(m => m.gocLinhVuc);   // bài đã gỡ khỏi danh mục thì thôi
+        if (chiTiepTuc) bai = bai.filter(laTiep);
+        else bai = [...bai.filter(laTiep), ...bai.filter(m => !laTiep(m))];
+        if (!muc.length && !bai.length) continue;
 
         const id = db.nextId('khb');
         db.insert('kehoachbe_ke', {
@@ -454,6 +744,13 @@ module.exports = (app, { db }) => {
             id: db.nextId('khm'), keId: id,
             gocLinhVuc: m.gocLinhVuc, noiDung: m.noiDung,
             // Kết quả và nhận xét KHÔNG chép sang: chúng nói về tháng trước.
+            ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc,
+          });
+        }
+        for (const m of bai.slice(0, TOI_DA_BAI_MOI_BE)) {
+          db.insert('kehoachbe_muc_bai', {
+            id: db.nextId('khmb'), keId: id, baiHocId: m.baiHocId,
+            nhan: laTiep(m) ? 'on-tap' : m.nhan,
             ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc,
           });
         }
@@ -486,7 +783,7 @@ module.exports = (app, { db }) => {
           'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, thang]);
         if (!k || !duocSuaNoiDung(k)) continue;
         // Kế hoạch rỗng thì không gửi — quản lý mở ra thấy trang trắng.
-        if (!mucCuaKe(k.id).length) { trong += 1; continue; }
+        if (!mucCuaKe(k.id).length && !baiCuaKe(k.id).length) { trong += 1; continue; }
         db.update('kehoachbe_ke', k.id, { trangThai: 'cho-duyet', guiLuc: luc, capNhatLuc: luc });
         daGui += 1;
       }
@@ -627,7 +924,27 @@ module.exports = (app, { db }) => {
         tiepTucThangSau: (m || {}).tiepTucThangSau ? 1 : 0,
       });
     }
-    if (!sach.length) return res.status(400).json({ error: 'Chưa có mục nào để ghi' });
+    // TỪNG BÀI ĐÃ TÍCH — hai mức, và chỉ hai giá trị ấy được nhận.
+    const sachBai = [];
+    for (const m of (b.baiHoc || [])) {
+      const cu = db.first('kehoachbe_muc_bai', 'SELECT * FROM kehoachbe_muc_bai WHERE id = ?', [chuoi((m || {}).id, 40)]);
+      if (!cu || cu.keId !== k.id) {
+        return res.status(400).json({ error: 'Có bài không thuộc kế hoạch này' });
+      }
+      const kl = chuoi((m || {}).ketQua, 20);
+      if (kl && !MA_KET_LUAN.includes(kl)) {
+        return res.status(400).json({ error: 'Kết luận cho bài chỉ có hai lựa chọn: đã thấy con làm được, hoặc tiếp tục cùng con' });
+      }
+      sachBai.push({
+        id: cu.id,
+        ketQua: kl,
+        nhanXet: chuoi((m || {}).nhanXet, TOI_DA_NHAN_XET),
+        // "Tiếp tục cùng con" TỰ ĐỘNG là việc của tháng sau — cô không phải
+        // tích thêm một ô nữa để nói cùng một điều.
+        tiepTucThangSau: (kl === 'tiep-tuc' || (m || {}).tiepTucThangSau) ? 1 : 0,
+      });
+    }
+    if (!sach.length && !sachBai.length) return res.status(400).json({ error: 'Chưa có mục nào để ghi' });
 
     const luc = new Date().toISOString();
     db.tx(() => {
@@ -637,8 +954,112 @@ module.exports = (app, { db }) => {
           tiepTucThangSau: m.tiepTucThangSau, capNhatLuc: luc,
         });
       }
+      for (const m of sachBai) {
+        db.update('kehoachbe_muc_bai', m.id, {
+          ketQua: m.ketQua, nhanXet: m.nhanXet,
+          tiepTucThangSau: m.tiepTucThangSau, capNhatLuc: luc,
+        });
+      }
     });
-    db.audit(req.user.id, 'kehoachbe-nhin-lai', k.studentId, { id: k.id, soMuc: sach.length });
+    db.audit(req.user.id, 'kehoachbe-nhin-lai', k.studentId, { id: k.id, soMuc: sach.length, soBai: sachBai.length });
     res.json({ ok: true, ke: keCuaBe(k.studentId, k.thang) });
+  });
+
+  // =========================================================================
+  // ĐỀ XUẤT SỬA KẾ HOẠCH ĐÃ DUYỆT
+  // =========================================================================
+  //
+  // Nhà trường: "Khi có điều chỉnh khác lộ trình ban đầu thì có quyền đề xuất
+  // sửa, ghi rõ lý do rồi quản lý mới phê duyệt."
+  //
+  // CÁCH ĐƠN GIẢN NHẤT ĐƯỢC CHỌN: quản lý duyệt đề xuất = MỞ LẠI kế hoạch cho
+  // cô sửa (về 'nhap'), cô sửa xong gửi duyệt lại như thường. Không "áp nội
+  // dung" tự động: đề xuất là văn bản mô tả, máy không đoán được cô muốn đổi ô
+  // nào thành gì — và đoán sai ở đây là ghi vào kế hoạch một thứ không ai viết.
+  // Dòng đề xuất nằm lại trong bảng làm vết: vì sao bản đã duyệt lại mở ra.
+  app.get('/api/kehoachbe/:id/de-xuat', requireRole('teacher', 'admin'), (req, res) => {
+    const k = db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [chuoi(req.params.id, 40)]);
+    if (!k) return res.status(404).json({ error: 'Không tìm thấy kế hoạch này' });
+    if (!db.canAccessStudent(req.user, k.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền với kế hoạch của bé này' });
+    }
+    const ds = db.all('kehoachbe_de_xuat',
+      'SELECT * FROM kehoachbe_de_xuat WHERE keId = ? ORDER BY taoLuc DESC LIMIT 50', [k.id])
+      .map(d => ({ ...d, coDeXuatTen: tenNguoi(d.coDeXuat), nguoiDuyetTen: tenNguoi(d.nguoiDuyet) }));
+    res.json({ keId: k.id, trangThai: k.trangThai, deXuat: ds });
+  });
+
+  app.post('/api/kehoachbe/:id/de-xuat', requireRole('teacher', 'admin'), (req, res) => {
+    const k = db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [chuoi(req.params.id, 40)]);
+    if (!k) return res.status(404).json({ error: 'Không tìm thấy kế hoạch này' });
+    if (!db.canAccessStudent(req.user, k.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền với kế hoạch của bé này' });
+    }
+    if (k.trangThai !== 'da-duyet') {
+      return res.status(400).json({
+        error: k.trangThai === 'cho-duyet'
+          ? 'Kế hoạch này đang chờ duyệt — cô bấm "Rút lại" để sửa, chưa cần đề xuất.'
+          : 'Kế hoạch này chưa duyệt nên cô sửa thẳng được, không cần đề xuất.',
+      });
+    }
+    if (db.beNgungHoSoHocTap(k.studentId)) {
+      return res.status(403).json({ error: 'Gia đình bé này đã dừng phần hồ sơ học tập nên không ghi mới được.' });
+    }
+    const b = req.body || {};
+    const lyDo = chuoi(b.lyDo, TOI_DA_LY_DO);
+    // Lý do là thứ nhà trường đòi hỏi bằng lời: "ghi rõ lý do rồi quản lý mới
+    // phê duyệt". Không có lý do thì quản lý không có gì để cân nhắc.
+    if (!lyDo) return res.status(400).json({ error: 'Cô ghi rõ lý do muốn sửa nhé — quản lý đọc dòng này để quyết' });
+    const dangCho = db.first('kehoachbe_de_xuat',
+      "SELECT id FROM kehoachbe_de_xuat WHERE keId = ? AND trangThai = 'cho-duyet'", [k.id]);
+    if (dangCho) return res.status(400).json({ error: 'Kế hoạch này đã có một đề xuất đang chờ quản lý xem' });
+
+    const luc = new Date().toISOString();
+    const id = db.nextId('khdx');
+    db.insert('kehoachbe_de_xuat', {
+      id, keId: k.id, coDeXuat: req.user.id, lyDo,
+      noiDung: chuoi(b.noiDung, TOI_DA_DE_XUAT_NOI_DUNG),
+      trangThai: 'cho-duyet', nguoiDuyet: null, duyetLuc: null, yKien: '', taoLuc: luc,
+    });
+    db.audit(req.user.id, 'kehoachbe-de-xuat', k.studentId, { id, keId: k.id });
+    res.status(201).json({ ok: true, deXuat: deXuatCuaKe(k.id) });
+  });
+
+  app.post('/api/kehoachbe/de-xuat/:id/duyet', requireRole('teacher', 'admin'), (req, res) => {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Đề xuất sửa do quản lý duyệt. Cô gửi đề xuất rồi chờ quản lý xem nhé.' });
+    }
+    const d = db.first('kehoachbe_de_xuat', 'SELECT * FROM kehoachbe_de_xuat WHERE id = ?', [chuoi(req.params.id, 40)]);
+    if (!d) return res.status(404).json({ error: 'Không tìm thấy đề xuất này' });
+    const k = db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [d.keId]);
+    if (!k) return res.status(404).json({ error: 'Kế hoạch của đề xuất này không còn' });
+    if (!db.canAccessStudent(req.user, k.studentId)) {
+      return res.status(403).json({ error: 'Kế hoạch của bé ngoài phạm vi cơ sở mình' });
+    }
+    if (d.trangThai !== 'cho-duyet') return res.status(400).json({ error: 'Đề xuất này đã được xem rồi' });
+    // Cùng luật với duyệt kế hoạch: người đề xuất không tự duyệt đề xuất của mình.
+    if (d.coDeXuat === req.user.id) {
+      return res.status(403).json({ error: 'Đề xuất này do chính tài khoản của anh/chị gửi — nhờ một quản lý khác duyệt giúp' });
+    }
+    const b = req.body || {};
+    const quyet = chuoi(b.quyetDinh, 20);
+    if (quyet !== 'da-duyet' && quyet !== 'tu-choi') {
+      return res.status(400).json({ error: 'Quyết định phải là duyệt hoặc từ chối' });
+    }
+    const yKien = chuoi(b.yKien, TOI_DA_NHAN_XET);
+    if (quyet === 'tu-choi' && !yKien) {
+      return res.status(400).json({ error: 'Từ chối thì ghi giúp cô một dòng vì sao nhé' });
+    }
+    const luc = new Date().toISOString();
+    db.tx(() => {
+      db.update('kehoachbe_de_xuat', d.id, { trangThai: quyet, nguoiDuyet: req.user.id, duyetLuc: luc, yKien });
+      // DUYỆT = MỞ LẠI. Kế hoạch về tay cô ở trạng thái 'nhap'; chữ ký duyệt cũ
+      // không còn hiệu lực với bản sắp sửa, nên xoá mốc gửi để cô gửi lại từ đầu.
+      if (quyet === 'da-duyet' && k.trangThai === 'da-duyet') {
+        db.update('kehoachbe_ke', k.id, { trangThai: 'nhap', guiLuc: null, capNhatLuc: luc });
+      }
+    });
+    db.audit(req.user.id, 'kehoachbe-duyet-de-xuat', k.studentId, { id: d.id, keId: k.id, quyetDinh: quyet });
+    res.json({ ok: true, quyetDinh: quyet, deXuat: deXuatCuaKe(k.id), ke: keCuaBe(k.studentId, k.thang) });
   });
 };

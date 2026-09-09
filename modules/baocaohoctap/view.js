@@ -15,6 +15,15 @@
 // bình thường nằm cùng hàng với ba lựa chọn kia, không phải một khoảng trống
 // nhấp nháy chờ lấp. Dòng chưa điền thì để trắng và không đếm ra thành một
 // con số thiếu hụt nào.
+//
+// ĐỢT 2 (phản hồi nhà trường 07/09)
+//
+//   • Mở báo cáo THÁNG là máy điền sẵn ô còn trống từ Kế hoạch của bé — cô
+//     đọc lại, sửa, rồi mới gửi. Máy chủ làm việc điền; màn này chỉ báo cho
+//     cô biết ô nào vừa được điền.
+//   • Nút gửi của cô nay là "Gửi quản lý duyệt". Quản lý cơ sở duyệt và chọn
+//     ngày công bố; gia đình chỉ thấy khi tới ngày ấy.
+//   • Ô cô A đã ghi thì cô B thấy khoá; quản lý cơ sở có nút mở khoá.
 App.views.baocaohoctap = {
   _tab: 'so',
   _classId: null,
@@ -38,6 +47,19 @@ App.views.baocaohoctap = {
 
   laGiaDinh() { return (App.state.user || {}).role === 'parent'; },
   laQuanTri() { return (App.state.user || {}).role === 'admin'; },
+  toiLa() { return (App.state.user || {}).id; },
+
+  // Một bản đang ở bước nào — nhãn và màu. Không cái nào đỏ, không cái nào
+  // cam: đây là trạng thái giấy tờ của người lớn, không phải về đứa trẻ.
+  nhanBuoc(buoc, ngayCongBo) {
+    switch (buoc) {
+      case 'cho-duyet': return ['Chờ quản lý duyệt', 'blue'];
+      case 'cho-ngay': return [`Đã duyệt · gửi gia đình ${ngayCongBo ? UI.fmtDateShort(ngayCongBo) : ''}`.trim(), 'green'];
+      case 'da-cong-bo': return ['Gia đình đã nhận', 'green'];
+      case 'tra-lai': return ['Quản lý trả lại', 'blue'];
+      default: return ['Cô đang soạn', 'gray'];
+    }
+  },
 
   // Kỳ mặc định: tháng đang chạy, từ ngày 1 tới hôm nay.
   kyMacDinh() {
@@ -80,6 +102,7 @@ App.views.baocaohoctap = {
       ${UI.pageHeader('Báo cáo học tập')}
       <div class="seg" id="bc-tabs">
         <button class="${this._tab === 'so' ? 'active' : ''}" data-tab="so">Sổ của nhóm</button>
+        ${this.laQuanTri() ? `<button class="${this._tab === 'duyet' ? 'active' : ''}" data-tab="duyet">Chờ duyệt</button>` : ''}
         ${this.laQuanTri() ? `<button class="${this._tab === 'mau' ? 'active' : ''}" data-tab="mau">Mẫu báo cáo</button>` : ''}
       </div>
       <div id="bc-than"></div>`;
@@ -90,7 +113,36 @@ App.views.baocaohoctap = {
     const than = document.getElementById('bc-than');
     if (this._tab === 'mau') return this.veMau(than);
     if (this._banId) return this.veSoan(than);
+    if (this._tab === 'duyet' && this.laQuanTri()) return this.veChoDuyet(than);
     return this.veSo(than);
+  },
+
+  // ==================== Chờ duyệt (quản lý cơ sở) ====================
+  async veChoDuyet(than) {
+    const d = await API.get('/api/baocaohoctap/cho-duyet');
+    const ds = d.danhSach || [];
+    than.innerHTML = `
+      <div class="card">
+        <div class="muted small" style="line-height:1.7">
+          Bản cô đã gửi, chờ quản lý đọc. Mở từng bản để đọc rồi <b>Duyệt</b> (chọn ngày gia đình
+          nhận được) hoặc <b>Trả lại</b> kèm một dòng vì sao.
+        </div>
+      </div>
+      ${ds.length ? ds.map(x => `
+        <div class="card tap" data-mo="${UI.esc(x.banId)}">
+          <div class="row-between">
+            <div>
+              <div style="font-weight:600">${UI.esc(x.hoTen)}</div>
+              <div class="muted small">${UI.esc(x.mauTen)} · ${x.nhomLop ? `Nhóm ${UI.esc(x.nhomLop)} · ` : ''}${UI.esc(UI.fmtDateShort(x.tuNgay))} – ${UI.esc(UI.fmtDateShort(x.denNgay))}</div>
+              <div class="muted small">${UI.esc(x.nguoiGuiTen || 'Cô')} gửi ${UI.esc(UI.timeAgo(x.guiLuc))}</div>
+            </div>
+            ${UI.icon('chevron', 18)}
+          </div>
+        </div>`).join('')
+      : UI.emptyState('📘', 'Không có bản nào đang chờ duyệt.')}`;
+    for (const c of than.querySelectorAll('[data-mo]')) {
+      c.onclick = () => { this._banId = c.dataset.mo; App.route(); };
+    }
   },
 
   // ==================== Màn của gia đình ====================
@@ -303,10 +355,9 @@ App.views.baocaohoctap = {
             <div style="font-weight:600">${UI.esc(x.hoTen)}</div>
             ${tuoi ? `<div class="muted small">${UI.esc(tuoi)}</div>` : ''}
           </div>
-          ${x.banId
-            ? UI.badge(x.daGui ? 'Đã gửi gia đình' : 'Cô đang soạn', x.daGui ? 'green' : 'gray')
-            : ''}
+          ${x.banId ? UI.badge(...this.nhanBuoc(x.buoc, x.ngayCongBo)) : ''}
         </div>
+        ${x.buoc === 'tra-lai' && x.yKien ? `<div class="small mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">Quản lý trả lại: ${UI.esc(x.yKien)}</div>` : ''}
         ${x.banId
           ? `<button class="btn outline block mt-8" data-mo="${UI.esc(x.banId)}">${UI.icon('edit', 16)} Mở báo cáo</button>`
           : (hop.length
@@ -323,6 +374,9 @@ App.views.baocaohoctap = {
         studentId, mauId, tuNgay: this._tuNgay, denNgay: this._denNgay,
       });
       this._banId = r.ban.id;
+      if ((r.daDienSan || []).length) {
+        UI.toast(`Đã điền sẵn ${r.daDienSan.length} ô từ Kế hoạch của bé — cô đọc lại và sửa nhé`, 'success');
+      }
       App.route();
     } catch (e) { UI.toast(e.message || 'Chưa mở được báo cáo', 'error'); }
   },
@@ -347,12 +401,20 @@ App.views.baocaohoctap = {
             <div style="font-weight:600">${UI.esc(b.hoTen)}</div>
             <div class="muted small">${UI.esc(b.mau ? b.mau.ten : '')} · ${UI.esc(UI.fmtDate(b.tuNgay))} – ${UI.esc(UI.fmtDate(b.denNgay))}</div>
           </div>
-          ${UI.badge(b.daGui ? 'Đã gửi gia đình' : 'Nháp của cô', b.daGui ? 'green' : 'gray')}
+          ${UI.badge(...this.nhanBuoc(b.buoc, b.duyet && b.duyet.ngayCongBo))}
         </div>
-        <button class="btn outline block mt-8" id="bc-quay">Quay lại sổ của nhóm</button>
-        <button class="btn outline block mt-8" id="bc-moi">${UI.icon('plan', 16)} Mời chữ từ Kế hoạch của bé</button>
+        ${b.buoc === 'tra-lai' && b.duyet && b.duyet.yKien ? `
+          <div class="small mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">
+            ${UI.esc(b.duyet.nguoiDuyetTen || 'Quản lý')} trả lại: ${UI.esc(b.duyet.yKien)}
+          </div>` : ''}
+        <button class="btn outline block mt-8" id="bc-quay">Quay lại</button>
+        ${b.daGui ? '' : `<button class="btn outline block mt-8" id="bc-moi">${UI.icon('plan', 16)} Mời chữ từ Kế hoạch của bé</button>`}
         <div class="muted small mt-8" style="line-height:1.6">
-          Nháp này gia đình chưa nhìn thấy. Cô đọc lại rồi bấm gửi ở cuối trang.
+          ${b.giaDinhThay
+            ? 'Gia đình đang đọc bản này. Cần sửa thì thu về nháp trước.'
+            : (b.daGui
+              ? 'Bản đã gửi, đang khoá. Gia đình chỉ nhận khi quản lý duyệt và tới ngày công bố.'
+              : 'Nháp này gia đình chưa nhìn thấy. Ô có sẵn chữ từ Kế hoạch của bé thì cô đọc lại và sửa; xong bấm gửi quản lý duyệt ở cuối trang.')}
         </div>
       </div>
 
@@ -362,20 +424,34 @@ App.views.baocaohoctap = {
         <div class="card">
           ${g.ten ? `<div class="card-title">${UI.esc(g.ten)}</div>` : ''}
           ${g.tenEn ? `<div class="muted small" style="margin-top:-4px;margin-bottom:8px">${UI.esc(g.tenEn)}</div>` : ''}
-          ${g.dong.map(x => `
+          ${g.dong.map(x => {
+            // KHOÁ Ô THEO CÔ: ô cô khác đã ghi thì chỉ đọc; quản lý có nút mở.
+            const khoa = x.khoa && x.khoa.dangKhoa ? x.khoa : null;
+            const cuaNguoiKhac = !!khoa && khoa.coGhi !== this.toiLa();
+            const chiDoc = b.daGui || cuaNguoiKhac;
+            return `
             <div style="padding:10px 0;border-top:1px solid var(--line)">
               <div class="small" style="font-weight:600">${UI.esc(x.tieuDe)}</div>
               ${x.tieuDeEn ? `<div class="muted small">${UI.esc(x.tieuDeEn)}</div>` : ''}
               ${x.kieu === 'muc' ? `
-                <div class="seg mt-8" data-muc-cua="${UI.esc(x.id)}">
+                <div class="seg mt-8" data-muc-cua="${UI.esc(x.id)}" ${chiDoc ? 'data-chi-doc="1"' : ''}>
                   ${this._mucList.map(m => `
-                    <button class="${x.muc === m.ma ? 'active' : ''}" data-muc="${UI.esc(m.ma)}"
+                    <button class="${x.muc === m.ma ? 'active' : ''}" data-muc="${UI.esc(m.ma)}" ${chiDoc ? 'disabled' : ''}
                       title="${UI.esc(m.ten)}">${UI.esc(m.chuCai)}</button>`).join('')}
                 </div>
                 <div class="muted small mt-8" data-ten-muc="${UI.esc(x.id)}">${UI.esc(this.tenMuc(x.muc))}</div>`
-              : `<textarea class="mt-8" rows="3" data-chu="${UI.esc(x.id)}"
+              : `<textarea class="mt-8" rows="3" data-chu="${UI.esc(x.id)}" ${chiDoc ? 'disabled' : ''}
                     placeholder="Cô kể lại điều đã thấy">${UI.esc(x.chu)}</textarea>`}
-            </div>`).join('')}
+              ${khoa ? `
+                <div class="row-between mt-8">
+                  <span class="muted small">${cuaNguoiKhac
+                    ? `${UI.esc(khoa.coGhiTen || 'Cô khác')} đã ghi phần này — đang khoá`
+                    : 'Cô đã ghi phần này'}</span>
+                  ${cuaNguoiKhac && this.laQuanTri() && x.oId
+                    ? `<button class="btn sm outline" data-mo-khoa="${UI.esc(x.oId)}">Mở khoá</button>` : ''}
+                </div>` : ''}
+            </div>`;
+          }).join('')}
         </div>`).join('')}
 
       <div class="card">
@@ -393,20 +469,28 @@ App.views.baocaohoctap = {
           <input id="bc-ky" value="${UI.esc(b.coKy)}" placeholder="Tên cô"></div>
       </div>
 
-      <button class="btn block mt-14" id="bc-luu">${UI.icon('check', 18)} Lưu nháp</button>
-      ${b.daGui
-        ? `<button class="btn outline block mt-8" id="bc-thu">Thu về nháp để sửa</button>`
-        : `<button class="btn primary block mt-8" id="bc-gui">${UI.icon('send', 18)} Gửi cho gia đình</button>`}`;
+      ${b.daGui ? '' : `<button class="btn block mt-14" id="bc-luu">${UI.icon('check', 18)} Lưu nháp</button>`}
+      ${this.nutCuoiTrang(b)}`;
 
     document.getElementById('bc-quay').onclick = () => { this._banId = null; this._goiY = null; App.route(); };
-    document.getElementById('bc-moi').onclick = () => this.moiChu();
-    document.getElementById('bc-luu').onclick = () => this.luu();
+    const moi = document.getElementById('bc-moi');
+    if (moi) moi.onclick = () => this.moiChu();
+    const luu = document.getElementById('bc-luu');
+    if (luu) luu.onclick = () => this.luu();
     const gui = document.getElementById('bc-gui');
     if (gui) gui.onclick = () => this.gui();
     const thu = document.getElementById('bc-thu');
     if (thu) thu.onclick = () => this.thuHoi();
+    const duyet = document.getElementById('bc-duyet');
+    if (duyet) duyet.onclick = () => this.duyet('da-duyet');
+    const tra = document.getElementById('bc-tra');
+    if (tra) tra.onclick = () => this.moTraLai();
+    for (const nut of than.querySelectorAll('[data-mo-khoa]')) {
+      nut.onclick = () => this.moKhoa(nut.dataset.moKhoa);
+    }
 
     for (const seg of than.querySelectorAll('[data-muc-cua]')) {
+      if (seg.dataset.chiDoc) continue;
       for (const nut of seg.querySelectorAll('button')) {
         nut.onclick = () => {
           for (const k of seg.querySelectorAll('button')) k.classList.remove('active');
@@ -418,14 +502,88 @@ App.views.baocaohoctap = {
     }
   },
 
+  // Ô đang khoá bởi cô khác thì KHÔNG gửi lên: máy chủ giữ nguyên ô không
+  // được gửi, còn gửi lên y nguyên cũng đi qua — nhưng không gửi là chắc hơn.
   thuThapO(than) {
     const o = [];
-    for (const t of than.querySelectorAll('[data-chu]')) o.push({ dongId: t.dataset.chu, chu: t.value });
+    for (const t of than.querySelectorAll('[data-chu]')) {
+      if (t.disabled) continue;
+      o.push({ dongId: t.dataset.chu, chu: t.value });
+    }
     for (const seg of than.querySelectorAll('[data-muc-cua]')) {
+      if (seg.dataset.chiDoc) continue;
       const chon = seg.querySelector('button.active');
       o.push({ dongId: seg.dataset.mucCua, muc: chon ? chon.dataset.muc : '' });
     }
     return o;
+  },
+
+  // Nút cuối trang tuỳ theo bước và theo người đang mở.
+  nutCuoiTrang(b) {
+    if (b.buoc === 'cho-duyet' && this.laQuanTri()) {
+      return `
+        <div class="card mt-8">
+          <div class="field"><label>Ngày gia đình nhận được</label>
+            <input type="date" id="bc-ngay-cong-bo" value="${UI.esc(UI.todayStr())}">
+            <div class="hint">Để hôm nay thì gia đình nhận ngay khi duyệt. Chọn ngày sau thì tới ngày đó app mới báo.</div>
+          </div>
+          <div class="grid-2">
+            <button class="btn success-soft" id="bc-duyet">${UI.icon('check', 16)} Duyệt và gửi gia đình</button>
+            <button class="btn danger-soft" id="bc-tra">Trả lại cho cô</button>
+          </div>
+        </div>`;
+    }
+    if (b.daGui) {
+      return `<button class="btn outline block mt-8" id="bc-thu">${b.buoc === 'cho-duyet' ? 'Rút lại để sửa' : 'Thu về nháp để sửa'}</button>`;
+    }
+    if (this.laQuanTri()) {
+      return `
+        <div class="card mt-8">
+          <div class="field"><label>Ngày gia đình nhận được</label>
+            <input type="date" id="bc-ngay-cong-bo" value="${UI.esc(UI.todayStr())}"></div>
+          <button class="btn primary block" id="bc-gui">${UI.icon('send', 18)} Duyệt và gửi gia đình</button>
+        </div>`;
+    }
+    return `<button class="btn primary block mt-8" id="bc-gui">${UI.icon('send', 18)} Gửi quản lý duyệt</button>`;
+  },
+
+  async duyet(quyetDinh, yKien = '') {
+    const o = document.getElementById('bc-ngay-cong-bo');
+    try {
+      const r = await API.post(`/api/baocaohoctap/ban/${encodeURIComponent(this._banId)}/duyet`, {
+        quyetDinh, yKien, ngayCongBo: o ? o.value : '',
+      });
+      UI.toast(quyetDinh === 'da-duyet'
+        ? (r.daBao ? 'Đã duyệt — gia đình đã được báo' : `Đã duyệt — gia đình nhận ngày ${UI.fmtDateShort(r.ngayCongBo)}`)
+        : 'Đã trả lại cho cô', 'success');
+      UI.closeModal();
+      this._banId = null;
+      App.route();
+    } catch (e) { UI.toast(e.message || 'Chưa duyệt được', 'error'); }
+  },
+
+  moTraLai() {
+    UI.modal(`
+      <div class="field">
+        <label>Vì sao trả lại</label>
+        <textarea id="bc-ykien" rows="3" placeholder="Ví dụ: phần Thực hành cuộc sống còn chung chung, cô kể một việc cụ thể con đã làm."></textarea>
+        <div class="hint">Cô đọc dòng này để biết phải sửa gì — bỏ trống thì không trả lại được.</div>
+      </div>
+      <button class="btn danger-soft block" id="bc-tra-luu">Trả lại cho cô</button>
+    `, 'Trả lại báo cáo');
+    document.getElementById('bc-tra-luu').onclick = () => {
+      const y = document.getElementById('bc-ykien').value.trim();
+      if (!y) return UI.toast('Quản lý ghi giúp cô một dòng vì sao nhé', 'error');
+      this.duyet('tu-choi', y);
+    };
+  },
+
+  async moKhoa(oId) {
+    try {
+      await API.post(`/api/baocaohoctap/o/${encodeURIComponent(oId)}/mo-khoa`, {});
+      UI.toast('Đã mở khoá — cô nào ghi tiếp sẽ giữ phần này', 'success');
+      App.route();
+    } catch (e) { UI.toast(e.message || 'Chưa mở được', 'error'); }
   },
 
   async luu(im) {
@@ -447,9 +605,11 @@ App.views.baocaohoctap = {
   // gõ chưa kịp lên máy chủ, và gia đình nhận một bản thiếu đúng đoạn cuối.
   async gui() {
     if (!await this.luu(true)) return;
+    const o = document.getElementById('bc-ngay-cong-bo');
     try {
-      await API.post(`/api/baocaohoctap/ban/${encodeURIComponent(this._banId)}/gui`, {});
-      UI.toast('Đã gửi cho gia đình', 'success');
+      const r = await API.post(`/api/baocaohoctap/ban/${encodeURIComponent(this._banId)}/gui`,
+        o ? { ngayCongBo: o.value } : {});
+      UI.toast(r.choDuyet ? 'Đã gửi quản lý duyệt' : 'Đã duyệt và gửi gia đình', 'success');
       App.route();
     } catch (e) { UI.toast(e.message || 'Chưa gửi được', 'error'); }
   },

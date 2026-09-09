@@ -60,3 +60,71 @@ CREATE TABLE IF NOT EXISTS kehoachbe_muc (
   capNhatLuc      TEXT
 );
 CREATE INDEX IF NOT EXISTS kehoachbe_muc_theo_ke ON kehoachbe_muc(keId);
+
+-- ĐỢT 2 (phản hồi nhà trường 07/09): "Từ những tên bài học có sẵn GV sẽ tích
+-- chọn trong tháng đó HS sẽ được học những bài nào, cần ôn tập thêm hay mở
+-- rộng thêm."
+--
+-- Ba bảng mới, KHÔNG đổi cột bảng cũ (`kehoachbe_ke`, `kehoachbe_muc` giữ
+-- nguyên — ô chữ tự do vẫn là một cách lập kế hoạch hợp lệ, chỉ không còn là
+-- cách duy nhất).
+--
+-- DANH MỤC BÀI HỌC theo góc lĩnh vực. Văn phòng / quản lý soạn; cô chỉ đọc và
+-- tích. Bộ mặc định theo tinh thần Montessori được nạp LƯỜI ở routes.js khi
+-- bảng còn trống — không INSERT trong tệp này, vì tệp này chạy mỗi lần khởi
+-- động và bộ kiểm tra lược đồ chỉ nhận CREATE.
+--
+-- `active = 0` là ẨN, không xoá: bài đã tích trong kế hoạch tháng cũ vẫn phải
+-- hiện đúng tên.
+CREATE TABLE IF NOT EXISTS kehoachbe_baihoc (
+  id         TEXT PRIMARY KEY,
+  gocLinhVuc TEXT NOT NULL,
+  ten        TEXT NOT NULL,
+  moTa       TEXT NOT NULL DEFAULT '',
+  thuTu      INTEGER NOT NULL DEFAULT 0,
+  active     INTEGER NOT NULL DEFAULT 1,
+  nguoiTao   TEXT,
+  taoLuc     TEXT
+);
+CREATE INDEX IF NOT EXISTS kehoachbe_baihoc_theo_goc ON kehoachbe_baihoc(gocLinhVuc, active, thuTu);
+
+-- BÀI ĐÃ TÍCH cho một kế hoạch. `nhan` là một trong ba chữ của nhà trường:
+-- 'hoc-moi' · 'on-tap' · 'mo-rong'.
+--
+-- NHÌN LẠI CUỐI THÁNG CHO TỪNG BÀI: HAI MỨC, CHỮ TRUNG TÍNH.
+-- `ketQua` chỉ nhận 'da-thay' ("Đã thấy con làm được") hoặc 'tiep-tuc'
+-- ("Tiếp tục cùng con"). Không có giá trị nào là một trong cặp từ đúng/sai —
+-- cùng lý do đã ghi ở bảng `kehoachbe_muc` phía trên (QUY TẮC 2). Bài
+-- 'tiep-tuc' tự được gợi ý khi lập kế hoạch tháng sau — đó là việc-làm-tiếp
+-- của QUY TẮC 5, không phải một dấu trừ.
+CREATE TABLE IF NOT EXISTS kehoachbe_muc_bai (
+  id              TEXT PRIMARY KEY,
+  keId            TEXT NOT NULL,
+  baiHocId        TEXT NOT NULL,
+  nhan            TEXT NOT NULL DEFAULT 'hoc-moi',
+  ketQua          TEXT NOT NULL DEFAULT '',
+  nhanXet         TEXT NOT NULL DEFAULT '',
+  tiepTucThangSau INTEGER NOT NULL DEFAULT 0,
+  capNhatLuc      TEXT
+);
+CREATE INDEX IF NOT EXISTS kehoachbe_muc_bai_theo_ke ON kehoachbe_muc_bai(keId);
+
+-- ĐỀ XUẤT SỬA KẾ HOẠCH ĐÃ DUYỆT. Nhà trường: "Khi có điều chỉnh khác lộ trình
+-- ban đầu thì có quyền đề xuất sửa, ghi rõ lý do rồi quản lý mới phê duyệt."
+--
+-- Kế hoạch đã duyệt thì cô không sửa thẳng. Cô gửi một đề xuất (bắt buộc có
+-- `lyDo`), quản lý duyệt hoặc từ chối. Duyệt thì kế hoạch MỞ LẠI cho cô sửa
+-- (về 'nhap'), và dòng đề xuất này chính là vết ghi vì sao nó được mở lại.
+CREATE TABLE IF NOT EXISTS kehoachbe_de_xuat (
+  id         TEXT PRIMARY KEY,
+  keId       TEXT NOT NULL,
+  coDeXuat   TEXT NOT NULL,
+  lyDo       TEXT NOT NULL,
+  noiDung    TEXT NOT NULL DEFAULT '',   -- mỗi dòng một ý muốn đổi
+  trangThai  TEXT NOT NULL DEFAULT 'cho-duyet',  -- cho-duyet | da-duyet | tu-choi
+  nguoiDuyet TEXT,
+  duyetLuc   TEXT,
+  yKien      TEXT NOT NULL DEFAULT '',
+  taoLuc     TEXT
+);
+CREATE INDEX IF NOT EXISTS kehoachbe_de_xuat_theo_ke ON kehoachbe_de_xuat(keId, taoLuc DESC);
