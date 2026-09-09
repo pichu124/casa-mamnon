@@ -108,7 +108,13 @@ App.views.surveys = {
       } else {
         const ta = form.querySelector(`textarea[name="ans-${q.id}"]`);
         const val = ta ? ta.value.trim() : '';
-        if (val) answers[q.id] = val;
+        // Câu tự luận cũng bắt buộc (Đ135) — máy chủ giữ luật, màn hình chỉ
+        // nói sớm hơn và trỏ đúng ô còn trống.
+        if (!val) {
+          if (ta) ta.focus();
+          return UI.toast(`Gia đình trả lời đủ ${sv.questions.length} câu rồi gửi nhé — còn thiếu câu ${sv.questions.indexOf(q) + 1}`, 'error');
+        }
+        answers[q.id] = val;
       }
     }
     try {

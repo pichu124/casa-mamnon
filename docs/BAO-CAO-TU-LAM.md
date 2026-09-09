@@ -166,6 +166,47 @@ Ba điều đáng nói thẳng với anh từ vòng đó:
   đụng độ, bấm Lưu lần hai đè cả kế hoạch cô khác vừa lập cho bé mà cô này
   không hề gõ. Cả hai đã vá.
 
+**09/09 — nhà trường gửi phản hồi sau khi test thử; đợt 1 làm ngay sáu phần (Đ131–Đ136).**
+Anh gửi bản phản hồi 07/09 của trường và dặn: *"chỉnh sửa cho tôi, đề xuất nào
+bất hợp lý thì note lại báo tôi"*. Tôi đối chiếu từng ý với mã hiện có (nhiều ý
+hoá ra đã làm rồi — bỏ bước "đã cho uống" ở Dặn thuốc, văn phòng duyệt đơn
+nghỉ, hoàn tiền ăn khi duyệt, cảnh báo sau 9 giờ, nhật ký nối thực đơn…), rồi
+làm ngay những ý rõ ràng và hợp quy tắc:
+
+- **Điểm danh (Đ131):** chụp ảnh là có mặt, giờ vào là giờ chụp; bốn nút tích
+  rút vào một nút "Sửa" nhỏ; "Muộn" không còn là lựa chọn; sau 9 giờ có nút
+  **chốt sổ vắng** một lượt (có đơn → nghỉ có phép, không → nghỉ không phép);
+  văn phòng và quản lý cơ sở chấm được cả cơ sở. Gia đình thấy ảnh thu nhỏ +
+  "Vào lớp / Ra về" ngay trên danh sách tháng, và số ngày ăn ở trường để đối
+  chiếu tiền ăn.
+- **Thực đơn (Đ132):** năm bữa đúng cấu trúc của trường; xem theo T2…T6 như
+  Lịch sinh hoạt; văn phòng dán thẳng bảng từ Excel vào là xong.
+- **Lịch sinh hoạt (Đ133):** văn phòng soạn, cô chỉ xem; thêm/bớt dòng (Paris
+  13 dòng lưu được); áp một lịch cho nhiều nhóm.
+- **Dặn thuốc (Đ134):** "Dặn lại như đơn này". **Khảo sát (Đ135):** chưa trả
+  lời đủ thì không gửi được. **Sức khoẻ (Đ136):** bỏ "Tiêm chủng" khỏi mẫu ghi mới.
+
+Hai chỗ tôi **làm khác chữ trong phản hồi**, và phải nói rõ:
+
+- Trường viết *"không xin nghỉ → auto Nghỉ KP"*. Tôi KHÔNG để máy tự ghi dòng
+  đỏ đó lúc 7h30 hay nửa đêm — máy ảnh hỏng, mạng cổng rớt, bé tới 9h05 là ba
+  chuyện có thật, và một dòng "nghỉ không phép" tự sinh là thứ gia đình đọc
+  thấy trước khi ai kịp gọi. Thay vào đó là **một chạm của văn phòng sau khi gọi
+  xác nhận**: bấm "Chốt sổ vắng" là ghi một lượt cho mọi bé chưa có dòng. Nếu
+  anh và trường vẫn muốn máy tự chốt vào một giờ cố định, tôi làm được trong
+  một buổi — nhưng cần trường chốt giờ, và cần lịch ngày học/nghỉ lễ trước, kẻo
+  ghi vắng cả thứ Bảy.
+- Lịch sinh hoạt khoá với cô là **một đổi hành vi của tính năng đang chạy**
+  (cô mất quyền sửa). Làm vì trường yêu cầu thẳng; đổi lại cô đọc được đúng câu
+  "lịch do văn phòng soạn, cần đổi thì nhắn văn phòng" thay vì lỗi khô khan.
+
+Những đề xuất tôi **không làm và báo lại** để anh cân nhắc — nhận diện khuôn
+mặt trẻ trong album, bỏ hẳn Đón trả bé, AI viết nhận xét cho báo cáo, đo lượt
+click của phụ huynh, video 3–5 phút, hồ sơ nhân sự đầy đủ, thông báo đẩy từng
+gia đình — nằm ở **`docs/PHAN-HOI-TRUONG-0709.md`**, kèm bảng đối chiếu toàn
+bộ phản hồi (đã có / một phần / chưa có, cỡ việc, vì sao). Đọc tệp đó là đủ để
+quyết đợt 2.
+
 ## 1b-mới. 02/09/2026 sáng — đợt hai của cuộc rà soát, khép sổ (Đ118)
 
 Anh dặn *"khi đủ token làm hết phần còn lại"* — đợt này làm đúng điều đó: vá

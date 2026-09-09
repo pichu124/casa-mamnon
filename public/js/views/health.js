@@ -196,9 +196,11 @@ App.views.health = {
       </div>
       <div class="field">
         <label>Loại ghi nhận</label>
+        <!-- Không còn "Tiêm chủng" (Đ136): nhà trường 07/09 — "trường không có
+             tiêm chủng". Ghi nhận tiêm chủng đã có vẫn đọc được (TYPES giữ
+             nguyên), chỉ không ghi thêm. "Khám" gồm cả cân đo hằng tháng. -->
         <div class="seg" id="ht-type-seg" style="margin-bottom:0">
-          <button data-type="checkup" class="active" onclick="App.views.health.pickType('checkup')">🩺 Khám</button>
-          <button data-type="vaccination" onclick="App.views.health.pickType('vaccination')">💉 Tiêm chủng</button>
+          <button data-type="checkup" class="active" onclick="App.views.health.pickType('checkup')">🩺 Khám / cân đo</button>
           <button data-type="incident" onclick="App.views.health.pickType('incident')">🩹 Sự cố</button>
         </div>
       </div>

@@ -111,8 +111,9 @@ console.log('\n[1] Cô phụ trách HAI nhóm — Lịch sinh hoạt');
     nhom2.includes('Nước và hiện tượng tự nhiên'), nhom2.slice(0, 300));
   check('không còn lẫn nội dung của nhóm thứ nhất',
     !nhom2.includes('Khám phá: Trường mầm non của bé'), nhom2.slice(0, 300));
-  check('vẫn còn nút Chỉnh sửa — cô phụ trách nhóm này nên sửa được',
-    nhom2.includes('Chỉnh sửa'), nhom2.slice(0, 200));
+  // Đ133: lịch sinh hoạt do văn phòng soạn — cô xem, không sửa.
+  check('KHÔNG có nút Chỉnh sửa — lịch do văn phòng soạn (Đ133)',
+    !nhom2.includes('Chỉnh sửa'), nhom2.slice(0, 200));
 }
 
 // ===========================================================================

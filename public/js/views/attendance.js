@@ -103,22 +103,66 @@ App.views.attendance = {
       return c ? c.name : '';
     };
 
+    // SỔ ĐIỂM DANH CỦA CẢ PHẠM VI (Đ131). Nhà trường: "điểm danh thường do bảo
+    // vệ chụp ở cổng, sau 8h30 admin điểm danh chứ không phải giáo viên — nên
+    // admin, quản lý cơ sở được quyền check-in các lớp tại cơ sở". KHÔNG kèm
+    // mã nhóm: máy chủ tự cắt theo phạm vi của tài khoản, đúng như bảng rà soát.
+    let so = { students: [] };
+    try {
+      so = await API.get(`/api/attendance/class?date=${encodeURIComponent(this.date)}`);
+    } catch (e) { so = { students: [], loi: e.message }; }
+    this._roster = so.students || [];
+    this._raSoat = r;
+
     root.innerHTML = `
       ${UI.pageHeader('Điểm danh')}
       <div class="card">
         <div class="field" style="margin-bottom:0">
-          <label>Ngày rà soát</label>
+          <label>Ngày điểm danh</label>
           <input type="date" value="${UI.esc(this.date)}" max="${UI.esc(UI.todayStr())}"
                  onchange="App.views.attendance.setDate(this.value)">
           ${UI.dongNgayViet(this.date)}
         </div>
         <div class="muted small mt-8" style="line-height:1.6">
-          Văn phòng xem được cả phạm vi mình phụ trách. Việc chấm điểm danh vẫn
-          là của cô ở màn nhóm.
+          Văn phòng xem và chấm được cả phạm vi mình phụ trách: chụp ảnh con tới
+          lớp ở cổng, và chốt sổ vắng sau giờ rà soát.
         </div>
       </div>
       ${this.theRaSoatVanPhong(r, ds, tenNhom)}
+      ${this.theNgayDaKhoa()}
+      ${this.theDiemDanhCoSo(so)}
       ${this.theChiDuongTraBe()}`;
+  },
+
+  // Sổ điểm danh của cả cơ sở, xếp theo nhóm — mỗi nhóm một khối gập được.
+  //
+  // Không có ô chọn nhóm (xem chú thích renderVanPhong): danh sách đã do máy
+  // chủ cắt theo phạm vi, và một cơ sở 100 bé gập theo nhóm thì cuộn tới nhóm
+  // nào bấm nhóm đó, không cần chọn trước. Dòng bé dùng CHUNG với màn của cô
+  // (`rosterRow`) để hai vai chấm cùng một cách, sửa một chỗ là đủ.
+  theDiemDanhCoSo(so) {
+    const ds = (so && so.students) || [];
+    if (so && so.loi) return `<div class="card muted small">${UI.esc(so.loi)}</div>`;
+    if (!ds.length) return '';
+    const theoNhom = new Map();
+    for (const r of ds) {
+      const k = r.student.classId || '';
+      if (!theoNhom.has(k)) theoNhom.set(k, { ten: r.student.className || 'Chưa xếp nhóm', ds: [] });
+      theoNhom.get(k).ds.push(r);
+    }
+    const moSan = theoNhom.size <= 3;
+    return [...theoNhom.values()]
+      .sort((a, b) => a.ten.localeCompare(b.ten, 'vi'))
+      .map(n => {
+        const daCham = n.ds.filter(r => r.record).length;
+        return `<details class="card" style="padding:0"${moSan ? ' open' : ''}>
+          <summary style="cursor:pointer;padding:12px 14px;font-weight:700;display:flex;gap:8px;align-items:center">
+            <span>${UI.esc(n.ten)}</span>
+            <span class="muted small" style="font-weight:500">${daCham}/${n.ds.length} đã điểm danh</span>
+          </summary>
+          <div style="padding:0 14px 8px">${n.ds.map(r => this.rosterRow(r)).join('')}</div>
+        </details>`;
+      }).join('');
   },
 
   // Văn phòng: sổ trả bé xem theo từng nhóm ở màn Đón trả bé — màn rà soát này
@@ -189,7 +233,48 @@ App.views.attendance = {
         ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
           ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
         </div>` : ''}
+        ${this.nutChotVang(ds.length)}
       </div>`;
+  },
+
+  // Nút chốt sổ vắng — chỉ cho HÔM NAY, và nằm cuối bảng rà soát: gọi xác nhận
+  // xong mới chốt, không phải bấm trước rồi gọi sau.
+  nutChotVang(soBe) {
+    if (this.ngayDaKhoa() || !soBe) return '';
+    return `
+      <div class="muted small mt-8" style="line-height:1.6">
+        Gọi xác nhận xong mà bé không tới thì chốt sổ một lượt: ${UI.esc(String(soBe))} bé
+        chưa có dòng điểm danh sẽ được ghi <b>Nghỉ không phép</b>; bé có đơn nghỉ được duyệt
+        thì ghi <b>Nghỉ có phép</b>. Bé tới muộn mà được chụp ảnh sau đó vẫn đổi lại thành có mặt.
+      </div>
+      <button class="btn outline block mt-8" id="att-chot-vang" onclick="App.views.attendance.chotVang()">
+        ${UI.icon('check', 16)} Chốt sổ vắng cho ${UI.esc(String(soBe))} bé
+      </button>`;
+  },
+
+  chotVang() {
+    const r = this._raSoat || {};
+    const n = (r.danhSach || []).length;
+    UI.modal(`
+      <p style="line-height:1.6">Ghi <b>Nghỉ không phép</b> cho <b>${UI.esc(String(n))} bé</b> chưa có dòng
+        điểm danh và chưa có đơn nghỉ được duyệt?</p>
+      <p class="muted small" style="line-height:1.6">
+        Bé có đơn nghỉ được duyệt sẽ được ghi <b>Nghỉ có phép</b>. Bé đã có dòng điểm danh giữ nguyên.
+        Chốt xong mà bé tới lớp và được chụp ảnh thì dòng đó đổi lại thành có mặt.
+      </p>
+      <button class="btn primary block mt-14" id="att-chot-dong-y">Chốt sổ vắng</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, 'Chốt sổ vắng');
+    document.getElementById('att-chot-dong-y').onclick = async () => {
+      try {
+        const kq = await API.post('/api/attendance/chot-vang',
+          { date: this.date, classId: this.nhomId || undefined });
+        UI.closeModal();
+        UI.toast(`Đã ghi ${kq.soNghiKhongPhep} bé nghỉ không phép và ${kq.soNghiCoPhep} bé nghỉ có phép`, 'success');
+        App.route();
+        App.refreshBadges();
+      } catch (e) { UI.toast(e.message || 'Chưa chốt được sổ', 'error'); }
+    };
   },
 
   // ---- Phụ huynh: lịch tháng của con ----
@@ -234,11 +319,14 @@ App.views.attendance = {
         <button class="btn outline sm" onclick="App.views.attendance.changeMonth(1)" aria-label="Tháng sau">›</button>
       </div>
       <div class="stat-row">
-        ${this.STATUS_KEYS.map(k => `
+        ${this.STATUS_KEYS.filter(k => k !== 'late' || counts.late > 0).map(k => `
           <div class="stat-box">
             <div class="stat-num" style="color:${UI.ATT_STATUS[k].color}">${counts[k]}</div>
             <div class="stat-label">${UI.esc(this.SHORT[k])}</div>
           </div>`).join('')}
+      </div>
+      <div class="muted small" style="text-align:center;margin:-6px 0 12px;line-height:1.6">
+        Số ngày con ăn ở trường tháng này (để đối chiếu tiền ăn): <b>${counts.present + counts.late}</b>
       </div>
       <div class="card">
         <div class="card-title">${UI.icon('calendar', 19)} Lịch điểm danh của con</div>
@@ -304,13 +392,23 @@ App.views.attendance = {
     </div>`;
   },
 
+  // MỘT NGÀY TRONG DANH SÁCH THÁNG CỦA GIA ĐÌNH (Đ131, theo ảnh mẫu của
+  // trường): ảnh thu nhỏ lúc vào lớp ngay trên dòng, "Vào lớp HH:MM · Ra về
+  // HH:MM" — không phải bấm từng ngày mới thấy mặt con. Giờ ra về lấy từ giờ
+  // ra nếu cô ghi, không thì từ sổ trả bé. `loading="lazy"`: một tháng là
+  // hơn hai chục ảnh, chỉ tải khi cuộn tới.
   recordRow(r) {
     const st = UI.ATT_STATUS[r.status] || UI.ATT_STATUS.present;
-    const times = [r.checkIn ? `Vào ${r.checkIn}` : null, r.checkOut ? `Ra ${r.checkOut}` : null].filter(Boolean).join(' · ');
+    const gioVe = r.checkOut || this.gioTraBe(r.date) || '';
+    const times = [r.checkIn ? `Vào lớp ${r.checkIn}` : null, gioVe ? `Ra về ${gioVe}` : null].filter(Boolean).join(' · ');
     const tra = this.chuTraBe(r.date);
+    const a = (this._anhTheoNgay || {})[r.date];
     return `
       <div class="list-row clickable" onclick="App.views.attendance.showDay('${UI.esc(r.date)}')">
-        <span style="width:10px;height:10px;border-radius:50%;background:${st.color};flex:none"></span>
+        ${a && a.file
+          ? `<img src="/api/attendance/anh/${UI.esc(a.file)}" alt="Ảnh con tới lớp" loading="lazy"
+               style="width:42px;height:42px;flex:none;border-radius:10px;object-fit:cover;border:2px solid ${st.color}">`
+          : `<span style="width:10px;height:10px;border-radius:50%;background:${st.color};flex:none"></span>`}
         <div class="row-main">
           <div class="row-title">${UI.esc(UI.fmtDate(r.date))}</div>
           <div class="row-sub">${UI.esc(times || 'Không ghi nhận giờ vào/ra')}${r.note ? ` · ${UI.esc(r.note)}` : ''}${tra ? ` · ${UI.esc(tra)}` : ''}</div>
@@ -439,12 +537,16 @@ App.views.attendance = {
         <div class="stat-box"><div class="stat-num" id="att-so-chua" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
       </div>
       ${this.theRaSoat()}
-      ${this.ngayDaKhoa() ? '' : `<button class="btn success-soft block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt</button>`}
       <div class="card mt-14">
         ${total
           ? this._roster.map(r => this.rosterRow(r)).join('')
           : UI.emptyState('🎒', 'Nhóm chưa có bé nào')}
-      </div>`}`;
+      </div>
+      ${this.ngayDaKhoa() || !total ? '' : `
+      <div class="muted small" style="line-height:1.6;margin:0 2px 8px">
+        Hôm nào không chụp ảnh được (máy hỏng, mất mạng ở cổng) thì ghi tay một lượt:
+      </div>
+      <button class="btn outline block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt (không kèm ảnh)</button>`}`}`;
 
     // Đổi phần bằng hash, để nút Quay lại và liên kết sâu (nút việc trên trang
     // chủ trỏ thẳng '#/attendance/tra') đều đúng, không có trạng thái ngầm.
@@ -559,10 +661,16 @@ App.views.attendance = {
         ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
           ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
         </div>` : ''}
+        ${this.nutChotVang(r.danhSach.length)}
       </div>`;
   },
 
   // Cô chụp một khung hình "con đã tới lớp" để gửi gia đình.
+  //
+  // TỪ Đ131 ẢNH LÀ ĐIỂM DANH: máy chủ ghi "có mặt" ngay khi nhận ảnh và trả
+  // dòng điểm danh về. Vẽ lại đúng dòng đó tại chỗ, không vẽ lại cả trang —
+  // cùng lý do với `mark()`: nhóm 30 bé mà mỗi tấm ảnh ném cô về đầu danh sách
+  // là 30 lần cuộn.
   chonAnh(studentId) {
     const o = document.createElement('input');
     o.type = 'file';
@@ -573,9 +681,20 @@ App.views.attendance = {
       if (!f) return;
       try {
         const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
-        await API.post('/api/attendance/anh', { studentId, date: this.date, anh });
-        UI.toast('Đã gửi ảnh cho gia đình', 'success');
-        App.route();
+        const ngayLucBam = this.date;
+        const kq = await API.post('/api/attendance/anh', { studentId, date: ngayLucBam, anh });
+        UI.toast('Đã ghi có mặt và gửi ảnh cho gia đình', 'success');
+        const dong = ngayLucBam === this.date
+          ? (this._roster || []).find(x => x.student.id === studentId) : null;
+        if (dong && kq && kq.record) {
+          dong.record = kq.record;
+          dong.anhDenLop = { file: kq.file, taoLuc: kq.record.checkIn || '' };
+          this.veLaiDong(studentId);
+          this.veLaiSoDem();
+          App.refreshBadges();
+        } else {
+          App.route();
+        }
       } catch (e) { UI.toast(e.message || 'Chưa gửi được ảnh', 'error'); }
     };
     o.click();
@@ -589,17 +708,30 @@ App.views.attendance = {
     } catch (e) { UI.toast(e.message || 'Chưa gỡ được ảnh', 'error'); }
   },
 
+  // DÒNG MỘT BÉ TRONG NGÀY (Đ131): ẢNH LÀ ĐIỂM DANH.
+  //
+  // Nhà trường 07/09: "Đã chụp ảnh đến lớp thì auto là có mặt. Muốn bỏ phần
+  // tích chọn có mặt, muộn, nghỉ phép, nghỉ không phép". Nên dòng này chỉ còn
+  // MỘT nút chính — chụp ảnh — và một nút "Sửa" nhỏ cho lúc không chụp được
+  // (máy hỏng, mạng cổng rớt) hay cần sửa lại một dòng đã ghi. Bốn nút tích
+  // cũ vẫn tồn tại, nhưng nằm trong hộp Sửa chứ không phơi trên từng dòng.
+  //
+  // Bé chưa có dòng nào thì huy hiệu XÁM "Chưa có ảnh đến lớp" — đó là việc
+  // của người lớn chưa làm, không phải một lời nào về bé (QUY TẮC 2). Màu đỏ
+  // chỉ có ở bảng rà soát sau 9 giờ, và ở dòng đã ghi "Nghỉ không phép" thật.
   rosterRow({ student: s, record, donNghiDaDuyet, anhDenLop }) {
     if (this.ngayDaKhoa()) return this.dongChiXem({ student: s, record, anhDenLop });
+    const coMat = !!record && (record.status === 'present' || record.status === 'late');
     const times = record
-      ? [record.checkIn ? `Vào ${record.checkIn}` : null, record.checkOut ? `Ra ${record.checkOut}` : null].filter(Boolean).join(' · ')
+      ? [record.checkIn ? `Vào lớp ${record.checkIn}` : null, record.checkOut ? `Ra về ${record.checkOut}` : null].filter(Boolean).join(' · ')
       : '';
-    // Đơn nghỉ đã duyệt: gợi ý sẵn ô "Nghỉ CP" khi cô chưa chấm gì, để cô không
-    // phải nhớ lại xem em này đã có đơn hay chưa.
-    const goiY = donNghiDaDuyet && !record ? 'absent_excused' : null;
+    const coAnh = !!(anhDenLop && anhDenLop.file);
     return `
       <div class="list-row" id="att-dong-${UI.esc(s.id)}" style="align-items:flex-start">
-        ${UI.avatar(s.avatar, 42)}
+        ${coAnh
+          ? `<img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
+               style="width:54px;height:54px;flex:none;border-radius:12px;object-fit:cover">`
+          : UI.avatar(s.avatar, 42)}
         <div class="row-main">
           <div class="row-title">${UI.esc(s.name)}</div>
           <div class="row-sub">${UI.esc(s.code)}${times ? ` · ${UI.esc(times)}` : ''}${record && record.note ? ` · ${UI.esc(record.note)}` : ''}</div>
@@ -609,23 +741,9 @@ App.views.attendance = {
                 ? ` (${UI.esc(UI.fmtDateShort(donNghiDaDuyet.fromDate))} – ${UI.esc(UI.fmtDateShort(donNghiDaDuyet.toDate))})`
                 : ''}${donNghiDaDuyet.reason ? ` · ${UI.esc(donNghiDaDuyet.reason.slice(0, 60))}` : ''}
             </div>` : ''}
-          <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:8px">
-            ${this.STATUS_KEYS.map(k => {
-              const conf = UI.ATT_STATUS[k];
-              const sel = record && record.status === k;
-              const nhac = !record && goiY === k;
-              return `<button class="badge ${conf.cls}" title="${UI.esc(nhac ? `${conf.label} — bé này đã có đơn nghỉ được duyệt` : conf.label)}"
-                style="cursor:pointer;${sel
-                  ? `background:${conf.color};color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)`
-                  : nhac ? `opacity:1;border:1.5px dashed ${conf.color};color:${conf.color}` : 'opacity:.55'}"
-                onclick="App.views.attendance.mark('${UI.esc(s.id)}', '${k}')">${UI.esc(this.SHORT[k])}</button>`;
-            }).join('')}
-          </div>
-          <div class="mt-8">
-            ${anhDenLop ? `
-              <div class="flex" style="align-items:center;gap:8px">
-                <img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
-                  style="width:54px;height:54px;border-radius:10px;object-fit:cover">
+          <div class="flex" style="flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px">
+            ${this.huyHieuDong(record, donNghiDaDuyet)}
+            ${coMat && coAnh ? `
                 <!-- "ĐÃ GỬI", KHÔNG PHẢI "ĐÃ THẤY".
                      App không có đường nào biết gia đình đã mở ảnh ra xem —
                      không ghi lượt xem ở đâu cả. Cô nhìn dòng cũ rồi kết luận
@@ -635,14 +753,59 @@ App.views.attendance = {
                      Muốn nói "đã thấy" thật thì phải ghi lượt xem ở
                      GET /api/attendance/anh/:file trước — việc riêng. -->
                 <span class="small" style="color:var(--success)">Đã gửi cho gia đình</span>
-                <button class="btn tiny outline" onclick="App.views.attendance.goAnh('${UI.esc(s.id)}')">Gỡ</button>
-              </div>`
-            : `<button class="btn tiny outline" onclick="App.views.attendance.chonAnh('${UI.esc(s.id)}')">
-                 ${UI.icon('album', 14)} Chụp ảnh con tới lớp
-               </button>`}
+                <button class="btn sm outline" onclick="App.views.attendance.goAnh('${UI.esc(s.id)}')">Gỡ ảnh</button>`
+              : `<button class="btn sm ${coMat ? 'outline' : 'primary'}" onclick="App.views.attendance.chonAnh('${UI.esc(s.id)}')">
+                   ${UI.icon('album', 14)} Chụp ảnh con tới lớp
+                 </button>`}
+            <button class="btn sm outline" onclick="App.views.attendance.suaDiemDanh('${UI.esc(s.id)}')">Sửa</button>
           </div>
         </div>
       </div>`;
+  },
+
+  // Huy hiệu của một dòng. Có dòng thì nói đúng dòng; chưa có dòng mà đã có
+  // đơn nghỉ được duyệt thì báo trước "Nghỉ CP theo đơn" — lúc chốt sổ nó sẽ
+  // thành dòng thật; còn lại là chữ xám về việc chưa làm.
+  huyHieuDong(record, donNghiDaDuyet) {
+    if (record) {
+      const conf = UI.ATT_STATUS[record.status] || UI.ATT_STATUS.present;
+      return UI.badge(this.SHORT[record.status] || conf.label, conf.cls);
+    }
+    if (donNghiDaDuyet) return '<span class="badge blue" style="opacity:.8">Nghỉ CP theo đơn</span>';
+    return '<span class="badge gray">Chưa có ảnh đến lớp</span>';
+  },
+
+  // Hộp Sửa: ba trạng thái + ghi chú, cho lúc không chụp được ảnh hoặc cần
+  // sửa lại. "Đến muộn" không còn là lựa chọn — nhà trường bỏ (07/09); dòng cũ
+  // đã ghi "muộn" vẫn đọc được, chỉ không ghi thêm.
+  suaDiemDanh(studentId) {
+    const dong = (this._roster || []).find(x => x.student.id === studentId);
+    if (!dong) return;
+    const rec = dong.record;
+    const lua = [['present', 'success-soft'], ['absent_excused', 'outline'], ['absent_unexcused', 'outline']];
+    UI.modal(`
+      <p class="muted small" style="line-height:1.6">
+        Thường ngày chụp ảnh con tới lớp là đủ — ảnh là điểm danh. Hộp này dành cho lúc
+        không chụp được ảnh, hoặc cần sửa lại dòng đã ghi.
+      </p>
+      <div class="field">
+        <label>Ghi chú (gia đình đọc được)</label>
+        <input id="att-sua-ghichu" value="${UI.esc((rec && rec.note) || '')}" placeholder="Ví dụ: bà đưa tới lúc 9 giờ">
+      </div>
+      ${lua.map(([k, cls]) => `
+        <button class="btn ${cls} block mt-8" id="att-sua-${k}"
+          ${rec && rec.status === k ? 'style="outline:2px solid var(--primary)"' : ''}>
+          ${UI.esc(this.SHORT[k])} — ${UI.esc(UI.ATT_STATUS[k].label)}${rec && rec.status === k ? ' · đang ghi' : ''}
+        </button>`).join('')}
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, `Sửa điểm danh — ${dong.student.name}`);
+    for (const [k] of lua) {
+      document.getElementById(`att-sua-${k}`).onclick = () => {
+        const note = (document.getElementById('att-sua-ghichu') || {}).value;
+        UI.closeModal();
+        this.mark(studentId, k, typeof note === 'string' ? note.trim() : undefined);
+      };
+    }
   },
 
   // Dòng bé của một ngày đã khoá: đúng những gì đã ghi, không nút nào.
@@ -686,18 +849,18 @@ App.views.attendance = {
   // App.route() vẽ lại cả trang rồi cuộn về đầu. Nhóm 30 bé thì cô chạm bé thứ 25
   // xong bị ném về đầu danh sách, phải cuộn lại từ đầu cho từng em — điểm danh
   // một nhóm thành 30 lần cuộn. Chỉ vẽ lại đúng dòng vừa đổi và hai ô đếm.
-  async mark(studentId, status) {
+  async mark(studentId, status, note) {
     // Chấm "Nghỉ không phép" đúng vào ngày em đã có đơn được duyệt gần như luôn
     // là nhầm — và phụ huynh sẽ thấy chữ đỏ cho con mình dù cô đã duyệt đơn.
     // Hỏi lại chứ không chặn: quyền quyết định vẫn là của cô.
     const co = this._roster.find(x => x.student.id === studentId);
     if (status === 'absent_unexcused' && co && co.donNghiDaDuyet) {
-      return this.hoiLaiNghiKhongPhep(studentId, co);
+      return this.hoiLaiNghiKhongPhep(studentId, co, note);
     }
-    return this.ghiDiemDanh(studentId, status);
+    return this.ghiDiemDanh(studentId, status, note);
   },
 
-  hoiLaiNghiKhongPhep(studentId, dong) {
+  hoiLaiNghiKhongPhep(studentId, dong, note) {
     const d = dong.donNghiDaDuyet;
     UI.modal(`
       <p style="line-height:1.6">
@@ -715,18 +878,20 @@ App.views.attendance = {
 
     document.getElementById('att-dung-cp').onclick = () => {
       UI.closeModal();
-      this.ghiDiemDanh(studentId, 'absent_excused');
+      this.ghiDiemDanh(studentId, 'absent_excused', note);
     };
     document.getElementById('att-van-kp').onclick = () => {
       UI.closeModal();
-      this.ghiDiemDanh(studentId, 'absent_unexcused');
+      this.ghiDiemDanh(studentId, 'absent_unexcused', note);
     };
   },
 
-  async ghiDiemDanh(studentId, status) {
+  async ghiDiemDanh(studentId, status, note) {
     const ngayLucBam = this.date;
     try {
-      const rec = await API.post('/api/attendance/mark', { studentId, date: ngayLucBam, status });
+      const than = { studentId, date: ngayLucBam, status };
+      if (typeof note === 'string') than.note = note;
+      const rec = await API.post('/api/attendance/mark', than);
       // Cô có thể đã đổi ngày trong lúc chờ mạng — lúc đó danh sách trên màn hình
       // là của ngày khác, ghi vào sẽ hiện sai.
       if (this.date !== ngayLucBam) return;

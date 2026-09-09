@@ -10,6 +10,8 @@ const uploads = require('../lib/uploads');
 const nghiHoc = require('../lib/nghi-hoc');
 
 const STATUSES = ['present', 'late', 'absent_excused', 'absent_unexcused'];
+// Hai trạng thái "bé đang ở lớp" — cùng định nghĩa với modules/tienan/routes.js.
+const CO_MAT = ['present', 'late'];
 
 // GIỜ NHÀ TRƯỜNG CHỐT ĐỂ RÀ SOÁT (điểm 4, 30/08): "sau 9h bé nào chưa được
 // điểm danh mà không xin nghỉ trước đó thì báo đỏ để văn phòng kiểm tra".
@@ -52,6 +54,33 @@ function chanNgoaiNgay(res, ngayGhi, viec) {
 // Ảnh điểm danh: nhỏ hơn ảnh album nhiều. Đây là một khung hình "con đã tới
 // lớp", không phải ảnh để phóng to xem.
 const TOI_DA_ANH_BYTE = 900 * 1024;
+
+// ẢNH ĐẾN LỚP LÀ ĐIỂM DANH (Đ131).
+//
+// Nhà trường chốt 07/09: "Đã chụp ảnh đến lớp thì auto là có mặt, không cần
+// phải tích chọn lằng nhằng". Trước đợt này ảnh và dòng điểm danh là hai việc
+// rời nhau: cô chụp xong vẫn phải bấm thêm "Có mặt", quên là gia đình thấy ảnh
+// con ở lớp mà sổ ghi "cô chưa chấm".
+//
+// LUẬT: chụp ảnh → dòng điểm danh thành "có mặt", giờ vào = giờ chụp. Kể cả
+// khi hôm đó đã ghi "nghỉ" — nhà trường nói rõ: "con xin nghỉ trước đó, đã
+// được duyệt, nhưng hôm đó vẫn chụp ảnh check-in thì ghi nhận đi học, tính
+// tiền ăn". Bé ĐÃ có mặt rồi thì giữ nguyên giờ vào đầu tiên: chụp lại tấm
+// ảnh đẹp hơn lúc 8h không được đổi giờ đến lớp thành 8h.
+function ghiCoMatTheoAnh(studentId, date, userId) {
+  const cu = db.first('attendance',
+    'SELECT * FROM attendance WHERE studentId = ? AND date = ?', [studentId, date]);
+  if (cu && CO_MAT.includes(cu.status)) return cu;
+  const rec = cu || {
+    id: db.nextId('att'), studentId, date,
+    status: 'present', checkIn: null, checkOut: null, note: '', markedBy: userId,
+  };
+  rec.status = 'present';
+  rec.checkIn = nowTime();
+  rec.markedBy = userId;
+  db.upsert('attendance', rec, ['studentId', 'date']);
+  return rec;
+}
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function currentMonth() {
@@ -141,6 +170,16 @@ module.exports = (app) => {
       }
     }
 
+    // Tên nhóm của từng bé — văn phòng mở màn này KHÔNG kèm mã nhóm (máy chủ
+    // tự cắt theo phạm vi), nên bé của cả cơ sở về một danh sách và màn hình
+    // cần biết bé nào thuộc nhóm nào để xếp theo nhóm. Tra một lần mỗi nhóm.
+    const tenNhom = new Map();
+    for (const s of students) {
+      if (s.classId && !tenNhom.has(s.classId)) {
+        const c = db.findClass(s.classId);
+        tenNhom.set(s.classId, c ? c.name : '');
+      }
+    }
     res.json({
       date,
       // Các nhóm cô đang phụ trách, để màn hình dựng được ô chọn nhóm. Cô chỉ
@@ -149,7 +188,10 @@ module.exports = (app) => {
       dangXemNhom: locNhom || null,
       gioRaSoat: GIO_RA_SOAT,
       students: students.map(s => ({
-        student: { id: s.id, name: s.name, code: s.code, avatar: s.avatar },
+        student: {
+          id: s.id, name: s.name, code: s.code, avatar: s.avatar,
+          classId: s.classId || null, className: tenNhom.get(s.classId) || '',
+        },
         record: byStudent.get(s.id) || null,
         donNghiDaDuyet: donNghi.get(s.id) || null,
         anhDenLop: anh.get(s.id) || null,
@@ -336,7 +378,9 @@ module.exports = (app) => {
     // đó là chủ ý: một bộ canh có ngoại lệ "trong chú thích thì không tính" là
     // một bộ canh có lỗ. Bản đầu của chính đoạn này đã bị bắt vì lý do đó.)
     db.audit(req.user.id, 'anh-toi-lop', studentId, { date: ngayGhi });
-    res.status(201).json({ ok: true, studentId, date: ngayGhi, file: luu.file });
+    // Ảnh đã vào kho thì bé là có mặt — xem `ghiCoMatTheoAnh`.
+    const record = ghiCoMatTheoAnh(studentId, ngayGhi, req.user.id);
+    res.status(201).json({ ok: true, studentId, date: ngayGhi, file: luu.file, record });
   });
 
   // Gỡ ảnh — chụp nhầm bé thì phải gỡ được ngay (bài học Đ15).
@@ -438,6 +482,77 @@ module.exports = (app) => {
   //      thì mỗi sáng văn phòng lại gọi điện hỏi một gia đình đã báo nghỉ từ
   //      hôm trước — vài lần như thế là cả bảng rà soát bị bỏ qua. Cùng bài
   //      học với Đ84, và dùng chung đúng `lib/nghi-hoc.js`.
+  // CHỐT SỔ VẮNG SAU GIỜ RÀ SOÁT (Đ131).
+  //
+  // Nhà trường muốn bỏ hẳn bốn nút tích và đổi luật: "chụp ảnh → có mặt; xin
+  // nghỉ được duyệt → Nghỉ có phép; không xin nghỉ → Nghỉ không phép". Hai vế
+  // sau KHÔNG được để máy tự ghi lúc nửa đêm hay lúc 7h30 — máy ảnh hỏng, bé
+  // tới lúc 9h05, mạng cổng trường rớt là ba chuyện có thật, và một dòng "Nghỉ
+  // không phép" tự sinh là thứ gia đình đọc thấy trước khi ai kịp gọi.
+  //
+  // Nên đây là MỘT CHẠM CỦA NGƯỜI LỚN, sau giờ rà soát, sau khi văn phòng đã
+  // gọi xác nhận: mọi bé của phạm vi mà chưa có dòng điểm danh sẽ được ghi một
+  // lượt — có đơn được duyệt thì "Nghỉ có phép", không thì "Nghỉ không phép".
+  // Bé đã có dòng (kể cả có mặt nhờ ảnh) giữ nguyên. Chụp ảnh SAU khi chốt vẫn
+  // đè lại thành có mặt, đúng luật của `ghiCoMatTheoAnh`.
+  //
+  // Chỉ chốt được ĐÚNG HÔM NAY (Đ127) và chỉ SAU giờ rà soát: chốt lúc 7h30 là
+  // ghi vắng cho cả nhóm đang trên đường tới trường.
+  app.post('/api/attendance/chot-vang', requireRole('teacher', 'admin'), (req, res) => {
+    const ngay = String((req.body || {}).date || todayStr());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay)) {
+      return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
+    }
+    if (chanNgoaiNgay(res, ngay, 'chốt')) return;
+    const gioHienTai = Number(String(nowTime()).slice(0, 2));
+    if (gioHienTai < GIO_RA_SOAT) {
+      return res.status(400).json({
+        error: `Chốt sổ vắng chỉ làm được sau ${GIO_RA_SOAT} giờ — trước đó các cô vẫn đang đón bé.`,
+        gioRaSoat: GIO_RA_SOAT,
+      });
+    }
+    const locNhom = String((req.body || {}).classId || '');
+    if (locNhom && !db.canAccessClass(req.user, locNhom)) {
+      return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
+    }
+    const students = locNhom
+      ? db.studentsOf(req.user).filter(s => s.classId === locNhom)
+      : db.studentsOf(req.user);
+    const ids = students.map(s => s.id);
+    if (!ids.length) return res.status(400).json({ error: 'Phạm vi này chưa có bé nào' });
+
+    const daCham = new Set();
+    const marks = ids.map(() => '?').join(',');
+    for (const r of db.all('attendance',
+      `SELECT studentId FROM attendance WHERE date = ? AND studentId IN (${marks})`,
+      [ngay, ...ids])) daCham.add(r.studentId);
+    const dangNghi = nghiHoc.nghiCoPhep(ids, ngay);
+
+    const daGhi = [];
+    db.tx(() => {
+      for (const s of students) {
+        if (daCham.has(s.id)) continue;
+        const status = dangNghi.get(s.id) ? 'absent_excused' : 'absent_unexcused';
+        db.insert('attendance', {
+          id: db.nextId('att'), studentId: s.id, date: ngay,
+          status, checkIn: null, checkOut: null, note: '', markedBy: req.user.id,
+        });
+        daGhi.push({ studentId: s.id, hoTen: s.name, status });
+      }
+    });
+    const soNghiCoPhep = daGhi.filter(x => x.status === 'absent_excused').length;
+    db.audit(req.user.id, 'chot-vang', locNhom || null, {
+      date: ngay, soNghiCoPhep, soNghiKhongPhep: daGhi.length - soNghiCoPhep,
+    });
+    res.json({
+      ok: true, date: ngay,
+      soDaCoTruoc: daCham.size,
+      soNghiCoPhep,
+      soNghiKhongPhep: daGhi.length - soNghiCoPhep,
+      danhSach: daGhi,
+    });
+  });
+
   app.get('/api/attendance/ra-soat', requireRole('teacher', 'admin'), (req, res) => {
     const date = String(req.query.date || todayStr());
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {

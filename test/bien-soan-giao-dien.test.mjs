@@ -50,15 +50,30 @@ const dangXuat = async () => { await page.evaluate(() => App.logout()); await pa
 // ============================================================
 // 1. THỜI KHÓA BIỂU
 // ============================================================
-console.log('\n[1] TKB — cô phụ trách sửa ngay trên màn hình');
-await dangNhap('giaovien', '123456');
+console.log('\n[1] TKB — văn phòng soạn ngay trên màn hình, cô chỉ xem (Đ133)');
+await dangNhap('hieutruong', 'quantri2026');
 await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
-check('giáo viên thấy nút Chỉnh sửa', await page.locator('#btn-sua-tkb').count() === 1);
+check('văn phòng có ô chọn nhóm', await page.locator('#tkb-nhom').count() === 1);
+await page.selectOption('#tkb-nhom', 'c1');
+await page.waitForTimeout(900);
+// Sửa vào THỨ HAI cho chắc — mặc định là thứ hôm nay, và các mục sau (cô, phụ
+// huynh) đều mở Thứ Hai để đọc lại đúng dòng vừa sửa.
+await page.click('#tkb-seg button:first-child');
+await page.waitForTimeout(400);
+check('văn phòng thấy nút Chỉnh sửa', await page.locator('#btn-sua-tkb').count() === 1);
+check('và nút "Áp dụng lịch này cho nhóm khác"', await page.locator('#btn-chep-tkb').count() === 1);
 
 await page.click('#btn-sua-tkb');
 await page.waitForTimeout(700);
 check('mở được màn hình sửa', await page.locator('#tkb-mon-0').count() === 1);
+const soDongTruoc = await page.locator('[id^="tkb-mon-"]').count();
+await page.click('#tkb-them-dong');
+await page.waitForTimeout(600);
+check('bấm "Thêm dòng" thì có thêm một dòng (Đ133)', await page.locator('[id^="tkb-mon-"]').count() === soDongTruoc + 1);
+await page.locator('[data-xoa-dong]').last().click();
+await page.waitForTimeout(600);
+check('bỏ dòng vừa thêm thì về như cũ', await page.locator('[id^="tkb-mon-"]').count() === soDongTruoc);
 
 await page.fill('#tkb-mon-0', 'Đọc sách đầu tuần');
 await page.locator('button', { hasText: 'Lưu lịch sinh hoạt' }).click();
@@ -75,6 +90,18 @@ await page.waitForTimeout(900);
 const sauHuy = await page.locator('#view').innerText();
 check('bấm Hủy thì bản nháp bị bỏ', !/Môn không được lưu/.test(sauHuy) && /Đọc sách đầu tuần/.test(sauHuy), sauHuy.slice(0, 200));
 
+// Cô phụ trách: thấy lịch, thấy chữ văn phòng vừa sửa, KHÔNG có nút sửa.
+await dangXuat();
+await dangNhap('giaovien', '123456');
+await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+await page.click('#tkb-seg button:first-child');
+await page.waitForTimeout(400);
+const manCo = await page.locator('#view').innerText();
+check('cô thấy hoạt động văn phòng vừa sửa', /Đọc sách đầu tuần/.test(manCo), manCo.slice(0, 200));
+check('cô KHÔNG thấy nút Chỉnh sửa (Đ133)', await page.locator('#btn-sua-tkb').count() === 0);
+check('màn của cô nói rõ lịch do văn phòng soạn', /văn phòng/i.test(manCo), manCo.slice(0, 300));
+
 console.log('\n[2] TKB — phụ huynh chỉ xem, không có nút soạn');
 await dangXuat();
 await dangNhap('phuhuynh', '123456');
@@ -83,8 +110,10 @@ await page.waitForTimeout(900);
 // Nhà có 2 con hai lớp — chọn đúng bé học lớp 3A (lớp cô vừa sửa TKB).
 await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
 await page.waitForTimeout(900);
+await page.click('#tkb-seg button:first-child');
+await page.waitForTimeout(400);
 const manPH = await page.locator('#view').innerText();
-check('phụ huynh vẫn xem được TKB (có môn GV vừa sửa)', /Đọc sách đầu tuần/.test(manPH), manPH.slice(0, 200));
+check('phụ huynh vẫn xem được TKB (có môn văn phòng vừa sửa)', /Đọc sách đầu tuần/.test(manPH), manPH.slice(0, 200));
 check('phụ huynh KHÔNG thấy nút Chỉnh sửa', await page.locator('#btn-sua-tkb').count() === 0);
 check('màn hình phụ huynh không có ô nhập nào', await page.locator('#view input').count() === 0);
 
@@ -122,7 +151,8 @@ check('mở ra cả 5 ngày trên CÙNG MỘT TRANG',
   await page.locator('#tt-mon-0-1').count() === 1 && await page.locator('#tt-mon-4-1').count() === 1);
 check('và chỉ có MỘT nút Lưu cho cả tuần', await page.locator('#td-luu-tuan').count() === 1);
 check('tên bữa và giờ ăn gấp lại, không chiếm chỗ khi không cần',
-  await page.locator('#view details').count() === 5, await page.locator('#view details').count());
+  await page.locator('#view .luoi-tuan details').count() === 5, await page.locator('#view .luoi-tuan details').count());
+check('có ô "Dán từ bảng Excel / Word" cho văn phòng (Đ132)', await page.locator('#td-dan').count() === 1);
 
 await page.fill('#tt-mon-0-1', 'Cơm gà kiểm thử tuần\nCanh cải');
 await page.fill('#tt-mon-2-1', 'Bún chả kiểm thử tuần');
@@ -152,6 +182,11 @@ await dangXuat();
 await dangNhap('phuhuynh', '123456');
 await page.goto(BASE + '/#/menu', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
+// Đ132: gia đình xem theo từng thứ như bên Lịch sinh hoạt; món trên được soạn
+// cho Thứ Hai nên bấm T2 trước khi đọc.
+check('gia đình có dải chọn thứ T2…T6 và "Cả tuần"', await page.locator('#menu-ngay-seg button').count() === 6);
+await page.click('#menu-ngay-seg button:first-child');
+await page.waitForTimeout(700);
 const manTdPH = await page.locator('#view').innerText();
 check('phụ huynh thấy món quản trị vừa soạn', /Phở bò kiểm thử/.test(manTdPH), manTdPH.slice(0, 250));
 check('phụ huynh KHÔNG có nút soạn/sửa/chép nào', await page.locator('#view .head-action').count() === 0);
@@ -471,7 +506,11 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
 
   const cuoi = page.locator('[id^="att-dong-"]').last();
   const tenEm = await cuoi.locator('.row-title').innerText();
-  await cuoi.locator('button', { hasText: 'Nghỉ CP' }).click();
+  // Từ Đ131 bốn nút tích không còn phơi trên dòng — ảnh là điểm danh, còn
+  // ghi tay nằm trong hộp "Sửa" của từng bé. Đường bấm đổi, phép kiểm giữ.
+  await cuoi.locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForTimeout(500);
+  await page.locator('.modal button', { hasText: 'Nghỉ CP' }).click();
   await page.waitForTimeout(1200);
 
   const sau = await page.evaluate(() => window.scrollY);
@@ -570,9 +609,11 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
   check('MÀN ĐIỂM DANH HIỆN HUY HIỆU ĐƠN NGHỈ ĐÃ DUYỆT', /Có đơn nghỉ đã duyệt/.test(man), man.slice(0, 400));
   check('kèm lý do để cô khỏi phải mở màn khác', /khám răng/.test(man));
 
-  // Chấm "Nghỉ KP" cho em đó phải bị hỏi lại.
+  // Chấm "Nghỉ KP" cho em đó phải bị hỏi lại. Nút nằm trong hộp "Sửa" (Đ131).
   const dong = page.locator('.list-row', { hasText: 'Có đơn nghỉ đã duyệt' }).first();
-  await dong.locator('button', { hasText: 'Nghỉ KP' }).click();
+  await dong.locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForTimeout(500);
+  await page.locator('.modal button', { hasText: 'Nghỉ KP' }).click();
   await page.waitForTimeout(700);
   const hoi = await page.locator('.modal').innerText();
   check('chấm Nghỉ KP đúng ngày có đơn thì bị hỏi lại', /đã có/.test(hoi), hoi.slice(0, 200));

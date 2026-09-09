@@ -265,10 +265,19 @@ module.exports = (app) => {
       // thuốc vì mỗi người chỉ trả lời được một lần, nhưng vẫn phải chặn.
       answers[q.id] = String(val).trim().slice(0, TOI_DA_CAU_TRA_LOI);
     }
-    for (const q of sv.questions) {
-      if (q.type === 'choice' && !answers[q.id]) {
-        return res.status(400).json({ error: 'Vui lòng trả lời đầy đủ các câu trắc nghiệm' });
-      }
+    // PHẢI TRẢ LỜI ĐỦ MỌI CÂU (Đ135). Nhà trường 07/09: "Chưa trả lời hết câu
+    // hỏi sẽ không thể gửi câu trả lời đi". Trước đợt này chỉ câu trắc nghiệm
+    // bị bắt buộc, câu tự luận bỏ trống vẫn gửi được — và văn phòng nhận về
+    // một phiếu nửa chừng mà không biết gia đình đã đọc câu đó chưa. Nói rõ
+    // còn thiếu câu mấy, để gia đình không phải dò lại cả phiếu.
+    const thieu = sv.questions
+      .map((q, i) => (answers[q.id] ? null : i + 1))
+      .filter(Boolean);
+    if (thieu.length) {
+      return res.status(400).json({
+        error: `Gia đình trả lời đủ ${sv.questions.length} câu rồi gửi nhé — còn thiếu câu ${thieu.join(', ')}.`,
+        thieu,
+      });
     }
     const firstChild = db.studentsOf(req.user)[0];
     db.insert('survey_responses', {
