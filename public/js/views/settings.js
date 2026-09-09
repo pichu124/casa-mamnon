@@ -25,6 +25,8 @@ App.views.settings = {
         </div>
       </div>
 
+      ${this.theThongBaoDay()}
+
       <div class="card" data-install-app style="${App.canInstall() ? '' : 'display:none'}">
         <div class="card-title">📱 Cài đặt ứng dụng</div>
         <div class="list-row">
@@ -85,16 +87,127 @@ App.views.settings = {
 
     const installBtn = document.getElementById('st-install');
     if (installBtn) installBtn.onclick = () => App.promptInstall();
+    this.ganThongBaoDay();
 
     document.getElementById('st-change-pw').onclick = () => this.showChangePassword();
 
-    // Nút "Bật thông báo đẩy" đã được gỡ ở Đ14.
-    //
-    // Nó xin quyền `Notification` rồi báo "Đã bật thông báo đẩy", trong khi
-    // `public/sw.js` không có sự kiện `push` nào và máy chủ không có chỗ lưu
-    // đăng ký — tức là gia đình bấm xong sẽ KHÔNG BAO GIỜ nhận được gì. Bài
-    // học A5: app chỉ nên hứa thứ nó biết chắc. `test/khong-hua-suong.test.mjs`
-    // canh chỗ này, và sẽ tự nới ra khi nào có đường đẩy thật.
+    // Nút "Bật thông báo đẩy" từng bị gỡ ở Đ14 vì lúc đó là lời hứa suông.
+    // Từ Đ137 đường đẩy có thật (public/sw.js nghe `push`, lib/day.js gửi,
+    // bảng push_dang_ky giữ đăng ký) nên nút quay lại — xem `theThongBaoDay`.
+  },
+
+  // ---- Thông báo trên điện thoại (Đ137) ----
+  //
+  // Nói đúng những gì máy làm được: Android và máy tính nhận ngay; iPhone chỉ
+  // nhận khi app đã được thêm vào màn hình chính (iOS 16.4 trở lên). Không
+  // hứa hơn.
+  theThongBaoDay() {
+    const u = App.state.user;
+    // Chức vụ Cấp 2 (nhân sự, kế toán, marketing) không có đường /api/push
+    // trong danh sách API của họ — không mời bấm vào thứ sẽ bị từ chối.
+    if (u.role === 'admin' && u.chucVu && !['hieu-truong', 'quanly-coso'].includes(u.chucVu)) return '';
+    const hoTro = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    return `
+      <div class="card" id="st-push-card">
+        <div class="card-title">🔔 Thông báo trên điện thoại</div>
+        <div class="muted small" style="line-height:1.6">
+          Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
+          Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.
+        </div>
+        <div id="st-push-trang-thai" class="small mt-8" style="line-height:1.6">${hoTro ? 'Đang kiểm tra…' : 'Trình duyệt này chưa hỗ trợ thông báo đẩy.'}</div>
+        ${hoTro ? `
+        <div class="flex mt-8" style="gap:8px;flex-wrap:wrap">
+          <button class="btn sm primary" id="st-push-bat">Bật trên máy này</button>
+          <button class="btn sm outline" id="st-push-thu" style="display:none">Gửi thử</button>
+          <button class="btn sm outline" id="st-push-tat" style="display:none">Tắt trên máy này</button>
+        </div>` : ''}
+      </div>`;
+  },
+
+  async ganThongBaoDay() {
+    const bat = document.getElementById('st-push-bat');
+    if (!bat) return;
+    bat.onclick = () => this.batThongBaoDay();
+    document.getElementById('st-push-tat').onclick = () => this.tatThongBaoDay();
+    document.getElementById('st-push-thu').onclick = () => this.guiThuThongBao();
+    await this.veTrangThaiDay();
+  },
+
+  async dangKyHienTai() {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      return await reg.pushManager.getSubscription();
+    } catch (_) { return null; }
+  },
+
+  async veTrangThaiDay() {
+    const o = document.getElementById('st-push-trang-thai');
+    const bat = document.getElementById('st-push-bat');
+    const tat = document.getElementById('st-push-tat');
+    const thu = document.getElementById('st-push-thu');
+    if (!o || !bat) return;
+    let tt = { coGoiDay: false, soMay: 0 };
+    try { tt = await API.get('/api/push/trang-thai'); } catch (_) {}
+    if (!tt.coGoiDay) {
+      o.textContent = 'Máy chủ của trường chưa cài phần gửi thông báo đẩy — chuông trong app vẫn hoạt động.';
+      bat.style.display = 'none';
+      return;
+    }
+    const sub = await this.dangKyHienTai();
+    const quyen = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+    if (sub) {
+      o.innerHTML = `<span style="color:var(--success)">Máy này đang nhận thông báo.</span>${tt.soMay > 1 ? ` Tài khoản có ${UI.esc(String(tt.soMay))} máy đang bật.` : ''}`;
+      bat.style.display = 'none'; tat.style.display = ''; thu.style.display = '';
+    } else if (quyen === 'denied') {
+      o.textContent = 'Trình duyệt đang chặn thông báo của trang này. Mở cài đặt trình duyệt, cho phép thông báo rồi quay lại bấm Bật.';
+      bat.style.display = ''; tat.style.display = 'none'; thu.style.display = 'none';
+    } else {
+      o.textContent = tt.soMay ? `Máy này chưa bật. Tài khoản đang bật ở ${tt.soMay} máy khác.` : 'Máy này chưa bật thông báo.';
+      bat.style.display = ''; tat.style.display = 'none'; thu.style.display = 'none';
+    }
+  },
+
+  khoaSangMang(chuoi) {
+    const dem = '='.repeat((4 - chuoi.length % 4) % 4);
+    const b64 = (chuoi + dem).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(b64);
+    const ra = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) ra[i] = raw.charCodeAt(i);
+    return ra;
+  },
+
+  async batThongBaoDay() {
+    try {
+      const quyen = await Notification.requestPermission();
+      if (quyen !== 'granted') return UI.toast('Chưa được phép hiện thông báo — trình duyệt đang chặn hoặc bạn vừa từ chối', 'error');
+      const { khoa } = await API.get('/api/push/khoa-cong-khai');
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: this.khoaSangMang(khoa) });
+      await API.post('/api/push/dang-ky', { subscription: sub.toJSON() });
+      UI.toast('Đã bật thông báo trên máy này', 'success');
+    } catch (e) {
+      UI.toast(e.message || 'Chưa bật được thông báo trên máy này', 'error');
+    }
+    await this.veTrangThaiDay();
+  },
+
+  async tatThongBaoDay() {
+    try {
+      const sub = await this.dangKyHienTai();
+      if (sub) {
+        await API.del(`/api/push/dang-ky?endpoint=${encodeURIComponent(sub.endpoint)}`).catch(() => {});
+        await sub.unsubscribe();
+      }
+      UI.toast('Đã tắt thông báo trên máy này', 'success');
+    } catch (e) { UI.toast(e.message || 'Chưa tắt được', 'error'); }
+    await this.veTrangThaiDay();
+  },
+
+  async guiThuThongBao() {
+    try {
+      const r = await API.post('/api/push/thu', {});
+      UI.toast(r.guiDuoc ? 'Đã gửi thử — vài giây nữa máy sẽ báo' : 'Chưa gửi được tới máy nào. Thử tắt rồi bật lại.', r.guiDuoc ? 'success' : 'error');
+    } catch (e) { UI.toast(e.message || 'Chưa gửi thử được', 'error'); }
   },
 
   showChangePassword() {

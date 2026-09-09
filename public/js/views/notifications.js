@@ -35,7 +35,10 @@ App.views.notifications = {
   async taiThem() {
     const them = await API.get(
       `/api/notifications?bo=${this._list.length}&soLuong=${this.MOI_TRANG}`);
-    this._list = this._list.concat(them);
+    // Khử trùng theo mã: trang đầu có kèm tin riêng về con (Đ137), trang sau
+    // thuần thông báo nhà trường, nên `bo` chỉ đếm đúng cho nguồn nhà trường.
+    const daCo = new Set(this._list.map(n => n.id));
+    this._list = this._list.concat(them.filter(n => !daCo.has(n.id)));
     this._conNua = them.length >= this.MOI_TRANG;
   },
 
@@ -100,7 +103,24 @@ App.views.notifications = {
     return cs ? `${c.name} · ${cs.name}` : c.name;
   },
 
+  // Biểu tượng cho tin riêng về con (Đ137), theo `loai` máy chủ gửi.
+  LOAI_RIENG: {
+    'toi-lop': '📷', nhatky: '📔', 'suc-khoe': '🩺', album: '🖼️', 'bao-cao': '📘',
+    'hanh-trinh': '🌱', 'ke-hoach': '🧭', cambridge: '🎓', 'dan-thuoc': '💊', 'xin-nghi': '📝',
+  },
+
   rowHtml(n) {
+    if (n.laRiengBe) {
+      return `
+      <div class="list-row clickable"${n.read ? '' : ' style="background:#f0f6ff;border-radius:10px"'} onclick="App.views.notifications.showDetail('${UI.esc(n.id)}')">
+        <div class="row-icon" style="background:#e3f7ec;font-size:20px">${this.LOAI_RIENG[n.loai] || '🔔'}</div>
+        <div class="row-main">
+          <div class="row-title">${n.read ? '' : '<span style="color:var(--primary)">●</span> '}${UI.esc(n.title)}</div>
+          <div class="row-sub">Về bé ${UI.esc(n.tenBe || '')} · ${UI.esc(UI.timeAgo(n.createdAt))}</div>
+        </div>
+        <span class="muted">${UI.icon('chevron', 18)}</span>
+      </div>`;
+    }
     const cat = this.catOf(n);
     return `
       <div class="list-row clickable"${n.read ? '' : ' style="background:#f0f6ff;border-radius:10px"'} onclick="App.views.notifications.showDetail('${UI.esc(n.id)}')">
@@ -118,6 +138,7 @@ App.views.notifications = {
   async showDetail(id) {
     const n = this._list.find(x => x.id === id);
     if (!n) return;
+    if (n.laRiengBe) return this.moTinRiengBe(n);
     const cat = this.catOf(n);
     UI.modal(`
       <div class="flex mb-8">
@@ -144,6 +165,25 @@ App.views.notifications = {
         App.refreshBadges();
       } catch (_) { /* bỏ qua lỗi mạng tạm thời */ }
     }
+  },
+
+  // Tin riêng về con: đánh dấu đã đọc rồi mở thẳng màn có tin (ảnh tới lớp,
+  // nhật ký…). Không có chỗ mở thì hiện nội dung tại chỗ.
+  async moTinRiengBe(n) {
+    if (!n.read) {
+      try { await API.post(`/api/notifications/${n.id}/read`); n.read = true; this.paint(); App.refreshBadges(); } catch (_) {}
+    }
+    if (n.hash && /^#\//.test(n.hash)) {
+      if (n.studentId && typeof App.setStudent === 'function') { try { App.setStudent(n.studentId); } catch (_) {} }
+      location.hash = n.hash;
+      return;
+    }
+    UI.modal(`
+      <div class="flex mb-8">${UI.badge(`Về bé ${n.tenBe || ''}`, 'green')}</div>
+      <h3 style="margin:6px 0 8px">${UI.esc(n.title)}</h3>
+      <div style="white-space:pre-wrap;font-size:.94rem;line-height:1.55">${UI.esc(n.body || '')}</div>
+      <div class="muted small mt-14">${UI.esc(UI.fmtDate(n.createdAt))} lúc ${UI.esc(UI.fmtTime(n.createdAt))}</div>
+    `, 'Tin về con');
   },
 
   // Đánh dấu đã đọc tất cả.

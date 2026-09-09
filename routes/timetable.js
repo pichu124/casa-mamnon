@@ -9,6 +9,7 @@
 const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
+const tb = require('../lib/thong-bao');
 
 // Giới hạn kích thước để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
 // 20 mốc, không phải 12: lớp Paris của trường ghi đủ một ngày cần 13 dòng
@@ -99,6 +100,12 @@ module.exports = (app) => {
 
     db.upsert('timetable', { classId, periodTimes, days }, ['classId']);
     db.audit(req.user.id, 'timetable-update', classId, { className: cls.name });
+    // Báo gia đình của nhóm (Đ137) — một lần mỗi ngày dù văn phòng sửa nhiều lần.
+    tb.guiChoNhom([classId], {
+      title: `Lịch sinh hoạt nhóm ${cls.name} vừa được cập nhật`,
+      body: 'Văn phòng vừa sửa lịch một ngày ở nhóm. Mở Lịch sinh hoạt để xem.',
+      category: 'Khác', createdBy: req.user.id,
+    });
 
     res.json({
       classId, periodTimes, days,

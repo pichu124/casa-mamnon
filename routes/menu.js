@@ -3,6 +3,7 @@
 const db = require('../lib/db');
 const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
+const tb = require('../lib/thong-bao');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
 const TOI_DA_BUA = 5;        // số bữa mỗi ngày
@@ -235,6 +236,20 @@ module.exports = (app) => {
       }
     });
     db.audit(req.user.id, 'menu-update-tuan', campusId || null, { soNgay: sach.length, campusId });
+    // BÁO GIA ĐÌNH (Đ137): "mọi update của nhà trường như thực đơn… cần có
+    // thông báo tới phụ huynh". Gửi cho mọi nhóm ăn bếp này; cùng tuần cùng
+    // ngày thì chỉ một lần (chống lặp ở lib/thong-bao.js).
+    if (sach.length) {
+      const nhom = campusId
+        ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
+        : db.classes().map(c => c.id);
+      const tu = sach.map(x => x.date).sort()[0];
+      tb.guiChoNhom(nhom, {
+        title: `Thực đơn tuần từ ${tu.slice(8, 10)}/${tu.slice(5, 7)} đã có`,
+        body: 'Nhà bếp vừa đăng thực đơn tuần. Mở Thực đơn để xem từng ngày con ăn gì.',
+        category: 'Khác', createdBy: req.user.id,
+      });
+    }
     res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null });
   });
 

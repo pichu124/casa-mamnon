@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v85';
+const VERSION = 'v86';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -106,6 +106,43 @@ self.addEventListener('activate', (event) => {
 
     await Promise.all(kho_cu.map(n => caches.delete(n)));
     await self.clients.claim();
+  })());
+});
+
+// THÔNG BÁO ĐẨY (Đ137). Máy chủ gửi một gói JSON nhỏ { tieuDe, noiDung, hash }
+// qua lib/day.js; ở đây chỉ hiện lên và nhớ chỗ cần mở khi gia đình bấm vào.
+// Đây là "đường đẩy thật" mà test/khong-hua-suong.test.mjs đòi phải có trước
+// khi màn hình được xin quyền Notification.
+self.addEventListener('push', (event) => {
+  let goi = {};
+  try { goi = event.data ? event.data.json() : {}; }
+  catch (_) { goi = { noiDung: event.data ? event.data.text() : '' }; }
+  const tieuDe = (goi && goi.tieuDe) || 'CASA Mầm non';
+  const hash = (goi && typeof goi.hash === 'string' && goi.hash.startsWith('#/')) ? goi.hash : '#/';
+  event.waitUntil(self.registration.showNotification(tieuDe, {
+    body: (goi && goi.noiDung) || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { hash },
+    // Cùng một chỗ mở thì gộp lại, không xếp chồng năm cái "Nhật ký ngày".
+    tag: hash,
+    renotify: true,
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const hash = (event.notification.data && event.notification.data.hash) || '#/';
+  const dich = new URL('/' + hash, self.location.origin).href;
+  event.waitUntil((async () => {
+    const cuaSo = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of cuaSo) {
+      if ('focus' in c) {
+        try { if ('navigate' in c) await c.navigate(dich); } catch (_) {}
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(dich);
   })());
 });
 

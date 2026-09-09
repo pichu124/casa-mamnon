@@ -8,6 +8,7 @@ const st = require('../lib/sua-thu-hoi');
 // Luật "ai thấy thông báo nào" nằm ở MỘT chỗ — lib/thong-bao.js — thay cho hai
 // bản chép tay từng trôi lệch giữa tệp này và routes/notifications.js.
 const tb = require('../lib/thong-bao');
+const tbb = require('../lib/thong-bao-be');
 const { requireRole } = require('../lib/auth');
 const modules = require('../lib/modules');
 const nghiHoc = require('../lib/nghi-hoc');
@@ -22,6 +23,10 @@ function audienceFilter(user) {
 }
 
 function unreadNotifications(user) {
+  return unreadCuaTruong(user) + tbb.demChuaDoc(user);
+}
+
+function unreadCuaTruong(user) {
   const f = audienceFilter(user);
   // Thông báo ĐÃ THU HỒI phải bị loại khỏi bộ đếm này. Nếu không, phụ huynh sẽ
   // thấy một con số "chưa đọc" không bao giờ về 0: thông báo đã biến khỏi danh

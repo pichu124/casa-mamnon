@@ -17,6 +17,7 @@ const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Kh
 // Luật "ai thấy thông báo nào" nằm ở MỘT chỗ — lib/thong-bao.js — thay cho hai
 // bản chép tay từng trôi lệch giữa tệp này và routes/dashboard.js.
 const tb = require('../lib/thong-bao');
+const tbb = require('../lib/thong-bao-be');
 const audienceFilter = (user) => tb.audienceFilter(user);
 const canSee = tb.canSee;
 
@@ -91,7 +92,7 @@ module.exports = (app) => {
 
     // Đ124: mỗi dòng nói rõ gửi cho ai — "Toàn trường" hay "Nhóm X · Cơ sở Y".
     const moTaPhamVi = tb.taoMoTaPhamVi();
-    res.json(st.ganDauDaSua(BANG, list.map(n => {
+    const cuaTruong = st.ganDauDaSua(BANG, list.map(n => {
       const author = n.createdBy ? nguoi.get(n.createdBy) : null;
       const pv = moTaPhamVi(n.audience);
       return {
@@ -103,11 +104,35 @@ module.exports = (app) => {
         tenNhom: pv.tenNhom,
         tenCoSo: pv.tenCoSo,
       };
-    })));
+    }));
+
+    // THÔNG BÁO RIÊNG VỀ CON (Đ137) — gộp vào TRANG ĐẦU của gia đình.
+    //
+    // Hai nguồn, hai bảng, một danh sách trên màn hình. Gộp ở mọi trang thì
+    // `bo` (offset) không còn nghĩa — hai nguồn mỗi bên một con đếm. Nên chỉ
+    // trang đầu mang kèm tối đa 50 tin riêng mới nhất (đủ cho vài tuần), các
+    // trang sau thuần thông báo nhà trường; màn hình khử trùng theo mã. Ghim
+    // của nhà trường vẫn đứng đầu; còn lại xếp theo thời gian.
+    if (bo === 0 && req.user.role === 'parent') {
+      const rieng = tbb.danhSachCua(req.user, { soLuong: 50, bo: 0 });
+      if (rieng.length) {
+        const ghim = cuaTruong.filter(n => n.pinned);
+        const conLai = cuaTruong.filter(n => !n.pinned).concat(rieng)
+          .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+        return res.json(ghim.concat(conLai));
+      }
+    }
+    res.json(cuaTruong);
   });
 
   // Đánh dấu đã đọc một thông báo.
   app.post('/api/notifications/:id/read', (req, res) => {
+    // Thông báo riêng về con (Đ137) có mã 'tbb…' — đánh dấu ở bảng riêng.
+    if (tbb.laMaRiengBe(req.params.id)) {
+      const r = tbb.danhDaDoc(req.user, req.params.id);
+      if (!r.ok) return res.status(r.ma).json({ error: r.ma === 404 ? 'Không tìm thấy thông báo' : 'Không có quyền xem thông báo này' });
+      return res.json({ ok: true });
+    }
     const n = db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [req.params.id]);
     if (!n) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
     if (!canSee(req.user, n)) {
@@ -125,7 +150,8 @@ module.exports = (app) => {
       `INSERT OR IGNORE INTO notification_reads (notificationId, userId, readAt)
        SELECT id, ?, ? FROM notifications WHERE ${f.sql}`,
       [req.user.id, new Date().toISOString(), ...f.params]);
-    res.json({ ok: true, marked: r.changes });
+    const rieng = tbb.docTatCa(req.user);
+    res.json({ ok: true, marked: r.changes + rieng });
   });
 
   // Giáo viên tạo thông báo mới.

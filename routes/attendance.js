@@ -8,6 +8,7 @@ const modules = require('../lib/modules');
 const uploads = require('../lib/uploads');
 // Một chỗ duy nhất trả lời "hôm nay bé nào đang nghỉ có phép" (Đ84).
 const nghiHoc = require('../lib/nghi-hoc');
+const tbb = require('../lib/thong-bao-be');
 
 const STATUSES = ['present', 'late', 'absent_excused', 'absent_unexcused'];
 // Hai trạng thái "bé đang ở lớp" — cùng định nghĩa với modules/tienan/routes.js.
@@ -380,6 +381,19 @@ module.exports = (app) => {
     db.audit(req.user.id, 'anh-toi-lop', studentId, { date: ngayGhi });
     // Ảnh đã vào kho thì bé là có mặt — xem `ghiCoMatTheoAnh`.
     const record = ghiCoMatTheoAnh(studentId, ngayGhi, req.user.id);
+    // BÁO GIA ĐÌNH NGAY (Đ137): "muốn ảnh điểm danh được gửi về thông báo cho
+    // phụ huynh, khi ở trường check-in tự động gửi thông báo về chứ không
+    // phải vào mục điểm danh mới nhìn được". Chỉ báo khi CÓ MẶT MỚI được ghi
+    // hoặc ảnh đầu tiên trong ngày — chụp lại tấm thứ hai không báo lần nữa.
+    if (!cu) {
+      const be = db.findStudent(studentId);
+      tbb.gui({
+        studentId, loai: 'toi-lop', nguoiTao: req.user.id,
+        tieuDe: `${be ? be.name : 'Con'} đã tới lớp lúc ${record.checkIn || nowTime()}`,
+        noiDung: 'Cô đã chụp ảnh con tới lớp. Bấm để xem.',
+        hash: '#/attendance',
+      });
+    }
     res.status(201).json({ ok: true, studentId, date: ngayGhi, file: luu.file, record });
   });
 
