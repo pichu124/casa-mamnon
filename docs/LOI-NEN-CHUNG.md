@@ -208,9 +208,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười ba món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười bốn món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười ba chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười bốn chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -290,6 +290,13 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   `npm ci` lặng lẽ bỏ qua chúng còn `npm audit` thì đếm cả. Bộ canh
   `test/khoa-goi.test.mjs` chép sang được nguyên vẹn — nó chỉ đọc hai tệp JSON,
   không phụ thuộc gì vào app 2.
+- **`scripts/kiem-tra-may-chu.js` thêm mục "Kho ảnh của trường"** (app 2, Đ129)
+  — cảnh báo sớm khi ảnh sắp lấp đầy đĩa, phép tính tách ra `lib/kho-anh.js`
+  (tệp MỚI, không có ở điểm tách). App 1 cũng lưu ảnh trên ổ đĩa máy chủ nên
+  cùng dính chuyện đĩa đầy là hỏng cơ sở dữ liệu, nhưng bên đó ảnh ít hơn nhiều
+  (tiểu học không chụp hai tấm mỗi bé mỗi ngày). Chép sang được nguyên vẹn nếu
+  muốn: `lib/kho-anh.js` không phụ thuộc gì vào app 2, và mục kiểm chỉ thêm chứ
+  không đụng mục nào đang có.
 - **`lib/modules.js` truyền thêm trường `gopVao` của `module.json` xuống trình
   duyệt** (thêm ở app 2 tại Đ126, một dòng trong `choNguoiDung`). Không phải lỗi
   — là chỗ cắm để ô của một phân hệ gấp vào màn của phân hệ khác với một vài
