@@ -496,6 +496,48 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notif_order ON notifications(pinned DESC, createdAt DESC);
 
+-- ===== THÔNG BÁO RIÊNG CHO GIA ĐÌNH MỘT BÉ (Đ137) =====
+--
+-- `notifications` là thông báo CỦA NHÀ TRƯỜNG gửi cả nhóm hay cả trường. Nhà
+-- trường (07/09) muốn gia đình được báo NGAY khi có ảnh con tới lớp, khi cô
+-- ghi nhật ký, cân đo, khi có album mới… — tức là chuyện của MỘT bé, không
+-- phải của cả nhóm. Nhét vào `notifications` với audience = mã bé là làm
+-- luật "ai thấy gì" của bảng ấy rẽ nhánh — chỗ dễ rò nhất. Nên là bảng riêng,
+-- đọc theo `student_parents`: chỉ bố mẹ của chính bé đó thấy.
+--
+-- Bảng phụ, KHÔNG ALTER bảng nào. `hash` là chỗ bấm vào thì mở (ví dụ
+-- '#/attendance'); `loai` để màn hình chọn biểu tượng.
+CREATE TABLE IF NOT EXISTS thongbao_be (
+  id        TEXT PRIMARY KEY,
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  loai      TEXT NOT NULL DEFAULT '',
+  tieuDe    TEXT NOT NULL,
+  noiDung   TEXT NOT NULL DEFAULT '',
+  hash      TEXT NOT NULL DEFAULT '',
+  nguoiTao  TEXT,
+  taoLuc    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_thongbao_be_student ON thongbao_be(studentId, taoLuc DESC);
+
+CREATE TABLE IF NOT EXISTS thongbao_be_doc (
+  thongBaoId TEXT NOT NULL REFERENCES thongbao_be(id) ON DELETE CASCADE,
+  userId     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  docLuc     TEXT,
+  PRIMARY KEY (thongBaoId, userId)
+);
+
+-- Đăng ký nhận thông báo ĐẨY (Web Push) của từng điện thoại. Một người có thể
+-- có vài máy; mỗi máy một dòng, khoá theo `endpoint` do trình duyệt cấp.
+CREATE TABLE IF NOT EXISTS push_dang_ky (
+  endpoint  TEXT PRIMARY KEY,
+  userId    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  p256dh    TEXT NOT NULL,
+  auth      TEXT NOT NULL,
+  taoLuc    TEXT,
+  loiCuoi   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_push_dang_ky_user ON push_dang_ky(userId);
+
 CREATE TABLE IF NOT EXISTS notification_reads (
   notificationId TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
   userId         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

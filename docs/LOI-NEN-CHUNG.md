@@ -208,9 +208,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười bốn món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười lăm món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười bốn chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười lăm chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -305,6 +305,17 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   gấp ô Học phí vào một màn nào thì biết chỗ cắm đã có sẵn ở đây, ba tệp
   (`lib/modules.js`, `dashboard.js`, `module.json`) và một luật: chỉ ẩn ô khi
   màn đích đang bật, màn đích tắt là ô quay lại.
+- **Thông báo riêng từng bé và đường đẩy Web Push** (thêm ở app 2 tại Đ137:
+  hai tệp mới `lib/thong-bao-be.js`, `lib/day.js`; ba bảng mới `thongbao_be`,
+  `thongbao_be_doc`, `push_dang_ky` trong `lib/schema.sql` — chỉ `CREATE IF NOT
+  EXISTS`; hàm `guiChoNhom` thêm vào `lib/thong-bao.js`; `'/api/push'` thêm vào
+  danh sách API của tính năng Thông báo trong `lib/modules.js`; gói `web-push`
+  vào `dependencies`; bộ nghe `push`/`notificationclick` trong `public/sw.js`).
+  App 1 **không bắt buộc**: phụ huynh tiểu học không có luồng tin riêng từng em
+  như ảnh tới lớp / nhật ký ngày. Nhưng nếu bên đó muốn đẩy thông báo nhà
+  trường về điện thoại thì mang nguyên `lib/day.js` + bảng `push_dang_ky` +
+  `routes/push.js` + đoạn sw.js là đủ, không phải nghĩ lại; nhớ bài học Đ14 —
+  `test/khong-hua-suong.test.mjs` chỉ cho xin quyền khi sw.js có bộ nghe thật.
 
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức
