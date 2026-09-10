@@ -208,9 +208,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười sáu món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười tám món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười sáu chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười tám chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -323,6 +323,19 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   ngày chỉ hiện với cô có bé nhà trẻ trong nhóm. Máy chủ chỉ truyền qua, không
   quyết gì; phân hệ không khai thì `null` và mọi thứ y như trước. App 1 không
   có phân hệ nào khai nên **không cần** mang sang.
+- **`lib/uploads.js` có bộ hàm riêng cho tài liệu PDF / Word** (thêm ở app 2
+  tại Đ143: `saveTaiLieuDataUrl`, `pathOfTaiLieu`, `existsTaiLieu`,
+  `removeTaiLieu`, `mimeOfTaiLieu`, trần `MAX_TAI_LIEU_BYTES` 8 MB). Đặt CẠNH
+  bộ ảnh, cùng lối với `saveVideoDataUrl`: `SAFE_NAME` của ảnh **không** nới ra
+  nhận `.pdf`, nên sáu đường trả ảnh của bé không bỗng trả được một tệp Word.
+  Word kiểm cả chữ ký ZIP lẫn thư mục `word/` bên trong. App 1 **không bắt
+  buộc**; muốn cho gửi tệp đính kèm thông báo thì mang nguyên khối này sang, nhớ
+  trần 12 MB của thân yêu cầu trong `server.js`.
+- **`lib/schema.sql` thêm bảng `album_che_do`** (Đ144: album *công khai cả nhóm*
+  hay *theo thẻ từng bé*; không có dòng = công khai = đúng cách mọi album đang
+  hiện). Chỉ `CREATE IF NOT EXISTS`, không đụng bảng `albums`. Bộ lọc theo thẻ
+  nằm ở `routes/albums.js`, chạy SAU luật đồng ý chia sẻ. App 1 **không bắt
+  buộc**: album tiểu học là album lớp, không có nhu cầu cá nhân hoá từng em.
 
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức
