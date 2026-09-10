@@ -669,7 +669,7 @@ chỉ mở /api/attendance — chạm lib/db.js CHUC_VU, commit riêng.
 chưa có tài khoản riêng cho bảo vệ)', Ghi chú 'Tài khoản bảo vệ dùng chung một máy ở
 cổng = thấy ảnh mọi bé cơ sở'; phan-hoi.md:240
 
-**DD-07 / DD-13 — mốc rà soát cứng 9h, và bảng tháng chưa trừ ngày hoàn**
+**~~DD-07 / DD-13 — mốc rà soát cứng 9h, và bảng tháng chưa trừ ngày hoàn~~ — ĐÃ LÀM Đ155** (mốc giờ nay nhà trường đặt được ngay trên màn Điểm danh, lưu theo PHÚT nên "8h30" là 8h30; bảng tháng ĐÁNH DẤU ngày bé vẫn đi học trong đơn hoàn, cố ý không tự trừ)
 
 (1) routes/attendance.js:20 GIO_RA_SOAT = 9 ghi cứng, trong khi trường nói admin điểm
 danh từ 8h30 — nên cho cấu hình. (2) Bảng tháng tiền ăn chưa đánh dấu 'ngày trong đơn

@@ -20,7 +20,45 @@ const CO_MAT = ['present', 'late'];
 // Con số này nói về VIỆC CỦA NGƯỜI LỚN chưa làm xong — cô chưa kịp chấm, hoặc
 // gia đình chưa kịp báo — chứ không nói gì về đứa trẻ. Chữ trên màn hình phải
 // giữ đúng nghĩa đó, và bài canh QUY TẮC 2 giữ nó.
-const GIO_RA_SOAT = 9;
+//
+// TỪ Đ155 NHÀ TRƯỜNG ĐẶT ĐƯỢC MỐC NÀY (DD-07).
+//
+// Trường 07/09 nói lại: văn phòng bắt đầu điểm danh từ **8h30**, nên mốc 9h
+// ghi cứng làm bảng rà soát im lặng suốt nửa tiếng đúng lúc người ta cần nó
+// nhất. Mà giờ đón bé thì mỗi cơ sở một khác, và sang năm học mới còn đổi nữa
+// — một con số ghi trong mã nguồn là một con số phải sửa mã mới đổi được.
+//
+// LƯU THEO PHÚT, KHÔNG THEO GIỜ TRÒN. "8h30" là câu chính nhà trường nói ra;
+// làm tròn xuống 8h là sai nửa tiếng, làm tròn lên 9h là đúng chỗ cũ đang sai.
+// Dạng "HH:MM" so sánh được thẳng bằng dấu < > vì hai vế đều đủ hai chữ số.
+const GIO_RA_SOAT_MAC_DINH = '09:00';
+const GIO_RA_SOAT_SOM_NHAT = '06:00';
+const GIO_RA_SOAT_MUON_NHAT = '12:00';
+const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// Đọc mốc giờ nhà trường đã đặt. HỎNG THÌ TRẢ MẶC ĐỊNH, không bao giờ ném:
+// đây là hàm nằm trên đường đọc của màn Điểm danh — thứ cô mở đầu tiên mỗi
+// sáng — nên một dòng cài đặt hỏng không được phép làm cả màn ấy trắng.
+function gioRaSoat() {
+  try {
+    const row = db.first('settings', 'SELECT value FROM settings WHERE key = ?', ['diemdanh']);
+    const v = (row && row.value) || {};
+    const g = String(v.gioRaSoat || '');
+    if (!HHMM_RE.test(g)) return GIO_RA_SOAT_MAC_DINH;
+    if (g < GIO_RA_SOAT_SOM_NHAT || g > GIO_RA_SOAT_MUON_NHAT) return GIO_RA_SOAT_MAC_DINH;
+    return g;
+  } catch (_) {
+    return GIO_RA_SOAT_MAC_DINH;
+  }
+}
+
+// "08:30" → "8h30", "09:00" → "9h". Màn hình viết "chốt lúc 8h30", không viết
+// "chốt lúc 08:30 giờ" — đây là chữ cho cô đọc, không phải một mốc thời gian
+// trong nhật ký máy.
+function gioRaSoatChu(g = gioRaSoat()) {
+  const [h, m] = String(g).split(':');
+  return m === '00' ? `${Number(h)}h` : `${Number(h)}h${m}`;
+}
 
 // SỔ ĐIỂM DANH CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH NGÀY HÔM ĐÓ (Đ127).
 //
@@ -95,6 +133,49 @@ function nowTime() {
 }
 
 module.exports = (app) => {
+  // ------------------------------------------------------------------------
+  // MỐC GIỜ RÀ SOÁT — nhà trường tự đặt (Đ155, DD-07)
+  // ------------------------------------------------------------------------
+  //
+  // Đọc: cô và văn phòng đều được, vì chính họ là người nhìn bảng rà soát và
+  // cần biết nó chốt lúc mấy giờ. Ghi: chỉ quản trị — đây là nếp làm việc của
+  // cả trường, không phải tuỳ chọn của từng người.
+  app.get('/api/attendance/cai-dat', requireRole('teacher', 'admin'), (req, res) => {
+    const g = gioRaSoat();
+    res.json({
+      gioRaSoat: g,
+      gioRaSoatChu: gioRaSoatChu(g),
+      macDinh: GIO_RA_SOAT_MAC_DINH,
+      somNhat: GIO_RA_SOAT_SOM_NHAT,
+      muonNhat: GIO_RA_SOAT_MUON_NHAT,
+      suaDuoc: req.user.role === 'admin',
+    });
+  });
+
+  app.put('/api/attendance/cai-dat', requireRole('admin'), (req, res) => {
+    const g = String(((req.body || {}).gioRaSoat) || '').trim();
+    if (!HHMM_RE.test(g)) {
+      return res.status(400).json({ error: 'Giờ chưa đúng dạng, ví dụ đúng: 08:30' });
+    }
+    // TRẦN TRÊN VÀ TRẦN DƯỚI, VÀ NÓI RÕ VÌ SAO.
+    //
+    // Đặt 5h sáng thì bảng rà soát kêu đỏ từ trước lúc cô tới trường; đặt 4h
+    // chiều thì nó chỉ kêu khi cả buổi đã trôi qua, tức là không còn ai kịp
+    // gọi cho gia đình nữa. Cả hai đều biến bảng ấy thành thứ người ta tắt đi.
+    if (g < GIO_RA_SOAT_SOM_NHAT || g > GIO_RA_SOAT_MUON_NHAT) {
+      return res.status(400).json({
+        error: `Mốc rà soát đặt trong khoảng ${gioRaSoatChu(GIO_RA_SOAT_SOM_NHAT)} `
+          + `– ${gioRaSoatChu(GIO_RA_SOAT_MUON_NHAT)} thôi nhé: sớm quá thì bảng kêu `
+          + 'từ lúc cô chưa tới trường, muộn quá thì gọi cho gia đình không còn kịp.',
+      });
+    }
+    const truoc = gioRaSoat();
+    const cu = db.first('settings', 'SELECT value FROM settings WHERE key = ?', ['diemdanh']);
+    db.upsert('settings', { key: 'diemdanh', value: { ...((cu && cu.value) || {}), gioRaSoat: g } }, ['key']);
+    db.audit(req.user.id, 'diemdanh-gio-ra-soat', null, { truoc, sau: g });
+    res.json({ ok: true, gioRaSoat: g, gioRaSoatChu: gioRaSoatChu(g) });
+  });
+
   // Bản ghi điểm danh của một học sinh trong tháng (mặc định: tháng hiện tại).
   app.get('/api/attendance', (req, res) => {
     const studentId = req.query.studentId;
@@ -202,7 +283,8 @@ module.exports = (app) => {
       // có một nhóm thì mảng này một phần tử và giao diện không hiện ô chọn.
       nhom: nl.nhomCuaCo(req.user.id),
       dangXemNhom: locNhom || null,
-      gioRaSoat: GIO_RA_SOAT,
+      gioRaSoat: gioRaSoat(),
+      gioRaSoatChu: gioRaSoatChu(),
       students: students.map(s => ({
         student: {
           id: s.id, name: s.name, code: s.code, avatar: s.avatar,
@@ -540,11 +622,12 @@ module.exports = (app) => {
     if (locNhom && !db.canAccessClass(req.user, locNhom)) {
       return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
     }
-    const gioHienTai = Number(String(nowTime()).slice(0, 2));
-    if (gioHienTai < GIO_RA_SOAT) {
+    const mocRaSoat = gioRaSoat();
+    if (String(nowTime()).slice(0, 5) < mocRaSoat) {
       return res.status(400).json({
-        error: `Chốt sổ vắng chỉ làm được sau ${GIO_RA_SOAT} giờ — trước đó các cô vẫn đang đón bé.`,
-        gioRaSoat: GIO_RA_SOAT,
+        error: `Chốt sổ vắng chỉ làm được sau ${gioRaSoatChu(mocRaSoat)} — trước đó các cô vẫn đang đón bé.`,
+        gioRaSoat: mocRaSoat,
+        gioRaSoatChu: gioRaSoatChu(mocRaSoat),
       });
     }
     const students = locNhom
@@ -649,15 +732,15 @@ module.exports = (app) => {
     // trôi qua từ lâu. Còn hôm nay lúc 7h30 mà đã kêu "chưa điểm danh" thì
     // bảng này kêu suốt cả tiếng rưỡi đầu giờ, và người ta tắt nó đi.
     const homNay = todayStr();
-    const gioHienTai = Number(String(nowTime()).slice(0, 2));
-    const quaGio = date < homNay || (date === homNay && gioHienTai >= GIO_RA_SOAT);
+    const mocRaSoat = gioRaSoat();
+    const quaGio = date < homNay || (date === homNay && String(nowTime()).slice(0, 5) >= mocRaSoat);
 
     const canRaSoat = students
       .filter(s => !daCham.has(s.id) && !dangNghi.get(s.id))
       .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar, classId: s.classId }));
 
     res.json({
-      date, gioRaSoat: GIO_RA_SOAT, quaGio,
+      date, gioRaSoat: mocRaSoat, gioRaSoatChu: gioRaSoatChu(mocRaSoat), quaGio,
       soCanRaSoat: quaGio ? canRaSoat.length : 0,
       danhSach: quaGio ? canRaSoat : [],
       // Trả về cả số bé đã có đơn nghỉ được duyệt, để văn phòng thấy vì sao

@@ -146,8 +146,9 @@ try {
     const r = await req('POST', '/api/attendance/chot-vang', { cookie: co.cookie, body: { date: NGAY, classId: 'c1' } });
     if (gioVN < 9) {
       console.log(`  (giờ Việt Nam hiện là ${ngay.bayGio()} — nhánh TRƯỚC giờ rà soát)`);
-      check('trước 9 giờ thì máy chủ TỪ CHỐI chốt', r.status === 400 && /sau 9 giờ/.test(r.data.error || ''), `${r.status} ${r.data && r.data.error}`);
-      check('và nói rõ giờ chốt', r.data.gioRaSoat === 9, r.data.gioRaSoat);
+      check('trước 9 giờ thì máy chủ TỪ CHỐI chốt', r.status === 400 && /sau 9h/.test(r.data.error || ''), `${r.status} ${r.data && r.data.error}`);
+      check('và nói rõ giờ chốt', r.data.gioRaSoat === '09:00' && r.data.gioRaSoatChu === '9h',
+        { g: r.data.gioRaSoat, c: r.data.gioRaSoatChu });
       const s5 = await dongCua(co.cookie, 's5');
       check('không bé nào bị ghi vắng', s5 && s5.record === null, JSON.stringify(s5 && s5.record));
     } else {
@@ -211,7 +212,12 @@ try {
     check('gia đình: ô "Muộn" chỉ hiện khi có dữ liệu cũ', /k !== 'late' \|\| counts\.late > 0/.test(v));
     check('gia đình: có dòng số ngày ăn ở trường để đối chiếu tiền ăn', /Số ngày con ăn ở trường tháng này/.test(v));
     const rt = fs.readFileSync(path.join(GOC, 'routes/attendance.js'), 'utf8');
-    check('máy chủ: chốt sổ từ chối trước giờ rà soát', /gioHienTai < GIO_RA_SOAT/.test(rt));
+    // Từ Đ155 mốc giờ là thứ nhà trường đặt, không còn là hằng số trong mã.
+    // Canh đúng tính chất cũ (chốt sổ từ chối khi chưa tới mốc) qua cửa mới.
+    check('máy chủ: chốt sổ từ chối trước giờ rà soát',
+      /nowTime\(\)\)\.slice\(0, 5\) < mocRaSoat/.test(rt));
+    check('và mốc giờ ấy đọc từ cài đặt của trường, không ghi cứng trong mã',
+      /function gioRaSoat\(\)/.test(rt) && /'diemdanh'/.test(rt) && !/const GIO_RA_SOAT = 9/.test(rt));
     check('máy chủ: chốt sổ đi qua khoá ngày (Đ127)', /chanNgoaiNgay\(res, ngay, 'chốt'\)/.test(rt));
   }
 } finally {

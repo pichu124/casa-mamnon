@@ -127,6 +127,7 @@ App.views.attendance = {
           Văn phòng xem và chấm được cả phạm vi mình phụ trách: chụp ảnh con tới
           lớp ở cổng, và chốt sổ vắng sau giờ rà soát.
         </div>
+        ${this.theMocRaSoat(r)}
       </div>
       ${this.theRaSoatVanPhong(r, ds, tenNhom)}
       ${this.theNgayDaKhoa()}
@@ -187,14 +188,66 @@ App.views.attendance = {
   // Và màn rỗng KHÔNG phải một ô trống chờ lấp: "không bé nào cần gọi" là việc
   // của người lớn đã xong, là tin tốt. QUY TẮC 2 cấm trình bày "chưa" như một
   // thất bại — ở đây còn không có chữ "chưa" nào của một đứa trẻ cả.
+  // ĐỔI MỐC GIỜ RÀ SOÁT NGAY TẠI CHỖ NÓ CÓ NGHĨA (Đ155, DD-07).
+  //
+  // Đặt ở màn Điểm danh chứ không giấu trong Quản trị: người thấy bảng rà soát
+  // kêu sai giờ chính là người muốn đổi nó, và bắt họ đi tìm một tab khác là
+  // cách chắc chắn để không ai đổi bao giờ. Cô đọc được mốc, chỉ quản trị mới
+  // đổi — máy chủ đã chốt vai, chỗ này chỉ giấu nút cho đỡ mời gọi.
+  theMocRaSoat(r) {
+    const u = App.state.user || {};
+    const chu = this.chuGioRaSoat(r);
+    if (u.role !== 'admin') {
+      return `<div class="muted small mt-8">Bảng rà soát của trường chốt lúc ${UI.esc(chu)}.</div>`;
+    }
+    return `
+      <div class="flex mt-8" style="gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="muted small">Bảng rà soát chốt lúc</span>
+        <input type="time" id="dd-moc-ra-soat" value="${UI.esc(String(r.gioRaSoat || '09:00'))}"
+               style="max-width:130px">
+        <button class="btn sm outline" onclick="App.views.attendance.luuMocRaSoat()">Lưu mốc giờ</button>
+      </div>
+      <div class="muted small mt-8" style="line-height:1.6">
+        Trước mốc này bảng rà soát im lặng, vì các cô vẫn đang đón bé. Trường
+        điểm danh từ mấy giờ thì đặt đúng giờ đó.
+      </div>`;
+  },
+
+  async luuMocRaSoat() {
+    const o = document.getElementById('dd-moc-ra-soat');
+    if (!o) return;
+    try {
+      const kq = await API.put('/api/attendance/cai-dat', { gioRaSoat: o.value });
+      UI.toast(`Đã đặt mốc rà soát lúc ${kq.gioRaSoatChu}`);
+      this.render(document.getElementById('view'), []);
+    } catch (e) {
+      UI.toast(e.message || 'Chưa lưu được mốc giờ', 'error');
+    }
+  },
+
+  // MỐC GIỜ RÀ SOÁT NÓI BẰNG TIẾNG CỦA TRƯỜNG (Đ155).
+  //
+  // Máy chủ trả `gioRaSoat` dạng "HH:MM" và `gioRaSoatChu` dạng "8h30" — dùng
+  // chữ, vì "chốt lúc 08:30 giờ" không phải câu tiếng Việt. Vẫn có đường lùi
+  // cho điện thoại còn giữ bản giao diện cũ trong bộ nhớ đệm: nếu máy chủ chưa
+  // gửi `gioRaSoatChu` thì tự dựng lấy từ "HH:MM", và nếu nhận được một con số
+  // (bản trước Đ155 trả về số 9) thì vẫn đọc xuôi thành "9h".
+  chuGioRaSoat(r) {
+    if (r && r.gioRaSoatChu) return String(r.gioRaSoatChu);
+    const g = String((r && r.gioRaSoat) != null ? r.gioRaSoat : '');
+    const m = g.match(/^(\d{1,2}):(\d{2})$/);
+    if (m) return m[2] === '00' ? `${Number(m[1])}h` : `${Number(m[1])}h${m[2]}`;
+    return g ? `${g}h` : '9h';
+  },
+
   theRaSoatVanPhong(r, ds, tenNhom) {
     if (!r.quaGio) {
       return `<div class="card">
         <div class="card-title">Sáng nay còn đang điểm danh</div>
         <div class="muted small" style="line-height:1.7">
-          Bảng rà soát chốt lúc ${UI.esc(String(r.gioRaSoat))} giờ. Trước giờ đó các cô
+          Bảng rà soát chốt lúc ${UI.esc(this.chuGioRaSoat(r))}. Trước giờ đó các cô
           vẫn đang đón bé và chấm sổ, nên bảng này chỉ có nghĩa sau giờ đó.
-          Quay lại sau ${UI.esc(String(r.gioRaSoat))} giờ nhé.
+          Quay lại sau ${UI.esc(this.chuGioRaSoat(r))} nhé.
         </div>
       </div>`;
     }
@@ -204,7 +257,7 @@ App.views.attendance = {
           ${UI.icon('check', 16)} Cả trường đã xong
         </div>
         <div class="muted small" style="line-height:1.7">
-          Đã qua ${UI.esc(String(r.gioRaSoat))} giờ và mọi bé đều đã có dòng điểm danh,
+          Đã qua ${UI.esc(this.chuGioRaSoat(r))} và mọi bé đều đã có dòng điểm danh,
           hoặc đã có đơn nghỉ được duyệt. Văn phòng không cần gọi cuộc nào.
         </div>
         ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
@@ -218,7 +271,7 @@ App.views.attendance = {
           ${UI.icon('bell', 16)} Cần gọi xác nhận: ${UI.esc(String(ds.length))} bé
         </div>
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
-          Đã qua ${UI.esc(String(r.gioRaSoat))} giờ mà những bé dưới đây chưa có dòng
+          Đã qua ${UI.esc(this.chuGioRaSoat(r))} mà những bé dưới đây chưa có dòng
           điểm danh nào, và cũng chưa có đơn nghỉ được duyệt. Có thể cô chưa kịp chấm,
           cũng có thể gia đình quên báo — gọi một cuộc cho chắc.
         </div>
@@ -671,7 +724,7 @@ App.views.attendance = {
           ${UI.icon('bell', 16)} Cần văn phòng gọi xác nhận
         </div>
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
-          Đã qua ${UI.esc(String(r.gioRaSoat))} giờ mà ${UI.esc(String(r.danhSach.length))} bé
+          Đã qua ${UI.esc(this.chuGioRaSoat(r))} mà ${UI.esc(String(r.danhSach.length))} bé
           chưa có dòng điểm danh nào, và cũng chưa có đơn nghỉ được duyệt.
           Có thể cô chưa kịp chấm, cũng có thể gia đình quên báo — gọi một cuộc cho chắc.
         </div>

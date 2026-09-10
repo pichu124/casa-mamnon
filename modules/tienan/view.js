@@ -182,6 +182,14 @@ App.views.tienan = {
             <b>không tự chia</b> được — nó tính trọn vào tháng có ngày bắt đầu và đánh dấu
             để mình tự chia. Các dòng đó có ghi rõ bên dưới.
           </div>` : ''}
+        ${d.tong.soNgayCoMatTrongDonHoan ? `
+          <div class="muted small mt-8" style="line-height:1.6">
+            Có <b>${UI.esc(String(d.tong.soNgayCoMatTrongDonHoan))} ngày</b> nằm trong đơn
+            đã duyệt hoàn tiền ăn mà bé <b>vẫn tới lớp</b> — nhà đổi ý cho con đi học,
+            và sổ điểm danh ghi theo ảnh con tới lớp. Những bữa đó trường đã nấu, nên
+            <b>trừ ra khi chốt tháng</b>. App không tự trừ vì số ngày hoàn là do văn
+            phòng gõ tổng tay, không biết được đã trừ sẵn hay chưa.
+          </div>` : ''}
       </div>
 
       ${(d.danhSach || []).length
@@ -200,6 +208,8 @@ App.views.tienan = {
         .map(d => `${UI.fmtDate(d.fromDate, { weekday: false })} – ${UI.fmtDate(d.toDate, { weekday: false })}: ${d.soNgay} ngày, đơn kéo sang tháng sau`),
       ...x.donVatSangThangNay
         .map(d => `${UI.fmtDate(d.fromDate, { weekday: false })} – ${UI.fmtDate(d.toDate, { weekday: false })}: ${d.soNgay} ngày, đã tính ở tháng trước`),
+      ...x.donHoan.filter(d => d.soNgayBeCoMat > 0)
+        .map(d => `${UI.fmtDate(d.fromDate, { weekday: false })} – ${UI.fmtDate(d.toDate, { weekday: false })}: ${d.soNgay} ngày hoàn, nhưng bé vẫn đi học ${d.soNgayBeCoMat} hôm — trừ ra`),
     ];
     return `
       <div class="card">
@@ -214,6 +224,9 @@ App.views.tienan = {
         ${this.dongSo('Vắng có phép', x.soNgayVangCoPhep)}
         ${this.dongSo('Vắng không phép', x.soNgayVangKhongPhep)}
         ${this.dongSo('Trường hoàn tiền ăn', `${x.soNgayHoanTienAn} ngày`)}
+        ${x.soNgayCoMatTrongDonHoan
+          ? this.dongSo('Trong đó bé vẫn đi học', `${x.soNgayCoMatTrongDonHoan} ngày — trừ ra`)
+          : ''}
         ${canKiemTra.length ? `
           <div class="muted small mt-8" style="line-height:1.6">
             ${canKiemTra.map(t => `<div>${UI.esc(t)}</div>`).join('')}

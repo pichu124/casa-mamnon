@@ -180,7 +180,7 @@ console.log('\n[5] CHỐT SỔ VẮNG ngày trường nghỉ → cả nhóm là 
   if (gioVN < 9) {
     console.log(`  (giờ Việt Nam hiện là ${ngay.bayGio()} — nhánh TRƯỚC giờ rà soát)`);
     check('trước 9 giờ thì máy chủ vẫn TỪ CHỐI chốt, lịch nghỉ không nới luật đó',
-      chot.status === 400 && /sau 9 giờ/.test(chot.data?.error || ''), chot.data);
+      chot.status === 400 && /sau 9h/.test(chot.data?.error || ''), chot.data);
   } else {
     console.log(`  (giờ Việt Nam hiện là ${ngay.bayGio()} — nhánh SAU giờ rà soát)`);
     check('chốt sổ được', chot.status === 200, chot.data);
