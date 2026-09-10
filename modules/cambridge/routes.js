@@ -280,7 +280,7 @@ module.exports = (app, { db }) => {
     const ra = [];
     for (const id of db.studentIdsCuaPhuHuynh(user.id)) {
       const be = db.findStudent(id);
-      if (!be || be.active === false) continue;
+      if (!be || !be.active) continue;
       ra.push({ studentId: be.id, ten: be.name, luaTuoi: luaTuoiCuaBe(be.dob, homNay()) });
     }
     return ra;

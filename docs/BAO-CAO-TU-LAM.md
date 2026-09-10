@@ -207,6 +207,47 @@ gia đình — nằm ở **`docs/PHAN-HOI-TRUONG-0709.md`**, kèm bảng đối 
 bộ phản hồi (đã có / một phần / chưa có, cỡ việc, vì sao). Đọc tệp đó là đủ để
 quyết đợt 2.
 
+**09–10/09 — đợt 2 theo phản hồi 07/09: "làm hết một lượt" (Đ137–Đ144).**
+Anh dặn *"làm tiếp đợt 2 đi, làm hết 1 lượt luôn"* và *"9 điểm phải cân nhắc
+trên lưu lại rồi tôi quyết sau"*. Chín điểm đó (mục B của
+`docs/PHAN-HOI-TRUONG-0709.md`) tôi **không đụng** — trừ điểm 8 (thông báo
+đẩy), vì hoá ra nó là **nền** của gần hết những ý còn lại chứ không phải một
+việc lẻ. Làm theo thứ tự: nền trước, rồi tám mục của đợt 2:
+
+- **Đ137 — thông báo riêng từng bé + Web Push.** Một bảng `thongbao_be`, một
+  điểm gọi `lib/thong-bao-be.gui()` không bao giờ ném lỗi, đường đẩy qua khoá
+  VAPID, bật trong Cài đặt (iPhone phải "Thêm vào màn hình chính"). Từ đó ảnh
+  tới lớp, thực đơn tuần, cân đo, từng bữa nhật ký, ảnh album, câu chuyện, bài
+  Cambridge, báo cáo — mỗi thứ rung máy đúng nhà, đúng bé.
+- **Đ138 / Đ139 / Đ140** — sức khoẻ theo nhóm (cân đo cả nhóm một lượt, lịch
+  sử, không đường "chuẩn"); hồ sơ bé cho cô (sinh nhật tháng này, số điện
+  thoại bấm là gọi); Báo ăn và Học phí thôi hiện với cô.
+- **Đ141 — nhật ký đi theo bước từng bữa**, ngủ và bỉm riêng, hai cô cùng ghi
+  không xoá nhau, ô tự biến mất với cô không có bé nhà trẻ.
+- **Đ142 — kế hoạch của bé có danh mục bài học** để cô tích, góc Văn hoá, đề
+  xuất sửa kèm lý do; **báo cáo qua quản lý duyệt, hẹn ngày công bố, khoá ô
+  theo cô**. Chữ "nhìn lại" giữ hai mức trung tính — bộ canh QUY TẮC 2 và 4
+  đứng sẵn ở đó.
+- **Đ143 — Cambridge đúng mẫu trường gửi**: Block có mục tiêu và thời gian áp
+  dụng, Week, lứa 3–4 / 4–5 **tính từ ngày sinh và lọc ở tầng dữ liệu** (nhà
+  bé 3–4 không nhận tờ 4–5, kể cả tệp đính kèm), tệp PDF/Word qua canh quyền.
+  Bảng gốc không ALTER — đúng lời hứa viết từ Đ60 khi trường "chưa chốt nội
+  dung".
+- **Đ144 — album công khai hay theo thẻ** (theo thẻ: nhà chỉ thấy tấm có con
+  mình, chốt cả ở đường trả byte, sau luật đồng ý chia sẻ chứ không thay nó),
+  Ghi nhanh chọn nhiều bé, ảnh câu chuyện Hành trình chép về album có gắn thẻ.
+
+Ba phần trong số này (nhật ký, kế hoạch + báo cáo) tôi giao cho tác nhân phụ
+làm song song trong cây làm việc riêng rồi gộp lại, đọc lại từng đường về
+quyền và chữ trên màn trước khi chạy đủ bộ canh. Hai phần còn lại (Cambridge,
+album) tự làm. Chạy lại **cả bộ** thì bắt được hai lỗi mà bộ canh lẻ của từng
+đợt không thấy: `guiChoNhom` quên bỏ tin đã thu hồi khi chống lặp, và chốt sổ
+vắng hỏi giờ trước quyền (bộ chạy lúc 7 giờ sáng mới lộ). Cả hai đã vá; bài
+học thứ hai ghi vào TIEN-DO.
+
+Chín điểm cần anh quyết vẫn nằm nguyên ở mục B của tệp phản hồi; điểm 8 đã
+gạch tên vì đã làm.
+
 ## 1b-mới. 02/09/2026 sáng — đợt hai của cuộc rà soát, khép sổ (Đ118)
 
 Anh dặn *"khi đủ token làm hết phần còn lại"* — đợt này làm đúng điều đó: vá
