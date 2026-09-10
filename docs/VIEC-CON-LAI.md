@@ -531,7 +531,7 @@ Hoặc ẩn thẻ với cô, hoặc thêm loại tin đẩy cho cô (gia đình 
 lib/day.js:114 guiChoNguoi chỉ được routes/push.js:35 gọi cho lượt gửi thử;
 public/js/views/settings.js:106-108 chỉ loại trừ admin có chucVu, không loại trừ teacher
 
-**DT-03 — cô mở lại đơn thuốc đã hoàn tất**
+**~~DT-03 — cô mở lại đơn thuốc đã hoàn tất~~ — ĐÃ LÀM Đ153c**
 
 Mục 'Đã hoàn tất (N)' chỉ liệt kê tên bé + khoảng ngày; dòng list-row KHÔNG có onclick
 nên không xem lại được thuốc gì, liều, ghi chú, ai nhận lúc nào. Thiếu cả lọc theo
@@ -543,7 +543,7 @@ bé/khoảng ngày. Giữ nguyên trần 60/500 của Đ113.
 avatar, tên, khoảng ngày, badge 'Hoàn tất', không có onclick (đã đọc tận nơi); dòng
 DT-03 'nhỏ | làm', Đã làm TRỐNG
 
-**AL-01 — gắn thẻ một lượt cho nhiều ảnh (mục B.3 nói đã làm ở đợt 2, thực tế CHƯA)**
+**~~AL-01 — gắn thẻ một lượt cho nhiều ảnh~~ — ĐÃ LÀM Đ153a** (đây là thứ đã hứa với trường khi từ chối nhận diện khuôn mặt)
 
 routes/albums.js chỉ có PUT /api/albums/:id/photos/:photoId/be — gắn thẻ TỪNG ẢNH một.
 Không có đường gắn nhiều ảnh một lượt. Đây là 'thay thế' mà mục B.3 hứa với trường khi
@@ -578,7 +578,7 @@ thuộc quyết định NK-04.
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md dòng NK-06 'lớn | làm | Đ141 (ô ẩn với cô không có
 bé nhà trẻ — dieuKienHien)'; modules/nhatky/routes.js:344-348
 
-**Dọn bốn chỗ tài liệu đang nói ngược nhau**
+**~~Dọn bốn chỗ tài liệu đang nói ngược nhau~~ — ĐÃ LÀM Đ153d**
 
 (1) TIEN-DO.md dòng 751 '🔴 GITHUB ACTIONS KHÔNG CHẠY TỪ 28/08 — cần người dùng xử lý'
 vẫn bảo anh mở Billing, trong khi Đ119c (dòng 1074) ghi Actions đã chạy thật từ 01/09 và
@@ -624,7 +624,7 @@ mới dựng khung, nội dung thật vẫn trống.
 
 ### B2 — Trước khi trường chạy thật
 
-**Không đổi được chế độ album sau khi đã tạo**
+**~~Không đổi được chế độ album sau khi đã tạo~~ — ĐÃ LÀM Đ153b** (máy trả về chiều đổi, màn hình hỏi lại cô một câu khi mở rộng)
 
 Chế độ công khai / theo thẻ chỉ ghi được đúng một lần lúc POST /api/albums; không có
 đường PUT/PATCH nào đổi lại. Cô chọn nhầm 'Cả nhóm' cho album đáng lẽ theo thẻ thì chỉ

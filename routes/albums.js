@@ -738,6 +738,118 @@ module.exports = (app) => {
     res.json({ photoId: photo.id, studentIds: daGan });
   });
 
+  // ĐỔI CHẾ ĐỘ ALBUM SAU KHI ĐÃ TẠO (Đ153).
+  //
+  // Trước đợt này chế độ chỉ ghi được đúng một lần lúc lập album, và không có
+  // đường nào đổi lại. Cô chọn nhầm "Cả nhóm" cho một album đáng lẽ theo thẻ
+  // thì chỉ còn cách XOÁ CẢ ALBUM rồi đăng lại — tức là mất hết ảnh, mất hết
+  // thẻ đã gắn, và gia đình nhận lại một loạt tin báo cho ảnh cũ.
+  //
+  // MỘT CHIỀU AN TOÀN, MỘT CHIỀU PHẢI NÓI TRƯỚC:
+  //
+  //   công khai → theo thẻ  = HẸP LẠI. Ảnh đang hiện với cả nhóm nay chỉ còn
+  //       hiện với nhà có con được gắn thẻ. Không ai thấy thêm thứ gì.
+  //   theo thẻ → công khai  = MỞ RỘNG. Mọi gia đình trong nhóm bỗng thấy những
+  //       tấm trước đó chỉ vài nhà thấy. Vẫn qua luật đồng ý chia sẻ như cũ,
+  //       nhưng đây là một quyết định thật, nên câu trả lời nói rõ điều đó ra
+  //       để màn hình hỏi lại cô một câu trước khi đổi.
+  //
+  // KHÔNG báo lại gia đình khi đổi chiều mở rộng: tin báo của album đi theo
+  // việc CÓ ẢNH MỚI và việc GẮN THẺ, và bắn thêm một loạt tin cho ảnh cũ chỉ
+  // vì cô sửa một ô chọn là làm phiền hai chục nhà vì một thao tác sửa lỗi.
+  app.put('/api/albums/:id/che-do', requireRole('teacher'), (req, res) => {
+    const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
+    if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
+    if (!db.isTeacherOfClass(req.user.id, album.classId)) {
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới đổi được chế độ album' });
+    }
+    const moi2 = String((req.body || {}).cheDo || '');
+    if (!CHE_DO.includes(moi2)) {
+      return res.status(400).json({ error: 'Chế độ album chưa hợp lệ' });
+    }
+    const cu = cheDoCua(album.id);
+    if (cu === moi2) return res.json({ cheDo: cu, doiGi: 'khong-doi' });
+    ghiCheDo(album.id, moi2);
+    db.audit(req.user.id, 'album-doi-che-do', album.id, { tu: cu, sang: moi2 });
+    res.json({
+      cheDo: moi2,
+      doiGi: moi2 === 'cong-khai' ? 'mo-rong' : 'hep-lai',
+    });
+  });
+
+  // GẮN THẺ NHIỀU ẢNH MỘT LƯỢT (Đ153 / AL-01).
+  //
+  // Đây là THỨ TÔI ĐÃ HỨA VỚI NHÀ TRƯỜNG khi từ chối nhận diện khuôn mặt.
+  // Trường xin app tự nhận mặt bé trong ảnh; tôi từ chối vì đó là dữ liệu sinh
+  // trắc của trẻ dưới 6 tuổi (N18, CLAUDE.md, Nghị định 13/2023), và đề nghị
+  // thay bằng "gắn thẻ nhanh nhiều bé một lúc". Trường đồng ý — *"ok k hỗ trợ
+  // được thôi"*. Một lời hứa đổi lấy một lời từ chối thì phải được làm cho
+  // xong, nếu không thì lời từ chối kia thành ra chỉ là lời từ chối.
+  //
+  // VÌ SAO CÔ CẦN NÓ: cô chụp hai chục tấm trong một buổi hoạt động, và trong
+  // đó có mười tấm cùng một nhóm bốn bé chơi với nhau. Gắn từng ảnh một là bốn
+  // chục lần bấm cho mười tấm; gắn một lượt là bốn lần.
+  //
+  // CỘNG THÊM, KHÔNG GHI ĐÈ. Đường gắn một ảnh (`PUT .../be`) đặt LẠI trọn danh
+  // sách — đúng cho màn sửa thẻ của một tấm. Ở đây thì ngược: cô đang quét qua
+  // nhiều ảnh và nói "trong mấy tấm này có bé A và bé B", chứ không nói "mấy
+  // tấm này CHỈ có A và B". Ghi đè ở đây là xoá mất thẻ cô đã gắn trước đó cho
+  // từng tấm, mà không có gì báo.
+  app.put('/api/albums/:id/gan-the-nhieu-anh', requireRole('teacher'), (req, res) => {
+    const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
+    if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
+    if (!db.isTeacherOfClass(req.user.id, album.classId)) {
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới gắn thẻ được' });
+    }
+    const than = req.body || {};
+    const anhXin = Array.isArray(than.photoIds) ? than.photoIds : null;
+    const beXin = Array.isArray(than.studentIds) ? than.studentIds : null;
+    if (!anhXin || !beXin) {
+      return res.status(400).json({ error: 'Thiếu danh sách ảnh hoặc danh sách bé' });
+    }
+    if (!anhXin.length) return res.status(400).json({ error: 'Cô chọn ít nhất một ảnh nhé' });
+    if (!beXin.length) return res.status(400).json({ error: 'Cô chọn ít nhất một bé nhé' });
+    // Trần một lượt: một album của trường mầm non hiếm khi quá con số này, và
+    // không có trần thì một lời gọi ghi được hàng nghìn dòng trong một giao dịch.
+    if (anhXin.length > 200) {
+      return res.status(400).json({ error: 'Mỗi lượt gắn tối đa 200 ảnh — cô chia làm hai lượt giúp nhé' });
+    }
+
+    // Cùng luật với đường gắn một ảnh: bé ĐANG học nhóm, cộng bé TỪNG học nhóm.
+    const trongNhom = new Set(db.all('students',
+      'SELECT id FROM students WHERE classId = ? AND active = 1', [album.classId]).map(b => b.id));
+    for (const r of db.all('student_class_periods',
+      'SELECT DISTINCT studentId FROM student_class_periods WHERE classId = ?', [album.classId])) {
+      trongNhom.add(r.studentId);
+    }
+    if (beXin.some(id => !trongNhom.has(id))) {
+      return res.status(400).json({ error: 'Danh sách có bé không thuộc nhóm của album này' });
+    }
+
+    const marks = anhXin.map(() => '?').join(',');
+    const anh = db.all('album_photos',
+      `SELECT id FROM album_photos WHERE albumId = ? AND id IN (${marks})`, [album.id, ...anhXin]);
+    if (anh.length !== anhXin.length) {
+      return res.status(400).json({ error: 'Có ảnh không thuộc album này' });
+    }
+
+    // Bé nào VỪA được gắn thẻ lần đầu trong cả lượt — chỉ họ mới được báo. Gom
+    // trước rồi báo MỘT lần cho mỗi bé: cô gắn bé An vào mười tấm thì gia đình
+    // bé An nhận đúng một tin, không phải mười.
+    const moi = new Set();
+    db.tx(() => {
+      for (const a of anh) {
+        const truoc = new Set(db.beTrongAnh(a.id));
+        const gop = [...new Set([...truoc, ...beXin])];
+        db.datBeTrongAnh(a.id, gop);
+        for (const id of beXin) if (!truoc.has(id)) moi.add(id);
+      }
+    });
+    db.audit(req.user.id, 'photo-tag-nhieu', album.id, { soAnh: anh.length, soBe: beXin.length });
+    baoBeDuocGanThe(album, [...moi], req.user.id);
+    res.json({ soAnh: anh.length, soBe: beXin.length, soBeMoiDuocBao: moi.size });
+  });
+
   // Xóa một ảnh khỏi album.
   app.delete('/api/albums/:id/photos/:photoId', requireRole('teacher', 'admin'), (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);

@@ -183,10 +183,130 @@ App.views.albums = {
                 </button>` : ''}
             </div>`).join('')}
         </div>` : UI.emptyState('📷', a.canEdit ? 'Album chưa có ảnh nào. Bấm "Thêm ảnh" để đăng.' : 'Album chưa có ảnh')}
+      ${a.canEdit && a.photos.length > 1 ? `
+        <button class="btn outline block mt-14" id="btn-gan-nhieu">
+          ${UI.icon('check', 16)} Gắn thẻ nhiều ảnh một lượt
+        </button>` : ''}
+      ${a.canEdit ? `
+        <button class="btn outline block mt-8" id="btn-doi-che-do">
+          ${UI.icon('settings', 16)} Đổi ai xem được album này
+        </button>` : ''}
       ${a.canXoa ? `
         <button class="btn danger-soft block mt-14" onclick="App.views.albums.deleteAlbum()">Xóa album này</button>` : ''}`;
 
     if (a.canEdit) document.getElementById('btn-add-photo').onclick = () => this.openAddPhotos();
+    const nutNhieu = document.getElementById('btn-gan-nhieu');
+    if (nutNhieu) nutNhieu.onclick = () => this.moGanNhieuAnh();
+    const nutCheDo = document.getElementById('btn-doi-che-do');
+    if (nutCheDo) nutCheDo.onclick = () => this.moDoiCheDo();
+  },
+
+  // GẮN THẺ NHIỀU ẢNH MỘT LƯỢT (Đ153 / AL-01).
+  //
+  // Đây là thứ đã hứa với nhà trường khi từ chối nhận diện khuôn mặt. Cô chụp
+  // hai chục tấm trong một buổi, trong đó mười tấm cùng một nhóm bốn bé chơi
+  // với nhau: gắn từng tấm là bốn chục lần bấm, gắn một lượt là bốn.
+  //
+  // CỘNG THÊM, KHÔNG GHI ĐÈ — xem chú thích đường API. Câu chữ trên màn phải
+  // nói đúng điều đó, nếu không cô tưởng mình vừa đặt lại thẻ cho cả mấy tấm.
+  async moGanNhieuAnh() {
+    const a = this._detail;
+    if (!a) return;
+    let dsBe = [];
+    try {
+      dsBe = await API.get(`/api/students?classId=${encodeURIComponent(a.classId || '')}`);
+    } catch (_) { dsBe = []; }
+    const trongNhom = dsBe.filter(b => !a.classId || b.classId === a.classId);
+
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6">
+        Chọn <b>những tấm</b> có cùng các bé, rồi chọn <b>các bé</b> ấy. Thẻ được
+        <b>cộng thêm</b> vào từng tấm — thẻ cô đã gắn trước đó vẫn giữ nguyên.
+      </div>
+      <div class="section-label">Chọn ảnh</div>
+      <div class="photo-grid" id="gn-anh">
+        ${(a.photos || []).map((p, i) => `
+          <label class="photo" style="cursor:pointer">
+            <div style="position:absolute;inset:0">${this.thumb(p, a.id)}</div>
+            <input type="checkbox" class="gn-anh-o" value="${UI.esc(p.id)}"
+              style="position:absolute;top:6px;left:6px;width:22px;height:22px;z-index:2">
+            ${(p.beTrongAnh || []).length ? `<div class="photo-cap" style="pointer-events:none">👧 ${UI.esc(String((p.beTrongAnh || []).length))}</div>` : ''}
+            <span hidden>${UI.esc(String(i))}</span>
+          </label>`).join('')}
+      </div>
+      <div class="section-label">Chọn bé có trong những tấm đó</div>
+      <div id="gn-be" style="max-height:32vh;overflow-y:auto">
+        ${trongNhom.length ? trongNhom.map(b => `
+          <label class="list-row" style="cursor:pointer">
+            <input type="checkbox" class="gn-be-o" value="${UI.esc(b.id)}"
+              style="width:20px;height:20px;flex:none;margin-right:10px">
+            <div class="row-main"><div class="row-title">${UI.esc(b.name)}</div></div>
+          </label>`).join('') : '<div class="muted small">Nhóm chưa có bé nào.</div>'}
+      </div>
+      <button class="btn primary block mt-14" id="gn-luu">${UI.icon('check', 18)} Gắn thẻ</button>
+    `, 'Gắn thẻ nhiều ảnh');
+
+    document.getElementById('gn-luu').onclick = async () => {
+      const anh = [...document.querySelectorAll('#gn-anh .gn-anh-o:checked')].map(x => x.value);
+      const be = [...document.querySelectorAll('#gn-be .gn-be-o:checked')].map(x => x.value);
+      if (!anh.length) return UI.toast('Cô chọn ít nhất một ảnh nhé', 'error');
+      if (!be.length) return UI.toast('Cô chọn ít nhất một bé nhé', 'error');
+      try {
+        const r = await API.put(`/api/albums/${encodeURIComponent(a.id)}/gan-the-nhieu-anh`,
+          { photoIds: anh, studentIds: be });
+        UI.toast(`Đã gắn ${r.soBe} bé vào ${r.soAnh} ảnh`, 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // ĐỔI AI XEM ĐƯỢC ALBUM (Đ153).
+  //
+  // Một chiều hẹp lại, một chiều mở rộng — và chiều mở rộng phải hỏi lại cô một
+  // câu, vì nó làm hai chục gia đình bỗng thấy những tấm trước đó chỉ vài nhà
+  // thấy. Xem chú thích đường API.
+  moDoiCheDo() {
+    const a = this._detail;
+    if (!a) return;
+    const dangLa = a.cheDo === 'theo-the' ? 'theo-the' : 'cong-khai';
+    UI.modal(`
+      <div class="field">
+        <label>Ai xem được album này</label>
+        <select id="dc-che-do">
+          <option value="cong-khai" ${dangLa === 'cong-khai' ? 'selected' : ''}>Cả nhóm — mọi gia đình trong nhóm đều xem được</option>
+          <option value="theo-the" ${dangLa === 'theo-the' ? 'selected' : ''}>Theo thẻ — gia đình chỉ thấy tấm có con mình được gắn thẻ</option>
+        </select>
+      </div>
+      <div class="muted small" style="line-height:1.6">
+        Luật đồng ý chia sẻ <b>không đổi</b>: một tấm có bé mà gia đình chưa đồng ý chia sẻ
+        thì vẫn không hiện với nhà khác, dù album ở chế độ nào.
+      </div>
+      <div class="small mt-8" id="dc-canh" style="line-height:1.6;display:none;border-left:3px solid var(--warning);padding-left:10px"></div>
+      <button class="btn primary block mt-14" id="dc-luu">${UI.icon('check', 18)} Lưu</button>
+    `, 'Ai xem được album này');
+
+    const o = document.getElementById('dc-che-do');
+    const canh = document.getElementById('dc-canh');
+    const veCanh = () => {
+      const moRong = dangLa === 'theo-the' && o.value === 'cong-khai';
+      canh.style.display = moRong ? '' : 'none';
+      if (moRong) {
+        canh.innerHTML = 'Đổi sang <b>Cả nhóm</b> thì mọi gia đình trong nhóm sẽ thấy '
+          + 'những tấm trước đây chỉ vài nhà thấy. Cô xem lại giúp là đúng ý nhé.';
+      }
+    };
+    o.onchange = veCanh;
+    veCanh();
+
+    document.getElementById('dc-luu').onclick = async () => {
+      try {
+        await API.put(`/api/albums/${encodeURIComponent(a.id)}/che-do`, { cheDo: o.value });
+        UI.toast('Đã đổi chế độ album', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   // Gắn thẻ bé có mặt trong một tấm ảnh.
