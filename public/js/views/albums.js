@@ -117,7 +117,7 @@ App.views.albums = {
         ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
         <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
-        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
+        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.cheDo === 'theo-the' ? ` ${UI.badge('Theo thẻ', 'blue')}` : ''}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
       </div>`;
   },
 
@@ -151,7 +151,7 @@ App.views.albums = {
     root.innerHTML = `
       ${UI.pageHeader(a.title, a.canEdit ? { action: { id: 'btn-add-photo', label: 'Thêm ảnh', icon: 'plus' } } : {})}
       <div class="card">
-        <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}</div>
+        <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}${a.cheDo === 'theo-the' ? ` · ${UI.badge('Theo thẻ từng bé', 'blue')}` : ''}</div>
         ${a.description ? `<p class="mt-8" style="font-size:.93rem;line-height:1.55">${UI.esc(a.description)}</p>` : ''}
         ${a.lopDaDong ? `<div class="muted small mt-8" style="line-height:1.6">
           Nhóm này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''},
@@ -270,6 +270,16 @@ App.views.albums = {
       <div class="field">
         <label>Mô tả</label>
         <textarea id="al-desc" placeholder="Đôi dòng giới thiệu về album gửi tới phụ huynh..."></textarea>
+      </div>
+      <div class="field">
+        <label>Ai xem được</label>
+        <select id="al-che-do">
+          <option value="cong-khai">Cả nhóm — mọi gia đình trong nhóm đều xem được</option>
+          <option value="theo-the">Theo thẻ — gia đình chỉ thấy tấm có con mình được gắn thẻ</option>
+        </select>
+        <div class="hint">Ảnh chung (sự kiện, dã ngoại) thì chọn <b>Cả nhóm</b>: gia đình nhận thông báo ngay,
+          cô không phải gắn thẻ từng tấm. Ảnh riêng từng bé thì chọn <b>Theo thẻ</b>: cô gắn thẻ bé
+          nào, nhà bé đó được báo và chỉ thấy tấm của con mình.</div>
       </div>
       ${this.pickerMarkup()}
       <button class="btn primary block mt-14" id="al-submit">${UI.icon('plus', 18)} Đăng album</button>
@@ -458,7 +468,8 @@ App.views.albums = {
       // Nhóm đầu lấy theo đúng luật chia lô ở trên — nếu không thì lượt tạo
       // album có thể ôm ba video cùng lúc và vỡ thân yêu cầu.
       const first = this.chiaLo(photos)[0] || [];
-      const album = await API.post('/api/albums', { title, description, photos: first });
+      const cheDo = (document.getElementById('al-che-do') || {}).value || 'cong-khai';
+      const album = await API.post('/api/albums', { title, description, cheDo, photos: first });
 
       const rest = photos.slice(first.length);
       if (rest.length) {

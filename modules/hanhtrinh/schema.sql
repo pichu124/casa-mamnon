@@ -83,3 +83,18 @@ CREATE TABLE IF NOT EXISTS hanhtrinh_chude (
   capNhatLuc  TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS hanhtrinh_chude_mot_nhom_mot_tuan ON hanhtrinh_chude(classId, tuan);
+
+-- ẢNH CỦA CÂU CHUYỆN ĐÃ VỀ ALBUM NÀO (Đ144).
+--
+-- Nhà trường 07/09: "ảnh học tập riêng biệt của con → cần tag album và bé →
+-- lưu ảnh toàn bộ về album". Khi cô kể câu chuyện cho gia đình, cô chọn một
+-- album của nhóm; ảnh của quan sát được CHÉP sang album đó thành một tấm có
+-- gắn thẻ bé. Bảng này nhớ tấm nào đã chép để công bố lại không chép đôi.
+-- Không có dòng = chưa về album nào.
+CREATE TABLE IF NOT EXISTS hanhtrinh_album (
+  quanSatId  TEXT PRIMARY KEY,
+  albumId    TEXT NOT NULL,
+  photoId    TEXT NOT NULL,
+  ghiLuc     TEXT
+);
+CREATE INDEX IF NOT EXISTS hanhtrinh_album_theo_album ON hanhtrinh_album(albumId);

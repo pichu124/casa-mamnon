@@ -24,6 +24,7 @@
 const { requireRole } = require('../../lib/auth');
 const ngay2 = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
+const tbb = require('../../lib/thong-bao-be');
 const fs = require('fs');
 
 // Chép một tệp ảnh đã có thành một tệp MỚI trong kho ảnh.
@@ -155,6 +156,13 @@ module.exports = (app, { db, modules }) => {
       ra.moTa = r.moTa || '';
       ra.anh = r.anh || '';
       ra.ghiNhanhId = r.ghiNhanhId || '';
+      // Ảnh đã về album nào (Đ144) — chỉ người thấy lớp 1 mới cần biết. Bảng
+      // `albums` là của phân hệ Album: hỏi công tắc trước, tắt thì không kể.
+      const lk = db.first('hanhtrinh_album', 'SELECT albumId FROM hanhtrinh_album WHERE quanSatId = ?', [r.id]);
+      if (lk && albumDangBat()) {
+        const al = db.first('albums', 'SELECT id, title FROM albums WHERE id = ?', [lk.albumId]);
+        ra.daVeAlbum = al ? { id: al.id, title: al.title } : null;
+      }
     }
     return ra;
   }
@@ -774,14 +782,88 @@ module.exports = (app, { db, modules }) => {
       });
     }
 
+    // ẢNH VỀ ALBUM (Đ144): cô chọn album của nhóm thì ảnh quan sát được chép
+    // sang đó thành một tấm có gắn thẻ bé. Kiểm TRƯỚC khi công bố để lỗi chọn
+    // album không để lại một câu chuyện đã công bố mà ảnh chưa về đâu.
+    const albumId = chuoi(b.albumId, 40);
+    let album = null;
+    if (albumId) {
+      if (!albumDangBat()) return res.status(400).json({ error: 'Phân hệ Album ảnh đang tắt — công bố mà không lưu về album, hoặc nhờ văn phòng bật lại' });
+      if (!r.anh) return res.status(400).json({ error: 'Quan sát này không có ảnh để lưu về album' });
+      album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [albumId]);
+      if (!album) return res.status(404).json({ error: 'Không tìm thấy album đã chọn' });
+      if (!(req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId))) {
+        return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm của album mới lưu ảnh vào đó được' });
+      }
+      const be = db.findStudent(r.studentId);
+      if (!be || be.classId !== album.classId) {
+        return res.status(400).json({ error: 'Album này thuộc nhóm khác với nhóm của bé' });
+      }
+      const lop = db.findClass(album.classId);
+      if (!lop || !lop.active) return res.status(400).json({ error: 'Nhóm của album đã đóng — chọn album của năm nay nhé' });
+    }
+
     const luc = new Date().toISOString();
     db.update('hanhtrinh_quansat', r.id, {
       cauChuyen, cungConONha: cungCon, congBoLuc: luc, capNhatLuc: luc,
     });
     db.audit(req.user.id, 'hanhtrinh-cong-bo', r.studentId, { id: r.id });
+    if (album) luuAnhVeAlbum(r, album, req.user, cauChuyen);
+    // Báo gia đình: câu chuyện là của MỘT bé, đi đường thông báo riêng của bé.
+    // Cùng một câu chuyện công bố lại trong ngày thì không rung máy lần nữa.
+    baoGiaDinhCauChuyen(r, req.user.id);
     const moi = db.first('hanhtrinh_quansat', 'SELECT * FROM hanhtrinh_quansat WHERE id = ?', [r.id]);
     res.json(choNguoiXem(moi, req.user));
   });
+
+  // Chép ảnh của quan sát sang album, gắn thẻ bé, nhớ lại để không chép đôi.
+  // Việc phụ: hỏng thì câu chuyện vẫn đã tới gia đình.
+  // Album ảnh là phân hệ KHÁC — đọc/ghi bảng của nó phải hỏi công tắc trước
+  // (modules/README.md, mục "Đọc bảng của phân hệ KHÁC thì phải hỏi công tắc").
+  function albumDangBat() {
+    return !!(modules && typeof modules.dangBat === 'function' && modules.dangBat('album'));
+  }
+
+  function luuAnhVeAlbum(r, album, user, cauChuyen) {
+    if (!albumDangBat()) return null;
+    try {
+      const daCo = db.first('hanhtrinh_album', 'SELECT * FROM hanhtrinh_album WHERE quanSatId = ?', [r.id]);
+      if (daCo) return daCo;
+      const file = chepAnh(r.anh);
+      if (!file) return null;
+      const viTri = db.count('SELECT COUNT(*) FROM album_photos WHERE albumId = ?', [album.id]);
+      const photo = { id: db.nextId('ph'), albumId: album.id, file, caption: chuoi(cauChuyen, 200), position: viTri };
+      db.tx(() => {
+        db.insert('album_photos', photo);
+        db.datBeTrongAnh(photo.id, [r.studentId]);
+        db.insert('hanhtrinh_album', { quanSatId: r.id, albumId: album.id, photoId: photo.id, ghiLuc: new Date().toISOString() });
+      });
+      db.audit(user.id, 'hanhtrinh-anh-ve-album', r.studentId, { id: r.id, albumId: album.id });
+      return { albumId: album.id, photoId: photo.id };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function baoGiaDinhCauChuyen(r, nguoiTao) {
+    try {
+      const be = db.findStudent(r.studentId);
+      if (!be) return;
+      const hash = `#/hanhtrinh/${r.studentId}`;
+      const moi = db.first('hanhtrinh_quansat', 'SELECT cauChuyen FROM hanhtrinh_quansat WHERE id = ?', [r.id]) || {};
+      const tieuDe = `Câu chuyện về ${be.name}: ${chuoi(moi.cauChuyen, 60)}`.trim().slice(0, 120);
+      const [tuUtc, denUtc] = ngay2.khoangUtcCuaNgay(ngay2.homNay());
+      const daBao = db.first('thongbao_be',
+        "SELECT id FROM thongbao_be WHERE studentId = ? AND loai = 'hanh-trinh' AND tieuDe = ? AND taoLuc >= ? AND taoLuc < ?",
+        [be.id, tieuDe, tuUtc, denUtc]);
+      if (daBao) return;
+      tbb.gui({
+        studentId: be.id, loai: 'hanh-trinh', tieuDe,
+        noiDung: 'Cô vừa kể một câu chuyện về con và gợi ý một việc làm cùng con ở nhà. Mở Hành trình học tập để đọc.',
+        hash, nguoiTao,
+      });
+    } catch (_) { /* việc phụ */ }
+  }
 
   // Thu hồi: gỡ khỏi màn hình của gia đình, KHÔNG xoá chữ cô đã viết.
   app.post('/api/hanhtrinh/:id/thu-hoi', requireRole('teacher', 'admin'), (req, res) => {

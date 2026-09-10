@@ -394,9 +394,20 @@ App.views.hanhtrinh = {
   },
 
   // ---- Hộp thoại: câu chuyện cho gia đình (lớp 3) ----
-  moCauChuyen(id) {
+  async moCauChuyen(id) {
     const q = (this._data.quanSat || []).find(x => x.id === id);
     if (!q) return;
+    // ALBUM ĐỂ LƯU ẢNH VỀ (Đ144). Chỉ hỏi khi quan sát CÓ ảnh và chưa về album
+    // nào; danh sách là album của đúng nhóm bé, nhóm đang mở. Tải lỗi thì bỏ
+    // qua ô này — kể chuyện vẫn phải làm được khi mạng chập chờn.
+    let albums = [];
+    if (q.anh && !q.daVeAlbum) {
+      try {
+        const be = (App.state.students || []).find(s => s.id === q.studentId) || {};
+        albums = (await API.get('/api/albums') || [])
+          .filter(a => a.classId === be.classId && !a.lopDaDong);
+      } catch (_) { albums = []; }
+    }
     UI.modal(`
       <div class="small" style="line-height:1.6;margin-bottom:12px">
         <b>${UI.esc(q.hoTen || '')}</b> — ${UI.esc(q.moTa || '')}
@@ -412,6 +423,16 @@ App.views.hanhtrinh = {
         <div class="hint">5–10 phút, đồ có sẵn trong nhà, không cần màn hình.
           Đây là <b>lời rủ chơi</b> gửi gia đình, không phải việc phải nộp lại cho cô.</div>
       </div>
+      ${q.daVeAlbum ? `<div class="hint mb-8">🖼️ Ảnh của quan sát này đã lưu về album <b>${UI.esc(q.daVeAlbum.title)}</b>.</div>` : ''}
+      ${albums.length ? `
+      <div class="field">
+        <label>Lưu ảnh về album</label>
+        <select id="ht-album">
+          <option value="">Không lưu về album</option>
+          ${albums.map(a => `<option value="${UI.esc(a.id)}">${UI.esc(a.title)}${a.cheDo === 'theo-the' ? ' (theo thẻ)' : ''}</option>`).join('')}
+        </select>
+        <div class="hint">Ảnh được chép sang album đã chọn và gắn thẻ bé, để gia đình về sau vào Album ảnh tìm lại cho tiện.</div>
+      </div>` : ''}
       <div class="grid-2">
         <button class="btn outline" id="ht-luu-nhap">${q.daCongBo ? 'Lưu thay đổi' : 'Lưu nháp'}</button>
         <button class="btn success-soft" id="ht-cong-bo">${UI.icon('send', 16)} Kể cho gia đình</button>
@@ -437,7 +458,8 @@ App.views.hanhtrinh = {
     };
     document.getElementById('ht-cong-bo').onclick = async () => {
       try {
-        await API.post(`/api/hanhtrinh/${encodeURIComponent(id)}/cong-bo`, doc());
+        const albumId = (document.getElementById('ht-album') || {}).value || '';
+        await API.post(`/api/hanhtrinh/${encodeURIComponent(id)}/cong-bo`, { ...doc(), ...(albumId ? { albumId } : {}) });
         UI.toast('Đã gửi câu chuyện tới gia đình', 'success');
         UI.closeModal();
         App.route();

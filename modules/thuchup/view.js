@@ -326,20 +326,25 @@ App.views.thuchup = {
     if (!moDuoc.length) {
       return UI.toast('Cả nhóm đều đã dừng phần hồ sơ học tập — cô ghi ở Nhật ký ngày nhé', 'error');
     }
+    // NHIỀU BÉ MỘT LƯỢT (Đ144, nhà trường 07/09: "ghi nhanh có thể tag tên
+    // nhiều trẻ cùng lúc"). `_beChon` là tập các bé đang chọn; `_be` giữ bé
+    // chọn gần nhất để lần sau mở lại vẫn sẵn bé đó như trước.
     this._be = this._be && moDuoc.some(s => s.id === this._be) ? this._be : moDuoc[0].id;
+    this._beChon = new Set([this._be]);
 
     UI.modal(`
       ${dataUrl ? `<img src="${dataUrl}" alt=""
         style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:12px">` : ''}
-      <div class="field"><label>Bé nào?</label>
+      <div class="field"><label>Bé nào? <span class="muted small" style="font-weight:400">— bấm thêm để chọn nhiều bé</span></label>
         <div id="tc-be" style="display:flex;flex-wrap:wrap;gap:8px">
           ${ds.map(s => {
             const ngung = this._ngungHoSo && this._ngungHoSo.has(s.id);
-            return `<button type="button" class="btn sm ${s.id === this._be ? 'primary' : 'outline'}"
+            return `<button type="button" class="btn sm ${this._beChon.has(s.id) ? 'primary' : 'outline'}"
               data-id="${UI.esc(s.id)}"${ngung ? ' disabled style="opacity:.45"' : ''}
               >${UI.esc(s.name)}${ngung ? ' 🔒' : ''}</button>`;
           }).join('')}
         </div>
+        <div class="hint" id="tc-be-dem">Đang chọn 1 bé.</div>
         ${ds.some(s => this._ngungHoSo && this._ngungHoSo.has(s.id)) ? `
           <div class="hint">Bé có dấu 🔒 là gia đình đã dừng phần hồ sơ học tập.
           Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường.</div>` : ''}
@@ -354,10 +359,18 @@ App.views.thuchup = {
     hop.onclick = (e) => {
       const b = e.target.closest('button[data-id]');
       if (!b) return;
-      this._be = b.dataset.id;
+      const id = b.dataset.id;
+      // Bấm lại bé đang chọn là bỏ chọn — nhưng không bao giờ về rỗng.
+      if (this._beChon.has(id) && this._beChon.size > 1) this._beChon.delete(id);
+      else this._beChon.add(id);
+      this._be = id;
       [...hop.querySelectorAll('button')].forEach(x => {
-        x.className = 'btn sm ' + (x.dataset.id === this._be ? 'primary' : 'outline');
+        x.className = 'btn sm ' + (this._beChon.has(x.dataset.id) ? 'primary' : 'outline');
       });
+      const dem = document.getElementById('tc-be-dem');
+      if (dem) dem.textContent = this._beChon.size === 1
+        ? 'Đang chọn 1 bé.'
+        : `Đang chọn ${this._beChon.size} bé — mỗi bé một bản ghi riêng, cùng ảnh và cùng ghi chú.`;
     };
     setTimeout(() => document.getElementById('tc-note').focus(), 50);
     document.getElementById('tc-luu').onclick = () => this.luu(dataUrl);
@@ -370,27 +383,35 @@ App.views.thuchup = {
     }
     const giay = (Date.now() - this._moLuc) / 1000;
 
-    const rec = {
+    // MỖI BÉ MỘT BẢN GHI, MỖI BẢN GHI MỘT MÃ. Máy chủ giữ nguyên hình dạng "một
+    // bản ghi = một bé" (lớp 1 của hồ sơ học tập là của TỪNG bé — xoá, kéo sang
+    // Hành trình, hay gia đình rút đồng ý đều theo từng bé). Chọn ba bé là ba
+    // lượt gửi, cùng ảnh, cùng ghi chú, cùng số giây đo được.
+    const cacBe = [...(this._beChon && this._beChon.size ? this._beChon : [this._be])];
+    const recs = cacBe.map(studentId => ({
       id: this.maMoi(),
-      studentId: this._be,
+      studentId,
       dataUrl,
       note,
       giay: Math.round(giay * 10) / 10,
       ngoaiTuyen: !navigator.onLine,
       taoLuc: new Date().toISOString(),
       luuLuc: Date.now(),
-    };
+    }));
+    const rec = recs[0];
 
     // Lưu vào máy TRƯỚC. Từ giây này bài ghi của cô không mất nữa, dù mạng thế
     // nào. Việc gửi lên máy chủ là chuyện xảy ra sau và có thể thất bại.
     try {
-      await this.luuVaoMay(rec);
+      for (const r of recs) await this.luuVaoMay(r);
     } catch (err) {
       return UI.toast('Máy không lưu được, cô thử lại giúp', 'error');
     }
 
     UI.closeModal();
-    UI.toast(`Đã lưu trong ${rec.giay} giây`, 'success');
+    UI.toast(recs.length > 1
+      ? `Đã lưu cho ${recs.length} bé trong ${rec.giay} giây`
+      : `Đã lưu trong ${rec.giay} giây`, 'success');
     App.route();
     this.guiHangDoi().then(({ gui }) => { if (gui) App.route(); });
   },
