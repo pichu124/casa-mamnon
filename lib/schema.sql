@@ -496,6 +496,25 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notif_order ON notifications(pinned DESC, createdAt DESC);
 
+-- ===== CHẾ ĐỘ CỦA MỘT ALBUM (Đ144) =====
+--
+-- Nhà trường 07/09: "cho thêm lựa chọn khi tạo album: có những album công khai
+-- toàn gia đình ở lớp xem được mà không cần tag nhiều lần, còn những album thì
+-- tag tên từng bé". Hai chế độ:
+--
+--   'cong-khai' — MỌI gia đình trong nhóm thấy album (vẫn qua luật đồng ý chia
+--                 sẻ của `locAnhChoNguoiXem`, không có lối tắt nào ở đây).
+--   'theo-the'  — gia đình CHỈ thấy tấm ảnh có con mình được gắn thẻ; ảnh chưa
+--                 gắn thẻ chưa hiện với gia đình nào. Album cá nhân hoá.
+--
+-- KHÔNG CÓ DÒNG = 'cong-khai': đúng cách mọi album đang có đang hiện. Bảng
+-- riêng chứ không phải cột mới: `albums` là bảng đã có dữ liệu, không ALTER.
+CREATE TABLE IF NOT EXISTS album_che_do (
+  albumId  TEXT PRIMARY KEY REFERENCES albums(id) ON DELETE CASCADE,
+  cheDo    TEXT NOT NULL DEFAULT 'cong-khai',
+  ghiLuc   TEXT
+);
+
 -- ===== THÔNG BÁO RIÊNG CHO GIA ĐÌNH MỘT BÉ (Đ137) =====
 --
 -- `notifications` là thông báo CỦA NHÀ TRƯỜNG gửi cả nhóm hay cả trường. Nhà
