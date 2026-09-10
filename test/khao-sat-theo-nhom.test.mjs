@@ -14,9 +14,11 @@
 // Luật ai-tạo-được-cho-nhóm-nào mượn nguyên của Thông báo (test/thong-bao-
 // pham-vi.test.mjs canh phía đó): cô → nhóm mình; văn phòng → nhóm trong cơ
 // sở mình.
+import fs from 'fs';
+import path from 'path';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, khoaVaoCoSo,
+  taoBoDem, taoReq, taoLogin, khoaVaoCoSo, GOC,
 } from './_chung.mjs';
 
 const DIR = thuMucTam('khao-sat-theo-nhom');
@@ -188,6 +190,65 @@ console.log('\n[6] Đóng khảo sát: người tạo, quản trị trong phạm
   // Người tạo vẫn mở lại được kết quả của mình dù khảo sát đã đóng.
   const cuaCo = await req('GET', `/api/surveys/${ks}`, { cookie: gv.cookie });
   check('cô tạo vẫn đọc được kết quả sau khi đóng', cuaCo.status === 200 && cuaCo.data?.status === 'closed', cuaCo.status);
+}
+
+// ===========================================================================
+console.log('\n[7] TẠO KHẢO SÁT THÌ GIA ĐÌNH ĐƯỢC BÁO — và báo đúng phạm vi (Đ145)');
+{
+  // Nhà trường 07/09 xếp khảo sát ĐỨNG ĐẦU danh sách "cần phải có thông báo
+  // tới phụ huynh". Đợt Đ137 nối chín loại nội dung mà bỏ sót đúng loại này:
+  // khảo sát tạo xong nằm im trong tab Khảo sát, gia đình không mở tab đó thì
+  // hết hạn mà không hề biết có ai hỏi mình.
+  const tinNhaTruong = async (cookie) =>
+    ((await req('GET', '/api/notifications', { cookie })).data || []);
+  const tinRieng = async (cookie) =>
+    ((await req('GET', '/api/notifications/rieng-be', { cookie })).data || []);
+
+  const riengTruoc = (await tinRieng(phC1.cookie)).length;
+
+  // --- khảo sát của MỘT NHÓM ---
+  const rNhom = await tao(gv.cookie, { audience: 'class', title: 'Ý kiến về buổi dã ngoại c1' });
+  check('đối chứng — cô tạo được khảo sát cho nhóm mình', rNhom.status === 201, rNhom.data);
+
+  const cuaC1 = (await tinNhaTruong(phC1.cookie)).filter(n => /Ý kiến về buổi dã ngoại c1/.test(n.title || ''));
+  check('NHÀ CÓ CON TRONG NHÓM ĐÓ nhận được một thông báo', cuaC1.length === 1, cuaC1.map(n => n.title));
+  check('thông báo gọi đúng tên khảo sát và nhắc hạn trả lời',
+    /^Khảo sát mới: Ý kiến về buổi dã ngoại c1$/.test(cuaC1[0]?.title || '')
+    && /01\/01\/2030/.test(cuaC1[0]?.body || ''), cuaC1[0]);
+  check('xếp vào mục "Nhóm lớp" vì đây là khảo sát của một nhóm',
+    cuaC1[0]?.category === 'Nhóm lớp', cuaC1[0]?.category);
+
+  const cuaC4 = (await tinNhaTruong(phC4.cookie)).filter(n => /dã ngoại c1/.test(n.title || ''));
+  check('NHÀ NGOÀI PHẠM VI KHÔNG nhận được gì — đúng luật của chính khảo sát đó',
+    cuaC4.length === 0, cuaC4.map(n => n.title));
+
+  check('KHÔNG đi đường tin riêng từng bé: khảo sát hỏi cả nhóm, không hỏi về một đứa trẻ',
+    (await tinRieng(phC1.cookie)).length === riengTruoc, { truoc: riengTruoc, sau: (await tinRieng(phC1.cookie)).length });
+
+  // --- khảo sát TOÀN TRƯỜNG ---
+  const rTruong = await tao(bgh.cookie, { title: 'Khảo sát chất lượng bữa ăn toàn trường' });
+  check('đối chứng — hiệu trưởng tạo được khảo sát toàn trường', rTruong.status === 201, rTruong.data);
+  const truongC1 = (await tinNhaTruong(phC1.cookie)).filter(n => /chất lượng bữa ăn toàn trường/.test(n.title || ''));
+  const truongC4 = (await tinNhaTruong(phC4.cookie)).filter(n => /chất lượng bữa ăn toàn trường/.test(n.title || ''));
+  check('khảo sát toàn trường thì MỌI nhà đều nhận', truongC1.length === 1 && truongC4.length === 1,
+    { c1: truongC1.length, c4: truongC4.length });
+  check('và xếp vào mục "Nhà trường"', truongC1[0]?.category === 'Nhà trường', truongC1[0]?.category);
+
+  // --- không nhân đôi ---
+  const lai = await tao(gv.cookie, { audience: 'class', title: 'Ý kiến về buổi dã ngoại c1' });
+  check('đối chứng — tạo lại khảo sát trùng tên vẫn được', lai.status === 201, lai.status);
+  const sauLai = (await tinNhaTruong(phC1.cookie)).filter(n => /Ý kiến về buổi dã ngoại c1/.test(n.title || ''));
+  check('CÙNG TÊN CÙNG NGÀY CÙNG NHÓM thì KHÔNG rung máy lần thứ hai',
+    sauLai.length === 1, sauLai.length);
+
+  // --- thông báo hỏng không được làm hỏng việc chính ---
+  const ma = fs.readFileSync(path.join(GOC, 'routes/surveys.js'), 'utf8');
+  check('gửi qua lib/thong-bao, KHÔNG tự ghi thẳng bảng notifications',
+    /tb\.guiChoNhom\(/.test(ma) && !/insert\('notifications'/.test(ma));
+  check('câu lệnh báo đứng SAU khi khảo sát đã lưu — báo hỏng thì khảo sát vẫn còn',
+    ma.indexOf("db.insert('surveys', rec)") < ma.indexOf('tb.guiChoNhom('));
+  check('truyền thẳng rec.audience, không rẽ nhánh riêng cho toàn trường',
+    /guiChoNhom\(\[rec\.audience\]/.test(ma));
 }
 
 sv.dung();

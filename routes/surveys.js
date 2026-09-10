@@ -1,6 +1,7 @@
 // Phân hệ Khảo sát: giáo viên tạo / đóng khảo sát, phụ huynh trả lời.
 const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
+const tb = require('../lib/thong-bao');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -369,6 +370,31 @@ module.exports = (app) => {
       questions: qs,
     };
     db.insert('surveys', rec);
+
+    // BÁO CHO GIA ĐÌNH BIẾT CÓ KHẢO SÁT MỚI (Đ145).
+    //
+    // Nhà trường 07/09 xếp khảo sát ĐỨNG ĐẦU danh sách "cần phải có thông báo
+    // tới phụ huynh". Đợt Đ137 nối chín loại nội dung vào đường thông báo mà
+    // bỏ sót đúng loại trường nhắc trước nhất: khảo sát tạo xong thì nằm im
+    // trong tab Khảo sát, gia đình không mở tab đó thì hết hạn mà không biết.
+    //
+    // ĐI ĐƯỜNG THÔNG BÁO CỦA NHÀ TRƯỜNG, KHÔNG PHẢI TIN RIÊNG TỪNG BÉ. Khảo
+    // sát hỏi cả trường hay cả nhóm, không hỏi về một đứa trẻ — gửi nó qua
+    // `thongbao_be` là vừa sai nghĩa vừa nhân bản một câu hỏi thành N tin.
+    //
+    // `rec.audience` dùng ĐÚNG quy ước của cột `notifications.audience`:
+    // 'all' là cả trường, còn lại là mã nhóm. Hai bảng chung một quy ước nên
+    // truyền thẳng được, không phải rẽ nhánh.
+    //
+    // Việc phụ: `guiChoNhom` tự nuốt lỗi, nên thông báo hỏng cũng không làm
+    // hỏng việc chính là tạo khảo sát.
+    tb.guiChoNhom([rec.audience], {
+      title: `Khảo sát mới: ${rec.title}`,
+      body: `Nhà trường mong gia đình trả lời giúp trước ngày ${rec.deadline.split('-').reverse().join('/')}.`,
+      category: rec.audience === 'all' ? 'Nhà trường' : 'Nhóm lớp',
+      createdBy: req.user.id,
+    });
+
     db.audit(req.user.id, 'survey-create', rec.id, { audience: rec.audience });
     res.status(201).json(summary(rec, req.user, []));
   });
