@@ -84,13 +84,13 @@ npm run ban-thu
 ```
 
 **Một lệnh, làm hết năm bước đầu.** Nó dựng thư mục dữ liệu thử ở ngoài kho mã,
-sinh dữ liệu mẫu, **bật đủ tám phân hệ mầm non**, đổi mật khẩu của cả 13 tài
+sinh dữ liệu mẫu, **bật đủ chín phân hệ mầm non**, đổi mật khẩu của cả 13 tài
 khoản mẫu sang một mật khẩu mới ngẫu nhiên, tạo tài khoản quản trị, rồi in ra
 một bảng: tài khoản, địa chỉ trong mạng nội bộ, và lời nhắc HTTPS ở mục 1.
 
 Bảng mật khẩu chỉ in **một lần**. Chép lại trước khi đóng cửa sổ.
 
-> **Vì sao phải bật đủ tám phân hệ, không phải một.** Bản trước của phiếu này
+> **Vì sao phải bật đủ chín phân hệ, không phải một.** Bản trước của phiếu này
 > bảo bật đúng "Ghi nhanh". Nhưng một ngày của cô đi qua Nhật ký ngày, Đón trả
 > bé, Báo ăn, Hành trình… — bật một cái là cô ngồi thử một app KHÁC HẲN app
 > trường sẽ dùng, và mọi thứ đo được hôm đó nói về app kia.

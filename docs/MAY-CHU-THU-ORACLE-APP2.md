@@ -203,7 +203,7 @@ gì tiếp. Phần nó nhắc về `cloudflared` thì bỏ qua: ở máy này Ca
 
 > Vì sao không `node data/seed.js` rồi `create-admin` như lần dựng app 1: app 2
 > ở chế độ production **cố ý dừng** nếu còn tài khoản dùng mật khẩu mẫu
-> `123456`, và tám phân hệ mầm non **tắt sẵn** — hai thứ bàn thử đã lo, làm tay
+> `123456`, và chín phân hệ mầm non **bật sẵn** (Đ146) — hai thứ bàn thử đã lo, làm tay
 > thì hay sót.
 
 ### Bước 6. Dịch vụ tự bật lại
@@ -495,7 +495,7 @@ gì tiếp. Phần nó nhắc về `cloudflared` thì bỏ qua: ở máy này Ca
 
 > Vì sao không `node data/seed.js` rồi `create-admin` như lần dựng app 1: app 2
 > ở chế độ production **cố ý dừng** nếu còn tài khoản dùng mật khẩu mẫu
-> `123456`, và tám phân hệ mầm non **tắt sẵn** — hai thứ bàn thử đã lo, làm tay
+> `123456`, và chín phân hệ mầm non **bật sẵn** (Đ146) — hai thứ bàn thử đã lo, làm tay
 > thì hay sót.
 
 ### Bước 6. Dịch vụ tự bật lại

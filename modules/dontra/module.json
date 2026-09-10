@@ -8,7 +8,7 @@
   "bg": "linear-gradient(135deg,#5ec2a6,#2f9e7e)",
   "api": ["/api/dontra"],
   "roles": ["parent", "teacher", "admin"],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "gopVao": { "view": "attendance", "vai": ["teacher"] },
   "version": "0.1.0"
 }

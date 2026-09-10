@@ -8,6 +8,6 @@
   "bg": "linear-gradient(135deg,#6fbf8b,#3f9d6a)",
   "api": ["/api/hanhtrinh"],
   "roles": ["parent", "teacher", "admin"],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "version": "0.1.0"
 }

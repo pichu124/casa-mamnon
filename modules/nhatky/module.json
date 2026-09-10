@@ -15,6 +15,6 @@
     "teacher",
     "admin"
   ],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "version": "0.1.0"
 }

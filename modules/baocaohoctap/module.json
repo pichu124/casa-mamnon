@@ -8,6 +8,6 @@
   "bg": "linear-gradient(135deg,#5eaf8c,#2f8f68)",
   "api": ["/api/baocaohoctap"],
   "roles": ["teacher", "admin", "parent"],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "version": "0.1.0"
 }

@@ -13,6 +13,6 @@
     "parent",
     "admin"
   ],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "version": "1.0.0"
 }

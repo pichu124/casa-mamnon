@@ -364,7 +364,7 @@ QUY TẮC 4 cấm, và phải hỏi nhà trường trước.
 
 ## 20. Dữ liệu mẫu của phân hệ TẮT SẴN trong kiểm thử, BẬT SẴN cho người dùng
 
-**Chọn:** `npm run seed` sinh dữ liệu mẫu cho cả tám phân hệ mầm non. Bộ kiểm
+**Chọn:** `npm run seed` sinh dữ liệu mẫu cho cả chín phân hệ mầm non. Bộ kiểm
 thử thì tắt nó đi (`CASA_SEED_PHAN_HE=0`), trừ một bài duy nhất bật lên để canh
 chính đường đó.
 

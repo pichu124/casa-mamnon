@@ -20,15 +20,14 @@ canh được, phải có người thật bấm thử.
 
 ## 0. Nếu chỉ làm được một việc trước buổi thử tới
 
-**Bật phân hệ.** Cả chín phân hệ mầm non đang `defaultEnabled: false` — nghĩa là toàn bộ
-công sức đợt 2 (Nhật ký Đ141, Kế hoạch Đ142, Cambridge Đ143, Hành trình và Album Đ144,
-Báo cáo, Ghi nhanh, Báo ăn, Học phí, Đón trả) trường mở app ra sẽ **không thấy gì**. Hai
-buổi thử trước trường đã hỏi "sao chưa thấy phần chụp ảnh" đúng vì lẽ đó. Bật là gia
-đình bắt đầu nhìn thấy dữ liệu thật, nên tôi không tự bật — cần anh chốt danh sách bật
-những phân hệ nào.
+**~~Bật phân hệ~~ — ĐÃ LÀM Đ146.** Cả chín phân hệ mầm non nay `defaultEnabled: true`,
+tắt lại được bất cứ lúc nào ở Quản trị → Tính năng. Trước đó cả chín tắt sẵn, nên suốt
+hai buổi trường bấm thử không ai thấy Nhật ký, Kế hoạch hay Cambridge — trường mở app ra
+rồi hỏi "sao chưa thấy phần chụp ảnh".
 
-> Nhân đây: `docs/TIEN-DO.md:23` — tệp anh đọc đầu tiên — đang ghi **"tám phân hệ"**,
-> đếm thật là **chín**. Con số sai ở đúng chỗ dễ tin nhất.
+Con số "tám phân hệ" ghi sai ở `docs/TIEN-DO.md`, `scripts/ban-thu.js`,
+`docs/PHEP-THU-DIEN-THOAI.md`, `docs/QUYET-DINH-TU-CHOT.md` và
+`docs/MAY-CHU-THU-ORACLE-APP2.md` cũng đã sửa thành **chín** trong cùng đợt.
 
 ---
 
@@ -41,7 +40,7 @@ HOI-TRUONG-0709.md` vẫn là nơi ghi chín điểm gốc; ở đây là bản 
 
 ### A1 — Trước buổi trường bấm thử tới
 
-**Bật phân hệ nào cho buổi thử tới — CHÍN phân hệ đang TẮT hết**
+**~~Bật phân hệ nào cho buổi thử tới — CHÍN phân hệ đang TẮT hết~~ — ĐÃ LÀM Đ146**
 
 Cả 9 phân hệ mầm non đều defaultEnabled:false, gồm toàn bộ công sức đợt 2 (nhatky Đ141,
 kehoachbe Đ142, cambridge Đ143, hanhtrinh Đ144, baocaohoctap, thuchup, tienan, hocphi,

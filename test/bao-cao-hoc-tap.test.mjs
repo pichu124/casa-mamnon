@@ -25,7 +25,7 @@
 //      hai vế: có lấy được chữ sang thật, và lấy xong thì bản báo cáo VẪN
 //      TRỐNG cho tới khi cô tự điền. Kèm chốt chặn: tắt Kế hoạch của bé thì
 //      đường này không đọc được một dòng nào của bảng bên đó.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, MAU, GOC, HOM_NAY } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, tatPhanHe, MAU, GOC, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -40,6 +40,9 @@ const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'bcht_qt');
 const DIR2 = thuMucTam('bao-cao-hoc-tap-2');
 sinhDuLieu(DIR2, { phanHe: true });
 batPhanHe(DIR2, ['baocaohoctap']);
+// Máy chủ thứ hai tồn tại để thử ĐÚNG cảnh "Kế hoạch của bé đang tắt". Từ Đ146
+// phân hệ đó bật sẵn, nên phải tắt tường minh — mượn mặc định là bài tự xanh.
+tatPhanHe(DIR2, ['kehoachbe']);
 const mkQt2 = taoQuanTri(DIR2, 'Hiệu Trưởng', 'bcht_qt2');
 
 const { BASE, dung } = await dungMayChu({ port: 4593, dir: DIR });

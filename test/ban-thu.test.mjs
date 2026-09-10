@@ -71,8 +71,25 @@ console.log('\n[2] ĐỦ CÁC PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳ
   const camThem = modules.moRong().map(m => m.key);
   check(`kho mã có đúng ${SO_CAM_THEM} phân hệ cắm thêm`, camThem.length === SO_CAM_THEM, camThem);
 
-  const chuaBat = camThem.filter(k => dong.get(k) !== true);
-  check('TẤT CẢ đều được bật trong cơ sở dữ liệu bàn thử', chuaBat.length === 0, chuaBat);
+  // HỎI TRẠNG THÁI CÓ HIỆU LỰC, KHÔNG HỎI MỖI BẢNG CÀI ĐẶT — cùng bài học đã
+  // ghi ở phép kiểm "năm phân hệ phải TẮT" bên dưới, nay áp cho cả chiều BẬT.
+  //
+  // Từ Đ146 chín phân hệ mầm non `defaultEnabled: true`, nên `ban-thu` không
+  // còn ghi dòng nào vào `module_settings` (nó chỉ ghi khi phân hệ đang tắt).
+  // Đọc thẳng bảng thì thấy rỗng và kết luận "chưa bật" — sai, chúng đang bật.
+  // Điều bàn thử phải bảo đảm là TRẠNG THÁI CÓ HIỆU LỰC, đúng luật máy chủ
+  // dùng lúc chạy thật: có dòng thì theo dòng, không thì theo mặc định.
+  const batHieuLuc = (k) => {
+    if (dong.has(k)) return dong.get(k);
+    const m = modules.timTheoKey(k);
+    return m ? m.defaultEnabled !== false : false;
+  };
+  const chuaBat = camThem.filter(k => batHieuLuc(k) !== true);
+  check('TẤT CẢ đều bật có hiệu lực trên bàn thử', chuaBat.length === 0, chuaBat);
+  // ĐỐI CHỨNG: phép hỏi trên phải biết nói KHÔNG, nếu không thì dòng trên xanh
+  // vì nó luôn trả true chứ không phải vì chín phân hệ kia đang bật thật.
+  check('đối chứng — phép hỏi này biết nói KHÔNG với một phân hệ đã tắt',
+    batHieuLuc('nenep') === false, batHieuLuc('nenep'));
 }
 
 // ===========================================================================

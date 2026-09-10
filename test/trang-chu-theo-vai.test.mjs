@@ -62,11 +62,37 @@ console.log('\n[1] Cô một nhóm: /hom-nay không cần chọn nhóm, trả đ
   const be = r.data ? r.data.be[0] : null;
   check('mỗi bé có đủ các ô trạng thái việc', be && ['diemDanh', 'nghiCoPhep', 'donCho', 'thuoc', 'nhatKy', 'daTra']
     .every(k => k in be), be);
+  // TẮT THÌ null, BẬT THÌ SỐ — và bài này tự dựng lấy cả hai vế.
+  //
+  // Đây là bài học Đ112: `null` nghĩa là "phân hệ đang tắt, đừng vẽ ô này",
+  // còn `0` nghĩa là "phân hệ đang bật mà chưa ai ghi gì". Lẫn hai thứ đó là
+  // màn hình của cô hiện một ô trống trách cô chưa làm việc chưa hề tồn tại.
+  //
+  // Bản cũ mượn `defaultEnabled: false` làm điều kiện đầu vào nên Đ146 đổi mặc
+  // định là đỏ, dù hành vi không hỏng. Nay tự tắt rồi tự bật lại, canh ĐỦ HAI
+  // CHIỀU — mạnh hơn bản cũ, vì bản cũ không bao giờ thử chiều đang bật.
+  for (const k of ['nhatky', 'dontra']) {
+    await req('PUT', `/api/admin/modules/${k}`, { cookie: bgh.cookie, body: { enabled: false } });
+  }
+  const rTat = (await homNayCua(gv.cookie)).data;
+  const beTat = rTat ? rTat.be[0] : null;
   check('phân hệ nhật ký TẮT → vế nhật ký là null, không phải 0',
-    r.data && r.data.phanHe.nhatky === false && r.data.dem.nhatKyDaGhi === null && be.nhatKy === null,
-    r.data && { ph: r.data.phanHe, dem: r.data.dem.nhatKyDaGhi, be: be.nhatKy });
+    rTat && rTat.phanHe.nhatky === false && rTat.dem.nhatKyDaGhi === null && beTat.nhatKy === null,
+    rTat && { ph: rTat.phanHe, dem: rTat.dem.nhatKyDaGhi, be: beTat.nhatKy });
   check('phân hệ đón trả TẮT → vế đón trả là null',
-    r.data && r.data.dem.daTra === null && be.daTra === null);
+    rTat && rTat.dem.daTra === null && beTat.daTra === null);
+
+  for (const k of ['nhatky', 'dontra']) {
+    await req('PUT', `/api/admin/modules/${k}`, { cookie: bgh.cookie, body: { enabled: true } });
+  }
+  const rBat = (await homNayCua(gv.cookie)).data;
+  const beBat = rBat ? rBat.be[0] : null;
+  check('BẬT LẠI → vế nhật ký thành SỐ, không còn null',
+    rBat && rBat.phanHe.nhatky === true && typeof rBat.dem.nhatKyDaGhi === 'number' && beBat.nhatKy !== null,
+    rBat && { ph: rBat.phanHe, dem: rBat.dem.nhatKyDaGhi, be: beBat.nhatKy });
+  check('và vế đón trả cũng thành số',
+    rBat && typeof rBat.dem.daTra === 'number' && beBat.daTra !== null,
+    rBat && { dem: rBat.dem.daTra, be: beBat.daTra });
   const chuaCo = r.data ? r.data.be.filter(b => !b.diemDanh).length : 0;
   check('"chưa điểm danh" đếm đúng số bé chưa có dòng', r.data && r.data.dem.chuaDiemDanh === chuaCo,
     r.data && [r.data.dem.chuaDiemDanh, chuaCo]);

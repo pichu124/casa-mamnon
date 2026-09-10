@@ -37,6 +37,12 @@ quy tắc, với quyết định của anh, hay tốn kém tới mức cần anh
 
 Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sửa thì tốn gì**.
 
+> **NHÀ TRƯỜNG ĐÃ TRẢ LỜI ĐỦ CHÍN ĐIỂM NGÀY 10/09.** Câu trả lời của trường ghi
+> ngay dưới từng mục, bắt đầu bằng **→ Trường 10/09**. Bốn mục chốt LÀM (1 phần
+> lịch nghỉ, 2, 5, 6, 7, 9), một mục chốt KHÔNG LÀM (3), một mục HOÃN (4), một
+> mục đã xong từ trước (8). Việc phát sinh từ các câu trả lời này nằm ở
+> `docs/VIEC-CON-LAI.md`.
+
 1. **"Không xin nghỉ → auto Nghỉ KP"** (DD-02). *Thấy:* trường muốn máy tự
    ghi nghỉ không phép cho bé không có ảnh. *Hỏng:* máy tự ghi lúc nào? Ghi lúc
    7h30 là ghi vắng cho cả nhóm đang trên đường tới; ghi nửa đêm là ghi cả thứ
@@ -46,41 +52,94 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    nhận, ghi một lượt cho mọi bé chưa có dòng. *Nếu vẫn muốn tự động:* cần
    trường chốt một giờ cố định và cần lịch ngày học/nghỉ lễ trước — thêm khoảng
    một buổi.
+
+   > **→ Trường 10/09:** *"đồng ý là sẽ k để tự động, văn phòng sẽ tự tích là
+   > nghỉ có phép hay k phép sau"* — giữ nguyên nút Chốt sổ vắng. **NHƯNG thêm
+   > một việc mới:** *"cần thêm phần set lịch được ghi nhận là nghỉ có phép để
+   > hoàn tiền ăn, như nghỉ lễ theo lịch nhà nước, lịch nghỉ hè tết của
+   > trường"*. Tức là app cần **lịch nghỉ của trường**: văn phòng đặt trước các
+   > ngày nghỉ lễ / hè / Tết, và ngày đó tự tính là nghỉ CÓ PHÉP để hoàn tiền
+   > ăn, không cần từng nhà xin nghỉ. Đây chính là thứ tôi nói là còn thiếu khi
+   > từ chối làm tự động — nay trường đồng ý làm nó trước. **→ làm.**
 2. **"Sổ đón trả bé không cần thiết, bỏ cũng được"** (DD-16). *Thấy:* mâu
    thuẫn trực tiếp với Đ125–Đ128 anh vừa quyết (gộp vào Điểm danh, trả bé bằng
    ảnh). Và cột **"Ra về HH:MM"** trong ảnh mẫu của chính trường *chính là*
    dữ liệu sổ trả bé. *Nếu bỏ:* chỉ **tắt** trong Quản trị → Tính năng, không
    xoá gì; nhưng khi đó mất giờ ra về và ảnh lúc trả. Tôi khuyên giữ.
+
+   > **→ Trường 10/09:** vẫn **bỏ mục đăng ký đón trả**, lý do rõ hơn lần trước:
+   > *"trường khi đón trả bé đã đăng ký bằng file giấy rồi, mình nghĩ điền file
+   > giấy lưu vết sẽ an toàn hơn cho trường"*; đón thay một lần thì *"PH sẽ nhắn
+   > tin với văn phòng để thông báo"*. Phần tôi lo mất — giờ ra về và ảnh lúc
+   > trả — trường giữ lại nguyên vẹn ở chỗ khác: *"đón trẻ muốn tích hợp luôn
+   > vào phần điểm danh, sẽ chia ra 2 phần là vào lớp và ra về luôn bằng hình
+   > ảnh"*, tức đúng Đ126/Đ128 đã làm. **Kèm một việc mới:** giao diện phụ huynh
+   > phải **nhắn tin với LỚP và nhắn tin với VĂN PHÒNG**, *"chứ mình cũng k muốn
+   > là nhắn tin với từng cô riêng lẻ"*; GVCN là người nói chuyện chính, sau có
+   > thể thêm giáo viên nước ngoài. **→ bỏ phần đăng ký, làm phần nhắn tin.**
 3. **Nhận diện khuôn mặt trẻ trong album** (AL-04). *Thấy:* bị cấm ở N18 và
    CLAUDE.md — dữ liệu sinh trắc của trẻ dưới 6 tuổi, nhóm nhạy cảm nhất theo
    Nghị định 13/2023. **Không làm.** Thay thế: gắn thẻ nhanh nhiều bé một lúc
    (GN-01, AL-01) — làm được ở đợt 2.
+
+   > **→ Trường 10/09:** *"ok k hỗ trợ được thôi"*. **→ không làm, khép mục.**
 4. **AI viết nhận xét cho báo cáo tháng** (BC-03). *Thấy:* QUY TẮC 3 — AI chỉ
    được tạo **nháp chờ cô duyệt**, không tự ghi vào hồ sơ. Làm được, nhưng là
    việc *rất lớn* (nối dịch vụ AI, chi phí theo lượt, bài canh QUY TẮC 3 đang
    chờ sẵn). Cần anh chốt: dùng dịch vụ nào, ai trả phí, dữ liệu bé có được gửi
    ra ngoài không (pháp lý). Đề nghị để sau cổng DỪNG GĐ 2.
+
+   > **→ Trường 10/09:** xác nhận đúng ý muốn (*"AI viết vắn tắt từ phần kế
+   > hoạch riêng của từng bé ra, sau đó cô sẽ tự tuốt lại câu từ"* — đúng QUY
+   > TẮC 3, nháp chờ cô duyệt), và **hoãn**: *"nếu tốn tiền để làm thì lưu lại
+   > việc này để làm sau, tạm thời để cô tự viết cũng được"*. **→ hoãn, không
+   > làm đợt này.**
+   >
+   > Trường có hỏi lại một câu cần trả lời cho rõ: *"PH chỉ nhìn được báo cáo
+   > của con mình nên đâu là gửi ra ngoài?"* — "ra ngoài" tôi nói **không phải**
+   > là lộ sang phụ huynh khác. Nó là: để AI viết hộ thì tên bé, ngày sinh và
+   > nhận định của cô phải **rời máy chủ của trường, đi tới máy của một công ty
+   > khác**. Đó mới là chỗ Nghị định 13/2023 đòi có ô đồng ý riêng của gia đình.
+   > Cách làm cho an toàn có sẵn: thay tên bé bằng mã trước khi gửi đi.
 5. **Đo "sự quan tâm của phụ huynh" bằng lượt click** (Marketing). *Thấy:*
    theo dõi hành vi từng gia đình trong app chứa ảnh trẻ; chưa có trong bất kỳ
    cam kết riêng tư nào với phụ huynh. Nếu làm thì chỉ **đếm gộp theo mục**
    (bao nhiêu lượt mở Thực đơn tuần này), không theo từng người. Cần anh quyết
    có mở không.
+
+   > **→ Trường 10/09:** *"mình chỉ muốn xem PH khi vào app quan tâm những gì:
+   > kiểu về ăn uống thực đơn, hay thời gian biểu, hay kế hoạch của bé hay là
+   > hình ảnh"* — đúng bằng bản đếm GỘP THEO MỤC mà tôi đề nghị, không theo dõi
+   > từng gia đình. **→ làm, ở dạng gộp.**
 6. **Video 3–5 phút** (AL-07, HT-05). *Thấy:* trần tệp hiện 8 MB — một video
    điện thoại 3 phút nặng 150–400 MB. Làm được nhưng kéo theo: nén trên máy cô
    (chậm, tốn pin), kho ảnh đầy nhanh gấp 10 (xem N25), và băng thông máy chủ.
    Đề nghị: cho phép **video tới 60 giây** trước, đo kho ảnh vài tuần rồi mở
    tiếp; hoặc chờ object storage (N25).
+
+   > **→ Trường 10/09:** *"ok chấp nhận giảm chất lượng video để có thể upload
+   > video 3-5 phút"*. **→ làm**, đổi hướng: nén mạnh trên máy của cô để một
+   > đoạn 3–5 phút vẫn lọt trần tệp, thay vì nới trần. Vẫn phải nói trước với
+   > trường rằng đổi lại là hình sẽ mờ hơn hẳn.
 7. **Hồ sơ nhân sự đầy đủ** (CCCD, MST, vợ/chồng/con, địa chỉ…) và **điểm danh
    giáo viên / bảng chấm công**. *Thấy:* một miền dữ liệu cá nhân mới của
    người lớn, không phải của trẻ — cần quyền riêng (chỉ HR + hiệu trưởng), sao
    lưu, và cam kết với cô. Việc *lớn* (vài ngày). Đề nghị đợt 3, sau khi phần
    trẻ ổn.
+
+   > **→ Trường 10/09:** *"làm luôn cùng đợt này đi bạn. để mình có thể test
+   > luôn 1 thể về phần chấm công giáo viên, nhân viên"*. **→ làm ngay đợt
+   > này**, gồm cả hồ sơ nhân sự lẫn chấm công.
 8. **Thông báo đẩy tới từng gia đình** mỗi khi có ảnh check-in, cân đo, nhật
    ký, thực đơn… (DD-08, TD-07, SK-09, NK-05, AL-03). *Thấy:* thông báo hiện là
    **theo nhóm/toàn trường**, chưa có thông báo **riêng một bé**; và app chưa có
    đẩy (push) tới điện thoại — chỉ chuông trong app. Làm được, cần thiết kế một
    lần cho đúng (bảng thông báo theo bé + Web Push có khoá VAPID), khoảng 2–3
    ngày. Đề nghị làm ở đợt 2 vì nhiều ý của trường quy về đúng chỗ này.
+
+   > **→ Trường 10/09:** *"ok đẩy thông báo tới phụ huynh khi có bất kỳ gì từ
+   > phía nhà trường - cần làm sớm"*. **→ đã làm ở Đ137**; việc còn lại là rà
+   > cho đủ "bất kỳ gì" (khảo sát đã nối ở Đ145b) và thử trên điện thoại thật.
    **→ Đã làm ở Đ137 (đợt 2)**: bảng `thongbao_be` + Web Push, và từ đó các
    đợt Đ138–Đ144 nối vào. Mục này không còn chờ anh quyết; giữ lại để thấy vì
    sao nó là một việc nền chứ không phải năm việc lẻ.
@@ -88,6 +147,11 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    bằng cách **tắt** phân hệ, không xoá; nhưng trường cũng muốn "kế hoạch chung
    tuần" nằm đầu Lịch sinh hoạt (LSH-04) — tức cùng nội dung, chỗ khác. Cần anh
    chốt giữ ở đâu trước khi tắt.
+
+   > **→ Trường 10/09 chốt rõ chỗ giữ:** *"bỏ newsletter: gộp phần kế hoạch giáo
+   > dục và lịch sinh hoạt vào 1 tab tên là Lịch sinh hoạt, trong đó có đủ 2 nội
+   > dung là Kế hoạch giáo dục và Lịch sinh hoạt"*. **→ làm**: một tab tên **Lịch
+   > sinh hoạt**, bên trong hai phần.
 
 ---
 
