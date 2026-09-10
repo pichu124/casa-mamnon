@@ -518,16 +518,19 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
     }
     if (chanNgoaiNgay(res, ngay, 'chốt')) return;
+    // QUYỀN HỎI TRƯỚC GIỜ. Hỏi giờ trước thì lúc 7h sáng, cô nhóm khác gõ nhầm
+    // mã nhóm nhận câu "chưa tới giờ" thay vì "không phải nhóm của cô" — câu
+    // đúng phải là câu thứ hai, bất kể mấy giờ.
+    const locNhom = String((req.body || {}).classId || '');
+    if (locNhom && !db.canAccessClass(req.user, locNhom)) {
+      return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
+    }
     const gioHienTai = Number(String(nowTime()).slice(0, 2));
     if (gioHienTai < GIO_RA_SOAT) {
       return res.status(400).json({
         error: `Chốt sổ vắng chỉ làm được sau ${GIO_RA_SOAT} giờ — trước đó các cô vẫn đang đón bé.`,
         gioRaSoat: GIO_RA_SOAT,
       });
-    }
-    const locNhom = String((req.body || {}).classId || '');
-    if (locNhom && !db.canAccessClass(req.user, locNhom)) {
-      return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
     }
     const students = locNhom
       ? db.studentsOf(req.user).filter(s => s.classId === locNhom)
