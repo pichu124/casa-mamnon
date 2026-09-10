@@ -193,6 +193,28 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    > **→ Trường 10/09:** *"làm luôn cùng đợt này đi bạn. để mình có thể test
    > luôn 1 thể về phần chấm công giáo viên, nhân viên"*. **→ làm ngay đợt
    > này**, gồm cả hồ sơ nhân sự lẫn chấm công.
+   >
+   > **✅ ĐÃ LÀM — Đ152 (10/09).** Ô **"Nhân sự & chấm công"**, hai tab: Hồ sơ và
+   > Chấm công. Tắt được ở Quản trị → Tính năng như mọi phân hệ khác.
+   >
+   > **BỐN ĐIỀU XIN TRƯỜNG ĐỌC KỸ, vì đây là dữ liệu cá nhân của người lớn:**
+   >
+   > 1. **Chỉ Nhân sự và ban giám hiệu mở được** — KHÔNG phải mọi tài khoản
+   >    quản trị. Quản lý cơ sở, Văn phòng cơ sở, Kế toán, Marketing đều bị
+   >    chặn. Nếu trường muốn thêm ai thì nói, đó là một dòng khai chức vụ.
+   > 2. **Mỗi người xem được hồ sơ của chính mình** ở mục "Hồ sơ của tôi" (xem,
+   >    không sửa). Đây không phải phần thêm cho đủ: giữ số định danh, số bảo
+   >    hiểm và số tài khoản ngân hàng của một người mà chính họ không xem được
+   >    là chỗ mất lòng tin nhanh nhất. **Xin nhà trường nói trước với các cô**
+   >    rằng app đang giữ những gì và ai đọc được.
+   > 3. **App KHÔNG tính lương.** Bảng chấm công ghi số ngày công rồi xuất ra
+   >    tệp Excel cho kế toán. Hệ số, phụ cấp, thuế, bảo hiểm là miền riêng —
+   >    đoán sai một dòng ở đó là trả sai lương cho một người có thật. Trường
+   >    muốn app tính luôn thì nói, nhưng đó là một đợt riêng và cần trường đưa
+   >    đúng công thức đang dùng.
+   > 4. **Bản sao lưu từ hôm nay CÓ CHỨA số định danh của nhân viên.** `npm run
+   >    backup` chép cả tệp cơ sở dữ liệu. Nhà trường cần biết điều này khi
+   >    quyết định để bản sao lưu ở đâu và ai giữ.
 8. **Thông báo đẩy tới từng gia đình** mỗi khi có ảnh check-in, cân đo, nhật
    ký, thực đơn… (DD-08, TD-07, SK-09, NK-05, AL-03). *Thấy:* thông báo hiện là
    **theo nhóm/toàn trường**, chưa có thông báo **riêng một bé**; và app chưa có

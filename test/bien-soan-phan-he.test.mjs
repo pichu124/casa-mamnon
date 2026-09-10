@@ -59,6 +59,7 @@ const PHU = [
   { ma: 'cambridge', ten: 'Cambridge & Kết nối ở nhà', ai: 'văn phòng' },
   { ma: 'hocphi', ten: 'Học phí', ai: 'văn phòng' },
   { ma: 'baocaohoctap', ten: 'Báo cáo học tập', ai: 'nhà trường soạn mẫu + cô soạn báo cáo' },
+  { ma: 'nhansu', ten: 'Nhân sự & chấm công', ai: 'Nhân sự / ban giám hiệu' },
 ];
 
 // ===========================================================================
@@ -605,6 +606,64 @@ console.log('\n[9] Gia đình không có đường ghi ở những màn không p
     check(`${ten} — và không có đường ghi nào lọt ra`,
       await page.locator(nut).count() === 0);
   }
+}
+
+// ===========================================================================
+console.log('\n[8c] Nhân sự & chấm công — Nhân sự ghi hồ sơ và chấm công, cô chỉ thấy phần của mình');
+{
+  // Phân hệ này có hai màn hoàn toàn khác nhau dưới cùng một ô, và nửa thứ hai
+  // — cô xem hồ sơ của CHÍNH MÌNH — là nửa dễ quên nhất, vì nó không phải một
+  // đường ghi. Nhưng bỏ nó thì cả lời hứa "mỗi người xem được hồ sơ của mình"
+  // chỉ tồn tại trong bài canh máy chủ, chưa từng ai bấm thử.
+  await dangNhap('hieutruong', 'quantri2026');
+  await moMan('#/nhansu');
+  check('ban giám hiệu thấy hai tab Hồ sơ / Chấm công', await page.locator('#ns-tab [data-tab]').count() === 2);
+  const soNguoi = await page.locator('[data-mo]').count();
+  check('và danh sách người của trường có nội dung thật', soNguoi >= 2, soNguoi);
+
+  // Mở ĐÚNG hồ sơ của cô sẽ đăng nhập ở nửa sau, không lấy dòng đầu danh sách:
+  // danh sách xếp theo vai rồi theo tên, nên "dòng đầu" là ai thì tuỳ dữ liệu
+  // mẫu — và nửa sau của mục này sẽ xanh hay đỏ do may rủi.
+  const dongCuaCo = page.locator('[data-mo]', { hasText: 'Nguyễn Thị Mai Anh' });
+  check('tìm được đúng dòng của cô Mai Anh trong danh sách', await dongCuaCo.count() === 1,
+    await page.locator('[data-mo]').allInnerTexts());
+  await dongCuaCo.first().click();
+  await page.waitForSelector('#ns-chucDanh', { timeout: 8000 });
+  check('mở được hộp hồ sơ', await page.locator('#ns-cccd').count() === 1);
+  await page.fill('#ns-chucDanh', 'Cô phụ trách chính');
+  await page.fill('#ns-cccd', '079123456789');
+  await page.fill('#ns-nganHang', 'Vietcombank');
+  await page.click('#ns-luu');
+  await page.waitForTimeout(1500);
+
+  await moMan('#/nhansu');
+  const man = await chuTrenMan();
+  check('GHI XONG MỞ LẠI MÀN VẪN THẤY CHỨC DANH VỪA GHI',
+    /Cô phụ trách chính/.test(man), man.slice(0, 250));
+  check('nhưng DANH SÁCH không hiện số định danh — chỉ màn chi tiết mới có',
+    !/079123456789/.test(man), man.slice(0, 250));
+
+  await page.click('#ns-tab [data-tab="chamcong"]');
+  await page.waitForTimeout(1200);
+  check('sang được tab Chấm công', await page.locator('#ns-thang').count() === 1);
+  check('và có nút chấm cả trường một lượt', await page.locator('#ns-ca-truong').count() === 1);
+  await page.click('#ns-ca-truong');
+  await page.waitForSelector('#ns-ct-ok', { timeout: 8000 });
+  await page.click('#ns-ct-ok');
+  await page.waitForTimeout(1800);
+  check('CHẤM CẢ TRƯỜNG XONG THÌ BẢNG HIỆN SỐ CÔNG',
+    /\d+ công/.test(await chuTrenMan()), (await chuTrenMan()).slice(0, 250));
+
+  // Nửa của cô: chỉ thấy phần của mình, và không có đường ghi nào.
+  await dangNhap('giaovien', '123456');
+  await moMan('#/nhansu');
+  const manCo = await chuTrenMan();
+  check('CÔ mở cùng một ô thì thấy màn "Hồ sơ của tôi"', /hồ sơ của tôi/i.test(manCo), manCo.slice(0, 160));
+  check('và đọc được đúng hồ sơ của mình', /Cô phụ trách chính/.test(manCo), manCo.slice(0, 300));
+  check('màn nói rõ ai sửa được', /Nhân sự/.test(manCo), manCo.slice(0, 400));
+  check('cô KHÔNG có danh sách người của trường', await page.locator('[data-mo]').count() === 0);
+  check('cô KHÔNG có nút chấm công nào', await page.locator('#ns-ca-truong').count() === 0);
+  check('và KHÔNG có ô nhập nào để sửa hồ sơ', await page.locator('#ns-cccd').count() === 0);
 }
 
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs.slice(0, 3));

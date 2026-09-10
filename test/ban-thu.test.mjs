@@ -67,7 +67,8 @@ console.log('\n[2] ĐỦ CÁC PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳ
   // để cô nhìn đúng app trường sẽ dùng, nên một phân hệ mới lặng lẽ không được
   // bật là đúng thứ bài này sinh ra để bắt. Nên giữ con số, và ghi ngay cạnh
   // rằng sửa nó là việc bình thường — khác hẳn với việc nới một bộ canh.
-  const SO_CAM_THEM = 9;
+  // 9 → 10 ở Đ152 (thêm phân hệ Nhân sự & chấm công).
+  const SO_CAM_THEM = 10;
   const camThem = modules.moRong().map(m => m.key);
   check(`kho mã có đúng ${SO_CAM_THEM} phân hệ cắm thêm`, camThem.length === SO_CAM_THEM, camThem);
 
