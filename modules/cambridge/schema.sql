@@ -67,3 +67,62 @@ CREATE TABLE IF NOT EXISTS cambridge_anh_be (
   coMatBe  INTEGER NOT NULL DEFAULT 1,
   ghiLuc   TEXT
 );
+
+-- =============================================================================
+-- TRƯỜNG ĐÃ GỬI MẪU (07/09/2026) — THÊM BẢNG PHỤ, ĐÚNG NHƯ ĐÃ HỨA Ở ĐẦU TỆP
+-- =============================================================================
+--
+-- Chương trình Cambridge của trường đi theo BLOCK (mỗi block vài tuần, có mục
+-- tiêu và thời gian áp dụng từ … đến …) và WEEK. Lớp Montessori trộn 3–5 tuổi,
+-- nhưng Cambridge chỉ có hai lứa 3–4 và 4–5, nên mỗi block / mỗi bài có thể
+-- dành riêng cho một lứa. Mỗi bài tuần ghi: Hoạt động (Cambridge gọi là môn), Chủ đề, Từ vựng,
+-- Song/Chant, Kết nối ở nhà — và kèm tệp PDF / Word chứ không chỉ ảnh.
+--
+-- `cambridge_bai` GIỮ NGUYÊN: tiêu đề, khối chữ (thư gửi gia đình), ảnh, phạm
+-- vi. Phần khung đi vào bảng phụ khoá theo bài; bài không có dòng khung thì
+-- màn hình vẽ y như trước. Không một câu ALTER nào.
+
+-- Một BLOCK của chương trình: "Block 1 · 3–4 tuổi · 08/09 → 17/10 · mục tiêu…".
+-- Chương trình là của cả trường nên không gắn cơ sở hay nhóm.
+CREATE TABLE IF NOT EXISTS cambridge_block (
+  id         TEXT PRIMARY KEY,
+  ten        TEXT NOT NULL,
+  luaTuoi    TEXT NOT NULL DEFAULT '',   -- '' = cả hai lứa · '3-4' · '4-5'
+  tuNgay     TEXT NOT NULL DEFAULT '',
+  denNgay    TEXT NOT NULL DEFAULT '',
+  mucTieu    TEXT NOT NULL DEFAULT '',
+  thuTu      INTEGER NOT NULL DEFAULT 0,
+  nguoiTao   TEXT,
+  taoLuc     TEXT,
+  capNhatLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS cambridge_block_theo_thu_tu ON cambridge_block(thuTu, tuNgay);
+
+-- KHUNG của một bài: bài thuộc block nào, tuần mấy, cho lứa nào, và năm ô nội
+-- dung theo đúng mẫu trường gửi. Một bài tối đa một dòng.
+CREATE TABLE IF NOT EXISTS cambridge_bai_khung (
+  baiId      TEXT PRIMARY KEY,
+  blockId    TEXT NOT NULL DEFAULT '',
+  tuanSo     INTEGER NOT NULL DEFAULT 0,  -- 0 = không gắn tuần trong block
+  luaTuoi    TEXT NOT NULL DEFAULT '',    -- '' = cả hai lứa · '3-4' · '4-5'
+  monHoc     TEXT NOT NULL DEFAULT '',    -- hoạt động: Communication and Language / Mathematics / Let's Explore…
+  chuDe      TEXT NOT NULL DEFAULT '',
+  tuVung     TEXT NOT NULL DEFAULT '',
+  songChant  TEXT NOT NULL DEFAULT '',
+  ketNoiONha TEXT NOT NULL DEFAULT '',    -- video, worksheet, việc làm cùng con
+  ghiLuc     TEXT
+);
+CREATE INDEX IF NOT EXISTS cambridge_bai_khung_theo_block ON cambridge_bai_khung(blockId, tuanSo);
+
+-- TỆP KÈM BÀI (PDF / Word). Tên tệp trên đĩa do `lib/uploads.js` sinh; `tenGoc`
+-- là tên cô đặt, để gia đình tải về thấy "Worksheet-tuan-2.pdf" chứ không phải
+-- một chuỗi hex. Tệp đi qua canh quyền như ảnh, không phục vụ tĩnh.
+CREATE TABLE IF NOT EXISTS cambridge_tep (
+  id      TEXT PRIMARY KEY,
+  baiId   TEXT NOT NULL,
+  file    TEXT NOT NULL,
+  tenGoc  TEXT NOT NULL DEFAULT '',
+  bytes   INTEGER NOT NULL DEFAULT 0,
+  taoLuc  TEXT
+);
+CREATE INDEX IF NOT EXISTS cambridge_tep_theo_bai ON cambridge_tep(baiId);

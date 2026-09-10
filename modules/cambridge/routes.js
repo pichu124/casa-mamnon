@@ -18,6 +18,7 @@
 const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
+const tbb = require('../../lib/thong-bao-be');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const LOAI = ['cambridge', 'ket-noi'];
@@ -29,6 +30,35 @@ const TOI_DA_ANH = 6;
 const GIOI_HAN = 60;
 // Trần cho lượt hỏi tự đặt số — không để một lượt gọi kéo cả kho về.
 const TRANG_TOI_DA = 200;
+
+// KHUNG THEO MẪU TRƯỜNG GỬI 07/09 (Đ143): Block / Week / lứa tuổi, năm ô nội
+// dung, tệp PDF / Word kèm bài.
+const LUA_TUOI = ['', '3-4', '4-5'];
+const TEN_LUA_TUOI = { '': 'Cả hai lứa', '3-4': '3–4 tuổi', '4-5': '4–5 tuổi' };
+const TOI_DA_O_KHUNG = 2000;
+const TOI_DA_TEN_BLOCK = 80;
+const TOI_DA_MUC_TIEU = 4000;
+const TOI_DA_TEP = 4;
+const TOI_DA_TEN_TEP = 120;
+const TUAN_TOI_DA = 52;
+
+// LỨA CAMBRIDGE CỦA MỘT BÉ, tính từ ngày sinh ở thời điểm đang xem.
+//
+// Cambridge của trường chỉ có hai lứa: 3–4 và 4–5. Bé dưới 36 tháng chưa vào
+// chương trình (về '' — chỉ thấy bài dành cho cả hai lứa); bé từ 48 tháng
+// trở lên, kể cả bé 5 tuổi ở nhóm Lá, đi theo lứa 4–5 vì đó là lứa lớn nhất
+// chương trình có. Đây là chỗ XẾP LỚP của chương trình, không phải một nhận
+// định về bé — không so bé với "chuẩn" nào (QUY TẮC 4).
+function luaTuoiCuaBe(dob, moc) {
+  if (!dob || !NGAY_RE.test(String(dob))) return '';
+  const sinh = new Date(`${dob}T00:00:00Z`);
+  const nay = new Date(`${moc}T00:00:00Z`);
+  if (Number.isNaN(sinh.getTime()) || Number.isNaN(nay.getTime())) return '';
+  let thang = (nay.getUTCFullYear() - sinh.getUTCFullYear()) * 12 + (nay.getUTCMonth() - sinh.getUTCMonth());
+  if (nay.getUTCDate() < sinh.getUTCDate()) thang -= 1;
+  if (thang < 36) return '';
+  return thang < 48 ? '3-4' : '4-5';
+}
 
 function homNay() {
   return ngay.homNay();
@@ -72,9 +102,12 @@ module.exports = (app, { db }) => {
     }
 
     if (bai.phamVi === 'truong') return true;
-    const nhomCuaToi = db.classIdsOf(user);
-    if (bai.phamVi === 'nhom') return nhomCuaToi.includes(bai.classId);
+    // Phạm vi NHÓM đi qua `db.canAccessClass` — chính là "nhóm của mình có
+    // nhóm đó không", và là tên mà bộ canh `test/anh-qua-canh-quyen.test.mjs`
+    // nhận ra ở mọi đường trả tệp (ảnh, và từ Đ143 cả tệp PDF / Word).
+    if (bai.phamVi === 'nhom') return db.canAccessClass(user, bai.classId);
     // Phạm vi CƠ SỞ: đúng khi một trong những nhóm của mình thuộc cơ sở đó.
+    const nhomCuaToi = db.classIdsOf(user);
     return nhomCuaToi.some(cid => db.campusOfClass(cid) === bai.campusId);
   }
 
@@ -218,6 +251,55 @@ module.exports = (app, { db }) => {
     return u ? `${u.title} ${u.name}` : '';
   }
 
+  // ---- Khung, block, tệp của một bài (Đ143) ----
+  function khungCua(baiId) {
+    return db.first('cambridge_bai_khung', 'SELECT * FROM cambridge_bai_khung WHERE baiId = ?', [baiId]) || null;
+  }
+  function blockCua(id) {
+    return id ? (db.first('cambridge_block', 'SELECT * FROM cambridge_block WHERE id = ?', [id]) || null) : null;
+  }
+  function tepCua(baiId) {
+    return db.all('cambridge_tep', 'SELECT id, tenGoc, bytes, file, taoLuc FROM cambridge_tep WHERE baiId = ? ORDER BY taoLuc, rowid', [baiId])
+      .map(t => ({ id: t.id, tenGoc: t.tenGoc, bytes: t.bytes, loai: String(t.file).split('.').pop(), taoLuc: t.taoLuc }));
+  }
+  function vePhiaKhung(k) {
+    if (!k) return null;
+    const b = blockCua(k.blockId);
+    return {
+      blockId: k.blockId || '', blockTen: b ? b.ten : '',
+      tuanSo: Number(k.tuanSo) || 0, luaTuoi: k.luaTuoi || '',
+      tenLuaTuoi: TEN_LUA_TUOI[k.luaTuoi || ''] || '',
+      monHoc: k.monHoc || '', chuDe: k.chuDe || '', tuVung: k.tuVung || '',
+      songChant: k.songChant || '', ketNoiONha: k.ketNoiONha || '',
+    };
+  }
+  // Lứa Cambridge của các con một gia đình — tập rỗng với cô và văn phòng
+  // (họ xem đủ cả hai lứa, vì họ cần biết cả hai).
+  function luaTuoiCuaCon(user) {
+    if (!user || user.role !== 'parent') return null;
+    const ra = [];
+    for (const id of db.studentIdsCuaPhuHuynh(user.id)) {
+      const be = db.findStudent(id);
+      if (!be || be.active === false) continue;
+      ra.push({ studentId: be.id, ten: be.name, luaTuoi: luaTuoiCuaBe(be.dob, homNay()) });
+    }
+    return ra;
+  }
+  // Bài này có dành cho nhà này không, xét theo lứa của các con.
+  function hopLua(khung, cacCon) {
+    if (!cacCon) return true;                       // cô, văn phòng
+    if (!khung || !khung.luaTuoi) return true;      // bài cho cả hai lứa
+    return cacCon.some(c => c.luaTuoi === khung.luaTuoi);
+  }
+  function blockHopLua(b, cacCon) {
+    if (!cacCon) return true;
+    if (!b.luaTuoi) return true;
+    return cacCon.some(c => c.luaTuoi === b.luaTuoi);
+  }
+  function danhSachBlock() {
+    return db.all('cambridge_block', 'SELECT * FROM cambridge_block ORDER BY thuTu, tuNgay, rowid');
+  }
+
   function keml(bai, user) {
     const anh = tachAnh(bai.anh);
     const an = !!anh.length && !anhHienVoiGiaDinh(bai);
@@ -231,6 +313,8 @@ module.exports = (app, { db }) => {
       // không phải nhận rồi giao diện che bớt, vì tên tệp là thứ tải được.
       anh: ((an && laGiaDinh) || anMkt) ? [] : anh,
       daCongBo: !!bai.congBoLuc,
+      khung: vePhiaKhung(khungCua(bai.id)),
+      tep: tepCua(bai.id),
       nguoiDangTen: tenNguoi(bai.nguoiDang),
       tenNhom: bai.classId ? ((db.findClass(bai.classId) || {}).name || '') : '',
       tenCoSo: bai.campusId ? ((db.findCampus(bai.campusId) || {}).name || '') : '',
@@ -285,7 +369,18 @@ module.exports = (app, { db }) => {
       loai ? [loai] : []);
 
     const xemNhanh = taoBoLocXemDuoc(req.user);
+    // LỨA TUỔI LỌC Ở TẦNG DỮ LIỆU (Đ143): gia đình bé 3–4 không nhận bài của
+    // lứa 4–5 — đó cũng là thư rác. Khung của cả bảng tra MỘT lượt, không tra
+    // từng bài trước khi cắt trang.
+    const cacCon = luaTuoiCuaCon(req.user);
+    const khungTheoBai = new Map();
+    if (cacCon) {
+      for (const k of db.all('cambridge_bai_khung', 'SELECT baiId, luaTuoi FROM cambridge_bai_khung')) {
+        khungTheoBai.set(k.baiId, k);
+      }
+    }
     const bai = rows.filter(xemNhanh)
+      .filter(b => hopLua(khungTheoBai.get(b.id) || null, cacCon))
       .slice(bo, bo + soLuong)
       .map(b => keml(b, req.user));
     res.json({
@@ -294,6 +389,11 @@ module.exports = (app, { db }) => {
         { ma: 'cambridge', ten: 'Cambridge' },
         { ma: 'ket-noi', ten: 'Kết nối ở nhà' },
       ],
+      // Các block của chương trình (Đ143): gia đình chỉ nhận block đúng lứa
+      // của con; cô và văn phòng nhận đủ.
+      blocks: danhSachBlock().filter(b => blockHopLua(b, cacCon)),
+      luaTuoi: LUA_TUOI.map(ma => ({ ma, ten: TEN_LUA_TUOI[ma] })),
+      ...(cacCon ? { luaTuoiCuaCon: cacCon.map(c => ({ ...c, tenLuaTuoi: TEN_LUA_TUOI[c.luaTuoi] || 'Chưa vào chương trình Cambridge' })) } : {}),
       duocDang: req.user.role === 'admin',
       // Danh mục để văn phòng dựng ô chọn phạm vi. Chỉ gửi cho người đăng
       // được — danh sách nhóm và cơ sở của cả trường không việc gì phải đi ra
@@ -411,6 +511,37 @@ module.exports = (app, { db }) => {
     };
   }
 
+  // KHUNG của bài (Đ143). KHÔNG GỬI = KHÔNG ĐỤNG TỚI, cùng luật với ô tích ảnh:
+  // màn hình cũ không gửi trường này thì khung đã có vẫn còn nguyên.
+  // Trả { khung } (có thể null = không đổi) hoặc { loi }.
+  function lamSachKhung(b) {
+    if (!b || b.khung === undefined) return { khung: null };
+    const k = b.khung || {};
+    const blockId = chuoi(k.blockId, 40);
+    if (blockId && !blockCua(blockId)) return { loi: 'Block đã chọn không còn — cô chọn lại block nhé' };
+    const luaTuoi = chuoi(k.luaTuoi, 5);
+    if (!LUA_TUOI.includes(luaTuoi)) return { loi: 'Lứa tuổi chỉ có 3–4, 4–5 hoặc cả hai' };
+    const tuanSo = Math.floor(Number(k.tuanSo) || 0);
+    if (tuanSo < 0 || tuanSo > TUAN_TOI_DA) return { loi: `Số tuần trong block từ 1 tới ${TUAN_TOI_DA}` };
+    return {
+      khung: {
+        blockId, tuanSo, luaTuoi,
+        monHoc: chuoi(k.monHoc, 200),
+        chuDe: chuoi(k.chuDe, 300),
+        tuVung: chuoi(k.tuVung, TOI_DA_O_KHUNG),
+        songChant: chuoi(k.songChant, TOI_DA_O_KHUNG),
+        ketNoiONha: chuoi(k.ketNoiONha, TOI_DA_O_KHUNG),
+      },
+    };
+  }
+  function ghiKhung(baiId, khung) {
+    if (!khung) return;
+    const co = khungCua(baiId);
+    const luc = new Date().toISOString();
+    if (co) db.update('cambridge_bai_khung', baiId, { ...khung, ghiLuc: luc }, 'baiId');
+    else db.insert('cambridge_bai_khung', { baiId, ...khung, ghiLuc: luc });
+  }
+
   // Nhận danh sách ảnh dạng data URL, trả { anh } hoặc { loi }.
   function nhanAnh(ds) {
     if (!Array.isArray(ds)) return { anh: null };
@@ -436,6 +567,8 @@ module.exports = (app, { db }) => {
     if (chanNeuKhongPhaiVanPhong(req, res)) return;
     const s = lamSach(req, req.body || {}, null);
     if (s.loi) return res.status(400).json({ error: s.loi });
+    const kh = lamSachKhung(req.body || {});
+    if (kh.loi) return res.status(400).json({ error: kh.loi });
     const a = nhanAnh((req.body || {}).anh);
     if (a.loi) return res.status(400).json({ error: a.loi });
 
@@ -446,6 +579,7 @@ module.exports = (app, { db }) => {
     };
     db.insert('cambridge_bai', rec);
     ghiCoTich(rec.id, req.body || {});
+    ghiKhung(rec.id, kh.khung);
     db.audit(req.user.id, 'cambridge-tao', rec.id, { loai: rec.loai, phamVi: rec.phamVi });
     res.status(201).json(keml(rec, req.user));
   });
@@ -458,6 +592,8 @@ module.exports = (app, { db }) => {
 
     const s = lamSach(req, req.body || {}, cu);
     if (s.loi) return res.status(400).json({ error: s.loi });
+    const kh = lamSachKhung(req.body || {});
+    if (kh.loi) return res.status(400).json({ error: kh.loi });
     const patch = { ...s, capNhatLuc: new Date().toISOString() };
     const a = nhanAnh((req.body || {}).anh);
     if (a.loi) return res.status(400).json({ error: a.loi });
@@ -473,6 +609,7 @@ module.exports = (app, { db }) => {
     db.update('cambridge_bai', cu.id, patch);
     db.audit(req.user.id, 'cambridge-sua', cu.id, { phamVi: patch.phamVi });
     ghiCoTich(cu.id, req.body || {});
+    ghiKhung(cu.id, kh.khung);
     res.json(keml(db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [cu.id]), req.user));
   });
 
@@ -489,7 +626,11 @@ module.exports = (app, { db }) => {
     const luc = new Date().toISOString();
     db.update('cambridge_bai', b.id, { congBoLuc: luc, capNhatLuc: luc });
     db.audit(req.user.id, 'cambridge-cong-bo', b.id, { phamVi: b.phamVi });
-    res.json({ ok: true, id: b.id, daCongBo: true, congBoLuc: luc });
+    // BÁO GIA ĐÌNH TỪNG BÉ ĐÚNG LỨA (Đ143). Đi đường thông báo riêng của bé
+    // chứ không đường thông báo nhóm: tờ lứa 3–4 không rung điện thoại của nhà
+    // có bé 4–5. Việc phụ — hỏng cũng không làm hỏng công bố.
+    const soBao = baoGiaDinh(b);
+    res.json({ ok: true, id: b.id, daCongBo: true, congBoLuc: luc, soGiaDinhDuocBao: soBao });
   });
 
   // Thu hồi: gỡ khỏi màn hình gia đình, KHÔNG xoá chữ đã viết.
@@ -502,6 +643,146 @@ module.exports = (app, { db }) => {
     db.update('cambridge_bai', b.id, { congBoLuc: null, capNhatLuc: new Date().toISOString() });
     db.audit(req.user.id, 'cambridge-thu-hoi', b.id, {});
     res.json({ ok: true, id: b.id, daCongBo: false });
+  });
+
+  // Báo gia đình từng bé trong phạm vi bài, lọc theo lứa. Trả số bé được báo.
+  function baoGiaDinh(bai) {
+    let so = 0;
+    try {
+      const khung = khungCua(bai.id);
+      const nhom = nhomTrongPhamVi(bai);
+      if (!nhom.length) return 0;
+      const marks = nhom.map(() => '?').join(',');
+      const ds = db.all('students',
+        `SELECT id, name, dob FROM students WHERE active = 1 AND classId IN (${marks})`, nhom);
+      const tenLoai = bai.loai === 'ket-noi' ? 'Kết nối ở nhà' : 'Cambridge';
+      for (const be of ds) {
+        if (khung && khung.luaTuoi && luaTuoiCuaBe(be.dob, homNay()) !== khung.luaTuoi) continue;
+        tbb.gui({
+          studentId: be.id,
+          loai: 'cambridge',
+          tieuDe: `${tenLoai}: ${bai.tieuDe}`,
+          noiDung: chuoi(bai.noiDung, 160) || 'Mở Cambridge & Kết nối ở nhà để đọc.',
+          hash: '#/cambridge',
+          nguoiTao: bai.nguoiDang,
+        });
+        so += 1;
+      }
+    } catch (_) { /* việc phụ */ }
+    return so;
+  }
+
+  // =========================================================================
+  // BLOCK CỦA CHƯƠNG TRÌNH — văn phòng soạn, mọi người đọc (Đ143)
+  // =========================================================================
+  function lamSachBlock(b, cu) {
+    const ten = chuoi(b.ten !== undefined ? b.ten : (cu || {}).ten, TOI_DA_TEN_BLOCK);
+    if (!ten) return { loi: 'Cần tên block, ví dụ: Block 1' };
+    const luaTuoi = chuoi(b.luaTuoi !== undefined ? b.luaTuoi : (cu || {}).luaTuoi, 5);
+    if (!LUA_TUOI.includes(luaTuoi)) return { loi: 'Lứa tuổi chỉ có 3–4, 4–5 hoặc cả hai' };
+    const tuNgay = chuoi(b.tuNgay !== undefined ? b.tuNgay : (cu || {}).tuNgay, 10);
+    const denNgay = chuoi(b.denNgay !== undefined ? b.denNgay : (cu || {}).denNgay, 10);
+    if (tuNgay && !NGAY_RE.test(tuNgay)) return { loi: 'Ngày bắt đầu chưa đúng dạng, ví dụ đúng: 2026-09-08' };
+    if (denNgay && !NGAY_RE.test(denNgay)) return { loi: 'Ngày kết thúc chưa đúng dạng, ví dụ đúng: 2026-10-17' };
+    if (tuNgay && denNgay && denNgay < tuNgay) return { loi: 'Ngày kết thúc phải sau ngày bắt đầu' };
+    const thuTu = Math.floor(Number(b.thuTu !== undefined ? b.thuTu : (cu || {}).thuTu) || 0);
+    return {
+      ten, luaTuoi, tuNgay, denNgay, thuTu,
+      mucTieu: chuoi(b.mucTieu !== undefined ? b.mucTieu : (cu || {}).mucTieu, TOI_DA_MUC_TIEU),
+    };
+  }
+
+  app.get('/api/cambridge/block', (req, res) => {
+    const cacCon = luaTuoiCuaCon(req.user);
+    res.json({ blocks: danhSachBlock().filter(b => blockHopLua(b, cacCon)), luaTuoi: LUA_TUOI.map(ma => ({ ma, ten: TEN_LUA_TUOI[ma] })) });
+  });
+
+  app.post('/api/cambridge/block', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuKhongPhaiVanPhong(req, res)) return;
+    const s = lamSachBlock(req.body || {}, null);
+    if (s.loi) return res.status(400).json({ error: s.loi });
+    const luc = new Date().toISOString();
+    const rec = { id: db.nextId('cbl'), ...s, nguoiTao: req.user.id, taoLuc: luc, capNhatLuc: luc };
+    db.insert('cambridge_block', rec);
+    db.audit(req.user.id, 'cambridge-block-tao', rec.id, { ten: rec.ten, luaTuoi: rec.luaTuoi });
+    res.status(201).json(rec);
+  });
+
+  app.put('/api/cambridge/block/:id', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuKhongPhaiVanPhong(req, res)) return;
+    const cu = blockCua(chuoi(req.params.id, 40));
+    if (!cu) return res.status(404).json({ error: 'Không tìm thấy block này' });
+    const s = lamSachBlock(req.body || {}, cu);
+    if (s.loi) return res.status(400).json({ error: s.loi });
+    db.update('cambridge_block', cu.id, { ...s, capNhatLuc: new Date().toISOString() });
+    db.audit(req.user.id, 'cambridge-block-sua', cu.id, { ten: s.ten });
+    res.json(blockCua(cu.id));
+  });
+
+  // =========================================================================
+  // TỆP PDF / WORD KÈM BÀI (Đ143) — đi qua canh quyền như ảnh
+  // =========================================================================
+  function tenTepSach(ten, ext) {
+    // Tên hiển thị khi tải về: bỏ ký tự điều khiển và dấu ngoặc kép, giữ tiếng Việt.
+    const goc = chuoi(ten, TOI_DA_TEN_TEP).replace(/[\x00-\x1f"\\/]/g, '').trim();
+    const co = goc || `tai-lieu.${ext}`;
+    return co.toLowerCase().endsWith(`.${ext}`) ? co : `${co}.${ext}`;
+  }
+
+  app.post('/api/cambridge/:id/tep', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuKhongPhaiVanPhong(req, res)) return;
+    const b = db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [chuoi(req.params.id, 40)]);
+    if (!b) return res.status(404).json({ error: 'Không tìm thấy bài đăng' });
+    if (!xemDuoc(b, req.user)) return res.status(403).json({ error: 'Bài đăng ngoài phạm vi của mình' });
+    const ds = (req.body || {}).tep;
+    if (!Array.isArray(ds) || !ds.length) return res.status(400).json({ error: 'Chưa chọn tệp nào' });
+    const dangCo = tepCua(b.id).length;
+    if (dangCo + ds.length > TOI_DA_TEP) {
+      return res.status(400).json({ error: `Mỗi bài kèm tối đa ${TOI_DA_TEP} tệp` });
+    }
+    const daLuu = [];
+    try {
+      for (const t of ds) {
+        const r = uploads.saveTaiLieuDataUrl((t || {}).dataUrl);
+        daLuu.push({ id: db.nextId('ctp'), baiId: b.id, file: r.file, tenGoc: tenTepSach((t || {}).ten, r.ext), bytes: r.bytes, taoLuc: new Date().toISOString() });
+      }
+      db.tx(() => { for (const t of daLuu) db.insert('cambridge_tep', t); });
+    } catch (err) {
+      for (const t of daLuu) uploads.removeTaiLieu(t.file);
+      return res.status(400).json({ error: err.message || 'Tệp không hợp lệ' });
+    }
+    db.update('cambridge_bai', b.id, { capNhatLuc: new Date().toISOString() });
+    db.audit(req.user.id, 'cambridge-tep-them', b.id, { so: daLuu.length });
+    res.status(201).json({ ok: true, tep: tepCua(b.id) });
+  });
+
+  app.delete('/api/cambridge/:id/tep/:tepId', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuKhongPhaiVanPhong(req, res)) return;
+    const b = db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [chuoi(req.params.id, 40)]);
+    if (!b) return res.status(404).json({ error: 'Không tìm thấy bài đăng' });
+    if (!xemDuoc(b, req.user)) return res.status(403).json({ error: 'Bài đăng ngoài phạm vi của mình' });
+    const t = db.first('cambridge_tep', 'SELECT * FROM cambridge_tep WHERE id = ? AND baiId = ?', [chuoi(req.params.tepId, 40), b.id]);
+    if (!t) return res.status(404).json({ error: 'Không tìm thấy tệp' });
+    db.remove('cambridge_tep', t.id);
+    uploads.removeTaiLieu(t.file);
+    db.audit(req.user.id, 'cambridge-tep-xoa', b.id, { tenGoc: t.tenGoc });
+    res.json({ ok: true, tep: tepCua(b.id) });
+  });
+
+  // Tải một tệp. Kiểm quyền TRƯỚC khi kiểm tệp có tồn tại, cùng lý do với ảnh.
+  app.get('/api/cambridge/tep/:tepId', (req, res) => {
+    const t = db.first('cambridge_tep', 'SELECT * FROM cambridge_tep WHERE id = ?', [chuoi(req.params.tepId, 40)]);
+    if (!t) return res.status(404).json({ error: 'Không tìm thấy tệp' });
+    const chu = db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [t.baiId]);
+    if (!chu || !xemDuoc(chu, req.user)) return res.status(403).json({ error: 'Không có quyền tải tệp này' });
+    const cacCon = luaTuoiCuaCon(req.user);
+    if (!hopLua(khungCua(chu.id), cacCon)) return res.status(403).json({ error: 'Tệp này thuộc bài dành cho lứa tuổi khác' });
+    const duong = uploads.pathOfTaiLieu(t.file);
+    if (!duong || !uploads.existsTaiLieu(t.file)) return res.status(404).json({ error: 'Tệp không còn trên máy chủ' });
+    res.setHeader('Content-Type', uploads.mimeOfTaiLieu(t.file));
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(t.tenGoc)}`);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.sendFile(duong);
   });
 
   void homNay;

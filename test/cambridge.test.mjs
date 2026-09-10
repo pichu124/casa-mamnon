@@ -280,8 +280,15 @@ console.log('\n[8] Lược đồ để RỘNG vì nhà trường chưa chốt n�
     cauLenh.find(c => !/^CREATE/i.test(c))?.slice(0, 80));
   check('mọi bảng mang tiền tố phân hệ',
     (sql.match(/CREATE TABLE IF NOT EXISTS (\w+)/g) || []).every(x => /cambridge_/.test(x)));
-  check('không khoá cứng thành các ô riêng của một mẫu chưa có',
-    !/tuVung|chuDiem|baiHat|videoUrl/i.test(sql), sql.slice(0, 100));
+  // Từ Đ143 trường ĐÃ gửi mẫu (07/09): Block / Week / lứa tuổi, Môn học, Chủ
+  // đề, Từ vựng, Song/Chant, Kết nối ở nhà. Đúng như đầu tệp đã hứa, phần đó
+  // đi vào BẢNG PHỤ (`cambridge_bai_khung`) — bảng gốc `cambridge_bai` vẫn
+  // rộng như cũ, không một câu ALTER. Bài canh này giữ đúng vế ấy.
+  const bangGoc = (sql.match(/CREATE TABLE IF NOT EXISTS cambridge_bai \([^;]*\)/) || [''])[0];
+  check('bảng gốc cambridge_bai KHÔNG bị khoá cứng thành các ô riêng — phần khung đi bảng phụ',
+    bangGoc.length > 0 && !/tuVung|chuDe|songChant|videoUrl/i.test(bangGoc), bangGoc.slice(0, 100));
+  check('và phần khung theo mẫu trường nằm ở bảng phụ khoá theo bài',
+    /CREATE TABLE IF NOT EXISTS cambridge_bai_khung/.test(sql) && /baiId\s+TEXT PRIMARY KEY/.test(sql));
   check('có nói rõ vì sao để rộng', /chưa chốt nội dung/i.test(sql));
 }
 
