@@ -687,8 +687,12 @@ console.log('\n[15] Sửa lại và thu hồi: thông báo, nề nếp, y tế, 
     !/Nhắc nhở ghi nhầm em/.test(await page.locator('#view').innerText()));
 
   // ---- Y tế ----
+  // Từ Đ138 quản trị vào Sức khoẻ là BẢNG NHÓM (nhà trường 07/09); bấm một
+  // bé trong bảng mới tới hồ sơ có nút "Thêm ghi nhận".
   await page.goto(BASE + '/#/health', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
+  await page.locator('#view [data-mo-be]').first().click();
+  await page.waitForTimeout(900);
   await page.locator('button', { hasText: 'Thêm ghi nhận' }).first().click();
   await page.waitForTimeout(700);
   check('form y tế có ô chọn NGÀY (nhập bù đợt tiêm chủng)', await page.locator('#ht-date').count() === 1);

@@ -192,7 +192,7 @@ console.log('\n[4b] Quản trị: biết mình là ai, và biết đang xem hồ
   // Ba màn này đều là màn MỘT BÉ và đều đang bật. Nề nếp và Nhận xét từng nằm ở
   // đây nhưng nay TẮT SẴN (N3 · A2) nên chỉ hiện "Phân hệ đang được nhà trường
   // tắt" — soi ô chọn bé trên một màn đang tắt là soi nhầm chỗ.
-  for (const [duong, ten] of [['/#/student', 'Hồ sơ bé'], ['/#/health', 'Sức khỏe']]) {
+  for (const [duong, ten] of [['/#/student', 'Hồ sơ bé']]) {
     await mo(duong);
     const chu = await chuTrenMan();
     check(`${ten}: có ô chọn bé, không còn đoán bé nào`,
@@ -200,6 +200,23 @@ console.log('\n[4b] Quản trị: biết mình là ai, và biết đang xem hồ
     const o = await page.$('#view select');
     const soBe = o ? (await o.$$('option')).length : 0;
     check(`${ten}: ô chọn liệt kê mọi bé của trường`, soBe >= 8, soBe);
+  }
+
+  // SỨC KHOẺ TỪ Đ138 KHÔNG CÒN LÀ MÀN MỘT BÉ với quản trị và cô: nhà trường
+  // 07/09 muốn "theo cấu trúc cơ sở → lớp, một loạt danh sách bé cả lớp, bấm
+  // vào từng bạn để xem chi tiết". Tức cùng nỗi lo của N10 (không ai bị chọn
+  // hộ một bé) nhưng cách giải khác: chọn NHÓM, rồi bấm đúng bé. Canh đúng
+  // hình dạng ấy — không còn dòng "Đang xem hồ sơ của bé" nào được tự chọn.
+  {
+    await mo('/#/health');
+    const chu = await chuTrenMan();
+    check('Sức khỏe: quản trị vào BẢNG NHÓM, không bị chọn hộ một bé',
+      !chu.includes('Đang xem hồ sơ của bé') && /Tháng xem cân đo/.test(chu), chu.slice(0, 200));
+    const oNhom = await page.$('#ht-nhom');
+    const soNhom = oNhom ? (await oNhom.$$('option')).length : 0;
+    check('Sức khỏe: ô chọn NHÓM liệt kê mọi nhóm của trường', soNhom >= 4, soNhom);
+    const soDong = await page.$$eval('#view [data-mo-be]', (ds) => ds.length);
+    check('và bảng liệt kê từng bé của nhóm đang chọn, bấm vào là mở hồ sơ', soDong >= 3, soDong);
   }
 
   // XIN PHÉP KHÔNG CÒN LÀ MÀN MỘT BÉ VỚI QUẢN TRỊ — và đó là cách giải TỐT HƠN
