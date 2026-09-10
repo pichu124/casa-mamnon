@@ -322,7 +322,11 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   ô*: trả `{ hien: false }` thì ô không vẽ với người này — dùng để ô Nhật ký
   ngày chỉ hiện với cô có bé nhà trẻ trong nhóm. Máy chủ chỉ truyền qua, không
   quyết gì; phân hệ không khai thì `null` và mọi thứ y như trước. App 1 không
-  có phân hệ nào khai nên **không cần** mang sang.
+  có phân hệ nào khai nên **không cần** mang sang. Cùng tệp, Đ140/Đ144: hàm
+  `viSaoKhongThay` trả thêm chiều thứ ba `danhCho: 'gia-dinh-va-van-phong'`
+  cho phân hệ có vai gia đình + văn phòng mà không có cô (Học phí); hai giá
+  trị cũ giữ nguyên, `public/js/app.js` thêm một nhánh câu chữ bên cạnh. App 1
+  không có phân hệ nào ở tổ hợp vai đó.
 - **`lib/uploads.js` có bộ hàm riêng cho tài liệu PDF / Word** (thêm ở app 2
   tại Đ143: `saveTaiLieuDataUrl`, `pathOfTaiLieu`, `existsTaiLieu`,
   `removeTaiLieu`, `mimeOfTaiLieu`, trần `MAX_TAI_LIEU_BYTES` 8 MB). Đặt CẠNH

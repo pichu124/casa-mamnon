@@ -241,9 +241,10 @@ window.App = {
     if (r.ly === 'tat') return `Nhà trường hiện đang tắt phần ${ten}.`;
     if (r.ly === 'su-co') return `Phần ${ten} đang gặp sự cố. Các phần khác vẫn dùng bình thường.`;
     if (r.ly === 'ngoai-vai') {
-      return r.danhCho === 'gia-dinh'
-        ? `Phần ${ten} chỉ dành cho gia đình các bé.`
-        : `Phần ${ten} chỉ dành cho cô và văn phòng nhà trường.`;
+      if (r.danhCho === 'gia-dinh') return `Phần ${ten} chỉ dành cho gia đình các bé.`;
+      // Đ140: phần của gia đình và văn phòng (Học phí) — cô mở thì nói đúng chiều.
+      if (r.danhCho === 'gia-dinh-va-van-phong') return `Phần ${ten} dành cho gia đình các bé và văn phòng nhà trường.`;
+      return `Phần ${ten} chỉ dành cho cô và văn phòng nhà trường.`;
     }
     if (r.ly === 'ngoai-chuc-vu') return `Phần ${ten} nằm ngoài phần việc của tài khoản này.`;
     if (r.ly === 'khong-co') return 'Không có phần nào ở địa chỉ này. Bấm Trang chủ để quay lại.';
