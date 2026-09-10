@@ -211,8 +211,11 @@ console.log('\n[1] Nhật ký ngày — cô ghi và thấy lại phần vừa gh
 }
 
 // ===========================================================================
-console.log('\n[2] Báo ăn & tiền ăn — cô chốt số cho bếp và thấy lại');
+console.log('\n[2] Báo ăn & tiền ăn — văn phòng chốt số cho bếp và thấy lại');
 {
+  // Từ Đ140 Báo ăn là việc của VĂN PHÒNG (bảng phân quyền của trường 07/09:
+  // "văn phòng nhập, không hiện với GV, PH") — cô không còn ô này.
+  await dangNhap('hieutruong', 'quantri2026');
   await moMan('#/tienan');
   check('màn có nút chốt báo ăn', await page.locator('[data-chot]').count() >= 1);
 
