@@ -283,6 +283,48 @@ module.exports = (app) => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // GIA ĐÌNH QUAN TÂM ĐIỀU GÌ — ĐẾM GỘP, KHÔNG THEO DÕI AI (Đ149)
+  //
+  // Nhà trường 10/09: *"mình chỉ muốn xem PH khi vào app quan tâm những gì:
+  // kiểu về ăn uống thực đơn, hay thời gian biểu, hay kế hoạch của bé hay là
+  // hình ảnh"*.
+  //
+  // BỐN ĐIỀU CỐ Ý, và cả bốn đều có bài canh riêng ở `test:quan-tam-gop`:
+  //
+  //   1. KHÔNG GHI AI. Câu lệnh dưới đây không có `req.user.id` ở bất kỳ đâu,
+  //      và bảng `luot_quan_tam` không có cột nào chỉ ra một người. Đây không
+  //      phải chuyện "hôm nay chưa ai truy vấn" — không có dữ liệu để truy vấn.
+  //   2. CHỈ ĐẾM GIA ĐÌNH. Cô mở màn Thực đơn hai chục lần một ngày để soạn
+  //      bữa; đếm cả cô thì con số nói về việc của trường, không nói về mối
+  //      quan tâm của gia đình — tức là trả lời sai câu trường hỏi.
+  //   3. CHỈ ĐẾM MỤC CÓ THẬT. `muc` phải là tên màn của một phân hệ đang có,
+  //      nếu không thì bỏ qua. Không có danh sách trắng thì bảng này nhận mọi
+  //      chuỗi ai đó gửi lên và thành một chỗ chứa rác không giới hạn.
+  //   4. HỎNG THÌ IM. Đây là con số cho marketing, không phải việc của gia
+  //      đình. Ghi không được thì màn hình của họ tuyệt đối không được biết.
+  app.post('/api/dashboard/quan-tam', requireRole('parent'), (req, res) => {
+    try {
+      const muc = String((req.body || {}).muc || '').trim().slice(0, 40);
+      if (muc && modules.tatCa().some(m => m.view === muc)) {
+        // Cơ sở suy ra từ nhóm của con — để trường ba cơ sở tách được ra.
+        // Không suy ra được thì để trống, KHÔNG đoán bừa một cơ sở.
+        const lop = db.classIdsOf(req.user)[0] || null;
+        const campusId = (lop && db.campusOfClass(lop)) || '';
+        db.run(
+          `INSERT INTO luot_quan_tam (ngay, muc, campusId, soLuot) VALUES (?, ?, ?, 1)
+           ON CONFLICT(ngay, muc, campusId) DO UPDATE SET soLuot = soLuot + 1`,
+          [todayStr(), muc, campusId]);
+      }
+    } catch (err) {
+      console.error('[quan-tam] không ghi được lượt mở:', err.message);
+    }
+    // Luôn 204, kể cả khi bỏ qua: màn hình của gia đình không có việc gì phải
+    // biết về con số của marketing, và một lời từ chối ở đây chỉ tổ làm nó
+    // hiện một dòng lỗi cho thứ họ không hề bấm.
+    res.status(204).end();
+  });
+
   app.get('/api/dashboard/badges', (req, res) => {
     const user = req.user;
     const ids = db.studentIdsOf(user);

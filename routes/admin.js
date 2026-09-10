@@ -9,6 +9,7 @@ const nl = require('../lib/nhom-lop');
 const csv = require('../lib/csv');
 const password = require('../lib/password');
 const { requireRole, destroyUserSessions } = require('../lib/auth');
+const modules = require('../lib/modules');
 
 const onlyAdmin = requireRole('admin');
 
@@ -176,6 +177,56 @@ module.exports = (app) => {
         chucVuCap: mo ? mo.cap : null,
       };
     }));
+  });
+
+  // GIA ĐÌNH QUAN TÂM ĐIỀU GÌ — bảng đếm GỘP (Đ149).
+  //
+  // Đọc `luot_quan_tam`, bảng cố ý không có cột nào chỉ ra một người (xem chú
+  // thích của bảng ở lib/schema.sql và của đường ghi ở routes/dashboard.js).
+  //
+  // Con số trả về là LƯỢT MỞ, không phải SỐ GIA ĐÌNH — và tên trường trả về nói
+  // đúng chữ đó (`soLuot`), để màn hình không có đường nào viết ra một câu mà
+  // dữ liệu không đỡ nổi. Muốn biết "bao nhiêu NHÀ quan tâm" thì phải nhớ từng
+  // nhà đã mở gì, đúng thứ nhà trường và tôi đã cùng gạt đi.
+  //
+  // Cấp 3 chỉ thấy cơ sở mình, cùng luật với mọi đường quản trị khác.
+  app.get('/api/admin/quan-tam', onlyAdmin, (req, res) => {
+    const DATE_RE2 = /^\d{4}-\d{2}-\d{2}$/;
+    const den = DATE_RE2.test(String(req.query.den || '')) ? String(req.query.den) : ngayVN.homNay();
+    const tuMacDinh = new Date(Date.parse(`${den}T00:00:00Z`) - 29 * 86400000)
+      .toISOString().slice(0, 10);
+    const tu = DATE_RE2.test(String(req.query.tu || '')) ? String(req.query.tu) : tuMacDinh;
+    if (tu > den) return res.status(400).json({ error: 'Ngày kết thúc phải sau hoặc trùng ngày bắt đầu' });
+
+    const pham = db.phamViCoSo(req.user);
+    const dieu = pham ? 'AND campusId = ?' : '';
+    const thamSo = pham ? [tu, den, pham] : [tu, den];
+    const dong = db.all('luot_quan_tam',
+      `SELECT muc, SUM(soLuot) AS soLuot FROM luot_quan_tam
+        WHERE ngay BETWEEN ? AND ? ${dieu}
+        GROUP BY muc ORDER BY SUM(soLuot) DESC`, thamSo);
+
+    // Tên mục bằng tiếng của trường, lấy từ chính danh mục phân hệ — không chép
+    // tay, để mai kia đổi tên một phân hệ thì bảng này đổi theo.
+    const ten = new Map(modules.tatCa().map(m => [m.view, m.name]));
+    // TRẢ VỀ CON SỐ THÔ, KHÔNG TRẢ TỈ LỆ.
+    //
+    // Bản đầu có thêm một trường tỉ lệ của mỗi mục trong tổng. Bộ canh QUY TẮC 4
+    // báo đỏ ngay khi màn hình in nó ra, và bộ canh đúng: kho mã này đã chọn
+    // chặn mọi tỉ lệ hiện lên màn, kể cả tỉ lệ nói về màn hình chứ không nói về
+    // đứa trẻ nào — vì một ngoại lệ mở ra hôm nay thì lần sau rất có thể đúng là
+    // con số về một đứa trẻ. Bỏ hẳn trường ấy đi, thay vì để nó nằm đó chờ ai
+    // đó in ra. Tổng lượt vẫn trả về, đủ để văn phòng tự đối chiếu.
+    res.json({
+      tuNgay: tu, denNgay: den,
+      coSo: pham || '',
+      tongLuot: dong.reduce((s2, r) => s2 + Number(r.soLuot || 0), 0),
+      muc: dong.map(r => ({
+        muc: r.muc,
+        ten: ten.get(r.muc) || r.muc,
+        soLuot: Number(r.soLuot || 0),
+      })),
+    });
   });
 
   // Danh mục chức vụ để màn hình dựng ô chọn. Chỉ là bảng chữ, không phải dữ liệu.

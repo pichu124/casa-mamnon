@@ -119,6 +119,19 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    > kiểu về ăn uống thực đơn, hay thời gian biểu, hay kế hoạch của bé hay là
    > hình ảnh"* — đúng bằng bản đếm GỘP THEO MỤC mà tôi đề nghị, không theo dõi
    > từng gia đình. **→ làm, ở dạng gộp.**
+   >
+   > **✅ ĐÃ LÀM — Đ149 (10/09).** Quản trị → **Quan tâm**, chọn 7 / 30 / 90 ngày.
+   > Bảng `luot_quan_tam` đúng bốn cột: ngày · mục · cơ sở · số lượt. Không có
+   > cột nào ghi tên người, nên **không tra ngược ra được nhà nào đã mở gì** —
+   > kể cả với tài khoản ban giám hiệu, kể cả với người vào thẳng kho dữ liệu.
+   > Mỗi nhà tính một lượt cho mỗi mục mỗi ngày. Bài canh `test:quan-tam-gop`
+   > đọc thẳng lược đồ và kho SQLite để giữ đúng như vậy về sau.
+   >
+   > **Hai điều xin trường đọc đúng:** con số là **số LƯỢT MỞ**, không phải số
+   > gia đình (muốn biết số nhà thì phải nhớ từng nhà, đúng thứ ta đã cùng gạt
+   > đi); và **không có phần trăm, không có biểu đồ cột** — bộ canh QUY TẮC 4
+   > của kho mã chặn mọi tỉ lệ hiện lên màn, và tôi giữ đúng luật đó thay vì xin
+   > ngoại lệ.
 6. **Video 3–5 phút** (AL-07, HT-05). *Thấy:* trần tệp hiện 8 MB — một video
    điện thoại 3 phút nặng 150–400 MB. Làm được nhưng kéo theo: nén trên máy cô
    (chậm, tốn pin), kho ảnh đầy nhanh gấp 10 (xem N25), và băng thông máy chủ.

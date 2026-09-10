@@ -279,6 +279,35 @@ CREATE TABLE IF NOT EXISTS lich_nghi_truong (
 );
 CREATE INDEX IF NOT EXISTS idx_lnt_khoang ON lich_nghi_truong(tuNgay, denNgay);
 
+-- ===== GIA ĐÌNH QUAN TÂM ĐIỀU GÌ — ĐẾM GỘP, KHÔNG THEO DÕI AI =====
+--
+-- Nhà trường 10/09: *"mình chỉ muốn xem PH khi vào app quan tâm những gì: kiểu
+-- về ăn uống thực đơn, hay thời gian biểu, hay kế hoạch của bé hay là hình
+-- ảnh"*.
+--
+-- BẢNG NÀY CỐ Ý KHÔNG CÓ CỘT NÀO CHỈ RA MỘT NGƯỜI. Không `userId`, không mã
+-- gia đình, không mã bé, không địa chỉ máy, không mã phiên. Một dòng ở đây là
+-- một CON SỐ: ngày ấy, ở cơ sở ấy, mục ấy được mở bao nhiêu lượt. Đọc ngược ra
+-- một gia đình là việc không làm được, kể cả với người có toàn quyền vào kho.
+--
+-- Vì sao phải chặt đến thế: đây là app chứa ảnh khuôn mặt và hồ sơ sức khoẻ
+-- của trẻ dưới 6 tuổi, và chưa một cam kết riêng tư nào với phụ huynh nói rằng
+-- nhà trường xem được từng nhà đang mở gì. Một bảng có cột `userId` thì hôm nay
+-- không ai truy vấn nó, nhưng ngày mai chỉ cần một câu SELECT là thành sổ theo
+-- dõi — và không có bước nào ở giữa để ai đó kịp cân nhắc.
+--
+-- Con số ở đây là LƯỢT MỞ, không phải SỐ GIA ĐÌNH. Muốn biết số gia đình thì
+-- phải nhớ từng nhà đã mở gì — đúng thứ vừa từ chối ở trên. Màn hình đọc bảng
+-- này phải nói đúng chữ "lượt mở".
+CREATE TABLE IF NOT EXISTS luot_quan_tam (
+  ngay     TEXT NOT NULL,              -- YYYY-MM-DD, theo giờ Việt Nam
+  muc      TEXT NOT NULL,              -- tên màn (view) của phân hệ
+  campusId TEXT NOT NULL DEFAULT '',   -- '' = chưa suy ra được cơ sở
+  soLuot   INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (ngay, muc, campusId)
+);
+CREATE INDEX IF NOT EXISTS idx_lqt_ngay ON luot_quan_tam(ngay);
+
 -- ===== Nhận xét hằng ngày — khoảng 34.800 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS remarks (
   id         TEXT PRIMARY KEY,
