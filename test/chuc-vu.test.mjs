@@ -445,7 +445,16 @@ console.log('\n[8] ĐỔI CHỨC VỤ — chỉ ban giám hiệu, và không t�
 console.log('\n[9] DANH MỤC CHỨC VỤ');
 {
   const ds = (await req('GET', '/api/admin/chuc-vu', { cookie: BGH })).data || [];
-  check('có đủ sáu chức vụ', ds.length === 6, ds.length);
+  // DANH SÁCH NÀY LÀ DỮ LIỆU, KHÔNG PHẢI MỘT QUY TẮC.
+  //
+  // Thêm một chức vụ thì sửa dòng này — việc bình thường, khác hẳn nới một bộ
+  // canh. Nhưng liệt kê đủ MÃ chứ không đếm suông: đếm thì thay một chức vụ
+  // bằng một chức vụ khác vẫn xanh, mà đó đúng là thứ phải có người nhìn.
+  const MA_MONG_DOI = ['hieu-truong', 'quanly-coso', 'vanphong-coso',
+    'nhansu', 'marketing', 'ketoan', 'baove'];
+  check('danh mục đúng bằng bảy chức vụ đang khai, không thiếu không thừa',
+    ds.length === MA_MONG_DOI.length && MA_MONG_DOI.every(m => ds.some(c => c.ma === m)),
+    ds.map(c => c.ma));
   check('mỗi chức vụ đều nói rõ làm được gì', ds.every(c => c.moTa && c.moTa.length > 10), ds);
   check('mỗi chức vụ đều có cấp 1/2/3', ds.every(c => [1, 2, 3].includes(c.cap)), ds.map(c => c.cap));
   // Không được để lộ danh sách đường dẫn API ra màn hình — đó là thứ chỉ máy chủ

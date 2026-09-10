@@ -1,6 +1,7 @@
 {
   "lib/db.js": {
     "CHUC_VU": "object",
+    "CHUC_VU_DAT_NEP": "object",
     "DATA_DIR": "string",
     "DB_FILE": "string",
     "SO_THANG_GIU_HO_SO": "number",
@@ -37,6 +38,7 @@
     "datChucVu": "ham(2)",
     "datDongY": "ham(1)",
     "datLienHeKhanCap": "ham(2)",
+    "datNepDuoc": "ham(1)",
     "dongYCuaBe": "ham(1)",
     "dongYCuaCacBe": "ham(1)",
     "dsBeNgungHoSoHocTap": "ham(1)",
