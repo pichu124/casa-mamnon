@@ -85,6 +85,29 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    > phải **nhắn tin với LỚP và nhắn tin với VĂN PHÒNG**, *"chứ mình cũng k muốn
    > là nhắn tin với từng cô riêng lẻ"*; GVCN là người nói chuyện chính, sau có
    > thể thêm giáo viên nước ngoài. **→ bỏ phần đăng ký, làm phần nhắn tin.**
+   >
+   > **✅ ĐÃ LÀM — Đ151 (10/09).** Gia đình mở màn Nhắn tin thấy đúng hai dòng
+   > cho mỗi bé: **"Nhóm lớp …"** và **"Văn phòng nhà trường"**. Không còn danh
+   > sách từng cô để bấm vào.
+   >
+   > **MỘT ĐIỀU XIN TRƯỜNG ĐỌC KỸ, VÌ TÔI ĐÃ CHỌN THAY:** *"nhắn với lớp"* ở đây
+   > **không phải một phòng chung có cả hai chục gia đình trong đó**. Mỗi nhà có
+   > một cuộc riêng với nhóm; **mọi cô của nhóm** đều đọc và trả lời được cuộc
+   > đó, còn gia đình thì chỉ thấy một cuộc và không phải chọn nhắn cho cô nào.
+   > Tôi chọn như vậy vì chuyện nhà một bé — con sốt, hoàn cảnh gia đình, xin
+   > đón sớm — mà hiện trước mặt mười chín nhà khác là thứ mất lòng tin không
+   > lấy lại được. Nếu trường thật sự muốn một phòng chung cả lớp (kiểu nhóm
+   > Zalo) thì nói giúp, đó là một việc khác và làm được.
+   >
+   > Cô và văn phòng là **hai đường riêng**: gia đình nhắn cho cô thì văn phòng
+   > không đọc được, và ngược lại. Văn phòng **không có nút mở cuộc mới** —
+   > văn phòng trả lời gia đình, còn muốn nói với cả trường hay cả một nhóm thì
+   > dùng mục Thông báo.
+   >
+   > Phần **khai người được đón** đã gỡ khỏi màn của gia đình, đúng như trường
+   > nói sẽ dùng bản giấy. Chỗ đó nay có nút **"Nhắn cho văn phòng nhà trường"**.
+   > Dữ liệu và đường API cũ **giữ nguyên**, chưa xoá gì — trường đổi ý thì bật
+   > lại được.
 3. **Nhận diện khuôn mặt trẻ trong album** (AL-04). *Thấy:* bị cấm ở N18 và
    CLAUDE.md — dữ liệu sinh trắc của trẻ dưới 6 tuổi, nhóm nhạy cảm nhất theo
    Nghị định 13/2023. **Không làm.** Thay thế: gắn thẻ nhanh nhiều bé một lúc

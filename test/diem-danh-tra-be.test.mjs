@@ -389,9 +389,17 @@ console.log('\n[6] Trang chủ: cô chỉ còn một cửa, gia đình và văn 
   await dangNhap('phuhuynh', '123456');
   await moMan('#/');
   const nhanPH = await page.locator('.tile-label').allInnerTexts();
-  check('gia đình: VẪN có ô "Đón trả bé" (khai người đón, uỷ quyền)', nhanPH.includes('Đón trả bé'), nhanPH);
+  check('gia đình: VẪN có ô "Đón trả bé" — để đọc sổ đón trả của con', nhanPH.includes('Đón trả bé'), nhanPH);
   await moMan('#/dontra');
-  check('gia đình: mở ô đó vẫn là màn khai người đón như trước', await dem('#dt-them') === 1);
+  // TỪ Đ151, GIA ĐÌNH KHÔNG KHAI NGƯỜI ĐÓN TRONG APP NỮA.
+  //
+  // Nhà trường 10/09 chọn dùng bản giấy ở văn phòng. Điều mục [6] này canh —
+  // ô "Đón trả bé" của GIA ĐÌNH không bị gấp đi theo ô của cô — thì không đổi:
+  // gia đình vẫn có ô riêng, chỉ là bên trong nay là sổ đón trả và một nút nhắn
+  // cho văn phòng, không còn phần khai người đón.
+  check('gia đình: mở ô đó KHÔNG còn phần khai người đón (Đ151)', await dem('#dt-them') === 0);
+  check('mà là nút nhắn cho văn phòng', await dem('#dt-nhan-vp') === 1);
+  check('và sổ đón trả của con vẫn còn', /sổ đón trả gần đây/i.test(await chu()));
 
   await dangNhap('htruong', 'quantri2026');
   await moMan('#/');

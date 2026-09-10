@@ -1,6 +1,7 @@
 // Phân hệ Nhắn tin: kênh trao đổi trực tiếp giáo viên ↔ phụ huynh và nhóm lớp.
 const db = require('../lib/db');
 const tb = require('../lib/thong-bao');
+const tbb = require('../lib/thong-bao-be');
 const nl = require('../lib/nhom-lop');
 const { requireRole } = require('../lib/auth');
 
@@ -47,6 +48,106 @@ function memberIds(conversationId) {
     .map(r => r.userId);
 }
 
+// ---------------------------------------------------------------------------
+// KÊNH NHẮN TIN (Đ151) — gia đình ↔ NHÓM LỚP, gia đình ↔ VĂN PHÒNG
+//
+// Nhà trường 10/09: *"giao diện phụ huynh phải nhắn tin với LỚP và nhắn tin với
+// VĂN PHÒNG, chứ mình cũng k muốn là nhắn tin với từng cô riêng lẻ"*.
+//
+// MỘT KÊNH LÀ MỘT GIA ĐÌNH NÓI VỚI MỘT BÊN CỦA TRƯỜNG — không phải một phòng
+// chung cả lớp. Xem chú thích bảng `kenh_hoi_thoai` ở lib/schema.sql: chuyện
+// nhà một bé mà hiện trước mặt mười chín nhà khác là hỏng lòng tin không lấy
+// lại được.
+//
+// AI ĐỌC ĐƯỢC MỘT KÊNH LÀ CÂU HỎI TÍNH LẠI MỖI LẦN HỎI, không phải một danh
+// sách chép ra lúc lập phòng:
+//
+//   gia đình  → `canAccessStudent` (bé của mình)
+//   cô        → `canAccessClass` với kênh 'nhom' (nhóm mình ĐANG phụ trách)
+//   văn phòng → `canAccessStudent` với kênh 'vanphong' (đã lo tầng cơ sở)
+//
+// Nhờ vậy cô mới về nhóm ĐỌC ĐƯỢC NGAY, và cô đã chuyển đi thì thôi — hai mặt
+// của đúng chỗ hở mà chú thích `findConv` bên dưới đã ghi lại cho phòng chung.
+//
+// HÀNG THÀNH VIÊN VẪN GHI, nhưng chỉ để đếm tin chưa đọc và để hội thoại hiện
+// trong danh sách (hai thứ đó đi theo `conversation_members`). Hàng ấy được
+// THÊM VÀO khi người có quyền mở màn, và nó KHÔNG cấp quyền — quyền vẫn tính
+// lại ở `findConv`.
+const KENH = ['nhom', 'vanphong'];
+
+function kenhCua(conversationId) {
+  return db.first('kenh_hoi_thoai',
+    'SELECT * FROM kenh_hoi_thoai WHERE conversationId = ?', [conversationId]);
+}
+
+// Người này có được vào kênh đó không. Tính lại từ quyền thật, mỗi lần hỏi.
+function vaoDuocKenh(user, k) {
+  if (!k) return false;
+  if (user.role === 'parent') return db.canAccessStudent(user, k.studentId);
+  if (user.role === 'teacher') return k.loai === 'nhom' && db.canAccessClass(user, k.classId);
+  if (user.role === 'admin') return k.loai === 'vanphong' && db.canAccessStudent(user, k.studentId);
+  return false;
+}
+
+// Kênh đã có của một bé, theo loại.
+function kenhCuaBe(studentId, loai) {
+  return db.first('kenh_hoi_thoai',
+    'SELECT * FROM kenh_hoi_thoai WHERE studentId = ? AND loai = ?', [studentId, loai]);
+}
+
+// ĐỒNG BỘ HÀNG THÀNH VIÊN CHO NHỮNG KÊNH NGƯỜI NÀY ĐƯỢC VÀO.
+//
+// Chạy ở đầu đường lấy danh sách hội thoại. Thường không ghi gì cả — chỉ ghi
+// đúng lúc có kênh mới, hoặc lúc một cô vừa được phân về nhóm.
+//
+// VÌ SAO KHÔNG ĐỂ DANH SÁCH TỰ ĐỌC THẲNG BẢNG KÊNH: câu truy vấn danh sách cắt
+// trang NGAY TRONG SQL và cố ý như vậy (xem chú thích của nó). Nối thêm một
+// nguồn hội thoại thứ hai vào đó là phải gộp và cắt trang trong JavaScript —
+// đúng thứ chú thích ấy nói là đã sửa đi vì đếm sai số trang. Thêm hàng thành
+// viên thì câu truy vấn không phải đổi một chữ nào.
+function dongBoKenh(user) {
+  let dsKenh = [];
+  if (user.role === 'parent') {
+    const ids = db.studentIdsOf(user);
+    if (!ids.length) return;
+    const m = ids.map(() => '?').join(',');
+    dsKenh = db.all('kenh_hoi_thoai',
+      `SELECT * FROM kenh_hoi_thoai WHERE studentId IN (${m})`, ids);
+  } else if (user.role === 'teacher') {
+    const lop = db.classIdsOf(user);
+    if (!lop.length) return;
+    const m = lop.map(() => '?').join(',');
+    dsKenh = db.all('kenh_hoi_thoai',
+      `SELECT * FROM kenh_hoi_thoai WHERE loai = 'nhom' AND classId IN (${m})`, lop);
+  } else if (user.role === 'admin') {
+    const pham = db.phamViCoSo(user);
+    dsKenh = pham
+      ? db.all('kenh_hoi_thoai',
+        `SELECT k.* FROM kenh_hoi_thoai k
+           JOIN students s ON s.id = k.studentId
+           JOIN class_campus cc ON cc.classId = s.classId
+          WHERE k.loai = 'vanphong' AND cc.campusId = ?`, [pham])
+      : db.all('kenh_hoi_thoai', "SELECT * FROM kenh_hoi_thoai WHERE loai = 'vanphong'");
+  }
+  if (!dsKenh.length) return;
+
+  const ma = dsKenh.map(k => k.conversationId);
+  const m2 = ma.map(() => '?').join(',');
+  const daCo = new Set(db.all('conversation_members',
+    `SELECT conversationId FROM conversation_members
+      WHERE userId = ? AND conversationId IN (${m2})`, [user.id, ...ma])
+    .map(r => r.conversationId));
+
+  const thieu = dsKenh.filter(k => !daCo.has(k.conversationId) && vaoDuocKenh(user, k));
+  if (!thieu.length) return;
+  db.tx(() => {
+    for (const k of thieu) {
+      db.insert('conversation_members',
+        { conversationId: k.conversationId, userId: user.id, lastRead: null });
+    }
+  });
+}
+
 // Tìm hội thoại riêng giữa đúng hai người (nếu đã có).
 function directConvId(a, b) {
   const row = db.first('conversations',
@@ -89,62 +190,60 @@ function hoiThoaiRiengCua(userId) {
   return ra;
 }
 
+// AI NHẮN ĐƯỢC VỚI AI — sau Đ151.
+//
+// Nhà trường 10/09: *"chứ mình cũng k muốn là nhắn tin với từng cô riêng lẻ"*,
+// và *"GVCN là người nói chuyện chính, sau có thể thêm giáo viên nước ngoài"*.
+//
+//   Gia đình  → hai kênh cho MỖI bé: "Nhóm lớp <tên>" và "Văn phòng nhà trường".
+//               KHÔNG còn danh sách từng cô để bấm vào.
+//   Cô        → gia đình từng bé trong nhóm mình, mở đúng kênh "Nhóm lớp".
+//   Văn phòng → KHÔNG mời mở cuộc mới. Văn phòng TRẢ LỜI gia đình; còn muốn nói
+//               với cả trường thì đã có Thông báo. Danh sách liên hệ của văn
+//               phòng là ba trăm gia đình, và một danh sách ba trăm dòng gửi
+//               kèm mỗi lần mở màn Nhắn tin thì không ai bấm nổi mà máy vẫn
+//               phải chở. Kênh nào gia đình đã mở thì hiện trong danh sách như
+//               thường.
+//
+// HỘI THOẠI RIÊNG ĐÃ CÓ THÌ GIỮ NGUYÊN. Nguyên tắc số 1: bỏ một lối đi là thôi
+// mời người ta đi lối đó, không phải xoá những gì đã nói. Mọi cuộc `direct` cũ
+// vẫn nằm trong danh sách, vẫn mở và vẫn nhắn tiếp được; chỉ là không có đường
+// nào tạo THÊM cuộc riêng mới nữa.
 function contactsFor(user) {
   const out = [];
-  const seen = new Set();
-  // Một câu, thay cho một câu mỗi liên hệ.
-  const daCoPhong = hoiThoaiRiengCua(user.id);
   if (user.role === 'parent') {
-    // Một nhà có 1–3 con, nên chỉ cần nhớ lại theo mã nhóm là hết trùng.
-    const dsBe = db.studentsOf(user);
-    const nhoNhom = new Map();
-    for (const s of dsBe) {
-      if (!s.classId || nhoNhom.has(s.classId)) continue;
-      nhoNhom.set(s.classId, { cls: db.findClass(s.classId), co: db.teachersOfClass(s.classId) });
-    }
-    for (const s of dsBe) {
-      const nhom = s.classId ? nhoNhom.get(s.classId) : null;
-      const cls = nhom ? nhom.cls : null;
-      if (!cls) continue;
-      for (const teacher of nhom.co) {
-        if (seen.has(teacher.id)) continue;
-        seen.add(teacher.id);
-        out.push({
-          userId: teacher.id,
-          name: displayName(teacher),
-          subtitle: `${teacher.vaiTro === 'chinh' ? 'Cô phụ trách chính' : 'Cô phụ trách'} ${cls.name}`,
-          avatar: teacher.avatar,
-          existingConversationId: daCoPhong.get(teacher.id) || null,
-        });
-      }
+    for (const s of db.studentsOf(user)) {
+      if (!s.classId) continue;
+      const cls = db.findClass(s.classId);
+      const daCoNhom = kenhCuaBe(s.id, 'nhom');
+      const daCoVP = kenhCuaBe(s.id, 'vanphong');
+      out.push({
+        kenh: 'nhom', studentId: s.id,
+        name: `Nhóm lớp ${cls ? cls.name : ''}`.trim(),
+        subtitle: `Các cô phụ trách bé ${s.name}`,
+        avatar: null,
+        existingConversationId: daCoNhom ? daCoNhom.conversationId : null,
+      });
+      out.push({
+        kenh: 'vanphong', studentId: s.id,
+        name: 'Văn phòng nhà trường',
+        subtitle: `Về bé ${s.name}`,
+        avatar: null,
+        existingConversationId: daCoVP ? daCoVP.conversationId : null,
+      });
     }
   } else if (user.role === 'teacher') {
-    const dsBe = db.studentsOf(user);
-    // Tên các gia đình: MỘT câu cho cả nhóm, thay vì một câu cho mỗi gia đình.
-    const maPh = [...new Set(dsBe.flatMap(s => s.parentIds || []).filter(Boolean))];
-    const nguoi = new Map();
-    if (maPh.length) {
-      for (const u of db.all('users',
-        `SELECT * FROM users WHERE id IN (${maPh.map(() => '?').join(',')})`, maPh)) {
-        // Bỏ băm mật khẩu ngay tại chỗ tra, đúng nếp `db.teachersOfClass`:
-        // bảng này sinh ra để đổ lên màn hình, đừng bắt chỗ gọi phải nhớ gỡ.
-        const { passwordHash: _bo, ...sach } = u;
-        nguoi.set(u.id, sach);
-      }
-    }
-    for (const s of dsBe) {
-      for (const pid of s.parentIds) {
-        const parent = nguoi.get(pid);
-        if (!parent || seen.has(parent.id)) continue;
-        seen.add(parent.id);
-        out.push({
-          userId: parent.id,
-          name: displayName(parent),
-          subtitle: `Phụ huynh bé ${s.name}`,
-          avatar: parent.avatar,
-          existingConversationId: daCoPhong.get(parent.id) || null,
-        });
-      }
+    for (const s of db.studentsOf(user)) {
+      if (!s.classId) continue;
+      const cls = db.findClass(s.classId);
+      const daCo = kenhCuaBe(s.id, 'nhom');
+      out.push({
+        kenh: 'nhom', studentId: s.id,
+        name: `Gia đình bé ${s.name}`,
+        subtitle: cls ? cls.name : '',
+        avatar: s.avatar,
+        existingConversationId: daCo ? daCo.conversationId : null,
+      });
     }
   }
   return out;
@@ -157,6 +256,31 @@ function contactsFor(user) {
 // phải sửa một chữ nào và không đổi hành vi.
 function convMeta(cv, user, members, tra) {
   const ids = members || (tra && tra.thanhVien.get(cv.id)) || memberIds(cv.id);
+  // KÊNH: hai bên nhìn thấy hai cái tên khác nhau, và cả hai đều đúng.
+  //
+  // Gia đình mở ra thấy "Nhóm lớp Chồi 2" — họ đang nói với NHÓM, không với một
+  // cô nào. Cô mở ra thấy "Gia đình bé Bin" — cô đang nói với một NHÀ. Bắt cả
+  // hai đọc cùng một dòng chữ thì một trong hai bên sẽ đọc ra điều sai.
+  if (cv.type === 'kenh') {
+    const k = kenhCua(cv.id);
+    if (!k) return { title: 'Cuộc trò chuyện', subtitle: '', avatar: GROUP_AVATAR };
+    const be = db.findStudent(k.studentId);
+    const cls = be && be.classId ? db.findClass(be.classId) : null;
+    if (user.role === 'parent') {
+      return {
+        title: k.loai === 'vanphong' ? 'Văn phòng nhà trường' : `Nhóm lớp ${cls ? cls.name : ''}`.trim(),
+        subtitle: be ? `Về bé ${be.name}` : '',
+        avatar: GROUP_AVATAR,
+      };
+    }
+    return {
+      title: be ? `Gia đình bé ${be.name}` : 'Gia đình',
+      subtitle: k.loai === 'vanphong'
+        ? `Nhắn với văn phòng${cls ? ` · ${cls.name}` : ''}`
+        : (cls ? cls.name : ''),
+      avatar: be ? be.avatar : null,
+    };
+  }
   if (cv.type === 'group') {
     return { title: cv.name, subtitle: `${ids.length} thành viên`, avatar: GROUP_AVATAR };
   }
@@ -208,6 +332,30 @@ function messageDto(m, user) {
 function findConv(req, res) {
   const cv = db.first('conversations', 'SELECT * FROM conversations WHERE id = ?', [req.params.id]);
   if (!cv) { res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' }); return null; }
+  // KÊNH: quyền tính LẠI từ nhóm lớp và từ bé, không tra bảng thành viên.
+  //
+  // Cô mới về nhóm chưa có hàng thành viên nào — vẫn phải đọc được ngay, vì
+  // gia đình đang nhắn cho NHÓM chứ không nhắn cho một cô. Ngược lại, cô đã
+  // chuyển đi thì `canAccessClass` trả false và hàng thành viên cũ không cứu
+  // được. Hàng thành viên chỉ để đếm tin chưa đọc, không cấp quyền.
+  if (cv.type === 'kenh') {
+    const k = kenhCua(cv.id);
+    if (!vaoDuocKenh(req.user, k)) {
+      res.status(403).json({ error: 'Bạn không tham gia cuộc trò chuyện này' });
+      return null;
+    }
+    // Vào được mà chưa có hàng thành viên thì thêm ngay, để lần sau cuộc này
+    // nằm trong danh sách và đếm được tin chưa đọc.
+    const co = db.count(
+      'SELECT COUNT(*) FROM conversation_members WHERE conversationId = ? AND userId = ?',
+      [cv.id, req.user.id]);
+    if (!co) {
+      db.insert('conversation_members',
+        { conversationId: cv.id, userId: req.user.id, lastRead: null });
+    }
+    return cv;
+  }
+
   const isMember = db.count(
     'SELECT COUNT(*) FROM conversation_members WHERE conversationId = ? AND userId = ?',
     [cv.id, req.user.id]);
@@ -264,6 +412,10 @@ module.exports = (app) => {
   // Danh sách hội thoại của tôi + liên hệ có thể chat mới.
   app.get('/api/messages', allow, (req, res) => {
     const user = req.user;
+    // Kênh nào người này được vào mà chưa có hàng thành viên thì thêm vào đây,
+    // TRƯỚC câu truy vấn danh sách — nhờ vậy câu truy vấn ấy không phải đổi một
+    // chữ nào và phần cắt trang trong SQL vẫn đúng như ngày nó được viết.
+    dongBoKenh(user);
 
     // CẮT CỬA SỔ NGAY TRONG CÂU TRUY VẤN.
     //
@@ -444,17 +596,57 @@ module.exports = (app) => {
 
   // Bắt đầu trò chuyện riêng mới.
   // Đăng ký TRƯỚC /api/messages/:id để đường dẫn "start" không bị hiểu thành mã hội thoại.
+  // MỞ MỘT KÊNH (Đ151).
+  //
+  // Không còn đường nào tạo cuộc RIÊNG với một người nữa — nhà trường chốt như
+  // vậy. Cuộc riêng đã có vẫn mở và vẫn nhắn tiếp được (xem `contactsFor`).
+  //
+  // Kênh sinh RA MUỘN, đúng lúc có người mở lời. Dựng sẵn kênh cho ba trăm gia
+  // đình là hộp thư của văn phòng có ba trăm cuộc trống ngay ngày đầu, và
+  // không cách nào biết cuộc nào đang thật sự có chuyện.
   app.post('/api/messages/start', allow, (req, res) => {
-    const { userId } = req.body || {};
-    const contact = contactsFor(req.user).find(c => c.userId === userId);
-    if (!contact) return res.status(403).json({ error: 'Bạn không thể trò chuyện với người này' });
+    const { kenh, studentId } = req.body || {};
+    if (!KENH.includes(String(kenh || ''))) {
+      return res.status(400).json({ error: 'Chưa rõ muốn nhắn với nhóm lớp hay với văn phòng' });
+    }
+    const contact = contactsFor(req.user)
+      .find(c => c.kenh === kenh && c.studentId === studentId);
+    if (!contact) {
+      return res.status(403).json({
+        error: 'Không mở được cuộc trò chuyện này. Gia đình nhắn với nhóm lớp của con '
+          + 'hoặc với văn phòng nhà trường nhé.',
+      });
+    }
     if (contact.existingConversationId) return res.json({ id: contact.existingConversationId });
+
+    const be = db.findStudent(studentId);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
 
     const id = db.nextId('cv');
     db.tx(() => {
-      db.insert('conversations', { id, type: 'direct', name: null, classId: null });
-      db.insert('conversation_members', { conversationId: id, userId: req.user.id, lastRead: null });
-      db.insert('conversation_members', { conversationId: id, userId, lastRead: null });
+      // `classId` của hội thoại để NULL với kênh văn phòng: cột đó có khoá
+      // ngoại tới `classes` và xoá nhóm là xoá cả hội thoại — mà kênh văn phòng
+      // không thuộc về nhóm nào.
+      db.insert('conversations', {
+        id, type: 'kenh', name: null,
+        classId: kenh === 'nhom' ? (be.classId || null) : null,
+      });
+      db.insert('kenh_hoi_thoai', {
+        conversationId: id, loai: kenh, studentId,
+        classId: kenh === 'nhom' ? (be.classId || '') : '',
+        taoLuc: new Date().toISOString(),
+      });
+      // GHI HÀNG THÀNH VIÊN CHO CẢ NHÀ, không chỉ người vừa bấm.
+      //
+      // Một bé thường có cả bố lẫn mẹ trong app (nhà trường yêu cầu như vậy).
+      // Mẹ mở lời mà bố không thấy cuộc đó trong danh sách thì bố tưởng trường
+      // chưa trả lời, rồi gọi điện hỏi lại đúng chuyện vừa nhắn.
+      const nha = new Set([...(be.parentIds || [])]);
+      nha.add(req.user.id);
+      for (const uid of nha) {
+        if (!db.findUser(uid)) continue;
+        db.insert('conversation_members', { conversationId: id, userId: uid, lastRead: null });
+      }
     });
     res.json({ id });
   });
@@ -534,6 +726,36 @@ module.exports = (app) => {
       db.insert('messages', msg);
       markRead(cv.id, req.user.id);
     });
+
+    // TRƯỜNG NHẮN THÌ GIA ĐÌNH ĐƯỢC BÁO NGAY (Đ151).
+    //
+    // Nhà trường 10/09 xin *"đẩy thông báo tới phụ huynh khi có bất kỳ gì từ
+    // phía nhà trường"*. Một tin nhắn của cô hay của văn phòng đúng là "bất kỳ
+    // gì" ấy, và nó còn cần được đọc nhanh hơn phần lớn những thứ khác: cô nhắn
+    // "chiều nay đón con sớm giúp cô" lúc 14h mà gia đình mở app lúc 20h thì
+    // tin đó không còn nghĩa gì.
+    //
+    // CHIỀU NGƯỢC LẠI THÌ KHÔNG. Gia đình nhắn cho trường thì cô và văn phòng
+    // thấy trong huy hiệu tin chưa đọc như trước; `lib/day.js` chỉ đẩy tới
+    // `student_parents`, tức chỉ tới gia đình, nên gọi ở đây cũng vô ích.
+    //
+    // Chỉ với KÊNH: cuộc riêng cũ (`direct`) không gắn với bé nào nên không có
+    // chỗ để gửi tin riêng của một bé.
+    if (req.user.role !== 'parent' && cv.type === 'kenh') {
+      const k = kenhCua(cv.id);
+      if (k) {
+        tbb.gui({
+          studentId: k.studentId,
+          loai: 'tin-nhan',
+          tieuDe: k.loai === 'vanphong'
+            ? 'Văn phòng nhà trường vừa nhắn tin'
+            : 'Cô phụ trách vừa nhắn tin',
+          noiDung: text.slice(0, 140),
+          hash: `#/messages/${cv.id}`,
+          nguoiTao: req.user.id,
+        });
+      }
+    }
     res.json(messageDto(msg, req.user));
   });
 };

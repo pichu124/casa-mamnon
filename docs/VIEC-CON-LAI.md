@@ -82,6 +82,15 @@ xoá; mất giờ ra về và ảnh lúc trả. Không có việc mã.
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md:49-53 (B.2); dòng DD-16 'Chưa có gì phải làm về
 mã; chỉ cần quyết bật/tắt'
 
+> **✅ ĐÃ NGÃ NGŨ — trường 10/09 + Đ151.** Trường giữ nguyên ý bỏ, và lý do rõ
+> hơn lần trước: họ đã có bản giấy ở văn phòng. Phần tôi lo mất — giờ ra về và
+> ảnh lúc trả — thì trường giữ lại nguyên vẹn ở màn Điểm danh → Trả bé (Đ126/
+> Đ128), nên chỗ mâu thuẫn tôi nêu không còn.
+>
+> Đã gỡ phần khai người đón khỏi màn của gia đình, **giữ nguyên đường API và
+> bảng dữ liệu**, và thay bằng nút nhắn cho văn phòng — đúng cách trường nói sẽ
+> làm khi nhờ người đón hộ.
+
 **DD-11 — bố cục điểm danh một dòng Vào/Ra, thêm tab Nhiệt độ và tab Lưu ý**
 
 Ảnh mẫu trường gộp Vào lớp/Ra về vào MỘT danh sách; Đ126/Đ128 vừa tách hai tab Đón

@@ -237,7 +237,7 @@ console.log('\n[2] Báo ăn & tiền ăn — văn phòng chốt số cho bếp v
 }
 
 // ===========================================================================
-console.log('\n[3] Đón trả bé — gia đình khai người đón, cô ghi sổ, cả hai đều thấy');
+console.log('\n[3] Đón trả bé — gia đình đọc sổ và nhắn văn phòng, cô ghi sổ ở cổng');
 {
   // Phân hệ này có HAI người soạn ở hai màn khác nhau. Bỏ sót vế nào cũng là
   // một nửa món nợ B9 còn nguyên.
@@ -248,20 +248,34 @@ console.log('\n[3] Đón trả bé — gia đình khai người đón, cô ghi s
   // bé của nhóm mà tài khoản cô bên dưới phụ trách.
   await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
   await page.waitForTimeout(1000);
-  check('gia đình thấy nút thêm người được đón', await page.locator('#dt-them').count() === 1);
-
-  await page.click('#dt-them');
-  await page.waitForTimeout(800);
-  check('mở được hộp khai người được đón', await page.locator('#dt-n-ten').count() === 1);
-  await page.fill('#dt-n-ten', 'Nguyễn Thị Lan');
-  await page.fill('#dt-n-quanhe', 'Bà ngoại');
-  await page.fill('#dt-n-dt', '0912345678');
-  await page.click('#dt-n-luu');
-  await page.waitForTimeout(1600);
-
+  // TỪ Đ151, GIA ĐÌNH KHÔNG KHAI NGƯỜI ĐÓN TRONG APP NỮA.
+  //
+  // Nhà trường 10/09: *"trường khi đón trả bé đã đăng ký bằng file giấy rồi,
+  // mình nghĩ điền file giấy lưu vết sẽ an toàn hơn cho trường"*, và đón thay
+  // một lần thì *"PH sẽ nhắn tin với văn phòng để thông báo"*.
+  //
+  // Mục này trước đây đo vế "gia đình khai người đón". Vế ấy đã gỡ khỏi màn,
+  // nên nay đo đúng thứ THAY CHỖ NÓ — và đo cả hai điều mà việc gỡ dễ làm hỏng:
+  // gia đình có được chỉ đường đi tiếp không, và sổ đón trả có còn nguyên không.
   const manPH = await chuTrenMan();
-  check('GIA ĐÌNH KHAI XONG THÌ THẤY NGƯỜI VỪA KHAI',
-    /Nguyễn Thị Lan/.test(manPH) && /Bà ngoại/.test(manPH), manPH.slice(0, 220));
+  check('gia đình KHÔNG còn nút khai người được đón', await page.locator('#dt-them').count() === 0);
+  check('cũng không còn nút uỷ quyền một lần', await page.locator('#dt-uy').count() === 0);
+  check('mà có nút NHẮN CHO VĂN PHÒNG — đúng cách trường nói sẽ làm',
+    await page.locator('#dt-nhan-vp').count() === 1);
+  check('và màn nói rõ vì sao: nhà trường dùng bản giấy ở văn phòng',
+    /bản giấy/.test(manPH), manPH.slice(0, 260));
+  // `innerText` trả về chữ ĐÃ QUA CSS, mà `.section-label` viết hoa toàn bộ —
+  // nên phải dò không phân biệt hoa thường, không thì phép kiểm đỏ vì một luật
+  // trình bày chứ không vì thứ nó đang canh.
+  check('SỔ ĐÓN TRẢ CỦA CON VẪN CÒN — gỡ lối vào, không gỡ dữ liệu',
+    /sổ đón trả gần đây/i.test(manPH), manPH.slice(0, 300));
+
+  await page.click('#dt-nhan-vp');
+  await page.waitForTimeout(1200);
+  check('bấm vào là sang đúng màn Nhắn tin',
+    await page.evaluate(() => location.hash) === '#/messages');
+  await moMan('#/dontra');
+  await page.waitForTimeout(600);
 
   // Vế thứ hai: cô ở cổng chọn đúng người gia đình vừa khai rồi ghi vào sổ.
   await dangNhap('giaovien', '123456');
@@ -279,8 +293,15 @@ console.log('\n[3] Đón trả bé — gia đình khai người đón, cô ghi s
   await page.waitForTimeout(800);
   check('mở được hộp ghi trả bé', await page.locator('#dt-ai').count() === 1);
   const cacNguoi = await page.locator('#dt-ai option').allInnerTexts();
-  check('ô chọn người đón CÓ SẴN người gia đình vừa khai',
-    cacNguoi.some(t => /Nguyễn Thị Lan/.test(t)), cacNguoi);
+  // Gia đình không khai trước nữa, nên ô chọn của cô phải LUÔN có lối "người
+  // khác — ghi rõ tên". Không có lối đó thì từ Đ151 cô ở cổng không ghi nổi
+  // một dòng nào vào sổ.
+  check('ô chọn người đón luôn có lối "Người khác — ghi rõ tên"',
+    cacNguoi.some(t => /Người khác/.test(t)), cacNguoi);
+  await page.selectOption('#dt-ai', 'khac|');
+  await page.waitForTimeout(400);
+  check('chọn "Người khác" thì hiện ô gõ tên', await page.locator('#dt-ten').isVisible());
+  await page.fill('#dt-ten', 'Nguyễn Thị Lan');
 
   await page.fill('#dt-ghichu', 'Có đối chiếu ảnh ở cổng');
   await page.click('#dt-luu');

@@ -670,47 +670,21 @@ App.views.dontra = {
     const d = await API.get(`/api/dontra?studentId=${encodeURIComponent(be.id)}`);
     this._ho = d;
 
-    const conHieuLuc = (d.uyQuyen || []).filter(u => u.trangThai === 'con-hieu-luc' || u.trangThai === 'chua-toi');
-    const daQua = (d.uyQuyen || []).filter(u => u.trangThai === 'het-han' || u.trangThai === 'da-huy');
-
     root.innerHTML = `
       ${UI.pageHeader('Đón trả bé')}
       ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
 
       <div class="card">
         <div class="muted small" style="line-height:1.6">
-          Đây là danh sách những người trường được phép trao con cho. Gia đình khai ở đây,
-          cô ở cổng nhìn ảnh để đối chiếu. <b>Ai không còn đón nữa thì bấm "Ngưng dùng"</b> —
-          trường vẫn giữ lại để tra những lần đón trước, nhưng không nhận người đó ở cổng nữa.
+          Việc <b>khai người được đón</b> nay nhà trường làm bằng <b>bản giấy ở văn phòng</b>,
+          không khai trong app nữa. Hôm nào nhờ người khác đón hộ, gia đình
+          <b>nhắn cho văn phòng</b> một câu là được.
         </div>
+        ${App.moduleEnabled('messages') ? `
+          <button class="btn primary block mt-14" id="dt-nhan-vp">
+            ${UI.icon('chat', 18)} Nhắn cho văn phòng nhà trường
+          </button>` : ''}
       </div>
-
-      <div class="section-label">Người đón thường xuyên</div>
-      ${(d.nguoiThuongXuyen || []).length ? (d.nguoiThuongXuyen || []).map(n => `
-        <div class="card">
-          ${this.theNguoi(n, { cuoi: n.dangDung ? '' : UI.badge('Đã ngưng', 'gray') })}
-          ${n.ghiChu ? `<div class="muted small">${UI.esc(n.ghiChu)}</div>` : ''}
-          <div class="grid-2 mt-8">
-            <button class="btn outline" data-sua="${UI.esc(n.id)}">${UI.icon('edit', 16)} Sửa</button>
-            <button class="btn ${n.dangDung ? 'danger-soft' : 'success-soft'}" data-ngung="${UI.esc(n.id)}">
-              ${n.dangDung ? 'Ngưng dùng' : 'Dùng lại'}
-            </button>
-          </div>
-        </div>`).join('')
-        : UI.emptyState('👤', 'Chưa khai ai được đón bé. Gia đình thêm giúp trường nhé.')}
-      <button class="btn primary block" id="dt-them">${UI.icon('plus', 18)} Thêm người được đón</button>
-
-      <div class="section-label">Uỷ quyền đón một lần</div>
-      <div class="card">
-        <div class="muted small" style="line-height:1.6">
-          Hôm nay bận, nhờ người khác đón hộ thì khai ở đây. <b>Nên kèm ảnh</b> — cô ở cổng
-          chưa gặp người đó bao giờ, không có ảnh thì cô chỉ còn cách gọi điện cho gia đình.
-        </div>
-        <button class="btn primary block mt-14" id="dt-uy">${UI.icon('plus', 18)} Uỷ quyền một lần</button>
-      </div>
-      ${conHieuLuc.map(u => this.theUyQuyen(u, true)).join('')}
-      ${daQua.length ? `<div class="section-label">Uỷ quyền đã qua</div>
-        ${daQua.slice(0, 10).map(u => this.theUyQuyen(u, false)).join('')}` : ''}
 
       <div class="section-label">Sổ đón trả gần đây</div>
       ${(d.soGanDay || []).length ? `<div class="card">
@@ -728,11 +702,13 @@ App.views.dontra = {
           </div></div>`).join('')}
       </div>` : UI.emptyState('📖', 'Chưa có ngày nào cô ghi sổ đón trả cho con.')}`;
 
-    document.getElementById('dt-them').onclick = () => this.moNguoi(null);
-    document.getElementById('dt-uy').onclick = () => this.moUyQuyen();
-    for (const b of root.querySelectorAll('[data-sua]')) b.onclick = () => this.moNguoi(b.dataset.sua);
-    for (const b of root.querySelectorAll('[data-ngung]')) b.onclick = () => this.doiDangDung(b.dataset.ngung);
-    for (const b of root.querySelectorAll('[data-huy]')) b.onclick = () => this.huyUyQuyen(b.dataset.huy);
+    // Phần khai người đón / uỷ quyền đã gỡ khỏi màn của gia đình (Đ151), nên ba
+    // dòng gắn sự kiện cho nó cũng đi theo. `moNguoi`, `moUyQuyen`,
+    // `doiDangDung`, `huyUyQuyen` và toàn bộ đường API của chúng thì GIỮ NGUYÊN
+    // — đúng bước 2 của "Bỏ một tính năng" trong CLAUDE.md: gỡ lối vào, không
+    // gỡ dữ liệu. Nhà trường đổi ý thì chỉ cần dựng lại mấy dòng này.
+    const nutVP = document.getElementById('dt-nhan-vp');
+    if (nutVP) nutVP.onclick = () => { location.hash = '#/messages'; };
     for (const b of root.querySelectorAll('[data-xem-anh]')) b.onclick = () => this.xemAnhTra(b.dataset.xemAnh);
   },
 

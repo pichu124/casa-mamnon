@@ -192,8 +192,23 @@ r = await call(P.cookie, 'GET', '/api/messages/cv3'); check('P mở cv3 (không 
 r = await call(P.cookie, 'POST', '/api/messages/cv1', { text: 'Tin nhắn test từ phụ huynh' }); check('P gửi tin cv1', r.status === 200 || r.status === 201, r);
 r = await call(T.cookie, 'GET', '/api/messages/cv1/poll?after=' + encodeURIComponent(new Date(Date.now() - 60000).toISOString()));
 check('T poll thấy tin mới', r.status === 200 && r.data.messages.length >= 1, r);
-r = await call(T.cookie, 'POST', '/api/messages/start', { userId: 'p6' }); check('T start với PH lớp khác -> 403', r.status === 403, r);
-r = await call(T.cookie, 'POST', '/api/messages/start', { userId: 'p5' }); check('T start với PH lớp mình', (r.status === 200 || r.status === 201) && r.data.id, r);
+// TỪ Đ151, MỞ CUỘC BẰNG KÊNH + BÉ, KHÔNG BẰNG MÃ NGƯỜI.
+//
+// Nhà trường 10/09 chốt: gia đình nhắn với NHÓM LỚP và với VĂN PHÒNG, "chứ mình
+// cũng k muốn là nhắn tin với từng cô riêng lẻ". Nên đường tạo cuộc RIÊNG với
+// một người không còn nữa.
+//
+// Điều mục này canh thì KHÔNG đổi, và vẫn là điều quan trọng: cô mở được cuộc
+// với gia đình bé NHÓM MÌNH, và không mở được với gia đình bé nhóm khác. Chỉ
+// đổi cái cửa đi vào. (Cuộc riêng đã có từ trước vẫn mở và vẫn nhắn tiếp được —
+// canh ở test:nhan-tin-kenh mục [6].)
+r = await call(T.cookie, 'POST', '/api/messages/start', { kenh: 'nhom', studentId: 's7' });
+check('T mở kênh với gia đình bé NHÓM KHÁC -> 403', r.status === 403, r);
+r = await call(T.cookie, 'POST', '/api/messages/start', { kenh: 'nhom', studentId: 's6' });
+check('T mở kênh với gia đình bé nhóm mình', (r.status === 200 || r.status === 201) && r.data.id, r);
+r = await call(T.cookie, 'POST', '/api/messages/start', { userId: 'p5' });
+check('T gọi theo lối CŨ (userId) -> 400, và nói rõ nay nhắn với ai',
+  r.status === 400 && /nhóm lớp|văn phòng/i.test(r.data && r.data.error), r);
 
 // ---- auth edge ----
 r = await call('', 'GET', '/api/students'); check('không cookie -> 401', r.status === 401, r);

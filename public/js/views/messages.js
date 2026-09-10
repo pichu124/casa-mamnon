@@ -67,7 +67,9 @@ App.views.messages = {
               ${cv.unreadCount > 0 ? `<span style="display:inline-block;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:.7rem;font-weight:700;margin-top:3px">${cv.unreadCount > 99 ? '99+' : cv.unreadCount}</span>` : ''}
             </div>
           </div>`).join('')}
-      </div>` : UI.emptyState('💬', 'Chưa có cuộc trò chuyện nào. Bấm "Trò chuyện mới" để bắt đầu.')}
+      </div>` : UI.emptyState('💬', App.state.user.role === 'admin'
+        ? 'Chưa có gia đình nào nhắn tới văn phòng.'
+        : 'Chưa có cuộc trò chuyện nào. Bấm "Trò chuyện mới" để bắt đầu.')}
       ${this._conNua ? `
         <button class="btn outline block mt-14" id="btn-ht-cu-hon">
           ${UI.icon('plus', 16)} Xem hội thoại cũ hơn
@@ -84,26 +86,42 @@ App.views.messages = {
     }
   },
 
-  // Modal chọn liên hệ để bắt đầu trò chuyện mới.
+  // Hộp chọn nơi bắt đầu một cuộc trò chuyện (Đ151).
+  //
+  // Nhà trường 10/09: *"giao diện phụ huynh phải nhắn tin với LỚP và nhắn tin
+  // với VĂN PHÒNG, chứ mình cũng k muốn là nhắn tin với từng cô riêng lẻ"*.
+  // Nên danh sách này với gia đình là HAI DÒNG cho mỗi bé, không phải danh sách
+  // các cô. Với cô thì là các gia đình trong nhóm mình.
+  //
+  // Văn phòng KHÔNG có dòng nào ở đây — văn phòng trả lời gia đình, còn muốn
+  // nói với cả trường thì đã có Thông báo. Câu trong ô trống nói rõ điều đó
+  // thay vì để văn phòng đứng nhìn một danh sách rỗng mà đoán.
   openNew() {
-    UI.modal(this._contacts.length ? this._contacts.map(c => `
-      <div class="list-row clickable" onclick="App.views.messages.pickContact('${UI.esc(c.userId)}')">
+    const laVanPhong = App.state.user.role === 'admin';
+    UI.modal(this._contacts.length ? this._contacts.map((c, i) => `
+      <div class="list-row clickable" onclick="App.views.messages.pickContact(${i})">
         ${UI.avatar(c.avatar, 44)}
         <div class="row-main">
           <div class="row-title">${UI.esc(c.name)}</div>
           <div class="row-sub">${UI.esc(c.subtitle)}</div>
         </div>
-      </div>`).join('') : UI.emptyState('🔍', 'Không có liên hệ nào để bắt đầu trò chuyện'),
+      </div>`).join('') : UI.emptyState('💬', laVanPhong
+        ? 'Văn phòng trả lời ngay trong cuộc gia đình đã mở. Muốn nhắn cho cả trường '
+          + 'hay cả một nhóm thì dùng mục Thông báo nhé.'
+        : 'Chưa có nơi nào để bắt đầu trò chuyện.'),
     'Trò chuyện mới');
   },
 
-  async pickContact(userId) {
-    const c = this._contacts.find(x => x.userId === userId);
+  // Nhận VỊ TRÍ trong danh sách, không nhận mã: một liên hệ nay được xác định
+  // bằng hai thứ (kênh + bé), mà nhét hai thứ vào một chuỗi rồi tách ra là chỗ
+  // để lọt ký tự lạ vào chuỗi HTML.
+  async pickContact(i) {
+    const c = this._contacts[Number(i)];
     if (!c) return;
     try {
       let id = c.existingConversationId;
       if (!id) {
-        const r = await API.post('/api/messages/start', { userId });
+        const r = await API.post('/api/messages/start', { kenh: c.kenh, studentId: c.studentId });
         id = r.id;
       }
       UI.closeModal();

@@ -308,6 +308,43 @@ CREATE TABLE IF NOT EXISTS luot_quan_tam (
 );
 CREATE INDEX IF NOT EXISTS idx_lqt_ngay ON luot_quan_tam(ngay);
 
+-- ===== KÊNH NHẮN TIN: GIA ĐÌNH ↔ NHÓM LỚP, và GIA ĐÌNH ↔ VĂN PHÒNG =====
+--
+-- Nhà trường 10/09: *"giao diện phụ huynh phải nhắn tin với LỚP và nhắn tin với
+-- VĂN PHÒNG, chứ mình cũng k muốn là nhắn tin với từng cô riêng lẻ"*.
+--
+-- MỘT KÊNH LÀ MỘT GIA ĐÌNH NÓI VỚI MỘT BÊN CỦA TRƯỜNG, KHÔNG PHẢI MỘT PHÒNG
+-- CHUNG CẢ LỚP. Đây là chỗ dễ đọc nhầm nhất của cả đợt: "nhắn với lớp" nghe như
+-- một phòng có cả hai chục gia đình trong đó. Không phải, và cũng không được
+-- phép là như vậy — chuyện nhà một bé (con sốt, bố mẹ ly thân, xin đón sớm) mà
+-- hiện trước mặt mười chín nhà khác là hỏng lòng tin không lấy lại được. "Với
+-- lớp" nghĩa là gia đình không phải chọn nhắn cho cô nào: MỌI cô của nhóm đều
+-- đọc và trả lời được cùng một cuộc, còn gia đình chỉ thấy một cuộc.
+--
+-- BẢNG PHỤ, KHÔNG THÊM CỘT VÀO `conversations`. Lược đồ lõi cấm ALTER TABLE, và
+-- `conversations` là bảng app 1 đang chạy thật cũng dùng.
+--
+-- VÌ SAO PHẢI CÓ `studentId` chứ không chỉ `classId`: một nhà có hai con cùng
+-- nhóm thì hai cuộc trò chuyện phải tách nhau, nếu không cô đọc một cuộc mà
+-- không biết đang nói về bé nào. Gắn theo BÉ cũng làm cuộc trò chuyện tự đi
+-- theo bé khi bé chuyển nhóm.
+--
+-- BÊN TRƯỜNG KHÔNG GHI THÀNH VIÊN CỐ ĐỊNH. Ai đọc được một kênh là câu hỏi tính
+-- LẠI mỗi lần hỏi (`canAccessClass` cho cô, `canAccessStudent` cho văn phòng),
+-- không phải một danh sách chép ra lúc lập phòng. Đó chính là chỗ hở mà chú
+-- thích `findConv` ở routes/messages.js đã ghi lại: bảng thành viên không bao
+-- giờ được đồng bộ, nên cô đã rời nhóm vẫn đọc tiếp, còn cô MỚI thì không vào
+-- được. Kênh sinh sau nên không mang cái nợ đó.
+CREATE TABLE IF NOT EXISTS kenh_hoi_thoai (
+  conversationId TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  loai           TEXT NOT NULL,             -- 'nhom' | 'vanphong'
+  studentId      TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  classId        TEXT NOT NULL DEFAULT '',  -- nhóm lúc lập kênh; '' với kênh văn phòng
+  taoLuc         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_kenh_be ON kenh_hoi_thoai(studentId, loai);
+CREATE INDEX IF NOT EXISTS idx_kenh_lop ON kenh_hoi_thoai(classId);
+
 -- ===== Nhận xét hằng ngày — khoảng 34.800 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS remarks (
   id         TEXT PRIMARY KEY,
