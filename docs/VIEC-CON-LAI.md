@@ -761,7 +761,7 @@ N7'), :1043 (Đ85 'kèm lời dặn xoá hẳn nửa không dùng')
 
 ### B3 — Để sau
 
-**/api/push chưa có trong danh sách api của BỐN chức vụ có danh sách**
+**~~/api/push chưa có trong danh sách api của BỐN chức vụ có danh sách~~ — ĐÃ LÀM Đ157** (làm KHÁC cách sổ này đề nghị: chỉ mở đúng `/api/push/trang-thai` để họ HỎI được, không mở cả tiền tố — mở cả tiền tố là hứa một tiếng chuông thử rồi thôi. Màn Cài đặt nay nghe theo `batDuoc` của máy chủ, không còn tự kể tên chức vụ)
 
 Đ137 tự ghi 'chưa làm' cho Cấp 2. Kiểm lại: cả vanphong-coso (Cấp 3) cũng thiếu — bốn
 chức vụ nhansu, ketoan, marketing, vanphong-coso đều không có '/api/push'. Màn Cài đặt
@@ -775,7 +775,7 @@ riêng.
 lib/db.js:1379-1399 (vanphong-coso), :1402-1429 (nhansu, marketing, ketoan) — không danh
 sách nào có '/api/push'; public/js/views/settings.js:107-108
 
-**Không có đường thay khoá VAPID và không có chỗ xem các máy đã đăng ký**
+**~~Không có đường thay khoá VAPID và không có chỗ xem các máy đã đăng ký~~ — ĐÃ LÀM Đ157** (Quản trị → Tổng quan có thẻ "Thông báo trên điện thoại": ai đang bật, gỡ máy của một người, đổi khoá phải gõ đúng chữ xác nhận)
 
 Khoá VAPID sinh một lần rồi cất trong bảng settings, chỉ sinh khi CHƯA có. Khoá lộ hay
 cần đổi thì không có đường nào trong app làm được. Bảng push_dang_ky cũng không có màn

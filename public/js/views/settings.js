@@ -103,9 +103,14 @@ App.views.settings = {
   // hứa hơn.
   theThongBaoDay() {
     const u = App.state.user;
-    // Chức vụ Cấp 2 (nhân sự, kế toán, marketing) không có đường /api/push
-    // trong danh sách API của họ — không mời bấm vào thứ sẽ bị từ chối.
-    if (u.role === 'admin' && u.chucVu && !['hieu-truong', 'quanly-coso'].includes(u.chucVu)) return '';
+    // TỪ Đ157 MÁY CHỦ QUYẾT AI THẤY THẺ NÀY, KHÔNG PHẢI CHỖ NÀY.
+    //
+    // Bản trước kể thẳng hai mã chức vụ ra ngay tại đây, để đoán xem tài khoản
+    // này có đường `/api/push` hay không — tức là hai
+    // chỗ cùng nói một chuyện, và hai chỗ thì sẽ trôi khỏi nhau ở lần sửa thứ
+    // hai. Nay `/api/push/trang-thai` trả về `batDuoc` và `loaiTin`, và
+    // `veTrangThaiDay` gỡ hẳn thẻ khi danh sách rỗng. Thẻ hiện ra một nhịp rồi
+    // biến mất là chấp nhận được: nó vốn mở đầu bằng "Đang kiểm tra…".
 
     // CHỈ GIA ĐÌNH MỚI THẬT SỰ NHẬN ĐƯỢC TIN ĐẨY (Đ145).
     //
@@ -138,9 +143,9 @@ App.views.settings = {
           ${laGiaDinh
             ? `Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`
-            : `Bật để máy tự báo khi có <b>việc chờ mình duyệt</b>: cô gửi báo cáo học tập,
-               cô xin sửa kế hoạch đã duyệt. Nút "Gửi thử" còn dùng để kiểm đường thông báo của
-               trường — nhận được nghĩa là máy chủ gửi được tin tới điện thoại phụ huynh.
+            : `Bật để máy tự báo khi có <b>việc chờ mình duyệt</b><span id="st-push-loai"></span>.
+               Nút "Gửi thử" còn dùng để kiểm đường thông báo của trường — nhận được nghĩa là
+               máy chủ gửi được tin tới điện thoại phụ huynh.
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`}
         </div>
         <div id="st-push-trang-thai" class="small mt-8" style="line-height:1.6">${hoTro ? 'Đang kiểm tra…' : 'Trình duyệt này chưa hỗ trợ thông báo đẩy.'}</div>
@@ -177,6 +182,25 @@ App.views.settings = {
     if (!o || !bat) return;
     let tt = { coGoiDay: false, soMay: 0 };
     try { tt = await API.get('/api/push/trang-thai'); } catch (_) {}
+
+    // MÁY CHỦ NÓI KHÔNG CÓ LOẠI TIN NÀO THÌ GỠ HẲN THẺ (Đ157).
+    //
+    // `batDuoc === false` nghĩa là tài khoản này sẽ không bao giờ nhận được
+    // một tin thật nào — mời họ bật là hứa suông, đúng bài học Đ14/Đ145.
+    // So bằng đúng giá trị `false`, KHÔNG so bằng dấu phủ định: máy chủ đời cũ
+    // (bản trước Đ157 còn trong bộ nhớ đệm của điện thoại) không gửi trường này,
+    // và khi ấy phải giữ nguyên hành vi cũ chứ không giấu thẻ đi.
+    if (tt.batDuoc === false) {
+      const the = document.getElementById('st-push-card');
+      if (the) the.remove();
+      return;
+    }
+    // Nói ĐÚNG những gì sẽ tới, bằng chính danh sách máy chủ trả về.
+    const oLoai = document.getElementById('st-push-loai');
+    if (oLoai && Array.isArray(tt.loaiTin) && tt.loaiTin.length) {
+      oLoai.textContent = `: ${tt.loaiTin.join(', ')}`;
+    }
+
     if (!tt.coGoiDay) {
       o.textContent = 'Máy chủ của trường chưa cài phần gửi thông báo đẩy — chuông trong app vẫn hoạt động.';
       bat.style.display = 'none';

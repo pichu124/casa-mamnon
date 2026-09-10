@@ -284,15 +284,28 @@ try {
 
     // MÀN CÀI ĐẶT VÀ ĐƯỜNG GỬI PHẢI TRÙNG DANH SÁCH.
     //
-    // Thẻ "Thông báo trên điện thoại" ẩn với mọi chức vụ ngoài hai chức vụ ấy.
-    // Nếu ai đó mở rộng danh sách nhận mà quên mở thẻ, người mới thêm sẽ không
-    // bao giờ bật được thông báo mà vẫn nằm trong danh sách "đã báo" — hứa
-    // suông đúng kiểu bài học Đ14.
+    // Nếu ai đó mở rộng danh sách nhận mà quên mở thẻ "Thông báo trên điện
+    // thoại", người mới thêm sẽ không bao giờ bật được thông báo mà vẫn nằm
+    // trong danh sách "đã báo" — hứa suông đúng kiểu bài học Đ14.
+    //
+    // TỪ Đ157 HAI CHỖ ẤY NỐI VỚI NHAU BẰNG MÁY CHỦ, KHÔNG BẰNG HAI DANH SÁCH.
+    // Bản Đ154 canh bằng cách tìm tên chức vụ trong chính tệp settings.js —
+    // đúng với lúc đó, vì màn hình tự kể tên chức vụ ra để quyết ẩn hay hiện.
+    // Nay `/api/push/trang-thai` trả `batDuoc`, và màn hình chỉ nghe theo. Nên
+    // canh đúng tính chất cũ qua cửa mới, và phép kiểm này CHẶT HƠN bản trước:
+    // bản trước chỉ chứng minh tên chức vụ có XUẤT HIỆN trong tệp, bản này
+    // chứng minh máy chủ THẬT SỰ hứa với họ một thứ có tên.
     const st = fs.readFileSync(path.join(GOC, 'public/js/views/settings.js'), 'utf8');
-    const than = st.slice(st.indexOf('theThongBaoDay() {'), st.indexOf('theThongBaoDay() {') + 1600);
-    for (const cv of bnt.CHUC_VU_NHAN) {
-      check(`màn Cài đặt vẫn hiện thẻ thông báo đẩy cho "${cv}"`, new RegExp(`'${cv}'`).test(than));
-    }
+    check('màn Cài đặt không còn tự kể tên chức vụ — nó hỏi máy chủ',
+      /tt\.batDuoc === false/.test(st), 'settings.js');
+    const tt = (await req('GET', '/api/push/trang-thai', { cookie: QT })).data;
+    check('và máy chủ hứa với ban giám hiệu đúng thứ Đ154 vừa dựng',
+      tt.batDuoc === true && (tt.loaiTin || []).some(t => /chờ duyệt/.test(t)), tt);
+    const ttCs2 = (await req('GET', '/api/push/trang-thai', { cookie: CS2 })).data;
+    check('quản lý cơ sở cũng vậy', ttCs2.batDuoc === true, ttCs2);
+    const ttKt = (await req('GET', '/api/push/trang-thai', { cookie: KT })).data;
+    check('còn chức vụ không nhận tin nào thì máy chủ nói thẳng là không',
+      ttKt.batDuoc === false && (ttKt.loaiTin || []).length === 0, ttKt);
     check('và thẻ KHÔNG còn nói "tài khoản nhà trường thì không" — câu đó nay đã sai',
       !/tài khoản nhà trường thì không/.test(st));
 

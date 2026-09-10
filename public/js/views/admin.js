@@ -221,7 +221,102 @@ App.views.admin = {
               <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem</button>
             </div>
           </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
+      </div>
+
+      <div id="ad-day"></div>`;
+
+    this.veThongBaoDay();
+  },
+
+  // ---------- Thông báo đẩy của cả trường (Đ157) ----------
+  //
+  // VÌ SAO THẺ NÀY NẰM Ở ĐÂY
+  //
+  // Bảng `push_dang_ky` trước đợt này không có màn nào để xem hay dọn: nó chỉ
+  // tự xoá khi dịch vụ đẩy của Google/Apple trả về 404/410. Nghĩa là nhà
+  // trường không có cách nào biết ai đang bật thông báo, hay gỡ máy của một
+  // người vừa nghỉ việc. Và khoá VAPID thì sinh một lần rồi nằm mãi — lộ ra
+  // ngoài cũng không đổi được.
+  //
+  // VẼ RIÊNG SAU KHI TAB ĐÃ HIỆN, KHÔNG CHỜ. Tài khoản chức vụ Cấp 2 gọi
+  // đường này sẽ nhận 403; chờ nó thì cả tab Tổng quan chậm theo, mà thứ ở
+  // đây là phần phụ. Hỏng thì thẻ không hiện, phần còn lại y nguyên.
+  async veThongBaoDay() {
+    const o = document.getElementById('ad-day');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/push/quan-tri'); } catch (_) { return; }
+    const ds = (d && d.danhSach) || [];
+    const theoVai = (v) => ds.filter(x => x.vai === v).length;
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">🔔 Thông báo trên điện thoại</div>
+        ${d.coGoiDay ? '' : `<div class="muted small" style="border-left:3px solid var(--warning);padding-left:10px">
+          Máy chủ của trường <b>chưa cài phần gửi thông báo đẩy</b>. Chuông trong app vẫn
+          hoạt động bình thường; chỉ là điện thoại không tự kêu khi app đang đóng.
+        </div>`}
+        <div class="muted small mt-8" style="line-height:1.7">
+          Đang có <b>${UI.esc(String(ds.length))} máy</b> bật thông báo:
+          ${UI.esc(String(theoVai('parent')))} máy của gia đình,
+          ${UI.esc(String(theoVai('teacher')))} của cô,
+          ${UI.esc(String(theoVai('admin')))} của nhà trường.
+        </div>
+        ${ds.length ? `<details class="mt-8"><summary class="small">Xem từng máy</summary>
+          ${ds.slice(0, 100).map(x => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.hoTen)}</div>
+                <div class="row-sub">${UI.esc(x.dichVu || 'không rõ dịch vụ')}${
+    x.taoLuc ? ` · bật từ ${UI.esc(String(x.taoLuc).slice(0, 10))}` : ''}${
+    x.loiCuoi ? ` · lần gửi cuối lỗi: ${UI.esc(x.loiCuoi)}` : ''}</div>
+              </div>
+              <button class="btn sm outline" data-go-may="${UI.esc(x.userId)}">Gỡ</button>
+            </div>`).join('')}
+          ${ds.length > 100 ? `<div class="muted small mt-8">…và ${UI.esc(String(ds.length - 100))} máy nữa.</div>` : ''}
+        </details>` : ''}
+        <div class="muted small mt-8" style="border-left:3px solid var(--warning);padding-left:10px;line-height:1.7">
+          <b>Đổi khoá thông báo</b> chỉ làm khi khoá bị lộ — ví dụ bản sao lưu bị chép ra ngoài.
+          Đổi xong thì <b>mọi máy đang bật đều phải bật lại từ đầu</b>, kể cả điện thoại của
+          gia đình, và không có cách nào báo cho họ biết ngoài việc nhắn tay.
+          <div class="mt-8">
+            <button class="btn sm outline" id="ad-day-doi-khoa">Đổi khoá thông báo</button>
+          </div>
+        </div>
       </div>`;
+
+    // TÊN NGƯỜI KHÔNG BAO GIỜ ĐI VÀO THAM SỐ CHUỖI CỦA `onclick`.
+    //
+    // `UI.esc` che được dấu ngoặc nhọn của HTML, nhưng KHÔNG che dấu nháy đơn
+    // — một cái tên có dấu nháy là thoát ra khỏi chuỗi JavaScript và chạy được
+    // mã trong đó. Bài canh `lo-hong-da-va` bắt đúng chỗ này, và nó bắt được
+    // ngay lần đầu tôi viết thẻ này. Nên: mã tài khoản đi qua `data-`, tên thì
+    // tra lại từ danh sách vừa vẽ.
+    const nho = new Map(ds.map(x => [x.userId, x.hoTen]));
+    for (const nut of o.querySelectorAll('[data-go-may]')) {
+      nut.onclick = () => this.goMayDay(nut.dataset.goMay, nho.get(nut.dataset.goMay) || '');
+    }
+    const nutKhoa = document.getElementById('ad-day-doi-khoa');
+    if (nutKhoa) nutKhoa.onclick = () => this.doiKhoaDay();
+  },
+
+  async goMayDay(userId, hoTen) {
+    if (!confirm(`Gỡ mọi máy đang bật thông báo của ${hoTen}?\n\nHọ vẫn dùng app bình thường, chỉ là điện thoại thôi tự kêu.`)) return;
+    try {
+      const r = await API.post('/api/push/quan-tri/go', { userId });
+      UI.toast(`Đã gỡ ${r.daXoa} máy`, 'success');
+      this.veThongBaoDay();
+    } catch (e) { UI.toast(e.message || 'Chưa gỡ được', 'error'); }
+  },
+
+  async doiKhoaDay() {
+    const g = prompt('Đổi khoá là MỌI máy đang bật thông báo phải bật lại từ đầu, '
+      + 'kể cả điện thoại của gia đình.\n\nGõ đúng chữ  DOI KHOA  để xác nhận:');
+    if (g === null) return;
+    try {
+      const r = await API.post('/api/push/doi-khoa', { xacNhan: String(g).trim() });
+      UI.toast(`Đã đổi khoá. ${r.soMayPhaiDangKyLai} máy cần bật lại thông báo.`, 'success');
+      this.veThongBaoDay();
+    } catch (e) { UI.toast(e.message || 'Chưa đổi được khoá', 'error'); }
   },
 
   // Tải danh sách bé về máy dưới dạng tệp Excel mở được.
