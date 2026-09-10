@@ -148,11 +148,26 @@ module.exports = (app) => {
       macDinh: GIO_RA_SOAT_MAC_DINH,
       somNhat: GIO_RA_SOAT_SOM_NHAT,
       muonNhat: GIO_RA_SOAT_MUON_NHAT,
-      suaDuoc: req.user.role === 'admin',
+      // "Sửa được không" phải hỏi ĐÚNG chốt chặn mà PUT bên dưới dùng, không
+      // hỏi lại vai — chức vụ Bảo vệ cổng cũng là `role: admin` (Đ156).
+      suaDuoc: db.datNepDuoc(req.user),
     });
   });
 
   app.put('/api/attendance/cai-dat', requireRole('admin'), (req, res) => {
+    // BẢO VỆ CỔNG KHÔNG ĐẶT NẾP LÀM VIỆC CỦA CẢ TRƯỜNG (Đ156).
+    //
+    // Chức vụ "Bảo vệ cổng" có `/api/attendance` trong danh sách cho phép —
+    // đúng phần việc của họ — nhưng mốc rà soát thì không phải việc của người
+    // đứng cổng. Chặn ở CHÍNH ĐƯỜNG DẪN ẤY chứ không cắt nhỏ danh sách chức
+    // vụ: cắt nhỏ thì mỗi đường `/api/attendance/...` thêm sau này lại lọt ra
+    // ngoài mà không ai nhận ra.
+    if (!db.datNepDuoc(req.user)) {
+      return res.status(403).json({
+        error: 'Mốc giờ rà soát là nếp làm việc của cả trường, do văn phòng '
+          + 'hoặc ban giám hiệu đặt. Phần việc ở cổng không đổi mốc này.',
+      });
+    }
     const g = String(((req.body || {}).gioRaSoat) || '').trim();
     if (!HHMM_RE.test(g)) {
       return res.status(400).json({ error: 'Giờ chưa đúng dạng, ví dụ đúng: 08:30' });
@@ -615,6 +630,25 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
     }
     if (chanNgoaiNgay(res, ngay, 'chốt')) return;
+    // CHỐT SỔ VẮNG LÀ MỘT QUYẾT ĐỊNH CỦA SỔ, KHÔNG PHẢI VIỆC Ở CỔNG (Đ156).
+    //
+    // Một lần bấm ghi "nghỉ" cho MỌI bé chưa có dòng điểm danh hôm đó. Đó là
+    // căn cứ cho suất ăn, cho tiền ăn cuối tháng, và là thứ gia đình đọc để
+    // biết hôm nay con có tới lớp không — thuộc về người cầm sổ, không thuộc
+    // về chiếc máy dùng chung đặt ngoài cổng. Cùng lý do và cùng chỗ chặn với
+    // `PUT /api/attendance/cai-dat` bên trên.
+    //
+    // Hỏi `role === 'admin'` trước, có chủ ý: CÔ vẫn chốt sổ nhóm mình được y
+    // như trước (Đ131) — tầng chức vụ chỉ nói về tài khoản quản trị, và
+    // `datNepDuoc` trả false cho mọi vai khác. Bỏ vế này là lấy mất của cô một
+    // việc cô vẫn đang làm hằng ngày.
+    if (req.user.role === 'admin' && !db.datNepDuoc(req.user)) {
+      return res.status(403).json({
+        error: 'Chốt sổ vắng là việc của văn phòng hoặc ban giám hiệu — một lần '
+          + 'bấm là ghi nghỉ cho mọi bé chưa được chấm. Ở cổng thì chụp ảnh và '
+          + 'chấm từng bé thôi nhé.',
+      });
+    }
     // QUYỀN HỎI TRƯỚC GIỜ. Hỏi giờ trước thì lúc 7h sáng, cô nhóm khác gõ nhầm
     // mã nhóm nhận câu "chưa tới giờ" thay vì "không phải nhóm của cô" — câu
     // đúng phải là câu thứ hai, bất kể mấy giờ.
@@ -741,6 +775,12 @@ module.exports = (app) => {
 
     res.json({
       date, gioRaSoat: mocRaSoat, gioRaSoatChu: gioRaSoatChu(mocRaSoat), quaGio,
+      // Người này có được đặt mốc giờ và chốt sổ vắng không (Đ156).
+      //
+      // Máy chủ nói ra, màn hình chỉ nghe theo: không có trường này thì màn
+      // Điểm danh phải tự đoán bằng cách kể tên chức vụ ra ở phía trình duyệt
+      // — mà mỗi lần bảng chức vụ đổi là màn hình lại nói sai một chỗ.
+      datNepDuoc: db.datNepDuoc(req.user) || req.user.role !== 'admin',
       soCanRaSoat: quaGio ? canRaSoat.length : 0,
       danhSach: quaGio ? canRaSoat : [],
       // Trả về cả số bé đã có đơn nghỉ được duyệt, để văn phòng thấy vì sao

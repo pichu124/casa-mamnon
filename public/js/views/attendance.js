@@ -197,7 +197,7 @@ App.views.attendance = {
   theMocRaSoat(r) {
     const u = App.state.user || {};
     const chu = this.chuGioRaSoat(r);
-    if (u.role !== 'admin') {
+    if (u.role !== 'admin' || r.datNepDuoc === false) {
       return `<div class="muted small mt-8">Bảng rà soát của trường chốt lúc ${UI.esc(chu)}.</div>`;
     }
     return `
@@ -294,6 +294,10 @@ App.views.attendance = {
   // xong mới chốt, không phải bấm trước rồi gọi sau.
   nutChotVang(soBe) {
     if (this.ngayDaKhoa() || !soBe) return '';
+    // Máy chủ đã chặn (Đ156); chỗ này chỉ để không mời bấm một nút sẽ bị từ
+    // chối. Chưa có trường thì coi như được, để bản giao diện cũ trong bộ nhớ
+    // đệm của điện thoại vẫn hiện nút y như trước.
+    if (this._raSoat && this._raSoat.datNepDuoc === false) return '';
     return `
       <div class="muted small mt-8" style="line-height:1.6">
         Gọi xác nhận xong mà bé không tới thì chốt sổ một lượt: ${UI.esc(String(soBe))} bé

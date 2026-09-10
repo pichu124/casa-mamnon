@@ -657,7 +657,7 @@ không nhận tin nào, chỉ biết khi tự mở màn và thấy con số ở 
 báo GIA ĐÌNH; modules/kehoachbe/routes.js không require lib/thong-bao-be, đường đề xuất
 :992-1025 chỉ ghi audit; số đếm ở :370
 
-**DD-12 — chức vụ 'bảo vệ' chỉ được check-in**
+**~~DD-12 — chức vụ 'bảo vệ' chỉ được check-in~~ — ĐÃ LÀM Đ156** (chức vụ hẹp nhất bảng: `/api/auth`, `/api/dashboard`, `/api/attendance`; chốt sổ vắng và mốc giờ rà soát vẫn không phải việc ở cổng)
 
 Đ131 mới mở cho văn phòng/quản lý chấm cả cơ sở; chức vụ bảo vệ chưa có. Máy dùng chung
 ở cổng đang phải mượn tài khoản văn phòng = thấy ảnh mọi bé của cơ sở. Cần chức vụ mới
