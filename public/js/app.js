@@ -387,7 +387,49 @@ window.App = {
       if (!this.state.user) return;
       root.innerHTML = UI.pageHeader('Có lỗi xảy ra') + UI.emptyState('😥', err.message || 'Không tải được dữ liệu');
     });
+    this.demQuanTam(name);
     this.renderBottomNav(name);
+  },
+
+  // GIA ĐÌNH QUAN TÂM ĐIỀU GÌ — ĐẾM GỘP, KHÔNG THEO DÕI AI (Đ149).
+  //
+  // Nhà trường muốn biết gia đình vào app hay xem phần nào: ăn uống, lịch sinh
+  // hoạt, kế hoạch của bé, hay hình ảnh. Máy chủ chỉ cộng MỘT vào một ô đếm
+  // (ngày · mục · cơ sở) và không ghi lại ai đã mở — xem chú thích bảng
+  // `luot_quan_tam` ở lib/schema.sql.
+  //
+  // BỐN ĐIỀU CỐ Ý Ở PHÍA MÀN HÌNH:
+  //
+  //   1. CHỈ GIA ĐÌNH. Cô mở màn Thực đơn hai chục lần một ngày để soạn bữa;
+  //      đếm cả cô là con số nói về việc của trường chứ không về mối quan tâm
+  //      của gia đình — tức trả lời sai câu nhà trường hỏi.
+  //   2. MỘT LẦN MỖI MỤC MỖI NGÀY, nhớ ngay trên máy của gia đình. Không có
+  //      chỗ nhớ này thì một nhà bấm tới bấm lui mười lần thành mười lượt, và
+  //      bảng nói rằng mục ấy được quan tâm gấp mười lần sự thật. Nhớ ở MÁY
+  //      chứ không ở máy chủ, vì nhớ ở máy chủ thì phải nhớ kèm "nhà nào".
+  //   3. IM LẶNG TUYỆT ĐỐI. Không chờ, không báo lỗi, không giữ chỗ trên màn.
+  //      Đây là con số cho marketing; một dòng lỗi vì nó là lỗi của app đối với
+  //      người dùng, mà họ có bấm gì đâu.
+  //   4. KHÔNG BAO GIỜ CHẶN VIỆC CHÍNH. Kho của trình duyệt bị khoá (chế độ ẩn
+  //      danh, máy cũ) thì bỏ qua luôn, không đếm còn hơn làm hỏng màn hình.
+  demQuanTam(name) {
+    try {
+      const u = this.state.user;
+      if (!u || u.role !== 'parent') return;
+      if (!name || name === 'dashboard' || name === 'login' || name === 'setpassword') return;
+      const homNay = new Date().toISOString().slice(0, 10);
+      const khoa = `qt:${homNay}:${name}`;
+      if (localStorage.getItem(khoa)) return;
+      // Dọn dấu của những ngày đã qua. Không dọn thì mỗi ngày để lại chừng hai
+      // chục khoá và sau một năm học là vài nghìn khoá nằm lại trong máy của
+      // gia đình — một thứ app tự bày ra rồi không bao giờ tự dọn.
+      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('qt:') && !k.startsWith(`qt:${homNay}:`)) localStorage.removeItem(k);
+      }
+      localStorage.setItem(khoa, '1');
+      API.post('/api/dashboard/quan-tam', { muc: name }).catch(() => {});
+    } catch (_) { /* kho bị khoá — bỏ qua, không đếm còn hơn làm hỏng màn hình */ }
   },
 
   renderBottomNav(active) {
