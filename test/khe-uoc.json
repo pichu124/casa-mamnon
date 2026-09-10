@@ -119,6 +119,24 @@
     "trangThai": "ham(0)",
     "viSaoKhongThay": "ham(2)"
   },
+  "lib/thong-bao-be.js": {
+    "conCua": "ham(1)",
+    "danhDaDoc": "ham(2)",
+    "danhSachCua": "ham(1)",
+    "demChuaDoc": "ham(1)",
+    "docTatCa": "ham(1)",
+    "gui": "ham(0)",
+    "laMaRiengBe": "ham(1)"
+  },
+  "lib/day.js": {
+    "coGoiDay": "ham(0)",
+    "dangKy": "ham(2)",
+    "guiChoGiaDinhCuaBe": "ham(2)",
+    "guiChoNguoi": "ham(2)",
+    "huyDangKy": "ham(2)",
+    "khoaCongKhai": "ham(0)",
+    "soMayCua": "ham(1)"
+  },
   "public/js/ui.js (UI)": {
     "ATT_STATUS": "object",
     "DOW": "object",

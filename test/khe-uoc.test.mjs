@@ -13,6 +13,17 @@
 //   public/js/ui.js riêng UI.esc đã có hơn 300 chỗ gọi
 //   public/js/app.js lõi định tuyến của toàn bộ giao diện
 //
+// Từ Đ145 canh thêm hai tệp nền mà chính đợt 2 sinh ra:
+//
+//   lib/thong-bao-be.js  MỘT điểm gọi cho mọi tin riêng của một bé — ảnh tới
+//                        lớp, từng bữa nhật ký, cân đo, album, câu chuyện,
+//                        Cambridge, báo cáo đều đi qua `gui(...)`
+//   lib/day.js           đường đẩy Web Push; `thong-bao-be` gọi nó, routes/push
+//                        gọi nó, và không tệp nào khác biết về khoá VAPID
+//
+// Hai tệp này ra đời SAU bản chụp đầu tiên nên lọt khỏi bài canh suốt đợt 2 —
+// đúng nhóm mà CLAUDE.md gọi là nguy hiểm nhất. Bỏ sót ấy là lý do có Đ145.
+//
 // Quy định trong CLAUDE.md là: chạm vào tệp dùng chung thì CHỈ ĐƯỢC THÊM, không
 // đổi và không bỏ thứ đang có. Bài này biến vế "không bỏ, không đổi tên, không
 // đổi số tham số" từ một lời hứa thành thứ máy kiểm được: nó chụp lại danh sách
@@ -81,6 +92,11 @@ function docTepTrinhDuyet(duongDan) {
 const db = require(path.join(GOC, 'lib', 'db.js'));
 const auth = require(path.join(GOC, 'lib', 'auth.js'));
 const modules = require(path.join(GOC, 'lib', 'modules.js'));
+// Nạp được hai tệp này là đã kiểm luôn một điều: chúng KHÔNG có tác dụng phụ
+// lúc nạp. `lib/day.js` thử `require('web-push')` trong khối bắt lỗi nên máy
+// chưa cài gói vẫn nạp được — và bài canh vẫn phải xanh ở đó.
+const thongBaoBe = require(path.join(GOC, 'lib', 'thong-bao-be.js'));
+const day = require(path.join(GOC, 'lib', 'day.js'));
 const { UI } = docTepTrinhDuyet(path.join(GOC, 'public', 'js', 'ui.js'));
 const { App } = docTepTrinhDuyet(path.join(GOC, 'public', 'js', 'app.js'));
 
@@ -88,6 +104,8 @@ const hienTai = {
   'lib/db.js': hinhDang(db),
   'lib/auth.js': hinhDang(auth),
   'lib/modules.js': hinhDang(modules),
+  'lib/thong-bao-be.js': hinhDang(thongBaoBe),
+  'lib/day.js': hinhDang(day),
   'public/js/ui.js (UI)': hinhDang(UI),
   'public/js/app.js (App)': hinhDang(App),
 };
