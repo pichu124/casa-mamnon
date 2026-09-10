@@ -54,7 +54,23 @@ App.views.timetable = {
       .map(c => ({ id: c.id, name: c.name }));
   },
 
-  async render(root) {
+  // HAI PHẦN TRONG MỘT TAB (Đ148).
+  //
+  // Nhà trường 10/09: *"bỏ newsletter: gộp phần kế hoạch giáo dục và lịch sinh
+  // hoạt vào 1 tab tên là Lịch sinh hoạt, trong đó có đủ 2 nội dung là Kế hoạch
+  // giáo dục và Lịch sinh hoạt"*.
+  //
+  // Đổi phần bằng HASH (`#/timetable/kehoach`) chứ không bằng một biến trong
+  // bộ nhớ: nút Quay lại của điện thoại và liên kết gửi cho nhau đều phải đúng.
+  // Cùng cách màn Điểm danh đã làm ở Đ125.
+  //
+  // Phần Kế hoạch chỉ hiện khi phân hệ Kế hoạch giáo dục ĐANG BẬT. Nhà trường
+  // tắt nó ở Quản trị → Tính năng thì dải tab biến mất và màn này trở lại đúng
+  // như trước đợt này — không một dòng nào lỗi.
+  async render(root, params) {
+    const coKeHoach = App.moduleEnabled('plans');
+    const phan = (params && params[0] === 'kehoach' && coKeHoach) ? 'kehoach' : 'lich';
+    if (phan === 'kehoach') return this.veKeHoach(root, coKeHoach);
     const user = App.state.user;
     let classId = null;
     const dsNhom = user.role === 'teacher' ? (user.nhomCuaCo || [])
@@ -69,7 +85,8 @@ App.views.timetable = {
     } else {
       const current = App.currentStudent();
       if (!current) {
-        root.innerHTML = UI.pageHeader('Lịch sinh hoạt') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
+        root.innerHTML = UI.pageHeader('Lịch sinh hoạt') + this.thanhPhan('lich')
+          + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
         return;
       }
       classId = current.classId;
@@ -81,11 +98,12 @@ App.views.timetable = {
     // thành `?classId=null` và cô nhận màn "Có lỗi xảy ra 😥 / Không tìm thấy
     // nhóm lớp" — đổ lỗi cho một nhóm không tồn tại.
     if (!classId) {
-      root.innerHTML = UI.pageHeader('Lịch sinh hoạt')
+      root.innerHTML = UI.pageHeader('Lịch sinh hoạt') + this.thanhPhan('lich')
         + UI.emptyState('🧭', user.role === 'admin'
           ? 'Cơ sở chưa có nhóm lớp nào để lập lịch sinh hoạt.'
           : 'Cô chưa phụ trách nhóm nào nên chưa có lịch sinh hoạt để xem. '
           + 'Nhờ văn phòng nhà trường phân công nhóm giúp cô nhé.');
+      this.ganSuKienPhan(root);
       return;
     }
     if (!this.day) {
@@ -112,17 +130,20 @@ App.views.timetable = {
       // sang được nhóm khác — kẹt ở một nhóm trống.
       root.innerHTML = `
         ${UI.pageHeader('Lịch sinh hoạt')}
+        ${this.thanhPhan('lich')}
         ${user.role === 'parent' ? UI.studentBar() + UI.thanhChonBeTheoCap() : ''}
         ${this.oChonNhom(dsNhom)}
         ${UI.emptyState('📚', thongBao)}
         ${this.canEdit() && chuaCo ? `
           <button class="btn primary block" onclick="App.views.timetable.batDauTao()">${UI.icon('plus', 18)} Lập lịch sinh hoạt</button>` : ''}`;
+      this.ganSuKienPhan(root);
       return;
     }
 
     const suaDuoc = this.canEdit();
     root.innerHTML = `
       ${UI.pageHeader('Lịch sinh hoạt', suaDuoc ? { action: { id: 'btn-sua-tkb', label: 'Chỉnh sửa', icon: 'edit' } } : {})}
+      ${this.thanhPhan('lich')}
       ${user.role === 'parent' ? UI.studentBar() + UI.thanhChonBeTheoCap() : ''}
       ${this.oChonNhom(dsNhom)}
       <div class="seg" id="tkb-seg">
@@ -148,7 +169,54 @@ App.views.timetable = {
     if (suaDuoc) document.getElementById('btn-sua-tkb').onclick = () => this.batDauSua();
     const nutChep = document.getElementById('btn-chep-tkb');
     if (nutChep) nutChep.onclick = () => this.moChepSangNhom(dsNhom);
+    this.ganSuKienPhan(root);
     this.renderDay();
+  },
+
+  // Dải hai phần. KHÔNG vẽ khi phân hệ Kế hoạch giáo dục đang tắt — một dải
+  // tab chỉ có một nút là một dải tab nói dối.
+  thanhPhan(phan) {
+    if (!App.moduleEnabled('plans')) return '';
+    return `<div class="seg" id="tkb-phan">
+      <button type="button" data-phan="lich" class="${phan === 'lich' ? 'active' : ''}">🕘 Lịch sinh hoạt</button>
+      <button type="button" data-phan="kehoach" class="${phan === 'kehoach' ? 'active' : ''}">📖 Kế hoạch giáo dục</button>
+    </div>`;
+  },
+
+  ganSuKienPhan(root) {
+    for (const b of root.querySelectorAll('#tkb-phan [data-phan]')) {
+      b.onclick = () => {
+        location.hash = b.dataset.phan === 'kehoach' ? '#/timetable/kehoach' : '#/timetable';
+      };
+    }
+  },
+
+  // Phần KẾ HOẠCH GIÁO DỤC — giao cho chính màn Kế hoạch vẽ vào ô này.
+  //
+  // Vẽ hộ chứ KHÔNG chép lại: `views/plans.js` vẫn là chỗ duy nhất biết cách
+  // bày một bản kế hoạch, và đường `#/plans` vẫn mở được y như cũ. Chép ra hai
+  // bản là ngày mai sửa một chỗ thì chỗ kia nói khác.
+  //
+  // Màn Kế hoạch hỏng thì CHỈ ô này báo hỏng — phần Lịch sinh hoạt và dải tab
+  // vẫn nguyên, đúng Nguyên tắc số 1.
+  async veKeHoach(root, coKeHoach) {
+    root.innerHTML = `
+      ${UI.pageHeader('Lịch sinh hoạt')}
+      ${this.thanhPhan('kehoach')}
+      ${App.state.user.role === 'parent' ? UI.studentBar() + UI.thanhChonBeTheoCap() : ''}
+      <div id="tkb-kehoach"><div class="loading">Đang tải kế hoạch giáo dục</div></div>`;
+    this.ganSuKienPhan(root);
+    const o = document.getElementById('tkb-kehoach');
+    if (!coKeHoach || !App.views.plans) {
+      o.innerHTML = UI.emptyState('🛠️',
+        'Phần Kế hoạch giáo dục đang tạm nghỉ. Phần Lịch sinh hoạt vẫn dùng bình thường.');
+      return;
+    }
+    try {
+      await App.views.plans.render(o, [], true);
+    } catch (err) {
+      o.innerHTML = UI.emptyState('😥', err.message || 'Chưa tải được kế hoạch giáo dục');
+    }
   },
 
   // ÁP DỤNG LỊCH NÀY CHO NHÓM KHÁC (Đ133) — hỏi rõ trước, vì máy chủ GHI ĐÈ

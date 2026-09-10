@@ -740,9 +740,27 @@ console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho l�
   const dsPH = await req('GET', '/api/modules', { cookie: PH });
   const dtPH = (dsPH.data || []).find(x => x.key === 'dontra');
   check('gia đình vẫn thấy phân hệ, kèm cùng cờ (trình duyệt tự xét vai)', !!dtPH && !!dtPH.gopVao, dtPH);
+  // HÌNH DẠNG của cờ, không phải DANH SÁCH ai đang gấp.
+  //
+  // Bản đầu viết là "mọi phân hệ trừ `dontra` phải có gopVao === null" — đọc thì
+  // xuôi, nhưng nó chốt cứng rằng chỉ MỘT phân hệ được gấp, mà đó không phải
+  // điều mục này canh. Đ148 gấp thêm Kế hoạch giáo dục vào màn Lịch sinh hoạt
+  // và bài đỏ ngay, dù không có gì hỏng cả.
+  //
+  // Điều thật sự phải canh là điều tên phép kiểm đã nói: KHÔNG được `undefined`.
+  // Máy chủ chỉ truyền cờ qua, nên `undefined` sẽ biến mất khi đóng gói JSON và
+  // trình duyệt nhận về một khoá không tồn tại — khác hẳn `null` ("có hỏi, và
+  // câu trả lời là không gấp"). Bản dưới đây canh đúng chỗ đó, và canh chặt hơn
+  // bản cũ: cờ khác null thì phải đủ hình dạng { view, vai[] }, chứ không phải
+  // một object nửa vời mà trang chủ lặng lẽ bỏ qua.
   const dsHS = await req('GET', '/api/modules', { cookie: GV });
-  check('phân hệ không khai gopVao thì cờ là null, không phải undefined',
-    (dsHS.data || []).filter(x => x.key !== 'dontra').every(x => x.gopVao === null), (dsHS.data || []).map(x => [x.key, x.gopVao]));
+  const coHongDang = (dsHS.data || []).filter(x => !(x.gopVao === null
+    || (x.gopVao && typeof x.gopVao.view === 'string' && x.gopVao.view
+        && Array.isArray(x.gopVao.vai) && x.gopVao.vai.length)));
+  check('cờ gopVao luôn là null hoặc { view, vai[] } đầy đủ — không bao giờ undefined',
+    coHongDang.length === 0, coHongDang.map(x => [x.key, x.gopVao]));
+  check('mọi phân hệ đều CÓ khoá gopVao trong câu trả lời',
+    (dsHS.data || []).every(x => 'gopVao' in x), (dsHS.data || []).filter(x => !('gopVao' in x)).map(x => x.key));
 
   // RANH GIỚI LÕI ↔ PHÂN HỆ, canh bằng máy: màn Điểm danh chỉ chạm phân hệ ở
   // ĐÚNG MỘT chỗ và không gọi thẳng API của nó; phân hệ không đọc màn lõi.

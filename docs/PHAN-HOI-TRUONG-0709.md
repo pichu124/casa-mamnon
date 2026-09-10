@@ -160,6 +160,17 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    > dục và lịch sinh hoạt vào 1 tab tên là Lịch sinh hoạt, trong đó có đủ 2 nội
    > dung là Kế hoạch giáo dục và Lịch sinh hoạt"*. **→ làm**: một tab tên **Lịch
    > sinh hoạt**, bên trong hai phần.
+   >
+   > **✅ ĐÃ LÀM — Đ148 (10/09).** `#/timetable` có dải hai phần; phần Kế hoạch ở
+   > `#/timetable/kehoach`. Ô "Kế hoạch giáo dục" không còn đứng riêng trên trang
+   > chủ, nhưng **không xoá gì**: `/api/plans` và bảng `edu_plans` nguyên vẹn,
+   > `#/plans` vẫn mở được kèm một dòng chỉ đường. Tắt một trong hai phân hệ thì
+   > phần kia trở lại y như trước đợt này.
+   >
+   > **Một chỗ tôi phải đoán, xin trường xác nhận lại:** *"newsletter"* tôi hiểu
+   > là **chính ô Kế hoạch giáo dục đứng riêng** — trường chưa nói rõ nó là mục
+   > nào và đây là chỗ duy nhất khớp. Nếu ý trường là một mục khác (bản tin
+   > tháng gửi cả trường chẳng hạn) thì nói giúp, sửa lại rẻ.
 
 ---
 

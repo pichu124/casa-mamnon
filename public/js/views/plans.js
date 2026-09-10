@@ -11,21 +11,54 @@ App.views.plans = {
   _classId: null,
   _plans: [],
 
-  async render(root) {
+  // Nhóm mà VĂN PHÒNG soạn được: mọi nhóm trong cơ sở mình (Cấp 3), hoặc cả
+  // trường (Cấp 1). Chép đúng khuôn `views/timetable.js` — hai màn nay đứng
+  // chung một tab thì ô chọn nhóm của chúng phải hành xử giống hệt nhau.
+  nhomVanPhong() {
+    const u = App.state.user;
+    const coSo = u && u.coSo ? u.coSo : null;
+    return (App.state.classes || [])
+      .filter(c => !coSo || c.campusId === coSo)
+      .map(c => ({ id: c.id, name: c.name }));
+  },
+
+  // MÀN RIÊNG hay MỘT PHẦN CỦA MÀN LỊCH SINH HOẠT (Đ148).
+  //
+  // Nhà trường 10/09: *"bỏ newsletter: gộp phần kế hoạch giáo dục và lịch sinh
+  // hoạt vào 1 tab tên là Lịch sinh hoạt, trong đó có đủ 2 nội dung là Kế hoạch
+  // giáo dục và Lịch sinh hoạt"*.
+  //
+  // GỘP KHÔNG PHẢI LÀ XOÁ. Đường `#/plans` vẫn mở được y như cũ (điện thoại đã
+  // cài app còn giữ liên kết cũ, và `/api/plans` không đổi một chữ nào) — chỉ
+  // là ô vuông trên trang chủ gấp vào ô Lịch sinh hoạt, và màn riêng có thêm
+  // một dòng chỉ đường. Cùng cách Đ126 đã làm cho Đón trả bé.
+  //
+  // `nhung` = đang được màn Lịch sinh hoạt vẽ hộ: khi đó không vẽ phần đầu
+  // trang và thanh chọn bé, vì màn kia đã có sẵn một bộ rồi.
+  //
+  // VĂN PHÒNG MỞ ĐƯỢC MÀN NÀY — trước đợt này thì không, và đó là một lỗi có
+  // thật chứ không phải chuyện của việc gộp: máy chủ CHO quản trị soạn kế hoạch
+  // cho nhóm bất kỳ (`routes/plans.js`), nhưng màn hình đẩy mọi vai không phải
+  // cô sang nhánh "bé đang chọn" — mà tài khoản văn phòng không có bé nào, nên
+  // họ luôn nhận đúng câu "Chưa có bé nào liên kết với tài khoản này". Việc gộp
+  // làm lỗi ấy lộ ra ngay giữa màn Lịch sinh hoạt, nơi văn phòng chắc chắn vào.
+  async render(root, params, nhung) {
     const user = App.state.user;
     let classId;
-    const dsNhom = user.role === 'teacher' ? (user.nhomCuaCo || []) : [];
-    if (user.role === 'teacher') {
+    const dsNhom = user.role === 'teacher' ? (user.nhomCuaCo || [])
+      : (user.role === 'admin' ? this.nhomVanPhong() : []);
+    if (user.role === 'teacher' || user.role === 'admin') {
       // Giữ nhóm cô đang chọn, nếu nhóm đó vẫn còn thuộc về cô. Quản trị vừa rút
       // cô khỏi một nhóm thì rơi về nhóm đầu, không kẹt ở nhóm không còn quyền.
       if (!dsNhom.some(n => n.id === this._classId)) {
-        this._classId = dsNhom[0]?.id || user.classId || null;
+        this._classId = dsNhom[0]?.id || (user.role === 'teacher' ? user.classId : null) || null;
       }
       classId = this._classId;
     } else {
       const current = App.currentStudent();
       if (!current) {
-        root.innerHTML = UI.pageHeader('Kế hoạch giáo dục') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
+        root.innerHTML = (nhung ? '' : UI.pageHeader('Kế hoạch giáo dục'))
+          + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
         return;
       }
       classId = current.classId;
@@ -39,20 +72,37 @@ App.views.plans = {
     // không tồn tại. Cô sẽ đi tìm xem mình bấm sai chỗ nào, trong khi việc cần
     // làm là nhờ văn phòng phân công nhóm.
     if (!classId) {
-      root.innerHTML = UI.pageHeader('Kế hoạch giáo dục')
-        + UI.emptyState('🧭', 'Cô chưa phụ trách nhóm nào nên chưa có kế hoạch để xem. '
-          + 'Nhờ văn phòng nhà trường phân công nhóm giúp cô nhé.');
+      root.innerHTML = (nhung ? '' : UI.pageHeader('Kế hoạch giáo dục'))
+        + UI.emptyState('🧭', user.role === 'admin'
+          ? 'Cơ sở chưa có nhóm lớp nào để soạn kế hoạch giáo dục.'
+          : 'Cô chưa phụ trách nhóm nào nên chưa có kế hoạch để xem. '
+            + 'Nhờ văn phòng nhà trường phân công nhóm giúp cô nhé.');
       return;
     }
     const data = await API.get(`/api/plans?classId=${encodeURIComponent(classId)}`);
     this._plans = data.plans || [];
     const suaDuoc = this.canEdit();
     root.innerHTML = `
-      ${UI.pageHeader('Kế hoạch giáo dục', suaDuoc ? { action: { id: 'btn-soan-kh', label: 'Soạn kế hoạch', icon: 'edit' } } : {})}
-      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
+      ${nhung ? '' : UI.pageHeader('Kế hoạch giáo dục', suaDuoc ? { action: { id: 'btn-soan-kh', label: 'Soạn kế hoạch', icon: 'edit' } } : {})}
+      ${nhung || user.role !== 'parent' ? '' : UI.studentBar() + UI.thanhChonBeTheoCap()}
       ${this.oChonNhom(dsNhom)}
-      ${this.thanKeHoach(data)}`;
-    if (suaDuoc) document.getElementById('btn-soan-kh').onclick = () => this.moSoan();
+      ${suaDuoc && nhung ? `<button class="btn primary block mb-8" id="btn-soan-kh-nhung">
+        ${UI.icon('edit', 18)} Soạn kế hoạch giáo dục</button>` : ''}
+      ${this.thanKeHoach(data)}
+      ${nhung ? '' : this.dongChiDuongLichSinhHoat()}`;
+    const nutSoan = document.getElementById(nhung ? 'btn-soan-kh-nhung' : 'btn-soan-kh');
+    if (suaDuoc && nutSoan) nutSoan.onclick = () => this.moSoan();
+    const nutLSH = document.getElementById('btn-ve-lich-sinh-hoat');
+    if (nutLSH) nutLSH.onclick = () => { location.hash = '#/timetable/kehoach'; };
+  },
+
+  // Kế hoạch giáo dục nay nằm trong màn Lịch sinh hoạt — CHỈ ĐƯỜNG, KHÔNG ÉP.
+  // Ai mở địa chỉ cũ vẫn đọc được đủ nội dung ngay tại đây; dòng này chỉ nói
+  // cho biết chỗ mới, đúng cách modules/dontra/view.js đã làm ở Đ126.
+  dongChiDuongLichSinhHoat() {
+    if (!App.moduleEnabled('timetable')) return '';
+    return `<button type="button" class="btn outline block mt-8" id="btn-ve-lich-sinh-hoat">
+      ${UI.icon('calendar', 16)} Phần này cũng nằm trong Lịch sinh hoạt → Kế hoạch giáo dục</button>`;
   },
 
   // Thân màn hình: kế hoạch tháng này, hoặc kế hoạch tháng sau nếu đã soạn.

@@ -119,6 +119,14 @@ nào.
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md:87-90 (B.9); dòng LSH-04 'lớn | hỏi lại anh';
 KH-01 (hai bảng) và KH-06 'Chưa xác định newsletter của trường là mục nào'
 
+> **✅ ĐÃ NGÃ NGŨ — trường 10/09 + Đ148.** Trường chốt rõ chỗ giữ: một tab tên
+> **Lịch sinh hoạt** chứa đủ hai nội dung. Đã làm ở Đ148 — gộp MÀN, không gộp
+> mã: `/api/plans` không đổi (bảy bộ bài canh gọi nó vẫn xanh), `#/plans` vẫn
+> mở được, và tắt một bên thì bên kia trở lại y như trước.
+>
+> **Còn một chỗ tôi đoán:** "newsletter" hiểu là chính ô Kế hoạch giáo dục đứng
+> riêng. Nếu trường có ý khác thì sửa lại rẻ — đã hỏi ở PHAN-HOI mục 9.
+
 **Sự kiện nào ĐẨY về điện thoại, sự kiện nào chỉ kêu chuông trong app**
 
 Chỉ tin RIÊNG TỪNG BÉ mới đẩy (ảnh tới lớp, nhật ký, cân đo, Cambridge, câu chuyện, báo
