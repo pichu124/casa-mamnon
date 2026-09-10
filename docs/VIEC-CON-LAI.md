@@ -864,7 +864,7 @@ thống, uỷ quyền phân vai cho Cấp 2/Cấp 3.
 *Bằng chứng:* phan-hoi.md:71-74; mảng Phân quyền · Tài khoản chưa có bảng đối chiếu
 (PHAN-HOI-TRUONG-0709.md:242)
 
-**GET /api/albums đếm ảnh kiểu N+1 ba tầng**
+**~~GET /api/albums đếm ảnh kiểu N+1 ba tầng~~ — ĐÃ ĐO, KHÔNG CÒN (Đ159).** Mục này ghi theo `BAO-CAO-TU-LAM.md` đã cũ hơn mã: Đ98 và Đ144 đã gom hết. Đo thật: gấp bốn số album thì số truy vấn đứng yên (cô 6, gia đình 13→14). Nay có `test:album-hieu-nang` canh để nó không lặng lẽ quay lại, và mục [3] canh đúng nỗi lo cũ — rút đồng ý xong thì lượt đọc NGAY SAU ĐÓ mất ảnh.
 
 Đường liệt kê album nạp từng tấm ảnh của từng album rồi hỏi tiếp ai được gắn thẻ và nhà
 đó đồng ý chưa. Sau vài năm học, một lần gia đình mở màn Album là hàng nghìn câu truy

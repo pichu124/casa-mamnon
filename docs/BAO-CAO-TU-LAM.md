@@ -455,6 +455,16 @@ lại được trong một commit.
 > nhớ tạm lời đồng ý của từng bé — có thể làm app hiện một tấm ảnh mà gia đình
 > **vừa mới rút đồng ý**, và đó là loại lỗi tệ hơn hẳn cái chậm. Cách sửa an
 > toàn cần đo trước; tôi để lại đây thay vì làm vội.
+>
+> **⟶ ĐÃ ĐO — 10/09, Đ159. Dòng trên nay đã CŨ HƠN MÃ.** Đ98 gom ba tầng
+> ảnh–thẻ–đồng ý thành tra theo lô, Đ144 gom nốt phần chế độ album, và bản đo
+> bằng cách đếm lượt hỏi SQLite cho thấy con số **đứng yên** khi dữ liệu tăng:
+> gấp bốn số album (60 → 240) thì cô vẫn **6** truy vấn, gia đình **13 → 14**.
+> Không có vòng lặp theo album nào cả. Nỗi lo trong đoạn trên vẫn đúng và vẫn
+> được giữ: bài canh mới `test:album-hieu-nang` mục [3] chứng minh **lượt đọc
+> ngay sau khi một nhà rút đồng ý đã mất ảnh** — không bộ nhớ nào sống qua hai
+> lượt yêu cầu. Bài ấy canh HÌNH DẠNG chứ không chốt một con số, và đã thử
+> ngược: cấy lại một truy vấn trong vòng lặp album thì nó báo đỏ ngay.
 
 ### 4.2b 🟡 GitHub Actions — đã chạy lại, và cái đỏ còn lại là của tôi
 
