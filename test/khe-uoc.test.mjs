@@ -97,6 +97,18 @@ const modules = require(path.join(GOC, 'lib', 'modules.js'));
 // chưa cài gói vẫn nạp được — và bài canh vẫn phải xanh ở đó.
 const thongBaoBe = require(path.join(GOC, 'lib', 'thong-bao-be.js'));
 const day = require(path.join(GOC, 'lib', 'day.js'));
+// Từ Đ154 canh thêm ba tệp nền nữa, cùng một lý do: chúng ra đời sau bản chụp
+// trước và cả ứng dụng đã dựa vào chúng.
+//
+//   lib/hen-gio.js        đồng hồ duy nhất của máy chủ; mọi việc chạy theo giờ
+//                         đăng ký ở đây, đổi chữ ký `dangKy` là các việc ấy im
+//   lib/huy-hieu.js       đường DUY NHẤT để phân hệ cắm thêm hiện con số lên
+//                         lưới icon; hỏng là quản lý không thấy việc chờ duyệt
+//   lib/bao-nha-truong.js đường DUY NHẤT nói riêng với người lớn trong trường,
+//                         và nó giữ danh sách chức vụ được nhận
+const henGio = require(path.join(GOC, 'lib', 'hen-gio.js'));
+const huyHieu = require(path.join(GOC, 'lib', 'huy-hieu.js'));
+const baoNhaTruong = require(path.join(GOC, 'lib', 'bao-nha-truong.js'));
 const { UI } = docTepTrinhDuyet(path.join(GOC, 'public', 'js', 'ui.js'));
 const { App } = docTepTrinhDuyet(path.join(GOC, 'public', 'js', 'app.js'));
 
@@ -106,6 +118,9 @@ const hienTai = {
   'lib/modules.js': hinhDang(modules),
   'lib/thong-bao-be.js': hinhDang(thongBaoBe),
   'lib/day.js': hinhDang(day),
+  'lib/hen-gio.js': hinhDang(henGio),
+  'lib/huy-hieu.js': hinhDang(huyHieu),
+  'lib/bao-nha-truong.js': hinhDang(baoNhaTruong),
   'public/js/ui.js (UI)': hinhDang(UI),
   'public/js/app.js (App)': hinhDang(App),
 };

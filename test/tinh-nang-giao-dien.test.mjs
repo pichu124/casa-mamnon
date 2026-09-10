@@ -230,7 +230,19 @@ console.log('\n[7] Màn Cài đặt: thẻ thông báo đẩy chỉ mời đúng
   const manQt = await page.locator('#st-push-card').innerText();
   check('nhưng KHÔNG hứa tin về con với tài khoản nhà trường',
     !/tin về con/.test(manQt), manQt.slice(0, 200));
-  check('mà nói đúng nó dùng để làm gì', /kiểm tra đường thông báo/.test(manQt), manQt.slice(0, 200));
+  // TỪ Đ154 THẺ NÀY HỨA MỘT THỨ CÓ THẬT.
+  //
+  // Bản Đ145 chỉ giữ thẻ để bấm "Gửi thử" và nói thẳng ra là tài khoản nhà
+  // trường không nhận tin tự động — đúng với lúc đó. Nay `lib/bao-nha-truong.js`
+  // đẩy tin cho hiệu trưởng và quản lý cơ sở khi cô gửi bản chờ duyệt, nên câu
+  // ấy đã sai và phải đổi. Phép kiểm đổi theo, nhưng vẫn canh đúng một điều:
+  // thẻ nói ĐÚNG thứ tài khoản này sẽ nhận, không hơn một chữ.
+  check('mà hứa đúng thứ tài khoản nhà trường sẽ nhận: việc chờ mình duyệt',
+    /chờ mình duyệt/.test(manQt) && /báo cáo học tập/.test(manQt), manQt.slice(0, 200));
+  check('và vẫn nói nút "Gửi thử" dùng để kiểm đường thông báo của trường',
+    /Gửi thử/.test(manQt) && /đường thông báo/.test(manQt), manQt.slice(0, 200));
+  check('KHÔNG còn câu "tài khoản nhà trường thì không" của bản trước',
+    !/tài khoản nhà trường thì không/.test(manQt), manQt.slice(0, 200));
 }
 
 check('không có lỗi JavaScript trong suốt quá trình', loi.length === 0, loi);

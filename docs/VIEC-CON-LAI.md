@@ -635,7 +635,7 @@ còn cách xoá cả album và đăng lại.
 *Bằng chứng:* routes/albums.js:249 (ghiCheDo) và :618 là chỗ gọi DUY NHẤT (đã grep xác
 nhận); các đường còn lại :572, 633, 701, 742, 758 — không có đường sửa chế độ
 
-**'Hẹn ngày công bố' báo theo kiểu lười — không có tác vụ định giờ**
+**~~'Hẹn ngày công bố' báo theo kiểu lười — không có tác vụ định giờ~~ — ĐÃ LÀM Đ154** (máy chủ nay có đồng hồ `lib/hen-gio.js`, quét 15 phút một lượt; bốn lời gọi lười cũ giữ lại làm lưới hứng)
 
 Quản lý duyệt và hẹn ngày công bố cho tương lai; đến ngày đó tin báo gia đình CHỈ được
 gửi khi có người mở một trong các màn gọi baoNeuToiNgay. Không ai mở thì gia đình không
@@ -646,7 +646,7 @@ gửi khi có người mở một trong các màn gọi baoNeuToiNgay. Không ai
 *Bằng chứng:* modules/baocaohoctap/routes.js:507 (chú thích 'tới ngày công bố thì báo
 gia đình (lười)'), :569, :590, :973 các chỗ gọi còn lại; :226-240 (baoNeuToiNgay)
 
-**Quy trình duyệt không báo cho quản lý khi cô gửi**
+**~~Quy trình duyệt không báo cho quản lý khi cô gửi~~ — ĐÃ LÀM Đ154** (huy hiệu trên màn hình chính là dấu vết bền, tin đẩy là dấu hiệu ngay; `lib/huy-hieu.js` + `lib/bao-nha-truong.js`)
 
 Cô gửi báo cáo học tập chờ duyệt, hoặc gửi đề xuất sửa kế hoạch đã duyệt — quản lý cơ sở
 không nhận tin nào, chỉ biết khi tự mở màn và thấy con số ở thẻ Chờ duyệt.

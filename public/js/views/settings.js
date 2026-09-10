@@ -121,9 +121,14 @@ App.views.settings = {
     // nghỉ, đơn chờ duyệt…), rồi mới mở lại thẻ này — ghi ở docs/VIEC-CON-LAI.md.
     if (u.role === 'teacher') return '';
 
-    // Văn phòng và quản lý cũng chưa có loại tin đẩy nào của riêng mình. Không
-    // ẩn thẻ vì "Gửi thử" là cách duy nhất kiểm được máy chủ của trường có ra
-    // được internet tới dịch vụ đẩy hay không — nhưng phải nói đúng nó là gì.
+    // TỪ Đ154 QUẢN LÝ ĐÃ CÓ TIN ĐẨY THẬT.
+    //
+    // Ai còn thấy thẻ này sau hai dòng chặn ở trên: gia đình, quản trị Cấp 1
+    // (chưa gắn chức vụ), hiệu trưởng và quản lý cơ sở. Đúng ba nhóm sau là
+    // những người `lib/bao-nha-truong.js` gửi tới khi cô gửi báo cáo học tập
+    // hay đề xuất sửa kế hoạch — nên câu "tài khoản nhà trường không nhận tin
+    // tự động" của bản trước nay đã sai, và phải sửa cùng lúc với việc thêm
+    // đường gửi. Hai chỗ nói khác nhau chính là hứa suông.
     const laGiaDinh = u.role === 'parent';
     const hoTro = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     return `
@@ -133,9 +138,10 @@ App.views.settings = {
           ${laGiaDinh
             ? `Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`
-            : `Dùng để <b>kiểm tra đường thông báo</b> của trường: bật trên máy này rồi bấm
-               "Gửi thử" — nhận được nghĩa là máy chủ gửi được thông báo tới điện thoại phụ huynh.
-               Hiện chỉ tài khoản gia đình mới nhận tin tự động; tài khoản nhà trường thì không.`}
+            : `Bật để máy tự báo khi có <b>việc chờ mình duyệt</b>: cô gửi báo cáo học tập,
+               cô xin sửa kế hoạch đã duyệt. Nút "Gửi thử" còn dùng để kiểm đường thông báo của
+               trường — nhận được nghĩa là máy chủ gửi được tin tới điện thoại phụ huynh.
+               Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`}
         </div>
         <div id="st-push-trang-thai" class="small mt-8" style="line-height:1.6">${hoTro ? 'Đang kiểm tra…' : 'Trình duyệt này chưa hỗ trợ thông báo đẩy.'}</div>
         ${hoTro ? `

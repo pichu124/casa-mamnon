@@ -52,6 +52,9 @@ const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
 const st = require('../../lib/sua-thu-hoi');
 const tbb = require('../../lib/thong-bao-be');
+const henGio = require('../../lib/hen-gio');
+const huyHieu = require('../../lib/huy-hieu');
+const baoNT = require('../../lib/bao-nha-truong');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -219,10 +222,16 @@ module.exports = (app, { db, modules }) => {
 
   // BÁO GIA ĐÌNH ĐÚNG MỘT LẦN, KHI TỚI NGÀY CÔNG BỐ.
   //
-  // Gọi ở mọi đường đi qua một bản đã duyệt: lúc quản lý duyệt (ngày ≤ hôm
-  // nay thì báo ngay), và lười ở các lượt đọc sau — máy chủ không có đồng hồ
-  // hẹn giờ, nên "tới ngày" được phát hiện ở lượt đọc đầu tiên của ngày ấy.
-  // `daBaoLuc` chặn gửi lặp; `tbb.gui` không bao giờ ném lỗi.
+  // Từ Đ154 chỗ phát hiện "tới ngày" CHÍNH là đồng hồ định giờ ở cuối tệp
+  // này: cứ 15 phút quét một lượt, không cần ai mở màn nào. Trước đó việc báo
+  // là LƯỜI — tin chỉ đi khi có người tình cờ mở một trong bốn màn có gọi hàm
+  // này, nên không ai mở thì gia đình không bao giờ được báo, mà chính gia
+  // đình mở thì tin đẩy tới đúng lúc họ đang nhìn vào bản báo cáo.
+  //
+  // Bốn lời gọi lười cũ GIỮ NGUYÊN, có chủ ý: chúng là lưới hứng cho lúc đồng
+  // hồ bị tắt (`HEN_GIO_PHUT=0`) hay máy chủ vừa khởi động lại giữa chừng.
+  // `daBaoLuc` chặn gửi lặp nên gọi bao nhiêu lần cũng chỉ gửi một tin;
+  // `tbb.gui` không bao giờ ném lỗi.
   function baoNeuToiNgay(ban) {
     const d = duyetCua(ban.id);
     if (!d || d.daBaoLuc || !giaDinhThay(ban, d)) return false;
@@ -237,6 +246,16 @@ module.exports = (app, { db, modules }) => {
       hash: '#/baocaohoctap',
     });
     return true;
+  }
+
+  // Báo người của nhà trường, không phải gia đình. Bọc lại đúng một chỗ để
+  // hai điều luôn đúng: phân hệ đang TẮT thì không gửi gì, và một lỗi ở đường
+  // đẩy không bao giờ làm hỏng lượt gửi báo cáo của cô.
+  function baoNhaTruong(studentId, goi) {
+    try {
+      if (!modules.dangBat('baocaohoctap')) return 0;
+      return baoNT.guiChoQuanLyCuaBe(studentId, goi);
+    } catch (_) { return 0; }
   }
 
   // ------------------------------------------------------------ KHOÁ Ô
@@ -912,6 +931,19 @@ module.exports = (app, { db, modules }) => {
     });
     const sau = db.first('baocaohoctap_ban', 'SELECT * FROM baocaohoctap_ban WHERE id = ?', [ban.id]);
     if (laQuanLy) baoNeuToiNgay(sau);
+    // BÁO QUẢN LÝ CÓ BẢN CHỜ DUYỆT (Đ154). Trước đợt này cô gửi xong là im
+    // lặng: quản lý chỉ biết khi tự mở đúng màn Báo cáo học tập ra. Huy hiệu
+    // trên màn hình chính là dấu vết bền, tin đẩy này là dấu hiệu ngay.
+    if (!laQuanLy) {
+      const be = db.findStudent(ban.studentId);
+      const m = layMau(ban.mauId);
+      baoNhaTruong(ban.studentId, {
+        tieuDe: 'Có báo cáo học tập chờ duyệt',
+        noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${m ? m.ten : 'báo cáo'} của ${be ? be.name : 'một bé'}.`,
+        hash: '#/baocaohoctap',
+        tru: req.user.id,
+      });
+    }
     res.json({ ok: true, choDuyet: !laQuanLy, ban: banDayDu(sau) });
   });
 
@@ -1062,5 +1094,44 @@ module.exports = (app, { db, modules }) => {
           tiepTucThangSau: !!m.tiepTucThangSau,
         })),
     });
+  });
+  // =========================================================================
+  // ĐỒNG HỒ ĐỊNH GIỜ VÀ HUY HIỆU (Đ154)
+  // =========================================================================
+
+  // TỚI NGÀY CÔNG BỐ THÌ BÁO GIA ĐÌNH — không chờ ai mở màn nào.
+  //
+  // Chạy lại được nhiều lần: `baoNeuToiNgay` tự chặn bằng cột `daBaoLuc`, nên
+  // máy chủ khởi động lại năm lần trong một buổi cũng chỉ gửi đúng một tin.
+  // Trần 500 bản một lượt: một trường mầm non ba cơ sở không bao giờ chạm tới,
+  // còn nếu chạm thì lượt sau 15 phút nữa quét tiếp — thà chậm hơn là một câu
+  // truy vấn không có trần.
+  henGio.dangKy('baocaohoctap:toi-ngay-cong-bo', () => {
+    if (!modules.dangBat('baocaohoctap')) return;
+    const ds = db.all('baocaohoctap_ban',
+      `SELECT b.* FROM baocaohoctap_ban b
+         JOIN baocaohoctap_duyet d ON d.banId = b.id
+        WHERE b.trangThai = 'da-gui' AND d.trangThai = 'da-duyet'
+          AND (d.daBaoLuc IS NULL OR d.daBaoLuc = '')
+          AND d.ngayCongBo <> '' AND d.ngayCongBo <= ?
+        ORDER BY d.ngayCongBo LIMIT 500`, [ngay.homNay()]);
+    for (const ban of ds) baoNeuToiNgay(ban);
+  });
+
+  // HUY HIỆU: số bản đang chờ CHÍNH NGƯỜI NÀY duyệt.
+  //
+  // Chỉ quản trị mới duyệt được nên chỉ quản trị mới có con số. Lọc từng bản
+  // bằng `canAccessStudent` — cùng một luật với màn Chờ duyệt, để con số trên
+  // ô và số dòng trong màn không bao giờ nói khác nhau.
+  huyHieu.dangKy('baocaohoctap', (user) => {
+    if (!user || user.role !== 'admin') return 0;
+    const cv = db.chucVu(user);
+    if (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv)) return 0;
+    return db.all('baocaohoctap_ban',
+      `SELECT b.studentId FROM baocaohoctap_ban b
+         JOIN baocaohoctap_duyet d ON d.banId = b.id
+        WHERE b.trangThai = 'da-gui' AND d.trangThai = 'cho-duyet'
+        ORDER BY d.guiLuc DESC LIMIT ${GIOI_HAN_DANH_SACH}`)
+      .filter(b => db.canAccessStudent(user, b.studentId)).length;
   });
 };

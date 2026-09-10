@@ -310,6 +310,19 @@ if (db.isEmpty()) {
   require('./data/seed').generate();
 }
 
+// ĐỒNG HỒ ĐỊNH GIỜ (Đ154) — bật SAU khi mọi phân hệ đã đăng ký việc của mình.
+//
+// Đặt ngay trước `listen` chứ không sớm hơn: `napApiMoRong` là nơi các phân hệ
+// gọi `henGio.dangKy(...)`, và lượt chạy đầu tiên phải thấy đủ danh sách. Đồng
+// hồ `.unref()` nên nó không giữ tiến trình sống khi máy chủ đóng.
+//
+// `HEN_GIO_PHUT=0` tắt hẳn đồng hồ — để dành cho máy chạy nhiều bản song song,
+// nơi chỉ nên có MỘT bản quét và gửi tin.
+const henGio = require('./lib/hen-gio');
+const henGioPhut = process.env.HEN_GIO_PHUT === undefined ? henGio.MOI_PHUT_MAC_DINH : Number(process.env.HEN_GIO_PHUT);
+if (henGioPhut > 0) henGio.batDau({ moiPhut: henGioPhut });
+else console.log('Đồng hồ định giờ đang TẮT (HEN_GIO_PHUT=0).');
+
 const server = app.listen(PORT, HOST, () => {
   console.log(`CASA Mầm non đang chạy tại http://localhost:${PORT}`);
   console.log(`Cơ sở dữ liệu: ${db.DB_FILE}`);
@@ -325,6 +338,7 @@ function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`\nNhận tín hiệu ${signal}, đang đóng cơ sở dữ liệu...`);
+  henGio.dung();
   server.close(() => { db.close(); process.exit(0); });
   setTimeout(() => process.exit(0), 5000).unref(); // không chờ quá lâu
 }

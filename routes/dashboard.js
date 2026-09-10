@@ -13,6 +13,7 @@ const { requireRole } = require('../lib/auth');
 const modules = require('../lib/modules');
 const nghiHoc = require('../lib/nghi-hoc');
 const nl = require('../lib/nhom-lop');
+const huyHieu = require('../lib/huy-hieu');
 
 function todayStr() {
   return ngay.homNay();
@@ -335,6 +336,17 @@ module.exports = (app) => {
       thongbao: unreadNotifications(user),
       nhantin: unreadMessages(user),
     };
+
+    // HUY HIỆU CỦA PHÂN HỆ CẮM THÊM (Đ154).
+    //
+    // Đặt TRƯỚC lối ra `if (!ids.length)` bên dưới, có chủ ý: quản lý cơ sở
+    // không phải bố mẹ ai và không đứng lớp nào, nên `studentIdsOf` của họ
+    // rỗng — chính người cần thấy "có bản chờ tôi duyệt" lại là người rơi ra
+    // ở đúng dòng ấy.
+    //
+    // Cả khối trong `try` riêng: một phân hệ đếm sai câu SQL thì màn hình
+    // chính vẫn hiện đủ, chỉ thiếu con số của nó (Nguyên tắc số 1).
+    try { Object.assign(badges, huyHieu.demTatCa(user)); } catch (_) { /* lưới cuối */ }
 
     if (!ids.length) return res.json(badges);
 

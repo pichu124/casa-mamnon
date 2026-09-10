@@ -37,6 +37,8 @@
 //     "Tiếp tục cùng con". Bài "tiếp tục" tự được gợi ý khi lập tháng sau.
 const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
+const huyHieu = require('../../lib/huy-hieu');
+const baoNT = require('../../lib/bao-nha-truong');
 
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -153,7 +155,7 @@ function chuoi(v, tran) {
   return String(v == null ? '' : v).trim().slice(0, tran);
 }
 
-module.exports = (app, { db }) => {
+module.exports = (app, { db, modules }) => {
   function nhomCuaToi(user) {
     return db.classIdsOf(user).map(id => db.findClass(id))
       .filter(c => c && c.active !== false && c.active !== 0);
@@ -212,6 +214,21 @@ module.exports = (app, { db }) => {
   }
 
   // Đề xuất gần nhất của một kế hoạch (đang chờ thì ưu tiên).
+  // Báo người của nhà trường (Đ154). Bọc một chỗ để phân hệ đang TẮT thì không
+  // gửi gì, và một lỗi ở đường đẩy không làm hỏng lượt gửi của cô.
+  function baoNhaTruong(studentId, goi) {
+    try {
+      if (!modules.dangBat('kehoachbe')) return 0;
+      return baoNT.guiChoQuanLyCuaBe(studentId, goi);
+    } catch (_) { return 0; }
+  }
+  function baoNhaTruongTheoNhom(classId, goi) {
+    try {
+      if (!modules.dangBat('kehoachbe')) return 0;
+      return baoNT.guiChoQuanLyCuaNhom(classId, goi);
+    } catch (_) { return 0; }
+  }
+
   function deXuatCuaKe(keId) {
     const cho = db.first('kehoachbe_de_xuat',
       "SELECT * FROM kehoachbe_de_xuat WHERE keId = ? AND trangThai = 'cho-duyet' ORDER BY taoLuc DESC LIMIT 1", [keId]);
@@ -789,6 +806,19 @@ module.exports = (app, { db }) => {
       }
     });
     db.audit(req.user.id, 'kehoachbe-gui-duyet', classId, { thang, daGui });
+    // BÁO QUẢN LÝ (Đ154). Gửi cả nhóm là một lượt bấm, nên báo MỘT tin cho cả
+    // lượt chứ không phải mỗi bé một tin — quản lý không cần biết tên từng bé
+    // để mở màn duyệt ra, mà 20 tiếng chuông liền nhau thì đúng là làm phiền.
+    if (daGui > 0 && req.user.role !== 'admin') {
+      const lop = db.findClass(classId);
+      baoNhaTruongTheoNhom(classId, {
+        tieuDe: 'Có kế hoạch của bé chờ duyệt',
+        noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${daGui} kế hoạch tháng ${thang}`
+          + `${lop ? ` của nhóm ${lop.name}` : ''}.`,
+        hash: '#/kehoachbe',
+        tru: req.user.id,
+      });
+    }
     res.json({ ok: true, daGui, trong });
   });
 
@@ -1022,6 +1052,15 @@ module.exports = (app, { db }) => {
       trangThai: 'cho-duyet', nguoiDuyet: null, duyetLuc: null, yKien: '', taoLuc: luc,
     });
     db.audit(req.user.id, 'kehoachbe-de-xuat', k.studentId, { id, keId: k.id });
+    if (req.user.role !== 'admin') {
+      const be = db.findStudent(k.studentId);
+      baoNhaTruong(k.studentId, {
+        tieuDe: 'Có đề xuất sửa kế hoạch chờ duyệt',
+        noiDung: `${tenNguoi(req.user.id) || 'Cô'} xin sửa kế hoạch của ${be ? be.name : 'một bé'}: ${lyDo}`,
+        hash: '#/kehoachbe',
+        tru: req.user.id,
+      });
+    }
     res.status(201).json({ ok: true, deXuat: deXuatCuaKe(k.id) });
   });
 
@@ -1061,5 +1100,27 @@ module.exports = (app, { db }) => {
     });
     db.audit(req.user.id, 'kehoachbe-duyet-de-xuat', k.studentId, { id: d.id, keId: k.id, quyetDinh: quyet });
     res.json({ ok: true, quyetDinh: quyet, deXuat: deXuatCuaKe(k.id), ke: keCuaBe(k.studentId, k.thang) });
+  });
+  // =========================================================================
+  // HUY HIỆU (Đ154) — số việc đang chờ CHÍNH NGƯỜI NÀY duyệt
+  // =========================================================================
+  //
+  // Hai loại cộng lại thành một con số: kế hoạch cô gửi chờ duyệt, và đề xuất
+  // sửa kế hoạch đã duyệt. Cả hai đều mở cùng một màn nên tách hai con số chỉ
+  // tổ rối. Lọc từng bé bằng `canAccessStudent` — quản lý cơ sở 1 không đếm bé
+  // của cơ sở 2.
+  huyHieu.dangKy('kehoachbe', (user) => {
+    if (!user || user.role !== 'admin') return 0;
+    const cv = db.chucVu(user);
+    if (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv)) return 0;
+    const ke = db.all('kehoachbe_ke',
+      "SELECT studentId FROM kehoachbe_ke WHERE trangThai = 'cho-duyet' ORDER BY guiLuc DESC LIMIT 500")
+      .filter(k => db.canAccessStudent(user, k.studentId)).length;
+    const dx = db.all('kehoachbe_de_xuat',
+      `SELECT k.studentId AS studentId FROM kehoachbe_de_xuat d
+         JOIN kehoachbe_ke k ON k.id = d.keId
+        WHERE d.trangThai = 'cho-duyet' ORDER BY d.taoLuc DESC LIMIT 500`)
+      .filter(k => db.canAccessStudent(user, k.studentId)).length;
+    return ke + dx;
   });
 };

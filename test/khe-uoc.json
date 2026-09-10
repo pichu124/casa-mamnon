@@ -137,6 +137,28 @@
     "khoaCongKhai": "ham(0)",
     "soMayCua": "ham(1)"
   },
+  "lib/hen-gio.js": {
+    "MOI_PHUT_MAC_DINH": "number",
+    "batDau": "ham(0)",
+    "chay": "ham(0)",
+    "dangBat": "ham(0)",
+    "dangKy": "ham(2)",
+    "danhSach": "ham(0)",
+    "dung": "ham(0)",
+    "lanChayCuoi": "ham(0)"
+  },
+  "lib/huy-hieu.js": {
+    "dangKy": "ham(2)",
+    "danhSach": "ham(0)",
+    "demTatCa": "ham(1)"
+  },
+  "lib/bao-nha-truong.js": {
+    "CHUC_VU_NHAN": "object",
+    "guiChoQuanLyCuaBe": "ham(1)",
+    "guiChoQuanLyCuaNhom": "ham(1)",
+    "quanLyCuaBe": "ham(1)",
+    "quanLyCuaNhom": "ham(1)"
+  },
   "public/js/ui.js (UI)": {
     "ATT_STATUS": "object",
     "DOW": "object",
