@@ -425,6 +425,13 @@ console.log('\n[12] Màn "không mở được" phải nói ĐÚNG lý do, khôn
   check('cô mở phần của gia đình → nói đúng CHIỀU',
     r2 && r2.ly === 'ngoai-vai' && r2.danhCho === 'gia-dinh', r2);
 
+  // Chiều THỨ BA (Đ140): Học phí dành cho gia đình VÀ văn phòng, cô không có.
+  // Bảo cô rằng phần này "chỉ dành cho cô và văn phòng" là sai lần nữa.
+  await req('PUT', '/api/admin/modules/hocphi', { cookie: A.cookie, body: { enabled: true } });
+  const r2b = (await req('GET', '/api/modules/vi-sao/hocphi', { cookie: T })).data;
+  check('cô mở phần của gia đình và văn phòng → chiều "gia-dinh-va-van-phong", không phải "truong"',
+    r2b && r2b.ly === 'ngoai-vai' && r2b.danhCho === 'gia-dinh-va-van-phong', r2b);
+
   // Nhà trường tắt THẬT thì mới được nói là tắt.
   await req('PUT', '/api/admin/modules/thuchup', { cookie: A.cookie, body: { enabled: false } });
   const r3 = (await req('GET', '/api/modules/vi-sao/thuchup', { cookie: T })).data;

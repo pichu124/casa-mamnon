@@ -456,7 +456,9 @@ console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhì
   await page.waitForTimeout(1200);
   const hpCo = await chuTrenMan();
   check('CÔ MỞ #/hocphi THÌ NHẬN MÀN "KHÔNG MỞ ĐƯỢC", nói tiếng của trường',
-    /Không mở được/.test(hpCo) && /chỉ dành cho gia đình|không mở trong tài khoản/i.test(hpCo), hpCo.slice(0, 250));
+    /Không mở được/.test(hpCo) && /dành cho gia đình các bé và văn phòng/i.test(hpCo), hpCo.slice(0, 250));
+  check('và KHÔNG nói ngược "chỉ dành cho cô và văn phòng" với chính cô',
+    !/chỉ dành cho cô/.test(hpCo), hpCo.slice(0, 250));
   check('cô KHÔNG có ô chọn bé trên màn Học phí', await page.locator('#hp-hs').count() === 0);
   check('và KHÔNG đọc được khoản văn phòng đã tạo', !/Tiền ăn tháng thử nghiệm/.test(hpCo), hpCo.slice(0, 250));
   check('CÔ KHÔNG THẤY NÚT "Tạo khoản"', await page.locator('#hp-them').count() === 0);
