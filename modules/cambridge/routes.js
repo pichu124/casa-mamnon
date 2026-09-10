@@ -188,7 +188,65 @@ module.exports = (app, { db }) => {
   // Cô và văn phòng vẫn thấy hết — họ là người đăng, người chịu trách nhiệm,
   // và giấu ảnh khỏi họ thì không ai sửa được bài. Màn của họ nhận thêm một
   // dòng nói rõ ảnh đang tạm ẩn và vì sao.
-  function anhCoMatBe(baiId) {
+  // =========================================================================
+  // BỘ NHỚ CHO MỘT LƯỢT ĐỌC (Đ158 — món 1 của Đ120)
+  // =========================================================================
+  //
+  // `keml` dựng gói dữ liệu cho MỘT bài, và nó hỏi cơ sở dữ liệu rất nhiều
+  // lần: ô tích ảnh (hai lần), danh sách nhóm trong phạm vi, câu hỏi "nhóm này
+  // có nhà nào từ chối chia sẻ ảnh không" cho TỪNG nhóm (hai truy vấn mỗi
+  // nhóm), khung bài, tệp đính kèm, tên người đăng, tên nhóm, tên cơ sở.
+  //
+  // Với một bài phạm vi TRƯỜNG ở một trường ba cơ sở hai chục nhóm, riêng vế
+  // "nhà nào từ chối" đã là bốn chục truy vấn — và đường liệt kê gọi `keml`
+  // cho cả một trang. Đó là con số ~65 truy vấn mỗi bài mà vòng rà Đ120 ghi
+  // lại, và là lý do món này có mốc "làm TRƯỚC khi trường bật Cambridge".
+  //
+  // Cách chữa giống hệt `taoBoLocXemDuoc` ngay bên trên: hỏi MỘT lượt rồi trả
+  // lời từ bộ nhớ. Bộ nhớ sống đúng một lượt yêu cầu HTTP, nên không có
+  // chuyện đọc phải dữ liệu cũ của lượt trước.
+  //
+  // KHÔNG BẮT BUỘC: `keml(bai, user)` không kèm bộ nhớ thì chạy y như trước.
+  // Các đường một-bài (tạo, sửa, công bố) giữ nguyên đường cũ — một bài thì
+  // bộ nhớ không tiết kiệm được gì mà lại thêm một chỗ để sai.
+  function taoBoNho() {
+    return {
+      coMatBe: null,
+      tuChoi: new Map(),
+      nhomCuaCoSo: new Map(),
+      moiNhom: null,
+      khung: null,
+      tep: null,
+      nguoi: new Map(),
+      lop: new Map(),
+      coSo: new Map(),
+    };
+  }
+
+  // Nạp sẵn những thứ hỏi được theo LÔ cho đúng các bài sắp vẽ.
+  function napTruoc(nho, ids) {
+    if (!nho || !ids.length) return nho;
+    const marks = ids.map(() => '?').join(',');
+    nho.coMatBe = new Map(db.all('cambridge_anh_be',
+      `SELECT baiId, coMatBe FROM cambridge_anh_be WHERE baiId IN (${marks})`, ids)
+      .map(r => [r.baiId, !!r.coMatBe]));
+    nho.khung = new Map(db.all('cambridge_bai_khung',
+      `SELECT * FROM cambridge_bai_khung WHERE baiId IN (${marks})`, ids)
+      .map(r => [r.baiId, r]));
+    nho.tep = new Map();
+    for (const t of db.all('cambridge_tep',
+      `SELECT id, baiId, tenGoc, bytes, file, taoLuc FROM cambridge_tep
+        WHERE baiId IN (${marks}) ORDER BY taoLuc, rowid`, ids)) {
+      if (!nho.tep.has(t.baiId)) nho.tep.set(t.baiId, []);
+      nho.tep.get(t.baiId).push(t);
+    }
+    return nho;
+  }
+
+  function anhCoMatBe(baiId, nho) {
+    if (nho && nho.coMatBe) {
+      return nho.coMatBe.has(baiId) ? nho.coMatBe.get(baiId) : true;
+    }
     const r = baiId
       ? db.first('cambridge_anh_be', 'SELECT coMatBe FROM cambridge_anh_be WHERE baiId = ?', [baiId])
       : null;
@@ -201,19 +259,36 @@ module.exports = (app, { db }) => {
     [baiId, coMatBe ? 1 : 0, new Date().toISOString()]);
   }
 
-  function nhomTrongPhamVi(bai) {
+  function nhomTrongPhamVi(bai, nho) {
     if (!bai) return [];
     if (bai.phamVi === 'nhom') return bai.classId ? [bai.classId] : [];
-    if (bai.phamVi === 'coso') return bai.campusId ? db.classIdsOfCampus(bai.campusId) : [];
-    return db.classes().map(c => c.id);
+    if (bai.phamVi === 'coso') {
+      if (!bai.campusId) return [];
+      if (!nho) return db.classIdsOfCampus(bai.campusId);
+      if (!nho.nhomCuaCoSo.has(bai.campusId)) {
+        nho.nhomCuaCoSo.set(bai.campusId, db.classIdsOfCampus(bai.campusId));
+      }
+      return nho.nhomCuaCoSo.get(bai.campusId);
+    }
+    if (!nho) return db.classes().map(c => c.id);
+    if (!nho.moiNhom) nho.moiNhom = db.classes().map(c => c.id);
+    return nho.moiNhom;
   }
 
-  function anhHienVoiGiaDinh(bai) {
-    if (!anhCoMatBe(bai.id)) return true;      // văn phòng đã nói: trong ảnh không có bé nào
+  // "Nhóm này có nhà nào từ chối chia sẻ ảnh không" — hai truy vấn mỗi lần
+  // hỏi, và một bài phạm vi trường hỏi nó cho MỌI nhóm. Nhớ theo nhóm.
+  function nhomCoBeTuChoi(classId, nho) {
+    if (!nho) return db.coBeTuChoiChiaSeTungHoc(classId);
+    if (!nho.tuChoi.has(classId)) nho.tuChoi.set(classId, db.coBeTuChoiChiaSeTungHoc(classId));
+    return nho.tuChoi.get(classId);
+  }
+
+  function anhHienVoiGiaDinh(bai, nho) {
+    if (!anhCoMatBe(bai.id, nho)) return true; // văn phòng đã nói: trong ảnh không có bé nào
     // Bản TỪNG HỌC, không phải bản chỉ nhìn nhóm hiện tại. Tờ Home Connection
     // của năm ngoái vẫn còn trên màn hình gia đình, nên lời từ chối cũng phải
     // còn hiệu lực ở đó — xem chú thích dài ở `coBeTuChoiChiaSeTungHoc`.
-    return !nhomTrongPhamVi(bai).some(cid => db.coBeTuChoiChiaSeTungHoc(cid));
+    return !nhomTrongPhamVi(bai, nho).some(cid => nhomCoBeTuChoi(cid, nho));
   }
 
   // MARKETING MANG ẢNH RA NGOÀI TRƯỜNG, NÊN LUẬT CỦA HỌ CHẶT HƠN LUẬT ẢNH NHÓM.
@@ -233,8 +308,8 @@ module.exports = (app, { db }) => {
   // Đường ra đã có sẵn, không phải dựng thêm gì: ô "Ảnh không có mặt bé nào".
   // Văn phòng tích thì trong ảnh không có bé nào, đồng ý truyền thông không còn
   // là câu hỏi, Marketing dùng được ngay. Tính năng không chết.
-  function anhHienVoiTruyenThong(bai) {
-    return !anhCoMatBe(bai.id);
+  function anhHienVoiTruyenThong(bai, nho) {
+    return !anhCoMatBe(bai.id, nho);
   }
 
   function laTruyenThong(user) {
@@ -246,25 +321,55 @@ module.exports = (app, { db }) => {
     + 'đối chiếu được đồng ý truyền thông của từng nhà. Nếu ảnh chỉ là giáo cụ, sách hay '
     + 'tranh chủ điểm thì nhờ văn phòng tích ô "Ảnh không có mặt bé nào".';
 
-  function tenNguoi(userId) {
-    const u = userId ? db.findUser(userId) : null;
+  function tenNguoi(userId, nho) {
+    if (!userId) return '';
+    if (nho) {
+      if (!nho.nguoi.has(userId)) {
+        const c = db.findUser(userId);
+        nho.nguoi.set(userId, c ? `${c.title} ${c.name}` : '');
+      }
+      return nho.nguoi.get(userId);
+    }
+    const u = db.findUser(userId);
     return u ? `${u.title} ${u.name}` : '';
   }
 
+  function tenLop(classId, nho) {
+    if (!classId) return '';
+    if (!nho) return (db.findClass(classId) || {}).name || '';
+    if (!nho.lop.has(classId)) nho.lop.set(classId, (db.findClass(classId) || {}).name || '');
+    return nho.lop.get(classId);
+  }
+  function tenCoSo(campusId, nho) {
+    if (!campusId) return '';
+    if (!nho) return (db.findCampus(campusId) || {}).name || '';
+    if (!nho.coSo.has(campusId)) nho.coSo.set(campusId, (db.findCampus(campusId) || {}).name || '');
+    return nho.coSo.get(campusId);
+  }
+
   // ---- Khung, block, tệp của một bài (Đ143) ----
-  function khungCua(baiId) {
+  function khungCua(baiId, nho) {
+    if (nho && nho.khung) return nho.khung.get(baiId) || null;
     return db.first('cambridge_bai_khung', 'SELECT * FROM cambridge_bai_khung WHERE baiId = ?', [baiId]) || null;
   }
-  function blockCua(id) {
-    return id ? (db.first('cambridge_block', 'SELECT * FROM cambridge_block WHERE id = ?', [id]) || null) : null;
+  function blockCua(id, nho) {
+    if (!id) return null;
+    if (!nho) return db.first('cambridge_block', 'SELECT * FROM cambridge_block WHERE id = ?', [id]) || null;
+    if (!nho.block) nho.block = new Map();
+    if (!nho.block.has(id)) {
+      nho.block.set(id, db.first('cambridge_block', 'SELECT * FROM cambridge_block WHERE id = ?', [id]) || null);
+    }
+    return nho.block.get(id);
   }
-  function tepCua(baiId) {
-    return db.all('cambridge_tep', 'SELECT id, tenGoc, bytes, file, taoLuc FROM cambridge_tep WHERE baiId = ? ORDER BY taoLuc, rowid', [baiId])
-      .map(t => ({ id: t.id, tenGoc: t.tenGoc, bytes: t.bytes, loai: String(t.file).split('.').pop(), taoLuc: t.taoLuc }));
+  function tepCua(baiId, nho) {
+    const rows = (nho && nho.tep)
+      ? (nho.tep.get(baiId) || [])
+      : db.all('cambridge_tep', 'SELECT id, tenGoc, bytes, file, taoLuc FROM cambridge_tep WHERE baiId = ? ORDER BY taoLuc, rowid', [baiId]);
+    return rows.map(t => ({ id: t.id, tenGoc: t.tenGoc, bytes: t.bytes, loai: String(t.file).split('.').pop(), taoLuc: t.taoLuc }));
   }
-  function vePhiaKhung(k) {
+  function vePhiaKhung(k, nho) {
     if (!k) return null;
-    const b = blockCua(k.blockId);
+    const b = blockCua(k.blockId, nho);
     return {
       blockId: k.blockId || '', blockTen: b ? b.ten : '',
       tuanSo: Number(k.tuanSo) || 0, luaTuoi: k.luaTuoi || '',
@@ -300,24 +405,24 @@ module.exports = (app, { db }) => {
     return db.all('cambridge_block', 'SELECT * FROM cambridge_block ORDER BY thuTu, tuNgay, rowid');
   }
 
-  function keml(bai, user) {
+  function keml(bai, user, nho) {
     const anh = tachAnh(bai.anh);
-    const an = !!anh.length && !anhHienVoiGiaDinh(bai);
+    const an = !!anh.length && !anhHienVoiGiaDinh(bai, nho);
     const laGiaDinh = !!user && user.role === 'parent';
     const laMkt = laTruyenThong(user);
-    const anMkt = !!anh.length && laMkt && !anhHienVoiTruyenThong(bai);
-    const coBe = anhCoMatBe(bai.id);
+    const anMkt = !!anh.length && laMkt && !anhHienVoiTruyenThong(bai, nho);
+    const coBe = anhCoMatBe(bai.id, nho);
     return {
       ...bai,
       // LỌC Ở TẦNG DỮ LIỆU. Gia đình không nhận về tên tệp của ảnh bị ẩn —
       // không phải nhận rồi giao diện che bớt, vì tên tệp là thứ tải được.
       anh: ((an && laGiaDinh) || anMkt) ? [] : anh,
       daCongBo: !!bai.congBoLuc,
-      khung: vePhiaKhung(khungCua(bai.id)),
-      tep: tepCua(bai.id),
-      nguoiDangTen: tenNguoi(bai.nguoiDang),
-      tenNhom: bai.classId ? ((db.findClass(bai.classId) || {}).name || '') : '',
-      tenCoSo: bai.campusId ? ((db.findCampus(bai.campusId) || {}).name || '') : '',
+      khung: vePhiaKhung(khungCua(bai.id, nho), nho),
+      tep: tepCua(bai.id, nho),
+      nguoiDangTen: tenNguoi(bai.nguoiDang, nho),
+      tenNhom: tenLop(bai.classId, nho),
+      tenCoSo: tenCoSo(bai.campusId, nho),
       // Trạng thái ô tích, chỉ gửi cho người đăng được — gia đình không cần và
       // không nên biết bài nào đang được đánh dấu là có mặt bé.
       ...(laGiaDinh ? {} : { anhCoMatBe: coBe }),
@@ -363,8 +468,16 @@ module.exports = (app, { db }) => {
     const soLuong = Math.min(TRANG_TOI_DA,
       Math.max(1, Math.floor(Number(req.query.soLuong) || GIOI_HAN)));
 
+    // CHỈ ĐỌC CỘT DÙNG ĐỂ LỌC VÀ XẾP, KHÔNG ĐỌC CẢ BÀI (Đ158 — món 3 của Đ120).
+    //
+    // Vẫn phải quét cả bảng: cửa sổ trang được cắt SAU khi lọc quyền, và lý do
+    // đó ghi ngay bên trên — đổi lại thành cắt trong SQL là làm hỏng đúng thứ
+    // Đ98b vừa chữa. Nhưng bản cũ `SELECT *` kéo theo cả cột `anh` (danh sách
+    // tên tệp, có bài mười dòng) và mọi cột chữ dài của MỌI bài trong lịch sử,
+    // chỉ để vứt đi gần hết. Sáu cột dưới đây là đủ cho `taoBoLocXemDuoc` và
+    // cho phép lọc lứa tuổi; nguyên bài chỉ đọc cho đúng một trang.
     const rows = db.all('cambridge_bai',
-      `SELECT * FROM cambridge_bai ${loai ? 'WHERE loai = ?' : ''}
+      `SELECT id, congBoLuc, phamVi, classId, campusId FROM cambridge_bai ${loai ? 'WHERE loai = ?' : ''}
        ORDER BY COALESCE(NULLIF(tuan, ''), substr(taoLuc, 1, 10)) DESC, taoLuc DESC`,
       loai ? [loai] : []);
 
@@ -379,10 +492,22 @@ module.exports = (app, { db }) => {
         khungTheoBai.set(k.baiId, k);
       }
     }
-    const bai = rows.filter(xemNhanh)
+    const trang = rows.filter(xemNhanh)
       .filter(b => hopLua(khungTheoBai.get(b.id) || null, cacCon))
-      .slice(bo, bo + soLuong)
-      .map(b => keml(b, req.user));
+      .slice(bo, bo + soLuong);
+    // Nguyên bài chỉ đọc cho đúng một trang, và giữ NGUYÊN THỨ TỰ đã xếp ở
+    // trên — `WHERE id IN (...)` không hứa thứ tự nào cả.
+    const idTrang = trang.map(b => b.id);
+    const daySo = new Map(idTrang.map((id, i) => [id, i]));
+    const dayDu = [];
+    for (let i = 0; i < idTrang.length; i += 400) {
+      const lo = idTrang.slice(i, i + 400);
+      const m = lo.map(() => '?').join(',');
+      dayDu.push(...db.all('cambridge_bai', `SELECT * FROM cambridge_bai WHERE id IN (${m})`, lo));
+    }
+    dayDu.sort((a, b) => daySo.get(a.id) - daySo.get(b.id));
+    const nho = napTruoc(taoBoNho(), idTrang);
+    const bai = dayDu.map(b => keml(b, req.user, nho));
     res.json({
       bai,
       loai: [
@@ -410,16 +535,25 @@ module.exports = (app, { db }) => {
   // Connection của nhóm có thể có ảnh các bé đang làm việc.
   app.get('/api/cambridge/anh/:file', (req, res) => {
     const file = String(req.params.file || '');
-    // Nối chuỗi thay vì nhúng biến vào chuỗi mẫu.
-    //
-    // Ký tự đại diện của SQL đứng ngay sau một biến nhúng sẽ trùng với dấu
-    // hiệu "phần trăm được tính rồi in ra màn hình" mà bộ canh QUY TẮC 4 đi
-    // tìm. Ở đây nó không phải phần trăm nào cả — nhưng viết cách khác thì rẻ
-    // hơn nhiều so với mở một ngoại lệ cho cả tệp, mà ngoại lệ mở cả tệp thì
-    // che luôn những vi phạm thật sau này.
-    const mau = '%' + file + '%';
-    const chu = db.all('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE anh LIKE ?', [mau])
-      .find(b => tachAnh(b.anh).includes(file));
+    // TRA BẰNG CHỈ MỤC (Đ158). Bản cũ quét cả bảng bài bằng `LIKE '%…%'` cho
+    // MỖI tấm ảnh — một trang Home Connection mười ảnh là mười lượt quét.
+    let chu = null;
+    const dong = db.first('cambridge_anh', 'SELECT baiId FROM cambridge_anh WHERE file = ?', [file]);
+    if (dong) chu = db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [dong.baiId]);
+    if (!chu) {
+      // ĐƯỜNG LÙI, GIỮ CÓ CHỦ Ý. Chỉ mục dựng lại được nhưng vẫn có thể lệch
+      // (một bản sao lưu khôi phục nửa chừng, một lần ghi hỏng). Rơi về cách
+      // cũ thì chậm, nhưng ảnh vẫn ra đúng — thà chậm còn hơn báo "không tìm
+      // thấy" cho một tấm ảnh vẫn nằm nguyên trên đĩa.
+      //
+      // Nối chuỗi thay vì nhúng biến vào chuỗi mẫu: ký tự đại diện của SQL
+      // đứng ngay sau một biến nhúng sẽ trùng với dấu hiệu mà bộ canh QUY TẮC
+      // 4 đi tìm.
+      const mau = '%' + file + '%';
+      chu = db.all('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE anh LIKE ?', [mau])
+        .find(b => tachAnh(b.anh).includes(file)) || null;
+      if (chu) dongBoAnh(chu.id, chu.anh);   // vá lại chỉ mục ngay tại chỗ
+    }
     if (!chu) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
     if (!xemDuoc(chu, req.user)) return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
 
@@ -542,6 +676,51 @@ module.exports = (app, { db }) => {
     else db.insert('cambridge_bai_khung', { baiId, ...khung, ghiLuc: luc });
   }
 
+  // =========================================================================
+  // CHỈ MỤC ẢNH THEO TÊN TỆP (Đ158 — món 2 của Đ120)
+  // =========================================================================
+  //
+  // `cambridge_bai.anh` vẫn là NGUỒN SỰ THẬT. Bảng `cambridge_anh` chỉ là
+  // "tên tệp → bài nào", dựng lại được bất cứ lúc nào từ cột ấy. Nên chỗ nào
+  // ghi cột `anh` thì gọi `dongBoAnh` ngay sau đó, và nếu quên thì lượt khởi
+  // động sau tự dựng bù (xem `dungLaiChiMucAnh`).
+  function dongBoAnh(baiId, anh) {
+    try {
+      const ten = tachAnh(anh);
+      db.tx(() => {
+        db.run('DELETE FROM cambridge_anh WHERE baiId = ?', [baiId]);
+        const luc = new Date().toISOString();
+        for (const f of ten) {
+          db.run(`INSERT INTO cambridge_anh (file, baiId, ghiLuc) VALUES (?, ?, ?)
+                  ON CONFLICT(file) DO UPDATE SET baiId = excluded.baiId, ghiLuc = excluded.ghiLuc`,
+          [f, baiId, luc]);
+        }
+      });
+    } catch (err) {
+      // Chỉ mục hỏng thì đường tra ảnh tự rơi về cách cũ (quét bảng) — chậm,
+      // nhưng vẫn ra đúng ảnh. Không được để việc đăng bài của cô hỏng theo.
+      console.error(`[cambridge] không ghi được chỉ mục ảnh: ${err.message}`);
+    }
+  }
+
+  // Dựng bù cho những bài có ảnh mà chưa có dòng nào trong chỉ mục.
+  //
+  // Chạy MỘT LẦN lúc nạp phân hệ. Bài đã có dòng thì bỏ qua, nên khởi động lại
+  // mười lần cũng không làm gì thêm; và trường chưa bật Cambridge thì bảng bài
+  // rỗng, câu này gần như miễn phí.
+  function dungLaiChiMucAnh() {
+    try {
+      const thieu = db.all('cambridge_bai',
+        `SELECT b.id AS id, b.anh AS anh FROM cambridge_bai b
+          WHERE b.anh <> '' AND NOT EXISTS (SELECT 1 FROM cambridge_anh a WHERE a.baiId = b.id)`);
+      for (const b of thieu) dongBoAnh(b.id, b.anh);
+      if (thieu.length) console.log(`[cambridge] dựng lại chỉ mục ảnh cho ${thieu.length} bài.`);
+    } catch (err) {
+      console.error(`[cambridge] không dựng lại được chỉ mục ảnh: ${err.message}`);
+    }
+  }
+  dungLaiChiMucAnh();
+
   // Nhận danh sách ảnh dạng data URL, trả { anh } hoặc { loi }.
   function nhanAnh(ds) {
     if (!Array.isArray(ds)) return { anh: null };
@@ -578,6 +757,7 @@ module.exports = (app, { db }) => {
       congBoLuc: null, nguoiDang: req.user.id, taoLuc: luc, capNhatLuc: luc,
     };
     db.insert('cambridge_bai', rec);
+    dongBoAnh(rec.id, rec.anh);
     ghiCoTich(rec.id, req.body || {});
     ghiKhung(rec.id, kh.khung);
     db.audit(req.user.id, 'cambridge-tao', rec.id, { loai: rec.loai, phamVi: rec.phamVi });
@@ -607,6 +787,7 @@ module.exports = (app, { db }) => {
     }
 
     db.update('cambridge_bai', cu.id, patch);
+    if (patch.anh !== undefined) dongBoAnh(cu.id, patch.anh);
     db.audit(req.user.id, 'cambridge-sua', cu.id, { phamVi: patch.phamVi });
     ghiCoTich(cu.id, req.body || {});
     ghiKhung(cu.id, kh.khung);

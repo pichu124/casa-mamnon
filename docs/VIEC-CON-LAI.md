@@ -706,7 +706,7 @@ mảng.
 *Bằng chứng:* phan-hoi.md:145-148, :167-170, :171-174, :135-136; dòng SK-10; mảng Phân
 quyền chưa có bảng đối chiếu (PHAN-HOI-TRUONG-0709.md:242)
 
-**Đ120 — ba món hiệu năng Cambridge, làm TRƯỚC ngày trường bật phân hệ**
+**~~Đ120 — ba món hiệu năng Cambridge, làm TRƯỚC ngày trường bật phân hệ~~ — ĐÃ LÀM Đ158** (bảng phụ `cambridge_anh` cho đường tra ảnh; bộ nhớ một lượt cho `keml`; bước lọc chỉ đọc năm cột. Đo thật: 40 bài từ ~2.600 truy vấn còn **11**)
 
 keml vẫn ~65 truy vấn/bài sau bước lọc; tra ảnh bằng LIKE '%file%'; tải cả bảng rồi lọc.
 Bản vá cần bảng phụ cambridge_anh (khác bảng cambridge_anh_be đã có từ Đ1). Đ143 dựng

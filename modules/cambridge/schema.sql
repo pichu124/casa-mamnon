@@ -126,3 +126,29 @@ CREATE TABLE IF NOT EXISTS cambridge_tep (
   taoLuc  TEXT
 );
 CREATE INDEX IF NOT EXISTS cambridge_tep_theo_bai ON cambridge_tep(baiId);
+
+-- ===== CHỈ MỤC ẢNH THEO TÊN TỆP (Đ158, món 2 của Đ120) =====
+--
+-- Đường `GET /api/cambridge/anh/:file` trước đợt này tìm chủ của một tấm ảnh
+-- bằng `SELECT * FROM cambridge_bai WHERE anh LIKE '%<tên tệp>%'` rồi lọc lại
+-- trong JavaScript. Ba chỗ hỏng cùng lúc:
+--
+--   • `LIKE '%…'` mở đầu bằng ký tự đại diện nên KHÔNG dùng được chỉ mục nào —
+--     mỗi lần một tấm ảnh hiện lên màn hình là một lượt quét cả bảng bài.
+--   • `SELECT *` kéo theo cả cột `anh` (danh sách tên tệp) của MỌI bài.
+--   • Một trang Home Connection có tới 10 ảnh, và màn hình gia đình tải cả
+--     trang cùng lúc — nghĩa là 10 lượt quét bảng cho một lần mở màn.
+--
+-- Bảng phụ này là "tên tệp → bài nào". Nó KHÔNG phải nguồn sự thật: cột
+-- `cambridge_bai.anh` vẫn là nơi giữ danh sách ảnh của một bài, y như cũ. Đây
+-- chỉ là chỉ mục, dựng lại được bất cứ lúc nào từ cột ấy — và máy chủ tự dựng
+-- lại lúc khởi động cho những bài chưa có dòng.
+--
+-- Lược đồ của phân hệ chỉ được `CREATE ... IF NOT EXISTS`, không được ALTER,
+-- nên đây là bảng riêng chứ không phải cột thêm vào `cambridge_bai`.
+CREATE TABLE IF NOT EXISTS cambridge_anh (
+  file   TEXT PRIMARY KEY,
+  baiId  TEXT NOT NULL,
+  ghiLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS cambridge_anh_theo_bai ON cambridge_anh(baiId);
