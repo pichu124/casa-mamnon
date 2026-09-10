@@ -61,6 +61,14 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    > ngày nghỉ lễ / hè / Tết, và ngày đó tự tính là nghỉ CÓ PHÉP để hoàn tiền
    > ăn, không cần từng nhà xin nghỉ. Đây chính là thứ tôi nói là còn thiếu khi
    > từ chối làm tự động — nay trường đồng ý làm nó trước. **→ làm.**
+   >
+   > **✅ ĐÃ LÀM — Đ147 (10/09).** Bảng `lich_nghi_truong`, văn phòng đặt ở màn
+   > Xin phép (`/api/leave/lich-nghi`). Ngày trong đợt nghỉ: "Chốt sổ vắng" ghi
+   > mọi bé chưa có dòng là **nghỉ CÓ PHÉP** kèm lý do "Trường nghỉ: <tên đợt>",
+   > và bảng tiền ăn tháng cộng những ngày ấy vào số ngày được hoàn. Nút Chốt sổ
+   > vắng **giữ nguyên**, đúng như trường đồng ý. Ba mặc định nhà trường đổi được
+   > bất cứ lúc nào: mặc định **có** hoàn tiền ăn; để trống cơ sở là **cả trường**;
+   > và **sổ đã chốt thì không sửa ngược** khi thêm lịch nghỉ sau đó.
 2. **"Sổ đón trả bé không cần thiết, bỏ cũng được"** (DD-16). *Thấy:* mâu
    thuẫn trực tiếp với Đ125–Đ128 anh vừa quyết (gộp vào Điểm danh, trả bé bằng
    ảnh). Và cột **"Ra về HH:MM"** trong ảnh mẫu của chính trường *chính là*

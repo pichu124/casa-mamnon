@@ -242,6 +242,43 @@ CREATE TABLE IF NOT EXISTS leave_refund (
   capNhatLuc TEXT
 );
 
+-- ===== LỊCH NGHỈ CỦA TRƯỜNG — nghỉ lễ, nghỉ hè, nghỉ Tết =====
+--
+-- Nhà trường 10/09: *"cần thêm phần set lịch được ghi nhận là nghỉ có phép để
+-- hoàn tiền ăn, như nghỉ lễ theo lịch nhà nước, lịch nghỉ hè tết của trường.
+-- Do đó nếu hôm đó bé k xin nghỉ, k có checkin thì sẽ là nghỉ ko phép."*
+--
+-- MỘT BẢNG RIÊNG, KHÔNG PHẢI MỘT ĐƠN XIN NGHỈ.
+--
+-- Đường ngắn nhất là sinh cho mỗi bé một dòng `leave_requests` trạng thái
+-- 'approved' vào ngày lễ. Ba trăm đơn cho một ngày mùng Hai tháng Chín — mà
+-- không nhà nào gửi và không ai duyệt. Sổ đơn của văn phòng ngập, con số "chờ
+-- duyệt" trên trang chủ sai, và lịch sử đơn của một bé lẫn giữa việc riêng của
+-- nhà bé với lịch của cả trường. Đợt nghỉ là chuyện của TRƯỜNG, nên nó là một
+-- dòng của trường, không phải ba trăm dòng của ba trăm đứa trẻ.
+--
+-- `campusId` ĐỂ TRỐNG = CẢ TRƯỜNG. Cố ý KHÔNG khai REFERENCES campuses(id):
+-- chuỗi rỗng không phải mã cơ sở nào cả, mà nghỉ lễ theo lịch nhà nước — trường
+-- hợp thường gặp nhất, phải là cái dễ nhập nhất — thì đúng là cả ba cơ sở cùng
+-- nghỉ. Nghỉ riêng một cơ sở (sửa chữa, mất nước) thì khai rõ mã cơ sở.
+--
+-- `hoanTienAn` để dạng CHỮ ('co'/'khong') cùng lý do đã ghi ở `leave_refund`
+-- ngay trên: cột kiểu số ở kho mã này đi qua BOOL_COLS và biến null thành 0.
+CREATE TABLE IF NOT EXISTS lich_nghi_truong (
+  id         TEXT PRIMARY KEY,
+  ten        TEXT NOT NULL,
+  tuNgay     TEXT NOT NULL,                 -- YYYY-MM-DD
+  denNgay    TEXT NOT NULL,                 -- YYYY-MM-DD, tính CẢ ngày này
+  loai       TEXT NOT NULL DEFAULT 'khac',  -- le | he | tet | khac
+  campusId   TEXT NOT NULL DEFAULT '',      -- '' = cả trường
+  hoanTienAn TEXT NOT NULL DEFAULT 'co',
+  ghiChu     TEXT NOT NULL DEFAULT '',
+  nguoiTao   TEXT,
+  taoLuc     TEXT,
+  capNhatLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_lnt_khoang ON lich_nghi_truong(tuNgay, denNgay);
+
 -- ===== Nhận xét hằng ngày — khoảng 34.800 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS remarks (
   id         TEXT PRIMARY KEY,

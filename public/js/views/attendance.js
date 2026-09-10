@@ -505,6 +505,7 @@ App.views.attendance = {
     ]);
     this._roster = data.students;
     this._raSoat = raSoat;
+    this._truongNghi = data.truongNghi || null;
     const tenNhom = this.nhomId
       ? (dsNhom.find(n => n.id === this.nhomId) || {}).name || ''
       : UI.noiTenNhom(dsNhom);
@@ -530,6 +531,7 @@ App.views.attendance = {
         </div>
       </div>
       ${tab === 'tra' ? '<div id="att-tra"><div class="loading">Đang tải sổ trả bé</div></div>' : `
+      ${this.theTruongNghi()}
       ${this.theNgayDaKhoa()}
       <div class="stat-row">
         <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Số bé</div></div>
@@ -565,6 +567,26 @@ App.views.attendance = {
   // CÂU CHỮ Ở ĐÂY NÓI VỀ CUỐN SỔ, KHÔNG NÓI GÌ VỀ ĐỨA TRẺ.
   ngayDaKhoa() {
     return this.date !== UI.todayStr();
+  },
+
+  // HÔM NAY TRƯỜNG NGHỈ (Đ147) — nói TRƯỚC khi cô chấm, không phải sau.
+  //
+  // Cô mở sổ ra thấy hai chục ô trống thì phản xạ là chấm cho xong. Dải này
+  // đứng trên đầu danh sách để cô biết hôm nay không ai đến, và biết rằng bấm
+  // "Chốt sổ vắng" sẽ ghi cả nhóm là nghỉ CÓ phép chứ không phải không phép.
+  theTruongNghi() {
+    const n = this._truongNghi;
+    if (!n) return '';
+    return `<div class="card" style="border-left:4px solid var(--primary)">
+      <div class="card-title">${UI.icon('calendar', 16)} Hôm nay trường nghỉ — ${UI.esc(n.ten)}</div>
+      <div class="muted small" style="line-height:1.7">
+        ${UI.esc(App.views.leave && App.views.leave.fmtKhoang
+          ? App.views.leave.fmtKhoang(n.tuNgay, n.denNgay)
+          : `${n.tuNgay} – ${n.denNgay}`)}.
+        Gia đình không phải xin phép cho những ngày này. Bấm “Chốt sổ vắng” thì các bé
+        chưa có dòng sẽ được ghi là <b>nghỉ có phép</b>.
+      </div>
+    </div>`;
   },
 
   theNgayDaKhoa() {

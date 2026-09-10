@@ -181,8 +181,23 @@ module.exports = (app) => {
         tenNhom.set(s.classId, c ? c.name : '');
       }
     }
+    // HÔM NAY TRƯỜNG CÓ NGHỈ KHÔNG (Đ147) — để màn hình nói trước, chứ không
+    // để cô chấm xong hai chục bé rồi mới biết hôm nay trường đóng cửa.
+    //
+    // Xem MỘT nhóm thì hỏi theo cơ sở của nhóm ấy. Xem gộp nhiều nhóm (văn
+    // phòng) thì hỏi bằng chuỗi rỗng — CHỈ đợt nghỉ cả trường: một đợt nghỉ
+    // riêng của cơ sở 2 không áp cho danh sách đang trộn cả ba cơ sở, và nói
+    // rằng nó áp là sai với hai phần ba số bé trên màn.
+    const csXem = locNhom
+      ? (db.campusOfClass(locNhom) || '')
+      : (db.phamViCoSo(req.user) || '');
+    const dotNghi = nghiHoc.ngayTruongNghi(date, csXem);
+
     res.json({
       date,
+      truongNghi: dotNghi
+        ? { ten: dotNghi.ten, loai: dotNghi.loai, tuNgay: dotNghi.tuNgay, denNgay: dotNghi.denNgay }
+        : null,
       // Các nhóm cô đang phụ trách, để màn hình dựng được ô chọn nhóm. Cô chỉ
       // có một nhóm thì mảng này một phần tử và giao diện không hiện ô chọn.
       nhom: nl.nhomCuaCo(req.user.id),
@@ -545,27 +560,62 @@ module.exports = (app) => {
       [ngay, ...ids])) daCham.add(r.studentId);
     const dangNghi = nghiHoc.nghiCoPhep(ids, ngay);
 
+    // NGÀY TRƯỜNG NGHỈ THÌ KHÔNG NHÀ NÀO PHẢI XIN PHÉP (Đ147).
+    //
+    // Đây là nửa sau của yêu cầu nhà trường, và là nửa dễ làm sai. Luật cũ nói:
+    // không có đơn, không có ảnh đến lớp → nghỉ KHÔNG phép. Đúng cho một ngày
+    // thường. Nhưng đúng vào mùng Một Tết thì cả ba trăm bé bị ghi nghỉ không
+    // phép — trong sổ của cô, trên màn hình của gia đình, và trong cột tiền ăn
+    // cuối tháng của mọi nhà cùng một lúc.
+    //
+    // Hỏi theo CƠ SỞ CỦA TỪNG NHÓM chứ không hỏi một lần cho cả lượt chốt: văn
+    // phòng chốt gộp thì danh sách có bé của nhiều cơ sở, mà một đợt nghỉ có
+    // thể chỉ áp cho một cơ sở (sửa chữa, mất nước).
+    const nghiTheoNhom = new Map();
+    const dotCuaNhom = (classId) => {
+      if (!nghiTheoNhom.has(classId)) {
+        nghiTheoNhom.set(classId, nghiHoc.ngayTruongNghi(ngay, db.campusOfClass(classId) || ''));
+      }
+      return nghiTheoNhom.get(classId);
+    };
+
     const daGhi = [];
+    const tenDot = new Set();
     db.tx(() => {
       for (const s of students) {
         if (daCham.has(s.id)) continue;
-        const status = dangNghi.get(s.id) ? 'absent_excused' : 'absent_unexcused';
+        const dot = dotCuaNhom(s.classId);
+        if (dot) tenDot.add(dot.ten);
+        const status = (dangNghi.get(s.id) || dot) ? 'absent_excused' : 'absent_unexcused';
         db.insert('attendance', {
           id: db.nextId('att'), studentId: s.id, date: ngay,
-          status, checkIn: null, checkOut: null, note: '', markedBy: req.user.id,
+          status, checkIn: null, checkOut: null,
+          // Ghi luôn VÌ SAO vào chính dòng đó. Gia đình mở lịch tháng ra sẽ đọc
+          // được "Trường nghỉ: Nghỉ giỗ Tổ" thay vì một chữ "nghỉ có phép"
+          // không ai giải thích, và cô cũng không phải nhớ hộ sang tháng sau.
+          note: dot && !dangNghi.get(s.id) ? `Trường nghỉ: ${dot.ten}` : '',
+          markedBy: req.user.id,
         });
         daGhi.push({ studentId: s.id, hoTen: s.name, status });
       }
     });
     const soNghiCoPhep = daGhi.filter(x => x.status === 'absent_excused').length;
+    // Câu này đi thẳng ra màn hình của người vừa bấm nút, nên nó nói VIỆC ĐÃ
+    // XẢY RA, không nói gì về đứa trẻ nào.
+    const lyDo = tenDot.size
+      ? `Hôm nay trường nghỉ (${[...tenDot].join(', ')}) nên các bé chưa có dòng `
+        + 'được ghi là NGHỈ CÓ PHÉP, gia đình không phải xin phép.'
+      : '';
     db.audit(req.user.id, 'chot-vang', locNhom || null, {
       date: ngay, soNghiCoPhep, soNghiKhongPhep: daGhi.length - soNghiCoPhep,
+      truongNghi: [...tenDot],
     });
     res.json({
       ok: true, date: ngay,
       soDaCoTruoc: daCham.size,
       soNghiCoPhep,
       soNghiKhongPhep: daGhi.length - soNghiCoPhep,
+      lyDo,
       danhSach: daGhi,
     });
   });

@@ -65,6 +65,12 @@ trẻ (QUY TẮC 2)
 *Bằng chứng:* docs/PHAN-HOI-TRUONG-0709.md:40-48 (mục B.1); dòng DD-02 cột Đã làm 'Đ131
 — làm theo cách chốt sổ vắng một chạm, KHÔNG tự động'; TIEN-DO.md:1088 (Đ131)
 
+> **✅ ĐÃ NGÃ NGŨ — trường 10/09 + Đ147.** Trường chốt *"đồng ý là sẽ k để tự
+> động"*, nên nút Chốt sổ vắng giữ nguyên. Phần còn thiếu mà tôi nêu ("app cần
+> lịch ngày học/nghỉ lễ trước") nay **đã có**: Đ147 dựng lịch nghỉ của trường,
+> và ngày trong đợt nghỉ thì chốt sổ ghi nghỉ CÓ PHÉP + hoàn tiền ăn. Mục này
+> không còn chờ ai quyết.
+
 **B.2 / DD-16 — bỏ hay giữ phân hệ Đón trả bé**
 
 Trường nói không cần. Ngược Đ125–Đ128 anh vừa quyết. Cột 'Ra về HH:MM' trong chính ảnh
