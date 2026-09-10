@@ -170,6 +170,53 @@ console.log('\n[7] Quản trị: gán chức vụ cho một tài khoản quản 
     /Ban giám hiệu/.test(await dong3.innerText()), await dong3.innerText());
 }
 
+// ===========================================================================
+console.log('\n[7] Màn Cài đặt: thẻ thông báo đẩy chỉ mời đúng người (Đ145)');
+{
+  // Đường đẩy chỉ gửi tin THẬT cho gia đình: `lib/day.js` có đúng một hàm gửi
+  // (`guiChoGiaDinhCuaBe`) và nó đọc bảng `student_parents`. Cô bật xong chỉ
+  // nhận được đúng cái "Gửi thử" rồi thôi — mà thẻ lại viết "báo khi có tin về
+  // con", tức hứa một thứ tài khoản của cô không hề có. Đúng kiểu hứa suông mà
+  // bài học Đ14 sinh ra để chặn.
+  //
+  // Phép kiểm này phải ở trình duyệt: dò mã nguồn chỉ thấy được một dòng `if`,
+  // không thấy được cô có nhìn ra cái thẻ hay không.
+  await page.evaluate(() => App.logout());
+  await page.waitForTimeout(600);
+  await dangNhap('giaovien', '123456');
+  await page.goto(BASE + '/#/settings', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  check('CÔ KHÔNG thấy thẻ thông báo đẩy', await page.locator('#st-push-card').count() === 0);
+  const manCo = await page.locator('#view').innerText();
+  check('và màn Cài đặt của cô vẫn dùng được như thường',
+    /Cài đặt/.test(manCo) && /Tài khoản/.test(manCo), manCo.slice(0, 160));
+  check('không còn câu hứa "tin về con" nào trên màn của cô',
+    !/tin về con/.test(manCo), manCo.slice(0, 160));
+
+  await page.evaluate(() => App.logout());
+  await page.waitForTimeout(600);
+  await dangNhap('phuhuynh', '123456');
+  await page.goto(BASE + '/#/settings', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  check('GIA ĐÌNH VẪN THẤY thẻ — người duy nhất nhận được tin thật',
+    await page.locator('#st-push-card').count() === 1);
+  const manPh = await page.locator('#st-push-card').innerText();
+  check('và vẫn được hứa đúng thứ mình sẽ nhận', /tin về con/.test(manPh), manPh.slice(0, 160));
+  check('vẫn nói rõ iPhone cần thêm vào màn hình chính', /màn hình chính/.test(manPh), manPh.slice(0, 160));
+
+  await page.evaluate(() => App.logout());
+  await page.waitForTimeout(600);
+  await dangNhap('htruong', 'quantri2026');
+  await page.goto(BASE + '/#/settings', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  check('NHÀ TRƯỜNG vẫn giữ thẻ — "Gửi thử" là cách duy nhất kiểm đường đẩy',
+    await page.locator('#st-push-card').count() === 1);
+  const manQt = await page.locator('#st-push-card').innerText();
+  check('nhưng KHÔNG hứa tin về con với tài khoản nhà trường',
+    !/tin về con/.test(manQt), manQt.slice(0, 200));
+  check('mà nói đúng nó dùng để làm gì', /kiểm tra đường thông báo/.test(manQt), manQt.slice(0, 200));
+}
+
 check('không có lỗi JavaScript trong suốt quá trình', loi.length === 0, loi);
 
 console.log(`\n===== PASS: ${pass}  FAIL: ${fail} =====`);

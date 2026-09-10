@@ -106,13 +106,36 @@ App.views.settings = {
     // Chức vụ Cấp 2 (nhân sự, kế toán, marketing) không có đường /api/push
     // trong danh sách API của họ — không mời bấm vào thứ sẽ bị từ chối.
     if (u.role === 'admin' && u.chucVu && !['hieu-truong', 'quanly-coso'].includes(u.chucVu)) return '';
+
+    // CHỈ GIA ĐÌNH MỚI THẬT SỰ NHẬN ĐƯỢC TIN ĐẨY (Đ145).
+    //
+    // `lib/day.js` có đúng một đường gửi tin thật: `guiChoGiaDinhCuaBe`, và nó
+    // đọc bảng `student_parents`. Nghĩa là cô bật xong chỉ nhận được đúng cái
+    // "Gửi thử" rồi thôi — chuông không bao giờ kêu nữa. Thẻ lại còn viết
+    // "báo khi có tin về con", tức hứa một thứ tài khoản của cô không có.
+    //
+    // Đó đúng là kiểu hứa suông mà bài học Đ14 và `test/khong-hua-suong` sinh
+    // ra để chặn. Nên: ẩn hẳn với cô.
+    //
+    // Muốn cô cũng nhận đẩy thì phải THÊM loại tin cho cô trước (gia đình xin
+    // nghỉ, đơn chờ duyệt…), rồi mới mở lại thẻ này — ghi ở docs/VIEC-CON-LAI.md.
+    if (u.role === 'teacher') return '';
+
+    // Văn phòng và quản lý cũng chưa có loại tin đẩy nào của riêng mình. Không
+    // ẩn thẻ vì "Gửi thử" là cách duy nhất kiểm được máy chủ của trường có ra
+    // được internet tới dịch vụ đẩy hay không — nhưng phải nói đúng nó là gì.
+    const laGiaDinh = u.role === 'parent';
     const hoTro = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     return `
       <div class="card" id="st-push-card">
         <div class="card-title">🔔 Thông báo trên điện thoại</div>
         <div class="muted small" style="line-height:1.6">
-          Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
-          Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.
+          ${laGiaDinh
+            ? `Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
+               Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`
+            : `Dùng để <b>kiểm tra đường thông báo</b> của trường: bật trên máy này rồi bấm
+               "Gửi thử" — nhận được nghĩa là máy chủ gửi được thông báo tới điện thoại phụ huynh.
+               Hiện chỉ tài khoản gia đình mới nhận tin tự động; tài khoản nhà trường thì không.`}
         </div>
         <div id="st-push-trang-thai" class="small mt-8" style="line-height:1.6">${hoTro ? 'Đang kiểm tra…' : 'Trình duyệt này chưa hỗ trợ thông báo đẩy.'}</div>
         ${hoTro ? `

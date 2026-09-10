@@ -9,6 +9,10 @@ Ba danh sách, và chúng khác nhau thật: **A** là thứ chỉ anh quyết �
 sai nếu đoán; **B** là việc có mã phải viết, đã rõ phải viết gì; **C** là thứ máy không
 canh được, phải có người thật bấm thử.
 
+> **Cập nhật 10/09:** ba mục nhỏ trong danh sách B đã làm ngay trong ngày lập sổ
+> (Đ145a, Đ145b, Đ145c) — đánh dấu gạch ngang tại chỗ, không xoá, để còn thấy sổ
+> này từng ghi gì. Số mục còn lại của B là **30**.
+
 Đọc kèm: `docs/PHAN-HOI-TRUONG-0709.md` (bảng đối chiếu từng ý của trường),
 `docs/TIEN-DO.md` (nhật ký công việc), `docs/LOI-NEN-CHUNG.md` (sổ nợ với app 1).
 
@@ -476,7 +480,7 @@ Vài việc chờ anh quyết ở phần A rồi mới làm được — đã gh
 
 ### B1 — Trước buổi trường bấm thử tới
 
-**lib/thong-bao-be.js và lib/day.js là tệp dùng chung MỚI nhưng chưa nằm trong khế ước**
+**~~lib/thong-bao-be.js và lib/day.js là tệp dùng chung MỚI nhưng chưa nằm trong khế ước~~ — ĐÃ LÀM Đ145a**
 
 lib/thong-bao-be.js được 9 tệp route/module gọi; lib/day.js là đường đẩy duy nhất. Bộ
 canh khế ước chỉ chụp hình dạng của lib/db.js, lib/auth.js, lib/modules.js, UI và App.
@@ -492,7 +496,7 @@ routes/health.js:174,260 · routes/attendance.js:390 · routes/albums.js:280 ·
 modules/nhatky/routes.js:629,745 · modules/cambridge/routes.js:661 ·
 modules/hanhtrinh/routes.js:860 · modules/baocaohoctap/routes.js:233
 
-**Cô (role teacher) bật được thông báo đẩy nhưng không bao giờ nhận tin thật**
+**~~Cô (role teacher) bật được thông báo đẩy nhưng không bao giờ nhận tin thật~~ — ĐÃ LÀM Đ145c**
 
 Thẻ 'Thông báo trên điện thoại' hiện với cô, và đường đẩy chỉ gửi cho bố mẹ của một bé —
 cô bật xong chỉ nhận được đúng cái 'Gửi thử'. Chữ trên thẻ cũng viết cho phụ huynh ('Bật
@@ -529,7 +533,7 @@ từ chối nhận diện khuôn mặt, nên phải làm trước khi trả lờ
 dòng 701 (một ảnh); PHAN-HOI-TRUONG-0709.md:57 'gắn thẻ nhanh nhiều bé một lúc (GN-01,
 AL-01) — làm được ở đợt 2' vs dòng AL-01 'làm một phần', Đã làm TRỐNG
 
-**Thông báo khi có KHẢO SÁT mới — chưa có**
+**~~Thông báo khi có KHẢO SÁT mới — chưa có~~ — ĐÃ LÀM Đ145b**
 
 Trường xếp khảo sát đứng đầu danh sách 'phải có thông báo tới phụ huynh', nhưng Đ137 nối
 thông báo cho 9 loại nội dung và không có khảo sát trong đó.

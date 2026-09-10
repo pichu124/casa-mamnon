@@ -159,6 +159,31 @@ try {
     const st = fs.readFileSync(path.join(GOC, 'public/js/views/settings.js'), 'utf8');
     check('màn Cài đặt nói rõ iPhone cần thêm vào màn hình chính', /iPhone/.test(st) && /màn hình chính/.test(st));
     check('màn Cài đặt có Bật / Tắt / Gửi thử', /st-push-bat/.test(st) && /st-push-tat/.test(st) && /st-push-thu/.test(st));
+
+    // AI THẬT SỰ NHẬN ĐƯỢC TIN ĐẨY — và màn Cài đặt phải mời đúng người đó (Đ145).
+    //
+    // Hai sự thật này phải đi cùng nhau, nên canh cùng một chỗ: `lib/day.js`
+    // có ĐÚNG MỘT đường gửi tin thật, và nó đọc bảng `student_parents`, nghĩa
+    // là chỉ GIA ĐÌNH nhận được. Cô bật thẻ xong chỉ nhận đúng cái "Gửi thử"
+    // rồi thôi — hứa suông, đúng thứ bài học Đ14 sinh ra để chặn. Nên thẻ ẩn
+    // với cô.
+    //
+    // NGÀY AI ĐÓ THÊM LOẠI TIN ĐẨY CHO CÔ (gia đình xin nghỉ, đơn chờ duyệt),
+    // phép kiểm dưới đây báo đỏ đúng lúc — và người thêm phải mở lại thẻ trong
+    // `theThongBaoDay` chứ không để cô tiếp tục không thấy gì.
+    check('lib/day.js chỉ gửi tin thật cho GIA ĐÌNH — không đường nào gửi cho cô',
+      /function guiChoGiaDinhCuaBe/.test(day) && /student_parents/.test(day)
+      && !/role\s*===\s*'teacher'/.test(day),
+      'nếu vừa thêm đường đẩy cho cô thì mở lại thẻ trong settings.js theThongBaoDay');
+    check('màn Cài đặt ẩn thẻ với cô, đúng vì cô không nhận được gì',
+      /if \(u\.role === 'teacher'\) return '';/.test(st), st.slice(st.indexOf('theThongBaoDay'), st.indexOf('theThongBaoDay') + 400));
+    // BỎ CHÚ THÍCH TRƯỚC KHI SO THỨ TỰ. Chính khối chú thích giải thích bản vá
+    // này có nhắc lại câu "tin về con", và nó đứng TRƯỚC dòng mã — so thẳng là
+    // bài canh báo đỏ vì đọc đúng lời giải thích của chính mình.
+    const stMa = st.split('\n').filter(d => !/^\s*(\/\/|\*|\/\*)/.test(d)).join('\n');
+    check('câu hứa "tin về con" nằm trong nhánh dành cho gia đình, không nói với nhà trường',
+      /laGiaDinh/.test(stMa) && stMa.indexOf('laGiaDinh') < stMa.indexOf('tin về con'),
+      stMa.slice(Math.max(0, stMa.indexOf('tin về con') - 120), stMa.indexOf('tin về con') + 40));
   }
 } finally {
   await dung();
