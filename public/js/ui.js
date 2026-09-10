@@ -380,6 +380,213 @@ window.UI = (() => {
     });
   }
 
+  // NÉN VIDEO NGAY TRÊN MÁY CỦA CÔ (Đ150).
+  //
+  // Nhà trường 10/09: *"ok chấp nhận giảm chất lượng video để có thể upload
+  // video 3-5 phút"*. Ở đợt trước tôi đã nói rõ cái giá phải trả, và nhà trường
+  // chọn trả cái giá đó — nên hàm này làm đúng điều ấy, không làm khác đi.
+  //
+  // VÌ SAO NÉN CHỨ KHÔNG NỚI TRẦN TỆP
+  //
+  // Một video điện thoại 3 phút nặng 150–400 MB. Nới trần để nhận nguyên bản
+  // kéo theo ba thứ cùng lúc, và cả ba đều không lùi lại được: thân yêu cầu
+  // JSON phải to gấp mấy chục lần (base64 còn phình thêm một phần ba), kho ảnh
+  // của trường đầy nhanh gấp mười, và cô ở cổng trường phải tải 300 MB qua 4G.
+  // Nén xuống rồi mới gửi thì cả ba biến mất, đổi lại là hình mờ hơn hẳn —
+  // đúng thứ nhà trường đã đồng ý đánh đổi.
+  //
+  // BA ĐIỀU PHẢI NÓI THẲNG, VÌ CHÚNG KHÔNG SỬA ĐƯỢC BẰNG MÃ
+  //
+  //   1. NÉN LÂU ĐÚNG BẰNG ĐỘ DÀI VIDEO. Trình duyệt không có đường nén nhanh
+  //      hơn thời gian thật: nó phải PHÁT lại đoạn phim rồi thu từng khung
+  //      hình. Video 4 phút thì cô chờ khoảng 4 phút. Chỗ gọi BẮT BUỘC phải
+  //      báo trước con số đó và hiện đồng hồ chạy, nếu không cô sẽ tưởng app
+  //      treo và tắt đi giữa chừng.
+  //   2. TẮT MÀN HÌNH LÀ HỎNG. Máy khoá màn hay cô chuyển sang app khác thì
+  //      trình duyệt ngưng cấp khung hình và bản nén dở dang. Hàm này xin giữ
+  //      màn hình sáng (`wakeLock`) khi máy có, nhưng đó là XIN, không phải ép.
+  //   3. KHÔNG PHẢI MÁY NÀO CŨNG LÀM ĐƯỢC. Máy cũ thiếu `MediaRecorder` hoặc
+  //      `captureStream` thì hàm ném lỗi `KHONG_NEN_DUOC` — chỗ gọi bắt lỗi đó
+  //      rồi nói với cô bằng tiếng của trường, đừng để lọt ra một chữ tiếng Anh.
+  //
+  // Trả về Promise cho một chuỗi data URL `video/webm`.
+  //
+  //   UI.nenVideo(file, { tranByte, tien })
+  //     tranByte  trần dung lượng đích, mặc định 8 MB (khớp MAX_VIDEO_BYTES)
+  //     tien      hàm gọi lại mỗi giây: tien({ giay, tongGiay })
+  //     huy       hàm trả về true để dừng giữa chừng
+  function nenVideo(file, tuyChon = {}) {
+    const tranByte = Number(tuyChon.tranByte) > 0 ? Number(tuyChon.tranByte) : 8 * 1024 * 1024;
+    const canhToiDa = Number(tuyChon.canhToiDa) > 0 ? Number(tuyChon.canhToiDa) : 480;
+    const toiDaGiay = Number(tuyChon.toiDaGiay) > 0 ? Number(tuyChon.toiDaGiay) : 390;
+    const khung = Number(tuyChon.khung) > 0 ? Number(tuyChon.khung) : 15;
+    const tien = typeof tuyChon.tien === 'function' ? tuyChon.tien : () => {};
+    const huy = typeof tuyChon.huy === 'function' ? tuyChon.huy : () => false;
+
+    return new Promise((xong, hong) => {
+      const coCanvasStream = typeof HTMLCanvasElement !== 'undefined'
+        && typeof HTMLCanvasElement.prototype.captureStream === 'function';
+      if (typeof MediaRecorder === 'undefined' || !coCanvasStream) {
+        hong(new Error('KHONG_NEN_DUOC')); return;
+      }
+
+      const url = URL.createObjectURL(file);
+      const v = document.createElement('video');
+      v.preload = 'auto';
+      v.playsInline = true;
+      v.src = url;
+
+      let dungTimer = null;
+      let khoaMan = null;
+      let daXong = false;
+      const don = () => {
+        if (dungTimer) { clearInterval(dungTimer); dungTimer = null; }
+        try { if (khoaMan) khoaMan.release(); } catch (_) { /* máy không giữ được thì thôi */ }
+        try { URL.revokeObjectURL(url); } catch (_) { /* đã thu rồi */ }
+      };
+      const thua = (e) => { if (daXong) return; daXong = true; don(); hong(e); };
+
+      v.onerror = () => thua(new Error('Không đọc được video này'));
+
+      // ĐO ĐỘ DÀI THẬT, KỂ CẢ KHI TỆP KHÔNG KHAI.
+      //
+      // Nhiều tệp webm — trong đó có tệp do chính trình duyệt thu ra — không
+      // ghi độ dài vào phần đầu tệp, và `duration` trả về Infinity cho tới khi
+      // có ai tua tới cuối. Bỏ qua chuyện này thì mọi tệp loại đó bị từ chối
+      // bằng câu "Không đo được độ dài video này", trong khi tệp hoàn toàn tốt.
+      //
+      // Cách chữa chuẩn: tua tới một mốc rất xa, trình duyệt buộc phải đọc hết
+      // rồi khai ra độ dài thật, xong tua về đầu.
+      const doDoDai = () => new Promise((ok2) => {
+        if (Number.isFinite(v.duration) && v.duration > 0) { ok2(v.duration); return; }
+        const xong2 = () => {
+          v.removeEventListener('durationchange', xong2);
+          v.currentTime = 0;
+          ok2(v.duration);
+        };
+        v.addEventListener('durationchange', xong2);
+        try { v.currentTime = 1e6; } catch (_) { xong2(); }
+      });
+
+      v.onloadedmetadata = async () => {
+        const tongGiay = Number(await doDoDai());
+        if (!Number.isFinite(tongGiay) || tongGiay <= 0) {
+          thua(new Error('Không đo được độ dài video này')); return;
+        }
+        if (tongGiay > toiDaGiay) {
+          thua(new Error(`Video dài ${Math.round(tongGiay / 60)} phút — `
+            + `mỗi đoạn xin gửi tối đa ${Math.round(toiDaGiay / 60)} phút giúp trường nhé`));
+          return;
+        }
+
+        const rongGoc = v.videoWidth || 640;
+        const caoGoc = v.videoHeight || 480;
+        const ti = Math.min(1, canhToiDa / Math.max(rongGoc, caoGoc));
+        const canvas = document.createElement('canvas');
+        // Số chẵn: bộ mã hoá video nào cũng thích chiều chia hết cho 2.
+        canvas.width = Math.max(2, Math.round((rongGoc * ti) / 2) * 2);
+        canvas.height = Math.max(2, Math.round((caoGoc * ti) / 2) * 2);
+        const ctx = canvas.getContext('2d');
+
+        // CHIA NGÂN SÁCH BIT THEO ĐỘ DÀI THẬT, không lấy một con số cứng.
+        //
+        // Nhân 0.8 chứ không 1.0: bộ mã hoá bám bitrate rất lỏng, và vượt trần
+        // ở phút thứ tư nghĩa là cô chờ xong bốn phút rồi mới nhận câu từ chối.
+        // Thà mờ hơn một chút mà chắc chắn gửi được.
+        const bitTieng = 24000;
+        const bitHinh = Math.max(120000, Math.min(900000,
+          Math.floor((tranByte * 8 * 0.8) / tongGiay) - bitTieng));
+
+        // Tiếng của bé là nửa giá trị của một đoạn phim ở trường mầm non, nên
+        // cố giữ. Đi qua WebAudio và CỐ Ý không nối vào loa: nén bốn phút mà
+        // máy phát tiếng oang oang trong phòng ngủ trưa là hỏng việc của cô.
+        let tiengStream = null;
+        let ac = null;
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) {
+            ac = new AC();
+            const nguon = ac.createMediaElementSource(v);
+            const dich = ac.createMediaStreamDestination();
+            nguon.connect(dich);
+            tiengStream = dich.stream;
+          }
+        } catch (_) { tiengStream = null; }
+
+        const dongHinh = canvas.captureStream(khung);
+        const dong = new MediaStream([
+          ...dongHinh.getVideoTracks(),
+          ...(tiengStream ? tiengStream.getAudioTracks() : []),
+        ]);
+
+        const kieu = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm']
+          .find(k => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(k));
+        let may;
+        try {
+          may = new MediaRecorder(dong, {
+            mimeType: kieu || undefined,
+            videoBitsPerSecond: bitHinh,
+            audioBitsPerSecond: bitTieng,
+          });
+        } catch (_) { thua(new Error('KHONG_NEN_DUOC')); return; }
+
+        const manh = [];
+        may.ondataavailable = (e) => { if (e.data && e.data.size) manh.push(e.data); };
+        may.onerror = () => thua(new Error('Máy dừng giữa chừng khi đang nén video'));
+        may.onstop = () => {
+          if (daXong) return;
+          const blob = new Blob(manh, { type: 'video/webm' });
+          if (!blob.size) { thua(new Error('Bản nén rỗng — máy này chưa nén được video')); return; }
+          if (blob.size > tranByte) {
+            thua(new Error(`Nén xong vẫn còn ${Math.round(blob.size / 1048576)} MB — `
+              + 'cô quay đoạn ngắn hơn giúp trường nhé'));
+            return;
+          }
+          const doc = new FileReader();
+          doc.onerror = () => thua(new Error('Không đọc được bản nén'));
+          doc.onload = () => { daXong = true; don(); xong(doc.result); };
+          doc.readAsDataURL(blob);
+        };
+
+        const dungHan = () => { try { may.stop(); } catch (_) { /* đã dừng */ } };
+        v.onended = dungHan;
+
+        const bat = () => {
+          try { may.start(1000); } catch (_) { thua(new Error('KHONG_NEN_DUOC')); return; }
+          const batDau = performance.now();
+          const veKhung = () => {
+            if (daXong || may.state === 'inactive') return;
+            try { ctx.drawImage(v, 0, 0, canvas.width, canvas.height); } catch (_) { /* khung lỗi thì bỏ */ }
+            requestAnimationFrame(veKhung);
+          };
+          requestAnimationFrame(veKhung);
+
+          dungTimer = setInterval(() => {
+            if (daXong) return;
+            if (huy()) { dungHan(); thua(new Error('Đã dừng nén video')); return; }
+            tien({ giay: Math.min(tongGiay, v.currentTime), tongGiay });
+            // CHỐT AN TOÀN: máy khoá màn hay cô chuyển app thì khung hình ngưng
+            // tới và `onended` không bao giờ chạy — không có chốt này thì đồng
+            // hồ quay mãi và cô ngồi chờ một việc đã chết.
+            if (performance.now() - batDau > (tongGiay * 1000 * 2) + 30000) {
+              dungHan();
+              thua(new Error('Nén video lâu bất thường — có thể máy đã khoá màn hình giữa chừng. '
+                + 'Cô thử lại và giữ màn hình sáng giúp nhé.'));
+            }
+          }, 1000);
+
+          if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
+          v.play().catch(() => thua(new Error('Máy không cho phát lại video để nén')));
+        };
+
+        // Xin giữ màn hình sáng — XIN, không ép. Máy không cho thì vẫn nén.
+        if (navigator.wakeLock && navigator.wakeLock.request) {
+          navigator.wakeLock.request('screen').then((k) => { khoaMan = k; }).catch(() => {}).then(bat, bat);
+        } else bat();
+      };
+    });
+  }
+
   const ATT_STATUS = {
     present: { label: 'Có mặt', cls: 'green', color: '#27ae60' },
     late: { label: 'Đến muộn', cls: 'orange', color: '#f2994a' },
@@ -398,7 +605,7 @@ window.UI = (() => {
     ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
     pageHeader, avatar, emptyState, studentBar, thanhChonBe, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, RATING, DOW,
-    nenAnh,
+    nenAnh, nenVideo,
     maAnToan, dongThongTin,
   };
 })();
