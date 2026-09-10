@@ -446,21 +446,21 @@ console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhì
   //
   // Phép kiểm này phải ở đây chứ không ở bộ API: dò mã nguồn bằng biểu thức
   // không bắt được — đã thử ngược và nó xanh cả khi cổng đã mở toang.
+  //
+  // TỪ Đ140 CÔ KHÔNG CÒN MÀN HỌC PHÍ NÀO CẢ (bảng phân quyền của trường
+  // 07/09: "ở giao diện giáo viên bỏ đi luôn") — mạnh hơn cả "không có hai
+  // nút": mở địa chỉ #/hocphi bằng tay thì nhận màn "không mở được" trung
+  // tính, không ô chọn bé, không khoản nào, không nút nào.
   await dangNhap('giaovien', '123456');
   await moMan('#/hocphi');
-  // Phải đứng ĐÚNG ở bé đang có khoản CHƯA NỘP. Đứng ở bé không nợ gì thì màn
-  // không có nút "Xác nhận" dù mã có hỏng hay không — phép kiểm phủ định bên
-  // dưới sẽ xanh vì màn trống, chứ không vì cổng đang đóng.
-  check('cô có ô chọn bé trên màn Học phí', await page.locator('#hp-hs').count() === 1);
-  await page.selectOption('#hp-hs', { label: 'Nguyễn Bảo An' });
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(1200);
   const hpCo = await chuTrenMan();
-  check('CÔ ĐỌC ĐƯỢC khoản văn phòng đã tạo — siết ghi, không siết đọc',
-    /Tiền ăn tháng thử nghiệm/.test(hpCo), hpCo.slice(0, 250));
-  check('và khoản đó đang ở trạng thái CHƯA NỘP — tức đúng chỗ lẽ ra có nút Xác nhận',
-    /Chưa nộp/.test(hpCo), hpCo.slice(0, 250));
+  check('CÔ MỞ #/hocphi THÌ NHẬN MÀN "KHÔNG MỞ ĐƯỢC", nói tiếng của trường',
+    /Không mở được/.test(hpCo) && /chỉ dành cho gia đình|không mở trong tài khoản/i.test(hpCo), hpCo.slice(0, 250));
+  check('cô KHÔNG có ô chọn bé trên màn Học phí', await page.locator('#hp-hs').count() === 0);
+  check('và KHÔNG đọc được khoản văn phòng đã tạo', !/Tiền ăn tháng thử nghiệm/.test(hpCo), hpCo.slice(0, 250));
   check('CÔ KHÔNG THẤY NÚT "Tạo khoản"', await page.locator('#hp-them').count() === 0);
-  check('và KHÔNG thấy nút "Xác nhận" trên khoản chưa nộp đó',
+  check('và KHÔNG thấy nút "Xác nhận" nào',
     await page.locator('#view button', { hasText: 'Xác nhận' }).count() === 0);
 }
 
