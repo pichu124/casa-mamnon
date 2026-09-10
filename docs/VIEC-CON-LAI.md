@@ -150,6 +150,14 @@ làm được
 bao.js:90-121 guiChoNhom không gọi đẩy; public/js/views/settings.js:114 '…cân đo, album
 mới…'
 
+> **Chỗ hứa suông đã bịt — Đ157 (10/09), nhưng câu hỏi gốc vẫn của anh.** Màn Cài đặt
+> thôi tự kể danh sách: `/api/push/trang-thai` nay trả **`loaiTin`** — máy chủ LIỆT KÊ
+> đúng những gì sẽ tới, và thẻ hiện đúng chừng ấy chữ. Thêm một loại tin mà quên sửa chỗ
+> liệt kê thì thẻ im, chứ không hứa nhầm. Vậy nên vế "hứa nhiều hơn máy làm được" không
+> còn. **Câu còn lại vẫn cần anh:** có mở đẩy cho tin CẢ NHÓM (album công khai, thực đơn
+> tuần, lịch sinh hoạt, thông báo nhà trường) hay không — đó là chuyện một nhà nhận bao
+> nhiêu tiếng chuông mỗi ngày, không phải chuyện mã.
+
 **NK-04 — ô thay bỉm cắt theo NGÀY SINH hay theo NHÓM LỚP**
 
 Trường 07/09: 'Nhật ký ngày tự động bỏ đi với các bạn không phải lớp nhà trẻ'. Mã cố ý
@@ -284,6 +292,12 @@ cambridge_anh) vẫn nguyên nhãn hoãn — Đ143 không ghi đã làm.
 
 *Bằng chứng:* TIEN-DO.md:1075 (Đ120 'hoãn 4'), :1076 (Đ121 'mốc làm: trước khi trường
 bật Cambridge, cần bảng phụ cambridge_anh'), :1100 (Đ143); docs/RA-SOAT-2026-09.md:118
+
+> **Nửa sau đã xong — Đ158 (10/09).** Ba món hiệu năng đã vá và **đo được**: 40 bài từ
+> ~2.600 truy vấn còn **11**, một tấm ảnh từ một lượt quét cả bảng còn **2**; bảng phụ
+> `cambridge_anh` nay có thật, kèm bài canh `test:cambridge-hieu-nang`. Phần còn chờ anh
+> chỉ còn **một câu**: Đ146 đã bật sẵn Cambridge (`defaultEnabled: true`) — tức mốc
+> "trước khi trường bật" đã qua và Đ121 coi như đảo rồi. Anh xác nhận là mục này đóng.
 
 **PQ-01 (Cambridge) — Marketing vẫn mở được Cambridge (đảo Đ60)**
 
