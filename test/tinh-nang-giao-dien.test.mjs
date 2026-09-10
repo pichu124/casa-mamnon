@@ -107,12 +107,28 @@ await moTabTinhNang();
 check('phân hệ cắm thêm xuất hiện trong danh sách', await page.locator('.list-row', { hasText: 'Học phí' }).count() > 0);
 check('được đánh dấu là "Cắm thêm"',
   await page.locator('.list-row', { hasText: 'Học phí' }).first().locator('text=Cắm thêm').count() > 0);
+// ĐI ĐỦ HAI CHIỀU: TẮT rồi BẬT LẠI.
+//
+// Từ Đ146 chín phân hệ cắm thêm bật sẵn, nên bấm một cái là TẮT chứ không phải
+// bật. Bản cũ bấm đúng một lần rồi mong thấy biểu tượng hiện ra — hỏng ngay khi
+// mặc định đổi, dù cơ chế không sai gì. Nay bấm hai lần và canh cả hai chiều:
+// tắt thì biểu tượng biến mất, bật lại thì hiện lên. Mạnh hơn bản cũ, vì bản cũ
+// chưa bao giờ canh vế biến mất của một phân hệ cắm thêm.
+await nutCua('Học phí').click();
+await page.waitForTimeout(1800);
+await page.goto(BASE + '/#/', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1000);
+const nhanTat = await page.locator('.tile-label').allTextContents();
+check('TẮT thì biểu tượng Học phí biến khỏi màn hình chính',
+  !nhanTat.includes('Học phí'), nhanTat);
+
+await moTabTinhNang();
 await nutCua('Học phí').click();
 await page.waitForTimeout(1800);
 await page.goto(BASE + '/#/', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1000);
 const nhan2 = await page.locator('.tile-label').allTextContents();
-check('biểu tượng Học phí hiện trên màn hình chính', nhan2.includes('Học phí'), nhan2);
+check('BẬT LẠI thì biểu tượng Học phí hiện trên màn hình chính', nhan2.includes('Học phí'), nhan2);
 await page.screenshot({ path: SHOT + '05-them-hocphi.png', fullPage: true });
 
 await page.locator('.tile', { hasText: 'Học phí' }).first().click();
