@@ -15,9 +15,14 @@
 //      đường nào lọt qua vì đó là cùng một đường. Mục [3] kiểm điều đó chạy
 //      thật, không chỉ suy luận.
 //
-//   2. TRẦN DUNG LƯỢNG PHẢI CHẶN THẬT. Video không nén được trong trình duyệt
-//      như ảnh. Trần hỏng thì ổ đĩa của trường đầy sau một học kỳ, và đó là
-//      kiểu hỏng chỉ lộ ra khi đã muộn. Mục [2].
+//   2. TRẦN DUNG LƯỢNG PHẢI CHẶN THẬT. Trần hỏng thì ổ đĩa của trường đầy sau
+//      một học kỳ, và đó là kiểu hỏng chỉ lộ ra khi đã muộn. Mục [2].
+//
+//      (Dòng này trước đây viết "video không nén được trong trình duyệt như
+//      ảnh". Từ Đ150 thì nén được — nhà trường 10/09 chấp nhận đổi chất lượng
+//      lấy độ dài, nên `UI.nenVideo` nén ngay trên máy của cô để đoạn 3–5 phút
+//      lọt trần. Trần thì KHÔNG đổi, và mục [2] vẫn canh đúng nó; bài canh
+//      riêng cho việc nén là `test:nen-video`.)
 //
 //   3. TỆP KHÔNG PHẢI VIDEO PHẢI BỊ TỪ CHỐI THEO BYTE THẬT, không theo phần
 //      khai báo của trình duyệt — cùng luật với ảnh. Mục [2].

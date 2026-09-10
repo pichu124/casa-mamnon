@@ -142,6 +142,25 @@ Mỗi mục ba ý: **thấy gì · hỏng ra sao nếu làm y như chữ · sử
    > video 3-5 phút"*. **→ làm**, đổi hướng: nén mạnh trên máy của cô để một
    > đoạn 3–5 phút vẫn lọt trần tệp, thay vì nới trần. Vẫn phải nói trước với
    > trường rằng đổi lại là hình sẽ mờ hơn hẳn.
+   >
+   > **✅ ĐÃ LÀM — Đ150 (10/09).** Cô chọn video nặng hơn trần thì app hỏi một
+   > câu rồi tự nén ngay trên điện thoại. Trần tệp và kho ảnh **không đổi**.
+   >
+   > **BA ĐIỀU XIN TRƯỜNG BIẾT TRƯỚC, vì không sửa được bằng mã:**
+   >
+   > 1. **Nén lâu đúng bằng độ dài đoạn phim.** Video 4 phút thì cô chờ khoảng
+   >    4 phút — trình duyệt phải phát lại rồi thu từng khung hình, không có
+   >    đường nào nhanh hơn thời gian thật. Màn hình có đồng hồ chạy và nút
+   >    Dừng, nhưng thời gian chờ là có thật.
+   > 2. **Khoá màn hình hay chuyển sang app khác giữa chừng là hỏng bản nén.**
+   >    App có xin máy giữ màn hình sáng, nhưng đó là *xin*, máy có quyền từ
+   >    chối. Màn hình dặn rõ điều này trước khi bắt đầu.
+   > 3. **Hình sẽ mờ hơn hẳn bản gốc** — đúng thứ trường đã đồng ý đánh đổi.
+   >
+   > Nếu sau khi thử thật mà trường thấy 4 phút chờ là quá lâu, đường còn lại
+   > là **để máy chủ nhận tệp lớn theo lối truyền thẳng xuống ổ đĩa** (không
+   > qua JSON) — làm được, nhưng là một đợt riêng và kéo theo chuyện dung lượng
+   > ổ đĩa (N25). Nói giúp tôi sau buổi thử nhé.
 7. **Hồ sơ nhân sự đầy đủ** (CCCD, MST, vợ/chồng/con, địa chỉ…) và **điểm danh
    giáo viên / bảng chấm công**. *Thấy:* một miền dữ liệu cá nhân mới của
    người lớn, không phải của trẻ — cần quyền riêng (chỉ HR + hiệu trưởng), sao

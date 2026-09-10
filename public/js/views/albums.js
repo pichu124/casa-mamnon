@@ -320,14 +320,97 @@ App.views.albums = {
   // Bài canh đối chiếu hai con số này với nhau.
   TRAN_VIDEO: 8 * 1024 * 1024,
 
-  // Đọc tệp thành data URL. Ảnh đi qua `UI.nenAnh`, video thì đọc thẳng —
-  // không có đường nén nào chạy nổi trên điện thoại của cô.
+  // Trần ĐỘ DÀI video. Nhà trường xin 3–5 phút; 6 phút rưỡi là chừa dư cho
+  // đoạn quay lố mấy giây, mà vẫn chặn được đoạn nửa tiếng quay quên tắt.
+  TOI_DA_GIAY_VIDEO: 390,
+
+  // Đọc tệp thành data URL, KHÔNG nén. Chỉ dùng cho video đã đủ nhỏ.
   docTep(f) {
     return new Promise((ok, that) => {
       const r = new FileReader();
       r.onload = () => ok(r.result);
       r.onerror = () => that(new Error('Không đọc được tệp'));
       r.readAsDataURL(f);
+    });
+  },
+
+  // VIDEO 3–5 PHÚT: NÉN TRÊN MÁY CỦA CÔ RỒI MỚI GỬI (Đ150).
+  //
+  // Nhà trường 10/09: *"ok chấp nhận giảm chất lượng video để có thể upload
+  // video 3-5 phút"*.
+  //
+  // Việc nén mất đúng bằng độ dài đoạn phim — trình duyệt không có đường nào
+  // nhanh hơn thời gian thật (xem chú thích `UI.nenVideo`). Nên trước khi bắt
+  // đầu, HỎI CÔ MỘT CÂU kèm con số phút phải chờ, thay vì lẳng lặng chiếm máy
+  // của cô bốn phút rồi để cô đoán xem app có treo không.
+  //
+  // Trả về data URL, hoặc `null` nếu cô bấm Thôi.
+  nenVideoCoCho(f) {
+    const soMB = Math.round(f.size / 1048576);
+    return new Promise((xong, hong) => {
+      UI.modal(`
+        <div class="center">
+          <div style="font-size:34px">🎬</div>
+          <h3 class="mt-8">Đoạn phim này nặng ${UI.esc(String(soMB))} MB</h3>
+        </div>
+        <div class="muted small mt-8" style="line-height:1.7">
+          Máy sẽ <b>nén nhỏ lại</b> ngay trên điện thoại của cô rồi mới gửi, để đoạn dài
+          3–5 phút vẫn gửi được. Đổi lại <b>hình sẽ mờ hơn</b> bản gốc — nhà trường đã chọn
+          như vậy để có video dài.
+          <br><br>
+          Nén mất <b>khoảng đúng bằng độ dài đoạn phim</b>. Trong lúc đó xin cô
+          <b>để nguyên màn hình này</b>, đừng khoá máy hay chuyển sang app khác — chuyển đi
+          là bản nén dở dang. Bản gốc trong máy cô <b>không bị đụng tới</b>.
+        </div>
+        <button class="btn primary block mt-14" id="al-nen-ok">Nén và gửi</button>
+        <button class="btn outline block mt-8" id="al-nen-thoi">Thôi, để lần khác</button>
+      `, 'Gửi video dài');
+
+      let daQuyet = false;
+      document.getElementById('al-nen-thoi').onclick = () => {
+        if (daQuyet) return;
+        daQuyet = true; UI.closeModal(); xong(null);
+      };
+      document.getElementById('al-nen-ok').onclick = async () => {
+        if (daQuyet) return;
+        daQuyet = true;
+        let boCuoc = false;
+        UI.modal(`
+          <div class="center">
+            <div style="font-size:34px">⏳</div>
+            <h3 class="mt-8">Đang nén video</h3>
+            <div class="muted small mt-8" id="al-nen-dongho">Đang chuẩn bị…</div>
+            <div class="muted small mt-8" style="line-height:1.7">
+              Xin cô để nguyên màn hình này tới khi xong.
+            </div>
+          </div>
+          <button class="btn outline block mt-14" id="al-nen-dung">Dừng lại</button>
+        `, 'Đang nén video');
+        document.getElementById('al-nen-dung').onclick = () => { boCuoc = true; };
+
+        const phutGiay = (g) => `${Math.floor(g / 60)}:${String(Math.floor(g % 60)).padStart(2, '0')}`;
+        try {
+          const data = await UI.nenVideo(f, {
+            tranByte: this.TRAN_VIDEO,
+            toiDaGiay: this.TOI_DA_GIAY_VIDEO,
+            huy: () => boCuoc,
+            tien: ({ giay, tongGiay }) => {
+              const o = document.getElementById('al-nen-dongho');
+              if (o) o.textContent = `${phutGiay(giay)} / ${phutGiay(tongGiay)}`;
+            },
+          });
+          UI.closeModal();
+          xong(data);
+        } catch (err) {
+          UI.closeModal();
+          // Máy không nén được thì nói bằng tiếng của trường, không để lọt một
+          // chữ tiếng Anh nào ra màn hình của cô.
+          hong(err && err.message === 'KHONG_NEN_DUOC'
+            ? new Error('Máy này chưa nén được video. Cô quay đoạn ngắn hơn '
+              + `(dưới ${Math.round(this.TRAN_VIDEO / 1048576)} MB) giúp trường nhé.`)
+            : err);
+        }
+      };
     });
   },
 
@@ -351,15 +434,13 @@ App.views.albums = {
       // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
       // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
       if (/^video\/(mp4|webm)$/.test(f.type)) {
-        if (f.size > this.TRAN_VIDEO) {
-          UI.toast(`"${f.name}" nặng ${Math.round(f.size / 1048576)} MB — cô quay đoạn ngắn hơn `
-            + `(tối đa ${Math.round(this.TRAN_VIDEO / 1048576)} MB) nhé`, 'error');
-          continue;
-        }
         try {
-          this._pending.push({ video: await this.docTep(f), caption: '', name: f.name, laVideo: true });
-        } catch (_) {
-          UI.toast(`Không đọc được video "${f.name}"`, 'error');
+          const video = f.size > this.TRAN_VIDEO
+            ? await this.nenVideoCoCho(f)
+            : await this.docTep(f);
+          if (video) this._pending.push({ video, caption: '', name: f.name, laVideo: true });
+        } catch (err) {
+          UI.toast(err && err.message ? err.message : `Không đọc được video "${f.name}"`, 'error');
         }
         continue;
       }

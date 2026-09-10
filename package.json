@@ -86,6 +86,7 @@
     "test:trang-chu-giao-dien": "node test/trang-chu-giao-dien.test.mjs",
     "test:diem-danh-tra-be": "node test/diem-danh-tra-be.test.mjs",
     "test:lich-sinh-hoat-gop": "node test/lich-sinh-hoat-gop.test.mjs",
+    "test:nen-video": "node test/nen-video.test.mjs",
     "test:khao-sat-theo-nhom": "node test/khao-sat-theo-nhom.test.mjs",
     "test:tao-nhom-phan-cong": "node test/tao-nhom-phan-cong.test.mjs",
     "test:csv-xuong-dong": "node test/csv-xuong-dong.test.mjs",
@@ -115,7 +116,7 @@
     "test:bien-soan-gd": "node test/bien-soan-giao-dien.test.mjs",
     "test:bien-soan-ph": "node test/bien-soan-phan-he.test.mjs",
     "test:chi-tieu": "node test/chi-tieu-thoi-gian.test.mjs",
-    "test:giao-dien": "node test/album.test.mjs && node test/pwa.test.mjs && node test/tinh-nang-giao-dien.test.mjs && node test/nhieu-nhom-giao-dien.test.mjs && node test/bien-soan-giao-dien.test.mjs && node test/bien-soan-phan-he.test.mjs && node test/chi-tieu-thoi-gian.test.mjs && node test/man-hinh-phan-he.test.mjs && node test/ngoai-tuyen.test.mjs && node test/trang-chu-giao-dien.test.mjs && node test/diem-danh-tra-be.test.mjs && node test/lich-sinh-hoat-gop.test.mjs",
+    "test:giao-dien": "node test/album.test.mjs && node test/pwa.test.mjs && node test/tinh-nang-giao-dien.test.mjs && node test/nhieu-nhom-giao-dien.test.mjs && node test/bien-soan-giao-dien.test.mjs && node test/bien-soan-phan-he.test.mjs && node test/chi-tieu-thoi-gian.test.mjs && node test/man-hinh-phan-he.test.mjs && node test/ngoai-tuyen.test.mjs && node test/trang-chu-giao-dien.test.mjs && node test/diem-danh-tra-be.test.mjs && node test/lich-sinh-hoat-gop.test.mjs && node test/nen-video.test.mjs",
     "test:tat-ca": "npm test && npm run test:giao-dien"
   },
   "engines": {

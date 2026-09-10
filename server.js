@@ -39,6 +39,18 @@ app.use((req, res, next) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data:",
+    // `media-src` PHẢI KHAI RIÊNG, và phải có `blob:` (Đ150).
+    //
+    // Trước đợt này không có dòng này, nên media rơi về `default-src 'self'` —
+    // tức trang KHÔNG phát được video từ một blob do chính nó vừa tạo. Việc nén
+    // video trên máy của cô làm đúng như vậy: đọc tệp cô chọn thành blob rồi
+    // phát lại để thu từng khung hình. Thiếu dòng này thì Chromium từ chối bằng
+    // "Media load rejected by URL safety check" và cả tính năng câm lặng.
+    //
+    // `blob:` KHÔNG mở thêm cửa nào ra ngoài: blob chỉ tồn tại trong đúng tab
+    // đang mở và chỉ do chính trang này tạo. Video của album vẫn đi đường cũ
+    // (`/api/albums/...`, tức `'self'`), không đổi một chữ.
+    "media-src 'self' blob:",
     "connect-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
