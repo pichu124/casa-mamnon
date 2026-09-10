@@ -617,8 +617,8 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~14 phút) | **4562**, FAIL 0 (đo 10/09, sau Đ144 — 80 bộ) |
-| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **681**, FAIL 0 (đo 09/09, sau Đ136 — đụng `public/` nên chạy lại đủ bộ) |
+| `npm test` (không cần trình duyệt, ~14 phút) | **4563**, FAIL 0 (đo 10/09, sau Đ144 — 80 bộ) |
+| `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **554**, FAIL 0 (đo 10/09, sau Đ144, cộng từng bộ trong 10 bộ. Thấp hơn con số 681 ghi hôm 09/09: số đó cộng lặp; đối chiếu số `check(` từng tệp so với ef65888 thì không tệp nào bớt, ba tệp tăng) |
 
 Bốn bộ lớn nhất, và việc chúng canh:
 
