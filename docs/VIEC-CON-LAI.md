@@ -798,7 +798,7 @@ Dòng thời gian KHÔNG được hiện ô trống 'chưa quan sát' như thi�
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md dòng HT-01 'lớn | làm một phần', Đã làm TRỐNG;
 dòng HT-03 'nhỏ | làm một phần', Đã làm TRỐNG
 
-**TD-04 — nút tải tệp thực đơn**
+**~~TD-04 — nút tải tệp thực đơn~~ — ĐÃ LÀM Đ160** (ảnh chụp / PDF / Word treo theo TUẦN, kèm thêm chứ không thay bảng thực đơn đã gõ; Excel vẫn đi ô "Dán bảng" của Đ132 vì đường ấy đưa nội dung vào đúng bảng)
 
 Đ132 làm ô 'dán bảng từ Excel', không có nút tải tệp lên.
 

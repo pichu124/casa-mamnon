@@ -67,6 +67,7 @@ App.views.menu = {
       </div>
       ${this.segNgay()}
       <div id="menu-coso"></div>
+      <div id="menu-tep"></div>
       ${qt ? `<button class="btn primary block mb-8" id="btn-soan-tuan">${UI.icon('edit', 18)} Soạn cả tuần một lượt</button>` : ''}
       <div id="menu-nhac"></div>
       <div id="menu-days"></div>`;
@@ -146,6 +147,7 @@ App.views.menu = {
       this._tenCoSo = data.tenCoSo || '';
       this._cacCoSo = data.cacCoSo || [];
       this.veCoSo();
+      this.veTep(data.tep || [], data.from, !!data.taiTepDuoc);
       this.veNhac(menus, data.from);
 
       const coSan = new Map(menus.map(m => [m.date, m]));
@@ -214,6 +216,95 @@ App.views.menu = {
   // khác cho tới khi soạn xong là biến một nếp tốt thành một cái cửa khoá, và
   // thứ Sáu là hôm bận nhất của văn phòng. Nhắc thì người ta làm; chặn thì
   // người ta tìm đường vòng.
+  // ---- Tệp thực đơn cả tuần (Đ160 — TD-04) ----
+  //
+  // Nhà trường xin "tải tệp lên" cho cả tuần. Đây là BẢN ĐÍNH KÈM, không thay
+  // chỗ bảng thực đơn đã gõ: app không đọc được chữ trong một tệp PDF hay một
+  // tấm ảnh, nên nếu để nó thay chỗ thì màn từng ngày của gia đình, phần Nhật
+  // ký "hôm nay con ăn gì" và bảng đối chiếu Tiền ăn đều mất dữ liệu.
+  //
+  // Với gia đình mà tuần đó không có tệp nào thì KHÔNG vẽ gì cả — một ô trống
+  // ghi "chưa có tệp" chỉ làm màn hình dài thêm và không nói được điều gì.
+  _tep: [],
+  veTep(ds, tuNgay, taiDuoc) {
+    const o = document.getElementById('menu-tep');
+    if (!o) return;
+    this._tep = ds;
+    this._tuanTep = tuNgay;
+    if (!ds.length && !taiDuoc) { o.innerHTML = ''; return; }
+    const bieuTuong = (loai) => (loai === 'anh' ? '🖼️' : (loai === 'pdf' ? '📕' : '📄'));
+    const co = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">📎 Tệp thực đơn tuần này${taiDuoc ? `<span class="spacer"></span>
+          <button class="btn sm outline" id="mn-tep-them">+ Tải tệp lên</button>` : ''}</div>
+        ${ds.length ? ds.map(t => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${bieuTuong(t.loai)} ${UI.esc(t.tenGoc)}</div>
+              <div class="row-sub">${UI.esc(co(t.bytes))}${t.rieng ? ' · riêng cơ sở này' : ' · cả trường'}</div>
+            </div>
+            <div class="row-end" style="display:flex;gap:8px">
+              <a class="btn sm outline" href="/api/menu/tep/${UI.esc(t.id)}" target="_blank" rel="noopener">Mở</a>
+              ${taiDuoc ? `<button class="btn sm outline" data-xoa-tep="${UI.esc(t.id)}">Xoá</button>` : ''}
+            </div>
+          </div>`).join('') : `<div class="muted small">
+            Chưa treo tệp nào cho tuần này. Bếp gửi ảnh chụp bảng thực đơn hay tệp PDF thì
+            tải thẳng lên đây cho gia đình mở.
+          </div>`}
+        ${taiDuoc ? `<div class="muted small mt-8" style="line-height:1.7">
+          Tệp treo lên là để gia đình <b>mở ra xem</b>. Bảng thực đơn từng ngày ở dưới vẫn
+          phải gõ (hoặc dán từ Excel) — app chỉ đọc được chữ trong bảng ấy, và đó là thứ
+          màn hình của gia đình, Nhật ký ngày và bảng đối chiếu Tiền ăn đang dùng.
+        </div>
+        <input type="file" id="mn-tep-file" accept="image/*,application/pdf,.pdf,.docx" style="display:none">` : ''}
+      </div>`;
+    if (!taiDuoc) return;
+    const nut = document.getElementById('mn-tep-them');
+    const oFile = document.getElementById('mn-tep-file');
+    if (nut && oFile) {
+      nut.onclick = () => oFile.click();
+      oFile.onchange = () => this.taiTepLen(oFile);
+    }
+    // Mã tệp đi qua `data-`, không qua tham số chuỗi của onclick: tên tệp là
+    // chữ người dùng gõ, và một dấu nháy trong đó là thoát ra khỏi chuỗi JS.
+    for (const b of o.querySelectorAll('[data-xoa-tep]')) {
+      b.onclick = () => this.xoaTep(b.dataset.xoaTep);
+    }
+  },
+
+  async taiTepLen(oFile) {
+    const f = oFile && oFile.files && oFile.files[0];
+    if (!f) return;
+    oFile.value = '';
+    try {
+      const dataUrl = await new Promise((ok, hong) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result || ''));
+        r.onerror = () => hong(new Error('Không đọc được tệp này'));
+        r.readAsDataURL(f);
+      });
+      await API.post('/api/menu/tep', {
+        tuNgay: this._tuanTep, campusId: this._coSo || '', ten: f.name, dataUrl,
+      });
+      UI.toast('Đã treo tệp thực đơn cho tuần này', 'success');
+      await this.load();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa tải được tệp', 'error');
+    }
+  },
+
+  async xoaTep(id) {
+    if (!confirm('Gỡ tệp này khỏi thực đơn tuần?')) return;
+    try {
+      await API.del(`/api/menu/tep/${encodeURIComponent(id)}`);
+      UI.toast('Đã gỡ tệp', 'success');
+      await this.load();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa gỡ được tệp', 'error');
+    }
+  },
+
   veNhac(menus, from) {
     const o = document.getElementById('menu-nhac');
     if (!o) return;

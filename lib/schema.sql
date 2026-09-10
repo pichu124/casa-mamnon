@@ -455,6 +455,37 @@ CREATE TABLE IF NOT EXISTS menu_campus (
 );
 CREATE INDEX IF NOT EXISTS idx_menu_campus_date ON menu_campus(date);
 
+-- ===== TỆP THỰC ĐƠN CẢ TUẦN (Đ160 — TD-04) =====
+--
+-- Nhà trường 07/09: *"cho văn phòng nhập thực đơn cả tuần bằng cách tải tệp
+-- lên, hoặc điền/dán theo mẫu bảng tuần"*. Đ132 đã làm vế thứ hai (ô dán bảng
+-- từ Excel). Đây là vế thứ nhất.
+--
+-- KÈM THÊM, KHÔNG THAY THẾ. Thực đơn gõ vào `menus` / `menu_campus` vẫn là
+-- nguồn sự thật của app: nó là thứ màn hình gia đình đọc theo từng ngày, thứ
+-- phân hệ Tiền ăn đối chiếu, thứ tìm kiếm được. Một tệp PDF hay một tấm ảnh
+-- chụp bảng thực đơn thì app KHÔNG đọc được vào trong — nên nếu để nó thay
+-- chỗ bảng đã gõ thì mọi màn khác mất dữ liệu. Ở đây nó là BẢN ĐÍNH KÈM của
+-- một tuần: bếp gửi tệp gì thì trường treo nguyên tệp ấy lên cho gia đình mở.
+--
+-- THEO TUẦN, KHÔNG THEO NGÀY. Bếp gửi một tệp cho cả tuần chứ không gửi năm
+-- tệp; `tuNgay` là thứ Hai của tuần ấy, cùng cách tính với màn soạn tuần.
+--
+-- `campusId` để TRỐNG nghĩa là cả trường — cùng quy ước với `lich_nghi_truong`
+-- (Đ147), và cố ý KHÔNG có REFERENCES vì chuỗi rỗng không trỏ vào cơ sở nào.
+CREATE TABLE IF NOT EXISTS menu_tep (
+  id       TEXT PRIMARY KEY,
+  tuNgay   TEXT NOT NULL,               -- thứ Hai của tuần, YYYY-MM-DD
+  campusId TEXT NOT NULL DEFAULT '',    -- '' = cả trường
+  file     TEXT NOT NULL,               -- tên tệp trong kho uploads
+  tenGoc   TEXT NOT NULL DEFAULT '',    -- tên người tải lên nhìn thấy
+  bytes    INTEGER,
+  loai     TEXT NOT NULL DEFAULT '',    -- pdf | docx | anh
+  nguoiTai TEXT,
+  taoLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_menu_tep_tuan ON menu_tep(tuNgay, campusId);
+
 -- ===== Thời khóa biểu (một dòng mỗi lớp) =====
 CREATE TABLE IF NOT EXISTS timetable (
   classId     TEXT PRIMARY KEY REFERENCES classes(id) ON DELETE CASCADE,

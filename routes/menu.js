@@ -4,12 +4,28 @@ const db = require('../lib/db');
 const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 const tb = require('../lib/thong-bao');
+const uploads = require('../lib/uploads');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
 const TOI_DA_BUA = 5;        // số bữa mỗi ngày
 const TOI_DA_MON_BUA = 20;   // số món mỗi bữa
 const TOI_DA_TEN_MON = 100;  // độ dài tên món
 const TOI_DA_NGAY_MOT_LAN = 7;  // số ngày gửi lên trong một lần soạn cả tuần
+
+// TỆP THỰC ĐƠN CẢ TUẦN (Đ160 — TD-04).
+//
+// Ba tệp mỗi tuần mỗi cơ sở là rộng rãi: bếp thường gửi đúng một tệp. Trần có
+// mặt để một lần bấm nhầm liên tục không lấp đầy đĩa của trường.
+const TOI_DA_TEP_TUAN = 3;
+const TOI_DA_TEN_TEP = 120;
+// Ba loại, và cố ý không nhiều hơn:
+//   pdf/docx — thứ bếp gửi qua Zalo cho văn phòng
+//   anh      — ảnh chụp tờ thực đơn dán ở bếp, thứ nhanh nhất với điện thoại
+// Excel thì đã có đường riêng và tốt hơn hẳn: ô "dán bảng" của Đ132 đưa thẳng
+// nội dung vào bảng thực đơn, tức là gia đình đọc được theo từng ngày, phân hệ
+// Tiền ăn đối chiếu được. Nhận một tệp .xlsx rồi treo nguyên lên thì app không
+// đọc được một chữ nào trong đó.
+const LOAI_TEP = ['pdf', 'docx', 'anh'];
 
 // Thứ Hai của tuần cách tuần hiện tại `week` tuần (âm = quá khứ), trả về
 // YYYY-MM-DD theo GIỜ VIỆT NAM.
@@ -126,6 +142,46 @@ function coSoDuocGhi(user, campusIdMuon) {
   return { ok: true, campusId: campusIdMuon || null };
 }
 
+// QUYỀN ĐỌC MỘT TỆP THỰC ĐƠN — hỏi thẳng bằng hai hàm gốc, không mượn
+// `coSoDangXem` (Đ160).
+//
+// `coSoDangXem` trả lời câu "màn hình này nên MỞ SẴN cơ sở nào" — nó có nhánh
+// "không gửi gì thì lấy cơ sở đầu tiên của mình", đúng cho việc chọn mặc định
+// và sai cho việc canh quyền: một câu hỏi về CHÍNH tệp này thì không được có
+// đường lùi nào cả.
+//
+// Tệp của cả trường (campusId rỗng) thì ai đọc được thực đơn đều đọc được —
+// đó là thực đơn của trường, không phải dữ liệu của một đứa trẻ nào.
+function xemDuocTepCoSo(user, campusId) {
+  if (!user) return false;
+  if (!campusId) return true;
+  if (user.role === 'admin') return db.canAccessCampus(user, campusId);
+  // Cô và gia đình: có nhóm nào CỦA MÌNH thuộc cơ sở ấy không.
+  return db.classIdsOfCampus(campusId).some(cid => db.canAccessClass(user, cid));
+}
+
+// Tệp thực đơn của một tuần (Đ160). Tệp riêng của cơ sở đứng trước tệp dùng
+// chung cả trường — cùng thứ tự ưu tiên với chính bảng thực đơn.
+//
+// KHÔNG TRẢ VỀ TÊN TỆP TRONG KHO. Màn hình chỉ cần mã dòng để dựng đường
+// `/api/menu/tep/<id>`; tên tệp thật là thứ chỉ máy chủ cần biết, và in ra là
+// mời người ta thử đoán tên tệp khác trong cùng kho.
+function tepCuaTuan(thuHai, campusId) {
+  const dk = campusId ? "(campusId = '' OR campusId = ?)" : "campusId = ''";
+  const thamSo = campusId ? [thuHai, campusId] : [thuHai];
+  return db.all('menu_tep',
+    `SELECT id, tuNgay, campusId, tenGoc, bytes, loai, taoLuc FROM menu_tep
+      WHERE tuNgay = ? AND ${dk} ORDER BY campusId DESC, taoLuc`, thamSo)
+    .map(t => ({
+      id: t.id,
+      tenGoc: t.tenGoc,
+      bytes: Number(t.bytes) || 0,
+      loai: t.loai,
+      rieng: !!t.campusId,
+      taoLuc: t.taoLuc,
+    }));
+}
+
 // Thực đơn của một khoảng ngày cho một cơ sở, ĐÃ GỘP với bản dùng chung.
 //
 // Dòng riêng của cơ sở thắng; ngày nào cơ sở chưa soạn riêng thì lấy bản dùng
@@ -163,6 +219,11 @@ module.exports = (app) => {
         ? db.campuses().map(c => ({ id: c.id, name: c.name }))
         : [],
       menus: thucDonCua(campusId, from, to),
+      // TỆP CỦA TUẦN ĐANG XEM (Đ160). Ai đọc được thực đơn thì đọc được tệp
+      // của nó — không có luật riêng, vì đây là thực đơn của cả trường chứ
+      // không phải dữ liệu của một đứa trẻ nào.
+      tep: tepCuaTuan(from, campusId),
+      taiTepDuoc: !!(req.user && req.user.role === 'admin'),
     });
   });
 
@@ -346,5 +407,115 @@ module.exports = (app) => {
     });
     db.audit(req.user.id, 'menu-copy-week', String(week), { daChep, campusId });
     res.json({ daChep, campusId: campusId || null });
+  });
+  // =========================================================================
+  // TỆP THỰC ĐƠN CẢ TUẦN (Đ160 — TD-04)
+  // =========================================================================
+  //
+  // KÈM THÊM, KHÔNG THAY THẾ bảng thực đơn đã gõ. Xem chú thích dài ở
+  // `lib/schema.sql` chỗ khai bảng `menu_tep`.
+
+  app.post('/api/menu/tep', requireRole('admin'), (req, res) => {
+    const b = req.body || {};
+    const quyen = coSoDuocGhi(req.user, String(b.campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const campusId = quyen.campusId || '';
+
+    const tuNgay = String(b.tuNgay || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tuNgay)) {
+      return res.status(400).json({ error: 'Tuần chưa đúng dạng, ví dụ đúng: 2026-09-07' });
+    }
+    // ĐƯA VỀ ĐÚNG THỨ HAI. Màn hình gửi mốc đầu tuần, nhưng một bản giao diện
+    // cũ (hoặc một lời gọi tay) có thể gửi giữa tuần — và khi ấy tệp sẽ nằm ở
+    // một "tuần" không màn nào hỏi tới, tức là tải lên xong rồi biến mất.
+    const thuHai = congNgay(tuNgay, -lechThuHai(tuNgay));
+
+    const dangCo = db.count(
+      'SELECT COUNT(*) FROM menu_tep WHERE tuNgay = ? AND campusId = ?', [thuHai, campusId]);
+    if (dangCo >= TOI_DA_TEP_TUAN) {
+      return res.status(400).json({
+        error: `Mỗi tuần treo tối đa ${TOI_DA_TEP_TUAN} tệp. Xoá bớt tệp cũ rồi tải lại nhé.`,
+      });
+    }
+
+    const dataUrl = String(b.dataUrl || '');
+    if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'Chưa chọn tệp nào' });
+
+    // HAI KHO KHÁC NHAU, CHỌN THEO BYTE ĐẦU TỆP chứ không theo lời khai của
+    // trình duyệt: ảnh đi kho ảnh (`saveDataUrl`), PDF/Word đi kho tài liệu
+    // (`saveTaiLieuDataUrl`). Thử kho tài liệu trước vì nó kén hơn.
+    let luu = null;
+    let loai = '';
+    try {
+      const r = uploads.saveTaiLieuDataUrl(dataUrl);
+      luu = r;
+      loai = r.ext;
+    } catch (_) {
+      try {
+        const r = uploads.saveDataUrl(dataUrl);
+        luu = r;
+        loai = 'anh';
+      } catch (err) {
+        return res.status(400).json({
+          error: 'Tệp này app chưa nhận được. Nhận ảnh chụp, PDF hoặc Word; '
+            + 'còn bảng Excel thì dùng ô "Dán bảng từ Excel" — dán vào đó thì '
+            + 'gia đình đọc được thực đơn theo từng ngày.',
+        });
+      }
+    }
+    if (!LOAI_TEP.includes(loai)) {
+      try { if (loai === 'anh') uploads.remove(luu.file); else uploads.removeTaiLieu(luu.file); } catch (_) { /* dọn là việc phụ */ }
+      return res.status(400).json({ error: 'Loại tệp này app chưa nhận được' });
+    }
+
+    const rec = {
+      id: db.nextId('mtep'),
+      tuNgay: thuHai,
+      campusId,
+      file: luu.file,
+      tenGoc: String(b.ten || '').trim().slice(0, TOI_DA_TEN_TEP) || `Thực đơn tuần ${thuHai}`,
+      bytes: Number(luu.bytes) || 0,
+      loai,
+      nguoiTai: req.user.id,
+      taoLuc: new Date().toISOString(),
+    };
+    db.insert('menu_tep', rec);
+    db.audit(req.user.id, 'menu-tep-them', rec.id, { tuNgay: thuHai, campusId, loai });
+    res.status(201).json({ ok: true, tep: tepCuaTuan(thuHai, campusId) });
+  });
+
+  app.delete('/api/menu/tep/:id', requireRole('admin'), (req, res) => {
+    const t = db.first('menu_tep', 'SELECT * FROM menu_tep WHERE id = ?', [String(req.params.id || '')]);
+    if (!t) return res.status(404).json({ error: 'Không tìm thấy tệp này' });
+    const quyen = coSoDuocGhi(req.user, t.campusId || '');
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    // Cấp 3 khoá vào cơ sở thì `coSoDuocGhi` trả đúng cơ sở ấy; tệp của cả
+    // trường (campusId rỗng) KHÔNG phải của họ, và họ cũng không treo được.
+    if ((quyen.campusId || '') !== (t.campusId || '')) {
+      return res.status(403).json({ error: 'Tệp này thuộc phạm vi khác' });
+    }
+    db.remove('menu_tep', t.id);
+    try {
+      if (t.loai === 'anh') uploads.remove(t.file);
+      else uploads.removeTaiLieu(t.file);
+    } catch (_) { /* tệp đã mất thì thôi */ }
+    db.audit(req.user.id, 'menu-tep-xoa', t.id, { tuNgay: t.tuNgay, campusId: t.campusId });
+    res.json({ ok: true, tep: tepCuaTuan(t.tuNgay, t.campusId || '') });
+  });
+
+  // Tải một tệp. ĐI QUA CANH QUYỀN, không phục vụ tĩnh.
+  app.get('/api/menu/tep/:id', (req, res) => {
+    const t = db.first('menu_tep', 'SELECT * FROM menu_tep WHERE id = ?', [String(req.params.id || '')]);
+    if (!t) return res.status(404).json({ error: 'Không tìm thấy tệp này' });
+    if (!xemDuocTepCoSo(req.user, t.campusId || '')) {
+      return res.status(403).json({ error: 'Thực đơn này thuộc cơ sở khác' });
+    }
+    const duong = t.loai === 'anh' ? uploads.pathOf(t.file) : uploads.pathOfTaiLieu(t.file);
+    const con = t.loai === 'anh' ? uploads.exists(t.file) : uploads.existsTaiLieu(t.file);
+    if (!duong || !con) return res.status(404).json({ error: 'Tệp không còn trên máy chủ' });
+    res.setHeader('Content-Type', t.loai === 'anh' ? uploads.mimeOf(t.file) : uploads.mimeOfTaiLieu(t.file));
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(t.tenGoc)}`);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.sendFile(duong);
   });
 };
