@@ -434,7 +434,24 @@ console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhì
 
   // Tạo cho ĐÚNG bé của tài khoản gia đình dùng ở dưới, để vế "gia đình nhìn
   // thấy" không phụ thuộc vào bé nào tình cờ đứng đầu ô chọn.
-  await page.selectOption('#hp-hs', { label: 'Nguyễn Bảo An' });
+  // CHỌN THEO MÃ BÉ, KHÔNG CHỌN THEO NHÃN NGUYÊN VĂN.
+  //
+  // Từ Đ174 nhãn của ô này là "Tên bé · Nhóm" — trùng họ tên trong tiếng Việt
+  // là chuyện thường, và đây là ô ra tiền nên một cái tên trần không đủ để
+  // chọn đúng một đứa trẻ. Bài canh neo vào nhãn nguyên văn thì vỡ mỗi lần màn
+  // hình nói rõ hơn, mà nói rõ hơn lại đúng là điều ta muốn.
+  const maBe = await page.$$eval('#hp-hs option', (os) => {
+    const o = os.find(x => x.textContent.trim().startsWith('Nguyễn Bảo An'));
+    return o ? o.value : null;
+  });
+  check('tìm được bé Nguyễn Bảo An trong ô chọn', !!maBe, maBe);
+  const nhanBe = await page.$$eval('#hp-hs option', (os) => {
+    const o = os.find(x => x.textContent.trim().startsWith('Nguyễn Bảo An'));
+    return o ? o.textContent.trim() : '';
+  });
+  check('Ô CHỌN BÉ NÓI CẢ TÊN NHÓM, không chỉ một cái tên trần (Đ174)',
+    / · .+/.test(nhanBe), nhanBe);
+  await page.selectOption('#hp-hs', maBe);
   await page.waitForTimeout(1400);
   // Ô chọn bé phải GIỮ NGUYÊN lựa chọn sau khi màn vẽ lại. Bản đầu không giữ:
   // màn quay về bé đầu danh sách, nên khoản thu văn phòng vừa tạo rơi vào nhà

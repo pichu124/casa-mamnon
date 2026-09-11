@@ -54,9 +54,19 @@ App.views.thuchup = {
     } else {
       cu = (((this._ds || {}).ghiNhan) || []).find(g => g.id === id)?.note || '';
     }
+    // TRẦN CỦA Ô GÕ PHẢI BẰNG `MAX_NOTE` Ở routes.js (500).
+    //
+    // Bản đầu cho gõ 2000 trong khi cả hai đường máy chủ cắt ở 500: cô gõ 900
+    // chữ, bài nằm trong máy giữ đủ 900 nên đọc lại vẫn thấy đủ, rồi lúc có
+    // sóng máy chủ cắt mất 400 chữ — không một lời báo. Đó là quan sát của cô
+    // về một khoảnh khắc không dựng lại được.
+    //
+    // Chú thích ở routes.js tự viết "hai trần khác nhau cho cùng một ô là một
+    // cái bẫy", mà ô nhập thì vẫn đang mời gõ 2000. `test:ghi-nhanh-sua` nay
+    // đối chiếu hai con số ấy.
     UI.modal(`
       <div class="field"><label>Lời ghi chú</label>
-        <textarea id="tc-sua-o" rows="4" maxlength="2000">${UI.esc(cu)}</textarea></div>
+        <textarea id="tc-sua-o" rows="4" maxlength="500">${UI.esc(cu)}</textarea></div>
       <div class="muted small" style="line-height:1.6">
         Đây là ghi chép riêng của cô. Nếu cô đã kể lại chuyện này cho gia đình ở
         mục Hành trình thì bản kể bên ấy <b>không đổi theo</b> — hai chỗ là hai
@@ -192,6 +202,18 @@ App.views.thuchup = {
     // dừng hồ sơ học tập. Gộp chung thì con số "đang chờ" cứ tăng mãi và cô
     // không có cách nào biết bài nào cần mình xử lý.
     const keta = con.filter(r => r.viNgungHoSo);
+    // BÀI ĐANG CHỜ CŨNG PHẢI LIỆT KÊ RA, ĐỪNG CHỈ ĐẾM.
+    //
+    // Chú thích của Đ166 ở cuối tệp này hứa thẳng rằng đường sửa chữ sinh ra
+    // cho "bài kẹt vì MẤT MẠNG hoặc vì gia đình đã dừng hồ sơ". Vế thứ hai
+    // được nối dây (thẻ `keta` có nút Sửa chữ); vế thứ nhất thì không — thẻ
+    // dưới chỉ in MỘT CON SỐ. Nên đúng cảnh cô cần sửa nhất — ngoài sân, không
+    // sóng, đọc lại thấy gõ nhầm tên bé trong câu — lại là cảnh không có nút
+    // nào; mà lúc ấy `ds.ghiNhan` rỗng nên cũng chẳng có bản máy chủ nào để
+    // sửa thay. Đúng hạng `test:khong-hua-suong`: chú thích hứa, mã không làm.
+    //
+    // Chỉ có "Sửa chữ", KHÔNG có "Bỏ bài này": bài này sắp tự gửi được, bày
+    // nút xoá cạnh nó là mời bấm nhầm mất trắng cả ảnh lẫn phần đã gõ.
     const cho = con.filter(r => !r.viNgungHoSo);
     let kq = { soLan: 0 };
     let ds = { ghiNhan: [], soBe: 0 };
@@ -251,6 +273,15 @@ App.views.thuchup = {
               ? 'Đang gửi…'
               : 'Sẽ tự gửi khi có mạng trở lại.'}
           </div>
+          ${cho.slice(0, 20).map(r => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(this.tenBe(r.studentId))}</div>
+                <div class="row-sub">${UI.esc((r.note || '(chỉ có ảnh)').slice(0, 90))}</div>
+              </div>
+              <button class="btn sm outline" data-sua-may="${UI.esc(r.id)}">Sửa chữ</button>
+            </div>`).join('')}
+          ${cho.length > 20 ? `<div class="muted small mt-8">Đang hiện 20 bài đầu trong ${cho.length} bài.</div>` : ''}
           ${this._loiHangDoi ? `
           <!-- NÓI RA VÌ SAO BÀI CÒN NẰM CHỜ.
                Trước đây máy chủ từ chối là bài BIẾN MẤT không một chữ. Nay bài

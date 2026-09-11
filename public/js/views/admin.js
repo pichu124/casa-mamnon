@@ -1029,24 +1029,33 @@ App.views.admin = {
       <button class="btn primary block" id="nb-luu">Nhận bé vào nhóm</button>
     `, 'Nhận một bé vào trường');
 
+    // CHỤP BIỂU MẪU MỘT LẦN, LÚC BẤM — ĐỪNG ĐỌC LẠI Ô NHẬP Ở LƯỢT GỬI THỨ HAI.
+    //
+    // Lượt gửi lại sau khi cô bấm "Vẫn nhận bé này?" chạy trên một màn hình có
+    // thể đã đổi: `UI.modal()` gọi `closeModal()` ở dòng đầu, nên chỉ cần một
+    // lượt mở phiếu chen vào là các ô `nb-*` đã rời khỏi trang. Đọc một ô không
+    // còn nữa thì `.value` nổ, và màn hình của văn phòng hiện nguyên một câu
+    // tiếng Anh của máy — thứ CLAUDE.md cấm để lọt ra màn hình.
+    let banChup = null;
+    const chupBieuMau = () => ({
+      hoTen: document.getElementById('nb-ten').value,
+      // GỬI MÃ NHÓM, không chỉ gửi tên. Ba cơ sở đặt trùng tên nhóm là chuyện
+      // thường ("Chồi 2" ở cả ba cơ sở), và khi ấy máy chủ tra theo tên sẽ
+      // không đoán được — nó từ chối, đúng như thiết kế của đường nhập tệp.
+      // Nhưng ở đây màn hình ĐANG ĐỨNG TRONG nhóm ấy và biết chắc mã của nó,
+      // nên vứt mã đi rồi bắt máy chủ đoán lại là tự gây ra một lượt từ chối.
+      classId,
+      tenLop,
+      ngaySinh: document.getElementById('nb-ns').value,
+      gioiTinh: document.getElementById('nb-gt').value,
+      ma: document.getElementById('nb-ma').value,
+      phHoTen: document.getElementById('nb-ph').value,
+      phSdt: document.getElementById('nb-sdt').value,
+      diaChi: document.getElementById('nb-dc').value,
+    });
+
     const gui = async (xacNhanTrung) => {
-      const than = {
-        hoTen: document.getElementById('nb-ten').value,
-        // GỬI MÃ NHÓM, không chỉ gửi tên. Ba cơ sở đặt trùng tên nhóm là chuyện
-        // thường ("Chồi 2" ở cả ba cơ sở), và khi ấy máy chủ tra theo tên sẽ
-        // không đoán được — nó từ chối, đúng như thiết kế của đường nhập tệp.
-        // Nhưng ở đây màn hình ĐANG ĐỨNG TRONG nhóm ấy và biết chắc mã của nó,
-        // nên vứt mã đi rồi bắt máy chủ đoán lại là tự gây ra một lượt từ chối.
-        classId,
-        tenLop,
-        ngaySinh: document.getElementById('nb-ns').value,
-        gioiTinh: document.getElementById('nb-gt').value,
-        ma: document.getElementById('nb-ma').value,
-        phHoTen: document.getElementById('nb-ph').value,
-        phSdt: document.getElementById('nb-sdt').value,
-        diaChi: document.getElementById('nb-dc').value,
-        xacNhanTrung,
-      };
+      const than = { ...banChup, xacNhanTrung };
       const d = await API.post('/api/admin/students', than);
       UI.closeModal();
       // PHIẾU TÀI KHOẢN HIỆN MỘT LẦN, y như đường nhập tệp. Tạo hồ sơ bé mà gia
@@ -1086,7 +1095,20 @@ App.views.admin = {
       if (xong) xong.onclick = async () => { UI.closeModal(); await this.lamMoiLop(); };
     };
 
-    document.getElementById('nb-luu').onclick = async () => {
+    const nutNhan = document.getElementById('nb-luu');
+    const chuNhan = nutNhan.textContent;
+    nutNhan.onclick = async () => {
+      // KHOÁ NGAY TỪ CÚ BẤM ĐẦU.
+      //
+      // 4G ở phòng tiếp đón chậm; nút không nhúc nhích thì bấm lần hai là phản
+      // xạ bình thường. Và lượt thứ hai chắc chắn gặp 409 do chính bé vừa tạo
+      // ở lượt một, tức dẫn thẳng vào câu hỏi lại trên một biểu mẫu có thể đã
+      // đóng. Khoá nút bịt cả hai chuyện đó bằng một dòng.
+      if (nutNhan.disabled) return;
+      nutNhan.disabled = true;
+      nutNhan.textContent = 'Đang nhận…';
+      const moLaiNut = () => { nutNhan.disabled = false; nutNhan.textContent = chuNhan; };
+      banChup = chupBieuMau();
       try {
         await gui(false);
       } catch (err) {
@@ -1103,9 +1125,15 @@ App.views.admin = {
         if (hoiLaiDuoc && confirm(`${err.message}
 
 Vẫn nhận bé này?`)) {
-          try { await gui(true); } catch (e2) { UI.toast(e2.message, 'error'); }
+          try {
+            await gui(true);
+          } catch (e2) { UI.toast(e2.message, 'error'); moLaiNut(); }
         } else {
           UI.toast(err.message, 'error');
+          // MỞ LẠI NÚT KHI KHÔNG NHẬN ĐƯỢC — gõ thiếu một ô rồi điền nốt thì
+          // phải bấm được lần nữa. Khoá vĩnh viễn là bắt cô đóng hộp thoại và
+          // gõ lại từ đầu, tức biến một lỗi nhỏ thành mất trắng phần đã gõ.
+          moLaiNut();
         }
       }
     };
@@ -1491,29 +1519,58 @@ Vẫn nhận bé này?`)) {
   },
 
   // Danh sách tài khoản vừa tạo — nhà trường in ra phát cho phụ huynh.
+  //
+  // Ô MẬT KHẨU CHỈ ĐƯỢC CHỨA MẬT KHẨU. Đ173 đã vá điều này ở phiếu MỘT bé,
+  // nhưng phiếu của đường nhập tệp — đường dùng nhiều hơn hẳn, mấy trăm nhà
+  // mỗi đầu năm — vẫn in chuỗi "(đã có tài khoản từ trước)" vào đúng cột Mật
+  // khẩu, ngay dưới dòng bảo chép ra giấy phát cho phụ huynh, và chép nguyên
+  // chuỗi ấy vào tệp CSV đem đi in. Gia đình gõ nó làm mật khẩu, sai liên tục,
+  // và `routes/auth.js` bắt đầu trả lời chậm dần tới 8 giây — văn phòng tin là
+  // đã cấp xong tài khoản, gia đình tin là app hỏng.
+  //
+  // Mọi nhà có con lớn đang học đều rơi vào nhánh gộp này, nên đây không phải
+  // trường hợp hiếm mà là trường hợp thường.
+  //
+  // Kèm luôn cột ĐIỆN THOẠI, cùng lý do đã ghi ở phiếu một bé: máy gộp phụ
+  // huynh theo số điện thoại, nên một số gõ nhầm trong tệp CSV nối bé vào tài
+  // khoản nhà người khác — và phiếu là chỗ duy nhất chuyện đó lộ ra kịp.
   hienPhieu(r) {
     const rows = r.taiKhoan;
+    const daCo = rows.filter(t => t.daCoTaiKhoan);
     UI.modal(`
       <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} bé đã có sẵn trong hệ thống)` : ''}.</p>
       <p class="muted small">Danh sách tài khoản dưới đây <b>chỉ hiện một lần</b>. Hãy tải về và in
       phát cho phụ huynh. Mật khẩu sẽ được yêu cầu đổi khi đăng nhập lần đầu.</p>
+      ${daCo.length ? `<p class="muted small"><b>${daCo.length} nhà</b> trong danh sách
+      <b>đã có tài khoản</b> ở trường từ trước (nhà có con lớn đang học) — bé vừa nhập được nối
+      thẳng vào tài khoản đó, nên những dòng ấy <b>không có mật khẩu mới</b>. Xin đối chiếu tên
+      và số điện thoại trước khi phát phiếu.</p>` : ''}
       <button class="btn primary block mt-14" id="ad-tai">⬇ Tải danh sách tài khoản (CSV)</button>
       <div class="table-wrap mt-14" style="max-height:40vh;overflow-y:auto">
         <table class="simple">
-          <thead><tr><th>Bé</th><th>Phụ huynh</th><th>Tên đăng nhập</th><th>Mật khẩu</th></tr></thead>
+          <thead><tr><th>Bé</th><th>Phụ huynh</th><th>Điện thoại</th><th>Tên đăng nhập</th><th>Mật khẩu</th></tr></thead>
           <tbody>${rows.map(t => `<tr>
             <td>${UI.esc(t.hocSinh)}</td><td>${UI.esc(t.phuHuynh)}</td>
-            <td><code>${UI.esc(t.username)}</code></td><td><code>${UI.esc(t.matKhau)}</code></td></tr>`).join('')}
+            <td>${UI.esc(t.phuHuynhSdt || '—')}</td>
+            <td><code>${UI.esc(t.username)}</code></td>
+            <td>${t.daCoTaiKhoan
+    ? '<span class="muted small">Nhà đã có tài khoản</span>'
+    : `<code>${UI.esc(t.matKhau)}</code>`}</td></tr>`).join('')}
           </tbody>
         </table>
       </div>
     `, 'Tài khoản đã tạo');
 
     document.getElementById('ad-tai').onclick = () => {
-      const head = ['Bé', 'Nhóm', 'Phụ huynh', 'Tên đăng nhập', 'Mật khẩu'];
+      const head = ['Bé', 'Nhóm', 'Phụ huynh', 'Điện thoại', 'Tên đăng nhập', 'Mật khẩu'];
       const esc = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
       const noiDung = '﻿' + [head.join(',')]
-        .concat(rows.map(t => [t.hocSinh, t.lop, t.phuHuynh, t.username, t.matKhau].map(esc).join(',')))
+        .concat(rows.map(t => [
+          t.hocSinh, t.lop, t.phuHuynh, t.phuHuynhSdt || '',
+          t.username,
+          // Ô MẬT KHẨU CỦA TỆP ĐEM ĐI IN PHẢI TRỐNG KHI KHÔNG CÓ MẬT KHẨU NÀO.
+          t.daCoTaiKhoan ? '' : t.matKhau,
+        ].map(esc).join(',')))
         .join('\r\n');
       const blob = new Blob([noiDung], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a');

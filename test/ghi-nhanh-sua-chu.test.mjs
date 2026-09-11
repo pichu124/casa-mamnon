@@ -215,6 +215,42 @@ try {
     const soTran = (r.match(/slice\(0, MAX_NOTE\)/g) || []).length;
     check('cả đường ghi mới lẫn đường sửa đều cắt ở CÙNG MỘT trần MAX_NOTE',
       soTran === 2 && !/slice\(0, 2000\)/.test(r), { soTran });
+
+    // (d) TRẦN CỦA Ô GÕ PHẢI BẰNG TRẦN CỦA MÁY CHỦ.
+    //
+    // (c) ở trên chỉ so HAI ĐƯỜNG MÁY CHỦ với nhau — đó là chiều Đ171 đã vá.
+    // Chiều còn hỏng là chiều MÀN HÌNH: ô sửa cho gõ 2000 trong khi máy chủ cắt
+    // ở 500, nên cô gõ 900 chữ, bài nằm trong máy giữ đủ 900 (đọc lại vẫn thấy
+    // đủ), rồi lúc có sóng máy chủ cắt mất 400 chữ — không một lời báo. Đó là
+    // quan sát của cô về một khoảnh khắc không dựng lại được.
+    const tranMay = Number((/const MAX_NOTE = (\d+);/.exec(r) || [])[1]);
+    const tranSua = Number((/id="tc-sua-o"[^>]*maxlength="(\d+)"/.exec(ma) || [])[1]);
+    const tranMoi = Number((/id="tc-note"[^>]*maxlength="(\d+)"/.exec(ma) || [])[1]);
+    check('rút được cả ba con số để so', [tranMay, tranSua, tranMoi].every(Number.isFinite),
+      { tranMay, tranSua, tranMoi });
+    check('ô SỬA cho gõ đúng bằng trần máy chủ, không hơn một chữ',
+      tranSua === tranMay, { oSua: tranSua, mayChu: tranMay });
+    check('đối chứng — ô GHI MỚI cũng đúng trần ấy, tức hai ô nói cùng một luật',
+      tranMoi === tranMay, { oGhiMoi: tranMoi, mayChu: tranMay });
+
+    // (e) BÀI KẸT VÌ MẤT MẠNG CŨNG PHẢI SỬA CHỮ ĐƯỢC.
+    //
+    // Chú thích Đ166 ở cuối view.js hứa thẳng rằng đường sửa chữ sinh ra cho
+    // "bài kẹt vì MẤT MẠNG hoặc vì gia đình đã dừng hồ sơ". Vế thứ hai được nối
+    // dây; vế thứ nhất thì không — thẻ "đang chờ gửi lên" chỉ in MỘT CON SỐ.
+    // Đúng cảnh cô cần sửa nhất lại là cảnh không có nút nào, và lúc ấy cũng
+    // chẳng có bản máy chủ nào để sửa thay. Đây là hạng `test:khong-hua-suong`.
+    const iCho = ma.indexOf('bài ghi đang chờ gửi lên');
+    const theCho = iCho < 0 ? '' : ma.slice(iCho, ma.indexOf('</div>` : \'\'}', iCho));
+    check('dựng được khối "đang chờ gửi lên" để soi', iCho > 0, iCho);
+    check('THẺ BÀI ĐANG CHỜ LIỆT KÊ TỪNG BÀI, không chỉ đếm',
+      /cho\.slice\(0, 20\)\.map/.test(theCho), theCho.slice(0, 200));
+    check('và mỗi bài có nút Sửa chữ đi vào đúng đường sửa-trong-máy',
+      /data-sua-may=/.test(theCho), theCho.slice(0, 300));
+    check('nhưng KHÔNG bày nút Bỏ bài — bài sắp tự gửi được, nút xoá cạnh nó là mời bấm nhầm',
+      !/data-bo=/.test(theCho), theCho.slice(0, 300));
+    check('nói ra khi danh sách bị cắt bớt, không lặng lẽ chỉ hiện 20 bài',
+      /Đang hiện 20 bài đầu/.test(ma), 'view.js');
   }
 } finally {
   sv.dung();

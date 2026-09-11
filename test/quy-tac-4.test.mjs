@@ -124,6 +124,9 @@ const NGOAI_LE = [
     // Chừa ĐÚNG MỘT DÒNG: dòng in ra mức giảm theo phần trăm. Mọi dòng khác
     // của tệp này vẫn bị soi như thường — kể cả chú thích.
     chiDong: (dong) => /giảm \$\{Number\(u\.giaTri\)\}%/.test(dong),
+    // Và chừa khỏi ĐÚNG MỘT dấu hiệu. Lý do ở trên chỉ nói về phần trăm; nếu
+    // ngày nào đó chính dòng ấy mọc thêm chữ "xếp hạng" thì nó phải đỏ.
+    chiDauHieu: ['phần trăm hiện ra màn hình'],
   },
   {
     tep: 'public/js/views/surveys.js',
@@ -133,6 +136,7 @@ const NGOAI_LE = [
     // Chỉ chừa đúng những dòng in ra tỉ lệ phiếu. Mọi dòng khác của tệp này vẫn
     // bị soi như thường.
     chiDong: (dong) => /\}%|phần trăm|tỉ lệ|ti le/i.test(dong),
+    chiDauHieu: ['phần trăm hiện ra màn hình'],
   },
   {
     tep: 'data/seed.js',
@@ -146,6 +150,10 @@ const NGOAI_LE = [
     // với việc bỏ qua cả tệp như bản trước.
     chiDong: (dong) => /^\s*(\/\/|\*|\/\*)/.test(dong)
       || /\b(score|diem\w*|points|hocLuc)\s*:\s*(null|0)\s*[,}]/.test(dong),
+    chiDauHieu: [
+      'xếp hạng trẻ', 'điểm thi đua', 'điểm số của trẻ',
+      'điểm số của trẻ (tên trường dữ liệu)',
+    ],
   },
 ];
 
@@ -241,8 +249,19 @@ export function quet(vung = VUNG_QUET, dauHieu = DAU_HIEU) {
       const nl = NGOAI_LE.filter((n) => n.tep === tuongDoi);
       const dongs = fs.readFileSync(tep, 'utf8').split('\n');
       dongs.forEach((dong, i) => {
-        if (nl.some((n) => n.chiDong(dong))) return;
-        const hit = dauHieu.filter((d) => d.re.test(dong));
+        // NGOẠI LỆ CHỪA KHỎI ĐÚNG DẤU HIỆU ĐÃ NÊU LÝ DO, KHÔNG CHỪA CẢ DÒNG.
+        //
+        // Bản trước là `if (nl.some(n => n.chiDong(dong))) return;` — một dòng
+        // khớp ngoại lệ được chừa khỏi CẢ NĂM dấu hiệu. Ngoại lệ của surveys.js
+        // khớp mọi dòng có `}%`, nên một dòng vừa in tỉ lệ phiếu vừa mang chữ
+        // "xếp hạng" hay `score` sẽ lọt sạch — trong khi lý do viết ra chỉ xin
+        // chừa phần trăm. Đó là một bộ canh sẽ xanh đúng vào ngày nó cần đỏ.
+        //
+        // Nay mỗi ngoại lệ phải khai `chiDauHieu`, và chỉ những dấu hiệu ấy
+        // được gỡ khỏi kết quả. Đây là SIẾT CHẶT bộ canh của QUY TẮC 4, không
+        // phải nới — mục [5] có phép thử ngược chứng minh điều đó.
+        const hit = dauHieu.filter((d) => d.re.test(dong))
+          .filter((d) => !nl.some((n) => n.chiDong(dong) && (n.chiDauHieu || []).includes(d.ten)));
         if (!hit.length) return;
         (theoTep[tuongDoi] ||= []).push({ dong: i + 1, dau: hit.map((h) => h.ten).join(', '), trich: dong.trim().slice(0, 100) });
       });
@@ -423,6 +442,41 @@ console.log('\n[5] NGOẠI LỆ CHỪA ĐÚNG DÒNG, KHÔNG CHỪA CẢ TỆP');
   const ls = NGOAI_LE.find(n => n.tep === 'public/js/views/surveys.js');
   check('surveys.js: dòng in tỉ lệ phiếu của người lớn thì ĐƯỢC chừa',
     !!ls && ls.chiDong('return `${Math.round(pct)}%`;'), !!ls);
+
+  // NGOẠI LỆ CHỪA KHỎI ĐÚNG DẤU HIỆU ĐÃ NÊU LÝ DO, KHÔNG CHỪA CẢ DÒNG.
+  //
+  // Trước đợt này bộ quét viết `if (nl.some(n => n.chiDong(dong))) return;` —
+  // một dòng khớp ngoại lệ được chừa khỏi CẢ NĂM dấu hiệu. Ngoại lệ của
+  // surveys.js khớp mọi dòng có `}%`, nên một dòng vừa in tỉ lệ phiếu vừa mang
+  // chữ "xếp hạng" hay `score` sẽ lọt sạch — trong khi lý do viết ra chỉ xin
+  // chừa phần trăm. Một bộ canh như vậy sẽ xanh đúng vào ngày nó cần đỏ, và
+  // CLAUDE.md xếp nhóm bài canh 5 QUY TẮC vào loại bất khả xâm phạm.
+  //
+  // Ba phép kiểm dưới đây SIẾT bộ canh, không nới nó.
+  check('mọi ngoại lệ đều khai rõ nó chừa khỏi DẤU HIỆU NÀO',
+    NGOAI_LE.every(n => Array.isArray(n.chiDauHieu) && n.chiDauHieu.length > 0),
+    NGOAI_LE.map(n => [n.tep, n.chiDauHieu]));
+  const tenDauHieu = new Set(DAU_HIEU.map(d => d.ten));
+  check('và mọi tên dấu hiệu được nêu đều là dấu hiệu CÓ THẬT',
+    NGOAI_LE.every(n => (n.chiDauHieu || []).every(t => tenDauHieu.has(t))),
+    NGOAI_LE.flatMap(n => (n.chiDauHieu || []).filter(t => !tenDauHieu.has(t))));
+
+  // PHÉP THỬ NGƯỢC CỦA CHÍNH CƠ CHẾ CHỪA: một dòng KHỚP ngoại lệ nhưng mang
+  // thêm một dấu hiệu KHÁC thì vẫn phải bị bắt. Dòng dưới đây khớp `chiDong`
+  // của surveys.js (có `}%`) mà cũng mang chữ "xếp hạng" — bản cũ cho lọt sạch.
+  {
+    const dongGai = 'return `Bảng xếp hạng: ${Math.round(pct)}%`;';
+    const nlThu = NGOAI_LE.filter(n => n.tep === 'public/js/views/surveys.js');
+    const conLai = DAU_HIEU.filter(d => d.re.test(dongGai))
+      .filter(d => !nlThu.some(n => n.chiDong(dongGai) && (n.chiDauHieu || []).includes(d.ten)));
+    check('dựng được dòng gài: nó khớp ngoại lệ VÀ mang hai dấu hiệu',
+      nlThu.some(n => n.chiDong(dongGai)) && DAU_HIEU.filter(d => d.re.test(dongGai)).length >= 2,
+      DAU_HIEU.filter(d => d.re.test(dongGai)).map(d => d.ten));
+    check('DÒNG KHỚP NGOẠI LỆ VẪN BỊ BẮT vì dấu hiệu KHÔNG nằm trong lý do chừa',
+      conLai.some(d => d.ten === 'xếp hạng trẻ'), conLai.map(d => d.ten));
+    check('và đúng dấu hiệu ĐÃ nêu lý do thì vẫn được chừa thật',
+      !conLai.some(d => d.ten === 'phần trăm hiện ra màn hình'), conLai.map(d => d.ten));
+  }
   const sd = NGOAI_LE.find(n => n.tep === 'data/seed.js');
   check('seed.js: dòng đặt điểm về giá trị trung tính thì ĐƯỢC chừa',
     !!sd && sd.chiDong('          score: null,   // QUY TẮC 4 — không chấm điểm trẻ'), !!sd);

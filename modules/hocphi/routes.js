@@ -125,7 +125,7 @@ module.exports = (app, { db, modules }) => {
         xacNhanDuoc: req.user.role === 'admin',
         // MỞ ĐƯỢC BẢNG SỔ TIỀN CẢ TRƯỜNG hay không — máy chủ nói, màn hình
         // không đoán. Bản trước giấu cả thẻ ba nút sau quyền GHI, nên văn phòng
-        // mất luôn nút CHỈ ĐỌC "Xem cả trường" mà máy chủ vẫn mở cho họ; đúng
+        // mất luôn nút CHỈ ĐỌC xem sổ tiền mà máy chủ vẫn mở cho họ; đúng
         // lúc câu từ chối của chính phân hệ này hứa "vẫn xem được sổ tiền".
         xemBangDuoc: req.user.role === 'admin',
         xemUuDaiDuoc: docUuDaiDuoc(req.user),

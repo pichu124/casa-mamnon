@@ -52,6 +52,28 @@ const GV = (await login('giaovien', '123456')).cookie;
 const PH = (await login('phuhuynh', '123456')).cookie;
 
 const NGAY = HOM_NAY();
+// NGÀY HỌC LÀ THỨ HAI ĐẾN THỨ SÁU — và bài này phải tự biết điều đó.
+//
+// `lib/nghi-hoc.js` chỉ đếm Thứ Hai–Thứ Sáu là ngày trường nghỉ có ảnh hưởng
+// tới tiền ăn, và điều đó ĐÚNG: Thứ Bảy không có bữa nào để hoàn. Nhưng các
+// mục [7]–[9] trước đợt này đóng cứng "hôm nay + hôm qua = 2 ngày học", nên
+// **cả bộ bài đỏ vào mọi Thứ Bảy và Chủ Nhật** — một bài canh hỏng theo đồng
+// hồ, và nó đã đỏ thật khi `npm test` chạy sau nửa đêm giờ Việt Nam.
+//
+// Nay các mục ấy tự dựng lấy ngày mình cần và đo bằng CHÊNH LỆCH, nên chạy
+// ngày nào cũng ra một kết quả. Luật "cuối tuần không tính" thành một phép
+// kiểm RIÊNG thay vì một giả định ngầm — đo nhiều hơn chứ không ít hơn.
+const thuCua = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
+const laNgayHoc = (d) => thuCua(d) >= 1 && thuCua(d) <= 5;
+const ngayCuaThang = (thang) => {
+  const ra = [];
+  for (let i = 1; i <= 31; i += 1) {
+    const d = `${thang}-${String(i).padStart(2, '0')}`;
+    if (new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d) ra.push(d);
+  }
+  return ra;
+};
+
 const ds = async (cookie, q = '') => (await req('GET', `/api/leave/lich-nghi${q}`, { cookie })).data;
 const tao = (cookie, body) => req('POST', '/api/leave/lich-nghi', { cookie, body });
 
@@ -231,18 +253,58 @@ const beCuaBang = async () => {
   return { r, be: (r.data?.danhSach || []).find(x => x.studentId === 's1') };
 };
 
+// HAI NGÀY HỌC VÀ MỘT NGÀY CUỐI TUẦN, do chính bài này chọn ra trong tháng —
+// không mượn "hôm nay" và "hôm qua" nữa, vì hai ngày ấy rơi vào thứ mấy là do
+// đồng hồ quyết định chứ không do bài canh quyết định.
+const NGAY_THANG = ngayCuaThang(NGAY.slice(0, 7));
+const NGAY_HOC = NGAY_THANG.filter(laNgayHoc);
+const NGAY_CUOI_TUAN = NGAY_THANG.filter(d => !laNgayHoc(d));
+// LẤY NGÀY HỌC CUỐI THÁNG, không lấy đầu tháng: dữ liệu mẫu đã chấm điểm danh
+// cho những ngày đầu tháng, mà bé CÓ MẶT đúng ngày trường nghỉ thì cố ý KHÔNG
+// được hoàn — đo trên những ngày ấy là đo lẫn hai thứ vào nhau.
+const HOC_A = NGAY_HOC[NGAY_HOC.length - 2];
+const HOC_B = NGAY_HOC[NGAY_HOC.length - 1];
+const CUOI_TUAN = NGAY_CUOI_TUAN[NGAY_CUOI_TUAN.length - 1];
+
 console.log('\n[7] Bảng tiền ăn tháng cộng ngày trường nghỉ vào ngày được hoàn');
 {
   const { r, be } = await beCuaBang();
   check('mở được bảng tiền ăn tháng này', r.status === 200, r.data?.error || r.status);
   check('tìm được bé s1 trong bảng', !!be, (r.data?.danhSach || []).length);
   check('bảng có cột số ngày TRƯỜNG NGHỈ', be && typeof be.soNgayTruongNghi === 'number', be);
-  check('hai ngày trường nghỉ trong tháng đều được đếm', be && be.soNgayTruongNghi === 2, be?.soNgayTruongNghi);
+  check('dựng được hai NGÀY HỌC và một ngày CUỐI TUẦN có thật trong tháng',
+    !!HOC_A && !!HOC_B && !!CUOI_TUAN, { HOC_A, HOC_B, CUOI_TUAN });
+
+  // ĐO BẰNG CHÊNH LỆCH. Các mục trước đã đặt vài đợt nghỉ rồi, và số ngày học
+  // trong đó thay đổi theo hôm nay là thứ mấy — chốt cứng một con số tuyệt đối
+  // ở đây là chính cái đã làm cả bộ bài đỏ vào cuối tuần.
+  const truoc = be.soNgayTruongNghi;
+  const truocHoan = be.soNgayTruongNghiHoan;
+  await tao(QT, { ten: 'Nghỉ thử ngày học A', tuNgay: HOC_A, denNgay: HOC_A, loai: 'le' });
+  await tao(QT, { ten: 'Nghỉ thử ngày học B', tuNgay: HOC_B, denNgay: HOC_B, loai: 'le' });
+  const { be: sau } = await beCuaBang();
+  check('HAI NGÀY HỌC trường nghỉ được cộng thêm đúng hai',
+    sau.soNgayTruongNghi === truoc + 2, { truoc, sau: sau.soNgayTruongNghi });
   check('và cả hai đều vào số ngày ĐƯỢC HOÀN của bé này',
-    be && be.soNgayTruongNghiHoan === 2, be?.soNgayTruongNghiHoan);
+    sau.soNgayTruongNghiHoan === truocHoan + 2,
+    { truoc: truocHoan, sau: sau.soNgayTruongNghiHoan });
+
+  // LUẬT CUỐI TUẦN THÀNH MỘT PHÉP KIỂM RIÊNG, không còn là giả định ngầm.
+  //
+  // Thứ Bảy không có bữa nào ở trường, nên một đợt nghỉ rơi đúng Thứ Bảy KHÔNG
+  // được cộng vào ngày hoàn — hoàn thì là trả tiền cho một bữa chưa từng nấu.
+  await tao(QT, { ten: 'Nghỉ thử đúng cuối tuần', tuNgay: CUOI_TUAN, denNgay: CUOI_TUAN, loai: 'le' });
+  const { be: sauCT } = await beCuaBang();
+  check(`ĐỢT NGHỈ RƠI ĐÚNG CUỐI TUẦN (${CUOI_TUAN}) KHÔNG được tính là ngày trường nghỉ`,
+    sauCT.soNgayTruongNghi === sau.soNgayTruongNghi,
+    { truocCuoiTuan: sau.soNgayTruongNghi, sau: sauCT.soNgayTruongNghi });
+  check('và cũng KHÔNG vào số ngày được hoàn — hoàn thì là trả tiền cho bữa chưa nấu',
+    sauCT.soNgayTruongNghiHoan === sau.soNgayTruongNghiHoan,
+    { truocCuoiTuan: sau.soNgayTruongNghiHoan, sau: sauCT.soNgayTruongNghiHoan });
+
   check('số ngày hoàn tiền ăn cộng đủ phần trường nghỉ',
-    be && be.soNgayHoanTienAn >= be.soNgayTruongNghiHoan,
-    { hoan: be?.soNgayHoanTienAn, nghiHoan: be?.soNgayTruongNghiHoan });
+    sauCT.soNgayHoanTienAn >= sauCT.soNgayTruongNghiHoan,
+    { hoan: sauCT.soNgayHoanTienAn, nghiHoan: sauCT.soNgayTruongNghiHoan });
   check('bảng kể tên các đợt nghỉ của tháng, không chỉ một con số',
     (r.data?.dotTruongNghi || []).some(x => /giỗ Tổ/i.test(x.ten)), r.data?.dotTruongNghi);
 }
@@ -250,14 +312,20 @@ console.log('\n[7] Bảng tiền ăn tháng cộng ngày trường nghỉ vào n
 // ===========================================================================
 console.log('\n[8] Đợt nghỉ ghi "không hoàn tiền" thì KHÔNG cộng vào ngày hoàn');
 {
-  const truoc = (await beCuaBang()).be.soNgayHoanTienAn;
-  const d = (await ds(QT)).dot.find(x => /giỗ Tổ/i.test(x.ten));
+  // Đo trên đợt nghỉ nằm trên MỘT NGÀY HỌC do bài này tự dựng, không đo trên
+  // đợt "hôm nay": hôm nay rơi vào thứ mấy là do đồng hồ quyết định, và nếu nó
+  // rơi vào Thứ Bảy thì phép trừ dưới đây chẳng đo được gì.
+  const truocCa = (await beCuaBang()).be;
+  const truoc = truocCa.soNgayHoanTienAn;
+  const d = (await ds(QT)).dot.find(x => x.ten === 'Nghỉ thử ngày học A');
+  check('tìm được đợt nghỉ nằm trên một ngày học để đo', !!d, d);
   await req('PUT', `/api/leave/lich-nghi/${d.id}`, { cookie: QT, body: { hoanTienAn: 'khong' } });
   const { be: sau } = await beCuaBang();
   check('đổi sang "không hoàn" thì số ngày hoàn GIẢM đúng một ngày',
     sau.soNgayHoanTienAn === truoc - 1, { truoc, sau: sau.soNgayHoanTienAn });
   check('nhưng vẫn đếm là ngày trường nghỉ — trường vẫn nghỉ thật',
-    sau.soNgayTruongNghi === 2, sau.soNgayTruongNghi);
+    sau.soNgayTruongNghi === truocCa.soNgayTruongNghi,
+    { truoc: truocCa.soNgayTruongNghi, sau: sau.soNgayTruongNghi });
 }
 
 // ===========================================================================
@@ -265,7 +333,7 @@ console.log('\n[9] Bé VẪN TỚI TRƯỜNG đúng ngày trường nghỉ thì 
 {
   // Bật lại hoàn tiền cho đợt hôm nay TRƯỚC, để hai lần đo dưới đây chỉ khác
   // nhau đúng một điều: bé s2 có tới trường hôm nay hay không.
-  const d = (await ds(QT)).dot.find(x => /giỗ Tổ/i.test(x.ten));
+  const d = (await ds(QT)).dot.find(x => x.ten === 'Nghỉ thử ngày học A');
   await req('PUT', `/api/leave/lich-nghi/${d.id}`, { cookie: QT, body: { hoanTienAn: 'co' } });
 
   // Đo bằng CHÊNH LỆCH của chính bé s2, không chốt cứng một con số: dữ liệu
@@ -274,15 +342,27 @@ console.log('\n[9] Bé VẪN TỚI TRƯỜNG đúng ngày trường nghỉ thì 
   const doS2 = async () => (await req('GET', `/api/tienan/thang?thang=${NGAY.slice(0, 7)}`,
     { cookie: QT })).data?.danhSach?.find(x => x.studentId === 's2');
   const truoc = await doS2();
-  check('đối chứng — bé s2 thấy trường nghỉ đúng hai ngày', truoc?.soNgayTruongNghi === 2, truoc?.soNgayTruongNghi);
+  check('đối chứng — bé s2 có ít nhất hai ngày trường nghỉ để mà trừ đi một',
+    (truoc?.soNgayTruongNghiHoan || 0) >= 2, truoc?.soNgayTruongNghiHoan);
 
-  // Bé s2 cùng nhóm Chồi 2. Mục [5] chốt bé thành nghỉ có phép; giờ sửa lại
-  // thành CÓ MẶT — đúng cảnh nhà không nghỉ được nên vẫn gửi con, hoặc văn
-  // phòng đặt lịch nghỉ lùi lại sau khi sổ điểm danh đã ghi xong.
-  const co = await req('POST', '/api/attendance/mark', {
-    cookie: QT, body: { studentId: 's2', date: NGAY, status: 'present' },
-  });
-  check('đối chứng — ghi được bé s2 CÓ MẶT hôm nay', co.status === 200, co.data);
+  // Bé s2 cùng nhóm Chồi 2. Ghi bé CÓ MẶT đúng NGÀY HỌC mà trường nghỉ — đúng
+  // cảnh nhà không nghỉ được nên vẫn gửi con, hoặc văn phòng đặt lịch nghỉ lùi
+  // lại sau khi sổ điểm danh đã ghi xong.
+  //
+  // Ghi thẳng vào sổ chứ không qua `/api/attendance/mark`: đường ấy CỐ Ý chỉ
+  // ghi được trong chính ngày hôm đó (Đ127), mà ngày học ta cần đo thì không
+  // phải hôm nay. Cùng cách mục [6] đã dùng.
+  {
+    const conn = new Database(path.join(DIR, 'school.db'));
+    conn.prepare('DELETE FROM attendance WHERE studentId = ? AND date = ?').run('s2', HOC_A);
+    conn.prepare(`INSERT INTO attendance (id, studentId, date, status, checkIn, checkOut, note, markedBy)
+                  VALUES (?, 's2', ?, 'present', NULL, NULL, '', 'u_test')`)
+      .run(`att_hoc_${HOC_A}`, HOC_A);
+    conn.close();
+  }
+  const kt = await req('GET', `/api/attendance?studentId=s2`, { cookie: QT });
+  check('đối chứng — sổ đã ghi bé s2 CÓ MẶT đúng ngày học ấy',
+    (kt.data || []).some(x => x.date === HOC_A && x.status === 'present'), HOC_A);
 
   const sau = await doS2();
   check('BÉ ĐÃ ĂN Ở TRƯỜNG HÔM NAY thì BỚT đúng một ngày được hoàn',
@@ -291,13 +371,15 @@ console.log('\n[9] Bé VẪN TỚI TRƯỜNG đúng ngày trường nghỉ thì 
   check('và số ngày hoàn tiền ăn của bé cũng bớt đúng một ngày',
     sau.soNgayHoanTienAn === truoc.soNgayHoanTienAn - 1,
     { truoc: truoc.soNgayHoanTienAn, sau: sau.soNgayHoanTienAn });
-  check('nhưng TRƯỜNG vẫn nghỉ đủ hai ngày — bé đi học không làm trường mở cửa lại',
-    sau.soNgayTruongNghi === 2, sau.soNgayTruongNghi);
+  check('nhưng TRƯỜNG vẫn nghỉ đủ số ngày ấy — bé đi học không làm trường mở cửa lại',
+    sau.soNgayTruongNghi === truoc.soNgayTruongNghi,
+    { truoc: truoc.soNgayTruongNghi, sau: sau.soNgayTruongNghi });
 
   const s1 = (await req('GET', `/api/tienan/thang?thang=${NGAY.slice(0, 7)}`, { cookie: QT }))
     .data?.danhSach?.find(x => x.studentId === 's1');
-  check('bé s1 nghỉ ở nhà thì KHÔNG bị ảnh hưởng, vẫn được hoàn cả hai ngày',
-    s1?.soNgayTruongNghiHoan === 2, s1?.soNgayTruongNghiHoan);
+  check('bé s1 nghỉ ở nhà thì KHÔNG bị ảnh hưởng, vẫn được hoàn ĐỦ mọi ngày trường nghỉ',
+    s1?.soNgayTruongNghiHoan === s1?.soNgayTruongNghi,
+    { hoan: s1?.soNgayTruongNghiHoan, nghi: s1?.soNgayTruongNghi });
 }
 
 await sv.dung();

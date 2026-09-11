@@ -51,7 +51,7 @@ App.views.hocphi = {
       ${xemBangDuoc ? `
         <div class="card">
           <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn sm outline" id="hp-bang">Xem cả trường</button>
+            <button class="btn sm outline" id="hp-bang">Xem sổ tiền</button>
             ${taoDuoc ? '<button class="btn sm outline" id="hp-dot">Ghi sổ cho cả nhóm</button>' : ''}
             ${xemUuDaiDuoc ? '<button class="btn sm outline" id="hp-uudai">Ưu đãi</button>' : ''}
           </div>
@@ -105,12 +105,28 @@ App.views.hocphi = {
     if (sel) sel.onchange = () => { this._sid = sel.value; App.route(); };
   },
 
+  // MỘT CÁI TÊN TRẦN KHÔNG ĐỦ ĐỂ CHỌN ĐÚNG MỘT ĐỨA TRẺ.
+  //
+  // Trùng họ tên trong tiếng Việt là chuyện thường, và chính app thừa nhận
+  // điều đó: đường nhận bé có hẳn một câu hỏi lại *"có thật chuyện hai bé
+  // trùng cả tên lẫn ngày sinh"*. Khuôn dùng chung của cả kho đã in kèm nhóm
+  // từ lâu (`UI.thanhChonBe`, màn Sức khoẻ, Xin phép, Dặn thuốc); riêng phân
+  // hệ này bỏ vế sau ở CẢ HAI ô chọn bé — mà đây là hai ô ra tiền: một ô ghi
+  // nợ cho một nhà, một ô giảm tiền cho một nhà.
+  //
+  // `className` đã có sẵn trong `App.state.students` cho MỌI vai, kể cả những
+  // chức vụ bị cắt bớt hồ sơ bé (routes/auth.js, TRUONG_TOI_THIEU) — nên
+  // không phải thêm một trường nào vào câu trả lời của máy chủ.
+  nhanBe(s) {
+    return s.className ? `${s.name} · ${s.className}` : s.name;
+  },
+
   chonHocSinh(sid) {
     const list = App.state.students;
     this._sid = this._sid || sid;
     return `<div class="field"><label>Chọn bé</label>
       <select id="hp-hs">${list.map(s => `
-        <option value="${UI.esc(s.id)}" ${s.id === sid ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
+        <option value="${UI.esc(s.id)}" ${s.id === sid ? 'selected' : ''}>${UI.esc(this.nhanBe(s))}</option>`).join('')}
       </select></div>`;
   },
 
@@ -128,7 +144,24 @@ App.views.hocphi = {
       <button class="btn primary block" id="hp-luu">Tạo khoản thu</button>
     `, 'Tạo khoản thu');
 
-    document.getElementById('hp-luu').onclick = async () => {
+    // KHOÁ NÚT NGAY TỪ CÚ BẤM ĐẦU.
+    //
+    // Đường ghi sổ HÀNG LOẠT có bước chống ghi trùng, và chú thích của chính nó
+    // gọi đó là *"phần quan trọng nhất của đường này"* vì *"mạng chập chờn, cô
+    // bấm hai lần… đều dẫn tới một nhà bị đòi tiền hai lần"*. Lập luận ấy đúng
+    // y nguyên cho đường MỘT BÉ — mà đường một bé lại không có gì cả: `POST
+    // /api/hocphi` ghi thẳng, và nút thì bấm bao nhiêu lần cũng được.
+    //
+    // Khoá nút bịt đúng cảnh hay gặp nhất: 4G ở phòng kế toán chậm, nút không
+    // nhúc nhích, bấm lần hai là phản xạ bình thường. (Chống trùng ở tầng máy
+    // chủ cho đường một bé là một quyết định về hành vi của API — đã nêu riêng
+    // để chủ dự án quyết, không tự làm ở đây.)
+    const nutLuu = document.getElementById('hp-luu');
+    const chuNut = nutLuu.textContent;
+    nutLuu.onclick = async () => {
+      if (nutLuu.disabled) return;
+      nutLuu.disabled = true;
+      nutLuu.textContent = 'Đang ghi…';
       try {
         await API.post('/api/hocphi', {
           studentId: sid,
@@ -140,7 +173,13 @@ App.views.hocphi = {
         UI.toast('Đã tạo khoản thu', 'success');
         UI.closeModal();
         App.route();
-      } catch (err) { UI.toast(err.message, 'error'); }
+      } catch (err) {
+        UI.toast(err.message, 'error');
+        // MỞ LẠI NÚT KHI HỎNG — gõ nhầm số tiền rồi sửa lại thì phải bấm được
+        // lần nữa; khoá vĩnh viễn là bắt cô đóng hộp thoại và gõ lại từ đầu.
+        nutLuu.disabled = false;
+        nutLuu.textContent = chuNut;
+      }
     };
   },
 
@@ -150,14 +189,54 @@ App.views.hocphi = {
   // của máy sau khi ghi nói ra ĐỦ BA CON SỐ — tổng, đã ghi, bỏ qua — chứ không
   // chỉ "xong": lần chạy thứ hai của cùng một đợt trông y hệt lần đầu nếu máy
   // không nói, và người ghi sổ sẽ không biết mình vừa bấm thừa hay thiếu.
+  // CHỈ MỜI BẤM THỨ BẤM ĐƯỢC, VÀ NÓI ĐỦ TÊN ĐỂ BẤM ĐÚNG (bài học Đ94).
+  //
+  // `App.state.classes` là nhóm CẢ TRƯỜNG, còn phạm vi ghi sổ của máy chủ là
+  // `db.classIdsOf` — tài khoản khoá vào một cơ sở chỉ ghi được nhóm của cơ sở
+  // mình. Hai hậu quả, và cái thứ hai nặng hơn:
+  //
+  //   • Cấp 3 được mời bấm nhóm của cơ sở khác rồi ăn 403. Phiền, nhưng lộ ra
+  //     ngay.
+  //   • Ba cơ sở đặt trùng tên nhóm là chuyện thường ("Chồi 2" ở cả ba nơi).
+  //     Kế toán toàn trường thấy ba dòng GIỐNG HỆT NHAU, bấm nhầm thì máy chủ
+  //     ghi đúng cái được bấm — `canAccessClass` cho qua vì Cấp 1 có cả ba cơ
+  //     sở — và cả một nhóm ở cơ sở khác bị ghi nợ. Chuyện này KHÔNG lộ ra cho
+  //     tới lúc gia đình hỏi, và gỡ thì phải thu hồi từng khoản một.
+  //
+  // Màn Thông báo, Khảo sát và Sức khoẻ đã vá đúng khuôn này; Học phí là ô
+  // chọn nhóm cuối cùng còn sót. Máy chủ vẫn là người chốt — đây chỉ để không
+  // mời bấm vào thứ sẽ hỏng.
+  nhomGhiSoDuoc() {
+    const coSo = ((App.state.school || {}).coSo) || [];
+    const cua = ((App.state.user || {}).coSo) || null;
+    return (App.state.classes || [])
+      .filter(c => !cua || c.campusId === cua)
+      .map(c => {
+        const cs = coSo.find(x => x.id === c.campusId);
+        // Trường một cơ sở: tên nhóm là đủ. Trường nhiều cơ sở: LUÔN nói thêm
+        // vế sau, kể cả khi nhóm chưa được xếp vào cơ sở nào — im lặng ở đúng
+        // chỗ đó là để lại hai dòng giống hệt nhau, tức là để nguyên lỗi.
+        if (coSo.length < 2) return { id: c.id, nhan: c.name };
+        return { id: c.id, nhan: `${c.name} · ${cs ? cs.name : 'chưa xếp cơ sở'}` };
+      });
+  },
+
+  // Cơ sở mà tài khoản này ghi sổ được. Trường một cơ sở, hoặc Cấp 1: y như cũ.
+  coSoGhiSoDuoc() {
+    const cua = ((App.state.user || {}).coSo) || null;
+    return (((App.state.school || {}).coSo) || []).filter(c => !cua || c.id === cua);
+  },
+
   async moGhiSoCaNhom() {
     const homNay = UI.todayStr();
     const thang = Number(homNay.slice(5, 7));
-    const nhom = (App.state.classes || []);
+    const nhom = this.nhomGhiSoDuoc();
     // Danh sách cơ sở đến từ `App.state.school.coSo` (routes/auth.js gắn vào
     // khối thông tin trường), không phải một khoá riêng — app không có
-    // `state.campuses`.
+    // `state.campuses`. `coSo` giữ nguyên vai trò cũ: nó quyết định trường này
+    // có từ hai cơ sở hay không. Cái đem ra cho bấm là `coSoChon`.
     const coSo = ((App.state.school || {}).coSo) || [];
+    const coSoChon = this.coSoGhiSoDuoc();
     UI.modal(`
       <div class="field"><label>Ghi sổ cho</label>
         <select id="hpd-pham">
@@ -167,10 +246,10 @@ App.views.hocphi = {
         </select></div>
       <div class="field" id="hpd-o-nhom"><label>Nhóm lớp</label>
         <select id="hpd-id">${nhom.map(c => `
-          <option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
+          <option value="${UI.esc(c.id)}">${UI.esc(c.nhan)}</option>`).join('')}
         </select></div>
       <div class="field" id="hpd-o-coso" style="display:none"><label>Cơ sở</label>
-        <select id="hpd-cs">${coSo.map(c => `
+        <select id="hpd-cs">${coSoChon.map(c => `
           <option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
         </select></div>
       <div class="field"><label>Kỳ thu</label>
@@ -222,7 +301,7 @@ App.views.hocphi = {
     let d = null;
     try {
       d = await API.get(`/api/hocphi/bang${q}`);
-    } catch (err) { UI.toast(err.message, 'error'); return; }
+    } catch (err) { UI.toast(err.message, 'error'); return false; }
     const tien = (n) => Number(n).toLocaleString('vi-VN') + ' đ';
 
     UI.modal(`
@@ -258,10 +337,42 @@ App.views.hocphi = {
         </div>`).join('')
     : UI.emptyState('💳', 'Chưa có nhóm lớp nào trong phạm vi của tài khoản')}
       <div class="muted small">Xếp theo tên cơ sở, tên nhóm và tên bé.</div>
-    `, 'Sổ tiền cả trường');
+    `, this.tenBang());
 
     const o = document.getElementById('hpb-ky');
-    if (o) o.onchange = () => { UI.closeModal(); this.moBang(o.value); };
+    if (o) {
+      // GỌI MẠNG TRƯỚC, THAY BẢNG SAU — KHÔNG ĐÓNG BẢNG RỒI MỚI ĐI HỎI.
+      //
+      // Bản trước gọi `UI.closeModal()` ngay trong `onchange`. Rớt một nhịp
+      // sóng giữa chừng là bảng biến mất và màn quay về trang Học phí của một
+      // bé, dù chẳng có gì thay đổi cả. `UI.modal()` vốn đã tự đóng cái đang mở
+      // ở dòng đầu, nên đóng trước hoàn toàn không cần.
+      //
+      // Và trả ô kỳ thu về đúng bảng ĐANG HIỆN khi gọi mạng hỏng: bảng cũ còn
+      // nguyên mà ô lại ghi kỳ khác là đọc số của kỳ này dưới nhãn kỳ kia — ở
+      // một màn tiền thì đó là một kết luận sai, không phải một chuyện phiền.
+      const kyDangHien = o.value;
+      o.onchange = async () => {
+        if (await this.moBang(o.value)) return;
+        o.value = kyDangHien;
+      };
+    }
+    return true;
+  },
+
+  // TIÊU ĐỀ PHẢI NÓI ĐÚNG THỨ ĐANG HIỆN.
+  //
+  // Máy chủ cắt bảng theo `db.classIdsOf` — quản lý cơ sở và văn phòng cơ sở
+  // chỉ thấy cơ sở mình, và bài canh của Đ163 chốt rằng việc cắt ấy là CỐ Ý.
+  // Nhưng nhãn thì vẫn ghi "cả trường", nên người đọc kết luận sai về số nhà
+  // còn nợ của CẢ TRƯỜNG — một kết luận sai được chính app đứng ra bảo đảm.
+  // Tài khoản khoá vào một cơ sở thì gọi đúng tên cơ sở ấy; ai nhìn cả trường
+  // thì giữ nguyên chữ cũ.
+  tenBang() {
+    const cua = ((App.state.user || {}).coSo) || null;
+    if (!cua) return 'Sổ tiền cả trường';
+    const cs = ((((App.state.school || {}).coSo) || []).find(x => x.id === cua) || {}).name;
+    return cs ? `Sổ tiền · ${cs}` : 'Sổ tiền trong phạm vi của tài khoản';
   },
 
   // ---------- Bảng theo dõi ưu đãi và hạn của nó (Đ169) ----------
@@ -353,7 +464,7 @@ App.views.hocphi = {
     UI.modal(`
       <div class="field"><label>Bé</label>
         <select id="hpu-be">${ds.map(s => `
-          <option value="${UI.esc(s.id)}">${UI.esc(s.name)}</option>`).join('')}
+          <option value="${UI.esc(s.id)}">${UI.esc(this.nhanBe(s))}</option>`).join('')}
         </select></div>
       <div class="field"><label>Tên ưu đãi</label>
         <input id="hpu-ten" placeholder="Ví dụ: Ưu đãi nhà có hai bé cùng học"></div>

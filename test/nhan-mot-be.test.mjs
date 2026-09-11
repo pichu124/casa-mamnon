@@ -409,6 +409,66 @@ try {
       'api.js');
   }
 
+  // =========================================================================
+  console.log('\n[9] Vòng rà đối kháng thứ ba — phiếu của ĐƯỜNG NHẬP TỆP, và nút bấm hai lần');
+  {
+    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8')
+      .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+
+    // (1) Ô MẬT KHẨU CHỈ ĐƯỢC CHỨA MẬT KHẨU — Ở CẢ HAI PHIẾU.
+    //
+    // Đ173 vá điều này ở phiếu MỘT bé. Phiếu của đường NHẬP TỆP — đường dùng
+    // nhiều hơn hẳn, mấy trăm nhà mỗi đầu năm — vẫn in chuỗi "(đã có tài khoản
+    // từ trước)" vào đúng cột Mật khẩu, ngay dưới dòng bảo chép ra giấy phát
+    // cho phụ huynh, và chép nguyên chuỗi ấy vào tệp CSV đem đi in. Mọi nhà có
+    // con lớn đang học đều rơi vào nhánh gộp, nên đây là trường hợp THƯỜNG.
+    const iPhieu = v.indexOf('hienPhieu(r) {');
+    const thanPhieu = iPhieu < 0 ? '' : v.slice(iPhieu, v.indexOf('\n  },', iPhieu));
+    check('dựng được thân hàm phiếu của đường nhập tệp để soi', iPhieu > 0, iPhieu);
+    check('PHIẾU HÀNG LOẠT không còn in thẳng t.matKhau vào ô Mật khẩu',
+      /t\.daCoTaiKhoan/.test(thanPhieu), thanPhieu.slice(0, 300));
+    check('nhà đã có tài khoản thì ô Mật khẩu nói thẳng, không giả vờ là một mật khẩu',
+      /Nhà đã có tài khoản/.test(thanPhieu), thanPhieu.slice(0, 300));
+    check('tệp CSV đem đi in cũng để TRỐNG ô mật khẩu ở những dòng ấy',
+      /t\.daCoTaiKhoan \? '' : t\.matKhau/.test(thanPhieu), thanPhieu.slice(0, 400));
+    check('và phiếu có cột Điện thoại để đối chiếu đúng nhà',
+      /<th>Điện thoại<\/th>/.test(thanPhieu) && /t\.phuHuynhSdt/.test(thanPhieu),
+      thanPhieu.slice(0, 300));
+    check('phiếu nói ra có bao nhiêu nhà rơi vào nhánh gộp',
+      /daCo\.length/.test(thanPhieu), thanPhieu.slice(0, 300));
+
+    // Và máy chủ phải thật sự gửi hai trường ấy trong ĐƯỜNG NHẬP TỆP, không chỉ
+    // trong đường một bé — hai đường dùng chung `nhanMotBe` nên đây là đối chứng.
+    const tep = await req('POST', '/api/admin/import/commit', {
+      cookie: VP,
+      body: {
+        csv: 'Họ tên,Nhóm,Họ tên phụ huynh,Điện thoại\n'
+          + 'Vũ Nhập Tệp,Chồi 2,Trần Văn Hùng,0911222333\n',
+      },
+    });
+    check('nhập được một dòng qua đường tệp', tep.status === 200 || tep.status === 201,
+      `${tep.status} ${JSON.stringify(tep.data).slice(0, 200)}`);
+    const dong = (tep.data?.taiKhoan || [])[0];
+    check('ĐƯỜNG TỆP cũng trả về cờ "nhà đã có tài khoản"', dong?.daCoTaiKhoan === true, dong);
+    check('và cũng trả về số điện thoại của tài khoản được nối vào',
+      !!dong?.phuHuynhSdt, dong);
+
+    // (2) NÚT NHẬN BÉ KHOÁ NGAY, VÀ BIỂU MẪU ĐƯỢC CHỤP MỘT LẦN.
+    //
+    // Mạng chậm → bấm hai lần → lượt một mở phiếu (UI.modal gọi closeModal nên
+    // các ô nb-* rời khỏi trang) → lượt hai nhận 409 → hỏi lại → `gui(true)`
+    // đọc một ô không còn nữa → màn hình của văn phòng hiện nguyên một câu
+    // tiếng Anh của máy.
+    check('biểu mẫu được CHỤP MỘT LẦN lúc bấm, không đọc lại ô nhập ở lượt gửi sau',
+      /const chupBieuMau = \(\) => \(\{/.test(v) && /\{ \.\.\.banChup, xacNhanTrung \}/.test(v),
+      'admin.js');
+    check('và bản chụp vẫn mang MÃ NHÓM, không chỉ mang tên',
+      /^\s+classId,$/m.test(v), 'admin.js');
+    check('nút Nhận bé KHOÁ LẠI ngay từ cú bấm đầu', /nutNhan\.disabled = true/.test(v), 'admin.js');
+    check('nhưng MỞ LẠI khi không nhận được — gõ thiếu một ô rồi điền nốt thì bấm lại được',
+      (v.match(/moLaiNut\(\)/g) || []).length >= 2, 'admin.js');
+  }
+
 } finally {
   sv.dung();
   await new Promise(r => setTimeout(r, 300));

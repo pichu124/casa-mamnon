@@ -560,6 +560,25 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
   // ('2026-12-15') nay mở ra ở thể chỉ xem — không còn nút "Nghỉ KP" để chạm,
   // và mục này sẽ đứng chờ một nút không bao giờ hiện.
   const NGAY = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  // ĐƠN NGHỈ PHẢI CHẠM ÍT NHẤT MỘT NGÀY HỌC, KHÔNG THÌ KHÔNG DUYỆT ĐƯỢC.
+  //
+  // `routes/leave.js` tính số ngày hoàn tiền ăn bằng `soNgayHocTrongDon`, và
+  // một đơn chỉ có Thứ Bảy thì con số ấy bằng 0 → lượt duyệt trả 400. Bài này
+  // trước đợt Đ174 luôn gửi đơn cho ĐÚNG HÔM NAY, nên **cả bộ bài đỏ vào mọi
+  // Thứ Bảy và Chủ Nhật** — một bài canh hỏng theo đồng hồ chứ không theo mã.
+  //
+  // Nay đơn kéo từ ngày học gần nhất tới hôm nay: luôn có ít nhất một ngày học
+  // để duyệt, và vẫn PHỦ ĐÚNG HÔM NAY nên màn điểm danh của hôm nay vẫn phải
+  // hiện huy hiệu, và việc chấm lại vẫn nằm trong ngày (Đ127).
+  const NGAY_HOC_GAN = (() => {
+    let t = Date.parse(`${NGAY}T00:00:00Z`);
+    for (let i = 0; i < 7; i += 1) {
+      const thu = new Date(t).getUTCDay();
+      if (thu >= 1 && thu <= 5) return new Date(t).toISOString().slice(0, 10);
+      t -= 86400000;
+    }
+    return NGAY;
+  })();
 
   // Phụ huynh gửi đơn cho con mình, cô duyệt — làm qua API cho gọn, phần cần
   // kiểm là màn hình điểm danh.
@@ -572,16 +591,16 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
 
   await dangXuat();
   await dangNhap('phuhuynh', '123456');
-  const donId = await page.evaluate(async ({ ngay, ids }) => {
+  const donId = await page.evaluate(async ({ ngay, tu, ids }) => {
     const con = await (await fetch('/api/students')).json();
     const em = con.map(c => c.id).find(id => ids.includes(id));
     if (!em) return null;
     const r = await fetch('/api/leave', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId: em, fromDate: ngay, toDate: ngay, reason: 'Con đi khám răng' }),
+      body: JSON.stringify({ studentId: em, fromDate: tu, toDate: ngay, reason: 'Con đi khám răng' }),
     });
     return (await r.json()).id || null;
-  }, { ngay: NGAY, ids: daTao });
+  }, { ngay: NGAY, tu: NGAY_HOC_GAN, ids: daTao });
   check('phụ huynh gửi được đơn xin nghỉ', !!donId, donId);
 
   // Y2: VĂN PHÒNG duyệt đơn nghỉ, không phải cô. Bài này canh chuyện sổ điểm
