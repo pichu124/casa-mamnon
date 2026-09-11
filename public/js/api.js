@@ -54,7 +54,19 @@ window.API = (() => {
         && (res.headers.get('X-CASA-Mat-Mang') === '1' || navigator.onLine === false)) {
         throw loiMatMang();
       }
-      throw new Error((data && data.error) || `Lỗi ${res.status}`);
+      // MÃ LỖI ĐI THEO LỖI — CHỈ THÊM, KHÔNG ĐỔI GÌ ĐANG CÓ.
+      //
+      // Chữ của lỗi giữ nguyên từng ký tự, nên mọi chỗ đang bắt lỗi theo câu
+      // chữ chạy y như trước. Thêm `status` cho chỗ nào cần phân biệt 409
+      // ("cảnh báo, hỏi lại rồi cho qua") với 400 ("sai thật, hỏi lại vô ích").
+      //
+      // Vì sao đáng thêm: màn "Nhận một bé" dò chuỗi "đã có" để nhận ra cảnh
+      // báo 409, mà câu 400 của mã bé trùng cũng mang đúng chữ ấy — người dùng
+      // bấm Đồng ý, máy gửi lại y nguyên, máy chủ từ chối y nguyên. Một vòng
+      // không có lối ra, sinh ra từ việc đoán mã lỗi qua câu văn.
+      const err = new Error((data && data.error) || `Lỗi ${res.status}`);
+      err.status = res.status;
+      throw err;
     }
     return data;
   }
