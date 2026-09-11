@@ -292,6 +292,49 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[4c] Con số trên ô Học phí và cánh cửa mở nó ra — cùng một câu');
+  {
+    // LỖI RÀ SOÁT ĐỐI KHÁNG BẮT ĐƯỢC, ba người phản bác đều xác nhận.
+    //
+    // Văn phòng cơ sở CÓ ô Học phí (họ ghi sổ và xác nhận đã nộp), nên huy hiệu
+    // của phân hệ hocphi hiện lên máy họ. Nhưng hàm đếm chỉ hỏi `role === 'admin'`
+    // mà quên hỏi `docUuDaiDuoc` — thứ đang gác cả bốn đường ưu đãi lẫn nút
+    // "Ưu đãi" trong view. Hậu quả: ô Học phí của văn phòng hiện một con số đỏ
+    // mà TRONG APP KHÔNG CÓ MÀN NÀO mở ra để xử lý, và cũng không có cách nào
+    // cho nó về 0 — nó nằm đó tới khi hạn trôi quá cận dưới 30 ngày.
+    //
+    // Một con số đỏ không bấm được là thứ dạy người dùng thôi nhìn huy hiệu.
+    // Luật ở đây: AI ĐẾM ĐƯỢC thì phải MỞ ĐƯỢC, và cả hai do cùng một câu quyết.
+    const huy = async (cookie) =>
+      Number((await req('GET', '/api/dashboard/badges', { cookie })).data?.hocphi || 0);
+
+    const QL2 = (await login('uu_ql', 'quantri2026')).cookie;
+    const nKT = await huy(KT);
+    const nQL = await huy(QL2);
+    const nVP = await huy(VP);
+
+    check('KẾ TOÁN vẫn thấy con số ưu đãi sắp hết hạn', nKT > 0, nKT);
+    check('QUẢN LÝ CƠ SỞ cũng thấy — họ là người nhận tin nhắc hạn', nQL > 0, nQL);
+    check('VĂN PHÒNG KHÔNG thấy con số họ không mở ra được', nVP === 0, nVP);
+
+    // Đối chứng: siết đúng chỗ, không siết lan — ô Học phí của văn phòng vẫn
+    // còn, và họ vẫn ghi sổ được như cũ.
+    const vpOn = await req('GET', '/api/hocphi?studentId=s1', { cookie: VP });
+    check('đối chứng — văn phòng VẪN dùng được phần Học phí của họ', vpOn.status === 200, vpOn.status);
+
+    // Và canh ở tầng mã: hàm đếm phải hỏi ĐÚNG cái chốt đang gác các đường HTTP,
+    // không phải chép lại một danh sách chức vụ thứ hai rồi để hai bên lệch nhau.
+    const rr = fs.readFileSync(path.join(GOC, 'modules/hocphi/routes.js'), 'utf8');
+    const iH = rr.indexOf("huyHieu.dangKy('hocphi'");
+    // Bỏ dòng chú thích trước khi soi, để một câu chú thích nhắc tên hàm không
+    // tự làm bài canh này xanh.
+    const than = rr.slice(iH, rr.indexOf('\n  });', iH))
+      .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+    check('hàm đếm gọi CHÍNH chốt đang gác các đường ưu đãi, không chép danh sách thứ hai',
+      /docUuDaiDuoc\(user\)/.test(than) && !/CHUC_VU_DOC_UU_DAI/.test(than), than.slice(0, 200));
+  }
+
+  // =========================================================================
   console.log('\n[5] Máy KHÔNG tự trừ tiền, và màn hình nói thẳng điều đó');
   {
     // Khoản thu của bé có ưu đãi vẫn giữ nguyên số tiền đã ghi.

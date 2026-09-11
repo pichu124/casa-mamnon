@@ -145,6 +145,23 @@ trong vùng `api` đã khai báo**. Thử đăng ký `/api/remarks` hay `/api/st
 bị từ chối ngay khi khởi động, kèm thông báo nêu rõ lý do. Nhờ vậy một phân hệ
 viết vội không thể vô tình chiếm mất đường dẫn của tính năng đang chạy.
 
+#### Huy hiệu phải hỏi ĐÚNG cái chốt đang gác màn hình
+
+`huyHieu.dangKy('<mã>', (user) => …)` là con số đỏ hiện trên ô của phân hệ ở màn
+chính. Nếu phân hệ có **chốt chức vụ riêng** cho màn mà con số ấy trỏ tới, thì hàm
+đếm phải hỏi **chính cái chốt đó** — không phải chỉ `role === 'admin'`, và cũng
+không phải chép ra một danh sách chức vụ thứ hai.
+
+Quên bước này thì lỗi không nằm ở chỗ rò dữ liệu (con số chỉ là một số), mà ở chỗ
+**người dùng thấy một con số mà trong app không có màn nào mở ra để xử lý, cũng
+không có cách nào cho nó về 0**. Đã xảy ra thật ở Học phí: Văn phòng cơ sở có ô
+Học phí nên nhận huy hiệu ưu đãi sắp hết hạn, trong khi cả bốn đường ưu đãi trả
+403 và nút "Ưu đãi" thì ẩn. Một con số đỏ bấm không được là cách nhanh nhất dạy
+người ta thôi nhìn huy hiệu.
+
+**Số trên ô và cánh cửa mở nó ra phải do cùng MỘT câu quyết định.**
+`npm run test:doc-cheo` canh bước này.
+
 ### `view.js`
 
 ```js

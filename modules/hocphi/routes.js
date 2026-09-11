@@ -694,6 +694,15 @@ module.exports = (app, { db, modules }) => {
   // xem. Đếm cho người LO TIỀN — cô không có ô Học phí nên không bao giờ nhận.
   huyHieu.dangKy('hocphi', (user) => {
     if (!user || user.role !== 'admin') return 0;
+    // CHỈ ĐẾM CHO NGƯỜI MỞ ĐƯỢC MÀN ƯU ĐÃI RA XEM.
+    //
+    // Văn phòng cơ sở có ô Học phí (ghi sổ, xác nhận đã nộp) nhưng KHÔNG đọc
+    // được ưu đãi: bốn đường ưu đãi trả 403, và nút "Ưu đãi" trong view cũng
+    // ẩn theo đúng `docUuDaiDuoc`. Thiếu dòng này thì ô Học phí của họ hiện
+    // một con số đỏ mà trong app không có chỗ nào mở ra để xử lý, cũng không
+    // có cách nào cho nó về 0 — con số nằm đó tới lúc hạn trôi quá cận dưới.
+    // Số trên ô và cánh cửa mở nó ra phải do CÙNG MỘT câu quyết định.
+    if (!docUuDaiDuoc(user)) return 0;
     const ids = db.studentsOf(user).map(s => s.id);
     if (!ids.length) return 0;
     const homNay = ngay.homNay();
