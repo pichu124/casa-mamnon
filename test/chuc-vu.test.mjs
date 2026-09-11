@@ -131,6 +131,70 @@ console.log('\n[3] DANH SÁCH CHO PHÉP — mỗi chức vụ chỉ mở phần 
   check('Marketing KHÔNG mở được hồ sơ bé', (await ma(MK, '/api/students')) === 403);
   check('Marketing KHÔNG mở được học phí', (await ma(MK, '/api/hocphi?studentId=s1')) === 403);
 
+  // BA CHỖ TRỐNG CỦA CHÍNH MỤC NÀY, vá ở Đ164.
+  //
+  // Bảng phân quyền 07/09 của nhà trường có hai dòng nói rõ: Khảo sát thì
+  // Marketing / Nhân sự / Kế toán không thấy, Sức khoẻ cũng vậy. Đối chiếu với
+  // mã thì CẢ HAI ĐÃ ĐÚNG SẴN — nhưng đúng mà KHÔNG AI CANH: trước đợt này chỉ
+  // có đúng một phép kiểm (Nhân sự với sức khoẻ), không phép kiểm nào cho khảo
+  // sát, và không phép kiểm nào cho Kế toán với sức khoẻ.
+  //
+  // Đúng mà không ai canh thì không đứng yên được lâu. Danh sách cho phép khớp
+  // theo TIỀN TỐ, nên một lần thêm rộng tay cho Cấp 2 về sau — ví dụ mở
+  // '/api/admin' cho Nhân sự để họ xem một bảng nào đó — là mở luôn cả hai mảng
+  // mà không một bộ canh nào báo. Hồ sơ sức khoẻ của trẻ dưới 6 tuổi thuộc nhóm
+  // dữ liệu nhạy cảm theo Nghị định 13/2023/NĐ-CP.
+  check('Nhân sự KHÔNG mở được khảo sát', (await ma(NS, '/api/surveys')) === 403);
+  check('Kế toán KHÔNG mở được khảo sát', (await ma(KT, '/api/surveys')) === 403);
+  check('Marketing KHÔNG mở được khảo sát', (await ma(MK, '/api/surveys')) === 403);
+  check('Kế toán KHÔNG mở được sức khoẻ', (await ma(KT, '/api/health/s1')) === 403);
+  check('Marketing KHÔNG mở được sức khoẻ', (await ma(MK, '/api/health/s1')) === 403);
+
+  // Và canh thẳng vào BẢNG, không chỉ canh qua HTTP.
+  //
+  // Phép kiểm HTTP ở trên chỉ đo những đường mình nghĩ ra để gõ. Phép kiểm này
+  // đọc chính hằng CHUC_VU và đòi ba chức vụ Cấp 2 không được mang một đường
+  // nào chạm tới hai mảng ấy — kể cả một tiền tố rộng bao trùm chúng. Đây mới
+  // là chỗ bắt được kiểu nới tay mô tả ở trên.
+  {
+    const dbMod = await import(`file://${path.join(GOC, 'lib', 'db.js')}`);
+    const bang = (dbMod.default || dbMod).CHUC_VU || [];
+    const CAM = ['/api/surveys', '/api/health'];
+    const cap2 = bang.filter(c => ['nhansu', 'marketing', 'ketoan'].includes(c.ma));
+    check('đối chứng — đọc được đủ ba chức vụ Cấp 2 từ bảng', cap2.length === 3, cap2.map(c => c.ma));
+    const pham = [];
+    for (const c of cap2) {
+      for (const duong of (c.api || [])) {
+        for (const cam of CAM) {
+          if (duong === cam || cam.startsWith(`${duong}/`) || duong.startsWith(`${cam}/`)) {
+            pham.push(`${c.ma} → ${duong}`);
+          }
+        }
+      }
+    }
+    check('KHÔNG chức vụ Cấp 2 nào mang đường chạm tới Khảo sát hay Sức khoẻ', pham.length === 0, pham);
+
+    // Phép thử ngược: dựng một bảng giả có đúng lỗi ấy rồi soi bằng cùng cách.
+    //
+    // Tiền tố nguy hiểm THẬT là '/api' KHÔNG có gạch chéo cuối — đó mới là thứ
+    // `lib/modules.js` coi là khớp với '/api/surveys' và '/api/health'. Bản đầu
+    // của phép thử ngược này dùng '/api/', mà chuỗi ấy không nuốt được gì cả
+    // theo đúng luật khớp thật, nên nó chứng minh nhầm.
+    const gia = [{ ma: 'nhansu', api: ['/api/auth', '/api'] }];
+    const phamGia = [];
+    for (const c of gia) {
+      for (const duong of c.api) {
+        for (const cam of CAM) {
+          if (duong === cam || cam.startsWith(`${duong}/`) || duong.startsWith(`${cam}/`)) {
+            phamGia.push(`${c.ma} → ${duong}`);
+          }
+        }
+      }
+    }
+    check('phép thử ngược — cách soi này BẮT ĐƯỢC một tiền tố rộng tay nuốt cả hai mảng',
+      phamGia.length === 2, phamGia);
+  }
+
   // Câu từ chối phải nói tiếng của trường, và nói ai gỡ được cho họ.
   const r = await req('GET', '/api/students', { cookie: NS });
   const loi = String(r.data?.error || '');
