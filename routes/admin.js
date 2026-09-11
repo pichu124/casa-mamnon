@@ -10,6 +10,9 @@ const csv = require('../lib/csv');
 const password = require('../lib/password');
 const { requireRole, destroyUserSessions } = require('../lib/auth');
 const modules = require('../lib/modules');
+// Lịch nghỉ của trường (Đ147) — màn tổng quan một ngày phải nói được "hôm nay
+// trường nghỉ", chứ không im lặng rồi để hiệu trưởng tưởng cả trường vắng.
+const nghiHoc = require('../lib/nghi-hoc');
 
 const onlyAdmin = requireRole('admin');
 
@@ -428,6 +431,170 @@ module.exports = (app) => {
         campusId: db.campusOfClass(c.id),
         studentCount: beTrongPhamVi.filter(s => s.classId === c.id).length,
       })),
+    });
+  });
+
+  // ------------------------------------------------------------------------
+  // MÀN TỔNG QUAN MỘT NGÀY — cho ban giám hiệu (Đ162)
+  // ------------------------------------------------------------------------
+  //
+  // Nhà trường 07/09 xin một màn cho hiệu trưởng: tổng số bé; hôm nay đi học /
+  // ra về; số nghỉ phân theo lý do; số cô và số cô đi làm hôm nay; chọn từng
+  // cơ sở, xem theo ngày. `/api/admin/overview` trước đợt này chỉ trả năm con
+  // số đếm đầu người — đúng cho màn Quản trị, nhưng không trả lời được câu
+  // hiệu trưởng hỏi mỗi sáng: *"hôm nay ba cơ sở thế nào"*.
+  //
+  // BA ĐIỀU CỐ Ý Ở MÀN NÀY
+  //
+  // 1. **KHÔNG MỘT PHẦN TRĂM NÀO, KHÔNG SO CƠ SỞ NÀO HƠN CƠ SỞ NÀO.** Mọi con
+  //    số ở đây là số ĐẾM ĐẦU NGƯỜI trong một ngày. Cơ sở xếp theo TÊN, không
+  //    xếp theo sĩ số — xếp theo con số là biến màn này thành bảng đua nhau
+  //    giữa ba cơ sở, mà đằng sau mỗi con số ấy là trẻ con đi học hay ở nhà
+  //    (QUY TẮC 4).
+  // 2. **HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC.** Điểm danh, Xin
+  //    phép, Nhân sự, Học phí đều tắt được; tắt rồi mà màn này vẫn hiện số của
+  //    chúng thì công tắc kia coi như không có tác dụng (test:doc-cheo).
+  //    Phân hệ tắt thì trường tương ứng trả `null` — KHÔNG trả 0, vì 0 nghĩa là
+  //    "đếm được, và bằng không", còn đây là "không đếm".
+  // 3. **CẤP 3 CHỈ THẤY CƠ SỞ MÌNH**, y như `/api/admin/overview`. Bảng chia
+  //    theo cơ sở chỉ gửi cho người nhìn được nhiều cơ sở.
+  app.get('/api/admin/mot-ngay', onlyAdmin, (req, res) => {
+    const ngayXem = String(req.query.ngay || '').trim() || ngayVN.homNay();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngayXem)) {
+      return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-09-11' });
+    }
+    const pham = phamViNhom(req.user);
+    const phamCoSo = db.phamViCoSo(req.user);
+    const nhom = db.classes().filter(c => pham === null || pham.includes(c.id));
+    const be = db.all('students', 'SELECT * FROM students WHERE active = 1')
+      .filter(s => pham === null || pham.includes(s.classId));
+    const ids = be.map(s => s.id);
+
+    // Cơ sở của từng nhóm — hỏi MỘT lần mỗi nhóm, không phải mỗi bé.
+    const coSoCuaNhom = new Map(nhom.map(c => [c.id, db.campusOfClass(c.id) || '']));
+
+    // ---- Sổ điểm danh của đúng ngày ấy ----
+    const dem = { coMat: 0, nghiCoPhep: 0, nghiKhongPhep: 0, daRaVe: 0 };
+    const theoBe = new Map();
+    if (ids.length && modules.dangBat('diemdanh')) {
+      for (let i = 0; i < ids.length; i += 400) {
+        const lo = ids.slice(i, i + 400);
+        const m = lo.map(() => '?').join(',');
+        for (const r of db.all('attendance',
+          `SELECT studentId, status, checkOut FROM attendance
+            WHERE date = ? AND studentId IN (${m})`, [ngayXem, ...lo])) {
+          theoBe.set(r.studentId, r);
+        }
+      }
+      for (const r of theoBe.values()) {
+        if (r.status === 'present' || r.status === 'late') dem.coMat += 1;
+        else if (r.status === 'absent_excused') dem.nghiCoPhep += 1;
+        else if (r.status === 'absent_unexcused') dem.nghiKhongPhep += 1;
+        if (r.checkOut) dem.daRaVe += 1;
+      }
+    }
+    const coSoDiemDanh = modules.dangBat('diemdanh');
+
+    // ---- Cô đi làm hôm nay ----
+    //
+    // Đọc bảng của phân hệ Nhân sự nên phải hỏi công tắc trước. Bọc thêm một
+    // lớp bắt lỗi: phân hệ vừa bật mà lược đồ chưa kịp chạy thì màn này vẫn
+    // phải hiện, chỉ thiếu một con số.
+    const coTrongPhamVi = db.all('users', "SELECT * FROM users WHERE role = 'teacher' AND active = 1")
+      .filter(u => pham === null || db.classIdsOfTeacher(u.id).some(id => pham.includes(id)));
+    let nhanSu = null;
+    if (modules.dangBat('nhansu')) {
+      try {
+        const idCo = coTrongPhamVi.map(u => u.id);
+        const cham = new Map();
+        for (let i = 0; i < idCo.length; i += 400) {
+          const lo = idCo.slice(i, i + 400);
+          const m = lo.map(() => '?').join(',');
+          for (const r of db.all('nhansu_cham_cong',
+            `SELECT userId, loai FROM nhansu_cham_cong WHERE ngay = ? AND userId IN (${m})`,
+            [ngayXem, ...lo])) cham.set(r.userId, r.loai);
+        }
+        const diLam = [...cham.values()].filter(x => x === 'di-lam' || x === 'nua-ngay').length;
+        nhanSu = {
+          tong: coTrongPhamVi.length,
+          diLam,
+          nghi: [...cham.values()].filter(x => String(x).startsWith('nghi')).length,
+          chuaCham: coTrongPhamVi.length - cham.size,
+        };
+      } catch (err) {
+        console.error(`[admin] không đọc được chấm công: ${err.message}`);
+        nhanSu = null;
+      }
+    }
+
+    // ---- Học phí kỳ của tháng đang xem ----
+    //
+    // ĐẾM KHOẢN THU, KHÔNG NÊU TÊN NHÀ NÀO. Hai con số: đã nộp và chưa nộp
+    // trong phạm vi đang xem. Không tên bé, không số tiền của một nhà — màn
+    // này là của hiệu trưởng nhìn cả trường, còn chuyện từng nhà thì phân hệ
+    // Học phí đã có màn riêng và có luật riêng.
+    let hocPhi = null;
+    if (ids.length && modules.dangBat('hocphi')) {
+      try {
+        let daNop = 0;
+        let chuaNop = 0;
+        for (let i = 0; i < ids.length; i += 400) {
+          const lo = ids.slice(i, i + 400);
+          const m = lo.map(() => '?').join(',');
+          for (const r of db.all('hocphi_khoan',
+            `SELECT k.daNop AS daNop FROM hocphi_khoan k
+              WHERE k.studentId IN (${m})
+                AND NOT EXISTS (SELECT 1 FROM hocphi_thuhoi t WHERE t.khoanId = k.id)`, lo)) {
+            if (r.daNop) daNop += 1; else chuaNop += 1;
+          }
+        }
+        hocPhi = { daNop, chuaNop };
+      } catch (err) {
+        console.error(`[admin] không đọc được học phí: ${err.message}`);
+        hocPhi = null;
+      }
+    }
+
+    // ---- Chia theo cơ sở, chỉ cho người nhìn được nhiều cơ sở ----
+    const theoCoSo = [];
+    if (phamCoSo === null && db.coTangCoSo()) {
+      const gom = new Map();
+      for (const cs of db.campuses()) {
+        gom.set(cs.id, { campusId: cs.id, ten: cs.name, dangHoc: 0, coMat: 0, daRaVe: 0, chuaCham: 0 });
+      }
+      for (const s of be) {
+        const cs = coSoCuaNhom.get(s.classId) || '';
+        const o = gom.get(cs);
+        if (!o) continue;
+        o.dangHoc += 1;
+        const r = theoBe.get(s.id);
+        if (!r) { o.chuaCham += 1; continue; }
+        if (r.status === 'present' || r.status === 'late') o.coMat += 1;
+        if (r.checkOut) o.daRaVe += 1;
+      }
+      // XẾP THEO TÊN, KHÔNG XẾP THEO SĨ SỐ. Xem chú thích [1] ở đầu đường này.
+      theoCoSo.push(...[...gom.values()].sort((a, b) => String(a.ten).localeCompare(String(b.ten), 'vi')));
+    }
+
+    const dotNghi = nghiHoc.ngayTruongNghi(ngayXem, phamCoSo);
+    res.json({
+      ngay: ngayXem,
+      laHomNay: ngayXem === ngayVN.homNay(),
+      coSo: phamCoSo || null,
+      truongNghi: dotNghi ? { ten: dotNghi.ten, loai: dotNghi.loai } : null,
+      be: {
+        dangHoc: be.length,
+        soNhom: nhom.length,
+        // `null` = phân hệ Điểm danh đang tắt, KHÔNG phải "bằng không".
+        coMat: coSoDiemDanh ? dem.coMat : null,
+        daRaVe: coSoDiemDanh ? dem.daRaVe : null,
+        nghiCoPhep: coSoDiemDanh ? dem.nghiCoPhep : null,
+        nghiKhongPhep: coSoDiemDanh ? dem.nghiKhongPhep : null,
+        chuaCham: coSoDiemDanh ? be.length - theoBe.size : null,
+      },
+      co: nhanSu,
+      hocPhi,
+      theoCoSo,
     });
   });
 

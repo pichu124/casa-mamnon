@@ -857,14 +857,29 @@ khoẻ). Hôm nay màn quản trị duyệt theo Nhóm → Bé, thiếu tầng C
 **Lưu ý về nguồn:** các dòng `phan-hoi.md:*` trong sổ này trỏ vào một tệp KHÔNG có trong
 kho mã — xem mục "Bản gốc phản hồi 07/09 không nằm trong kho" ở cuối phần B1.
 
-**Giao diện Hiệu trưởng — màn tổng quan toàn hệ thống chưa có**
+**~~Giao diện Hiệu trưởng — màn tổng quan toàn hệ thống chưa có~~ — ✅ Đ162, TRỪ MỘT Ý**
 
 Trường cần: tổng số bé; hôm nay đi học / ra về; bé trong danh sách chờ; số nghỉ phân
 theo lý do; số cô và số cô đi làm hôm nay; thống kê nộp học phí; chọn từng cơ sở xem
 theo ngày. Hiện /api/admin/overview chỉ trả counts gồm classes, students, teachers,
 parents, mustChange.
 
-*Cỡ việc:* lớn
+**Đ162 làm xong mọi ý TRỪ "bé trong danh sách chờ"** — tab **Quản trị → Một ngày**:
+`GET /api/admin/mot-ngay?ngay=YYYY-MM-DD`. Đang học · có mặt · đã ra về · nghỉ có phép ·
+nghỉ không phép · chưa chấm; cô đi làm / nghỉ / chưa chấm; học phí đã nộp / chưa nộp;
+bảng chia theo cơ sở (chỉ cho người nhìn được nhiều cơ sở, **xếp theo TÊN**); ngày
+trường nghỉ thì nói ra. Phân hệ tắt thì trả `null` chứ không trả 0. `test:mot-ngay-truong`
+33 phép kiểm.
+
+**CÒN LẠI — "bé trong danh sách chờ" (tuyển sinh).** Không làm được trong đợt này, và lý
+do không phải là hết giờ: **app chưa có chỗ nào cho một đứa trẻ chưa nhập học tồn tại.**
+Bảng `students` là bé đang học; bé trong danh sách chờ chưa phải `students`, chưa có
+nhóm lớp, chưa có tài khoản gia đình. Đếm nó lên màn Một ngày thì phải dựng trước cả một
+mảng tuyển sinh (hồ sơ đăng ký, trạng thái chờ/nhận/từ chối, chuyển thành bé đang học
+khi nhận) — đó là một mảng riêng, cỡ việc LỚN, không phải một con số thêm vào màn này.
+Xin chủ dự án quyết có làm mảng tuyển sinh không trước khi ai đó nhét tạm vào đây.
+
+*Cỡ việc:* ~~lớn~~ · còn lại: mảng tuyển sinh (lớn, chưa quyết)
 
 *Bằng chứng:* phan-hoi.md:216-221; routes/admin.js:321-330 (đã đọc tận nơi — counts chỉ
 có 5 khoá)
