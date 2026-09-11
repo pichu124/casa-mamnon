@@ -546,4 +546,68 @@ console.log('\n[10] Tệp cấu hình triển khai — chỗ bộ quét ở trê
     (df.split('\n').find(d => /^FROM/i.test(d)) || '').trim());
 }
 
+// ===========================================================================
+console.log('\n[11] Nhật ký hoạt động phải đọc được bằng tiếng Việt');
+{
+  // MÃ THAO TÁC LÀ CHỮ CỦA MÁY, KHÔNG PHẢI CHỮ CỦA NGƯỜI.
+  //
+  // `db.audit(user, 'student-create', ...)` ghi một mã ngắn tiếng Anh xuống sổ —
+  // đúng cho tầng dữ liệu, y như `student` và `class`. Nhưng màn Quản trị →
+  // Nhật ký ĐỔ THẲNG mã ấy ra màn hình khi không tra được tên tiếng Việt
+  // (`TEN[r.action] || r.action`), và đó là màn hình người ta mở ra *"để tra khi
+  // có khiếu nại về dữ liệu"* — đúng lúc người đọc đang căng thẳng nhất.
+  //
+  // Trước bài này, bảng tên phủ 18 mã trong hơn một trăm mã đang được ghi. Số
+  // còn lại rơi ra màn hình dưới dạng `hocphi-uudai-dat`, `baocaohoctap-mo-khoa-o`.
+  //
+  // Bài canh đo THEO CHIỀU ĐÚNG: mọi mã ĐANG ĐƯỢC GHI trong kho mã phải có tên
+  // tiếng Việt. Chiều ngược lại (bảng còn tên của một mã đã bỏ) không đo — một
+  // dòng thừa thì vô hại, còn một mã thiếu thì lọt ra màn hình.
+  const VUNG = ['routes', 'lib', 'modules', 'scripts'];
+  const maDangGhi = new Set();
+  const quet = (thuMuc) => {
+    for (const t of fs.readdirSync(thuMuc, { withFileTypes: true })) {
+      const duong = path.join(thuMuc, t.name);
+      if (t.isDirectory()) { quet(duong); continue; }
+      if (!t.name.endsWith('.js')) continue;
+      const src = fs.readFileSync(duong, 'utf8');
+      for (const m of src.matchAll(/audit\(\s*[^,)]*,\s*'([a-z0-9-]+)'/g)) maDangGhi.add(m[1]);
+    }
+  };
+  for (const v of VUNG) quet(path.join(GOC, v));
+
+  const admin = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  const iT = admin.indexOf('const TEN = {');
+  const khoiTen = iT < 0 ? '' : admin.slice(iT, admin.indexOf('\n    };', iT));
+  const coTen = new Set([...khoiTen.matchAll(/^\s*'?([A-Za-z][A-Za-z0-9-]*)'?:/gm)].map(m => m[1]));
+
+  // KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG THÌ TÍNH LÀ ĐỎ: bộ rút mã hỏng thì mục này sẽ
+  // xanh vĩnh viễn mà không kiểm gì cả.
+  check('rút được danh sách mã thao tác đang ghi trong kho mã', maDangGhi.size >= 80, maDangGhi.size);
+  check('đọc được bảng tên tiếng Việt trong màn Nhật ký', coTen.size >= 80, coTen.size);
+
+  const thieu = [...maDangGhi].filter(m => !coTen.has(m)).sort();
+  check('MỌI mã thao tác đang ghi đều có tên tiếng Việt trong màn Nhật ký',
+    thieu.length === 0,
+    thieu.length
+      ? `Thiếu ${thieu.length} mã: ${thieu.slice(0, 8).join(', ')}${thieu.length > 8 ? '…' : ''}. `
+        + 'Thêm dòng tiếng Việt vào bảng TEN trong public/js/views/admin.js '
+        + '(hàm tabNhatKy) — đừng để mã tiếng Anh rơi ra màn hình của văn phòng.'
+      : '');
+
+  // Và tên tiếng Việt phải là tiếng Việt thật, không phải chép lại chính mã ấy.
+  const chepLai = [...coTen].filter((m) => {
+    const re = new RegExp(`'?${m.replace(/[-]/g, '\\-')}'?:\\s*'([^']*)'`);
+    const g = khoiTen.match(re);
+    return g && g[1] === m;
+  });
+  check('không dòng nào chép lại chính mã tiếng Anh làm tên', chepLai.length === 0, chepLai);
+
+  // PHÉP THỬ NGƯỢC — bộ rút mã có bắt được một `db.audit` mới không.
+  const gia = "db.audit(req.user.id, 'viec-moi-chua-dat-ten', x, {});";
+  const rutThu = [...gia.matchAll(/audit\(\s*[^,)]*,\s*'([a-z0-9-]+)'/g)].map(m => m[1]);
+  check('bộ rút mã BẮT ĐƯỢC một db.audit mới thêm', rutThu.includes('viec-moi-chua-dat-ten'), rutThu);
+  check('và mã giả ấy đúng là chưa có tên trong bảng', !coTen.has('viec-moi-chua-dat-ten'));
+}
+
 tongKet();

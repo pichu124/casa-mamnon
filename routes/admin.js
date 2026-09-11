@@ -1629,12 +1629,32 @@ module.exports = (app) => {
   // đúng một bé mà không ai báo.
   //
   // Chép tay lần thứ hai thì hai đường sẽ trôi khỏi nhau ở lần sửa thứ ba.
+  // SO SỐ ĐIỆN THOẠI THÌ BỎ DẤU CÁCH, NHƯNG GHI XUỐNG THÌ GIỮ NGUYÊN CHỮ ĐÃ GÕ.
+  //
+  // Biểu mẫu hứa thẳng với người dùng: *"Nhà đã có con học ở trường thì dùng lại
+  // đúng số này — máy nối bé mới vào đúng tài khoản cũ"*. Bản đầu so khớp chuỗi
+  // NGUYÊN VĂN, nên `0912 345 678` và `0912345678` là hai nhà khác nhau: gia
+  // đình nhận thêm một tài khoản thứ hai, hai con nằm ở hai chỗ, và lời hứa in
+  // ngay trên ô nhập thành sai. Dán số từ Excel hay từ danh bạ điện thoại là ra
+  // đúng các dạng có dấu cách ấy.
+  //
+  // CHỈ BỎ THỨ CHẮC CHẮN LÀ CÁCH TRÌNH BÀY: dấu cách, chấm, gạch, ngoặc. KHÔNG
+  // quy đổi `+84` về `0` — đó là một phép đoán về mã vùng, và đoán sai ở đây là
+  // gộp hồ sơ hai đứa trẻ vào một nhà.
+  function chuanHoaSdt(x) {
+    return String(x || '').replace(/[\s.\-()]/g, '');
+  }
+
   function nhanMotBe(r, lopTheoTen, taiKhoan) {
     const classId = r.classId || lopTheoTen.get(r.tenLop) || null;
 
     // Gộp phụ huynh trùng số điện thoại — nhà có hai con thì dùng chung một tài khoản.
-    let parent = r.phSdt
-      ? db.first('users', `SELECT * FROM users WHERE role = 'parent' AND phone = ? AND active = 1`, [r.phSdt])
+    const sdtChuan = chuanHoaSdt(r.phSdt);
+    let parent = sdtChuan
+      ? db.first('users',
+        `SELECT * FROM users WHERE role = 'parent' AND active = 1
+           AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '.', ''), '-', ''), '(', ''), ')', '') = ?`,
+        [sdtChuan])
       : null;
     let matKhau = null;
     if (!parent) {
@@ -1679,6 +1699,11 @@ module.exports = (app) => {
       hocSinh: student.name,
       lop: r.tenLop,
       phuHuynh: parent.name,
+      // SỐ ĐIỆN THOẠI CỦA TÀI KHOẢN ĐƯỢC NỐI VÀO, để phiếu nói ra được nhà nào.
+      // Gõ nhầm một chữ số là nối bé vào tài khoản của nhà người khác — và
+      // trước đợt này phiếu không in thứ duy nhất lộ ra điều đó.
+      phuHuynhSdt: parent.phone || '',
+      daCoTaiKhoan: !matKhau,
       username: parent.username,
       matKhau: matKhau || '(đã có tài khoản từ trước)',
     });

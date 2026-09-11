@@ -33,6 +33,7 @@
 //     chúng (QUY TẮC 4).
 import fs from 'node:fs';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu,
@@ -57,6 +58,7 @@ khoaVaoCoSo(DIR, 'hp_vp', 'cs1');
 khoaVaoCoSo(DIR, 'hp_ql', 'cs1');
 khoaVaoCoSo(DIR, 'hp_kt2', 'cs1');
 
+const CSDL = path.join(DIR, 'school.db');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4803), dir: DIR });
 const req = taoReq(sv.BASE);
 const login = taoLogin(req);
@@ -307,6 +309,107 @@ try {
     check('lọc theo kỳ thu chạy được', loc.status === 200, loc.status);
     check('và máy gợi ý sẵn danh sách kỳ thu có thật, khỏi gõ tay',
       (loc.data?.kyThuCo || []).includes('Tháng 9/2026'), loc.data?.kyThuCo);
+  }
+
+  // =========================================================================
+  console.log('\n[6b] BÉ ĐANG HỌC MÀ CHƯA XẾP NHÓM KHÔNG ĐƯỢC BIẾN MẤT KHỎI SỔ TIỀN');
+  {
+    // LỖI RÀ SOÁT ĐỐI KHÁNG BẮT ĐƯỢC, ba người phản bác đều xác nhận.
+    //
+    // Cả đợt ghi sổ lẫn bảng sổ tiền đều đi vòng qua nhóm lớp
+    // (`nhomCuaToi` → `beCuaNhom`), nên bé chưa xếp nhóm rơi ra khỏi CẢ HAI mà
+    // không một dòng nào báo. Bé ấy không bao giờ được ghi một khoản nào, và
+    // cũng không hiện ở bảng để ai đó nhận ra là thiếu — nhà đi học suốt một
+    // tháng rồi mới có người hỏi ra.
+    //
+    // Trạng thái này có thật ở hai đường: bé vừa nhận vào trường mà chưa xếp
+    // nhóm, và bé của một nhóm vừa đóng cuối năm học.
+    const conn = new Database(CSDL);
+    conn.prepare(`INSERT INTO students (id, code, name, dob, gender, classId, active, createdAt)
+                  VALUES ('s_treo', 'TREO', 'Bé Chưa Xếp Nhóm', '2023-05-05', 'Nữ', NULL, 1, ?)`)
+      .run(new Date().toISOString());
+    conn.close();
+
+    const b = await req('GET', '/api/hocphi/bang', { cookie: KT });
+    const the = (b.data?.bang || []).find(x => x.ten === 'Chưa xếp nhóm');
+    check('bảng sổ tiền có thẻ "Chưa xếp nhóm" khi trường thật sự có bé như vậy', !!the,
+      (b.data?.bang || []).map(x => x.ten));
+    check('và bé ấy nằm trong đó',
+      !!the && the.nhom.some(n => (n.be || []).some(x => x.id === 's_treo')),
+      the && the.nhom.map(n => n.be.map(x => x.id)));
+    check('thẻ ấy LUÔN Ở CUỐI, không xếp lẫn giữa các cơ sở',
+      (b.data?.bang || []).at(-1)?.ten === 'Chưa xếp nhóm',
+      (b.data?.bang || []).map(x => x.ten));
+
+    // Và ghi sổ "cả trường" phải chạm tới bé ấy.
+    const dot = await req('POST', '/api/hocphi/hang-loat', {
+      cookie: KT,
+      body: { pham: 'truong', kyThu: 'Tháng 12/2026', noiDung: 'Tiền ăn tháng 12', soTien: 800000 },
+    });
+    check('ghi sổ cả trường chạy được', dot.status === 201, `${dot.status} ${JSON.stringify(dot.data)}`);
+    const so = await req('GET', '/api/hocphi?studentId=s_treo', { cookie: KT });
+    check('BÉ CHƯA XẾP NHÓM CŨNG ĐƯỢC GHI KHOẢN trong đợt "cả trường"',
+      (so.data?.khoan || []).some(k => k.noiDung === 'Tiền ăn tháng 12'),
+      (so.data?.khoan || []).map(k => k.noiDung));
+
+    // Nhưng chọn MỘT NHÓM thì chỉ là nhóm ấy — không kèm bé không thuộc chỗ nào.
+    const dotNhom = await req('POST', '/api/hocphi/hang-loat', {
+      cookie: KT,
+      body: { pham: 'nhom', id: 'c1', kyThu: 'Tháng 12/2026', noiDung: 'Phí riêng nhóm c1', soTien: 100000 },
+    });
+    check('ghi sổ cho MỘT nhóm chạy được', dotNhom.status === 201, dotNhom.status);
+    const so2 = await req('GET', '/api/hocphi?studentId=s_treo', { cookie: KT });
+    check('và bé chưa xếp nhóm KHÔNG bị kéo vào đợt của một nhóm cụ thể',
+      !(so2.data?.khoan || []).some(k => k.noiDung === 'Phí riêng nhóm c1'),
+      (so2.data?.khoan || []).map(k => k.noiDung));
+
+    // TẦNG CƠ SỞ KHÔNG ĐỔI: bé chưa xếp nhóm không thuộc cơ sở nào, nên Cấp 3
+    // vẫn không thấy — đúng như `db.canAccessStudent` vẫn trả lời từ trước.
+    const cs1 = await req('GET', '/api/hocphi/bang', { cookie: QL });
+    check('quản lý cơ sở KHÔNG thấy thẻ "Chưa xếp nhóm" — bé ấy không thuộc cơ sở nào',
+      !(cs1.data?.bang || []).some(x => x.ten === 'Chưa xếp nhóm'),
+      (cs1.data?.bang || []).map(x => x.ten));
+    const xem = await req('GET', '/api/hocphi?studentId=s_treo', { cookie: QL });
+    check('và cũng không đọc được sổ tiền của bé ấy', xem.status === 403, xem.status);
+  }
+
+  // =========================================================================
+  console.log('\n[6c] Huy hiệu "Đủ" và danh sách kỳ thu — hai chỗ nói dối được');
+  {
+    // (1) "ĐỦ" LÀ MỘT LỜI KHẲNG ĐỊNH, KHÔNG PHẢI Ô TRỐNG TÔ XANH.
+    //
+    // Bé chưa hề có khoản nào rơi vào nhánh "không còn nợ" và nhận đúng cái
+    // huy hiệu xanh như bé đã nộp đủ. Ở bảng tiền thì đó là chỗ nguy nhất: bé
+    // bị sót khỏi đợt ghi sổ trông y hệt bé đã nộp xong.
+    const v = fs.readFileSync(path.join(GOC, 'modules/hocphi/view.js'), 'utf8')
+      .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+    check('màn hình chỉ gắn huy hiệu "Đủ" khi bé THẬT SỰ có khoản đã nộp',
+      /b\.daNop \? UI\.badge\('Đủ', 'green'\)/.test(v), 'view.js');
+    check('và bé chưa có khoản nào thì nói thẳng là chưa ghi khoản nào',
+      /Chưa ghi khoản nào/.test(v), 'view.js');
+
+    // (2) DANH SÁCH KỲ THU CŨNG PHẢI NẰM TRONG PHẠM VI. Kỳ thu là CHỮ TỰ DO kế
+    // toán gõ, nên nó mang thông tin của một cơ sở ra ngoài phạm vi cơ sở đó.
+    const rieng = 'Tháng 12/2026 — chỉ cơ sở 2 nội bộ';
+    const c3 = await req('POST', '/api/hocphi/hang-loat', {
+      cookie: KT, body: { pham: 'nhom', id: 'c1', kyThu: rieng, noiDung: 'Phí nội bộ', soTien: 50000 },
+    });
+    check('dựng được một kỳ thu chỉ có ở cơ sở 1', c3.status === 201, c3.status);
+
+    const bKT = await req('GET', '/api/hocphi/bang', { cookie: KT });
+    check('đối chứng — kế toán toàn trường VẪN thấy kỳ thu ấy',
+      (bKT.data?.kyThuCo || []).includes(rieng), bKT.data?.kyThuCo);
+
+    // hp_kt2 là kế toán bị khoá vào cơ sở 1 — cùng cơ sở nên vẫn thấy.
+    // Còn tài khoản của MỘT CƠ SỞ KHÁC thì không được thấy chữ ấy.
+    const mkKT3 = taoQuanTri(DIR, 'Kế toán khoá CS2', 'hp_kt3');
+    datChucVu(DIR, 'hp_kt3', 'ketoan');
+    khoaVaoCoSo(DIR, 'hp_kt3', 'cs2');
+    await sv.khoiDongLai();
+    const KT3 = await vao('hp_kt3', mkKT3);
+    const bKT3 = await req('GET', '/api/hocphi/bang', { cookie: KT3 });
+    check('kế toán cơ sở 2 KHÔNG đọc được chữ kế toán cơ sở 1 gõ vào ô kỳ thu',
+      !(bKT3.data?.kyThuCo || []).includes(rieng), bKT3.data?.kyThuCo);
   }
 
   // =========================================================================

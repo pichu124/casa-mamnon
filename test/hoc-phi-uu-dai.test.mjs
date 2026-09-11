@@ -33,7 +33,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe, tatPhanHe, datChucVu,
+  taoBoDem, taoReq, taoLogin, batPhanHe, tatPhanHe, datChucVu, khoaVaoCoSo,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -335,6 +335,100 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[4d] Bé chưa xếp nhóm, và ô "Từ ngày" phải nói được ra màn hình');
+  {
+    // (1) HUY HIỆU VÀ BẢNG PHẢI NHÌN CÙNG MỘT DANH SÁCH BÉ.
+    //
+    // Huy hiệu đếm theo phạm vi của tài khoản, còn bảng đi vòng qua nhóm lớp —
+    // nên ưu đãi của một bé chưa xếp nhóm được ĐẾM mà không hiện ở đâu để gỡ.
+    // Kế toán thấy số đỏ, mở bảng ra thì không có dòng nào: một con số không
+    // bấm được, đúng họ lỗi với mục [4c].
+    const conn = new Database(CSDL);
+    conn.prepare(`INSERT INTO students (id, code, name, dob, gender, classId, active, createdAt)
+                  VALUES ('s_treo2', 'TREO2', 'Bé Treo Ưu Đãi', '2023-06-06', 'Nam', NULL, 1, ?)`)
+      .run(new Date().toISOString());
+    conn.close();
+
+    const dat = await req('POST', '/api/hocphi/uu-dai', {
+      cookie: KT,
+      body: { studentId: 's_treo2', ten: 'Ưu đãi của bé chưa xếp nhóm', kieu: 'so-tien', giaTri: 400000, denNgay: ngayCong(5) },
+    });
+    check('đặt được ưu đãi cho bé chưa xếp nhóm', dat.status === 201, `${dat.status} ${JSON.stringify(dat.data)}`);
+
+    const b = await req('GET', '/api/hocphi/uu-dai/bang', { cookie: KT });
+    const dong = (b.data?.bang || []).find(x => x.studentId === 's_treo2');
+    check('BẢNG ƯU ĐÃI CÓ bé chưa xếp nhóm — thứ huy hiệu đang đếm thì bảng phải mở ra được',
+      !!dong, (b.data?.bang || []).map(x => x.studentId));
+    check('và nói rõ bé ấy chưa xếp nhóm chứ không để trống',
+      dong?.tenNhom === 'Chưa xếp nhóm', dong?.tenNhom);
+
+    // (2) "TỪ NGÀY" ĐANG CÂM. Biểu mẫu có ô, máy chủ lưu, mà không màn nào hiện
+    // — kế toán đặt ưu đãi "từ tháng sau" rồi nhìn bảng thấy nó nằm đó y như
+    // một ưu đãi đang chạy, và trừ tiền sớm cả học kỳ. Máy VẪN không tự trừ,
+    // nhưng nó phải nói thật là dòng này chưa tới ngày áp dụng.
+    const sau = await req('POST', '/api/hocphi/uu-dai', {
+      cookie: KT,
+      body: {
+        studentId: 's6', ten: 'Ưu đãi bắt đầu từ học kỳ sau', kieu: 'so-tien', giaTri: 200000,
+        tuNgay: ngayCong(60), denNgay: ngayCong(200),
+      },
+    });
+    check('đặt được ưu đãi có ngày bắt đầu ở tương lai', sau.status === 201, sau.status);
+
+    const b2 = await req('GET', '/api/hocphi/uu-dai/bang', { cookie: KT });
+    const u = (b2.data?.bang || []).flatMap(x => x.uuDai).find(x => x.id === sau.data?.id);
+    check('bảng trả về ngày bắt đầu của ưu đãi', !!u && !!u.tuNgay, u);
+    check('VÀ NÓI RÕ NÓ CHƯA TỚI NGÀY ÁP DỤNG', u?.chuaHieuLuc === true, u);
+
+    const dangChay = (b2.data?.bang || []).flatMap(x => x.uuDai).find(x => !x.tuNgay);
+    check('đối chứng — ưu đãi không đặt ngày bắt đầu thì KHÔNG bị đánh dấu chưa hiệu lực',
+      dangChay ? dangChay.chuaHieuLuc === false : false, dangChay);
+
+    const v = fs.readFileSync(path.join(GOC, 'modules/hocphi/view.js'), 'utf8')
+      .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+    check('màn hình IN RA ngày bắt đầu', /từ \$\{UI\.esc\(UI\.fmtDateShort\(u\.tuNgay\)\)\}/.test(v), 'view.js');
+    check('và có nhãn riêng cho dòng chưa tới ngày áp dụng',
+      /u\.chuaHieuLuc \? UI\.badge\('Chưa tới ngày áp dụng'/.test(v), 'view.js');
+  }
+
+  // =========================================================================
+  console.log('\n[4e] Huy hiệu đếm bằng MỘT câu hỏi, không nạp cả trường');
+  {
+    // Bản đầu gọi `db.studentsOf(user)` — nạp trọn hồ sơ mọi bé trong phạm vi
+    // rồi mới hỏi một câu đếm. Hàm này chạy ở MỖI lần mở trang chủ, của MỖI
+    // tài khoản quản trị, để trả về một con số gần như luôn bằng 0: cái giá đi
+    // theo SĨ SỐ TOÀN TRƯỜNG chứ không theo số việc đang chờ.
+    //
+    // Đổi cách đếm thì phải chứng minh PHẠM VI KHÔNG ĐỔI — đó mới là phần dễ
+    // hỏng. Bé chưa xếp nhóm không thuộc cơ sở nào, nên Cấp 1 đếm còn Cấp 3
+    // thì không, y như `db.canAccessStudent` vẫn trả lời từ trước.
+    const r = fs.readFileSync(path.join(GOC, 'modules/hocphi/routes.js'), 'utf8');
+    const iH = r.indexOf("huyHieu.dangKy('hocphi'");
+    const than = r.slice(iH, r.indexOf('\n  });', iH))
+      .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+    check('hàm đếm KHÔNG còn nạp danh sách bé vào bộ nhớ', !/studentsOf/.test(than), than.slice(0, 200));
+    check('mà hỏi thẳng bằng một câu đếm', /SELECT COUNT\(\*\)/.test(than), than.slice(0, 200));
+
+    const huy = async (cookie) =>
+      Number((await req('GET', '/api/dashboard/badges', { cookie })).data?.hocphi || 0);
+    const nKT = await huy(KT);
+    check('kế toán toàn trường ĐẾM CẢ ưu đãi của bé chưa xếp nhóm', nKT > 0, nKT);
+
+    const mkQL2 = taoQuanTri(DIR, 'Quản lý CS2', 'uu_ql2');
+    datChucVu(DIR, 'uu_ql2', 'quanly-coso');
+    khoaVaoCoSo(DIR, 'uu_ql2', 'cs2');
+    await sv.khoiDongLai();
+    const QL2 = await vao('uu_ql2', mkQL2);
+    const bangQL2 = await req('GET', '/api/hocphi/uu-dai/bang', { cookie: QL2 });
+    const demQL2 = (bangQL2.data?.bang || []).flatMap(x => x.uuDai).length;
+    check('QUẢN LÝ CƠ SỞ 2 không thấy bé chưa xếp nhóm trong bảng',
+      !(bangQL2.data?.bang || []).some(x => x.studentId === 's_treo2'),
+      (bangQL2.data?.bang || []).map(x => x.studentId));
+    check('SỐ TRÊN Ô KHÔNG BAO GIỜ LỚN HƠN SỐ DÒNG MỞ RA ĐƯỢC',
+      (await huy(QL2)) <= demQL2, { huyHieu: await huy(QL2), dongTrongBang: demQL2 });
+  }
+
+  // =========================================================================
   console.log('\n[5] Máy KHÔNG tự trừ tiền, và màn hình nói thẳng điều đó');
   {
     // Khoản thu của bé có ưu đãi vẫn giữ nguyên số tiền đã ghi.
@@ -370,7 +464,7 @@ try {
     const iHuy = r.indexOf("huyHieu.dangKy('hocphi'");
     const thanHuy = r.slice(iHuy, r.indexOf('\n  });', iHuy));
     check('huy hiệu đếm có CẢ TRẦN LẪN SÀN, không đếm ưu đãi đã quá hạn từ lâu',
-      /denNgay <= \? AND denNgay >= \?/.test(thanHuy), thanHuy.slice(0, 200));
+      /denNgay <= \? AND (u\.)?denNgay >= \?/.test(thanHuy), thanHuy.slice(0, 200));
 
     // ĐỢT GHI SỔ HÀNG LOẠT PHẢI NẰM TRONG MỘT GIAO DỊCH.
     const iDot = r.indexOf("app.post('/api/hocphi/hang-loat'");

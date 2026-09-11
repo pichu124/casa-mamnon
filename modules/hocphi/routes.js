@@ -46,6 +46,54 @@ module.exports = (app, { db, modules }) => {
       'SELECT * FROM students WHERE classId = ? AND active = 1 ORDER BY name', [classId]);
   }
 
+  // BÉ ĐANG HỌC MÀ CHƯA XẾP NHÓM VẪN LÀ BÉ CỦA TRƯỜNG, VÀ NHÀ VẪN PHẢI NỘP TIỀN.
+  //
+  // Cả sổ tiền lẫn bảng ưu đãi đều đi vòng qua nhóm lớp: `nhomCuaToi` → từng
+  // nhóm → `beCuaNhom`. Đường ấy đúng cho phần lớn bé, nhưng nó BỎ RƠI hai
+  // trường hợp có thật và không báo một lời nào:
+  //
+  //   • bé vừa nhận vào trường mà văn phòng chưa xếp nhóm;
+  //   • bé của một nhóm vừa đóng (cuối năm học, gộp nhóm) mà chưa chuyển sang
+  //     nhóm mới — `nhomCuaToi` chỉ lấy nhóm còn hoạt động.
+  //
+  // Hậu quả nặng hơn vẻ ngoài của nó: bé ấy KHÔNG BAO GIỜ được ghi một khoản
+  // nào trong đợt ghi sổ "cả trường", cũng không hiện ở bảng sổ tiền để ai đó
+  // nhận ra là thiếu. Nhà đi học suốt một tháng rồi mới có người hỏi ra.
+  //
+  // Lấy phần còn thiếu bằng cách TRỪ: mọi bé trong phạm vi, bớt đi những bé đã
+  // có mặt trong danh sách nhóm. Trừ thì không sót và cũng không đếm hai lần,
+  // dù lý do rơi ra là gì. `db.studentsOf` đã lo tầng cơ sở (Cấp 3 không thấy
+  // bé chưa xếp nhóm vì bé ấy không thuộc cơ sở nào), và vẫn hỏi lại từng bé.
+  function beNgoaiNhom(user, daCoIds) {
+    return db.studentsOf(user)
+      .filter(s => !daCoIds.has(s.id))
+      .filter(s => s.active !== false && s.active !== 0)
+      .filter(s => db.canAccessStudent(user, s.id))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
+  }
+
+  // Tên hiện trên màn cho nhóm giả ấy. Một chỗ duy nhất để hai bảng không gọi
+  // khác tên nhau.
+  const TEN_CHUA_XEP_NHOM = 'Chưa xếp nhóm';
+
+  // Những kỳ thu CÓ THẬT trong sổ của đúng nhóm bé này, để ô xổ khỏi bắt gõ tay.
+  // Trả về nhiều nhất 24 kỳ gần nhất.
+  function kyThuTrongPhamVi(ids) {
+    if (!ids.length) return [];
+    const co = new Set();
+    for (let i = 0; i < ids.length; i += 400) {
+      const lo = ids.slice(i, i + 400);
+      const m = lo.map(() => '?').join(',');
+      for (const r of db.all('hocphi_khoan',
+        `SELECT DISTINCT kyThu FROM hocphi_khoan
+          WHERE studentId IN (${m})
+            AND id NOT IN (SELECT khoanId FROM hocphi_thuhoi)`, lo)) {
+        if (r.kyThu) co.add(r.kyThu);
+      }
+    }
+    return [...co].sort().reverse().slice(0, 24);
+  }
+
   // Các khoản của một học sinh.
   app.get('/api/hocphi', (req, res) => {
     const studentId = req.query.studentId;
@@ -211,6 +259,12 @@ module.exports = (app, { db, modules }) => {
         if (db.canAccessStudent(req.user, s.id)) be.push(s);
       }
     }
+    // "CẢ TRƯỜNG" PHẢI LÀ CẢ TRƯỜNG, kể cả bé chưa xếp nhóm. Chỉ thêm ở phạm vi
+    // này: chọn một nhóm hay một cơ sở là chọn đúng chỗ ấy, không kèm theo bé
+    // không thuộc chỗ nào.
+    if (pham === 'truong') {
+      be.push(...beNgoaiNhom(req.user, new Set(be.map(s => s.id))));
+    }
     if (!be.length) {
       return res.status(400).json({ error: 'Chưa có bé nào đang học trong phạm vi vừa chọn' });
     }
@@ -304,6 +358,11 @@ module.exports = (app, { db, modules }) => {
         if (db.canAccessStudent(req.user, s.id)) be.push({ ...s, classId: lop.id });
       }
     }
+    // Bé chưa xếp nhóm gom vào một thẻ riêng ở cuối bảng — xem `beNgoaiNhom`.
+    // Dùng `classId: ''` làm khoá của nhóm giả; bé thật không bao giờ có khoá ấy.
+    const ngoaiNhom = beNgoaiNhom(req.user, new Set(be.map(s => s.id)))
+      .map(s => ({ ...s, classId: '' }));
+    be.push(...ngoaiNhom);
 
     const ids = be.map(s => s.id);
     const theoBe = new Map(ids.map(id => [id, { daNop: 0, chuaNop: 0, tienChuaNop: 0 }]));
@@ -343,14 +402,33 @@ module.exports = (app, { db, modules }) => {
       });
     }
     const bang = [...gom.values()].sort((a, b) => String(a.ten).localeCompare(String(b.ten), 'vi'));
+    // Thẻ "Chưa xếp nhóm" LUÔN Ở CUỐI, không xếp lẫn theo tên cơ sở: nó không
+    // phải một cơ sở, và đặt nó giữa bảng thì người đọc tưởng trường có thêm
+    // một cơ sở tên như vậy.
+    if (ngoaiNhom.length) {
+      bang.push({
+        campusId: '',
+        ten: TEN_CHUA_XEP_NHOM,
+        nhom: [{
+          classId: '',
+          ten: TEN_CHUA_XEP_NHOM,
+          be: ngoaiNhom
+            .map(s => ({ id: s.id, ten: s.name, ...theoBe.get(s.id) }))
+            .sort((a, b) => String(a.ten).localeCompare(String(b.ten), 'vi')),
+        }],
+      });
+    }
 
     res.json({
       kyThu,
       // Danh sách kỳ thu có thật trong sổ, để màn hình khỏi bắt gõ tay.
-      kyThuCo: db.all('hocphi_khoan',
-        `SELECT DISTINCT kyThu FROM hocphi_khoan
-           WHERE id NOT IN (SELECT khoanId FROM hocphi_thuhoi)
-           ORDER BY kyThu DESC LIMIT 24`).map(r => r.kyThu),
+      // DANH SÁCH KỲ THU CŨNG PHẢI NẰM TRONG PHẠM VI.
+      //
+      // Bản đầu quét cả bảng, nên tài khoản khoá vào cơ sở 1 đọc được chữ kế
+      // toán cơ sở 2 gõ vào ô kỳ thu ("Tiền học hè cơ sở Vinhomes đợt 2"…).
+      // Chữ tự do là chữ tự do: nó mang thông tin của một cơ sở khác ra ngoài
+      // phạm vi, và chỗ ấy lại là một ô xổ ai cũng bấm vào.
+      kyThuCo: kyThuTrongPhamVi(ids),
       bang,
       taoDuoc: db.taoKhoanThuDuoc(req.user),
     });
@@ -518,6 +596,13 @@ module.exports = (app, { db, modules }) => {
         if (db.canAccessStudent(req.user, s.id)) be.push({ ...s, tenNhom: lop.name });
       }
     }
+    // BẢNG VÀ HUY HIỆU PHẢI NHÌN CÙNG MỘT DANH SÁCH BÉ.
+    //
+    // Huy hiệu đếm theo `db.studentsOf` (mọi bé trong phạm vi), còn bảng này đi
+    // vòng qua nhóm lớp — nên ưu đãi của một bé chưa xếp nhóm được ĐẾM mà không
+    // hiện ở đâu để gỡ. Kế toán thấy số đỏ, mở bảng ra thì không có dòng nào.
+    be.push(...beNgoaiNhom(req.user, new Set(be.map(s => s.id)))
+      .map(s => ({ ...s, tenNhom: TEN_CHUA_XEP_NHOM })));
     const ids = be.map(s => s.id);
     const theoBe = new Map();
     for (let i = 0; i < ids.length; i += 400) {
@@ -548,6 +633,14 @@ module.exports = (app, { db, modules }) => {
           denNgay: u.denNgay,
           hetHan: !!(u.denNgay && u.denNgay < homNay),
           sapHetHan: !!(u.denNgay && u.denNgay >= homNay && sapHet && u.denNgay <= sapHet),
+          // "TỪ NGÀY" PHẢI NÓI ĐƯỢC RA MÀN HÌNH.
+          //
+          // Biểu mẫu có ô Từ ngày, máy chủ nhận và lưu, nhưng trước đợt này
+          // KHÔNG màn nào hiện nó ra. Kế toán đặt ưu đãi "từ tháng sau" rồi
+          // nhìn bảng thấy nó nằm đó y như một ưu đãi đang chạy — và trừ tiền
+          // sớm cả học kỳ. Máy vẫn KHÔNG tự trừ, nhưng nó phải nói thật là
+          // dòng này chưa tới ngày áp dụng.
+          chuaHieuLuc: !!(u.tuNgay && u.tuNgay > homNay),
         })),
       }))
       .sort((a, b) => String(a.tenBe).localeCompare(String(b.tenBe), 'vi'));
@@ -703,28 +796,42 @@ module.exports = (app, { db, modules }) => {
     // có cách nào cho nó về 0 — con số nằm đó tới lúc hạn trôi quá cận dưới.
     // Số trên ô và cánh cửa mở nó ra phải do CÙNG MỘT câu quyết định.
     if (!docUuDaiDuoc(user)) return 0;
-    const ids = db.studentsOf(user).map(s => s.id);
-    if (!ids.length) return 0;
+
     const homNay = ngay.homNay();
-    const moc = congNgay(homNay, HAN_NHAC_TRUOC_NGAY);
-    let dem = 0;
-    for (let i = 0; i < ids.length; i += 400) {
-      const lo = ids.slice(i, i + 400);
-      const m = lo.map(() => '?').join(',');
-      // CÓ CẬN DƯỚI. Bản đầu chỉ có trần, nên mọi ưu đãi đã hết hạn từ bao giờ
-      // vẫn được đếm mãi: cuối năm học 80 ưu đãi cùng hết hạn là sang tháng 6 ô
-      // Học phí hiện một con số đỏ không bao giờ về 0, và một con số như vậy
-      // thì người ta thôi nhìn nó. Chỉ đếm việc CÒN LÀM ĐƯỢC: sắp hết hạn, và
-      // vừa quá hạn trong vòng một tháng.
-      const san = congNgay(homNay, -30);
-      const r = db.first('hocphi_uudai',
-        `SELECT COUNT(*) AS n FROM hocphi_uudai
-          WHERE studentId IN (${m}) AND denNgay IS NOT NULL
-            AND denNgay <= ? AND denNgay >= ?
-            AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)`, [...lo, moc, san]);
-      dem += Number((r || {}).n || 0);
-    }
-    return dem;
+    const tran = congNgay(homNay, HAN_NHAC_TRUOC_NGAY);
+    // CÓ CẬN DƯỚI. Bản đầu chỉ có trần, nên mọi ưu đãi đã hết hạn từ bao giờ
+    // vẫn được đếm mãi: cuối năm học 80 ưu đãi cùng hết hạn là sang tháng 6 ô
+    // Học phí hiện một con số đỏ không bao giờ về 0, và một con số như vậy
+    // thì người ta thôi nhìn nó. Chỉ đếm việc CÒN LÀM ĐƯỢC: sắp hết hạn, và
+    // vừa quá hạn trong vòng một tháng.
+    const san = congNgay(homNay, -30);
+    if (!tran || !san) return 0;
+
+    // ĐẾM BẰNG MỘT CÂU HỎI, KHÔNG NẠP CẢ TRƯỜNG VÀO BỘ NHỚ.
+    //
+    // Bản đầu gọi `db.studentsOf(user)` — nạp trọn hồ sơ mọi bé trong phạm vi
+    // (mấy trăm dòng, kèm một câu tra phụ huynh), rồi mới hỏi một câu đếm theo
+    // lô 400 mã. Hàm này chạy ở MỖI lần mở trang chủ, của MỖI tài khoản quản
+    // trị, để trả về một con số gần như luôn bằng 0. Cái giá đi theo sĩ số
+    // toàn trường chứ không theo số việc đang chờ.
+    //
+    // Phạm vi giữ NGUYÊN nghĩa cũ: khuôn `JOIN class_campus` dưới đây chính là
+    // nhánh quản trị của `db.canAccessStudent` — Cấp 1 thấy toàn hệ thống (kể
+    // cả bé chưa xếp nhóm), Cấp 3 chỉ thấy bé thuộc một nhóm của cơ sở mình.
+    const coSo = db.phamViCoSo(user);
+    const dieu = `u.denNgay IS NOT NULL AND u.denNgay <= ? AND u.denNgay >= ?
+        AND u.id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)`;
+    const r = coSo
+      ? db.first('hocphi_uudai',
+        `SELECT COUNT(*) AS n FROM hocphi_uudai u
+           JOIN students s ON s.id = u.studentId AND s.active = 1
+           JOIN class_campus cc ON cc.classId = s.classId
+          WHERE cc.campusId = ? AND ${dieu}`, [coSo, tran, san])
+      : db.first('hocphi_uudai',
+        `SELECT COUNT(*) AS n FROM hocphi_uudai u
+           JOIN students s ON s.id = u.studentId AND s.active = 1
+          WHERE ${dieu}`, [tran, san]);
+    return Number((r || {}).n || 0);
   });
 
   // HUỶ XÁC NHẬN "ĐÃ NỘP" BẤM NHẦM — khoản quay về "chưa nộp", có vết đầy đủ.

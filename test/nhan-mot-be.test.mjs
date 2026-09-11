@@ -320,6 +320,95 @@ try {
     check('màn hình gửi mã nhóm kèm theo, không chỉ gửi tên', /^\s+classId,$/m.test(v), 'admin.js');
   }
 
+  // =========================================================================
+  console.log('\n[8] Vòng rà đối kháng thứ hai — nối bé vào ĐÚNG nhà');
+  {
+    // (1) SỐ ĐIỆN THOẠI GÕ CÓ DẤU CÁCH LÀ NHÀ CÓ HAI TÀI KHOẢN.
+    //
+    // Ô nhập hứa thẳng: *"Nhà đã có con học ở trường thì dùng lại đúng số này —
+    // máy nối bé mới vào đúng tài khoản cũ, gia đình không phải nhớ hai mật
+    // khẩu."* Bản đầu so khớp chuỗi NGUYÊN VĂN, nên `0911 222 333` và
+    // `0911222333` là hai nhà khác nhau: hai con nằm ở hai tài khoản, và lời
+    // hứa in ngay trên ô nhập thành sai. Dán số từ Excel hay từ danh bạ là ra
+    // đúng các dạng có dấu cách ấy.
+    const cachDau = await req('POST', '/api/admin/students', {
+      cookie: VP,
+      body: { hoTen: 'Trần Bảo Ngọc', tenLop: 'Chồi 2', phHoTen: 'Trần Văn Hùng', phSdt: '0911 222 333' },
+    });
+    check('nhận được bé khi số điện thoại gõ có dấu cách', cachDau.status === 201, cachDau.status);
+    check('VÀ VẪN NỐI VÀO TÀI KHOẢN CŨ, không sinh mật khẩu mới',
+      cachDau.data?.taiKhoan?.daCoTaiKhoan === true, cachDau.data?.taiKhoan);
+
+    const nha = doc(`SELECT id FROM users WHERE role = 'parent'
+        AND REPLACE(REPLACE(phone, ' ', ''), '-', '') = '0911222333'`);
+    check('nhà ấy VẪN CHỈ CÓ MỘT tài khoản', nha.length === 1, nha.length);
+
+    const chamGach = await req('POST', '/api/admin/students', {
+      cookie: VP,
+      body: { hoTen: 'Trần Bảo Minh', tenLop: 'Chồi 2', phHoTen: 'Trần Văn Hùng', phSdt: '0911.222-333' },
+    });
+    check('dấu chấm và dấu gạch cũng vậy', chamGach.data?.taiKhoan?.daCoTaiKhoan === true,
+      chamGach.data?.taiKhoan);
+    check('sau cả ba lượt vẫn đúng MỘT tài khoản cho nhà ấy',
+      doc(`SELECT id FROM users WHERE role = 'parent'
+             AND REPLACE(REPLACE(REPLACE(phone, ' ', ''), '.', ''), '-', '') = '0911222333'`).length === 1);
+
+    // ĐỐI CHỨNG — chỉ bỏ CÁCH TRÌNH BÀY, không gộp bừa hai số khác nhau.
+    const khac = await req('POST', '/api/admin/students', {
+      cookie: VP,
+      body: { hoTen: 'Lê Khác Nhà', tenLop: 'Chồi 2', phHoTen: 'Lê Thị Y', phSdt: '0911222334' },
+    });
+    check('số LỆCH MỘT CHỮ SỐ vẫn là một nhà khác, có mật khẩu riêng',
+      khac.data?.taiKhoan?.daCoTaiKhoan === false && !!khac.data?.taiKhoan?.matKhau,
+      khac.data?.taiKhoan);
+
+    // (2) PHIẾU PHẢI IN RA THỨ DUY NHẤT LỘ RA VIỆC GÕ NHẦM SỐ.
+    //
+    // Máy gộp phụ huynh theo số điện thoại, nên gõ nhầm một chữ số là nối bé
+    // vào tài khoản của nhà NGƯỜI KHÁC — nhà ấy mở app lên là thấy ảnh, nhật ký
+    // và hồ sơ sức khoẻ của một đứa trẻ không phải con mình. Dữ liệu trẻ dưới 6
+    // tuổi, thuộc nhóm nhạy cảm theo Nghị định 13/2023.
+    check('máy chủ trả về TÊN phụ huynh được nối vào',
+      cachDau.data?.taiKhoan?.phuHuynh === 'Trần Văn Hùng', cachDau.data?.taiKhoan?.phuHuynh);
+    check('và cả SỐ ĐIỆN THOẠI đang lưu của tài khoản ấy',
+      !!cachDau.data?.taiKhoan?.phuHuynhSdt, cachDau.data?.taiKhoan);
+
+    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8')
+      .split('\n').filter(d => !/^\s*(\/\/|<!--)/.test(d)).join('\n');
+    check('phiếu IN RA tên phụ huynh', /dongSoNgay\('Phụ huynh'/.test(v), 'admin.js');
+    check('và in cả số điện thoại của tài khoản được nối vào',
+      /tk\.phuHuynhSdt/.test(v), 'admin.js');
+    check('nhà đã có tài khoản thì phiếu nói thẳng, KHÔNG nhét câu ấy vào ô Mật khẩu',
+      /tk\.daCoTaiKhoan/.test(v), 'admin.js');
+
+    // (3) HỎI LẠI THEO MÃ LỖI, KHÔNG THEO CÂU CHỮ.
+    //
+    // Bản đầu dò chuỗi "đã có" để nhận ra cảnh báo 409, mà câu 400 của mã bé
+    // trùng — *mã của bé "A1" đã có trong hệ thống* — cũng mang đúng chữ ấy.
+    // Người dùng bấm Đồng ý, máy gửi lại y nguyên, máy chủ từ chối y nguyên:
+    // một cái vòng không có lối ra, và câu hỏi thì gợi ý rằng bấm Đồng ý sẽ
+    // xong việc.
+    // Lấy một mã CÓ THẬT trong sổ chứ không gõ bừa một chuỗi: mã bịa ra thì
+    // máy chủ nhận luôn, và phép kiểm bên dưới sẽ đo một tình huống không tồn tại.
+    const maCoThat = doc("SELECT code FROM students WHERE code IS NOT NULL AND code <> '' LIMIT 1")[0]?.code;
+    check('dựng được tình huống: lấy được một mã của bé đang có trong sổ', !!maCoThat, maCoThat);
+    const maTrung = await req('POST', '/api/admin/students', {
+      cookie: VP,
+      body: { hoTen: 'Nguyễn Mã Trùng', tenLop: 'Chồi 2', ma: maCoThat, phHoTen: 'Nguyễn Z', phSdt: '0955000111' },
+    });
+    check('mã của bé đã có thì máy trả 400 — sai thật, không phải cảnh báo',
+      maTrung.status === 400, `${maTrung.status} ${JSON.stringify(maTrung.data)}`);
+    check('đối chứng — câu 400 ấy CŨNG mang chữ "đã có", đúng chỗ cách dò cũ bắt nhầm',
+      /đã có/.test(maTrung.data?.error || ''), maTrung.data?.error);
+    check('màn hình nay hỏi lại theo MÃ LỖI 409, không dò chữ "đã có"',
+      /err\.status === 409/.test(v) && !/\/trùng tên\|đã có\//.test(v), 'admin.js');
+    check('và giữ một lưới đỡ theo câu chữ cho máy còn bản api.js đời cũ',
+      /\^Có vẻ bé này/.test(v), 'admin.js');
+    check('API gắn mã lỗi vào chính đối tượng lỗi',
+      /err\.status = res\.status/.test(fs.readFileSync(path.join(GOC, 'public/js/api.js'), 'utf8')),
+      'api.js');
+  }
+
 } finally {
   sv.dung();
   await new Promise(r => setTimeout(r, 300));

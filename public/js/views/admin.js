@@ -1052,16 +1052,29 @@ App.views.admin = {
       // PHIẾU TÀI KHOẢN HIỆN MỘT LẦN, y như đường nhập tệp. Tạo hồ sơ bé mà gia
       // đình không vào được app thì mới xong một nửa việc — và mật khẩu này
       // không xem lại được, nên phải nói rõ điều đó ngay trên phiếu.
+      // TÊN VÀ SỐ CỦA NHÀ ĐƯỢC NỐI VÀO PHẢI HIỆN RA TRÊN PHIẾU.
+      //
+      // Máy gộp phụ huynh theo số điện thoại, nên gõ nhầm một chữ số là nối bé
+      // vào tài khoản của nhà NGƯỜI KHÁC — nhà ấy mở app lên là thấy ảnh, ghi
+      // chép hằng ngày và hồ sơ sức khoẻ của một đứa trẻ không phải con mình.
+      // Phiếu bản đầu chỉ in tên đăng nhập và mật khẩu, tức giấu đi đúng thứ
+      // duy nhất lộ ra sự nhầm ấy ngay tại bàn tiếp đón.
       const tk = d.taiKhoan;
       UI.modal(`
         <div class="card"><div class="card-title">Đã nhận ${UI.esc(d.name)} vào nhóm ${UI.esc(tenLop)}</div></div>
         ${tk ? `
           <div class="card">
             <div class="card-title">Tài khoản của gia đình</div>
+            ${this.dongSoNgay('Phụ huynh', tk.phuHuynh || '—')}
+            ${tk.phuHuynhSdt ? this.dongSoNgay('Điện thoại', tk.phuHuynhSdt) : ''}
             ${this.dongSoNgay('Tên đăng nhập', tk.username)}
-            ${this.dongSoNgay('Mật khẩu', tk.matKhau)}
-            <div class="muted small mt-8">Mật khẩu chỉ hiện đúng lần này. Xin chép ra giấy
-              đưa gia đình; lần đăng nhập đầu app sẽ bắt đổi mật khẩu.</div>
+            ${tk.daCoTaiKhoan
+    ? `<div class="muted small mt-8">Nhà này <b>đã có tài khoản</b> ở trường từ trước, nên
+                 không có mật khẩu mới. Bé vừa nhận được nối thẳng vào tài khoản đó —
+                 xin đối chiếu tên và số điện thoại ở trên với gia đình trước khi rời bàn.</div>`
+    : `${this.dongSoNgay('Mật khẩu', tk.matKhau)}
+               <div class="muted small mt-8">Mật khẩu chỉ hiện đúng lần này. Xin chép ra giấy
+                 đưa gia đình; lần đăng nhập đầu app sẽ bắt đổi mật khẩu.</div>`}
           </div>` : ''}
         <button class="btn primary block mt-8" id="nb-xong">Xong</button>
       `, 'Đã nhận bé');
@@ -1079,7 +1092,15 @@ App.views.admin = {
       } catch (err) {
         // 409 = "có vẻ bé này đã có" — cảnh báo, không phải lỗi. Hỏi lại một câu
         // rồi cho nhận, y như đường nhập tệp cho phép "nhập cả dòng trùng".
-        if (/trùng tên|đã có/.test(err.message || '') && confirm(`${err.message}
+        //
+        // BẮT THEO MÃ LỖI, KHÔNG BẮT THEO CHỮ. Bản đầu dò chuỗi "đã có", mà câu
+        // 400 của mã bé trùng — *mã của bé "A1" đã có trong hệ thống* — cũng
+        // mang đúng chữ ấy. Người dùng bấm Đồng ý, máy gửi lại y nguyên, máy chủ
+        // từ chối y nguyên: một cái vòng không có lối ra, và câu hỏi thì gợi ý
+        // rằng bấm Đồng ý sẽ xong việc. `err.status` do `API` gắn thêm; câu chữ
+        // giữ lại làm lưới đỡ cho máy còn giữ bản `api.js` đời cũ trong bộ nhớ.
+        const hoiLaiDuoc = err.status === 409 || /^Có vẻ bé này/.test(err.message || '');
+        if (hoiLaiDuoc && confirm(`${err.message}
 
 Vẫn nhận bé này?`)) {
           try { await gui(true); } catch (e2) { UI.toast(e2.message, 'error'); }
@@ -1763,15 +1784,159 @@ Vẫn nhận bé này?`)) {
   // ---------- Nhật ký ----------
   async tabNhatKy(body) {
     const rows = await API.get('/api/admin/audit');
+    // MỌI DÒNG Ở ĐÂY PHẢI ĐỌC ĐƯỢC BẰNG TIẾNG VIỆT.
+    //
+    // Màn này là chỗ tra khi có khiếu nại về dữ liệu — đúng lúc người đọc đang
+    // căng thẳng và cần hiểu ngay. Bản đầu chỉ dịch 18 mã trong hơn một trăm mã
+    // đang được ghi, còn lại rơi thẳng ra màn hình dưới dạng `student-create`,
+    // `hocphi-uudai-dat`, `baocaohoctap-mo-khoa-o`. Đó đúng là thứ CLAUDE.md
+    // cấm: thuật ngữ kỹ thuật lọt ra màn hình của cô và của văn phòng.
+    //
+    // `test:goi-ten` canh cho bảng này phủ hết mã đang được ghi trong kho mã:
+    // thêm một `db.audit(...)` mới mà quên đặt tên tiếng Việt là bài đỏ.
     const TEN = {
-      login: 'Đăng nhập', 'change-password': 'Đổi mật khẩu', 'set-new-password': 'Đặt mật khẩu mới',
-      'reset-password': 'Cấp lại mật khẩu', 'leave-review': 'Duyệt đơn xin phép',
-      'notification-create': 'Tạo thông báo', 'album-delete': 'Xóa album',
-      'import-students': 'Nhập danh sách bé', 'class-create': 'Tạo nhóm',
-      'class-update': 'Sửa nhóm', 'teacher-create': 'Tạo tài khoản giáo viên',
-      'student-update': 'Sửa hồ sơ của bé', 'student-deactivate': 'Cho bé nghỉ học',
-      'admin-create': 'Tạo tài khoản quản trị', 'schoolyear-promote': 'Chuyển năm học',
-      'module-enable': 'Bật tính năng', 'module-disable': 'Tắt tính năng',
+      // Tài khoản và đăng nhập
+      login: 'Đăng nhập',
+      'change-password': 'Đổi mật khẩu',
+      'set-new-password': 'Đặt mật khẩu mới',
+      'reset-password': 'Cấp lại mật khẩu',
+      'teacher-create': 'Tạo tài khoản cho cô',
+      'admin-create': 'Tạo tài khoản quản trị',
+      'manager-campus': 'Đổi cơ sở phụ trách',
+      'manager-chuc-vu': 'Đổi chức vụ',
+      'push-doi-khoa': 'Thay khoá thông báo đẩy',
+      'push-go-may': 'Gỡ một máy khỏi thông báo đẩy',
+      'parent-cccd': 'Ghi căn cước phụ huynh',
+
+      // Bé, nhóm lớp, cơ sở
+      'student-create': 'Nhận một bé vào trường',
+      'student-update': 'Sửa hồ sơ của bé',
+      'student-deactivate': 'Cho bé nghỉ học',
+      'students-export': 'Xuất danh sách bé',
+      'import-students': 'Nhập danh sách bé',
+      'class-create': 'Tạo nhóm lớp',
+      'class-update': 'Sửa nhóm lớp',
+      'class-teachers-set': 'Phân công cô phụ trách',
+      'sua-quyen-chu-nhiem': 'Đổi cô phụ trách chính',
+      'class-campus': 'Xếp nhóm vào cơ sở',
+      'campus-create': 'Tạo cơ sở',
+      'campus-update': 'Sửa cơ sở',
+      'schoolyear-promote': 'Chuyển năm học',
+      'truong-lien-he': 'Sửa thông tin liên hệ của trường',
+      'module-enable': 'Bật tính năng',
+      'module-disable': 'Tắt tính năng',
+
+      // Đồng ý của gia đình, sức khoẻ
+      'consent-update': 'Ghi giấy đồng ý của gia đình',
+      'consent-rut-lai': 'Gia đình rút lại đồng ý',
+      'health-update': 'Ghi hồ sơ sức khoẻ',
+      'health-can-do-nhom': 'Cân đo cả nhóm',
+      'health-withdraw': 'Thu hồi ghi chép sức khoẻ',
+
+      // Điểm danh, xin phép, đón trả bé
+      'leave-review': 'Duyệt đơn xin phép',
+      'chot-vang': 'Chốt sổ vắng trong ngày',
+      'diemdanh-gio-ra-soat': 'Đổi mốc giờ rà soát điểm danh',
+      'anh-toi-lop': 'Chụp ảnh bé tới lớp',
+      'go-anh-toi-lop': 'Gỡ ảnh bé tới lớp',
+      'lich-nghi-them': 'Thêm ngày nghỉ của trường',
+      'lich-nghi-sua': 'Sửa ngày nghỉ của trường',
+      'lich-nghi-xoa': 'Xoá ngày nghỉ của trường',
+      'dontra-tra-be': 'Ghi đã trả bé',
+      'dontra-tra-bang-anh': 'Trả bé bằng ảnh',
+      'dontra-anh-tra': 'Chụp ảnh lúc trả bé',
+      'dontra-go-anh-tra': 'Gỡ ảnh lúc trả bé',
+      'dontra-them-nguoi': 'Thêm người được đón bé',
+      'dontra-sua-nguoi': 'Sửa người được đón bé',
+      'dontra-uy-quyen': 'Uỷ quyền đón bé một lần',
+      'dontra-huy-uy-quyen': 'Huỷ uỷ quyền đón bé',
+
+      // Thông báo, khảo sát, thực đơn, lịch sinh hoạt
+      'notification-create': 'Tạo thông báo',
+      'notification-update': 'Sửa thông báo',
+      'notification-withdraw': 'Thu hồi thông báo',
+      'survey-create': 'Tạo khảo sát',
+      'menu-update': 'Sửa thực đơn',
+      'menu-update-tuan': 'Sửa thực đơn cả tuần',
+      'menu-copy-week': 'Chép thực đơn tuần trước',
+      'menu-tep-them': 'Thêm tệp thực đơn',
+      'menu-tep-xoa': 'Xoá tệp thực đơn',
+      'timetable-update': 'Sửa lịch sinh hoạt',
+      'timetable-chep': 'Chép lịch sinh hoạt',
+      'plan-update': 'Sửa kế hoạch giáo dục',
+
+      // Ảnh và album
+      'album-delete': 'Xoá album',
+      'album-doi-che-do': 'Đổi chế độ xem album',
+      'photo-tag': 'Gắn tên bé vào ảnh',
+      'photo-tag-nhieu': 'Gắn tên bé vào nhiều ảnh',
+
+      // Ghi chép về bé
+      'nhatky-ghi': 'Ghi nhật ký ngày',
+      'nhatky-ghi-bua': 'Ghi nhật ký một bữa',
+      'remark-update': 'Ghi nhận xét',
+      'remark-withdraw': 'Thu hồi nhận xét',
+      'report-update': 'Ghi phiếu đánh giá',
+      'conduct-update': 'Ghi nền nếp',
+      'conduct-withdraw': 'Thu hồi ghi chép nền nếp',
+      'thuchup-sua-chu': 'Sửa lời ghi nhanh',
+      'thuchup-xoa': 'Xoá một bài ghi nhanh',
+
+      // Hành trình học tập
+      'hanhtrinh-quan-sat': 'Ghi một quan sát',
+      'hanhtrinh-suy-ngam': 'Ghi suy ngẫm của cô',
+      'hanhtrinh-cong-bo': 'Công bố câu chuyện cho gia đình',
+      'hanhtrinh-thu-hoi': 'Thu hồi câu chuyện đã công bố',
+      'hanhtrinh-xoa': 'Xoá một ghi chép hành trình',
+      'hanhtrinh-chu-de': 'Đặt chủ đề hành trình',
+      'hanhtrinh-chu-de-chep': 'Chép chủ đề hành trình',
+      'hanhtrinh-anh-ve-album': 'Đưa ảnh hành trình về album',
+
+      // Kế hoạch của bé và báo cáo học tập
+      'kehoachbe-luu': 'Lưu kế hoạch của bé',
+      'kehoachbe-gui-duyet': 'Gửi kế hoạch chờ duyệt',
+      'kehoachbe-duyet': 'Duyệt kế hoạch của bé',
+      'kehoachbe-rut-lai': 'Rút lại kế hoạch',
+      'kehoachbe-de-xuat': 'Đề xuất sửa kế hoạch',
+      'kehoachbe-duyet-de-xuat': 'Duyệt đề xuất sửa kế hoạch',
+      'kehoachbe-dat-ca-nhom': 'Đặt kế hoạch cho cả nhóm',
+      'kehoachbe-chep-thang': 'Chép kế hoạch tháng trước',
+      'kehoachbe-nhin-lai': 'Ghi nhìn lại cuối tháng',
+      'baocaohoctap-gui': 'Gửi báo cáo học tập chờ duyệt',
+      'baocaohoctap-duyet': 'Duyệt báo cáo học tập',
+      'baocaohoctap-tra-lai': 'Trả lại báo cáo cho cô',
+      'baocaohoctap-thu-hoi': 'Thu hồi báo cáo đã gửi',
+      'baocaohoctap-mo-ban': 'Mở lại một bản báo cáo',
+      'baocaohoctap-mo-khoa-o': 'Mở khoá một ô trong báo cáo',
+
+      // Cambridge
+      'cambridge-tao': 'Tạo bài Cambridge',
+      'cambridge-sua': 'Sửa bài Cambridge',
+      'cambridge-cong-bo': 'Công bố bài Cambridge',
+      'cambridge-thu-hoi': 'Thu hồi bài Cambridge',
+      'cambridge-block-tao': 'Tạo block Cambridge',
+      'cambridge-block-sua': 'Sửa block Cambridge',
+      'cambridge-tep-them': 'Thêm tệp Cambridge',
+      'cambridge-tep-xoa': 'Xoá tệp Cambridge',
+
+      // Học phí và tiền ăn
+      'hocphi-create': 'Ghi một khoản thu',
+      'hocphi-dot': 'Ghi sổ cho cả nhóm hoặc cả trường',
+      'hocphi-confirm': 'Xác nhận đã nhận tiền',
+      'hocphi-huy-xac-nhan': 'Huỷ xác nhận đã nhận tiền',
+      'hocphi-thu-hoi': 'Thu hồi một khoản thu',
+      'hocphi-uudai-dat': 'Đặt ưu đãi học phí',
+      'hocphi-uudai-go': 'Gỡ ưu đãi học phí',
+      'tienan-chot': 'Chốt bảng tiền ăn',
+      'tienan-xuat': 'Xuất bảng tiền ăn',
+
+      // Nhân sự và chấm công
+      'nhansu-sua-ho-so': 'Sửa hồ sơ nhân sự',
+      'nhansu-xem-ho-so': 'Xem hồ sơ nhân sự',
+      'nhansu-cham-cong': 'Chấm công',
+      'nhansu-cham-ca-truong': 'Chấm công cả trường',
+      'nhansu-xoa-cong': 'Xoá một dòng chấm công',
+      'nhansu-xuat-cong': 'Xuất bảng chấm công',
     };
     body.innerHTML = rows.length ? `
       <div class="card">

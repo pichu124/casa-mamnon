@@ -246,7 +246,14 @@ App.views.hocphi = {
                 </div>
                 <div class="row-end">${b.chuaNop
     ? `<b>${UI.esc(tien(b.tienChuaNop))}</b>`
-    : UI.badge('Đủ', 'green')}</div>
+    // "ĐỦ" LÀ MỘT LỜI KHẲNG ĐỊNH, KHÔNG PHẢI Ô TRỐNG TÔ XANH.
+    //
+    // Bé chưa hề được ghi một khoản nào cũng rơi vào nhánh "không còn nợ" và
+    // nhận đúng cái huy hiệu xanh như bé đã nộp đủ. Ở một bảng tiền thì đó là
+    // chỗ nguy nhất: bé bị sót khỏi đợt ghi sổ trông y hệt bé đã nộp xong, và
+    // người soát bảng lướt qua đúng dòng cần dừng lại.
+    : b.daNop ? UI.badge('Đủ', 'green')
+      : '<span class="muted small">Chưa ghi khoản nào</span>'}</div>
               </div>`).join('') : '<div class="muted small">Chưa có bé nào đang học trong nhóm này</div>'}`).join('')}
         </div>`).join('')
     : UI.emptyState('💳', 'Chưa có nhóm lớp nào trong phạm vi của tài khoản')}
@@ -304,11 +311,13 @@ App.views.hocphi = {
               <div class="row-main">
                 <div class="row-title">${UI.esc(u.ten)}</div>
                 <div class="row-sub">${UI.esc(this.mucUuDai(u))}${
+    u.tuNgay ? ` · từ ${UI.esc(UI.fmtDateShort(u.tuNgay))}` : ''}${
     u.denNgay ? ` · đến ${UI.esc(UI.fmtDateShort(u.denNgay))}` : ' · không đặt hạn'}</div>
               </div>
               <div class="row-end">
-                ${u.hetHan ? UI.badge('Đã quá hạn', 'orange')
-    : u.sapHetHan ? UI.badge('Sắp hết hạn', 'orange') : ''}
+                ${u.chuaHieuLuc ? UI.badge('Chưa tới ngày áp dụng', 'gray')
+    : u.hetHan ? UI.badge('Đã quá hạn', 'orange')
+      : u.sapHetHan ? UI.badge('Sắp hết hạn', 'orange') : ''}
                 ${d.datDuoc ? `<button class="btn sm outline mt-8" data-go-uu="${UI.esc(u.id)}">Gỡ</button>` : ''}
               </div>
             </div>`).join('')}
