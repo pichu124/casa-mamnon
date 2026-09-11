@@ -3,9 +3,12 @@
 // Nhận sẵn `db` qua tham số thứ hai nên không cần biết ứng dụng đặt tệp dữ liệu
 // ở đâu. Mọi hàm kiểm tra quyền dùng chung với phần lõi, nhờ vậy phân hệ mới
 // không thể vô tình để lộ dữ liệu của học sinh lớp khác.
-module.exports = (app, { db }) => {
+module.exports = (app, { db, modules }) => {
   const ngay = require('../../lib/ngay');
   const { requireRole } = require('../../lib/auth');
+  const henGio = require('../../lib/hen-gio');
+  const huyHieu = require('../../lib/huy-hieu');
+  const baoNhaTruong = require('../../lib/bao-nha-truong');
 
   // AI ĐƯỢC ĐẶT RA MỘT KHOẢN TIỀN PHẢI NỘP (Đ163).
   //
@@ -328,6 +331,182 @@ module.exports = (app, { db }) => {
     });
   });
 
+  // ===========================================================================
+  // ƯU ĐÃI HỌC PHÍ, VÀ NHẮC TRƯỚC KHI HẠN TỚI (Đ169, ý 4 của trường)
+  // ===========================================================================
+  //
+  // MÁY KHÔNG TỰ TRỪ TIỀN — đây là quyết định lớn nhất của cả mục này. Bảng ưu
+  // đãi là chỗ THEO DÕI và NHẮC HẠN, không phải một công thức tính tự động.
+  // Cùng lập luận đã chốt ở DD-13 (bảng tháng ĐÁNH DẤU ngày bé vẫn đi học
+  // trong đơn hoàn, cố ý không tự trừ): tự trừ thì một dòng khai sai là sai
+  // tiền của một nhà mà không ai đối chiếu ra, và kế toán mất đúng chỗ để nhìn
+  // thấy con số trước khi nó thành hoá đơn.
+  //
+  // GIA ĐÌNH CHƯA ĐƯỢC XEM trong đợt này. Một ưu đãi có thể mang hoàn cảnh của
+  // nhà ("con hộ nghèo", "thoả thuận riêng") — quyết định ai đọc được nó là
+  // của nhà trường chứ không phải của người viết mã, nên mặc định đóng và đã
+  // ghi thành câu hỏi trong sổ. Mở ra về sau là thêm một đường; đóng lại sau
+  // khi đã mở là thu hồi một thứ gia đình đã nhìn thấy.
+  const HAN_NHAC_TRUOC_NGAY = 14;
+
+  // Cộng thêm n ngày vào một chuỗi YYYY-MM-DD.
+  //
+  // Tự tính chứ không mượn `lib/ngay.js`: tệp ấy KHÔNG có hàm cộng ngày, và
+  // bản đầu của mã này viết `ngay.congNgay ? ... : null` — nghĩa là mốc "sắp
+  // hết hạn" luôn rỗng và cả vế nhắc hạn chết lặng mà không ai biết. Đúng hạng
+  // lỗi `test:khong-hua-suong` sinh ra để chặn: màn hình hứa một việc, mã
+  // không bao giờ làm.
+  //
+  // Cộng bằng mốc UTC của đúng ngày ấy nên không lệch khi qua tháng hay năm.
+  function congNgay(yyyymmdd, n) {
+    const t = Date.parse(`${yyyymmdd}T00:00:00Z`);
+    if (!Number.isFinite(t)) return null;
+    return new Date(t + n * 86400000).toISOString().slice(0, 10);
+  }
+
+  function dangDung(u) {
+    return !db.first('hocphi_uudai_go', 'SELECT uuDaiId FROM hocphi_uudai_go WHERE uuDaiId = ?', [u.id]);
+  }
+
+  // Ưu đãi của một bé.
+  app.get('/api/hocphi/uu-dai', requireRole('admin'), (req, res) => {
+    const studentId = String(req.query.studentId || '');
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
+    }
+    const ds = db.all('hocphi_uudai',
+      `SELECT * FROM hocphi_uudai WHERE studentId = ?
+         AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)
+       ORDER BY rowid DESC`, [studentId]);
+    res.json({ uuDai: ds, datDuoc: db.taoKhoanThuDuoc(req.user) });
+  });
+
+  // Đặt một ưu đãi. Cùng chốt chặn với việc đặt ra khoản thu: đây cũng là một
+  // quyết định về số tiền một nhà phải nộp, chỉ khác dấu.
+  app.post('/api/hocphi/uu-dai', requireRole('admin'), (req, res) => {
+    if (chiNguoiLoTien(req, res)) return;
+    const b = req.body || {};
+    const studentId = String(b.studentId || '');
+    if (!db.findStudent(studentId)) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
+    }
+    const ten = String(b.ten || '').trim().slice(0, 120);
+    if (!ten) return res.status(400).json({ error: 'Vui lòng đặt tên cho ưu đãi, ví dụ: Ưu đãi nhà có hai bé cùng học' });
+    const kieu = String(b.kieu || '').trim();
+    if (!['so-tien', 'phan-tram'].includes(kieu)) {
+      return res.status(400).json({ error: 'Chưa chọn mức ưu đãi ghi bằng số tiền hay phần trăm' });
+    }
+    const giaTri = Number(b.giaTri);
+    if (!Number.isFinite(giaTri) || giaTri <= 0) {
+      return res.status(400).json({ error: 'Mức ưu đãi phải lớn hơn 0' });
+    }
+    // Trần của kiểu phần trăm: quá 100 là miễn hơn cả số tiền phải nộp, gần
+    // như luôn là gõ nhầm (gõ 1000 thay vì 100).
+    if (kieu === 'phan-tram' && giaTri > 100) {
+      return res.status(400).json({ error: 'Mức ưu đãi theo phần trăm không quá 100' });
+    }
+    const ngayHopLe = (x) => !x || /^\d{4}-\d{2}-\d{2}$/.test(String(x));
+    if (!ngayHopLe(b.tuNgay) || !ngayHopLe(b.denNgay)) {
+      return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-09-11' });
+    }
+    if (b.tuNgay && b.denNgay && String(b.denNgay) < String(b.tuNgay)) {
+      return res.status(400).json({ error: 'Ngày hết hạn không được trước ngày bắt đầu' });
+    }
+
+    const rec = {
+      id: db.nextId('hpu'),
+      studentId,
+      ten,
+      kieu,
+      giaTri: Math.round(giaTri),
+      tuNgay: b.tuNgay || null,
+      denNgay: b.denNgay || null,
+      ghiChu: String(b.ghiChu || '').trim().slice(0, 300),
+      daNhacLuc: null,
+      taoBoi: req.user.id,
+      taoLuc: new Date().toISOString(),
+    };
+    db.insert('hocphi_uudai', rec);
+    db.audit(req.user.id, 'hocphi-uudai-dat', rec.id, { studentId, kieu, giaTri: rec.giaTri });
+    res.status(201).json(rec);
+  });
+
+  // GỠ một ưu đãi — ngưng dùng chứ không xoá, và bắt buộc ghi lý do.
+  app.post('/api/hocphi/uu-dai/:id/go', requireRole('admin'), (req, res) => {
+    if (chiNguoiLoTien(req, res)) return;
+    const u = db.first('hocphi_uudai', 'SELECT * FROM hocphi_uudai WHERE id = ?', [req.params.id]);
+    if (!u) return res.status(404).json({ error: 'Không tìm thấy ưu đãi này' });
+    if (!db.canAccessStudent(req.user, u.studentId)) {
+      return res.status(403).json({ error: 'Ưu đãi này nằm ngoài phạm vi của tài khoản' });
+    }
+    if (!dangDung(u)) return res.status(400).json({ error: 'Ưu đãi này đã được gỡ trước đó' });
+    const lyDo = String((req.body || {}).lyDo || '').trim().slice(0, 300);
+    if (!lyDo) return res.status(400).json({ error: 'Ghi giúp trường một dòng vì sao gỡ ưu đãi này' });
+
+    db.insert('hocphi_uudai_go', {
+      uuDaiId: u.id, lyDo, boiUserId: req.user.id, luc: new Date().toISOString(),
+    });
+    db.audit(req.user.id, 'hocphi-uudai-go', u.id, { studentId: u.studentId, lyDo });
+    res.json({ ok: true });
+  });
+
+  // BẢNG THEO DÕI ƯU ĐÃI của mọi bé trong phạm vi.
+  //
+  // XẾP THEO TÊN BÉ, không theo mức ưu đãi. Xếp theo mức là sắp các bé trên
+  // dưới nhau theo hoàn cảnh của cha mẹ chúng — đúng thứ QUY TẮC 4 cấm, và là
+  // tiền lệ đã chốt ở bảng tháng của Báo ăn và ở bảng sổ tiền của Đ163.
+  app.get('/api/hocphi/uu-dai/bang', requireRole('admin'), (req, res) => {
+    const nhom = nhomCuaToi(req.user);
+    const be = [];
+    for (const lop of nhom) {
+      for (const s of beCuaNhom(lop.id)) {
+        if (db.canAccessStudent(req.user, s.id)) be.push({ ...s, tenNhom: lop.name });
+      }
+    }
+    const ids = be.map(s => s.id);
+    const theoBe = new Map();
+    for (let i = 0; i < ids.length; i += 400) {
+      const lo = ids.slice(i, i + 400);
+      const m = lo.map(() => '?').join(',');
+      for (const u of db.all('hocphi_uudai',
+        `SELECT * FROM hocphi_uudai WHERE studentId IN (${m})
+           AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)`, lo)) {
+        if (!theoBe.has(u.studentId)) theoBe.set(u.studentId, []);
+        theoBe.get(u.studentId).push(u);
+      }
+    }
+
+    const homNay = ngay.homNay();
+    const sapHet = congNgay(homNay, HAN_NHAC_TRUOC_NGAY);
+    const dong = be
+      .filter(s => (theoBe.get(s.id) || []).length)
+      .map(s => ({
+        studentId: s.id,
+        tenBe: s.name,
+        tenNhom: s.tenNhom,
+        uuDai: (theoBe.get(s.id) || []).map(u => ({
+          id: u.id,
+          ten: u.ten,
+          kieu: u.kieu,
+          giaTri: u.giaTri,
+          tuNgay: u.tuNgay,
+          denNgay: u.denNgay,
+          hetHan: !!(u.denNgay && u.denNgay < homNay),
+          sapHetHan: !!(u.denNgay && u.denNgay >= homNay && sapHet && u.denNgay <= sapHet),
+        })),
+      }))
+      .sort((a, b) => String(a.tenBe).localeCompare(String(b.tenBe), 'vi'));
+
+    res.json({
+      homNay,
+      nhacTruocNgay: HAN_NHAC_TRUOC_NGAY,
+      bang: dong,
+      datDuoc: db.taoKhoanThuDuoc(req.user),
+    });
+  });
+
   // Xác nhận đã nhận tiền — cùng một lý do như trên, và nặng hơn: đây là chỗ
   // biến "nhà này còn nợ" thành "nhà này đã nộp".
   app.post('/api/hocphi/:id/xac-nhan', requireRole('admin'), (req, res) => {
@@ -383,6 +562,90 @@ module.exports = (app, { db }) => {
     });
     db.audit(req.user.id, 'hocphi-thu-hoi', k.id, { studentId: k.studentId, soTien: k.soTien, lyDo });
     res.json({ ok: true, khoanId: k.id });
+  });
+
+  // ===========================================================================
+  // NHẮC TRƯỚC KHI ƯU ĐÃI HẾT HẠN (Đ169)
+  // ===========================================================================
+  //
+  // Nhà trường xin *"nhắc báo hạn ưu đãi"*. Hai dấu hiệu, cố ý khác nhau:
+  //
+  //   HUY HIỆU trên lưới ô vuông — dấu vết BỀN. Nó còn đó tới khi có người xử
+  //   lý, nên người vắng hôm nhắc vẫn thấy khi quay lại.
+  //   TIN ĐẨY — dấu hiệu NGAY, gửi một lần cho quản lý của bé.
+  //
+  // Cùng cặp mà Đ154 đã chốt cho quy trình duyệt báo cáo.
+  //
+  // KHÔNG NHẮC HAI LẦN CHO CÙNG MỘT ƯU ĐÃI: cột `daNhacLuc` là chốt chặn, vì
+  // đồng hồ chạy 15 phút một lượt và một tin tiền nong lặp lại bốn lần mỗi giờ
+  // là cách nhanh nhất để người ta tắt hẳn thông báo.
+  //
+  // VÀ KHÔNG CHỈ SỐNG NHỜ ĐỒNG HỒ. `HEN_GIO_PHUT=0` tắt hẳn đồng hồ (dành cho
+  // máy chạy nhiều bản song song), nên bảng theo dõi vẫn tự đánh dấu "sắp hết
+  // hạn" và "đã hết hạn" mỗi lần có người mở — nhắc bằng đồng hồ là lớp thêm,
+  // không phải lớp duy nhất.
+  // TẮT PHÂN HỆ THÌ ĐỒNG HỒ CŨNG PHẢI IM.
+  //
+  // Việc định giờ được đăng ký lúc nạp phân hệ và ở lại trong đồng hồ; nhà
+  // trường tắt Học phí xong mà tin nhắc hạn ưu đãi vẫn đẩy về điện thoại quản
+  // lý thì công tắc kia coi như không có tác dụng — cùng chỗ hở mà Đ154 đã vá
+  // cho Báo cáo học tập.
+  //
+  // MẶC ĐỊNH ĐÓNG khi không biết (`modules` không được truyền vào), ngược với
+  // Báo ăn — ở đó đóng nhầm là bếp nấu thiếu suất, còn ở đây gửi nhầm là một
+  // tin về tiền đi tới người không chờ nó, mà tin đã gửi thì không rút lại được.
+  function phanHeDangBat() {
+    return !!(modules && typeof modules.dangBat === 'function' && modules.dangBat('hocphi'));
+  }
+
+  function quetHanUuDai() {
+    if (!phanHeDangBat()) return;
+    const homNay = ngay.homNay();
+    const moc = congNgay(homNay, HAN_NHAC_TRUOC_NGAY);
+    if (!moc) return;
+    const ds = db.all('hocphi_uudai',
+      `SELECT * FROM hocphi_uudai
+        WHERE denNgay IS NOT NULL AND denNgay >= ? AND denNgay <= ?
+          AND daNhacLuc IS NULL
+          AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)
+        LIMIT 200`, [homNay, moc]);
+    for (const u of ds) {
+      try {
+        const be = db.findStudent(u.studentId);
+        if (!be) continue;
+        baoNhaTruong.guiChoQuanLyCuaBe(u.studentId, {
+          tieuDe: 'Ưu đãi học phí sắp hết hạn',
+          noiDung: `${be.name}: ${u.ten} hết hạn ngày ${u.denNgay}. `
+            + 'Nhà trường xem lại để gia hạn hoặc gỡ.',
+          hash: '#/hocphi',
+        });
+        db.update('hocphi_uudai', u.id, { daNhacLuc: new Date().toISOString() });
+      } catch (err) {
+        console.error(`[hocphi] không nhắc được hạn ưu đãi ${u.id}: ${err.message}`);
+      }
+    }
+  }
+  henGio.dangKy('hocphi:han-uu-dai', quetHanUuDai);
+
+  // Huy hiệu: đếm số ưu đãi sắp hết hạn hoặc đã quá hạn trong phạm vi người
+  // xem. Đếm cho người LO TIỀN — cô không có ô Học phí nên không bao giờ nhận.
+  huyHieu.dangKy('hocphi', (user) => {
+    if (!user || user.role !== 'admin') return 0;
+    const ids = db.studentsOf(user).map(s => s.id);
+    if (!ids.length) return 0;
+    const homNay = ngay.homNay();
+    const moc = congNgay(homNay, HAN_NHAC_TRUOC_NGAY);
+    let dem = 0;
+    for (let i = 0; i < ids.length; i += 400) {
+      const lo = ids.slice(i, i + 400);
+      const m = lo.map(() => '?').join(',');
+      const r = db.first('hocphi_uudai',
+        `SELECT COUNT(*) AS n FROM hocphi_uudai
+          WHERE studentId IN (${m}) AND denNgay IS NOT NULL AND denNgay <= ?
+            AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)`, [...lo, moc]);
+      dem += Number((r || {}).n || 0);
+    }
+    return dem;
   });
 
   // HUỶ XÁC NHẬN "ĐÃ NỘP" BẤM NHẦM — khoản quay về "chưa nộp", có vết đầy đủ.

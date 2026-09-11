@@ -112,6 +112,20 @@ const DAU_HIEU = [
 // dạng: mỗi ngoại lệ phải nói rõ nó chừa ĐÚNG DÒNG NÀO.
 const NGOAI_LE = [
   {
+    tep: 'modules/hocphi/view.js',
+    vi_sao: 'Mức ƯU ĐÃI HỌC PHÍ ghi được cả bằng số tiền lẫn bằng phần trăm (Đ169). '
+      + 'Phần trăm ở đây là tỉ lệ giảm của một khoản TIỀN NGƯỜI LỚN NỘP — không phải '
+      + 'một con số về đứa trẻ, không so bé này với bé kia, không sinh ra thứ tự nào '
+      + 'giữa các bé (bảng ưu đãi xếp theo TÊN, và bài canh của nó chốt điều đó). '
+      + 'QUY TẮC 4 giữ cho trẻ không bị sắp trên dưới nhau, không cấm nói về tiền.\n'
+      + 'CHỦ DỰ ÁN ĐÃ DUYỆT 11/09: được hỏi mức ưu đãi nên ghi bằng số tiền hay phần '
+      + 'trăm — kèm cảnh báo rằng chọn phần trăm là phải xin đúng dòng ngoại lệ này — '
+      + 'và chọn "cả hai, trường chọn từng ưu đãi".',
+    // Chừa ĐÚNG MỘT DÒNG: dòng in ra mức giảm theo phần trăm. Mọi dòng khác
+    // của tệp này vẫn bị soi như thường — kể cả chú thích.
+    chiDong: (dong) => /giảm \$\{Number\(u\.giaTri\)\}%/.test(dong),
+  },
+  {
     tep: 'public/js/views/surveys.js',
     vi_sao: 'Phần trăm ở đây là tỉ lệ PHỤ HUYNH chọn mỗi phương án trong khảo sát — '
       + 'không phải con số về một đứa trẻ. QUY TẮC 4 cấm xếp hạng TRẺ, không cấm '

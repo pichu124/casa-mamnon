@@ -325,18 +325,22 @@ App.views.admin = {
         <div class="card-title">Danh sách nhóm lớp<span class="spacer"></span>
           <button class="btn sm primary" onclick="App.views.admin.themLop()">+ Thêm nhóm</button>
         </div>
-        ${d.classes.length ? d.classes.map(c => `
-          <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
-            <div class="row-main">
-              <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có cô phụ trách', 'red')}`}</div>
-              <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công cô')} · ${c.studentCount} bé${
-              c.campusId ? ' · ' + UI.esc((d.campuses.find(x => x.id === c.campusId) || {}).name || '') : ''}${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
-            </div>
-            <div class="row-end" style="display:flex;gap:8px">
-              <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
-              <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem</button>
-            </div>
-          </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
+        ${d.classes.length
+    ? this.nhomTheoCoSo(d).map(cs => `
+          ${cs.tieuDe ? `<div class="row-title mt-8" style="color:var(--muted)">${UI.esc(cs.ten)}</div>` : ''}
+          ${cs.nhom.map(c => `
+            <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
+              <div class="row-main">
+                <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có cô phụ trách', 'red')}`}</div>
+                <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công cô')} · ${c.studentCount} bé${
+    c.room ? ' · ' + UI.esc(c.room) : ''}</div>
+              </div>
+              <div class="row-end" style="display:flex;gap:8px">
+                <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
+                <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem</button>
+              </div>
+            </div>`).join('')}`).join('')
+    : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>
 
       <div id="ad-ho-so"></div>
@@ -344,6 +348,38 @@ App.views.admin = {
 
     this.veHoSoChuaDu();
     this.veThongBaoDay();
+  },
+
+  // GOM DANH SÁCH NHÓM LỚP THEO CƠ SỞ (Đ167 — ý (4) mảng Hồ sơ bé).
+  //
+  // Nhà trường xin bố cục duyệt theo Cơ sở → Lớp → Bé. Đo lại thì CÂY ẤY ĐÃ CÓ
+  // từ Đ124, ở trang chủ của văn phòng, đi tới tận hồ sơ từng bé; màn Hồ sơ bé
+  // cũng đã có ô chọn gom theo "Cơ sở › Nhóm". Thứ còn phẳng chỉ là thẻ này:
+  // tên cơ sở đứng lẫn trong dòng phụ, cùng hàng với tên cô và số phòng, nên
+  // hiệu trưởng trường ba cơ sở phải đọc từng dòng mới biết nhóm nào ở đâu.
+  //
+  // Nên đây là GOM TIÊU ĐỀ, không dựng cây thứ hai. Dựng cây thứ hai là hai
+  // chỗ cùng làm một việc, và chúng sẽ trôi khỏi nhau ở lần sửa thứ hai.
+  //
+  // MỘT CƠ SỞ THÌ KHÔNG HIỆN TIÊU ĐỀ NÀO. Trường chưa khai cơ sở, hoặc quản lý
+  // Cấp 3 chỉ nhìn được cơ sở mình, thì một dòng tiêu đề lặp lại trên mỗi nhóm
+  // là chữ thừa. Cũng vì vậy màn này KHÔNG lộ thêm quy mô cơ sở khác: nó chỉ
+  // xếp lại đúng những nhóm máy chủ đã gửi, không hỏi thêm gì.
+  //
+  // Xếp theo TÊN cơ sở rồi tên nhóm — không xếp theo sĩ số, cùng luật QUY TẮC 4
+  // mà Đ162 đã chốt cho bảng chia theo cơ sở.
+  nhomTheoCoSo(d) {
+    const ten = new Map((d.campuses || []).map(c => [c.id, c.name]));
+    const gom = new Map();
+    for (const c of d.classes) {
+      const k = c.campusId || '';
+      if (!gom.has(k)) gom.set(k, { id: k, ten: ten.get(k) || 'Chưa xếp cơ sở', nhom: [] });
+      gom.get(k).nhom.push(c);
+    }
+    const ds = [...gom.values()].sort((a, b) => String(a.ten).localeCompare(String(b.ten), 'vi'));
+    for (const cs of ds) cs.nhom.sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
+    const nhieuCoSo = ds.length > 1;
+    return ds.map(cs => ({ ...cs, tieuDe: nhieuCoSo }));
   },
 
   // ---- Hồ sơ bé còn thiếu giấy tờ người lớn (Đ161) ----

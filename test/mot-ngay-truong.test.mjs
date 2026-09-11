@@ -191,6 +191,56 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[5b] Thẻ "Danh sách nhóm lớp" gom theo cơ sở (Đ167)');
+  {
+    // Ý (4) mảng Hồ sơ bé: bố cục duyệt theo Cơ sở → Lớp → Bé. Cây ba tầng ĐÃ
+    // CÓ từ Đ124 ở trang chủ văn phòng; thứ còn phẳng là thẻ này ở màn Quản
+    // trị, nơi tên cơ sở đứng lẫn trong dòng phụ cùng hàng với tên cô.
+    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+    const ma = v.split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+    check('có hàm gom nhóm theo cơ sở', /nhomTheoCoSo\(d\) \{/.test(ma), 'admin.js');
+    check('thẻ danh sách nhóm lớp dùng hàm ấy', /this\.nhomTheoCoSo\(d\)\.map/.test(ma), 'admin.js');
+    check('và THÔI nối tên cơ sở vào dòng phụ của từng nhóm',
+      !/c\.campusId \? ' · ' \+ UI\.esc/.test(ma), 'admin.js');
+
+    // Chạy CHÍNH hàm ấy trên dữ liệu dựng tay, để đo HÀNH VI chứ không chỉ soi
+    // hình dạng mã — soi mã thì đổi tên biến là bài xanh mà màn hình đã hỏng.
+    //
+    // Cắt đúng thân hàm bằng hai mốc, không đếm ký tự: đếm tay là tự gài bẫy.
+    const dau = ma.indexOf('nhomTheoCoSo(d) {');
+    const cuoi = ma.indexOf('\n  },', dau);
+    check('cắt được đúng thân hàm ra để chạy thử', dau > 0 && cuoi > dau, { dau, cuoi });
+    const than = ma.slice(dau, cuoi + 4);
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('UI', `return function ${than}`)({ esc: (x) => x });
+    const raBa = fn({
+      campuses: [{ id: 'b', name: 'Cơ sở B' }, { id: 'a', name: 'Cơ sở A' }],
+      classes: [
+        { id: 'x', name: 'Lá 1', campusId: 'b' },
+        { id: 'y', name: 'Chồi 2', campusId: 'a' },
+        { id: 'z', name: 'Ánh Dương', campusId: 'a' },
+      ],
+    });
+    check('gom đúng thành hai cơ sở', raBa.length === 2, raBa.map(x => x.ten));
+    check('cơ sở xếp theo TÊN', raBa[0].ten === 'Cơ sở A', raBa.map(x => x.ten));
+    check('nhóm trong mỗi cơ sở cũng xếp theo tên tiếng Việt',
+      JSON.stringify(raBa[0].nhom.map(n => n.name)) === JSON.stringify(['Ánh Dương', 'Chồi 2']),
+      raBa[0].nhom.map(n => n.name));
+    check('NHIỀU cơ sở thì có hiện tiêu đề', raBa.every(x => x.tieuDe === true), raBa.map(x => x.tieuDe));
+
+    const raMot = fn({
+      campuses: [{ id: 'a', name: 'Cơ sở A' }],
+      classes: [{ id: 'x', name: 'Lá 1', campusId: 'a' }],
+    });
+    check('MỘT cơ sở thì KHÔNG hiện tiêu đề nào — chữ thừa',
+      raMot.length === 1 && raMot[0].tieuDe === false, raMot.map(x => x.tieuDe));
+
+    const raTrong = fn({ campuses: [], classes: [{ id: 'x', name: 'Lá 1', campusId: null }] });
+    check('trường chưa khai cơ sở thì vẫn gom được, không rơi mất nhóm nào',
+      raTrong.length === 1 && raTrong[0].nhom.length === 1, raTrong);
+  }
+
+  // =========================================================================
   console.log('\n[6] Ngày trường nghỉ thì nói ra, không để hiệu trưởng đọc nhầm');
   {
     const tao = await req('POST', '/api/leave/lich-nghi', { cookie: QT, body: {

@@ -191,13 +191,15 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   // Phép kiểm thật cho màn hình nằm ở `test/bien-soan-phan-he.test.mjs` mục
   // [8]: đăng nhập bằng tài khoản cô trên trình duyệt thật rồi ĐẾM nút.
   const routes = fs.readFileSync(path.join(GOC, 'modules', 'hocphi', 'routes.js'), 'utf8');
-  // BẢN KIỂM KÊ, cập nhật ở Đ163: 4 → 6.
+  // BẢN KIỂM KÊ, cập nhật ở Đ163 (4 → 6) rồi ở Đ169 (6 → 10).
   //
   // Bốn đường cũ: tạo khoản, xác nhận đã nộp, thu hồi khoản tạo nhầm, huỷ xác
   // nhận nhầm (hai đường sau thêm ở Đ118 — sửa sổ tiền càng phải là việc của
   // văn phòng). Đ163 thêm hai: ghi sổ hàng loạt cho cả nhóm, và bảng sổ tiền
-  // nhìn nhiều bé. Cả hai đều đòi vai, và đường ghi hàng loạt còn đòi thêm
-  // `db.taoKhoanThuDuoc` bên trong.
+  // nhìn nhiều bé. Đ169 thêm bốn đường ưu đãi: xem của một bé, đặt, gỡ, và
+  // bảng theo dõi. Mọi đường đều đòi vai, và bốn đường QUYẾT ĐỊNH VỀ TIỀN (ghi
+  // sổ một bé, ghi sổ hàng loạt, đặt ưu đãi, gỡ ưu đãi) còn đòi thêm
+  // `db.taoKhoanThuDuoc`.
   //
   // CHỖ YẾU CỦA CHÍNH PHÉP ĐẾM NÀY, ghi lại để người sau biết: đếm số lần
   // `requireRole` xuất hiện thì chỉ đỏ khi ai đó thêm một đường CÓ chốt chặn —
@@ -205,8 +207,8 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   // không đổi và bài này vẫn xanh, mà đó mới là trường hợp nguy hiểm. Phép
   // kiểm đúng chiều nằm ở `test/hoc-phi-ghi-so.test.mjs` mục [8]: nó soi TỪNG
   // đường ghi trong tệp và đòi mỗi đường phải có chốt chặn, kèm phép thử ngược.
-  check('cả sáu đường của phân hệ đều đòi vai văn phòng',
-    (routes.match(/requireRole\('admin'\)/g) || []).length === 6,
+  check('cả mười đường của phân hệ đều đòi vai văn phòng',
+    (routes.match(/requireRole\('admin'\)/g) || []).length === 10,
     (routes.match(/requireRole\([^)]*\)/g) || []));
   check('KHÔNG còn đường ghi nào mở cho vai cô',
     !/requireRole\('teacher'/.test(routes));

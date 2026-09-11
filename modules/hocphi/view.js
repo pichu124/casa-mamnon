@@ -51,6 +51,7 @@ App.views.hocphi = {
           <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn sm outline" id="hp-bang">Xem cả trường</button>
             <button class="btn sm outline" id="hp-dot">Ghi sổ cho cả nhóm</button>
+            <button class="btn sm outline" id="hp-uudai">Ưu đãi</button>
           </div>
           <div class="muted small mt-8">
             Ghi sổ cho cả nhóm tạo cùng một khoản cho mọi bé đang học trong nhóm hoặc cơ sở
@@ -95,6 +96,8 @@ App.views.hocphi = {
     if (bBang) bBang.onclick = () => this.moBang();
     const bDot = document.getElementById('hp-dot');
     if (bDot) bDot.onclick = () => this.moGhiSoCaNhom();
+    const bUu = document.getElementById('hp-uudai');
+    if (bUu) bUu.onclick = () => this.moUuDai();
     const sel = document.getElementById('hp-hs');
     if (sel) sel.onchange = () => { this._sid = sel.value; App.route(); };
   },
@@ -249,6 +252,129 @@ App.views.hocphi = {
 
     const o = document.getElementById('hpb-ky');
     if (o) o.onchange = () => { UI.closeModal(); this.moBang(o.value); };
+  },
+
+  // ---------- Bảng theo dõi ưu đãi và hạn của nó (Đ169) ----------
+  //
+  // MÁY KHÔNG TỰ TRỪ TIỀN. Bảng này để nhìn và để nhắc, không phải công thức
+  // tính — cùng lập luận đã chốt ở DD-13. Màn hình nói thẳng câu ấy ra, vì một
+  // bảng ưu đãi trông như đã trừ sẵn là chỗ kế toán thôi đối chiếu.
+  //
+  // XẾP THEO TÊN BÉ, không theo mức ưu đãi: máy chủ đã xếp sẵn và ở đây giữ
+  // nguyên thứ tự ấy (QUY TẮC 4).
+  mucUuDai(u) {
+    // Mức ghi được cả hai kiểu — chủ dự án chốt 11/09. Kiểu phần trăm in ra
+    // đúng dấu %, và `test:quy-tac-4` có một dòng ngoại lệ nói rõ vì sao: đây
+    // là phần trăm của một khoản TIỀN người lớn nộp, không phải một con số về
+    // đứa trẻ. Bộ canh ấy giữ cho trẻ không bị sắp trên dưới nhau, chứ không
+    // cấm nói về tiền.
+    return u.kieu === 'phan-tram'
+      ? `giảm ${Number(u.giaTri)}%`
+      : `giảm ${Number(u.giaTri).toLocaleString('vi-VN')} đ`;
+  },
+
+  async moUuDai() {
+    let d = null;
+    try {
+      d = await API.get('/api/hocphi/uu-dai/bang');
+    } catch (err) { UI.toast(err.message, 'error'); return; }
+
+    const sapHet = d.bang.flatMap(x => x.uuDai).filter(u => u.sapHetHan).length;
+    const hetHan = d.bang.flatMap(x => x.uuDai).filter(u => u.hetHan).length;
+
+    UI.modal(`
+      ${hetHan || sapHet ? `
+        <div class="card" style="border-left:4px solid var(--warning)">
+          <div class="row-title">Có ưu đãi cần nhà trường xem lại</div>
+          <div class="row-sub" style="margin-top:4px">
+            ${hetHan ? `${hetHan} ưu đãi đã quá hạn` : ''}${hetHan && sapHet ? ' · ' : ''}${
+    sapHet ? `${sapHet} ưu đãi sắp hết hạn trong ${d.nhacTruocNgay} ngày tới` : ''}.
+          </div>
+        </div>` : ''}
+
+      ${d.bang.length ? d.bang.map(x => `
+        <div class="card">
+          <div class="card-title">${UI.esc(x.tenBe)}</div>
+          <div class="muted small">${UI.esc(x.tenNhom || '')}</div>
+          ${x.uuDai.map(u => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(u.ten)}</div>
+                <div class="row-sub">${UI.esc(this.mucUuDai(u))}${
+    u.denNgay ? ` · đến ${UI.esc(UI.fmtDateShort(u.denNgay))}` : ' · không đặt hạn'}</div>
+              </div>
+              <div class="row-end">
+                ${u.hetHan ? UI.badge('Đã quá hạn', 'orange')
+    : u.sapHetHan ? UI.badge('Sắp hết hạn', 'orange') : ''}
+                ${d.datDuoc ? `<button class="btn sm outline mt-8" data-go-uu="${UI.esc(u.id)}">Gỡ</button>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>`).join('')
+    : UI.emptyState('🏷️', 'Chưa có bé nào được đặt ưu đãi')}
+
+      <div class="muted small" style="line-height:1.7">
+        Bảng này để nhà trường <b>theo dõi và nhắc hạn</b>. Máy <b>không tự trừ tiền</b>
+        vào khoản thu — kế toán vẫn ghi số tiền thật của từng khoản, để con số nào cũng
+        có người nhìn qua trước khi tới gia đình.
+      </div>
+      ${d.datDuoc ? '<button class="btn primary block mt-8" id="hpu-them">Đặt ưu đãi cho một bé</button>' : ''}
+    `, 'Ưu đãi học phí');
+
+    const them = document.getElementById('hpu-them');
+    if (them) them.onclick = () => this.moDatUuDai();
+    for (const nut of document.querySelectorAll('button[data-go-uu]')) {
+      nut.onclick = async () => {
+        const lyDo = prompt('Vì sao gỡ ưu đãi này? (ghi lại cho sổ)');
+        if (!lyDo || !lyDo.trim()) return;
+        try {
+          await API.post(`/api/hocphi/uu-dai/${encodeURIComponent(nut.dataset.goUu)}/go`, { lyDo });
+          UI.closeModal();
+          UI.toast('Đã gỡ ưu đãi', 'success');
+          this.moUuDai();
+        } catch (err) { UI.toast(err.message, 'error'); }
+      };
+    }
+  },
+
+  moDatUuDai() {
+    const ds = App.state.students || [];
+    UI.modal(`
+      <div class="field"><label>Bé</label>
+        <select id="hpu-be">${ds.map(s => `
+          <option value="${UI.esc(s.id)}">${UI.esc(s.name)}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Tên ưu đãi</label>
+        <input id="hpu-ten" placeholder="Ví dụ: Ưu đãi nhà có hai bé cùng học"></div>
+      <div class="field"><label>Mức ghi bằng</label>
+        <select id="hpu-kieu">
+          <option value="so-tien">Số tiền (đồng)</option>
+          <option value="phan-tram">Phần trăm</option>
+        </select></div>
+      <div class="field"><label>Mức ưu đãi</label>
+        <input id="hpu-muc" type="number" min="1" step="1000" placeholder="500000"></div>
+      <div class="field"><label>Từ ngày</label><input id="hpu-tu" type="date"></div>
+      <div class="field"><label>Hết hạn ngày</label><input id="hpu-den" type="date">
+        <div class="muted small mt-8">Để trống nếu ưu đãi không có hạn.</div></div>
+      <div class="field"><label>Ghi chú</label><input id="hpu-ghi" placeholder="không bắt buộc"></div>
+      <button class="btn primary block" id="hpu-luu">Đặt ưu đãi</button>
+    `, 'Đặt ưu đãi cho một bé');
+
+    document.getElementById('hpu-luu').onclick = async () => {
+      try {
+        await API.post('/api/hocphi/uu-dai', {
+          studentId: document.getElementById('hpu-be').value,
+          ten: document.getElementById('hpu-ten').value,
+          kieu: document.getElementById('hpu-kieu').value,
+          giaTri: document.getElementById('hpu-muc').value,
+          tuNgay: document.getElementById('hpu-tu').value || null,
+          denNgay: document.getElementById('hpu-den').value || null,
+          ghiChu: document.getElementById('hpu-ghi').value,
+        });
+        UI.closeModal();
+        UI.toast('Đã đặt ưu đãi', 'success');
+        this.moUuDai();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   async xacNhan(id) {

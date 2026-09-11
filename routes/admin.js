@@ -1109,10 +1109,44 @@ module.exports = (app) => {
   });
 
   // Sửa thông tin học sinh, chuyển lớp, hoặc nhận lại em đã cho nghỉ.
+  // Những trường thuộc phần NHÂN THÂN của hồ sơ bé (Đ168). Mọi trường KHÔNG có
+  // tên ở đây — `classId`, `active` — là phần vận hành hằng ngày của văn phòng.
+  //
+  // Danh sách này phải đi cùng vòng lặp ghi bên dưới: thêm một trường nhân thân
+  // mới mà quên khai ở đây là mở lại đúng cánh cửa vừa đóng. `test:ho-so-sua`
+  // mục [4] đối chiếu hai chỗ với nhau để chuyện đó không lặng lẽ xảy ra.
+  const TRUONG_NHAN_THAN = [
+    'name', 'code', 'dob', 'gender', 'address', 'ethnicity', 'bloodType',
+    'soDinhDanh', 'tienSuBenh', 'lienHeKhanCap',
+  ];
+
   app.put('/api/admin/students/:id', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     if (!duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
+
+    // AI SỬA ĐƯỢC PHẦN NHÂN THÂN (Đ168) — SIẾT THEO TRƯỜNG, KHÔNG SIẾT CẢ ĐƯỜNG.
+    //
+    // Bảng 07/09 của trường: *"Admin cơ sở NHẬP, Quản lý cơ sở và Hiệu trưởng
+    // CHỈNH SỬA"*. Nhưng cùng một đường này mang hai loại việc khác hẳn nhau:
+    // phần NHÂN THÂN của bé, và phần VẬN HÀNH HẰNG NGÀY (chuyển nhóm, đánh dấu
+    // bé đã nghỉ). Chặn cả đường là văn phòng thôi chuyển nhóm được cho bé —
+    // việc xảy ra giữa năm, và chờ duyệt từng lượt thì sổ điểm danh hôm ấy sai.
+    //
+    // Nên chốt chặn chỉ đứng trước những trường nhân thân, và câu từ chối NÓI
+    // RA những gì họ vẫn làm được — một lời từ chối cụt lủn là chỗ người dùng
+    // quay về sổ giấy.
+    if (!db.suaHoSoBeDuoc(req.user)) {
+      const dungToi = TRUONG_NHAN_THAN.filter(k => req.body[k] !== undefined);
+      if (dungToi.length) {
+        return res.status(403).json({
+          error: 'Sửa thông tin nhân thân của bé là việc của quản lý cơ sở hoặc ban giám hiệu. '
+            + 'Tài khoản này vẫn chuyển được bé sang nhóm khác, đánh dấu bé đã nghỉ, '
+            + 'và ghi giấy đồng ý của gia đình.',
+        });
+      }
+    }
+
     const patch = {};
     // `ethnicity` (dân tộc) và `bloodType` (nhóm máu) vào danh sách này từ đợt
     // soát 31/08. Hai cột ấy có trong bảng `students` từ lúc nhân bản nền, HIỆN

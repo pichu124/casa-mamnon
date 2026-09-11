@@ -734,8 +734,13 @@ sát: admin + cô nhập, MKT/HR/Kế toán không thấy. (3) Sức khoẻ: ch�
 sát và không thấy Sức khoẻ (`/api/surveys` và `/api/health` mỗi đường chỉ xuất hiện đúng
 một lần trong cả bảng `CHUC_VU`); cô và văn phòng nhập được sức khoẻ và khảo sát.
 
-**CHÊNH THẬT, ba chỗ:**
-- **(1) Văn phòng cơ sở hôm nay SỬA được hồ sơ bé**, trong khi bảng 07/09 chỉ cho họ NHẬP.
+**CHÊNH THẬT, ba chỗ — một đã vá:**
+- **(1) ~~Văn phòng cơ sở hôm nay SỬA được hồ sơ bé~~ ✅ ĐÃ VÁ Đ168.** Siết theo TRƯỜNG
+  dữ liệu chứ không theo đường: phần nhân thân chỉ Quản lý cơ sở / Hiệu trưởng sửa, còn
+  chuyển nhóm · đánh dấu nghỉ · ghi giấy đồng ý thì văn phòng vẫn làm (chặn cả đường là
+  họ thôi chuyển nhóm được cho bé giữa năm — Nguyên tắc số 1). `test:ho-so-sua` 37 phép
+  kiểm, trong đó mục [4] đối chiếu danh sách chặn với vòng lặp ghi để hai chỗ không trôi
+  khỏi nhau.
 - **(1) Chưa có đường nhập MỘT bé lẻ** — cả kho chỉ có nhập hàng loạt từ CSV, nên bé nhập
   học giữa năm thì văn phòng phải soạn một tệp CSV.
 - **(3) Sức khoẻ** — đúng như sổ nói, và rộng hơn: ngoài PUT/DELETE thì **đường cân đo cả
@@ -910,8 +915,11 @@ lớp" ở Quản trị → Tổng quan**: tên cơ sở chỉ là một mẩu c
 Không cần thêm đường API nào — `/api/admin/overview` đã trả sẵn danh sách cơ sở và từng nhóm
 kèm `campusId` + `studentCount`, CSS của cây cũng dùng lại được.
 
-**Phải hỏi trước:** trường có thật sự cần **cây thứ hai** ở màn Quản trị không, hay chỉ cần
-gom thẻ "Danh sách nhóm lớp" theo tiêu đề cơ sở? Và **quản lý cơ sở có được thấy TÊN hai cơ
+**✅ ĐÃ LÀM Đ167 theo hướng nhỏ:** gom thẻ "Danh sách nhóm lớp" theo tiêu đề cơ sở, KHÔNG
+dựng cây thứ hai (cây kia đã chạy thật từ Đ124; hai chỗ cùng làm một việc sẽ trôi khỏi
+nhau). Một cơ sở thì không hiện tiêu đề nào.
+
+**Còn phải hỏi:** Và **quản lý cơ sở có được thấy TÊN hai cơ
 sở kia không** — hôm nay hai màn đang nói khác nhau, `/api/admin/overview` trả cả ba cơ sở
 cho họ (có bài canh chốt cứng `=== 3`) trong khi màn Một ngày của Đ162 cố ý giấu.
 
@@ -977,8 +985,28 @@ có làm **mã QR** không (kho chưa có một dấu vết nào, và tự sinh 
 khác hẳn việc treo một ảnh QR trường tự tải lên); và có cần **cú pháp nội dung chuyển
 khoản** chuẩn để kế toán dò sao kê không.
 
-**Ý (4) — bảng theo dõi ưu đãi + nhắc hạn: CÒN LẠI, và CHƯA LÀM ĐƯỢC VÌ THIẾU CÂU TRẢ LỜI,
-không phải vì thiếu giờ.** Kho mã hôm nay không có một khái niệm ưu đãi nào (grep `uu-dai`,
+**Ý (4) ✅ ĐÃ LÀM Đ169**, sau khi chủ dự án chốt 11/09 là mức ưu đãi ghi được **cả số tiền
+lẫn phần trăm**. `hocphi_uudai` gắn vào BÉ (ưu đãi sống lâu hơn một khoản thu); gỡ là
+**ngưng dùng chứ không xoá**, bắt buộc ghi lý do. Bảng theo dõi xếp theo **tên bé**, đánh
+dấu *đã quá hạn* / *sắp hết hạn trong 14 ngày*. Nhắc bằng hai dấu hiệu như Đ154 đã chốt:
+**huy hiệu** (dấu vết bền) + **tin đẩy cho quản lý của bé** (dấu hiệu ngay), và cột
+`daNhacLuc` chặn nhắc hai lần. **MÁY KHÔNG TỰ TRỪ TIỀN** — cùng lập luận DD-13: tự trừ thì
+một dòng khai sai là sai tiền của một nhà mà không ai đối chiếu ra. Kiểu phần trăm dùng
+**đúng một dòng ngoại lệ có lý do viết ra** trong `test:quy-tac-4` (chừa đúng dòng in ra
+mức, không chừa cả tệp). `test:hoc-phi-uu-dai` 42 phép kiểm.
+
+**Ba câu CÒN LẠI của ý (4), chưa quyết:**
+1. **Gia đình có xem được ưu đãi của con mình không?** Đợt này **mặc định ĐÓNG**: một ưu
+   đãi có thể mang hoàn cảnh của nhà ("con hộ nghèo", "thoả thuận riêng"), và mở ra về sau
+   là thêm một đường, còn đóng lại sau khi đã mở là thu hồi thứ gia đình đã nhìn thấy.
+2. **Ưu đãi áp cho khoản thu nào** — mọi khoản trong kỳ, hay chỉ phần học phí chứ không
+   phải tiền ăn? Hôm nay máy không phân biệt được vì `noiDung` là chữ tự do.
+3. **Kế toán có nhận được TIN ĐẨY nhắc hạn không?** Hiện chỉ quản lý cơ sở và hiệu trưởng
+   nhận, vì `lib/bao-nha-truong.js` khai `CHUC_VU_NHAN = ['hieu-truong','quanly-coso']`.
+   Kế toán vẫn thấy **huy hiệu** và bảng theo dõi. Thêm kế toán vào danh sách ấy là sửa
+   tệp trong khế ước → commit riêng, nên chờ anh chốt.
+
+~~**Ý (4) — CHƯA LÀM ĐƯỢC VÌ THIẾU CÂU TRẢ LỜI:**~~ *(ghi chép cũ, giữ để đối chiếu)* Kho mã hôm nay không có một khái niệm ưu đãi nào (grep `uu-dai`,
 `giam-gia`, `mien-giam`, `discount` → 0 kết quả), nên mọi thứ phải dựng mới — và dựng sai
 hình dạng dữ liệu tiền là thứ sửa lại rất đắt. Sáu câu phải hỏi trường:
 

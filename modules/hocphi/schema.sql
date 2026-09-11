@@ -65,3 +65,45 @@ CREATE TABLE IF NOT EXISTS hocphi_dot_khoan (
   dotId   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_hocphi_dot_khoan_dot ON hocphi_dot_khoan(dotId);
+
+-- ƯU ĐÃI HỌC PHÍ CỦA MỘT BÉ, VÀ HẠN CỦA NÓ (Đ169, ý 4 của trường).
+--
+-- GẮN VÀO BÉ, KHÔNG GẮN VÀO KHOẢN THU. Một ưu đãi sống lâu hơn một khoản: nó
+-- có hạn, trải qua nhiều kỳ thu, và còn nguyên khi khoản thu của tháng này đã
+-- nộp xong. Gắn vào khoản thu thì mỗi tháng phải khai lại, và không ai trả lời
+-- được câu "nhà này đang được ưu đãi gì".
+--
+-- MỨC GHI ĐƯỢC CẢ HAI KIỂU. Số tiền ("giảm 500.000đ/tháng") và phần trăm
+-- ("giảm 10%") đều có thật ở trường mầm non, và kế toán quen nói kiểu thứ hai.
+-- Chủ dự án đã chốt 11/09 là làm cả hai.
+--
+-- MÁY KHÔNG TỰ TRỪ TIỀN. Bảng này là chỗ THEO DÕI và NHẮC HẠN, không phải một
+-- công thức tính tự động: cùng một lập luận đã chốt ở DD-13 (bảng tháng đánh
+-- dấu ngày bé vẫn đi học trong đơn hoàn, cố ý không tự trừ). Tự trừ thì một
+-- dòng ưu đãi khai sai là sai tiền của một nhà mà không ai đối chiếu ra, và
+-- kế toán mất chỗ để nhìn thấy con số trước khi nó thành hoá đơn.
+CREATE TABLE IF NOT EXISTS hocphi_uudai (
+  id        TEXT PRIMARY KEY,
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  ten       TEXT NOT NULL,          -- "Ưu đãi anh chị em ruột", "Con cán bộ"…
+  kieu      TEXT NOT NULL,          -- 'so-tien' | 'phan-tram'
+  giaTri    INTEGER NOT NULL,       -- đồng, hoặc số phần trăm 1..100
+  tuNgay    TEXT,
+  denNgay   TEXT,                   -- hạn; để trống = không có hạn
+  ghiChu    TEXT DEFAULT '',
+  daNhacLuc TEXT,                   -- lần nhắc hạn gần nhất, chống nhắc hai lần
+  taoBoi    TEXT,
+  taoLuc    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_hocphi_uudai_be ON hocphi_uudai(studentId);
+CREATE INDEX IF NOT EXISTS idx_hocphi_uudai_han ON hocphi_uudai(denNgay);
+
+-- ƯU ĐÃI ĐÃ GỠ — ngưng dùng chứ không xoá, đúng nếp `hocphi_thuhoi` của chính
+-- phân hệ này. Một dòng ưu đãi biến khỏi sổ mà không lời giải thích là chỗ mất
+-- lòng tin nhanh nhất, và ở đây nó còn là căn cứ cho số tiền một nhà đã nộp.
+CREATE TABLE IF NOT EXISTS hocphi_uudai_go (
+  uuDaiId   TEXT PRIMARY KEY REFERENCES hocphi_uudai(id) ON DELETE CASCADE,
+  lyDo      TEXT NOT NULL DEFAULT '',
+  boiUserId TEXT,
+  luc       TEXT NOT NULL
+);

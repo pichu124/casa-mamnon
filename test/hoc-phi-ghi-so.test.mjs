@@ -325,10 +325,13 @@ try {
 
     // Và hai đường ĐẶT RA khoản thu còn phải qua chốt chặn thứ hai.
     const than = src;
+    // Bốn đường: tạo một khoản, ghi sổ hàng loạt, đặt ưu đãi, gỡ ưu đãi (Đ169).
+    // Cả bốn đều là quyết định về số tiền một nhà phải nộp, chỉ khác dấu.
+    //
     // Đếm CHỖ GỌI, không đếm cả dòng khai báo hàm — nếu không thì con số luôn
     // dư đúng một và phép kiểm đo nhầm thứ mình không định đo.
-    check('cả hai đường đặt ra khoản thu đều gọi chốt chặn chức vụ',
-      (than.match(/if \(chiNguoiLoTien\(req, res\)\) return;/g) || []).length === 2,
+    check('cả BỐN đường quyết định về tiền đều gọi chốt chặn chức vụ',
+      (than.match(/if \(chiNguoiLoTien\(req, res\)\) return;/g) || []).length === 4,
       (than.match(/.*chiNguoiLoTien.*/g) || []));
     check('và chốt chặn ấy hỏi đúng db.taoKhoanThuDuoc, không tự dựng luật riêng',
       /db\.taoKhoanThuDuoc\(req\.user\)/.test(than), 'routes.js');
