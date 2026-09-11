@@ -2,6 +2,7 @@
   "lib/db.js": {
     "CHUC_VU": "object",
     "CHUC_VU_DAT_NEP": "object",
+    "CHUC_VU_SUA_HO_SO_BE": "object",
     "CHUC_VU_TAO_KHOAN_THU": "object",
     "DATA_DIR": "string",
     "DB_FILE": "string",
@@ -79,6 +80,7 @@
     "studentIdsCuaPhuHuynh": "ham(1)",
     "studentIdsOf": "ham(1)",
     "studentsOf": "ham(1)",
+    "suaHoSoBeDuoc": "ham(1)",
     "taoKhoanThuDuoc": "ham(1)",
     "teacherIdsOfClass": "ham(1)",
     "teachersOfClass": "ham(1)",
