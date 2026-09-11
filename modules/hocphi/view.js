@@ -42,21 +42,24 @@ App.views.hocphi = {
     // rồi mời bấm: quên theo hướng đóng lại.
     const taoDuoc = !!(d.quyen && d.quyen.taoDuoc);
     const xacNhanDuoc = !!(d.quyen && d.quyen.xacNhanDuoc);
+    const xemBangDuoc = !!(d.quyen && d.quyen.xemBangDuoc);
+    const xemUuDaiDuoc = !!(d.quyen && d.quyen.xemUuDaiDuoc);
 
     root.innerHTML = `
       ${UI.pageHeader('Học phí', taoDuoc ? { action: { id: 'hp-them', label: 'Tạo khoản', icon: 'plus' } } : {})}
       ${isTeacher ? this.chonHocSinh(sid) : UI.studentBar()}
-      ${taoDuoc ? `
+      ${xemBangDuoc ? `
         <div class="card">
           <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn sm outline" id="hp-bang">Xem cả trường</button>
-            <button class="btn sm outline" id="hp-dot">Ghi sổ cho cả nhóm</button>
-            <button class="btn sm outline" id="hp-uudai">Ưu đãi</button>
+            ${taoDuoc ? '<button class="btn sm outline" id="hp-dot">Ghi sổ cho cả nhóm</button>' : ''}
+            ${xemUuDaiDuoc ? '<button class="btn sm outline" id="hp-uudai">Ưu đãi</button>' : ''}
           </div>
-          <div class="muted small mt-8">
-            Ghi sổ cho cả nhóm tạo cùng một khoản cho mọi bé đang học trong nhóm hoặc cơ sở
-            đã chọn. Bé nào đã có đúng khoản ấy rồi thì máy bỏ qua, không ghi chồng.
-          </div>
+          ${taoDuoc ? `
+            <div class="muted small mt-8">
+              Ghi sổ cho cả nhóm tạo cùng một khoản cho mọi bé đang học trong nhóm hoặc cơ sở
+              đã chọn. Bé nào đã có đúng khoản ấy rồi thì máy bỏ qua, không ghi chồng.
+            </div>` : ''}
         </div>` : ''}
       <div class="stat-row">
         <div class="stat-box">

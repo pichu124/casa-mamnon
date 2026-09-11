@@ -73,12 +73,26 @@ try {
   // =========================================================================
   console.log('\n[2] Chặn ĐỦ mọi trường nhân thân, không chỉ vài cái dễ nhớ');
   {
+    // Giá trị phải KHÁC giá trị đang có thật, vì chốt chặn nay chỉ nổ khi giá
+    // trị ĐỔI (xem mục [3b]). Dữ liệu mẫu để dân tộc "Kinh" và nhóm máu "O",
+    // nên hai ô ấy phải gõ giá trị khác — không thì phép kiểm đo nhầm và xanh
+    // vì một lý do không liên quan.
     const truong = {
       name: 'Tên mới', code: 'MA-MOI-1', dob: '2022-05-05', gender: 'nam',
-      address: 'Địa chỉ mới', ethnicity: 'Kinh', bloodType: 'O',
+      address: 'Địa chỉ mới', ethnicity: 'Tày', bloodType: 'AB',
       soDinhDanh: '0123456789', tienSuBenh: 'dị ứng hải sản',
       lienHeKhanCap: [{ hoTen: 'Bà ngoại', dienThoai: '0900000000', quanHe: 'bà' }],
     };
+    // Đối chứng: chứng minh mấy giá trị trên KHÁC thật, chứ không phải chặn
+    // được vì chúng trùng nhau theo một kiểu nào đó.
+    {
+      const cu = (await req('GET', '/api/admin/students?classId=c1', { cookie: QL })).data;
+      const t = (Array.isArray(cu) ? cu : cu?.students || []).find(x => x.id === 's1') || {};
+      check('đối chứng — mọi giá trị sắp gửi đều KHÁC giá trị đang có',
+        Object.entries(truong).filter(([k]) => k !== 'lienHeKhanCap')
+          .every(([k, v]) => String(t[k] ?? '') !== String(v)),
+        Object.keys(truong).map(k => `${k}: ${t[k]}`));
+    }
     for (const [k, v] of Object.entries(truong)) {
       const r = await req('PUT', '/api/admin/students/s1', { cookie: VP, body: { [k]: v } });
       check(`văn phòng bị chặn ở trường "${k}"`, r.status === 403, `${k} → ${r.status}`);
@@ -127,6 +141,59 @@ try {
     // Và vẫn ĐỌC được hồ sơ — siết ghi, không siết đọc.
     const doc = await req('GET', '/api/admin/students', { cookie: VP });
     check('văn phòng vẫn ĐỌC được danh sách hồ sơ bé', doc.status === 200, doc.status);
+  }
+
+  // =========================================================================
+  console.log('\n[3b] GỬI TRỌN BIỂU MẪU — đúng cách màn hình thật gửi');
+  {
+    // MỤC NÀY BẮT ĐƯỢC MỘT LỖI THẬT CỦA BẢN ĐẦU Đ168.
+    //
+    // Mục [3] ở trên gửi TỪNG TRƯỜNG một — đúng như API cho phép, nhưng KHÔNG
+    // PHẢI cách màn hình gửi. Hàm `suaHocSinh` của public/js/views/admin.js
+    // luôn gửi TRỌN biểu mẫu: mười trường nhân thân cộng `classId` trong cùng
+    // một gói PUT. Bản đầu của chốt chặn nổ khi một trường CÓ MẶT trong gói,
+    // nên văn phòng chỉ đổi ô Nhóm rồi bấm Lưu cũng nhận 403 — mất luôn việc
+    // chuyển nhóm và việc ghi giấy đồng ý (đường đồng ý nằm sau nó trong cùng
+    // khối try của màn hình). Đúng hai việc mà câu từ chối hứa họ vẫn làm được.
+    const be = (await req('GET', '/api/admin/students?classId=c1', { cookie: QL })).data;
+    const s1 = (Array.isArray(be) ? be : be?.students || []).find(x => x.id === 's1');
+    check('đọc được hồ sơ hiện tại để dựng biểu mẫu', !!s1, s1?.id);
+
+    // Biểu mẫu y như trình duyệt gửi: mọi trường, giá trị GIỮ NGUYÊN, chỉ đổi nhóm.
+    const nguyenMau = {
+      name: s1.name,
+      code: s1.code || '',
+      dob: s1.dob || '',
+      gender: s1.gender || '',
+      address: s1.address || '',
+      ethnicity: s1.ethnicity || '',
+      bloodType: s1.bloodType || '',
+      soDinhDanh: s1.soDinhDanh || '',
+      tienSuBenh: s1.tienSuBenh || '',
+      lienHeKhanCap: s1.lienHeKhanCap || [],
+    };
+    const doiNhom = await req('PUT', '/api/admin/students/s1', {
+      cookie: VP, body: { ...nguyenMau, classId: 'c2' },
+    });
+    check('VĂN PHÒNG CHUYỂN ĐƯỢC NHÓM khi gửi trọn biểu mẫu — không đổi gì khác thì không phải là sửa',
+      doiNhom.status === 200, `${doiNhom.status} ${JSON.stringify(doiNhom.data)}`);
+    await req('PUT', '/api/admin/students/s1', { cookie: VP, body: { ...nguyenMau, classId: 'c1' } });
+
+    // Và vẫn chặn khi thật sự ĐỔI một trường nhân thân trong cùng gói ấy.
+    const doiTen = await req('PUT', '/api/admin/students/s1', {
+      cookie: VP, body: { ...nguyenMau, name: 'Tên bị đổi lén', classId: 'c1' },
+    });
+    check('nhưng ĐỔI một trường nhân thân trong cùng gói thì vẫn bị chặn',
+      doiTen.status === 403, doiTen.status);
+    const con = (await req('GET', '/api/admin/students?classId=c1', { cookie: QL })).data;
+    check('và tên bé không bị ghi lọt',
+      (Array.isArray(con) ? con : con?.students || []).some(x => x.id === 's1' && x.name === s1.name),
+      s1.name);
+
+    // Giấy đồng ý — đường riêng, nằm SAU đường PUT trong cùng khối của màn hình.
+    const dy = await req('PUT', '/api/admin/students/s1/dong-y', { cookie: VP, body: { truyenThong: false } });
+    check('và ghi giấy đồng ý vẫn chạy — việc thứ hai câu từ chối hứa',
+      dy.status === 200, dy.status);
   }
 
   // =========================================================================

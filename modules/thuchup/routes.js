@@ -277,8 +277,27 @@ module.exports = (app, { db }) => {
           + 'nhưng không sửa lời của cô.',
       });
     }
+    // GIA ĐÌNH ĐÃ RÚT ĐỒNG Ý HỒ SƠ HỌC TẬP THÌ THÔI GHI TIẾP (Đ96).
+    //
+    // Đường GHI MỚI đã chặn từ trước; đường SỬA thì bản đầu quên, nên rút đồng
+    // ý xong cô vẫn viết thêm được vào lớp 1 của bé ấy — chỉ khác là viết đè
+    // lên một bản cũ thay vì tạo bản mới. Rút lại đồng ý bất cứ lúc nào là
+    // quyền của gia đình theo Nghị định 13/2023, và "thôi ghi thêm" phải đúng
+    // ở MỌI đường ghi chứ không riêng đường tạo.
+    //
+    // XOÁ thì vẫn cho: dọn một bản ghi đi là đi đúng hướng gia đình vừa yêu cầu.
+    if (db.beNgungHoSoHocTap(r.studentId)) {
+      return res.status(403).json({
+        error: 'Gia đình bé này đã dừng phần hồ sơ học tập, nên không ghi thêm gì nữa. '
+          + 'Bản ghi cũ vẫn xoá được.',
+      });
+    }
 
-    const note = String((req.body || {}).note ?? '').trim().slice(0, 2000);
+    // CÙNG MỘT TRẦN VỚI ĐƯỜNG GHI MỚI. Bản đầu cắt ở 2000 trong khi `POST` —
+    // đường DUY NHẤT mà bài trong hàng đợi đi lên — cắt ở 500. Nghĩa là cô gõ
+    // 900 chữ vào ô sửa của một bài còn kẹt trong máy thì lúc gửi lên mất 400
+    // chữ, không một lời báo. Hai trần khác nhau cho cùng một ô là một cái bẫy.
+    const note = String((req.body || {}).note ?? '').trim().slice(0, MAX_NOTE);
     // Bản ghi CHỈ CÓ CHỮ mà xoá sạch chữ là biến nó thành một dòng rỗng không
     // ai đọc được — muốn bỏ hẳn thì có đường xoá, và đường ấy dọn cả ảnh.
     if (!note && !r.file) {

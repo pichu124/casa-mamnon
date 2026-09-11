@@ -150,6 +150,38 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[4b] Hai lỗi rà soát đối kháng bắt được');
+  {
+    // (a) GIA ĐÌNH ĐÃ RÚT ĐỒNG Ý HỒ SƠ HỌC TẬP THÌ THÔI GHI TIẾP (Đ96).
+    //
+    // Đường GHI MỚI đã chặn từ trước; đường SỬA thì bản đầu quên, nên rút đồng
+    // ý xong cô vẫn viết thêm được vào lớp 1 của bé ấy — chỉ khác là viết đè
+    // lên một bản cũ thay vì tạo bản mới.
+    const { id } = await ghi(GV, 's1', 'ghi truoc khi rut dong y');
+    const rut = await req('PUT', '/api/admin/students/s1/dong-y', {
+      cookie: QT, body: { hoSoHocTap: false },
+    });
+    check('gia đình rút được đồng ý hồ sơ học tập', rut.status === 200, rut.status);
+
+    const themMoi = await req('POST', '/api/thuchup', {
+      cookie: GV, body: { id: maMoi(), studentId: 's1', note: 'ghi moi', giay: 5, taoLuc: new Date().toISOString() },
+    });
+    check('đối chứng — đường GHI MỚI đã chặn từ trước (Đ96)', themMoi.status === 403, themMoi.status);
+
+    const sua = await req('PUT', `/api/thuchup/${id}`, { cookie: GV, body: { note: 'viet them sau khi rut' } });
+    check('ĐƯỜNG SỬA cũng phải chặn — thôi ghi thêm phải đúng ở MỌI đường ghi',
+      sua.status === 403, sua.status);
+    check('và câu từ chối nói rõ bản cũ vẫn xoá được',
+      /xoá được/i.test(sua.data?.error || ''), sua.data?.error);
+
+    const xoa = await req('DELETE', `/api/thuchup/${id}`, { cookie: GV });
+    check('XOÁ thì vẫn cho — dọn một bản ghi đi là đi đúng hướng gia đình vừa yêu cầu',
+      xoa.status === 200, xoa.status);
+
+    await req('PUT', '/api/admin/students/s1/dong-y', { cookie: QT, body: { hoSoHocTap: true } });
+  }
+
+  // =========================================================================
   console.log('\n[5] Màn hình: sửa được cả bài ĐÃ GỬI lẫn bài CÒN TRONG MÁY');
   {
     const v = fs.readFileSync(path.join(GOC, 'modules/thuchup/view.js'), 'utf8');
@@ -169,6 +201,20 @@ try {
     // đường cũ. Bỏ mất nó là cô hết cách dọn một bài vô vọng.
     check('đối chứng — nút "Bỏ bài này" của hàng đợi vẫn còn nguyên',
       /data-bo=/.test(ma) && /Bỏ bài này/.test(v), 'view.js');
+
+    // (b) Ô SỬA HỎI ĐÚNG TÊN TRƯỜNG ẢNH. Bản ghi trong hàng đợi giữ ảnh ở
+    // `dataUrl`; bản đầu hỏi `rec.anh` — một trường không bao giờ tồn tại — nên
+    // `!rec.anh` LUÔN đúng và một bài CHỈ CÓ ẢNH thì không xoá sạch chữ được.
+    check('ô sửa bài trong máy hỏi đúng trường ảnh (dataUrl, không phải anh)',
+      /!rec\.dataUrl/.test(ma) && !/!rec\.anh\b/.test(ma), 'view.js');
+
+    // (c) TRẦN CHỮ CỦA HAI ĐƯỜNG PHẢI BẰNG NHAU. Ô sửa cho gõ tới trần của
+    // đường PUT, nhưng bài trong hàng đợi đi lên bằng đường POST — hai trần
+    // khác nhau là cô mất chữ lúc gửi lên mà không một lời báo.
+    const r = fs.readFileSync(path.join(GOC, 'modules/thuchup/routes.js'), 'utf8');
+    const soTran = (r.match(/slice\(0, MAX_NOTE\)/g) || []).length;
+    check('cả đường ghi mới lẫn đường sửa đều cắt ở CÙNG MỘT trần MAX_NOTE',
+      soTran === 2 && !/slice\(0, 2000\)/.test(r), { soTran });
   }
 } finally {
   sv.dung();

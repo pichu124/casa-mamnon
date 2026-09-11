@@ -263,6 +263,35 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[4b] Ai ĐỌC được bảng ưu đãi — lỗi rà soát đối kháng bắt được');
+  {
+    // Hai đường đọc ưu đãi nằm dưới tiền tố `/api/hocphi`, mà tiền tố ấy có
+    // trong phần việc của Văn phòng cơ sở. Bản đầu chỉ đòi `requireRole('admin')`
+    // nên văn phòng đọc được bảng hoàn cảnh tiền bạc của mọi bé trong cơ sở —
+    // trong khi chú thích của chính Đ169 chốt là mặc định ĐÓNG.
+    const vpBang = await req('GET', '/api/hocphi/uu-dai/bang', { cookie: VP });
+    check('VĂN PHÒNG không mở được bảng ưu đãi', vpBang.status === 403, vpBang.status);
+    const vpBe = await req('GET', '/api/hocphi/uu-dai?studentId=s1', { cookie: VP });
+    check('và cũng không xem được ưu đãi của một bé', vpBe.status === 403, vpBe.status);
+    check('câu từ chối nói rõ họ vẫn xem được sổ tiền từng bé',
+      /sổ tiền/i.test(vpBe.data?.error || ''), vpBe.data?.error);
+
+    // Nhưng người NHẬN TIN nhắc hạn phải mở được — không thì tin dẫn tới một
+    // màn hình họ không vào được.
+    const mkQL = taoQuanTri(DIR, 'Quản lý cơ sở', 'uu_ql');
+    datChucVu(DIR, 'uu_ql', 'quanly-coso');
+    await sv.khoiDongLai();
+    const QL = await vao('uu_ql', mkQL);
+    const qlBang = await req('GET', '/api/hocphi/uu-dai/bang', { cookie: QL });
+    check('QUẢN LÝ CƠ SỞ — người nhận tin nhắc hạn — thì mở được',
+      qlBang.status === 200, `${qlBang.status} ${JSON.stringify(qlBang.data).slice(0, 120)}`);
+
+    // Và văn phòng VẪN đọc được sổ tiền từng bé — siết đúng chỗ, không siết lan.
+    const vpTien = await req('GET', '/api/hocphi?studentId=s1', { cookie: VP });
+    check('đối chứng — văn phòng VẪN đọc được sổ tiền của bé', vpTien.status === 200, vpTien.status);
+  }
+
+  // =========================================================================
   console.log('\n[5] Máy KHÔNG tự trừ tiền, và màn hình nói thẳng điều đó');
   {
     // Khoản thu của bé có ưu đãi vẫn giữ nguyên số tiền đã ghi.
@@ -289,6 +318,30 @@ try {
     check('và nói rõ lý do', /vi_sao/.test(khoi) && /TIỀN NGƯỜI LỚN NỘP/.test(khoi), khoi.slice(0, 120));
     check('ghi rõ chủ dự án đã duyệt, ngày nào', /CHỦ DỰ ÁN ĐÃ DUYỆT 11\/09/.test(khoi), 'quy-tac-4');
     check('và chừa ĐÚNG MỘT DÒNG, không chừa cả tệp', /chiDong:/.test(khoi), khoi.slice(0, 120));
+
+    // HUY HIỆU PHẢI CÓ CẬN DƯỚI. Bản đầu chỉ có trần, nên mọi ưu đãi đã hết hạn
+    // từ bao giờ vẫn được đếm mãi — cuối năm học 80 ưu đãi cùng hết hạn là sang
+    // tháng 6 ô Học phí hiện một con số đỏ không bao giờ về 0, và một con số
+    // như vậy thì người ta thôi nhìn nó.
+    const r = fs.readFileSync(path.join(GOC, 'modules/hocphi/routes.js'), 'utf8');
+    const iHuy = r.indexOf("huyHieu.dangKy('hocphi'");
+    const thanHuy = r.slice(iHuy, r.indexOf('\n  });', iHuy));
+    check('huy hiệu đếm có CẢ TRẦN LẪN SÀN, không đếm ưu đãi đã quá hạn từ lâu',
+      /denNgay <= \? AND denNgay >= \?/.test(thanHuy), thanHuy.slice(0, 200));
+
+    // ĐỢT GHI SỔ HÀNG LOẠT PHẢI NẰM TRONG MỘT GIAO DỊCH.
+    const iDot = r.indexOf("app.post('/api/hocphi/hang-loat'");
+    const thanDot = r.slice(iDot, r.indexOf("\n  });", iDot));
+    check('cả đợt ghi sổ nằm trong db.tx — đứt nửa chừng không để lại tiền mồ côi',
+      /db\.tx\(\(\) => \{/.test(thanDot), 'routes.js');
+
+    // TIN ĐẨY KHÔNG NÊU TÊN ƯU ĐÃI. Tên ưu đãi là chữ tự do, kế toán rất có thể
+    // gõ hoàn cảnh của nhà vào đó; tin đẩy hiện trên MÀN HÌNH KHOÁ điện thoại.
+    const iQuet = r.indexOf('function quetHanUuDai');
+    const thanQuet = r.slice(iQuet, r.indexOf('\n  }', iQuet));
+    check('tin nhắc hạn KHÔNG mang tên ưu đãi ra màn hình khoá',
+      !/\$\{u\.ten\}/.test(thanQuet), thanQuet.slice(0, 300));
+    check('và bé đã nghỉ học thì thôi nhắc', /active === false \|\| be\.active === 0/.test(thanQuet), 'routes.js');
   }
 } finally {
   sv.dung();

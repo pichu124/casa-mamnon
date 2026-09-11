@@ -1032,6 +1032,12 @@ App.views.admin = {
     const gui = async (xacNhanTrung) => {
       const than = {
         hoTen: document.getElementById('nb-ten').value,
+        // GỬI MÃ NHÓM, không chỉ gửi tên. Ba cơ sở đặt trùng tên nhóm là chuyện
+        // thường ("Chồi 2" ở cả ba cơ sở), và khi ấy máy chủ tra theo tên sẽ
+        // không đoán được — nó từ chối, đúng như thiết kế của đường nhập tệp.
+        // Nhưng ở đây màn hình ĐANG ĐỨNG TRONG nhóm ấy và biết chắc mã của nó,
+        // nên vứt mã đi rồi bắt máy chủ đoán lại là tự gây ra một lượt từ chối.
+        classId,
         tenLop,
         ngaySinh: document.getElementById('nb-ns').value,
         gioiTinh: document.getElementById('nb-gt').value,
@@ -1057,9 +1063,14 @@ App.views.admin = {
             <div class="muted small mt-8">Mật khẩu chỉ hiện đúng lần này. Xin chép ra giấy
               đưa gia đình; lần đăng nhập đầu app sẽ bắt đổi mật khẩu.</div>
           </div>` : ''}
-        <button class="btn primary block mt-8" onclick="UI.closeModal()">Xong</button>
+        <button class="btn primary block mt-8" id="nb-xong">Xong</button>
       `, 'Đã nhận bé');
-      await this.lamMoiLop();
+      // KHÔNG vẽ lại danh sách nhóm khi phiếu đang mở. `UI.modal()` gọi
+      // `closeModal()` ngay dòng đầu, nên một lượt vẽ lại là ĐÓNG MẤT phiếu —
+      // và mật khẩu ấy không xem lại được, tức gia đình không đăng nhập được
+      // nữa. Chờ cô bấm Xong rồi mới làm mới.
+      const xong = document.getElementById('nb-xong');
+      if (xong) xong.onclick = async () => { UI.closeModal(); await this.lamMoiLop(); };
     };
 
     document.getElementById('nb-luu').onclick = async () => {

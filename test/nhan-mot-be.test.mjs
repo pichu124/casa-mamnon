@@ -29,9 +29,10 @@
 //
 // [5] TẦNG CƠ SỞ — không nhận bé vào nhóm của cơ sở khác.
 import Database from 'better-sqlite3';
+import fs from 'node:fs';
 import path from 'node:path';
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu,
 } from './_chung.mjs';
 
@@ -267,6 +268,58 @@ try {
     check('đối chứng — ban giám hiệu VẪN nhận được bé vào nhóm cơ sở 2',
       cap1.status === 201, `${cap1.status} ${JSON.stringify(cap1.data)}`);
   }
+  // =========================================================================
+  console.log('\n[7] Ba lỗi rà soát đối kháng bắt được, và bản vá của chúng');
+  {
+    // (a) MÀN HÌNH GỬI MÃ NHÓM, KHÔNG BẮT MÁY CHỦ ĐOÁN LẠI THEO TÊN.
+    //
+    // Ba cơ sở đặt trùng tên nhóm là chuyện thường. Khi ấy bộ soát tra theo TÊN
+    // từ chối ("nhóm có ở nhiều cơ sở") — đúng cho tệp CSV, sai cho đường này,
+    // nơi người dùng đang đứng TRONG nhóm và đã chọn xong rồi.
+    const trungTen = await req('POST', '/api/admin/classes', {
+      cookie: QT, body: { name: 'Chồi 2', campusId: 'cs2' },
+    });
+    check('dựng được một nhóm TRÙNG TÊN ở cơ sở khác', trungTen.status === 200 || trungTen.status === 201,
+      `${trungTen.status} ${JSON.stringify(trungTen.data)}`);
+
+    const theoTen = await req('POST', '/api/admin/students', {
+      cookie: QT, body: { hoTen: 'Bé theo tên', tenLop: 'Chồi 2', phHoTen: 'A', phSdt: '0955000111' },
+    });
+    check('đối chứng — chỉ gửi TÊN thì máy chủ từ chối vì tên có ở hai cơ sở',
+      theoTen.status === 400 && /nhiều cơ sở/i.test(theoTen.data?.error || ''), theoTen.data?.error);
+
+    const theoMa = await req('POST', '/api/admin/students', {
+      cookie: QT,
+      body: { hoTen: 'Bé theo mã', classId: 'c1', tenLop: 'Chồi 2', phHoTen: 'B', phSdt: '0955000222' },
+    });
+    check('GỬI MÃ NHÓM thì nhận được ngay, không phải đoán',
+      theoMa.status === 201, `${theoMa.status} ${JSON.stringify(theoMa.data)}`);
+    check('và bé vào ĐÚNG nhóm đã chọn, không phải nhóm trùng tên ở cơ sở kia',
+      theoMa.data?.classId === 'c1', theoMa.data?.classId);
+
+    // Mã nhóm vẫn phải qua tầng cơ sở.
+    const maNgoai = await req('POST', '/api/admin/students', {
+      cookie: VP, body: { hoTen: 'Bé lấn mã', classId: trungTen.data?.id || 'c3', phHoTen: 'C', phSdt: '0955000333' },
+    });
+    check('nhưng mã nhóm của cơ sở khác thì vẫn bị chặn — mã không phải đường vòng',
+      maNgoai.status === 403 || maNgoai.status === 404, maNgoai.status);
+
+    // (b) MÀN HÌNH KHÔNG ĐƯỢC ĐÓNG PHIẾU MẬT KHẨU NGAY SAU KHI HIỆN.
+    //
+    // `UI.modal()` gọi `closeModal()` ở dòng đầu, nên vẽ lại danh sách nhóm khi
+    // phiếu đang mở là ĐÓNG MẤT phiếu — và mật khẩu ấy không xem lại được, tức
+    // gia đình không đăng nhập được nữa.
+    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+    const dau = v.indexOf('const gui = async (xacNhanTrung)');
+    const than = v.slice(dau, v.indexOf('\n    };', dau));
+    check('màn hình KHÔNG làm mới danh sách khi phiếu mật khẩu đang mở',
+      !/await this\.lamMoiLop\(\);\s*$/m.test(than), than.slice(-200));
+    check('mà chờ bấm Xong rồi mới làm mới', /nb-xong/.test(than) && /lamMoiLop/.test(than), 'admin.js');
+
+    // (c) MÀN HÌNH CÓ GỬI classId THẬT.
+    check('màn hình gửi mã nhóm kèm theo, không chỉ gửi tên', /^\s+classId,$/m.test(v), 'admin.js');
+  }
+
 } finally {
   sv.dung();
   await new Promise(r => setTimeout(r, 300));

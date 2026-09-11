@@ -75,6 +75,12 @@ module.exports = (app, { db, modules }) => {
       quyen: {
         taoDuoc: db.taoKhoanThuDuoc(req.user),
         xacNhanDuoc: req.user.role === 'admin',
+        // MỞ ĐƯỢC BẢNG SỔ TIỀN CẢ TRƯỜNG hay không — máy chủ nói, màn hình
+        // không đoán. Bản trước giấu cả thẻ ba nút sau quyền GHI, nên văn phòng
+        // mất luôn nút CHỈ ĐỌC "Xem cả trường" mà máy chủ vẫn mở cho họ; đúng
+        // lúc câu từ chối của chính phân hệ này hứa "vẫn xem được sổ tiền".
+        xemBangDuoc: req.user.role === 'admin',
+        xemUuDaiDuoc: docUuDaiDuoc(req.user),
       },
     });
   });
@@ -154,6 +160,15 @@ module.exports = (app, { db, modules }) => {
     }
     const kyThu = String(b.kyThu || '').trim();
     const noiDung = String(b.noiDung || '').trim();
+    // CHUẨN HOÁ KHI SO, GIỮ NGUYÊN KHI GHI.
+    //
+    // Chống ghi trùng của bản đầu so khớp chuỗi nguyên văn, nên "Tiền ăn tháng 9"
+    // và "Tiền ăn Tháng 9" là hai khoản khác nhau — và cả trường bị đòi tiền hai
+    // lần chỉ vì một chữ hoa, hay một dấu cách thừa lúc dán từ Excel. Đó đúng là
+    // cảnh mà chú thích ở đầu đường này hứa sẽ chặn.
+    //
+    // Chỉ so bằng dạng chuẩn hoá; cái GHI xuống sổ vẫn là chữ kế toán đã gõ.
+    const chuanHoa = (x) => String(x || '').trim().replace(/\s+/g, ' ').toLowerCase();
     if (!kyThu) return res.status(400).json({ error: 'Vui lòng nhập kỳ thu' });
     if (!noiDung) return res.status(400).json({ error: 'Vui lòng nhập nội dung khoản thu' });
     const tien = Number(b.soTien);
@@ -203,20 +218,29 @@ module.exports = (app, { db, modules }) => {
     // Bé nào ĐÃ có đúng khoản này rồi (và chưa bị thu hồi) thì bỏ qua.
     const ids = be.map(s => s.id);
     const daCo = new Set();
+    const kyChuan = chuanHoa(kyThu);
+    const ndChuan = chuanHoa(noiDung);
     for (let i = 0; i < ids.length; i += 400) {
       const lo = ids.slice(i, i + 400);
       const m = lo.map(() => '?').join(',');
       for (const r of db.all('hocphi_khoan',
-        `SELECT studentId FROM hocphi_khoan
-          WHERE kyThu = ? AND noiDung = ? AND studentId IN (${m})
-            AND id NOT IN (SELECT khoanId FROM hocphi_thuhoi)`, [kyThu, noiDung, ...lo])) {
-        daCo.add(r.studentId);
+        `SELECT studentId, kyThu, noiDung FROM hocphi_khoan
+          WHERE studentId IN (${m})
+            AND id NOT IN (SELECT khoanId FROM hocphi_thuhoi)`, lo)) {
+        if (chuanHoa(r.kyThu) === kyChuan && chuanHoa(r.noiDung) === ndChuan) daCo.add(r.studentId);
       }
     }
 
     const dotId = db.nextId('hpd');
     const luc = new Date().toISOString();
     const canTao = be.filter(s => !daCo.has(s.id));
+    // MỘT ĐỢT GHI SỔ LÀ MỘT VIỆC, KHÔNG PHẢI 600 VIỆC RỜI.
+    //
+    // Bản đầu ghi từng dòng ngoài giao dịch rồi mới ghi dòng "đợt" ở cuối. Máy
+    // chủ khởi động lại giữa chừng (hoặc một dòng vỡ khoá ngoại) là để lại vài
+    // trăm khoản tiền KHÔNG THUỘC ĐỢT NÀO — không ai lần ra chúng từ đâu tới,
+    // và cũng không có dòng nhật ký nào vì nhật ký ghi sau cùng.
+    db.tx(() => {
     for (const s of canTao) {
       const rec = {
         id: db.nextId('hp'),
@@ -246,6 +270,7 @@ module.exports = (app, { db, modules }) => {
       boQua: be.length - canTao.length,
       taoBoi: req.user.id,
       taoLuc: luc,
+    });
     });
     db.audit(req.user.id, 'hocphi-dot', dotId,
       { pham, phamTen, kyThu, soTien: Math.round(tien), daTao: canTao.length, boQua: be.length - canTao.length });
@@ -364,12 +389,39 @@ module.exports = (app, { db, modules }) => {
     return new Date(t + n * 86400000).toISOString().slice(0, 10);
   }
 
+  // AI ĐỌC ĐƯỢC ƯU ĐÃI CỦA MỘT BÉ.
+  //
+  // Hai đường đọc ưu đãi nằm dưới tiền tố `/api/hocphi`, mà tiền tố ấy có trong
+  // phần việc của Văn phòng cơ sở — nên nếu chỉ đòi `requireRole('admin')` thì
+  // văn phòng đọc được bảng hoàn cảnh tiền bạc của mọi bé trong cơ sở. Chú thích
+  // của chính Đ169 chốt rằng *"quyết định ai đọc được nó là của nhà trường"* và
+  // mặc định ĐÓNG — nhưng câu ấy mới chỉ được thi hành với gia đình.
+  //
+  // Mở cho đúng ba nhóm người mà công việc buộc phải biết: người ĐẶT ra ưu đãi
+  // (kế toán, ban giám hiệu) và người NHẬN TIN nhắc hạn (quản lý cơ sở) — nếu
+  // không thì tin nhắc dẫn người ta tới một màn hình họ không mở được.
+  const CHUC_VU_DOC_UU_DAI = ['hieu-truong', 'ketoan', 'quanly-coso'];
+  function docUuDaiDuoc(user) {
+    if (!user || user.role !== 'admin') return false;
+    const cv = db.chucVu(user);
+    return cv === null || CHUC_VU_DOC_UU_DAI.includes(cv);
+  }
+  function chiNguoiLoUuDai(req, res) {
+    if (docUuDaiDuoc(req.user)) return false;
+    res.status(403).json({
+      error: 'Bảng ưu đãi học phí thuộc về kế toán và ban giám hiệu. '
+        + 'Tài khoản này vẫn xem được sổ tiền của từng bé.',
+    });
+    return true;
+  }
+
   function dangDung(u) {
     return !db.first('hocphi_uudai_go', 'SELECT uuDaiId FROM hocphi_uudai_go WHERE uuDaiId = ?', [u.id]);
   }
 
   // Ưu đãi của một bé.
   app.get('/api/hocphi/uu-dai', requireRole('admin'), (req, res) => {
+    if (chiNguoiLoUuDai(req, res)) return;
     const studentId = String(req.query.studentId || '');
     if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
     if (!db.canAccessStudent(req.user, studentId)) {
@@ -458,6 +510,7 @@ module.exports = (app, { db, modules }) => {
   // dưới nhau theo hoàn cảnh của cha mẹ chúng — đúng thứ QUY TẮC 4 cấm, và là
   // tiền lệ đã chốt ở bảng tháng của Báo ăn và ở bảng sổ tiền của Đ163.
   app.get('/api/hocphi/uu-dai/bang', requireRole('admin'), (req, res) => {
+    if (chiNguoiLoUuDai(req, res)) return;
     const nhom = nhomCuaToi(req.user);
     const be = [];
     for (const lop of nhom) {
@@ -613,10 +666,20 @@ module.exports = (app, { db, modules }) => {
       try {
         const be = db.findStudent(u.studentId);
         if (!be) continue;
+        // BÉ ĐÃ NGHỈ HỌC THÌ THÔI NHẮC. Bảng theo dõi và huy hiệu chỉ nhìn bé
+        // đang học, nên nhắc ở đây là gửi một tin không có màn nào mở ra được.
+        if (be.active === false || be.active === 0) continue;
+
+        // KHÔNG NÊU TÊN ƯU ĐÃI TRONG TIN ĐẨY.
+        //
+        // Tên ưu đãi là chữ tự do và kế toán rất có thể gõ hoàn cảnh của nhà vào
+        // đó ("mẹ đơn thân", "hộ nghèo"). Tin đẩy hiện trên MÀN HÌNH KHOÁ điện
+        // thoại, nơi người đi qua cũng đọc được. Tin chỉ nói có việc cần xem;
+        // muốn biết là gì thì mở app, nơi đã có chốt chặn `docUuDaiDuoc`.
         baoNhaTruong.guiChoQuanLyCuaBe(u.studentId, {
-          tieuDe: 'Ưu đãi học phí sắp hết hạn',
-          noiDung: `${be.name}: ${u.ten} hết hạn ngày ${u.denNgay}. `
-            + 'Nhà trường xem lại để gia hạn hoặc gỡ.',
+          tieuDe: 'Có ưu đãi học phí sắp hết hạn',
+          noiDung: `Một ưu đãi của bé ${be.name} hết hạn ngày ${u.denNgay}. `
+            + 'Xin mở mục Học phí để xem và quyết định gia hạn hay gỡ.',
           hash: '#/hocphi',
         });
         db.update('hocphi_uudai', u.id, { daNhacLuc: new Date().toISOString() });
@@ -639,10 +702,17 @@ module.exports = (app, { db, modules }) => {
     for (let i = 0; i < ids.length; i += 400) {
       const lo = ids.slice(i, i + 400);
       const m = lo.map(() => '?').join(',');
+      // CÓ CẬN DƯỚI. Bản đầu chỉ có trần, nên mọi ưu đãi đã hết hạn từ bao giờ
+      // vẫn được đếm mãi: cuối năm học 80 ưu đãi cùng hết hạn là sang tháng 6 ô
+      // Học phí hiện một con số đỏ không bao giờ về 0, và một con số như vậy
+      // thì người ta thôi nhìn nó. Chỉ đếm việc CÒN LÀM ĐƯỢC: sắp hết hạn, và
+      // vừa quá hạn trong vòng một tháng.
+      const san = congNgay(homNay, -30);
       const r = db.first('hocphi_uudai',
         `SELECT COUNT(*) AS n FROM hocphi_uudai
-          WHERE studentId IN (${m}) AND denNgay IS NOT NULL AND denNgay <= ?
-            AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)`, [...lo, moc]);
+          WHERE studentId IN (${m}) AND denNgay IS NOT NULL
+            AND denNgay <= ? AND denNgay >= ?
+            AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)`, [...lo, moc, san]);
       dem += Number((r || {}).n || 0);
     }
     return dem;

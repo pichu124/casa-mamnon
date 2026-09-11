@@ -195,6 +195,43 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[4b] Chống ghi trùng phải chịu được hoa/thường và dấu cách thừa');
+  {
+    // LỖI RÀ SOÁT ĐỐI KHÁNG BẮT ĐƯỢC. Bản đầu so khớp chuỗi NGUYÊN VĂN, nên
+    // "Tiền ăn tháng 9" và "Tiền ăn Tháng 9" là hai khoản khác nhau — cả trường
+    // bị đòi tiền hai lần chỉ vì một chữ hoa, hay một dấu cách thừa lúc dán từ
+    // Excel. Đó đúng là cảnh mà chú thích ở đầu đường ấy hứa sẽ chặn.
+    const r1 = await req('POST', '/api/hocphi/hang-loat', {
+      cookie: KT, body: { pham: 'nhom', id: 'c4', kyThu: 'Tháng 10/2026', noiDung: 'Tiền ăn tháng 10', soTien: 300000 },
+    });
+    check('ghi được đợt đầu', r1.data?.daTao > 0, r1.data);
+
+    const hoa = await req('POST', '/api/hocphi/hang-loat', {
+      cookie: KT, body: { pham: 'nhom', id: 'c4', kyThu: 'Tháng 10/2026', noiDung: 'Tiền ăn Tháng 10', soTien: 300000 },
+    });
+    check('ĐỔI MỘT CHỮ HOA vẫn bị coi là trùng — không đòi tiền hai lần',
+      hoa.data?.daTao === 0 && hoa.data?.boQua === r1.data?.daTao, hoa.data);
+
+    const cach = await req('POST', '/api/hocphi/hang-loat', {
+      cookie: KT, body: { pham: 'nhom', id: 'c4', kyThu: ' Tháng  10/2026 ', noiDung: 'tiền ăn   tháng 10', soTien: 300000 },
+    });
+    check('dấu cách thừa và viết thường cũng vậy', cach.data?.daTao === 0, cach.data);
+
+    // Nhưng chữ KHÁC THẬT thì vẫn ghi được — không siết tới mức nhầm hai khoản
+    // khác nhau thành một.
+    const khac = await req('POST', '/api/hocphi/hang-loat', {
+      cookie: KT, body: { pham: 'nhom', id: 'c4', kyThu: 'Tháng 10/2026', noiDung: 'Tiền học tháng 10', soTien: 300000 },
+    });
+    check('đối chứng — nội dung KHÁC THẬT thì vẫn ghi được bình thường', khac.data?.daTao > 0, khac.data);
+
+    // Và chữ GHI XUỐNG SỔ vẫn là chữ kế toán đã gõ, không bị chuẩn hoá theo.
+    const be = await req('GET', '/api/hocphi?studentId=s9', { cookie: KT });
+    check('chữ ghi xuống sổ giữ nguyên như kế toán gõ, không bị viết thường đi',
+      (be.data?.khoan || []).some(k => k.noiDung === 'Tiền ăn tháng 10'),
+      (be.data?.khoan || []).map(k => k.noiDung));
+  }
+
+  // =========================================================================
   console.log('\n[5] Tầng cơ sở — đợt ghi sổ không lấn sang cơ sở khác');
   {
     const ok = await req('POST', '/api/hocphi/hang-loat', { cookie: KT2, body: dot('coso', 'cs1', 'KT cơ sở mình') });

@@ -190,7 +190,11 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   //
   // Phép kiểm thật cho màn hình nằm ở `test/bien-soan-phan-he.test.mjs` mục
   // [8]: đăng nhập bằng tài khoản cô trên trình duyệt thật rồi ĐẾM nút.
-  const routes = fs.readFileSync(path.join(GOC, 'modules', 'hocphi', 'routes.js'), 'utf8');
+  // Đếm trên MÃ, không đếm trên chú thích: chú thích của phân hệ có nhắc lại
+  // `requireRole('admin')` để giải thích chốt chặn, và đếm cả nó thì bản kiểm
+  // kê lệch đúng một mà không ai hiểu vì sao.
+  const routesTho = fs.readFileSync(path.join(GOC, 'modules', 'hocphi', 'routes.js'), 'utf8');
+  const routes = routesTho.split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
   // BẢN KIỂM KÊ, cập nhật ở Đ163 (4 → 6) rồi ở Đ169 (6 → 10).
   //
   // Bốn đường cũ: tạo khoản, xác nhận đã nộp, thu hồi khoản tạo nhầm, huỷ xác

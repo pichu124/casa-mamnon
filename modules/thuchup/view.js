@@ -72,7 +72,11 @@ App.views.thuchup = {
           const ds = await this.dangCho();
           const rec = ds.find(r => r.id === id);
           if (!rec) throw new Error('Bài ghi này không còn trong máy');
-          if (!String(note).trim() && !rec.anh) {
+          // Trường ảnh của bản ghi trong máy tên là `dataUrl` (xem `guiHangDoi`
+          // và chỗ lưu ở dưới). Bản đầu hỏi `rec.anh` — một trường không bao
+          // giờ tồn tại — nên `!rec.anh` LUÔN đúng, và một bài CHỈ CÓ ẢNH thì
+          // không xoá sạch chữ được dù đáng lẽ phải được.
+          if (!String(note).trim() && !rec.dataUrl) {
             throw new Error('Bài này không có ảnh, nên phải còn lại vài chữ.');
           }
           await this.luuVaoMay({ ...rec, note });

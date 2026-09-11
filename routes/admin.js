@@ -1137,7 +1137,31 @@ module.exports = (app) => {
     // RA những gì họ vẫn làm được — một lời từ chối cụt lủn là chỗ người dùng
     // quay về sổ giấy.
     if (!db.suaHoSoBeDuoc(req.user)) {
-      const dungToi = TRUONG_NHAN_THAN.filter(k => req.body[k] !== undefined);
+      // CHỈ NỔ KHI GIÁ TRỊ THẬT SỰ ĐỔI, không nổ vì trường ấy CÓ MẶT trong gói.
+      //
+      // Bản đầu của chốt chặn này hỏng đúng cái nó hứa không hỏng. Màn "Sửa hồ
+      // sơ" gửi TRỌN biểu mẫu mỗi lần lưu — mười trường nhân thân cộng `classId`
+      // trong cùng một gói PUT — nên văn phòng chỉ đổi ô Nhóm rồi bấm Lưu cũng
+      // nhận 403, tức mất luôn việc CHUYỂN NHÓM và việc GHI GIẤY ĐỒNG Ý (đường
+      // đồng ý nằm sau nó trong cùng khối). Đúng hai việc mà câu từ chối ngay
+      // bên dưới hứa họ vẫn làm được.
+      //
+      // Bài canh của Đ168 không thấy vì nó gửi từng trường một — đúng như API
+      // cho phép, nhưng KHÔNG PHẢI cách màn hình thật gửi. Bài canh nay có thêm
+      // mục gửi trọn biểu mẫu y như trình duyệt.
+      const hienTai = { ...s, ...db.hoSoBe(s.id), lienHeKhanCap: db.lienHeKhanCap(s.id) };
+      const doiThat = (k) => {
+        const moi = req.body[k];
+        if (moi === undefined) return false;
+        if (k === 'lienHeKhanCap') {
+          const gon = (ds) => JSON.stringify((ds || []).map(x => [
+            String(x.hoTen || '').trim(), String(x.quanHe || '').trim(), String(x.dienThoai || '').trim(),
+          ]).filter(x => x.some(Boolean)));
+          return gon(moi) !== gon(hienTai.lienHeKhanCap);
+        }
+        return String(moi ?? '').trim() !== String(hienTai[k] ?? '').trim();
+      };
+      const dungToi = TRUONG_NHAN_THAN.filter(doiThat);
       if (dungToi.length) {
         return res.status(403).json({
           error: 'Sửa thông tin nhân thân của bé là việc của quản lý cơ sở hoặc ban giám hiệu. '
@@ -1503,6 +1527,24 @@ module.exports = (app) => {
       'Nhóm máu': String(b.nhomMau || '').trim(),
     };
     const [r] = phanTichRows([hang], phamViNhom(req.user));
+    // MÀN HÌNH BIẾT MÃ NHÓM THÌ DÙNG MÃ, đừng bắt máy chủ đoán lại theo tên.
+    //
+    // Bộ soát tra nhóm theo TÊN vì tệp CSV chỉ có tên. Nhưng ba cơ sở đặt trùng
+    // tên nhóm là chuyện thường, và khi ấy nó từ chối — đúng cho tệp, sai cho
+    // đường này, nơi người dùng đang đứng TRONG nhóm và đã chọn xong rồi.
+    const maNhom = String(b.classId || '').trim();
+    if (maNhom) {
+      const lop = db.findClass(maNhom);
+      if (!lop) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+      if (!duocChamNhom(req.user, lop.id)) return khongThuocCoSo(res, 'nhóm lớp');
+      r.classId = lop.id;
+      r.tenLop = lop.name;
+      r.taoLopMoi = false;
+      // Lỗi "nhóm có ở nhiều cơ sở" và "nhóm không thuộc cơ sở của bạn" do bộ
+      // soát sinh ra từ việc tra theo TÊN — mã nhóm đã trả lời xong cả hai câu
+      // ấy, nên bỏ đúng hai lỗi đó đi. Mọi lỗi khác giữ nguyên.
+      r.loi = r.loi.filter(x => !/nhiều cơ sở|không thuộc cơ sở/.test(x));
+    }
     if (r.loi.length) {
       // Câu báo lỗi y hệt đường nhập tệp, chỉ bỏ chữ "dòng 1" đi cho đỡ lạ.
       return res.status(400).json({ error: r.loi.join('; ') });
