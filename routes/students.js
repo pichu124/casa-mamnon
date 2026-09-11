@@ -3,7 +3,9 @@ const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
 const { publicUser } = require('./auth');
 
-function decorate(s, nhomCua) {
+// `choGiaDinh` = gói này đang đi tới một tài khoản phụ huynh, nên KHÔNG kèm số
+// điện thoại riêng của cô (Đ161) — xem chú thích dài ở `lib/nhom-lop.js`.
+function decorate(s, nhomCua, choGiaDinh = false) {
   const cls = nhomCua ? nhomCua(s.classId).cls : (s.classId ? db.findClass(s.classId) : null);
   return {
     ...s,
@@ -12,7 +14,9 @@ function decorate(s, nhomCua) {
     // Nhóm mầm non có 2–3 cô cùng phụ trách. `teacherName` giữ nguyên hình dạng
     // cũ (một cô — cô phụ trách chính) cho màn hình chưa đổi; `teachers` và
     // `teacherNames` là chỗ các cô còn lại hiện ra.
-    ...(nhomCua ? nhomCua(s.classId).co : nl.tomTat(s.classId)),
+    ...(nhomCua
+      ? nhomCua(s.classId).co
+      : nl.tomTat(s.classId, { soDienThoai: !choGiaDinh })),
   };
 }
 
@@ -22,14 +26,17 @@ function decorate(s, nhomCua) {
 // toàn bộ bé đang học của trường — cùng hình dạng, cùng lý do và cùng cách vá
 // với `mePayload` ở routes/auth.js. Xem khối chú thích ở đó, gồm cả lý do bảng
 // nhớ này PHẢI sống đúng một lượt gọi chứ không được nâng ra ngoài.
-function taoNhoNhom() {
+function taoNhoNhom(choGiaDinh = false) {
   const nho = new Map();
   return (classId) => {
     const khoa = classId || '';
     if (!nho.has(khoa)) {
       nho.set(khoa, {
         cls: classId ? db.findClass(classId) : null,
-        co: nl.tomTat(classId),
+        // Bảng nhớ sống đúng MỘT lượt gọi, nên vai của người hỏi cố định trong
+        // suốt đời nó — không có chuyện một dòng nhớ của cô bị dùng lại cho
+        // một lượt hỏi của gia đình.
+        co: nl.tomTat(classId, { soDienThoai: !choGiaDinh }),
       });
     }
     return nho.get(khoa);
@@ -40,7 +47,7 @@ module.exports = (app) => {
   // Danh sách học sinh mà người dùng được xem, kèm thông tin lớp + GVCN.
   app.get('/api/students', (req, res) => {
     // Một bảng nhớ cho ĐÚNG lượt gọi này — xem `taoNhoNhom` ở trên.
-    const nhomCua = taoNhoNhom();
+    const nhomCua = taoNhoNhom(req.user.role === 'parent');
     res.json(db.studentsOf(req.user).map(s => decorate(s, nhomCua)));
   });
 
@@ -93,10 +100,14 @@ module.exports = (app) => {
       diaChi: cs.address || truong.address || '',
       hotline: cs.phone || truong.phone || '',
       email: cs.email || truong.email || '',
+      // Email kế toán là MỘT địa chỉ cho cả trường (Đ161) — không lùi về email
+      // của cơ sở, vì hai thứ đó gửi tới hai người khác nhau. Chưa nhập thì để
+      // trống và màn hình bỏ hẳn dòng, chứ không hiện một dòng rỗng.
+      emailKeToan: truong.emailKeToan || '',
     };
 
     res.json({
-      ...decorate(s),
+      ...decorate(s, null, req.user.role === 'parent'),
       parents,
       lienHeTruong,
       tienSuBenh: hoSo.tienSuBenh,

@@ -184,7 +184,11 @@ function mePayload(user) {
     if (!nhoNhom.has(khoa)) {
       nhoNhom.set(khoa, {
         cls: classId ? db.findClass(classId) : null,
-        co: nl.tomTat(classId),
+        // Gói này đi tới tài khoản đang đăng nhập, nên với GIA ĐÌNH thì không
+        // kèm số điện thoại riêng của cô (Đ161) — trường nói rõ gia đình gọi
+        // hotline văn phòng. Bảng nhớ sống đúng một lượt gọi nên vai của người
+        // hỏi cố định trong suốt đời nó.
+        co: nl.tomTat(classId, { soDienThoai: user.role !== 'parent' }),
       });
     }
     return nhoNhom.get(khoa);

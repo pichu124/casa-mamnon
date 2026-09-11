@@ -95,6 +95,49 @@ module.exports = (app) => {
       })));
   });
 
+  // ------------------------------------------------------------------------
+  // THÔNG TIN LIÊN HỆ CỦA TRƯỜNG (Đ161)
+  // ------------------------------------------------------------------------
+  //
+  // Nhà trường 07/09: khối "Thông tin trường lớp" ở màn phụ huynh cần tên lớp,
+  // cô phụ trách, hotline văn phòng, email trường **và email kế toán**. Bốn thứ
+  // đầu đã có (lấy từ cơ sở của nhóm bé, lùi về thông tin chung của trường);
+  // email kế toán thì chưa có chỗ nào cất.
+  //
+  // MỘT GIÁ TRỊ CHO CẢ TRƯỜNG, không phải mỗi cơ sở một cái: trường ba cơ sở
+  // nhưng một bộ sổ kế toán, và trường nói "email kế toán" ở số ít. Ngày nào
+  // tách bếp tách sổ thì thêm cột ở `campuses` — chứ không phải hôm nay đoán
+  // trước rồi bắt văn phòng nhập ba lần cùng một địa chỉ.
+  //
+  // Cất trong `settings.school` chứ không dựng bảng mới: đó đã là chỗ giữ tên
+  // trường, địa chỉ, điện thoại, email và năm học hiện tại.
+  app.get('/api/admin/lien-he', onlyAdmin, (req, res) => {
+    const t = db.school() || {};
+    res.json({
+      tenTruong: t.name || '',
+      diaChi: t.address || '',
+      dienThoai: t.phone || '',
+      email: t.email || '',
+      emailKeToan: t.emailKeToan || '',
+      suaDuoc: db.phamViCoSo(req.user) === null,
+    });
+  });
+
+  app.put('/api/admin/lien-he', onlyAdmin, (req, res) => {
+    if (chanNeuChiMotCoSo(req, res, 'Sửa thông tin liên hệ của trường')) return;
+    const b = req.body || {};
+    const e = String(b.emailKeToan || '').trim().slice(0, 120);
+    // Dạng email kiểm rất nhẹ, có chủ ý: chặn chặt hơn là chặn cả những địa
+    // chỉ có thật mà biểu thức của mình chưa biết tới. Để trống = gỡ đi.
+    if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      return res.status(400).json({ error: 'Email kế toán chưa đúng dạng, ví dụ đúng: ketoan@truong.edu.vn' });
+    }
+    const t = db.school() || {};
+    db.setSchool({ ...t, emailKeToan: e });
+    db.audit(req.user.id, 'truong-lien-he', null, { emailKeToan: e ? 'có' : 'gỡ' });
+    res.json({ ok: true, emailKeToan: e });
+  });
+
   app.post('/api/admin/campuses', onlyAdmin, (req, res) => {
     if (chanNeuChiMotCoSo(req, res, 'Thêm một cơ sở mới')) return;
     const name = String((req.body || {}).name || '').trim();
@@ -655,6 +698,78 @@ module.exports = (app) => {
   });
 
   // ---------- Học sinh ----------
+  // ------------------------------------------------------------------------
+  // HỒ SƠ BÉ ĐÃ ĐỦ CHƯA (Đ161)
+  // ------------------------------------------------------------------------
+  //
+  // Nhà trường 07/09 nói **bắt buộc** mỗi bé phải có đủ bố, mẹ và một người
+  // liên hệ khẩn cấp ngoài bố mẹ. Lý do rõ ràng và đúng: có lúc gọi bố không
+  // được, gọi mẹ cũng không được, và bé đang sốt.
+  //
+  // TÔI LÀM KHÁC CHỮ "BẮT BUỘC", VÀ ĐÂY LÀ LÝ DO.
+  //
+  // "Bắt buộc" hiểu theo nghĩa CHẶN thì chặn ở đâu cũng làm hỏng một việc
+  // đang chạy:
+  //
+  //   • Chặn ở đường nhập danh sách đầu năm — ba trăm bé trong một tệp Excel
+  //     mà trường chưa kịp thu giấy của nhà nào, thì cả lượt nhập trượt và
+  //     trường không có gì để bắt đầu năm học.
+  //   • Chặn ở đường SỬA hồ sơ — văn phòng mở hồ sơ ra chỉ để đổi một số điện
+  //     thoại, và không lưu được vì thiếu tên bà ngoại. Lần sau họ thôi sửa.
+  //
+  // Cái nhà trường thật sự cần không phải một cái nút bấm không được, mà là
+  // **biết hồ sơ nào còn thiếu gì để đi đòi cho đủ**. Nên: máy đếm, máy liệt
+  // kê, và nói thẳng thiếu món nào — không chặn một đường ghi nào cả.
+  //
+  // KHÔNG PHẢI MỘT CON SỐ VỀ ĐỨA TRẺ. Dòng này nói về giấy tờ người lớn chưa
+  // nộp; chữ trên màn hình phải giữ đúng nghĩa đó (QUY TẮC 2).
+  const MON_HO_SO = [
+    ['bo-me', 'đủ bố và mẹ'],
+    ['khan-cap', 'một người liên hệ khẩn cấp ngoài bố mẹ'],
+  ];
+
+  function thieuGiHoSo(studentId, parentIds) {
+    const thieu = [];
+    // Hai phụ huynh trở lên là đủ theo cách app biết: app không hỏi ai là bố,
+    // ai là mẹ — `students.parentIds` chỉ là "những người nhà của bé này".
+    // Đếm là thứ app trả lời được thật; đoán vai thì không.
+    if ((parentIds || []).length < 2) thieu.push('bo-me');
+    if (!db.lienHeKhanCap(studentId).length) thieu.push('khan-cap');
+    return thieu;
+  }
+
+  // Danh sách hồ sơ còn thiếu, để văn phòng đi đòi cho đủ.
+  //
+  // Chức vụ Nhân sự / Kế toán / Marketing KHÔNG tới được đường này, và không
+  // cần chốt thêm ở đây: danh sách cho phép của ba chức vụ ấy không có tiền tố
+  // `/api/admin`, nên tầng chức vụ chặn từ trước khi vào hàm (lib/db.js).
+  app.get('/api/admin/ho-so-chua-du', onlyAdmin, (req, res) => {
+    const trongPhamVi = phamViNhom(req.user);
+    const rows = db.all('students', 'SELECT * FROM students WHERE active = 1 ORDER BY name')
+      .filter(s => trongPhamVi === null || trongPhamVi.includes(s.classId));
+    const tenNhom = nhoTenNhom();
+    const ds = [];
+    for (const s of db.withParents(rows)) {
+      const thieu = thieuGiHoSo(s.id, s.parentIds);
+      if (!thieu.length) continue;
+      ds.push({
+        studentId: s.id,
+        hoTen: s.name,
+        maBe: s.code || '',
+        classId: s.classId || '',
+        tenNhom: tenNhom(s.classId),
+        thieu,
+        thieuChu: thieu.map(m => (MON_HO_SO.find(x => x[0] === m) || [, m])[1]),
+      });
+    }
+    res.json({
+      soBe: rows.length,
+      soChuaDu: ds.length,
+      mon: MON_HO_SO.map(([ma, ten]) => ({ ma, ten })),
+      danhSach: ds,
+    });
+  });
+
   app.get('/api/admin/students', onlyAdmin, (req, res) => {
     const classId = req.query.classId;
     // Mặc định chỉ trả học sinh đang học — giữ nguyên hành vi cũ cho mọi chỗ gọi.
@@ -678,6 +793,9 @@ module.exports = (app) => {
       ...s,
       ...db.hoSoBe(s.id),
       dongY: db.dongYCuaBe(s.id),
+      // Hồ sơ còn thiếu món nào (Đ161) — để màn danh sách chỉ ngay chỗ phải
+      // đòi, không bắt văn phòng mở từng hồ sơ ra dò.
+      thieuHoSo: thieuGiHoSo(s.id, s.parentIds),
       className: tenNhom(s.classId),
       parents: s.parentIds.map(id => {
         const p = db.findUser(id);

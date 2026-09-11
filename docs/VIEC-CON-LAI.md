@@ -621,6 +621,22 @@ vào ba mảng này — nghĩa là danh sách còn phải làm hiện CHƯA Đ�
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md:240-242 'Ba mảng sau chưa có bảng vì tác nhân đọc
 mã hết lượt giữa chừng, đang chạy lại'
 
+> **CHẶN Ở NGUỒN — phát hiện 11/09 (Đ161).** Mục này KHÔNG làm cho đúng được, và lý do
+> đáng ghi hơn chính mục: **bản gốc phản hồi 07/09 của trường không nằm trong kho mã.**
+> Hơn hai chục dòng "Bằng chứng" trong chính sổ này trỏ vào `phan-hoi.md:<số dòng>` —
+> `find` cả kho và `git log --all` đều không có tệp nào tên như vậy; nó chỉ từng nằm
+> trong ngữ cảnh hội thoại lúc lập sổ. Nghĩa là:
+>
+>   • ai đọc sổ này mà lần theo bằng chứng sẽ không tới được đâu cả;
+>   • câu hỏi *"trường đã xin gì mà mình chưa làm"* hôm nay **không kiểm lại được**;
+>   • dựng ba bảng còn thiếu từ nguồn thứ cấp thì ra một bảng trông như đã đối chiếu
+>     đầy đủ, mà thật ra là dựng lại từ trí nhớ của chính sổ này — tệ hơn là để trống.
+>
+> **Cần anh làm một việc:** gửi lại bản gốc phản hồi 07/09 (và ba đợt ý kiến trước) để
+> commit vào `docs/`. Đó là tài liệu sản phẩm, không phải dữ liệu của trẻ, nên bộ canh
+> `kiem-tra-du-lieu` không chặn. Có tệp ấy trong kho thì ba bảng còn thiếu dựng được
+> trong một lượt, và mọi dòng `phan-hoi.md:*` của sổ này trỏ đúng chỗ trở lại.
+
 **Việc của NHÀ TRƯỜNG — bảy món đang chặn**
 
 (1) Đăng ký VPS Việt Nam + tên miền đứng tên trường (chặn toàn bộ triển khai; bản xin
@@ -821,18 +837,25 @@ dòng HT-03 'nhỏ | làm một phần', Đã làm TRỐNG
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md dòng TD-04, Đã làm 'Đ132 (dán bảng, không tải
 tệp)'; phan-hoi.md:245
 
-**Hồ sơ bé — bốn ý chưa có mã**
+**~~Hồ sơ bé — bốn ý chưa có mã~~ — ĐÃ LÀM Đ161, trừ ý (4)**
 
-(1) Đổi nhãn 'Dị ứng' → 'Tiền sử bệnh hoặc lưu ý đặc biệt' và thêm các trường trường yêu
-cầu. (2) Khối 'Thông tin trường lớp' ở màn PHỤ HUYNH: tên lớp, GVCN, hotline văn phòng,
-email trường, email kế toán; BỎ SĐT giáo viên — không đụng Đ139 (màn CÔ vẫn cần đủ SĐT
-bố/mẹ/khẩn cấp). (3) Bắt buộc đủ bố + mẹ + một người liên hệ khẩn cấp ngoài bố mẹ. (4)
-Bố cục duyệt theo cây Cơ sở → Lớp → Bé (như Đ138 đã làm cho Sức khoẻ).
+(1) ~~Đổi nhãn 'Dị ứng' → 'Tiền sử bệnh hoặc lưu ý đặc biệt'~~ — **đã có từ Đ139**, sổ
+này ghi sai; nay có bài canh giữ để nó không lặng lẽ mất. (2) Khối 'Thông tin trường
+lớp' — **đã có phần lớn từ trước**; Đ161 thêm **email kế toán** và, quan trọng hơn, gỡ
+**số điện thoại riêng của cô** khỏi gói dữ liệu gia đình nhận (màn hình vốn không vẽ ra,
+nhưng ba đường API vẫn mang — lọc ở tầng dữ liệu, không che ở giao diện). (3) Bắt buộc
+đủ bố + mẹ + liên hệ khẩn cấp — **làm KHÁC chữ "bắt buộc"**: máy đếm và liệt kê hồ sơ
+còn thiếu cho văn phòng đi đòi, KHÔNG chặn đường ghi nào (chặn ở đường nhập danh sách
+đầu năm là cả lượt nhập trượt; chặn ở đường sửa là văn phòng thôi sửa hồ sơ).
 
-*Cỡ việc:* vừa
+**Ý (4) CÒN LẠI:** bố cục duyệt theo cây Cơ sở → Lớp → Bé (như Đ138 đã làm cho Sức
+khoẻ). Hôm nay màn quản trị duyệt theo Nhóm → Bé, thiếu tầng Cơ sở.
 
-*Bằng chứng:* phan-hoi.md:4-5, :7, :8, :34, :224-226; mảng Hồ sơ bé chưa có bảng đối
-chiếu (PHAN-HOI-TRUONG-0709.md:242)
+*Cỡ việc:* nhỏ (còn ý 4)
+
+*Bằng chứng:* mảng Hồ sơ bé chưa có bảng đối chiếu (PHAN-HOI-TRUONG-0709.md:242).
+**Lưu ý về nguồn:** các dòng `phan-hoi.md:*` trong sổ này trỏ vào một tệp KHÔNG có trong
+kho mã — xem mục "Bản gốc phản hồi 07/09 không nằm trong kho" ở cuối phần B1.
 
 **Giao diện Hiệu trưởng — màn tổng quan toàn hệ thống chưa có**
 

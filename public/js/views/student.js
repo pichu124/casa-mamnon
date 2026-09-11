@@ -218,12 +218,17 @@ App.views.student = {
 
   theLienHeTruong(s) {
     const t = s.lienHeTruong || {};
-    if (!t.hotline && !t.email && !t.tenCoSo) return '';
+    if (!t.hotline && !t.email && !t.tenCoSo && !t.emailKeToan) return '';
+    // Email kế toán đứng RIÊNG một dòng, không gộp với email trường: gia đình
+    // hỏi chuyện học phí thì gửi thẳng đúng người, không phải qua văn phòng
+    // rồi chờ chuyển tiếp (Đ161). Chưa nhập thì bỏ hẳn dòng — một dòng rỗng
+    // chỉ làm màn hình dài thêm.
     return `
       ${t.tenCoSo ? infoRow('Cơ sở', t.tenCoSo) : ''}
       ${t.diaChi ? infoRow('Địa chỉ', t.diaChi) : ''}
       ${t.hotline ? infoRow('Hotline văn phòng', t.hotline) : ''}
-      ${t.email ? infoRow('Email trường', t.email) : ''}`;
+      ${t.email ? infoRow('Email trường', t.email) : ''}
+      ${t.emailKeToan ? infoRow('Email kế toán (học phí)', t.emailKeToan) : ''}`;
   },
 
   // Người liên hệ khẩn cấp ngoài bố mẹ.

@@ -223,9 +223,63 @@ App.views.admin = {
           </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>
 
+      <div id="ad-ho-so"></div>
       <div id="ad-day"></div>`;
 
+    this.veHoSoChuaDu();
     this.veThongBaoDay();
+  },
+
+  // ---- Hồ sơ bé còn thiếu giấy tờ người lớn (Đ161) ----
+  //
+  // Nhà trường nói **bắt buộc** mỗi bé có đủ bố, mẹ và một người liên hệ khẩn
+  // cấp ngoài bố mẹ. Máy KHÔNG chặn đường ghi nào — chặn ở đường nhập danh
+  // sách đầu năm là cả lượt nhập trượt, chặn ở đường sửa là văn phòng thôi sửa
+  // hồ sơ. Cái trường cần là **biết hồ sơ nào còn thiếu gì để đi đòi cho đủ**,
+  // và đó là thứ thẻ này làm.
+  //
+  // CHỮ Ở ĐÂY NÓI VỀ GIẤY TỜ NGƯỜI LỚN CHƯA NỘP, KHÔNG NÓI VỀ ĐỨA TRẺ. Tên bé
+  // xuất hiện để văn phòng biết gọi nhà nào, chứ không phải để chấm một dòng
+  // đỏ lên đứa trẻ ấy (QUY TẮC 2).
+  async veHoSoChuaDu() {
+    const o = document.getElementById('ad-ho-so');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/admin/ho-so-chua-du'); } catch (_) { return; }
+    if (!d.soChuaDu) {
+      o.innerHTML = `
+        <div class="card" style="border-left:4px solid var(--success)">
+          <div class="card-title" style="color:var(--success)">
+            ${UI.icon('check', 16)} Hồ sơ liên hệ đã đủ cả trường
+          </div>
+          <div class="muted small" style="line-height:1.7">
+            ${UI.esc(String(d.soBe))} bé đang học, hồ sơ nào cũng có đủ hai phụ huynh
+            và một người liên hệ khẩn cấp ngoài bố mẹ.
+          </div>
+        </div>`;
+      return;
+    }
+    o.innerHTML = `
+      <div class="card" style="border-left:4px solid var(--warning)">
+        <div class="card-title">📋 Hồ sơ liên hệ còn thiếu: ${UI.esc(String(d.soChuaDu))} bé</div>
+        <div class="muted small" style="line-height:1.7">
+          Nhà trường cần mỗi bé có đủ <b>hai phụ huynh</b> và <b>một người liên hệ khẩn
+          cấp ngoài bố mẹ</b> — có lúc gọi bố không được, gọi mẹ cũng không được.
+          Danh sách dưới đây là chỗ còn phải đi đòi giấy; app không chặn việc gì cả.
+        </div>
+        <details class="mt-8"><summary class="small">Xem danh sách</summary>
+          ${d.danhSach.slice(0, 100).map(x => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.hoTen)}</div>
+                <div class="row-sub">${UI.esc(x.tenNhom || 'chưa xếp nhóm')}${
+    x.maBe ? ` · ${UI.esc(x.maBe)}` : ''} — còn thiếu ${UI.esc(x.thieuChu.join(' và '))}</div>
+              </div>
+            </div>`).join('')}
+          ${d.danhSach.length > 100 ? `<div class="muted small mt-8">…và ${
+  UI.esc(String(d.danhSach.length - 100))} bé nữa.</div>` : ''}
+        </details>
+      </div>`;
   },
 
   // ---------- Thông báo đẩy của cả trường (Đ157) ----------
@@ -391,6 +445,8 @@ App.views.admin = {
           </div>`).join('') : '<div class="muted small">Chưa có cơ sở nào.</div>'}
       </div>
 
+      <div id="ad-lien-he"></div>
+
       ${(this._chucVu || []).length ? `
       <div class="card">
         <div class="card-title">Chức vụ của tài khoản quản trị</div>
@@ -466,6 +522,53 @@ App.views.admin = {
               </div>
             </div>`).join('')}
         </div>` : ''}`;
+    this.veLienHeTruong();
+  },
+
+  // ---- Thông tin liên hệ của trường (Đ161) ----
+  //
+  // Vẽ RIÊNG sau khi tab đã hiện, không chờ: Cấp 3 gọi đường này vẫn đọc được
+  // (để biết email kế toán là gì) nhưng không sửa được, và một thẻ phụ không
+  // được phép làm chậm cả tab.
+  async veLienHeTruong() {
+    const o = document.getElementById('ad-lien-he');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/admin/lien-he'); } catch (_) { return; }
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">✉️ Email kế toán (gia đình hỏi học phí)</div>
+        <div class="muted small" style="line-height:1.7">
+          Địa chỉ này hiện trong <b>Hồ sơ của bé</b> ở màn hình gia đình, ngay dưới
+          hotline văn phòng — để nhà nào hỏi chuyện học phí thì gửi thẳng đúng người.
+          Một địa chỉ cho cả trường; để trống thì màn hình gia đình bỏ hẳn dòng đó.
+        </div>
+        ${d.suaDuoc ? `
+          <div class="flex mt-8" style="gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="email" id="ad-lh-ketoan" value="${UI.esc(d.emailKeToan || '')}"
+                   placeholder="ketoan@truong.edu.vn" style="flex:1;min-width:200px">
+            <button class="btn sm outline" id="ad-lh-luu">Lưu</button>
+          </div>` : `
+          <div class="mt-8">${d.emailKeToan
+    ? UI.esc(d.emailKeToan)
+    : '<span class="muted">Chưa nhập.</span>'}
+            <div class="muted small mt-8">Sửa mục này cần tài khoản quản trị toàn hệ thống.</div>
+          </div>`}
+      </div>`;
+    const nut = document.getElementById('ad-lh-luu');
+    if (nut) nut.onclick = () => this.luuLienHeTruong();
+  },
+
+  async luuLienHeTruong() {
+    const o = document.getElementById('ad-lh-ketoan');
+    if (!o) return;
+    try {
+      await API.put('/api/admin/lien-he', { emailKeToan: o.value.trim() });
+      UI.toast('Đã lưu email kế toán', 'success');
+      this.veLienHeTruong();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa lưu được', 'error');
+    }
   },
 
   themCoSo() {
