@@ -992,11 +992,91 @@ App.views.admin = {
       ${daNghi.map(s => dong(s, true)).join('')}` : '';
 
     UI.modal(
-      dangHoc.length || daNghi.length
+      `${dangHoc.length || daNghi.length
         ? `<div class="muted small mb-8">${dangHoc.length} bé đang học</div>
            ${dangHoc.map(s => dong(s, false)).join('')}${phanDaNghi}`
-        : UI.emptyState('🎒', 'Nhóm chưa có bé nào'),
+        : UI.emptyState('🎒', 'Nhóm chưa có bé nào')}
+       <button class="btn primary block mt-8" id="ad-them-be">+ Nhận một bé vào nhóm này</button>`,
       tenLop);
+
+    const nut = document.getElementById('ad-them-be');
+    if (nut) nut.onclick = () => this.moNhanBe(classId, tenLop);
+  },
+
+  // ---------- Nhận MỘT bé nhập học giữa năm (Đ170) ----------
+  //
+  // Trước đợt này cách duy nhất để tạo hồ sơ một bé là nhập tệp CSV — mở Excel,
+  // gõ đúng tên cột, lưu đúng bảng mã, tải lên, để tạo đúng một dòng. Bé nhập
+  // học giữa tháng 10 thì văn phòng sẽ nhờ người khác hoặc để đó, và bé đi học
+  // mấy hôm rồi mới có trong app.
+  //
+  // Máy chủ dùng lại NGUYÊN bộ soát và nguyên thân nhận bé của đường nhập tệp,
+  // nên mọi câu báo lỗi ở đây là đúng câu văn phòng đã quen đọc.
+  moNhanBe(classId, tenLop) {
+    UI.modal(`
+      <div class="muted small mb-8">Nhận vào nhóm <b>${UI.esc(tenLop)}</b></div>
+      <div class="field"><label>Họ và tên của bé</label><input id="nb-ten" placeholder="Nguyễn Văn An"></div>
+      <div class="field"><label>Ngày sinh</label><input id="nb-ns" type="date"></div>
+      <div class="field"><label>Giới tính</label>
+        <select id="nb-gt"><option value="">—</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
+      <div class="field"><label>Mã của bé</label>
+        <input id="nb-ma" placeholder="Để trống nếu trường không dùng mã"></div>
+      <div class="field"><label>Họ tên phụ huynh</label><input id="nb-ph" placeholder="Nguyễn Thị Bình"></div>
+      <div class="field"><label>Điện thoại phụ huynh</label><input id="nb-sdt" placeholder="09xxxxxxxx">
+        <div class="muted small mt-8">Nhà đã có con học ở trường thì dùng lại đúng số này —
+          máy nối bé mới vào đúng tài khoản cũ, gia đình không phải nhớ hai mật khẩu.</div></div>
+      <div class="field"><label>Địa chỉ</label><input id="nb-dc"></div>
+      <button class="btn primary block" id="nb-luu">Nhận bé vào nhóm</button>
+    `, 'Nhận một bé vào trường');
+
+    const gui = async (xacNhanTrung) => {
+      const than = {
+        hoTen: document.getElementById('nb-ten').value,
+        tenLop,
+        ngaySinh: document.getElementById('nb-ns').value,
+        gioiTinh: document.getElementById('nb-gt').value,
+        ma: document.getElementById('nb-ma').value,
+        phHoTen: document.getElementById('nb-ph').value,
+        phSdt: document.getElementById('nb-sdt').value,
+        diaChi: document.getElementById('nb-dc').value,
+        xacNhanTrung,
+      };
+      const d = await API.post('/api/admin/students', than);
+      UI.closeModal();
+      // PHIẾU TÀI KHOẢN HIỆN MỘT LẦN, y như đường nhập tệp. Tạo hồ sơ bé mà gia
+      // đình không vào được app thì mới xong một nửa việc — và mật khẩu này
+      // không xem lại được, nên phải nói rõ điều đó ngay trên phiếu.
+      const tk = d.taiKhoan;
+      UI.modal(`
+        <div class="card"><div class="card-title">Đã nhận ${UI.esc(d.name)} vào nhóm ${UI.esc(tenLop)}</div></div>
+        ${tk ? `
+          <div class="card">
+            <div class="card-title">Tài khoản của gia đình</div>
+            ${this.dongSoNgay('Tên đăng nhập', tk.username)}
+            ${this.dongSoNgay('Mật khẩu', tk.matKhau)}
+            <div class="muted small mt-8">Mật khẩu chỉ hiện đúng lần này. Xin chép ra giấy
+              đưa gia đình; lần đăng nhập đầu app sẽ bắt đổi mật khẩu.</div>
+          </div>` : ''}
+        <button class="btn primary block mt-8" onclick="UI.closeModal()">Xong</button>
+      `, 'Đã nhận bé');
+      await this.lamMoiLop();
+    };
+
+    document.getElementById('nb-luu').onclick = async () => {
+      try {
+        await gui(false);
+      } catch (err) {
+        // 409 = "có vẻ bé này đã có" — cảnh báo, không phải lỗi. Hỏi lại một câu
+        // rồi cho nhận, y như đường nhập tệp cho phép "nhập cả dòng trùng".
+        if (/trùng tên|đã có/.test(err.message || '') && confirm(`${err.message}
+
+Vẫn nhận bé này?`)) {
+          try { await gui(true); } catch (e2) { UI.toast(e2.message, 'error'); }
+        } else {
+          UI.toast(err.message, 'error');
+        }
+      }
+    };
   },
 
   // UI.modal đóng modal đang mở trước khi mở cái mới, nên sau khi sửa xong phải

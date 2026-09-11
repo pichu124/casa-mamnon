@@ -1324,8 +1324,25 @@ module.exports = (app) => {
     ].join('|');
   }
 
+  // ĐỌC CSV và ĐỌC MỘT DÒNG là hai việc khác nhau (Đ170).
+  //
+  // Đường thêm MỘT bé nhập học giữa năm cần y hệt bộ kiểm tra này — thiếu họ
+  // tên, thiếu nhóm, mã trùng, bé trùng, nhóm cùng tên ở nhiều cơ sở, nhóm
+  // không thuộc cơ sở của mình — nhưng nó không có tệp CSV nào cả.
+  //
+  // Nên phần ĐỌC TỆP tách khỏi phần SOÁT DÒNG. Đường một bé dựng thẳng một
+  // hàng dữ liệu rồi gọi `phanTichRows`, không phải ghép chuỗi CSV giả rồi
+  // nhờ máy đọc lại — ghép chuỗi là thêm một chỗ để dấu phẩy trong địa chỉ
+  // hay dấu nháy trong tên làm hỏng đúng một hồ sơ.
+  //
+  // `phanTich` giữ nguyên tên và nguyên cách gọi: đường nhập tệp không đổi
+  // một chữ nào.
   function phanTich(text, phamNhap) {
     const { rows } = csv.parse(text);
+    return phanTichRows(rows, phamNhap);
+  }
+
+  function phanTichRows(rows, phamNhap) {
     const daDungTen = new Set();
     const ketQua = [];
     const maDaGap = new Set();
@@ -1443,6 +1460,78 @@ module.exports = (app) => {
     return ketQua;
   }
 
+  // THÊM MỘT BÉ NHẬP HỌC GIỮA NĂM (Đ170).
+  //
+  // Bảng phân quyền 07/09 cho *"Admin cơ sở NHẬP hồ sơ bé"*, nhưng cả kho mã
+  // chỉ có MỘT đường tạo bé: nhập hàng loạt từ tệp CSV. Nghĩa là một bé nhập
+  // học giữa tháng 10 thì văn phòng phải mở Excel, gõ đúng tên cột, lưu đúng
+  // bảng mã UTF-8, rồi tải lên — để tạo đúng một hồ sơ. Thực tế là họ sẽ nhờ
+  // người khác, hoặc để đó, và bé đi học mấy hôm rồi mới có trong app.
+  //
+  // DÙNG LẠI ĐÚNG ĐƯỜNG CỦA TỆP CSV, KHÔNG VIẾT ĐƯỜNG THỨ HAI. Cùng bộ soát
+  // (`phanTichRows`) và cùng thân nhận bé (`nhanMotBe`). Đây là quyết định
+  // quan trọng nhất của đường này: nhận một đứa trẻ vào trường là bốn việc
+  // phải làm đúng thứ tự, trong đó việc MỞ KHOẢNG LỊCH SỬ NHÓM hỏng lặng lẽ
+  // nhất. Hai bản chép tay sẽ trôi khỏi nhau, và cái trôi ra sẽ là cái ít
+  // người dùng hơn — tức đúng đường này.
+  //
+  // VĂN PHÒNG CƠ SỞ VẪN NHẬP ĐƯỢC, dù Đ168 vừa chặn họ SỬA phần nhân thân.
+  // Không mâu thuẫn: bảng của trường tách đúng hai chữ ấy — *nhập* là của
+  // admin cơ sở, *chỉnh sửa* là của quản lý cơ sở và hiệu trưởng. Người ngồi
+  // bàn tiếp đón nhận hồ sơ giấy từ gia đình là người gõ nó vào.
+  //
+  // TRẢ VỀ TÊN ĐĂNG NHẬP VÀ MẬT KHẨU MỘT LẦN, y như phiếu của đường nhập tệp:
+  // tạo hồ sơ bé mà gia đình không vào được app thì mới xong một nửa việc.
+  app.post('/api/admin/students', onlyAdmin, (req, res) => {
+    const b = req.body || {};
+    // Dựng thẳng MỘT HÀNG dữ liệu đúng hình dạng `csv.parse` trả ra, rồi đưa
+    // qua chính bộ soát của đường nhập tệp. Không ghép chuỗi CSV giả: dấu phẩy
+    // trong địa chỉ hay dấu nháy trong tên là đủ làm hỏng đúng một hồ sơ.
+    const hang = {
+      __line: 1,
+      'Họ tên': String(b.hoTen || '').trim(),
+      Nhóm: String(b.tenLop || '').trim(),
+      'Cơ sở': String(b.tenCoSo || '').trim(),
+      'Họ tên phụ huynh': String(b.phHoTen || '').trim(),
+      'Điện thoại': String(b.phSdt || '').trim(),
+      Email: String(b.phEmail || '').trim(),
+      'Mã của bé': String(b.ma || '').trim(),
+      'Ngày sinh': String(b.ngaySinh || '').trim(),
+      'Giới tính': String(b.gioiTinh || '').trim(),
+      'Địa chỉ': String(b.diaChi || '').trim(),
+      'Dân tộc': String(b.danToc || '').trim(),
+      'Nhóm máu': String(b.nhomMau || '').trim(),
+    };
+    const [r] = phanTichRows([hang], phamViNhom(req.user));
+    if (r.loi.length) {
+      // Câu báo lỗi y hệt đường nhập tệp, chỉ bỏ chữ "dòng 1" đi cho đỡ lạ.
+      return res.status(400).json({ error: r.loi.join('; ') });
+    }
+    // TRÙNG LÀ CẢNH BÁO, KHÔNG PHẢI LỖI — y như đường nhập tệp. Có thật chuyện
+    // hai bé trùng cả họ tên, ngày sinh lẫn nhóm; văn phòng phải nói được
+    // "đúng, cứ nhận" thay vì bị chặn cứng rồi đi nhờ người khác.
+    if (r.trung && b.xacNhanTrung !== true) {
+      return res.status(409).json({
+        error: `Có vẻ bé này ${r.trung}. Nếu đúng là một bé khác trùng tên thì xác nhận để nhận vào.`,
+        trung: r.trung,
+      });
+    }
+    if (r.taoLopMoi) {
+      return res.status(400).json({
+        error: `Chưa có nhóm lớp nào tên "${r.tenLop}". Xin tạo nhóm ở mục Nhóm lớp trước, `
+          + 'rồi nhận bé vào nhóm đó.',
+      });
+    }
+    if (r.classId && !duocChamNhom(req.user, r.classId)) return khongThuocCoSo(res, 'nhóm lớp');
+
+    const taiKhoan = [];
+    let ra = null;
+    db.tx(() => { ra = nhanMotBe(r, new Map(), taiKhoan); });
+    db.audit(req.user.id, 'student-create', ra.student.id,
+      { name: ra.student.name, classId: ra.student.classId });
+    res.status(201).json({ ...ra.student, taiKhoan: taiKhoan[0] || null });
+  });
+
   // Từ chối cả tệp khi chữ có dấu đã hỏng vì lưu sai bảng mã.
   //
   // Phải chặn ở CẢ HAI đường: đường ghi thật đọc lại nội dung tệp độc lập với
@@ -1480,6 +1569,79 @@ module.exports = (app) => {
       rows,
     });
   });
+
+  // NHẬN MỘT BÉ VÀO TRƯỜNG — một chỗ duy nhất (Đ170).
+  //
+  // Thân hàm này là thân vòng lặp cũ của đường nhập tệp, tách ra nguyên vẹn
+  // chứ không viết lại. Lý do tách: đường thêm MỘT bé nhập học giữa năm phải
+  // làm đúng bốn việc này theo đúng thứ tự ấy —
+  //
+  //   ① gộp phụ huynh trùng số điện thoại (nhà hai con dùng chung một tài khoản)
+  //   ② tạo hồ sơ bé
+  //   ③ MỞ KHOẢNG LỊCH SỬ NHÓM ngay từ hôm nay
+  //   ④ nối bé với phụ huynh
+  //
+  // Bước ③ là bước dễ quên nhất và hỏng lặng lẽ nhất: thiếu nó thì bé không
+  // có đoạn đầu trong lịch sử nhóm, và mọi thứ đọc theo "bé học nhóm nào hồi
+  // tháng ấy" — album năm cũ, báo cáo, sổ điểm danh của nhóm cũ — đều hụt
+  // đúng một bé mà không ai báo.
+  //
+  // Chép tay lần thứ hai thì hai đường sẽ trôi khỏi nhau ở lần sửa thứ ba.
+  function nhanMotBe(r, lopTheoTen, taiKhoan) {
+    const classId = r.classId || lopTheoTen.get(r.tenLop) || null;
+
+    // Gộp phụ huynh trùng số điện thoại — nhà có hai con thì dùng chung một tài khoản.
+    let parent = r.phSdt
+      ? db.first('users', `SELECT * FROM users WHERE role = 'parent' AND phone = ? AND active = 1`, [r.phSdt])
+      : null;
+    let matKhau = null;
+    if (!parent) {
+      matKhau = sinhMatKhau();
+      parent = {
+        id: db.nextId('p'),
+        username: r.username,
+        passwordHash: password.hash(matKhau),
+        role: 'parent',
+        name: r.phHoTen,
+        title: '',
+        phone: r.phSdt,
+        email: r.phEmail,
+        classId: null,
+        avatar: { emoji: '👤', bg: '#5b6ceb' },
+        mustChangePassword: true,
+        active: true,
+        createdAt: new Date().toISOString(),
+      };
+      db.insert('users', parent);
+    }
+
+    const student = {
+      id: db.nextId('s'),
+      code: r.ma || null,
+      name: r.hoTen,
+      dob: r.ngaySinh || null,
+      gender: r.gioiTinh || null,
+      classId,
+      avatar: { emoji: /nữ|nu/i.test(r.gioiTinh) ? '👧' : '👦', bg: '#3f6ad8' },
+      address: r.diaChi,
+      ethnicity: r.danToc || '', bloodType: r.nhomMau || '', allergies: '',
+      active: true, leftAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    db.insert('students', student);
+    if (classId) lsl.moKhoang(student.id, classId, lsl.homNay());
+    db.run('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)',
+      [student.id, parent.id]);
+
+    taiKhoan.push({
+      hocSinh: student.name,
+      lop: r.tenLop,
+      phuHuynh: parent.name,
+      username: parent.username,
+      matKhau: matKhau || '(đã có tài khoản từ trước)',
+    });
+    return { student, parent };
+  }
 
   app.post('/api/admin/import/commit', onlyAdmin, (req, res) => {
     const text = String((req.body || {}).csv || '');
@@ -1526,60 +1688,7 @@ module.exports = (app) => {
         lopTheoTen.set(r.tenLop, id);
       }
 
-      for (const r of hopLe) {
-        const classId = r.classId || lopTheoTen.get(r.tenLop) || null;
-
-        // Gộp phụ huynh trùng số điện thoại — nhà có hai con thì dùng chung một tài khoản.
-        let parent = r.phSdt
-          ? db.first('users', `SELECT * FROM users WHERE role = 'parent' AND phone = ? AND active = 1`, [r.phSdt])
-          : null;
-        let matKhau = null;
-        if (!parent) {
-          matKhau = sinhMatKhau();
-          parent = {
-            id: db.nextId('p'),
-            username: r.username,
-            passwordHash: password.hash(matKhau),
-            role: 'parent',
-            name: r.phHoTen,
-            title: '',
-            phone: r.phSdt,
-            email: r.phEmail,
-            classId: null,
-            avatar: { emoji: '👤', bg: '#5b6ceb' },
-            mustChangePassword: true,
-            active: true,
-            createdAt: new Date().toISOString(),
-          };
-          db.insert('users', parent);
-        }
-
-        const student = {
-          id: db.nextId('s'),
-          code: r.ma || null,
-          name: r.hoTen,
-          dob: r.ngaySinh || null,
-          gender: r.gioiTinh || null,
-          classId,
-          avatar: { emoji: /nữ|nu/i.test(r.gioiTinh) ? '👧' : '👦', bg: '#3f6ad8' },
-          address: r.diaChi,
-          ethnicity: r.danToc || '', bloodType: r.nhomMau || '', allergies: '',
-          active: true, leftAt: null,
-          createdAt: new Date().toISOString(),
-        };
-        db.insert('students', student);
-        if (classId) lsl.moKhoang(student.id, classId, lsl.homNay());
-        db.run('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)',
-          [student.id, parent.id]);
-
-        taiKhoan.push({
-          hocSinh: student.name,
-          lop: r.tenLop,
-          phuHuynh: parent.name,
-          username: parent.username,
-          matKhau: matKhau || '(đã có tài khoản từ trước)',
-        });
-      }
+      for (const r of hopLe) nhanMotBe(r, lopTheoTen, taiKhoan);
     });
 
     db.audit(req.user.id, 'import-students', null, {

@@ -741,8 +741,13 @@ một lần trong cả bảng `CHUC_VU`); cô và văn phòng nhập được s�
   họ thôi chuyển nhóm được cho bé giữa năm — Nguyên tắc số 1). `test:ho-so-sua` 37 phép
   kiểm, trong đó mục [4] đối chiếu danh sách chặn với vòng lặp ghi để hai chỗ không trôi
   khỏi nhau.
-- **(1) Chưa có đường nhập MỘT bé lẻ** — cả kho chỉ có nhập hàng loạt từ CSV, nên bé nhập
-  học giữa năm thì văn phòng phải soạn một tệp CSV.
+- **(1) ~~Chưa có đường nhập MỘT bé lẻ~~ ✅ ĐÃ LÀM Đ170.** `POST /api/admin/students` nhận
+  một bé bằng một lần điền, **dùng lại đúng bộ soát và đúng thân nhận bé của đường nhập
+  tệp** (`phanTichRows` + `nhanMotBe` tách ra nguyên vẹn) — nhận một đứa trẻ vào trường là
+  bốn việc phải làm đúng thứ tự, trong đó **mở khoảng lịch sử nhóm** hỏng lặng lẽ nhất.
+  Bài canh nhận cùng một bé qua **hai đường rồi so từng cột**. Trả về phiếu tài khoản một
+  lần cho gia đình; nhà đã có con học thì dùng lại tài khoản cũ theo số điện thoại.
+  `test:nhan-mot-be` 45 phép kiểm.
 - **(3) Sức khoẻ** — đúng như sổ nói, và rộng hơn: ngoài PUT/DELETE thì **đường cân đo cả
   nhóm cũng ghi đè bản ghi cũ cùng ngày**, siết mà bỏ sót đường này là siết nửa vời.
   **Chờ quyết SK-10.**
