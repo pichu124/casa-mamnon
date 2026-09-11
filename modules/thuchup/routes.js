@@ -61,6 +61,16 @@ module.exports = (app, { db }) => {
          AND (? IS NULL OR byTeacherId = ?)
        ORDER BY taoLuc DESC LIMIT ?`, [...ids, cuaCo, cuaCo, GIOI_HAN]);
 
+    // Dấu vết sửa chữ của cả trang, hỏi MỘT lượt (Đ166). Hỏi từng dòng là dựng
+    // lại đúng vòng lặp N+1 mà Đ158 và Đ159 vừa dọn ở hai phân hệ khác.
+    const daSua = new Map();
+    if (rows.length) {
+      const m2 = rows.map(() => '?').join(',');
+      for (const x of db.all('thuchup_sua',
+        `SELECT ghiId, soLan, suaLuc FROM thuchup_sua WHERE ghiId IN (${m2})`,
+        rows.map(r => r.id))) daSua.set(x.ghiId, x);
+    }
+
     res.json({
       soBe: ids.length,
       // BÉ MÀ GIA ĐÌNH ĐÃ DỪNG HỒ SƠ HỌC TẬP — GỬI KÈM ĐỂ MÀN HÌNH NGĂN TỪ GỐC.
@@ -82,6 +92,10 @@ module.exports = (app, { db }) => {
         ...r,
         tenBe: byId.get(r.studentId)?.name || '',
         ngoaiTuyen: !!r.ngoaiTuyen,
+        // Dấu vết sửa chữ (Đ166). Hỏi theo LÔ, không hỏi từng dòng một.
+        suaLuc: (daSua.get(r.id) || {}).suaLuc || null,
+        // Màn hình không tự suy từ vai: đường PATCH chỉ nhận chính cô đã ghi.
+        suaDuoc: r.byTeacherId === req.user.id,
       })),
     });
   });
@@ -225,6 +239,64 @@ module.exports = (app, { db }) => {
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
     res.setHeader('Content-Type', uploads.mimeOf(r.file));
     res.sendFile(filePath);
+  });
+
+  // SỬA LỜI GHI CHÚ CỦA MỘT BẢN GHI NHANH ĐÃ LÊN MÁY CHỦ (Đ166, HT-03).
+  //
+  // Nhà trường 07/09: ảnh Ghi nhanh không kèm chữ thì vẫn hợp lệ — đúng, đã
+  // làm — nhưng *"thiếu sửa caption sau"*. Trước đợt này bản ghi đã gửi lên là
+  // **vĩnh viễn**: phân hệ chỉ có liệt kê, tạo, xem ảnh, xoá. Cô gõ vội một
+  // dòng giữa lớp rồi đọc lại thấy sai tên món đồ chơi thì đường duy nhất là
+  // XOÁ cả bản ghi — mất luôn tấm ảnh, mất luôn số giây đã đo.
+  //
+  // CHỈ CHÍNH CÔ ĐÃ GHI, KỂ CẢ QUẢN TRỊ CŨNG KHÔNG. Đây là chỗ đường này CỐ Ý
+  // chặt hơn đường XOÁ ngay bên dưới, chứ không phải chép y nguyên luật của
+  // nó. Hai việc khác nhau: xoá một bản ghi SAI BÉ là dọn một thứ không nên
+  // tồn tại, và văn phòng phải làm được; còn sửa CHỮ trong ghi chép riêng của
+  // một cô là viết lại lời của người khác dưới tên người ấy. Bảng ba lớp của
+  // CLAUDE.md xếp ghi chú thô vào lớp 1 — *"chỉ cô đã ghi"* — và lớp ấy là
+  // chỗ cô được phép nháp dở dang mà không ai nhìn vào.
+  //
+  // KHÔNG KHOÁ THEO THỜI GIAN. Ghi nhanh là nháp, không phải chứng từ; khoá
+  // sau một khoảng thời gian chỉ đẩy cô sang cách cũ là xoá đi ghi lại, tức
+  // mất ảnh và mất số liệu — đúng thứ đợt này sinh ra để tránh.
+  //
+  // SỬA Ở ĐÂY KHÔNG KÉO THEO BẢN ĐÃ CHÉP SANG HÀNH TRÌNH. Ba lớp là ba bản ghi
+  // riêng; bản Hành trình có thể đã được cô duyệt và kể cho gia đình rồi. Màn
+  // hình nói thẳng câu đó cho cô, chứ không âm thầm sửa hai chỗ.
+  app.put('/api/thuchup/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const r = db.first('thuchup_ghinhanh',
+      'SELECT * FROM thuchup_ghinhanh WHERE id = ?', [req.params.id]);
+    if (!r) return res.status(404).json({ error: 'Không tìm thấy bản ghi này' });
+    if (!db.canAccessStudent(req.user, r.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền sửa bản ghi của bé này' });
+    }
+    if (r.byTeacherId !== req.user.id) {
+      return res.status(403).json({
+        error: 'Đây là ghi chép riêng của cô đã ghi. Người khác xoá được bản ghi sai bé, '
+          + 'nhưng không sửa lời của cô.',
+      });
+    }
+
+    const note = String((req.body || {}).note ?? '').trim().slice(0, 2000);
+    // Bản ghi CHỈ CÓ CHỮ mà xoá sạch chữ là biến nó thành một dòng rỗng không
+    // ai đọc được — muốn bỏ hẳn thì có đường xoá, và đường ấy dọn cả ảnh.
+    if (!note && !r.file) {
+      return res.status(400).json({
+        error: 'Bản ghi này không có ảnh, nên phải còn lại vài chữ. Muốn bỏ hẳn thì dùng nút Xoá.',
+      });
+    }
+    if (note === (r.note || '')) return res.json({ ok: true, note, doiKhong: false });
+
+    const luc = new Date().toISOString();
+    db.update('thuchup_ghinhanh', r.id, { note });
+    const cu = db.first('thuchup_sua', 'SELECT * FROM thuchup_sua WHERE ghiId = ?', [r.id]);
+    if (cu) db.run('UPDATE thuchup_sua SET soLan = soLan + 1, suaLuc = ? WHERE ghiId = ?', [luc, r.id]);
+    else db.insert('thuchup_sua', { ghiId: r.id, soLan: 1, suaLuc: luc });
+    // Nhật ký KHÔNG ghi nội dung, cùng nếp Đ152: nó không phải chỗ để lời của
+    // cô về một đứa trẻ nằm lần thứ hai.
+    db.audit(req.user.id, 'thuchup-sua-chu', r.studentId, { id: r.id });
+    res.json({ ok: true, note, doiKhong: true, suaLuc: luc });
   });
 
   // Xoá một bản Ghi nhanh ghi nhầm.

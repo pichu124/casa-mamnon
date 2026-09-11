@@ -42,6 +42,50 @@ App.views.thuchup = {
     }));
   },
 
+  // Ô sửa lời ghi chú (Đ166, HT-03).
+  //
+  // `trongMay = true` nghĩa là bài vẫn nằm trong hàng đợi của máy: sửa thẳng
+  // vào kho trong máy, không gọi mạng. `false` là bài đã lên máy chủ.
+  async moSuaChu(id, trongMay) {
+    let cu = '';
+    if (trongMay) {
+      const ds = await this.dangCho();
+      cu = (ds.find(r => r.id === id) || {}).note || '';
+    } else {
+      cu = (((this._ds || {}).ghiNhan) || []).find(g => g.id === id)?.note || '';
+    }
+    UI.modal(`
+      <div class="field"><label>Lời ghi chú</label>
+        <textarea id="tc-sua-o" rows="4" maxlength="2000">${UI.esc(cu)}</textarea></div>
+      <div class="muted small" style="line-height:1.6">
+        Đây là ghi chép riêng của cô. Nếu cô đã kể lại chuyện này cho gia đình ở
+        mục Hành trình thì bản kể bên ấy <b>không đổi theo</b> — hai chỗ là hai
+        bản ghi riêng, sửa bên nào chỉ đổi bên đó.
+      </div>
+      <button class="btn primary block mt-8" id="tc-sua-luu">Lưu lời ghi chú</button>
+    `, 'Sửa lời ghi chú');
+
+    document.getElementById('tc-sua-luu').onclick = async () => {
+      const note = document.getElementById('tc-sua-o').value;
+      try {
+        if (trongMay) {
+          const ds = await this.dangCho();
+          const rec = ds.find(r => r.id === id);
+          if (!rec) throw new Error('Bài ghi này không còn trong máy');
+          if (!String(note).trim() && !rec.anh) {
+            throw new Error('Bài này không có ảnh, nên phải còn lại vài chữ.');
+          }
+          await this.luuVaoMay({ ...rec, note });
+        } else {
+          await API.put(`/api/thuchup/${encodeURIComponent(id)}`, { note });
+        }
+        UI.closeModal();
+        UI.toast('Đã sửa lời ghi chú', 'success');
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
   luuVaoMay(rec) { return this._viec('readwrite', kho => kho.put(rec)); },
   xoaKhoiMay(id) { return this._viec('readwrite', kho => kho.delete(id)); },
   dangCho() { return this._viec('readonly', kho => kho.getAll()); },
@@ -156,6 +200,9 @@ App.views.thuchup = {
       // Nhớ lại để hàng đợi và ô chọn bé cùng dùng. Giữ bản cũ khi mất mạng:
       // thà dùng danh sách hôm qua còn hơn coi như không bé nào đã dừng.
       if (Array.isArray(ds.beNgungHoSo)) this._ngungHoSo = new Set(ds.beNgungHoSo);
+      // Giữ lại danh sách để ô sửa lời ghi chú (Đ166) đọc được lời đang có mà
+      // không phải hỏi máy chủ thêm một lượt.
+      this._ds = ds;
     } catch (err) { mang = false; }
 
     root.innerHTML = `
@@ -187,6 +234,7 @@ App.views.thuchup = {
                 <div class="row-title">${UI.esc(this.tenBe(r.studentId))}</div>
                 <div class="row-sub">${UI.esc((r.note || '(chỉ có ảnh)').slice(0, 90))}</div>
               </div>
+              <button class="btn sm outline" data-sua-may="${UI.esc(r.id)}">Sửa chữ</button>
               <button class="btn sm outline" data-bo="${UI.esc(r.id)}">Bỏ bài này</button>
             </div>`).join('')}
         </div>` : ''}
@@ -237,11 +285,14 @@ App.views.thuchup = {
                 : '<span class="row-icon">📝</span>'}
               <div class="row-main">
                 <div class="row-title">${UI.esc(g.tenBe)}</div>
-                <div class="row-sub">${UI.esc(g.note || '')}</div>
+                <div class="row-sub">${UI.esc(g.note || '')}${
+    g.suaLuc ? ` · <span class="muted">đã sửa ${UI.esc(UI.fmtDateShort(g.suaLuc))}</span>` : ''}</div>
               </div>
               <div class="row-end">
                 ${g.giay != null ? UI.badge(g.giay + 's', g.giay < 20 ? 'green' : 'orange') : ''}
                 ${g.ngoaiTuyen ? UI.badge('ngoại tuyến', 'gray') : ''}
+                ${g.suaDuoc ? `<button class="btn sm outline" data-sua-gn="${UI.esc(g.id)}"
+                  title="Sửa lại lời ghi chú">${UI.icon('edit', 14)}</button>` : ''}
                 <button class="btn sm outline" data-xoa-gn="${UI.esc(g.id)}"
                   title="Ghi nhầm bé — xoá bản này">${UI.icon('x', 14)}</button>
               </div>
@@ -271,6 +322,20 @@ App.views.thuchup = {
         } catch (err) { UI.toast(err.message, 'error'); }
       };
     }
+    // SỬA LỜI GHI CHÚ (Đ166, HT-03) — hai chỗ, hai đường đi khác hẳn nhau.
+    //
+    // Bản ĐÃ LÊN MÁY CHỦ đi qua `PATCH /api/thuchup/:id`. Bản CÒN TRONG MÁY thì
+    // sửa thẳng vào hàng đợi, không gọi mạng: đó đúng là lúc cô cần sửa nhất —
+    // bài kẹt vì mất mạng hoặc vì gia đình đã dừng hồ sơ, cô đọc lại thấy sai
+    // chữ, mà trước đợt này đường duy nhất là "Bỏ bài này", tức mất trắng cả
+    // ảnh lẫn phần đã gõ.
+    for (const nut of root.querySelectorAll('button[data-sua-gn]')) {
+      nut.onclick = () => this.moSuaChu(nut.dataset.suaGn, false);
+    }
+    for (const nut of root.querySelectorAll('button[data-sua-may]')) {
+      nut.onclick = () => this.moSuaChu(nut.dataset.suaMay, true);
+    }
+
     // Nút "Bỏ bài này" — chỉ cô bấm, app không bao giờ tự xoá phần cô đã gõ.
     for (const nut of root.querySelectorAll('button[data-bo]')) {
       nut.onclick = async () => {

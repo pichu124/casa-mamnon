@@ -850,7 +850,16 @@ công bố không hề đòi lĩnh vực hay trạng thái, nó chỉ đòi câu
 thiếu của HT-01 là **gộp màn**, không phải thiếu cầu nối: màn của cô hôm nay có 16 ô vuông
 ở trang chủ + 5 nút thanh dưới + bảng "Hôm nay ở nhóm".
 
-**HT-03 xác nhận là thật và nhỏ:** không có một đường nào sửa dòng ghi chú của bản Ghi nhanh
+**HT-03 ✅ ĐÃ LÀM Đ166.** `PUT /api/thuchup/:id` sửa lời ghi chú, **chỉ chính cô đã
+ghi** — quản trị cũng không, dù vẫn xoá được bản sai bé (hai việc khác nhau: dọn một thứ
+không nên tồn tại ≠ viết lại lời người khác dưới tên người ấy; lớp 1 của bảng ba lớp).
+Có dấu ngày sửa (`thuchup_sua`, bảng nối vì ALTER bị chặn) nhưng **không giữ lời cũ** —
+giữ từng bản nháp là biến ô ghi vội thành hồ sơ theo dõi cô giáo. Không khoá theo thời
+gian. **Bài còn trong hàng đợi cũng sửa được**, sửa thẳng vào kho trong máy không gọi
+mạng — đó là vế dễ bỏ sót và cũng là lúc cô cần sửa nhất. Ô sửa nói thẳng rằng bản đã kể
+cho gia đình ở Hành trình **không đổi theo**. `test:ghi-nhanh-sua` 26 phép kiểm.
+
+**Ghi chép hiện trạng cũ (giữ lại để đối chiếu):** không có một đường nào sửa dòng ghi chú của bản Ghi nhanh
 đã lên máy chủ (`modules/thuchup/` chỉ có liệt kê · tạo · xem ảnh · xoá · xem kết quả). Cột
 đã có sẵn tên `note`, không phải đụng lược đồ, không phải đụng tệp dùng chung. **Vế dễ bỏ
 sót:** bài còn nằm trong hàng đợi trong máy (chưa gửi được) cũng không sửa được chữ, chỉ có
