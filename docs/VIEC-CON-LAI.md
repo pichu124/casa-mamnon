@@ -723,15 +723,36 @@ thể quá thấp cho kiểu tích chọn theo danh mục. Chờ trường gửi
 cần trường gửi danh sách bài mẫu'; modules/kehoachbe/routes.js:130 TOI_DA_MUC_MOI_BE =
 12, dùng ở :531-532 và :742
 
-**Phân quyền — ba dòng của bảng 07/09 chưa được đối chiếu**
+**Phân quyền — ba dòng của bảng 07/09, ĐÃ ĐỐI CHIẾU 11/09: phần lớn đã đúng sẵn**
 
 (1) Hồ sơ bé: admin cơ sở nhập, quản lý/hiệu trưởng sửa, Marketing không thấy. (2) Khảo
 sát: admin + cô nhập, MKT/HR/Kế toán không thấy. (3) Sức khoẻ: chỉ quản lý/hiệu trưởng
-được SỬA (hiện cô sửa và thu hồi được — xem SK-10). Kèm hai ý cũ 28/08 chưa có mã: tách
-vai Quản lý cơ sở vs Admin văn phòng, và biểu phí để ở Cấp 1 nhưng giới hạn xem từng
-mảng.
+được SỬA (hiện cô sửa và thu hồi được — xem SK-10).
 
-*Cỡ việc:* vừa, chạm lib/db.js CHUC_VU (ba bước ba commit)
+**ĐÃ ĐÚNG SẴN, không phải làm gì:** Marketing không thấy Hồ sơ bé (kể cả cửa sau
+`/api/auth/me` đã vá, và ô vuông cũng ẩn khỏi trang chủ); MKT/HR/Kế toán không thấy Khảo
+sát và không thấy Sức khoẻ (`/api/surveys` và `/api/health` mỗi đường chỉ xuất hiện đúng
+một lần trong cả bảng `CHUC_VU`); cô và văn phòng nhập được sức khoẻ và khảo sát.
+
+**CHÊNH THẬT, ba chỗ:**
+- **(1) Văn phòng cơ sở hôm nay SỬA được hồ sơ bé**, trong khi bảng 07/09 chỉ cho họ NHẬP.
+- **(1) Chưa có đường nhập MỘT bé lẻ** — cả kho chỉ có nhập hàng loạt từ CSV, nên bé nhập
+  học giữa năm thì văn phòng phải soạn một tệp CSV.
+- **(3) Sức khoẻ** — đúng như sổ nói, và rộng hơn: ngoài PUT/DELETE thì **đường cân đo cả
+  nhóm cũng ghi đè bản ghi cũ cùng ngày**, siết mà bỏ sót đường này là siết nửa vời.
+  **Chờ quyết SK-10.**
+
+**Hai ý cũ 28/08 trong mục này thì SỔ GHI SAI, xin gạch bỏ:** (a) *"tách vai Quản lý cơ sở
+vs Admin văn phòng"* đã làm từ 28/08 — hai chức vụ Cấp 3 riêng biệt, và hai việc về con
+người (tạo tài khoản cô, phân công cô vào nhóm) đã bị chặn khỏi văn phòng; (b) *"biểu phí
+để ở Cấp 1 nhưng giới hạn xem từng mảng"* — vế sau đã làm, và Đ163 vừa siết thêm.
+
+**Thiếu bài canh (hành vi đúng nhưng không ai canh):** không phép kiểm nào đòi
+Marketing/Kế toán nhận 403 ở `/api/surveys`, và ở `/api/health` mới chỉ kiểm Nhân sự. Danh
+sách cho phép khớp theo TIỀN TỐ, nên một lần thêm tiền tố rộng tay cho Cấp 2 sau này sẽ mở
+cả hai mảng mà không bộ canh nào báo.
+
+*Cỡ việc:* nhỏ (vá bài canh) + vừa (siết sửa hồ sơ bé, thêm bé lẻ) + chờ quyết SK-10
 
 *Bằng chứng:* phan-hoi.md:145-148, :167-170, :171-174, :135-136; dòng SK-10; mảng Phân
 quyền chưa có bảng đối chiếu (PHAN-HOI-TRUONG-0709.md:242)
@@ -819,9 +840,27 @@ POST/DELETE, thu
 
 **HT-01 / HT-03 — dòng thời gian thống nhất cho cô, và sửa caption bản Ghi nhanh**
 
-Màn gia đình đã theo ngày; màn CÔ vẫn nhiều tab/ô. Thiếu cả đường tắt 'kể cho gia đình'
-không qua lớp 2. HT-03: ảnh Ghi nhanh không caption đã hợp lệ, thiếu sửa caption sau.
+Màn gia đình đã theo ngày; màn CÔ vẫn nhiều tab/ô. ~~Thiếu cả đường tắt 'kể cho gia đình'
+không qua lớp 2.~~ HT-03: ảnh Ghi nhanh không caption đã hợp lệ, thiếu sửa caption sau.
 Dòng thời gian KHÔNG được hiện ô trống 'chưa quan sát' như thiếu sót (QUY TẮC 2).
+
+**Đo lại 11/09.** Câu *"thiếu đường tắt kể cho gia đình không qua lớp 2"* là **sai** — đường
+công bố không hề đòi lĩnh vực hay trạng thái, nó chỉ đòi câu chuyện + "cùng con ở nhà"
+(QUY TẮC 5), và cầu nối Ghi nhanh → Hành trình đã có, một chạm, mang sẵn chữ sang. Cái còn
+thiếu của HT-01 là **gộp màn**, không phải thiếu cầu nối: màn của cô hôm nay có 16 ô vuông
+ở trang chủ + 5 nút thanh dưới + bảng "Hôm nay ở nhóm".
+
+**HT-03 xác nhận là thật và nhỏ:** không có một đường nào sửa dòng ghi chú của bản Ghi nhanh
+đã lên máy chủ (`modules/thuchup/` chỉ có liệt kê · tạo · xem ảnh · xoá · xem kết quả). Cột
+đã có sẵn tên `note`, không phải đụng lược đồ, không phải đụng tệp dùng chung. **Vế dễ bỏ
+sót:** bài còn nằm trong hàng đợi trong máy (chưa gửi được) cũng không sửa được chữ, chỉ có
+nút "Bỏ bài này" — mà đó đúng là lúc cô cần sửa nhất.
+
+**Bốn câu phải hỏi trước khi làm HT-03:** quản lý có được sửa lời của cô không (đường XOÁ
+hiện cho phép, nhưng xoá một bản ghi nhầm khác với sửa lời trong ghi chép riêng của chính
+cô — lớp 1 của bảng ba lớp); sửa rồi có để dấu vết "đã sửa lúc..." không; có khoá sau một
+khoảng thời gian không; và khi bản ấy đã chép sang Hành trình rồi thì sửa chữ ở Ghi nhanh
+có kéo theo bên kia không (ba lớp nói là hai bản ghi riêng, nhưng cô sẽ không nghĩ vậy).
 
 *Cỡ việc:* lớn (HT-01) + nhỏ (HT-03)
 
@@ -848,8 +887,24 @@ nhưng ba đường API vẫn mang — lọc ở tầng dữ liệu, không che 
 còn thiếu cho văn phòng đi đòi, KHÔNG chặn đường ghi nào (chặn ở đường nhập danh sách
 đầu năm là cả lượt nhập trượt; chặn ở đường sửa là văn phòng thôi sửa hồ sơ).
 
-**Ý (4) CÒN LẠI:** bố cục duyệt theo cây Cơ sở → Lớp → Bé (như Đ138 đã làm cho Sức
-khoẻ). Hôm nay màn quản trị duyệt theo Nhóm → Bé, thiếu tầng Cơ sở.
+**Ý (4) CÒN LẠI, nhưng nhỏ hơn sổ tưởng — và sổ đang dẫn SAI tiền lệ (đo lại 11/09).**
+
+Câu *"như Đ138 đã làm cho Sức khoẻ"* là **sai**: Đ138 không dựng cây nào cả, nó chỉ là một
+ô chọn nhóm đã lọc sẵn theo cơ sở của người đăng nhập — trên màn ấy không có một tiêu đề cơ
+sở nào.
+
+**Cây Cơ sở → Nhóm → Bé thì ĐÃ CÓ THẬT, từ Đ124** — nhưng ở **trang chủ của văn phòng**, đi
+được tới tận hồ sơ từng bé, và đã có bài canh trên trình duyệt thật. **Màn Hồ sơ bé cũng đã
+duyệt theo cấp "Cơ sở › Nhóm"** bằng `<optgroup>`. Thứ còn phẳng là **thẻ "Danh sách nhóm
+lớp" ở Quản trị → Tổng quan**: tên cơ sở chỉ là một mẩu chữ nối vào dòng phụ của từng nhóm.
+
+Không cần thêm đường API nào — `/api/admin/overview` đã trả sẵn danh sách cơ sở và từng nhóm
+kèm `campusId` + `studentCount`, CSS của cây cũng dùng lại được.
+
+**Phải hỏi trước:** trường có thật sự cần **cây thứ hai** ở màn Quản trị không, hay chỉ cần
+gom thẻ "Danh sách nhóm lớp" theo tiêu đề cơ sở? Và **quản lý cơ sở có được thấy TÊN hai cơ
+sở kia không** — hôm nay hai màn đang nói khác nhau, `/api/admin/overview` trả cả ba cơ sở
+cho họ (có bài canh chốt cứng `=== 3`) trong khi màn Một ngày của Đ162 cố ý giấu.
 
 *Cỡ việc:* nhỏ (còn ý 4)
 
@@ -884,13 +939,57 @@ Xin chủ dự án quyết có làm mảng tuyển sinh không trước khi ai �
 *Bằng chứng:* phan-hoi.md:216-221; routes/admin.js:321-330 (đã đọc tận nơi — counts chỉ
 có 5 khoá)
 
-**Học phí và Kế toán — bốn ý chưa có mã**
+**Học phí và Kế toán — bốn ý ~~chưa có mã~~ · (1) và (2) ĐÃ LÀM Đ163**
 
 (1) Chỉ kế toán hoặc Cấp 1 được tạo khoản thu. (2) Tạo phí tách theo cơ sở / lớp / trẻ
 cho dễ nhìn. (3) Thêm thông tin ngân hàng nộp. (4) Bảng theo dõi ưu đãi và nhắc báo hạn
-ưu đãi. Đ140 mới chỉ ẩn ô Học phí khỏi màn cô.
+ưu đãi. ~~Đ140 mới chỉ ẩn ô Học phí khỏi màn cô.~~
 
-*Cỡ việc:* lớn
+**Câu "chưa có mã" của mục này ĐÃ CŨ HƠN MÃ, đo lại 11/09.** Ý (1) vốn đã làm được một
+nửa từ Đ42 (cô và gia đình không ghi được sổ tiền, có bài canh); Đ118 thêm đường thu hồi
+và huỷ xác nhận; Đ140 ẩn ô khỏi màn cô. Phần thật sự còn thiếu đã làm ở **Đ163**:
+
+- **Ý (1) ✅** — `db.taoKhoanThuDuoc` (Đ163a, tệp dùng chung, commit riêng). Chỉ Kế toán,
+  Ban giám hiệu và **tài khoản chưa khai chức vụ** đặt được khoản thu. Văn phòng cơ sở và
+  Quản lý cơ sở **vẫn đọc sổ tiền và vẫn xác nhận đã nhận tiền** — siết ghi, không siết
+  đọc. Tách như vậy còn chặt hơn bản cũ: người ĐẶT RA con số và người XÁC NHẬN đã nhận
+  không còn là một người.
+- **Ý (2) ✅** — `POST /api/hocphi/hang-loat` ghi một lượt cho cả nhóm / cả cơ sở / mọi bé
+  trong phạm vi, **bỏ qua bé đã có đúng khoản ấy** và nói ra đã bỏ qua mấy bé (chống đòi
+  tiền hai lần); `GET /api/hocphi/bang` gom theo cơ sở → nhóm → bé, **xếp theo tên**.
+  Hai bảng mới `hocphi_dot` + `hocphi_dot_khoan` ghi lại đợt nào tạo ra dòng nào.
+  `test:hoc-phi-ghi-so` 60 phép kiểm.
+
+**Ý (3) — thông tin ngân hàng nộp: CÒN LẠI, nhưng gần như chỉ còn phần quyết định.** Khuôn
+đã có nguyên bộ ở Đ161 (`/api/admin/lien-he` + `settings.school`). Bốn câu phải hỏi trường
+trước khi viết dòng đầu tiên: **một tài khoản cho cả trường hay mỗi cơ sở một**; kế toán có
+tự sửa được ô ấy không (hôm nay Kế toán không với tới `/api/admin`, sửa là chạm `lib/db.js`);
+có làm **mã QR** không (kho chưa có một dấu vết nào, và tự sinh QR ngân hàng là một việc
+khác hẳn việc treo một ảnh QR trường tự tải lên); và có cần **cú pháp nội dung chuyển
+khoản** chuẩn để kế toán dò sao kê không.
+
+**Ý (4) — bảng theo dõi ưu đãi + nhắc hạn: CÒN LẠI, và CHƯA LÀM ĐƯỢC VÌ THIẾU CÂU TRẢ LỜI,
+không phải vì thiếu giờ.** Kho mã hôm nay không có một khái niệm ưu đãi nào (grep `uu-dai`,
+`giam-gia`, `mien-giam`, `discount` → 0 kết quả), nên mọi thứ phải dựng mới — và dựng sai
+hình dạng dữ liệu tiền là thứ sửa lại rất đắt. Sáu câu phải hỏi trường:
+
+1. **Ưu đãi gồm những loại nào** (anh chị em ruột · con cán bộ nhân viên · đóng trước cả
+   năm · học bổng · thoả thuận riêng)? Mỗi loại một cách tính và một cái "hạn" khác nhau.
+2. **Mức ghi bằng SỐ TIỀN hay PHẦN TRĂM?** Đề nghị số tiền: vừa tránh làm tròn lệch sổ, vừa
+   không chạm dấu hiệu `}%` của `test:quy-tac-4`. Ghi phần trăm thì phải xin một dòng ngoại
+   lệ cho bộ canh ấy — mà nhóm bài canh 5 QUY TẮC là **bất khả xâm phạm**, đổi phải có lý do
+   viết ra và chủ dự án duyệt.
+3. **"Hạn ưu đãi" là hạn gì?** (a) hết hiệu lực thì thôi giảm; (b) hạn nộp giấy tờ chứng
+   minh, quá hạn thì thu lại phần đã giảm; (c) hạn để trường quyết gia hạn tiếp. Ba nghĩa,
+   ba cách làm.
+4. **Nhắc cho ai?** Chỉ Kế toán, hay cả Hiệu trưởng / Quản lý cơ sở, hay cả GIA ĐÌNH? Nếu
+   có gia đình thì đây là **tin về tiền gửi tới phụ huynh** — cả app hiện chưa có loại tin
+   nào như vậy.
+5. **Gia đình có xem được ưu đãi của con mình không?**
+6. **Ai đặt và ai gỡ một ưu đãi** — kế toán tự đặt, hay phải quản lý duyệt? Cùng lập luận
+   "ghi sổ ≠ duyệt sổ" mà chính phân hệ này đã dùng để cấm cô tạo khoản thu.
+
+*Cỡ việc:* ~~lớn~~ · còn lại: ý (3) nhỏ sau khi chốt 4 câu; ý (4) vừa sau khi chốt 6 câu
 
 *Bằng chứng:* phan-hoi.md:326, :371, :373-374; mảng Kế toán/Học phí chưa có bảng đối
 chiếu (PHAN-HOI-TRUONG-0709.md:242)
