@@ -413,6 +413,73 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[6d] ĐƯỜNG MỘT BÉ CŨNG KHÔNG ĐƯỢC ĐÒI TIỀN HAI LẦN');
+  {
+    // Đường ghi sổ HÀNG LOẠT có bước chống ghi trùng từ đầu, và chú thích của
+    // chính nó gọi đó là "phần quan trọng nhất của đường này": mạng chập chờn,
+    // bấm hai lần, hay chạy lại vì nhớ nhầm — cả ba đều dẫn tới một nhà bị đòi
+    // tiền hai lần. Lập luận ấy đúng y nguyên cho đường MỘT BÉ, mà đường một bé
+    // thì trước đợt Đ175 ghi thẳng, không hỏi gì cả.
+    const than = { studentId: 's3', kyThu: 'Tháng 10/2026', noiDung: 'Tiền ăn tháng 10', soTien: 600000 };
+
+    const lan1 = await req('POST', '/api/hocphi', { cookie: KT, body: than });
+    check('ghi được khoản lần đầu', lan1.status === 201, `${lan1.status} ${JSON.stringify(lan1.data)}`);
+
+    const lan2 = await req('POST', '/api/hocphi', { cookie: KT, body: than });
+    check('LẦN HAI MÁY HỎI LẠI chứ không ghi ngay', lan2.status === 409, lan2.status);
+    check('và nói rõ khoản đã có là khoản nào, bao nhiêu tiền',
+      /Tiền ăn tháng 10/.test(lan2.data?.error || '') && /600.000/.test(lan2.data?.error || ''),
+      lan2.data?.error);
+    check('kèm luôn dòng đã có để màn hình khỏi phải đi tra lại',
+      lan2.data?.khoanDaCo?.id === lan1.data?.id, lan2.data?.khoanDaCo);
+
+    const demSau2 = (await req('GET', '/api/hocphi?studentId=s3', { cookie: KT }))
+      .data?.khoan?.filter(k => k.noiDung === 'Tiền ăn tháng 10').length;
+    check('CHƯA XÁC NHẬN THÌ KHÔNG GHI THÊM DÒNG NÀO', demSau2 === 1, demSau2);
+
+    // CHUẨN HOÁ KHI SO: một chữ hoa hay một dấu cách thừa lúc dán từ Excel
+    // không được biến một khoản thành hai.
+    const hoaThuong = await req('POST', '/api/hocphi', {
+      cookie: KT,
+      body: { ...than, kyThu: '  tháng 10/2026 ', noiDung: 'TIỀN  ĂN   Tháng 10' },
+    });
+    check('khác chữ hoa và dấu cách vẫn bị nhận ra là TRÙNG', hoaThuong.status === 409, hoaThuong.status);
+    check('đúng cùng một luật so với đường ghi sổ hàng loạt',
+      /const chuanHoa = /.test(fs.readFileSync(path.join(GOC, 'modules/hocphi/routes.js'), 'utf8')
+        .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n').split('app.post')[0]),
+      'chuanHoa phải nằm ngoài thân hàm, dùng chung cho cả hai đường');
+
+    // HỎI LẠI CHỨ KHÔNG CẤM — hai đợt dã ngoại cùng tên trong một kỳ là có thật.
+    const xacNhan = await req('POST', '/api/hocphi', {
+      cookie: KT, body: { ...than, xacNhanTrung: true },
+    });
+    check('xác nhận rồi thì ghi được — máy không quyết thay kế toán', xacNhan.status === 201, xacNhan.status);
+    const demSau3 = (await req('GET', '/api/hocphi?studentId=s3', { cookie: KT }))
+      .data?.khoan?.filter(k => k.noiDung === 'Tiền ăn tháng 10').length;
+    check('và bây giờ mới có hai dòng', demSau3 === 2, demSau3);
+
+    // ĐỐI CHỨNG — siết đúng chỗ, không siết lan.
+    const khac = await req('POST', '/api/hocphi', {
+      cookie: KT, body: { ...than, noiDung: 'Tiền dã ngoại tháng 10' },
+    });
+    check('đối chứng — nội dung KHÁC thì ghi thẳng, không hỏi han gì', khac.status === 201, khac.status);
+    const beKhac = await req('POST', '/api/hocphi', { cookie: KT, body: { ...than, studentId: 's4' } });
+    check('đối chứng — BÉ KHÁC cùng nội dung ấy cũng ghi thẳng', beKhac.status === 201, beKhac.status);
+
+    // KHOẢN ĐÃ THU HỒI KHÔNG CHẶN LẦN GHI SAU — thu hồi là "ghi nhầm, bỏ đi",
+    // nên ghi lại đúng khoản ấy phải trơn tru, không phải trèo qua một câu hỏi.
+    const thu = await req('POST', `/api/hocphi/${khac.data.id}/thu-hoi`, {
+      cookie: KT, body: { lyDo: 'ghi nhầm bé' },
+    });
+    check('thu hồi được một khoản', thu.status === 200, `${thu.status} ${JSON.stringify(thu.data)}`);
+    const ghiLai = await req('POST', '/api/hocphi', {
+      cookie: KT, body: { ...than, noiDung: 'Tiền dã ngoại tháng 10' },
+    });
+    check('KHOẢN ĐÃ THU HỒI KHÔNG chặn lần ghi sau — thu hồi là ngưng dùng, không phải cấm ghi lại',
+      ghiLai.status === 201, ghiLai.status);
+  }
+
+  // =========================================================================
   console.log('\n[7] Nguyên tắc số 1 — thứ đang chạy vẫn chạy y như cũ');
   {
     const nha = await req('GET', '/api/hocphi?studentId=s1', { cookie: PH });

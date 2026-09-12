@@ -223,6 +223,56 @@ try {
     check('đối chứng — đúng MỘT khoản được ghi vào sổ', dem === 1, dem);
     check('không lỗi JavaScript nào suốt mục này', loi.length === 0, loi);
   }
+  // =========================================================================
+  console.log('\n[5] Ghi đúng khoản ấy lần nữa thì MÁY HỎI LẠI, không ghi lặng lẽ');
+  {
+    // Mục [4] vừa ghi "Tiền ăn tháng 11" cho bé này. Ghi y hệt lần nữa là đúng
+    // cảnh mạng chập chờn / bấm hai lần / chạy lại vì nhớ nhầm — và trước Đ175
+    // máy ghi thẳng dòng thứ hai, tức một nhà bị đòi tiền hai lần.
+    const sid = await page.evaluate(() => (App.state.students || [])[0].id);
+    const dem = async () => page.evaluate(async (id) => {
+      const d = await API.get(`/api/hocphi?studentId=${id}`);
+      return (d.khoan || []).filter(k => k.noiDung === 'Tiền ăn tháng 11').length;
+    }, sid);
+    check('đối chứng — đang có đúng một dòng trước khi thử', await dem() === 1, await dem());
+
+    const moHopGhi = async () => {
+      await page.evaluate((id) => App.views.hocphi.moTao(id), sid);
+      await page.waitForSelector('#hp-luu', { timeout: 8000 });
+      await page.fill('#hp-ky', 'Tháng 11/2026');
+      await page.fill('#hp-nd', 'Tiền ăn tháng 11');
+      await page.fill('#hp-tien', '700000');
+    };
+
+    // (a) BẤM HUỶ ở câu hỏi → KHÔNG ghi thêm dòng nào.
+    await moHopGhi();
+    let chuHoi = '';
+    const batHuy = (d) => { chuHoi = d.message(); d.dismiss(); };
+    page.once('dialog', batHuy);
+    await page.click('#hp-luu');
+    await page.waitForTimeout(1200);
+    check('MÁY HỎI LẠI bằng một câu hỏi thật trên màn', /Vẫn ghi thêm/.test(chuHoi), chuHoi.slice(0, 160));
+    check('và câu hỏi nói rõ khoản đã có là khoản nào',
+      /Tiền ăn tháng 11/.test(chuHoi), chuHoi.slice(0, 160));
+    check('BẤM HUỶ THÌ KHÔNG GHI THÊM DÒNG NÀO', await dem() === 1, await dem());
+    // Hộp thoại phải CÒN MỞ và nút phải mở lại được. Dùng `count()` trước:
+    // trên bản chưa vá thì hộp đã đóng vì khoản được ghi thẳng, và `isDisabled`
+    // sẽ chờ 30 giây rồi ném lỗi — bài canh phải BÁO ĐỎ chứ không được sập.
+    const conHop = await page.locator('#hp-luu').count();
+    check('hộp thoại vẫn còn mở sau khi bấm Huỷ, phần đã gõ không mất', conHop === 1, conHop);
+    check('và nút mở lại được để kế toán sửa rồi bấm tiếp',
+      conHop === 1 && !(await page.locator('#hp-luu').isDisabled()), 'hp-luu');
+    await page.evaluate(() => UI.closeModal());
+
+    // (b) BẤM ĐỒNG Ý → ghi thêm thật, vì hai khoản cùng tên trong một kỳ là có thật.
+    await moHopGhi();
+    page.once('dialog', d => d.accept());
+    await page.click('#hp-luu');
+    await page.waitForTimeout(1800);
+    check('BẤM ĐỒNG Ý THÌ GHI ĐƯỢC — máy không quyết thay kế toán', await dem() === 2, await dem());
+    check('không lỗi JavaScript nào suốt mục này', loi.length === 0, loi);
+  }
+
 } finally {
   await ctx.close();
   await browser.close();

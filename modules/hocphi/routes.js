@@ -76,6 +76,28 @@ module.exports = (app, { db, modules }) => {
   // khác tên nhau.
   const TEN_CHUA_XEP_NHOM = 'Chưa xếp nhóm';
 
+  // CHUẨN HOÁ KHI SO, GIỮ NGUYÊN KHI GHI — MỘT LUẬT CHO CẢ HAI ĐƯỜNG GHI SỔ.
+  //
+  // Đường hàng loạt có luật này từ Đ171: "Tiền ăn tháng 9" và "Tiền ăn Tháng 9"
+  // phải là MỘT khoản, không thì cả trường bị đòi tiền hai lần vì một chữ hoa
+  // hay một dấu cách thừa lúc dán từ Excel. Đường MỘT BÉ nay dùng chung đúng
+  // hàm ấy — hai đường so khác nhau thì cùng một cặp chữ vừa là trùng vừa là
+  // không trùng, tuỳ người dùng bấm nút nào.
+  //
+  // Cái GHI xuống sổ vẫn là chữ kế toán đã gõ, không đụng tới.
+  const chuanHoa = (x) => String(x || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+  // Bé này ĐÃ có đúng khoản ấy chưa (chưa bị thu hồi)?
+  function khoanTrungCuaBe(studentId, kyThu, noiDung) {
+    const ky = chuanHoa(kyThu);
+    const nd = chuanHoa(noiDung);
+    return db.all('hocphi_khoan',
+      `SELECT id, kyThu, noiDung, soTien, taoLuc FROM hocphi_khoan
+        WHERE studentId = ?
+          AND id NOT IN (SELECT khoanId FROM hocphi_thuhoi)`, [studentId])
+      .find(k => chuanHoa(k.kyThu) === ky && chuanHoa(k.noiDung) === nd) || null;
+  }
+
   // Những kỳ thu CÓ THẬT trong sổ của đúng nhóm bé này, để ô xổ khỏi bắt gõ tay.
   // Trả về nhiều nhất 24 kỳ gần nhất.
   function kyThuTrongPhamVi(ids) {
@@ -162,6 +184,36 @@ module.exports = (app, { db, modules }) => {
     const tien = Number(soTien);
     if (!Number.isFinite(tien) || tien <= 0) return res.status(400).json({ error: 'Số tiền phải lớn hơn 0' });
 
+    // CẢNH BÁO KHI BÉ ĐÃ CÓ ĐÚNG KHOẢN NÀY, KHÔNG GHI CHỒNG LẶNG LẼ.
+    //
+    // Đường ghi sổ HÀNG LOẠT có bước này từ đầu, và chú thích của chính nó gọi
+    // đó là *"phần quan trọng nhất của đường này"*: mạng chập chờn, cô bấm hai
+    // lần, hay văn phòng chạy lại vì nhớ nhầm — cả ba đều có thật, và cả ba đều
+    // dẫn tới một nhà bị đòi tiền hai lần. Lập luận ấy đúng y nguyên cho đường
+    // MỘT BÉ, mà đường một bé thì trước đợt này ghi thẳng, không hỏi gì cả.
+    //
+    // HỎI LẠI CHỨ KHÔNG CẤM. Một nhà nộp hai lần cùng một nội dung trong một kỳ
+    // là chuyện có thật (hai đợt dã ngoại cùng tên, tiền ăn bù tháng trước), nên
+    // máy không được tự quyết thay kế toán — nó chỉ không được im lặng. Cùng
+    // khuôn với đường nhận một bé: 409 kèm câu hỏi, gửi lại với `xacNhanTrung`
+    // thì ghi.
+    //
+    // 409 chứ không phải 400: đây là CẢNH BÁO, và màn hình phân biệt hai thứ ấy
+    // bằng mã lỗi chứ không bằng câu chữ (bài học Đ173).
+    if (req.body?.xacNhanTrung !== true) {
+      const daCo = khoanTrungCuaBe(studentId, kyThu, noiDung);
+      if (daCo) {
+        return res.status(409).json({
+          error: `Bé này đã có một khoản "${daCo.noiDung}" của kỳ "${daCo.kyThu}" `
+            + `(${Number(daCo.soTien || 0).toLocaleString('vi-VN')} đ) và chưa được thu hồi. `
+            + 'Nếu đây đúng là một khoản KHÁC thì xác nhận để ghi thêm.',
+          khoanDaCo: {
+            id: daCo.id, kyThu: daCo.kyThu, noiDung: daCo.noiDung, soTien: daCo.soTien,
+          },
+        });
+      }
+    }
+
     const rec = {
       id: db.nextId('hp'),
       studentId,
@@ -208,15 +260,6 @@ module.exports = (app, { db, modules }) => {
     }
     const kyThu = String(b.kyThu || '').trim();
     const noiDung = String(b.noiDung || '').trim();
-    // CHUẨN HOÁ KHI SO, GIỮ NGUYÊN KHI GHI.
-    //
-    // Chống ghi trùng của bản đầu so khớp chuỗi nguyên văn, nên "Tiền ăn tháng 9"
-    // và "Tiền ăn Tháng 9" là hai khoản khác nhau — và cả trường bị đòi tiền hai
-    // lần chỉ vì một chữ hoa, hay một dấu cách thừa lúc dán từ Excel. Đó đúng là
-    // cảnh mà chú thích ở đầu đường này hứa sẽ chặn.
-    //
-    // Chỉ so bằng dạng chuẩn hoá; cái GHI xuống sổ vẫn là chữ kế toán đã gõ.
-    const chuanHoa = (x) => String(x || '').trim().replace(/\s+/g, ' ').toLowerCase();
     if (!kyThu) return res.status(400).json({ error: 'Vui lòng nhập kỳ thu' });
     if (!noiDung) return res.status(400).json({ error: 'Vui lòng nhập nội dung khoản thu' });
     const tien = Number(b.soTien);

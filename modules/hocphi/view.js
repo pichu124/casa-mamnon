@@ -158,27 +158,50 @@ App.views.hocphi = {
     // để chủ dự án quyết, không tự làm ở đây.)
     const nutLuu = document.getElementById('hp-luu');
     const chuNut = nutLuu.textContent;
+    // CHỤP BIỂU MẪU MỘT LẦN lúc bấm — lượt gửi lại sau câu hỏi "vẫn ghi thêm?"
+    // không được đọc lại ô nhập, vì lúc ấy hộp thoại có thể đã bị một lượt vẽ
+    // lại gỡ khỏi màn (`UI.modal` gọi `closeModal` ở dòng đầu). Cùng bài học
+    // với màn "Nhận một bé".
+    const chupBieuMau = () => ({
+      studentId: sid,
+      kyThu: document.getElementById('hp-ky').value,
+      noiDung: document.getElementById('hp-nd').value,
+      soTien: document.getElementById('hp-tien').value,
+      hanNop: document.getElementById('hp-han').value || null,
+    });
+    let banChup = null;
+
+    const ghi = async (xacNhanTrung) => {
+      await API.post('/api/hocphi', { ...banChup, xacNhanTrung });
+      UI.toast('Đã tạo khoản thu', 'success');
+      UI.closeModal();
+      App.route();
+    };
+
     nutLuu.onclick = async () => {
       if (nutLuu.disabled) return;
       nutLuu.disabled = true;
       nutLuu.textContent = 'Đang ghi…';
+      // MỞ LẠI NÚT KHI KHÔNG GHI ĐƯỢC — gõ nhầm số tiền rồi sửa lại thì phải
+      // bấm được lần nữa; khoá vĩnh viễn là bắt kế toán đóng hộp thoại và gõ
+      // lại từ đầu, tức biến một lỗi nhỏ thành mất trắng phần đã gõ.
+      const moLaiNut = () => { nutLuu.disabled = false; nutLuu.textContent = chuNut; };
+      banChup = chupBieuMau();
       try {
-        await API.post('/api/hocphi', {
-          studentId: sid,
-          kyThu: document.getElementById('hp-ky').value,
-          noiDung: document.getElementById('hp-nd').value,
-          soTien: document.getElementById('hp-tien').value,
-          hanNop: document.getElementById('hp-han').value || null,
-        });
-        UI.toast('Đã tạo khoản thu', 'success');
-        UI.closeModal();
-        App.route();
+        await ghi(false);
       } catch (err) {
-        UI.toast(err.message, 'error');
-        // MỞ LẠI NÚT KHI HỎNG — gõ nhầm số tiền rồi sửa lại thì phải bấm được
-        // lần nữa; khoá vĩnh viễn là bắt cô đóng hộp thoại và gõ lại từ đầu.
-        nutLuu.disabled = false;
-        nutLuu.textContent = chuNut;
+        // 409 = "bé này đã có đúng khoản ấy" — CẢNH BÁO, không phải lỗi. Hỏi
+        // lại một câu rồi cho ghi, y như đường nhận một bé.
+        //
+        // BẮT THEO MÃ LỖI, KHÔNG BẮT THEO CHỮ (bài học Đ173): câu 400 của "số
+        // tiền phải lớn hơn 0" cũng là một câu tiếng Việt, và dò chữ thì sớm
+        // muộn cũng bắt nhầm một câu nào đó rồi dẫn người dùng vào ngõ cụt.
+        if (err.status === 409 && confirm(`${err.message}\n\nVẫn ghi thêm khoản này?`)) {
+          try { await ghi(true); } catch (e2) { UI.toast(e2.message, 'error'); moLaiNut(); }
+        } else {
+          UI.toast(err.message, 'error');
+          moLaiNut();
+        }
       }
     };
   },
