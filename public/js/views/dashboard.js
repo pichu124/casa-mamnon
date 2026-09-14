@@ -45,7 +45,7 @@ App.views.dashboard = {
         <div class="hero-top">
           <span class="hero-logo">🏫</span>
           <div class="hero-brand">
-            <b>CASA Mầm non</b>
+            <b>My Casa</b>
             <span>${UI.esc(school ? school.name : '')}</span>
           </div>
           ${
