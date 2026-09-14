@@ -1,0 +1,109 @@
+# Phản hồi nhà trường ngày 14/09/2026 — 35 câu trả lời
+
+Nhà trường trả lời trực tiếp vào chính bản *"Còn tồn đọng — bản chi tiết"* gửi ngày
+12/09, đủ **35/35 câu**, kèm một mục mới ở cuối: *"Thông tin đã chốt lại thay đổi sau
+khi họp ngày 10/09/2026"*.
+
+## Vì sao có tệp này
+
+Bảng câu hỏi dùng hệ mã **A1–A35**. Sổ trong kho thì dùng một hệ mã hoàn toàn khác
+(`DD-11`, `NK-04`, `KH-01`, `LSH-04`, `CB-01`, `SK-07`, `PQ-01`, `B.1`, `B.9`…), và
+trong `docs/VIEC-CON-LAI.md` thì `A1/A2/A3` lại là **ba mức ưu tiên**, không phải ba
+câu hỏi.
+
+Nghĩa là nếu không có tệp này thì sau đợt sửa sẽ **không ai tra ngược được** "A17 khép
+mục nào trong sổ". Bảng dưới là bản đối chiếu hai chiều.
+
+## Bảng đối chiếu
+
+| Mã câu | Nội dung trường chốt | Mã trong sổ | Trạng thái 14/09 |
+|---|---|---|---|
+| A1 | Quay về một dòng Vào/Ra, bỏ nhiệt độ, giữ Lưu ý nhưng không gửi phụ huynh | DD-11 | Nhiệt độ: **không có gì để bỏ**. Hai vế còn lại: chưa làm |
+| A2 | Cô không báo ăn, văn phòng làm | DD-14 | Chưa làm — giao diện và máy chủ đang nói khác nhau |
+| A3 | Bỏ mục sổ trả bé, tích hợp ảnh trả bé vào điểm danh | — (Đ128) | Chưa làm. Phải làm SAU việc chuyển ảnh vào lõi |
+| A4 | Nhật ký cắt theo NHÓM LỚP; nhóm khác bỏ hẳn mục Nhật ký | NK-04, NK-06 | Chưa làm. **Chỗ gây mất số thay bỉm đã vá trước ở Đ178** |
+| A5 | Giữ gợi ý mờ; thêm BMI và tải/nạp tệp cân đo | — | Ba việc đã có sẵn; BMI chờ quyết, tệp chờ A7 |
+| A6 | Bỏ tiêm chủng | SK-04 | **XONG — Đ177** |
+| A7 | Cô chỉ sửa ghi nhận sức khoẻ trong ngày (theo tiền lệ Đ127) | SK-10 | Chưa làm — hai chỗ phải hỏi trước |
+| A8 | Cambridge bỏ với nhóm nhà trẻ; tách lứa 3–4 và 4–5 | — | Chưa làm — chờ làm rõ lứa 5–6 |
+| A9 | Báo cáo 6 tháng chia ba nhóm chương trình, dùng chữ M/S/W/N/NA | KH-05, BC-07 | Năm bậc và chữ cái **đã có sẵn**; chia ba nhóm thì chưa |
+| A10 | Cho quản lý cơ sở sửa thuật ngữ đánh giá | — | Chưa làm — **đụng QUY TẮC 4**, xem ghi chú dưới |
+| A11 | Đẩy tin cả nhóm về điện thoại | — | Chưa làm |
+| A12 | ~20 tin/tuần là chấp nhận được; đẩy ra màn hình chờ | — | Vế màn hình chờ **đã có sẵn** |
+| A13 | Thu hồi tin và xoá cuộc trò chuyện, chỉ phía nhà trường | — | Chưa làm — chờ làm rõ "quản lý" là ai |
+| A14 | Phòng chung do cô tạo, cô chọn thành viên | B.2 | Chưa làm. **Sổ ghi sai**: không có đường tạo phòng chung nào |
+| A15 | Album phân quyền từng album; Hành trình có album riêng từng bé | AL-06 | Phần album riêng từng bé **đã có phần lớn** |
+| A16 | Ai cũng đăng album trừ phụ huynh; không đưa ảnh phiếu khám; tách vai duyệt báo cáo | AL-08, SK-07, PQ-01 | Ảnh phiếu khám: **đã đúng sẵn**. Hai vế kia chưa |
+| A17 | Biểu phí: kế toán soạn, cấp 1 duyệt rồi khoá | T7 | Chưa làm |
+| A18 | Hai số tài khoản, QR và cú pháp chuyển khoản | — | Chưa làm — khuôn đã có từ Đ161 |
+| A19 | Ưu đãi chỉ trên học phí; tách loại khoản thu; kế toán nhận nhắc hạn | — | Chưa làm |
+| A20 | Xác nhận cô không sửa Lịch sinh hoạt | — (Đ133) | **Đã đúng sẵn** — chỉ cần đóng mục |
+| A21 | Marketing xem được Cambridge | PQ-01 | **Đã đúng sẵn** — giữ nguyên Đ60, không sửa gì |
+| A22 | Quản lý cơ sở chỉ thấy cơ sở mình; ba cấp C1/C2/C3 | — | Chưa làm — **lời trường mâu thuẫn với A16** |
+| A23 | Tạm bỏ mảng tuyển sinh | — | **Không có gì để bỏ** — chưa có dòng mã nào |
+| A24 | Lịch sinh hoạt hai tab, văn phòng soạn, mỗi lớp một lịch, sao chép được | LSH-04, KH-01 | Gộp màn và lịch theo lớp **đã có**. **Quyền văn phòng: XONG — Đ180** |
+| A25 | Giữ tên tiếng Anh trong Cambridge; bỏ Class Progress | — | Chưa làm — **"Class Progress" trỏ vào hai màn khác nhau** |
+| A26 | Tên app "My Casa", triển khai trên VPS | N7 | **XONG — Đ179** (tên miền trường chưa chốt) |
+| A27 | Hòm thư `tuyensinh@cdb.edu.vn` | — | **XONG — Đ176** |
+| A28 | Chạm mốc thì tải ảnh về ổ backup rồi xoá bớt | N25 | Chưa làm — **cần khoá giữ ảnh TRƯỚC khi trường xoá tấm đầu tiên** |
+| A29 | CCCD và mã định danh phục vụ xuất hoá đơn và mã học sinh | A3, N16 | Phần mã **đã có sẵn** từ 27/08; còn phần cam kết riêng tư |
+| A30 | "App cũ là data test, cứ gộp vào" | — | **Ngoài phạm vi phiên này** — và mâu thuẫn với CLAUDE.md |
+| A31 | Vá Đ54 và Đ122 ở app cũ; 16 món còn lại nhắc sau | — | Ở kho app cũ. Kho này **đã vá cả hai từ lâu** |
+| A32 | Đóng mục CB-01 | CB-01 (Đ120) | **Đã xong từ Đ158** — chỉ cần gạch sổ |
+| A33 | Bốn điểm cố ý để sau, giao tôi tự quyết | — | Sẽ đề xuất từng điểm và ghi lại |
+| A34 | Gỡ UI.RATING và một đường không ai gọi | — | Chưa làm — phải đi ba bước, có bẫy trong bộ canh |
+| A35 | Gửi lại bản gốc phản hồi 07/09 | B1 | Trường nhắc gửi lại sau khi sửa xong |
+
+## Ba chỗ lời trường tự mâu thuẫn
+
+1. **Kế hoạch của bé** vừa là *"chỉ hiện ở giao diện trường, PH không cần nhìn thấy"*,
+   vừa là một trong bốn tab của Hành trình mà *"GV và PH đều nhìn được"*.
+2. **"Class Progress bỏ đi"** — thứ đã lồng vào Lịch sinh hoạt là kế hoạch của cả
+   NHÓM; thứ sổ gọi là Class Progress là kế hoạch của TỪNG BÉ. Hai thứ khác hẳn nhau.
+3. **Quản lý cơ sở và Văn phòng** vừa cùng Cấp 3 (A22), vừa phải *"tách thành 2 cấp
+   riêng biệt"* (A16).
+
+## Hai chỗ đụng QUY TẮC 4
+
+- **A10 — cho sửa thuật ngữ đánh giá.** Bộ canh `test:quy-tac-4` là bộ **quét mã
+  nguồn**, không đọc cơ sở dữ liệu. Chuyển năm nhãn từ hằng trong mã thành dữ liệu
+  người gõ là đưa chúng ra ngoài tầm nhìn của bộ canh **vĩnh viễn**. Đường làm được mà
+  không nới bộ canh: giữ nguyên năm MÃ, chỉ cho sửa NHÃN, kèm chốt từ cấm ngay tại
+  đường ghi và một bài canh mới cho chính cái chốt đó.
+- **A5 phần BMI.** BMI của trẻ 12 tháng–6 tuổi chỉ đọc được khi quy chiếu theo tuổi,
+  mà quy chiếu theo tuổi chính là *"chuẩn của độ tuổi"* mà QUY TẮC 4 cấm. Phải hỏi
+  trường muốn CON SỐ hay muốn LỜI XẾP LOẠI.
+
+## Nguyên văn phần chốt sau họp 10/09
+
+Giữ nguyên chữ của trường, kể cả lỗi chính tả:
+
+> **Kế hoạch của bé** (Cái này sẽ chỉ cần hiện ở giao diện trường – PH k cần nhìn
+> thấy): Mục đích theo dõi hành trình học tập của từng bé. GV sẽ phải tự xây dựng 1 kế
+> hoạch học tập riêng cho từng bạn theo từng tháng, tôn trọng nhịp độ phát triển cho
+> trẻ dựa trên list bài học xây dựng trước đó (Thêm mục danh sách bài học để GV điền
+> vào, riêng chương trình Mon sẽ bao gồm nhiều lĩnh vực xong mới sổ ra danh sách bài
+> học). Sẽ có 1 số mục để lựa chọn bài như là dậy mới, hoặc ôn tập. Trong kế hoạch của
+> bé sẽ bao gồm 3 tab với 3 đối tương khác nhau:
+> + Chương trình thể chất chuyên sâu: Do giáo viên thể chất xây dựng
+> + Chương trình Cambridge: Do giáo viên nước ngoài thực hiện
+> + Chương trình Montessori & Kỹ năng Sống: do giáo viên việt Nam thực hiện
+> Trong từng tab này sẽ sổ ra hoàng loạt tên bài học trong tháng để giáo viên xây dựng
+>
+> **Hành trình của bé**: GV/PH sẽ nhìn được hành trình của bé, trong đó sẽ có 4 tab
+> + Kế hoạch của bé: Đây sẽ là nơi lưu lại kế hoạch học tháng đấy của bé - Cuối tháng
+>   GV sẽ phải vào đây để đánh giá mức độ hoàn thành của bài học theo ký tự quy ước ->
+>   và nếu cái nào đạt Hoàn thành hoặc xuất sắc sẽ được tự động đẩy qua Báo cáo tháng
+> + Chương trình Cambrigde/ Chương trình P.E/ Chương trình Montessori: Ghi lại những
+>   nhận xét, hình ảnh của bé theo từng chương trình và phân quyền như ở phần kế hoạch
+>   của bé
+>
+> **Lưu ý:** Phần ghi nhanh: Sẽ lưu tạm hình ảnh khoảnh khắc của bé, sau đó sẽ hiện
+> thêm các mục sử dụng hình ảnh này để ghi vào hành trình học tập của bé…..tag vào
+> ablbum..
+> Phần ghi quan sát: Có thể chèn thêm biến voice thành text -> giảm time nhập text cho GV
+>
+> **Thống nhất về số lượng:** Mỗi 1 tuần GV từng chương trình sẽ phải đăng ít nhất 1
+> ảnh hoặc quan sát về 1 bé. Với ảnh đăng cần có caption rõ ràng về hoạt động con làm
+> hoặc kết nối với PH có thể hỗ trợ làm thêm ở nhà. Đôi khi hình ảnh có thể là sản
+> phẩm con làm ở trường.
