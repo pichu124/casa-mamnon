@@ -286,6 +286,72 @@ console.log('\n[6] Ai được đọc, ai được ghi');
 }
 
 // ===========================================================================
+console.log('\n[6b] KHÔNG NHẬN SỐ MỚI ≠ GHI ĐÈ NULL LÊN SỐ CŨ');
+{
+  // VÌ SAO CÓ MỤC NÀY
+  //
+  // Ba ô bỉm / bú bình chỉ dành cho bé thuộc diện nhà trẻ. Bản trước gán
+  // `s.bimSoLan = null` rồi để ba khoá ấy chảy xuống câu UPDATE, tức GHI NULL
+  // ĐÈ lên số đã có. Với luật hôm nay — cắt theo NGÀY SINH, tính theo ngày của
+  // chính bản ghi — chuyện đó gần như không xảy ra, nên lỗ nằm im.
+  //
+  // Nhà trường chốt 10/09/2026 (A4) cắt theo NHÓM LỚP. Cờ nhóm lật được bằng
+  // MỘT cú bấm ở màn quản trị, cho CẢ NHÓM, cho MỌI NGÀY CŨ — lúc đó một nhóm
+  // khai nhầm là lần sau cô bấm Lưu sẽ xoá sạch số đã ghi, im lặng, mà máy chủ
+  // vẫn trả về "Đã lưu". Nên chỗ này phải được vá TRƯỚC khi đổi luật.
+  //
+  // NÓI THẲNG GIỚI HẠN CỦA MỤC NÀY: chừng nào luật còn cắt theo ngày sinh thì
+  // KHÔNG dựng được tình huống "bé không thuộc diện mà ô đã có số" chỉ bằng
+  // đường API — muốn có số thì bé phải thuộc diện vào đúng ngày đó. Nên phần
+  // đo hành vi đầy đủ sẽ lắp vào đây cùng đợt đổi luật theo nhóm. Hai phép
+  // kiểm dưới là phần đo được ngay, cộng hai phép soi mã chốt đúng cách vá.
+  const maDay = fs.readFileSync(path.join(GOC, 'modules/nhatky/routes.js'), 'utf8');
+  // Soi MÃ, không soi chú thích: khối chú thích ngay trên bản vá cố ý CHÉP LẠI
+  // dòng sai cũ để người sau hiểu vì sao phải vá. Soi cả chú thích là bài canh
+  // đỏ vì một lời giải thích — đúng kiểu bài canh nói dối.
+  const ma = maDay.split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+  check('KHÔNG còn gán null đè lên ba ô của nhóm nhà trẻ',
+    !/s\.bimSoLan\s*=\s*null/.test(ma) && !/s\.buBinhMl\s*=\s*null/.test(ma));
+  check('mà XOÁ KHOÁ để câu UPDATE không đụng tới ba cột đó',
+    /delete s\[k\]/.test(ma) && /O_NHA_TRE/.test(ma));
+  check('và lọc luôn ba ô ấy khỏi danh sách cột của BƯỚC (đường vòng thứ hai)',
+    /truong\.filter\(k => !cam\.includes\(k\)\)/.test(ma));
+
+  // Đo hành vi: ghi một bước KHÔNG nhắc tên ba ô đó thì số đã ghi phải còn
+  // nguyên. Đây chính là đường mà bộ lọc `cot` bảo vệ.
+  const NG = homNayVN();
+  await req('PUT', '/api/nhatky', {
+    cookie: GV_NT,
+    body: { ngay: NG, danhSach: [{ studentId: 's9', bimSoLan: 3, buBinhSoLan: 2, buBinhMl: 120 }] },
+  });
+  const truoc = (await req('GET', `/api/nhatky?classId=c4&ngay=${NG}`, { cookie: GV_NT }))
+    .data.danhSach.find(b => b.studentId === 's9');
+  check('bé nhà trẻ ghi được số thay bỉm', truoc?.bimSoLan === 3, truoc?.bimSoLan);
+
+  await req('PUT', '/api/nhatky', {
+    cookie: GV_NT,
+    body: { ngay: NG, truong: ['anSang'], danhSach: [{ studentId: 's9', anSang: 'het' }] },
+  });
+  const sau = (await req('GET', `/api/nhatky?classId=c4&ngay=${NG}`, { cookie: GV_NT }))
+    .data.danhSach.find(b => b.studentId === 's9');
+  check('GHI MỘT BƯỚC KHÁC KHÔNG XOÁ SỐ THAY BỈM ĐÃ GHI',
+    sau?.bimSoLan === 3 && sau?.buBinhMl === 120, `${sau?.bimSoLan} / ${sau?.buBinhMl}`);
+  check('và bước vừa ghi thì đã lưu', sau?.anSang === 'het', sau?.anSang);
+
+  // Bé KHÔNG thuộc diện thì ô không nhận số mới — và không làm hỏng lượt ghi.
+  const lon = await req('PUT', '/api/nhatky', {
+    cookie: GV_NT,
+    body: { ngay: NG, truong: ['bimSoLan'], danhSach: [{ studentId: 's11', bimSoLan: 9 }] },
+  });
+  check('bé ngoài diện gửi số thay bỉm lên thì lượt ghi vẫn nhận, không báo lỗi',
+    lon.status === 200, `${lon.status}`);
+  const beLon = (await req('GET', `/api/nhatky?classId=c4&ngay=${NG}`, { cookie: GV_NT }))
+    .data.danhSach.find(b => b.studentId === 's11');
+  check('nhưng số đó KHÔNG được ghi vào hồ sơ của bé',
+    beLon?.bimSoLan === null || beLon?.bimSoLan === undefined, beLon?.bimSoLan);
+}
+
+// ===========================================================================
 console.log('\n[7] QUY TẮC 4 — nhật ký ăn uống KHÔNG được thành bảng điểm');
 {
   // Chỗ dễ trượt nhất trong cả app: chỉ cần đổi "ăn hết" thành 10 điểm là có

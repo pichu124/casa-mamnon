@@ -80,6 +80,11 @@ const TEN_BUA = {
 const TRUONG_NGAY = ['anSang', 'anTrua', 'anXe', 'anGhiChu', 'nguTuLuc', 'nguDenLuc', 'nguGhiChu',
   'veSinhSoLan', 'veSinhTinhChat', 'bimSoLan', 'buBinhSoLan', 'buBinhMl', 'ghiChu'];
 
+// Ba ô CHỈ nhóm nhà trẻ mới có. Tách thành hằng riêng vì đường ghi phải biết
+// đích danh ba cột này để KHÔNG ĐỤNG TỚI chúng khi bé không thuộc diện — xem
+// chú thích dài ở chỗ dùng.
+const O_NHA_TRE = ['bimSoLan', 'buBinhSoLan', 'buBinhMl'];
+
 // KHUNG GIỜ NGỦ TRƯA — cô CHỌN, không gõ.
 //
 // Nhà trường nói rõ: "thời gian ngủ từ 12h đến 2h chiều, lựa trong khung đó sao
@@ -549,8 +554,27 @@ module.exports = (app, { db, modules }) => {
       // vào rồi màn hình gia đình hiện "thay bỉm 3 lần" cho một bé 5 tuổi.
       // Tính tuổi theo NGÀY CỦA BẢN GHI, không theo hôm nay: sửa nhật ký ngày
       // cũ sau khi bé qua mốc 36 tháng không được xoá số đã ghi của ngày đó.
-      if (!laNhaTre(be.dob, ngay)) { s.bimSoLan = null; s.buBinhSoLan = null; s.buBinhMl = null; }
-      sach.push({ be, s, goc });
+      //
+      // KHÔNG NHẬN SỐ MỚI, KHÁC HẲN VỚI GHI ĐÈ NULL LÊN SỐ CŨ.
+      //
+      // Bản trước gán thẳng `s.bimSoLan = null` rồi để nguyên ba khoá ấy chảy
+      // xuống `phan`, nên `db.update` ghi NULL đè lên số đã có. Với luật cũ —
+      // cắt theo ngày sinh, tính theo ngày của chính bản ghi — chuyện đó gần
+      // như không xảy ra, nên lỗ này nằm im.
+      //
+      // Nhưng nhà trường vừa chốt (A4, 10/09/2026) cắt theo NHÓM LỚP. Cờ nhóm
+      // thì lật được bằng MỘT cú bấm ở màn quản trị, cho CẢ NHÓM, cho MỌI NGÀY
+      // CŨ. Lúc ấy chỉ cần một nhóm bị khai nhầm là lần sau cô bấm Lưu sẽ xoá
+      // sạch số thay bỉm và bú bình đã ghi của cả nhóm — im lặng, và máy chủ
+      // vẫn trả về "Đã lưu". Đó đúng là kiểu mất dữ liệu Nguyên tắc số 1 cấm,
+      // cùng họ với lỗi "cô A ghi chồng lên cô B" đã vá bên dưới.
+      //
+      // Cách vá: XOÁ HẲN ba khoá khỏi `s` thay vì gán null. `db.update` chỉ
+      // dựng câu SET từ những khoá CÓ MẶT trong patch (lib/db.js:165-173), nên
+      // khoá không có mặt = cột không bị đụng, số cũ còn nguyên.
+      const cam = laNhaTre(be.dob, ngay) ? [] : O_NHA_TRE;
+      for (const k of cam) delete s[k];
+      sach.push({ be, s, goc, cam });
     }
 
     // HAI CÔ CÙNG GHI MỘT NHÓM — NGƯỜI LƯU SAU KHÔNG ĐƯỢC XOÁ NGƯỜI LƯU TRƯỚC.
@@ -581,7 +605,7 @@ module.exports = (app, { db, modules }) => {
     const daDoi = [];     // bé có gì THẬT SỰ mới — chỉ các bé này được báo gia đình
     let daGhi = 0;
     db.tx(() => {
-      for (const { be, s, goc } of sach) {
+      for (const { be, s, goc, cam } of sach) {
         const cu = db.first('nhatky_ngay',
           'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
         if (goc !== undefined && cu && String(cu.capNhatLuc || '') !== String(goc || '')) {
@@ -589,7 +613,14 @@ module.exports = (app, { db, modules }) => {
           continue;
         }
         // Chỉ một bước: lấy đúng các cột của bước đó, phần còn lại giữ nguyên.
-        const phan = truong ? Object.fromEntries(truong.map(k => [k, s[k]])) : s;
+        //
+        // Lọc luôn ba ô nhà trẻ ra khỏi danh sách cột của bước. Nếu không, màn
+        // hình gửi `truong: ['bimSoLan']` cho một bé không thuộc diện là
+        // `s.bimSoLan` đã bị xoá ở trên thành `undefined`, rồi `undefined` lại
+        // chảy xuống `db.update` và xoá số cũ — đúng cái lỗ vừa bịt, chỉ khác
+        // đường vào.
+        const cot = truong ? truong.filter(k => !cam.includes(k)) : null;
+        const phan = cot ? Object.fromEntries(cot.map(k => [k, s[k]])) : s;
         // So theo CHỮ: null của cột số và '' của cột chữ đều là "chưa ghi".
         const chuan = (v) => (v === null || v === undefined ? '' : String(v));
         const coMoi = !cu || Object.keys(phan).some(k => chuan(cu[k]) !== chuan(phan[k]));
