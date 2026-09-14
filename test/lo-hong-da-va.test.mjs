@@ -775,10 +775,14 @@ console.log('\n[19] B7 — sửa và thu hồi được, mà KHÔNG mất dữ l
     cookie: GV, body: { studentId: em, type: 'incident', title: 'Sốt, nghi tay chân miệng', detail: 'Ghi nhầm em' },
   });
   check('cô thêm được ghi nhận y tế', yt.status === 201, yt.data?.error);
+  // Loại dùng ở đây đổi từ 'vaccination' sang 'checkup' vì nhà trường chốt bỏ
+  // tiêm chủng (A6, 10/09/2026) và máy chủ không nhận ghi MỚI loại đó nữa.
+  // Điều bài này canh KHÔNG đổi: đường Y tế phải nhận NGÀY do người nhập chọn,
+  // để cô ghi bù kết quả khám đã làm hôm trước.
   const ytCu = await req('POST', '/api/health', {
-    cookie: GV, body: { studentId: em, type: 'vaccination', title: 'Tiêm sởi đợt trạm y tế', date: '2026-08-05' },
+    cookie: GV, body: { studentId: em, type: 'checkup', title: 'Khám ở trạm y tế', date: '2026-08-05' },
   });
-  check('Y TẾ nhận ngày do người nhập chọn (nhập bù đợt tiêm chủng)',
+  check('Y TẾ nhận ngày do người nhập chọn (ghi bù buổi khám hôm trước)',
     ytCu.data?.date === '2026-08-05', ytCu.data?.date);
 
   r = await req('PUT', `/api/health/${yt.data.id}`, { cookie: GV, body: { title: 'Sốt nhẹ' } });

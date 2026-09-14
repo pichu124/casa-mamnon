@@ -143,8 +143,70 @@ try {
       !/trungBinh|trung bình|reduce\([^)]*(height|weight)/.test(ma) && !/sort\([^)]*(height|weight)/.test(ma));
     check('gia đình có thẻ "Các lần cân đo", chỉ con số từng lần', /Các lần cân đo/.test(v) && /không chênh lệch, không mũi tên/.test(v));
     check('không còn ô chọn "Tiêm chủng" khi ghi mới', !/pickType\('vaccination'\)/.test(v));
+    // LỐI VÒNG QUA BIỂU MẪU SỬA — A6, nhà trường chốt 10/09/2026.
+    //
+    // Bài canh trên soi đúng chữ `pickType(`, nên biểu mẫu SỬA gọi
+    // `pickTypeSua('vaccination')` đi qua sạch sẽ: cô ghi một bản "Khám", bấm
+    // Sửa, đổi nó thành Tiêm chủng — và máy chủ nhận. Đúng kiểu "bài kiểm thử
+    // bao phủ thiếu đúng chỗ nguy hiểm" mà CLAUDE.md dặn phải nêu.
+    check('và cũng không còn ở biểu mẫu SỬA (lối vòng)', !/pickTypeSua\('vaccination'\)/.test(v));
     const rt = fs.readFileSync(path.join(GOC, 'routes/health.js'), 'utf8');
     check('máy chủ: xếp theo tên, không theo số đo', /ORDER BY name/.test(rt) && !/ORDER BY height|ORDER BY weight/.test(rt));
+    check('máy chủ tách danh sách loại ĐỌC và loại GHI MỚI',
+      /TYPES_GHI\s*=\s*\['checkup',\s*'incident'\]/.test(rt) && /TYPES_DOC/.test(rt));
+    const lm = fs.readFileSync(path.join(GOC, 'lib/modules.js'), 'utf8');
+    check('mô tả phân hệ trên màn Quản trị không còn nhắc tiêm chủng',
+      !/cân đo định kỳ, tiêm chủng/.test(lm));
+  }
+
+  // =========================================================================
+  console.log('\n[5] A6 — bỏ tiêm chủng là NGƯNG DÙNG, không phải xoá dữ liệu');
+  {
+    // Ghi MỚI loại tiêm chủng: máy chủ từ chối, và từ chối bằng tiếng của
+    // trường chứ không phải "không hợp lệ" — điện thoại đã cài app còn giữ bản
+    // giao diện cũ và vẫn gửi được loại này.
+    const moi = await req('POST', '/api/health', {
+      cookie: co.cookie,
+      body: { studentId: 's1', type: 'vaccination', title: 'Mũi 5 trong 1' },
+    });
+    check('không ghi MỚI được ghi nhận tiêm chủng', moi.status === 400, `${moi.status}`);
+    check('và câu từ chối nói rõ phải bấm gì thay thế',
+      /không ghi tiêm chủng nữa/.test(moi.data?.error || ''), moi.data?.error);
+
+    // Hai loại còn lại vẫn ghi được y như trước — Nguyên tắc số 1 vế 2.
+    const kham = await req('POST', '/api/health', {
+      cookie: co.cookie,
+      body: { studentId: 's1', type: 'checkup', title: 'Khám định kỳ tháng 9', height: 99, weight: 15 },
+    });
+    check('loại Khám / cân đo vẫn ghi được y như trước', kham.status === 200 || kham.status === 201, `${kham.status}`);
+
+    // BẢN GHI CŨ PHẢI CÒN NGUYÊN VÀ CÒN SỬA ĐƯỢC. Dữ liệu mẫu có sẵn một bản
+    // ghi tiêm chủng (data/seed.js). Đây là vế "không xoá dữ liệu của nó".
+    const hs = await req('GET', '/api/health?studentId=s1', { cookie: co.cookie });
+    const cu = (hs.data?.records || []).find(x => x.type === 'vaccination');
+    check('bản ghi tiêm chủng CŨ vẫn đọc được, vẫn mang đúng nhãn', !!cu, cu && cu.title);
+    if (cu) {
+      const sua = await req('PUT', `/api/health/${cu.id}`, {
+        cookie: co.cookie, body: { title: 'Sửa tiêu đề bản ghi cũ' },
+      });
+      check('và vẫn sửa được tiêu đề', sua.status === 200, `${sua.status}`);
+      const doiSang = await req('PUT', `/api/health/${cu.id}`, {
+        cookie: co.cookie, body: { type: 'checkup' },
+      });
+      check('bản ghi cũ đổi SANG loại còn dùng thì được', doiSang.status === 200, `${doiSang.status}`);
+    }
+
+    // Và đây là chốt thật của lối vòng: KHÔNG được biến một bản ghi khác THÀNH
+    // tiêm chủng. Giao diện đã bỏ nút, nhưng chốt phải nằm ở máy chủ.
+    const hs2 = await req('GET', '/api/health?studentId=s1', { cookie: co.cookie });
+    const bkham = (hs2.data?.records || []).find(x => x.type === 'checkup');
+    if (bkham) {
+      const vong = await req('PUT', `/api/health/${bkham.id}`, {
+        cookie: co.cookie, body: { type: 'vaccination' },
+      });
+      check('KHÔNG biến được một ghi nhận khác THÀNH tiêm chủng qua đường sửa',
+        vong.status === 400, `${vong.status}`);
+    }
   }
 } finally {
   await dung();

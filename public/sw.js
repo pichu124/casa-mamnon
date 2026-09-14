@@ -1,4 +1,4 @@
-/* Service worker của CASA Mầm non.
+/* Service worker của My Casa.
  *
  * Nguyên tắc:
  * - Giao diện (HTML/CSS/JS/icon) được lưu sẵn để mở app tức thì và xem được khi mất mạng.
@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v107';
+const VERSION = 'v108';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -117,7 +117,7 @@ self.addEventListener('push', (event) => {
   let goi = {};
   try { goi = event.data ? event.data.json() : {}; }
   catch (_) { goi = { noiDung: event.data ? event.data.text() : '' }; }
-  const tieuDe = (goi && goi.tieuDe) || 'CASA Mầm non';
+  const tieuDe = (goi && goi.tieuDe) || 'My Casa';
   const hash = (goi && typeof goi.hash === 'string' && goi.hash.startsWith('#/')) ? goi.hash : '#/';
   event.waitUntil(self.registration.showNotification(tieuDe, {
     body: (goi && goi.noiDung) || '',

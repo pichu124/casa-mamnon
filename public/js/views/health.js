@@ -432,7 +432,7 @@ App.views.health = {
       <div class="field">
         <label>Ngày ghi nhận</label>
         <input type="date" id="ht-date" value="${UI.todayStr()}">
-        <div class="hint">Mặc định hôm nay. Đổi lại khi nhập kết quả khám định kỳ hay đợt tiêm chủng đã làm trước đó.</div>
+        <div class="hint">Mặc định hôm nay. Đổi lại khi nhập kết quả khám định kỳ đã làm trước đó.</div>
       </div>
       <button class="btn primary block" onclick="App.views.health.submitCreate()">${UI.icon('check', 18)} Lưu ghi nhận</button>
     `, 'Thêm ghi nhận y tế');
@@ -491,9 +491,11 @@ App.views.health = {
         <label>Loại ghi nhận</label>
         <div class="seg" id="ht-s-seg" style="margin-bottom:0">
           <button data-type="checkup" class="${r.type === 'checkup' ? 'active' : ''}" onclick="App.views.health.pickTypeSua('checkup')">🩺 Khám</button>
-          <button data-type="vaccination" class="${r.type === 'vaccination' ? 'active' : ''}" onclick="App.views.health.pickTypeSua('vaccination')">💉 Tiêm chủng</button>
           <button data-type="incident" class="${r.type === 'incident' ? 'active' : ''}" onclick="App.views.health.pickTypeSua('incident')">🩹 Sự cố</button>
         </div>
+        ${r.type === 'vaccination' ? `
+        <div class="hint">Đây là một ghi nhận tiêm chủng cũ. Trường mình không ghi tiêm chủng nữa,
+          nên loại của nó giữ nguyên — cô vẫn sửa được tiêu đề, chi tiết và ngày.</div>` : ''}
       </div>
       <div class="field"><label>Tiêu đề</label><input id="ht-s-title" value="${UI.esc(r.title)}"></div>
       <div class="field"><label>Chi tiết</label><textarea id="ht-s-detail">${UI.esc(r.detail || '')}</textarea></div>

@@ -5,7 +5,22 @@ const { requireRole } = require('../lib/auth');
 const st = require('../lib/sua-thu-hoi');
 const tbb = require('../lib/thong-bao-be');
 
+// HAI DANH SÁCH, KHÔNG PHẢI MỘT — nhà trường chốt 10/09/2026 (A6): "Trường
+// không cần dùng tới tiêm chủng -> bỏ đi".
+//
+// Bỏ một tính năng là NGƯNG DÙNG NÓ, không phải xoá dữ liệu của nó
+// (CLAUDE.md, "Bỏ một tính năng"). Nên:
+//
+//   • TYPES_DOC — mọi loại ĐỌC ĐƯỢC và SỬA ĐƯỢC. Vẫn có 'vaccination' để bản
+//     ghi tiêm chủng cũ còn nguyên nhãn, còn màu, còn sửa được tiêu đề và ngày.
+//     Bỏ nó khỏi đây là hồ sơ cũ của bé hiện ra mã máy trên màn phụ huynh.
+//   • TYPES_GHI — loại được TẠO MỚI. Không còn 'vaccination'.
+//
+// `TYPES` giữ nguyên tên và nguyên nội dung cho mọi chỗ đang đọc — chỉ THÊM
+// hai hằng bên cạnh, không đổi thứ đang có.
 const TYPES = ['checkup', 'vaccination', 'incident'];
+const TYPES_DOC = TYPES;
+const TYPES_GHI = ['checkup', 'incident'];
 const BANG = 'health';
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -216,8 +231,16 @@ module.exports = (app) => {
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Không có quyền thêm ghi nhận cho bé này' });
     }
-    if (!TYPES.includes(type)) {
-      return res.status(400).json({ error: 'Loại ghi nhận không hợp lệ' });
+    // Ghi MỚI thì theo TYPES_GHI. Câu từ chối nói bằng tiếng của trường chứ
+    // không phải "không hợp lệ": điện thoại đã cài app còn giữ bản giao diện cũ
+    // trong bộ nhớ đệm, và bản cũ vẫn gửi được 'vaccination' — cô cần đọc hiểu
+    // ngay phải bấm gì thay thế.
+    if (!TYPES_GHI.includes(type)) {
+      return res.status(400).json({
+        error: TYPES_DOC.includes(type)
+          ? 'Trường mình không ghi tiêm chủng nữa. Cô chọn Khám / cân đo hoặc Sự cố giúp nhé.'
+          : 'Loại ghi nhận không hợp lệ',
+      });
     }
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập tiêu đề ghi nhận' });
@@ -274,8 +297,14 @@ module.exports = (app) => {
       return res.status(403).json({ error: 'Không có quyền sửa ghi nhận của bé này' });
     }
     const patch = {};
+    // Đường SỬA dùng TYPES_DOC, không phải TYPES_GHI: bản ghi tiêm chủng CŨ
+    // phải sửa được tiêu đề, chi tiết và ngày. Nhưng không được BIẾN một bản
+    // ghi khác THÀNH tiêm chủng — đó chính là lối vòng mà màn hình vừa bịt.
     if (req.body.type !== undefined) {
-      if (!TYPES.includes(req.body.type)) return res.status(400).json({ error: 'Loại ghi nhận không hợp lệ' });
+      if (!TYPES_DOC.includes(req.body.type)) return res.status(400).json({ error: 'Loại ghi nhận không hợp lệ' });
+      if (req.body.type !== h.type && !TYPES_GHI.includes(req.body.type)) {
+        return res.status(400).json({ error: 'Trường mình không ghi tiêm chủng nữa, nên không đổi ghi nhận này sang loại đó được.' });
+      }
       patch.type = req.body.type;
     }
     if (req.body.title !== undefined) {
