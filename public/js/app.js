@@ -106,7 +106,7 @@ window.App = {
     });
     window.addEventListener('appinstalled', () => {
       this.installPrompt = null;
-      UI.toast('Đã cài CASA Mầm non vào màn hình chính', 'success');
+      UI.toast('Đã cài My Casa vào màn hình chính', 'success');
     });
   },
 
@@ -536,7 +536,7 @@ window.App = {
     b.id = 'push-banner';
     b.innerHTML = `
       <span class="pb-logo">🏫</span>
-      <div class="pb-text"><b>CASA Mầm non</b><span>Cài vào màn hình chính cho mở nhanh</span></div>
+      <div class="pb-text"><b>My Casa</b><span>Cài vào màn hình chính cho mở nhanh</span></div>
       <button class="pb-bell" id="pb-enable">${UI.icon('plus', 20)}</button>
       <button class="pb-close" id="pb-close">${UI.icon('x', 18)}</button>`;
     document.body.appendChild(b);
