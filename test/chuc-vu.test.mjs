@@ -282,6 +282,21 @@ console.log('\n[6] CẤP 3 TÁCH ĐÔI — văn phòng khác quản lý cơ sở
   check('Văn phòng mở được hồ sơ bé', (await ma(VP, '/api/students')) === 200);
   check('Văn phòng mở được sổ điểm danh', (await ma(VP, '/api/attendance/class')) === 200);
 
+  // NGƯỜI ĐƯỢC GIAO VIỆC PHẢI VỚI TỚI ĐƯỢC CHỖ LÀM VIỆC ĐÓ.
+  //
+  // Đ148 gộp Kế hoạch giáo dục và Lịch sinh hoạt thành MỘT màn, và nhà trường
+  // chốt 10/09/2026 (A24) rằng VĂN PHÒNG là người soạn. Nhưng '/api/plans'
+  // không có trong danh sách chức vụ này, nên phân hệ `kehoach` bị lọc khỏi
+  // danh sách của họ và dải tab không được vẽ — văn phòng mở màn ra không thấy
+  // chỗ nào để soạn, MÀ MÀN HÌNH KHÔNG BÁO LỖI GÌ.
+  //
+  // Bài canh cũ của màn gộp không bắt được vì nó đăng nhập bằng hiệu trưởng
+  // (api: null, không qua tầng chức vụ) — một bài canh đang tự lừa mình.
+  check('Văn phòng mở được LỊCH SINH HOẠT (hai việc, một màn)',
+    (await ma(VP, '/api/timetable?classId=c1')) === 200);
+  check('Văn phòng mở được KẾ HOẠCH GIÁO DỤC — chính việc trường giao cho họ',
+    (await ma(VP, '/api/plans?classId=c1')) === 200);
+
   // Hai việc về CON NGƯỜI thì không.
   const r1 = await req('PUT', '/api/admin/classes/c1/teachers', { cookie: VP, body: { teacherIds: [] } });
   check('Văn phòng KHÔNG phân công cô vào nhóm', r1.status === 403, r1.status);
