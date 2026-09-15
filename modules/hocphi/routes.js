@@ -817,6 +817,322 @@ module.exports = (app, { db, modules }) => {
     });
   });
 
+  // =========================================================================
+  // TẦNG BIỂU PHÍ (Đ200, việc 33)
+  // =========================================================================
+  //
+  // Nhà trường: *"kế toán soạn, cấp 1 duyệt rồi khoá, muốn sửa phải xin mở"*.
+  // Lý do đầy đủ ở đầu khối `hocphi_bieuphi` trong schema.sql — đọc chỗ đó
+  // trước khi sửa gì ở đây.
+  //
+  // ĐĂNG KÝ TRƯỚC MỌI ĐƯỜNG CÓ `/:id`. Express khớp đường dẫn theo THỨ TỰ
+  // ĐĂNG KÝ, nên đường có chỗ trống `:id` đứng trước sẽ NUỐT đường có tên
+  // thật đứng sau.
+  //
+  // NÓI CHO ĐÚNG MỨC: HÔM NAY CHƯA CÓ ĐƯỜNG NÀO NUỐT ĐƯỢC KHỐI NÀY. Mấy
+  // đường `/:id` đang có đều là bốn đoạn và đoạn cuối là chữ thật
+  // (`/:id/xac-nhan`, `/:id/thu-hoi`, `/:id/huy-xac-nhan`), còn
+  // `/api/hocphi/bieu-phi` chỉ ba đoạn — không đường nào khớp. Nên thứ tự này
+  // là PHÒNG chứ chưa phải VÁ.
+  //
+  // Vẫn giữ, vì cái ngày người sau thêm `GET /api/hocphi/:id` — một đường
+  // rất tự nhiên để thêm — thì mọi đường tên thật ba đoạn ở đây rơi hết vào
+  // nó với :id là chuỗi "bieu-phi", và kế toán soạn xong bảng giá nhận câu
+  // "Không tìm thấy khoản thu": một lỗi mà thông báo KHÔNG chỉ ra nguyên
+  // nhân. Đặt sẵn đúng thứ tự thì ngày đó không có gì để sửa. Bài canh
+  // `test/bieu-phi.test.mjs` mục [1] giữ thứ tự này.
+  const TRANG_THAI_BP = ['nhap', 'cho-duyet', 'da-duyet', 'da-thay'];
+  const TEN_TRANG_THAI_BP = {
+    'nhap': 'Đang soạn',
+    'cho-duyet': 'Chờ ban giám hiệu duyệt',
+    'da-duyet': 'Đã duyệt và khoá',
+    'da-thay': 'Đã có bản mới thay',
+  };
+
+  function bieuPhiCua(id) {
+    try {
+      return db.first('hocphi_bieuphi', 'SELECT * FROM hocphi_bieuphi WHERE id = ?', [id]) || null;
+    } catch (_) { return null; }
+  }
+  function dongCuaBieuPhi(id) {
+    try {
+      return db.all('hocphi_bieuphi_dong',
+        'SELECT * FROM hocphi_bieuphi_dong WHERE bieuPhiId = ? ORDER BY thuTu, rowid', [id]);
+    } catch (_) { return []; }
+  }
+  // Lượt xin mở khoá đang CHỜ của một biểu phí, hoặc null.
+  function xinMoDangCho(id) {
+    try {
+      return db.first('hocphi_bieuphi_moKhoa',
+        "SELECT * FROM hocphi_bieuphi_moKhoa WHERE bieuPhiId = ? AND trangThai = 'cho-duyet' ORDER BY rowid DESC",
+        [id]) || null;
+    } catch (_) { return null; }
+  }
+  // BIỂU PHÍ NÀY THUỘC PHẠM VI CỦA NGƯỜI NÀY KHÔNG.
+  //
+  // Biểu phí của CẢ TRƯỜNG (campusId rỗng) thì quản lý một cơ sở vẫn đọc được
+  // — đó là bảng giá áp lên chính cơ sở họ. Nhưng biểu phí RIÊNG của cơ sở
+  // khác thì không: bảng giá của cơ sở 2 không phải việc của cơ sở 1.
+  function trongPhamVi(user, bp) {
+    if (!bp) return false;
+    if (!bp.campusId) return true;
+    const pham = db.phamViCoSo(user);
+    return pham === null || pham === bp.campusId;
+  }
+
+  function goiBieuPhi(bp, user) {
+    const dong = dongCuaBieuPhi(bp.id);
+    const xin = xinMoDangCho(bp.id);
+    return {
+      ...bp,
+      tenTrangThai: TEN_TRANG_THAI_BP[bp.trangThai] || bp.trangThai,
+      dong: dong.map(d => ({ ...d, tenLoai: TEN_LOAI_KHOAN[d.loai] || '' })),
+      tongTien: dong.reduce((t, d) => t + Number(d.soTien || 0), 0),
+      // MÁY CHỦ NÓI RA QUYỀN, MÀN HÌNH KHÔNG TỰ ĐOÁN THEO VAI — nếp của Đ157.
+      quyen: {
+        suaDuoc: bp.trangThai === 'nhap' && db.taoKhoanThuDuoc(user),
+        guiDuyetDuoc: bp.trangThai === 'nhap' && dong.length > 0 && db.taoKhoanThuDuoc(user),
+        duyetDuoc: bp.trangThai === 'cho-duyet' && db.duyetBieuPhiDuoc(user),
+        xinMoDuoc: bp.trangThai === 'da-duyet' && !xin && db.taoKhoanThuDuoc(user),
+        traLoiXinMoDuoc: !!xin && db.duyetBieuPhiDuoc(user),
+        chepDuoc: bp.trangThai === 'da-duyet' && db.taoKhoanThuDuoc(user),
+      },
+      xinMoDangCho: xin ? { id: xin.id, lyDo: xin.lyDo, xinLuc: xin.xinLuc, xinBoi: xin.xinBoi } : null,
+    };
+  }
+
+  // BÁO NGƯỜI DUYỆT KHI CÓ BẢN CHỜ DUYỆT.
+  //
+  // Một bản chờ duyệt mà không ai biết là một bản nằm đó tới lúc kế toán phải
+  // đi hỏi — cùng lý do đã ghi ở Đ154 cho nhật ký chờ duyệt.
+  //
+  // KHÔNG đi qua `bao-nha-truong.js`: mọi hàm ở đó nhận `studentId` hoặc
+  // `classId` để lọc theo phạm vi, mà một biểu phí không thuộc về bé nào cả.
+  // Ở đây người nhận là NGƯỜI DUYỆT ĐƯỢC BIỂU PHÍ — hỏi đúng `duyetBieuPhiDuoc`
+  // thay vì chép lại một danh sách chức vụ thứ hai.
+  //
+  // Việc phụ: hỏng thì lượt gửi duyệt vẫn xong.
+  function baoNguoiDuyetBieuPhi(bp, nguoiGui) {
+    try {
+      const ds = db.all('users', "SELECT * FROM users WHERE role = 'admin' AND active = 1")
+        .filter(u => u.id !== (nguoiGui && nguoiGui.id))
+        .filter(u => db.duyetBieuPhiDuoc(u))
+        .filter(u => !bp.campusId || db.phamViCoSo(u) === null || db.phamViCoSo(u) === bp.campusId);
+      if (!ds.length) return 0;
+      // KHÔNG NÊU SỐ TIỀN — tin hiện trên màn hình khoá điện thoại, và bảng giá
+      // của trường chưa duyệt thì chưa phải thứ người đi qua đọc được. Cùng
+      // lối đã ghi ở `quetHanNop` (Đ199).
+      require('../../lib/day').guiChoNhieuNguoi(ds.map(u => u.id), {
+        tieuDe: 'Có biểu phí chờ duyệt',
+        noiDung: `Kế toán vừa gửi biểu phí "${bp.ten}" lên chờ duyệt.`,
+        hash: '#/hocphi',
+        gop: `bp-${bp.id}`,
+      });
+      return ds.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  app.get('/api/hocphi/bieu-phi', requireRole('admin'), (req, res) => {
+    let ds = [];
+    try {
+      ds = db.all('hocphi_bieuphi', 'SELECT * FROM hocphi_bieuphi ORDER BY rowid DESC LIMIT 200');
+    } catch (_) { ds = []; }
+    res.json({
+      bieuPhi: ds.filter(bp => trongPhamVi(req.user, bp)).map(bp => goiBieuPhi(bp, req.user)),
+      loaiKhoan: LOAI_KHOAN.map(([ma, ten]) => ({ ma, ten, duocUuDai: LOAI_DUOC_UU_DAI.includes(ma) })),
+      trangThai: TRANG_THAI_BP.map(ma => ({ ma, ten: TEN_TRANG_THAI_BP[ma] })),
+      quyen: { soanDuoc: db.taoKhoanThuDuoc(req.user), duyetDuoc: db.duyetBieuPhiDuoc(req.user) },
+    });
+  });
+
+  // Kế toán soạn một biểu phí mới, hoặc sửa bản còn đang soạn.
+  //
+  // ĐẶT LẠI TRỌN DANH SÁCH DÒNG mỗi lượt ghi — đúng hình dạng của một bảng giá
+  // mà người ta sửa trên màn rồi bấm Lưu. Chỉ làm được khi bản còn `nhap`.
+  app.post('/api/hocphi/bieu-phi', requireRole('admin'), (req, res) => {
+    if (chiNguoiLoTien(req, res)) return;
+    const b = req.body || {};
+    const ten = String(b.ten || '').trim().slice(0, 120);
+    if (!ten) return res.status(400).json({ error: 'Đặt giúp một cái tên cho biểu phí nhé' });
+
+    const id = String(b.id || '').trim();
+    let bp = id ? bieuPhiCua(id) : null;
+    if (id && !bp) return res.status(404).json({ error: 'Không tìm thấy biểu phí này' });
+    if (bp && !trongPhamVi(req.user, bp)) {
+      return res.status(403).json({ error: 'Biểu phí này thuộc cơ sở khác' });
+    }
+    if (bp && bp.trangThai !== 'nhap') {
+      // ĐÂY LÀ CÁI KHOÁ, và câu từ chối phải nói ra đường đi tiếp.
+      return res.status(403).json({
+        error: bp.trangThai === 'da-duyet'
+          ? 'Biểu phí đã duyệt nên đang khoá. Muốn sửa thì xin ban giám hiệu mở khoá trước nhé.'
+          : 'Biểu phí đang chờ ban giám hiệu duyệt nên chưa sửa được.',
+      });
+    }
+
+    // Làm sạch từng dòng. Số tiền âm hay không phải số thì TỪ CHỐI CẢ MẺ —
+    // một bảng giá ghi vào nửa chừng còn tệ hơn không ghi được.
+    const dong = [];
+    for (const [i, x] of (Array.isArray(b.dong) ? b.dong : []).entries()) {
+      const noiDung = String((x || {}).noiDung || '').trim().slice(0, 120);
+      if (!noiDung) return res.status(400).json({ error: `Dòng thứ ${i + 1} chưa có tên khoản` });
+      const loai = String((x || {}).loai || LOAI_MAC_DINH);
+      if (!MA_LOAI_KHOAN.includes(loai)) {
+        return res.status(400).json({ error: `Dòng "${noiDung}" có loại khoản thu chưa hợp lệ` });
+      }
+      const tien = Number((x || {}).soTien);
+      if (!Number.isFinite(tien) || tien < 0 || tien > 1e12) {
+        return res.status(400).json({ error: `Dòng "${noiDung}" có số tiền chưa hợp lệ` });
+      }
+      dong.push({ noiDung, loai, soTien: Math.round(tien), thuTu: i });
+    }
+
+    const luc = new Date().toISOString();
+    const campusId = String(b.campusId || '').trim() || null;
+    // Quản lý một cơ sở chỉ soạn được biểu phí của chính cơ sở mình.
+    const pham = db.phamViCoSo(req.user);
+    if (pham !== null && campusId && campusId !== pham) {
+      return res.status(403).json({ error: 'Chỉ soạn được biểu phí của cơ sở mình' });
+    }
+    if (pham !== null && !campusId) {
+      return res.status(403).json({ error: 'Biểu phí cho cả trường là việc của ban giám hiệu' });
+    }
+
+    let raId = bp ? bp.id : db.nextId('bp');
+    db.tx(() => {
+      if (bp) {
+        db.update('hocphi_bieuphi', bp.id, {
+          ten, namHoc: String(b.namHoc || '').trim().slice(0, 20),
+          campusId, ghiChu: String(b.ghiChu || '').trim().slice(0, 500),
+        });
+        db.run('DELETE FROM hocphi_bieuphi_dong WHERE bieuPhiId = ?', [bp.id]);
+      } else {
+        db.insert('hocphi_bieuphi', {
+          id: raId, ten, namHoc: String(b.namHoc || '').trim().slice(0, 20),
+          campusId, trangThai: 'nhap', ghiChu: String(b.ghiChu || '').trim().slice(0, 500),
+          taoBoi: req.user.id, taoLuc: luc,
+          guiBoi: null, guiLuc: null, duyetBoi: null, duyetLuc: null,
+        });
+      }
+      for (const d of dong) {
+        db.insert('hocphi_bieuphi_dong', { id: db.nextId('bpd'), bieuPhiId: raId, ...d });
+      }
+    });
+    db.audit(req.user.id, bp ? 'hocphi-bieuphi-sua' : 'hocphi-bieuphi-tao', raId, { ten, soDong: dong.length });
+    res.status(bp ? 200 : 201).json(goiBieuPhi(bieuPhiCua(raId), req.user));
+  });
+
+  // Kế toán gửi biểu phí lên chờ duyệt. Gửi xong là THÔI SỬA ĐƯỢC.
+  app.post('/api/hocphi/bieu-phi/:id/gui', requireRole('admin'), (req, res) => {
+    if (chiNguoiLoTien(req, res)) return;
+    const bp = bieuPhiCua(req.params.id);
+    if (!bp) return res.status(404).json({ error: 'Không tìm thấy biểu phí này' });
+    if (!trongPhamVi(req.user, bp)) return res.status(403).json({ error: 'Biểu phí này thuộc cơ sở khác' });
+    if (bp.trangThai !== 'nhap') {
+      return res.status(400).json({ error: 'Biểu phí này đã gửi rồi' });
+    }
+    if (!dongCuaBieuPhi(bp.id).length) {
+      return res.status(400).json({ error: 'Biểu phí chưa có dòng nào — thêm ít nhất một khoản rồi gửi nhé' });
+    }
+    db.update('hocphi_bieuphi', bp.id, {
+      trangThai: 'cho-duyet', guiBoi: req.user.id, guiLuc: new Date().toISOString(),
+    });
+    db.audit(req.user.id, 'hocphi-bieuphi-gui-duyet', bp.id, { ten: bp.ten });
+    baoNguoiDuyetBieuPhi(bp, req.user);
+    res.json(goiBieuPhi(bieuPhiCua(bp.id), req.user));
+  });
+
+  // CẤP 1 DUYỆT — và duyệt xong là KHOÁ.
+  //
+  // `db.duyetBieuPhiDuoc` chỉ mở cho ban giám hiệu: người SOẠN không được tự
+  // duyệt lấy, nếu không thì bước duyệt chỉ là một cái nút kế toán tự bấm cho
+  // mình. Lý do đầy đủ ở `lib/db.js`.
+  app.post('/api/hocphi/bieu-phi/:id/duyet', requireRole('admin'), (req, res) => {
+    const bp = bieuPhiCua(req.params.id);
+    if (!bp) return res.status(404).json({ error: 'Không tìm thấy biểu phí này' });
+    if (!db.duyetBieuPhiDuoc(req.user)) {
+      return res.status(403).json({
+        error: 'Duyệt biểu phí là việc của ban giám hiệu. Kế toán soạn và gửi, ban giám hiệu duyệt — '
+          + 'người đặt ra bảng giá không tự duyệt bảng giá của mình.',
+      });
+    }
+    if (!trongPhamVi(req.user, bp)) return res.status(403).json({ error: 'Biểu phí này thuộc cơ sở khác' });
+    if (bp.trangThai !== 'cho-duyet') {
+      return res.status(400).json({ error: 'Biểu phí này chưa được gửi duyệt' });
+    }
+    const dongY = String((req.body || {}).quyetDinh || 'duyet') === 'duyet';
+    const yKien = String((req.body || {}).yKien || '').trim().slice(0, 500);
+    if (!dongY && !yKien) {
+      return res.status(400).json({ error: 'Trả lại thì ghi giúp kế toán một dòng vì sao nhé' });
+    }
+    db.update('hocphi_bieuphi', bp.id, dongY
+      ? { trangThai: 'da-duyet', duyetBoi: req.user.id, duyetLuc: new Date().toISOString() }
+      : { trangThai: 'nhap', ghiChu: yKien ? `Ban giám hiệu trả lại: ${yKien}` : bp.ghiChu });
+    db.audit(req.user.id, dongY ? 'hocphi-bieuphi-duyet' : 'hocphi-bieuphi-tra-lai', bp.id, { ten: bp.ten, yKien });
+    res.json(goiBieuPhi(bieuPhiCua(bp.id), req.user));
+  });
+
+  // XIN MỞ KHOÁ — kế toán xin, ban giám hiệu trả lời.
+  app.post('/api/hocphi/bieu-phi/:id/xin-mo', requireRole('admin'), (req, res) => {
+    if (chiNguoiLoTien(req, res)) return;
+    const bp = bieuPhiCua(req.params.id);
+    if (!bp) return res.status(404).json({ error: 'Không tìm thấy biểu phí này' });
+    if (!trongPhamVi(req.user, bp)) return res.status(403).json({ error: 'Biểu phí này thuộc cơ sở khác' });
+    if (bp.trangThai !== 'da-duyet') {
+      return res.status(400).json({ error: 'Biểu phí này chưa khoá nên không cần xin mở' });
+    }
+    if (xinMoDangCho(bp.id)) {
+      return res.status(409).json({ error: 'Đã có một lượt xin mở đang chờ ban giám hiệu trả lời' });
+    }
+    // LÝ DO LÀ BẮT BUỘC, và đó là toàn bộ giá trị của bước này. Một lượt xin
+    // không lý do thì người duyệt chỉ có thể bấm bừa, và cái khoá thành thủ tục.
+    const lyDo = String((req.body || {}).lyDo || '').trim().slice(0, 500);
+    if (lyDo.length < 10) {
+      return res.status(400).json({
+        error: 'Ghi giúp vài chữ vì sao cần sửa bảng giá nhé — ban giám hiệu đọc dòng này để quyết.',
+      });
+    }
+    const id = db.nextId('bpm');
+    db.insert('hocphi_bieuphi_moKhoa', {
+      id, bieuPhiId: bp.id, lyDo, trangThai: 'cho-duyet',
+      xinBoi: req.user.id, xinLuc: new Date().toISOString(),
+      traLoiBoi: null, traLoiLuc: null, yKien: '',
+    });
+    db.audit(req.user.id, 'hocphi-bieuphi-xin-mo', bp.id, { lyDo });
+    res.status(201).json(goiBieuPhi(bieuPhiCua(bp.id), req.user));
+  });
+
+  app.post('/api/hocphi/bieu-phi/:id/tra-loi-xin-mo', requireRole('admin'), (req, res) => {
+    const bp = bieuPhiCua(req.params.id);
+    if (!bp) return res.status(404).json({ error: 'Không tìm thấy biểu phí này' });
+    if (!db.duyetBieuPhiDuoc(req.user)) {
+      return res.status(403).json({ error: 'Mở khoá biểu phí là việc của ban giám hiệu' });
+    }
+    if (!trongPhamVi(req.user, bp)) return res.status(403).json({ error: 'Biểu phí này thuộc cơ sở khác' });
+    const xin = xinMoDangCho(bp.id);
+    if (!xin) return res.status(400).json({ error: 'Không có lượt xin mở nào đang chờ' });
+
+    const dongY = String((req.body || {}).quyetDinh || 'mo') === 'mo';
+    const yKien = String((req.body || {}).yKien || '').trim().slice(0, 500);
+    if (!dongY && !yKien) {
+      return res.status(400).json({ error: 'Từ chối thì ghi giúp kế toán một dòng vì sao nhé' });
+    }
+    db.tx(() => {
+      db.update('hocphi_bieuphi_moKhoa', xin.id, {
+        trangThai: dongY ? 'da-mo' : 'tu-choi',
+        traLoiBoi: req.user.id, traLoiLuc: new Date().toISOString(), yKien,
+      });
+      // MỞ KHOÁ LÀ VỀ 'nhap', KHÔNG PHẢI XOÁ DẤU ĐÃ DUYỆT. `duyetBoi` và
+      // `duyetLuc` giữ nguyên làm chứng từ: bảng giá này ĐÃ từng được duyệt,
+      // và câu hỏi "ai duyệt bản trước" vẫn trả lời được sau khi sửa.
+      if (dongY) db.update('hocphi_bieuphi', bp.id, { trangThai: 'nhap' });
+    });
+    db.audit(req.user.id, dongY ? 'hocphi-bieuphi-mo-khoa' : 'hocphi-bieuphi-tu-choi-mo', bp.id, { yKien });
+    res.json(goiBieuPhi(bieuPhiCua(bp.id), req.user));
+  });
+
   // Xác nhận đã nhận tiền — cùng một lý do như trên, và nặng hơn: đây là chỗ
   // biến "nhà này còn nợ" thành "nhà này đã nộp".
   app.post('/api/hocphi/:id/xac-nhan', requireRole('admin'), (req, res) => {

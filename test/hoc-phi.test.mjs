@@ -216,8 +216,22 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   // `db.taoKhoanThuDuoc`. Con số ở đây là một cái bẫy chuông — nó kêu khi có
   // người thêm đường mới, đúng như nó vừa kêu — nên chỉnh lại con số thì phải
   // kèm lý do, không chỉnh lặng lẽ.
-  check('cả MƯỜI MỘT đường của phân hệ đều đòi vai văn phòng',
-    (routes.match(/requireRole\('admin'\)/g) || []).length === 11,
+  //
+  // LÝ DO CHỈNH 11 → 17, ghi ở Đ200 (việc 33 — biểu phí có duyệt và có khoá):
+  // chuông đã kêu đúng lúc, và sáu đường mới dưới đây là cố ý, không phải
+  // đường ghi sổ tiền nào bị thêm lén:
+  //   1. `GET  /api/hocphi/bieu-phi`                    — xem biểu phí
+  //   2. `POST /api/hocphi/bieu-phi`                    — soạn/sửa bản nháp
+  //   3. `POST /api/hocphi/bieu-phi/:id/gui`            — gửi cấp trên duyệt
+  //   4. `POST /api/hocphi/bieu-phi/:id/duyet`          — duyệt hoặc trả lại
+  //   5. `POST /api/hocphi/bieu-phi/:id/xin-mo`         — xin mở khoá để sửa
+  //   6. `POST /api/hocphi/bieu-phi/:id/tra-loi-xin-mo` — trả lời việc xin mở
+  // Cả sáu đều đòi vai văn phòng. Ba đường soạn/gửi/xin mở còn đòi thêm
+  // `db.taoKhoanThuDuoc` (người lo tiền), hai đường duyệt và trả lời xin mở
+  // đòi `db.duyetBieuPhiDuoc` (cấp 1) — tức người soạn KHÔNG tự duyệt được
+  // biểu phí của chính mình. Phép kiểm từng đường nằm ở `test/bieu-phi.test.mjs`.
+  check('cả MƯỜI BẢY đường của phân hệ đều đòi vai văn phòng',
+    (routes.match(/requireRole\('admin'\)/g) || []).length === 17,
     (routes.match(/requireRole\([^)]*\)/g) || []));
   check('KHÔNG còn đường ghi nào mở cho vai cô',
     !/requireRole\('teacher'/.test(routes));

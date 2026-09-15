@@ -54,6 +54,7 @@ App.views.hocphi = {
             <button class="btn sm outline" id="hp-bang">Xem sổ tiền</button>
             ${taoDuoc ? '<button class="btn sm outline" id="hp-dot">Ghi sổ cho cả nhóm</button>' : ''}
             ${xemUuDaiDuoc ? '<button class="btn sm outline" id="hp-uudai">Ưu đãi</button>' : ''}
+            <button class="btn sm outline" id="hp-bieuphi">Biểu phí</button>
           </div>
           ${taoDuoc ? `
             <div class="muted small mt-8">
@@ -127,6 +128,8 @@ App.views.hocphi = {
     if (bDot) bDot.onclick = () => this.moGhiSoCaNhom();
     const bUu = document.getElementById('hp-uudai');
     if (bUu) bUu.onclick = () => this.moUuDai();
+    const bBp = document.getElementById('hp-bieuphi');
+    if (bBp) bBp.onclick = () => this.moBieuPhi();
     const sel = document.getElementById('hp-hs');
     if (sel) sel.onchange = () => { this._sid = sel.value; App.route(); };
   },
@@ -545,6 +548,219 @@ App.views.hocphi = {
         UI.closeModal();
         UI.toast('Đã đặt ưu đãi', 'success');
         this.moUuDai();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // =========================================================================
+  // BIỂU PHÍ (Đ200, việc 33) — kế toán soạn, ban giám hiệu duyệt rồi khoá
+  // =========================================================================
+  //
+  // MÀN NÀY KHÔNG TỰ ĐOÁN QUYỀN. Máy chủ trả về `quyen` cho TỪNG bảng giá
+  // (`suaDuoc`, `guiDuyetDuoc`, `duyetDuoc`, `xinMoDuoc`, `traLoiXinMoDuoc`),
+  // vì quyền ở đây phụ thuộc cả vai LẪN trạng thái: cùng một kế toán, sửa
+  // được bản đang soạn và không sửa được bản đã duyệt. Màn hình đoán lấy thì
+  // sẽ bày nút cho một việc máy chủ từ chối — đúng thứ `test:khong-hua-suong`
+  // sinh ra để chặn. Nếp này lấy từ Đ157.
+  mauTrangThaiBp(ma) {
+    return ma === 'da-duyet' ? 'green' : ma === 'cho-duyet' ? 'orange' : 'gray';
+  },
+  tienBp(n) {
+    return Number(n || 0).toLocaleString('vi-VN') + ' đ';
+  },
+
+  async moBieuPhi() {
+    let d = null;
+    try {
+      d = await API.get('/api/hocphi/bieu-phi');
+    } catch (err) { UI.toast(err.message, 'error'); return; }
+
+    UI.modal(`
+      ${d.bieuPhi.length ? d.bieuPhi.map(bp => `
+        <div class="card">
+          <div class="row" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <div>
+              <div class="card-title">${UI.esc(bp.ten)}</div>
+              <div class="muted small">${UI.esc(bp.namHoc || 'chưa ghi năm học')}${
+    bp.campusId ? ' · riêng một cơ sở' : ' · áp cho cả trường'}</div>
+            </div>
+            ${UI.badge(bp.tenTrangThai, this.mauTrangThaiBp(bp.trangThai))}
+          </div>
+          ${bp.dong.length ? bp.dong.map(dg => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(dg.noiDung)}</div>
+                <div class="row-sub">${UI.esc(dg.tenLoai || '')}</div>
+              </div>
+              <div class="row-end">${UI.esc(this.tienBp(dg.soTien))}</div>
+            </div>`).join('') : '<div class="muted small mt-8">Chưa có dòng nào.</div>'}
+          ${bp.dong.length ? `<div class="row-sub mt-8"><b>Cộng: ${
+    UI.esc(this.tienBp(bp.tongTien))}</b> mỗi tháng</div>` : ''}
+          ${bp.ghiChu ? `<div class="muted small mt-8">${UI.esc(bp.ghiChu)}</div>` : ''}
+          ${bp.xinMoDangCho ? `
+            <div class="card" style="border-left:4px solid var(--warning);margin-top:8px">
+              <div class="row-title">Kế toán đang xin mở khoá</div>
+              <div class="row-sub" style="margin-top:4px">${UI.esc(bp.xinMoDangCho.lyDo)}</div>
+            </div>` : ''}
+          <div class="row mt-8" style="display:flex;gap:8px;flex-wrap:wrap">
+            ${bp.quyen.suaDuoc ? `<button class="btn sm outline" data-bp-sua="${UI.esc(bp.id)}">Sửa</button>` : ''}
+            ${bp.quyen.guiDuyetDuoc ? `<button class="btn sm primary" data-bp-gui="${UI.esc(bp.id)}">Gửi duyệt</button>` : ''}
+            ${bp.quyen.duyetDuoc ? `<button class="btn sm primary" data-bp-duyet="${UI.esc(bp.id)}">Duyệt</button>` : ''}
+            ${bp.quyen.duyetDuoc ? `<button class="btn sm outline" data-bp-tra="${UI.esc(bp.id)}">Trả lại</button>` : ''}
+            ${bp.quyen.xinMoDuoc ? `<button class="btn sm outline" data-bp-xin="${UI.esc(bp.id)}">Xin mở khoá</button>` : ''}
+            ${bp.quyen.traLoiXinMoDuoc ? `<button class="btn sm primary" data-bp-mo="${UI.esc(bp.id)}">Mở khoá</button>` : ''}
+            ${bp.quyen.traLoiXinMoDuoc ? `<button class="btn sm outline" data-bp-tuchoimo="${UI.esc(bp.id)}">Chưa mở</button>` : ''}
+          </div>
+        </div>`).join('') : UI.emptyState('📋', 'Chưa có biểu phí nào')}
+
+      <div class="muted small" style="line-height:1.7">
+        Biểu phí là <b>bảng giá để nhìn và chép ra</b> khi ghi sổ, không phải cái khoá:
+        kế toán vẫn ghi từng khoản thu như thường lệ, kể cả khi trường chưa duyệt bảng
+        giá nào. Bảng đã duyệt thì <b>khoá lại</b>; muốn sửa phải xin ban giám hiệu mở.
+      </div>
+      ${d.quyen.soanDuoc ? '<button class="btn primary block mt-8" id="hpb-them">Soạn biểu phí mới</button>' : ''}
+    `, 'Biểu phí của trường');
+
+    const them = document.getElementById('hpb-them');
+    if (them) them.onclick = () => this.moSoanBieuPhi(null, d.loaiKhoan);
+
+    const banGhi = (id) => d.bieuPhi.find(x => x.id === id);
+    for (const nut of document.querySelectorAll('button[data-bp-sua]')) {
+      nut.onclick = () => this.moSoanBieuPhi(banGhi(nut.dataset.bpSua), d.loaiKhoan);
+    }
+    // Mỗi nút dưới đây là MỘT lượt ghi: hỏi lại, gọi, rồi vẽ lại đúng màn này.
+    const chay = async (duong, than, loiBao) => {
+      try {
+        await API.post(duong, than || {});
+        UI.closeModal();
+        UI.toast(loiBao, 'success');
+        this.moBieuPhi();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+    for (const nut of document.querySelectorAll('button[data-bp-gui]')) {
+      nut.onclick = () => {
+        if (!confirm('Gửi bảng giá này lên ban giám hiệu duyệt? Gửi rồi thì chưa sửa được nữa.')) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpGui)}/gui`, {}, 'Đã gửi chờ duyệt');
+      };
+    }
+    for (const nut of document.querySelectorAll('button[data-bp-duyet]')) {
+      nut.onclick = () => {
+        if (!confirm('Duyệt bảng giá này? Duyệt xong bảng giá sẽ khoá lại.')) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpDuyet)}/duyet`,
+          { quyetDinh: 'duyet' }, 'Đã duyệt và khoá bảng giá');
+      };
+    }
+    for (const nut of document.querySelectorAll('button[data-bp-tra]')) {
+      nut.onclick = () => {
+        const y = prompt('Trả lại cho kế toán vì sao? (ghi lại cho sổ)');
+        if (!y || !y.trim()) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpTra)}/duyet`,
+          { quyetDinh: 'tra-lai', yKien: y }, 'Đã trả lại cho kế toán');
+      };
+    }
+    for (const nut of document.querySelectorAll('button[data-bp-xin]')) {
+      nut.onclick = () => {
+        const y = prompt('Cần sửa gì trong bảng giá này? Ban giám hiệu đọc dòng này để quyết.');
+        if (!y || !y.trim()) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpXin)}/xin-mo`,
+          { lyDo: y }, 'Đã gửi lời xin mở khoá');
+      };
+    }
+    for (const nut of document.querySelectorAll('button[data-bp-mo]')) {
+      nut.onclick = () => {
+        if (!confirm('Mở khoá bảng giá này để kế toán sửa?')) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpMo)}/tra-loi-xin-mo`,
+          { quyetDinh: 'mo' }, 'Đã mở khoá');
+      };
+    }
+    for (const nut of document.querySelectorAll('button[data-bp-tuchoimo]')) {
+      nut.onclick = () => {
+        const y = prompt('Chưa mở khoá vì sao? (ghi lại cho kế toán)');
+        if (!y || !y.trim()) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpTuchoimo)}/tra-loi-xin-mo`,
+          { quyetDinh: 'tu-choi', yKien: y }, 'Đã trả lời kế toán');
+      };
+    }
+  },
+
+  // Ô SOẠN BẢNG GIÁ. Danh sách dòng giữ trong bộ nhớ rồi gửi TRỌN GÓI —
+  // máy chủ đặt lại cả danh sách mỗi lượt ghi, nên hai bên cùng một hình dạng.
+  moSoanBieuPhi(bp, loaiKhoan) {
+    this._bpDong = bp && bp.dong.length
+      ? bp.dong.map(d => ({ noiDung: d.noiDung, loai: d.loai, soTien: d.soTien }))
+      : [{ noiDung: '', loai: 'hoc-phi', soTien: '' }];
+    const loai = loaiKhoan || [{ ma: 'hoc-phi', ten: 'Học phí' }];
+
+    const veDong = () => this._bpDong.map((d, i) => `
+      <div class="list-row" style="align-items:flex-end;gap:8px">
+        <div class="row-main">
+          <div class="field"><label>Khoản thứ ${i + 1}</label>
+            <input data-bpd-ten="${i}" value="${UI.esc(d.noiDung)}" placeholder="Ví dụ: Học phí tháng"></div>
+          <div class="field"><label>Loại</label>
+            <select data-bpd-loai="${i}">${loai.map(l => `
+              <option value="${UI.esc(l.ma)}" ${l.ma === d.loai ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
+            </select></div>
+          <div class="field"><label>Số tiền mỗi tháng</label>
+            <input data-bpd-tien="${i}" type="number" min="0" step="1000" value="${UI.esc(String(d.soTien))}"></div>
+        </div>
+        <div class="row-end">
+          ${this._bpDong.length > 1 ? `<button class="btn sm outline" data-bpd-xoa="${i}">Bỏ dòng</button>` : ''}
+        </div>
+      </div>`).join('');
+
+    const noiLai = () => {
+      // Đọc lại những gì đang gõ dở TRƯỚC khi vẽ lại — bản đầu vẽ đè và mọi ô
+      // đang gõ về rỗng, tức người dùng mất công gõ vì bấm "Thêm dòng".
+      document.getElementById('hpb-dong').innerHTML = veDong();
+      for (const o of document.querySelectorAll('[data-bpd-xoa]')) {
+        o.onclick = () => { docDong(); this._bpDong.splice(Number(o.dataset.bpdXoa), 1); noiLai(); };
+      }
+    };
+    const docDong = () => {
+      this._bpDong = this._bpDong.map((d, i) => ({
+        noiDung: (document.querySelector(`[data-bpd-ten="${i}"]`) || {}).value ?? d.noiDung,
+        loai: (document.querySelector(`[data-bpd-loai="${i}"]`) || {}).value ?? d.loai,
+        soTien: (document.querySelector(`[data-bpd-tien="${i}"]`) || {}).value ?? d.soTien,
+      }));
+    };
+
+    UI.modal(`
+      <div class="field"><label>Tên biểu phí</label>
+        <input id="hpb-ten" value="${UI.esc((bp && bp.ten) || '')}"
+          placeholder="Ví dụ: Biểu phí năm học 2026–2027"></div>
+      <div class="field"><label>Năm học</label>
+        <input id="hpb-nam" value="${UI.esc((bp && bp.namHoc) || '')}" placeholder="2026-2027"></div>
+      <div id="hpb-dong"></div>
+      <button class="btn sm outline block" id="hpb-them-dong">Thêm một dòng</button>
+      <div class="field mt-8"><label>Ghi chú</label>
+        <input id="hpb-ghi" value="${UI.esc((bp && bp.ghiChu) || '')}" placeholder="không bắt buộc"></div>
+      <button class="btn primary block mt-8" id="hpb-luu">Lưu bản nháp</button>
+      <div class="muted small mt-8" style="line-height:1.7">
+        Lưu xong bảng giá vẫn đang <b>soạn dở</b> — sửa lại bao nhiêu lần cũng được.
+        Chỉ khi bấm <b>Gửi duyệt</b> mới khoá lại chờ ban giám hiệu.
+      </div>
+    `, bp ? 'Sửa biểu phí' : 'Soạn biểu phí mới');
+
+    noiLai();
+    document.getElementById('hpb-them-dong').onclick = () => {
+      docDong();
+      this._bpDong.push({ noiDung: '', loai: 'hoc-phi', soTien: '' });
+      noiLai();
+    };
+    document.getElementById('hpb-luu').onclick = async () => {
+      docDong();
+      try {
+        await API.post('/api/hocphi/bieu-phi', {
+          id: bp ? bp.id : undefined,
+          ten: document.getElementById('hpb-ten').value,
+          namHoc: document.getElementById('hpb-nam').value,
+          campusId: bp ? bp.campusId : undefined,
+          ghiChu: document.getElementById('hpb-ghi').value,
+          dong: this._bpDong,
+        });
+        UI.closeModal();
+        UI.toast('Đã lưu bản nháp', 'success');
+        this.moBieuPhi();
       } catch (err) { UI.toast(err.message, 'error'); }
     };
   },

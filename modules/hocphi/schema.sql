@@ -144,3 +144,91 @@ CREATE TABLE IF NOT EXISTS hocphi_khoan_nhac (
   khoanId TEXT PRIMARY KEY REFERENCES hocphi_khoan(id) ON DELETE CASCADE,
   luc     TEXT NOT NULL
 );
+
+-- ===========================================================================
+-- TẦNG BIỂU PHÍ (Đ200, việc 33)
+-- ===========================================================================
+--
+-- Nhà trường: *"kế toán soạn, cấp 1 duyệt rồi khoá, muốn sửa phải xin mở"*.
+--
+-- HÔM NAY KHOẢN THU TẠO TRỰC TIẾP, KHÔNG QUA BƯỚC NÀO. Kế toán gõ tên khoản
+-- và số tiền rồi ghi thẳng vào sổ của từng bé. Nghĩa là số tiền một gia đình
+-- phải nộp do MỘT người quyết, một mình, và không có bản gốc nào để đối chiếu
+-- khi hai nhà cùng nhóm nhận hai con số khác nhau.
+--
+-- BIỂU PHÍ LÀ BẢN GỐC ẤY: bảng giá của cả trường (hoặc của một cơ sở) cho một
+-- năm học, có người soạn, có người duyệt, và khoá lại sau khi duyệt.
+--
+-- VÌ SAO KHÔNG ĐỤNG TỚI ĐƯỜNG GHI SỔ ĐANG CHẠY
+--
+-- Đây là quyết định quan trọng nhất của cả tầng này. Bắt mọi khoản thu phải
+-- trỏ vào một dòng biểu phí thì:
+--   • mọi khoản đã ghi (không dòng nào có biểu phí) thành ra sai lệ; và
+--   • ngày trường chưa kịp soạn biểu phí là kế toán không ghi nổi một khoản
+--     nào, giữa lúc phụ huynh đang đứng ở bàn nộp tiền.
+-- Cả hai đều là lấy đi một thứ đang chạy, đúng thứ Nguyên tắc số 1 cấm.
+--
+-- Nên biểu phí là một BẢN GỐC ĐỂ TRA VÀ ĐỂ CHÉP TỪ ĐÓ RA, không phải một cái
+-- khoá chặn đường ghi. Kế toán mở biểu phí đã duyệt, bấm một nút, khoản thu
+-- của cả nhóm ghi ra theo đúng bảng giá ấy — nhanh hơn gõ tay và không sai số.
+-- Đường gõ tay vẫn còn nguyên cho những khoản ngoài bảng (một bé đi xe thêm
+-- một tháng, một khoản hoàn lại).
+--
+-- BỐN TRẠNG THÁI, ĐI MỘT CHIỀU TRỪ MỘT ĐƯỜNG LÙI CÓ NGƯỜI DUYỆT:
+--   'nhap'      — kế toán đang soạn, sửa thoải mái, gia đình không thấy gì
+--   'cho-duyet' — đã gửi, kế toán THÔI sửa được
+--   'da-duyet'  — cấp 1 đã duyệt. KHOÁ. Đây là bản gốc để chép ra khoản thu
+--   'da-thay'   — đã có bản mới thay chỗ; giữ lại làm chứng từ, không xoá
+CREATE TABLE IF NOT EXISTS hocphi_bieuphi (
+  id         TEXT PRIMARY KEY,
+  ten        TEXT NOT NULL,
+  namHoc     TEXT NOT NULL DEFAULT '',
+  campusId   TEXT,                            -- rỗng = áp cho cả trường
+  trangThai  TEXT NOT NULL DEFAULT 'nhap',    -- nhap | cho-duyet | da-duyet | da-thay
+  ghiChu     TEXT NOT NULL DEFAULT '',
+  taoBoi     TEXT,
+  taoLuc     TEXT NOT NULL,
+  guiBoi     TEXT,
+  guiLuc     TEXT,
+  duyetBoi   TEXT,
+  duyetLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_hocphi_bieuphi ON hocphi_bieuphi(trangThai, namHoc);
+
+-- MỘT DÒNG CỦA BIỂU PHÍ — một khoản, một số tiền.
+--
+-- `loai` dùng ĐÚNG bộ mã của `hocphi_khoan_loai` (Đ199, việc 34), để khoản thu
+-- chép ra từ đây mang sẵn loại đúng và ưu đãi áp đúng chỗ ngay từ đầu. Hai bộ
+-- mã cho cùng một khái niệm là hai bộ sẽ trôi khỏi nhau.
+CREATE TABLE IF NOT EXISTS hocphi_bieuphi_dong (
+  id        TEXT PRIMARY KEY,
+  bieuPhiId TEXT NOT NULL REFERENCES hocphi_bieuphi(id) ON DELETE CASCADE,
+  noiDung   TEXT NOT NULL,
+  loai      TEXT NOT NULL DEFAULT 'hoc-phi',
+  soTien    INTEGER NOT NULL,
+  thuTu     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_hocphi_bieuphi_dong ON hocphi_bieuphi_dong(bieuPhiId, thuTu);
+
+-- XIN MỞ KHOÁ MỘT BIỂU PHÍ ĐÃ DUYỆT.
+--
+-- Nhà trường nói rõ *"muốn sửa phải xin mở"*. Không có bảng này thì "khoá" chỉ
+-- có hai kết cục: hoặc kế toán không sửa được gì cả và phải lập biểu phí mới
+-- cho một lỗi chính tả, hoặc ai đó mở một đường sửa lén và cái khoá thành trang
+-- trí.
+--
+-- VÀ MỖI LƯỢT XIN ĐỀU CÒN VẾT. Đây là tiền của gia đình: câu hỏi *"ai đã đổi
+-- bảng giá, lúc nào, vì sao"* phải trả lời được bằng dữ liệu chứ không bằng
+-- trí nhớ.
+CREATE TABLE IF NOT EXISTS hocphi_bieuphi_moKhoa (
+  id        TEXT PRIMARY KEY,
+  bieuPhiId TEXT NOT NULL REFERENCES hocphi_bieuphi(id) ON DELETE CASCADE,
+  lyDo      TEXT NOT NULL,
+  trangThai TEXT NOT NULL DEFAULT 'cho-duyet',   -- cho-duyet | da-mo | tu-choi
+  xinBoi    TEXT,
+  xinLuc    TEXT NOT NULL,
+  traLoiBoi TEXT,
+  traLoiLuc TEXT,
+  yKien     TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_hocphi_mokhoa ON hocphi_bieuphi_moKhoa(bieuPhiId, trangThai);

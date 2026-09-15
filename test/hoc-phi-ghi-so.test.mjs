@@ -535,10 +535,25 @@ try {
     // Bốn đường: tạo một khoản, ghi sổ hàng loạt, đặt ưu đãi, gỡ ưu đãi (Đ169).
     // Cả bốn đều là quyết định về số tiền một nhà phải nộp, chỉ khác dấu.
     //
+    // LÝ DO CHỈNH 4 → 7, ghi ở Đ200 (việc 33 — tầng biểu phí). Con số này là
+    // một cái bẫy chuông y như bản kiểm kê ở `test/hoc-phi.test.mjs`, nên
+    // chỉnh thì phải kèm lý do, không chỉnh lặng lẽ. Ba đường mới:
+    //   • `POST /api/hocphi/bieu-phi`             — soạn hoặc sửa bảng giá
+    //   • `POST /api/hocphi/bieu-phi/:id/gui`     — gửi bảng giá lên chờ duyệt
+    //   • `POST /api/hocphi/bieu-phi/:id/xin-mo`  — xin mở khoá để sửa lại
+    // Cả ba đều là quyết định về con số một nhà sẽ phải nộp, chỉ là quyết ở
+    // dạng BẢNG GIÁ chứ chưa phải ở dạng một khoản đã ghi vào sổ của một bé.
+    //
+    // Hai đường CÒN LẠI của tầng biểu phí — duyệt, và trả lời xin mở — CỐ Ý
+    // không nằm trong phép đếm này: chúng đi qua `db.duyetBieuPhiDuoc` (cấp 1)
+    // chứ không qua `chiNguoiLoTien` (người lo tiền). Đó chính là chỗ tách
+    // người SOẠN khỏi người DUYỆT; gộp cả năm vào một chốt là xoá mất vế ấy.
+    // `test/bieu-phi.test.mjs` mục [4] canh riêng hai đường đó.
+    //
     // Đếm CHỖ GỌI, không đếm cả dòng khai báo hàm — nếu không thì con số luôn
     // dư đúng một và phép kiểm đo nhầm thứ mình không định đo.
-    check('cả BỐN đường quyết định về tiền đều gọi chốt chặn chức vụ',
-      (than.match(/if \(chiNguoiLoTien\(req, res\)\) return;/g) || []).length === 4,
+    check('cả BẢY đường quyết định về tiền đều gọi chốt chặn chức vụ',
+      (than.match(/if \(chiNguoiLoTien\(req, res\)\) return;/g) || []).length === 7,
       (than.match(/.*chiNguoiLoTien.*/g) || []));
     check('và chốt chặn ấy hỏi đúng db.taoKhoanThuDuoc, không tự dựng luật riêng',
       /db\.taoKhoanThuDuoc\(req\.user\)/.test(than), 'routes.js');
