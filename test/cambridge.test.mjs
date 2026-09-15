@@ -250,6 +250,35 @@ console.log('\n[6] Sửa bài, và lọc theo loại');
   check('lọc theo loại "Cambridge" cũng vậy',
     chiCam.length > 0 && chiCam.every(b => b.loai === 'cambridge'), chiCam.map(b => b.loai));
 
+  // BA TAB TÊN TIẾNG ANH — nhà trường chốt 10/09/2026 (A25).
+  //
+  // Đây là ngoại lệ CÓ CHỦ Ý so với quy định "giao diện tiếng Việt" của
+  // CLAUDE.md, phạm vi đúng bằng ba nhãn tab này. Mã của hai loại cũ giữ
+  // nguyên — đổi mã là làm mọi bài đã đăng rơi ra ngoài mọi bộ lọc.
+  const goi = await req('GET', '/api/cambridge', { cookie: PH });
+  const dsLoai = goi.data?.loai || [];
+  check('có đúng BA tab', dsLoai.length === 3, dsLoai.map(l => l.ma));
+  check('đúng thứ tự và đúng tên nhà trường yêu cầu',
+    dsLoai.map(l => l.ten).join(' | ') === 'Letter for Parent | Cambridge Weekly Plan | Home Connection',
+    dsLoai.map(l => l.ten));
+  check('MÃ của hai loại cũ KHÔNG đổi — bài đã đăng không rơi khỏi bộ lọc',
+    dsLoai.some(l => l.ma === 'cambridge') && dsLoai.some(l => l.ma === 'ket-noi'),
+    dsLoai.map(l => l.ma));
+
+  const thu = await dang({ loai: 'thu-phu-huynh', tieuDe: 'Thư tháng 9', noiDung: 'Kính gửi quý phụ huynh', phamVi: 'truong' });
+  check('đăng được bài ở tab mới', thu.status === 201 && thu.data?.loai === 'thu-phu-huynh',
+    `${thu.status} ${thu.data?.loai}`);
+  const chiThu = await danhSach(PH, 'thu-phu-huynh');
+  check('và lọc theo tab mới ra đúng bài đó',
+    chiThu.length > 0 && chiThu.every(b => b.loai === 'thu-phu-huynh'), chiThu.map(b => b.loai));
+
+  const bay = await dang({ loai: 'khong-co-that', tieuDe: 'x', noiDung: 'y', phamVi: 'truong' });
+  check('loại không có thật thì vẫn bị từ chối', bay.status === 400, bay.status);
+
+  // Câu HƯỚNG DẪN và câu BÁO LỖI vẫn phải tiếng Việt — ngoại lệ chỉ dành cho
+  // ba nhãn tab, không lan ra chỗ khác.
+  check('câu từ chối vẫn bằng tiếng Việt', /không hợp lệ/.test(bay.data?.error || ''), bay.data?.error);
+
   const coSua = await req('PUT', `/api/cambridge/${r.data.id}`, { cookie: GV, body: { noiDung: 'cô sửa' } });
   check('cô KHÔNG sửa được bài của văn phòng', coSua.status === 403, coSua.status);
 }

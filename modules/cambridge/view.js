@@ -240,7 +240,7 @@ App.views.cambridge = {
       <div class="card">
         <div class="card-title">${UI.esc(b.tieuDe)}
           <span class="spacer"></span>
-          ${UI.badge(tenLoai, b.loai === 'ket-noi' ? 'green' : 'blue')}
+          ${UI.badge(tenLoai, { 'ket-noi': 'green', 'thu-phu-huynh': 'purple' }[b.loai] || 'blue')}
         </div>
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
           ${UI.esc(this.nhanPhamVi(b))}

@@ -21,7 +21,31 @@ const uploads = require('../../lib/uploads');
 const tbb = require('../../lib/thong-bao-be');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const LOAI = ['cambridge', 'ket-noi'];
+// BA TAB, TÊN TIẾNG ANH — nhà trường chốt 10/09/2026 (A25).
+//
+// *"Đây là chương trình quốc tế nên mình muốn để tên tiếng Anh. Trong mục
+// Cambridge và kết nối ở nhà thì tôi đang muốn để 3 tab: Letter for Parent /
+// Cambridge Weekly Plan / Home Connection."*
+//
+// ĐÂY LÀ NGOẠI LỆ CÓ CHỦ Ý so với quy định "giao diện tiếng Việt" của
+// CLAUDE.md, và phạm vi ngoại lệ đúng bằng BA NHÃN TAB NÀY — không lan ra chỗ
+// khác. Mọi câu hướng dẫn và mọi câu báo lỗi của phân hệ vẫn phải là tiếng
+// Việt, vì người đọc chúng là cô và gia đình. Ghi lại ở đây để lần rà sau
+// không ai "sửa lại cho đúng CLAUDE.md" rồi làm hỏng ý nhà trường.
+//
+// MÃ GIỮ NGUYÊN, CHỈ NHÃN ĐỔI. `cambridge` và `ket-noi` là hai mã đã nằm trong
+// cơ sở dữ liệu của mọi bài đã đăng; đổi mã là làm mọi bài cũ rơi ra ngoài mọi
+// bộ lọc. Chỉ thêm MỘT mã mới cho tab thứ ba.
+// Thứ tự trong mảng này LÀ thứ tự dải tab trên màn hình, đúng như nhà trường
+// liệt kê. Mọi chỗ khác chỉ dùng nó để hỏi `includes` nên xếp lại không đổi
+// nghĩa; và mặc định khi không gửi loại vẫn ghi thẳng 'cambridge', không lấy
+// phần tử đầu mảng — đổi thứ tự không được kéo theo đổi mặc định.
+const LOAI = ['thu-phu-huynh', 'cambridge', 'ket-noi'];
+const TEN_LOAI = {
+  'thu-phu-huynh': 'Letter for Parent',
+  cambridge: 'Cambridge Weekly Plan',
+  'ket-noi': 'Home Connection',
+};
 const PHAM_VI = ['truong', 'coso', 'nhom'];
 
 const TOI_DA_TIEU_DE = 200;
@@ -510,10 +534,9 @@ module.exports = (app, { db }) => {
     const bai = dayDu.map(b => keml(b, req.user, nho));
     res.json({
       bai,
-      loai: [
-        { ma: 'cambridge', ten: 'Cambridge' },
-        { ma: 'ket-noi', ten: 'Kết nối ở nhà' },
-      ],
+      // Thứ tự đúng như nhà trường liệt kê: thư gửi phụ huynh trước, rồi kế
+      // hoạch tuần, rồi phần làm cùng con ở nhà.
+      loai: LOAI.map(ma => ({ ma, ten: TEN_LOAI[ma] })),
       // Các block của chương trình (Đ143): gia đình chỉ nhận block đúng lứa
       // của con; cô và văn phòng nhận đủ.
       blocks: danhSachBlock().filter(b => blockHopLua(b, cacCon)),
@@ -836,7 +859,7 @@ module.exports = (app, { db }) => {
       const marks = nhom.map(() => '?').join(',');
       const ds = db.all('students',
         `SELECT id, name, dob FROM students WHERE active = 1 AND classId IN (${marks})`, nhom);
-      const tenLoai = bai.loai === 'ket-noi' ? 'Kết nối ở nhà' : 'Cambridge';
+      const tenLoai = TEN_LOAI[bai.loai] || TEN_LOAI.cambridge;
       for (const be of ds) {
         if (khung && khung.luaTuoi && luaTuoiCuaBe(be.dob, homNay()) !== khung.luaTuoi) continue;
         tbb.gui({
