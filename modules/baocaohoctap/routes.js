@@ -1014,6 +1014,17 @@ module.exports = (app, { db, modules }) => {
   app.post('/api/baocaohoctap/ban/:id/duyet', requireRole('admin'), (req, res) => {
     const ban = db.first('baocaohoctap_ban', 'SELECT * FROM baocaohoctap_ban WHERE id = ?', [req.params.id]);
     if (!ban) return res.status(404).json({ error: 'Không tìm thấy báo cáo này' });
+    // DUYỆT BÁO CÁO LÀ PHÁN XÉT CHUYÊN MÔN, KHÔNG PHẢI BƯỚC HÀNH CHÍNH
+    // (Đ198, việc 40). Lý do đầy đủ ở `db.duyetBaoCaoDuoc` trong lib/db.js.
+    //
+    // Câu từ chối nói rõ VIỆC NÀY CỦA AI, không chỉ nói "không được": văn
+    // phòng đọc xong còn biết chuyển cho ai, thay vì đi hỏi vòng quanh.
+    if (!db.duyetBaoCaoDuoc(req.user)) {
+      return res.status(403).json({
+        error: 'Duyệt báo cáo học tập là việc của quản lý cơ sở hoặc ban giám hiệu — '
+          + 'người đọc được nhận định của cô về bé. Văn phòng vẫn xem được bản này bình thường.',
+      });
+    }
     if (!db.canAccessStudent(req.user, ban.studentId)) {
       return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
     }

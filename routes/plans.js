@@ -83,13 +83,30 @@ module.exports = (app) => {
     res.json({ plan, planSapToi: sapToi, plans });
   });
 
-  // GVCN soạn kế hoạch tháng cho lớp mình; quản trị soạn cho lớp bất kỳ.
-  // Mỗi lớp mỗi tháng một bản: đã có thì ghi đè, chưa có thì tạo mới.
+  // VĂN PHÒNG SOẠN KẾ HOẠCH CHUNG, CÔ THÔI SOẠN (Đ198, việc 42).
+  //
+  // Nhà trường (A24): *"Cái này do VĂN PHÒNG làm cho bớt việc của cô"*. Đ180 đã
+  // mở đường cho văn phòng vào được màn này; đây là nửa còn lại — đóng đường
+  // của cô lại.
+  //
+  // ĐÂY LÀ LẤY ĐI MỘT THỨ ĐANG CHẠY, nên phải nói rõ vì sao nó vẫn đúng: cô
+  // KHÔNG mất chỗ nào để soạn cho bé. Kế hoạch của TỪNG BÉ (`modules/kehoachbe`)
+  // vẫn là của cô và không đụng tới một dòng — trường chỉ chuyển phần kế hoạch
+  // CẢ NHÓM sang văn phòng, đúng như họ nói, để cô đỡ việc giấy tờ.
+  //
+  // CÂU TỪ CHỐI NÓI RA CHỖ CÔ VẪN LÀM ĐƯỢC. Một lời từ chối cụt lủn là chỗ cô
+  // nghĩ app hỏng rồi quay về sổ giấy — bài học đã ghi ở Đ168.
   app.put('/api/plans/:classId/:year/:month', requireRole('teacher', 'admin'), (req, res) => {
     const classId = String(req.params.classId || '').trim();
     if (!db.findClass(classId)) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (req.user.role === 'teacher') {
+      return res.status(403).json({
+        error: 'Kế hoạch giáo dục của cả nhóm nay do văn phòng nhà trường soạn, cho bớt việc của cô. '
+          + 'Kế hoạch của từng bé thì vẫn là của cô như trước nhé.',
+      });
+    }
     if (!db.canAccessClass(req.user, classId)) {
-      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới được soạn kế hoạch của nhóm này' });
+      return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
     }
 
     const year = Number(req.params.year), month = Number(req.params.month);

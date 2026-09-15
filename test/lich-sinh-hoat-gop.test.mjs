@@ -89,10 +89,14 @@ console.log('\n[1] Cô: một tab tên Lịch sinh hoạt, bên trong hai phần
   await moMan('#/timetable');
   check('có dải hai phần', await dem('#tkb-phan [data-phan]') === 2, await dem('#tkb-phan [data-phan]'));
   const nhan = await page.locator('#tkb-phan [data-phan]').allInnerTexts();
-  check('nhãn đúng hai nội dung trường yêu cầu',
-    /Lịch sinh hoạt/.test(nhan[0] || '') && /Kế hoạch giáo dục/.test(nhan[1] || ''), nhan);
-  check('mặc định đứng ở Lịch sinh hoạt',
-    await page.locator('#tkb-phan [data-phan="lich"]').evaluate(el => el.classList.contains('active')));
+  // THỨ TỰ ĐẢO LẠI Ở Đ198 (việc 41), theo đúng câu trường viết: *"đủ 2 nội
+  // dung là Kế hoạch giáo dục và Lịch sinh hoạt"* — Kế hoạch đứng trước.
+  check('nhãn đúng hai nội dung trường yêu cầu, ĐÚNG THỨ TỰ trường liệt kê',
+    /Kế hoạch giáo dục/.test(nhan[0] || '') && /Lịch sinh hoạt/.test(nhan[1] || ''), nhan);
+  check('mặc định đứng ở phần ĐỨNG ĐẦU — bấm vào mà không rơi vào tab đầu là chỗ người dùng tưởng bấm nhầm',
+    await page.locator('#tkb-phan [data-phan="kehoach"]').evaluate(el => el.classList.contains('active')));
+  // Phần Lịch sinh hoạt phải còn nguyên — đảo thứ tự không được làm mất gì.
+  await moMan('#/timetable/lich');
   check('phần Lịch sinh hoạt vẫn có dải T2…T6 như trước', await dem('#tkb-seg button') === 5, await dem('#tkb-seg button'));
   check('ĐẦU TRANG CHỈ MỘT TÊN — "Lịch sinh hoạt", không hai tiêu đề chồng nhau',
     (await chu()).split('Kế hoạch giáo dục').length <= 2, (await chu()).slice(0, 120));

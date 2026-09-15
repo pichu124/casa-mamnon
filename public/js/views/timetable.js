@@ -67,9 +67,18 @@ App.views.timetable = {
   // Phần Kế hoạch chỉ hiện khi phân hệ Kế hoạch giáo dục ĐANG BẬT. Nhà trường
   // tắt nó ở Quản trị → Tính năng thì dải tab biến mất và màn này trở lại đúng
   // như trước đợt này — không một dòng nào lỗi.
+  // THỨ TỰ HAI PHẦN ĐI THEO ĐÚNG CÂU TRƯỜNG VIẾT (Đ198, việc 41).
+  //
+  // Nhà trường liệt kê *"đủ 2 nội dung là Kế hoạch giáo dục và Lịch sinh
+  // hoạt"* — Kế hoạch đứng trước. Bản trước xếp ngược lại.
+  //
+  // Và phần mở sẵn đi theo phần ĐỨNG ĐẦU: một dải tab mà bấm vào không rơi
+  // vào tab đầu tiên là chỗ người dùng tưởng mình bấm nhầm. Phân hệ Kế hoạch
+  // TẮT thì mọi thứ về đúng như cũ — chỉ còn Lịch sinh hoạt, không dải tab.
   async render(root, params) {
     const coKeHoach = App.moduleEnabled('plans');
-    const phan = (params && params[0] === 'kehoach' && coKeHoach) ? 'kehoach' : 'lich';
+    const phan = (params && params[0] === 'lich') ? 'lich'
+      : (coKeHoach ? 'kehoach' : 'lich');
     if (phan === 'kehoach') return this.veKeHoach(root, coKeHoach);
     const user = App.state.user;
     let classId = null;
@@ -178,8 +187,8 @@ App.views.timetable = {
   thanhPhan(phan) {
     if (!App.moduleEnabled('plans')) return '';
     return `<div class="seg" id="tkb-phan">
-      <button type="button" data-phan="lich" class="${phan === 'lich' ? 'active' : ''}">🕘 Lịch sinh hoạt</button>
       <button type="button" data-phan="kehoach" class="${phan === 'kehoach' ? 'active' : ''}">📖 Kế hoạch giáo dục</button>
+      <button type="button" data-phan="lich" class="${phan === 'lich' ? 'active' : ''}">🕘 Lịch sinh hoạt</button>
     </div>`;
   },
 

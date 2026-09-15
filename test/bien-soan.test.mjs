@@ -279,29 +279,53 @@ console.log('\n[9] Kế hoạch — phân quyền và dữ liệu sai');
   const hopLe = { theme: 'Chủ đề kiểm thử', goals: ['Mục tiêu 1'], weeks: [{ week: 1, focus: 'x', activities: 'y' }] };
   let r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: PH, body: hopLe });
   check('phụ huynh KHÔNG soạn được kế hoạch → 403', r.status === 403, r);
+
+  // Đ198 (việc 42): kế hoạch của CẢ NHÓM nay do VĂN PHÒNG soạn.
+  //
+  // Nhà trường (A24): *"Cái này do VĂN PHÒNG làm cho bớt việc của cô"*. Phép
+  // kiểm cũ ở đây là "cô soạn được cho lớp MÌNH nhưng không soạn được cho lớp
+  // khác" — nay cô không soạn cho lớp nào nữa, nên câu hỏi đổi.
+  //
+  // KHÔNG PHẢI LÀ NỚI BÀI CANH: chiều CẤM vẫn đo đủ, và còn chặt hơn (cô thôi
+  // soạn được cả lớp của chính mình). Thêm vế QUAN TRỌNG NHẤT: câu từ chối
+  // phải NÓI RA chỗ cô vẫn làm được, nếu không cô nghĩ app hỏng rồi quay về
+  // sổ giấy.
+  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: T1, body: hopLe });
+  check('CÔ THÔI SOẠN ĐƯỢC KẾ HOẠCH CẢ NHÓM, kể cả nhóm của chính cô → 403',
+    r.status === 403, r.status);
+  check('và câu từ chối NÓI RA chỗ cô vẫn làm được — kế hoạch của từng bé',
+    /từng bé/.test(r.data?.error || ''), r.data?.error);
   r = await req('PUT', `/api/plans/c2/${namNay}/${thangNay}`, { cookie: T1, body: hopLe });
-  check('GVCN KHÔNG soạn được cho lớp khác → 403', r.status === 403, r);
-  r = await req('PUT', `/api/plans/c999/${namNay}/${thangNay}`, { cookie: T1, body: hopLe });
+  check('cô soạn cho nhóm khác thì cũng vậy → 403', r.status === 403, r.status);
+
+  // Các phép kiểm dữ liệu sai đi bằng tài khoản VĂN PHÒNG — người nay thật sự
+  // soạn kế hoạch. Đi bằng tài khoản cô thì mọi câu đều dừng ở chốt phân quyền
+  // và không câu nào còn đo được điều nó định đo.
+  r = await req('PUT', `/api/plans/c999/${namNay}/${thangNay}`, { cookie: A, body: hopLe });
   check('lớp không tồn tại → 404', r.status === 404, r);
-  r = await req('PUT', `/api/plans/c1/${namNay}/13`, { cookie: T1, body: hopLe });
+  r = await req('PUT', `/api/plans/c1/${namNay}/13`, { cookie: A, body: hopLe });
   check('tháng 13 → 400', r.status === 400, r);
-  r = await req('PUT', `/api/plans/c1/1999/5`, { cookie: T1, body: hopLe });
+  r = await req('PUT', `/api/plans/c1/1999/5`, { cookie: A, body: hopLe });
   check('năm 1999 → 400', r.status === 400, r);
-  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: T1, body: { ...hopLe, theme: '   ' } });
+  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: A, body: { ...hopLe, theme: '   ' } });
   check('thiếu chủ đề → 400', r.status === 400, r);
-  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: T1, body: { ...hopLe, goals: 'hong' } });
+  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: A, body: { ...hopLe, goals: 'hong' } });
   check('goals không phải mảng → 400', r.status === 400, r);
-  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: T1, body: { ...hopLe, weeks: 'hong' } });
+  r = await req('PUT', `/api/plans/c1/${namNay}/${thangNay}`, { cookie: A, body: { ...hopLe, weeks: 'hong' } });
   check('weeks không phải mảng → 400', r.status === 400, r);
 }
 
-console.log('\n[10] Kế hoạch — GVCN soạn tháng tới, sửa lại không nhân bản');
+// Đ198 (việc 42): mục này đổi vai từ CÔ sang VĂN PHÒNG. Điều nó đo — làm sạch
+// mục tiêu, loại tuần trống, cắt chữ quá dài, không nhân bản khi soạn lại —
+// KHÔNG đổi một ly; chỉ người bấm là khác, vì trường chuyển việc này cho văn
+// phòng để cô bớt giấy tờ.
+console.log('\n[10] Kế hoạch — VĂN PHÒNG soạn tháng tới, sửa lại không nhân bản');
 {
-  const truoc = (await req('GET', '/api/plans?classId=c1', { cookie: T1 })).data;
+  const truoc = (await req('GET', '/api/plans?classId=c1', { cookie: A })).data;
   const chuDeThangNay = truoc.plan ? truoc.plan.theme : null;
 
   let r = await req('PUT', `/api/plans/c1/${namSau}/${thangSau}`, {
-    cookie: T1,
+    cookie: A,
     body: {
       theme: 'Em yêu khoa học',
       goals: ['Mục tiêu 1', '   ', '  Mục tiêu 2  '],
@@ -313,17 +337,17 @@ console.log('\n[10] Kế hoạch — GVCN soạn tháng tới, sửa lại khôn
       note: 'Nhờ ba mẹ cùng ôn bài với con',
     },
   });
-  check('GVCN soạn được kế hoạch tháng tới → 200', r.status === 200, r);
+  check('VĂN PHÒNG soạn được kế hoạch tháng tới → 200', r.status === 200, r);
   check('mục tiêu trống bị loại, còn lại được cắt gọn', bang(r.data.goals, ['Mục tiêu 1', 'Mục tiêu 2']), r.data.goals);
   check('tuần bỏ trống hẳn bị loại', r.data.weeks.length === 2, r.data.weeks);
   check('trọng tâm quá dài bị cắt còn 120 ký tự', r.data.weeks[1].focus.length === 120, r.data.weeks[1].focus.length);
-  check('ghi nhận người soạn và tên nhóm', r.data.createdBy === 't1' && r.data.className === 'Chồi 2', r.data);
+  check('ghi nhận người soạn và tên nhóm', !!r.data.createdBy && r.data.className === 'Chồi 2', r.data);
 
   r = await req('PUT', `/api/plans/c1/${namSau}/${thangSau}`, {
-    cookie: T1, body: { theme: 'Đổi chủ đề tháng tới', goals: [], weeks: [{ week: 1, focus: 'Mới', activities: '' }] },
+    cookie: A, body: { theme: 'Đổi chủ đề tháng tới', goals: [], weeks: [{ week: 1, focus: 'Mới', activities: '' }] },
   });
   check('soạn lại cùng tháng → 200', r.status === 200, r);
-  const sau = (await req('GET', '/api/plans?classId=c1', { cookie: T1 })).data;
+  const sau = (await req('GET', '/api/plans?classId=c1', { cookie: A })).data;
   const cungThang = sau.plans.filter(p => p.year === namSau && p.month === thangSau);
   check('cùng tháng chỉ có MỘT bản, không nhân bản', cungThang.length === 1 && cungThang[0].theme === 'Đổi chủ đề tháng tới', cungThang);
   check('kế hoạch tháng hiện tại không bị đụng tới',
