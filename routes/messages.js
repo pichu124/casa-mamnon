@@ -3,6 +3,8 @@ const db = require('../lib/db');
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
 const nl = require('../lib/nhom-lop');
+// Ba nhóm cô: chủ nhiệm / nước ngoài / thể chất (Đ188, Câu 11).
+const nhomCo = require('../lib/nhom-co');
 const { requireRole } = require('../lib/auth');
 
 const GROUP_AVATAR = { emoji: '👥', bg: '#5b6ceb' };
@@ -73,7 +75,32 @@ function memberIds(conversationId) {
 // trong danh sách (hai thứ đó đi theo `conversation_members`). Hàng ấy được
 // THÊM VÀO khi người có quyền mở màn, và nó KHÔNG cấp quyền — quyền vẫn tính
 // lại ở `findConv`.
-const KENH = ['nhom', 'vanphong'];
+// BA ĐẦU MỐI CHO GIA ĐÌNH (Đ188, Câu 11).
+//
+// Nhà trường: *"Khi ở giao diện của Phụ huynh tôi chỉ muốn hiện lên 3 ng để PH
+// có thể nhắn tin tới: Giáo viên chủ nhiệm, GV nước ngoài, văn phòng Nhà
+// trường"*.
+//
+// `'nhom'` GIỮ NGUYÊN MÃ, chỉ đổi cách gọi trên màn hình. Mọi hội thoại đã có
+// đều mang mã ấy; đổi mã là làm cả kho tin nhắn cũ rơi ra ngoài mọi bộ lọc,
+// tức gia đình mở app lên thấy mất sạch những gì đã nhắn với cô. Thêm ĐÚNG MỘT
+// mã mới, `'nuoc-ngoai'`.
+//
+// KHÔNG có kênh cho cô thể chất: trường liệt kê ba đầu mối và cô P.E không nằm
+// trong đó. Cô P.E vẫn lên kế hoạch và đánh giá như hai nhóm kia — đó là việc
+// khác, không phải nhắn tin.
+const KENH = ['nhom', 'vanphong', 'nuoc-ngoai'];
+
+// Kênh thuộc về một NHÓM LỚP (cô đọc theo nhóm), khác kênh văn phòng (văn
+// phòng đọc theo cơ sở của bé). Gom thành một câu hỏi vì có bốn chỗ hỏi nó,
+// và bốn chỗ viết `=== 'nhom'` thì thêm kênh thứ ba là sót một chỗ.
+function laKenhCuaNhom(loai) {
+  return loai === 'nhom' || loai === 'nuoc-ngoai';
+}
+
+// Nhóm cô ứng với một kênh. Cô vào được kênh nào là theo vai cô giữ Ở CHÍNH
+// nhóm lớp đó — không phải theo một cái nhãn dán lên con người.
+const NHOM_CUA_KENH = { nhom: 'chu-nhiem', 'nuoc-ngoai': 'nuoc-ngoai' };
 
 function kenhCua(conversationId) {
   return db.first('kenh_hoi_thoai',
@@ -84,7 +111,13 @@ function kenhCua(conversationId) {
 function vaoDuocKenh(user, k) {
   if (!k) return false;
   if (user.role === 'parent') return db.canAccessStudent(user, k.studentId);
-  if (user.role === 'teacher') return k.loai === 'nhom' && db.canAccessClass(user, k.classId);
+  if (user.role === 'teacher') {
+    if (!laKenhCuaNhom(k.loai)) return false;
+    if (!db.canAccessClass(user, k.classId)) return false;
+    // VAI TÍNH LẠI MỖI LẦN HỎI, như mọi chốt khác ở tệp này. Trường đổi vai của
+    // cô là quyền đọc đổi theo ngay, không chờ ai bấm gì.
+    return nhomCo.nhomCua(db, k.classId, user.id) === NHOM_CUA_KENH[k.loai];
+  }
   if (user.role === 'admin') return k.loai === 'vanphong' && db.canAccessStudent(user, k.studentId);
   return false;
 }
@@ -114,11 +147,20 @@ function dongBoKenh(user) {
     dsKenh = db.all('kenh_hoi_thoai',
       `SELECT * FROM kenh_hoi_thoai WHERE studentId IN (${m})`, ids);
   } else if (user.role === 'teacher') {
+    // CÔ CHỈ ĐỒNG BỘ KÊNH ỨNG VỚI VAI CÔ GIỮ Ở TỪNG NHÓM (Đ188).
+    //
+    // Một cô có thể là chủ nhiệm nhóm Chồi 2 và cô nước ngoài ở nhóm Lá 1 —
+    // chuyện bình thường ở mầm non. Nên không hỏi "cô này là loại gì" một lần
+    // rồi áp cho mọi nhóm; hỏi theo từng cặp (nhóm, cô), đúng chỗ vai được ghi.
     const lop = db.classIdsOf(user);
     if (!lop.length) return;
-    const m = lop.map(() => '?').join(',');
-    dsKenh = db.all('kenh_hoi_thoai',
-      `SELECT * FROM kenh_hoi_thoai WHERE loai = 'nhom' AND classId IN (${m})`, lop);
+    for (const [loai, vai] of Object.entries(NHOM_CUA_KENH)) {
+      const cua = lop.filter(cid => nhomCo.nhomCua(db, cid, user.id) === vai);
+      if (!cua.length) continue;
+      const m = cua.map(() => '?').join(',');
+      dsKenh = dsKenh.concat(db.all('kenh_hoi_thoai',
+        `SELECT * FROM kenh_hoi_thoai WHERE loai = ? AND classId IN (${m})`, [loai, ...cua]));
+    }
   } else if (user.role === 'admin') {
     const pham = db.phamViCoSo(user);
     dsKenh = pham
@@ -215,15 +257,25 @@ function contactsFor(user) {
     for (const s of db.studentsOf(user)) {
       if (!s.classId) continue;
       const cls = db.findClass(s.classId);
-      const daCoNhom = kenhCuaBe(s.id, 'nhom');
+      // ĐÚNG BA ĐẦU MỐI MỖI BÉ, theo lời trường (Đ188, Câu 11): giáo viên chủ
+      // nhiệm, giáo viên nước ngoài, văn phòng nhà trường.
+      //
+      // Hai kênh đầu vẫn mời dù nhóm CHƯA có cô nào giữ vai ấy. Ẩn đi thì gia
+      // đình không hiểu vì sao nhà bên cạnh có ba ô còn mình có hai, và họ sẽ
+      // gọi điện hỏi — trong khi chuyện thật chỉ là trường chưa khai xong phân
+      // công. Tin nhắn nằm chờ trong kênh, cô nhận vai là thấy ngay.
+      for (const vai of nhomCo.NHOM_NHAN_TIN) {
+        const loai = vai === nhomCo.MAC_DINH ? 'nhom' : vai;
+        const daCo = kenhCuaBe(s.id, loai);
+        out.push({
+          kenh: loai, studentId: s.id,
+          name: nhomCo.TEN_NHOM[vai],
+          subtitle: `${nhomCo.CHUONG_TRINH[vai]} · bé ${s.name}${cls ? ` · ${cls.name}` : ''}`,
+          avatar: null,
+          existingConversationId: daCo ? daCo.conversationId : null,
+        });
+      }
       const daCoVP = kenhCuaBe(s.id, 'vanphong');
-      out.push({
-        kenh: 'nhom', studentId: s.id,
-        name: `Nhóm lớp ${cls ? cls.name : ''}`.trim(),
-        subtitle: `Các cô phụ trách bé ${s.name}`,
-        avatar: null,
-        existingConversationId: daCoNhom ? daCoNhom.conversationId : null,
-      });
       out.push({
         kenh: 'vanphong', studentId: s.id,
         name: 'Văn phòng nhà trường',
@@ -236,9 +288,14 @@ function contactsFor(user) {
     for (const s of db.studentsOf(user)) {
       if (!s.classId) continue;
       const cls = db.findClass(s.classId);
-      const daCo = kenhCuaBe(s.id, 'nhom');
+      // Cô mở được đúng kênh ứng với vai cô giữ Ở NHÓM CỦA BÉ ĐÓ. Cô thể chất
+      // không có kênh nào — và đó là chủ ý của trường, không phải thiếu sót.
+      const vai = nhomCo.nhomCua(db, s.classId, user.id);
+      const loai = Object.keys(NHOM_CUA_KENH).find(k => NHOM_CUA_KENH[k] === vai);
+      if (!loai) continue;
+      const daCo = kenhCuaBe(s.id, loai);
       out.push({
-        kenh: 'nhom', studentId: s.id,
+        kenh: loai, studentId: s.id,
         name: `Gia đình bé ${s.name}`,
         subtitle: cls ? cls.name : '',
         avatar: s.avatar,
@@ -268,8 +325,17 @@ function convMeta(cv, user, members, tra) {
     const cls = be && be.classId ? db.findClass(be.classId) : null;
     if (user.role === 'parent') {
       return {
-        title: k.loai === 'vanphong' ? 'Văn phòng nhà trường' : `Nhóm lớp ${cls ? cls.name : ''}`.trim(),
-        subtitle: be ? `Về bé ${be.name}` : '',
+        // Gia đình đọc TÊN ĐẦU MỐI, không đọc mã kênh (Đ188). Trước đây chỉ có
+        // một kênh cô nên nó mang tên nhóm lớp; nay có hai, và "Nhóm lớp Chồi 2"
+        // không phân biệt được cô chủ nhiệm với cô nước ngoài.
+        title: k.loai === 'vanphong'
+          ? 'Văn phòng nhà trường'
+          : (nhomCo.TEN_NHOM[NHOM_CUA_KENH[k.loai]] || 'Cô của bé'),
+        subtitle: [
+          k.loai === 'vanphong' ? '' : nhomCo.CHUONG_TRINH[NHOM_CUA_KENH[k.loai]],
+          be ? `Về bé ${be.name}` : '',
+          k.loai === 'vanphong' ? '' : (cls ? cls.name : ''),
+        ].filter(Boolean).join(' · '),
         avatar: GROUP_AVATAR,
       };
     }
@@ -277,7 +343,7 @@ function convMeta(cv, user, members, tra) {
       title: be ? `Gia đình bé ${be.name}` : 'Gia đình',
       subtitle: k.loai === 'vanphong'
         ? `Nhắn với văn phòng${cls ? ` · ${cls.name}` : ''}`
-        : (cls ? cls.name : ''),
+        : [nhomCo.TEN_NHOM[NHOM_CUA_KENH[k.loai]], cls ? cls.name : ''].filter(Boolean).join(' · '),
       avatar: be ? be.avatar : null,
     };
   }
@@ -607,14 +673,16 @@ module.exports = (app) => {
   app.post('/api/messages/start', allow, (req, res) => {
     const { kenh, studentId } = req.body || {};
     if (!KENH.includes(String(kenh || ''))) {
-      return res.status(400).json({ error: 'Chưa rõ muốn nhắn với nhóm lớp hay với văn phòng' });
+      return res.status(400).json({
+        error: 'Chưa rõ muốn nhắn với cô phụ trách nhóm, cô nước ngoài hay văn phòng nhà trường',
+      });
     }
     const contact = contactsFor(req.user)
       .find(c => c.kenh === kenh && c.studentId === studentId);
     if (!contact) {
       return res.status(403).json({
-        error: 'Không mở được cuộc trò chuyện này. Gia đình nhắn với nhóm lớp của con '
-          + 'hoặc với văn phòng nhà trường nhé.',
+        error: 'Không mở được cuộc trò chuyện này. Gia đình nhắn với cô phụ trách nhóm, '
+          + 'cô nước ngoài của con, hoặc với văn phòng nhà trường nhé.',
       });
     }
     if (contact.existingConversationId) return res.json({ id: contact.existingConversationId });
@@ -629,11 +697,11 @@ module.exports = (app) => {
       // không thuộc về nhóm nào.
       db.insert('conversations', {
         id, type: 'kenh', name: null,
-        classId: kenh === 'nhom' ? (be.classId || null) : null,
+        classId: laKenhCuaNhom(kenh) ? (be.classId || null) : null,
       });
       db.insert('kenh_hoi_thoai', {
         conversationId: id, loai: kenh, studentId,
-        classId: kenh === 'nhom' ? (be.classId || '') : '',
+        classId: laKenhCuaNhom(kenh) ? (be.classId || '') : '',
         taoLuc: new Date().toISOString(),
       });
       // GHI HÀNG THÀNH VIÊN CHO CẢ NHÀ, không chỉ người vừa bấm.
@@ -747,9 +815,12 @@ module.exports = (app) => {
         tbb.gui({
           studentId: k.studentId,
           loai: 'tin-nhan',
+          // Gia đình nhắn với hai cô khác nhau thì tin báo cũng phải nói rõ
+          // cô nào — hai dòng "Cô phụ trách vừa nhắn tin" giống hệt nhau trên
+          // màn khoá điện thoại là mở nhầm cuộc, rồi trả lời nhầm người.
           tieuDe: k.loai === 'vanphong'
             ? 'Văn phòng nhà trường vừa nhắn tin'
-            : 'Cô phụ trách vừa nhắn tin',
+            : `${nhomCo.TEN_NHOM[NHOM_CUA_KENH[k.loai]] || 'Cô phụ trách'} vừa nhắn tin`,
           noiDung: text.slice(0, 140),
           hash: `#/messages/${cv.id}`,
           nguoiTao: req.user.id,

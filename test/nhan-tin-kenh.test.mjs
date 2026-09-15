@@ -67,7 +67,7 @@ const BE = conn0.prepare(
 conn0.close();
 
 // ===========================================================================
-console.log('\n[1] Gia đình chỉ được mời nhắn với NHÓM LỚP và với VĂN PHÒNG');
+console.log('\n[1] Gia đình được mời ĐÚNG BA ĐẦU MỐI, không hơn không kém');
 {
   const d = await ds(PH);
   const lh = d.contacts || [];
@@ -75,18 +75,31 @@ console.log('\n[1] Gia đình chỉ được mời nhắn với NHÓM LỚP và 
   check('danh sách liên hệ KHÔNG còn tên cô nào để bấm vào',
     lh.every(c => !c.userId), lh.map(c => c.name));
   check('mỗi liên hệ là một KÊNH, kèm mã bé', lh.every(c => c.kenh && c.studentId), lh[0]);
-  check('có dòng "Nhóm lớp …"', lh.some(c => c.kenh === 'nhom' && /^Nhóm lớp /.test(c.name)), lh.map(c => c.name));
+  // BA ĐẦU MỐI, THEO LỜI TRƯỜNG NGÀY 15/09 (Đ188, Câu 11): *"Khi ở giao diện
+  // của Phụ huynh tôi chỉ muốn hiện lên 3 ng để PH có thể nhắn tin tới: Giáo
+  // viên chủ nhiệm, GV nước ngoài, văn phòng Nhà trường"*.
+  //
+  // Trước đợt này gia đình thấy hai dòng: "Nhóm lớp Chồi 2" và "Văn phòng".
+  // Một dòng mang tên NHÓM thì không phân biệt được cô chủ nhiệm với cô nước
+  // ngoài — mà đó đúng là thứ trường cần tách ra.
+  check('có dòng cho cô phụ trách nhóm',
+    lh.some(c => c.kenh === 'nhom' && c.name === 'Cô phụ trách nhóm'), lh.map(c => c.name));
+  check('có dòng cho cô nước ngoài',
+    lh.some(c => c.kenh === 'nuoc-ngoai' && c.name === 'Cô nước ngoài'), lh.map(c => c.name));
   check('và dòng "Văn phòng nhà trường"',
     lh.some(c => c.kenh === 'vanphong' && c.name === 'Văn phòng nhà trường'), lh.map(c => c.name));
-  // Nhà mẫu có nhiều hơn một con, nên đo theo SỐ CON thật: mỗi bé đúng hai
-  // dòng (nhóm lớp + văn phòng), không hơn không kém.
+  // CÔ THỂ CHẤT KHÔNG PHẢI MỘT ĐẦU MỐI NHẮN TIN. Trường liệt kê ba nhóm cô ở
+  // phía nhà trường nhưng chỉ ba đầu mối ở phía gia đình, và một trong ba là
+  // văn phòng. Dựng hai danh sách ấy thành một là sai cả hai.
+  check('KHÔNG có đầu mối nào cho cô thể chất',
+    !lh.some(c => c.kenh === 'the-chat' || /thể chất/i.test(c.name || '')), lh.map(c => c.name));
+
   const soCon = new Set(lh.map(c => c.studentId)).size;
   check('đối chứng — nhà này có ít nhất một con đang học', soCon >= 1, soCon);
-  check('mỗi bé đúng hai dòng, không hơn', lh.length === soCon * 2, { soCon, dong: lh.length });
-  check('và mỗi bé có đủ cả hai loại kênh',
+  check('mỗi bé ĐÚNG BA dòng, không hơn', lh.length === soCon * 3, { soCon, dong: lh.length });
+  check('và mỗi bé có đủ cả ba loại kênh',
     [...new Set(lh.map(c => c.studentId))].every(id =>
-      lh.some(c => c.studentId === id && c.kenh === 'nhom')
-      && lh.some(c => c.studentId === id && c.kenh === 'vanphong')),
+      ['nhom', 'nuoc-ngoai', 'vanphong'].every(k => lh.some(c => c.studentId === id && c.kenh === k))),
     lh.map(c => `${c.studentId}:${c.kenh}`));
 }
 
@@ -109,8 +122,10 @@ let KENH_NHOM;
     /^Gia đình bé /.test(coDoc.data.title || ''), coDoc.data.title);
 
   const phDoc = await doc(PH, KENH_NHOM);
-  check('gia đình thấy tiêu đề là NHÓM LỚP — họ đang nói với nhóm, không với một cô',
-    /^Nhóm lớp /.test(phDoc.data.title || ''), phDoc.data.title);
+  check('gia đình thấy tiêu đề là TÊN ĐẦU MỐI, không phải tên nhóm lớp',
+    phDoc.data.title === 'Cô phụ trách nhóm', phDoc.data.title);
+  check('và dòng phụ vẫn nói rõ đang nói về bé nào, ở nhóm nào',
+    /Về bé /.test(phDoc.data.subtitle || ''), phDoc.data.subtitle);
 
   const vpDoc = await doc(QT, KENH_NHOM);
   check('VĂN PHÒNG KHÔNG đọc được cuộc gia đình nói với cô', vpDoc.status === 403, vpDoc.status);
@@ -268,6 +283,97 @@ console.log('\n[8] Màn Đón trả bé: gỡ phần khai người đón, GIỮ 
   const con = await req('GET', `/api/dontra?studentId=${encodeURIComponent(BE.id)}`, { cookie: PH });
   check('gia đình vẫn đọc được sổ đón trả của con', con.status === 200, con.status);
   check('và sổ ấy vẫn là sổ cũ, không mất trường nào', Array.isArray(con.data.soGanDay), Object.keys(con.data || {}));
+}
+
+// ===========================================================================
+console.log('\n[9] BA NHÓM CÔ — vai quyết định cô đọc được kênh nào (Đ188, Câu 11)');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Nhà trường chia cô ở cấp cơ sở thành ba vai: chủ nhiệm (Montessori), nước
+  // ngoài (Cambridge), thể chất (P.E). Trước đợt này MỌI cô của một nhóm đều
+  // đọc được cuộc gia đình nhắn với "nhóm lớp" — nên khai vai mà không siết
+  // quyền đọc thì cái nhãn chỉ để trang trí, và cô nước ngoài vẫn đọc trọn
+  // cuộc gia đình nói riêng với cô chủ nhiệm.
+  //
+  // Dữ liệu mẫu cho mỗi nhóm đúng MỘT cô, nên mục này tự thêm cô thứ hai vào
+  // nhóm của bé — đúng mô hình nhiều cô một nhóm mà trường mầm non cần.
+  const capNhat = (body) => req('PUT', `/api/admin/classes/${BE.classId}/teachers`, { cookie: QT, body });
+  const conn = new Database(path.join(DIR, 'school.db'));
+  const CO_CN = conn.prepare('SELECT teacherId FROM class_teachers WHERE classId = ?').get(BE.classId)?.teacherId;
+  const CO_NN = conn.prepare("SELECT id FROM users WHERE username = 'giaovien2'").get()?.id;
+  conn.close();
+  check('đối chứng — tìm được cô đang phụ trách nhóm của bé', !!CO_CN, CO_CN);
+  check('đối chứng — và một cô thứ hai để giao vai nước ngoài', !!CO_NN && CO_NN !== CO_CN, { CO_CN, CO_NN });
+
+  // CHIỀU QUAN TRỌNG NHẤT ĐỨNG TRƯỚC: thêm cô vào nhóm mà CHƯA khai vai thì
+  // mọi cô là chủ nhiệm, tức app chạy y hệt như trước khi có Đ188.
+  const them = await capNhat({ teacherIds: [CO_CN, CO_NN] });
+  check('thêm được cô thứ hai vào nhóm', them.status === 200, them.data);
+  check('CHƯA KHAI VAI THÌ MỌI CÔ LÀ CHỦ NHIỆM — app chạy y như trước',
+    (them.data?.teachers || []).every(t => t.nhomCo === 'chu-nhiem'),
+    (them.data?.teachers || []).map(t => `${t.id}:${t.nhomCo}`));
+  const truocKhiKhai = await doc(GV2, KENH_NHOM);
+  check('nên cô mới thêm đọc được kênh nhóm như cô cũ', truocKhiKhai.status === 200, truocKhiKhai.status);
+
+  const dat = await capNhat({ teacherIds: [CO_CN, CO_NN], nhom: { [CO_NN]: 'nuoc-ngoai' } });
+  check('khai được vai nước ngoài cho cô thứ hai', dat.status === 200, dat.data);
+  check('và đọc lại ra đúng vai vừa khai', dat.data?.nhom?.[CO_NN] === 'nuoc-ngoai', dat.data?.nhom);
+
+  const vaiLa = await capNhat({ teacherIds: [CO_CN, CO_NN], nhom: { [CO_NN]: 'lao-cong' } });
+  check('vai lạ thì từ chối, và nói bằng tiếng của trường',
+    vaiLa.status === 400 && /chủ nhiệm|nước ngoài|thể chất/.test(vaiLa.data?.error || ''), vaiLa.data);
+  const ngoaiNhom = await capNhat({ teacherIds: [CO_CN, CO_NN], nhom: { 'khong-co-that': 'nuoc-ngoai' } });
+  check('khai vai cho người KHÔNG ở trong nhóm thì từ chối', ngoaiNhom.status === 400, ngoaiNhom.data);
+
+  // ĐÂY LÀ CHỐT THẬT, và nó là một cái siết chứ không phải một cái nhãn: vừa
+  // khai vai xong, cô nước ngoài MẤT quyền đọc cuộc của cô chủ nhiệm — quyền
+  // tính lại mỗi lần hỏi, không ai phải bấm gì.
+  const cheo = await doc(GV2, KENH_NHOM);
+  check('KHAI VAI XONG, cô nước ngoài KHÔNG còn đọc được cuộc của cô chủ nhiệm',
+    cheo.status === 403, cheo.status);
+
+  const rNN = await mo(PH, 'nuoc-ngoai', BE.id);
+  check('gia đình mở được kênh với cô nước ngoài', rNN.status === 200 && !!rNN.data.id, rNN.data);
+  const KENH_NN = rNN.data.id;
+  check('gửi được tin vào kênh ấy',
+    (await gui(PH, KENH_NN, 'Teacher ơi con nhà em học Cambridge thế nào ạ')).status === 200);
+
+  const docNN = await doc(GV2, KENH_NN);
+  check('CÔ NƯỚC NGOÀI ĐỌC ĐƯỢC kênh của mình, dù chưa từng mở cuộc này',
+    docNN.status === 200 && (docNN.data.messages || []).some(m => /Cambridge/.test(m.text)), docNN.status);
+  check('và cô thấy rõ mình đang đứng ở vai nào',
+    /nước ngoài/i.test(docNN.data.subtitle || ''), docNN.data.subtitle);
+  const cheoNguoc = await doc(GV, KENH_NN);
+  check('CÔ CHỦ NHIỆM KHÔNG đọc được cuộc của cô nước ngoài', cheoNguoc.status === 403, cheoNguoc.status);
+  const vpNN = await doc(QT, KENH_NN);
+  check('văn phòng cũng KHÔNG đọc được — kênh của cô vẫn là kênh của cô', vpNN.status === 403, vpNN.status);
+
+  // Cô thể chất: có vai, nhưng KHÔNG có đầu mối nhắn tin nào. Trường liệt kê
+  // ba nhóm cô ở phía nhà trường và ba đầu mối ở phía gia đình, nhưng hai danh
+  // sách ấy KHÔNG trùng nhau — cô P.E nằm ở danh sách đầu, không nằm ở danh
+  // sách sau. Đây đúng chỗ dễ dựng hai danh sách thành một rồi sai cả hai.
+  await capNhat({ teacherIds: [CO_CN, CO_NN], nhom: { [CO_NN]: 'the-chat' } });
+  const lhTC = ((await ds(GV2)).contacts || []).filter(c => c.studentId === BE.id);
+  check('CÔ THỂ CHẤT KHÔNG có đầu mối nhắn tin nào với bé của nhóm đó',
+    lhTC.length === 0, lhTC.map(c => `${c.studentId}:${c.kenh}`));
+  check('và mất luôn quyền đọc kênh nước ngoài vừa nãy',
+    (await doc(GV2, KENH_NN)).status === 403);
+
+  // Trả vai về chủ nhiệm: đọc lại được ngay.
+  await capNhat({ teacherIds: [CO_CN, CO_NN], nhom: { [CO_NN]: 'chu-nhiem' } });
+  check('trả vai về chủ nhiệm thì cô đọc lại được kênh nhóm ngay',
+    (await doc(GV2, KENH_NHOM)).status === 200);
+
+  // Cô rời nhóm thì dòng khai vai đi theo — không dọn thì cô quay lại sẽ mang
+  // theo vai cũ mà không ai bấm gì.
+  await capNhat({ teacherIds: [CO_CN, CO_NN], nhom: { [CO_NN]: 'the-chat' } });
+  await capNhat({ teacherIds: [CO_CN] });
+  const quayLai = await capNhat({ teacherIds: [CO_CN, CO_NN] });
+  check('CÔ RỜI NHÓM RỒI QUAY LẠI thì KHÔNG mang theo vai cũ',
+    quayLai.data?.nhom?.[CO_NN] === undefined, quayLai.data?.nhom);
+
+  await capNhat({ teacherIds: [CO_CN] });
 }
 
 await sv.dung();

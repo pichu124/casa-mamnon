@@ -876,3 +876,28 @@ CREATE TABLE IF NOT EXISTS class_teachers (
 );
 CREATE INDEX IF NOT EXISTS idx_ct_teacher ON class_teachers(teacherId);
 CREATE INDEX IF NOT EXISTS idx_ct_class ON class_teachers(classId, vaiTro);
+
+-- ===== Ba nhóm cô của trường mầm non (Đ188, Câu 11) =====
+--
+-- Nhà trường: ở cấp cơ sở có GV chủ nhiệm (Montessori), GV nước ngoài
+-- (Cambridge) và GV P.E (thể chất chuyên sâu); ba vai này lên kế hoạch, đánh
+-- giá và làm báo cáo học tập cho từng trẻ.
+--
+-- BẢNG PHỤ, KHÔNG THÊM CỘT VÀO `class_teachers`. Lược đồ lõi cấm ALTER TABLE
+-- vì tệp này chạy lại ở MỖI lần khởi động và không có khối bắt lỗi nào bọc
+-- quanh — lý do đầy đủ đã ghi ở khối `record_edits` bên dưới.
+--
+-- KHÔNG dùng lại cột `vaiTro` đang có ('chinh' | 'phu'): cột ấy nói ai là cô
+-- phụ trách CHÍNH của nhóm, còn cột này nói cô dạy CHƯƠNG TRÌNH nào. Một nhóm
+-- có đúng một cô chính, nhưng cô chính ấy vẫn có thể là cô nước ngoài. Trộn
+-- hai câu hỏi vào một cột là mất một trong hai câu trả lời.
+--
+-- KHÔNG CÓ DÒNG = CHỦ NHIỆM. Nhờ vậy hôm bảng này ra đời, chưa nhóm nào được
+-- khai, và mọi cô đều là chủ nhiệm — tức app chạy y hệt như trước.
+CREATE TABLE IF NOT EXISTS class_teacher_nhom (
+  classId   TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  teacherId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nhom      TEXT NOT NULL DEFAULT 'chu-nhiem',   -- chu-nhiem | nuoc-ngoai | the-chat
+  PRIMARY KEY (classId, teacherId)
+);
+CREATE INDEX IF NOT EXISTS idx_ctn_co ON class_teacher_nhom(teacherId, nhom);

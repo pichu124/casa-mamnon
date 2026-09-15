@@ -15,6 +15,8 @@ const modules = require('../lib/modules');
 const nghiHoc = require('../lib/nghi-hoc');
 // Bộ chữ đánh giá nhà trường tự sửa được (Đ185, Câu 6).
 const ndg = require('../lib/nhan-danh-gia');
+// Ba nhóm cô: chủ nhiệm / nước ngoài / thể chất (Đ188, Câu 11).
+const nhomCo = require('../lib/nhom-co');
 
 const onlyAdmin = requireRole('admin');
 
@@ -818,9 +820,40 @@ module.exports = (app) => {
     });
     const xinDu = [...xin, ...giuCoDangNghi];
 
+    // NHÓM CÔ ĐI CÙNG LƯỢT PHÂN CÔNG (Đ188, Câu 11).
+    //
+    // `nhom` là một bản đồ { teacherId: 'chu-nhiem' | 'nuoc-ngoai' | 'the-chat' }.
+    // KHÔNG GỬI = KHÔNG ĐỤNG TỚI: màn hình cũ và mọi chỗ gọi API bằng tay đều
+    // chưa biết trường này, và một lượt lưu danh sách cô không được lặng lẽ
+    // xoá vai trường đã khai.
+    const xinNhom = (req.body || {}).nhom;
+    if (xinNhom !== undefined && (typeof xinNhom !== 'object' || xinNhom === null || Array.isArray(xinNhom))) {
+      return res.status(400).json({ error: 'Phần nhóm của cô gửi lên không đúng dạng' });
+    }
+    if (xinNhom) {
+      for (const [tid, ma] of Object.entries(xinNhom)) {
+        if (!xinDu.includes(tid)) {
+          return res.status(400).json({ error: 'Chỉ khai được nhóm cho cô có trong danh sách của nhóm lớp' });
+        }
+        if (!nhomCo.hopLe(ma)) {
+          return res.status(400).json({
+            error: 'Nhóm của cô chỉ có: cô phụ trách nhóm, cô nước ngoài, cô thể chất',
+          });
+        }
+      }
+    }
+
     const daGhi = db.setClassTeachers(cls.id, xinDu, chinhId);
-    db.audit(req.user.id, 'class-teachers-set', cls.id, { teacherIds: daGhi, chinhId });
-    res.json({ ok: true, classId: cls.id, ...nl.tomTat(cls.id) });
+    db.tx(() => {
+      if (xinNhom) {
+        for (const [tid, ma] of Object.entries(xinNhom)) nhomCo.dat(db, cls.id, tid, ma);
+      }
+      // Cô đã rời nhóm thì dòng khai nhóm của cô cũng đi theo — không dọn thì
+      // cô quay lại sẽ mang theo vai cũ mà không ai bấm gì.
+      nhomCo.donTheoDanhSachCo(db, cls.id, daGhi);
+    });
+    db.audit(req.user.id, 'class-teachers-set', cls.id, { teacherIds: daGhi, chinhId, nhom: xinNhom || null });
+    res.json({ ok: true, classId: cls.id, ...nl.tomTat(cls.id), nhom: nhomCo.nhomTheoLop(db, cls.id) });
   });
 
   // ---------- Giáo viên ----------

@@ -949,6 +949,14 @@ App.views.admin = {
       : [{ id: c.teacherId, title: '', name: c.teacherName || '(giáo viên đã ngừng hoạt động)' }, ...teachers];
     // Các cô đang phụ trách nhóm này, để tích sẵn ô của họ.
     const dangPhuTrach = new Set((c.teachers || []).map(t => t.id));
+    // Vai của từng cô ở CHÍNH nhóm này (Đ188, Câu 11). Cô chưa khai thì là chủ
+    // nhiệm — đúng cách máy chủ hiểu khi không có dòng nào.
+    const vaiHienCo = Object.fromEntries((c.teachers || []).map(t => [t.id, t.nhomCo || 'chu-nhiem']));
+    const VAI = [
+      ['chu-nhiem', 'Cô phụ trách nhóm (Montessori)'],
+      ['nuoc-ngoai', 'Cô nước ngoài (Cambridge)'],
+      ['the-chat', 'Cô thể chất (P.E)'],
+    ];
 
     UI.modal(`
       <div class="field"><label>Tên nhóm</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
@@ -964,16 +972,28 @@ App.views.admin = {
       <div class="field"><label>Các cô cùng phụ trách nhóm này</label>
         <div id="ad-sl-cac-co" class="card" style="max-height:220px;overflow:auto;padding:8px">
           ${ds.map(t => `
-            <label class="list-row" style="cursor:pointer;padding:6px 4px">
-              <input type="checkbox" class="ad-sl-co" value="${UI.esc(t.id)}" ${dangPhuTrach.has(t.id) ? 'checked' : ''}>
-              <div class="row-main"><div class="row-title">${UI.esc(`${t.title} ${t.name}`.trim())}</div></div>
-            </label>`).join('')}
+            <div class="list-row" style="padding:6px 4px;align-items:center;gap:8px">
+              <label style="cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+                <input type="checkbox" class="ad-sl-co" value="${UI.esc(t.id)}" ${dangPhuTrach.has(t.id) ? 'checked' : ''}>
+                <span class="row-title" style="overflow:hidden;text-overflow:ellipsis">${UI.esc(`${t.title} ${t.name}`.trim())}</span>
+              </label>
+              <select class="ad-sl-vai" data-co="${UI.esc(t.id)}" style="max-width:190px">
+                ${VAI.map(([ma, ten]) => `<option value="${UI.esc(ma)}" ${(vaiHienCo[t.id] || 'chu-nhiem') === ma ? 'selected' : ''}>${UI.esc(ten)}</option>`).join('')}
+              </select>
+            </div>`).join('')}
         </div>
         <div class="muted small mt-8">
           Nhóm mầm non thường có 2–3 cô cùng phụ trách. Cô được tích ở đây sẽ xem
           được hồ sơ các bé của nhóm; cô chọn ở ô trên là cô phụ trách chính.
           Một cô có thể phụ trách nhiều nhóm — tích thêm ở nhóm khác KHÔNG gỡ cô
           khỏi nhóm này.
+          <div class="mt-8">
+            Ô bên phải là <b>chương trình cô phụ trách ở nhóm này</b>, khác với
+            cô phụ trách chính ở ô trên. Gia đình nhắn tin được với
+            <b>cô phụ trách nhóm</b> và <b>cô nước ngoài</b>; cô thể chất vẫn lên kế
+            hoạch và đánh giá nhưng <b>không nhận tin nhắn của gia đình</b>.
+            Một cô có thể phụ trách nhóm này và dạy tiếng Anh ở nhóm khác.
+          </div>
         </div>
       </div>
       <button class="btn primary block" id="ad-sl-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
@@ -1007,8 +1027,15 @@ App.views.admin = {
         });
         // Ghi danh sách cô ở bước riêng: đường trên là đường CŨ "một cô một lớp",
         // gửi `teacherId` qua đó sẽ gỡ cô khỏi các nhóm khác của cô.
+        // Chỉ gửi vai của những cô ĐANG được tích: gửi cả cô không tích thì
+        // máy chủ từ chối cả lượt, vì vai chỉ khai được cho cô có trong nhóm.
+        const nhom = {};
+        for (const o of document.querySelectorAll('.ad-sl-vai')) {
+          const id = o.getAttribute('data-co');
+          if (teacherIds.includes(id)) nhom[id] = o.value;
+        }
         await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/teachers`, {
-          teacherIds, chinhId,
+          teacherIds, chinhId, nhom,
         });
         UI.toast('Đã lưu thay đổi', 'success');
         UI.closeModal();
