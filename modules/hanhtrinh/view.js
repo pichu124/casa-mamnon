@@ -62,9 +62,13 @@ App.views.hanhtrinh = {
       b.onclick = () => { this._tab = b.dataset.tab; App.route(); };
     }
     const than = document.getElementById('ht-than');
-    if (this._tab === 'chude') return this.manChuDe(than);
-    if (this._tab === 'be') return this.manTungBe(than);
-    return this.manSuyNgam(than);
+    // Nút Ghi nhanh nằm ngoài phần thân nên nó ở nguyên khi cô đổi tab —
+    // đúng ý "luôn có ở góc dưới màn hình".
+    root.insertAdjacentHTML('beforeend', this.nutGhiNhanh());
+    const sau = (p) => Promise.resolve(p).then(() => this.ganNutGhiNhanh());
+    if (this._tab === 'chude') return sau(this.manChuDe(than));
+    if (this._tab === 'be') return sau(this.manTungBe(than));
+    return sau(this.manSuyNgam(than));
   },
 
   // ---- Tab 1: suy ngẫm cuối ngày ----
@@ -724,11 +728,63 @@ App.views.hanhtrinh = {
           <div class="muted small mt-8">Cô đã soạn sẵn cho tuần tới. Cuối tuần này nhà chơi trước cũng được.</div>
         </div>` : ''}
 
+      ${(d.baiThangNay || []).length ? `
+        <div class="section-label">Tháng này con được học</div>
+        <div class="card">
+          <div class="muted small mb-8" style="line-height:1.6">
+            Những bài cô đã đưa vào kế hoạch tháng này cho con. Đây là
+            <b>việc cô làm cùng con ở lớp</b>, không phải bài tập giao về nhà.
+          </div>
+          ${(d.baiThangNay || []).map(b => `
+            <div class="list-row" style="padding:6px 4px">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(b.ten)}</div>
+                <div class="row-sub">${UI.esc(this.tenGoc(d, b.gocLinhVuc))}</div>
+              </div>
+              ${b.nhan && b.nhan !== 'hoc-moi'
+    ? UI.badge(b.nhan === 'on-tap' ? 'Ôn lại' : 'Mở rộng', 'gray') : ''}
+            </div>`).join('')}
+        </div>` : ''}
+
       <div class="section-label">Câu chuyện của con</div>
       ${(d.quanSat || []).length
         ? (d.quanSat || []).map(q => this.theCauChuyen(q)).join('')
         : UI.emptyState('🌱',
           'Chưa có câu chuyện nào — cô kể khi có khoảnh khắc đáng nhớ, thường vài tuần một lần chứ không phải mỗi ngày.')}`;
+  },
+
+  // Ô GHI NHANH Ở GÓC DƯỚI MÀN HÌNH (Đ191, Câu 1).
+  //
+  // Nhà trường: *"Mong muốn khi vào mục 'hành trình của bé' sẽ hiện thêm phần
+  // ghi nhanh quan sát ở dưới góc dưới màn hình và có thể tag tên học sinh"*.
+  //
+  // CHỈ HIỆN VỚI CÔ. Đây là ô để cô ghi, không phải ô của gia đình — và bản ghi
+  // nó tạo ra là ghi chép thô của cô, dữ liệu LỚP 1, thứ không bao giờ lộ sang
+  // phụ huynh.
+  //
+  // PHẦN "TAG TÊN BÉ" CHÍNH LÀ Ô CHỌN BÉ CỦA BIỂU MẪU GHI QUAN SÁT đang có —
+  // nút này mở thẳng biểu mẫu ấy. Dựng một đường ghi thứ hai đi tắt qua nó là
+  // có hai chỗ phải nhớ gác cùng một luật, rồi hai chỗ sẽ trôi khỏi nhau.
+  nutGhiNhanh() {
+    if (this.laGiaDinh()) return '';
+    return `
+      <button class="btn primary" id="ht-ghi-nhanh"
+              style="position:fixed;right:16px;z-index:40;border-radius:999px;
+                     box-shadow:0 6px 20px rgba(0,0,0,.18);padding:12px 18px;
+                     bottom:calc(76px + env(safe-area-inset-bottom, 0px))">
+        ${UI.icon('plus', 18)} Ghi nhanh
+      </button>`;
+  },
+
+  ganNutGhiNhanh() {
+    const n = document.getElementById('ht-ghi-nhanh');
+    if (n) n.onclick = () => this.moGhi(null);
+  },
+
+  // Tên góc lĩnh vực đọc từ chính gói máy chủ gửi, không chép lại bảng: chép
+  // là hai chỗ sẽ trôi khỏi nhau đúng lúc nhà trường đổi chữ.
+  tenGoc(d, ma) {
+    return ((d.linhVuc || []).find(l => l.ma === ma) || {}).ten || ma || '';
   },
 
   theCauChuyen(q) {

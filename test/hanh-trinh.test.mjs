@@ -327,6 +327,23 @@ console.log('\n[9] QUY TẮC 4 — nhắc nhẹ về bé KHÔNG kèm con số n�
   const view = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
   check('màn hình nói rõ đây là lời nhắc cho CÔ, không phải nhận định về bé',
     /không phải nhận định gì về bé/.test(view));
+
+  // Ô GHI NHANH Ở GÓC DƯỚI MÀN HÌNH (Đ191, Câu 1). Nhà trường: "Mong muốn khi
+  // vào mục 'hành trình của bé' sẽ hiện thêm phần ghi nhanh quan sát ở dưới
+  // góc dưới màn hình và có thể tag tên học sinh".
+  check('có nút Ghi nhanh cố định ở góc dưới màn hành trình',
+    /id="ht-ghi-nhanh"/.test(view) && /position:fixed/.test(view));
+  check('và nó tránh vùng tay cầm dưới cùng của điện thoại',
+    /env\(safe-area-inset-bottom/.test(view));
+  // CHỈ HIỆN VỚI CÔ. Bản ghi nó tạo ra là ghi chép thô của cô — dữ liệu LỚP 1
+  // trong bảng ba lớp của CLAUDE.md, thứ không bao giờ lộ sang phụ huynh.
+  check('NÚT ẤY KHÔNG HIỆN VỚI GIA ĐÌNH',
+    /nutGhiNhanh\(\)\s*\{[\s\S]{0,200}?laGiaDinh\(\)\)\s*return ''/.test(view),
+    (view.match(/nutGhiNhanh\(\)[\s\S]{0,160}/) || [])[0]);
+  // "Tag tên bé" đi qua CHÍNH biểu mẫu ghi quan sát đang có, không dựng đường
+  // ghi thứ hai — hai chỗ cùng một luật là hai chỗ sẽ trôi khỏi nhau.
+  check('nút mở thẳng biểu mẫu ghi quan sát đang có, không dựng đường ghi thứ hai',
+    /ht-ghi-nhanh[\s\S]{0,400}?moGhi\(null\)/.test(view));
 }
 
 // ===========================================================================

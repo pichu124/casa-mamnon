@@ -333,7 +333,7 @@ function contactsFor(user) {
       if (!s.classId) continue;
       const cls = db.findClass(s.classId);
       // Cô mở được đúng kênh ứng với vai cô giữ Ở NHÓM CỦA BÉ ĐÓ. Cô thể chất
-      // không có kênh nào — và đó là chủ ý của trường, không phải thiếu sót.
+      // không có kênh nào, và đó là chủ ý của trường chứ không phải bỏ quên.
       const vai = nhomCo.nhomCua(db, s.classId, user.id);
       const loai = Object.keys(NHOM_CUA_KENH).find(k => NHOM_CUA_KENH[k] === vai);
       if (!loai) continue;

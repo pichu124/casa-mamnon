@@ -1973,6 +1973,9 @@ Vẫn nhận bé này?`)) {
       'schoolyear-promote': 'Chuyển năm học',
       'truong-lien-he': 'Sửa thông tin liên hệ của trường',
       'nhan-danh-gia-sua': 'Sửa bộ chữ đánh giá dùng chung cả trường',
+      'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
+      'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',
+      'hoi-thoai-da-dong-mo': 'Xem lại một cuộc trò chuyện đã đóng',
       'module-enable': 'Bật tính năng',
       'module-disable': 'Tắt tính năng',
 

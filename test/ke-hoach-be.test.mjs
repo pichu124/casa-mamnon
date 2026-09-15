@@ -26,7 +26,7 @@ import { GOC } from './_chung.mjs';
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('ke-hoach-be');
 sinhDuLieu(DIR);
-batPhanHe(DIR, ['kehoachbe']);
+batPhanHe(DIR, ['kehoachbe', 'hanhtrinh']);
 const mk1 = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mk3 = taoQuanTri(DIR, 'Quản lý CS1', 'quanlycs1');
 khoaVaoCoSo(DIR, 'quanlycs1', 'cs1');
@@ -648,6 +648,111 @@ console.log('\n[+] HAI CÔ CÙNG SOẠN — người lưu sau KHÔNG xoá ngư�
     /napLaiMoc/.test(maMan));
   check('và CHỈ GỬI BÉ CÔ CÓ SỬA — bé không đụng tới thì không có gì để đè, kể cả ở lần Lưu thứ hai',
     /coSua/.test(maMan) && /filter\(t => t\.coSua\)/.test(maMan));
+}
+
+// ===========================================================================
+console.log('\n[12] BÀI HỌC THÁNG NÀY LỒNG SANG HÀNH TRÌNH — và cột nhìn lại KHÔNG đi theo (Đ191, Câu 1)');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Nhà trường 15/09: *"kế hoạch của từng bé sẽ được lồng ghép tiếp vào trong
+  // thư mục 'hành trình của bé để cả PH và giáo viên' có thể nhìn lại trong
+  // tháng này các bài dạy triển khai cho con là gì"*.
+  //
+  // Đây đúng chỗ câu hỏi số 1 đã cảnh báo trước khi làm: mở phần kế hoạch cho
+  // gia đình là bày ra trước mắt bố mẹ những mục cô đã đánh "Chưa quan sát
+  // thấy" / "Chưa dạy", biến chúng thành khoảng trống cần lấp — đúng điều
+  // QUY TẮC 2 cấm. Thứ trường thật sự xin là DANH SÁCH BÀI, không phải bảng
+  // đánh giá. Mục này chốt đúng ranh giới ấy.
+  // LÀM TRÊN NHÓM c2 / BÉ s2, KHÔNG PHẢI c1 / s1.
+  //
+  // Các mục trên đã gửi duyệt và duyệt cả nhóm c1, nên kế hoạch của s1 không
+  // còn sửa được bằng đường thường (kế hoạch đã duyệt phải đi qua đề xuất).
+  // Dùng lại nó thì mọi phép kiểm dưới đây chạy trên mảng RỖNG và đều xanh —
+  // đúng loại "bài canh luôn đúng" mà bước thêm phép kiểm này vừa lôi ra.
+  // Nhà `phuhuynh` có cả s1 (nhóm c1) lẫn s2 (nhóm c2), nên vẫn dùng đúng một
+  // tài khoản gia đình thật.
+  const ht = async (cookie, sid = 's2') =>
+    (await req('GET', `/api/hanhtrinh?studentId=${sid}`, { cookie })).data || {};
+
+  const co = await ht(GV2);
+  check('cô thấy được danh sách bài tháng này của bé', Array.isArray(co.baiThangNay), co.baiThangNay);
+
+  // KẾ HOẠCH CHƯA DUYỆT THÌ GIA ĐÌNH KHÔNG THẤY GÌ. Bản nháp là công việc cô
+  // đang làm dở — dữ liệu LỚP 1 trong bảng ba lớp của CLAUDE.md, thứ "không
+  // bao giờ được lộ sang phụ huynh".
+  const phTruoc = await ht(PH);
+  check('KẾ HOẠCH CHƯA DUYỆT: gia đình KHÔNG thấy bài nào',
+    (phTruoc.baiThangNay || []).length === 0, phTruoc.baiThangNay);
+
+  // TÍCH MỘT BÀI THẬT TRƯỚC ĐÃ.
+  //
+  // Không có bước này thì mọi phép kiểm dưới đây chạy trên một mảng RỖNG và
+  // đều xanh — một bài canh luôn đúng, đúng thứ CLAUDE.md dặn phải nêu. Tên
+  // bài lấy từ danh mục thật rồi đối chiếu lại tận màn của gia đình.
+  const dm = (await req('GET', '/api/kehoachbe/bai-hoc', { cookie: GV2 })).data || {};
+  const baiThu = (dm.baiHoc || [])[0];
+  check('đối chứng — danh mục bài học có bài để tích', !!baiThu, (dm.baiHoc || []).length);
+  const luu = await req('PUT', '/api/kehoachbe', {
+    cookie: GV2,
+    body: {
+      classId: 'c2', thang: THANG,
+      danhSach: [{ studentId: 's2', baiHoc: [{ baiHocId: baiThu.id, nhan: 'hoc-moi' }] }],
+    },
+  });
+  check('cô tích được một bài vào kế hoạch của bé', luu.status === 200, luu.data);
+  await req('POST', '/api/kehoachbe/gui-duyet', { cookie: GV2, body: { classId: 'c2', thang: THANG, studentId: 's2' } });
+
+  const coCoBai = await ht(GV2);
+  check('cô thấy đúng bài vừa tích',
+    (coCoBai.baiThangNay || []).some(b => b.ten === baiThu.ten),
+    (coCoBai.baiThangNay || []).map(b => b.ten));
+  // Gửi duyệt rồi nhưng CHƯA duyệt — gia đình vẫn chưa được thấy.
+  check('GỬI DUYỆT nhưng CHƯA DUYỆT: gia đình vẫn chưa thấy bài nào',
+    ((await ht(PH)).baiThangNay || []).length === 0);
+
+  // Duyệt xong thì gia đình mới thấy.
+  const dsCho = (await req('GET', `/api/kehoachbe?classId=c2&thang=${THANG}`, { cookie: QL })).data || {};
+  const cuaS1 = (dsCho.danhSach || []).find(x => x.studentId === 's2');
+  check('đối chứng — tìm được bản kế hoạch của bé để duyệt', !!cuaS1?.ke?.id, cuaS1?.ke);
+  const duyet = await req('POST', '/api/kehoachbe/duyet', {
+    cookie: QL, body: { ids: [cuaS1.ke.id], quyetDinh: 'da-duyet' },
+  });
+  check('quản lý duyệt được', duyet.status === 200, duyet.data);
+
+  const phSau = await ht(PH);
+  check('DUYỆT XONG: gia đình thấy ĐÚNG TÊN BÀI cô đã tích',
+    (phSau.baiThangNay || []).some(b => b.ten === baiThu.ten),
+    (phSau.baiThangNay || []).map(b => b.ten));
+
+  // CHỐT THẬT CỦA MỤC NÀY: cột nhìn lại KHÔNG bao giờ đi ra cho gia đình.
+  const goi = JSON.stringify(phSau.baiThangNay || []);
+  check('MỖI BÀI CHỈ CÓ TÊN, GÓC LĨNH VỰC VÀ NHÃN — không có cột nhìn lại',
+    (phSau.baiThangNay || []).every(b => Object.keys(b).sort().join(',') === 'gocLinhVuc,nhan,ten'),
+    (phSau.baiThangNay || [])[0]);
+  check('KHÔNG có `ketQua` trong gói gửi gia đình', !/ketQua/.test(goi), goi.slice(0, 200));
+  check('KHÔNG có `nhanXet` — nhận xét của cô là chuyện khác', !/nhanXet/.test(goi), goi.slice(0, 200));
+  check('và KHÔNG một chữ "Chưa quan sát thấy" / "Chưa dạy" nào lọt sang gia đình',
+    !/Chưa quan sát thấy|Chưa dạy/.test(goi), goi.slice(0, 200));
+
+  // NHÀ KHÁC VẪN KHÔNG XEM ĐƯỢC. Lồng một thứ sang màn khác là dễ quên mất
+  // chốt cũ nằm ở đâu — chốt ấy là `canAccessStudent` ở đầu đường hành trình.
+  const nhaKhac = await req('GET', '/api/hanhtrinh?studentId=s7', { cookie: PH });
+  check('gia đình KHÔNG mở được hành trình của bé nhà khác', nhaKhac.status === 403, nhaKhac.status);
+
+  // TẮT PHÂN HỆ KẾ HOẠCH THÌ PHẦN LỒNG BIẾN MẤT, KHÔNG BÁO LỖI.
+  //
+  // Tắt một phân hệ phải chặn được cả DỮ LIỆU, không chỉ giấu biểu tượng —
+  // đọc bảng của phân hệ đang tắt là một đường vòng qua chốt chặn. Và màn
+  // hành trình vẫn phải mở được bình thường: thiếu danh sách bài không làm
+  // hỏng phần còn lại.
+  const tatR = await req('PUT', '/api/admin/modules/kehoachbe', { cookie: QL, body: { enabled: false } });
+  check('quản trị tắt được phân hệ Kế hoạch của bé', tatR.status === 200, tatR.data);
+  const tat = await req('GET', '/api/hanhtrinh?studentId=s2', { cookie: GV2 });
+  check('TẮT Kế hoạch của bé: màn hành trình vẫn mở được bình thường', tat.status === 200, tat.status);
+  check('và phần bài học biến mất, không báo lỗi',
+    ((tat.data || {}).baiThangNay || []).length === 0, (tat.data || {}).baiThangNay);
+  await req('PUT', '/api/admin/modules/kehoachbe', { cookie: QL, body: { enabled: true } });
 }
 
 sv.dung();

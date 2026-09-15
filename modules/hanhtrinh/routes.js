@@ -212,6 +212,53 @@ module.exports = (app, { db, modules }) => {
   // =========================================================================
 
   // Hành trình của MỘT bé.
+  // ---- BÀI HỌC THÁNG NÀY, LỒNG TỪ "KẾ HOẠCH CỦA BÉ" (Đ191, Câu 1) ----
+  //
+  // Nhà trường 15/09: *"kế hoạch của từng bé sẽ được lồng ghép tiếp vào trong
+  // thư mục 'hành trình của bé để cả PH và giáo viên' có thể nhìn lại trong
+  // tháng này các bài dạy triển khai cho con là gì"*.
+  //
+  // CHỈ TÊN BÀI, TUYỆT ĐỐI KHÔNG KÈM CỘT NHÌN LẠI. Đây là chỗ câu hỏi số 1 đã
+  // nêu trước khi làm: mở phần kế hoạch cho gia đình là bày ra trước mắt bố mẹ
+  // những mục cô đã đánh "Chưa quan sát thấy" / "Chưa dạy", biến chúng thành
+  // khoảng trống cần lấp — đúng điều QUY TẮC 2 cấm. Thứ trường thật sự xin là
+  // *"các bài dạy triển khai cho con là gì"*, tức DANH SÁCH BÀI, không phải
+  // bảng đánh giá. Nên `ketQua` và `nhanXet` KHÔNG bao giờ đi ra cho gia đình.
+  //
+  // GIA ĐÌNH CHỈ THẤY KẾ HOẠCH ĐÃ DUYỆT. Bản `nhap` / `cho-duyet` là công việc
+  // cô đang làm dở — dữ liệu LỚP 1 trong bảng ba lớp của CLAUDE.md, thứ "không
+  // bao giờ được lộ sang phụ huynh". Cô và quản lý thì thấy mọi trạng thái.
+  //
+  // ĐỌC BẢNG CỦA PHÂN HỆ KHÁC THÌ PHẢI HỎI PHÂN HỆ ẤY CÓ ĐANG BẬT KHÔNG.
+  // Trường tắt Kế hoạch của bé mà đây vẫn đọc bảng của nó là một đường vòng
+  // qua chốt chặn — tắt một phân hệ phải chặn được cả dữ liệu, không chỉ giấu
+  // biểu tượng. Tắt thì trả về mảng RỖNG, không báo lỗi: thiếu danh sách bài
+  // không làm hỏng màn hành trình, phần còn lại vẫn đọc được bình thường.
+  function baiThangNayCuaBe(be, user) {
+    if (!modules || typeof modules.dangBat !== 'function' || !modules.dangBat('kehoachbe')) return [];
+    const chiDaDuyet = user.role === 'parent';
+    try {
+      const ke = db.first('kehoachbe_ke',
+        `SELECT id, trangThai FROM kehoachbe_ke
+          WHERE studentId = ? AND thang = ?
+            ${chiDaDuyet ? "AND trangThai = 'da-duyet'" : ''}`,
+        [be.id, ngay2.thangNay()]);
+      if (!ke) return [];
+      return db.all('kehoachbe_muc_bai',
+        `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, mb.nhan AS nhan
+           FROM kehoachbe_muc_bai mb
+           JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+          WHERE mb.keId = ?
+          ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id])
+        // Dựng lại từng ô một thay vì trả thẳng hàng truy vấn: câu SELECT trên
+        // hôm nay không lấy `ketQua`, nhưng người sửa sau có thể thêm `mb.*`
+        // vào cho tiện mà không nhớ ra rằng gói này đi thẳng ra màn gia đình.
+        .map(r => ({ ten: r.ten, gocLinhVuc: r.gocLinhVuc, nhan: r.nhan }));
+    } catch (_) {
+      return [];
+    }
+  }
+
   app.get('/api/hanhtrinh', (req, res) => {
     const studentId = chuoi(req.query.studentId, 40);
     if (!studentId) return res.status(400).json({ error: 'Cần chọn bé' });
@@ -257,6 +304,9 @@ module.exports = (app, { db, modules }) => {
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       quanSat: rows.map(r => choNguoiXem(r, req.user)).filter(Boolean),
       chuDeTuan: chuDeCuaBe(be, req.user),
+      // BÀI HỌC THÁNG NÀY, LẤY TỪ KẾ HOẠCH CỦA BÉ (Đ191, Câu 1). Xem
+      // `baiThangNayCuaBe` ngay dưới để biết vì sao chỉ có TÊN BÀI.
+      baiThangNay: baiThangNayCuaBe(be, req.user),
       // THÊM MỘT KHOÁ BÊN CẠNH, KHÔNG ĐỔI KHOÁ CŨ.
       //
       // Điện thoại đang giữ bản app cũ vẫn đọc `chuDeTuan` như trước và không
