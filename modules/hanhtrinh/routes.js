@@ -57,6 +57,20 @@ const TRANG_THAI = [
 ];
 const MA_TRANG_THAI = TRANG_THAI.map(x => x[0]);
 
+// NHÃN NHÀ TRƯỜNG ĐÃ SỬA, NẾU CÓ (Đ185, Câu 6).
+//
+// `TRANG_THAI` ở trên là nhãn MẶC ĐỊNH và vẫn là nguồn duy nhất của MÃ. Nhà
+// trường sửa chữ thì phần sửa nằm trong `settings`, và hàm này phủ lên. Trường
+// chưa sửa gì thì kết quả giống hệt `TRANG_THAI` — không đổi một hành vi nào.
+//
+// Gọi mỗi lượt yêu cầu chứ không nhớ lại: bộ chữ đổi rất hiếm, mà một bản nhớ
+// cũ nằm lại sau khi quản lý vừa đổi chữ thì cô thấy chữ cũ cho tới lần khởi
+// động lại — đúng loại lỗi không ai dựng lại được để báo.
+const ndg = require('../../lib/nhan-danh-gia');
+function trangThaiDangDung(db) {
+  return ndg.nhanDangDung(db, TRANG_THAI);
+}
+
 // Ba trạng thái nghĩa là CÔ ĐÃ THẤY BÉ LÀM. Chỉ ba cái này mới kéo theo nghĩa
 // vụ của QUY TẮC 5 — hai cái đầu là "chưa tới lượt", ép cô nghĩ ra việc phải
 // làm cho một thứ chưa xảy ra là biến quy tắc thành thủ tục.
@@ -227,7 +241,7 @@ module.exports = (app, { db, modules }) => {
       // ô ấy — và nhắc lại trên màn của con là biến quyết định của người lớn
       // thành một nhãn dán lên đứa trẻ.
       ngungHoSoHocTap: req.user.role === 'parent' ? undefined : db.beNgungHoSoHocTap(be.id),
-      trangThai: TRANG_THAI.map(([ma, ten]) => ({ ma, ten })),
+      trangThai: trangThaiDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       quanSat: rows.map(r => choNguoiXem(r, req.user)).filter(Boolean),
       chuDeTuan: chuDeCuaBe(be, req.user),
@@ -288,7 +302,7 @@ module.exports = (app, { db, modules }) => {
     const ten = new Map(db.studentsOf(req.user).map(s => [s.id, s]));
     res.json({
       ngay,
-      trangThai: TRANG_THAI.map(([ma, t]) => ({ ma, ten: t })),
+      trangThai: trangThaiDangDung(db).map(([ma, t]) => ({ ma, ten: t })),
       linhVuc: LINH_VUC.map(([ma, t]) => ({ ma, ten: t })),
       quanSat: rows.map(r => ({
         ...choNguoiXem(r, req.user),

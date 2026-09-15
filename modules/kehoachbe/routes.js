@@ -141,6 +141,14 @@ const KET_QUA = [
 ];
 const MA_KET_QUA = KET_QUA.map(x => x[0]);
 
+// NHÃN NHÀ TRƯỜNG ĐÃ SỬA, NẾU CÓ (Đ185, Câu 6). Xem chú thích cùng tên ở
+// `modules/hanhtrinh/routes.js` — hai phân hệ phủ nhãn theo đúng một cách, và
+// cả hai đều giữ nguyên MÃ.
+const ndg = require('../../lib/nhan-danh-gia');
+function ketQuaDangDung(db) {
+  return ndg.nhanDangDung(db, KET_QUA);
+}
+
 const TRANG_THAI_DUYET = ['nhap', 'cho-duyet', 'da-duyet', 'tra-lai'];
 
 const TOI_DA_NOI_DUNG = 500;
@@ -385,7 +393,7 @@ module.exports = (app, { db, modules }) => {
       thang, classId,
       thangTruoc: thangTruoc(thang),
       gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
-      ketQua: KET_QUA.map(([ma, ten]) => ({ ma, ten })),
+      ketQua: ketQuaDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
       ketLuanBai: KET_LUAN_BAI.map(([ma, ten]) => ({ ma, ten })),
       baiHoc: danhMucBai(),
@@ -473,7 +481,7 @@ module.exports = (app, { db, modules }) => {
       be: { id: be.id, hoTen: be.name, avatar: be.avatar },
       thang,
       gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
-      ketQua: KET_QUA.map(([ma, ten]) => ({ ma, ten })),
+      ketQua: ketQuaDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
       ketLuanBai: KET_LUAN_BAI.map(([ma, ten]) => ({ ma, ten })),
       baiHoc: danhMucBai(),

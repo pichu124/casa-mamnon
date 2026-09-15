@@ -342,9 +342,17 @@ console.log('\n[7] QUY TẮC 2 — cuối tháng là NHÌN LẠI, không phải 
     .match(/const TRANG_THAI = \[([\s\S]*?)\];/) || ['', ''])[1];
   const dsB = (fs.readFileSync(path.join(GOC, 'modules/kehoachbe/routes.js'), 'utf8')
     .match(/const KET_QUA = \[([\s\S]*?)\];/) || ['', ''])[1];
+  // BẢN CHÉP THỨ BA, từ Đ185: `lib/nhan-danh-gia.js` giữ cùng năm cặp ấy làm
+  // nhãn mặc định cho màn quản trị, nơi nhà trường sửa chữ. Ba bản thay vì hai
+  // thì nguy cơ trôi khỏi nhau cũng lớn hơn — nên bộ canh đối chiếu cả ba,
+  // chứ không chỉ hai bản cũ.
+  const dsC = (fs.readFileSync(path.join(GOC, 'lib/nhan-danh-gia.js'), 'utf8')
+    .match(/const MAC_DINH = \[([\s\S]*?)\];/) || ['', ''])[1];
   const gom = (t) => (t.match(/'([a-z-]+)', '([^']+)'/g) || []).join('|');
   check('NĂM TRẠNG THÁI TRÙNG KHỚP TỪNG CHỮ với phân hệ Hành trình học tập',
     gom(dsA) === gom(dsB) && gom(dsA).length > 0, { hanhTrinh: gom(dsA), keHoach: gom(dsB) });
+  check('VÀ TRÙNG KHỚP CẢ VỚI nhãn mặc định ở lib/nhan-danh-gia.js',
+    gom(dsC) === gom(dsB) && gom(dsC).length > 0, { boChu: gom(dsC), keHoach: gom(dsB) });
 }
 
 // ===========================================================================

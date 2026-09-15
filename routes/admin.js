@@ -13,6 +13,8 @@ const modules = require('../lib/modules');
 // Lịch nghỉ của trường (Đ147) — màn tổng quan một ngày phải nói được "hôm nay
 // trường nghỉ", chứ không im lặng rồi để hiệu trưởng tưởng cả trường vắng.
 const nghiHoc = require('../lib/nghi-hoc');
+// Bộ chữ đánh giá nhà trường tự sửa được (Đ185, Câu 6).
+const ndg = require('../lib/nhan-danh-gia');
 
 const onlyAdmin = requireRole('admin');
 
@@ -139,6 +141,37 @@ module.exports = (app) => {
     db.setSchool({ ...t, emailKeToan: e });
     db.audit(req.user.id, 'truong-lien-he', null, { emailKeToan: e ? 'có' : 'gỡ' });
     res.json({ ok: true, emailKeToan: e });
+  });
+
+  // ---- BỘ CHỮ ĐÁNH GIÁ (Đ185, Câu 6) ----
+  //
+  // Nhà trường: *"Bộ chữ này sẽ giống nhau giữa 3 cơ sở… Nên muốn mở quyền để
+  // chỉnh sửa phần này cho hợp lý theo thời gian"*.
+  //
+  // MỘT BỘ CHO CẢ TRƯỜNG, nên dùng đúng chốt đã có cho những giá trị cả trường
+  // dùng chung: quản lý bị khoá vào MỘT cơ sở thì xem được, không sửa được.
+  // Không có chốt ấy thì quản lý cơ sở 2 gõ một chữ là ba cơ sở đổi theo, mà
+  // hai cơ sở kia không hề biết ai đổi và đổi lúc nào.
+  app.get('/api/admin/nhan-danh-gia', onlyAdmin, (req, res) => {
+    const dang = ndg.nhanDangDung(db);
+    res.json({
+      nhan: dang.map(([ma, nhan], i) => ({
+        ma,
+        nhan,
+        macDinh: ndg.MAC_DINH[i][1],
+        daSua: nhan !== ndg.MAC_DINH[i][1],
+      })),
+      toiDa: ndg.TOI_DA_NHAN,
+      suaDuoc: db.phamViCoSo(req.user) === null,
+    });
+  });
+
+  app.put('/api/admin/nhan-danh-gia', onlyAdmin, (req, res) => {
+    if (chanNeuChiMotCoSo(req, res, 'Sửa bộ chữ đánh giá dùng chung cả trường')) return;
+    const kq = ndg.ghiBo(db, (req.body || {}).nhan || {}, req.user.id);
+    if (kq.loi) return res.status(400).json({ error: kq.loi, ma: kq.ma });
+    const dang = ndg.nhanDangDung(db);
+    res.json({ ok: true, nhan: dang.map(([ma, nhan]) => ({ ma, nhan })) });
   });
 
   app.post('/api/admin/campuses', onlyAdmin, (req, res) => {

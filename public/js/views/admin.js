@@ -599,6 +599,8 @@ App.views.admin = {
 
       <div id="ad-lien-he"></div>
 
+      <div id="ad-nhan-danh-gia"></div>
+
       ${(this._chucVu || []).length ? `
       <div class="card">
         <div class="card-title">Chức vụ của tài khoản quản trị</div>
@@ -675,6 +677,7 @@ App.views.admin = {
             </div>`).join('')}
         </div>` : ''}`;
     this.veLienHeTruong();
+    this.veNhanDanhGia();
   },
 
   // ---- Thông tin liên hệ của trường (Đ161) ----
@@ -709,6 +712,68 @@ App.views.admin = {
       </div>`;
     const nut = document.getElementById('ad-lh-luu');
     if (nut) nut.onclick = () => this.luuLienHeTruong();
+  },
+
+  // ---- BỘ CHỮ ĐÁNH GIÁ (Đ185, Câu 6) ----
+  //
+  // Nhà trường xin quyền tự sửa năm chữ này "cho hợp lý theo thời gian". Màn
+  // này chỉ để cô khỏi gõ nhầm — chốt thật nằm ở máy chủ, vì màn hình thì ai
+  // cũng vòng qua được.
+  //
+  // NÓI RÕ HAI ĐIỀU NGAY TRÊN MÀN, vì cả hai đều là câu người sửa sẽ hỏi:
+  // đổi chữ KHÔNG làm đổi ngược bản báo cáo đã gửi gia đình tháng trước (mọi
+  // bản ghi giữ MÃ, không giữ chữ), và bộ chữ dùng chung cho cả ba cơ sở.
+  async veNhanDanhGia() {
+    const o = document.getElementById('ad-nhan-danh-gia');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/admin/nhan-danh-gia'); } catch (_) { return; }
+    const ds = d.nhan || [];
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">🗂️ Chữ đánh giá dùng trong Kế hoạch của bé và Hành trình</div>
+        <div class="muted small" style="line-height:1.7">
+          Đây là các chữ cô chọn khi nhìn lại cuối tháng. Trường sửa được cho hợp
+          với cách nói của mình — ví dụ <b>Hoàn thành</b>, <b>Đang thực hiện</b>,
+          <b>Chưa học tới</b>.
+          <div class="mt-8">
+            Đổi chữ ở đây <b>không làm đổi</b> bản báo cáo đã gửi gia đình tháng trước:
+            máy lưu lại lựa chọn của cô chứ không lưu chữ, nên chỉ chữ hiện ra từ nay
+            là đổi. Bộ chữ này <b>dùng chung cho cả ba cơ sở</b>.
+          </div>
+          <div class="mt-8">
+            Phần mềm của trường mình không xếp các bé trên dưới nhau, nên những chữ
+            mang nghĩa phân bậc hay mang con số sẽ không lưu được.
+          </div>
+        </div>
+        ${ds.map(n => `
+          <div class="field mt-8">
+            <label>${UI.esc(n.macDinh)}${n.daSua ? ' <span class="muted">(đã sửa)</span>' : ''}</label>
+            ${d.suaDuoc
+    ? `<input id="ad-ndg-${UI.esc(n.ma)}" value="${UI.esc(n.nhan)}" maxlength="${UI.esc(String(d.toiDa || 40))}">`
+    : `<div>${UI.esc(n.nhan)}</div>`}
+          </div>`).join('')}
+        ${d.suaDuoc
+    ? '<button class="btn sm outline mt-8" id="ad-ndg-luu">Lưu bộ chữ</button>'
+    : '<div class="muted small mt-8">Sửa mục này cần tài khoản quản trị toàn hệ thống, vì bộ chữ dùng chung cả ba cơ sở.</div>'}
+      </div>`;
+    const nut = document.getElementById('ad-ndg-luu');
+    if (nut) nut.onclick = () => this.luuNhanDanhGia(ds.map(n => n.ma));
+  },
+
+  async luuNhanDanhGia(maList) {
+    const nhan = {};
+    for (const ma of maList || []) {
+      const o = document.getElementById(`ad-ndg-${ma}`);
+      if (o) nhan[ma] = o.value.trim();
+    }
+    try {
+      await API.put('/api/admin/nhan-danh-gia', { nhan });
+      UI.toast('Đã lưu bộ chữ đánh giá', 'success');
+      this.veNhanDanhGia();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa lưu được', 'error');
+    }
   },
 
   async luuLienHeTruong() {
@@ -1880,6 +1945,7 @@ Vẫn nhận bé này?`)) {
       'campus-update': 'Sửa cơ sở',
       'schoolyear-promote': 'Chuyển năm học',
       'truong-lien-he': 'Sửa thông tin liên hệ của trường',
+      'nhan-danh-gia-sua': 'Sửa bộ chữ đánh giá dùng chung cả trường',
       'module-enable': 'Bật tính năng',
       'module-disable': 'Tắt tính năng',
 
