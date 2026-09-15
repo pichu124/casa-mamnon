@@ -942,3 +942,43 @@ CREATE TABLE IF NOT EXISTS class_lua_tuoi (
   khaiLuc  TEXT,
   khaiBoi  TEXT
 );
+
+-- NHÀ NÀO ĐƯỢC XEM MỘT ALBUM "CHỌN TỪNG NHÀ" (Đ197, việc 29).
+--
+-- Nhà trường xin phân quyền TỪNG album ở bốn mức: cả trường · một nhóm lớp ·
+-- theo thẻ bé · chọn từng nhà. Ba mức đầu suy ra được từ thứ đã có (`classId`
+-- của album, bảng thẻ bé); mức thứ tư thì phải khai ra, vì không có gì trong
+-- dữ liệu nói được "nhà này thì có, nhà kia thì không".
+--
+-- MỞ RỘNG TẦM NHÌN KHÔNG BAO GIỜ ĐƯỢC NỚI LUẬT ẢNH NHÓM. `album_che_do` trả
+-- lời "ai mở được album này"; `db.locAnhChoNguoiXem` trả lời "trong album ấy,
+-- nhà này thấy được tấm nào". Hai câu hỏi xếp chồng, KHÔNG thay nhau: một nhà
+-- được chọn vào đây vẫn chỉ thấy những tấm mà MỌI bé trong ảnh đều có đồng ý
+-- chia sẻ. Bỏ vế sau là vi phạm thẳng quy định ở CLAUDE.md.
+CREATE TABLE IF NOT EXISTS album_nha (
+  albumId  TEXT NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+  parentId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ghiLuc   TEXT,
+  PRIMARY KEY (albumId, parentId)
+);
+CREATE INDEX IF NOT EXISTS idx_album_nha_nha ON album_nha(parentId);
+
+-- LỜI KỂ VÀ GỢI Ý CÙNG CON Ở NHÀ CHO MỘT ALBUM (Đ197, việc 32).
+--
+-- Nhà trường: *"ảnh đăng phải có lời chú thích rõ ràng, kèm gợi ý gia đình làm
+-- thêm ở nhà"*. Vế thứ hai chính là QUY TẮC 5 của CLAUDE.md — mỗi nhận định đi
+-- kèm một việc làm được ở nhà — nên nó không phải một ô phụ, nó là phần hồn.
+--
+-- VÌ SAO Ở TẦNG ALBUM CHỨ KHÔNG Ở TỪNG TẤM ẢNH. Đây là đường thoát mà bản tồn
+-- đọng dặn phải có: bắt chú thích từng tấm là thêm một bước cho cô ở đúng lúc
+-- cô đang vội — hai mươi tấm là hai mươi lần gõ, và kết cục là cô gõ "abc" hai
+-- mươi lần hoặc thôi không đăng ảnh nữa. Một lời kể cho cả buổi hoạt động thì
+-- cô viết được, và nó nói đúng thứ gia đình cần biết.
+--
+-- `albums.description` đã có sẵn và chính là lời kể ấy — không thêm cột. Bảng
+-- này chỉ chở vế thứ hai, thứ chưa có chỗ nào để chứa.
+CREATE TABLE IF NOT EXISTS album_cung_con (
+  albumId     TEXT PRIMARY KEY REFERENCES albums(id) ON DELETE CASCADE,
+  cungConONha TEXT NOT NULL DEFAULT '',
+  ghiLuc      TEXT
+);

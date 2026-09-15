@@ -13,11 +13,41 @@ const nl = require('../lib/nhom-lop');
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
 
-// HAI CHẾ ĐỘ ALBUM (Đ144) — xem chú thích bảng `album_che_do` trong lib/schema.sql.
-//   'cong-khai' — mọi gia đình trong nhóm thấy (vẫn qua luật đồng ý chia sẻ).
-//   'theo-the'  — gia đình chỉ thấy tấm có con mình được gắn thẻ.
-// Không có dòng = 'cong-khai' = đúng cách mọi album đang có đang hiện.
-const CHE_DO = ['cong-khai', 'theo-the'];
+// BỐN CHẾ ĐỘ ALBUM — xem chú thích bảng `album_che_do` trong lib/schema.sql.
+//
+//   'ca-truong'  — MỌI gia đình trong trường thấy (Đ197, việc 29).
+//   'cong-khai'  — mọi gia đình trong NHÓM thấy.
+//   'theo-the'   — gia đình chỉ thấy tấm có con mình được gắn thẻ.
+//   'chon-nha'   — chỉ những nhà cô chọn đích danh (Đ197, việc 29).
+//
+// Không có dòng = 'cong-khai' = đúng cách mọi album đang có đang hiện, nên
+// ngày hai chế độ mới ra đời không một album nào đổi tầm nhìn.
+//
+// XẾP TỪ RỘNG TỚI HẸP, VÀ THỨ TỰ ẤY CÓ NGHĨA: `doiGi` ở đường đổi chế độ so
+// hai vị trí trong mảng này để biết cô đang MỞ RỘNG hay THU HẸP, rồi nói ra
+// cho màn hình hỏi lại một câu. Đảo thứ tự là đảo luôn câu hỏi ấy.
+const CHE_DO = ['ca-truong', 'cong-khai', 'theo-the', 'chon-nha'];
+const TEN_CHE_DO = {
+  'ca-truong': 'Cả trường xem được',
+  'cong-khai': 'Cả nhóm lớp xem được',
+  'theo-the': 'Chỉ nhà có con trong ảnh',
+  'chon-nha': 'Chỉ những nhà cô chọn',
+};
+
+// MỞ RỘNG TẦM NHÌN KHÔNG BAO GIỜ ĐƯỢC NỚI LUẬT ẢNH NHÓM.
+//
+// Đây là câu quan trọng nhất của cả việc 29, nên nó nằm ngay đầu tệp chứ
+// không nằm lẫn trong một hàm.
+//
+// `album_che_do` trả lời "ai MỞ ĐƯỢC album này". `db.locAnhChoNguoiXem` trả
+// lời "trong album ấy, nhà này thấy được TẤM NÀO". Hai câu hỏi XẾP CHỒNG,
+// không thay nhau: một nhà mở được album 'ca-truong' vẫn chỉ thấy những tấm
+// mà MỌI bé trong ảnh đều có đồng ý chia sẻ.
+//
+// Nếu ai đó sau này thấy 'ca-truong' rồi nghĩ "cả trường xem được thì khỏi
+// lọc nữa cho nhanh" — đó chính là lúc quy định ở CLAUDE.md bị vi phạm, và
+// nó vi phạm trên ẢNH KHUÔN MẶT TRẺ DƯỚI 6 TUỔI. Bài canh đo đúng chuyện này.
+
 
 // Bảng cặp màu gradient pastel cho ảnh minh họa bằng emoji.
 const GRADIENTS = [
@@ -155,14 +185,53 @@ function laNguoiGiuLopCu(user, lop) {
   }
   return user.role === 'teacher' && db.isTeacherOfClass(user.id, lop.id);
 }
-function xemDuocAlbum(user, classId, ngayAlbum) {
+function xemDuocAlbum(user, classId, ngayAlbum, albumId) {
   if (db.canAccessClass(user, classId)) return true;
   if (laNguoiGiuLopCu(user, lopDaDong(classId))) return true;
+  // HAI CHẾ ĐỘ MỞ RA NGOÀI NHÓM (Đ197, việc 29) — hỏi SAU ba chốt cũ, nên
+  // không một album nào đang có đổi hành vi: chế độ mặc định vẫn là
+  // 'cong-khai', và nhánh này chỉ chạy khi trường CHỦ ĐỘNG đổi.
+  if (albumId && user && user.role === 'parent') {
+    const cd = cheDoCua(albumId);
+    // 'ca-truong': mọi gia đình trong trường. Vẫn phải qua `locAnhChoNguoiXem`
+    // từng tấm ở dưới — mở album không phải mở ảnh.
+    if (cd === 'ca-truong') return true;
+    // 'chon-nha': đúng những nhà cô đã chọn, không ai khác.
+    if (cd === 'chon-nha') {
+      try {
+        return !!db.first('album_nha',
+          'SELECT parentId FROM album_nha WHERE albumId = ? AND parentId = ?',
+          [albumId, user.id]);
+      } catch (_) { return false; }
+    }
+  }
   // Phụ huynh: chỉ ảnh chụp trong ĐÚNG khoảng con còn học lớp đó.
   //
   // Mở cả lớp cũ thì một em chuyển đi tháng 10 vẫn xem được ảnh chụp tháng 12,
   // trong khi album có mặt nhiều trẻ khác. Ngày của album là mốc so sánh.
   return lsl.xemDuocNoiDungLopCu(user, classId, ngayAlbum);
+}
+
+// Gợi ý cùng con ở nhà của một album (Đ197, việc 32). Rỗng = album cũ, ghi
+// trước khi luật này ra đời — màn hình bỏ qua vế đó, không hiện ô trống.
+function cungConCuaAlbum(albumId) {
+  try {
+    const r = db.first('album_cung_con',
+      'SELECT cungConONha FROM album_cung_con WHERE albumId = ?', [albumId]);
+    return r ? String(r.cungConONha || '') : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+// Những nhà đã được chọn cho một album (mã tài khoản phụ huynh).
+function nhaCuaAlbum(albumId) {
+  try {
+    return db.all('album_nha',
+      'SELECT parentId FROM album_nha WHERE albumId = ?', [albumId]).map(r => r.parentId);
+  } catch (_) {
+    return [];
+  }
 }
 function xoaDuocAlbum(user, classId) {
   // Cô của nhóm đang mở — giữ nguyên đường cũ, chỉ đổi cách hỏi "có phải cô của
@@ -379,8 +448,35 @@ module.exports = (app) => {
     // Khoảng con từng học ở các lớp đã đóng — chỉ dùng cho phụ huynh.
     const khoangCu = keCaLopCu ? lsl.lopCuCuaPhuHuynh(req.user) : [];
 
+    // ALBUM MỞ RA NGOÀI NHÓM (Đ197, việc 29).
+    //
+    // Câu truy vấn dưới lấy theo NHÓM của người này. Album 'ca-truong' hay
+    // 'chon-nha' của một nhóm khác thì không lọt vào đó, nên phải gom mã của
+    // chúng riêng rồi nối vào — nếu không thì đổi chế độ xong mà gia đình vẫn
+    // không thấy gì, và không có gì trên màn hình nói vì sao.
+    //
+    // CHỈ HỎI VỚI GIA ĐÌNH. Cô và văn phòng đã đi qua `classIdsOf`/`phamViCoSo`
+    // và không cần nhánh này; hỏi cho họ nữa là hai lượt truy vấn vô ích mỗi
+    // lần mở màn Album.
+    //
+    // Hai bảng này đều nhỏ và có chỉ mục (`album_che_do` khoá chính theo
+    // album, `album_nha` có chỉ mục theo nhà), nên đây là hai lượt đọc rẻ, cố
+    // định — không phải một lượt cho mỗi album.
+    let albumMoThem = [];
+    if (req.user.role === 'parent') {
+      try {
+        albumMoThem = [
+          ...db.all('album_che_do',
+            "SELECT albumId FROM album_che_do WHERE cheDo = 'ca-truong'").map(r => r.albumId),
+          ...db.all('album_nha',
+            'SELECT albumId FROM album_nha WHERE parentId = ?', [req.user.id]).map(r => r.albumId),
+        ];
+      } catch (_) { albumMoThem = []; }
+    }
+    const moThem = new Set(albumMoThem.filter(Boolean));
+
     const tatCa = [...new Set([...classIds, ...lopCu, ...khoangCu.map(k => k.classId)])];
-    if (!tatCa.length) return res.json([]);
+    if (!tatCa.length && !moThem.size) return res.json([]);
     const marks = tatCa.map(() => '?').join(',');
 
     // CÙNG LUẬT VỚI `xemDuocAlbum`, NHƯNG TÍNH SẴN MỘT LẦN CHO CẢ DANH SÁCH.
@@ -397,12 +493,15 @@ module.exports = (app) => {
       if (!khoangTheoLop.has(k.classId)) khoangTheoLop.set(k.classId, []);
       khoangTheoLop.get(k.classId).push(k);
     }
-    const xemNhanh = (a) => nhomDangMo.has(a.classId) || lopCuSet.has(a.classId)
+    const xemNhanh = (a) => moThem.has(a.id) || nhomDangMo.has(a.classId) || lopCuSet.has(a.classId)
       || (khoangTheoLop.get(a.classId) || [])
         .some(k => !a.date || (String(a.date) >= k.tu && String(a.date) <= k.den));
 
+    const markMo = [...moThem].map(() => '?').join(',');
     const daLocTheoKhoang = db.all('albums',
-      `SELECT * FROM albums WHERE classId IN (${marks}) ORDER BY date DESC, rowid DESC`, tatCa)
+      `SELECT * FROM albums WHERE ${tatCa.length ? `classId IN (${marks})` : '0'}
+         ${moThem.size ? `OR id IN (${markMo})` : ''}
+       ORDER BY date DESC, rowid DESC`, [...tatCa, ...moThem])
       // Lọc lại lần nữa theo khoảng: câu truy vấn trên lấy theo LỚP, còn phụ
       // huynh chỉ được xem phần ảnh chụp trong đúng khoảng con còn ở lớp đó.
       .filter(xemNhanh);
@@ -499,7 +598,7 @@ module.exports = (app) => {
   app.get('/api/albums/:id', (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!xemDuocAlbum(req.user, album.classId, album.date)) {
+    if (!xemDuocAlbum(req.user, album.classId, album.date, album.id)) {
       return res.status(403).json({ error: 'Không có quyền xem album này' });
     }
     // LỌC Ở TẦNG DỮ LIỆU. Phụ huynh chỉ nhận về những ảnh mình được xem —
@@ -510,6 +609,10 @@ module.exports = (app) => {
     album.photos = locTheoThe(quaDongY, req.user, cheDo, db.beTrongCacAnh(quaDongY.map(x => x.id)))
       .map(a => ganThemDanhSachBe(a, req.user));
     album.cheDo = cheDo;
+    album.tenCheDo = TEN_CHE_DO[cheDo] || '';
+    // Gợi ý cùng con ở nhà (Đ197, việc 32) — rỗng với album cũ, màn hình bỏ
+    // qua chứ không vẽ một ô trống.
+    album.cungConONha = cungConCuaAlbum(album.id);
     const cls = db.findClass(album.classId);
     const author = album.createdBy ? db.findUser(album.createdBy) : null;
     res.json({
@@ -537,7 +640,7 @@ module.exports = (app) => {
   app.get('/api/albums/:id/photo/:photoId', (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!xemDuocAlbum(req.user, album.classId, album.date)) {
+    if (!xemDuocAlbum(req.user, album.classId, album.date, album.id)) {
       return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
     }
     const photo = db.first('album_photos',
@@ -581,6 +684,32 @@ module.exports = (app) => {
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập tên album' });
     }
+
+    // LỜI KỂ VÀ GỢI Ý CÙNG CON Ở NHÀ (Đ197, việc 32).
+    //
+    // Nhà trường: *"ảnh đăng phải có lời chú thích rõ ràng, kèm gợi ý gia đình
+    // làm thêm ở nhà"*. Vế thứ hai chính là QUY TẮC 5 — mỗi nhận định đi kèm
+    // một việc làm được ở nhà.
+    //
+    // KHÔNG CHẶN CỨNG Ở ĐÂY, VÀ ĐÓ LÀ MỘT QUYẾT ĐỊNH CÓ CÂN NHẮC.
+    //
+    // Bản đầu của đợt này trả 400 khi thiếu hai ô ấy. Sai hai đường:
+    //
+    //   1. Đó là ĐỔI HÀNH VI của một đường đang chạy — cô hôm nay đăng album
+    //      chỉ với cái tên, mai nhận câu từ chối. Nguyên tắc số 1 cấm đúng
+    //      điều đó, và bản tồn đọng cũng đã dặn *"cần một đường thoát hợp lý
+    //      thay vì chặn cứng"*.
+    //   2. Chặn ở lúc cô đang vội thì cô gõ "abc" cho xong. Một ô bắt buộc mà
+    //      người ta gõ cho xong thì tệ hơn không có ô nào: nó biến một lời kể
+    //      thành một thủ tục.
+    //
+    // NÊN CHẶN Ở CHỖ THẬT SỰ ĐÁNG CHẶN — xem `PUT /che-do`: album thiếu lời kể
+    // thì KHÔNG mở rộng ra ngoài nhóm được. Cô vội thì cứ đăng, ảnh nằm trong
+    // nhóm của cô; muốn cả trường xem thì viết một câu. Đó là đường thoát, và
+    // nó vẫn giữ được điều trường xin: không có ảnh nào đi ra ngoài mà không
+    // có lời kể đi kèm.
+    const loiKe = String(description || '').trim();
+    const cungCon = String((req.body || {}).cungConONha || '').trim().slice(0, 500);
     if (!Array.isArray(photos) || photos.length < 1) {
       return res.status(400).json({ error: 'Album cần có ít nhất 1 ảnh' });
     }
@@ -613,7 +742,7 @@ module.exports = (app) => {
       classId: nhomAlbum,
       title: String(title).trim(),
       date: todayStr(),
-      description: String(description || '').trim(),
+      description: loiKe,
       createdBy: req.user.id,
     };
     try {
@@ -622,6 +751,10 @@ module.exports = (app) => {
         db.insert('albums', rec);
         built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: rec.id, position: i }));
         if (cheDoXin !== 'cong-khai') ghiCheDo(rec.id, cheDoXin);
+        if (cungCon) {
+          db.insert('album_cung_con',
+            { albumId: rec.id, cungConONha: cungCon, ghiLuc: new Date().toISOString() });
+        }
       });
     } catch (err) {
       removeFiles(built);
@@ -682,9 +815,20 @@ module.exports = (app) => {
     // Lúc vừa chụp xong là lúc duy nhất cô còn nhớ chắc trong ảnh là bé nào.
     // Để tới hôm sau mới nhắc thì cô phải ngồi đoán lại 30 tấm, và đoán sai
     // thì chính cơ chế bảo vệ này thành ra sai chỗ.
+    // NHẮC, KHÔNG CHẶN (Đ197, việc 32). Album cũ thiếu lời kể vẫn thêm ảnh
+    // được — chặn ở đây là lấy đi một thứ đang chạy, đúng điều Nguyên tắc số 1
+    // cấm. Chỉ đường TẠO MỚI mới bắt buộc.
+    const thieu = [];
+    if (!String(album.description || '').trim()) thieu.push('lời kể về buổi này');
+    if (!cungConCuaAlbum(album.id)) thieu.push('gợi ý cùng con ở nhà');
+
     res.status(201).json({
       added: built.length,
       photos: built,
+      ...(thieu.length ? {
+        nhacLoiKe: `Album này chưa có ${thieu.join(' và ')}. `
+          + 'Gia đình đọc lời kể của cô trước khi nhìn ảnh — cô bổ sung giúp khi rảnh nhé.',
+      } : {}),
       ...(db.coBeTuChoiChiaSe(album.classId) ? {
         nhacGanThe: {
           soAnhTamAn: built.length,
@@ -763,24 +907,133 @@ module.exports = (app) => {
   // KHÔNG báo lại gia đình khi đổi chiều mở rộng: tin báo của album đi theo
   // việc CÓ ẢNH MỚI và việc GẮN THẺ, và bắn thêm một loạt tin cho ảnh cũ chỉ
   // vì cô sửa một ô chọn là làm phiền hai chục nhà vì một thao tác sửa lỗi.
-  app.put('/api/albums/:id/che-do', requireRole('teacher'), (req, res) => {
+  // AI ĐỔI ĐƯỢC CHẾ ĐỘ (Đ197, việc 31).
+  //
+  // Nhà trường: *"ai cũng đăng và phân quyền album được, trừ phụ huynh"*. Bản
+  // trước chỉ cho vai CÔ, nên văn phòng đăng được ảnh mà không đặt được phạm
+  // vi cho chính album mình vừa đăng — một nửa việc.
+  //
+  // `requireRole('teacher', 'admin')` mở thêm cho quản trị, và `datDuocCheDo`
+  // ngay dưới giữ đúng phạm vi của từng người. GIA ĐÌNH THÌ KHÔNG, và đó là
+  // vế "trừ phụ huynh" của chính câu trường nói.
+  function datDuocCheDo(user, album) {
+    if (user.role === 'teacher') return db.isTeacherOfClass(user.id, album.classId);
+    // Quản trị: đúng cơ sở của nhóm ấy. `canAccessClass` đã siết theo cơ sở,
+    // nên quản lý cơ sở 1 không đặt lại phạm vi album của cơ sở 2.
+    if (user.role === 'admin') return db.canAccessClass(user, album.classId);
+    return false;
+  }
+
+  app.put('/api/albums/:id/che-do', requireRole('teacher', 'admin'), (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!db.isTeacherOfClass(req.user.id, album.classId)) {
-      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới đổi được chế độ album' });
+    if (!datDuocCheDo(req.user, album)) {
+      return res.status(403).json({
+        error: 'Chỉ cô phụ trách nhóm hoặc văn phòng của cơ sở đó mới đặt được phạm vi album',
+      });
     }
     const moi2 = String((req.body || {}).cheDo || '');
     if (!CHE_DO.includes(moi2)) {
-      return res.status(400).json({ error: 'Chế độ album chưa hợp lệ' });
+      return res.status(400).json({
+        error: `Phạm vi album chỉ có: ${CHE_DO.map(x => TEN_CHE_DO[x]).join(' · ')}`,
+      });
     }
     const cu = cheDoCua(album.id);
     if (cu === moi2) return res.json({ cheDo: cu, doiGi: 'khong-doi' });
-    ghiCheDo(album.id, moi2);
-    db.audit(req.user.id, 'album-doi-che-do', album.id, { tu: cu, sang: moi2 });
+
+    // MỞ RỘNG RA NGOÀI NHÓM THÌ PHẢI CÓ LỜI KỂ (Đ197, việc 32).
+    //
+    // Đây là chỗ điều trường xin thật sự có nghĩa. Một tấm ảnh nằm trong nhóm
+    // của cô thì gia đình đã biết hôm nay lớp làm gì; một tấm ảnh đi ra cả
+    // trường mà không có lời nào đi kèm thì nhà khác nhìn vào không hiểu đang
+    // xem gì, và đó đúng là thứ trường muốn tránh.
+    //
+    // Chặn ở ĐÂY chứ không chặn lúc đăng: lúc đăng cô đang vội, lúc này cô
+    // đang chủ động quyết định cho ai xem — hai thời điểm khác hẳn nhau.
+    if (moi2 === 'ca-truong') {
+      const thieu = [];
+      if (String(album.description || '').trim().length < 10) thieu.push('lời kể về buổi này');
+      if (cungConCuaAlbum(album.id).length < 10) thieu.push('gợi ý cùng con ở nhà');
+      if (thieu.length) {
+        return res.status(400).json({
+          error: `Album chưa có ${thieu.join(' và ')}. `
+            + 'Cả trường xem được thì cần vài chữ của cô đi kèm — nhà khác nhìn ảnh '
+            + 'mà không có lời nào thì không hiểu đang xem gì.',
+        });
+      }
+    }
+
+    // CHỌN TỪNG NHÀ MÀ CHƯA CHỌN NHÀ NÀO LÀ ẨN CẢ ALBUM, im lặng.
+    //
+    // Cô bấm "Chỉ những nhà cô chọn" rồi đóng màn lại là không một gia đình
+    // nào còn thấy album — mà trên màn của cô thì nó vẫn nằm đó, đầy ảnh. Nên
+    // nhận danh sách nhà NGAY trong lượt đổi, và từ chối nếu rỗng.
+    const nha = [...new Set((Array.isArray((req.body || {}).nha) ? req.body.nha : []).map(String))]
+      .filter(Boolean);
+    if (moi2 === 'chon-nha') {
+      // Chỉ chọn được nhà NẰM TRONG TẦM VỚI. Không có chốt này thì cô gõ được
+      // mã của bất kỳ tài khoản nào vào và mở album của nhóm mình cho họ.
+      const ngoai = nha.filter((id) => {
+        const u = db.findUser(id);
+        if (!u || !u.active || u.role !== 'parent') return true;
+        return !db.all('student_parents',
+          `SELECT sp.studentId AS id FROM student_parents sp
+             JOIN students s ON s.id = sp.studentId
+            WHERE sp.parentId = ? AND s.active = 1`, [u.id])
+          .some(r => db.canAccessStudent(req.user, r.id));
+      });
+      if (ngoai.length) {
+        return res.status(403).json({
+          error: 'Có gia đình không thuộc phạm vi của tài khoản, nên không chọn được.',
+        });
+      }
+      if (!nha.length) {
+        return res.status(400).json({
+          error: 'Cô chọn giúp ít nhất một gia đình nhé — chọn xong mới lưu được phạm vi này.',
+        });
+      }
+    }
+
+    db.tx(() => {
+      ghiCheDo(album.id, moi2);
+      // Dọn danh sách nhà khi RỜI khỏi chế độ ấy: để lại thì lần sau cô bấm
+      // vào "Chỉ những nhà cô chọn" là một danh sách cũ sống lại mà không ai
+      // bấm gì — đúng loại lỗi không dựng lại được để báo.
+      db.run('DELETE FROM album_nha WHERE albumId = ?', [album.id]);
+      if (moi2 === 'chon-nha') {
+        const luc = new Date().toISOString();
+        for (const id of nha) {
+          db.insert('album_nha', { albumId: album.id, parentId: id, ghiLuc: luc });
+        }
+      }
+    });
+    db.audit(req.user.id, 'album-doi-che-do', album.id,
+      { tu: cu, sang: moi2, soNha: moi2 === 'chon-nha' ? nha.length : 0 });
+
+    // RỘNG HƠN hay HẸP LẠI — so bằng VỊ TRÍ trong `CHE_DO`, không viết tay
+    // từng cặp. Bản trước so `=== 'cong-khai'`, đúng khi chỉ có hai chế độ và
+    // sai ngay khi có bốn: đổi từ 'theo-the' sang 'ca-truong' là mở rộng, mà
+    // câu ấy trả về "hẹp lại".
+    const viTri = (x) => CHE_DO.indexOf(x);
     res.json({
       cheDo: moi2,
-      doiGi: moi2 === 'cong-khai' ? 'mo-rong' : 'hep-lai',
+      tenCheDo: TEN_CHE_DO[moi2],
+      soNha: moi2 === 'chon-nha' ? nha.length : 0,
+      doiGi: viTri(moi2) < viTri(cu) ? 'mo-rong' : 'hep-lai',
     });
+  });
+
+  // Nhà nào đang được chọn cho album này — màn hình cần để tích sẵn ô.
+  app.get('/api/albums/:id/nha', requireRole('teacher', 'admin'), (req, res) => {
+    const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
+    if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
+    if (!datDuocCheDo(req.user, album)) {
+      return res.status(403).json({ error: 'Album này không thuộc phạm vi của tài khoản' });
+    }
+    if (!db.canAccessClass(req.user, album.classId)) {
+      return res.status(403).json({ error: 'Album này không thuộc phạm vi của tài khoản' });
+    }
+    res.json({ cheDo: cheDoCua(album.id), nha: nhaCuaAlbum(album.id) });
   });
 
   // GẮN THẺ NHIỀU ẢNH MỘT LƯỢT (Đ153 / AL-01).
