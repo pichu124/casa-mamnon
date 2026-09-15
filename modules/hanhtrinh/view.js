@@ -15,6 +15,10 @@
 //     không phải nhận định về đứa trẻ.
 App.views.hanhtrinh = {
   _tab: 'suyngam',
+  // Tab nhóm cô đang chọn ở màn "Hành trình từng bé" — rỗng là xem tất cả
+  // (Đ195, việc 24). Mặc định là TẤT CẢ chứ không phải tab đầu: cô mở sổ của
+  // một bé lên là muốn thấy trọn hành trình, chia nhỏ là việc cô chủ động.
+  _nhomBe: '',
   _ngay: null,
   _classId: null,
   _data: null,
@@ -658,6 +662,29 @@ App.views.hanhtrinh = {
     this._beDangXem = this._beDangXem || dsBe[0].id;
 
     const d = await API.get(`/api/hanhtrinh?studentId=${encodeURIComponent(this._beDangXem)}`);
+
+    // BA TAB THEO BA NHÓM CÔ (Đ195, việc 24).
+    //
+    // Tên và số của từng tab do MÁY CHỦ khai (`nhomCoTab`) — màn hình không
+    // kể lại tên ba nhóm lần nữa. Máy chủ đời cũ không gửi khoá ấy thì không
+    // vẽ dải tab và mọi quan sát hiện chung một danh sách, đúng như trước.
+    const tab = d.nhomCoTab || [];
+    if (tab.length && this._nhomBe && !tab.some(t => t.ma === this._nhomBe)) this._nhomBe = '';
+    const loc = this._nhomBe
+      ? (d.quanSat || []).filter(q => q.nhomCo === this._nhomBe)
+      : (d.quanSat || []);
+
+    // CÂU KHI TAB RỖNG PHẢI KHÁC CÂU KHI BÉ CHƯA CÓ QUAN SÁT NÀO.
+    //
+    // QUY TẮC 2: "chưa quan sát thấy" không bao giờ được trình bày như một
+    // thất bại hay một khoảng trống cần lấp. Tab Cô nước ngoài trống nghĩa là
+    // chương trình ấy chưa tới lượt ghi, không phải bé thiếu gì cả.
+    const tenTab = (tab.find(t => t.ma === this._nhomBe) || {}).ten || '';
+    const trong = this._nhomBe
+      ? UI.emptyState('🌱', `Phần ${tenTab} chưa có dòng nào trong tháng này. Các phần khác vẫn ở dải trên.`)
+      : UI.emptyState('🌱',
+        'Chưa có quan sát nào về bé, và không sao cả — hành trình của mỗi bé bắt đầu từ dòng đầu tiên cô ghi.');
+
     than.innerHTML = `
       <div class="card">
         <div class="field" style="margin:0">
@@ -667,11 +694,19 @@ App.views.hanhtrinh = {
           </select>
         </div>
       </div>
-      ${(d.quanSat || []).length
-        ? (d.quanSat || []).map(q => this.theDong(q, d)).join('')
-        : UI.emptyState('🌱',
-          'Chưa có quan sát nào về bé, và không sao cả — hành trình của mỗi bé bắt đầu từ dòng đầu tiên cô ghi.')}`;
+      ${tab.length ? `<div class="seg" id="ht-nhom-tabs" style="margin-bottom:10px">
+        <button class="${!this._nhomBe ? 'active' : ''}" data-nhom="">Tất cả</button>
+        ${tab.map(t => `<button class="${this._nhomBe === t.ma ? 'active' : ''}" data-nhom="${UI.esc(t.ma)}"
+          title="${UI.esc(t.chuongTrinh)}">${UI.esc(t.ten)}${t.soQuanSat ? ` (${t.soQuanSat})` : ''}</button>`).join('')}
+      </div>` : ''}
+      ${loc.length ? loc.map(q => this.theDong(q, d)).join('') : trong}`;
     document.getElementById('ht-chon-be').onchange = (e) => { this._beDangXem = e.target.value; App.route(); };
+    const dai = document.getElementById('ht-nhom-tabs');
+    if (dai) {
+      for (const b of dai.querySelectorAll('button')) {
+        b.onclick = () => { this._nhomBe = b.dataset.nhom; App.route(); };
+      }
+    }
   },
 
   theDong(q, d) {
@@ -681,6 +716,7 @@ App.views.hanhtrinh = {
       <div class="card">
         <div class="card-title">${UI.esc(UI.fmtDate(q.ngay))}
           <span class="spacer"></span>${tt}
+          ${q.tenNhomCo ? UI.badge(q.tenNhomCo, 'blue') : ''}
           ${q.daCongBo ? UI.badge('Đã kể cho gia đình', 'green') : ''}
         </div>
         ${q.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(q.moTa)}</div>` : ''}

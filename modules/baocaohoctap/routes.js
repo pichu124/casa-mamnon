@@ -66,6 +66,44 @@ const LOAI = [
 ];
 const MA_LOAI = LOAI.map(x => x[0]);
 
+// ===========================================================================
+// BÁO CÁO 6 THÁNG CHIA BA NHÓM CHƯƠNG TRÌNH (Đ195, việc 19)
+// ===========================================================================
+//
+// Nhà trường (Câu 11): ba nhóm cô — chủ nhiệm (Montessori), nước ngoài
+// (Cambridge), thể chất — và cả ba "sẽ giúp lên kế hoạch và đánh giá -> báo
+// cáo học tập cho từng trẻ". Nên bản 6 tháng phải nói rõ phần nào của ai.
+//
+// KHÔNG THÊM CỘT NÀO VÀO MẪU. Mỗi dòng của mẫu đã có sẵn `gocLinhVuc` — sợi
+// dây nối sang Kế hoạch của bé. Chương trình suy ra TỪ góc ấy, nên mẫu trường
+// đã soạn và bản báo cáo đã lưu không phải sửa một dòng nào.
+//
+// CHÉP LẠI BẢN ĐỒ, KHÔNG GỌI SANG PHÂN HỆ KIA — cùng lý do đã ghi ở đầu tệp
+// cho năm trạng thái: hai phân hệ cắm thêm không được phụ thuộc nhau, tắt
+// Kế hoạch của bé thì Báo cáo phải chạy y nguyên. Đổi lại, `test:bao-cao-hoc-tap`
+// đối chiếu hai bản với nhau và báo đỏ nếu chúng trôi khỏi nhau.
+const NHOM_CHUONG_TRINH = [
+  ['chu-nhiem', 'Cô phụ trách nhóm', 'Montessori'],
+  ['nuoc-ngoai', 'Cô nước ngoài', 'Cambridge'],
+  ['the-chat', 'Cô thể chất', 'Thể chất chuyên sâu'],
+];
+const CHUONG_TRINH_CUA_GOC = {
+  'toan': 'chu-nhiem',
+  'tieng-viet': 'chu-nhiem',
+  'thuc-hanh-cuoc-song': 'chu-nhiem',
+  'giac-quan': 'chu-nhiem',
+  'van-hoa': 'chu-nhiem',
+  'cambridge': 'nuoc-ngoai',
+  'the-chat': 'the-chat',
+};
+// Dòng KHÔNG khai góc (mẫu cũ, hay dòng chữ tự do của báo cáo tháng) thì về
+// chương trình của cô phụ trách nhóm — đứng ở đâu đó còn hơn biến mất khỏi
+// mọi tab. Đây cũng là lý do màn hình không được ẩn dòng theo tab một cách
+// cứng nhắc: mất một dòng của báo cáo là mất một điều cô đã viết về đứa trẻ.
+function chuongTrinhCuaGoc(ma) {
+  return CHUONG_TRINH_CUA_GOC[String(ma || '')] || 'chu-nhiem';
+}
+
 // NĂM TRẠNG THÁI — PHẢI TRÙNG KHỚP với phân hệ Hành trình học tập.
 //
 // Chép lại thay vì gọi sang phân hệ kia, cùng lý do đã ghi ở Kế hoạch của bé:
@@ -312,6 +350,9 @@ module.exports = (app, { db, modules }) => {
           id: d.id, nhom: d.nhom, nhomEn: d.nhomEn,
           tieuDe: d.tieuDe, tieuDeEn: d.tieuDeEn,
           kieu: d.kieu, gocLinhVuc: d.gocLinhVuc,
+          // Dòng này thuộc chương trình nào (Đ195, việc 19) — thêm một khoá
+          // bên cạnh, `gocLinhVuc` giữ nguyên nên bản app cũ không đổi gì.
+          chuongTrinh: chuongTrinhCuaGoc(d.gocLinhVuc),
           chu: x ? x.chu : '', muc: x ? x.muc : '',
           ...(choGiaDinh ? {} : {
             oId: x ? x.id : null,
@@ -319,6 +360,16 @@ module.exports = (app, { db, modules }) => {
           }),
         };
       }),
+      // BA TAB CHƯƠNG TRÌNH (Đ195, việc 19) — kèm số dòng của từng tab, để màn
+      // hình không phải tự kể tên ba nhóm ra lần nữa.
+      //
+      // Khai cho MỌI loại báo cáo, không riêng bản 6 tháng: báo cáo tháng cũng
+      // có dòng khai góc, và một danh sách tab chỉ xuất hiện ở một loại là thứ
+      // người sau sẽ đọc nhầm thành "loại kia không có chương trình".
+      chuongTrinhTab: NHOM_CHUONG_TRINH.map(([ma, ten, ct]) => ({
+        ma, ten, chuongTrinh: ct,
+        soDong: dong.filter(d => chuongTrinhCuaGoc(d.gocLinhVuc) === ma).length,
+      })),
       // Gia đình không cần biết bản này do ai soạn dở lúc nào; cô thì cần.
       soanBoi: choGiaDinh ? undefined : ban.soanBoi,
     };

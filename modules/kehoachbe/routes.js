@@ -70,8 +70,68 @@ const GOC_LINH_VUC = [
   ['thuc-hanh-cuoc-song', 'Thực hành cuộc sống'],
   ['giac-quan', 'Giác quan'],
   ['van-hoa', 'Văn hoá'],
+  // GÓC THỨ BẢY, THÊM Ở Đ195 (việc 22) — và đây là chỗ cần đọc kỹ.
+  //
+  // Sáu góc trên là danh sách của chính nhà trường. Góc này KHÔNG có trong
+  // danh sách ấy, nhưng trường lại nói rõ (Câu 11) rằng một trong ba nhóm cô
+  // là "GV P.E – phụ trách chương trình thể chất chuyên sâu", và cả ba nhóm
+  // "sẽ giúp lên kế hoạch và đánh giá -> báo cáo học tập cho từng trẻ".
+  //
+  // Không có góc này thì cô thể chất mở màn Kế hoạch ra và KHÔNG CÓ CHỖ NÀO
+  // để soạn — tab thứ ba rỗng vĩnh viễn, và phần việc trường vừa giao cho cô
+  // ấy không tồn tại trong app. Thêm một góc là cách rẻ nhất để lời trường
+  // nói và thứ trên màn hình khớp nhau.
+  //
+  // Thêm là AN TOÀN: `MA_GOC` chỉ nới rộng ra, không hẹp lại, nên mọi kế
+  // hoạch đã lưu vẫn hợp lệ y như cũ.
+  //
+  // Đã ghi để hỏi nhà trường: sáu góc kia có tên trong tài liệu của trường,
+  // góc này do tôi đặt theo chữ trường dùng cho nhóm cô. Trường muốn gọi khác
+  // thì đổi nhãn ở đây, mã giữ nguyên.
+  ['the-chat', 'Thể chất'],
 ];
 const MA_GOC = GOC_LINH_VUC.map(x => x[0]);
+
+// ===========================================================================
+// MỖI GÓC THUỘC CHƯƠNG TRÌNH NÀO (Đ195, việc 22)
+// ===========================================================================
+//
+// Nhà trường muốn màn Kế hoạch chia theo BA CHƯƠNG TRÌNH chứ không theo bảy
+// góc. Nhưng hai cách chia ấy KHÔNG thay thế nhau, và đó là điều quan trọng
+// nhất ở khối này:
+//
+//   • GÓC là thứ cô soạn và tích bài — mịn, và kế hoạch đã lưu đang trỏ vào
+//     mã góc. Đổi nó là làm hỏng dữ liệu đã có, thứ Nguyên tắc số 1 cấm.
+//   • CHƯƠNG TRÌNH là cách NHÌN, gộp mấy góc lại thành một tab cho đúng ba
+//     nhóm cô của trường.
+//
+// Nên đây là một BẢN ĐỒ GỘP, không phải một cột mới: góc giữ nguyên, thêm một
+// tầng nhìn ở trên. Không một dòng dữ liệu nào phải sửa.
+//
+// Mã chương trình dùng ĐÚNG mã nhóm cô của `lib/nhom-co.js` — không đặt bộ mã
+// thứ hai cho cùng một khái niệm, vì hai bộ mã là hai bộ sẽ trôi khỏi nhau.
+const nhomCo = require('../../lib/nhom-co');
+const CHUONG_TRINH_CUA_GOC = {
+  'toan': 'chu-nhiem',
+  'tieng-viet': 'chu-nhiem',
+  'thuc-hanh-cuoc-song': 'chu-nhiem',
+  'giac-quan': 'chu-nhiem',
+  'van-hoa': 'chu-nhiem',
+  'cambridge': 'nuoc-ngoai',
+  'the-chat': 'the-chat',
+};
+// Góc lạ (dữ liệu cũ, hoặc trường tự thêm sau) thì về chương trình của cô phụ
+// trách nhóm — nơi nào cũng thấy còn hơn biến mất khỏi mọi tab.
+function chuongTrinhCuaGoc(ma) {
+  return CHUONG_TRINH_CUA_GOC[String(ma || '')] || nhomCo.MAC_DINH;
+}
+// Ba tab, kèm danh sách góc của từng tab, để màn hình không phải tự gộp lại.
+function tabChuongTrinh() {
+  return nhomCo.NHOM.map(([ma, ten, ct]) => ({
+    ma, ten, chuongTrinh: ct,
+    goc: GOC_LINH_VUC.filter(([g]) => chuongTrinhCuaGoc(g) === ma).map(([g, t]) => ({ ma: g, ten: t })),
+  }));
+}
 
 // BA NHÃN cho một bài đã tích — đúng ba chữ của nhà trường.
 const NHAN_BAI = [
@@ -123,6 +183,14 @@ const BAI_MAC_DINH = {
   'van-hoa': [
     'Quả địa cầu cát – nước', 'Bản đồ ghép châu lục', 'Thẻ động vật – nơi sống',
     'Vòng đời của bướm', 'Chìm – nổi', 'Nam châm hút gì', 'Bộ phận của cây', 'Bốn mùa trong năm', 'Cờ các nước',
+  ],
+  // Bài mở màn cho góc Thể chất (Đ195, việc 22). Danh mục này cô sửa được
+  // ngay trong app, nên đây chỉ là chỗ để cô thể chất không phải mở màn ra
+  // trước một danh sách rỗng — một danh sách rỗng là chỗ người ta đóng app lại.
+  'the-chat': [
+    'Đi theo vạch', 'Bật xa tại chỗ', 'Ném bóng trúng đích', 'Bò chui qua cổng',
+    'Đi thăng bằng trên ghế', 'Chuyền bóng qua đầu', 'Chạy đổi hướng theo hiệu lệnh',
+    'Nhảy lò cò', 'Leo thang gióng', 'Khởi động cùng nhạc',
   ],
 };
 
@@ -392,7 +460,12 @@ module.exports = (app, { db, modules }) => {
     res.json({
       thang, classId,
       thangTruoc: thangTruoc(thang),
-      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
+      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten, chuongTrinh: chuongTrinhCuaGoc(ma) })),
+      // BA TAB THEO CHƯƠNG TRÌNH (Đ195, việc 22) — THÊM MỘT KHOÁ BÊN CẠNH,
+      // KHÔNG ĐỔI KHOÁ CŨ. `gocLinhVuc` giữ nguyên hình dạng cũ cộng đúng một
+      // trường, nên điện thoại đang giữ bản app cũ đọc nó y như trước và
+      // không hề biết `chuongTrinhTab` có mặt.
+      chuongTrinhTab: tabChuongTrinh(),
       ketQua: ketQuaDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
       ketLuanBai: KET_LUAN_BAI.map(([ma, ten]) => ({ ma, ten })),
@@ -417,7 +490,12 @@ module.exports = (app, { db, modules }) => {
   app.get('/api/kehoachbe/bai-hoc', requireRole('teacher', 'admin'), (req, res) => {
     const tatCa = req.user.role === 'admin' && String(req.query.tatCa || '') === '1';
     res.json({
-      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
+      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten, chuongTrinh: chuongTrinhCuaGoc(ma) })),
+      // BA TAB THEO CHƯƠNG TRÌNH (Đ195, việc 22) — THÊM MỘT KHOÁ BÊN CẠNH,
+      // KHÔNG ĐỔI KHOÁ CŨ. `gocLinhVuc` giữ nguyên hình dạng cũ cộng đúng một
+      // trường, nên điện thoại đang giữ bản app cũ đọc nó y như trước và
+      // không hề biết `chuongTrinhTab` có mặt.
+      chuongTrinhTab: tabChuongTrinh(),
       nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
       baiHoc: danhMucBai({ tatCa }),
     });
@@ -480,7 +558,12 @@ module.exports = (app, { db, modules }) => {
     res.json({
       be: { id: be.id, hoTen: be.name, avatar: be.avatar },
       thang,
-      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
+      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten, chuongTrinh: chuongTrinhCuaGoc(ma) })),
+      // BA TAB THEO CHƯƠNG TRÌNH (Đ195, việc 22) — THÊM MỘT KHOÁ BÊN CẠNH,
+      // KHÔNG ĐỔI KHOÁ CŨ. `gocLinhVuc` giữ nguyên hình dạng cũ cộng đúng một
+      // trường, nên điện thoại đang giữ bản app cũ đọc nó y như trước và
+      // không hề biết `chuongTrinhTab` có mặt.
+      chuongTrinhTab: tabChuongTrinh(),
       ketQua: ketQuaDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
       ketLuanBai: KET_LUAN_BAI.map(([ma, ten]) => ({ ma, ten })),

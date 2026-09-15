@@ -67,6 +67,9 @@ const MA_TRANG_THAI = TRANG_THAI.map(x => x[0]);
 // cũ nằm lại sau khi quản lý vừa đổi chữ thì cô thấy chữ cũ cho tới lần khởi
 // động lại — đúng loại lỗi không ai dựng lại được để báo.
 const ndg = require('../../lib/nhan-danh-gia');
+// Ba nhóm cô — chủ nhiệm (Montessori) / nước ngoài (Cambridge) / thể chất
+// (Thể chất chuyên sâu). Sổ quan sát chia ba tab theo đây (Đ195, việc 24).
+const nhomCo = require('../../lib/nhom-co');
 function trangThaiDangDung(db) {
   return ndg.nhanDangDung(db, TRANG_THAI);
 }
@@ -198,6 +201,47 @@ module.exports = (app, { db, modules }) => {
     return u ? `${u.title} ${u.name}` : '';
   }
 
+  // =========================================================================
+  // QUAN SÁT NÀY THUỘC CHƯƠNG TRÌNH NÀO (Đ195, việc 24)
+  // =========================================================================
+  //
+  // Nhà trường (Câu 11): ba nhóm cô, và "3 vị trí này sẽ giúp lên kế hoạch và
+  // đánh giá -> báo cáo học tập cho từng trẻ". Nên sổ quan sát của một bé chia
+  // ba tab theo ba nhóm ấy.
+  //
+  // BA NẤC, ĐI ĐÚNG THỨ TỰ NÀY:
+  //
+  //   1. Dòng đã ghi trong `hanhtrinh_quansat_nhom` — nguồn thật, ghi lúc cô
+  //      bấm Lưu. Vai của cô đổi về sau KHÔNG làm quan sát cũ nhảy tab.
+  //   2. Chưa có dòng (quan sát ghi trước đợt này) thì suy từ vai hiện thời.
+  //   3. Không suy được thì về mặc định — chủ nhiệm.
+  //
+  // Nhờ nấc 2 và 3 mà ngày bảng phụ ra đời không một quan sát nào biến mất
+  // khỏi màn hình: mọi quan sát cũ vẫn có tab để đứng.
+  function nhomCuaQuanSat(r, classId) {
+    if (!r) return nhomCo.MAC_DINH;
+    try {
+      const d = db.first('hanhtrinh_quansat_nhom',
+        'SELECT nhom FROM hanhtrinh_quansat_nhom WHERE quanSatId = ?', [r.id]);
+      if (d && nhomCo.hopLe(d.nhom)) return d.nhom;
+    } catch (_) { /* bảng chưa có thì xuống nấc dưới */ }
+    return nhomCo.nhomCua(db, classId || null, r.coGhi);
+  }
+
+  // Ghi nhóm cho một quan sát vừa tạo. Không bao giờ ném: thiếu dòng này thì
+  // quan sát rơi về nấc 2 ở trên, tức vẫn hiện đúng chỗ hôm nay — chỉ mất
+  // tính bền khi vai của cô đổi về sau. Mất một chút bền không đáng để làm
+  // hỏng cả lượt ghi của cô.
+  function ghiNhomChoQuanSat(quanSatId, classId, teacherId) {
+    try {
+      const ma = nhomCo.nhomCua(db, classId || null, teacherId);
+      db.upsert('hanhtrinh_quansat_nhom', { quanSatId, nhom: ma }, ['quanSatId']);
+      return ma;
+    } catch (_) {
+      return nhomCo.MAC_DINH;
+    }
+  }
+
   // Cô chỉ SỬA được quan sát của chính mình. Quản trị sửa được để còn gỡ khi có
   // khiếu nại — nhưng mọi lần sửa đều vào Nhật ký thao tác.
   function duocSua(user, r) {
@@ -302,7 +346,25 @@ module.exports = (app, { db, modules }) => {
       ngungHoSoHocTap: req.user.role === 'parent' ? undefined : db.beNgungHoSoHocTap(be.id),
       trangThai: trangThaiDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
-      quanSat: rows.map(r => choNguoiXem(r, req.user)).filter(Boolean),
+      // BA TAB THEO BA NHÓM CÔ (Đ195, việc 24).
+      //
+      // Máy chủ khai cả danh sách tab lẫn số quan sát của từng tab, để màn
+      // hình không phải tự kể tên ba nhóm ra lần nữa — hai chỗ cùng nói một
+      // chuyện thì sẽ trôi khỏi nhau, đúng bài học của `lib/nhom-co.js`.
+      //
+      // ĐẾM TRÊN CHÍNH DANH SÁCH NGƯỜI NÀY XEM ĐƯỢC, không đếm trên bảng:
+      // gia đình chỉ nhận câu chuyện đã công bố, mà một con số đếm cả nháp là
+      // rò ra "cô đã ghi 12 điều nhưng chỉ kể 2".
+      nhomCoTab: nhomCo.NHOM.map(([ma, ten, chuongTrinh]) => ({
+        ma, ten, chuongTrinh,
+        soQuanSat: rows.filter(r => nhomCuaQuanSat(r, be.classId) === ma).length,
+      })),
+      quanSat: rows.map((r) => {
+        const x = choNguoiXem(r, req.user);
+        if (!x) return null;
+        const ma = nhomCuaQuanSat(r, be.classId);
+        return { ...x, nhomCo: ma, tenNhomCo: nhomCo.TEN_NHOM[ma] || '' };
+      }).filter(Boolean),
       chuDeTuan: chuDeCuaBe(be, req.user),
       // BÀI HỌC THÁNG NÀY, LẤY TỪ KẾ HOẠCH CỦA BÉ (Đ191, Câu 1). Xem
       // `baiThangNayCuaBe` ngay dưới để biết vì sao chỉ có TÊN BÀI.
@@ -580,8 +642,11 @@ module.exports = (app, { db, modules }) => {
       coGhi: req.user.id, taoLuc: luc, capNhatLuc: luc,
     };
     db.insert('hanhtrinh_quansat', rec);
-    db.audit(req.user.id, 'hanhtrinh-quan-sat', be.id, { ngay, coAnh: !!anh });
-    res.status(201).json(choNguoiXem(rec, req.user));
+    // Đóng dấu chương trình NGAY LÚC GHI (Đ195, việc 24) — xem chú thích ở
+    // `nhomCuaQuanSat` để biết vì sao không suy ra lúc đọc.
+    const nhom = ghiNhomChoQuanSat(rec.id, be.classId, req.user.id);
+    db.audit(req.user.id, 'hanhtrinh-quan-sat', be.id, { ngay, coAnh: !!anh, nhom });
+    res.status(201).json({ ...choNguoiXem(rec, req.user), nhomCo: nhom, tenNhomCo: nhomCo.TEN_NHOM[nhom] || '' });
   });
 
   // =========================================================================

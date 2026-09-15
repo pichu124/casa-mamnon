@@ -68,9 +68,19 @@ console.log('\n[1] Màn của cô: cả nhóm một tháng, kèm đủ danh mụ
   check('thấy đủ bé của nhóm', (d.danhSach || []).length > 0, d.danhSach?.length);
   // SÁU góc từ đợt 2: "Văn hoá" thêm cho khớp mẫu báo cáo tháng lứa 3–6 của
   // chính nhà trường. Năm mã cũ giữ nguyên thứ tự — kế hoạch đã lưu không đổi nghĩa.
-  check('kèm SÁU góc lĩnh vực nhà trường liệt kê, năm mã cũ giữ nguyên',
-    (d.gocLinhVuc || []).map(x => x.ma).join(',') === 'toan,tieng-viet,cambridge,thuc-hanh-cuoc-song,giac-quan,van-hoa',
-    (d.gocLinhVuc || []).map(x => x.ma));
+  //
+  // Đ195 (việc 22) thêm góc THỨ BẢY "Thể chất". Phép kiểm này CHẶT HƠN bản
+  // trước chứ không lỏng hơn: nó tách rõ SÁU góc của nhà trường (vẫn phải
+  // đúng thứ tự, đứng trước, không được xen gì vào giữa) với MỘT góc kho mã
+  // tự thêm — để lần sau ai đọc cũng biết góc nào là chữ của trường và góc
+  // nào không. Lý do thêm nằm ở `GOC_LINH_VUC` trong routes.js: trường giao
+  // cho cô thể chất việc "lên kế hoạch và đánh giá", mà không có góc này thì
+  // cô ấy không có chỗ nào để soạn.
+  const maGoc = (d.gocLinhVuc || []).map(x => x.ma);
+  check('SÁU góc của nhà trường vẫn đứng đầu, đúng thứ tự cũ',
+    maGoc.slice(0, 6).join(',') === 'toan,tieng-viet,cambridge,thuc-hanh-cuoc-song,giac-quan,van-hoa', maGoc);
+  check('và góc thứ bảy là góc kho mã tự thêm cho cô thể chất (Đ195)',
+    maGoc.length === 7 && maGoc[6] === 'the-chat', maGoc);
   check('và NĂM kết quả nhìn lại', (d.ketQua || []).length === 5, (d.ketQua || []).map(x => x.ma));
   check('chưa lập gì thì mọi bé đều rỗng', (d.danhSach || []).every(x => x.ke === null));
   check('đếm được bao nhiêu bé chưa lập', d.tong.chuaLap === d.tong.soBe, d.tong);

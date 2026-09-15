@@ -98,3 +98,31 @@ CREATE TABLE IF NOT EXISTS hanhtrinh_album (
   ghiLuc     TEXT
 );
 CREATE INDEX IF NOT EXISTS hanhtrinh_album_theo_album ON hanhtrinh_album(albumId);
+
+-- QUAN SÁT NÀY THUỘC CHƯƠNG TRÌNH NÀO (Đ195, việc 24).
+--
+-- Nhà trường (Câu 11): ba nhóm cô — cô phụ trách nhóm (Montessori), cô nước
+-- ngoài (Cambridge), cô thể chất (Thể chất chuyên sâu) — "3 vị trí này sẽ giúp
+-- lên kế hoạch và đánh giá -> báo cáo học tập cho từng trẻ". Sổ quan sát của
+-- một bé vì thế chia ba tab theo ba nhóm ấy.
+--
+-- VÌ SAO GHI LẠI CHỨ KHÔNG SUY RA LÚC ĐỌC
+--
+-- Suy ra lúc đọc thì chỉ cần một dòng `nhomCua(classId, coGhi)`, không cần
+-- bảng nào. Nhưng nhóm của cô là thuộc tính của một LƯỢT PHÂN CÔNG, và nó đổi
+-- được: trường khai lại vai của một cô là TOÀN BỘ quan sát cũ của cô nhảy sang
+-- tab khác, kể cả những quan sát cô ghi từ năm ngoái khi cô đang giữ vai kia.
+-- Tệ hơn: `donTheoDanhSachCo` xoá dòng khai vai khi cô rời nhóm, nên quan sát
+-- của cô nước ngoài đã nghỉ việc lặng lẽ rơi về tab Montessori.
+--
+-- Lịch sử học tập của một đứa trẻ không được đổi vì một thao tác hành chính
+-- xảy ra sau đó. Nên ghi lại NGAY LÚC GHI, và lúc đọc chỉ tra bảng này.
+--
+-- KHÔNG CÓ DÒNG = QUAN SÁT CŨ, ghi trước khi bảng này ra đời. Lúc ấy mới suy
+-- ra từ vai hiện thời, rồi cuối cùng mới về mặc định. Nhờ vậy ngày bảng này
+-- ra đời không một quan sát nào biến mất khỏi màn hình.
+CREATE TABLE IF NOT EXISTS hanhtrinh_quansat_nhom (
+  quanSatId TEXT PRIMARY KEY,
+  nhom      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_nhom_theo_nhom ON hanhtrinh_quansat_nhom(nhom);

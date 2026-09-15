@@ -64,8 +64,22 @@ try {
     const d = await req('GET', '/api/kehoachbe/bai-hoc', { cookie: GV });
     check('cô đọc được danh mục', d.status === 200 && Array.isArray(d.data.baiHoc), d.status);
     const goc = (d.data.gocLinhVuc || []).map(x => x.ma);
-    check('sáu góc: năm góc cũ giữ nguyên thứ tự, thêm Văn hoá',
-      goc.join(',') === 'toan,tieng-viet,cambridge,thuc-hanh-cuoc-song,giac-quan,van-hoa', goc);
+    // Đ195 (việc 22) thêm góc thứ bảy "Thể chất" — tách rõ đâu là chữ của
+    // nhà trường, đâu là góc kho mã tự thêm, xem chú thích ở test:ke-hoach-be.
+    check('sáu góc của nhà trường vẫn đứng đầu, đúng thứ tự cũ',
+      goc.slice(0, 6).join(',') === 'toan,tieng-viet,cambridge,thuc-hanh-cuoc-song,giac-quan,van-hoa', goc);
+    check('và góc thứ bảy là góc cho cô thể chất',
+      goc.length === 7 && goc[6] === 'the-chat', goc);
+    // BA TAB THEO CHƯƠNG TRÌNH (việc 22): gộp góc lại, KHÔNG thay góc.
+    const tab = (d.data.chuongTrinhTab || []);
+    check('máy chủ khai đủ ba tab chương trình', tab.length === 3, tab.map(t => t.ma));
+    check('MỌI góc đều có đúng MỘT tab để đứng — không góc nào rơi ra ngoài',
+      goc.every(g => tab.filter(t => (t.goc || []).some(x => x.ma === g)).length === 1),
+      tab.map(t => `${t.ma}:${(t.goc || []).map(x => x.ma).join('+')}`).join(' | '));
+    check('tab Cô nước ngoài đúng là góc Cambridge',
+      ((tab.find(t => t.ma === 'nuoc-ngoai') || {}).goc || []).map(x => x.ma).join(',') === 'cambridge');
+    check('và tab Cô thể chất KHÔNG rỗng — nếu rỗng thì việc trường giao cho cô ấy không tồn tại trong app',
+      ((tab.find(t => t.ma === 'the-chat') || {}).goc || []).length > 0);
     for (const g of goc) baiTheoGoc[g] = (d.data.baiHoc || []).filter(b => b.gocLinhVuc === g);
     check('MỖI góc có sẵn từ 6 tới 12 bài theo tinh thần Montessori',
       goc.every(g => baiTheoGoc[g].length >= 6 && baiTheoGoc[g].length <= 12),
