@@ -232,11 +232,24 @@ const DAU_HIEU_BA_MUC = [
 ];
 
 // Sổ nợ RIÊNG của mẫu ba mức. Cùng luật bánh cóc: chỉ được giảm.
+//
+// SIẾT TỪ BỐN TỆP XUỐNG MỘT, ghi ở Đ203 (việc 47). Ba tệp giao diện đã sạch
+// hẳn — đó là lý do sổ này sinh ra, và hôm nay nó thu lại đúng như đã hẹn:
+//
+//   • `public/js/ui.js` — hằng dùng chung, XOÁ HẲN. Đi đủ ba bước của
+//     CLAUDE.md cho tệp dùng chung: bước 1 không có gì để làm (QUY TẮC 4 cấm
+//     đặt trẻ trên dưới nhau, nên thứ này không có cái thay thế, chỉ có đường
+//     đi ra), bước 2 chuyển mọi chỗ gọi, bước 3 là commit này.
+//   • `public/js/views/remarks.js` và `public/js/views/hocsinhcu.js` — sạch ở
+//     bước 2, cả chỗ HIỆN lẫn hai ô CHỌN bắt cô đặt bậc cho một đứa trẻ.
+//
+// CÒN ĐÚNG MỘT TỆP, VÀ NÓ Ở LẠI CÓ CHỦ Ý: `routes/remarks.js` giữ danh sách ba
+// mã cũ để nhận xét cô đã viết từ trước vẫn đọc được, và để điện thoại còn giữ
+// bản app cũ vẫn gửi được. Bỏ một tính năng là ngưng dùng nó, không phải xoá
+// dữ liệu của nó (Nguyên tắc số 1). Không màn hình nào dựng nó thành một cái
+// bậc nữa — đó mới là thứ QUY TẮC 4 hỏi.
 const NO_BA_MUC = {
-  'public/js/ui.js': { so: 3, vi_sao: 'Hằng UI.RATING — ba mức kế thừa từ app 1. Tệp DÙNG CHUNG, gỡ phải đi ba bước.' },
-  'public/js/views/remarks.js': { so: 4, vi_sao: 'Nhận xét hàng ngày — đã tắt sẵn từ A2. Gỡ cùng N3.' },
-  'public/js/views/hocsinhcu.js': { so: 1, vi_sao: 'Hồ sơ con đã ra trường — đã tắt sẵn từ Đ5. Gỡ cùng N3.' },
-  'routes/remarks.js': { so: 1, vi_sao: 'Máy chủ nhận ba mức đó. Gỡ cùng N3.' },
+  'routes/remarks.js': { so: 1, vi_sao: 'Máy chủ giữ danh sách mã cũ cho bản ghi cũ và cho app đời cũ. Ở lại có chủ ý.' },
 };
 const TEP_NO_BA_MUC = Object.keys(NO_BA_MUC);
 
@@ -356,7 +369,7 @@ console.log('\n[2c] Mẫu XẾP TRẺ BA BẬC — bánh cóc riêng, siết t�
   }
 
   check('danh sách tệp nợ mẫu ba mức chỉ được NGẮN ĐI',
-    TEP_NO_BA_MUC.length === 4, TEP_NO_BA_MUC);
+    TEP_NO_BA_MUC.length === 1, TEP_NO_BA_MUC);
   check('mọi tệp trong sổ nợ này đều tồn tại thật',
     TEP_NO_BA_MUC.every(t => fs.existsSync(path.join(GOC, t))),
     TEP_NO_BA_MUC.filter(t => !fs.existsSync(path.join(GOC, t))));

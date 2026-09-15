@@ -180,7 +180,6 @@
   "public/js/ui.js (UI)": {
     "ATT_STATUS": "object",
     "DOW": "object",
-    "RATING": "object",
     "avatar": "ham(1)",
     "badge": "ham(2)",
     "closeModal": "ham(0)",

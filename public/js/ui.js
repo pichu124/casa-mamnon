@@ -593,18 +593,13 @@ window.UI = (() => {
     absent_excused: { label: 'Nghỉ có phép', cls: 'blue', color: '#2f80ed' },
     absent_unexcused: { label: 'Nghỉ không phép', cls: 'red', color: '#e74c3c' },
   };
-  const RATING = {
-    great: { label: 'Con làm rất tốt', cls: 'green', emoji: '🌟' },
-    good: { label: 'Con làm tốt', cls: 'blue', emoji: '👍' },
-    needs_effort: { label: 'Cần cố gắng thêm', cls: 'orange', emoji: '💪' },
-  };
   function badge(label, cls) { return `<span class="badge ${cls}">${esc(label)}</span>`; }
 
   return {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
     ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
     pageHeader, avatar, emptyState, studentBar, thanhChonBe, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
-    badge, ATT_STATUS, RATING, DOW,
+    badge, ATT_STATUS, DOW,
     nenAnh, nenVideo,
     maAnToan, dongThongTin,
   };
