@@ -801,6 +801,36 @@ module.exports = (app, { db, modules }) => {
       }
       const lop = db.findClass(album.classId);
       if (!lop || !lop.active) return res.status(400).json({ error: 'Nhóm của album đã đóng — chọn album của năm nay nhé' });
+
+      // CÂU CHUYỆN CỦA MỘT BÉ KHÔNG ĐƯỢC RƠI VÀO ALBUM CẢ NHÓM ĐỌC ĐƯỢC.
+      //
+      // Đây là ranh giới LỚP 3 trong bảng ba lớp dữ liệu của CLAUDE.md: câu
+      // chuyện kể cho gia đình là của *phụ huynh chính bé đó*, không phải của
+      // cả nhóm. Trước bản vá này, ô chọn album mời cô chọn BẤT KỲ album nào
+      // của nhóm, và album mặc định là 'cong-khai' — nên một tấm ảnh riêng của
+      // bé, kèm chính câu chuyện cô vừa viết làm lời chú thích, hiện ra với mọi
+      // gia đình trong nhóm. Ô chọn không cảnh báo một chữ nào.
+      //
+      // Nhà trường cũng chốt đúng điều này ngày 10/09/2026 (A15): *"Hành trình
+      // của bé: giáo viên sẽ tạo album ảnh cho từng bé và CHỈ CHIA SẺ album này
+      // cho phụ huynh của bé ấy thôi"*.
+      //
+      // Chốt đặt ở MÁY CHỦ chứ không chỉ ở ô chọn: ô chọn là để cô khỏi bấm
+      // nhầm, còn đây mới là chỗ không ai vòng qua được. Cùng lý do đã ghi ở
+      // lib/schema.sql cho luật ảnh nhóm — lọc ở tầng dữ liệu, không che ở
+      // giao diện.
+      //
+      // KHÔNG đụng tới tấm ảnh nào ĐÃ chép sang album công khai trước đây:
+      // xoá chúng là mất dữ liệu, và gia đình có thể đã nhìn thấy rồi. Bản vá
+      // này chỉ chặn tấm TIẾP THEO.
+      const cheDo = db.first('album_che_do',
+        'SELECT cheDo FROM album_che_do WHERE albumId = ?', [album.id]);
+      if (!cheDo || cheDo.cheDo !== 'theo-the') {
+        return res.status(400).json({
+          error: 'Album này đang để cả nhóm cùng xem, nên không lưu ảnh của câu chuyện riêng vào đó được. '
+            + 'Cô chọn một album ở chế độ "theo thẻ" — ở đó mỗi nhà chỉ thấy ảnh có thẻ con mình.',
+        });
+      }
     }
 
     const luc = new Date().toISOString();

@@ -404,8 +404,11 @@ App.views.hanhtrinh = {
     if (q.anh && !q.daVeAlbum) {
       try {
         const be = (App.state.students || []).find(s => s.id === q.studentId) || {};
+        // CHỈ MỜI ALBUM "THEO THẺ". Câu chuyện là của riêng một bé, nên album
+        // cả nhóm cùng xem thì không được hiện ra để cô bấm nhầm. Máy chủ cũng
+        // từ chối, nhưng mời rồi mới từ chối là làm cô mất công gõ lại.
         albums = (await API.get('/api/albums') || [])
-          .filter(a => a.classId === be.classId && !a.lopDaDong);
+          .filter(a => a.classId === be.classId && !a.lopDaDong && a.cheDo === 'theo-the');
       } catch (_) { albums = []; }
     }
     UI.modal(`
@@ -424,15 +427,19 @@ App.views.hanhtrinh = {
           Đây là <b>lời rủ chơi</b> gửi gia đình, không phải việc phải nộp lại cho cô.</div>
       </div>
       ${q.daVeAlbum ? `<div class="hint mb-8">🖼️ Ảnh của quan sát này đã lưu về album <b>${UI.esc(q.daVeAlbum.title)}</b>.</div>` : ''}
-      ${albums.length ? `
+      ${q.anh && !q.daVeAlbum ? (albums.length ? `
       <div class="field">
         <label>Lưu ảnh về album</label>
         <select id="ht-album">
           <option value="">Không lưu về album</option>
-          ${albums.map(a => `<option value="${UI.esc(a.id)}">${UI.esc(a.title)}${a.cheDo === 'theo-the' ? ' (theo thẻ)' : ''}</option>`).join('')}
+          ${albums.map(a => `<option value="${UI.esc(a.id)}">${UI.esc(a.title)}</option>`).join('')}
         </select>
-        <div class="hint">Ảnh được chép sang album đã chọn và gắn thẻ bé, để gia đình về sau vào Album ảnh tìm lại cho tiện.</div>
-      </div>` : ''}
+        <div class="hint">Ảnh được chép sang album đã chọn và gắn thẻ bé, để gia đình về sau vào Album ảnh tìm lại cho tiện.
+          Chỉ hiện album ở chế độ <b>theo thẻ</b> — ở đó mỗi nhà chỉ thấy ảnh có thẻ con mình.</div>
+      </div>` : `
+      <div class="hint mb-8">Nhóm mình chưa có album nào ở chế độ <b>theo thẻ</b>, nên chưa lưu ảnh của
+        câu chuyện này về album được. Câu chuyện vẫn kể cho gia đình bình thường.
+        Muốn lưu thì nhờ nhà trường tạo một album theo thẻ giúp cô nhé.</div>`) : ''}
       <div class="grid-2">
         <button class="btn outline" id="ht-luu-nhap">${q.daCongBo ? 'Lưu thay đổi' : 'Lưu nháp'}</button>
         <button class="btn success-soft" id="ht-cong-bo">${UI.icon('send', 16)} Kể cho gia đình</button>

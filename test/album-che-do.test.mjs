@@ -178,6 +178,68 @@ console.log('\n[4] Ảnh của câu chuyện Hành trình về album — chép s
 }
 
 // ===========================================================================
+console.log('\n[4b] CÂU CHUYỆN CỦA MỘT BÉ KHÔNG RƠI VÀO ALBUM CẢ NHÓM ĐỌC ĐƯỢC');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Đây là ranh giới LỚP 3 trong bảng ba lớp dữ liệu của CLAUDE.md: câu chuyện
+  // kể cho gia đình là của *phụ huynh chính bé đó*. Trước bản vá, ô chọn album
+  // mời cô chọn BẤT KỲ album nào của nhóm, mà album mặc định là 'cong-khai' —
+  // nên một tấm ảnh riêng của bé, kèm chính câu chuyện cô vừa viết làm lời chú
+  // thích, hiện ra với mọi gia đình trong nhóm. Ô chọn không cảnh báo gì cả.
+  //
+  // Mục [4] ở trên có một phép kiểm album công khai, nhưng album đó thuộc NHÓM
+  // KHÁC nên nó dừng ở chốt "cô không phụ trách nhóm đó" (403) — chốt chế độ
+  // không bao giờ được chạm tới. Mục này dựng đúng cảnh nguy hiểm: album công
+  // khai CỦA CHÍNH NHÓM MÌNH, cô có đủ quyền, bé đúng nhóm.
+  const alCK1 = await req('POST', '/api/albums', {
+    cookie: GV, body: { title: 'Ảnh chung nhóm Chồi 2', photos: [{ dataUrl: ANH }] },
+  });
+  check('cô tạo được một album CÔNG KHAI của chính nhóm mình',
+    alCK1.status === 201 && alCK1.data?.cheDo === 'cong-khai', alCK1.data?.cheDo);
+  const AL_CK1 = alCK1.data.id;
+  const truocCK = (await chiTiet(GV, AL_CK1)).data.photos.length;
+
+  const qs2 = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', moTa: 'An ngồi lâu với bộ ghép hình.', anh: ANH },
+  });
+  const Q2 = qs2.data.id;
+
+  const vaoCK = await req('POST', `/api/hanhtrinh/${Q2}/cong-bo`, {
+    cookie: GV,
+    body: { cauChuyen: 'Chuyện riêng của An.', cungConONha: 'Tối nay ghép hình cùng con.', albumId: AL_CK1 },
+  });
+  check('ALBUM CÔNG KHAI CỦA CHÍNH NHÓM MÌNH THÌ BỊ TỪ CHỐI',
+    vaoCK.status === 400, `${vaoCK.status} ${vaoCK.data?.error || ''}`);
+  check('và lời từ chối chỉ đúng đường ra: chọn album theo thẻ',
+    /theo thẻ/i.test(vaoCK.data?.error || ''), vaoCK.data?.error);
+  check('KHÔNG một tấm nào lọt vào album công khai',
+    (await chiTiet(GV, AL_CK1)).data.photos.length === truocCK, truocCK);
+
+  // Và chốt phải chặn THẬT — không phải chỉ từ chối rồi vẫn công bố.
+  const conNhap = await req('GET', `/api/hanhtrinh?studentId=s1`, { cookie: GV });
+  const ban = (conNhap.data?.quanSat || conNhap.data || []).find(x => x.id === Q2);
+  check('câu chuyện cũng CHƯA được công bố — kiểm trước khi ghi, không ghi rồi mới kiểm',
+    !ban?.daCongBo && !ban?.congBoLuc, ban && { daCongBo: ban.daCongBo, congBoLuc: ban.congBoLuc });
+
+  // ĐỐI CHỨNG: cùng quan sát ấy, album THEO THẺ thì vào bình thường.
+  const vaoThe = await req('POST', `/api/hanhtrinh/${Q2}/cong-bo`, {
+    cookie: GV,
+    body: { cauChuyen: 'Chuyện riêng của An.', cungConONha: 'Tối nay ghép hình cùng con.', albumId: AL_THE },
+  });
+  check('đối chứng — album THEO THẺ thì vẫn lưu được như trước',
+    vaoThe.status === 200 && vaoThe.data?.daVeAlbum?.id === AL_THE, vaoThe.data?.daVeAlbum);
+
+  // Ô CHỌN Ở MÀN CỦA CÔ CŨNG KHÔNG ĐƯỢC MỜI ALBUM CÔNG KHAI.
+  // Chốt thật nằm ở máy chủ, nhưng mời rồi mới từ chối là bắt cô gõ lại.
+  const hv = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
+  check('ô chọn album chỉ lọc lấy album theo thẻ',
+    /cheDo === 'theo-the'/.test(hv), hv.includes('cheDo'));
+  check('và nói cho cô biết phải làm gì khi nhóm chưa có album theo thẻ nào',
+    /chưa có album nào ở chế độ/.test(hv));
+}
+
+// ===========================================================================
 console.log('\n[5] Canh tĩnh: lược đồ chỉ thêm, chốt ở đường byte, Ghi nhanh nhiều bé');
 {
   const core = fs.readFileSync(path.join(GOC, 'lib/schema.sql'), 'utf8');
