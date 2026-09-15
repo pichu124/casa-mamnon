@@ -55,6 +55,7 @@ App.views.hocphi = {
             ${taoDuoc ? '<button class="btn sm outline" id="hp-dot">Ghi sổ cho cả nhóm</button>' : ''}
             ${xemUuDaiDuoc ? '<button class="btn sm outline" id="hp-uudai">Ưu đãi</button>' : ''}
             <button class="btn sm outline" id="hp-bieuphi">Biểu phí</button>
+            <button class="btn sm outline" id="hp-taikhoan">Tài khoản nhận tiền</button>
           </div>
           ${taoDuoc ? `
             <div class="muted small mt-8">
@@ -116,6 +117,9 @@ App.views.hocphi = {
                   : xacNhanDuoc
                     ? `<button class="btn sm outline mt-8" onclick="App.views.hocphi.xacNhan('${UI.esc(k.id)}')">Xác nhận</button>`
                     : UI.badge('Chưa nộp', 'orange')}
+                ${k.daNop ? '' : `
+                  <button class="btn sm outline mt-8"
+                    onclick="App.views.hocphi.moChuyenKhoan('${UI.esc(k.id)}')">Chuyển khoản</button>`}
               </div>
             </div>`).join('')}
         </div>` : UI.emptyState('💳', 'Chưa có khoản thu nào')}`;
@@ -130,6 +134,8 @@ App.views.hocphi = {
     if (bUu) bUu.onclick = () => this.moUuDai();
     const bBp = document.getElementById('hp-bieuphi');
     if (bBp) bBp.onclick = () => this.moBieuPhi();
+    const bTk = document.getElementById('hp-taikhoan');
+    if (bTk) bTk.onclick = () => this.moTaiKhoan();
     const sel = document.getElementById('hp-hs');
     if (sel) sel.onchange = () => { this._sid = sel.value; App.route(); };
   },
@@ -761,6 +767,182 @@ App.views.hocphi = {
         UI.closeModal();
         UI.toast('Đã lưu bản nháp', 'success');
         this.moBieuPhi();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // ======================================================================
+  // TÀI KHOẢN NHẬN TIỀN, MÃ QR, CÚ PHÁP CHUYỂN KHOẢN (Đ208, việc 36)
+  // ======================================================================
+  //
+  // MÀN CỦA GIA ĐÌNH LUÔN IN SỐ TÀI KHOẢN VÀ TÊN CHỦ TÀI KHOẢN BẰNG CHỮ ngay
+  // cạnh mã QR. Một mã QR là một hình vuông đen trắng — người quét không đọc
+  // được gì trong đó, nên nếu chỉ có mã thì không ai đối chiếu được trước khi
+  // bấm chuyển. In chữ ra là vế duy nhất còn lại để một gia đình phát hiện
+  // được rằng số tài khoản đã bị đổi.
+  async moChuyenKhoan(khoanId) {
+    UI.modal('<div class="loading">Đang lấy thông tin chuyển khoản</div>', 'Chuyển khoản');
+    let d;
+    try { d = await API.get(`/api/hocphi/chuyen-khoan?khoanId=${encodeURIComponent(khoanId)}`); }
+    catch (err) { UI.closeModal(); return UI.toast(err.message, 'error'); }
+
+    if (!d.coTaiKhoan) {
+      return UI.modal(`
+        ${UI.emptyState('🏦', UI.esc(d.loiNhan || 'Nhà trường chưa khai số tài khoản trên app.'))}
+        <button class="btn outline block mt-8" onclick="UI.closeModal()">Đóng</button>
+      `, 'Chuyển khoản');
+    }
+
+    const tien = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
+    UI.modal(`
+      ${d.qrSvg ? `
+        <div style="background:#fff;border-radius:12px;padding:10px;max-width:250px;margin:0 auto">
+          ${d.qrSvg}
+        </div>
+        <div class="small muted" style="text-align:center;margin-top:6px">
+          Mở app ngân hàng, chọn quét mã
+        </div>` : `
+        <div class="small" style="background:#fff6e9;border-radius:8px;padding:9px 11px;line-height:1.6">
+          Lần này app chưa dựng được mã QR. Gia đình chuyển khoản theo thông tin bên dưới giúp nhé —
+          vẫn đúng như nhau ạ.
+        </div>`}
+      <div class="card mt-14" style="padding:10px 12px">
+        <div class="field" style="margin-bottom:8px">
+          <label>Ngân hàng</label>
+          <div>${UI.esc(d.tenNganHang || '—')}</div>
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label>Số tài khoản</label>
+          <div style="font-weight:700;letter-spacing:.5px">${UI.esc(d.soTaiKhoan)}</div>
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label>Chủ tài khoản</label>
+          <div>${UI.esc(d.chuTaiKhoan)}</div>
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label>Số tiền</label>
+          <div style="font-weight:700">${UI.esc(tien(d.soTien))}</div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Nội dung chuyển khoản</label>
+          <div style="font-weight:700;word-break:break-word">${UI.esc(d.cuPhap)}</div>
+          <div class="small muted mt-8">
+            Xin gia đình gõ đúng dòng nội dung này, để văn phòng biết ngay tiền này của bé nào.
+          </div>
+        </div>
+      </div>
+      <button class="btn outline block mt-14" onclick="UI.closeModal()">Đóng</button>
+    `, 'Chuyển khoản');
+  },
+
+  // Màn khai tài khoản của nhà trường. Máy chủ nói ra quyền (`doiDuoc`) chứ
+  // màn hình không tự đoán theo vai — quyền ở đây là chức vụ, không phải vai.
+  async moTaiKhoan() {
+    UI.modal('<div class="loading">Đang tải</div>', 'Tài khoản nhận tiền');
+    let d;
+    try { d = await API.get('/api/hocphi/tai-khoan'); }
+    catch (err) { UI.closeModal(); return UI.toast(err.message, 'error'); }
+
+    const dsCu = d.danhSach || [];
+    const hien = dsCu.find(x => x.campusId === '') || dsCu[0] || null;
+    UI.modal(`
+      <div class="small" style="background:#fff6e9;border-left:3px solid var(--warning,#d9822b);
+                                border-radius:8px;padding:9px 11px;line-height:1.6">
+        <b>Đây là chỗ tiền của tất cả các gia đình chạy về.</b>
+        App không hỏi ngân hàng được, nên gõ nhầm một chữ số là tiền đi sang chỗ khác
+        mà không có gì báo. Xin đối chiếu với sổ ngân hàng của trường trước khi lưu.
+      </div>
+      ${dsCu.length ? `
+        <div class="card mt-14" style="padding:10px 12px">
+          ${dsCu.map(x => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.campusId || 'Dùng chung cả trường')}</div>
+                <div class="row-sub">${UI.esc(x.tenNganHang || x.tenTheoMa || x.maNganHang)} ·
+                  ${UI.esc(x.soTaiKhoan)} · ${UI.esc(x.chuTaiKhoan)}</div>
+                ${x.nguoiDoiTen ? `<div class="small muted">${UI.esc(x.nguoiDoiTen)} đặt lần cuối</div>` : ''}
+              </div>
+              <div class="row-end">${x.duDeDungQr
+                ? UI.badge('Dựng được mã QR', 'green')
+                : UI.badge('Chưa đủ để dựng mã', 'orange')}</div>
+            </div>`).join('')}
+        </div>` : UI.emptyState('🏦', 'Trường chưa khai tài khoản nào')}
+      ${d.doiDuoc ? `
+        <div class="field mt-14">
+          <label>Ngân hàng</label>
+          <select id="hp-tk-nh">
+            <option value="">— Chọn ngân hàng —</option>
+            ${(d.nganHang || []).map(n => `<option value="${UI.esc(n.ma)}"
+              ${hien && hien.maNganHang === n.ma ? 'selected' : ''}>${UI.esc(n.ten)} (${UI.esc(n.ma)})</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Hoặc gõ mã ngân hàng 6 số</label>
+          <input id="hp-tk-ma" inputmode="numeric" placeholder="Ví dụ 970436"
+            value="${UI.esc(hien ? hien.maNganHang : '')}">
+        </div>
+        <div class="field">
+          <label>Số tài khoản</label>
+          <input id="hp-tk-stk" value="${UI.esc(hien ? hien.soTaiKhoan : '')}">
+        </div>
+        <div class="field">
+          <label>Tên chủ tài khoản</label>
+          <input id="hp-tk-chu" value="${UI.esc(hien ? hien.chuTaiKhoan : '')}"
+            placeholder="Ví dụ TRUONG MAM NON CASA">
+        </div>
+        <div class="field">
+          <label>Cú pháp chuyển khoản</label>
+          <input id="hp-tk-cp" value="${UI.esc(hien && hien.cuPhap ? hien.cuPhap : (d.cuPhapMacDinh || ''))}">
+          <div class="small muted mt-8">
+            Máy thay các ô {MA_BE}, {TEN_BE}, {TEN_KHOAN}, {THANG} rồi bỏ dấu trước khi đưa vào mã QR.
+          </div>
+        </div>
+        <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 2px;cursor:pointer">
+          <input type="checkbox" id="hp-tk-dc" style="width:18px;height:18px;flex:none;accent-color:var(--primary)">
+          <span class="small">Tôi đã đối chiếu số tài khoản trên với sổ ngân hàng của trường.</span>
+        </label>
+        <div class="small muted" id="hp-tk-ten" style="min-height:18px"></div>
+        <button class="btn primary block mt-8" id="hp-tk-luu">Lưu tài khoản nhận tiền</button>
+      ` : `
+        <div class="small muted mt-14" style="line-height:1.6">
+          Chỉ ban giám hiệu đổi được tài khoản nhận tiền. App cố ý để một mình khâu kế toán
+          không tự đổi được chỗ tiền chạy về.
+        </div>`}
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Đóng</button>
+    `, 'Tài khoản nhận tiền');
+
+    if (!d.doiDuoc) return;
+    const oNh = document.getElementById('hp-tk-nh');
+    const oMa = document.getElementById('hp-tk-ma');
+    const oTen = document.getElementById('hp-tk-ten');
+    // ĐỌC LẠI TÊN NGÂN HÀNG CHO NGƯỜI KHAI NHÌN BẰNG MẮT. Danh sách chỉ là gợi
+    // ý, nên chỗ chống sai thật nằm ở việc người khai đọc lại tên máy hiểu được.
+    const doiTen = () => {
+      const ma = String(oMa.value || '').trim();
+      const n = (d.nganHang || []).find(x => x.ma === ma);
+      oTen.textContent = !ma ? ''
+        : n ? `Mã ${ma} — app hiểu là ${n.ten}. Xin đọc lại giúp.`
+          : `Mã ${ma} — app không nhận ra ngân hàng nào. Vẫn lưu được, nhưng xin kiểm tra lại mã.`;
+    };
+    oNh.onchange = () => { if (oNh.value) { oMa.value = oNh.value; doiTen(); } };
+    oMa.oninput = doiTen;
+    doiTen();
+
+    document.getElementById('hp-tk-luu').onclick = async () => {
+      const ma = String(oMa.value || '').trim();
+      const n = (d.nganHang || []).find(x => x.ma === ma);
+      try {
+        await API.put('/api/hocphi/tai-khoan', {
+          campusId: '',
+          maNganHang: ma,
+          tenNganHang: n ? n.ten : '',
+          soTaiKhoan: String(document.getElementById('hp-tk-stk').value || '').trim(),
+          chuTaiKhoan: String(document.getElementById('hp-tk-chu').value || '').trim(),
+          cuPhap: String(document.getElementById('hp-tk-cp').value || '').trim(),
+          daDoiChieu: !!document.getElementById('hp-tk-dc').checked,
+        });
+        UI.closeModal();
+        UI.toast('Đã lưu tài khoản nhận tiền', 'success');
       } catch (err) { UI.toast(err.message, 'error'); }
     };
   },

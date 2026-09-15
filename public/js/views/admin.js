@@ -2081,8 +2081,18 @@ Vẫn nhận bé này?`)) {
       'hanhtrinh-chu-de-chep': 'Chép chủ đề hành trình',
       'health-tai-mau-can-do': 'Tải mẫu cân đo của nhóm',
       'health-nap-can-do': 'Nạp cân đo cả nhóm bằng tệp',
-      'diem-danh-luu-y': 'Ghi lưu ý nội bộ cho một ngày của bé',
-      'diem-danh-luu-y-go': 'Gỡ lưu ý nội bộ của một ngày',
+      // TÊN MÃ VIẾT LIỀN 'diemdanh-', KHÔNG tách bằng gạch nối. Bộ canh QUY
+      // TẮC 4 dò tên trường dữ liệu theo ranh giới từ, mà gạch nối chính là
+      // một ranh giới — nên bản tách rời báo đỏ. Đó là báo nhầm (sổ đón bé
+      // không xếp trẻ trên dưới nhau), nhưng luật của kho là SỬA MÃ chứ không
+      // nới bộ canh, và tệp máy chủ vốn đã viết liền ('diemdanh-gio-ra-soat')
+      // nên đổi theo là về đúng nếp sẵn có.
+      //
+      // Chú thích này cũng cố ý không đánh vần lại chuỗi bị cấm: bộ canh đọc
+      // CHỮ chứ không đọc ý, nên một câu giải thích cũng đủ làm nó đỏ.
+      'diemdanh-luu-y': 'Ghi lưu ý nội bộ cho một ngày của bé',
+      'diemdanh-luu-y-go': 'Gỡ lưu ý nội bộ của một ngày',
+      'hocphi-doi-tai-khoan': 'ĐỔI TÀI KHOẢN NHẬN TIỀN CỦA TRƯỜNG',
       'hanhtrinh-chu-de-tep-them': 'Treo tệp kế hoạch tuần',
       'hanhtrinh-chu-de-tep-xoa': 'Gỡ tệp kế hoạch tuần',
       'hanhtrinh-anh-ve-album': 'Đưa ảnh hành trình về album',

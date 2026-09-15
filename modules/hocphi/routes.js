@@ -1,3 +1,6 @@
+const vietqr = require('../../lib/vietqr');
+const qrcode = require('qrcode');
+
 // Phân hệ Học phí — ví dụ về một tính năng cắm thêm.
 //
 // Nhận sẵn `db` qua tham số thứ hai nên không cần biết ứng dụng đặt tệp dữ liệu
@@ -1135,6 +1138,194 @@ module.exports = (app, { db, modules }) => {
 
   // Xác nhận đã nhận tiền — cùng một lý do như trên, và nặng hơn: đây là chỗ
   // biến "nhà này còn nợ" thành "nhà này đã nộp".
+  // =========================================================================
+  // TÀI KHOẢN NHẬN TIỀN, MÃ QR VÀ CÚ PHÁP CHUYỂN KHOẢN (Đ208, việc 36)
+  // =========================================================================
+  //
+  // ĐĂNG KÝ TRƯỚC NHÓM `/:id/...` LÀ PHÒNG, KHÔNG PHẢI VÁ. Hôm nay không có
+  // va chạm thật: các đường `/:id/...` đều bốn đoạn, hai đường dưới đây ba
+  // đoạn. Giữ thứ tự này để ngày ai đó thêm một đường `/api/hocphi/:id` ba
+  // đoạn thì "tai-khoan" không bị đọc thành một mã khoản thu. Cùng lý do đã
+  // ghi ở khối biểu phí (Đ200).
+  //
+  // CHỐT CHẶT NHẤT PHÂN HỆ NẰM Ở ĐƯỜNG GHI, VÀ ĐÂY LÀ LÝ DO:
+  //
+  //   Đổi một chữ số trong số tài khoản là đổi chỗ nhận tiền của TOÀN BỘ phụ
+  //   huynh, và đổi một cách IM LẶNG — màn hình vẫn dựng một mã QR trông hoàn
+  //   toàn bình thường cho số sai. App không nối tới ngân hàng nào nên không
+  //   có bước nào kiểm tra hộ. Nhìn từ ngoài, một tài khoản bị đổi trộm không
+  //   phân biệt được với một tài khoản đúng.
+  //
+  // Nên đường ghi hỏi `db.duyetBieuPhiDuoc` (chỉ ban giám hiệu) chứ không hỏi
+  // `chiNguoiLoTien` — kế toán soạn được biểu phí nhưng không tự đổi được chỗ
+  // tiền chạy về. Cùng vế tách người soạn khỏi người duyệt của Đ200.
+  const CU_PHAP_MAC_DINH = '{MA_BE} {TEN_BE} {TEN_KHOAN}';
+
+  function coSoCuaBe(be) {
+    return (be && be.classId && db.campusOfClass(be.classId)) || '';
+  }
+
+  // Tài khoản áp cho một cơ sở: dòng của chính cơ sở ấy, không có thì lùi về
+  // dòng dùng chung cả trường (`campusId` rỗng).
+  function taiKhoanCua(campusId) {
+    const rieng = campusId ? db.first('hocphi_taikhoan',
+      'SELECT * FROM hocphi_taikhoan WHERE campusId = ?', [campusId]) : null;
+    if (rieng && rieng.soTaiKhoan) return rieng;
+    return db.first('hocphi_taikhoan', "SELECT * FROM hocphi_taikhoan WHERE campusId = ''") || null;
+  }
+
+  // ĐỦ ĐỂ DỰNG MÃ QR HAY CHƯA. Thiếu một trong ba thì màn của gia đình KHÔNG
+  // hiện mã nào cả và nói rõ là trường chưa khai — chứ không dựng một mã sai.
+  function duDeDungQr(tk) {
+    return !!(tk && vietqr.hopLeMa(tk.maNganHang) && String(tk.soTaiKhoan || '').trim());
+  }
+
+  function thayOTrongCuPhap(mau, { be, khoan, thang }) {
+    return String(mau || CU_PHAP_MAC_DINH)
+      .replace(/\{MA_BE\}/g, (be && (be.code || be.id)) || '')
+      .replace(/\{TEN_BE\}/g, (be && be.name) || '')
+      .replace(/\{TEN_KHOAN\}/g, (khoan && khoan.noiDung) || '')
+      .replace(/\{THANG\}/g, thang || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  app.get('/api/hocphi/tai-khoan', requireRole('admin'), (req, res) => {
+    const pham = db.phamViCoSo(req.user) || '';
+    const rows = db.all('hocphi_taikhoan', 'SELECT * FROM hocphi_taikhoan ORDER BY campusId');
+    const thay = pham ? rows.filter(r => r.campusId === pham || r.campusId === '') : rows;
+    res.json({
+      // Danh sách ngân hàng là GỢI Ý cho ô chọn, không phải nguồn sự thật —
+      // xem chú thích đầu `lib/vietqr.js`. Trường dùng ngân hàng ngoài danh
+      // sách vẫn gõ thẳng mã 6 số được.
+      nganHang: vietqr.NGAN_HANG,
+      cuPhapMacDinh: CU_PHAP_MAC_DINH,
+      doiDuoc: db.duyetBieuPhiDuoc(req.user),
+      danhSach: thay.map(r => ({
+        ...r,
+        daDoiChieu: !!r.daDoiChieu,
+        tenTheoMa: vietqr.tenNganHang(r.maNganHang),
+        duDeDungQr: duDeDungQr(r),
+        nguoiDoiTen: r.nguoiDoi ? ((db.findUser(r.nguoiDoi) || {}).name || '') : '',
+      })),
+    });
+  });
+
+  app.put('/api/hocphi/tai-khoan', requireRole('admin'), (req, res) => {
+    if (!db.duyetBieuPhiDuoc(req.user)) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu mới đổi được tài khoản nhận tiền của trường. '
+          + 'Đây là chỗ tiền của tất cả các gia đình chạy về, nên app cố ý để một '
+          + 'mình khâu kế toán không tự đổi được.',
+      });
+    }
+    const b = req.body || {};
+    const campusId = String(b.campusId || '').trim();
+    if (campusId && !db.canAccessCampus(req.user, campusId)) {
+      return res.status(403).json({ error: 'Cơ sở này không thuộc phạm vi của tài khoản' });
+    }
+    const maNganHang = String(b.maNganHang || '').trim();
+    const soTaiKhoan = String(b.soTaiKhoan || '').trim();
+    const chuTaiKhoan = String(b.chuTaiKhoan || '').trim();
+    const cuPhap = String(b.cuPhap || '').trim() || CU_PHAP_MAC_DINH;
+
+    if (!vietqr.hopLeMa(maNganHang)) {
+      return res.status(400).json({ error: 'Mã ngân hàng phải là 6 chữ số — chọn ngân hàng trong danh sách hoặc gõ mã' });
+    }
+    if (!/^[0-9A-Za-z]{4,25}$/.test(soTaiKhoan)) {
+      return res.status(400).json({ error: 'Số tài khoản chỉ gồm chữ và số, từ 4 đến 25 ký tự' });
+    }
+    if (!chuTaiKhoan) {
+      return res.status(400).json({
+        error: 'Xin ghi tên chủ tài khoản. Màn của gia đình in tên này ngay cạnh mã QR '
+          + 'để người chuyển tiền đối chiếu trước khi bấm.',
+      });
+    }
+    // BẮT NGƯỜI KHAI XÁC NHẬN ĐÃ ĐỐI CHIẾU. App không kiểm tra được số tài
+    // khoản có thật hay không, nên vế duy nhất còn lại là bắt người khai nói
+    // rõ mình đã tự đối chiếu với sổ ngân hàng.
+    if (!b.daDoiChieu) {
+      return res.status(400).json({
+        error: 'Xin đối chiếu lại số tài khoản với sổ ngân hàng của trường rồi tích vào ô xác nhận. '
+          + 'App không hỏi ngân hàng được, nên gõ nhầm một chữ số là tiền của các gia đình '
+          + 'đi sang chỗ khác mà không có gì báo.',
+      });
+    }
+
+    const luc = new Date().toISOString();
+    const dong = {
+      campusId, maNganHang,
+      tenNganHang: String(b.tenNganHang || '').trim() || vietqr.tenNganHang(maNganHang),
+      soTaiKhoan, chuTaiKhoan, cuPhap,
+      daDoiChieu: 1, nguoiDoi: req.user.id, doiLuc: luc,
+    };
+    db.tx(() => {
+      db.upsert('hocphi_taikhoan', dong, ['campusId']);
+      // GIỮ VẾT, KHÔNG GHI ĐÈ MẤT DẤU: câu "tháng trước tiền chạy vào số nào,
+      // ai đặt số đó" phải trả lời được bằng dữ liệu — đúng lúc cần nhất là
+      // lúc có nhà báo đã chuyển mà trường bảo chưa nhận.
+      db.insert('hocphi_taikhoan_su', {
+        id: db.nextId('hptk'), campusId, maNganHang, tenNganHang: dong.tenNganHang,
+        soTaiKhoan, chuTaiKhoan, cuPhap, nguoiDoi: req.user.id, doiLuc: luc,
+      });
+    });
+    // Nhật ký CỐ Ý không chép đủ số tài khoản — bốn số cuối là đủ để đối chiếu.
+    db.audit(req.user.id, 'hocphi-doi-tai-khoan', campusId || 'toan-truong', {
+      maNganHang, bonSoCuoi: soTaiKhoan.slice(-4), chuTaiKhoan,
+    });
+    res.json({ ok: true, ...dong, daDoiChieu: true, tenTheoMa: vietqr.tenNganHang(maNganHang) });
+  });
+
+  // Gia đình: cách chuyển khoản cho MỘT khoản thu của con mình.
+  app.get('/api/hocphi/chuyen-khoan', async (req, res) => {
+    const khoanId = String(req.query.khoanId || '').trim();
+    if (!khoanId) return res.status(400).json({ error: 'Thiếu mã khoản thu' });
+    const k = db.first('hocphi_khoan', 'SELECT * FROM hocphi_khoan WHERE id = ?', [khoanId]);
+    if (!k) return res.status(404).json({ error: 'Không tìm thấy khoản thu' });
+    if (!db.canAccessStudent(req.user, k.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem khoản thu này' });
+    }
+    const be = db.findStudent(k.studentId);
+    const tk = taiKhoanCua(coSoCuaBe(be));
+
+    // CHƯA KHAI THÌ NÓI THẲNG LÀ CHƯA KHAI. Dựng một mã QR từ dữ liệu thiếu là
+    // mời gia đình quét vào chỗ không có thật.
+    if (!duDeDungQr(tk)) {
+      return res.json({
+        coTaiKhoan: false,
+        loiNhan: 'Nhà trường chưa khai số tài khoản nhận tiền trên app. '
+          + 'Xin gia đình hỏi văn phòng giúp nhé.',
+      });
+    }
+
+    const cuPhap = thayOTrongCuPhap(tk.cuPhap, {
+      be, khoan: k, thang: String(k.hanNop || '').slice(0, 7),
+    });
+    const ra = {
+      coTaiKhoan: true,
+      tenNganHang: tk.tenNganHang || vietqr.tenNganHang(tk.maNganHang),
+      soTaiKhoan: tk.soTaiKhoan,
+      chuTaiKhoan: tk.chuTaiKhoan,
+      soTien: k.soTien,
+      // Chuỗi ĐÃ BỎ DẤU, đúng thứ sẽ nằm trong mã QR — để gia đình gõ tay cũng
+      // ra đúng chuỗi ấy, chứ không phải một bản có dấu rồi ngân hàng cắt khác đi.
+      cuPhap: vietqr.boDauASCII(cuPhap),
+      qrSvg: null,
+    };
+    try {
+      const chuoi = vietqr.payload({
+        maNganHang: tk.maNganHang, soTaiKhoan: tk.soTaiKhoan,
+        soTien: k.daNop ? 0 : k.soTien, noiDung: ra.cuPhap,
+      });
+      ra.qrSvg = await qrcode.toString(chuoi, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+    } catch (_) {
+      // MÃ QR LÀ PHẦN TIỆN, KHÔNG PHẢI PHẦN CHÍNH. Dựng hỏng thì vẫn trả số
+      // tài khoản và cú pháp bằng chữ — gia đình vẫn chuyển khoản được tay.
+      ra.qrSvg = null;
+    }
+    res.json(ra);
+  });
+
   app.post('/api/hocphi/:id/xac-nhan', requireRole('admin'), (req, res) => {
     const k = db.first('hocphi_khoan', 'SELECT * FROM hocphi_khoan WHERE id = ?', [req.params.id]);
     if (!k) return res.status(404).json({ error: 'Không tìm thấy khoản thu' });

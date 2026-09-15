@@ -232,3 +232,53 @@ CREATE TABLE IF NOT EXISTS hocphi_bieuphi_moKhoa (
   yKien     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_hocphi_mokhoa ON hocphi_bieuphi_moKhoa(bieuPhiId, trangThai);
+
+-- ===== TÀI KHOẢN NHẬN TIỀN CỦA TRƯỜNG (Đ208, việc 36) =====
+--
+-- Nhà trường xin số tài khoản, mã QR và cú pháp chuyển khoản hiện ngay trên
+-- màn sổ tiền của gia đình.
+--
+-- ĐÂY LÀ BẢNG NGUY HIỂM NHẤT CỦA CẢ PHÂN HỆ HỌC PHÍ. Đổi một chữ số ở đây là
+-- đổi chỗ nhận tiền của TOÀN BỘ phụ huynh, và đổi một cách IM LẶNG -- màn hình
+-- vẫn dựng một mã QR trông hoàn toàn bình thường cho số tài khoản sai. App
+-- không nối tới ngân hàng nào nên không có bước nào kiểm tra hộ.
+--
+-- Nên đường ghi vào bảng này dùng chốt CHẶT NHẤT trong phân hệ (cùng chốt với
+-- duyệt biểu phí, tức chỉ ban giám hiệu), ghi lại ai đổi và đổi lúc nào, và
+-- giữ nguyên dòng cũ làm vết thay vì ghi đè mất dấu.
+--
+-- MỘT DÒNG MỘT CƠ SỞ. `campusId` rỗng nghĩa là tài khoản dùng chung cả trường
+-- -- trường ba cơ sở có thể dùng chung một tài khoản, cũng có thể mỗi nơi một
+-- tài khoản, và app không ép chọn kiểu nào.
+--
+-- `cuPhap` là KHUÔN chữ, không phải chuỗi cố định. Máy thay các ô {MA_BE},
+-- {TEN_BE}, {THANG}, {TEN_KHOAN} rồi bỏ dấu trước khi đưa vào mã QR.
+CREATE TABLE IF NOT EXISTS hocphi_taikhoan (
+  campusId    TEXT PRIMARY KEY,      -- rỗng = dùng chung cả trường
+  maNganHang  TEXT NOT NULL DEFAULT '',
+  tenNganHang TEXT NOT NULL DEFAULT '',
+  soTaiKhoan  TEXT NOT NULL DEFAULT '',
+  chuTaiKhoan TEXT NOT NULL DEFAULT '',
+  cuPhap      TEXT NOT NULL DEFAULT '',
+  daDoiChieu  INTEGER NOT NULL DEFAULT 0,
+  nguoiDoi    TEXT,
+  doiLuc      TEXT
+);
+
+-- Sổ ghi mọi lần đổi tài khoản nhận tiền. KHÔNG bao giờ xoá.
+--
+-- Câu hỏi phải trả lời được bằng dữ liệu là "tháng trước tiền chạy vào số nào,
+-- ai đặt số đó". Ghi đè dòng trên mà không giữ vết là câu ấy hết trả lời được
+-- đúng lúc cần nhất -- lúc có nhà báo chuyển rồi mà trường bảo chưa nhận.
+CREATE TABLE IF NOT EXISTS hocphi_taikhoan_su (
+  id          TEXT PRIMARY KEY,
+  campusId    TEXT NOT NULL DEFAULT '',
+  maNganHang  TEXT NOT NULL DEFAULT '',
+  tenNganHang TEXT NOT NULL DEFAULT '',
+  soTaiKhoan  TEXT NOT NULL DEFAULT '',
+  chuTaiKhoan TEXT NOT NULL DEFAULT '',
+  cuPhap      TEXT NOT NULL DEFAULT '',
+  nguoiDoi    TEXT,
+  doiLuc      TEXT
+);
+CREATE INDEX IF NOT EXISTS hocphi_taikhoan_su_theo_coso ON hocphi_taikhoan_su(campusId, doiLuc);

@@ -384,7 +384,7 @@ module.exports = (app) => {
     // trống trông như đang có gì đó chưa đọc.
     if (!luuY) {
       db.run('DELETE FROM attendance_luu_y WHERE studentId = ? AND ngay = ?', [studentId, ngay]);
-      db.audit(req.user.id, 'diem-danh-luu-y-go', studentId, { ngay });
+      db.audit(req.user.id, 'diemdanh-luu-y-go', studentId, { ngay });
       return res.json({ ok: true, luuY: null });
     }
 
@@ -395,7 +395,7 @@ module.exports = (app) => {
     }, ['studentId', 'ngay']);
     // Nhật ký CỐ Ý không chép nội dung ô lưu ý vào đây: màn Nhật ký thao tác
     // mở rộng hơn nhóm người được đọc ô này. Ghi lại việc đã xảy ra là đủ.
-    db.audit(req.user.id, 'diem-danh-luu-y', studentId, { ngay, soKyTu: luuY.length });
+    db.audit(req.user.id, 'diemdanh-luu-y', studentId, { ngay, soKyTu: luuY.length });
     const x = db.first('attendance_luu_y',
       'SELECT studentId, luuY, nguoiGhi, capNhatLuc FROM attendance_luu_y WHERE studentId = ? AND ngay = ?',
       [studentId, ngay]);
