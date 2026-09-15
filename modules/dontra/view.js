@@ -109,6 +109,30 @@ App.views.dontra = {
 
     const d = await this.napNhom(this._classId, this._ngay);
 
+    // SÁNG NAY CỦA TỪNG BÉ, LẤY NGAY Ở MÀN NÀY (Đ210).
+    //
+    // Trước Đ210 màn Điểm danh vẽ sổ trả bé và đưa sẵn dữ liệu điểm danh sang,
+    // nên thẻ ở cổng nói được "Đón bé: Có mặt · vào 7:42". Đ210 gỡ tab ấy đi,
+    // và nếu để nguyên thì cô đứng ở cổng 16h30 MẤT hẳn câu ấy — trong khi đó
+    // đúng là thứ cô cần biết trước khi trao một đứa trẻ cho người tới đón.
+    //
+    // Nên màn này tự hỏi lấy. HỎI CÔNG TẮC TRƯỚC (bước hay quên nhất của kho
+    // mã), và hỏng thì bỏ qua chứ không kéo sập cả sổ — thiếu một dòng chữ còn
+    // hơn cô không mở được sổ ở cổng.
+    // `App.moduleEnabled` so theo TÊN MÀN, không theo mã phân hệ: màn của
+    // Điểm danh tên là 'attendance' còn mã tính năng là 'diemdanh'. Bản đầu
+    // hỏi 'diemdanh' nên điều kiện LUÔN sai và cả khối không bao giờ chạy —
+    // im lặng, không lỗi gì, chỉ là dòng "Đón bé: …" không bao giờ hiện.
+    if (App.moduleEnabled('attendance')) {
+      try {
+        const q = `date=${encodeURIComponent(this._ngay)}`
+          + (this._classId ? `&classId=${encodeURIComponent(this._classId)}` : '');
+        const dd = await API.get(`/api/attendance/class?${q}`);
+        const theoBe = new Map((dd.students || []).map(x => [x.student.id, x.record || null]));
+        for (const b of d.danhSach || []) b._sang = theoBe.get(b.studentId) || null;
+      } catch (_) { /* thiếu một dòng chữ còn hơn không mở được sổ */ }
+    }
+
     root.innerHTML = `
       ${UI.pageHeader('Đón trả bé')}
       <div class="card">
@@ -135,8 +159,11 @@ App.views.dontra = {
     document.getElementById('dt-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };
     const sel = document.getElementById('dt-nhom');
     if (sel) sel.onchange = (e) => { this._classId = e.target.value; App.route(); };
+    // Đ210: màn Điểm danh không còn vẽ sổ trả bé, nên nút chỉ đường sang đó
+    // KHÔNG còn nghĩa gì. Gỡ hẳn thay vì để nó dẫn cô tới một màn không có
+    // thứ cô đang tìm.
     const nutDD = root.querySelector('[data-mo-tra-be]');
-    if (nutDD) nutDD.onclick = () => { location.hash = '#/attendance/tra'; };
+    if (nutDD) nutDD.remove();
     this.ganSuKienCong(root);
   },
 

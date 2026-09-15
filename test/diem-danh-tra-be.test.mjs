@@ -1,22 +1,31 @@
-// MỘT NGÀY HAI PHẦN — Điểm danh có Đón bé và Trả bé, trên trình duyệt thật (Đ126).
+// MỘT DÒNG VÀO/RA — Điểm danh gộp cả ngày về một dòng, trên trình duyệt thật.
 //
 // Cần Playwright. Chạy bằng:  npm run test:diem-danh-tra-be
 //
-// Người dùng thử app xong hỏi: "có thể kết hợp Điểm danh và Đón trả bé vào
-// cùng một chỗ cho tiện theo dõi cả cô lẫn phụ huynh không — trong một thư
-// mục to Điểm danh có hai phần đón bé / trả bé trong một ngày, đều có chụp
-// ảnh". Bài này đi đúng con đường cô và gia đình sẽ đi, và canh ba điều mà
-// một bản gộp làm vội dễ hỏng:
+// LỊCH SỬ CỦA CHÍNH BÀI NÀY, ghi lại vì nó giải thích mọi thứ bên dưới:
 //
-//   1. GỘP MÀN, KHÔNG GỘP MÃ. Phần Trả bé vẫn là của phân hệ Đón trả bé (cắm
-//      thêm, tắt được). Tắt phân hệ thì màn Điểm danh y hệt trước Đ126; tệp
-//      giao diện của phân hệ hỏng thì chỉ ô Trả bé nói sự cố, phần Đón bé và
-//      dải tab vẫn nguyên — mục [4] và [5].
-//   2. CÔ CHỈ CÒN MỘT CỬA, GIA ĐÌNH VÀ VĂN PHÒNG KHÔNG MẤT CỬA NÀO. Ô "Đón trả
-//      bé" ẩn khỏi trang chủ của cô khi Điểm danh đang bật, và QUAY LẠI khi
-//      Điểm danh tắt; gia đình vẫn có ô đó để khai người đón — mục [6].
-//   3. Ở CỔNG 16H30 KHÔNG BỊ NÉM VỀ ĐẦU DANH SÁCH. Ghi xong một bé, thẻ bé đó
-//      đổi tại chỗ, hộp thoại đóng, đường dẫn vẫn là '#/attendance/tra' — mục [1].
+//   Đ126 dựng màn Điểm danh thành HAI TAB — "Đón bé" và "Trả bé" — trong đó
+//   tab thứ hai do phân hệ Đón trả bé vẽ vào. Bài này sinh ra để canh bản gộp
+//   ấy, và nó ghim dải tab bằng `#att-tab [data-tab]`.
+//
+//   Đ210 (việc 1, 2, 3 nhà trường xin) GỘP TIẾP: hai tab về MỘT DÒNG Vào/Ra,
+//   ảnh trả bé chuyển vào lõi, mục sổ trả bé bỏ khỏi màn Điểm danh. Dải tab
+//   không còn, nên bài này BÁO ĐỎ — đúng như một bài canh giao diện phải làm
+//   khi màn hình đổi thật.
+//
+// BÀI ĐƯỢC VIẾT LẠI ĐỂ ĐO THIẾT KẾ MỚI, KHÔNG PHẢI BỊ XOÁ ĐI CHO XANH. Mọi
+// bảo đảm cũ còn đúng đều giữ nguyên, chỉ đổi chỗ đo:
+//
+//   1. CÔ KHÔNG MẤT CỬA NÀO. Trước Đ210 ô "Đón trả bé" bị ẩn khỏi trang chủ
+//      của cô vì màn Điểm danh đã vẽ nó. Nay màn Điểm danh KHÔNG vẽ nữa, nên
+//      ô ấy phải QUAY LẠI — quên gỡ cờ `gopVao` là cô mất hẳn lối vào sổ đón
+//      trả, im lặng. Mục [1] và [6].
+//   2. TẮT PHÂN HỆ THÌ ĐIỂM DANH VẪN CHẠY, và tệp giao diện của phân hệ hỏng
+//      cũng không kéo theo Điểm danh — nay còn chặt hơn trước, vì màn Điểm
+//      danh không còn chạm vào phân hệ ở đâu cả. Mục [4] và [5].
+//   3. GIA ĐÌNH VẪN THẤY CẢ HAI NỬA của một ngày. Mục [3].
+//   4. SỔ ĐÓN TRẢ GHI TẠI CHỖ, KHÔNG BỊ NÉM VỀ ĐẦU DANH SÁCH — nay ở màn riêng
+//      của phân hệ (`#/dontra`) thay vì trong tab. Mục [1].
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, batPhanHe,
@@ -107,28 +116,36 @@ async function doBoCuc(ten) {
 let maBeAn = '';
 
 // ===========================================================================
-console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi tại chỗ không bị ném về đầu');
+console.log('\n[1] Cô một nhóm: MỘT dòng Vào/Ra, và sổ đón trả ở màn riêng ghi tại chỗ');
 {
   await dangNhap('giaovien', '123456');
   loiJs = [];
   await moMan('#/attendance');
-  check('có dải hai phần Đón bé / Trả bé', await dem('#att-tab [data-tab]') === 2);
-  const nhan = await page.locator('#att-tab [data-tab]').allInnerTexts();
-  check('nhãn là "Đón bé" và "Trả bé"', /Đón bé/.test(nhan[0] || '') && /Trả bé/.test(nhan[1] || ''), nhan);
-  check('mặc định đứng ở Đón bé (không đoán theo giờ)',
-    await page.locator('#att-tab [data-tab="don"]').evaluate(el => el.classList.contains('active')));
-  check('phần Đón bé vẫn có ô đếm và danh sách chấm như trước',
+  // DẢI TAB ĐÃ GỠ (Đ210). Trước đợt ấy chỗ này đòi đúng hai tab.
+  check('KHÔNG còn dải hai phần Đón bé / Trả bé', await dem('#att-tab') === 0, await dem('#att-tab'));
+  check('màn vẫn có ô đếm và danh sách chấm như trước',
     await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
     await dem('[id^="att-dong-"]'));
-  check('phần Đón bé vẫn có nút "Chụp ảnh con tới lớp" (ảnh check-in)', /Chụp ảnh con tới lớp/.test(await chu()));
+  check('vẫn có nút "Chụp ảnh con tới lớp" (ảnh check-in)', /Chụp ảnh con tới lớp/.test(await chu()));
+  // MỘT DÒNG MANG CẢ HAI NỬA CỦA NGÀY.
+  check('mỗi dòng bé có nút "Ghi con đã về" — nửa thứ hai nằm ngay trên dòng',
+    /Ghi con đã về/.test(await chu()), (await chu()).slice(0, 300));
+  check('CHỈ MỘT ô ngày trên màn', await dem('#view input[type=date]') === 1);
 
-  await page.click('#att-tab [data-tab="tra"]');
+  // ĐƯỜNG DẪN CŨ KHÔNG ĐƯỢC CHẾT. Điện thoại đã cài app còn giữ nó trong lịch
+  // sử, và một liên kết chết là cô bấm vào thấy trang trắng.
+  await moMan('#/attendance/tra');
+  check('#/attendance/tra lặng lẽ về màn gộp, không trang trắng',
+    await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
+    await dem('[id^="att-dong-"]'));
+  check('…và không có ô sự cố nào', await dem('#att-tra') === 0);
+  await doBoCuc('Điểm danh gộp');
+
+  // SỔ ĐÓN TRẢ NAY Ở MÀN RIÊNG CỦA PHÂN HỆ — cô vẫn tới được và vẫn ghi tại chỗ.
+  await moMan('#/dontra');
   await page.waitForSelector('[data-tra]', { timeout: 10000 });
   await page.waitForTimeout(500);
-  check('bấm Trả bé → đường dẫn là #/attendance/tra', await page.evaluate(() => location.hash) === '#/attendance/tra');
-  check('mỗi bé một thẻ trả', await dem('[data-tra]') === MAU.soBeNhomChoi2, await dem('[data-tra]'));
-  check('CHỈ MỘT ô ngày trên màn — ô ngày/ô nhóm là của Điểm danh, phần Trả bé không vẽ ô riêng',
-    await dem('#view input[type=date]') === 1 && await dem('#dt-ngay') === 0 && await dem('#dt-nhom') === 0);
+  check('cô mở được sổ đón trả ở màn riêng', await dem('[data-tra]') === MAU.soBeNhomChoi2, await dem('[data-tra]'));
   const manTra = await chu();
   check('có dòng đếm "Đã trả x / y bé"', /Đã trả \d+ \/ \d+ bé/.test(manTra), manTra.slice(0, 200));
   // Dữ liệu mẫu đã ghi trả sẵn vài bé hôm nay, nên đo bằng HIỆU SỐ, không đoán số tuyệt đối.
@@ -137,8 +154,8 @@ console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi t
   check('KHÔNG viết "Sáng nay" — bé học nửa buổi vào lớp đầu giờ chiều thì câu đó nói ngược',
     !/Sáng nay/.test(manTra), (manTra.match(/.{0,40}Sáng nay.{0,40}/) || [])[0]);
   check('không còn nhãn "Chưa trả" cam — bé chờ đón là "Còn ở lớp"', !/Chưa trả/.test(manTra) && /Còn ở lớp|Đã trả|Nghỉ hôm nay/.test(manTra));
-  check('không lộ tiếng tiểu học ở phần Trả bé', !XAU.test(manTra), (manTra.match(XAU) || [])[0]);
-  await doBoCuc('Trả bé');
+  check('không lộ tiếng tiểu học ở sổ đón trả', !XAU.test(manTra), (manTra.match(XAU) || [])[0]);
+  await doBoCuc('Sổ đón trả');
 
   maBeAn = await page.evaluate(async () => {
     const d = await API.get('/api/students');
@@ -213,26 +230,26 @@ console.log('\n[1] Cô một nhóm: Điểm danh có hai phần, Trả bé ghi t
   check('GHI XONG THẺ BÉ ĐỔI TẠI CHỖ: "Sửa lại người đã đón" + ghi chú vừa gõ',
     /Sửa lại người đã đón/.test(the) && /Đối chiếu ảnh ở cổng/.test(the), the.slice(0, 250));
   check('hộp thoại đã đóng', await dem('#modal-overlay') === 0);
-  check('đường dẫn vẫn là #/attendance/tra — không bật sang #/dontra', await page.evaluate(() => location.hash) === '#/attendance/tra');
+  check('đường dẫn vẫn là #/dontra — ghi xong không bị ném đi đâu', await page.evaluate(() => location.hash) === '#/dontra');
   check('sau khi ghi có nút "Chụp ảnh lúc trả bé" (ảnh check-out) ngay trong thẻ',
     await dem(`#dt-the-${maBeAn} [data-anh-tra]`) === 1);
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 
-  // '#/dontra' của cô vẫn là màn cổng đầy đủ, và chỉ đường về Điểm danh.
-  await moMan('#/dontra');
-  check('#/dontra vẫn mở được cho cô (phân hệ tự đứng)', await dem('[data-tra]') >= 1);
-  check('#/dontra có nút chỉ đường "cũng nằm trong Điểm danh"', await dem('[data-mo-tra-be]') === 1);
-  await page.click('[data-mo-tra-be]');
-  await page.waitForTimeout(900);
-  check('bấm nút đó → về #/attendance/tra', await page.evaluate(() => location.hash) === '#/attendance/tra');
+  // CÔ PHẢI CÓ LỐI VÀO SỔ TỪ TRANG CHỦ. Trước Đ210 ô này bị ẩn khỏi trang chủ
+  // của cô vì màn Điểm danh đã vẽ sổ; nay màn Điểm danh không vẽ nữa, nên
+  // quên gỡ cờ `gopVao` là cô mất hẳn lối vào — im lặng, không báo gì.
+  await moMan('#/');
+  await page.waitForTimeout(800);
+  const oCuaCo = await page.locator('.tile-label').allInnerTexts();
+  check('CÔ THẤY LẠI Ô "Đón trả bé" TRÊN TRANG CHỦ', oCuaCo.includes('Đón trả bé'), oCuaCo);
 }
 
 // ===========================================================================
-console.log('\n[2] Cô nhiều nhóm: đổi nhóm ở ô của Điểm danh thì phần Trả bé đổi theo');
+console.log('\n[2] Cô nhiều nhóm: đổi nhóm ở sổ đón trả thì danh sách đổi theo');
 {
   await dangNhap('giaovien3', '123456');
   loiJs = [];
-  await moMan('#/attendance/tra');
+  await moMan('#/dontra');
   await page.waitForSelector('[data-tra]', { timeout: 10000 });
   const cacNhom = await page.evaluate(() => (App.state.user.nhomCuaCo || []).map(n => n.id));
   check('cô này phụ trách hơn một nhóm', cacNhom.length >= 2, cacNhom);
@@ -252,8 +269,8 @@ console.log('\n[2] Cô nhiều nhóm: đổi nhóm ở ô của Điểm danh th�
   await page.waitForTimeout(1200);
   await page.waitForSelector('[data-tra]', { timeout: 10000 });
   const man = await chu();
-  check('đổi nhóm → vẫn ở phần Trả bé', await page.evaluate(() => location.hash) === '#/attendance/tra');
-  check('phần Trả bé hiện đúng bé của nhóm vừa chọn',
+  check('đổi nhóm → vẫn ở sổ đón trả', await page.evaluate(() => location.hash) === '#/dontra');
+  check('sổ hiện đúng bé của nhóm vừa chọn',
     tenNhomHai.length > 0 && tenNhomHai.every(t => man.includes(t)), { tenNhomHai, man: man.slice(0, 200) });
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 }
@@ -312,9 +329,11 @@ console.log('\n[4] Tắt phân hệ Đón trả bé → Điểm danh y hệt tr�
   loiJs = [];
   await moMan('#/attendance');
   check('KHÔNG có dải hai phần', await dem('#att-tab') === 0);
-  check('phần Đón bé đầy đủ', await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2);
+  check('màn Điểm danh đầy đủ', await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2);
+  check('…và vẫn có nút ghi con đã về (việc của LÕI, không phụ thuộc phân hệ)',
+    /Ghi con đã về/.test(await chu()), (await chu()).slice(0, 200));
   await moMan('#/attendance/tra');
-  check('#/attendance/tra lặng lẽ về Đón bé, không ô sự cố', await dem('#att-so-da') === 1 && await dem('#att-tra') === 0);
+  check('#/attendance/tra lặng lẽ về màn gộp, không ô sự cố', await dem('#att-so-da') === 1 && await dem('#att-tra') === 0);
   await moMan('#/');
   await page.waitForTimeout(800);
   const nhanO = await page.locator('.tile-label').allInnerTexts();
@@ -336,23 +355,29 @@ console.log('\n[4] Tắt phân hệ Đón trả bé → Điểm danh y hệt tr�
 }
 
 // ===========================================================================
-console.log('\n[5] Tệp giao diện của phân hệ hỏng → chỉ ô Trả bé nói sự cố, Đón bé vẫn nguyên');
+console.log('\n[5] Tệp giao diện của phân hệ hỏng → màn Điểm danh KHÔNG hề hấn gì');
 {
+  // BẢO ĐẢM NÀY NAY CHẶT HƠN TRƯỚC Đ210, chứ không lỏng đi.
+  //
+  // Trước: màn Điểm danh vẽ tab Trả bé bằng mã của phân hệ, nên phân hệ hỏng
+  // thì ô ấy phải tự nói "đang gặp sự cố" — tức màn Điểm danh vẫn phải BIẾT
+  // xử lý một phân hệ hỏng. Nay màn Điểm danh không chạm vào phân hệ ở đâu
+  // cả, nên phép kiểm đúng là: hỏng phân hệ thì Điểm danh dựng Y HỆT bình
+  // thường, không một dấu vết nào.
   await dangNhap('giaovien', '123456');
-  await moMan('#/attendance/tra');
-  await page.waitForSelector('[data-tra]', { timeout: 10000 });
+  await moMan('#/attendance');
   loiJs = [];
   // Giả lập đúng thứ xảy ra khi view.js của phân hệ lỗi cú pháp: loadScript
   // bắt lỗi và App.views.dontra không tồn tại.
   await page.evaluate(() => { delete App.views.dontra; App.route(); });
   await page.waitForTimeout(1200);
   const man = await chu();
-  check('dải hai phần VẪN còn (cô biết phần này tồn tại)', await dem('#att-tab') === 1);
-  check('ô Trả bé nói "đang gặp sự cố", không trắng trơn', /đang gặp sự cố/.test(man), man.slice(0, 200));
+  check('màn Điểm danh dựng ĐỦ như bình thường',
+    await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
+    await dem('[id^="att-dong-"]'));
+  check('không có ô sự cố nào trên màn Điểm danh', !/đang gặp sự cố/.test(man), man.slice(0, 200));
   check('không rơi vào màn "Có lỗi xảy ra" chung', !/Có lỗi xảy ra/.test(man));
-  await page.click('#att-tab [data-tab="don"]');
-  await page.waitForTimeout(1000);
-  check('bấm sang Đón bé → vẫn dựng đủ', await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2);
+  check('nút ghi con đã về vẫn dùng được (việc của lõi)', /Ghi con đã về/.test(man));
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 
   await dangNhap('phuhuynh', '123456');
@@ -375,16 +400,17 @@ console.log('\n[6] Trang chủ: cô chỉ còn một cửa, gia đình và văn 
   await moMan('#/');
   await page.waitForSelector('.viec-nut', { timeout: 10000 });
   const nhanO = await page.locator('.tile-label').allInnerTexts();
-  check('cô: KHÔNG còn ô "Đón trả bé" trên lưới (đã gấp vào Điểm danh)', !nhanO.includes('Đón trả bé'), nhanO);
+  // ĐỔI CHIỀU SAU Đ210: màn Điểm danh không vẽ sổ nữa, nên ô này PHẢI có lại.
+  // Giữ nguyên phép kiểm cũ là ghim đúng cái bẫy làm cô mất lối vào sổ.
+  check('cô: CÓ ô "Đón trả bé" trên lưới (màn Điểm danh không vẽ sổ nữa)', nhanO.includes('Đón trả bé'), nhanO);
   check('cô: vẫn có ô Điểm danh', nhanO.includes('Điểm danh'));
   check('cô: lưới vẫn đủ ô khác', nhanO.length >= 8, nhanO.length);
   const nutViec = page.locator('.viec-nut', { hasText: 'Đón trả bé' });
   check('cô: nút việc "Đón trả bé" vẫn có trong bảng Hôm nay', await nutViec.count() === 1);
-  check('…và trỏ thẳng vào phần Trả bé của Điểm danh',
-    /#\/attendance\/tra/.test(await nutViec.getAttribute('onclick') || ''), await nutViec.getAttribute('onclick'));
   await nutViec.click();
   await page.waitForTimeout(1200);
-  check('bấm nút việc → mở đúng phần Trả bé', await page.evaluate(() => location.hash) === '#/attendance/tra' && await dem('[data-tra]') >= 1);
+  check('bấm nút việc → mở được sổ đón trả, không trang trắng', await dem('[data-tra]') >= 1,
+    await page.evaluate(() => location.hash));
 
   await dangNhap('phuhuynh', '123456');
   await moMan('#/');
@@ -429,7 +455,10 @@ console.log('\n[6] Trang chủ: cô chỉ còn một cửa, gia đình và văn 
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('.tile-grid', { timeout: 10000 });
   await page.waitForTimeout(800);
-  check('BẬT LẠI Điểm danh → ô Đón trả bé lại gấp vào', !(await page.locator('.tile-label').allInnerTexts()).includes('Đón trả bé'),
+  // Đ210: ô này KHÔNG còn gấp vào Điểm danh nữa, nên bật lại Điểm danh thì nó
+  // vẫn ở đó. Trước Đ210 phép kiểm đòi điều ngược lại.
+  check('BẬT LẠI Điểm danh → ô Đón trả bé VẪN CÒN (không còn gấp vào)',
+    (await page.locator('.tile-label').allInnerTexts()).includes('Đón trả bé'),
     await page.locator('.tile-label').allInnerTexts());
 }
 
@@ -479,7 +508,14 @@ console.log('\n[7] Giờ Việt Nam, ngày viết bằng tiếng Việt, và ng�
   check('ngày đã qua → nói rõ "Ngày này đã khoá"', /Ngày này đã khoá/.test(manCu), manCu.slice(0, 300));
   check('nói rõ vì sao, bằng tiếng của trường',
     /chỉ ghi và sửa được trong chính ngày hôm đó/.test(manCu), manCu.slice(0, 400));
-  check('KHÔNG còn nút chấm điểm danh nào', await dem('[id^="att-dong-"] button') === 0);
+  // Đ207 thêm nút "Lưu ý" (ô nội bộ của trường) vào cả dòng của ngày đã khoá —
+  // cố ý: ô lưu ý là chỗ ghi thứ BIẾT ĐƯỢC SAU, thường vài hôm sau khi gia
+  // đình gọi lại, nên nó KHÔNG khoá theo ngày như sổ điểm danh. Vì vậy phép
+  // kiểm không còn đòi "không nút nào", mà đòi đúng điều nó vẫn phải đòi:
+  // không còn nút CHẤM ĐIỂM DANH nào.
+  const nutNgayCu = await page.locator('[id^="att-dong-"] button').allInnerTexts();
+  check('KHÔNG còn nút chấm điểm danh / ghi con đã về nào',
+    nutNgayCu.every(t => /Lưu ý/.test(t)), nutNgayCu);
   check('KHÔNG còn nút "Cả nhóm có mặt"', !/Cả nhóm có mặt/.test(manCu));
   check('KHÔNG còn nút chụp ảnh con tới lớp', !/Chụp ảnh con tới lớp/.test(manCu));
   check('vẫn xem lại được — có tên bé và trạng thái đã ghi hôm đó',
@@ -506,7 +542,11 @@ console.log('\n[7] Giờ Việt Nam, ngày viết bằng tiếng Việt, và ng�
   // SỔ ĐÓN TRẢ CŨNG KHOÁ NGOÀI NGÀY (Đ127b) — nhà trường chốt cùng luật.
   await page.evaluate((d) => { App.views.attendance.setDate(d); }, homQua);
   await page.waitForTimeout(600);
-  await page.evaluate(() => { location.hash = '#/attendance/tra'; });
+  // Đ210: sổ trả bé nay ở màn riêng của phân hệ, không còn là một tab của
+  // Điểm danh. Luật khoá ngày của nó thì KHÔNG đổi — đó mới là thứ mục này đo.
+  await page.evaluate(() => { location.hash = '#/dontra'; });
+  await page.waitForTimeout(1500);
+  await page.evaluate((d) => { App.views.dontra._ngay = d; App.route(); }, homQua);
   await page.waitForTimeout(1500);
   const manTraCu = await chu();
   check('phần Trả bé của ngày cũ cũng nói "Ngày này đã khoá"', /Ngày này đã khoá/.test(manTraCu), manTraCu.slice(0, 300));
@@ -527,9 +567,9 @@ console.log('\n[7] Giờ Việt Nam, ngày viết bằng tiếng Việt, và ng�
   check('câu từ chối là của SỔ ĐÓN TRẢ, nói bằng tiếng của trường',
     /Sổ đón trả chỉ ghi và sửa được trong chính ngày hôm đó/.test(thuTra.loi || ''), thuTra.loi);
 
-  await page.evaluate(() => { App.views.attendance.setDate(UI.todayStr()); });
+  await page.evaluate(() => { App.views.dontra._ngay = UI.todayStr(); App.route(); });
   await page.waitForTimeout(1500);
-  check('về hôm nay thì phần Trả bé ghi lại được', await dem('[data-tra]') > 0);
+  check('về hôm nay thì sổ đón trả ghi lại được', await dem('[data-tra]') > 0);
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 }
 

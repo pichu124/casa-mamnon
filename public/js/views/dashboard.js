@@ -337,9 +337,11 @@ App.views.dashboard = {
         con ? `đã ghi ${dem.nhatKyDaGhi} · còn ${con}` : 'đã ghi đủ', !!con);
     }
     if (dem.daTra !== null && dem.daTra !== undefined) {
-      // Nút việc là "việc trong ngày" nên trỏ vào phần Trả bé của Điểm danh
-      // (Đ126); Điểm danh tắt thì về màn cổng của phân hệ như trước.
-      nut('dontra', App.moduleEnabled('attendance') ? '#/attendance/tra' : '#/dontra',
+      // Đ210 GỠ TAB "Trả bé" khỏi màn Điểm danh, nên nút việc trỏ thẳng vào
+      // màn riêng của phân hệ. Để nguyên '#/attendance/tra' là cô bấm vào và
+      // rơi xuống màn Điểm danh gộp — không sai màn, nhưng không phải chỗ ghi
+      // sổ, tức nút việc chỉ sai đường mà không báo gì.
+      nut('dontra', '#/dontra',
         'Đón trả bé', `đã đón về ${dem.daTra}`, false);
     }
     nut('thuchup', '#/thuchup', 'Ghi nhanh', 'một khoảnh khắc của bé', false);

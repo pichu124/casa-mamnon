@@ -782,7 +782,37 @@ console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho l�
   const vw = boChuThich(fs.readFileSync(path.join(GOC, 'modules/dontra/view.js'), 'utf8'));
   check('modules/dontra/view.js KHÔNG đọc App.views.attendance (phân hệ không dựa vào màn lõi)',
     !/App\.views\.attendance/.test(vw));
-  check('phân hệ không tự gọi API Điểm danh — chỉ vẽ đường ảnh được đưa', !/\/api\/attendance/.test(vw));
+  // Đ210 ĐỔI CHIỀU PHỤ THUỘC, NÊN PHÉP KIỂM NÀY ĐỔI THEO — và siết chặt hơn.
+  //
+  // Trước Đ210: màn Điểm danh vẽ sổ trả bé và ĐƯA SẴN dữ liệu điểm danh sang,
+  // nên phân hệ không cần gọi API của lõi, và phép kiểm cũ cấm hẳn.
+  //
+  // Đ210 gỡ tab ấy: màn Điểm danh không vẽ sổ nữa, nên KHÔNG CÒN AI ĐƯA DỮ
+  // LIỆU SANG. Giữ nguyên lệnh cấm thì cô đứng ở cổng 16h30 mất hẳn dòng
+  // "Đón bé: Có mặt · vào 7:42" — đúng thứ cô cần biết trước khi trao một đứa
+  // trẻ cho người tới đón. Nên phân hệ nay tự hỏi lấy.
+  //
+  // Chiều phụ thuộc này là chiều ĐƯỢC PHÉP (phân hệ → lõi); chiều bị cấm là
+  // lõi thò tay vào ruột phân hệ, và phép kiểm ấy ở ngay trên vẫn nguyên.
+  // Đổi lại phải đủ HAI lớp phòng, y như luật `test:doc-cheo` của máy chủ:
+  // hỏi công tắc trước, và bọc try/catch để một lượt hỏi hỏng không kéo sập
+  // cả sổ ở cổng.
+  const goiDD = (vw.match(/['"`]\/api\/attendance/g) || []).length;
+  check('phân hệ gọi API Điểm danh ĐÚNG MỘT chỗ (dòng "Đón bé: …" ở thẻ cổng)',
+    goiDD === 1, goiDD);
+  // ĐO THEO VỊ TRÍ, KHÔNG THEO "CÓ XUẤT HIỆN Ở ĐÂU ĐÓ TRONG TỆP".
+  //
+  // Bản đầu của phép kiểm này chỉ hỏi `moduleEnabled('attendance')` có mặt
+  // trong tệp hay không — mà tệp ĐÃ CÓ SẴN một chỗ gọi nó từ trước (dòng chỉ
+  // đường ở thẻ cổng). Nên gỡ hẳn chốt ở chỗ gọi API mà phép kiểm vẫn xanh:
+  // thử ngược đổi `if (App.moduleEnabled('attendance'))` thành `if (true)` và
+  // bài không đỏ một chỗ nào. Nay đòi chốt phải đứng NGAY TRƯỚC lời gọi.
+  const viTriGoi = vw.search(/['"`]\/api\/attendance/);
+  const truocGoi = viTriGoi > 0 ? vw.slice(Math.max(0, viTriGoi - 400), viTriGoi) : '';
+  check('…và chỗ ấy HỎI CÔNG TẮC ngay trước khi gọi',
+    /moduleEnabled\('attendance'\)/.test(truocGoi), truocGoi.slice(-200));
+  check('…và bọc try/catch để hỏi hỏng không kéo sập sổ ở cổng',
+    /try \{[\s\S]{0,600}\/api\/attendance[\s\S]{0,600}?\} catch/.test(vw), 'không thấy try/catch');
   for (const ten of ['veTraBe', 'napSoThang', 'htmlTraBeCuaNgay', 'chuTraBeNgan', 'gioTraBe']) {
     check(`phân hệ có hàm ${ten} mà Điểm danh gọi`, new RegExp(`\\b${ten}\\(`).test(vw));
   }
