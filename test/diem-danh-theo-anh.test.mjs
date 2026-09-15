@@ -199,12 +199,12 @@ try {
   console.log('\n[5] Màn hình: ảnh là nút chính, bốn nút tích rút vào "Sửa", chữ xám cho việc chưa làm');
   {
     const v = fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8');
-    // Đ207 thêm `luuY` vào dòng bé (ô lưu ý nội bộ, việc 4), nên chữ ký dài
-    // thêm một tham số. Bản cũ ghim đúng bốn tên và đỏ ngay — đúng như một
-    // phép dò theo hình dạng mã phải làm. Nay ghim NĂM tên, vẫn theo thứ tự,
-    // chứ không nới thành `[^)]*`: nới ra là phép dò này thôi canh được việc
-    // ai đó lặng lẽ bỏ một tham số đi.
-    const dong = (v.match(/  rosterRow\(\{ student: s, record, donNghiDaDuyet, anhDenLop, luuY \}\) \{[\s\S]*?\n  \},/) || [''])[0];
+    // Chữ ký dòng bé dài thêm qua hai đợt: Đ207 thêm `luuY` (ô lưu ý nội bộ),
+    // Đ210 thêm `anhVeNha` (ảnh lúc trả bé, nay thuộc lõi). Cả hai lần bộ dò
+    // này đỏ đúng lúc — đó là việc của nó. Vẫn ghim ĐỦ TÊN theo thứ tự chứ
+    // không nới thành `[^)]*`: nới ra là thôi canh được việc ai đó lặng lẽ bỏ
+    // một tham số đi.
+    const dong = (v.match(/  rosterRow\(\{ student: s, record, donNghiDaDuyet, anhDenLop, luuY, anhVeNha \}\) \{[\s\S]*?\n  \},/) || [''])[0];
     check('đối chứng — tìm được dòng bé', dong.length > 400, dong.length);
     check('dòng bé KHÔNG còn vẽ bốn nút tích từ STATUS_KEYS', !/STATUS_KEYS\.map/.test(dong), 'còn STATUS_KEYS.map');
     check('có nút "Chụp ảnh con tới lớp" và nút "Sửa"', /Chụp ảnh con tới lớp/.test(dong) && />Sửa</.test(dong));
@@ -216,6 +216,14 @@ try {
       /gia đình KHÔNG đọc ô này/i.test(v), 'nhãn không nói rõ');
     check('ô ghi chú cũ VẪN mang nhãn "gia đình đọc được" — hai ô, hai nhãn',
       /Ghi chú \(gia đình đọc được\)/.test(v), 'mất nhãn ô cũ');
+    // Đ210 — MỘT DÒNG VÀO/RA, không còn hai tab.
+    check('dòng bé có nút ghi con đã về (Đ210)', /moRaVe\('/.test(dong), 'không thấy nút ghi con về');
+    check('và dòng bé dựng CẢ HAI nửa của một ngày trên một dòng',
+      /Vào lớp \$\{record\.checkIn\}/.test(dong) && /Ra về \$\{record\.checkOut\}/.test(dong), dong.slice(0, 200));
+    check('dải tab Đón bé / Trả bé đã gỡ khỏi màn của cô',
+      !/data-tab="tra"/.test(v) && !/thanhTab\(/.test(v), 'vẫn còn dải tab');
+    check('giờ ra về lấy theo GIỜ VIỆT NAM, không phải giờ máy',
+      /UI\.gioVN\(\)/.test(v), 'không thấy UI.gioVN');
     check('bé chưa có dòng → huy hiệu XÁM "Chưa có ảnh đến lớp", không đỏ',
       /badge gray">Chưa có ảnh đến lớp/.test(v) && !/badge red">Chưa/.test(v));
     check('hộp Sửa không còn mời chọn "Đến muộn"', /suaDiemDanh\(studentId\)[\s\S]*?const lua = \[\['present'[^\n]*\]\];/.test(v) && !/\['late',/.test(v));

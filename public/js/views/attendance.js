@@ -28,7 +28,14 @@ App.views.attendance = {
   async render(root, params = []) {
     // '#/attendance/tra' = phần Trả bé của cô (Đ126). Gia đình và văn phòng
     // không có phần này nên bỏ qua tham số.
-    if (App.state.user.role === 'teacher') return this.renderTeacher(root, params[0] === 'tra' ? 'tra' : 'don');
+    // MỘT MÀN, MỘT DÒNG VÀO/RA (Đ210, việc 1 + 3).
+    //
+    // Trước đợt này màn của cô có hai tab: '#/attendance' (Đón bé) và
+    // '#/attendance/tra' (Trả bé). Nhà trường xin gộp về một dòng. Đường dẫn
+    // cũ GIỮ NGUYÊN và lặng lẽ về màn gộp — điện thoại đã cài app còn giữ
+    // đường dẫn ấy trong lịch sử, và một liên kết chết là cô bấm vào thấy
+    // trang trắng.
+    if (App.state.user.role === 'teacher') return this.renderTeacher(root);
     // VĂN PHÒNG CÓ MÀN RIÊNG, KHÔNG DÙNG LẠI MÀN CỦA CÔ VÀ KHÔNG RƠI VÀO MÀN
     // CỦA GIA ĐÌNH.
     //
@@ -542,7 +549,8 @@ App.views.attendance = {
   // '#/attendance/tra' lặng lẽ về phần Đón bé. Ô ngày và ô nhóm dùng chung
   // cho cả hai phần — màn này là CHỦ của `date` và `nhomId`, phần Trả bé nhận
   // hai giá trị ấy, không vẽ ô riêng.
-  async renderTeacher(root, tab = 'don') {
+  async renderTeacher(root) {
+    const tab = 'don';
     if (!this.date) this.date = UI.todayStr();
     const dsNhom = (App.state.user.nhomCuaCo || []);
     if (dsNhom.length > 1 && !dsNhom.some(n => n.id === this.nhomId)) {
@@ -550,7 +558,6 @@ App.views.attendance = {
     }
     if (dsNhom.length <= 1) this.nhomId = null;
     const pt = this.phanTraBe();
-    if (!pt) tab = 'don';
     const q = `date=${this.date}` + (this.nhomId ? `&classId=${encodeURIComponent(this.nhomId)}` : '');
     // Phần Trả bé không cần bảng rà soát sáng — bớt một lời gọi đúng giờ
     // cao điểm 16h30, khi cả ba cơ sở cùng mở màn này.
@@ -571,7 +578,7 @@ App.views.attendance = {
 
     root.innerHTML = `
       ${UI.pageHeader(`Điểm danh ${tenNhom}`)}
-      ${pt ? this.thanhTab(tab) : ''}
+
       <div class="card">
         ${dsNhom.length > 1 ? `
           <div class="field">
@@ -587,7 +594,6 @@ App.views.attendance = {
           ${UI.dongNgayViet(this.date)}
         </div>
       </div>
-      ${tab === 'tra' ? '<div id="att-tra"><div class="loading">Đang tải sổ trả bé</div></div>' : `
       ${this.theTruongNghi()}
       ${this.theNgayDaKhoa()}
       <div class="stat-row">
@@ -605,14 +611,7 @@ App.views.attendance = {
       <div class="muted small" style="line-height:1.6;margin:0 2px 8px">
         Hôm nào không chụp ảnh được (máy hỏng, mất mạng ở cổng) thì ghi tay một lượt:
       </div>
-      <button class="btn outline block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt (không kèm ảnh)</button>`}`}`;
-
-    // Đổi phần bằng hash, để nút Quay lại và liên kết sâu (nút việc trên trang
-    // chủ trỏ thẳng '#/attendance/tra') đều đúng, không có trạng thái ngầm.
-    for (const b of root.querySelectorAll('[data-tab]')) {
-      b.onclick = () => { location.hash = b.dataset.tab === 'tra' ? '#/attendance/tra' : '#/attendance'; };
-    }
-    if (tab === 'tra') await this.khoiTraBe(document.getElementById('att-tra'), pt);
+      <button class="btn outline block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt (không kèm ảnh)</button>`}`;
   },
 
   // NGÀY KHÁC HÔM NAY THÌ CHỈ XEM LẠI (Đ127).
@@ -663,12 +662,17 @@ App.views.attendance = {
     </div>`;
   },
 
-  thanhTab(tab) {
-    return `<div class="seg" id="att-tab">
-      <button type="button" data-tab="don" class="${tab === 'don' ? 'active' : ''}">🌅 Đón bé</button>
-      <button type="button" data-tab="tra" class="${tab === 'tra' ? 'active' : ''}">🌇 Trả bé</button>
-    </div>`;
-  },
+  // DẢI TAB ĐÓN BÉ / TRẢ BÉ ĐÃ GỠ (Đ210, việc 1 + 3).
+  //
+  // Nhà trường xin gộp hai tab về MỘT dòng Vào/Ra, và bỏ mục sổ trả bé riêng
+  // khỏi màn của cô. Nay mỗi dòng bé mang cả hai nửa của một ngày, và nút
+  // "Ghi con đã về" nằm ngay trên dòng ấy.
+  //
+  // BỎ KHỎI MÀN KHÔNG PHẢI BỎ DỮ LIỆU. Bảng `dontra_ghi` — sổ ghi bé đã được
+  // trao cho ai, lúc mấy giờ, cô nào trao — GIỮ NGUYÊN từng dòng, và phân hệ
+  // Đón trả bé vẫn còn màn riêng của nó ở `#/dontra` với đủ người được đón,
+  // uỷ quyền một lần và sổ đã trả. Đó là chứng từ trả lời câu "hôm ấy ai đón
+  // bé", thứ không được mất chỉ vì một màn hình gộp lại cho gọn.
 
   // Phần Trả bé: giao cho phân hệ vẽ vào ô này. Phân hệ hỏng thì chỉ ô này
   // nói sự cố, phần Đón bé và dải tab vẫn nguyên. Ngày tương lai thì không hỏi
@@ -750,6 +754,98 @@ App.views.attendance = {
   // dòng điểm danh về. Vẽ lại đúng dòng đó tại chỗ, không vẽ lại cả trang —
   // cùng lý do với `mark()`: nhóm 30 bé mà mỗi tấm ảnh ném cô về đầu danh sách
   // là 30 lần cuộn.
+  // GHI CON ĐÃ VỀ (Đ210, việc 1 + 2).
+  //
+  // Một chạm mở hộp, trong hộp có hai lối: ghi giờ trần, hoặc chụp một khung
+  // hình lúc trao bé. Ảnh là TUỲ CHỌN chứ không bắt buộc — 16h30 ở cổng có
+  // hôm máy hỏng, có hôm mất mạng, và bắt chụp mới ghi được giờ là đúng lúc
+  // ấy cô không ghi được gì cả.
+  moRaVe(studentId) {
+    const dong = (this._roster || []).find(x => x.student.id === studentId);
+    if (!dong) return;
+    // GIỜ VIỆT NAM, KHÔNG PHẢI GIỜ MÁY. UI.gioVN() là cùng một định nghĩa với
+    // lib/ngay của máy chủ — lấy giờ máy ở đây thì 16h30 chiều ghi thành một
+    // con số khác hẳn trên máy đặt sai múi giờ, đúng loại lỗi test:mot-hom-nay
+    // sinh ra để canh.
+    //
+    // (Chú thích để NGOÀI chuỗi mẫu: một dấu huyền trong chuỗi mẫu là kết thúc
+    // chuỗi ngay tại đó. Bản đầu của khối này viết chú thích vào trong và hỏng
+    // cú pháp cả tệp.)
+    UI.modal(`
+      <div class="muted small" style="line-height:1.7;margin-bottom:10px">
+        Ghi giờ con ra về. Chụp một khung hình lúc trao bé thì gia đình nhận được ngay —
+        không chụp cũng ghi được giờ.
+      </div>
+      <div class="field">
+        <label>Giờ ra về</label>
+        <input id="att-rv-gio" type="time" value="${UI.esc(UI.gioVN())}">
+      </div>
+      <button class="btn primary block" id="att-rv-anh">${UI.icon('album', 16)} Chụp ảnh rồi ghi</button>
+      <button class="btn outline block mt-8" id="att-rv-khong">Chỉ ghi giờ, không chụp</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, `Con đã về — ${dong.student.name}`);
+
+    const gioGo = () => {
+      const v = String((document.getElementById('att-rv-gio') || {}).value || '').trim();
+      return /^\d{2}:\d{2}$/.test(v) ? v : undefined;
+    };
+    document.getElementById('att-rv-khong').onclick = () => {
+      UI.closeModal();
+      this.ghiRaVe(studentId, { gio: gioGo() });
+    };
+    document.getElementById('att-rv-anh').onclick = () => {
+      const gio = gioGo();
+      const o = document.createElement('input');
+      o.type = 'file';
+      o.accept = 'image/*';
+      o.capture = 'environment';
+      o.onchange = async () => {
+        const f = o.files && o.files[0];
+        if (!f) return;
+        try {
+          const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
+          UI.closeModal();
+          await this.ghiRaVe(studentId, { gio, anh });
+        } catch (e) { UI.toast(e.message || 'Chưa gửi được ảnh', 'error'); }
+      };
+      o.click();
+    };
+  },
+
+  async ghiRaVe(studentId, { gio, anh } = {}) {
+    const ngayLucBam = this.date;
+    try {
+      const kq = await API.post('/api/attendance/ra-ve', { studentId, date: ngayLucBam, gio, anh });
+      UI.toast(anh ? 'Đã ghi con về và gửi ảnh cho gia đình' : 'Đã ghi giờ con về', 'success');
+      const dong = ngayLucBam === this.date
+        ? (this._roster || []).find(x => x.student.id === studentId) : null;
+      if (dong && kq && kq.record) {
+        dong.record = kq.record;
+        if (kq.anh) dong.anhVeNha = { file: kq.anh.file, taoLuc: kq.gio };
+        this.veLaiDong(studentId);
+      } else {
+        App.route();
+      }
+    } catch (e) { UI.toast(e.message || 'Chưa ghi được', 'error'); }
+  },
+
+  async goRaVe(studentId) {
+    const ngayLucBam = this.date;
+    try {
+      await API.post('/api/attendance/ra-ve/go', { studentId, date: ngayLucBam });
+      UI.toast('Đã gỡ giờ ra về', 'success');
+      const dong = ngayLucBam === this.date
+        ? (this._roster || []).find(x => x.student.id === studentId) : null;
+      if (dong) {
+        if (dong.record) dong.record.checkOut = null;
+        dong.anhVeNha = null;
+        this.veLaiDong(studentId);
+      } else {
+        App.route();
+      }
+    } catch (e) { UI.toast(e.message || 'Chưa gỡ được', 'error'); }
+  },
+
   chonAnh(studentId) {
     const o = document.createElement('input');
     o.type = 'file';
@@ -798,9 +894,11 @@ App.views.attendance = {
   // Bé chưa có dòng nào thì huy hiệu XÁM "Chưa có ảnh đến lớp" — đó là việc
   // của người lớn chưa làm, không phải một lời nào về bé (QUY TẮC 2). Màu đỏ
   // chỉ có ở bảng rà soát sau 9 giờ, và ở dòng đã ghi "Nghỉ không phép" thật.
-  rosterRow({ student: s, record, donNghiDaDuyet, anhDenLop, luuY }) {
-    if (this.ngayDaKhoa()) return this.dongChiXem({ student: s, record, anhDenLop, luuY });
+  rosterRow({ student: s, record, donNghiDaDuyet, anhDenLop, luuY, anhVeNha }) {
+    if (this.ngayDaKhoa()) return this.dongChiXem({ student: s, record, anhDenLop, luuY, anhVeNha });
     const coMat = !!record && (record.status === 'present' || record.status === 'late');
+    // MỘT DÒNG VÀO/RA (Đ210, việc 1). Trước đợt này `checkOut` chưa có đường
+    // nào ghi vào nên vế "Ra về" luôn rỗng — nay nó có thật.
     const times = record
       ? [record.checkIn ? `Vào lớp ${record.checkIn}` : null, record.checkOut ? `Ra về ${record.checkOut}` : null].filter(Boolean).join(' · ')
       : '';
@@ -836,13 +934,35 @@ App.views.attendance = {
               : `<button class="btn sm ${coMat ? 'outline' : 'primary'}" onclick="App.views.attendance.chonAnh('${UI.esc(s.id)}')">
                    ${UI.icon('album', 14)} Chụp ảnh con tới lớp
                  </button>`}
+            ${coMat ? (record && record.checkOut
+              ? `<button class="btn sm outline" onclick="App.views.attendance.goRaVe('${UI.esc(s.id)}')">Gỡ giờ ra</button>`
+              : `<button class="btn sm success-soft" onclick="App.views.attendance.moRaVe('${UI.esc(s.id)}')">
+                   🌇 Ghi con đã về
+                 </button>`) : ''}
             <button class="btn sm outline" onclick="App.views.attendance.suaDiemDanh('${UI.esc(s.id)}')">Sửa</button>
             <button class="btn sm outline" onclick="App.views.attendance.moLuuY('${UI.esc(s.id)}')">
               ${luuY && luuY.luuY ? '🔒 Sửa lưu ý' : '🔒 Lưu ý'}
             </button>
           </div>
+          ${this.oAnhVe(anhVeNha, record)}
           ${this.oLuuY(luuY)}
         </div>
+      </div>`;
+  },
+
+  // KHỐI "CON ĐÃ VỀ" trên dòng bé (Đ210, việc 1 + 2).
+  oAnhVe(anhVeNha, record) {
+    const gio = record && record.checkOut;
+    if (!gio && !(anhVeNha && anhVeNha.file)) return '';
+    return `
+      <div class="flex mt-8" style="gap:8px;align-items:center">
+        ${anhVeNha && anhVeNha.file
+          ? `<img src="/api/attendance/anh/${UI.esc(anhVeNha.file)}" alt="Ảnh lúc trả bé"
+               style="width:42px;height:42px;flex:none;border-radius:10px;object-fit:cover">`
+          : ''}
+        <span class="small" style="color:var(--success)">
+          ${gio ? `🌇 Đã về lúc ${UI.esc(gio)}` : '🌇 Đã có ảnh lúc về'}
+        </span>
       </div>`;
   },
 

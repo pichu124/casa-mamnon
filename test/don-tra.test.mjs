@@ -727,19 +727,27 @@ console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho l�
   await req('PUT', '/api/admin/modules/dontra', { cookie: VP, body: { enabled: true } });
   check('bật lại → 200', (await so(PH, `studentId=${BE}&thang=${thangNay}`)).status === 200);
 
-  // Ô "Đón trả bé" gấp vào Điểm danh với CÔ: máy chủ chỉ TRUYỀN cờ, không quyết.
+  // Ô "Đón trả bé" KHÔNG còn gấp vào Điểm danh (Đ210, việc 1 + 3).
+  //
+  // ĐỔI CHIỀU, KHÔNG BỎ PHÉP KIỂM. Đ126 gấp ô này vào màn Điểm danh vì lúc ấy
+  // màn Điểm danh có hẳn một tab "Trả bé" do phân hệ vẽ. Đ210 gộp hai tab về
+  // một dòng Vào/Ra và bỏ tab ấy đi — nên nếu vẫn gấp thì cô MẤT HẲN lối vào
+  // sổ đón trả: ô bị ẩn khỏi trang chủ mà màn Điểm danh thì không còn vẽ nó
+  // nữa. Đó đúng là kiểu hỏng Nguyên tắc số 1 cấm, và nó im lặng.
+  //
+  // Nên phép kiểm nay đo điều ngược lại, và đo CẢ HAI VẾ: cờ đã gỡ, VÀ cô
+  // thật sự thấy lại ô trên danh sách phân hệ của mình.
   const mj = JSON.parse(fs.readFileSync(path.join(GOC, 'modules/dontra/module.json'), 'utf8'));
-  check('module.json khai gopVao vào màn attendance, chỉ với vai cô',
-    !!mj.gopVao && mj.gopVao.view === 'attendance' && Array.isArray(mj.gopVao.vai)
-      && mj.gopVao.vai.includes('teacher') && !mj.gopVao.vai.includes('parent') && !mj.gopVao.vai.includes('admin'),
-    mj.gopVao);
+  check('module.json KHÔNG còn khai gopVao — màn Điểm danh không vẽ sổ trả bé nữa',
+    mj.gopVao === undefined || mj.gopVao === null, mj.gopVao);
   const dsCo = await req('GET', '/api/modules', { cookie: GV });
   const dtCo = (dsCo.data || []).find(x => x.key === 'dontra');
-  check('GET /api/modules đưa gopVao xuống cho cô — phân hệ vẫn CÓ trong danh sách, chỉ ô là ẩn',
-    !!dtCo && !!dtCo.gopVao && dtCo.gopVao.view === 'attendance', dtCo);
+  check('CÔ VẪN THẤY phân hệ Đón trả bé trong danh sách của mình', !!dtCo, dtCo);
+  check('…và không còn cờ gấp, nên trang chủ vẽ ô cho cô bấm vào',
+    !!dtCo && !dtCo.gopVao, dtCo && dtCo.gopVao);
   const dsPH = await req('GET', '/api/modules', { cookie: PH });
   const dtPH = (dsPH.data || []).find(x => x.key === 'dontra');
-  check('gia đình vẫn thấy phân hệ, kèm cùng cờ (trình duyệt tự xét vai)', !!dtPH && !!dtPH.gopVao, dtPH);
+  check('gia đình vẫn thấy phân hệ như cũ', !!dtPH && !dtPH.gopVao, dtPH);
   // HÌNH DẠNG của cờ, không phải DANH SÁCH ai đang gấp.
   //
   // Bản đầu viết là "mọi phân hệ trừ `dontra` phải có gopVao === null" — đọc thì

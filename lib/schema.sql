@@ -1065,3 +1065,34 @@ CREATE TABLE IF NOT EXISTS attendance_luu_y (
   PRIMARY KEY (studentId, ngay)
 );
 CREATE INDEX IF NOT EXISTS attendance_luu_y_theo_ngay ON attendance_luu_y(ngay);
+
+-- ===========================================================================
+-- ẢNH LÚC TRẢ BÉ, NAY THUỘC PHẦN LÕI (Đ210, việc 1 + 2)
+-- ===========================================================================
+--
+-- Nhà trường xin gộp hai tab Đón bé / Trả bé về MỘT dòng Vào/Ra, và chuyển ảnh
+-- trả bé vào phần lõi.
+--
+-- ĐÂY LÀ MỘT ĐÁNH ĐỔI THẬT, VÀ NÓ ĐÃ ĐƯỢC NÓI RA TRƯỚC KHI LÀM. Ảnh trả bé
+-- trước nay nằm trong phân hệ Đón trả bé — thứ nhà trường TẮT ĐƯỢC ở Quản trị.
+-- Cơ chế cô lập lỗi của kho mã này bảo vệ bằng cách khoanh vùng: phân hệ nào
+-- hỏng thì tắt phân hệ ấy, phần còn lại chạy tiếp. Vào lõi là mất lớp ấy —
+-- từ nay một lỗi ở đường ảnh trả bé không còn khoanh lại được nữa.
+--
+-- KHÔNG DỜI MỘT DÒNG DỮ LIỆU NÀO. Bảng `dontra_anh_tra` giữ nguyên từng dòng
+-- và phân hệ vẫn đọc nó y như cũ. Bảng dưới đây là chỗ ghi MỚI của lõi, và
+-- đường đọc của lõi tra CẢ HAI — ảnh chụp trước đợt này vẫn mở ra xem được.
+-- Đây đúng là lối "thêm cái mới bên cạnh, chuyển dần chỗ gọi" mà CLAUDE.md
+-- bắt đi khi phải đổi một thứ đang chạy.
+--
+-- Một bé một ngày MỘT tấm, chụp lại là THAY. Cùng luật với `attendance_photo`.
+CREATE TABLE IF NOT EXISTS attendance_anh_ve (
+  studentId TEXT NOT NULL,
+  date      TEXT NOT NULL,              -- YYYY-MM-DD
+  file      TEXT NOT NULL,
+  taoLuc    TEXT,
+  byUserId  TEXT,
+  PRIMARY KEY (studentId, date)
+);
+CREATE INDEX IF NOT EXISTS idx_att_anh_ve_date ON attendance_anh_ve(date);
+CREATE INDEX IF NOT EXISTS idx_att_anh_ve_file ON attendance_anh_ve(file);

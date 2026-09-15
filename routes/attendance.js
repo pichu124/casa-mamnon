@@ -309,6 +309,9 @@ module.exports = (app) => {
       }
     }
 
+    // Ảnh lúc trả bé của đúng ngày ấy (Đ210) — lõi và phân hệ gộp lại.
+    const anhVe = anhVeCuaNgay(ids, date);
+
     // Tên nhóm của từng bé — văn phòng mở màn này KHÔNG kèm mã nhóm (máy chủ
     // tự cắt theo phạm vi), nên bé của cả cơ sở về một danh sách và màn hình
     // cần biết bé nào thuộc nhóm nào để xếp theo nhóm. Tra một lần mỗi nhóm.
@@ -350,6 +353,7 @@ module.exports = (app) => {
         record: byStudent.get(s.id) || null,
         donNghiDaDuyet: donNghi.get(s.id) || null,
         anhDenLop: anh.get(s.id) || null,
+        anhVeNha: anhVe.get(s.id) || null,
         luuY: luuYRaNgoai(luuY.get(s.id)),
       })),
     });
@@ -649,11 +653,33 @@ module.exports = (app) => {
     if (!db.canAccessStudent(req.user, studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem ảnh điểm danh của bé này' });
     }
+    // ẢNH LÚC TRẢ BÉ ĐI CÙNG, Ở MỘT KHOÁ RIÊNG (Đ210, việc 1 + 2).
+    //
+    // Thêm khoá `anhVe` chứ KHÔNG trộn vào mảng `anh` đang có: màn hình đời cũ
+    // còn trong máy điện thoại đã cài app đọc `anh` và dựng chú thích "con đã
+    // tới lớp" cho từng tấm. Trộn ảnh chiều vào đó là gia đình mở app cũ ra
+    // thấy ảnh lúc về mang chú thích lúc tới — sai mà không có gì báo.
+    let anhVe = [];
+    try {
+      if (!modules.dangBat('dontra')) throw new Error('dontra dang tat');
+      anhVe = db.all('dontra_anh_tra',
+        `SELECT ngay AS date, file, taoLuc FROM dontra_anh_tra
+          WHERE studentId = ? AND ngay LIKE ? AND file <> ''`, [studentId, `${thang}-%`]);
+    } catch (_) { /* phân hệ chưa từng bật */ }
+    const theoNgay = new Map(anhVe.map(x => [x.date, x]));
+    for (const x of db.all('attendance_anh_ve',
+      `SELECT date, file, taoLuc FROM attendance_anh_ve
+        WHERE studentId = ? AND date LIKE ?`, [studentId, `${thang}-%`])) {
+      // Dòng lõi ghi sau thì đè lên; `file` rỗng nghĩa là cô đã gỡ ảnh ấy.
+      if (x.file) theoNgay.set(x.date, x); else theoNgay.delete(x.date);
+    }
+
     res.json({
       studentId, month: thang,
       anh: db.all('attendance_photo',
         `SELECT date, file, taoLuc FROM attendance_photo
           WHERE studentId = ? AND date LIKE ? ORDER BY date DESC`, [studentId, `${thang}-%`]),
+      anhVe: [...theoNgay.values()].sort((a, b) => String(b.date).localeCompare(String(a.date))),
     });
   });
 
@@ -680,8 +706,17 @@ module.exports = (app) => {
   // Nên đường này hỏi chủ ảnh trước, y hệt `modules/dontra/routes.js`.
   app.get('/api/attendance/anh/:file', (req, res) => {
     const file = String(req.params.file || '');
+    // BA BẢNG, MỘT ĐƯỜNG ĐỌC (Đ210, việc 2).
+    //
+    // `attendance_photo` là ảnh tới lớp. `attendance_anh_ve` là ảnh lúc trả bé
+    // do lõi ghi từ đợt này. `dontra_anh_tra` là ảnh trả bé phân hệ đã ghi
+    // TRƯỚC đợt này — tra nốt bảng ấy là lý do những tấm cũ vẫn mở ra xem
+    // được, chứ không biến mất khỏi sổ của gia đình vào đúng ngày cập nhật.
     const chu = db.first('attendance_photo',
-      'SELECT studentId FROM attendance_photo WHERE file = ?', [file]);
+      'SELECT studentId FROM attendance_photo WHERE file = ?', [file])
+      || db.first('attendance_anh_ve',
+        'SELECT studentId FROM attendance_anh_ve WHERE file = ?', [file])
+      || anhVeDoiCu(file);
     // Không ai nhận tấm ảnh này thì trả 404 NGAY, trước cả khi hỏi tệp có tồn
     // tại trên đĩa không — để không ai dò được thư mục ảnh bằng cách so hai
     // loại lỗi khác nhau.
@@ -694,6 +729,155 @@ module.exports = (app) => {
     res.setHeader('Content-Type', uploads.mimeOf(file));
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.sendFile(duong);
+  });
+
+  // =========================================================================
+  // GIỜ RA VỀ VÀ ẢNH LÚC TRẢ BÉ — MỘT DÒNG VÀO/RA (Đ210, việc 1 + 2)
+  // =========================================================================
+  //
+  // Nhà trường xin gộp hai tab Đón bé / Trả bé về MỘT dòng, và chuyển ảnh trả
+  // bé vào phần lõi. Xem chú thích dài ở `attendance_anh_ve` trong
+  // `lib/schema.sql` về cái giá của việc vào lõi.
+  //
+  // CỘT `checkOut` ĐÃ CÓ TỪ ĐẦU MÀ CHƯA MỘT ĐƯỜNG NÀO GHI VÀO NÓ. Ba màn hình
+  // đang dựng chữ "Ra về ${record.checkOut}" từ nó, nên suốt từ ngày đầu tới
+  // giờ chỗ ấy luôn rỗng và không ai thấy gì sai — màn hình chỉ đơn giản không
+  // hiện dòng đó. Đây là đường ghi còn thiếu.
+  //
+  // ĐỌC BẢNG CŨ CHỨ KHÔNG DỜI BẢNG CŨ. Ảnh trả bé phân hệ đã ghi trước đợt này
+  // ở lại nguyên chỗ của nó.
+  //
+  // HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ — bước hay quên nhất của kho
+  // mã này, đã quên ba lần và có hẳn một bộ canh riêng (`test:doc-cheo`). Bản
+  // đầu của khối này quên đúng lần thứ tư, và bộ canh bắt được ngay.
+  //
+  // Không phải chuyện hình thức: nhà trường TẮT phân hệ Đón trả bé mà lõi vẫn
+  // dọn ảnh cũ của nó ra màn hình thì tắt một phân hệ chỉ còn là giấu cái biểu
+  // tượng, không chặn được dữ liệu — đúng thứ Đ46 đã vấp.
+  function anhVeDoiCu(file) {
+    if (!modules.dangBat('dontra')) return null;
+    try {
+      return db.first('dontra_anh_tra',
+        'SELECT studentId FROM dontra_anh_tra WHERE file = ?', [String(file || '')]);
+    } catch (_) { return null; }   // phân hệ chưa từng bật thì chưa có bảng
+  }
+
+  // Ảnh trả bé của một ngày cho cả nhóm — lõi trước, phân hệ sau.
+  function anhVeCuaNgay(ids, ngayXem) {
+    const ra = new Map();
+    if (!ids.length) return ra;
+    const dau = ids.map(() => '?').join(',');
+    // Phân hệ đang tắt thì KHÔNG đọc bảng của nó — xem chú thích ở `anhVeDoiCu`.
+    try {
+      if (!modules.dangBat('dontra')) throw new Error('dontra dang tat');
+      for (const a of db.all('dontra_anh_tra',
+        `SELECT studentId, file, taoLuc FROM dontra_anh_tra
+          WHERE ngay = ? AND studentId IN (${dau})`, [ngayXem, ...ids])) {
+        if (a.file) ra.set(a.studentId, { file: a.file, taoLuc: a.taoLuc });
+      }
+    } catch (_) { /* phân hệ chưa từng bật */ }
+    // Lõi ghi sau nên ĐÈ LÊN bản của phân hệ: cùng một bé cùng một ngày thì
+    // tấm mới nhất là tấm đúng.
+    for (const a of db.all('attendance_anh_ve',
+      `SELECT studentId, file, taoLuc FROM attendance_anh_ve
+        WHERE date = ? AND studentId IN (${dau})`, [ngayXem, ...ids])) {
+      if (a.file) ra.set(a.studentId, { file: a.file, taoLuc: a.taoLuc });
+    }
+    return ra;
+  }
+
+  // Cô ghi bé đã ra về: giờ ra, kèm ảnh nếu có chụp.
+  //
+  // KHÔNG TỰ ĐỔI TRẠNG THÁI ĐIỂM DANH. Bé nghỉ mà bấm nhầm nút ra về thì dòng
+  // "Nghỉ có phép" phải ở nguyên — giờ ra là một sự kiện trong ngày, không
+  // phải một phép ghi đè lên việc bé có đi học hay không.
+  app.post('/api/attendance/ra-ve', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const studentId = String(b.studentId || '');
+    const ngayGhi = String(b.date || todayStr());
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngayGhi)) {
+      return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
+    }
+    // Cùng luật khoá ngày với chính dòng điểm danh ấy (Đ127).
+    if (chanNgoaiNgay(res, ngayGhi, 'ghi giờ ra về')) return;
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
+    }
+
+    const cu = db.first('attendance',
+      'SELECT * FROM attendance WHERE studentId = ? AND date = ?', [studentId, ngayGhi]);
+    if (!cu) {
+      return res.status(400).json({
+        error: 'Bé này chưa có dòng điểm danh hôm nay, nên chưa ghi giờ ra về được. '
+          + 'Cô chấm điểm danh hoặc chụp ảnh con tới lớp trước nhé.',
+      });
+    }
+
+    let anhMoi = null;
+    if (b.anh) {
+      if (typeof b.anh !== 'string') return res.status(400).json({ error: 'Ảnh chưa gửi lên được' });
+      const phay = b.anh.indexOf(',');
+      if (phay >= 0 && (b.anh.length - phay - 1) * 0.75 > TOI_DA_ANH_BYTE) {
+        return res.status(400).json({ error: 'Ảnh nặng quá, cô chụp lại một khung hình nhỏ hơn nhé' });
+      }
+      try { anhMoi = uploads.saveDataUrl(b.anh); }
+      catch (err) { return res.status(400).json({ error: err.message || 'Ảnh chưa gửi lên được' }); }
+    }
+
+    const gio = /^\d{2}:\d{2}$/.test(String(b.gio || '')) ? String(b.gio) : nowTime().slice(0, 5);
+    db.update('attendance', cu.id, { checkOut: gio });
+    if (anhMoi) {
+      const anhCu = db.first('attendance_anh_ve',
+        'SELECT file FROM attendance_anh_ve WHERE studentId = ? AND date = ?', [studentId, ngayGhi]);
+      db.upsert('attendance_anh_ve', {
+        studentId, date: ngayGhi, file: anhMoi.file,
+        taoLuc: nowTime(), byUserId: req.user.id,
+      }, ['studentId', 'date']);
+      // Dọn tệp cũ, cùng lý do đã ghi ở ảnh tới lớp: chụp lại vài lần là
+      // chuyện thường, mỗi lần bỏ lại một tệp là kho ảnh phình lên.
+      if (anhCu && anhCu.file && anhCu.file !== anhMoi.file) uploads.remove(anhCu.file);
+    }
+    db.audit(req.user.id, 'ghi-gio-ra-ve', studentId, { date: ngayGhi, gio, coAnh: !!anhMoi });
+
+    // Báo gia đình — cùng lối với ảnh tới lớp.
+    if (anhMoi) {
+      tbb.gui({ studentId, loai: 'diemdanh', nguoiTao: req.user.id,
+        tieuDe: 'Con đã được đón về',
+        noiDung: `Cô đã trao con lúc ${gio}. Gia đình xem ảnh trong Điểm danh nhé.`,
+        hash: '#/attendance' });
+    }
+    res.json({
+      ok: true, date: ngayGhi, gio,
+      anh: anhMoi ? { file: anhMoi.file } : null,
+      record: db.first('attendance', 'SELECT * FROM attendance WHERE id = ?', [cu.id]),
+    });
+  });
+
+  // Gỡ giờ ra về (bấm nhầm bé). Ảnh gỡ theo, dòng điểm danh ở nguyên.
+  app.post('/api/attendance/ra-ve/go', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const studentId = String(b.studentId || '');
+    const ngayGhi = String(b.date || todayStr());
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (chanNgoaiNgay(res, ngayGhi, 'gỡ giờ ra về')) return;
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
+    }
+    const cu = db.first('attendance',
+      'SELECT * FROM attendance WHERE studentId = ? AND date = ?', [studentId, ngayGhi]);
+    if (cu) db.update('attendance', cu.id, { checkOut: null });
+    const anhCu = db.first('attendance_anh_ve',
+      'SELECT file FROM attendance_anh_ve WHERE studentId = ? AND date = ?', [studentId, ngayGhi]);
+    if (anhCu) {
+      // DÒNG Ở LẠI LÀM VẾT, TỆP ẢNH THÌ KHÔNG — cùng luật đã ghi ở phân hệ.
+      db.upsert('attendance_anh_ve', {
+        studentId, date: ngayGhi, file: '', taoLuc: nowTime(), byUserId: req.user.id,
+      }, ['studentId', 'date']);
+      if (anhCu.file) uploads.remove(anhCu.file);
+    }
+    db.audit(req.user.id, 'go-gio-ra-ve', studentId, { date: ngayGhi });
+    res.json({ ok: true });
   });
 
   // =========================================================================

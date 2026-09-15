@@ -9,6 +9,5 @@
   "api": ["/api/dontra"],
   "roles": ["parent", "teacher", "admin"],
   "defaultEnabled": true,
-  "gopVao": { "view": "attendance", "vai": ["teacher"] },
   "version": "0.1.0"
 }
