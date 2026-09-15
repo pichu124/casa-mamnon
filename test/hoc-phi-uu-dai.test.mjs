@@ -292,6 +292,53 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[4b2] GIA ĐÌNH XEM ĐƯỢC ƯU ĐÃI CỦA CON — nhà trường mở 10/09/2026');
+  {
+    // Đ169 để mặc định ĐÓNG với gia đình vì lúc đó "quyết định ai đọc được nó
+    // là của nhà trường". Nhà trường trả lời A19 ý 1: "Gia đình có thể xem được
+    // ưu đãi của con mình — theo dõi hành trình ưu đãi luôn."
+    //
+    // Mở qua CHÍNH đường sổ tiền gia đình đang dùng, không dựng đường mới: chốt
+    // canAccessStudent ở đầu hàm đã gác đúng câu hỏi "bé này có phải con nhà
+    // này không".
+    const soTien = await req('GET', '/api/hocphi?studentId=s1', { cookie: PH });
+    check('gia đình mở sổ tiền của con thì thấy luôn phần ưu đãi',
+      soTien.status === 200 && Array.isArray(soTien.data?.uuDai), soTien.status);
+    check('và ưu đãi của con có trong đó',
+      (soTien.data?.uuDai || []).some(u => /hai bé cùng học/.test(u.ten || '')),
+      (soTien.data?.uuDai || []).map(u => u.ten));
+
+    // Ô GHI CHÚ LÀ CHỖ KẾ TOÁN GHI HOÀN CẢNH CỦA NHÀ — KHÔNG ĐƯỢC LỌT RA.
+    //
+    // Kế toán ghi vào đó những câu như "mẹ xin giảm vì bố mất việc": đó là ghi
+    // chép nội bộ của trường VỀ một gia đình, không phải thứ để chính nhà ấy
+    // đọc lại trên điện thoại. Cùng tinh thần ba lớp dữ liệu của CLAUDE.md.
+    const MOC = 'GHI-CHU-NOI-BO-KHONG-DUOC-LO';
+    await req('POST', '/api/hocphi/uu-dai', {
+      cookie: KT,
+      body: { studentId: 's1', ten: 'Ưu đãi có ghi chú', kieu: 'so-tien', giaTri: 100000, ghiChu: MOC },
+    });
+    const lai = await req('GET', '/api/hocphi?studentId=s1', { cookie: PH });
+    check('ƯU ĐÃI MỚI ĐÃ TỚI GIA ĐÌNH', (lai.data?.uuDai || []).some(u => /có ghi chú/.test(u.ten || '')));
+    check('NHƯNG Ô GHI CHÚ NỘI BỘ KHÔNG LỌT RA — quét cả gói trả về',
+      !JSON.stringify(lai.data || {}).includes(MOC), 'chuỗi mốc xuất hiện trong gói trả về');
+    check('và cũng không trả tên người đặt ưu đãi',
+      (lai.data?.uuDai || []).every(u => u.taoBoi === undefined), (lai.data?.uuDai || [])[0]);
+
+    // NHÀ KHÁC VẪN KHÔNG XEM ĐƯỢC — chốt cũ phải còn nguyên.
+    const PH2 = (await login('phuhuynh2', '123456')).cookie;
+    const nhaKhac = await req('GET', '/api/hocphi?studentId=s1', { cookie: PH2 });
+    check('nhà khác KHÔNG xem được sổ tiền lẫn ưu đãi của bé s1', nhaKhac.status === 403, nhaKhac.status);
+
+    // Và đường bảng ưu đãi CỦA TRƯỜNG vẫn đóng với gia đình: mở cho nhà mình
+    // xem con mình, không phải mở cho nhà mình xem cả trường.
+    const bangPH = await req('GET', '/api/hocphi/uu-dai/bang', { cookie: PH });
+    check('gia đình vẫn KHÔNG mở được bảng ưu đãi cả trường', bangPH.status === 403, bangPH.status);
+    const beKhac = await req('GET', '/api/hocphi/uu-dai?studentId=s1', { cookie: PH });
+    check('và cũng không đi được đường ưu đãi dành cho nhà trường', beKhac.status === 403, beKhac.status);
+  }
+
+  // =========================================================================
   console.log('\n[4c] Con số trên ô Học phí và cánh cửa mở nó ra — cùng một câu');
   {
     // LỖI RÀ SOÁT ĐỐI KHÁNG BẮT ĐƯỢC, ba người phản bác đều xác nhận.

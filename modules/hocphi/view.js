@@ -70,6 +70,32 @@ App.views.hocphi = {
         <div class="stat-box"><div class="stat-num">${d.soKhoanChuaNop}</div><div class="stat-label">Khoản chưa nộp</div></div>
         <div class="stat-box"><div class="stat-num">${d.khoan.length}</div><div class="stat-label">Tổng số khoản</div></div>
       </div>
+      ${(d.uuDai || []).length ? `
+        <div class="card">
+          <div class="card-title">Ưu đãi nhà trường dành cho con</div>
+          ${d.uuDai.map(u => {
+    const chuaToi = u.tuNgay && u.tuNgay > UI.todayStr();
+    const hetHan = u.denNgay && u.denNgay < UI.todayStr();
+    return `
+            <div class="list-row">
+              <span class="row-icon" style="background:var(--success-tint)">🎁</span>
+              <div class="row-main">
+                <div class="row-title">${UI.esc(u.ten)}</div>
+                <div class="row-sub">${u.kieu === 'phan-tram'
+    ? 'Giảm ' + Number(u.giaTri) + ' phần trăm'
+    : 'Giảm ' + tien(u.giaTri)}${
+  u.tuNgay ? ' · Từ ' + UI.fmtDateShort(u.tuNgay) : ''}${
+  u.denNgay ? ' · Đến ' + UI.fmtDateShort(u.denNgay) : ''}</div>
+              </div>
+              <div class="row-end">${
+  chuaToi ? UI.badge('Chưa tới ngày', 'gray')
+    : hetHan ? UI.badge('Đã hết hạn', 'gray')
+      : UI.badge('Đang áp dụng', 'green')}</div>
+            </div>`;
+  }).join('')}
+          <div class="muted small mt-8">Số tiền ở các khoản bên dưới là số nhà trường đã tính sẵn.
+            Có gì chưa khớp, gia đình nhắn cho văn phòng giúp nhé.</div>
+        </div>` : ''}
       ${d.khoan.length ? `
         <div class="card">
           ${d.khoan.map(k => `

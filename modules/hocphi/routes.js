@@ -130,8 +130,34 @@ module.exports = (app, { db, modules }) => {
          AND id NOT IN (SELECT khoanId FROM hocphi_thuhoi)
        ORDER BY hanNop DESC, rowid DESC`, [studentId]);
     const chuaNop = khoan.filter(k => !k.daNop);
+
+    // ƯU ĐÃI CỦA CHÍNH BÉ NÀY — nhà trường mở cho gia đình ngày 10/09/2026
+    // (A19 ý 1): *"Gia đình có thể xem được ưu đãi của con mình — theo dõi hành
+    // trình ưu đãi luôn"*.
+    //
+    // Đ169 để mặc định ĐÓNG với gia đình vì lúc đó *"quyết định ai đọc được nó
+    // là của nhà trường"*. Nay nhà trường đã quyết, nên mở.
+    //
+    // ĐI QUA CHÍNH ĐƯỜNG NÀY, KHÔNG DỰNG ĐƯỜNG MỚI: chốt `canAccessStudent` ở
+    // đầu hàm đã gác đúng câu hỏi "bé này có phải con nhà này không", và gia
+    // đình vốn đã mở màn sổ tiền để xem khoản phải nộp. Thêm một đường riêng là
+    // thêm một chỗ phải nhớ gác, và hai chỗ rồi sẽ trôi khỏi nhau.
+    //
+    // KHÔNG trả `ghiChu`: ô đó là chỗ kế toán ghi hoàn cảnh của nhà — *"mẹ xin
+    // giảm vì bố mất việc"* — tức là ghi chép nội bộ của trường về một gia
+    // đình, không phải thứ để chính nhà ấy đọc lại trên điện thoại. Cùng tinh
+    // thần ba lớp dữ liệu của CLAUDE.md.
+    //
+    // Và cũng KHÔNG trả `taoBoi`: tên người đặt ưu đãi là việc nội bộ.
+    const uuDaiCuaBe = db.all('hocphi_uudai',
+      `SELECT id, ten, kieu, giaTri, tuNgay, denNgay, taoLuc FROM hocphi_uudai
+         WHERE studentId = ?
+           AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)
+       ORDER BY rowid DESC`, [studentId]);
+
     res.json({
       khoan: khoan.map(k => ({ ...k, daNop: !!k.daNop })),
+      uuDai: uuDaiCuaBe,
       tongChuaNop: chuaNop.reduce((s, k) => s + Number(k.soTien || 0), 0),
       soKhoanChuaNop: chuaNop.length,
       // MÁY CHỦ NÓI RA QUYỀN, MÀN HÌNH KHÔNG TỰ ĐOÁN THEO VAI (nếp của Đ157).
