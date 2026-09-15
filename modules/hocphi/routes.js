@@ -3,7 +3,69 @@
 // Nhận sẵn `db` qua tham số thứ hai nên không cần biết ứng dụng đặt tệp dữ liệu
 // ở đâu. Mọi hàm kiểm tra quyền dùng chung với phần lõi, nhờ vậy phân hệ mới
 // không thể vô tình để lộ dữ liệu của học sinh lớp khác.
+// ===========================================================================
+// LOẠI CỦA MỘT KHOẢN THU (Đ199, việc 34)
+// ===========================================================================
+//
+// Nhà trường: ưu đãi chỉ áp trên HỌC PHÍ, không áp trên tiền ăn hay tiền xe.
+// Hôm nay `hocphi_khoan` chỉ có `noiDung` là chữ tự do nên máy không phân
+// biệt được — mà "Tiền ăn tháng 9" với "Học phí tháng 9" thì con người đọc ra
+// ngay, còn máy thì không, và đoán theo chữ là đoán sai vào đúng lúc tên
+// khoản được gõ khác đi một chữ.
+//
+// KHÔNG CÓ DÒNG = HỌC PHÍ. Xem chú thích dài ở `hocphi_khoan_loai` trong
+// schema.sql: cho khoản cũ về 'khac' là số tiền một nhà đang nợ tự nhiên
+// tăng lên mà không ai bấm gì.
+const LOAI_KHOAN = [
+  ['hoc-phi', 'Học phí'],
+  ['tien-an', 'Tiền ăn'],
+  ['xe-dua-don', 'Xe đưa đón'],
+  ['khac', 'Khoản khác'],
+];
+const MA_LOAI_KHOAN = LOAI_KHOAN.map(x => x[0]);
+const TEN_LOAI_KHOAN = Object.fromEntries(LOAI_KHOAN);
+const LOAI_MAC_DINH = 'hoc-phi';
+
+// ƯU ĐÃI CHỈ ÁP TRÊN LOẠI NÀY. Một hằng số, không phải một ô cấu hình: nhà
+// trường nói thẳng "ưu đãi chỉ áp trên học phí", nên đây là LUẬT chứ không
+// phải lựa chọn. Ngày trường đổi ý thì đổi ở đúng một dòng.
+const LOAI_DUOC_UU_DAI = ['hoc-phi'];
+
 module.exports = (app, { db, modules }) => {
+  // Loại của một khoản, và của cả một danh sách (đọc MỘT lượt).
+  function loaiCua(khoanId) {
+    try {
+      const r = db.first('hocphi_khoan_loai',
+        'SELECT loai FROM hocphi_khoan_loai WHERE khoanId = ?', [khoanId]);
+      return r && MA_LOAI_KHOAN.includes(r.loai) ? r.loai : LOAI_MAC_DINH;
+    } catch (_) {
+      return LOAI_MAC_DINH;
+    }
+  }
+  function loaiTheoKhoan(ids) {
+    const ra = new Map();
+    const ds = (ids || []).filter(Boolean);
+    if (!ds.length) return ra;
+    try {
+      const m = ds.map(() => '?').join(',');
+      for (const r of db.all('hocphi_khoan_loai',
+        `SELECT khoanId, loai FROM hocphi_khoan_loai WHERE khoanId IN (${m})`, ds)) {
+        if (MA_LOAI_KHOAN.includes(r.loai)) ra.set(r.khoanId, r.loai);
+      }
+    } catch (_) { /* bảng chưa có thì mọi khoản về mặc định */ }
+    return ra;
+  }
+  // Ghi loại cho một khoản. MẶC ĐỊNH THÌ KHÔNG GHI DÒNG NÀO — giữ bảng phụ chỉ
+  // chứa những gì kế toán thật sự đã chọn khác đi, cùng lối `lib/nhom-co.js`.
+  function ghiLoai(khoanId, loai) {
+    const ma = MA_LOAI_KHOAN.includes(String(loai || '')) ? String(loai) : LOAI_MAC_DINH;
+    if (ma === LOAI_MAC_DINH) return ma;
+    try {
+      db.upsert('hocphi_khoan_loai', { khoanId, loai: ma }, ['khoanId']);
+    } catch (_) { /* việc phụ: hỏng thì khoản về mặc định, không làm hỏng lượt ghi */ }
+    return ma;
+  }
+
   const ngay = require('../../lib/ngay');
   const { requireRole } = require('../../lib/auth');
   const henGio = require('../../lib/hen-gio');
@@ -155,10 +217,34 @@ module.exports = (app, { db, modules }) => {
            AND id NOT IN (SELECT uuDaiId FROM hocphi_uudai_go)
        ORDER BY rowid DESC`, [studentId]);
 
+    // LOẠI CỦA TỪNG KHOẢN, đọc MỘT lượt cho cả danh sách (Đ199, việc 34).
+    const loaiMap = loaiTheoKhoan(khoan.map(k => k.id));
+    const loaiCuaK = k => loaiMap.get(k.id) || LOAI_MAC_DINH;
+
     res.json({
-      khoan: khoan.map(k => ({ ...k, daNop: !!k.daNop })),
+      khoan: khoan.map(k => ({
+        ...k,
+        daNop: !!k.daNop,
+        loai: loaiCuaK(k),
+        tenLoai: TEN_LOAI_KHOAN[loaiCuaK(k)] || '',
+      })),
+      loaiKhoan: LOAI_KHOAN.map(([ma, ten]) => ({
+        ma, ten, duocUuDai: LOAI_DUOC_UU_DAI.includes(ma),
+      })),
       uuDai: uuDaiCuaBe,
       tongChuaNop: chuaNop.reduce((s, k) => s + Number(k.soTien || 0), 0),
+      // PHẦN ƯU ĐÃI ÁP ĐƯỢC LÊN — nhà trường: ưu đãi chỉ áp trên HỌC PHÍ.
+      //
+      // Máy chủ nói ra con số này chứ không để màn hình tự cộng: cộng tiền ở
+      // hai nơi là hai nơi sẽ ra hai số, và số sai sẽ là số nhà nhìn thấy.
+      //
+      // Đây là số GỐC để tính ưu đãi, không phải số đã trừ: phân hệ này cố ý
+      // không tự trừ tiền của ai — kế toán quyết định và ghi thành một khoản
+      // (xem chú thích ở đường ghi sổ). Nói ra gốc là đủ để kế toán tính đúng
+      // và để màn hình giải thích được vì sao.
+      tongChuaNopDuocUuDai: chuaNop
+        .filter(k => LOAI_DUOC_UU_DAI.includes(loaiCuaK(k)))
+        .reduce((s, k) => s + Number(k.soTien || 0), 0),
       soKhoanChuaNop: chuaNop.length,
       // MÁY CHỦ NÓI RA QUYỀN, MÀN HÌNH KHÔNG TỰ ĐOÁN THEO VAI (nếp của Đ157).
       //
@@ -253,9 +339,18 @@ module.exports = (app, { db, modules }) => {
       taoBoi: req.user.id,
       taoLuc: new Date().toISOString(),
     };
-    db.insert('hocphi_khoan', rec);
-    db.audit(req.user.id, 'hocphi-create', rec.id, { studentId, soTien: rec.soTien });
-    res.status(201).json({ ...rec, daNop: false });
+    const loaiXin = String((req.body || {}).loai || LOAI_MAC_DINH);
+    if (!MA_LOAI_KHOAN.includes(loaiXin)) {
+      return res.status(400).json({
+        error: `Loại khoản thu chỉ có: ${LOAI_KHOAN.map(x => x[1]).join(' · ')}`,
+      });
+    }
+    db.tx(() => {
+      db.insert('hocphi_khoan', rec);
+      ghiLoai(rec.id, loaiXin);
+    });
+    db.audit(req.user.id, 'hocphi-create', rec.id, { studentId, soTien: rec.soTien, loai: loaiXin });
+    res.status(201).json({ ...rec, daNop: false, loai: loaiXin, tenLoai: TEN_LOAI_KHOAN[loaiXin] });
   });
 
   // GHI SỔ MỘT LƯỢT CHO CẢ NHÓM HOẶC CẢ CƠ SỞ (Đ163, ý 2 của trường).
@@ -851,6 +946,79 @@ module.exports = (app, { db, modules }) => {
     }
   }
   henGio.dangKy('hocphi:han-uu-dai', quetHanUuDai);
+
+  // ===========================================================================
+  // NHẮC HẠN NỘP CHO NGƯỜI LO TIỀN (Đ199, việc 37)
+  // ===========================================================================
+  //
+  // Nhà trường xin kế toán nhận tin nhắc hạn. Hôm nay `hanNop` được ghi vào
+  // khoản thu rồi nằm đó — không đường nào trong app đọc nó ra để nhắc ai,
+  // nên nó là một cột chỉ để nhìn.
+  //
+  // GỬI CHO NGƯỜI LO TIỀN, KHÔNG GỬI CHO GIA ĐÌNH. Đây là bản nhắc nội bộ để
+  // kế toán còn gọi điện hay nhắn riêng; bắn thẳng "nhà bạn sắp tới hạn nộp
+  // tiền" về điện thoại của phụ huynh là một quyết định khác hẳn, về quan hệ
+  // giữa trường và gia đình, và nó phải do nhà trường chốt chứ không phải do
+  // tôi chọn thay. Đã ghi lại để hỏi.
+  //
+  // KHÔNG NÊU SỐ TIỀN TRONG TIN ĐẨY. Tin hiện trên màn hình khoá điện thoại,
+  // nơi người đi qua cũng đọc được; số tiền một nhà đang nợ là chuyện riêng
+  // của nhà ấy. Cùng lối đã ghi ở `quetHanUuDai` cho tên ưu đãi.
+  function daNhacKhoan(id) {
+    try {
+      return !!db.first('hocphi_khoan_nhac',
+        'SELECT khoanId FROM hocphi_khoan_nhac WHERE khoanId = ?', [id]);
+    } catch (_) { return true; }   // bảng hỏng thì THÔI nhắc, không nhắc loạn
+  }
+
+  function quetHanNop() {
+    if (!phanHeDangBat()) return;
+    const homNay = ngay.homNay();
+    const moc = congNgay(homNay, HAN_NHAC_TRUOC_NGAY);
+    if (!moc) return;
+    let ds = [];
+    try {
+      ds = db.all('hocphi_khoan',
+        `SELECT * FROM hocphi_khoan
+          WHERE hanNop IS NOT NULL AND hanNop >= ? AND hanNop <= ?
+            AND daNop = 0
+            AND id NOT IN (SELECT khoanId FROM hocphi_thuhoi)
+            AND id NOT IN (SELECT khoanId FROM hocphi_khoan_nhac)
+          LIMIT 200`, [homNay, moc]);
+    } catch (err) {
+      console.error(`[hocphi] không quét được hạn nộp: ${err.message}`);
+      return;
+    }
+    for (const k of ds) {
+      try {
+        const be = db.findStudent(k.studentId);
+        if (!be) continue;
+        // Bé đã nghỉ học thì thôi nhắc — cùng lý do đã ghi ở `quetHanUuDai`.
+        if (be.active === false || be.active === 0) continue;
+        baoNhaTruong.guiChoNguoiLoTienCuaBe(k.studentId, {
+          tieuDe: 'Có khoản thu sắp tới hạn',
+          noiDung: `Một khoản của bé ${be.name} tới hạn ngày ${k.hanNop}. `
+            + 'Xin mở mục Học phí để xem và nhắc gia đình giúp.',
+          hash: '#/hocphi',
+        });
+        db.upsert('hocphi_khoan_nhac',
+          { khoanId: k.id, luc: new Date().toISOString() }, ['khoanId']);
+      } catch (err) {
+        console.error(`[hocphi] không nhắc được hạn nộp ${k.id}: ${err.message}`);
+      }
+    }
+  }
+  henGio.dangKy('hocphi:han-nop', quetHanNop);
+
+  // Đường gọi tay, để bài canh và nhà trường chạy được bộ quét mà không phải
+  // chờ tới giờ hẹn. Cùng lối đã có cho các bộ quét khác của kho mã.
+  app.post('/api/hocphi/quet-han-nop', requireRole('admin'), (req, res) => {
+    if (!db.taoKhoanThuDuoc(req.user)) {
+      return res.status(403).json({ error: 'Chỉ kế toán và ban giám hiệu chạy được việc này' });
+    }
+    quetHanNop();
+    res.json({ ok: true });
+  });
 
   // Huy hiệu: đếm số ưu đãi sắp hết hạn hoặc đã quá hạn trong phạm vi người
   // xem. Đếm cho người LO TIỀN — cô không có ô Học phí nên không bao giờ nhận.

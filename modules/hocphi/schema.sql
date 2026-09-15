@@ -107,3 +107,40 @@ CREATE TABLE IF NOT EXISTS hocphi_uudai_go (
   boiUserId TEXT,
   luc       TEXT NOT NULL
 );
+
+-- ===== LOẠI CỦA MỘT KHOẢN THU (Đ199, việc 34) =====
+--
+-- Nhà trường: ưu đãi chỉ áp trên HỌC PHÍ, không áp trên tiền ăn hay tiền xe.
+-- Hôm nay `hocphi_khoan` chỉ có `noiDung` là chữ tự do, nên không có cách nào
+-- để máy biết một khoản là học phí hay tiền ăn.
+--
+-- BẢNG PHỤ, KHÔNG THÊM CỘT: `CREATE TABLE IF NOT EXISTS` không thêm được cột
+-- vào một bảng đã tồn tại, nên khai thêm cột ở trên là câu lệnh im lặng không
+-- chạy trên cơ sở dữ liệu của trường — đúng loại lỗi chỉ lộ ra sau khi triển
+-- khai. Cùng lối đã dùng cho `hocphi_thuhoi` và `hocphi_uudai_go`.
+--
+-- KHÔNG CÓ DÒNG = HỌC PHÍ, và đó là lựa chọn giữ Nguyên tắc số 1.
+--
+-- Mọi khoản thu đã ghi trước đợt này đều không có dòng. Cho chúng về 'khac'
+-- thì ưu đãi thôi áp lên chúng, tức SỐ TIỀN MỘT NHÀ ĐANG NỢ TỰ NHIÊN TĂNG LÊN
+-- mà không ai bấm gì — trên tiền, và im lặng. Cho về 'hoc-phi' thì ưu đãi vẫn
+-- áp y như hôm qua, không một hoá đơn nào đổi.
+CREATE TABLE IF NOT EXISTS hocphi_khoan_loai (
+  khoanId TEXT PRIMARY KEY REFERENCES hocphi_khoan(id) ON DELETE CASCADE,
+  loai    TEXT NOT NULL DEFAULT 'hoc-phi'   -- hoc-phi | tien-an | xe-dua-don | khac
+);
+CREATE INDEX IF NOT EXISTS idx_hocphi_khoan_loai ON hocphi_khoan_loai(loai);
+
+-- ĐÃ NHẮC HẠN NỘP KHOẢN NÀY CHƯA (Đ199, việc 37).
+--
+-- Bảng phụ vì cùng lý do với `hocphi_khoan_loai`: không thêm được cột vào một
+-- bảng đã tồn tại.
+--
+-- CÓ DÒNG = ĐÃ NHẮC. Thiếu bảng này thì bộ quét chạy mỗi ngày sẽ nhắc lại đúng
+-- khoản ấy mỗi ngày cho tới hạn — kế toán nhận mười tiếng chuông cho một khoản,
+-- rồi tắt thông báo, rồi lỡ khoản thật. `hocphi_uudai` giải cùng việc này bằng
+-- cột `daNhacLuc` có sẵn từ đầu; khoản thu thì không có cột ấy.
+CREATE TABLE IF NOT EXISTS hocphi_khoan_nhac (
+  khoanId TEXT PRIMARY KEY REFERENCES hocphi_khoan(id) ON DELETE CASCADE,
+  luc     TEXT NOT NULL
+);

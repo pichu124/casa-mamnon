@@ -211,8 +211,13 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   // không đổi và bài này vẫn xanh, mà đó mới là trường hợp nguy hiểm. Phép
   // kiểm đúng chiều nằm ở `test/hoc-phi-ghi-so.test.mjs` mục [8]: nó soi TỪNG
   // đường ghi trong tệp và đòi mỗi đường phải có chốt chặn, kèm phép thử ngược.
-  check('cả mười đường của phân hệ đều đòi vai văn phòng',
-    (routes.match(/requireRole\('admin'\)/g) || []).length === 10,
+  // Đ199 thêm đường thứ MƯỜI MỘT: chạy tay bộ quét hạn nộp
+  // (`POST /api/hocphi/quet-han-nop`), cũng đòi vai và còn đòi thêm
+  // `db.taoKhoanThuDuoc`. Con số ở đây là một cái bẫy chuông — nó kêu khi có
+  // người thêm đường mới, đúng như nó vừa kêu — nên chỉnh lại con số thì phải
+  // kèm lý do, không chỉnh lặng lẽ.
+  check('cả MƯỜI MỘT đường của phân hệ đều đòi vai văn phòng',
+    (routes.match(/requireRole\('admin'\)/g) || []).length === 11,
     (routes.match(/requireRole\([^)]*\)/g) || []));
   check('KHÔNG còn đường ghi nào mở cho vai cô',
     !/requireRole\('teacher'/.test(routes));
