@@ -156,13 +156,28 @@ App.views.messages = {
           </div>
         </div>
         <div class="chat-msgs" id="chat-msgs">${bubbles}</div>
-        <div class="chat-input-bar">
-          <textarea id="chat-input" rows="1" placeholder="Nhắn tin..."></textarea>
-          <button class="send-btn" id="chat-send" aria-label="Gửi tin nhắn">${UI.icon('send', 20)}</button>
-        </div>
+        ${cv.daDong ? `
+          <div class="muted small" style="padding:12px 14px;line-height:1.6;border-top:1px solid var(--line,#e6e8ee)">
+            Nhà trường đã <b>đóng</b> cuộc trò chuyện này. Nội dung cũ vẫn được giữ nguyên,
+            nhưng không nhắn thêm được nữa.
+            ${cv.dongDuoc ? '<button class="btn outline sm mt-8" id="chat-mo-lai">Mở lại cuộc trò chuyện</button>' : ''}
+          </div>` : `
+          <div class="chat-input-bar">
+            <textarea id="chat-input" rows="1" placeholder="Nhắn tin..."></textarea>
+            <button class="send-btn" id="chat-send" aria-label="Gửi tin nhắn">${UI.icon('send', 20)}</button>
+          </div>`}
       </div>`;
     const msgsEl = document.getElementById('chat-msgs');
     msgsEl.scrollTop = msgsEl.scrollHeight;
+
+    // Cuộc đã đóng thì không có ô nhập để gắn sự kiện, và cũng không cần hỏi
+    // tin mới — đóng rồi thì không ai nhắn được nữa.
+    if (cv.daDong) {
+      const nutMo = document.getElementById('chat-mo-lai');
+      if (nutMo) nutMo.onclick = () => this.moLai(cv.id);
+      App.refreshBadges();
+      return;
+    }
 
     const ta = document.getElementById('chat-input');
     ta.addEventListener('input', () => {
@@ -176,6 +191,14 @@ App.views.messages = {
 
     App.refreshBadges(); // mở phòng = server đã đánh dấu đã đọc
     this._timer = setInterval(() => this.poll(), 4000);
+  },
+
+  async moLai(id) {
+    try {
+      await API.post(`/api/messages/${encodeURIComponent(id)}/mo-lai`, {});
+      UI.toast('Đã mở lại cuộc trò chuyện', 'success');
+      App.route();
+    } catch (e) { UI.toast(e.message || 'Chưa mở lại được', 'error'); }
   },
 
   async poll() {

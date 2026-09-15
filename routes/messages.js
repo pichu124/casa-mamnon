@@ -102,6 +102,50 @@ function laKenhCuaNhom(loai) {
 // nhóm lớp đó — không phải theo một cái nhãn dán lên con người.
 const NHOM_CUA_KENH = { nhom: 'chu-nhiem', 'nuoc-ngoai': 'nuoc-ngoai' };
 
+// ---- HỘI THOẠI ĐÃ ĐÓNG (Đ192, Câu 5) ----
+//
+// Nhà trường: *"Quản lý cơ sở và cấp 1 có thể xem lại được -> chỉ xem lại được
+// k thể nhắn vào thêm được nữa"*.
+//
+// BA ĐIỀU LÀM CHO CHUYỆN NÀY KHÔNG PHÁ CHỐT PHÂN QUYỀN ĐANG CÓ:
+//
+//   1. CHỈ MỞ VỚI HỘI THOẠI ĐÃ ĐÓNG. Cuộc đang sống thì quản lý vẫn KHÔNG đọc
+//      được, y như trước — đó là chủ ý đã có bài canh riêng, và nó không được
+//      nới ra một ly. Đóng là một hành động có chủ ý của trường, ghi ngày giờ
+//      và ghi tên người đóng.
+//   2. CHỈ ĐỌC, VỚI MỌI NGƯỜI. Cuộc đã đóng thì KHÔNG AI nhắn thêm được —
+//      không cô, không gia đình, không cả người vừa mở ra xem. Một kho lưu mà
+//      viết thêm được thì nó không còn là kho lưu.
+//   3. CHỈ BAN GIÁM HIỆU VÀ QUẢN LÝ CƠ SỞ. Văn phòng cơ sở KHÔNG có đường này:
+//      trường nói rõ "quản lý cơ sở và cấp 1", và văn phòng tuy cùng Cấp 3
+//      nhưng khác quyền — đúng điều trường xác nhận ở Câu 3.
+//
+// VÀ MỖI LƯỢT MỞ ĐỀU GHI NHẬT KÝ. Đây là nội dung riêng tư giữa một gia đình
+// và cô của con họ; một đường đọc không để lại vết là một đường không ai kiểm
+// được về sau.
+const CHUC_VU_XEM_DA_DONG = ['hieu-truong', 'quanly-coso'];
+
+function xemDuocDaDong(user) {
+  if (!user || user.role !== 'admin') return false;
+  const cv = db.chucVu(user);
+  // `null` là ban giám hiệu không khai chức vụ — cùng cách hiểu với mọi chốt
+  // chức vụ khác trong kho này.
+  return cv === null || CHUC_VU_XEM_DA_DONG.includes(cv);
+}
+
+function dongCua(conversationId) {
+  try {
+    return db.first('hoi_thoai_dong',
+      'SELECT * FROM hoi_thoai_dong WHERE conversationId = ?', [conversationId]) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function daDong(conversationId) {
+  return !!dongCua(conversationId);
+}
+
 function kenhCua(conversationId) {
   return db.first('kenh_hoi_thoai',
     'SELECT * FROM kenh_hoi_thoai WHERE conversationId = ?', [conversationId]);
@@ -398,6 +442,28 @@ function messageDto(m, user) {
 function findConv(req, res) {
   const cv = db.first('conversations', 'SELECT * FROM conversations WHERE id = ?', [req.params.id]);
   if (!cv) { res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' }); return null; }
+  // CUỘC ĐÃ ĐÓNG ĐI THEO MỘT LUẬT KHÁC HẲN (Đ192, Câu 5), và nó phải được hỏi
+  // TRƯỚC mọi chốt bên dưới.
+  //
+  // Với gia đình và cô thì cuộc ấy coi như không còn: trường chốt "xoá là xoá
+  // khỏi màn hình phụ huynh". Với ban giám hiệu và quản lý cơ sở thì mở được,
+  // CHỈ ĐỌC, và mỗi lượt mở ghi một dòng nhật ký.
+  const dong = dongCua(cv.id);
+  if (dong) {
+    if (!xemDuocDaDong(req.user)) {
+      res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
+      return null;
+    }
+    // Quản lý cơ sở vẫn phải đúng cơ sở của bé — đóng một cuộc không biến nó
+    // thành tài liệu chung của cả trường.
+    const k = cv.type === 'kenh' ? kenhCua(cv.id) : null;
+    if (k && !db.canAccessStudent(req.user, k.studentId)) {
+      res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
+      return null;
+    }
+    db.audit(req.user.id, 'hoi-thoai-da-dong-mo', cv.id, { studentId: k ? k.studentId : null });
+    return cv;
+  }
   // KÊNH: quyền tính LẠI từ nhóm lớp và từ bé, không tra bảng thành viên.
   //
   // Cô mới về nhóm chưa có hàng thành viên nào — vẫn phải đọc được ngay, vì
@@ -537,6 +603,7 @@ module.exports = (app) => {
        FROM conversations c
        JOIN conversation_members cm ON cm.conversationId = c.id AND cm.userId = ?
        WHERE ${dieuKienPhongNhom}
+         AND c.id NOT IN (SELECT conversationId FROM hoi_thoai_dong)
        ORDER BY (SELECT MAX(createdAt) FROM messages m WHERE m.conversationId = c.id) DESC,
                 c.id DESC
        LIMIT ? OFFSET ?`,
@@ -719,6 +786,87 @@ module.exports = (app) => {
     res.json({ id });
   });
 
+  // ---- ĐÓNG MỘT HỘI THOẠI, VÀ KHO LƯU CỦA NHỮNG CUỘC ĐÃ ĐÓNG (Đ192, Câu 5) ----
+  //
+  // ĐẶT TRƯỚC `/api/messages/:id` là bắt buộc, không phải sở thích: Express
+  // khớp đường dẫn theo thứ tự đăng ký, nên `/api/messages/da-dong` đăng ký sau
+  // sẽ bị `:id` nuốt mất và "da-dong" thành một mã hội thoại không tồn tại.
+  app.get('/api/messages/da-dong', allow, (req, res) => {
+    if (!xemDuocDaDong(req.user)) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu và quản lý cơ sở mới xem lại được cuộc trò chuyện đã đóng.',
+      });
+    }
+    const ds = db.all('hoi_thoai_dong',
+      `SELECT d.*, k.studentId AS studentId, k.loai AS loai
+         FROM hoi_thoai_dong d
+         LEFT JOIN kenh_hoi_thoai k ON k.conversationId = d.conversationId
+        ORDER BY d.dongLuc DESC`)
+      // Quản lý cơ sở chỉ thấy cuộc của bé thuộc cơ sở mình — đóng một cuộc
+      // không biến nó thành tài liệu chung của cả trường.
+      .filter(d => !d.studentId || db.canAccessStudent(req.user, d.studentId))
+      .map(d => {
+        const be = d.studentId ? db.findStudent(d.studentId) : null;
+        const nguoi = d.dongBoi ? db.findUser(d.dongBoi) : null;
+        return {
+          conversationId: d.conversationId,
+          hoTenBe: be ? be.name : '',
+          studentId: d.studentId || null,
+          dongLuc: d.dongLuc,
+          dongBoiTen: nguoi ? `${nguoi.title || ''} ${nguoi.name || ''}`.trim() : '',
+          lyDo: d.lyDo || '',
+        };
+      });
+    res.json({ ds });
+  });
+
+  // ĐÓNG = ĐÁNH DẤU, KHÔNG XOÁ MỘT DÒNG TIN NÀO.
+  //
+  // Nguyên tắc số 1: bỏ một thứ là ngưng dùng nó, không phải xoá dữ liệu của
+  // nó. Và ở đây còn một lý do nữa: đây có thể là chỗ duy nhất còn lưu lời qua
+  // lại giữa trường và một gia đình khi có khiếu nại.
+  app.post('/api/messages/:id/dong', allow, (req, res) => {
+    if (!xemDuocDaDong(req.user)) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu và quản lý cơ sở mới đóng được cuộc trò chuyện.',
+      });
+    }
+    const cv = db.first('conversations', 'SELECT * FROM conversations WHERE id = ?', [req.params.id]);
+    if (!cv) return res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
+    const k = cv.type === 'kenh' ? kenhCua(cv.id) : null;
+    if (k && !db.canAccessStudent(req.user, k.studentId)) {
+      return res.status(403).json({ error: 'Cuộc trò chuyện này thuộc cơ sở khác' });
+    }
+    if (daDong(cv.id)) return res.json({ ok: true, daDong: true });
+    db.upsert('hoi_thoai_dong', {
+      conversationId: cv.id,
+      dongLuc: new Date().toISOString(),
+      dongBoi: req.user.id,
+      lyDo: String((req.body || {}).lyDo || '').trim().slice(0, 300),
+    }, ['conversationId']);
+    db.audit(req.user.id, 'hoi-thoai-dong', cv.id, { studentId: k ? k.studentId : null });
+    res.json({ ok: true, daDong: true });
+  });
+
+  // MỞ LẠI ĐƯỢC. Đóng nhầm một cuộc mà không mở lại được thì gia đình mất
+  // đường nói chuyện với cô, và cách chữa duy nhất là sửa thẳng cơ sở dữ liệu.
+  app.post('/api/messages/:id/mo-lai', allow, (req, res) => {
+    if (!xemDuocDaDong(req.user)) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu và quản lý cơ sở mới mở lại được cuộc trò chuyện.',
+      });
+    }
+    const cv = db.first('conversations', 'SELECT * FROM conversations WHERE id = ?', [req.params.id]);
+    if (!cv) return res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
+    const k = cv.type === 'kenh' ? kenhCua(cv.id) : null;
+    if (k && !db.canAccessStudent(req.user, k.studentId)) {
+      return res.status(403).json({ error: 'Cuộc trò chuyện này thuộc cơ sở khác' });
+    }
+    db.remove('hoi_thoai_dong', cv.id, 'conversationId');
+    db.audit(req.user.id, 'hoi-thoai-mo-lai', cv.id, { studentId: k ? k.studentId : null });
+    res.json({ ok: true, daDong: false });
+  });
+
   // Chi tiết hội thoại: cửa sổ tin mới nhất + đánh dấu đã đọc.
   //
   // `?truoc=<ISO>` lấy cửa sổ tin CŨ HƠN mốc đó — đường mà nút "Xem tin cũ hơn"
@@ -750,6 +898,11 @@ module.exports = (app) => {
       // biết là còn, và đó mới là mất dữ liệu theo cách nhìn của họ.
       conCu,
       tuLuc: messages.length ? messages[0].createdAt : '',
+      // Màn hình phải biết cuộc này đã đóng chưa, nếu không nó vẫn vẽ ô nhập
+      // tin và người mở ra gõ xong mới nhận câu từ chối — mất công gõ, và
+      // trông như app hỏng chứ không như một quy định.
+      daDong: daDong(cv.id),
+      dongDuoc: xemDuocDaDong(req.user),
     });
   });
 
@@ -780,6 +933,15 @@ module.exports = (app) => {
   app.post('/api/messages/:id', allow, (req, res) => {
     const cv = findConv(req, res);
     if (!cv) return;
+    // CUỘC ĐÃ ĐÓNG THÌ KHÔNG AI NHẮN THÊM ĐƯỢC — kể cả người vừa mở ra xem.
+    // Nhà trường nói thẳng: "chỉ xem lại được k thể nhắn vào thêm được nữa".
+    // Một kho lưu mà viết thêm được thì nó không còn là kho lưu.
+    if (daDong(cv.id)) {
+      return res.status(403).json({
+        error: 'Cuộc trò chuyện này nhà trường đã đóng nên không nhắn thêm được nữa. '
+          + 'Nội dung cũ vẫn được giữ nguyên.',
+      });
+    }
     const text = String((req.body || {}).text || '').trim().slice(0, 2000);
     if (!text) return res.status(400).json({ error: 'Nội dung tin nhắn không được để trống' });
 

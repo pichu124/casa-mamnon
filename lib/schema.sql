@@ -345,6 +345,24 @@ CREATE TABLE IF NOT EXISTS kenh_hoi_thoai (
 CREATE INDEX IF NOT EXISTS idx_kenh_be ON kenh_hoi_thoai(studentId, loai);
 CREATE INDEX IF NOT EXISTS idx_kenh_lop ON kenh_hoi_thoai(classId);
 
+-- ===== Hội thoại nhà trường đã ĐÓNG (Đ192, Câu 5) =====
+--
+-- Nhà trường chốt: xoá một cuộc trò chuyện là xoá khỏi màn hình phụ huynh,
+-- còn "giao diện quản lý vẫn xem lại được". Hỏi rõ ai là quản lý, trường trả
+-- lời 15/09/2026: *"Quản lý cơ sở và cấp 1 có thể xem lại được -> chỉ xem lại
+-- được k thể nhắn vào thêm được nữa"*.
+--
+-- ĐÓNG LÀ ĐÁNH DẤU, KHÔNG PHẢI XOÁ. Không một dòng `messages` nào bị xoá —
+-- vừa theo Nguyên tắc số 1 ("bỏ một tính năng là ngưng dùng nó, không phải
+-- xoá dữ liệu của nó"), vừa vì đây có thể là chỗ duy nhất còn lưu lời qua lại
+-- giữa trường và một gia đình khi có khiếu nại.
+CREATE TABLE IF NOT EXISTS hoi_thoai_dong (
+  conversationId TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  dongLuc        TEXT,
+  dongBoi        TEXT,
+  lyDo           TEXT NOT NULL DEFAULT ''
+);
+
 -- ===== Nhận xét hằng ngày — khoảng 34.800 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS remarks (
   id         TEXT PRIMARY KEY,

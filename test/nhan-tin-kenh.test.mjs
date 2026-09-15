@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, GOC,
+  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, GOC,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -37,6 +37,11 @@ batPhanHe(DIR, ['nhantin']);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkCS2 = taoQuanTri(DIR, 'Quản lý CS2', 'quanly2');
 khoaVaoCoSo(DIR, 'quanly2', 'cs2');
+// Văn phòng cơ sở 1 — cùng Cấp 3 với quản lý cơ sở nhưng KHÁC quyền, đúng
+// điều nhà trường xác nhận ở Câu 3. Có mặt ở đây để đo rằng kho lưu hội thoại
+// đã đóng KHÔNG mở cho văn phòng.
+const mkVP = taoQuanTri(DIR, 'Văn phòng CS1', 'vanphong1');
+datChucVu(DIR, 'vanphong1', 'vanphong-coso');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4649), dir: DIR });
 const req = taoReq(sv.BASE);
@@ -48,6 +53,7 @@ async function vao(u, m) {
 }
 const QT = await vao('hieutruong', mkQT);
 const QL2 = await vao('quanly2', mkCS2);
+const VP = await vao('vanphong1', mkVP);
 const GV = (await login('giaovien', '123456')).cookie;
 const GV2 = (await login('giaovien2', '123456')).cookie;
 const PH = (await login('phuhuynh', '123456')).cookie;
@@ -374,6 +380,110 @@ console.log('\n[9] BA NHÓM CÔ — vai quyết định cô đọc được kên
     quayLai.data?.nhom?.[CO_NN] === undefined, quayLai.data?.nhom);
 
   await capNhat({ teacherIds: [CO_CN] });
+}
+
+// ===========================================================================
+console.log('\n[10] HỘI THOẠI ĐÃ ĐÓNG — mất khỏi màn gia đình, còn trong kho của quản lý (Đ192, Câu 5)');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Nhà trường chốt: xoá một cuộc là xoá khỏi màn hình phụ huynh, còn "giao
+  // diện quản lý vẫn xem lại được". Hỏi rõ AI là quản lý, trường trả lời
+  // 15/09: *"Quản lý cơ sở và cấp 1 có thể xem lại được -> chỉ xem lại được k
+  // thể nhắn vào thêm được nữa"*.
+  //
+  // Đây là chỗ dễ phá chốt phân quyền nhất trong cả đợt: hôm nay quản trị
+  // KHÔNG đọc được cuộc gia đình nhắn với cô, và mục [2] ở trên có một phép
+  // kiểm chốt đúng điều đó. Mở một đường đọc mà không cẩn thận là nới chính
+  // bài canh ấy — nên mục này đo cả hai chiều, và chiều KHÔNG ĐƯỢC ĐỌC đứng
+  // trước.
+  const KENH_MOI = (await mo(PH, 'nhom', BE.id)).data.id;
+  await gui(PH, KENH_MOI, 'Chuyện riêng của nhà em với cô ạ');
+
+  // CHIỀU MỘT: cuộc ĐANG SỐNG thì quản lý vẫn không đọc được, y như trước.
+  check('CUỘC ĐANG SỐNG: ban giám hiệu vẫn KHÔNG đọc được — chốt cũ không bị nới',
+    (await doc(QT, KENH_MOI)).status === 403);
+
+  const dong = await req('POST', `/api/messages/${KENH_MOI}/dong`, {
+    cookie: QT, body: { lyDo: 'Gia đình đã chuyển trường' },
+  });
+  check('ban giám hiệu đóng được cuộc trò chuyện', dong.status === 200, dong.data);
+
+  // CHIỀU HAI: đóng rồi thì gia đình và cô mất hẳn đường vào.
+  const phSau = await doc(PH, KENH_MOI);
+  check('ĐÓNG RỒI: gia đình không mở được nữa', phSau.status === 404, phSau.status);
+  check('và cô cũng không', (await doc(GV, KENH_MOI)).status === 404);
+  const dsPH = await ds(PH);
+  check('cuộc ấy biến khỏi danh sách của gia đình',
+    !(dsPH.conversations || []).some(c => c.id === KENH_MOI),
+    (dsPH.conversations || []).map(c => c.id));
+
+  // CHIỀU BA: quản lý mở lại được, CHỈ ĐỌC.
+  const qtSau = await doc(QT, KENH_MOI);
+  check('BAN GIÁM HIỆU XEM LẠI ĐƯỢC, và đọc đủ nội dung cũ',
+    qtSau.status === 200 && (qtSau.data.messages || []).some(m => /Chuyện riêng/.test(m.text)),
+    qtSau.status);
+  const viet = await gui(QT, KENH_MOI, 'thử nhắn thêm');
+  check('nhưng KHÔNG nhắn thêm được — "chỉ xem lại được k thể nhắn vào thêm"',
+    viet.status === 403, viet.status);
+  check('câu từ chối nói rõ nội dung cũ vẫn được giữ',
+    /giữ nguyên/.test(viet.data?.error || ''), viet.data);
+  check('gia đình lại càng không nhắn thêm được', (await gui(PH, KENH_MOI, 'a')).status === 404);
+
+  // KHÔNG XOÁ MỘT DÒNG TIN NÀO. Đây có thể là chỗ duy nhất còn lưu lời qua lại
+  // giữa trường và một gia đình khi có khiếu nại.
+  const conn2 = new Database(path.join(DIR, 'school.db'));
+  const soTin = conn2.prepare('SELECT COUNT(*) c FROM messages WHERE conversationId = ?').get(KENH_MOI).c;
+  conn2.close();
+  check('ĐÓNG LÀ ĐÁNH DẤU, KHÔNG XOÁ — tin nhắn cũ còn nguyên dưới cơ sở dữ liệu',
+    soTin >= 1, soTin);
+
+  // CHIỀU BỐN: văn phòng cơ sở KHÔNG có đường này. Trường nói "quản lý cơ sở
+  // và cấp 1"; văn phòng tuy cùng Cấp 3 nhưng khác quyền — đúng điều trường
+  // xác nhận ở Câu 3.
+  const kho = await req('GET', '/api/messages/da-dong', { cookie: QT });
+  check('kho lưu liệt kê được cuộc vừa đóng',
+    kho.status === 200 && (kho.data.ds || []).some(x => x.conversationId === KENH_MOI), kho.data);
+  check('và kho ấy nói rõ ai đóng, đóng lúc nào, vì sao',
+    (kho.data.ds || []).some(x => x.conversationId === KENH_MOI && x.dongLuc && x.dongBoiTen && /chuyển trường/i.test(x.lyDo)),
+    (kho.data.ds || []).find(x => x.conversationId === KENH_MOI));
+  // VĂN PHÒNG CƠ SỞ KHÔNG CÓ ĐƯỜNG NÀY. Trường nói "quản lý cơ sở và cấp 1";
+  // văn phòng tuy cùng Cấp 3 nhưng khác quyền — chính điều trường xác nhận ở
+  // Câu 3 ("Quản lý cơ sở sẽ có toàn quyền tại cơ sở, còn văn phòng chỉ trong
+  // phạm vi cho phép"). Đây là chỗ dễ nới nhất vì hai vai cùng cấp.
+  const vpKho = await req('GET', '/api/messages/da-dong', { cookie: VP });
+  check('VĂN PHÒNG CƠ SỞ KHÔNG mở được kho lưu, dù cùng Cấp 3 với quản lý cơ sở',
+    vpKho.status === 403, vpKho.status);
+  check('và câu từ chối nói rõ ai mới xem được',
+    /ban giám hiệu và quản lý cơ sở/i.test(vpKho.data?.error || ''), vpKho.data);
+  check('văn phòng cũng KHÔNG đọc được nội dung cuộc đã đóng',
+    (await doc(VP, KENH_MOI)).status === 404);
+  check('và KHÔNG đóng được cuộc nào',
+    (await req('POST', `/api/messages/${KENH_NHOM}/dong`, { cookie: VP })).status === 403);
+
+  check('CÔ không mở được kho lưu', (await req('GET', '/api/messages/da-dong', { cookie: GV })).status === 403);
+  check('GIA ĐÌNH không mở được kho lưu', (await req('GET', '/api/messages/da-dong', { cookie: PH })).status === 403);
+  check('và cô cũng không đóng được cuộc nào',
+    (await req('POST', `/api/messages/${KENH_NHOM}/dong`, { cookie: GV })).status === 403);
+  check('gia đình cũng không',
+    (await req('POST', `/api/messages/${KENH_NHOM}/dong`, { cookie: PH })).status === 403);
+
+  // QUẢN LÝ CƠ SỞ KHÁC thì không — đóng một cuộc không biến nó thành tài liệu
+  // chung của cả trường.
+  check('quản lý CƠ SỞ KHÁC không đọc được cuộc đã đóng của cơ sở này',
+    (await doc(QL2, KENH_MOI)).status === 404);
+  check('và không thấy nó trong kho lưu của mình',
+    !(((await req('GET', '/api/messages/da-dong', { cookie: QL2 })).data || {}).ds || [])
+      .some(x => x.conversationId === KENH_MOI));
+
+  // MỞ LẠI ĐƯỢC. Đóng nhầm mà không mở lại được thì gia đình mất đường nói
+  // chuyện với cô, và cách chữa duy nhất là sửa thẳng cơ sở dữ liệu.
+  const moLai = await req('POST', `/api/messages/${KENH_MOI}/mo-lai`, { cookie: QT });
+  check('mở lại được cuộc đã đóng', moLai.status === 200, moLai.data);
+  check('gia đình vào lại được ngay', (await doc(PH, KENH_MOI)).status === 200);
+  check('và nhắn tiếp được', (await gui(PH, KENH_MOI, 'em quay lại ạ')).status === 200);
+  check('MỞ LẠI XONG thì ban giám hiệu KHÔNG còn đọc được nữa — chốt cũ trở lại đúng chỗ',
+    (await doc(QT, KENH_MOI)).status === 403);
 }
 
 await sv.dung();
