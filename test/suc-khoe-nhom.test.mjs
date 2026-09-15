@@ -186,14 +186,35 @@ try {
     const cu = (hs.data?.records || []).find(x => x.type === 'vaccination');
     check('bản ghi tiêm chủng CŨ vẫn đọc được, vẫn mang đúng nhãn', !!cu, cu && cu.title);
     if (cu) {
+      // ĐỔI NGƯỜI SỬA TỪ CÔ SANG NHÀ TRƯỜNG, ghi ở Đ205 (việc 10).
+      //
+      // Vế Đ177 mà mục này canh — "bản ghi tiêm chủng CŨ phải còn sửa được" —
+      // KHÔNG mất đi, nó chuyển người: nhà trường vẫn sửa được bản ghi cũ,
+      // còn cô thì chỉ sửa trong chính ngày cô gõ. Hai điều đó không mâu thuẫn
+      // nhau, nhưng bản trước của mục này đo bằng tài khoản CÔ nên trông như
+      // mâu thuẫn.
+      //
+      // Và đo CẢ HAI CHIỀU chứ không chỉ chiều còn lại — chiều thứ hai mới là
+      // thứ Đ205 vừa thêm, và nếu nó hỏng thì cả việc 10 là lời hứa suông.
       const sua = await req('PUT', `/api/health/${cu.id}`, {
-        cookie: co.cookie, body: { title: 'Sửa tiêu đề bản ghi cũ' },
+        cookie: qt.cookie, body: { title: 'Sửa tiêu đề bản ghi cũ' },
       });
-      check('và vẫn sửa được tiêu đề', sua.status === 200, `${sua.status}`);
+      check('NHÀ TRƯỜNG vẫn sửa được tiêu đề bản ghi cũ', sua.status === 200, `${sua.status}`);
       const doiSang = await req('PUT', `/api/health/${cu.id}`, {
-        cookie: co.cookie, body: { type: 'checkup' },
+        cookie: qt.cookie, body: { type: 'checkup' },
       });
       check('bản ghi cũ đổi SANG loại còn dùng thì được', doiSang.status === 200, `${doiSang.status}`);
+
+      const coSua = await req('PUT', `/api/health/${cu.id}`, {
+        cookie: co.cookie, body: { title: 'Cô sửa lại bản ghi cũ' },
+      });
+      check('CÔ KHÔNG sửa được bản ghi của ngày khác', coSua.status === 403, `${coSua.status}`);
+      check('và câu từ chối CHỈ RA đường đi tiếp, không cụt lủn',
+        /văn phòng/i.test(coSua.data?.error || ''), coSua.data?.error);
+      const coThu = await req('DELETE', `/api/health/${cu.id}`, { cookie: co.cookie });
+      check('cô cũng không tự thu hồi được bản ghi ngày khác', coThu.status === 403, `${coThu.status}`);
+      check('câu từ chối nói rõ phần đã ghi KHÔNG mất đi',
+        /không mất/i.test(coThu.data?.error || ''), coThu.data?.error);
     }
 
     // Và đây là chốt thật của lối vòng: KHÔNG được biến một bản ghi khác THÀNH

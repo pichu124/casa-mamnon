@@ -2079,6 +2079,8 @@ Vẫn nhận bé này?`)) {
       'hanhtrinh-xoa': 'Xoá một ghi chép hành trình',
       'hanhtrinh-chu-de': 'Đặt chủ đề hành trình',
       'hanhtrinh-chu-de-chep': 'Chép chủ đề hành trình',
+      'health-tai-mau-can-do': 'Tải mẫu cân đo của nhóm',
+      'health-nap-can-do': 'Nạp cân đo cả nhóm bằng tệp',
       'hanhtrinh-chu-de-tep-them': 'Treo tệp kế hoạch tuần',
       'hanhtrinh-chu-de-tep-xoa': 'Gỡ tệp kế hoạch tuần',
       'hanhtrinh-anh-ve-album': 'Đưa ảnh hành trình về album',

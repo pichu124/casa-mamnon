@@ -982,3 +982,41 @@ CREATE TABLE IF NOT EXISTS album_cung_con (
   cungConONha TEXT NOT NULL DEFAULT '',
   ghiLuc      TEXT
 );
+
+-- ===========================================================================
+-- NGÀY CÔ GHI MỘT BẢN GHI SỨC KHOẺ (Đ205, việc 10)
+-- ===========================================================================
+--
+-- Nhà trường: *"cô chỉ sửa được ghi nhận sức khoẻ trong chính ngày ghi"*.
+--
+-- CỘT `date` CỦA BẢNG `health` KHÔNG DÙNG ĐƯỢC CHO VIỆC NÀY, và đó là toàn bộ
+-- lý do bảng phụ này tồn tại. `date` là NGÀY KHÁM, không phải ngày cô gõ vào
+-- máy — app cố ý cho nhập BÙ kết quả khám của trạm y tế làm cách đó vài tuần
+-- (xem chú thích ở `routes/health.js`). Khoá theo `date` là giết luôn việc
+-- nhập bù: cô gõ kết quả khám ngày 01/09 vào hôm nay thì bản ghi ấy sinh ra đã
+-- ở trạng thái không sửa được, gõ sai một chữ số cũng phải đi nhờ văn phòng.
+--
+-- Nên khoá theo NGÀY GÕ VÀO MÁY, và ngày ấy phải ghi lại — bảng `health`
+-- không có cột nào giữ nó, mà `CREATE TABLE IF NOT EXISTS` thì không thêm được
+-- cột vào bảng đã tồn tại (cùng lý do đã ghi ở `hocphi_khoan_loai`, Đ199).
+--
+-- KHÔNG CÓ DÒNG = BẢN GHI CÓ TRƯỚC ĐỢT NÀY. Lúc ấy lùi về `date`, và với bản
+-- ghi cũ thì `date` gần như luôn là ngày quá khứ, tức là khoá — đúng điều nhà
+-- trường muốn. Không có khoảng trống nào để một bản ghi cũ lọt qua mãi mãi.
+--
+-- HAI CỘT THỜI GIAN, VÀ ĐÓ LÀ CỐ Ý.
+--
+-- `luc` là dấu thời gian ISO (giờ UTC) — thứ dùng để tra "ghi lúc mấy giờ".
+-- `ngayGhi` là NGÀY THEO GIỜ VIỆT NAM, và nó mới là thứ đem ra so.
+--
+-- Cắt mười ký tự đầu của `luc` để lấy ngày là SAI BẢY TIẾNG MỖI NGÀY: từ 17h
+-- UTC trở đi, Việt Nam đã sang ngày mới mà chuỗi ISO thì chưa. Cô ghi một bản
+-- ghi lúc 9 giờ tối rồi sửa lại ngay sau đó sẽ nhận câu "bản ghi này ghi hôm
+-- qua". Bộ kiểm thử bắt đúng lỗi này ở lượt chạy đầu tiên — cùng loại lỗi mà
+-- `test:mot-hom-nay` sinh ra để canh.
+CREATE TABLE IF NOT EXISTS health_ghi_luc (
+  healthId TEXT PRIMARY KEY,
+  luc      TEXT NOT NULL,          -- ISO (UTC), để tra "ghi lúc mấy giờ"
+  ngayGhi  TEXT NOT NULL DEFAULT '', -- YYYY-MM-DD theo GIỜ VIỆT NAM — cột đem ra so
+  nguoiGhi TEXT
+);

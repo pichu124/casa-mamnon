@@ -233,8 +233,51 @@ App.views.health = {
         </div>`;
       }).join('')}
       <button class="btn primary block mt-8" id="ht-cd-luu">${UI.icon('check', 18)} Lưu cân đo cả nhóm</button>
+
+      <div class="card-title mt-8">Hoặc làm bằng tệp</div>
+      <div class="muted small" style="line-height:1.7">
+        Hôm cân đo cả trường thì cô đứng ở phòng y tế với cái cân, không cầm điện thoại.
+        Tải mẫu về, điền hai cột số, rồi nạp lại — <b>tên bé đã điền sẵn</b>, cô chỉ gõ số.
+      </div>
+      <div class="grid-2 mt-8">
+        <a class="btn outline" id="ht-cd-mau" href="/api/health/mau-can-do.csv?classId=${UI.esc(d.classId)}">
+          ${UI.icon('report', 16)} Tải mẫu về
+        </a>
+        <label class="btn outline" style="text-align:center;cursor:pointer;margin:0">
+          ${UI.icon('plus', 16)} Nạp tệp đã điền
+          <input type="file" id="ht-cd-tep" accept=".csv,text/csv" hidden>
+        </label>
+      </div>
     `, `Cân đo nhóm ${d.className}`);
     document.getElementById('ht-cd-luu').onclick = () => this.luuCanDoNhom();
+    const oTep = document.getElementById('ht-cd-tep');
+    if (oTep) oTep.onchange = () => this.napTepCanDo(oTep, d.classId);
+  },
+
+  // NẠP TỆP CÂN ĐO (Đ205, việc 11).
+  //
+  // Đọc tệp thành CHỮ ngay trên máy của cô rồi gửi lên — máy chủ nhận chuỗi
+  // CSV chứ không nhận tệp nhị phân, cùng lối đường nhập danh sách bé đã dùng.
+  // Tệp cân đo là chữ thuần, nên không có gì phải nén hay cắt nhỏ.
+  async napTepCanDo(o, classId) {
+    const f = o.files && o.files[0];
+    if (!f) return;
+    o.disabled = true;
+    try {
+      const text = await f.text();
+      const kq = await API.post('/api/health/nap-can-do', { classId, text });
+      UI.closeModal();
+      const boQua = (kq.boQua || []).length;
+      UI.toast(`Đã nạp cân đo cho ${kq.soBe} bé`
+        + (boQua ? ` · ${boQua} bé để trống nên bỏ qua` : ''), 'success');
+      App.route();
+    } catch (err) {
+      // Câu lỗi của máy chủ nói rõ DÒNG nào sai, nên hiện nguyên văn chứ không
+      // rút gọn — cô cần biết mở tệp ra sửa dòng nào.
+      UI.toast(err.message, 'error');
+      o.disabled = false;
+      o.value = '';
+    }
   },
 
   async luuCanDoNhom() {

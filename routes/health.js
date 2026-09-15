@@ -4,6 +4,19 @@ const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 const st = require('../lib/sua-thu-hoi');
 const tbb = require('../lib/thong-bao-be');
+const csv = require('../lib/csv');
+
+// Ô CSV bắt đầu bằng = + - @ là CÔNG THỨC khi mở bằng Excel, không phải chữ.
+// Cùng bản vá đã dùng ở danh sách bé và ở bảng tiền ăn.
+const DAU_CONG_THUC_YT = /^[=+\-@\t\r]/;
+function khoaCongThucYTe(hang) {
+  const ra = {};
+  for (const [k, v] of Object.entries(hang)) {
+    const t = v == null ? '' : String(v);
+    ra[k] = DAU_CONG_THUC_YT.test(t) ? `'${t}` : t;
+  }
+  return ra;
+}
 
 // HAI DANH SÁCH, KHÔNG PHẢI MỘT — nhà trường chốt 10/09/2026 (A6): "Trường
 // không cần dùng tới tiêm chủng -> bỏ đi".
@@ -31,6 +44,57 @@ const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 function coTheSuaYTe(user, studentId) {
   if (!user || !db.canAccessStudent(user, studentId)) return false;
   return user.role === 'admin' || user.role === 'teacher';
+}
+
+// CÔ CHỈ SỬA ĐƯỢC GHI NHẬN TRONG CHÍNH NGÀY GÕ VÀO MÁY (Đ205, việc 10).
+//
+// Nhà trường xin siết quyền sửa. Hai chỗ phải cẩn thận, cả hai đã nằm sẵn
+// thành chú thích trong tệp này từ trước — và cả hai đều là lý do KHÔNG khoá
+// theo `date`:
+//
+//   • `date` là NGÀY KHÁM, không phải ngày cô gõ. App cố ý cho nhập BÙ kết
+//     quả khám của trạm y tế làm cách đó vài tuần. Khoá theo ngày khám là bản
+//     ghi vừa gõ xong đã không sửa được, gõ nhầm một chữ số cũng phải đi nhờ.
+//   • Đường THU HỒI sinh ra chính là để hiệu trưởng gỡ một ghi nhận bấm nhầm
+//     sang bé khác — thứ chỉ lộ ra sau vài ngày. Nên nó KHÔNG bị khoá theo
+//     ngày, chỉ bị siết theo VAI.
+//
+// Vậy: khoá theo ngày GÕ, và chỉ khoá với vai `teacher`. Văn phòng và ban
+// giám hiệu sửa được như cũ — đó đúng là đường thoát mà câu từ chối chỉ tới.
+function ngayGhiCua(h) {
+  try {
+    const r = db.first('health_ghi_luc',
+      'SELECT luc, ngayGhi FROM health_ghi_luc WHERE healthId = ?', [h.id]);
+    if (r && r.ngayGhi) return r.ngayGhi;
+    // Dòng ghi trước khi có cột `ngayGhi`: đổi dấu thời gian sang NGÀY THEO
+    // GIỜ VIỆT NAM. Cắt mười ký tự đầu của chuỗi ISO là sai bảy tiếng mỗi
+    // ngày — xem chú thích ở `lib/schema.sql`.
+    if (r && r.luc) return ngay.ngayCua(Date.parse(r.luc));
+  } catch (_) { /* bảng chưa có thì lùi về ngày khám */ }
+  return String(h.date || '').slice(0, 10);
+}
+
+// Trả về câu từ chối, hoặc null nếu được sửa.
+function loiQuaNgay(user, h) {
+  if (!user || user.role !== 'teacher') return null;
+  const ngayGhi = ngayGhiCua(h);
+  if (ngayGhi === ngay.homNay()) return null;
+  return 'Ghi nhận này cô ghi hôm ' + ngayGhi + ', nên hôm nay cô không sửa được nữa. '
+    + 'Cần sửa thì nhắn văn phòng nhà trường giúp cô nhé — sổ sức khoẻ của bé là chỗ '
+    + 'nhà trường phải trả lời được "ai ghi, ghi hôm nào".';
+}
+
+// Ghi lại NGÀY GÕ cho một bản ghi vừa tạo. Việc phụ: hỏng thì bản ghi vẫn vào,
+// chỉ là nó lùi về khoá theo ngày khám.
+function ghiLuc(id, userId) {
+  try {
+    db.insert('health_ghi_luc', {
+      healthId: id,
+      luc: new Date().toISOString(),
+      ngayGhi: ngay.homNay(),          // NGÀY THEO GIỜ VIỆT NAM
+      nguoiGhi: userId,
+    });
+  } catch (_) { /* không chặn đường ghi vì một dòng phụ */ }
 }
 
 function todayStr() {
@@ -149,25 +213,39 @@ module.exports = (app) => {
     if (date > todayStr()) return res.status(400).json({ error: 'Chưa ghi cân đo cho ngày chưa tới được' });
     const ds = Array.isArray(b.danhSach) ? b.danhSach : [];
     if (!ds.length) return res.status(400).json({ error: 'Chưa có bé nào để ghi' });
+    const ra = ghiCanDoNhom(req, classId, date, ds);
+    if (ra.loi) return res.status(ra.ma || 400).json({ error: ra.loi });
+    db.audit(req.user.id, 'health-can-do-nhom', classId, { date, ...ra.dem });
+    return res.json({ ok: true, date, ...ra.dem });
+  });
 
+  // THÂN CHUNG CỦA HAI ĐƯỜNG GHI CÂN ĐO: màn hình và tệp.
+  //
+  // Tách ra thành hàm chứ không chép sang đường nạp tệp. Hai bản của cùng một
+  // luật là hai bản sẽ trôi khỏi nhau — và chỗ trôi ở đây là luật "đã có thì
+  // sửa, chưa có thì thêm", thứ quyết định một bé có hai dòng cân đo cùng
+  // tháng hay một dòng.
+  //
+  // Trả về { loi, ma } hoặc { dem: { daThem, daSua, soBe } }.
+  function ghiCanDoNhom(req, classId, date, ds) {
     const tieuDe = `Cân đo tháng ${date.slice(5, 7)}/${date.slice(0, 4)}`;
     const sach = [];
     for (const x of ds) {
       const be = db.findStudent(x && x.studentId);
-      if (!be || be.classId !== classId) return res.status(400).json({ error: 'Danh sách có bé không thuộc nhóm này' });
+      if (!be || be.classId !== classId) return { loi: 'Danh sách có bé không thuộc nhóm này' };
       if (!db.canAccessStudent(req.user, be.id)) {
-        return res.status(403).json({ error: `Không có quyền ghi cho bé ${be.name}` });
+        return { loi: `Không có quyền ghi cho bé ${be.name}`, ma: 403 };
       }
       const h = x.height === '' || x.height === undefined || x.height === null ? null : Number(x.height);
       const w = x.weight === '' || x.weight === undefined || x.weight === null ? null : Number(x.weight);
       if (h === null && w === null) continue;   // dòng bỏ trống: bỏ qua, không tạo dòng rỗng
       for (const [cot, v] of [['height', h], ['weight', w]]) {
         const loi = loiCanDo(cot, v);
-        if (loi) return res.status(400).json({ error: `${be.name}: ${loi}` });
+        if (loi) return { loi: `${be.name}: ${loi}` };
       }
       sach.push({ be, h: Number.isFinite(h) && h > 0 ? h : null, w: Number.isFinite(w) && w > 0 ? w : null });
     }
-    if (!sach.length) return res.status(400).json({ error: 'Chưa có số đo nào để ghi — cô điền ít nhất một bé nhé' });
+    if (!sach.length) return { loi: 'Chưa có số đo nào để ghi — cô điền ít nhất một bé nhé' };
 
     let daThem = 0, daSua = 0;
     db.tx(() => {
@@ -179,12 +257,13 @@ module.exports = (app) => {
           db.update('health', cu.id, { height: h, weight: w });
           daSua += 1;
         } else {
-          db.insert('health', { id: db.nextId('ht'), studentId: be.id, date, type: 'checkup', title: tieuDe, detail: '', height: h, weight: w });
+          const idMoi = db.nextId('ht');
+          db.insert('health', { id: idMoi, studentId: be.id, date, type: 'checkup', title: tieuDe, detail: '', height: h, weight: w });
+          ghiLuc(idMoi, req.user.id);
           daThem += 1;
         }
       }
     });
-    db.audit(req.user.id, 'health-can-do-nhom', classId, { date, daThem, daSua });
     // Báo gia đình từng bé (Đ137) — một tin mỗi bé mỗi lượt lưu.
     for (const { be } of sach) {
       tbb.gui({ studentId: be.id, loai: 'suc-khoe', nguoiTao: req.user.id,
@@ -192,8 +271,8 @@ module.exports = (app) => {
         noiDung: `Số đo ngày ${date.slice(8, 10)}/${date.slice(5, 7)} đã có trong Sức khoẻ của bé.`,
         hash: '#/health' });
     }
-    res.json({ ok: true, date, daThem, daSua, soBe: sach.length });
-  });
+    return { dem: { daThem, daSua, soBe: sach.length } };
+  }
 
   // CHẶN SỐ GÕ NHẦM — NHƯNG CHỈ SỐ GÕ NHẦM.
   //
@@ -278,6 +357,7 @@ module.exports = (app) => {
       rec.bmiNote = chuoiYTe(req.body.bmiNote);
     }
     db.insert('health', rec);
+    ghiLuc(rec.id, req.user.id);
     // Báo gia đình (Đ137): cân đo, khám hay sự cố đều là chuyện gia đình muốn
     // biết ngay — nhất là sự cố.
     {
@@ -291,6 +371,147 @@ module.exports = (app) => {
     res.status(201).json(rec);
   });
 
+  // =========================================================================
+  // TỆP CÂN ĐO — TẢI MẪU VỀ, ĐIỀN NGOÀI GIỜ, RỒI NẠP CẢ NHÓM (Đ205, việc 11)
+  // =========================================================================
+  //
+  // Bốn việc nhà trường xin cho mảng cân đo thì ba đã có: gợi ý mờ theo tuổi,
+  // nhập cả nhóm một lượt ngay trên màn, xem lại các tháng trước. Còn đúng
+  // phần tệp — và nó có lý do thật, không phải cho đủ bộ: hôm cân đo cả trường
+  // thì cô đứng ở phòng y tế với cái cân, không cầm điện thoại, và người gõ
+  // vào máy là một người khác vào buổi tối.
+  //
+  // NẠP TỆP ĐI QUA ĐÚNG ĐƯỜNG GHI CỦA MÀN HÌNH, không dựng đường thứ hai.
+  // Cùng `loiCanDo`, cùng luật "đã có thì sửa, chưa có thì thêm", cùng lượt báo
+  // gia đình. Một đường nạp tệp tự ghi thẳng vào bảng là chỗ mọi luật vừa dựng
+  // bị đi vòng qua — và nó sẽ đi vòng lặng lẽ, vì không ai nhìn màn hình lúc
+  // nạp một tệp 30 dòng.
+  const COT_TEP = ['Mã của bé', 'Họ và tên', 'Nhóm lớp', 'Chiều cao (cm)', 'Cân nặng (kg)'];
+
+  app.get('/api/health/mau-can-do.csv', requireRole('teacher', 'admin'), (req, res) => {
+    const classId = String(req.query.classId || '').trim();
+    const cls = classId ? db.findClass(classId) : null;
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+    }
+    // ĐIỀN SẴN TÊN BÉ, ĐỂ TRỐNG HAI Ô SỐ.
+    //
+    // Mẫu rỗng thì người gõ phải tự chép tên 30 bé sang, và chép tay tên trẻ là
+    // chỗ sinh ra dòng "Nguyễn Bảo An" thứ hai không khớp bé nào. Điền sẵn thì
+    // lượt nạp chỉ còn việc đọc hai con số.
+    const ds = db.all('students',
+      'SELECT id, code, name FROM students WHERE classId = ? AND active = 1 ORDER BY name COLLATE NOCASE',
+      [classId]);
+    const hang = ds.map(b => khoaCongThucYTe({
+      'Mã của bé': b.code || b.id,
+      'Họ và tên': b.name,
+      'Nhóm lớp': cls.name,
+      'Chiều cao (cm)': '',
+      'Cân nặng (kg)': '',
+    }));
+    db.audit(req.user.id, 'health-tai-mau-can-do', classId, { soBe: hang.length });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="mau-can-do-${classId}.csv"`);
+    res.send(csv.stringify(COT_TEP, hang));
+  });
+
+  app.post('/api/health/nap-can-do', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const classId = String(b.classId || '').trim();
+    const cls = classId ? db.findClass(classId) : null;
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+    }
+    const date = NGAY_RE.test(String(b.date || '')) ? String(b.date) : todayStr();
+    if (date > todayStr()) return res.status(400).json({ error: 'Chưa ghi cân đo cho ngày chưa tới được' });
+
+    const text = String(b.text || '');
+    if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp nào' });
+    // `kiemTraBangMa` trả về một OBJECT `{ ok }`, không phải chuỗi lỗi — bản
+    // đầu của đường này viết `if (loiBangMa)` nên lượt nạp nào cũng bị từ chối
+    // với câu lỗi là `{"ok":true}`. Bài canh bắt ngay ở lượt chạy đầu tiên.
+    const bangMa = csv.kiemTraBangMa(text);
+    if (!bangMa.ok) {
+      return res.status(400).json({
+        error: 'Tệp bị lỗi phông chữ tiếng Việt: chữ có dấu đã biến thành ký tự lạ '
+          + `(dòng ${bangMa.dongDau}: "${bangMa.viDu}"). Xin mở lại tệp bằng Excel, chọn `
+          + 'Tệp → Lưu dưới dạng → kiểu "CSV UTF-8 (Comma delimited) (*.csv)", rồi tải lên lần nữa.',
+      });
+    }
+
+    let rows = [];
+    try { rows = (csv.parse(text) || {}).rows || []; }
+    catch (err) { return res.status(400).json({ error: 'Không đọc được tệp này. Tệp phải là CSV xuất từ Excel.' }); }
+    if (!rows.length) return res.status(400).json({ error: 'Tệp không có dòng nào' });
+
+    // TRA BÉ THEO MÃ TRƯỚC, TÊN SAU — và tên TRÙNG thì TỪ CHỐI cả mẻ.
+    //
+    // Trùng họ tên trong tiếng Việt là chuyện thường, và chính app đã thừa nhận
+    // điều đó ở đường nhận bé. Ghi nhầm chiều cao của bé này sang bé kia thì
+    // không ai đọc ra được: hai con số đều hợp lệ, hồ sơ đều có số. Nên chỗ
+    // nào máy không chắc là dừng lại hỏi, không đoán.
+    const dsBe = db.all('students',
+      'SELECT id, code, name FROM students WHERE classId = ? AND active = 1', [classId]);
+    const theoMa = new Map(dsBe.filter(x => x.code).map(x => [String(x.code).trim().toLowerCase(), x]));
+    const demTen = new Map();
+    for (const x of dsBe) {
+      const k = csv.boDau(String(x.name)).trim().toLowerCase();
+      demTen.set(k, (demTen.get(k) || 0) + 1);
+    }
+    const theoTen = new Map(dsBe.map(x => [csv.boDau(String(x.name)).trim().toLowerCase(), x]));
+
+    const danhSach = [];
+    const boQua = [];
+    for (const [i, r] of rows.entries()) {
+      const dong = i + 2;                       // +1 dòng tiêu đề, +1 để đếm từ 1
+      const ma = String(r['Mã của bé'] || '').trim().toLowerCase();
+      const ten = String(r['Họ và tên'] || '').trim();
+      const be = (ma && theoMa.get(ma)) || null;
+      let chon = be;
+      if (!chon && ten) {
+        const k = csv.boDau(ten).trim().toLowerCase();
+        if ((demTen.get(k) || 0) > 1) {
+          return res.status(400).json({
+            error: `Dòng ${dong}: nhóm có hơn một bé tên "${ten}", nên máy không biết là bé nào. `
+              + 'Điền thêm cột "Mã của bé" cho dòng này rồi nạp lại giúp cô nhé.',
+          });
+        }
+        chon = theoTen.get(k) || null;
+      }
+      if (!chon) {
+        if (!ma && !ten) continue;              // dòng trắng cuối tệp
+        return res.status(400).json({
+          error: `Dòng ${dong}: không tìm thấy bé "${ten || ma}" trong nhóm ${cls.name}. `
+            + 'Tệp có phải của đúng nhóm này không ạ?',
+        });
+      }
+      if (!db.canAccessStudent(req.user, chon.id)) {
+        return res.status(403).json({ error: `Không có quyền ghi cho bé ${chon.name}` });
+      }
+      const h = String(r['Chiều cao (cm)'] ?? '').trim().replace(',', '.');
+      const w = String(r['Cân nặng (kg)'] ?? '').trim().replace(',', '.');
+      if (!h && !w) { boQua.push(chon.name); continue; }
+      for (const [cot, v] of [['height', h], ['weight', w]]) {
+        if (!v) continue;
+        const loi = loiCanDo(cot, v);
+        if (loi) return res.status(400).json({ error: `Dòng ${dong} — ${chon.name}: ${loi}` });
+      }
+      danhSach.push({ studentId: chon.id, height: h || '', weight: w || '' });
+    }
+    if (!danhSach.length) {
+      return res.status(400).json({ error: 'Tệp không có số đo nào — mọi dòng đều để trống hai ô số.' });
+    }
+
+    // ĐI QUA ĐÚNG HÀM ĐÃ DỰNG ĐƯỜNG GHI CỦA MÀN HÌNH. Xem chú thích đầu khối.
+    const ra = ghiCanDoNhom(req, classId, date, danhSach);
+    if (ra.loi) return res.status(ra.ma || 400).json({ error: ra.loi });
+    db.audit(req.user.id, 'health-nap-can-do', classId, { date, soDong: rows.length, ...ra.dem });
+    res.json({ ok: true, date, ...ra.dem, boQua });
+  });
+
   // Sửa lại một ghi nhận y tế.
   app.put('/api/health/:id', requireRole('teacher', 'admin'), (req, res) => {
     const h = db.first('health', 'SELECT * FROM health WHERE id = ?', [req.params.id]);
@@ -298,6 +519,8 @@ module.exports = (app) => {
     if (!coTheSuaYTe(req.user, h.studentId)) {
       return res.status(403).json({ error: 'Không có quyền sửa ghi nhận của bé này' });
     }
+    const quaNgay = loiQuaNgay(req.user, h);
+    if (quaNgay) return res.status(403).json({ error: quaNgay });
     const patch = {};
     // Đường SỬA dùng TYPES_DOC, không phải TYPES_GHI: bản ghi tiêm chủng CŨ
     // phải sửa được tiêu đề, chi tiết và ngày. Nhưng không được BIẾN một bản
@@ -342,6 +565,17 @@ module.exports = (app) => {
     if (!h) return res.status(404).json({ error: 'Không tìm thấy ghi nhận' });
     if (!coTheSuaYTe(req.user, h.studentId)) {
       return res.status(403).json({ error: 'Không có quyền thu hồi ghi nhận của bé này' });
+    }
+    // THU HỒI KHÔNG KHOÁ THEO NGÀY, nhưng ngoài ngày thì chỉ nhà trường làm.
+    //
+    // Đường này sinh ra để gỡ một ghi nhận kiểu "sốt, nghi tay chân miệng" bấm
+    // nhầm sang bé khác — thứ thường chỉ lộ ra sau vài ngày, khi gia đình bé
+    // kia đọc thấy. Khoá nó theo ngày là bịt đúng đường sửa sai duy nhất.
+    if (loiQuaNgay(req.user, h)) {
+      return res.status(403).json({
+        error: 'Ghi nhận này ghi hôm ' + ngayGhiCua(h) + ' nên cô không tự thu hồi được nữa. '
+          + 'Nhắn văn phòng giúp cô nhé — phần đã ghi vẫn giữ nguyên, không mất đi đâu cả.',
+      });
     }
     st.ghiThuHoi(BANG, h.id, req.user.id);
     db.audit(req.user.id, 'health-withdraw', h.id, { title: h.title, studentId: h.studentId });
