@@ -16,6 +16,46 @@ hai, khi nào không.
 
 ---
 
+## ĐÍNH CHÍNH 15/09/2026 — "app 1 đang chạy thật cho ~300 gia đình" LÀ SAI
+
+Câu hỏi số 9 gửi nhà trường ngày 14/09 hỏi thẳng: *"App cũ hiện có dữ liệu thật
+của gia đình nào không?"*. Trường trả lời ngày 15/09:
+
+> **"Ko, dữ liệu đều đang chỉ dùng để test phần mềm"**
+
+Con số "~300 gia đình" lặp lại **hơn mười lần** trong chính tệp này và được dùng
+làm căn cứ xếp ưu tiên cho gần như mọi món nợ ở bảng dưới — *"ở app 1 nặng hơn
+vì đang thu tiền thật của ~300 gia đình"*, *"app 1 đã chạy đủ lâu để có học sinh
+ra trường quá 12 tháng"*. **Căn cứ ấy không đứng nữa.**
+
+**BA HỆ QUẢ, VÀ CHÚNG NGƯỢC CHIỀU NHAU:**
+
+1. **Mức khẩn cấp của mọi món nợ bên app 1 GIẢM.** Không có hồ sơ trẻ thật,
+   không có tiền thật, không có ảnh khuôn mặt thật thì một lỗi rò rỉ bên đó là
+   lỗi trên dữ liệu thử. Những dòng đánh dấu *"Món nợ ưu tiên cao nhất"* vì lý
+   do "app 1 nặng hơn" cần đọc lại: chúng vẫn là lỗi thật và vẫn phải vá, nhưng
+   lý do khẩn cấp thì không còn.
+
+2. **Việc GỘP bốn bản vá sang app 1 nay AN TOÀN hơn hẳn.** Điều làm việc gộp
+   đáng ngại là chạy mã chưa kiểm thử lên một cơ sở dữ liệu có hồ sơ trẻ thật.
+   Trường đã nói không có, và cũng đã nói *"cứ gộp vào cho tôi"*.
+
+3. **NHƯNG RỦI RO MỚI XUẤT HIỆN: ĐỘ TIN CỦA SỔ SÁCH.** Một con số sai nằm ở chỗ
+   dễ tin nhất trong kho, lặp hơn mười lần, và được dùng để xếp ưu tiên suốt
+   nhiều tuần. Nó không tự sinh ra — nó chép từ tài liệu gốc của dự án và không
+   ai kiểm lại. Chừng nào chưa rõ **ai viết con số ấy và từ đâu**, thì mọi con
+   số khác cùng nguồn đều đáng ngờ như nhau.
+
+**`CLAUDE.md` CŨNG NÓI CÂU ẤY** (*"đang chạy thật cho ~300 học sinh"*, ngay dòng
+thứ tư). **Không tự sửa** — quy định của chính tệp đó nói *"nêu là nêu, không
+phải tự ý làm"*. Đã nêu với chủ dự án; sửa hay không là quyết định của anh.
+
+**CHƯA GỘP GÌ SANG APP 1 TRONG ĐỢT NÀY.** Kho `pichu124/School` không nằm trong
+phạm vi truy cập của phiên làm việc này, nên việc gộp bốn bản vá phải làm ở một
+phiên có quyền vào kho đó. Danh sách bốn bản vá vẫn nằm nguyên ở bảng bên dưới.
+
+---
+
 ## Phần nào là "nền chung"
 
 ### Cách nhận ra, chỉ một câu lệnh
