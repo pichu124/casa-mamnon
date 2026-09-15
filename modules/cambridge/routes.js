@@ -57,8 +57,26 @@ const TRANG_TOI_DA = 200;
 
 // KHUNG THEO MẪU TRƯỜNG GỬI 07/09 (Đ143): Block / Week / lứa tuổi, năm ô nội
 // dung, tệp PDF / Word kèm bài.
-const LUA_TUOI = ['', '3-4', '4-5'];
-const TEN_LUA_TUOI = { '': 'Cả hai lứa', '3-4': '3–4 tuổi', '4-5': '4–5 tuổi' };
+const LUA_TUOI = ['', '3-4', '4-5', '5-6'];
+const TEN_LUA_TUOI = { '': 'Mọi lứa', '3-4': '3–4 tuổi', '4-5': '4–5 tuổi', '5-6': '5–6 tuổi' };
+
+// CHUỖI RỖNG MANG HAI NGHĨA KHÁC HẲN NHAU, TUỲ NÓ GẮN VÀO ĐÂU.
+//
+// Gắn vào một BÀI thì '' nghĩa là "bài này dùng cho mọi lứa". Gắn vào một BÉ
+// thì '' nghĩa là "bé chưa vào chương trình" — bé dưới 36 tháng. Hai nghĩa
+// ngược nhau: một bên là rộng nhất, một bên là chưa có gì.
+//
+// Chỗ trả lứa của con đang viết `TEN_LUA_TUOI[c.luaTuoi] || 'Chưa vào chương
+// trình Cambridge'`, mà `TEN_LUA_TUOI['']` là một chuỗi KHÔNG RỖNG nên nhánh
+// `||` không bao giờ chạy. Kết quả: màn hình của nhà có bé 14 tháng nói con
+// mình thuộc "Cả hai lứa" Cambridge. Bài canh chỉ đo bé ấy không nhận block
+// nào, không đo chữ hiện ra, nên chuyện này nằm im.
+//
+// Tách hẳn thành một hàm riêng thay vì sửa chuỗi trong bảng: bảng còn phải
+// dùng cho ô chọn lúc soạn bài, nơi '' đúng là "mọi lứa".
+function tenLuaCuaBe(ma) {
+  return ma ? (TEN_LUA_TUOI[ma] || ma) : 'Chưa vào chương trình Cambridge';
+}
 const TOI_DA_O_KHUNG = 2000;
 const TOI_DA_TEN_BLOCK = 80;
 const TOI_DA_MUC_TIEU = 4000;
@@ -68,11 +86,20 @@ const TUAN_TOI_DA = 52;
 
 // LỨA CAMBRIDGE CỦA MỘT BÉ, tính từ ngày sinh ở thời điểm đang xem.
 //
-// Cambridge của trường chỉ có hai lứa: 3–4 và 4–5. Bé dưới 36 tháng chưa vào
-// chương trình (về '' — chỉ thấy bài dành cho cả hai lứa); bé từ 48 tháng
-// trở lên, kể cả bé 5 tuổi ở nhóm Lá, đi theo lứa 4–5 vì đó là lứa lớn nhất
-// chương trình có. Đây là chỗ XẾP LỚP của chương trình, không phải một nhận
-// định về bé — không so bé với "chuẩn" nào (QUY TẮC 4).
+// BA LỨA, KHÔNG PHẢI HAI (Đ187). Nhà trường trả lời ngày 15/09 rằng Cambridge
+// *"có tài liệu riêng"* cho 5–6 tuổi. Trước đó mã gộp mọi bé từ 48 tháng trở
+// lên vào lứa 4–5 vì đó là lứa lớn nhất chương trình có — đúng theo lời trường
+// hôm 07/09, nay lời ấy đã được sửa lại.
+//
+// Bé dưới 36 tháng chưa vào chương trình (về '' — chỉ thấy bài dành cho mọi
+// lứa). Đây là chỗ XẾP LỚP của chương trình, không phải một nhận định về bé —
+// không so bé với "chuẩn" nào (QUY TẮC 4).
+//
+// ĐIỀU CẦN BIẾT TRƯỚC KHI TRƯỜNG SOẠN XONG BỘ 5–6: từ hôm nay bé từ 60 tháng
+// trở lên không còn nhận bài lứa 4–5 nữa. Không mất dữ liệu gì — bài cũ vẫn
+// còn nguyên, cô và văn phòng vẫn thấy đủ — nhưng màn hình của những nhà ấy
+// sẽ trống cho tới khi có bài 5–6 đầu tiên. Nên màn hình phải NÓI RA điều đó
+// thay vì để một khoảng trắng (xem `view.js`).
 function luaTuoiCuaBe(dob, moc) {
   if (!dob || !NGAY_RE.test(String(dob))) return '';
   const sinh = new Date(`${dob}T00:00:00Z`);
@@ -81,7 +108,8 @@ function luaTuoiCuaBe(dob, moc) {
   let thang = (nay.getUTCFullYear() - sinh.getUTCFullYear()) * 12 + (nay.getUTCMonth() - sinh.getUTCMonth());
   if (nay.getUTCDate() < sinh.getUTCDate()) thang -= 1;
   if (thang < 36) return '';
-  return thang < 48 ? '3-4' : '4-5';
+  if (thang < 48) return '3-4';
+  return thang < 60 ? '4-5' : '5-6';
 }
 
 function homNay() {
@@ -541,7 +569,7 @@ module.exports = (app, { db }) => {
       // của con; cô và văn phòng nhận đủ.
       blocks: danhSachBlock().filter(b => blockHopLua(b, cacCon)),
       luaTuoi: LUA_TUOI.map(ma => ({ ma, ten: TEN_LUA_TUOI[ma] })),
-      ...(cacCon ? { luaTuoiCuaCon: cacCon.map(c => ({ ...c, tenLuaTuoi: TEN_LUA_TUOI[c.luaTuoi] || 'Chưa vào chương trình Cambridge' })) } : {}),
+      ...(cacCon ? { luaTuoiCuaCon: cacCon.map(c => ({ ...c, tenLuaTuoi: tenLuaCuaBe(c.luaTuoi) })) } : {}),
       duocDang: req.user.role === 'admin',
       // Danh mục để văn phòng dựng ô chọn phạm vi. Chỉ gửi cho người đăng
       // được — danh sách nhóm và cơ sở của cả trường không việc gì phải đi ra
@@ -677,7 +705,7 @@ module.exports = (app, { db }) => {
     const blockId = chuoi(k.blockId, 40);
     if (blockId && !blockCua(blockId)) return { loi: 'Block đã chọn không còn — cô chọn lại block nhé' };
     const luaTuoi = chuoi(k.luaTuoi, 5);
-    if (!LUA_TUOI.includes(luaTuoi)) return { loi: 'Lứa tuổi chỉ có 3–4, 4–5 hoặc cả hai' };
+    if (!LUA_TUOI.includes(luaTuoi)) return { loi: 'Lứa tuổi chỉ có 3–4, 4–5, 5–6 hoặc mọi lứa' };
     const tuanSo = Math.floor(Number(k.tuanSo) || 0);
     if (tuanSo < 0 || tuanSo > TUAN_TOI_DA) return { loi: `Số tuần trong block từ 1 tới ${TUAN_TOI_DA}` };
     return {
@@ -883,7 +911,7 @@ module.exports = (app, { db }) => {
     const ten = chuoi(b.ten !== undefined ? b.ten : (cu || {}).ten, TOI_DA_TEN_BLOCK);
     if (!ten) return { loi: 'Cần tên block, ví dụ: Block 1' };
     const luaTuoi = chuoi(b.luaTuoi !== undefined ? b.luaTuoi : (cu || {}).luaTuoi, 5);
-    if (!LUA_TUOI.includes(luaTuoi)) return { loi: 'Lứa tuổi chỉ có 3–4, 4–5 hoặc cả hai' };
+    if (!LUA_TUOI.includes(luaTuoi)) return { loi: 'Lứa tuổi chỉ có 3–4, 4–5, 5–6 hoặc mọi lứa' };
     const tuNgay = chuoi(b.tuNgay !== undefined ? b.tuNgay : (cu || {}).tuNgay, 10);
     const denNgay = chuoi(b.denNgay !== undefined ? b.denNgay : (cu || {}).denNgay, 10);
     if (tuNgay && !NGAY_RE.test(tuNgay)) return { loi: 'Ngày bắt đầu chưa đúng dạng, ví dụ đúng: 2026-09-08' };

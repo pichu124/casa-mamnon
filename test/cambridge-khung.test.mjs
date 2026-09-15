@@ -34,9 +34,13 @@ async function vao(u, m) {
 }
 const VP = await vao('hieutruong', mk1);
 const GV = (await login('giaovien', '123456')).cookie;       // cô nhóm c1
-// Dữ liệu mẫu: s1, s2 (nhà `phuhuynh`) đều đã trên 48 tháng → lứa 4–5;
-// s5 (nhà `ph.lan`) 3 tuổi 10 tháng → lứa 3–4; s9 (nhà `ph.trang`) 14 tháng →
-// chưa vào chương trình.
+// Dữ liệu mẫu, tính theo luật BA LỨA từ Đ187:
+//   s1 (nhóm Chồi, ~4 tuổi rưỡi)  → lứa 4–5
+//   s2 (nhóm Lá, vừa tròn 5 tuổi) → lứa 5–6
+//   s5 (nhà `ph.lan`, 3 tuổi 10 tháng) → lứa 3–4
+//   s9 (nhà `ph.trang`, 14 tháng) → chưa vào chương trình
+// Nhà `phuhuynh` có CẢ s1 lẫn s2 nên nó là ca hiếm mà quý: một gia đình có
+// con ở HAI lứa khác nhau. Giữ tên biến PH_45 vì s1 vẫn là lứa 4–5.
 const PH_45 = (await login('phuhuynh', '123456')).cookie;
 const PH_34 = (await login('ph.lan', '123456')).cookie;
 const PH_BE = (await login('ph.trang', '123456')).cookie;
@@ -65,8 +69,15 @@ let BLOCK1;
   check('cô KHÔNG tạo được block', co.status === 403, co.status);
   const thieu = await req('POST', '/api/cambridge/block', { cookie: VP, body: { ten: '' } });
   check('thiếu tên thì từ chối và nói rõ', thieu.status === 400 && /tên block/i.test(thieu.data?.error || ''), thieu.data);
-  const luaLa = await req('POST', '/api/cambridge/block', { cookie: VP, body: { ten: 'Block X', luaTuoi: '5-6' } });
+  // VÍ DỤ LỨA LẠ PHẢI ĐỔI THEO CHƯƠNG TRÌNH THẬT.
+  //
+  // Chỗ này từng dùng '5-6' làm ví dụ lứa không hợp lệ. Ngày 15/09 nhà trường
+  // xác nhận Cambridge *có tài liệu riêng* cho 5–6 tuổi, nên '5-6' nay là một
+  // lứa thật. Giữ nguyên ví dụ cũ là bài canh sẽ đỏ vì chương trình mở rộng
+  // đúng hướng — đổi sang một chuỗi thật sự không có trong chương trình.
+  const luaLa = await req('POST', '/api/cambridge/block', { cookie: VP, body: { ten: 'Block X', luaTuoi: '6-7' } });
   check('lứa tuổi lạ thì từ chối', luaLa.status === 400, luaLa.data);
+  check('và câu từ chối kể đủ ba lứa đang có', /5–6/.test(luaLa.data?.error || ''), luaLa.data);
   const nguoc = await req('POST', '/api/cambridge/block', { cookie: VP, body: { ten: 'Block X', tuNgay: '2026-10-01', denNgay: '2026-09-01' } });
   check('ngày kết thúc trước ngày bắt đầu thì từ chối', nguoc.status === 400, nguoc.data);
 
@@ -94,6 +105,64 @@ let BLOCK1;
   const cua = (await danhSach(PH_34)).luaTuoiCuaCon || [];
   check('gia đình được nói rõ con mình thuộc lứa nào', cua.length === 1 && cua[0].luaTuoi === '3-4' && /3–4/.test(cua[0].tenLuaTuoi), cua);
   check('cô KHÔNG nhận trường "lứa của con" — nó là của gia đình', (await danhSach(GV)).luaTuoiCuaCon === undefined);
+}
+
+// ===========================================================================
+console.log('\n[1b] LỨA THỨ BA 5–6, và chuỗi rỗng mang hai nghĩa ngược nhau');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Nhà trường trả lời ngày 15/09: Cambridge *"có tài liệu riêng"* cho 5–6
+  // tuổi. Trước đó mã gộp mọi bé từ 48 tháng trở lên vào lứa 4–5 vì đó là lứa
+  // lớn nhất chương trình có — đúng theo lời trường hôm 07/09, nay đã sửa.
+  //
+  // Đây là loại thay đổi dễ làm hỏng phía KHÔNG ai nhìn: bé 5 tuổi hôm qua còn
+  // nhận bài 4–5, hôm nay thì không. Không mất dữ liệu gì, nhưng nếu màn hình
+  // im lặng thì gia đình chỉ thấy một khoảng trắng và không hiểu vì sao.
+  const b56 = await req('POST', '/api/cambridge/block', {
+    cookie: VP, body: { ten: 'Block 1 (5–6)', luaTuoi: '5-6', thuTu: 3 },
+  });
+  check('LỨA 5–6 NAY LÀ LỨA THẬT — tạo được block cho nó', b56.status === 201, b56.data);
+
+  const dm = await danhSach(VP);
+  const maLua = (dm.luaTuoi || []).map(l => l.ma);
+  check('ô chọn lúc soạn bài mời đủ ba lứa cộng "mọi lứa"',
+    maLua.length === 4 && ['', '3-4', '4-5', '5-6'].every(m => maLua.includes(m)), maLua);
+
+  // Bé vừa tròn 5 tuổi chuyển sang lứa mới.
+  const con45 = (await danhSach(PH_45)).luaTuoiCuaCon || [];
+  const luaCon = con45.map(c => c.luaTuoi).sort();
+  check('MỘT NHÀ CÓ CON Ở HAI LỨA thì được nói đủ cả hai',
+    luaCon.length === 2 && luaCon[0] === '4-5' && luaCon[1] === '5-6', con45);
+  const ds45 = (await danhSach(PH_45)).blocks || [];
+  check('và nhận block của CẢ HAI lứa ấy, không phải chỉ một',
+    ds45.length === 2 && ds45.some(b => b.luaTuoi === '4-5') && ds45.some(b => b.luaTuoi === '5-6'),
+    ds45.map(b => `${b.ten}/${b.luaTuoi}`));
+  check('nhà có bé 3–4 KHÔNG bị kéo thêm block 5–6',
+    !((await danhSach(PH_34)).blocks || []).some(b => b.luaTuoi === '5-6'));
+
+  // CHUỖI RỖNG MANG HAI NGHĨA NGƯỢC NHAU.
+  //
+  // Gắn vào một BÀI thì '' là "dùng cho mọi lứa" — rộng nhất. Gắn vào một BÉ
+  // thì '' là "chưa vào chương trình" — chưa có gì. Chỗ trả lứa của con từng
+  // viết `TEN_LUA_TUOI[c.luaTuoi] || 'Chưa vào chương trình Cambridge'`, mà
+  // `TEN_LUA_TUOI['']` là chuỗi KHÔNG RỖNG nên nhánh `||` không bao giờ chạy:
+  // màn hình của nhà có bé 14 tháng nói con mình thuộc "Cả hai lứa" Cambridge.
+  //
+  // Bài canh cũ chỉ đo bé ấy không nhận block nào — đúng, nhưng không đo CHỮ
+  // hiện ra, nên chuyện này nằm im. Đo thẳng vào chữ.
+  const conBe = (await danhSach(PH_BE)).luaTuoiCuaCon || [];
+  check('nhà có bé 14 tháng vẫn được trả trường "lứa của con"', conBe.length >= 1, conBe);
+  check('BÉ CHƯA VÀO CHƯƠNG TRÌNH KHÔNG BAO GIỜ ĐƯỢC GỌI LÀ "mọi lứa"',
+    conBe.every(c => !c.luaTuoi && !/mọi lứa|cả hai lứa/i.test(c.tenLuaTuoi || '')),
+    conBe.map(c => c.tenLuaTuoi));
+  check('mà phải nói đúng: con chưa vào chương trình Cambridge',
+    conBe.every(c => /chưa vào chương trình/i.test(c.tenLuaTuoi || '')),
+    conBe.map(c => c.tenLuaTuoi));
+
+  // KHÔNG dọn block 5–6 đi: phân hệ không có đường xoá block (chỉ tạo và sửa),
+  // mà các mục sau đều đo BÀI chứ không đếm block, nên để lại là an toàn và
+  // thật hơn — từ đây trở đi kho dữ liệu của bài canh có đủ ba lứa.
 }
 
 // ===========================================================================

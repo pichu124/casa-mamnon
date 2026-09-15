@@ -94,7 +94,24 @@ App.views.cambridge = {
       <div class="muted small mb-8" style="line-height:1.6">
         ${con.map(c => `${UI.esc(c.ten)}: <b>${UI.esc(c.tenLuaTuoi || '')}</b>`).join(' · ')}
       </div>` : '';
-    if (!blocks.length && !d.duocDang) return dongCon;
+    // NÓI RA KHI LỨA CỦA CON CHƯA CÓ BÀI, THAY VÌ ĐỂ MỘT KHOẢNG TRẮNG (Đ187).
+    //
+    // Từ hôm trường xác nhận Cambridge có tài liệu riêng cho 5–6 tuổi, bé từ
+    // 60 tháng trở lên không còn nhận bài lứa 4–5 nữa. Không mất dữ liệu gì,
+    // nhưng cho tới lúc trường soạn xong bộ 5–6 thì màn hình những nhà ấy
+    // trống trơn — và một màn hình trống không nói được nó trống VÌ SAO.
+    //
+    // Chỉ hiện cho gia đình có con ĐÃ vào chương trình. Nhà có bé dưới 36
+    // tháng thì lứa là rỗng, câu này không đúng với họ.
+    const conDaVao = con.filter(c => c.luaTuoi);
+    const chuaCoBai = !d.duocDang && conDaVao.length && !blocks.length;
+    const loiNhan = chuaCoBai ? `
+      <div class="muted small mb-8" style="line-height:1.6">
+        Trường chưa đăng bài Cambridge nào cho lứa
+        ${conDaVao.map(c => UI.esc(c.tenLuaTuoi || '')).filter((v, i, a) => a.indexOf(v) === i).join(' và ')}.
+        Khi cô đăng, bài sẽ hiện ngay ở đây.
+      </div>` : '';
+    if (!blocks.length && !d.duocDang) return dongCon + loiNhan;
     return `
       ${dongCon}
       <div class="card">
