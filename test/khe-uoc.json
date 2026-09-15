@@ -2,6 +2,7 @@
   "lib/db.js": {
     "CHUC_VU": "object",
     "CHUC_VU_DAT_NEP": "object",
+    "CHUC_VU_DUYET_BAO_CAO": "object",
     "CHUC_VU_SUA_HO_SO_BE": "object",
     "CHUC_VU_TAO_KHOAN_THU": "object",
     "DATA_DIR": "string",
@@ -44,6 +45,7 @@
     "dongYCuaBe": "ham(1)",
     "dongYCuaCacBe": "ham(1)",
     "dsBeNgungHoSoHocTap": "ham(1)",
+    "duyetBaoCaoDuoc": "ham(1)",
     "findCampus": "ham(1)",
     "findClass": "ham(1)",
     "findStudent": "ham(1)",
@@ -141,9 +143,11 @@
     "doiKhoa": "ham(0)",
     "guiChoGiaDinhCuaBe": "ham(2)",
     "guiChoNguoi": "ham(2)",
+    "guiChoNhieuNguoi": "ham(2)",
     "huyDangKy": "ham(2)",
     "khoaCongKhai": "ham(0)",
     "soMayCua": "ham(1)",
+    "trangThaiHangDoi": "ham(0)",
     "xoaDangKyCua": "ham(1)"
   },
   "lib/hen-gio.js": {
@@ -162,9 +166,12 @@
     "demTatCa": "ham(1)"
   },
   "lib/bao-nha-truong.js": {
+    "CHUC_VU_LO_TIEN": "object",
     "CHUC_VU_NHAN": "object",
+    "guiChoNguoiLoTienCuaBe": "ham(1)",
     "guiChoQuanLyCuaBe": "ham(1)",
     "guiChoQuanLyCuaNhom": "ham(1)",
+    "nguoiLoTienCuaBe": "ham(1)",
     "quanLyCuaBe": "ham(1)",
     "quanLyCuaNhom": "ham(1)"
   },
