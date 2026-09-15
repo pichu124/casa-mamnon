@@ -52,7 +52,10 @@ const dangXuat = async () => { await page.evaluate(() => App.logout()); await pa
 // ============================================================
 console.log('\n[1] TKB — văn phòng soạn ngay trên màn hình, cô chỉ xem (Đ133)');
 await dangNhap('hieutruong', 'quantri2026');
-await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
+// Đ198 (việc 41) đảo thứ tự hai phần: '#/timetable' nay mở sẵn phần Kế hoạch
+// giáo dục. Ba mục dưới đây đo phần LỊCH SINH HOẠT, nên đi thẳng vào đúng phần
+// ấy thay vì dựa vào phần nào đang mở sẵn.
+await page.goto(BASE + '/#/timetable/lich', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 check('văn phòng có ô chọn nhóm', await page.locator('#tkb-nhom').count() === 1);
 await page.selectOption('#tkb-nhom', 'c1');
@@ -93,7 +96,10 @@ check('bấm Hủy thì bản nháp bị bỏ', !/Môn không được lưu/.tes
 // Cô phụ trách: thấy lịch, thấy chữ văn phòng vừa sửa, KHÔNG có nút sửa.
 await dangXuat();
 await dangNhap('giaovien', '123456');
-await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
+// Đ198 (việc 41) đảo thứ tự hai phần: '#/timetable' nay mở sẵn phần Kế hoạch
+// giáo dục. Ba mục dưới đây đo phần LỊCH SINH HOẠT, nên đi thẳng vào đúng phần
+// ấy thay vì dựa vào phần nào đang mở sẵn.
+await page.goto(BASE + '/#/timetable/lich', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 await page.click('#tkb-seg button:first-child');
 await page.waitForTimeout(400);
@@ -105,7 +111,10 @@ check('màn của cô nói rõ lịch do văn phòng soạn', /văn phòng/i.tes
 console.log('\n[2] TKB — phụ huynh chỉ xem, không có nút soạn');
 await dangXuat();
 await dangNhap('phuhuynh', '123456');
-await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
+// Đ198 (việc 41) đảo thứ tự hai phần: '#/timetable' nay mở sẵn phần Kế hoạch
+// giáo dục. Ba mục dưới đây đo phần LỊCH SINH HOẠT, nên đi thẳng vào đúng phần
+// ấy thay vì dựa vào phần nào đang mở sẵn.
+await page.goto(BASE + '/#/timetable/lich', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 // Nhà có 2 con hai lớp — chọn đúng bé học lớp 3A (lớp cô vừa sửa TKB).
 await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
@@ -194,9 +203,12 @@ check('phụ huynh KHÔNG có nút soạn/sửa/chép nào', await page.locator(
 // ============================================================
 // 3. KẾ HOẠCH GIÁO DỤC
 // ============================================================
-console.log('\n[5] Kế hoạch — cô phụ trách soạn ngay trên màn hình');
+// Đ198 (việc 42): kế hoạch của CẢ NHÓM nay do VĂN PHÒNG soạn, cô chỉ xem.
+// Mục này đổi vai người bấm; điều nó đo — soạn ngay trên màn, lưu xong hiện
+// ra, gia đình đọc được — không đổi một ly.
+console.log('\n[5] Kế hoạch — VĂN PHÒNG soạn ngay trên màn hình');
 await dangXuat();
-await dangNhap('giaovien', '123456');
+await dangNhap('hieutruong', 'quantri2026');
 await page.goto(BASE + '/#/plans', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 check('giáo viên thấy nút Soạn kế hoạch', await page.locator('#btn-soan-kh').count() === 1);

@@ -115,7 +115,11 @@ console.log('\n[2] Bấm sang Kế hoạch giáo dục: đổi bằng ĐƯỜNG 
     await page.locator('#tkb-phan [data-phan="kehoach"]').evaluate(el => el.classList.contains('active')));
   check('CÓ NỘI DUNG KẾ HOẠCH THẬT, không phải ô trống',
     /Mục tiêu tháng/.test(man) && /Kế hoạch từng tuần/.test(man), man.slice(0, 300));
-  check('cô phụ trách được mời soạn kế hoạch ngay tại đây', await dem('#btn-soan-kh-nhung') === 1);
+  // Đ198 (việc 42): kế hoạch của CẢ NHÓM nay do VĂN PHÒNG soạn. Cô đọc được
+  // ngay tại đây, nhưng KHÔNG còn được mời bấm soạn — màn hình thôi mời cô
+  // bấm một nút chắc chắn nhận 403.
+  check('CÔ KHÔNG CÒN ĐƯỢC MỜI SOẠN — kế hoạch chung là việc của văn phòng',
+    await dem('#btn-soan-kh-nhung') === 0, await dem('#btn-soan-kh-nhung'));
   check('không lỗi JavaScript', loiJs.length === 0, loiJs.slice(0, 3));
   check('không lộ tiếng tiểu học', !XAU.test(man), (man.match(XAU) || [])[0]);
 

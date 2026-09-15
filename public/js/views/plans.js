@@ -144,12 +144,21 @@ App.views.plans = {
     App.route();
   },
 
-  // Cô phụ trách soạn cho nhóm mình; quản trị soạn nhóm bất kỳ; phụ huynh chỉ xem.
+  // VĂN PHÒNG SOẠN, CÔ VÀ GIA ĐÌNH CHỈ XEM (Đ198, việc 42).
+  //
+  // Nhà trường (A24): *"Cái này do VĂN PHÒNG làm cho bớt việc của cô"*.
+  //
+  // MÀN HÌNH PHẢI THÔI MỜI CÔ BẤM, không chỉ máy chủ từ chối. Để nút lại thì
+  // cô soạn xong cả một tháng kế hoạch rồi mới nhận câu từ chối — mất công của
+  // cô, và trông như app hỏng chứ không như một quy định. Đó đúng là thứ
+  // `test:khong-hua-suong` sinh ra để chặn.
+  //
+  // Cô KHÔNG mất chỗ nào để soạn cho bé: kế hoạch của TỪNG BÉ vẫn là của cô,
+  // ở phân hệ riêng, không đụng tới.
   canEdit() {
     const u = App.state.user;
     if (!u) return false;
-    if (u.role === 'admin') return true;
-    return u.role === 'teacher' && (u.classIds || []).includes(this._classId);
+    return u.role === 'admin';
   },
 
   renderPlan(p) {

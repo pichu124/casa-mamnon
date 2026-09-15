@@ -85,7 +85,11 @@ const chuTrenMan = () => page.innerText('#view');
 console.log('\n[1] Cô phụ trách HAI nhóm — Lịch sinh hoạt');
 {
   await dangNhap('giaovien3', '123456');   // cô Bích Ngọc: Chồi 2 và Lá 1
-  await mo('/#/timetable');
+  // Đ198 (việc 41) đảo thứ tự hai phần, nên `#/timetable` nay mở sẵn phần Kế
+  // hoạch giáo dục. Mục này đo phần LỊCH SINH HOẠT (dải T2…T6), nên đi thẳng
+  // vào đúng phần ấy thay vì dựa vào phần nào đang mở sẵn — một bài canh phụ
+  // thuộc vào thứ tự tab là bài canh đỏ mỗi lần ai đó đổi thứ tự.
+  await mo('/#/timetable/lich');
 
   const o = await oChon();
   check('có ô chọn nhóm', !!o);
@@ -135,8 +139,19 @@ console.log('\n[2] Cô phụ trách HAI nhóm — Kế hoạch giáo dục');
   const sau = await chuTrenMan();
   check('ĐỔI SANG NHÓM THỨ HAI THÌ KẾ HOẠCH ĐỔI THEO',
     sau.includes('Bé chuẩn bị vào lớp 1'), sau.slice(0, 300));
-  check('vẫn còn nút Soạn kế hoạch cho nhóm thứ hai',
-    sau.includes('Soạn kế hoạch'), sau.slice(0, 200));
+  // Đ198 (việc 42): kế hoạch của CẢ NHÓM nay do VĂN PHÒNG soạn, nên cô KHÔNG
+  // còn nút Soạn ở bất kỳ nhóm nào.
+  //
+  // Phép kiểm cũ ở đây là "đổi nhóm xong vẫn còn nút" — nó canh chuyện đổi
+  // nhóm không làm hỏng màn. Nay câu hỏi đổi chiều, và câu mới CHẶT HƠN: cô
+  // không có nút ở CẢ HAI nhóm, mà vẫn ĐỌC được kế hoạch của cả hai. Màn hình
+  // thôi mời cô bấm một nút chắc chắn nhận 403 — đúng thứ `test:khong-hua-suong`
+  // sinh ra để chặn.
+  check('CÔ KHÔNG CÒN NÚT SOẠN Ở NHÓM THỨ HAI — kế hoạch chung là việc của văn phòng',
+    !sau.includes('Soạn kế hoạch'), sau.slice(0, 200));
+  check('và cũng không có ở nhóm đầu', !truoc.includes('Soạn kế hoạch'), truoc.slice(0, 200));
+  check('NHƯNG CÔ VẪN ĐỌC ĐƯỢC KẾ HOẠCH CỦA CẢ HAI NHÓM — chỉ thôi SOẠN, không thôi XEM',
+    truoc.includes('Trường mầm non của bé') && sau.includes('Bé chuẩn bị vào lớp 1'));
 }
 
 // ===========================================================================
