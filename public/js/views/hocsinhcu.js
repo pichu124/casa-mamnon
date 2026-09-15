@@ -96,11 +96,11 @@ App.views.hocsinhcu = {
         <div class="card">
           <div class="timeline">
             ${d.nhanXet.map(r => {
-              const rt = UI.RATING[r.rating] || UI.RATING.good;
+              // Ba mức xếp trẻ trên dưới đã gỡ ở Đ203 (việc 47) — xem chú thích
+              // dài ở `public/js/views/remarks.js`. Còn lại lời nhận xét của cô.
               return `
                 <div class="tl-item">
                   <div class="tl-time">${UI.esc(UI.fmtDate(r.date))}</div>
-                  <div class="mt-8">${UI.badge(`${rt.emoji} ${rt.label}`, rt.cls)}</div>
                   <div style="margin-top:6px;line-height:1.5">${UI.esc(r.content)}</div>
                   ${r.teacherName ? `<div class="muted small" style="margin-top:6px">${UI.esc(r.teacherName)}</div>` : ''}
                 </div>`;

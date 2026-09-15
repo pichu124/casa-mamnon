@@ -26,13 +26,23 @@ App.views.remarks = {
     App.refreshBadges();
   },
 
+  // BỘ BA BẬC CŨ ĐÃ GỠ KHỎI MÀN HÌNH (Đ203, việc 47).
+  //
+  // Đây là QUY TẮC 4 của CLAUDE.md: không đặt trẻ trên dưới nhau trên bất kỳ
+  // màn nào phụ huynh hoặc cô nhìn thấy. Bộ ba bậc ấy kế thừa từ app 1 (trường
+  // tiểu học) và trượt qua cả năm dấu hiệu của bộ dò, nên `test:quy-tac-4` phải
+  // dựng một bánh cóc riêng cho đúng mẫu này. Nay gỡ hẳn: còn lại lời nhận xét
+  // của cô — thứ nói được điều đã thấy ở đứa trẻ, không phải một bậc đặt nó
+  // cạnh các bạn.
+  //
+  // CỘT `rating` TRONG BẢNG GIỮ NGUYÊN. Bỏ một tính năng là ngưng dùng nó,
+  // không phải xoá dữ liệu của nó (Nguyên tắc số 1) — nhận xét cũ của cô vẫn
+  // còn đủ, chỉ là màn hình thôi dựng nó thành một cái bậc.
   tlItem(r) {
-    const rt = UI.RATING[r.rating] || UI.RATING.good;
     return `
       <div class="tl-item">
         <div class="tl-time">${UI.esc(UI.fmtDate(r.date))} ${r.parentSeen ? '' : UI.badge('Mới', 'red')}${
           r.daSua ? ` ${UI.badge('Đã chỉnh sửa', 'gray')}` : ''}</div>
-        <div class="mt-8">${UI.badge(`${rt.emoji} ${rt.label}`, rt.cls)}</div>
         <div style="margin-top:6px;line-height:1.5">${UI.esc(r.content)}</div>
         ${r.skills && r.skills.length ? `<div class="mt-8">${r.skills.map(k => UI.badge(k, 'gray')).join(' ')}</div>` : ''}
         <div class="muted small" style="margin-top:6px">${UI.icon('edit', 13)} ${UI.esc(r.teacherName)}</div>
@@ -56,12 +66,11 @@ App.views.remarks = {
   },
 
   classRow(r) {
-    const rt = UI.RATING[r.rating] || UI.RATING.good;
     return `
       <div class="list-row" style="align-items:flex-start">
         ${UI.avatar(r.studentAvatar, 42)}
         <div class="row-main">
-          <div class="flex"><span class="row-title">${UI.esc(r.studentName)}</span><span class="spacer"></span>${UI.badge(`${rt.emoji} ${rt.label}`, rt.cls)}</div>
+          <div class="flex"><span class="row-title">${UI.esc(r.studentName)}</span><span class="spacer"></span></div>
           <div class="row-sub">${UI.esc(UI.fmtDate(r.date))}${r.daSua ? ' · đã chỉnh sửa' : ''}</div>
           <div class="small" style="margin-top:4px;line-height:1.45">${UI.esc(r.content)}</div>
           ${r.coTheSua ? `
@@ -88,14 +97,6 @@ App.views.remarks = {
         <textarea id="rm-content" placeholder="Hôm nay con học tập, ăn ngủ thế nào..."></textarea>
       </div>
       <div class="field">
-        <label>Đánh giá</label>
-        <div class="seg" id="rm-rating" style="margin-bottom:0">
-          <button type="button" class="active" data-rating="great">🌟 Rất tốt</button>
-          <button type="button" data-rating="good">👍 Tốt</button>
-          <button type="button" data-rating="needs_effort">💪 Cần cố gắng</button>
-        </div>
-      </div>
-      <div class="field">
         <label>Kỹ năng nổi bật</label>
         <input id="rm-skills" placeholder="Ví dụ: Tập trung, Phát biểu">
         <div class="hint">Phân cách các kỹ năng bằng dấu phẩy</div>
@@ -103,24 +104,19 @@ App.views.remarks = {
       <button class="btn primary block" id="rm-submit">${UI.icon('send', 17)} Gửi nhận xét</button>
     `, 'Viết nhận xét');
 
-    document.querySelectorAll('#rm-rating button').forEach(b => {
-      b.onclick = () => {
-        document.querySelectorAll('#rm-rating button').forEach(x => x.classList.remove('active'));
-        b.classList.add('active');
-      };
-    });
     document.getElementById('rm-submit').onclick = () => this.submitForm();
   },
 
   async submitForm() {
     const studentId = document.getElementById('rm-student').value;
     const content = document.getElementById('rm-content').value.trim();
-    const active = document.querySelector('#rm-rating button.active');
-    const rating = active ? active.dataset.rating : 'great';
     const skills = document.getElementById('rm-skills').value.split(',').map(s => s.trim()).filter(Boolean);
     if (!content) return UI.toast('Vui lòng nhập nội dung nhận xét', 'error');
     try {
-      await API.post('/api/remarks', { studentId, content, rating, skills });
+      // KHÔNG GỬI `rating` NỮA. Máy chủ để trống thì tự điền mức trung tính —
+      // xem chú thích ở `routes/remarks.js`. Gửi một mức cứng từ đây là màn
+      // hình vẫn đang xếp bậc đứa trẻ, chỉ là xếp lén.
+      await API.post('/api/remarks', { studentId, content, skills });
       UI.toast('Đã gửi nhận xét đến phụ huynh', 'success');
       UI.closeModal();
       App.route();
@@ -134,18 +130,9 @@ App.views.remarks = {
   openSua(id) {
     const r = (this._lop || []).find(x => x.id === id);
     if (!r) return UI.toast('Không tìm thấy nhận xét này', 'error');
-    this._ratingSua = r.rating;
     UI.modal(`
       <div class="muted small">${UI.esc(r.studentName || '')}</div>
       <div class="field mt-8"><label>Nội dung nhận xét</label><textarea id="rm-s-content">${UI.esc(r.content)}</textarea></div>
-      <div class="field">
-        <label>Đánh giá</label>
-        <div class="seg" id="rm-s-rating" style="margin-bottom:0">
-          <button type="button" class="${r.rating === 'great' ? 'active' : ''}" data-rating="great">🌟 Rất tốt</button>
-          <button type="button" class="${r.rating === 'good' ? 'active' : ''}" data-rating="good">👍 Tốt</button>
-          <button type="button" class="${r.rating === 'needs_effort' ? 'active' : ''}" data-rating="needs_effort">💪 Cần cố gắng</button>
-        </div>
-      </div>
       <div class="field">
         <label>Kỹ năng nổi bật</label>
         <input id="rm-s-skills" value="${UI.esc((r.skills || []).join(', '))}">
@@ -159,20 +146,14 @@ App.views.remarks = {
       <button class="btn primary block mt-14" id="rm-s-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
     `, 'Sửa nhận xét');
 
-    document.querySelectorAll('#rm-s-rating button').forEach(b => {
-      b.onclick = () => {
-        this._ratingSua = b.dataset.rating;
-        document.querySelectorAll('#rm-s-rating button').forEach(x => x.classList.toggle('active', x === b));
-      };
-    });
-
     document.getElementById('rm-s-luu').onclick = async () => {
       const content = document.getElementById('rm-s-content').value.trim();
       if (!content) return UI.toast('Vui lòng nhập nội dung nhận xét', 'error');
       try {
+        // KHÔNG gửi `rating`: đường sửa chỉ chạm những ô có gửi lên, nên mức
+        // cũ của bản ghi giữ nguyên trong bảng làm chứng từ.
         await API.put(`/api/remarks/${encodeURIComponent(id)}`, {
           content,
-          rating: this._ratingSua,
           skills: document.getElementById('rm-s-skills').value,
           date: document.getElementById('rm-s-date').value || undefined,
         });

@@ -7,6 +7,10 @@ const st = require('../lib/sua-thu-hoi');
 const BANG = 'remarks';
 
 const RATINGS = ['great', 'good', 'needs_effort'];
+// Mức điền vào khi màn hình KHÔNG gửi gì — xem chú thích dài ở đường POST.
+// Chọn mức GIỮA vì đó đúng là mức bản giao diện cũ đã dùng làm phương án lùi
+// khi bản ghi không có mức, nên không bản ghi nào đổi nghĩa.
+const MUC_MAC_DINH = 'good';
 
 function todayStr() {
   return ngay.homNay();
@@ -72,7 +76,24 @@ module.exports = (app) => {
     }
     const text = String(content || '').trim();
     if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung nhận xét' });
-    if (!RATINGS.includes(rating)) return res.status(400).json({ error: 'Mức đánh giá không hợp lệ' });
+    // MỨC ĐÁNH GIÁ THÔI LÀ Ô BẮT BUỘC (Đ203, việc 47).
+    //
+    // Bộ ba bậc cũ đã gỡ khỏi mọi màn hình: QUY TẮC 4 của CLAUDE.md cấm đặt
+    // trẻ trên dưới nhau ở bất kỳ chỗ nào cô hoặc phụ huynh nhìn thấy. Màn
+    // hình nay không gửi `rating` nữa.
+    //
+    // VÌ SAO KHÔNG XOÁ LUÔN CỘT: nhận xét cô đã viết từ trước đều mang một mức,
+    // và bỏ một tính năng là ngưng dùng nó chứ không xoá dữ liệu của nó
+    // (Nguyên tắc số 1). Cột ở lại làm chứng từ, không màn nào dựng nó thành
+    // một cái bậc nữa.
+    //
+    // NỚI RA CHỨ KHÔNG SIẾT LẠI: điện thoại còn giữ bản app cũ VẪN gửi `rating`
+    // và vẫn ghi được y như hôm qua; chỉ có lượt gửi THIẾU nó là thôi bị từ
+    // chối. Không một chỗ gọi nào đang chạy bị hỏng vì dòng này.
+    const mucCu = rating === undefined || rating === null || rating === ''
+      ? MUC_MAC_DINH
+      : rating;
+    if (!RATINGS.includes(mucCu)) return res.status(400).json({ error: 'Mức đánh giá không hợp lệ' });
 
     let skillList = [];
     if (Array.isArray(skills)) skillList = skills;
@@ -85,7 +106,7 @@ module.exports = (app) => {
       teacherId: req.user.id,
       date: /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? date : todayStr(),
       content: text,
-      rating,
+      rating: mucCu,
       skills: skillList,
       parentSeen: false,
     };
