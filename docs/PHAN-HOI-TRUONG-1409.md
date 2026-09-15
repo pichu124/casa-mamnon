@@ -32,17 +32,17 @@ mục nào trong sổ". Bảng dưới là bản đối chiếu hai chiều.
 | A12 | ~20 tin/tuần là chấp nhận được; đẩy ra màn hình chờ | — | Vế màn hình chờ **đã có sẵn** |
 | A13 | Thu hồi tin và xoá cuộc trò chuyện, chỉ phía nhà trường | — | Chưa làm — chờ làm rõ "quản lý" là ai |
 | A14 | Phòng chung do cô tạo, cô chọn thành viên | B.2 | Chưa làm. **Sổ ghi sai**: không có đường tạo phòng chung nào |
-| A15 | Album phân quyền từng album; Hành trình có album riêng từng bé | AL-06 | Phần album riêng từng bé **đã có phần lớn** |
+| A15 | Album phân quyền từng album; Hành trình có album riêng từng bé | AL-06 | **Đã chặn rò ở Đ181**: ảnh câu chuyện riêng không rơi vào album cả nhóm nữa. Phần phân quyền từng album còn lại |
 | A16 | Ai cũng đăng album trừ phụ huynh; không đưa ảnh phiếu khám; tách vai duyệt báo cáo | AL-08, SK-07, PQ-01 | Ảnh phiếu khám: **đã đúng sẵn**. Hai vế kia chưa |
 | A17 | Biểu phí: kế toán soạn, cấp 1 duyệt rồi khoá | T7 | Chưa làm |
 | A18 | Hai số tài khoản, QR và cú pháp chuyển khoản | — | Chưa làm — khuôn đã có từ Đ161 |
-| A19 | Ưu đãi chỉ trên học phí; tách loại khoản thu; kế toán nhận nhắc hạn | — | Chưa làm |
+| A19 | Ưu đãi chỉ trên học phí; tách loại khoản thu; kế toán nhận nhắc hạn | — | Ý 1 (gia đình xem ưu đãi của con) **XONG — Đ182**. Ý 2 và 3 chưa |
 | A20 | Xác nhận cô không sửa Lịch sinh hoạt | — (Đ133) | **Đã đúng sẵn** — chỉ cần đóng mục |
 | A21 | Marketing xem được Cambridge | PQ-01 | **Đã đúng sẵn** — giữ nguyên Đ60, không sửa gì |
 | A22 | Quản lý cơ sở chỉ thấy cơ sở mình; ba cấp C1/C2/C3 | — | Chưa làm — **lời trường mâu thuẫn với A16** |
 | A23 | Tạm bỏ mảng tuyển sinh | — | **Không có gì để bỏ** — chưa có dòng mã nào |
-| A24 | Lịch sinh hoạt hai tab, văn phòng soạn, mỗi lớp một lịch, sao chép được | LSH-04, KH-01 | Gộp màn và lịch theo lớp **đã có**. **Quyền văn phòng: XONG — Đ180** |
-| A25 | Giữ tên tiếng Anh trong Cambridge; bỏ Class Progress | — | Chưa làm — **"Class Progress" trỏ vào hai màn khác nhau** |
+| A24 | Lịch sinh hoạt hai tab, văn phòng soạn, mỗi lớp một lịch, sao chép được | LSH-04, KH-01 | Gộp màn, lịch theo lớp **và SAO CHÉP TỪ LỚP KHÁC đều đã có sẵn từ Đ133**. **Quyền văn phòng: XONG — Đ180**. Còn lại: đảo thứ tự hai tab |
+| A25 | Giữ tên tiếng Anh trong Cambridge; bỏ Class Progress | — | Ba tab tiếng Anh **XONG — Đ183**. Phần bỏ Class Progress vẫn chặn: **trỏ vào hai màn khác nhau** |
 | A26 | Tên app "My Casa", triển khai trên VPS | N7 | **XONG — Đ179** (tên miền trường chưa chốt) |
 | A27 | Hòm thư `tuyensinh@cdb.edu.vn` | — | **XONG — Đ176** |
 | A28 | Chạm mốc thì tải ảnh về ổ backup rồi xoá bớt | N25 | Chưa làm — **cần khoá giữ ảnh TRƯỚC khi trường xoá tấm đầu tiên** |
@@ -107,3 +107,35 @@ Giữ nguyên chữ của trường, kể cả lỗi chính tả:
 > ảnh hoặc quan sát về 1 bé. Với ảnh đăng cần có caption rõ ràng về hoạt động con làm
 > hoặc kết nối với PH có thể hỗ trợ làm thêm ở nhà. Đôi khi hình ảnh có thể là sản
 > phẩm con làm ở trường.
+
+## Hai chỗ bản đồ 12 lăng kính ghi SAI — đính chính 15/09
+
+Ghi lại để lần lên kế hoạch sau không dựng lại thứ đã có.
+
+1. **"Sao chép lịch sinh hoạt từ lớp khác" — bản đồ ghi "Chưa có". SAI.**
+   Đường `POST /api/timetable/:classId/chep` đã có từ Đ133, kèm giới hạn số nhóm
+   mỗi lần, soát toàn bộ trước khi ghi nhóm nào, chốt `canAccessClass` cho từng
+   nhóm đích, và ghi nhật ký từng nhóm bị đè. Giao diện cũng đã nối: nút *"Áp
+   dụng lịch này cho nhóm khác…"* với hộp tích chọn nhiều nhóm.
+
+2. **Ô chọn album trong hộp kể chuyện Hành trình — bản đồ mô tả đúng là có rò,
+   nhưng chưa nói rõ mức.** Đo lại ngày 15/09: máy chủ kiểm album tồn tại, cô
+   phụ trách nhóm, bé cùng nhóm — nhưng **không kiểm chế độ album**, mà album
+   mặc định là công khai. Thử ngược trên bản chưa vá cho thấy ảnh riêng của bé
+   **thật sự lọt vào album cả nhóm** và câu chuyện vẫn công bố bình thường.
+
+## Còn chặn: 11 câu ở Phần III chưa có câu trả lời
+
+Tệp phản hồi nhận ngày 15/09 **không chứa câu trả lời nào** — siêu dữ liệu cho
+thấy đó chính là tệp đã gửi đi, chưa lưu lại lần nào (`cp:revision` = 1, thời
+điểm tạo trùng khít thời điểm sinh tệp, phần ghi chú rỗng, so từng dòng với bản
+gốc cho 0 khác biệt). Nhiều khả năng đính nhầm tệp.
+
+Ba việc dưới đây làm được vì chúng dựa trên câu trả lời trường ĐÃ cho ở đợt 35
+câu, không phụ thuộc 11 câu đang chặn:
+
+| Việc | Dựa trên câu trả lời nào |
+|---|---|
+| Chặn ảnh câu chuyện rơi vào album cả nhóm | A15 — *"chỉ chia sẻ album này cho phụ huynh của bé ấy thôi"* |
+| Gia đình xem ưu đãi của con | A19 ý 1 — *"Gia đình có thể xem được ưu đãi của con mình"* |
+| Ba tab tên tiếng Anh cho Cambridge | A25 — *"3 tab: Letter for Parent / Cambridge Weekly Plan / Home Connection"* |
