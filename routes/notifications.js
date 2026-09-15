@@ -203,6 +203,16 @@ module.exports = (app) => {
       pinned: false,
     };
     db.insert('notifications', rec);
+    // VỀ TỚI ĐIỆN THOẠI, KHÔNG CHỈ KÊU CHUÔNG TRONG APP (Đ194, việc 16).
+    //
+    // Nhà trường (A11): thông báo nhà trường phải đẩy về máy. Đây là loại tin
+    // đông người nhận nhất trong cả app — một tin `audience: 'all'` của trường
+    // ba cơ sở đi tới MỌI máy đã đăng ký — nên nó chỉ mở được sau khi có trần
+    // số tin gửi đồng thời (việc 17) và khoá gộp (việc 18), và ba việc ấy làm
+    // cùng một đợt là vì thế.
+    //
+    // Mở thẳng màn Thông báo: tin này không có màn nào riêng của nó.
+    tb.dayTin(rec, '#/notifications');
     db.audit(req.user.id, 'notification-create', rec.id, { audience: rec.audience });
     res.status(201).json({ ...rec, readBy: [] });
   });

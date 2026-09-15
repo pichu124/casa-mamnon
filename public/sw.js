@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v112';
+const VERSION = 'v113';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -119,13 +119,33 @@ self.addEventListener('push', (event) => {
   catch (_) { goi = { noiDung: event.data ? event.data.text() : '' }; }
   const tieuDe = (goi && goi.tieuDe) || 'My Casa';
   const hash = (goi && typeof goi.hash === 'string' && goi.hash.startsWith('#/')) ? goi.hash : '#/';
+  // KHOÁ GỘP — TIN MỚI KHÔNG ĐƯỢC ĂN MẤT TIN CŨ TRÊN MÀN HÌNH CHỜ (Đ194).
+  //
+  // Trình duyệt coi hai thông báo cùng `tag` là MỘT: cái sau thay chỗ cái
+  // trước, cái trước biến mất mà không ai bấm gì.
+  //
+  // Bản trước lấy thẳng `hash` làm `tag`, với lý do "không xếp chồng năm cái
+  // Nhật ký ngày". Ý ấy đúng cho nhật ký của MỘT bé, nhưng nó áp cho tất cả:
+  // mọi thông báo nhà trường đều mở cùng một màn nên cùng một `tag`, và
+  // trường gửi ba tin trong buổi sáng thì gia đình chỉ còn thấy tin thứ ba.
+  // Hai tin đầu mất, im lặng — mà trong app cả ba vẫn nằm đó nên không ai
+  // đối chiếu ra.
+  //
+  // Nay MÁY CHỦ khai khoá gộp (`goi.gop`), và chiều mặc định đảo lại: không
+  // khai thì mỗi tin một khoá riêng, tức xếp chồng. Gộp là thứ phải xin.
+  // Xếp chồng thì tệ nhất là nhiều chuông hơn mong muốn; gộp nhầm là mất một
+  // thông báo của trường.
+  //
+  // Gói của máy chủ đời cũ (không có `gop`) thì lùi về `hash` y như trước —
+  // điện thoại đã cài app không đổi hành vi vào ngày máy chủ chưa kịp lên bản
+  // mới.
+  const gop = (goi && typeof goi.gop === 'string' && goi.gop) ? goi.gop.slice(0, 80) : hash;
   event.waitUntil(self.registration.showNotification(tieuDe, {
     body: (goi && goi.noiDung) || '',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     data: { hash },
-    // Cùng một chỗ mở thì gộp lại, không xếp chồng năm cái "Nhật ký ngày".
-    tag: hash,
+    tag: gop,
     renotify: true,
   }));
 });

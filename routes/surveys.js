@@ -393,6 +393,7 @@ module.exports = (app) => {
       body: `Nhà trường mong gia đình trả lời giúp trước ngày ${rec.deadline.split('-').reverse().join('/')}.`,
       category: rec.audience === 'all' ? 'Nhà trường' : 'Nhóm lớp',
       createdBy: req.user.id,
+      hash: '#/surveys',
     });
 
     db.audit(req.user.id, 'survey-create', rec.id, { audience: rec.audience });

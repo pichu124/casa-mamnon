@@ -309,6 +309,9 @@ module.exports = (app) => {
         title: `Thực đơn tuần từ ${tu.slice(8, 10)}/${tu.slice(5, 7)} đã có`,
         body: 'Nhà bếp vừa đăng thực đơn tuần. Mở Thực đơn để xem từng ngày con ăn gì.',
         category: 'Khác', createdBy: req.user.id,
+        // Bấm vào tiếng chuông trên điện thoại là mở thẳng màn Thực đơn, chứ
+        // không đổ gia đình vào danh sách thông báo rồi bắt tìm tiếp (Đ194).
+        hash: '#/menu',
       });
     }
     res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null });

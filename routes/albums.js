@@ -291,7 +291,13 @@ function baoBeDuocGanThe(album, studentIds, nguoiTao) {
 // tự chống lặp cùng tiêu đề trong ngày, nên cô tải ba lô ảnh cũng chỉ một tin.
 function baoNhomAlbum(album, tieuDe, noiDung, nguoiTao) {
   try {
-    tb.guiChoNhom([album.classId], { title: tieuDe, body: noiDung, category: 'Nhóm lớp', createdBy: nguoiTao });
+    // Mở thẳng ĐÚNG ALBUM ấy, không phải danh sách album (Đ194) — gia đình
+    // nhận tin "có ảnh mới" mà phải tự dò lại trong danh sách thì tiếng chuông
+    // ấy chỉ làm phiền.
+    tb.guiChoNhom([album.classId], {
+      title: tieuDe, body: noiDung, category: 'Nhóm lớp', createdBy: nguoiTao,
+      hash: `#/albums/${album.id}`,
+    });
   } catch (_) { /* việc phụ */ }
 }
 

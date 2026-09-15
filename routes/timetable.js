@@ -105,6 +105,7 @@ module.exports = (app) => {
       title: `Lịch sinh hoạt nhóm ${cls.name} vừa được cập nhật`,
       body: 'Văn phòng vừa sửa lịch một ngày ở nhóm. Mở Lịch sinh hoạt để xem.',
       category: 'Khác', createdBy: req.user.id,
+      hash: '#/timetable',
     });
 
     res.json({
