@@ -262,7 +262,9 @@ try {
       (await req('GET', '/api/dashboard/badges', { cookie: CS2 })).data.kehoachbe === undefined);
 
     // Duyệt rồi cô xin sửa — đề xuất cũng phải vào cùng con số ấy.
-    const ke = (await req('GET', `/api/kehoachbe/be?studentId=s1&thang=${THANG}`, { cookie: QT })).data.ke;
+    // Đường "một bé" đã gỡ ở Đ203 — đọc qua đường cả nhóm.
+    const ke = ((await req('GET', `/api/kehoachbe?classId=c1&thang=${THANG}`, { cookie: QT }))
+      .data.danhSach || []).find(x => x.studentId === 's1').ke;
     const duyetKe = await req('POST', '/api/kehoachbe/duyet', { cookie: QT, body: { quyetDinh: 'da-duyet', ids: [ke.id] } });
     check('quản lý duyệt được kế hoạch', duyetKe.status === 200, duyetKe.data);
     const giua = Number((await req('GET', '/api/dashboard/badges', { cookie: QT })).data.kehoachbe || 0);

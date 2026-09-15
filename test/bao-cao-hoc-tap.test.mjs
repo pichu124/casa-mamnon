@@ -474,13 +474,15 @@ try {
     check('đối chứng — lập được kế hoạch tháng cho bé ở phân hệ Kế hoạch của bé',
       lap.status === 200, `${lap.status} ${JSON.stringify(lap.data).slice(0, 140)}`);
 
-    const keBe = await req('GET', `/api/kehoachbe/be?studentId=s1&thang=${THANG}`, { cookie: co.cookie });
-    const mucId = (((keBe.data || {}).ke || {}).muc || [])[0];
+    // Đường "một bé" đã gỡ ở Đ203 — đọc qua đường cả nhóm.
+    const keNhom = await req('GET', `/api/kehoachbe?classId=c1&thang=${THANG}`, { cookie: co.cookie });
+    const keBe = ((keNhom.data || {}).danhSach || []).find(x => x.studentId === 's1') || {};
+    const mucId = ((keBe.ke || {}).muc || [])[0];
     check('đối chứng — kế hoạch vừa lập có mục đọc lại được',
-      !!mucId && !!mucId.id, JSON.stringify(keBe.data).slice(0, 200));
+      !!mucId && !!mucId.id, JSON.stringify(keNhom.data).slice(0, 200));
 
     const nhin = await req('PUT', '/api/kehoachbe/nhin-lai', { cookie: co.cookie, body: {
-      id: keBe.data.ke.id,
+      id: keBe.ke.id,
       muc: [{ id: mucId.id, ketQua: 'dang-hinh-thanh', nhanXet: 'Con xếp được tháp năm khối.' }] } });
     check('đối chứng — cô ghi được nhận xét cuối tháng ở Kế hoạch của bé',
       nhin.status === 200, `${nhin.status} ${JSON.stringify(nhin.data).slice(0, 140)}`);

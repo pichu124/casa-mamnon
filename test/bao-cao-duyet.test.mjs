@@ -68,7 +68,9 @@ try {
       }],
     },
   });
-  const keBe = (await req('GET', `/api/kehoachbe/be?studentId=s1&thang=${THANG}`, { cookie: GV })).data.ke;
+  // Đọc kế hoạch của bé qua đường CẢ NHÓM — đường "một bé" đã gỡ ở Đ203.
+  const keBe = ((await req('GET', `/api/kehoachbe?classId=c1&thang=${THANG}`, { cookie: GV }))
+    .data.danhSach || []).find(x => x.studentId === 's1').ke;
   await req('PUT', '/api/kehoachbe/nhin-lai', {
     cookie: GV,
     body: {

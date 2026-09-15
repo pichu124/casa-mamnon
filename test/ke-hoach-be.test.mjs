@@ -520,7 +520,12 @@ console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không ch
   // đường của một bé (`canAccessStudent`, hỏi thẳng bảng phân công) và đường của
   // cả nhóm (`canAccessClass` → `classIdsOf`). Siết nhầm một trong hai thì bài
   // này đỏ; chỉ canh một đường thì đường còn lại hỏng vẫn xanh.
-  const be = await req('GET', '/api/kehoachbe/be?studentId=s1', { cookie: GV3 });
+  // Đường "kế hoạch của một bé" đã gỡ ở Đ203, nhưng VẾ HAI CHỐT CHẶN KHÔNG
+  // ĐƯỢC MẤT THEO — nó là toàn bộ lý do mấy dòng trên tồn tại. Chuyển sang
+  // `GET /api/kehoachbe/goi-y`, đường còn lại của phân hệ này hỏi thẳng
+  // `db.canAccessStudent` theo mã BÉ. Vẫn đúng hai đường khác nhau trong
+  // lib/db.js, vẫn đỏ nếu ngày mai ai đó siết nhầm một trong hai.
+  const be = await req('GET', '/api/kehoachbe/goi-y?studentId=s1', { cookie: GV3 });
   check('CÔ THỨ HAI MỞ ĐƯỢC KẾ HOẠCH CỦA BÉ TRONG NHÓM CHUNG', be.status === 200, be.data);
 
   const doc = await req('GET', `/api/kehoachbe?classId=c1&thang=${THANG}`, { cookie: GV3 });
@@ -535,53 +540,61 @@ console.log('\n[+] NHIỀU CÔ MỘT NHÓM — canh chiều CHO PHÉP, không ch
 }
 
 // ===========================================================================
-console.log('\n[+] ĐƯỜNG "KẾ HOẠCH CỦA MỘT BÉ" — chưa màn hình nào gọi, nhưng vẫn phải kín');
+console.log('\n[+] ĐƯỜNG "KẾ HOẠCH CẢ NHÓM" — cửa duy nhất vào kế hoạch của một bé');
 {
-  // `GET /api/kehoachbe/be` được viết cho một màn "kế hoạch tháng của bé này"
-  // mở từ Hồ sơ của bé. Màn đó CHƯA CÓ: tìm chuỗi "kehoachbe/be" trong cả kho
-  // chỉ ra đúng dòng định nghĩa nó.
+  // TRƯỚC Đ203 CÓ HAI CỬA, NAY CÒN MỘT.
   //
-  // Một mặt API đã xác thực, trả dữ liệu của trẻ, mà không bài nào chạm tới là
-  // thứ đáng canh nhất — không ai mở nó nên cũng không ai phát hiện khi nó hở.
-  // Bài này KHÔNG quyết định số phận của nó (dựng màn hình hay gỡ đi là việc
-  // của nhà trường); nó chỉ bảo đảm chừng nào đường còn sống thì đường còn kín.
+  // `GET /api/kehoachbe/be` được viết cho một màn "kế hoạch tháng của bé này"
+  // mở từ Hồ sơ của bé. Màn đó KHÔNG BAO GIỜ ĐƯỢC DỰNG: tìm chuỗi
+  // "kehoachbe/be" trong cả kho chỉ ra đúng dòng định nghĩa nó và mấy bài canh
+  // dùng nó làm dụng cụ đo. Một mặt API đã xác thực, trả dữ liệu của trẻ, mà
+  // không màn hình nào mở — nhà trường chốt gỡ ở việc 47, và Đ203 gỡ.
+  //
+  // Vế "chừng nào đường còn sống thì đường còn kín" của bản trước KHÔNG mất:
+  // nó chuyển nguyên sang đường cả nhóm, thứ thay nó làm cửa duy nhất. Mọi
+  // phép kiểm dưới đây là bản dịch một-đối-một của bản cũ, đo trên đường còn
+  // sống — chứ không phải bỏ bớt phép kiểm cùng với đường bị gỡ.
   const be = 's1';   // bé nhóm c1
-  const beNhomKhac = 's2';
 
-  const co = await req('GET', `/api/kehoachbe/be?studentId=${be}`, { cookie: GV });
-  check('cô phụ trách mở được kế hoạch của bé nhóm mình', co.status === 200, co.data);
-  check('trả về đúng bé đó', co.data?.be?.id === be, co.data?.be);
+  const dut = await req('GET', `/api/kehoachbe/be?studentId=${be}`, { cookie: GV });
+  check('ĐƯỜNG CŨ ĐÃ GỠ HẲN — gọi tới thì không còn (404)', dut.status === 404, dut.status);
+  // Soi mã đã BỎ CHÚ THÍCH: chỗ gỡ để lại một đoạn giải thích dài có nhắc tên
+  // đường cũ, và đó là thứ nên đọc được chứ không phải thứ nên báo đỏ.
+  const maNguon = fs.readFileSync(path.join(GOC, 'modules/kehoachbe/routes.js'), 'utf8')
+    .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+  check('và trong mã cũng không còn dòng nào KHAI nó',
+    !/\/api\/kehoachbe\/be/.test(maNguon), (maNguon.match(/.*kehoachbe\/be.*/) || [])[0]);
+
+  const co = await req('GET', `/api/kehoachbe?classId=c1`, { cookie: GV });
+  check('cô phụ trách mở được kế hoạch nhóm mình', co.status === 200, co.data);
+  const dong = (co.data?.danhSach || []).find(x => x.studentId === be);
+  check('và trong đó có đúng bé cần xem', !!dong, (co.data?.danhSach || []).map(x => x.studentId));
   check('kèm danh mục góc lĩnh vực để màn hình dựng được',
     Array.isArray(co.data?.gocLinhVuc) && co.data.gocLinhVuc.length > 0, co.data?.gocLinhVuc);
   check('và danh mục kết quả', Array.isArray(co.data?.ketQua) && co.data.ketQua.length > 0,
     co.data?.ketQua);
 
-  // QUY TẮC 4 — màn kế hoạch của MỘT bé là chỗ dễ lọt con số xếp hạng nhất.
+  // QUY TẮC 4 — màn kế hoạch của trẻ là chỗ dễ lọt con số xếp thứ tự nhất.
   const chuoiJson = JSON.stringify(co.data || {});
   check('KHÔNG có phần trăm, điểm số hay thứ hạng nào trong câu trả lời',
     !/%|"diem"|"score"|"rank"|"thuHang"|"xepLoai"/i.test(chuoiJson), chuoiJson.slice(0, 200));
 
-  const nhomKhac = await req('GET', `/api/kehoachbe/be?studentId=${beNhomKhac}`, { cookie: GV });
-  check('CÔ KHÔNG MỞ ĐƯỢC KẾ HOẠCH CỦA BÉ NHÓM KHÁC', nhomKhac.status === 403, nhomKhac.status);
+  const nhomKhac = await req('GET', '/api/kehoachbe?classId=c2', { cookie: GV });
+  check('CÔ KHÔNG MỞ ĐƯỢC KẾ HOẠCH CỦA NHÓM KHÁC', nhomKhac.status === 403, nhomKhac.status);
 
-  const giaDinh = await req('GET', `/api/kehoachbe/be?studentId=${be}`, { cookie: PH });
+  const giaDinh = await req('GET', '/api/kehoachbe?classId=c1', { cookie: PH });
   check('GIA ĐÌNH KHÔNG MỞ ĐƯỢC — kế hoạch là việc trong nghề của cô',
     giaDinh.status === 403, giaDinh.status);
 
-  const laBe = await req('GET', '/api/kehoachbe/be?studentId=khong-co-that', { cookie: QL });
-  check('mã bé không có thật thì trả 403 hoặc 404, không nổ',
-    laBe.status === 403 || laBe.status === 404, laBe.status);
+  const laNhom = await req('GET', '/api/kehoachbe?classId=khong-co-that', { cookie: QL });
+  check('mã nhóm không có thật thì trả 403 hoặc 404, không nổ',
+    laNhom.status === 403 || laNhom.status === 404, laNhom.status);
 
-  const thieu = await req('GET', '/api/kehoachbe/be', { cookie: GV });
-  check('thiếu hẳn mã bé cũng bị từ chối', thieu.status === 403 || thieu.status === 400,
-    thieu.status);
-
-  // Cấp 3 chỉ thấy bé của cơ sở mình — đường này cũng phải qua tầng cơ sở.
-  const cap3 = await req('GET', `/api/kehoachbe/be?studentId=${be}`, { cookie: QL3 });
-  check('quản lý cơ sở 1 mở được bé của cơ sở mình', cap3.status === 200, cap3.status);
+  // Cấp 3 chỉ thấy nhóm của cơ sở mình — đường này cũng phải qua tầng cơ sở.
+  const cap3 = await req('GET', '/api/kehoachbe?classId=c1', { cookie: QL3 });
+  check('quản lý cơ sở 1 mở được nhóm của cơ sở mình', cap3.status === 200, cap3.status);
 }
 
-// ===========================================================================
 console.log('\n[+] HAI CÔ CÙNG SOẠN — người lưu sau KHÔNG xoá người lưu trước');
 {
   // Cùng lỗ, cùng bản vá với nhật ký ngày: màn hình gửi lên nguyên ảnh chụp

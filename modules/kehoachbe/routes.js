@@ -546,32 +546,18 @@ module.exports = (app, { db, modules }) => {
     res.json({ studentId, thang, ...goiYChoThang(studentId, thang) });
   });
 
-  app.get('/api/kehoachbe/be', requireRole('teacher', 'admin'), (req, res) => {
-    const studentId = chuoi(req.query.studentId, 40);
-    if (!db.canAccessStudent(req.user, studentId)) {
-      return res.status(403).json({ error: 'Không có quyền xem kế hoạch của bé này' });
-    }
-    const be = db.findStudent(studentId);
-    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
-    const thang = THANG_RE.test(String(req.query.thang || '')) ? req.query.thang : thangNay();
-    const ke = keCuaBe(studentId, thang);
-    res.json({
-      be: { id: be.id, hoTen: be.name, avatar: be.avatar },
-      thang,
-      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten, chuongTrinh: chuongTrinhCuaGoc(ma) })),
-      // BA TAB THEO CHƯƠNG TRÌNH (Đ195, việc 22) — THÊM MỘT KHOÁ BÊN CẠNH,
-      // KHÔNG ĐỔI KHOÁ CŨ. `gocLinhVuc` giữ nguyên hình dạng cũ cộng đúng một
-      // trường, nên điện thoại đang giữ bản app cũ đọc nó y như trước và
-      // không hề biết `chuongTrinhTab` có mặt.
-      chuongTrinhTab: tabChuongTrinh(),
-      ketQua: ketQuaDangDung(db).map(([ma, ten]) => ({ ma, ten })),
-      nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
-      ketLuanBai: KET_LUAN_BAI.map(([ma, ten]) => ({ ma, ten })),
-      baiHoc: danhMucBai(),
-      ke,
-      goiY: ke ? null : goiYChoThang(studentId, thang),
-    });
-  });
+  // ĐƯỜNG "KẾ HOẠCH CỦA MỘT BÉ" ĐÃ GỠ (Đ203, việc 47).
+  //
+  // `GET /api/kehoachbe/be` được viết cho một màn "kế hoạch tháng của bé này"
+  // mở từ Hồ sơ của bé. Màn đó không bao giờ được dựng. Một mặt API đã xác
+  // thực, trả dữ liệu của trẻ, mà không màn hình nào mở là thứ đáng lo nhất
+  // trong cả tệp này: không ai mở nên cũng không ai phát hiện khi nó hở.
+  //
+  // Mọi thứ nó trả về đều có trong `GET /api/kehoachbe?classId=&thang=` ngay
+  // trên: cùng `keCuaBe`, cùng `gocLinhVuc`, cùng `ketQua`. Nên gỡ đi KHÔNG
+  // mất một dữ liệu nào và KHÔNG mất một màn nào — chỉ bớt đúng một cửa không
+  // ai canh. Bài canh `test/ke-hoach-be.test.mjs` đã chuyển trọn phép kiểm
+  // sang đường cả nhóm và còn đòi đường này phải trả 404.
 
   // =========================================================================
   // SOẠN — lưu CẢ NHÓM trong một giao dịch

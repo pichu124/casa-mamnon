@@ -155,9 +155,11 @@ try {
     await req('PUT', `/api/admin/students/${BE_DA_DUNG}/dong-y`,
       { cookie: qt.cookie, body: { hoSoHocTap: false } });
 
+    // Đường "một bé" đã gỡ ở Đ203 — đọc qua đường cả nhóm.
     const keCuaBeDaDung = await req('GET',
-      `/api/kehoachbe/be?studentId=${BE_DA_DUNG}&thang=${THANG}`, { cookie: co4.cookie });
-    const banKe = keCuaBeDaDung.data?.ke;
+      `/api/kehoachbe?classId=c4&thang=${THANG}`, { cookie: co4.cookie });
+    const banKe = ((keCuaBeDaDung.data?.danhSach || [])
+      .find(x => x.studentId === BE_DA_DUNG) || {}).ke;
     check('đối chứng — bé đã dừng vẫn CÓ bản kế hoạch cũ để nhìn lại',
       !!banKe && !!banKe.id, JSON.stringify(keCuaBeDaDung.data || {}).slice(0, 140));
     if (banKe && banKe.id) {
