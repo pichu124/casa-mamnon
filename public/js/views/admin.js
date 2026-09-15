@@ -2079,6 +2079,8 @@ Vẫn nhận bé này?`)) {
       'hanhtrinh-xoa': 'Xoá một ghi chép hành trình',
       'hanhtrinh-chu-de': 'Đặt chủ đề hành trình',
       'hanhtrinh-chu-de-chep': 'Chép chủ đề hành trình',
+      'hanhtrinh-chu-de-tep-them': 'Treo tệp kế hoạch tuần',
+      'hanhtrinh-chu-de-tep-xoa': 'Gỡ tệp kế hoạch tuần',
       'hanhtrinh-anh-ve-album': 'Đưa ảnh hành trình về album',
 
       // Kế hoạch của bé và báo cáo học tập

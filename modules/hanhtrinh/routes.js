@@ -664,6 +664,98 @@ module.exports = (app, { db, modules }) => {
   // =========================================================================
   // CHỦ ĐỀ TUẦN
   // =========================================================================
+  // =========================================================================
+  // KHỐI KẾ HOẠCH CHUNG TUẦN — phần THÊM của chủ đề (Đ201, việc 44)
+  // =========================================================================
+  //
+  // Nhà trường muốn ở đầu Lịch sinh hoạt có một khối *"kế hoạch chung tuần
+  // này"*: chủ đề, bài hát, Casa talkshow, lời nhắc gia đình, đường dẫn video,
+  // tệp PDF/Word. Chủ đề đã có từ Đ141; đợt này thêm năm phần còn lại.
+  //
+  // THÊM BÊN CẠNH, KHÔNG SỬA CÁI ĐANG CHẠY. Bảng `hanhtrinh_chude` không bị
+  // chạm một cột nào, đường `PUT /api/hanhtrinh/chu-de` vẫn nhận đúng những
+  // gì nó nhận hôm qua, và một tuần chỉ có chủ đề vẫn hiện y như cũ. Lý do
+  // đầy đủ ở đầu khối `hanhtrinh_chude_them` trong schema.sql.
+  //
+  // AI SOẠN: giữ nguyên `teacher, admin` như trước. Nhà trường xin THÊM quyền
+  // cho văn phòng, mà văn phòng đã là vai `admin` nên họ soạn được sẵn rồi —
+  // không phải lấy đi của ai. Nhắc ra đây vì đợt Đ198 vừa chuyển kế hoạch
+  // chung về văn phòng, và đọc lướt rất dễ tưởng chỗ này cũng phải cắt của cô.
+  const TOI_DA_TEP_TUAN_CHUDE = 5;
+  const TOI_DA_TEN_TEP = 120;
+  const LOAI_TEP_CHUDE = ['pdf', 'docx', 'anh'];
+
+  // ĐƯỜNG DẪN NGƯỜI KHÁC BẤM VÀO — CHỈ NHẬN http/https.
+  //
+  // Ô này do cô hoặc văn phòng gõ, rồi màn hình của GIA ĐÌNH dựng thành một
+  // thẻ bấm được. Một chuỗi `javascript:...` lọt vào đó là mã chạy trong phiên
+  // của người bấm. Lọc Ở MÁY CHỦ chứ không chỉ ở màn hình: màn hình là thứ
+  // người ta bỏ qua được, đường API thì không.
+  //
+  // Không nhận thì trả về rỗng chứ không từ chối cả lượt ghi — cô gõ nhầm một
+  // đường dẫn không được làm mất cả bài hát lẫn lời nhắc vừa soạn.
+  function duongDanAnToan(v) {
+    const t = chuoi(v, 500);
+    if (!t) return '';
+    return /^https?:\/\//i.test(t) ? t : '';
+  }
+
+  function themCua(classId, tuan) {
+    try {
+      return db.first('hanhtrinh_chude_them',
+        'SELECT * FROM hanhtrinh_chude_them WHERE classId = ? AND tuan = ?', [classId, tuan]) || null;
+    } catch (_) { return null; }
+  }
+  // Danh sách tệp của một tuần. KHÔNG trả `file` ra ngoài — tên tệp thật trong
+  // kho là thứ chỉ máy chủ cần biết; in ra là mời người ta thử đoán tệp khác.
+  function tepCuaTuan(classId, tuan) {
+    try {
+      return db.all('hanhtrinh_chude_tep',
+        `SELECT id, tenGoc, bytes, loai, taoLuc FROM hanhtrinh_chude_tep
+         WHERE classId = ? AND tuan = ? ORDER BY rowid`, [classId, tuan]);
+    } catch (_) { return []; }
+  }
+  // Gói phần thêm về đúng hình dạng màn hình đọc. KHÔNG CÓ DÒNG thì mọi ô là
+  // chuỗi rỗng, không phải `null` — màn hình khỏi phải phòng hai kiểu trống.
+  function goiThem(t) {
+    return {
+      baiHat: (t && t.baiHat) || '',
+      linkBaiHat: (t && t.linkBaiHat) || '',
+      talkshow: (t && t.talkshow) || '',
+      linkTalkshow: (t && t.linkTalkshow) || '',
+      nhacGiaDinh: (t && t.nhacGiaDinh) || '',
+    };
+  }
+  // Có gì để hiện không — dùng cho khối ở đầu Lịch sinh hoạt.
+  function themCoGi(g) {
+    return !!(g.baiHat || g.linkBaiHat || g.talkshow || g.linkTalkshow || g.nhacGiaDinh);
+  }
+  // Ghi phần thêm. Chỉ chạm những ô người gửi CÓ gửi lên: một bản giao diện
+  // đời cũ không biết tới năm ô này vẫn sửa được chủ đề mà không xoá mất phần
+  // thêm cô đã soạn từ màn mới.
+  function ghiThem(classId, tuan, b, userId) {
+    const co = ['baiHat', 'linkBaiHat', 'talkshow', 'linkTalkshow', 'nhacGiaDinh']
+      .some(k => Object.prototype.hasOwnProperty.call(b, k));
+    if (!co) return;
+    const cu = themCua(classId, tuan);
+    const luc = new Date().toISOString();
+    const rec = {
+      baiHat: Object.prototype.hasOwnProperty.call(b, 'baiHat')
+        ? chuoi(b.baiHat, 200) : ((cu && cu.baiHat) || ''),
+      linkBaiHat: Object.prototype.hasOwnProperty.call(b, 'linkBaiHat')
+        ? duongDanAnToan(b.linkBaiHat) : ((cu && cu.linkBaiHat) || ''),
+      talkshow: Object.prototype.hasOwnProperty.call(b, 'talkshow')
+        ? chuoi(b.talkshow, 200) : ((cu && cu.talkshow) || ''),
+      linkTalkshow: Object.prototype.hasOwnProperty.call(b, 'linkTalkshow')
+        ? duongDanAnToan(b.linkTalkshow) : ((cu && cu.linkTalkshow) || ''),
+      nhacGiaDinh: Object.prototype.hasOwnProperty.call(b, 'nhacGiaDinh')
+        ? chuoi(b.nhacGiaDinh, TOI_DA_MO_TA) : ((cu && cu.nhacGiaDinh) || ''),
+      coGhi: userId, capNhatLuc: luc,
+    };
+    if (cu) db.update('hanhtrinh_chude_them', cu.id, rec);
+    else db.insert('hanhtrinh_chude_them', { id: db.nextId('htt'), classId, tuan, ...rec, taoLuc: luc });
+  }
+
   app.get('/api/hanhtrinh/chu-de', (req, res) => {
     const classId = chuoi(req.query.classId, 40);
     if (!classId) return res.status(400).json({ error: 'Cần chọn nhóm' });
@@ -676,11 +768,18 @@ module.exports = (app, { db, modules }) => {
     const truoc = db.first('hanhtrinh_chude',
       'SELECT * FROM hanhtrinh_chude WHERE classId = ? AND tuan < ? ORDER BY tuan DESC LIMIT 1',
       [classId, tuan]);
+    // `them` và `tep` là hai khoá THÊM VÀO, không đổi khoá nào đang có:
+    // màn hình đời cũ đọc `chuDe`/`tuanTruoc` vẫn chạy y như hôm qua.
+    const them = goiThem(themCua(classId, tuan));
     res.json({
       classId, tuan,
       chuDe: nay || null,
       tuanTruoc: truoc ? { tuan: truoc.tuan, chuDe: truoc.chuDe } : null,
       duocSoan: req.user.role === 'teacher' || req.user.role === 'admin',
+      them,
+      coKhoiChung: !!(nay || themCoGi(them) || tepCuaTuan(classId, tuan).length),
+      tep: tepCuaTuan(classId, tuan),
+      toiDaTep: TOI_DA_TEP_TUAN_CHUDE,
     });
   });
 
@@ -707,9 +806,14 @@ module.exports = (app, { db, modules }) => {
     if (cu) db.update('hanhtrinh_chude', cu.id, rec);
     else db.insert('hanhtrinh_chude', { id: db.nextId('htc'), ...rec, taoLuc: rec.capNhatLuc });
 
+    ghiThem(classId, tuan, b, req.user.id);
+
     db.audit(req.user.id, 'hanhtrinh-chu-de', classId, { tuan });
-    res.json(db.first('hanhtrinh_chude',
-      'SELECT * FROM hanhtrinh_chude WHERE classId = ? AND tuan = ?', [classId, tuan]));
+    res.json({
+      ...db.first('hanhtrinh_chude',
+        'SELECT * FROM hanhtrinh_chude WHERE classId = ? AND tuan = ?', [classId, tuan]),
+      them: goiThem(themCua(classId, tuan)),
+    });
   });
 
   // Chép chủ đề tuần liền trước sang tuần đang soạn — bài học B9 của app 1.
@@ -735,8 +839,121 @@ module.exports = (app, { db, modules }) => {
       chuDe: truoc.chuDe, moTa: truoc.moTa, cungConONha: truoc.cungConONha,
       coGhi: req.user.id, taoLuc: luc, capNhatLuc: luc,
     });
+    // CHÉP CẢ PHẦN THÊM. Chép chủ đề mà bỏ lại bài hát với lời nhắc thì nút
+    // "chép tuần trước" chỉ đỡ cho cô đúng một ô, còn năm ô kia vẫn phải gõ
+    // lại — mà đó mới là phần dài.
+    const themTruoc = themCua(classId, truoc.tuan);
+    if (themTruoc) {
+      db.insert('hanhtrinh_chude_them', {
+        id: db.nextId('htt'), classId, tuan,
+        baiHat: themTruoc.baiHat, linkBaiHat: themTruoc.linkBaiHat,
+        talkshow: themTruoc.talkshow, linkTalkshow: themTruoc.linkTalkshow,
+        nhacGiaDinh: themTruoc.nhacGiaDinh,
+        coGhi: req.user.id, taoLuc: luc, capNhatLuc: luc,
+      });
+    }
+    // TỆP THÌ KHÔNG CHÉP — cố ý. Một tệp là một bản kế hoạch của ĐÚNG tuần đó;
+    // chép sang tuần mới là gia đình mở ra thấy lịch của tuần trước mà không
+    // có gì báo. Chỗ này thà để trống còn hơn để sai.
     db.audit(req.user.id, 'hanhtrinh-chu-de-chep', classId, { tuan, tuNhap: truoc.tuan });
-    res.json({ ok: true, tuan, chepTu: truoc.tuan });
+    res.json({ ok: true, tuan, chepTu: truoc.tuan, chepThem: !!themTruoc });
+  });
+
+  // =========================================================================
+  // TỆP ĐÍNH KÈM CỦA TUẦN (Đ201, việc 44)
+  // =========================================================================
+  //
+  // Cùng khuôn với tệp thực đơn (Đ160): hai kho khác nhau, chọn theo BYTE ĐẦU
+  // TỆP chứ không theo lời khai của trình duyệt, và đường tải ĐI QUA CANH
+  // QUYỀN chứ không phục vụ tĩnh.
+  //
+  // Khác một chỗ đáng kể: tệp thực đơn thuộc về một CƠ SỞ, tệp ở đây thuộc về
+  // một NHÓM LỚP. Nên chốt chặn là `db.canAccessClass` — gia đình nhóm khác
+  // không mở được kể cả khi đoán trúng mã tệp.
+  app.post('/api/hanhtrinh/chu-de/tep', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const classId = chuoi(b.classId, 40);
+    if (!db.findClass(classId)) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Không có quyền treo tệp cho nhóm này' });
+    }
+    const tuan = thuHaiCua(NGAY_RE.test(String(b.tuan || '')) ? b.tuan : homNay());
+    if (!tuan) return res.status(400).json({ error: 'Tuần chưa đúng dạng' });
+
+    const dangCo = tepCuaTuan(classId, tuan).length;
+    if (dangCo >= TOI_DA_TEP_TUAN_CHUDE) {
+      return res.status(400).json({
+        error: `Mỗi tuần treo tối đa ${TOI_DA_TEP_TUAN_CHUDE} tệp. Xoá bớt tệp cũ rồi tải lại nhé.`,
+      });
+    }
+
+    const dataUrl = String(b.dataUrl || '');
+    if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'Chưa chọn tệp nào' });
+
+    let luu = null;
+    let loai = '';
+    try {
+      const r = uploads.saveTaiLieuDataUrl(dataUrl);
+      luu = r; loai = r.ext;
+    } catch (_) {
+      try {
+        const r = uploads.saveDataUrl(dataUrl);
+        luu = r; loai = 'anh';
+      } catch (err) {
+        return res.status(400).json({
+          error: 'Tệp này app chưa nhận được. Nhận ảnh chụp, PDF hoặc Word.',
+        });
+      }
+    }
+    if (!LOAI_TEP_CHUDE.includes(loai)) {
+      try { if (loai === 'anh') uploads.remove(luu.file); else uploads.removeTaiLieu(luu.file); } catch (_) { /* dọn là việc phụ */ }
+      return res.status(400).json({ error: 'Loại tệp này app chưa nhận được' });
+    }
+
+    const rec = {
+      id: db.nextId('htep'), classId, tuan, file: luu.file,
+      tenGoc: chuoi(b.ten, TOI_DA_TEN_TEP) || `Kế hoạch tuần ${tuan}`,
+      bytes: Number(luu.bytes) || 0, loai,
+      nguoiTai: req.user.id, taoLuc: new Date().toISOString(),
+    };
+    db.insert('hanhtrinh_chude_tep', rec);
+    db.audit(req.user.id, 'hanhtrinh-chu-de-tep-them', rec.id, { classId, tuan, loai });
+    res.status(201).json({ ok: true, tep: tepCuaTuan(classId, tuan) });
+  });
+
+  app.delete('/api/hanhtrinh/chu-de/tep/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const t = db.first('hanhtrinh_chude_tep',
+      'SELECT * FROM hanhtrinh_chude_tep WHERE id = ?', [String(req.params.id || '')]);
+    if (!t) return res.status(404).json({ error: 'Không tìm thấy tệp này' });
+    if (!db.canAccessClass(req.user, t.classId)) {
+      return res.status(403).json({ error: 'Tệp này thuộc nhóm khác' });
+    }
+    db.remove('hanhtrinh_chude_tep', t.id);
+    // Dọn tệp trong kho là VIỆC PHỤ: dòng đã xoá rồi thì không ai mở được nữa,
+    // còn kho mồ côi một tệp thì lần dọn sau nhặt.
+    try {
+      if (t.loai === 'anh') uploads.remove(t.file);
+      else uploads.removeTaiLieu(t.file);
+    } catch (_) { /* tệp đã mất thì thôi */ }
+    db.audit(req.user.id, 'hanhtrinh-chu-de-tep-xoa', t.id, { classId: t.classId, tuan: t.tuan });
+    res.json({ ok: true, tep: tepCuaTuan(t.classId, t.tuan) });
+  });
+
+  // Tải một tệp. Gia đình của bé trong nhóm đọc được — đây là kế hoạch tuần
+  // của con họ; `canAccessClass` đã lo đúng vế ấy cho cả bốn vai.
+  app.get('/api/hanhtrinh/chu-de/tep/:id', (req, res) => {
+    const t = db.first('hanhtrinh_chude_tep',
+      'SELECT * FROM hanhtrinh_chude_tep WHERE id = ?', [String(req.params.id || '')]);
+    if (!t) return res.status(404).json({ error: 'Không tìm thấy tệp này' });
+    if (!db.canAccessClass(req.user, t.classId)) {
+      return res.status(403).json({ error: 'Tệp này thuộc nhóm khác' });
+    }
+    const duong = t.loai === 'anh' ? uploads.pathOf(t.file) : uploads.pathOfTaiLieu(t.file);
+    const con = t.loai === 'anh' ? uploads.exists(t.file) : uploads.existsTaiLieu(t.file);
+    if (!duong || !con) return res.status(404).json({ error: 'Tệp không còn trên máy chủ' });
+    res.setHeader('Content-Type', t.loai === 'anh' ? uploads.mimeOf(t.file) : uploads.mimeOfTaiLieu(t.file));
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(t.tenGoc)}`);
+    fs.createReadStream(duong).pipe(res);
   });
 
   // =========================================================================

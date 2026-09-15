@@ -126,3 +126,60 @@ CREATE TABLE IF NOT EXISTS hanhtrinh_quansat_nhom (
   nhom      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_nhom_theo_nhom ON hanhtrinh_quansat_nhom(nhom);
+
+-- ===========================================================================
+-- KHỐI KẾ HOẠCH CHUNG TUẦN — phần THÊM của chủ đề tuần (Đ201, việc 44)
+-- ===========================================================================
+--
+-- Nhà trường muốn ở đầu Lịch sinh hoạt có một khối *"kế hoạch chung tuần này"*
+-- gồm: chủ đề, **bài hát**, **Casa talkshow**, **lời nhắc gia đình**, **đường
+-- dẫn video** và **tệp đính kèm** (PDF/Word).
+--
+-- VÌ SAO LÀ BẢNG PHỤ CHỨ KHÔNG THÊM CỘT VÀO `hanhtrinh_chude`.
+--
+-- Không phải vì sạch sẽ. Vì `CREATE TABLE IF NOT EXISTS` **không thêm được cột
+-- vào một bảng đã tồn tại**: khai thêm cột vào câu lệnh cũ là một dòng SQL
+-- KHÔNG BAO GIỜ CHẠY trên cơ sở dữ liệu đã có của trường, và mọi câu đọc cột
+-- ấy sẽ hỏng ngay lượt đọc đầu tiên — im lặng trên máy người viết (nơi bảng
+-- được tạo mới), ồn ào trên máy trường. Cùng lý do đã ghi ở
+-- `hocphi_khoan_loai` (Đ199).
+--
+-- KHÔNG CÓ DÒNG = TUẦN CHỈ CÓ CHỦ ĐỀ, và đó là trạng thái đúng của mọi tuần cô
+-- đã soạn trước đợt này. Màn hình phải hiện tuần ấy y như hôm qua, không phải
+-- hiện năm ô trống kèm cảm giác "cô soạn thiếu".
+CREATE TABLE IF NOT EXISTS hanhtrinh_chude_them (
+  id           TEXT PRIMARY KEY,
+  classId      TEXT NOT NULL,
+  tuan         TEXT NOT NULL,          -- thứ Hai của tuần, YYYY-MM-DD
+  baiHat       TEXT NOT NULL DEFAULT '',
+  linkBaiHat   TEXT NOT NULL DEFAULT '',
+  talkshow     TEXT NOT NULL DEFAULT '',
+  linkTalkshow TEXT NOT NULL DEFAULT '',
+  nhacGiaDinh  TEXT NOT NULL DEFAULT '',
+  coGhi        TEXT,
+  taoLuc       TEXT,
+  capNhatLuc   TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS hanhtrinh_chude_them_mot_tuan
+  ON hanhtrinh_chude_them(classId, tuan);
+
+-- TỆP ĐÍNH KÈM CỦA MỘT TUẦN (PDF, Word, hoặc ảnh chụp tờ kế hoạch).
+--
+-- Cùng khuôn với `menu_tep` (Đ160): tên tệp thật nằm trong kho `uploads/`
+-- ngoài kho mã, bảng chỉ giữ cái tên và ai tải lên; đường tải **đi qua canh
+-- quyền** chứ không phục vụ tĩnh. Đây là tệp của một nhóm lớp cụ thể, nên
+-- người đọc phải qua `db.canAccessClass` — gia đình nhóm khác không mở được
+-- kể cả khi đoán trúng mã tệp.
+CREATE TABLE IF NOT EXISTS hanhtrinh_chude_tep (
+  id       TEXT PRIMARY KEY,
+  classId  TEXT NOT NULL,
+  tuan     TEXT NOT NULL,
+  file     TEXT NOT NULL,              -- tên tệp trong kho uploads
+  tenGoc   TEXT NOT NULL DEFAULT '',   -- tên người tải lên nhìn thấy
+  bytes    INTEGER,
+  loai     TEXT NOT NULL DEFAULT '',   -- pdf | docx | anh
+  nguoiTai TEXT,
+  taoLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS hanhtrinh_chude_tep_theo_tuan
+  ON hanhtrinh_chude_tep(classId, tuan);

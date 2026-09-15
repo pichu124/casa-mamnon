@@ -506,6 +506,9 @@ App.views.hanhtrinh = {
     const d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(this._classId)}`
       + `&tuan=${encodeURIComponent(this._tuan)}`);
     const c = d.chuDe || {};
+    // Máy chủ đời cũ chưa trả `them` thì mọi ô về rỗng, không phải `undefined`
+    // rơi thành chữ "undefined" trong ô nhập.
+    const t = d.them || { baiHat: '', linkBaiHat: '', talkshow: '', linkTalkshow: '', nhacGiaDinh: '' };
     const nhac = await this.nhacThuSau();
 
     than.innerHTML = `
@@ -535,6 +538,50 @@ App.views.hanhtrinh = {
           <textarea id="ht-cd-nha" rows="3" placeholder="Ví dụ: cho con thả thìa, nắp chai, lá cây vào chậu nước xem cái nào nổi.">${UI.esc(c.cungConONha || '')}</textarea>
           <div class="hint">5–10 phút, đồ trong nhà, không màn hình — và <b>không phải là bài tập</b>.</div>
         </div>
+
+        <div class="card-title mt-8">Kế hoạch chung tuần này</div>
+        <div class="muted small" style="line-height:1.7">
+          Phần này hiện ở <b>đầu màn Lịch sinh hoạt</b> cho gia đình. Ô nào để trống thì
+          không hiện ô ấy — <b>không bắt buộc điền hết</b>.
+        </div>
+        <div class="field">
+          <label>Bài hát của tuần</label>
+          <input id="ht-cd-bh" value="${UI.esc(t.baiHat)}" placeholder="Ví dụ: Cả nhà thương nhau">
+        </div>
+        <div class="field">
+          <label>Đường dẫn video bài hát</label>
+          <input id="ht-cd-bhl" value="${UI.esc(t.linkBaiHat)}" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>Casa talkshow tuần này</label>
+          <input id="ht-cd-ts" value="${UI.esc(t.talkshow)}" placeholder="Ví dụ: Dạy con tự xúc ăn">
+        </div>
+        <div class="field">
+          <label>Đường dẫn video Casa talkshow</label>
+          <input id="ht-cd-tsl" value="${UI.esc(t.linkTalkshow)}" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>Lời nhắc gia đình</label>
+          <textarea id="ht-cd-nhac" rows="2" placeholder="Ví dụ: thứ Tư lớp ra sân, nhà chuẩn bị giúp cô một mũ rộng vành.">${UI.esc(t.nhacGiaDinh)}</textarea>
+        </div>
+
+        <div class="field">
+          <label>Tệp kế hoạch tuần (PDF, Word hoặc ảnh chụp)</label>
+          ${(d.tep || []).length ? (d.tep || []).map(x => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.tenGoc)}</div>
+                <div class="row-sub">${UI.esc(this.coTep(x))}</div>
+              </div>
+              <div class="row-end">
+                <button class="btn sm outline" data-xoa-tep="${UI.esc(x.id)}">Gỡ</button>
+              </div>
+            </div>`).join('') : '<div class="muted small">Chưa treo tệp nào.</div>'}
+          ${(d.tep || []).length < (d.toiDaTep || 5)
+            ? '<input type="file" id="ht-cd-tep" accept=".pdf,.docx,image/*" class="mt-8">'
+            : `<div class="hint">Mỗi tuần treo tối đa ${UI.esc(String(d.toiDaTep || 5))} tệp — gỡ bớt rồi treo tiếp nhé.</div>`}
+        </div>
+
         <div class="grid-2">
           ${d.tuanTruoc && !d.chuDe
             ? `<button class="btn outline" id="ht-cd-chep">${UI.icon('plus', 16)} Chép tuần trước</button>`
@@ -548,6 +595,11 @@ App.views.hanhtrinh = {
     document.getElementById('ht-cd-luu').onclick = () => this.luuChuDe();
     const chep = document.getElementById('ht-cd-chep');
     if (chep) chep.onclick = () => this.chepTuanTruoc();
+    const oTep = document.getElementById('ht-cd-tep');
+    if (oTep) oTep.onchange = () => this.treoTep(oTep);
+    for (const nut of than.querySelectorAll('[data-xoa-tep]')) {
+      nut.onclick = () => this.goTep(nut.dataset.xoaTep);
+    }
     for (const nut of than.querySelectorAll('[data-tuan]')) {
       nut.onclick = () => this.chonTuan(nut.getAttribute('data-tuan'));
     }
@@ -627,7 +679,48 @@ App.views.hanhtrinh = {
       </div>`;
   },
 
+  // Nhãn ngắn cho một tệp: loại và cỡ. Cỡ tệp là thứ cô cần biết trước khi
+  // bảo gia đình mở bằng 3G.
+  coTep(x) {
+    const ten = x.loai === 'pdf' ? 'PDF' : x.loai === 'docx' ? 'Word' : 'Ảnh';
+    const kb = Math.max(1, Math.round(Number(x.bytes || 0) / 1024));
+    return kb >= 1024 ? `${ten} · ${(kb / 1024).toFixed(1)} MB` : `${ten} · ${kb} KB`;
+  },
+
+  async treoTep(o) {
+    const f = o.files && o.files[0];
+    if (!f) return;
+    o.disabled = true;
+    try {
+      const dataUrl = await new Promise((ok, hong) => {
+        const r = new FileReader();
+        r.onload = () => ok(r.result);
+        r.onerror = () => hong(new Error('Không đọc được tệp này'));
+        r.readAsDataURL(f);
+      });
+      await API.post('/api/hanhtrinh/chu-de/tep', {
+        classId: this._classId, tuan: this._tuan, ten: f.name, dataUrl,
+      });
+      UI.toast('Đã treo tệp cho tuần này', 'success');
+      App.route();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      o.disabled = false;
+      o.value = '';
+    }
+  },
+
+  async goTep(id) {
+    if (!confirm('Gỡ tệp này khỏi tuần?')) return;
+    try {
+      await API.del(`/api/hanhtrinh/chu-de/tep/${encodeURIComponent(id)}`);
+      UI.toast('Đã gỡ tệp', 'success');
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
   async luuChuDe() {
+    const oV = (id) => (document.getElementById(id) || {}).value || '';
     try {
       await API.put('/api/hanhtrinh/chu-de', {
         classId: this._classId,
@@ -635,6 +728,11 @@ App.views.hanhtrinh = {
         chuDe: document.getElementById('ht-cd-ten').value.trim(),
         moTa: document.getElementById('ht-cd-mota').value.trim(),
         cungConONha: document.getElementById('ht-cd-nha').value.trim(),
+        baiHat: oV('ht-cd-bh').trim(),
+        linkBaiHat: oV('ht-cd-bhl').trim(),
+        talkshow: oV('ht-cd-ts').trim(),
+        linkTalkshow: oV('ht-cd-tsl').trim(),
+        nhacGiaDinh: oV('ht-cd-nhac').trim(),
       });
       UI.toast('Đã lưu chủ đề tuần', 'success');
       App.route();

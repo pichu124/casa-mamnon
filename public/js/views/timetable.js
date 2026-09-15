@@ -46,6 +46,94 @@ App.views.timetable = {
   // trường (Cấp 1). Lọc theo cơ sở NGAY TRÊN MÀN HÌNH chứ không chỉ trông vào
   // máy chủ — bài học Đ94: ô chọn mời văn phòng bấm sang nhóm cơ sở khác rồi
   // nhận lỗi là một ô chọn nói dối.
+  // KHỐI "KẾ HOẠCH CHUNG TUẦN NÀY" Ở ĐẦU LỊCH SINH HOẠT (Đ201, việc 44).
+  //
+  // Nhà trường muốn gia đình mở Lịch sinh hoạt là thấy ngay chủ đề, bài hát,
+  // Casa talkshow, lời nhắc và tệp kế hoạch của tuần.
+  //
+  // MÀN NÀY THUỘC PHẦN LÕI, DỮ LIỆU THUỘC MỘT PHÂN HỆ CẮM THÊM — nên chỗ này
+  // là đúng loại chỗ kéo sập cả màn nếu làm ẩu. Ba lớp phòng, theo thứ tự:
+  //
+  //   1. Phân hệ Hành trình đang tắt thì KHÔNG GỌI GÌ CẢ — không tốn một lượt
+  //      gọi, và cũng không có gì để hiện.
+  //   2. Lượt gọi hỏng vì bất cứ lý do gì (mạng, 404, 403, máy chủ đời cũ chưa
+  //      có đường này) thì trả về chuỗi RỖNG. Lịch sinh hoạt vẫn dựng lên đủ.
+  //   3. Tuần chưa soạn gì thì cũng rỗng — không hiện một cái khung trống kèm
+  //      cảm giác "trường quên soạn".
+  //
+  // Đây chính là Nguyên tắc số 1 ở mức một màn hình: thứ vừa thêm hỏng thì
+  // thứ đang chạy không được sứt mẻ.
+  async khoiChungTuan(classId) {
+    if (!classId || !App.moduleEnabled('hanhtrinh')) return '';
+    let d = null;
+    try {
+      d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(classId)}`);
+    } catch (_) { return ''; }
+    if (!d || !d.coKhoiChung) return '';
+
+    const c = d.chuDe || {};
+    const t = d.them || {};
+    const tep = d.tep || [];
+    // ĐƯỜNG DẪN: lọc lại Ở ĐÂY NỮA dù máy chủ đã lọc. Hai lớp cho cùng một
+    // thứ là cố ý — một thẻ `href` dựng từ chữ người khác gõ là chỗ dễ mất
+    // phiên đăng nhập nhất, và bản ghi cũ trong cơ sở dữ liệu của trường có
+    // thể đã vào từ trước ngày máy chủ biết lọc.
+    const an = (u) => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '');
+    const dong = (nhan, chu, link) => {
+      if (!chu && !link) return '';
+      return `
+        <div class="list-row">
+          <div class="row-main">
+            <div class="row-sub">${UI.esc(nhan)}</div>
+            <div class="row-title">${UI.esc(chu || 'Xem video')}</div>
+          </div>
+          ${link ? `<div class="row-end">
+            <a class="btn sm outline" href="${UI.esc(link)}" target="_blank" rel="noopener noreferrer">Mở video</a>
+          </div>` : ''}
+        </div>`;
+    };
+
+    return `
+      <div class="card">
+        <div class="card-title">Kế hoạch chung tuần này</div>
+        ${c.chuDe ? `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Chủ đề</div>
+              <div class="row-title">${UI.esc(c.chuDe)}</div>
+              ${c.moTa ? `<div class="row-sub" style="margin-top:4px">${UI.esc(c.moTa)}</div>` : ''}
+            </div>
+          </div>` : ''}
+        ${dong('Bài hát của tuần', t.baiHat, an(t.linkBaiHat))}
+        ${dong('Casa talkshow', t.talkshow, an(t.linkTalkshow))}
+        ${t.nhacGiaDinh ? `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Lời nhắc gia đình</div>
+              <div class="row-title" style="font-weight:400">${UI.esc(t.nhacGiaDinh)}</div>
+            </div>
+          </div>` : ''}
+        ${c.cungConONha ? `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Cùng con ở nhà tuần này</div>
+              <div class="row-title" style="font-weight:400">${UI.esc(c.cungConONha)}</div>
+            </div>
+          </div>` : ''}
+        ${tep.map(x => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Tệp kế hoạch</div>
+              <div class="row-title">${UI.esc(x.tenGoc)}</div>
+            </div>
+            <div class="row-end">
+              <a class="btn sm outline" href="/api/hanhtrinh/chu-de/tep/${UI.esc(x.id)}"
+                 target="_blank" rel="noopener noreferrer">Mở</a>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  },
+
   nhomVanPhong() {
     const u = App.state.user;
     const coSo = u && u.coSo ? u.coSo : null;
@@ -150,11 +238,13 @@ App.views.timetable = {
     }
 
     const suaDuoc = this.canEdit();
+    const khoiChung = await this.khoiChungTuan(classId);
     root.innerHTML = `
       ${UI.pageHeader('Lịch sinh hoạt', suaDuoc ? { action: { id: 'btn-sua-tkb', label: 'Chỉnh sửa', icon: 'edit' } } : {})}
       ${this.thanhPhan('lich')}
       ${user.role === 'parent' ? UI.studentBar() + UI.thanhChonBeTheoCap() : ''}
       ${this.oChonNhom(dsNhom)}
+      ${khoiChung}
       <div class="seg" id="tkb-seg">
         ${[1, 2, 3, 4, 5].map(d => `
           <button class="${d === this.day ? 'active' : ''}" onclick="App.views.timetable.setDay(${d})">T${d + 1}</button>`).join('')}
