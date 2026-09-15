@@ -208,6 +208,74 @@ try {
         vong.status === 400, `${vong.status}`);
     }
   }
+
+  // =========================================================================
+  console.log('\n[8] BMI: CON SỐ, và chỉ con số — máy chủ tuyệt đối đứng ngoài');
+  {
+    // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+    //
+    // Nhà trường xin hiện BMI, và khi được hỏi là cần con số hay cần lời xếp
+    // loại thể trạng, trường trả lời gọn: *"con số"*. Đó là phần làm được —
+    // lời xếp loại thì không, vì với trẻ 12 tháng – 6 tuổi nó chỉ ra được khi
+    // đem đứa trẻ đặt cạnh một cái chuẩn theo tuổi, đúng thứ QUY TẮC 4 cấm.
+    //
+    // Ranh giới giữa hai thứ đó mỏng và rất dễ trượt qua: có con số rồi thì
+    // đường ngắn nhất luôn là lưu nó lại, rồi lọc, rồi sắp xếp, rồi dán thêm
+    // một chữ vào cạnh. Nên mục này chốt chính cái ranh giới ấy ở hai tầng.
+    const co2 = await login('giaovien', '123456');
+    const ghi = await req('POST', '/api/health', {
+      cookie: co2.cookie,
+      body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng', date: HOM_NAY, height: 100, weight: 16 },
+    });
+    check('ghi được một lần cân đo có đủ chiều cao và cân nặng', ghi.status === 201, ghi.data);
+
+    const hs3 = await req('GET', '/api/health?studentId=s1', { cookie: co2.cookie });
+    const ban = (hs3.data?.records || []).find(r => r.id === ghi.data?.id) || {};
+    // TẦNG 1 — MÁY CHỦ KHÔNG TÍNH, KHÔNG LƯU, KHÔNG GỬI.
+    //
+    // Một con số không bao giờ được lưu thì không bao giờ trở thành dữ liệu về
+    // đứa trẻ mà ai đó lọc, sắp xếp hay đem ra so giữa các bé. Đó là điều làm
+    // cho "chỉ hiện con số" khác hẳn với "app đánh giá thể trạng".
+    check('MÁY CHỦ KHÔNG gửi kèm trường bmi nào', ban.bmi === undefined && ban.chiSoBmi === undefined, Object.keys(ban));
+    check('và KHÔNG tự điền vào ô nhận định của người khám',
+      !ban.bmiNote, JSON.stringify(ban.bmiNote));
+    const chuoiBan = JSON.stringify(hs3.data || {});
+    check('cả gói trả về không mang một chữ xếp loại thể trạng nào',
+      !/thừa cân|suy dinh dưỡng|béo phì|percentile|z-?score|đạt chuẩn/i.test(chuoiBan));
+
+    // TẦNG 2 — HÀM TÍNH Ở MÀN HÌNH PHẢI RA ĐÚNG SỐ.
+    //
+    // Đây là chỗ bài canh dễ thành "luôn đúng" nhất: soi chữ trong tệp thì chỉ
+    // chứng minh có người GÕ ra chữ `bmi`, không chứng minh nó tính đúng. Nên
+    // nạp thẳng tệp màn hình vào một hộp kín rồi GỌI hàm với số thật.
+    const nguon = fs.readFileSync(path.join(GOC, 'public', 'js', 'views', 'health.js'), 'utf8');
+    const hop = { App: { views: {} }, UI: { esc: (x) => x, icon: () => '', badge: () => '', dongThongTin: () => '' } };
+    // eslint-disable-next-line no-new-func
+    new Function('App', 'UI', nguon)(hop.App, hop.UI);
+    const mh = hop.App.views.health;
+    check('màn hình có hàm tính BMI', typeof mh.bmi === 'function', typeof mh.bmi);
+    // 16 kg / (1,00 m)^2 = 16,0
+    check('tính đúng: 100 cm + 16 kg → 16.0', mh.bmi({ height: 100, weight: 16 }) === '16.0', mh.bmi({ height: 100, weight: 16 }));
+    // 14 kg / (0,95 m)^2 = 15,51... → 15,5
+    check('làm tròn một chữ số: 95 cm + 14 kg → 15.5', mh.bmi({ height: 95, weight: 14 }) === '15.5', mh.bmi({ height: 95, weight: 14 }));
+    // THIẾU MỘT SỐ ĐO THÌ KHÔNG HIỆN GÌ, CHỨ KHÔNG HIỆN SỐ 0.
+    //
+    // Một ô trống là "chưa đo" — việc của người lớn chưa làm. Một số 0 nằm
+    // cạnh tên đứa trẻ thì trông như một kết quả về đứa trẻ ấy.
+    check('thiếu cân nặng thì KHÔNG ra số nào', mh.bmi({ height: 100 }) === null, mh.bmi({ height: 100 }));
+    check('thiếu chiều cao thì KHÔNG ra số nào', mh.bmi({ weight: 16 }) === null, mh.bmi({ weight: 16 }));
+    check('chiều cao 0 thì KHÔNG chia cho 0 rồi ra Infinity', mh.bmi({ height: 0, weight: 16 }) === null, mh.bmi({ height: 0, weight: 16 }));
+    check('không có bản ghi nào thì cũng không nổ', mh.bmi(null) === null && mh.bmi(undefined) === null);
+
+    // Và con số phải THẬT SỰ đi ra dòng số đo của bảng nhóm, không nằm chết
+    // trong một hàm không ai gọi.
+    check('CON SỐ ĐI RA DÒNG SỐ ĐO của bảng cả nhóm',
+      /BMI\s*16\.0/.test(mh.soDo({ height: 100, weight: 16 })), mh.soDo({ height: 100, weight: 16 }));
+    check('và dòng số đo KHÔNG kèm một chữ đánh giá nào',
+      !/thừa cân|suy dinh dưỡng|béo phì|bình thường|đạt|chuẩn/i.test(mh.soDo({ height: 100, weight: 16 })),
+      mh.soDo({ height: 100, weight: 16 }));
+    check('chưa đo thì dòng số đo vẫn trống trơn như cũ', mh.soDo({}) === '', mh.soDo({}));
+  }
 } finally {
   await dung();
   donThuMucTam(DIR);

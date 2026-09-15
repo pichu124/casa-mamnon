@@ -43,7 +43,8 @@ function todayStr() {
 //
 // Đây là NHẬN ĐỊNH CỦA NGƯỜI KHÁM, không phải con số app tính ra. App tuyệt đối
 // không được tự suy nó từ chiều cao và cân nặng rồi ghi vào — làm thế là app tự
-// xếp một đứa trẻ so với "chuẩn của độ tuổi", đúng thứ QUY TẮC 4 cấm, và cũng
+// đem một đứa trẻ ra đặt cạnh một cái chuẩn theo tuổi, đúng thứ QUY TẮC 4 cấm,
+// và cũng
 // là AI-thay-người ở dạng thô sơ nhất (QUY TẮC 3). Bài test canh đúng điều đó:
 // gửi chiều cao + cân nặng mà KHÔNG gửi ô này thì ô này phải ở nguyên trống.
 const TOI_DA_O_Y_TE = 200;
@@ -201,7 +202,8 @@ module.exports = (app) => {
   // trong hồ sơ sức khoẻ của bé đó mãi.
   //
   // Khoảng dưới đây CỐ Ý RỘNG HẾT MỨC. Nó chỉ bắt thứ chắc chắn là gõ nhầm,
-  // không phán gì về đứa trẻ — QUY TẮC 4 cấm app so bé với "chuẩn của độ tuổi",
+  // không phán gì về đứa trẻ — QUY TẮC 4 cấm app đem bé đặt cạnh một cái chuẩn
+// theo tuổi,
   // và một trần hẹp theo tuổi chính là làm đúng thứ bị cấm. 40–160 cm và 2–60 kg
   // phủ trọn mọi bé 12 tháng – 6 tuổi có thật, kể cả bé nhẹ cân hay cao lớn
   // khác thường.

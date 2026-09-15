@@ -96,6 +96,28 @@ const DAU_HIEU = [
   // `\b` của JS chỉ hiểu chữ ASCII, mà `score`/`diem` đều là ASCII nên dùng
   // được ở đây.
   { ten: 'điểm số của trẻ (tên trường dữ liệu)', re: /\b(score|diem|diemTrungBinh|hocLuc)\b|\.score\b/i },
+  // XẾP LOẠI THỂ TRẠNG — THÊM CÙNG ĐỢT CHO PHÉP HIỆN CON SỐ BMI (Đ186).
+  //
+  // Nhà trường xin hiện BMI và trả lời gọn là họ cần *"con số"*. Con số thô thì
+  // không xếp trẻ trên dưới nhau: nó là một phép chia từ cân nặng và chiều cao,
+  // đứng một mình, không so bé nào với bé nào.
+  //
+  // Thứ QUY TẮC 4 cấm là BƯỚC TIẾP THEO, và bước đó rất dễ đi: có con số rồi
+  // thì đường ngắn nhất luôn là dán thêm một chữ vào cạnh nó — "thừa cân",
+  // "suy dinh dưỡng", "dưới chuẩn của độ tuổi". Với trẻ 12 tháng – 6 tuổi,
+  // những chữ ấy chỉ ra được khi quy chiếu theo tuổi, tức là đem đứa trẻ đặt
+  // cạnh một cái chuẩn — đúng điều quy tắc cấm hiện ra trước mặt cô và gia đình.
+  //
+  // Nên dấu hiệu này có mặt NGAY TRONG ĐỢT mở đường cho con số, không phải sau.
+  // Cùng lý do bộ canh QUY TẮC 3 có mặt trước khi kho mã có một dòng AI nào:
+  // bài canh phải đứng sẵn ở cuối con đường trước khi ai đó bắt đầu đi.
+  //
+  // Hôm thêm vào, dấu hiệu này không bắt được một dòng nào trong cả kho — nó
+  // hoàn toàn là một cái chốt cho tương lai, và điều đó được đo ở mục [1c].
+  {
+    ten: 'xếp loại thể trạng của trẻ',
+    re: /percentile|bách phân vị|z-?score|z_score|suy dinh dưỡng|thừa cân|béo phì|nhẹ cân so|so với chuẩn|chuẩn của độ tuổi|chuẩn độ tuổi|đạt chuẩn/i,
+  },
 ];
 
 // Được phép, kèm lý do. Không phải mọi phần trăm đều là xếp hạng trẻ.
@@ -386,6 +408,31 @@ console.log('\n[4] Bộ canh này có thật sự bắt được không');
   const khongBat = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
   check('KHÔNG bắt nhầm "diemDanh", "scoreboard", hay "điểm đón bé"',
     khongBat.length === 0, khongBat);
+
+  // DẤU HIỆU XẾP LOẠI THỂ TRẠNG — thêm cùng đợt cho phép hiện con số BMI.
+  //
+  // Hôm thêm vào, nó không bắt được một dòng nào trong cả kho mã: nó hoàn toàn
+  // là một cái chốt cho tương lai. Một dấu hiệu chưa bao giờ bắt được gì thì
+  // cũng chưa ai chứng minh được nó CÓ bắt được — đúng kiểu "bài canh luôn
+  // đúng" mà CLAUDE.md dặn phải nêu. Nên chứng minh bằng dòng gài.
+  fs.writeFileSync(path.join(tam, 'ban.js'),
+    "const a = 'Bé thừa cân so với tháng tuổi';\n"
+    + "const b = `${ten} suy dinh dưỡng thể nhẹ cân`;\n"
+    + "const c = 'BMI percentile: ' + p;\n"
+    + "const d = 'z-score cân nặng';\n"
+    + "const e = 'Chiều cao đạt chuẩn';\n");
+  const batTheTrang = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
+  check('BẮT ĐƯỢC mọi cách xếp loại thể trạng của trẻ',
+    batTheTrang.length >= 5 && batTheTrang.every(v => v.dau.includes('thể trạng')), batTheTrang);
+
+  // Và KHÔNG bắt chính con số BMI — đó là thứ nhà trường xin và được duyệt.
+  fs.writeFileSync(path.join(tam, 'ban.js'),
+    "const v = nang / (cao / 100) ** 2;\n"
+    + "const s = `BMI ${v.toFixed(1)}`;\n"
+    + "return [cao, nang, 'BMI ' + chiSo].filter(Boolean).join(' · ');\n");
+  const batSo = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
+  check('nhưng KHÔNG bắt chính con số BMI — con số thô không xếp trẻ trên dưới nhau',
+    batSo.length === 0, batSo);
 
   fs.writeFileSync(path.join(tam, 'ban.js'), "const a = '<div style=\"width:100%\"></div>';\n");
   check('KHÔNG bắt nhầm width:100% của bố cục',

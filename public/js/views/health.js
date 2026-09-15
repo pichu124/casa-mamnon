@@ -40,7 +40,8 @@ App.views.health = {
   // Nhà trường 07/09: "để theo cấu trúc cơ sở → lớp, hiện một loạt danh sách
   // bé thể hiện cân nặng, chiều cao cả lớp, có ô tháng để xem lại; bấm vào
   // từng bạn để xem chi tiết". Mỗi dòng là con số của CHÍNH bé đó — không
-  // trung bình nhóm, không xếp theo số đo, không "so với chuẩn" (QUY TẮC 4).
+  // trung bình nhóm, không xếp theo số đo, không đem bé đặt cạnh một cái
+  // chuẩn nào theo tuổi (QUY TẮC 4).
   async renderNhom(root) {
     const dsNhom = this.nhomCuaToi();
     if (!dsNhom.some(n => n.id === this._classId)) this._classId = (dsNhom[0] || {}).id || null;
@@ -86,11 +87,43 @@ App.views.health = {
     for (const r of root.querySelectorAll('[data-mo-be]')) r.onclick = () => this.moBe(r.dataset.moBe);
   },
 
+  // BMI — CON SỐ, VÀ CHỈ CON SỐ (Đ186).
+  //
+  // Nhà trường trả lời ngày 15/09, gọn đúng hai chữ: *"con số"*. Câu hỏi đặt ra
+  // là trường cần con số hay cần chữ đánh giá thể trạng; chữ đánh giá thì đã
+  // trả lời là không làm được, vì với trẻ 12 tháng – 6 tuổi nó chỉ có nghĩa khi
+  // quy chiếu theo tuổi, mà quy chiếu theo tuổi chính là thứ QUY TẮC 4 cấm.
+  //
+  // Nên chỗ này làm đúng phần được duyệt và dừng lại ở đó:
+  //
+  //   - TÍNH Ở TẦNG HIỂN THỊ, không ở máy chủ. Không cột mới, không bảng mới,
+  //     không ghi vào `bmiNote` — ô ấy vẫn là chữ do cô và y tế trường tự gõ.
+  //     Một con số không lưu thì không bao giờ trở thành dữ liệu về đứa trẻ mà
+  //     ai đó lọc, sắp xếp hay đem ra so.
+  //   - KHÔNG kèm bất kỳ lời nào: không màu, không huy hiệu, không mũi tên lên
+  //     xuống, không "so với lần trước". Con số đứng một mình.
+  //   - Thiếu một trong hai số đo thì KHÔNG hiện gì cả, chứ không hiện số 0 —
+  //     một ô trống là "chưa đo", còn số 0 trông như một kết quả.
+  //
+  // Bộ canh QUY TẮC 4 được siết thêm trong cùng đợt: mọi chữ mang nghĩa xếp
+  // loại thể trạng nay là dấu hiệu bị bắt trên toàn kho mã.
+  bmi(x) {
+    if (!x) return null;
+    const cao = Number(x.height), nang = Number(x.weight);
+    if (!Number.isFinite(cao) || !Number.isFinite(nang)) return null;
+    if (cao <= 0 || nang <= 0) return null;
+    const m = cao / 100;
+    const v = nang / (m * m);
+    if (!Number.isFinite(v)) return null;
+    return v.toFixed(1);
+  },
+
   soDo(x) {
     if (!x) return '';
     const cao = x.height !== null && x.height !== undefined ? `${x.height} cm` : '';
     const nang = x.weight !== null && x.weight !== undefined ? `${x.weight} kg` : '';
-    return [cao, nang].filter(Boolean).join(' · ');
+    const chiSo = this.bmi(x);
+    return [cao, nang, chiSo ? `BMI ${chiSo}` : ''].filter(Boolean).join(' · ');
   },
 
   // Một dòng bé trong bảng nhóm. "Tháng này chưa đo" là việc của người lớn
@@ -265,6 +298,7 @@ App.views.health = {
         <div class="stat-row" style="margin-bottom:0">
           ${this.statBox(lc.height, 'cm', 'Chiều cao')}
           ${this.statBox(lc.weight, 'kg', 'Cân nặng')}
+          ${this.bmi(lc) ? this.statBox(this.bmi(lc), '', 'BMI') : ''}
           ${this.statBox(lc.vision, '', 'Thị lực')}
         </div>
         <div class="muted small mt-8 flex">
@@ -324,6 +358,7 @@ App.views.health = {
         ${infoRowHealth('Nội dung chi tiết', r.detail)}
         ${r.height !== undefined && r.height !== null ? infoRowHealth('Chiều cao', `${r.height} cm`) : ''}
         ${r.weight !== undefined && r.weight !== null ? infoRowHealth('Cân nặng', `${r.weight} kg`) : ''}
+        ${this.bmi(r) ? infoRowHealth('BMI', this.bmi(r)) : ''}
         ${r.vision ? infoRowHealth('Thị lực', r.vision) : ''}
         ${r.bmiNote ? infoRowHealth('Đánh giá thể trạng', r.bmiNote) : ''}
         ${r.daSua ? `<div class="muted small mt-8">Đã chỉnh sửa lúc ${UI.esc(UI.fmtTime(r.suaLuc))} ${UI.esc(UI.fmtDateShort(r.suaLuc))}</div>` : ''}
@@ -344,7 +379,8 @@ App.views.health = {
   //
   // ĐÂY LÀ CHỖ PHẢI CẨN THẬN VỚI QUY TẮC 4.
   //
-  // "Không so sánh bé với chuẩn của độ tuổi" — nên tôi CỐ Ý chỉ đổi chữ mờ
+  // Quy tắc cấm đem bé ra đặt cạnh một cái chuẩn theo tuổi — nên tôi CỐ Ý
+  // chỉ đổi chữ mờ
   // trong ô TRỐNG, và KHÔNG thêm dòng nào kiểu "bé tuổi này thường 103 cm" nằm
   // cạnh con số thật của bé. Chữ mờ biến mất ngay khi cô gõ, nên nó là gợi ý
   // nhập liệu; một dòng chú thích nằm lại bên cạnh con số thì thành lời so
