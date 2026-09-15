@@ -621,7 +621,7 @@ nói ra thứ nó đang hiện.**
 
 | Bộ | Số bài |
 |---|---|
-| `npm test` (không cần trình duyệt, ~14 phút) | **5593**, FAIL 0 (đo 14/09, sau Đ180 — 100 bộ) |
+| `npm test` (không cần trình duyệt, ~14 phút) | **5634**, FAIL 0 (đo 15/09, sau Đ184 — 100 bộ) |
 | `npm run test:giao-dien` (cần Playwright, chạy trên Chromium thật) | **781**, FAIL 0 (**14 bộ**, đếm từ MỘT lượt chạy đủ hôm 12/09 sau Đ175 — bộ thứ 14 là `test:hoc-phi-man-hinh` mới thêm) |
 
 > **Con số 554 ghi hụt ở commit `32856ac` là SAI, và sai theo cách đáng ghi lại.**

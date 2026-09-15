@@ -124,7 +124,50 @@ Ghi lại để lần lên kế hoạch sau không dựng lại thứ đã có.
    mặc định là công khai. Thử ngược trên bản chưa vá cho thấy ảnh riêng của bé
    **thật sự lọt vào album cả nhóm** và câu chuyện vẫn công bố bình thường.
 
-## Còn chặn: 11 câu ở Phần III chưa có câu trả lời
+## 11 câu ở Phần III — ĐÃ CÓ ĐỦ CÂU TRẢ LỜI (15/09/2026)
+
+Tệp gửi lần đầu ngày 15/09 **không chứa câu trả lời nào** — siêu dữ liệu cho
+thấy đó chính là tệp đã gửi đi, chưa lưu lại lần nào (`cp:revision` = 1, thời
+điểm tạo trùng khít thời điểm sinh tệp, phần ghi chú rỗng, so từng dòng với bản
+gốc cho 0 khác biệt). Chủ dự án xác nhận đính nhầm và gửi lại
+`Phản hồi 11 câu hỏi sau ngày 14.9.docx` — bản này có **đủ 11/11 câu**.
+
+Bảng dưới chép **nguyên văn** lời trường, rồi ghi việc nó mở khoá.
+
+| Câu | Nguyên văn trường trả lời | Việc mở khoá |
+|---|---|---|
+| **1** · PH có thấy "Kế hoạch của bé" không | *"Kế hoạch của bé sẽ là 1 thư mục riêng để giáo viên có thể xây dựng kế hoạch học tập cho từng bạn – nên sẽ chỉ hiện ở giao diện Nhà trường. Còn kế hoạch của từng bé sẽ được lồng ghép tiếp vào trong thư mục 'hành trình của bé để cả PH và giáo viên' có thể nhìn lại trong tháng này các bài dạy triển khai cho con là gì."* — ba tab còn lại là quá trình của **GV Việt, GV nước ngoài, GV P.E**; *"PH sẽ chỉ xem được hình ảnh thông tin của con mình, còn giáo viên sẽ xem được đầy đủ học sinh của mình"*; thêm *"phần ghi nhanh quan sát ở dưới góc dưới màn hình và có thể tag tên học sinh"* | Đ191 |
+| **2** · "Class Progress bỏ đi" là bỏ màn nào | *"Đúng."* (bỏ Kế hoạch giáo dục cả nhóm, **giữ** kế hoạch riêng từng bé) | Đ190 |
+| **3** · Quản lý cơ sở và Văn phòng — một cấp hay hai | *"Quản lý cơ sở và Văn phòng là 1 cấp. Nhưng cũng sẽ có phân quyền khác biệt, Quản lý cơ sở sẽ có toàn quyền tại cơ sở, còn văn phòng chỉ trong phạm vi cho phép"* | Đ192 |
+| **4** · Cambridge có tài liệu riêng cho 5–6 không | *"có tài liệu riêng."* | Đ187 |
+| **5** · "Giao diện quản lý vẫn xem lại được" — ai | *"Quản lý cơ sở và cấp 1 có thể xem lại được -> chỉ xem lại được k thể nhắn vào thêm được nữa"* | Đ192 |
+| **6** · Cho sửa chữ đánh giá — có kèm từ cấm không | *"Bộ chữ này sẽ giống nhau giữa 3 cơ sở… Nhà trường sẽ k đánh giá theo Giỏi/Khá bao giờ mà chỉ đánh giá là Hoàn thành, đang thực hiện hoặc chưa học tới….. Nên muốn mở quyền để chỉnh sửa phần này cho hợp lý theo thời gian"* | Đ185 |
+| **7** · BMI — con số hay lời xếp loại | *"con số"* | Đ186 |
+| **8** · "Mỗi tuần ít nhất 1 ảnh hoặc quan sát" — cho ai | *"Một tuần 1 bé sẽ có ít nhất 3 quan sát và ảnh. Tôi ghi 1 nhưng đấy là với 1 đối tượng, còn trường sẽ có 3 nhóm đối tượng cần đánh giá 3 lĩnh vực học: Cambridge, Montessori, PE."* — thêm *"sau 2 ngày mà các GV k ghi quan sát hoặc up ảnh của cháu sẽ có thông báo còn mấy cháu chưa cập nhật… tránh dồn ghi nhận… vào cuối tuần"* | Đ189 |
+| **9** · App cũ là dữ liệu thử hay chạy thật | *"Ko, dữ liệu đều đang chỉ dùng để test phần mềm"* | mở khoá gộp bốn bản vá nền |
+| **10** · Trước khi trường xoá tấm ảnh đầu tiên | *"Đồng ý, làm cho tôi cái khóa giữ ảnh đã tải về"* | **Đ184 — đã làm** |
+| **11** · "Loại giáo viên" nằm ở tầng nào | Phía PH: *"chỉ muốn hiện lên 3 ng để PH có thể nhắn tin tới: Giáo viên chủ nhiệm, GV nước ngoài, văn phòng Nhà trường"*. Phía trường: *"Giáo viên chủ nhiệm – phụ trách mảng chương trình Montessori, GV nước ngoài - phụ trách chương trình Cambridge, GV P.E – phụ trách chương trình thể chất chuyên sâu. -> 3 vị trí này sẽ giúp lên kế hoạch và đánh giá -> báo cáo học tập cho từng trẻ"* | Đ188 |
+
+### Ba điều rút ra, ngoài từng câu một
+
+**Câu 9 lật một con số đang nằm trong `CLAUDE.md`.** Tệp quy định của kho này
+viết app 1 *"đang chạy thật cho ~300 học sinh"*, và sổ nợ nền lặp lại con số đó
+bốn lần, dùng nó làm căn cứ xếp ưu tiên. Trường nói ngược lại: **không có dữ
+liệu thật nào**. Con số ấy nay là một căn cứ sai nằm ở chỗ dễ tin nhất trong
+kho — cần đính chính, nếu không thì mọi lần xếp ưu tiên sau đều lệch theo.
+
+**Câu 6 và Câu 7 đều được duyệt theo đúng hướng đã đề nghị, không phải theo
+hướng phá quy tắc.** Trường xác nhận họ *không bao giờ* dùng Giỏi/Khá, nên
+việc chặn chữ xếp loại ở đường ghi không cản trở cách trường đang làm — nó chỉ
+chặn một cách dùng mà chính trường cũng không muốn. Và BMI trường cần là **con
+số**, không phải lời xếp loại: con số hiện ở tầng hiển thị thì không đụng
+QUY TẮC 4, còn lời xếp loại thì đã không làm được.
+
+**Câu 8 nâng khối lượng lên gấp ba so với cách đọc cũ**, nhưng cách trình bày
+vẫn phải là *nhắc nhẹ, không đếm* — chỉ tiêu ba quan sát là chỉ tiêu của **cô**,
+không phải con số về **bé**. Bộ canh QUY TẮC 2 chốt đúng ranh giới ấy.
+
+## Lịch sử: 11 câu từng bị chặn
 
 Tệp phản hồi nhận ngày 15/09 **không chứa câu trả lời nào** — siêu dữ liệu cho
 thấy đó chính là tệp đã gửi đi, chưa lưu lại lần nào (`cp:revision` = 1, thời
