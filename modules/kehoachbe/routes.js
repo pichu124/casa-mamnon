@@ -1,5 +1,21 @@
 // KẾ HOẠCH CỦA BÉ — kế hoạch tháng cho từng bé, có phê duyệt.
 //
+// ĐỌC TRƯỚC KHI XOÁ BẤT CỨ THỨ GÌ Ở ĐÂY (Câu 2, trường trả lời 15/09/2026).
+//
+// Trong đợt phản hồi 35 câu, nhà trường viết: *"Class Progress bỏ đi vì đã
+// lồng ghép trong lịch sinh hoạt rồi"*. Đọc theo nghĩa đen là xoá phân hệ này,
+// và làm thế thì trường mất chỗ DUY NHẤT trong app để lập kế hoạch riêng cho
+// từng bé, cộng quy trình duyệt, cộng phần tự điền của Báo cáo học tập.
+//
+// Thứ đã lồng ghép vào Lịch sinh hoạt là KẾ HOẠCH GIÁO DỤC — kế hoạch tháng
+// của cả NHÓM, khoá `kehoach` trong `lib/modules.js`, gộp từ Đ148. Còn thứ
+// mang tên "Class Progress" trong sổ lại chính là phân hệ này: kế hoạch tháng
+// cho TỪNG BÉ. Hai thứ khác hẳn nhau, trùng tên là do sổ cũ đặt tên tiếng Anh.
+//
+// Đã hỏi thẳng và trường trả lời một chữ: **"Đúng"** — bỏ mục của cả nhóm,
+// KHÔNG bỏ phần riêng từng bé. Nên phân hệ này ở nguyên, và câu trên không
+// phải là căn cứ để gỡ nó.
+//
 // HAI RỦI RO ĐÃ ĐƯỢC NÊU TRƯỚC KHI VIẾT DÒNG ĐẦU TIÊN
 //
 //   1. KHỐI LƯỢNG NHẬP LIỆU CHO CÔ RẤT LỚN. Một nhóm 20 bé nhân 5 góc lĩnh
