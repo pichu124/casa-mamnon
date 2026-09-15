@@ -119,6 +119,7 @@ App.views.hanhtrinh = {
           <div class="flex mt-8" style="flex-wrap:wrap;gap:6px">
             ${(nhac.be || []).map(b => `<span class="badge gray">${UI.esc(b.hoTen)}</span>`).join('')}
           </div>
+          ${nhac.loiKhuyen ? `<div class="muted small mt-8" style="line-height:1.6">${UI.esc(nhac.loiKhuyen)}</div>` : ''}
         </div>` : ''}`;
 
     document.getElementById('ht-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };

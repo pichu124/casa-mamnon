@@ -93,7 +93,19 @@ const TOI_DA_NGAN = 500;
 const GIOI_HAN_DANH_SACH = 60;
 // Bé lâu chưa có ghi chép nào — số ngày để coi là "lâu". Chỉ dùng cho một lời
 // nhắc nhẹ với cô, không bao giờ là một con số về đứa trẻ.
-const NGAY_COI_LA_LAU = 14;
+//
+// HAI NGÀY, THEO ĐÚNG LỜI NHÀ TRƯỜNG NGÀY 15/09 (Đ189, Câu 8): *"sau 2 ngày mà
+// các GV k ghi quan sát hoặc up ảnh của cháu sẽ có thông báo còn mấy cháu chưa
+// cập nhật"*. Trước đó là 14 ngày — một lời nhắc hai tuần một lần thì tới lúc
+// nó hiện ra, tuần đã trôi qua rồi.
+//
+// CON SỐ NÀY LÀ MỐC NHẮC CỦA CÔ, KHÔNG PHẢI CHỈ TIÊU VỀ BÉ. Nhà trường cũng
+// nói mỗi bé mỗi tuần nên có ít nhất ba quan sát, mỗi chương trình một. Đó là
+// khối lượng công việc trường tự đặt cho mình, và nó CỐ Ý không được dựng
+// thành một con số đếm trên màn hình: đếm số quan sát của từng bé là biến lời
+// nhắc thành bảng so bì giữa các bé và giữa các cô, đúng thứ QUY TẮC 2 cấm và
+// `test/quy-tac-2.test.mjs` canh bằng máy. Nên chỗ này vẫn chỉ trả về TÊN.
+const NGAY_COI_LA_LAU = 2;
 
 function homNay() {
   return ngay2.homNay();
@@ -404,7 +416,18 @@ module.exports = (app, { db, modules }) => {
       .filter(s => !coGanDay.has(s.id))
       .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar }))
       .sort((a, b) => String(a.hoTen).localeCompare(String(b.hoTen), 'vi'));
-    res.json({ be, soNgay: NGAY_COI_LA_LAU });
+    // LỜI KHUYÊN LÀ CỦA CÔ, KHÔNG GẮN VÀO BÉ NÀO.
+    //
+    // Nhà trường dặn thêm: *"GV cần phải thực hiện đều trong tuần, tránh dồn
+    // ghi nhận quá trình học tập của con vào cuối tuần"*. Câu ấy nói về thói
+    // quen của người lớn, nên nó đi ra như MỘT dòng cho cả màn — không phải
+    // một nhãn dán cạnh tên từng bé.
+    res.json({
+      be,
+      soNgay: NGAY_COI_LA_LAU,
+      loiKhuyen: 'Cô ghi rải đều trong tuần giúp nhé — dồn vào cuối tuần thì '
+        + 'khoảnh khắc của các con đã qua mất rồi.',
+    });
   });
 
   // =========================================================================
