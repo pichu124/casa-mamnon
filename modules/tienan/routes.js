@@ -235,12 +235,27 @@ module.exports = (app, { db, modules }) => {
   // -------------------------------------------------------------------------
 
   // Gom số liệu một tháng cho mọi bé trong phạm vi người gọi.
-  function bangThang(user, thang) {
+  // `chiBe` — DỰNG ĐÚNG MỘT DÒNG CHO MỘT BÉ (Đ204, việc 48 điểm Y3-b).
+  //
+  // Gia đình xem bảng tiền ăn của con đi qua ĐÚNG HÀM NÀY chứ không có một
+  // phép tính thứ hai. Đó là toàn bộ lý do làm theo lối này: một bảng đối
+  // chiếu mà nhà và trường ra hai con số khác nhau thì còn tệ hơn không có
+  // bảng — nhà gọi lên hỏi, kế toán mở màn của mình ra thấy số khác, và không
+  // ai biết số nào đúng. Cùng nếp `tongChuaNopDuocUuDai` của Đ199: cộng tiền ở
+  // hai nơi là hai nơi sẽ ra hai số.
+  //
+  // Chỗ khác duy nhất là ĐẦU VÀO: bảng của trường lấy mọi nhóm người gọi phụ
+  // trách, còn ở đây là đúng một bé. Mọi bước tính phía sau đọc `ds`/`ids`/
+  // `lopCuaToi`, nên không bước nào phải biết mình đang chạy cho ai.
+  function bangThang(user, thang, { chiBe = null } = {}) {
     const [tu, den] = khoangThang(thang);
-    const lopCuaToi = nhomCuaToi(user);
+    const lopCuaToi = chiBe
+      ? [db.findClass(chiBe.classId)].filter(Boolean)
+      : nhomCuaToi(user);
     const tenLop = new Map(lopCuaToi.map(c => [c.id, c.name]));
     const ds = [];
-    for (const lop of lopCuaToi) ds.push(...beCuaNhom(lop.id).map(b => ({ ...b, tenNhom: tenLop.get(lop.id) })));
+    if (chiBe) ds.push({ ...chiBe, tenNhom: tenLop.get(chiBe.classId) || '' });
+    else for (const lop of lopCuaToi) ds.push(...beCuaNhom(lop.id).map(b => ({ ...b, tenNhom: tenLop.get(lop.id) })));
     // Xếp theo TÊN, không bao giờ theo con số. Xếp theo số ngày vắng là biến
     // sổ tiền thành một cách sắp các bé trên dưới nhau.
     ds.sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
@@ -511,6 +526,60 @@ module.exports = (app, { db, modules }) => {
     const thang = thangHopLe(req, res);
     if (!thang) return;
     res.json(bangThang(req.user, thang));
+  });
+
+  // BẢNG TIỀN ĂN THEO THÁNG CỦA MỘT BÉ, CHO CHÍNH GIA ĐÌNH BÉ ĐÓ
+  // (Đ204 — việc 48, điểm Y3-b).
+  //
+  // Nhà trường đã hỏi lại ở DD-01, nên mở. Trước đợt này gia đình chỉ thấy kết
+  // quả hoàn tiền của TỪNG ĐƠN nghỉ trên màn Xin phép — đúng phần họ cần biết
+  // ngay, nhưng không trả lời được câu *"tháng này nhà tôi ăn bao nhiêu bữa"*,
+  // mà đó mới là câu hỏi lúc nhận phiếu thu.
+  //
+  // BA THỨ CỦA BẢNG TRƯỜNG KHÔNG ĐI RA NGOÀI, và đây là phần đáng đọc kỹ:
+  //
+  //   • `ghiChu` của đơn hoàn — ô văn phòng ghi hoàn cảnh của nhà
+  //     (*"mẹ xin giảm vì bố mất việc"*). Ghi chép nội bộ của trường VỀ một
+  //     gia đình không phải thứ để chính nhà ấy đọc lại trên điện thoại. Cùng
+  //     lý do đã ghi ở `/api/hocphi` (Đ169).
+  //   • Mấy cờ `vatThang`, `trungLichNghi`, `soNgayBeCoMat` — sổ tay làm việc
+  //     của kế toán, nói *"dòng này phải mở ra xem"*. Đưa cho gia đình là mời
+  //     họ đi tranh luận về một con số trường còn chưa chốt.
+  //   • Tên và số liệu của BẤT KỲ BÉ NÀO KHÁC — `chiBe` chặn từ đầu vào.
+  //
+  // Còn lại là số ngày: ăn ở trường, vắng có phép, vắng không phép, trường
+  // nghỉ, được hoàn. Toàn bộ là chuyện của chính con họ.
+  app.get('/api/tienan/cua-be', (req, res) => {
+    const studentId = String(req.query.studentId || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem tiền ăn của bé này' });
+    }
+    const be = db.findStudent(studentId);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    const thang = thangHopLe(req, res);
+    if (!thang) return;
+
+    const bang = bangThang(req.user, thang, { chiBe: be });
+    const dong = (bang.danhSach || [])[0];
+    if (!dong) return res.status(404).json({ error: 'Chưa có số liệu tháng này' });
+
+    res.json({
+      thang,
+      be: { id: be.id, hoTen: be.name, tenNhom: dong.tenNhom },
+      soNgayAnOTruong: dong.soNgayAnOTruong,
+      soNgayVangCoPhep: dong.soNgayVangCoPhep,
+      soNgayVangKhongPhep: dong.soNgayVangKhongPhep,
+      soNgayTruongNghi: dong.soNgayTruongNghi,
+      soNgayTruongNghiHoan: dong.soNgayTruongNghiHoan,
+      soNgayHoanTienAn: dong.soNgayHoanTienAn,
+      // Đơn nghỉ của chính nhà mình: ngày và số ngày được hoàn. KHÔNG kèm
+      // `ghiChu` và KHÔNG kèm mấy cờ dành cho kế toán — xem chú thích trên.
+      donHoan: (dong.donHoan || []).map(x => ({
+        fromDate: x.fromDate, toDate: x.toDate, soNgay: x.soNgay,
+      })),
+      dotTruongNghi: bang.dotTruongNghi || [],
+    });
   });
 
   app.get('/api/tienan/thang.csv', requireRole('teacher', 'admin'), (req, res) => {

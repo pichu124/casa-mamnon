@@ -599,9 +599,17 @@ console.log('\n[9] Gia đình không có đường ghi ở những màn không p
   check('gia đình KHÔNG đọc được ghi chú thô của cô',
     !/xếp chồng năm khối gỗ/.test(htGd), htGd.slice(0, 250));
 
-  // Ba phân hệ chỉ dành cho người của trường: gia đình không mở tới được.
+  // BÁO ĂN ĐÃ RA KHỎI DANH SÁCH NÀY Ở Đ204 (việc 48, điểm Y3-b).
+  //
+  // Nhà trường đã hỏi lại ở DD-01 và chốt MỞ bảng tiền ăn theo tháng của con
+  // cho gia đình. Nên `#/tienan` thôi là màn "chặn ở cửa" — nó có một nhánh
+  // riêng cho gia đình. Phép kiểm không mất đi, nó ĐỔI CHIỀU: xuống mục [9b]
+  // ngay dưới, nơi đòi gia đình phải THẤY bảng của con mình và vẫn KHÔNG thấy
+  // hai màn của trường.
+  //
+  // Bài canh này báo đỏ đúng lúc Đ204 vừa mở màn ấy ra — nó làm đúng việc của
+  // nó, và con số hai màn còn lại chỉnh kèm lý do chứ không chỉnh lặng lẽ.
   for (const [hash, ten, nut] of [
-    ['#/tienan', 'Báo ăn', '[data-chot]'],
     ['#/thuchup', 'Ghi nhanh', '#tc-ghi'],
     ['#/kehoachbe', 'Kế hoạch của bé', '#kb-luu'],
   ]) {
@@ -622,6 +630,25 @@ console.log('\n[9] Gia đình không có đường ghi ở những màn không p
 
     check(`${ten} — và không có đường ghi nào lọt ra`,
       await page.locator(nut).count() === 0);
+  }
+
+  // =========================================================================
+  console.log('\n[9b] Báo ăn — gia đình THẤY bảng của con, và CHỈ bảng của con (Đ204, Y3-b)');
+  {
+    await moMan('#/tienan');
+    const chu = await chuTrenMan();
+    check('gia đình mở được màn Tiền ăn của con', /Tiền ăn của con/.test(chu), chu.slice(0, 160));
+    check('và màn có con số thật, không phải khung trống',
+      /Số ngày con ăn ở trường/.test(chu), chu.slice(0, 220));
+    check('nói đúng tên con mình', /Nguyễn Bảo An/.test(chu), chu.slice(0, 160));
+
+    // HAI MÀN CỦA TRƯỜNG KHÔNG ĐƯỢC LỘ RA THEO — mở một cửa không phải mở cả nhà.
+    check('KHÔNG có nút chốt báo ăn của cô', await page.locator('[data-chot]').count() === 0);
+    check('KHÔNG có tab Đối chiếu tháng của văn phòng',
+      !/Đối chiếu tháng|Báo ăn hằng ngày/.test(chu), chu.slice(0, 220));
+    check('và KHÔNG có tên bé nào của nhà khác trong bảng',
+      !/Trần Gia Hân|Lê Minh Khôi/.test(chu), chu.slice(0, 260));
+    check('không có lỗi JavaScript nào ở màn này', loiJs.length === 0, loiJs.slice(0, 3));
   }
 }
 
