@@ -148,6 +148,38 @@ Bảng dưới chép **nguyên văn** lời trường, rồi ghi việc nó mở
 | **10** · Trước khi trường xoá tấm ảnh đầu tiên | *"Đồng ý, làm cho tôi cái khóa giữ ảnh đã tải về"* | **Đ184 — đã làm** |
 | **11** · "Loại giáo viên" nằm ở tầng nào | Phía PH: *"chỉ muốn hiện lên 3 ng để PH có thể nhắn tin tới: Giáo viên chủ nhiệm, GV nước ngoài, văn phòng Nhà trường"*. Phía trường: *"Giáo viên chủ nhiệm – phụ trách mảng chương trình Montessori, GV nước ngoài - phụ trách chương trình Cambridge, GV P.E – phụ trách chương trình thể chất chuyên sâu. -> 3 vị trí này sẽ giúp lên kế hoạch và đánh giá -> báo cáo học tập cho từng trẻ"* | Đ188 |
 
+### Đã làm xong cả 11 câu — 15/09/2026
+
+| Câu | Làm gì | Ghi |
+|---|---|---|
+| 10 | **Đ184** — khoá giữ ảnh đã tải về, dạng TỆP để lượt cron cũng thấy | test:sao-luu 91→108 |
+| 4 | **Đ187** — Cambridge thêm lứa 5–6; kèm vá một lỗi nhãn cũ (bé 14 tháng bị gọi là "Cả hai lứa") | test:cambridge-khung 71→79 |
+| 7 | **Đ186** — BMI hiện **con số**, tính ở tầng hiển thị, máy chủ đứng ngoài; QUY TẮC 4 siết thêm dấu hiệu xếp loại thể trạng | test:quy-tac-4 43→46 |
+| 6 | **Đ185** — bộ chữ đánh giá sửa được, người gác ở đường ghi, một bộ cho cả ba cơ sở | test:nhan-danh-gia MỚI (40) |
+| 2 | **không sửa mã** — ghi lý do vào đầu `modules/kehoachbe/routes.js` để người định xoá phải đọc | — |
+| 8 | **Đ189** — mốc nhắc 14 → **2 ngày**, kèm lời khuyên rải đều trong tuần | test:hanh-trinh 133→137 |
+| 11 | **Đ188** — ba nhóm cô (chủ nhiệm / nước ngoài / thể chất), gia đình nhắn đúng **ba đầu mối** | test:nhan-tin-kenh 50→73 |
+| 3 | **không sửa mã** — đo lại thì mô hình trường mô tả *chính là* mô hình đang chạy | — |
+| 5 | **Đ192** — đóng một cuộc trò chuyện; quản lý cơ sở + Cấp 1 xem lại được, **chỉ đọc**, ghi nhật ký mỗi lượt mở | test:nhan-tin-kenh 73→99 |
+| 9 | **đính chính sổ nợ nền** — con số "~300 gia đình thật" không còn đứng | chưa gộp sang app 1 |
+| 1 | **Đ191** — bài học tháng này lồng sang Hành trình (chỉ TÊN BÀI), ô Ghi nhanh góc dưới màn | test:ke-hoach-be 102→119 |
+
+**BA CHỖ QUY ĐỊNH CỦA KHO VA VÀO LỜI TRƯỜNG, cả ba đều sửa mã chứ không nới canh:**
+
+1. **"Giáo viên chủ nhiệm" → "Cô phụ trách nhóm".** `CLAUDE.md` nêu đích danh
+   cách gọi ấy là không dùng, `test:goi-ten` canh bằng máy. Hai bên không mâu
+   thuẫn về NGƯỜI, chỉ khác về CHỮ. **Nếu trường muốn đúng nguyên văn thì đó là
+   một ngoại lệ cần chủ dự án duyệt.**
+2. **Bộ canh QUY TẮC 4 bắt chính tệp thực thi QUY TẮC 4** — vì tệp ấy phải viết
+   ra những chữ bị cấm để chặn chúng. Đổi cách viết mẫu, không xin ngoại lệ.
+3. **Bộ canh QUY TẮC 2 bắt một chú thích** dùng chữ mang nghĩa hỏng. Sửa chú thích.
+
+**MỘT CÁI BẪY ĐÃ SẬP VÀ ĐÁNG NHỚ:** `\b` của JavaScript chỉ hiểu chữ ASCII, nên
+`/\bđạt\b/i.test('Đạt')` trả về **false**. Danh sách chữ cấm của Đ185 ban đầu
+chặn đúng nửa danh sách — nửa còn lại gồm hai chữ quan trọng nhất — và không
+cách nào nhận ra bằng mắt. Nay dựng bằng `\p{L}` với cờ `u`, và bài canh chạy
+chính mẫu hỏng làm đối chứng.
+
 ### Ba điều rút ra, ngoài từng câu một
 
 **Câu 9 lật một con số đang nằm trong `CLAUDE.md`.** Tệp quy định của kho này
