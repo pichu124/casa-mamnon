@@ -17,6 +17,8 @@ const nghiHoc = require('../lib/nghi-hoc');
 const ndg = require('../lib/nhan-danh-gia');
 // Ba nhóm cô: chủ nhiệm / nước ngoài / thể chất (Đ188, Câu 11).
 const nhomCo = require('../lib/nhom-co');
+// Lứa tuổi của nhóm lớp: nhà trẻ hay mẫu giáo (Đ193, việc 5).
+const luaNhom = require('../lib/lua-tuoi-nhom');
 
 const onlyAdmin = requireRole('admin');
 
@@ -460,12 +462,21 @@ module.exports = (app) => {
             ? db.count(`SELECT COUNT(*) FROM users WHERE role = 'admin' AND mustChangePassword = 1 AND active = 1`)
             : 0),
       },
-      classes: nhom.map(c => ({
-        ...c,
-        ...nl.tomTat(c.id),
-        campusId: db.campusOfClass(c.id),
-        studentCount: beTrongPhamVi.filter(s => s.classId === c.id).length,
-      })),
+      classes: (() => {
+        // Lứa tuổi đã khai của CẢ danh sách, đọc một lượt (Đ193) — hỏi từng
+        // nhóm một là mỗi lần mở màn Quản trị thêm một lượt truy vấn cho mỗi
+        // nhóm, và trường ba cơ sở thì danh sách này không ngắn.
+        const lua = luaNhom.khaiTheoNhom(db, nhom.map(c => c.id));
+        return nhom.map(c => ({
+          ...c,
+          ...nl.tomTat(c.id),
+          campusId: db.campusOfClass(c.id),
+          studentCount: beTrongPhamVi.filter(s => s.classId === c.id).length,
+          // null = trường CHƯA khai, và chưa khai thì nhật ký vẫn chạy theo
+          // ngày sinh như cũ. Ba trạng thái, không phải hai.
+          luaTuoi: lua[c.id] || null,
+        }));
+      })(),
     });
   });
 
@@ -772,6 +783,34 @@ module.exports = (app) => {
     });
     db.audit(req.user.id, 'class-update', cls.id, patch);
     res.json(db.findClass(cls.id));
+  });
+
+  // ---- LỨA TUỔI CỦA NHÓM LỚP (Đ193, việc 5 và 6) ----
+  //
+  // Nhà trường chốt (A4): nhật ký ngày cắt theo NHÓM LỚP, và nhóm không phải
+  // nhà trẻ thì bỏ hẳn mục Nhật ký ở màn gia đình.
+  //
+  // CHƯA KHAI = QUAY VỀ LUẬT CŨ (tính theo ngày sinh từng bé). Nên đường này
+  // có ba giá trị chứ không phải hai: 'nha-tre', 'mau-giao', và rỗng để GỠ lời
+  // khai. Thiếu giá trị thứ ba thì một lần bấm nhầm là không có đường lùi.
+  app.put('/api/admin/classes/:id/lua-tuoi', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Khai lứa tuổi của nhóm lớp')) return;
+    const cls = db.findClass(req.params.id);
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!duocChamNhom(req.user, cls.id)) return khongThuocCoSo(res, 'nhóm lớp');
+
+    const xin = String((req.body || {}).lua || '').trim();
+    if (!xin) {
+      luaNhom.go(db, cls.id);
+      db.audit(req.user.id, 'nhom-lua-tuoi-go', cls.id, {});
+      return res.json({ ok: true, classId: cls.id, lua: null });
+    }
+    if (!luaNhom.hopLe(xin)) {
+      return res.status(400).json({ error: 'Lứa tuổi của nhóm chỉ có: nhà trẻ hoặc mẫu giáo' });
+    }
+    luaNhom.dat(db, cls.id, xin, req.user.id);
+    db.audit(req.user.id, 'nhom-lua-tuoi-khai', cls.id, { lua: xin });
+    res.json({ ok: true, classId: cls.id, lua: xin });
   });
 
   // Đặt TOÀN BỘ danh sách cô phụ trách một nhóm — mô hình của trường mầm non.

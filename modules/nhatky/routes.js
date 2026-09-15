@@ -125,7 +125,22 @@ function laNhaTre(dob, tinhDenNgay) {
   return thang < 36;
 }
 
+// LỜI KHAI CỦA NHÓM THẮNG NGÀY SINH (Đ193, việc 7).
+//
+// Nhà trường chốt (A4) nhật ký cắt theo NHÓM LỚP. `laNhaTre` ở trên vẫn giữ
+// nguyên và vẫn là luật chạy khi trường CHƯA khai nhóm — xem `lib/lua-tuoi-nhom.js`
+// để biết vì sao hai câu hỏi ấy khác nhau và vì sao phải giữ cả hai.
+const luaNhom = require('../../lib/lua-tuoi-nhom');
+
 module.exports = (app, { db, modules }) => {
+  // Bé này có sổ nhà trẻ không — hỏi nhóm trước, ngày sinh sau.
+  //
+  // Mọi chỗ trong tệp này hỏi câu ấy đều đi qua đây, không chỗ nào gọi thẳng
+  // `laNhaTre` nữa. Một câu hỏi một chỗ trả lời, nếu không thì đổi luật xong
+  // sẽ còn đúng một chỗ nói theo luật cũ, và chỗ ấy là chỗ không ai soi.
+  function coSoNhaTre(be, tinhDenNgay) {
+    return luaNhom.coSoNhaTre(db, be && be.classId, laNhaTre(be && be.dob, tinhDenNgay));
+  }
   // Làm sạch một bản ghi người dùng gửi lên.
   //
   // Trả về { loi } nếu có gì không hợp lệ. Từ chối chứ không tự sửa: một ô số
@@ -180,7 +195,7 @@ module.exports = (app, { db, modules }) => {
       // nhưng màn cô chỉ VẼ ba ô nhà trẻ khi cờ này bật — cờ tính theo hôm
       // nay thì bé vừa qua 36 tháng mở nhật ký tuần trước ra không thấy ô,
       // sửa một chữ ghi chú rồi bấm Lưu là số cũ bay theo đường khác.
-      laNhaTre: laNhaTre(be.dob, ngayXem),
+      laNhaTre: coSoNhaTre(be, ngayXem),
       // HÔM NAY BÉ CÓ Ở LỚP KHÔNG.
       //
       // Trước đợt này màn hình không hề biết, nên bé nghỉ có phép nằm lẫn giữa
@@ -254,7 +269,7 @@ module.exports = (app, { db, modules }) => {
       return res.json({
         // Khoảng nhiều ngày: bé là nhà trẻ ở ĐẦU khoảng thì phần thay bỉm /
         // bú bình của những ngày đó vẫn phải hiện với gia đình.
-        be: { id: be.id, hoTen: be.name, laNhaTre: laNhaTre(be.dob, tu) },
+        be: { id: be.id, hoTen: be.name, laNhaTre: coSoNhaTre(be, tu) },
         ngayCo: rows.map(r => ({
           ...r,
           nguoiGhiTen: tenNguoiGhi(r.nguoiGhi),
@@ -339,16 +354,19 @@ module.exports = (app, { db, modules }) => {
   // phải lớp nhà trẻ." Trang chủ hỏi đường này trước khi vẽ ô (module.json
   // khai `dieuKienHien`), nên cô nhóm Lá không thấy một ô mà cô không dùng.
   //
-  // Vẫn theo NGÀY SINH từng bé, không theo tên nhóm — lý do ở `laNhaTre`:
-  //   • cô: ít nhất một bé nhà trẻ trong (các) nhóm cô phụ trách;
-  //   • gia đình: ít nhất một con là nhà trẻ;
+  // Hỏi ĐÚNG MỘT CÂU với chỗ khác: `coSoNhaTre` — lời khai của nhóm trước,
+  // ngày sinh sau (Đ193, việc 8). Trước đợt này đường đây đi thẳng vào
+  // `laNhaTre`, nên trường khai nhóm là mẫu giáo mà ô vẫn nằm trên trang chủ
+  // của gia đình, hoặc ngược lại — cô thấy ô mà mở ra không có bé nào.
+  //   • cô: ít nhất một bé có sổ nhà trẻ trong (các) nhóm cô phụ trách;
+  //   • gia đình: ít nhất một con có sổ nhà trẻ;
   //   • văn phòng: luôn hiện — văn phòng nhìn cả trường, có nhóm nhà trẻ.
   // Chỉ ẨN Ô, không chặn API: đường /api/nhatky vẫn trả lời cho mọi người có
   // quyền, để dữ liệu đã ghi không bao giờ thành "không đọc được".
   app.get('/api/nhatky/pham-vi', (req, res) => {
     if (req.user.role === 'admin') return res.json({ hien: true });
     const ds = db.studentsOf(req.user) || [];
-    res.json({ hien: ds.some(b => laNhaTre(b.dob)) });
+    res.json({ hien: ds.some(b => coSoNhaTre(b)) });
   });
 
   // Một bản ghi thực đơn → đúng ba ô ăn của nhật ký (hình dạng đời cũ, màn gia
@@ -572,7 +590,7 @@ module.exports = (app, { db, modules }) => {
       // Cách vá: XOÁ HẲN ba khoá khỏi `s` thay vì gán null. `db.update` chỉ
       // dựng câu SET từ những khoá CÓ MẶT trong patch (lib/db.js:165-173), nên
       // khoá không có mặt = cột không bị đụng, số cũ còn nguyên.
-      const cam = laNhaTre(be.dob, ngay) ? [] : O_NHA_TRE;
+      const cam = coSoNhaTre(be, ngay) ? [] : O_NHA_TRE;
       for (const k of cam) delete s[k];
       sach.push({ be, s, goc, cam });
     }

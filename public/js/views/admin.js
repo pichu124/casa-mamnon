@@ -961,6 +961,25 @@ App.views.admin = {
     UI.modal(`
       <div class="field"><label>Tên nhóm</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
       <div class="field"><label>Phòng học</label><input id="ad-sl-phong" value="${UI.esc(c.room || '')}" placeholder="Ví dụ: Phòng 203"></div>
+      <div class="field"><label>Lứa tuổi của nhóm</label>
+        <select id="ad-sl-lua">
+          <option value="" ${!c.luaTuoi ? 'selected' : ''}>— Chưa khai (tính theo ngày sinh từng bé) —</option>
+          <option value="nha-tre" ${c.luaTuoi === 'nha-tre' ? 'selected' : ''}>Nhà trẻ (12–36 tháng)</option>
+          <option value="mau-giao" ${c.luaTuoi === 'mau-giao' ? 'selected' : ''}>Mẫu giáo (3–6 tuổi)</option>
+        </select>
+        <div class="muted small mt-8" style="line-height:1.6">
+          Khai <b>Nhà trẻ</b> thì cô của nhóm thấy ô <b>thay bỉm</b> và <b>bú bình</b> cho
+          <b>mọi bé trong nhóm</b>, kể cả bé vừa qua 36 tháng — hỏi theo ngày sinh thì ô ấy
+          biến mất giữa năm học, ngay lúc cô đang dùng.
+          <div class="mt-8">
+            Khai <b>Mẫu giáo</b> thì mục <b>Nhật ký của bé</b> không hiện ở màn gia đình nữa.
+            Dữ liệu đã ghi <b>vẫn còn nguyên</b> — khai lại là hiện lại.
+          </div>
+          <div class="mt-8">
+            Để <b>Chưa khai</b> thì app chạy y như trước: tính theo ngày sinh của từng bé.
+          </div>
+        </div>
+      </div>
       ${this.oChonBac('ad-sl-khoi', this.bacCuaNhom(c.name, c.grade))}
       <div class="field"><label>Cô phụ trách</label>
         <select id="ad-sl-gv">
@@ -1037,6 +1056,19 @@ App.views.admin = {
         await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/teachers`, {
           teacherIds, chinhId, nhom,
         });
+        // Lứa tuổi đi bằng đường RIÊNG, không ghép vào đường trên: đường trên
+        // là đường phân công cô, và trộn hai việc vào một lượt ghi là hỏng một
+        // việc thì hỏng cả hai.
+        //
+        // CHỈ GỌI KHI NGƯỜI DÙNG THẬT SỰ ĐỔI Ô ẤY. Mỗi lượt gọi là một dòng
+        // trong Nhật ký hoạt động, và cửa sổ này còn dùng để sửa tên nhóm hay
+        // đổi phòng học — gọi mỗi lần lưu là sổ đầy dòng "Gỡ lời khai lứa
+        // tuổi" của những lần không ai đụng tới lứa tuổi, tức sổ mất tác dụng
+        // đúng lúc cần tra.
+        const oLua = document.getElementById('ad-sl-lua');
+        if (oLua && oLua.value !== (c.luaTuoi || '')) {
+          await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/lua-tuoi`, { lua: oLua.value });
+        }
         UI.toast('Đã lưu thay đổi', 'success');
         UI.closeModal();
         App.route();
@@ -1973,6 +2005,8 @@ Vẫn nhận bé này?`)) {
       'schoolyear-promote': 'Chuyển năm học',
       'truong-lien-he': 'Sửa thông tin liên hệ của trường',
       'nhan-danh-gia-sua': 'Sửa bộ chữ đánh giá dùng chung cả trường',
+      'nhom-lua-tuoi-khai': 'Khai lứa tuổi của nhóm lớp',
+      'nhom-lua-tuoi-go': 'Gỡ lời khai lứa tuổi của nhóm lớp',
       'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
       'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',
       'hoi-thoai-da-dong-mo': 'Xem lại một cuộc trò chuyện đã đóng',

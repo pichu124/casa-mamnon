@@ -158,18 +158,28 @@ mới…'
 > tuần, lịch sinh hoạt, thông báo nhà trường) hay không — đó là chuyện một nhà nhận bao
 > nhiêu tiếng chuông mỗi ngày, không phải chuyện mã.
 
-**NK-04 — ô thay bỉm cắt theo NGÀY SINH hay theo NHÓM LỚP**
+**~~NK-04 — ô thay bỉm cắt theo NGÀY SINH hay theo NHÓM LỚP~~ — ANH ĐÃ QUYẾT, ĐÃ LÀM Đ193**
 
 Trường 07/09: 'Nhật ký ngày tự động bỏ đi với các bạn không phải lớp nhà trẻ'. Mã cố ý
 quyết theo ngày sinh (< 36 tháng), không nhìn tên nhóm. Hệ quả: bé 37 tháng còn ở nhóm
 nhà trẻ mất ô; nhóm nhà trẻ toàn bé > 36 tháng thì cả màn báo 'nhóm này không có bé nhà
 trẻ'.
 
+> **Chốt 14/09 (A4) và làm xong 15/09 (Đ193):** cắt theo **NHÓM LỚP**. Nhưng không
+> phải thay luật cũ bằng luật mới — mà **xếp chồng**: nhóm trường ĐÃ KHAI thì lời khai
+> thắng; nhóm **chưa khai** thì vẫn chạy y luật ngày sinh cũ, không một bé nào đổi hành
+> vi vào ngày bảng ra đời (Nguyên tắc số 1). `lib/lua-tuoi-nhom.js` giữ đúng một câu trả
+> lời cho cả kho; bảng phụ `class_lua_tuoi` ghi cả **ai khai và khai lúc nào**.
+>
+> Ba con số ở dòng *Bằng chứng* dưới đây **đã trôi khỏi mã từ lâu** — giữ nguyên để còn
+> tra ngược, chứ đừng mở theo số dòng. Đúng chỗ hôm nay: `laNhaTre` ở
+> `modules/nhatky/routes.js` (luật cũ, giữ nguyên) và `coSoNhaTre` ngay dưới nó.
+
 *Vì sao cần anh:* Mã cố ý đi khác lời trường; mâu thuẫn quyết định GĐ1-a/N20 của anh
 
-*Bằng chứng:* modules/nhatky/routes.js:97-120 (laNhaTre, chú thích 'Quyết định theo NGÀY
-SINH, không theo tên nhóm', return thang < 36); modules/nhatky/view.js:315-325; dòng
-NK-04 '**hỏi lại anh** | Đ141'
+*Bằng chứng (số dòng của ngày 10/09, nay đã trôi):* modules/nhatky/routes.js:97-120
+(laNhaTre, chú thích 'Quyết định theo NGÀY SINH, không theo tên nhóm', return thang <
+36); modules/nhatky/view.js:315-325; dòng NK-04 '**hỏi lại anh** | Đ141'
 
 **Cambridge chỉ có hai lứa 3–4 và 4–5 — bé nhà trẻ và bé 5–6 tuổi nhận nội dung gì**
 
@@ -580,12 +590,26 @@ thông báo cho 9 loại nội dung và không có khảo sát trong đó.
 của nhà trường… cần phải có thông báo tới phụ huynh'; grep khảo sát trong lib/thong-bao-
 be.js và routes/surveys.js → không có lời gọi tbb.gui nào
 
-**NK-06 — khai nhóm nào là nhà trẻ, và ẩn ô Nhật ký ở phía PHỤ HUYNH**
+**~~NK-06 — khai nhóm nào là nhà trẻ, và ẩn ô Nhật ký ở phía PHỤ HUYNH~~ — ĐÃ LÀM Đ193**
 
 Đ141 mới ẩn ô với CÔ không có bé nhà trẻ (dieuKienHien). Còn thiếu: (1) cách khai nhóm
 nào là nhà trẻ; (2) ẩn ô trên trang chủ phụ huynh theo nhóm; và luật gộp 'nhóm nhà trẻ
 HOẶC có bé < 36 tháng' để không làm mất nhật ký của bé 20 tháng học nhóm mẫu giáo. Phụ
 thuộc quyết định NK-04.
+
+> **Làm xong 15/09 (Đ193).** (1) Chỗ khai: bảng phụ `class_lua_tuoi`, đường
+> `PUT /api/admin/classes/:id/lua-tuoi`, ô chọn ngay trong màn sửa nhóm lớp ở Quản trị.
+> (2) Ô trên trang chủ: `GET /api/nhatky/pham-vi` nay hỏi `coSoNhaTre` thay vì hỏi thẳng
+> ngày sinh, nên nó theo lời khai của nhóm ở cả phía cô lẫn phía gia đình.
+>
+> **LUẬT GỘP ĐỀ XUẤT Ở TRÊN THÌ KHÔNG LÀM, VÀ ĐÓ LÀ CHỦ Ý.** Dòng này viết ngày 10/09,
+> trước khi trường trả lời; nó đề xuất 'nhóm nhà trẻ **HOẶC** có bé < 36 tháng'. Trường
+> chốt (A4) là **theo nhóm**, tức lời khai phải THẮNG ngày sinh — làm luật gộp là cô của
+> nhóm mẫu giáo có một bé 20 tháng lại thấy đủ sổ bỉm cho cả nhóm, đúng thứ trường xin
+> bỏ. Nỗi lo đằng sau luật gộp (mất nhật ký của bé 20 tháng học nhóm mẫu giáo) được giải
+> bằng đường khác: **nhóm chưa khai thì vẫn theo ngày sinh**, và khai sai thì gỡ lời khai
+> là về nguyên trạng, không mất một số nào — có bài canh đo thẳng chuyện đó
+> (`test:nhat-ky` mục [6b]: ghi số → đổi lời khai → cô bấm Lưu → số vẫn còn).
 
 *Cỡ việc:* vừa
 
@@ -1219,15 +1243,25 @@ bị đọc ra thành xếp hạng
 — đã có bài canh Đ56, phải giữ xanh'), SK-08 'Đ138 (lịch sử cân đo, không đường chuẩn)';
 public/js/views/health.js:352-358
 
-**NK-06 / Đ141 — ô Nhật ký ẩn/hiện đúng đối tượng**
+**NK-06 / Đ141 — ô Nhật ký ẩn/hiện đúng đối tượng** *(sửa lại 15/09 sau Đ193)*
 
 Cô nhóm 3–6 không có bé nhà trẻ → không thấy ô. Cô phụ trách cả hai nhóm → vẫn thấy. Bé
 20 tháng học nhóm mẫu giáo → cô và gia đình vẫn ghi/đọc được. Phụ huynh nhóm 3–6 có thấy
-ô trên trang chủ không (phần này chưa ghi đã làm). Nhóm nhà trẻ mà toàn bé > 36 tháng →
-cả màn báo gì.
+ô trên trang chủ không. Nhóm nhà trẻ mà toàn bé > 36 tháng → cả màn báo gì.
 
-*Vì sao máy không canh được:* Luật cắt theo ngày sinh khác lời trường nói — hệ quả chỉ
-thấy khi đặt lên danh sách trẻ thật
+> **Hai chỗ của mục này đã đổi.** (a) Câu 'phần này chưa ghi đã làm' về ô trên trang chủ
+> phụ huynh **không còn đúng**: Đ193 đã làm, `GET /api/nhatky/pham-vi` đi theo lời khai
+> của nhóm cho cả cô lẫn gia đình. (b) Dòng cuối của nhóm nhà trẻ toàn bé > 36 tháng
+> **hết là tình huống xấu**: khai nhóm là nhà trẻ thì mọi bé trong nhóm đều có sổ, kể cả
+> bé đã 38 tháng — có bài canh đo bằng chính bé s11 của dữ liệu mẫu.
+>
+> **Thứ CÒN phải bấm tay** thì vẫn còn, và nay còn thêm một việc: đặt lên danh sách trẻ
+> thật, khai lứa cho từng nhóm một lượt, rồi xem có nhóm nào trường quên khai không —
+> nhóm quên khai chạy luật ngày sinh, im lặng và đúng theo thiết kế, nên chỉ người của
+> trường nhìn ra.
+
+*Vì sao máy không canh được:* Trường có khai đủ lứa cho MỌI nhóm hay không là việc của
+người, không phải của mã — hệ quả chỉ thấy khi đặt lên danh sách trẻ thật
 
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md dòng NK-06 Ghi chú 'ẩn cả phân hệ theo nhóm sẽ làm
 mất nhật ký của bé 20 tháng học nhóm mẫu giáo'; modules/nhatky/routes.js:97-120,

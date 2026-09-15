@@ -16,6 +16,7 @@
 import { thuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, GOC } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
+import Database from 'better-sqlite3';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('cambridge-khung');
@@ -163,6 +164,44 @@ console.log('\n[1b] LỨA THỨ BA 5–6, và chuỗi rỗng mang hai nghĩa ng�
   // KHÔNG dọn block 5–6 đi: phân hệ không có đường xoá block (chỉ tạo và sửa),
   // mà các mục sau đều đo BÀI chứ không đếm block, nên để lại là an toàn và
   // thật hơn — từ đây trở đi kho dữ liệu của bài canh có đủ ba lứa.
+}
+
+// ===========================================================================
+console.log('\n[1c] Ô Cambridge ẩn với gia đình nhóm nhà trẻ (Đ193, việc 12)');
+{
+  // Nhà trường chốt (A8): bỏ mục Cambridge khỏi app phụ huynh nhóm nhà trẻ.
+  //
+  // Dùng đúng cơ chế `dieuKienHien` đã có sẵn cho Nhật ký ngày — không dựng cơ
+  // chế thứ hai cho cùng một việc. CHỈ ẨN Ô, không chặn API: bài đã đăng vẫn
+  // đọc được với ai có quyền.
+  const pv = async (cookie) => (await req('GET', '/api/cambridge/pham-vi', { cookie })).data || {};
+
+  check('nhà có bé 3–4 thì ô Cambridge HIỆN', (await pv(PH_34)).hien === true);
+  check('nhà có bé 14 tháng thì ô ẨN — bé chưa vào chương trình',
+    (await pv(PH_BE)).hien === false);
+  check('CÔ luôn thấy ô — cô dạy nhiều nhóm', (await pv(GV)).hien === true);
+  check('văn phòng cũng vậy — văn phòng nhìn cả trường', (await pv(VP)).hien === true);
+
+  // LỜI KHAI CỦA NHÓM CŨNG TÍNH. Một bé 40 tháng học nhóm nhà trẻ (trường giữ
+  // lại theo thoả thuận) thì cũng chưa vào Cambridge.
+  const khai = (cid, lua) => req('PUT', `/api/admin/classes/${cid}/lua-tuoi`, { cookie: VP, body: { lua } });
+  const lop34 = ((await danhSach(PH_34)).luaTuoiCuaCon || [])[0];
+  const be34 = lop34 ? lop34.studentId : null;
+  check('đối chứng — tìm được bé lứa 3–4 của nhà ấy', !!be34, lop34);
+  const conn3 = new Database(path.join(DIR, 'school.db'));
+  const cls34 = conn3.prepare('SELECT classId FROM students WHERE id = ?').get(be34)?.classId;
+  conn3.close();
+  await khai(cls34, 'nha-tre');
+  check('KHAI NHÓM LÀ NHÀ TRẺ: ô Cambridge ẩn với nhà ấy, dù bé đã 3 tuổi',
+    (await pv(PH_34)).hien === false);
+  await khai(cls34, '');
+  check('GỠ LỜI KHAI: ô hiện lại ngay', (await pv(PH_34)).hien === true);
+
+  // Và ô ẩn KHÔNG có nghĩa là dữ liệu mất: đường đọc vẫn trả lời bình thường.
+  await khai(cls34, 'nha-tre');
+  const van = await req('GET', '/api/cambridge', { cookie: PH_34 });
+  check('ẨN Ô KHÔNG PHẢI CHẶN API — bài đã đăng vẫn đọc được', van.status === 200, van.status);
+  await khai(cls34, '');
 }
 
 // ===========================================================================

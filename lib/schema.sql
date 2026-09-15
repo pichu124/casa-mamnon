@@ -919,3 +919,26 @@ CREATE TABLE IF NOT EXISTS class_teacher_nhom (
   PRIMARY KEY (classId, teacherId)
 );
 CREATE INDEX IF NOT EXISTS idx_ctn_co ON class_teacher_nhom(teacherId, nhom);
+
+-- ===== Lứa tuổi của một NHÓM LỚP (Đ193, việc 5) =====
+--
+-- Nhà trường chốt (A4): nhật ký ngày cắt theo NHÓM LỚP, và nhóm không phải nhà
+-- trẻ thì bỏ hẳn mục Nhật ký của bé.
+--
+-- VÌ SAO KHÔNG SUY RA TỪ TÊN NHÓM. "Nhà trẻ 1" thì đoán được, nhưng trường ba
+-- cơ sở đặt tên mỗi nơi một kiểu, và sang năm học mới tên đổi. Một cái tên
+-- không phải một lời khai.
+--
+-- VÌ SAO KHÔNG SUY RA TỪ NGÀY SINH NỮA. Đó là luật cũ, và nó đúng cho câu hỏi
+-- "bé này đã 36 tháng chưa". Nhưng câu hỏi trường thật sự hỏi là "NHÓM này có
+-- phải nhóm nhà trẻ không" — một nhóm nhà trẻ vẫn có bé vừa qua 36 tháng, và
+-- cô vẫn cần ghi thay bỉm cho bé ấy. Hai câu hỏi khác nhau.
+--
+-- KHÔNG CÓ DÒNG = CHƯA KHAI, và chưa khai thì QUAY VỀ ĐÚNG LUẬT CŨ (tính theo
+-- ngày sinh). Nhờ vậy ngày bảng này ra đời, không nhóm nào đổi hành vi.
+CREATE TABLE IF NOT EXISTS class_lua_tuoi (
+  classId  TEXT PRIMARY KEY REFERENCES classes(id) ON DELETE CASCADE,
+  lua      TEXT NOT NULL DEFAULT 'nha-tre',   -- nha-tre | mau-giao
+  khaiLuc  TEXT,
+  khaiBoi  TEXT
+);

@@ -9,5 +9,6 @@
   "api": ["/api/cambridge"],
   "roles": ["parent", "teacher", "admin"],
   "defaultEnabled": true,
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "dieuKienHien": "/api/cambridge/pham-vi"
 }

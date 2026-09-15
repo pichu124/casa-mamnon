@@ -16,6 +16,8 @@
 // Nên phạm vi lọc ở TẦNG DỮ LIỆU, có một hàm duy nhất quyết định, và có bài
 // test đi đủ ba mức phạm vi nhân ba loại người đọc.
 const { requireRole } = require('../../lib/auth');
+// Lứa tuổi của nhóm lớp — nhóm nhà trẻ thì không có Cambridge (Đ193, việc 12).
+const luaNhom = require('../../lib/lua-tuoi-nhom');
 const ngay = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
 const tbb = require('../../lib/thong-bao-be');
@@ -923,6 +925,31 @@ module.exports = (app, { db }) => {
       mucTieu: chuoi(b.mucTieu !== undefined ? b.mucTieu : (cu || {}).mucTieu, TOI_DA_MUC_TIEU),
     };
   }
+
+  // Ô Cambridge có hiện với người này không (Đ193, việc 12).
+  //
+  // Nhà trường chốt (A8): bỏ mục Cambridge khỏi app phụ huynh nhóm nhà trẻ.
+  //
+  // Dùng đúng cơ chế `dieuKienHien` đã có sẵn cho Nhật ký ngày — một đường API
+  // trả `{ hien }`, trang chủ tự ẩn ô. Không dựng cơ chế thứ hai cho cùng một
+  // việc.
+  //
+  // CHỈ ẨN Ô, KHÔNG CHẶN API. Bài đã đăng vẫn đọc được với ai có quyền, để dữ
+  // liệu đã có không bao giờ thành "không đọc được" — cùng luật đã ghi ở
+  // `/api/nhatky/pham-vi`.
+  //
+  // Cô và văn phòng LUÔN thấy: cô dạy nhiều nhóm, văn phòng nhìn cả trường.
+  app.get('/api/cambridge/pham-vi', (req, res) => {
+    if (req.user.role !== 'parent') return res.json({ hien: true });
+    const ds = db.studentsOf(req.user) || [];
+    // Hiện khi có ÍT NHẤT MỘT con đã vào chương trình. Nhà có bé nhà trẻ và bé
+    // mẫu giáo thì vẫn thấy — ẩn đi là bé lớn mất mục của mình.
+    const co = ds.some((be) => {
+      if (luaNhom.khaiCua(db, be.classId) === 'nha-tre') return false;
+      return !!luaTuoiCuaBe(be.dob, homNay());
+    });
+    res.json({ hien: co });
+  });
 
   app.get('/api/cambridge/block', (req, res) => {
     const cacCon = luaTuoiCuaCon(req.user);

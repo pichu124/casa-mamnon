@@ -66,6 +66,9 @@ const HOM_NAY = homNayVN();
 // liệu mẫu. Bài này KHÔNG còn phải tự đổi ngày sinh một bé để dựng tình huống
 // nữa: từ N20, lứa nhà trẻ có thật trong dữ liệu mẫu.
 const GV_NT = (await login('giaovien4', '123456')).cookie;
+// Mẹ bé s9 (14 tháng, nhóm c4 Nhà trẻ 1) — dùng để đo ô Nhật ký ẩn/hiện ở
+// trang chủ của gia đình theo lời khai của nhóm (Đ193, việc 8).
+const PH_NT = (await login('ph.trang', '123456')).cookie;
 
 // ===========================================================================
 console.log('\n[1] Cô mở màn hình lên là thấy CẢ NHÓM, chưa ghi gì cũng thấy');
@@ -300,11 +303,16 @@ console.log('\n[6b] KHÔNG NHẬN SỐ MỚI ≠ GHI ĐÈ NULL LÊN SỐ CŨ');
   // khai nhầm là lần sau cô bấm Lưu sẽ xoá sạch số đã ghi, im lặng, mà máy chủ
   // vẫn trả về "Đã lưu". Nên chỗ này phải được vá TRƯỚC khi đổi luật.
   //
-  // NÓI THẲNG GIỚI HẠN CỦA MỤC NÀY: chừng nào luật còn cắt theo ngày sinh thì
-  // KHÔNG dựng được tình huống "bé không thuộc diện mà ô đã có số" chỉ bằng
-  // đường API — muốn có số thì bé phải thuộc diện vào đúng ngày đó. Nên phần
-  // đo hành vi đầy đủ sẽ lắp vào đây cùng đợt đổi luật theo nhóm. Hai phép
-  // kiểm dưới là phần đo được ngay, cộng hai phép soi mã chốt đúng cách vá.
+  // GIỚI HẠN CŨ CỦA MỤC NÀY ĐÃ GỠ ĐƯỢC (Đ193). Khi viết Đ178, luật còn cắt
+  // theo ngày sinh nên KHÔNG dựng được tình huống "bé không thuộc diện mà ô đã
+  // có số" chỉ bằng đường API — muốn có số thì bé phải thuộc diện vào đúng
+  // ngày đó. Mục này đã ghi thẳng giới hạn ấy và hẹn lắp phần đo còn lại vào
+  // cùng đợt đổi luật theo nhóm.
+  //
+  // Nay đổi luật xong, lời khai của nhóm lật được bằng một lượt gọi API, nên
+  // dựng được đúng tình huống nguy hiểm thật: ghi số cho bé khi nhóm còn là
+  // nhà trẻ, đổi lời khai sang mẫu giáo, rồi cô bấm Lưu một lần nữa. Phần đo
+  // ấy nằm ở cuối mục này.
   const maDay = fs.readFileSync(path.join(GOC, 'modules/nhatky/routes.js'), 'utf8');
   // Soi MÃ, không soi chú thích: khối chú thích ngay trên bản vá cố ý CHÉP LẠI
   // dòng sai cũ để người sau hiểu vì sao phải vá. Soi cả chú thích là bài canh
@@ -349,6 +357,71 @@ console.log('\n[6b] KHÔNG NHẬN SỐ MỚI ≠ GHI ĐÈ NULL LÊN SỐ CŨ');
     .data.danhSach.find(b => b.studentId === 's11');
   check('nhưng số đó KHÔNG được ghi vào hồ sơ của bé',
     beLon?.bimSoLan === null || beLon?.bimSoLan === undefined, beLon?.bimSoLan);
+
+  // ===== PHẦN ĐO ĐÃ HẸN Ở ĐẦU MỤC: ĐÚNG TÌNH HUỐNG NGUY HIỂM THẬT =====
+  //
+  // Ba bài trên đo bé KHÔNG thuộc diện thì ô không NHẬN số mới. Đó là nửa dễ.
+  // Nửa khó — và là nửa làm mất dữ liệu — là bé ĐÃ CÓ số rồi mới rơi ra khỏi
+  // diện. Luật cũ cắt theo ngày sinh thì không ai dựng được cảnh ấy qua đường
+  // API: muốn có số thì bé phải thuộc diện vào đúng ngày đó, mà ngày sinh thì
+  // không đổi được. Nay lời khai của nhóm lật được bằng một lượt gọi, nên dựng
+  // được đủ ba nhịp: GHI SỐ → ĐỔI LỜI KHAI → CÔ BẤM LƯU LẦN NỮA.
+  //
+  // Đây chính là cảnh mà bản vá Đ178 viết ra để chặn nhưng chưa đo được.
+  const khaiC4 = (lua) => req('PUT', '/api/admin/classes/c4/lua-tuoi', { cookie: C1, body: { lua } });
+  const s9Cua = async () => (await req('GET', `/api/nhatky?classId=c4&ngay=${NG}`, { cookie: GV_NT }))
+    .data.danhSach.find(b => b.studentId === 's9');
+
+  const truocKhai = await s9Cua();
+  check('đối chứng — trước khi đổi lời khai, bé 14 tháng đang có đủ số',
+    truocKhai?.bimSoLan === 3 && truocKhai?.buBinhMl === 120,
+    `${truocKhai?.bimSoLan} / ${truocKhai?.buBinhMl}`);
+
+  const doiKhai = await khaiC4('mau-giao');
+  check('ban giám hiệu khai nhóm c4 là mẫu giáo (một cú bấm, cho CẢ NHÓM)',
+    doiKhai.status === 200, doiKhai.status);
+  const raDien = await s9Cua();
+  check('bé rơi ra khỏi diện nhà trẻ ngay — cờ đã theo lời khai',
+    raDien?.laNhaTre === false, raDien?.laNhaTre);
+  check('NHƯNG SỐ CŨ VẪN CÒN NGUYÊN khi chỉ đọc lên',
+    raDien?.bimSoLan === 3 && raDien?.buBinhMl === 120,
+    `${raDien?.bimSoLan} / ${raDien?.buBinhMl}`);
+
+  // Nhịp thứ ba — cô bấm Lưu. Màn hình gửi lên MỌI ô của MỌI bé đang có trên
+  // màn, đúng như màn thật vẫn làm. Trước bản vá, ba khoá bị gán null rồi chảy
+  // thẳng xuống câu UPDATE.
+  const luuLai = await req('PUT', '/api/nhatky', {
+    cookie: GV_NT,
+    body: { ngay: NG, danhSach: [{ studentId: 's9', anSang: 'gan-het', ghiChu: 'cô ghi thêm một dòng' }] },
+  });
+  check('cô bấm Lưu lần nữa thì lượt ghi vẫn nhận', luuLai.status === 200, luuLai.status);
+  const sauLuu = await s9Cua();
+  check('ĐỔI LỜI KHAI RỒI CÔ BẤM LƯU: SỐ THAY BỈM VÀ BÚ BÌNH VẪN CÒN NGUYÊN',
+    sauLuu?.bimSoLan === 3 && sauLuu?.buBinhSoLan === 2 && sauLuu?.buBinhMl === 120,
+    `${sauLuu?.bimSoLan} / ${sauLuu?.buBinhSoLan} / ${sauLuu?.buBinhMl}`);
+  check('và phần cô vừa ghi thì đã lưu — không phải chặn cả lượt để giữ số cũ',
+    sauLuu?.anSang === 'gan-het', sauLuu?.anSang);
+
+  // Và đường vòng thứ hai: gửi ĐÍCH DANH ba ô đó bằng `truong`.
+  await req('PUT', '/api/nhatky', {
+    cookie: GV_NT,
+    body: { ngay: NG, truong: ['bimSoLan', 'buBinhMl'], danhSach: [{ studentId: 's9', bimSoLan: '', buBinhMl: '' }] },
+  });
+  const sauCot = await s9Cua();
+  check('GỬI ĐÍCH DANH BA Ô ẤY CŨNG KHÔNG XOÁ ĐƯỢC — bộ lọc cột bịt đường vòng',
+    sauCot?.bimSoLan === 3 && sauCot?.buBinhMl === 120,
+    `${sauCot?.bimSoLan} / ${sauCot?.buBinhMl}`);
+
+  // KHAI LẠI LÀ THẤY LẠI ĐỦ SỐ. Đây mới là lý do phải giữ dữ liệu: trường khai
+  // nhầm một nhóm rồi sửa lại thì mọi thứ về y như cũ, không mất gì.
+  await khaiC4('nha-tre');
+  const veDien = await s9Cua();
+  check('KHAI LẠI NHÀ TRẺ: bé về đúng diện và số cũ hiện lại đủ',
+    veDien?.laNhaTre === true && veDien?.bimSoLan === 3 && veDien?.buBinhMl === 120,
+    `${veDien?.laNhaTre} / ${veDien?.bimSoLan} / ${veDien?.buBinhMl}`);
+  // Trả nhóm c4 về đúng trạng thái đầu mục (chưa khai) để các mục sau không
+  // phải đoán xem ai đã khai gì.
+  await khaiC4('');
 }
 
 // ===========================================================================
@@ -791,6 +864,83 @@ console.log('\n[14] THỰC ĐƠN TRONG NHẬT KÝ PHẢI LÀ BẾP CỦA CHÍNH 
   check('và KHÔNG require sang routes/menu.js', !/require\([^)]*routes\/menu/.test(maPh));
   check('cơ sở suy từ NHÓM BÉ, không nhận từ tham số người gửi lên',
     /campusOfClass\(/.test(maPh) && !/query\.campusId/.test(maPh));
+}
+
+// ===========================================================================
+console.log('\n[+] LỜI KHAI CỦA NHÓM THẮNG NGÀY SINH (Đ193, việc 5–8)');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Nhà trường chốt (A4) nhật ký cắt theo NHÓM LỚP thay vì theo ngày sinh.
+  // Hai câu hỏi ấy KHÁC NHAU: "bé này đã 36 tháng chưa" và "NHÓM này có phải
+  // nhóm nhà trẻ không". Một nhóm nhà trẻ vẫn có bé vừa qua 36 tháng, và cô
+  // vẫn cần ghi thay bỉm cho bé ấy — hỏi theo ngày sinh là ô biến mất giữa
+  // năm học, ngay lúc cô đang dùng.
+  //
+  // CHIỀU QUAN TRỌNG NHẤT ĐỨNG TRƯỚC: CHƯA KHAI THÌ KHÔNG ĐỔI GÌ CẢ.
+  const khai = (classId, lua) => req('PUT', `/api/admin/classes/${classId}/lua-tuoi`, {
+    cookie: C1, body: { lua },
+  });
+  const beCua = async (classId, sid) => {
+    const r = await req('GET', `/api/nhatky?classId=${classId}`, { cookie: C1 });
+    return ((r.data || {}).danhSach || []).find(b => b.studentId === sid);
+  };
+
+  // s11 ở nhóm c4 (Nhà trẻ 1) và đã 38 tháng — tức QUÁ mốc 36 tháng. Đây đúng
+  // là bé mà luật cũ bỏ sót và trường muốn giữ lại.
+  const truoc = await beCua('c4', 's11');
+  check('đối chứng — tìm được bé 38 tháng trong nhóm nhà trẻ', !!truoc, truoc);
+  check('CHƯA KHAI: bé 38 tháng KHÔNG có sổ nhà trẻ — đúng luật cũ',
+    truoc?.laNhaTre === false, truoc?.laNhaTre);
+
+  const r1 = await khai('c4', 'nha-tre');
+  check('ban giám hiệu khai được nhóm là nhà trẻ', r1.status === 200 && r1.data?.lua === 'nha-tre', r1.data);
+  const sau = await beCua('c4', 's11');
+  check('KHAI RỒI: bé 38 tháng CÓ sổ nhà trẻ — lời khai thắng ngày sinh',
+    sau?.laNhaTre === true, sau?.laNhaTre);
+
+  // Và chiều ngược lại: khai mẫu giáo thì bé 14 tháng cũng thôi sổ nhà trẻ.
+  await khai('c4', 'mau-giao');
+  const be14 = await beCua('c4', 's9');
+  check('KHAI MẪU GIÁO: bé 14 tháng cũng thôi sổ nhà trẻ — nhóm quyết định',
+    be14?.laNhaTre === false, be14?.laNhaTre);
+
+  // GỠ LỜI KHAI THÌ VỀ ĐÚNG LUẬT CŨ. Thiếu đường lùi này thì một lần bấm nhầm
+  // là không có cách nào quay lại mà không sửa thẳng cơ sở dữ liệu.
+  const go = await khai('c4', '');
+  check('gỡ được lời khai', go.status === 200 && go.data?.lua === null, go.data);
+  const veCu = await beCua('c4', 's9');
+  check('GỠ RỒI: bé 14 tháng có sổ nhà trẻ trở lại, y như trước',
+    veCu?.laNhaTre === true, veCu?.laNhaTre);
+
+  const la = await khai('c4', 'tieu-hoc');
+  check('lứa lạ thì từ chối, nói bằng tiếng của trường',
+    la.status === 400 && /nhà trẻ|mẫu giáo/.test(la.data?.error || ''), la.data);
+  check('cô KHÔNG khai được lứa của nhóm',
+    (await req('PUT', '/api/admin/classes/c4/lua-tuoi', { cookie: GV_NT, body: { lua: 'nha-tre' } })).status === 403);
+  check('gia đình lại càng không',
+    (await req('PUT', '/api/admin/classes/c4/lua-tuoi', { cookie: PH, body: { lua: 'nha-tre' } })).status === 403);
+
+  // Ô Ở TRANG CHỦ ĐI THEO CÙNG MỘT CÂU TRẢ LỜI (việc 8). Không thì cô thấy ô
+  // mà mở ra không có gì, hoặc không thấy ô mà dữ liệu vẫn đang ghi.
+  await khai('c4', 'mau-giao');
+  const pvSau = await req('GET', '/api/nhatky/pham-vi', { cookie: PH_NT });
+  check('KHAI MẪU GIÁO: ô Nhật ký ẩn khỏi trang chủ của gia đình nhóm ấy',
+    pvSau.data?.hien === false, pvSau.data);
+  await khai('c4', 'nha-tre');
+  const pvLai = await req('GET', '/api/nhatky/pham-vi', { cookie: PH_NT });
+  check('KHAI NHÀ TRẺ: ô hiện lại ngay, không cần ai bấm gì',
+    pvLai.data?.hien === true, pvLai.data);
+  check('văn phòng thì LUÔN thấy ô — văn phòng nhìn cả trường',
+    (await req('GET', '/api/nhatky/pham-vi', { cookie: C1 })).data?.hien === true);
+
+  // DỮ LIỆU ĐÃ GHI KHÔNG BAO GIỜ MẤT KHI ĐỔI LỜI KHAI. Đây là Nguyên tắc số 1:
+  // tắt một mục là ngưng dùng nó, không phải xoá dữ liệu của nó.
+  await khai('c4', 'mau-giao');
+  const van = await req('GET', '/api/nhatky?classId=c4', { cookie: C1 });
+  check('ĐỔI LỜI KHAI KHÔNG LÀM MẤT DỮ LIỆU — đường nhật ký vẫn mở bình thường',
+    van.status === 200 && Array.isArray((van.data || {}).danhSach), van.status);
+  await khai('c4', '');
 }
 
 sv.dung();
