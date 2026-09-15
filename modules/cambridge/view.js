@@ -48,6 +48,7 @@ App.views.cambridge = {
       </div>
 
       ${d.duocDang ? `<button class="btn primary block mb-8" id="cam-them">${UI.icon('plus', 18)} Soạn bài mới</button>` : ''}
+      ${this.laVanPhong() ? `<button class="btn outline block mb-8" id="cam-lua">${UI.icon('report', 16)} Xem theo từng lứa</button>` : ''}
       ${this.khoiBlock(d)}
 
       ${(d.bai || []).length
@@ -63,6 +64,8 @@ App.views.cambridge = {
     for (const b of document.getElementById('cam-loc').querySelectorAll('button')) {
       b.onclick = () => { this._loai = b.dataset.loai; App.route(); };
     }
+    const oLua = document.getElementById('cam-lua');
+    if (oLua) oLua.onclick = () => this.moTheoLua();
     const them = document.getElementById('cam-them');
     if (them) them.onclick = () => this.moSoan(null);
     const nutBlock = document.getElementById('cam-block-quan-ly');
@@ -87,6 +90,62 @@ App.views.cambridge = {
   // Gia đình chỉ nhận block đúng lứa của con (máy chủ đã lọc); cô và văn phòng
   // nhận đủ. Mục tiêu của block là thứ trường muốn gia đình đọc TRƯỚC khi đọc
   // từng tuần, nên nó đứng trên danh sách bài.
+  // MÀN "XEM THEO TỪNG LỨA" CHO VĂN PHÒNG (Đ206, việc 13).
+  //
+  // Câu văn phòng cần trả lời: *"lứa 5–6 năm nay có mấy bé, và đã có bài nào
+  // cho lứa ấy chưa"*. Trước đợt này phải mở từng bài ra đếm bằng mắt.
+  //
+  // MÀN NÀY LÀ BẢN KIỂM KÊ CHƯƠNG TRÌNH, KHÔNG PHẢI BẢN ĐÁNH GIÁ TRẺ — và đây
+  // là chỗ dễ trượt nhất, vì màn đã có sẵn cả danh sách bé lẫn số bài: ghép
+  // hai thứ lại thành "bé này học được mấy bài" là ra đúng cái bảng QUY TẮC 4
+  // cấm. Nên tuyệt đối không có ô nào đặt một bé cạnh một con số của riêng bé
+  // ấy; con số duy nhất cạnh tên bé là… không có con số nào.
+  async moTheoLua() {
+    let d = null;
+    try { d = await API.get('/api/cambridge/theo-lua'); }
+    catch (err) { UI.toast(err.message, 'error'); return; }
+
+    UI.modal(`
+      ${(d.lua || []).map(l => `
+        <div class="card">
+          <div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <div class="card-title">${UI.esc(l.ten)}</div>
+            <div class="muted small">${UI.esc(String(l.soBe))} bé</div>
+          </div>
+          <div class="row-sub">${l.soBai
+            ? `${UI.esc(String(l.soBai))} bài đã đăng riêng cho lứa này`
+            : 'Chưa có bài nào đăng riêng cho lứa này'}</div>
+          ${l.danhSachBe.length ? `
+            <div class="muted small mt-8" style="line-height:1.7">
+              ${l.danhSachBe.map(b => UI.esc(`${b.hoTen} · ${b.tenNhom}`)).join(' — ')}
+            </div>` : '<div class="muted small mt-8">Chưa có bé nào ở lứa này.</div>'}
+        </div>`).join('')}
+
+      ${d.baiMoiLua ? `
+        <div class="card">
+          <div class="row-title">${UI.esc(String(d.baiMoiLua))} bài đăng cho MỌI lứa</div>
+          <div class="row-sub">Bài loại này hiện với cả ba lứa, nên không cộng vào con số của lứa nào.</div>
+        </div>` : ''}
+
+      ${(d.ngoaiChuongTrinh || []).length ? `
+        <div class="card">
+          <div class="card-title">Bé ngoài chương trình Cambridge</div>
+          <div class="muted small" style="line-height:1.7">
+            ${d.ngoaiChuongTrinh.map(b => UI.esc(`${b.hoTen} · ${b.tenNhom} (${b.viSao})`)).join(' — ')}
+          </div>
+          <div class="muted small mt-8">
+            Đây là <b>trạng thái đúng</b> của các bé ấy: lứa tuổi của các con nằm ngoài chương trình,
+            hoặc nhóm đã khai là nhà trẻ. Mục Cambridge cũng không hiện trên app của gia đình các bé này.
+          </div>
+        </div>` : ''}
+
+      <div class="muted small" style="line-height:1.7">
+        Bảng này kiểm kê <b>tài liệu của trường</b> theo lứa, để văn phòng biết lứa nào còn mỏng.
+        Nó <b>không</b> nói bé nào học tới đâu.
+      </div>
+    `, 'Cambridge theo từng lứa');
+  },
+
   khoiBlock(d) {
     const blocks = d.blocks || [];
     const con = d.luaTuoiCuaCon || [];

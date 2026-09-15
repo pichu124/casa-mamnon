@@ -951,6 +951,93 @@ module.exports = (app, { db }) => {
     res.json({ hien: co });
   });
 
+  // =========================================================================
+  // MÀN CỦA VĂN PHÒNG: NHÌN CHƯƠNG TRÌNH THEO TỪNG LỨA (Đ206, việc 13)
+  // =========================================================================
+  //
+  // Mã đã tách đủ ba lứa từ Đ187, nhưng văn phòng chưa có chỗ nào nhìn theo
+  // lứa. Câu họ cần trả lời rất cụ thể: *"lứa 5–6 năm nay có mấy bé, và đã có
+  // bài nào cho lứa ấy chưa"* — hôm nay phải mở từng bài ra đếm bằng mắt.
+  //
+  // ĐÂY LÀ BẢN KIỂM KÊ CHƯƠNG TRÌNH, KHÔNG PHẢI BẢN ĐÁNH GIÁ TRẺ. Ranh giới
+  // ấy quyết định mọi thứ màn này được phép trả về:
+  //
+  //   • ĐẾM BÉ THEO LỨA thì được — đó là nhóm theo tuổi, cùng loại với danh
+  //     sách nhóm lớp. Không phải một cách đặt bé trên dưới nhau.
+  //   • ĐẾM BÀI THEO LỨA thì được — đó là kiểm kê tài liệu CỦA TRƯỜNG.
+  //   • TUYỆT ĐỐI KHÔNG đếm "bé này đã học mấy bài", không phần trăm, không
+  //     thanh tiến độ, không xếp bé nào trước bé nào. QUY TẮC 4, và ở màn này
+  //     nó đặc biệt dễ trượt vì đã có sẵn cả danh sách bé lẫn danh sách bài —
+  //     ghép hai thứ lại là ra đúng cái bảng bị cấm.
+  //   • Và lứa CHƯA CÓ BÀI NÀO không được trình bày như một khoảng trống cần
+  //     lấp: máy chỉ nói con số, màn hình nói "chưa có bài nào cho lứa này".
+  app.get('/api/cambridge/theo-lua', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuKhongPhaiVanPhong(req, res)) return;
+
+    // Chỉ nhóm trong phạm vi của người hỏi — quản lý cơ sở 1 không đếm bé của
+    // cơ sở 2. `db.classIdsOf` đã lo tầng cơ sở (bài học Đ202).
+    const nhom = db.classIdsOf(req.user)
+      .map(id => db.findClass(id))
+      .filter(c => c && c.active !== false && c.active !== 0);
+
+    const theoLua = new Map(LUA_TUOI.filter(Boolean).map(ma => [ma, []]));
+    const ngoaiChuongTrinh = [];
+    for (const lop of nhom) {
+      // NHÓM ĐÃ KHAI LÀ NHÀ TRẺ THÌ ĐỨNG NGOÀI, kể cả khi có bé đủ 36 tháng
+      // (Đ193): lời khai của trường thắng ngày sinh của từng bé.
+      const laNhaTre = luaNhom.khaiCua(db, lop.id) === 'nha-tre';
+      for (const be of db.all('students',
+        'SELECT id, name, dob FROM students WHERE classId = ? AND active = 1 ORDER BY name COLLATE NOCASE',
+        [lop.id])) {
+        const lua = laNhaTre ? '' : luaTuoiCuaBe(be.dob, homNay());
+        const dong = { studentId: be.id, hoTen: be.name, tenNhom: lop.name };
+        if (lua && theoLua.has(lua)) theoLua.get(lua).push(dong);
+        else ngoaiChuongTrinh.push({ ...dong, viSao: laNhaTre ? 'nhóm nhà trẻ' : 'chưa tới tuổi' });
+      }
+    }
+
+    // Kiểm kê BÀI theo lứa. Bài khai "mọi lứa" đếm riêng chứ không cộng vào
+    // từng lứa — cộng vào là con số của mỗi lứa trông đầy hơn thực tế, và văn
+    // phòng tưởng lứa ấy đã đủ tài liệu.
+    //
+    // LỨA NẰM Ở BẢNG KHUNG, KHÔNG Ở BẢNG BÀI. `cambridge_bai` giữ tiêu đề và
+    // nội dung; `cambridge_bai_khung` giữ phần Block/Week/lứa của khuôn trường
+    // gửi (Đ143). Bản đầu của đường này hỏi `cambridge_bai.luaTuoi` và nhận
+    // "no such column" — bài canh bắt ngay ở lượt chạy đầu tiên.
+    //
+    // Bài KHÔNG có dòng khung thì coi như "mọi lứa": đó đúng là cách
+    // `blockHopLua` đang đọc nó ở đường liệt kê, nên hai chỗ nói cùng một
+    // chuyện.
+    const demBai = new Map(LUA_TUOI.filter(Boolean).map(ma => [ma, 0]));
+    let baiMoiLua = 0;
+    {
+      const khung = new Map(db.all('cambridge_bai_khung', 'SELECT baiId, luaTuoi FROM cambridge_bai_khung')
+        .map(k => [k.baiId, k.luaTuoi || '']));
+      for (const x of db.all('cambridge_bai', 'SELECT id FROM cambridge_bai')) {
+        const l = khung.get(x.id) || '';
+        if (!l) baiMoiLua += 1;
+        else if (demBai.has(l)) demBai.set(l, demBai.get(l) + 1);
+      }
+    }
+
+    res.json({
+      baiMoiLua,
+      lua: LUA_TUOI.filter(Boolean).map(ma => ({
+        ma,
+        ten: TEN_LUA_TUOI[ma],
+        soBe: theoLua.get(ma).length,
+        danhSachBe: theoLua.get(ma),
+        soBai: demBai.get(ma),
+      })),
+      // Bé ngoài chương trình: nói ra để văn phòng không tưởng app bỏ quên
+      // bé, và nói kèm LÝ DO. Đây là trạng thái ĐÚNG của các bé ấy — bé 20
+      // tháng không ở trong chương trình tiếng Anh là chuyện bình thường, và
+      // màn hình không được trình bày nó như một việc còn dở.
+      ngoaiChuongTrinh,
+      soNhom: nhom.length,
+    });
+  });
+
   app.get('/api/cambridge/block', (req, res) => {
     const cacCon = luaTuoiCuaCon(req.user);
     res.json({ blocks: danhSachBlock().filter(b => blockHopLua(b, cacCon)), luaTuoi: LUA_TUOI.map(ma => ({ ma, ten: TEN_LUA_TUOI[ma] })) });
