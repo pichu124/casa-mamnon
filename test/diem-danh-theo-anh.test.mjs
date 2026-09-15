@@ -199,10 +199,23 @@ try {
   console.log('\n[5] Màn hình: ảnh là nút chính, bốn nút tích rút vào "Sửa", chữ xám cho việc chưa làm');
   {
     const v = fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8');
-    const dong = (v.match(/  rosterRow\(\{ student: s, record, donNghiDaDuyet, anhDenLop \}\) \{[\s\S]*?\n  \},/) || [''])[0];
+    // Đ207 thêm `luuY` vào dòng bé (ô lưu ý nội bộ, việc 4), nên chữ ký dài
+    // thêm một tham số. Bản cũ ghim đúng bốn tên và đỏ ngay — đúng như một
+    // phép dò theo hình dạng mã phải làm. Nay ghim NĂM tên, vẫn theo thứ tự,
+    // chứ không nới thành `[^)]*`: nới ra là phép dò này thôi canh được việc
+    // ai đó lặng lẽ bỏ một tham số đi.
+    const dong = (v.match(/  rosterRow\(\{ student: s, record, donNghiDaDuyet, anhDenLop, luuY \}\) \{[\s\S]*?\n  \},/) || [''])[0];
     check('đối chứng — tìm được dòng bé', dong.length > 400, dong.length);
     check('dòng bé KHÔNG còn vẽ bốn nút tích từ STATUS_KEYS', !/STATUS_KEYS\.map/.test(dong), 'còn STATUS_KEYS.map');
     check('có nút "Chụp ảnh con tới lớp" và nút "Sửa"', /Chụp ảnh con tới lớp/.test(dong) && />Sửa</.test(dong));
+    // Đ207: ô lưu ý nội bộ có mặt trên dòng bé, VÀ nhãn của nó nói thẳng gia
+    // đình không đọc — ngay bên trên đã có một ô mang nhãn "gia đình đọc
+    // được", nên nhãn là thứ DUY NHẤT phân biệt hai ô chữ trông giống hệt nhau.
+    check('dòng bé có nút mở ô lưu ý nội bộ (Đ207)', /moLuuY\('/.test(dong), 'không thấy nút lưu ý');
+    check('và ô lưu ý luôn nói rõ GIA ĐÌNH KHÔNG ĐỌC ô này',
+      /gia đình KHÔNG đọc ô này/i.test(v), 'nhãn không nói rõ');
+    check('ô ghi chú cũ VẪN mang nhãn "gia đình đọc được" — hai ô, hai nhãn',
+      /Ghi chú \(gia đình đọc được\)/.test(v), 'mất nhãn ô cũ');
     check('bé chưa có dòng → huy hiệu XÁM "Chưa có ảnh đến lớp", không đỏ',
       /badge gray">Chưa có ảnh đến lớp/.test(v) && !/badge red">Chưa/.test(v));
     check('hộp Sửa không còn mời chọn "Đến muộn"', /suaDiemDanh\(studentId\)[\s\S]*?const lua = \[\['present'[^\n]*\]\];/.test(v) && !/\['late',/.test(v));

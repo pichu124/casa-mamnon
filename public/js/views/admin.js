@@ -2081,6 +2081,8 @@ Vẫn nhận bé này?`)) {
       'hanhtrinh-chu-de-chep': 'Chép chủ đề hành trình',
       'health-tai-mau-can-do': 'Tải mẫu cân đo của nhóm',
       'health-nap-can-do': 'Nạp cân đo cả nhóm bằng tệp',
+      'diem-danh-luu-y': 'Ghi lưu ý nội bộ cho một ngày của bé',
+      'diem-danh-luu-y-go': 'Gỡ lưu ý nội bộ của một ngày',
       'hanhtrinh-chu-de-tep-them': 'Treo tệp kế hoạch tuần',
       'hanhtrinh-chu-de-tep-xoa': 'Gỡ tệp kế hoạch tuần',
       'hanhtrinh-anh-ve-album': 'Đưa ảnh hành trình về album',

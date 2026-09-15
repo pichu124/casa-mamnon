@@ -90,6 +90,35 @@ function chanNgoaiNgay(res, ngayGhi, viec) {
   return true;
 }
 
+// ===========================================================================
+// Ô LƯU Ý CỦA TRƯỜNG — CHỈ TRƯỜNG ĐỌC (Đ207, việc 4)
+// ===========================================================================
+//
+// Nhà trường: "ô Lưu ý chỉ cơ sở xem, không gửi tới phụ huynh".
+//
+// Ô "Ghi chú (gia đình đọc được)" đang có KHÔNG đổi công dụng — xem chú thích
+// dài ở `lib/schema.sql`. Đây là ô THỨ HAI, nằm ở bảng riêng.
+//
+// CHỖ AN TOÀN Ở ĐÂY DO HÌNH DẠNG DỮ LIỆU GIỮ, KHÔNG DO TRÍ NHỚ NGƯỜI VIẾT MÃ.
+// `GET /api/attendance` — đường gia đình đọc lịch điểm danh của con — chạy
+// `SELECT * FROM attendance`. Nếu ô này là một cột của bảng ấy thì nó lọt ra
+// ngay ngày đầu, không cần ai viết sai một dòng nào. Ở bảng riêng thì muốn lộ
+// phải có người cố ý viết một câu JOIN mới, và bài canh đọc thẳng đường của
+// gia đình để bắt đúng lúc đó.
+const TOI_DA_LUU_Y = 1000;
+
+// Ô này không đi ra ngoài phạm vi trường nên trả đủ "ai ghi, lúc nào" — chính
+// hai thứ ấy là cái giá của việc cho ghi ngoài ngày.
+function luuYRaNgoai(x) {
+  if (!x || !x.luuY) return null;
+  const u = x.nguoiGhi ? db.findUser(x.nguoiGhi) : null;
+  return {
+    luuY: x.luuY,
+    nguoiGhi: u ? `${u.title || ''} ${u.name}`.trim() : '',
+    capNhatLuc: x.capNhatLuc || '',
+  };
+}
+
 // Ảnh điểm danh: nhỏ hơn ảnh album nhiều. Đây là một khung hình "con đã tới
 // lớp", không phải ảnh để phóng to xem.
 const TOI_DA_ANH_BYTE = 900 * 1024;
@@ -256,6 +285,19 @@ module.exports = (app) => {
         donNghi.set(d.studentId, { id: d.id, fromDate: d.fromDate, toDate: d.toDate, reason: d.reason });
       }
     }
+    // Ô LƯU Ý NỘI BỘ của đúng ngày đang xem (Đ207), lấy một lượt cho cả nhóm.
+    // Đường này chỉ vai teacher/admin vào được — xem chú thích ở khối lưu ý
+    // bên dưới về việc vì sao nó KHÔNG có mặt ở đường của gia đình.
+    const luuY = new Map();
+    if (ids.length) {
+      const marks = ids.map(() => '?').join(',');
+      for (const x of db.all('attendance_luu_y',
+        `SELECT studentId, luuY, nguoiGhi, capNhatLuc FROM attendance_luu_y
+          WHERE ngay = ? AND studentId IN (${marks})`, [date, ...ids])) {
+        if (x.luuY) luuY.set(x.studentId, x);
+      }
+    }
+
     // Ảnh điểm danh của đúng ngày đang xem, lấy một lượt cho cả nhóm.
     const anh = new Map();
     if (ids.length) {
@@ -308,8 +350,73 @@ module.exports = (app) => {
         record: byStudent.get(s.id) || null,
         donNghiDaDuyet: donNghi.get(s.id) || null,
         anhDenLop: anh.get(s.id) || null,
+        luuY: luuYRaNgoai(luuY.get(s.id)),
       })),
     });
+  });
+
+  // ---- Ô lưu ý nội bộ: đọc và ghi. Xem khối chú thích Đ207 ở đầu tệp. ----
+  //
+  // KHÔNG KHOÁ NGOÀI NGÀY, khác hẳn sổ điểm danh ngay bên cạnh — và đó là cả
+  // lý do ô này tồn tại. Sổ điểm danh khoá vì nó là chứng từ bé có mặt hay
+  // không; ô này là chỗ trường ghi thứ BIẾT ĐƯỢC SAU, thường vài hôm sau khi
+  // gia đình gọi lại. Khoá theo ngày là bịt đúng lúc nó cần dùng.
+  //
+  // Bù lại: ghi rõ ai viết, lúc nào, và có vết trong Nhật ký thao tác. Và ô
+  // này KHÔNG chạm `status` / `checkIn` / `checkOut` — nó không phải lối vòng
+  // để sửa một ngày điểm danh đã khoá.
+  app.put('/api/attendance/luu-y', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const studentId = String(b.studentId || '').trim();
+    const ngay = String(b.ngay || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay)) {
+      return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
+    }
+    if (ngay > todayStr()) return res.status(400).json({ error: 'Chưa ghi lưu ý cho ngày chưa tới được' });
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
+    }
+    const luuY = String(b.luuY == null ? '' : b.luuY).trim().slice(0, TOI_DA_LUU_Y);
+
+    // XOÁ Ô CHỨ KHÔNG XOÁ NGÀY: gõ rỗng nghĩa là "bỏ lưu ý này đi", và lúc ấy
+    // bỏ hẳn dòng là đúng — một dòng rỗng ở lại thì màn hình của cô hiện một ô
+    // trống trông như đang có gì đó chưa đọc.
+    if (!luuY) {
+      db.run('DELETE FROM attendance_luu_y WHERE studentId = ? AND ngay = ?', [studentId, ngay]);
+      db.audit(req.user.id, 'diem-danh-luu-y-go', studentId, { ngay });
+      return res.json({ ok: true, luuY: null });
+    }
+
+    db.upsert('attendance_luu_y', {
+      studentId, ngay, luuY,
+      nguoiGhi: req.user.id,
+      capNhatLuc: new Date().toISOString(),
+    }, ['studentId', 'ngay']);
+    // Nhật ký CỐ Ý không chép nội dung ô lưu ý vào đây: màn Nhật ký thao tác
+    // mở rộng hơn nhóm người được đọc ô này. Ghi lại việc đã xảy ra là đủ.
+    db.audit(req.user.id, 'diem-danh-luu-y', studentId, { ngay, soKyTu: luuY.length });
+    const x = db.first('attendance_luu_y',
+      'SELECT studentId, luuY, nguoiGhi, capNhatLuc FROM attendance_luu_y WHERE studentId = ? AND ngay = ?',
+      [studentId, ngay]);
+    res.json({ ok: true, luuY: luuYRaNgoai(x) });
+  });
+
+  // Cả tháng của MỘT bé — để văn phòng đọc lại khi gia đình gọi lên hỏi.
+  app.get('/api/attendance/luu-y', requireRole('teacher', 'admin'), (req, res) => {
+    const studentId = String(req.query.studentId || '').trim();
+    const thang = String(req.query.thang || currentMonth());
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!/^\d{4}-\d{2}$/.test(thang)) {
+      return res.status(400).json({ error: 'Tháng không hợp lệ (định dạng YYYY-MM)' });
+    }
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem bé này' });
+    }
+    const ds = db.all('attendance_luu_y',
+      `SELECT studentId, ngay, luuY, nguoiGhi, capNhatLuc FROM attendance_luu_y
+        WHERE studentId = ? AND ngay LIKE ? ORDER BY ngay DESC`, [studentId, `${thang}-%`]);
+    res.json(ds.map(x => ({ ngay: x.ngay, ...luuYRaNgoai(x) })).filter(x => x.luuY));
   });
 
   // Giáo viên điểm danh một học sinh: ghi đè bản ghi của đúng ngày đó.

@@ -1020,3 +1020,48 @@ CREATE TABLE IF NOT EXISTS health_ghi_luc (
   ngayGhi  TEXT NOT NULL DEFAULT '', -- YYYY-MM-DD theo GIỜ VIỆT NAM — cột đem ra so
   nguoiGhi TEXT
 );
+
+-- ===========================================================================
+-- Ô LƯU Ý CỦA TRƯỜNG VỀ MỘT NGÀY CỦA BÉ (Đ207, việc 4)
+-- ===========================================================================
+--
+-- Nhà trường: *"ô Lưu ý chỉ cơ sở xem, không gửi tới phụ huynh"*.
+--
+-- VÌ SAO KHÔNG DÙNG LẠI CỘT `attendance.note` ĐANG CÓ. Ô ấy đang mang nhãn
+-- "Ghi chú (gia đình đọc được)" ngay trên màn hình của cô, và cô đã gõ vào đó
+-- những câu viết CHO gia đình đọc ("bà đưa tới lúc 9 giờ"). Đổi công dụng của
+-- nó thành nội bộ là hai cái sai cùng lúc: những câu cô viết cho gia đình bỗng
+-- biến mất khỏi màn của gia đình, và ô ấy từ nay nhận những câu KHÔNG dành cho
+-- gia đình trong khi mọi bản ghi cũ trong đó thì có. Không một dòng dữ liệu nào
+-- tự khai nó thuộc đời nào. Nên: THÊM Ô MỚI, giữ nguyên ô cũ.
+--
+-- VÀ VÌ SAO LÀ BẢNG PHỤ CHỨ KHÔNG PHẢI CỘT MỚI CỦA `attendance` — đây là phần
+-- đáng đọc nhất của bảng này, nó không chỉ là chuyện CREATE TABLE IF NOT EXISTS
+-- không thêm được cột:
+--
+--   `GET /api/attendance` là đường GIA ĐÌNH đọc lịch điểm danh của con, và nó
+--   chạy `SELECT * FROM attendance`. Một cột mới trên bảng ấy là một cột GIA
+--   ĐÌNH ĐỌC ĐƯỢC NGAY, không cần ai viết thêm dòng nào — đúng thứ việc này
+--   sinh ra để cấm. Để ở bảng riêng thì `SELECT *` kia không với tới được, và
+--   muốn lộ phải có người cố ý viết một câu JOIN mới.
+--
+-- Nói cách khác: chỗ an toàn ở đây do HÌNH DẠNG DỮ LIỆU giữ, không do người
+-- viết mã nhớ mà giữ.
+--
+-- KHÔNG KHOÁ THEO NGÀY, khác với chính bảng `attendance`. Sổ điểm danh khoá
+-- ngoài ngày vì nó là chứng từ bé có mặt hay không — không ai được viết lại.
+-- Ô này thì ngược lại: nó là chỗ trường ghi thứ BIẾT ĐƯỢC SAU, thường là hai
+-- ba hôm sau khi gia đình gọi lại. Khoá nó theo ngày là bịt đúng lúc nó cần
+-- dùng. Bù lại phải ghi rõ ai viết và viết lúc nào.
+--
+-- Ô này KHÔNG chạm tới `status`, `checkIn`, `checkOut` — nó không phải một lối
+-- vòng để sửa sổ điểm danh đã khoá.
+CREATE TABLE IF NOT EXISTS attendance_luu_y (
+  studentId  TEXT NOT NULL,
+  ngay       TEXT NOT NULL,          -- YYYY-MM-DD
+  luuY       TEXT NOT NULL DEFAULT '',
+  nguoiGhi   TEXT,
+  capNhatLuc TEXT,
+  PRIMARY KEY (studentId, ngay)
+);
+CREATE INDEX IF NOT EXISTS attendance_luu_y_theo_ngay ON attendance_luu_y(ngay);

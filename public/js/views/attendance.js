@@ -798,8 +798,8 @@ App.views.attendance = {
   // Bé chưa có dòng nào thì huy hiệu XÁM "Chưa có ảnh đến lớp" — đó là việc
   // của người lớn chưa làm, không phải một lời nào về bé (QUY TẮC 2). Màu đỏ
   // chỉ có ở bảng rà soát sau 9 giờ, và ở dòng đã ghi "Nghỉ không phép" thật.
-  rosterRow({ student: s, record, donNghiDaDuyet, anhDenLop }) {
-    if (this.ngayDaKhoa()) return this.dongChiXem({ student: s, record, anhDenLop });
+  rosterRow({ student: s, record, donNghiDaDuyet, anhDenLop, luuY }) {
+    if (this.ngayDaKhoa()) return this.dongChiXem({ student: s, record, anhDenLop, luuY });
     const coMat = !!record && (record.status === 'present' || record.status === 'late');
     const times = record
       ? [record.checkIn ? `Vào lớp ${record.checkIn}` : null, record.checkOut ? `Ra về ${record.checkOut}` : null].filter(Boolean).join(' · ')
@@ -837,9 +837,73 @@ App.views.attendance = {
                    ${UI.icon('album', 14)} Chụp ảnh con tới lớp
                  </button>`}
             <button class="btn sm outline" onclick="App.views.attendance.suaDiemDanh('${UI.esc(s.id)}')">Sửa</button>
+            <button class="btn sm outline" onclick="App.views.attendance.moLuuY('${UI.esc(s.id)}')">
+              ${luuY && luuY.luuY ? '🔒 Sửa lưu ý' : '🔒 Lưu ý'}
+            </button>
           </div>
+          ${this.oLuuY(luuY)}
         </div>
       </div>`;
+  },
+
+  // Ô LƯU Ý NỘI BỘ (Đ207, việc 4) — dựng dùng chung cho dòng đang mở và dòng
+  // ngày đã khoá.
+  //
+  // NHÃN PHẢI NÓI THẲNG "GIA ĐÌNH KHÔNG ĐỌC Ô NÀY". Ngay bên trên đã có một ô
+  // ghi chú mang nhãn "gia đình đọc được"; hai ô chữ trông giống hệt nhau trên
+  // một màn hình mà một ô gia đình đọc được, một ô không, thì nhãn là thứ DUY
+  // NHẤT phân biệt — và gõ nhầm ô ở đây là kể chuyện nhà người ta cho người
+  // ngoài nghe. Nên mỗi lần ô hiện ra là một lần nói lại.
+  oLuuY(luuY) {
+    if (!luuY || !luuY.luuY) return '';
+    return `
+      <div class="mt-8" style="background:var(--bg-soft,#f6f6f4);border-left:3px solid var(--warning,#d9822b);
+                               border-radius:8px;padding:8px 10px">
+        <div class="small" style="color:var(--warning,#d9822b);font-weight:600">
+          🔒 Lưu ý nội bộ — gia đình KHÔNG đọc ô này
+        </div>
+        <div class="small" style="white-space:pre-wrap;line-height:1.5;margin-top:3px">${UI.esc(luuY.luuY)}</div>
+        ${luuY.nguoiGhi ? `<div class="small muted" style="margin-top:3px">${UI.esc(luuY.nguoiGhi)} ghi</div>` : ''}
+      </div>`;
+  },
+
+  // Hộp soạn ô lưu ý. Ghi được cả ngày đã khoá — sổ điểm danh khoá vì nó là
+  // chứng từ, ô này là chỗ ghi thứ biết được sau (xem chú thích máy chủ).
+  moLuuY(studentId) {
+    const dong = (this._roster || []).find(x => x.student.id === studentId);
+    if (!dong) return;
+    const cu = (dong.luuY && dong.luuY.luuY) || '';
+    UI.modal(`
+      <div class="small" style="background:#fff6e9;border-left:3px solid var(--warning,#d9822b);
+                                border-radius:8px;padding:9px 11px;line-height:1.6">
+        <b>Ô này chỉ nhà trường đọc.</b> Gia đình không nhìn thấy gì ở đây —
+        không trong lịch điểm danh của con, không trong thông báo, không trong báo cáo.
+        Câu muốn gửi tới gia đình thì gõ ở ô <b>Ghi chú</b> trong hộp Sửa.
+      </div>
+      <div class="field mt-14">
+        <label>Lưu ý nội bộ về ngày ${UI.esc(UI.fmtDateShort(this.date))}</label>
+        <textarea id="att-luuy" rows="4"
+          placeholder="Ví dụ: mẹ bé gọi báo chiều nay ông đón muộn khoảng 30 phút">${UI.esc(cu)}</textarea>
+      </div>
+      <button class="btn primary block" id="att-luuy-luu">Lưu</button>
+      ${cu ? '<button class="btn outline block mt-8" id="att-luuy-go">Gỡ lưu ý này</button>' : ''}
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, `Lưu ý nội bộ — ${dong.student.name}`);
+
+    const gui = async (noiDung) => {
+      try {
+        const kq = await API.put('/api/attendance/luu-y',
+          { studentId, ngay: this.date, luuY: noiDung });
+        dong.luuY = kq.luuY || null;
+        UI.closeModal();
+        UI.toast(noiDung ? 'Đã lưu — gia đình không nhìn thấy ô này' : 'Đã gỡ lưu ý', 'success');
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+    document.getElementById('att-luuy-luu').onclick = () =>
+      gui(String((document.getElementById('att-luuy') || {}).value || '').trim());
+    const nutGo = document.getElementById('att-luuy-go');
+    if (nutGo) nutGo.onclick = () => gui('');
   },
 
   // Huy hiệu của một dòng. Có dòng thì nói đúng dòng; chưa có dòng mà đã có
@@ -891,7 +955,7 @@ App.views.attendance = {
   //
   // "Cô chưa chấm" là việc của người lớn hôm đó, chữ xám — KHÔNG phải một lời
   // nào về đứa trẻ, và không phải một ô trống chờ lấp (QUY TẮC 2).
-  dongChiXem({ student: s, record, anhDenLop }) {
+  dongChiXem({ student: s, record, anhDenLop, luuY }) {
     const st = record ? (UI.ATT_STATUS[record.status] || null) : null;
     const times = record
       ? [record.checkIn ? `Vào ${record.checkIn}` : null, record.checkOut ? `Ra ${record.checkOut}` : null].filter(Boolean).join(' · ')
@@ -906,6 +970,12 @@ App.views.attendance = {
           <div class="row-title">${UI.esc(s.name)}</div>
           <div class="row-sub">${UI.esc(times || (record ? '' : 'Hôm đó cô chưa chấm điểm danh'))}${
             record && record.note ? ` · ${UI.esc(record.note)}` : ''}</div>
+          ${this.oLuuY(luuY)}
+          <div class="mt-8">
+            <button class="btn sm outline" onclick="App.views.attendance.moLuuY('${UI.esc(s.id)}')">
+              ${luuY && luuY.luuY ? '🔒 Sửa lưu ý' : '🔒 Lưu ý'}
+            </button>
+          </div>
         </div>
         ${st ? UI.badge(st.label, st.cls) : ''}
       </div>`;
