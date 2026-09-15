@@ -47,6 +47,12 @@ function unreadMessages(user) {
   // đóng sau chuyển năm — thì không được đếm vào huy hiệu. Bản cũ đếm tuốt,
   // nên tin chưa đọc trong một phòng đã khoá làm con số trên ô Nhắn tin đứng
   // mãi không về 0, mà bấm vào thì không thấy phòng nào để đọc.
+  // TIN ĐÃ THU HỒI KHÔNG ĐƯỢC ĐẾM VÀO HUY HIỆU (Đ196, việc 25).
+  //
+  // Thiếu điều kiện `dieuKienConHien` dưới đây thì gia đình thấy con số 1 trên
+  // ô Nhắn tin cho một lời nhắn mà mở ra chỉ còn chỗ trống — huy hiệu hứa một
+  // thứ mà màn hình không có. Cùng hình dạng với ba chỗ `test:thu-hoi` đã bắt
+  // được trước đây, chỉ khác bảng; chính bộ canh ấy bắt được chỗ này.
   const rows = db.all('messages',
     `SELECT c.id AS convId, c.type AS type, c.classId AS classId, COUNT(*) AS n
        FROM messages m
@@ -54,6 +60,7 @@ function unreadMessages(user) {
        JOIN conversations c ON c.id = m.conversationId
       WHERE m.senderId != ?
         AND (cm.lastRead IS NULL OR m.createdAt > cm.lastRead)
+        AND ${st.dieuKienConHien('messages', 'm.id')}
       GROUP BY c.id, c.type, c.classId`,
     [user.id, user.id]);
   if (!rows.length) return 0;

@@ -43,6 +43,13 @@ const BANG = {
   conduct: 'routes/conduct.js',
   health: 'routes/health.js',
   remarks: 'routes/remarks.js',
+  // 'messages' thêm ở Đ196 (việc 25). Ở bảng này "thu hồi" nghĩa là BỎ CHỮ chứ
+  // không phải bỏ dòng (xem `messageDto` trong routes/messages.js), nhưng luật
+  // của bài canh này KHÔNG đổi một ly: một tệp khác đọc ké bảng rồi in `text`
+  // ra là lời nhắn đã thu hồi sống lại ở một màn khác — đúng hình dạng mà bài
+  // này sinh ra để chặn. Bắt được ngay một chỗ: huy hiệu Nhắn tin ở
+  // routes/dashboard.js đang đếm cả tin đã thu hồi.
+  messages: 'routes/messages.js',
 };
 
 // BỎ DÒNG CHÚ THÍCH TRƯỚC KHI DÒ — và vì sao ở ĐÂY thì bỏ được.

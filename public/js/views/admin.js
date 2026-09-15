@@ -2007,6 +2007,8 @@ Vẫn nhận bé này?`)) {
       'nhan-danh-gia-sua': 'Sửa bộ chữ đánh giá dùng chung cả trường',
       'nhom-lua-tuoi-khai': 'Khai lứa tuổi của nhóm lớp',
       'nhom-lua-tuoi-go': 'Gỡ lời khai lứa tuổi của nhóm lớp',
+      'tin-nhan-thu-hoi': 'Thu hồi một lời nhắn đã gửi',
+      'phong-chung-tao': 'Lập một phòng chung trong Nhắn tin',
       'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
       'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',
       'hoi-thoai-da-dong-mo': 'Xem lại một cuộc trò chuyện đã đóng',

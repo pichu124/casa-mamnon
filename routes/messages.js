@@ -6,6 +6,9 @@ const nl = require('../lib/nhom-lop');
 // Ba nhóm cô: chủ nhiệm / nước ngoài / thể chất (Đ188, Câu 11).
 const nhomCo = require('../lib/nhom-co');
 const { requireRole } = require('../lib/auth');
+// Thu hồi một lời nhắn (Đ196, việc 25) — dùng ĐÚNG cơ chế đã canh ở bốn chỗ
+// khác: đánh dấu ẩn, không xoá, và còn vết để tra khi có khiếu nại.
+const st = require('../lib/sua-thu-hoi');
 
 const GROUP_AVATAR = { emoji: '👥', bg: '#5b6ceb' };
 
@@ -425,14 +428,34 @@ function convMeta(cv, user, members, tra) {
 }
 
 // Tin nhắn trả về cho client (không kèm thông tin nhạy cảm của người gửi).
+// TIN ĐÃ THU HỒI: GIỮ CHỖ, BỎ CHỮ (Đ196, việc 25).
+//
+// Bốn bảng kia dùng `sua-thu-hoi` theo nghĩa BIẾN MẤT. Ở đây thì không, và
+// khác biệt ấy là có chủ ý.
+//
+// Lý do: NGƯỜI KIA ĐÃ ĐỌC RỒI. Cho tin biến mất là màn hình của họ tự nhiên
+// thiếu một dòng giữa cuộc trò chuyện, và câu trả lời ngay dưới nó thành ra
+// không hiểu nổi — "vâng chị" trả lời cho một khoảng trống. Tệ hơn, nó dạy
+// người dùng rằng app có thể lặng lẽ nuốt tin nhắn, và niềm tin ấy mất là mất
+// luôn.
+//
+// Nên chỗ của tin vẫn còn, thứ tự vẫn đúng, chỉ phần chữ là không đi ra khỏi
+// máy chủ nữa. LỌC Ở TẦNG DỮ LIỆU, không che ở giao diện: `text` bị thay TRƯỚC
+// khi rời máy chủ, nên không có cách nào mở công cụ trình duyệt ra mà đọc lại.
+//
+// Người tự thu hồi cũng KHÔNG đọc lại được chữ cũ. Cho họ đọc thì hai người
+// trong cùng một phòng nhìn thấy hai nội dung khác nhau, và khi có khiếu nại
+// thì không ai biết màn hình nào là thật. Muốn tra thì tra `audit_log`.
 function messageDto(m, user) {
   const sender = db.findUser(m.senderId);
+  const daThuHoi = st.daThuHoi('messages', m.id);
   return {
     id: m.id,
     senderId: m.senderId,
     senderName: displayName(sender),
     senderAvatar: sender ? sender.avatar : null,
-    text: m.text,
+    text: daThuHoi ? '' : m.text,
+    daThuHoi,
     createdAt: m.createdAt,
     mine: m.senderId === user.id,
   };
@@ -872,6 +895,173 @@ module.exports = (app) => {
   // `?truoc=<ISO>` lấy cửa sổ tin CŨ HƠN mốc đó — đường mà nút "Xem tin cũ hơn"
   // của màn hình gọi. Không có tham số thì lấy cửa sổ mới nhất, đúng hành vi cũ
   // với mọi hội thoại ngắn hơn CUA_SO_TIN (tức gần như toàn bộ hôm nay).
+  // ---- THU HỒI MỘT LỜI NHẮN (Đ196, việc 25) ----
+  //
+  // Nhà trường xin thu hồi được một tin đã gửi. Cô gõ nhầm tên bé, gõ nhầm giờ
+  // đón, hay gửi nhầm phòng — ba chuyện đều có thật, và trước đợt này nhắn rồi
+  // là nằm đó.
+  //
+  // ĐÁNH DẤU ẨN, KHÔNG XOÁ. Đúng luật thu hồi đang chạy ở bốn chỗ khác
+  // (`lib/sua-thu-hoi.js`): dòng gốc còn nguyên trong bảng, vết thu hồi ghi ai
+  // gỡ lúc nào, và tra khiếu nại vẫn một đường. Đây cũng là chỗ khác biệt lớn
+  // nhất so với "xoá tin" của các app nhắn tin thường: nội dung giữa một gia
+  // đình và cô của con họ là thứ có thể thành bằng chứng, không được biến mất
+  // thật khỏi cơ sở dữ liệu của trường.
+  //
+  // CHỈ NGƯỜI GỬI, và cố ý KHÔNG mở cho quản trị. `st.laChuBanGhi` trả lời
+  // "người gửi HOẶC quản trị" — đúng cho một thông báo của nhà trường, nhưng
+  // sai ở đây: để quản trị gỡ lời của một gia đình trong phòng riêng của họ là
+  // đưa cho trường một cái nút xoá tiếng nói của phụ huynh. Muốn dọn cả cuộc
+  // thì đã có đường ĐÓNG hội thoại, và đường đó ghi tên người đóng.
+  app.post('/api/messages/:id/tin/:tinId/thu-hoi', allow, (req, res) => {
+    const cv = findConv(req, res);
+    if (!cv) return;
+    if (daDong(cv.id)) {
+      return res.status(403).json({
+        error: 'Cuộc trò chuyện này nhà trường đã đóng nên không đổi gì được nữa.',
+      });
+    }
+    const m = db.first('messages',
+      'SELECT * FROM messages WHERE id = ? AND conversationId = ?',
+      [req.params.tinId, cv.id]);
+    if (!m) return res.status(404).json({ error: 'Không tìm thấy lời nhắn này' });
+    if (m.senderId !== req.user.id) {
+      return res.status(403).json({ error: 'Chỉ người đã gửi mới thu hồi được lời nhắn của mình' });
+    }
+    if (st.daThuHoi('messages', m.id)) return res.json({ ok: true, id: m.id, daThuHoi: true });
+    st.ghiThuHoi('messages', m.id, req.user.id);
+    db.audit(req.user.id, 'tin-nhan-thu-hoi', m.id, { conversationId: cv.id });
+    res.json({ ok: true, id: m.id, daThuHoi: true });
+  });
+
+  // ---- PHÒNG CHUNG DO CÔ TẠO (Đ196, việc 27 và 28) ----
+  //
+  // Nhà trường xin một phòng chung cô tự lập và tự chọn thành viên, cộng "nhóm
+  // phụ huynh tuỳ chọn" (việc 28) — mà việc 28 hoá ra không phải một tính năng
+  // thứ hai: một phòng chung chỉ có phụ huynh CHÍNH LÀ nhóm phụ huynh tuỳ
+  // chọn. Nên một đường, hai việc.
+  //
+  // SỔ CŨ TỪNG GHI LÀ ĐÃ CÓ — ĐÓ LÀ CHỖ SỔ TRÔI KHỎI MÃ. Bảng `conversations`
+  // có sẵn `type = 'group'` từ app 1, nên đọc lướt qua thì tưởng xong. Thật ra
+  // KHÔNG một đường nào trong app tạo được một dòng như vậy: `/start` chỉ tạo
+  // `type = 'kenh'`. Một cái bảng chờ sẵn không phải là một tính năng.
+  //
+  // CÔ VÀ QUẢN TRỊ LẬP ĐƯỢC, GIA ĐÌNH THÌ KHÔNG. Không phải vì phụ huynh kém
+  // tin cậy, mà vì một phụ huynh lập được phòng và kéo phụ huynh khác vào là
+  // trường mất chỗ đứng trong chính kênh liên lạc của mình — mà tên trường
+  // vẫn ở trên app. Gia đình muốn có nhóm thì nhờ cô lập.
+  //
+  // CHỈ MỜI ĐƯỢC NGƯỜI TRONG TẦM VỚI CỦA MÌNH. Cô mời được cô khác và gia đình
+  // của bé thuộc nhóm cô phụ trách; quản trị mời được người trong cơ sở mình.
+  // Thiếu chốt này thì một cô mời được phụ huynh của nhóm khác vào phòng, và
+  // gia đình ấy đọc được mọi thứ nói trong đó.
+  function nguoiMoiDuoc(user) {
+    const ra = new Map();
+    const them = (u) => {
+      if (!u || !u.active || u.id === user.id) return;
+      ra.set(u.id, {
+        id: u.id, hoTen: displayName(u), vai: u.role,
+        avatar: u.avatar || null,
+      });
+    };
+    // Cô và gia đình của CÁC NHÓM người này chạm tới được.
+    for (const cid of (db.classIdsOf(user) || [])) {
+      for (const t of db.all('class_teachers',
+        'SELECT teacherId AS id FROM class_teachers WHERE classId = ?', [cid])) {
+        them(db.findUser(t.id));
+      }
+      for (const r of db.all('student_parents',
+        `SELECT DISTINCT sp.parentId AS id FROM student_parents sp
+           JOIN students s ON s.id = sp.studentId
+          WHERE s.classId = ? AND s.active = 1`, [cid])) {
+        them(db.findUser(r.id));
+      }
+    }
+    // Quản trị: thêm mọi tài khoản trường trong phạm vi cơ sở của mình.
+    if (user.role === 'admin') {
+      const pham = db.phamViCoSo(user);
+      for (const u of db.all('users',
+        "SELECT * FROM users WHERE active = 1 AND role IN ('teacher', 'admin')")) {
+        if (pham === null || !u.campusId || u.campusId === pham) them(u);
+      }
+    }
+    return [...ra.values()];
+  }
+
+  // Ai mời được ai — màn hình hỏi trước khi vẽ ô chọn, để cô không chọn xong
+  // mới bị từ chối.
+  app.get('/api/messages/phong-chung/moi-duoc', requireRole('teacher', 'admin'), (req, res) => {
+    res.json({ nguoi: nguoiMoiDuoc(req.user) });
+  });
+
+  app.post('/api/messages/phong-chung', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const ten = String(b.ten || '').trim().slice(0, 80);
+    if (!ten) return res.status(400).json({ error: 'Cô đặt giúp một cái tên cho phòng nhé' });
+
+    const xin = [...new Set((Array.isArray(b.thanhVien) ? b.thanhVien : []).map(String))]
+      .filter(x => x && x !== req.user.id);
+
+    // HỎI QUYỀN CHO TỪNG NGƯỜI, NGAY TẠI ĐÂY — không tin vào danh sách gợi ý.
+    //
+    // `nguoiMoiDuoc` ở trên là để VẼ Ô CHỌN. Nó và đường này có thể trôi khỏi
+    // nhau, và nếu chốt chặn chỉ nằm trong nó thì ngày chúng trôi khỏi nhau là
+    // ngày một cô mời được gia đình nhóm khác vào phòng — rò rỉ, im lặng.
+    //
+    // Nên chốt thật nằm ở đây, và nó hỏi đúng hai câu của `CLAUDE.md`:
+    //   • gia đình → `canAccessStudent` cho ít nhất một đứa con của họ;
+    //   • cô / quản trị → `canAccessClass` cho ít nhất một nhóm của họ.
+    // Người không thuộc cả hai nhóm ấy thì không mời được, kể cả khi họ có
+    // trong danh sách gợi ý.
+    function moiDuoc(id) {
+      const u = db.findUser(id);
+      if (!u || !u.active) return false;
+      if (u.role === 'parent') {
+        return db.all('student_parents',
+          `SELECT sp.studentId AS id FROM student_parents sp
+             JOIN students s ON s.id = sp.studentId
+            WHERE sp.parentId = ? AND s.active = 1`, [u.id])
+          .some(r => db.canAccessStudent(req.user, r.id));
+      }
+      if (u.role === 'teacher') {
+        return (db.classIdsOfTeacher(u.id) || []).some(cid => db.canAccessClass(req.user, cid));
+      }
+      // Quản trị mời quản trị: cùng phạm vi cơ sở. `phamViCoSo` trả null với
+      // ban giám hiệu (cả trường), nên vế đầu đúng cho cấp 1.
+      if (u.role === 'admin' && req.user.role === 'admin') {
+        const pham = db.phamViCoSo(req.user);
+        return pham === null || !u.campusId || u.campusId === pham;
+      }
+      return false;
+    }
+    const ngoaiTam = xin.filter(id => !moiDuoc(id));
+    if (ngoaiTam.length) {
+      // NÓI RA AI BỊ TỪ CHỐI, không từ chối cụt lủn. Cô chọn mười người mà chỉ
+      // nhận "không mời được" thì cô không biết bỏ ai ra.
+      const ten2 = ngoaiTam.map(id => displayName(db.findUser(id)) || id).slice(0, 5).join(', ');
+      return res.status(403).json({
+        error: `Không mời được vào phòng: ${ten2}. `
+          + 'Cô mời được cô khác và gia đình của bé trong nhóm cô phụ trách.',
+      });
+    }
+    if (!xin.length) {
+      return res.status(400).json({ error: 'Phòng chung cần ít nhất một người nữa ngoài cô' });
+    }
+
+    const id = db.nextId('cv');
+    db.tx(() => {
+      // `classId` để NULL: phòng chung có thể có người của nhiều nhóm, và cột
+      // ấy có khoá ngoại tới `classes` — gắn bừa một nhóm là xoá nhóm đó thì
+      // mất luôn cả phòng và mọi tin trong đó.
+      db.insert('conversations', { id, type: 'group', name: ten, classId: null });
+      for (const uid of [req.user.id, ...xin]) {
+        db.insert('conversation_members', { conversationId: id, userId: uid, lastRead: null });
+      }
+    });
+    db.audit(req.user.id, 'phong-chung-tao', id, { ten, soThanhVien: xin.length + 1 });
+    res.status(201).json({ id, ten, soThanhVien: xin.length + 1 });
+  });
+
   app.get('/api/messages/:id', allow, (req, res) => {
     const cv = findConv(req, res);
     if (!cv) return;
