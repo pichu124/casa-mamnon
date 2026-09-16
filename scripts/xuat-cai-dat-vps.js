@@ -182,8 +182,10 @@ async function main() {
       'whoami                           # xem mình đang là ai — nhớ kết quả này'),
     p('Vào được rồi thì việc đầu tiên là ', { text: 'đặt múi giờ', bold: true }, ':'),
     ...lenh(
-      'timedatectl set-timezone Asia/Ho_Chi_Minh',
+      'sudo timedatectl set-timezone Asia/Ho_Chi_Minh',
       'timedatectl                      # phải thấy "Asia/Ho_Chi_Minh (+07)"'),
+    p('Dùng `sudo` kể cả khi đang là root — thừa một chữ thì không sao, thiếu thì lệnh bị từ chối. '
+      + 'Lệnh `timedatectl` không có `set-timezone` chỉ để XEM nên không cần quyền gì.'),
     viSao('VPS thuê về gần như luôn đặt sẵn UTC, lệch giờ Việt Nam 7 tiếng. Để nguyên thì dòng lịch '
       + 'sao lưu "2 giờ sáng" ở bước 8 sẽ chạy lúc 9 giờ sáng — giữa lúc cô đang điểm danh và đăng ảnh, '
       + 'đúng lúc máy bận nhất. Và mọi dấu thời gian trong nhật ký lệch 7 tiếng, nên khi cần tra "ai đổi '
@@ -266,10 +268,21 @@ async function main() {
     ...lenh(
       "git ls-remote <đường-dẫn-kho-mã> 'refs/heads/*'",
       '',
+      '# /opt thuộc về root, nên dọn chỗ và trao quyền TRƯỚC khi clone.',
+      '# Thiếu hai dòng này thì git báo "Permission denied" hoặc',
+      '# "could not create leading directories".',
+      'sudo mkdir -p /opt/casa-mamnon',
+      'sudo chown "$USER":"$USER" /opt/casa-mamnon',
+      '',
       '# Lấy mã về — thay <nhánh> bằng nhánh đang dùng thật',
-      'git clone -b <nhánh> <đường-dẫn-kho-mã> /opt/casa-mamnon',
+      '# Dấu chấm cuối là "clone vào đúng thư mục đang đứng", vì thư mục đã có sẵn.',
       'cd /opt/casa-mamnon',
+      'git clone -b <nhánh> <đường-dẫn-kho-mã> .',
       'npm ci --omit=dev'),
+    viSao('Clone vào /opt chứ không vào thư mục nhà (/home/ubuntu) là để app không biến mất '
+      + 'nếu về sau ai đó xoá tài khoản người dùng ấy. Nhưng /opt thuộc root, nên phải trao quyền '
+      + 'cho tài khoản chạy app trước — nếu không thì mọi lần `git pull` sau này cũng phải gõ sudo, '
+      + 'và một thư mục mã do root sở hữu mà dịch vụ chạy bằng tài khoản thường là chỗ sinh lỗi quyền khó đọc.'),
     p('Kiểm ngay sau khi clone, một lệnh:'),
     ...lenh(
       'tail -1 docs/TIEN-DO.md | cut -c1-60',
@@ -460,8 +473,10 @@ async function main() {
       '# 1. SAO LƯU TRƯỚC — không bỏ lần nào',
       'cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon npm run backup',
       '',
-      '# 2. Lấy mã mới',
-      'git pull',
+      '# 2. Lấy mã mới — KHÔNG gõ sudo. Bước 4 đã trao quyền thư mục cho',
+      '#    tài khoản chạy app, nên pull bằng sudo là tạo ra tệp thuộc root',
+      '#    ngay giữa thư mục mã, và lần pull sau sẽ báo lỗi quyền.',
+      'cd /opt/casa-mamnon && git pull',
       '',
       '# 3. Cài lại phụ thuộc nếu package.json đổi',
       'npm ci --omit=dev',
@@ -486,6 +501,8 @@ async function main() {
       ['Ổ khoá HTTPS mất / báo hết hạn', 'sudo certbot renew --dry-run · kiểm tên miền còn trỏ đúng IP'],
       ['Cô đăng ảnh báo lỗi, ảnh nhỏ thì được', 'Thiếu client_max_body_size 20M trong nginx (bước 9).'],
       ['Giờ trong nhật ký lệch 7 tiếng', 'Chưa làm bước 1. Đặt múi giờ rồi khởi động lại dịch vụ.'],
+      ['git clone báo Permission denied vào /opt',
+        'Chưa chạy hai dòng sudo mkdir + sudo chown ở đầu bước 4. /opt thuộc root.'],
       ['adduser báo "Only root may add a user"',
         'Máy cho đăng nhập bằng tài khoản thường (ubuntu, opc…) chứ không phải root — đó là máy làm ĐÚNG. Dùng luôn tài khoản đó, bỏ qua phần tạo người dùng ở bước 1. Muốn tạo thật thì thêm sudo.'],
       ['Dịch vụ không bật được sau khi dựng systemd',
