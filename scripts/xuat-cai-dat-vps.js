@@ -171,8 +171,15 @@ async function main() {
 
     // ======================= BƯỚC 1 =======================
     h1('Bước 1 — Vào máy, đặt múi giờ, tạo người dùng riêng'),
-    p('Nhà cung cấp gửi cho anh địa chỉ IP, tên đăng nhập (thường là root) và mật khẩu. Từ máy của anh:'),
-    ...lenh('ssh root@<địa-chỉ-IP-của-máy>'),
+    p('Nhà cung cấp gửi cho anh địa chỉ IP và cách đăng nhập. ',
+      { text: 'Có hai kiểu, và chúng khác nhau ở bước tạo người dùng bên dưới', bold: true }, ':'),
+    bullet('Cho thẳng tài khoản root — thường gặp ở VPS giá rẻ trong nước.'),
+    bullet('Cho một tài khoản sẵn có (ubuntu, opc, debian…) có quyền sudo, và KHOÁ đăng nhập root. '
+      + 'Oracle Cloud, AWS, Google Cloud đều thuộc nhóm này. Đây là cách làm an toàn hơn, không phải trục trặc.'),
+    ...lenh(
+      'ssh <tên-đăng-nhập>@<địa-chỉ-IP-của-máy>',
+      '',
+      'whoami                           # xem mình đang là ai — nhớ kết quả này'),
     p('Vào được rồi thì việc đầu tiên là ', { text: 'đặt múi giờ', bold: true }, ':'),
     ...lenh(
       'timedatectl set-timezone Asia/Ho_Chi_Minh',
@@ -182,17 +189,31 @@ async function main() {
       + 'đúng lúc máy bận nhất. Và mọi dấu thời gian trong nhật ký lệch 7 tiếng, nên khi cần tra "ai đổi '
       + 'số tài khoản lúc mấy giờ" thì sổ không khớp với giờ người ta nhớ. Làm bước này TRƯỚC mọi thứ khác '
       + 'vì các bước sau đều đọc theo giờ của máy.'),
-    p('Tiếp theo, tạo một người dùng riêng để chạy app thay vì chạy bằng root:'),
+    p({ text: 'Nếu whoami in ra "root"', bold: true },
+      ' — tạo một người dùng thường để chạy app:'),
     ...lenh(
       'adduser casa                     # đặt mật khẩu khi máy hỏi',
       'usermod -aG sudo casa',
-      'su - casa                        # từ đây trở đi làm bằng tài khoản này'),
+      'su - casa                        # từ đây trở đi làm bằng tài khoản này',
+      'whoami                           # phải in ra: casa'),
+    p({ text: 'Nếu whoami in ra tên khác root', bold: true },
+      ' (ubuntu, opc, debian…) — ',
+      { text: 'BỎ QUA phần tạo người dùng, đi thẳng sang bước 2. ', bold: true },
+      'Tài khoản ấy đã đúng là thứ bước này muốn tạo rồi: một người dùng thường có quyền sudo. '
+      + 'Tạo thêm một tài khoản nữa chỉ là thêm một cái tên phải nhớ.'),
+    chuY('Ở máy loại thứ hai, gõ `adduser casa` mà không có `sudo` sẽ báo '
+      + '"Only root may add a user or group to the system". Đó là máy đang làm đúng, không phải hỏng. '
+      + 'Muốn tạo thật thì thêm sudo: `sudo adduser casa`.'),
     viSao('App chạy bằng root thì một lỗi bất kỳ trong app cũng thành quyền root trên cả máy. '
-      + 'Tạo người dùng riêng là việc làm một lần, mất một phút.'),
+      + 'Điều tài liệu này cần KHÔNG phải cái tên "casa" — mà là app không chạy bằng root. '
+      + 'Tài khoản nào cũng được, miễn không phải root.'),
+    p({ text: 'GHI LẠI TÊN TÀI KHOẢN NÀY. ', bold: true },
+      'Bước 3 và bước 7 đều cần đúng cái tên đó. Tài liệu gọi nó là ',
+      { text: '<tài-khoản-chạy-app>', bold: true }, '.'),
     h2('Bảng kiểm bước 1'),
     oKiem('SSH vào được máy'),
     oKiem('timedatectl in ra Asia/Ho_Chi_Minh (+07)'),
-    oKiem('Đã tạo người dùng casa và đang đăng nhập bằng nó'),
+    oKiem('whoami in ra một tên KHÁC root, và đã ghi lại tên đó'),
     trang(),
 
     // ======================= BƯỚC 2 =======================
@@ -218,7 +239,12 @@ async function main() {
     h1('Bước 3 — Tạo thư mục dữ liệu NGOÀI kho mã'),
     ...lenh(
       'sudo mkdir -p /var/lib/casa-mamnon',
-      'sudo chown -R casa:casa /var/lib/casa-mamnon'),
+      'sudo chown -R "$USER":"$USER" /var/lib/casa-mamnon',
+      '',
+      'ls -ld /var/lib/casa-mamnon      # cột chủ sở hữu phải là tài khoản của anh'),
+    p('`$USER` ở đây là ', { text: 'chính tài khoản anh đang đăng nhập', bold: true },
+      ' — không cần gõ tên vào, máy tự điền. Nhờ vậy lệnh này đúng cho cả máy dùng root '
+      + 'lẫn máy dùng ubuntu/opc.'),
     p('Từ đây trở đi ', { text: 'mọi lệnh của app đều chạy kèm DATA_DIR=/var/lib/casa-mamnon', bold: true },
       '. Không có nó thì app để dữ liệu ở ./data, tức ngay trong thư mục mã nguồn.'),
     viSao('Máy chủ thật cập nhật app bằng `git pull`. Dữ liệu nằm trong kho mã thì chỉ cần một lần '
@@ -290,6 +316,13 @@ async function main() {
     // ======================= BƯỚC 7 =======================
     h1('Bước 7 — Dựng dịch vụ tự bật lại'),
     p('Để app tự chạy lại sau khi máy khởi động lại hoặc app chết:'),
+    chuY('Dòng User= bên dưới phải mang ĐÚNG tên tài khoản ghi lại ở bước 1 (casa, ubuntu, opc…). '
+      + 'Ghi sai tên thì dịch vụ không bật được, và câu báo lỗi của systemd không nói thẳng ra là do tên người dùng.'),
+    p('Muốn khỏi gõ tay, để máy tự điền tên tài khoản bằng cách thay dòng ',
+      { text: 'User=<tài-khoản-chạy-app>', bold: true }, ' thành ',
+      { text: 'User=$USER', bold: true },
+      ' — nhưng phải bỏ dấu nháy quanh UNIT ở dòng đầu (viết <<UNIT thay vì <<\'UNIT\'), '
+      + 'nếu không shell sẽ không thay. Gõ tay tên cho chắc thì an toàn hơn.'),
     ...lenh(
       "sudo tee /etc/systemd/system/casa-mamnon.service >/dev/null <<'UNIT'",
       '[Unit]',
@@ -298,7 +331,7 @@ async function main() {
       '',
       '[Service]',
       'Type=simple',
-      'User=casa',
+      'User=<tài-khoản-chạy-app>',
       'WorkingDirectory=/opt/casa-mamnon',
       'Environment=NODE_ENV=production',
       'Environment=DATA_DIR=/var/lib/casa-mamnon',
@@ -324,6 +357,7 @@ async function main() {
       + 'vì bảng chưa tồn tại nên câu nào cũng trôi — và lần thứ hai mới chết. Khởi động một lần rồi báo xong '
       + 'là bỏ sót đúng loại lỗi ấy.'),
     h2('Bảng kiểm bước 7'),
+    oKiem('Dòng User= trong tệp service mang đúng tên tài khoản của bước 1'),
     oKiem('systemctl status in ra active (running)'),
     oKiem('curl /healthz trả về kết quả'),
     oKiem('Khởi động lại hai lần, cả hai lần đều active'),
@@ -452,6 +486,10 @@ async function main() {
       ['Ổ khoá HTTPS mất / báo hết hạn', 'sudo certbot renew --dry-run · kiểm tên miền còn trỏ đúng IP'],
       ['Cô đăng ảnh báo lỗi, ảnh nhỏ thì được', 'Thiếu client_max_body_size 20M trong nginx (bước 9).'],
       ['Giờ trong nhật ký lệch 7 tiếng', 'Chưa làm bước 1. Đặt múi giờ rồi khởi động lại dịch vụ.'],
+      ['adduser báo "Only root may add a user"',
+        'Máy cho đăng nhập bằng tài khoản thường (ubuntu, opc…) chứ không phải root — đó là máy làm ĐÚNG. Dùng luôn tài khoản đó, bỏ qua phần tạo người dùng ở bước 1. Muốn tạo thật thì thêm sudo.'],
+      ['Dịch vụ không bật được sau khi dựng systemd',
+        'journalctl -u casa-mamnon -n 50. Hay gặp nhất: dòng User= trong tệp service không khớp tài khoản có thật trên máy (bước 7).'],
       ['Phụ huynh quên mật khẩu', 'Cô hoặc văn phòng cấp lại ngay trong app.'],
       ['Quên mật khẩu quản trị', 'npm run create-admin tạo tài khoản quản trị mới.'],
       ['Nghi dữ liệu hỏng hoặc xoá nhầm',
