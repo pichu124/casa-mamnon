@@ -23,6 +23,7 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 | [`docs/LOI-NEN-CHUNG.md`](docs/LOI-NEN-CHUNG.md) | Lỗi ở phần nền thì vá hai kho ra sao |
 | [`modules/README.md`](modules/README.md) | Cách thêm một tính năng mà không đụng phần đang chạy |
 | [`docs/TRIEN-KHAI.md`](docs/TRIEN-KHAI.md) | **Cài lên máy chủ của trường**: VPS trong nước, tài khoản quản trị, dịch vụ tự bật lại, lịch sao lưu |
+| [`docs/CAI-DAT-VPS.docx`](docs/CAI-DAT-VPS.docx) | **Bản Word từ A đến Z** cho người cài lần đầu — 10 bước, mỗi bước một bảng kiểm. Sinh lại bằng `npm run tai-lieu:cai-dat-vps` |
 | [`docs/XIN-BAO-GIA-VPS.md`](docs/XIN-BAO-GIA-VPS.md) | **Bản yêu cầu xin báo giá máy chủ** — chép thẳng gửi nhà cung cấp, kèm bảng so sánh và ba chỗ dễ bị hớ |
 | [`docs/PHAN-HOI-TRUONG-0709.md`](docs/PHAN-HOI-TRUONG-0709.md) | **Phản hồi của nhà trường 07/09** — bảng đối chiếu từng ý với mã (đã có / một phần / chưa có), việc đã làm ở đợt 1, và những đề xuất cần chủ dự án quyết |
 | [`docs/VIEC-CON-LAI.md`](docs/VIEC-CON-LAI.md) | **Việc còn lại sau đợt 2** — 35 điểm cần chủ dự án quyết, 33 việc còn phải làm, 29 phép thử cần người thật bấm |

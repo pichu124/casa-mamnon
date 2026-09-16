@@ -154,7 +154,8 @@
     "test:ho-so-sua": "node test/ho-so-be-ai-sua.test.mjs",
     "test:hoc-phi-uu-dai": "node test/hoc-phi-uu-dai.test.mjs",
     "test:nhan-mot-be": "node test/nhan-mot-be.test.mjs",
-    "test:hocphi-qr-anh": "node test/hocphi-qr-anh.test.mjs"
+    "test:hocphi-qr-anh": "node test/hocphi-qr-anh.test.mjs",
+    "tai-lieu:cai-dat-vps": "node scripts/xuat-cai-dat-vps.js"
   },
   "engines": {
     "node": "22.x"
