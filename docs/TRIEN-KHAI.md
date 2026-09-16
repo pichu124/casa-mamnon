@@ -292,13 +292,33 @@ timedatectl                      # phải thấy "Asia/Ho_Chi_Minh (+07)"
 sudo mkdir -p /var/lib/casa-mamnon
 sudo chown -R $USER:$USER /var/lib/casa-mamnon
 
-# 2. Lấy mã về
-# Nhánh mặc định `main` NAY ĐÃ LÀ BẢN ĐẦY ĐỦ — clone thẳng, không cần -b.
-# (Trước 31/08/2026 chỗ này phải dặn lấy nhánh làm việc, vì `main` khi ấy còn
-#  lùi hơn trăm commit. Nhánh đã gộp vào `main` nên lời dặn đó không còn.)
-git clone <đường-dẫn-kho-mã> /opt/casa-mamnon
+# 2. Lấy mã về — HỎI TRƯỚC, ĐỪNG TIN DÒNG CHỮ NÀY
+#
+#    LỜI DẶN CỐ ĐỊNH Ở ĐÂY ĐÃ SAI HAI LẦN, nên lần này không viết lời dặn nữa
+#    mà viết CÁCH TỰ KIỂM. Bản 28/08 dặn lấy nhánh làm việc vì `main` lùi hơn
+#    trăm commit; bản 31/08 sửa thành "main nay đã đầy đủ, clone thẳng" — đúng
+#    hôm ấy, và sai lại ngay khi nhánh làm việc dài thêm (16/09 đã lùi 168
+#    commit, thiếu cả `lib/vietqr.js`). Đây là kiểu sai đúng-lúc-viết, và cách
+#    duy nhất không dính lại là đo chứ không nhớ.
+#
+#    Chạy hai lệnh này TRƯỚC KHI clone, trên máy nào cũng được:
+#
+#      git ls-remote <kho-mã> 'refs/heads/*'        # xem có những nhánh nào
+#      git clone <kho-mã> /tmp/soi && cd /tmp/soi \
+#        && git log --oneline -1 origin/main        # main đang ở commit nào
+#
+#    Rồi đối chiếu với `docs/TIEN-DO.md` — dòng cuối của tệp đó là đợt mới
+#    nhất. Số đợt trên `main` mà thấp hơn dòng cuối TIEN-DO thì `main` CHƯA
+#    phải bản đầy đủ, và phải clone nhánh làm việc bằng `-b <tên-nhánh>`.
+#
+git clone <đường-dẫn-kho-mã> /opt/casa-mamnon          # nếu main đã đầy đủ
+# git clone -b <tên-nhánh-làm-việc> <kho-mã> /opt/casa-mamnon   # nếu chưa
 cd /opt/casa-mamnon
 npm ci --omit=dev
+
+#    KIỂM LẠI SAU KHI CLONE, một lệnh, trước khi đi tiếp:
+#      tail -1 docs/TIEN-DO.md | cut -c1-60
+#    Số đợt in ra phải khớp với đợt mới nhất anh đang chờ.
 
 # 3. TẠO TÀI KHOẢN QUẢN TRỊ TRƯỚC KHI BẬT DỊCH VỤ
 #    Bước này KHÔNG được đảo xuống sau: xem mục 3 ở trên.
