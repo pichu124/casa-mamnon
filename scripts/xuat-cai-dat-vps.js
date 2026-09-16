@@ -243,7 +243,28 @@ async function main() {
       'sudo mkdir -p /var/lib/casa-mamnon',
       'sudo chown -R "$USER":"$USER" /var/lib/casa-mamnon',
       '',
-      'ls -ld /var/lib/casa-mamnon      # cột chủ sở hữu phải là tài khoản của anh'),
+      '',
+      '# HAI phép kiểm, không phải một:',
+      'ls -ld /var/lib/casa-mamnon      # cột chủ sở hữu phải là tài khoản của anh',
+      'ls -la /var/lib/casa-mamnon      # và BÊN TRONG phải trống'),
+    chuY('`sudo mkdir -p` KHÔNG báo lỗi khi thư mục đã tồn tại — nó im lặng bỏ qua. '
+      + 'Nên nếu máy này từng được cài thử, dữ liệu của lần trước vẫn nằm nguyên trong đó và '
+      + 'không có gì báo cho anh biết. Dấu hiệu đọc được ngay ở dòng `ls -ld`: cột thứ hai là '
+      + '2 cộng số thư mục con, nên thư mục mới tinh phải là 2 — ra 4 hay hơn là bên trong đã có thứ gì đó. '
+      + 'Ngày giờ ở cuối dòng cũng vậy: không phải hôm nay thì thư mục không phải vừa tạo.'),
+    p({ text: 'Thấy có school.db, uploads/ hay backups/ bên trong thì DỪNG, đừng đi tiếp. ', bold: true },
+      'Hai bước sau đổi hẳn ý nghĩa: `create-admin` ở bước 5 sẽ THÊM một tài khoản vào sổ cũ chứ không '
+      + 'tạo mới từ đầu; và chốt chặn NODE_ENV=production chỉ dừng máy chủ khi cơ sở dữ liệu TRỐNG, nên '
+      + 'có dữ liệu cũ là app bật lên chạy bằng dữ liệu lần thử trước mà không có gì báo.'),
+    p('Muốn giữ lần cài cũ thì bỏ qua bước 5 và đăng nhập bằng tài khoản cũ. Muốn làm lại từ đầu thì '
+      + 'dọn đi — nhưng ', { text: 'sao lưu trước đã', bold: true }, ', kể cả khi nghĩ trong đó chỉ có dữ liệu thử:'),
+    ...lenh(
+      '# Cất lần cài cũ sang một bên thay vì xoá — đổi tên là việc lấy lại được,',
+      '# xoá thì không. Ổ đĩa thừa vài trăm MB không đáng để đánh đổi.',
+      'sudo mv /var/lib/casa-mamnon /var/lib/casa-mamnon.cu-$(date +%F)',
+      'sudo mkdir -p /var/lib/casa-mamnon',
+      'sudo chown -R "$USER":"$USER" /var/lib/casa-mamnon',
+      'ls -la /var/lib/casa-mamnon      # lần này phải trống thật'),
     p('`$USER` ở đây là ', { text: 'chính tài khoản anh đang đăng nhập', bold: true },
       ' — không cần gõ tên vào, máy tự điền. Nhờ vậy lệnh này đúng cho cả máy dùng root '
       + 'lẫn máy dùng ubuntu/opc.'),
@@ -255,7 +276,8 @@ async function main() {
       + 'nằm trong kho mã thì nó DỪNG trước khi mở cổng, và câu báo lỗi in ra sẵn lệnh cần chạy. '
       + 'Đó là hành vi ĐÚNG, không phải lỗi cần sửa.'),
     h2('Bảng kiểm bước 3'),
-    oKiem('Thư mục /var/lib/casa-mamnon tồn tại và người dùng casa ghi được vào đó'),
+    oKiem('Thư mục /var/lib/casa-mamnon thuộc về tài khoản chạy app'),
+    oKiem('ls -la cho thấy BÊN TRONG trống — hoặc đã chủ động quyết giữ lần cài cũ'),
     trang(),
 
     // ======================= BƯỚC 4 =======================
@@ -501,6 +523,8 @@ async function main() {
       ['Ổ khoá HTTPS mất / báo hết hạn', 'sudo certbot renew --dry-run · kiểm tên miền còn trỏ đúng IP'],
       ['Cô đăng ảnh báo lỗi, ảnh nhỏ thì được', 'Thiếu client_max_body_size 20M trong nginx (bước 9).'],
       ['Giờ trong nhật ký lệch 7 tiếng', 'Chưa làm bước 1. Đặt múi giờ rồi khởi động lại dịch vụ.'],
+      ['Đăng nhập thấy dữ liệu lạ / tài khoản mình không tạo',
+        'Nhiều khả năng DATA_DIR đang trỏ vào lần cài thử trước. Xem lại bước 3: ls -la /var/lib/casa-mamnon.'],
       ['git clone báo Permission denied vào /opt',
         'Chưa chạy hai dòng sudo mkdir + sudo chown ở đầu bước 4. /opt thuộc root.'],
       ['adduser báo "Only root may add a user"',
