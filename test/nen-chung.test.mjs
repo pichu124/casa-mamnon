@@ -144,4 +144,58 @@ console.log('\n[4] SỔ NỢ PHẢI NÓI VỀ NHỮNG TỆP CÓ THẬT');
   check('MỌI TỆP NHẮC TRONG SỔ NỢ ĐỀU CÓ THẬT', khongCo.length === 0, khongCo);
 }
 
+// ===========================================================================
+console.log('\n[5] CON SỐ "CÒN NỢ" PHẢI KHỚP VỚI CHÍNH BẢNG NGAY TRÊN NÓ');
+{
+  // VÌ SAO CÓ MỤC NÀY. Con số này đã trượt BA lần: "mười" → "mười sáu" (sửa
+  // 10/09) → thực đếm ra "mười tám" (16/09). Lần nào cũng đúng lúc viết và sai
+  // ngay khi bảng dài thêm một dòng. Bản 10/09 đã ghi rõ cách đếm ra giấy —
+  // vẫn trượt tiếp, vì cách đếm ghi ra giấy chỉ có ích khi có người chạy lại
+  // nó. Nên từ 16/09 máy đếm.
+  //
+  // Sổ nợ sai về phía TỰ TRẤN AN là kiểu sai nguy hiểm nhất của tệp này: người
+  // sang kho app 1 đọc "còn 16 món" rồi đối chiếu 16 món và tin là xong.
+  const vb = fs.readFileSync(TAI_LIEU, 'utf8');
+  const soNo = vb.slice(vb.indexOf('## Sổ nợ'));
+
+  // Cột "Còn nợ" là cột áp chót của bảng Sổ nợ. Chỉ lấy dòng bảng thật: bắt
+  // đầu bằng "| " và ô đầu là một ngày DD/MM. Mấy bảng nhỏ trong ô trích dẫn
+  // đứng sau dấu "> " nên không lọt vào.
+  const cotConNo = soNo.split('\n')
+    .filter(d => /^\|\s*\d{2}\/\d{2}\s*\|/.test(d))
+    .map(d => {
+      // Bỏ ô rỗng hai đầu do dấu | mở và đóng dòng, còn lại đúng năm cột:
+      // Ngày | Lỗi | Đã vá | Còn nợ | Ghi chú. "Còn nợ" là cột áp chót.
+      const o = d.split('|').slice(1, -1);
+      return (o[o.length - 2] || '').trim();
+    });
+
+  check('đọc được các dòng của bảng Sổ nợ', cotConNo.length >= 15, cotConNo.length);
+
+  const conNo = cotConNo.filter(o => o === '**app 1**').length;
+  const m = soNo.match(/\*\*Còn nợ (\d+) món\*\*/);
+  check('sổ có ghi con số còn nợ ở dạng máy đọc được', !!m, m && m[1]);
+  check('CON SỐ TRONG SỔ KHỚP VỚI SỐ DÒNG ĐẾM ĐƯỢC',
+    m && Number(m[1]) === conNo,
+    { soTrongSo: m && Number(m[1]), demDuoc: conNo });
+
+  // PHÉP THỬ NGƯỢC 1 — phép đếm phải là SO KHỚP ĐÚNG, không phải "có chứa".
+  // Dòng cố ý KHÔNG chép sang app 1 cũng chứa chuỗi "app 1"; đếm kiểu lỏng là
+  // tính nhầm nó thành một món nợ.
+  const demLong = cotConNo.filter(o => o.includes('app 1')).length;
+  check('có ít nhất một dòng "app 1" KHÔNG phải món nợ (dòng cố ý khác nhau)',
+    demLong > conNo, { demLong, conNo });
+
+  // PHÉP THỬ NGƯỢC 2 — bảng phải thật sự có dòng để đếm, không phải đang so
+  // hai số 0 với nhau.
+  check('và phép đếm không rỗng', conNo > 0, conNo);
+
+  // Cái bẫy đã làm sổ ghi sai suốt 30/08–16/09: gạch một món chỉ vì tra ra mã
+  // commit. Mã commit vẫn `git show` ra được kể cả khi nhánh chứa nó đã biến
+  // mất khỏi mọi kho. Luật thay thế phải còn nằm trong tài liệu.
+  check('tài liệu dạy kiểm bằng NỘI DUNG TỆP ở kho app 1, không bằng mã commit',
+    /không[\s>]*kiểm bằng mã commit/.test(vb),   // câu này xuống dòng giữa chừng
+    'xem mục "viết xong bản vá KHÔNG phải là trả nợ"');
+}
+
 tongKet();
