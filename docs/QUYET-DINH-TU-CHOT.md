@@ -1049,3 +1049,30 @@ phần lớn thời gian rồi đỏ vào đúng vài ngày. Kiểu ấy nguy hi
 gặp cũng nghĩ *"chạy lại là xanh"*, và đó chính là thói quen làm bộ kiểm thử
 mất tác dụng. Từ đợt này, mọi bài dựng tình huống theo ngày đều phải hỏi thêm
 một câu: **"chạy vào thứ Ba, hay vào mùng 1, thì còn đúng không?"**
+
+---
+
+### 21. Mã QR học phí: GIỮ CẢ HAI ĐƯỜNG — 16/09/2026
+
+**Chủ dự án chốt:** *"trường sẽ upload mã QR lên nếu cần"*.
+
+Câu chốt này đóng lại một câu đã hỏi hai lần trong cùng một phiên: **có nên bỏ
+gói `qrcode`** (29 gói phụ thuộc) sau khi Đ214 cho nhà trường tự tải ảnh QR lên?
+
+**Không bỏ.** Chữ *"nếu cần"* là chỗ quyết định: nhà trường **có thể tải, có
+thể không**, nên app phải chạy đúng ở cả hai trạng thái — đúng thứ Đ214 đã dựng.
+
+| Trường làm gì | Gia đình thấy gì |
+|---|---|
+| Khai số tài khoản, không tải ảnh | Mã app tự dựng, **mang sẵn số tiền và nội dung của đúng bé đó** |
+| Tải ảnh QR lên | Tấm ảnh của trường, kèm câu nói rõ nó **chưa có sẵn số tiền và nội dung** |
+| Chưa làm gì cả | Câu "Nhà trường chưa khai số tài khoản — xin gia đình hỏi văn phòng" |
+
+**Vì sao giữ đường tự dựng dù trường có thể tải ảnh:** mã tự dựng là đường
+**duy nhất** mang sẵn số tiền cho từng bé. Một tấm ảnh dùng chung cho mọi bé
+thì không thể. Bỏ gói `qrcode` là lấy đi tiện lợi ấy của phụ huynh để đổi lấy
+29 gói phụ thuộc — không đáng, vì `qrcode` không phải gói nặng hay khó bảo trì.
+
+**Việc còn lại của nhà trường:** không có việc gấp. Khi nào cần thì vào
+**Quản trị → Học phí → Tài khoản nhận tiền**, kéo xuống cuối màn, chọn ảnh và
+tích ô xác nhận đã quét thử. Gỡ ra lúc nào cũng được, gỡ xong quay về mã tự dựng.
