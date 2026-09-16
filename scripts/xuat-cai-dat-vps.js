@@ -382,6 +382,12 @@ async function main() {
       'sudo systemctl daemon-reload',
       'sudo systemctl enable --now casa-mamnon',
       'systemctl status casa-mamnon     # phải thấy "active (running)"'),
+    p('Kiểm thứ systemd ĐANG THẬT SỰ DÙNG, chứ không đọc lại tệp vừa gõ:'),
+    ...lenh('systemctl show casa-mamnon -p User -p Environment'),
+    viSao('systemd đọc tệp service vào bộ nhớ MỘT LẦN rồi dùng bản trong bộ nhớ ấy. '
+      + 'Sửa tệp trên đĩa mà quên `daemon-reload` thì `systemctl restart` vẫn chạy — bằng bản CŨ. '
+      + '`systemctl show` in ra bản đang có hiệu lực, nên nó là chỗ duy nhất trả lời đúng câu '
+      + '"app đang chạy với DATA_DIR nào".'),
     p('Xem app có trả lời không:'),
     ...lenh(`curl -s localhost:${CONG}/healthz`),
     p({ text: 'Khởi động lại HAI LẦN liên tiếp và kiểm cả hai lần đều lên được.', bold: true }),
@@ -457,6 +463,22 @@ async function main() {
       + 'ngắn sẽ bị chặn ở tầng nginx trước khi tới app — app không hề biết để báo lỗi tử tế.'),
     viSao('HTTPS không phải để cho đẹp. Không có HTTPS thì app KHÔNG cài được lên màn hình chính điện thoại '
       + 'và KHÔNG mở được lúc mất mạng — hai thứ mà cô cần nhất ở sân trường. Thông báo đẩy cũng không chạy.'),
+    h2('Bật buộc HTTPS — chỉ SAU KHI ổ khoá đã lên'),
+    p('Giờ mới thêm biến này vào tệp service, rồi nạp lại:'),
+    ...lenh(
+      'sudo sed -i "/Environment=PORT=/a Environment=FORCE_HTTPS=1" \\',
+      '  /etc/systemd/system/casa-mamnon.service',
+      '',
+      'sudo systemctl daemon-reload',
+      'sudo systemctl restart casa-mamnon',
+      'systemctl show casa-mamnon -p Environment   # phải thấy FORCE_HTTPS=1'),
+    chuY('ĐỪNG bật FORCE_HTTPS ở bước 7. Lúc ấy chưa có nginx nên phép kiểm '
+      + '`curl localhost:3000/healthz` của chính bước đó sẽ nhận một lệnh chuyển hướng sang https '
+      + 'thay vì câu trả lời — và người cài sẽ tưởng app hỏng.'),
+    viSao('Không có biến này thì ai gõ http:// vẫn vào được bằng kết nối không mã hoá, '
+      + 'và mật khẩu của cô đi qua mạng dưới dạng chữ thường. App KHÔNG cần khai thêm biến nào cho '
+      + 'nginx: `server.js` đã bật `trust proxy` sẵn, nên nó đọc được `X-Forwarded-Proto` mà bước 9 '
+      + 'đã khai trong cấu hình nginx ở trên.'),
     p('Đóng cổng app, chỉ để nginx nói chuyện với thế giới:'),
     ...lenh(
       'sudo ufw allow OpenSSH',
@@ -467,6 +489,8 @@ async function main() {
     oKiem('Mở https://<tên-miền> trên điện thoại thấy màn đăng nhập, có ổ khoá'),
     oKiem(`Gõ http://<IP>:${CONG} từ ngoài KHÔNG vào được (tường lửa đã chặn)`),
     oKiem('Cài được app lên màn hình chính điện thoại'),
+    oKiem('systemctl show in ra FORCE_HTTPS=1'),
+    oKiem('Gõ http://<tên-miền> tự nhảy sang https://'),
     trang(),
 
     // ======================= BƯỚC 10 =======================
@@ -504,6 +528,11 @@ async function main() {
       'npm ci --omit=dev',
       '',
       '# 4. Khởi động lại HAI LẦN, kiểm cả hai',
+      '#    Nếu lệnh restart in ra cảnh báo "...changed on disk. Run',
+      "#    'systemctl daemon-reload'..." + ' thì tệp service đã bị sửa mà systemd',
+      '#    chưa đọc lại — app vừa khởi động bằng bản CŨ. Chạy daemon-reload',
+      '#    rồi restart lại, đừng bỏ qua cảnh báo đó.',
+      'sudo systemctl daemon-reload',
       'sudo systemctl restart casa-mamnon && sleep 3 && systemctl is-active casa-mamnon',
       'sudo systemctl restart casa-mamnon && sleep 3 && systemctl is-active casa-mamnon',
       '',
@@ -523,6 +552,12 @@ async function main() {
       ['Ổ khoá HTTPS mất / báo hết hạn', 'sudo certbot renew --dry-run · kiểm tên miền còn trỏ đúng IP'],
       ['Cô đăng ảnh báo lỗi, ảnh nhỏ thì được', 'Thiếu client_max_body_size 20M trong nginx (bước 9).'],
       ['Giờ trong nhật ký lệch 7 tiếng', 'Chưa làm bước 1. Đặt múi giờ rồi khởi động lại dịch vụ.'],
+      ['restart báo "unit file ... changed on disk"',
+        'Tệp service đã bị sửa mà systemd chưa đọc lại — app vừa khởi động bằng bản CŨ, tức chỗ vừa sửa CHƯA có hiệu lực. Xem lại tệp bằng cat, rồi sudo systemctl daemon-reload và restart lại. Kiểm bằng systemctl show casa-mamnon -p User -p Environment.'],
+      ['Mở app bị chuyển hướng vòng vo không vào được',
+        'Nhiều khả năng bật FORCE_HTTPS=1 khi chưa có nginx/HTTPS. Tắt biến đó, daemon-reload, dựng xong bước 9 rồi bật lại.'],
+      ['Đổi DATA_DIR/PORT trong tệp service mà app không đổi theo',
+        'Cùng nguyên nhân trên: thiếu daemon-reload. systemctl show in ra giá trị đang thật sự có hiệu lực.'],
       ['Đăng nhập thấy dữ liệu lạ / tài khoản mình không tạo',
         'Nhiều khả năng DATA_DIR đang trỏ vào lần cài thử trước. Xem lại bước 3: ls -la /var/lib/casa-mamnon.'],
       ['git clone báo Permission denied vào /opt',
