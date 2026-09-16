@@ -419,6 +419,25 @@ async function main() {
       '0 7 * * 1 cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/kiem-tra-may-chu.js >> /var/lib/casa-mamnon/soat-may-chu.log 2>&1'),
     chuY('Giờ "2 giờ sáng" ở đây chỉ đúng nếu bước 1 đã đặt múi giờ. Chưa làm bước 1 thì dòng này '
       + 'chạy lúc 9 giờ sáng giờ Việt Nam.'),
+    h2('Hai cái bẫy của cron, cả hai đều hỏng im lặng'),
+    p({ text: '1. Dùng /usr/bin/node scripts/backup.js, ĐỪNG dùng npm run backup. ', bold: true },
+      'Cron chạy với một PATH rất hẹp, thường không có `npm`. Gõ `npm run backup` vào cron là mỗi đêm '
+      + 'nó ghi một dòng "command not found" rồi thôi — app vẫn chạy bình thường, màn hình không có gì lạ, '
+      + 'và chỉ tới hôm cần khôi phục mới biết chưa từng có bản sao nào.'),
+    p({ text: '2. Máy đã từng chạy app khác thì XEM crontab CŨ trước khi thêm dòng mới. ', bold: true },
+      'Dựng app này lên một máy từng chạy app khác là chuyện thường. Dòng cron cũ vẫn còn, vẫn chạy '
+      + 'hằng đêm, và vẫn sao lưu THƯ MỤC CỦA APP CŨ. Nhìn từ ngoài thì "lịch sao lưu có chạy" — '
+      + 'chỉ là nó sao lưu nhầm chỗ.'),
+    ...lenh(
+      'crontab -l                       # lịch của tài khoản đang dùng',
+      'sudo crontab -l                  # và của root, dễ quên',
+      '',
+      '# Thấy dòng nào trỏ vào thư mục của app cũ thì SỬA dòng đó,',
+      '# đừng thêm dòng mới bên cạnh — hai dòng cùng chạy là hai lần tốn ổ đĩa',
+      '# cho một thứ không ai dùng.'),
+    chuY('Dùng `crontab -e` của tài khoản chạy app, KHÔNG dùng `sudo crontab -e`. Thư mục dữ liệu '
+      + 'thuộc tài khoản ấy; chạy sao lưu bằng root sẽ sinh tệp thuộc root ngay trong đó, và lần sau '
+      + 'tài khoản thường ghi vào lại báo lỗi quyền.'),
     p({ text: 'Bản sao nằm cùng ổ đĩa với dữ liệu gốc thì không phải là bản sao. ', bold: true },
       'Ổ hỏng là mất cả hai cùng lúc — đó là lý do có dòng cron thứ hai ra ổ ngoài. Script tự in cảnh báo '
       + 'khi phát hiện hai chỗ nằm cùng ổ.'),
@@ -428,7 +447,8 @@ async function main() {
       + 'chứng chỉ HTTPS sắp hết hạn — đều là những thứ hỏng dần trong im lặng nhiều tuần SAU ngày cài. '
       + 'Chỉ chạy tay đúng hôm cài thì nó chỉ soát cái ngày mà mọi thứ chắc chắn đang tốt.'),
     h2('Bảng kiểm bước 8'),
-    oKiem('crontab -l in ra đủ ba dòng'),
+    oKiem('crontab -l in ra đủ ba dòng, và KHÔNG còn dòng nào trỏ vào app cũ'),
+    oKiem('Sáng hôm sau: backup:list có một bản mang mốc 02:0x — lịch đã chạy thật'),
     oKiem('Đã chốt chỗ để bản sao ra ổ ngoài'),
     trang(),
 
@@ -552,6 +572,8 @@ async function main() {
       ['Ổ khoá HTTPS mất / báo hết hạn', 'sudo certbot renew --dry-run · kiểm tên miền còn trỏ đúng IP'],
       ['Cô đăng ảnh báo lỗi, ảnh nhỏ thì được', 'Thiếu client_max_body_size 20M trong nginx (bước 9).'],
       ['Giờ trong nhật ký lệch 7 tiếng', 'Chưa làm bước 1. Đặt múi giờ rồi khởi động lại dịch vụ.'],
+      ['backup:list thấy bản sao cũ nhiều ngày, app vẫn chạy bình thường',
+        'Lịch sao lưu chưa đặt, hoặc đang trỏ vào thư mục app cũ, hoặc gọi `npm` mà cron không có npm trong PATH. Xem crontab -l và tail /var/lib/casa-mamnon/backup.log.'],
       ['restart báo "unit file ... changed on disk"',
         'Tệp service đã bị sửa mà systemd chưa đọc lại — app vừa khởi động bằng bản CŨ, tức chỗ vừa sửa CHƯA có hiệu lực. Xem lại tệp bằng cat, rồi sudo systemctl daemon-reload và restart lại. Kiểm bằng systemctl show casa-mamnon -p User -p Environment.'],
       ['Mở app bị chuyển hướng vòng vo không vào được',
