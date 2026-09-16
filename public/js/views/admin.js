@@ -2093,6 +2093,8 @@ Vẫn nhận bé này?`)) {
       'diemdanh-luu-y': 'Ghi lưu ý nội bộ cho một ngày của bé',
       'diemdanh-luu-y-go': 'Gỡ lưu ý nội bộ của một ngày',
       'hocphi-doi-tai-khoan': 'ĐỔI TÀI KHOẢN NHẬN TIỀN CỦA TRƯỜNG',
+      'hocphi-tai-qr-anh': 'TẢI ẢNH MÃ QR NHẬN TIỀN CỦA TRƯỜNG',
+      'hocphi-go-qr-anh': 'GỠ ẢNH MÃ QR NHẬN TIỀN CỦA TRƯỜNG',
       'ghi-gio-ra-ve': 'Ghi giờ bé ra về',
       'go-gio-ra-ve': 'Gỡ giờ bé ra về',
       'hanhtrinh-chu-de-tep-them': 'Treo tệp kế hoạch tuần',

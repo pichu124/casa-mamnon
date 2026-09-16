@@ -74,6 +74,7 @@ module.exports = (app, { db, modules }) => {
   const henGio = require('../../lib/hen-gio');
   const huyHieu = require('../../lib/huy-hieu');
   const baoNhaTruong = require('../../lib/bao-nha-truong');
+  const uploads = require('../../lib/uploads');
 
   // AI ĐƯỢC ĐẶT RA MỘT KHOẢN TIỀN PHẢI NỘP (Đ163).
   //
@@ -1193,6 +1194,20 @@ module.exports = (app, { db, modules }) => {
   app.get('/api/hocphi/tai-khoan', requireRole('admin'), (req, res) => {
     const pham = db.phamViCoSo(req.user) || '';
     const rows = db.all('hocphi_taikhoan', 'SELECT * FROM hocphi_taikhoan ORDER BY campusId');
+
+    // CƠ SỞ MỚI CHỈ TẢI ẢNH QR, CHƯA KHAI SỐ TÀI KHOẢN, VẪN PHẢI CÓ MỘT DÒNG.
+    // Thiếu vế này thì trường tải ảnh lên xong mở màn ra không thấy gì — không
+    // xem lại được tấm vừa tải, cũng không gỡ được nó. Dòng thêm vào là dòng
+    // rỗng, `duDeDungQr` của nó là false, nên không chỗ nào hiểu nhầm là đã khai.
+    const coDong = new Set(rows.map(r => r.campusId || ''));
+    db.all('hocphi_qr_anh', 'SELECT campusId FROM hocphi_qr_anh ORDER BY campusId')
+      .filter(a => !coDong.has(a.campusId || ''))
+      .forEach(a => rows.push({
+        campusId: a.campusId || '', maNganHang: '', tenNganHang: '', soTaiKhoan: '',
+        chuTaiKhoan: '', cuPhap: '', daDoiChieu: 0, nguoiDoi: null, doiLuc: null,
+      }));
+    rows.sort((x, y) => String(x.campusId || '').localeCompare(String(y.campusId || '')));
+
     const thay = pham ? rows.filter(r => r.campusId === pham || r.campusId === '') : rows;
     res.json({
       // Danh sách ngân hàng là GỢI Ý cho ô chọn, không phải nguồn sự thật —
@@ -1205,6 +1220,11 @@ module.exports = (app, { db, modules }) => {
         ...r,
         daDoiChieu: !!r.daDoiChieu,
         tenTheoMa: vietqr.tenNganHang(r.maNganHang),
+        coAnhQr: (() => {
+          const a = db.first('hocphi_qr_anh',
+            'SELECT file FROM hocphi_qr_anh WHERE campusId = ?', [r.campusId || '']);
+          return !!(a && a.file && uploads.exists(a.file));
+        })(),
         duDeDungQr: duDeDungQr(r),
         nguoiDoiTen: r.nguoiDoi ? ((db.findUser(r.nguoiDoi) || {}).name || '') : '',
       })),
@@ -1276,6 +1296,152 @@ module.exports = (app, { db, modules }) => {
     res.json({ ok: true, ...dong, daDoiChieu: true, tenTheoMa: vietqr.tenNganHang(maNganHang) });
   });
 
+  // =========================================================================
+  // ẢNH MÃ QR DO NHÀ TRƯỜNG TỰ TẢI LÊN (Đ214)
+  // =========================================================================
+  //
+  // Mã app tự dựng theo chuẩn VietQR không phủ hết mọi ngân hàng lẫn mọi ví.
+  // Trường nào đã có sẵn tấm QR in ở quầy thì tải thẳng tấm đó lên là chắc
+  // nhất — nó là tấm trường đã tự quét thử.
+  //
+  // ĐƯỜNG NÀY THÊM BÊN CẠNH, KHÔNG THAY. Trường chưa tải ảnh thì mọi thứ chạy
+  // y như trước Đ214: app vẫn dựng mã từ số tài khoản, và mã ấy vẫn mang sẵn
+  // số tiền lẫn nội dung của đúng bé đó — thứ tấm ảnh dùng chung không làm
+  // được. Vì vậy MÃ TỰ DỰNG VẪN LÀ ĐƯỜNG TỐT HƠN khi khai được số tài khoản.
+  //
+  // Quyền ghi hỏi `db.duyetBieuPhiDuoc` y hệt đường đổi số tài khoản, và vì
+  // cùng một lý do: đổi tấm QR là đổi chỗ tiền của TOÀN BỘ phụ huynh chạy về,
+  // đổi một cách im lặng, và app không nối tới ngân hàng nào để kiểm hộ.
+
+  function qrAnhCua(campusId) {
+    const rieng = campusId ? db.first('hocphi_qr_anh',
+      'SELECT * FROM hocphi_qr_anh WHERE campusId = ?', [campusId]) : null;
+    if (rieng && rieng.file) return rieng;
+    return db.first('hocphi_qr_anh', "SELECT * FROM hocphi_qr_anh WHERE campusId = ''") || null;
+  }
+
+  app.post('/api/hocphi/tai-khoan/qr-anh', requireRole('admin'), (req, res) => {
+    if (!db.duyetBieuPhiDuoc(req.user)) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu mới đổi được mã QR nhận tiền của trường. '
+          + 'Đây là chỗ tiền của tất cả các gia đình chạy về, nên app cố ý để một '
+          + 'mình khâu kế toán không tự đổi được.',
+      });
+    }
+    const b = req.body || {};
+    const campusId = String(b.campusId || '').trim();
+    if (campusId && !db.canAccessCampus(req.user, campusId)) {
+      return res.status(403).json({ error: 'Cơ sở này không thuộc phạm vi của tài khoản' });
+    }
+    // BẮT NGƯỜI TẢI XÁC NHẬN ĐÃ QUÉT THỬ. App không đọc được nội dung bên trong
+    // tấm ảnh, nên vế duy nhất còn lại là bắt người tải nói rõ mình đã tự quét
+    // thử bằng app ngân hàng. Cùng vế với ô "đã đối chiếu" của số tài khoản.
+    if (!b.daQuetThu) {
+      return res.status(400).json({
+        error: 'Xin quét thử tấm mã này bằng app ngân hàng, xem đúng số tài khoản của '
+          + 'trường rồi hãy tích vào ô xác nhận. App không đọc được bên trong tấm ảnh, '
+          + 'nên tải nhầm một tấm là tiền của các gia đình đi sang chỗ khác mà không có gì báo.',
+      });
+    }
+    let luu;
+    try {
+      luu = uploads.saveDataUrl(String(b.anh || ''));
+    } catch (e) {
+      return res.status(400).json({ error: e.message || 'Ảnh không hợp lệ' });
+    }
+
+    const luc = new Date().toISOString();
+    const cu = db.first('hocphi_qr_anh', 'SELECT * FROM hocphi_qr_anh WHERE campusId = ?', [campusId]);
+    const dong = {
+      campusId, file: luu.file,
+      tenGoc: String(b.tenGoc || '').trim().slice(0, 120),
+      bytes: luu.bytes, nguoiTai: req.user.id, taiLuc: luc,
+    };
+    try {
+      db.tx(() => {
+        db.upsert('hocphi_qr_anh', dong, ['campusId']);
+        db.insert('hocphi_qr_anh_su', {
+          id: db.nextId('hpqr'), campusId, viec: 'tai-len',
+          file: luu.file, tenGoc: dong.tenGoc, nguoiTai: req.user.id, taiLuc: luc,
+        });
+      });
+    } catch (e) {
+      // Ghi sổ hỏng thì tệp vừa ghi ra đĩa là tệp mồ côi — dọn ngay.
+      try { uploads.remove(luu.file); } catch (_) { /* dọn là việc phụ */ }
+      throw e;
+    }
+    // Tấm cũ chỉ xoá SAU KHI dòng mới đã vào sổ, để không có lúc nào bảng trỏ
+    // tới một tệp đã mất.
+    if (cu && cu.file && cu.file !== luu.file) {
+      try { uploads.remove(cu.file); } catch (_) { /* tệp đã mất thì thôi */ }
+    }
+    db.audit(req.user.id, 'hocphi-tai-qr-anh', campusId || 'toan-truong', { bytes: luu.bytes });
+    res.json({ ok: true, coAnh: true, taiLuc: luc, bytes: luu.bytes, tenGoc: dong.tenGoc });
+  });
+
+  app.delete('/api/hocphi/tai-khoan/qr-anh', requireRole('admin'), (req, res) => {
+    if (!db.duyetBieuPhiDuoc(req.user)) {
+      return res.status(403).json({ error: 'Chỉ ban giám hiệu mới gỡ được mã QR nhận tiền của trường.' });
+    }
+    const campusId = String((req.body && req.body.campusId) || req.query.campusId || '').trim();
+    if (campusId && !db.canAccessCampus(req.user, campusId)) {
+      return res.status(403).json({ error: 'Cơ sở này không thuộc phạm vi của tài khoản' });
+    }
+    const cu = db.first('hocphi_qr_anh', 'SELECT * FROM hocphi_qr_anh WHERE campusId = ?', [campusId]);
+    if (!cu) return res.status(404).json({ error: 'Chưa có ảnh mã QR nào để gỡ' });
+    const luc = new Date().toISOString();
+    db.tx(() => {
+      db.remove('hocphi_qr_anh', cu.campusId, 'campusId');
+      db.insert('hocphi_qr_anh_su', {
+        id: db.nextId('hpqr'), campusId, viec: 'go-xuong',
+        file: cu.file, tenGoc: cu.tenGoc || '', nguoiTai: req.user.id, taiLuc: luc,
+      });
+    });
+    try { uploads.remove(cu.file); } catch (_) { /* tệp đã mất thì thôi */ }
+    db.audit(req.user.id, 'hocphi-go-qr-anh', campusId || 'toan-truong', {});
+    // GỠ ẢNH KHÔNG PHẢI LÀ TẮT CHUYỂN KHOẢN. Còn số tài khoản thì màn của gia
+    // đình quay về mã app tự dựng, đúng như trước khi trường tải ảnh lên.
+    res.json({ ok: true, coAnh: false });
+  });
+
+  // Phục vụ chính tấm ảnh. Hai lối vào, mỗi lối một cách gác cửa:
+  //   - gia đình đi bằng `khoanId`, gác đúng bằng `db.canAccessStudent` — cùng
+  //     một phép kiểm với đường `chuyen-khoan`, nên không mở thêm cửa nào;
+  //   - nhà trường đi bằng `campusId` để xem lại tấm mình vừa tải.
+  // CỐ Ý KHÔNG cho gia đình tra theo `campusId`: mã QR gắn với khoản thu của
+  // con mình, không phải thứ gõ số cơ sở vào là xem được.
+  app.get('/api/hocphi/qr-anh', (req, res) => {
+    const khoanId = String(req.query.khoanId || '').trim();
+    let campusId = null;
+
+    if (khoanId) {
+      const k = db.first('hocphi_khoan', 'SELECT * FROM hocphi_khoan WHERE id = ?', [khoanId]);
+      if (!k) return res.status(404).json({ error: 'Không tìm thấy khoản thu' });
+      if (!db.canAccessStudent(req.user, k.studentId)) {
+        return res.status(403).json({ error: 'Không có quyền xem khoản thu này' });
+      }
+      campusId = coSoCuaBe(db.findStudent(k.studentId));
+    } else {
+      if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Không có quyền xem mã QR của trường' });
+      }
+      campusId = String(req.query.campusId || '').trim();
+      if (campusId && !db.canAccessCampus(req.user, campusId)) {
+        return res.status(403).json({ error: 'Cơ sở này không thuộc phạm vi của tài khoản' });
+      }
+    }
+
+    const a = qrAnhCua(campusId || '');
+    if (!a || !a.file) return res.status(404).json({ error: 'Nhà trường chưa tải ảnh mã QR' });
+    const duong = uploads.pathOf(a.file);
+    if (!duong || !uploads.exists(a.file)) {
+      return res.status(404).json({ error: 'Ảnh mã QR không còn trên máy chủ' });
+    }
+    res.setHeader('Content-Type', uploads.mimeOf(a.file));
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.sendFile(duong);
+  });
+
   // Gia đình: cách chuyển khoản cho MỘT khoản thu của con mình.
   app.get('/api/hocphi/chuyen-khoan', async (req, res) => {
     const khoanId = String(req.query.khoanId || '').trim();
@@ -1288,9 +1454,17 @@ module.exports = (app, { db, modules }) => {
     const be = db.findStudent(k.studentId);
     const tk = taiKhoanCua(coSoCuaBe(be));
 
+    // ẢNH MÃ QR TRƯỜNG TỰ TẢI LÊN (Đ214) — hỏi TRƯỚC, vì nếu có thì nó dùng
+    // được cả khi trường chưa khai số tài khoản.
+    const anhQr = qrAnhCua(coSoCuaBe(be));
+    const coAnhQr = !!(anhQr && anhQr.file && uploads.exists(anhQr.file));
+
     // CHƯA KHAI THÌ NÓI THẲNG LÀ CHƯA KHAI. Dựng một mã QR từ dữ liệu thiếu là
     // mời gia đình quét vào chỗ không có thật.
-    if (!duDeDungQr(tk)) {
+    //
+    // Đ214 nới đúng MỘT vế: có ảnh trường tự tải lên thì vẫn hiện được, dù số
+    // tài khoản chưa khai. Không có cả hai thì câu trả lời y như trước.
+    if (!duDeDungQr(tk) && !coAnhQr) {
       return res.json({
         coTaiKhoan: false,
         loiNhan: 'Nhà trường chưa khai số tài khoản nhận tiền trên app. '
@@ -1298,20 +1472,28 @@ module.exports = (app, { db, modules }) => {
       });
     }
 
-    const cuPhap = thayOTrongCuPhap(tk.cuPhap, {
+    const cuPhap = thayOTrongCuPhap((tk && tk.cuPhap) || CU_PHAP_MAC_DINH, {
       be, khoan: k, thang: String(k.hanNop || '').slice(0, 7),
     });
     const ra = {
       coTaiKhoan: true,
-      tenNganHang: tk.tenNganHang || vietqr.tenNganHang(tk.maNganHang),
-      soTaiKhoan: tk.soTaiKhoan,
-      chuTaiKhoan: tk.chuTaiKhoan,
+      tenNganHang: (tk && (tk.tenNganHang || vietqr.tenNganHang(tk.maNganHang))) || '',
+      soTaiKhoan: (tk && tk.soTaiKhoan) || '',
+      chuTaiKhoan: (tk && tk.chuTaiKhoan) || '',
       soTien: k.soTien,
       // Chuỗi ĐÃ BỎ DẤU, đúng thứ sẽ nằm trong mã QR — để gia đình gõ tay cũng
       // ra đúng chuỗi ấy, chứ không phải một bản có dấu rồi ngân hàng cắt khác đi.
       cuPhap: vietqr.boDauASCII(cuPhap),
       qrSvg: null,
+      // ẢNH TRƯỜNG TỰ TẢI LÊN. `qrAnhUrl` khác null là màn hình vẽ tấm ảnh ấy
+      // thay cho mã app tự dựng.
+      qrAnhUrl: coAnhQr ? `/api/hocphi/qr-anh?khoanId=${encodeURIComponent(k.id)}` : null,
+      // MỘT TẤM ẢNH DÙNG CHUNG CHO MỌI BÉ THÌ KHÔNG MANG ĐƯỢC SỐ TIỀN VÀ NỘI
+      // DUNG CỦA RIÊNG BÉ NÀO. Màn hình phải nói ra, nếu không gia đình quét
+      // xong tưởng đã đủ rồi bấm chuyển với số tiền 0 và nội dung trống.
+      qrTuDien: !coAnhQr,
     };
+    if (coAnhQr) return res.json(ra);
     try {
       const chuoi = vietqr.payload({
         maNganHang: tk.maNganHang, soTaiKhoan: tk.soTaiKhoan,

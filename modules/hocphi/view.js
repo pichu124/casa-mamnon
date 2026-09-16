@@ -794,8 +794,24 @@ App.views.hocphi = {
     }
 
     const tien = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
-    UI.modal(`
-      ${d.qrSvg ? `
+
+    // BA TRẠNG THÁI, KHÔNG PHẢI HAI (Đ214):
+    //   1. ảnh QR nhà trường tự tải lên — hiện tấm ảnh, VÀ nói rõ tấm này chưa
+    //      có sẵn số tiền lẫn nội dung, vì một tấm dùng chung cho mọi bé thì
+    //      không mang được của riêng bé nào;
+    //   2. mã app tự dựng từ số tài khoản — có sẵn số tiền và nội dung;
+    //   3. không dựng được — chuyển tay theo thông tin bên dưới.
+    // Thiếu câu ở trạng thái 1 là gia đình quét xong tưởng xong, bấm chuyển với
+    // số tiền 0 và nội dung trống; văn phòng nhận tiền mà không biết của nhà nào.
+    const khoiQr = d.qrAnhUrl ? `
+        <div style="background:#fff;border-radius:12px;padding:10px;max-width:250px;margin:0 auto">
+          <img src="${UI.esc(d.qrAnhUrl)}" alt="Mã QR của nhà trường"
+               style="width:100%;height:auto;display:block;border-radius:6px">
+        </div>
+        <div class="small" style="background:#fff6e9;border-radius:8px;padding:9px 11px;line-height:1.6;margin-top:8px">
+          Mở app ngân hàng, chọn quét mã. <b>Tấm mã này chưa có sẵn số tiền và nội dung</b> —
+          xin gia đình nhập giúp hai dòng ở dưới sau khi quét ạ.
+        </div>` : (d.qrSvg ? `
         <div style="background:#fff;border-radius:12px;padding:10px;max-width:250px;margin:0 auto">
           ${d.qrSvg}
         </div>
@@ -805,7 +821,10 @@ App.views.hocphi = {
         <div class="small" style="background:#fff6e9;border-radius:8px;padding:9px 11px;line-height:1.6">
           Lần này app chưa dựng được mã QR. Gia đình chuyển khoản theo thông tin bên dưới giúp nhé —
           vẫn đúng như nhau ạ.
-        </div>`}
+        </div>`);
+
+    UI.modal(`
+      ${khoiQr}
       <div class="card mt-14" style="padding:10px 12px">
         <div class="field" style="margin-bottom:8px">
           <label>Ngân hàng</label>
@@ -813,11 +832,13 @@ App.views.hocphi = {
         </div>
         <div class="field" style="margin-bottom:8px">
           <label>Số tài khoản</label>
-          <div style="font-weight:700;letter-spacing:.5px">${UI.esc(d.soTaiKhoan)}</div>
+          <div style="font-weight:700;letter-spacing:.5px">${d.soTaiKhoan
+            ? UI.esc(d.soTaiKhoan)
+            : '<span class="muted" style="font-weight:400">Nhà trường chưa khai trên app — xin gia đình quét mã ở trên, hoặc hỏi văn phòng ạ.</span>'}</div>
         </div>
         <div class="field" style="margin-bottom:8px">
           <label>Chủ tài khoản</label>
-          <div>${UI.esc(d.chuTaiKhoan)}</div>
+          <div>${UI.esc(d.chuTaiKhoan || '—')}</div>
         </div>
         <div class="field" style="margin-bottom:8px">
           <label>Số tiền</label>
@@ -862,9 +883,11 @@ App.views.hocphi = {
                   ${UI.esc(x.soTaiKhoan)} · ${UI.esc(x.chuTaiKhoan)}</div>
                 ${x.nguoiDoiTen ? `<div class="small muted">${UI.esc(x.nguoiDoiTen)} đặt lần cuối</div>` : ''}
               </div>
-              <div class="row-end">${x.duDeDungQr
-                ? UI.badge('Dựng được mã QR', 'green')
-                : UI.badge('Chưa đủ để dựng mã', 'orange')}</div>
+              <div class="row-end">${x.coAnhQr
+                ? UI.badge('Dùng ảnh QR của trường', 'green')
+                : (x.duDeDungQr
+                  ? UI.badge('Dựng được mã QR', 'green')
+                  : UI.badge('Chưa đủ để dựng mã', 'orange'))}</div>
             </div>`).join('')}
         </div>` : UI.emptyState('🏦', 'Trường chưa khai tài khoản nào')}
       ${d.doiDuoc ? `
@@ -903,6 +926,28 @@ App.views.hocphi = {
         </label>
         <div class="small muted" id="hp-tk-ten" style="min-height:18px"></div>
         <button class="btn primary block mt-8" id="hp-tk-luu">Lưu tài khoản nhận tiền</button>
+
+        <div class="card mt-14" style="padding:10px 12px">
+          <div style="font-weight:600;margin-bottom:6px">Hoặc tải thẳng ảnh mã QR của trường</div>
+          <div class="small muted" style="line-height:1.6">
+            Trường đã có sẵn tấm QR in ở quầy thì chụp hoặc tải tấm đó lên đây.
+            Tải lên rồi thì màn của gia đình hiện <b>tấm ảnh này</b> thay cho mã app tự dựng.
+            <br><br>
+            <b>Một điều xin cân nhắc trước khi tải:</b> mã app tự dựng từ số tài khoản
+            <b>mang sẵn số tiền và nội dung của đúng bé đó</b>, gia đình quét xong là bấm chuyển.
+            Một tấm ảnh dùng chung cho mọi bé thì không mang được — gia đình phải tự gõ hai dòng ấy.
+            Nếu ngân hàng của trường dựng mã được thì để app tự dựng vẫn tiện hơn cho phụ huynh.
+          </div>
+          <div id="hp-qr-hien" class="mt-8"></div>
+          <input type="file" id="hp-qr-tep" accept="image/*" style="margin-top:8px">
+          <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 2px;cursor:pointer">
+            <input type="checkbox" id="hp-qr-xn" style="width:18px;height:18px;flex:none;accent-color:var(--primary)">
+            <span class="small">Tôi đã quét thử tấm mã này bằng app ngân hàng và ra đúng
+              tài khoản của trường.</span>
+          </label>
+          <button class="btn block" id="hp-qr-luu">Tải ảnh mã QR lên</button>
+          <button class="btn outline block mt-8" id="hp-qr-go">Gỡ ảnh mã QR</button>
+        </div>
       ` : `
         <div class="small muted mt-14" style="line-height:1.6">
           Chỉ ban giám hiệu đổi được tài khoản nhận tiền. App cố ý để một mình khâu kế toán
@@ -943,6 +988,57 @@ App.views.hocphi = {
         });
         UI.closeModal();
         UI.toast('Đã lưu tài khoản nhận tiền', 'success');
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+
+    // ---- ẢNH MÃ QR TRƯỜNG TỰ TẢI LÊN (Đ214) ----
+    const oHien = document.getElementById('hp-qr-hien');
+    const oTep = document.getElementById('hp-qr-tep');
+    // `t=` là để trình duyệt thôi lấy tấm cũ trong bộ nhớ đệm: đường dẫn không
+    // đổi khi trường tải tấm mới, mà máy chủ cho phép nhớ 5 phút — không có nó
+    // thì tải xong vẫn nhìn thấy tấm cũ và tưởng là tải hỏng.
+    const veAnh = (co) => {
+      oHien.innerHTML = co
+        ? `<div style="background:#fff;border-radius:10px;padding:8px;max-width:190px">
+             <img src="/api/hocphi/qr-anh?campusId=&t=${Date.now()}" alt="Mã QR của trường"
+                  style="width:100%;height:auto;display:block;border-radius:6px">
+           </div>
+           <div class="small muted mt-8">Đây là tấm gia đình đang nhìn thấy.</div>`
+        : '<div class="small muted">Chưa có ảnh mã QR nào — app đang dựng mã từ số tài khoản.</div>';
+    };
+    veAnh(!!(hien && hien.coAnhQr));
+
+    document.getElementById('hp-qr-luu').onclick = async () => {
+      const f = oTep.files && oTep.files[0];
+      if (!f) return UI.toast('Xin chọn tấm ảnh mã QR trước', 'error');
+      let dataUrl;
+      // Nén trước khi gửi, y như mọi chỗ khác trong app. QR cần nét nên để
+      // chất lượng cao hơn ảnh sinh hoạt — nén quá tay là máy quét không đọc ra.
+      try { dataUrl = await UI.nenAnh(f, { canhToiDa: 1000, chatLuong: 0.92 }); }
+      catch (_) { return UI.toast('Không đọc được tấm ảnh này', 'error'); }
+      try {
+        await API.post('/api/hocphi/tai-khoan/qr-anh', {
+          campusId: '',
+          anh: dataUrl,
+          tenGoc: f.name || '',
+          daQuetThu: !!document.getElementById('hp-qr-xn').checked,
+        });
+        veAnh(true);
+        oTep.value = '';
+        UI.toast('Đã tải ảnh mã QR lên', 'success');
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+
+    document.getElementById('hp-qr-go').onclick = async () => {
+      // GỠ ẢNH KHÔNG PHẢI VIỆC BẤM NHẦM ĐƯỢC. Hỏi lại, và câu hỏi nói rõ gỡ
+      // xong thì màn của gia đình quay về đâu.
+      if (!confirm('Gỡ ảnh mã QR của trường?\n\n'
+        + 'Gia đình sẽ quay về mã app tự dựng từ số tài khoản. Chưa khai số tài khoản '
+        + 'thì màn chuyển khoản của gia đình sẽ báo là trường chưa khai.')) return;
+      try {
+        await API.del('/api/hocphi/tai-khoan/qr-anh?campusId=');
+        veAnh(false);
+        UI.toast('Đã gỡ ảnh mã QR', 'success');
       } catch (err) { UI.toast(err.message, 'error'); }
     };
   },

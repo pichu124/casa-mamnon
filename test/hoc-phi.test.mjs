@@ -242,9 +242,15 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   // `GET /api/hocphi/chuyen-khoan` là đường GIA ĐÌNH mở ra để biết chuyển
   // khoản thế nào, nên nó không thể đòi vai văn phòng — y như `GET /api/hocphi`
   // vốn đã vậy. Chốt của nó là `db.canAccessStudent`, và phép kiểm ngay dưới
-  // đây ghim đúng điều ấy để con số 19 không che mất một đường không chốt gì.
-  check('cả MƯỜI CHÍN đường đòi vai của phân hệ đều đòi vai văn phòng',
-    (routes.match(/requireRole\('admin'\)/g) || []).length === 19,
+  // đây ghim đúng điều ấy để con số 21 không che mất một đường không chốt gì.
+  //
+  // Đ214 nâng 19 → 21: thêm đường TẢI và đường GỠ ảnh mã QR của trường, cả hai
+  // đòi vai văn phòng rồi hỏi tiếp `db.duyetBieuPhiDuoc` y như đường đổi số
+  // tài khoản. Đường thứ ba của Đ214 — `GET /api/hocphi/qr-anh`, để gia đình
+  // xem chính tấm ảnh ấy — CỐ Ý không đòi vai, cùng lý do với `chuyen-khoan`;
+  // chốt của nó là `db.canAccessStudent`, và phép kiểm ngay dưới ghim điều đó.
+  check('cả HAI MƯƠI MỐT đường đòi vai của phân hệ đều đòi vai văn phòng',
+    (routes.match(/requireRole\('admin'\)/g) || []).length === 21,
     (routes.match(/requireRole\([^)]*\)/g) || []));
   {
     // Cắt đúng thân đường chuyển khoản rồi đòi nó có chốt theo bé.
@@ -252,6 +258,17 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
     const than = d > 0 ? routes.slice(d, d + 1400) : '';
     check('đường chuyển khoản của gia đình TỒN TẠI để mà soi', d > 0, d);
     check('…và nó không đòi vai, nhưng CÓ chốt db.canAccessStudent',
+      !!than && !/requireRole/.test(than.slice(0, 120)) && than.includes('db.canAccessStudent'),
+      than.slice(0, 120));
+  }
+  {
+    // ĐƯỜNG ẢNH MÃ QR (Đ214) — đường thứ tư không đòi vai. Không ghim ở đây
+    // thì con số 21 ở trên lại che mất một đường không chốt gì, đúng cái bẫy
+    // mà phép kiểm trên vừa tránh cho `chuyen-khoan`.
+    const d = routes.indexOf("app.get('/api/hocphi/qr-anh'");
+    const than = d > 0 ? routes.slice(d, d + 1600) : '';
+    check('đường ảnh mã QR TỒN TẠI để mà soi', d > 0, d);
+    check('…và nó không đòi vai, nhưng CÓ chốt db.canAccessStudent theo bé',
       !!than && !/requireRole/.test(than.slice(0, 120)) && than.includes('db.canAccessStudent'),
       than.slice(0, 120));
   }

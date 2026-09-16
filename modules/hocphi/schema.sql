@@ -282,3 +282,41 @@ CREATE TABLE IF NOT EXISTS hocphi_taikhoan_su (
   doiLuc      TEXT
 );
 CREATE INDEX IF NOT EXISTS hocphi_taikhoan_su_theo_coso ON hocphi_taikhoan_su(campusId, doiLuc);
+
+-- ẢNH MÃ QR DO NHÀ TRƯỜNG TỰ TẢI LÊN (Đ214)
+--
+-- VÌ SAO CÓ BẢNG NÀY BÊN CẠNH `hocphi_taikhoan` CHỨ KHÔNG THÊM CỘT VÀO ĐÓ:
+-- `ALTER TABLE` bị cấm ở lược đồ lõi, và `CREATE TABLE IF NOT EXISTS` trên một
+-- bảng đã có là câu lệnh KHÔNG LÀM GÌ CẢ — thêm cột vào khai báo cũ thì máy
+-- đang chạy sẽ không bao giờ có cột đó, mà cũng không báo lỗi gì.
+--
+-- VÌ SAO CÓ ĐƯỜNG THỨ HAI NÀY KHI ĐÃ DỰNG ĐƯỢC QR TỪ SỐ TÀI KHOẢN: mã app tự
+-- dựng theo chuẩn VietQR, và chuẩn ấy không phủ hết mọi ngân hàng lẫn mọi ví.
+-- Trường nào đã có sẵn tấm QR in ở quầy thì tải thẳng tấm đó lên là chắc nhất
+-- — nó là tấm trường đã tự quét thử.
+--
+-- ẢNH TẢI LÊN KHÔNG MANG THEO SỐ TIỀN VÀ NỘI DUNG CHUYỂN KHOẢN, và đó là khác
+-- biệt quan trọng nhất so với mã app tự dựng: một tấm ảnh dùng chung cho mọi
+-- bé thì không thể mang số tiền của riêng bé nào. Màn của gia đình PHẢI nói
+-- điều đó ra, kèm cú pháp để nhà tự gõ.
+CREATE TABLE IF NOT EXISTS hocphi_qr_anh (
+  campusId TEXT PRIMARY KEY,      -- rỗng = dùng chung cả trường
+  file     TEXT NOT NULL,
+  tenGoc   TEXT NOT NULL DEFAULT '',
+  bytes    INTEGER NOT NULL DEFAULT 0,
+  nguoiTai TEXT,
+  taiLuc   TEXT
+);
+
+-- Sổ ghi mọi lần đổi ảnh QR. Cùng lý do với `hocphi_taikhoan_su`: đổi tấm QR
+-- là đổi chỗ tiền chạy về, và đổi một cách im lặng.
+CREATE TABLE IF NOT EXISTS hocphi_qr_anh_su (
+  id       TEXT PRIMARY KEY,
+  campusId TEXT NOT NULL DEFAULT '',
+  viec     TEXT NOT NULL DEFAULT '',   -- 'tai-len' | 'go-xuong'
+  file     TEXT NOT NULL DEFAULT '',
+  tenGoc   TEXT NOT NULL DEFAULT '',
+  nguoiTai TEXT,
+  taiLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS hocphi_qr_anh_su_theo_coso ON hocphi_qr_anh_su(campusId, taiLuc);
