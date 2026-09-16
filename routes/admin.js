@@ -2,6 +2,7 @@
 //
 // Đây là phần cho phép nhà trường tự đưa dữ liệu thật vào hệ thống — không có
 // nó thì không thể tạo hàng trăm tài khoản phụ huynh.
+const crypto = require('crypto');
 const db = require('../lib/db');
 const ngayVN = require('../lib/ngay');
 const lsl = require('../lib/lich-su-lop');
@@ -43,8 +44,30 @@ function nhoTenNhom() {
   };
 }
 
+// `crypto.randomInt`, KHÔNG phải `Math.random` (Đ212).
+//
+// CHỖ NÀY NGUY HƠN HAI CHỖ ĐÃ VÁ Ở Đ117, và lý do nằm ở chữ HÀNG LOẠT.
+//
+// `Math.random` không phải bộ sinh dùng cho việc bảo mật: nó có trạng thái nội
+// bộ và các giá trị nối nhau theo một quy luật, nên biết một dãy giá trị liên
+// tiếp là suy ngược ra trạng thái rồi tính được những giá trị TRƯỚC và SAU.
+//
+// Hàm này được gọi ở hai chỗ, và chỗ thứ hai phạm đúng điều kiện ấy:
+//
+//   • tạo tài khoản cho MỘT cô — một lần một mật khẩu;
+//   • nhập danh sách đầu năm từ CSV — HÀNG TRĂM mật khẩu phụ huynh sinh liên
+//     tiếp từ cùng một dòng chảy, rồi in ra một lượt cho người nhập.
+//
+// Ai có trong tay vài mật khẩu liên tiếp của mẻ ấy — một phụ huynh hai con,
+// một cô nhận danh sách lớp mình, một tờ in bỏ quên — về nguyên tắc suy ra
+// được mật khẩu của CÁC NHÀ KHÁC. `mustChangePassword` có làm hẹp cửa lại,
+// nhưng ở trường mầm non nhiều gia đình hàng tuần không mở app, nên mật khẩu
+// ấy còn hiệu lực suốt thời gian đó.
+//
+// Bộ chữ và độ dài giữ NGUYÊN — vẫn là chuỗi dễ đọc qua điện thoại, đã bỏ sẵn
+// các ký tự dễ nhầm (0/O, 1/l/I). Đổi đúng nguồn ngẫu nhiên, không đổi gì khác.
 function sinhMatKhau() {
-  const pick = (s) => s[Math.floor(Math.random() * s.length)];
+  const pick = (s) => s[crypto.randomInt(s.length)];
   let out = '';
   for (let i = 0; i < 5; i++) out += pick(CHU);
   for (let i = 0; i < 3; i++) out += pick(SO);
