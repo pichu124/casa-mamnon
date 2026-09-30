@@ -22,6 +22,7 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 | [`CLAUDE.md`](CLAUDE.md) | Luật bắt buộc khi sửa mã: Nguyên tắc số 1 + 5 QUY TẮC giáo dục |
 | [`docs/LOI-NEN-CHUNG.md`](docs/LOI-NEN-CHUNG.md) | Lỗi ở phần nền thì vá hai kho ra sao |
 | [`modules/README.md`](modules/README.md) | Cách thêm một tính năng mà không đụng phần đang chạy |
+| [`docs/TINH-TRANG.md`](docs/TINH-TRANG.md) | **Đang đứng ở đâu, việc gì chờ ai** — ảnh chụp một thời điểm, được phép ghi đè. Đọc tệp này TRƯỚC khi làm gì tiếp |
 | [`docs/TRIEN-KHAI.md`](docs/TRIEN-KHAI.md) | **Cài lên máy chủ của trường**: VPS trong nước, tài khoản quản trị, dịch vụ tự bật lại, lịch sao lưu |
 | [`docs/CAI-DAT-VPS.docx`](docs/CAI-DAT-VPS.docx) | **Bản Word từ A đến Z** cho người cài lần đầu — 10 bước, mỗi bước một bảng kiểm. Sinh lại bằng `npm run tai-lieu:cai-dat-vps` |
 | [`docs/XIN-BAO-GIA-VPS.md`](docs/XIN-BAO-GIA-VPS.md) | **Bản yêu cầu xin báo giá máy chủ** — chép thẳng gửi nhà cung cấp, kèm bảng so sánh và ba chỗ dễ bị hớ |

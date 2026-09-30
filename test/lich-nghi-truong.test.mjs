@@ -257,7 +257,21 @@ const beCuaBang = async () => {
 // không mượn "hôm nay" và "hôm qua" nữa, vì hai ngày ấy rơi vào thứ mấy là do
 // đồng hồ quyết định chứ không do bài canh quyết định.
 const NGAY_THANG = ngayCuaThang(NGAY.slice(0, 7));
-const NGAY_HOC = NGAY_THANG.filter(laNgayHoc);
+const HOM_QUA = new Date(Date.parse(`${NGAY}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+
+// PHẢI LOẠI HÔM NAY VÀ HÔM QUA RA, và đây là chỗ bài này từng đỏ theo LỊCH.
+//
+// Mục [5] đã biến HÔM NAY thành ngày trường nghỉ cho bé s1, mục [6] làm tương
+// tự với HÔM QUA. Mục [7] đo bằng CHÊNH LỆCH: đặt thêm hai đợt nghỉ rồi đòi số
+// ngày trường nghỉ tăng đúng hai. Đặt trúng một ngày ĐÃ là ngày nghỉ thì số
+// không đổi, và phép kiểm đỏ — dù mã chạy hoàn toàn đúng.
+//
+// Chuyện đó xảy ra đúng vào những ngày CUỐI THÁNG: khi hôm nay là ngày học cuối
+// cùng của tháng thì "hai ngày học cuối tháng" CHÍNH LÀ hôm nay và hôm qua.
+// Bắt được ngày 30/09/2026 — ngày học cuối của tháng 9. Xanh suốt 29 ngày rồi
+// đỏ đúng một ngày là kiểu sai nguy hiểm nhất: ai gặp cũng nghĩ "chạy lại là
+// xanh". Cùng họ với mục 19 và 20 của docs/QUYET-DINH-TU-CHOT.md.
+const NGAY_HOC = NGAY_THANG.filter(d => laNgayHoc(d) && d !== NGAY && d !== HOM_QUA);
 const NGAY_CUOI_TUAN = NGAY_THANG.filter(d => !laNgayHoc(d));
 // LẤY NGÀY HỌC CUỐI THÁNG, không lấy đầu tháng: dữ liệu mẫu đã chấm điểm danh
 // cho những ngày đầu tháng, mà bé CÓ MẶT đúng ngày trường nghỉ thì cố ý KHÔNG
@@ -265,6 +279,24 @@ const NGAY_CUOI_TUAN = NGAY_THANG.filter(d => !laNgayHoc(d));
 const HOC_A = NGAY_HOC[NGAY_HOC.length - 2];
 const HOC_B = NGAY_HOC[NGAY_HOC.length - 1];
 const CUOI_TUAN = NGAY_CUOI_TUAN[NGAY_CUOI_TUAN.length - 1];
+
+// DỰNG NỀN CHO CẢ BA MỤC DƯỚI ĐÂY — và đây là chỗ bài này từng đỏ theo LỊCH.
+//
+// `data/seed.js` chấm điểm danh cho 20 NGÀY HỌC GẦN NHẤT của MỌI bé. Vào những
+// ngày cuối tháng, gần như mọi ngày học trong tháng đều nằm trong 20 ngày ấy —
+// nên s1 và s2 CÓ MẶT sẵn ở HOC_A và HOC_B. Mà bé có mặt đúng ngày trường nghỉ
+// thì cố ý KHÔNG được hoàn, nên ba mục dưới đo ra toàn số không đổi và báo đỏ,
+// trong khi mã tính tiền ăn hoàn toàn đúng.
+//
+// Chú thích cũ ở đây ghi "không ngày nào bé CÓ MẶT" như một điều hiển nhiên.
+// Điều đó đúng khi HOC_A/HOC_B còn là ngày chưa ai chấm — và hết đúng vào cuối
+// tháng. Nay bài TỰ DỰNG lấy cái nền ấy thay vì trông chờ vào dữ liệu mẫu.
+{
+  const conn = new Database(path.join(DIR, 'school.db'));
+  conn.prepare('DELETE FROM attendance WHERE studentId IN (?, ?) AND date IN (?, ?)')
+    .run('s1', 's2', HOC_A, HOC_B);
+  conn.close();
+}
 
 console.log('\n[7] Bảng tiền ăn tháng cộng ngày trường nghỉ vào ngày được hoàn');
 {
@@ -274,6 +306,12 @@ console.log('\n[7] Bảng tiền ăn tháng cộng ngày trường nghỉ vào n
   check('bảng có cột số ngày TRƯỜNG NGHỈ', be && typeof be.soNgayTruongNghi === 'number', be);
   check('dựng được hai NGÀY HỌC và một ngày CUỐI TUẦN có thật trong tháng',
     !!HOC_A && !!HOC_B && !!CUOI_TUAN, { HOC_A, HOC_B, CUOI_TUAN });
+  // ĐIỀU KIỆN TIÊN QUYẾT NÓI THẲNG RA. Không có phép kiểm này thì ngày nào hai
+  // ngày ấy trùng hôm nay/hôm qua, bài sẽ đỏ ở phép kiểm BÊN DƯỚI — và người
+  // đọc đi tìm lỗi trong mã tính tiền ăn, chứ không ngờ tới chỗ dựng ngày.
+  check('và hai ngày ấy KHÔNG trùng hôm nay / hôm qua — hai ngày mục [5] và [6] đã dùng',
+    HOC_A !== NGAY && HOC_A !== HOM_QUA && HOC_B !== NGAY && HOC_B !== HOM_QUA,
+    { homNay: NGAY, homQua: HOM_QUA, HOC_A, HOC_B });
 
   // ĐO BẰNG CHÊNH LỆCH. Các mục trước đã đặt vài đợt nghỉ rồi, và số ngày học
   // trong đó thay đổi theo hôm nay là thứ mấy — chốt cứng một con số tuyệt đối
@@ -341,6 +379,7 @@ console.log('\n[9] Bé VẪN TỚI TRƯỜNG đúng ngày trường nghỉ thì 
   // mục này đang canh.
   const doS2 = async () => (await req('GET', `/api/tienan/thang?thang=${NGAY.slice(0, 7)}`,
     { cookie: QT })).data?.danhSach?.find(x => x.studentId === 's2');
+
   const truoc = await doS2();
   check('đối chứng — bé s2 có ít nhất hai ngày trường nghỉ để mà trừ đi một',
     (truoc?.soNgayTruongNghiHoan || 0) >= 2, truoc?.soNgayTruongNghiHoan);
@@ -354,7 +393,7 @@ console.log('\n[9] Bé VẪN TỚI TRƯỜNG đúng ngày trường nghỉ thì 
   // phải hôm nay. Cùng cách mục [6] đã dùng.
   {
     const conn = new Database(path.join(DIR, 'school.db'));
-    conn.prepare('DELETE FROM attendance WHERE studentId = ? AND date = ?').run('s2', HOC_A);
+    // Không cần DELETE nữa — nền ở trên đã xoá sạch hai ngày này của s2.
     conn.prepare(`INSERT INTO attendance (id, studentId, date, status, checkIn, checkOut, note, markedBy)
                   VALUES (?, 's2', ?, 'present', NULL, NULL, '', 'u_test')`)
       .run(`att_hoc_${HOC_A}`, HOC_A);

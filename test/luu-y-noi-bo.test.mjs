@@ -144,11 +144,33 @@ if (!ph) {
   check('quét 7 đường gia đình mở được: không đường nào mang dấu ấy', loLot === null, loLot);
 }
 
+// NGÀY ĐÃ KHOÁ: HỎI DỮ LIỆU, ĐỪNG GHI CỨNG MỘT NGÀY VÀO BÀI.
+//
+// Bản đầu ghi thẳng ngày mùng 1 tháng 9 và tin rằng ngày ấy có sẵn một dòng
+// điểm danh. `data/seed.js` chỉ chấm 20 NGÀY HỌC GẦN NHẤT, nên cửa sổ ấy TRƯỢT
+// ĐI mỗi ngày: ngày đó còn nằm trong cửa sổ lúc bài được viết (16/09), và đã
+// rơi ra ngoài khi chạy lại cuối tháng — phép đối chứng đỏ, dù mã chạy không
+// đổi một dòng.
+//
+// Hỏi thẳng kho: lấy ngày CŨ NHẤT mà bé s3 đã có dòng điểm danh và không phải
+// hôm nay. Ngày ấy chắc chắn "đã khoá" theo luật Đ127, và chắc chắn có dòng để
+// mà so — hai điều mục này cần, đo được chứ không phải tin.
+const NGAY_KHOA = (() => {
+  const c = new Database(CSDL);
+  try {
+    const r = c.prepare(
+      'SELECT date FROM attendance WHERE studentId = ? AND date <> ? ORDER BY date LIMIT 1')
+      .get('s3', NGAY);
+    return r ? r.date : null;
+  } finally { c.close(); }
+})();
+
 console.log('\n[3] Ô lưu ý ghi được cho NGÀY ĐÃ KHOÁ — khác hẳn sổ điểm danh bên cạnh');
 {
+  check('dựng được một ngày đã khoá có thật trong kho', !!NGAY_KHOA, NGAY_KHOA);
   // Sổ điểm danh khoá ngoài ngày (Đ127). Đối chứng trước, để chắc luật cũ còn.
   let r = await req('POST', '/api/attendance/mark',
-    { cookie: co, body: { studentId: 's3', date: '2026-09-01', status: 'present' } });
+    { cookie: co, body: { studentId: 's3', date: NGAY_KHOA, status: 'present' } });
   check('đối chứng — sổ điểm danh VẪN khoá ngoài ngày (400)', r.status === 400, r.status);
 
   // Chụp lại dòng điểm danh của ngày ấy TRƯỚC khi ghi lưu ý.
@@ -156,7 +178,7 @@ console.log('\n[3] Ô lưu ý ghi được cho NGÀY ĐÃ KHOÁ — khác hẳn 
     const c = new Database(CSDL);
     try {
       return JSON.stringify(c.prepare('SELECT * FROM attendance WHERE studentId = ? AND date = ?')
-        .get('s3', '2026-09-01') || null);
+        .get('s3', NGAY_KHOA) || null);
     } finally { c.close(); }
   })();
   check('đối chứng — ngày ấy ĐÃ CÓ sẵn một dòng điểm danh để mà so', truoc !== 'null', truoc);
@@ -164,7 +186,7 @@ console.log('\n[3] Ô lưu ý ghi được cho NGÀY ĐÃ KHOÁ — khác hẳn 
   // Ô lưu ý thì không: nó là chỗ ghi thứ BIẾT ĐƯỢC SAU, thường vài hôm sau khi
   // gia đình gọi lại. Khoá nó theo ngày là bịt đúng lúc nó cần dùng.
   r = await req('PUT', '/api/attendance/luu-y',
-    { cookie: co, body: { studentId: 's3', ngay: '2026-09-01', luuY: 'mẹ bé gọi lại hôm nay hỏi về hôm 01/09' } });
+    { cookie: co, body: { studentId: 's3', ngay: NGAY_KHOA, luuY: `mẹ bé gọi lại hôm nay hỏi về hôm ${NGAY_KHOA}` } });
   check('nhưng ô lưu ý GHI ĐƯỢC cho ngày đã khoá', r.status === 200, r.data?.error);
 
   // Và nó KHÔNG phải lối vòng để sửa sổ điểm danh đã khoá.
@@ -177,7 +199,7 @@ console.log('\n[3] Ô lưu ý ghi được cho NGÀY ĐÃ KHOÁ — khác hẳn 
     const c = new Database(CSDL);
     try {
       return JSON.stringify(c.prepare('SELECT * FROM attendance WHERE studentId = ? AND date = ?')
-        .get('s3', '2026-09-01') || null);
+        .get('s3', NGAY_KHOA) || null);
     } finally { c.close(); }
   };
   const sau = doc();
