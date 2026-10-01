@@ -517,6 +517,23 @@ tách được (cùng role admin).
 (routes/albums.js:583-586); SK-07 'hỏi lại anh'; PQ-01 (bảng TĐ/LSH) 'Vế văn phòng chỉ
 nhập, quản lý mới sửa hiện không tách được'
 
+**Đ221 — Tính học phí tự động: đưa vào app thế nào, và có đưa không** *(thêm 01/10/2026, sau khi sổ dựng)*
+
+Trường gửi tài liệu "Xây dựng file tính biểu phí tự động". Đ221 dựng file Excel cho kế toán
+dùng ngay, kèm đặc tả và bộ kịch bản chuẩn ở `docs/hoc-phi-tu-dong/`, **chưa đụng một dòng mã
+app nào**. Đưa vào app thì phải chốt ba điều trước: (1) tài liệu đòi TỰ ĐỘNG tính, ngược với
+Đ169 "máy không tự trừ tiền" — đề xuất giữ tinh thần Đ169: máy sinh phiếu nháp, kế toán duyệt
+rồi mới thành khoản thu; (2) `hocphi_uudai` thiếu mã danh mục, loại, áp cho mốc/chu kỳ, trần
+riêng; chưa có bảng quyết định tuyển sinh, chu kỳ đóng, "đã đóng hết tháng" — phải là bảng mới
+cạnh bảng cũ (lược đồ phân hệ cấm `ALTER`); (3) phiếu có chữ "%" — gia đình được thấy gì trên
+màn hình (cùng chỗ `test:quy-tac-4` đã chặn ở Đ169). Song song, nhà trường phải chốt các giả
+định G1–G24 ở trang "Giả định & câu hỏi" của file Excel.
+
+*Vì sao cần anh:* Đảo một quyết định đã chốt (Đ169) + đổi mô hình dữ liệu tiền
+
+*Bằng chứng:* `docs/hoc-phi-tu-dong/README.md` mục "Ghi chú cho lúc đưa vào app";
+`modules/hocphi/schema.sql` (bảng `hocphi_uudai`)
+
 ---
 
 ## B. Còn phải làm

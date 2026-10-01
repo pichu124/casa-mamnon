@@ -27,6 +27,7 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 | [`docs/CAI-DAT-VPS.docx`](docs/CAI-DAT-VPS.docx) | **Bản Word từ A đến Z** cho người cài lần đầu — 10 bước, mỗi bước một bảng kiểm. Sinh lại bằng `npm run tai-lieu:cai-dat-vps` |
 | [`docs/XIN-BAO-GIA-VPS.md`](docs/XIN-BAO-GIA-VPS.md) | **Bản yêu cầu xin báo giá máy chủ** — chép thẳng gửi nhà cung cấp, kèm bảng so sánh và ba chỗ dễ bị hớ |
 | [`docs/PHAN-HOI-TRUONG-0709.md`](docs/PHAN-HOI-TRUONG-0709.md) | **Phản hồi của nhà trường 07/09** — bảng đối chiếu từng ý với mã (đã có / một phần / chưa có), việc đã làm ở đợt 1, và những đề xuất cần chủ dự án quyết |
+| [`docs/hoc-phi-tu-dong/`](docs/hoc-phi-tu-dong/README.md) | **File Excel tính học phí tự động** theo tài liệu của trường (Đ221) — đặc tả, hai bản tính tham chiếu, bộ kịch bản chuẩn. Chưa đưa vào app: cần chủ dự án quyết (xem `VIEC-CON-LAI.md` A3) |
 | [`docs/VIEC-CON-LAI.md`](docs/VIEC-CON-LAI.md) | **Việc còn lại sau đợt 2** — 35 điểm cần chủ dự án quyết, 33 việc còn phải làm, 29 phép thử cần người thật bấm |
 | [`docs/SAO-LUU.md`](docs/SAO-LUU.md) | Sao lưu, đưa bản sao ra khỏi máy chủ, và khôi phục khi cần |
 | [`docs/MAY-CHU-THU-ORACLE-APP2.md`](docs/MAY-CHU-THU-ORACLE-APP2.md) | **Chạy bản thử app 2 trên máy Oracle** đã dựng cho app 1 — dữ liệu mẫu, từng bước, có đường quay lui |

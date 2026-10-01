@@ -1,0 +1,817 @@
+{
+ "ten": "Dữ liệu mẫu trong file Excel (trang Ví dụ kiểm chứng)",
+ "cau_hinh": {
+  "thang_ky": "2027-10-01",
+  "che_do_hieu_luc": "Trùng ít nhất 1 ngày",
+  "che_do_chon": "% lớn nhất trước",
+  "don_vi_lam_tron": 1000,
+  "cach_lam_tron": "Làm tròn thường"
+ },
+ "quyet_dinh": [
+  {
+   "ma": "QD2026",
+   "ten": "QĐ tuyển sinh đến năm học 2026–2027 (SỐ VÍ DỤ)",
+   "so_thang_moc1": 12,
+   "so_luong_moc1": 3,
+   "tran_moc1": 0.3,
+   "so_luong_moc2": 3,
+   "tran_moc2": 0.2
+  },
+  {
+   "ma": "QD2027",
+   "ten": "QĐ tuyển sinh năm học 2027–2028 — ưu đãi 2 năm đầu (SỐ VÍ DỤ)",
+   "so_thang_moc1": 24,
+   "so_luong_moc1": 3,
+   "tran_moc1": 0.35,
+   "so_luong_moc2": 2,
+   "tran_moc2": 0.2
+  }
+ ],
+ "bieu_phi": [
+  {
+   "ma": "NT",
+   "ten": "Nhà trẻ (12–36 tháng)",
+   "hoc_phi_thang": 6500000,
+   "ap_dung_tu": null
+  },
+  {
+   "ma": "MAM",
+   "ten": "Mầm (3–4 tuổi)",
+   "hoc_phi_thang": 6000000,
+   "ap_dung_tu": null
+  },
+  {
+   "ma": "MAM",
+   "ten": "Mầm (3–4 tuổi)",
+   "hoc_phi_thang": 6300000,
+   "ap_dung_tu": "2028-09-01"
+  },
+  {
+   "ma": "CHOI",
+   "ten": "Chồi (4–5 tuổi)",
+   "hoc_phi_thang": 6000000,
+   "ap_dung_tu": null
+  },
+  {
+   "ma": "LA",
+   "ten": "Lá (5–6 tuổi)",
+   "hoc_phi_thang": 5800000,
+   "ap_dung_tu": null
+  }
+ ],
+ "danh_muc": [
+  {
+   "ma": "NAM_DAU",
+   "ten": "Năm đầu",
+   "loai": "Chung",
+   "phan_tram": 0.1,
+   "ap_cho_moc": "Mốc 1",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "CU_DAN",
+   "ten": "Cư dân",
+   "loai": "Chung",
+   "phan_tram": 0.05,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "ANH_CHI_EM",
+   "ten": "Em bé thứ hai",
+   "loai": "Chung",
+   "phan_tram": 0.1,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "DONG_QUY",
+   "ten": "Đóng theo quý",
+   "loai": "Theo chu kỳ",
+   "phan_tram": 0.02,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Quý",
+   "tran_rieng": null
+  },
+  {
+   "ma": "DONG_6T",
+   "ten": "Đóng 6 tháng",
+   "loai": "Theo chu kỳ",
+   "phan_tram": 0.05,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "6 tháng",
+   "tran_rieng": null
+  },
+  {
+   "ma": "DONG_12T",
+   "ten": "Đóng 12 tháng",
+   "loai": "Theo chu kỳ",
+   "phan_tram": 0.08,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "12 tháng",
+   "tran_rieng": null
+  },
+  {
+   "ma": "CS_RIENG",
+   "ten": "Hỗ trợ gia đình (ví dụ)",
+   "loai": "Bổ sung",
+   "phan_tram": 0.15,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": 0.4
+  }
+ ],
+ "be": [
+  {
+   "ma": "BE01",
+   "ten": "Trần Minh An",
+   "co_so": "Cơ sở 1",
+   "nhom_lop": "Mầm 1",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE02",
+   "ten": "Lê Gia Bảo",
+   "co_so": "Cơ sở 1",
+   "nhom_lop": "Chồi 1",
+   "goi": "CHOI",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2027-08-02",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE03",
+   "ten": "Phạm Khánh Chi",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Chồi 2",
+   "goi": "CHOI",
+   "con_gv": "Không",
+   "chu_ky": "12 tháng",
+   "ngay_nhap_hoc": "2024-09-03",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": 0.15,
+   "goi_moi": "LA",
+   "doi_goi_tu": "2028-09-01"
+  },
+  {
+   "ma": "BE04",
+   "ten": "Võ Đức Duy",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Mầm 2",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2026-11-16",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE05",
+   "ten": "Đặng Hà Giang",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Mầm 2",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2026-11-16",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": "2028-11-01",
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE06",
+   "ten": "Bùi Ngọc Hân",
+   "co_so": "Cơ sở 3",
+   "nhom_lop": "Chồi 3",
+   "goi": "CHOI",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE07",
+   "ten": "Hoàng Quốc Khang",
+   "co_so": "Cơ sở 3",
+   "nhom_lop": "Lá 3",
+   "goi": "LA",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE08",
+   "ten": "Ngô Bảo Lâm",
+   "co_so": "Cơ sở 1",
+   "nhom_lop": "Nhà trẻ 1",
+   "goi": "NT",
+   "con_gv": "Có",
+   "chu_ky": "1 tháng",
+   "ngay_nhap_hoc": "2026-09-07",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE09",
+   "ten": "Đỗ Thảo My",
+   "co_so": "Cơ sở 1",
+   "nhom_lop": "Mầm 1",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "1 tháng",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE10",
+   "ten": "Trịnh Tuấn Nam",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Chồi 2",
+   "goi": "CHOI",
+   "con_gv": "Không",
+   "chu_ky": "6T",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE11",
+   "ten": "Lý Minh Phúc",
+   "co_so": "Cơ sở 3",
+   "nhom_lop": "Mầm 3",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "12 tháng",
+   "ngay_nhap_hoc": "2027-09-06",
+   "ma_qd": "QD2027",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE12",
+   "ten": "Mai Anh Quân",
+   "co_so": "Cơ sở 3",
+   "nhom_lop": "Mầm 3",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE13",
+   "ten": "Tạ Hồng Sơn",
+   "co_so": "Cơ sở 1",
+   "nhom_lop": "Lá 1",
+   "goi": "LA",
+   "con_gv": "Không",
+   "chu_ky": "6 tháng",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-12-31",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE14",
+   "ten": "Kiều Bảo Trâm",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Mầm 2",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-08-31",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE15",
+   "ten": "Lưu Gia Uyên",
+   "co_so": "Cơ sở 3",
+   "nhom_lop": "Chồi 3",
+   "goi": "CHOI",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": "2027-11-20",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE16",
+   "ten": "Hà Minh Vy",
+   "co_so": "Cơ sở 1",
+   "nhom_lop": "Chồi 1",
+   "goi": "CHOI",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE17",
+   "ten": "Châu Ngọc Diệp",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Mầm 2",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "12 tháng",
+   "ngay_nhap_hoc": "2027-08-10",
+   "ma_qd": "QD2027",
+   "da_dong_den": null,
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE18",
+   "ten": "Quách Đăng Khoa",
+   "co_so": "Cơ sở 3",
+   "nhom_lop": "Lá 3",
+   "goi": "LA",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": null,
+   "ngay_nghi": null,
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  },
+  {
+   "ma": "BE19",
+   "ten": "Phan Thùy Linh",
+   "co_so": "Cơ sở 1",
+   "nhom_lop": "Mầm 1",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-08",
+   "ma_qd": "QD2026",
+   "da_dong_den": "2027-12-31",
+   "ngay_nghi": "2027-11-15",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "goi_moi": null,
+   "doi_goi_tu": null
+  }
+ ],
+ "uu_dai": [
+  {
+   "ma_be": "BE01",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE01",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-10-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE01",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE02",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE02",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE02",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE02",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE03",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE03",
+   "ma_uu_dai": "DONG_12T",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE04",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE04",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE04",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE05",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE05",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE05",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE06",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE06",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE06",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE06",
+   "ma_uu_dai": "CS_RIENG",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE07",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE07",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE07",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE07",
+   "ma_uu_dai": "CS_RIENG",
+   "phan_tram": 0.3,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": 0.35
+  },
+  {
+   "ma_be": "BE08",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE09",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE10",
+   "ma_uu_dai": "DONG_6T",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE10",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-12-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE11",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE11",
+   "ma_uu_dai": "DONG_12T",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE11",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE12",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": "2025-09-01",
+   "den_ngay": "2027-11-15",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE12",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": 0.07,
+   "tu_ngay": "2027-11-16",
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE12",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE12",
+   "ma_uu_dai": "ANH_CHI_EM",
+   "phan_tram": null,
+   "tu_ngay": "2027-12-01",
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE13",
+   "ma_uu_dai": "DONG_6T",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE14",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE15",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE16",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": 15,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE16",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE17",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE17",
+   "ma_uu_dai": "DONG_12T",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE18",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "BE19",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  }
+ ]
+}

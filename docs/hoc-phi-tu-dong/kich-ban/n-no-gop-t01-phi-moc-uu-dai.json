@@ -1,0 +1,1031 @@
+{
+ "ten": "G21 nợ + gộp kỳ, đợt 01/2028 (đầu quý, sang năm mới): tháng nợ vắt qua tăng giá 09/2027, gói chưa có giá ở tháng nợ, đổi mốc 1→2 trong tháng nợ (QĐ 12 tháng / 24 tháng / gia hạn + trần riêng mốc 2), ưu đãi hết hạn trong tháng nợ (kể cả ví dụ 31/10/2027 của tài liệu), cùng mã đổi mức giữa tháng nợ, chính sách riêng vắt qua đổi mốc, cửa sổ ưu đãi tính từ N nên dòng đã hết hạn trong tháng nợ chiếm ô (LỖI sức chứa), 6T/12T/1 tháng gộp 13 tháng → LỖI và được ngày nghỉ cắt về 12",
+ "cau_hinh": {
+  "thang_ky": "2028-01-01",
+  "che_do_hieu_luc": "Trùng ít nhất 1 ngày",
+  "che_do_chon": "% lớn nhất trước",
+  "don_vi_lam_tron": 1000,
+  "cach_lam_tron": "Làm tròn thường"
+ },
+ "quyet_dinh": [
+  {
+   "ma": "QD1",
+   "ten": "QĐ mốc 1 = 12 tháng",
+   "so_thang_moc1": 12,
+   "so_luong_moc1": 3,
+   "tran_moc1": 0.3,
+   "so_luong_moc2": 2,
+   "tran_moc2": 0.2
+  },
+  {
+   "ma": "QD2",
+   "ten": "QĐ ưu đãi 2 năm đầu",
+   "so_thang_moc1": 24,
+   "so_luong_moc1": 3,
+   "tran_moc1": 0.35,
+   "so_luong_moc2": 1,
+   "tran_moc2": 0.1
+  }
+ ],
+ "bieu_phi": [
+  {
+   "ma": "MAM",
+   "ten": "Mầm gốc",
+   "hoc_phi_thang": 5000000,
+   "ap_dung_tu": null
+  },
+  {
+   "ma": "MAM",
+   "ten": "Mầm năm học 2027-2028",
+   "hoc_phi_thang": 5400000,
+   "ap_dung_tu": "2027-09-01"
+  },
+  {
+   "ma": "NT",
+   "ten": "Nhà trẻ — gói mở từ 8/2027, chưa có giá trước đó",
+   "hoc_phi_thang": 6000000,
+   "ap_dung_tu": "2027-08-01"
+  },
+  {
+   "ma": "LA",
+   "ten": "Lá gốc",
+   "hoc_phi_thang": 4000000,
+   "ap_dung_tu": null
+  },
+  {
+   "ma": "LA",
+   "ten": "Lá tăng giữa tháng 11",
+   "hoc_phi_thang": 4400000,
+   "ap_dung_tu": "2027-11-15"
+  },
+  {
+   "ma": "LA",
+   "ten": "Lá tăng từ 2/2028",
+   "hoc_phi_thang": 4800000,
+   "ap_dung_tu": "2028-02-01"
+  }
+ ],
+ "danh_muc": [
+  {
+   "ma": "CU_DAN",
+   "ten": "Cư dân",
+   "loai": "Chung",
+   "phan_tram": 0.05,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "ACE",
+   "ten": "Em bé thứ hai",
+   "loai": "Chung",
+   "phan_tram": 0.1,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "NAM_DAU",
+   "ten": "Năm đầu",
+   "loai": "Chung",
+   "phan_tram": 0.2,
+   "ap_cho_moc": "Mốc 1",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "DONG_QUY",
+   "ten": "Đóng theo quý",
+   "loai": "Theo chu kỳ",
+   "phan_tram": 0.02,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Quý",
+   "tran_rieng": null
+  },
+  {
+   "ma": "DONG_6T",
+   "ten": "Đóng 6 tháng",
+   "loai": "Theo chu kỳ",
+   "phan_tram": 0.03,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "6 tháng",
+   "tran_rieng": null
+  },
+  {
+   "ma": "G1",
+   "ten": "Ưu đãi G1",
+   "loai": "Chung",
+   "phan_tram": 0.01,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "G2",
+   "ten": "Ưu đãi G2",
+   "loai": "Chung",
+   "phan_tram": 0.02,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "G3",
+   "ten": "Ưu đãi G3",
+   "loai": "Chung",
+   "phan_tram": 0.03,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "G4",
+   "ten": "Ưu đãi G4",
+   "loai": "Chung",
+   "phan_tram": 0.04,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "G5",
+   "ten": "Ưu đãi G5",
+   "loai": "Chung",
+   "phan_tram": 0.06,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "G6",
+   "ten": "Ưu đãi G6",
+   "loai": "Chung",
+   "phan_tram": 0.07,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "RIENG",
+   "ten": "Chính sách riêng A",
+   "loai": "Bổ sung",
+   "phan_tram": 0.15,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": 0.35
+  },
+  {
+   "ma": "RIENG2",
+   "ten": "Chính sách riêng B",
+   "loai": "Bổ sung",
+   "phan_tram": 0.05,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": 0.25
+  }
+ ],
+ "be": [
+  {
+   "ma": "D01",
+   "ten": "Quý, nhập 10/08/2026 (mốc 2 từ 08/2027), nợ từ 06/2027 → gộp 06/2027–03/2028; ACE hết 31/10/2027 nằm trong tháng nợ; giá tăng 09/2027",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2026-08-10",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-05-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D02",
+   "ten": "Như D01 nhưng QĐ 2 năm đầu (mốc 1 = 24 tháng) → cả kỳ gộp là mốc 1",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2026-08-10",
+   "ma_qd": "QD2",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-05-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D03",
+   "ten": "Như D01, gia hạn mốc 1 tới 17/11/2027 (mốc 2 từ 11), mốc 2 riêng: 1 ưu đãi, trần 10%; ACE hết 30/11/2027",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2026-08-10",
+   "ma_qd": "QD1",
+   "thang_moc2": "2027-11-17",
+   "so_luong_moc2": 1,
+   "tran_moc2": 0.1,
+   "da_dong_den": "2027-05-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D04",
+   "ten": "Gói NT chỉ có giá từ 08/2027, nợ từ 07/2027 → tháng 07 trong kỳ gộp không có giá → LỖI",
+   "goi": "NT",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-06-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D05",
+   "ten": "Gói NT, nợ từ 08/2027 (kỳ lẻ) → 08/2027–03/2028 đủ giá",
+   "goi": "NT",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-07-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D06",
+   "ten": "Gói NT, 1 tháng con GV, nợ từ 07/2027 → 07 không có giá → LỖI",
+   "goi": "NT",
+   "con_gv": "Có",
+   "chu_ky": "1 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-06-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D06B",
+   "ten": "Gói NT, đã đóng đến 03/2027 nhưng nhập học 05/08/2027 → N=08, đủ giá",
+   "goi": "NT",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2027-08-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-03-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D06C",
+   "ten": "Gói NT, đã đóng đến 03/2027, nhập học 20/07/2027 → N=07 không có giá → LỖI",
+   "goi": "NT",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2027-07-20",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-03-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D07",
+   "ten": "Gói LA 3 phiên bản (15/11/2027, 01/02/2028), 6T nợ từ 07/2027 → gộp 07/2027–06/2028 đúng 12 tháng; ĐÓNG 6T",
+   "goi": "LA",
+   "con_gv": "Không",
+   "chu_ky": "6 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-06-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D08",
+   "ten": "12T chỉ nợ 1 tháng (12/2027, kỳ lẻ) → gộp 12/2027–12/2028 = 13 → LỖI",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "12 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-11-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D09",
+   "ten": "Gói LA, 12T nợ từ 10/2027 → 10/2027–09/2028 = 12, qua 2 lần tăng giá",
+   "goi": "LA",
+   "con_gv": "Không",
+   "chu_ky": "12 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D10",
+   "ten": "Nợ từ 07/2027: G1 hết 31/08/2027 nằm TRONG cửa sổ mới (tính từ N) → 7 dòng thường → LỖI sức chứa",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-06-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D11",
+   "ten": "Cùng 7 dòng như D10 nhưng không nợ (N=01/2028): G1 ngoài cửa sổ → 6 dòng, tính được",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-12-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D12",
+   "ten": "Nợ từ 07/2027, G1 hết 30/06/2027 (trước N) → ngoài cửa sổ → 6 dòng",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-06-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D13",
+   "ten": "Nợ từ 09/2027 (kỳ lẻ, gộp tới 03/2028): Cư dân 5% tới 15/10 rồi 7% từ 16/10; ACE 01/11/2027–31/01/2028; ĐÓNG QUÝ 2%",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-08-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D14",
+   "ten": "Nhập 20/11/2026 (mốc 2 từ 11/2027), nợ từ 09/2027: chính sách riêng 15% trần 35% hết 31/12/2027 vắt qua đổi mốc",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2026-11-20",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-08-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D15",
+   "ten": "6T nợ từ 06/2027 (kỳ lẻ E1=06, k=7 → 2 kỳ) → 06/2027–06/2028 = 13 → LỖI",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "6 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-05-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D16",
+   "ten": "Như D15, nghỉ 20/05/2028 → 06/2027–05/2028 = 12, tính được",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "6 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-05-31",
+   "ngay_nghi": "2028-05-20",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D17A",
+   "ten": "1 tháng con GV nợ từ 01/2027 → 01/2027–01/2028 = 13 → LỖI",
+   "goi": "MAM",
+   "con_gv": "Có",
+   "chu_ky": "1 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2026-12-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D17B",
+   "ten": "Như D17A, nghỉ 10/12/2027 → 01–12/2027 = 12, qua tăng giá 09/2027",
+   "goi": "MAM",
+   "con_gv": "Có",
+   "chu_ky": "1 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2026-12-31",
+   "ngay_nghi": "2027-12-10",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D18",
+   "ten": "12T nợ từ 07/2026, nghỉ 15/05/2026 (trước N) → không thu, không LỖI dù kỳ gộp sẽ quá 12",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "12 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2026-06-30",
+   "ngay_nghi": "2026-05-15",
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D19",
+   "ten": "Đã đóng đến 02/2027 (ghi nhầm), nhập học 25/08/2027 → N=08, mốc 1 cả kỳ; Năm đầu + Cư dân",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2027-08-25",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-02-28",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D20",
+   "ten": "1 tháng con GV, nhập 05/12/2026 (mốc 2 từ 12/2027), nợ từ 10/2027; ACE hết 31/10/2027",
+   "goi": "MAM",
+   "con_gv": "Có",
+   "chu_ky": "1 tháng",
+   "ngay_nhap_hoc": "2026-12-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-09-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D21",
+   "ten": "Gói NT, 6T nợ từ 08/2027 (kỳ lẻ, gộp tới 03/2028); ĐÓNG 6T hết 30/09/2027 trong tháng nợ",
+   "goi": "NT",
+   "con_gv": "Không",
+   "chu_ky": "6 tháng",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-07-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D22",
+   "ten": "Nợ từ 07/2027: chính sách riêng hết 31/07/2027 vẫn trong cửa sổ → 3 dòng riêng → LỖI sức chứa",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-06-30",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  },
+  {
+   "ma": "D23",
+   "ten": "Cùng 3 dòng riêng như D22 nhưng không nợ (N=01/2028) → 2 dòng riêng, tính được",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-12-31",
+   "ngay_nghi": null,
+   "co_so": "Cơ sở 2",
+   "nhom_lop": "Nhóm thử nợ"
+  }
+ ],
+ "uu_dai": [
+  {
+   "ma_be": "D01",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D01",
+   "ma_uu_dai": "ACE",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-10-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D01",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D02",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D02",
+   "ma_uu_dai": "ACE",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-10-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D02",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D03",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D03",
+   "ma_uu_dai": "ACE",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-11-30",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D03",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D07",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D07",
+   "ma_uu_dai": "DONG_6T",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D10",
+   "ma_uu_dai": "G1",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-08-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D10",
+   "ma_uu_dai": "G2",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D10",
+   "ma_uu_dai": "G3",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D10",
+   "ma_uu_dai": "G4",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D10",
+   "ma_uu_dai": "G5",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D10",
+   "ma_uu_dai": "G6",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D10",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D11",
+   "ma_uu_dai": "G1",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-08-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D11",
+   "ma_uu_dai": "G2",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D11",
+   "ma_uu_dai": "G3",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D11",
+   "ma_uu_dai": "G4",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D11",
+   "ma_uu_dai": "G5",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D11",
+   "ma_uu_dai": "G6",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D11",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D12",
+   "ma_uu_dai": "G1",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-06-30",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D12",
+   "ma_uu_dai": "G2",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D12",
+   "ma_uu_dai": "G3",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D12",
+   "ma_uu_dai": "G4",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D12",
+   "ma_uu_dai": "G5",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D12",
+   "ma_uu_dai": "G6",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D12",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D13",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-10-15",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D13",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": 0.07,
+   "tu_ngay": "2027-10-16",
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D13",
+   "ma_uu_dai": "ACE",
+   "phan_tram": null,
+   "tu_ngay": "2027-11-01",
+   "den_ngay": "2028-01-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D13",
+   "ma_uu_dai": "DONG_QUY",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D14",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D14",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D14",
+   "ma_uu_dai": "ACE",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D14",
+   "ma_uu_dai": "RIENG",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-12-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D19",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D19",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D20",
+   "ma_uu_dai": "NAM_DAU",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D20",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D20",
+   "ma_uu_dai": "ACE",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-10-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D21",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D21",
+   "ma_uu_dai": "DONG_6T",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-09-30",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D22",
+   "ma_uu_dai": "RIENG",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-07-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D22",
+   "ma_uu_dai": "RIENG2",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D22",
+   "ma_uu_dai": "RIENG",
+   "phan_tram": 0.12,
+   "tu_ngay": "2027-08-01",
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D23",
+   "ma_uu_dai": "RIENG",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-07-31",
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D23",
+   "ma_uu_dai": "RIENG2",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "D23",
+   "ma_uu_dai": "RIENG",
+   "phan_tram": 0.12,
+   "tu_ngay": "2027-08-01",
+   "den_ngay": null,
+   "tran_rieng": null
+  }
+ ]
+}
