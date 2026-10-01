@@ -273,7 +273,11 @@ db.backup(tmp).then(() => {
     const soVang = docSoVang();
     let doiRac = 0, dungLuong = 0;
     for (const [f, luc] of Object.entries(soVang)) {
-      if (Date.parse(luc) > mocCuNhat) continue;   // còn bản sao cũ hơn cần tới
+      // `>=`, KHÔNG phải `>`: hai mốc sinh ra cách nhau vài phần nghìn giây trong cùng một lượt,
+      // và máy đủ nhanh thì TRÙNG nhau tới từng mi-li-giây. Trùng mốc là chưa chắc bản sao cũ
+      // nhất đã chụp sau lúc ảnh biến mất — giữ lại, đúng lời hứa "sai về phía GIỮ LÂU HƠN".
+      // (Đỏ thật trên GitHub 01/10/2026 — test/sao-luu.test.mjs mục [7c] dựng lại ca này.)
+      if (Date.parse(luc) >= mocCuNhat) continue;   // còn bản sao cũ hơn (hoặc cùng lúc) cần tới
       const p = path.join(anhDir, f);
       try {
         dungLuong += fs.statSync(p).size;

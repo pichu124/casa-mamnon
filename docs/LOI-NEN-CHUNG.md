@@ -199,6 +199,7 @@ cho tới khi trả hết. Trống là tốt.
 | 02/09 | `lib/csv.js` tách dòng **trước khi** xét ngoặc kép, nên ô chứa xuống dòng (Excel Alt+Enter — hay gặp ở cột ghi chú, địa chỉ) bị bẻ gãy thành hai dòng lệch cột. Danh sách bé nhập từ Excel lệch cột là hồ sơ sai mà không ai báo | app 2 — `7ba4ff7` (Đ118a) | **app 1** | Loại 2 (hỏng dữ liệu nhập) |
 | 02/09 | `lib/importer.js` xoá dữ liệu cũ mà **bỏ sót `record_edits`** — cờ thu hồi mồ côi ở lại, và một bản ghi mới trùng id với bản từng bị thu hồi sẽ bị ẩn nhầm khỏi mọi màn hình | app 2 — `cf51455` (Đ118b) | **app 1** | Loại 2. App 1 dùng chung danh sách xoá viết tay này |
 | 02/09 | `scripts/backup.js` ghi `.gz` **không nguyên tử** (script chết giữa chừng để lại bản cụt — vòng đời dọn có thể xoá mất bản tốt cùng ngày vì tưởng đã có bản mới) và chép cả tệp `.tmp` đang tải dở vào kho ảnh | app 2 — `deb2b91` (Đ118h) | **app 1** | Loại 2 (mất bản sao lưu). Cùng commit: `kiem-tra-may-chu.js` thôi nuốt cảnh báo của `restore:check` |
+| 01/10 | `scripts/backup.js` mục 3b so "mốc lần đầu thấy ảnh vắng" với "bản sao cũ nhất còn giữ" bằng `>`. Hai mốc sinh ra cách nhau vài phần nghìn giây trong CÙNG một lượt; máy đủ nhanh thì trùng nhau tới từng mi-li-giây và ảnh bị dọn ngay — đúng chiều ngược với lời hứa "sai về phía giữ lâu hơn". Lộ ra vì `test/sao-luu.test.mjs` mục [7] xanh trên máy làm việc mà ĐỎ trên GitHub | app 2 — Đ221b (đổi thành `>=`, thêm mục [7c] dựng thẳng ca trùng mốc) | **app 1** | Loại 2 nhưng **ưu tiên thấp**: chỉ mất ảnh khi ảnh bị xoá đúng trong khoảng vài mi-li-giây giữa lúc chụp cơ sở dữ liệu và lúc quét ảnh của một lượt sao lưu, và app 1 gần như không có ảnh. Bản vá một ký tự, chép thẳng được |
 | 02/09 | `public/js/ui.js` — `avatar()` chèn `emoji` vào HTML **không qua esc** và chèn `bg` vào thuộc tính style không kiểm tra định dạng; `studentBar()` nhét id vào **chuỗi JS trong onclick** nơi `esc()` không đủ (trình phân tích thuộc tính giải mã `&#39;` về dấu nháy thật). Hồ sơ người dùng là dữ liệu nhập được → XSS lưu trữ, dùng ở hơn 30 màn | app 2 — Đ118m | **app 1** | Loại 1 (mã chạy từ nội dung người dùng nhập) |
 | 11/09 | `public/js/api.js` ném lỗi chỉ mang CHỮ, không mang mã lỗi HTTP — nên mọi chỗ gọi buộc phải **đoán mã lỗi qua câu văn**. Màn "Nhận một bé" dò chuỗi *"đã có"* để nhận ra cảnh báo 409, mà câu 400 của mã bé trùng — *mã của bé "A1" đã có trong hệ thống* — cũng mang đúng chữ ấy: người dùng bấm Đồng ý, máy gửi lại y nguyên, máy chủ từ chối y nguyên. Một vòng không có lối ra, sinh ra từ việc đoán. | app 2 — `141102a` (commit riêng) | **app 1** | Loại 3 (khó dùng, không mất dữ liệu). Bản vá **CHỈ THÊM**: chữ của lỗi giữ nguyên từng ký tự nên mọi chỗ bắt lỗi theo cách cũ chạy y như trước; thêm `err.status = res.status` cạnh nó. Ở app 1 chưa biết có chỗ nào đang đoán mã lỗi qua câu chữ hay không — **cần grep trước khi vá**, nhưng bản thân việc thêm trường thì vô hại và nên mang sang để hai bản `api.js` không lệch nhau. |
 | 30/08 | `routes/hocsinh-cu.js` đọc bảng `remarks` bằng `SELECT *` **không kèm điều kiện lọc thu hồi**. Cô bấm Thu hồi một nhận xét bấm nhầm sang bé khác → màn Nhận xét sạch, nhưng màn "Hồ sơ con đã ra trường" vẫn hiện nguyên dòng đó cho gia đình | app 2 — Đ73 | **app 1** | Loại 1 (rò rỉ) và là **quyền xoá dữ liệu theo Nghị định 13/2023** — nhà trường đã làm đúng thao tác, app mới là chỗ không thực hiện. **Đã đối chiếu tận nơi:** `bc9dfa3:routes/hocsinh-cu.js:92` là đúng câu SQL đó, và `bc9dfa3:lib/sua-thu-hoi.js` **đã có sẵn** `dieuKienConHien` — tức bản vá bên đó chỉ là gọi một hàm đang nằm sẵn trong kho. **Ở app 1 nặng hơn hẳn app 2:** app 2 đã tắt phân hệ Nhận xét từ A2, còn app 1 là trường tiểu học dùng nhận xét hằng ngày cho ~300 gia đình. Và đây là màn CHỈ GIA ĐÌNH mở — cô không có đường nào nhìn thấy để biết là chưa gỡ được **Đối chiếu lại 16/09: CHƯA về tới app 1.** Bản vá có được viết 30/08 (`0e3b15a`) nhưng nhánh `claude/no-nen-chung-app2` không còn ở kho nào — `routes/hocsinh-cu.js` tại `origin/HEAD` của app 1 vẫn không gọi `dieuKienConHien`. |
@@ -271,7 +272,7 @@ cho tới khi trả hết. Trống là tốt.
 > được đẩy lên**. Nếu máy ảo hiện tại bị thu hồi trước khi đẩy, nó mất đúng như
 > `claude/no-nen-chung-app2` đã mất, và sổ này lại có nguy cơ ghi nhầm lần nữa.
 
-> **Còn nợ 22 món** — đếm theo số dòng có cột "Còn nợ" **đúng bằng**
+> **Còn nợ 23 món** — đếm theo số dòng có cột "Còn nợ" **đúng bằng**
 > `**app 1**` trong bảng trên, không phải một con số nhớ tay. Dòng ghi
 > `**KHÔNG chép sang app 1**` không tính, vì đó là chỗ cố ý khác nhau chứ không
 > phải nợ.
@@ -279,12 +280,12 @@ cho tới khi trả hết. Trống là tốt.
 > Con số này đã trượt hai lần: bản đầu ghi "mười", sửa 10/09 thành "mười sáu", và
 > tới 16/09 đếm lại theo đúng cách đếm ghi ở trên thì ra **mười tám** — tức nó
 > lại sai ngay khi bảng dài thêm, dù cách đếm đã được ghi rõ. Bốn món vừa bỏ gạch
-> ở ô trên cộng vào thành 22. Cách đếm ghi ra chỉ có ích khi có máy chạy lại nó,
+> ở ô trên cộng vào thành 22; món thứ 23 thêm ngày 01/10 (Đ221b, `backup.js` trùng mốc). Cách đếm ghi ra chỉ có ích khi có máy chạy lại nó,
 > nên từ 16/09 **`npm run test:nen-chung` đếm lại bảng và báo đỏ nếu con số trên
-> lệch** — chữ "22" trong dòng đầu đoạn này là con số bài canh đọc.
+> lệch** — chữ "23" trong dòng đầu đoạn này là con số bài canh đọc.
 >
 > Ghi nợ ở đây là việc làm được ngay; trả nợ cần đẩy được bản vá lên kho kia và
-> đối chiếu từng tệp, vì không chắc app 1 có dính đủ cả hai mươi hai hay không —
+> đối chiếu từng tệp, vì không chắc app 1 có dính đủ cả hai mươi ba hay không —
 > mà ghi sổ sai còn tệ hơn sổ trống. **Hai món 29/08 là ngoại lệ:** đã đối chiếu
 > được bằng chính lịch sử git của kho này (tệp sinh ra trước điểm tách và nhánh
 > mã giống hệt nhau), nên app 1 chắc chắn dính cả hai. **Năm món 29–30/08 (Đ44,
