@@ -233,7 +233,13 @@ console.log('\n[6] Sổ đã chốt rồi thì thêm lịch nghỉ KHÔNG sửa 
     conn.close();
   }
   await tao(QT, { ten: 'Nghỉ bù hôm qua', tuNgay: homQua, denNgay: homQua, loai: 'le' });
-  const sau = await req('GET', `/api/attendance?studentId=s1`, { cookie: QT });
+  // HỎI ĐÚNG THÁNG CỦA HÔM QUA. `/api/attendance` không có `month` thì chỉ trả
+  // tháng HIỆN TẠI — nên vào ngày 1 đầu tháng, "hôm qua" nằm ở tháng trước, câu
+  // hỏi về ra rỗng và bài đỏ dù mã vẫn giữ nguyên dòng cũ. Đã đỏ thật ngày 01/10.
+  // Cùng họ với ba bài Đ220: xanh gần hết tháng rồi đỏ vào đúng một ngày.
+  const sau = await req('GET', `/api/attendance?studentId=s1&month=${homQua.slice(0, 7)}`, { cookie: QT });
+  check('tiền đề: câu hỏi điểm danh của bé về được (đúng tháng của hôm qua)',
+    sau.status === 200 && Array.isArray(sau.data), sau.status);
   const dong = (sau.data || []).find(x => x.date === homQua);
   check('dòng đã ghi hôm qua GIỮ NGUYÊN nghỉ không phép — không tự sửa ngược',
     dong && dong.status === 'absent_unexcused', dong);
