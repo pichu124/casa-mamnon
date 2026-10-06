@@ -186,6 +186,35 @@ check('lưu MỘT lần là cả tuần hiện ra trên màn xem',
 check('soạn xong thì quay về màn xem, không kẹt lại ở màn soạn',
   await page.locator('#td-luu-tuan').count() === 0);
 
+console.log('\n[3c] Thực đơn — tệp Excel mẫu: tải về, nạp lên, xem trước, lưu (góp ý 06/10, mục 3)');
+{
+  check('văn phòng thấy nút tải tệp mẫu', await page.locator('#mn-xl-tai').count() === 1);
+  const href = await page.getAttribute('#mn-xl-tai', 'href');
+  check('nút tải trỏ đường tệp mẫu theo tháng', /\/api\/menu\/mau-excel\?thang=\d{4}-\d{2}/.test(href || ''), href);
+  const tai = await page.evaluate(async (h) => {
+    const r = await fetch(h);
+    return { status: r.status, kieu: r.headers.get('content-type') };
+  }, href);
+  check('bấm tải về được tệp Excel thật', tai.status === 200 && /spreadsheetml/.test(tai.kieu || ''), tai);
+  // Nạp tệp do LibreOffice lưu (giống tệp Excel thật trường sẽ nạp).
+  await page.setInputFiles('#mn-xl-file', path.join(path.dirname(new URL(import.meta.url).pathname), 'mau', 'thuc-don-libreoffice.xlsx'));
+  await page.waitForSelector('#mn-xl-xem', { timeout: 8000 });
+  const xem = await page.locator('#modal-overlay').innerText();
+  check('hiện bản XEM TRƯỚC từng ngày, chưa lưu gì', /Phở gà/.test(xem) && /Bánh flan/.test(xem) && /Xem trước/.test(xem), xem.slice(0, 300));
+  check('xem trước có lời nhắc cột lạ / ngày nghỉ', /Ghi chú/.test(xem) && /Thứ Bảy/.test(xem), xem.slice(0, 500));
+  const dbXem = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const truocLuu = dbXem.prepare("SELECT COUNT(*) AS n FROM menus WHERE date = '2027-03-01'").get().n;
+  dbXem.close();
+  check('xem trước KHÔNG ghi gì', truocLuu === 0, truocLuu);
+  await page.click('#mn-xl-luu');
+  await page.waitForTimeout(1500);
+  const dbSau = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const sauLuu = dbSau.prepare("SELECT meals FROM menus WHERE date = '2027-03-01'").get();
+  dbSau.close();
+  check('bấm Lưu thì ngày 01/03/2027 có đúng món trong tệp', !!sauLuu && /Canh rau ngót/.test(sauLuu.meals), sauLuu);
+  check('lưu xong đóng hộp xem trước', await page.locator('#mn-xl-xem').count() === 0);
+}
+
 console.log('\n[4] Thực đơn — phụ huynh chỉ xem');
 await dangXuat();
 await dangNhap('phuhuynh', '123456');

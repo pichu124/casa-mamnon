@@ -137,4 +137,93 @@ module.exports = (app) => {
     db.audit(req.user.id, 'plan-update', rec.id, { classId, year, month });
     res.json(decorate(rec));
   });
+
+  // ===========================================================================
+  // KẾ HOẠCH GIÁO DỤC CHUNG CẢ TRƯỜNG, SOẠN THEO TUẦN (góp ý 06/10, mục 4)
+  // ===========================================================================
+  //
+  // Trường: *"đây sẽ là kế hoạch chung của toàn trường nên sẽ bỏ nhóm lớp đi …
+  // mục này mình sẽ để là soạn kế hoạch tuần, cấu trúc: Tuần 1 tháng 9: Trường
+  // của bé — Nội dung học của tuần"*.
+  //
+  // THÊM BÊN CẠNH, KHÔNG THAY: hai đường kế hoạch tháng ở trên giữ nguyên từng
+  // chữ — kế hoạch tháng đã soạn vẫn đọc được ở #/plans.
+  //
+  // AI ĐỌC: mọi người đã đăng nhập (đây là kế hoạch chung, không phải dữ liệu
+  // của một bé nào). AI SOẠN: quản trị phạm vi CẢ TRƯỜNG (ban giám hiệu, quản
+  // trị không gắn cơ sở). Quản trị một cơ sở chỉ đọc — sửa bản chung của cả
+  // trường là đổi màn hình của hai cơ sở kia mà họ không biết.
+  const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const TOI_DA_TIEU_DE_TUAN = 150;
+  const TOI_DA_NOI_DUNG_TUAN = 4000;
+  const TOI_DA_DONG_TUAN = 40;
+
+  // Thứ Hai của tuần chứa ngày `s` (YYYY-MM-DD). Ngày sai dạng → null.
+  function thuHaiCua(s) {
+    if (!NGAY_RE.test(String(s || ''))) return null;
+    const t = Date.parse(`${s}T00:00:00Z`);
+    if (!Number.isFinite(t) || new Date(t).toISOString().slice(0, 10) !== s) return null;
+    const thu = (new Date(t).getUTCDay() + 6) % 7;   // 0 = thứ Hai
+    return new Date(t - thu * 86400000).toISOString().slice(0, 10);
+  }
+  function soanDuocTuan(user) {
+    return !!user && user.role === 'admin' && !db.phamViCoSo(user);
+  }
+  function veTuan(r) {
+    return r ? { tuan: r.tuan, tieuDe: r.tieuDe || '', noiDung: r.noiDung || '', capNhatLuc: r.capNhatLuc || '' } : null;
+  }
+
+  // Kế hoạch của MỘT tuần (mặc định tuần này), kèm hai tuần gần nhất trước /
+  // sau CÓ kế hoạch — để màn hình có nút "tuần trước / tuần sau" không dẫn vào
+  // một tuần trống.
+  app.get('/api/plans/tuan', (req, res) => {
+    const tuan = thuHaiCua(req.query.tuan ? String(req.query.tuan) : ngay.homNay());
+    if (!tuan) return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-10-05' });
+    const r = db.first('edu_plan_tuan',
+      "SELECT * FROM edu_plan_tuan WHERE tuan = ? AND campusId = ''", [tuan]);
+    const truoc = db.first('edu_plan_tuan',
+      "SELECT tuan FROM edu_plan_tuan WHERE tuan < ? AND campusId = '' ORDER BY tuan DESC LIMIT 1", [tuan]);
+    const sau = db.first('edu_plan_tuan',
+      "SELECT tuan FROM edu_plan_tuan WHERE tuan > ? AND campusId = '' ORDER BY tuan LIMIT 1", [tuan]);
+    res.json({
+      tuan,
+      tuanNay: thuHaiCua(ngay.homNay()),
+      keHoach: veTuan(r),
+      tuanTruocCo: truoc ? truoc.tuan : null,
+      tuanSauCo: sau ? sau.tuan : null,
+      duocSoan: soanDuocTuan(req.user),
+    });
+  });
+
+  app.put('/api/plans/tuan/:tuan', requireRole('admin'), (req, res) => {
+    if (!soanDuocTuan(req.user)) {
+      return res.status(403).json({
+        error: 'Kế hoạch giáo dục chung cả trường do ban giám hiệu soạn. '
+          + 'Văn phòng cơ sở xem được ở đây; cần đổi gì thì nhắn ban giám hiệu nhé.',
+      });
+    }
+    const tuan = thuHaiCua(String(req.params.tuan || ''));
+    if (!tuan) return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-10-05' });
+    const body = req.body || {};
+    const tieuDe = String(body.tieuDe || '').trim().slice(0, TOI_DA_TIEU_DE_TUAN);
+    if (!tieuDe) return res.status(400).json({ error: 'Cần một tiêu đề, ví dụ: Tuần 1 tháng 9: Trường của bé' });
+    const noiDung = String(body.noiDung || '')
+      .split(/\r?\n/).map(x => x.trim()).filter(Boolean)
+      .slice(0, TOI_DA_DONG_TUAN).join('\n').slice(0, TOI_DA_NOI_DUNG_TUAN);
+    const luc = new Date().toISOString();
+    const cu = db.first('edu_plan_tuan',
+      "SELECT * FROM edu_plan_tuan WHERE tuan = ? AND campusId = ''", [tuan]);
+    let id;
+    if (cu) {
+      id = cu.id;
+      db.update('edu_plan_tuan', cu.id, { tieuDe, noiDung, nguoiSoan: req.user.id, capNhatLuc: luc });
+    } else {
+      id = db.nextId('kht');
+      db.insert('edu_plan_tuan', {
+        id, tuan, campusId: '', tieuDe, noiDung, nguoiSoan: req.user.id, taoLuc: luc, capNhatLuc: luc,
+      });
+    }
+    db.audit(req.user.id, 'plan-tuan-luu', id, { tuan });
+    res.json({ ok: true, keHoach: veTuan(db.first('edu_plan_tuan', 'SELECT * FROM edu_plan_tuan WHERE id = ?', [id])) });
+  });
 };

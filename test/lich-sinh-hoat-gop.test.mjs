@@ -51,6 +51,15 @@ await goiApi('/api/auth/set-new-password', { newPassword: 'quantri2026' }, ckTam
 const ckQT = await dnApi('htruong', 'quantri2026');
 const batTat = (key, bat) => goiApi(`/api/admin/modules/${key}`, { enabled: bat }, ckQT, 'PUT');
 
+// Góp ý 06/10 (mục 4): phần Kế hoạch giáo dục nay là KẾ HOẠCH TUẦN CHUNG CẢ
+// TRƯỜNG. Ban giám hiệu soạn sẵn một tuần (tuần này) để các mục dưới đọc lại.
+const HOM_NAY_VN = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+const khTuan = await goiApi(`/api/plans/tuan/${HOM_NAY_VN}`, {
+  tieuDe: 'Tuần này: Bé khám phá nước',
+  noiDung: 'Khám phá: rót, đong, thả vật nổi vật chìm\nKỹ năng sống: rửa tay sáu bước',
+}, ckQT, 'PUT');
+if (khTuan.status !== 200) throw new Error('Không soạn được kế hoạch tuần mẫu: ' + JSON.stringify(khTuan));
+
 const browser = await chromium.launch({ executablePath: CHROMIUM });
 const ctx = await tatBannerMoiCai(await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
@@ -113,8 +122,14 @@ console.log('\n[2] Bấm sang Kế hoạch giáo dục: đổi bằng ĐƯỜNG 
   check('vẫn đứng dưới tên Lịch sinh hoạt', /Lịch sinh hoạt/.test(man));
   check('nút Kế hoạch giáo dục đang sáng',
     await page.locator('#tkb-phan [data-phan="kehoach"]').evaluate(el => el.classList.contains('active')));
-  check('CÓ NỘI DUNG KẾ HOẠCH THẬT, không phải ô trống',
-    /Mục tiêu tháng/.test(man) && /Kế hoạch từng tuần/.test(man), man.slice(0, 300));
+  check('CÓ NỘI DUNG KẾ HOẠCH THẬT — kế hoạch TUẦN chung cả trường',
+    /Bé khám phá nước/i.test(man) && /NỘI DUNG HỌC TRONG TUẦN/i.test(man), man.slice(0, 300));
+  // Góp ý 06/10: *"kế hoạch chung của toàn trường nên sẽ bỏ nhóm lớp đi"* và
+  // bỏ dòng "Cô phụ trách" dưới tiêu đề.
+  check('KHÔNG còn ô chọn nhóm trong phần Kế hoạch', await dem('#tkb-kehoach select') === 0,
+    await dem('#tkb-kehoach select'));
+  check('KHÔNG còn dòng "Cô phụ trách"', !/Cô phụ trách/.test(await page.locator('#tkb-kehoach').innerText()));
+  check('cô KHÔNG được mời soạn kế hoạch tuần', await dem('#btn-soan-kh-tuan') === 0);
   // Đ198 (việc 42): kế hoạch của CẢ NHÓM nay do VĂN PHÒNG soạn. Cô đọc được
   // ngay tại đây, nhưng KHÔNG còn được mời bấm soạn — màn hình thôi mời cô
   // bấm một nút chắc chắn nhận 403.
@@ -126,7 +141,7 @@ console.log('\n[2] Bấm sang Kế hoạch giáo dục: đổi bằng ĐƯỜNG 
   // Mở thẳng địa chỉ sâu, không đi qua nút — liên kết gửi cho nhau phải chạy.
   await moMan('#/timetable/kehoach');
   check('mở THẲNG #/timetable/kehoach cũng ra đúng phần Kế hoạch',
-    /Mục tiêu tháng/.test(await chu()), (await chu()).slice(0, 160));
+    /Bé khám phá nước/i.test(await chu()), (await chu()).slice(0, 160));
 }
 
 // ===========================================================================
@@ -177,8 +192,15 @@ console.log('\n[4] VĂN PHÒNG mở được phần Kế hoạch — trước Đ
   const man = await chu();
   check('văn phòng KHÔNG còn nhận câu "Chưa có bé nào liên kết với tài khoản này"',
     !/Chưa có bé nào liên kết/.test(man), man.slice(0, 200));
-  check('mà thấy nội dung kế hoạch của một nhóm', /Mục tiêu tháng/.test(man), man.slice(0, 250));
-  check('và được mời soạn kế hoạch', await dem('#btn-soan-kh-nhung') === 1);
+  check('mà thấy kế hoạch tuần chung cả trường', /Bé khám phá nước/i.test(man), man.slice(0, 250));
+  check('và ban giám hiệu được mời soạn kế hoạch tuần', await dem('#btn-soan-kh-tuan') === 1);
+  // Soạn bằng đúng nút trên màn: đổi tiêu đề, lưu, màn hiện ngay bản mới.
+  await page.click('#btn-soan-kh-tuan');
+  await page.waitForTimeout(500);
+  await page.fill('#kht-o-tieu-de', 'Tuần này: Nước và cây xanh');
+  await page.click('#kht-luu');
+  await page.waitForTimeout(1200);
+  check('LƯU TỪ MÀN HÌNH: tiêu đề mới hiện ngay', /Nước và cây xanh/i.test(await chu()), (await chu()).slice(0, 250));
   check('không lỗi JavaScript', loiJs.length === 0, loiJs.slice(0, 3));
 }
 
@@ -190,10 +212,10 @@ console.log('\n[5] Gia đình: cũng một tab, và vẫn có thanh chọn bé')
   await moMan('#/timetable/kehoach');
   const man = await chu();
   check('gia đình thấy dải hai phần', await dem('#tkb-phan [data-phan]') === 2);
-  check('và đọc được kế hoạch của con', /Mục tiêu tháng/.test(man), man.slice(0, 250));
+  check('và đọc được kế hoạch tuần chung cả trường', /Nước và cây xanh/i.test(man), man.slice(0, 250));
   check('CHỈ MỘT thanh chọn bé trên màn — màn ngoài vẽ, phần trong không vẽ lại',
     await dem('.student-bar') <= 1, await dem('.student-bar'));
-  check('gia đình KHÔNG được mời soạn kế hoạch', await dem('#btn-soan-kh-nhung') === 0);
+  check('gia đình KHÔNG được mời soạn kế hoạch', await dem('#btn-soan-kh-nhung') === 0 && await dem('#btn-soan-kh-tuan') === 0);
   check('trang chủ của gia đình cũng không còn ô riêng', !(await oTrangChu('Kế hoạch giáo dục')));
   check('không lỗi JavaScript', loiJs.length === 0, loiJs.slice(0, 3));
 }

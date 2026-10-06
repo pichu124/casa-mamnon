@@ -360,6 +360,37 @@ function sinh(db, moc) {
     });
   }
 
+  // ---- KẾ HOẠCH GIÁO DỤC CHUNG CẢ TRƯỜNG, THEO TUẦN (góp ý 06/10, mục 4) ----
+  // Bảng LÕI (`edu_plan_tuan`) nhưng gieo ở đây cùng dữ liệu phân hệ, để bộ
+  // kiểm thử (tắt phần này bằng CASA_SEED_PHAN_HE=0) bắt đầu từ bảng trống.
+  {
+    const nhan = (thuHai) => `Tuần ${Math.ceil(Number(thuHai.slice(8, 10)) / 7)} tháng ${Number(thuHai.slice(5, 7))}`;
+    const tuanTruoc = fmt(thuHai(daysAgo(7)));
+    const tuanSau = fmt(thuHai(daysAhead(7)));
+    for (const [tuan, chuDe, dong] of [
+      [tuanTruoc, 'Trường của bé', [
+        'Khám phá: Trong tuần các con làm quen với môi trường xung quanh, từ vựng mới về trường mầm non.',
+        'Kỹ năng sống: Bé làm quen với phép lịch sự nhã nhặn; cách tự lau dọn bàn sau bữa ăn.',
+        'Âm nhạc: Bài hát của tuần "Trường chúng cháu là trường mầm non".',
+      ]],
+      [tuanNay, 'Nước quanh ta', [
+        'Khám phá: Các con chơi với nước — rót, đong, thả vật nổi vật chìm, tưới cây góc sân.',
+        'Kỹ năng sống: Tự rửa tay đúng sáu bước và tiết kiệm nước khi rửa.',
+        'Âm nhạc: Bài hát của tuần "Cho tôi đi làm mưa với".',
+        'Tạo hình: Vẽ giọt mưa bằng ngón tay.',
+      ]],
+      [tuanSau, 'Gia đình của bé', [
+        'Khám phá: Gọi tên các thành viên trong gia đình, kể về một việc cả nhà làm cùng nhau.',
+        'Kỹ năng sống: Chào hỏi khi có khách tới nhà.',
+      ]],
+    ]) {
+      them('edu_plan_tuan', {
+        id: ma('kht'), tuan, campusId: '', tieuDe: `${nhan(tuan)}: ${chuDe}`,
+        noiDung: dong.join('\n'), nguoiSoan: '', taoLuc: luc(daysAgo(8), 9), capNhatLuc: luc(daysAgo(8), 9),
+      });
+    }
+  }
+
   // ---- CAMBRIDGE & KẾT NỐI Ở NHÀ ------------------------------------------
   them('cambridge_bai', {
     id: ma('cb'), loai: 'cambridge', tieuDe: 'Cambridge tuần này: Colours',

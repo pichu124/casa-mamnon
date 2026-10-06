@@ -1079,4 +1079,151 @@ module.exports = (app) => {
       soDaCoDonNghi: [...dangNghi.keys()].filter(id => !daCham.has(id)).length,
     });
   });
+
+  // =========================================================================
+  // CHẤM CÔNG CÔ VÀ NHÂN VIÊN BẰNG ẢNH Ở CỔNG (góp ý 06/10, mục 2)
+  // =========================================================================
+  //
+  // Trường: *"Giáo viên (click vào sẽ ra danh sách giáo viên, nhân viên cần
+  // điểm danh ở cơ sở đó) … khi điểm danh ai sẽ click vào sau đó sẽ chụp để
+  // checkin; ở dưới mỗi tên sẽ hiện thời gian checkin; chụp lần 2 sẽ tự động
+  // được ghi nhận là ra về"*. Chủ dự án chốt 06/10: chụp ảnh như với bé.
+  //
+  // BA ĐIỀU CỐ Ý:
+  //   • Người chụp (bảo vệ, văn phòng, quản lý cơ sở) thấy TÊN VÀ GIỜ, không
+  //     thấy ảnh, không thấy hồ sơ. Ảnh khuôn mặt người lớn chỉ Nhân sự, Ban
+  //     giám hiệu, quản lý ĐÚNG cơ sở và chính người ấy mở được — qua
+  //     `/api/nhansu/anh-cham-cong`, không qua đường này.
+  //   • Danh sách cắt theo CƠ SỞ: cô có nhóm ở cơ sở ấy, nhân viên được gắn
+  //     vào cơ sở ấy. Tài khoản cả trường thấy mọi người.
+  //   • Chỉ HÔM NAY. Ảnh lần một là giờ vào, lần hai là giờ ra, lần ba bị từ
+  //     chối — sửa giờ công ngày cũ là việc của Nhân sự ở màn Chấm công.
+  const CHUC_VU_CHUP_CONG = ['baove', 'vanphong-coso', 'quanly-coso', 'hieu-truong', 'nhansu'];
+  function chupCongDuoc(user) {
+    if (!user || user.role !== 'admin') return false;
+    const cv = db.chucVu(user);
+    return !cv || CHUC_VU_CHUP_CONG.includes(cv);
+  }
+  function coSoCuaNguoi(u) {
+    const r = db.first('user_campus', 'SELECT campusId FROM user_campus WHERE userId = ?', [u.id]);
+    if (r) return r.campusId;
+    const c = db.first('class_teachers',
+      `SELECT cc.campusId FROM class_teachers ct JOIN class_campus cc ON cc.classId = ct.classId
+       WHERE ct.teacherId = ? ORDER BY ct.vaiTro = 'chinh' DESC LIMIT 1`, [u.id]);
+    return c ? c.campusId : '';
+  }
+  function nhanVienTrongPhamVi(user) {
+    const ds = db.all('users',
+      "SELECT id, name, title, avatar, role FROM users WHERE active = 1 AND role IN ('teacher', 'admin') ORDER BY name");
+    const khoa = db.phamViCoSo(user);
+    if (!khoa) return ds;
+    const coCo = new Set(db.all('class_teachers',
+      `SELECT DISTINCT ct.teacherId AS id FROM class_teachers ct
+       JOIN class_campus cc ON cc.classId = ct.classId WHERE cc.campusId = ?`, [khoa]).map(r => r.id));
+    const coNv = new Set(db.all('user_campus',
+      'SELECT userId AS id FROM user_campus WHERE campusId = ?', [khoa]).map(r => r.id));
+    return ds.filter(u => coCo.has(u.id) || coNv.has(u.id));
+  }
+  function dongCong(userId, ngayXem) {
+    return db.first('staff_checkin', 'SELECT * FROM staff_checkin WHERE userId = ? AND ngay = ?', [userId, ngayXem]);
+  }
+  // Nhân sự đang bật thì chép giờ sang bảng công — chỉ điền ô CÒN TRỐNG, không
+  // đè giờ Nhân sự đã sửa tay, không đổi loại ngày công đã ghi.
+  function chepSangNhanSu(userId, ngayGhi, phan, gio, nguoi) {
+    if (!modules.dangBat('nhansu')) return;
+    try {
+      const cu = db.first('nhansu_cham_cong', 'SELECT * FROM nhansu_cham_cong WHERE userId = ? AND ngay = ?', [userId, ngayGhi]);
+      const cot = phan === 'ra' ? 'gioRa' : 'gioVao';
+      if (!cu) {
+        db.upsert('nhansu_cham_cong', {
+          userId, ngay: ngayGhi, loai: 'di-lam', gioVao: phan === 'vao' ? gio : '', gioRa: phan === 'ra' ? gio : '',
+          ghiChu: 'Chụp ảnh ở cổng', nguoiGhi: nguoi, capNhatLuc: new Date().toISOString(),
+        }, ['userId', 'ngay']);
+      } else if (!cu[cot]) {
+        db.run(`UPDATE nhansu_cham_cong SET ${cot} = ?, capNhatLuc = ? WHERE userId = ? AND ngay = ?`,
+          [gio, new Date().toISOString(), userId, ngayGhi]);
+      }
+    } catch (_) { /* phân hệ Nhân sự hỏng thì không làm hỏng việc chấm ở cổng */ }
+  }
+
+  app.get('/api/attendance/nhan-vien', requireRole('admin'), (req, res) => {
+    if (!chupCongDuoc(req.user)) return res.status(403).json({ error: 'Tài khoản này không chấm công ở cổng' });
+    const ngayXem = String(req.query.date || todayStr());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngayXem)) return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
+    const ds = nhanVienTrongPhamVi(req.user).map(u => {
+      const c = dongCong(u.id, ngayXem) || {};
+      return {
+        userId: u.id, hoTen: u.name, title: u.title || '', avatar: u.avatar,
+        vai: u.role === 'teacher' ? 'Cô' : 'Nhân viên',
+        gioVao: c.gioVao || '', gioRa: c.gioRa || '', coAnhVao: !!c.anhVao, coAnhRa: !!c.anhRa,
+      };
+    });
+    res.json({ date: ngayXem, homNay: ngayXem === todayStr(), danhSach: ds });
+  });
+
+  app.post('/api/attendance/nhan-vien/anh', requireRole('admin'), (req, res) => {
+    if (!chupCongDuoc(req.user)) return res.status(403).json({ error: 'Tài khoản này không chấm công ở cổng' });
+    const { userId, anh } = req.body || {};
+    const ngayGhi = todayStr();
+    const u = userId ? db.findUser(String(userId)) : null;
+    if (!u || !nhanVienTrongPhamVi(req.user).some(x => x.id === u.id)) {
+      return res.status(404).json({ error: 'Không tìm thấy người này trong danh sách của cơ sở' });
+    }
+    if (!anh || typeof anh !== 'string') return res.status(400).json({ error: 'Chưa chọn ảnh' });
+    const phay = anh.indexOf(',');
+    if (phay >= 0 && (anh.length - phay - 1) * 0.75 > TOI_DA_ANH_BYTE) {
+      return res.status(400).json({ error: 'Ảnh nặng quá, chụp lại một khung hình nhỏ hơn nhé' });
+    }
+    const cu = dongCong(u.id, ngayGhi);
+    if (cu && cu.gioVao && cu.gioRa) {
+      return res.status(400).json({
+        error: `Hôm nay đã ghi đủ giờ vào (${cu.gioVao}) và giờ ra (${cu.gioRa}). Cần sửa thì nhờ Nhân sự ở màn Chấm công.`,
+      });
+    }
+    let luu;
+    try { luu = uploads.saveDataUrl(anh); } catch (err) {
+      return res.status(400).json({ error: err.message || 'Ảnh chưa gửi lên được' });
+    }
+    const gio = String(nowTime()).slice(0, 5);
+    const phan = cu && cu.gioVao ? 'ra' : 'vao';
+    const luc = new Date().toISOString();
+    if (!cu) {
+      db.insert('staff_checkin', {
+        id: db.nextId('ccn'), userId: u.id, ngay: ngayGhi, gioVao: gio, anhVao: luu.file,
+        campusId: coSoCuaNguoi(u), nguoiChupVao: req.user.id, capNhatLuc: luc,
+      });
+    } else if (phan === 'vao') {
+      db.update('staff_checkin', cu.id, { gioVao: gio, anhVao: luu.file, nguoiChupVao: req.user.id, capNhatLuc: luc });
+    } else {
+      db.update('staff_checkin', cu.id, { gioRa: gio, anhRa: luu.file, nguoiChupRa: req.user.id, capNhatLuc: luc });
+    }
+    db.audit(req.user.id, phan === 'vao' ? 'cong-anh-vao' : 'cong-anh-ra', u.id, { ngay: ngayGhi, gio });
+    chepSangNhanSu(u.id, ngayGhi, phan, gio, req.user.id);
+    const c = dongCong(u.id, ngayGhi);
+    res.status(201).json({ ok: true, userId: u.id, phan, gioVao: c.gioVao, gioRa: c.gioRa });
+  });
+
+  // Gỡ lần chụp gần nhất của HÔM NAY — chụp nhầm người là phải gỡ được ngay.
+  // Gỡ giờ ra trước; còn giờ ra thì không gỡ được giờ vào.
+  app.post('/api/attendance/nhan-vien/go', requireRole('admin'), (req, res) => {
+    if (!chupCongDuoc(req.user)) return res.status(403).json({ error: 'Tài khoản này không chấm công ở cổng' });
+    const userId = String((req.body || {}).userId || '');
+    if (!nhanVienTrongPhamVi(req.user).some(x => x.id === userId)) {
+      return res.status(404).json({ error: 'Không tìm thấy người này trong danh sách của cơ sở' });
+    }
+    const ngayGhi = todayStr();
+    const cu = dongCong(userId, ngayGhi);
+    if (!cu || !cu.gioVao) return res.status(400).json({ error: 'Hôm nay chưa có lần chụp nào để gỡ' });
+    const luc = new Date().toISOString();
+    if (cu.gioRa) {
+      db.update('staff_checkin', cu.id, { gioRa: '', anhRa: '', nguoiChupRa: null, capNhatLuc: luc });
+      if (cu.anhRa) uploads.remove(cu.anhRa);
+      db.audit(req.user.id, 'cong-anh-go', userId, { ngay: ngayGhi, phan: 'ra' });
+      return res.json({ ok: true, daGo: 'ra' });
+    }
+    db.run('DELETE FROM staff_checkin WHERE id = ?', [cu.id]);
+    if (cu.anhVao) uploads.remove(cu.anhVao);
+    db.audit(req.user.id, 'cong-anh-go', userId, { ngay: ngayGhi, phan: 'vao' });
+    res.json({ ok: true, daGo: 'vao' });
+  });
 };

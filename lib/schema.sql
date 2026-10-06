@@ -525,6 +525,26 @@ CREATE TABLE IF NOT EXISTS edu_plans (
 );
 CREATE INDEX IF NOT EXISTS idx_plans_class ON edu_plans(classId, year, month);
 
+-- ===== Kế hoạch giáo dục CHUNG CẢ TRƯỜNG, soạn theo TUẦN (góp ý 06/10, mục 4) =====
+-- Trường: "đây sẽ là kế hoạch chung của toàn trường nên sẽ bỏ nhóm lớp đi …
+-- mục này mình sẽ để là soạn kế hoạch tuần". Bảng MỚI cạnh `edu_plans` (tháng,
+-- theo nhóm) chứ không sửa bảng cũ: lược đồ lõi cấm ALTER, và kế hoạch tháng đã
+-- soạn vẫn phải đọc được ở #/plans (Nguyên tắc số 1, vế 3).
+-- `campusId` '' = cả trường — cùng quy ước với `menu_tep`, `lich_nghi_truong`.
+-- `noiDung`: chữ thường, mỗi dòng một mục "Lĩnh vực: nội dung" — màn hình in
+-- đậm phần trước dấu hai chấm. Không JSON, để khỏi phải khai cột trong lib/db.js.
+CREATE TABLE IF NOT EXISTS edu_plan_tuan (
+  id         TEXT PRIMARY KEY,
+  tuan       TEXT NOT NULL,              -- thứ Hai của tuần, YYYY-MM-DD
+  campusId   TEXT NOT NULL DEFAULT '',
+  tieuDe     TEXT NOT NULL DEFAULT '',
+  noiDung    TEXT NOT NULL DEFAULT '',
+  nguoiSoan  TEXT,
+  taoLuc     TEXT,
+  capNhatLuc TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_edu_plan_tuan ON edu_plan_tuan(tuan, campusId);
+
 -- ===== Xe buýt đưa đón =====
 CREATE TABLE IF NOT EXISTS bus_routes (
   id      TEXT PRIMARY KEY,
@@ -1096,3 +1116,30 @@ CREATE TABLE IF NOT EXISTS attendance_anh_ve (
 );
 CREATE INDEX IF NOT EXISTS idx_att_anh_ve_date ON attendance_anh_ve(date);
 CREATE INDEX IF NOT EXISTS idx_att_anh_ve_file ON attendance_anh_ve(file);
+
+-- ===== CHẤM CÔNG CÔ VÀ NHÂN VIÊN BẰNG ẢNH Ở CỔNG (góp ý 06/10, mục 2) =====
+-- Trường: mục "Giáo viên" đứng đầu màn điểm danh — bấm vào ra danh sách cô và
+-- nhân viên của cơ sở, chụp ảnh lần đầu là giờ vào, lần hai là giờ ra. Chủ dự
+-- án chốt 06/10: CHỤP ẢNH NHƯ VỚI BÉ.
+-- Đây là loại dữ liệu MỚI: ảnh khuôn mặt người lớn. Ai được XEM ảnh là chuyện
+-- của phân hệ Nhân sự (`/api/nhansu/anh-cham-cong`), không phải của cổng —
+-- người chụp ở cổng chỉ thấy tên và giờ.
+-- Bảng LÕI chứ không của phân hệ Nhân sự: người chụp là bảo vệ cổng, mà chức
+-- vụ ấy chỉ gọi được `/api/attendance`. Nhân sự đang bật thì giờ vào/ra được
+-- chép sang bảng công `nhansu_cham_cong` (hỏi công tắc trước).
+CREATE TABLE IF NOT EXISTS staff_checkin (
+  id           TEXT PRIMARY KEY,
+  userId       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ngay         TEXT NOT NULL,          -- YYYY-MM-DD giờ Việt Nam
+  gioVao       TEXT NOT NULL DEFAULT '',
+  gioRa        TEXT NOT NULL DEFAULT '',
+  anhVao       TEXT NOT NULL DEFAULT '',
+  anhRa        TEXT NOT NULL DEFAULT '',
+  campusId     TEXT NOT NULL DEFAULT '', -- cơ sở của người được chụp lúc chụp
+  nguoiChupVao TEXT,
+  nguoiChupRa  TEXT,
+  capNhatLuc   TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_checkin ON staff_checkin(userId, ngay);
+CREATE INDEX IF NOT EXISTS idx_staff_checkin_anh_vao ON staff_checkin(anhVao);
+CREATE INDEX IF NOT EXISTS idx_staff_checkin_anh_ra ON staff_checkin(anhRa);

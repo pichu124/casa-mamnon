@@ -309,7 +309,6 @@ App.views.timetable = {
     root.innerHTML = `
       ${UI.pageHeader('Lịch sinh hoạt')}
       ${this.thanhPhan('kehoach')}
-      ${App.state.user.role === 'parent' ? UI.studentBar() + UI.thanhChonBeTheoCap() : ''}
       <div id="tkb-kehoach"><div class="loading">Đang tải kế hoạch giáo dục</div></div>`;
     this.ganSuKienPhan(root);
     const o = document.getElementById('tkb-kehoach');
@@ -318,8 +317,11 @@ App.views.timetable = {
         'Phần Kế hoạch giáo dục đang tạm nghỉ. Phần Lịch sinh hoạt vẫn dùng bình thường.');
       return;
     }
+    // Từ góp ý 06/10 (mục 4) phần này là KẾ HOẠCH TUẦN CHUNG CẢ TRƯỜNG — không
+    // ô chọn nhóm, không dòng "Cô phụ trách". Vẫn là `views/plans.js` vẽ hộ,
+    // đúng lý do ở trên. Kế hoạch tháng theo nhóm vẫn ở #/plans.
     try {
-      await App.views.plans.render(o, [], true);
+      await App.views.plans.renderTuan(o);
     } catch (err) {
       o.innerHTML = UI.emptyState('😥', err.message || 'Chưa tải được kế hoạch giáo dục');
     }

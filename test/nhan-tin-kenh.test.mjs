@@ -33,7 +33,7 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('nhan-tin-kenh');
 sinhDuLieu(DIR);
-batPhanHe(DIR, ['nhantin']);
+batPhanHe(DIR, ['nhantin', 'dontra']);   // Đón trả mặc định TẮT từ góp ý 06/10 mục 2 — mục [8] cần nó bật
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkCS2 = taoQuanTri(DIR, 'Quản lý CS2', 'quanly2');
 khoaVaoCoSo(DIR, 'quanly2', 'cs2');

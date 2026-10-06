@@ -140,16 +140,27 @@ console.log('\n[2] Văn phòng: cây cơ sở → nhóm → bé');
   check('màn nhóm ghi rõ nhóm · cơ sở', t2.includes('Chồi 2 · Cơ sở 1'), t2.slice(0, 200));
   check(`liệt kê ${MAU.soBeNhomChoi2} bé`, (await page.locator('#view .card .list-row').count()) === MAU.soBeNhomChoi2);
 
-  // Bấm một bé → Hồ sơ của bé với ô chọn theo cấp.
+  // Bấm một bé → Hồ sơ của ĐÚNG bé ấy (#/student/<mã>), có nút tìm bé khác.
+  // Góp ý 06/10 (mục 1): `#/student` trống là màn TÌM BÉ — ô gõ nhanh ở
+  // trên, cây Cơ sở → Nhóm → Bé ở dưới — thay cho ô chọn 300 dòng.
+  const tenBeBam = (await page.locator('#view .card .list-row .row-title').first().innerText()).trim();
   await page.locator('#view .card .list-row').first().click();
-  await page.waitForSelector('#view select optgroup', { state: 'attached', timeout: 6000 });
-  check('tới màn Hồ sơ của bé', (await location(page)) === '#/student', await location(page));
-  const t3 = await chu(page);
-  check('màn hồ sơ có ô chọn bé', t3.includes('Đang xem hồ sơ của bé'), t3.slice(0, 200));
-  const nhanNhom = await page.$$eval('#view select optgroup', ds => ds.map(o => o.label));
-  check('ô chọn gom theo cấp: "Cơ sở › Nhóm"', nhanNhom.some(l => l.includes('Cơ sở 1 › Chồi 2')), nhanNhom);
-  const soBe = await page.locator('#view select option').count();
-  check(`và vẫn liệt kê mọi bé của trường (${MAU.soBe})`, soBe === MAU.soBe, soBe);
+  await page.waitForSelector('#hs-tim-khac', { timeout: 6000 });
+  check('tới hồ sơ của ĐÚNG bé vừa bấm', /^#\/student\/.+/.test(await location(page)) && (await chu(page)).includes(tenBeBam),
+    { hash: await location(page), tenBeBam });
+  check('hồ sơ có nút "Tìm bé khác"', await page.locator('#hs-tim-khac').count() === 1);
+  await page.click('#hs-tim-khac');
+  await page.waitForSelector('#hs-tim', { timeout: 6000 });
+  check('bấm "Tìm bé khác" về màn tìm #/student', (await location(page)) === '#/student', await location(page));
+  const cay = await page.locator('#hs-cay').textContent();   // cây đang gập: innerText không thấy phần gập
+  check('cây gom theo cấp: Cơ sở → Nhóm', cay.includes('Cơ sở 1') && cay.includes('Chồi 2'), cay.slice(0, 200));
+  const soBe = await page.locator('#hs-cay [data-mo-be]').count();
+  check(`cây có đủ mọi bé của trường (${MAU.soBe})`, soBe === MAU.soBe, soBe);
+  check('cây GẬP SẴN — không bày 300 dòng ra màn', await page.locator('#hs-cay details[open]').count() === 0);
+  await page.fill('#hs-tim', 'bao an');
+  await page.waitForTimeout(300);
+  const kq = await page.locator('#hs-ket-qua').innerText();
+  check('gõ "bao an" (không dấu) ra bé Nguyễn Bảo An', kq.includes('Nguyễn Bảo An'), kq.slice(0, 200));
   await page.screenshot({ path: SHOT + 'vanphong-ho-so-be.png', fullPage: true });
   await page.context().close();
 }

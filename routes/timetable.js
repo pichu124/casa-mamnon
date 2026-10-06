@@ -105,7 +105,9 @@ module.exports = (app) => {
       title: `Lịch sinh hoạt nhóm ${cls.name} vừa được cập nhật`,
       body: 'Văn phòng vừa sửa lịch một ngày ở nhóm. Mở Lịch sinh hoạt để xem.',
       category: 'Khác', createdBy: req.user.id,
-      hash: '#/timetable',
+      // `#/timetable/lich`, không phải `#/timetable`: từ Đ198 địa chỉ trống mở
+      // phần Kế hoạch giáo dục — tin báo LỊCH đổi mà mở ra kế hoạch là sai chỗ.
+      hash: '#/timetable/lich',
     });
 
     res.json({

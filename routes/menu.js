@@ -5,6 +5,7 @@ const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 const tb = require('../lib/thong-bao');
 const uploads = require('../lib/uploads');
+const xlsx = require('../lib/xlsx');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
 const TOI_DA_BUA = 5;        // số bữa mỗi ngày
@@ -21,7 +22,7 @@ const TOI_DA_TEN_TEP = 120;
 // Ba loại, và cố ý không nhiều hơn:
 //   pdf/docx — thứ bếp gửi qua Zalo cho văn phòng
 //   anh      — ảnh chụp tờ thực đơn dán ở bếp, thứ nhanh nhất với điện thoại
-// Excel thì đã có đường riêng và tốt hơn hẳn: ô "dán bảng" của Đ132 đưa thẳng
+// Excel thì đã có đường riêng và tốt hơn hẳn: tệp Excel mẫu (Đ226) và ô "dán bảng" của Đ132 đưa thẳng
 // nội dung vào bảng thực đơn, tức là gia đình đọc được theo từng ngày, phân hệ
 // Tiền ăn đối chiếu được. Nhận một tệp .xlsx rồi treo nguyên lên thì app không
 // đọc được một chữ nào trong đó.
@@ -200,6 +201,133 @@ function thucDonCua(campusId, from, to) {
   return [...chung.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// ===========================================================================
+// TỆP EXCEL MẪU: TẢI VỀ → ĐIỀN → NẠP LÊN, APP TỰ ĐIỀN TỪNG NGÀY (góp ý 06/10, mục 3)
+// ===========================================================================
+//
+// Trường: *"phần dán thực đơn từ bảng Excel/Word chưa đúng ý định. Hãy tạo 1
+// form mẫu bằng Excel theo đúng cấu trúc bạn cần, sau đó mình sẽ up lên và bạn
+// sẽ tự điền vào từng ngày"*. Cùng khuôn với tệp cân đo của Đ205 (tải mẫu đã
+// điền sẵn tên → điền → nạp lại), nhưng là .xlsx thật — bếp làm việc trên
+// Excel, không trên CSV.
+//
+// MẪU THEO THÁNG: mỗi hàng một ngày học (thứ Hai – thứ Sáu), mỗi cột một bữa;
+// ô nhiều món thì xuống dòng (Alt+Enter) hoặc cách nhau bằng dấu chấm phẩy —
+// đúng luật tách món của ô "Dán bảng" (Đ132), để hai đường không hiểu khác nhau.
+// Ngày đã có thực đơn thì mẫu điền sẵn món, sửa trên đó là xong.
+//
+// NẠP LÊN LÀ HAI BƯỚC: xem trước (không ghi gì) rồi mới lưu. Ngày có món trong
+// tệp thì THAY cả ngày; ngày để trống trong tệp thì KHÔNG đụng tới — nạp một
+// tệp thiếu vài ngày không được xoá thực đơn đang có của những ngày ấy.
+//
+// Năm bữa PHẢI KHỚP `BUA_MAC_DINH` ở public/js/views/menu.js — Nhật ký ngày
+// đọc thực đơn theo đúng mã `type` ấy. `test:thuc-don-excel` canh hai bản.
+const BUA_MAU = [
+  { type: 'breakfast', label: 'Bữa sáng', time: '07:30' },
+  { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:00' },
+  { type: 'lunch', label: 'Bữa trưa', time: '10:45' },
+  { type: 'snack', label: 'Bữa phụ chiều', time: '14:30' },
+  { type: 'milk', label: 'Sữa Vinamilk', time: '15:30' },
+];
+const TEN_THU = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+const TOI_DA_HANG_EXCEL = 70;          // hơn hai tháng ngày học
+const TOI_DA_TEP_EXCEL = 3 * 1024 * 1024;
+
+// Tiêu đề cột → bữa. Khớp đúng tên trong mẫu trước, rồi mới tới các cách gọi
+// khác (cùng bộ với `nhanBua` của màn soạn).
+function buaTheoTieuDe(ten) {
+  const t = String(ten || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  const dung = BUA_MAU.find(b => b.label.toLowerCase() === t);
+  if (dung) return dung;
+  const bang = [
+    ['breakfast', /^(bữa )?sáng$|breakfast|bua sang/],
+    ['snack_sang', /phụ sáng|phu sang|snack.*(am|sáng|morning)|^snacks? ?1$|^(bữa )?phụ 1$/],
+    ['lunch', /trưa|lunch|bua trua/],
+    ['snack', /phụ chiều|phu chieu|xế|xe$|snack|^(bữa )?phụ 2$/],
+    ['milk', /sữa|sua|milk/],
+  ];
+  for (const [type, re] of bang) if (re.test(t)) return BUA_MAU.find(b => b.type === type);
+  return null;
+}
+
+// Ô ngày → "YYYY-MM-DD". Nhận số sê-ri của Excel, "05/10/2026", "5/10/2026",
+// "05-10-2026", "2026-10-05". Ngày không có thật (30/02) → null.
+function ngayTuO(gt) {
+  if (typeof gt === 'number') return xlsx.ngayTuSoExcel(gt);
+  const s = String(gt || '').trim();
+  let y, m, d;
+  let k = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  if (k) { y = +k[1]; m = +k[2]; d = +k[3]; } else {
+    k = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/.exec(s);
+    if (!k) return null;
+    d = +k[1]; m = +k[2]; y = +k[3];
+  }
+  const t = Date.UTC(y, m - 1, d);
+  const ra = new Date(t).toISOString().slice(0, 10);
+  return new Date(t).getUTCDate() === d && new Date(t).getUTCMonth() === m - 1 ? ra : null;
+}
+const tachMon = (o) => String(o ?? '').split(/[;\n•]/).map(x => x.trim()).filter(Boolean);
+const ddmm = (s) => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+
+// Đọc tệp đã điền → danh sách ngày có món + lời nhắc. KHÔNG ghi gì.
+function docThucDonExcel(buf) {
+  const bang = xlsx.doc(buf);
+  const canhBao = [];
+  // Trang có hàng tiêu đề chứa "Ngày" trong năm hàng đầu.
+  let trang = null; let hangTieuDe = -1; let cotNgay = -1;
+  for (const b of bang) {
+    for (let r = 0; r < Math.min(5, b.hang.length) && !trang; r++) {
+      const i = (b.hang[r] || []).findIndex(x => /^ngày$/i.test(String(x ?? '').trim()));
+      if (i >= 0) { trang = b; hangTieuDe = r; cotNgay = i; }
+    }
+    if (trang) break;
+  }
+  if (!trang) {
+    return { loi: 'Không tìm thấy hàng tiêu đề có cột "Ngày". Tải tệp mẫu của app về, điền vào đó rồi nạp lại nhé.' };
+  }
+  const tieuDe = trang.hang[hangTieuDe] || [];
+  const cotBua = [];
+  tieuDe.forEach((ten, i) => {
+    if (i === cotNgay || /^thứ$/i.test(String(ten ?? '').trim()) || ten === undefined || ten === null || ten === '') return;
+    const b = buaTheoTieuDe(ten);
+    if (b) { if (!cotBua.some(x => x.bua.type === b.type)) cotBua.push({ i, bua: b }); }
+    else canhBao.push(`Cột "${String(ten).slice(0, 40)}" không phải tên bữa nào — bỏ qua.`);
+  });
+  if (!cotBua.length) return { loi: 'Hàng tiêu đề không có cột bữa nào (Bữa sáng, Bữa trưa…). Dùng đúng tệp mẫu của app nhé.' };
+
+  const daThay = new Set();
+  const ngay = [];
+  const hang = trang.hang.slice(hangTieuDe + 1, hangTieuDe + 1 + TOI_DA_HANG_EXCEL);
+  if (trang.hang.length - hangTieuDe - 1 > TOI_DA_HANG_EXCEL) {
+    canhBao.push(`Tệp có hơn ${TOI_DA_HANG_EXCEL} hàng — chỉ đọc ${TOI_DA_HANG_EXCEL} hàng đầu. Nạp từng tháng một nhé.`);
+  }
+  hang.forEach((h, j) => {
+    if (!h) return;
+    const soHang = hangTieuDe + j + 2;   // số hàng như Excel hiện
+    const coMon = cotBua.some(c => tachMon(h[c.i]).length);
+    const o = h[cotNgay];
+    if (o === undefined || o === null || o === '') {
+      if (coMon) canhBao.push(`Hàng ${soHang} có món nhưng thiếu ngày — bỏ qua.`);
+      return;
+    }
+    const date = ngayTuO(o);
+    if (!date) { canhBao.push(`Hàng ${soHang}: "${String(o).slice(0, 20)}" không phải ngày — gõ dạng 05/10/2026.`); return; }
+    if (!coMon) return;   // ngày để trống: không đụng tới thực đơn đang có
+    const thu = new Date(`${date}T00:00:00Z`).getUTCDay();
+    if (thu === 0 || thu === 6) { canhBao.push(`${TEN_THU[thu]} ${ddmm(date)} không phải ngày học — bỏ qua.`); return; }
+    if (daThay.has(date)) { canhBao.push(`Ngày ${ddmm(date)} có hai hàng — lấy hàng đầu, bỏ hàng ${soHang}.`); return; }
+    daThay.add(date);
+    ngay.push({
+      date, thu: TEN_THU[thu],
+      bua: cotBua.map(c => ({ ...c.bua, items: tachMon(h[c.i]).map(x => x.slice(0, TOI_DA_TEN_MON)).slice(0, TOI_DA_MON_BUA) }))
+        .filter(b => b.items.length),
+    });
+  });
+  ngay.sort((a, b) => a.date.localeCompare(b.date));
+  return { ngay, canhBao };
+}
+
 module.exports = (app) => {
   // Thực đơn theo tuần: ?week=0 (tuần này, mặc định) | 1 (tuần sau) | -1 (tuần trước).
   app.get('/api/menu', (req, res) => {
@@ -240,6 +368,100 @@ module.exports = (app) => {
   // MỘT GIAO DỊCH, KHÔNG PHẢI 5 LỜI GỌI. Gọi 5 lần thì lỗi ở ngày thứ ba để
   // lại một tuần soạn dở — hai ngày đã lưu, ba ngày chưa — mà màn hình vừa
   // báo lỗi nên người soạn không biết mình đang đứng ở đâu.
+  // Tệp mẫu của MỘT tháng, điền sẵn ngày học và món đã có.
+  app.get('/api/menu/mau-excel', requireRole('admin'), (req, res) => {
+    const quyen = coSoDuocGhi(req.user, String(req.query.campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const thang = /^\d{4}-\d{2}$/.test(String(req.query.thang || '')) ? String(req.query.thang) : ngay.homNay().slice(0, 7);
+    const [y, m] = thang.split('-').map(Number);
+    if (m < 1 || m > 12 || y < 2020 || y > 2100) return res.status(400).json({ error: 'Tháng chưa hợp lệ, ví dụ đúng: 2026-10' });
+    const campusId = quyen.campusId;
+    const hang = [['Ngày', 'Thứ', ...BUA_MAU.map(b => b.label)]];
+    for (let d = 1; d <= 31; d++) {
+      const t = Date.UTC(y, m - 1, d);
+      if (new Date(t).getUTCMonth() !== m - 1) break;
+      const thu = new Date(t).getUTCDay();
+      if (thu === 0 || thu === 6) continue;
+      const date = new Date(t).toISOString().slice(0, 10);
+      const ban = (campusId ? db.first('menu_campus', 'SELECT meals FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, date]) : null)
+        || db.first('menus', 'SELECT meals FROM menus WHERE date = ?', [date]);
+      const meals = (ban && Array.isArray(ban.meals)) ? ban.meals : [];
+      hang.push([`${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`, TEN_THU[thu],
+        ...BUA_MAU.map(b => ((meals.find(x => x.type === b.type) || {}).items || []).join('\n'))]);
+    }
+    const huongDan = [
+      ['CÁCH ĐIỀN TỆP THỰC ĐƠN'],
+      ['1. Mỗi hàng là một ngày học (thứ Hai – thứ Sáu). Đừng sửa cột Ngày và cột Thứ.'],
+      ['2. Mỗi cột là một bữa. Ô có nhiều món thì xuống dòng trong ô (Alt + Enter) hoặc cách nhau bằng dấu chấm phẩy ( ; ).'],
+      ['3. Ngày nào để trống cả hàng thì app KHÔNG đụng tới thực đơn đang có của ngày đó.'],
+      ['4. Ngày nào có món thì app THAY cả ngày đó bằng các món trong tệp.'],
+      ['5. Điền xong: lưu tệp (giữ dạng .xlsx), vào app → Thực đơn → "Nạp tệp Excel đã điền". App cho xem trước rồi mới lưu.'],
+      [`Tệp này của tháng ${m}/${y}${campusId ? ` — bếp ${(db.findCampus(campusId) || {}).name || ''}` : ' — dùng chung mọi cơ sở'}.`],
+    ];
+    const buf = xlsx.ghi([
+      { ten: 'Thực đơn', dongTieuDe: true, cot: [12, 10, 26, 26, 30, 26, 22], hang },
+      { ten: 'Hướng dẫn', cot: [110], hang: huongDan },
+    ]);
+    db.audit(req.user.id, 'menu-mau-excel', campusId || null, { thang });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Thuc-don-mau-${thang}.xlsx"`);
+    res.send(buf);
+  });
+
+  // Nạp tệp đã điền. `luu: false` (mặc định) chỉ đọc và trả bản xem trước;
+  // `luu: true` mới ghi — cùng bảng, cùng luật cơ sở với "Lưu cả tuần".
+  app.post('/api/menu/nap-excel', requireRole('admin'), (req, res) => {
+    const body = req.body || {};
+    const quyen = coSoDuocGhi(req.user, String(body.campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const campusId = quyen.campusId;
+    const m = /^data:[^;,]*;base64,(.+)$/s.exec(String(body.tep || ''));
+    if (!m) return res.status(400).json({ error: 'Chưa nhận được tệp Excel' });
+    const buf = Buffer.from(m[1], 'base64');
+    if (buf.length > TOI_DA_TEP_EXCEL) return res.status(400).json({ error: 'Tệp quá lớn — tệp thực đơn một tháng chỉ vài chục KB' });
+    let kq;
+    try { kq = docThucDonExcel(buf); } catch (err) {
+      return res.status(400).json({ error: `Không đọc được tệp: ${err.message}. Mở bằng Excel rồi lưu lại dạng .xlsx thử nhé.` });
+    }
+    if (kq.loi) return res.status(400).json({ error: kq.loi });
+    const cu = (date) => (campusId
+      ? db.first('menu_campus', 'SELECT * FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, date])
+      : db.first('menus', 'SELECT * FROM menus WHERE date = ?', [date]));
+    const xemTruoc = kq.ngay.map(n => ({ ...n, daCo: !!cu(n.date) }));
+    if (!body.luu) {
+      return res.json({ ngay: xemTruoc, canhBao: kq.canhBao, campusId: campusId || null });
+    }
+    if (!kq.ngay.length) return res.status(400).json({ error: 'Tệp không có ngày nào có món để lưu' });
+    const luc = new Date().toISOString();
+    db.tx(() => {
+      for (const n of kq.ngay) {
+        const truoc = cu(n.date);
+        const buaCu = (truoc && Array.isArray(truoc.meals)) ? truoc.meals : [];
+        // Giữ tên bữa và giờ ăn bếp đã đặt riêng cho ngày ấy, nếu có.
+        const meals = lamSachBuaAn(n.bua.map(b => {
+          const g = buaCu.find(x => x.type === b.type) || {};
+          return { type: b.type, label: g.label || b.label, time: g.time || b.time, items: b.items };
+        }));
+        if (!meals) continue;
+        if (campusId) {
+          db.upsert('menu_campus', { campusId, date: n.date, meals, nguoiDang: req.user.id, capNhatLuc: luc }, ['campusId', 'date']);
+        } else if (truoc) db.update('menus', truoc.id, { meals });
+        else db.insert('menus', { id: db.nextId('menu'), date: n.date, meals });
+      }
+    });
+    db.audit(req.user.id, 'menu-nap-excel', campusId || null, { soNgay: kq.ngay.length, campusId });
+    const nhom = campusId
+      ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
+      : db.classes().map(c => c.id);
+    const tu = kq.ngay[0].date; const den = kq.ngay[kq.ngay.length - 1].date;
+    tb.guiChoNhom(nhom, {
+      title: `Thực đơn từ ${ddmm(tu)} đến ${ddmm(den)} đã có`,
+      body: 'Nhà bếp vừa đăng thực đơn. Mở Thực đơn để xem từng ngày con ăn gì.',
+      category: 'Khác', createdBy: req.user.id, hash: '#/menu',
+    });
+    res.json({ daLuu: kq.ngay.length, ngay: kq.ngay.map(n => n.date), canhBao: kq.canhBao, campusId: campusId || null });
+  });
+
   app.put('/api/menu/tuan', requireRole('admin'), (req, res) => {
     const quyen = coSoDuocGhi(req.user, String((req.body || {}).campusId || ''));
     if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
@@ -460,9 +682,11 @@ module.exports = (app) => {
         loai = 'anh';
       } catch (err) {
         return res.status(400).json({
+          // Từ Đ226 (góp ý 06/10, mục 3) Excel có đường riêng: tải tệp mẫu rồi
+          // nạp lại — chỉ sang đó trước, ô dán bảng sau.
           error: 'Tệp này app chưa nhận được. Nhận ảnh chụp, PDF hoặc Word; '
-            + 'còn bảng Excel thì dùng ô "Dán bảng từ Excel" — dán vào đó thì '
-            + 'gia đình đọc được thực đơn theo từng ngày.',
+            + 'còn tệp Excel thì dùng nút "Nạp tệp Excel đã điền" (tải tệp mẫu ở cùng chỗ), '
+            + 'hoặc ô "Dán bảng từ Excel" — app đọc từng món để gia đình xem thực đơn theo từng ngày.',
         });
       }
     }

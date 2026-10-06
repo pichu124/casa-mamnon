@@ -573,6 +573,68 @@ console.log('\n[7] Giờ Việt Nam, ngày viết bằng tiếng Việt, và ng�
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 }
 
+// ===========================================================================
+// Góp ý của trường 06/10 (mục 2): "Giáo viên" đứng đầu, rồi từng nhóm gập
+// sẵn; bấm người là chụp — lần một vào, lần hai ra; "cần gọi xác nhận" bấm là
+// gọi được phụ huynh.
+console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm gập sẵn, chụp hai lần, gọi một chạm');
+{
+  await dangNhap('htruong', 'quantri2026');
+  // Kéo mốc rà soát về 06:00 để bảng "cần gọi xác nhận" có bé ngay bây giờ.
+  await goiApi('/api/attendance/cai-dat', { gioRaSoat: '06:00' }, ckQT, 'PUT');
+  loiJs = [];
+  await moMan('#/attendance');
+  check('có mục "Giáo viên & nhân viên"', await dem('#att-nv') === 1);
+  const thuTu = await page.evaluate(() => {
+    const nv = document.getElementById('att-nv');
+    const nhom = [...document.querySelectorAll('#view details.card')].filter(d => d.id !== 'att-nv');
+    return { nvTruoc: !!nv && nhom.length > 0 && !!(nv.compareDocumentPosition(nhom[0]) & Node.DOCUMENT_POSITION_FOLLOWING), soNhom: nhom.length };
+  });
+  check('mục Giáo viên đứng TRƯỚC các nhóm', thuTu.nvTruoc, thuTu);
+  check('mọi nhóm GẬP SẴN — không bày cả trăm tên ra màn', await dem('#view details.card[open]') === 0, await dem('#view details.card[open]'));
+
+  // Chụp cô t1: lần một giờ vào, lần hai giờ ra.
+  await page.click('#att-nv summary');
+  await page.waitForTimeout(300);
+  await page.click('#att-nv [data-chup-nv="t1"].btn');
+  await page.waitForTimeout(1800);
+  const sau1 = await page.locator('#att-nv-t1').innerText();
+  check('chụp lần một: dưới tên hiện GIỜ VÀO', /Vào \d{2}:\d{2}/.test(sau1) && !/Ra \d/.test(sau1), sau1);
+  check('nút đổi thành "Chụp ảnh ra"', /Chụp ảnh ra/.test(sau1), sau1);
+  await page.click('#att-nv [data-chup-nv="t1"].btn');
+  await page.waitForTimeout(1800);
+  const sau2 = await page.locator('#att-nv-t1').innerText();
+  check('chụp lần hai: hiện thêm GIỜ RA', /Vào \d{2}:\d{2}/.test(sau2) && /Ra \d{2}:\d{2}/.test(sau2), sau2);
+  check('đủ vào và ra thì không còn nút chụp', await dem('#att-nv [data-chup-nv="t1"].btn') === 0);
+  check('người chụp KHÔNG thấy ảnh khuôn mặt của cô (chỉ tên và giờ)', await dem('#att-nv img') === 0, await dem('#att-nv img'));
+
+  // Gọi xác nhận một chạm.
+  const nutGoi = await dem('[data-goi-be]');
+  check('bảng "cần gọi xác nhận" có nút Gọi cạnh từng bé', nutGoi > 0, nutGoi);
+  if (nutGoi > 0) {
+    await page.locator('[data-goi-be]').first().click();
+    await page.waitForTimeout(1200);
+    check('bấm Gọi mở số của gia đình kèm nút gọi thật (tel:)', await dem('#modal-overlay a[href^="tel:"]') > 0,
+      await page.locator('#modal-overlay').innerText().catch(() => ''));
+    await page.evaluate(() => UI.closeModal());
+  }
+
+  // Chụp lần hai cho BÉ = ra về.
+  const beCoMat = await page.evaluate(() => {
+    const r = (App.views.attendance._roster || []).find(x => x.record && ['present', 'late'].includes(x.record.status) && !x.record.checkOut);
+    return r ? r.student.id : null;
+  });
+  check('(đối chứng) có một bé đã vào lớp mà chưa về', !!beCoMat);
+  if (beCoMat) {
+    await page.evaluate((id) => { document.getElementById(`att-dong-${id}`).closest('details').open = true; }, beCoMat);
+    await page.locator(`#att-dong-${beCoMat} button`, { hasText: 'Chụp ảnh ra về' }).click();
+    await page.waitForTimeout(1800);
+    const dong = await page.locator(`#att-dong-${beCoMat}`).innerText();
+    check('bé đã vào lớp: chụp ảnh lần hai là GHI RA VỀ', /Ra về \d{2}:\d{2}/.test(dong), dong);
+  }
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+}
+
 check('không có lỗi JavaScript nào còn sót', loiJs.length === 0, loiJs);
 await browser.close();
 sv.dung();

@@ -138,8 +138,127 @@ App.views.attendance = {
       </div>
       ${this.theRaSoatVanPhong(r, ds, tenNhom)}
       ${this.theNgayDaKhoa()}
+      <div id="att-nv-o"></div>
       ${this.theDiemDanhCoSo(so)}
       ${this.theChiDuongTraBe()}`;
+    this.ganNutGoi(root);
+    this.taiNhanVien();
+  },
+
+  // =========================================================================
+  // GỌI XÁC NHẬN MỘT CHẠM (góp ý 06/10, mục 2 phần 1)
+  // =========================================================================
+  //
+  // *"Khi hiện danh sách cần gọi xác nhận → khi click vào bé đó có thể ấn và
+  // call trực tiếp với phụ huynh"*. Số điện thoại KHÔNG đi theo bảng rà soát:
+  // bảng ấy mở cả cho tài khoản bảo vệ ở cổng (Đ156 — "KHÔNG mở được hồ sơ
+  // bé"). Bấm Gọi thì hỏi đường hồ sơ bé, đường ấy đã chặn bảo vệ — nên ai
+  // được thấy số thì thấy, bảo vệ nhận một câu nhờ văn phòng gọi.
+  ganNutGoi(root) {
+    for (const b of root.querySelectorAll('[data-goi-be]')) b.onclick = () => this.moGoi(b.dataset.goiBe);
+  },
+
+  async moGoi(studentId) {
+    let s;
+    try {
+      s = await API.get(`/api/students/${encodeURIComponent(studentId)}`);
+    } catch (_) {
+      UI.modal(`<div class="muted" style="line-height:1.7">
+        Tài khoản này không xem được số điện thoại của gia đình. Nhờ văn phòng cơ sở gọi xác nhận giúp nhé.
+      </div><button class="btn outline block mt-14" onclick="UI.closeModal()">Đóng</button>`, 'Gọi xác nhận');
+      return;
+    }
+    const dong = (nhan, so) => {
+      const sach = String(so || '').replace(/\s/g, '');
+      return `<div class="list-row">
+        <div class="row-main"><div class="row-sub">${UI.esc(nhan)}</div><div class="row-title">${UI.esc(so || '—')}</div></div>
+        ${sach ? `<a class="btn sm primary" href="tel:${UI.esc(sach)}">📞 Gọi</a>` : ''}
+      </div>`;
+    };
+    const ph = (s.parents || []).map(p => dong(`${p.title || ''} ${p.name || ''}`.trim(), p.phone));
+    const kc = (s.lienHeKhanCap || []).map(x => dong(`Khẩn cấp: ${x.hoTen}${x.quanHe ? ` (${x.quanHe})` : ''}`, x.dienThoai));
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6;margin-bottom:6px">${UI.esc(s.name)} · ${UI.esc(s.className || '')}</div>
+      ${ph.join('') + kc.join('') || '<div class="muted small">Hồ sơ chưa có số điện thoại nào — nhờ văn phòng bổ sung.</div>'}
+      <button class="btn outline block mt-14" onclick="UI.closeModal()">Đóng</button>`, 'Gọi xác nhận');
+  },
+
+  // =========================================================================
+  // GIÁO VIÊN & NHÂN VIÊN — CHẤM CÔNG BẰNG ẢNH (góp ý 06/10, mục 2 phần 2)
+  // =========================================================================
+  //
+  // Đứng ĐẦU danh sách nhóm, gập sẵn như mọi nhóm. Bấm một người → chụp ảnh:
+  // lần đầu là giờ vào, lần hai là giờ ra. Người chụp chỉ thấy tên và giờ —
+  // ảnh khuôn mặt người lớn chỉ Nhân sự / Ban giám hiệu mở được.
+  // Tài khoản không chấm công (máy chủ trả 403) thì khối này không vẽ gì.
+  async taiNhanVien() {
+    const o = document.getElementById('att-nv-o');
+    if (!o) return;
+    let d;
+    try { d = await API.get(`/api/attendance/nhan-vien?date=${encodeURIComponent(this.date)}`); } catch (_) { o.innerHTML = ''; return; }
+    const ds = d.danhSach || [];
+    if (!ds.length) { o.innerHTML = ''; return; }
+    const daVao = ds.filter(x => x.gioVao).length;
+    const moSan = this._nvMo ? ' open' : '';
+    o.innerHTML = `<details class="card" id="att-nv" style="padding:0"${moSan}>
+      <summary style="cursor:pointer;padding:12px 14px;font-weight:700;display:flex;gap:8px;align-items:center">
+        <span>👩‍🏫 Giáo viên &amp; nhân viên</span>
+        <span class="muted small" style="font-weight:500">${daVao}/${ds.length} đã chụp ảnh vào</span>
+      </summary>
+      <div style="padding:0 14px 8px">${ds.map(x => this.dongNhanVien(x, d.homNay)).join('')}</div>
+    </details>`;
+    const the = document.getElementById('att-nv');
+    the.ontoggle = () => { this._nvMo = the.open; };
+    for (const b of o.querySelectorAll('[data-chup-nv]')) b.onclick = () => this.chupNhanVien(b.dataset.chupNv);
+    for (const b of o.querySelectorAll('[data-go-nv]')) b.onclick = () => this.goNhanVien(b.dataset.goNv);
+  },
+
+  dongNhanVien(x, homNay) {
+    const gio = [x.gioVao ? `Vào ${x.gioVao}` : '', x.gioRa ? `Ra ${x.gioRa}` : ''].filter(Boolean).join(' · ');
+    const nut = !homNay ? ''
+      : (!x.gioVao
+        ? `<button class="btn sm primary" data-chup-nv="${UI.esc(x.userId)}">📸 Chụp ảnh vào</button>`
+        : (!x.gioRa
+          ? `<button class="btn sm success-soft" data-chup-nv="${UI.esc(x.userId)}">📸 Chụp ảnh ra</button>`
+          : '<span class="small" style="color:var(--success)">Đã đủ vào và ra</span>'))
+        + (x.gioVao ? ` <button class="btn sm outline" data-go-nv="${UI.esc(x.userId)}">Gỡ lần chụp cuối</button>` : '');
+    return `<div class="list-row" style="align-items:flex-start" id="att-nv-${UI.esc(x.userId)}">
+      <span ${homNay && !x.gioRa ? `data-chup-nv="${UI.esc(x.userId)}" style="cursor:pointer"` : ''}>${UI.avatar(x.avatar, 40)}</span>
+      <div class="row-main">
+        <div class="row-title">${UI.esc(`${x.title ? `${x.title} ` : ''}${x.hoTen}`)} <span class="muted small">· ${UI.esc(x.vai)}</span></div>
+        <div class="row-sub">${gio ? UI.esc(gio) : '<span class="muted">Chưa chụp ảnh vào</span>'}</div>
+        <div class="flex" style="flex-wrap:wrap;gap:6px;margin-top:6px">${nut}</div>
+      </div>
+    </div>`;
+  },
+
+  chupNhanVien(userId) {
+    const o = document.createElement('input');
+    o.type = 'file';
+    o.accept = 'image/*';
+    o.capture = 'environment';
+    o.onchange = async () => {
+      const f = o.files && o.files[0];
+      if (!f) return;
+      try {
+        const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
+        const kq = await API.post('/api/attendance/nhan-vien/anh', { userId, anh });
+        UI.toast(kq.phan === 'ra' ? `Đã ghi giờ ra ${kq.gioRa}` : `Đã ghi giờ vào ${kq.gioVao}`, 'success');
+        this._nvMo = true;
+        this.taiNhanVien();
+      } catch (e) { UI.toast(e.message || 'Chưa gửi được ảnh', 'error'); }
+    };
+    o.click();
+  },
+
+  async goNhanVien(userId) {
+    if (!confirm('Gỡ lần chụp gần nhất của người này hôm nay?')) return;
+    try {
+      await API.post('/api/attendance/nhan-vien/go', { userId });
+      UI.toast('Đã gỡ', 'success');
+      this._nvMo = true;
+      this.taiNhanVien();
+    } catch (e) { UI.toast(e.message || 'Chưa gỡ được', 'error'); }
   },
 
   // Sổ điểm danh của cả cơ sở, xếp theo nhóm — mỗi nhóm một khối gập được.
@@ -158,7 +277,11 @@ App.views.attendance = {
       if (!theoNhom.has(k)) theoNhom.set(k, { ten: r.student.className || 'Chưa xếp nhóm', ds: [] });
       theoNhom.get(k).ds.push(r);
     }
-    const moSan = theoNhom.size <= 3;
+    // GẬP SẴN (góp ý 06/10, mục 2): *"hiện hết tên học sinh thế kéo tìm rất là
+    // mệt. Đầu tiên sẽ hiện: Giáo viên, Lớp 1, Lớp 2… click vào sẽ hiện ra toàn
+    // bộ danh sách"*. Trước đây ba nhóm trở xuống thì mở sẵn hết. Chỉ còn mở
+    // sẵn khi phạm vi có đúng một nhóm — gập một nhóm duy nhất là bắt bấm thừa.
+    const moSan = theoNhom.size <= 1;
     return [...theoNhom.values()]
       .sort((a, b) => a.ten.localeCompare(b.ten, 'vi'))
       .map(n => {
@@ -289,6 +412,7 @@ App.views.attendance = {
               <div class="row-title">${UI.esc(x.hoTen)}</div>
               ${tenNhom(x.classId) ? `<div class="row-sub">${UI.esc(tenNhom(x.classId))}</div>` : ''}
             </div>
+            <button class="btn sm outline" data-goi-be="${UI.esc(x.studentId)}">📞 Gọi</button>
           </div>`).join('')}
         ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
           ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
@@ -612,6 +736,7 @@ App.views.attendance = {
         Hôm nào không chụp ảnh được (máy hỏng, mất mạng ở cổng) thì ghi tay một lượt:
       </div>
       <button class="btn outline block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt (không kèm ảnh)</button>`}`;
+    this.ganNutGoi(root);
   },
 
   // NGÀY KHÁC HÔM NAY THÌ CHỈ XEM LẠI (Đ127).
@@ -740,6 +865,7 @@ App.views.attendance = {
           <div class="list-row">
             ${UI.avatar(x.avatar, 34)}
             <div class="row-main"><div class="row-title">${UI.esc(x.hoTen)}</div></div>
+            <button class="btn sm outline" data-goi-be="${UI.esc(x.studentId)}">📞 Gọi</button>
           </div>`).join('')}
         ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
           ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
@@ -846,6 +972,36 @@ App.views.attendance = {
     } catch (e) { UI.toast(e.message || 'Chưa gỡ được', 'error'); }
   },
 
+  // BẤM VÀO ẢNH / TÊN LÀ CHỤP (góp ý 06/10, mục 2): *"khi điểm danh ai sẽ click
+  // vào sau đó sẽ chụp để checkin … chụp lần 2 sẽ tự động được ghi nhận là ra
+  // về"*. Chưa có mặt → ảnh tới lớp; đã có mặt mà chưa về → ảnh ra về (giờ là
+  // lúc chụp); đã về rồi → không làm gì, tránh một chạm nhầm đè giờ đã ghi.
+  // Nút "Ghi con đã về" (ghi giờ không ảnh) vẫn còn cho hôm máy ảnh hỏng.
+  chamNhanh(studentId) {
+    const dong = (this._roster || []).find(x => x.student.id === studentId);
+    const rec = dong && dong.record;
+    const coMat = !!rec && (rec.status === 'present' || rec.status === 'late');
+    if (!coMat) return this.chonAnh(studentId);
+    if (!rec.checkOut) return this.chupRaVe(studentId);
+    UI.toast('Bé đã được ghi ra về hôm nay', '');
+  },
+
+  chupRaVe(studentId) {
+    const o = document.createElement('input');
+    o.type = 'file';
+    o.accept = 'image/*';
+    o.capture = 'environment';
+    o.onchange = async () => {
+      const f = o.files && o.files[0];
+      if (!f) return;
+      try {
+        const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
+        await this.ghiRaVe(studentId, { gio: UI.gioVN(), anh });
+      } catch (e) { UI.toast(e.message || 'Chưa gửi được ảnh', 'error'); }
+    };
+    o.click();
+  },
+
   chonAnh(studentId) {
     const o = document.createElement('input');
     o.type = 'file';
@@ -905,10 +1061,10 @@ App.views.attendance = {
     const coAnh = !!(anhDenLop && anhDenLop.file);
     return `
       <div class="list-row" id="att-dong-${UI.esc(s.id)}" style="align-items:flex-start">
-        ${coAnh
+        <span style="cursor:pointer;flex:none" title="Bấm để chụp ảnh" onclick="App.views.attendance.chamNhanh('${UI.esc(s.id)}')">${coAnh
           ? `<img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
                style="width:54px;height:54px;flex:none;border-radius:12px;object-fit:cover">`
-          : UI.avatar(s.avatar, 42)}
+          : UI.avatar(s.avatar, 42)}</span>
         <div class="row-main">
           <div class="row-title">${UI.esc(s.name)}</div>
           <div class="row-sub">${UI.esc(s.code)}${times ? ` · ${UI.esc(times)}` : ''}${record && record.note ? ` · ${UI.esc(record.note)}` : ''}</div>
@@ -936,7 +1092,10 @@ App.views.attendance = {
                  </button>`}
             ${coMat ? (record && record.checkOut
               ? `<button class="btn sm outline" onclick="App.views.attendance.goRaVe('${UI.esc(s.id)}')">Gỡ giờ ra</button>`
-              : `<button class="btn sm success-soft" onclick="App.views.attendance.moRaVe('${UI.esc(s.id)}')">
+              : `<button class="btn sm primary" onclick="App.views.attendance.chupRaVe('${UI.esc(s.id)}')">
+                   📸 Chụp ảnh ra về
+                 </button>
+                 <button class="btn sm success-soft" onclick="App.views.attendance.moRaVe('${UI.esc(s.id)}')">
                    🌇 Ghi con đã về
                  </button>`) : ''}
             <button class="btn sm outline" onclick="App.views.attendance.suaDiemDanh('${UI.esc(s.id)}')">Sửa</button>

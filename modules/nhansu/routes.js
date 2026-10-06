@@ -20,6 +20,7 @@
 const ngay = require('../../lib/ngay');
 const csv = require('../../lib/csv');
 const { requireRole } = require('../../lib/auth');
+const uploads = require('../../lib/uploads');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -365,5 +366,46 @@ module.exports = (app, { db }) => {
   app.get('/api/nhansu/o-nhay-cam', requireRole('teacher', 'admin'), (req, res) => {
     if (chiNhanSu(req, res)) return;
     res.json({ o: O_NHAY_CAM });
+  });
+
+  // ẢNH CHẤM CÔNG Ở CỔNG (góp ý 06/10, mục 2) — ảnh khuôn mặt người lớn.
+  //
+  // Ảnh do cổng chụp (`/api/attendance/nhan-vien/anh`, bảng lõi
+  // `staff_checkin`), nhưng XEM thì ở đây, theo đúng luật hồ sơ nhân sự của
+  // Đ152: Nhân sự và Ban giám hiệu (qua `chiNhanSu`); quản trị gắn MỘT cơ sở
+  // thì chỉ ảnh của cơ sở mình. Mỗi người xem ảnh của CHÍNH MÌNH qua đường
+  // `/toi` riêng. Bảo vệ và văn phòng cơ sở — người bấm chụp — KHÔNG mở lại
+  // được. Không ai nhận tấm ảnh thì 404 trước khi hỏi quyền, để không dò được.
+  function dongAnhCong(file) {
+    if (!file) return null;
+    return db.first('staff_checkin',
+      'SELECT userId, campusId FROM staff_checkin WHERE anhVao = ? OR anhRa = ?', [file, file]);
+  }
+  function guiAnh(res, file) {
+    const duong = uploads.pathOf(file);
+    if (!duong || !uploads.exists(file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    res.setHeader('Content-Type', uploads.mimeOf(file));
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    return res.sendFile(duong);
+  }
+
+  app.get('/api/nhansu/anh-cham-cong/:file', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiNhanSu(req, res)) return;
+    const file = String(req.params.file || '');
+    const r = dongAnhCong(file);
+    if (!r) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    const khoa = db.phamViCoSo(req.user);
+    if (khoa && khoa !== r.campusId) {
+      return res.status(403).json({ error: 'Ảnh chấm công của cơ sở khác' });
+    }
+    return guiAnh(res, file);
+  });
+
+  app.get('/api/nhansu/anh-cham-cong/:file/toi', requireRole('teacher', 'admin'), (req, res) => {
+    const file = String(req.params.file || '');
+    const r = dongAnhCong(file);
+    if (!r) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    if (r.userId !== req.user.id) return res.status(403).json({ error: 'Đây không phải ảnh chấm công của mình' });
+    return guiAnh(res, file);
   });
 };

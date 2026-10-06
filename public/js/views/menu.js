@@ -68,6 +68,7 @@ App.views.menu = {
       ${this.segNgay()}
       <div id="menu-coso"></div>
       <div id="menu-tep"></div>
+      ${qt ? '<div id="menu-excel"></div>' : ''}
       ${qt ? `<button class="btn primary block mb-8" id="btn-soan-tuan">${UI.icon('edit', 18)} Soạn cả tuần một lượt</button>` : ''}
       <div id="menu-nhac"></div>
       <div id="menu-days"></div>`;
@@ -148,6 +149,7 @@ App.views.menu = {
       this._cacCoSo = data.cacCoSo || [];
       this.veCoSo();
       this.veTep(data.tep || [], data.from, !!data.taiTepDuoc);
+      if (this.laQuanTri()) this.veExcel(data.from);
       this.veNhac(menus, data.from);
 
       const coSan = new Map(menus.map(m => [m.date, m]));
@@ -216,6 +218,97 @@ App.views.menu = {
   // khác cho tới khi soạn xong là biến một nếp tốt thành một cái cửa khoá, và
   // thứ Sáu là hôm bận nhất của văn phòng. Nhắc thì người ta làm; chặn thì
   // người ta tìm đường vòng.
+  // ---- Thực đơn bằng tệp Excel mẫu (góp ý 06/10, mục 3) ----
+  //
+  // Trường: *"hãy tạo 1 form mẫu bằng Excel theo đúng cấu trúc bạn cần, sau
+  // đó mình sẽ up lên và bạn sẽ tự điền vào từng ngày"*. Tải mẫu của MỘT
+  // tháng (ngày học điền sẵn, món đã có điền sẵn) → điền → nạp lên → xem trước
+  // từng ngày → Lưu. Ngày để trống trong tệp không bị đụng tới.
+  // Ô "Dán bảng" của Đ132 vẫn còn trong màn soạn cả tuần — bỏ một đường đang
+  // chạy là việc của nhà trường quyết, không phải của đợt này.
+  veExcel(tuNgay) {
+    const o = document.getElementById('menu-excel');
+    if (!o) return;
+    const goc = UI.parseDate(tuNgay || UI.todayStr());
+    const thang = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const nay = thang(goc);
+    const sau = thang(new Date(goc.getFullYear(), goc.getMonth() + 1, 1));
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">📊 Thực đơn bằng tệp Excel</div>
+        <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+          Tải tệp mẫu của một tháng về, điền món vào từng ngày (ô nhiều món thì xuống dòng bằng
+          Alt + Enter), rồi nạp lên — app tự điền vào từng ngày. Ngày để trống trong tệp thì giữ nguyên.
+        </div>
+        <div class="grid-2">
+          <select id="mn-xl-thang" aria-label="Tháng của tệp mẫu">
+            <option value="${UI.esc(nay)}">Tháng ${UI.esc(nay.slice(5))}/${UI.esc(nay.slice(0, 4))}</option>
+            <option value="${UI.esc(sau)}">Tháng ${UI.esc(sau.slice(5))}/${UI.esc(sau.slice(0, 4))}</option>
+          </select>
+          <a class="btn outline" id="mn-xl-tai" href="#">📥 Tải tệp mẫu</a>
+        </div>
+        <button class="btn primary block mt-8" id="mn-xl-nap">📤 Nạp tệp Excel đã điền</button>
+        <input type="file" id="mn-xl-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+      </div>`;
+    const lienKet = () => `/api/menu/mau-excel?thang=${encodeURIComponent(document.getElementById('mn-xl-thang').value)}`
+      + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : '');
+    const tai = document.getElementById('mn-xl-tai');
+    tai.href = lienKet();
+    document.getElementById('mn-xl-thang').onchange = () => { tai.href = lienKet(); };
+    const oFile = document.getElementById('mn-xl-file');
+    document.getElementById('mn-xl-nap').onclick = () => oFile.click();
+    oFile.onchange = () => this.napExcel(oFile);
+  },
+
+  async napExcel(oFile) {
+    const f = oFile.files && oFile.files[0];
+    oFile.value = '';
+    if (!f) return;
+    if (!/\.xlsx$/i.test(f.name)) return UI.toast('Cần tệp Excel dạng .xlsx — tải tệp mẫu của app về rồi điền vào đó nhé', 'error');
+    if (f.size > 3 * 1024 * 1024) return UI.toast('Tệp quá lớn — tệp thực đơn một tháng chỉ vài chục KB', 'error');
+    let tep;
+    try {
+      tep = await new Promise((ok, that) => {
+        const r = new FileReader();
+        r.onload = () => ok(r.result); r.onerror = () => that(new Error('Không đọc được tệp'));
+        r.readAsDataURL(f);
+      });
+    } catch (err) { return UI.toast(err.message, 'error'); }
+    const than = { tep, campusId: this._coSo || '' };
+    let xem;
+    try { xem = await API.post('/api/menu/nap-excel', than); } catch (err) { return UI.toast(err.message, 'error'); }
+    const ds = xem.ngay || [];
+    const soGhiDe = ds.filter(n => n.daCo).length;
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+        Tệp <b>${UI.esc(f.name)}</b> có <b>${ds.length}</b> ngày có món${soGhiDe ? ` — trong đó <b>${soGhiDe}</b> ngày đang có
+        thực đơn sẽ được THAY bằng món trong tệp` : ''}. Xem lại rồi bấm Lưu.
+      </div>
+      ${(xem.canhBao || []).length ? `<div class="card" style="background:#fff8e1;margin-bottom:10px">
+        ${(xem.canhBao || []).map(c => `<div class="small" style="line-height:1.6">• ${UI.esc(c)}</div>`).join('')}</div>` : ''}
+      <div id="mn-xl-xem" style="max-height:50vh;overflow:auto">
+        ${ds.map(n => `
+          <div class="list-row" style="align-items:flex-start">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(n.thu)} ${UI.esc(n.date.slice(8, 10))}/${UI.esc(n.date.slice(5, 7))}${n.daCo ? ' · <span class="muted small">thay bản đang có</span>' : ''}</div>
+              ${n.bua.map(b => `<div class="row-sub"><b>${UI.esc(b.label)}:</b> ${UI.esc(b.items.join(', '))}</div>`).join('')}
+            </div>
+          </div>`).join('') || '<div class="muted small">Không có ngày nào có món trong tệp.</div>'}
+      </div>
+      ${ds.length ? `<button class="btn primary block mt-14" id="mn-xl-luu">${UI.icon('check', 18)} Lưu ${ds.length} ngày vào thực đơn</button>` : ''}
+    `, 'Xem trước thực đơn từ tệp Excel');
+    const luu = document.getElementById('mn-xl-luu');
+    if (luu) luu.onclick = async () => {
+      luu.disabled = true;
+      try {
+        const r = await API.post('/api/menu/nap-excel', { ...than, luu: true });
+        UI.closeModal();
+        UI.toast(`Đã lưu thực đơn ${r.daLuu} ngày`, 'success');
+        this.load();
+      } catch (err) { luu.disabled = false; UI.toast(err.message, 'error'); }
+    };
+  },
+
   // ---- Tệp thực đơn cả tuần (Đ160 — TD-04) ----
   //
   // Nhà trường xin "tải tệp lên" cho cả tuần. Đây là BẢN ĐÍNH KÈM, không thay
@@ -254,7 +347,7 @@ App.views.menu = {
           </div>`}
         ${taiDuoc ? `<div class="muted small mt-8" style="line-height:1.7">
           Tệp treo lên là để gia đình <b>mở ra xem</b>. Bảng thực đơn từng ngày ở dưới vẫn
-          phải gõ (hoặc dán từ Excel) — app chỉ đọc được chữ trong bảng ấy, và đó là thứ
+          phải gõ (hoặc nạp tệp Excel mẫu ở trên) — app chỉ đọc được chữ trong bảng ấy, và đó là thứ
           màn hình của gia đình, Nhật ký ngày và bảng đối chiếu Tiền ăn đang dùng.
         </div>
         <input type="file" id="mn-tep-file" accept="image/*,application/pdf,.pdf,.docx" style="display:none">` : ''}

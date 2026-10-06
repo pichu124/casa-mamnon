@@ -2047,12 +2047,18 @@ Vẫn nhận bé này?`)) {
       'survey-create': 'Tạo khảo sát',
       'menu-update': 'Sửa thực đơn',
       'menu-update-tuan': 'Sửa thực đơn cả tuần',
+      'menu-mau-excel': 'Tải tệp Excel mẫu thực đơn',
+      'cong-anh-vao': 'Chụp ảnh chấm công — giờ vào',
+      'cong-anh-ra': 'Chụp ảnh chấm công — giờ ra',
+      'cong-anh-go': 'Gỡ lần chụp chấm công',
+      'menu-nap-excel': 'Nạp thực đơn từ tệp Excel',
       'menu-copy-week': 'Chép thực đơn tuần trước',
       'menu-tep-them': 'Thêm tệp thực đơn',
       'menu-tep-xoa': 'Xoá tệp thực đơn',
       'timetable-update': 'Sửa lịch sinh hoạt',
       'timetable-chep': 'Chép lịch sinh hoạt',
       'plan-update': 'Sửa kế hoạch giáo dục',
+      'plan-tuan-luu': 'Soạn kế hoạch giáo dục tuần (cả trường)',
 
       // Ảnh và album
       'album-delete': 'Xoá album',

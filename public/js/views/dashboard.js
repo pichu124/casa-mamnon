@@ -266,7 +266,7 @@ App.views.dashboard = {
     else if (b.thuoc === 'dang') dau.push('<span title="Đang có thuốc gia đình gửi">💊</span>');
     if (b.donCho) dau.push('<span title="Có đơn xin nghỉ chờ duyệt">✉️</span>');
     if (b.nhatKy) dau.push('<span title="Đã ghi nhật ký hôm nay">📝</span>');
-    if (b.daTra) dau.push('<span title="Đã được đón về">🏠</span>');
+    if (b.daTra || b.gioRa) dau.push('<span title="Đã được đón về">🏠</span>');
     return dau.join('');
   },
 
@@ -304,6 +304,9 @@ App.views.dashboard = {
       if (dem.nghiPhep) muc.push(p('Nghỉ có phép', dem.nghiPhep, UI.ATT_STATUS.absent_excused.color));
       if (dem.nghiKhongPhep) muc.push(p('Nghỉ không phép', dem.nghiKhongPhep, UI.ATT_STATUS.absent_unexcused.color));
       muc.push(p('Chưa điểm danh', dem.chuaDiemDanh, 'var(--line-strong)'));
+      // Ra về ghi ở màn Điểm danh từ Đ210 — đếm ở đây để số "đã về" không mất
+      // khi phân hệ Đón trả bé tắt (góp ý 06/10).
+      if (dem.daVe) muc.push(p('Đã về', dem.daVe));
     }
     if (dem.nhatKyDaGhi !== null && dem.nhatKyDaGhi !== undefined) muc.push(p('Đã ghi nhật ký', dem.nhatKyDaGhi));
     if (dem.daTra !== null && dem.daTra !== undefined && dem.daTra) muc.push(p('Đã đón về', dem.daTra));
@@ -351,12 +354,14 @@ App.views.dashboard = {
   },
 
   // Bấm một bé: cô thấy hồ sơ trong hộp thoại (màn Hồ sơ của cô là danh sách
-  // nhóm); văn phòng thì tới thẳng màn Hồ sơ của bé với ô chọn theo cấp.
+  // nhóm); văn phòng thì tới thẳng hồ sơ của ĐÚNG bé ấy — `#/student/<mã>`.
+  // Từ góp ý 06/10 (mục 1), `#/student` trống là màn TÌM BÉ, nên phải mang mã
+  // theo; bỏ mã là văn phòng bấm một bé mà rơi về ô tìm.
   moBe(id) {
     const u = App.state.user || {};
     if (u.role === 'admin' && App.moduleEnabled('student')) {
       App.state.currentStudentId = id;
-      location.hash = '#/student';
+      location.hash = `#/student/${id}`;
       return;
     }
     if (App.views.student && typeof App.views.student.showDetail === 'function') {
@@ -479,7 +484,7 @@ App.views.dashboard = {
     else if (b.thuoc === 'dang') them.push('đang có thuốc gia đình gửi');
     if (b.donCho) them.push('đơn xin nghỉ chờ duyệt');
     if (b.nhatKy === true) them.push('đã ghi nhật ký');
-    if (b.daTra) them.push('đã đón về');
+    if (b.daTra || b.gioRa) them.push(b.gioRa ? `đã về ${b.gioRa}` : 'đã đón về');
     return `
       <div class="list-row clickable" onclick="App.views.dashboard.moBe('${UI.maAnToan(b.id)}')">
         ${UI.avatar(b.avatar, 36)}

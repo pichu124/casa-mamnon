@@ -138,6 +138,9 @@ function tinhHomNay(ids, today) {
       `SELECT studentId FROM dontra_ghi WHERE ngay = ? AND studentId IN (${marks})`, [today, ...ids])
     : (modules.dangBat('dontra') ? [] : null);
   return {
+    // Điểm danh có đang bật không — để vế "đã về" (giờ ra về của sổ lõi) là
+    // null khi điểm danh tắt, đúng luật null ≠ 0 của Đ112.
+    coDiemDanh: modules.dangBat('diemdanh'),
     diemDanh, nghiPhep, donCho, thuoc,
     nhatKy: nk ? new Set(nk.map(r => r.studentId)) : null,
     daTra: tra ? new Set(tra.map(r => r.studentId)) : null,
@@ -150,6 +153,10 @@ function demNhom(ids, hn) {
   const dem = {
     soBe: ids.length, coMat: 0, denMuon: 0, nghiPhep: 0, nghiKhongPhep: 0, chuaDiemDanh: 0,
     nhatKyDaGhi: hn.nhatKy ? 0 : null, daTra: hn.daTra ? 0 : null,
+    // ĐÃ VỀ theo giờ ra về của sổ điểm danh lõi (Đ227). Từ Đ210 ra về ghi ở
+    // màn Điểm danh; góp ý 06/10 bỏ phân hệ Đón trả bé (tắt sẵn) — vế `daTra`
+    // của phân hệ ấy giữ nguyên nghĩa cũ, vế này là của lõi.
+    daVe: hn.coDiemDanh ? 0 : null,
     donCho: 0, thuocCho: 0, thuocDang: 0,
   };
   for (const id of ids) {
@@ -161,6 +168,7 @@ function demNhom(ids, hn) {
     else if (d.status === 'absent_unexcused') dem.nghiKhongPhep++;
     if (hn.nhatKy && hn.nhatKy.has(id)) dem.nhatKyDaGhi++;
     if (hn.daTra && hn.daTra.has(id)) dem.daTra++;
+    if (hn.coDiemDanh && d && d.checkOut) dem.daVe++;
     if (hn.donCho.has(id)) dem.donCho++;
     const t = hn.thuoc.get(id);
     if (t === 'cho') dem.thuocCho++;
@@ -171,7 +179,7 @@ function demNhom(ids, hn) {
 
 function gopDem(ds) {
   const KHOA = ['soBe', 'coMat', 'denMuon', 'nghiPhep', 'nghiKhongPhep', 'chuaDiemDanh',
-    'nhatKyDaGhi', 'daTra', 'donCho', 'thuocCho', 'thuocDang'];
+    'nhatKyDaGhi', 'daTra', 'daVe', 'donCho', 'thuocCho', 'thuocDang'];
   const ra = {};
   for (const k of KHOA) {
     const co = ds.filter(d => d[k] !== null && d[k] !== undefined);
@@ -234,6 +242,7 @@ module.exports = (app) => {
           id: b.id, name: b.name, code: b.code || '', avatar: b.avatar, dob: b.dob,
           diemDanh: d ? d.status : null,
           gioVao: d && d.checkIn ? d.checkIn : '',
+          gioRa: d && d.checkOut ? d.checkOut : '',
           nghiCoPhep: hn.nghiPhep.has(b.id),
           donCho: hn.donCho.has(b.id),
           thuoc: hn.thuoc.get(b.id) || null,

@@ -38,9 +38,137 @@ App.views.student = {
     return du ? `${nam} tuổi ${du} tháng` : `${nam} tuổi`;
   },
 
-  async render(root) {
-    if (App.state.user.role === 'teacher') return this.renderRoster(root);
+  // VĂN PHÒNG: TÌM BÉ TRƯỚC, XEM HỒ SƠ SAU (góp ý của trường 06/10, mục 1).
+  //
+  // *"Nếu để giao diện này khi đông học sinh sẽ phải kéo mỏi cả tay để tìm học
+  // sinh đó"*. Bản trước mở thẳng hồ sơ bé đầu danh sách, kèm MỘT ô chọn chứa
+  // mọi bé trong phạm vi — 300 bé ba cơ sở là một ô chọn dài 300 dòng. Nay
+  // `#/student` là màn TÌM: ô gõ nhanh (tên hoặc mã) ở trên, cây Cơ sở → Nhóm →
+  // Bé gập sẵn ở dưới; bấm một bé thì sang `#/student/<mã>` là hồ sơ của bé ấy.
+  //
+  // Cây dựng từ `App.state.students` — danh sách máy chủ ĐÃ CẮT theo phạm vi
+  // của người đăng nhập (`studentsOf`) — chứ không từ `App.state.classes` (cả
+  // trường): văn phòng một cơ sở không thấy tên nhóm của cơ sở khác.
+  //
+  // Đ167 từng chọn "không dựng cây thứ hai" ở trang chủ. Lần này trường đòi
+  // đúng chỗ này; cây ở đây và thẻ cơ sở ở trang chủ cùng đọc một nguồn
+  // (`App.state.students`) nên không có hai bản số liệu trôi khỏi nhau.
+  async render(root, params) {
+    const u = App.state.user;
+    if (u.role === 'teacher') return this.renderRoster(root);
+    if (u.role === 'admin') {
+      const id = params && params[0];
+      if (id && (App.state.students || []).some(x => x.id === id)) {
+        App.state.currentStudentId = id;
+        return this.renderProfile(root);
+      }
+      return this.renderTimBe(root);
+    }
     return this.renderProfile(root);
+  },
+
+  // Bỏ dấu để gõ "bao an" vẫn ra "Bảo An".
+  boDau(x) {
+    return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+  },
+
+  // Một dòng bé trong danh sách tìm / cây. Bấm là sang hồ sơ.
+  dongBe(s, kemNhom) {
+    return `
+      <div class="list-row clickable" data-mo-be="${UI.esc(s.id)}">
+        ${UI.avatar(s.avatar, 36)}
+        <div class="row-main">
+          <div class="row-title">${UI.esc(s.name)}</div>
+          <div class="row-sub">${UI.esc([s.code, kemNhom ? (s.className || '') : ''].filter(Boolean).join(' · '))}</div>
+        </div>
+        <span class="muted">${UI.icon('chevron', 16)}</span>
+      </div>`;
+  },
+
+  // Cây Cơ sở → Nhóm → Bé, gập sẵn hết. Trường một cơ sở thì bỏ tầng cơ sở.
+  cayCoSo(students) {
+    const tenCoSo = new Map((((App.state.school || {}).coSo) || []).map(c => [c.id, c.name]));
+    const nhomTheoMa = new Map((App.state.classes || []).map(c => [c.id, c]));
+    const theoNhom = new Map();
+    for (const s of students) {
+      const k = s.classId || '';
+      if (!theoNhom.has(k)) theoNhom.set(k, []);
+      theoNhom.get(k).push(s);
+    }
+    const tenNhom = (k) => k ? ((nhomTheoMa.get(k) || {}).name || (theoNhom.get(k)[0] || {}).className || k) : 'Chưa xếp nhóm';
+    const coSoCua = (k) => ((nhomTheoMa.get(k) || {}).campusId) || '';
+    const theoCoSo = new Map();
+    for (const k of theoNhom.keys()) {
+      const cs = coSoCua(k);
+      if (!theoCoSo.has(cs)) theoCoSo.set(cs, []);
+      theoCoSo.get(cs).push(k);
+    }
+    const veNhom = (k) => {
+      const ds = theoNhom.get(k).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
+      return `
+        <details class="hs-nhom" data-nhom="${UI.esc(k)}" style="margin:6px 0 6px 4px">
+          <summary style="cursor:pointer;padding:8px 4px;font-weight:600">🏠 ${UI.esc(tenNhom(k))}
+            <span class="muted small" style="font-weight:400">(${ds.length} bé)</span></summary>
+          ${ds.map(s => this.dongBe(s, false)).join('')}
+        </details>`;
+    };
+    const sapNhom = (ks) => ks.slice().sort((a, b) => tenNhom(a).localeCompare(tenNhom(b), 'vi'));
+    const nhieuCoSo = theoCoSo.size > 1 || (theoCoSo.size === 1 && tenCoSo.size > 1);
+    if (!nhieuCoSo) return sapNhom([...theoNhom.keys()]).map(veNhom).join('');
+    const tenCs = (cs) => cs ? (tenCoSo.get(cs) || cs) : 'Chưa gắn cơ sở';
+    return [...theoCoSo.keys()].sort((a, b) => tenCs(a).localeCompare(tenCs(b), 'vi')).map(cs => {
+      const ks = theoCoSo.get(cs);
+      const soBe = ks.reduce((n, k) => n + theoNhom.get(k).length, 0);
+      return `
+        <details class="hs-coso" data-coso="${UI.esc(cs)}" style="margin-bottom:6px">
+          <summary style="cursor:pointer;padding:10px 4px;font-weight:700">🏫 ${UI.esc(tenCs(cs))}
+            <span class="muted small" style="font-weight:400">(${ks.length} nhóm · ${soBe} bé)</span></summary>
+          ${sapNhom(ks).map(veNhom).join('')}
+        </details>`;
+    }).join('');
+  },
+
+  renderTimBe(root) {
+    const students = App.state.students || [];
+    if (!students.length) {
+      root.innerHTML = UI.pageHeader('Hồ sơ của bé') + UI.emptyState('🎒', 'Phạm vi của tài khoản này chưa có bé nào.');
+      return;
+    }
+    root.innerHTML = `
+      ${UI.pageHeader('Hồ sơ của bé')}
+      <div class="card">
+        <div class="card-title">🔍 Tìm nhanh</div>
+        <input id="hs-tim" type="search" autocomplete="off" enterkeyhint="search"
+          placeholder="Gõ tên hoặc mã của bé…" aria-label="Tìm bé theo tên hoặc mã">
+        <div id="hs-ket-qua" class="mt-8"></div>
+      </div>
+      <div class="card" id="hs-cay">
+        <div class="card-title">${UI.icon('student', 18)} Chọn theo cơ sở và nhóm lớp</div>
+        ${this.cayCoSo(students)}
+      </div>
+      <div class="muted small center mb-8">Bấm vào tên bé để xem hồ sơ chi tiết.</div>`;
+    const o = document.getElementById('hs-tim');
+    const kq = document.getElementById('hs-ket-qua');
+    const TOI_DA = 20;
+    const loc = () => {
+      const q = this.boDau(o.value);
+      if (!q) { kq.innerHTML = ''; return; }
+      const trung = students.filter(s => this.boDau(s.name).includes(q) || this.boDau(s.code).includes(q));
+      kq.innerHTML = trung.length
+        ? trung.slice(0, TOI_DA).map(s => this.dongBe(s, true)).join('')
+          + (trung.length > TOI_DA ? `<div class="muted small mt-8">Còn ${trung.length - TOI_DA} bé nữa — gõ thêm chữ để thu hẹp.</div>` : '')
+        : '<div class="muted small">Không thấy bé nào khớp. Thử gõ ít chữ hơn, hoặc tìm trong cây bên dưới.</div>';
+    };
+    o.oninput = loc;
+    // Gắn vào hai thẻ của màn này, không gắn vào #view: #view sống qua mọi lần
+    // vẽ lại, gắn vào đó là mỗi lần mở màn thêm một bộ nghe nữa.
+    const mo = (e) => {
+      const dong = e.target.closest('[data-mo-be]');
+      if (dong) location.hash = `#/student/${dong.dataset.moBe}`;
+    };
+    kq.onclick = mo;
+    document.getElementById('hs-cay').onclick = mo;
   },
 
   // ---- Phụ huynh: hồ sơ con ----
@@ -58,7 +186,9 @@ App.views.student = {
     const lichSu = await this.lichSuNhom(current.id);
     root.innerHTML = `
       ${UI.pageHeader('Hồ sơ của bé')}
-      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
+      ${App.state.user.role === 'admin'
+        ? `<button class="btn outline block mb-8" id="hs-tim-khac" onclick="location.hash='#/student'">🔍 Tìm bé khác</button>`
+        : UI.studentBar()}
       <div class="card center" style="padding-top:24px">
         ${UI.avatar(s.avatar, 84)}
         <h2 style="margin-top:10px">${UI.esc(s.name)}</h2>
@@ -97,6 +227,8 @@ App.views.student = {
               <div class="row-sub">${UI.esc(p.phone)} · ${UI.esc(p.email)}</div>
               ${p.soCccd ? `<div class="row-sub">CCCD: ${UI.esc(p.soCccd)}</div>` : ''}
             </div>
+            ${App.state.user.role === 'admin' && String(p.phone || '').replace(/\s/g, '')
+              ? `<a class="btn sm outline" href="tel:${UI.esc(String(p.phone).replace(/\s/g, ''))}">Gọi</a>` : ''}
           </div>`).join('')}
         <div class="muted small mt-8">Số CCCD chỉ hiện cho chính người đó và cho văn phòng.
         Nhà trường giữ số này để đối chiếu khi giao bé cho người tới đón.</div>
@@ -299,16 +431,45 @@ App.views.student = {
       </div>
       ${this.theSinhNhatThang(students)}
       <div class="card">
-        ${students.map(s => `
-          <div class="list-row clickable" onclick="App.views.student.showDetail('${UI.esc(s.id)}')">
+        <input id="hs-tim-co" type="search" autocomplete="off" enterkeyhint="search"
+          placeholder="🔍 Gõ tên hoặc mã của bé…" aria-label="Tìm bé theo tên hoặc mã">
+      </div>
+      ${this.dsTheoNhom(students)}`;
+    // Cùng ô tìm như màn của văn phòng (góp ý 06/10, mục 1) — lọc NGAY trên
+    // danh sách đang có, không hỏi lại máy chủ.
+    const o = document.getElementById('hs-tim-co');
+    o.oninput = () => {
+      const q = this.boDau(o.value);
+      for (const dong of root.querySelectorAll('[data-dong-be]')) {
+        const be = students.find(x => x.id === dong.dataset.dongBe) || {};
+        dong.style.display = !q || this.boDau(be.name).includes(q) || this.boDau(be.code).includes(q) ? '' : 'none';
+      }
+    };
+  },
+
+  // Danh sách bé của cô. Cô dạy từ hai nhóm trở lên thì mỗi nhóm một thẻ có
+  // tên nhóm — trước đây là một danh sách phẳng trộn bé của mọi nhóm.
+  dsTheoNhom(students) {
+    const dong = (s) => `
+          <div class="list-row clickable" data-dong-be="${UI.esc(s.id)}" onclick="App.views.student.showDetail('${UI.esc(s.id)}')">
             ${UI.avatar(s.avatar, 44)}
             <div class="row-main">
               <div class="row-title">${UI.esc(s.name)}</div>
               <div class="row-sub">${UI.esc(s.code)} · ${UI.fmtDate(s.dob, { weekday: false })}</div>
             </div>
             <span class="muted">${UI.icon('chevron', 18)}</span>
-          </div>`).join('')}
-      </div>`;
+          </div>`;
+    const nhom = App.state.user.nhomCuaCo || [];
+    if (nhom.length < 2) return `<div class="card">${students.map(dong).join('')}</div>`;
+    return nhom.map(n => {
+      const ds = students.filter(s => s.classId === n.id);
+      if (!ds.length) return '';
+      return `<div class="card"><div class="card-title">🏠 ${UI.esc(n.name)}
+        <span class="muted small" style="font-weight:400">(${ds.length} bé)</span></div>${ds.map(dong).join('')}</div>`;
+    }).join('') + (() => {
+      const ngoai = students.filter(s => !nhom.some(n => n.id === s.classId));
+      return ngoai.length ? `<div class="card">${ngoai.map(dong).join('')}</div>` : '';
+    })();
   },
 
   // Dòng số điện thoại có nút Gọi (Đ139): "đủ số điện thoại của bố, mẹ và

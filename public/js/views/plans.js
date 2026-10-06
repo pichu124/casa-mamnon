@@ -167,7 +167,7 @@ App.views.plans = {
     return `
       <div class="card">
         <div style="font-size:1.18rem;font-weight:800">Tháng ${p.month} – ${UI.esc(p.theme)}</div>
-        <div class="muted small mt-8">Cô phụ trách: ${UI.esc(p.teacherNames || p.teacherName)}${p.className ? ` · ${UI.esc(p.className)}` : ''}</div>
+        ${p.className ? `<div class="muted small mt-8">${UI.esc(p.className)}</div>` : ''}
       </div>
 
       <div class="card">
@@ -193,6 +193,121 @@ App.views.plans = {
         <div class="card" style="background:#fff8e1;border-radius:12px">
           💌 <b>Nhắn gửi phụ huynh:</b> ${UI.esc(p.note)}
         </div>` : ''}`;
+  },
+
+  // =========================================================================
+  // KẾ HOẠCH GIÁO DỤC CHUNG CẢ TRƯỜNG, THEO TUẦN (góp ý 06/10, mục 4)
+  // =========================================================================
+  //
+  // Màn Lịch sinh hoạt → phần Kế hoạch giáo dục vẽ khối này (thay cho bản kế
+  // hoạch tháng theo nhóm). Trường: *"đây sẽ là kế hoạch chung của toàn trường
+  // nên sẽ bỏ nhóm lớp đi"* — nên KHÔNG có ô chọn nhóm, không có dòng "Cô phụ
+  // trách"; và *"mục này mình sẽ để là soạn kế hoạch tuần"*: một tiêu đề tuần
+  // ("Tuần 1 tháng 9: Trường của bé") rồi "Nội dung học của tuần".
+  //
+  // Kế hoạch tháng theo nhóm đã soạn KHÔNG mất: vẫn mở ở #/plans, và cô/văn
+  // phòng có một dòng chỉ đường ở cuối khối.
+  _tuan: null,
+
+  // "Tuần 1 tháng 10" của một thứ Hai: tuần thứ mấy tính theo ngày của thứ Hai.
+  nhanTuan(thuHai) {
+    const [y, m, d] = String(thuHai).split('-').map(Number);
+    return `Tuần ${Math.ceil(d / 7)} tháng ${m}`;
+  },
+  khoangNgay(thuHai) {
+    const t = Date.parse(`${thuHai}T00:00:00Z`);
+    const f = (ms) => { const x = new Date(ms); return `${String(x.getUTCDate()).padStart(2, '0')}/${String(x.getUTCMonth() + 1).padStart(2, '0')}`; };
+    return `${f(t)} – ${f(t + 4 * 86400000)}/${new Date(t + 4 * 86400000).getUTCFullYear()}`;
+  },
+  // Mỗi dòng "Lĩnh vực: nội dung" thành một gạch đầu dòng, phần trước dấu hai
+  // chấm in đậm — đúng hình mẫu trường gửi.
+  dongNoiDung(dong) {
+    const i = dong.indexOf(':');
+    if (i > 0 && i <= 40) {
+      return `<li style="margin:6px 0;line-height:1.55"><b>${UI.esc(dong.slice(0, i))}:</b>${UI.esc(dong.slice(i + 1))}</li>`;
+    }
+    return `<li style="margin:6px 0;line-height:1.55">${UI.esc(dong)}</li>`;
+  },
+
+  async renderTuan(o) {
+    const q = this._tuan ? `?tuan=${encodeURIComponent(this._tuan)}` : '';
+    const d = await API.get(`/api/plans/tuan${q}`);
+    this._tuan = d.tuan;
+    this._duLieuTuan = d;
+    const k = d.keHoach;
+    const dong = k ? String(k.noiDung || '').split('\n').filter(Boolean) : [];
+    const u = App.state.user || {};
+    o.innerHTML = `
+      <div class="card" id="kht-the">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+          <button class="btn outline sm" id="kht-truoc" ${d.tuanTruocCo ? '' : 'disabled'} aria-label="Tuần trước có kế hoạch">‹</button>
+          <div class="center small" style="flex:1">
+            <b>${UI.esc(this.nhanTuan(d.tuan))}</b>${d.tuan === d.tuanNay ? ' · tuần này' : ''}
+            <div class="muted">${UI.esc(this.khoangNgay(d.tuan))}</div>
+          </div>
+          <button class="btn outline sm" id="kht-sau" ${d.tuanSauCo ? '' : 'disabled'} aria-label="Tuần sau có kế hoạch">›</button>
+        </div>
+        ${k ? `
+          <div style="font-size:1.25rem;font-weight:800;line-height:1.35;text-transform:uppercase" id="kht-tieu-de">${UI.esc(k.tieuDe)}</div>
+          ${dong.length ? `
+            <div class="card-title mt-14" style="font-size:.85rem;letter-spacing:.02em">NỘI DUNG HỌC TRONG TUẦN</div>
+            <ul style="margin:0;padding-left:20px" id="kht-noi-dung">${dong.map(x => this.dongNoiDung(x)).join('')}</ul>` : ''}`
+          : `<div class="muted" style="line-height:1.6">Tuần này nhà trường chưa đăng kế hoạch giáo dục.${
+            d.tuan !== d.tuanNay ? '' : ' Khi có, kế hoạch sẽ hiện ngay ở đây.'}</div>`}
+        ${d.duocSoan ? `
+          <button class="btn primary block mt-14" id="btn-soan-kh-tuan">${UI.icon('edit', 16)} Soạn kế hoạch tuần</button>` : ''}
+        ${d.tuan !== d.tuanNay ? `<button class="btn outline block mt-8" id="kht-ve-nay">Về tuần này</button>` : ''}
+      </div>
+      ${u.role !== 'parent' ? `
+        <div class="muted small center mb-8"><a href="#/plans">Xem kế hoạch tháng theo nhóm đã soạn trước đây →</a></div>` : ''}`;
+    const di = (t) => { this._tuan = t; this.renderTuan(o).catch(err => UI.toast(err.message, 'error')); };
+    const nt = document.getElementById('kht-truoc');
+    if (nt && d.tuanTruocCo) nt.onclick = () => di(d.tuanTruocCo);
+    const ns = document.getElementById('kht-sau');
+    if (ns && d.tuanSauCo) ns.onclick = () => di(d.tuanSauCo);
+    const nn = document.getElementById('kht-ve-nay');
+    if (nn) nn.onclick = () => di(d.tuanNay);
+    const soan = document.getElementById('btn-soan-kh-tuan');
+    if (soan) soan.onclick = () => this.moSoanTuan(o);
+  },
+
+  moSoanTuan(o) {
+    const d = this._duLieuTuan || {};
+    const k = d.keHoach || {};
+    UI.modal(`
+      <div class="field">
+        <label>Tuần</label>
+        <input type="date" id="kht-o-tuan" value="${UI.esc(d.tuan || '')}">
+        <div class="hint">Chọn ngày bất kỳ trong tuần — app tự lấy thứ Hai của tuần đó.</div>
+      </div>
+      <div class="field">
+        <label>Tiêu đề tuần</label>
+        <input id="kht-o-tieu-de" maxlength="150" value="${UI.esc(k.tieuDe || `${this.nhanTuan(d.tuan)}: `)}"
+          placeholder="Ví dụ: Tuần 1 tháng 9: Trường của bé">
+      </div>
+      <div class="field">
+        <label>Nội dung học của tuần</label>
+        <textarea id="kht-o-noi-dung" rows="9" placeholder="Mỗi dòng một mục, ví dụ:&#10;Khám phá: Trong tuần các con làm quen với môi trường xung quanh, từ vựng mới về trường mầm non.&#10;Kỹ năng sống: Bé làm quen với phép lịch sự nhã nhặn; tự lau dọn bàn sau bữa ăn.&#10;Âm nhạc: Bài hát của tuần: Trường chúng cháu là trường mầm non.">${UI.esc(k.noiDung || '')}</textarea>
+        <div class="hint">Mỗi dòng thành một gạch đầu dòng; chữ trước dấu hai chấm được in đậm.
+          Đây là kế hoạch chung — mọi gia đình và mọi cô của cả trường đều thấy.</div>
+      </div>
+      <button class="btn primary block" id="kht-luu">${UI.icon('check', 18)} Lưu kế hoạch tuần</button>
+    `, 'Soạn kế hoạch tuần');
+    document.getElementById('kht-luu').onclick = async () => {
+      const ngayChon = document.getElementById('kht-o-tuan').value;
+      const tieuDe = document.getElementById('kht-o-tieu-de').value.trim();
+      if (!ngayChon) return UI.toast('Cần chọn tuần', 'error');
+      if (!tieuDe) return UI.toast('Cần một tiêu đề tuần', 'error');
+      try {
+        const r = await API.put(`/api/plans/tuan/${encodeURIComponent(ngayChon)}`, {
+          tieuDe, noiDung: document.getElementById('kht-o-noi-dung').value,
+        });
+        UI.closeModal();
+        UI.toast('Đã lưu kế hoạch tuần', 'success');
+        this._tuan = r.keHoach ? r.keHoach.tuan : ngayChon;
+        await this.renderTuan(o);
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   // ---- Cô phụ trách / quản trị: soạn kế hoạch một tháng ----
