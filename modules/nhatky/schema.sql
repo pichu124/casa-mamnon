@@ -67,3 +67,44 @@ CREATE TABLE IF NOT EXISTS nhatky_bua (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS nhatky_bua_mot_be_mot_bua ON nhatky_bua(studentId, ngay, bua);
 CREATE INDEX IF NOT EXISTS nhatky_bua_theo_ngay ON nhatky_bua(ngay);
+
+-- "LƯU LÀ NHÁP, GỬI MỚI THẤY" — góp ý của trường 06/10 (mục 9), chủ dự án chốt.
+--
+-- Trường: "sau mỗi hành động cập nhật thông tin về ăn, ngủ, vệ sinh, thay bỉm…,
+-- giáo viên đều bấm nút gửi tới phụ huynh" và "phải check kỹ làm theo nhóm trước
+-- khi gửi cho PH". Nên lưu chỉ là NHÁP của cô; gia đình đọc ẢNH CHỤP của từng
+-- phần (ăn uống / nghỉ trưa / vệ sinh) ĐÚNG LÚC CÔ BẤM GỬI. Cô sửa sau khi gửi
+-- thì gia đình vẫn đọc bản đã gửi cho tới lần gửi sau — "soát rồi mới gửi" mới
+-- có nghĩa.
+--
+-- `phan = 'cu'`: ngày đã có TRƯỚC mốc đổi luật. Gia đình đọc thẳng dữ liệu như
+-- trước — dữ liệu đã có không được biến mất khỏi màn hình của ai (Nguyên tắc số
+-- 1, vế 3). `banGui` là JSON chữ thô: bảng của phân hệ không qua JSON_COLS.
+CREATE TABLE IF NOT EXISTS nhatky_gui (
+  studentId TEXT NOT NULL,
+  ngay      TEXT NOT NULL,
+  phan      TEXT NOT NULL,              -- an | ngu | vesinh | cu
+  banGui    TEXT NOT NULL DEFAULT '',
+  guiLuc    TEXT,
+  nguoiGui  TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS nhatky_gui_mot ON nhatky_gui(studentId, ngay, phan);
+
+-- GIỜ THAY BỈM VÀ GIỜ ĐI VỆ SINH — góp ý 06/10 (mục 9): "ghi lại nhật ký cụ thể
+-- THỜI GIAN các con thay bỉm hoặc đi vệ sinh (Poo)". Bảng phụ, không đổi cột
+-- `nhatky_ngay` (bài canh giữ đúng 18 cột). Hai ô số lần cũ vẫn còn: ghi thêm
+-- một giờ thì số lần cộng một, bỏ một giờ ghi nhầm thì trừ một — số cô đã gõ
+-- tay từ trước vẫn được tính, không bị đếm lại từ đầu.
+CREATE TABLE IF NOT EXISTS nhatky_vesinh (
+  id        TEXT PRIMARY KEY,
+  studentId TEXT NOT NULL,
+  ngay      TEXT NOT NULL,
+  luc       TEXT NOT NULL,              -- HH:MM
+  loai      TEXT NOT NULL,              -- thay-bim | di-ve-sinh
+  coPoo     INTEGER NOT NULL DEFAULT 0,
+  tinhChat  TEXT NOT NULL DEFAULT '',
+  ghiChu    TEXT NOT NULL DEFAULT '',
+  nguoiGhi  TEXT,
+  taoLuc    TEXT
+);
+CREATE INDEX IF NOT EXISTS nhatky_vesinh_be_ngay ON nhatky_vesinh(studentId, ngay);

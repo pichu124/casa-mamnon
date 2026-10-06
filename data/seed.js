@@ -92,7 +92,7 @@ const MODULES_DIR = path.join(__dirname, '..', 'modules');
 
 // Bảng của từng phân hệ, xếp theo thứ tự XOÁ (bảng con trước bảng cha).
 const BANG = [
-  'nhatky_bua', 'nhatky_ngay',
+  'nhatky_gui', 'nhatky_vesinh', 'nhatky_bua', 'nhatky_ngay',
   'tienan_chot',
   'dontra_ghi', 'dontra_uyquyen', 'dontra_nguoi',
   'hanhtrinh_quansat', 'hanhtrinh_chude',
@@ -167,6 +167,12 @@ function sinh(db, moc) {
   // phụ `nhatky_bua` chép đúng ba cột cũ, để màn cô đời mới (ghi theo bước
   // từng bữa) và màn gia đình đời cũ đọc cùng một chuyện. Bữa trống thì không
   // sinh dòng — trống là "cô chưa ghi".
+  // Ngày mẫu là ngày CŨ với luật "Lưu là nháp, Gửi mới thấy" (góp ý 06/10,
+  // mục 9): gia đình đọc thẳng như trước. Sinh lại dữ liệu mẫu trên một máy
+  // đã chạy thì vẫn vậy, không phụ thuộc giờ ghi của dòng mẫu.
+  const danhDauCu = (rec) => them('nhatky_gui', {
+    studentId: rec.studentId, ngay: rec.ngay, phan: 'cu', banGui: '', guiLuc: rec.capNhatLuc,
+  });
   const themBua = (rec) => {
     for (const [cot, bua] of [['anSang', 'breakfast'], ['anTrua', 'lunch'], ['anXe', 'snack']]) {
       if (!rec[cot]) continue;
@@ -191,6 +197,7 @@ function sinh(db, moc) {
       };
       them('nhatky_ngay', rec);
       themBua(rec);
+      danhDauCu(rec);
     });
 
     // Nhóm nhà trẻ có thêm ba ô thay bỉm và bú bình.
@@ -208,6 +215,7 @@ function sinh(db, moc) {
       };
       them('nhatky_ngay', rec);
       themBua(rec);
+      danhDauCu(rec);
     });
   });
 

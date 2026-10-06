@@ -17,7 +17,7 @@ Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối t�
 | 6 | Kế hoạch của bé — ba tab theo chương trình, kho bài theo lứa, duyệt/trả lại | đang làm |
 | 7 | Hành trình của bé — bốn tab, nhìn lại cuối tháng, ghi nhanh không gắn bé, giọng nói | đang làm |
 | 8 | Ghi nhanh — dùng ảnh cho từng chương trình, nhắc tần suất mỗi tuần | đang làm |
-| 9 | Nhật ký ngày — ba tab, chọn nhiều bé, giờ thay bỉm/đi vệ sinh, nút Gửi | đang làm |
+| 9 | Nhật ký ngày — ba tab, chọn nhiều bé, giờ thay bỉm/đi vệ sinh, nút Gửi | ✅ Đ228 |
 
 ## Bốn điểm chủ dự án chốt ngày 06/10
 

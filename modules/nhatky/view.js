@@ -13,6 +13,17 @@
 //
 //   • GIA ĐÌNH đọc, buổi tối, trên điện thoại, mỗi lần một bé. Nên màn của gia
 //     đình là từng ngày một, viết thành câu tiếng Việt chứ không phải bảng.
+//
+// GÓP Ý 06/10 (mục 9): BA TAB, CHỌN NHIỀU BÉ, GIỜ VỆ SINH, LƯU NHÁP + GỬI.
+//
+//   • Ba tab trên cùng đúng như trường đặt: Ăn uống (các bữa theo thực đơn,
+//     bú bình, ghi chú) / Nghỉ trưa / Vệ sinh. Dải bước cũ (`data-buoc`) vẫn
+//     còn, nằm trong tab Ăn uống.
+//   • Mỗi thẻ bé có ô chọn. Có bé được chọn thì "Áp" chỉ điền cho các bé đó;
+//     không chọn bé nào thì "Áp cho cả nhóm" như trước.
+//   • Tab Vệ sinh ghi TỪNG MỐC GIỜ thay bỉm / đi vệ sinh cho các bé đã chọn.
+//   • LƯU LÀ NHÁP CỦA CÔ. Gia đình chỉ thấy và chỉ nhận tin khi cô bấm "Gửi",
+//     qua một hộp soát lại từng bé (chủ dự án chốt 06/10). Xem routes.js.
 App.views.nhatky = {
   MUC_AN: [
     ['het', 'Ăn hết'],
@@ -30,13 +41,23 @@ App.views.nhatky = {
   // Ba bữa đời cũ — chỉ còn dùng để đọc dữ liệu từ máy chủ đời cũ chưa gửi
   // `buaAn`. Máy chủ mới thì màn gia đình đọc theo `buaAn` (năm bữa).
   BUA_NHAN: [['anSang', 'Sáng'], ['anTrua', 'Trưa'], ['anXe', 'Xế']],
-  // Ba bước không phải bữa ăn, đứng sau các bữa. `truong` là các cột mà bước
+  // Ba tab nhà trường đặt (góp ý 06/10, mục 9) — cũng là ba PHẦN cô gửi
+  // riêng cho gia đình.
+  PHAN: [['an', 'Ăn uống'], ['ngu', 'Nghỉ trưa'], ['vesinh', 'Vệ sinh']],
+  LOAI_VS: [['thay-bim', 'Thay bỉm'], ['di-ve-sinh', 'Đi vệ sinh']],
+  // Các bước không phải bữa ăn, đứng sau các bữa. `truong` là các cột mà bước
   // đó gửi lên — máy chủ chỉ ghi đúng các cột này, phần khác giữ nguyên.
+  // Bú bình tách khỏi Vệ sinh sang tab Ăn uống: bú bình là chuyện ăn.
   BUOC_KHAC: [
-    { ma: 'ngu', ten: 'Ngủ trưa', kieu: 'ngu', truong: ['nguTuLuc', 'nguDenLuc', 'nguGhiChu'] },
-    { ma: 'vesinh', ten: 'Vệ sinh · Bỉm', kieu: 'vesinh', truong: ['veSinhSoLan', 'veSinhTinhChat', 'bimSoLan', 'buBinhSoLan', 'buBinhMl'] },
-    { ma: 'ghichu', ten: 'Ghi chú', kieu: 'ghichu', truong: ['anGhiChu', 'ghiChu'] },
+    { ma: 'sua', phan: 'an', ten: 'Bú bình', kieu: 'sua', truong: ['buBinhSoLan', 'buBinhMl'], chiNhaTre: true },
+    { ma: 'ghichu', phan: 'an', ten: 'Ghi chú', kieu: 'ghichu', truong: ['anGhiChu', 'ghiChu'] },
+    { ma: 'ngu', phan: 'ngu', ten: 'Ngủ trưa', kieu: 'ngu', truong: ['nguTuLuc', 'nguDenLuc', 'nguGhiChu'] },
+    { ma: 'vesinh', phan: 'vesinh', ten: 'Vệ sinh · Bỉm', kieu: 'vesinh', truong: [] },
   ],
+  // Bé cô đang chọn trên màn (mã bé). Giữ qua các lần vẽ lại trong cùng
+  // nhóm và ngày; đổi nhóm hay ngày thì bỏ hết.
+  _chon: null,
+  _chonCua: '',
   _ngay: null,
   _classId: null,
   _buoc: null,
@@ -77,10 +98,44 @@ App.views.nhatky = {
   cacBuoc(d) {
     const ds = (d && Array.isArray(d.buaAn) && d.buaAn.length) ? d.buaAn
       : [{ bua: 'breakfast', ten: 'Bữa sáng' }, { bua: 'lunch', ten: 'Bữa trưa' }, { bua: 'snack', ten: 'Bữa phụ chiều' }];
+    const coNhaTre = !!(d && (d.danhSach || []).some(b => b.laNhaTre));
     return [
-      ...ds.map(b => ({ ma: `bua:${b.bua}`, ten: b.ten, kieu: 'bua', bua: b })),
-      ...this.BUOC_KHAC,
+      ...ds.map(b => ({ ma: `bua:${b.bua}`, phan: 'an', ten: b.ten, kieu: 'bua', bua: b })),
+      ...this.BUOC_KHAC.filter(b => !b.chiNhaTre || coNhaTre),
     ];
+  },
+
+  tenPhan(ma) {
+    return (this.PHAN.find(p => p[0] === ma) || [ma, ''])[1];
+  },
+
+  dsChon() {
+    const khoa = `${this._classId}|${this._ngay}`;
+    if (!this._chon || this._chonCua !== khoa) { this._chon = new Set(); this._chonCua = khoa; }
+    return this._chon;
+  },
+
+  // Một dòng tóm tắt phần `phan` của một bé — dùng trong hộp soát trước khi gửi.
+  tomTatBe(b, phan) {
+    const co = (v) => v !== null && v !== undefined && v !== '';
+    if (phan === 'an') {
+      const ds = (b.buaAn || []).filter(x => x.muc).map(x => `${x.ten}: ${this.nhanMucAn(x.muc)}`);
+      if (co(b.buBinhSoLan)) ds.push(`Bú bình ${b.buBinhSoLan} lần${co(b.buBinhMl) ? ` (${b.buBinhMl} ml)` : ''}`);
+      if (b.ghiChu) ds.push(`Lời nhắn: ${b.ghiChu}`);
+      return ds.join(' · ') || b.anGhiChu || '';
+    }
+    if (phan === 'ngu') {
+      return b.nguTuLuc && b.nguDenLuc ? `Ngủ ${b.nguTuLuc} – ${b.nguDenLuc}${b.nguGhiChu ? ` · ${b.nguGhiChu}` : ''}`
+        : (b.nguGhiChu || '');
+    }
+    const sk = b.suKien || [];
+    const nhan = Object.fromEntries(this.LOAI_VS);
+    if (sk.length) {
+      return sk.map(e => `${e.luc} ${nhan[e.loai] || ''}${e.coPoo ? ' (có đi ngoài)' : ''}`).join(' · ');
+    }
+    return [co(b.bimSoLan) ? `Thay bỉm ${b.bimSoLan} lần` : '',
+      co(b.veSinhSoLan) ? `Đi vệ sinh ${b.veSinhSoLan} lần` : '',
+      this.nhanTinhChat(b.veSinhTinhChat)].filter(Boolean).join(' · ');
   },
 
   buocHienTai() {
@@ -329,42 +384,61 @@ App.views.nhatky = {
       return;
     }
 
+    const phan = buoc.phan || 'an';
+    const buocPhan = cacBuoc.filter(x => (x.phan || 'an') === phan);
+    const coGui = Array.isArray(d.phanGui);
+    const chon = this.dsChon();
+    for (const id of [...chon]) if (!dsBe.some(x => x.studentId === id)) chon.delete(id);
+    // Số bé có phần đó đã ghi mà chưa gửi — hiện ngay trên tab, để cô nhìn
+    // qua là biết còn phần nào chưa tới tay gia đình.
+    const demCho = (ma) => dsBe.filter(x => x.gui && x.gui[ma] && x.gui[ma].chuaGui).length;
+
     root.innerHTML = `
       ${UI.pageHeader('Nhật ký ngày')}
       ${theDau}
 
-      <div class="seg" role="tablist" aria-label="Bước ghi" style="overflow-x:auto">
-        ${cacBuoc.map(b => `
-          <button class="${b.ma === buoc.ma ? 'active' : ''}" data-buoc="${UI.esc(b.ma)}" role="tab"
-            aria-selected="${b.ma === buoc.ma ? 'true' : 'false'}">${UI.esc(b.ten)}</button>`).join('')}
+      <div class="seg nk-phan" role="tablist" aria-label="Phần nhật ký">
+        ${this.PHAN.map(([ma, ten]) => {
+          const n = coGui ? demCho(ma) : 0;
+          return `
+          <button class="${ma === phan ? 'active' : ''}" data-phan="${UI.esc(ma)}" role="tab"
+            aria-selected="${ma === phan ? 'true' : 'false'}">${UI.esc(ten)}${n
+            ? ` <span class="nk-cho" title="Bé đã ghi mà chưa gửi">· ${n}</span>` : ''}</button>`;
+        }).join('')}
       </div>
+
+      ${buocPhan.length > 1 ? `
+      <div class="seg" role="tablist" aria-label="Bước ghi" style="overflow-x:auto;margin-top:8px">
+        ${buocPhan.map(x => `
+          <button class="${x.ma === buoc.ma ? 'active' : ''}" data-buoc="${UI.esc(x.ma)}" role="tab"
+            aria-selected="${x.ma === buoc.ma ? 'true' : 'false'}">${UI.esc(x.ten)}</button>`).join('')}
+      </div>` : ''}
 
       ${this.theBuoc(buoc)}
 
-      ${dsBe.length ? dsBe.map(b => this.theBe(b, buoc)).join('')
+      ${dsBe.length ? this.thanhChon(dsBe, chon) : ''}
+
+      ${dsBe.length ? dsBe.map(x => this.theBe(x, buoc, chon, phan)).join('')
         : UI.emptyState('📔', 'Nhóm này chưa có bé nào.')}
 
-      ${dsBe.length ? `
-        <button class="btn primary block mt-14" id="nk-luu">${UI.icon('check', 18)} Lưu ${UI.esc(buoc.ten)} cho cả nhóm</button>` : ''}`;
+      ${dsBe.length && buoc.kieu !== 'vesinh' ? `
+        <button class="btn primary block mt-14" id="nk-luu">${UI.icon('check', 18)} Lưu ${UI.esc(buoc.ten)} cho cả nhóm</button>` : ''}
+      ${dsBe.length && coGui ? `
+        <button class="btn outline block mt-8" id="nk-gui">${UI.icon('send', 18)} Gửi phần ${UI.esc(this.tenPhan(phan).toLowerCase())} cho gia đình</button>
+        <div class="muted small center" style="padding:6px 12px 14px;line-height:1.6">
+          Lưu là bản nháp của cô — gia đình chưa thấy gì. Soát xong cả nhóm rồi bấm
+          <b>Gửi</b>, gia đình mới nhận được.
+        </div>` : ''}`;
 
     this.ganDoiNgayNhom();
     const nutAp = document.getElementById('nk-ap');
     if (nutAp) nutAp.onclick = () => this.apCaNhom();
     const btn = document.getElementById('nk-luu');
     if (btn) btn.onclick = () => this.luu();
-
-    // Nút "+1" bỉm: bấm một cái là thêm một lần — cô đang bế bé, không gõ số.
-    for (const nut of document.querySelectorAll('.nk-bim-them')) {
-      nut.onclick = () => {
-        const o = document.querySelector(`.nk-o[data-be="${nut.dataset.be}"][data-truong="bimSoLan"]`);
-        if (!o) return;
-        const n = Number(o.value);
-        o.value = String((Number.isInteger(n) && n >= 0 ? n : 0) + 1);
-        // Đặt `.value` bằng mã không phát sự kiện — phát tay để bộ ghi nháp và
-        // bộ "đang gõ dở" nghe thấy như một lần gõ thật.
-        o.dispatchEvent(new Event('input', { bubbles: true }));
-      };
-    }
+    const nutGui = document.getElementById('nk-gui');
+    if (nutGui) nutGui.onclick = () => this.moGui(phan);
+    this.ganChon();
+    this.ganVeSinh();
 
     this.napLaiNhap();
     this.ganGhiNhap();
@@ -416,10 +490,22 @@ App.views.nhatky = {
         doiMan(() => { this._buoc = v; });
       };
     }
+    // Ba tab trên cùng: sang tab nào thì đứng ở bước đầu của tab đó; về Ăn
+    // uống thì đứng ở bữa gần nhất đã tới giờ, như lúc mới mở màn.
+    for (const nut of document.querySelectorAll('.nk-phan [data-phan]')) {
+      nut.onclick = () => {
+        const v = nut.dataset.phan;
+        if (v === (this.buocHienTai().phan || 'an')) return;
+        const dau = this.cacBuoc(this._data).find(x => (x.phan || 'an') === v);
+        if (!dau) return;
+        doiMan(() => { this._buoc = v === 'an' ? this.buocMacDinh(this._data) : dau.ma; });
+      };
+    }
   },
 
   // Thẻ đầu bước: món của bữa (từ thực đơn, cô không gõ lại) và "Áp cho cả nhóm".
   theBuoc(buoc) {
+    if (buoc.kieu === 'vesinh') return this.theVeSinh();
     let mon = '';
     if (buoc.kieu === 'bua') {
       const b = buoc.bua || {};
@@ -447,29 +533,198 @@ App.views.nhatky = {
           <div class="field" style="margin:0"><label>Dậy lúc</label>
             ${this.oGio('id="nk-ca-ngu-den"', '', 'đến')}</div>
         </div>`;
-    } else if (buoc.kieu === 'vesinh') {
-      ap = `
-        <div class="field" style="margin:0">
-          <label>Tình trạng cả nhóm</label>
-          <select id="nk-ca-vs">
-            <option value="">— không đặt —</option>
-            ${this.TINH_CHAT.map(([v, t]) => `<option value="${UI.esc(v)}">${UI.esc(t)}</option>`).join('')}
-          </select>
-        </div>`;
     }
     return `
       <div class="card">
         <div class="card-title">${UI.esc(buoc.ten)}</div>
         ${mon}
         ${ap ? `
-          <div class="muted small" style="margin-bottom:10px">Đặt nhanh cho cả nhóm rồi sửa lại riêng bé nào khác.</div>
+          <div class="muted small" style="margin-bottom:10px">Đặt nhanh cho cả nhóm — hoặc chỉ cho các bé cô đã chọn ở danh sách dưới — rồi sửa lại riêng bé nào khác.</div>
           ${ap}
-          <button class="btn outline block mt-14" id="nk-ap">Áp cho cả nhóm</button>` : `
+          <button class="btn outline block mt-14" id="nk-ap">${this.nhanAp()}</button>` : `
           <div class="muted small" style="line-height:1.6">
             Ô nào cô chưa kịp ghi thì để trống — màn hình của gia đình sẽ nói
             <b>"cô chưa ghi"</b>, chứ không nói bé không ăn.
           </div>`}
       </div>`;
+  },
+
+  nhanAp() {
+    const n = this.dsChon().size;
+    return n ? `Áp cho ${n} bé đã chọn` : 'Áp cho cả nhóm';
+  },
+
+  // Thẻ đầu tab Vệ sinh: ghi MỘT MỐC GIỜ cho mọi bé đang chọn.
+  theVeSinh() {
+    const dsBe = (this._data && this._data.danhSach) || [];
+    const coNhaTre = dsBe.some(b => b.laNhaTre);
+    const loai = this.LOAI_VS.filter(([ma]) => ma !== 'thay-bim' || coNhaTre);
+    const homNay = this._ngay === UI.todayStr();
+    return `
+      <div class="card" id="nk-vs-the">
+        <div class="card-title">Ghi giờ thay bỉm / đi vệ sinh</div>
+        <div class="muted small" style="margin-bottom:10px;line-height:1.6">
+          Chọn bé ở danh sách dưới (hoặc "Chọn cả nhóm"), chọn giờ rồi bấm Ghi.
+          Mỗi lần bấm là một mốc giờ cho từng bé đã chọn — ghi xong là lưu ngay.
+        </div>
+        <div class="field" style="margin:0">
+          <label>Việc</label>
+          <select id="nk-vs-loai">
+            ${loai.map(([ma, ten]) => `<option value="${UI.esc(ma)}">${UI.esc(ten)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="grid-2 mt-8">
+          <div class="field" style="margin:0"><label>Giờ</label>
+            <input type="time" id="nk-vs-gio" value="${homNay ? UI.esc(UI.gioVN()) : ''}"></div>
+          <div class="field" style="margin:0"><label>Có đi ngoài không</label>
+            <select id="nk-vs-poo">
+              <option value="">Không</option>
+              <option value="1">Có đi ngoài</option>
+            </select></div>
+        </div>
+        <div class="field mt-8" style="margin:0"><label>Tình trạng (nếu có đi ngoài)</label>
+          <select id="nk-vs-tc">
+            <option value="">— không ghi —</option>
+            ${this.TINH_CHAT.map(([v, t]) => `<option value="${UI.esc(v)}">${UI.esc(t)}</option>`).join('')}
+          </select></div>
+        <div class="field mt-8" style="margin:0">
+          <input id="nk-vs-ghichu" maxlength="200" placeholder="Ghi chú ngắn (không bắt buộc)">
+        </div>
+        <button class="btn primary block mt-14" id="nk-vs-ghi">${UI.icon('plus', 18)} Ghi cho bé đã chọn</button>
+      </div>`;
+  },
+
+  // Dải chọn bé: đếm số bé đang chọn, chọn cả nhóm, bỏ chọn.
+  thanhChon(dsBe, chon) {
+    return `
+      <div class="card" style="padding:10px 14px">
+        <div class="flex" style="gap:8px;align-items:center;flex-wrap:wrap">
+          <span id="nk-so-chon" class="muted small" style="flex:1;min-width:130px">${this.chuSoChon(chon.size)}</span>
+          <button type="button" class="btn outline sm" id="nk-chon-het" style="min-height:36px">Chọn cả nhóm</button>
+          <button type="button" class="btn outline sm" id="nk-bo-chon" style="min-height:36px">Bỏ chọn</button>
+        </div>
+      </div>`;
+  },
+  chuSoChon(n) {
+    return n ? `Đã chọn <b>${n}</b> bé` : 'Chạm ô vuông ở thẻ để chọn bé';
+  },
+
+  ganChon() {
+    const chon = this.dsChon();
+    const capNhat = () => {
+      const so = document.getElementById('nk-so-chon');
+      if (so) so.innerHTML = this.chuSoChon(chon.size);
+      const ap = document.getElementById('nk-ap');
+      if (ap) ap.textContent = this.nhanAp();
+      const ghi = document.getElementById('nk-vs-ghi');
+      if (ghi) ghi.lastChild.textContent = chon.size ? ` Ghi cho ${chon.size} bé đã chọn` : ' Ghi cho bé đã chọn';
+    };
+    for (const o of document.querySelectorAll('.nk-chon')) {
+      o.onchange = () => {
+        if (o.checked) chon.add(o.dataset.be); else chon.delete(o.dataset.be);
+        capNhat();
+      };
+    }
+    const datTatCa = (co) => {
+      for (const o of document.querySelectorAll('.nk-chon')) {
+        o.checked = co;
+        if (co) chon.add(o.dataset.be); else chon.delete(o.dataset.be);
+      }
+      capNhat();
+    };
+    const het = document.getElementById('nk-chon-het');
+    if (het) het.onclick = () => datTatCa(true);
+    const bo = document.getElementById('nk-bo-chon');
+    if (bo) bo.onclick = () => datTatCa(false);
+    capNhat();
+  },
+
+  ganVeSinh() {
+    const ghi = document.getElementById('nk-vs-ghi');
+    if (ghi) {
+      ghi.onclick = async () => {
+        const chon = [...this.dsChon()];
+        if (!chon.length) return UI.toast('Cô chọn bé trước — chạm ô vuông ở thẻ bé, hoặc "Chọn cả nhóm"', 'error');
+        const gt = (id) => { const o = document.getElementById(id); return o ? o.value : ''; };
+        const luc = gt('nk-vs-gio');
+        if (!/^\d{2}:\d{2}$/.test(luc)) return UI.toast('Cô chọn giờ giúp nhé', 'error');
+        const coPoo = gt('nk-vs-poo') === '1';
+        ghi.disabled = true;
+        try {
+          const r = await API.post('/api/nhatky/ve-sinh', {
+            classId: this._classId, ngay: this._ngay, studentIds: chon, luc,
+            loai: gt('nk-vs-loai'), coPoo, tinhChat: coPoo ? gt('nk-vs-tc') : '', ghiChu: gt('nk-vs-ghichu'),
+          });
+          UI.toast(r.nhac || `Đã ghi ${luc} cho ${r.daGhi} bé — nhớ bấm Gửi khi xong`, r.nhac ? 'error' : 'success');
+          App.route();
+        } catch (err) { UI.toast(err.message, 'error'); ghi.disabled = false; }
+      };
+    }
+    for (const nut of document.querySelectorAll('.nk-vs-bo')) {
+      nut.onclick = async () => {
+        if (!confirm(`Bỏ mốc ${nut.dataset.luc || ''} ghi nhầm?`)) return;
+        try {
+          await API.del(`/api/nhatky/ve-sinh/${encodeURIComponent(nut.dataset.id)}`);
+          App.route();
+        } catch (err) { UI.toast(err.message, 'error'); }
+      };
+    }
+  },
+
+  // HỘP SOÁT TRƯỚC KHI GỬI. Nhà trường: "yêu cầu phải check kỹ ... trước khi
+  // gửi cho PH". Mỗi bé một dòng: phần sẽ gửi viết thành chữ, ô chọn bật sẵn
+  // cho bé có thay đổi chưa gửi. Bé chưa ghi gì thì hiện mờ, không chọn được.
+  moGui(phan) {
+    const dangGo = this._moc !== undefined
+      && [...document.querySelectorAll('.nk-o')].map(o => o.value).join('\u0001') !== this._moc;
+    if (dangGo) return UI.toast('Cô bấm Lưu trước rồi mới Gửi — phần vừa nhập chưa được lưu', 'error');
+    const dsBe = (this._data && this._data.danhSach) || [];
+    const chon = this.dsChon();
+    const dong = dsBe.map(b => {
+      const g = (b.gui || {})[phan] || {};
+      const tom = this.tomTatBe(b, phan);
+      const coGi = g.coNoiDung !== undefined ? g.coNoiDung : !!tom;
+      const bat = coGi && g.chuaGui && (!chon.size || chon.has(b.studentId));
+      const trangThai = !coGi ? 'chưa ghi'
+        : (g.chuaGui ? (g.guiLuc ? 'đã sửa sau lần gửi trước' : 'chưa gửi') : `đã gửi ${UI.fmtTime(g.guiLuc)}`);
+      return `
+        <label class="list-row" style="gap:10px;align-items:flex-start;${coGi ? '' : 'opacity:.55'}">
+          <input type="checkbox" class="nk-gui-be" value="${UI.esc(b.studentId)}" ${bat ? 'checked' : ''}
+            ${coGi ? '' : 'disabled'} style="width:32px;height:32px;margin:0;flex:none">
+          <div class="row-main">
+            <div class="row-title">${UI.esc(b.hoTen)} <span class="muted small" style="font-weight:400">· ${UI.esc(trangThai)}</span></div>
+            <div class="row-sub" style="line-height:1.5">${tom ? UI.esc(tom) : '<span class="muted">—</span>'}</div>
+          </div>
+        </label>`;
+    }).join('');
+    UI.modal(`
+      <p class="muted small" style="line-height:1.6;margin-top:0">
+        Cô đọc lại từng bé. Gia đình chỉ nhận được bé nào có dấu chọn — bé đã gửi
+        mà chưa đổi gì thì không gửi lại.
+      </p>
+      <div id="nk-gui-ds">${dong}</div>
+      <button class="btn primary block mt-14" id="nk-gui-xac"></button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, `Gửi phần ${this.tenPhan(phan).toLowerCase()} cho gia đình`);
+    const nut = document.getElementById('nk-gui-xac');
+    const dem = () => {
+      const n = document.querySelectorAll('.nk-gui-be:checked').length;
+      nut.textContent = n ? `Gửi cho ${n} gia đình` : 'Chưa chọn bé nào';
+      nut.disabled = !n;
+    };
+    for (const o of document.querySelectorAll('.nk-gui-be')) o.onchange = dem;
+    dem();
+    nut.onclick = async () => {
+      const ids = [...document.querySelectorAll('.nk-gui-be:checked')].map(o => o.value);
+      if (!ids.length) return;
+      nut.disabled = true;
+      try {
+        const r = await API.post('/api/nhatky/gui', { classId: this._classId, ngay: this._ngay, phan, studentIds: ids });
+        UI.closeModal();
+        UI.toast(`Đã gửi cho ${r.daGui} gia đình` + (r.nhac ? `. ${r.nhac}` : ''), 'success');
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); nut.disabled = false; }
+    };
   },
 
   // Một thẻ cho một bé, chỉ các ô của BƯỚC đang mở.
@@ -482,7 +737,7 @@ App.views.nhatky = {
   //
   // Chỗ này từng sai đúng như vậy ở hai ô giờ ngủ và hai ô ghi chú; bộ canh bố
   // cục điện thoại trong `test/man-hinh-phan-he.test.mjs` mục [7] tìm ra.
-  theBe(b, buoc) {
+  theBe(b, buoc, boChon, phan) {
     const id = UI.esc(b.studentId);
     const bua = buoc.kieu === 'bua' ? this.buaCuaBe(b, buoc.bua.bua) : null;
     // Nhớ dấu thời gian bản ghi lúc màn hình NẠP VỀ, để lúc lưu gửi kèm.
@@ -540,27 +795,41 @@ App.views.nhatky = {
         </div>
         ${chu('nguGhiChu', b.nguGhiChu, 'Ví dụ: ngủ ngon, hoặc trằn trọc đầu giờ')}`;
     } else if (buoc.kieu === 'vesinh') {
-      daGhi = (b.veSinhSoLan !== null && b.veSinhSoLan !== undefined) || !!b.veSinhTinhChat
-        || (b.bimSoLan !== null && b.bimSoLan !== undefined);
-      // Ô bỉm và sữa CHỈ cho bé nhà trẻ — bé lớn không thấy ô, đúng như sổ giấy
-      // của nhóm Lá không có cột thay bỉm.
-      than = `
-        <div class="grid-2">
-          <div class="field" style="margin:0"><label>Vệ sinh (lần)</label>${so('veSinhSoLan', b.veSinhSoLan, 'số lần')}</div>
-          <div class="field" style="margin:0"><label>Tình trạng</label>${chon('veSinhTinhChat', this.TINH_CHAT, b.veSinhTinhChat)}</div>
+      // TỪNG MỐC GIỜ (góp ý 06/10, mục 9). Ghi ở thẻ đầu tab cho các bé đã
+      // chọn; ở đây chỉ hiện và bỏ mốc ghi nhầm. Số lần ghi tay từ trước vẫn
+      // hiện ra để cô biết đã có — mốc mới cộng thêm vào đó.
+      const sk = b.suKien || [];
+      const co = (v) => v !== null && v !== undefined && v !== '';
+      daGhi = sk.length > 0 || co(b.veSinhSoLan) || co(b.bimSoLan) || !!b.veSinhTinhChat;
+      const nhan = Object.fromEntries(this.LOAI_VS);
+      const soCu = [co(b.bimSoLan) ? `thay bỉm ${b.bimSoLan} lần` : '',
+        co(b.veSinhSoLan) ? `đi vệ sinh ${b.veSinhSoLan} lần` : ''].filter(Boolean).join(', ');
+      than = sk.length ? `
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${sk.map(e => `
+            <div class="flex" style="gap:8px;align-items:center;border:1px solid var(--line);border-radius:var(--r-xs);padding:4px 4px 4px 10px">
+              <b>${UI.esc(e.luc)}</b>
+              <span style="flex:1;min-width:0">${UI.esc(nhan[e.loai] || '')}${e.coPoo
+                ? ` · có đi ngoài${e.tinhChat ? ` (${UI.esc(this.nhanTinhChat(e.tinhChat).toLowerCase())})` : ''}` : ''}${e.ghiChu
+                ? ` · <span class="muted">${UI.esc(e.ghiChu)}</span>` : ''}</span>
+              <button type="button" class="btn outline sm nk-vs-bo" data-id="${UI.esc(e.id)}" data-luc="${UI.esc(e.luc)}"
+                style="min-width:36px;min-height:36px;padding:0" aria-label="Bỏ mốc ${UI.esc(e.luc)}">${UI.icon('x', 16)}</button>
+            </div>`).join('')}
         </div>
-        ${b.laNhaTre ? `
-          <div class="section-label">Bỉm · Sữa</div>
-          <div class="grid-2">
-            <div class="field" style="margin:0"><label>Thay bỉm (lần)</label>
-              <div class="flex" style="gap:6px;align-items:stretch">
-                <div style="flex:1;min-width:0">${so('bimSoLan', b.bimSoLan, 'số lần')}</div>
-                <button type="button" class="btn primary nk-bim-them" data-be="${id}" style="padding:0 18px;font-size:1.05rem" aria-label="Thêm một lần thay bỉm">+1</button>
-              </div>
-            </div>
-            <div class="field" style="margin:0"><label>Bú bình (lần)</label>${so('buBinhSoLan', b.buBinhSoLan, 'số lần')}</div>
-          </div>
-          <div class="field mt-8" style="margin-bottom:0"><label>Tổng lượng sữa (ml)</label>${so('buBinhMl', b.buBinhMl, 'ml')}</div>` : ''}`;
+        ${soCu ? `<div class="muted small mt-8">Cả ngày: ${UI.esc(soCu)}</div>` : ''}` : `
+        <div class="muted small" style="line-height:1.6">Chưa ghi mốc giờ nào${soCu
+          ? ` · đã ghi theo số lần: ${UI.esc(soCu)}` : ''}${b.veSinhTinhChat
+          ? ` · ${UI.esc(this.nhanTinhChat(b.veSinhTinhChat).toLowerCase())}` : ''}.</div>`;
+    } else if (buoc.kieu === 'sua') {
+      const co = (v) => v !== null && v !== undefined && v !== '';
+      daGhi = co(b.buBinhSoLan) || co(b.buBinhMl);
+      // Ô sữa CHỈ cho bé nhà trẻ — bé lớn không thấy ô, đúng như sổ giấy của
+      // nhóm Lá không có cột bú bình.
+      than = b.laNhaTre ? `
+        <div class="grid-2">
+          <div class="field" style="margin:0"><label>Bú bình (lần)</label>${so('buBinhSoLan', b.buBinhSoLan, 'số lần')}</div>
+          <div class="field" style="margin:0"><label>Tổng lượng sữa (ml)</label>${so('buBinhMl', b.buBinhMl, 'ml')}</div>
+        </div>` : '<div class="muted small">Bé đã qua lứa nhà trẻ — không ghi bú bình.</div>';
     } else {
       daGhi = !!(b.ghiChu || b.anGhiChu);
       than = `
@@ -572,13 +841,25 @@ App.views.nhatky = {
         </div>`;
     }
 
+    // Trạng thái của ô đang mở, gộp MỘT nhãn: đã ghi chưa, và nếu đã ghi thì
+    // gia đình đã nhận chưa (phần gửi của tab này). Chưa ghi thì không nhãn.
+    const g = (b.gui && phan && b.gui[phan]) || null;
+    let nhan = '';
+    if (daGhi) {
+      if (g && g.chuaGui) nhan = UI.badge(g.guiLuc ? 'Đã ghi · chưa gửi lại' : 'Đã ghi · chưa gửi', 'orange');
+      else if (g && g.guiLuc) nhan = UI.badge(`Đã gửi ${UI.fmtTime(g.guiLuc)}`, 'blue');
+      else nhan = UI.badge('Đã ghi', 'green');
+    }
+    const dangChon = !!(boChon && boChon.has(b.studentId));
     return `
       <div class="card"${nghi ? ' style="opacity:.75"' : ''}>
         <div class="list-row" style="border-bottom:none;padding-top:0">
+          ${boChon ? `<input type="checkbox" class="nk-chon" data-be="${id}" ${dangChon ? 'checked' : ''}
+            aria-label="Chọn ${UI.esc(b.hoTen)}" style="width:32px;height:32px;margin:0;flex:none">` : ''}
           ${UI.avatar(b.avatar, 40)}
           <div class="row-main"><div class="row-title">${UI.esc(b.hoTen)}</div></div>
           ${nghi ? UI.badge('Nghỉ hôm nay', 'orange') : ''}
-          ${daGhi ? UI.badge('Đã ghi', 'green') : ''}
+          ${nhan}
         </div>
         ${daiNghi}
         ${than}
@@ -603,9 +884,23 @@ App.views.nhatky = {
     let muon = [];
     if (buoc.kieu === 'bua') muon = [[`bua.${buoc.bua.bua}.muc`, gt('nk-ca-muc')]];
     else if (buoc.kieu === 'ngu') muon = [['nguTuLuc', gt('nk-ca-ngu-tu')], ['nguDenLuc', gt('nk-ca-ngu-den')]];
-    else if (buoc.kieu === 'vesinh') muon = [['veSinhTinhChat', gt('nk-ca-vs')]];
     muon = muon.filter(([, v]) => v);
     if (!muon.length) return UI.toast('Cô chọn ít nhất một mục để áp nhé', 'error');
+
+    // CÔ ĐÃ CHỌN BÉ (góp ý 06/10, mục 9: "chọn nhiều bé để cập nhật cùng lúc"):
+    // điền thẳng cho đúng các bé đó, kể cả ô đã có — cô đã chỉ tận tên từng
+    // bé, không cần hỏi lại "giữ ô đã điền". Bé đang nghỉ mà cô vẫn chọn thì
+    // cũng điền: đó là lựa chọn có chủ ý, khác cú áp cả nhóm.
+    const chon = this.dsChon();
+    if (chon.size) {
+      const dich = [...document.querySelectorAll('.nk-o')]
+        .filter(x => chon.has(x.dataset.be) && muon.some(([truong]) => x.dataset.truong === truong));
+      for (const x of dich) x.value = (muon.find(([truong]) => truong === x.dataset.truong) || [])[1];
+      const goPhien = this.oDaGoCua(this.khoaNhap(this._classId, this._ngay));
+      for (const x of dich) goPhien.add(`${x.dataset.be}|${x.dataset.truong}`);
+      this.luuNhap();
+      return UI.toast(`Đã điền cho ${chon.size} bé đã chọn. Cô soát lại rồi bấm Lưu.`, 'success');
+    }
 
     // BỎ QUA BÉ ĐANG NGHỈ CÓ PHÉP.
     //
@@ -731,7 +1026,7 @@ App.views.nhatky = {
           coNghi
             ? (r.nhacNghiChu || 'Có bé đang nghỉ hôm nay mà vẫn được ghi nhật ký')
             : `Đã lưu ${buoc.ten} cho ${r.daGhi} bé`
-              + (r.daBao ? ` · đã báo gia đình ${r.daBao} bé` : ''),
+              + (r.daBao ? ` · đã báo gia đình ${r.daBao} bé` : ' — gia đình chưa thấy, soát xong cô bấm Gửi'),
           coNghi ? 'error' : 'success');
       }
       App.route();
@@ -779,6 +1074,21 @@ App.views.nhatky = {
         <div class="row-title">${gt ? UI.esc(gt) : chuaGhi}</div>
       </div></div>`;
 
+    // NGÀY THEO LUẬT "GỬI MỚI THẤY" (góp ý 06/10, mục 9): máy chủ chỉ đưa
+    // phần cô đã gửi, kèm `daGui`. Phần chưa gửi nói đúng là "cô chưa gửi" —
+    // không để trống, không nói bé không ăn không ngủ.
+    const gui = n.daGui || null;
+    const chuaGui = (ph) => !!gui && !gui[ph];
+    const dongChuaGui = (nhan) => `
+      <div class="list-row"><div class="row-main">
+        <div class="row-sub">${UI.esc(nhan)}</div>
+        <div class="row-title"><span class="muted" style="font-weight:400">cô chưa gửi phần này</span></div>
+      </div></div>`;
+    // Từng mốc giờ thay bỉm / đi vệ sinh, nếu cô có ghi.
+    const sk = n.suKien || [];
+    const moc = (loai) => sk.filter(e => e.loai === loai).map(e => `${e.luc}${e.coPoo
+      ? ` (có đi ngoài${e.tinhChat ? `, ${this.nhanTinhChat(e.tinhChat).toLowerCase()}` : ''})` : ''}`).join(' · ');
+
     // NĂM BỮA THEO THỰC ĐƠN NGÀY ĐÓ (máy chủ mới gửi `buaAn`): mỗi bữa một
     // dòng — tên bữa, món của bếp, và bé ăn được bao nhiêu phần. Máy chủ đời cũ
     // không có `buaAn` thì đọc ba cột cũ như trước.
@@ -804,10 +1114,16 @@ App.views.nhatky = {
           </div>` : '');
     }
     const ngu = n.nguTuLuc && n.nguDenLuc ? `${n.nguTuLuc} – ${n.nguDenLuc}` : '';
-    const vs = [
+    const vs = moc('di-ve-sinh') || [
       n.veSinhSoLan === null || n.veSinhSoLan === undefined ? '' : `${n.veSinhSoLan} lần`,
       this.nhanTinhChat(n.veSinhTinhChat),
     ].filter(Boolean).join(' · ');
+    const bim = moc('thay-bim') || (n.bimSoLan === null || n.bimSoLan === undefined ? '' : `${n.bimSoLan} lần`);
+    const buBinh = [
+      n.buBinhSoLan === null || n.buBinhSoLan === undefined ? '' : `${n.buBinhSoLan} lần`,
+      n.buBinhMl === null || n.buBinhMl === undefined ? '' : `${n.buBinhMl} ml`,
+    ].filter(Boolean).join(' · ');
+    const nhaTre = !!(be && be.laNhaTre);
 
     return `
       <div class="card">
@@ -815,17 +1131,16 @@ App.views.nhatky = {
           <span class="spacer"></span>
           ${n.nguoiGhiTen ? `<span class="muted small" style="font-weight:400">${UI.esc(n.nguoiGhiTen)}</span>` : ''}
         </div>
-        ${phanAn}
-        ${n.anGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.anGhiChu)}</div>` : ''}
-        ${dong('Ngủ trưa', ngu)}
-        ${n.nguGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.nguGhiChu)}</div>` : ''}
-        ${dong('Vệ sinh', vs)}
-        ${be && be.laNhaTre ? `
-          ${dong('Thay bỉm', n.bimSoLan === null || n.bimSoLan === undefined ? '' : `${n.bimSoLan} lần`)}
-          ${dong('Bú bình', [
-            n.buBinhSoLan === null || n.buBinhSoLan === undefined ? '' : `${n.buBinhSoLan} lần`,
-            n.buBinhMl === null || n.buBinhMl === undefined ? '' : `${n.buBinhMl} ml`,
-          ].filter(Boolean).join(' · '))}` : ''}
+        ${chuaGui('an') ? dongChuaGui('Ăn uống') : `
+          ${phanAn}
+          ${n.anGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.anGhiChu)}</div>` : ''}
+          ${nhaTre ? dong('Bú bình', buBinh) : ''}`}
+        ${chuaGui('ngu') ? dongChuaGui('Ngủ trưa') : `
+          ${dong('Ngủ trưa', ngu)}
+          ${n.nguGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.nguGhiChu)}</div>` : ''}`}
+        ${chuaGui('vesinh') ? dongChuaGui('Vệ sinh') : `
+          ${dong('Vệ sinh', vs)}
+          ${nhaTre ? dong('Thay bỉm', bim) : ''}`}
         ${n.ghiChu ? `<div class="mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">
           ${UI.esc(n.ghiChu)}
         </div>` : ''}

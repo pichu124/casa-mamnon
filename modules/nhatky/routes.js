@@ -141,6 +141,102 @@ module.exports = (app, { db, modules }) => {
   function coSoNhaTre(be, tinhDenNgay) {
     return luaNhom.coSoNhaTre(db, be && be.classId, laNhaTre(be && be.dob, tinhDenNgay));
   }
+
+  // ===========================================================================
+  // LƯU LÀ NHÁP, GỬI MỚI THẤY (góp ý 06/10, mục 9 — chủ dự án chốt 06/10)
+  // ===========================================================================
+  //
+  // Trường: *"sau mỗi hành động cập nhật thông tin về ăn, ngủ, vệ sinh, thay
+  // bỉm…, giáo viên đều bấm nút gửi tới phụ huynh"* và *"yêu cầu phải check kỹ
+  // làm theo nhóm trước khi gửi cho PH"*. Trước đợt này lưu là gia đình thấy
+  // ngay và điện thoại rung ngay — cú "áp cả nhóm" chạm nhầm là hai mươi nhà
+  // đọc sai trước khi cô kịp sửa.
+  //
+  // Nay: LƯU = NHÁP CỦA CÔ (không báo ai). GỬI = chụp lại ĐÚNG PHẦN ấy (ăn
+  // uống / nghỉ trưa / vệ sinh) của từng bé đã chọn vào `nhatky_gui`, rồi mới
+  // báo gia đình. Gia đình đọc ẢNH CHỤP, không đọc bản nháp — cô sửa sau khi
+  // gửi thì gia đình vẫn thấy bản đã gửi cho tới lần gửi sau.
+  //
+  // NGÀY ĐÃ CÓ TRƯỚC MỐC ĐỔI LUẬT vẫn hiện như cũ với gia đình (Nguyên tắc số 1,
+  // vế 3): lúc khởi động, mọi ngày có dòng ghi trước mốc được đánh dấu `cu`.
+  const PHAN_GUI = ['an', 'ngu', 'vesinh'];
+  const TEN_PHAN = { an: 'Ăn uống', ngu: 'Nghỉ trưa', vesinh: 'Vệ sinh' };
+  let MOC_GUI = '';
+  try {
+    const r = db.first('settings', 'SELECT value FROM settings WHERE key = ?', ['nhatky']);
+    const v = (r && r.value && typeof r.value === 'object') ? r.value : {};
+    const lanDau = !v.guiTuLuc;
+    MOC_GUI = v.guiTuLuc || new Date().toISOString();
+    // Lần khởi động ĐẦU TIÊN sau khi đổi luật: MỌI ngày đang có đều là ngày
+    // cũ, kể cả dòng mang giờ ghi muộn hơn lúc này (dữ liệu mẫu ghi sẵn
+    // 16:10 hôm nay). Những lần sau chỉ đánh dấu dòng ghi trước mốc.
+    db.run(`INSERT OR IGNORE INTO nhatky_gui (studentId, ngay, phan, banGui, guiLuc)
+            SELECT studentId, ngay, 'cu', '', ? FROM nhatky_ngay
+             WHERE ? OR capNhatLuc IS NULL OR capNhatLuc = '' OR capNhatLuc < ?`, [MOC_GUI, lanDau ? 1 : 0, MOC_GUI]);
+    if (lanDau) db.upsert('settings', { key: 'nhatky', value: { ...v, guiTuLuc: MOC_GUI } }, ['key']);
+  } catch (_) { MOC_GUI = ''; /* chưa đặt được mốc: gia đình đọc như cũ — mặc định mở */ }
+
+  function suKienCua(studentId, ngayXem) {
+    try {
+      return db.all('nhatky_vesinh',
+        'SELECT * FROM nhatky_vesinh WHERE studentId = ? AND ngay = ? ORDER BY luc, taoLuc', [studentId, ngayXem])
+        .map(e => ({ id: e.id, luc: e.luc, loai: e.loai, coPoo: !!e.coPoo, tinhChat: e.tinhChat || '', ghiChu: e.ghiChu || '' }));
+    } catch (_) { return []; }
+  }
+
+  // Ảnh chụp MỘT phần của một bé một ngày — đúng hình dạng màn gia đình đọc.
+  // Không mang dấu thời gian hay người ghi, để so "đã đổi từ lần gửi trước
+  // chưa" bằng chuỗi JSON là đủ.
+  function chupPhan(phan, hang, theoBua, dsBua, suKien) {
+    const h = hang || {};
+    const so = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+    if (phan === 'an') {
+      // Bú bình đi cùng phần ĂN UỐNG — ba tab nhà trường đặt là Ăn uống /
+      // Nghỉ trưa / Vệ sinh, và bú bình là chuyện ăn của bé nhà trẻ.
+      return {
+        buaAn: ghepBua(dsBua, hang, theoBua)
+          .map(b => ({ bua: b.bua, ten: b.ten, gio: b.gio, mon: b.mon, muc: b.muc, ghiChu: b.ghiChu })),
+        anGhiChu: h.anGhiChu || '', ghiChu: h.ghiChu || '',
+        buBinhSoLan: so(h.buBinhSoLan), buBinhMl: so(h.buBinhMl),
+      };
+    }
+    if (phan === 'ngu') return { nguTuLuc: h.nguTuLuc || '', nguDenLuc: h.nguDenLuc || '', nguGhiChu: h.nguGhiChu || '' };
+    return {
+      veSinhSoLan: so(h.veSinhSoLan), veSinhTinhChat: h.veSinhTinhChat || '', bimSoLan: so(h.bimSoLan),
+      suKien: (suKien || []).map(({ luc, loai, coPoo, tinhChat, ghiChu }) => ({ luc, loai, coPoo, tinhChat, ghiChu })),
+    };
+  }
+  function coNoiDung(phan, s) {
+    if (!s) return false;
+    const coSo = (v) => v !== null && v !== undefined;
+    if (phan === 'an') {
+      return s.buaAn.some(b => b.muc || b.ghiChu) || !!s.anGhiChu || !!s.ghiChu
+        || coSo(s.buBinhSoLan) || coSo(s.buBinhMl);
+    }
+    if (phan === 'ngu') return !!(s.nguTuLuc || s.nguDenLuc || s.nguGhiChu);
+    return coSo(s.veSinhSoLan) || coSo(s.bimSoLan) || !!s.veSinhTinhChat || s.suKien.length > 0;
+  }
+  // Một dòng tóm tắt cho tin báo — gia đình đọc được ngay trên màn khoá.
+  function tomTat(phan, s) {
+    if (phan === 'an') {
+      const ds = s.buaAn.filter(b => b.muc).map(b => `${b.ten}: ${TEN_MUC_AN[b.muc] || ''}`);
+      if (s.buBinhSoLan !== null && s.buBinhSoLan !== undefined) {
+        ds.push(`Bú bình ${s.buBinhSoLan} lần${s.buBinhMl ? ` (${s.buBinhMl} ml)` : ''}`);
+      }
+      return (ds.join(' · ') || s.ghiChu || s.anGhiChu || 'Mở Nhật ký ngày để xem.').slice(0, 160);
+    }
+    if (phan === 'ngu') {
+      return (s.nguTuLuc && s.nguDenLuc ? `Ngủ ${s.nguTuLuc} – ${s.nguDenLuc}` : (s.nguGhiChu || 'Mở Nhật ký ngày để xem.')).slice(0, 160);
+    }
+    const bim = s.suKien.filter(e => e.loai === 'thay-bim').map(e => e.luc);
+    const vs = s.suKien.filter(e => e.loai === 'di-ve-sinh').map(e => e.luc);
+    const ra = [];
+    if (bim.length) ra.push(`Thay bỉm ${bim.length} lần (${bim.join(', ')})`);
+    else if (s.bimSoLan !== null) ra.push(`Thay bỉm ${s.bimSoLan} lần`);
+    if (vs.length) ra.push(`Đi vệ sinh ${vs.length} lần (${vs.join(', ')})`);
+    else if (s.veSinhSoLan !== null) ra.push(`Đi vệ sinh ${s.veSinhSoLan} lần`);
+    return (ra.join(' · ') || 'Mở Nhật ký ngày để xem.').slice(0, 160);
+  }
   // Làm sạch một bản ghi người dùng gửi lên.
   //
   // Trả về { loi } nếu có gì không hợp lệ. Từ chối chứ không tự sửa: một ô số
@@ -266,18 +362,56 @@ module.exports = (app, { db, modules }) => {
         if (!buaTheoNgay.has(r.ngay)) buaTheoNgay.set(r.ngay, new Map());
         buaTheoNgay.get(r.ngay).set(r.bua, r);
       }
+      const banSong = rows.map(r => ({
+        ...r,
+        nguoiGhiTen: tenNguoiGhi(r.nguoiGhi),
+        thucDon: banGhi.has(r.ngay) ? gomBua(banGhi.get(r.ngay)) : null,
+        // NĂM BỮA THEO THỰC ĐƠN NGÀY ĐÓ, kèm tên món và mức bé ăn — gia đình
+        // đọc "Bữa phụ sáng · Sữa chua nếp cẩm · Ăn hết" thành một dòng.
+        buaAn: ghepBua(danhSachBua(banGhi.get(r.ngay) || null), r, buaTheoNgay.get(r.ngay)),
+        suKien: suKienCua(studentId, r.ngay),
+      }));
+      // GIA ĐÌNH CHỈ ĐỌC PHẦN CÔ ĐÃ GỬI (góp ý 06/10, mục 9). Cô và văn phòng
+      // xem từng bé thì vẫn thấy bản đang ghi.
+      if (req.user.role === 'parent') {
+        const gui = new Map();
+        try {
+          for (const g of db.all('nhatky_gui',
+            'SELECT * FROM nhatky_gui WHERE studentId = ? AND ngay BETWEEN ? AND ?', [studentId, tu, den])) {
+            if (!gui.has(g.ngay)) gui.set(g.ngay, {});
+            gui.get(g.ngay)[g.phan] = g;
+          }
+        } catch (_) { /* chưa có bảng gửi: đọc như cũ */ }
+        const cuTheoNgay = new Map(banSong.map(n => [n.ngay, n]));
+        const ngayDoc = new Set([...cuTheoNgay.keys(), ...gui.keys()]);
+        const ra = [];
+        for (const ng of [...ngayDoc].sort().reverse()) {
+          const g = gui.get(ng) || {};
+          const song = cuTheoNgay.get(ng);
+          // Ngày có từ trước mốc đổi luật (hoặc chưa đặt được mốc): đọc như cũ.
+          const laCu = !!g.cu || (!MOC_GUI && song)
+            || (song && !PHAN_GUI.some(ph => g[ph]) && (!song.capNhatLuc || song.capNhatLuc < MOC_GUI));
+          if (laCu) { if (song) ra.push(song); continue; }
+          if (!PHAN_GUI.some(ph => g[ph])) continue;   // cô chưa gửi phần nào của ngày này
+          const n = { ngay: ng, nguoiGhiTen: '', thucDon: song ? song.thucDon : null, buaAn: [], suKien: [],
+            daGui: Object.fromEntries(PHAN_GUI.filter(ph => g[ph]).map(ph => [ph, g[ph].guiLuc])) };
+          for (const ph of PHAN_GUI) {
+            if (!g[ph]) continue;
+            let snap = null;
+            try { snap = JSON.parse(g[ph].banGui || 'null'); } catch (_) { snap = null; }
+            if (!snap) continue;
+            Object.assign(n, snap);
+            if (!n.nguoiGhiTen) n.nguoiGhiTen = tenNguoiGhi(g[ph].nguoiGui);
+          }
+          ra.push(n);
+        }
+        return res.json({ be: { id: be.id, hoTen: be.name, laNhaTre: coSoNhaTre(be, tu) }, ngayCo: ra });
+      }
       return res.json({
         // Khoảng nhiều ngày: bé là nhà trẻ ở ĐẦU khoảng thì phần thay bỉm /
         // bú bình của những ngày đó vẫn phải hiện với gia đình.
         be: { id: be.id, hoTen: be.name, laNhaTre: coSoNhaTre(be, tu) },
-        ngayCo: rows.map(r => ({
-          ...r,
-          nguoiGhiTen: tenNguoiGhi(r.nguoiGhi),
-          thucDon: banGhi.has(r.ngay) ? gomBua(banGhi.get(r.ngay)) : null,
-          // NĂM BỮA THEO THỰC ĐƠN NGÀY ĐÓ, kèm tên món và mức bé ăn — gia đình
-          // đọc "Bữa phụ sáng · Sữa chua nếp cẩm · Ăn hết" thành một dòng.
-          buaAn: ghepBua(danhSachBua(banGhi.get(r.ngay) || null), r, buaTheoNgay.get(r.ngay)),
-        })),
+        ngayCo: banSong,
       });
     }
 
@@ -322,6 +456,30 @@ module.exports = (app, { db, modules }) => {
     const campusId = db.campusOfClass(classId);
     const banGhiTD = banGhiThucDon(ngay, campusId);
     const dsBua = danhSachBua(banGhiTD);
+    // Trạng thái GỬI từng phần của từng bé, và giờ thay bỉm / đi vệ sinh.
+    const guiTheoBe = new Map();
+    try {
+      for (const r of db.all('nhatky_gui',
+        `SELECT * FROM nhatky_gui WHERE ngay = ? AND studentId IN (${marks})`, [ngay, ...dsBe.map(b => b.id)])) {
+        if (!guiTheoBe.has(r.studentId)) guiTheoBe.set(r.studentId, {});
+        guiTheoBe.get(r.studentId)[r.phan] = r;
+      }
+    } catch (_) { /* bảng chưa có: coi như chưa gửi gì */ }
+    const trangThaiGui = (b, sk) => {
+      const g = guiTheoBe.get(b.id) || {};
+      const ra = {};
+      for (const ph of PHAN_GUI) {
+        const snap = chupPhan(ph, daCo.get(b.id), buaDaCo.get(b.id), dsBua, sk);
+        const co = coNoiDung(ph, snap);
+        ra[ph] = {
+          guiLuc: g[ph] ? g[ph].guiLuc : null,
+          coNoiDung: co,
+          // Ngày có từ trước mốc đổi luật: gia đình đã đọc thẳng như cũ, không còn gì "chờ gửi".
+          chuaGui: !g.cu && co && (!g[ph] || g[ph].banGui !== JSON.stringify(snap)),
+        };
+      }
+      return ra;
+    };
     res.json({
       ngay,
       classId,
@@ -341,10 +499,16 @@ module.exports = (app, { db, modules }) => {
       // đây, không tự đoán hôm nay có mấy bữa.
       buaAn: dsBua,
       khungGioNgu: GIO_NGU,
-      danhSach: dsBe.map(b => ({
-        ...keml(b, daCo.get(b.id), dangNghi.get(b.id), ngay),
-        buaAn: ghepBua(dsBua, daCo.get(b.id), buaDaCo.get(b.id)),
-      })),
+      phanGui: PHAN_GUI.map(ma => ({ ma, ten: TEN_PHAN[ma] })),
+      danhSach: dsBe.map(b => {
+        const sk = suKienCua(b.id, ngay);
+        return {
+          ...keml(b, daCo.get(b.id), dangNghi.get(b.id), ngay),
+          buaAn: ghepBua(dsBua, daCo.get(b.id), buaDaCo.get(b.id)),
+          suKien: sk,
+          gui: trangThaiGui(b, sk),
+        };
+      }),
     });
   });
 
@@ -671,19 +835,10 @@ module.exports = (app, { db, modules }) => {
       if (n) nhacNghi.push({ studentId: be.id, hoTen: be.name, lyDo: n.reason });
     }
 
-    // BÁO GIA ĐÌNH — MỘT LẦN LƯU, TỐI ĐA MỘT TIN MỖI BÉ, và chỉ bé có gì mới.
-    // Cô bấm Lưu lại để sửa một bé thì mười chín gia đình còn lại không nhận
-    // thêm một tin y hệt.
-    for (const be of daDoi) {
-      tbb.gui({
-        studentId: be.id,
-        loai: 'nhatky',
-        tieuDe: tieuDeBuoc(truong, be.name),
-        noiDung: 'Mở Nhật ký ngày để xem cô ghi gì hôm nay.',
-        hash: '#/nhatky',
-        nguoiTao: req.user.id,
-      });
-    }
+    // KHÔNG BÁO GIA ĐÌNH Ở ĐÂY NỮA (góp ý 06/10, mục 9). Lưu là nháp của cô;
+    // gia đình được báo khi cô bấm Gửi (`POST /api/nhatky/gui`). `daBao` giữ
+    // trong câu trả lời (luôn 0) để app đời cũ còn trong máy không vỡ.
+    void tieuDeBuoc;
 
     db.audit(req.user.id, 'nhatky-ghi', null, {
       ngay, soBe: daGhi, xungDot: xungDot.length, nghiPhep: nhacNghi.length,
@@ -693,7 +848,8 @@ module.exports = (app, { db, modules }) => {
       ok: true,
       ngay,
       daGhi,
-      daBao: daDoi.length,
+      daBao: 0,
+      daDoi: daDoi.length,
       xungDot,
       nhacNghi,
       ...(nhacNghi.length ? {
@@ -786,20 +942,7 @@ module.exports = (app, { db, modules }) => {
       if (n) nhacNghi.push({ studentId: be.id, hoTen: be.name, lyDo: n.reason });
     }
 
-    // Báo gia đình từng bé vừa ghi: "Bữa trưa của An đã được cô ghi". Một lần
-    // lưu = tối đa một tin mỗi bé; bé không có gì mới thì không có tin.
-    for (const be of daDoi) {
-      const x = sach.find(y => y.be.id === be.id) || {};
-      const dong = [TEN_MUC_AN[x.muc] || '', x.ghiChu || ''].filter(Boolean).join(' · ');
-      tbb.gui({
-        studentId: be.id,
-        loai: 'nhatky',
-        tieuDe: `${buaChon.ten} của ${be.name} đã được cô ghi`,
-        noiDung: dong || 'Mở Nhật ký ngày để xem chi tiết.',
-        hash: '#/nhatky',
-        nguoiTao: req.user.id,
-      });
-    }
+    // KHÔNG BÁO GIA ĐÌNH Ở ĐÂY NỮA (góp ý 06/10, mục 9) — xem PUT /api/nhatky.
 
     db.audit(req.user.id, 'nhatky-ghi-bua', null, {
       ngay, bua, soBe: daGhi, xungDot: xungDot.length, nghiPhep: nhacNghi.length,
@@ -809,7 +952,8 @@ module.exports = (app, { db, modules }) => {
       ngay,
       bua,
       daGhi,
-      daBao: daDoi.length,
+      daBao: 0,
+      daDoi: daDoi.length,
       xungDot,
       nhacNghi,
       ...(nhacNghi.length ? {
@@ -823,5 +967,183 @@ module.exports = (app, { db, modules }) => {
           + 'rồi điền tiếp phần của mình nhé — không mất gì cả.',
       } : {}),
     });
+  });
+  // ===========================================================================
+  // GỬI CHO GIA ĐÌNH (góp ý 06/10, mục 9)
+  // ===========================================================================
+  //
+  // Cô chọn MỘT PHẦN (ăn uống / nghỉ trưa / vệ sinh) và các bé, soát lại trên
+  // màn rồi bấm Gửi. Mỗi bé: chụp phần đó vào `nhatky_gui`, báo gia đình một
+  // tin. Bé chưa ghi gì ở phần đó thì bỏ qua và nói ra; bé đã gửi mà chưa đổi
+  // gì từ lần trước thì KHÔNG báo lại — tránh gia đình nhận hai tin y hệt khi
+  // cô bấm Gửi cả nhóm lần hai cho một bé vừa sửa.
+  app.post('/api/nhatky/gui', requireRole('teacher', 'admin'), (req, res) => {
+    const body = req.body || {};
+    const ngay = NGAY_RE.test(String(body.ngay || '')) ? body.ngay : homNay();
+    if (ngay > homNay()) return res.status(400).json({ error: 'Chưa gửi nhật ký cho ngày chưa tới được' });
+    const phan = String(body.phan || '');
+    if (!PHAN_GUI.includes(phan)) return res.status(400).json({ error: 'Phần cần gửi chưa hợp lệ' });
+    const classId = String(body.classId || '');
+    if (!classId) return res.status(400).json({ error: 'Cần chọn nhóm' });
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Không có quyền gửi nhật ký cho nhóm này' });
+    }
+    const ids = Array.isArray(body.studentIds) ? [...new Set(body.studentIds.map(String))] : [];
+    if (!ids.length) return res.status(400).json({ error: 'Cô chưa chọn bé nào để gửi' });
+    const dsBe = [];
+    for (const id of ids) {
+      const be = db.findStudent(id);
+      if (!be) return res.status(404).json({ error: 'Danh sách có bé không tồn tại' });
+      if (be.classId !== classId || !db.canAccessStudent(req.user, be.id)) {
+        return res.status(403).json({ error: `Không có quyền gửi nhật ký của bé ${be.name}` });
+      }
+      dsBe.push(be);
+    }
+
+    const dsBua = danhSachBua(banGhiThucDon(ngay, db.campusOfClass(classId)));
+    const luc = new Date().toISOString();
+    const daGui = [];
+    const khongDoi = [];
+    const chuaGhi = [];
+    db.tx(() => {
+      for (const be of dsBe) {
+        const hang = db.first('nhatky_ngay', 'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
+        const theoBua = new Map(db.all('nhatky_bua',
+          'SELECT * FROM nhatky_bua WHERE studentId = ? AND ngay = ?', [be.id, ngay]).map(r => [r.bua, r]));
+        const snap = chupPhan(phan, hang, theoBua, dsBua, suKienCua(be.id, ngay));
+        if (!coNoiDung(phan, snap)) { chuaGhi.push({ studentId: be.id, hoTen: be.name }); continue; }
+        const banGui = JSON.stringify(snap);
+        const cu = db.first('nhatky_gui',
+          'SELECT * FROM nhatky_gui WHERE studentId = ? AND ngay = ? AND phan = ?', [be.id, ngay, phan]);
+        if (cu && cu.banGui === banGui) { khongDoi.push({ studentId: be.id, hoTen: be.name }); continue; }
+        db.run(`INSERT INTO nhatky_gui (studentId, ngay, phan, banGui, guiLuc, nguoiGui) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(studentId, ngay, phan) DO UPDATE SET banGui = excluded.banGui,
+                  guiLuc = excluded.guiLuc, nguoiGui = excluded.nguoiGui`,
+        [be.id, ngay, phan, banGui, luc, req.user.id]);
+        daGui.push({ be, snap, laiLan: !!cu });
+      }
+    });
+    // Báo SAU khi ghi xong cả lô — một bé lỗi giữa chừng thì không gia đình
+    // nào nhận tin về một bản chưa được lưu.
+    for (const { be, snap, laiLan } of daGui) {
+      tbb.gui({
+        studentId: be.id,
+        loai: 'nhatky',
+        tieuDe: `${TEN_PHAN[phan]} của ${be.name}${laiLan ? ' — cô vừa cập nhật' : ''}`,
+        noiDung: tomTat(phan, snap),
+        hash: '#/nhatky',
+        nguoiTao: req.user.id,
+      });
+    }
+    db.audit(req.user.id, 'nhatky-gui', null, {
+      classId, ngay, phan, soBe: daGui.length, khongDoi: khongDoi.length, chuaGhi: chuaGhi.length,
+    });
+    res.json({
+      ok: true, ngay, phan,
+      daGui: daGui.length,
+      khongDoi,
+      chuaGhi,
+      ...(chuaGhi.length ? {
+        nhac: `${chuaGhi.length} bé chưa có gì ở phần ${TEN_PHAN[phan].toLowerCase()} nên chưa gửi: `
+          + `${chuaGhi.map(x => x.hoTen).join(', ')}.`,
+      } : {}),
+    });
+  });
+
+  // ===========================================================================
+  // GIỜ THAY BỈM / ĐI VỆ SINH (góp ý 06/10, mục 9)
+  // ===========================================================================
+  //
+  // Trường: *"ghi lại nhật ký cụ thể THỜI GIAN các con thay bỉm hoặc đi vệ
+  // sinh (Poo)"*. Mỗi lần là một dòng (giờ, loại, có đi ngoài không). Ghi cho
+  // nhiều bé một lúc: cô thay bỉm cả nhóm lúc 10:30 là một lần bấm.
+  //
+  // SỐ LẦN Ở `nhatky_ngay` CỘNG / TRỪ THEO TỪNG DÒNG, KHÔNG ĐẾM LẠI TỪ ĐẦU.
+  // Trang chủ, màn gia đình đời cũ và báo cáo đọc con số đó. Đếm lại từ đầu
+  // thì ngày cô đã gõ tay "thay bỉm 3 lần" rồi mới ghi thêm một giờ sẽ thành
+  // "1 lần" — mất ba lần đã ghi, đúng kiểu mất dữ liệu Nguyên tắc số 1 cấm.
+  const LOAI_VS = ['thay-bim', 'di-ve-sinh'];
+  const COT_VS = { 'thay-bim': 'bimSoLan', 'di-ve-sinh': 'veSinhSoLan' };
+  const TOI_DA_LAN_NGAY = 30;
+
+  function doiSoLan(be, ngayGhi, loai, buoc, nguoiGhi, luc) {
+    const cot = COT_VS[loai];
+    if (cot === 'bimSoLan' && !coSoNhaTre(be, ngayGhi)) return;
+    const cu = db.first('nhatky_ngay', 'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay = ?', [be.id, ngayGhi]);
+    const dangCo = cu && cu[cot] !== null && cu[cot] !== undefined && cu[cot] !== '' ? Number(cu[cot]) : 0;
+    const moi = Math.min(TOI_DA_SO_LAN, Math.max(0, (Number.isFinite(dangCo) ? dangCo : 0) + buoc));
+    const rec = { [cot]: moi || null, nguoiGhi, capNhatLuc: luc };
+    if (cu) db.update('nhatky_ngay', cu.id, rec);
+    else if (buoc > 0) db.insert('nhatky_ngay', { id: db.nextId('nk'), studentId: be.id, ngay: ngayGhi, ...rec });
+  }
+
+  app.post('/api/nhatky/ve-sinh', requireRole('teacher', 'admin'), (req, res) => {
+    const body = req.body || {};
+    const ngay = NGAY_RE.test(String(body.ngay || '')) ? body.ngay : homNay();
+    if (ngay > homNay()) return res.status(400).json({ error: 'Chưa ghi nhật ký cho ngày chưa tới được' });
+    const loai = String(body.loai || '');
+    if (!LOAI_VS.includes(loai)) return res.status(400).json({ error: 'Chọn thay bỉm hay đi vệ sinh' });
+    const lucGio = String(body.luc || '').trim();
+    if (!GIO_RE.test(lucGio)) return res.status(400).json({ error: 'Giờ chưa đúng dạng, ví dụ 10:30' });
+    const tinhChat = String(body.tinhChat || '').trim();
+    if (tinhChat && !TINH_CHAT.includes(tinhChat)) return res.status(400).json({ error: 'Tình trạng chưa hợp lệ' });
+    const coPoo = !!body.coPoo;
+    const ghiChu = String(body.ghiChu || '').trim().slice(0, TOI_DA_GHI_CHU);
+    const ids = Array.isArray(body.studentIds) ? [...new Set(body.studentIds.map(String))] : [];
+    if (!ids.length) return res.status(400).json({ error: 'Cô chưa chọn bé nào' });
+    const dsBe = [];
+    for (const id of ids) {
+      const be = db.findStudent(id);
+      if (!be) return res.status(404).json({ error: 'Danh sách có bé không tồn tại' });
+      if (!db.canAccessStudent(req.user, be.id)) {
+        return res.status(403).json({ error: `Không có quyền ghi nhật ký cho bé ${be.name}` });
+      }
+      dsBe.push(be);
+    }
+    const luc = new Date().toISOString();
+    const daGhi = [];
+    const boQua = [];
+    db.tx(() => {
+      for (const be of dsBe) {
+        // Thay bỉm chỉ cho bé có sổ nhà trẻ — cùng một luật với ô số lần bỉm.
+        if (loai === 'thay-bim' && !coSoNhaTre(be, ngay)) {
+          boQua.push({ studentId: be.id, hoTen: be.name, lyDo: 'không thuộc nhóm nhà trẻ' });
+          continue;
+        }
+        const n = db.first('nhatky_vesinh',
+          'SELECT COUNT(*) AS n FROM nhatky_vesinh WHERE studentId = ? AND ngay = ?', [be.id, ngay]).n;
+        if (n >= TOI_DA_LAN_NGAY) {
+          boQua.push({ studentId: be.id, hoTen: be.name, lyDo: 'đã ghi quá nhiều lần trong ngày' });
+          continue;
+        }
+        db.insert('nhatky_vesinh', {
+          id: db.nextId('nkv'), studentId: be.id, ngay, luc: lucGio, loai,
+          coPoo: coPoo ? 1 : 0, tinhChat: coPoo ? tinhChat : '', ghiChu, nguoiGhi: req.user.id, taoLuc: luc,
+        });
+        doiSoLan(be, ngay, loai, +1, req.user.id, luc);
+        daGhi.push(be.id);
+      }
+    });
+    db.audit(req.user.id, 'nhatky-ve-sinh', null, { ngay, loai, luc: lucGio, soBe: daGhi.length });
+    res.json({
+      ok: true, ngay, daGhi: daGhi.length, boQua,
+      ...(boQua.length ? { nhac: `Chưa ghi cho ${boQua.map(x => `${x.hoTen} (${x.lyDo})`).join(', ')}.` } : {}),
+    });
+  });
+
+  app.delete('/api/nhatky/ve-sinh/:id', requireRole('teacher', 'admin'), (req, res) => {
+    const e = db.first('nhatky_vesinh', 'SELECT * FROM nhatky_vesinh WHERE id = ?', [String(req.params.id)]);
+    if (!e) return res.status(404).json({ error: 'Không tìm thấy lần ghi này' });
+    if (!db.canAccessStudent(req.user, e.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền sửa nhật ký của bé này' });
+    }
+    const be = db.findStudent(e.studentId);
+    const luc = new Date().toISOString();
+    db.tx(() => {
+      db.run('DELETE FROM nhatky_vesinh WHERE id = ?', [e.id]);
+      if (be) doiSoLan(be, e.ngay, e.loai, -1, req.user.id, luc);
+    });
+    db.audit(req.user.id, 'nhatky-ve-sinh-bo', null, { ngay: e.ngay, loai: e.loai, luc: e.luc });
+    res.json({ ok: true });
   });
 };

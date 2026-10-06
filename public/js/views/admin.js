@@ -2069,6 +2069,9 @@ Vẫn nhận bé này?`)) {
       // Ghi chép về bé
       'nhatky-ghi': 'Ghi nhật ký ngày',
       'nhatky-ghi-bua': 'Ghi nhật ký một bữa',
+      'nhatky-gui': 'Gửi nhật ký ngày cho gia đình',
+      'nhatky-ve-sinh': 'Ghi giờ thay bỉm / đi vệ sinh',
+      'nhatky-ve-sinh-bo': 'Bỏ một mốc giờ vệ sinh ghi nhầm',
       'remark-update': 'Ghi nhận xét',
       'remark-withdraw': 'Thu hồi nhận xét',
       'report-update': 'Ghi phiếu đánh giá',

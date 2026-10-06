@@ -57,6 +57,15 @@ const GV2 = (await login('giaovien2', '123456')).cookie;  // cô nhóm khác
 // NHIỀU CÔ MỘT NHÓM, thay đổi nền lớn nhất của app 2.
 const GV3 = (await login('giaovien3', '123456')).cookie;
 const PH = (await login('phuhuynh', '123456')).cookie;    // mẹ bé s1
+// LƯU LÀ NHÁP, GỬI MỚI THẤY (góp ý 06/10, mục 9 — chủ dự án chốt 06/10): gia
+// đình chỉ đọc phần cô đã bấm Gửi. Các phép kiểm "gia đình đọc được" dưới đây
+// giữ nguyên; trước mỗi lần đọc, cô gửi cả ba phần như cô sẽ làm cuối buổi.
+// Luồng gửi canh riêng ở `test/nhat-ky-gui.test.mjs`.
+async function coGuiHet(cookie, classId, ngay, studentIds) {
+  for (const phan of ['an', 'ngu', 'vesinh']) {
+    await req('POST', '/api/nhatky/gui', { cookie, body: { classId, ngay, phan, studentIds } });
+  }
+}
 
 // Hỏi chung một chỗ với máy chủ (lib/ngay.js), không tự tính bằng giờ UTC —
 // xem chú thích ở test/_chung.mjs. Tự tính là bài test đỏ vào buổi tối.
@@ -276,6 +285,7 @@ console.log('\n[6] Ai được đọc, ai được ghi');
   });
   check('phụ huynh KHÔNG ghi được — đây là ghi chép của cô', phGhi.status === 403, phGhi.status);
 
+  await coGuiHet(GV, 'c1', HOM_NAY, ['s1']);
   const conMinh = await req('GET', '/api/nhatky?studentId=s1', { cookie: PH });
   check('phụ huynh đọc được nhật ký CON MÌNH', conMinh.status === 200, conMinh.status);
   check('và thấy tên cô đã ghi, để biết hỏi ai',
@@ -527,6 +537,7 @@ console.log('\n[10] Nhật ký nối thẳng với THỰC ĐƠN của ngày đó
   await req('PUT', '/api/nhatky', {
     cookie: GV, body: { ngay: NGAY, danhSach: [{ studentId: 's1', anTrua: 'het' }] },
   });
+  await coGuiHet(GV, 'c1', NGAY, ['s1']);
   const ph = await req('GET', `/api/nhatky?studentId=s1&tu=${NGAY}&den=${NGAY}`, { cookie: PH });
   check('màn của gia đình cũng kèm thực đơn hôm đó',
     JSON.stringify(ph.data?.ngayCo?.[0]?.thucDon?.anTrua?.mon) === JSON.stringify(truaMenu?.items),
@@ -833,6 +844,7 @@ console.log('\n[14] THỰC ĐƠN TRONG NHẬT KÝ PHẢI LÀ BẾP CỦA CHÍNH 
   //
   // Mẹ bé s1 có thể có hai con ở hai cơ sở, nên câu hỏi đúng luôn là "bé NÀY
   // ăn bếp nào", chứ không phải "người đang mở màn hình thuộc cơ sở nào".
+  await coGuiHet(GV, 'c1', NGAY, ['s1']);
   const ph = await req('GET', '/api/nhatky?studentId=s1&tu=' + NGAY + '&den=' + NGAY, { cookie: PH });
   const ngayCo = (ph.data?.ngayCo || []).find(n => n.ngay === NGAY);
   check('màn của gia đình cũng thấy đúng bếp của cơ sở con đang học',

@@ -10,8 +10,11 @@
 //      bữa), không có thực đơn thì ba bữa mặc định.
 //   2. Bảng `nhatky_ngay` KHÔNG đổi cột. Bữa ghi ở bảng phụ `nhatky_bua`, và
 //      ba bữa trùng cột cũ được đồng bộ ngược — app cũ còn trong máy vẫn đúng.
-//   3. Ghi xong là gia đình có tin riêng ("Bữa trưa của An đã được cô ghi"),
-//      một lần lưu = tối đa một tin mỗi bé, lưu lại y hệt thì không có tin.
+//   3. (Đổi 06/10 — góp ý mục 9, chủ dự án chốt "Lưu là nháp, Gửi mới thấy".)
+//      Bản 07/09 báo gia đình ngay mỗi lần lưu. Nay lưu KHÔNG báo ai; tin đi
+//      khi cô bấm Gửi, một tin mỗi bé, tên bữa lấy từ thực đơn. Luồng gửi đầy
+//      đủ canh ở `test/nhat-ky-gui.test.mjs`; mục [7] dưới đây giữ phần nối
+//      giữa ghi bữa và tin báo.
 //   4. "Nhật ký ngày sẽ được tự động bỏ đi với các bạn không phải lớp nhà trẻ."
 //      → /api/nhatky/pham-vi trả đúng cho từng vai, và trang chủ ẩn ô theo
 //      trường `dieuKienHien` TỔNG QUÁT của module.json.
@@ -109,7 +112,8 @@ try {
     });
     check('ghi được bữa phụ sáng cho cả nhóm', r.status === 200 && r.data.ok === true, `${r.status} ${JSON.stringify(r.data).slice(0, 160)}`);
     check('máy chủ nói đã ghi 3 bé, không xung đột', r.data.daGhi === 3 && (r.data.xungDot || []).length === 0, JSON.stringify(r.data));
-    check('chỉ 2 bé có gì mới được BÁO gia đình — bé để trống thì không', r.data.daBao === 2, r.data.daBao);
+    check('LƯU LÀ NHÁP: không báo ai (daBao 0), nhưng máy chủ vẫn đếm đúng 2 bé có gì mới — bé để trống thì không',
+      r.data.daBao === 0 && r.data.daDoi === 2, JSON.stringify({ daBao: r.data.daBao, daDoi: r.data.daDoi }));
 
     const sau = await req('GET', `/api/nhatky?classId=c4&ngay=${HOM_NAY}`, { cookie: GV_NT });
     const b9 = buaCua(beCua(sau, 's9'), 'snack_sang');
@@ -185,6 +189,13 @@ try {
   // =========================================================================
   console.log('\n[5] Gia đình thấy đúng NĂM bữa với tên món của con mình — nhà khác không thấy, và không ghi được');
   {
+    // LƯU LÀ NHÁP (góp ý 06/10, mục 9): trước khi cô bấm Gửi, gia đình chưa thấy gì.
+    const truocGui = await req('GET', `/api/nhatky?studentId=s9&tu=${HOM_NAY}&den=${HOM_NAY}`, { cookie: PH_NT });
+    check('trước khi cô bấm Gửi, gia đình chưa thấy bản cô đang ghi',
+      truocGui.status === 200 && ((truocGui.data || {}).ngayCo || []).length === 0, JSON.stringify(truocGui.data).slice(0, 160));
+    const gui = await req('POST', '/api/nhatky/gui', { cookie: GV_NT, body: { classId: 'c4', ngay: HOM_NAY, phan: 'an', studentIds: ['s9'] } });
+    check('cô bấm Gửi phần ăn uống của s9', gui.status === 200 && gui.data.daGui === 1, JSON.stringify(gui.data).slice(0, 160));
+
     const r = await req('GET', `/api/nhatky?studentId=s9&tu=${HOM_NAY}&den=${HOM_NAY}`, { cookie: PH_NT });
     check('mẹ s9 đọc được nhật ký con', r.status === 200, r.status);
     const ngay = ((r.data || {}).ngayCo || [])[0] || {};
@@ -221,31 +232,33 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[7] Gia đình được BÁO ngay khi cô ghi — một lần lưu, một tin mỗi bé, lưu lại y hệt thì im');
+  console.log('\n[7] Lưu là NHÁP — tin đi khi cô bấm GỬI, một tin mỗi bé, gửi lại y hệt thì im (đổi 06/10)');
   {
     const truoc = await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT });
     const rieng = (truoc.data || []).filter(n => n.laRiengBe && n.loai === 'nhatky');
     const ten = await tenBe('s9');
-    check('mẹ s9 đã có tin riêng loại nhatky từ các lần cô ghi ở trên', rieng.length >= 3, rieng.length);
-    check('tin bữa trưa gọi đúng tên bữa và tên bé', rieng.some(n => n.title === `Bữa trưa của ${ten} đã được cô ghi`), rieng.map(n => n.title).join(' | '));
-    check('tin bữa phụ sáng mang mức ăn và ghi chú làm nội dung', rieng.some(n => n.title.startsWith('Bữa phụ sáng của') && /Ăn hết · ăn ngon/.test(n.body)), rieng.map(n => n.body).join(' | '));
-    check('tin giấc trưa từ bước ngủ', rieng.some(n => n.title === `Giấc trưa của ${ten} đã được cô ghi`), rieng.map(n => n.title).join(' | '));
-    check('tin mở đúng màn Nhật ký', rieng.every(n => n.hash === '#/nhatky'));
-    check('nhà khác KHÔNG có tin về s9', !((await req('GET', '/api/notifications/rieng-be', { cookie: PH })).data || []).some(n => n.studentId === 's9'));
+    check('mẹ s9 có ĐÚNG MỘT tin — của lần Gửi ở mục [5]; các lần LƯU ở trên không sinh tin', rieng.length === 1, rieng.map(n => n.title).join(' | '));
 
-    // Lưu lại Y HỆT → không tin mới.
+    // Lưu lại Y HỆT → vẫn không tin nào.
     const lap = await req('PUT', '/api/nhatky/bua', { cookie: C1, body: { classId: 'c4', ngay: HOM_NAY, bua: 'lunch', danhSach: [{ studentId: 's9', muc: 'gan-het' }] } });
     check('lưu lại y hệt: máy chủ nhận nhưng không báo ai', lap.status === 200 && lap.data.daBao === 0, JSON.stringify(lap.data).slice(0, 100));
-    const giua = await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT });
-    const soGiua = (giua.data || []).filter(n => n.laRiengBe && n.loai === 'nhatky').length;
-    check('KHÔNG LẶP: số tin không đổi', soGiua === rieng.length, `${rieng.length} → ${soGiua}`);
 
-    // Đổi thật → đúng MỘT tin thêm.
+    // Ghi bữa sữa rồi GỬI phần ăn uống → đúng MỘT tin, tên bữa lấy từ thực đơn.
     await req('PUT', '/api/nhatky/bua', { cookie: C1, body: { classId: 'c4', ngay: HOM_NAY, bua: 'milk', danhSach: [{ studentId: 's9', muc: 'het' }, { studentId: 's10', muc: 'het' }] } });
+    const gui = await req('POST', '/api/nhatky/gui', { cookie: GV_NT, body: { classId: 'c4', ngay: HOM_NAY, phan: 'an', studentIds: ['s9'] } });
+    check('cô bấm Gửi phần ăn uống cho s9', gui.status === 200 && gui.data.daGui === 1, JSON.stringify(gui.data).slice(0, 160));
     const sau = await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT });
-    const soSau = (sau.data || []).filter(n => n.laRiengBe && n.loai === 'nhatky').length;
-    check('ghi bữa sữa → mẹ s9 thêm đúng một tin', soSau === soGiua + 1, `${soGiua} → ${soSau}`);
-    check('tên bữa lấy từ thực đơn ("Sữa Vinamilk"), không tự đặt', ((sau.data || [])[0] || {}).title === `Sữa Vinamilk của ${ten} đã được cô ghi`, ((sau.data || [])[0] || {}).title);
+    const tin = (sau.data || []).filter(n => n.laRiengBe && n.loai === 'nhatky');
+    check('mẹ s9 nhận thêm đúng MỘT tin', tin.length === 2, tin.length);
+    check('tin gọi đúng phần, tên bé, và nói là cô vừa cập nhật', (tin[0] || {}).title === `Ăn uống của ${ten} — cô vừa cập nhật`, (tin[0] || {}).title);
+    check('tên bữa lấy từ thực đơn ("Sữa Vinamilk"), không tự đặt, kèm mức ăn',
+      /Sữa Vinamilk: Ăn hết/.test((tin[0] || {}).body || '') && /Bữa phụ sáng: Ăn hết/.test((tin[0] || {}).body || ''), (tin[0] || {}).body);
+    check('tin mở đúng màn Nhật ký', tin.every(n => n.hash === '#/nhatky'));
+    check('nhà khác KHÔNG có tin về s9', !((await req('GET', '/api/notifications/rieng-be', { cookie: PH })).data || []).some(n => n.studentId === 's9'));
+
+    const lai = await req('POST', '/api/nhatky/gui', { cookie: GV_NT, body: { classId: 'c4', ngay: HOM_NAY, phan: 'an', studentIds: ['s9'] } });
+    const soLai = ((await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT })).data || []).filter(n => n.laRiengBe && n.loai === 'nhatky').length;
+    check('KHÔNG LẶP: gửi lại khi không đổi gì thì không có tin mới', lai.data.daGui === 0 && soLai === 2, `${lai.data.daGui} / ${soLai}`);
   }
 
   // =========================================================================
