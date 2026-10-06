@@ -179,8 +179,20 @@ console.log('\n[1c] Ô Cambridge ẩn với gia đình nhóm nhà trẻ (Đ193, 
   check('nhà có bé 3–4 thì ô Cambridge HIỆN', (await pv(PH_34)).hien === true);
   check('nhà có bé 14 tháng thì ô ẨN — bé chưa vào chương trình',
     (await pv(PH_BE)).hien === false);
-  check('CÔ luôn thấy ô — cô dạy nhiều nhóm', (await pv(GV)).hien === true);
-  check('văn phòng cũng vậy — văn phòng nhìn cả trường', (await pv(VP)).hien === true);
+  check('cô nhóm mẫu giáo thấy ô', (await pv(GV)).hien === true);
+  check('văn phòng luôn thấy — văn phòng nhìn cả trường', (await pv(VP)).hien === true);
+
+  // Góp ý 06/10 (mục 5): *"không xuất hiện trong ứng dụng của PH và GIÁO VIÊN
+  // lứa tuổi nhà trẻ"*. Trước đợt này mọi cô đều thấy. Cô Hồng (giaovien4) chỉ
+  // dạy Nhà trẻ 1; nhóm chưa khai thì theo ngày sinh — trong nhóm có bé 38
+  // tháng nên cô vẫn thấy. Khai nhóm là nhà trẻ thì ô ẩn với cô.
+  const GV_NT = (await login('giaovien4', '123456')).cookie;
+  check('cô nhóm nhà trẻ CHƯA KHAI, có bé đã 38 tháng: vẫn thấy ô (theo ngày sinh)', (await pv(GV_NT)).hien === true);
+  await req('PUT', '/api/admin/classes/c4/lua-tuoi', { cookie: VP, body: { lua: 'nha-tre' } });
+  check('KHAI Nhà trẻ 1 là nhà trẻ: ô Cambridge ẨN với cô nhóm ấy', (await pv(GV_NT)).hien === false);
+  check('nhưng cô nhóm mẫu giáo vẫn thấy', (await pv(GV)).hien === true);
+  await req('PUT', '/api/admin/classes/c4/lua-tuoi', { cookie: VP, body: { lua: '' } });
+  check('gỡ lời khai: cô nhà trẻ thấy lại', (await pv(GV_NT)).hien === true);
 
   // LỜI KHAI CỦA NHÓM CŨNG TÍNH. Một bé 40 tháng học nhóm nhà trẻ (trường giữ
   // lại theo thoả thuận) thì cũng chưa vào Cambridge.
@@ -323,8 +335,27 @@ console.log('\n[5] Công bố thì gia đình được báo — ĐÚNG LỨA, qu
   const c45 = await tin(PH_45);
   check('nhà bé 4–5 KHÔNG có tin đó', !(Array.isArray(c45) ? c45 : []).some(t => /Week 2 \(3–4\)/.test(t.title || t.tieuDe || '')));
 
+  // Góp ý 06/10 (mục 5): Cambridge KHÔNG xuất hiện với gia đình nhà trẻ — nên
+  // tờ "mọi lứa" cũng thôi rung điện thoại nhà bé dưới 36 tháng. Dữ liệu mẫu có
+  // 11 bé đang học, hai bé dưới 36 tháng (s9 14 tháng, s10 34 tháng) → 9 nhà.
+  // Bản cũ đòi ">= 10", tức đòi báo cả nhà bé 14 tháng.
   const chung = await dang({ tieuDe: 'Thư cả trường tuần 3', noiDung: 'x' });
-  check('bài cho cả hai lứa báo mọi bé đang học trong phạm vi', chung.congBo?.data?.soGiaDinhDuocBao >= 10, chung.congBo?.data?.soGiaDinhDuocBao);
+  check('bài cho mọi lứa báo mọi bé ĐÃ VÀO CHƯƠNG TRÌNH trong phạm vi — không báo nhà bé dưới 36 tháng',
+    chung.congBo?.data?.soGiaDinhDuocBao === 9, chung.congBo?.data?.soGiaDinhDuocBao);
+  const tinBe = ((await req('GET', '/api/notifications/rieng-be', { cookie: PH_BE })).data?.list
+    || (await req('GET', '/api/notifications/rieng-be', { cookie: PH_BE })).data || []);
+  check('nhà bé 14 tháng KHÔNG nhận tin tờ "mọi lứa"',
+    !(Array.isArray(tinBe) ? tinBe : []).some(t => /Thư cả trường tuần 3/.test(t.title || t.tieuDe || '')));
+  check('tin trỏ thẳng đúng TAB của loại bài (màn không còn tab "Tất cả")',
+    /#\/cambridge\/cambridge$/.test(co34?.hash || ''), co34?.hash);
+
+  // Nhóm KHAI là nhà trẻ thì bé 38 tháng trong nhóm ấy cũng không nhận tin.
+  const khaiNt = (lua) => req('PUT', '/api/admin/classes/c4/lua-tuoi', { cookie: VP, body: { lua } });
+  await khaiNt('nha-tre');
+  const sauKhai = await dang({ tieuDe: 'Block 1, Week 3 (3–4)', noiDung: 'x', khung: { luaTuoi: '3-4' } });
+  check('khai nhóm Nhà trẻ 1 là nhà trẻ: bé 38 tháng trong nhóm ấy KHÔNG còn được báo — chỉ còn s5',
+    sauKhai.congBo?.data?.soGiaDinhDuocBao === 1, sauKhai.congBo?.data?.soGiaDinhDuocBao);
+  await khaiNt('');
 }
 
 // ===========================================================================

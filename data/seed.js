@@ -369,8 +369,20 @@ function sinh(db, moc) {
     congBoLuc: luc(daysAgo(2), 15), nguoiDang: '',
     taoLuc: luc(daysAgo(2), 14), capNhatLuc: luc(daysAgo(2), 15),
   });
+  // Màn Cambridge mở sẵn ở tab Letter for Parent (góp ý 06/10) — dữ liệu mẫu
+  // cần ít nhất một lá thư, kẻo người bấm thử mở ra thấy tab đầu trống trơn.
   them('cambridge_bai', {
-    id: ma('cb'), loai: 'ketnoi', tieuDe: 'Kết nối ở nhà: chơi với nước',
+    id: ma('cb'), loai: 'thu-phu-huynh', tieuDe: 'Thư gửi gia đình: tháng này các con học gì',
+    noiDung: 'Tháng này các con làm quen với màu sắc và các con số từ 1 đến 5 bằng tiếng Anh.\n\n'
+      + 'Ở nhà, gia đình hỏi con "What colour is it?" khi cùng con xếp đồ chơi nhé.',
+    tuan: tuanNay, phamVi: 'truong', campusId: '', classId: '', anh: '',
+    congBoLuc: luc(daysAgo(3), 16), nguoiDang: '',
+    taoLuc: luc(daysAgo(3), 15), capNhatLuc: luc(daysAgo(3), 16),
+  });
+  // Mã loại phải đúng `ket-noi` như máy chủ khai (LOAI). Bản cũ ghi `ketnoi` —
+  // tờ ấy chỉ hiện ở tab "Tất cả", và tab đó nay không còn.
+  them('cambridge_bai', {
+    id: ma('cb'), loai: 'ket-noi', tieuDe: 'Kết nối ở nhà: chơi với nước',
     noiDung: 'Cuối tuần này bố mẹ cho con phụ rửa rau, rót nước vào bình, '
       + 'và cùng con thả thử vài thứ vào chậu nước xem cái nào nổi cái nào chìm.',
     tuan: tuanNay, phamVi: 'nhom', campusId: 'cs1', classId: 'c1', anh: '',

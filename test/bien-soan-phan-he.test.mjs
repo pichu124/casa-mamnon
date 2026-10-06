@@ -426,6 +426,89 @@ console.log('\n[7] Cambridge & Kết nối ở nhà — văn phòng soạn, gia 
 }
 
 // ===========================================================================
+// Góp ý của trường 06/10, mục 5: bỏ tab "Tất cả"; mỗi loại bài một mẫu soạn;
+// "Thêm block" chỉ ở tab Letter for Parent; gia đình chỉ thấy BLOCK ĐANG HỌC.
+console.log('\n[7b] Cambridge — ba tab, ba mẫu soạn, gia đình chỉ thấy block đang học');
+{
+  await dangNhap('hieutruong', 'quantri2026');
+  await moMan('#/cambridge');
+  const tab = await page.locator('#cam-loc button').allInnerTexts();
+  check('đúng BA tab, không còn "Tất cả"', tab.length === 3 && !tab.some(t => /Tất cả/.test(t)), tab);
+  check('mở sẵn ở Letter for Parent',
+    /Letter for Parent/.test(await page.locator('#cam-loc button.active').innerText().catch(() => '')));
+  check('tab Letter có nút Thêm block', await page.locator('#cam-block-quan-ly').count() === 1);
+
+  // Mẫu soạn đi theo loại bài. Ô ẩn vẫn nằm trong mẫu (để sửa bài cũ không
+  // xoá chữ), nên đo bằng "có HIỆN không", không đo "có tồn tại không".
+  await page.click('#cam-them');
+  await page.waitForTimeout(600);
+  const hien = (sel) => page.locator(sel).isVisible();
+  check('soạn mới ở tab Letter thì loại bài chọn sẵn là Letter',
+    await page.inputValue('#cam-loai') === 'thu-phu-huynh');
+  check('Letter: CÓ ô Nội dung', await hien('#cam-noidung'));
+  check('Letter: KHÔNG có ô Hoạt động Cambridge', !(await hien('#cam-mon')));
+  check('Letter: vẫn có Block và Lứa tuổi', (await hien('#cam-block')) && (await hien('#modal-overlay #cam-lua')));
+  await page.selectOption('#cam-loai', 'cambridge');
+  check('Weekly Plan: KHÔNG có ô Nội dung', !(await hien('#cam-noidung')));
+  check('Weekly Plan: có Hoạt động, Chủ đề, Từ vựng, Song/Chant',
+    (await hien('#cam-mon')) && (await hien('#cam-chu-de')) && (await hien('#cam-tu-vung')) && (await hien('#cam-song')));
+  check('Weekly Plan: không mời điền ô "Kết nối ở nhà" trùng lặp', !(await hien('#cam-ket-noi')));
+  await page.selectOption('#cam-loai', 'ket-noi');
+  check('Home Connection: có Nội dung VÀ khung Cambridge',
+    (await hien('#cam-noidung')) && (await hien('#cam-mon')));
+
+  // Soạn một Weekly Plan CHỈ CÓ KHUNG, chọn lứa 4–5, rồi lưu bằng nút trên màn.
+  // Hai điều phải đúng: lứa đã chọn được GHI THẬT (Đ206 đặt trùng mã `cam-lua`
+  // giữa nút "Xem theo từng lứa" và ô chọn lứa, nên văn phòng lưu gì cũng
+  // thành "mọi lứa"), và tờ không có ô Nội dung vẫn gửi được tới gia đình.
+  await page.selectOption('#cam-loai', 'cambridge');
+  await page.fill('#cam-tieude', 'Weekly Plan chỉ có khung — Farm animals');
+  await page.fill('#cam-mon', 'Communication and Language');
+  await page.fill('#cam-chu-de', 'Farm animals');
+  await page.selectOption('#modal-overlay #cam-lua', '4-5');
+  await page.click('#cam-luu');
+  await page.waitForTimeout(1500);
+  const baiWp = await page.evaluate(async () => {
+    const d = await (await fetch('/api/cambridge?loai=cambridge')).json();
+    return (d.bai || []).find(b => /chỉ có khung/.test(b.tieuDe)) || null;
+  });
+  check('lưu từ màn hình: LỨA ĐÃ CHỌN ĐƯỢC GHI THẬT (không rơi về "mọi lứa")',
+    baiWp && baiWp.khung && baiWp.khung.luaTuoi === '4-5', baiWp && baiWp.khung);
+  const guiWp = await page.evaluate(async (id) => (await fetch(`/api/cambridge/${id}/cong-bo`, { method: 'POST' })).status, baiWp && baiWp.id);
+  check('Weekly Plan không có ô Nội dung, chỉ có khung, VẪN GỬI ĐƯỢC tới gia đình', guiWp === 200, guiWp);
+
+  // Đổi tab bằng đường dẫn; tab khác không có khối block.
+  await page.locator('#cam-loc button', { hasText: 'Cambridge Weekly Plan' }).click();
+  await page.waitForTimeout(1200);
+  check('bấm tab đổi đường dẫn thành #/cambridge/cambridge',
+    await page.evaluate(() => location.hash) === '#/cambridge/cambridge');
+  check('tab Weekly Plan KHÔNG có nút Thêm block', await page.locator('#cam-block-quan-ly').count() === 0);
+
+  // Hai block lứa 4–5: một đã qua, một đang học. Gia đình chỉ thấy block đang học.
+  const homNay = await page.evaluate(() => UI.ngayVN());
+  const lui = (n) => new Date(Date.parse(homNay + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+  const taoBlock = (b) => page.evaluate(async (b) => (await fetch('/api/cambridge/block', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
+  })).status, b);
+  check('văn phòng tạo được block đã qua',
+    await taoBlock({ ten: 'Block Cũ Đã Qua', luaTuoi: '4-5', tuNgay: lui(-90), denNgay: lui(-30), mucTieu: 'Mục tiêu cũ' }) === 201);
+  check('văn phòng tạo được block đang học',
+    await taoBlock({ ten: 'Block Đang Học', luaTuoi: '4-5', tuNgay: lui(-10), denNgay: lui(30), mucTieu: 'Mục tiêu block này' }) === 201);
+  await moMan('#/cambridge');
+  const vp = await chuTrenMan();
+  check('văn phòng: block đang học đứng trên', /Block Đang Học/.test(vp), vp.slice(0, 300));
+  check('văn phòng: block khác vẫn sửa được, gập trong "Mọi block khác"',
+    await page.locator('#cam-block-khac').count() === 1);
+
+  await dangNhap('phuhuynh', '123456');
+  await moMan('#/cambridge');
+  const gd = await chuTrenMan();
+  check('GIA ĐÌNH THẤY BLOCK CON ĐANG HỌC', /Block Đang Học/.test(gd) && /Mục tiêu block này/.test(gd), gd.slice(0, 300));
+  check('GIA ĐÌNH KHÔNG THẤY BLOCK ĐÃ QUA', !/Block Cũ Đã Qua/.test(gd), gd.slice(0, 300));
+  check('gia đình không có dòng "Mọi block khác"', await page.locator('#cam-block-khac').count() === 0);
+}
+
+// ===========================================================================
 console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhìn thấy');
 {
   await dangNhap('hieutruong', 'quantri2026');

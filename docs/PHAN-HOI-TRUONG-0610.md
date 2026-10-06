@@ -1,0 +1,34 @@
+# Góp ý của trường ngày 06/10/2026 — bản "Ứng dụng My Casa" (9 mục)
+
+Nguồn: tệp PDF 9 trang chủ dự án gửi ngày 06/10/2026 (có ảnh chụp màn hình). Tệp gốc
+**không** đưa vào kho mã (có ảnh màn hình mang tên bé thật). Mỗi mục dưới đây ghi:
+trường nói gì → mã đang ở đâu → làm gì → trạng thái.
+
+Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối tệp).
+
+| # | Mục | Trạng thái |
+|---|---|---|
+| 1 | Hồ sơ của bé — ô tìm nhanh + cây Cơ sở → Nhóm → Bé | đang làm |
+| 2 | Điểm danh — gọi xác nhận, gom theo nhóm, ảnh lần 2 = ra về, chấm công cô, bỏ Đón trẻ | đang làm |
+| 3 | Thực đơn — tệp Excel mẫu, nạp lên tự điền từng ngày | đang làm |
+| 4.1 | Kế hoạch giáo dục — một bản chung cả trường, soạn theo tuần | đang làm |
+| 4.2 | Lịch sinh hoạt theo ngày không vào được | ✅ Đ222 |
+| 5 | Cambridge — bỏ "Tất cả", ba loại bài ba mẫu soạn, block hiện tại, ẩn với nhà trẻ | ✅ Đ223 |
+| 6 | Kế hoạch của bé — ba tab theo chương trình, kho bài theo lứa, duyệt/trả lại | đang làm |
+| 7 | Hành trình của bé — bốn tab, nhìn lại cuối tháng, ghi nhanh không gắn bé, giọng nói | đang làm |
+| 8 | Ghi nhanh — dùng ảnh cho từng chương trình, nhắc tần suất mỗi tuần | đang làm |
+| 9 | Nhật ký ngày — ba tab, chọn nhiều bé, giờ thay bỉm/đi vệ sinh, nút Gửi | đang làm |
+
+## Bốn điểm chủ dự án chốt ngày 06/10
+
+1. **Nhật ký ngày — "Lưu là nháp, Gửi mới thấy".** Cô lưu thoải mái; gia đình chỉ thấy
+   và nhận thông báo sau khi cô bấm Gửi, qua một màn soát lại danh sách bé. Dữ liệu ghi
+   trước ngày đổi vẫn hiện như cũ (Nguyên tắc số 1, vế 3).
+2. **Đánh giá cuối tháng — giữ 5 trạng thái trung tính + chữ M/S/W/N/NA.** "Ký tự quy
+   ước" của trường = chữ cái đã có. "Hoàn thành / Xuất sắc" hiểu là Đã vững (S) /
+   Vượt trội (M); hai mức này tự điền vào bản NHÁP Báo cáo tháng, cô vẫn soát trước khi
+   gửi. Gia đình KHÔNG thấy kết quả từng bài trong tab Kế hoạch (giữ bài canh Đ191).
+   Không nới bộ canh QUY TẮC 4.
+3. **Chấm công cô ở màn điểm danh — chụp ảnh như với bé.** Đây là loại dữ liệu mới:
+   ảnh khuôn mặt người lớn. Xem mục 2 về quyền xem và thời hạn giữ.
+4. **Giọng nói thành chữ — chủ dự án muốn có, hỏi cách tối ưu cho tiếng Việt.** Xem mục 7.

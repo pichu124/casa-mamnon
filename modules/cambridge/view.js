@@ -5,7 +5,10 @@
 // nhắc phạm vi ngay trên hộp thoại soạn — gửi nhầm nhóm là lỗi không rút lại
 // được khỏi điện thoại đã đọc.
 App.views.cambridge = {
-  _loai: '',
+  // KHÔNG CÒN TAB "TẤT CẢ" (góp ý 06/10, mục 5): màn chỉ có đúng ba tab, mở
+  // sẵn ở Letter for Parent. Máy chủ vẫn trả mọi loại khi không lọc — chỉ màn
+  // hình thôi hỏi kiểu đó.
+  _loai: 'thu-phu-huynh',
   _data: null,
   _anhMoi: null,
 
@@ -30,7 +33,13 @@ App.views.cambridge = {
     this._conNua = (d.bai || []).length >= this.MOI_TRANG;
   },
 
-  async render(root) {
+  // Tab đi theo ĐƯỜNG DẪN (`#/cambridge/<loại>`): tin báo bài Weekly Plan mở
+  // thẳng đúng tab đó, và nút Quay lại của điện thoại đi đúng tab trước.
+  LOAI_HOP_LE: ['thu-phu-huynh', 'cambridge', 'ket-noi'],
+
+  async render(root, params) {
+    const tuDuongDan = params && params[0];
+    this._loai = this.LOAI_HOP_LE.includes(tuDuongDan) ? tuDuongDan : 'thu-phu-huynh';
     // Đổi bộ lọc, hoặc vào lại màn này, thì tải lại từ trang một. Chỉ nút "xem
     // tờ cũ hơn" mới giữ phần đã tải.
     if (this._loai !== this._loaiDaTai || !this._giuTrang) {
@@ -43,13 +52,12 @@ App.views.cambridge = {
     root.innerHTML = `
       ${UI.pageHeader('Cambridge & Kết nối ở nhà')}
       <div class="seg" id="cam-loc">
-        <button class="${this._loai === '' ? 'active' : ''}" data-loai="">Tất cả</button>
         ${(d.loai || []).map(l => `<button class="${this._loai === l.ma ? 'active' : ''}" data-loai="${UI.esc(l.ma)}">${UI.esc(l.ten)}</button>`).join('')}
       </div>
 
       ${d.duocDang ? `<button class="btn primary block mb-8" id="cam-them">${UI.icon('plus', 18)} Soạn bài mới</button>` : ''}
-      ${this.laVanPhong() ? `<button class="btn outline block mb-8" id="cam-lua">${UI.icon('report', 16)} Xem theo từng lứa</button>` : ''}
-      ${this.khoiBlock(d)}
+      ${this.laVanPhong() ? `<button class="btn outline block mb-8" id="cam-xem-lua">${UI.icon('report', 16)} Xem theo từng lứa</button>` : ''}
+      ${this._loai === 'thu-phu-huynh' ? this.khoiBlock(d) : this.dongLuaCuaCon(d)}
 
       ${(d.bai || []).length
         ? (d.bai || []).map(b => this.theBai(b, d)).join('')
@@ -62,9 +70,14 @@ App.views.cambridge = {
         </button>` : ''}`;
 
     for (const b of document.getElementById('cam-loc').querySelectorAll('button')) {
-      b.onclick = () => { this._loai = b.dataset.loai; App.route(); };
+      b.onclick = () => { location.hash = `#/cambridge/${b.dataset.loai}`; };
     }
-    const oLua = document.getElementById('cam-lua');
+    // Mã nút là `cam-xem-lua`, KHÔNG phải `cam-lua`. Đ206 đặt trùng mã với ô
+    // chọn "Lứa tuổi" trong mẫu soạn — `luu()` hỏi getElementById('cam-lua')
+    // thì nhận về CÁI NÚT (đứng trước hộp thoại trong trang), giá trị rỗng, và
+    // mọi bài văn phòng lưu từ màn hình đều thành "mọi lứa" dù đã chọn 3–4.
+    // Lộ ra 06/10 khi bài canh trình duyệt hỏi ô Lứa tuổi có hiện không.
+    const oLua = document.getElementById('cam-xem-lua');
     if (oLua) oLua.onclick = () => this.moTheoLua();
     const them = document.getElementById('cam-them');
     if (them) them.onclick = () => this.moSoan(null);
@@ -146,39 +159,43 @@ App.views.cambridge = {
     `, 'Cambridge theo từng lứa');
   },
 
-  khoiBlock(d) {
-    const blocks = d.blocks || [];
+  //
+  // CHỈ Ở TAB LETTER FOR PARENT, VÀ GIA ĐÌNH CHỈ THẤY BLOCK ĐANG HỌC (góp ý
+  // 06/10, mục 5): *"có 6 block học trong 1 năm học, tuy nhiên sẽ chỉ hiện lên
+  // Block hiện mà con đang học để PH thấy rõ mục tiêu của block đó thôi. Show
+  // hết 6 block quá nhiều, PH kéo mỏi tay mới xuống xem được Letter for
+  // Parent"*. Máy chủ vẫn trả đủ block (văn phòng cần để quản lý, và ô chọn
+  // block trong mẫu soạn cần đủ) — việc chọn block đang học làm ở đây.
+  // Văn phòng thấy block đang học ở trên, các block còn lại gập trong một
+  // dòng "Mọi block", kèm nút sửa.
+  dongLuaCuaCon(d) {
     const con = d.luaTuoiCuaCon || [];
-    const dongCon = con.length ? `
+    return con.length ? `
       <div class="muted small mb-8" style="line-height:1.6">
         ${con.map(c => `${UI.esc(c.ten)}: <b>${UI.esc(c.tenLuaTuoi || '')}</b>`).join(' · ')}
       </div>` : '';
-    // NÓI RA KHI LỨA CỦA CON CHƯA CÓ BÀI, THAY VÌ ĐỂ MỘT KHOẢNG TRẮNG (Đ187).
-    //
-    // Từ hôm trường xác nhận Cambridge có tài liệu riêng cho 5–6 tuổi, bé từ
-    // 60 tháng trở lên không còn nhận bài lứa 4–5 nữa. Không mất dữ liệu gì,
-    // nhưng cho tới lúc trường soạn xong bộ 5–6 thì màn hình những nhà ấy
-    // trống trơn — và một màn hình trống không nói được nó trống VÌ SAO.
-    //
-    // Chỉ hiện cho gia đình có con ĐÃ vào chương trình. Nhà có bé dưới 36
-    // tháng thì lứa là rỗng, câu này không đúng với họ.
-    const conDaVao = con.filter(c => c.luaTuoi);
-    const chuaCoBai = !d.duocDang && conDaVao.length && !blocks.length;
-    const loiNhan = chuaCoBai ? `
-      <div class="muted small mb-8" style="line-height:1.6">
-        Trường chưa đăng bài Cambridge nào cho lứa
-        ${conDaVao.map(c => UI.esc(c.tenLuaTuoi || '')).filter((v, i, a) => a.indexOf(v) === i).join(' và ')}.
-        Khi cô đăng, bài sẽ hiện ngay ở đây.
-      </div>` : '';
-    if (!blocks.length && !d.duocDang) return dongCon + loiNhan;
+  },
+
+  // Block đang học hôm nay — MỖI LỨA MỘT BLOCK. Ô ngày bỏ trống coi như không
+  // giới hạn phía ấy. Nhiều block cùng lứa cùng phủ hôm nay (văn phòng quên
+  // ghi ngày kết thúc block cũ) thì lấy block BẮT ĐẦU MUỘN NHẤT — block mới
+  // thay block cũ, không hiện cả hai. Không block nào phủ hôm nay (giữa hai
+  // block, nghỉ hè) thì không hiện gì: hiện block đã qua hay block chưa tới
+  // đều là nói sai "con đang học gì".
+  blockDangHoc(blocks, homNay) {
+    const theoLua = new Map();
+    for (const b of blocks || []) {
+      if (b.tuNgay && b.tuNgay > homNay) continue;
+      if (b.denNgay && b.denNgay < homNay) continue;
+      const lua = b.luaTuoi || '';
+      const cu = theoLua.get(lua);
+      if (!cu || String(b.tuNgay || '') > String(cu.tuNgay || '')) theoLua.set(lua, b);
+    }
+    return [...theoLua.values()];
+  },
+
+  dongBlock(b, d) {
     return `
-      ${dongCon}
-      <div class="card">
-        <div class="card-title">Block của chương trình
-          <span class="spacer"></span>
-          ${d.duocDang ? `<button class="btn outline sm" id="cam-block-quan-ly">${UI.icon('plus', 14)} Thêm block</button>` : ''}
-        </div>
-        ${blocks.length ? blocks.map(b => `
           <div class="list-row" style="align-items:flex-start">
             <div class="row-main">
               <div class="row-title">${UI.esc(b.ten)}
@@ -190,8 +207,49 @@ App.views.cambridge = {
               ${b.mucTieu ? `<div class="small mt-8" style="line-height:1.6;white-space:pre-wrap">${UI.esc(b.mucTieu)}</div>` : ''}
             </div>
             ${d.duocDang ? `<button class="btn outline sm" data-sua-block="${UI.esc(b.id)}">${UI.icon('edit', 14)}</button>` : ''}
-          </div>`).join('')
-          : '<div class="muted small">Chưa có block nào. Bấm "Thêm block" để ghi mục tiêu và thời gian áp dụng.</div>'}
+          </div>`;
+  },
+
+  khoiBlock(d) {
+    const tatCa = d.blocks || [];
+    const blocks = this.blockDangHoc(tatCa, UI.ngayVN());
+    const con = d.luaTuoiCuaCon || [];
+    const dongCon = this.dongLuaCuaCon(d);
+    // NÓI RA KHI LỨA CỦA CON CHƯA CÓ BÀI, THAY VÌ ĐỂ MỘT KHOẢNG TRẮNG (Đ187).
+    //
+    // Từ hôm trường xác nhận Cambridge có tài liệu riêng cho 5–6 tuổi, bé từ
+    // 60 tháng trở lên không còn nhận bài lứa 4–5 nữa. Không mất dữ liệu gì,
+    // nhưng cho tới lúc trường soạn xong bộ 5–6 thì màn hình những nhà ấy
+    // trống trơn — và một màn hình trống không nói được nó trống VÌ SAO.
+    //
+    // Chỉ hiện cho gia đình có con ĐÃ vào chương trình. Nhà có bé dưới 36
+    // tháng thì lứa là rỗng, câu này không đúng với họ.
+    const conDaVao = con.filter(c => c.luaTuoi);
+    const chuaCoBai = !d.duocDang && conDaVao.length && !tatCa.length;
+    const loiNhan = chuaCoBai ? `
+      <div class="muted small mb-8" style="line-height:1.6">
+        Trường chưa đăng bài Cambridge nào cho lứa
+        ${conDaVao.map(c => UI.esc(c.tenLuaTuoi || '')).filter((v, i, a) => a.indexOf(v) === i).join(' và ')}.
+        Khi cô đăng, bài sẽ hiện ngay ở đây.
+      </div>` : '';
+    if (!blocks.length && !d.duocDang) return dongCon + loiNhan;
+    const conLai = tatCa.filter(b => !blocks.includes(b));
+    return `
+      ${dongCon}
+      <div class="card">
+        <div class="card-title">${blocks.length ? 'Block con đang học' : 'Block của chương trình'}
+          <span class="spacer"></span>
+          ${d.duocDang ? `<button class="btn outline sm" id="cam-block-quan-ly">${UI.icon('plus', 14)} Thêm block</button>` : ''}
+        </div>
+        ${blocks.length ? blocks.map(b => this.dongBlock(b, d)).join('')
+          : (tatCa.length
+            ? '<div class="muted small">Hôm nay không nằm trong block nào. Ghi ngày "Áp dụng từ / đến" cho block để gia đình thấy đúng block con đang học.</div>'
+            : '<div class="muted small">Chưa có block nào. Bấm "Thêm block" để ghi mục tiêu và thời gian áp dụng.</div>')}
+        ${d.duocDang && conLai.length ? `
+          <details class="mt-8" id="cam-block-khac">
+            <summary class="small" style="cursor:pointer">Mọi block khác (${conLai.length}) — chỉ văn phòng thấy</summary>
+            ${conLai.map(b => this.dongBlock(b, d)).join('')}
+          </details>` : ''}
       </div>`;
   },
 
@@ -265,13 +323,15 @@ App.views.cambridge = {
         <select id="cbl-lua">
           ${(d.luaTuoi || []).map(l => `<option value="${UI.esc(l.ma)}" ${b && b.luaTuoi === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
         </select>
-        <div class="hint">Lớp Montessori trộn 3–5 tuổi, nhưng Cambridge chỉ có hai lứa. Chọn đúng lứa thì
+        <div class="hint">Lớp Montessori trộn nhiều tuổi, nhưng Cambridge chia lứa 3–4, 4–5, 5–6. Chọn đúng lứa thì
           gia đình chỉ nhận đúng phần của con mình.</div>
       </div>
       <div class="grid-2">
         <div class="field"><label>Áp dụng từ</label><input type="date" id="cbl-tu" value="${UI.esc(b ? b.tuNgay : '')}"></div>
         <div class="field"><label>Đến</label><input type="date" id="cbl-den" value="${UI.esc(b ? b.denNgay : '')}"></div>
       </div>
+      <div class="hint" style="margin:-4px 0 10px">Gia đình chỉ thấy block có hôm nay nằm trong khoảng này — ghi đủ
+        hai ngày để block hiện đúng lúc con đang học, và tự ẩn khi sang block sau.</div>
       <div class="field">
         <label>Mục tiêu của block</label>
         <textarea id="cbl-muc-tieu" rows="5" placeholder="Gia đình đọc phần này trước khi đọc từng tuần.">${UI.esc(b ? b.mucTieu : '')}</textarea>
@@ -368,14 +428,14 @@ App.views.cambridge = {
       <div class="field">
         <label>Loại bài</label>
         <select id="cam-loai">
-          ${(d.loai || []).map(l => `<option value="${UI.esc(l.ma)}" ${b && b.loai === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
+          ${(d.loai || []).map(l => `<option value="${UI.esc(l.ma)}" ${(b ? b.loai : this._loai) === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
         <label>Tiêu đề</label>
         <input id="cam-tieude" value="${UI.esc(b ? b.tieuDe : '')}" placeholder="Ví dụ: Tuần này nhóm mình tìm hiểu chủ điểm Animals">
       </div>
-      <div class="field">
+      <div class="field" data-cho="thu-phu-huynh ket-noi${b && b.noiDung ? ' cambridge' : ''}">
         <label>Nội dung</label>
         <textarea id="cam-noidung" rows="6" placeholder="Viết cho gia đình đọc trên điện thoại buổi tối.">${UI.esc(b ? b.noiDung : '')}</textarea>
       </div>
@@ -425,17 +485,17 @@ App.views.cambridge = {
         <select id="cam-lua">
           ${(d.luaTuoi || []).map(l => `<option value="${UI.esc(l.ma)}" ${k.luaTuoi === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
         </select>
-        <div class="hint">Bài cho lứa 3–4 chỉ tới gia đình bé 3–4; bài cho cả hai lứa tới mọi nhà trong phạm vi.</div>
+        <div class="hint">Bài cho lứa 3–4 chỉ tới gia đình bé 3–4; bài cho mọi lứa tới mọi nhà trong phạm vi (trừ nhóm nhà trẻ).</div>
       </div>
-      <div class="field"><label>Hoạt động (Cambridge)</label>
+      <div class="field" data-cho="cambridge ket-noi"><label>Hoạt động (Cambridge)</label>
         <input id="cam-mon" value="${UI.esc(k.monHoc || '')}" placeholder="Ví dụ: Communication and Language / Mathematics / Let's Explore"></div>
-      <div class="field"><label>Chủ đề</label>
+      <div class="field" data-cho="cambridge ket-noi"><label>Chủ đề</label>
         <input id="cam-chu-de" value="${UI.esc(k.chuDe || '')}" placeholder="Ví dụ: My school"></div>
-      <div class="field"><label>Từ vựng</label>
+      <div class="field" data-cho="cambridge ket-noi"><label>Từ vựng</label>
         <textarea id="cam-tu-vung" rows="2" placeholder="Ví dụ: classroom, teacher, friend, book">${UI.esc(k.tuVung || '')}</textarea></div>
-      <div class="field"><label>Song / Chant</label>
+      <div class="field" data-cho="cambridge ket-noi"><label>Song / Chant</label>
         <textarea id="cam-song" rows="2" placeholder="Ví dụ: If You're Happy and You Know It — kèm đường dẫn nếu có">${UI.esc(k.songChant || '')}</textarea></div>
-      <div class="field"><label>Kết nối ở nhà</label>
+      <div class="field" data-cho="${k.ketNoiONha ? 'thu-phu-huynh cambridge ket-noi' : ''}"><label>Kết nối ở nhà</label>
         <textarea id="cam-ket-noi" rows="3" placeholder="Video, worksheet, việc gia đình làm cùng con tuần này">${UI.esc(k.ketNoiONha || '')}</textarea></div>
 
       <div class="field">
@@ -474,6 +534,23 @@ App.views.cambridge = {
       <div class="muted small center mt-8">Lưu xong bài vẫn là nháp — gia đình chỉ đọc được sau khi bấm "Gửi tới gia đình".</div>
     `, id ? 'Sửa bài đăng' : 'Soạn bài mới');
 
+    // MỖI LOẠI BÀI MỘT MẪU SOẠN (góp ý 06/10, mục 5).
+    //   Letter for Parent: một ô chữ — không cần ô hoạt động Cambridge.
+    //   Cambridge Weekly Plan: khung Cambridge — không có ô Nội dung.
+    //   Home Connection: ô Nội dung + khung Cambridge.
+    // Ô "Kết nối ở nhà" trùng với chính loại Home Connection nên thôi mời
+    // điền. ẨN CHỨ KHÔNG BỎ khỏi mẫu: `luu()` đọc mọi ô và máy chủ ghi đè cả
+    // khung — bỏ ô là sửa một bài cũ thì chữ đã viết ở ô ấy bị xoá trắng. Ô nào
+    // của bài cũ CÒN CHỮ thì vẫn hiện (data-cho đã tính ở trên), để không có
+    // chữ nào nằm khuất mà cô không thấy.
+    const oLoai = document.getElementById('cam-loai');
+    const theoLoai = () => {
+      for (const o of document.querySelectorAll('#modal-overlay [data-cho]')) {
+        o.style.display = (o.dataset.cho || '').split(' ').includes(oLoai.value) ? '' : 'none';
+      }
+    };
+    oLoai.onchange = theoLoai;
+    theoLoai();
     const oPham = document.getElementById('cam-phamvi');
     const hien = () => {
       document.getElementById('cam-o-coso').style.display = oPham.value === 'coso' ? '' : 'none';

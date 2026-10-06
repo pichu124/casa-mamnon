@@ -854,7 +854,11 @@ module.exports = (app, { db }) => {
     if (!b) return res.status(404).json({ error: 'Không tìm thấy bài đăng' });
     if (!xemDuoc(b, req.user)) return res.status(403).json({ error: 'Bài đăng ngoài phạm vi của mình' });
     if (b.congBoLuc) return res.status(400).json({ error: 'Bài này đã công bố rồi' });
-    if (!chuoi(b.noiDung, 10) && !tachAnh(b.anh).length) {
+    // MẪU SOẠN WEEKLY PLAN KHÔNG CÒN Ô NỘI DUNG (góp ý 06/10, mục 5). Nội dung
+    // của nó nằm ở khung (Hoạt động, Chủ đề, Từ vựng, Song/Chant) và tệp kèm —
+    // nên một tờ chỉ có những thứ ấy vẫn gửi được. Tờ TRỐNG HẲN vẫn bị chặn y
+    // như trước, cùng câu báo.
+    if (!chuoi(b.noiDung, 10) && !tachAnh(b.anh).length && !coNoiDungKhac(b.id)) {
       return res.status(400).json({ error: 'Bài chưa có nội dung hay ảnh nào để gửi tới gia đình' });
     }
     const luc = new Date().toISOString();
@@ -879,7 +883,29 @@ module.exports = (app, { db }) => {
     res.json({ ok: true, id: b.id, daCongBo: false });
   });
 
+  // Tờ không có chữ ở ô Nội dung vẫn có gì để gửi không: khung có chữ, hoặc
+  // có tệp kèm. Dùng cho Weekly Plan, mẫu soạn không còn ô Nội dung.
+  function coNoiDungKhac(baiId) {
+    const k = khungCua(baiId);
+    if (k && ['monHoc', 'chuDe', 'tuVung', 'songChant', 'ketNoiONha'].some(t => chuoi(k[t], 10))) return true;
+    return !!db.first('cambridge_tep', 'SELECT id FROM cambridge_tep WHERE baiId = ? LIMIT 1', [baiId]);
+  }
+
+  // Bé này có thuộc chương trình Cambridge không: nhóm KHÔNG khai là nhà trẻ,
+  // và bé đã vào một lứa (từ 36 tháng). Cùng luật với ô trên trang chủ
+  // (`/pham-vi`) — một câu, hai chỗ dùng, để tin báo không trỏ tới một mục mà
+  // màn hình của gia đình ấy không có.
+  function beTrongChuongTrinh(be) {
+    if (luaNhom.khaiCua(db, be.classId) === 'nha-tre') return false;
+    return !!luaTuoiCuaBe(be.dob, homNay());
+  }
+
   // Báo gia đình từng bé trong phạm vi bài, lọc theo lứa. Trả số bé được báo.
+  //
+  // KHÔNG BÁO NHÀ NHÀ TRẺ (góp ý 06/10, mục 5: *"mục này sẽ không xuất hiện
+  // trong ứng dụng của PH và giáo viên lứa tuổi nhà trẻ"*). Trước đây tờ "mọi
+  // lứa" rung cả điện thoại nhà bé 14 tháng, mà bấm vào thì trang chủ của họ
+  // không có ô Cambridge. Đường ĐỌC thì vẫn mở như cũ — chỉ thôi đẩy tin.
   function baoGiaDinh(bai) {
     let so = 0;
     try {
@@ -888,16 +914,18 @@ module.exports = (app, { db }) => {
       if (!nhom.length) return 0;
       const marks = nhom.map(() => '?').join(',');
       const ds = db.all('students',
-        `SELECT id, name, dob FROM students WHERE active = 1 AND classId IN (${marks})`, nhom);
+        `SELECT id, name, dob, classId FROM students WHERE active = 1 AND classId IN (${marks})`, nhom);
       const tenLoai = TEN_LOAI[bai.loai] || TEN_LOAI.cambridge;
       for (const be of ds) {
+        if (!beTrongChuongTrinh(be)) continue;
         if (khung && khung.luaTuoi && luaTuoiCuaBe(be.dob, homNay()) !== khung.luaTuoi) continue;
         tbb.gui({
           studentId: be.id,
           loai: 'cambridge',
           tieuDe: `${tenLoai}: ${bai.tieuDe}`,
           noiDung: chuoi(bai.noiDung, 160) || 'Mở Cambridge & Kết nối ở nhà để đọc.',
-          hash: '#/cambridge',
+          // Mở thẳng đúng tab của loại bài — màn không còn tab "Tất cả".
+          hash: `#/cambridge/${LOAI.includes(bai.loai) ? bai.loai : 'cambridge'}`,
           nguoiTao: bai.nguoiDang,
         });
         so += 1;
@@ -938,17 +966,21 @@ module.exports = (app, { db }) => {
   // liệu đã có không bao giờ thành "không đọc được" — cùng luật đã ghi ở
   // `/api/nhatky/pham-vi`.
   //
-  // Cô và văn phòng LUÔN thấy: cô dạy nhiều nhóm, văn phòng nhìn cả trường.
+  // Văn phòng LUÔN thấy — văn phòng nhìn cả trường.
+  //
+  // CÔ NHÀ TRẺ THÌ KHÔNG (góp ý 06/10, mục 5): *"mục này sẽ không xuất hiện
+  // trong ứng dụng của PH và GIÁO VIÊN lứa tuổi nhà trẻ"*. Trước đợt này cô
+  // nào cũng thấy. Nay cô thấy khi ít nhất MỘT bé trong các nhóm của cô thuộc
+  // chương trình — cùng một câu hỏi với gia đình (`beTrongChuongTrinh`). Cô
+  // dạy cả nhóm nhà trẻ lẫn nhóm mẫu giáo thì vẫn thấy. Cô chưa phụ trách
+  // nhóm nào thì giữ như cũ (thấy) — ẩn đi là cô không biết mục này có tồn tại.
   app.get('/api/cambridge/pham-vi', (req, res) => {
-    if (req.user.role !== 'parent') return res.json({ hien: true });
+    if (req.user.role === 'admin') return res.json({ hien: true });
     const ds = db.studentsOf(req.user) || [];
+    if (req.user.role === 'teacher' && !ds.length) return res.json({ hien: true });
     // Hiện khi có ÍT NHẤT MỘT con đã vào chương trình. Nhà có bé nhà trẻ và bé
     // mẫu giáo thì vẫn thấy — ẩn đi là bé lớn mất mục của mình.
-    const co = ds.some((be) => {
-      if (luaNhom.khaiCua(db, be.classId) === 'nha-tre') return false;
-      return !!luaTuoiCuaBe(be.dob, homNay());
-    });
-    res.json({ hien: co });
+    res.json({ hien: ds.some(beTrongChuongTrinh) });
   });
 
   // =========================================================================
