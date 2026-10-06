@@ -130,6 +130,27 @@ console.log('\n[2] Bấm sang Kế hoạch giáo dục: đổi bằng ĐƯỜNG 
 }
 
 // ===========================================================================
+// Nhà trường 06/10: *"Lịch sinh hoạt theo từng ngày đang bị lỗi không vào xem
+// được"*. Nút Lịch trỏ `#/timetable`, mà từ Đ198 địa chỉ đó mở phần Kế hoạch —
+// bấm không đi đâu. Mọi bài cũ đều mở THẲNG `#/timetable/lich`, không ai bấm
+// qua nút, nên lỗi sống sót. Bài này đi đúng đường người dùng đi: BẤM NÚT.
+console.log('\n[2b] Bấm nút Lịch sinh hoạt — từ màn mở sẵn và từ địa chỉ sâu của Kế hoạch');
+{
+  for (const tu of ['#/timetable', '#/timetable/kehoach']) {
+    await moMan(tu);
+    await page.click('#tkb-phan [data-phan="lich"]');
+    await page.waitForTimeout(1200);
+    check(`từ ${tu}: bấm nút Lịch thì địa chỉ thành #/timetable/lich`,
+      await page.evaluate(() => location.hash) === '#/timetable/lich',
+      await page.evaluate(() => location.hash));
+    check(`từ ${tu}: bấm nút Lịch thì VÀO ĐƯỢC lịch theo ngày (dải T2…T6)`,
+      await dem('#tkb-seg button') === 5, await dem('#tkb-seg button'));
+    check(`từ ${tu}: nút Lịch đang sáng`,
+      await page.locator('#tkb-phan [data-phan="lich"]').evaluate(el => el.classList.contains('active')));
+  }
+}
+
+// ===========================================================================
 console.log('\n[3] Ô Kế hoạch giáo dục gấp vào ô Lịch sinh hoạt trên trang chủ');
 {
   check('trang chủ của cô KHÔNG còn ô "Kế hoạch giáo dục" riêng', !(await oTrangChu('Kế hoạch giáo dục')));

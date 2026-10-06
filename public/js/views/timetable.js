@@ -282,10 +282,17 @@ App.views.timetable = {
     </div>`;
   },
 
+  // Nút "Lịch sinh hoạt" phải trỏ `#/timetable/lich`, KHÔNG phải `#/timetable`.
+  //
+  // Từ Đ198, `#/timetable` trống mở phần KẾ HOẠCH (phần đứng đầu) — nên bản cũ
+  // trỏ `#/timetable` làm nút Lịch bấm không đi đâu: đang ở Kế hoạch thì địa chỉ
+  // không đổi, không có sự kiện nào để vẽ lại. Nhà trường báo đúng như thế ngày
+  // 06/10: *"Lịch sinh hoạt theo từng ngày đang bị lỗi không vào xem được"*.
+  // Bài canh cũ mở thẳng `#/timetable/lich` nên không bao giờ bấm qua nút này.
   ganSuKienPhan(root) {
     for (const b of root.querySelectorAll('#tkb-phan [data-phan]')) {
       b.onclick = () => {
-        location.hash = b.dataset.phan === 'kehoach' ? '#/timetable/kehoach' : '#/timetable';
+        location.hash = b.dataset.phan === 'kehoach' ? '#/timetable/kehoach' : '#/timetable/lich';
       };
     }
   },
