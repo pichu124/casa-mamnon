@@ -96,7 +96,7 @@ const BANG = [
   'tienan_chot',
   'dontra_ghi', 'dontra_uyquyen', 'dontra_nguoi',
   'hanhtrinh_quansat', 'hanhtrinh_chude',
-  'kehoachbe_muc', 'kehoachbe_ke',
+  'kehoachbe_de_xuat_ct', 'kehoachbe_ke_ct', 'kehoachbe_muc', 'kehoachbe_ke',
   'cambridge_anh_be', 'cambridge_bai',
   'thuchup_ghinhanh',
   'hocphi_khoan',

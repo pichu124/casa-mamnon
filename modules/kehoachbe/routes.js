@@ -134,8 +134,10 @@ function tabChuongTrinh() {
 }
 
 // BA NHÃN cho một bài đã tích — đúng ba chữ của nhà trường.
+// Góp ý 06/10 (mục 6): trường gọi là "Dạy mới" — chữ của người dạy. Mã giữ
+// nguyên 'hoc-moi' vì kế hoạch đã lưu và báo cáo học tập đang trỏ vào mã đó.
 const NHAN_BAI = [
-  ['hoc-moi', 'Học mới'],
+  ['hoc-moi', 'Dạy mới'],
   ['on-tap', 'Ôn tập'],
   ['mo-rong', 'Mở rộng'],
 ];
@@ -237,6 +239,34 @@ function thangNay() {
   return ngay.thangNay();
 }
 
+// ===========================================================================
+// GÓP Ý 06/10 (mục 6) — BA CHƯƠNG TRÌNH, MỖI CÔ TỰ LƯU NHÁP VÀ GỬI DUYỆT
+// ===========================================================================
+//
+// Mã chương trình là mã nhóm cô của `lib/nhom-co.js` (chu-nhiem = Montessori &
+// Kỹ năng sống, nuoc-ngoai = Cambridge, the-chat = Thể chất chuyên sâu).
+const MA_CT = nhomCo.NHOM.map(x => x[0]);
+function gocCuaCt(ct) {
+  return MA_GOC.filter(g => chuongTrinhCuaGoc(g) === ct);
+}
+
+// LỨA TUỔI CỦA KHO BÀI: 3–4, 4–5, 5–6 — đúng ba lứa nhà trường đặt. Tính ở
+// GIỮA tháng lập kế hoạch. Bé dưới 48 tháng (kể cả bé nhà trẻ) dùng kho 3–4:
+// trường chưa có kho riêng cho dưới 3 tuổi, và một danh sách gần nhất có ích
+// hơn một danh sách trống. Đây là chỗ XẾP KHO BÀI, không phải nhận định về bé
+// — không so bé với "chuẩn" nào (QUY TẮC 4).
+const LUA_KHO = [['3-4', '3–4 tuổi'], ['4-5', '4–5 tuổi'], ['5-6', '5–6 tuổi']];
+const MA_LUA_KHO = LUA_KHO.map(x => x[0]);
+function luaKhoCuaBe(dob, thang) {
+  if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(String(dob)) || !THANG_RE.test(String(thang || ''))) return '';
+  const [ns, ts, ds] = String(dob).split('-').map(Number);
+  const [nm, tm] = String(thang).split('-').map(Number);
+  let soThang = (nm - ns) * 12 + (tm - ts);
+  if (15 < ds) soThang -= 1;
+  if (soThang < 48) return '3-4';
+  return soThang < 60 ? '4-5' : '5-6';
+}
+
 function thangTruoc(thang) {
   const [nam, th] = thang.split('-').map(Number);
   const d = new Date(Date.UTC(nam, th - 2, 1));
@@ -289,9 +319,16 @@ module.exports = (app, { db, modules }) => {
 
   function danhMucBai({ tatCa = false } = {}) {
     napDanhMucNeuTrong();
+    const lua = new Map();
+    try {
+      for (const r of db.all('kehoachbe_baihoc_lua', 'SELECT * FROM kehoachbe_baihoc_lua ORDER BY lua')) {
+        if (!lua.has(r.baiHocId)) lua.set(r.baiHocId, []);
+        lua.get(r.baiHocId).push(r.lua);
+      }
+    } catch (_) { /* chưa có bảng lứa: mọi bài dùng cho mọi lứa */ }
     return db.all('kehoachbe_baihoc',
       `SELECT * FROM kehoachbe_baihoc ${tatCa ? '' : 'WHERE active = 1'} ORDER BY gocLinhVuc, thuTu, rowid`)
-      .map(b => ({ ...b, active: b.active !== 0 }));
+      .map(b => ({ ...b, active: b.active !== 0, lua: lua.get(b.id) || [] }));
   }
 
   // Bài đã tích của một kế hoạch, kèm tên và góc lấy từ danh mục. Bài đã bị
@@ -333,6 +370,7 @@ module.exports = (app, { db, modules }) => {
     const k = db.first('kehoachbe_ke',
       'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [studentId, thang]);
     if (!k) return null;
+    const tt = trangThaiCt(k);
     return {
       ...k,
       coLapTen: tenNguoi(k.coLap),
@@ -340,6 +378,11 @@ module.exports = (app, { db, modules }) => {
       muc: mucCuaKe(k.id),
       baiHoc: baiCuaKe(k.id),
       deXuat: deXuatCuaKe(k.id),
+      // Trạng thái từng chương trình (góp ý 06/10, mục 6) — thêm khoá mới,
+      // không đổi khoá cũ.
+      chuongTrinh: Object.fromEntries(MA_CT.map(ct => [ct, {
+        ...tt[ct], coLapTen: tenNguoi(tt[ct].coLap), nguoiDuyetTen: tenNguoi(tt[ct].nguoiDuyet),
+      }])),
     };
   }
 
@@ -374,7 +417,7 @@ module.exports = (app, { db, modules }) => {
   // Đọc danh sách bài tích từ thân yêu cầu. Trả về null khi màn hình KHÔNG
   // gửi trường này (bản app cũ) — null nghĩa là "không đụng tới", khác với
   // mảng rỗng nghĩa là "bỏ tích hết".
-  function docBaiHoc(x, res) {
+  function docBaiHoc(x, res, ct = null) {
     if (!x || !Array.isArray(x.baiHoc)) return null;
     const ra = [];
     const daCo = new Set();
@@ -383,6 +426,10 @@ module.exports = (app, { db, modules }) => {
       if (!id || daCo.has(id)) continue;
       const bai = db.first('kehoachbe_baihoc', 'SELECT * FROM kehoachbe_baihoc WHERE id = ?', [id]);
       if (!bai) { res.status(400).json({ error: 'Có bài học không còn trong danh mục' }); return undefined; }
+      if (ct && chuongTrinhCuaGoc(bai.gocLinhVuc) !== ct) {
+        res.status(400).json({ error: `Bài "${bai.ten}" không thuộc chương trình ${nhomCo.CHUONG_TRINH[ct] || ct}` });
+        return undefined;
+      }
       const nhan = chuoi((b || {}).nhan, 20) || 'hoc-moi';
       if (!MA_NHAN.includes(nhan)) { res.status(400).json({ error: 'Nhãn bài học phải là học mới, ôn tập hoặc mở rộng' }); return undefined; }
       daCo.add(id);
@@ -397,9 +444,13 @@ module.exports = (app, { db, modules }) => {
 
   // GHI ĐÈ danh sách bài của một kế hoạch, GIỮ phần nhìn lại cho bài còn được
   // tích — đổi nhãn (học mới → ôn tập) không đổi bài, nên nhận xét đi theo bài.
-  function ghiBaiHoc(keId, ds, luc) {
+  function ghiBaiHoc(keId, ds, luc, ct = null) {
     const cu = baiCuaKe(keId);
-    db.run('DELETE FROM kehoachbe_muc_bai WHERE keId = ?', [keId]);
+    // Theo một chương trình (góp ý 06/10, mục 6): chỉ thay bài CỦA chương
+    // trình đó — bài cô khác tích ở tab khác giữ nguyên.
+    if (ct) {
+      for (const o of cu) if (chuongTrinhCuaGoc(o.gocLinhVuc) === ct) db.run('DELETE FROM kehoachbe_muc_bai WHERE id = ?', [o.id]);
+    } else db.run('DELETE FROM kehoachbe_muc_bai WHERE keId = ?', [keId]);
     for (const b of ds) {
       const giong = cu.find(o => o.baiHocId === b.baiHocId);
       db.insert('kehoachbe_muc_bai', {
@@ -434,6 +485,145 @@ module.exports = (app, { db, modules }) => {
     return true;
   }
 
+  // ---------------------------------------------- TRẠNG THÁI TỪNG CHƯƠNG TRÌNH
+
+  function dongCt(keId) {
+    try {
+      return new Map(db.all('kehoachbe_ke_ct', 'SELECT * FROM kehoachbe_ke_ct WHERE keId = ?', [keId])
+        .map(r => [r.chuongTrinh, r]));
+    } catch (_) { return new Map(); }
+  }
+
+  // Phần nào của bản kế hoạch có nội dung: bài đã tích hoặc mục chữ, theo góc.
+  function ctCoNoiDung(keId) {
+    const co = new Set();
+    for (const b of baiCuaKe(keId)) if (b.gocLinhVuc) co.add(chuongTrinhCuaGoc(b.gocLinhVuc));
+    for (const m of mucCuaKe(keId)) co.add(chuongTrinhCuaGoc(m.gocLinhVuc));
+    return co;
+  }
+
+  // Trạng thái của ba phần. Bản chưa có dòng ở bảng phụ (lập trước đợt này):
+  // phần CÓ nội dung mang trạng thái của cả bản — đúng như nó đang hiện với
+  // quản lý hôm nay; phần trống là nháp.
+  function trangThaiCt(k) {
+    const dong = dongCt(k.id);
+    const co = ctCoNoiDung(k.id);
+    const ra = {};
+    for (const ct of MA_CT) {
+      const r = dong.get(ct);
+      const goc = r || (co.has(ct)
+        ? { trangThai: k.trangThai, coLap: k.coLap, guiLuc: k.guiLuc, nguoiDuyet: k.nguoiDuyet,
+          duyetLuc: k.duyetLuc, yKienDuyet: k.yKienDuyet, capNhatLuc: k.capNhatLuc }
+        // Phần chưa ai soạn: KHÔNG có mốc. Mốc của cả bản đổi mỗi khi cô
+        // khác lưu phần của họ — mượn mốc đó là cô soạn phần trống này bị báo
+        // "đụng độ" oan với một phần cô không hề đụng tới.
+        : { trangThai: 'nhap', coLap: null, guiLuc: null, nguoiDuyet: null, duyetLuc: null, yKienDuyet: '', capNhatLuc: null });
+      ra[ct] = {
+        trangThai: TRANG_THAI_DUYET.includes(goc.trangThai) ? goc.trangThai : 'nhap',
+        coLap: goc.coLap || null, guiLuc: goc.guiLuc || null,
+        nguoiDuyet: goc.nguoiDuyet || null, duyetLuc: goc.duyetLuc || null,
+        yKienDuyet: goc.yKienDuyet || '', capNhatLuc: goc.capNhatLuc || null,
+        coNoiDung: co.has(ct), daTach: !!r,
+      };
+    }
+    return ra;
+  }
+
+  // Tách bản kế hoạch ra ba phần (ghi ba dòng ở bảng phụ) ngay trước lần ghi
+  // đầu tiên theo chương trình. Ghi đúng trạng thái đang hiện — không phần nào
+  // đổi trạng thái chỉ vì được tách.
+  function damBaoCt(k) {
+    const tt = trangThaiCt(k);
+    for (const ct of MA_CT) {
+      if (tt[ct].daTach) continue;
+      const { coNoiDung: _c, daTach: _d, ...r } = tt[ct];
+      db.run(`INSERT OR IGNORE INTO kehoachbe_ke_ct
+        (keId, chuongTrinh, trangThai, coLap, guiLuc, nguoiDuyet, duyetLuc, yKienDuyet, capNhatLuc)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [k.id, ct, r.trangThai, r.coLap, r.guiLuc, r.nguoiDuyet, r.duyetLuc, r.yKienDuyet, r.capNhatLuc]);
+    }
+  }
+
+  function datCt(keId, ct, vao) {
+    const cot = Object.keys(vao);
+    db.run(`UPDATE kehoachbe_ke_ct SET ${cot.map(c => `${c} = ?`).join(', ')} WHERE keId = ? AND chuongTrinh = ?`,
+      [...cot.map(c => vao[c]), keId, ct]);
+  }
+
+  // GIỮ `kehoachbe_ke.trangThai` ĐÚNG cho mọi chỗ đang đọc nó (Hành trình của
+  // gia đình chỉ hiện bản 'da-duyet', huy hiệu, app đời cũ): gộp từ các phần
+  // CÓ nội dung — còn phần nào chờ duyệt thì cả bản "chờ duyệt"; còn phần nào
+  // bị gửi lại thì "gửi lại"; còn phần nào nháp thì "nháp"; tất cả đã duyệt
+  // thì mới "đã duyệt".
+  function dongBoKe(keId) {
+    const k = db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [keId]);
+    if (!k) return;
+    const tt = trangThaiCt(k);
+    const co = MA_CT.filter(ct => tt[ct].coNoiDung).map(ct => tt[ct]);
+    if (!co.length) return;
+    const gom = co.some(x => x.trangThai === 'cho-duyet') ? 'cho-duyet'
+      : co.some(x => x.trangThai === 'tra-lai') ? 'tra-lai'
+        : co.some(x => x.trangThai === 'nhap') ? 'nhap' : 'da-duyet';
+    const moiNhat = (truong) => co.map(x => x[truong]).filter(Boolean).sort().pop() || null;
+    const duyetCuoi = co.filter(x => x.duyetLuc).sort((a, b) => String(a.duyetLuc).localeCompare(String(b.duyetLuc))).pop();
+    const traLai = co.find(x => x.trangThai === 'tra-lai');
+    db.update('kehoachbe_ke', k.id, {
+      trangThai: gom,
+      guiLuc: gom === 'nhap' ? null : moiNhat('guiLuc'),
+      nguoiDuyet: duyetCuoi ? duyetCuoi.nguoiDuyet : k.nguoiDuyet,
+      duyetLuc: duyetCuoi ? duyetCuoi.duyetLuc : k.duyetLuc,
+      yKienDuyet: traLai ? traLai.yKienDuyet : (gom === 'da-duyet' ? '' : k.yKienDuyet),
+    });
+  }
+
+  // QUYỀN SOẠN TỪNG CHƯƠNG TRÌNH. Quản lý soạn được cả ba. Cô soạn phần của
+  // vai cô ở nhóm đó (lib/nhom-co.js). Phần mà nhóm CHƯA khai cô nào giữ thì
+  // cô phụ trách nhóm soạn thay — trường chưa khai vai thì mọi thứ chạy y như
+  // trước đợt này (Nguyên tắc số 1).
+  function ctCuaCo(user, classId) {
+    if (user.role === 'admin') return MA_CT.slice();
+    const cua = nhomCo.nhomCua(db, classId, user.id);
+    const ds = [cua];
+    if (cua === nhomCo.MAC_DINH) {
+      const daKhai = new Set(Object.values(nhomCo.nhomTheoLop(db, classId)));
+      for (const ct of MA_CT) if (ct !== cua && !daKhai.has(ct)) ds.push(ct);
+    }
+    return ds;
+  }
+  function chanNeuKhongPhanCua(res, user, classId, ct) {
+    if (ctCuaCo(user, classId).includes(ct)) return false;
+    res.status(403).json({
+      error: `Phần ${nhomCo.CHUONG_TRINH[ct] || ct} do ${(nhomCo.TEN_NHOM[ct] || 'cô phụ trách').toLowerCase()} của nhóm soạn. `
+        + 'Cô mở đúng tab chương trình của mình nhé.',
+    });
+    return true;
+  }
+  function chanNeuCtKhoa(res, tt) {
+    if (tt.trangThai === 'nhap' || tt.trangThai === 'tra-lai') return false;
+    res.status(400).json({
+      error: tt.trangThai === 'cho-duyet'
+        ? 'Phần này đã gửi quản lý duyệt nên đang khoá. Cô bấm "Rút lại" nếu muốn sửa tiếp.'
+        : 'Phần này đã được duyệt nên nội dung khoá lại. Phần nhìn lại cuối tháng thì cô vẫn ghi được.',
+    });
+    return true;
+  }
+
+  // Báo cô đã gửi duyệt: được duyệt, hay được gửi lại kèm lý do. Tin đẩy là
+  // dấu hiệu NGAY; huy hiệu ở cuối tệp là dấu vết BỀN (đếm phần bị gửi lại).
+  function baoCo(coId, goi) {
+    try {
+      if (!coId || !modules.dangBat('kehoachbe')) return;
+      require('../../lib/day').guiChoNguoi(coId, goi).catch(() => {});
+    } catch (_) { /* đẩy là việc phụ */ }
+  }
+
+  function luaCuaBai(baiHocId) {
+    try {
+      return db.all('kehoachbe_baihoc_lua', 'SELECT lua FROM kehoachbe_baihoc_lua WHERE baiHocId = ? ORDER BY lua', [baiHocId])
+        .map(r => r.lua);
+    } catch (_) { return []; }
+  }
+
   // =========================================================================
   // ĐỌC
   // =========================================================================
@@ -451,6 +641,8 @@ module.exports = (app, { db, modules }) => {
       const ke = keCuaBe(b.id, thang);
       return {
         studentId: b.id, hoTen: b.name, avatar: b.avatar, ke,
+        // Lứa của kho bài cho bé này ở tháng đang xem (góp ý 06/10, mục 6).
+        lua: luaKhoCuaBe(b.dob, thang),
         // Gợi ý từ tháng gần nhất — chỉ khi bé CHƯA có bản tháng này; đã có
         // bản thì cô đã quyết rồi, gợi ý nữa là nói chen.
         goiY: ke ? null : goiYChoThang(b.id, thang),
@@ -472,6 +664,10 @@ module.exports = (app, { db, modules }) => {
       baiHoc: danhMucBai(),
       laQuanLy: req.user.role === 'admin',
       nhom: nhomCuaToi(req.user).map(c => ({ id: c.id, name: c.name })),
+      // Ba tab và phần cô này soạn được ở nhóm này (góp ý 06/10, mục 6).
+      ctDuocSua: ctCuaCo(req.user, classId),
+      ctCuaToi: req.user.role === 'admin' ? null : nhomCo.nhomCua(db, classId, req.user.id),
+      luaKho: LUA_KHO.map(([ma, ten]) => ({ ma, ten })),
       danhSach,
       // Đếm theo TRẠNG THÁI DUYỆT, không đếm gì về đứa trẻ: đây là con số về
       // việc giấy tờ của cô và của quản lý, không phải con số về các bé.
@@ -497,6 +693,7 @@ module.exports = (app, { db, modules }) => {
       // không hề biết `chuongTrinhTab` có mặt.
       chuongTrinhTab: tabChuongTrinh(),
       nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
+      luaKho: LUA_KHO.map(([ma, ten]) => ({ ma, ten })),
       baiHoc: danhMucBai({ tatCa }),
     });
   });
@@ -516,14 +713,29 @@ module.exports = (app, { db, modules }) => {
       : Number(b.thuTu);
     if (!Number.isInteger(thuTu) || thuTu < 0) return res.status(400).json({ error: 'Thứ tự chưa hợp lệ' });
     const active = b.active === undefined ? (cu ? cu.active : 1) : (b.active ? 1 : 0);
+    // Lứa tuổi của bài (góp ý 06/10, mục 6). Không gửi = giữ nguyên; mảng rỗng
+    // = dùng cho mọi lứa.
+    let lua = null;
+    if (b.lua !== undefined) {
+      if (!Array.isArray(b.lua) || b.lua.some(x => !MA_LUA_KHO.includes(String(x)))) {
+        return res.status(400).json({ error: 'Lứa tuổi chỉ có 3–4, 4–5 hoặc 5–6' });
+      }
+      lua = [...new Set(b.lua.map(String))];
+    }
 
     napDanhMucNeuTrong();
     const id = cu ? cu.id : db.nextId('khbh');
-    if (cu) db.update('kehoachbe_baihoc', id, { gocLinhVuc: goc, ten, moTa, thuTu, active });
-    else db.insert('kehoachbe_baihoc', { id, gocLinhVuc: goc, ten, moTa, thuTu, active, nguoiTao: req.user.id, taoLuc: new Date().toISOString() });
-    db.audit(req.user.id, cu ? 'kehoachbe-sua-bai' : 'kehoachbe-them-bai', id, { gocLinhVuc: goc, ten, active });
+    db.tx(() => {
+      if (cu) db.update('kehoachbe_baihoc', id, { gocLinhVuc: goc, ten, moTa, thuTu, active });
+      else db.insert('kehoachbe_baihoc', { id, gocLinhVuc: goc, ten, moTa, thuTu, active, nguoiTao: req.user.id, taoLuc: new Date().toISOString() });
+      if (lua) {
+        db.run('DELETE FROM kehoachbe_baihoc_lua WHERE baiHocId = ?', [id]);
+        for (const l of lua) db.run('INSERT OR IGNORE INTO kehoachbe_baihoc_lua (baiHocId, lua) VALUES (?, ?)', [id, l]);
+      }
+    });
+    db.audit(req.user.id, cu ? 'kehoachbe-sua-bai' : 'kehoachbe-them-bai', id, { gocLinhVuc: goc, ten, active, lua: lua || undefined });
     const r = db.first('kehoachbe_baihoc', 'SELECT * FROM kehoachbe_baihoc WHERE id = ?', [id]);
-    res.json({ ok: true, baiHoc: { ...r, active: r.active !== 0 } });
+    res.json({ ok: true, baiHoc: { ...r, active: r.active !== 0, lua: luaCuaBai(id) } });
   }
 
   app.post('/api/kehoachbe/bai-hoc', requireRole('teacher', 'admin'), (req, res) => luuBai(req, res, null));
@@ -571,6 +783,12 @@ module.exports = (app, { db, modules }) => {
     }
     const thang = chuoi(b.thang, 7) || thangNay();
     if (!THANG_RE.test(thang)) return res.status(400).json({ error: 'Tháng chưa đúng dạng, ví dụ đúng: 2026-09' });
+    // SOẠN THEO MỘT CHƯƠNG TRÌNH (góp ý 06/10, mục 6). Không gửi = app đời cũ,
+    // soạn cả bản như trước.
+    const ct = b.chuongTrinh === undefined || b.chuongTrinh === null ? null : chuoi(b.chuongTrinh, 20);
+    if (ct !== null && !MA_CT.includes(ct)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
+    if (ct && chanNeuKhongPhanCua(res, req.user, classId, ct)) return;
+    const gocCt = ct ? gocCuaCt(ct) : null;
 
     const ds = b.danhSach;
     if (!Array.isArray(ds) || !ds.length || ds.length > TOI_DA_BE_MOT_LAN) {
@@ -611,11 +829,27 @@ module.exports = (app, { db, modules }) => {
       // nhớ điện thoại vẫn phải lưu được, đúng Nguyên tắc số 1.
       const goc = x && Object.prototype.hasOwnProperty.call(x, 'capNhatLucGoc')
         ? x.capNhatLucGoc : undefined;
-      if (goc !== undefined && String((cu && cu.capNhatLuc) || '') !== String(goc || '')) {
+      // Theo chương trình thì so mốc của ĐÚNG PHẦN ĐÓ: cô nước ngoài vừa lưu
+      // phần Cambridge không làm cô Montessori đụng độ ở phần của mình.
+      const ttCu = cu ? trangThaiCt(cu) : null;
+      const mocCu = ct ? (ttCu ? ttCu[ct].capNhatLuc : null) : (cu && cu.capNhatLuc);
+      if (goc !== undefined && String(mocCu || '') !== String(goc || '')) {
         xungDot.push({ studentId: be.id, hoTen: be.name });
         continue;
       }
-      if (chanNeuKhoa(res, cu)) return;
+      if (ct) {
+        if (ttCu && chanNeuCtKhoa(res, ttCu[ct])) return;
+      } else {
+        if (chanNeuKhoa(res, cu)) return;
+        // App đời cũ ghi CẢ BẢN; bản đã tách theo chương trình mà có phần đang
+        // chờ / đã duyệt thì ghi cả bản là ghi đè sau lưng người duyệt.
+        if (ttCu && MA_CT.some(c => ttCu[c].daTach)
+          && MA_CT.some(c => ttCu[c].coNoiDung && !['nhap', 'tra-lai'].includes(ttCu[c].trangThai))) {
+          return res.status(400).json({
+            error: 'Kế hoạch này nay soạn và duyệt theo từng chương trình. Cô tải lại trang (hoặc mở lại app) để soạn trong đúng tab của mình nhé.',
+          });
+        }
+      }
 
       // GIA ĐÌNH ĐÃ DỪNG PHẦN HỒ SƠ HỌC TẬP: BỎ QUA BÉ ĐÓ, KHÔNG TỪ CHỐI CẢ LÔ.
       //
@@ -634,6 +868,9 @@ module.exports = (app, { db, modules }) => {
       for (const m of ((x || {}).muc || [])) {
         const goc = chuoi((m || {}).gocLinhVuc, 40);
         if (!MA_GOC.includes(goc)) return res.status(400).json({ error: `Góc lĩnh vực "${goc}" không hợp lệ` });
+        if (gocCt && !gocCt.includes(goc)) {
+          return res.status(400).json({ error: `Góc "${goc}" không thuộc chương trình ${nhomCo.CHUONG_TRINH[ct] || ct}` });
+        }
         const noiDung = chuoi((m || {}).noiDung, TOI_DA_NOI_DUNG);
         if (!noiDung) continue;   // ô trống là ô cô chưa định làm gì ở góc đó
         muc.push({ gocLinhVuc: goc, noiDung });
@@ -643,7 +880,7 @@ module.exports = (app, { db, modules }) => {
       }
       // Bài tích chọn (đợt 2). `null` = màn hình không gửi trường này = không
       // đụng tới bài đã tích — bản app cũ trong điện thoại vẫn lưu ô chữ được.
-      const baiHoc = docBaiHoc(x, res);
+      const baiHoc = docBaiHoc(x, res, ct);
       if (baiHoc === undefined) return;
       sach.push({ be, cu, muc, baiHoc });
     }
@@ -659,6 +896,7 @@ module.exports = (app, { db, modules }) => {
 
         let keId = cu && cu.id;
         if (cu) {
+          if (ct) damBaoCt(cu);
           db.update('kehoachbe_ke', cu.id, { capNhatLuc: luc });
         } else {
           keId = db.nextId('khb');
@@ -667,6 +905,26 @@ module.exports = (app, { db, modules }) => {
             trangThai: 'nhap', coLap: req.user.id, lapLuc: luc,
             guiLuc: null, nguoiDuyet: null, duyetLuc: null, yKienDuyet: '', capNhatLuc: luc,
           });
+          if (ct) damBaoCt(db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [keId]));
+        }
+        if (ct) {
+          // CHỈ PHẦN CỦA CHƯƠNG TRÌNH NÀY — mục và bài của tab khác giữ nguyên.
+          const cuMucCt = mucCuaKe(keId).filter(o => gocCt.includes(o.gocLinhVuc));
+          db.run(`DELETE FROM kehoachbe_muc WHERE keId = ? AND gocLinhVuc IN (${gocCt.map(() => '?').join(', ')})`, [keId, ...gocCt]);
+          for (const m of muc) {
+            const giong = cuMucCt.find(o => o.gocLinhVuc === m.gocLinhVuc && o.noiDung === m.noiDung);
+            db.insert('kehoachbe_muc', {
+              id: db.nextId('khm'), keId, gocLinhVuc: m.gocLinhVuc, noiDung: m.noiDung,
+              ketQua: giong ? giong.ketQua : '', nhanXet: giong ? giong.nhanXet : '',
+              tiepTucThangSau: giong && giong.tiepTucThangSau ? 1 : 0, capNhatLuc: luc,
+            });
+          }
+          if (baiHoc) ghiBaiHoc(keId, baiHoc, luc, ct);
+          const dong = dongCt(keId).get(ct);
+          datCt(keId, ct, { capNhatLuc: luc, coLap: (dong && dong.coLap) || req.user.id });
+          dongBoKe(keId);
+          daLuu += 1;
+          continue;
         }
 
         // GHI ĐÈ TOÀN BỘ MỤC, giữ phần nhìn lại cho mục TRÙNG NGUYÊN nội dung.
@@ -693,15 +951,16 @@ module.exports = (app, { db, modules }) => {
           });
         }
         if (baiHoc) ghiBaiHoc(keId, baiHoc, luc);
+        if (dongCt(keId).size) dongBoKe(keId);
         daLuu += 1;
       }
     });
 
     db.audit(req.user.id, 'kehoachbe-luu', classId, {
-      thang, soBe: daLuu, boQua: boQua.length || undefined, xungDot: xungDot.length || undefined,
+      thang, soBe: daLuu, chuongTrinh: ct || undefined, boQua: boQua.length || undefined, xungDot: xungDot.length || undefined,
     });
     res.json({
-      ok: true, thang, classId, daLuu, boQuaNgungHoSo: boQua, xungDot,
+      ok: true, thang, classId, chuongTrinh: ct, daLuu, boQuaNgungHoSo: boQua, xungDot,
       ...(xungDot.length ? {
         nhac: `${xungDot.length} bé chưa lưu được vì kế hoạch của các bé đó vừa đổi trong lúc màn hình `
           + `của cô đang mở (${xungDot.map(x => x.hoTen).join(', ')}) — cô khác vừa sửa, hoặc quản lý vừa duyệt / gửi lại. `
@@ -723,17 +982,23 @@ module.exports = (app, { db, modules }) => {
     }
     const thang = chuoi(b.thang, 7) || thangNay();
     if (!THANG_RE.test(thang)) return res.status(400).json({ error: 'Tháng chưa đúng dạng, ví dụ đúng: 2026-09' });
+    const ct = b.chuongTrinh === undefined || b.chuongTrinh === null ? null : chuoi(b.chuongTrinh, 20);
+    if (ct !== null && !MA_CT.includes(ct)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
+    if (ct && chanNeuKhongPhanCua(res, req.user, classId, ct)) return;
 
     const muc = [];
     for (const m of (b.muc || [])) {
       const goc = chuoi((m || {}).gocLinhVuc, 40);
       if (!MA_GOC.includes(goc)) return res.status(400).json({ error: `Góc lĩnh vực "${goc}" không hợp lệ` });
+      if (ct && chuongTrinhCuaGoc(goc) !== ct) {
+        return res.status(400).json({ error: `Góc "${goc}" không thuộc chương trình ${nhomCo.CHUONG_TRINH[ct] || ct}` });
+      }
       const noiDung = chuoi((m || {}).noiDung, TOI_DA_NOI_DUNG);
       if (noiDung) muc.push({ gocLinhVuc: goc, noiDung });
     }
     // Đặt cả nhóm cũng tích được bài — cả nhóm cùng học "Tháp hồng" tháng này
     // là chuyện thường ở lớp Montessori.
-    const baiHocDoc = docBaiHoc(b, res);
+    const baiHocDoc = docBaiHoc(b, res, ct);
     if (baiHocDoc === undefined) return;   // đã trả lỗi
     const baiHoc = baiHocDoc || [];
     if (!muc.length && !baiHoc.length) {
@@ -751,7 +1016,10 @@ module.exports = (app, { db, modules }) => {
         if (ngung.has(be.id)) { boQuaNgungHoSo.push(be.name); continue; }
         let k = db.first('kehoachbe_ke',
           'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, thang]);
-        if (k && !duocSuaNoiDung(k)) { boQua += 1; continue; }
+        if (k && ct) {
+          const tt = trangThaiCt(k)[ct];
+          if (tt.trangThai !== 'nhap' && tt.trangThai !== 'tra-lai') { boQua += 1; continue; }
+        } else if (k && !duocSuaNoiDung(k)) { boQua += 1; continue; }
         if (!k) {
           const id = db.nextId('khb');
           db.insert('kehoachbe_ke', {
@@ -759,8 +1027,9 @@ module.exports = (app, { db, modules }) => {
             coLap: req.user.id, lapLuc: luc, guiLuc: null,
             nguoiDuyet: null, duyetLuc: null, yKienDuyet: '', capNhatLuc: luc,
           });
-          k = { id };
+          k = db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [id]);
         }
+        if (ct) damBaoCt(k);
         const dangCo = mucCuaKe(k.id);
         for (const m of muc) {
           if (dangCo.some(o => o.gocLinhVuc === m.gocLinhVuc)) continue;  // không đè phần cô đã nhập riêng
@@ -777,6 +1046,12 @@ module.exports = (app, { db, modules }) => {
             id: db.nextId('khmb'), keId: k.id, baiHocId: bh.baiHocId, nhan: bh.nhan,
             ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc,
           });
+        }
+        if (ct) {
+          const dong = dongCt(k.id).get(ct);
+          datCt(k.id, ct, { capNhatLuc: luc, coLap: (dong && dong.coLap) || req.user.id });
+          db.update('kehoachbe_ke', k.id, { capNhatLuc: luc });
+          dongBoKe(k.id);
         }
         daDat += 1;
       }
@@ -812,6 +1087,10 @@ module.exports = (app, { db, modules }) => {
        ORDER BY k.thang DESC LIMIT 1`, [classId, thang, lui12]);
     const truoc = nguon ? nguon.thang : thangTruoc(thang);
     const chiTiepTuc = !!b.chiTiepTuc;
+    // Chép theo MỘT chương trình (góp ý 06/10, mục 6): chỉ phần của tab đó.
+    const ct = b.chuongTrinh === undefined || b.chuongTrinh === null ? null : chuoi(b.chuongTrinh, 20);
+    if (ct !== null && !MA_CT.includes(ct)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
+    if (ct && chanNeuKhongPhanCua(res, req.user, classId, ct)) return;
 
     const luc = new Date().toISOString();
     let daChep = 0;
@@ -828,10 +1107,16 @@ module.exports = (app, { db, modules }) => {
         const nay = db.first('kehoachbe_ke',
           'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, thang]);
         // Tháng đích đã có bản thì GIỮ NGUYÊN — bấm nhầm không được xoá cả
-        // buổi soạn của cô.
-        if (nay) { boQua += 1; continue; }
+        // buổi soạn của cô. Theo chương trình: phần ĐÓ đã có nội dung hoặc
+        // đang khoá thì giữ nguyên; phần trống thì chép vào.
+        if (nay && !ct) { boQua += 1; continue; }
+        if (nay && ct) {
+          const tt = trangThaiCt(nay)[ct];
+          if (tt.coNoiDung || (tt.trangThai !== 'nhap' && tt.trangThai !== 'tra-lai')) { boQua += 1; continue; }
+        }
 
         let muc = mucCuaKe(cu.id);
+        if (ct) muc = muc.filter(m => chuongTrinhCuaGoc(m.gocLinhVuc) === ct);
         if (chiTiepTuc) muc = muc.filter(m => m.tiepTucThangSau);
         else muc = [...muc.filter(m => m.tiepTucThangSau), ...muc.filter(m => !m.tiepTucThangSau)];
         // Bài đã tích cũng chép sang, cùng luật: bài "Tiếp tục cùng con" lên
@@ -839,16 +1124,21 @@ module.exports = (app, { db, modules }) => {
         // mới nữa. Bài đã thấy con làm được thì chép nguyên nhãn cô chọn.
         const laTiep = (m) => m.ketQua === 'tiep-tuc' || m.tiepTucThangSau;
         let bai = baiCuaKe(cu.id).filter(m => m.gocLinhVuc);   // bài đã gỡ khỏi danh mục thì thôi
+        if (ct) bai = bai.filter(m => chuongTrinhCuaGoc(m.gocLinhVuc) === ct);
         if (chiTiepTuc) bai = bai.filter(laTiep);
         else bai = [...bai.filter(laTiep), ...bai.filter(m => !laTiep(m))];
         if (!muc.length && !bai.length) continue;
 
-        const id = db.nextId('khb');
-        db.insert('kehoachbe_ke', {
-          id, studentId: be.id, classId, thang, trangThai: 'nhap',
-          coLap: req.user.id, lapLuc: luc, guiLuc: null,
-          nguoiDuyet: null, duyetLuc: null, yKienDuyet: '', capNhatLuc: luc,
-        });
+        let id = nay && nay.id;
+        if (!nay) {
+          id = db.nextId('khb');
+          db.insert('kehoachbe_ke', {
+            id, studentId: be.id, classId, thang, trangThai: 'nhap',
+            coLap: req.user.id, lapLuc: luc, guiLuc: null,
+            nguoiDuyet: null, duyetLuc: null, yKienDuyet: '', capNhatLuc: luc,
+          });
+        }
+        if (ct) damBaoCt(db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [id]));
         for (const m of muc.slice(0, TOI_DA_MUC_MOI_BE)) {
           db.insert('kehoachbe_muc', {
             id: db.nextId('khm'), keId: id,
@@ -864,6 +1154,11 @@ module.exports = (app, { db, modules }) => {
             ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc,
           });
         }
+        if (ct) {
+          datCt(id, ct, { capNhatLuc: luc, coLap: req.user.id });
+          db.update('kehoachbe_ke', id, { capNhatLuc: luc });
+          dongBoKe(id);
+        }
         daChep += 1;
       }
     });
@@ -874,6 +1169,9 @@ module.exports = (app, { db, modules }) => {
   // =========================================================================
   // GỬI DUYỆT · RÚT LẠI · DUYỆT
   // =========================================================================
+  // GỬI DUYỆT — theo MỘT chương trình (góp ý 06/10, mục 6), hoặc cả bản như
+  // app đời cũ (không gửi `chuongTrinh`): khi đó mọi phần có nội dung đang
+  // nháp / bị gửi lại đều được gửi, đúng hành vi trước đợt này.
   app.post('/api/kehoachbe/gui-duyet', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const classId = chuoi(b.classId, 40);
@@ -882,6 +1180,10 @@ module.exports = (app, { db, modules }) => {
     }
     const thang = chuoi(b.thang, 7) || thangNay();
     const chiBe = chuoi(b.studentId, 40);
+    const ct = b.chuongTrinh === undefined || b.chuongTrinh === null ? null : chuoi(b.chuongTrinh, 20);
+    if (ct !== null && !MA_CT.includes(ct)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
+    if (ct && chanNeuKhongPhanCua(res, req.user, classId, ct)) return;
+    const dsCt = ct ? [ct] : MA_CT;
 
     const luc = new Date().toISOString();
     let daGui = 0;
@@ -891,14 +1193,23 @@ module.exports = (app, { db, modules }) => {
         if (chiBe && be.id !== chiBe) continue;
         const k = db.first('kehoachbe_ke',
           'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [be.id, thang]);
-        if (!k || !duocSuaNoiDung(k)) continue;
-        // Kế hoạch rỗng thì không gửi — quản lý mở ra thấy trang trắng.
-        if (!mucCuaKe(k.id).length && !baiCuaKe(k.id).length) { trong += 1; continue; }
-        db.update('kehoachbe_ke', k.id, { trangThai: 'cho-duyet', guiLuc: luc, capNhatLuc: luc });
+        if (!k) continue;
+        const tt = trangThaiCt(k);
+        const guiDuoc = dsCt.filter(c => tt[c].trangThai === 'nhap' || tt[c].trangThai === 'tra-lai');
+        if (!guiDuoc.length) continue;
+        // Phần rỗng thì không gửi — quản lý mở ra thấy trang trắng.
+        const coNoiDung = guiDuoc.filter(c => tt[c].coNoiDung);
+        if (!coNoiDung.length) { trong += 1; continue; }
+        damBaoCt(k);
+        for (const c of coNoiDung) {
+          datCt(k.id, c, { trangThai: 'cho-duyet', guiLuc: luc, capNhatLuc: luc, coLap: tt[c].coLap || req.user.id });
+        }
+        db.update('kehoachbe_ke', k.id, { capNhatLuc: luc });
+        dongBoKe(k.id);
         daGui += 1;
       }
     });
-    db.audit(req.user.id, 'kehoachbe-gui-duyet', classId, { thang, daGui });
+    db.audit(req.user.id, 'kehoachbe-gui-duyet', classId, { thang, daGui, chuongTrinh: ct || undefined });
     // BÁO QUẢN LÝ (Đ154). Gửi cả nhóm là một lượt bấm, nên báo MỘT tin cho cả
     // lượt chứ không phải mỗi bé một tin — quản lý không cần biết tên từng bé
     // để mở màn duyệt ra, mà 20 tiếng chuông liền nhau thì đúng là làm phiền.
@@ -907,8 +1218,8 @@ module.exports = (app, { db, modules }) => {
       baoNhaTruongTheoNhom(classId, {
         tieuDe: 'Có kế hoạch của bé chờ duyệt',
         noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${daGui} kế hoạch tháng ${thang}`
-          + `${lop ? ` của nhóm ${lop.name}` : ''}.`,
-        hash: '#/kehoachbe',
+          + `${ct ? ` (${nhomCo.CHUONG_TRINH[ct]})` : ''}${lop ? ` của nhóm ${lop.name}` : ''}.`,
+        hash: '#/kehoachbe/duyet',
         tru: req.user.id,
       });
     }
@@ -922,19 +1233,33 @@ module.exports = (app, { db, modules }) => {
     if (!db.canAccessStudent(req.user, k.studentId)) {
       return res.status(403).json({ error: 'Không có quyền với kế hoạch của bé này' });
     }
-    if (k.trangThai !== 'cho-duyet') {
+    const ct = b.chuongTrinh === undefined || b.chuongTrinh === null ? null : chuoi(b.chuongTrinh, 20);
+    if (ct !== null && !MA_CT.includes(ct)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
+    if (ct && chanNeuKhongPhanCua(res, req.user, k.classId, ct)) return;
+    const tt = trangThaiCt(k);
+    const rut = (ct ? [ct] : MA_CT).filter(c => tt[c].trangThai === 'cho-duyet');
+    if (!rut.length) {
       return res.status(400).json({ error: 'Chỉ rút lại được kế hoạch đang chờ duyệt' });
     }
     const luc = new Date().toISOString();
-    db.update('kehoachbe_ke', k.id, { trangThai: 'nhap', guiLuc: null, capNhatLuc: luc });
-    db.audit(req.user.id, 'kehoachbe-rut-lai', k.studentId, { id: k.id });
-    res.json({ ok: true, id: k.id, trangThai: 'nhap' });
+    db.tx(() => {
+      damBaoCt(k);
+      for (const c of rut) datCt(k.id, c, { trangThai: 'nhap', guiLuc: null, capNhatLuc: luc });
+      db.update('kehoachbe_ke', k.id, { capNhatLuc: luc });
+      dongBoKe(k.id);
+    });
+    db.audit(req.user.id, 'kehoachbe-rut-lai', k.studentId, { id: k.id, chuongTrinh: ct || undefined });
+    res.json({ ok: true, id: k.id, trangThai: 'nhap', chuongTrinh: ct });
   });
 
   // DUYỆT — VIỆC CỦA QUẢN LÝ, KHÔNG PHẢI CỦA CÔ.
   //
   // Cùng luật với duyệt đơn nghỉ (Y2): người lập không phải người duyệt, nếu
   // không thì bước duyệt chỉ là một cái nút thừa.
+  //
+  // Nhận hai dạng: `ids` (mã kế hoạch — duyệt MỌI phần đang chờ của bản đó,
+  // như trước) và `phan: [{ keId, chuongTrinh }]` (đúng một phần — góp ý
+  // 06/10, mục 6). Trả lại BẮT BUỘC có lý do, và cô đã gửi được BÁO NGAY.
   app.post('/api/kehoachbe/duyet', requireRole('teacher', 'admin'), (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({
@@ -953,19 +1278,31 @@ module.exports = (app, { db, modules }) => {
       return res.status(400).json({ error: 'Trả lại thì ghi giúp cô một dòng vì sao nhé' });
     }
 
-    const ids = Array.isArray(b.ids) ? b.ids.map(x => chuoi(x, 40)).filter(Boolean) : [];
-    if (!ids.length || ids.length > TOI_DA_BE_MOT_LAN) {
+    const yeuCau = [];
+    for (const id of (Array.isArray(b.ids) ? b.ids : [])) {
+      const ma = chuoi(id, 40);
+      if (ma) yeuCau.push({ keId: ma, ct: null });
+    }
+    for (const x of (Array.isArray(b.phan) ? b.phan : [])) {
+      const ma = chuoi((x || {}).keId, 40);
+      const c = chuoi((x || {}).chuongTrinh, 20);
+      if (!ma || !MA_CT.includes(c)) return res.status(400).json({ error: 'Danh sách phần cần duyệt chưa hợp lệ' });
+      yeuCau.push({ keId: ma, ct: c });
+    }
+    if (!yeuCau.length || yeuCau.length > TOI_DA_BE_MOT_LAN * MA_CT.length) {
       return res.status(400).json({ error: 'Danh sách kế hoạch cần duyệt chưa hợp lệ' });
     }
 
     const sach = [];
-    for (const id of ids) {
-      const k = db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [id]);
+    for (const { keId, ct } of yeuCau) {
+      const k = db.first('kehoachbe_ke', 'SELECT * FROM kehoachbe_ke WHERE id = ?', [keId]);
       if (!k) return res.status(404).json({ error: 'Danh sách có kế hoạch không tồn tại' });
       if (!db.canAccessStudent(req.user, k.studentId)) {
         return res.status(403).json({ error: 'Có kế hoạch của bé ngoài phạm vi cơ sở mình' });
       }
-      if (k.trangThai !== 'cho-duyet') {
+      const tt = trangThaiCt(k);
+      const phan = (ct ? [ct] : MA_CT).filter(c => tt[c].trangThai === 'cho-duyet');
+      if (!phan.length) {
         return res.status(400).json({ error: 'Chỉ duyệt được kế hoạch đang chờ duyệt' });
       }
       // NGƯỜI LẬP KHÔNG DUYỆT KẾ HOẠCH CỦA CHÍNH MÌNH — với CẢ quản lý.
@@ -973,25 +1310,123 @@ module.exports = (app, { db, modules }) => {
       // Chốt vai ở đầu đường chỉ chặn được cô; một tài khoản quản trị tự lập
       // kế hoạch (đường lưu cho phép admin) rồi tự duyệt thì bước duyệt thành
       // cái nút thừa đúng như chú thích trên đã cảnh báo.
-      if (k.coLap === req.user.id) {
-        return res.status(403).json({
-          error: 'Kế hoạch này do chính tài khoản của anh/chị lập — nhờ một quản lý khác duyệt giúp',
-        });
+      for (const c of phan) {
+        if ((tt[c].coLap || k.coLap) === req.user.id) {
+          return res.status(403).json({
+            error: 'Kế hoạch này do chính tài khoản của anh/chị lập — nhờ một quản lý khác duyệt giúp',
+          });
+        }
+        sach.push({ k, ct: c, coLap: tt[c].coLap || k.coLap });
       }
-      sach.push(k);
     }
 
     const luc = new Date().toISOString();
     db.tx(() => {
-      for (const k of sach) {
-        db.update('kehoachbe_ke', k.id, {
-          trangThai: quyet, nguoiDuyet: req.user.id, duyetLuc: luc,
-          yKienDuyet: yKien, capNhatLuc: luc,
-        });
+      const daDung = new Set();
+      for (const { k, ct } of sach) {
+        if (!daDung.has(k.id)) { damBaoCt(k); daDung.add(k.id); }
+        datCt(k.id, ct, { trangThai: quyet, nguoiDuyet: req.user.id, duyetLuc: luc, yKienDuyet: yKien, capNhatLuc: luc });
+      }
+      for (const id of daDung) {
+        db.update('kehoachbe_ke', id, { capNhatLuc: luc });
+        dongBoKe(id);
       }
     });
     db.audit(req.user.id, 'kehoachbe-duyet', null, { quyetDinh: quyet, so: sach.length });
-    res.json({ ok: true, quyetDinh: quyet, so: sach.length });
+
+    // BÁO CÔ ĐÃ GỬI — mỗi cô MỘT tin cho cả lượt, kể tên bé và chương trình.
+    const theoCo = new Map();
+    for (const x of sach) {
+      if (!x.coLap) continue;
+      if (!theoCo.has(x.coLap)) theoCo.set(x.coLap, []);
+      const be = db.findStudent(x.k.studentId);
+      theoCo.get(x.coLap).push(`${be ? be.name : 'một bé'} (${nhomCo.CHUONG_TRINH[x.ct] || x.ct}, tháng ${x.k.thang})`);
+    }
+    for (const [coId, ds] of theoCo) {
+      baoCo(coId, quyet === 'tra-lai'
+        ? { tieuDe: 'Kế hoạch của bé được gửi lại để sửa',
+          noiDung: `${ds.join(', ')} — lý do: ${yKien}`.slice(0, 300), hash: '#/kehoachbe' }
+        : { tieuDe: 'Kế hoạch của bé đã được duyệt', noiDung: ds.join(', ').slice(0, 300), hash: '#/kehoachbe' });
+    }
+    res.json({ ok: true, quyetDinh: quyet, so: sach.length, daBaoCo: theoCo.size });
+  });
+
+  // MÀN DUYỆT THEO NGÀY / THÁNG / NĂM (góp ý 06/10, mục 6): mọi phần kế hoạch
+  // gửi trong khoảng đó, trong phạm vi cơ sở của người xem, gom theo nhóm lớp
+  // để duyệt từng bé hoặc cả nhóm một lần.
+  app.get('/api/kehoachbe/cho-duyet', requireRole('teacher', 'admin'), (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Màn duyệt là của quản lý' });
+    const ky = ['ngay', 'thang', 'nam'].includes(String(req.query.ky)) ? String(req.query.ky) : 'thang';
+    const homNayVN = ngay.homNay();
+    const moc = String(req.query.moc || '');
+    const mau = { ngay: /^\d{4}-\d{2}-\d{2}$/, thang: THANG_RE, nam: /^\d{4}$/ }[ky];
+    const mocDung = mau.test(moc) ? moc : (ky === 'ngay' ? homNayVN : ky === 'thang' ? homNayVN.slice(0, 7) : homNayVN.slice(0, 4));
+    const tatCa = String(req.query.trangThai || '') === 'tat-ca';
+    // Mốc gửi lưu bằng giờ quốc tế; so theo NGÀY VIỆT NAM.
+    const ngayVN = (iso) => {
+      const t = Date.parse(iso || '');
+      return Number.isFinite(t) ? new Date(t + 7 * 3600 * 1000).toISOString().slice(0, 10) : '';
+    };
+    const trongKy = (iso) => { const d = ngayVN(iso); return !!d && d.startsWith(mocDung); };
+
+    // Kế hoạch tháng nào thì thường gửi trong chính tháng đó hoặc sát trước —
+    // chỉ quét các tháng kế hoạch quanh khoảng đang xem, không quét cả kho.
+    const lechThang = (thang, n) => {
+      const [y, m] = thang.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7);
+    };
+    const tu = ky === 'nam' ? `${Number(mocDung) - 1}-11` : lechThang(mocDung.slice(0, 7), -2);
+    const den = ky === 'nam' ? `${Number(mocDung) + 1}-02` : lechThang(mocDung.slice(0, 7), 2);
+    const ra = [];
+    const ke = tatCa
+      ? db.all('kehoachbe_ke',
+        `SELECT * FROM kehoachbe_ke WHERE thang BETWEEN ? AND ?
+            AND (guiLuc IS NOT NULL OR id IN (SELECT keId FROM kehoachbe_ke_ct WHERE guiLuc IS NOT NULL))`, [tu, den])
+      : db.all('kehoachbe_ke',
+        "SELECT * FROM kehoachbe_ke WHERE thang BETWEEN ? AND ? AND trangThai = 'cho-duyet'", [tu, den]);
+    for (const k of ke) {
+      if (!db.canAccessStudent(req.user, k.studentId)) continue;
+      const tt = trangThaiCt(k);
+      for (const c of MA_CT) {
+        const p = tt[c];
+        if (!p.coNoiDung || !p.guiLuc) continue;
+        if (!tatCa && p.trangThai !== 'cho-duyet') continue;
+        if (tatCa && p.trangThai === 'nhap') continue;
+        if (!trongKy(p.guiLuc)) continue;
+        ra.push({ k, ct: c, p });
+      }
+    }
+    const be = new Map();
+    const nhom = new Map();
+    for (const { k, ct, p } of ra) {
+      if (!be.has(k.studentId)) be.set(k.studentId, db.findStudent(k.studentId));
+      const s = be.get(k.studentId);
+      const cid = (s && s.classId) || k.classId;
+      if (!nhom.has(cid)) {
+        const lop = db.findClass(cid);
+        nhom.set(cid, { classId: cid, tenNhom: lop ? lop.name : '', ds: [] });
+      }
+      const gocCt = gocCuaCt(ct);
+      nhom.get(cid).ds.push({
+        keId: k.id, studentId: k.studentId, hoTen: s ? s.name : '', thang: k.thang,
+        chuongTrinh: ct, tenChuongTrinh: nhomCo.CHUONG_TRINH[ct] || ct,
+        trangThai: p.trangThai, guiLuc: p.guiLuc, coLapTen: tenNguoi(p.coLap || k.coLap),
+        laCuaToi: (p.coLap || k.coLap) === req.user.id,
+        yKienDuyet: p.yKienDuyet, nguoiDuyetTen: tenNguoi(p.nguoiDuyet),
+        baiHoc: baiCuaKe(k.id).filter(x => gocCt.includes(x.gocLinhVuc))
+          .map(x => ({ ten: x.ten, gocLinhVuc: x.gocLinhVuc, nhan: x.nhan })),
+        muc: mucCuaKe(k.id).filter(x => gocCt.includes(x.gocLinhVuc))
+          .map(x => ({ gocLinhVuc: x.gocLinhVuc, noiDung: x.noiDung })),
+      });
+    }
+    const dsNhom = [...nhom.values()].sort((a, b) => a.tenNhom.localeCompare(b.tenNhom, 'vi'));
+    for (const n of dsNhom) n.ds.sort((a, b) => a.hoTen.localeCompare(b.hoTen, 'vi') || a.chuongTrinh.localeCompare(b.chuongTrinh));
+    res.json({
+      ky, moc: mocDung, trangThai: tatCa ? 'tat-ca' : 'cho-duyet',
+      gocLinhVuc: GOC_LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
+      nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
+      tong: ra.length, nhom: dsNhom,
+    });
   });
 
   // =========================================================================
@@ -1118,9 +1553,16 @@ module.exports = (app, { db, modules }) => {
     if (!db.canAccessStudent(req.user, k.studentId)) {
       return res.status(403).json({ error: 'Không có quyền với kế hoạch của bé này' });
     }
-    if (k.trangThai !== 'da-duyet') {
+    // Đề xuất cho MỘT chương trình (góp ý 06/10, mục 6) — chỉ phần đó phải
+    // đã duyệt; phần của cô khác đang chờ duyệt không cản cô này xin sửa.
+    const ctDx = (req.body || {}).chuongTrinh === undefined || (req.body || {}).chuongTrinh === null
+      ? null : chuoi(req.body.chuongTrinh, 20);
+    if (ctDx !== null && !MA_CT.includes(ctDx)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
+    if (ctDx && chanNeuKhongPhanCua(res, req.user, k.classId, ctDx)) return;
+    const ttDx = ctDx ? trangThaiCt(k)[ctDx].trangThai : k.trangThai;
+    if (ttDx !== 'da-duyet') {
       return res.status(400).json({
-        error: k.trangThai === 'cho-duyet'
+        error: ttDx === 'cho-duyet'
           ? 'Kế hoạch này đang chờ duyệt — cô bấm "Rút lại" để sửa, chưa cần đề xuất.'
           : 'Kế hoạch này chưa duyệt nên cô sửa thẳng được, không cần đề xuất.',
       });
@@ -1139,10 +1581,13 @@ module.exports = (app, { db, modules }) => {
 
     const luc = new Date().toISOString();
     const id = db.nextId('khdx');
-    db.insert('kehoachbe_de_xuat', {
-      id, keId: k.id, coDeXuat: req.user.id, lyDo,
-      noiDung: chuoi(b.noiDung, TOI_DA_DE_XUAT_NOI_DUNG),
-      trangThai: 'cho-duyet', nguoiDuyet: null, duyetLuc: null, yKien: '', taoLuc: luc,
+    db.tx(() => {
+      db.insert('kehoachbe_de_xuat', {
+        id, keId: k.id, coDeXuat: req.user.id, lyDo,
+        noiDung: chuoi(b.noiDung, TOI_DA_DE_XUAT_NOI_DUNG),
+        trangThai: 'cho-duyet', nguoiDuyet: null, duyetLuc: null, yKien: '', taoLuc: luc,
+      });
+      if (ctDx) db.run('INSERT OR IGNORE INTO kehoachbe_de_xuat_ct (deXuatId, chuongTrinh) VALUES (?, ?)', [id, ctDx]);
     });
     db.audit(req.user.id, 'kehoachbe-de-xuat', k.studentId, { id, keId: k.id });
     if (req.user.role !== 'admin') {
@@ -1187,10 +1632,34 @@ module.exports = (app, { db, modules }) => {
       db.update('kehoachbe_de_xuat', d.id, { trangThai: quyet, nguoiDuyet: req.user.id, duyetLuc: luc, yKien });
       // DUYỆT = MỞ LẠI. Kế hoạch về tay cô ở trạng thái 'nhap'; chữ ký duyệt cũ
       // không còn hiệu lực với bản sắp sửa, nên xoá mốc gửi để cô gửi lại từ đầu.
-      if (quyet === 'da-duyet' && k.trangThai === 'da-duyet') {
-        db.update('kehoachbe_ke', k.id, { trangThai: 'nhap', guiLuc: null, capNhatLuc: luc });
+      //
+      // Đề xuất cho một chương trình thì chỉ mở lại phần đó. Đề xuất cũ (cả
+      // bản) trên một bản đã tách theo chương trình: mở lại mọi phần đã duyệt.
+      if (quyet === 'da-duyet') {
+        let ctMo = null;
+        try {
+          const r = db.first('kehoachbe_de_xuat_ct', 'SELECT chuongTrinh FROM kehoachbe_de_xuat_ct WHERE deXuatId = ?', [d.id]);
+          ctMo = r ? r.chuongTrinh : null;
+        } catch (_) { ctMo = null; }
+        if (ctMo || dongCt(k.id).size) {
+          damBaoCt(k);
+          const tt = trangThaiCt(k);
+          for (const c of (ctMo ? [ctMo] : MA_CT)) {
+            if (tt[c].trangThai === 'da-duyet') datCt(k.id, c, { trangThai: 'nhap', guiLuc: null, capNhatLuc: luc });
+          }
+          db.update('kehoachbe_ke', k.id, { capNhatLuc: luc });
+          dongBoKe(k.id);
+        } else if (k.trangThai === 'da-duyet') {
+          db.update('kehoachbe_ke', k.id, { trangThai: 'nhap', guiLuc: null, capNhatLuc: luc });
+        }
       }
     });
+    {
+      const be = db.findStudent(k.studentId);
+      baoCo(d.coDeXuat, quyet === 'da-duyet'
+        ? { tieuDe: 'Đề xuất sửa kế hoạch đã được đồng ý', noiDung: `Kế hoạch của ${be ? be.name : 'bé'} đã mở lại cho cô sửa.`, hash: '#/kehoachbe' }
+        : { tieuDe: 'Đề xuất sửa kế hoạch chưa được đồng ý', noiDung: `${be ? be.name : 'Bé'}: ${yKien}`.slice(0, 300), hash: '#/kehoachbe' });
+    }
     db.audit(req.user.id, 'kehoachbe-duyet-de-xuat', k.studentId, { id: d.id, keId: k.id, quyetDinh: quyet });
     res.json({ ok: true, quyetDinh: quyet, deXuat: deXuatCuaKe(k.id), ke: keCuaBe(k.studentId, k.thang) });
   });
@@ -1203,9 +1672,26 @@ module.exports = (app, { db, modules }) => {
   // tổ rối. Lọc từng bé bằng `canAccessStudent` — quản lý cơ sở 1 không đếm bé
   // của cơ sở 2.
   huyHieu.dangKy('kehoachbe', (user) => {
-    if (!user || user.role !== 'admin') return 0;
+    if (!user) return 0;
+    // CÔ: số phần kế hoạch quản lý GỬI LẠI cho chính cô sửa (góp ý 06/10,
+    // mục 6: "gửi thông báo trả về cho giáo viên"). Tin đẩy có thể lạc; con số
+    // này nằm trên ô Kế hoạch cho tới khi cô sửa và gửi lại.
+    if (user.role === 'teacher') {
+      try {
+        const tach = db.all('kehoachbe_ke_ct',
+          `SELECT k.studentId AS studentId FROM kehoachbe_ke_ct c JOIN kehoachbe_ke k ON k.id = c.keId
+            WHERE c.trangThai = 'tra-lai' AND c.coLap = ? LIMIT 500`, [user.id]);
+        const cu = db.all('kehoachbe_ke',
+          `SELECT studentId FROM kehoachbe_ke WHERE trangThai = 'tra-lai' AND coLap = ?
+              AND id NOT IN (SELECT keId FROM kehoachbe_ke_ct) LIMIT 500`, [user.id]);
+        return [...tach, ...cu].filter(k => db.canAccessStudent(user, k.studentId)).length;
+      } catch (_) { return 0; }
+    }
+    if (user.role !== 'admin') return 0;
     const cv = db.chucVu(user);
     if (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv)) return 0;
+    // Đếm theo KẾ HOẠCH (một bé một tháng), không theo từng phần: bản nào còn
+    // phần chờ duyệt thì `trangThai` gộp của nó là 'cho-duyet' (dongBoKe).
     const ke = db.all('kehoachbe_ke',
       "SELECT studentId FROM kehoachbe_ke WHERE trangThai = 'cho-duyet' ORDER BY guiLuc DESC LIMIT 500")
       .filter(k => db.canAccessStudent(user, k.studentId)).length;

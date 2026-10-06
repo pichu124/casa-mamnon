@@ -128,3 +128,46 @@ CREATE TABLE IF NOT EXISTS kehoachbe_de_xuat (
   taoLuc     TEXT
 );
 CREATE INDEX IF NOT EXISTS kehoachbe_de_xuat_theo_ke ON kehoachbe_de_xuat(keId, taoLuc DESC);
+
+-- GÓP Ý 06/10 (mục 6): MỖI CHƯƠNG TRÌNH TỰ LƯU NHÁP VÀ TỰ GỬI DUYỆT.
+--
+-- Nhà trường: ba tab Montessori & Kỹ năng sống / Cambridge / Thể chất, mỗi tab
+-- do một cô khác soạn, và tab nào cũng có "Lưu nháp" và "Gửi quản lý duyệt".
+-- Bảng `kehoachbe_ke` chỉ có MỘT trạng thái cho cả bé cả tháng: cô Montessori
+-- gửi duyệt là phần Cambridge của cô nước ngoài khoá theo, và ngược lại.
+--
+-- Bảng phụ này giữ trạng thái RIÊNG từng chương trình (mã của lib/nhom-co.js).
+-- Không đổi cột bảng cũ. Kế hoạch chưa có dòng nào ở đây thì đọc như cũ: phần
+-- nào có nội dung mang trạng thái của cả bản. `kehoachbe_ke.trangThai` vẫn
+-- được giữ đồng bộ (gộp từ ba phần) cho mọi chỗ đang đọc nó.
+CREATE TABLE IF NOT EXISTS kehoachbe_ke_ct (
+  keId        TEXT NOT NULL,
+  chuongTrinh TEXT NOT NULL,          -- chu-nhiem | nuoc-ngoai | the-chat
+  trangThai   TEXT NOT NULL DEFAULT 'nhap',
+  coLap       TEXT,
+  guiLuc      TEXT,
+  nguoiDuyet  TEXT,
+  duyetLuc    TEXT,
+  yKienDuyet  TEXT NOT NULL DEFAULT '',
+  capNhatLuc  TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS kehoachbe_ke_ct_mot ON kehoachbe_ke_ct(keId, chuongTrinh);
+CREATE INDEX IF NOT EXISTS kehoachbe_ke_ct_trang_thai ON kehoachbe_ke_ct(trangThai, guiLuc);
+
+-- KHO BÀI THEO LỨA TUỔI (góp ý 06/10, mục 6): "Được quản lý tách biệt theo độ
+-- tuổi (Lứa 3-4 tuổi, Lứa 4-5 tuổi, Lứa 5-6 tuổi)". Một bài dùng được cho nhiều
+-- lứa nên là bảng phụ, không phải một cột. Bài KHÔNG có dòng nào ở đây = dùng
+-- cho mọi lứa — đúng như mọi bài đang có hôm nay.
+CREATE TABLE IF NOT EXISTS kehoachbe_baihoc_lua (
+  baiHocId TEXT NOT NULL,
+  lua      TEXT NOT NULL              -- 3-4 | 4-5 | 5-6
+);
+CREATE UNIQUE INDEX IF NOT EXISTS kehoachbe_baihoc_lua_mot ON kehoachbe_baihoc_lua(baiHocId, lua);
+
+-- ĐỀ XUẤT SỬA MỘT CHƯƠNG TRÌNH. Đề xuất cũ (không có dòng ở đây) mở lại cả bản
+-- như trước; đề xuất mới chỉ mở lại đúng phần chương trình cô xin sửa.
+CREATE TABLE IF NOT EXISTS kehoachbe_de_xuat_ct (
+  deXuatId    TEXT NOT NULL,
+  chuongTrinh TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS kehoachbe_de_xuat_ct_mot ON kehoachbe_de_xuat_ct(deXuatId);

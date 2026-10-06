@@ -14,7 +14,7 @@ Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối t�
 | 4.1 | Kế hoạch giáo dục — một bản chung cả trường, soạn theo tuần | ✅ Đ225 |
 | 4.2 | Lịch sinh hoạt theo ngày không vào được | ✅ Đ222 |
 | 5 | Cambridge — bỏ "Tất cả", ba loại bài ba mẫu soạn, block hiện tại, ẩn với nhà trẻ | ✅ Đ223 |
-| 6 | Kế hoạch của bé — ba tab theo chương trình, kho bài theo lứa, duyệt/trả lại | đang làm |
+| 6 | Kế hoạch của bé — ba tab theo chương trình, kho bài theo lứa, duyệt/trả lại | ✅ Đ229 |
 | 7 | Hành trình của bé — bốn tab, nhìn lại cuối tháng, ghi nhanh không gắn bé, giọng nói | đang làm |
 | 8 | Ghi nhanh — dùng ảnh cho từng chương trình, nhắc tần suất mỗi tuần | đang làm |
 | 9 | Nhật ký ngày — ba tab, chọn nhiều bé, giờ thay bỉm/đi vệ sinh, nút Gửi | ✅ Đ228 |
@@ -40,5 +40,11 @@ Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối t�
   Đề xuất: ảnh chấm công giữ 90 ngày, giờ vào/ra giữ mãi.
 - **Phân hệ Đón trả bé** nay TẮT SẴN (Đ227). Máy nào đã từng bật tay thì vẫn bật —
   nhà trường tắt ở Quản trị → Tính năng. Dữ liệu cũ giữ nguyên.
+- **Khai vai cô cho từng nhóm** (Quản trị → Nhóm lớp: cô phụ trách nhóm / cô nước ngoài /
+  cô thể chất). Chưa khai thì cô phụ trách nhóm vẫn soạn được cả ba phần Kế hoạch như trước
+  (Đ229) — khai rồi thì mỗi cô chỉ soạn và gửi duyệt đúng phần của mình.
+- **Gắn lứa cho bài trong kho** (Kế hoạch của bé → Kho bài học). Hôm nay mọi bài là "mọi
+  lứa" nên cô thấy đủ cả kho; trường gắn lứa tới đâu thì danh sách của từng bé gọn tới đó.
+  Bé dưới 4 tuổi (kể cả nhà trẻ) dùng kho 3–4 — trường muốn kho riêng cho dưới 3 tuổi thì báo.
 - **Ô "Dán bảng từ Excel"** (Đ132) vẫn còn bên cạnh tệp Excel mẫu (Đ226). Bỏ hẳn hay giữ
   làm đường phụ — nhà trường quyết sau khi dùng thử tệp mẫu.
