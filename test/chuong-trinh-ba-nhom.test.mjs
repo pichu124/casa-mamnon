@@ -61,6 +61,11 @@ try {
     check('HAI BẢN KHỚP NHAU TỪNG DÒNG — góc nào cũng cùng một chương trình',
       JSON.stringify(ke) === JSON.stringify(bc),
       `${JSON.stringify(ke)}\n  vs\n  ${JSON.stringify(bc)}`);
+    // Bản chép thứ BA (Đ230): Hành trình chia bài kế hoạch theo chương trình
+    // và lọc phần đã duyệt cho gia đình bằng chính bản đồ này.
+    const ht = banDo('modules/hanhtrinh/routes.js');
+    check('bản chép ở Hành trình học tập cũng khớp từng dòng',
+      JSON.stringify(ht) === JSON.stringify(ke), `${JSON.stringify(ht)}\n  vs\n  ${JSON.stringify(ke)}`);
 
     // Và bản đồ phải dùng ĐÚNG mã nhóm cô của lib/nhom-co.js — không đặt bộ
     // mã thứ hai cho cùng một khái niệm.

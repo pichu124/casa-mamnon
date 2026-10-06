@@ -72,6 +72,12 @@ App.views.kehoachbe = {
 
   laQuanLy() { return App.state.user.role === 'admin'; },
 
+  // "S · Đã vững" — chữ quy ước đọc kèm tên trạng thái (góp ý 06/10, mục 7).
+  chuMucDo(ma) {
+    const t = ((this._data || {}).mucDo || []).find(x => x.ma === ma);
+    return t ? (t.chuCai ? `${t.chuCai} · ${t.ten}` : t.ten) : '';
+  },
+
   ten(ds, ma) {
     const t = (ds || []).find(x => x.ma === ma);
     return t ? t.ten : '';
@@ -343,7 +349,8 @@ App.views.kehoachbe = {
     const nhanSan = (baiId) => {
       const t = baiDaTich.find(b => b.baiHocId === baiId);
       if (t) return t.nhan;
-      return goiYCt.some(b => b.baiHocId === baiId) ? 'on-tap' : '';
+      const g = goiYCt.find(b => b.baiHocId === baiId);
+      return g ? (g.nhan || 'on-tap') : '';
     };
 
     const oGoc = (g) => {
@@ -358,7 +365,9 @@ App.views.kehoachbe = {
             <div class="row-sub">${UI.esc(g.ten)}</div>
             ${bg.length ? `<div class="small" style="line-height:1.7">${bg.map(b =>
               `${UI.esc(b.ten)} <span class="muted">· ${UI.esc(this.tenNhan(b.nhan))}</span>${
-                b.ketQua ? ` ${UI.badge(this.ten(d.ketLuanBai, b.ketQua), this.MAU_KET_LUAN[b.ketQua] || 'gray')}` : ''}`).join('<br>')}</div>` : ''}
+                b.mucDo ? ` ${UI.badge(this.chuMucDo(b.mucDo), this.MAU_KET_QUA[b.mucDo] || 'gray')}`
+                  : (b.ketQua ? ` ${UI.badge(this.ten(d.ketLuanBai, b.ketQua), this.MAU_KET_LUAN[b.ketQua] || 'gray')}` : '')}${
+                b.tiepTuc ? ` <span class="muted small">· ${UI.esc(this.ten(d.tiepTuc, b.tiepTuc).toLowerCase())}</span>` : ''}`).join('<br>')}</div>` : ''}
             ${gt ? `<div class="row-title" style="font-weight:400">${UI.esc(gt)}</div>` : ''}
             ${m && m.ketQua ? `<div class="row-sub">${UI.esc(this.ten(d.ketQua, m.ketQua))}${m.tiepTucThangSau ? ' · tiếp tục ở tháng sau' : ''}</div>` : ''}
           </div></div>`;
@@ -394,8 +403,8 @@ App.views.kehoachbe = {
 
         ${goiYCt.length ? `
           <div class="small muted" style="line-height:1.6;margin-bottom:8px">
-            Tháng ${UI.esc(goiY.tuThang)} cô ghi <b>Tiếp tục cùng con</b>: ${UI.esc(goiYCt.map(b => b.ten).join(', '))}
-            — đã tích sẵn là ôn tập, cô bỏ tích được.
+            Tháng ${UI.esc(goiY.tuThang)} cô ghi <b>Tiếp tục ở tháng sau</b>: ${UI.esc(goiYCt.map(b => b.ten).join(', '))}
+            — đã tích sẵn đúng lựa chọn của cô (dạy mới hoặc ôn tập), cô bỏ tích được.
           </div>` : ''}
 
         ${dx && dx.trangThai === 'cho-duyet' ? `
@@ -673,10 +682,23 @@ App.views.kehoachbe = {
         <div style="${i ? 'border-top:1px solid var(--line);padding-top:10px;margin-top:12px' : ''}">
           <div class="small" style="font-weight:700">${UI.esc(this.ten(d.gocLinhVuc, b.gocLinhVuc))} · ${UI.esc(b.ten)}
             <span class="muted" style="font-weight:400">· ${UI.esc(this.tenNhan(b.nhan))}</span></div>
+          ${(d.mucDo || []).length ? `
+          <div class="grid-2 mt-8">
+            <div class="field" style="margin:0"><label>Mức độ (chữ quy ước)</label>
+              <select class="kb-md" data-bai-id="${UI.esc(b.id)}">
+                <option value="">— chưa chọn —</option>
+                ${(d.mucDo || []).map(t => `<option value="${UI.esc(t.ma)}" ${b.mucDo === t.ma ? 'selected' : ''}>${UI.esc(t.chuCai ? `${t.chuCai} · ${t.ten}` : t.ten)}</option>`).join('')}
+              </select></div>
+            <div class="field" style="margin:0"><label>Tiếp tục ở tháng sau</label>
+              <select class="kb-tt" data-bai-id="${UI.esc(b.id)}">
+                <option value="">— không —</option>
+                ${(d.tiepTuc || []).map(t => `<option value="${UI.esc(t.ma)}" ${b.tiepTuc === t.ma ? 'selected' : ''}>${UI.esc(t.ten)}</option>`).join('')}
+              </select></div>
+          </div>` : `
           <div class="seg mt-8" data-kl-cua="${UI.esc(b.id)}">
             ${(d.ketLuanBai || []).map(t => `<button type="button" class="${b.ketQua === t.ma ? 'active' : ''}" data-kl="${UI.esc(t.ma)}">${UI.esc(t.ten)}</button>`).join('')}
-          </div>
-          <input class="kb-bnx mb-8" data-bai-id="${UI.esc(b.id)}" value="${UI.esc(b.nhanXet || '')}" placeholder="Ghi chú thêm (không bắt buộc)">
+          </div>`}
+          <input class="kb-bnx mb-8 mt-8" data-bai-id="${UI.esc(b.id)}" value="${UI.esc(b.nhanXet || '')}" placeholder="Ghi chú thêm (không bắt buộc)">
         </div>`).join('')}
       ${(k.muc || []).map((m, i) => `
         <div style="${i || (k.baiHoc || []).length ? 'border-top:1px solid var(--line);padding-top:10px;margin-top:12px' : ''}">
@@ -718,11 +740,20 @@ App.views.kehoachbe = {
         nhanXet: document.getElementById(`kb-nx-${i}`).value.trim(),
         tiepTucThangSau: document.getElementById(`kb-tt-${i}`).checked,
       }));
-      const baiHoc = [...ov.querySelectorAll('[data-kl-cua]')].map(seg => {
-        const chon = seg.querySelector('button.active');
-        const nx = ov.querySelector(`.kb-bnx[data-bai-id="${seg.dataset.klCua}"]`);
-        return { id: seg.dataset.klCua, ketQua: chon ? chon.dataset.kl : '', nhanXet: nx ? nx.value.trim() : '' };
-      });
+      // Màn đời mới: mức độ bằng chữ quy ước + "tiếp tục ở tháng sau" —
+      // máy chủ tự suy ra kết luận hai mức cho các chỗ đang đọc nó.
+      const baiHoc = (d.mucDo || []).length
+        ? [...ov.querySelectorAll('.kb-md')].map(o => {
+          const id = o.dataset.baiId;
+          const tt = ov.querySelector(`.kb-tt[data-bai-id="${id}"]`);
+          const nx = ov.querySelector(`.kb-bnx[data-bai-id="${id}"]`);
+          return { id, mucDo: o.value, tiepTuc: tt ? tt.value : '', nhanXet: nx ? nx.value.trim() : '' };
+        })
+        : [...ov.querySelectorAll('[data-kl-cua]')].map(seg => {
+          const chon = seg.querySelector('button.active');
+          const nx = ov.querySelector(`.kb-bnx[data-bai-id="${seg.dataset.klCua}"]`);
+          return { id: seg.dataset.klCua, ketQua: chon ? chon.dataset.kl : '', nhanXet: nx ? nx.value.trim() : '' };
+        });
       try {
         await API.put('/api/kehoachbe/nhin-lai', { id: keId, muc, baiHoc });
         UI.toast('Đã lưu phần nhìn lại', 'success');

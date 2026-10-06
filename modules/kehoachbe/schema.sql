@@ -171,3 +171,21 @@ CREATE TABLE IF NOT EXISTS kehoachbe_de_xuat_ct (
   chuongTrinh TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS kehoachbe_de_xuat_ct_mot ON kehoachbe_de_xuat_ct(deXuatId);
+
+-- NHÌN LẠI CUỐI THÁNG TỪNG BÀI BẰNG KÝ TỰ QUY ƯỚC (góp ý 06/10, mục 7 — chủ dự
+-- án chốt 06/10: giữ NĂM trạng thái trung tính, hiện kèm chữ M/S/W/N/NA).
+--
+-- `mucDo` là một trong năm mã của Hành trình học tập (chua-day ·
+-- chua-quan-sat-thay · dang-hinh-thanh · da-vung · vuot-troi). `tiepTuc` là
+-- lựa chọn "Tiếp tục ở tháng sau" của nhà trường: 'hoc-moi' (tháng này bé nghỉ,
+-- chưa học — tháng sau DẠY MỚI) hoặc 'on-tap' (tháng sau ÔN TẬP); rỗng là không
+-- mang sang. Bảng phụ, khoá theo dòng bài của kế hoạch — không đổi cột
+-- `kehoachbe_muc_bai`; cột `ketQua` hai mức cũ vẫn được giữ đồng bộ cho mọi chỗ
+-- đang đọc nó (gợi ý tháng sau, báo cáo học tập).
+CREATE TABLE IF NOT EXISTS kehoachbe_bai_muc_do (
+  mucBaiId   TEXT PRIMARY KEY,
+  mucDo      TEXT NOT NULL DEFAULT '',
+  tiepTuc    TEXT NOT NULL DEFAULT '',
+  nguoiGhi   TEXT,
+  capNhatLuc TEXT
+);

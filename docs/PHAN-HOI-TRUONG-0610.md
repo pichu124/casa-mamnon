@@ -15,8 +15,8 @@ Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối t�
 | 4.2 | Lịch sinh hoạt theo ngày không vào được | ✅ Đ222 |
 | 5 | Cambridge — bỏ "Tất cả", ba loại bài ba mẫu soạn, block hiện tại, ẩn với nhà trẻ | ✅ Đ223 |
 | 6 | Kế hoạch của bé — ba tab theo chương trình, kho bài theo lứa, duyệt/trả lại | ✅ Đ229 |
-| 7 | Hành trình của bé — bốn tab, nhìn lại cuối tháng, ghi nhanh không gắn bé, giọng nói | đang làm |
-| 8 | Ghi nhanh — dùng ảnh cho từng chương trình, nhắc tần suất mỗi tuần | đang làm |
+| 7 | Hành trình của bé — bốn tab, nhìn lại cuối tháng, ghi nhanh không gắn bé, giọng nói | ✅ Đ230 |
+| 8 | Ghi nhanh — dùng ảnh cho từng chương trình, nhắc tần suất mỗi tuần | ✅ Đ230 |
 | 9 | Nhật ký ngày — ba tab, chọn nhiều bé, giờ thay bỉm/đi vệ sinh, nút Gửi | ✅ Đ228 |
 
 ## Bốn điểm chủ dự án chốt ngày 06/10
@@ -46,5 +46,13 @@ Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối t�
 - **Gắn lứa cho bài trong kho** (Kế hoạch của bé → Kho bài học). Hôm nay mọi bài là "mọi
   lứa" nên cô thấy đủ cả kho; trường gắn lứa tới đâu thì danh sách của từng bé gọn tới đó.
   Bé dưới 4 tuổi (kể cả nhà trẻ) dùng kho 3–4 — trường muốn kho riêng cho dưới 3 tuổi thì báo.
+- **Nháp chưa gắn bé có ảnh (Đ230)** nằm trong máy chủ tới khi cô gắn bé hoặc bỏ (tối đa
+  200 nháp mỗi cô). Đề xuất: nháp quá 30 ngày chưa gắn thì tự bỏ, kể cả ảnh — chờ trường đồng ý.
+- **Nói thành chữ (Đ230).** Đang dùng nhận dạng có sẵn trong trình duyệt của điện thoại
+  (Chrome Android → Google, Safari iPhone → Apple), tiếng Việt, miễn phí, không cài thêm gì.
+  Âm thanh đi qua dịch vụ của Google / Apple — app đã ghi rõ dưới nút và dặn cô gọi bé bằng
+  tên ở lớp. Muốn âm thanh KHÔNG rời khỏi hệ thống của trường thì phải dựng nhận dạng phía máy
+  chủ (FPT.AI / Viettel AI / Google Cloud / Whisper tự chạy): tốn tiền hoặc máy mạnh, và cần
+  hợp đồng xử lý dữ liệu theo Nghị định 13 — chưa làm, chờ trường quyết sau khi các cô dùng thử.
 - **Ô "Dán bảng từ Excel"** (Đ132) vẫn còn bên cạnh tệp Excel mẫu (Đ226). Bỏ hẳn hay giữ
   làm đường phụ — nhà trường quyết sau khi dùng thử tệp mẫu.

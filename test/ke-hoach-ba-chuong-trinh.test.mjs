@@ -198,8 +198,13 @@ try {
     const d1 = await req('POST', '/api/kehoachbe/duyet', { cookie: QL, body: { quyetDinh: 'da-duyet', phan: [{ keId, chuongTrinh: 'chu-nhiem' }] } });
     check('duyệt phần Montessori', d1.status === 200 && d1.data.so === 1, d1.data);
     check('còn phần Cambridge chờ → bản gộp vẫn "chờ duyệt"', keDb(keId).trangThai === 'cho-duyet', keDb(keId).trangThai);
+    // Đ230: gia đình thấy ĐÚNG phần đã duyệt (Montessori), KHÔNG thấy phần còn
+    // chờ (Cambridge). Bản Đ229 chặt hơn — chưa duyệt đủ thì không thấy gì —
+    // và đã ghi rõ "còn để Đ230" ở TIEN-DO.
     const ph1 = await req('GET', '/api/hanhtrinh?studentId=s1', { cookie: PH });
-    check('gia đình CHƯA thấy bài khi bản chưa duyệt đủ', ph1.status === 200 && !JSON.stringify(ph1.data).includes('Tháp hồng'));
+    const bai1 = (ph1.data.baiThangNay || []).map(b => b.ten);
+    check('gia đình thấy phần Montessori đã duyệt', ph1.status === 200 && bai1.includes('Tháp hồng'), bai1);
+    check('và KHÔNG thấy phần Cambridge còn chờ duyệt', !bai1.includes('Colours') && !bai1.includes('Animals'), bai1);
     const d2 = await req('POST', '/api/kehoachbe/duyet', { cookie: QL, body: { quyetDinh: 'da-duyet', phan: [{ keId, chuongTrinh: 'nuoc-ngoai' }] } });
     check('duyệt phần Cambridge', d2.status === 200 && d2.data.so === 1, d2.data);
     check('đủ mọi phần có nội dung → bản gộp "đã duyệt"', keDb(keId).trangThai === 'da-duyet', keDb(keId).trangThai);

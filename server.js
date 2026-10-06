@@ -32,7 +32,9 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');            // chống nhúng vào trang lạ
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  // microphone=(self): nút "Nói để ghi" của Hành trình (góp ý 06/10, mục 7) cần micro của
+  // CHÍNH app; mọi trang nhúng hay nguồn khác vẫn bị chặn như trước.
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",           // giao diện dùng onclick nội tuyến

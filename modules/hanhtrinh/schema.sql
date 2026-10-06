@@ -183,3 +183,26 @@ CREATE TABLE IF NOT EXISTS hanhtrinh_chude_tep (
 );
 CREATE INDEX IF NOT EXISTS hanhtrinh_chude_tep_theo_tuan
   ON hanhtrinh_chude_tep(classId, tuan);
+
+-- GHI NHÁP CHƯA GẮN BÉ (góp ý 06/10, mục 7): *"Thêm nút + … để ghi nhanh lại
+-- quan sát của 1 học sinh → sau đó có thể lưu nháp, GV có thời gian sẽ tag tên
+-- học sinh, vào chương trình cụ thể để đăng gửi phụ huynh."*
+--
+-- Cô đang đứng giữa lớp: ghi ngay một dòng (và một tấm ảnh nếu có), chưa kịp
+-- chọn bé. Bảng `hanhtrinh_quansat` bắt buộc có bé, nên nháp nằm ở bảng riêng
+-- này cho tới khi cô gắn bé + chương trình — lúc đó nó thành một quan sát LỚP 1
+-- bình thường và đi tiếp đúng luồng cũ (suy ngẫm → kể cho gia đình).
+--
+-- Đây là dữ liệu LỚP 1: CHỈ CÔ ĐÃ GHI đọc được. Không lộ sang cô khác, không
+-- lộ sang gia đình.
+CREATE TABLE IF NOT EXISTS hanhtrinh_nhap (
+  id         TEXT PRIMARY KEY,
+  coGhi      TEXT NOT NULL,
+  moTa       TEXT NOT NULL DEFAULT '',
+  anh        TEXT NOT NULL DEFAULT '',
+  nhom       TEXT NOT NULL DEFAULT '',   -- chương trình cô định gắn (mã lib/nhom-co.js), có thể để trống
+  taoLuc     TEXT NOT NULL,
+  capNhatLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS hanhtrinh_nhap_theo_co ON hanhtrinh_nhap(coGhi, taoLuc DESC);
+CREATE INDEX IF NOT EXISTS hanhtrinh_nhap_theo_anh ON hanhtrinh_nhap(anh);

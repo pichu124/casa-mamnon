@@ -2082,6 +2082,9 @@ Vẫn nhận bé này?`)) {
 
       // Hành trình học tập
       'hanhtrinh-quan-sat': 'Ghi một quan sát',
+      'hanhtrinh-nhap': 'Ghi nháp quan sát chưa gắn bé',
+      'hanhtrinh-nhap-gan': 'Gắn bé cho một nháp quan sát',
+      'hanhtrinh-nhap-bo': 'Bỏ một nháp quan sát',
       'hanhtrinh-suy-ngam': 'Ghi suy ngẫm của cô',
       'hanhtrinh-cong-bo': 'Công bố câu chuyện cho gia đình',
       'hanhtrinh-thu-hoi': 'Thu hồi câu chuyện đã công bố',

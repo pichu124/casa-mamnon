@@ -90,6 +90,36 @@ const LINH_VUC = [
 ];
 const MA_LINH_VUC = LINH_VUC.map(x => x[0]);
 
+// GÓC CỦA "KẾ HOẠCH CỦA BÉ" VÀ CHƯƠNG TRÌNH CỦA TỪNG GÓC (góp ý 06/10, mục 7).
+//
+// Tab "Kế hoạch của bé" của Hành trình đọc bài từ phân hệ Kế hoạch — mà bài ở
+// đó mang mã GÓC của lớp Montessori (toan, giac-quan…), khác năm lĩnh vực phát
+// triển ở trên. Trước đợt này màn gia đình tra tên góc trong `LINH_VUC` nên
+// hiện ra mã trần ("toan"). CHÉP LẠI bản đồ, không gọi sang phân hệ kia (hai
+// phân hệ cắm thêm không phụ thuộc nhau); `test/chuong-trinh-ba-nhom.test.mjs`
+// đối chiếu bản chép này với hai bản ở Kế hoạch và Báo cáo.
+const GOC_KE_HOACH = [
+  ['toan', 'Toán'],
+  ['tieng-viet', 'Tiếng Việt'],
+  ['cambridge', 'Tiếng Anh (Cambridge)'],
+  ['thuc-hanh-cuoc-song', 'Thực hành cuộc sống'],
+  ['giac-quan', 'Giác quan'],
+  ['van-hoa', 'Văn hoá'],
+  ['the-chat', 'Thể chất'],
+];
+const CHUONG_TRINH_CUA_GOC = {
+  'toan': 'chu-nhiem',
+  'tieng-viet': 'chu-nhiem',
+  'thuc-hanh-cuoc-song': 'chu-nhiem',
+  'giac-quan': 'chu-nhiem',
+  'van-hoa': 'chu-nhiem',
+  'cambridge': 'nuoc-ngoai',
+  'the-chat': 'the-chat',
+};
+function chuongTrinhCuaGoc(ma) {
+  return CHUONG_TRINH_CUA_GOC[String(ma || '')] || 'chu-nhiem';
+}
+
 const TOI_DA_MO_TA = 1000;
 const TOI_DA_CAU_CHUYEN = 3000;
 const TOI_DA_NGAN = 500;
@@ -242,6 +272,41 @@ module.exports = (app, { db, modules }) => {
     }
   }
 
+  // CHƯƠNG TRÌNH CÔ ĐƯỢC GẮN QUAN SÁT VÀO, ở nhóm của một bé (góp ý 06/10,
+  // mục 7: "tag tên học sinh, vào chương trình cụ thể"). Cùng luật với Kế
+  // hoạch của bé: vai của cô ở nhóm đó; phần nhóm CHƯA khai cô nào giữ thì cô
+  // phụ trách nhóm ghi thay. Văn phòng ghi được mọi phần.
+  function nhomDuocGhi(user, classId) {
+    if (user.role === 'admin') return nhomCo.NHOM.map(x => x[0]);
+    const cua = nhomCo.nhomCua(db, classId || null, user.id);
+    const ds = [cua];
+    if (cua === nhomCo.MAC_DINH) {
+      const daKhai = new Set(Object.values(nhomCo.nhomTheoLop(db, classId)));
+      for (const [ma] of nhomCo.NHOM) if (ma !== cua && !daKhai.has(ma)) ds.push(ma);
+    }
+    return ds;
+  }
+  // Ghi nhóm do cô CHỌN (đã kiểm quyền) — không chọn thì như cũ, theo vai.
+  function ghiNhomDaChon(quanSatId, classId, user, chon) {
+    if (!chon) return ghiNhomChoQuanSat(quanSatId, classId, user.id);
+    try {
+      db.upsert('hanhtrinh_quansat_nhom', { quanSatId, nhom: chon }, ['quanSatId']);
+      return chon;
+    } catch (_) {
+      return ghiNhomChoQuanSat(quanSatId, classId, user.id);
+    }
+  }
+  function docNhomChon(res, user, classId, v) {
+    const chon = chuoi(v, 20);
+    if (!chon) return '';
+    if (!nhomCo.hopLe(chon)) { res.status(400).json({ error: 'Chương trình chưa hợp lệ' }); return null; }
+    if (!nhomDuocGhi(user, classId).includes(chon)) {
+      res.status(403).json({ error: `Phần ${nhomCo.CHUONG_TRINH[chon]} do ${(nhomCo.TEN_NHOM[chon] || '').toLowerCase()} của nhóm ghi` });
+      return null;
+    }
+    return chon;
+  }
+
   // Cô chỉ SỬA được quan sát của chính mình. Quản trị sửa được để còn gỡ khi có
   // khiếu nại — nhưng mọi lần sửa đều vào Nhật ký thao tác.
   function duocSua(user, r) {
@@ -283,17 +348,28 @@ module.exports = (app, { db, modules }) => {
     const chiDaDuyet = user.role === 'parent';
     try {
       const ke = db.first('kehoachbe_ke',
-        `SELECT id, trangThai FROM kehoachbe_ke
-          WHERE studentId = ? AND thang = ?
-            ${chiDaDuyet ? "AND trangThai = 'da-duyet'" : ''}`,
+        'SELECT id, trangThai FROM kehoachbe_ke WHERE studentId = ? AND thang = ?',
         [be.id, ngay2.thangNay()]);
       if (!ke) return [];
+      // DUYỆT THEO TỪNG CHƯƠNG TRÌNH (góp ý 06/10, mục 6): bản đã tách thì gia
+      // đình thấy bài của ĐÚNG những phần đã duyệt; bản đời cũ thì cả bản phải
+      // đã duyệt, như trước.
+      let phanDaDuyet = null;
+      if (chiDaDuyet) {
+        let dong = [];
+        try {
+          dong = db.all('kehoachbe_ke_ct', 'SELECT chuongTrinh, trangThai FROM kehoachbe_ke_ct WHERE keId = ?', [ke.id]);
+        } catch (_) { dong = []; }
+        if (dong.length) phanDaDuyet = new Set(dong.filter(r => r.trangThai === 'da-duyet').map(r => r.chuongTrinh));
+        else if (ke.trangThai !== 'da-duyet') return [];
+      }
       return db.all('kehoachbe_muc_bai',
         `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, mb.nhan AS nhan
            FROM kehoachbe_muc_bai mb
            JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
           WHERE mb.keId = ?
           ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id])
+        .filter(r => !phanDaDuyet || phanDaDuyet.has(chuongTrinhCuaGoc(r.gocLinhVuc)))
         // Dựng lại từng ô một thay vì trả thẳng hàng truy vấn: câu SELECT trên
         // hôm nay không lấy `ketQua`, nhưng người sửa sau có thể thêm `mb.*`
         // vào cho tiện mà không nhớ ra rằng gói này đi thẳng ra màn gia đình.
@@ -369,6 +445,10 @@ module.exports = (app, { db, modules }) => {
       // BÀI HỌC THÁNG NÀY, LẤY TỪ KẾ HOẠCH CỦA BÉ (Đ191, Câu 1). Xem
       // `baiThangNayCuaBe` ngay dưới để biết vì sao chỉ có TÊN BÀI.
       baiThangNay: baiThangNayCuaBe(be, req.user),
+      // Tên góc của kế hoạch và chương trình của từng góc, để màn hình chia bài
+      // theo ba chương trình mà không phải nhét thêm khoá vào từng bài (gói bài
+      // gửi gia đình giữ đúng ba khoá: tên, góc, nhãn).
+      gocKeHoach: GOC_KE_HOACH.map(([ma, ten]) => ({ ma, ten, chuongTrinh: chuongTrinhCuaGoc(ma) })),
       // THÊM MỘT KHOÁ BÊN CẠNH, KHÔNG ĐỔI KHOÁ CŨ.
       //
       // Điện thoại đang giữ bản app cũ vẫn đọc `chuDeTuan` như trước và không
@@ -495,7 +575,18 @@ module.exports = (app, { db, modules }) => {
   app.get('/api/hanhtrinh/anh/:file', (req, res) => {
     const file = String(req.params.file || '');
     const chu = db.first('hanhtrinh_quansat', 'SELECT * FROM hanhtrinh_quansat WHERE anh = ?', [file]);
-    if (!chu) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    if (!chu) {
+      // Ảnh của một NHÁP CHƯA GẮN BÉ: chỉ cô đã ghi mở được (lớp 1).
+      let nhap = null;
+      try { nhap = db.first('hanhtrinh_nhap', 'SELECT * FROM hanhtrinh_nhap WHERE anh = ?', [file]); } catch (_) { nhap = null; }
+      if (!nhap || !file) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+      if (nhap.coGhi !== req.user.id) return res.status(403).json({ error: 'Ảnh trong ghi chép riêng của cô' });
+      const dn = uploads.pathOf(file);
+      if (!dn || !uploads.exists(file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+      res.setHeader('Content-Type', uploads.mimeOf(file));
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      return res.sendFile(dn);
+    }
     if (!db.canAccessStudent(req.user, chu.studentId)) {
       return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
     }
@@ -521,42 +612,59 @@ module.exports = (app, { db, modules }) => {
     if (!ids.length) return res.json({ be: [] });
     const moc = ngay2.ngayCua(Date.now() - NGAY_COI_LA_LAU * 86400000);
     const marks = ids.map(() => '?').join(',');
-    const coGanDay = new Set(db.all('hanhtrinh_quansat',
-      `SELECT DISTINCT studentId FROM hanhtrinh_quansat
-       WHERE ngay >= ? AND studentId IN (${marks})`, [moc, ...ids]).map(x => x.studentId));
-    const be = db.studentsOf(req.user)
+    const dsHs = db.studentsOf(req.user);
+
+    // THEO CHƯƠNG TRÌNH CỦA CÔ (góp ý 06/10, mục 8): *"Mỗi giáo viên của từng
+    // chương trình bắt buộc phải đăng ít nhất 1 ảnh hoặc 1 quan sát về mỗi bé
+    // trong 1 tuần"*. Cô nước ngoài không được "xong việc" nhờ quan sát của cô
+    // phụ trách nhóm — nên với CÔ, chỉ tính quan sát cùng chương trình với vai
+    // của cô ở nhóm của bé, cộng ảnh Ghi nhanh chính cô chụp. Văn phòng thì vẫn
+    // nhìn chung như trước. Trường chưa khai vai thì mọi cô là cô phụ trách
+    // nhóm và mọi quan sát cũ cũng thuộc chương trình ấy — y như trước.
+    const laCo = req.user.role === 'teacher';
+    const ctCuaBe = new Map(dsHs.map(s => [s.id, laCo ? nhomCo.nhomCua(db, s.classId, req.user.id) : null]));
+    const lopCuaBe = new Map(dsHs.map(s => [s.id, s.classId]));
+    const daCo = (tuNgay, tuLuc) => {
+      const co = new Set();
+      for (const r of db.all('hanhtrinh_quansat',
+        `SELECT id, studentId, coGhi FROM hanhtrinh_quansat WHERE ngay >= ? AND studentId IN (${marks})`, [tuNgay, ...ids])) {
+        if (!laCo || nhomCuaQuanSat(r, lopCuaBe.get(r.studentId)) === ctCuaBe.get(r.studentId)) co.add(r.studentId);
+      }
+      if (laCo && modules && typeof modules.dangBat === 'function' && modules.dangBat('thuchup')) {
+        try {
+          for (const r of db.all('thuchup_ghinhanh',
+            `SELECT DISTINCT studentId FROM thuchup_ghinhanh WHERE byTeacherId = ? AND taoLuc >= ? AND studentId IN (${marks})`,
+            [req.user.id, tuLuc, ...ids])) co.add(r.studentId);
+        } catch (_) { /* phân hệ Ghi nhanh chưa có bảng */ }
+      }
+      return co;
+    };
+    const coGanDay = daCo(moc, `${moc}T00:00:00`);
+    const be = dsHs
       .filter(s => !coGanDay.has(s.id))
       .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar }))
       .sort((a, b) => String(a.hoTen).localeCompare(String(b.hoTen), 'vi'));
-    // LỜI KHUYÊN LÀ CỦA CÔ, KHÔNG GẮN VÀO BÉ NÀO.
-    //
-    // Nhà trường dặn thêm: *"GV cần phải thực hiện đều trong tuần, tránh dồn
-    // ghi nhận quá trình học tập của con vào cuối tuần"*. Câu ấy nói về thói
-    // quen của người lớn, nên nó đi ra như MỘT dòng cho cả màn — không phải
-    // một nhãn dán cạnh tên từng bé.
+    // TUẦN NÀY (từ thứ Hai): bé nào chương trình của cô CHƯA có ảnh hay quan
+    // sát nào. Chỉ TÊN, xếp theo tên — đây là việc của cô, không phải con số
+    // về bé (QUY TẮC 2 và 4).
+    const thuHai = thuHaiCua(homNay()) || homNay();
+    const coTuan = daCo(thuHai, `${thuHai}T00:00:00`);
+    const tuanNay = dsHs
+      .filter(s => !coTuan.has(s.id))
+      .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar }))
+      .sort((a, b) => String(a.hoTen).localeCompare(String(b.hoTen), 'vi'));
     res.json({
       be,
       soNgay: NGAY_COI_LA_LAU,
+      tuanNay,
+      tuTuan: thuHai,
+      // Cô dạy nhiều nhóm có thể mang nhiều vai — kể đủ, không lấy vai đầu.
+      chuongTrinh: laCo ? [...new Set(dsHs.map(x => nhomCo.CHUONG_TRINH[ctCuaBe.get(x.id)]).filter(Boolean))].join(' và ') : '',
       loiKhuyen: 'Cô ghi rải đều trong tuần giúp nhé — dồn vào cuối tuần thì '
         + 'khoảnh khắc của các con đã qua mất rồi.',
     });
   });
 
-  // =========================================================================
-  // GHI — LỚP 1
-  // =========================================================================
-  // BẢN GHI NHANH ĐƯỢC CHÉP SANG PHẢI LÀ CỦA CHÍNH CÔ ĐÓ, VÀ CỦA CHÍNH BÉ ĐÓ.
-  //
-  // `ghiNhanhId` đi vào từ thân yêu cầu. Bản đầu lưu thẳng chuỗi đó xuống mà
-  // KHÔNG tra bản Ghi nhanh nào cả — trong khi `ghiNhanhChuaDung` ở trên thì lọc
-  // `byTeacherId` rất cẩn thận. Hai chỗ nói hai luật khác nhau về cùng một thứ.
-  //
-  // Hậu quả: cô A gắn quan sát của mình vào bản Ghi nhanh của cô B, và bản Ghi
-  // nhanh đó biến khỏi màn suy ngẫm của cô B (nó bị coi là "đã dùng"). Ghi chú
-  // thô của cô B là dữ liệu LỚP 1 — thứ CLAUDE.md nói không bao giờ được lộ.
-  // Đây cùng họ với lỗ N24(a).
-  //
-  // Trả về { loi } hoặc { ban } — `ban` là null khi không chép từ đâu cả.
   function banGhiNhanhChepDuoc(user, ghiNhanhId, studentId) {
     if (!ghiNhanhId) return { ban: null };
     if (!modules || typeof modules.dangBat !== 'function' || !modules.dangBat('thuchup')) {
@@ -618,6 +726,10 @@ module.exports = (app, { db, modules }) => {
     // vừa viết mười phút trước — nút đó không giúp được gì cả.
     const moTa = chuoi(b.moTa, TOI_DA_MO_TA) || chuoi(nguon && nguon.note, TOI_DA_MO_TA);
     if (!moTa) return res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé nhé' });
+    // Chương trình cô chọn gắn quan sát vào (góp ý 06/10, mục 7–8). Không
+    // gửi = theo vai của cô như trước.
+    const nhomChon = docNhomChon(res, req.user, be.classId, b.nhom);
+    if (nhomChon === null) return;
 
     let anh = '';
     if (b.anh) {
@@ -644,9 +756,113 @@ module.exports = (app, { db, modules }) => {
     db.insert('hanhtrinh_quansat', rec);
     // Đóng dấu chương trình NGAY LÚC GHI (Đ195, việc 24) — xem chú thích ở
     // `nhomCuaQuanSat` để biết vì sao không suy ra lúc đọc.
-    const nhom = ghiNhomChoQuanSat(rec.id, be.classId, req.user.id);
+    const nhom = ghiNhomDaChon(rec.id, be.classId, req.user, nhomChon);
     db.audit(req.user.id, 'hanhtrinh-quan-sat', be.id, { ngay, coAnh: !!anh, nhom });
     res.status(201).json({ ...choNguoiXem(rec, req.user), nhomCo: nhom, tenNhomCo: nhomCo.TEN_NHOM[nhom] || '' });
+  });
+
+  // ===========================================================================
+  // NHÁP CHƯA GẮN BÉ (góp ý 06/10, mục 7) — LỚP 1, CHỈ CÔ ĐÃ GHI
+  // ===========================================================================
+  const TOI_DA_NHAP_MOI_CO = 200;
+  function goiNhap(r) {
+    return { id: r.id, moTa: r.moTa, coAnh: !!r.anh, anh: r.anh || '', nhom: r.nhom || '',
+      tenChuongTrinh: nhomCo.CHUONG_TRINH[r.nhom] || '', taoLuc: r.taoLuc };
+  }
+  // PHẠM VI SUY RA TỪ CHÍNH NGƯỜI ĐANG ĐĂNG NHẬP, NGAY TRONG CÂU TRUY VẤN:
+  // nháp của cô khác không đọc ra được, và cũng không lộ là có tồn tại (404,
+  // không phải 403). Kể cả văn phòng — nháp chưa gắn bé là ghi chép riêng của
+  // đúng một người.
+  function nhapCuaToi(req, res) {
+    let r = null;
+    try {
+      r = db.first('hanhtrinh_nhap', 'SELECT * FROM hanhtrinh_nhap WHERE coGhi = ? AND id = ?',
+        [req.user.id, chuoi(req.params.id, 40)]);
+    } catch (_) { r = null; }
+    if (!r) { res.status(404).json({ error: 'Không tìm thấy bản nháp này' }); return null; }
+    return r;
+  }
+
+  app.get('/api/hanhtrinh/nhap', requireRole('teacher', 'admin'), (req, res) => {
+    let ds = [];
+    try {
+      ds = db.all('hanhtrinh_nhap', 'SELECT * FROM hanhtrinh_nhap WHERE coGhi = ? ORDER BY taoLuc DESC LIMIT ?',
+        [req.user.id, TOI_DA_NHAP_MOI_CO]);
+    } catch (_) { ds = []; }
+    res.json({ nhap: ds.map(goiNhap), chuongTrinh: nhomCo.NHOM.map(([ma, ten, ct]) => ({ ma, ten, chuongTrinh: ct })) });
+  });
+
+  app.post('/api/hanhtrinh/nhap', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const moTa = chuoi(b.moTa, TOI_DA_MO_TA);
+    if (!moTa && !b.anh) return res.status(400).json({ error: 'Cô ghi một dòng hoặc chọn một tấm ảnh nhé' });
+    const nhom = chuoi(b.nhom, 20);
+    if (nhom && !nhomCo.hopLe(nhom)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
+    const soNhap = db.count('SELECT COUNT(*) AS n FROM hanhtrinh_nhap WHERE coGhi = ?', [req.user.id]);
+    if (soNhap >= TOI_DA_NHAP_MOI_CO) {
+      return res.status(400).json({ error: 'Cô đang có nhiều nháp chưa gắn bé quá — gắn bé hoặc bỏ bớt rồi ghi tiếp nhé' });
+    }
+    let anh = '';
+    if (b.anh) {
+      try { anh = uploads.saveDataUrl(b.anh).file; }
+      catch (err) { return res.status(400).json({ error: err.message || 'Ảnh không hợp lệ' }); }
+    }
+    const luc = new Date().toISOString();
+    const rec = { id: db.nextId('htn'), coGhi: req.user.id, moTa, anh, nhom, taoLuc: luc, capNhatLuc: luc };
+    db.insert('hanhtrinh_nhap', rec);
+    db.audit(req.user.id, 'hanhtrinh-nhap', null, { coAnh: !!anh, nhom: nhom || undefined });
+    res.status(201).json({ ok: true, nhap: goiNhap(rec) });
+  });
+
+  // GẮN BÉ + CHƯƠNG TRÌNH: nháp thành một quan sát lớp 1 bình thường của bé,
+  // đi tiếp đúng luồng cũ (suy ngẫm → kể cho gia đình). Nháp được gỡ khỏi
+  // bảng nháp trong cùng giao dịch — không có hai bản của cùng một ghi chép.
+  app.post('/api/hanhtrinh/nhap/:id/gan', requireRole('teacher', 'admin'), (req, res) => {
+    const r = nhapCuaToi(req, res);
+    if (!r) return;
+    const b = req.body || {};
+    const be = db.findStudent(chuoi(b.studentId, 40));
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!db.canAccessStudent(req.user, be.id)) {
+      return res.status(403).json({ error: `Không có quyền ghi hành trình cho bé ${be.name}` });
+    }
+    if (chanNeuNgungHoSo(res, be.id)) return;
+    const nhomChon = docNhomChon(res, req.user, be.classId, b.nhom !== undefined ? b.nhom : r.nhom);
+    if (nhomChon === null) return;
+    const moTa = chuoi(b.moTa, TOI_DA_MO_TA) || r.moTa;
+    if (!moTa) return res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé nhé' });
+    const ngayGhi = String(ngay2.ngayCua(Date.parse(r.taoLuc) || Date.now()));
+    const luc = new Date().toISOString();
+    const rec = {
+      id: db.nextId('ht'), studentId: be.id, ngay: ngayGhi > homNay() ? homNay() : ngayGhi,
+      moTa, anh: r.anh || '', ghiNhanhId: '',
+      linhVuc: '', trangThai: '', minhChung: '', oLopLamGi: '',
+      suyNgamLuc: null, giaySuyNgam: null,
+      cauChuyen: '', cungConONha: '', congBoLuc: null,
+      coGhi: req.user.id, taoLuc: r.taoLuc || luc, capNhatLuc: luc,
+    };
+    let nhom = '';
+    db.tx(() => {
+      db.insert('hanhtrinh_quansat', rec);
+      nhom = ghiNhomDaChon(rec.id, be.classId, req.user, nhomChon);
+      db.run('DELETE FROM hanhtrinh_nhap WHERE id = ?', [r.id]);
+    });
+    db.audit(req.user.id, 'hanhtrinh-nhap-gan', be.id, { nhapId: r.id, quanSatId: rec.id, nhom });
+    res.status(201).json({ ...choNguoiXem(rec, req.user), nhomCo: nhom, tenNhomCo: nhomCo.TEN_NHOM[nhom] || '' });
+  });
+
+  // Bỏ một nháp ghi nhầm. Đây là ghi chép của chính cô, chưa gắn bé nào và
+  // chưa ai khác đọc — bỏ hẳn, không cần giữ vết.
+  app.delete('/api/hanhtrinh/nhap/:id', requireRole('teacher', 'admin'), (req, res) => {
+    let r = null;
+    try {
+      r = db.first('hanhtrinh_nhap', 'SELECT * FROM hanhtrinh_nhap WHERE coGhi = ? AND id = ?',
+        [req.user.id, chuoi(req.params.id, 40)]);
+    } catch (_) { r = null; }
+    if (!r) return res.status(404).json({ error: 'Không tìm thấy bản nháp này' });
+    db.run('DELETE FROM hanhtrinh_nhap WHERE id = ? AND coGhi = ?', [r.id, req.user.id]);
+    db.audit(req.user.id, 'hanhtrinh-nhap-bo', null, { nhapId: r.id });
+    res.json({ ok: true });
   });
 
   // =========================================================================
