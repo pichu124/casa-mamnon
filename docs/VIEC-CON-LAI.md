@@ -478,6 +478,20 @@ ngoài để chế độ công khai là lộ toàn bộ ảnh khuôn mặt trẻ
 *Bằng chứng:* TIEN-DO.md:730 (N25 '🟡 chưa làm, có mốc kích hoạt rõ ràng… Chờ mốc'),
 :1086 (Đ129)
 
+**Sao lưu chưa theo thời hạn giữ ảnh 90 / 30 ngày** *(thêm 07/10/2026, Đ231 — chủ dự án: "để sau")*
+
+Đ231 tự xóa ảnh chấm công quá 90 ngày và nháp chưa gắn bé quá 30 ngày, nhưng chỉ ở thư
+mục gốc. `scripts/backup.js` vẫn giữ bản sao của những ảnh ấy tới khi bản sao cuối cùng
+chứa chúng hết vòng đời (bản theo tháng giữ 12 tháng); khoá giữ ảnh (`--giu-anh`, A28) mà
+bật thì giữ mãi. Vá: cho phần dọn ảnh của sao lưu biết hai loại ảnh này có hạn riêng —
+khoảng một buổi, và `scripts/` là phần nền chung với app 1 nên phải đi theo
+`docs/LOI-NEN-CHUNG.md`.
+
+*Vì sao cần anh:* Đổi hành vi phần nền chung; chủ dự án đã chọn để sau (07/10)
+
+*Bằng chứng:* routes/attendance.js (`donAnhChamCong`), modules/hanhtrinh/routes.js
+(`donNhapCu`), scripts/backup.js (`GIU_THANG`, `KHOA_GIU_ANH`); TIEN-DO.md dòng Đ231
+
 **Bốn điểm cố ý để sau, chờ trường dùng thật rồi quyết**
 
 (1) Y3-b: phụ huynh chưa xem được bảng tiền ăn theo tháng của con — nay trường đã hỏi

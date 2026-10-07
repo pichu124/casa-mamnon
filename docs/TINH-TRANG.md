@@ -1,4 +1,4 @@
-# Tình trạng hiện tại — chốt ngày 30/09/2026
+# Tình trạng hiện tại — chốt ngày 07/10/2026
 
 **Tệp này trả lời đúng một câu: *đang đứng ở đâu, và việc gì đang chờ ai.***
 
@@ -6,7 +6,7 @@ Khác với `docs/TIEN-DO.md` — sổ nhật ký chỉ ghi thêm, không bao gi
 tệp này là **ảnh chụp một thời điểm** và **được phép ghi đè**. Đọc nó trước khi
 làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lại như bây giờ.
 
-> **Mốc chốt sổ: 30/09/2026.** Mọi câu ở dưới đúng tại ngày đó. Phần nói về máy
+> **Mốc chốt sổ: 07/10/2026.** Mọi câu ở dưới đúng tại ngày đó. Phần nói về máy
 > chủ thật thì **đo lần cuối ngày 16/09** — xem mục "Những điều chưa ai kiểm lại"
 > ở cuối, đừng tin chúng như chuyện của hôm nay.
 
@@ -17,11 +17,12 @@ làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lạ
 | | |
 |---|---|
 | Nhánh đang làm | `claude/code-review-optimization-at4jzk` |
-| Commit mới nhất | `697174f` — Đ219 |
+| Commit mới nhất | Đ231 (bốn quyết định 07/10) — đo bằng `git log --oneline -1` |
 | Đã đẩy lên GitHub | **rồi**, `HEAD` trùng `origin` |
 | Cây làm việc | sạch, không còn gì chưa commit |
-| `npm test` | **118 bộ, 6504 phép kiểm, 0 đỏ** |
-| `npm run test:giao-dien` | **14 bộ, 787 phép kiểm, 0 đỏ** |
+| `npm test` | **126 bộ, 6916 phép kiểm, 0 đỏ** (đo 07/10, Đ231) |
+| `npm run test:giao-dien` | **17 bộ, 932 phép kiểm, 0 đỏ** (đo 07/10) |
+| CI trên GitHub (`Kiểm tra`) | xanh cho mọi lần đẩy Đ224–Đ231 (đo 07/10) |
 
 ### `main` KHÔNG phải bản đầy đủ
 
@@ -29,7 +30,7 @@ làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lạ
 
 ```
 origin/main   = a91cee8, ngày 31/08/2026, đợt Đ116
-nhánh làm việc đi trước 168 commit
+nhánh làm việc đi trước 186 commit (đo 07/10)
 ```
 
 `main` **thiếu** ô Lưu ý nội bộ (Đ207), số tài khoản + QR học phí (Đ208), một
@@ -38,12 +39,25 @@ trường tự tải (Đ214) — và `lib/vietqr.js` thì **chưa tồn tại** 
 
 **Đừng clone `main`.** Cách tự kiểm ghi ở bước 4 của `docs/CAI-DAT-VPS.docx`.
 
-> Con số 168 đúng ngày 16/09. Đo lại bằng:
+> Con số 186 đúng ngày 07/10. Đo lại bằng:
 > `git rev-list --count origin/main..origin/<nhánh>`
 
 ---
 
-## 2. Việc đã xong trong đợt này
+## 2. Việc đã xong
+
+### Đợt 06–07/10 — góp ý "Ứng dụng My Casa" (9 mục) + bốn quyết định 07/10
+
+Cả chín mục góp ý ngày 06/10 đã làm (Đ222–Đ230), bảng đối chiếu từng mục ở
+`docs/PHAN-HOI-TRUONG-0610.md`. Bốn việc chủ dự án chốt 07/10 làm ở Đ231: ảnh
+chấm công giữ 90 ngày (giờ vào/ra giữ mãi), nháp chưa gắn bé quá 30 ngày tự bỏ,
+bỏ ô "Dán bảng từ Excel" ở Thực đơn, chữ M/S/W/N/NA trong Báo cáo tháng.
+
+**Đợt này CHƯA qua vòng rà đối kháng nào** — khoảng 4.300 dòng mã chạy (không kể
+bài kiểm thử) do một tay viết. Ba vòng rà trước (Đ171, Đ173, Đ174) mỗi vòng bắt
+được 6–14 lỗi thật mà bộ kiểm thử xanh không thấy.
+
+### Đợt 16–30/09
 
 Mười một việc chủ dự án giao đều xong (việc 49 là của app 1, đã gác lại):
 
@@ -138,7 +152,7 @@ soi ba chỗ của đợt này:
 - **Học phí → Tài khoản nhận tiền** — cuối màn có ô **tải ảnh mã QR** *(Đ214)*
 
 Còn hiện bản cũ thì kéo xuống làm mới trang — app là PWA, bản cũ nằm trong bộ
-nhớ đệm máy. `VERSION` trong `public/sw.js` đã lên `v125`.
+nhớ đệm máy. `VERSION` trong `public/sw.js` nay là `v132` (Đ231).
 
 ### 4.3 Máy chủ còn lành không
 
@@ -156,14 +170,19 @@ tuổi, ổ đĩa sắp đầy, chứng chỉ HTTPS sắp hết hạn.
 cd /opt/casa-mamnon && tail -1 docs/TIEN-DO.md | cut -c1-60
 ```
 
-Lần cuối đo là **Đ217**. Kho nay ở **Đ219** (hai đợt chỉ sửa tài liệu, không đổi
-một dòng mã chạy nào — không gấp, cuốn theo lần cập nhật tới là được).
+Lần cuối đo là **Đ217**. Kho nay ở **Đ231** — lần này **có đổi mã chạy rất nhiều**
+(cả chín mục góp ý 06/10). Trường muốn bấm thử bản mới thì phải cập nhật máy theo
+`docs/CAP-NHAT-MAY-CHU.md` trước.
+
+Lượt khởi động đầu sau khi cập nhật sẽ chạy hai việc dọn mới của Đ231 (ảnh chấm
+công quá 90 ngày, nháp quá 30 ngày). Hai tính năng ấy mới có từ 06/10 nên lúc này
+chưa có gì đủ tuổi để bị xóa.
 
 ---
 
 ## 5. Việc đang CHỜ CHỦ DỰ ÁN QUYẾT
 
-Bốn việc, không việc nào tôi tự làm được.
+Không việc nào dưới đây tôi tự làm được.
 
 ### 5.1 Bản sao lưu nằm cùng ổ đĩa với dữ liệu gốc — **việc lớn nhất**
 
@@ -217,7 +236,21 @@ tạm; máy bị thu hồi là mất y như lần trước.
 > Chủ dự án đã nói **"tạm thời quên app 1 đi, chỉ tập trung vào app 2"** — nên
 > mục này ghi lại để không mất, không phải để làm ngay.
 
-### 5.4 Gói `qrcode` — **đã chốt, ghi lại cho khỏi hỏi lần nữa**
+### 5.4 Sao lưu chưa theo thời hạn giữ ảnh 90 / 30 ngày — **chủ dự án: để sau (07/10)**
+
+Việc dọn của Đ231 chỉ xóa ảnh ở thư mục gốc; bản sao lưu còn giữ ảnh đã bỏ tới khi
+hết vòng đời (bản theo tháng giữ 12 tháng), khoá `--giu-anh` mà bật thì giữ mãi.
+Ghi ở `docs/VIEC-CON-LAI.md` mục A3. Khác việc 5.1: 5.1 là bản sao nằm CÙNG ổ với
+dữ liệu gốc, vẫn phải xong trước ngày nhập danh sách bé thật.
+
+### 5.5 Việc nhà trường tự làm trong app (không cần mã)
+
+- Khai vai cô cho từng nhóm (Quản trị → Nhóm lớp) — chưa khai thì cô phụ trách nhóm
+  vẫn soạn cả ba phần Kế hoạch như trước.
+- Gắn lứa cho bài trong kho (Kế hoạch của bé → Kho bài học) — hiện mọi bài là "mọi lứa".
+- Máy nào từng bật tay phân hệ Đón trả bé thì tắt ở Quản trị → Tính năng.
+
+### 5.6 Gói `qrcode` — **đã chốt, ghi lại cho khỏi hỏi lần nữa**
 
 Giữ cả hai đường. Xem `docs/QUYET-DINH-TU-CHOT.md` mục 21.
 
