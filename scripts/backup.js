@@ -4,6 +4,8 @@
 //     node scripts/backup.js                 sao lưu vào DATA_DIR/backups
 //     node scripts/backup.js --out /mnt/usb  sao lưu vào nơi khác
 //     node scripts/backup.js --list          xem các bản đã có
+//     node scripts/backup.js --giu-anh       BẬT khoá giữ ảnh đã tải về
+//     node scripts/backup.js --thoi-giu-anh  TẮT khoá đó
 //
 // Dùng lệnh .backup của SQLite nên an toàn tuyệt đối ngay cả khi máy chủ đang
 // chạy và có người đang ghi dữ liệu — khác hẳn việc chép tệp trực tiếp, vốn có
@@ -42,6 +44,34 @@ function stamp(moc = Date.now()) {
 
 function mb(bytes) { return (bytes / 1024 / 1024).toFixed(1) + ' MB'; }
 
+// KHOÁ GIỮ ẢNH ĐÃ TẢI VỀ — nhà trường duyệt ngày 15/09/2026 (Câu 10).
+//
+// VÌ SAO PHẢI CÓ. Mục 3b bên dưới tự dọn BẢN SAO của một tấm ảnh khi mọi bản
+// sao còn giữ đều chụp sau lúc ảnh biến mất khỏi thư mục gốc. Luật đó đúng cho
+// việc nó sinh ra: cô xoá một tấm khỏi album thì bản sao của nó cũng nên đi.
+//
+// Nhưng nhà trường vừa chốt một cách dùng KHÁC HẲN (A28): *"khi chạm mốc nâng
+// đĩa máy chủ, tôi dự định down về ổ cứng backup của trường và xóa bớt phần đã
+// down về"*. Ảnh ấy KHÔNG bị xoá vì không cần nữa — nó bị xoá vì đã được cất
+// sang chỗ khác. Với luật cũ thì: trường xoá bản gốc, máy ghi nhận vắng mặt,
+// và sau một vòng đời **chính bản sao cũng bị dọn**. Lúc đó tấm ảnh chỉ còn
+// nằm trên một ổ cứng duy nhất, và ổ đó hỏng là mất hẳn.
+//
+// Ảnh là thứ DUY NHẤT trong app không dựng lại được từ đâu khác.
+//
+// KHOÁ NÀY PHẢI LÀ MỘT TỆP, KHÔNG PHẢI MỘT THAM SỐ DÒNG LỆNH. Sao lưu chạy
+// theo lịch (cron), mà dòng cron thì không ai nhớ sửa — một tham số `--giu-anh`
+// gõ tay một lần là vô nghĩa với lượt chạy tự động ngay hôm sau. Tệp khoá nằm
+// cạnh các bản sao nên nó đi theo kho sao lưu, kể cả khi đổi sang ổ khác.
+//
+// VÀ KHOÁ PHẢI NÓI RA MỖI LƯỢT CHẠY. Một cái khoá im lặng là một cái khoá
+// người ta quên mất đang bật, rồi ngạc nhiên vì đĩa đầy.
+const KHOA_GIU_ANH = () => path.join(BACKUP_DIR, 'giu-anh-da-tai-ve.lock');
+
+function dangGiuAnh() {
+  try { return fs.existsSync(KHOA_GIU_ANH()); } catch (_) { return false; }
+}
+
 // Sổ ghi "tấm ảnh này lần đầu thấy vắng mặt lúc nào" — xem chú thích mục 2b.
 // Hỏng sổ thì coi như sổ trống: giữ lại hết, không xoá nhầm cái gì.
 const SO_VANG = () => path.join(BACKUP_DIR, 'uploads-da-vang.json');
@@ -69,6 +99,31 @@ function danhSach() {
     });
 }
 
+// BẬT / TẮT khoá giữ ảnh. Đặt TRƯỚC mọi việc khác để gõ nhầm lệnh cũng không
+// kéo theo một lượt sao lưu ngoài ý muốn.
+if (args.includes('--giu-anh') || args.includes('--thoi-giu-anh')) {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  const bat = args.includes('--giu-anh');
+  if (bat) {
+    fs.writeFileSync(KHOA_GIU_ANH(), `Bật lúc ${new Date().toISOString()}\n`
+      + 'Khi tệp này còn đây, sao lưu KHÔNG tự dọn bản sao của ảnh đã biến mất\n'
+      + 'khỏi thư mục gốc. Dùng khi nhà trường tải ảnh về ổ ngoài rồi xoá bản\n'
+      + 'gốc trên máy chủ: bản sao là chỗ dựa cuối cùng, không được tự đi mất.\n'
+      + 'Tắt bằng: node scripts/backup.js --thoi-giu-anh\n');
+    console.log('✓ ĐÃ BẬT khoá giữ ảnh đã tải về.');
+    console.log('  Từ giờ sao lưu KHÔNG tự dọn bản sao của ảnh đã xoá khỏi thư mục gốc.');
+    console.log('  Chỗ ảnh trong kho sao lưu sẽ chỉ tăng — nhớ theo dõi dung lượng đĩa.');
+    console.log(`  Tệp khoá: ${KHOA_GIU_ANH()}`);
+  } else {
+    try { fs.unlinkSync(KHOA_GIU_ANH()); } catch (_) {}
+    console.log('✓ ĐÃ TẮT khoá giữ ảnh.');
+    console.log('  Lượt sao lưu tới sẽ dọn lại bản sao của những ảnh không bản nào còn cần.');
+    console.log('  Nếu trường đã xoá bản gốc sau khi tải về, ĐÂY LÀ LÚC những tấm đó mất');
+    console.log('  chỗ dựa cuối cùng trên máy chủ. Chỉ tắt khi chắc ổ ngoài đã an toàn.');
+  }
+  process.exit(0);
+}
+
 if (args.includes('--list')) {
   const list = danhSach();
   if (!list.length) {
@@ -80,6 +135,11 @@ if (args.includes('--list')) {
     }
     console.log(`\nTổng cộng ${list.length} bản.`);
   }
+  // Nói ra trạng thái khoá ngay ở màn xem danh sách: người mở `--list` thường
+  // là người đang thắc mắc vì sao kho sao lưu to lên.
+  console.log(dangGiuAnh()
+    ? '\nKhoá giữ ảnh: ĐANG BẬT — bản sao của ảnh đã xoá khỏi thư mục gốc được giữ lại.'
+    : '\nKhoá giữ ảnh: đang tắt.');
   process.exit(0);
 }
 
@@ -104,8 +164,16 @@ db.backup(tmp).then(() => {
   db.close();
 
   // Nén lại cho gọn: dữ liệu chữ nghĩa nén rất tốt, thường còn 1/5.
+  //
+  // GHI NGUYÊN TỬ: nén vào tệp .tmp rồi mới rename sang tên thật. Ghi thẳng
+  // vào tên .gz mà chết giữa chừng (mất điện, đầy đĩa) là để lại một bản .gz
+  // CỤT mang tên hợp lệ — vòng đời dọn 7 ngày / 4 tuần đếm nó như một bản sao
+  // thật và xoá mất bản tốt cùng khe, còn restore thì tới lúc cần mới vỡ lẽ.
+  // rename trên cùng một ổ đĩa là thao tác nguyên tử của hệ tệp.
   const raw = fs.readFileSync(tmp);
-  fs.writeFileSync(dich, zlib.gzipSync(raw, { level: 9 }));
+  const dichTam = `${dich}.tmp`;
+  fs.writeFileSync(dichTam, zlib.gzipSync(raw, { level: 9 }));
+  fs.renameSync(dichTam, dich);
   fs.unlinkSync(tmp);
 
   console.log(`  ${path.basename(dich)}  ${mb(fs.statSync(dich).size)} (gốc ${mb(raw.length)})`);
@@ -117,6 +185,10 @@ db.backup(tmp).then(() => {
     fs.mkdirSync(anhDir, { recursive: true });
     let moi = 0, tongCu = 0;
     for (const f of fs.readdirSync(UPLOAD_DIR)) {
+      // Tệp .tmp là ảnh ĐANG TẢI DỞ của lib/uploads.js — chép nó vào kho bản
+      // sao là lưu vĩnh viễn một tệp cụt không ai đọc được, và mỗi lần sao lưu
+      // trúng giờ cô đang đăng ảnh lại thêm một tệp rác.
+      if (f.endsWith('.tmp')) continue;
       const src = path.join(UPLOAD_DIR, f);
       const dst = path.join(anhDir, f);
       if (fs.existsSync(dst)) { tongCu++; continue; }
@@ -186,12 +258,26 @@ db.backup(tmp).then(() => {
   // nào nhắc tới nó nữa. Không có bản sao nào thì không dọn gì cả — lúc đó
   // không có gì để so, mà đoán mò ở đây là mất ảnh thật.
   const conGiu = list.filter(b => giu.has(b.file));
-  if (fs.existsSync(anhDir) && conGiu.length) {
+  if (dangGiuAnh()) {
+    // Khoá đang bật: KHÔNG dọn tấm nào. Nhưng phải nói ra, và nói kèm con số —
+    // một cái khoá im lặng là một cái khoá người ta quên mất đang bật.
+    const soVang = docSoVang();
+    let n = 0, dungLuong = 0;
+    for (const f of Object.keys(soVang)) {
+      try { dungLuong += fs.statSync(path.join(anhDir, f)).size; n++; } catch (_) { /* tệp đã đi rồi */ }
+    }
+    console.log(`  Khoá giữ ảnh ĐANG BẬT — giữ lại ${n} ảnh đã xoá khỏi thư mục gốc (${mb(dungLuong)}).`);
+    console.log('  Tắt bằng: node scripts/backup.js --thoi-giu-anh');
+  } else if (fs.existsSync(anhDir) && conGiu.length) {
     const mocCuNhat = Math.min(...conGiu.map(b => b.at.getTime()));
     const soVang = docSoVang();
     let doiRac = 0, dungLuong = 0;
     for (const [f, luc] of Object.entries(soVang)) {
-      if (Date.parse(luc) > mocCuNhat) continue;   // còn bản sao cũ hơn cần tới
+      // `>=`, KHÔNG phải `>`: hai mốc sinh ra cách nhau vài phần nghìn giây trong cùng một lượt,
+      // và máy đủ nhanh thì TRÙNG nhau tới từng mi-li-giây. Trùng mốc là chưa chắc bản sao cũ
+      // nhất đã chụp sau lúc ảnh biến mất — giữ lại, đúng lời hứa "sai về phía GIỮ LÂU HƠN".
+      // (Đỏ thật trên GitHub 01/10/2026 — test/sao-luu.test.mjs mục [7c] dựng lại ca này.)
+      if (Date.parse(luc) >= mocCuNhat) continue;   // còn bản sao cũ hơn (hoặc cùng lúc) cần tới
       const p = path.join(anhDir, f);
       try {
         dungLuong += fs.statSync(p).size;

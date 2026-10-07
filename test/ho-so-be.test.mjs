@@ -266,12 +266,17 @@ console.log('\n[8] Thị lực và Đánh giá thể trạng — hai ô ĐÃ H�
   check('và app cũng không tự điền hộ ô thị lực',
     !khongGoi.data?.vision, khongGoi.data);
 
-  // Hai ô này chỉ thuộc về buổi KHÁM. Ghi nhận tiêm chủng hay sự cố thì không.
+  // Hai ô này chỉ thuộc về buổi KHÁM. Ghi nhận loại khác thì không.
+  //
+  // Loại dùng ở đây đổi từ 'vaccination' sang 'incident' vì nhà trường chốt bỏ
+  // tiêm chủng (A6, 10/09/2026) và máy chủ không nhận ghi MỚI loại đó nữa.
+  // Điều bài này canh KHÔNG đổi: một loại KHÔNG PHẢI buổi khám thì không được
+  // mang theo ô đánh giá thể trạng.
   const tiem = await req('POST', '/api/health', {
     cookie: GV,
-    body: { studentId: 's1', type: 'vaccination', title: 'Tiêm sởi mũi 2', bmiNote: 'lạc chỗ' },
+    body: { studentId: 's1', type: 'incident', title: 'Ngã ở sân chơi', bmiNote: 'lạc chỗ' },
   });
-  check('ghi nhận tiêm chủng không mang theo ô của buổi khám',
+  check('ghi nhận KHÔNG PHẢI buổi khám thì không mang theo ô của buổi khám',
     tiem.status === 201 && !tiem.data?.bmiNote, tiem.data);
 
   // Chữ dài bị cắt chứ không làm hỏng bản ghi.

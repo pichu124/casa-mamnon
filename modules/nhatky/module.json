@@ -9,11 +9,12 @@
   "api": [
     "/api/nhatky"
   ],
+  "dieuKienHien": "/api/nhatky/pham-vi",
   "roles": [
     "parent",
     "teacher",
     "admin"
   ],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "version": "0.1.0"
 }

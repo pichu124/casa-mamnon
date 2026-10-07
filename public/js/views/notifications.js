@@ -22,6 +22,7 @@ App.views.notifications = {
   async render(root) {
     this._root = root;
     this._list = [];
+    this._rieng = [];
     this._conNua = false;
     await this.taiThem();
     this.paint();
@@ -33,33 +34,58 @@ App.views.notifications = {
   // trong câu truy vấn của máy chủ, không có bộ lọc nào chạy sau nó, nên số
   // dòng nhận về đúng bằng số dòng người này xem được.
   async taiThem() {
-    const them = await API.get(
-      `/api/notifications?bo=${this._list.length}&soLuong=${this.MOI_TRANG}`);
+    // `_list` CHỈ là thông báo nhà trường, nên `bo` = độ dài của nó vẫn đúng.
+    // Tin riêng về con (Đ137) nằm ở `_rieng`, tải một lần ở lượt đầu, và chỉ
+    // ghép lúc VẼ (`danhSachVe`) — hai nguồn không giẫm lên con đếm của nhau.
+    const laDau = this._list.length === 0;
+    const [them, rieng] = await Promise.all([
+      API.get(`/api/notifications?bo=${this._list.length}&soLuong=${this.MOI_TRANG}`),
+      laDau && App.state.user.role === 'parent'
+        ? API.get('/api/notifications/rieng-be').catch(() => [])
+        : Promise.resolve(null),
+    ]);
     this._list = this._list.concat(them);
+    if (rieng) this._rieng = rieng;
     this._conNua = them.length >= this.MOI_TRANG;
+  },
+
+  // Danh sách để vẽ: ghim của nhà trường đứng đầu, còn lại mới nhất trước —
+  // tin riêng về con xếp lẫn theo thời gian với thông báo nhà trường.
+  danhSachVe() {
+    return this._list.concat(this._rieng || [])
+      .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)
+        || String(b.createdAt).localeCompare(String(a.createdAt)));
+  },
+
+  timTin(id) {
+    return this._list.find(x => x.id === id) || (this._rieng || []).find(x => x.id === id);
   },
 
   // Vẽ lại danh sách từ dữ liệu đã tải (không gọi lại API).
   paint() {
     const root = this._root;
-    const isTeacher = App.state.user.role === 'teacher';
-    const unread = this._list.filter(n => !n.read).length;
+    // Văn phòng cũng tạo được thông báo: máy chủ đã nhận vai admin từ lâu
+    // (POST /api/notifications requireRole('teacher','admin')), chỉ thiếu mỗi
+    // cái nút — văn phòng phải mượn tài khoản cô để gửi thông báo toàn trường.
+    const taoDuoc = App.state.user.role === 'teacher' || App.state.user.role === 'admin';
+    const ds = this.danhSachVe();
+    const unread = ds.filter(n => !n.read).length;
     root.innerHTML = `
-      ${UI.pageHeader('Thông báo', isTeacher ? { action: { id: 'btn-new-notif', label: 'Tạo thông báo', icon: 'plus' } } : {})}
+      ${UI.pageHeader('Thông báo', taoDuoc ? { action: { id: 'btn-new-notif', label: 'Tạo thông báo', icon: 'plus' } } : {})}
       ${unread ? `
         <div class="flex" style="margin-bottom:10px">
           <span class="muted small">${unread} thông báo chưa đọc</span>
           <span class="spacer"></span>
           <button class="btn sm outline" id="btn-read-all">${UI.icon('check', 16)} Đọc tất cả</button>
         </div>` : ''}
-      ${this._list.length
-        ? `<div class="card">${this._list.map(n => this.rowHtml(n)).join('')}</div>`
+      ${ds.length
+        ? `<div class="card">${ds.map(n => this.rowHtml(n)).join('')}</div>`
         : UI.emptyState('🔔', 'Chưa có thông báo nào')}
       ${this._conNua ? `
         <button class="btn outline block mt-14" id="btn-tb-cu-hon">
           ${UI.icon('plus', 16)} Xem thông báo cũ hơn
         </button>` : ''}`;
-    if (isTeacher) document.getElementById('btn-new-notif').onclick = () => this.openCreate();
+    if (taoDuoc) document.getElementById('btn-new-notif').onclick = () => this.openCreate();
     const btnAll = document.getElementById('btn-read-all');
     if (btnAll) btnAll.onclick = () => this.readAll();
     const themNua = document.getElementById('btn-tb-cu-hon');
@@ -75,14 +101,54 @@ App.views.notifications = {
 
   catOf(n) { return this.CATS[n.category] || this.DEFAULT_CAT; },
 
+  // Đ124: thông báo phải nói rõ gửi cho ai — "Toàn trường" hay "Nhóm Chồi 2 ·
+  // Cơ sở 1". Máy chủ đời cũ không trả hai ô này thì chuỗi rỗng, dòng như cũ.
+  chuPhamVi(n) {
+    if (n.toanTruong) return 'Toàn trường';
+    if (n.tenNhom) return `Nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`;
+    return '';
+  },
+  theoPhamVi(n) {
+    if (n.toanTruong) return UI.badge('Gửi toàn trường', 'purple');
+    if (n.tenNhom) return UI.badge(`Gửi nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`, 'blue');
+    return '';
+  },
+
+  // Tên nhóm trong ô chọn — kèm tên cơ sở khi trường có từ hai cơ sở, để văn
+  // phòng ba cơ sở không phải nhớ "Chồi 2" là Chồi 2 của cơ sở nào.
+  nhanNhom(c) {
+    const coSo = ((App.state.school || {}).coSo) || [];
+    if (coSo.length < 2 || !c.campusId) return c.name;
+    const cs = coSo.find(x => x.id === c.campusId);
+    return cs ? `${c.name} · ${cs.name}` : c.name;
+  },
+
+  // Biểu tượng cho tin riêng về con (Đ137), theo `loai` máy chủ gửi.
+  LOAI_RIENG: {
+    'toi-lop': '📷', nhatky: '📔', 'suc-khoe': '🩺', album: '🖼️', 'bao-cao': '📘',
+    'hanh-trinh': '🌱', 'ke-hoach': '🧭', cambridge: '🎓', 'dan-thuoc': '💊', 'xin-nghi': '📝',
+  },
+
   rowHtml(n) {
+    if (n.laRiengBe) {
+      return `
+      <div class="list-row clickable"${n.read ? '' : ' style="background:#f0f6ff;border-radius:10px"'} onclick="App.views.notifications.showDetail('${UI.esc(n.id)}')">
+        <div class="row-icon" style="background:#e3f7ec;font-size:20px">${this.LOAI_RIENG[n.loai] || '🔔'}</div>
+        <div class="row-main">
+          <div class="row-title">${n.read ? '' : '<span style="color:var(--primary)">●</span> '}${UI.esc(n.title)}</div>
+          <div class="row-sub">Về bé ${UI.esc(n.tenBe || '')} · ${UI.esc(UI.timeAgo(n.createdAt))}</div>
+        </div>
+        <span class="muted">${UI.icon('chevron', 18)}</span>
+      </div>`;
+    }
     const cat = this.catOf(n);
     return `
       <div class="list-row clickable"${n.read ? '' : ' style="background:#f0f6ff;border-radius:10px"'} onclick="App.views.notifications.showDetail('${UI.esc(n.id)}')">
         <div class="row-icon" style="background:${cat.bg};font-size:20px">${cat.emoji}</div>
         <div class="row-main">
           <div class="row-title">${n.read ? '' : '<span style="color:var(--primary)">●</span> '}${UI.esc(n.title)}${n.pinned ? ' 📌' : ''}</div>
-          <div class="row-sub">${UI.esc(n.authorName)} · ${UI.esc(UI.timeAgo(n.createdAt))}</div>
+          <div class="row-sub">${UI.esc(n.authorName)} · ${UI.esc(UI.timeAgo(n.createdAt))}${
+            this.chuPhamVi(n) ? ` · ${UI.esc(this.chuPhamVi(n))}` : ''}</div>
         </div>
         <span class="muted">${UI.icon('chevron', 18)}</span>
       </div>`;
@@ -90,13 +156,15 @@ App.views.notifications = {
 
   // Modal chi tiết + đánh dấu đã đọc.
   async showDetail(id) {
-    const n = this._list.find(x => x.id === id);
+    const n = this.timTin(id);
     if (!n) return;
+    if (n.laRiengBe) return this.moTinRiengBe(n);
     const cat = this.catOf(n);
     UI.modal(`
       <div class="flex mb-8">
         <div class="row-icon" style="background:${cat.bg};font-size:20px">${cat.emoji}</div>
         ${UI.badge(n.category || 'Khác', 'gray')}
+        ${this.theoPhamVi(n)}
         ${n.pinned ? UI.badge('📌 Ghim', 'orange') : ''}
       </div>
       <h3 style="margin:6px 0 8px">${UI.esc(n.title)}</h3>
@@ -119,20 +187,51 @@ App.views.notifications = {
     }
   },
 
+  // Tin riêng về con: đánh dấu đã đọc rồi mở thẳng màn có tin (ảnh tới lớp,
+  // nhật ký…). Không có chỗ mở thì hiện nội dung tại chỗ.
+  async moTinRiengBe(n) {
+    if (!n.read) {
+      try { await API.post(`/api/notifications/${n.id}/read`); n.read = true; this.paint(); App.refreshBadges(); } catch (_) {}
+    }
+    if (n.hash && /^#\//.test(n.hash)) {
+      if (n.studentId && typeof App.setStudent === 'function') { try { App.setStudent(n.studentId); } catch (_) {} }
+      location.hash = n.hash;
+      return;
+    }
+    UI.modal(`
+      <div class="flex mb-8">${UI.badge(`Về bé ${n.tenBe || ''}`, 'green')}</div>
+      <h3 style="margin:6px 0 8px">${UI.esc(n.title)}</h3>
+      <div style="white-space:pre-wrap;font-size:.94rem;line-height:1.55">${UI.esc(n.body || '')}</div>
+      <div class="muted small mt-14">${UI.esc(UI.fmtDate(n.createdAt))} lúc ${UI.esc(UI.fmtTime(n.createdAt))}</div>
+    `, 'Tin về con');
+  },
+
   // Đánh dấu đã đọc tất cả.
   async readAll() {
     try {
       await API.post('/api/notifications/read-all');
       this._list.forEach(n => { n.read = true; });
+      (this._rieng || []).forEach(n => { n.read = true; });
       UI.toast('Đã đánh dấu đã đọc tất cả thông báo', 'success');
       this.paint();
       App.refreshBadges();
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  // ---- Giáo viên: tạo thông báo mới ----
+  // ---- Cô và văn phòng: tạo thông báo mới ----
   openCreate() {
     this._aud = 'class';
+    // Cô thấy nhóm mình phụ trách; văn phòng thấy các nhóm của trường (máy
+    // chủ tự siết theo cơ sở khi gửi). Cô MỘT nhóm thì khỏi phải chọn — máy
+    // chủ tự hiểu; từ hai nhóm trở lên, và văn phòng, thì phải nói rõ nhóm
+    // nào — trước đây máy chủ hỏi "chọn nhóm giúp" mà màn hình không có ô nào
+    // để chọn cả.
+    // Văn phòng cơ sở chỉ thấy nhóm của cơ sở mình — nhóm cơ sở khác bấm vào
+    // là máy chủ 403, mà một lựa chọn bấm vào là hỏng thì đừng liệt kê.
+    const coSo = (App.state.user || {}).coSo || null;
+    const nhom = App.nhomCuaCo().filter(c => !coSo || c.campusId === coSo);
+    const laVanPhong = App.state.user.role === 'admin';
+    const canChonNhom = laVanPhong || nhom.length > 1;
     UI.modal(`
       <div class="field">
         <label>Tiêu đề</label>
@@ -155,10 +254,17 @@ App.views.notifications = {
       <div class="field">
         <label>Phạm vi gửi</label>
         <div class="seg" id="nt-aud" style="margin-bottom:0">
-          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">Nhóm mình</button>
+          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Nhóm mình'}</button>
           <button data-aud="all" onclick="App.views.notifications.setAud('all')">Toàn trường</button>
         </div>
       </div>
+      ${canChonNhom ? `
+      <div class="field" id="nt-lop-o">
+        <label>Gửi cho nhóm</label>
+        <select id="nt-lop">
+          ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(this.nhanNhom(c))}</option>`).join('')}
+        </select>
+      </div>` : ''}
       <button class="btn primary block" onclick="App.views.notifications.submitCreate()">${UI.icon('send', 18)} Gửi thông báo</button>
     `, 'Tạo thông báo');
   },
@@ -166,6 +272,9 @@ App.views.notifications = {
   setAud(aud) {
     this._aud = aud;
     document.querySelectorAll('#nt-aud button').forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
+    // Ô chọn nhóm chỉ có nghĩa khi gửi cho một nhóm.
+    const o = document.getElementById('nt-lop-o');
+    if (o) o.style.display = aud === 'class' ? '' : 'none';
   },
 
   async submitCreate() {
@@ -174,8 +283,11 @@ App.views.notifications = {
     const category = document.getElementById('nt-cat').value;
     if (!title) return UI.toast('Vui lòng nhập tiêu đề thông báo', 'error');
     if (!body) return UI.toast('Vui lòng nhập nội dung thông báo', 'error');
+    const goi = { title, body, category, audience: this._aud };
+    const lop = document.getElementById('nt-lop');
+    if (this._aud === 'class' && lop) goi.classId = lop.value;
     try {
-      await API.post('/api/notifications', { title, body, category, audience: this._aud });
+      await API.post('/api/notifications', goi);
       UI.toast('Đã gửi thông báo', 'success');
       UI.closeModal();
       App.route();

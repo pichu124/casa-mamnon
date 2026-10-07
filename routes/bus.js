@@ -29,7 +29,16 @@ module.exports = (app) => {
          JOIN bus_students bs ON bs.studentId = s.id
          WHERE bs.routeId = ? AND s.id IN (${marks})
          ORDER BY s.name`, [r.id, ...myIds]).map(s => s.name);
-      const withIds = { ...r, studentIds: studentIdsOfRoute(r.id) };
+      // PHỤ HUYNH KHÔNG NHẬN DANH SÁCH MÃ CỦA MỌI BÉ TRÊN TUYẾN. Mã bé là
+      // chìa tra cứu — lộ mã của con nhà khác ra màn hình gia đình là mở rộng
+      // bề mặt dò dữ liệu vô cớ. Gia đình chỉ cần biết tuyến có CON MÌNH.
+      const idsTrenTuyen = studentIdsOfRoute(r.id);
+      const withIds = {
+        ...r,
+        studentIds: req.user.role === 'parent'
+          ? idsTrenTuyen.filter(id => myIds.includes(id))
+          : idsTrenTuyen,
+      };
       return req.user.role === 'parent'
         ? { ...withIds, childNames: names }
         : { ...withIds, classStudentNames: names };

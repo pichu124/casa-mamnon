@@ -48,9 +48,53 @@ const TOI_DA_NGUOI_MOI_BE = 12;
 // dì, bác tài đưa đón cũng chỉ vài lần, và còn sửa được thay vì tạo mới.
 const TOI_DA_TAO_MOI_24H = 20;
 const TOI_DA_UY_QUYEN_DANG_HIEU_LUC = 10;
+// Trần riêng của ảnh lúc trả bé (cùng con số với ảnh "con đã tới lớp" của
+// Điểm danh). Siết ở đây, trước khi gọi kho ảnh dùng chung.
+const TOI_DA_ANH_TRA_BYTE = 900 * 1024;
+
+// Nhãn của dòng sổ khi cô trao bé xong chụp một tấm mà không gõ tên (Đ128).
+//
+// Nhà trường yêu cầu 04/09: "phần trả bé cô giáo không cần nhập tên người trả
+// bé cho mất thời gian, chỉ cần chụp ảnh để xác nhận đã trả bé là được".
+//
+// Ô `nguoiDon` KHÔNG được để trống — cả sổ dựa vào nó, và một dòng trống thì
+// sau này không ai đọc ra nổi chuyện gì đã xảy ra. Nên nó nói đúng thứ đã xảy
+// ra: người đón được xác nhận bằng ẢNH, không phải bằng một cái tên gõ tay.
+// Màn hình của gia đình đọc `nguonLoai = 'anh'` rồi viết lại cho tử tế.
+const NHAN_TRA_BANG_ANH = 'Xác nhận bằng ảnh lúc trả';
 
 function homNay() {
   return ngay.homNay();
+}
+
+// SỔ ĐÓN TRẢ CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH NGÀY HÔM ĐÓ (Đ127b).
+//
+// Nhà trường chốt 04/09, cùng luật với sổ điểm danh: "các cô chỉ được phép sửa
+// thông tin trong ngày".
+//
+// Ở cuốn sổ NÀY thì lý do còn nặng hơn. Sổ điểm danh sai là một con số suất ăn
+// sai; sổ đón trả sai là một dòng nói trường đã trao đứa trẻ cho ai — và đó là
+// chứng cứ DUY NHẤT khi có tranh chấp. Một dòng sửa được sau nhiều ngày thì
+// không còn là chứng cứ nữa, kể cả khi không ai định gian: chỉ cần nhớ nhầm
+// một buổi chiều cách đây hai tuần là sổ ghi sai mà không ai biết.
+//
+// BA ĐƯỜNG BỊ KHOÁ, VÀ CHỈ BA: ghi sổ trả bé, gắn ảnh lúc trả, gỡ ảnh lúc trả.
+// Danh sách người được đón và uỷ quyền một lần KHÔNG đụng tới — chúng là hồ sơ
+// của GIA ĐÌNH, không gắn với một ngày, và uỷ quyền thì bản chất là khai trước
+// cho những ngày sắp tới.
+//
+// XEM LẠI THÌ KHÔNG CHẶN. Màn cổng và sổ theo tháng của gia đình mở được mọi
+// ngày; chỉ đường GHI mới khoá.
+function chanNgoaiNgay(res, ngayGhi, viec) {
+  const hn = homNay();
+  if (ngayGhi === hn) return false;
+  res.status(400).json({
+    error: `Sổ đón trả chỉ ${viec} được trong chính ngày hôm đó. `
+      + `Ngày ${ngayGhi} ${ngayGhi > hn ? 'chưa tới' : 'đã khoá'} — cô vẫn xem lại được, nhưng không sửa nữa.`,
+    ngayKhoa: ngayGhi,
+    homNay: hn,
+  });
+  return true;
 }
 
 function chuoi(v, tran) {
@@ -180,9 +224,70 @@ module.exports = (app, { db }) => {
       duocSua: duocSua(req.user, studentId),
       nguoiThuongXuyen: nguoiCuaBe(studentId),
       uyQuyen: uyQuyenCuaBe(studentId, ngay).map(u => ({ ...u, nguoiTaoTen: tenNguoi(u.nguoiTao) })),
-      soGanDay: db.all('dontra_ghi',
-        'SELECT * FROM dontra_ghi WHERE studentId = ? ORDER BY ngay DESC LIMIT 30', [studentId])
-        .map(g => ({ ...g, coGhiTen: tenNguoi(g.coGhi) })),
+      soGanDay: (() => {
+        const so = db.all('dontra_ghi',
+          'SELECT * FROM dontra_ghi WHERE studentId = ? ORDER BY ngay DESC LIMIT 30', [studentId]);
+        // Ảnh lúc trả (Đ125) của đúng những ngày ấy — một câu, không N câu.
+        const anhTheoNgay = new Map();
+        if (so.length) {
+          for (const a of db.all('dontra_anh_tra',
+            `SELECT ngay, file FROM dontra_anh_tra WHERE studentId = ?
+              AND ngay IN (${so.map(() => '?').join(',')})`, [studentId, ...so.map(g => g.ngay)])) {
+            if (a.file) anhTheoNgay.set(a.ngay, a.file);
+          }
+        }
+        return so.map(g => ({ ...g, coGhiTen: tenNguoi(g.coGhi), anhTra: anhTheoNgay.get(g.ngay) || null }));
+      })(),
+    });
+  });
+
+  // SỔ TRẢ BÉ CỦA MỘT BÉ THEO THÁNG (Đ126) — cho lịch tháng của màn Điểm danh.
+  //
+  // `soGanDay` ở trên là 30 lần gần nhất, không lọc tháng: gia đình mở lịch
+  // tháng Chín năm ngoái thì thiếu. Đường này trả đúng một tháng, cùng hình
+  // dạng dòng với `soGanDay` để màn hình vẽ bằng một hàm. Chỉ dữ liệu của MỘT
+  // bé, qua `canAccessStudent` — phụ huynh không có đường nào tới sổ nhóm.
+  app.get('/api/dontra/so', (req, res) => {
+    const studentId = String(req.query.studentId || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'Cần chọn bé' });
+    const thang = String(req.query.thang || '').trim() || ngay.thangNay();
+    if (!/^\d{4}-\d{2}$/.test(thang)) {
+      return res.status(400).json({ error: 'Tháng chưa đúng dạng, ví dụ đúng: 2026-09' });
+    }
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem sổ đón trả của bé này' });
+    }
+    const so = db.all('dontra_ghi',
+      'SELECT * FROM dontra_ghi WHERE studentId = ? AND ngay LIKE ? ORDER BY ngay DESC',
+      [studentId, `${thang}-%`]);
+    const anhTheoNgay = new Map();
+    if (so.length) {
+      for (const a of db.all('dontra_anh_tra',
+        `SELECT ngay, file, taoLuc FROM dontra_anh_tra WHERE studentId = ?
+          AND ngay IN (${so.map(() => '?').join(',')})`, [studentId, ...so.map(g => g.ngay)])) {
+        if (a.file) anhTheoNgay.set(a.ngay, { file: a.file, taoLuc: a.taoLuc });
+      }
+    }
+    // Tên cô đã ghi: một câu cho cả tháng, cùng cách với màn cổng.
+    const maCo = [...new Set(so.map(g => g.coGhi).filter(Boolean))];
+    const tenCo = new Map();
+    if (maCo.length) {
+      for (const u of db.all('users',
+        `SELECT id, title, name FROM users WHERE id IN (${maCo.map(() => '?').join(',')})`, maCo)) {
+        tenCo.set(u.id, `${u.title} ${u.name}`);
+      }
+    }
+    res.json({
+      studentId, thang,
+      so: so.map(g => {
+        const a = anhTheoNgay.get(g.ngay) || null;
+        return {
+          ngay: g.ngay, luc: g.luc, nguoiDon: g.nguoiDon, nguonLoai: g.nguonLoai, ghiChu: g.ghiChu,
+          coGhiTen: g.coGhi ? (tenCo.get(g.coGhi) || '') : '',
+          anhTra: a ? a.file : null,
+          anhTraLuc: a ? (a.taoLuc || '') : '',
+        };
+      }),
     });
   });
 
@@ -229,6 +334,15 @@ module.exports = (app, { db }) => {
 
     // Tên cô đã ghi sổ: một câu cho cả nhóm. Cả nhóm chỉ có 2–3 cô, nên bản cũ
     // là hai mươi mấy lượt hỏi lại đúng ba câu trả lời.
+    // Ảnh lúc trả (Đ125): một câu cho cả nhóm, không một câu cho mỗi bé.
+    const anhTraTheoBe = new Map();
+    if (maBe.length) {
+      for (const a of db.all('dontra_anh_tra',
+        `SELECT studentId, file, taoLuc FROM dontra_anh_tra
+          WHERE ngay = ? AND studentId IN (${maBe.map(() => '?').join(',')})`, [ngay, ...maBe])) {
+        if (a.file) anhTraTheoBe.set(a.studentId, { file: a.file, taoLuc: a.taoLuc });
+      }
+    }
     const maCo = [...new Set([...ghiTheoBe.values()].map(g => g.coGhi).filter(Boolean))];
     const tenCo = new Map();
     if (maCo.length) {
@@ -256,6 +370,7 @@ module.exports = (app, { db }) => {
         // `tenNguoi` trả '' khi không tìm thấy người; giữ đúng chữ đó ở đây để
         // sổ cũ của một cô đã nghỉ việc vẫn hiện y như trước.
         daTra: ghi ? { ...ghi, coGhiTen: ghi.coGhi ? (tenCo.get(ghi.coGhi) || '') : '' } : null,
+        anhTra: anhTraTheoBe.get(b.id) || null,
         // `null` = bé đi học bình thường.
         nghiPhep: dangNghi.get(b.id) || null,
       };
@@ -288,7 +403,8 @@ module.exports = (app, { db }) => {
   app.get('/api/dontra/anh/:file', (req, res) => {
     const file = String(req.params.file || '');
     const chu = db.first('dontra_nguoi', 'SELECT * FROM dontra_nguoi WHERE anh = ?', [file])
-      || db.first('dontra_uyquyen', 'SELECT * FROM dontra_uyquyen WHERE anh = ?', [file]);
+      || db.first('dontra_uyquyen', 'SELECT * FROM dontra_uyquyen WHERE anh = ?', [file])
+      || db.first('dontra_anh_tra', 'SELECT studentId FROM dontra_anh_tra WHERE file = ?', [file]);
     // Không có ai nhận ảnh này thì trả 404 — trước cả khi hỏi tệp có tồn tại
     // không, để không ai dò được thư mục ảnh bằng cách so hai loại lỗi.
     if (!chu) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
@@ -427,11 +543,25 @@ module.exports = (app, { db }) => {
       return res.status(400).json({ error: 'Uỷ quyền đã qua thì không tạo mới được nữa' });
     }
 
-    const dangCo = uyQuyenCuaBe(studentId, homNay())
+    const tatCaUyQuyen = uyQuyenCuaBe(studentId, homNay());
+    const dangCo = tatCaUyQuyen
       .filter(u => u.trangThai === 'con-hieu-luc' || u.trangThai === 'chua-toi').length;
     if (dangCo >= TOI_DA_UY_QUYEN_DANG_HIEU_LUC) {
       return res.status(400).json({
         error: `Bé đang có ${dangCo} uỷ quyền còn hiệu lực. Huỷ bớt cái không dùng nữa giúp trường nhé.`,
+      });
+    }
+    // Trần thứ hai, đếm MỌI dòng tạo trong 24 giờ bất kể đã huỷ — cùng lý do
+    // và cùng con số với `TOI_DA_TAO_MOI_24H` của danh sách người thường
+    // xuyên: "Huỷ" là đường của chính gia đình, nên vòng tạo → huỷ → tạo lại
+    // lách được trần trên, mà mỗi vòng lại ghi thêm một tấm ảnh vào ổ đĩa và
+    // ảnh của uỷ quyền đã huỷ thì không có đường nào dọn.
+    const motNgayTruocUQ = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const taoGanDayUQ = tatCaUyQuyen.filter(u => String(u.taoLuc || '') >= motNgayTruocUQ).length;
+    if (taoGanDayUQ >= TOI_DA_TAO_MOI_24H) {
+      return res.status(400).json({
+        error: 'Hôm nay đã gửi khá nhiều uỷ quyền cho bé rồi. '
+          + 'Xin gia đình dùng lại uỷ quyền đã khai, hoặc nhờ văn phòng nhà trường giúp.',
       });
     }
 
@@ -476,6 +606,146 @@ module.exports = (app, { db }) => {
   // -------------------------------------------------------------------------
   // SỔ TRẢ BÉ — việc của cô ở cổng
   // -------------------------------------------------------------------------
+  // ===== Ảnh lúc trả bé (Đ125) =====
+  //
+  // Cùng ý với ảnh "con đã tới lớp" của Điểm danh: cô chụp một khung hình lúc
+  // trao bé, gia đình mở app thấy con đã về với ai. Mỗi bé mỗi ngày một tấm,
+  // chụp lại là thay và XOÁ tệp cũ. Chỉ nhà mình xem được — ảnh đi qua
+  // GET /api/dontra/anh/:file có canAccessStudent, không phục vụ tĩnh.
+  //
+  // Cố ý KHÔNG bắt phải có dòng "đã trả" trước: cô ở cổng tay đang bận, chụp
+  // trước rồi ghi sổ sau cũng là một thứ tự hợp lý. Màn hình thì chỉ đưa nút
+  // chụp ra sau khi đã ghi sổ, để không ai chụp bé chưa được trả.
+  app.post('/api/dontra/anh-tra', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const be = db.findStudent(String(b.studentId || '').trim());
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!db.canAccessStudent(req.user, be.id)) {
+      return res.status(403).json({ error: `Không có quyền ghi sổ đón trả cho bé ${be.name}` });
+    }
+    const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
+    if (chanNgoaiNgay(res, ngay, 'gắn ảnh')) return;
+    const anh = b.anh;
+    if (!anh || typeof anh !== 'string') return res.status(400).json({ error: 'Chưa chọn ảnh' });
+    const phay = anh.indexOf(',');
+    if (phay >= 0 && (anh.length - phay - 1) * 0.75 > TOI_DA_ANH_TRA_BYTE) {
+      return res.status(400).json({ error: 'Ảnh nặng quá, cô chụp lại một khung hình nhỏ hơn nhé' });
+    }
+    let luu;
+    try { luu = uploads.saveDataUrl(anh); }
+    catch (err) { return res.status(400).json({ error: err.message || 'Ảnh chưa gửi lên được' }); }
+
+    const cu = db.first('dontra_anh_tra',
+      'SELECT file FROM dontra_anh_tra WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
+    db.run(`INSERT INTO dontra_anh_tra (studentId, ngay, file, taoLuc, byUserId) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(studentId, ngay) DO UPDATE SET file = excluded.file, taoLuc = excluded.taoLuc, byUserId = excluded.byUserId`,
+      [be.id, ngay, luu.file, new Date().toISOString(), req.user.id]);
+    if (cu && cu.file && cu.file !== luu.file) { try { uploads.remove(cu.file); } catch (_) { /* tệp đã mất thì thôi */ } }
+    db.audit(req.user.id, 'dontra-anh-tra', be.id, { ngay });
+    res.status(201).json({ ok: true, studentId: be.id, ngay, file: luu.file });
+  });
+
+  // Gỡ ảnh — chụp nhầm bé thì phải gỡ được ngay.
+  //
+  // PHÂN HỆ NÀY KHÔNG CÓ ĐƯỜNG XOÁ DỮ LIỆU (bài canh [12] của test:don-tra):
+  // người đón thì "ngưng dùng" bằng cờ, uỷ quyền thì "huỷ" bằng mốc thời gian.
+  // Gỡ ảnh đi theo đúng luật ấy: là một lần THAY — thay tấm ảnh bằng trống.
+  // Dòng ở lại (ai gỡ, lúc nào) làm vết, còn tệp ảnh thì phải mất thật: một
+  // khung hình chụp nhầm bé nhà khác không được nằm lại trong kho ảnh của
+  // trường thêm một phút nào. Vì thế đây là POST, không phải DELETE.
+  app.post('/api/dontra/anh-tra/go', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const studentId = String(b.studentId || '').trim();
+    const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (chanNgoaiNgay(res, ngay, 'gỡ ảnh')) return;
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé này không thuộc phạm vi của tài khoản' });
+    }
+    const cu = db.first('dontra_anh_tra',
+      'SELECT file FROM dontra_anh_tra WHERE studentId = ? AND ngay = ?', [studentId, ngay]);
+    if (!cu || !cu.file) return res.json({ ok: true, daGoTruocDo: true });
+    db.run(`UPDATE dontra_anh_tra SET file = '', taoLuc = ?, byUserId = ? WHERE studentId = ? AND ngay = ?`,
+      [new Date().toISOString(), req.user.id, studentId, ngay]);
+    try { uploads.remove(cu.file); } catch (_) { /* tệp đã mất thì thôi */ }
+    db.audit(req.user.id, 'dontra-go-anh-tra', studentId, { ngay });
+    res.json({ ok: true });
+  });
+
+  // ===== TRẢ BÉ CHỈ BẰNG MỘT TẤM ẢNH (Đ128) =====
+  //
+  // Nhà trường 04/09: "cô giáo không cần nhập tên người trả bé cho mất thời
+  // gian, chỉ cần chụp ảnh để xác nhận đã trả bé là được".
+  //
+  // 16h30 cô đứng ở cổng, tay đang dắt bé, người lớn đứng chờ trước mặt. Gõ
+  // một cái tên vào điện thoại lúc đó là việc chỉ làm được khi buông tay bé
+  // ra. Một tấm ảnh thì bấm được bằng một ngón.
+  //
+  // MỘT ĐƯỜNG, KHÔNG PHẢI HAI. Ghi sổ và tải ảnh phải cùng đứng cùng ngã: nếu
+  // là hai lời gọi thì mạng rớt giữa chừng để lại một dòng sổ không có ảnh
+  // (hoặc ngược lại), mà cô ở cổng không có cách nào biết. Ở đây ảnh được lưu
+  // trước, ghi sổ sau; ghi hỏng thì tệp ảnh vừa lưu được bỏ đi ngay.
+  //
+  // ĐƯỜNG GÕ TÊN VẪN CÒN NGUYÊN (`/api/dontra/ghi`): người lạ tới đón, hay
+  // hôm máy hết pin không chụp được, cô vẫn ghi rõ tên được. Đây là đường
+  // NHANH, không phải đường THAY THẾ.
+  app.post('/api/dontra/tra-bang-anh', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const be = db.findStudent(String(b.studentId || '').trim());
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!db.canAccessStudent(req.user, be.id)) {
+      return res.status(403).json({ error: `Không có quyền ghi sổ đón trả cho bé ${be.name}` });
+    }
+    const ngayGhi = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
+    if (chanNgoaiNgay(res, ngayGhi, 'ghi và sửa')) return;
+    const luc = chuoi(b.luc, 5) || ngay.bayGio();
+    if (luc && !GIO_RE.test(luc)) {
+      return res.status(400).json({ error: 'Giờ trả bé phải có dạng 16:30' });
+    }
+    const anh = b.anh;
+    if (!anh || typeof anh !== 'string') return res.status(400).json({ error: 'Chưa chọn ảnh' });
+    const phay = anh.indexOf(',');
+    if (phay >= 0 && (anh.length - phay - 1) * 0.75 > TOI_DA_ANH_TRA_BYTE) {
+      return res.status(400).json({ error: 'Ảnh nặng quá, cô chụp lại một khung hình nhỏ hơn nhé' });
+    }
+    let luu;
+    try { luu = uploads.saveDataUrl(anh); }
+    catch (err) { return res.status(400).json({ error: err.message || 'Ảnh chưa gửi lên được' }); }
+
+    try {
+      const anhCu = db.first('dontra_anh_tra',
+        'SELECT file FROM dontra_anh_tra WHERE studentId = ? AND ngay = ?', [be.id, ngayGhi]);
+      db.run(`INSERT INTO dontra_anh_tra (studentId, ngay, file, taoLuc, byUserId) VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(studentId, ngay) DO UPDATE SET file = excluded.file, taoLuc = excluded.taoLuc, byUserId = excluded.byUserId`,
+        [be.id, ngayGhi, luu.file, new Date().toISOString(), req.user.id]);
+
+      // GIỮ NGUYÊN dòng đã ghi nếu cô đã ghi tên người đón từ trước: chụp thêm
+      // một tấm không được xoá mất cái tên cô đã ghi rõ.
+      const cu = db.first('dontra_ghi',
+        'SELECT * FROM dontra_ghi WHERE studentId = ? AND ngay = ?', [be.id, ngayGhi]);
+      const rec = {
+        studentId: be.id, ngay: ngayGhi, luc,
+        nguoiDon: cu ? cu.nguoiDon : NHAN_TRA_BANG_ANH,
+        nguonLoai: cu ? cu.nguonLoai : 'anh',
+        nguonId: cu ? cu.nguonId : '',
+        ghiChu: cu ? cu.ghiChu : '',
+        coGhi: req.user.id, capNhatLuc: new Date().toISOString(),
+      };
+      if (cu) db.update('dontra_ghi', cu.id, rec);
+      else db.insert('dontra_ghi', { id: db.nextId('dtg'), ...rec });
+      if (anhCu && anhCu.file && anhCu.file !== luu.file) {
+        try { uploads.remove(anhCu.file); } catch (_) { /* tệp đã mất thì thôi */ }
+      }
+      db.audit(req.user.id, 'dontra-tra-bang-anh', be.id, { ngay: ngayGhi, luc });
+      res.status(201).json({ ok: true, ...rec, file: luu.file, coGhiTen: tenNguoi(req.user.id) });
+    } catch (err) {
+      // Ghi sổ hỏng thì tấm ảnh vừa lưu không còn ai trỏ tới — bỏ đi ngay,
+      // đừng để lại một khung hình mồ côi trong kho ảnh của trường.
+      try { uploads.remove(luu.file); } catch (_) { /* thôi */ }
+      throw err;
+    }
+  });
+
   app.post('/api/dontra/ghi', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const be = db.findStudent(String(b.studentId || '').trim());
@@ -484,9 +754,7 @@ module.exports = (app, { db }) => {
       return res.status(403).json({ error: `Không có quyền ghi sổ đón trả cho bé ${be.name}` });
     }
     const ngay = NGAY_RE.test(String(b.ngay || '')) ? b.ngay : homNay();
-    if (ngay > homNay()) {
-      return res.status(400).json({ error: 'Chưa ghi sổ trả bé cho ngày chưa tới được' });
-    }
+    if (chanNgoaiNgay(res, ngay, 'ghi và sửa')) return;
     const luc = chuoi(b.luc, 5);
     if (luc && !GIO_RE.test(luc)) {
       return res.status(400).json({ error: 'Giờ trả bé phải có dạng 16:30' });
@@ -497,11 +765,37 @@ module.exports = (app, { db }) => {
     // Sang năm gia đình gỡ cô giúp việc khỏi danh sách thì sổ tháng Chín vẫn
     // phải nói đúng hôm đó ai đón bé, chứ không hiện một dòng trống.
     let nguoiDon = chuoi(b.nguoiDon, TOI_DA_TEN);
-    const nguonLoai = ['thuong-xuyen', 'uy-quyen', 'khac'].includes(String(b.nguonLoai || ''))
+    let nguonLoai = ['thuong-xuyen', 'uy-quyen', 'khac', 'giu', 'anh'].includes(String(b.nguonLoai || ''))
       ? b.nguonLoai : 'khac';
-    const nguonId = chuoi(b.nguonId, 40);
+    // 'anh' = trao bé xong chụp một tấm, KHÔNG gõ tên (Đ128) — xem đường
+    // /api/dontra/tra-bang-anh bên dưới. Tên người đón là chính tấm ảnh, nên
+    // ô tên được điền sẵn một nhãn cố định thay vì để trống.
+    if (nguonLoai === 'anh') nguoiDon = nguoiDon || NHAN_TRA_BANG_ANH;
+    let nguonId = chuoi(b.nguonId, 40);
 
-    if (nguonLoai === 'thuong-xuyen' && nguonId) {
+    // 'giu' = GIỮ NGUYÊN NGƯỜI ĐÓN đã ghi của ngày đó, chỉ sửa giờ / ghi chú.
+    //
+    // Dành cho lúc cô mở lại một bản ghi cũ mà người đón gốc KHÔNG còn trong
+    // danh sách chọn (gia đình đã gỡ tên, uỷ quyền đã qua ngày): không có giá
+    // trị này thì ô chọn trên màn hình buộc phải nhảy sang một cái tên khác,
+    // và cô sửa mỗi giờ trả cũng thành sổ đổi tên người đón — trên đúng quyển
+    // sổ là chứng cứ duy nhất khi có tranh chấp về việc giao bé cho ai.
+    //
+    // Người đón chép NGUYÊN từ sổ nên hai khối kiểm danh sách bên dưới được
+    // miễn — chúng chỉ dành cho việc ghi nhận một người MỚI.
+    const giuNguyen = nguonLoai === 'giu';
+    if (giuNguyen) {
+      const daGhi = db.first('dontra_ghi',
+        'SELECT * FROM dontra_ghi WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
+      if (!daGhi) {
+        return res.status(400).json({ error: 'Ngày này chưa có bản ghi trả bé nào để giữ nguyên người đón' });
+      }
+      nguoiDon = daGhi.nguoiDon;
+      nguonLoai = daGhi.nguonLoai;
+      nguonId = daGhi.nguonId;
+    }
+
+    if (!giuNguyen && nguonLoai === 'thuong-xuyen' && nguonId) {
       const n = db.first('dontra_nguoi', 'SELECT * FROM dontra_nguoi WHERE id = ?', [nguonId]);
       if (!n || n.studentId !== be.id) {
         return res.status(400).json({ error: 'Người được đón này không thuộc hồ sơ của bé' });
@@ -529,7 +823,7 @@ module.exports = (app, { db }) => {
       }
       if (!nguoiDon) nguoiDon = n.hoTen;
     }
-    if (nguonLoai === 'uy-quyen' && nguonId) {
+    if (!giuNguyen && nguonLoai === 'uy-quyen' && nguonId) {
       const u = db.first('dontra_uyquyen', 'SELECT * FROM dontra_uyquyen WHERE id = ?', [nguonId]);
       if (!u || u.studentId !== be.id) {
         return res.status(400).json({ error: 'Uỷ quyền này không thuộc hồ sơ của bé' });

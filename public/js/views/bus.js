@@ -17,7 +17,7 @@ App.views.bus = {
     const mine = current ? routes.filter(r => r.studentIds.includes(current.id)) : [];
     root.innerHTML = `
       ${UI.pageHeader('Xe buýt')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
       ${mine.length
         ? mine.map(r => this.routeCards(r, false)).join('')
         : UI.emptyState('🚌', 'Con chưa đăng ký dịch vụ xe đưa đón của trường')}`;
@@ -26,7 +26,8 @@ App.views.bus = {
   // Bộ 3 thẻ của một tuyến: thông tin, lộ trình, hành trình hôm nay.
   routeCards(r, isTeacher) {
     const names = isTeacher ? (r.classStudentNames || []) : (r.childNames || []);
-    const todayLog = (r.log || []).filter(l => new Date(l.time).toDateString() === new Date().toDateString());
+    // Cùng một ngày theo giờ Việt Nam — chuyến 23h30 không rơi sang hôm sau.
+    const todayLog = (r.log || []).filter(l => UI.ngayVN(l.time) === UI.todayStr());
     return `
       <div class="card">
         <div class="card-title">${UI.icon('bus', 19)} ${UI.esc(r.name)} <span class="spacer"></span> ${UI.badge(r.plate, 'blue')}</div>

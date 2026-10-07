@@ -71,25 +71,42 @@ App.views.medicine = {
           ? `<div class="small mt-8" style="color:#1e8e4e;font-weight:600">✅ ${UI.esc(m.confirmedByName || 'Cô')} đã nhận lúc ${UI.esc(UI.fmtTime(m.confirmedAt))} ${UI.esc(UI.fmtDateShort(m.confirmedAt))}</div>`
           : ''}
         ${m.log && m.log.length ? `<div class="timeline mt-14">${this.logItems(m.log)}</div>` : ''}
+        <button class="btn sm outline mt-8" data-dan-lai="${UI.esc(m.id)}" onclick="App.views.medicine.danLai('${UI.maAnToan(m.id)}')">
+          ${UI.icon('plus', 14)} Dặn lại như đơn này
+        </button>
       </div>`;
   },
 
-  openCreate() {
+  // DẶN LẠI ĐƠN CŨ (Đ134). Nhà trường 07/09: "có thể sao chép lại các đơn dặn
+  // trước đó". Bé uống một loại siro ho ba đợt trong mùa lạnh là chuyện
+  // thường; gõ lại tên thuốc, liều, thời điểm mỗi lần là thứ làm gia đình bỏ
+  // dặn qua app mà quay về nhắn tin cho cô. Chép THUỐC và GHI CHÚ; ngày dùng
+  // để hôm nay vì đợt mới là đợt mới.
+  danLai(id) {
+    const m = (this._list || []).find(x => x.id === id);
+    if (!m) return;
+    this.openCreate({ studentId: m.studentId, medicines: m.medicines || [], note: m.note || '' });
+  },
+
+  openCreate(mau) {
     const students = App.state.students || [];
     const current = App.currentStudent();
     const today = UI.todayStr();
+    const chonSan = mau && mau.studentId ? mau.studentId : (current ? current.id : null);
+    const dsThuoc = mau && Array.isArray(mau.medicines) && mau.medicines.length ? mau.medicines : [null];
     UI.modal(`
       ${students.length > 1 ? `
         <div class="field">
           <label>Dặn thuốc cho con</label>
           <select id="md-student">
-            ${students.map(s => `<option value="${UI.esc(s.id)}" ${current && s.id === current.id ? 'selected' : ''}>${UI.esc(s.name)} · ${UI.esc(s.className)}</option>`).join('')}
+            ${students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === chonSan ? 'selected' : ''}>${UI.esc(s.name)} · ${UI.esc(s.className)}</option>`).join('')}
           </select>
         </div>` : `
         <div class="field">
           <label>Dặn thuốc cho con</label>
           <input value="${UI.esc(current ? `${current.name} · ${current.className}` : '')}" disabled>
         </div>`}
+      ${mau ? `<div class="muted small mb-8">Đã chép thuốc và ghi chú từ đơn trước — gia đình xem lại rồi sửa nếu cần.</div>` : ''}
       <div class="grid-2">
         <div class="field">
           <label>Dùng từ ngày</label>
@@ -102,29 +119,31 @@ App.views.medicine = {
       </div>
       <div class="field">
         <label>Các loại thuốc</label>
-        <div id="md-meds">${this.medFieldset()}</div>
+        <div id="md-meds">${dsThuoc.map(t => this.medFieldset(t)).join('')}</div>
         <button class="btn outline sm mt-8" onclick="App.views.medicine.addMed()">${UI.icon('plus', 15)} Thêm thuốc</button>
       </div>
       <div class="field">
         <label>Ghi chú gửi cô</label>
-        <textarea id="md-note" placeholder="Ví dụ: Thuốc để trong ba lô, ngăn trước. Nhờ cô cho con uống đúng giờ giúp gia đình ạ."></textarea>
+        <textarea id="md-note" placeholder="Ví dụ: Thuốc để trong ba lô, ngăn trước. Nhờ cô cho con uống đúng giờ giúp gia đình ạ.">${UI.esc(mau && mau.note ? mau.note : '')}</textarea>
         <div class="hint">Cô phụ trách sẽ xác nhận khi đã nhận thuốc của con.</div>
       </div>
       <button class="btn primary block" onclick="App.views.medicine.submitCreate()">${UI.icon('send', 18)} Gửi lời dặn thuốc</button>
     `, 'Dặn thuốc cho con');
   },
 
-  // Một khối nhập thông tin thuốc trong biểu mẫu.
-  medFieldset() {
+  // Một khối nhập thông tin thuốc trong biểu mẫu. `t` là thuốc điền sẵn khi
+  // dặn lại đơn cũ; không có thì ô trống.
+  medFieldset(t) {
+    const v = (k) => UI.esc(t && t[k] ? String(t[k]) : '');
     return `
       <div class="med-item" style="border:1.5px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px">
         <div class="flex" style="margin-bottom:8px">
-          <input class="md-name" placeholder="Tên thuốc (VD: Siro ho Prospan)" style="flex:1;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0">
+          <input class="md-name" value="${v('name')}" placeholder="Tên thuốc (VD: Siro ho Prospan)" style="flex:1;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0">
           <button class="btn danger-soft sm" style="flex:none;padding:8px 10px" onclick="App.views.medicine.removeMed(this)" aria-label="Xóa thuốc">${UI.icon('x', 15)}</button>
         </div>
         <div class="grid-2">
-          <input class="md-dose" placeholder="Liều dùng (VD: 5ml)" style="border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0">
-          <input class="md-timing" placeholder="Thời điểm (VD: Sau bữa trưa)" style="border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0">
+          <input class="md-dose" value="${v('dose')}" placeholder="Liều dùng (VD: 5ml)" style="border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0">
+          <input class="md-timing" value="${v('timing')}" placeholder="Thời điểm (VD: Sau bữa trưa)" style="border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0">
         </div>
       </div>`;
   },
@@ -210,12 +229,13 @@ App.views.medicine = {
       ${done.length ? `
         <div class="section-label">Đã hoàn tất (${done.length})</div>
         <div class="card">
-          ${done.map(m => `
-            <div class="list-row">
+          ${done.map((m, i) => `
+            <div class="list-row clickable" data-xem-thuoc="${UI.esc(String(i))}">
               ${UI.avatar(m.studentAvatar, 40)}
               <div class="row-main">
                 <div class="row-title">${UI.esc(m.studentName)}</div>
                 <div class="row-sub">${UI.esc(UI.fmtDateShort(m.fromDate))} – ${UI.esc(UI.fmtDateShort(m.toDate))}</div>
+                <div class="row-sub">${UI.esc(this.tomTatThuoc(m.medicines))}</div>
               </div>
               <div class="row-end">${UI.badge('Hoàn tất', 'green')}</div>
             </div>`).join('')}
@@ -225,6 +245,16 @@ App.views.medicine = {
           <button class="btn outline block mt-8" id="btn-thuoc-cu-hon">
             ${UI.icon('plus', 16)} Xem đơn cũ hơn
           </button>` : ''}` : ''}`;
+
+    // MỞ LẠI ĐƠN ĐÃ HOÀN TẤT (Đ153 / DT-03).
+    //
+    // Trước đợt này mục "Đã hoàn tất" chỉ có tên bé và khoảng ngày — không bấm
+    // vào được. Nghĩa là khi gia đình hỏi lại "hôm ấy cô cho con uống thuốc gì,
+    // mấy giờ", cô không tra được, dù mọi thứ vẫn nằm nguyên trong kho. Sổ
+    // liên lạc giấy thì lật lại được; đây là chỗ app đang thua quyển sổ.
+    for (const b of root.querySelectorAll('[data-xem-thuoc]')) {
+      b.onclick = () => this.xemDonDaXong(done[Number(b.dataset.xemThuoc)]);
+    }
 
     const themNua = document.getElementById('btn-thuoc-cu-hon');
     if (themNua) {
@@ -275,6 +305,42 @@ App.views.medicine = {
   statusBadge(status) {
     const st = this.STATUS[status] || { label: status, cls: 'gray' };
     return UI.badge(st.label, st.cls);
+  },
+
+  // Một dòng tóm tắt tên thuốc, để dòng trong danh sách "Đã hoàn tất" nói được
+  // ít nhất một chữ về nội dung — cô liếc qua là biết đơn nào.
+  tomTatThuoc(medicines) {
+    const ds = (medicines || []).map(m => m.name).filter(Boolean);
+    if (!ds.length) return 'Không ghi tên thuốc';
+    return ds.length <= 3 ? ds.join(', ') : `${ds.slice(0, 3).join(', ')} và ${ds.length - 3} thuốc nữa`;
+  },
+
+  // Xem lại một đơn ĐÃ HOÀN TẤT — chỉ đọc, không có nút nào đổi trạng thái.
+  //
+  // Đơn đã cất đi là chuyện đã qua; mở lại nó ra để tra, không phải để sửa.
+  // Có nút "mở lại đợt thuốc" ở đây là mở đường cho một đơn hết hạn quay về
+  // danh sách đang dùng mà gia đình không hề biết.
+  xemDonDaXong(m) {
+    if (!m) return;
+    UI.modal(`
+      <div class="list-row" style="border-bottom:none;padding-top:0">
+        ${UI.avatar(m.studentAvatar, 44)}
+        <div class="row-main">
+          <div class="row-title">${UI.esc(m.studentName)}</div>
+          <div class="row-sub">${UI.esc(UI.fmtDate(m.fromDate, { weekday: false }))} – ${UI.esc(UI.fmtDate(m.toDate, { weekday: false }))}</div>
+        </div>
+        <div class="row-end">${UI.badge('Hoàn tất', 'green')}</div>
+      </div>
+      <div class="mt-14">${this.medsTable(m.medicines)}</div>
+      ${m.note ? `<div class="muted small mt-8">📝 ${UI.esc(m.note)}</div>` : ''}
+      ${m.log && m.log.length
+    ? `<div class="section-label">Nhật ký đơn này</div><div class="timeline">${this.logItems(m.log)}</div>`
+    : '<div class="muted small mt-14">Đơn này không có dòng nhật ký nào.</div>'}
+      <div class="muted small mt-14" style="line-height:1.6">
+        Đơn đã cất đi thì chỉ mở ra xem lại, không sửa được nữa. Gia đình cần dặn tiếp
+        thì gửi một đơn mới.
+      </div>
+    `, 'Đơn dặn thuốc đã hoàn tất');
   },
 
   medsTable(medicines) {

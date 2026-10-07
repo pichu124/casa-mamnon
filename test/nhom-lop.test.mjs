@@ -429,26 +429,50 @@ console.log('\n[14] Sổ điểm danh mở được từng nhóm');
 
 console.log('\n[15] Gia đình nhắn được cho MỌI cô của nhóm, không chỉ một cô');
 {
+  // MỤC TIÊU KHÔNG ĐỔI, CÁCH ĐẠT TỚI THÌ ĐỔI (Đ151).
+  //
+  // Bản trước đo điều này bằng cách đếm: gia đình phải thấy ĐỦ HAI CÔ trong
+  // danh sách liên hệ, mỗi cô một dòng, và hai vai phải phân biệt được bằng
+  // chữ. Nhà trường 10/09 bỏ đúng cách ấy đi: *"chứ mình cũng k muốn là nhắn
+  // tin với từng cô riêng lẻ"*.
+  //
+  // Cách mới đạt CÙNG mục tiêu và đạt chặt hơn: gia đình có MỘT cuộc với nhóm,
+  // và MỌI cô của nhóm đọc được cuộc đó. Bản cũ chỉ chứng minh gia đình BẤM
+  // ĐƯỢC vào tên cô thứ hai; bản này chứng minh cô thứ hai THẬT SỰ đọc được
+  // điều gia đình đã nói — kể cả khi gia đình không hề nhắn riêng cho cô ấy.
   await req('PUT', '/api/admin/classes/c1/teachers', {
     cookie: qt, body: { teacherIds: ['t1', 't2'], chinhId: 't1' },
   });
-  // Dùng phụ huynh p2: con chỉ học MỘT nhóm (c1). Phụ huynh p1 có hai con ở hai
-  // nhóm khác nhau nên cô t2 xuất hiện với vai cô chính của nhóm kia — đúng,
-  // nhưng không nói được gì về vai của cô ấy ở nhóm này.
+  // Dùng phụ huynh p2: con (bé s3) chỉ học MỘT nhóm (c1). Phụ huynh p1 có hai
+  // con ở hai nhóm khác nhau nên không nói được gì gọn về vai của cô ở nhóm này.
   const ph = await dangNhap('phuhuynh2', '123456');
   const ds = await req('GET', '/api/messages', { cookie: ph });
-  const co = (ds.data?.contacts || []).filter(x => ['t1', 't2'].includes(x.userId));
-  check('phụ huynh thấy cả hai cô của nhóm con mình', co.length === 2, ds.data?.contacts);
-  // Hai vai phải phân biệt được BẰNG CHỮ, không chỉ bằng dữ liệu. Kiểm tách bạch
-  // chứ không dùng startsWith cho cả hai: "Cô phụ trách chính" cũng bắt đầu bằng
-  // "Cô phụ trách", nên một phép thử lỏng sẽ xanh cả khi hai vai bị gọi giống nhau.
-  const vaiChinh = co.find(x => x.userId === 't1')?.subtitle || '';
-  const vaiPhu = co.find(x => x.userId === 't2')?.subtitle || '';
-  check('cô chính được gọi là "Cô phụ trách chính"',
-    vaiChinh.startsWith('Cô phụ trách chính'), co.map(x => x.subtitle));
-  check('cô phụ được gọi là "Cô phụ trách", KHÔNG kèm chữ "chính"',
-    vaiPhu.startsWith('Cô phụ trách') && !vaiPhu.includes('chính'),
-    co.map(x => x.subtitle));
+  const lh = ds.data?.contacts || [];
+  check('gia đình KHÔNG còn danh sách từng cô để bấm vào',
+    lh.every(x => !x.userId), lh.map(x => x.name));
+  check('mà có đúng một dòng "Nhóm lớp …" cho con mình',
+    lh.filter(x => x.kenh === 'nhom' && x.studentId === 's3').length === 1, lh.map(x => x.name));
+
+  const kenh = await req('POST', '/api/messages/start', {
+    cookie: ph, body: { kenh: 'nhom', studentId: 's3' },
+  });
+  check('mở được kênh với nhóm lớp', kenh.status === 200 && !!kenh.data?.id, kenh.data);
+  await req('POST', `/api/messages/${kenh.data.id}`, {
+    cookie: ph, body: { text: 'Nhà con xin phép đón sớm hôm nay ạ' },
+  });
+
+  const co1 = await dangNhap('giaovien', '123456');   // t1 — cô chính
+  const co2 = await dangNhap('giaovien2', '123456');  // t2 — cô thứ hai của nhóm
+  const doc1 = await req('GET', `/api/messages/${kenh.data.id}`, { cookie: co1 });
+  const doc2 = await req('GET', `/api/messages/${kenh.data.id}`, { cookie: co2 });
+  check('CÔ CHÍNH đọc được', doc1.status === 200
+    && (doc1.data.messages || []).some(m => /đón sớm/.test(m.text)), doc1.status);
+  check('CÔ THỨ HAI CỦA NHÓM CŨNG ĐỌC ĐƯỢC — dù gia đình không nhắn riêng cho cô ấy',
+    doc2.status === 200 && (doc2.data.messages || []).some(m => /đón sớm/.test(m.text)), doc2.status);
+  const tra = await req('POST', `/api/messages/${kenh.data.id}`, {
+    cookie: co2, body: { text: 'Dạ cô nhận được rồi ạ' },
+  });
+  check('và cô thứ hai TRẢ LỜI được vào chính cuộc đó', tra.status === 200, tra.status);
 }
 
 console.log('\n[16] TẠO CÔ MỚI KHÔNG ĐƯỢC XOÁ SẠCH PHÂN CÔNG CỦA CÁC CÔ ĐANG DẠY');
@@ -551,9 +575,14 @@ console.log('\n[18] PHÒNG CHAT CỦA CẢ NĂM HỌC PHẢI MỞ ĐƯỢC — C
   // Mở hội thoại riêng giữa cô t1 và một phụ huynh, rồi bơm tin thẳng vào cơ sở
   // dữ liệu — gửi 600 lần qua API thì bài test chạy hàng phút mà không đo thêm
   // được gì.
-  const batDau = await req('POST', '/api/messages/start', { cookie: ph, body: { userId: 't1' } });
+  // Từ Đ151 gia đình mở cuộc bằng KÊNH + BÉ chứ không bằng mã cô. Điều mục này
+  // đo — cửa sổ tin có chặn không, và có đường lấy lại tin cũ không — không phụ
+  // thuộc vào cuộc đó thuộc loại nào, nên chỉ đổi đúng cái cửa đi vào.
+  const batDau = await req('POST', '/api/messages/start', {
+    cookie: ph, body: { kenh: 'nhom', studentId: 's3' },
+  });
   const hoiThoai = batDau.data?.id;
-  check('mở được hội thoại riêng cô ↔ gia đình', !!hoiThoai, batDau.data);
+  check('mở được kênh gia đình ↔ nhóm lớp', !!hoiThoai, batDau.data);
 
   const SO_TIN = 600;
   const conn = new Database(path.join(DIR2, 'school.db'));
@@ -753,9 +782,13 @@ console.log('\n[+] CÔ ĐÃ RỜI NHÓM KHÔNG CÒN VÀO ĐƯỢC PHÒNG CHUNG C
     ((await req('GET', '/api/messages', { cookie: co })).data?.conversations || [])
       .some(x => x.id === 'cv_rieng'));
 
-  // Nhưng MỞ MỚI một cuộc trò chuyện với nhà đó thì không — đó là đường
-  // `contactsFor`, vốn đã đi theo phân công từ đầu và không đổi ở đợt này.
-  const moMoi = await req('POST', '/api/messages/start', { cookie: co, body: { userId: 'p1' } });
+  // Nhưng MỞ MỚI một cuộc với nhà đó thì không — đó là đường `contactsFor`,
+  // vốn đã đi theo phân công từ đầu. Từ Đ151 cửa vào là KÊNH + BÉ, còn điều
+  // được canh thì không đổi: cô đã rời nhóm thì không mở được cuộc mới với
+  // gia đình của nhóm ấy. Bé s1 là con của nhà p1, học nhóm c1.
+  const moMoi = await req('POST', '/api/messages/start', {
+    cookie: co, body: { kenh: 'nhom', studentId: 's1' },
+  });
   check('nhưng KHÔNG bắt đầu được cuộc trò chuyện MỚI với nhà của nhóm cũ',
     moMoi.status === 403, moMoi.status);
 

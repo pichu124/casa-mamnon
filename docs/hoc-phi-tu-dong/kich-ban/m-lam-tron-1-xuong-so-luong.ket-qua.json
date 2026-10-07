@@ -1,0 +1,618 @@
+{
+ "X01": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 3888885,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555550,
+    "pt_thuong": 0.3,
+    "pt_thuong_tran": 0.3,
+    "pt_tong": 0.3,
+    "phai_thu": 3888885,
+    "ap": [
+     "P30"
+    ]
+   }
+  ]
+ },
+ "X02": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 259245,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 1234500,
+    "pt_thuong": 0.79,
+    "pt_thuong_tran": 0.79,
+    "pt_tong": 0.79,
+    "phai_thu": 259245,
+    "ap": [
+     "P70",
+     "P30"
+    ]
+   }
+  ]
+ },
+ "X03": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 1055642,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 1234669,
+    "pt_thuong": 0.145,
+    "pt_thuong_tran": 0.145,
+    "pt_tong": 0.145,
+    "phai_thu": 1055642,
+    "ap": [
+     "P05",
+     "P10"
+    ]
+   }
+  ]
+ },
+ "X04": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 561738,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 1234589,
+    "pt_thuong": 0.545,
+    "pt_thuong_tran": 0.545,
+    "pt_tong": 0.545,
+    "phai_thu": 561738,
+    "ap": [
+     "P35",
+     "P30"
+    ]
+   }
+  ]
+ },
+ "X05": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 682248,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 1234838,
+    "pt_thuong": 0.4475,
+    "pt_thuong_tran": 0.4475,
+    "pt_tong": 0.4475,
+    "phai_thu": 682248,
+    "ap": [
+     "P15",
+     "P35"
+    ]
+   }
+  ]
+ },
+ "X06": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 1055556,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 1234569,
+    "pt_thuong": 0.145,
+    "pt_thuong_tran": 0.145,
+    "pt_tong": 0.145,
+    "phai_thu": 1055556,
+    "ap": [
+     "P05",
+     "P10"
+    ]
+   }
+  ]
+ },
+ "X07": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 3888888,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.3,
+    "pt_thuong_tran": 0.3,
+    "pt_tong": 0.3,
+    "phai_thu": 3888888,
+    "ap": [
+     "P30"
+    ]
+   }
+  ]
+ },
+ "X08": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 4999999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.1,
+    "pt_thuong_tran": 0.1,
+    "pt_tong": 0.1,
+    "phai_thu": 4999999,
+    "ap": [
+     "P10"
+    ]
+   }
+  ]
+ },
+ "X09": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 617283,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 1234567,
+    "pt_thuong": 0.5,
+    "pt_thuong_tran": 0.5,
+    "pt_tong": 0.5,
+    "phai_thu": 617283,
+    "ap": [
+     "P50"
+    ]
+   }
+  ]
+ },
+ "X24": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 3888500,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555000,
+    "pt_thuong": 0.3,
+    "pt_thuong_tran": 0.3,
+    "pt_tong": 0.3,
+    "phai_thu": 3888500,
+    "ap": [
+     "P30"
+    ]
+   }
+  ]
+ },
+ "X10": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 4999999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.1,
+    "pt_thuong_tran": 0.1,
+    "pt_tong": 0.1,
+    "phai_thu": 4999999,
+    "ap": [
+     "P10A"
+    ]
+   }
+  ]
+ },
+ "X11": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 4999999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.1,
+    "pt_thuong_tran": 0.1,
+    "pt_tong": 0.1,
+    "phai_thu": 4999999,
+    "ap": [
+     "P10B"
+    ]
+   }
+  ]
+ },
+ "X12": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 3999999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.28,
+    "pt_thuong_tran": 0.28,
+    "pt_tong": 0.28,
+    "phai_thu": 3999999,
+    "ap": [
+     "P10A",
+     "P20"
+    ]
+   }
+  ]
+ },
+ "X13": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 3599999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.352,
+    "pt_thuong_tran": 0.352,
+    "pt_tong": 0.352,
+    "phai_thu": 3599999,
+    "ap": [
+     "P10A",
+     "P10B",
+     "P20"
+    ]
+   }
+  ]
+ },
+ "X14": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 5555555,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0,
+    "pt_thuong_tran": 0,
+    "pt_tong": 0,
+    "phai_thu": 5555555,
+    "ap": []
+   }
+  ]
+ },
+ "X15": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 4444444,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0,
+    "pt_thuong_tran": 0,
+    "pt_tong": 0.2,
+    "phai_thu": 4444444,
+    "ap": [
+     "R1"
+    ]
+   }
+  ]
+ },
+ "X16": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 4749999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.145,
+    "pt_thuong_tran": 0.145,
+    "pt_tong": 0.145,
+    "phai_thu": 4749999,
+    "ap": [
+     "P10A",
+     "P05"
+    ]
+   }
+  ]
+ },
+ "X17": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 4999999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.1,
+    "pt_thuong_tran": 0.1,
+    "pt_tong": 0.1,
+    "phai_thu": 4999999,
+    "ap": [
+     "P05"
+    ]
+   }
+  ]
+ },
+ "X18": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 5555555,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0,
+    "pt_thuong_tran": 0,
+    "pt_tong": 0,
+    "phai_thu": 5555555,
+    "ap": [
+     "Z0"
+    ]
+   }
+  ]
+ },
+ "X19": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 5277777,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.05,
+    "pt_thuong_tran": 0.05,
+    "pt_tong": 0.05,
+    "phai_thu": 5277777,
+    "ap": [
+     "Z0",
+     "P05"
+    ]
+   }
+  ]
+ },
+ "X20": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "Quý",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-12",
+  "phai_thu_ky": 14444442,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.2,
+    "pt_thuong_tran": 0.2,
+    "pt_tong": 0.2,
+    "phai_thu": 4444444,
+    "ap": [
+     "P20"
+    ]
+   },
+   {
+    "thang": "2027-11",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.1,
+    "pt_thuong_tran": 0.1,
+    "pt_tong": 0.1,
+    "phai_thu": 4999999,
+    "ap": [
+     "P10A"
+    ]
+   },
+   {
+    "thang": "2027-12",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.1,
+    "pt_thuong_tran": 0.1,
+    "pt_tong": 0.1,
+    "phai_thu": 4999999,
+    "ap": [
+     "P10A"
+    ]
+   }
+  ]
+ },
+ "X22": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "Quý",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-12",
+  "phai_thu_ky": 13194442,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.145,
+    "pt_thuong_tran": 0.145,
+    "pt_tong": 0.145,
+    "phai_thu": 4749999,
+    "ap": [
+     "P10A",
+     "P05"
+    ]
+   },
+   {
+    "thang": "2027-11",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.145,
+    "pt_thuong_tran": 0.145,
+    "pt_tong": 0.145,
+    "phai_thu": 4749999,
+    "ap": [
+     "P10A",
+     "P05"
+    ]
+   },
+   {
+    "thang": "2027-12",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.335,
+    "pt_thuong_tran": 0.335,
+    "pt_tong": 0.335,
+    "phai_thu": 3694444,
+    "ap": [
+     "P05",
+     "P10A"
+    ]
+   }
+  ]
+ },
+ "X23": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 4999999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 5555555,
+    "pt_thuong": 0.1,
+    "pt_thuong_tran": 0.1,
+    "pt_tong": 0.1,
+    "phai_thu": 4999999,
+    "ap": [
+     "P10A"
+    ]
+   }
+  ]
+ },
+ "X25": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "1 tháng",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-10",
+  "phai_thu_ky": 999999,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 1234567,
+    "pt_thuong": 0.19,
+    "pt_thuong_tran": 0.19,
+    "pt_tong": 0.19,
+    "phai_thu": 999999,
+    "ap": [
+     "P10C",
+     "P10B"
+    ]
+   }
+  ]
+ }
+}

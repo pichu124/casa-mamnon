@@ -28,6 +28,7 @@ import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, 
 import fs from 'fs';
 import { execFileSync } from 'child_process';
 import path from 'path';
+import Database from 'better-sqlite3';
 import { GOC } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -588,6 +589,346 @@ console.log('\n[14] MỐC NGÀY NẰM TRONG CÂU TRUY VẤN — màn cổng khô
   check('màn cổng KHÔNG liệt kê người gia đình đã ngưng dùng',
     !(be3.nguoiThuongXuyen || []).some(n => n.hoTen === 'Người sẽ ngưng dùng'),
     (be3.nguoiThuongXuyen || []).map(n => n.hoTen));
+}
+
+// ===========================================================================
+console.log('\n[15] ẢNH LÚC TRẢ BÉ — cùng luật với ảnh "con đã tới lớp" của Điểm danh (Đ125)');
+{
+  const BE = 's1';
+  const tep = (file) => path.join(DIR, 'uploads', file);
+  // Có dòng "đã trả" hôm nay để sổ gần đây của gia đình có chỗ gắn ảnh.
+  const ghi = await req('POST', '/api/dontra/ghi', {
+    cookie: GV, body: { studentId: BE, ngay: HOM_NAY, nguonLoai: 'khac', nguoiDon: 'Mẹ bé', luc: '16:30' },
+  });
+  check('cô ghi sổ trả bé hôm nay', ghi.status === 200, ghi.data);
+
+  const chup = await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE, ngay: HOM_NAY, anh: ANH } });
+  check('cô chụp ảnh lúc trả → 201 kèm tên tệp', chup.status === 201 && !!(chup.data && chup.data.file), chup.data);
+  const tep1 = chup.data && chup.data.file;
+  check('tệp nằm trong kho ảnh của DATA_DIR', !!tep1 && fs.existsSync(tep(tep1)), tep1);
+
+  const be = await beTrenManCong(BE, GV);
+  check('màn cổng của cô thấy ảnh lúc trả của bé', !!(be && be.anhTra && be.anhTra.file === tep1), be && be.anhTra);
+  const ho = await hoSo(PH, BE);
+  const dong = (ho.soGanDay || []).find(g => g.ngay === HOM_NAY);
+  check('sổ gần đây của gia đình kèm ảnh đúng ngày', !!dong && dong.anhTra === tep1, dong);
+  const khac = (ho.soGanDay || []).filter(g => g.ngay !== HOM_NAY);
+  check('những ngày không có ảnh thì anhTra = null, không lây', khac.every(g => g.anhTra === null), khac.slice(0, 2));
+
+  const lay = async (cookie, file = tep1) => {
+    const res = await fetch(`${sv.BASE}/api/dontra/anh/${file}`, { headers: cookie ? { cookie } : {} });
+    return { status: res.status, kieu: res.headers.get('content-type') || '' };
+  };
+  const me = await lay(PH);
+  check('mẹ bé xem được ảnh, đúng loại ảnh', me.status === 200 && /^image\//.test(me.kieu), me);
+  check('cô của nhóm xem được', (await lay(GV)).status === 200);
+  check('văn phòng xem được', (await lay(VP)).status === 200);
+  check('phụ huynh nhà khác KHÔNG xem được', (await lay(PH2)).status === 403);
+  check('cô nhóm khác KHÔNG xem được', (await lay(GV2)).status === 403);
+  check('chưa đăng nhập KHÔNG xem được', [401, 403].includes((await lay(null)).status));
+
+  // Chụp lại là THAY: tệp cũ phải bị dọn, không để rác trong kho ảnh.
+  const chup2 = await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE, ngay: HOM_NAY, anh: ANH } });
+  const tep2 = chup2.data && chup2.data.file;
+  check('chụp lại → tên tệp mới', chup2.status === 201 && !!tep2 && tep2 !== tep1, [tep1, tep2]);
+  check('tệp cũ đã bị xoá khỏi kho', !fs.existsSync(tep(tep1)), tep1);
+  check('tệp mới có mặt', fs.existsSync(tep(tep2)), tep2);
+  check('ảnh cũ không còn mở được (404)', (await lay(PH, tep1)).status === 404);
+  const be2 = await beTrenManCong(BE, GV);
+  check('mỗi bé mỗi ngày MỘT tấm — màn cổng trỏ tới tấm mới', !!(be2 && be2.anhTra && be2.anhTra.file === tep2), be2 && be2.anhTra);
+
+  // Ai không được chụp, và cái gì không được nhận.
+  check('phụ huynh KHÔNG chụp được (403)',
+    (await req('POST', '/api/dontra/anh-tra', { cookie: PH, body: { studentId: BE, anh: ANH } })).status === 403);
+  check('cô nhóm khác KHÔNG chụp được (403)',
+    (await req('POST', '/api/dontra/anh-tra', { cookie: GV2, body: { studentId: BE, anh: ANH } })).status === 403);
+  check('ngày mai → 400',
+    (await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE, ngay: dich(1), anh: ANH } })).status === 400);
+  check('không có ảnh → 400',
+    (await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE } })).status === 400);
+  const nang = 'data:image/png;base64,' + 'A'.repeat(1300 * 1024);
+  const rNang = await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE, anh: nang } });
+  check('ảnh nặng quá trần → 400 và nói bằng tiếng Việt', rNang.status === 400 && /nặng/.test(rNang.data && rNang.data.error || ''), rNang.data);
+  check('bé không tồn tại → 404',
+    (await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: 'khong-co', anh: ANH } })).status === 404);
+
+  // Gỡ — chụp nhầm bé thì phải gỡ được ngay.
+  check('phụ huynh KHÔNG gỡ được (403)',
+    (await req('POST', '/api/dontra/anh-tra/go', { cookie: PH, body: { studentId: BE, ngay: HOM_NAY } })).status === 403);
+  const go = await req('POST', '/api/dontra/anh-tra/go', { cookie: GV, body: { studentId: BE, ngay: HOM_NAY } });
+  check('cô gỡ được', go.status === 200 && go.data && go.data.ok === true, go.data);
+  check('tệp đã bị xoá khỏi kho', !fs.existsSync(tep(tep2)), tep2);
+  const be3 = await beTrenManCong(BE, GV);
+  check('màn cổng không còn ảnh', !!be3 && be3.anhTra === null, be3 && be3.anhTra);
+  check('ảnh đã gỡ mở là 404', (await lay(PH, tep2)).status === 404);
+  const goLai = await req('POST', '/api/dontra/anh-tra/go', { cookie: GV, body: { studentId: BE, ngay: HOM_NAY } });
+  check('gỡ lần hai không nổ, chỉ báo đã gỡ trước đó', goLai.status === 200 && goLai.data && goLai.data.daGoTruocDo === true, goLai.data);
+  check('dòng "đã trả" vẫn còn nguyên — gỡ ảnh không xoá sổ', !!(be3 && be3.daTra && be3.daTra.nguoiDon === 'Mẹ bé'), be3 && be3.daTra);
+  // Gỡ rồi chụp lại được — dòng "đã thay bằng trống" không chặn lần chụp sau.
+  const chup3 = await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE, ngay: HOM_NAY, anh: ANH } });
+  check('gỡ rồi chụp lại vẫn được', chup3.status === 201 && !!(chup3.data && chup3.data.file), chup3.data);
+  const be4 = await beTrenManCong(BE, GV);
+  check('và màn cổng lại có ảnh', !!(be4 && be4.anhTra && be4.anhTra.file === chup3.data.file), be4 && be4.anhTra);
+}
+
+// ===========================================================================
+console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho lịch Điểm danh, và ranh giới lõi ↔ phân hệ (Đ126)');
+{
+  const BE = 's1';
+  const thangNay = HOM_NAY.slice(0, 7);
+  // Một dòng ở THÁNG TRƯỚC để chứng minh đường mới lọc đúng tháng (soGanDay
+  // thì không lọc — đó là lý do đường này tồn tại).
+  const [y, m] = thangNay.split('-').map(Number);
+  const thangTruoc = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
+  const ngayCu = `${thangTruoc}-10`;
+  // DÒNG CỦA THÁNG TRƯỚC GHI THẲNG VÀO BẢNG.
+  //
+  // Từ Đ127b, `POST /api/dontra/ghi` chỉ nhận đúng ngày hôm nay. Mục này đo
+  // chuyện KHÁC: sổ theo tháng có lọc đúng tháng không. Nên tình huống dựng
+  // thẳng vào bảng, còn luật ngày thì có mục [17] canh riêng ngay dưới.
+  {
+    const conn = new Database(path.join(DIR, 'school.db'));
+    conn.prepare(`INSERT INTO dontra_ghi (id, studentId, ngay, luc, nguoiDon, nguonLoai, nguonId, ghiChu, coGhi, capNhatLuc)
+      VALUES ('dtg_thu_cu', ?, ?, '16:10', 'Bà nội', 'khac', '', '', NULL, ?)
+      ON CONFLICT(studentId, ngay) DO UPDATE SET nguoiDon = excluded.nguoiDon`)
+      .run(BE, ngayCu, `${ngayCu}T09:10:00.000Z`);
+    conn.close();
+  }
+  check('dựng được một dòng của tháng trước để thử phép lọc tháng',
+    (await req('GET', `/api/dontra/so?studentId=${BE}&thang=${thangTruoc}`, { cookie: PH })).status === 200);
+
+  const so = async (cookie, q) => req('GET', `/api/dontra/so?${q}`, { cookie });
+  const me = await so(PH, `studentId=${BE}&thang=${thangNay}`);
+  check('mẹ bé xem được sổ trả bé của tháng này', me.status === 200 && Array.isArray(me.data && me.data.so), me.data);
+  const dongNay = (me.data.so || []).find(g => g.ngay === HOM_NAY);
+  check('có dòng hôm nay, đúng người đón, kèm tên cô và ảnh lúc trả',
+    !!dongNay && dongNay.nguoiDon === 'Mẹ bé' && !!dongNay.coGhiTen && typeof dongNay.anhTra === 'string' && dongNay.anhTra.length > 0,
+    dongNay);
+  check('mọi dòng đều thuộc đúng tháng hỏi', (me.data.so || []).every(g => g.ngay.startsWith(`${thangNay}-`)), me.data.so);
+  check('dòng tháng trước KHÔNG lẫn vào', !(me.data.so || []).some(g => g.ngay === ngayCu));
+  const cu = await so(PH, `studentId=${BE}&thang=${thangTruoc}`);
+  check('hỏi tháng trước thì thấy dòng "Bà nội", không có ảnh',
+    cu.status === 200 && (cu.data.so || []).some(g => g.ngay === ngayCu && g.nguoiDon === 'Bà nội' && g.anhTra === null), cu.data);
+  const macDinh = await so(PH, `studentId=${BE}`);
+  check('không nói tháng thì mặc định tháng này', macDinh.status === 200 && macDinh.data.thang === thangNay, macDinh.data && macDinh.data.thang);
+
+  check('cô của nhóm xem được', (await so(GV, `studentId=${BE}&thang=${thangNay}`)).status === 200);
+  check('văn phòng xem được', (await so(VP, `studentId=${BE}&thang=${thangNay}`)).status === 200);
+  check('phụ huynh nhà khác KHÔNG xem được (403)', (await so(PH2, `studentId=${BE}&thang=${thangNay}`)).status === 403);
+  check('cô nhóm khác KHÔNG xem được (403)', (await so(GV2, `studentId=${BE}&thang=${thangNay}`)).status === 403);
+  check('thiếu mã bé → 400', (await so(PH, `thang=${thangNay}`)).status === 400);
+  const saiThang = await so(PH, `studentId=${BE}&thang=9-2026`);
+  check('tháng sai dạng → 400 và nói tiếng Việt',
+    saiThang.status === 400 && /tháng/i.test((saiThang.data && saiThang.data.error) || ''), saiThang.data);
+
+  // Tắt phân hệ thì đường mới cũng bị chặn như mọi đường /api/dontra khác.
+  await req('PUT', '/api/admin/modules/dontra', { cookie: VP, body: { enabled: false } });
+  check('tắt Đón trả bé → sổ theo tháng 404', (await so(PH, `studentId=${BE}&thang=${thangNay}`)).status === 404);
+  await req('PUT', '/api/admin/modules/dontra', { cookie: VP, body: { enabled: true } });
+  check('bật lại → 200', (await so(PH, `studentId=${BE}&thang=${thangNay}`)).status === 200);
+
+  // Ô "Đón trả bé" KHÔNG còn gấp vào Điểm danh (Đ210, việc 1 + 3).
+  //
+  // ĐỔI CHIỀU, KHÔNG BỎ PHÉP KIỂM. Đ126 gấp ô này vào màn Điểm danh vì lúc ấy
+  // màn Điểm danh có hẳn một tab "Trả bé" do phân hệ vẽ. Đ210 gộp hai tab về
+  // một dòng Vào/Ra và bỏ tab ấy đi — nên nếu vẫn gấp thì cô MẤT HẲN lối vào
+  // sổ đón trả: ô bị ẩn khỏi trang chủ mà màn Điểm danh thì không còn vẽ nó
+  // nữa. Đó đúng là kiểu hỏng Nguyên tắc số 1 cấm, và nó im lặng.
+  //
+  // Nên phép kiểm nay đo điều ngược lại, và đo CẢ HAI VẾ: cờ đã gỡ, VÀ cô
+  // thật sự thấy lại ô trên danh sách phân hệ của mình.
+  const mj = JSON.parse(fs.readFileSync(path.join(GOC, 'modules/dontra/module.json'), 'utf8'));
+  check('module.json KHÔNG còn khai gopVao — màn Điểm danh không vẽ sổ trả bé nữa',
+    mj.gopVao === undefined || mj.gopVao === null, mj.gopVao);
+  const dsCo = await req('GET', '/api/modules', { cookie: GV });
+  const dtCo = (dsCo.data || []).find(x => x.key === 'dontra');
+  check('CÔ VẪN THẤY phân hệ Đón trả bé trong danh sách của mình', !!dtCo, dtCo);
+  check('…và không còn cờ gấp, nên trang chủ vẽ ô cho cô bấm vào',
+    !!dtCo && !dtCo.gopVao, dtCo && dtCo.gopVao);
+  const dsPH = await req('GET', '/api/modules', { cookie: PH });
+  const dtPH = (dsPH.data || []).find(x => x.key === 'dontra');
+  check('gia đình vẫn thấy phân hệ như cũ', !!dtPH && !dtPH.gopVao, dtPH);
+  // HÌNH DẠNG của cờ, không phải DANH SÁCH ai đang gấp.
+  //
+  // Bản đầu viết là "mọi phân hệ trừ `dontra` phải có gopVao === null" — đọc thì
+  // xuôi, nhưng nó chốt cứng rằng chỉ MỘT phân hệ được gấp, mà đó không phải
+  // điều mục này canh. Đ148 gấp thêm Kế hoạch giáo dục vào màn Lịch sinh hoạt
+  // và bài đỏ ngay, dù không có gì hỏng cả.
+  //
+  // Điều thật sự phải canh là điều tên phép kiểm đã nói: KHÔNG được `undefined`.
+  // Máy chủ chỉ truyền cờ qua, nên `undefined` sẽ biến mất khi đóng gói JSON và
+  // trình duyệt nhận về một khoá không tồn tại — khác hẳn `null` ("có hỏi, và
+  // câu trả lời là không gấp"). Bản dưới đây canh đúng chỗ đó, và canh chặt hơn
+  // bản cũ: cờ khác null thì phải đủ hình dạng { view, vai[] }, chứ không phải
+  // một object nửa vời mà trang chủ lặng lẽ bỏ qua.
+  const dsHS = await req('GET', '/api/modules', { cookie: GV });
+  const coHongDang = (dsHS.data || []).filter(x => !(x.gopVao === null
+    || (x.gopVao && typeof x.gopVao.view === 'string' && x.gopVao.view
+        && Array.isArray(x.gopVao.vai) && x.gopVao.vai.length)));
+  check('cờ gopVao luôn là null hoặc { view, vai[] } đầy đủ — không bao giờ undefined',
+    coHongDang.length === 0, coHongDang.map(x => [x.key, x.gopVao]));
+  check('mọi phân hệ đều CÓ khoá gopVao trong câu trả lời',
+    (dsHS.data || []).every(x => 'gopVao' in x), (dsHS.data || []).filter(x => !('gopVao' in x)).map(x => x.key));
+
+  // RANH GIỚI LÕI ↔ PHÂN HỆ, canh bằng máy: màn Điểm danh chỉ chạm phân hệ ở
+  // ĐÚNG MỘT chỗ và không gọi thẳng API của nó; phân hệ không đọc màn lõi.
+  const boChuThich = (v) => v.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  const dd = boChuThich(fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8'));
+  check('attendance.js nhắc tới App.views.dontra ĐÚNG MỘT lần (ngoài chú thích)',
+    (dd.match(/App\.views\.dontra/g) || []).length === 1, (dd.match(/App\.views\.dontra/g) || []).length);
+  check('attendance.js KHÔNG gọi thẳng đường /api/dontra nào', !/['"`]\/api\/dontra/.test(dd));
+  check('attendance.js canh cả ba lớp: tắt (moduleEnabled), thiếu hàm (typeof), lỗi khi gọi (catch)',
+    /moduleEnabled\('dontra'\)/.test(dd) && /typeof v\[t\] === 'function'/.test(dd) && /catch \(e\)/.test(dd));
+  const vw = boChuThich(fs.readFileSync(path.join(GOC, 'modules/dontra/view.js'), 'utf8'));
+  check('modules/dontra/view.js KHÔNG đọc App.views.attendance (phân hệ không dựa vào màn lõi)',
+    !/App\.views\.attendance/.test(vw));
+  // Đ210 ĐỔI CHIỀU PHỤ THUỘC, NÊN PHÉP KIỂM NÀY ĐỔI THEO — và siết chặt hơn.
+  //
+  // Trước Đ210: màn Điểm danh vẽ sổ trả bé và ĐƯA SẴN dữ liệu điểm danh sang,
+  // nên phân hệ không cần gọi API của lõi, và phép kiểm cũ cấm hẳn.
+  //
+  // Đ210 gỡ tab ấy: màn Điểm danh không vẽ sổ nữa, nên KHÔNG CÒN AI ĐƯA DỮ
+  // LIỆU SANG. Giữ nguyên lệnh cấm thì cô đứng ở cổng 16h30 mất hẳn dòng
+  // "Đón bé: Có mặt · vào 7:42" — đúng thứ cô cần biết trước khi trao một đứa
+  // trẻ cho người tới đón. Nên phân hệ nay tự hỏi lấy.
+  //
+  // Chiều phụ thuộc này là chiều ĐƯỢC PHÉP (phân hệ → lõi); chiều bị cấm là
+  // lõi thò tay vào ruột phân hệ, và phép kiểm ấy ở ngay trên vẫn nguyên.
+  // Đổi lại phải đủ HAI lớp phòng, y như luật `test:doc-cheo` của máy chủ:
+  // hỏi công tắc trước, và bọc try/catch để một lượt hỏi hỏng không kéo sập
+  // cả sổ ở cổng.
+  const goiDD = (vw.match(/['"`]\/api\/attendance/g) || []).length;
+  check('phân hệ gọi API Điểm danh ĐÚNG MỘT chỗ (dòng "Đón bé: …" ở thẻ cổng)',
+    goiDD === 1, goiDD);
+  // ĐO THEO VỊ TRÍ, KHÔNG THEO "CÓ XUẤT HIỆN Ở ĐÂU ĐÓ TRONG TỆP".
+  //
+  // Bản đầu của phép kiểm này chỉ hỏi `moduleEnabled('attendance')` có mặt
+  // trong tệp hay không — mà tệp ĐÃ CÓ SẴN một chỗ gọi nó từ trước (dòng chỉ
+  // đường ở thẻ cổng). Nên gỡ hẳn chốt ở chỗ gọi API mà phép kiểm vẫn xanh:
+  // thử ngược đổi `if (App.moduleEnabled('attendance'))` thành `if (true)` và
+  // bài không đỏ một chỗ nào. Nay đòi chốt phải đứng NGAY TRƯỚC lời gọi.
+  const viTriGoi = vw.search(/['"`]\/api\/attendance/);
+  const truocGoi = viTriGoi > 0 ? vw.slice(Math.max(0, viTriGoi - 400), viTriGoi) : '';
+  check('…và chỗ ấy HỎI CÔNG TẮC ngay trước khi gọi',
+    /moduleEnabled\('attendance'\)/.test(truocGoi), truocGoi.slice(-200));
+  check('…và bọc try/catch để hỏi hỏng không kéo sập sổ ở cổng',
+    /try \{[\s\S]{0,600}\/api\/attendance[\s\S]{0,600}?\} catch/.test(vw), 'không thấy try/catch');
+  for (const ten of ['veTraBe', 'napSoThang', 'htmlTraBeCuaNgay', 'chuTraBeNgan', 'gioTraBe']) {
+    check(`phân hệ có hàm ${ten} mà Điểm danh gọi`, new RegExp(`\\b${ten}\\(`).test(vw));
+  }
+  check('nhãn bé còn chờ đón là "Còn ở lớp" màu xám — không cam, không đỏ (QUY TẮC 2)',
+    /badge\('Còn ở lớp', 'gray'\)/.test(vw) && !/Chưa trả/.test(vw));
+}
+
+// ===========================================================================
+console.log('\n[17] SỔ ĐÓN TRẢ CHỈ GHI VÀ SỬA ĐƯỢC TRONG CHÍNH NGÀY HÔM ĐÓ (Đ127b)');
+{
+  const BE = 's1';
+  // Nhà trường chốt 04/09, cùng luật với sổ điểm danh. Ở cuốn sổ này lý do còn
+  // nặng hơn: mỗi dòng nói trường đã trao một đứa trẻ cho ai, và đó là chứng
+  // cứ duy nhất khi có tranh chấp.
+  for (const [ten, ngay] of [['hôm qua', dich(-1)], ['ngày mai', dich(1)], ['tháng trước', dich(-31)]]) {
+    const ghi = await req('POST', '/api/dontra/ghi',
+      { cookie: GV, body: { studentId: BE, ngay, nguonLoai: 'khac', nguoiDon: 'Mẹ bé', luc: '16:30' } });
+    check(`KHÔNG ghi sổ trả bé cho ${ten} (${ngay})`, ghi.status === 400, `${ghi.status} ${JSON.stringify(ghi.data).slice(0, 120)}`);
+    check(`câu từ chối ${ten} nói bằng tiếng của trường, nêu rõ ngày`,
+      /chỉ ghi và sửa được trong chính ngày hôm đó/.test(ghi.data?.error || '')
+        && (ghi.data?.error || '').includes(ngay), ghi.data?.error);
+    const chup = await req('POST', '/api/dontra/anh-tra', { cookie: GV, body: { studentId: BE, ngay, anh: ANH } });
+    check(`KHÔNG gắn được ảnh lúc trả cho ${ten}`, chup.status === 400, chup.status);
+    const go = await req('POST', '/api/dontra/anh-tra/go', { cookie: GV, body: { studentId: BE, ngay } });
+    check(`KHÔNG gỡ được ảnh lúc trả của ${ten}`, go.status === 400, go.status);
+  }
+  // Văn phòng cũng không có ngoại lệ — luật là của cuốn sổ, không của vai.
+  const vp = await req('POST', '/api/dontra/ghi',
+    { cookie: VP, body: { studentId: BE, ngay: dich(-1), nguonLoai: 'khac', nguoiDon: 'Mẹ bé' } });
+  check('văn phòng cũng KHÔNG sửa được sổ của ngày đã qua', vp.status === 400, vp.status);
+
+  // XEM LẠI THÌ KHÔNG CHẶN — khoá là khoá đường ghi, không phải khoá cuốn sổ.
+  const xemNhom = await req('GET', `/api/dontra/nhom?classId=c1&ngay=${dich(-1)}`, { cookie: GV });
+  check('màn cổng vẫn mở được ngày đã qua để xem lại', xemNhom.status === 200, xemNhom.status);
+  const xemSo = await req('GET', `/api/dontra/so?studentId=${BE}&thang=${HOM_NAY.slice(0, 7)}`, { cookie: PH });
+  check('gia đình vẫn tra được sổ theo tháng', xemSo.status === 200, xemSo.status);
+
+  // Hồ sơ của GIA ĐÌNH thì KHÔNG dính luật ngày: người được đón và uỷ quyền
+  // một lần không gắn với một ngày nào, và uỷ quyền vốn là khai TRƯỚC.
+  // Bé s2 — con thứ hai của cùng nhà: bé s1 đã bị mục [10] bơm đầy tới trần
+  // người đón, nên dùng nó ở đây là đo nhầm cái trần đó.
+  const BE2 = 's2';
+  const nguoiMoi = await req('POST', '/api/dontra/nguoi',
+    { cookie: PH, body: { studentId: BE2, hoTen: 'Bác Tư hàng xóm', quanHe: 'Hàng xóm' } });
+  check('gia đình vẫn khai thêm được người đón thường xuyên', nguoiMoi.status === 201,
+    `${nguoiMoi.status} ${JSON.stringify(nguoiMoi.data).slice(0, 120)}`);
+  const uyMoi = await req('POST', '/api/dontra/uyquyen',
+    { cookie: PH, body: { studentId: BE2, hoTen: 'Chú Năm', tuNgay: dich(1), denNgay: dich(2), lyDo: 'Bố mẹ đi công tác' } });
+  check('gia đình vẫn uỷ quyền TRƯỚC cho ngày mai được', uyMoi.status === 201, uyMoi.status);
+}
+
+// ===========================================================================
+console.log('\n[18] TRẢ BÉ CHỈ BẰNG MỘT TẤM ẢNH — cô không phải gõ tên (Đ128)');
+{
+  const BE = 's3';   // bé chưa dính tới các mục trên, để đếm cho sạch
+  const tep = (file) => path.join(DIR, 'uploads', file);
+  const soCua = async (studentId = BE, cookie = GV) =>
+    (await req('GET', `/api/dontra/nhom?classId=c1&ngay=${HOM_NAY}`, { cookie }))
+      .data?.danhSach?.find(x => x.studentId === studentId);
+
+  const truoc = await soCua();
+  check('đối chứng — bé này chưa có dòng trả nào hôm nay', !truoc?.daTra, truoc?.daTra);
+
+  const r = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: ANH } });
+  check('MỘT LỜI GỌI: chụp ảnh là ghi sổ luôn → 201', r.status === 201, `${r.status} ${JSON.stringify(r.data).slice(0, 140)}`);
+  check('trả về tên tệp ảnh', !!(r.data && r.data.file), r.data);
+  check('và ghi nguồn là "anh" — sổ nói đúng thứ đã xảy ra', r.data?.nguonLoai === 'anh', r.data?.nguonLoai);
+  check('ô người đón KHÔNG để trống, mà nói rõ xác nhận bằng ảnh',
+    /ảnh/i.test(r.data?.nguoiDon || ''), r.data?.nguoiDon);
+  check('giờ trả được ghi tự động theo giờ Việt Nam', /^\d{2}:\d{2}$/.test(r.data?.luc || ''), r.data?.luc);
+  check('tệp ảnh nằm trong kho', fs.existsSync(tep(r.data.file)), r.data.file);
+
+  const sau = await soCua();
+  check('màn cổng thấy bé đã trả', !!sau?.daTra, sau?.daTra);
+  check('và thấy ảnh lúc trả', sau?.anhTra?.file === r.data.file, sau?.anhTra);
+
+  const ho = await hoSo(PH2, BE);
+  check('gia đình của bé đó thấy dòng trong sổ',
+    (ho.soGanDay || []).some(g => g.ngay === HOM_NAY && g.nguonLoai === 'anh'),
+    (ho.soGanDay || []).slice(0, 2));
+
+  // CHỤP LẠI: thay ảnh, KHÔNG sinh dòng thứ hai, và tệp cũ được dọn.
+  const lai = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: ANH } });
+  check('chụp lại → tên tệp mới', lai.status === 201 && lai.data.file !== r.data.file, [r.data.file, lai.data.file]);
+  check('tệp cũ đã bị dọn khỏi kho', !fs.existsSync(tep(r.data.file)), r.data.file);
+  const hoLai = await hoSo(PH2, BE);
+  check('vẫn CHỈ MỘT dòng cho ngày đó', (hoLai.soGanDay || []).filter(g => g.ngay === HOM_NAY).length === 1);
+
+  // ĐƯỜNG GÕ TÊN VẪN CÒN, và tên cô đã ghi rõ thì chụp thêm KHÔNG xoá mất.
+  const ghiTen = await req('POST', '/api/dontra/ghi', {
+    cookie: GV, body: { studentId: BE, nguonLoai: 'khac', nguoiDon: 'Bà ngoại bé', luc: '16:40' },
+  });
+  check('cô vẫn ghi rõ tên người đón được khi cần', ghiTen.status === 200, ghiTen.status);
+  const themAnh = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: ANH } });
+  check('chụp thêm một tấm sau khi đã ghi tên → vẫn 201', themAnh.status === 201, themAnh.status);
+  check('TÊN CÔ ĐÃ GHI RÕ KHÔNG BỊ THAY BẰNG NHÃN ẢNH',
+    themAnh.data?.nguoiDon === 'Bà ngoại bé' && themAnh.data?.nguonLoai === 'khac', themAnh.data);
+
+  // Phân quyền và đầu vào — cùng luật với mọi đường ghi khác của phân hệ.
+  check('phụ huynh KHÔNG dùng được đường này (403)',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: PH, body: { studentId: BE, anh: ANH } })).status === 403);
+  check('cô nhóm khác KHÔNG dùng được (403)',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV2, body: { studentId: BE, anh: ANH } })).status === 403);
+  check('không có ảnh → 400',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE } })).status === 400);
+  check('bé không tồn tại → 404',
+    (await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: 'khong-co', anh: ANH } })).status === 404);
+  const nang = 'data:image/png;base64,' + 'A'.repeat(1300 * 1024);
+  const rNang = await req('POST', '/api/dontra/tra-bang-anh', { cookie: GV, body: { studentId: BE, anh: nang } });
+  check('ảnh nặng quá trần → 400, nói bằng tiếng của trường',
+    rNang.status === 400 && /nặng/.test(rNang.data?.error || ''), rNang.data);
+  const ngayCu = await req('POST', '/api/dontra/tra-bang-anh',
+    { cookie: GV, body: { studentId: BE, ngay: dich(-1), anh: ANH } });
+  check('ngày đã khoá thì đường nhanh cũng bị chặn (Đ127b)', ngayCu.status === 400, ngayCu.status);
+  check('và không để lại tấm ảnh mồ côi nào trong kho',
+    !(ngayCu.data && ngayCu.data.file), ngayCu.data);
 }
 
 sv.dung();

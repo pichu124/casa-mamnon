@@ -69,7 +69,10 @@ const db = require('../lib/db');
 const SUA = process.argv.includes('--sua');
 
 const giaoVien = db.all('users', `SELECT id, name, title, classId FROM users WHERE role = 'teacher'`);
-const lopHoc = db.all('classes', 'SELECT id, name, teacherId FROM classes');
+// PHẢI SELECT cả `active`: phía dưới có phép lọc `c.active !== false` — thiếu
+// cột này thì active là undefined, phép lọc luôn đúng, và mọi nhóm ĐÃ ĐÓNG của
+// các năm học cũ đều bị báo nhầm là "nhóm đang mở thiếu cô".
+const lopHoc = db.all('classes', 'SELECT id, name, teacherId, active FROM classes');
 const lopTheoId = new Map(lopHoc.map(c => [c.id, c]));
 const tenGv = (id) => {
   const t = giaoVien.find(g => g.id === id);

@@ -1,0 +1,81 @@
+{
+ "ten": "Ví dụ đúng trong tài liệu: cư dân 5% + em bé thứ hai 10% hết hạn 31/10/2027, quý 4/2027",
+ "cau_hinh": {
+  "thang_ky": "2027-10-01",
+  "che_do_hieu_luc": "Trùng ít nhất 1 ngày",
+  "che_do_chon": "% lớn nhất trước",
+  "don_vi_lam_tron": 1000,
+  "cach_lam_tron": "Làm tròn thường"
+ },
+ "quyet_dinh": [
+  {
+   "ma": "QD1",
+   "so_thang_moc1": 12,
+   "so_luong_moc1": 3,
+   "tran_moc1": 0.3,
+   "so_luong_moc2": 2,
+   "tran_moc2": 0.2
+  }
+ ],
+ "bieu_phi": [
+  {
+   "ma": "MAM",
+   "ten": "Mầm",
+   "hoc_phi_thang": 6000000
+  }
+ ],
+ "danh_muc": [
+  {
+   "ma": "CU_DAN",
+   "ten": "Cư dân",
+   "loai": "Chung",
+   "phan_tram": 0.05,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  },
+  {
+   "ma": "ACE",
+   "ten": "Em bé thứ hai",
+   "loai": "Chung",
+   "phan_tram": 0.1,
+   "ap_cho_moc": "Cả hai",
+   "ap_cho_chu_ky": "Mọi chu kỳ",
+   "tran_rieng": null
+  }
+ ],
+ "be": [
+  {
+   "ma": "B1",
+   "ten": "Bé A",
+   "goi": "MAM",
+   "con_gv": "Không",
+   "chu_ky": "Quý",
+   "ngay_nhap_hoc": "2025-09-05",
+   "ma_qd": "QD1",
+   "thang_moc2": null,
+   "so_luong_moc2": null,
+   "tran_moc2": null,
+   "da_dong_den": "2027-09-30"
+  }
+ ],
+ "uu_dai": [
+  {
+   "ma_be": "B1",
+   "ma_uu_dai": "CU_DAN",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": null,
+   "tran_rieng": null
+  },
+  {
+   "ma_be": "B1",
+   "ma_uu_dai": "ACE",
+   "phan_tram": null,
+   "tu_ngay": null,
+   "den_ngay": "2027-10-31",
+   "tran_rieng": null
+  }
+ ],
+ "ghi_chu_chuyen_ban": "Bản 3: 1 bé có \"da_dong_den\" trống được ghi 2027-09-30 để giữ nguyên ý đồ của bản 2."
+}

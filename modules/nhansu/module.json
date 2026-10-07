@@ -1,0 +1,18 @@
+{
+  "key": "nhansu",
+  "name": "Nhân sự & chấm công",
+  "desc": "Hồ sơ nhân sự và bảng công của cô và nhân viên",
+  "hash": "#/nhansu",
+  "view": "nhansu",
+  "emoji": "🗂️",
+  "bg": "linear-gradient(135deg,#5f7c8a,#3f5b68)",
+  "api": [
+    "/api/nhansu"
+  ],
+  "roles": [
+    "teacher",
+    "admin"
+  ],
+  "defaultEnabled": true,
+  "version": "1.0.0"
+}

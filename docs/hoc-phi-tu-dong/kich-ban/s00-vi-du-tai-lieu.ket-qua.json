@@ -1,0 +1,52 @@
+{
+ "B1": {
+  "tinh_duoc": true,
+  "den_ky": true,
+  "chu_ky": "Quý",
+  "ky_tu": "2027-10",
+  "ky_den": "2027-12",
+  "phai_thu_ky": 16530000,
+  "thang": [
+   {
+    "thang": "2027-10",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 6000000,
+    "pt_thuong": 0.145,
+    "pt_thuong_tran": 0.145,
+    "pt_tong": 0.145,
+    "phai_thu": 5130000,
+    "ap": [
+     "CU_DAN",
+     "ACE"
+    ]
+   },
+   {
+    "thang": "2027-11",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 6000000,
+    "pt_thuong": 0.05,
+    "pt_thuong_tran": 0.05,
+    "pt_tong": 0.05,
+    "phai_thu": 5700000,
+    "ap": [
+     "CU_DAN"
+    ]
+   },
+   {
+    "thang": "2027-12",
+    "trong_ky": true,
+    "moc": 2,
+    "hoc_phi": 6000000,
+    "pt_thuong": 0.05,
+    "pt_thuong_tran": 0.05,
+    "pt_tong": 0.05,
+    "phai_thu": 5700000,
+    "ap": [
+     "CU_DAN"
+    ]
+   }
+  ]
+ }
+}

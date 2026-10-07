@@ -32,13 +32,27 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');            // chống nhúng vào trang lạ
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  // microphone=(self): nút "Nói để ghi" của Hành trình (góp ý 06/10, mục 7) cần micro của
+  // CHÍNH app; mọi trang nhúng hay nguồn khác vẫn bị chặn như trước.
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",           // giao diện dùng onclick nội tuyến
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data:",
+    // `media-src` PHẢI KHAI RIÊNG, và phải có `blob:` (Đ150).
+    //
+    // Trước đợt này không có dòng này, nên media rơi về `default-src 'self'` —
+    // tức trang KHÔNG phát được video từ một blob do chính nó vừa tạo. Việc nén
+    // video trên máy của cô làm đúng như vậy: đọc tệp cô chọn thành blob rồi
+    // phát lại để thu từng khung hình. Thiếu dòng này thì Chromium từ chối bằng
+    // "Media load rejected by URL safety check" và cả tính năng câm lặng.
+    //
+    // `blob:` KHÔNG mở thêm cửa nào ra ngoài: blob chỉ tồn tại trong đúng tab
+    // đang mở và chỉ do chính trang này tạo. Video của album vẫn đi đường cũ
+    // (`/api/albums/...`, tức `'self'`), không đổi một chữ.
+    "media-src 'self' blob:",
     "connect-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -48,7 +62,9 @@ app.use((req, res, next) => {
     res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   }
   // Không để trình duyệt hay proxy lưu lại dữ liệu riêng tư của học sinh.
-  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  // So bằng chữ thường: Express khớp route không phân biệt hoa/thường, nên
+  // `/API/...` vẫn trả dữ liệu — mà thiếu no-store thì proxy được phép cache nó.
+  if (req.path.toLowerCase().startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
@@ -158,7 +174,10 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // SPA fallback: mọi đường dẫn không phải /api trả về index.html.
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
+  // Hạ chữ thường trước khi so: Express khớp route không phân biệt hoa/thường
+  // (Đ117a), nên /API/khong-co cũng là một đường API lạc — trả JSON 404, không
+  // trả index.html 200 để client tưởng là một trang.
+  if (req.path.toLowerCase().startsWith('/api/')) {
     return res.status(404).json({ error: 'Không tìm thấy API' });
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -293,6 +312,19 @@ if (db.isEmpty()) {
   require('./data/seed').generate();
 }
 
+// ĐỒNG HỒ ĐỊNH GIỜ (Đ154) — bật SAU khi mọi phân hệ đã đăng ký việc của mình.
+//
+// Đặt ngay trước `listen` chứ không sớm hơn: `napApiMoRong` là nơi các phân hệ
+// gọi `henGio.dangKy(...)`, và lượt chạy đầu tiên phải thấy đủ danh sách. Đồng
+// hồ `.unref()` nên nó không giữ tiến trình sống khi máy chủ đóng.
+//
+// `HEN_GIO_PHUT=0` tắt hẳn đồng hồ — để dành cho máy chạy nhiều bản song song,
+// nơi chỉ nên có MỘT bản quét và gửi tin.
+const henGio = require('./lib/hen-gio');
+const henGioPhut = process.env.HEN_GIO_PHUT === undefined ? henGio.MOI_PHUT_MAC_DINH : Number(process.env.HEN_GIO_PHUT);
+if (henGioPhut > 0) henGio.batDau({ moiPhut: henGioPhut });
+else console.log('Đồng hồ định giờ đang TẮT (HEN_GIO_PHUT=0).');
+
 const server = app.listen(PORT, HOST, () => {
   console.log(`CASA Mầm non đang chạy tại http://localhost:${PORT}`);
   console.log(`Cơ sở dữ liệu: ${db.DB_FILE}`);
@@ -308,6 +340,7 @@ function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`\nNhận tín hiệu ${signal}, đang đóng cơ sở dữ liệu...`);
+  henGio.dung();
   server.close(() => { db.close(); process.exit(0); });
   setTimeout(() => process.exit(0), 5000).unref(); // không chờ quá lâu
 }

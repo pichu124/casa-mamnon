@@ -64,12 +64,26 @@ console.log('\n[1] Danh sách phân hệ');
   check('màn học bạ của app 1 KHÔNG còn bật sẵn cho gia đình',
     !r.data.some(m => m.key === 'hocsinhcu'), r.data.filter(m => m.key === 'hocsinhcu'));
   check('mặc định các phân hệ lõi đều bật', r.data.some(m => m.key === 'diemdanh'));
-  check('phân hệ cắm thêm mặc định TẮT nên không xuất hiện',
-    !r.data.some(m => m.key === 'hocphi'), r.data.filter(m => m.key === 'hocphi'));
+  // TỪ Đ146 PHÂN HỆ CẮM THÊM MẶC ĐỊNH BẬT.
+  //
+  // Trước đó cả chín ghi `defaultEnabled: false`: quy ước thừa kế từ ví dụ đầu
+  // tiên (`modules/hocphi/`, commit B6 ngày 13/08) khi cơ chế cắm thêm mới dựng
+  // và ý là "nhà trường tự chọn dùng phần nào". Nhưng suốt hai buổi trường bấm
+  // thử, không ai bật, nên trường mở app ra không thấy Nhật ký, Kế hoạch,
+  // Cambridge — rồi hỏi "sao chưa thấy phần chụp ảnh". Chủ dự án chốt bật cả
+  // chín. Tắt vẫn tắt được bất cứ lúc nào ở Quản trị → Tính năng, và mục [5]
+  // bên dưới vẫn đi đủ đường tắt → API bị chặn → bật → chạy lại.
+  check('phân hệ cắm thêm mặc định BẬT nên gia đình thấy ngay',
+    r.data.some(m => m.key === 'hocphi'), r.data.map(m => m.key));
 
   const adm = await req('GET', '/api/admin/modules', { cookie: A.cookie });
   check('quản trị thấy toàn bộ kèm trạng thái', adm.status === 200 && adm.data.length >= 15, adm.data?.length);
-  check('quản trị thấy cả phân hệ đang tắt', adm.data.some(m => m.key === 'hocphi' && m.enabled === false));
+  check('quản trị thấy phân hệ cắm thêm kèm trạng thái đang bật',
+    adm.data.some(m => m.key === 'hocphi' && m.enabled === true),
+    adm.data.filter(m => m.key === 'hocphi'));
+  check('và vẫn thấy được phân hệ nhà trường đã TẮT, kèm trạng thái',
+    adm.data.some(m => m.key === 'nenep' && m.enabled === false),
+    adm.data.filter(m => m.key === 'nenep'));
   check('phân hệ lõi được đánh dấu không thể tắt', adm.data.find(m => m.key === 'hocsinh')?.required === true);
   const ph = await req('GET', '/api/admin/modules', { cookie: P });
   check('phụ huynh KHÔNG xem được trang quản trị phân hệ → 403', ph.status === 403, ph.status);
@@ -91,7 +105,11 @@ console.log('\n[2] Tắt một phân hệ — chặn cả API chứ không chỉ
   check('sau khi tắt: API bị chặn (404)', after.status === 404, after.status);
   check('báo lỗi giải thích rõ cho người dùng', /tắt/.test(after.data?.error || ''), after.data);
 
-  const post = await req('POST', '/api/attendance/mark', { cookie: T, body: { studentId: 's1', date: '2026-08-13', status: 'present' } });
+  // Ngày là HÔM NAY: từ Đ127 sổ điểm danh chỉ ghi được trong ngày, nên một
+  // ngày cố định sẽ bị chặn vì lý do KHÁC với lý do mục này đang đo (phân hệ
+  // đang tắt thì mọi đường /api/attendance đều 404).
+  const post = await req('POST', '/api/attendance/mark',
+    { cookie: T, body: { studentId: 's1', date: new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10), status: 'present' } });
   check('cả đường ghi dữ liệu cũng bị chặn', post.status === 404, post.status);
 
   const list = await req('GET', '/api/modules', { cookie: P });
@@ -130,8 +148,19 @@ console.log('\n[4] Không cho tắt phân hệ lõi');
 
 console.log('\n[5] Phân hệ cắm thêm: bật lên là dùng được ngay');
 {
+  // TỰ TẮT TRƯỚC, KHÔNG DỰA VÀO MẶC ĐỊNH.
+  //
+  // Mục này canh CƠ CHẾ tắt/bật, không canh giá trị mặc định — nên nó phải tự
+  // dựng lấy trạng thái tắt. Bản cũ mượn `defaultEnabled: false` làm điều kiện
+  // đầu vào, nên ngày Đ146 đổi mặc định là mục này đỏ, dù cơ chế không hỏng gì.
+  const tatTruoc = await req('PUT', '/api/admin/modules/hocphi', { cookie: A.cookie, body: { enabled: false } });
+  check('tắt Học phí để dựng điều kiện đầu vào → 200', tatTruoc.status === 200, tatTruoc.data);
+
   const truoc = await req('GET', '/api/hocphi?studentId=s1', { cookie: P });
   check('khi đang tắt: API của phân hệ mới bị chặn', truoc.status === 404, truoc.status);
+  const dsTat = await req('GET', '/api/modules', { cookie: P });
+  check('và nó biến khỏi màn hình chính của gia đình',
+    !dsTat.data.some(m => m.key === 'hocphi'), dsTat.data?.map(m => m.key));
 
   const on = await req('PUT', '/api/admin/modules/hocphi', { cookie: A.cookie, body: { enabled: true } });
   check('bật phân hệ Học phí → 200', on.status === 200, on.data);
@@ -420,6 +449,13 @@ console.log('\n[12] Màn "không mở được" phải nói ĐÚNG lý do, khôn
   const r2 = (await req('GET', '/api/modules/vi-sao/hocsinhcu', { cookie: T })).data;
   check('cô mở phần của gia đình → nói đúng CHIỀU',
     r2 && r2.ly === 'ngoai-vai' && r2.danhCho === 'gia-dinh', r2);
+
+  // Chiều THỨ BA (Đ140): Học phí dành cho gia đình VÀ văn phòng, cô không có.
+  // Bảo cô rằng phần này "chỉ dành cho cô và văn phòng" là sai lần nữa.
+  await req('PUT', '/api/admin/modules/hocphi', { cookie: A.cookie, body: { enabled: true } });
+  const r2b = (await req('GET', '/api/modules/vi-sao/hocphi', { cookie: T })).data;
+  check('cô mở phần của gia đình và văn phòng → chiều "gia-dinh-va-van-phong", không phải "truong"',
+    r2b && r2b.ly === 'ngoai-vai' && r2b.danhCho === 'gia-dinh-va-van-phong', r2b);
 
   // Nhà trường tắt THẬT thì mới được nói là tắt.
   await req('PUT', '/api/admin/modules/thuchup', { cookie: A.cookie, body: { enabled: false } });

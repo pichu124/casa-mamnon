@@ -1,13 +1,44 @@
 // Phân hệ Khảo sát: giáo viên tạo / đóng khảo sát, phụ huynh trả lời.
 const db = require('../lib/db');
+const nl = require('../lib/nhom-lop');
+const tb = require('../lib/thong-bao');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_CAU_TRA_LOI = 1000;
 
 // Khảo sát có hiển thị với người dùng này không (theo phạm vi gửi).
+//
+// `classIdsOf` chỉ trả nhóm ĐANG MỞ — đủ cho gia đình (con chuyển nhóm thì
+// khảo sát của nhóm cũ không còn là chuyện của nhà), nhưng KHÔNG đủ cho người
+// trong trường: khảo sát cuối năm gửi riêng nhóm Lá 1, 25 nhà trả lời, tháng 8
+// chuyển năm học đóng nhóm — mà kết quả lại biến mất với cả cô tạo lẫn ban
+// giám hiệu thì đúng phần đáng đọc nhất bị khoá. Nên cô nhìn theo "từng phụ
+// trách", quản trị nhìn theo cơ sở, người tạo luôn thấy bản của mình.
+//
+// `taoBoLocXem` hỏi db MỘT lần cho người xem rồi trả về một hàm — đường danh
+// sách chạy nó trên tới 100 khảo sát mà không hỏi lại nhóm của người xem cho
+// từng dòng. `visibleTo` giữ nguyên chữ ký cho các đường một-khảo-sát.
+function taoBoLocXem(user) {
+  const dangMo = new Set(db.classIdsOf(user));
+  const tungDay = user.role === 'teacher' ? new Set(db.classIdsEverOfTeacher(user.id)) : null;
+  const coSo = user.role === 'admin' ? db.phamViCoSo(user) : null;
+  const coSoCuaNhom = new Map();
+  return (sv) => {
+    if (sv.audience === 'all') return true;
+    if (dangMo.has(sv.audience)) return true;
+    if (sv.createdBy === user.id) return true;
+    if (tungDay) return tungDay.has(sv.audience);
+    if (user.role === 'admin') {
+      if (!coSo) return true;
+      if (!coSoCuaNhom.has(sv.audience)) coSoCuaNhom.set(sv.audience, db.campusOfClass(sv.audience));
+      return coSoCuaNhom.get(sv.audience) === coSo;
+    }
+    return false;
+  };
+}
 function visibleTo(user, sv) {
-  return sv.audience === 'all' || db.classIdsOf(user).includes(sv.audience);
+  return taoBoLocXem(user)(sv);
 }
 
 // Câu trả lời của một khảo sát, đọc từ bảng riêng.
@@ -23,11 +54,12 @@ function parentName(userId) {
 
 // AI ĐƯỢC ĐỌC CÂU TRẢ LỜI CỦA GIA ĐÌNH NÀO.
 //
-// `POST /api/surveys` ghi cứng `audience: 'all'`, nên MỌI khảo sát đều đi tới
-// cả ba cơ sở. Điều đó tự nó chưa phải lỗ hổng — nhưng chỗ đọc kết quả thì
-// trả về `respondents` (TÊN từng phụ huynh đã trả lời) và, với câu hỏi mở, cả
-// CÂU CHỮ họ viết kèm tên. Cô nhóm Chồi 2 mở một khảo sát ra là đọc được ý
-// kiến của phụ huynh cả trường, gồm hai cơ sở cô không làm việc.
+// Khảo sát toàn trường (`audience: 'all'` — mặc định, và là toàn bộ khảo sát
+// trước Đ119) đi tới cả ba cơ sở. Điều đó tự nó chưa phải lỗ hổng — nhưng chỗ
+// đọc kết quả thì trả về `respondents` (TÊN từng phụ huynh đã trả lời) và,
+// với câu hỏi mở, cả CÂU CHỮ họ viết kèm tên. Cô nhóm Chồi 2 mở một khảo sát
+// toàn trường ra là đọc được ý kiến của phụ huynh cả trường, gồm hai cơ sở cô
+// không làm việc.
 //
 // Ý kiến phụ huynh gửi cho nhà trường thường là chuyện riêng: hoàn cảnh gia
 // đình, lý do xin nghỉ, phàn nàn về một cô cụ thể. Gửi cho trường không có
@@ -77,6 +109,25 @@ function chiaLo(ds, coLo = 400) {
 // chứ không cắt việc đang cần làm.
 const GIOI_HAN_DANH_SACH = 100;
 
+// Tên nhóm của một khảo sát theo nhóm — để màn hình ghi rõ "khảo sát của
+// nhóm nào" thay vì bắt người đọc đoán. `findClass` chứ không phải
+// `db.classes()`: nhóm đã đóng sau chuyển năm vẫn phải hiện được tên trên
+// khảo sát cũ của nó.
+// Đ124: tên cơ sở của nhóm nhận, để thẻ khảo sát ghi "Nhóm Chồi 2 · Cơ sở 1"
+// với văn phòng ba cơ sở. Không có tầng cơ sở thì chuỗi rỗng.
+function tenCoSoCua(audience) {
+  if (!audience || audience === 'all') return '';
+  const csId = db.campusOfClass(audience);
+  const cs = csId ? db.findCampus(csId) : null;
+  return cs ? cs.name : '';
+}
+
+function tenNhomCua(audience) {
+  if (!audience || audience === 'all') return '';
+  const c = db.findClass(audience);
+  return c ? c.name : '';
+}
+
 function summary(sv, user, responses) {
   const list = responses || responsesOf(sv.id);
   return {
@@ -85,6 +136,9 @@ function summary(sv, user, responses) {
     description: sv.description,
     deadline: sv.deadline,
     status: sv.status,
+    audience: sv.audience,
+    tenNhom: tenNhomCua(sv.audience),
+    tenCoSo: tenCoSoCua(sv.audience),
     questionCount: (sv.questions || []).length,
     responseCount: list.length,
     answered: list.some(r => r.userId === user.id),
@@ -119,13 +173,16 @@ module.exports = (app) => {
     const list = db.all('surveys',
       `SELECT * FROM surveys ORDER BY (status = 'open') DESC, createdAt DESC LIMIT ?`,
       [GIOI_HAN_DANH_SACH])
-      .filter(sv => visibleTo(req.user, sv))
+      .filter(taoBoLocXem(req.user))
       .map(sv => ({
         id: sv.id,
         title: sv.title,
         description: sv.description,
         deadline: sv.deadline,
         status: sv.status,
+        audience: sv.audience,
+        tenNhom: tenNhomCua(sv.audience),
+        tenCoSo: tenCoSoCua(sv.audience),
         questionCount: (sv.questions || []).length,
         responseCount: dem.get(sv.id) || 0,
         answered: daTraLoi.has(sv.id),
@@ -209,10 +266,19 @@ module.exports = (app) => {
       // thuốc vì mỗi người chỉ trả lời được một lần, nhưng vẫn phải chặn.
       answers[q.id] = String(val).trim().slice(0, TOI_DA_CAU_TRA_LOI);
     }
-    for (const q of sv.questions) {
-      if (q.type === 'choice' && !answers[q.id]) {
-        return res.status(400).json({ error: 'Vui lòng trả lời đầy đủ các câu trắc nghiệm' });
-      }
+    // PHẢI TRẢ LỜI ĐỦ MỌI CÂU (Đ135). Nhà trường 07/09: "Chưa trả lời hết câu
+    // hỏi sẽ không thể gửi câu trả lời đi". Trước đợt này chỉ câu trắc nghiệm
+    // bị bắt buộc, câu tự luận bỏ trống vẫn gửi được — và văn phòng nhận về
+    // một phiếu nửa chừng mà không biết gia đình đã đọc câu đó chưa. Nói rõ
+    // còn thiếu câu mấy, để gia đình không phải dò lại cả phiếu.
+    const thieu = sv.questions
+      .map((q, i) => (answers[q.id] ? null : i + 1))
+      .filter(Boolean);
+    if (thieu.length) {
+      return res.status(400).json({
+        error: `Gia đình trả lời đủ ${sv.questions.length} câu rồi gửi nhé — còn thiếu câu ${thieu.join(', ')}.`,
+        thieu,
+      });
     }
     const firstChild = db.studentsOf(req.user)[0];
     db.insert('survey_responses', {
@@ -226,11 +292,45 @@ module.exports = (app) => {
     res.status(201).json({ ok: true });
   });
 
-  // Giáo viên tạo khảo sát mới (gửi tới toàn trường).
+  // Cô hoặc văn phòng tạo khảo sát mới — gửi toàn trường hoặc riêng một nhóm.
   app.post('/api/surveys', requireRole('teacher', 'admin'), (req, res) => {
-    const { title, description, deadline, questions } = req.body || {};
+    const { title, description, deadline, questions, audience } = req.body || {};
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập tiêu đề khảo sát' });
+    }
+
+    // PHẠM VI GỬI — cùng luật, gần như cùng chữ với POST /api/notifications:
+    // 'all' là toàn trường, 'class' là một nhóm (cô chỉ gửi được nhóm mình,
+    // văn phòng gửi được nhóm trong cơ sở của mình qua canAccessClass).
+    // App đời cũ KHÔNG gửi trường này thì giữ đúng nghĩa cũ: toàn trường.
+    // Tầng đọc không phải sửa gì — `visibleTo` và bộ đếm huy hiệu đã lọc theo
+    // cột `audience` từ trước, chỉ có đường tạo là chưa bao giờ ghi gì khác
+    // 'all' vào đó.
+    const phamVi = audience === undefined ? 'all' : audience;
+    if (phamVi !== 'all' && phamVi !== 'class') {
+      return res.status(400).json({ error: 'Phạm vi gửi không hợp lệ' });
+    }
+    let nhomNhan = '';
+    if (phamVi === 'class') {
+      if (req.user.role === 'admin') {
+        nhomNhan = String((req.body || {}).classId || '');
+        if (!nhomNhan || !db.findClass(nhomNhan)) {
+          return res.status(400).json({ error: 'Vui lòng chọn nhóm nhận khảo sát' });
+        }
+        if (!db.canAccessClass(req.user, nhomNhan)) {
+          return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+        }
+      } else {
+        const nhomCuaCo = nl.nhomCuaCo(req.user.id);
+        nhomNhan = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
+        if (!nhomNhan) {
+          return res.status(400).json({
+            error: nhomCuaCo.length > 1
+              ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm nhận khảo sát'
+              : 'Tài khoản chưa gắn với nhóm lớp nào',
+          });
+        }
+      }
     }
     if (!DATE_RE.test(String(deadline || ''))) {
       return res.status(400).json({ error: 'Hạn trả lời không hợp lệ' });
@@ -265,20 +365,59 @@ module.exports = (app) => {
       createdBy: req.user.id,
       createdAt: new Date().toISOString(),
       deadline,
-      audience: 'all',
+      audience: phamVi === 'class' ? nhomNhan : 'all',
       status: 'open',
       questions: qs,
     };
     db.insert('surveys', rec);
+
+    // BÁO CHO GIA ĐÌNH BIẾT CÓ KHẢO SÁT MỚI (Đ145).
+    //
+    // Nhà trường 07/09 xếp khảo sát ĐỨNG ĐẦU danh sách "cần phải có thông báo
+    // tới phụ huynh". Đợt Đ137 nối chín loại nội dung vào đường thông báo mà
+    // bỏ sót đúng loại trường nhắc trước nhất: khảo sát tạo xong thì nằm im
+    // trong tab Khảo sát, gia đình không mở tab đó thì hết hạn mà không biết.
+    //
+    // ĐI ĐƯỜNG THÔNG BÁO CỦA NHÀ TRƯỜNG, KHÔNG PHẢI TIN RIÊNG TỪNG BÉ. Khảo
+    // sát hỏi cả trường hay cả nhóm, không hỏi về một đứa trẻ — gửi nó qua
+    // `thongbao_be` là vừa sai nghĩa vừa nhân bản một câu hỏi thành N tin.
+    //
+    // `rec.audience` dùng ĐÚNG quy ước của cột `notifications.audience`:
+    // 'all' là cả trường, còn lại là mã nhóm. Hai bảng chung một quy ước nên
+    // truyền thẳng được, không phải rẽ nhánh.
+    //
+    // Việc phụ: `guiChoNhom` tự nuốt lỗi, nên thông báo hỏng cũng không làm
+    // hỏng việc chính là tạo khảo sát.
+    tb.guiChoNhom([rec.audience], {
+      title: `Khảo sát mới: ${rec.title}`,
+      body: `Nhà trường mong gia đình trả lời giúp trước ngày ${rec.deadline.split('-').reverse().join('/')}.`,
+      category: rec.audience === 'all' ? 'Nhà trường' : 'Nhóm lớp',
+      createdBy: req.user.id,
+      hash: '#/surveys',
+    });
+
+    db.audit(req.user.id, 'survey-create', rec.id, { audience: rec.audience });
     res.status(201).json(summary(rec, req.user, []));
   });
 
-  // Người tạo khảo sát đóng khảo sát.
+  // Người tạo hoặc quản trị đóng khảo sát.
+  //
+  // Bản cũ chỉ cho ĐÚNG người tạo — cô nghỉ việc thì khảo sát của cô mở vĩnh
+  // viễn (không có hạn tự đóng), quản trị cũng bó tay. Cùng luật với sửa/thu
+  // hồi thông báo: người tạo, hoặc quản trị.
   app.post('/api/surveys/:id/close', requireRole('teacher', 'admin'), (req, res) => {
     const sv = db.first('surveys', 'SELECT * FROM surveys WHERE id = ?', [req.params.id]);
     if (!sv) return res.status(404).json({ error: 'Không tìm thấy khảo sát' });
-    if (sv.createdBy !== req.user.id) {
-      return res.status(403).json({ error: 'Chỉ người tạo khảo sát mới được đóng khảo sát này' });
+    if (sv.createdBy !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ người tạo khảo sát hoặc quản trị mới đóng được khảo sát này' });
+    }
+    // Quản trị cơ sở (Cấp 3) chỉ đóng được khảo sát của nhóm trong cơ sở mình
+    // — cùng chốt với sửa / thu hồi thông báo (Đ117e).
+    if (req.user.role === 'admin' && sv.createdBy !== req.user.id && sv.audience !== 'all') {
+      const coSo = db.phamViCoSo(req.user);
+      if (coSo && db.campusOfClass(sv.audience) !== coSo) {
+        return res.status(403).json({ error: 'Khảo sát này thuộc nhóm của cơ sở khác' });
+      }
     }
     if (sv.status !== 'open') {
       return res.status(400).json({ error: 'Khảo sát đã được đóng trước đó' });

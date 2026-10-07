@@ -373,5 +373,83 @@ console.log('\n[12] TÀI LIỆU KHÔNG ĐƯỢC CHỈ NGƯỜI VẬN HÀNH VÀO 
   check('và nói rõ bước nào CHƯA ai chạy thử', /chưa ai chạy thử|Chưa ai đi hết đường này/i.test(trienKhai));
 }
 
+// ---------------------------------------------------------------------------
+console.log('\n[8] Kho ảnh — cảnh báo SỚM, trước khi đĩa kịp đầy');
+{
+  // PHÉP TÍNH THỬ BẰNG SỐ, KHÔNG BẰNG Ổ ĐĨA THẬT.
+  //
+  // Xếp loại phụ thuộc dung lượng đĩa; máy người này 250 GB, máy chạy CI có
+  // thể 40 GB. Dựng thư mục ảnh thật rồi đọc chữ in ra là để bài canh cho hai
+  // kết quả khác nhau trên hai máy — đúng kiểu đỏ ngẫu nhiên đã phải đi vá bốn
+  // lần ở Đ92 và Đ116. Nên phần tính nằm ở `lib/kho-anh.js` và thử thẳng ở đây.
+  const kho = require2(path.join(GOC, 'lib', 'kho-anh.js'));
+  const GB = 1024 ** 3;
+
+  check('chưa có tấm ảnh nào → BỎ QUA, không bịa ra con số',
+    kho.xepLoaiKhoAnh({ soTep: 0, byte: 0, soNgay: 0, trongByte: 100 * GB, tongByte: 200 * GB }).trangThai === 'BỎ QUA');
+
+  // Máy vừa dựng: vài tấm ảnh, chưa đủ để đoán ngày đầy đĩa.
+  const moi = kho.xepLoaiKhoAnh({ soTep: 12, byte: 3 * 1024 ** 2, soNgay: 2, trongByte: 100 * GB, tongByte: 200 * GB });
+  check('mới có vài tấm → ĐẠT và NÓI RÕ là chưa đoán được',
+    moi.trangThai === 'ĐẠT' && /chưa đủ dữ liệu để đoán/.test(moi.moTa), moi);
+
+  // Đủ ảnh nhưng mới hai tuần đầu: vẫn chưa đoán, vì mẫu quá ngắn.
+  const ngan = kho.xepLoaiKhoAnh({ soTep: 5000, byte: 2 * GB, soNgay: 3, trongByte: 100 * GB, tongByte: 200 * GB });
+  check('nhiều ảnh nhưng mới vài ngày → vẫn không đoán',
+    /chưa đủ dữ liệu để đoán/.test(ngan.moTa), ngan);
+
+  // Trường chạy đều: 30 GB ảnh trong 300 ngày = 100 MB/ngày, còn trống 100 GB.
+  const binhThuong = kho.xepLoaiKhoAnh({ soTep: 60000, byte: 30 * GB, soNgay: 300, trongByte: 100 * GB, tongByte: 200 * GB });
+  check('trường chạy đều, đĩa còn rộng → ĐẠT', binhThuong.trangThai === 'ĐẠT', binhThuong);
+  check('và nói rõ tốc độ tăng mỗi ngày', /tăng ~\d+ MB\/ngày/.test(binhThuong.moTa), binhThuong.moTa);
+  check('cùng một mốc thời gian đọc được', /hơn một năm nữa mới đầy|đầy sau khoảng \d+ tháng/.test(binhThuong.moTa), binhThuong.moTa);
+
+  // SẮP ĐẦY: 40 GB trong 200 ngày = 200 MB/ngày, chỉ còn trống 20 GB → ~100 ngày.
+  const sapDay = kho.xepLoaiKhoAnh({ soTep: 80000, byte: 40 * GB, soNgay: 200, trongByte: 20 * GB, tongByte: 200 * GB });
+  check('sắp đầy trong vòng 6 tháng → CẦN SỬA', sapDay.trangThai === 'CẦN SỬA', sapDay);
+  check('cách sửa là nâng đĩa với nhà cung cấp', /Nâng dung lượng đĩa/.test(sapDay.cach), sapDay.cach);
+  check('và nói đúng hậu quả: đầy đĩa là HỎNG CƠ SỞ DỮ LIỆU, không chỉ mất ảnh',
+    /ghi hỏng cơ sở dữ liệu/.test(sapDay.cach), sapDay.cach);
+
+  // TỚI MỐC KHO NGOÀI: ảnh chiếm 65% đĩa nhưng còn lâu mới đầy (tăng chậm).
+  const khoNgoai = kho.xepLoaiKhoAnh({ soTep: 200000, byte: 130 * GB, soNgay: 1200, trongByte: 60 * GB, tongByte: 200 * GB });
+  check('ảnh chiếm quá 60% đĩa → CẦN SỬA dù chưa sắp đầy', khoNgoai.trangThai === 'CẦN SỬA', khoNgoai);
+  check('chỉ sang mục N25 của TIEN-DO, không bắt đoán mò',
+    /N25/.test(khoNgoai.cach) && /docs\/TIEN-DO\.md/.test(khoNgoai.cach), khoNgoai.cach);
+  check('và nói rõ việc này phải sửa mã, mất vài ngày',
+    /sửa mã|vài ngày/.test(khoNgoai.cach), khoNgoai.cach);
+  check('mục N25 có thật trong TIEN-DO',
+    fs.readFileSync(path.join(GOC, 'docs', 'TIEN-DO.md'), 'utf8').includes("N25"));
+
+  // THỨ TỰ ƯU TIÊN: vừa sắp đầy vừa quá 60% thì phải báo chuyện NÂNG ĐĨA trước,
+  // vì kho ngoài mất vài ngày mà đĩa thì đầy trước đó.
+  const caHai = kho.xepLoaiKhoAnh({ soTep: 200000, byte: 130 * GB, soNgay: 200, trongByte: 20 * GB, tongByte: 200 * GB });
+  check('vừa sắp đầy vừa quá 60% → ưu tiên báo nâng đĩa', /Nâng dung lượng đĩa/.test(caHai.cach), caHai.cach);
+
+  // Đo thư mục thật: tệp thưa nên không tốn chỗ trên đĩa của máy chạy bài này.
+  const thuMucAnh = path.join(DIR, 'uploads-thu');
+  fs.mkdirSync(thuMucAnh, { recursive: true });
+  fs.mkdirSync(path.join(thuMucAnh, 'con'), { recursive: true });
+  for (let i = 0; i < 6; i++) {
+    const f = path.join(thuMucAnh, i < 4 ? `a${i}.jpg` : path.join('con', `b${i}.jpg`));
+    const fd = fs.openSync(f, 'w');
+    fs.ftruncateSync(fd, 4 * 1024 * 1024);
+    fs.closeSync(fd);
+    const t = (Date.now() - (30 - i * 5) * 86400000) / 1000;
+    fs.utimesSync(f, t, t);
+  }
+  const doThat = kho.doKhoAnh(thuMucAnh);
+  check('đếm đủ tệp, kể cả trong thư mục con', doThat.soTep === 6, doThat.soTep);
+  check('cộng đúng dung lượng', doThat.byte === 6 * 4 * 1024 * 1024, doThat.byte);
+  check('đọc được khoảng thời gian từ mốc của chính các tệp — không cần lưu lịch sử',
+    doThat.soNgay > 24 && doThat.soNgay < 26, doThat.soNgay);
+  check('thư mục không tồn tại thì trả 0, không nổ',
+    kho.doKhoAnh(path.join(DIR, 'khong-co-thu-muc-nay')).soTep === 0);
+
+  // Và bộ soát thật có in mục này ra.
+  const r = chay(DIR);
+  check('bộ soát máy chủ có mục "Kho ảnh của trường"', /Kho ảnh của trường/.test(r.out), r.out.slice(0, 200));
+}
+
 donThuMucTam(DIR);
 tongKet();

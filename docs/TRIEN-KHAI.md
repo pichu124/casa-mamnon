@@ -32,9 +32,85 @@ test canh để lời cảnh báo không bị gỡ đi.
 
 ---
 
+## Bốn câu hay hỏi nhất khi sắp đẩy lên VPS
+
+Gom ở đây vì bốn câu này lặp lại mỗi lần có người mới vào việc. Phần chi tiết
+nằm ở các mục đánh số bên dưới; đây là bản trả lời ngắn.
+
+### "App có chạy được trên VPS không, hay phải sửa mã trước?"
+
+**Chạy được. Không phải sửa một dòng mã nào.** Máy chủ chỉ hỏi đúng một câu:
+*dữ liệu của trường để ở đâu?*
+
+Mặc định nó để ở `./data`, tức **nằm trong thư mục mã nguồn**. Trên máy nghịch
+thì không sao. Trên máy thật (`NODE_ENV=production`) thì máy chủ **từ chối khởi
+động** — và đó là **cố ý**, không phải lỗi:
+
+> Máy chủ thật cập nhật app bằng `git pull`. Dữ liệu nằm trong kho mã thì chỉ
+> cần một lần `git add -A` theo thói quen là **ảnh khuôn mặt trẻ và hồ sơ sức
+> khoẻ lên GitHub**. Lộ rồi thì viết lại lịch sử git cũng không thu lại được.
+
+Cách qua cửa đó là **đặt đúng một biến**, và chính câu báo lỗi trên màn hình in
+ra tên biến kèm lệnh chép được luôn:
+
+```bash
+sudo mkdir -p /var/lib/casa-mamnon
+sudo chown "$USER" /var/lib/casa-mamnon
+DATA_DIR=/var/lib/casa-mamnon npm start
+```
+
+Chạy bằng **Docker thì không phải làm gì** — `Dockerfile` đã đặt sẵn
+`DATA_DIR=/data`; việc còn lại là gắn một ổ đĩa vào `/data`.
+
+### "Múi giờ sửa thế nào?"
+
+```bash
+sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+timedatectl                      # xem lại: phải thấy "Asia/Ho_Chi_Minh (+07)"
+```
+
+Một lệnh, làm một lần, không cần khởi động lại app. Chi tiết ở **mục 2**.
+
+### "Tạo tài khoản quản trị thế nào?"
+
+```bash
+DATA_DIR=/var/lib/casa-mamnon npm run create-admin "Nguyễn Thị Hiệu Trưởng" hieutruong
+```
+
+Lệnh in ra **một mật khẩu tạm — chép lại ngay**, lần đăng nhập đầu app bắt đổi.
+Phải làm **trước** khi bật dịch vụ; lý do ở **mục 3**.
+
+### "Sao lưu làm tiếp thế nào?"
+
+```bash
+DATA_DIR=/var/lib/casa-mamnon npm run backup         # chạy thử một lần
+DATA_DIR=/var/lib/casa-mamnon npm run backup:list    # xem có ra tệp không
+DATA_DIR=/var/lib/casa-mamnon npm run restore:check  # THỬ KHÔI PHỤC — đừng bỏ
+```
+
+Rồi đặt lịch hằng đêm (`crontab -e`):
+
+```
+0 2 * * * cd /opt/casa-mamnon && DATA_DIR=/var/lib/casa-mamnon /usr/bin/node scripts/backup.js >> /var/lib/casa-mamnon/backup.log 2>&1
+```
+
+Giờ 2 giờ sáng chỉ đúng **sau khi** đã làm mục múi giờ ở trên. Chi tiết và bản
+sao ra ổ ngoài ở **mục 4**.
+
+### Soát lại bất cứ lúc nào
+
+```bash
+DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
+```
+
+Nó liệt kê đúng bốn mục trên và nói rõ mục nào chưa đạt. Mục tiêu là **0 mục
+cần sửa** trước khi cho trường bấm thử.
+
+---
+
 ## Phần KHÔNG phụ thuộc vào chọn máy chủ nào
 
-Bốn mục dưới đây đúng với mọi VPS Linux, và cũng đúng nếu trường chạy trên một
+Năm mục dưới đây đúng với mọi VPS Linux, và cũng đúng nếu trường chạy trên một
 máy tính để bàn trong phòng hành chính.
 
 ### 1. Thư mục dữ liệu phải nằm NGOÀI kho mã
@@ -54,7 +130,31 @@ rồi thì viết lại lịch sử git cũng không thu lại được**.
 Máy chủ tự canh chỗ này: chạy với `NODE_ENV=production` mà dữ liệu vẫn nằm
 trong kho mã thì nó **DỪNG trước khi mở cổng**, không chỉ ghi một dòng log.
 
-### 2. Tạo tài khoản quản trị TRƯỚC khi bật dịch vụ
+### 2. Múi giờ máy chủ phải là giờ Việt Nam
+
+```bash
+sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+timedatectl                      # phải thấy "Asia/Ho_Chi_Minh (+07)"
+```
+
+**Vì sao đây là một mục riêng chứ không phải chuyện vặt về cấu hình máy:** VPS
+thuê về gần như luôn đặt sẵn **UTC**, lệch giờ Việt Nam **7 tiếng**, và cái
+lệch đó hỏng hai thứ theo kiểu không ai nhận ra ngay.
+
+- **Lịch sao lưu chạy sai giờ.** Dòng cron `0 2 * * *` mà trường đọc là "2 giờ
+  sáng" thì trên máy UTC là **9 giờ sáng giờ Việt Nam** — tức sao lưu chạy giữa
+  lúc cô đang điểm danh và đăng ảnh, đúng lúc máy bận nhất.
+- **Mọi dấu thời gian trong nhật ký lệch 7 tiếng.** Khi cần tra "ai đổi số tài
+  khoản lúc mấy giờ", "ai gỡ tấm ảnh này", giờ ghi trong sổ không khớp với giờ
+  người ta nhớ. Sổ vận hành mà giờ không tin được thì đúng lúc cần nhất nó vô
+  dụng.
+
+Phần **hiện ra màn hình cho cô và phụ huynh** thì đã tự tính theo giờ Việt Nam
+từ đợt Đ122 nên không phụ thuộc mục này. Nhưng hai thứ trên thì có.
+
+`npm run kiem-tra-may-chu` soát mục này và báo **CẦN SỬA** nếu máy còn ở UTC.
+
+### 3. Tạo tài khoản quản trị TRƯỚC khi bật dịch vụ
 
 ```bash
 DATA_DIR=/var/lib/casa-mamnon npm run create-admin "Nguyễn Văn Hiệu" hieutruong
@@ -69,7 +169,7 @@ Internet là tự mở cửa cho người lạ.
 
 Đó cũng là lý do đừng đi đường tắt *"tạm bỏ NODE_ENV=production cho nó lên đã"*.
 
-### 3. Sao lưu phải chạy được TRƯỚC khi có dữ liệu thật
+### 4. Sao lưu phải chạy được TRƯỚC khi có dữ liệu thật
 
 ```bash
 DATA_DIR=/var/lib/casa-mamnon npm run backup
@@ -99,7 +199,7 @@ DATA_DIR=/var/lib/casa-mamnon npm run restore:check
 `restore.js` từ chối chạy khi máy chủ đang chạy — cố ý, vì khôi phục trong lúc
 máy chủ đang ghi là hỏng dữ liệu âm thầm.
 
-### 4. Soát máy chủ sau mỗi lần cập nhật
+### 5. Soát máy chủ sau mỗi lần cập nhật
 
 ```bash
 DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
@@ -176,24 +276,52 @@ Chỗ nào cần nhà trường điền, ghi rõ `<…>`.
 
 ### [A] VPS đặt tại Việt Nam — hướng dùng được với trẻ thật
 
+> **Chưa thuê máy?** `docs/XIN-BAO-GIA-VPS.md` có sẵn bản yêu cầu chép thẳng gửi
+> nhà cung cấp, kèm mười câu phải hỏi rõ trong báo giá và bảng so sánh ba nơi.
+
 Đây là hướng `docs/KE-HOACH.md` chọn, và là hướng duy nhất giữ được dữ liệu trẻ
 trong nước theo Nghị định 13/2023.
 
 ```bash
-# 1. Trên máy chủ mới, tạo thư mục dữ liệu NGOÀI kho mã
+# 1. Trên máy chủ mới: đặt múi giờ, rồi tạo thư mục dữ liệu NGOÀI kho mã
+#    Múi giờ làm TRƯỚC vì mọi dòng cron bên dưới đọc theo giờ của máy — VPS
+#    thuê về gần như luôn là UTC, lệch 7 tiếng (xem mục 2 ở trên).
+sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+timedatectl                      # phải thấy "Asia/Ho_Chi_Minh (+07)"
+
 sudo mkdir -p /var/lib/casa-mamnon
 sudo chown -R $USER:$USER /var/lib/casa-mamnon
 
-# 2. Lấy mã về
-# Nhánh mặc định `main` NAY ĐÃ LÀ BẢN ĐẦY ĐỦ — clone thẳng, không cần -b.
-# (Trước 31/08/2026 chỗ này phải dặn lấy nhánh làm việc, vì `main` khi ấy còn
-#  lùi hơn trăm commit. Nhánh đã gộp vào `main` nên lời dặn đó không còn.)
-git clone <đường-dẫn-kho-mã> /opt/casa-mamnon
+# 2. Lấy mã về — HỎI TRƯỚC, ĐỪNG TIN DÒNG CHỮ NÀY
+#
+#    LỜI DẶN CỐ ĐỊNH Ở ĐÂY ĐÃ SAI HAI LẦN, nên lần này không viết lời dặn nữa
+#    mà viết CÁCH TỰ KIỂM. Bản 28/08 dặn lấy nhánh làm việc vì `main` lùi hơn
+#    trăm commit; bản 31/08 sửa thành "main nay đã đầy đủ, clone thẳng" — đúng
+#    hôm ấy, và sai lại ngay khi nhánh làm việc dài thêm (16/09 đã lùi 168
+#    commit, thiếu cả `lib/vietqr.js`). Đây là kiểu sai đúng-lúc-viết, và cách
+#    duy nhất không dính lại là đo chứ không nhớ.
+#
+#    Chạy hai lệnh này TRƯỚC KHI clone, trên máy nào cũng được:
+#
+#      git ls-remote <kho-mã> 'refs/heads/*'        # xem có những nhánh nào
+#      git clone <kho-mã> /tmp/soi && cd /tmp/soi \
+#        && git log --oneline -1 origin/main        # main đang ở commit nào
+#
+#    Rồi đối chiếu với `docs/TIEN-DO.md` — dòng cuối của tệp đó là đợt mới
+#    nhất. Số đợt trên `main` mà thấp hơn dòng cuối TIEN-DO thì `main` CHƯA
+#    phải bản đầy đủ, và phải clone nhánh làm việc bằng `-b <tên-nhánh>`.
+#
+git clone <đường-dẫn-kho-mã> /opt/casa-mamnon          # nếu main đã đầy đủ
+# git clone -b <tên-nhánh-làm-việc> <kho-mã> /opt/casa-mamnon   # nếu chưa
 cd /opt/casa-mamnon
 npm ci --omit=dev
 
+#    KIỂM LẠI SAU KHI CLONE, một lệnh, trước khi đi tiếp:
+#      tail -1 docs/TIEN-DO.md | cut -c1-60
+#    Số đợt in ra phải khớp với đợt mới nhất anh đang chờ.
+
 # 3. TẠO TÀI KHOẢN QUẢN TRỊ TRƯỚC KHI BẬT DỊCH VỤ
-#    Bước này KHÔNG được đảo xuống sau: xem mục 2 ở trên.
+#    Bước này KHÔNG được đảo xuống sau: xem mục 3 ở trên.
 DATA_DIR=/var/lib/casa-mamnon npm run create-admin -- "<họ tên hiệu trưởng>" <tên đăng nhập>
 #    → in ra mật khẩu tạm MỘT LẦN. Chép lại.
 

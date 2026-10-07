@@ -29,7 +29,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const tls = require('tls');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
+const khoAnh = require('../lib/kho-anh');
 
 const GOC = path.join(__dirname, '..');
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(GOC, 'data');
@@ -273,14 +274,27 @@ kiem('Bản sao lưu mở ra được', () => {
     boQua('Bản sao lưu mở ra được', 'chưa có bản sao lưu nào để thử');
     return;
   }
-  try {
-    execFileSync(process.execPath, [path.join(GOC, 'scripts', 'restore.js'), '--kiem-tra'],
-      { cwd: GOC, env: { ...process.env, DATA_DIR }, stdio: ['ignore', 'pipe', 'pipe'] });
-    dat('Bản sao lưu mở ra được', 'giải nén và đọc thử thành công — bản sao dùng được thật');
-  } catch (err) {
+  // KHÔNG NUỐT CẢNH BÁO. `restore.js --kiem-tra` thoát mã 0 cả khi nó đang
+  // KÊU — "không kèm một tấm ảnh nào", "không có phân công cô nào" — vì mở
+  // được và mở được ĐỦ là hai chuyện khác nhau. Bản cũ chỉ nhìn mã thoát nên
+  // in ĐẠT lên một bản sao đã mất sạch ảnh; người vận hành đọc dòng ĐẠT đó và
+  // yên tâm cho tới đúng cái ngày cần khôi phục thật.
+  const kq = spawnSync(process.execPath, [path.join(GOC, 'scripts', 'restore.js'), '--kiem-tra'],
+    { cwd: GOC, env: { ...process.env, DATA_DIR }, encoding: 'utf8' });
+  if (kq.status !== 0) {
     canSua('Bản sao lưu mở ra được',
       'bản sao lưu mới nhất KHÔNG mở được — coi như đang không có bản sao lưu nào',
       `Chạy "DATA_DIR=${DATA_DIR} npm run restore:check" để xem lỗi cụ thể, rồi sao lưu lại ngay.`);
+  } else {
+    const canhBao = `${kq.stdout || ''}\n${kq.stderr || ''}`.split('\n')
+      .map(l => l.trim()).filter(l => l.includes('⚠'));
+    if (canhBao.length) {
+      canSua('Bản sao lưu mở ra được',
+        `bản sao MỞ ĐƯỢC nhưng restore:check đang cảnh báo: ${canhBao[0].replace(/^⚠️?\s*/, '').slice(0, 140)}`,
+        `Chạy "DATA_DIR=${DATA_DIR} npm run restore:check" để xem đầy đủ ${canhBao.length} cảnh báo.`);
+    } else {
+      dat('Bản sao lưu mở ra được', 'giải nén và đọc thử thành công — bản sao dùng được thật');
+    }
   }
 });
 
@@ -302,6 +316,43 @@ kiem('Dung lượng đĩa', () => {
   } else {
     dat('Dung lượng đĩa', moTa);
   }
+});
+
+// ---------------------------------------------------------------------------
+// 6b. Kho ảnh của trường — CẢNH BÁO SỚM, trước khi đĩa kịp đầy
+// ---------------------------------------------------------------------------
+//
+// Mục 6 ở trên chỉ kêu khi đĩa còn dưới 2 GB. Lúc đó thì đã muộn: SQLite ghi
+// hỏng, cô không điểm danh được, gia đình không mở được gì — và nó xảy ra đúng
+// vào ngày ảnh vượt ngưỡng, không báo trước một tiếng nào.
+//
+// Mục này nhìn thứ THẬT SỰ lớn dần: thư mục ảnh. Mỗi ngày trường chụp một tấm
+// "con đã tới lớp" và một tấm lúc trả cho mỗi bé, cộng album và video — con số
+// đó chỉ có tăng. Mốc thời gian của chính các tệp cho biết tốc độ, nên tính ra
+// được còn bao lâu nữa thì đầy mà không cần lưu lịch sử ở đâu cả.
+//
+// Phép tính nằm ở `lib/kho-anh.js` để bài canh thử được mọi tình huống mà không
+// phụ thuộc dung lượng đĩa của máy đang chạy bài test — xem chú thích ở đó.
+kiem('Kho ảnh của trường', () => {
+  const anhDir = path.join(DATA_DIR, 'uploads');
+  if (!fs.existsSync(anhDir)) {
+    boQua('Kho ảnh của trường', 'chưa có thư mục uploads — trường chưa gửi tấm ảnh nào');
+    return;
+  }
+  const kho = khoAnh.doKhoAnh(anhDir);
+  if (typeof fs.statfsSync !== 'function') {
+    boQua('Kho ảnh của trường', 'phiên bản Node không hỗ trợ đọc dung lượng đĩa');
+    return;
+  }
+  const st = fs.statfsSync(DATA_DIR);
+  const kq = khoAnh.xepLoaiKhoAnh({
+    ...kho,
+    trongByte: st.bavail * st.bsize,
+    tongByte: st.blocks * st.bsize,
+  });
+  if (kq.trangThai === 'BỎ QUA') boQua('Kho ảnh của trường', kq.moTa);
+  else if (kq.trangThai === 'CẦN SỬA') canSua('Kho ảnh của trường', kq.moTa, kq.cach);
+  else dat('Kho ảnh của trường', kq.moTa);
 });
 
 // ---------------------------------------------------------------------------

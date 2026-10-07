@@ -8,6 +8,6 @@
   "bg": "linear-gradient(135deg,#8f8bf0,#6a63dd)",
   "api": ["/api/kehoachbe"],
   "roles": ["teacher", "admin"],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "version": "0.1.0"
 }

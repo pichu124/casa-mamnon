@@ -106,7 +106,7 @@ window.App = {
     });
     window.addEventListener('appinstalled', () => {
       this.installPrompt = null;
-      UI.toast('Đã cài CASA Mầm non vào màn hình chính', 'success');
+      UI.toast('Đã cài My Casa vào màn hình chính', 'success');
     });
   },
 
@@ -132,6 +132,10 @@ window.App = {
     this.state.classes = me.classes || [];
     this.state.school = me.school;
     this.state.year = me.school ? me.school.currentYear : null;
+    // VAI ĐANG ĐĂNG NHẬP GẮN LÊN <body> (Đ124). CSS dựa vào đó để co giao diện
+    // cho cô và văn phòng — dữ liệu dày hơn, ô và chữ nhỏ hơn — mà không đụng
+    // màn của gia đình. THÊM MỚI, không đổi trạng thái nào đang có.
+    try { document.body.dataset.vai = (me.user && me.user.role) || ''; } catch (_) { /* không có DOM */ }
     if (!this.state.currentStudentId && this.state.students.length) {
       this.state.currentStudentId = this.state.students[0].id;
     }
@@ -237,16 +241,25 @@ window.App = {
     if (r.ly === 'tat') return `Nhà trường hiện đang tắt phần ${ten}.`;
     if (r.ly === 'su-co') return `Phần ${ten} đang gặp sự cố. Các phần khác vẫn dùng bình thường.`;
     if (r.ly === 'ngoai-vai') {
-      return r.danhCho === 'gia-dinh'
-        ? `Phần ${ten} chỉ dành cho gia đình các bé.`
-        : `Phần ${ten} chỉ dành cho cô và văn phòng nhà trường.`;
+      if (r.danhCho === 'gia-dinh') return `Phần ${ten} chỉ dành cho gia đình các bé.`;
+      // Đ140: phần của gia đình và văn phòng (Học phí) — cô mở thì nói đúng chiều.
+      if (r.danhCho === 'gia-dinh-va-van-phong') return `Phần ${ten} dành cho gia đình các bé và văn phòng nhà trường.`;
+      return `Phần ${ten} chỉ dành cho cô và văn phòng nhà trường.`;
     }
     if (r.ly === 'ngoai-chuc-vu') return `Phần ${ten} nằm ngoài phần việc của tài khoản này.`;
     if (r.ly === 'khong-co') return 'Không có phần nào ở địa chỉ này. Bấm Trang chủ để quay lại.';
     return 'Phần này không mở trong tài khoản của bạn.';
   },
 
-  onUnauthorized() { this.showLogin(); },
+  // Hết phiên: về màn đăng nhập ĐÚNG MỘT LẦN. Một màn hình thường phát vài
+  // lời gọi song song, cùng dính 401 cả loạt — vẽ lại màn đăng nhập cho từng
+  // lời là xoá mất chữ cô vừa gõ vào ô tài khoản. Đặt user = null trước để
+  // route() đang chạy dở biết đường dừng, không vẽ đè lên màn đăng nhập.
+  onUnauthorized() {
+    if (!this.state.user) return;
+    this.state.user = null;
+    this.showLogin();
+  },
 
   // MÀN HÌNH KHI MÁY KHÔNG CÓ MẠNG.
   //
@@ -312,6 +325,8 @@ window.App = {
   },
 
   showLogin() {
+    // Về màn đăng nhập thì bỏ dấu vai — người sau đăng nhập có thể là vai khác.
+    try { delete document.body.dataset.vai; } catch (_) { /* không có DOM */ }
     document.getElementById('bottom-nav').style.display = 'none';
     this.stopBadgePolling();
     const root = document.getElementById('view');
@@ -367,9 +382,54 @@ window.App = {
     root.innerHTML = '<div class="loading">Đang tải</div>';
     window.scrollTo(0, 0);
     Promise.resolve(view.render(root, parts.slice(1))).catch(err => {
+      // Hết phiên giữa lúc màn hình đang vẽ: onUnauthorized đã dựng màn đăng
+      // nhập rồi — vẽ "Có lỗi xảy ra" đè lên là cô mất luôn ô đăng nhập.
+      if (!this.state.user) return;
       root.innerHTML = UI.pageHeader('Có lỗi xảy ra') + UI.emptyState('😥', err.message || 'Không tải được dữ liệu');
     });
+    this.demQuanTam(name);
     this.renderBottomNav(name);
+  },
+
+  // GIA ĐÌNH QUAN TÂM ĐIỀU GÌ — ĐẾM GỘP, KHÔNG THEO DÕI AI (Đ149).
+  //
+  // Nhà trường muốn biết gia đình vào app hay xem phần nào: ăn uống, lịch sinh
+  // hoạt, kế hoạch của bé, hay hình ảnh. Máy chủ chỉ cộng MỘT vào một ô đếm
+  // (ngày · mục · cơ sở) và không ghi lại ai đã mở — xem chú thích bảng
+  // `luot_quan_tam` ở lib/schema.sql.
+  //
+  // BỐN ĐIỀU CỐ Ý Ở PHÍA MÀN HÌNH:
+  //
+  //   1. CHỈ GIA ĐÌNH. Cô mở màn Thực đơn hai chục lần một ngày để soạn bữa;
+  //      đếm cả cô là con số nói về việc của trường chứ không về mối quan tâm
+  //      của gia đình — tức trả lời sai câu nhà trường hỏi.
+  //   2. MỘT LẦN MỖI MỤC MỖI NGÀY, nhớ ngay trên máy của gia đình. Không có
+  //      chỗ nhớ này thì một nhà bấm tới bấm lui mười lần thành mười lượt, và
+  //      bảng nói rằng mục ấy được quan tâm gấp mười lần sự thật. Nhớ ở MÁY
+  //      chứ không ở máy chủ, vì nhớ ở máy chủ thì phải nhớ kèm "nhà nào".
+  //   3. IM LẶNG TUYỆT ĐỐI. Không chờ, không báo lỗi, không giữ chỗ trên màn.
+  //      Đây là con số cho marketing; một dòng lỗi vì nó là lỗi của app đối với
+  //      người dùng, mà họ có bấm gì đâu.
+  //   4. KHÔNG BAO GIỜ CHẶN VIỆC CHÍNH. Kho của trình duyệt bị khoá (chế độ ẩn
+  //      danh, máy cũ) thì bỏ qua luôn, không đếm còn hơn làm hỏng màn hình.
+  demQuanTam(name) {
+    try {
+      const u = this.state.user;
+      if (!u || u.role !== 'parent') return;
+      if (!name || name === 'dashboard' || name === 'login' || name === 'setpassword') return;
+      const homNay = new Date().toISOString().slice(0, 10);
+      const khoa = `qt:${homNay}:${name}`;
+      if (localStorage.getItem(khoa)) return;
+      // Dọn dấu của những ngày đã qua. Không dọn thì mỗi ngày để lại chừng hai
+      // chục khoá và sau một năm học là vài nghìn khoá nằm lại trong máy của
+      // gia đình — một thứ app tự bày ra rồi không bao giờ tự dọn.
+      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('qt:') && !k.startsWith(`qt:${homNay}:`)) localStorage.removeItem(k);
+      }
+      localStorage.setItem(khoa, '1');
+      API.post('/api/dashboard/quan-tam', { muc: name }).catch(() => {});
+    } catch (_) { /* kho bị khoá — bỏ qua, không đếm còn hơn làm hỏng màn hình */ }
   },
 
   renderBottomNav(active) {
@@ -393,7 +453,11 @@ window.App = {
   async refreshBadges() {
     if (!this.state.user) return;
     try {
-      this.state.badges = await API.get('/api/dashboard/badges');
+      // Gọi kiểu NỀN: đây là lời gọi định kỳ app tự phát, không phải cô bấm.
+      // Hết phiên ở đây mà để API.get() giật về màn đăng nhập là cô đang gõ dở
+      // nhật ký bỗng mất trắng — chỉ ngừng hỏi tiếp; thao tác kế của cô sẽ gặp
+      // 401 của chính nó và được đưa về màn đăng nhập đàng hoàng.
+      this.state.badges = await (API.getNen || API.get)('/api/dashboard/badges');
       const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean);
       this.renderBottomNav(parts[0] || 'dashboard');
       // cập nhật badge trên lưới icon nếu đang ở dashboard
@@ -402,7 +466,10 @@ window.App = {
         el.textContent = n > 99 ? '99+' : n;
         el.style.display = n ? '' : 'none';
       });
-    } catch (_) { /* bỏ qua lỗi mạng tạm thời */ }
+    } catch (err) {
+      if (API.laHetPhien && API.laHetPhien(err)) { this.stopBadgePolling(); return; }
+      /* còn lại là lỗi mạng tạm thời — bỏ qua */
+    }
   },
 
   startBadgePolling() {
@@ -428,7 +495,9 @@ window.App = {
         if (chat && chat._timer) { clearInterval(chat._timer); chat._timer = null; }
       } else {
         this.refreshBadges();
-        this._badgeTimer = setInterval(() => this.refreshBadges(), 15000);
+        // Không chồng đồng hồ: sự kiện visibilitychange có thể bắn "hiện" hai
+        // lần liền (đổi tab nhanh) mà đồng hồ cũ chưa từng bị dừng.
+        if (!this._badgeTimer) this._badgeTimer = setInterval(() => this.refreshBadges(), 15000);
         // Quay lại phòng chat: tải ngay tin nhắn đã nhỡ rồi bật lại theo dõi.
         const chat = this.views.messages;
         if (chat && !chat._timer && location.hash.startsWith('#/messages/') && typeof chat.poll === 'function') {
@@ -467,7 +536,7 @@ window.App = {
     b.id = 'push-banner';
     b.innerHTML = `
       <span class="pb-logo">🏫</span>
-      <div class="pb-text"><b>CASA Mầm non</b><span>Cài vào màn hình chính cho mở nhanh</span></div>
+      <div class="pb-text"><b>My Casa</b><span>Cài vào màn hình chính cho mở nhanh</span></div>
       <button class="pb-bell" id="pb-enable">${UI.icon('plus', 20)}</button>
       <button class="pb-close" id="pb-close">${UI.icon('x', 18)}</button>`;
     document.body.appendChild(b);

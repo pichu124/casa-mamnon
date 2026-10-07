@@ -39,10 +39,20 @@ const { check, tongKet } = taoBoDem();
 const VUNG_QUET = ['routes', 'modules', 'lib', 'scripts', 'data', 'test'];
 
 // `modules/<mã>/view.js` là mã CHẠY TRÊN TRÌNH DUYỆT, y hệt public/js/views —
-// chỉ khác chỗ đứng trong cây thư mục. Nó không nạp được lib/ngay, và cũng
-// không cần: điện thoại của cô đang ở Việt Nam nên giờ máy ở đó chính là giờ
-// cần dùng. Bỏ qua theo QUY TẮC chứ không theo tên từng tệp, để phân hệ thêm
-// sau này không phải nhớ xin miễn.
+// chỉ khác chỗ đứng trong cây thư mục. Nó không nạp được `lib/ngay`, nên vùng
+// quét MÁY CHỦ bỏ qua nó theo QUY TẮC chứ không theo tên từng tệp.
+//
+// NHƯNG BỎ QUA Ở ĐÂY KHÔNG CÒN NGHĨA LÀ ĐƯỢC TỰ DO (Đ127). Lý do cũ ghi ở dòng
+// này — "điện thoại của cô đang ở Việt Nam nên giờ máy ở đó chính là giờ cần
+// dùng" — là một giả định, và nó sai thường xuyên hơn ta tưởng: máy xách tay
+// còn để múi giờ nước ngoài, máy văn phòng cài lại hệ điều hành xong quên đổi,
+// máy tính bảng dùng chung ở lớp đặt sai từ đầu. Từ Đ127, sổ điểm danh chỉ ghi
+// được trong chính ngày hôm đó, nên một chiếc máy lệch múi giờ là cô bị máy
+// chủ từ chối trong khi màn hình rõ ràng đang là hôm nay.
+//
+// Nên trình duyệt có định nghĩa riêng của nó — `UI.todayStr()` / `UI.gioVN()`
+// trong `public/js/ui.js`, cộng đúng 7 tiếng vào đồng hồ tuyệt đối — và mục
+// [4] bên dưới canh cho không màn nào quay về hỏi giờ máy.
 const LA_MAN_HINH = (t) => /^modules\/[^/]+\/view\.js$/.test(t);
 
 // Tệp được miễn, kèm lý do. Danh sách này là chỗ để giải trình, không phải chỗ
@@ -110,6 +120,31 @@ const DAU_HIEU = [
 
 const tatCaTep = VUNG_QUET.flatMap(cacTep);
 
+// ---------------------------------------------------------------------------
+// VÙNG QUÉT THỨ HAI: MÃ CHẠY TRÊN TRÌNH DUYỆT (Đ127)
+// ---------------------------------------------------------------------------
+const VUNG_TRINH_DUYET = ['public/js', 'modules'];
+// Chỉ mã màn hình; `modules/<mã>/routes.js` đã thuộc vùng máy chủ ở trên.
+const LA_MA_TRINH_DUYET = (t) => t.startsWith('public/js/') || /^modules\/[^/]+\/view\.js$/.test(t);
+const MIEN_TRINH_DUYET = {
+  'public/js/ui.js': 'chính là nơi định nghĩa "hôm nay" và "mấy giờ" của trình duyệt',
+};
+// Đọc NGÀY hay GIỜ ra khỏi đồng hồ máy. `new Date(x)` có tham số thì không
+// tính: đó là đọc một mốc đã biết, không phải hỏi "bây giờ là mấy giờ".
+const DAU_HIEU_TRINH_DUYET = [
+  {
+    ten: 'đọc ngày giờ từ múi giờ của máy',
+    re: /new Date\(\s*\)\s*\.(getFullYear|getMonth|getDate|getDay|getHours|getMinutes|toDateString|toTimeString|toLocaleDateString|toLocaleTimeString)\b/,
+    vi_sao: 'Máy đặt sai múi giờ là lệch ngày. Dùng UI.todayStr() / UI.gioVN() / UI.thuVN().',
+  },
+  {
+    ten: 'giữ "bây giờ" của máy vào một biến rồi đọc dần',
+    re: /=\s*new Date\(\s*\)\s*;/,
+    vi_sao: 'Cùng lý do trên, chỉ khác chỗ xuống dòng. Dùng UI.parseDate(UI.todayStr()).',
+  },
+];
+const tepTrinhDuyet = VUNG_TRINH_DUYET.flatMap(cacTep).filter(LA_MA_TRINH_DUYET);
+
 // ===========================================================================
 console.log('\n[1] Bộ canh có thật sự nhìn tới nơi cần nhìn');
 {
@@ -127,6 +162,11 @@ console.log('\n[1] Bộ canh có thật sự nhìn tới nơi cần nhìn');
     tatCaTep.filter(t => t.startsWith('test/')).length);
   check('danh sách miễn vẫn đúng 1 mục — thêm mục mới phải có lý do',
     Object.keys(MIEN).length === 1, Object.keys(MIEN));
+  check('vùng trình duyệt cũng tìm được kha khá tệp để soi', tepTrinhDuyet.length >= 20, tepTrinhDuyet.length);
+  check('vùng trình duyệt có nhìn vào màn hình của phân hệ cắm thêm',
+    tepTrinhDuyet.some(t => /^modules\/[^/]+\/view\.js$/.test(t)));
+  check('vùng trình duyệt KHÔNG ôm nhầm routes.js của phân hệ (đã thuộc vùng máy chủ)',
+    !tepTrinhDuyet.some(t => /routes\.js$/.test(t)));
   check('tệp được miễn còn tồn tại thật',
     Object.keys(MIEN).every(t => fs.existsSync(path.join(GOC, t))));
   // Quy tắc bỏ qua màn hình phân hệ phải khớp đúng thứ nó định khớp — không
@@ -214,6 +254,42 @@ console.log('\n[4] Hàm tính ngày trả đúng số');
     sang >= tu && sang < den, { sang, tu, den });
   check('ngày không đọc được thì trả khoảng rỗng',
     ngay.khoangUtcCuaNgay('bậy bạ')[0] === '', ngay.khoangUtcCuaNgay('bậy bạ'));
+}
+
+// ===========================================================================
+console.log('\n[4] MÀN HÌNH KHÔNG ĐƯỢC HỎI GIỜ CỦA MÁY (Đ127)');
+{
+  const pham = [];
+  for (const tep of tepTrinhDuyet) {
+    if (MIEN_TRINH_DUYET[tep]) continue;
+    const ma = boChuThich(fs.readFileSync(path.join(GOC, tep), 'utf8'));
+    for (const dh of DAU_HIEU_TRINH_DUYET) {
+      const m = ma.match(dh.re);
+      if (m) pham.push(`${tep}: ${dh.ten} — ${m[0].slice(0, 40)} → ${dh.vi_sao}`);
+    }
+  }
+  check('không màn nào đọc ngày giờ từ múi giờ của máy', pham.length === 0, pham.slice(0, 6));
+
+  // ĐỐI CHỨNG: bộ canh này phải bắt được cách viết cũ, nếu không nó là tờ giấy.
+  // Đối chứng CỐ Ý đặt tên biến khác `d`: vùng quét MÁY CHỦ ở trên soi cả thư
+  // mục test và bắt mẫu `d.getFullYear()`, nên một ví dụ dùng tên `d` sẽ làm
+  // chính bộ canh này báo đỏ về chính nó.
+  const cachCu = ['const bayGioMay = new Date();', 'return bayGioMay.getMonth();'];
+  const cachCu2 = 'const h = new Date().getHours();';
+  check('đối chứng — bắt được cách giữ "bây giờ" của máy vào biến',
+    DAU_HIEU_TRINH_DUYET.some(dh => dh.re.test(cachCu.join('\n'))), cachCu);
+  check('đối chứng — bắt được cách đọc thẳng giờ của máy',
+    DAU_HIEU_TRINH_DUYET.some(dh => dh.re.test(cachCu2)), cachCu2);
+  const cachDung = "const d = UI.parseDate(UI.todayStr());\nconst t = new Date(l.time).getTime();";
+  check('đối chứng ngược — KHÔNG bắt nhầm cách viết đúng',
+    !DAU_HIEU_TRINH_DUYET.some(dh => dh.re.test(cachDung)), cachDung);
+
+  // Tệp được miễn phải thật sự là nơi định nghĩa, và phải định nghĩa theo UTC+7.
+  const ui = fs.readFileSync(path.join(GOC, 'public/js/ui.js'), 'utf8');
+  check('ui.js đóng cứng UTC+7 như lib/ngay.js', /LECH_PHUT_VN\s*=\s*7\s*\*\s*60/.test(ui));
+  check('ui.js có đủ bộ hàm giờ Việt Nam cho màn hình dùng',
+    ['ngayVN', 'thangVN', 'gioVN', 'soGioVN', 'thuVN'].every(t => new RegExp(`function ${t}\\(`).test(ui)));
+  check('todayStr của trình duyệt đi qua đúng định nghĩa đó', /function todayStr\(\)\s*\{\s*return ngayVN\(\);/.test(ui));
 }
 
 tongKet();

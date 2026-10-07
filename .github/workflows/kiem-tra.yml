@@ -127,6 +127,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # test/nen-chung.test.mjs đối chiếu với ĐIỂM TÁCH bc9dfa3 (26/08) bằng
+          # git ls-tree — clone nông mặc định của actions/checkout không mang
+          # theo commit đó, và job này đỏ ở đúng bài ấy trong khi mọi bài
+          # trước nó đều xanh. Cần đủ lịch sử, giống ba job canh ở trên.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -27,8 +27,21 @@ const MOC = Date.parse(`${ngay.homNay()}T00:00:00Z`);
 function fmt(d) { return new Date(d).toISOString().slice(0, 10); }
 function daysAgo(n) { return new Date(MOC - n * 86400000); }
 function daysAhead(n) { return new Date(MOC + n * 86400000); }
+// Mốc thời gian ISO cho "h giờ min phút NGÀY d, GIỜ VIỆT NAM".
+//
+// Bản cũ cộng thẳng h giờ vào 00:00Z rồi dán hậu tố Z — tức khai giờ-tường
+// Việt Nam là giờ UTC. Mọi màn hình đọc mốc bằng giờ máy (fmtTime dùng
+// getHours) nên hiện lệch +7 tiếng, và mốc từ 17h trở đi nhảy sang ngày hôm
+// sau. Trừ đúng độ lệch đã khai ở lib/ngay.js (không chép lại con số).
 function iso(d, h, min) {
-  return new Date(Date.parse(`${fmt(d)}T00:00:00Z`) + (h * 60 + (min || 0)) * 60000).toISOString();
+  return new Date(Date.parse(`${fmt(d)}T00:00:00Z`)
+    + (h * 60 + (min || 0) - ngay.LECH_PHUT) * 60000).toISOString();
+}
+// Cô CỦA ĐÚNG NHÓM ghi sổ cho nhóm mình: t1 (Chồi 2), t2 (Lá 1), t4 (Nhà
+// trẻ 1). Bản cũ rẽ nhánh "c1 thì t1, còn lại t2" nên mọi ghi chép của ba bé
+// nhà trẻ mang tên cô nhóm Lá — sai người chịu trách nhiệm.
+function coCuaNhom(cid) {
+  return { c1: 't1', c2: 't2', c4: 't4' }[cid] || 't1';
 }
 // n ngày học (T2-T6) gần nhất, mới nhất trước
 function recentWeekdays(n) {
@@ -79,11 +92,11 @@ const MODULES_DIR = path.join(__dirname, '..', 'modules');
 
 // Bảng của từng phân hệ, xếp theo thứ tự XOÁ (bảng con trước bảng cha).
 const BANG = [
-  'nhatky_ngay',
+  'nhatky_gui', 'nhatky_vesinh', 'nhatky_bua', 'nhatky_ngay',
   'tienan_chot',
   'dontra_ghi', 'dontra_uyquyen', 'dontra_nguoi',
-  'hanhtrinh_quansat', 'hanhtrinh_chude',
-  'kehoachbe_muc', 'kehoachbe_ke',
+  'hanhtrinh_nhap', 'hanhtrinh_quansat', 'hanhtrinh_chude',
+  'kehoachbe_bai_muc_do', 'kehoachbe_de_xuat_ct', 'kehoachbe_ke_ct', 'kehoachbe_muc', 'kehoachbe_ke',
   'cambridge_anh_be', 'cambridge_bai',
   'thuchup_ghinhanh',
   'hocphi_khoan',
@@ -122,7 +135,10 @@ function xoaBangPhanHe(db) {
 
 function sinh(db, moc) {
   const { fmt, daysAgo, daysAhead, thuHai, HOM_NAY, THANG_NAY } = moc;
-  const luc = (d, h, m) => `${fmt(d)}T${String(h).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}:00.000Z`;
+  // Cùng phép quy đổi giờ Việt Nam → UTC với hàm `iso` ở đầu tệp — bản cũ dán
+  // hậu tố Z vào giờ-tường nên mọi mốc hiển thị lệch +7 tiếng.
+  const luc = (d, h, m) => new Date(Date.parse(`${fmt(d)}T00:00:00Z`)
+    + ((h * 60 + (m || 0)) - ngay.LECH_PHUT) * 60000).toISOString();
   let dem = 0;
   const ma = (p) => `${p}_seed${(dem += 1).toString(36)}`;
 
@@ -147,10 +163,29 @@ function sinh(db, moc) {
   // màn hình phải chịu được ô trống. Bé s6 của ngày gần nhất để trống hẳn, để
   // trạng thái "cô chưa ghi" có thật trên dữ liệu mẫu.
   const AN = ['het', 'gan-het', 'it'];
+  // TỪNG BỮA (Đ141) đi kèm mỗi dòng nhật ký: ba bữa sáng / trưa / xế của bảng
+  // phụ `nhatky_bua` chép đúng ba cột cũ, để màn cô đời mới (ghi theo bước
+  // từng bữa) và màn gia đình đời cũ đọc cùng một chuyện. Bữa trống thì không
+  // sinh dòng — trống là "cô chưa ghi".
+  // Ngày mẫu là ngày CŨ với luật "Lưu là nháp, Gửi mới thấy" (góp ý 06/10,
+  // mục 9): gia đình đọc thẳng như trước. Sinh lại dữ liệu mẫu trên một máy
+  // đã chạy thì vẫn vậy, không phụ thuộc giờ ghi của dòng mẫu.
+  const danhDauCu = (rec) => them('nhatky_gui', {
+    studentId: rec.studentId, ngay: rec.ngay, phan: 'cu', banGui: '', guiLuc: rec.capNhatLuc,
+  });
+  const themBua = (rec) => {
+    for (const [cot, bua] of [['anSang', 'breakfast'], ['anTrua', 'lunch'], ['anXe', 'snack']]) {
+      if (!rec[cot]) continue;
+      them('nhatky_bua', {
+        id: ma('nkb'), studentId: rec.studentId, ngay: rec.ngay, bua, muc: rec[cot], ghiChu: '',
+        nguoiGhi: rec.nguoiGhi, capNhatLuc: rec.capNhatLuc,
+      });
+    }
+  };
   ngayHoc.forEach((d, i) => {
     beChoi2.forEach((sid, j) => {
       if (i === 0 && sid === 's6') return;
-      them('nhatky_ngay', {
+      const rec = {
         id: ma('nk'), studentId: sid, ngay: fmt(d),
         anSang: AN[(i + j) % 3], anTrua: AN[(i + j + 1) % 3], anXe: AN[(i + j + 2) % 3],
         anGhiChu: sid === 's4' ? 'Món có đậu phộng đã đổi sang cháo thịt bằm' : '',
@@ -159,13 +194,16 @@ function sinh(db, moc) {
         veSinhSoLan: 1 + ((i + j) % 3), veSinhTinhChat: 'binh-thuong',
         ghiChu: i === 0 && sid === 's1' ? 'Hôm nay con tự xúc hết bát cơm, làm rơi hai lần rồi tự lấy khăn lau.' : '',
         nguoiGhi: 't1', capNhatLuc: luc(d, 16, 10),
-      });
+      };
+      them('nhatky_ngay', rec);
+      themBua(rec);
+      danhDauCu(rec);
     });
 
     // Nhóm nhà trẻ có thêm ba ô thay bỉm và bú bình.
     beNhaTre.forEach((sid, j) => {
       const laNhaTre = sid !== 's11';   // s11 đã 38 tháng — qua mốc 36
-      them('nhatky_ngay', {
+      const rec = {
         id: ma('nk'), studentId: sid, ngay: fmt(d),
         anSang: AN[j % 3], anTrua: AN[(j + 1) % 3], anXe: '',
         nguTuLuc: '11:15', nguDenLuc: '14:15',
@@ -174,7 +212,10 @@ function sinh(db, moc) {
         buBinhSoLan: laNhaTre ? 2 : null,
         buBinhMl: laNhaTre ? 240 + j * 30 : null,
         ghiChu: '', nguoiGhi: 't4', capNhatLuc: luc(d, 16, 20),
-      });
+      };
+      them('nhatky_ngay', rec);
+      themBua(rec);
+      danhDauCu(rec);
     });
   });
 
@@ -327,6 +368,37 @@ function sinh(db, moc) {
     });
   }
 
+  // ---- KẾ HOẠCH GIÁO DỤC CHUNG CẢ TRƯỜNG, THEO TUẦN (góp ý 06/10, mục 4) ----
+  // Bảng LÕI (`edu_plan_tuan`) nhưng gieo ở đây cùng dữ liệu phân hệ, để bộ
+  // kiểm thử (tắt phần này bằng CASA_SEED_PHAN_HE=0) bắt đầu từ bảng trống.
+  {
+    const nhan = (thuHai) => `Tuần ${Math.ceil(Number(thuHai.slice(8, 10)) / 7)} tháng ${Number(thuHai.slice(5, 7))}`;
+    const tuanTruoc = fmt(thuHai(daysAgo(7)));
+    const tuanSau = fmt(thuHai(daysAhead(7)));
+    for (const [tuan, chuDe, dong] of [
+      [tuanTruoc, 'Trường của bé', [
+        'Khám phá: Trong tuần các con làm quen với môi trường xung quanh, từ vựng mới về trường mầm non.',
+        'Kỹ năng sống: Bé làm quen với phép lịch sự nhã nhặn; cách tự lau dọn bàn sau bữa ăn.',
+        'Âm nhạc: Bài hát của tuần "Trường chúng cháu là trường mầm non".',
+      ]],
+      [tuanNay, 'Nước quanh ta', [
+        'Khám phá: Các con chơi với nước — rót, đong, thả vật nổi vật chìm, tưới cây góc sân.',
+        'Kỹ năng sống: Tự rửa tay đúng sáu bước và tiết kiệm nước khi rửa.',
+        'Âm nhạc: Bài hát của tuần "Cho tôi đi làm mưa với".',
+        'Tạo hình: Vẽ giọt mưa bằng ngón tay.',
+      ]],
+      [tuanSau, 'Gia đình của bé', [
+        'Khám phá: Gọi tên các thành viên trong gia đình, kể về một việc cả nhà làm cùng nhau.',
+        'Kỹ năng sống: Chào hỏi khi có khách tới nhà.',
+      ]],
+    ]) {
+      them('edu_plan_tuan', {
+        id: ma('kht'), tuan, campusId: '', tieuDe: `${nhan(tuan)}: ${chuDe}`,
+        noiDung: dong.join('\n'), nguoiSoan: '', taoLuc: luc(daysAgo(8), 9), capNhatLuc: luc(daysAgo(8), 9),
+      });
+    }
+  }
+
   // ---- CAMBRIDGE & KẾT NỐI Ở NHÀ ------------------------------------------
   them('cambridge_bai', {
     id: ma('cb'), loai: 'cambridge', tieuDe: 'Cambridge tuần này: Colours',
@@ -336,8 +408,20 @@ function sinh(db, moc) {
     congBoLuc: luc(daysAgo(2), 15), nguoiDang: '',
     taoLuc: luc(daysAgo(2), 14), capNhatLuc: luc(daysAgo(2), 15),
   });
+  // Màn Cambridge mở sẵn ở tab Letter for Parent (góp ý 06/10) — dữ liệu mẫu
+  // cần ít nhất một lá thư, kẻo người bấm thử mở ra thấy tab đầu trống trơn.
   them('cambridge_bai', {
-    id: ma('cb'), loai: 'ketnoi', tieuDe: 'Kết nối ở nhà: chơi với nước',
+    id: ma('cb'), loai: 'thu-phu-huynh', tieuDe: 'Thư gửi gia đình: tháng này các con học gì',
+    noiDung: 'Tháng này các con làm quen với màu sắc và các con số từ 1 đến 5 bằng tiếng Anh.\n\n'
+      + 'Ở nhà, gia đình hỏi con "What colour is it?" khi cùng con xếp đồ chơi nhé.',
+    tuan: tuanNay, phamVi: 'truong', campusId: '', classId: '', anh: '',
+    congBoLuc: luc(daysAgo(3), 16), nguoiDang: '',
+    taoLuc: luc(daysAgo(3), 15), capNhatLuc: luc(daysAgo(3), 16),
+  });
+  // Mã loại phải đúng `ket-noi` như máy chủ khai (LOAI). Bản cũ ghi `ketnoi` —
+  // tờ ấy chỉ hiện ở tab "Tất cả", và tab đó nay không còn.
+  them('cambridge_bai', {
+    id: ma('cb'), loai: 'ket-noi', tieuDe: 'Kết nối ở nhà: chơi với nước',
     noiDung: 'Cuối tuần này bố mẹ cho con phụ rửa rau, rót nước vào bình, '
       + 'và cùng con thả thử vài thứ vào chậu nước xem cái nào nổi cái nào chìm.',
     tuan: tuanNay, phamVi: 'nhom', campusId: 'cs1', classId: 'c1', anh: '',
@@ -412,7 +496,7 @@ function sinh(db, moc) {
     [...II_NHAN_THUC, 'Lĩnh vực Giác quan', 'Sensory', 'chu', 'giac-quan'],
     [...II_NHAN_THUC, 'Lĩnh vực ngôn ngữ: Tiếng Việt', 'Language: Vietnamese', 'chu', 'tieng-viet'],
     [...II_NHAN_THUC, 'Lĩnh vực ngôn ngữ: Tiếng Anh', 'Language: English', 'chu', 'cambridge'],
-    [...II_NHAN_THUC, 'Lĩnh vực văn hoá', 'Culture'],
+    [...II_NHAN_THUC, 'Lĩnh vực văn hoá', 'Culture', 'chu', 'van-hoa'],
     [...II_NHAN_THUC, 'Lĩnh vực toán học', 'Maths', 'chu', 'toan'],
     [...III_XA_HOI, 'Ngôn ngữ giao tiếp', 'Communicative'],
     [...III_XA_HOI, 'Khả năng tương tác', 'Interaction skills'],
@@ -647,7 +731,7 @@ function generate() {
         checkIn: status === 'present' ? `07:${String(15 + ((di + si * 7) % 30)).padStart(2, '0')}` : status === 'late' ? '08:05' : null,
         checkOut: status === 'absent_excused' ? null : (di === 0 ? null : '16:30'),
         note: status === 'absent_excused' ? 'Nghỉ có phép (gia đình xin phép)' : status === 'late' ? 'Gia đình đưa bé tới muộn' : '',
-        markedBy: s.classId === 'c1' ? 't1' : 't2',
+        markedBy: coCuaNhom(s.classId),
       };
       attendance.push(rec);
     });
@@ -761,7 +845,7 @@ function generate() {
       remarks.push({
         id: 'rm_' + rmId++,
         studentId: s.id,
-        teacherId: s.classId === 'c1' ? 't1' : 't2',
+        teacherId: coCuaNhom(s.classId),
         date: fmt(d),
         content: t.content,
         rating: t.rating,
@@ -791,6 +875,9 @@ function generate() {
   ];
   const reports = [];
   students.forEach((s, si) => {
+    // Bé nhà trẻ (14–38 tháng) không có "học bạ học kỳ" — sinh học bạ của năm
+    // học trước cho một bé 14 tháng là dữ liệu không thể có thật.
+    if (s.classId === 'c4') return;
     const subs = s.classId === 'c1' ? subjectSet3 : subjectSet5;
     [`Học kỳ 1 (${YEAR - 1}-${YEAR})`, `Học kỳ 2 (${YEAR - 1}-${YEAR})`].forEach((term, ti) => {
       reports.push({
@@ -880,7 +967,7 @@ function generate() {
     recentWeekdays(15).forEach((d, di) => {
       if ((di * 2 + si) % 7 !== 3) return;
       const it = pick(conductItems, di + si);
-      conduct.push({ id: 'cd_' + cdId++, studentId: s.id, date: fmt(d), ...it, byTeacherId: s.classId === 'c1' ? 't1' : 't2' });
+      conduct.push({ id: 'cd_' + cdId++, studentId: s.id, date: fmt(d), ...it, byTeacherId: coCuaNhom(s.classId) });
     });
   });
 
@@ -928,7 +1015,10 @@ function generate() {
     health.push(
       // Chiều cao / cân nặng đúng lứa 4–6 tuổi. Số liệu sai lứa tuổi là thứ cô
       // và y tế trường nhận ra ngay, và nhận ra là mất tin vào cả bộ dữ liệu.
-      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(40 + si)), type: 'checkup', title: 'Cân đo định kỳ đầu năm', detail: 'Bé ăn ngủ bình thường, răng miệng sạch. Không có gì bất thường.', height: s.classId === 'c1' ? 102 + si : 110 + si, weight: s.classId === 'c1' ? 16 + si : 19 + si, vision: 'Bình thường', bmiNote: 'Cân đối theo tuổi' },
+      // Nhóm nhà trẻ (c4, 14–38 tháng) phải mang số đo nhà trẻ — 78–90 cm,
+      // 10–14 kg — không phải số của bé 5–6 tuổi. Số liệu sai lứa tuổi là thứ
+      // cô và y tế trường nhận ra ngay (CLAUDE.md, dòng đầu).
+      { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(40 + si)), type: 'checkup', title: 'Cân đo định kỳ đầu năm', detail: 'Bé ăn ngủ bình thường, răng miệng sạch. Không có gì bất thường.', height: s.classId === 'c4' ? 78 + (si % 5) * 3 : s.classId === 'c1' ? 102 + si : 110 + si, weight: s.classId === 'c4' ? 10 + (si % 5) : s.classId === 'c1' ? 16 + si : 19 + si, vision: 'Bình thường', bmiNote: 'Cân đối theo tuổi' },
       { id: 'ht_' + htId++, studentId: s.id, date: fmt(daysAgo(70 + si)), type: 'vaccination', title: 'Tiêm nhắc vắc-xin Sởi – Rubella', detail: 'Tiêm tại trạm y tế phường, gia đình gửi lại sổ tiêm cho nhà trường. Không phản ứng phụ.' },
     );
     if (si % 3 === 0) {
@@ -1187,7 +1277,9 @@ if (require.main === module) {
   if (process.argv.includes('--force') || db.isEmpty()) {
     generate();
   } else {
-    console.log('Cơ sở dữ liệu đã có dữ liệu. Dùng --force để xóa và tạo lại.');
+    console.log('Cơ sở dữ liệu đã có dữ liệu — không đụng gì cả.');
+    console.log('Muốn XÓA SẠCH và tạo lại dữ liệu mẫu (chạy `npm run backup` trước đã):');
+    console.log('  npm run seed -- --force');
   }
   db.close();
 }

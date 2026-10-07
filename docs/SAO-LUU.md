@@ -55,6 +55,38 @@ node scripts/restore.js school-20260812-0200.db.gz
 
 ---
 
+## Khoá giữ ảnh đã tải về ổ ngoài
+
+Bình thường, khi một tấm ảnh đã biến mất khỏi `uploads/` đủ lâu để **không bản
+sao nào còn nhắc tới nó**, script dọn nốt bản sao của tấm ảnh đó để thư mục sao
+lưu không phình vô hạn (xem *Vòng đời bản sao* bên dưới).
+
+Luật đó đúng khi cô xoá một tấm khỏi album. Nó **sai** khi trường đang làm việc
+khác: tải ảnh cũ về ổ cứng của trường rồi xoá bớt phần đã tải trên máy chủ để
+nhẹ đĩa. Lúc ấy tấm ảnh không hề hết cần — và một vòng đời sau, máy dọn nốt bản
+sao, tấm ảnh chỉ còn nằm trên **một ổ cứng duy nhất**.
+
+Ảnh là thứ duy nhất trong app không dựng lại được từ đâu khác. Nên trước khi
+bắt đầu đợt tải về, bật khoá:
+
+```bash
+node scripts/backup.js --giu-anh        # BẬT: không tự dọn bản sao của ảnh nữa
+node scripts/backup.js --thoi-giu-anh   # TẮT: dọn lại như cũ
+```
+
+Vài điều cần biết:
+
+- Khoá là **một tệp** (`backups/giu-anh-da-tai-ve.lock`), không phải tham số
+  dòng lệnh. Sao lưu chạy theo lịch cron, mà dòng cron thì không ai nhớ sửa —
+  một tham số gõ tay một lần sẽ vô nghĩa với lượt chạy tự động hôm sau.
+- Khoá bật thì **mỗi lượt sao lưu đều nhắc**, kèm số ảnh và dung lượng đang
+  giữ thêm. `npm run backup:list` cũng nói trạng thái khoá.
+- Đổi lại, chỗ ảnh trong thư mục sao lưu **chỉ tăng**. Nhớ theo dõi dung lượng.
+- Chỉ tắt khoá khi đã chắc ổ cứng ngoài an toàn và đã kiểm tra lại — tắt xong,
+  lượt sao lưu kế tiếp sẽ dọn thật.
+
+---
+
 ## Tự động sao lưu hằng đêm
 
 Sao lưu thủ công sẽ bị quên. Hãy đặt lịch chạy tự động lúc 2 giờ sáng:
@@ -136,6 +168,11 @@ Script tự dọn bản cũ theo nguyên tắc: giữ **7 bản gần nhất the
 nhiều tháng trước mà không để thư mục phình to vô hạn.
 
 Mỗi bản sao được nén lại, thường chỉ còn khoảng 1/5 dung lượng gốc.
+
+Ảnh thì không theo vòng đời trên: bản sao của một tấm ảnh chỉ được dọn khi mọi
+bản sao còn giữ đều chụp **sau** lúc tấm ảnh biến mất khỏi `uploads/` — tức là
+khi không bản nào còn nhắc tới nó nữa. Muốn hoãn hẳn việc này, xem *Khoá giữ
+ảnh đã tải về ổ ngoài* ở trên.
 
 ---
 

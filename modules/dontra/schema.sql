@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS dontra_nguoi (
   capNhatLuc TEXT
 );
 CREATE INDEX IF NOT EXISTS dontra_nguoi_theo_be ON dontra_nguoi(studentId);
+-- Tra "ảnh này của ai" theo tên tệp — chạy mỗi lần mở một ảnh người đón,
+-- đúng giờ cao điểm trả bé. Không có chỉ mục là quét cả bảng mỗi tấm.
+CREATE INDEX IF NOT EXISTS dontra_nguoi_theo_anh ON dontra_nguoi(anh);
 
 -- Uỷ quyền một lần. HUỶ chứ không xoá, cùng lý do trên: cô cần thấy được
 -- "có uỷ quyền nhưng đã bị gia đình huỷ", không phải một khoảng trống.
@@ -51,6 +54,8 @@ CREATE TABLE IF NOT EXISTS dontra_uyquyen (
   taoLuc    TEXT
 );
 CREATE INDEX IF NOT EXISTS dontra_uyquyen_theo_be ON dontra_uyquyen(studentId, tuNgay);
+-- Cùng lý do với dontra_nguoi_theo_anh: đường ảnh tra cả hai bảng theo tệp.
+CREATE INDEX IF NOT EXISTS dontra_uyquyen_theo_anh ON dontra_uyquyen(anh);
 
 -- SỔ TRẢ BÉ.
 --
@@ -74,3 +79,22 @@ CREATE TABLE IF NOT EXISTS dontra_ghi (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS dontra_mot_be_mot_ngay ON dontra_ghi(studentId, ngay);
 CREATE INDEX IF NOT EXISTS dontra_ghi_theo_ngay ON dontra_ghi(ngay);
+
+-- ===== Ảnh lúc trả bé (Đ125) =====
+-- Cô chụp một khung hình lúc trao bé cho người đón, gửi gia đình — cùng ý với
+-- ảnh "con đã tới lớp" của Điểm danh. Mỗi bé mỗi ngày MỘT tấm. Chụp lại là
+-- THAY tấm cũ (tệp cũ được bỏ đi), không chất đống. Gỡ ảnh cũng là một lần
+-- thay — thay bằng trống: dòng ở lại làm vết, tệp ảnh thì không còn. Chỉ gia
+-- đình của chính bé, cô của nhóm và văn phòng xem được — ảnh đi qua
+-- /api/dontra/anh/:file có canh quyền, không phục vụ tĩnh.
+-- (Chú thích trong tệp này cố ý không dùng dấu chấm phẩy: bài canh tách câu
+-- lệnh theo dấu đó.)
+CREATE TABLE IF NOT EXISTS dontra_anh_tra (
+  studentId TEXT NOT NULL,
+  ngay      TEXT NOT NULL,              -- YYYY-MM-DD
+  file      TEXT NOT NULL,
+  taoLuc    TEXT,
+  byUserId  TEXT,
+  PRIMARY KEY (studentId, ngay)
+);
+CREATE INDEX IF NOT EXISTS dontra_anh_tra_theo_file ON dontra_anh_tra(file);

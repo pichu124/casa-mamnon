@@ -1,4 +1,4 @@
-/* Service worker của CASA Mầm non.
+/* Service worker của My Casa.
  *
  * Nguyên tắc:
  * - Giao diện (HTML/CSS/JS/icon) được lưu sẵn để mở app tức thì và xem được khi mất mạng.
@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v75';
+const VERSION = 'v133';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -109,6 +109,63 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+// THÔNG BÁO ĐẨY (Đ137). Máy chủ gửi một gói JSON nhỏ { tieuDe, noiDung, hash }
+// qua lib/day.js; ở đây chỉ hiện lên và nhớ chỗ cần mở khi gia đình bấm vào.
+// Đây là "đường đẩy thật" mà test/khong-hua-suong.test.mjs đòi phải có trước
+// khi màn hình được xin quyền Notification.
+self.addEventListener('push', (event) => {
+  let goi = {};
+  try { goi = event.data ? event.data.json() : {}; }
+  catch (_) { goi = { noiDung: event.data ? event.data.text() : '' }; }
+  const tieuDe = (goi && goi.tieuDe) || 'My Casa';
+  const hash = (goi && typeof goi.hash === 'string' && goi.hash.startsWith('#/')) ? goi.hash : '#/';
+  // KHOÁ GỘP — TIN MỚI KHÔNG ĐƯỢC ĂN MẤT TIN CŨ TRÊN MÀN HÌNH CHỜ (Đ194).
+  //
+  // Trình duyệt coi hai thông báo cùng `tag` là MỘT: cái sau thay chỗ cái
+  // trước, cái trước biến mất mà không ai bấm gì.
+  //
+  // Bản trước lấy thẳng `hash` làm `tag`, với lý do "không xếp chồng năm cái
+  // Nhật ký ngày". Ý ấy đúng cho nhật ký của MỘT bé, nhưng nó áp cho tất cả:
+  // mọi thông báo nhà trường đều mở cùng một màn nên cùng một `tag`, và
+  // trường gửi ba tin trong buổi sáng thì gia đình chỉ còn thấy tin thứ ba.
+  // Hai tin đầu mất, im lặng — mà trong app cả ba vẫn nằm đó nên không ai
+  // đối chiếu ra.
+  //
+  // Nay MÁY CHỦ khai khoá gộp (`goi.gop`), và chiều mặc định đảo lại: không
+  // khai thì mỗi tin một khoá riêng, tức xếp chồng. Gộp là thứ phải xin.
+  // Xếp chồng thì tệ nhất là nhiều chuông hơn mong muốn; gộp nhầm là mất một
+  // thông báo của trường.
+  //
+  // Gói của máy chủ đời cũ (không có `gop`) thì lùi về `hash` y như trước —
+  // điện thoại đã cài app không đổi hành vi vào ngày máy chủ chưa kịp lên bản
+  // mới.
+  const gop = (goi && typeof goi.gop === 'string' && goi.gop) ? goi.gop.slice(0, 80) : hash;
+  event.waitUntil(self.registration.showNotification(tieuDe, {
+    body: (goi && goi.noiDung) || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { hash },
+    tag: gop,
+    renotify: true,
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const hash = (event.notification.data && event.notification.data.hash) || '#/';
+  const dich = new URL('/' + hash, self.location.origin).href;
+  event.waitUntil((async () => {
+    const cuaSo = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of cuaSo) {
+      if ('focus' in c) {
+        try { if ('navigate' in c) await c.navigate(dich); } catch (_) {}
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(dich);
+  })());
+});
+
 // Cho phép trang yêu cầu cập nhật ngay khi có phiên bản mới.
 self.addEventListener('message', (event) => {
   if (event.data === 'skip-waiting') { self.skipWaiting(); return; }
@@ -165,8 +222,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
-        const cache = await caches.open(SHELL_CACHE);
-        cache.put('/index.html', fresh.clone());
+        // Chỉ lưu câu trả lời TỐT. Máy chủ đang lỗi 500 mà cũng lưu đè lên
+        // /index.html thì từ đó về sau mất mạng là app dựng trang lỗi thay vì
+        // vỏ app — và kẹt luôn ở đó tới khi có bản service worker mới.
+        if (fresh.ok) {
+          const cache = await caches.open(SHELL_CACHE);
+          cache.put('/index.html', fresh.clone());
+        }
         return fresh;
       } catch (_) {
         return (await caches.match('/index.html')) || Response.error();

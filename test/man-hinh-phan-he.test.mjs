@@ -45,13 +45,16 @@ const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3960), dir: 
 // Mỗi màn: mã phân hệ, đường dẫn, và những vai PHẢI mở được nó.
 const MAN = [
   { ma: 'nhatky', hash: '#/nhatky', ten: 'Nhật ký ngày', vai: ['co', 'ph'] },
-  { ma: 'tienan', hash: '#/tienan', ten: 'Báo ăn & tiền ăn', vai: ['co'] },
+  // Đ140: Báo ăn là việc của văn phòng (bảng phân quyền của trường 07/09) — ô
+  // không còn hiện với cô, nên vai phải mở được là văn phòng.
+  { ma: 'tienan', hash: '#/tienan', ten: 'Báo ăn & tiền ăn', vai: ['qt'] },
   { ma: 'dontra', hash: '#/dontra', ten: 'Đón trả bé', vai: ['co', 'ph'] },
   { ma: 'thuchup', hash: '#/thuchup', ten: 'Ghi nhanh', vai: ['co'] },
   { ma: 'hanhtrinh', hash: '#/hanhtrinh', ten: 'Hành trình học tập', vai: ['co', 'ph'] },
   { ma: 'kehoachbe', hash: '#/kehoachbe', ten: 'Kế hoạch của bé', vai: ['co'] },
   { ma: 'cambridge', hash: '#/cambridge', ten: 'Cambridge & Kết nối ở nhà', vai: ['co', 'ph'] },
-  { ma: 'hocphi', hash: '#/hocphi', ten: 'Học phí', vai: ['co', 'ph'] },
+  // Đ140: Học phí ẩn với cô (trường: "ở giao diện giáo viên bỏ đi luôn").
+  { ma: 'hocphi', hash: '#/hocphi', ten: 'Học phí', vai: ['qt', 'ph'] },
   { ma: 'baocaohoctap', hash: '#/baocaohoctap', ten: 'Báo cáo học tập', vai: ['co', 'ph'] },
 ];
 
@@ -75,6 +78,17 @@ const page = await ctx.newPage();
 let loiHienTai = [];
 page.on('pageerror', e => loiHienTai.push(e.message));
 page.on('console', m => { if (m.type() === 'error') loiHienTai.push(`console: ${m.text()}`); });
+
+// Màn nhật ký của cô đi theo BƯỚC (Đ141); bước mở sẵn tuỳ giờ trong ngày, nên
+// các mục đo bữa trưa phải tự bấm sang bước đó trước.
+async function moBuocTrua() {
+  const nut = page.locator('.seg [data-buoc="bua:lunch"]');
+  if (!(await nut.count())) return;
+  if ((await nut.getAttribute('class')) !== 'active') {
+    await nut.click();
+    await page.waitForTimeout(700);
+  }
+}
 
 async function dangNhap(u, p) {
   await page.goto(sv.BASE, { waitUntil: 'networkidle' });
@@ -277,20 +291,25 @@ console.log('\n[4] Nhật ký ngày: "Áp cho cả nhóm" KHÔNG xoá phần cô
   // Nhật ký ngày làm ngược lại: gán thẳng giá trị cho MỌI ô, không hỏi, không
   // chừa. Mà biểu mẫu nạp sẵn giá trị ĐÃ LƯU, nên một lần chạm nhầm rồi bấm Lưu
   // là xoá cả phần đã ghi trong ngày.
-  await dangNhap(TAI_KHOAN.co.u, TAI_KHOAN.co.p);
+  // TỪ Đ141, MÀN CỦA CÔ ĐI THEO BƯỚC (nhà trường 07/09: "bữa nào ăn sẽ cập nhật
+  // bữa đó"), và "tự bỏ đi với các bạn không phải lớp nhà trẻ" — nên đo trên
+  // cô nhóm Nhà trẻ 1 (co2), ở bước Bữa trưa. Cô Chồi 2 mở màn này chỉ thấy
+  // một dòng nói nhóm không dùng nhật ký (xem [4a] dưới).
+  await dangNhap(TAI_KHOAN.co2.u, TAI_KHOAN.co2.p);
   await page.goto(`${sv.BASE}/#/nhatky`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
+  await moBuocTrua();
 
-  const soO = await page.locator('.nk-o[data-truong="anTrua"]').count();
-  check('màn nhật ký có ô ăn trưa cho từng bé', soO >= 2, soO);
+  const soO = await page.locator('.nk-o[data-truong="bua.lunch.muc"]').count();
+  check('bước Bữa trưa có ô mức ăn cho từng bé', soO >= 2, soO);
 
   // Cô chỉnh riêng bé đầu tiên: bé này ăn ít.
-  const oDau = page.locator('.nk-o[data-truong="anTrua"]').first();
+  const oDau = page.locator('.nk-o[data-truong="bua.lunch.muc"]').first();
   await oDau.selectOption('it');
   check('cô chỉnh riêng được một bé', (await oDau.inputValue()) === 'it');
 
   // Rồi áp "hết suất" cho cả nhóm.
-  await page.selectOption('#nk-ca-trua', 'het');
+  await page.selectOption('#nk-ca-muc', 'het');
   await page.click('#nk-ap');
   await page.waitForTimeout(500);
 
@@ -305,11 +324,11 @@ console.log('\n[4] Nhật ký ngày: "Áp cho cả nhóm" KHÔNG xoá phần cô
   await page.waitForTimeout(400);
   check('BÉ CÔ ĐÃ CHỈNH RIÊNG VẪN GIỮ NGUYÊN',
     (await oDau.inputValue()) === 'it', await oDau.inputValue());
-  const oSau = page.locator('.nk-o[data-truong="anTrua"]').nth(1);
+  const oSau = page.locator('.nk-o[data-truong="bua.lunch.muc"]').nth(1);
   check('còn ô trống thì được điền', (await oSau.inputValue()) === 'het', await oSau.inputValue());
 
   // Đường ghi đè vẫn còn — cắt mất nó là lấy đi thao tác cô đang cần.
-  await page.selectOption('#nk-ca-trua', 'nua-suat');
+  await page.selectOption('#nk-ca-muc', 'nua-suat');
   await page.click('#nk-ap');
   await page.waitForTimeout(400);
   check('vẫn có đường ghi đè cả nhóm cho lúc cô thật sự muốn',
@@ -318,6 +337,22 @@ console.log('\n[4] Nhật ký ngày: "Áp cho cả nhóm" KHÔNG xoá phần cô
   await page.waitForTimeout(400);
   check('bấm ghi đè thì mới thay phần đã chỉnh riêng',
     (await oDau.inputValue()) === 'nua-suat', await oDau.inputValue());
+}
+
+// ===========================================================================
+console.log('\n[4a] Nhật ký ngày với nhóm toàn bé lớn: nói nhẹ nhàng, không phải màn lỗi');
+{
+  // Nhà trường 07/09: "Nhật ký ngày sẽ được tự động bỏ đi với các bạn không
+  // phải lớp nhà trẻ." Ô trang chủ đã ẩn; mở thẳng địa chỉ thì phải là một
+  // câu nói, không phải "Có lỗi xảy ra".
+  await dangNhap(TAI_KHOAN.co.u, TAI_KHOAN.co.p);
+  await page.goto(`${sv.BASE}/#/nhatky`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+  const chuLon = await page.locator('body').innerText();
+  check('cô Chồi 2 thấy câu "không có bé nhà trẻ nên không dùng Nhật ký ngày"',
+    /không có bé nhà trẻ nên không dùng Nhật ký ngày/.test(chuLon), chuLon.slice(0, 300));
+  check('không phải màn lỗi, và không có ô nhập nào', !/Có lỗi xảy ra/.test(chuLon) && (await page.locator('.nk-o').count()) === 0);
+  await dangNhap(TAI_KHOAN.co2.u, TAI_KHOAN.co2.p);
 }
 
 // ===========================================================================
@@ -332,6 +367,7 @@ console.log('\n[5] Nhật ký ngày: đổi ngày lúc đang gõ dở thì phả
   await page.waitForTimeout(400);
   await page.goto(`${sv.BASE}/#/nhatky`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
+  await moBuocTrua();
 
   // Chưa gõ gì thì đừng hỏi — hỏi khi không có gì để mất thì lần thứ ba cô sẽ
   // bấm "Đồng ý" theo phản xạ, và lời hỏi thành vô dụng.
@@ -348,7 +384,9 @@ console.log('\n[5] Nhật ký ngày: đổi ngày lúc đang gõ dở thì phả
 
   // Gõ dở rồi đổi ngày → phải hỏi.
   await page.waitForTimeout(400);
-  await page.locator('.nk-o[data-truong="anTrua"]').first().selectOption('gan-het');
+  // Đổi ngày là về bước đầu (ngày cũ không có "bữa gần nhất đã tới giờ").
+  await moBuocTrua();
+  await page.locator('.nk-o[data-truong="bua.lunch.muc"]').first().selectOption('gan-het');
   daHoi = false;
   const homKia = await page.evaluate(() => {
     const t = Date.parse(`${App.views.nhatky._ngay}T00:00:00Z`) - 86400000;
@@ -385,10 +423,12 @@ console.log('\n[6] Nhật ký ngày: app bị đóng giữa chừng thì phần 
       if (k.startsWith('casa.nhatky-nhap')) localStorage.removeItem(k);
     }
   });
+  // Nháp ghi theo (nhóm, ngày, BƯỚC) từ Đ141 — đứng ở bước Bữa trưa suốt bài.
+  await moBuocTrua();
 
-  const o1 = page.locator('.nk-o[data-truong="anGhiChu"]').first();
+  const o1 = page.locator('.nk-o[data-truong="bua.lunch.ghiChu"]').first();
   await o1.fill('bé ăn chậm, cô đút thêm');
-  await page.locator('.nk-o[data-truong="anSang"]').first().selectOption('it');
+  await page.locator('.nk-o[data-truong="bua.lunch.muc"]').first().selectOption('it');
   await page.waitForTimeout(900);   // chờ bộ ghi nháp (gom 500ms)
 
   const coNhap = await page.evaluate(() =>
@@ -398,6 +438,7 @@ console.log('\n[6] Nhật ký ngày: app bị đóng giữa chừng thì phần 
   // ĐÓNG APP: tải lại trang. Mọi thứ trong DOM mất sạch.
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(1200);
+  await moBuocTrua();
 
   const chu = await page.locator('body').innerText();
   check('MỞ LẠI THÌ APP NHẮC CÓ PHẦN NHẬP DỞ', /nhập dở chưa lưu/i.test(chu), chu.slice(0, 300));
@@ -405,16 +446,16 @@ console.log('\n[6] Nhật ký ngày: app bị đóng giữa chừng thì phần 
     /cô khác cùng nhóm/i.test(chu), chu.slice(0, 400));
 
   // KHÔNG tự điền — đó là chủ ý, vì nhóm có nhiều cô.
-  const truocKhiBam = await page.locator('.nk-o[data-truong="anGhiChu"]').first().inputValue();
+  const truocKhiBam = await page.locator('.nk-o[data-truong="bua.lunch.ghiChu"]').first().inputValue();
   check('KHÔNG tự điền đè khi chưa hỏi cô', truocKhiBam === '', JSON.stringify(truocKhiBam));
 
   await page.click('#nk-nhap-dung');
   await page.waitForTimeout(400);
   check('CÔ BẤM "ĐIỀN LẠI" THÌ PHẦN GÕ DỞ QUAY VỀ ĐÚNG NGUYÊN VĂN',
-    (await page.locator('.nk-o[data-truong="anGhiChu"]').first().inputValue()) === 'bé ăn chậm, cô đút thêm',
-    await page.locator('.nk-o[data-truong="anGhiChu"]').first().inputValue());
+    (await page.locator('.nk-o[data-truong="bua.lunch.ghiChu"]').first().inputValue()) === 'bé ăn chậm, cô đút thêm',
+    await page.locator('.nk-o[data-truong="bua.lunch.ghiChu"]').first().inputValue());
   check('cả ô chọn cũng quay về',
-    (await page.locator('.nk-o[data-truong="anSang"]').first().inputValue()) === 'it');
+    (await page.locator('.nk-o[data-truong="bua.lunch.muc"]').first().inputValue()) === 'it');
   check('dải nhắc biến mất sau khi cô chọn xong',
     (await page.locator('#nk-nhap-dung').count()) === 0);
 
@@ -428,6 +469,7 @@ console.log('\n[6] Nhật ký ngày: app bị đóng giữa chừng thì phần 
 
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(1200);
+  await moBuocTrua();
   check('và mở lại KHÔNG còn dải nhắc nào',
     (await page.locator('#nk-nhap-dung').count()) === 0);
 }

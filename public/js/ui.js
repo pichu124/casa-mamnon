@@ -44,6 +44,55 @@ window.UI = (() => {
   }
 
   // ---- Định dạng ngày giờ tiếng Việt ----
+  //
+  // GIỜ VIỆT NAM, KHÔNG PHẢI GIỜ CỦA MÁY (Đ127).
+  //
+  // Máy chủ có một định nghĩa duy nhất cho chữ "hôm nay": UTC+7, đóng cứng
+  // trong `lib/ngay.js`, có bộ canh riêng. Trình duyệt trước đây hỏi giờ MÁY —
+  // và điều đó chỉ đúng khi máy của cô đang đặt múi giờ Việt Nam.
+  //
+  // Nó không đúng thường xuyên hơn ta tưởng: điện thoại mua xách tay còn để
+  // múi giờ nước ngoài, máy tính của văn phòng cài lại hệ điều hành xong quên
+  // đổi, máy tính bảng dùng chung ở lớp đặt sai từ đầu. Khi đó màn hình nói
+  // một ngày, máy chủ ghi một ngày khác — và từ Đ127 thì cô còn bị máy chủ từ
+  // chối vì "ngày này đã khoá", trong khi trên màn hình rõ ràng là hôm nay.
+  //
+  // ĐỒNG HỒ TUYỆT ĐỐI CỦA MÁY VẪN DÙNG ĐƯỢC. `Date.now()` là số mili giây kể
+  // từ mốc UTC, không phụ thuộc múi giờ máy đang đặt; chỉ cách ĐỌC ra ngày giờ
+  // mới phụ thuộc. Nên cộng đúng 7 tiếng rồi đọc theo UTC là ra giờ Việt Nam,
+  // dù máy đang đặt múi giờ nào.
+  const LECH_PHUT_VN = 7 * 60;   // Việt Nam: UTC+7, không có giờ mùa hè
+  function mocVN(moc) {
+    const t = moc === undefined ? Date.now()
+      : (moc instanceof Date ? moc.getTime() : (typeof moc === 'number' ? moc : Date.parse(moc)));
+    return Number.isFinite(t) ? new Date(t + LECH_PHUT_VN * 60000) : null;
+  }
+  // Ngày (YYYY-MM-DD) theo giờ Việt Nam của một mốc bất kỳ; không truyền thì là bây giờ.
+  function ngayVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.toISOString().slice(0, 10) : '';
+  }
+  // Tháng (YYYY-MM) theo giờ Việt Nam.
+  function thangVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.toISOString().slice(0, 7) : '';
+  }
+  // Giờ phút (HH:MM) theo giờ Việt Nam.
+  function gioVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.toISOString().slice(11, 16) : '';
+  }
+  // Giờ trong ngày (0–23) theo giờ Việt Nam — cho câu chào và các mốc trong ngày.
+  function soGioVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.getUTCHours() : 0;
+  }
+  // Thứ trong tuần (0 = Chủ nhật) theo giờ Việt Nam.
+  function thuVN(moc) {
+    const d = mocVN(moc);
+    return d ? d.getUTCDay() : 0;
+  }
+
   const DOW = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
   function parseDate(s) {
     if (s instanceof Date) return s;
@@ -59,9 +108,9 @@ window.UI = (() => {
     const d = parseDate(s);
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
+  // Mốc thời gian đầy đủ (ISO) → giờ phút. Theo GIỜ VIỆT NAM, xem khối đầu mục.
   function fmtTime(s) {
-    const d = new Date(s);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return gioVN(s);
   }
   function timeAgo(s) {
     const diff = Date.now() - new Date(s).getTime();
@@ -74,9 +123,25 @@ window.UI = (() => {
     if (dd < 7) return `${dd} ngày trước`;
     return fmtDate(s, { weekday: false });
   }
+  // "Hôm nay" của TRƯỜNG, theo giờ Việt Nam — cùng một định nghĩa với
+  // `lib/ngay.homNay()` của máy chủ. Giữ nguyên tên và cách gọi để mọi màn
+  // đang dùng không phải sửa; chỉ ruột đổi.
   function todayStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return ngayVN();
+  }
+
+  // Ngày hôm nay viết bằng tiếng Việt, để đặt cạnh ô chọn ngày.
+  //
+  // Ô `<input type="date">` là ô của HỆ ĐIỀU HÀNH: nó hiện theo ngôn ngữ máy,
+  // nên máy để tiếng Anh thì mùng 4 tháng 9 hiện ra "09/04/2026" và cô đọc
+  // thành mùng 9 tháng 4. App không đổi được cách ô đó hiện, nhưng viết được
+  // một dòng bên cạnh bằng tiếng của trường.
+  function dongNgayViet(ngayStr, opts = {}) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ngayStr || ''))) return '';
+    const homNay = todayStr();
+    const phu = ngayStr === homNay ? ' · hôm nay'
+      : (opts.moc && ngayStr === opts.moc ? ` · ${opts.tenMoc || ''}` : '');
+    return `<div class="muted small" style="margin-top:6px">${esc(fmtDate(ngayStr))}${esc(phu)}</div>`;
   }
 
   // ---- Thành phần dựng sẵn ----
@@ -90,21 +155,32 @@ window.UI = (() => {
   }
 
   function avatar(av, size = 42) {
-    const bg = av && av.bg ? av.bg : '#8899aa';
+    // `bg` và `emoji` là dữ liệu trong hồ sơ người dùng, đi thẳng vào HTML.
+    // esc() chặn được ngoặc, nhưng một chuỗi style vẫn bịa thêm được thuộc
+    // tính khác ngay trong dấu nháy — nên bg chỉ nhận ĐÚNG DẠNG MÀU (#hex hoặc
+    // tên màu), sai dạng thì về màu mặc định. Emoji thì bọc esc như mọi chữ.
+    const bgTho = av && av.bg ? String(av.bg) : '';
+    const bg = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{1,25})$/.test(bgTho) ? bgTho : '#8899aa';
     const emoji = av && av.emoji ? av.emoji : '👤';
-    return `<span class="avatar" style="width:${size}px;height:${size}px;background:${esc(bg)};font-size:${Math.round(size * 0.55)}px">${emoji}</span>`;
+    return `<span class="avatar" style="width:${size}px;height:${size}px;background:${bg};font-size:${Math.round(size * 0.55)}px">${esc(emoji)}</span>`;
   }
 
   function emptyState(emoji, text) {
     return `<div class="empty-state"><div class="es-icon">${emoji}</div><p>${esc(text)}</p></div>`;
   }
 
+  // Mã (id) nhét vào CHUỖI JS bên trong thuộc tính onclick. esc() lo cho HTML
+  // chứ không lo cho chuỗi JS: &#39; qua trình phân tích thuộc tính lại thành
+  // dấu nháy thật và thoát được ra ngoài chuỗi. Mã trong app này chỉ gồm chữ,
+  // số và _ . - nên lọc trắng là đủ, không cần thoát.
+  const maAnToan = (v) => String(v ?? '').replace(/[^A-Za-z0-9_.-]/g, '');
+
   // Chip chọn con (phụ huynh nhiều con). Tự render lại view hiện tại khi đổi.
   function studentBar() {
     const students = App.state.students || [];
     if (App.state.user.role !== 'parent' || students.length < 2) return '';
     return `<div class="student-bar">${students.map(s => `
-      <button class="student-chip ${s.id === App.state.currentStudentId ? 'active' : ''}" onclick="App.setStudent('${esc(s.id)}')">
+      <button class="student-chip ${s.id === App.state.currentStudentId ? 'active' : ''}" onclick="App.setStudent('${maAnToan(s.id)}')">
         ${avatar(s.avatar, 30)}<span>${esc(s.name)}</span>
       </button>`).join('')}</div>`;
   }
@@ -117,6 +193,13 @@ window.UI = (() => {
   //
   // Để ở đây thay vì chép vào bốn màn: một quy tắc chép bốn lần là một quy tắc
   // sẽ trôi khỏi nhau ở lần sửa thứ hai.
+  // Dòng "nhãn – giá trị" trong hộp thoại chi tiết. BỐN màn từng tự chép đúng
+  // một chuỗi HTML này (Hồ sơ, Xin nghỉ, Sức khỏe, Điểm danh) — bản chép thứ
+  // năm là lúc chúng bắt đầu trôi lệch nhau, nên gom về một chỗ.
+  function dongThongTin(label, value) {
+    return `<div class="list-row"><div class="row-main"><div class="row-sub">${esc(label)}</div><div class="row-title">${esc(value ?? '—')}</div></div></div>`;
+  }
+
   function noiTenNhom(ds) {
     const ten = (ds || []).map(n => (typeof n === 'string' ? n : n && n.name)).filter(Boolean);
     if (!ten.length) return '';
@@ -153,6 +236,52 @@ window.UI = (() => {
           <select onchange="App.setStudent(this.value)">
             ${students.map(s => `<option value="${esc(s.id)}" ${s.id === dang.id ? 'selected' : ''}>${
               esc(s.name)}${s.className ? ` · ${esc(s.className)}` : ''}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+  }
+
+  // Ô chọn bé THEO CẤP cho vai quản trị: Cơ sở › Nhóm › Bé (Đ124).
+  //
+  // `thanhChonBe` liệt kê cả trường thành MỘT danh sách phẳng — 11 bé mẫu còn
+  // nhìn được, 300 bé của ba cơ sở thì không, và hiệu trưởng thì theo dõi theo
+  // cấp chứ không theo từng bé. Bản này gom bé theo nhóm, và gom nhóm theo cơ
+  // sở khi trường có từ hai cơ sở; vẫn là MỘT ô <select> với <optgroup>, nên
+  // bộ chọn có sẵn của điện thoại và bàn phím vẫn dùng được y như cũ.
+  //
+  // HÀM MỚI BÊN CẠNH HÀM CŨ — luật ba bước của CLAUDE.md cho tệp dùng chung:
+  // thêm cái mới → chuyển từng chỗ gọi → khi không còn ai gọi mới xoá cái cũ.
+  // Tên cơ sở lấy từ `App.state.school.coSo` (máy chủ trả từ Đ124); máy chủ đời
+  // cũ không trả thì gom theo nhóm thôi — không bao giờ trắng.
+  function thanhChonBeTheoCap() {
+    const u = App.state.user || {};
+    const students = App.state.students || [];
+    if (u.role !== 'admin' || !students.length) return '';
+    const dang = students.find(s => s.id === App.state.currentStudentId) || students[0];
+    const coSo = new Map((((App.state.school || {}).coSo) || []).map(c => [c.id, c.name]));
+    const nhom = new Map((App.state.classes || []).map(c => [c.id, c]));
+    const nhieuCoSo = coSo.size > 1;
+    const theoNhom = new Map();
+    for (const s of students) {
+      const k = s.classId || '';
+      if (!theoNhom.has(k)) theoNhom.set(k, []);
+      theoNhom.get(k).push(s);
+    }
+    const nhan = (k) => {
+      if (!k) return 'Chưa xếp nhóm';
+      const c = nhom.get(k);
+      const ten = c ? c.name : ((theoNhom.get(k)[0] || {}).className || k);
+      const cs = c && c.campusId ? coSo.get(c.campusId) : '';
+      return nhieuCoSo && cs ? `${cs} › ${ten}` : ten;
+    };
+    const khoa = [...theoNhom.keys()].sort((a, b) => nhan(a).localeCompare(nhan(b), 'vi'));
+    return `
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Đang xem hồ sơ của bé</label>
+          <select onchange="App.setStudent(this.value)" aria-label="Chọn bé theo cơ sở và nhóm">
+            ${khoa.map(k => `<optgroup label="${esc(nhan(k))}">${theoNhom.get(k).map(s => `<option value="${esc(s.id)}" ${
+              s.id === dang.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</optgroup>`).join('')}
           </select>
         </div>
       </div>`;
@@ -251,23 +380,227 @@ window.UI = (() => {
     });
   }
 
+  // NÉN VIDEO NGAY TRÊN MÁY CỦA CÔ (Đ150).
+  //
+  // Nhà trường 10/09: *"ok chấp nhận giảm chất lượng video để có thể upload
+  // video 3-5 phút"*. Ở đợt trước tôi đã nói rõ cái giá phải trả, và nhà trường
+  // chọn trả cái giá đó — nên hàm này làm đúng điều ấy, không làm khác đi.
+  //
+  // VÌ SAO NÉN CHỨ KHÔNG NỚI TRẦN TỆP
+  //
+  // Một video điện thoại 3 phút nặng 150–400 MB. Nới trần để nhận nguyên bản
+  // kéo theo ba thứ cùng lúc, và cả ba đều không lùi lại được: thân yêu cầu
+  // JSON phải to gấp mấy chục lần (base64 còn phình thêm một phần ba), kho ảnh
+  // của trường đầy nhanh gấp mười, và cô ở cổng trường phải tải 300 MB qua 4G.
+  // Nén xuống rồi mới gửi thì cả ba biến mất, đổi lại là hình mờ hơn hẳn —
+  // đúng thứ nhà trường đã đồng ý đánh đổi.
+  //
+  // BA ĐIỀU PHẢI NÓI THẲNG, VÌ CHÚNG KHÔNG SỬA ĐƯỢC BẰNG MÃ
+  //
+  //   1. NÉN LÂU ĐÚNG BẰNG ĐỘ DÀI VIDEO. Trình duyệt không có đường nén nhanh
+  //      hơn thời gian thật: nó phải PHÁT lại đoạn phim rồi thu từng khung
+  //      hình. Video 4 phút thì cô chờ khoảng 4 phút. Chỗ gọi BẮT BUỘC phải
+  //      báo trước con số đó và hiện đồng hồ chạy, nếu không cô sẽ tưởng app
+  //      treo và tắt đi giữa chừng.
+  //   2. TẮT MÀN HÌNH LÀ HỎNG. Máy khoá màn hay cô chuyển sang app khác thì
+  //      trình duyệt ngưng cấp khung hình và bản nén dở dang. Hàm này xin giữ
+  //      màn hình sáng (`wakeLock`) khi máy có, nhưng đó là XIN, không phải ép.
+  //   3. KHÔNG PHẢI MÁY NÀO CŨNG LÀM ĐƯỢC. Máy cũ thiếu `MediaRecorder` hoặc
+  //      `captureStream` thì hàm ném lỗi `KHONG_NEN_DUOC` — chỗ gọi bắt lỗi đó
+  //      rồi nói với cô bằng tiếng của trường, đừng để lọt ra một chữ tiếng Anh.
+  //
+  // Trả về Promise cho một chuỗi data URL `video/webm`.
+  //
+  //   UI.nenVideo(file, { tranByte, tien })
+  //     tranByte  trần dung lượng đích, mặc định 8 MB (khớp MAX_VIDEO_BYTES)
+  //     tien      hàm gọi lại mỗi giây: tien({ giay, tongGiay })
+  //     huy       hàm trả về true để dừng giữa chừng
+  function nenVideo(file, tuyChon = {}) {
+    const tranByte = Number(tuyChon.tranByte) > 0 ? Number(tuyChon.tranByte) : 8 * 1024 * 1024;
+    const canhToiDa = Number(tuyChon.canhToiDa) > 0 ? Number(tuyChon.canhToiDa) : 480;
+    const toiDaGiay = Number(tuyChon.toiDaGiay) > 0 ? Number(tuyChon.toiDaGiay) : 390;
+    const khung = Number(tuyChon.khung) > 0 ? Number(tuyChon.khung) : 15;
+    const tien = typeof tuyChon.tien === 'function' ? tuyChon.tien : () => {};
+    const huy = typeof tuyChon.huy === 'function' ? tuyChon.huy : () => false;
+
+    return new Promise((xong, hong) => {
+      const coCanvasStream = typeof HTMLCanvasElement !== 'undefined'
+        && typeof HTMLCanvasElement.prototype.captureStream === 'function';
+      if (typeof MediaRecorder === 'undefined' || !coCanvasStream) {
+        hong(new Error('KHONG_NEN_DUOC')); return;
+      }
+
+      const url = URL.createObjectURL(file);
+      const v = document.createElement('video');
+      v.preload = 'auto';
+      v.playsInline = true;
+      v.src = url;
+
+      let dungTimer = null;
+      let khoaMan = null;
+      let daXong = false;
+      const don = () => {
+        if (dungTimer) { clearInterval(dungTimer); dungTimer = null; }
+        try { if (khoaMan) khoaMan.release(); } catch (_) { /* máy không giữ được thì thôi */ }
+        try { URL.revokeObjectURL(url); } catch (_) { /* đã thu rồi */ }
+      };
+      const thua = (e) => { if (daXong) return; daXong = true; don(); hong(e); };
+
+      v.onerror = () => thua(new Error('Không đọc được video này'));
+
+      // ĐO ĐỘ DÀI THẬT, KỂ CẢ KHI TỆP KHÔNG KHAI.
+      //
+      // Nhiều tệp webm — trong đó có tệp do chính trình duyệt thu ra — không
+      // ghi độ dài vào phần đầu tệp, và `duration` trả về Infinity cho tới khi
+      // có ai tua tới cuối. Bỏ qua chuyện này thì mọi tệp loại đó bị từ chối
+      // bằng câu "Không đo được độ dài video này", trong khi tệp hoàn toàn tốt.
+      //
+      // Cách chữa chuẩn: tua tới một mốc rất xa, trình duyệt buộc phải đọc hết
+      // rồi khai ra độ dài thật, xong tua về đầu.
+      const doDoDai = () => new Promise((ok2) => {
+        if (Number.isFinite(v.duration) && v.duration > 0) { ok2(v.duration); return; }
+        const xong2 = () => {
+          v.removeEventListener('durationchange', xong2);
+          v.currentTime = 0;
+          ok2(v.duration);
+        };
+        v.addEventListener('durationchange', xong2);
+        try { v.currentTime = 1e6; } catch (_) { xong2(); }
+      });
+
+      v.onloadedmetadata = async () => {
+        const tongGiay = Number(await doDoDai());
+        if (!Number.isFinite(tongGiay) || tongGiay <= 0) {
+          thua(new Error('Không đo được độ dài video này')); return;
+        }
+        if (tongGiay > toiDaGiay) {
+          thua(new Error(`Video dài ${Math.round(tongGiay / 60)} phút — `
+            + `mỗi đoạn xin gửi tối đa ${Math.round(toiDaGiay / 60)} phút giúp trường nhé`));
+          return;
+        }
+
+        const rongGoc = v.videoWidth || 640;
+        const caoGoc = v.videoHeight || 480;
+        const ti = Math.min(1, canhToiDa / Math.max(rongGoc, caoGoc));
+        const canvas = document.createElement('canvas');
+        // Số chẵn: bộ mã hoá video nào cũng thích chiều chia hết cho 2.
+        canvas.width = Math.max(2, Math.round((rongGoc * ti) / 2) * 2);
+        canvas.height = Math.max(2, Math.round((caoGoc * ti) / 2) * 2);
+        const ctx = canvas.getContext('2d');
+
+        // CHIA NGÂN SÁCH BIT THEO ĐỘ DÀI THẬT, không lấy một con số cứng.
+        //
+        // Nhân 0.8 chứ không 1.0: bộ mã hoá bám bitrate rất lỏng, và vượt trần
+        // ở phút thứ tư nghĩa là cô chờ xong bốn phút rồi mới nhận câu từ chối.
+        // Thà mờ hơn một chút mà chắc chắn gửi được.
+        const bitTieng = 24000;
+        const bitHinh = Math.max(120000, Math.min(900000,
+          Math.floor((tranByte * 8 * 0.8) / tongGiay) - bitTieng));
+
+        // Tiếng của bé là nửa giá trị của một đoạn phim ở trường mầm non, nên
+        // cố giữ. Đi qua WebAudio và CỐ Ý không nối vào loa: nén bốn phút mà
+        // máy phát tiếng oang oang trong phòng ngủ trưa là hỏng việc của cô.
+        let tiengStream = null;
+        let ac = null;
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) {
+            ac = new AC();
+            const nguon = ac.createMediaElementSource(v);
+            const dich = ac.createMediaStreamDestination();
+            nguon.connect(dich);
+            tiengStream = dich.stream;
+          }
+        } catch (_) { tiengStream = null; }
+
+        const dongHinh = canvas.captureStream(khung);
+        const dong = new MediaStream([
+          ...dongHinh.getVideoTracks(),
+          ...(tiengStream ? tiengStream.getAudioTracks() : []),
+        ]);
+
+        const kieu = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm']
+          .find(k => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(k));
+        let may;
+        try {
+          may = new MediaRecorder(dong, {
+            mimeType: kieu || undefined,
+            videoBitsPerSecond: bitHinh,
+            audioBitsPerSecond: bitTieng,
+          });
+        } catch (_) { thua(new Error('KHONG_NEN_DUOC')); return; }
+
+        const manh = [];
+        may.ondataavailable = (e) => { if (e.data && e.data.size) manh.push(e.data); };
+        may.onerror = () => thua(new Error('Máy dừng giữa chừng khi đang nén video'));
+        may.onstop = () => {
+          if (daXong) return;
+          const blob = new Blob(manh, { type: 'video/webm' });
+          if (!blob.size) { thua(new Error('Bản nén rỗng — máy này chưa nén được video')); return; }
+          if (blob.size > tranByte) {
+            thua(new Error(`Nén xong vẫn còn ${Math.round(blob.size / 1048576)} MB — `
+              + 'cô quay đoạn ngắn hơn giúp trường nhé'));
+            return;
+          }
+          const doc = new FileReader();
+          doc.onerror = () => thua(new Error('Không đọc được bản nén'));
+          doc.onload = () => { daXong = true; don(); xong(doc.result); };
+          doc.readAsDataURL(blob);
+        };
+
+        const dungHan = () => { try { may.stop(); } catch (_) { /* đã dừng */ } };
+        v.onended = dungHan;
+
+        const bat = () => {
+          try { may.start(1000); } catch (_) { thua(new Error('KHONG_NEN_DUOC')); return; }
+          const batDau = performance.now();
+          const veKhung = () => {
+            if (daXong || may.state === 'inactive') return;
+            try { ctx.drawImage(v, 0, 0, canvas.width, canvas.height); } catch (_) { /* khung lỗi thì bỏ */ }
+            requestAnimationFrame(veKhung);
+          };
+          requestAnimationFrame(veKhung);
+
+          dungTimer = setInterval(() => {
+            if (daXong) return;
+            if (huy()) { dungHan(); thua(new Error('Đã dừng nén video')); return; }
+            tien({ giay: Math.min(tongGiay, v.currentTime), tongGiay });
+            // CHỐT AN TOÀN: máy khoá màn hay cô chuyển app thì khung hình ngưng
+            // tới và `onended` không bao giờ chạy — không có chốt này thì đồng
+            // hồ quay mãi và cô ngồi chờ một việc đã chết.
+            if (performance.now() - batDau > (tongGiay * 1000 * 2) + 30000) {
+              dungHan();
+              thua(new Error('Nén video lâu bất thường — có thể máy đã khoá màn hình giữa chừng. '
+                + 'Cô thử lại và giữ màn hình sáng giúp nhé.'));
+            }
+          }, 1000);
+
+          if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
+          v.play().catch(() => thua(new Error('Máy không cho phát lại video để nén')));
+        };
+
+        // Xin giữ màn hình sáng — XIN, không ép. Máy không cho thì vẫn nén.
+        if (navigator.wakeLock && navigator.wakeLock.request) {
+          navigator.wakeLock.request('screen').then((k) => { khoaMan = k; }).catch(() => {}).then(bat, bat);
+        } else bat();
+      };
+    });
+  }
+
   const ATT_STATUS = {
     present: { label: 'Có mặt', cls: 'green', color: '#27ae60' },
     late: { label: 'Đến muộn', cls: 'orange', color: '#f2994a' },
     absent_excused: { label: 'Nghỉ có phép', cls: 'blue', color: '#2f80ed' },
     absent_unexcused: { label: 'Nghỉ không phép', cls: 'red', color: '#e74c3c' },
   };
-  const RATING = {
-    great: { label: 'Con làm rất tốt', cls: 'green', emoji: '🌟' },
-    good: { label: 'Con làm tốt', cls: 'blue', emoji: '👍' },
-    needs_effort: { label: 'Cần cố gắng thêm', cls: 'orange', emoji: '💪' },
-  };
   function badge(label, cls) { return `<span class="badge ${cls}">${esc(label)}</span>`; }
 
   return {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
-    pageHeader, avatar, emptyState, studentBar, thanhChonBe, noiTenNhom, toast, modal, closeModal,
-    badge, ATT_STATUS, RATING, DOW,
-    nenAnh,
+    ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
+    pageHeader, avatar, emptyState, studentBar, thanhChonBe, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
+    badge, ATT_STATUS, DOW,
+    nenAnh, nenVideo,
+    maAnToan, dongThongTin,
   };
 })();

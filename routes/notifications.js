@@ -14,22 +14,32 @@ const BANG = 'notifications';
 const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Khác'];
 
 // Điều kiện SQL lọc theo phạm vi gửi mà người dùng được thấy.
-function audienceFilter(user) {
-  const classIds = db.classIdsOf(user);
-  const marks = classIds.map(() => '?').join(',');
-  return {
-    sql: classIds.length ? `(audience = 'all' OR audience IN (${marks}))` : `audience = 'all'`,
-    params: classIds,
-  };
-}
-
-function canSee(user, notification) {
-  return notification.audience === 'all' || db.classIdsOf(user).includes(notification.audience);
-}
+// Luật "ai thấy thông báo nào" nằm ở MỘT chỗ — lib/thong-bao.js — thay cho hai
+// bản chép tay từng trôi lệch giữa tệp này và routes/dashboard.js.
+const tb = require('../lib/thong-bao');
+const tbb = require('../lib/thong-bao-be');
+const audienceFilter = (user) => tb.audienceFilter(user);
+const canSee = tb.canSee;
 
 // Mỗi lượt trả về bao nhiêu thông báo, và trần cho lượt hỏi tự đặt số.
 const MOI_TRANG = 100;
 const TRANG_TOI_DA = 300;
+
+// Trần độ dài. Không có trần thì một lần dán nhầm cả một văn bản dài vào ô
+// nội dung là MỌI máy trong trường tải khối chữ đó về mãi — thông báo không
+// ai dọn, và danh sách thì tải cả trang một lượt.
+const TOI_DA_TIEU_DE = 200;
+const TOI_DA_NOI_DUNG = 5000;
+
+function loiQuaDai(title, body) {
+  if (title !== undefined && String(title).trim().length > TOI_DA_TIEU_DE) {
+    return `Tiêu đề dài quá ${TOI_DA_TIEU_DE} ký tự — rút gọn giúp trường nhé`;
+  }
+  if (body !== undefined && String(body).trim().length > TOI_DA_NOI_DUNG) {
+    return `Nội dung dài quá ${TOI_DA_NOI_DUNG} ký tự — nội dung dài nên gửi kèm trong buổi họp hoặc chia làm nhiều thông báo`;
+  }
+  return null;
+}
 
 module.exports = (app) => {
   // Danh sách thông báo: ghim trước, rồi mới nhất trước; kèm trạng thái đã đọc
@@ -80,19 +90,42 @@ module.exports = (app) => {
       }
     }
 
-    res.json(st.ganDauDaSua(BANG, list.map(n => {
+    // Đ124: mỗi dòng nói rõ gửi cho ai — "Toàn trường" hay "Nhóm X · Cơ sở Y".
+    const moTaPhamVi = tb.taoMoTaPhamVi();
+    const cuaTruong = st.ganDauDaSua(BANG, list.map(n => {
       const author = n.createdBy ? nguoi.get(n.createdBy) : null;
+      const pv = moTaPhamVi(n.audience);
       return {
         ...n,
         read: !!n.read,
         authorName: author ? `${author.title} ${author.name}` : '',
         coTheSua: st.laChuBanGhi(req.user, n.createdBy),
+        toanTruong: pv.toanTruong,
+        tenNhom: pv.tenNhom,
+        tenCoSo: pv.tenCoSo,
       };
-    })));
+    }));
+
+    res.json(cuaTruong);
+  });
+
+  // THÔNG BÁO RIÊNG VỀ CON (Đ137) — một đường RIÊNG, không gộp vào danh sách
+  // trên. Danh sách trên có khế ước `bo`/`soLuong` (xin một dòng nhận đúng một
+  // dòng, ghép từng trang ra đúng danh sách) mà app cũ và bài canh đang dựa
+  // vào; nhét thêm nguồn thứ hai vào là hai con đếm giẫm lên nhau. Màn Thông
+  // báo tự ghép hai nguồn ở trang đầu. Cô, văn phòng: mảng rỗng.
+  app.get('/api/notifications/rieng-be', (req, res) => {
+    res.json(tbb.danhSachCua(req.user, { soLuong: 50, bo: 0 }));
   });
 
   // Đánh dấu đã đọc một thông báo.
   app.post('/api/notifications/:id/read', (req, res) => {
+    // Thông báo riêng về con (Đ137) có mã 'tbb…' — đánh dấu ở bảng riêng.
+    if (tbb.laMaRiengBe(req.params.id)) {
+      const r = tbb.danhDaDoc(req.user, req.params.id);
+      if (!r.ok) return res.status(r.ma).json({ error: r.ma === 404 ? 'Không tìm thấy thông báo' : 'Không có quyền xem thông báo này' });
+      return res.json({ ok: true });
+    }
     const n = db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [req.params.id]);
     if (!n) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
     if (!canSee(req.user, n)) {
@@ -110,7 +143,8 @@ module.exports = (app) => {
       `INSERT OR IGNORE INTO notification_reads (notificationId, userId, readAt)
        SELECT id, ?, ? FROM notifications WHERE ${f.sql}`,
       [req.user.id, new Date().toISOString(), ...f.params]);
-    res.json({ ok: true, marked: r.changes });
+    const rieng = tbb.docTatCa(req.user);
+    res.json({ ok: true, marked: r.changes + rieng });
   });
 
   // Giáo viên tạo thông báo mới.
@@ -122,6 +156,8 @@ module.exports = (app) => {
     if (!body || !String(body).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập nội dung thông báo' });
     }
+    const daiQua = loiQuaDai(title, body);
+    if (daiQua) return res.status(400).json({ error: daiQua });
     if (audience !== 'all' && audience !== 'class') {
       return res.status(400).json({ error: 'Phạm vi gửi không hợp lệ' });
     }
@@ -130,14 +166,30 @@ module.exports = (app) => {
     // đúng số thao tác như trước.
     let nhomNhan = '';
     if (audience === 'class') {
-      const nhomCuaCo = nl.nhomCuaCo(req.user.id);
-      nhomNhan = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
-      if (!nhomNhan) {
-        return res.status(400).json({
-          error: nhomCuaCo.length > 1
-            ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm nhận thông báo'
-            : 'Tài khoản chưa gắn với nhóm lớp nào',
-        });
+      if (req.user.role === 'admin') {
+        // Quản trị (văn phòng cơ sở, ban giám hiệu) cũng gửi được cho MỘT
+        // nhóm. Trước vá, nhánh này rơi vào `nhomDangThaoTac` — hàm chỉ trả
+        // lời cho vai cô — nên mọi tài khoản quản trị nhận câu 400 "Tài khoản
+        // chưa gắn với nhóm lớp nào", một câu sai sự thật và không có lối ra.
+        // `canAccessClass` tự siết theo cơ sở: Cấp 3 chỉ gửi được nhóm của
+        // cơ sở mình.
+        nhomNhan = String((req.body || {}).classId || '');
+        if (!nhomNhan || !db.findClass(nhomNhan)) {
+          return res.status(400).json({ error: 'Vui lòng chọn nhóm nhận thông báo' });
+        }
+        if (!db.canAccessClass(req.user, nhomNhan)) {
+          return res.status(403).json({ error: 'Nhóm này không thuộc phạm vi của tài khoản' });
+        }
+      } else {
+        const nhomCuaCo = nl.nhomCuaCo(req.user.id);
+        nhomNhan = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
+        if (!nhomNhan) {
+          return res.status(400).json({
+            error: nhomCuaCo.length > 1
+              ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm nhận thông báo'
+              : 'Tài khoản chưa gắn với nhóm lớp nào',
+          });
+        }
       }
     }
     const rec = {
@@ -151,9 +203,34 @@ module.exports = (app) => {
       pinned: false,
     };
     db.insert('notifications', rec);
+    // VỀ TỚI ĐIỆN THOẠI, KHÔNG CHỈ KÊU CHUÔNG TRONG APP (Đ194, việc 16).
+    //
+    // Nhà trường (A11): thông báo nhà trường phải đẩy về máy. Đây là loại tin
+    // đông người nhận nhất trong cả app — một tin `audience: 'all'` của trường
+    // ba cơ sở đi tới MỌI máy đã đăng ký — nên nó chỉ mở được sau khi có trần
+    // số tin gửi đồng thời (việc 17) và khoá gộp (việc 18), và ba việc ấy làm
+    // cùng một đợt là vì thế.
+    //
+    // Mở thẳng màn Thông báo: tin này không có màn nào riêng của nó.
+    tb.dayTin(rec, '#/notifications');
     db.audit(req.user.id, 'notification-create', rec.id, { audience: rec.audience });
     res.status(201).json({ ...rec, readBy: [] });
   });
+
+  // Quản trị Cấp 3 chỉ sửa/thu hồi được thông báo TRONG CƠ SỞ MÌNH.
+  //
+  // `laChuBanGhi` trả lời "người gửi hoặc quản trị" — đúng cho vai cô, nhưng
+  // với quản trị nó không hỏi cơ sở, nên quản lý cơ sở A sửa và thu hồi được
+  // thông báo nhóm của cơ sở B. Thông báo gửi cả trường (audience = 'all')
+  // vẫn như cũ: nó gửi cho cả cơ sở mình nên không tính là "của cơ sở khác".
+  // `campusOfClass` đọc được cả nhóm đã đóng, nên thông báo của năm cũ không
+  // làm chốt này chặn nhầm Cấp 1.
+  function trongPhamViCoSo(user, n) {
+    if (!user || user.role !== 'admin') return true;   // vai cô: laChuBanGhi đã giữ
+    const pham = db.phamViCoSo(user);
+    if (pham === null || !n.audience || n.audience === 'all') return true;
+    return db.campusOfClass(n.audience) === pham;
+  }
 
   // Sửa lại một thông báo đã gửi. Chỉ người gửi hoặc quản trị.
   app.put('/api/notifications/:id', requireRole('teacher', 'admin'), (req, res) => {
@@ -162,7 +239,12 @@ module.exports = (app) => {
     if (!st.laChuBanGhi(req.user, n.createdBy)) {
       return res.status(403).json({ error: 'Chỉ người gửi hoặc quản trị mới sửa được thông báo này' });
     }
+    if (!trongPhamViCoSo(req.user, n)) {
+      return res.status(403).json({ error: 'Thông báo này thuộc cơ sở khác' });
+    }
     const patch = {};
+    const daiQuaSua = loiQuaDai(req.body.title, req.body.body);
+    if (daiQuaSua) return res.status(400).json({ error: daiQuaSua });
     if (req.body.title !== undefined) {
       if (!String(req.body.title).trim()) return res.status(400).json({ error: 'Vui lòng nhập tiêu đề thông báo' });
       patch.title = String(req.body.title).trim();
@@ -189,6 +271,9 @@ module.exports = (app) => {
     if (!n) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
     if (!st.laChuBanGhi(req.user, n.createdBy)) {
       return res.status(403).json({ error: 'Chỉ người gửi hoặc quản trị mới thu hồi được thông báo này' });
+    }
+    if (!trongPhamViCoSo(req.user, n)) {
+      return res.status(403).json({ error: 'Thông báo này thuộc cơ sở khác' });
     }
     st.ghiThuHoi(BANG, n.id, req.user.id);
     db.audit(req.user.id, 'notification-withdraw', n.id, { title: n.title });

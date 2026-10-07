@@ -5,7 +5,10 @@
 // nhắc phạm vi ngay trên hộp thoại soạn — gửi nhầm nhóm là lỗi không rút lại
 // được khỏi điện thoại đã đọc.
 App.views.cambridge = {
-  _loai: '',
+  // KHÔNG CÒN TAB "TẤT CẢ" (góp ý 06/10, mục 5): màn chỉ có đúng ba tab, mở
+  // sẵn ở Letter for Parent. Máy chủ vẫn trả mọi loại khi không lọc — chỉ màn
+  // hình thôi hỏi kiểu đó.
+  _loai: 'thu-phu-huynh',
   _data: null,
   _anhMoi: null,
 
@@ -30,7 +33,13 @@ App.views.cambridge = {
     this._conNua = (d.bai || []).length >= this.MOI_TRANG;
   },
 
-  async render(root) {
+  // Tab đi theo ĐƯỜNG DẪN (`#/cambridge/<loại>`): tin báo bài Weekly Plan mở
+  // thẳng đúng tab đó, và nút Quay lại của điện thoại đi đúng tab trước.
+  LOAI_HOP_LE: ['thu-phu-huynh', 'cambridge', 'ket-noi'],
+
+  async render(root, params) {
+    const tuDuongDan = params && params[0];
+    this._loai = this.LOAI_HOP_LE.includes(tuDuongDan) ? tuDuongDan : 'thu-phu-huynh';
     // Đổi bộ lọc, hoặc vào lại màn này, thì tải lại từ trang một. Chỉ nút "xem
     // tờ cũ hơn" mới giữ phần đã tải.
     if (this._loai !== this._loaiDaTai || !this._giuTrang) {
@@ -43,11 +52,12 @@ App.views.cambridge = {
     root.innerHTML = `
       ${UI.pageHeader('Cambridge & Kết nối ở nhà')}
       <div class="seg" id="cam-loc">
-        <button class="${this._loai === '' ? 'active' : ''}" data-loai="">Tất cả</button>
         ${(d.loai || []).map(l => `<button class="${this._loai === l.ma ? 'active' : ''}" data-loai="${UI.esc(l.ma)}">${UI.esc(l.ten)}</button>`).join('')}
       </div>
 
       ${d.duocDang ? `<button class="btn primary block mb-8" id="cam-them">${UI.icon('plus', 18)} Soạn bài mới</button>` : ''}
+      ${this.laVanPhong() ? `<button class="btn outline block mb-8" id="cam-xem-lua">${UI.icon('report', 16)} Xem theo từng lứa</button>` : ''}
+      ${this._loai === 'thu-phu-huynh' ? this.khoiBlock(d) : this.dongLuaCuaCon(d)}
 
       ${(d.bai || []).length
         ? (d.bai || []).map(b => this.theBai(b, d)).join('')
@@ -60,10 +70,20 @@ App.views.cambridge = {
         </button>` : ''}`;
 
     for (const b of document.getElementById('cam-loc').querySelectorAll('button')) {
-      b.onclick = () => { this._loai = b.dataset.loai; App.route(); };
+      b.onclick = () => { location.hash = `#/cambridge/${b.dataset.loai}`; };
     }
+    // Mã nút là `cam-xem-lua`, KHÔNG phải `cam-lua`. Đ206 đặt trùng mã với ô
+    // chọn "Lứa tuổi" trong mẫu soạn — `luu()` hỏi getElementById('cam-lua')
+    // thì nhận về CÁI NÚT (đứng trước hộp thoại trong trang), giá trị rỗng, và
+    // mọi bài văn phòng lưu từ màn hình đều thành "mọi lứa" dù đã chọn 3–4.
+    // Lộ ra 06/10 khi bài canh trình duyệt hỏi ô Lứa tuổi có hiện không.
+    const oLua = document.getElementById('cam-xem-lua');
+    if (oLua) oLua.onclick = () => this.moTheoLua();
     const them = document.getElementById('cam-them');
     if (them) them.onclick = () => this.moSoan(null);
+    const nutBlock = document.getElementById('cam-block-quan-ly');
+    if (nutBlock) nutBlock.onclick = () => this.moBlock(null);
+    for (const b of root.querySelectorAll('[data-sua-block]')) b.onclick = () => this.moBlock(b.dataset.suaBlock);
     const cuHon = document.getElementById('cam-cu-hon');
     if (cuHon) {
       cuHon.onclick = async () => {
@@ -78,6 +98,272 @@ App.views.cambridge = {
     for (const b of root.querySelectorAll('[data-thu-hoi]')) b.onclick = () => this.thuHoi(b.dataset.thuHoi);
   },
 
+  // ---- Block của chương trình (Đ143) ----
+  //
+  // Gia đình chỉ nhận block đúng lứa của con (máy chủ đã lọc); cô và văn phòng
+  // nhận đủ. Mục tiêu của block là thứ trường muốn gia đình đọc TRƯỚC khi đọc
+  // từng tuần, nên nó đứng trên danh sách bài.
+  // MÀN "XEM THEO TỪNG LỨA" CHO VĂN PHÒNG (Đ206, việc 13).
+  //
+  // Câu văn phòng cần trả lời: *"lứa 5–6 năm nay có mấy bé, và đã có bài nào
+  // cho lứa ấy chưa"*. Trước đợt này phải mở từng bài ra đếm bằng mắt.
+  //
+  // MÀN NÀY LÀ BẢN KIỂM KÊ CHƯƠNG TRÌNH, KHÔNG PHẢI BẢN ĐÁNH GIÁ TRẺ — và đây
+  // là chỗ dễ trượt nhất, vì màn đã có sẵn cả danh sách bé lẫn số bài: ghép
+  // hai thứ lại thành "bé này học được mấy bài" là ra đúng cái bảng QUY TẮC 4
+  // cấm. Nên tuyệt đối không có ô nào đặt một bé cạnh một con số của riêng bé
+  // ấy; con số duy nhất cạnh tên bé là… không có con số nào.
+  async moTheoLua() {
+    let d = null;
+    try { d = await API.get('/api/cambridge/theo-lua'); }
+    catch (err) { UI.toast(err.message, 'error'); return; }
+
+    UI.modal(`
+      ${(d.lua || []).map(l => `
+        <div class="card">
+          <div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <div class="card-title">${UI.esc(l.ten)}</div>
+            <div class="muted small">${UI.esc(String(l.soBe))} bé</div>
+          </div>
+          <div class="row-sub">${l.soBai
+            ? `${UI.esc(String(l.soBai))} bài đã đăng riêng cho lứa này`
+            : 'Chưa có bài nào đăng riêng cho lứa này'}</div>
+          ${l.danhSachBe.length ? `
+            <div class="muted small mt-8" style="line-height:1.7">
+              ${l.danhSachBe.map(b => UI.esc(`${b.hoTen} · ${b.tenNhom}`)).join(' — ')}
+            </div>` : '<div class="muted small mt-8">Chưa có bé nào ở lứa này.</div>'}
+        </div>`).join('')}
+
+      ${d.baiMoiLua ? `
+        <div class="card">
+          <div class="row-title">${UI.esc(String(d.baiMoiLua))} bài đăng cho MỌI lứa</div>
+          <div class="row-sub">Bài loại này hiện với cả ba lứa, nên không cộng vào con số của lứa nào.</div>
+        </div>` : ''}
+
+      ${(d.ngoaiChuongTrinh || []).length ? `
+        <div class="card">
+          <div class="card-title">Bé ngoài chương trình Cambridge</div>
+          <div class="muted small" style="line-height:1.7">
+            ${d.ngoaiChuongTrinh.map(b => UI.esc(`${b.hoTen} · ${b.tenNhom} (${b.viSao})`)).join(' — ')}
+          </div>
+          <div class="muted small mt-8">
+            Đây là <b>trạng thái đúng</b> của các bé ấy: lứa tuổi của các con nằm ngoài chương trình,
+            hoặc nhóm đã khai là nhà trẻ. Mục Cambridge cũng không hiện trên app của gia đình các bé này.
+          </div>
+        </div>` : ''}
+
+      <div class="muted small" style="line-height:1.7">
+        Bảng này kiểm kê <b>tài liệu của trường</b> theo lứa, để văn phòng biết lứa nào còn mỏng.
+        Nó <b>không</b> nói bé nào học tới đâu.
+      </div>
+    `, 'Cambridge theo từng lứa');
+  },
+
+  //
+  // CHỈ Ở TAB LETTER FOR PARENT, VÀ GIA ĐÌNH CHỈ THẤY BLOCK ĐANG HỌC (góp ý
+  // 06/10, mục 5): *"có 6 block học trong 1 năm học, tuy nhiên sẽ chỉ hiện lên
+  // Block hiện mà con đang học để PH thấy rõ mục tiêu của block đó thôi. Show
+  // hết 6 block quá nhiều, PH kéo mỏi tay mới xuống xem được Letter for
+  // Parent"*. Máy chủ vẫn trả đủ block (văn phòng cần để quản lý, và ô chọn
+  // block trong mẫu soạn cần đủ) — việc chọn block đang học làm ở đây.
+  // Văn phòng thấy block đang học ở trên, các block còn lại gập trong một
+  // dòng "Mọi block", kèm nút sửa.
+  dongLuaCuaCon(d) {
+    const con = d.luaTuoiCuaCon || [];
+    return con.length ? `
+      <div class="muted small mb-8" style="line-height:1.6">
+        ${con.map(c => `${UI.esc(c.ten)}: <b>${UI.esc(c.tenLuaTuoi || '')}</b>`).join(' · ')}
+      </div>` : '';
+  },
+
+  // Block đang học hôm nay — MỖI LỨA MỘT BLOCK. Ô ngày bỏ trống coi như không
+  // giới hạn phía ấy. Nhiều block cùng lứa cùng phủ hôm nay (văn phòng quên
+  // ghi ngày kết thúc block cũ) thì lấy block BẮT ĐẦU MUỘN NHẤT — block mới
+  // thay block cũ, không hiện cả hai. Không block nào phủ hôm nay (giữa hai
+  // block, nghỉ hè) thì không hiện gì: hiện block đã qua hay block chưa tới
+  // đều là nói sai "con đang học gì".
+  blockDangHoc(blocks, homNay) {
+    const theoLua = new Map();
+    for (const b of blocks || []) {
+      if (b.tuNgay && b.tuNgay > homNay) continue;
+      if (b.denNgay && b.denNgay < homNay) continue;
+      const lua = b.luaTuoi || '';
+      const cu = theoLua.get(lua);
+      if (!cu || String(b.tuNgay || '') > String(cu.tuNgay || '')) theoLua.set(lua, b);
+    }
+    return [...theoLua.values()];
+  },
+
+  dongBlock(b, d) {
+    return `
+          <div class="list-row" style="align-items:flex-start">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(b.ten)}
+                ${b.luaTuoi ? UI.badge(this.tenLua(d, b.luaTuoi), 'blue') : ''}
+              </div>
+              <div class="row-sub">${b.tuNgay || b.denNgay
+                ? `Áp dụng ${b.tuNgay ? `từ ${UI.esc(UI.fmtDate(b.tuNgay, { weekday: false }))}` : ''}${b.denNgay ? ` đến ${UI.esc(UI.fmtDate(b.denNgay, { weekday: false }))}` : ''}`
+                : 'Chưa ghi thời gian áp dụng'}</div>
+              ${b.mucTieu ? `<div class="small mt-8" style="line-height:1.6;white-space:pre-wrap">${UI.esc(b.mucTieu)}</div>` : ''}
+            </div>
+            ${d.duocDang ? `<button class="btn outline sm" data-sua-block="${UI.esc(b.id)}">${UI.icon('edit', 14)}</button>` : ''}
+          </div>`;
+  },
+
+  khoiBlock(d) {
+    const tatCa = d.blocks || [];
+    const blocks = this.blockDangHoc(tatCa, UI.ngayVN());
+    const con = d.luaTuoiCuaCon || [];
+    const dongCon = this.dongLuaCuaCon(d);
+    // NÓI RA KHI LỨA CỦA CON CHƯA CÓ BÀI, THAY VÌ ĐỂ MỘT KHOẢNG TRẮNG (Đ187).
+    //
+    // Từ hôm trường xác nhận Cambridge có tài liệu riêng cho 5–6 tuổi, bé từ
+    // 60 tháng trở lên không còn nhận bài lứa 4–5 nữa. Không mất dữ liệu gì,
+    // nhưng cho tới lúc trường soạn xong bộ 5–6 thì màn hình những nhà ấy
+    // trống trơn — và một màn hình trống không nói được nó trống VÌ SAO.
+    //
+    // Chỉ hiện cho gia đình có con ĐÃ vào chương trình. Nhà có bé dưới 36
+    // tháng thì lứa là rỗng, câu này không đúng với họ.
+    const conDaVao = con.filter(c => c.luaTuoi);
+    const chuaCoBai = !d.duocDang && conDaVao.length && !tatCa.length;
+    const loiNhan = chuaCoBai ? `
+      <div class="muted small mb-8" style="line-height:1.6">
+        Trường chưa đăng bài Cambridge nào cho lứa
+        ${conDaVao.map(c => UI.esc(c.tenLuaTuoi || '')).filter((v, i, a) => a.indexOf(v) === i).join(' và ')}.
+        Khi cô đăng, bài sẽ hiện ngay ở đây.
+      </div>` : '';
+    if (!blocks.length && !d.duocDang) return dongCon + loiNhan;
+    const conLai = tatCa.filter(b => !blocks.includes(b));
+    return `
+      ${dongCon}
+      <div class="card">
+        <div class="card-title">${blocks.length ? 'Block con đang học' : 'Block của chương trình'}
+          <span class="spacer"></span>
+          ${d.duocDang ? `<button class="btn outline sm" id="cam-block-quan-ly">${UI.icon('plus', 14)} Thêm block</button>` : ''}
+        </div>
+        ${blocks.length ? blocks.map(b => this.dongBlock(b, d)).join('')
+          : (tatCa.length
+            ? '<div class="muted small">Hôm nay không nằm trong block nào. Ghi ngày "Áp dụng từ / đến" cho block để gia đình thấy đúng block con đang học.</div>'
+            : '<div class="muted small">Chưa có block nào. Bấm "Thêm block" để ghi mục tiêu và thời gian áp dụng.</div>')}
+        ${d.duocDang && conLai.length ? `
+          <details class="mt-8" id="cam-block-khac">
+            <summary class="small" style="cursor:pointer">Mọi block khác (${conLai.length}) — chỉ văn phòng thấy</summary>
+            ${conLai.map(b => this.dongBlock(b, d)).join('')}
+          </details>` : ''}
+      </div>`;
+  },
+
+  tenLua(d, ma) {
+    return ((d.luaTuoi || []).find(l => l.ma === ma) || {}).ten || ma;
+  },
+
+  // Năm ô nội dung theo mẫu trường gửi. Ô trống thì không vẽ — bài cũ chưa có
+  // khung nhìn y như trước.
+  theKhung(k) {
+    if (!k) return '';
+    const o = [
+      ['Hoạt động', k.monHoc], ['Chủ đề', k.chuDe], ['Từ vựng', k.tuVung],
+      ['Song / Chant', k.songChant], ['Kết nối ở nhà', k.ketNoiONha],
+    ].filter(x => x[1]);
+    if (!o.length) return '';
+    return `
+      <div class="mt-8" style="border-left:3px solid var(--primary);padding-left:10px">
+        ${o.map(([ten, gt]) => `
+          <div class="small" style="line-height:1.6;margin-bottom:6px">
+            <b>${UI.esc(ten)}:</b> <span style="white-space:pre-wrap">${UI.esc(gt)}</span>
+          </div>`).join('')}
+      </div>`;
+  },
+
+  nhanKhung(b, d) {
+    const k = b.khung;
+    if (!k) return '';
+    const phan = [];
+    if (k.blockTen) phan.push(k.blockTen);
+    if (k.tuanSo) phan.push(`Tuần ${k.tuanSo}`);
+    if (k.luaTuoi) phan.push(this.tenLua(d, k.luaTuoi));
+    return phan.length ? ` · ${UI.esc(phan.join(' · '))}` : '';
+  },
+
+  theTep(b) {
+    const tep = b.tep || [];
+    if (!tep.length) return '';
+    return `
+      <div class="mt-8">
+        ${tep.map(t => `
+          <a class="list-row" href="/api/cambridge/tep/${UI.esc(t.id)}" target="_blank" rel="noopener"
+             style="text-decoration:none;color:inherit">
+            <div class="row-icon" style="background:#eef2ff;font-size:18px">${t.loai === 'pdf' ? '📄' : '📝'}</div>
+            <div class="row-main">
+              <div class="row-title">${UI.esc(t.tenGoc)}</div>
+              <div class="row-sub">${t.loai === 'pdf' ? 'PDF' : 'Word'} · ${this.kichCo(t.bytes)}</div>
+            </div>
+            <span class="muted">${UI.icon('chevron', 18)}</span>
+          </a>`).join('')}
+      </div>`;
+  },
+
+  kichCo(bytes) {
+    const n = Number(bytes) || 0;
+    if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(n / 1024))} KB`;
+  },
+
+  moBlock(id) {
+    const d = this._data || {};
+    const b = id ? (d.blocks || []).find(x => x.id === id) : null;
+    if (id && !b) return UI.toast('Chưa mở được block này — thử tải lại màn nhé', 'error');
+    UI.modal(`
+      <div class="field">
+        <label>Tên block</label>
+        <input id="cbl-ten" value="${UI.esc(b ? b.ten : '')}" placeholder="Ví dụ: Block 1">
+      </div>
+      <div class="field">
+        <label>Lứa tuổi</label>
+        <select id="cbl-lua">
+          ${(d.luaTuoi || []).map(l => `<option value="${UI.esc(l.ma)}" ${b && b.luaTuoi === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
+        </select>
+        <div class="hint">Lớp Montessori trộn nhiều tuổi, nhưng Cambridge chia lứa 3–4, 4–5, 5–6. Chọn đúng lứa thì
+          gia đình chỉ nhận đúng phần của con mình.</div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>Áp dụng từ</label><input type="date" id="cbl-tu" value="${UI.esc(b ? b.tuNgay : '')}"></div>
+        <div class="field"><label>Đến</label><input type="date" id="cbl-den" value="${UI.esc(b ? b.denNgay : '')}"></div>
+      </div>
+      <div class="hint" style="margin:-4px 0 10px">Gia đình chỉ thấy block có hôm nay nằm trong khoảng này — ghi đủ
+        hai ngày để block hiện đúng lúc con đang học, và tự ẩn khi sang block sau.</div>
+      <div class="field">
+        <label>Mục tiêu của block</label>
+        <textarea id="cbl-muc-tieu" rows="5" placeholder="Gia đình đọc phần này trước khi đọc từng tuần.">${UI.esc(b ? b.mucTieu : '')}</textarea>
+      </div>
+      <div class="field">
+        <label>Thứ tự hiển thị</label>
+        <input type="number" id="cbl-thu-tu" min="0" max="99" value="${UI.esc(String(b ? b.thuTu : (d.blocks || []).length + 1))}">
+      </div>
+      <button class="btn primary block" id="cbl-luu">${UI.icon('check', 18)} Lưu block</button>
+    `, id ? 'Sửa block' : 'Thêm block');
+    document.getElementById('cbl-luu').onclick = () => this.luuBlock(id);
+  },
+
+  async luuBlock(id) {
+    const body = {
+      ten: document.getElementById('cbl-ten').value.trim(),
+      luaTuoi: document.getElementById('cbl-lua').value,
+      tuNgay: document.getElementById('cbl-tu').value || '',
+      denNgay: document.getElementById('cbl-den').value || '',
+      mucTieu: document.getElementById('cbl-muc-tieu').value.trim(),
+      thuTu: Number(document.getElementById('cbl-thu-tu').value) || 0,
+    };
+    if (!body.ten) return UI.toast('Cần tên block, ví dụ: Block 1', 'error');
+    try {
+      if (id) await API.put(`/api/cambridge/block/${encodeURIComponent(id)}`, body);
+      else await API.post('/api/cambridge/block', body);
+      UI.toast('Đã lưu block', 'success');
+      UI.closeModal();
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
   nhanPhamVi(b) {
     if (b.phamVi === 'nhom') return `Nhóm ${b.tenNhom || ''}`.trim();
     if (b.phamVi === 'coso') return `Cơ sở ${b.tenCoSo || ''}`.trim();
@@ -90,16 +376,18 @@ App.views.cambridge = {
       <div class="card">
         <div class="card-title">${UI.esc(b.tieuDe)}
           <span class="spacer"></span>
-          ${UI.badge(tenLoai, b.loai === 'ket-noi' ? 'green' : 'blue')}
+          ${UI.badge(tenLoai, { 'ket-noi': 'green', 'thu-phu-huynh': 'purple' }[b.loai] || 'blue')}
         </div>
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
           ${UI.esc(this.nhanPhamVi(b))}
-          ${b.tuan ? ` · tuần từ ${UI.esc(UI.fmtDate(b.tuan, { weekday: false }))}` : ''}
+          ${b.tuan ? ` · tuần từ ${UI.esc(UI.fmtDate(b.tuan, { weekday: false }))}` : ''}${this.nhanKhung(b, d)}
           ${b.nguoiDangTen ? ` · ${UI.esc(b.nguoiDangTen)}` : ''}
           ${this.laVanPhong() ? (b.daCongBo ? ` · ${UI.badge('Đã gửi gia đình', 'green')}` : ` · ${UI.badge('Nháp — gia đình chưa đọc được', 'orange')}`) : ''}
         </div>
 
         ${b.noiDung ? `<div style="line-height:1.7;white-space:pre-wrap">${UI.esc(b.noiDung)}</div>` : ''}
+        ${this.theKhung(b.khung)}
+        ${this.theTep(b)}
 
         ${b.nhacAnhTamAn ? `
           <div class="small mt-8" style="line-height:1.6;border-left:3px solid var(--warning);padding-left:10px">
@@ -126,19 +414,28 @@ App.views.cambridge = {
   moSoan(id) {
     const d = this._data;
     const b = id ? (d.bai || []).find(x => x.id === id) : null;
+    const k = (b && b.khung) || {};
+    // Bấm "Sửa" mà không tìm lại được bài (danh sách vừa vẽ lại, dữ liệu chưa
+    // về kịp) thì trước đây hộp thoại mở ra TRẮNG TRƠN như soạn mới — cô gõ
+    // đè rồi bấm Lưu là tạo một bài mới thay vì sửa bài cũ. Dừng và nói rõ.
+    if (id && !b) {
+      UI.toast('Chưa mở được bài này để sửa — cô thử tải lại danh sách nhé', 'error');
+      return;
+    }
     this._anhMoi = null;
+    this._tepMoi = [];
     UI.modal(`
       <div class="field">
         <label>Loại bài</label>
         <select id="cam-loai">
-          ${(d.loai || []).map(l => `<option value="${UI.esc(l.ma)}" ${b && b.loai === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
+          ${(d.loai || []).map(l => `<option value="${UI.esc(l.ma)}" ${(b ? b.loai : this._loai) === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
         <label>Tiêu đề</label>
         <input id="cam-tieude" value="${UI.esc(b ? b.tieuDe : '')}" placeholder="Ví dụ: Tuần này nhóm mình tìm hiểu chủ điểm Animals">
       </div>
-      <div class="field">
+      <div class="field" data-cho="thu-phu-huynh ket-noi${b && b.noiDung ? ' cambridge' : ''}">
         <label>Nội dung</label>
         <textarea id="cam-noidung" rows="6" placeholder="Viết cho gia đình đọc trên điện thoại buổi tối.">${UI.esc(b ? b.noiDung : '')}</textarea>
       </div>
@@ -168,6 +465,55 @@ App.views.cambridge = {
         <label>Gắn vào tuần (không bắt buộc)</label>
         <input type="date" id="cam-tuan" value="${UI.esc(b ? b.tuan : '')}">
       </div>
+
+      <div class="card-title mt-14">Khung Cambridge <span class="muted small" style="font-weight:400">(theo mẫu của trường)</span></div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Block</label>
+          <select id="cam-block">
+            <option value="">— Không gắn block —</option>
+            ${(d.blocks || []).map(bl => `<option value="${UI.esc(bl.id)}" ${k.blockId === bl.id ? 'selected' : ''}>${UI.esc(bl.ten)}${bl.luaTuoi ? ` (${UI.esc(this.tenLua(d, bl.luaTuoi))})` : ''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Tuần trong block</label>
+          <input type="number" id="cam-tuan-so" min="0" max="52" value="${UI.esc(String(k.tuanSo || ''))}" placeholder="Ví dụ: 1">
+        </div>
+      </div>
+      <div class="field">
+        <label>Lứa tuổi</label>
+        <select id="cam-lua">
+          ${(d.luaTuoi || []).map(l => `<option value="${UI.esc(l.ma)}" ${k.luaTuoi === l.ma ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
+        </select>
+        <div class="hint">Bài cho lứa 3–4 chỉ tới gia đình bé 3–4; bài cho mọi lứa tới mọi nhà trong phạm vi (trừ nhóm nhà trẻ).</div>
+      </div>
+      <!-- Ô của bài cũ CÒN CHỮ thì hiện ở mọi loại bài (vòng rà Đ232): gia
+           đình vẫn đọc chữ ấy, nên người sửa phải thấy và sửa được nó. -->
+      <div class="field" data-cho="cambridge ket-noi${k.monHoc ? ' thu-phu-huynh' : ''}"><label>Hoạt động (Cambridge)</label>
+        <input id="cam-mon" value="${UI.esc(k.monHoc || '')}" placeholder="Ví dụ: Communication and Language / Mathematics / Let's Explore"></div>
+      <div class="field" data-cho="cambridge ket-noi${k.chuDe ? ' thu-phu-huynh' : ''}"><label>Chủ đề</label>
+        <input id="cam-chu-de" value="${UI.esc(k.chuDe || '')}" placeholder="Ví dụ: My school"></div>
+      <div class="field" data-cho="cambridge ket-noi${k.tuVung ? ' thu-phu-huynh' : ''}"><label>Từ vựng</label>
+        <textarea id="cam-tu-vung" rows="2" placeholder="Ví dụ: classroom, teacher, friend, book">${UI.esc(k.tuVung || '')}</textarea></div>
+      <div class="field" data-cho="cambridge ket-noi${k.songChant ? ' thu-phu-huynh' : ''}"><label>Song / Chant</label>
+        <textarea id="cam-song" rows="2" placeholder="Ví dụ: If You're Happy and You Know It — kèm đường dẫn nếu có">${UI.esc(k.songChant || '')}</textarea></div>
+      <div class="field" data-cho="${k.ketNoiONha ? 'thu-phu-huynh cambridge ket-noi' : ''}"><label>Kết nối ở nhà</label>
+        <textarea id="cam-ket-noi" rows="3" placeholder="Video, worksheet, việc gia đình làm cùng con tuần này">${UI.esc(k.ketNoiONha || '')}</textarea></div>
+
+      <div class="field">
+        <label>Tệp kèm bài (PDF, Word — tối đa 4)</label>
+        ${(b && (b.tep || []).length) ? `
+          <div id="cam-tep-da-co">
+            ${(b.tep || []).map(t => `
+              <div class="list-row">
+                <div class="row-main"><div class="row-title">${UI.esc(t.tenGoc)}</div>
+                  <div class="row-sub">${t.loai === 'pdf' ? 'PDF' : 'Word'} · ${this.kichCo(t.bytes)}</div></div>
+                <button type="button" class="btn outline sm" data-xoa-tep="${UI.esc(t.id)}">${UI.icon('x', 14)}</button>
+              </div>`).join('')}
+          </div>` : ''}
+        <input type="file" id="cam-tep" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple>
+        <div class="hint" id="cam-tep-nhac">Worksheet, thư gửi gia đình, lời bài hát… Mỗi tệp tối đa 8 MB.</div>
+      </div>
       <div class="field">
         <label>Ảnh (không bắt buộc, tối đa 6)</label>
         <input type="file" id="cam-anh" accept="image/*" multiple>
@@ -190,6 +536,23 @@ App.views.cambridge = {
       <div class="muted small center mt-8">Lưu xong bài vẫn là nháp — gia đình chỉ đọc được sau khi bấm "Gửi tới gia đình".</div>
     `, id ? 'Sửa bài đăng' : 'Soạn bài mới');
 
+    // MỖI LOẠI BÀI MỘT MẪU SOẠN (góp ý 06/10, mục 5).
+    //   Letter for Parent: một ô chữ — không cần ô hoạt động Cambridge.
+    //   Cambridge Weekly Plan: khung Cambridge — không có ô Nội dung.
+    //   Home Connection: ô Nội dung + khung Cambridge.
+    // Ô "Kết nối ở nhà" trùng với chính loại Home Connection nên thôi mời
+    // điền. ẨN CHỨ KHÔNG BỎ khỏi mẫu: `luu()` đọc mọi ô và máy chủ ghi đè cả
+    // khung — bỏ ô là sửa một bài cũ thì chữ đã viết ở ô ấy bị xoá trắng. Ô nào
+    // của bài cũ CÒN CHỮ thì vẫn hiện (data-cho đã tính ở trên), để không có
+    // chữ nào nằm khuất mà cô không thấy.
+    const oLoai = document.getElementById('cam-loai');
+    const theoLoai = () => {
+      for (const o of document.querySelectorAll('#modal-overlay [data-cho]')) {
+        o.style.display = (o.dataset.cho || '').split(' ').includes(oLoai.value) ? '' : 'none';
+      }
+    };
+    oLoai.onchange = theoLoai;
+    theoLoai();
     const oPham = document.getElementById('cam-phamvi');
     const hien = () => {
       document.getElementById('cam-o-coso').style.display = oPham.value === 'coso' ? '' : 'none';
@@ -198,7 +561,57 @@ App.views.cambridge = {
     oPham.onchange = hien;
     hien();
     this.ganChonAnh();
+    this.ganChonTep();
+    for (const x of document.querySelectorAll('[data-xoa-tep]')) {
+      x.onclick = () => this.xoaTep(id, x.dataset.xoaTep, x);
+    }
     document.getElementById('cam-luu').onclick = () => this.luu(id);
+  },
+
+  // Đọc tệp PDF / Word thành data URL — không nén (đây không phải ảnh), chỉ
+  // chặn sớm tệp quá nặng để cô khỏi chờ tải lên rồi mới bị từ chối.
+  TRAN_TEP: 8 * 1024 * 1024,
+  ganChonTep() {
+    const o = document.getElementById('cam-tep');
+    if (!o) return;
+    o.onchange = async () => {
+      const fs = [...(o.files || [])].slice(0, 4);
+      this._tepMoi = [];
+      for (const f of fs) {
+        if (f.size > this.TRAN_TEP) {
+          UI.toast(`"${f.name}" nặng quá — tối đa 8 MB mỗi tệp`, 'error');
+          continue;
+        }
+        if (!/\.(pdf|docx)$/i.test(f.name)) {
+          UI.toast(`Bỏ qua "${f.name}" — chỉ nhận PDF hoặc Word (.docx)`, 'error');
+          continue;
+        }
+        try {
+          const dataUrl = await new Promise((ok, that) => {
+            const r = new FileReader();
+            r.onload = () => ok(r.result);
+            r.onerror = () => that(new Error('Không đọc được tệp'));
+            r.readAsDataURL(f);
+          });
+          this._tepMoi.push({ ten: f.name, dataUrl });
+        } catch (_) { UI.toast(`Không đọc được "${f.name}"`, 'error'); }
+      }
+      const nhac = document.getElementById('cam-tep-nhac');
+      if (nhac) nhac.textContent = this._tepMoi.length
+        ? `Đã chọn ${this._tepMoi.length} tệp: ${this._tepMoi.map(t => t.ten).join(', ')}. Lưu bài là tệp được gửi kèm.`
+        : 'Worksheet, thư gửi gia đình, lời bài hát… Mỗi tệp tối đa 8 MB.';
+    };
+  },
+
+  async xoaTep(baiId, tepId, nut) {
+    if (!baiId) return;
+    if (!confirm('Gỡ tệp này khỏi bài?')) return;
+    try {
+      await API.del(`/api/cambridge/${encodeURIComponent(baiId)}/tep/${encodeURIComponent(tepId)}`);
+      const dong = nut.closest('.list-row');
+      if (dong) dong.remove();
+      UI.toast('Đã gỡ tệp', 'success');
+    } catch (err) { UI.toast(err.message, 'error'); }
   },
 
   async luu(id) {
@@ -210,14 +623,33 @@ App.views.cambridge = {
       phamVi,
       tuan: document.getElementById('cam-tuan').value || '',
       anhCoMatBe: !document.getElementById('cam-khong-co-be').checked,
+      khung: {
+        blockId: (document.getElementById('cam-block') || {}).value || '',
+        tuanSo: Number((document.getElementById('cam-tuan-so') || {}).value) || 0,
+        luaTuoi: (document.getElementById('cam-lua') || {}).value || '',
+        monHoc: (document.getElementById('cam-mon') || {}).value || '',
+        chuDe: (document.getElementById('cam-chu-de') || {}).value || '',
+        tuVung: (document.getElementById('cam-tu-vung') || {}).value || '',
+        songChant: (document.getElementById('cam-song') || {}).value || '',
+        ketNoiONha: (document.getElementById('cam-ket-noi') || {}).value || '',
+      },
     };
     if (phamVi === 'coso') body.campusId = (document.getElementById('cam-coso') || {}).value || '';
     if (phamVi === 'nhom') body.classId = (document.getElementById('cam-nhom') || {}).value || '';
     if (this._anhMoi) body.anh = this._anhMoi;
     if (!body.tieuDe) return UI.toast('Cần một tiêu đề cho bài đăng', 'error');
     try {
+      let baiId = id;
       if (id) await API.put(`/api/cambridge/${encodeURIComponent(id)}`, body);
-      else await API.post('/api/cambridge', body);
+      else baiId = (await API.post('/api/cambridge', body)).id;
+      // Tệp gửi RIÊNG sau khi bài đã có mã, từng tệp một — thân yêu cầu của máy
+      // chủ là 12 MB, hai tệp 8 MB cùng lượt là vỡ.
+      for (const t of (this._tepMoi || [])) {
+        try {
+          await API.post(`/api/cambridge/${encodeURIComponent(baiId)}/tep`, { tep: [t] });
+        } catch (err) { UI.toast(`Tệp "${t.ten}": ${err.message}`, 'error'); }
+      }
+      this._tepMoi = [];
       UI.toast('Đã lưu nháp — gia đình chưa đọc được', 'success');
       UI.closeModal();
       App.route();

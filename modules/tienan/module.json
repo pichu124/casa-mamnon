@@ -1,13 +1,18 @@
 {
   "key": "tienan",
   "name": "Báo ăn & tiền ăn",
-  "desc": "Chốt suất ăn hằng ngày cho bếp, và bảng đối chiếu tiền ăn cuối tháng",
+  "desc": "Chốt suất ăn hằng ngày cho bếp, bảng đối chiếu cuối tháng, và bảng tiền ăn của con cho gia đình",
   "hash": "#/tienan",
   "view": "tienan",
   "emoji": "🍲",
   "bg": "linear-gradient(135deg,#f0a24a,#d97b1f)",
-  "api": ["/api/tienan"],
-  "roles": ["teacher", "admin"],
-  "defaultEnabled": false,
+  "api": [
+    "/api/tienan"
+  ],
+  "roles": [
+    "parent",
+    "admin"
+  ],
+  "defaultEnabled": true,
   "version": "0.1.0"
 }

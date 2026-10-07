@@ -239,6 +239,78 @@ console.log('\n[4] modules/README.md phải DẠY đúng bước đó');
     /danh sách cho phép/i.test(rm) && /CHUC_VU|chức vụ/.test(rm));
   check('quy trình thêm phân hệ nhắc bước viết tệp kiểm thử riêng',
     /test\/<mã>\.test\.mjs/.test(rm));
+  check('README có mục dạy huy hiệu phải hỏi đúng chốt đang gác màn hình',
+    /huyHieu\.dangKy/.test(rm) && /cùng MỘT câu quyết định/.test(rm));
+}
+
+// ===========================================================================
+console.log('\n[5] HUY HIỆU phải hỏi ĐÚNG cái chốt đang gác màn hình');
+{
+  // CÙNG HỌ LỖI VỚI MỤC [2], KHÁC ĐƯỜNG ĐI.
+  //
+  // Mục [2] canh chuyện một phân hệ đọc bảng của phân hệ khác mà quên hỏi công
+  // tắc. Ở đây là một bước bị quên y hệt, nhưng trên tầng chức vụ: hàm đếm huy
+  // hiệu KHÔNG đi qua HTTP nên không được `chanApiNgoaiChucVu` gác giúp, và
+  // người viết rất dễ dừng ở `role === 'admin'`.
+  //
+  // Đã xảy ra thật: Học phí đếm ưu đãi sắp hết hạn cho cả Văn phòng cơ sở —
+  // trong khi bốn đường ưu đãi trả 403 và nút "Ưu đãi" thì ẩn. Con số đỏ nằm
+  // đó, không có màn nào mở ra để xử lý, cũng không có cách nào cho nó về 0.
+  //
+  // Đây KHÔNG phải lỗi rò dữ liệu — con số chỉ là một con số. Nó là lỗi làm
+  // hỏng lòng tin vào huy hiệu: một cái nhãn đỏ bấm không được thì lần sau
+  // người ta thôi nhìn cả những nhãn đỏ có thật.
+  //
+  // LUẬT: phân hệ nào CÓ chốt chức vụ riêng trong routes.js thì hàm đếm huy
+  // hiệu của nó phải hỏi một chốt chức vụ — không phải chỉ `role === 'admin'`.
+  const CHOT_CHUC_VU = /db\.chucVu\(|CHUC_VU_|[A-Za-z]+Duoc\(\s*user\s*\)/;
+
+  // Bỏ dòng chú thích trước khi soi: một câu văn nhắc tên chốt không được tính
+  // là đã gọi chốt. (Chính bộ canh này từng suýt xanh vì lý do đó.)
+  const boChuThich = (src) => src.split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+
+  const thanHuyHieu = (src, ma) => {
+    const i = src.indexOf(`huyHieu.dangKy('${ma}'`);
+    if (i < 0) return null;
+    const het = src.indexOf('\n  });', i);
+    return boChuThich(src.slice(i, het < 0 ? src.length : het));
+  };
+
+  let soPhanHeCoHuyHieu = 0;
+  for (const thuMuc of thuMucPhanHe) {
+    const tep = path.join(GOC, 'modules', thuMuc, 'routes.js');
+    if (!fs.existsSync(tep)) continue;
+    const src = fs.readFileSync(tep, 'utf8');
+    const ma = (() => {
+      try { return JSON.parse(fs.readFileSync(path.join(GOC, 'modules', thuMuc, 'module.json'), 'utf8')).key || thuMuc; }
+      catch (_) { return thuMuc; }
+    })();
+    const than = thanHuyHieu(src, ma);
+    if (than === null) continue;
+    soPhanHeCoHuyHieu++;
+    // Phân hệ không có chốt chức vụ nào thì không có gì để đòi.
+    if (!CHOT_CHUC_VU.test(boChuThich(src))) continue;
+    check(`phân hệ "${ma}": hàm đếm huy hiệu hỏi chốt chức vụ, không dừng ở role admin`,
+      CHOT_CHUC_VU.test(than), than.slice(0, 240));
+  }
+  check('có ít nhất một phân hệ đăng ký huy hiệu để mà canh', soPhanHeCoHuyHieu > 0,
+    soPhanHeCoHuyHieu);
+
+  // PHÉP THỬ NGƯỢC — bộ rút thân hàm có bắt được bản thiếu chốt không.
+  const giaThieu = "huyHieu.dangKy('x', (user) => {\n"
+    + "    if (!user || user.role !== 'admin') return 0;\n"
+    + "    return db.count('x_ban', 'SELECT 1');\n  });";
+  const giaDu = "huyHieu.dangKy('x', (user) => {\n"
+    + "    if (!user || user.role !== 'admin') return 0;\n"
+    + "    if (!docDuoc(user)) return 0;\n"
+    + "    return db.count('x_ban', 'SELECT 1');\n  });";
+  const giaChuThich = "huyHieu.dangKy('x', (user) => {\n"
+    + "    // đáng lẽ phải hỏi db.chucVu(user) ở đây\n"
+    + "    if (!user || user.role !== 'admin') return 0;\n  });";
+  check('bản GIẢ thiếu chốt: bộ canh nhìn ra', !CHOT_CHUC_VU.test(thanHuyHieu(giaThieu, 'x')));
+  check('bản GIẢ đủ chốt: bộ canh cho qua', CHOT_CHUC_VU.test(thanHuyHieu(giaDu, 'x')));
+  check('và một CÂU CHÚ THÍCH nhắc tên chốt thì KHÔNG được tính là đã gọi chốt',
+    !CHOT_CHUC_VU.test(thanHuyHieu(giaChuThich, 'x')));
 }
 
 tongKet();

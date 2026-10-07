@@ -43,6 +43,13 @@ const BANG = {
   conduct: 'routes/conduct.js',
   health: 'routes/health.js',
   remarks: 'routes/remarks.js',
+  // 'messages' thêm ở Đ196 (việc 25). Ở bảng này "thu hồi" nghĩa là BỎ CHỮ chứ
+  // không phải bỏ dòng (xem `messageDto` trong routes/messages.js), nhưng luật
+  // của bài canh này KHÔNG đổi một ly: một tệp khác đọc ké bảng rồi in `text`
+  // ra là lời nhắn đã thu hồi sống lại ở một màn khác — đúng hình dạng mà bài
+  // này sinh ra để chặn. Bắt được ngay một chỗ: huy hiệu Nhắn tin ở
+  // routes/dashboard.js đang đếm cả tin đã thu hồi.
+  messages: 'routes/messages.js',
 };
 
 // BỎ DÒNG CHÚ THÍCH TRƯỚC KHI DÒ — và vì sao ở ĐÂY thì bỏ được.
@@ -62,6 +69,26 @@ const BANG = {
 // một chú thích nhắc tới mẫu đó thì vẫn phải bị bắt.
 function boChuThich(ma) {
   return ma.split('\n').map(d => (/^\s*(\/\/|\*|\/\*)/.test(d) ? '' : d)).join('\n');
+}
+
+// KHOANH TRỌN CÂU SQL quanh chỗ khớp — dùng cho CẢ phép quét thật [1] lẫn phép
+// thử ngược [2], để phép thử ngược thử đúng cái đang chạy chứ không thử một
+// bản chép tay.
+//
+// Nhận cả ba loại nháy (` ' "): câu viết bằng nháy đơn/kép mà chỉ dò backtick
+// thì khung trượt sang đoạn mã bên cạnh. NHƯNG đang ở TRONG một template
+// literal (số backtick phía trước lẻ) thì khung phải là chính backtick đó —
+// một câu `SELECT 'x' AS a FROM remarks …` có nháy đơn ngay trước FROM, lấy
+// nháy đơn làm mép là khung bị cắt cụt và câu quên lọc được miễn oan.
+function khungCau(ma, index) {
+  const truocKhop = ma.slice(0, index);
+  const soBacktick = (truocKhop.match(/`/g) || []).length;
+  const dau = soBacktick % 2 === 1
+    ? truocKhop.lastIndexOf('`')
+    : Math.max(0, truocKhop.lastIndexOf('`'), truocKhop.lastIndexOf("'"), truocKhop.lastIndexOf('"'));
+  const nhay = dau > 0 || ma[dau] === '`' ? ma[dau] : '`';
+  const cuoi = ma.indexOf(nhay, index);
+  return ma.slice(dau, cuoi > 0 ? cuoi + 1 : index + 400);
 }
 
 // Vùng quét: mọi tệp máy chủ có thể đọc bảng.
@@ -111,10 +138,7 @@ console.log('\n[1] Mọi câu ĐỌC bảng thu hồi được, ngoài tệp g�
       const re = new RegExp(`FROM\\s+${bang}\\b`, 'g');
       let m;
       while ((m = re.exec(ma))) {
-        // Lấy trọn câu SQL quanh chỗ khớp: lùi về đầu chuỗi mẫu, tiến tới cuối.
-        const dau = Math.max(0, ma.lastIndexOf('`', m.index));
-        const cuoi = ma.indexOf('`', m.index);
-        const cau = ma.slice(dau, cuoi > 0 ? cuoi + 1 : m.index + 400);
+        const cau = khungCau(ma, m.index);
         soCauDaSoi++;
 
         // Ba trường hợp KHÔNG cần lọc, và cả ba đều có lý do đọc được:
@@ -151,9 +175,7 @@ console.log('\n[2] PHÉP THỬ NGƯỢC — bộ canh này có bắt được th
       const re = new RegExp(`FROM\\s+${bang}\\b`, 'g');
       let m;
       while ((m = re.exec(ma))) {
-        const dau = Math.max(0, ma.lastIndexOf('`', m.index));
-        const cuoi = ma.indexOf('`', m.index);
-        const cau = ma.slice(dau, cuoi > 0 ? cuoi + 1 : m.index + 400);
+        const cau = khungCau(ma, m.index);   // ĐÚNG hàm khoanh đang dùng ở [1]
         if (/WHERE\s+id\s*=\s*\?/.test(cau) || /dieuKienConHien|conHien/.test(cau)) continue;
         ra.push(cau);
       }
@@ -175,6 +197,12 @@ console.log('\n[2] PHÉP THỬ NGƯỢC — bộ canh này có bắt được th
     doTrong('db.all(`SELECT * FROM notification_reads WHERE userId = ?`)').length === 0);
   check('KHÔNG bắt nhầm một dòng CHÚ THÍCH nhắc tới mẫu đó',
     doTrong('// câu `SELECT * FROM remarks` ở đây đọc ra cả dòng đã gỡ').length === 0);
+  check('BẮT ĐƯỢC câu trong backtick có NHÁY ĐƠN ngay trước FROM mà quên lọc',
+    doTrong("db.all(`SELECT 'nhan-xet' AS loai, * FROM remarks WHERE studentId = ?`, [x])").length === 1);
+  check('và KHÔNG bắt nhầm câu như thế khi nó đã lọc',
+    doTrong("db.all(`SELECT 'nhan-xet' AS loai, * FROM remarks WHERE studentId = ? AND ${conHien}`, [x])").length === 0);
+  check('câu viết bằng nháy đơn (không backtick) vẫn khoanh đúng',
+    doTrong("db.all('SELECT * FROM conduct WHERE studentId = ?', [x])").length === 1);
   check('NHƯNG VẪN BẮT ĐƯỢC câu quên lọc nằm ngay sau chú thích ấy',
     doTrong('// câu `SELECT * FROM remarks` ở đây đọc ra cả dòng đã gỡ\n'
       + 'db.all(`SELECT * FROM remarks WHERE studentId = ?`, [x])').length === 1);

@@ -127,6 +127,19 @@ export function batPhanHe(dir, cacKhoa) {
   `, cacKhoa);
 }
 
+// TẮT một phân hệ — bản đối xứng của `batPhanHe`.
+//
+// Từ Đ146 cả chín phân hệ mầm non `defaultEnabled: true`, nên bài nào muốn thử
+// cảnh "phân hệ đang tắt" KHÔNG mượn được giá trị mặc định nữa mà phải tự dựng
+// lấy trạng thái đó. Không có hàm này thì mỗi bài tự viết một câu SQL, và câu
+// nào viết sai thì bài xanh vì phân hệ vẫn bật chứ không vì mã đúng.
+export function tatPhanHe(dir, cacKhoa) {
+  chayTrenCsdl(dir, `
+    const tat = db.prepare('INSERT OR REPLACE INTO module_settings (moduleKey, enabled, updatedAt) VALUES (?, 0, ?)');
+    for (const k of process.argv.slice(2)) tat.run(k, new Date().toISOString());
+  `, cacKhoa);
+}
+
 // Khoá một tài khoản vào một cơ sở (biến quản trị Cấp 1 thành Cấp 3).
 //
 // Nhận TÊN ĐĂNG NHẬP chứ không nhận mã: `taoQuanTri` sinh mã ngẫu nhiên, còn

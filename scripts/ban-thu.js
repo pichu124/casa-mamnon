@@ -25,6 +25,7 @@
 //
 // AN TOÀN: bàn thử luôn nằm NGOÀI kho mã, và tệp này KHÔNG BAO GIỜ đụng tới
 // `DATA_DIR` mà người dùng đang đặt cho máy chủ thật.
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -113,7 +114,7 @@ console.log('\n[2/4] Bật các phân hệ mầm non…');
 //
 // `tatCa()` trả về `[...CORE, ...MO_RONG]`, mà `MO_RONG` chỉ được đổ đầy khi
 // `napMoRong()` chạy — `server.js` gọi nó lúc khởi động. Không gọi ở đây thì
-// tám phân hệ mầm non KHÔNG có mặt trong danh sách, vòng lặp bên dưới không
+// mười phân hệ cắm thêm KHÔNG có mặt trong danh sách, vòng lặp bên dưới không
 // bật gì cả, và bàn thử im lặng dựng ra đúng cái app mà nó sinh ra để tránh.
 modules.napMoRong();
 
@@ -149,7 +150,7 @@ if (tat.length) {
 // dựng, vì buổi thử sẽ đo nhầm một app khác.
 if (!canBat.length) {
   console.error('\n⛔ Không tìm thấy phân hệ cắm thêm nào trong modules/.');
-  console.error('   Bàn thử phải có đủ tám phân hệ mầm non thì cô mới nhìn thấy đúng app.');
+  console.error('   Bàn thử phải có đủ mười phân hệ cắm thêm thì cô mới nhìn thấy đúng app.');
   process.exit(1);
 }
 const conTat = canBat.filter(m => !tt[m.key]);
@@ -166,11 +167,23 @@ if (conTat.length) {
 // phải mở cửa trên lý thuyết.
 const CHU = 'abcdefghjkmnpqrstuvwxyz';
 const SO = '23456789';
-const boc = (s) => s[Math.floor(Math.random() * s.length)];
+// `crypto.randomInt`, KHÔNG phải `Math.random` (Đ212). Mật khẩu sinh ở đây mở
+// được tài khoản cô và phụ huynh của buổi thử, và chính chú thích ngay trên
+// đã viết rằng buổi thử chạy qua một đường hầm công khai — tức cửa thật, không
+// phải cửa trên lý thuyết. Một mật khẩu đoán trước được ở đó là một cửa mở
+// thật. Cùng lý do đã ghi ở `routes/admin.js` và `routes/accounts.js`.
+//
+// HÀM TỰ CHỨA, GIỐNG KHUÔN CỦA BA BỘ SINH KIA. Bản trước để phép chọn ký tự ở
+// một trợ giúp `boc()` bên ngoài thân hàm; mã vẫn đúng, nhưng bài canh
+// `test:mat-khau-ngau-nhien` soi ĐÍCH THÂN thân hàm — và nó soi như vậy là cố
+// ý, vì `crypto.randomInt` nằm đâu đó trong cùng tệp KHÔNG chứng minh được
+// rằng chính hàm sinh mật khẩu dùng nó. Viết gọn vào trong thì bốn bộ sinh của
+// cả kho cùng một khuôn, và bài canh không phải chừa ngoại lệ cho ai.
 function sinhMatKhau() {
+  const pick = (s) => s[crypto.randomInt(s.length)];
   let mk = '';
-  for (let i = 0; i < 6; i++) mk += boc(CHU);
-  for (let i = 0; i < 4; i++) mk += boc(SO);
+  for (let i = 0; i < 6; i++) mk += pick(CHU);
+  for (let i = 0; i < 4; i++) mk += pick(SO);
   return mk;
 }
 

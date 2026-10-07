@@ -860,6 +860,10 @@ body:has(.chat-screen) #toast-zone { bottom: 96px; }
 .att-cal .cal-cell:hover { transform: scale(1.07); border-color: var(--primary-300); }
 .att-cal .cal-cell.dim { opacity: .3; background: transparent; border-color: transparent; }
 .att-cal .cal-cell .dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; }
+/* Đ126: một ngày có thể có hai chấm — trạng thái sáng và "có ghi sổ trả bé" chiều */
+.att-cal .cal-cell .dots { display: flex; gap: 3px; margin-top: 4px; }
+.att-cal .cal-cell .dots .dot { margin-top: 0; }
+.dot.tra { background: #2f9e7e; }
 
 /* ===== Đăng nhập ===== */
 .login-wrap {
@@ -1019,4 +1023,163 @@ body:has(.chat-screen) #toast-zone { bottom: 96px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ==========================================================================
+   Đ124 — Trang chủ cho cô và văn phòng: "hôm nay ở nhóm", cây cơ sở → nhóm,
+   và bộ co giao diện cho hai vai này (dữ liệu dày hơn, ô và chữ nhỏ hơn).
+   Gia đình (không có data-vai="teacher"/"admin") không đổi một pixel.
+   ========================================================================== */
+
+/* Chỗ trống dưới hero: trống thì giấu, lưới biểu tượng vẫn đè lên hero như cũ */
+.hero + #hom-nay { position: relative; z-index: 2; margin-top: -58px; }
+#hom-nay:empty { display: none; }
+#hom-nay:empty + .tile-sheet { margin-top: -58px; }
+#hom-nay + .tile-sheet { margin-top: 0; }
+
+.hn-sheet {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-md);
+  padding: 16px 14px 12px;
+  margin-bottom: 14px;
+}
+.hn-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.hn-title { font-weight: 750; font-size: .98rem; letter-spacing: -.015em; }
+.hn-sub { color: var(--muted); font-size: .76rem; margin-top: 1px; }
+.hn-head .seg { margin: 0 0 0 auto; padding: 3px; }
+.hn-head .seg button { padding: 6px 10px; font-size: .78rem; }
+.hn-nhom {
+  margin-left: auto; flex: none;
+  font-size: .78rem; font-weight: 700; color: var(--primary);
+  background: var(--primary-tint); padding: 4px 10px; border-radius: var(--r-full);
+}
+
+/* Dãy số đếm việc */
+.dem-hang { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.dem-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: var(--r-full);
+  background: var(--bg-2); border: 1px solid var(--line);
+  font-size: .74rem; font-weight: 650; color: var(--text-2); white-space: nowrap;
+}
+.dem-pill i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* Lưới bé của nhóm: 20–25 bé nhìn một lượt trên điện thoại */
+.be-luoi { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px 4px; }
+.be-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 4px 2px; border-radius: var(--r-sm);
+  transition: transform .16s var(--ease), background .16s;
+}
+.be-chip:hover { background: var(--bg-2); }
+.be-chip:active { transform: scale(.94); }
+.be-chip-avatar { position: relative; }
+.be-dot {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+.be-chip-ten {
+  font-size: .68rem; font-weight: 650; line-height: 1.15;
+  text-align: center; color: var(--text-2); max-width: 72px;
+}
+.be-chip-dau { font-size: .62rem; line-height: 1; min-height: .7em; letter-spacing: 1px; }
+.hn-chu-thich { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0 2px; font-size: .68rem; color: var(--muted); }
+.hn-chu-thich i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+/* Nút việc hằng ngày */
+.hn-viec { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+.viec-nut {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 9px 11px; border-radius: var(--r-sm); text-align: left;
+  background: var(--bg-2); border: 1px solid var(--line);
+  transition: transform .16s var(--ease), border-color .16s;
+}
+.viec-nut:active { transform: scale(.97); }
+.viec-nut b { font-size: .82rem; }
+.viec-nut span { font-size: .72rem; color: var(--muted); }
+.viec-nut.con { border-color: var(--primary-300); background: var(--primary-tint); }
+.viec-nut.con span { color: var(--primary-600); }
+.hn-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; font-size: .8rem; font-weight: 650; }
+
+/* Cây cơ sở → nhóm của văn phòng */
+.tq-luoi { display: grid; gap: 10px; }
+.tq-coso {
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 10px 10px 4px; background: var(--surface-2);
+}
+.tq-coso-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.tq-coso-head b { font-size: .9rem; }
+.tq-coso-head span { margin-left: auto; font-size: .74rem; color: var(--muted); white-space: nowrap; }
+.tq-nhom {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 8px 4px; border-top: 1px solid var(--line); text-align: left;
+  border-radius: var(--r-xs);
+  transition: background .16s;
+}
+.tq-nhom:first-of-type { border-top: none; }
+.tq-nhom:not([disabled]):hover { background: var(--bg-2); }
+.tq-nhom[disabled] { cursor: default; }
+.tq-nhom-ten { flex: 1; min-width: 0; }
+.tq-nhom-ten b { display: block; font-size: .88rem; }
+.tq-nhom-ten small { display: block; color: var(--muted); font-size: .72rem; }
+.tq-nhom-dem { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; max-width: 62%; }
+
+@media (min-width: 700px) {
+  .tq-luoi { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+  .be-luoi { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+  .hn-sheet { padding: 20px 20px 14px; }
+}
+
+/* ---- Giao diện co lại cho cô và văn phòng ---- */
+body[data-vai="teacher"] .hero,
+body[data-vai="admin"] .hero { padding-top: calc(12px + env(safe-area-inset-top)); padding-bottom: 68px; margin-bottom: 16px; }
+body[data-vai="teacher"] .hero-top,
+body[data-vai="admin"] .hero-top { margin-bottom: 12px; }
+body[data-vai="teacher"] .hero-greet .avatar,
+body[data-vai="admin"] .hero-greet .avatar { width: 42px !important; height: 42px !important; font-size: 22px !important; }
+body[data-vai="teacher"] .hero-greet-text b,
+body[data-vai="admin"] .hero-greet-text b { font-size: 1.05rem; }
+body[data-vai="teacher"] .tile-sheet,
+body[data-vai="admin"] .tile-sheet { padding: 14px 10px 6px; }
+body[data-vai="teacher"] .tile-grid,
+body[data-vai="admin"] .tile-grid { gap: 12px 4px; }
+body[data-vai="teacher"] .tile .tile-icon,
+body[data-vai="admin"] .tile .tile-icon { width: 48px; height: 48px; border-radius: 15px; }
+body[data-vai="teacher"] .tile .tile-icon svg,
+body[data-vai="admin"] .tile .tile-icon svg { width: 24px; height: 24px; }
+body[data-vai="teacher"] .tile .tile-icon span,
+body[data-vai="admin"] .tile .tile-icon span { font-size: 22px !important; }
+body[data-vai="teacher"] .tile .tile-label,
+body[data-vai="admin"] .tile .tile-label { font-size: .7rem; min-height: 2.3em; }
+body[data-vai="teacher"] .tile .tile-badge,
+body[data-vai="admin"] .tile .tile-badge { margin-right: -32px; }
+body[data-vai="teacher"] .card,
+body[data-vai="admin"] .card { padding: 14px; margin-bottom: 12px; }
+body[data-vai="teacher"] .list-row,
+body[data-vai="admin"] .list-row { padding: 9px 4px; gap: 10px; }
+body[data-vai="teacher"] .list-row .avatar,
+body[data-vai="admin"] .list-row .avatar { width: 36px !important; height: 36px !important; font-size: 19px !important; }
+body[data-vai="teacher"] .row-icon,
+body[data-vai="admin"] .row-icon { width: 38px; height: 38px; border-radius: 12px; font-size: 18px; }
+body[data-vai="teacher"] .stat-box,
+body[data-vai="admin"] .stat-box { padding: 10px 8px; }
+body[data-vai="teacher"] .stat-box .stat-num,
+body[data-vai="admin"] .stat-box .stat-num { font-size: 1.3rem; }
+body[data-vai="teacher"] .page-head h1,
+body[data-vai="admin"] .page-head h1 { font-size: 1.08rem; }
+body[data-vai="teacher"] .field,
+body[data-vai="admin"] .field { margin-bottom: 11px; }
+body[data-vai="teacher"] .field input, body[data-vai="teacher"] .field select, body[data-vai="teacher"] .field textarea,
+body[data-vai="admin"] .field input, body[data-vai="admin"] .field select, body[data-vai="admin"] .field textarea { padding: 10px 12px; }
+body[data-vai="teacher"] .section-label,
+body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
+
+@media (min-width: 1024px) {
+  body[data-vai="teacher"] #view,
+  body[data-vai="admin"] #view { max-width: 1180px; }
+  body[data-vai="teacher"] .tile-grid,
+  body[data-vai="admin"] .tile-grid { grid-template-columns: repeat(8, 1fr); }
 }

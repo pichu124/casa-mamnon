@@ -60,26 +60,222 @@ App.views.admin = {
     root.innerHTML = `
       ${UI.pageHeader('Quản trị nhà trường')}
       <div class="seg">
-        ${[['tongquan', 'Tổng quan'], ['coso', 'Cơ sở'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['tinhnang', 'Tính năng'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
+        ${[['tongquan', 'Tổng quan'], ['motngay', 'Một ngày'], ['coso', 'Cơ sở'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['quantam', 'Quan tâm'], ['tinhnang', 'Tính năng'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
           .map(([k, t]) => `<button class="${this._tab === k ? 'active' : ''}" onclick="App.views.admin.go('${k}')">${t}</button>`).join('')}
       </div>
       <div id="admin-body"><div class="loading">Đang tải</div></div>`;
 
     const body = document.getElementById('admin-body');
     try {
-      if (this._tab === 'coso') return this.tabCoSo(body);
-      if (this._tab === 'nhaplieu') return this.tabNhapLieu(body);
-      if (this._tab === 'giaovien') return this.tabGiaoVien(body);
-      if (this._tab === 'tinhnang') return this.tabTinhNang(body);
-      if (this._tab === 'namhoc') return this.tabNamHoc(body);
-      if (this._tab === 'nhatky') return this.tabNhatKy(body);
-      return this.tabTongQuan(body);
+      // PHẢI await: các tab đều là hàm async, `return this.tabCoSo(body)` là
+      // trả promise ra ngoài mà không chờ — lỗi của tab không bao giờ rơi vào
+      // catch này, mà rơi về App.route() và bị vẽ đè "Có lỗi xảy ra" lên CẢ
+      // trang, mất luôn dải tab để bấm sang tab khác còn chạy được.
+      if (this._tab === 'motngay') return await this.tabMotNgay(body);
+      if (this._tab === 'coso') return await this.tabCoSo(body);
+      if (this._tab === 'nhaplieu') return await this.tabNhapLieu(body);
+      if (this._tab === 'giaovien') return await this.tabGiaoVien(body);
+      if (this._tab === 'quantam') return await this.tabQuanTam(body);
+      if (this._tab === 'tinhnang') return await this.tabTinhNang(body);
+      if (this._tab === 'namhoc') return await this.tabNamHoc(body);
+      if (this._tab === 'nhatky') return await this.tabNhatKy(body);
+      return await this.tabTongQuan(body);
     } catch (err) {
       body.innerHTML = UI.emptyState('😥', err.message);
     }
   },
 
   go(tab) { this._tab = tab; App.route(); },
+
+  // ---------- Một ngày của cả trường (Đ162) ----------
+  //
+  // Nhà trường xin một màn cho hiệu trưởng: hôm nay ba cơ sở thế nào. Màn Tổng
+  // quan trả lời câu "trường có bao nhiêu bé, bao nhiêu cô" — đúng cho việc
+  // quản trị, nhưng không trả lời được câu hỏi mỗi sáng.
+  //
+  // KHÔNG MỘT PHẦN TRĂM NÀO, KHÔNG SO CƠ SỞ NÀO HƠN CƠ SỞ NÀO. Mọi ô ở đây là
+  // số đếm đầu người trong một ngày; bảng cơ sở xếp theo TÊN, vì xếp theo con
+  // số là biến màn này thành bảng đua nhau giữa ba cơ sở, mà đằng sau mỗi con
+  // số ấy là trẻ con đi học hay ở nhà (QUY TẮC 4).
+  _ngayXem: null,
+
+  async tabMotNgay(body) {
+    if (!this._ngayXem) this._ngayXem = UI.todayStr();
+    body.innerHTML = `
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Xem ngày</label>
+          <input type="date" id="ad-mn-ngay" value="${UI.esc(this._ngayXem)}" max="${UI.esc(UI.todayStr())}">
+          ${UI.dongNgayViet(this._ngayXem)}
+        </div>
+      </div>
+      <div id="ad-mn-than"><div class="loading">Đang tải</div></div>`;
+    document.getElementById('ad-mn-ngay').onchange = (e) => {
+      this._ngayXem = e.target.value;
+      this.render(document.getElementById('view'), ['motngay']);
+    };
+    await this.veMotNgay();
+  },
+
+  async veMotNgay() {
+    const o = document.getElementById('ad-mn-than');
+    if (!o) return;
+    let d = null;
+    try {
+      d = await API.get(`/api/admin/mot-ngay?ngay=${encodeURIComponent(this._ngayXem)}`);
+    } catch (e) {
+      o.innerHTML = UI.emptyState('📋', e.message || 'Chưa mở được màn này');
+      return;
+    }
+    // `null` nghĩa là phân hệ đang tắt — KHÔNG vẽ số 0, vì 0 đọc thành "đếm
+    // được, và bằng không". Vẽ một dấu gạch và nói vì sao.
+    const so = (v) => (v === null || v === undefined ? '—' : String(v));
+    const b = d.be || {};
+    o.innerHTML = `
+      ${d.truongNghi ? `
+        <div class="card" style="border-left:4px solid var(--warning)">
+          <div class="card-title">🏫 Hôm nay trường nghỉ: ${UI.esc(d.truongNghi.ten)}</div>
+          <div class="muted small">Sĩ số dưới đây đọc theo nghĩa ngày nghỉ, không phải ngày học bình thường.</div>
+        </div>` : ''}
+
+      <div class="stat-row">
+        <div class="stat-box"><div class="stat-num">${UI.esc(so(b.dangHoc))}</div><div class="stat-label">Bé đang học</div></div>
+        <div class="stat-box"><div class="stat-num">${UI.esc(so(b.coMat))}</div><div class="stat-label">Có mặt</div></div>
+        <div class="stat-box"><div class="stat-num">${UI.esc(so(b.daRaVe))}</div><div class="stat-label">Đã ra về</div></div>
+        <div class="stat-box"><div class="stat-num">${UI.esc(so(b.chuaCham))}</div><div class="stat-label">Chưa chấm</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Nghỉ hôm nay</div>
+        ${b.nghiCoPhep === null ? `<div class="muted small">
+          Phân hệ <b>Điểm danh</b> đang tắt nên hôm nay không có sổ để đếm.
+        </div>` : `
+          ${this.dongSoNgay('Nghỉ có phép', b.nghiCoPhep)}
+          ${this.dongSoNgay('Nghỉ không phép', b.nghiKhongPhep)}
+          ${this.dongSoNgay('Chưa có dòng điểm danh', b.chuaCham)}
+          <div class="muted small mt-8" style="line-height:1.7">
+            "Chưa chấm" là việc của người lớn chưa xong — cô chưa kịp chấm hoặc gia đình
+            chưa kịp báo — chứ không nói gì về bé.
+          </div>`}
+      </div>
+
+      <div class="card">
+        <div class="card-title">Cô đi làm hôm nay</div>
+        ${d.co ? `
+          ${this.dongSoNgay('Tổng số cô trong phạm vi', d.co.tong)}
+          ${this.dongSoNgay('Đã chấm đi làm', d.co.diLam)}
+          ${this.dongSoNgay('Đã chấm nghỉ', d.co.nghi)}
+          ${this.dongSoNgay('Chưa chấm công', d.co.chuaCham)}` : `
+          <div class="muted small">
+            Phân hệ <b>Nhân sự &amp; chấm công</b> đang tắt, nên chưa có sổ chấm công để đếm.
+          </div>`}
+      </div>
+
+      ${d.hocPhi ? `
+        <div class="card">
+          <div class="card-title">Học phí</div>
+          ${this.dongSoNgay('Khoản đã nộp', d.hocPhi.daNop)}
+          ${this.dongSoNgay('Khoản chưa nộp', d.hocPhi.chuaNop)}
+          <div class="muted small mt-8">Đếm số KHOẢN THU, không phải số nhà. Chi tiết từng nhà ở màn Học phí.</div>
+        </div>` : ''}
+
+      ${(d.theoCoSo || []).length ? `
+        <div class="card">
+          <div class="card-title">Theo cơ sở</div>
+          ${d.theoCoSo.map(cs => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(cs.ten)}</div>
+                <div class="row-sub">${UI.esc(String(cs.dangHoc))} bé đang học · ${
+    UI.esc(String(cs.coMat))} có mặt · ${UI.esc(String(cs.daRaVe))} đã ra về${
+    cs.chuaCham ? ` · ${UI.esc(String(cs.chuaCham))} chưa chấm` : ''}</div>
+              </div>
+            </div>`).join('')}
+          <div class="muted small mt-8">Xếp theo tên cơ sở. Đây không phải bảng so cơ sở nào hơn cơ sở nào.</div>
+        </div>` : ''}`;
+  },
+
+  dongSoNgay(nhan, giaTri) {
+    return `<div class="list-row">
+      <div class="row-main"><div class="row-title">${UI.esc(nhan)}</div></div>
+      <div class="row-end"><b>${UI.esc(giaTri === null || giaTri === undefined ? '—' : String(giaTri))}</b></div>
+    </div>`;
+  },
+
+  // ---------- Gia đình quan tâm điều gì (Đ149) ----------
+  //
+  // Nhà trường 10/09: *"mình chỉ muốn xem PH khi vào app quan tâm những gì"*.
+  //
+  // MÀN NÀY PHẢI TỰ NÓI RA GIỚI HẠN CỦA CHÍNH NÓ, ở ngay trên bảng số chứ không
+  // giấu dưới chân trang. Người đọc một danh sách sắp theo con số sẽ mặc định
+  // coi nó là "số gia đình quan tâm", rồi mang con số ấy đi họp — trong khi nó
+  // là số LƯỢT MỞ, và app cố ý không biết có bao nhiêu NHÀ đằng sau mỗi lượt.
+  //
+  // KHÔNG TỈ LỆ, KHÔNG THANH BIỂU ĐỒ — đây là một quyết định, có chủ ý.
+  //
+  // Bộ canh QUY TẮC 4 chặn mọi tỉ lệ được tính rồi in thẳng ra màn hình trong
+  // kho mã này, kể cả khi con số ấy nói về màn hình chứ không nói về đứa trẻ
+  // nào. Bản đầu của đợt này có tỉ lệ và thanh biểu đồ; bộ canh báo đỏ, và bộ
+  // canh đúng — xin một ngoại lệ cho tiện là mở sẵn cửa cho lần sau, mà lần sau
+  // thì rất có thể đúng là một con số về một đứa trẻ. Con số thô kèm khoảng
+  // ngày đã trả lời đủ câu nhà trường hỏi.
+  //
+  // (Chú thích này cũng từng làm hai bộ canh báo đỏ vì chính LỜI VĂN của nó —
+  // một lần vì viết thẳng khuôn mẫu mà QUY TẮC 4 dò, một lần vì dùng một từ mà
+  // QUY TẮC 2 xếp vào nhóm chữ chê. Cả hai lần bộ canh đều đúng theo đúng việc
+  // nó được giao: nó dò TỆP, không dò ý định của người viết.)
+  _quanTamNgay: 30,
+
+  async tabQuanTam(body) {
+    const den = UI.todayStr();
+    const tu = (() => {
+      const d = UI.parseDate(den);
+      d.setDate(d.getDate() - (this._quanTamNgay - 1));
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })();
+    const d = await API.get(`/api/admin/quan-tam?tu=${encodeURIComponent(tu)}&den=${encodeURIComponent(den)}`);
+    const ds = d.muc || [];
+    body.innerHTML = `
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>Khoảng thời gian</label>
+          <select onchange="App.views.admin.doiKhoangQuanTam(this.value)">
+            ${[[7, '7 ngày gần nhất'], [30, '30 ngày gần nhất'], [90, '90 ngày gần nhất']]
+              .map(([n, t]) => `<option value="${n}"${this._quanTamNgay === n ? ' selected' : ''}>${UI.esc(t)}</option>`).join('')}
+          </select>
+          <div class="hint">${UI.esc(UI.fmtDate(d.tuNgay, { weekday: false }))} – ${UI.esc(UI.fmtDate(d.denNgay, { weekday: false }))}</div>
+        </div>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--primary)">
+        <div class="card-title">${UI.icon('info', 18)} Bảng này đếm gì, và cố ý không đếm gì</div>
+        <div class="muted small" style="line-height:1.7">
+          Đây là <b>số lượt mở</b> từng mục của <b>các gia đình</b>, gộp chung cả trường —
+          không phải số gia đình, và không phải nhà nào mở gì.
+          App <b>không lưu</b> việc một gia đình đã mở mục nào: bảng số này không có
+          chỗ nào ghi tên người, nên không tra ngược ra được, kể cả với tài khoản
+          ban giám hiệu. Mỗi nhà được tính <b>một lượt cho mỗi mục mỗi ngày</b>.
+        </div>
+      </div>
+
+      ${ds.length ? `<div class="card">
+        <div class="card-title">Mục gia đình mở nhiều nhất<span class="spacer"></span>
+          <span class="muted small">${UI.esc(String(d.tongLuot))} lượt</span></div>
+        ${ds.map(x => `
+          <div class="list-row">
+            <div class="row-main"><div class="row-title">${UI.esc(x.ten)}</div></div>
+            <div class="row-end">${UI.esc(String(x.soLuot))} lượt</div>
+          </div>`).join('')}
+      </div>` : UI.emptyState('📊', 'Chưa có lượt mở nào trong khoảng này. '
+        + 'Con số bắt đầu được đếm từ lúc gia đình mở app trên bản mới.')}`;
+  },
+
+  doiKhoangQuanTam(v) {
+    const n = Number(v);
+    if (![7, 30, 90].includes(n)) return;
+    this._quanTamNgay = n;
+    App.route();
+  },
 
   // ---------- Tổng quan ----------
   async tabTongQuan(body) {
@@ -129,19 +325,204 @@ App.views.admin = {
         <div class="card-title">Danh sách nhóm lớp<span class="spacer"></span>
           <button class="btn sm primary" onclick="App.views.admin.themLop()">+ Thêm nhóm</button>
         </div>
-        ${d.classes.length ? d.classes.map(c => `
-          <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
-            <div class="row-main">
-              <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có cô phụ trách', 'red')}`}</div>
-              <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công cô')} · ${c.studentCount} bé${
-              c.campusId ? ' · ' + UI.esc((d.campuses.find(x => x.id === c.campusId) || {}).name || '') : ''}${c.room ? ' · ' + UI.esc(c.room) : ''}</div>
-            </div>
-            <div class="row-end" style="display:flex;gap:8px">
-              <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
-              <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem</button>
-            </div>
-          </div>`).join('') : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
+        ${d.classes.length
+    ? this.nhomTheoCoSo(d).map(cs => `
+          ${cs.tieuDe ? `<div class="row-title mt-8" style="color:var(--muted)">${UI.esc(cs.ten)}</div>` : ''}
+          ${cs.nhom.map(c => `
+            <div class="list-row"${c.teacherId ? '' : ' style="background:var(--danger-tint)"'}>
+              <div class="row-main">
+                <div class="row-title">${UI.esc(c.name)}${c.teacherId ? '' : ` ${UI.badge('Chưa có cô phụ trách', 'red')}`}</div>
+                <div class="row-sub">${UI.esc(c.teacherNames || 'chưa phân công cô')} · ${c.studentCount} bé${
+    c.room ? ' · ' + UI.esc(c.room) : ''}</div>
+              </div>
+              <div class="row-end" style="display:flex;gap:8px">
+                <button class="btn sm outline" onclick="App.views.admin.suaLop('${UI.esc(c.id)}')">Sửa</button>
+                <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem</button>
+              </div>
+            </div>`).join('')}`).join('')
+    : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
+      </div>
+
+      <div id="ad-ho-so"></div>
+      <div id="ad-day"></div>`;
+
+    this.veHoSoChuaDu();
+    this.veThongBaoDay();
+  },
+
+  // GOM DANH SÁCH NHÓM LỚP THEO CƠ SỞ (Đ167 — ý (4) mảng Hồ sơ bé).
+  //
+  // Nhà trường xin bố cục duyệt theo Cơ sở → Lớp → Bé. Đo lại thì CÂY ẤY ĐÃ CÓ
+  // từ Đ124, ở trang chủ của văn phòng, đi tới tận hồ sơ từng bé; màn Hồ sơ bé
+  // cũng đã có ô chọn gom theo "Cơ sở › Nhóm". Thứ còn phẳng chỉ là thẻ này:
+  // tên cơ sở đứng lẫn trong dòng phụ, cùng hàng với tên cô và số phòng, nên
+  // hiệu trưởng trường ba cơ sở phải đọc từng dòng mới biết nhóm nào ở đâu.
+  //
+  // Nên đây là GOM TIÊU ĐỀ, không dựng cây thứ hai. Dựng cây thứ hai là hai
+  // chỗ cùng làm một việc, và chúng sẽ trôi khỏi nhau ở lần sửa thứ hai.
+  //
+  // MỘT CƠ SỞ THÌ KHÔNG HIỆN TIÊU ĐỀ NÀO. Trường chưa khai cơ sở, hoặc quản lý
+  // Cấp 3 chỉ nhìn được cơ sở mình, thì một dòng tiêu đề lặp lại trên mỗi nhóm
+  // là chữ thừa. Cũng vì vậy màn này KHÔNG lộ thêm quy mô cơ sở khác: nó chỉ
+  // xếp lại đúng những nhóm máy chủ đã gửi, không hỏi thêm gì.
+  //
+  // Xếp theo TÊN cơ sở rồi tên nhóm — không xếp theo sĩ số, cùng luật QUY TẮC 4
+  // mà Đ162 đã chốt cho bảng chia theo cơ sở.
+  nhomTheoCoSo(d) {
+    const ten = new Map((d.campuses || []).map(c => [c.id, c.name]));
+    const gom = new Map();
+    for (const c of d.classes) {
+      const k = c.campusId || '';
+      if (!gom.has(k)) gom.set(k, { id: k, ten: ten.get(k) || 'Chưa xếp cơ sở', nhom: [] });
+      gom.get(k).nhom.push(c);
+    }
+    const ds = [...gom.values()].sort((a, b) => String(a.ten).localeCompare(String(b.ten), 'vi'));
+    for (const cs of ds) cs.nhom.sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
+    const nhieuCoSo = ds.length > 1;
+    return ds.map(cs => ({ ...cs, tieuDe: nhieuCoSo }));
+  },
+
+  // ---- Hồ sơ bé còn thiếu giấy tờ người lớn (Đ161) ----
+  //
+  // Nhà trường nói **bắt buộc** mỗi bé có đủ bố, mẹ và một người liên hệ khẩn
+  // cấp ngoài bố mẹ. Máy KHÔNG chặn đường ghi nào — chặn ở đường nhập danh
+  // sách đầu năm là cả lượt nhập trượt, chặn ở đường sửa là văn phòng thôi sửa
+  // hồ sơ. Cái trường cần là **biết hồ sơ nào còn thiếu gì để đi đòi cho đủ**,
+  // và đó là thứ thẻ này làm.
+  //
+  // CHỮ Ở ĐÂY NÓI VỀ GIẤY TỜ NGƯỜI LỚN CHƯA NỘP, KHÔNG NÓI VỀ ĐỨA TRẺ. Tên bé
+  // xuất hiện để văn phòng biết gọi nhà nào, chứ không phải để chấm một dòng
+  // đỏ lên đứa trẻ ấy (QUY TẮC 2).
+  async veHoSoChuaDu() {
+    const o = document.getElementById('ad-ho-so');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/admin/ho-so-chua-du'); } catch (_) { return; }
+    if (!d.soChuaDu) {
+      o.innerHTML = `
+        <div class="card" style="border-left:4px solid var(--success)">
+          <div class="card-title" style="color:var(--success)">
+            ${UI.icon('check', 16)} Hồ sơ liên hệ đã đủ cả trường
+          </div>
+          <div class="muted small" style="line-height:1.7">
+            ${UI.esc(String(d.soBe))} bé đang học, hồ sơ nào cũng có đủ hai phụ huynh
+            và một người liên hệ khẩn cấp ngoài bố mẹ.
+          </div>
+        </div>`;
+      return;
+    }
+    o.innerHTML = `
+      <div class="card" style="border-left:4px solid var(--warning)">
+        <div class="card-title">📋 Hồ sơ liên hệ còn thiếu: ${UI.esc(String(d.soChuaDu))} bé</div>
+        <div class="muted small" style="line-height:1.7">
+          Nhà trường cần mỗi bé có đủ <b>hai phụ huynh</b> và <b>một người liên hệ khẩn
+          cấp ngoài bố mẹ</b> — có lúc gọi bố không được, gọi mẹ cũng không được.
+          Danh sách dưới đây là chỗ còn phải đi đòi giấy; app không chặn việc gì cả.
+        </div>
+        <details class="mt-8"><summary class="small">Xem danh sách</summary>
+          ${d.danhSach.slice(0, 100).map(x => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.hoTen)}</div>
+                <div class="row-sub">${UI.esc(x.tenNhom || 'chưa xếp nhóm')}${
+    x.maBe ? ` · ${UI.esc(x.maBe)}` : ''} — còn thiếu ${UI.esc(x.thieuChu.join(' và '))}</div>
+              </div>
+            </div>`).join('')}
+          ${d.danhSach.length > 100 ? `<div class="muted small mt-8">…và ${
+  UI.esc(String(d.danhSach.length - 100))} bé nữa.</div>` : ''}
+        </details>
       </div>`;
+  },
+
+  // ---------- Thông báo đẩy của cả trường (Đ157) ----------
+  //
+  // VÌ SAO THẺ NÀY NẰM Ở ĐÂY
+  //
+  // Bảng `push_dang_ky` trước đợt này không có màn nào để xem hay dọn: nó chỉ
+  // tự xoá khi dịch vụ đẩy của Google/Apple trả về 404/410. Nghĩa là nhà
+  // trường không có cách nào biết ai đang bật thông báo, hay gỡ máy của một
+  // người vừa nghỉ việc. Và khoá VAPID thì sinh một lần rồi nằm mãi — lộ ra
+  // ngoài cũng không đổi được.
+  //
+  // VẼ RIÊNG SAU KHI TAB ĐÃ HIỆN, KHÔNG CHỜ. Tài khoản chức vụ Cấp 2 gọi
+  // đường này sẽ nhận 403; chờ nó thì cả tab Tổng quan chậm theo, mà thứ ở
+  // đây là phần phụ. Hỏng thì thẻ không hiện, phần còn lại y nguyên.
+  async veThongBaoDay() {
+    const o = document.getElementById('ad-day');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/push/quan-tri'); } catch (_) { return; }
+    const ds = (d && d.danhSach) || [];
+    const theoVai = (v) => ds.filter(x => x.vai === v).length;
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">🔔 Thông báo trên điện thoại</div>
+        ${d.coGoiDay ? '' : `<div class="muted small" style="border-left:3px solid var(--warning);padding-left:10px">
+          Máy chủ của trường <b>chưa cài phần gửi thông báo đẩy</b>. Chuông trong app vẫn
+          hoạt động bình thường; chỉ là điện thoại không tự kêu khi app đang đóng.
+        </div>`}
+        <div class="muted small mt-8" style="line-height:1.7">
+          Đang có <b>${UI.esc(String(ds.length))} máy</b> bật thông báo:
+          ${UI.esc(String(theoVai('parent')))} máy của gia đình,
+          ${UI.esc(String(theoVai('teacher')))} của cô,
+          ${UI.esc(String(theoVai('admin')))} của nhà trường.
+        </div>
+        ${ds.length ? `<details class="mt-8"><summary class="small">Xem từng máy</summary>
+          ${ds.slice(0, 100).map(x => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.hoTen)}</div>
+                <div class="row-sub">${UI.esc(x.dichVu || 'không rõ dịch vụ')}${
+    x.taoLuc ? ` · bật từ ${UI.esc(String(x.taoLuc).slice(0, 10))}` : ''}${
+    x.loiCuoi ? ` · lần gửi cuối lỗi: ${UI.esc(x.loiCuoi)}` : ''}</div>
+              </div>
+              <button class="btn sm outline" data-go-may="${UI.esc(x.userId)}">Gỡ</button>
+            </div>`).join('')}
+          ${ds.length > 100 ? `<div class="muted small mt-8">…và ${UI.esc(String(ds.length - 100))} máy nữa.</div>` : ''}
+        </details>` : ''}
+        <div class="muted small mt-8" style="border-left:3px solid var(--warning);padding-left:10px;line-height:1.7">
+          <b>Đổi khoá thông báo</b> chỉ làm khi khoá bị lộ — ví dụ bản sao lưu bị chép ra ngoài.
+          Đổi xong thì <b>mọi máy đang bật đều phải bật lại từ đầu</b>, kể cả điện thoại của
+          gia đình, và không có cách nào báo cho họ biết ngoài việc nhắn tay.
+          <div class="mt-8">
+            <button class="btn sm outline" id="ad-day-doi-khoa">Đổi khoá thông báo</button>
+          </div>
+        </div>
+      </div>`;
+
+    // TÊN NGƯỜI KHÔNG BAO GIỜ ĐI VÀO THAM SỐ CHUỖI CỦA `onclick`.
+    //
+    // `UI.esc` che được dấu ngoặc nhọn của HTML, nhưng KHÔNG che dấu nháy đơn
+    // — một cái tên có dấu nháy là thoát ra khỏi chuỗi JavaScript và chạy được
+    // mã trong đó. Bài canh `lo-hong-da-va` bắt đúng chỗ này, và nó bắt được
+    // ngay lần đầu tôi viết thẻ này. Nên: mã tài khoản đi qua `data-`, tên thì
+    // tra lại từ danh sách vừa vẽ.
+    const nho = new Map(ds.map(x => [x.userId, x.hoTen]));
+    for (const nut of o.querySelectorAll('[data-go-may]')) {
+      nut.onclick = () => this.goMayDay(nut.dataset.goMay, nho.get(nut.dataset.goMay) || '');
+    }
+    const nutKhoa = document.getElementById('ad-day-doi-khoa');
+    if (nutKhoa) nutKhoa.onclick = () => this.doiKhoaDay();
+  },
+
+  async goMayDay(userId, hoTen) {
+    if (!confirm(`Gỡ mọi máy đang bật thông báo của ${hoTen}?\n\nHọ vẫn dùng app bình thường, chỉ là điện thoại thôi tự kêu.`)) return;
+    try {
+      const r = await API.post('/api/push/quan-tri/go', { userId });
+      UI.toast(`Đã gỡ ${r.daXoa} máy`, 'success');
+      this.veThongBaoDay();
+    } catch (e) { UI.toast(e.message || 'Chưa gỡ được', 'error'); }
+  },
+
+  async doiKhoaDay() {
+    const g = prompt('Đổi khoá là MỌI máy đang bật thông báo phải bật lại từ đầu, '
+      + 'kể cả điện thoại của gia đình.\n\nGõ đúng chữ  DOI KHOA  để xác nhận:');
+    if (g === null) return;
+    try {
+      const r = await API.post('/api/push/doi-khoa', { xacNhan: String(g).trim() });
+      UI.toast(`Đã đổi khoá. ${r.soMayPhaiDangKyLai} máy cần bật lại thông báo.`, 'success');
+      this.veThongBaoDay();
+    } catch (e) { UI.toast(e.message || 'Chưa đổi được khoá', 'error'); }
   },
 
   // Tải danh sách bé về máy dưới dạng tệp Excel mở được.
@@ -215,6 +596,10 @@ App.views.admin = {
             </div>
           </div>`).join('') : '<div class="muted small">Chưa có cơ sở nào.</div>'}
       </div>
+
+      <div id="ad-lien-he"></div>
+
+      <div id="ad-nhan-danh-gia"></div>
 
       ${(this._chucVu || []).length ? `
       <div class="card">
@@ -291,6 +676,116 @@ App.views.admin = {
               </div>
             </div>`).join('')}
         </div>` : ''}`;
+    this.veLienHeTruong();
+    this.veNhanDanhGia();
+  },
+
+  // ---- Thông tin liên hệ của trường (Đ161) ----
+  //
+  // Vẽ RIÊNG sau khi tab đã hiện, không chờ: Cấp 3 gọi đường này vẫn đọc được
+  // (để biết email kế toán là gì) nhưng không sửa được, và một thẻ phụ không
+  // được phép làm chậm cả tab.
+  async veLienHeTruong() {
+    const o = document.getElementById('ad-lien-he');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/admin/lien-he'); } catch (_) { return; }
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">✉️ Email kế toán (gia đình hỏi học phí)</div>
+        <div class="muted small" style="line-height:1.7">
+          Địa chỉ này hiện trong <b>Hồ sơ của bé</b> ở màn hình gia đình, ngay dưới
+          hotline văn phòng — để nhà nào hỏi chuyện học phí thì gửi thẳng đúng người.
+          Một địa chỉ cho cả trường; để trống thì màn hình gia đình bỏ hẳn dòng đó.
+        </div>
+        ${d.suaDuoc ? `
+          <div class="flex mt-8" style="gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="email" id="ad-lh-ketoan" value="${UI.esc(d.emailKeToan || '')}"
+                   placeholder="ketoan@truong.edu.vn" style="flex:1;min-width:200px">
+            <button class="btn sm outline" id="ad-lh-luu">Lưu</button>
+          </div>` : `
+          <div class="mt-8">${d.emailKeToan
+    ? UI.esc(d.emailKeToan)
+    : '<span class="muted">Chưa nhập.</span>'}
+            <div class="muted small mt-8">Sửa mục này cần tài khoản quản trị toàn hệ thống.</div>
+          </div>`}
+      </div>`;
+    const nut = document.getElementById('ad-lh-luu');
+    if (nut) nut.onclick = () => this.luuLienHeTruong();
+  },
+
+  // ---- BỘ CHỮ ĐÁNH GIÁ (Đ185, Câu 6) ----
+  //
+  // Nhà trường xin quyền tự sửa năm chữ này "cho hợp lý theo thời gian". Màn
+  // này chỉ để cô khỏi gõ nhầm — chốt thật nằm ở máy chủ, vì màn hình thì ai
+  // cũng vòng qua được.
+  //
+  // NÓI RÕ HAI ĐIỀU NGAY TRÊN MÀN, vì cả hai đều là câu người sửa sẽ hỏi:
+  // đổi chữ KHÔNG làm đổi ngược bản báo cáo đã gửi gia đình tháng trước (mọi
+  // bản ghi giữ MÃ, không giữ chữ), và bộ chữ dùng chung cho cả ba cơ sở.
+  async veNhanDanhGia() {
+    const o = document.getElementById('ad-nhan-danh-gia');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/admin/nhan-danh-gia'); } catch (_) { return; }
+    const ds = d.nhan || [];
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">🗂️ Chữ đánh giá dùng trong Kế hoạch của bé và Hành trình</div>
+        <div class="muted small" style="line-height:1.7">
+          Đây là các chữ cô chọn khi nhìn lại cuối tháng. Trường sửa được cho hợp
+          với cách nói của mình — ví dụ <b>Hoàn thành</b>, <b>Đang thực hiện</b>,
+          <b>Chưa học tới</b>.
+          <div class="mt-8">
+            Đổi chữ ở đây <b>không làm đổi</b> bản báo cáo đã gửi gia đình tháng trước:
+            máy lưu lại lựa chọn của cô chứ không lưu chữ, nên chỉ chữ hiện ra từ nay
+            là đổi. Bộ chữ này <b>dùng chung cho cả ba cơ sở</b>.
+          </div>
+          <div class="mt-8">
+            Phần mềm của trường mình không xếp các bé trên dưới nhau, nên những chữ
+            mang nghĩa phân bậc hay mang con số sẽ không lưu được.
+          </div>
+        </div>
+        ${ds.map(n => `
+          <div class="field mt-8">
+            <label>${UI.esc(n.macDinh)}${n.daSua ? ' <span class="muted">(đã sửa)</span>' : ''}</label>
+            ${d.suaDuoc
+    ? `<input id="ad-ndg-${UI.esc(n.ma)}" value="${UI.esc(n.nhan)}" maxlength="${UI.esc(String(d.toiDa || 40))}">`
+    : `<div>${UI.esc(n.nhan)}</div>`}
+          </div>`).join('')}
+        ${d.suaDuoc
+    ? '<button class="btn sm outline mt-8" id="ad-ndg-luu">Lưu bộ chữ</button>'
+    : '<div class="muted small mt-8">Sửa mục này cần tài khoản quản trị toàn hệ thống, vì bộ chữ dùng chung cả ba cơ sở.</div>'}
+      </div>`;
+    const nut = document.getElementById('ad-ndg-luu');
+    if (nut) nut.onclick = () => this.luuNhanDanhGia(ds.map(n => n.ma));
+  },
+
+  async luuNhanDanhGia(maList) {
+    const nhan = {};
+    for (const ma of maList || []) {
+      const o = document.getElementById(`ad-ndg-${ma}`);
+      if (o) nhan[ma] = o.value.trim();
+    }
+    try {
+      await API.put('/api/admin/nhan-danh-gia', { nhan });
+      UI.toast('Đã lưu bộ chữ đánh giá', 'success');
+      this.veNhanDanhGia();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa lưu được', 'error');
+    }
+  },
+
+  async luuLienHeTruong() {
+    const o = document.getElementById('ad-lh-ketoan');
+    if (!o) return;
+    try {
+      await API.put('/api/admin/lien-he', { emailKeToan: o.value.trim() });
+      UI.toast('Đã lưu email kế toán', 'success');
+      this.veLienHeTruong();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa lưu được', 'error');
+    }
   },
 
   themCoSo() {
@@ -376,7 +871,10 @@ App.views.admin = {
       await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/campus`, { campusId });
       UI.toast(campusId ? 'Đã gắn nhóm vào cơ sở' : 'Đã gỡ nhóm khỏi cơ sở', 'success');
       App.route();
-    } catch (err) { UI.toast(err.message, 'error'); }
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      App.route();   // vẽ lại để ô chọn quay về đúng cơ sở thật, không đứng ở lựa chọn bị từ chối
+    }
   },
 
   async themLop() {
@@ -451,10 +949,37 @@ App.views.admin = {
       : [{ id: c.teacherId, title: '', name: c.teacherName || '(giáo viên đã ngừng hoạt động)' }, ...teachers];
     // Các cô đang phụ trách nhóm này, để tích sẵn ô của họ.
     const dangPhuTrach = new Set((c.teachers || []).map(t => t.id));
+    // Vai của từng cô ở CHÍNH nhóm này (Đ188, Câu 11). Cô chưa khai thì là chủ
+    // nhiệm — đúng cách máy chủ hiểu khi không có dòng nào.
+    const vaiHienCo = Object.fromEntries((c.teachers || []).map(t => [t.id, t.nhomCo || 'chu-nhiem']));
+    const VAI = [
+      ['chu-nhiem', 'Cô phụ trách nhóm (Montessori)'],
+      ['nuoc-ngoai', 'Cô nước ngoài (Cambridge)'],
+      ['the-chat', 'Cô thể chất (P.E)'],
+    ];
 
     UI.modal(`
       <div class="field"><label>Tên nhóm</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
       <div class="field"><label>Phòng học</label><input id="ad-sl-phong" value="${UI.esc(c.room || '')}" placeholder="Ví dụ: Phòng 203"></div>
+      <div class="field"><label>Lứa tuổi của nhóm</label>
+        <select id="ad-sl-lua">
+          <option value="" ${!c.luaTuoi ? 'selected' : ''}>— Chưa khai (tính theo ngày sinh từng bé) —</option>
+          <option value="nha-tre" ${c.luaTuoi === 'nha-tre' ? 'selected' : ''}>Nhà trẻ (12–36 tháng)</option>
+          <option value="mau-giao" ${c.luaTuoi === 'mau-giao' ? 'selected' : ''}>Mẫu giáo (3–6 tuổi)</option>
+        </select>
+        <div class="muted small mt-8" style="line-height:1.6">
+          Khai <b>Nhà trẻ</b> thì cô của nhóm thấy ô <b>thay bỉm</b> và <b>bú bình</b> cho
+          <b>mọi bé trong nhóm</b>, kể cả bé vừa qua 36 tháng — hỏi theo ngày sinh thì ô ấy
+          biến mất giữa năm học, ngay lúc cô đang dùng.
+          <div class="mt-8">
+            Khai <b>Mẫu giáo</b> thì mục <b>Nhật ký của bé</b> không hiện ở màn gia đình nữa.
+            Dữ liệu đã ghi <b>vẫn còn nguyên</b> — khai lại là hiện lại.
+          </div>
+          <div class="mt-8">
+            Để <b>Chưa khai</b> thì app chạy y như trước: tính theo ngày sinh của từng bé.
+          </div>
+        </div>
+      </div>
       ${this.oChonBac('ad-sl-khoi', this.bacCuaNhom(c.name, c.grade))}
       <div class="field"><label>Cô phụ trách</label>
         <select id="ad-sl-gv">
@@ -466,16 +991,28 @@ App.views.admin = {
       <div class="field"><label>Các cô cùng phụ trách nhóm này</label>
         <div id="ad-sl-cac-co" class="card" style="max-height:220px;overflow:auto;padding:8px">
           ${ds.map(t => `
-            <label class="list-row" style="cursor:pointer;padding:6px 4px">
-              <input type="checkbox" class="ad-sl-co" value="${UI.esc(t.id)}" ${dangPhuTrach.has(t.id) ? 'checked' : ''}>
-              <div class="row-main"><div class="row-title">${UI.esc(`${t.title} ${t.name}`.trim())}</div></div>
-            </label>`).join('')}
+            <div class="list-row" style="padding:6px 4px;align-items:center;gap:8px">
+              <label style="cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+                <input type="checkbox" class="ad-sl-co" value="${UI.esc(t.id)}" ${dangPhuTrach.has(t.id) ? 'checked' : ''}>
+                <span class="row-title" style="overflow:hidden;text-overflow:ellipsis">${UI.esc(`${t.title} ${t.name}`.trim())}</span>
+              </label>
+              <select class="ad-sl-vai" data-co="${UI.esc(t.id)}" style="max-width:190px">
+                ${VAI.map(([ma, ten]) => `<option value="${UI.esc(ma)}" ${(vaiHienCo[t.id] || 'chu-nhiem') === ma ? 'selected' : ''}>${UI.esc(ten)}</option>`).join('')}
+              </select>
+            </div>`).join('')}
         </div>
         <div class="muted small mt-8">
           Nhóm mầm non thường có 2–3 cô cùng phụ trách. Cô được tích ở đây sẽ xem
           được hồ sơ các bé của nhóm; cô chọn ở ô trên là cô phụ trách chính.
           Một cô có thể phụ trách nhiều nhóm — tích thêm ở nhóm khác KHÔNG gỡ cô
           khỏi nhóm này.
+          <div class="mt-8">
+            Ô bên phải là <b>chương trình cô phụ trách ở nhóm này</b>, khác với
+            cô phụ trách chính ở ô trên. Gia đình nhắn tin được với
+            <b>cô phụ trách nhóm</b> và <b>cô nước ngoài</b>; cô thể chất vẫn lên kế
+            hoạch và đánh giá nhưng <b>không nhận tin nhắn của gia đình</b>.
+            Một cô có thể phụ trách nhóm này và dạy tiếng Anh ở nhóm khác.
+          </div>
         </div>
       </div>
       <button class="btn primary block" id="ad-sl-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
@@ -509,9 +1046,29 @@ App.views.admin = {
         });
         // Ghi danh sách cô ở bước riêng: đường trên là đường CŨ "một cô một lớp",
         // gửi `teacherId` qua đó sẽ gỡ cô khỏi các nhóm khác của cô.
+        // Chỉ gửi vai của những cô ĐANG được tích: gửi cả cô không tích thì
+        // máy chủ từ chối cả lượt, vì vai chỉ khai được cho cô có trong nhóm.
+        const nhom = {};
+        for (const o of document.querySelectorAll('.ad-sl-vai')) {
+          const id = o.getAttribute('data-co');
+          if (teacherIds.includes(id)) nhom[id] = o.value;
+        }
         await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/teachers`, {
-          teacherIds, chinhId,
+          teacherIds, chinhId, nhom,
         });
+        // Lứa tuổi đi bằng đường RIÊNG, không ghép vào đường trên: đường trên
+        // là đường phân công cô, và trộn hai việc vào một lượt ghi là hỏng một
+        // việc thì hỏng cả hai.
+        //
+        // CHỈ GỌI KHI NGƯỜI DÙNG THẬT SỰ ĐỔI Ô ẤY. Mỗi lượt gọi là một dòng
+        // trong Nhật ký hoạt động, và cửa sổ này còn dùng để sửa tên nhóm hay
+        // đổi phòng học — gọi mỗi lần lưu là sổ đầy dòng "Gỡ lời khai lứa
+        // tuổi" của những lần không ai đụng tới lứa tuổi, tức sổ mất tác dụng
+        // đúng lúc cần tra.
+        const oLua = document.getElementById('ad-sl-lua');
+        if (oLua && oLua.value !== (c.luaTuoi || '')) {
+          await API.put(`/api/admin/classes/${encodeURIComponent(classId)}/lua-tuoi`, { lua: oLua.value });
+        }
         UI.toast('Đã lưu thay đổi', 'success');
         UI.closeModal();
         App.route();
@@ -559,11 +1116,151 @@ App.views.admin = {
       ${daNghi.map(s => dong(s, true)).join('')}` : '';
 
     UI.modal(
-      dangHoc.length || daNghi.length
+      `${dangHoc.length || daNghi.length
         ? `<div class="muted small mb-8">${dangHoc.length} bé đang học</div>
            ${dangHoc.map(s => dong(s, false)).join('')}${phanDaNghi}`
-        : UI.emptyState('🎒', 'Nhóm chưa có bé nào'),
+        : UI.emptyState('🎒', 'Nhóm chưa có bé nào')}
+       <button class="btn primary block mt-8" id="ad-them-be">+ Nhận một bé vào nhóm này</button>`,
       tenLop);
+
+    const nut = document.getElementById('ad-them-be');
+    if (nut) nut.onclick = () => this.moNhanBe(classId, tenLop);
+  },
+
+  // ---------- Nhận MỘT bé nhập học giữa năm (Đ170) ----------
+  //
+  // Trước đợt này cách duy nhất để tạo hồ sơ một bé là nhập tệp CSV — mở Excel,
+  // gõ đúng tên cột, lưu đúng bảng mã, tải lên, để tạo đúng một dòng. Bé nhập
+  // học giữa tháng 10 thì văn phòng sẽ nhờ người khác hoặc để đó, và bé đi học
+  // mấy hôm rồi mới có trong app.
+  //
+  // Máy chủ dùng lại NGUYÊN bộ soát và nguyên thân nhận bé của đường nhập tệp,
+  // nên mọi câu báo lỗi ở đây là đúng câu văn phòng đã quen đọc.
+  moNhanBe(classId, tenLop) {
+    UI.modal(`
+      <div class="muted small mb-8">Nhận vào nhóm <b>${UI.esc(tenLop)}</b></div>
+      <div class="field"><label>Họ và tên của bé</label><input id="nb-ten" placeholder="Nguyễn Văn An"></div>
+      <div class="field"><label>Ngày sinh</label><input id="nb-ns" type="date"></div>
+      <div class="field"><label>Giới tính</label>
+        <select id="nb-gt"><option value="">—</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
+      <div class="field"><label>Mã của bé</label>
+        <input id="nb-ma" placeholder="Để trống nếu trường không dùng mã"></div>
+      <div class="field"><label>Họ tên phụ huynh</label><input id="nb-ph" placeholder="Nguyễn Thị Bình"></div>
+      <div class="field"><label>Điện thoại phụ huynh</label><input id="nb-sdt" placeholder="09xxxxxxxx">
+        <div class="muted small mt-8">Nhà đã có con học ở trường thì dùng lại đúng số này —
+          máy nối bé mới vào đúng tài khoản cũ, gia đình không phải nhớ hai mật khẩu.</div></div>
+      <div class="field"><label>Địa chỉ</label><input id="nb-dc"></div>
+      <button class="btn primary block" id="nb-luu">Nhận bé vào nhóm</button>
+    `, 'Nhận một bé vào trường');
+
+    // CHỤP BIỂU MẪU MỘT LẦN, LÚC BẤM — ĐỪNG ĐỌC LẠI Ô NHẬP Ở LƯỢT GỬI THỨ HAI.
+    //
+    // Lượt gửi lại sau khi cô bấm "Vẫn nhận bé này?" chạy trên một màn hình có
+    // thể đã đổi: `UI.modal()` gọi `closeModal()` ở dòng đầu, nên chỉ cần một
+    // lượt mở phiếu chen vào là các ô `nb-*` đã rời khỏi trang. Đọc một ô không
+    // còn nữa thì `.value` nổ, và màn hình của văn phòng hiện nguyên một câu
+    // tiếng Anh của máy — thứ CLAUDE.md cấm để lọt ra màn hình.
+    let banChup = null;
+    const chupBieuMau = () => ({
+      hoTen: document.getElementById('nb-ten').value,
+      // GỬI MÃ NHÓM, không chỉ gửi tên. Ba cơ sở đặt trùng tên nhóm là chuyện
+      // thường ("Chồi 2" ở cả ba cơ sở), và khi ấy máy chủ tra theo tên sẽ
+      // không đoán được — nó từ chối, đúng như thiết kế của đường nhập tệp.
+      // Nhưng ở đây màn hình ĐANG ĐỨNG TRONG nhóm ấy và biết chắc mã của nó,
+      // nên vứt mã đi rồi bắt máy chủ đoán lại là tự gây ra một lượt từ chối.
+      classId,
+      tenLop,
+      ngaySinh: document.getElementById('nb-ns').value,
+      gioiTinh: document.getElementById('nb-gt').value,
+      ma: document.getElementById('nb-ma').value,
+      phHoTen: document.getElementById('nb-ph').value,
+      phSdt: document.getElementById('nb-sdt').value,
+      diaChi: document.getElementById('nb-dc').value,
+    });
+
+    const gui = async (xacNhanTrung) => {
+      const than = { ...banChup, xacNhanTrung };
+      const d = await API.post('/api/admin/students', than);
+      UI.closeModal();
+      // PHIẾU TÀI KHOẢN HIỆN MỘT LẦN, y như đường nhập tệp. Tạo hồ sơ bé mà gia
+      // đình không vào được app thì mới xong một nửa việc — và mật khẩu này
+      // không xem lại được, nên phải nói rõ điều đó ngay trên phiếu.
+      // TÊN VÀ SỐ CỦA NHÀ ĐƯỢC NỐI VÀO PHẢI HIỆN RA TRÊN PHIẾU.
+      //
+      // Máy gộp phụ huynh theo số điện thoại, nên gõ nhầm một chữ số là nối bé
+      // vào tài khoản của nhà NGƯỜI KHÁC — nhà ấy mở app lên là thấy ảnh, ghi
+      // chép hằng ngày và hồ sơ sức khoẻ của một đứa trẻ không phải con mình.
+      // Phiếu bản đầu chỉ in tên đăng nhập và mật khẩu, tức giấu đi đúng thứ
+      // duy nhất lộ ra sự nhầm ấy ngay tại bàn tiếp đón.
+      const tk = d.taiKhoan;
+      UI.modal(`
+        <div class="card"><div class="card-title">Đã nhận ${UI.esc(d.name)} vào nhóm ${UI.esc(tenLop)}</div></div>
+        ${tk ? `
+          <div class="card">
+            <div class="card-title">Tài khoản của gia đình</div>
+            ${this.dongSoNgay('Phụ huynh', tk.phuHuynh || '—')}
+            ${tk.phuHuynhSdt ? this.dongSoNgay('Điện thoại', tk.phuHuynhSdt) : ''}
+            ${this.dongSoNgay('Tên đăng nhập', tk.username)}
+            ${tk.daCoTaiKhoan
+    ? `<div class="muted small mt-8">Nhà này <b>đã có tài khoản</b> ở trường từ trước, nên
+                 không có mật khẩu mới. Bé vừa nhận được nối thẳng vào tài khoản đó —
+                 xin đối chiếu tên và số điện thoại ở trên với gia đình trước khi rời bàn.</div>`
+    : `${this.dongSoNgay('Mật khẩu', tk.matKhau)}
+               <div class="muted small mt-8">Mật khẩu chỉ hiện đúng lần này. Xin chép ra giấy
+                 đưa gia đình; lần đăng nhập đầu app sẽ bắt đổi mật khẩu.</div>`}
+          </div>` : ''}
+        <button class="btn primary block mt-8" id="nb-xong">Xong</button>
+      `, 'Đã nhận bé');
+      // KHÔNG vẽ lại danh sách nhóm khi phiếu đang mở. `UI.modal()` gọi
+      // `closeModal()` ngay dòng đầu, nên một lượt vẽ lại là ĐÓNG MẤT phiếu —
+      // và mật khẩu ấy không xem lại được, tức gia đình không đăng nhập được
+      // nữa. Chờ cô bấm Xong rồi mới làm mới.
+      const xong = document.getElementById('nb-xong');
+      if (xong) xong.onclick = async () => { UI.closeModal(); await this.lamMoiLop(); };
+    };
+
+    const nutNhan = document.getElementById('nb-luu');
+    const chuNhan = nutNhan.textContent;
+    nutNhan.onclick = async () => {
+      // KHOÁ NGAY TỪ CÚ BẤM ĐẦU.
+      //
+      // 4G ở phòng tiếp đón chậm; nút không nhúc nhích thì bấm lần hai là phản
+      // xạ bình thường. Và lượt thứ hai chắc chắn gặp 409 do chính bé vừa tạo
+      // ở lượt một, tức dẫn thẳng vào câu hỏi lại trên một biểu mẫu có thể đã
+      // đóng. Khoá nút bịt cả hai chuyện đó bằng một dòng.
+      if (nutNhan.disabled) return;
+      nutNhan.disabled = true;
+      nutNhan.textContent = 'Đang nhận…';
+      const moLaiNut = () => { nutNhan.disabled = false; nutNhan.textContent = chuNhan; };
+      banChup = chupBieuMau();
+      try {
+        await gui(false);
+      } catch (err) {
+        // 409 = "có vẻ bé này đã có" — cảnh báo, không phải lỗi. Hỏi lại một câu
+        // rồi cho nhận, y như đường nhập tệp cho phép "nhập cả dòng trùng".
+        //
+        // BẮT THEO MÃ LỖI, KHÔNG BẮT THEO CHỮ. Bản đầu dò chuỗi "đã có", mà câu
+        // 400 của mã bé trùng — *mã của bé "A1" đã có trong hệ thống* — cũng
+        // mang đúng chữ ấy. Người dùng bấm Đồng ý, máy gửi lại y nguyên, máy chủ
+        // từ chối y nguyên: một cái vòng không có lối ra, và câu hỏi thì gợi ý
+        // rằng bấm Đồng ý sẽ xong việc. `err.status` do `API` gắn thêm; câu chữ
+        // giữ lại làm lưới đỡ cho máy còn giữ bản `api.js` đời cũ trong bộ nhớ.
+        const hoiLaiDuoc = err.status === 409 || /^Có vẻ bé này/.test(err.message || '');
+        if (hoiLaiDuoc && confirm(`${err.message}
+
+Vẫn nhận bé này?`)) {
+          try {
+            await gui(true);
+          } catch (e2) { UI.toast(e2.message, 'error'); moLaiNut(); }
+        } else {
+          UI.toast(err.message, 'error');
+          // MỞ LẠI NÚT KHI KHÔNG NHẬN ĐƯỢC — gõ thiếu một ô rồi điền nốt thì
+          // phải bấm được lần nữa. Khoá vĩnh viễn là bắt cô đóng hộp thoại và
+          // gõ lại từ đầu, tức biến một lỗi nhỏ thành mất trắng phần đã gõ.
+          moLaiNut();
+        }
+      }
+    };
   },
 
   // UI.modal đóng modal đang mở trước khi mở cái mới, nên sau khi sửa xong phải
@@ -946,29 +1643,58 @@ App.views.admin = {
   },
 
   // Danh sách tài khoản vừa tạo — nhà trường in ra phát cho phụ huynh.
+  //
+  // Ô MẬT KHẨU CHỈ ĐƯỢC CHỨA MẬT KHẨU. Đ173 đã vá điều này ở phiếu MỘT bé,
+  // nhưng phiếu của đường nhập tệp — đường dùng nhiều hơn hẳn, mấy trăm nhà
+  // mỗi đầu năm — vẫn in chuỗi "(đã có tài khoản từ trước)" vào đúng cột Mật
+  // khẩu, ngay dưới dòng bảo chép ra giấy phát cho phụ huynh, và chép nguyên
+  // chuỗi ấy vào tệp CSV đem đi in. Gia đình gõ nó làm mật khẩu, sai liên tục,
+  // và `routes/auth.js` bắt đầu trả lời chậm dần tới 8 giây — văn phòng tin là
+  // đã cấp xong tài khoản, gia đình tin là app hỏng.
+  //
+  // Mọi nhà có con lớn đang học đều rơi vào nhánh gộp này, nên đây không phải
+  // trường hợp hiếm mà là trường hợp thường.
+  //
+  // Kèm luôn cột ĐIỆN THOẠI, cùng lý do đã ghi ở phiếu một bé: máy gộp phụ
+  // huynh theo số điện thoại, nên một số gõ nhầm trong tệp CSV nối bé vào tài
+  // khoản nhà người khác — và phiếu là chỗ duy nhất chuyện đó lộ ra kịp.
   hienPhieu(r) {
     const rows = r.taiKhoan;
+    const daCo = rows.filter(t => t.daCoTaiKhoan);
     UI.modal(`
       <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} bé đã có sẵn trong hệ thống)` : ''}.</p>
       <p class="muted small">Danh sách tài khoản dưới đây <b>chỉ hiện một lần</b>. Hãy tải về và in
       phát cho phụ huynh. Mật khẩu sẽ được yêu cầu đổi khi đăng nhập lần đầu.</p>
+      ${daCo.length ? `<p class="muted small"><b>${daCo.length} nhà</b> trong danh sách
+      <b>đã có tài khoản</b> ở trường từ trước (nhà có con lớn đang học) — bé vừa nhập được nối
+      thẳng vào tài khoản đó, nên những dòng ấy <b>không có mật khẩu mới</b>. Xin đối chiếu tên
+      và số điện thoại trước khi phát phiếu.</p>` : ''}
       <button class="btn primary block mt-14" id="ad-tai">⬇ Tải danh sách tài khoản (CSV)</button>
       <div class="table-wrap mt-14" style="max-height:40vh;overflow-y:auto">
         <table class="simple">
-          <thead><tr><th>Bé</th><th>Phụ huynh</th><th>Tên đăng nhập</th><th>Mật khẩu</th></tr></thead>
+          <thead><tr><th>Bé</th><th>Phụ huynh</th><th>Điện thoại</th><th>Tên đăng nhập</th><th>Mật khẩu</th></tr></thead>
           <tbody>${rows.map(t => `<tr>
             <td>${UI.esc(t.hocSinh)}</td><td>${UI.esc(t.phuHuynh)}</td>
-            <td><code>${UI.esc(t.username)}</code></td><td><code>${UI.esc(t.matKhau)}</code></td></tr>`).join('')}
+            <td>${UI.esc(t.phuHuynhSdt || '—')}</td>
+            <td><code>${UI.esc(t.username)}</code></td>
+            <td>${t.daCoTaiKhoan
+    ? '<span class="muted small">Nhà đã có tài khoản</span>'
+    : `<code>${UI.esc(t.matKhau)}</code>`}</td></tr>`).join('')}
           </tbody>
         </table>
       </div>
     `, 'Tài khoản đã tạo');
 
     document.getElementById('ad-tai').onclick = () => {
-      const head = ['Bé', 'Nhóm', 'Phụ huynh', 'Tên đăng nhập', 'Mật khẩu'];
+      const head = ['Bé', 'Nhóm', 'Phụ huynh', 'Điện thoại', 'Tên đăng nhập', 'Mật khẩu'];
       const esc = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
       const noiDung = '﻿' + [head.join(',')]
-        .concat(rows.map(t => [t.hocSinh, t.lop, t.phuHuynh, t.username, t.matKhau].map(esc).join(',')))
+        .concat(rows.map(t => [
+          t.hocSinh, t.lop, t.phuHuynh, t.phuHuynhSdt || '',
+          t.username,
+          // Ô MẬT KHẨU CỦA TỆP ĐEM ĐI IN PHẢI TRỐNG KHI KHÔNG CÓ MẬT KHẨU NÀO.
+          t.daCoTaiKhoan ? '' : t.matKhau,
+        ].map(esc).join(',')))
         .join('\r\n');
       const blob = new Blob([noiDung], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a');
@@ -1128,7 +1854,11 @@ App.views.admin = {
                 <td>${b.siSo}</td>
                 <td>${b.raTruong
                   ? '<span style="color:var(--warning);font-weight:600">Ra trường</span>'
-                  : UI.esc(b.tenLopMoi) + (b.taoLopMoi ? ' <span class="muted small">(tạo mới)</span>' : '')}</td>
+                  : (b.khongNhanDang || !b.tenLopMoi
+                    // Máy chủ đã gửi cờ này từ Đ118f; ô trống ở đây từng làm
+                    // hiệu trưởng không biết nhóm sẽ đi đâu — nó không đi đâu cả.
+                    ? '<span class="muted">Giữ nguyên — tên không theo mẫu, trường tự xếp sau</span>'
+                    : UI.esc(b.tenLopMoi) + (b.taoLopMoi ? ' <span class="muted small">(tạo mới)</span>' : ''))}</td>
               </tr>`).join('')}</tbody>
           </table>
         </div>
@@ -1224,6 +1954,7 @@ App.views.admin = {
           <div class="stat-box"><div class="stat-num">${r.lenLop}</div><div class="stat-label">Lên nhóm</div></div>
           <div class="stat-box"><div class="stat-num">${r.raTruong}</div><div class="stat-label">Ra trường</div></div>
           <div class="stat-box"><div class="stat-num">${r.lopTao}</div><div class="stat-label">Nhóm mới</div></div>
+          ${r.giuNguyen ? `<div class="stat-box"><div class="stat-num">${r.giuNguyen}</div><div class="stat-label">Giữ nguyên</div></div>` : ''}
         </div>
         <button class="btn primary block mt-14" onclick="UI.closeModal();App.views.admin.go('tongquan')">
           Đi phân công cô phụ trách
@@ -1234,15 +1965,207 @@ App.views.admin = {
   // ---------- Nhật ký ----------
   async tabNhatKy(body) {
     const rows = await API.get('/api/admin/audit');
+    // MỌI DÒNG Ở ĐÂY PHẢI ĐỌC ĐƯỢC BẰNG TIẾNG VIỆT.
+    //
+    // Màn này là chỗ tra khi có khiếu nại về dữ liệu — đúng lúc người đọc đang
+    // căng thẳng và cần hiểu ngay. Bản đầu chỉ dịch 18 mã trong hơn một trăm mã
+    // đang được ghi, còn lại rơi thẳng ra màn hình dưới dạng `student-create`,
+    // `hocphi-uudai-dat`, `baocaohoctap-mo-khoa-o`. Đó đúng là thứ CLAUDE.md
+    // cấm: thuật ngữ kỹ thuật lọt ra màn hình của cô và của văn phòng.
+    //
+    // `test:goi-ten` canh cho bảng này phủ hết mã đang được ghi trong kho mã:
+    // thêm một `db.audit(...)` mới mà quên đặt tên tiếng Việt là bài đỏ.
     const TEN = {
-      login: 'Đăng nhập', 'change-password': 'Đổi mật khẩu', 'set-new-password': 'Đặt mật khẩu mới',
-      'reset-password': 'Cấp lại mật khẩu', 'leave-review': 'Duyệt đơn xin phép',
-      'notification-create': 'Tạo thông báo', 'album-delete': 'Xóa album',
-      'import-students': 'Nhập danh sách bé', 'class-create': 'Tạo nhóm',
-      'class-update': 'Sửa nhóm', 'teacher-create': 'Tạo tài khoản giáo viên',
-      'student-update': 'Sửa hồ sơ của bé', 'student-deactivate': 'Cho bé nghỉ học',
-      'admin-create': 'Tạo tài khoản quản trị', 'schoolyear-promote': 'Chuyển năm học',
-      'module-enable': 'Bật tính năng', 'module-disable': 'Tắt tính năng',
+      // Tài khoản và đăng nhập
+      login: 'Đăng nhập',
+      'change-password': 'Đổi mật khẩu',
+      'set-new-password': 'Đặt mật khẩu mới',
+      'reset-password': 'Cấp lại mật khẩu',
+      'teacher-create': 'Tạo tài khoản cho cô',
+      'admin-create': 'Tạo tài khoản quản trị',
+      'manager-campus': 'Đổi cơ sở phụ trách',
+      'manager-chuc-vu': 'Đổi chức vụ',
+      'push-doi-khoa': 'Thay khoá thông báo đẩy',
+      'push-go-may': 'Gỡ một máy khỏi thông báo đẩy',
+      'parent-cccd': 'Ghi căn cước phụ huynh',
+
+      // Bé, nhóm lớp, cơ sở
+      'student-create': 'Nhận một bé vào trường',
+      'student-update': 'Sửa hồ sơ của bé',
+      'student-deactivate': 'Cho bé nghỉ học',
+      'students-export': 'Xuất danh sách bé',
+      'import-students': 'Nhập danh sách bé',
+      'class-create': 'Tạo nhóm lớp',
+      'class-update': 'Sửa nhóm lớp',
+      'class-teachers-set': 'Phân công cô phụ trách',
+      'sua-quyen-chu-nhiem': 'Đổi cô phụ trách chính',
+      'class-campus': 'Xếp nhóm vào cơ sở',
+      'campus-create': 'Tạo cơ sở',
+      'campus-update': 'Sửa cơ sở',
+      'schoolyear-promote': 'Chuyển năm học',
+      'truong-lien-he': 'Sửa thông tin liên hệ của trường',
+      'nhan-danh-gia-sua': 'Sửa bộ chữ đánh giá dùng chung cả trường',
+      'nhom-lua-tuoi-khai': 'Khai lứa tuổi của nhóm lớp',
+      'nhom-lua-tuoi-go': 'Gỡ lời khai lứa tuổi của nhóm lớp',
+      'tin-nhan-thu-hoi': 'Thu hồi một lời nhắn đã gửi',
+      'phong-chung-tao': 'Lập một phòng chung trong Nhắn tin',
+      'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
+      'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',
+      'hoi-thoai-da-dong-mo': 'Xem lại một cuộc trò chuyện đã đóng',
+      'module-enable': 'Bật tính năng',
+      'module-disable': 'Tắt tính năng',
+
+      // Đồng ý của gia đình, sức khoẻ
+      'consent-update': 'Ghi giấy đồng ý của gia đình',
+      'consent-rut-lai': 'Gia đình rút lại đồng ý',
+      'health-update': 'Ghi hồ sơ sức khoẻ',
+      'health-can-do-nhom': 'Cân đo cả nhóm',
+      'health-withdraw': 'Thu hồi ghi chép sức khoẻ',
+
+      // Điểm danh, xin phép, đón trả bé
+      'leave-review': 'Duyệt đơn xin phép',
+      'chot-vang': 'Chốt sổ vắng trong ngày',
+      'diemdanh-gio-ra-soat': 'Đổi mốc giờ rà soát điểm danh',
+      'anh-toi-lop': 'Chụp ảnh bé tới lớp',
+      'go-anh-toi-lop': 'Gỡ ảnh bé tới lớp',
+      'lich-nghi-them': 'Thêm ngày nghỉ của trường',
+      'lich-nghi-sua': 'Sửa ngày nghỉ của trường',
+      'lich-nghi-xoa': 'Xoá ngày nghỉ của trường',
+      'dontra-tra-be': 'Ghi đã trả bé',
+      'dontra-tra-bang-anh': 'Trả bé bằng ảnh',
+      'dontra-anh-tra': 'Chụp ảnh lúc trả bé',
+      'dontra-go-anh-tra': 'Gỡ ảnh lúc trả bé',
+      'dontra-them-nguoi': 'Thêm người được đón bé',
+      'dontra-sua-nguoi': 'Sửa người được đón bé',
+      'dontra-uy-quyen': 'Uỷ quyền đón bé một lần',
+      'dontra-huy-uy-quyen': 'Huỷ uỷ quyền đón bé',
+
+      // Thông báo, khảo sát, thực đơn, lịch sinh hoạt
+      'notification-create': 'Tạo thông báo',
+      'notification-update': 'Sửa thông báo',
+      'notification-withdraw': 'Thu hồi thông báo',
+      'survey-create': 'Tạo khảo sát',
+      'menu-update': 'Sửa thực đơn',
+      'menu-update-tuan': 'Sửa thực đơn cả tuần',
+      'menu-mau-excel': 'Tải tệp Excel mẫu thực đơn',
+      'cong-anh-vao': 'Chụp ảnh chấm công — giờ vào',
+      'cong-anh-ra': 'Chụp ảnh chấm công — giờ ra',
+      'cong-anh-go': 'Gỡ lần chụp chấm công',
+      'menu-nap-excel': 'Nạp thực đơn từ tệp Excel',
+      'menu-copy-week': 'Chép thực đơn tuần trước',
+      'menu-tep-them': 'Thêm tệp thực đơn',
+      'menu-tep-xoa': 'Xoá tệp thực đơn',
+      'timetable-update': 'Sửa lịch sinh hoạt',
+      'timetable-chep': 'Chép lịch sinh hoạt',
+      'plan-update': 'Sửa kế hoạch giáo dục',
+      'plan-tuan-luu': 'Soạn kế hoạch giáo dục tuần (cả trường)',
+
+      // Ảnh và album
+      'album-delete': 'Xoá album',
+      'album-doi-che-do': 'Đổi chế độ xem album',
+      'photo-tag': 'Gắn tên bé vào ảnh',
+      'photo-tag-nhieu': 'Gắn tên bé vào nhiều ảnh',
+
+      // Ghi chép về bé
+      'nhatky-ghi': 'Ghi nhật ký ngày',
+      'nhatky-ghi-bua': 'Ghi nhật ký một bữa',
+      'nhatky-gui': 'Gửi nhật ký ngày cho gia đình',
+      'nhatky-ve-sinh': 'Ghi giờ thay bỉm / đi vệ sinh',
+      'nhatky-ve-sinh-bo': 'Bỏ một mốc giờ vệ sinh ghi nhầm',
+      'remark-update': 'Ghi nhận xét',
+      'remark-withdraw': 'Thu hồi nhận xét',
+      'report-update': 'Ghi phiếu đánh giá',
+      'conduct-update': 'Ghi nền nếp',
+      'conduct-withdraw': 'Thu hồi ghi chép nền nếp',
+      'thuchup-sua-chu': 'Sửa lời ghi nhanh',
+      'thuchup-xoa': 'Xoá một bài ghi nhanh',
+
+      // Hành trình học tập
+      'hanhtrinh-quan-sat': 'Ghi một quan sát',
+      'hanhtrinh-nhap': 'Ghi nháp quan sát chưa gắn bé',
+      'hanhtrinh-nhap-gan': 'Gắn bé cho một nháp quan sát',
+      'hanhtrinh-nhap-bo': 'Bỏ một nháp quan sát',
+      'hanhtrinh-suy-ngam': 'Ghi suy ngẫm của cô',
+      'hanhtrinh-cong-bo': 'Công bố câu chuyện cho gia đình',
+      'hanhtrinh-thu-hoi': 'Thu hồi câu chuyện đã công bố',
+      'hanhtrinh-xoa': 'Xoá một ghi chép hành trình',
+      'hanhtrinh-chu-de': 'Đặt chủ đề hành trình',
+      'hanhtrinh-chu-de-chep': 'Chép chủ đề hành trình',
+      'health-tai-mau-can-do': 'Tải mẫu cân đo của nhóm',
+      'health-nap-can-do': 'Nạp cân đo cả nhóm bằng tệp',
+      // TÊN MÃ VIẾT LIỀN 'diemdanh-', KHÔNG tách bằng gạch nối. Bộ canh QUY
+      // TẮC 4 dò tên trường dữ liệu theo ranh giới từ, mà gạch nối chính là
+      // một ranh giới — nên bản tách rời báo đỏ. Đó là báo nhầm (sổ đón bé
+      // không xếp trẻ trên dưới nhau), nhưng luật của kho là SỬA MÃ chứ không
+      // nới bộ canh, và tệp máy chủ vốn đã viết liền ('diemdanh-gio-ra-soat')
+      // nên đổi theo là về đúng nếp sẵn có.
+      //
+      // Chú thích này cũng cố ý không đánh vần lại chuỗi bị cấm: bộ canh đọc
+      // CHỮ chứ không đọc ý, nên một câu giải thích cũng đủ làm nó đỏ.
+      'diemdanh-luu-y': 'Ghi lưu ý nội bộ cho một ngày của bé',
+      'diemdanh-luu-y-go': 'Gỡ lưu ý nội bộ của một ngày',
+      'hocphi-doi-tai-khoan': 'ĐỔI TÀI KHOẢN NHẬN TIỀN CỦA TRƯỜNG',
+      'hocphi-tai-qr-anh': 'TẢI ẢNH MÃ QR NHẬN TIỀN CỦA TRƯỜNG',
+      'hocphi-go-qr-anh': 'GỠ ẢNH MÃ QR NHẬN TIỀN CỦA TRƯỜNG',
+      'ghi-gio-ra-ve': 'Ghi giờ bé ra về',
+      'go-gio-ra-ve': 'Gỡ giờ bé ra về',
+      'hanhtrinh-chu-de-tep-them': 'Treo tệp kế hoạch tuần',
+      'hanhtrinh-chu-de-tep-xoa': 'Gỡ tệp kế hoạch tuần',
+      'hanhtrinh-anh-ve-album': 'Đưa ảnh hành trình về album',
+
+      // Kế hoạch của bé và báo cáo học tập
+      'kehoachbe-luu': 'Lưu kế hoạch của bé',
+      'kehoachbe-gui-duyet': 'Gửi kế hoạch chờ duyệt',
+      'kehoachbe-duyet': 'Duyệt kế hoạch của bé',
+      'kehoachbe-rut-lai': 'Rút lại kế hoạch',
+      'kehoachbe-de-xuat': 'Đề xuất sửa kế hoạch',
+      'kehoachbe-duyet-de-xuat': 'Duyệt đề xuất sửa kế hoạch',
+      'kehoachbe-dat-ca-nhom': 'Đặt kế hoạch cho cả nhóm',
+      'kehoachbe-chep-thang': 'Chép kế hoạch tháng trước',
+      'kehoachbe-nhin-lai': 'Ghi nhìn lại cuối tháng',
+      'baocaohoctap-gui': 'Gửi báo cáo học tập chờ duyệt',
+      'baocaohoctap-duyet': 'Duyệt báo cáo học tập',
+      'baocaohoctap-tra-lai': 'Trả lại báo cáo cho cô',
+      'baocaohoctap-thu-hoi': 'Thu hồi báo cáo đã gửi',
+      'baocaohoctap-mo-ban': 'Mở lại một bản báo cáo',
+      'baocaohoctap-mo-khoa-o': 'Mở khoá một ô trong báo cáo',
+
+      // Cambridge
+      'cambridge-tao': 'Tạo bài Cambridge',
+      'cambridge-sua': 'Sửa bài Cambridge',
+      'cambridge-cong-bo': 'Công bố bài Cambridge',
+      'cambridge-thu-hoi': 'Thu hồi bài Cambridge',
+      'cambridge-block-tao': 'Tạo block Cambridge',
+      'cambridge-block-sua': 'Sửa block Cambridge',
+      'cambridge-tep-them': 'Thêm tệp Cambridge',
+      'cambridge-tep-xoa': 'Xoá tệp Cambridge',
+
+      // Học phí và tiền ăn
+      'hocphi-create': 'Ghi một khoản thu',
+      'hocphi-dot': 'Ghi sổ cho cả nhóm hoặc cả trường',
+      'hocphi-confirm': 'Xác nhận đã nhận tiền',
+      'hocphi-huy-xac-nhan': 'Huỷ xác nhận đã nhận tiền',
+      'hocphi-thu-hoi': 'Thu hồi một khoản thu',
+      'hocphi-uudai-dat': 'Đặt ưu đãi học phí',
+      'hocphi-uudai-go': 'Gỡ ưu đãi học phí',
+      'hocphi-bieuphi-tao': 'Soạn biểu phí mới',
+      'hocphi-bieuphi-sua': 'Sửa biểu phí đang soạn',
+      'hocphi-bieuphi-gui-duyet': 'Gửi biểu phí lên chờ duyệt',
+      'hocphi-bieuphi-duyet': 'Duyệt và khoá biểu phí',
+      'hocphi-bieuphi-tra-lai': 'Trả biểu phí lại cho kế toán',
+      'hocphi-bieuphi-xin-mo': 'Xin mở khoá biểu phí',
+      'hocphi-bieuphi-mo-khoa': 'Mở khoá biểu phí',
+      'hocphi-bieuphi-tu-choi-mo': 'Chưa mở khoá biểu phí',
+      'tienan-chot': 'Chốt bảng tiền ăn',
+      'tienan-xuat': 'Xuất bảng tiền ăn',
+
+      // Nhân sự và chấm công
+      'nhansu-sua-ho-so': 'Sửa hồ sơ nhân sự',
+      'nhansu-xem-ho-so': 'Xem hồ sơ nhân sự',
+      'nhansu-cham-cong': 'Chấm công',
+      'nhansu-cham-ca-truong': 'Chấm công cả trường',
+      'nhansu-xoa-cong': 'Xoá một dòng chấm công',
+      'nhansu-xuat-cong': 'Xuất bảng chấm công',
     };
     body.innerHTML = rows.length ? `
       <div class="card">

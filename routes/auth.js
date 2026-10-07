@@ -29,6 +29,14 @@ const NGUONG_CHAM = 3;          // sai quá số lần này thì bắt đầu tr
 const CHAM_TOI_DA_MS = 8000;
 const TRAN_SO_MUC = 5000;       // trần số mục mỗi bộ đếm, để bộ nhớ không phình
 
+// Những khoá của khối `settings.school` được phép đi ra cho người đăng nhập
+// (Đ165). Xem chú thích dài ở chỗ dùng, trong gói `/api/auth/me`.
+//
+// `coSo` không nằm đây vì nó không thuộc khối — nó do chính chỗ ấy ghép vào.
+const KHOA_TRUONG_CHO_PHEP = [
+  'name', 'address', 'phone', 'email', 'currentYear', 'years', 'emailKeToan',
+];
+
 const attempts = new Map(); // địa chỉ -> { count, firstAt, lockedUntil }
 const theoTen = new Map();  // tên đăng nhập -> { count, firstAt }
 
@@ -184,7 +192,11 @@ function mePayload(user) {
     if (!nhoNhom.has(khoa)) {
       nhoNhom.set(khoa, {
         cls: classId ? db.findClass(classId) : null,
-        co: nl.tomTat(classId),
+        // Gói này đi tới tài khoản đang đăng nhập, nên với GIA ĐÌNH thì không
+        // kèm số điện thoại riêng của cô (Đ161) — trường nói rõ gia đình gọi
+        // hotline văn phòng. Bảng nhớ sống đúng một lượt gọi nên vai của người
+        // hỏi cố định trong suốt đời nó.
+        co: nl.tomTat(classId, { soDienThoai: user.role !== 'parent' }),
       });
     }
     return nhoNhom.get(khoa);
@@ -205,10 +217,60 @@ function mePayload(user) {
   // phụ trách nhiều nhóm.
   const nhom = user.role === 'teacher' ? nl.nhomCuaCo(user.id) : [];
   return {
-    user: { ...publicUser(user), nhomCuaCo: nhom, classIds: nhom.map(c => c.id) },
+    user: {
+      ...publicUser(user), nhomCuaCo: nhom, classIds: nhom.map(c => c.id),
+      // Cơ sở mà tài khoản quản trị bị khoá vào (null = cả trường). Màn hình
+      // dùng để ô "Gửi cho nhóm" chỉ liệt kê nhóm của cơ sở đó — máy chủ vẫn
+      // là người chốt (canAccessClass), đây chỉ để không mời bấm vào thứ sẽ 403.
+      coSo: user.role === 'admin' ? (db.phamViCoSo(user) || null) : null,
+      // Đ124: trang chủ của văn phòng chỉ mở đường "xem từng bé" khi chức vụ
+      // được mở hồ sơ bé — Nhân sự, Kế toán, Marketing thì không.
+      chucVu: user.role === 'admin' ? db.chucVu(user) : null,
+      moHoSoBe: day,
+    },
     students,
-    classes: db.classes(),
-    school: db.school(),
+    // Kèm cơ sở của từng nhóm (quan hệ ở bảng class_campus) — CHỈ THÊM trường,
+    // để ô "Gửi cho nhóm" của văn phòng cơ sở lọc được nhóm của cơ sở mình.
+    classes: (() => {
+      const coSoCua = new Map(db.all('class_campus', 'SELECT classId, campusId FROM class_campus')
+        .map(r => [r.classId, r.campusId]));
+      return db.classes().map(c => ({ ...c, campusId: coSoCua.get(c.id) || null }));
+    })(),
+    // Đ124: kèm danh sách cơ sở để giao diện gọi được tên cơ sở (ô chọn bé theo
+    // cấp, nhãn "Nhóm X · Cơ sở Y" trên thông báo). Trường chưa có cơ sở thì
+    // mảng rỗng, mọi màn hình vẫn vẽ như trước.
+    // KHỐI THÔNG TIN TRƯỜNG — DANH SÁCH KHOÁ CHO PHÉP, KHÔNG TRẢI CẢ KHỐI (Đ165).
+    //
+    // `settings.school` là một khối JSON tự do: bất cứ ai cũng thêm được một
+    // khoá vào đó bằng `db.setSchool({ ...t, khoaMoi: ... })`, và đã có ba chỗ
+    // trong app làm đúng như vậy (chuyển năm học, email kế toán, khôi phục bản
+    // sao lưu). Bản trước trải TRỌN khối ấy ra (`{ ...truong, coSo }`) cho MỌI
+    // tài khoản đăng nhập — cô, gia đình, bảo vệ cổng, mọi chức vụ.
+    //
+    // Hôm nay trong khối không có gì bí mật, nên đây KHÔNG phải một chỗ rò
+    // đang chảy. Nó là một cánh cửa mở sẵn: ngày ai đó cất vào đấy một khoá
+    // nhạy cảm — một địa chỉ nội bộ, một khoá ký, một ghi chú của ban giám
+    // hiệu — thì khoá ấy đi thẳng tới điện thoại của vài trăm gia đình ngay
+    // lần đăng nhập kế tiếp, và KHÔNG một bộ canh nào báo, vì không dòng mã
+    // nào thay đổi.
+    //
+    // Nay chỉ đúng những khoá có tên dưới đây mới đi ra. Thêm khoá mới vào
+    // khối là việc bình thường; muốn nó tới được màn hình thì phải thêm tên
+    // vào đây — tức phải nghĩ một lần về việc ai sẽ đọc được nó. Quên theo
+    // hướng đóng lại.
+    //
+    // Danh sách này giữ ĐÚNG những gì đang đi ra hôm nay, không bớt một khoá:
+    // hành vi không đổi một chút nào, chỉ khác ở chỗ ngày mai.
+    school: (() => {
+      const truong = db.school();
+      if (!truong) return truong;
+      const coSo = db.campuses().map(c => ({ id: c.id, name: c.name }));
+      const ra = { coSo };
+      for (const k of KHOA_TRUONG_CHO_PHEP) {
+        if (truong[k] !== undefined) ra[k] = truong[k];
+      }
+      return ra;
+    })(),
   };
 }
 

@@ -378,6 +378,161 @@ console.log('\n[7] ẢNH TRONG BẢN SAO cũng phải được dọn — nhưng 
 }
 
 // ===========================================================================
+console.log('\n[7b] KHOÁ GIỮ ẢNH ĐÃ TẢI VỀ — dọn đúng luật vẫn là mất ảnh, nếu trường đang dùng cách khác');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ
+  //
+  // Mục [7] ngay trên canh rằng bản sao của một tấm ảnh ĐƯỢC dọn khi không bản
+  // sao nào còn cần tới nó. Luật đó đúng cho việc nó sinh ra: cô xoá một tấm
+  // khỏi album thì bản sao của tấm ấy cũng nên đi theo.
+  //
+  // Nhà trường vừa chốt một cách dùng khác hẳn (Câu 10, duyệt 15/09/2026): khi
+  // đĩa máy chủ chạm mốc phải nâng, trường tải ảnh về ổ cứng của trường rồi
+  // XOÁ BỚT PHẦN ĐÃ TẢI VỀ trên máy chủ. Tấm ảnh ấy không bị xoá vì hết cần —
+  // nó bị xoá vì đã cất sang chỗ khác. Với luật cũ thì đúng một vòng đời sau,
+  // máy tự dọn nốt BẢN SAO, và tấm ảnh chỉ còn nằm trên một ổ cứng duy nhất.
+  // Ổ đó hỏng là mất hẳn: ảnh là thứ duy nhất trong app không dựng lại được.
+  //
+  // Nên mục này canh cả hai chiều, và chiều GIỮ đứng trước:
+  //   - khoá bật  → ảnh đã vắng mặt từ rất lâu VẪN CÒN trong bản sao;
+  //   - khoá tắt  → luật cũ chạy lại y như mục [7], không bị vô hiệu vĩnh viễn.
+  const D = thuMucTam('sao-luu-khoa-anh');
+  fs.mkdirSync(D, { recursive: true });
+  sinhDuLieu(D);
+  const UP = path.join(D, 'uploads');
+  const BK = path.join(D, 'backups');
+  const BKUP = path.join(BK, 'uploads');
+  fs.mkdirSync(UP, { recursive: true });
+  const chayD = (...a) => spawnSync('node', [path.join(GOC, 'scripts', 'backup.js'), ...a],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D } });
+
+  // Lùi mốc "lần đầu thấy vắng mặt" về 400 ngày trước: mọi bản sao còn giữ đều
+  // mới hơn mốc đó, nên theo luật cũ tấm ảnh ĐỦ ĐIỀU KIỆN bị dọn. Đây chính là
+  // cái bẫy mà khoá phải chặn.
+  const luiMoc = (ten) => {
+    const p = path.join(BK, 'uploads-da-vang.json');
+    const so = JSON.parse(fs.readFileSync(p, 'utf8'));
+    so[ten] = new Date(Date.now() - 400 * 86400000).toISOString();
+    fs.writeFileSync(p, JSON.stringify(so));
+    return so;
+  };
+
+  fs.writeFileSync(path.join(UP, 'anh-con-dung.jpg'), 'x'.repeat(600));
+  fs.writeFileSync(path.join(UP, 'anh-da-tai-ve.jpg'), 'y'.repeat(600));
+  chayD();
+  check('bản sao đầu chép cả hai tấm ảnh',
+    fs.existsSync(path.join(BKUP, 'anh-con-dung.jpg'))
+    && fs.existsSync(path.join(BKUP, 'anh-da-tai-ve.jpg')));
+
+  // ---- Bật khoá ----
+  const bat = chayD('--giu-anh');
+  check('lệnh bật khoá chạy xong không lỗi', bat.status === 0, (bat.stdout + bat.stderr).slice(0, 300));
+  check('nói rõ là ĐÃ BẬT, không im lặng', /ĐÃ BẬT khoá giữ ảnh/.test(bat.stdout), bat.stdout.slice(0, 300));
+  check('và cảnh báo luôn cái giá phải trả: chỗ ảnh chỉ tăng',
+    /chỉ tăng/.test(bat.stdout), bat.stdout.slice(0, 400));
+
+  // KHOÁ PHẢI LÀ MỘT TỆP, KHÔNG PHẢI THAM SỐ DÒNG LỆNH. Sao lưu chạy theo lịch
+  // cron, mà dòng cron thì không ai nhớ sửa — một tham số gõ tay một lần là vô
+  // nghĩa với lượt chạy tự động ngay hôm sau.
+  check('KHOÁ NẰM TRONG KHO SAO LƯU nên lượt chạy theo lịch cũng thấy',
+    fs.existsSync(path.join(BK, 'giu-anh-da-tai-ve.lock')), fs.readdirSync(BK));
+
+  // ---- Trường tải ảnh về ổ ngoài rồi xoá bản gốc ----
+  fs.unlinkSync(path.join(UP, 'anh-da-tai-ve.jpg'));
+  chayD();
+  const so = luiMoc('anh-da-tai-ve.jpg');
+  check('sổ có ghi tấm ảnh đã vắng mặt', !!so['anh-da-tai-ve.jpg'], so);
+
+  const l = chayD();
+  check('KHOÁ BẬT: ẢNH ĐÃ XOÁ VẪN CÒN TRONG BẢN SAO dù không bản nào còn cần',
+    fs.existsSync(path.join(BKUP, 'anh-da-tai-ve.jpg')), l.stdout.slice(-500));
+  check('không hề nói đã dọn ảnh nào', !/Đã dọn \d+ ảnh/.test(l.stdout), l.stdout.slice(-500));
+  // Một cái khoá im lặng là một cái khoá người ta quên mất đang bật, rồi ngạc
+  // nhiên vì đĩa đầy. Nên mỗi lượt sao lưu phải nhắc, và nhắc kèm con số thật.
+  check('MỖI LƯỢT SAO LƯU ĐỀU NHẮC là khoá đang bật',
+    /Khoá giữ ảnh ĐANG BẬT/.test(l.stdout), l.stdout.slice(-500));
+  check('và nhắc kèm số ảnh đang giữ, không phải con số 0 vô nghĩa',
+    /giữ lại [1-9]\d* ảnh/.test(l.stdout), l.stdout.slice(-500));
+  check('và mách luôn lệnh tắt', /--thoi-giu-anh/.test(l.stdout), l.stdout.slice(-500));
+
+  const ds = chayD('--list');
+  check('màn xem danh sách cũng nói trạng thái khoá',
+    /Khoá giữ ảnh: ĐANG BẬT/.test(ds.stdout), ds.stdout.slice(-300));
+
+  // Chiều còn lại: khoá chỉ hoãn việc dọn, không được vô hiệu nó vĩnh viễn.
+  // Nếu tắt rồi mà vẫn không dọn thì đĩa cứ thế đầy lên, và bài [7] ở trên hoá
+  // ra chỉ còn đúng ở một cấu hình duy nhất.
+  const tat = chayD('--thoi-giu-anh');
+  check('lệnh tắt khoá chạy xong không lỗi', tat.status === 0, (tat.stdout + tat.stderr).slice(0, 300));
+  check('và nói thẳng hậu quả: những tấm đã tải về mất chỗ dựa cuối cùng',
+    /chỗ dựa cuối cùng/.test(tat.stdout), tat.stdout.slice(0, 500));
+  check('tệp khoá được gỡ hẳn',
+    !fs.existsSync(path.join(BK, 'giu-anh-da-tai-ve.lock')));
+
+  luiMoc('anh-da-tai-ve.jpg');
+  const l2 = chayD();
+  check('KHOÁ TẮT: luật dọn cũ chạy lại bình thường',
+    !fs.existsSync(path.join(BKUP, 'anh-da-tai-ve.jpg')), l2.stdout.slice(-500));
+  check('và không còn nhắc khoá nữa', !/Khoá giữ ảnh ĐANG BẬT/.test(l2.stdout), l2.stdout.slice(-500));
+
+  // Xuyên suốt cả hai chiều, tấm ảnh còn đang dùng không bao giờ bị đụng tới.
+  check('ẢNH CÒN ĐANG DÙNG KHÔNG BAO GIỜ BỊ DỌN, dù khoá bật hay tắt',
+    fs.existsSync(path.join(BKUP, 'anh-con-dung.jpg'))
+    && fs.existsSync(path.join(UP, 'anh-con-dung.jpg')));
+
+  donThuMucTam(D);
+}
+
+// ===========================================================================
+console.log('\n[7c] TRÙNG MỐC TỚI TỪNG MI-LI-GIÂY thì GIỮ ảnh — không phụ thuộc máy nhanh hay chậm');
+{
+  // VÌ SAO CÓ MỤC NÀY
+  //
+  // Mục [7] từng xanh trên máy làm việc mà ĐỎ trên GitHub ngày 01/10/2026. Luật dọn ảnh so
+  // "mốc lần đầu thấy ảnh vắng" với "bản sao cũ nhất còn giữ"; hai mốc ấy sinh ra cách nhau
+  // vài phần nghìn giây trong CÙNG một lượt sao lưu. Máy chậm thì mốc sau luôn lớn hơn; máy
+  // chạy GitHub đủ nhanh để hai mốc TRÙNG nhau tới từng mi-li-giây, và phép so `>` khi ấy
+  // coi "trùng" là "đã qua" — dọn luôn tấm ảnh. Chú thích của chính backup.js hứa sai về phía
+  // GIỮ LÂU HƠN; trùng mốc thì phải giữ.
+  //
+  // Mục này DỰNG thẳng ca trùng mốc bằng tay, nên nó đỏ hay xanh như nhau trên mọi máy.
+  const D = thuMucTam('sao-luu-anh-trung-moc');
+  fs.mkdirSync(D, { recursive: true });
+  sinhDuLieu(D);
+  const UP = path.join(D, 'uploads');
+  const BK = path.join(D, 'backups');
+  const BKUP = path.join(BK, 'uploads');
+  fs.mkdirSync(UP, { recursive: true });
+  const chayD = (...a) => spawnSync('node', [path.join(GOC, 'scripts', 'backup.js'), ...a],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D } });
+
+  fs.writeFileSync(path.join(UP, 'anh-trung-moc.jpg'), 'z'.repeat(600));
+  chayD();
+  // Biến bản sao vừa chụp thành bản của BA NGÀY TRƯỚC (khác ngày nên vòng đời giữ cả nó),
+  // với mốc tròn giây để đọc lại được đúng từng mi-li-giây.
+  const X = Math.floor((Date.now() - 3 * 86400000) / 1000) * 1000;
+  const cu = fs.readdirSync(BK).find(f => /^school-\d{8}-\d{4}\.db\.gz$/.test(f));
+  const tenCu = `school-${new Date(X).toISOString().slice(0, 10).replace(/-/g, '')}-0900.db.gz`;
+  fs.renameSync(path.join(BK, cu), path.join(BK, tenCu));
+  fs.utimesSync(path.join(BK, tenCu), X / 1000, X / 1000);
+  check('tiền đề: bản sao cũ mang đúng mốc đã đặt',
+    fs.statSync(path.join(BK, tenCu)).mtimeMs === X, fs.statSync(path.join(BK, tenCu)).mtimeMs);
+
+  // Cô xoá tấm ảnh; sổ ghi "lần đầu thấy vắng" ĐÚNG BẰNG mốc của bản sao cũ nhất.
+  fs.unlinkSync(path.join(UP, 'anh-trung-moc.jpg'));
+  fs.writeFileSync(path.join(BK, 'uploads-da-vang.json'), JSON.stringify({ 'anh-trung-moc.jpg': new Date(X).toISOString() }));
+  const l2 = chayD();
+  check('tiền đề: lượt sao lưu thứ hai chạy xong và còn GIỮ bản sao cũ',
+    l2.status === 0 && fs.existsSync(path.join(BK, tenCu)), l2.stdout.slice(-300));
+  check('TRÙNG MỐC: ảnh trong bản sao KHÔNG bị dọn — bản sao cũ có thể còn cần',
+    fs.existsSync(path.join(BKUP, 'anh-trung-moc.jpg')), l2.stdout.slice(-300));
+  check('và sổ vẫn còn ghi tấm ảnh để lần sau xét lại',
+    !!JSON.parse(fs.readFileSync(path.join(BK, 'uploads-da-vang.json'), 'utf8'))['anh-trung-moc.jpg']);
+
+  donThuMucTam(D);
+}
+
+// ===========================================================================
 console.log('\n[8] VÒNG SAO LƯU → MẤT → KHÔI PHỤC PHẢI TRẢ LẠI ĐÚNG BYTE CỦA ẢNH');
 {
   // VÌ SAO MỤC NÀY ĐÁNG GIÁ

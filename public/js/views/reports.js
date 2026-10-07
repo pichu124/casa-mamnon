@@ -48,7 +48,7 @@ App.views.reports = {
           <select id="rp-student">
             ${App.state.students.map(s => `<option value="${UI.esc(s.id)}" ${s.id === student.id ? 'selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
           </select>
-        </div>` : UI.studentBar() + UI.thanhChonBe()}
+        </div>` : UI.studentBar() + UI.thanhChonBeTheoCap()}
       ${reports.length ? `
         <div class="seg">
           ${reports.map((r, i) => `<button class="${i === this.termIdx ? 'active' : ''}" onclick="App.views.reports.setTerm(${i})">${UI.esc(this.termLabel(r.term))}</button>`).join('')}
@@ -140,7 +140,7 @@ App.views.reports = {
 
   // Học kỳ mặc định khi mở màn soạn: theo tháng hiện tại của năm học đang chạy.
   kyMacDinh() {
-    const thang = new Date().getMonth() + 1;
+    const thang = Number(UI.todayStr().slice(5, 7));   // tháng theo giờ Việt Nam
     return `${thang >= 8 || thang === 1 ? 1 : 2}|${App.state.year || ''}`;
   },
 

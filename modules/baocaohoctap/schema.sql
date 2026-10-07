@@ -100,3 +100,40 @@ CREATE TABLE IF NOT EXISTS baocaohoctap_o (
   capNhatLuc TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS baocaohoctap_mot_o_mot_dong ON baocaohoctap_o(banId, dongId);
+
+-- ĐỢT 2 (phản hồi nhà trường 07/09) — hai BẢNG PHỤ, bảng cũ không đổi cột.
+--
+-- QUY TRÌNH DUYỆT TRƯỚC KHI TỚI TAY GIA ĐÌNH.
+--
+-- `baocaohoctap_ban.trangThai` vẫn hai giá trị như cũ: 'nhap' (trong tay cô)
+-- và 'da-gui' (cô đã gửi đi). Nhưng "gửi đi" nay là gửi cho QUẢN LÝ CƠ SỞ
+-- duyệt, không phải gửi thẳng cho gia đình. Bảng này giữ phần còn lại:
+--   • 'cho-duyet' — cô đã gửi, quản lý chưa xem.
+--   • 'da-duyet'  — quản lý đồng ý và chọn `ngayCongBo`. Gia đình CHỈ thấy
+--                   khi tới ngày ấy (so với lib/ngay.homNay()).
+--   • 'tu-choi'   — quản lý trả lại kèm `yKien`; bản về 'nhap' cho cô sửa.
+-- `daBaoLuc`: đã báo cho gia đình chưa — một bản chỉ báo đúng một lần.
+CREATE TABLE IF NOT EXISTS baocaohoctap_duyet (
+  banId      TEXT PRIMARY KEY,
+  trangThai  TEXT NOT NULL DEFAULT 'cho-duyet',
+  nguoiGui   TEXT,
+  guiLuc     TEXT,
+  nguoiDuyet TEXT,
+  duyetLuc   TEXT,
+  yKien      TEXT NOT NULL DEFAULT '',
+  ngayCongBo TEXT NOT NULL DEFAULT '',   -- YYYY-MM-DD
+  daBaoLuc   TEXT
+);
+
+-- KHOÁ Ô THEO CÔ. Nhiều cô một nhóm: ô do cô A ghi lần đầu thì cô B không
+-- sửa hay xoá được; quản lý cơ sở mở khoá (`moKhoaBoi`, `moKhoaLuc`) thì ô
+-- lại mở cho mọi người, và người ghi tiếp theo nhận khoá.
+--
+-- Ô máy điền sẵn từ Kế hoạch của bé KHÔNG có dòng ở đây: chưa cô nào ghi cả.
+CREATE TABLE IF NOT EXISTS baocaohoctap_o_khoa (
+  oId       TEXT PRIMARY KEY,
+  coGhi     TEXT NOT NULL,
+  khoaLuc   TEXT,
+  moKhoaBoi TEXT,
+  moKhoaLuc TEXT
+);

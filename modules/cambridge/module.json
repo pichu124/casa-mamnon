@@ -8,6 +8,7 @@
   "bg": "linear-gradient(135deg,#4fa8d8,#2c7bb0)",
   "api": ["/api/cambridge"],
   "roles": ["parent", "teacher", "admin"],
-  "defaultEnabled": false,
-  "version": "0.1.0"
+  "defaultEnabled": true,
+  "version": "0.1.0",
+  "dieuKienHien": "/api/cambridge/pham-vi"
 }

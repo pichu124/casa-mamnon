@@ -96,6 +96,28 @@ const DAU_HIEU = [
   // `\b` của JS chỉ hiểu chữ ASCII, mà `score`/`diem` đều là ASCII nên dùng
   // được ở đây.
   { ten: 'điểm số của trẻ (tên trường dữ liệu)', re: /\b(score|diem|diemTrungBinh|hocLuc)\b|\.score\b/i },
+  // XẾP LOẠI THỂ TRẠNG — THÊM CÙNG ĐỢT CHO PHÉP HIỆN CON SỐ BMI (Đ186).
+  //
+  // Nhà trường xin hiện BMI và trả lời gọn là họ cần *"con số"*. Con số thô thì
+  // không xếp trẻ trên dưới nhau: nó là một phép chia từ cân nặng và chiều cao,
+  // đứng một mình, không so bé nào với bé nào.
+  //
+  // Thứ QUY TẮC 4 cấm là BƯỚC TIẾP THEO, và bước đó rất dễ đi: có con số rồi
+  // thì đường ngắn nhất luôn là dán thêm một chữ vào cạnh nó — "thừa cân",
+  // "suy dinh dưỡng", "dưới chuẩn của độ tuổi". Với trẻ 12 tháng – 6 tuổi,
+  // những chữ ấy chỉ ra được khi quy chiếu theo tuổi, tức là đem đứa trẻ đặt
+  // cạnh một cái chuẩn — đúng điều quy tắc cấm hiện ra trước mặt cô và gia đình.
+  //
+  // Nên dấu hiệu này có mặt NGAY TRONG ĐỢT mở đường cho con số, không phải sau.
+  // Cùng lý do bộ canh QUY TẮC 3 có mặt trước khi kho mã có một dòng AI nào:
+  // bài canh phải đứng sẵn ở cuối con đường trước khi ai đó bắt đầu đi.
+  //
+  // Hôm thêm vào, dấu hiệu này không bắt được một dòng nào trong cả kho — nó
+  // hoàn toàn là một cái chốt cho tương lai, và điều đó được đo ở mục [1c].
+  {
+    ten: 'xếp loại thể trạng của trẻ',
+    re: /percentile|bách phân vị|z-?score|z_score|suy dinh dưỡng|thừa cân|béo phì|nhẹ cân so|so với chuẩn|chuẩn của độ tuổi|chuẩn độ tuổi|đạt chuẩn/i,
+  },
 ];
 
 // Được phép, kèm lý do. Không phải mọi phần trăm đều là xếp hạng trẻ.
@@ -112,6 +134,23 @@ const DAU_HIEU = [
 // dạng: mỗi ngoại lệ phải nói rõ nó chừa ĐÚNG DÒNG NÀO.
 const NGOAI_LE = [
   {
+    tep: 'modules/hocphi/view.js',
+    vi_sao: 'Mức ƯU ĐÃI HỌC PHÍ ghi được cả bằng số tiền lẫn bằng phần trăm (Đ169). '
+      + 'Phần trăm ở đây là tỉ lệ giảm của một khoản TIỀN NGƯỜI LỚN NỘP — không phải '
+      + 'một con số về đứa trẻ, không so bé này với bé kia, không sinh ra thứ tự nào '
+      + 'giữa các bé (bảng ưu đãi xếp theo TÊN, và bài canh của nó chốt điều đó). '
+      + 'QUY TẮC 4 giữ cho trẻ không bị sắp trên dưới nhau, không cấm nói về tiền.\n'
+      + 'CHỦ DỰ ÁN ĐÃ DUYỆT 11/09: được hỏi mức ưu đãi nên ghi bằng số tiền hay phần '
+      + 'trăm — kèm cảnh báo rằng chọn phần trăm là phải xin đúng dòng ngoại lệ này — '
+      + 'và chọn "cả hai, trường chọn từng ưu đãi".',
+    // Chừa ĐÚNG MỘT DÒNG: dòng in ra mức giảm theo phần trăm. Mọi dòng khác
+    // của tệp này vẫn bị soi như thường — kể cả chú thích.
+    chiDong: (dong) => /giảm \$\{Number\(u\.giaTri\)\}%/.test(dong),
+    // Và chừa khỏi ĐÚNG MỘT dấu hiệu. Lý do ở trên chỉ nói về phần trăm; nếu
+    // ngày nào đó chính dòng ấy mọc thêm chữ "xếp hạng" thì nó phải đỏ.
+    chiDauHieu: ['phần trăm hiện ra màn hình'],
+  },
+  {
     tep: 'public/js/views/surveys.js',
     vi_sao: 'Phần trăm ở đây là tỉ lệ PHỤ HUYNH chọn mỗi phương án trong khảo sát — '
       + 'không phải con số về một đứa trẻ. QUY TẮC 4 cấm xếp hạng TRẺ, không cấm '
@@ -119,6 +158,7 @@ const NGOAI_LE = [
     // Chỉ chừa đúng những dòng in ra tỉ lệ phiếu. Mọi dòng khác của tệp này vẫn
     // bị soi như thường.
     chiDong: (dong) => /\}%|phần trăm|tỉ lệ|ti le/i.test(dong),
+    chiDauHieu: ['phần trăm hiện ra màn hình'],
   },
   {
     tep: 'data/seed.js',
@@ -132,6 +172,10 @@ const NGOAI_LE = [
     // với việc bỏ qua cả tệp như bản trước.
     chiDong: (dong) => /^\s*(\/\/|\*|\/\*)/.test(dong)
       || /\b(score|diem\w*|points|hocLuc)\s*:\s*(null|0)\s*[,}]/.test(dong),
+    chiDauHieu: [
+      'xếp hạng trẻ', 'điểm thi đua', 'điểm số của trẻ',
+      'điểm số của trẻ (tên trường dữ liệu)',
+    ],
   },
 ];
 
@@ -188,11 +232,24 @@ const DAU_HIEU_BA_MUC = [
 ];
 
 // Sổ nợ RIÊNG của mẫu ba mức. Cùng luật bánh cóc: chỉ được giảm.
+//
+// SIẾT TỪ BỐN TỆP XUỐNG MỘT, ghi ở Đ203 (việc 47). Ba tệp giao diện đã sạch
+// hẳn — đó là lý do sổ này sinh ra, và hôm nay nó thu lại đúng như đã hẹn:
+//
+//   • `public/js/ui.js` — hằng dùng chung, XOÁ HẲN. Đi đủ ba bước của
+//     CLAUDE.md cho tệp dùng chung: bước 1 không có gì để làm (QUY TẮC 4 cấm
+//     đặt trẻ trên dưới nhau, nên thứ này không có cái thay thế, chỉ có đường
+//     đi ra), bước 2 chuyển mọi chỗ gọi, bước 3 là commit này.
+//   • `public/js/views/remarks.js` và `public/js/views/hocsinhcu.js` — sạch ở
+//     bước 2, cả chỗ HIỆN lẫn hai ô CHỌN bắt cô đặt bậc cho một đứa trẻ.
+//
+// CÒN ĐÚNG MỘT TỆP, VÀ NÓ Ở LẠI CÓ CHỦ Ý: `routes/remarks.js` giữ danh sách ba
+// mã cũ để nhận xét cô đã viết từ trước vẫn đọc được, và để điện thoại còn giữ
+// bản app cũ vẫn gửi được. Bỏ một tính năng là ngưng dùng nó, không phải xoá
+// dữ liệu của nó (Nguyên tắc số 1). Không màn hình nào dựng nó thành một cái
+// bậc nữa — đó mới là thứ QUY TẮC 4 hỏi.
 const NO_BA_MUC = {
-  'public/js/ui.js': { so: 3, vi_sao: 'Hằng UI.RATING — ba mức kế thừa từ app 1. Tệp DÙNG CHUNG, gỡ phải đi ba bước.' },
-  'public/js/views/remarks.js': { so: 4, vi_sao: 'Nhận xét hàng ngày — đã tắt sẵn từ A2. Gỡ cùng N3.' },
-  'public/js/views/hocsinhcu.js': { so: 1, vi_sao: 'Hồ sơ con đã ra trường — đã tắt sẵn từ Đ5. Gỡ cùng N3.' },
-  'routes/remarks.js': { so: 1, vi_sao: 'Máy chủ nhận ba mức đó. Gỡ cùng N3.' },
+  'routes/remarks.js': { so: 1, vi_sao: 'Máy chủ giữ danh sách mã cũ cho bản ghi cũ và cho app đời cũ. Ở lại có chủ ý.' },
 };
 const TEP_NO_BA_MUC = Object.keys(NO_BA_MUC);
 
@@ -227,8 +284,19 @@ export function quet(vung = VUNG_QUET, dauHieu = DAU_HIEU) {
       const nl = NGOAI_LE.filter((n) => n.tep === tuongDoi);
       const dongs = fs.readFileSync(tep, 'utf8').split('\n');
       dongs.forEach((dong, i) => {
-        if (nl.some((n) => n.chiDong(dong))) return;
-        const hit = dauHieu.filter((d) => d.re.test(dong));
+        // NGOẠI LỆ CHỪA KHỎI ĐÚNG DẤU HIỆU ĐÃ NÊU LÝ DO, KHÔNG CHỪA CẢ DÒNG.
+        //
+        // Bản trước là `if (nl.some(n => n.chiDong(dong))) return;` — một dòng
+        // khớp ngoại lệ được chừa khỏi CẢ NĂM dấu hiệu. Ngoại lệ của surveys.js
+        // khớp mọi dòng có `}%`, nên một dòng vừa in tỉ lệ phiếu vừa mang chữ
+        // "xếp hạng" hay `score` sẽ lọt sạch — trong khi lý do viết ra chỉ xin
+        // chừa phần trăm. Đó là một bộ canh sẽ xanh đúng vào ngày nó cần đỏ.
+        //
+        // Nay mỗi ngoại lệ phải khai `chiDauHieu`, và chỉ những dấu hiệu ấy
+        // được gỡ khỏi kết quả. Đây là SIẾT CHẶT bộ canh của QUY TẮC 4, không
+        // phải nới — mục [5] có phép thử ngược chứng minh điều đó.
+        const hit = dauHieu.filter((d) => d.re.test(dong))
+          .filter((d) => !nl.some((n) => n.chiDong(dong) && (n.chiDauHieu || []).includes(d.ten)));
         if (!hit.length) return;
         (theoTep[tuongDoi] ||= []).push({ dong: i + 1, dau: hit.map((h) => h.ten).join(', '), trich: dong.trim().slice(0, 100) });
       });
@@ -301,7 +369,7 @@ console.log('\n[2c] Mẫu XẾP TRẺ BA BẬC — bánh cóc riêng, siết t�
   }
 
   check('danh sách tệp nợ mẫu ba mức chỉ được NGẮN ĐI',
-    TEP_NO_BA_MUC.length === 4, TEP_NO_BA_MUC);
+    TEP_NO_BA_MUC.length === 1, TEP_NO_BA_MUC);
   check('mọi tệp trong sổ nợ này đều tồn tại thật',
     TEP_NO_BA_MUC.every(t => fs.existsSync(path.join(GOC, t))),
     TEP_NO_BA_MUC.filter(t => !fs.existsSync(path.join(GOC, t))));
@@ -353,6 +421,31 @@ console.log('\n[4] Bộ canh này có thật sự bắt được không');
   const khongBat = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
   check('KHÔNG bắt nhầm "diemDanh", "scoreboard", hay "điểm đón bé"',
     khongBat.length === 0, khongBat);
+
+  // DẤU HIỆU XẾP LOẠI THỂ TRẠNG — thêm cùng đợt cho phép hiện con số BMI.
+  //
+  // Hôm thêm vào, nó không bắt được một dòng nào trong cả kho mã: nó hoàn toàn
+  // là một cái chốt cho tương lai. Một dấu hiệu chưa bao giờ bắt được gì thì
+  // cũng chưa ai chứng minh được nó CÓ bắt được — đúng kiểu "bài canh luôn
+  // đúng" mà CLAUDE.md dặn phải nêu. Nên chứng minh bằng dòng gài.
+  fs.writeFileSync(path.join(tam, 'ban.js'),
+    "const a = 'Bé thừa cân so với tháng tuổi';\n"
+    + "const b = `${ten} suy dinh dưỡng thể nhẹ cân`;\n"
+    + "const c = 'BMI percentile: ' + p;\n"
+    + "const d = 'z-score cân nặng';\n"
+    + "const e = 'Chiều cao đạt chuẩn';\n");
+  const batTheTrang = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
+  check('BẮT ĐƯỢC mọi cách xếp loại thể trạng của trẻ',
+    batTheTrang.length >= 5 && batTheTrang.every(v => v.dau.includes('thể trạng')), batTheTrang);
+
+  // Và KHÔNG bắt chính con số BMI — đó là thứ nhà trường xin và được duyệt.
+  fs.writeFileSync(path.join(tam, 'ban.js'),
+    "const v = nang / (cao / 100) ** 2;\n"
+    + "const s = `BMI ${v.toFixed(1)}`;\n"
+    + "return [cao, nang, 'BMI ' + chiSo].filter(Boolean).join(' · ');\n");
+  const batSo = quet(['test/__tam-qt4'])['test/__tam-qt4/ban.js'] || [];
+  check('nhưng KHÔNG bắt chính con số BMI — con số thô không xếp trẻ trên dưới nhau',
+    batSo.length === 0, batSo);
 
   fs.writeFileSync(path.join(tam, 'ban.js'), "const a = '<div style=\"width:100%\"></div>';\n");
   check('KHÔNG bắt nhầm width:100% của bố cục',
@@ -409,6 +502,41 @@ console.log('\n[5] NGOẠI LỆ CHỪA ĐÚNG DÒNG, KHÔNG CHỪA CẢ TỆP');
   const ls = NGOAI_LE.find(n => n.tep === 'public/js/views/surveys.js');
   check('surveys.js: dòng in tỉ lệ phiếu của người lớn thì ĐƯỢC chừa',
     !!ls && ls.chiDong('return `${Math.round(pct)}%`;'), !!ls);
+
+  // NGOẠI LỆ CHỪA KHỎI ĐÚNG DẤU HIỆU ĐÃ NÊU LÝ DO, KHÔNG CHỪA CẢ DÒNG.
+  //
+  // Trước đợt này bộ quét viết `if (nl.some(n => n.chiDong(dong))) return;` —
+  // một dòng khớp ngoại lệ được chừa khỏi CẢ NĂM dấu hiệu. Ngoại lệ của
+  // surveys.js khớp mọi dòng có `}%`, nên một dòng vừa in tỉ lệ phiếu vừa mang
+  // chữ "xếp hạng" hay `score` sẽ lọt sạch — trong khi lý do viết ra chỉ xin
+  // chừa phần trăm. Một bộ canh như vậy sẽ xanh đúng vào ngày nó cần đỏ, và
+  // CLAUDE.md xếp nhóm bài canh 5 QUY TẮC vào loại bất khả xâm phạm.
+  //
+  // Ba phép kiểm dưới đây SIẾT bộ canh, không nới nó.
+  check('mọi ngoại lệ đều khai rõ nó chừa khỏi DẤU HIỆU NÀO',
+    NGOAI_LE.every(n => Array.isArray(n.chiDauHieu) && n.chiDauHieu.length > 0),
+    NGOAI_LE.map(n => [n.tep, n.chiDauHieu]));
+  const tenDauHieu = new Set(DAU_HIEU.map(d => d.ten));
+  check('và mọi tên dấu hiệu được nêu đều là dấu hiệu CÓ THẬT',
+    NGOAI_LE.every(n => (n.chiDauHieu || []).every(t => tenDauHieu.has(t))),
+    NGOAI_LE.flatMap(n => (n.chiDauHieu || []).filter(t => !tenDauHieu.has(t))));
+
+  // PHÉP THỬ NGƯỢC CỦA CHÍNH CƠ CHẾ CHỪA: một dòng KHỚP ngoại lệ nhưng mang
+  // thêm một dấu hiệu KHÁC thì vẫn phải bị bắt. Dòng dưới đây khớp `chiDong`
+  // của surveys.js (có `}%`) mà cũng mang chữ "xếp hạng" — bản cũ cho lọt sạch.
+  {
+    const dongGai = 'return `Bảng xếp hạng: ${Math.round(pct)}%`;';
+    const nlThu = NGOAI_LE.filter(n => n.tep === 'public/js/views/surveys.js');
+    const conLai = DAU_HIEU.filter(d => d.re.test(dongGai))
+      .filter(d => !nlThu.some(n => n.chiDong(dongGai) && (n.chiDauHieu || []).includes(d.ten)));
+    check('dựng được dòng gài: nó khớp ngoại lệ VÀ mang hai dấu hiệu',
+      nlThu.some(n => n.chiDong(dongGai)) && DAU_HIEU.filter(d => d.re.test(dongGai)).length >= 2,
+      DAU_HIEU.filter(d => d.re.test(dongGai)).map(d => d.ten));
+    check('DÒNG KHỚP NGOẠI LỆ VẪN BỊ BẮT vì dấu hiệu KHÔNG nằm trong lý do chừa',
+      conLai.some(d => d.ten === 'xếp hạng trẻ'), conLai.map(d => d.ten));
+    check('và đúng dấu hiệu ĐÃ nêu lý do thì vẫn được chừa thật',
+      !conLai.some(d => d.ten === 'phần trăm hiện ra màn hình'), conLai.map(d => d.ten));
+  }
   const sd = NGOAI_LE.find(n => n.tep === 'data/seed.js');
   check('seed.js: dòng đặt điểm về giá trị trung tính thì ĐƯỢC chừa',
     !!sd && sd.chiDong('          score: null,   // QUY TẮC 4 — không chấm điểm trẻ'), !!sd);

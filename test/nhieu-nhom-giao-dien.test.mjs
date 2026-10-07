@@ -85,7 +85,11 @@ const chuTrenMan = () => page.innerText('#view');
 console.log('\n[1] Cô phụ trách HAI nhóm — Lịch sinh hoạt');
 {
   await dangNhap('giaovien3', '123456');   // cô Bích Ngọc: Chồi 2 và Lá 1
-  await mo('/#/timetable');
+  // Đ198 (việc 41) đảo thứ tự hai phần, nên `#/timetable` nay mở sẵn phần Kế
+  // hoạch giáo dục. Mục này đo phần LỊCH SINH HOẠT (dải T2…T6), nên đi thẳng
+  // vào đúng phần ấy thay vì dựa vào phần nào đang mở sẵn — một bài canh phụ
+  // thuộc vào thứ tự tab là bài canh đỏ mỗi lần ai đó đổi thứ tự.
+  await mo('/#/timetable/lich');
 
   const o = await oChon();
   check('có ô chọn nhóm', !!o);
@@ -111,8 +115,9 @@ console.log('\n[1] Cô phụ trách HAI nhóm — Lịch sinh hoạt');
     nhom2.includes('Nước và hiện tượng tự nhiên'), nhom2.slice(0, 300));
   check('không còn lẫn nội dung của nhóm thứ nhất',
     !nhom2.includes('Khám phá: Trường mầm non của bé'), nhom2.slice(0, 300));
-  check('vẫn còn nút Chỉnh sửa — cô phụ trách nhóm này nên sửa được',
-    nhom2.includes('Chỉnh sửa'), nhom2.slice(0, 200));
+  // Đ133: lịch sinh hoạt do văn phòng soạn — cô xem, không sửa.
+  check('KHÔNG có nút Chỉnh sửa — lịch do văn phòng soạn (Đ133)',
+    !nhom2.includes('Chỉnh sửa'), nhom2.slice(0, 200));
 }
 
 // ===========================================================================
@@ -134,8 +139,19 @@ console.log('\n[2] Cô phụ trách HAI nhóm — Kế hoạch giáo dục');
   const sau = await chuTrenMan();
   check('ĐỔI SANG NHÓM THỨ HAI THÌ KẾ HOẠCH ĐỔI THEO',
     sau.includes('Bé chuẩn bị vào lớp 1'), sau.slice(0, 300));
-  check('vẫn còn nút Soạn kế hoạch cho nhóm thứ hai',
-    sau.includes('Soạn kế hoạch'), sau.slice(0, 200));
+  // Đ198 (việc 42): kế hoạch của CẢ NHÓM nay do VĂN PHÒNG soạn, nên cô KHÔNG
+  // còn nút Soạn ở bất kỳ nhóm nào.
+  //
+  // Phép kiểm cũ ở đây là "đổi nhóm xong vẫn còn nút" — nó canh chuyện đổi
+  // nhóm không làm hỏng màn. Nay câu hỏi đổi chiều, và câu mới CHẶT HƠN: cô
+  // không có nút ở CẢ HAI nhóm, mà vẫn ĐỌC được kế hoạch của cả hai. Màn hình
+  // thôi mời cô bấm một nút chắc chắn nhận 403 — đúng thứ `test:khong-hua-suong`
+  // sinh ra để chặn.
+  check('CÔ KHÔNG CÒN NÚT SOẠN Ở NHÓM THỨ HAI — kế hoạch chung là việc của văn phòng',
+    !sau.includes('Soạn kế hoạch'), sau.slice(0, 200));
+  check('và cũng không có ở nhóm đầu', !truoc.includes('Soạn kế hoạch'), truoc.slice(0, 200));
+  check('NHƯNG CÔ VẪN ĐỌC ĐƯỢC KẾ HOẠCH CỦA CẢ HAI NHÓM — chỉ thôi SOẠN, không thôi XEM',
+    truoc.includes('Trường mầm non của bé') && sau.includes('Bé chuẩn bị vào lớp 1'));
 }
 
 // ===========================================================================
@@ -144,7 +160,11 @@ console.log('\n[3] Cô phụ trách MỘT nhóm — màn hình không đổi m�
   // Ô chọn nhóm là thứ thêm vào. Nếu nó hiện với cô chỉ có một nhóm thì đó là
   // một bước thừa mỗi ngày, cho mọi cô, để phục vụ một số ít cô dạy hai nhóm.
   await dangNhap('giaovien2', '123456');   // cô Thu Hà: chỉ Lá 1
-  await mo('/#/timetable');
+  // Phần LỊCH (#/timetable/lich). `#/timetable` trống mở phần Kế hoạch giáo
+  // dục từ Đ198, và từ Đ225 phần ấy là kế hoạch CHUNG CẢ TRƯỜNG — không còn
+  // tên nhóm. Bản cũ của phép kiểm dưới đây qua được là nhờ dòng "Cô phụ
+  // trách … · Lá 1" của kế hoạch tháng, chứ không phải nhờ lịch của nhóm.
+  await mo('/#/timetable/lich');
   check('Lịch sinh hoạt: KHÔNG hiện ô chọn nhóm', !(await oChon()));
   const tkb = await chuTrenMan();
   check('vẫn mở đúng lịch sinh hoạt của nhóm cô', tkb.includes('Lá 1'), tkb.slice(0, 200));
@@ -191,14 +211,32 @@ console.log('\n[4b] Quản trị: biết mình là ai, và biết đang xem hồ
   // Ba màn này đều là màn MỘT BÉ và đều đang bật. Nề nếp và Nhận xét từng nằm ở
   // đây nhưng nay TẮT SẴN (N3 · A2) nên chỉ hiện "Phân hệ đang được nhà trường
   // tắt" — soi ô chọn bé trên một màn đang tắt là soi nhầm chỗ.
-  for (const [duong, ten] of [['/#/student', 'Hồ sơ bé'], ['/#/health', 'Sức khỏe']]) {
-    await mo(duong);
+  // Góp ý 06/10 (mục 1): màn Hồ sơ của văn phòng mở ra là màn TÌM BÉ —
+  // không đoán hộ một bé nào, mà cũng không bày ô chọn dài cả trường.
+  {
+    await mo('/#/student');
     const chu = await chuTrenMan();
-    check(`${ten}: có ô chọn bé, không còn đoán bé nào`,
-      chu.includes('Đang xem hồ sơ của bé'), chu.slice(0, 200));
-    const o = await page.$('#view select');
-    const soBe = o ? (await o.$$('option')).length : 0;
-    check(`${ten}: ô chọn liệt kê mọi bé của trường`, soBe >= 8, soBe);
+    check('Hồ sơ bé: mở ra là màn tìm, không đoán hộ bé nào',
+      (await page.$('#hs-tim')) !== null && !chu.includes('Mã của bé:'), chu.slice(0, 200));
+    const soBe = await page.$$eval('#hs-cay [data-mo-be]', ds => ds.length);
+    check('Hồ sơ bé: cây liệt kê mọi bé của trường', soBe >= 8, soBe);
+  }
+
+  // SỨC KHOẺ TỪ Đ138 KHÔNG CÒN LÀ MÀN MỘT BÉ với quản trị và cô: nhà trường
+  // 07/09 muốn "theo cấu trúc cơ sở → lớp, một loạt danh sách bé cả lớp, bấm
+  // vào từng bạn để xem chi tiết". Tức cùng nỗi lo của N10 (không ai bị chọn
+  // hộ một bé) nhưng cách giải khác: chọn NHÓM, rồi bấm đúng bé. Canh đúng
+  // hình dạng ấy — không còn dòng "Đang xem hồ sơ của bé" nào được tự chọn.
+  {
+    await mo('/#/health');
+    const chu = await chuTrenMan();
+    check('Sức khỏe: quản trị vào BẢNG NHÓM, không bị chọn hộ một bé',
+      !chu.includes('Đang xem hồ sơ của bé') && /Tháng xem cân đo/.test(chu), chu.slice(0, 200));
+    const oNhom = await page.$('#ht-nhom');
+    const soNhom = oNhom ? (await oNhom.$$('option')).length : 0;
+    check('Sức khỏe: ô chọn NHÓM liệt kê mọi nhóm của trường', soNhom >= 4, soNhom);
+    const soDong = await page.$$eval('#view [data-mo-be]', (ds) => ds.length);
+    check('và bảng liệt kê từng bé của nhóm đang chọn, bấm vào là mở hồ sơ', soDong >= 3, soDong);
   }
 
   // XIN PHÉP KHÔNG CÒN LÀ MÀN MỘT BÉ VỚI QUẢN TRỊ — và đó là cách giải TỐT HƠN
@@ -217,10 +255,10 @@ console.log('\n[4b] Quản trị: biết mình là ai, và biết đang xem hồ
 
   // Đổi bé thì nội dung phải đổi theo — nếu không thì ô chọn chỉ là trang trí.
   await mo('/#/student');
+  const ids = await page.$$eval('#hs-cay [data-mo-be]', ds => ds.map(d => d.dataset.moBe));
+  await mo(`/#/student/${ids[0]}`);
   const be1 = await chuTrenMan();
-  const idBe2 = await page.$eval('#view select option:nth-child(3)', (e) => e.value);
-  await page.selectOption('#view select', idBe2);
-  await page.waitForTimeout(800);
+  await mo(`/#/student/${ids[2]}`);
   const be2 = await chuTrenMan();
   check('CHỌN BÉ KHÁC THÌ HỒ SƠ ĐỔI THEO', be1 !== be2, { be1: be1.slice(0, 80), be2: be2.slice(0, 80) });
 }
@@ -235,12 +273,17 @@ console.log('\n[4c] Phụ huynh và cô KHÔNG thấy ô chọn của quản tr�
     await mo(duong);
     check(`phụ huynh KHÔNG thấy ô chọn của quản trị ở ${duong}`,
       !(await chuTrenMan()).includes('Đang xem hồ sơ của bé'));
+    // Từ 06/10 màn tìm bé của văn phòng có cây cả trường — cùng nỗi lo rò danh
+    // sách trẻ, canh luôn.
+    check(`phụ huynh KHÔNG thấy ô tìm / cây bé của văn phòng ở ${duong}`,
+      (await page.$('#hs-tim')) === null && (await page.$('#hs-cay')) === null);
   }
   await dangNhap('giaovien3', '123456');
   for (const duong of ['/#/', '/#/student']) {
     await mo(duong);
     check(`cô KHÔNG thấy ô chọn của quản trị ở ${duong}`,
       !(await chuTrenMan()).includes('Đang xem hồ sơ của bé'));
+    check(`cô KHÔNG thấy cây bé cả trường của văn phòng ở ${duong}`, (await page.$('#hs-cay')) === null);
   }
 
   // Y2: cô ĐỌC được đơn nghỉ của nhóm mình, nhưng KHÔNG có nút duyệt.

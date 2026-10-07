@@ -107,12 +107,28 @@ await moTabTinhNang();
 check('phân hệ cắm thêm xuất hiện trong danh sách', await page.locator('.list-row', { hasText: 'Học phí' }).count() > 0);
 check('được đánh dấu là "Cắm thêm"',
   await page.locator('.list-row', { hasText: 'Học phí' }).first().locator('text=Cắm thêm').count() > 0);
+// ĐI ĐỦ HAI CHIỀU: TẮT rồi BẬT LẠI.
+//
+// Từ Đ146 chín phân hệ cắm thêm bật sẵn, nên bấm một cái là TẮT chứ không phải
+// bật. Bản cũ bấm đúng một lần rồi mong thấy biểu tượng hiện ra — hỏng ngay khi
+// mặc định đổi, dù cơ chế không sai gì. Nay bấm hai lần và canh cả hai chiều:
+// tắt thì biểu tượng biến mất, bật lại thì hiện lên. Mạnh hơn bản cũ, vì bản cũ
+// chưa bao giờ canh vế biến mất của một phân hệ cắm thêm.
+await nutCua('Học phí').click();
+await page.waitForTimeout(1800);
+await page.goto(BASE + '/#/', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1000);
+const nhanTat = await page.locator('.tile-label').allTextContents();
+check('TẮT thì biểu tượng Học phí biến khỏi màn hình chính',
+  !nhanTat.includes('Học phí'), nhanTat);
+
+await moTabTinhNang();
 await nutCua('Học phí').click();
 await page.waitForTimeout(1800);
 await page.goto(BASE + '/#/', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1000);
 const nhan2 = await page.locator('.tile-label').allTextContents();
-check('biểu tượng Học phí hiện trên màn hình chính', nhan2.includes('Học phí'), nhan2);
+check('BẬT LẠI thì biểu tượng Học phí hiện trên màn hình chính', nhan2.includes('Học phí'), nhan2);
 await page.screenshot({ path: SHOT + '05-them-hocphi.png', fullPage: true });
 
 await page.locator('.tile', { hasText: 'Học phí' }).first().click();
@@ -168,6 +184,65 @@ console.log('\n[7] Quản trị: gán chức vụ cho một tài khoản quản 
     .first().locator('.list-row', { hasText: 'Chi Ke Toan' }).first();
   check('gỡ chức vụ thì quay lại "Ban giám hiệu"',
     /Ban giám hiệu/.test(await dong3.innerText()), await dong3.innerText());
+}
+
+// ===========================================================================
+console.log('\n[7] Màn Cài đặt: thẻ thông báo đẩy chỉ mời đúng người (Đ145)');
+{
+  // Đường đẩy chỉ gửi tin THẬT cho gia đình: `lib/day.js` có đúng một hàm gửi
+  // (`guiChoGiaDinhCuaBe`) và nó đọc bảng `student_parents`. Cô bật xong chỉ
+  // nhận được đúng cái "Gửi thử" rồi thôi — mà thẻ lại viết "báo khi có tin về
+  // con", tức hứa một thứ tài khoản của cô không hề có. Đúng kiểu hứa suông mà
+  // bài học Đ14 sinh ra để chặn.
+  //
+  // Phép kiểm này phải ở trình duyệt: dò mã nguồn chỉ thấy được một dòng `if`,
+  // không thấy được cô có nhìn ra cái thẻ hay không.
+  await page.evaluate(() => App.logout());
+  await page.waitForTimeout(600);
+  await dangNhap('giaovien', '123456');
+  await page.goto(BASE + '/#/settings', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  check('CÔ KHÔNG thấy thẻ thông báo đẩy', await page.locator('#st-push-card').count() === 0);
+  const manCo = await page.locator('#view').innerText();
+  check('và màn Cài đặt của cô vẫn dùng được như thường',
+    /Cài đặt/.test(manCo) && /Tài khoản/.test(manCo), manCo.slice(0, 160));
+  check('không còn câu hứa "tin về con" nào trên màn của cô',
+    !/tin về con/.test(manCo), manCo.slice(0, 160));
+
+  await page.evaluate(() => App.logout());
+  await page.waitForTimeout(600);
+  await dangNhap('phuhuynh', '123456');
+  await page.goto(BASE + '/#/settings', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  check('GIA ĐÌNH VẪN THẤY thẻ — người duy nhất nhận được tin thật',
+    await page.locator('#st-push-card').count() === 1);
+  const manPh = await page.locator('#st-push-card').innerText();
+  check('và vẫn được hứa đúng thứ mình sẽ nhận', /tin về con/.test(manPh), manPh.slice(0, 160));
+  check('vẫn nói rõ iPhone cần thêm vào màn hình chính', /màn hình chính/.test(manPh), manPh.slice(0, 160));
+
+  await page.evaluate(() => App.logout());
+  await page.waitForTimeout(600);
+  await dangNhap('htruong', 'quantri2026');
+  await page.goto(BASE + '/#/settings', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  check('NHÀ TRƯỜNG vẫn giữ thẻ — "Gửi thử" là cách duy nhất kiểm đường đẩy',
+    await page.locator('#st-push-card').count() === 1);
+  const manQt = await page.locator('#st-push-card').innerText();
+  check('nhưng KHÔNG hứa tin về con với tài khoản nhà trường',
+    !/tin về con/.test(manQt), manQt.slice(0, 200));
+  // TỪ Đ154 THẺ NÀY HỨA MỘT THỨ CÓ THẬT.
+  //
+  // Bản Đ145 chỉ giữ thẻ để bấm "Gửi thử" và nói thẳng ra là tài khoản nhà
+  // trường không nhận tin tự động — đúng với lúc đó. Nay `lib/bao-nha-truong.js`
+  // đẩy tin cho hiệu trưởng và quản lý cơ sở khi cô gửi bản chờ duyệt, nên câu
+  // ấy đã sai và phải đổi. Phép kiểm đổi theo, nhưng vẫn canh đúng một điều:
+  // thẻ nói ĐÚNG thứ tài khoản này sẽ nhận, không hơn một chữ.
+  check('mà hứa đúng thứ tài khoản nhà trường sẽ nhận: việc chờ mình duyệt',
+    /chờ mình duyệt/.test(manQt) && /báo cáo học tập/.test(manQt), manQt.slice(0, 200));
+  check('và vẫn nói nút "Gửi thử" dùng để kiểm đường thông báo của trường',
+    /Gửi thử/.test(manQt) && /đường thông báo/.test(manQt), manQt.slice(0, 200));
+  check('KHÔNG còn câu "tài khoản nhà trường thì không" của bản trước',
+    !/tài khoản nhà trường thì không/.test(manQt), manQt.slice(0, 200));
 }
 
 check('không có lỗi JavaScript trong suốt quá trình', loi.length === 0, loi);

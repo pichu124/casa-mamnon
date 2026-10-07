@@ -16,6 +16,46 @@ hai, khi nào không.
 
 ---
 
+## ĐÍNH CHÍNH 15/09/2026 — "app 1 đang chạy thật cho ~300 gia đình" LÀ SAI
+
+Câu hỏi số 9 gửi nhà trường ngày 14/09 hỏi thẳng: *"App cũ hiện có dữ liệu thật
+của gia đình nào không?"*. Trường trả lời ngày 15/09:
+
+> **"Ko, dữ liệu đều đang chỉ dùng để test phần mềm"**
+
+Con số "~300 gia đình" lặp lại **hơn mười lần** trong chính tệp này và được dùng
+làm căn cứ xếp ưu tiên cho gần như mọi món nợ ở bảng dưới — *"ở app 1 nặng hơn
+vì đang thu tiền thật của ~300 gia đình"*, *"app 1 đã chạy đủ lâu để có học sinh
+ra trường quá 12 tháng"*. **Căn cứ ấy không đứng nữa.**
+
+**BA HỆ QUẢ, VÀ CHÚNG NGƯỢC CHIỀU NHAU:**
+
+1. **Mức khẩn cấp của mọi món nợ bên app 1 GIẢM.** Không có hồ sơ trẻ thật,
+   không có tiền thật, không có ảnh khuôn mặt thật thì một lỗi rò rỉ bên đó là
+   lỗi trên dữ liệu thử. Những dòng đánh dấu *"Món nợ ưu tiên cao nhất"* vì lý
+   do "app 1 nặng hơn" cần đọc lại: chúng vẫn là lỗi thật và vẫn phải vá, nhưng
+   lý do khẩn cấp thì không còn.
+
+2. **Việc GỘP bốn bản vá sang app 1 nay AN TOÀN hơn hẳn.** Điều làm việc gộp
+   đáng ngại là chạy mã chưa kiểm thử lên một cơ sở dữ liệu có hồ sơ trẻ thật.
+   Trường đã nói không có, và cũng đã nói *"cứ gộp vào cho tôi"*.
+
+3. **NHƯNG RỦI RO MỚI XUẤT HIỆN: ĐỘ TIN CỦA SỔ SÁCH.** Một con số sai nằm ở chỗ
+   dễ tin nhất trong kho, lặp hơn mười lần, và được dùng để xếp ưu tiên suốt
+   nhiều tuần. Nó không tự sinh ra — nó chép từ tài liệu gốc của dự án và không
+   ai kiểm lại. Chừng nào chưa rõ **ai viết con số ấy và từ đâu**, thì mọi con
+   số khác cùng nguồn đều đáng ngờ như nhau.
+
+**`CLAUDE.md` CŨNG NÓI CÂU ẤY** (*"đang chạy thật cho ~300 học sinh"*, ngay dòng
+thứ tư). **Không tự sửa** — quy định của chính tệp đó nói *"nêu là nêu, không
+phải tự ý làm"*. Đã nêu với chủ dự án; sửa hay không là quyết định của anh.
+
+**CHƯA GỘP GÌ SANG APP 1 TRONG ĐỢT NÀY.** Kho `pichu124/School` không nằm trong
+phạm vi truy cập của phiên làm việc này, nên việc gộp bốn bản vá phải làm ở một
+phiên có quyền vào kho đó. Danh sách bốn bản vá vẫn nằm nguyên ở bảng bên dưới.
+
+---
+
 ## Phần nào là "nền chung"
 
 ### Cách nhận ra, chỉ một câu lệnh
@@ -138,7 +178,7 @@ cho tới khi trả hết. Trống là tốt.
 
 | Ngày | Lỗi | Đã vá | Còn nợ | Ghi chú |
 |---|---|---|---|---|
-| 27/08 | Hồ sơ trẻ lọt vào ảnh Docker: `.gitignore` giấu tệp `.db` khỏi mắt người soát, nhưng `docker build` **không đọc** `.gitignore` nên vẫn đóng gói nó vào ảnh | app 2 — `2551b2a` | **app 1** | Loại 1 (rò rỉ dữ liệu). Cần đối chiếu `.dockerignore` của app 1 trước khi vá — chưa mở kho app 1 nên chưa biết bên đó có dính không |
+| 27/08 | Hồ sơ trẻ lọt vào ảnh Docker: `.gitignore` giấu tệp `.db` khỏi mắt người soát, nhưng `docker build` **không đọc** `.gitignore` nên vẫn đóng gói nó vào ảnh | app 2 — `2551b2a` | **app 1** | Loại 1 (rò rỉ dữ liệu). Cần đối chiếu `.dockerignore` của app 1 trước khi vá. (Ghi chú cũ nói "chưa mở kho app 1" — điều đó đã hết đúng từ 30/08, khi người dùng mở quyền vào kho `pichu124/School`; món này vẫn chưa đối chiếu, nhưng nay là vì chưa ai làm, không phải vì không vào được.) |
 | 27/08 | Khôi phục dữ liệu chạy được trong lúc máy chủ ĐANG chạy → SQLite ghi đè lẫn nhau, hỏng âm thầm | app 2 — `8560f9c` | **app 1** | Loại 2 (mất dữ liệu) |
 | 27/08 | `/healthz` công khai kể số phiên đăng nhập và thời gian chạy cho người **chưa đăng nhập** | app 2 — `616ce0c` | **app 1** | Loại 1. Cùng commit còn vá `restore:check` không đếm bảng phân công cô |
 | 28/08 | Bộ canh dữ liệu **bỏ lọt chính tệp mà `restore.js` sinh ra**: `school.db.truoc-khi-khoi-phuc-<số>` không khớp mẫu `*.db` của cả bộ canh lẫn `.gitignore` | app 2 — Đ4 | **app 1** | Loại 1, và là lỗ do chính kho mã tự mở ra sau mỗi lần khôi phục |
@@ -148,47 +188,109 @@ cho tới khi trả hết. Trống là tốt.
 | 28/08 | `lib/importer.js` xoá dữ liệu cũ theo một danh sách bảng **viết tay chỉ có bảng lõi**. Nhập lại kho JSON đời cũ, hay chạy `npm run seed -- --force`, xoá sạch bé và nhóm nhưng ĐỂ NGUYÊN ghi chép của phân hệ về chính những bé vừa bị xoá — nhật ký ăn ngủ vệ sinh, quan sát, kế hoạch, sổ đón trả | app 2 — Đ32 | **app 1** | Loại 1 và loại 2 cùng lúc: dữ liệu mồ côi, và **ghi chép về một đứa trẻ sống sót sau khi đứa trẻ đó đã bị xoá** — Nghị định 13/2023 cho quyền xoá. Ở app 1 nhẹ hơn vì bên đó chỉ có phân hệ `hocphi`, mà bảng của nó CÓ khoá ngoại `ON DELETE CASCADE`; vẫn nên vá vì lỗi nằm ở cách viết danh sách |
 | 29/08 | Màn **Học phí**: ô *Chọn bé* của người trong trường **không có tác dụng**. `render()` luôn lấy `students[0]`, còn `onchange` chỉ ghi `this._sid` rồi vẽ lại — nên văn phòng chọn bé A, màn lặng lẽ quay về bé đầu danh sách, và **khoản thu vừa tạo mang tên nhà khác** | app 2 — Đ39 | **app 1** | Loại 1 (dữ liệu của nhà này hiện trong hồ sơ nhà kia) **và là tiền**. Mã ở `modules/hocphi/view.js` giống hệt nhau tại điểm tách `bc9dfa3`, nên app 1 chắc chắn dính. Ở app 1 còn nặng hơn: app 1 đang thu tiền thật của ~300 gia đình, còn app 2 chưa có người dùng. **Món nợ ưu tiên cao nhất trong bảng này** |
 
-| 29/08 | `db.canAccessStudent` nhánh phụ huynh chỉ hỏi bảng `student_parents`, tức trả `true` **mãi mãi**. Mốc "gia đình còn xem hồ sơ 12 tháng sau khi bé rời trường" chỉ được cài trong `routes/hocsinh-cu.js`, nên **màn hình đó đóng đúng hạn còn mọi đường khác thì không**: gõ thẳng `/api/nhatky?studentId=`, `/api/health`, `/api/medicine`, `/api/hocphi` là đọc được hồ sơ một đứa trẻ đã rời trường nhiều năm | app 2 — Đ44 | **app 1** | Loại 1 (rò rỉ dữ liệu). Cả hai tệp — `lib/db.js` và `routes/hocsinh-cu.js` — sinh ra TRƯỚC điểm tách `bc9dfa3` và nhánh phụ huynh giống hệt nhau, nên **app 1 chắc chắn dính**. Ở app 1 nặng hơn: hồ sơ 5 năm tiểu học của ~300 gia đình, và app 1 đã chạy đủ lâu để có học sinh ra trường quá 12 tháng. Bản vá là thêm hai thứ vào `lib/db.js` (`SO_THANG_GIU_HO_SO`, `conHanXemHoSo`) rồi siết đúng nhánh phụ huynh — không đụng dữ liệu, không đổi hành vi của vai nào khác |
-| 30/08 | `scripts/restore.js` tìm ảnh ở `DATA_DIR/backups/uploads` — **ghi cứng**, trong khi `scripts/backup.js` ngay cạnh **có** `--out /mnt/usb` và tự quảng cáo điều đó ở dòng đầu tệp. Sao lưu ra ổ ngoài, ổ trong hỏng, khôi phục từ ổ ngoài: cơ sở dữ liệu về đủ (dòng 40 nhận đường dẫn tuyệt đối) còn **ảnh thì không**, vì máy đi tìm trong đúng cái thư mục vừa mất | app 2 — Đ62 | ~~app 1~~ **đã trả 30/08** | Loại 2 (mất dữ liệu vĩnh viễn). **Đã đối chiếu tận nơi tại `bc9dfa3`, không phải phỏng đoán:** `restore.js:95` ghi cứng, `backup.js:23` đọc `--out`. Ảnh là thứ DUY NHẤT không dựng lại được từ đâu khác. App 1 đang chạy thật cho ~300 gia đình. **Món nợ ưu tiên cao nhất trong bảng này** — và nó chỉ lộ ra đúng lúc người ta cần nó nhất |
-| 30/08 | `lib/lich-su-lop.js` — `lopCuCuaPhuHuynh` chỉ hỏi quan hệ `student_parents`, mà quan hệ cha mẹ – con thì **không bao giờ hết hạn**. Đ44 gom luật "12 tháng" về `db.canAccessStudent` nhưng hai họ đường của LỚP CŨ (album lớp cũ, màn Năm học trước) **không đi qua hàm đó** | app 2 — Đ59 | ~~app 1~~ **đã trả 30/08** | Loại 1 (rò rỉ dữ liệu). **Đã đối chiếu tận nơi:** ở `bc9dfa3`, `lopCuCuaPhuHuynh` không có một dòng lọc hạn nào và `lib/db.js` bên đó chưa có `conHanXemHoSo`. Nặng hơn hồ sơ của chính bé đó: album lớp là **ảnh khuôn mặt CẢ LỚP**, phần lớn các em trong ảnh vẫn đang học. Dựng lại được ở app 2: một gia đình rời trường 3 năm vẫn tải về **đúng các byte của tấm ảnh**. Cùng một tài khoản, cùng một phiên, màn "Hồ sơ con đã ra trường" trả 403 kèm câu "chỉ tra cứu được trong 12 tháng" — nên nhà trường nhìn màn thứ nhất sẽ tin là cửa đã đóng |
-| 30/08 | `server.js` phục vụ `/modules` bằng `express.static` với một cố gắng trả 404 đặt trong `setHeaders` — mà `setHeaders` chạy **sau khi** đã quyết định gửi tệp, nên nó không chặn được gì. Và khối này nằm **ngoài** lớp `auth.requireAuth` của `/api`, tức mở cho người **chưa đăng nhập** | app 2 — Đ66 | ~~app 1~~ **đã trả 30/08** | Loại 1 (lộ mã nguồn máy chủ). **Đã đối chiếu tận nơi:** `bc9dfa3:server.js:111-116` giống hệt, và nó đứng sau `app.use('/api', …requireAuth)` nên không được lớp đó che. App 1 có `modules/hocphi/`, nên bất kỳ ai cũng tải được `/modules/hocphi/routes.js` và `/modules/hocphi/schema.sql` — logic phân quyền và cấu trúc bảng của phần thu tiền. Bản vá là một middleware chặn thật trước `express.static`, vài dòng |
-| 30/08 | `routes/hocsinh-cu.js` đọc bảng `remarks` bằng `SELECT *` **không kèm điều kiện lọc thu hồi**. Cô bấm Thu hồi một nhận xét bấm nhầm sang bé khác → màn Nhận xét sạch, nhưng màn "Hồ sơ con đã ra trường" vẫn hiện nguyên dòng đó cho gia đình | app 2 — Đ73 | ~~app 1~~ **đã trả 30/08** | Loại 1 (rò rỉ) và là **quyền xoá dữ liệu theo Nghị định 13/2023** — nhà trường đã làm đúng thao tác, app mới là chỗ không thực hiện. **Đã đối chiếu tận nơi:** `bc9dfa3:routes/hocsinh-cu.js:92` là đúng câu SQL đó, và `bc9dfa3:lib/sua-thu-hoi.js` **đã có sẵn** `dieuKienConHien` — tức bản vá bên đó chỉ là gọi một hàm đang nằm sẵn trong kho. **Ở app 1 nặng hơn hẳn app 2:** app 2 đã tắt phân hệ Nhận xét từ A2, còn app 1 là trường tiểu học dùng nhận xét hằng ngày cho ~300 gia đình. Và đây là màn CHỈ GIA ĐÌNH mở — cô không có đường nào nhìn thấy để biết là chưa gỡ được |
+| 14/09 | `lib/db.js` — chức vụ **Văn phòng cơ sở** không có `'/api/plans'` trong danh sách đường dẫn, trong khi `'/api/timetable'` thì có và Đ148 đã gộp hai thứ thành MỘT màn. `apiChoPhep` là danh sách trắng nên phân hệ `kehoach` bị lọc khỏi danh sách của họ, dải tab không được vẽ, và **chính vai được nhà trường giao việc soạn kế hoạch thì mở màn ra không thấy chỗ nào để soạn — màn hình cũng không báo lỗi gì**. Cùng loại *quên theo hướng đóng lại* với `'/api/dong-y'` đã vá trước đây ở ngay khối ấy | app 2 — Đ180 (`5b63994`) | **app 1** | Loại 3 (mất tính năng, không rò dữ liệu). App 1 cũng có chức vụ này và cũng có màn kế hoạch nên nhiều khả năng hở y hệt, nhưng **chưa mở kho kia đối chiếu được** — đây là suy đoán theo cấu trúc, không phải đã kiểm tận nơi. Bản vá là THÊM một phần tử vào mảng, không đổi không bỏ, khế ước không đổi |
+| 14/09 | `public/js/app.js` — hai chuỗi hiện tên app ra màn hình đổi theo tên mới nhà trường chốt | app 2 — `9b3308f` | **KHÔNG chép sang app 1** | Không phải lỗi. Ghi lại để lần vá chéo sau không đối chiếu hai tệp rồi tưởng chúng đã trôi khỏi nhau: app 1 mang tên khác, nên hai dòng này CỐ Ý lệch |
+| 01/09 | Mật khẩu tạm sinh bằng `Math.random()` — đoán trước được khi biết vài giá trị nó từng sinh — ở CẢ HAI chỗ cấp mật khẩu: `scripts/create-admin.js` (tài khoản quản trị thật) và `routes/accounts.js` (cấp lại cho cô/phụ huynh, mật khẩu trả thẳng về màn hình) | app 2 — Đ117 | **app 1** | Loại 1, ưu tiên vừa (mật khẩu tạm buộc đổi ngay lần đầu nên cửa sổ hẹp). **Đã đối chiếu tận nơi:** `bc9dfa3:scripts/create-admin.js:37` và `bc9dfa3:routes/accounts.js:14` cùng một dòng `Math.random`. Bản vá một dòng mỗi chỗ: `crypto.randomInt` |
+| 01/09 | Express khớp route **không phân biệt hoa/thường**, nhưng các chốt chặn đứng trước route lại so `req.path` nguyên bản với tiền tố chữ thường. Gõ `/API/...` là: `chanApiDaTat` (lib/modules.js) cho API của **phân hệ đã tắt** chạy như đang bật, và `server.js` quên gắn `Cache-Control: no-store` nên proxy được phép cache dữ liệu trẻ. (Tầng chức vụ dính nặng nhất — Kế toán mở được hồ sơ bé — nhưng tầng đó là mã riêng app 2, app 1 không có.) | app 2 — Đ117 | **app 1** | Loại 1. **Đã đối chiếu tận nơi:** `bc9dfa3:lib/modules.js:409-413` và `bc9dfa3:server.js:51` là đúng hai phép so đó. Bản vá chỉ là hạ đường dẫn về chữ thường trước khi so — vài dòng, kèm bộ canh `test/duong-hoa-thuong.test.mjs` chép sang được |
+| 29/08 | `db.canAccessStudent` nhánh phụ huynh chỉ hỏi bảng `student_parents`, tức trả `true` **mãi mãi**. Mốc "gia đình còn xem hồ sơ 12 tháng sau khi bé rời trường" chỉ được cài trong `routes/hocsinh-cu.js`, nên **màn hình đó đóng đúng hạn còn mọi đường khác thì không**: gõ thẳng `/api/nhatky?studentId=`, `/api/health`, `/api/medicine`, `/api/hocphi` là đọc được hồ sơ một đứa trẻ đã rời trường nhiều năm | app 2 — Đ44 | **app 1** | Loại 1 (rò rỉ dữ liệu). Cả hai tệp — `lib/db.js` và `routes/hocsinh-cu.js` — sinh ra TRƯỚC điểm tách `bc9dfa3` và nhánh phụ huynh giống hệt nhau, nên **app 1 chắc chắn dính**. Ở app 1 nặng hơn: hồ sơ 5 năm tiểu học của ~300 gia đình, và app 1 đã chạy đủ lâu để có học sinh ra trường quá 12 tháng. Bản vá là thêm hai thứ vào `lib/db.js` (`SO_THANG_GIU_HO_SO`, `conHanXemHoSo`) rồi siết đúng nhánh phụ huynh — không đụng dữ liệu, không đổi hành vi của vai nào khác. **Đối chiếu lại 16/09: vẫn CHƯA về tới app 1** — `lib/db.js` tại `origin/HEAD` của app 1, nhánh phụ huynh của `canAccessStudent` vẫn là một câu đếm `student_parents` trần, trả `true` mãi mãi. Bản vá có được viết 30/08 (`f1c421f` · `59148bc` · `02b03c4`) nhưng nhánh đó không còn ở kho nào. |
+| 30/08 | `scripts/restore.js` tìm ảnh ở `DATA_DIR/backups/uploads` — **ghi cứng**, trong khi `scripts/backup.js` ngay cạnh **có** `--out /mnt/usb` và tự quảng cáo điều đó ở dòng đầu tệp. Sao lưu ra ổ ngoài, ổ trong hỏng, khôi phục từ ổ ngoài: cơ sở dữ liệu về đủ (dòng 40 nhận đường dẫn tuyệt đối) còn **ảnh thì không**, vì máy đi tìm trong đúng cái thư mục vừa mất | app 2 — Đ62 | **app 1** | Loại 2 (mất dữ liệu vĩnh viễn). **Đã đối chiếu tận nơi tại `bc9dfa3`, không phải phỏng đoán:** `restore.js:95` ghi cứng, `backup.js:23` đọc `--out`. Ảnh là thứ DUY NHẤT không dựng lại được từ đâu khác. App 1 đang chạy thật cho ~300 gia đình. **Món nợ ưu tiên cao nhất trong bảng này** — và nó chỉ lộ ra đúng lúc người ta cần nó nhất **Đối chiếu lại 16/09: CHƯA về tới app 1.** Bản vá có được viết 30/08 (`083a88e`) nhưng nhánh `claude/no-nen-chung-app2` không còn ở kho nào — `scripts/restore.js` tại `origin/HEAD` của app 1 vẫn không đọc `--out`. |
+| 30/08 | `lib/lich-su-lop.js` — `lopCuCuaPhuHuynh` chỉ hỏi quan hệ `student_parents`, mà quan hệ cha mẹ – con thì **không bao giờ hết hạn**. Đ44 gom luật "12 tháng" về `db.canAccessStudent` nhưng hai họ đường của LỚP CŨ (album lớp cũ, màn Năm học trước) **không đi qua hàm đó** | app 2 — Đ59 | **app 1** | Loại 1 (rò rỉ dữ liệu). **Đã đối chiếu tận nơi:** ở `bc9dfa3`, `lopCuCuaPhuHuynh` không có một dòng lọc hạn nào và `lib/db.js` bên đó chưa có `conHanXemHoSo`. Nặng hơn hồ sơ của chính bé đó: album lớp là **ảnh khuôn mặt CẢ LỚP**, phần lớn các em trong ảnh vẫn đang học. Dựng lại được ở app 2: một gia đình rời trường 3 năm vẫn tải về **đúng các byte của tấm ảnh**. Cùng một tài khoản, cùng một phiên, màn "Hồ sơ con đã ra trường" trả 403 kèm câu "chỉ tra cứu được trong 12 tháng" — nên nhà trường nhìn màn thứ nhất sẽ tin là cửa đã đóng **Đối chiếu lại 16/09: CHƯA về tới app 1.** Bản vá có được viết 30/08 (`59148bc`) nhưng nhánh `claude/no-nen-chung-app2` không còn ở kho nào — `lib/lich-su-lop.js` tại `origin/HEAD` của app 1 vẫn không có một dòng lọc hạn nào. |
+| 30/08 | `server.js` phục vụ `/modules` bằng `express.static` với một cố gắng trả 404 đặt trong `setHeaders` — mà `setHeaders` chạy **sau khi** đã quyết định gửi tệp, nên nó không chặn được gì. Và khối này nằm **ngoài** lớp `auth.requireAuth` của `/api`, tức mở cho người **chưa đăng nhập** | app 2 — Đ66 | **app 1** | Loại 1 (lộ mã nguồn máy chủ). **Đã đối chiếu tận nơi:** `bc9dfa3:server.js:111-116` giống hệt, và nó đứng sau `app.use('/api', …requireAuth)` nên không được lớp đó che. App 1 có `modules/hocphi/`, nên bất kỳ ai cũng tải được `/modules/hocphi/routes.js` và `/modules/hocphi/schema.sql` — logic phân quyền và cấu trúc bảng của phần thu tiền. Bản vá là một middleware chặn thật trước `express.static`, vài dòng **Đối chiếu lại 16/09: CHƯA về tới app 1.** Bản vá có được viết 30/08 (`d121010`) nhưng nhánh `claude/no-nen-chung-app2` không còn ở kho nào — `server.js:111-116` tại `origin/HEAD` của app 1 vẫn đúng khối `express.static` với `setHeaders` trả 404 quá muộn. |
+| 02/09 | `lib/csv.js` tách dòng **trước khi** xét ngoặc kép, nên ô chứa xuống dòng (Excel Alt+Enter — hay gặp ở cột ghi chú, địa chỉ) bị bẻ gãy thành hai dòng lệch cột. Danh sách bé nhập từ Excel lệch cột là hồ sơ sai mà không ai báo | app 2 — `7ba4ff7` (Đ118a) | **app 1** | Loại 2 (hỏng dữ liệu nhập) |
+| 02/09 | `lib/importer.js` xoá dữ liệu cũ mà **bỏ sót `record_edits`** — cờ thu hồi mồ côi ở lại, và một bản ghi mới trùng id với bản từng bị thu hồi sẽ bị ẩn nhầm khỏi mọi màn hình | app 2 — `cf51455` (Đ118b) | **app 1** | Loại 2. App 1 dùng chung danh sách xoá viết tay này |
+| 02/09 | `scripts/backup.js` ghi `.gz` **không nguyên tử** (script chết giữa chừng để lại bản cụt — vòng đời dọn có thể xoá mất bản tốt cùng ngày vì tưởng đã có bản mới) và chép cả tệp `.tmp` đang tải dở vào kho ảnh | app 2 — `deb2b91` (Đ118h) | **app 1** | Loại 2 (mất bản sao lưu). Cùng commit: `kiem-tra-may-chu.js` thôi nuốt cảnh báo của `restore:check` |
+| 01/10 | `scripts/backup.js` mục 3b so "mốc lần đầu thấy ảnh vắng" với "bản sao cũ nhất còn giữ" bằng `>`. Hai mốc sinh ra cách nhau vài phần nghìn giây trong CÙNG một lượt; máy đủ nhanh thì trùng nhau tới từng mi-li-giây và ảnh bị dọn ngay — đúng chiều ngược với lời hứa "sai về phía giữ lâu hơn". Lộ ra vì `test/sao-luu.test.mjs` mục [7] xanh trên máy làm việc mà ĐỎ trên GitHub | app 2 — Đ221b (đổi thành `>=`, thêm mục [7c] dựng thẳng ca trùng mốc) | **app 1** | Loại 2 nhưng **ưu tiên thấp**: chỉ mất ảnh khi ảnh bị xoá đúng trong khoảng vài mi-li-giây giữa lúc chụp cơ sở dữ liệu và lúc quét ảnh của một lượt sao lưu, và app 1 gần như không có ảnh. Bản vá một ký tự, chép thẳng được |
+| 02/09 | `public/js/ui.js` — `avatar()` chèn `emoji` vào HTML **không qua esc** và chèn `bg` vào thuộc tính style không kiểm tra định dạng; `studentBar()` nhét id vào **chuỗi JS trong onclick** nơi `esc()` không đủ (trình phân tích thuộc tính giải mã `&#39;` về dấu nháy thật). Hồ sơ người dùng là dữ liệu nhập được → XSS lưu trữ, dùng ở hơn 30 màn | app 2 — Đ118m | **app 1** | Loại 1 (mã chạy từ nội dung người dùng nhập) |
+| 11/09 | `public/js/api.js` ném lỗi chỉ mang CHỮ, không mang mã lỗi HTTP — nên mọi chỗ gọi buộc phải **đoán mã lỗi qua câu văn**. Màn "Nhận một bé" dò chuỗi *"đã có"* để nhận ra cảnh báo 409, mà câu 400 của mã bé trùng — *mã của bé "A1" đã có trong hệ thống* — cũng mang đúng chữ ấy: người dùng bấm Đồng ý, máy gửi lại y nguyên, máy chủ từ chối y nguyên. Một vòng không có lối ra, sinh ra từ việc đoán. | app 2 — `141102a` (commit riêng) | **app 1** | Loại 3 (khó dùng, không mất dữ liệu). Bản vá **CHỈ THÊM**: chữ của lỗi giữ nguyên từng ký tự nên mọi chỗ bắt lỗi theo cách cũ chạy y như trước; thêm `err.status = res.status` cạnh nó. Ở app 1 chưa biết có chỗ nào đang đoán mã lỗi qua câu chữ hay không — **cần grep trước khi vá**, nhưng bản thân việc thêm trường thì vô hại và nên mang sang để hai bản `api.js` không lệch nhau. |
+| 30/08 | `routes/hocsinh-cu.js` đọc bảng `remarks` bằng `SELECT *` **không kèm điều kiện lọc thu hồi**. Cô bấm Thu hồi một nhận xét bấm nhầm sang bé khác → màn Nhận xét sạch, nhưng màn "Hồ sơ con đã ra trường" vẫn hiện nguyên dòng đó cho gia đình | app 2 — Đ73 | **app 1** | Loại 1 (rò rỉ) và là **quyền xoá dữ liệu theo Nghị định 13/2023** — nhà trường đã làm đúng thao tác, app mới là chỗ không thực hiện. **Đã đối chiếu tận nơi:** `bc9dfa3:routes/hocsinh-cu.js:92` là đúng câu SQL đó, và `bc9dfa3:lib/sua-thu-hoi.js` **đã có sẵn** `dieuKienConHien` — tức bản vá bên đó chỉ là gọi một hàm đang nằm sẵn trong kho. **Ở app 1 nặng hơn hẳn app 2:** app 2 đã tắt phân hệ Nhận xét từ A2, còn app 1 là trường tiểu học dùng nhận xét hằng ngày cho ~300 gia đình. Và đây là màn CHỈ GIA ĐÌNH mở — cô không có đường nào nhìn thấy để biết là chưa gỡ được **Đối chiếu lại 16/09: CHƯA về tới app 1.** Bản vá có được viết 30/08 (`0e3b15a`) nhưng nhánh `claude/no-nen-chung-app2` không còn ở kho nào — `routes/hocsinh-cu.js` tại `origin/HEAD` của app 1 vẫn không gọi `dieuKienConHien`. |
 
-> ### ✅ BỐN MÓN 30/08 ĐÃ TRẢ XONG (30/08/2026)
+> ### ⚠️ BỐN MÓN 30/08 (VÀ CẢ Đ44) ĐÃ VIẾT BẢN VÁ NHƯNG **CHƯA VỀ TỚI APP 1** (sửa 16/09/2026)
 >
-> Người dùng mở quyền vào kho `pichu124/School`, và cả bốn món bắt buộc của đợt
-> Đ59–Đ77 đã được vá bên đó trên nhánh `claude/no-nen-chung-app2`:
+> **Ô này trước đây ghi "ĐÃ TRẢ XONG". Đó là sai, và sai về phía nguy hiểm
+> nhất: nó tuyên bố bốn lỗ bảo mật bắt buộc đã đóng trong khi chúng vẫn đang
+> mở.** Ghi lại đây thay vì xoá đi, để lần sau ai đọc sổ cũng thấy được cái bẫy
+> đã sập như thế nào.
 >
-> | Món | Commit ở app 1 |
+> Chuyện thật sự đã xảy ra ngày 30/08: bốn món của đợt Đ59–Đ77 (và cả Đ44) **có
+> được viết bản vá** ở kho app 1, trên nhánh `claude/no-nen-chung-app2`. Nhưng
+> **nhánh đó chưa bao giờ được đẩy lên GitHub**, và phiên làm việc sinh ra nó là
+> phiên chạy trong máy ảo tạm. Hôm nay nhánh ấy không còn tồn tại ở đâu: không
+> ở kho app 1 trên GitHub, không ở bản sao nào. Mấy commit dưới đây tra `git
+> show` vẫn ra nội dung, nhưng **không nhánh nào với tới chúng** — chúng là vật
+> thể mồ côi trong đúng một bản sao, sống tới lần dọn rác kế tiếp là hết.
+>
+> | Món | Commit đã viết ở app 1 | Về tới app 1 chưa |
+> |---|---|---|
+> | Đ62 `scripts/restore.js` không mang ảnh về | `083a88e` | **Chưa** |
+> | Đ44+Đ59 luật 12 tháng chỉ đúng ở một màn hình | `f1c421f` · `59148bc` · `02b03c4` | **Chưa** |
+> | Đ66 `/modules` mở cho người chưa đăng nhập | `d121010` | **Chưa** |
+> | Đ73 nhận xét đã thu hồi vẫn hiện | `0e3b15a` | **Chưa** |
+>
+> **Đối chiếu ngày 16/09 tại `origin/HEAD` của kho app 1** — đọc thẳng nội dung
+> tệp, không tra lịch sử commit:
+>
+> | Chỗ phải đổi nếu bản vá đã về | Tình trạng hôm nay |
 > |---|---|
-> | Đ62 `scripts/restore.js` không mang ảnh về | `083a88e` |
-> | Đ44+Đ59 luật 12 tháng chỉ đúng ở một màn hình | `f1c421f` · `59148bc` · `02b03c4` (ba bước, `lib/db.js` là tệp dùng chung) |
-> | Đ66 `/modules` mở cho người chưa đăng nhập | `d121010` |
-> | Đ73 nhận xét đã thu hồi vẫn hiện | `0e3b15a` |
+> | `lib/db.js` — `SO_THANG_GIU_HO_SO`, `conHanXemHoSo` | **không có** |
+> | `lib/lich-su-lop.js` — lọc hạn | **không có** |
+> | `server.js:111-116` — chốt chặn trước `express.static` | **vẫn nguyên khối cũ**, `setHeaders` trả 404 sau khi đã quyết định gửi tệp |
+> | `routes/hocsinh-cu.js` — `dieuKienConHien` | **không có** |
+> | `scripts/restore.js` — đọc `--out` | **không có** |
+> | `lib/db.js` — nhánh phụ huynh của `canAccessStudent` | **vẫn là một câu đếm `student_parents` trần** |
 >
-> **Đối chiếu tại chỗ xác nhận cả bốn có thật ở app 1**, đúng như sổ ghi. Ngoài
-> ra còn tìm được ở app 1 một điều sổ này chưa biết: **app 1 ĐÃ CÓ SẴN
-> `SO_THANG_GIU = 12`** trong `routes/hocsinh-cu.js` và đang nói câu đó ra với
-> phụ huynh. Nên món Đ44/Đ59 ở bên đó không phải chuyện đổi chính sách — luật là
-> của chính nhà trường ấy, app chỉ đang không thực thi được nó ở đâu ngoài đúng
-> một màn hình.
+> Nhân thể đối chiếu cũng xác nhận lại được một điều ô cũ ghi ĐÚNG và vẫn đúng:
+> **app 1 ĐÃ CÓ SẴN `SO_THANG_GIU = 12`** ở `routes/hocsinh-cu.js:23`, và đang
+> nói câu *"Hồ sơ của em chỉ tra cứu được trong 12 tháng sau khi rời trường"* ra
+> với phụ huynh. Nên món Đ44/Đ59 ở bên đó không phải chuyện đổi chính sách —
+> luật là của chính nhà trường ấy, app chỉ đang không thực thi được nó ở đâu
+> ngoài đúng một màn hình. **Và vì bản vá chưa về, hôm nay vẫn vậy.**
 >
-> Ba con số đo được ở app 1, không phải suy đoán: `/modules/hocphi/routes.js`
-> trả **3142 byte** mã máy chủ cho người chưa đăng nhập; khôi phục từ ổ ngoài
-> trả về **"không có thư mục uploads/"**; và một tài khoản có con rời trường 2
-> năm đọc được **5 đường** kèm nguyên sổ sức khoẻ, nhận xét, nề nếp, điểm danh.
+> Ba con số ô cũ ghi là **đo lúc chưa vá** nên tới giờ vẫn còn đúng, chỉ khác ở
+> chỗ chúng không còn là "đã đóng" mà là "đang mở":
+> `/modules/hocphi/routes.js` trả **3142 byte** mã máy chủ cho người chưa đăng
+> nhập; khôi phục từ ổ ngoài trả về **"không có thư mục uploads/"**; và một tài
+> khoản có con rời trường 2 năm đọc được **5 đường** kèm nguyên sổ sức khoẻ,
+> nhận xét, nề nếp, điểm danh.
 >
-> `npm test` ở app 1: 932 → **1017**, FAIL 0. Hai bộ canh mới bên đó:
-> `test:sao-luu` và `test:con-ra-truong`.
+> Câu `npm test` ở app 1 *932 → 1017* của ô cũ đo trên nhánh đã mất, nên nay
+> không kiểm lại được và không được dùng làm bằng chứng.
+>
+> ### Bài học của chỗ này — **viết xong bản vá KHÔNG phải là trả nợ**
+>
+> Nợ chỉ hết khi bản vá **nằm trên nhánh đã đẩy lên kho kia**. Trước khi gạch
+> một dòng trong bảng trên, bắt buộc kiểm bằng nội dung tệp ở kho app 1, không
+> kiểm bằng mã commit — mã commit vẫn tra ra được kể cả khi nhánh chứa nó đã
+> biến mất, và đó chính là cách sổ này ghi sai suốt từ 30/08 tới 16/09:
+>
+> ```bash
+> git fetch origin && git show origin/HEAD:lib/db.js | grep conHanXemHoSo
+> ```
+>
+> **Việc này đang lặp lại ngay lúc này.** Có một nhánh thứ hai,
+> `claude/go-no-nen-chung`, mang 16 bản vá nền khác từ app 2 về app 1 (nhóm
+> Đ117/Đ118 và các món 27/08–02/09), `npm test` bên đó xanh — và nó **cũng chưa
+> được đẩy lên**. Nếu máy ảo hiện tại bị thu hồi trước khi đẩy, nó mất đúng như
+> `claude/no-nen-chung-app2` đã mất, và sổ này lại có nguy cơ ghi nhầm lần nữa.
 
-> **Mười món còn lại chưa trả được** — chúng có từ trước đợt Đ59 và cần một lượt
-> đối chiếu riêng ở kho app 1.
-> Ghi nợ ở đây là việc làm được ngay; trả nợ cần mở kho kia và đối chiếu từng
-> tệp, vì không chắc app 1 có dính đủ cả mười hay không — mà ghi sổ sai còn tệ
-> hơn sổ trống. **Hai món 29/08 là ngoại lệ:** đã đối chiếu được bằng chính lịch sử
-> git của kho này (tệp sinh ra trước điểm tách và nhánh mã giống hệt nhau), nên app 1
-> chắc chắn dính cả hai. **Bốn món 30/08 cũng vậy** — mỗi món ghi rõ đã đối
-> chiếu tệp nào, dòng nào ở `bc9dfa3`.
+> **Còn nợ 23 món** — đếm theo số dòng có cột "Còn nợ" **đúng bằng**
+> `**app 1**` trong bảng trên, không phải một con số nhớ tay. Dòng ghi
+> `**KHÔNG chép sang app 1**` không tính, vì đó là chỗ cố ý khác nhau chứ không
+> phải nợ.
+>
+> Con số này đã trượt hai lần: bản đầu ghi "mười", sửa 10/09 thành "mười sáu", và
+> tới 16/09 đếm lại theo đúng cách đếm ghi ở trên thì ra **mười tám** — tức nó
+> lại sai ngay khi bảng dài thêm, dù cách đếm đã được ghi rõ. Bốn món vừa bỏ gạch
+> ở ô trên cộng vào thành 22; món thứ 23 thêm ngày 01/10 (Đ221b, `backup.js` trùng mốc). Cách đếm ghi ra chỉ có ích khi có máy chạy lại nó,
+> nên từ 16/09 **`npm run test:nen-chung` đếm lại bảng và báo đỏ nếu con số trên
+> lệch** — chữ "23" trong dòng đầu đoạn này là con số bài canh đọc.
+>
+> Ghi nợ ở đây là việc làm được ngay; trả nợ cần đẩy được bản vá lên kho kia và
+> đối chiếu từng tệp, vì không chắc app 1 có dính đủ cả hai mươi ba hay không —
+> mà ghi sổ sai còn tệ hơn sổ trống. **Hai món 29/08 là ngoại lệ:** đã đối chiếu
+> được bằng chính lịch sử git của kho này (tệp sinh ra trước điểm tách và nhánh
+> mã giống hệt nhau), nên app 1 chắc chắn dính cả hai. **Năm món 29–30/08 (Đ44,
+> Đ59, Đ62, Đ66, Đ73) thì đã đối chiếu tận nơi ở `origin/HEAD` ngày 16/09** —
+> bảng trong ô ⚠️ ghi rõ từng tệp.
 
 ### MỘT CHỖ CỐ Ý KHÁC NHAU GIỮA HAI KHO — đừng "vá giúp"
 
@@ -202,9 +304,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười một món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn mười tám món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười một chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Mười tám chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -274,6 +376,66 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   danh sách** (`routes/surveys.js` — vá ở app 2 tại Đ68). Ở `bc9dfa3`,
   `responsesOf(sv.id)` được gọi trong vòng lặp. Không bắt buộc; cùng loại với
   món `messages.js` ở trên và cũng nặng dần theo thời gian.
+- **Gói `qs` bên trong Express ở bản 6.15.3 có lỗ làm treo máy chủ** (mức vừa,
+  GHSA-4mjr-xmp4-gh2g — vá ở app 2 tại Đ122 bằng cách nâng lên 6.16.0, chỉ đổi
+  `package-lock.json`). Không có mã nào để đối chiếu ở `bc9dfa3` — đây là phụ
+  thuộc, không phải tệp — nhưng app 1 cùng dòng Express 5 nên gần như chắc chắn
+  cùng bản; bên đó đang chạy thật cho ~300 gia đình, đáng một lệnh `npm audit
+  fix` rồi chạy đủ bộ kiểm thử. Nhân đó soi luôn tệp khóa bên ấy có mục thừa
+  không: app 2 mang 385 mục Capacitor thừa suốt sáu ngày mà không ai biết, vì
+  `npm ci` lặng lẽ bỏ qua chúng còn `npm audit` thì đếm cả. Bộ canh
+  `test/khoa-goi.test.mjs` chép sang được nguyên vẹn — nó chỉ đọc hai tệp JSON,
+  không phụ thuộc gì vào app 2.
+- **`scripts/kiem-tra-may-chu.js` thêm mục "Kho ảnh của trường"** (app 2, Đ129)
+  — cảnh báo sớm khi ảnh sắp lấp đầy đĩa, phép tính tách ra `lib/kho-anh.js`
+  (tệp MỚI, không có ở điểm tách). App 1 cũng lưu ảnh trên ổ đĩa máy chủ nên
+  cùng dính chuyện đĩa đầy là hỏng cơ sở dữ liệu, nhưng bên đó ảnh ít hơn nhiều
+  (tiểu học không chụp hai tấm mỗi bé mỗi ngày). Chép sang được nguyên vẹn nếu
+  muốn: `lib/kho-anh.js` không phụ thuộc gì vào app 2, và mục kiểm chỉ thêm chứ
+  không đụng mục nào đang có.
+- **`lib/modules.js` truyền thêm trường `gopVao` của `module.json` xuống trình
+  duyệt** (thêm ở app 2 tại Đ126, một dòng trong `choNguoiDung`). Không phải lỗi
+  — là chỗ cắm để ô của một phân hệ gấp vào màn của phân hệ khác với một vài
+  vai (Đón trả bé gấp vào Điểm danh với cô). App 1 không có phân hệ nào khai
+  trường này nên **không cần** mang sang; ghi lại để nếu bên đó có ngày muốn
+  gấp ô Học phí vào một màn nào thì biết chỗ cắm đã có sẵn ở đây, ba tệp
+  (`lib/modules.js`, `dashboard.js`, `module.json`) và một luật: chỉ ẩn ô khi
+  màn đích đang bật, màn đích tắt là ô quay lại.
+- **Thông báo riêng từng bé và đường đẩy Web Push** (thêm ở app 2 tại Đ137:
+  hai tệp mới `lib/thong-bao-be.js`, `lib/day.js`; ba bảng mới `thongbao_be`,
+  `thongbao_be_doc`, `push_dang_ky` trong `lib/schema.sql` — chỉ `CREATE IF NOT
+  EXISTS`; hàm `guiChoNhom` thêm vào `lib/thong-bao.js`; `'/api/push'` thêm vào
+  danh sách API của tính năng Thông báo trong `lib/modules.js`; gói `web-push`
+  vào `dependencies`; bộ nghe `push`/`notificationclick` trong `public/sw.js`).
+  App 1 **không bắt buộc**: phụ huynh tiểu học không có luồng tin riêng từng em
+  như ảnh tới lớp / nhật ký ngày. Nhưng nếu bên đó muốn đẩy thông báo nhà
+  trường về điện thoại thì mang nguyên `lib/day.js` + bảng `push_dang_ky` +
+  `routes/push.js` + đoạn sw.js là đủ, không phải nghĩ lại; nhớ bài học Đ14 —
+  `test/khong-hua-suong.test.mjs` chỉ cho xin quyền khi sw.js có bộ nghe thật.
+- **`lib/modules.js` truyền thêm trường `dieuKienHien` của `module.json` xuống
+  trình duyệt** (thêm ở app 2 tại Đ141, một dòng trong `choNguoiDung`, cùng
+  chỗ và cùng luật với `gopVao`). Là đường API mà trang chủ *hỏi trước khi vẽ
+  ô*: trả `{ hien: false }` thì ô không vẽ với người này — dùng để ô Nhật ký
+  ngày chỉ hiện với cô có bé nhà trẻ trong nhóm. Máy chủ chỉ truyền qua, không
+  quyết gì; phân hệ không khai thì `null` và mọi thứ y như trước. App 1 không
+  có phân hệ nào khai nên **không cần** mang sang. Cùng tệp, Đ140/Đ144: hàm
+  `viSaoKhongThay` trả thêm chiều thứ ba `danhCho: 'gia-dinh-va-van-phong'`
+  cho phân hệ có vai gia đình + văn phòng mà không có cô (Học phí); hai giá
+  trị cũ giữ nguyên, `public/js/app.js` thêm một nhánh câu chữ bên cạnh. App 1
+  không có phân hệ nào ở tổ hợp vai đó.
+- **`lib/uploads.js` có bộ hàm riêng cho tài liệu PDF / Word** (thêm ở app 2
+  tại Đ143: `saveTaiLieuDataUrl`, `pathOfTaiLieu`, `existsTaiLieu`,
+  `removeTaiLieu`, `mimeOfTaiLieu`, trần `MAX_TAI_LIEU_BYTES` 8 MB). Đặt CẠNH
+  bộ ảnh, cùng lối với `saveVideoDataUrl`: `SAFE_NAME` của ảnh **không** nới ra
+  nhận `.pdf`, nên sáu đường trả ảnh của bé không bỗng trả được một tệp Word.
+  Word kiểm cả chữ ký ZIP lẫn thư mục `word/` bên trong. App 1 **không bắt
+  buộc**; muốn cho gửi tệp đính kèm thông báo thì mang nguyên khối này sang, nhớ
+  trần 12 MB của thân yêu cầu trong `server.js`.
+- **`lib/schema.sql` thêm bảng `album_che_do`** (Đ144: album *công khai cả nhóm*
+  hay *theo thẻ từng bé*; không có dòng = công khai = đúng cách mọi album đang
+  hiện). Chỉ `CREATE IF NOT EXISTS`, không đụng bảng `albums`. Bộ lọc theo thẻ
+  nằm ở `routes/albums.js`, chạy SAU luật đồng ý chia sẻ. App 1 **không bắt
+  buộc**: album tiểu học là album lớp, không có nhu cầu cá nhân hoá từng em.
 
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức

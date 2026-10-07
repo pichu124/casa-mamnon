@@ -59,6 +59,7 @@ const PHU = [
   { ma: 'cambridge', ten: 'Cambridge & Kết nối ở nhà', ai: 'văn phòng' },
   { ma: 'hocphi', ten: 'Học phí', ai: 'văn phòng' },
   { ma: 'baocaohoctap', ten: 'Báo cáo học tập', ai: 'nhà trường soạn mẫu + cô soạn báo cáo' },
+  { ma: 'nhansu', ten: 'Nhân sự & chấm công', ai: 'Nhân sự / ban giám hiệu' },
 ];
 
 // ===========================================================================
@@ -154,6 +155,16 @@ const moMan = async (hash) => {
   await page.waitForTimeout(1000);
 };
 const chuTrenMan = () => page.locator('#view').innerText();
+// Màn nhật ký của cô đi theo BƯỚC (Đ141); bước mở sẵn tuỳ giờ trong ngày, nên
+// phải tự bấm sang bước Bữa trưa trước khi đo.
+async function moBuocTrua() {
+  const nut = page.locator('.seg [data-buoc="bua:lunch"]');
+  if (!(await nut.count())) return;
+  if ((await nut.getAttribute('class')) !== 'active') {
+    await nut.click();
+    await page.waitForTimeout(700);
+  }
+}
 
 // Một tấm PNG 1×1 thật, dựng bằng mã chứ không kèm tệp ảnh vào kho: bộ canh dữ
 // liệu chặn ảnh trong kho mã, và đúng như vậy.
@@ -164,21 +175,26 @@ const ANH_THU = Buffer.from(
 // ===========================================================================
 console.log('\n[1] Nhật ký ngày — cô ghi và thấy lại phần vừa ghi');
 {
-  await dangNhap('giaovien', '123456');
+  // Từ Đ141 màn của cô đi theo BƯỚC từng bữa (nhà trường 07/09), và "tự bỏ đi
+  // với các bạn không phải lớp nhà trẻ" — nên đo trên cô nhóm Nhà trẻ 1, ở
+  // bước Bữa trưa.
+  await dangNhap('giaovien4', '123456');
   await moMan('#/nhatky');
+  await moBuocTrua();
 
-  check('cô thấy nút lưu nhật ký cả nhóm', await page.locator('#nk-luu').count() === 1);
+  check('cô thấy nút lưu bước này cho cả nhóm', await page.locator('#nk-luu').count() === 1);
   const soO = await page.locator('.nk-o').count();
   check('màn có ô nhập cho từng bé', soO > 0, soO);
-  check('màn hiện tên bé thật của nhóm', /Nguyễn Bảo An/.test(await chuTrenMan()));
+  check('màn hiện tên bé thật của nhóm', /Ngô Gia Huy/.test(await chuTrenMan()));
 
   // Ghi cho ĐÚNG MỘT bé, và ghi cả ô chữ tự do — ô chữ là thứ chỉ đường ghi
   // qua giao diện tạo được, khác với mấy ô chọn có thể sinh từ "Áp cho cả nhóm".
   const beDau = await page.locator('.nk-o').first().getAttribute('data-be');
-  await page.selectOption(`select.nk-o[data-be="${beDau}"][data-truong="anTrua"]`, 'het');
-  await page.fill(`input.nk-o[data-be="${beDau}"][data-truong="anGhiChu"]`, 'Bé tự xúc, ăn thêm nửa bát');
+  await page.selectOption(`select.nk-o[data-be="${beDau}"][data-truong="bua.lunch.muc"]`, 'het');
+  await page.fill(`input.nk-o[data-be="${beDau}"][data-truong="bua.lunch.ghiChu"]`, 'Bé tự xúc, ăn thêm nửa bát');
   await page.click('#nk-luu');
   await page.waitForTimeout(1600);
+  await moBuocTrua();
 
   const sauLuu = await chuTrenMan();
   check('LƯU XONG MÀN HIỆN NGAY DẤU "Đã ghi"', /Đã ghi/.test(sauLuu), sauLuu.slice(0, 160));
@@ -187,16 +203,20 @@ console.log('\n[1] Nhật ký ngày — cô ghi và thấy lại phần vừa gh
   await moMan('#/nhatky');
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(1400);
-  const ghiChu = await page.inputValue(`input.nk-o[data-be="${beDau}"][data-truong="anGhiChu"]`).catch(() => '');
+  await moBuocTrua();
+  const ghiChu = await page.inputValue(`input.nk-o[data-be="${beDau}"][data-truong="bua.lunch.ghiChu"]`).catch(() => '');
   check('MỞ LẠI MÀN VẪN THẤY ĐÚNG CHỮ CÔ ĐÃ GÕ',
     ghiChu === 'Bé tự xúc, ăn thêm nửa bát', ghiChu);
-  const buaTrua = await page.inputValue(`select.nk-o[data-be="${beDau}"][data-truong="anTrua"]`).catch(() => '');
+  const buaTrua = await page.inputValue(`select.nk-o[data-be="${beDau}"][data-truong="bua.lunch.muc"]`).catch(() => '');
   check('và ô bữa trưa vẫn giữ lựa chọn cô đã chọn', buaTrua === 'het', buaTrua);
 }
 
 // ===========================================================================
-console.log('\n[2] Báo ăn & tiền ăn — cô chốt số cho bếp và thấy lại');
+console.log('\n[2] Báo ăn & tiền ăn — văn phòng chốt số cho bếp và thấy lại');
 {
+  // Từ Đ140 Báo ăn là việc của VĂN PHÒNG (bảng phân quyền của trường 07/09:
+  // "văn phòng nhập, không hiện với GV, PH") — cô không còn ô này.
+  await dangNhap('hieutruong', 'quantri2026');
   await moMan('#/tienan');
   check('màn có nút chốt báo ăn', await page.locator('[data-chot]').count() >= 1);
 
@@ -218,7 +238,7 @@ console.log('\n[2] Báo ăn & tiền ăn — cô chốt số cho bếp và thấ
 }
 
 // ===========================================================================
-console.log('\n[3] Đón trả bé — gia đình khai người đón, cô ghi sổ, cả hai đều thấy');
+console.log('\n[3] Đón trả bé — gia đình đọc sổ và nhắn văn phòng, cô ghi sổ ở cổng');
 {
   // Phân hệ này có HAI người soạn ở hai màn khác nhau. Bỏ sót vế nào cũng là
   // một nửa món nợ B9 còn nguyên.
@@ -229,20 +249,34 @@ console.log('\n[3] Đón trả bé — gia đình khai người đón, cô ghi s
   // bé của nhóm mà tài khoản cô bên dưới phụ trách.
   await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
   await page.waitForTimeout(1000);
-  check('gia đình thấy nút thêm người được đón', await page.locator('#dt-them').count() === 1);
-
-  await page.click('#dt-them');
-  await page.waitForTimeout(800);
-  check('mở được hộp khai người được đón', await page.locator('#dt-n-ten').count() === 1);
-  await page.fill('#dt-n-ten', 'Nguyễn Thị Lan');
-  await page.fill('#dt-n-quanhe', 'Bà ngoại');
-  await page.fill('#dt-n-dt', '0912345678');
-  await page.click('#dt-n-luu');
-  await page.waitForTimeout(1600);
-
+  // TỪ Đ151, GIA ĐÌNH KHÔNG KHAI NGƯỜI ĐÓN TRONG APP NỮA.
+  //
+  // Nhà trường 10/09: *"trường khi đón trả bé đã đăng ký bằng file giấy rồi,
+  // mình nghĩ điền file giấy lưu vết sẽ an toàn hơn cho trường"*, và đón thay
+  // một lần thì *"PH sẽ nhắn tin với văn phòng để thông báo"*.
+  //
+  // Mục này trước đây đo vế "gia đình khai người đón". Vế ấy đã gỡ khỏi màn,
+  // nên nay đo đúng thứ THAY CHỖ NÓ — và đo cả hai điều mà việc gỡ dễ làm hỏng:
+  // gia đình có được chỉ đường đi tiếp không, và sổ đón trả có còn nguyên không.
   const manPH = await chuTrenMan();
-  check('GIA ĐÌNH KHAI XONG THÌ THẤY NGƯỜI VỪA KHAI',
-    /Nguyễn Thị Lan/.test(manPH) && /Bà ngoại/.test(manPH), manPH.slice(0, 220));
+  check('gia đình KHÔNG còn nút khai người được đón', await page.locator('#dt-them').count() === 0);
+  check('cũng không còn nút uỷ quyền một lần', await page.locator('#dt-uy').count() === 0);
+  check('mà có nút NHẮN CHO VĂN PHÒNG — đúng cách trường nói sẽ làm',
+    await page.locator('#dt-nhan-vp').count() === 1);
+  check('và màn nói rõ vì sao: nhà trường dùng bản giấy ở văn phòng',
+    /bản giấy/.test(manPH), manPH.slice(0, 260));
+  // `innerText` trả về chữ ĐÃ QUA CSS, mà `.section-label` viết hoa toàn bộ —
+  // nên phải dò không phân biệt hoa thường, không thì phép kiểm đỏ vì một luật
+  // trình bày chứ không vì thứ nó đang canh.
+  check('SỔ ĐÓN TRẢ CỦA CON VẪN CÒN — gỡ lối vào, không gỡ dữ liệu',
+    /sổ đón trả gần đây/i.test(manPH), manPH.slice(0, 300));
+
+  await page.click('#dt-nhan-vp');
+  await page.waitForTimeout(1200);
+  check('bấm vào là sang đúng màn Nhắn tin',
+    await page.evaluate(() => location.hash) === '#/messages');
+  await moMan('#/dontra');
+  await page.waitForTimeout(600);
 
   // Vế thứ hai: cô ở cổng chọn đúng người gia đình vừa khai rồi ghi vào sổ.
   await dangNhap('giaovien', '123456');
@@ -260,8 +294,15 @@ console.log('\n[3] Đón trả bé — gia đình khai người đón, cô ghi s
   await page.waitForTimeout(800);
   check('mở được hộp ghi trả bé', await page.locator('#dt-ai').count() === 1);
   const cacNguoi = await page.locator('#dt-ai option').allInnerTexts();
-  check('ô chọn người đón CÓ SẴN người gia đình vừa khai',
-    cacNguoi.some(t => /Nguyễn Thị Lan/.test(t)), cacNguoi);
+  // Gia đình không khai trước nữa, nên ô chọn của cô phải LUÔN có lối "người
+  // khác — ghi rõ tên". Không có lối đó thì từ Đ151 cô ở cổng không ghi nổi
+  // một dòng nào vào sổ.
+  check('ô chọn người đón luôn có lối "Người khác — ghi rõ tên"',
+    cacNguoi.some(t => /Người khác/.test(t)), cacNguoi);
+  await page.selectOption('#dt-ai', 'khac|');
+  await page.waitForTimeout(400);
+  check('chọn "Người khác" thì hiện ô gõ tên', await page.locator('#dt-ten').isVisible());
+  await page.fill('#dt-ten', 'Nguyễn Thị Lan');
 
   await page.fill('#dt-ghichu', 'Có đối chiếu ảnh ở cổng');
   await page.click('#dt-luu');
@@ -385,6 +426,89 @@ console.log('\n[7] Cambridge & Kết nối ở nhà — văn phòng soạn, gia 
 }
 
 // ===========================================================================
+// Góp ý của trường 06/10, mục 5: bỏ tab "Tất cả"; mỗi loại bài một mẫu soạn;
+// "Thêm block" chỉ ở tab Letter for Parent; gia đình chỉ thấy BLOCK ĐANG HỌC.
+console.log('\n[7b] Cambridge — ba tab, ba mẫu soạn, gia đình chỉ thấy block đang học');
+{
+  await dangNhap('hieutruong', 'quantri2026');
+  await moMan('#/cambridge');
+  const tab = await page.locator('#cam-loc button').allInnerTexts();
+  check('đúng BA tab, không còn "Tất cả"', tab.length === 3 && !tab.some(t => /Tất cả/.test(t)), tab);
+  check('mở sẵn ở Letter for Parent',
+    /Letter for Parent/.test(await page.locator('#cam-loc button.active').innerText().catch(() => '')));
+  check('tab Letter có nút Thêm block', await page.locator('#cam-block-quan-ly').count() === 1);
+
+  // Mẫu soạn đi theo loại bài. Ô ẩn vẫn nằm trong mẫu (để sửa bài cũ không
+  // xoá chữ), nên đo bằng "có HIỆN không", không đo "có tồn tại không".
+  await page.click('#cam-them');
+  await page.waitForTimeout(600);
+  const hien = (sel) => page.locator(sel).isVisible();
+  check('soạn mới ở tab Letter thì loại bài chọn sẵn là Letter',
+    await page.inputValue('#cam-loai') === 'thu-phu-huynh');
+  check('Letter: CÓ ô Nội dung', await hien('#cam-noidung'));
+  check('Letter: KHÔNG có ô Hoạt động Cambridge', !(await hien('#cam-mon')));
+  check('Letter: vẫn có Block và Lứa tuổi', (await hien('#cam-block')) && (await hien('#modal-overlay #cam-lua')));
+  await page.selectOption('#cam-loai', 'cambridge');
+  check('Weekly Plan: KHÔNG có ô Nội dung', !(await hien('#cam-noidung')));
+  check('Weekly Plan: có Hoạt động, Chủ đề, Từ vựng, Song/Chant',
+    (await hien('#cam-mon')) && (await hien('#cam-chu-de')) && (await hien('#cam-tu-vung')) && (await hien('#cam-song')));
+  check('Weekly Plan: không mời điền ô "Kết nối ở nhà" trùng lặp', !(await hien('#cam-ket-noi')));
+  await page.selectOption('#cam-loai', 'ket-noi');
+  check('Home Connection: có Nội dung VÀ khung Cambridge',
+    (await hien('#cam-noidung')) && (await hien('#cam-mon')));
+
+  // Soạn một Weekly Plan CHỈ CÓ KHUNG, chọn lứa 4–5, rồi lưu bằng nút trên màn.
+  // Hai điều phải đúng: lứa đã chọn được GHI THẬT (Đ206 đặt trùng mã `cam-lua`
+  // giữa nút "Xem theo từng lứa" và ô chọn lứa, nên văn phòng lưu gì cũng
+  // thành "mọi lứa"), và tờ không có ô Nội dung vẫn gửi được tới gia đình.
+  await page.selectOption('#cam-loai', 'cambridge');
+  await page.fill('#cam-tieude', 'Weekly Plan chỉ có khung — Farm animals');
+  await page.fill('#cam-mon', 'Communication and Language');
+  await page.fill('#cam-chu-de', 'Farm animals');
+  await page.selectOption('#modal-overlay #cam-lua', '4-5');
+  await page.click('#cam-luu');
+  await page.waitForTimeout(1500);
+  const baiWp = await page.evaluate(async () => {
+    const d = await (await fetch('/api/cambridge?loai=cambridge')).json();
+    return (d.bai || []).find(b => /chỉ có khung/.test(b.tieuDe)) || null;
+  });
+  check('lưu từ màn hình: LỨA ĐÃ CHỌN ĐƯỢC GHI THẬT (không rơi về "mọi lứa")',
+    baiWp && baiWp.khung && baiWp.khung.luaTuoi === '4-5', baiWp && baiWp.khung);
+  const guiWp = await page.evaluate(async (id) => (await fetch(`/api/cambridge/${id}/cong-bo`, { method: 'POST' })).status, baiWp && baiWp.id);
+  check('Weekly Plan không có ô Nội dung, chỉ có khung, VẪN GỬI ĐƯỢC tới gia đình', guiWp === 200, guiWp);
+
+  // Đổi tab bằng đường dẫn; tab khác không có khối block.
+  await page.locator('#cam-loc button', { hasText: 'Cambridge Weekly Plan' }).click();
+  await page.waitForTimeout(1200);
+  check('bấm tab đổi đường dẫn thành #/cambridge/cambridge',
+    await page.evaluate(() => location.hash) === '#/cambridge/cambridge');
+  check('tab Weekly Plan KHÔNG có nút Thêm block', await page.locator('#cam-block-quan-ly').count() === 0);
+
+  // Hai block lứa 4–5: một đã qua, một đang học. Gia đình chỉ thấy block đang học.
+  const homNay = await page.evaluate(() => UI.ngayVN());
+  const lui = (n) => new Date(Date.parse(homNay + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+  const taoBlock = (b) => page.evaluate(async (b) => (await fetch('/api/cambridge/block', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
+  })).status, b);
+  check('văn phòng tạo được block đã qua',
+    await taoBlock({ ten: 'Block Cũ Đã Qua', luaTuoi: '4-5', tuNgay: lui(-90), denNgay: lui(-30), mucTieu: 'Mục tiêu cũ' }) === 201);
+  check('văn phòng tạo được block đang học',
+    await taoBlock({ ten: 'Block Đang Học', luaTuoi: '4-5', tuNgay: lui(-10), denNgay: lui(30), mucTieu: 'Mục tiêu block này' }) === 201);
+  await moMan('#/cambridge');
+  const vp = await chuTrenMan();
+  check('văn phòng: block đang học đứng trên', /Block Đang Học/.test(vp), vp.slice(0, 300));
+  check('văn phòng: block khác vẫn sửa được, gập trong "Mọi block khác"',
+    await page.locator('#cam-block-khac').count() === 1);
+
+  await dangNhap('phuhuynh', '123456');
+  await moMan('#/cambridge');
+  const gd = await chuTrenMan();
+  check('GIA ĐÌNH THẤY BLOCK CON ĐANG HỌC', /Block Đang Học/.test(gd) && /Mục tiêu block này/.test(gd), gd.slice(0, 300));
+  check('GIA ĐÌNH KHÔNG THẤY BLOCK ĐÃ QUA', !/Block Cũ Đã Qua/.test(gd), gd.slice(0, 300));
+  check('gia đình không có dòng "Mọi block khác"', await page.locator('#cam-block-khac').count() === 0);
+}
+
+// ===========================================================================
 console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhìn thấy');
 {
   await dangNhap('hieutruong', 'quantri2026');
@@ -393,7 +517,24 @@ console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhì
 
   // Tạo cho ĐÚNG bé của tài khoản gia đình dùng ở dưới, để vế "gia đình nhìn
   // thấy" không phụ thuộc vào bé nào tình cờ đứng đầu ô chọn.
-  await page.selectOption('#hp-hs', { label: 'Nguyễn Bảo An' });
+  // CHỌN THEO MÃ BÉ, KHÔNG CHỌN THEO NHÃN NGUYÊN VĂN.
+  //
+  // Từ Đ174 nhãn của ô này là "Tên bé · Nhóm" — trùng họ tên trong tiếng Việt
+  // là chuyện thường, và đây là ô ra tiền nên một cái tên trần không đủ để
+  // chọn đúng một đứa trẻ. Bài canh neo vào nhãn nguyên văn thì vỡ mỗi lần màn
+  // hình nói rõ hơn, mà nói rõ hơn lại đúng là điều ta muốn.
+  const maBe = await page.$$eval('#hp-hs option', (os) => {
+    const o = os.find(x => x.textContent.trim().startsWith('Nguyễn Bảo An'));
+    return o ? o.value : null;
+  });
+  check('tìm được bé Nguyễn Bảo An trong ô chọn', !!maBe, maBe);
+  const nhanBe = await page.$$eval('#hp-hs option', (os) => {
+    const o = os.find(x => x.textContent.trim().startsWith('Nguyễn Bảo An'));
+    return o ? o.textContent.trim() : '';
+  });
+  check('Ô CHỌN BÉ NÓI CẢ TÊN NHÓM, không chỉ một cái tên trần (Đ174)',
+    / · .+/.test(nhanBe), nhanBe);
+  await page.selectOption('#hp-hs', maBe);
   await page.waitForTimeout(1400);
   // Ô chọn bé phải GIỮ NGUYÊN lựa chọn sau khi màn vẽ lại. Bản đầu không giữ:
   // màn quay về bé đầu danh sách, nên khoản thu văn phòng vừa tạo rơi vào nhà
@@ -427,21 +568,23 @@ console.log('\n[8] Học phí — văn phòng tạo khoản thu, gia đình nhì
   //
   // Phép kiểm này phải ở đây chứ không ở bộ API: dò mã nguồn bằng biểu thức
   // không bắt được — đã thử ngược và nó xanh cả khi cổng đã mở toang.
+  //
+  // TỪ Đ140 CÔ KHÔNG CÒN MÀN HỌC PHÍ NÀO CẢ (bảng phân quyền của trường
+  // 07/09: "ở giao diện giáo viên bỏ đi luôn") — mạnh hơn cả "không có hai
+  // nút": mở địa chỉ #/hocphi bằng tay thì nhận màn "không mở được" trung
+  // tính, không ô chọn bé, không khoản nào, không nút nào.
   await dangNhap('giaovien', '123456');
   await moMan('#/hocphi');
-  // Phải đứng ĐÚNG ở bé đang có khoản CHƯA NỘP. Đứng ở bé không nợ gì thì màn
-  // không có nút "Xác nhận" dù mã có hỏng hay không — phép kiểm phủ định bên
-  // dưới sẽ xanh vì màn trống, chứ không vì cổng đang đóng.
-  check('cô có ô chọn bé trên màn Học phí', await page.locator('#hp-hs').count() === 1);
-  await page.selectOption('#hp-hs', { label: 'Nguyễn Bảo An' });
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(1200);
   const hpCo = await chuTrenMan();
-  check('CÔ ĐỌC ĐƯỢC khoản văn phòng đã tạo — siết ghi, không siết đọc',
-    /Tiền ăn tháng thử nghiệm/.test(hpCo), hpCo.slice(0, 250));
-  check('và khoản đó đang ở trạng thái CHƯA NỘP — tức đúng chỗ lẽ ra có nút Xác nhận',
-    /Chưa nộp/.test(hpCo), hpCo.slice(0, 250));
+  check('CÔ MỞ #/hocphi THÌ NHẬN MÀN "KHÔNG MỞ ĐƯỢC", nói tiếng của trường',
+    /Không mở được/.test(hpCo) && /dành cho gia đình các bé và văn phòng/i.test(hpCo), hpCo.slice(0, 250));
+  check('và KHÔNG nói ngược "chỉ dành cho cô và văn phòng" với chính cô',
+    !/chỉ dành cho cô/.test(hpCo), hpCo.slice(0, 250));
+  check('cô KHÔNG có ô chọn bé trên màn Học phí', await page.locator('#hp-hs').count() === 0);
+  check('và KHÔNG đọc được khoản văn phòng đã tạo', !/Tiền ăn tháng thử nghiệm/.test(hpCo), hpCo.slice(0, 250));
   check('CÔ KHÔNG THẤY NÚT "Tạo khoản"', await page.locator('#hp-them').count() === 0);
-  check('và KHÔNG thấy nút "Xác nhận" trên khoản chưa nộp đó',
+  check('và KHÔNG thấy nút "Xác nhận" nào',
     await page.locator('#view button', { hasText: 'Xác nhận' }).count() === 0);
 }
 
@@ -539,9 +682,17 @@ console.log('\n[9] Gia đình không có đường ghi ở những màn không p
   check('gia đình KHÔNG đọc được ghi chú thô của cô',
     !/xếp chồng năm khối gỗ/.test(htGd), htGd.slice(0, 250));
 
-  // Ba phân hệ chỉ dành cho người của trường: gia đình không mở tới được.
+  // BÁO ĂN ĐÃ RA KHỎI DANH SÁCH NÀY Ở Đ204 (việc 48, điểm Y3-b).
+  //
+  // Nhà trường đã hỏi lại ở DD-01 và chốt MỞ bảng tiền ăn theo tháng của con
+  // cho gia đình. Nên `#/tienan` thôi là màn "chặn ở cửa" — nó có một nhánh
+  // riêng cho gia đình. Phép kiểm không mất đi, nó ĐỔI CHIỀU: xuống mục [9b]
+  // ngay dưới, nơi đòi gia đình phải THẤY bảng của con mình và vẫn KHÔNG thấy
+  // hai màn của trường.
+  //
+  // Bài canh này báo đỏ đúng lúc Đ204 vừa mở màn ấy ra — nó làm đúng việc của
+  // nó, và con số hai màn còn lại chỉnh kèm lý do chứ không chỉnh lặng lẽ.
   for (const [hash, ten, nut] of [
-    ['#/tienan', 'Báo ăn', '[data-chot]'],
     ['#/thuchup', 'Ghi nhanh', '#tc-ghi'],
     ['#/kehoachbe', 'Kế hoạch của bé', '#kb-luu'],
   ]) {
@@ -563,6 +714,83 @@ console.log('\n[9] Gia đình không có đường ghi ở những màn không p
     check(`${ten} — và không có đường ghi nào lọt ra`,
       await page.locator(nut).count() === 0);
   }
+
+  // =========================================================================
+  console.log('\n[9b] Báo ăn — gia đình THẤY bảng của con, và CHỈ bảng của con (Đ204, Y3-b)');
+  {
+    await moMan('#/tienan');
+    const chu = await chuTrenMan();
+    check('gia đình mở được màn Tiền ăn của con', /Tiền ăn của con/.test(chu), chu.slice(0, 160));
+    check('và màn có con số thật, không phải khung trống',
+      /Số ngày con ăn ở trường/.test(chu), chu.slice(0, 220));
+    check('nói đúng tên con mình', /Nguyễn Bảo An/.test(chu), chu.slice(0, 160));
+
+    // HAI MÀN CỦA TRƯỜNG KHÔNG ĐƯỢC LỘ RA THEO — mở một cửa không phải mở cả nhà.
+    check('KHÔNG có nút chốt báo ăn của cô', await page.locator('[data-chot]').count() === 0);
+    check('KHÔNG có tab Đối chiếu tháng của văn phòng',
+      !/Đối chiếu tháng|Báo ăn hằng ngày/.test(chu), chu.slice(0, 220));
+    check('và KHÔNG có tên bé nào của nhà khác trong bảng',
+      !/Trần Gia Hân|Lê Minh Khôi/.test(chu), chu.slice(0, 260));
+    check('không có lỗi JavaScript nào ở màn này', loiJs.length === 0, loiJs.slice(0, 3));
+  }
+}
+
+// ===========================================================================
+console.log('\n[8c] Nhân sự & chấm công — Nhân sự ghi hồ sơ và chấm công, cô chỉ thấy phần của mình');
+{
+  // Phân hệ này có hai màn hoàn toàn khác nhau dưới cùng một ô, và nửa thứ hai
+  // — cô xem hồ sơ của CHÍNH MÌNH — là nửa dễ quên nhất, vì nó không phải một
+  // đường ghi. Nhưng bỏ nó thì cả lời hứa "mỗi người xem được hồ sơ của mình"
+  // chỉ tồn tại trong bài canh máy chủ, chưa từng ai bấm thử.
+  await dangNhap('hieutruong', 'quantri2026');
+  await moMan('#/nhansu');
+  check('ban giám hiệu thấy hai tab Hồ sơ / Chấm công', await page.locator('#ns-tab [data-tab]').count() === 2);
+  const soNguoi = await page.locator('[data-mo]').count();
+  check('và danh sách người của trường có nội dung thật', soNguoi >= 2, soNguoi);
+
+  // Mở ĐÚNG hồ sơ của cô sẽ đăng nhập ở nửa sau, không lấy dòng đầu danh sách:
+  // danh sách xếp theo vai rồi theo tên, nên "dòng đầu" là ai thì tuỳ dữ liệu
+  // mẫu — và nửa sau của mục này sẽ xanh hay đỏ do may rủi.
+  const dongCuaCo = page.locator('[data-mo]', { hasText: 'Nguyễn Thị Mai Anh' });
+  check('tìm được đúng dòng của cô Mai Anh trong danh sách', await dongCuaCo.count() === 1,
+    await page.locator('[data-mo]').allInnerTexts());
+  await dongCuaCo.first().click();
+  await page.waitForSelector('#ns-chucDanh', { timeout: 8000 });
+  check('mở được hộp hồ sơ', await page.locator('#ns-cccd').count() === 1);
+  await page.fill('#ns-chucDanh', 'Cô phụ trách chính');
+  await page.fill('#ns-cccd', '079123456789');
+  await page.fill('#ns-nganHang', 'Vietcombank');
+  await page.click('#ns-luu');
+  await page.waitForTimeout(1500);
+
+  await moMan('#/nhansu');
+  const man = await chuTrenMan();
+  check('GHI XONG MỞ LẠI MÀN VẪN THẤY CHỨC DANH VỪA GHI',
+    /Cô phụ trách chính/.test(man), man.slice(0, 250));
+  check('nhưng DANH SÁCH không hiện số định danh — chỉ màn chi tiết mới có',
+    !/079123456789/.test(man), man.slice(0, 250));
+
+  await page.click('#ns-tab [data-tab="chamcong"]');
+  await page.waitForTimeout(1200);
+  check('sang được tab Chấm công', await page.locator('#ns-thang').count() === 1);
+  check('và có nút chấm cả trường một lượt', await page.locator('#ns-ca-truong').count() === 1);
+  await page.click('#ns-ca-truong');
+  await page.waitForSelector('#ns-ct-ok', { timeout: 8000 });
+  await page.click('#ns-ct-ok');
+  await page.waitForTimeout(1800);
+  check('CHẤM CẢ TRƯỜNG XONG THÌ BẢNG HIỆN SỐ CÔNG',
+    /\d+ công/.test(await chuTrenMan()), (await chuTrenMan()).slice(0, 250));
+
+  // Nửa của cô: chỉ thấy phần của mình, và không có đường ghi nào.
+  await dangNhap('giaovien', '123456');
+  await moMan('#/nhansu');
+  const manCo = await chuTrenMan();
+  check('CÔ mở cùng một ô thì thấy màn "Hồ sơ của tôi"', /hồ sơ của tôi/i.test(manCo), manCo.slice(0, 160));
+  check('và đọc được đúng hồ sơ của mình', /Cô phụ trách chính/.test(manCo), manCo.slice(0, 300));
+  check('màn nói rõ ai sửa được', /Nhân sự/.test(manCo), manCo.slice(0, 400));
+  check('cô KHÔNG có danh sách người của trường', await page.locator('[data-mo]').count() === 0);
+  check('cô KHÔNG có nút chấm công nào', await page.locator('#ns-ca-truong').count() === 0);
+  check('và KHÔNG có ô nhập nào để sửa hồ sơ', await page.locator('#ns-cccd').count() === 0);
 }
 
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs.slice(0, 3));

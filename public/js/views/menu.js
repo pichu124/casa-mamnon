@@ -19,13 +19,26 @@
 // được, và sửa vội một ngày thì mở một ngày vẫn nhanh hơn mở cả tuần.
 App.views.menu = {
   week: 0, // 0 = tuần này, 1 = tuần sau
-  MEAL_EMOJI: { breakfast: '🌅', lunch: '🍚', snack: '🍰' },
-  // Bộ khung khi soạn một ngày mới tinh.
+  MEAL_EMOJI: { breakfast: '🌅', snack_sang: '🍎', lunch: '🍚', snack: '🍰', milk: '🥛' },
+  // Bộ khung khi soạn một ngày mới tinh — NĂM BỮA theo đúng cấu trúc nhà
+  // trường chốt 07/09: "Bữa sáng / Bữa phụ sáng / Bữa trưa / Bữa phụ chiều /
+  // Sữa Vinamilk". Ba `type` cũ (breakfast, lunch, snack) giữ nguyên tên vì
+  // Nhật ký ngày đọc đúng ba mã đó để ghép "hôm nay con ăn gì" — bữa phụ
+  // chiều vẫn là `snack`, nên ô "Bữa xế" của nhật ký vẫn nối đúng bữa.
+  // Thực đơn đã soạn với ba bữa vẫn hiện y nguyên; khung năm bữa chỉ áp cho
+  // ngày soạn mới.
   BUA_MAC_DINH: [
-    { type: 'breakfast', label: 'Bữa sáng', time: '07:00', items: [] },
+    { type: 'breakfast', label: 'Bữa sáng', time: '07:30', items: [] },
+    { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:00', items: [] },
     { type: 'lunch', label: 'Bữa trưa', time: '10:45', items: [] },
-    { type: 'snack', label: 'Bữa xế', time: '14:30', items: [] },
+    { type: 'snack', label: 'Bữa phụ chiều', time: '14:30', items: [] },
+    { type: 'milk', label: 'Sữa Vinamilk', time: '15:30', items: [] },
   ],
+  // Ngày đang xem: 1..5 = Thứ Hai..Thứ Sáu, 'tuan' = cả tuần một lượt.
+  // Gia đình và cô mở trên điện thoại: một ngày một màn, bấm T2/T3 như bên
+  // Lịch sinh hoạt (nhà trường yêu cầu 07/09). Văn phòng soạn trên máy tính:
+  // mặc định cả tuần, vì soạn là phải nhìn được cả năm ngày cạnh nhau.
+  ngay: null,
   _editDate: null, // ngày đang soạn trong modal
   _editMeals: null,
   _tuan: null,     // cả tuần đang soạn trên màn "Soạn cả tuần"
@@ -42,13 +55,20 @@ App.views.menu = {
 
   async render(root) {
     const qt = this.laQuanTri();
+    if (this.ngay === null) {
+      const dw = UI.thuVN();
+      this.ngay = qt ? 'tuan' : (dw >= 1 && dw <= 5 ? dw : 1);
+    }
     root.innerHTML = `
       ${UI.pageHeader('Thực đơn của bé', qt ? { action: { id: 'btn-chep-tuan', label: 'Chép tuần trước', icon: 'plus' } } : {})}
       <div class="seg" id="menu-seg">
         <button class="${this.week === 0 ? 'active' : ''}" onclick="App.views.menu.setWeek(0)">Tuần này</button>
         <button class="${this.week === 1 ? 'active' : ''}" onclick="App.views.menu.setWeek(1)">Tuần sau</button>
       </div>
+      ${this.segNgay()}
       <div id="menu-coso"></div>
+      <div id="menu-tep"></div>
+      ${qt ? '<div id="menu-excel"></div>' : ''}
       ${qt ? `<button class="btn primary block mb-8" id="btn-soan-tuan">${UI.icon('edit', 18)} Soạn cả tuần một lượt</button>` : ''}
       <div id="menu-nhac"></div>
       <div id="menu-days"></div>`;
@@ -56,20 +76,69 @@ App.views.menu = {
       document.getElementById('btn-chep-tuan').onclick = () => this.chepTuanTruoc();
       document.getElementById('btn-soan-tuan').onclick = () => this.moSoanTuan();
     }
+    this.ganSegNgay(root);
     await this.load();
+  },
+
+  // Đang soạn cả tuần mà chuyển tuần / chuyển bếp là màn hình vẽ lại — mất
+  // sạch phần đã gõ, không hỏi một câu. Cờ này bật khi màn soạn dựng lên và
+  // tắt khi màn xem quay lại; mọi đường rời màn soạn đi qua một câu hỏi.
+  _dangSoanTuan: false,
+
+  boSoanNeuDongY() {
+    if (!this._dangSoanTuan) return true;
+    const dongY = confirm('Đang soạn dở thực đơn cả tuần — rời đi là mất phần đã gõ chưa lưu.\n\nVẫn rời đi?');
+    if (dongY) this._dangSoanTuan = false;
+    return dongY;
   },
 
   async setWeek(w) {
     if (this.week === w) return;
+    if (!this.boSoanNeuDongY()) return;
     this.week = w;
     const seg = document.getElementById('menu-seg');
     if (seg) Array.from(seg.children).forEach((btn, i) => btn.classList.toggle('active', i === w));
     await this.load();
   },
 
+  // Dải chọn ngày: T2 … T6 và "Cả tuần". Gắn sự kiện bằng `data-ngay` sau
+  // khi vẽ (xem `ganSegNgay`), không nhét giá trị vào chuỗi onclick.
+  segNgay() {
+    const o = [[1, 'T2'], [2, 'T3'], [3, 'T4'], [4, 'T5'], [5, 'T6'], ['tuan', 'Cả tuần']];
+    return `<div class="seg" id="menu-ngay-seg">
+      ${o.map(([v, t]) => `<button type="button" data-ngay="${v}" class="${String(this.ngay) === String(v) ? 'active' : ''}">${t}</button>`).join('')}
+    </div>`;
+  },
+
+  ganSegNgay(root) {
+    for (const b of root.querySelectorAll('#menu-ngay-seg [data-ngay]')) {
+      b.onclick = () => this.setNgay(b.dataset.ngay);
+    }
+  },
+
+  async setNgay(v) {
+    const moi = v === 'tuan' ? 'tuan' : Number(v);
+    if (String(this.ngay) === String(moi)) return;
+    if (!this.boSoanNeuDongY()) return;
+    this.ngay = moi;
+    const seg = document.getElementById('menu-ngay-seg');
+    if (seg) Array.from(seg.children).forEach(btn => {
+      btn.classList.toggle('active', String(btn.dataset.ngay) === String(moi));
+    });
+    await this.load();
+  },
+
+  // Những ngày của tuần cần vẽ: một ngày đang chọn, hoặc cả năm ngày.
+  ngayCanVe(from) {
+    const ds = this.ngayTrongTuan(from);
+    if (this.ngay === 'tuan') return ds;
+    return [ds[(Number(this.ngay) || 1) - 1]];
+  },
+
   async load() {
     const zone = document.getElementById('menu-days');
     if (!zone) return;
+    this._dangSoanTuan = false;
     zone.innerHTML = '<div class="loading">Đang tải</div>';
     try {
       const data = await API.get(this.duongDanTuan());
@@ -79,25 +148,31 @@ App.views.menu = {
       this._tenCoSo = data.tenCoSo || '';
       this._cacCoSo = data.cacCoSo || [];
       this.veCoSo();
+      this.veTep(data.tep || [], data.from, !!data.taiTepDuoc);
+      if (this.laQuanTri()) this.veExcel(data.from);
       this.veNhac(menus, data.from);
 
+      const coSan = new Map(menus.map(m => [m.date, m]));
+      const cacNgay = this.ngayCanVe(data.from);
       if (this.laQuanTri()) {
-        // Quản trị: hiện đủ 5 ngày của tuần, ngày trống có nút soạn ngay.
-        const coSan = new Map(menus.map(m => [m.date, m]));
-        zone.innerHTML = `<div class="luoi-tuan">${this.ngayTrongTuan(data.from).map(date => {
+        // Quản trị: đủ 5 ngày của tuần (hoặc một ngày đang chọn), ngày trống có nút soạn ngay.
+        zone.innerHTML = `<div class="luoi-tuan">${cacNgay.map(date => {
           const m = coSan.get(date);
           return m ? this.dayCard(m, date === today) : this.dayCardTrong(date, date === today);
         }).join('')}</div>`;
         return;
       }
 
-      if (!menus.length) {
-        zone.innerHTML = UI.emptyState('🍽️', this.week === 0
-          ? 'Nhà bếp chưa cập nhật thực đơn tuần này, phụ huynh quay lại sau nhé'
-          : 'Nhà bếp chưa cập nhật thực đơn tuần sau, phụ huynh quay lại sau nhé');
+      const coMon = cacNgay.filter(date => coSan.get(date));
+      if (!coMon.length) {
+        zone.innerHTML = UI.emptyState('🍽️', this.ngay === 'tuan'
+          ? (this.week === 0
+            ? 'Nhà bếp chưa cập nhật thực đơn tuần này, phụ huynh quay lại sau nhé'
+            : 'Nhà bếp chưa cập nhật thực đơn tuần sau, phụ huynh quay lại sau nhé')
+          : 'Nhà bếp chưa cập nhật thực đơn ngày này — bấm "Cả tuần" để xem những ngày đã có');
         return;
       }
-      zone.innerHTML = `<div class="luoi-tuan">${menus.map(m => this.dayCard(m, m.date === today)).join('')}</div>`;
+      zone.innerHTML = `<div class="luoi-tuan">${coMon.map(date => this.dayCard(coSan.get(date), date === today)).join('')}</div>`;
     } catch (err) {
       zone.innerHTML = UI.emptyState('😥', err.message || 'Không tải được thực đơn');
     }
@@ -123,6 +198,7 @@ App.views.menu = {
           </div>
         </div>`;
       document.getElementById('menu-chon-coso').onchange = (e) => {
+        if (!this.boSoanNeuDongY()) { e.target.value = this._coSo; return; }
         this._coSo = e.target.value;
         this.load();
       };
@@ -142,6 +218,192 @@ App.views.menu = {
   // khác cho tới khi soạn xong là biến một nếp tốt thành một cái cửa khoá, và
   // thứ Sáu là hôm bận nhất của văn phòng. Nhắc thì người ta làm; chặn thì
   // người ta tìm đường vòng.
+  // ---- Thực đơn bằng tệp Excel mẫu (góp ý 06/10, mục 3) ----
+  //
+  // Trường: *"hãy tạo 1 form mẫu bằng Excel theo đúng cấu trúc bạn cần, sau
+  // đó mình sẽ up lên và bạn sẽ tự điền vào từng ngày"*. Tải mẫu của MỘT
+  // tháng (ngày học điền sẵn, món đã có điền sẵn) → điền → nạp lên → xem trước
+  // từng ngày → Lưu. Ngày để trống trong tệp không bị đụng tới.
+  // Ô "Dán bảng" của Đ132 đã gỡ ở Đ231 (chủ dự án chốt 07/10): tệp mẫu là
+  // đường duy nhất để đổ thực đơn từ Excel.
+  veExcel(tuNgay) {
+    const o = document.getElementById('menu-excel');
+    if (!o) return;
+    const goc = UI.parseDate(tuNgay || UI.todayStr());
+    const thang = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const nay = thang(goc);
+    const sau = thang(new Date(goc.getFullYear(), goc.getMonth() + 1, 1));
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">📊 Thực đơn bằng tệp Excel</div>
+        <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+          Tải tệp mẫu của một tháng về, điền món vào từng ngày (ô nhiều món thì xuống dòng bằng
+          Alt + Enter), rồi nạp lên — app tự điền vào từng ngày. Ngày để trống trong tệp thì giữ nguyên.
+        </div>
+        <div class="grid-2">
+          <select id="mn-xl-thang" aria-label="Tháng của tệp mẫu">
+            <option value="${UI.esc(nay)}">Tháng ${UI.esc(nay.slice(5))}/${UI.esc(nay.slice(0, 4))}</option>
+            <option value="${UI.esc(sau)}">Tháng ${UI.esc(sau.slice(5))}/${UI.esc(sau.slice(0, 4))}</option>
+          </select>
+          <a class="btn outline" id="mn-xl-tai" href="#">📥 Tải tệp mẫu</a>
+        </div>
+        <button class="btn primary block mt-8" id="mn-xl-nap">📤 Nạp tệp Excel đã điền</button>
+        <input type="file" id="mn-xl-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+      </div>`;
+    const lienKet = () => `/api/menu/mau-excel?thang=${encodeURIComponent(document.getElementById('mn-xl-thang').value)}`
+      + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : '');
+    const tai = document.getElementById('mn-xl-tai');
+    tai.href = lienKet();
+    document.getElementById('mn-xl-thang').onchange = () => { tai.href = lienKet(); };
+    const oFile = document.getElementById('mn-xl-file');
+    document.getElementById('mn-xl-nap').onclick = () => oFile.click();
+    oFile.onchange = () => this.napExcel(oFile);
+  },
+
+  async napExcel(oFile) {
+    const f = oFile.files && oFile.files[0];
+    oFile.value = '';
+    if (!f) return;
+    if (!/\.xlsx$/i.test(f.name)) return UI.toast('Cần tệp Excel dạng .xlsx — tải tệp mẫu của app về rồi điền vào đó nhé', 'error');
+    if (f.size > 3 * 1024 * 1024) return UI.toast('Tệp quá lớn — tệp thực đơn một tháng chỉ vài chục KB', 'error');
+    let tep;
+    try {
+      tep = await new Promise((ok, that) => {
+        const r = new FileReader();
+        r.onload = () => ok(r.result); r.onerror = () => that(new Error('Không đọc được tệp'));
+        r.readAsDataURL(f);
+      });
+    } catch (err) { return UI.toast(err.message, 'error'); }
+    const than = { tep, campusId: this._coSo || '' };
+    let xem;
+    try { xem = await API.post('/api/menu/nap-excel', than); } catch (err) { return UI.toast(err.message, 'error'); }
+    const ds = xem.ngay || [];
+    const soGhiDe = ds.filter(n => n.daCo && !n.khongDoi).length;
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+        Tệp <b>${UI.esc(f.name)}</b> có <b>${ds.length}</b> ngày có món${soGhiDe ? ` — trong đó <b>${soGhiDe}</b> ngày đang có
+        thực đơn sẽ được THAY bằng món trong tệp` : ''}. Xem lại rồi bấm Lưu.
+      </div>
+      ${(xem.canhBao || []).length ? `<div class="card" style="background:#fff8e1;margin-bottom:10px">
+        ${(xem.canhBao || []).map(c => `<div class="small" style="line-height:1.6">• ${UI.esc(c)}</div>`).join('')}</div>` : ''}
+      <div id="mn-xl-xem" style="max-height:50vh;overflow:auto">
+        ${ds.map(n => `
+          <div class="list-row" style="align-items:flex-start">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(n.thu)} ${UI.esc(n.date.slice(8, 10))}/${UI.esc(n.date.slice(5, 7))}${
+  n.khongDoi ? ' · <span class="muted small">giống bản đang có, không đổi</span>'
+    : (n.daCo ? ' · <span class="muted small">thay bản đang có</span>' : '')}</div>
+              ${n.bua.map(b => `<div class="row-sub"><b>${UI.esc(b.label)}:</b> ${UI.esc(b.items.join(', '))}</div>`).join('')}
+              ${(n.giuBua || []).length ? `<div class="row-sub muted">Giữ nguyên (tệp mẫu không có cột): ${UI.esc(n.giuBua.join(', '))}</div>` : ''}
+            </div>
+          </div>`).join('') || '<div class="muted small">Không có ngày nào có món trong tệp.</div>'}
+      </div>
+      ${ds.length ? `<button class="btn primary block mt-14" id="mn-xl-luu">${UI.icon('check', 18)} Lưu ${ds.length} ngày vào thực đơn</button>` : ''}
+    `, 'Xem trước thực đơn từ tệp Excel');
+    const luu = document.getElementById('mn-xl-luu');
+    if (luu) luu.onclick = async () => {
+      // Lưu từ tệp vẽ lại cả màn — đang soạn cả tuần dở thì hỏi trước, như mọi
+      // đường rời màn soạn khác (vòng rà Đ232).
+      if (!this.boSoanNeuDongY()) return;
+      luu.disabled = true;
+      try {
+        const r = await API.post('/api/menu/nap-excel', { ...than, luu: true });
+        UI.closeModal();
+        UI.toast(`Đã lưu thực đơn ${r.daLuu} ngày`, 'success');
+        this.load();
+      } catch (err) { luu.disabled = false; UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // ---- Tệp thực đơn cả tuần (Đ160 — TD-04) ----
+  //
+  // Nhà trường xin "tải tệp lên" cho cả tuần. Đây là BẢN ĐÍNH KÈM, không thay
+  // chỗ bảng thực đơn đã gõ: app không đọc được chữ trong một tệp PDF hay một
+  // tấm ảnh, nên nếu để nó thay chỗ thì màn từng ngày của gia đình, phần Nhật
+  // ký "hôm nay con ăn gì" và bảng đối chiếu Tiền ăn đều mất dữ liệu.
+  //
+  // Với gia đình mà tuần đó không có tệp nào thì KHÔNG vẽ gì cả — một ô trống
+  // ghi "chưa có tệp" chỉ làm màn hình dài thêm và không nói được điều gì.
+  _tep: [],
+  veTep(ds, tuNgay, taiDuoc) {
+    const o = document.getElementById('menu-tep');
+    if (!o) return;
+    this._tep = ds;
+    this._tuanTep = tuNgay;
+    if (!ds.length && !taiDuoc) { o.innerHTML = ''; return; }
+    const bieuTuong = (loai) => (loai === 'anh' ? '🖼️' : (loai === 'pdf' ? '📕' : '📄'));
+    const co = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">📎 Tệp thực đơn tuần này${taiDuoc ? `<span class="spacer"></span>
+          <button class="btn sm outline" id="mn-tep-them">+ Tải tệp lên</button>` : ''}</div>
+        ${ds.length ? ds.map(t => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${bieuTuong(t.loai)} ${UI.esc(t.tenGoc)}</div>
+              <div class="row-sub">${UI.esc(co(t.bytes))}${t.rieng ? ' · riêng cơ sở này' : ' · cả trường'}</div>
+            </div>
+            <div class="row-end" style="display:flex;gap:8px">
+              <a class="btn sm outline" href="/api/menu/tep/${UI.esc(t.id)}" target="_blank" rel="noopener">Mở</a>
+              ${taiDuoc ? `<button class="btn sm outline" data-xoa-tep="${UI.esc(t.id)}">Xoá</button>` : ''}
+            </div>
+          </div>`).join('') : `<div class="muted small">
+            Chưa treo tệp nào cho tuần này. Bếp gửi ảnh chụp bảng thực đơn hay tệp PDF thì
+            tải thẳng lên đây cho gia đình mở.
+          </div>`}
+        ${taiDuoc ? `<div class="muted small mt-8" style="line-height:1.7">
+          Tệp treo lên là để gia đình <b>mở ra xem</b>. Bảng thực đơn từng ngày ở dưới vẫn
+          phải gõ (hoặc nạp tệp Excel mẫu ở trên) — app chỉ đọc được chữ trong bảng ấy, và đó là thứ
+          màn hình của gia đình, Nhật ký ngày và bảng đối chiếu Tiền ăn đang dùng.
+        </div>
+        <input type="file" id="mn-tep-file" accept="image/*,application/pdf,.pdf,.docx" style="display:none">` : ''}
+      </div>`;
+    if (!taiDuoc) return;
+    const nut = document.getElementById('mn-tep-them');
+    const oFile = document.getElementById('mn-tep-file');
+    if (nut && oFile) {
+      nut.onclick = () => oFile.click();
+      oFile.onchange = () => this.taiTepLen(oFile);
+    }
+    // Mã tệp đi qua `data-`, không qua tham số chuỗi của onclick: tên tệp là
+    // chữ người dùng gõ, và một dấu nháy trong đó là thoát ra khỏi chuỗi JS.
+    for (const b of o.querySelectorAll('[data-xoa-tep]')) {
+      b.onclick = () => this.xoaTep(b.dataset.xoaTep);
+    }
+  },
+
+  async taiTepLen(oFile) {
+    const f = oFile && oFile.files && oFile.files[0];
+    if (!f) return;
+    oFile.value = '';
+    try {
+      const dataUrl = await new Promise((ok, hong) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result || ''));
+        r.onerror = () => hong(new Error('Không đọc được tệp này'));
+        r.readAsDataURL(f);
+      });
+      await API.post('/api/menu/tep', {
+        tuNgay: this._tuanTep, campusId: this._coSo || '', ten: f.name, dataUrl,
+      });
+      UI.toast('Đã treo tệp thực đơn cho tuần này', 'success');
+      await this.load();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa tải được tệp', 'error');
+    }
+  },
+
+  async xoaTep(id) {
+    if (!confirm('Gỡ tệp này khỏi thực đơn tuần?')) return;
+    try {
+      await API.del(`/api/menu/tep/${encodeURIComponent(id)}`);
+      UI.toast('Đã gỡ tệp', 'success');
+      await this.load();
+    } catch (e) {
+      UI.toast(e.message || 'Chưa gỡ được tệp', 'error');
+    }
+  },
+
   veNhac(menus, from) {
     const o = document.getElementById('menu-nhac');
     if (!o) return;
@@ -265,6 +527,7 @@ App.views.menu = {
   },
 
   veSoanTuan(zone) {
+    this._dangSoanTuan = true;
     zone.innerHTML = `
       <div class="card">
         <div class="muted small" style="line-height:1.6">
@@ -281,7 +544,7 @@ App.views.menu = {
         <button class="btn primary" id="td-luu-tuan">${UI.icon('check', 18)} Lưu cả tuần</button>
       </div>`;
 
-    document.getElementById('td-huy').onclick = () => this.load();
+    document.getElementById('td-huy').onclick = () => { if (this.boSoanNeuDongY()) this.load(); };
     document.getElementById('td-luu-tuan').onclick = () => this.luuCaTuan();
     for (const b of zone.querySelectorAll('[data-chep-tu]')) {
       b.onclick = () => this.chepNgayTruoc(Number(b.dataset.chepTu));
@@ -334,6 +597,11 @@ App.views.menu = {
       });
     });
   },
+
+  // Ô "DÁN TỪ BẢNG" (Đ132) ĐÃ GỠ — chủ dự án chốt 07/10: chỉ dùng tệp Excel mẫu
+  // (`veExcel` / `/api/menu/nap-excel`, Đ226). Hai đường cùng làm một việc là
+  // hai chỗ phải giữ cho hiểu bảng giống nhau; tệp mẫu thì máy chủ đọc và cho
+  // xem trước từng ngày trước khi lưu, nên chắc hơn.
 
   // "Giống hôm trước" — thứ Ba giống thứ Hai là chuyện thường ở bếp trường, và
   // chép rồi sửa một hai món nhanh hơn gõ lại cả ngày.
@@ -414,6 +682,7 @@ App.views.menu = {
 
   // Chép tuần liền trước vào tuần đang xem — chỉ đổ vào ngày còn trống.
   async chepTuanTruoc() {
+    if (!this.boSoanNeuDongY()) return;
     try {
       const kq = await API.post('/api/menu/copy-week',
         { week: this.week, campusId: this._coSo || '' });

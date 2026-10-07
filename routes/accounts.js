@@ -3,6 +3,7 @@
 // Trường học thường không có máy chủ gửi thư điện tử, nên cách làm thực tế là:
 // giáo viên chủ nhiệm (hoặc quản trị viên) cấp một mật khẩu tạm, đọc cho phụ
 // huynh, và phụ huynh buộc phải đổi ngay khi đăng nhập.
+const crypto = require('crypto');
 const db = require('../lib/db');
 const password = require('../lib/password');
 const { requireRole, destroyUserSessions } = require('../lib/auth');
@@ -11,7 +12,9 @@ const { requireRole, destroyUserSessions } = require('../lib/auth');
 const CHU = 'abcdefghjkmnpqrstuvwxyz';
 const SO = '23456789';
 function sinhMatKhauTam() {
-  const pick = (s) => s[Math.floor(Math.random() * s.length)];
+  // `crypto.randomInt`, KHÔNG phải `Math.random`: mật khẩu tạm mở được hồ sơ
+  // trẻ, mà Math.random đoán trước được khi biết vài giá trị nó từng sinh.
+  const pick = (s) => s[crypto.randomInt(s.length)];
   let out = '';
   for (let i = 0; i < 5; i++) out += pick(CHU);
   for (let i = 0; i < 3; i++) out += pick(SO);

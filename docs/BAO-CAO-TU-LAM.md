@@ -13,17 +13,302 @@
 
 | | |
 |---|---|
-| Nhánh làm việc | `claude/g0-4-multi-teacher-group-yq1n9e` |
+| Nhánh làm việc | `claude/code-review-optimization-at4jzk` (đợt Đ117–Đ120); các đợt trước: `claude/g0-4-multi-teacher-group-yq1n9e` |
 | Đã đẩy lên GitHub | **có**, sau mỗi đợt |
-| Bộ kiểm thử | `npm test` **3091 bài**, `npm run test:giao-dien` **470 bài**, FAIL 0 (đo lại 30/08/2026, sau đợt Đ85) |
-| Lớp canh trên GitHub | 🔴 **không chạy từ 28/08** — không phải lỗi mã, xem mục 4.2b |
+| Bộ kiểm thử | `npm test` **3951 bài** (đo 03/09/2026, sau Đ125), `npm run test:giao-dien` **560 bài** (đo 03/09, chạy lại đủ bộ vì Đ125 đụng `public/`), FAIL 0 — và **cả hai bộ cũng xanh trên máy GitHub** |
+| Lớp canh trên GitHub | 🟢 **xanh trọn 5 job** từ lần chạy #133 (02/09, sau Đ119c) — trước đó đỏ vì CI clone nông, xem mục 4.2b |
 | App có chạy được không | có — mọi đợt đều chạy đủ hai bộ trước khi commit |
-| Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được |
+| Còn việc nào cần anh quyết | **không còn chỗ nào bị treo.** Năm chỗ trước đây "chờ anh" nay tôi đã tự chốt và ghi rõ ở mục 4.1 — anh đọc rồi bảo làm ngược lại chỗ nào cũng được. Món cuối — tắt/gỡ tàn dư tiểu học và Cambridge — **anh đã chốt 03/09: giữ nguyên, sau này làm sau** (mục 1b-mới-nhất) |
 | Còn việc gì chặn | **một thứ, ngoài tầm tay tôi**: nhà trường (mục 4.2). Kho app 1 anh đã mở, và **bốn món nợ bắt buộc đã trả xong** — xem mục 4.3 |
 | Cổng DỪNG của ba giai đoạn | **cả ba vẫn đóng** — chờ nhà trường, không phải chờ mã |
 | Đợt soát nhiều tác nhân 30/08 | **đã đóng hết**: 21 phát hiện của vòng một, cộng 6 phát hiện bị cắt khỏi vòng một nay đã qua **vòng thẩm định thứ hai** (12 tác nhân, mỗi phát hiện hai người soát độc lập — 0 bị bác bỏ). Tất cả đã vá, Đ59 tới Đ77 |
 
 ---
+
+## 1b-mới-nhất. 02/09/2026 chiều — soi lại chính mã của tôi, và cái CI đỏ (Đ119c, Đ120)
+
+Anh hỏi *"còn việc gì phải làm/test không"*. Có hai việc, cả hai đều là thứ
+tôi đáng lẽ phải tự thấy sớm hơn:
+
+1. **CI trên GitHub đỏ ở mọi lần đẩy của nhánh này** — và mục 4.2b trước đó
+   báo với anh là Actions "không chạy". Mở ra xem thì Actions ĐÃ chạy lại từ
+   01/09 (vế tài khoản anh đã gỡ), bộ giao diện 526 bài xanh ngay trên máy
+   GitHub; cái đỏ là job `npm test` clone nông nên bài `nen-chung` không thấy
+   điểm tách. Một dòng cấu hình (`fetch-depth: 0`) — Đ119c. Từ đó CI **xanh
+   trọn 5 job** cho mọi lần đẩy.
+2. **30 commit trên nhánh đều do một tay viết, chưa ai soi lại.** Tôi dựng
+   một vòng rà đối kháng nhắm thẳng vào diff của nhánh (10 lăng kính, mỗi
+   phát hiện 3 người phản bác). Vòng phản bác bị hạn mức phiên cắt — nên tôi
+   tự đối chiếu 27 phát hiện bằng mã và vá 23, hoãn 4 (đều là hiệu năng ở
+   Cambridge/Album, không mất dữ liệu). Bảng đầy đủ ở mục "Vòng rà ĐỐI KHÁNG"
+   của `docs/RA-SOAT-2026-09.md`.
+
+**Cập nhật 03/09 — anh đã chốt món cuối:** *"lưu hết mấy tính năng tiểu học
+còn sót với Cambridge, sau này làm sau"*. Tôi hiểu là **giữ nguyên mã và dữ
+liệu, không tắt thêm, không gỡ**. Hiện trạng đã đúng ý đó từ trước: Xe buýt,
+Nề nếp và Cambridge đều **tắt sẵn** (bật lại bằng một lượt bấm trong Quản trị
+→ Tính năng), còn "thời khóa biểu" đã được đổi thành Lịch sinh hoạt của mầm
+non từ lâu và đang bật. Nên lần này **không đổi một dòng mã nào**, chỉ ghi
+quyết định vào sổ để lần sau không hỏi lại. Bốn món hiệu năng hoãn ở vòng Đ120
+vẫn hoãn: ba món Cambridge có mốc làm là *trước khi trường bật Cambridge*; món
+Album (mức thấp, chỉ quản trị gặp) **không dính gì tới quyết định này** — khi
+hỏi anh tôi đã gộp nó nhầm vào "cùng nhóm", xin ghi lại cho đúng.
+
+**Cập nhật 03/09, chiều — lần đầu anh cài app 2 trên máy mình lộ ra một
+chỗ lệch sáu ngày không ai thấy (Đ122).** `npm install` báo một lỗ mức vừa và
+`git status` đỏ ngay `package-lock.json` dù anh chưa sửa gì. Nguyên nhân: hôm
+27/08 gỡ vỏ Android, `package.json` bỏ bốn gói Capacitor nhưng tệp khóa không
+được làm lại, nên nó mang 385 mục thừa và vẫn tên `school-connect` của app 1.
+CI và Docker vẫn cài đúng (tôi thử cả hai kiểu) nên không ai kêu; cái giá là
+`npm audit` báo 11 lỗ giả che mất lỗ thật duy nhất ở `qs`, gói Express dùng
+cho mọi yêu cầu. Anh bảo "sửa lock đi": đã làm lại tệp khóa, nâng `qs` lên
+6.16.0, `npm audit` về 0, và thêm bộ canh `test:khoa-goi` để tệp khóa không
+lệch âm thầm lần nữa (đã thử trên tệp khóa cũ: đỏ đúng 385 mục). Không đổi
+một dòng mã chạy nào. **Trên máy anh:** sau khi `git pull`, tệp khóa sẽ khớp
+bản mới và `git status` sạch trở lại; nếu nó vẫn báo sửa thì gõ
+`git checkout package-lock.json` rồi `npm install` một lần nữa.
+
+**03/09, tối — hướng dẫn chạy bản thử trên máy Oracle cũ (Đ123).** Anh hỏi cách
+đưa bản thử lên mạng, rồi hỏi chạy trên VPS đã dựng cho app 1. Tôi viết
+`docs/MAY-CHU-THU-ORACLE-APP2.md` cho đúng máy đó, mười bước, có đường quay
+lại app 1 bằng hai lệnh. Nhắc lại một điều để không ai quên: máy Oracle ở nước
+ngoài, chỉ dữ liệu mẫu; máy chủ thật vẫn là N7.
+
+**03/09, đêm — hai điểm anh yêu cầu sau buổi thử (Đ124).** (1) Thông báo và
+khảo sát nay ghi rõ gửi cho ai — "Toàn trường" hay "Nhóm Chồi 2 · Cơ sở 1" —
+ở cả dòng danh sách lẫn hộp chi tiết; ô chọn nhóm khi gửi kèm tên cơ sở. (2)
+Trang chủ theo vai: **cô** có bảng "Hôm nay ở nhóm" — 20–25 bé nhìn một lượt
+với chấm màu điểm danh, dấu thuốc / đơn / nhật ký / đón về, và nút việc kèm
+số còn lại; **văn phòng** có cây cơ sở → nhóm với số đếm hôm nay, bấm nhóm ra
+màn nhóm, bấm bé ra hồ sơ với ô chọn gom theo "Cơ sở › Nhóm"; giao diện của
+hai vai này co lại (hero thấp, biểu tượng nhỏ, dòng gọn), trên máy tính rộng
+hơn và xếp thành cột. **Gia đình không đổi.** Mọi con số đều là số đếm việc của
+người lớn — không phần trăm, không so bé này với bé kia. Nhân sự, Kế toán,
+Marketing thấy cây cơ sở nhưng không mở được màn từng bé. Anh cập nhật máy
+Oracle theo bước 10 của `docs/MAY-CHU-THU-ORACLE-APP2.md` là thấy ngay.
+
+**03/09, khuya — Đón trả bé có chụp ảnh lúc trả (Đ125).** Anh thử xong bảo "đón
+trả bé cũng nên có chụp ảnh như điểm danh". Đã làm đúng cùng luật với ảnh "con
+đã tới lớp": cô ghi sổ xong thì có nút chụp, ảnh chỉ nhà mình và cô của nhóm
+xem được, chụp lại là thay tấm cũ, gỡ được ngay nếu chụp nhầm. Có một chỗ đáng
+kể: phân hệ Đón trả có luật riêng "không có đường xoá dữ liệu", nên gỡ ảnh được
+làm thành một lần THAY bằng trống — dòng ở lại làm vết, tệp ảnh thì mất thật.
+Hai bộ canh có sẵn bắt tôi hai lần trong lúc làm (một dấu chấm phẩy trong chú
+thích lược đồ, một chỗ chèn tên tệp vào onclick) — đều sửa mã, không nới bài.
+
+**03/09, tối — Điểm danh thành MỘT chỗ có hai phần Đón bé / Trả bé (Đ126).**
+Anh hỏi "có gộp Điểm danh với Đón trả bé vào một thư mục được không, kiểu một
+ngày có hai phần đón / trả, đều có chụp ảnh". Được, và đã làm: với cô, Điểm
+danh có hai phần trên cùng một màn (sáng chấm + chụp "con tới lớp", chiều ghi
+đã trả cho ai + chụp lúc trả), ô "Đón trả bé" biến khỏi trang chủ của cô vì
+việc của cô đã nằm hết trong Điểm danh; với gia đình, bấm một ngày trên lịch
+là thấy cả hai nửa trong một hộp. Điều tôi cố giữ: **gộp màn, không gộp mã** —
+phần Trả bé vẫn là của phân hệ Đón trả bé (tắt được), Điểm danh chỉ gọi sang
+qua đúng một chỗ có canh; tắt phân hệ thì Điểm danh y hệt hôm qua, tệp giao
+diện của phân hệ hỏng thì chỉ ô Trả bé nói sự cố. Gia đình và văn phòng
+**không mất cửa nào**: ô Đón trả bé của họ vẫn còn (khai người đón, uỷ quyền;
+văn phòng tra sổ theo nhóm). Ba bản thiết kế độc lập và ba giám khảo máy chấm
+trước khi dựng; hai ý hay ghép từ bản không thắng: bấm vào ảnh người đón là
+hộp ghi mở với đúng người đó chọn sẵn, và ghi xong thẻ bé đổi tại chỗ chứ
+không bị ném về đầu danh sách.
+
+**04/09, trưa — giờ Việt Nam, ngày tiếng Việt, và sổ điểm danh khoá ngoài
+ngày (Đ127).** Anh nêu ba việc sau buổi thử. Thứ nhất, giờ: máy chủ vốn đã
+đóng cứng UTC+7, nhưng phía điện thoại thì app vẫn hỏi giờ MÁY — đúng khi máy
+đặt đúng múi giờ, và chỉ khi ấy. Nay trình duyệt có định nghĩa riêng cộng đúng
+7 tiếng vào đồng hồ tuyệt đối, mười ba chỗ trong app chuyển sang dùng, và có
+bộ canh mới để không màn nào quay về hỏi giờ máy. Thứ hai, ô chọn ngày là ô
+của hệ điều hành nên máy để tiếng Anh thì mùng 4 tháng 9 hiện ra "09/04/2026";
+app không đổi được cách ô đó hiện, nên tôi viết thêm một dòng tiếng Việt ngay
+bên cạnh. Thứ ba, sổ điểm danh nay chỉ ghi và sửa được trong chính ngày hôm
+đó — luật đặt ở máy chủ chứ không ở màn hình, vì điện thoại đã cài app còn giữ
+giao diện cũ và bản cũ gửi được ngày bất kỳ. Xem lại thì không chặn: khoá là
+khoá đường ghi, không phải khoá cuốn sổ.
+
+Hai bài canh cũ dựng tình huống bằng cách chấm điểm danh cho ngày khác. Tôi
+sửa **cách dựng** của chúng, không nới một câu khẳng định nào — và thêm 20
+phép kiểm cho chính luật mới, kể cả phép kiểm rằng gọi thẳng máy chủ (không
+qua giao diện) cũng bị từ chối.
+
+**04/09, chiều — trả bé chỉ bằng một tấm ảnh (Đ128).** Anh thử ở cổng và nói
+gọn: cô không cần gõ tên người đón cho mất thời gian, chụp một tấm là đủ. Nay
+thẻ bé chưa trả có nút "Chụp ảnh trả bé" ngay từ đầu — bấm là mở máy ảnh, chụp
+xong app tự ghi sổ và gửi ảnh cho gia đình. Đường gõ tên vẫn còn làm đường phụ.
+
+Một chỗ tôi phải nói thẳng vì nó là đánh đổi thật: khi cô chỉ chụp ảnh, sổ ghi
+"Xác nhận bằng ảnh lúc trả" thay cho một cái tên, và gia đình đọc thành "Cô đã
+trao bé lúc 16:35" kèm tấm ảnh. Nghĩa là sau này muốn tra "hôm đó ai đón bé"
+thì phải nhận mặt qua ảnh, chứ không đọc được một cái tên. Với việc thường
+ngày thì ảnh chắc hơn tên gõ tay; nhưng nếu có ngày phải tra lại một buổi
+chiều cách đây ba tháng, đó là chỗ khác biệt. Nút ghi tên vẫn còn để cô dùng
+những hôm cần chắc.
+
+Vòng rà đối kháng sau đó bắt được một lỗi của chính tôi, và là loại đáng sợ
+nhất: bảng nhớ sổ trả bé theo tháng chỉ được thay sau khi máy chủ trả lời, nên
+một lần hỏi hỏng là hộp chi tiết ngày của bé đang xem hiện tên người đón của
+**bé trước đó**. Nhà hai con thấy sai ngay; máy dùng chung ở văn phòng thì là
+dữ liệu của một nhà khác. Đã vá (xoá trước, hỏi sau) và có bài canh — tôi đã
+thử bỏ bản vá ra để chắc bài canh báo đỏ thật, không phải một bài tự cho mình
+qua.
+
+Ba điều đáng nói thẳng với anh từ vòng đó:
+
+- **Bộ test đã bắt được tôi một lần.** Bản vá "quản trị thấy phòng chat nhóm
+  đã đóng" của tôi hỏi một cột không tồn tại → `GET /api/messages` 500 với
+  quản trị cơ sở. `npm test` đầy đủ đỏ đúng chỗ trước khi commit. Đó là lý do
+  bộ canh 3.800 bài tồn tại, và nó làm đúng việc.
+- **Một bản vá đợt trước có tác dụng phụ**: "nháp nhật ký chỉ giữ ô cô đã
+  gõ" (Đ118o) làm nút *Áp cho cả nhóm* — thao tác nhanh nhất của cô — thành
+  thao tác duy nhất không được nháp giữ. Đã vá, có bài canh.
+- **Hai lỗi nặng thật** mà không vòng nào trước bắt được: sửa mẫu báo cáo
+  tháng nhận nhầm dòng cùng tên "Lưu ý" giữa hai nhóm (ô đã điền của bản đã
+  gửi gia đình chạy sang tiêu chí khác); và ở Kế hoạch của bé, sau lời báo
+  đụng độ, bấm Lưu lần hai đè cả kế hoạch cô khác vừa lập cho bé mà cô này
+  không hề gõ. Cả hai đã vá.
+
+**09/09 — nhà trường gửi phản hồi sau khi test thử; đợt 1 làm ngay sáu phần (Đ131–Đ136).**
+Anh gửi bản phản hồi 07/09 của trường và dặn: *"chỉnh sửa cho tôi, đề xuất nào
+bất hợp lý thì note lại báo tôi"*. Tôi đối chiếu từng ý với mã hiện có (nhiều ý
+hoá ra đã làm rồi — bỏ bước "đã cho uống" ở Dặn thuốc, văn phòng duyệt đơn
+nghỉ, hoàn tiền ăn khi duyệt, cảnh báo sau 9 giờ, nhật ký nối thực đơn…), rồi
+làm ngay những ý rõ ràng và hợp quy tắc:
+
+- **Điểm danh (Đ131):** chụp ảnh là có mặt, giờ vào là giờ chụp; bốn nút tích
+  rút vào một nút "Sửa" nhỏ; "Muộn" không còn là lựa chọn; sau 9 giờ có nút
+  **chốt sổ vắng** một lượt (có đơn → nghỉ có phép, không → nghỉ không phép);
+  văn phòng và quản lý cơ sở chấm được cả cơ sở. Gia đình thấy ảnh thu nhỏ +
+  "Vào lớp / Ra về" ngay trên danh sách tháng, và số ngày ăn ở trường để đối
+  chiếu tiền ăn.
+- **Thực đơn (Đ132):** năm bữa đúng cấu trúc của trường; xem theo T2…T6 như
+  Lịch sinh hoạt; văn phòng dán thẳng bảng từ Excel vào là xong.
+- **Lịch sinh hoạt (Đ133):** văn phòng soạn, cô chỉ xem; thêm/bớt dòng (Paris
+  13 dòng lưu được); áp một lịch cho nhiều nhóm.
+- **Dặn thuốc (Đ134):** "Dặn lại như đơn này". **Khảo sát (Đ135):** chưa trả
+  lời đủ thì không gửi được. **Sức khoẻ (Đ136):** bỏ "Tiêm chủng" khỏi mẫu ghi mới.
+
+Hai chỗ tôi **làm khác chữ trong phản hồi**, và phải nói rõ:
+
+- Trường viết *"không xin nghỉ → auto Nghỉ KP"*. Tôi KHÔNG để máy tự ghi dòng
+  đỏ đó lúc 7h30 hay nửa đêm — máy ảnh hỏng, mạng cổng rớt, bé tới 9h05 là ba
+  chuyện có thật, và một dòng "nghỉ không phép" tự sinh là thứ gia đình đọc
+  thấy trước khi ai kịp gọi. Thay vào đó là **một chạm của văn phòng sau khi gọi
+  xác nhận**: bấm "Chốt sổ vắng" là ghi một lượt cho mọi bé chưa có dòng. Nếu
+  anh và trường vẫn muốn máy tự chốt vào một giờ cố định, tôi làm được trong
+  một buổi — nhưng cần trường chốt giờ, và cần lịch ngày học/nghỉ lễ trước, kẻo
+  ghi vắng cả thứ Bảy.
+- Lịch sinh hoạt khoá với cô là **một đổi hành vi của tính năng đang chạy**
+  (cô mất quyền sửa). Làm vì trường yêu cầu thẳng; đổi lại cô đọc được đúng câu
+  "lịch do văn phòng soạn, cần đổi thì nhắn văn phòng" thay vì lỗi khô khan.
+
+Những đề xuất tôi **không làm và báo lại** để anh cân nhắc — nhận diện khuôn
+mặt trẻ trong album, bỏ hẳn Đón trả bé, AI viết nhận xét cho báo cáo, đo lượt
+click của phụ huynh, video 3–5 phút, hồ sơ nhân sự đầy đủ, thông báo đẩy từng
+gia đình — nằm ở **`docs/PHAN-HOI-TRUONG-0709.md`**, kèm bảng đối chiếu toàn
+bộ phản hồi (đã có / một phần / chưa có, cỡ việc, vì sao). Đọc tệp đó là đủ để
+quyết đợt 2.
+
+**09–10/09 — đợt 2 theo phản hồi 07/09: "làm hết một lượt" (Đ137–Đ144).**
+Anh dặn *"làm tiếp đợt 2 đi, làm hết 1 lượt luôn"* và *"9 điểm phải cân nhắc
+trên lưu lại rồi tôi quyết sau"*. Chín điểm đó (mục B của
+`docs/PHAN-HOI-TRUONG-0709.md`) tôi **không đụng** — trừ điểm 8 (thông báo
+đẩy), vì hoá ra nó là **nền** của gần hết những ý còn lại chứ không phải một
+việc lẻ. Làm theo thứ tự: nền trước, rồi tám mục của đợt 2:
+
+- **Đ137 — thông báo riêng từng bé + Web Push.** Một bảng `thongbao_be`, một
+  điểm gọi `lib/thong-bao-be.gui()` không bao giờ ném lỗi, đường đẩy qua khoá
+  VAPID, bật trong Cài đặt (iPhone phải "Thêm vào màn hình chính"). Từ đó ảnh
+  tới lớp, thực đơn tuần, cân đo, từng bữa nhật ký, ảnh album, câu chuyện, bài
+  Cambridge, báo cáo — mỗi thứ rung máy đúng nhà, đúng bé.
+- **Đ138 / Đ139 / Đ140** — sức khoẻ theo nhóm (cân đo cả nhóm một lượt, lịch
+  sử, không đường "chuẩn"); hồ sơ bé cho cô (sinh nhật tháng này, số điện
+  thoại bấm là gọi); Báo ăn và Học phí thôi hiện với cô.
+- **Đ141 — nhật ký đi theo bước từng bữa**, ngủ và bỉm riêng, hai cô cùng ghi
+  không xoá nhau, ô tự biến mất với cô không có bé nhà trẻ.
+- **Đ142 — kế hoạch của bé có danh mục bài học** để cô tích, góc Văn hoá, đề
+  xuất sửa kèm lý do; **báo cáo qua quản lý duyệt, hẹn ngày công bố, khoá ô
+  theo cô**. Chữ "nhìn lại" giữ hai mức trung tính — bộ canh QUY TẮC 2 và 4
+  đứng sẵn ở đó.
+- **Đ143 — Cambridge đúng mẫu trường gửi**: Block có mục tiêu và thời gian áp
+  dụng, Week, lứa 3–4 / 4–5 **tính từ ngày sinh và lọc ở tầng dữ liệu** (nhà
+  bé 3–4 không nhận tờ 4–5, kể cả tệp đính kèm), tệp PDF/Word qua canh quyền.
+  Bảng gốc không ALTER — đúng lời hứa viết từ Đ60 khi trường "chưa chốt nội
+  dung".
+- **Đ144 — album công khai hay theo thẻ** (theo thẻ: nhà chỉ thấy tấm có con
+  mình, chốt cả ở đường trả byte, sau luật đồng ý chia sẻ chứ không thay nó),
+  Ghi nhanh chọn nhiều bé, ảnh câu chuyện Hành trình chép về album có gắn thẻ.
+
+Ba phần trong số này (nhật ký, kế hoạch + báo cáo) tôi giao cho tác nhân phụ
+làm song song trong cây làm việc riêng rồi gộp lại, đọc lại từng đường về
+quyền và chữ trên màn trước khi chạy đủ bộ canh. Hai phần còn lại (Cambridge,
+album) tự làm. Chạy lại **cả bộ** thì bắt được hai lỗi mà bộ canh lẻ của từng
+đợt không thấy: `guiChoNhom` quên bỏ tin đã thu hồi khi chống lặp, và chốt sổ
+vắng hỏi giờ trước quyền (bộ chạy lúc 7 giờ sáng mới lộ). Cả hai đã vá; bài
+học thứ hai ghi vào TIEN-DO.
+
+Chín điểm cần anh quyết vẫn nằm nguyên ở mục B của tệp phản hồi; điểm 8 đã
+gạch tên vì đã làm.
+
+## 1b-mới. 02/09/2026 sáng — đợt hai của cuộc rà soát, khép sổ (Đ118)
+
+Anh dặn *"khi đủ token làm hết phần còn lại"* — đợt này làm đúng điều đó: vá
+nốt **78 phát hiện** trong 16 commit (Đ118a–q). Kết sổ 96 phát hiện của cuộc
+rà soát: **94 đã vá, 1 bác bỏ khi kiểm chứng lại, 1 giữ theo thiết kế — sổ
+đã khép, không còn dòng nào chờ**. Món cuối (hai cô cùng lưu kế hoạch cả
+nhóm ghi đè lẫn nhau) anh bảo làm nốt, đóng ở Đ118q bằng đúng cơ chế
+`capNhatLucGoc` của nhật ký ngày. Trạng thái từng dòng ghi ở
+`docs/RA-SOAT-2026-09.md`. Đáng kể nhất:
+
+- **Hai chỗ anh từng phải quyết, tôi đã làm theo hướng giữ dữ liệu**: Học phí
+  nay có đường *thu hồi khoản thu* và *hủy xác nhận đã nộp* — đều bắt buộc ghi
+  lý do, đều để vết, **không xoá gì** (bảng `hocphi_thuhoi` mới). Dữ liệu mẫu
+  sửa xong cả múi giờ lẫn số đo của ba bé nhà trẻ.
+- **`ui.js` bịt một điểm XSS lưu trữ** ở `avatar()`/`studentBar()` dùng ở hơn
+  30 màn — app 1 mang cùng mã, **đã ghi sổ nợ** (cùng với CSV-xuống-dòng,
+  `record_edits` mồ côi, và sao lưu không nguyên tử: bốn món mới trong sổ).
+- **Hết phiên đăng nhập thôi xoá công của cô**: poll huy hiệu chạy nền nay gọi
+  kiểu nền (`API.getNen` — chỉ thêm, không đổi hàm cũ), gặp 401 thì ngừng hỏi
+  thay vì thay cả màn hình bằng màn đăng nhập giữa lúc cô gõ dở nhật ký.
+- **Nháp nhật ký chỉ giữ ô cô đã gõ** — bản cũ chụp cả giá trị máy chủ rồi
+  "điền lại phần dở" là điền đè bản cô khác vừa lưu, đúng thứ lời nhắc trên
+  màn hứa sẽ không làm.
+- **Sổ đón trả có "Giữ như đã ghi"** — sửa mỗi giờ đón thôi làm tên người đón
+  lặng lẽ nhảy về người đầu danh sách.
+- Sáu phép kiểm gần-như-luôn-xanh được **siết cho đỏ được thật** (chỉ siết,
+  không nới — đúng luật bộ canh bất khả xâm phạm).
+
+Tệp dùng chung đi đúng luật ba bước: `ui.js` và `app.js` mỗi tệp một commit
+riêng; khế ước chụp lại bằng `--cap-nhat` (2 mục thêm, 0 mục mất). VERSION sw
+v75 → v76 nên điện thoại đã cài sẽ tự nhận bản mới.
+
+**~~Còn chờ anh quyết, không gấp~~ — đã chốt 03/09:** tắt hay gỡ ba tính năng
+tiểu học còn sót (xe đưa đón, hạnh kiểm, thời khóa biểu) và Cambridge — anh
+bảo **giữ nguyên, sau này làm sau**; không đụng gì thêm. Vế khảo sát theo
+nhóm anh đã quyết "làm luôn" — xong ở Đ119.
+
+## 1b. Đợt trước — 01/09/2026: rà soát toàn kho + 7 bản vá (Đ117)
+
+Anh yêu cầu *"review lại toàn bộ code và tối ưu"*. Tôi rà 17 hướng song song
+trên toàn kho, thu về **96 phát hiện**, tự kiểm chứng và **vá 16 cái nặng
+nhất** trong 7 commit (Đ117a–g), mỗi bản vá kèm bộ canh đã chạy thử trên bản
+chưa vá để xác nhận nó đỏ đúng chỗ. Đáng kể nhất:
+
+- **Gõ `/API/students` thay vì `/api/students` là đi vòng qua chốt phân
+  quyền chức vụ** — dựng lại được cảnh tài khoản Kế toán đọc 11 hồ sơ bé.
+  App 1 dính một phần, **đã ghi sổ nợ**.
+- Đường phân công cô đời cũ **xoá lịch sử "cô từng phụ trách nhóm"** của các
+  năm đã đóng, và có thể hạ nhầm cô chính của một nhóm đang hoạt động.
+- Gia đình bé đã rời trường (còn hạn 12 tháng) **bị ẩn ảnh của chính con
+  mình** với chính họ.
+- `npm run seed` từng gắn cứng `--force`: một lệnh gõ nhầm trên máy chủ thật
+  là **xoá sạch dữ liệu của trường**. Nay phải gõ chủ ý mới xoá được.
+
+**80 phát hiện còn lại chưa vá** — sổ đầy đủ kèm đề xuất thứ tự ở
+`docs/RA-SOAT-2026-09.md`. Bốn cái mức cao đều nằm ở giao diện (đợt này cố ý
+không đụng `public/`); vài cái cần anh quyết: tắt/gỡ các tính năng tiểu học
+còn sót (xe đưa đón, hạnh kiểm, thời khóa biểu, Cambridge — xe đưa đón đang
+lộ mã mọi bé trên tuyến cho phụ huynh), và phân hệ Học phí chưa có đường
+sửa/hủy một khoản thu tạo nhầm. *(Cả hai đã khép: Học phí có đường thu hồi /
+hủy xác nhận có vết ở Đ118g; tàn dư tiểu học anh chốt giữ nguyên 03/09.)*
 
 ## 2. Đã làm gì trong đợt này
 
@@ -170,8 +455,29 @@ lại được trong một commit.
 > nhớ tạm lời đồng ý của từng bé — có thể làm app hiện một tấm ảnh mà gia đình
 > **vừa mới rút đồng ý**, và đó là loại lỗi tệ hơn hẳn cái chậm. Cách sửa an
 > toàn cần đo trước; tôi để lại đây thay vì làm vội.
+>
+> **⟶ ĐÃ ĐO — 10/09, Đ159. Dòng trên nay đã CŨ HƠN MÃ.** Đ98 gom ba tầng
+> ảnh–thẻ–đồng ý thành tra theo lô, Đ144 gom nốt phần chế độ album, và bản đo
+> bằng cách đếm lượt hỏi SQLite cho thấy con số **đứng yên** khi dữ liệu tăng:
+> gấp bốn số album (60 → 240) thì cô vẫn **6** truy vấn, gia đình **13 → 14**.
+> Không có vòng lặp theo album nào cả. Nỗi lo trong đoạn trên vẫn đúng và vẫn
+> được giữ: bài canh mới `test:album-hieu-nang` mục [3] chứng minh **lượt đọc
+> ngay sau khi một nhà rút đồng ý đã mất ảnh** — không bộ nhớ nào sống qua hai
+> lượt yêu cầu. Bài ấy canh HÌNH DẠNG chứ không chốt một con số, và đã thử
+> ngược: cấy lại một truy vấn trong vòng lặp album thì nó báo đỏ ngay.
 
-### 4.2b 🔴 GitHub Actions không chạy từ 28/08 — việc này cần anh
+### 4.2b 🟡 GitHub Actions — đã chạy lại, và cái đỏ còn lại là của tôi
+
+**Cập nhật 02/09:** vế tài khoản đã xong về phía anh — từ lần đẩy 01/09 05:30
+(Đ117h) trở đi, mọi lần chạy đều thực thi thật (~7 phút, đủ 5 job), và **bộ
+giao diện 526 bài xanh ngay trên máy của GitHub**. Cái còn đỏ là job `npm
+test`: bước tải mã của job đó dùng `actions/checkout` mặc định (clone nông,
+1 commit), nên `test/nen-chung.test.mjs` không tìm thấy điểm tách `bc9dfa3`
+và sập — mọi bài trước nó đều xanh, còn bài sau nó thì không được chạy. Ba
+job canh khác đã đặt `fetch-depth: 0` từ đầu, riêng job này thiếu. Vá ở
+Đ119c: thêm `fetch-depth: 0`, và bài canh đó nay nói rõ "kho clone nông"
+thay vì đổ stack trace. Phần dưới giữ nguyên làm sử.
+
 
 Lớp canh mà `CLAUDE.md` gọi là **"không bỏ qua được"** thì **đã không chạy một
 lần nào từ 28/08/2026**. Tôi đo qua GitHub API: mọi lần chạy tới 28/08 04:08 đều

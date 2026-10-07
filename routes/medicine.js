@@ -53,6 +53,15 @@ module.exports = (app) => {
     if (!Array.isArray(medicines) || medicines.length < 1) {
       return res.status(400).json({ error: 'Vui lòng thêm ít nhất một loại thuốc' });
     }
+    // Trần số đơn đang chờ — cùng lý do và cùng con số với đơn xin nghỉ:
+    // trần chống bơm rác, không phải trần nghiệp vụ.
+    const dangCho = db.count(
+      `SELECT COUNT(*) FROM medicine_requests WHERE studentId = ? AND status = 'pending'`, [studentId]);
+    if (dangCho >= 30) {
+      return res.status(400).json({
+        error: 'Bé đang có quá nhiều đơn dặn thuốc chờ xác nhận — chờ cô xác nhận xong rồi gửi thêm giúp trường nhé',
+      });
+    }
     // Chặn số dòng và cắt độ dài: đây là đường mà PHỤ HUYNH gọi được. Không chặn
     // thì một đơn vài trăm nghìn dòng thuốc đủ làm màn hình Dặn thuốc của cả lớp
     // đông cứng, mà app lại chưa có đường nào để xóa một đơn đã gửi.

@@ -34,7 +34,7 @@ import path from 'path';
 import { chromium } from 'playwright';
 import {
   GOC, thuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, CHROMIUM, tatBannerMoiCai, batPhanHe, MAU,
+  taoBoDem, CHROMIUM, tatBannerMoiCai, batPhanHe, MAU, HOM_NAY,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -94,10 +94,14 @@ console.log(`\n[1] Dựng một nhóm ${SI_SO_DO} bé — đúng cỡ nhóm th�
   // Thêm bé bằng ĐÚNG con đường nhà trường dùng: nhập tệp danh sách. Viết thẳng
   // vào cơ sở dữ liệu thì nhanh hơn, nhưng khi đó bài đo trên một nhóm mà app
   // chưa chắc tạo ra được.
-  const canThem = SI_SO_DO - MAU.soBeNhomChoi2;
+  // NHÓM NHÀ TRẺ 1, không phải Chồi 2: từ Đ141 nhật ký "tự bỏ đi với các bạn
+  // không phải lớp nhà trẻ" (nhà trường 07/09), nên nhóm đo phải là nhóm có bé
+  // dưới 36 tháng. Ngày sinh dựng theo hôm nay để bé luôn ở lứa nhà trẻ.
+  const canThem = SI_SO_DO - MAU.soBeNhaTre;
   const dong = [];
+  const namSinh = Number(HOM_NAY().slice(0, 4)) - 1;   // khoảng 9–20 tháng tuổi, luôn dưới 36
   for (let i = 1; i <= canThem; i++) {
-    dong.push(`Bé Đo Thứ ${String(i).padStart(2, '0')},2021-03-1${i % 10},Chồi 2,Phụ Huynh Đo ${i},09770000${String(i).padStart(2, '0')}`);
+    dong.push(`Bé Đo Thứ ${String(i).padStart(2, '0')},${namSinh}-0${1 + (i % 6)}-1${i % 10},Nhà trẻ 1,Phụ Huynh Đo ${i},09770000${String(i).padStart(2, '0')}`);
   }
   const csv = ['Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại', ...dong].join('\n');
 
@@ -105,7 +109,7 @@ console.log(`\n[1] Dựng một nhóm ${SI_SO_DO} bé — đúng cỡ nhóm th�
     try { return await API.post('/api/admin/import/commit', { csv: noiDung }); }
     catch (err) { return { loi: err.message }; }
   }, csv);
-  check(`nhập thêm ${canThem} bé vào nhóm Chồi 2`, kq && kq.imported === canThem, kq);
+  check(`nhập thêm ${canThem} bé vào nhóm Nhà trẻ 1`, kq && kq.imported === canThem, kq);
 }
 
 // ===========================================================================
@@ -113,25 +117,29 @@ console.log('\n[2] Chỉ tiêu "nhật ký cả nhóm dưới 5 phút" — đo p
 let soOSauAp = 0;
 let soBeTrenMan = 0;
 {
-  await dangNhap('giaovien', '123456');
+  // Từ Đ141 màn của cô đi theo BƯỚC (nhà trường 07/09: "bữa nào ăn sẽ cập
+  // nhật bữa đó"). Chỉ tiêu "cả nhóm dưới 5 phút" nay đo trên MỘT BƯỚC — bước
+  // Bữa trưa — vì đó chính là lượt ghi cô làm ngay sau bữa.
+  await dangNhap('giaovien4', '123456');
 
   // --- (a) mở màn ---
   const t0 = Date.now();
   await page.goto(`${sv.BASE}/#/nhatky`, { waitUntil: 'networkidle' });
   await page.waitForSelector('#nk-luu', { timeout: 30000 });
+  const nutTrua = page.locator('.seg [data-buoc="bua:lunch"]');
+  if ((await nutTrua.getAttribute('class')) !== 'active') {
+    await nutTrua.click();
+    await page.waitForSelector('#nk-ca-muc', { timeout: 30000 });
+  }
   const tMo = Date.now() - t0;
 
   soBeTrenMan = await page.locator('[data-tra], .card .row-title').count();
   const soO = await page.locator('.nk-o').count();
-  check(`màn dựng đủ ô cho cả ${SI_SO_DO} bé`, soO >= SI_SO_DO * 5, soO);
+  check(`bước Bữa trưa dựng đủ ô (mức ăn + ghi chú) cho cả ${SI_SO_DO} bé`, soO >= SI_SO_DO * 2, soO);
 
   // --- (b) áp cho cả nhóm: MỘT lần chạm ---
   const t1 = Date.now();
-  await page.selectOption('#nk-ca-trua', 'het');
-  // Hai ô giờ ngủ là ô CHỌN, và danh sách giờ do máy chủ đưa xuống theo khung
-  // giờ ngủ của trường — nên chọn theo vị trí, không gõ cứng "11:30".
-  await page.selectOption('#nk-ca-ngu-tu', { index: 1 });
-  await page.selectOption('#nk-ca-ngu-den', { index: 2 });
+  await page.selectOption('#nk-ca-muc', 'het');
   await page.click('#nk-ap');
   await page.waitForTimeout(500);
   const tAp = Date.now() - t1;
@@ -143,8 +151,8 @@ let soBeTrenMan = 0;
   const cacBe = await page.evaluate(() =>
     [...new Set([...document.querySelectorAll('.nk-o')].map(o => o.dataset.be))]);
   for (const be of cacBe.slice(0, 3)) {
-    await page.selectOption(`select.nk-o[data-be="${be}"][data-truong="anTrua"]`, 'it');
-    await page.fill(`input.nk-o[data-be="${be}"][data-truong="anGhiChu"]`, 'Hôm nay bé mệt, ăn ít');
+    await page.selectOption(`select.nk-o[data-be="${be}"][data-truong="bua.lunch.muc"]`, 'it');
+    await page.fill(`input.nk-o[data-be="${be}"][data-truong="bua.lunch.ghiChu"]`, 'Hôm nay bé mệt, ăn ít');
   }
 
   // --- (d) lưu cả nhóm ---
@@ -174,13 +182,13 @@ console.log('\n[3] MỘT lần chạm phải lấp được cả nhóm — số 
   // chắn. Nếu "Áp cho cả nhóm" chỉ lấp một bé, cô phải chạm 20 lần thay vì 1 —
   // và không ngân sách máy nào cứu được.
   check('“Áp cho cả nhóm” lấp ô cho MỌI bé, không phải bé đầu danh sách',
-    soOSauAp >= SI_SO_DO * 3, `${soOSauAp} ô được lấp / cần ít nhất ${SI_SO_DO * 3}`);
+    soOSauAp >= SI_SO_DO, `${soOSauAp} ô được lấp / cần ít nhất ${SI_SO_DO}`);
 
   // Số lần chạm trên đường nhanh nhất, đọc từ chính màn hình:
-  //   3 ô "đặt nhanh" + 1 nút Áp + 2 thao tác cho mỗi bé chỉnh lẻ + 1 nút Lưu.
-  // Không phụ thuộc sĩ số — đó là cả ý nghĩa của màn này.
-  const oDatNhanh = await page.locator('#nk-ca-trua, #nk-ca-ngu-tu, #nk-ca-ngu-den').count();
-  check('màn có đủ ba ô đặt nhanh cho cả nhóm', oDatNhanh === 3, oDatNhanh);
+  //   1 ô "đặt nhanh" (mức ăn của bữa) + 1 nút Áp + 2 thao tác cho mỗi bé chỉnh
+  //   lẻ + 1 nút Lưu. Không phụ thuộc sĩ số — đó là cả ý nghĩa của màn này.
+  const oDatNhanh = await page.locator('#nk-ca-muc').count();
+  check('bước bữa ăn có ô đặt nhanh mức ăn cho cả nhóm', oDatNhanh === 1, oDatNhanh);
   const soThaoTac = oDatNhanh + 1 + (3 * 2) + 1;
   console.log(`      · đường nhanh nhất: ${soThaoTac} lần chạm cho ${SI_SO_DO} bé`
     + ` (${(300 / soThaoTac).toFixed(1)} giây/lần chạm mới hết 5 phút)`);

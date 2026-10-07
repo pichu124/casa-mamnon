@@ -13,8 +13,28 @@
 //     phần trăm, không xếp bé nào trên bé nào.
 //   • Lời nhắc "mấy bé tuần này chưa có ghi chép" nói rõ nó là lời nhắc cho CÔ,
 //     không phải nhận định về đứa trẻ.
+// GÓP Ý 06/10 (mục 7): BỐN TAB, CHO CẢ CÔ LẪN GIA ĐÌNH
+//
+//   [Kế hoạch của bé] [Montessori & Kỹ năng sống] [Cambridge] [Thể chất]
+//
+// Tab đầu đọc kế hoạch tháng của bé từ phân hệ Kế hoạch; cô nhìn lại cuối tháng
+// từng bài bằng CHỮ QUY ƯỚC (M/S/W/N/NA — năm trạng thái trung tính, chủ dự án
+// chốt 06/10) và chọn "Tiếp tục ở tháng sau" (dạy mới / ôn tập). Gia đình chỉ
+// thấy TÊN BÀI của phần đã duyệt — không thấy mức độ từng bài (bài canh Đ191).
+// Ba tab sau là quan sát / câu chuyện theo chương trình.
 App.views.hanhtrinh = {
   _tab: 'suyngam',
+  // Tab đang chọn ở màn "Hành trình từng bé" (Đ195, việc 24; góp ý 06/10 mục
+  // 7): 'kehoach' hoặc mã một chương trình. Mặc định là Kế hoạch của bé — tab
+  // đầu tiên nhà trường đặt.
+  _nhomBe: 'kehoach',
+  _tabGd: 'kehoach',
+  _thangKH: null,
+  TEN_CT: { 'chu-nhiem': 'Montessori & Kỹ năng sống', 'nuoc-ngoai': 'Cambridge', 'the-chat': 'Thể chất' },
+  MAU_DUYET_KH: {
+    nhap: ['Cô đang soạn', 'gray'], 'cho-duyet': ['Chờ quản lý duyệt', 'orange'],
+    'da-duyet': ['Đã duyệt', 'green'], 'tra-lai': ['Quản lý gửi lại', 'blue'],
+  },
   _ngay: null,
   _classId: null,
   _data: null,
@@ -62,9 +82,13 @@ App.views.hanhtrinh = {
       b.onclick = () => { this._tab = b.dataset.tab; App.route(); };
     }
     const than = document.getElementById('ht-than');
-    if (this._tab === 'chude') return this.manChuDe(than);
-    if (this._tab === 'be') return this.manTungBe(than);
-    return this.manSuyNgam(than);
+    // Nút Ghi nhanh nằm ngoài phần thân nên nó ở nguyên khi cô đổi tab —
+    // đúng ý "luôn có ở góc dưới màn hình".
+    root.insertAdjacentHTML('beforeend', this.nutGhiNhanh());
+    const sau = (p) => Promise.resolve(p).then(() => this.ganNutGhiNhanh());
+    if (this._tab === 'chude') return sau(this.manChuDe(than));
+    if (this._tab === 'be') return sau(this.manTungBe(than));
+    return sau(this.manSuyNgam(than));
   },
 
   // ---- Tab 1: suy ngẫm cuối ngày ----
@@ -72,6 +96,8 @@ App.views.hanhtrinh = {
     const d = await API.get(`/api/hanhtrinh/hom-nay?ngay=${encodeURIComponent(this._ngay)}`);
     this._data = d;
     const nhac = await API.get('/api/hanhtrinh/nhac-nhe').catch(() => ({ be: [] }));
+    const nhap = await API.get('/api/hanhtrinh/nhap').catch(() => ({ nhap: [] }));
+    this._nhap = nhap.nhap || [];
 
     const chuaSuyNgam = (d.quanSat || []).filter(q => !q.daSuyNgam);
 
@@ -88,6 +114,26 @@ App.views.hanhtrinh = {
       </div>
 
       <button class="btn primary block" id="ht-them">${UI.icon('plus', 18)} Ghi một quan sát</button>
+
+      ${this._nhap.length ? `
+        <div class="section-label">Nháp chưa gắn bé · chỉ cô thấy</div>
+        <div class="card" id="ht-nhap-ds">
+          <div class="muted small mb-8" style="line-height:1.6">
+            Cô ghi vội lúc đứng lớp, chưa chọn bé. Rảnh tay thì gắn bé và chương trình —
+            nháp thành một quan sát như mọi quan sát khác, rồi cô kể cho gia đình khi muốn.
+            Nháp quá <b>30 ngày</b> chưa gắn bé sẽ tự bỏ, kể cả ảnh.
+          </div>
+          ${this._nhap.map(n => `
+            <div class="list-row" style="flex-wrap:wrap;gap:8px">
+              ${n.coAnh ? `<img src="/api/hanhtrinh/anh/${UI.esc(n.anh)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:10px;flex:none">` : ''}
+              <div class="row-main" style="min-width:140px">
+                <div class="row-title" style="font-weight:400">${UI.esc(n.moTa || '(chỉ có ảnh)')}</div>
+                <div class="row-sub">${UI.esc(UI.timeAgo(n.taoLuc))}${n.tenChuongTrinh ? ` · ${UI.esc(n.tenChuongTrinh)}` : ''}</div>
+              </div>
+              <button class="btn sm primary" data-nhap-gan="${UI.esc(n.id)}" style="min-height:36px">Gắn bé</button>
+              <button class="btn sm outline" data-nhap-bo="${UI.esc(n.id)}" style="min-height:36px">Bỏ</button>
+            </div>`).join('')}
+        </div>` : ''}
 
       ${(d.ghiNhanhChuaDung || []).length ? `
         <div class="section-label">Ghi nhanh hôm nay chưa đưa vào hành trình</div>
@@ -119,10 +165,32 @@ App.views.hanhtrinh = {
           <div class="flex mt-8" style="flex-wrap:wrap;gap:6px">
             ${(nhac.be || []).map(b => `<span class="badge gray">${UI.esc(b.hoTen)}</span>`).join('')}
           </div>
+          ${nhac.loiKhuyen ? `<div class="muted small mt-8" style="line-height:1.6">${UI.esc(nhac.loiKhuyen)}</div>` : ''}
+        </div>` : ''}
+
+      ${(nhac.tuanNay || []).length ? `
+        <div class="card">
+          <div class="muted small" style="line-height:1.6">
+            <b>Tuần này</b>${nhac.chuongTrinh ? ` phần ${UI.esc(nhac.chuongTrinh)} của cô` : ''} chưa có ảnh hay
+            quan sát nào cho mấy bé sau. Nhà trường đặt mỗi cô của từng chương trình
+            đăng ít nhất một ảnh hoặc một quan sát về mỗi bé mỗi tuần — ảnh nhớ kèm
+            chú thích bé đang làm gì, hoặc gia đình có thể cùng con thực hành gì ở nhà.
+          </div>
+          <div class="flex mt-8" style="flex-wrap:wrap;gap:6px">
+            ${(nhac.tuanNay || []).map(b => `<span class="badge gray">${UI.esc(b.hoTen)}</span>`).join('')}
+          </div>
         </div>` : ''}`;
 
     document.getElementById('ht-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };
     document.getElementById('ht-them').onclick = () => this.moGhi(null);
+    for (const b of than.querySelectorAll('[data-nhap-gan]')) b.onclick = () => this.moGanNhap(b.dataset.nhapGan);
+    for (const b of than.querySelectorAll('[data-nhap-bo]')) {
+      b.onclick = async () => {
+        if (!confirm('Bỏ bản nháp này? Đây là ghi chép riêng của cô, bỏ rồi không lấy lại được.')) return;
+        try { await API.del(`/api/hanhtrinh/nhap/${encodeURIComponent(b.dataset.nhapBo)}`); App.route(); }
+        catch (err) { UI.toast(err.message, 'error'); }
+      };
+    }
     for (const el of than.querySelectorAll('[data-tu-ghinhanh]')) {
       el.onclick = () => {
         // Mang sẵn chữ và cờ "có ảnh" sang hộp thoại. Không mang thì cô bấm
@@ -259,6 +327,7 @@ App.views.hanhtrinh = {
         <label>Quan sát về bé nào</label>
         <select id="ht-be">
           <option value="">— Chọn bé —</option>
+          ${tu.ghiNhanhId ? '' : '<option value="__nhap__">— Chưa gắn bé · lưu nháp, gắn sau —</option>'}
           ${ds.map(b => `<option value="${UI.esc(b.id)}" ${tu.studentId === b.id ? 'selected' : ''}>${
             UI.esc(b.hoTen)}${b.ngungHoSoHocTap ? ' — gia đình đã dừng hồ sơ học tập' : ''}</option>`).join('')}
         </select>
@@ -268,11 +337,20 @@ App.views.hanhtrinh = {
           chỉ phần quan sát học tập là ngưng ghi mới.</div>` : ''}
       </div>
       <div class="field">
+        <label>Chương trình</label>
+        <select id="ht-nhom">
+          <option value="">Theo vai của cô ở nhóm</option>
+          ${Object.entries(this.TEN_CT).map(([ma, ten]) => `<option value="${UI.esc(ma)}">${UI.esc(ten)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
         <label>Cô đã thấy gì</label>
         <textarea id="ht-mota" rows="4"
           placeholder="Chỉ mô tả điều đã thấy, chưa cần nhận xét. Ví dụ: Bin tự xúc hết bát cơm, làm rơi hai lần rồi tự lấy khăn lau.">${UI.esc(tu.moTa || '')}</textarea>
+        ${this.nutGiongNoi('ht-mota')}
         <div class="hint">Đây là ghi chép riêng của cô. Gia đình <b>không</b> đọc được phần này —
-          chỉ đọc câu chuyện cô chủ động kể sau.</div>
+          chỉ đọc câu chuyện cô chủ động kể sau. Ảnh đăng cho gia đình cần chú thích rõ
+          bé đang làm gì, hoặc gia đình có thể cùng con thực hành gì ở nhà.</div>
       </div>
       <div class="field">
         <label>Ảnh (không bắt buộc)</label>
@@ -287,6 +365,7 @@ App.views.hanhtrinh = {
       <button class="btn primary block" id="ht-luu">${UI.icon('check', 18)} Lưu quan sát</button>
     `, 'Ghi một quan sát');
     this.ganChonAnh();
+    this.ganGiongNoi('ht-mota');
 
     // NÓI TRƯỚC KHI CÔ GÕ, KHÔNG PHẢI SAU KHI CÔ GÕ XONG.
     //
@@ -316,13 +395,27 @@ App.views.hanhtrinh = {
   },
 
   async luuGhi(ghiNhanhId) {
+    this.dungGiongNoi();
     const body = {
       studentId: document.getElementById('ht-be').value,
       ngay: this._ngay,
       moTa: document.getElementById('ht-mota').value.trim(),
       ghiNhanhId,
     };
+    const oNhom = document.getElementById('ht-nhom');
+    if (oNhom && oNhom.value) body.nhom = oNhom.value;
     if (this._anhMoi) body.anh = this._anhMoi;
+    // CHƯA GẮN BÉ: lưu thành nháp riêng của cô, gắn bé sau (góp ý 06/10, mục 7).
+    if (body.studentId === '__nhap__') {
+      if (!body.moTa && !body.anh) return UI.toast('Cô ghi một dòng hoặc chọn một tấm ảnh nhé', 'error');
+      try {
+        await API.post('/api/hanhtrinh/nhap', { moTa: body.moTa, anh: body.anh, nhom: body.nhom || '' });
+        UI.toast('Đã lưu nháp — rảnh tay cô gắn bé ở mục "Nháp chưa gắn bé" (quá 30 ngày chưa gắn thì tự bỏ)', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+      return;
+    }
     if (!body.studentId) return UI.toast('Cô chọn giúp quan sát này là về bé nào nhé', 'error');
     if (!body.moTa) return UI.toast('Cô mô tả giúp điều đã thấy ở bé nhé', 'error');
     try {
@@ -331,6 +424,134 @@ App.views.hanhtrinh = {
       UI.closeModal();
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // GẮN BÉ + CHƯƠNG TRÌNH cho một nháp (góp ý 06/10, mục 7).
+  moGanNhap(id) {
+    const n = (this._nhap || []).find(x => x.id === id);
+    if (!n) return;
+    const ds = (this._data || {}).danhSachBe || [];
+    UI.modal(`
+      ${n.coAnh ? `<img src="/api/hanhtrinh/anh/${UI.esc(n.anh)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:10px">` : ''}
+      <div class="field"><label>Bé</label>
+        <select id="ht-gan-be">
+          <option value="">— Chọn bé —</option>
+          ${ds.map(b => `<option value="${UI.esc(b.id)}">${UI.esc(b.hoTen)}${b.ngungHoSoHocTap ? ' — gia đình đã dừng hồ sơ học tập' : ''}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Chương trình</label>
+        <select id="ht-gan-nhom">
+          <option value="">Theo vai của cô ở nhóm</option>
+          ${Object.entries(this.TEN_CT).map(([ma, ten]) => `<option value="${UI.esc(ma)}" ${n.nhom === ma ? 'selected' : ''}>${UI.esc(ten)}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Cô đã thấy gì</label>
+        <textarea id="ht-gan-mota" rows="3">${UI.esc(n.moTa || '')}</textarea>
+        ${this.nutGiongNoi('ht-gan-mota')}</div>
+      <button class="btn primary block" id="ht-gan-luu">${UI.icon('check', 18)} Gắn bé</button>
+    `, 'Gắn bé cho bản nháp');
+    this.ganGiongNoi('ht-gan-mota');
+    document.getElementById('ht-gan-luu').onclick = async () => {
+      this.dungGiongNoi();
+      const studentId = document.getElementById('ht-gan-be').value;
+      if (!studentId) return UI.toast('Cô chọn bé giúp nhé', 'error');
+      const moTa = document.getElementById('ht-gan-mota').value.trim();
+      if (!moTa) return UI.toast('Cô mô tả giúp điều đã thấy ở bé nhé', 'error');
+      try {
+        await API.post(`/api/hanhtrinh/nhap/${encodeURIComponent(id)}/gan`, {
+          studentId, nhom: document.getElementById('ht-gan-nhom').value, moTa,
+        });
+        UI.toast('Đã gắn bé — nháp thành một quan sát của bé', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // ===================== NÓI THÀNH CHỮ (góp ý 06/10, mục 7) =====================
+  //
+  // Nhận dạng giọng nói CÓ SẴN TRONG TRÌNH DUYỆT, tiếng Việt (`vi-VN`): Chrome
+  // trên Android dùng dịch vụ của Google, Safari trên iPhone dùng của Apple.
+  // App không gửi âm thanh đi đâu cả — nhưng chính trình duyệt gửi tới dịch vụ
+  // ấy để đổi ra chữ, nên lời nhắc dưới nút nói rõ điều đó và dặn cô đừng đọc
+  // họ tên đầy đủ của bé. Chữ nhận ra CHỈ được chèn vào ô, cô đọc và sửa rồi
+  // mới bấm Lưu — không có gì tự lưu từ giọng nói.
+  //
+  // Máy không hỗ trợ thì nút không hiện; lời nhắc chỉ cô dùng micro trên bàn
+  // phím điện thoại (Gboard / bàn phím iPhone, chọn tiếng Việt) — cũng đọc
+  // được thay gõ, và chạy trên mọi ô nhập.
+  coGiongNoi() {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  },
+  nutGiongNoi(oId) {
+    if (!this.coGiongNoi()) {
+      return `<div class="hint">Muốn nói thay gõ: bấm biểu tượng micro trên bàn phím điện thoại
+        (chọn tiếng Việt).</div>`;
+    }
+    return `
+      <div class="flex mt-8" style="gap:8px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn sm outline ht-noi" data-o="${UI.esc(oId)}" style="min-height:36px">🎤 Nói để ghi</button>
+        <span class="muted small ht-noi-tam" data-o="${UI.esc(oId)}" style="flex:1;min-width:120px"></span>
+      </div>
+      <div class="hint">Nói chậm, rõ, từng câu ngắn; chữ hiện vào ô để cô đọc lại và sửa trước khi lưu.
+        Giọng nói được điện thoại gửi tới dịch vụ nhận dạng của Google / Apple để đổi ra chữ —
+        cô gọi bé bằng tên ở lớp, đừng đọc họ tên đầy đủ.</div>`;
+  },
+  ganGiongNoi(oId) {
+    const nut = document.querySelector(`.ht-noi[data-o="${oId}"]`);
+    const o = document.getElementById(oId);
+    if (!nut || !o) return;
+    const Nhan = window.SpeechRecognition || window.webkitSpeechRecognition;
+    nut.onclick = () => {
+      if (this._noi) { this.dungGiongNoi(); return; }
+      let r;
+      try { r = new Nhan(); } catch (_) { return UI.toast('Máy này chưa nói thành chữ được — cô dùng micro trên bàn phím nhé', 'error'); }
+      r.lang = 'vi-VN';
+      r.continuous = true;
+      r.interimResults = true;
+      const tam = document.querySelector(`.ht-noi-tam[data-o="${oId}"]`);
+      r.onresult = (e) => {
+        let dangNghe = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const kq = e.results[i];
+          const chu = (kq[0] && kq[0].transcript) || '';
+          if (kq.isFinal) {
+            const cau = chu.trim();
+            if (cau) o.value = `${o.value.trim()}${o.value.trim() ? ' ' : ''}${cau.charAt(0).toUpperCase()}${cau.slice(1)}`;
+          } else dangNghe += chu;
+        }
+        if (tam) tam.textContent = dangNghe;
+      };
+      r.onerror = (e) => {
+        UI.toast(e && e.error === 'not-allowed'
+          ? 'Cô cho phép app dùng micro trong cài đặt trình duyệt nhé'
+          : 'Chưa nghe rõ — cô thử lại hoặc dùng micro trên bàn phím', 'error');
+      };
+      r.onend = () => {
+        if (tam) tam.textContent = '';
+        nut.textContent = '🎤 Nói để ghi';
+        this._noi = null;
+      };
+      try { r.start(); } catch (_) { return; }
+      this._noi = r;
+      this._noiO = o;
+      this._noiTam = tam;
+      nut.textContent = '⏹ Dừng';
+    };
+  },
+  // Dừng nghe. Câu đang nghe dở (chữ xám) được CHÈN NGAY vào ô: kết quả chốt
+  // của nó chỉ tới sau `stop()`, lúc cô đã bấm Lưu và hộp thoại đã đóng — chờ
+  // nó là mất câu cuối (vòng rà Đ232). Kết quả tới muộn thì bỏ, để một câu
+  // không bị chèn hai lần.
+  dungGiongNoi() {
+    if (!this._noi) return;
+    const r = this._noi;
+    const o = this._noiO;
+    const tam = this._noiTam;
+    const cau = tam ? String(tam.textContent || '').trim() : '';
+    if (o && cau) o.value = `${o.value.trim()}${o.value.trim() ? ' ' : ''}${cau.charAt(0).toUpperCase()}${cau.slice(1)}`;
+    if (tam) tam.textContent = '';
+    r.onresult = null;
+    try { r.stop(); } catch (_) { /* đã dừng */ }
+    this._noi = null;
   },
 
   // ---- Hộp thoại: suy ngẫm (lớp 2) ----
@@ -394,17 +615,33 @@ App.views.hanhtrinh = {
   },
 
   // ---- Hộp thoại: câu chuyện cho gia đình (lớp 3) ----
-  moCauChuyen(id) {
+  async moCauChuyen(id) {
     const q = (this._data.quanSat || []).find(x => x.id === id);
     if (!q) return;
+    // ALBUM ĐỂ LƯU ẢNH VỀ (Đ144). Chỉ hỏi khi quan sát CÓ ảnh và chưa về album
+    // nào; danh sách là album của đúng nhóm bé, nhóm đang mở. Tải lỗi thì bỏ
+    // qua ô này — kể chuyện vẫn phải làm được khi mạng chập chờn.
+    let albums = [];
+    if (q.anh && !q.daVeAlbum) {
+      try {
+        const be = (App.state.students || []).find(s => s.id === q.studentId) || {};
+        // CHỈ MỜI ALBUM "THEO THẺ". Câu chuyện là của riêng một bé, nên album
+        // cả nhóm cùng xem thì không được hiện ra để cô bấm nhầm. Máy chủ cũng
+        // từ chối, nhưng mời rồi mới từ chối là làm cô mất công gõ lại.
+        albums = (await API.get('/api/albums') || [])
+          .filter(a => a.classId === be.classId && !a.lopDaDong && a.cheDo === 'theo-the');
+      } catch (_) { albums = []; }
+    }
     UI.modal(`
       <div class="small" style="line-height:1.6;margin-bottom:12px">
         <b>${UI.esc(q.hoTen || '')}</b> — ${UI.esc(q.moTa || '')}
       </div>
       <div class="field">
         <label>Câu chuyện kể cho gia đình</label>
-        <textarea id="ht-cc" rows="4" placeholder="Kể lại bằng lời của cô, cho bố mẹ đọc buổi tối.">${UI.esc(q.cauChuyen || '')}</textarea>
-        <div class="hint">Phần này <b>chỉ công bố khi cô bấm nút</b>. Gõ dở để đó cũng không ai đọc được.</div>
+        <textarea id="ht-cc" rows="4" placeholder="Kể lại bằng lời của cô: con đang làm gì ở lớp — và nếu có ảnh, ảnh chụp lúc nào, con làm ra sản phẩm gì.">${UI.esc(q.cauChuyen || '')}</textarea>
+        ${this.nutGiongNoi('ht-cc')}
+        <div class="hint">Phần này <b>chỉ công bố khi cô bấm nút</b>. Gõ dở để đó cũng không ai đọc được.
+          Chú thích rõ hoạt động của con ở lớp, hoặc cách gia đình cùng con thực hành thêm ở nhà (ô dưới).</div>
       </div>
       <div class="field">
         <label>Cùng con ở nhà</label>
@@ -412,6 +649,20 @@ App.views.hanhtrinh = {
         <div class="hint">5–10 phút, đồ có sẵn trong nhà, không cần màn hình.
           Đây là <b>lời rủ chơi</b> gửi gia đình, không phải việc phải nộp lại cho cô.</div>
       </div>
+      ${q.daVeAlbum ? `<div class="hint mb-8">🖼️ Ảnh của quan sát này đã lưu về album <b>${UI.esc(q.daVeAlbum.title)}</b>.</div>` : ''}
+      ${q.anh && !q.daVeAlbum ? (albums.length ? `
+      <div class="field">
+        <label>Lưu ảnh về album</label>
+        <select id="ht-album">
+          <option value="">Không lưu về album</option>
+          ${albums.map(a => `<option value="${UI.esc(a.id)}">${UI.esc(a.title)}</option>`).join('')}
+        </select>
+        <div class="hint">Ảnh được chép sang album đã chọn và gắn thẻ bé, để gia đình về sau vào Album ảnh tìm lại cho tiện.
+          Chỉ hiện album ở chế độ <b>theo thẻ</b> — ở đó mỗi nhà chỉ thấy ảnh có thẻ con mình.</div>
+      </div>` : `
+      <div class="hint mb-8">Nhóm mình chưa có album nào ở chế độ <b>theo thẻ</b>, nên chưa lưu ảnh của
+        câu chuyện này về album được. Câu chuyện vẫn kể cho gia đình bình thường.
+        Muốn lưu thì nhờ nhà trường tạo một album theo thẻ giúp cô nhé.</div>`) : ''}
       <div class="grid-2">
         <button class="btn outline" id="ht-luu-nhap">${q.daCongBo ? 'Lưu thay đổi' : 'Lưu nháp'}</button>
         <button class="btn success-soft" id="ht-cong-bo">${UI.icon('send', 16)} Kể cho gia đình</button>
@@ -419,8 +670,9 @@ App.views.hanhtrinh = {
       ${q.daCongBo ? `<button class="btn danger-soft block mt-8" id="ht-thu-hoi">Thu hồi khỏi màn hình gia đình</button>` : ''}
     `, 'Câu chuyện cho gia đình');
 
+    this.ganGiongNoi('ht-cc');
     const doc = () => ({
-      cauChuyen: document.getElementById('ht-cc').value.trim(),
+      cauChuyen: (this.dungGiongNoi(), document.getElementById('ht-cc').value.trim()),
       cungConONha: document.getElementById('ht-cn').value.trim(),
     });
     document.getElementById('ht-luu-nhap').onclick = async () => {
@@ -437,7 +689,8 @@ App.views.hanhtrinh = {
     };
     document.getElementById('ht-cong-bo').onclick = async () => {
       try {
-        await API.post(`/api/hanhtrinh/${encodeURIComponent(id)}/cong-bo`, doc());
+        const albumId = (document.getElementById('ht-album') || {}).value || '';
+        await API.post(`/api/hanhtrinh/${encodeURIComponent(id)}/cong-bo`, { ...doc(), ...(albumId ? { albumId } : {}) });
         UI.toast('Đã gửi câu chuyện tới gia đình', 'success');
         UI.closeModal();
         App.route();
@@ -468,6 +721,9 @@ App.views.hanhtrinh = {
     const d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(this._classId)}`
       + `&tuan=${encodeURIComponent(this._tuan)}`);
     const c = d.chuDe || {};
+    // Máy chủ đời cũ chưa trả `them` thì mọi ô về rỗng, không phải `undefined`
+    // rơi thành chữ "undefined" trong ô nhập.
+    const t = d.them || { baiHat: '', linkBaiHat: '', talkshow: '', linkTalkshow: '', nhacGiaDinh: '' };
     const nhac = await this.nhacThuSau();
 
     than.innerHTML = `
@@ -497,6 +753,50 @@ App.views.hanhtrinh = {
           <textarea id="ht-cd-nha" rows="3" placeholder="Ví dụ: cho con thả thìa, nắp chai, lá cây vào chậu nước xem cái nào nổi.">${UI.esc(c.cungConONha || '')}</textarea>
           <div class="hint">5–10 phút, đồ trong nhà, không màn hình — và <b>không phải là bài tập</b>.</div>
         </div>
+
+        <div class="card-title mt-8">Kế hoạch chung tuần này</div>
+        <div class="muted small" style="line-height:1.7">
+          Phần này hiện ở <b>đầu màn Lịch sinh hoạt</b> cho gia đình. Ô nào để trống thì
+          không hiện ô ấy — <b>không bắt buộc điền hết</b>.
+        </div>
+        <div class="field">
+          <label>Bài hát của tuần</label>
+          <input id="ht-cd-bh" value="${UI.esc(t.baiHat)}" placeholder="Ví dụ: Cả nhà thương nhau">
+        </div>
+        <div class="field">
+          <label>Đường dẫn video bài hát</label>
+          <input id="ht-cd-bhl" value="${UI.esc(t.linkBaiHat)}" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>Casa talkshow tuần này</label>
+          <input id="ht-cd-ts" value="${UI.esc(t.talkshow)}" placeholder="Ví dụ: Dạy con tự xúc ăn">
+        </div>
+        <div class="field">
+          <label>Đường dẫn video Casa talkshow</label>
+          <input id="ht-cd-tsl" value="${UI.esc(t.linkTalkshow)}" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>Lời nhắc gia đình</label>
+          <textarea id="ht-cd-nhac" rows="2" placeholder="Ví dụ: thứ Tư lớp ra sân, nhà chuẩn bị giúp cô một mũ rộng vành.">${UI.esc(t.nhacGiaDinh)}</textarea>
+        </div>
+
+        <div class="field">
+          <label>Tệp kế hoạch tuần (PDF, Word hoặc ảnh chụp)</label>
+          ${(d.tep || []).length ? (d.tep || []).map(x => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(x.tenGoc)}</div>
+                <div class="row-sub">${UI.esc(this.coTep(x))}</div>
+              </div>
+              <div class="row-end">
+                <button class="btn sm outline" data-xoa-tep="${UI.esc(x.id)}">Gỡ</button>
+              </div>
+            </div>`).join('') : '<div class="muted small">Chưa treo tệp nào.</div>'}
+          ${(d.tep || []).length < (d.toiDaTep || 5)
+            ? '<input type="file" id="ht-cd-tep" accept=".pdf,.docx,image/*" class="mt-8">'
+            : `<div class="hint">Mỗi tuần treo tối đa ${UI.esc(String(d.toiDaTep || 5))} tệp — gỡ bớt rồi treo tiếp nhé.</div>`}
+        </div>
+
         <div class="grid-2">
           ${d.tuanTruoc && !d.chuDe
             ? `<button class="btn outline" id="ht-cd-chep">${UI.icon('plus', 16)} Chép tuần trước</button>`
@@ -510,6 +810,11 @@ App.views.hanhtrinh = {
     document.getElementById('ht-cd-luu').onclick = () => this.luuChuDe();
     const chep = document.getElementById('ht-cd-chep');
     if (chep) chep.onclick = () => this.chepTuanTruoc();
+    const oTep = document.getElementById('ht-cd-tep');
+    if (oTep) oTep.onchange = () => this.treoTep(oTep);
+    for (const nut of than.querySelectorAll('[data-xoa-tep]')) {
+      nut.onclick = () => this.goTep(nut.dataset.xoaTep);
+    }
     for (const nut of than.querySelectorAll('[data-tuan]')) {
       nut.onclick = () => this.chonTuan(nut.getAttribute('data-tuan'));
     }
@@ -589,7 +894,48 @@ App.views.hanhtrinh = {
       </div>`;
   },
 
+  // Nhãn ngắn cho một tệp: loại và cỡ. Cỡ tệp là thứ cô cần biết trước khi
+  // bảo gia đình mở bằng 3G.
+  coTep(x) {
+    const ten = x.loai === 'pdf' ? 'PDF' : x.loai === 'docx' ? 'Word' : 'Ảnh';
+    const kb = Math.max(1, Math.round(Number(x.bytes || 0) / 1024));
+    return kb >= 1024 ? `${ten} · ${(kb / 1024).toFixed(1)} MB` : `${ten} · ${kb} KB`;
+  },
+
+  async treoTep(o) {
+    const f = o.files && o.files[0];
+    if (!f) return;
+    o.disabled = true;
+    try {
+      const dataUrl = await new Promise((ok, hong) => {
+        const r = new FileReader();
+        r.onload = () => ok(r.result);
+        r.onerror = () => hong(new Error('Không đọc được tệp này'));
+        r.readAsDataURL(f);
+      });
+      await API.post('/api/hanhtrinh/chu-de/tep', {
+        classId: this._classId, tuan: this._tuan, ten: f.name, dataUrl,
+      });
+      UI.toast('Đã treo tệp cho tuần này', 'success');
+      App.route();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      o.disabled = false;
+      o.value = '';
+    }
+  },
+
+  async goTep(id) {
+    if (!confirm('Gỡ tệp này khỏi tuần?')) return;
+    try {
+      await API.del(`/api/hanhtrinh/chu-de/tep/${encodeURIComponent(id)}`);
+      UI.toast('Đã gỡ tệp', 'success');
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
   async luuChuDe() {
+    const oV = (id) => (document.getElementById(id) || {}).value || '';
     try {
       await API.put('/api/hanhtrinh/chu-de', {
         classId: this._classId,
@@ -597,6 +943,11 @@ App.views.hanhtrinh = {
         chuDe: document.getElementById('ht-cd-ten').value.trim(),
         moTa: document.getElementById('ht-cd-mota').value.trim(),
         cungConONha: document.getElementById('ht-cd-nha').value.trim(),
+        baiHat: oV('ht-cd-bh').trim(),
+        linkBaiHat: oV('ht-cd-bhl').trim(),
+        talkshow: oV('ht-cd-ts').trim(),
+        linkTalkshow: oV('ht-cd-tsl').trim(),
+        nhacGiaDinh: oV('ht-cd-nhac').trim(),
       });
       UI.toast('Đã lưu chủ đề tuần', 'success');
       App.route();
@@ -624,6 +975,30 @@ App.views.hanhtrinh = {
     this._beDangXem = this._beDangXem || dsBe[0].id;
 
     const d = await API.get(`/api/hanhtrinh?studentId=${encodeURIComponent(this._beDangXem)}`);
+
+    // BA TAB THEO BA NHÓM CÔ (Đ195, việc 24).
+    //
+    // Tên và số của từng tab do MÁY CHỦ khai (`nhomCoTab`) — màn hình không
+    // kể lại tên ba nhóm lần nữa. Máy chủ đời cũ không gửi khoá ấy thì không
+    // vẽ dải tab và mọi quan sát hiện chung một danh sách, đúng như trước.
+    const tab = d.nhomCoTab || [];
+    if (this._nhomBe !== 'kehoach' && this._nhomBe && !tab.some(t => t.ma === this._nhomBe)) this._nhomBe = 'kehoach';
+    if (!this._nhomBe) this._nhomBe = 'kehoach';
+    const loc = this._nhomBe && this._nhomBe !== 'kehoach'
+      ? (d.quanSat || []).filter(q => q.nhomCo === this._nhomBe)
+      : (d.quanSat || []);
+
+    // CÂU KHI TAB RỖNG PHẢI KHÁC CÂU KHI BÉ CHƯA CÓ QUAN SÁT NÀO.
+    //
+    // QUY TẮC 2: "chưa quan sát thấy" không bao giờ được trình bày như một
+    // thất bại hay một khoảng trống cần lấp. Tab Cô nước ngoài trống nghĩa là
+    // chương trình ấy chưa tới lượt ghi, không phải bé thiếu gì cả.
+    const tenTab = (tab.find(t => t.ma === this._nhomBe) || {}).ten || '';
+    const trong = this._nhomBe
+      ? UI.emptyState('🌱', `Phần ${tenTab} chưa có dòng nào trong tháng này. Các phần khác vẫn ở dải trên.`)
+      : UI.emptyState('🌱',
+        'Chưa có quan sát nào về bé, và không sao cả — hành trình của mỗi bé bắt đầu từ dòng đầu tiên cô ghi.');
+
     than.innerHTML = `
       <div class="card">
         <div class="field" style="margin:0">
@@ -633,11 +1008,112 @@ App.views.hanhtrinh = {
           </select>
         </div>
       </div>
-      ${(d.quanSat || []).length
-        ? (d.quanSat || []).map(q => this.theDong(q, d)).join('')
-        : UI.emptyState('🌱',
-          'Chưa có quan sát nào về bé, và không sao cả — hành trình của mỗi bé bắt đầu từ dòng đầu tiên cô ghi.')}`;
+      ${tab.length ? `<div class="seg" id="ht-nhom-tabs" style="margin-bottom:10px;overflow-x:auto">
+        <button class="${this._nhomBe === 'kehoach' ? 'active' : ''}" data-nhom="kehoach">Kế hoạch của bé</button>
+        ${tab.map(t => `<button class="${this._nhomBe === t.ma ? 'active' : ''}" data-nhom="${UI.esc(t.ma)}"
+          title="${UI.esc(t.ten)}">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}${t.soQuanSat ? ` (${t.soQuanSat})` : ''}</button>`).join('')}
+      </div>` : ''}
+      <div id="ht-be-than">${this._nhomBe === 'kehoach' && tab.length ? '<div class="loading">Đang tải</div>'
+        : (loc.length ? loc.map(q => this.theDong(q, d)).join('') : trong)}</div>`;
     document.getElementById('ht-chon-be').onchange = (e) => { this._beDangXem = e.target.value; App.route(); };
+    const dai = document.getElementById('ht-nhom-tabs');
+    if (dai) {
+      for (const b of dai.querySelectorAll('button')) {
+        b.onclick = () => { this._nhomBe = b.dataset.nhom; App.route(); };
+      }
+    }
+    if (this._nhomBe === 'kehoach' && tab.length) await this.veKeHoachCo(document.getElementById('ht-be-than'), d.be);
+  },
+
+  // ---- Tab "Kế hoạch của bé" của CÔ (góp ý 06/10, mục 7) ----
+  //
+  // Đọc từ phân hệ Kế hoạch (đường cả nhóm của nó — không mở thêm cửa API
+  // riêng cho một bé). Phân hệ ấy tắt thì nói nhẹ nhàng, không làm hỏng màn.
+  async veKeHoachCo(vung, be) {
+    if (!vung || !be) return;
+    this._thangKH = this._thangKH || UI.todayStr().slice(0, 7);
+    let d;
+    try {
+      d = await API.get(`/api/kehoachbe?classId=${encodeURIComponent(be.classId || '')}&thang=${encodeURIComponent(this._thangKH)}`);
+    } catch (_) {
+      vung.innerHTML = UI.emptyState('🧭', 'Phần Kế hoạch của bé đang tắt hoặc chưa mở được — các tab chương trình bên cạnh vẫn xem bình thường.');
+      return;
+    }
+    const x = (d.danhSach || []).find(y => y.studentId === be.id) || {};
+    const k = x.ke;
+    const sua = d.ctDuocSua || [];
+    const tenGoc = (ma) => ((d.gocLinhVuc || []).find(g => g.ma === ma) || {}).ten || ma;
+    const tenNhan = (ma) => ((d.nhanBai || []).find(t => t.ma === ma) || {}).ten || '';
+    const chu = (ma) => { const t = (d.mucDo || []).find(y => y.ma === ma); return t ? `${t.chuCai} · ${t.ten}` : ''; };
+    const MAU = { 'chua-day': 'gray', 'chua-quan-sat-thay': 'gray', 'dang-hinh-thanh': 'blue', 'da-vung': 'green', 'vuot-troi': 'green' };
+
+    const phan = (d.chuongTrinhTab || []).map(t => {
+      const goc = (t.goc || []).map(g => g.ma);
+      const bai = k ? (k.baiHoc || []).filter(b => goc.includes(b.gocLinhVuc)) : [];
+      const p = k && k.chuongTrinh ? k.chuongTrinh[t.ma] : null;
+      const tt = p && (p.coNoiDung || p.trangThai !== 'nhap') ? (this.MAU_DUYET_KH[p.trangThai] || ['', 'gray']) : null;
+      const duocNhin = sua.includes(t.ma) && bai.length;
+      return `
+        <div class="card">
+          <div class="card-title">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}
+            <span class="spacer"></span>${tt ? UI.badge(tt[0], tt[1]) : ''}</div>
+          ${bai.length ? bai.map(b => `
+            <div class="list-row" style="flex-wrap:wrap;gap:6px">
+              <div class="row-main" style="min-width:150px">
+                <div class="row-title">${UI.esc(b.ten)}</div>
+                <div class="row-sub">${UI.esc(tenGoc(b.gocLinhVuc))} · ${UI.esc(tenNhan(b.nhan))}</div>
+              </div>
+              ${duocNhin ? `
+                <div class="grid-2" style="width:100%">
+                  <div class="field" style="margin:0"><label>Mức độ</label>
+                    <select class="ht-kh-md" data-bai-id="${UI.esc(b.id)}" data-ct="${UI.esc(t.ma)}">
+                      <option value="">— chưa chọn —</option>
+                      ${(d.mucDo || []).map(m => `<option value="${UI.esc(m.ma)}" ${b.mucDo === m.ma ? 'selected' : ''}>${UI.esc(`${m.chuCai} · ${m.ten}`)}</option>`).join('')}
+                    </select></div>
+                  <div class="field" style="margin:0"><label>Tiếp tục ở tháng sau</label>
+                    <select class="ht-kh-tt" data-bai-id="${UI.esc(b.id)}" data-ct="${UI.esc(t.ma)}">
+                      <option value="">— không —</option>
+                      ${(d.tiepTuc || []).map(m => `<option value="${UI.esc(m.ma)}" ${b.tiepTuc === m.ma ? 'selected' : ''}>${UI.esc(m.ten)}</option>`).join('')}
+                    </select></div>
+                </div>`
+                : (b.mucDo ? UI.badge(chu(b.mucDo), MAU[b.mucDo] || 'gray') : '')}
+            </div>`).join('')
+            : '<div class="muted small">Tháng này chưa có bài nào ở phần này.</div>'}
+          ${duocNhin ? `<button class="btn primary block mt-8" data-ht-kh-luu="${UI.esc(t.ma)}">${UI.icon('check', 16)} Lưu phần nhìn lại</button>` : ''}
+        </div>`;
+    }).join('');
+
+    vung.innerHTML = `
+      <div class="card">
+        <div class="field" style="margin:0"><label>Tháng</label>
+          <input type="month" id="ht-kh-thang" value="${UI.esc(this._thangKH)}"></div>
+        <div class="muted small mt-8" style="line-height:1.6">
+          Cuối tháng cô nhìn lại từng bài bằng <b>chữ quy ước</b>
+          (${(d.mucDo || []).map(m => `${UI.esc(m.chuCai)} = ${UI.esc(m.ten.toLowerCase())}`).join(', ')}).
+          "Chưa quan sát thấy" là cô chưa có dịp thấy, <b>không phải bé không làm được</b>.
+          Bài ở mức S hoặc M được tính là "Đã thấy con làm được" và tự điền vào bản nháp
+          Báo cáo tháng ở ô còn trống — cô vẫn đọc lại trước khi gửi. Gia đình chỉ thấy tên bài, không thấy mức độ.
+        </div>
+        ${k ? '' : '<div class="muted small mt-8">Tháng này bé chưa có kế hoạch — cô lập ở mục Kế hoạch của bé.</div>'}
+      </div>
+      ${k ? phan : ''}`;
+
+    const oThang = document.getElementById('ht-kh-thang');
+    if (oThang) oThang.onchange = () => { this._thangKH = oThang.value; this.veKeHoachCo(vung, be); };
+    for (const nut of vung.querySelectorAll('[data-ht-kh-luu]')) {
+      nut.onclick = async () => {
+        const ct = nut.dataset.htKhLuu;
+        const baiHoc = [...vung.querySelectorAll(`.ht-kh-md[data-ct="${ct}"]`)].map(o => {
+          const tt = vung.querySelector(`.ht-kh-tt[data-bai-id="${o.dataset.baiId}"]`);
+          return { id: o.dataset.baiId, mucDo: o.value, tiepTuc: tt ? tt.value : '' };
+        });
+        try {
+          await API.put('/api/kehoachbe/nhin-lai', { id: k.id, baiHoc });
+          UI.toast('Đã lưu phần nhìn lại cuối tháng', 'success');
+          this.veKeHoachCo(vung, be);
+        } catch (err) { UI.toast(err.message, 'error'); }
+      };
+    }
   },
 
   theDong(q, d) {
@@ -647,9 +1123,12 @@ App.views.hanhtrinh = {
       <div class="card">
         <div class="card-title">${UI.esc(UI.fmtDate(q.ngay))}
           <span class="spacer"></span>${tt}
+          ${q.tenNhomCo ? UI.badge(q.tenNhomCo, 'blue') : ''}
           ${q.daCongBo ? UI.badge('Đã kể cho gia đình', 'green') : ''}
         </div>
         ${q.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(q.moTa)}</div>` : ''}
+        ${q.anh ? `<img src="/api/hanhtrinh/anh/${UI.esc(q.anh)}" alt="" loading="lazy"
+          style="width:100%;max-height:240px;object-fit:cover;border-radius:12px;margin-top:8px">` : ''}
         ${q.linhVuc ? `<div class="muted small mt-8">${UI.esc(this.ten(d.linhVuc, q.linhVuc))}</div>` : ''}
         ${q.oLopLamGi ? `<div class="muted small" style="line-height:1.6">Ở lớp: ${UI.esc(q.oLopLamGi)}</div>` : ''}
         ${q.cauChuyen ? `<div class="mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">
@@ -672,7 +1151,7 @@ App.views.hanhtrinh = {
 
     root.innerHTML = `
       ${UI.pageHeader('Hành trình học tập')}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
 
       ${cd ? `
         <div class="card">
@@ -694,11 +1173,102 @@ App.views.hanhtrinh = {
           <div class="muted small mt-8">Cô đã soạn sẵn cho tuần tới. Cuối tuần này nhà chơi trước cũng được.</div>
         </div>` : ''}
 
-      <div class="section-label">Câu chuyện của con</div>
-      ${(d.quanSat || []).length
-        ? (d.quanSat || []).map(q => this.theCauChuyen(q)).join('')
-        : UI.emptyState('🌱',
-          'Chưa có câu chuyện nào — cô kể khi có khoảnh khắc đáng nhớ, thường vài tuần một lần chứ không phải mỗi ngày.')}`;
+      ${this.veTabGiaDinh(d)}`;
+    for (const b of root.querySelectorAll('#ht-ph-tabs [data-tab]')) {
+      b.onclick = () => { this._tabGd = b.dataset.tab; this.manGiaDinh(root); };
+    }
+  },
+
+  // Bốn tab của gia đình (góp ý 06/10, mục 7). Máy chủ đời cũ chưa gửi
+  // `nhomCoTab` thì về đúng một danh sách như trước.
+  veTabGiaDinh(d) {
+    const tab = d.nhomCoTab || [];
+    if (!tab.length) return this.veBaiThangNay(d) + this.veCauChuyen(d.quanSat || []);
+    if (this._tabGd !== 'kehoach' && !tab.some(t => t.ma === this._tabGd)) this._tabGd = 'kehoach';
+    const loc = (d.quanSat || []).filter(q => q.nhomCo === this._tabGd);
+    return `
+      <div class="seg" id="ht-ph-tabs" style="overflow-x:auto">
+        <button class="${this._tabGd === 'kehoach' ? 'active' : ''}" data-tab="kehoach">Kế hoạch của bé</button>
+        ${tab.map(t => `<button class="${this._tabGd === t.ma ? 'active' : ''}" data-tab="${UI.esc(t.ma)}">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}</button>`).join('')}
+      </div>
+      ${this._tabGd === 'kehoach'
+        ? (this.veBaiThangNay(d) || UI.emptyState('🧭', 'Kế hoạch tháng này của con sẽ hiện ở đây khi nhà trường đã duyệt.'))
+        : this.veCauChuyen(loc, this.TEN_CT[this._tabGd])}`;
+  },
+
+  // Bài tháng này, chia theo chương trình. CHỈ TÊN BÀI VÀ NHÃN — không có mức
+  // độ cuối tháng (bài canh Đ191).
+  veBaiThangNay(d) {
+    const ds = d.baiThangNay || [];
+    if (!ds.length) return '';
+    const goc = d.gocKeHoach || [];
+    const ctCua = (ma) => (goc.find(g => g.ma === ma) || {}).chuongTrinh || 'chu-nhiem';
+    const tenGoc = (ma) => (goc.find(g => g.ma === ma) || {}).ten || this.tenGoc(d, ma);
+    const nhom = ['chu-nhiem', 'nuoc-ngoai', 'the-chat']
+      .map(ct => [ct, ds.filter(b => ctCua(b.gocLinhVuc) === ct)]).filter(([, x]) => x.length);
+    return `
+      <div class="section-label">Tháng này con được học</div>
+      <div class="card">
+        <div class="muted small mb-8" style="line-height:1.6">
+          Những bài cô đã đưa vào kế hoạch tháng này cho con. Đây là
+          <b>việc cô làm cùng con ở lớp</b>, không phải bài tập giao về nhà.
+        </div>
+        ${nhom.map(([ct, bai]) => `
+          <div class="small" style="font-weight:700;margin-top:8px">${UI.esc(this.TEN_CT[ct] || '')}</div>
+          ${bai.map(b => `
+            <div class="list-row" style="padding:6px 4px">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(b.ten)}</div>
+                <div class="row-sub">${UI.esc(tenGoc(b.gocLinhVuc))}</div>
+              </div>
+              ${b.nhan && b.nhan !== 'hoc-moi'
+    ? UI.badge(b.nhan === 'on-tap' ? 'Ôn lại' : 'Mở rộng', 'gray') : ''}
+            </div>`).join('')}`).join('')}
+      </div>`;
+  },
+
+  veCauChuyen(ds, tenCt) {
+    return `
+      <div class="section-label">Câu chuyện của con${tenCt ? ` · ${UI.esc(tenCt)}` : ''}</div>
+      ${ds.length
+        ? ds.map(q => this.theCauChuyen(q)).join('')
+        : UI.emptyState('🌱', tenCt
+          ? `Phần ${tenCt} chưa có câu chuyện nào — cô kể khi có khoảnh khắc đáng nhớ.`
+          : 'Chưa có câu chuyện nào — cô kể khi có khoảnh khắc đáng nhớ, thường vài tuần một lần chứ không phải mỗi ngày.')}`;
+  },
+
+  // Ô GHI NHANH Ở GÓC DƯỚI MÀN HÌNH (Đ191, Câu 1).
+  //
+  // Nhà trường: *"Mong muốn khi vào mục 'hành trình của bé' sẽ hiện thêm phần
+  // ghi nhanh quan sát ở dưới góc dưới màn hình và có thể tag tên học sinh"*.
+  //
+  // CHỈ HIỆN VỚI CÔ. Đây là ô để cô ghi, không phải ô của gia đình — và bản ghi
+  // nó tạo ra là ghi chép thô của cô, dữ liệu LỚP 1, thứ không bao giờ lộ sang
+  // phụ huynh.
+  //
+  // PHẦN "TAG TÊN BÉ" CHÍNH LÀ Ô CHỌN BÉ CỦA BIỂU MẪU GHI QUAN SÁT đang có —
+  // nút này mở thẳng biểu mẫu ấy. Dựng một đường ghi thứ hai đi tắt qua nó là
+  // có hai chỗ phải nhớ gác cùng một luật, rồi hai chỗ sẽ trôi khỏi nhau.
+  nutGhiNhanh() {
+    if (this.laGiaDinh()) return '';
+    return `
+      <button class="btn primary" id="ht-ghi-nhanh"
+              style="position:fixed;right:16px;z-index:40;border-radius:999px;
+                     box-shadow:0 6px 20px rgba(0,0,0,.18);padding:12px 18px;
+                     bottom:calc(76px + env(safe-area-inset-bottom, 0px))">
+        ${UI.icon('plus', 18)} Ghi nhanh
+      </button>`;
+  },
+
+  ganNutGhiNhanh() {
+    const n = document.getElementById('ht-ghi-nhanh');
+    if (n) n.onclick = () => this.moGhi(null);
+  },
+
+  // Tên góc lĩnh vực đọc từ chính gói máy chủ gửi, không chép lại bảng: chép
+  // là hai chỗ sẽ trôi khỏi nhau đúng lúc nhà trường đổi chữ.
+  tenGoc(d, ma) {
+    return ((d.linhVuc || []).find(l => l.ma === ma) || {}).ten || ma || '';
   },
 
   theCauChuyen(q) {

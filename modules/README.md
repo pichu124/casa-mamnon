@@ -46,6 +46,8 @@ modules/hocphi/
 | `api` | **Các đường dẫn API của phân hệ — dùng để chặn khi tắt** |
 | `roles` | Vai trò được thấy phân hệ này |
 | `defaultEnabled` | `false` thì mặc định tắt, nhà trường tự bật |
+| `gopVao` | *Tuỳ chọn.* `{ "view": "attendance", "vai": ["teacher"] }` — với các vai này, ô của phân hệ **ẩn khỏi trang chủ khi màn `view` kia đang bật** (phần việc của nó đã nằm trong màn kia). Màn kia tắt thì ô tự hiện lại. Chỉ ẩn ô: đường dẫn `hash` và API của phân hệ vẫn phải tự đứng được, vì màn lõi có thể tắt bất cứ lúc nào |
+| `dieuKienHien` | *Tuỳ chọn.* Đường API của chính phân hệ, ví dụ `"/api/nhatky/pham-vi"`, trả về `{ "hien": true \| false }`. Trang chủ gọi đường này **trước khi vẽ ô** với người đang đăng nhập: `hien: false` thì không vẽ. Gọi lỗi hay máy chủ đời cũ thì **vẫn vẽ** — ẩn ô là tiện, không phải chốt chặn. Chỉ ẩn ô: API và `hash` vẫn mở cho người có quyền, dữ liệu đã ghi không bao giờ thành "không đọc được" |
 
 ### `schema.sql`
 
@@ -142,6 +144,23 @@ quyền theo học sinh và theo lớp thì phân hệ phải tự làm** bằng
 trong vùng `api` đã khai báo**. Thử đăng ký `/api/remarks` hay `/api/students` sẽ
 bị từ chối ngay khi khởi động, kèm thông báo nêu rõ lý do. Nhờ vậy một phân hệ
 viết vội không thể vô tình chiếm mất đường dẫn của tính năng đang chạy.
+
+#### Huy hiệu phải hỏi ĐÚNG cái chốt đang gác màn hình
+
+`huyHieu.dangKy('<mã>', (user) => …)` là con số đỏ hiện trên ô của phân hệ ở màn
+chính. Nếu phân hệ có **chốt chức vụ riêng** cho màn mà con số ấy trỏ tới, thì hàm
+đếm phải hỏi **chính cái chốt đó** — không phải chỉ `role === 'admin'`, và cũng
+không phải chép ra một danh sách chức vụ thứ hai.
+
+Quên bước này thì lỗi không nằm ở chỗ rò dữ liệu (con số chỉ là một số), mà ở chỗ
+**người dùng thấy một con số mà trong app không có màn nào mở ra để xử lý, cũng
+không có cách nào cho nó về 0**. Đã xảy ra thật ở Học phí: Văn phòng cơ sở có ô
+Học phí nên nhận huy hiệu ưu đãi sắp hết hạn, trong khi cả bốn đường ưu đãi trả
+403 và nút "Ưu đãi" thì ẩn. Một con số đỏ bấm không được là cách nhanh nhất dạy
+người ta thôi nhìn huy hiệu.
+
+**Số trên ô và cánh cửa mở nó ra phải do cùng MỘT câu quyết định.**
+`npm run test:doc-cheo` canh bước này.
 
 ### `view.js`
 

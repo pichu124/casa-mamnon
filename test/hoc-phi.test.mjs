@@ -190,10 +190,88 @@ console.log('\n[6] MÁY CHỦ KHÔNG CÒN ĐƯỜNG GHI NÀO MỞ CHO VAI CÔ');
   //
   // Phép kiểm thật cho màn hình nằm ở `test/bien-soan-phan-he.test.mjs` mục
   // [8]: đăng nhập bằng tài khoản cô trên trình duyệt thật rồi ĐẾM nút.
-  const routes = fs.readFileSync(path.join(GOC, 'modules', 'hocphi', 'routes.js'), 'utf8');
-  check('cả hai đường ghi đều đòi vai văn phòng',
-    (routes.match(/requireRole\('admin'\)/g) || []).length === 2,
+  // Đếm trên MÃ, không đếm trên chú thích: chú thích của phân hệ có nhắc lại
+  // `requireRole('admin')` để giải thích chốt chặn, và đếm cả nó thì bản kiểm
+  // kê lệch đúng một mà không ai hiểu vì sao.
+  const routesTho = fs.readFileSync(path.join(GOC, 'modules', 'hocphi', 'routes.js'), 'utf8');
+  const routes = routesTho.split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+  // BẢN KIỂM KÊ, cập nhật ở Đ163 (4 → 6) rồi ở Đ169 (6 → 10).
+  //
+  // Bốn đường cũ: tạo khoản, xác nhận đã nộp, thu hồi khoản tạo nhầm, huỷ xác
+  // nhận nhầm (hai đường sau thêm ở Đ118 — sửa sổ tiền càng phải là việc của
+  // văn phòng). Đ163 thêm hai: ghi sổ hàng loạt cho cả nhóm, và bảng sổ tiền
+  // nhìn nhiều bé. Đ169 thêm bốn đường ưu đãi: xem của một bé, đặt, gỡ, và
+  // bảng theo dõi. Mọi đường đều đòi vai, và bốn đường QUYẾT ĐỊNH VỀ TIỀN (ghi
+  // sổ một bé, ghi sổ hàng loạt, đặt ưu đãi, gỡ ưu đãi) còn đòi thêm
+  // `db.taoKhoanThuDuoc`.
+  //
+  // CHỖ YẾU CỦA CHÍNH PHÉP ĐẾM NÀY, ghi lại để người sau biết: đếm số lần
+  // `requireRole` xuất hiện thì chỉ đỏ khi ai đó thêm một đường CÓ chốt chặn —
+  // tức đúng trường hợp vô hại. Thêm một đường ghi QUÊN chốt chặn thì con số
+  // không đổi và bài này vẫn xanh, mà đó mới là trường hợp nguy hiểm. Phép
+  // kiểm đúng chiều nằm ở `test/hoc-phi-ghi-so.test.mjs` mục [8]: nó soi TỪNG
+  // đường ghi trong tệp và đòi mỗi đường phải có chốt chặn, kèm phép thử ngược.
+  // Đ199 thêm đường thứ MƯỜI MỘT: chạy tay bộ quét hạn nộp
+  // (`POST /api/hocphi/quet-han-nop`), cũng đòi vai và còn đòi thêm
+  // `db.taoKhoanThuDuoc`. Con số ở đây là một cái bẫy chuông — nó kêu khi có
+  // người thêm đường mới, đúng như nó vừa kêu — nên chỉnh lại con số thì phải
+  // kèm lý do, không chỉnh lặng lẽ.
+  //
+  // LÝ DO CHỈNH 11 → 17, ghi ở Đ200 (việc 33 — biểu phí có duyệt và có khoá):
+  // chuông đã kêu đúng lúc, và sáu đường mới dưới đây là cố ý, không phải
+  // đường ghi sổ tiền nào bị thêm lén:
+  //   1. `GET  /api/hocphi/bieu-phi`                    — xem biểu phí
+  //   2. `POST /api/hocphi/bieu-phi`                    — soạn/sửa bản nháp
+  //   3. `POST /api/hocphi/bieu-phi/:id/gui`            — gửi cấp trên duyệt
+  //   4. `POST /api/hocphi/bieu-phi/:id/duyet`          — duyệt hoặc trả lại
+  //   5. `POST /api/hocphi/bieu-phi/:id/xin-mo`         — xin mở khoá để sửa
+  //   6. `POST /api/hocphi/bieu-phi/:id/tra-loi-xin-mo` — trả lời việc xin mở
+  // Cả sáu đều đòi vai văn phòng. Ba đường soạn/gửi/xin mở còn đòi thêm
+  // `db.taoKhoanThuDuoc` (người lo tiền), hai đường duyệt và trả lời xin mở
+  // đòi `db.duyetBieuPhiDuoc` (cấp 1) — tức người soạn KHÔNG tự duyệt được
+  // biểu phí của chính mình. Phép kiểm từng đường nằm ở `test/bieu-phi.test.mjs`.
+  // LÝ DO CHỈNH 17 → 19, ghi ở Đ208 (việc 36 — tài khoản nhận tiền và mã QR):
+  // chuông lại kêu đúng lúc, và hai đường mới đòi vai dưới đây là cố ý:
+  //   1. `GET /api/hocphi/tai-khoan` — xem tài khoản trường đã khai
+  //   2. `PUT /api/hocphi/tai-khoan` — ĐỔI tài khoản nhận tiền
+  // Đường số 2 còn đòi thêm `db.duyetBieuPhiDuoc` (chỉ ban giám hiệu) chứ
+  // KHÔNG phải `taoKhoanThuDuoc` — kế toán soạn được biểu phí nhưng không tự
+  // đổi được chỗ tiền chạy về. Phép kiểm từng đường ở `test/tai-khoan-qr.test.mjs`.
+  //
+  // ĐƯỜNG THỨ BA CỐ Ý KHÔNG ĐÒI VAI, và đó là chỗ đáng đọc của lần chỉnh này:
+  // `GET /api/hocphi/chuyen-khoan` là đường GIA ĐÌNH mở ra để biết chuyển
+  // khoản thế nào, nên nó không thể đòi vai văn phòng — y như `GET /api/hocphi`
+  // vốn đã vậy. Chốt của nó là `db.canAccessStudent`, và phép kiểm ngay dưới
+  // đây ghim đúng điều ấy để con số 21 không che mất một đường không chốt gì.
+  //
+  // Đ214 nâng 19 → 21: thêm đường TẢI và đường GỠ ảnh mã QR của trường, cả hai
+  // đòi vai văn phòng rồi hỏi tiếp `db.duyetBieuPhiDuoc` y như đường đổi số
+  // tài khoản. Đường thứ ba của Đ214 — `GET /api/hocphi/qr-anh`, để gia đình
+  // xem chính tấm ảnh ấy — CỐ Ý không đòi vai, cùng lý do với `chuyen-khoan`;
+  // chốt của nó là `db.canAccessStudent`, và phép kiểm ngay dưới ghim điều đó.
+  check('cả HAI MƯƠI MỐT đường đòi vai của phân hệ đều đòi vai văn phòng',
+    (routes.match(/requireRole\('admin'\)/g) || []).length === 21,
     (routes.match(/requireRole\([^)]*\)/g) || []));
+  {
+    // Cắt đúng thân đường chuyển khoản rồi đòi nó có chốt theo bé.
+    const d = routes.indexOf("app.get('/api/hocphi/chuyen-khoan'");
+    const than = d > 0 ? routes.slice(d, d + 1400) : '';
+    check('đường chuyển khoản của gia đình TỒN TẠI để mà soi', d > 0, d);
+    check('…và nó không đòi vai, nhưng CÓ chốt db.canAccessStudent',
+      !!than && !/requireRole/.test(than.slice(0, 120)) && than.includes('db.canAccessStudent'),
+      than.slice(0, 120));
+  }
+  {
+    // ĐƯỜNG ẢNH MÃ QR (Đ214) — đường thứ tư không đòi vai. Không ghim ở đây
+    // thì con số 21 ở trên lại che mất một đường không chốt gì, đúng cái bẫy
+    // mà phép kiểm trên vừa tránh cho `chuyen-khoan`.
+    const d = routes.indexOf("app.get('/api/hocphi/qr-anh'");
+    const than = d > 0 ? routes.slice(d, d + 1600) : '';
+    check('đường ảnh mã QR TỒN TẠI để mà soi', d > 0, d);
+    check('…và nó không đòi vai, nhưng CÓ chốt db.canAccessStudent theo bé',
+      !!than && !/requireRole/.test(than.slice(0, 120)) && than.includes('db.canAccessStudent'),
+      than.slice(0, 120));
+  }
   check('KHÔNG còn đường ghi nào mở cho vai cô',
     !/requireRole\('teacher'/.test(routes));
 }

@@ -30,7 +30,10 @@ sinhDuLieu(DIR);
 // Bật Ghi nhanh — phân hệ mà cả lời hứa "mất mạng vẫn ghi được" đứng trên.
 batPhanHe(DIR, ['thuchup']);
 
-const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3982), dir: DIR });
+// Cổng mặc định KHÔNG được trùng với bộ khác: 3982 từng dùng chung với
+// test/nghi-hoc.test.mjs — đúng tình huống mà test/_chung.mjs cảnh báo là
+// "bài kiểm thử chạy nhầm trên dữ liệu của máy chủ khác mà kết quả vô nghĩa".
+const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3925), dir: DIR });
 const browser = await chromium.launch({ executablePath: CHROMIUM });
 
 async function dangNhapCo(page) {

@@ -44,8 +44,16 @@ const BE = dsHs.data?.[0]?.id;
 const dsHs2 = await req('GET', '/api/students', { cookie: T2 });
 const BE_LOP_KHAC = (dsHs2.data || []).find(s => !(dsHs.data || []).some(x => x.id === s.id))?.id;
 
-console.log('\n[1] Phân hệ mặc định TẮT, bật lên mới dùng được');
+console.log('\n[1] Tắt thì đường dẫn bị chặn, bật lên mới dùng được');
 {
+  // TỰ DỰNG LẤY TRẠNG THÁI TẮT, KHÔNG MƯỢN MẶC ĐỊNH.
+  //
+  // Từ Đ146 chín phân hệ mầm non bật sẵn. Mục này canh CƠ CHẾ tắt/bật chứ
+  // không canh giá trị mặc định, nên nó phải tự tắt trước — mượn mặc định thì
+  // ngày mặc định đổi là bài đỏ dù cơ chế không hỏng gì.
+  const tat = await req('PUT', '/api/admin/modules/thuchup', { cookie: A.cookie, body: { enabled: false } });
+  check('quản trị tắt được để dựng điều kiện đầu vào', tat.status === 200, tat.data);
+
   const truoc = await req('GET', '/api/thuchup', { cookie: T });
   check('đang tắt thì đường dẫn bị chặn', truoc.status === 404, truoc.status);
 

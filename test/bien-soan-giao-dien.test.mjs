@@ -3,6 +3,8 @@
 //
 // Cần trình duyệt Playwright. Chạy bằng:  npm run test:giao-dien
 import { chromium } from 'playwright';
+import path from 'path';
+import Database from 'better-sqlite3';
 import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerMoiCai } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan-giao-dien');
@@ -48,15 +50,33 @@ const dangXuat = async () => { await page.evaluate(() => App.logout()); await pa
 // ============================================================
 // 1. THỜI KHÓA BIỂU
 // ============================================================
-console.log('\n[1] TKB — cô phụ trách sửa ngay trên màn hình');
-await dangNhap('giaovien', '123456');
-await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
+console.log('\n[1] TKB — văn phòng soạn ngay trên màn hình, cô chỉ xem (Đ133)');
+await dangNhap('hieutruong', 'quantri2026');
+// Đ198 (việc 41) đảo thứ tự hai phần: '#/timetable' nay mở sẵn phần Kế hoạch
+// giáo dục. Ba mục dưới đây đo phần LỊCH SINH HOẠT, nên đi thẳng vào đúng phần
+// ấy thay vì dựa vào phần nào đang mở sẵn.
+await page.goto(BASE + '/#/timetable/lich', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
-check('giáo viên thấy nút Chỉnh sửa', await page.locator('#btn-sua-tkb').count() === 1);
+check('văn phòng có ô chọn nhóm', await page.locator('#tkb-nhom').count() === 1);
+await page.selectOption('#tkb-nhom', 'c1');
+await page.waitForTimeout(900);
+// Sửa vào THỨ HAI cho chắc — mặc định là thứ hôm nay, và các mục sau (cô, phụ
+// huynh) đều mở Thứ Hai để đọc lại đúng dòng vừa sửa.
+await page.click('#tkb-seg button:first-child');
+await page.waitForTimeout(400);
+check('văn phòng thấy nút Chỉnh sửa', await page.locator('#btn-sua-tkb').count() === 1);
+check('và nút "Áp dụng lịch này cho nhóm khác"', await page.locator('#btn-chep-tkb').count() === 1);
 
 await page.click('#btn-sua-tkb');
 await page.waitForTimeout(700);
 check('mở được màn hình sửa', await page.locator('#tkb-mon-0').count() === 1);
+const soDongTruoc = await page.locator('[id^="tkb-mon-"]').count();
+await page.click('#tkb-them-dong');
+await page.waitForTimeout(600);
+check('bấm "Thêm dòng" thì có thêm một dòng (Đ133)', await page.locator('[id^="tkb-mon-"]').count() === soDongTruoc + 1);
+await page.locator('[data-xoa-dong]').last().click();
+await page.waitForTimeout(600);
+check('bỏ dòng vừa thêm thì về như cũ', await page.locator('[id^="tkb-mon-"]').count() === soDongTruoc);
 
 await page.fill('#tkb-mon-0', 'Đọc sách đầu tuần');
 await page.locator('button', { hasText: 'Lưu lịch sinh hoạt' }).click();
@@ -73,16 +93,36 @@ await page.waitForTimeout(900);
 const sauHuy = await page.locator('#view').innerText();
 check('bấm Hủy thì bản nháp bị bỏ', !/Môn không được lưu/.test(sauHuy) && /Đọc sách đầu tuần/.test(sauHuy), sauHuy.slice(0, 200));
 
+// Cô phụ trách: thấy lịch, thấy chữ văn phòng vừa sửa, KHÔNG có nút sửa.
+await dangXuat();
+await dangNhap('giaovien', '123456');
+// Đ198 (việc 41) đảo thứ tự hai phần: '#/timetable' nay mở sẵn phần Kế hoạch
+// giáo dục. Ba mục dưới đây đo phần LỊCH SINH HOẠT, nên đi thẳng vào đúng phần
+// ấy thay vì dựa vào phần nào đang mở sẵn.
+await page.goto(BASE + '/#/timetable/lich', { waitUntil: 'networkidle' });
+await page.waitForTimeout(900);
+await page.click('#tkb-seg button:first-child');
+await page.waitForTimeout(400);
+const manCo = await page.locator('#view').innerText();
+check('cô thấy hoạt động văn phòng vừa sửa', /Đọc sách đầu tuần/.test(manCo), manCo.slice(0, 200));
+check('cô KHÔNG thấy nút Chỉnh sửa (Đ133)', await page.locator('#btn-sua-tkb').count() === 0);
+check('màn của cô nói rõ lịch do văn phòng soạn', /văn phòng/i.test(manCo), manCo.slice(0, 300));
+
 console.log('\n[2] TKB — phụ huynh chỉ xem, không có nút soạn');
 await dangXuat();
 await dangNhap('phuhuynh', '123456');
-await page.goto(BASE + '/#/timetable', { waitUntil: 'networkidle' });
+// Đ198 (việc 41) đảo thứ tự hai phần: '#/timetable' nay mở sẵn phần Kế hoạch
+// giáo dục. Ba mục dưới đây đo phần LỊCH SINH HOẠT, nên đi thẳng vào đúng phần
+// ấy thay vì dựa vào phần nào đang mở sẵn.
+await page.goto(BASE + '/#/timetable/lich', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 // Nhà có 2 con hai lớp — chọn đúng bé học lớp 3A (lớp cô vừa sửa TKB).
 await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
 await page.waitForTimeout(900);
+await page.click('#tkb-seg button:first-child');
+await page.waitForTimeout(400);
 const manPH = await page.locator('#view').innerText();
-check('phụ huynh vẫn xem được TKB (có môn GV vừa sửa)', /Đọc sách đầu tuần/.test(manPH), manPH.slice(0, 200));
+check('phụ huynh vẫn xem được TKB (có môn văn phòng vừa sửa)', /Đọc sách đầu tuần/.test(manPH), manPH.slice(0, 200));
 check('phụ huynh KHÔNG thấy nút Chỉnh sửa', await page.locator('#btn-sua-tkb').count() === 0);
 check('màn hình phụ huynh không có ô nhập nào', await page.locator('#view input').count() === 0);
 
@@ -120,7 +160,9 @@ check('mở ra cả 5 ngày trên CÙNG MỘT TRANG',
   await page.locator('#tt-mon-0-1').count() === 1 && await page.locator('#tt-mon-4-1').count() === 1);
 check('và chỉ có MỘT nút Lưu cho cả tuần', await page.locator('#td-luu-tuan').count() === 1);
 check('tên bữa và giờ ăn gấp lại, không chiếm chỗ khi không cần',
-  await page.locator('#view details').count() === 5, await page.locator('#view details').count());
+  await page.locator('#view .luoi-tuan details').count() === 5, await page.locator('#view .luoi-tuan details').count());
+// Ô "Dán từ bảng Excel / Word" (Đ132) đã gỡ ở Đ231 — chủ dự án chốt 07/10: chỉ dùng tệp Excel mẫu.
+check('ô "Dán từ bảng Excel / Word" đã gỡ — đổ từ Excel chỉ qua tệp mẫu (Đ231)', await page.locator('#td-dan').count() === 0);
 
 await page.fill('#tt-mon-0-1', 'Cơm gà kiểm thử tuần\nCanh cải');
 await page.fill('#tt-mon-2-1', 'Bún chả kiểm thử tuần');
@@ -145,11 +187,45 @@ check('lưu MỘT lần là cả tuần hiện ra trên màn xem',
 check('soạn xong thì quay về màn xem, không kẹt lại ở màn soạn',
   await page.locator('#td-luu-tuan').count() === 0);
 
+console.log('\n[3c] Thực đơn — tệp Excel mẫu: tải về, nạp lên, xem trước, lưu (góp ý 06/10, mục 3)');
+{
+  check('văn phòng thấy nút tải tệp mẫu', await page.locator('#mn-xl-tai').count() === 1);
+  const href = await page.getAttribute('#mn-xl-tai', 'href');
+  check('nút tải trỏ đường tệp mẫu theo tháng', /\/api\/menu\/mau-excel\?thang=\d{4}-\d{2}/.test(href || ''), href);
+  const tai = await page.evaluate(async (h) => {
+    const r = await fetch(h);
+    return { status: r.status, kieu: r.headers.get('content-type') };
+  }, href);
+  check('bấm tải về được tệp Excel thật', tai.status === 200 && /spreadsheetml/.test(tai.kieu || ''), tai);
+  // Nạp tệp do LibreOffice lưu (giống tệp Excel thật trường sẽ nạp).
+  await page.setInputFiles('#mn-xl-file', path.join(path.dirname(new URL(import.meta.url).pathname), 'mau', 'thuc-don-libreoffice.xlsx'));
+  await page.waitForSelector('#mn-xl-xem', { timeout: 8000 });
+  const xem = await page.locator('#modal-overlay').innerText();
+  check('hiện bản XEM TRƯỚC từng ngày, chưa lưu gì', /Phở gà/.test(xem) && /Bánh flan/.test(xem) && /Xem trước/.test(xem), xem.slice(0, 300));
+  check('xem trước có lời nhắc cột lạ / ngày nghỉ', /Ghi chú/.test(xem) && /Thứ Bảy/.test(xem), xem.slice(0, 500));
+  const dbXem = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const truocLuu = dbXem.prepare("SELECT COUNT(*) AS n FROM menus WHERE date = '2027-03-01'").get().n;
+  dbXem.close();
+  check('xem trước KHÔNG ghi gì', truocLuu === 0, truocLuu);
+  await page.click('#mn-xl-luu');
+  await page.waitForTimeout(1500);
+  const dbSau = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const sauLuu = dbSau.prepare("SELECT meals FROM menus WHERE date = '2027-03-01'").get();
+  dbSau.close();
+  check('bấm Lưu thì ngày 01/03/2027 có đúng món trong tệp', !!sauLuu && /Canh rau ngót/.test(sauLuu.meals), sauLuu);
+  check('lưu xong đóng hộp xem trước', await page.locator('#mn-xl-xem').count() === 0);
+}
+
 console.log('\n[4] Thực đơn — phụ huynh chỉ xem');
 await dangXuat();
 await dangNhap('phuhuynh', '123456');
 await page.goto(BASE + '/#/menu', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
+// Đ132: gia đình xem theo từng thứ như bên Lịch sinh hoạt; món trên được soạn
+// cho Thứ Hai nên bấm T2 trước khi đọc.
+check('gia đình có dải chọn thứ T2…T6 và "Cả tuần"', await page.locator('#menu-ngay-seg button').count() === 6);
+await page.click('#menu-ngay-seg button:first-child');
+await page.waitForTimeout(700);
 const manTdPH = await page.locator('#view').innerText();
 check('phụ huynh thấy món quản trị vừa soạn', /Phở bò kiểm thử/.test(manTdPH), manTdPH.slice(0, 250));
 check('phụ huynh KHÔNG có nút soạn/sửa/chép nào', await page.locator('#view .head-action').count() === 0);
@@ -157,9 +233,12 @@ check('phụ huynh KHÔNG có nút soạn/sửa/chép nào', await page.locator(
 // ============================================================
 // 3. KẾ HOẠCH GIÁO DỤC
 // ============================================================
-console.log('\n[5] Kế hoạch — cô phụ trách soạn ngay trên màn hình');
+// Đ198 (việc 42): kế hoạch của CẢ NHÓM nay do VĂN PHÒNG soạn, cô chỉ xem.
+// Mục này đổi vai người bấm; điều nó đo — soạn ngay trên màn, lưu xong hiện
+// ra, gia đình đọc được — không đổi một ly.
+console.log('\n[5] Kế hoạch — VĂN PHÒNG soạn ngay trên màn hình');
 await dangXuat();
-await dangNhap('giaovien', '123456');
+await dangNhap('hieutruong', 'quantri2026');
 await page.goto(BASE + '/#/plans', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 check('giáo viên thấy nút Soạn kế hoạch', await page.locator('#btn-soan-kh').count() === 1);
@@ -434,9 +513,23 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   await page.setViewportSize({ width: 390, height: 480 });
   await page.goto(BASE + '/#/attendance', { waitUntil: 'networkidle' });
   await page.waitForSelector('[id^="att-dong-"]', { timeout: 8000 });
-  // Chọn một ngày chưa có dữ liệu mẫu để bắt đầu từ lớp chưa điểm danh.
-  await page.evaluate(() => App.views.attendance.setDate('2026-11-20'));
-  await page.waitForTimeout(900);
+  // BẮT ĐẦU TỪ MỘT LỚP CHƯA ĐIỂM DANH, NHƯNG PHẢI LÀ HÔM NAY.
+  //
+  // Bản trước nhảy sang một ngày cố định trong tương lai ('2026-11-20') cho
+  // chắc chắn sạch dữ liệu. Từ Đ127 thì ngày đó đã khoá — màn hình chuyển sang
+  // thể chỉ xem, không còn nút nào để chạm, và cả mục này đứng chờ một nút
+  // không bao giờ hiện. Nay xoá đúng dòng dữ liệu mẫu của nhóm này trong hôm
+  // nay, rồi mở lại màn: vẫn là một lớp chưa điểm danh, mà đúng luật mới.
+  {
+    const conn = new Database(path.join(DIR, 'school.db'));
+    conn.prepare(`DELETE FROM attendance WHERE date = ? AND studentId IN
+      (SELECT id FROM students WHERE classId = 'c1')`)
+      .run(new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10));
+    conn.close();
+  }
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('[id^="att-dong-"]', { timeout: 8000 });
+  await page.waitForTimeout(600);
 
   const soDong = await page.locator('[id^="att-dong-"]').count();
   check('màn hình điểm danh hiện danh sách lớp', soDong > 0, soDong);
@@ -455,7 +548,11 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
 
   const cuoi = page.locator('[id^="att-dong-"]').last();
   const tenEm = await cuoi.locator('.row-title').innerText();
-  await cuoi.locator('button', { hasText: 'Nghỉ CP' }).click();
+  // Từ Đ131 bốn nút tích không còn phơi trên dòng — ảnh là điểm danh, còn
+  // ghi tay nằm trong hộp "Sửa" của từng bé. Đường bấm đổi, phép kiểm giữ.
+  await cuoi.locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForTimeout(500);
+  await page.locator('.modal button', { hasText: 'Nghỉ CP' }).click();
   await page.waitForTimeout(1200);
 
   const sau = await page.evaluate(() => window.scrollY);
@@ -500,7 +597,30 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
 {
   await page.evaluate(() => UI.closeModal());
   await page.waitForTimeout(400);
-  const NGAY = '2026-12-15';
+  // NGÀY PHẢI LÀ HÔM NAY (Đ127): sổ điểm danh chỉ ghi và sửa được trong chính
+  // ngày hôm đó, nên một ngày cố định trong tương lai như bản trước
+  // ('2026-12-15') nay mở ra ở thể chỉ xem — không còn nút "Nghỉ KP" để chạm,
+  // và mục này sẽ đứng chờ một nút không bao giờ hiện.
+  const NGAY = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  // ĐƠN NGHỈ PHẢI CHẠM ÍT NHẤT MỘT NGÀY HỌC, KHÔNG THÌ KHÔNG DUYỆT ĐƯỢC.
+  //
+  // `routes/leave.js` tính số ngày hoàn tiền ăn bằng `soNgayHocTrongDon`, và
+  // một đơn chỉ có Thứ Bảy thì con số ấy bằng 0 → lượt duyệt trả 400. Bài này
+  // trước đợt Đ174 luôn gửi đơn cho ĐÚNG HÔM NAY, nên **cả bộ bài đỏ vào mọi
+  // Thứ Bảy và Chủ Nhật** — một bài canh hỏng theo đồng hồ chứ không theo mã.
+  //
+  // Nay đơn kéo từ ngày học gần nhất tới hôm nay: luôn có ít nhất một ngày học
+  // để duyệt, và vẫn PHỦ ĐÚNG HÔM NAY nên màn điểm danh của hôm nay vẫn phải
+  // hiện huy hiệu, và việc chấm lại vẫn nằm trong ngày (Đ127).
+  const NGAY_HOC_GAN = (() => {
+    let t = Date.parse(`${NGAY}T00:00:00Z`);
+    for (let i = 0; i < 7; i += 1) {
+      const thu = new Date(t).getUTCDay();
+      if (thu >= 1 && thu <= 5) return new Date(t).toISOString().slice(0, 10);
+      t -= 86400000;
+    }
+    return NGAY;
+  })();
 
   // Phụ huynh gửi đơn cho con mình, cô duyệt — làm qua API cho gọn, phần cần
   // kiểm là màn hình điểm danh.
@@ -513,16 +633,16 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
 
   await dangXuat();
   await dangNhap('phuhuynh', '123456');
-  const donId = await page.evaluate(async ({ ngay, ids }) => {
+  const donId = await page.evaluate(async ({ ngay, tu, ids }) => {
     const con = await (await fetch('/api/students')).json();
     const em = con.map(c => c.id).find(id => ids.includes(id));
     if (!em) return null;
     const r = await fetch('/api/leave', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId: em, fromDate: ngay, toDate: ngay, reason: 'Con đi khám răng' }),
+      body: JSON.stringify({ studentId: em, fromDate: tu, toDate: ngay, reason: 'Con đi khám răng' }),
     });
     return (await r.json()).id || null;
-  }, { ngay: NGAY, ids: daTao });
+  }, { ngay: NGAY, tu: NGAY_HOC_GAN, ids: daTao });
   check('phụ huynh gửi được đơn xin nghỉ', !!donId, donId);
 
   // Y2: VĂN PHÒNG duyệt đơn nghỉ, không phải cô. Bài này canh chuyện sổ điểm
@@ -550,9 +670,11 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
   check('MÀN ĐIỂM DANH HIỆN HUY HIỆU ĐƠN NGHỈ ĐÃ DUYỆT', /Có đơn nghỉ đã duyệt/.test(man), man.slice(0, 400));
   check('kèm lý do để cô khỏi phải mở màn khác', /khám răng/.test(man));
 
-  // Chấm "Nghỉ KP" cho em đó phải bị hỏi lại.
+  // Chấm "Nghỉ KP" cho em đó phải bị hỏi lại. Nút nằm trong hộp "Sửa" (Đ131).
   const dong = page.locator('.list-row', { hasText: 'Có đơn nghỉ đã duyệt' }).first();
-  await dong.locator('button', { hasText: 'Nghỉ KP' }).click();
+  await dong.locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForTimeout(500);
+  await page.locator('.modal button', { hasText: 'Nghỉ KP' }).click();
   await page.waitForTimeout(700);
   const hoi = await page.locator('.modal').innerText();
   check('chấm Nghỉ KP đúng ngày có đơn thì bị hỏi lại', /đã có/.test(hoi), hoi.slice(0, 200));
@@ -626,8 +748,12 @@ console.log('\n[15] Sửa lại và thu hồi: thông báo, nề nếp, y tế, 
     !/Nhắc nhở ghi nhầm em/.test(await page.locator('#view').innerText()));
 
   // ---- Y tế ----
+  // Từ Đ138 quản trị vào Sức khoẻ là BẢNG NHÓM (nhà trường 07/09); bấm một
+  // bé trong bảng mới tới hồ sơ có nút "Thêm ghi nhận".
   await page.goto(BASE + '/#/health', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
+  await page.locator('#view [data-mo-be]').first().click();
+  await page.waitForTimeout(900);
   await page.locator('button', { hasText: 'Thêm ghi nhận' }).first().click();
   await page.waitForTimeout(700);
   check('form y tế có ô chọn NGÀY (nhập bù đợt tiêm chủng)', await page.locator('#ht-date').count() === 1);

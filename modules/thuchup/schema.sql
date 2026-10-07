@@ -19,3 +19,21 @@ CREATE TABLE IF NOT EXISTS thuchup_ghinhanh (
 
 CREATE INDEX IF NOT EXISTS thuchup_ghinhanh_hs ON thuchup_ghinhanh(studentId);
 CREATE INDEX IF NOT EXISTS thuchup_ghinhanh_luc ON thuchup_ghinhanh(taoLuc);
+
+-- DẤU VẾT SỬA LỜI GHI CHÚ (Đ166, HT-03).
+--
+-- Bảng NỐI chứ không thêm cột vào `thuchup_ghinhanh`: lược đồ của phân hệ chỉ
+-- được `CREATE ... IF NOT EXISTS`, mọi câu ALTER đều bị chặn trước khi chạy.
+--
+-- Vì sao cần dấu vết cho một ghi chép THÔ của cô: lời trong Ghi nhanh có thể
+-- đã được chép sang Hành trình rồi kể cho gia đình. Cô sửa lại chữ ở đây thì
+-- hai bên lệch nhau — đó là chuyện bình thường và đúng (ba lớp là ba bản ghi
+-- riêng), nhưng người đọc lại sổ sau này cần biết bản dưới đã đổi lúc nào.
+--
+-- KHÔNG giữ lời cũ. Đây là nháp của chính cô, giữ lại từng bản nháp là biến
+-- một ô ghi vội thành một hồ sơ theo dõi cô giáo.
+CREATE TABLE IF NOT EXISTS thuchup_sua (
+  ghiId   TEXT PRIMARY KEY REFERENCES thuchup_ghinhanh(id) ON DELETE CASCADE,
+  soLan   INTEGER NOT NULL DEFAULT 1,
+  suaLuc  TEXT NOT NULL
+);

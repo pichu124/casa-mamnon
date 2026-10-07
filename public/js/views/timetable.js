@@ -42,21 +42,148 @@ App.views.timetable = {
     { p: 9, time: '16:00 – 17:30' },   // trả bé
   ],
 
-  async render(root) {
+  // Nhóm mà văn phòng soạn được: mọi nhóm trong cơ sở mình (Cấp 3), hoặc cả
+  // trường (Cấp 1). Lọc theo cơ sở NGAY TRÊN MÀN HÌNH chứ không chỉ trông vào
+  // máy chủ — bài học Đ94: ô chọn mời văn phòng bấm sang nhóm cơ sở khác rồi
+  // nhận lỗi là một ô chọn nói dối.
+  // KHỐI "KẾ HOẠCH CHUNG TUẦN NÀY" Ở ĐẦU LỊCH SINH HOẠT (Đ201, việc 44).
+  //
+  // Nhà trường muốn gia đình mở Lịch sinh hoạt là thấy ngay chủ đề, bài hát,
+  // Casa talkshow, lời nhắc và tệp kế hoạch của tuần.
+  //
+  // MÀN NÀY THUỘC PHẦN LÕI, DỮ LIỆU THUỘC MỘT PHÂN HỆ CẮM THÊM — nên chỗ này
+  // là đúng loại chỗ kéo sập cả màn nếu làm ẩu. Ba lớp phòng, theo thứ tự:
+  //
+  //   1. Phân hệ Hành trình đang tắt thì KHÔNG GỌI GÌ CẢ — không tốn một lượt
+  //      gọi, và cũng không có gì để hiện.
+  //   2. Lượt gọi hỏng vì bất cứ lý do gì (mạng, 404, 403, máy chủ đời cũ chưa
+  //      có đường này) thì trả về chuỗi RỖNG. Lịch sinh hoạt vẫn dựng lên đủ.
+  //   3. Tuần chưa soạn gì thì cũng rỗng — không hiện một cái khung trống kèm
+  //      cảm giác "trường quên soạn".
+  //
+  // Đây chính là Nguyên tắc số 1 ở mức một màn hình: thứ vừa thêm hỏng thì
+  // thứ đang chạy không được sứt mẻ.
+  async khoiChungTuan(classId) {
+    if (!classId || !App.moduleEnabled('hanhtrinh')) return '';
+    let d = null;
+    try {
+      d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(classId)}`);
+    } catch (_) { return ''; }
+    if (!d || !d.coKhoiChung) return '';
+
+    const c = d.chuDe || {};
+    const t = d.them || {};
+    const tep = d.tep || [];
+    // ĐƯỜNG DẪN: lọc lại Ở ĐÂY NỮA dù máy chủ đã lọc. Hai lớp cho cùng một
+    // thứ là cố ý — một thẻ `href` dựng từ chữ người khác gõ là chỗ dễ mất
+    // phiên đăng nhập nhất, và bản ghi cũ trong cơ sở dữ liệu của trường có
+    // thể đã vào từ trước ngày máy chủ biết lọc.
+    const an = (u) => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '');
+    const dong = (nhan, chu, link) => {
+      if (!chu && !link) return '';
+      return `
+        <div class="list-row">
+          <div class="row-main">
+            <div class="row-sub">${UI.esc(nhan)}</div>
+            <div class="row-title">${UI.esc(chu || 'Xem video')}</div>
+          </div>
+          ${link ? `<div class="row-end">
+            <a class="btn sm outline" href="${UI.esc(link)}" target="_blank" rel="noopener noreferrer">Mở video</a>
+          </div>` : ''}
+        </div>`;
+    };
+
+    return `
+      <div class="card">
+        <div class="card-title">Kế hoạch chung tuần này</div>
+        ${c.chuDe ? `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Chủ đề</div>
+              <div class="row-title">${UI.esc(c.chuDe)}</div>
+              ${c.moTa ? `<div class="row-sub" style="margin-top:4px">${UI.esc(c.moTa)}</div>` : ''}
+            </div>
+          </div>` : ''}
+        ${dong('Bài hát của tuần', t.baiHat, an(t.linkBaiHat))}
+        ${dong('Casa talkshow', t.talkshow, an(t.linkTalkshow))}
+        ${t.nhacGiaDinh ? `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Lời nhắc gia đình</div>
+              <div class="row-title" style="font-weight:400">${UI.esc(t.nhacGiaDinh)}</div>
+            </div>
+          </div>` : ''}
+        ${c.cungConONha ? `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Cùng con ở nhà tuần này</div>
+              <div class="row-title" style="font-weight:400">${UI.esc(c.cungConONha)}</div>
+            </div>
+          </div>` : ''}
+        ${tep.map(x => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-sub">Tệp kế hoạch</div>
+              <div class="row-title">${UI.esc(x.tenGoc)}</div>
+            </div>
+            <div class="row-end">
+              <a class="btn sm outline" href="/api/hanhtrinh/chu-de/tep/${UI.esc(x.id)}"
+                 target="_blank" rel="noopener noreferrer">Mở</a>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  },
+
+  nhomVanPhong() {
+    const u = App.state.user;
+    const coSo = u && u.coSo ? u.coSo : null;
+    return (App.state.classes || [])
+      .filter(c => !coSo || c.campusId === coSo)
+      .map(c => ({ id: c.id, name: c.name }));
+  },
+
+  // HAI PHẦN TRONG MỘT TAB (Đ148).
+  //
+  // Nhà trường 10/09: *"bỏ newsletter: gộp phần kế hoạch giáo dục và lịch sinh
+  // hoạt vào 1 tab tên là Lịch sinh hoạt, trong đó có đủ 2 nội dung là Kế hoạch
+  // giáo dục và Lịch sinh hoạt"*.
+  //
+  // Đổi phần bằng HASH (`#/timetable/kehoach`) chứ không bằng một biến trong
+  // bộ nhớ: nút Quay lại của điện thoại và liên kết gửi cho nhau đều phải đúng.
+  // Cùng cách màn Điểm danh đã làm ở Đ125.
+  //
+  // Phần Kế hoạch chỉ hiện khi phân hệ Kế hoạch giáo dục ĐANG BẬT. Nhà trường
+  // tắt nó ở Quản trị → Tính năng thì dải tab biến mất và màn này trở lại đúng
+  // như trước đợt này — không một dòng nào lỗi.
+  // THỨ TỰ HAI PHẦN ĐI THEO ĐÚNG CÂU TRƯỜNG VIẾT (Đ198, việc 41).
+  //
+  // Nhà trường liệt kê *"đủ 2 nội dung là Kế hoạch giáo dục và Lịch sinh
+  // hoạt"* — Kế hoạch đứng trước. Bản trước xếp ngược lại.
+  //
+  // Và phần mở sẵn đi theo phần ĐỨNG ĐẦU: một dải tab mà bấm vào không rơi
+  // vào tab đầu tiên là chỗ người dùng tưởng mình bấm nhầm. Phân hệ Kế hoạch
+  // TẮT thì mọi thứ về đúng như cũ — chỉ còn Lịch sinh hoạt, không dải tab.
+  async render(root, params) {
+    const coKeHoach = App.moduleEnabled('plans');
+    const phan = (params && params[0] === 'lich') ? 'lich'
+      : (coKeHoach ? 'kehoach' : 'lich');
+    if (phan === 'kehoach') return this.veKeHoach(root, coKeHoach);
     const user = App.state.user;
     let classId = null;
-    const dsNhom = user.role === 'teacher' ? (user.nhomCuaCo || []) : [];
-    if (user.role === 'teacher') {
+    const dsNhom = user.role === 'teacher' ? (user.nhomCuaCo || [])
+      : (user.role === 'admin' ? this.nhomVanPhong() : []);
+    if (user.role === 'teacher' || user.role === 'admin') {
       // Nhóm cô đang chọn, nếu nhóm đó vẫn còn thuộc về cô. Quản trị vừa rút cô
       // khỏi một nhóm thì rơi về nhóm đầu, không kẹt ở một nhóm không còn quyền.
       if (!dsNhom.some(n => n.id === this.classId)) {
-        this.classId = dsNhom[0]?.id || user.classId || null;
+        this.classId = dsNhom[0]?.id || (user.role === 'teacher' ? user.classId : null) || null;
       }
       classId = this.classId;
     } else {
       const current = App.currentStudent();
       if (!current) {
-        root.innerHTML = UI.pageHeader('Lịch sinh hoạt') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
+        root.innerHTML = UI.pageHeader('Lịch sinh hoạt') + this.thanhPhan('lich')
+          + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
         return;
       }
       classId = current.classId;
@@ -68,13 +195,16 @@ App.views.timetable = {
     // thành `?classId=null` và cô nhận màn "Có lỗi xảy ra 😥 / Không tìm thấy
     // nhóm lớp" — đổ lỗi cho một nhóm không tồn tại.
     if (!classId) {
-      root.innerHTML = UI.pageHeader('Lịch sinh hoạt')
-        + UI.emptyState('🧭', 'Cô chưa phụ trách nhóm nào nên chưa có lịch sinh hoạt để xem. '
+      root.innerHTML = UI.pageHeader('Lịch sinh hoạt') + this.thanhPhan('lich')
+        + UI.emptyState('🧭', user.role === 'admin'
+          ? 'Cơ sở chưa có nhóm lớp nào để lập lịch sinh hoạt.'
+          : 'Cô chưa phụ trách nhóm nào nên chưa có lịch sinh hoạt để xem. '
           + 'Nhờ văn phòng nhà trường phân công nhóm giúp cô nhé.');
+      this.ganSuKienPhan(root);
       return;
     }
     if (!this.day) {
-      const dw = new Date().getDay();
+      const dw = UI.thuVN();   // thứ theo giờ Việt Nam
       this.day = dw >= 1 && dw <= 5 ? dw : 1; // cuối tuần → xem Thứ Hai
     }
 
@@ -92,25 +222,43 @@ App.views.timetable = {
       // Chỉ mời tạo mới khi máy chủ xác nhận nhóm CHƯA có TKB. Lỗi mạng thì không —
       // kẻo lưu bản mặc định đè lên TKB thật đang có.
       const chuaCo = /chưa có lịch sinh hoạt/i.test(thongBao);
+      // Ô chọn nhóm phải có CẢ khi nhóm đang chọn chưa có lịch: văn phòng mở
+      // màn ra, nhóm đầu danh sách chưa lập lịch, mà không có ô chọn thì không
+      // sang được nhóm khác — kẹt ở một nhóm trống.
       root.innerHTML = `
         ${UI.pageHeader('Lịch sinh hoạt')}
-        ${UI.studentBar()}${UI.thanhChonBe()}
+        ${this.thanhPhan('lich')}
+        ${user.role === 'parent' ? UI.studentBar() + UI.thanhChonBeTheoCap() : ''}
+        ${this.oChonNhom(dsNhom)}
         ${UI.emptyState('📚', thongBao)}
         ${this.canEdit() && chuaCo ? `
           <button class="btn primary block" onclick="App.views.timetable.batDauTao()">${UI.icon('plus', 18)} Lập lịch sinh hoạt</button>` : ''}`;
+      this.ganSuKienPhan(root);
       return;
     }
 
     const suaDuoc = this.canEdit();
+    const khoiChung = await this.khoiChungTuan(classId);
     root.innerHTML = `
       ${UI.pageHeader('Lịch sinh hoạt', suaDuoc ? { action: { id: 'btn-sua-tkb', label: 'Chỉnh sửa', icon: 'edit' } } : {})}
-      ${UI.studentBar()}${UI.thanhChonBe()}
+      ${this.thanhPhan('lich')}
+      ${user.role === 'parent' ? UI.studentBar() + UI.thanhChonBeTheoCap() : ''}
       ${this.oChonNhom(dsNhom)}
+      ${khoiChung}
       <div class="seg" id="tkb-seg">
         ${[1, 2, 3, 4, 5].map(d => `
           <button class="${d === this.day ? 'active' : ''}" onclick="App.views.timetable.setDay(${d})">T${d + 1}</button>`).join('')}
       </div>
       <div id="tkb-day"></div>
+      ${suaDuoc && dsNhom.length > 1 ? `
+        <button class="btn outline block" id="btn-chep-tkb" style="margin-bottom:12px">
+          ${UI.icon('plus', 16)} Áp dụng lịch này cho nhóm khác…
+        </button>` : ''}
+      ${user.role === 'teacher' ? `
+        <div class="card muted small" style="line-height:1.6">
+          Lịch sinh hoạt do văn phòng cơ sở soạn cho từng nhóm. Cô xem được ở đây; cần đổi khung giờ
+          hay hoạt động thì nhắn văn phòng nhé.
+        </div>` : ''}
       <div class="card">
         <div class="card-title">${UI.icon('info', 19)} Ghi chú</div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Nhóm</div><div class="row-title">${UI.esc(data.className)}</div></div></div>
@@ -118,7 +266,95 @@ App.views.timetable = {
         <div class="list-row"><div class="row-main"><div class="row-sub">Cô phụ trách</div><div class="row-title">${UI.esc(data.teacherNames || data.teacherName || '—')}</div></div></div>
       </div>`;
     if (suaDuoc) document.getElementById('btn-sua-tkb').onclick = () => this.batDauSua();
+    const nutChep = document.getElementById('btn-chep-tkb');
+    if (nutChep) nutChep.onclick = () => this.moChepSangNhom(dsNhom);
+    this.ganSuKienPhan(root);
     this.renderDay();
+  },
+
+  // Dải hai phần. KHÔNG vẽ khi phân hệ Kế hoạch giáo dục đang tắt — một dải
+  // tab chỉ có một nút là một dải tab nói dối.
+  thanhPhan(phan) {
+    if (!App.moduleEnabled('plans')) return '';
+    return `<div class="seg" id="tkb-phan">
+      <button type="button" data-phan="kehoach" class="${phan === 'kehoach' ? 'active' : ''}">📖 Kế hoạch giáo dục</button>
+      <button type="button" data-phan="lich" class="${phan === 'lich' ? 'active' : ''}">🕘 Lịch sinh hoạt</button>
+    </div>`;
+  },
+
+  // Nút "Lịch sinh hoạt" phải trỏ `#/timetable/lich`, KHÔNG phải `#/timetable`.
+  //
+  // Từ Đ198, `#/timetable` trống mở phần KẾ HOẠCH (phần đứng đầu) — nên bản cũ
+  // trỏ `#/timetable` làm nút Lịch bấm không đi đâu: đang ở Kế hoạch thì địa chỉ
+  // không đổi, không có sự kiện nào để vẽ lại. Nhà trường báo đúng như thế ngày
+  // 06/10: *"Lịch sinh hoạt theo từng ngày đang bị lỗi không vào xem được"*.
+  // Bài canh cũ mở thẳng `#/timetable/lich` nên không bao giờ bấm qua nút này.
+  ganSuKienPhan(root) {
+    for (const b of root.querySelectorAll('#tkb-phan [data-phan]')) {
+      b.onclick = () => {
+        location.hash = b.dataset.phan === 'kehoach' ? '#/timetable/kehoach' : '#/timetable/lich';
+      };
+    }
+  },
+
+  // Phần KẾ HOẠCH GIÁO DỤC — giao cho chính màn Kế hoạch vẽ vào ô này.
+  //
+  // Vẽ hộ chứ KHÔNG chép lại: `views/plans.js` vẫn là chỗ duy nhất biết cách
+  // bày một bản kế hoạch, và đường `#/plans` vẫn mở được y như cũ. Chép ra hai
+  // bản là ngày mai sửa một chỗ thì chỗ kia nói khác.
+  //
+  // Màn Kế hoạch hỏng thì CHỈ ô này báo hỏng — phần Lịch sinh hoạt và dải tab
+  // vẫn nguyên, đúng Nguyên tắc số 1.
+  async veKeHoach(root, coKeHoach) {
+    root.innerHTML = `
+      ${UI.pageHeader('Lịch sinh hoạt')}
+      ${this.thanhPhan('kehoach')}
+      <div id="tkb-kehoach"><div class="loading">Đang tải kế hoạch giáo dục</div></div>`;
+    this.ganSuKienPhan(root);
+    const o = document.getElementById('tkb-kehoach');
+    if (!coKeHoach || !App.views.plans) {
+      o.innerHTML = UI.emptyState('🛠️',
+        'Phần Kế hoạch giáo dục đang tạm nghỉ. Phần Lịch sinh hoạt vẫn dùng bình thường.');
+      return;
+    }
+    // Từ góp ý 06/10 (mục 4) phần này là KẾ HOẠCH TUẦN CHUNG CẢ TRƯỜNG — không
+    // ô chọn nhóm, không dòng "Cô phụ trách". Vẫn là `views/plans.js` vẽ hộ,
+    // đúng lý do ở trên. Kế hoạch tháng theo nhóm vẫn ở #/plans.
+    try {
+      await App.views.plans.renderTuan(o);
+    } catch (err) {
+      o.innerHTML = UI.emptyState('😥', err.message || 'Chưa tải được kế hoạch giáo dục');
+    }
+  },
+
+  // ÁP DỤNG LỊCH NÀY CHO NHÓM KHÁC (Đ133) — hỏi rõ trước, vì máy chủ GHI ĐÈ
+  // trọn lịch của nhóm được chọn.
+  moChepSangNhom(dsNhom) {
+    const khac = (dsNhom || []).filter(n => n.id !== this.classId);
+    if (!khac.length) return UI.toast('Không có nhóm nào khác trong cơ sở để áp dụng', 'error');
+    const ten = (dsNhom.find(n => n.id === this.classId) || {}).name || '';
+    UI.modal(`
+      <p class="muted small" style="line-height:1.6">
+        Lịch của nhóm <b>${UI.esc(ten)}</b> sẽ được chép sang các nhóm chọn dưới đây.
+        Lịch đang có của nhóm đó (nếu có) sẽ bị <b>thay hẳn</b>.
+      </p>
+      ${khac.map(n => `
+        <label style="display:flex;align-items:center;gap:10px;padding:9px 4px;cursor:pointer;border-bottom:1px solid var(--line)">
+          <input type="checkbox" class="tkb-chep" value="${UI.esc(n.id)}" style="width:18px;height:18px;accent-color:var(--primary);flex:none">
+          <span>${UI.esc(n.name)}</span>
+        </label>`).join('')}
+      <button class="btn primary block mt-14" id="tkb-chep-dong-y">Áp dụng cho các nhóm đã chọn</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, 'Áp dụng lịch cho nhóm khác');
+    document.getElementById('tkb-chep-dong-y').onclick = async () => {
+      const denNhom = [...document.querySelectorAll('.tkb-chep:checked')].map(o => o.value);
+      if (!denNhom.length) return UI.toast('Chọn ít nhất một nhóm nhé', 'error');
+      try {
+        const kq = await API.post(`/api/timetable/${encodeURIComponent(this.classId)}/chep`, { denNhom });
+        UI.closeModal();
+        UI.toast(`Đã áp dụng lịch cho ${kq.daChep.length} nhóm: ${kq.daChep.map(x => x.name).join(', ')}`, 'success');
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   // Ô chọn nhóm — chỉ hiện khi cô phụ trách nhiều hơn một nhóm.
@@ -128,7 +364,7 @@ App.views.timetable = {
       <div class="card">
         <div class="field" style="margin-bottom:0">
           <label>Nhóm lớp</label>
-          <select onchange="App.views.timetable.setNhom(this.value)">
+          <select id="tkb-nhom" onchange="App.views.timetable.setNhom(this.value)">
             ${dsNhom.map(n => `<option value="${UI.esc(n.id)}" ${n.id === this.classId ? 'selected' : ''}>${UI.esc(n.name)}</option>`).join('')}
           </select>
         </div>
@@ -145,12 +381,11 @@ App.views.timetable = {
     App.route();
   },
 
-  // Cô phụ trách sửa nhóm mình; quản trị sửa nhóm bất kỳ; phụ huynh chỉ xem.
+  // VĂN PHÒNG soạn (nhóm trong phạm vi mình); cô và phụ huynh chỉ xem (Đ133).
   canEdit() {
     const u = App.state.user;
-    if (!u) return false;
-    if (u.role === 'admin') return true;
-    return u.role === 'teacher' && (u.classIds || []).includes(this.classId);
+    if (!u || u.role !== 'admin') return false;
+    return this.nhomVanPhong().some(n => n.id === this.classId);
   },
 
   setDay(d) {
@@ -177,7 +412,7 @@ App.views.timetable = {
       zone.innerHTML = UI.emptyState('📚', 'Chưa có lịch sinh hoạt cho ngày này');
       return;
     }
-    const isToday = new Date().getDay() === this.day;
+    const isToday = UI.thuVN() === this.day;
     zone.innerHTML = `<div class="card">${subjects.map((sub, i) => this.periodRow(sub, i, isToday)).join('')}</div>`;
   },
 
@@ -218,8 +453,10 @@ App.views.timetable = {
   inPeriod(timeStr) {
     const m = String(timeStr).match(/(\d{1,2}):(\d{2})\D+(\d{1,2}):(\d{2})/);
     if (!m) return false;
-    const now = new Date();
-    const cur = now.getHours() * 60 + now.getMinutes();
+    // Giờ Việt Nam, không phải giờ máy — khung "Đang học" phải đúng với đồng
+    // hồ treo tường ở lớp.
+    const [gio, phut] = UI.gioVN().split(':').map(Number);
+    const cur = gio * 60 + phut;
     return cur >= (+m[1] * 60 + +m[2]) && cur <= (+m[3] * 60 + +m[4]);
   },
 
@@ -256,7 +493,7 @@ App.views.timetable = {
       </div>
       <div class="card">
         <div class="card-title">${UI.icon('calendar', 19)} Thứ ${this.day + 1} — hoạt động từng mốc</div>
-        <div class="muted small" style="margin-bottom:10px">Để trống hoặc ghi "—" nếu mốc đó không có hoạt động riêng. Khung giờ dùng chung cho cả tuần.</div>
+        <div class="muted small" style="margin-bottom:10px">Để trống hoặc ghi "—" nếu mốc đó không có hoạt động riêng. Khung giờ dùng chung cho cả tuần. Mỗi nhóm có thể nhiều hay ít dòng khác nhau — thêm hoặc bớt dòng ở dưới.</div>
         ${d.periodTimes.map((pt, i) => `
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
             <span class="row-icon" style="background:#e6efff;color:var(--primary);font-weight:800;flex:none">${UI.esc(pt.p || i + 1)}</span>
@@ -266,10 +503,48 @@ App.views.timetable = {
             <div class="field" style="flex:1;margin:0">
               <input id="tkb-gio-${i}" value="${UI.esc(pt.time || '')}" placeholder="07:30 – 08:05">
             </div>
+            <button class="btn danger-soft sm" style="flex:none;padding:8px 10px" data-xoa-dong="${i}" aria-label="Bỏ dòng ${i + 1}" title="Bỏ dòng này">${UI.icon('x', 15)}</button>
           </div>`).join('')}
+        <button class="btn outline block" id="tkb-them-dong">${UI.icon('plus', 16)} Thêm dòng</button>
       </div>
       <button class="btn primary block" onclick="App.views.timetable.luuSua()">${UI.icon('check', 18)} Lưu lịch sinh hoạt</button>
       <button class="btn block" style="margin-top:8px" onclick="App.views.timetable.huySua()">Hủy</button>`;
+    document.getElementById('tkb-them-dong').onclick = () => this.themDong();
+    for (const b of root.querySelectorAll('[data-xoa-dong]')) {
+      b.onclick = () => this.xoaDong(Number(b.dataset.xoaDong));
+    }
+  },
+
+  // THÊM / BỎ DÒNG (Đ133). Một dòng là một mốc trong ngày, dùng chung cho cả
+  // năm thứ, nên thêm dòng là thêm vào khung giờ VÀ vào lịch của mọi thứ.
+  // Số thứ tự đánh lại từ 1 sau mỗi lần đổi — số là để nhìn, không phải mã.
+  TOI_DA_DONG: 20,
+
+  themDong() {
+    if (!this.draft) return;
+    this.thuThapNhap();
+    if (this.draft.periodTimes.length >= this.TOI_DA_DONG) {
+      return UI.toast(`Một ngày ghi tối đa ${this.TOI_DA_DONG} dòng`, 'error');
+    }
+    this.draft.periodTimes.push({ p: this.draft.periodTimes.length + 1, time: '' });
+    for (let d = 1; d <= 5; d++) {
+      const ngay = this.draft.days[String(d)] || (this.draft.days[String(d)] = []);
+      while (ngay.length < this.draft.periodTimes.length) ngay.push('—');
+    }
+    App.route();
+  },
+
+  xoaDong(i) {
+    if (!this.draft) return;
+    this.thuThapNhap();
+    if (this.draft.periodTimes.length <= 1) return UI.toast('Lịch cần ít nhất một dòng', 'error');
+    this.draft.periodTimes.splice(i, 1);
+    this.draft.periodTimes.forEach((pt, k) => { pt.p = k + 1; });
+    for (let d = 1; d <= 5; d++) {
+      const ngay = this.draft.days[String(d)];
+      if (Array.isArray(ngay) && ngay.length > i) ngay.splice(i, 1);
+    }
+    App.route();
   },
 
   // Đọc các ô nhập của thứ đang mở vào bản nháp.

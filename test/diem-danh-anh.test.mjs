@@ -80,7 +80,8 @@ try {
       !!(be && be.anhDenLop && be.anhDenLop.file === globalThis.FILE1),
       JSON.stringify(be && be.anhDenLop));
     check('sổ điểm danh nói cho màn hình biết giờ rà soát của trường',
-      so.data.gioRaSoat === 9, so.data.gioRaSoat);
+      so.data.gioRaSoat === '09:00' && so.data.gioRaSoatChu === '9h',
+      { g: so.data.gioRaSoat, c: so.data.gioRaSoatChu });
 
     // Bé khác chưa có ảnh thì trường đó là null, KHÔNG phải một ô rỗng chờ lấp.
     const chua = (so.data.students || []).find(x => x.student.id !== 's1');
@@ -238,7 +239,7 @@ try {
     const r = await req('GET', `/api/attendance/ra-soat?date=${homQua}&classId=c1`, { cookie: co.cookie });
     check('ngày đã qua thì bảng rà soát luôn có nghĩa',
       r.status === 200 && r.data.quaGio === true, `${r.status} quaGio=${r.data && r.data.quaGio}`);
-    check('bảng nói rõ giờ nhà trường chốt là 9 giờ', r.data.gioRaSoat === 9, r.data.gioRaSoat);
+    check('bảng nói rõ giờ nhà trường chốt là 9h', r.data.gioRaSoat === '09:00', r.data.gioRaSoat);
 
     const truoc = (r.data.danhSach || []).map(x => x.studentId);
     check('đối chứng — có ít nhất một bé cần gọi xác nhận, nên phép so dưới có nghĩa',
@@ -309,7 +310,7 @@ try {
       vp.status === 200 && Array.isArray(vp.data.danhSach),
       `${vp.status} ${JSON.stringify(vp.data).slice(0, 140)}`);
     check('bảng trả về đủ ba thứ màn hình cần: giờ chốt, đã qua giờ chưa, và số bé',
-      vp.data.gioRaSoat === 9 && typeof vp.data.quaGio === 'boolean'
+      vp.data.gioRaSoat === '09:00' && typeof vp.data.quaGio === 'boolean'
         && typeof vp.data.soCanRaSoat === 'number',
       JSON.stringify({ g: vp.data.gioRaSoat, q: vp.data.quaGio, s: vp.data.soCanRaSoat }));
 

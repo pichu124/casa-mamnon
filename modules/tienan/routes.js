@@ -235,19 +235,37 @@ module.exports = (app, { db, modules }) => {
   // -------------------------------------------------------------------------
 
   // Gom số liệu một tháng cho mọi bé trong phạm vi người gọi.
-  function bangThang(user, thang) {
+  // `chiBe` — DỰNG ĐÚNG MỘT DÒNG CHO MỘT BÉ (Đ204, việc 48 điểm Y3-b).
+  //
+  // Gia đình xem bảng tiền ăn của con đi qua ĐÚNG HÀM NÀY chứ không có một
+  // phép tính thứ hai. Đó là toàn bộ lý do làm theo lối này: một bảng đối
+  // chiếu mà nhà và trường ra hai con số khác nhau thì còn tệ hơn không có
+  // bảng — nhà gọi lên hỏi, kế toán mở màn của mình ra thấy số khác, và không
+  // ai biết số nào đúng. Cùng nếp `tongChuaNopDuocUuDai` của Đ199: cộng tiền ở
+  // hai nơi là hai nơi sẽ ra hai số.
+  //
+  // Chỗ khác duy nhất là ĐẦU VÀO: bảng của trường lấy mọi nhóm người gọi phụ
+  // trách, còn ở đây là đúng một bé. Mọi bước tính phía sau đọc `ds`/`ids`/
+  // `lopCuaToi`, nên không bước nào phải biết mình đang chạy cho ai.
+  function bangThang(user, thang, { chiBe = null } = {}) {
     const [tu, den] = khoangThang(thang);
-    const lopCuaToi = nhomCuaToi(user);
+    const lopCuaToi = chiBe
+      ? [db.findClass(chiBe.classId)].filter(Boolean)
+      : nhomCuaToi(user);
     const tenLop = new Map(lopCuaToi.map(c => [c.id, c.name]));
     const ds = [];
-    for (const lop of lopCuaToi) ds.push(...beCuaNhom(lop.id).map(b => ({ ...b, tenNhom: tenLop.get(lop.id) })));
+    if (chiBe) ds.push({ ...chiBe, tenNhom: tenLop.get(chiBe.classId) || '' });
+    else for (const lop of lopCuaToi) ds.push(...beCuaNhom(lop.id).map(b => ({ ...b, tenNhom: tenLop.get(lop.id) })));
     // Xếp theo TÊN, không bao giờ theo con số. Xếp theo số ngày vắng là biến
     // sổ tiền thành một cách sắp các bé trên dưới nhau.
     ds.sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
 
     const ids = ds.map(b => b.id);
     const dem = new Map();
-    if (ids.length) {
+    // Cùng công tắc với `diemDanh` ở đường theo-ngày phía trên: phân hệ Điểm
+    // danh TẮT thì bảng đối chiếu tháng cũng không đọc bảng của nó — "tắt là
+    // biến khỏi màn hình" phải đúng ở mọi đường, kể cả đường đọc thẳng bảng.
+    if (ids.length && dangBat('diemdanh')) {
       const marks = ids.map(() => '?').join(',');
       for (const r of db.all('attendance',
         `SELECT studentId, status, COUNT(*) AS n FROM attendance
@@ -288,9 +306,128 @@ module.exports = (app, { db, modules }) => {
       }
     }
 
+    // NGÀY TRƯỜNG NGHỈ TRONG THÁNG (Đ147).
+    //
+    // Không phải đơn của nhà nào cả — trường đóng cửa thì không bé nào ăn ở
+    // trường ngày đó, nên tiền ăn phải được hoàn mà không ai phải gửi gì.
+    //
+    // Tính THEO CƠ SỞ CỦA NHÓM: đợt nghỉ riêng của một cơ sở không cắt tiền ăn
+    // của hai cơ sở còn lại. Tra mỗi nhóm một lần rồi dùng lại, vì một tháng
+    // của cả trường là hàng trăm bé mà chỉ vài nhóm.
+    const nghiTheoNhom = new Map();
+    for (const lop of lopCuaToi) {
+      const cs = db.campusOfClass(lop.id) || '';
+      nghiTheoNhom.set(lop.id, {
+        tatCa: nghiHoc.ngayHocTruongNghi(tu, den, cs),
+        hoanTien: nghiHoc.ngayHocTruongNghi(tu, den, cs, { chiKhiHoanTien: true }),
+        dot: nghiHoc.truongNghiTrongKhoang(tu, den, cs),
+      });
+    }
+
+    // BÉ CÓ MẶT ĐÚNG NGÀY TRƯỜNG NGHỈ THÌ KHÔNG HOÀN TIỀN ĂN NGÀY ĐÓ.
+    //
+    // Nghe như chuyện không xảy ra, nhưng nó xảy ra theo hai đường có thật:
+    //
+    //   • Văn phòng đặt lịch nghỉ LÙI LẠI, sau khi sổ điểm danh đã ghi xong —
+    //     mà sổ đã ghi thì cố ý không sửa ngược (xem routes/attendance.js).
+    //   • Ngày trường "nghỉ" vẫn nhận trông vài bé mà gia đình không nghỉ được.
+    //
+    // Bé ấy đã ăn một bữa có thật ở trường. Hoàn tiền bữa đó là trả lại tiền
+    // cho thứ nhà trường đã nấu — và đây là sổ tiền, nên không được đoán rộng
+    // ra một chiều rồi để kế toán đi dò ngược.
+    //
+    // Hỏi ĐÚNG những ngày nghỉ, không quét cả tháng: một tháng thường chỉ có
+    // vài ngày trường nghỉ, còn quét cả tháng là hàng nghìn dòng cho một con số.
+    const moiNgayNghi = new Set();
+    for (const n of nghiTheoNhom.values()) for (const ng of n.hoanTien) moiNgayNghi.add(ng);
+    const coMatNgayNghi = new Map();
+    if (ids.length && moiNgayNghi.size && dangBat('diemdanh')) {
+      const dsNgay = [...moiNgayNghi];
+      const mN = dsNgay.map(() => '?').join(',');
+      const mT = CO_MAT.map(() => '?').join(',');
+      for (let i = 0; i < ids.length; i += 400) {
+        const lo = ids.slice(i, i + 400);
+        const mB = lo.map(() => '?').join(',');
+        for (const r of db.all('attendance',
+          `SELECT studentId, date FROM attendance
+            WHERE studentId IN (${mB}) AND date IN (${mN}) AND status IN (${mT})`,
+          [...lo, ...dsNgay, ...CO_MAT])) {
+          if (!coMatNgayNghi.has(r.studentId)) coMatNgayNghi.set(r.studentId, new Set());
+          coMatNgayNghi.get(r.studentId).add(r.date);
+        }
+      }
+    }
+
+    // NGÀY NẰM TRONG ĐƠN HOÀN MÀ BÉ VẪN CÓ MẶT (Đ155, DD-13).
+    //
+    // Gia đình gửi đơn xin nghỉ ba ngày và văn phòng duyệt hoàn tiền ăn ba
+    // ngày; rồi sáng thứ Tư nhà đổi ý cho con đi học, và bé được chụp ảnh tới
+    // lớp. Từ Đ131 tấm ảnh ấy THẮNG đơn nghỉ — sổ điểm danh ghi bé có mặt.
+    // Nhưng con số hoàn thì vẫn là ba ngày, vì nó do văn phòng gõ tay lúc
+    // duyệt đơn, và không ai quay lại sửa. Nhà trường mất tiền một bữa đã nấu,
+    // và không ai biết để mà tính lại.
+    //
+    // MÁY ĐÁNH DẤU, NGƯỜI QUYẾT — cố ý không tự trừ.
+    //
+    // Với ngày TRƯỜNG nghỉ thì trừ thẳng được, vì chính app tính ra từng ngày
+    // ấy. Còn đơn của gia đình thì văn phòng chỉ gõ TỔNG số ngày, không gõ
+    // từng ngày — nên app không biết được tổng ấy đã trừ sẵn hôm bé đi học
+    // hay chưa. Trừ hộ là đoán, mà đây là sổ tiền: đoán sai thì kế toán phải
+    // dò ngược cả tháng để tìm ra chỗ lệch. Nên chỉ nói ra, cùng một cách đã
+    // dùng cho `vatThang` và `trungLichNghi`.
+    //
+    // Chỉ hỏi những bé CÓ đơn hoàn, và chỉ trong khoảng ngày các đơn ấy chạm
+    // tới — một tháng của cả trường thường chỉ vài chục đơn.
+    const coMatTrongDon = new Map();
+    const idsCoDon = [...hoan.keys()];
+    if (idsCoDon.length && dangBat('diemdanh')) {
+      let som = null;
+      let muon = null;
+      for (const ds2 of hoan.values()) {
+        for (const d of ds2) {
+          const a = d.fromDate < tu ? tu : d.fromDate;
+          const b = d.toDate > den ? den : d.toDate;
+          if (a > b) continue;
+          if (!som || a < som) som = a;
+          if (!muon || b > muon) muon = b;
+        }
+      }
+      if (som && muon) {
+        const mT = CO_MAT.map(() => '?').join(',');
+        for (let i = 0; i < idsCoDon.length; i += 400) {
+          const lo = idsCoDon.slice(i, i + 400);
+          const mB = lo.map(() => '?').join(',');
+          for (const r of db.all('attendance',
+            `SELECT studentId, date FROM attendance
+              WHERE studentId IN (${mB}) AND date BETWEEN ? AND ? AND status IN (${mT})`,
+            [...lo, som, muon, ...CO_MAT])) {
+            if (!coMatTrongDon.has(r.studentId)) coMatTrongDon.set(r.studentId, new Set());
+            coMatTrongDon.get(r.studentId).add(r.date);
+          }
+        }
+      }
+    }
+    // Số ngày bé có mặt nằm trong đúng một đơn, cắt theo tháng đang xem.
+    function ngayCoMatCuaDon(studentId, don) {
+      const co = coMatTrongDon.get(studentId);
+      if (!co || !co.size) return 0;
+      const a = don.fromDate < tu ? tu : don.fromDate;
+      const b = don.toDate > den ? den : don.toDate;
+      if (a > b) return 0;
+      let n = 0;
+      for (const ng of co) if (ng >= a && ng <= b) n += 1;
+      return n;
+    }
+
+    const RONG = { tatCa: new Set(), hoanTien: new Set(), dot: [] };
     const danhSach = ds.map(b => {
       const d = dem.get(b.id) || {};
       const dsHoan = hoan.get(b.id) || [];
+      const nghiTruong = nghiTheoNhom.get(b.classId) || RONG;
+      const daAn = coMatNgayNghi.get(b.id) || null;
+      const ngayNghiDuocHoan = daAn
+        ? [...nghiTruong.hoanTien].filter(ng => !daAn.has(ng)).length
+        : nghiTruong.hoanTien.size;
       return {
         studentId: b.id,
         maBe: b.code || '',
@@ -299,10 +436,31 @@ module.exports = (app, { db, modules }) => {
         soNgayAnOTruong: (d.present || 0) + (d.late || 0),
         soNgayVangCoPhep: d.absent_excused || 0,
         soNgayVangKhongPhep: d.absent_unexcused || 0,
-        soNgayHoanTienAn: dsHoan.reduce((s, x) => s + (Number(x.soNgay) || 0), 0),
+        // Hai con số khác nhau, cố ý để cạnh nhau: TRƯỜNG nghỉ mấy ngày, và
+        // trong đó BÉ NÀY được hoàn mấy ngày. Chúng chỉ lệch khi bé vẫn tới
+        // trường đúng ngày ấy, và lúc đó kế toán cần thấy cả hai.
+        soNgayTruongNghi: nghiTruong.tatCa.size,
+        soNgayTruongNghiHoan: ngayNghiDuocHoan,
+        soNgayHoanTienAn: dsHoan.reduce((s, x) => s + (Number(x.soNgay) || 0), 0)
+          + ngayNghiDuocHoan,
+        // Tổng số ngày bé vẫn tới lớp tuy nằm trong đơn đã duyệt hoàn — con số
+        // kế toán phải TRỪ ĐI bằng tay khi chốt tháng.
+        soNgayCoMatTrongDonHoan: dsHoan.reduce((s2, x) => s2 + ngayCoMatCuaDon(b.id, x), 0),
         donHoan: dsHoan.map(x => ({
           fromDate: x.fromDate, toDate: x.toDate, soNgay: x.soNgay,
           ghiChu: x.ghiChu, vatThang: x.vatThang,
+          // Bé vẫn tới lớp mấy hôm trong chính đơn này (Đ155, DD-13).
+          soNgayBeCoMat: ngayCoMatCuaDon(b.id, x),
+          // ĐƠN NGHỈ CHỒNG LÊN ĐỢT TRƯỜNG NGHỈ — nói thẳng ra chỗ máy không
+          // chia được, thay vì để một con số trông như đã đúng rồi.
+          //
+          // Văn phòng gõ TỔNG số ngày hoàn cho cả đơn, không gõ từng ngày, nên
+          // khi một đơn nghỉ của gia đình vắt qua đúng mấy ngày trường cũng
+          // nghỉ thì app KHÔNG biết đơn ấy đã trừ những ngày đó ra hay chưa —
+          // và đoán hộ là cộng đôi tiền ăn cho một ngày. Kế toán nhìn cột này
+          // là biết dòng nào phải mở đơn ra xem.
+          trungLichNghi: nghiTruong.dot.some(k => k.hoanTienAn === 'co'
+            && k.tuNgay <= x.toDate && k.denNgay >= x.fromDate),
         })),
         donVatSangThangNay: (vatSang.get(b.id) || []).map(x => ({
           fromDate: x.fromDate, toDate: x.toDate, soNgay: x.soNgay,
@@ -310,15 +468,33 @@ module.exports = (app, { db, modules }) => {
       };
     });
 
+    // Các đợt trường nghỉ chạm vào tháng này, gộp mọi cơ sở đang xem — để bảng
+    // nói được TÊN đợt nghỉ chứ không chỉ một con số.
+    const dotTrongThang = [];
+    const daCo = new Set();
+    for (const n of nghiTheoNhom.values()) {
+      for (const k of n.dot) {
+        if (daCo.has(k.id)) continue;
+        daCo.add(k.id);
+        dotTrongThang.push({
+          id: k.id, ten: k.ten, tuNgay: k.tuNgay, denNgay: k.denNgay,
+          loai: k.loai, campusId: k.campusId || '', hoanTienAn: k.hoanTienAn,
+        });
+      }
+    }
+    dotTrongThang.sort((a, b) => String(a.tuNgay).localeCompare(String(b.tuNgay)));
+
     return {
       thang, tuNgay: tu, denNgay: den,
       danhSach,
+      dotTruongNghi: dotTrongThang,
       tong: {
         soBe: danhSach.length,
         soNgayAnOTruong: danhSach.reduce((s, x) => s + x.soNgayAnOTruong, 0),
         soNgayHoanTienAn: danhSach.reduce((s, x) => s + x.soNgayHoanTienAn, 0),
         soDonVatThang: danhSach.reduce((s, x) =>
           s + x.donHoan.filter(d => d.vatThang).length + x.donVatSangThangNay.length, 0),
+        soNgayCoMatTrongDonHoan: danhSach.reduce((s, x) => s + x.soNgayCoMatTrongDonHoan, 0),
       },
     };
   }
@@ -352,6 +528,60 @@ module.exports = (app, { db, modules }) => {
     res.json(bangThang(req.user, thang));
   });
 
+  // BẢNG TIỀN ĂN THEO THÁNG CỦA MỘT BÉ, CHO CHÍNH GIA ĐÌNH BÉ ĐÓ
+  // (Đ204 — việc 48, điểm Y3-b).
+  //
+  // Nhà trường đã hỏi lại ở DD-01, nên mở. Trước đợt này gia đình chỉ thấy kết
+  // quả hoàn tiền của TỪNG ĐƠN nghỉ trên màn Xin phép — đúng phần họ cần biết
+  // ngay, nhưng không trả lời được câu *"tháng này nhà tôi ăn bao nhiêu bữa"*,
+  // mà đó mới là câu hỏi lúc nhận phiếu thu.
+  //
+  // BA THỨ CỦA BẢNG TRƯỜNG KHÔNG ĐI RA NGOÀI, và đây là phần đáng đọc kỹ:
+  //
+  //   • `ghiChu` của đơn hoàn — ô văn phòng ghi hoàn cảnh của nhà
+  //     (*"mẹ xin giảm vì bố mất việc"*). Ghi chép nội bộ của trường VỀ một
+  //     gia đình không phải thứ để chính nhà ấy đọc lại trên điện thoại. Cùng
+  //     lý do đã ghi ở `/api/hocphi` (Đ169).
+  //   • Mấy cờ `vatThang`, `trungLichNghi`, `soNgayBeCoMat` — sổ tay làm việc
+  //     của kế toán, nói *"dòng này phải mở ra xem"*. Đưa cho gia đình là mời
+  //     họ đi tranh luận về một con số trường còn chưa chốt.
+  //   • Tên và số liệu của BẤT KỲ BÉ NÀO KHÁC — `chiBe` chặn từ đầu vào.
+  //
+  // Còn lại là số ngày: ăn ở trường, vắng có phép, vắng không phép, trường
+  // nghỉ, được hoàn. Toàn bộ là chuyện của chính con họ.
+  app.get('/api/tienan/cua-be', (req, res) => {
+    const studentId = String(req.query.studentId || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem tiền ăn của bé này' });
+    }
+    const be = db.findStudent(studentId);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    const thang = thangHopLe(req, res);
+    if (!thang) return;
+
+    const bang = bangThang(req.user, thang, { chiBe: be });
+    const dong = (bang.danhSach || [])[0];
+    if (!dong) return res.status(404).json({ error: 'Chưa có số liệu tháng này' });
+
+    res.json({
+      thang,
+      be: { id: be.id, hoTen: be.name, tenNhom: dong.tenNhom },
+      soNgayAnOTruong: dong.soNgayAnOTruong,
+      soNgayVangCoPhep: dong.soNgayVangCoPhep,
+      soNgayVangKhongPhep: dong.soNgayVangKhongPhep,
+      soNgayTruongNghi: dong.soNgayTruongNghi,
+      soNgayTruongNghiHoan: dong.soNgayTruongNghiHoan,
+      soNgayHoanTienAn: dong.soNgayHoanTienAn,
+      // Đơn nghỉ của chính nhà mình: ngày và số ngày được hoàn. KHÔNG kèm
+      // `ghiChu` và KHÔNG kèm mấy cờ dành cho kế toán — xem chú thích trên.
+      donHoan: (dong.donHoan || []).map(x => ({
+        fromDate: x.fromDate, toDate: x.toDate, soNgay: x.soNgay,
+      })),
+      dotTruongNghi: bang.dotTruongNghi || [],
+    });
+  });
+
   app.get('/api/tienan/thang.csv', requireRole('teacher', 'admin'), (req, res) => {
     if (chiVanPhong(req, res)) return;
     const thang = thangHopLe(req, res);
@@ -359,7 +589,8 @@ module.exports = (app, { db, modules }) => {
     const bang = bangThang(req.user, thang);
 
     const COT = ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Số ngày ăn ở trường',
-      'Số ngày vắng có phép', 'Số ngày vắng không phép', 'Số ngày trường hoàn tiền ăn',
+      'Số ngày vắng có phép', 'Số ngày vắng không phép', 'Số ngày trường nghỉ',
+      'Số ngày trường hoàn tiền ăn', 'Số ngày bé vẫn đi học trong đơn hoàn',
       'Đơn cần kiểm tra tay'];
     const duLieu = bang.danhSach.map(x => khoaCongThuc({
       'Mã bé': x.maBe,
@@ -368,7 +599,10 @@ module.exports = (app, { db, modules }) => {
       'Số ngày ăn ở trường': x.soNgayAnOTruong,
       'Số ngày vắng có phép': x.soNgayVangCoPhep,
       'Số ngày vắng không phép': x.soNgayVangKhongPhep,
+      'Số ngày trường nghỉ': x.soNgayTruongNghi,
       'Số ngày trường hoàn tiền ăn': x.soNgayHoanTienAn,
+      // Con số PHẢI TRỪ ĐI khi chốt tháng: bé vẫn ăn ở trường những hôm ấy.
+      'Số ngày bé vẫn đi học trong đơn hoàn': x.soNgayCoMatTrongDonHoan,
       // Nói thẳng chỗ máy không chia được, thay vì để một con số trông như đã
       // đúng rồi. Kế toán nhìn cột này là biết dòng nào phải mở đơn ra xem.
       'Đơn cần kiểm tra tay': [
@@ -376,6 +610,10 @@ module.exports = (app, { db, modules }) => {
           .map(d => `${d.fromDate} → ${d.toDate} (${d.soNgay} ngày, kéo sang tháng sau)`),
         ...x.donVatSangThangNay
           .map(d => `${d.fromDate} → ${d.toDate} (${d.soNgay} ngày, đã tính ở tháng trước)`),
+        ...x.donHoan.filter(d => d.trungLichNghi)
+          .map(d => `${d.fromDate} → ${d.toDate} (${d.soNgay} ngày, trùng đợt trường nghỉ)`),
+        ...x.donHoan.filter(d => d.soNgayBeCoMat > 0)
+          .map(d => `${d.fromDate} → ${d.toDate} (${d.soNgay} ngày, bé vẫn đi học ${d.soNgayBeCoMat} hôm — trừ ra)`),
       ].join(' · '),
     }));
 

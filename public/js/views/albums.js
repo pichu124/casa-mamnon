@@ -117,7 +117,7 @@ App.views.albums = {
         ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
         <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
-        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
+        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.cheDo === 'theo-the' ? ` ${UI.badge('Theo thẻ', 'blue')}` : ''}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
       </div>`;
   },
 
@@ -151,7 +151,7 @@ App.views.albums = {
     root.innerHTML = `
       ${UI.pageHeader(a.title, a.canEdit ? { action: { id: 'btn-add-photo', label: 'Thêm ảnh', icon: 'plus' } } : {})}
       <div class="card">
-        <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}</div>
+        <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}${a.cheDo === 'theo-the' ? ` · ${UI.badge('Theo thẻ từng bé', 'blue')}` : ''}</div>
         ${a.description ? `<p class="mt-8" style="font-size:.93rem;line-height:1.55">${UI.esc(a.description)}</p>` : ''}
         ${a.lopDaDong ? `<div class="muted small mt-8" style="line-height:1.6">
           Nhóm này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''},
@@ -183,10 +183,130 @@ App.views.albums = {
                 </button>` : ''}
             </div>`).join('')}
         </div>` : UI.emptyState('📷', a.canEdit ? 'Album chưa có ảnh nào. Bấm "Thêm ảnh" để đăng.' : 'Album chưa có ảnh')}
+      ${a.canEdit && a.photos.length > 1 ? `
+        <button class="btn outline block mt-14" id="btn-gan-nhieu">
+          ${UI.icon('check', 16)} Gắn thẻ nhiều ảnh một lượt
+        </button>` : ''}
+      ${a.canEdit ? `
+        <button class="btn outline block mt-8" id="btn-doi-che-do">
+          ${UI.icon('settings', 16)} Đổi ai xem được album này
+        </button>` : ''}
       ${a.canXoa ? `
         <button class="btn danger-soft block mt-14" onclick="App.views.albums.deleteAlbum()">Xóa album này</button>` : ''}`;
 
     if (a.canEdit) document.getElementById('btn-add-photo').onclick = () => this.openAddPhotos();
+    const nutNhieu = document.getElementById('btn-gan-nhieu');
+    if (nutNhieu) nutNhieu.onclick = () => this.moGanNhieuAnh();
+    const nutCheDo = document.getElementById('btn-doi-che-do');
+    if (nutCheDo) nutCheDo.onclick = () => this.moDoiCheDo();
+  },
+
+  // GẮN THẺ NHIỀU ẢNH MỘT LƯỢT (Đ153 / AL-01).
+  //
+  // Đây là thứ đã hứa với nhà trường khi từ chối nhận diện khuôn mặt. Cô chụp
+  // hai chục tấm trong một buổi, trong đó mười tấm cùng một nhóm bốn bé chơi
+  // với nhau: gắn từng tấm là bốn chục lần bấm, gắn một lượt là bốn.
+  //
+  // CỘNG THÊM, KHÔNG GHI ĐÈ — xem chú thích đường API. Câu chữ trên màn phải
+  // nói đúng điều đó, nếu không cô tưởng mình vừa đặt lại thẻ cho cả mấy tấm.
+  async moGanNhieuAnh() {
+    const a = this._detail;
+    if (!a) return;
+    let dsBe = [];
+    try {
+      dsBe = await API.get(`/api/students?classId=${encodeURIComponent(a.classId || '')}`);
+    } catch (_) { dsBe = []; }
+    const trongNhom = dsBe.filter(b => !a.classId || b.classId === a.classId);
+
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6">
+        Chọn <b>những tấm</b> có cùng các bé, rồi chọn <b>các bé</b> ấy. Thẻ được
+        <b>cộng thêm</b> vào từng tấm — thẻ cô đã gắn trước đó vẫn giữ nguyên.
+      </div>
+      <div class="section-label">Chọn ảnh</div>
+      <div class="photo-grid" id="gn-anh">
+        ${(a.photos || []).map((p, i) => `
+          <label class="photo" style="cursor:pointer">
+            <div style="position:absolute;inset:0">${this.thumb(p, a.id)}</div>
+            <input type="checkbox" class="gn-anh-o" value="${UI.esc(p.id)}"
+              style="position:absolute;top:6px;left:6px;width:22px;height:22px;z-index:2">
+            ${(p.beTrongAnh || []).length ? `<div class="photo-cap" style="pointer-events:none">👧 ${UI.esc(String((p.beTrongAnh || []).length))}</div>` : ''}
+            <span hidden>${UI.esc(String(i))}</span>
+          </label>`).join('')}
+      </div>
+      <div class="section-label">Chọn bé có trong những tấm đó</div>
+      <div id="gn-be" style="max-height:32vh;overflow-y:auto">
+        ${trongNhom.length ? trongNhom.map(b => `
+          <label class="list-row" style="cursor:pointer">
+            <input type="checkbox" class="gn-be-o" value="${UI.esc(b.id)}"
+              style="width:20px;height:20px;flex:none;margin-right:10px">
+            <div class="row-main"><div class="row-title">${UI.esc(b.name)}</div></div>
+          </label>`).join('') : '<div class="muted small">Nhóm chưa có bé nào.</div>'}
+      </div>
+      <button class="btn primary block mt-14" id="gn-luu">${UI.icon('check', 18)} Gắn thẻ</button>
+    `, 'Gắn thẻ nhiều ảnh');
+
+    document.getElementById('gn-luu').onclick = async () => {
+      const anh = [...document.querySelectorAll('#gn-anh .gn-anh-o:checked')].map(x => x.value);
+      const be = [...document.querySelectorAll('#gn-be .gn-be-o:checked')].map(x => x.value);
+      if (!anh.length) return UI.toast('Cô chọn ít nhất một ảnh nhé', 'error');
+      if (!be.length) return UI.toast('Cô chọn ít nhất một bé nhé', 'error');
+      try {
+        const r = await API.put(`/api/albums/${encodeURIComponent(a.id)}/gan-the-nhieu-anh`,
+          { photoIds: anh, studentIds: be });
+        UI.toast(`Đã gắn ${r.soBe} bé vào ${r.soAnh} ảnh`, 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // ĐỔI AI XEM ĐƯỢC ALBUM (Đ153).
+  //
+  // Một chiều hẹp lại, một chiều mở rộng — và chiều mở rộng phải hỏi lại cô một
+  // câu, vì nó làm hai chục gia đình bỗng thấy những tấm trước đó chỉ vài nhà
+  // thấy. Xem chú thích đường API.
+  moDoiCheDo() {
+    const a = this._detail;
+    if (!a) return;
+    const dangLa = a.cheDo === 'theo-the' ? 'theo-the' : 'cong-khai';
+    UI.modal(`
+      <div class="field">
+        <label>Ai xem được album này</label>
+        <select id="dc-che-do">
+          <option value="cong-khai" ${dangLa === 'cong-khai' ? 'selected' : ''}>Cả nhóm — mọi gia đình trong nhóm đều xem được</option>
+          <option value="theo-the" ${dangLa === 'theo-the' ? 'selected' : ''}>Theo thẻ — gia đình chỉ thấy tấm có con mình được gắn thẻ</option>
+        </select>
+      </div>
+      <div class="muted small" style="line-height:1.6">
+        Luật đồng ý chia sẻ <b>không đổi</b>: một tấm có bé mà gia đình chưa đồng ý chia sẻ
+        thì vẫn không hiện với nhà khác, dù album ở chế độ nào.
+      </div>
+      <div class="small mt-8" id="dc-canh" style="line-height:1.6;display:none;border-left:3px solid var(--warning);padding-left:10px"></div>
+      <button class="btn primary block mt-14" id="dc-luu">${UI.icon('check', 18)} Lưu</button>
+    `, 'Ai xem được album này');
+
+    const o = document.getElementById('dc-che-do');
+    const canh = document.getElementById('dc-canh');
+    const veCanh = () => {
+      const moRong = dangLa === 'theo-the' && o.value === 'cong-khai';
+      canh.style.display = moRong ? '' : 'none';
+      if (moRong) {
+        canh.innerHTML = 'Đổi sang <b>Cả nhóm</b> thì mọi gia đình trong nhóm sẽ thấy '
+          + 'những tấm trước đây chỉ vài nhà thấy. Cô xem lại giúp là đúng ý nhé.';
+      }
+    };
+    o.onchange = veCanh;
+    veCanh();
+
+    document.getElementById('dc-luu').onclick = async () => {
+      try {
+        await API.put(`/api/albums/${encodeURIComponent(a.id)}/che-do`, { cheDo: o.value });
+        UI.toast('Đã đổi chế độ album', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   // Gắn thẻ bé có mặt trong một tấm ảnh.
@@ -244,8 +364,14 @@ App.views.albums = {
     const p = a.photos[index];
     UI.modal(`
       ${p.file
-        ? `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || '')}"
-             style="width:100%;max-height:66vh;object-fit:contain;border-radius:14px;background:var(--bg-2)">`
+        // Video phóng to phải là <video>: nhét vào <img> là gia đình bấm vào
+        // đoạn quay của con chỉ thấy một ô ảnh vỡ. Lưới bên ngoài đã phân
+        // biệt đúng (this.laVideo) — màn phóng to dùng cùng một phép thử.
+        ? (this.laVideo(p)
+          ? `<video src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" controls playsinline
+               style="width:100%;max-height:66vh;border-radius:14px;background:#000"></video>`
+          : `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || '')}"
+             style="width:100%;max-height:66vh;object-fit:contain;border-radius:14px;background:var(--bg-2)">`)
         : `<div style="height:260px;border-radius:14px;background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])});display:flex;align-items:center;justify-content:center;font-size:90px">${UI.esc(p.emoji)}</div>`}
       ${p.caption ? `<div class="center mt-14" style="font-weight:700">${UI.esc(p.caption)}</div>` : ''}
       <div class="muted small center mt-8">${UI.esc(a.title)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}</div>
@@ -264,6 +390,16 @@ App.views.albums = {
       <div class="field">
         <label>Mô tả</label>
         <textarea id="al-desc" placeholder="Đôi dòng giới thiệu về album gửi tới phụ huynh..."></textarea>
+      </div>
+      <div class="field">
+        <label>Ai xem được</label>
+        <select id="al-che-do">
+          <option value="cong-khai">Cả nhóm — mọi gia đình trong nhóm đều xem được</option>
+          <option value="theo-the">Theo thẻ — gia đình chỉ thấy tấm có con mình được gắn thẻ</option>
+        </select>
+        <div class="hint">Ảnh chung (sự kiện, dã ngoại) thì chọn <b>Cả nhóm</b>: gia đình nhận thông báo ngay,
+          cô không phải gắn thẻ từng tấm. Ảnh riêng từng bé thì chọn <b>Theo thẻ</b>: cô gắn thẻ bé
+          nào, nhà bé đó được báo và chỉ thấy tấm của con mình.</div>
       </div>
       ${this.pickerMarkup()}
       <button class="btn primary block mt-14" id="al-submit">${UI.icon('plus', 18)} Đăng album</button>
@@ -304,14 +440,97 @@ App.views.albums = {
   // Bài canh đối chiếu hai con số này với nhau.
   TRAN_VIDEO: 8 * 1024 * 1024,
 
-  // Đọc tệp thành data URL. Ảnh đi qua `UI.nenAnh`, video thì đọc thẳng —
-  // không có đường nén nào chạy nổi trên điện thoại của cô.
+  // Trần ĐỘ DÀI video. Nhà trường xin 3–5 phút; 6 phút rưỡi là chừa dư cho
+  // đoạn quay lố mấy giây, mà vẫn chặn được đoạn nửa tiếng quay quên tắt.
+  TOI_DA_GIAY_VIDEO: 390,
+
+  // Đọc tệp thành data URL, KHÔNG nén. Chỉ dùng cho video đã đủ nhỏ.
   docTep(f) {
     return new Promise((ok, that) => {
       const r = new FileReader();
       r.onload = () => ok(r.result);
       r.onerror = () => that(new Error('Không đọc được tệp'));
       r.readAsDataURL(f);
+    });
+  },
+
+  // VIDEO 3–5 PHÚT: NÉN TRÊN MÁY CỦA CÔ RỒI MỚI GỬI (Đ150).
+  //
+  // Nhà trường 10/09: *"ok chấp nhận giảm chất lượng video để có thể upload
+  // video 3-5 phút"*.
+  //
+  // Việc nén mất đúng bằng độ dài đoạn phim — trình duyệt không có đường nào
+  // nhanh hơn thời gian thật (xem chú thích `UI.nenVideo`). Nên trước khi bắt
+  // đầu, HỎI CÔ MỘT CÂU kèm con số phút phải chờ, thay vì lẳng lặng chiếm máy
+  // của cô bốn phút rồi để cô đoán xem app có treo không.
+  //
+  // Trả về data URL, hoặc `null` nếu cô bấm Thôi.
+  nenVideoCoCho(f) {
+    const soMB = Math.round(f.size / 1048576);
+    return new Promise((xong, hong) => {
+      UI.modal(`
+        <div class="center">
+          <div style="font-size:34px">🎬</div>
+          <h3 class="mt-8">Đoạn phim này nặng ${UI.esc(String(soMB))} MB</h3>
+        </div>
+        <div class="muted small mt-8" style="line-height:1.7">
+          Máy sẽ <b>nén nhỏ lại</b> ngay trên điện thoại của cô rồi mới gửi, để đoạn dài
+          3–5 phút vẫn gửi được. Đổi lại <b>hình sẽ mờ hơn</b> bản gốc — nhà trường đã chọn
+          như vậy để có video dài.
+          <br><br>
+          Nén mất <b>khoảng đúng bằng độ dài đoạn phim</b>. Trong lúc đó xin cô
+          <b>để nguyên màn hình này</b>, đừng khoá máy hay chuyển sang app khác — chuyển đi
+          là bản nén dở dang. Bản gốc trong máy cô <b>không bị đụng tới</b>.
+        </div>
+        <button class="btn primary block mt-14" id="al-nen-ok">Nén và gửi</button>
+        <button class="btn outline block mt-8" id="al-nen-thoi">Thôi, để lần khác</button>
+      `, 'Gửi video dài');
+
+      let daQuyet = false;
+      document.getElementById('al-nen-thoi').onclick = () => {
+        if (daQuyet) return;
+        daQuyet = true; UI.closeModal(); xong(null);
+      };
+      document.getElementById('al-nen-ok').onclick = async () => {
+        if (daQuyet) return;
+        daQuyet = true;
+        let boCuoc = false;
+        UI.modal(`
+          <div class="center">
+            <div style="font-size:34px">⏳</div>
+            <h3 class="mt-8">Đang nén video</h3>
+            <div class="muted small mt-8" id="al-nen-dongho">Đang chuẩn bị…</div>
+            <div class="muted small mt-8" style="line-height:1.7">
+              Xin cô để nguyên màn hình này tới khi xong.
+            </div>
+          </div>
+          <button class="btn outline block mt-14" id="al-nen-dung">Dừng lại</button>
+        `, 'Đang nén video');
+        document.getElementById('al-nen-dung').onclick = () => { boCuoc = true; };
+
+        const phutGiay = (g) => `${Math.floor(g / 60)}:${String(Math.floor(g % 60)).padStart(2, '0')}`;
+        try {
+          const data = await UI.nenVideo(f, {
+            tranByte: this.TRAN_VIDEO,
+            toiDaGiay: this.TOI_DA_GIAY_VIDEO,
+            huy: () => boCuoc,
+            tien: ({ giay, tongGiay }) => {
+              const o = document.getElementById('al-nen-dongho');
+              if (o) o.textContent = `${phutGiay(giay)} / ${phutGiay(tongGiay)}`;
+            },
+          });
+          UI.closeModal();
+          xong(data);
+        } catch (err) {
+          UI.closeModal();
+          // Máy không nén được thì nói bằng tiếng của trường, không để lọt một
+          // chữ tiếng Anh nào ra màn hình của cô.
+          hong(err && err.message === 'KHONG_NEN_DUOC'
+            ? new Error('Máy này chưa nén được video. Cô quay đoạn ngắn hơn '
+              + `(dưới ${Math.round(this.TRAN_VIDEO / 1048576)} MB) giúp trường nhé.`)
+            : err);
+        }
+      };
     });
   },
 
@@ -335,15 +554,13 @@ App.views.albums = {
       // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
       // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
       if (/^video\/(mp4|webm)$/.test(f.type)) {
-        if (f.size > this.TRAN_VIDEO) {
-          UI.toast(`"${f.name}" nặng ${Math.round(f.size / 1048576)} MB — cô quay đoạn ngắn hơn `
-            + `(tối đa ${Math.round(this.TRAN_VIDEO / 1048576)} MB) nhé`, 'error');
-          continue;
-        }
         try {
-          this._pending.push({ video: await this.docTep(f), caption: '', name: f.name, laVideo: true });
-        } catch (_) {
-          UI.toast(`Không đọc được video "${f.name}"`, 'error');
+          const video = f.size > this.TRAN_VIDEO
+            ? await this.nenVideoCoCho(f)
+            : await this.docTep(f);
+          if (video) this._pending.push({ video, caption: '', name: f.name, laVideo: true });
+        } catch (err) {
+          UI.toast(err && err.message ? err.message : `Không đọc được video "${f.name}"`, 'error');
         }
         continue;
       }
@@ -452,7 +669,8 @@ App.views.albums = {
       // Nhóm đầu lấy theo đúng luật chia lô ở trên — nếu không thì lượt tạo
       // album có thể ôm ba video cùng lúc và vỡ thân yêu cầu.
       const first = this.chiaLo(photos)[0] || [];
-      const album = await API.post('/api/albums', { title, description, photos: first });
+      const cheDo = (document.getElementById('al-che-do') || {}).value || 'cong-khai';
+      const album = await API.post('/api/albums', { title, description, cheDo, photos: first });
 
       const rest = photos.slice(first.length);
       if (rest.length) {

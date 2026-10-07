@@ -185,6 +185,12 @@ console.log('\n[5] LỐI LEO THANG QUYỀN — mục quan trọng nhất của c
   if (khac) {
     const cuop2 = await req('POST', `/api/accounts/${khac.id}/reset-password`, { cookie: C3 });
     check('CẤP 3 KHÔNG ĐẶT LẠI MẬT KHẨU CỦA MỘT QUẢN TRỊ NÀO KHÁC', cuop2.status === 403, cuop2.status);
+  } else {
+    // KHÔNG DỰNG ĐƯỢC TÌNH HUỐNG THÌ PHẢI ĐỎ, không phải im lặng bỏ qua —
+    // một `if` không có `else` ở đây từng làm phép kiểm này biến mất mà bài
+    // vẫn xanh khi /api/admin/managers đổi hình dạng trả về.
+    check('CẤP 3 KHÔNG ĐẶT LẠI MẬT KHẨU CỦA MỘT QUẢN TRỊ NÀO KHÁC', false,
+      'không dựng được tình huống: /api/admin/managers không trả về quanlycs2');
   }
 
   // Phụ huynh của cơ sở khác cũng không.

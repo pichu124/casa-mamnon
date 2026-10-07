@@ -42,6 +42,64 @@ App.views.thuchup = {
     }));
   },
 
+  // Ô sửa lời ghi chú (Đ166, HT-03).
+  //
+  // `trongMay = true` nghĩa là bài vẫn nằm trong hàng đợi của máy: sửa thẳng
+  // vào kho trong máy, không gọi mạng. `false` là bài đã lên máy chủ.
+  async moSuaChu(id, trongMay) {
+    let cu = '';
+    if (trongMay) {
+      const ds = await this.dangCho();
+      cu = (ds.find(r => r.id === id) || {}).note || '';
+    } else {
+      cu = (((this._ds || {}).ghiNhan) || []).find(g => g.id === id)?.note || '';
+    }
+    // TRẦN CỦA Ô GÕ PHẢI BẰNG `MAX_NOTE` Ở routes.js (500).
+    //
+    // Bản đầu cho gõ 2000 trong khi cả hai đường máy chủ cắt ở 500: cô gõ 900
+    // chữ, bài nằm trong máy giữ đủ 900 nên đọc lại vẫn thấy đủ, rồi lúc có
+    // sóng máy chủ cắt mất 400 chữ — không một lời báo. Đó là quan sát của cô
+    // về một khoảnh khắc không dựng lại được.
+    //
+    // Chú thích ở routes.js tự viết "hai trần khác nhau cho cùng một ô là một
+    // cái bẫy", mà ô nhập thì vẫn đang mời gõ 2000. `test:ghi-nhanh-sua` nay
+    // đối chiếu hai con số ấy.
+    UI.modal(`
+      <div class="field"><label>Lời ghi chú</label>
+        <textarea id="tc-sua-o" rows="4" maxlength="500">${UI.esc(cu)}</textarea></div>
+      <div class="muted small" style="line-height:1.6">
+        Đây là ghi chép riêng của cô. Nếu cô đã kể lại chuyện này cho gia đình ở
+        mục Hành trình thì bản kể bên ấy <b>không đổi theo</b> — hai chỗ là hai
+        bản ghi riêng, sửa bên nào chỉ đổi bên đó.
+      </div>
+      <button class="btn primary block mt-8" id="tc-sua-luu">Lưu lời ghi chú</button>
+    `, 'Sửa lời ghi chú');
+
+    document.getElementById('tc-sua-luu').onclick = async () => {
+      const note = document.getElementById('tc-sua-o').value;
+      try {
+        if (trongMay) {
+          const ds = await this.dangCho();
+          const rec = ds.find(r => r.id === id);
+          if (!rec) throw new Error('Bài ghi này không còn trong máy');
+          // Trường ảnh của bản ghi trong máy tên là `dataUrl` (xem `guiHangDoi`
+          // và chỗ lưu ở dưới). Bản đầu hỏi `rec.anh` — một trường không bao
+          // giờ tồn tại — nên `!rec.anh` LUÔN đúng, và một bài CHỈ CÓ ẢNH thì
+          // không xoá sạch chữ được dù đáng lẽ phải được.
+          if (!String(note).trim() && !rec.dataUrl) {
+            throw new Error('Bài này không có ảnh, nên phải còn lại vài chữ.');
+          }
+          await this.luuVaoMay({ ...rec, note });
+        } else {
+          await API.put(`/api/thuchup/${encodeURIComponent(id)}`, { note });
+        }
+        UI.closeModal();
+        UI.toast('Đã sửa lời ghi chú', 'success');
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
   luuVaoMay(rec) { return this._viec('readwrite', kho => kho.put(rec)); },
   xoaKhoiMay(id) { return this._viec('readwrite', kho => kho.delete(id)); },
   dangCho() { return this._viec('readonly', kho => kho.getAll()); },
@@ -144,6 +202,18 @@ App.views.thuchup = {
     // dừng hồ sơ học tập. Gộp chung thì con số "đang chờ" cứ tăng mãi và cô
     // không có cách nào biết bài nào cần mình xử lý.
     const keta = con.filter(r => r.viNgungHoSo);
+    // BÀI ĐANG CHỜ CŨNG PHẢI LIỆT KÊ RA, ĐỪNG CHỈ ĐẾM.
+    //
+    // Chú thích của Đ166 ở cuối tệp này hứa thẳng rằng đường sửa chữ sinh ra
+    // cho "bài kẹt vì MẤT MẠNG hoặc vì gia đình đã dừng hồ sơ". Vế thứ hai
+    // được nối dây (thẻ `keta` có nút Sửa chữ); vế thứ nhất thì không — thẻ
+    // dưới chỉ in MỘT CON SỐ. Nên đúng cảnh cô cần sửa nhất — ngoài sân, không
+    // sóng, đọc lại thấy gõ nhầm tên bé trong câu — lại là cảnh không có nút
+    // nào; mà lúc ấy `ds.ghiNhan` rỗng nên cũng chẳng có bản máy chủ nào để
+    // sửa thay. Đúng hạng `test:khong-hua-suong`: chú thích hứa, mã không làm.
+    //
+    // Chỉ có "Sửa chữ", KHÔNG có "Bỏ bài này": bài này sắp tự gửi được, bày
+    // nút xoá cạnh nó là mời bấm nhầm mất trắng cả ảnh lẫn phần đã gõ.
     const cho = con.filter(r => !r.viNgungHoSo);
     let kq = { soLan: 0 };
     let ds = { ghiNhan: [], soBe: 0 };
@@ -156,6 +226,9 @@ App.views.thuchup = {
       // Nhớ lại để hàng đợi và ô chọn bé cùng dùng. Giữ bản cũ khi mất mạng:
       // thà dùng danh sách hôm qua còn hơn coi như không bé nào đã dừng.
       if (Array.isArray(ds.beNgungHoSo)) this._ngungHoSo = new Set(ds.beNgungHoSo);
+      // Giữ lại danh sách để ô sửa lời ghi chú (Đ166) đọc được lời đang có mà
+      // không phải hỏi máy chủ thêm một lượt.
+      this._ds = ds;
     } catch (err) { mang = false; }
 
     root.innerHTML = `
@@ -187,6 +260,7 @@ App.views.thuchup = {
                 <div class="row-title">${UI.esc(this.tenBe(r.studentId))}</div>
                 <div class="row-sub">${UI.esc((r.note || '(chỉ có ảnh)').slice(0, 90))}</div>
               </div>
+              <button class="btn sm outline" data-sua-may="${UI.esc(r.id)}">Sửa chữ</button>
               <button class="btn sm outline" data-bo="${UI.esc(r.id)}">Bỏ bài này</button>
             </div>`).join('')}
         </div>` : ''}
@@ -199,6 +273,15 @@ App.views.thuchup = {
               ? 'Đang gửi…'
               : 'Sẽ tự gửi khi có mạng trở lại.'}
           </div>
+          ${cho.slice(0, 20).map(r => `
+            <div class="list-row">
+              <div class="row-main">
+                <div class="row-title">${UI.esc(this.tenBe(r.studentId))}</div>
+                <div class="row-sub">${UI.esc((r.note || '(chỉ có ảnh)').slice(0, 90))}</div>
+              </div>
+              <button class="btn sm outline" data-sua-may="${UI.esc(r.id)}">Sửa chữ</button>
+            </div>`).join('')}
+          ${cho.length > 20 ? `<div class="muted small mt-8">Đang hiện 20 bài đầu trong ${cho.length} bài.</div>` : ''}
           ${this._loiHangDoi ? `
           <!-- NÓI RA VÌ SAO BÀI CÒN NẰM CHỜ.
                Trước đây máy chủ từ chối là bài BIẾN MẤT không một chữ. Nay bài
@@ -237,11 +320,14 @@ App.views.thuchup = {
                 : '<span class="row-icon">📝</span>'}
               <div class="row-main">
                 <div class="row-title">${UI.esc(g.tenBe)}</div>
-                <div class="row-sub">${UI.esc(g.note || '')}</div>
+                <div class="row-sub">${UI.esc(g.note || '')}${
+    g.suaLuc ? ` · <span class="muted">đã sửa ${UI.esc(UI.fmtDateShort(g.suaLuc))}</span>` : ''}</div>
               </div>
               <div class="row-end">
                 ${g.giay != null ? UI.badge(g.giay + 's', g.giay < 20 ? 'green' : 'orange') : ''}
                 ${g.ngoaiTuyen ? UI.badge('ngoại tuyến', 'gray') : ''}
+                ${g.suaDuoc ? `<button class="btn sm outline" data-sua-gn="${UI.esc(g.id)}"
+                  title="Sửa lại lời ghi chú">${UI.icon('edit', 14)}</button>` : ''}
                 <button class="btn sm outline" data-xoa-gn="${UI.esc(g.id)}"
                   title="Ghi nhầm bé — xoá bản này">${UI.icon('x', 14)}</button>
               </div>
@@ -271,6 +357,20 @@ App.views.thuchup = {
         } catch (err) { UI.toast(err.message, 'error'); }
       };
     }
+    // SỬA LỜI GHI CHÚ (Đ166, HT-03) — hai chỗ, hai đường đi khác hẳn nhau.
+    //
+    // Bản ĐÃ LÊN MÁY CHỦ đi qua `PATCH /api/thuchup/:id`. Bản CÒN TRONG MÁY thì
+    // sửa thẳng vào hàng đợi, không gọi mạng: đó đúng là lúc cô cần sửa nhất —
+    // bài kẹt vì mất mạng hoặc vì gia đình đã dừng hồ sơ, cô đọc lại thấy sai
+    // chữ, mà trước đợt này đường duy nhất là "Bỏ bài này", tức mất trắng cả
+    // ảnh lẫn phần đã gõ.
+    for (const nut of root.querySelectorAll('button[data-sua-gn]')) {
+      nut.onclick = () => this.moSuaChu(nut.dataset.suaGn, false);
+    }
+    for (const nut of root.querySelectorAll('button[data-sua-may]')) {
+      nut.onclick = () => this.moSuaChu(nut.dataset.suaMay, true);
+    }
+
     // Nút "Bỏ bài này" — chỉ cô bấm, app không bao giờ tự xoá phần cô đã gõ.
     for (const nut of root.querySelectorAll('button[data-bo]')) {
       nut.onclick = async () => {
@@ -326,20 +426,25 @@ App.views.thuchup = {
     if (!moDuoc.length) {
       return UI.toast('Cả nhóm đều đã dừng phần hồ sơ học tập — cô ghi ở Nhật ký ngày nhé', 'error');
     }
+    // NHIỀU BÉ MỘT LƯỢT (Đ144, nhà trường 07/09: "ghi nhanh có thể tag tên
+    // nhiều trẻ cùng lúc"). `_beChon` là tập các bé đang chọn; `_be` giữ bé
+    // chọn gần nhất để lần sau mở lại vẫn sẵn bé đó như trước.
     this._be = this._be && moDuoc.some(s => s.id === this._be) ? this._be : moDuoc[0].id;
+    this._beChon = new Set([this._be]);
 
     UI.modal(`
       ${dataUrl ? `<img src="${dataUrl}" alt=""
         style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:12px">` : ''}
-      <div class="field"><label>Bé nào?</label>
+      <div class="field"><label>Bé nào? <span class="muted small" style="font-weight:400">— bấm thêm để chọn nhiều bé</span></label>
         <div id="tc-be" style="display:flex;flex-wrap:wrap;gap:8px">
           ${ds.map(s => {
             const ngung = this._ngungHoSo && this._ngungHoSo.has(s.id);
-            return `<button type="button" class="btn sm ${s.id === this._be ? 'primary' : 'outline'}"
+            return `<button type="button" class="btn sm ${this._beChon.has(s.id) ? 'primary' : 'outline'}"
               data-id="${UI.esc(s.id)}"${ngung ? ' disabled style="opacity:.45"' : ''}
               >${UI.esc(s.name)}${ngung ? ' 🔒' : ''}</button>`;
           }).join('')}
         </div>
+        <div class="hint" id="tc-be-dem">Đang chọn 1 bé.</div>
         ${ds.some(s => this._ngungHoSo && this._ngungHoSo.has(s.id)) ? `
           <div class="hint">Bé có dấu 🔒 là gia đình đã dừng phần hồ sơ học tập.
           Cô vẫn ghi nhật ký ngày và vẫn nhắn tin với gia đình như thường.</div>` : ''}
@@ -354,10 +459,18 @@ App.views.thuchup = {
     hop.onclick = (e) => {
       const b = e.target.closest('button[data-id]');
       if (!b) return;
-      this._be = b.dataset.id;
+      const id = b.dataset.id;
+      // Bấm lại bé đang chọn là bỏ chọn — nhưng không bao giờ về rỗng.
+      if (this._beChon.has(id) && this._beChon.size > 1) this._beChon.delete(id);
+      else this._beChon.add(id);
+      this._be = id;
       [...hop.querySelectorAll('button')].forEach(x => {
-        x.className = 'btn sm ' + (x.dataset.id === this._be ? 'primary' : 'outline');
+        x.className = 'btn sm ' + (this._beChon.has(x.dataset.id) ? 'primary' : 'outline');
       });
+      const dem = document.getElementById('tc-be-dem');
+      if (dem) dem.textContent = this._beChon.size === 1
+        ? 'Đang chọn 1 bé.'
+        : `Đang chọn ${this._beChon.size} bé — mỗi bé một bản ghi riêng, cùng ảnh và cùng ghi chú.`;
     };
     setTimeout(() => document.getElementById('tc-note').focus(), 50);
     document.getElementById('tc-luu').onclick = () => this.luu(dataUrl);
@@ -370,27 +483,35 @@ App.views.thuchup = {
     }
     const giay = (Date.now() - this._moLuc) / 1000;
 
-    const rec = {
+    // MỖI BÉ MỘT BẢN GHI, MỖI BẢN GHI MỘT MÃ. Máy chủ giữ nguyên hình dạng "một
+    // bản ghi = một bé" (lớp 1 của hồ sơ học tập là của TỪNG bé — xoá, kéo sang
+    // Hành trình, hay gia đình rút đồng ý đều theo từng bé). Chọn ba bé là ba
+    // lượt gửi, cùng ảnh, cùng ghi chú, cùng số giây đo được.
+    const cacBe = [...(this._beChon && this._beChon.size ? this._beChon : [this._be])];
+    const recs = cacBe.map(studentId => ({
       id: this.maMoi(),
-      studentId: this._be,
+      studentId,
       dataUrl,
       note,
       giay: Math.round(giay * 10) / 10,
       ngoaiTuyen: !navigator.onLine,
       taoLuc: new Date().toISOString(),
       luuLuc: Date.now(),
-    };
+    }));
+    const rec = recs[0];
 
     // Lưu vào máy TRƯỚC. Từ giây này bài ghi của cô không mất nữa, dù mạng thế
     // nào. Việc gửi lên máy chủ là chuyện xảy ra sau và có thể thất bại.
     try {
-      await this.luuVaoMay(rec);
+      for (const r of recs) await this.luuVaoMay(r);
     } catch (err) {
       return UI.toast('Máy không lưu được, cô thử lại giúp', 'error');
     }
 
     UI.closeModal();
-    UI.toast(`Đã lưu trong ${rec.giay} giây`, 'success');
+    UI.toast(recs.length > 1
+      ? `Đã lưu cho ${recs.length} bé trong ${rec.giay} giây`
+      : `Đã lưu trong ${rec.giay} giây`, 'success');
     App.route();
     this.guiHangDoi().then(({ gui }) => { if (gui) App.route(); });
   },
