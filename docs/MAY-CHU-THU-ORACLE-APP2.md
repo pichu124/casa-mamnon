@@ -23,8 +23,10 @@ Ba điều trước khi bắt đầu:
   cắt cụt, các lệnh mở cổng không chạy, mãi tới lúc xin chứng chỉ mới lần ra.
 - Nếu máy Oracle đã bị xoá (mục "Xoá máy khi xong" của tài liệu cũ), dựng lại
   theo giai đoạn 1 đến 5 của `docs/MAY-CHU-THU-ORACLE.md` rồi quay lại đây.
-- Lệnh lấy mã bên dưới lấy **nhánh làm việc** `claude/code-review-optimization-at4jzk`,
-  vì đợt rà soát 09/2026 chưa gộp vào `main`. Khi đã gộp, bỏ `-b <nhánh>` đi.
+- Lệnh lấy mã bên dưới lấy **`main`**. Từ 07/10/2026 (pull request #2) việc làm
+  xong được đưa vào `main` bằng pull request; nhánh làm việc là chỗ đang làm dở,
+  không phải chỗ để cài. Máy đã cài TRƯỚC 07/10 thì đang đứng ở nhánh làm việc —
+  chuyển sang `main` một lần theo Bước 10.
 
 ---
 
@@ -172,7 +174,7 @@ Thiếu cái nào thì cài theo giai đoạn 6 và 8 của `docs/MAY-CHU-THU-OR
 ### Bước 4. Lấy mã về, thư mục riêng
 
 ```bash
-sudo git clone -b claude/code-review-optimization-at4jzk https://github.com/pichu124/casa-mamnon.git /opt/casa-mamnon
+sudo git clone https://github.com/pichu124/casa-mamnon.git /opt/casa-mamnon
 sudo chown -R ubuntu:ubuntu /opt/casa-mamnon
 cd /opt/casa-mamnon
 npm ci --omit=dev
@@ -315,8 +317,10 @@ Ba điều trước khi bắt đầu:
   cắt cụt, các lệnh mở cổng không chạy, mãi tới lúc xin chứng chỉ mới lần ra.
 - Nếu máy Oracle đã bị xoá (mục "Xoá máy khi xong" của tài liệu cũ), dựng lại
   theo giai đoạn 1 đến 5 của `docs/MAY-CHU-THU-ORACLE.md` rồi quay lại đây.
-- Lệnh lấy mã bên dưới lấy **nhánh làm việc** `claude/code-review-optimization-at4jzk`,
-  vì đợt rà soát 09/2026 chưa gộp vào `main`. Khi đã gộp, bỏ `-b <nhánh>` đi.
+- Lệnh lấy mã bên dưới lấy **`main`**. Từ 07/10/2026 (pull request #2) việc làm
+  xong được đưa vào `main` bằng pull request; nhánh làm việc là chỗ đang làm dở,
+  không phải chỗ để cài. Máy đã cài TRƯỚC 07/10 thì đang đứng ở nhánh làm việc —
+  chuyển sang `main` một lần theo Bước 10.
 
 ---
 
@@ -464,7 +468,7 @@ Thiếu cái nào thì cài theo giai đoạn 6 và 8 của `docs/MAY-CHU-THU-OR
 ### Bước 4. Lấy mã về, thư mục riêng
 
 ```bash
-sudo git clone -b claude/code-review-optimization-at4jzk https://github.com/pichu124/casa-mamnon.git /opt/casa-mamnon
+sudo git clone https://github.com/pichu124/casa-mamnon.git /opt/casa-mamnon
 sudo chown -R ubuntu:ubuntu /opt/casa-mamnon
 cd /opt/casa-mamnon
 npm ci --omit=dev
@@ -573,7 +577,7 @@ chụp mặt bé.**
 ```bash
 cd /opt/casa-mamnon
 DATA_DIR=/var/lib/casa-mamnon npm run backup
-git pull origin claude/code-review-optimization-at4jzk
+git pull origin main
 npm ci --omit=dev
 sudo systemctl restart casa-mamnon
 curl -I https://casa-school.duckdns.org/healthz
@@ -606,12 +610,26 @@ hằng đêm bằng cron là đủ:
 crontab -l
 ```
 
-### Bước 10. Cập nhật khi nhánh có bản mới
+### Bước 10. Cập nhật khi `main` có bản mới
+
+**Máy cài trước 07/10/2026 — làm MỘT lần trước khi cập nhật.** Những máy ấy
+clone nhánh làm việc (`claude/code-review-optimization-at4jzk`). Xem máy đang ở
+nhánh nào bằng `git -C /opt/casa-mamnon branch --show-current`; chưa phải `main`
+thì chuyển một lần (dữ liệu nằm ở `/var/lib/casa-mamnon`, ngoài thư mục mã, nên không bị
+đụng; lúc gộp 07/10 mã hai nhánh trùng nhau). Nhớ chạy `npm run backup` trước như mọi lần:
+
+```bash
+cd /opt/casa-mamnon
+git fetch origin main
+git checkout -B main origin/main
+```
+
+Từ đó về sau chỉ cần khối lệnh dưới đây.
 
 ```bash
 cd /opt/casa-mamnon
 DATA_DIR=/var/lib/casa-mamnon npm run backup
-git pull origin claude/code-review-optimization-at4jzk
+git pull origin main
 npm ci --omit=dev
 sudo systemctl restart casa-mamnon
 curl -I https://casa-school.duckdns.org/healthz

@@ -972,7 +972,7 @@ hỏi đúng luôn là *"bé này ăn bếp nào"*.
 
 | Việc | Tình trạng |
 |---|---|
-| **Gộp nhánh vào `main`** | **ĐÃ XONG 31/08/2026** — nhà trường cho phép, và vì `main` là tổ tiên trực tiếp nên gộp kiểu tua nhanh: không xung đột, không viết lại lịch sử, không mất commit nào. `docs/TRIEN-KHAI.md` đã bỏ lời dặn `git clone -b ...`; nay clone thẳng `main` là ra bản đầy đủ. |
+| **Gộp nhánh vào `main`** | **ĐÃ XONG 31/08/2026** — nhà trường cho phép, và vì `main` là tổ tiên trực tiếp nên gộp kiểu tua nhanh: không xung đột, không viết lại lịch sử, không mất commit nào. `docs/TRIEN-KHAI.md` đã bỏ lời dặn `git clone -b ...`; nay clone thẳng `main` là ra bản đầy đủ. **Cập nhật:** câu "clone thẳng main là đủ" sai lại khi nhánh làm việc dài thêm (16/09 lùi 168 commit). Gộp lần hai **07/10/2026** (pull request #2, Đ117 → Đ232b, kiểu merge commit giữ nguyên 189 commit); từ đó tài liệu ghi LUẬT "máy chủ chỉ cài `main`, việc mới vào `main` qua pull request" thay vì một lời khẳng định về `main`. |
 | **GitHub Actions không chạy từ 28/08** | Bộ canh trên GitHub là lớp duy nhất **không bỏ qua được bằng `--no-verify`**. Nó im từ 28/08 nghĩa là mấy đợt gần đây chỉ được canh bằng máy tôi. |
 | **Trường có dùng "Dân tộc / Nhóm máu" không** | Xem mục 14. |
 

@@ -292,27 +292,28 @@ timedatectl                      # phải thấy "Asia/Ho_Chi_Minh (+07)"
 sudo mkdir -p /var/lib/casa-mamnon
 sudo chown -R $USER:$USER /var/lib/casa-mamnon
 
-# 2. Lấy mã về — HỎI TRƯỚC, ĐỪNG TIN DÒNG CHỮ NÀY
+# 2. Lấy mã về — LUÔN từ `main`, rồi KIỂM SỐ ĐỢT
 #
-#    LỜI DẶN CỐ ĐỊNH Ở ĐÂY ĐÃ SAI HAI LẦN, nên lần này không viết lời dặn nữa
-#    mà viết CÁCH TỰ KIỂM. Bản 28/08 dặn lấy nhánh làm việc vì `main` lùi hơn
-#    trăm commit; bản 31/08 sửa thành "main nay đã đầy đủ, clone thẳng" — đúng
-#    hôm ấy, và sai lại ngay khi nhánh làm việc dài thêm (16/09 đã lùi 168
-#    commit, thiếu cả `lib/vietqr.js`). Đây là kiểu sai đúng-lúc-viết, và cách
-#    duy nhất không dính lại là đo chứ không nhớ.
+#    LUẬT TỪ 07/10/2026: máy chủ chỉ lấy `main`. Việc làm xong được đưa vào
+#    `main` bằng pull request (lần gần nhất: #2, gộp 07/10/2026, Đ117 → Đ232b).
+#    Nhánh làm việc là chỗ đang làm dở — không phải chỗ để cài.
 #
-#    Chạy hai lệnh này TRƯỚC KHI clone, trên máy nào cũng được:
+#    Vì sao ghi LUẬT chứ không ghi "main nay đã đầy đủ": lời dặn cố định ở
+#    đây đã sai hai lần. Bản 28/08 dặn lấy nhánh làm việc vì `main` lùi hơn
+#    trăm commit; bản 31/08 sửa thành "main đã đầy đủ, clone thẳng" — đúng hôm
+#    ấy, và sai lại ngay khi nhánh làm việc dài thêm (16/09 lùi 168 commit,
+#    thiếu cả `lib/vietqr.js`). Một câu khẳng định về `main` sẽ cũ đi; một luật
+#    "chỉ cài `main`, việc mới vào `main` qua pull request" thì không.
 #
-#      git ls-remote <kho-mã> 'refs/heads/*'        # xem có những nhánh nào
-#      git clone <kho-mã> /tmp/soi && cd /tmp/soi \
-#        && git log --oneline -1 origin/main        # main đang ở commit nào
+#    Nên vẫn ĐO, không tin dòng chữ này — chạy TRƯỚC KHI clone, máy nào cũng được:
 #
-#    Rồi đối chiếu với `docs/TIEN-DO.md` — dòng cuối của tệp đó là đợt mới
-#    nhất. Số đợt trên `main` mà thấp hơn dòng cuối TIEN-DO thì `main` CHƯA
-#    phải bản đầy đủ, và phải clone nhánh làm việc bằng `-b <tên-nhánh>`.
+#      git clone <kho-mã> /tmp/soi && tail -1 /tmp/soi/docs/TIEN-DO.md | cut -c1-60
 #
-git clone <đường-dẫn-kho-mã> /opt/casa-mamnon          # nếu main đã đầy đủ
-# git clone -b <tên-nhánh-làm-việc> <kho-mã> /opt/casa-mamnon   # nếu chưa
+#    Số đợt in ra thấp hơn đợt anh đang chờ thì việc mới CHƯA vào `main`: nhờ
+#    người phụ trách kho mã gộp pull request trước. ĐỪNG cài nhánh làm việc lên
+#    máy chủ thật để "lấy cho nhanh" — đó là bản chưa ai duyệt.
+#
+git clone <đường-dẫn-kho-mã> /opt/casa-mamnon
 cd /opt/casa-mamnon
 npm ci --omit=dev
 

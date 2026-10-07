@@ -114,7 +114,7 @@ function doTuKhoMa() {
 }
 
 async function main() {
-  const { node: NODE_YC, cong: CONG, nhanh: NHANH, dotMoiNhat: DOT } = doTuKhoMa();
+  const { node: NODE_YC, cong: CONG, dotMoiNhat: DOT } = doTuKhoMa();
   const phienBan = (() => {
     try { return execSync('git rev-parse --short HEAD', { cwd: GOC }).toString().trim(); }
     catch { return 'không rõ'; }
@@ -282,13 +282,15 @@ async function main() {
 
     // ======================= BƯỚC 4 =======================
     h1('Bước 4 — Lấy mã về'),
-    p({ text: 'ĐỪNG clone nhánh mặc định mà không kiểm trước. ', bold: true },
-      'Lời dặn cố định ở chỗ này đã sai hai lần trong lịch sử dự án: bản 28/08 dặn lấy nhánh làm việc, '
-      + 'bản 31/08 sửa thành "main nay đã đầy đủ" — đúng hôm ấy và sai lại ngay khi nhánh làm việc dài thêm. '
-      + 'Nên ở đây không viết lời dặn, mà viết cách đo.'),
-    p('Xem kho có những nhánh nào, và main đang ở đâu:'),
+    p({ text: 'Máy chủ chỉ cài nhánh main. ', bold: true },
+      'Từ 07/10/2026 việc làm xong được đưa vào main bằng pull request (lần gần nhất: #2, Đ117 → Đ232b); '
+      + 'nhánh làm việc là chỗ đang làm dở, không phải chỗ để cài. Đây là một LUẬT, không phải lời khẳng định '
+      + '"main đã đầy đủ" — lời khẳng định ấy từng sai hai lần khi nhánh làm việc dài thêm. Nên vẫn đo trước khi cài.'),
+    p('Xem main đang ở đợt nào (máy nào cũng được):'),
     ...lenh(
-      "git ls-remote <đường-dẫn-kho-mã> 'refs/heads/*'",
+      'git clone <đường-dẫn-kho-mã> /tmp/soi && tail -1 /tmp/soi/docs/TIEN-DO.md | cut -c1-60',
+      '# Thấp hơn đợt anh đang chờ thì việc mới CHƯA vào main: nhờ người phụ trách kho mã',
+      '# gộp pull request trước. ĐỪNG cài nhánh làm việc lên máy chủ thật.',
       '',
       '# /opt thuộc về root, nên dọn chỗ và trao quyền TRƯỚC khi clone.',
       '# Thiếu hai dòng này thì git báo "Permission denied" hoặc',
@@ -296,10 +298,10 @@ async function main() {
       'sudo mkdir -p /opt/casa-mamnon',
       'sudo chown "$USER":"$USER" /opt/casa-mamnon',
       '',
-      '# Lấy mã về — thay <nhánh> bằng nhánh đang dùng thật',
+      '# Lấy mã về từ main (nhánh mặc định).',
       '# Dấu chấm cuối là "clone vào đúng thư mục đang đứng", vì thư mục đã có sẵn.',
       'cd /opt/casa-mamnon',
-      'git clone -b <nhánh> <đường-dẫn-kho-mã> .',
+      'git clone <đường-dẫn-kho-mã> .',
       'npm ci --omit=dev'),
     viSao('Clone vào /opt chứ không vào thư mục nhà (/home/ubuntu) là để app không biến mất '
       + 'nếu về sau ai đó xoá tài khoản người dùng ấy. Nhưng /opt thuộc root, nên phải trao quyền '
@@ -309,8 +311,8 @@ async function main() {
     ...lenh(
       'tail -1 docs/TIEN-DO.md | cut -c1-60',
       `# Phải thấy số đợt khớp với bản anh đang chờ. Bản sinh tài liệu này là đợt ${DOT}.`),
-    chuY(`Tại thời điểm sinh tài liệu này, nhánh đang làm việc là "${NHANH}" và đợt mới nhất là ${DOT}. `
-      + 'Hai giá trị đó ĐỔI THEO THỜI GIAN — luôn chạy hai lệnh kiểm ở trên thay vì tin con số in ở đây.'),
+    chuY(`Tài liệu này sinh từ mã ở đợt ${DOT}. Số đợt ĐỔI THEO THỜI GIAN — luôn chạy lệnh kiểm `
+      + 'ở trên thay vì tin con số in ở đây.'),
     h2('Bảng kiểm bước 4'),
     oKiem('npm ci chạy xong không lỗi'),
     oKiem('tail -1 docs/TIEN-DO.md in ra đúng đợt đang chờ'),
@@ -558,8 +560,10 @@ async function main() {
       '',
       '# 5. Soát lại',
       'DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu'),
-    chuY('git pull kéo từ đúng nhánh đã clone ở bước 4. Nếu về sau dự án gộp nhánh làm việc vào main '
-      + 'thì phải đổi nhánh trên máy chủ, nếu không nó vẫn theo nhánh cũ mãi.'),
+    chuY('git pull kéo từ đúng nhánh đã clone ở bước 4 — với máy cài theo bản này là main. Máy nào cài TRƯỚC '
+      + '07/10/2026 theo nhánh làm việc thì chuyển sang main MỘT lần (dữ liệu nằm ngoài thư mục mã nên '
+      + 'không bị đụng; lúc gộp 07/10 mã hai nhánh trùng nhau): git fetch origin main && git checkout -B main origin/main. Kiểm nhánh đang đứng bằng '
+      + 'git branch --show-current.'),
     trang(),
 
     // ======================= HỎNG THÌ LÀM GÌ =======================
