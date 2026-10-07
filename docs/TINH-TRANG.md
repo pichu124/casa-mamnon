@@ -21,7 +21,7 @@ làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lạ
 | Đã đẩy lên GitHub | **rồi**, `HEAD` trùng `origin` |
 | Cây làm việc | sạch, không còn gì chưa commit |
 | `npm test` | **127 bộ, 6974 phép kiểm, 0 đỏ** (đo 07/10, Đ232) |
-| `npm run test:giao-dien` | **18 bộ, 954 phép kiểm, 0 đỏ** (đo 07/10, Đ232) |
+| `npm run test:giao-dien` | **19 bộ, 990 phép kiểm, 0 đỏ** (đo 07/10, Đ232b) |
 | CI trên GitHub (`Kiểm tra`) | xanh cho mọi lần đẩy Đ224–Đ231 (đo 07/10) |
 
 ### `main` KHÔNG phải bản đầy đủ
@@ -55,7 +55,8 @@ bỏ ô "Dán bảng từ Excel" ở Thực đơn, chữ M/S/W/N/NA trong Báo c
 
 **Vòng rà đối kháng đã chạy (Đ232, chủ dự án duyệt 07/10):** 38 phát hiện, 28 sống
 sót vòng phản bác (27 lỗi riêng, 7 mức cao) — đã vá cả 27, có bài canh riêng
-(`test:ra-soat-0710`, `test:ra-soat-0710-gd`). Chi tiết ở dòng Đ232 của `TIEN-DO.md`.
+(`test:ra-soat-0710`, `test:ra-soat-0710-gd`, và bài bổ sung `test:ra-soat-0710-bs` ở Đ232b).
+Chi tiết ở dòng Đ232 và Đ232b của `TIEN-DO.md`.
 
 ### Đợt 16–30/09
 
