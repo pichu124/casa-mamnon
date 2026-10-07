@@ -108,10 +108,10 @@ try {
     const r = await req('POST', '/api/menu/tep', { cookie: CS2, body: {
       tuNgay: THU_HAI, ten: 'Thuc don.xlsx', dataUrl: XLSX } });
     check('tệp Excel bị từ chối', r.status === 400, r.status);
-    // Từ Đ226 Excel có thêm đường tốt hơn: tải tệp mẫu rồi nạp lại. Câu từ
-    // chối chỉ sang đường ấy trước, ô dán bảng vẫn được nhắc.
-    check('và câu từ chối chỉ sang nút "Nạp tệp Excel đã điền" (và ô dán bảng)',
-      /Nạp tệp Excel đã điền/.test(r.data?.error || '') && /Dán bảng từ Excel/.test(r.data?.error || ''), r.data?.error);
+    // Từ Đ226 Excel có thêm đường tốt hơn: tải tệp mẫu rồi nạp lại. Ô dán
+    // bảng đã gỡ ở Đ231 (chủ dự án chốt 07/10) nên câu từ chối không nhắc nó nữa.
+    check('và câu từ chối chỉ sang nút "Nạp tệp Excel đã điền", không nhắc ô dán đã gỡ',
+      /Nạp tệp Excel đã điền/.test(r.data?.error || '') && !/Dán bảng/.test(r.data?.error || ''), r.data?.error);
     check('nói rõ vì sao đường kia tốt hơn: gia đình đọc được theo từng ngày',
       /từng ngày/.test(r.data?.error || ''), r.data?.error);
 

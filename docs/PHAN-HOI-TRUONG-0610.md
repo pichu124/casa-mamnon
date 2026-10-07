@@ -35,9 +35,9 @@ Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối t�
 
 ## Việc còn để chủ dự án quyết (phát sinh khi làm)
 
-- **Giữ ảnh bao lâu.** Ảnh chấm công của cô (Đ227) là loại ảnh khuôn mặt người lớn mới
-  có; ảnh điểm danh của bé cũng chưa có lịch dọn (cùng việc N25/A28 ở `VIEC-CON-LAI.md`).
-  Đề xuất: ảnh chấm công giữ 90 ngày, giờ vào/ra giữ mãi.
+- ~~**Giữ ảnh chấm công bao lâu.**~~ **Chốt 07/10, đã làm Đ231:** ảnh chấm công của cô và
+  nhân viên giữ 90 ngày rồi tự bỏ (cả tệp ảnh); GIỜ VÀO / RA giữ mãi. **Còn mở:** ảnh điểm
+  danh của BÉ vẫn chưa có lịch dọn (cùng việc N25/A28 ở `VIEC-CON-LAI.md`).
 - **Phân hệ Đón trả bé** nay TẮT SẴN (Đ227). Máy nào đã từng bật tay thì vẫn bật —
   nhà trường tắt ở Quản trị → Tính năng. Dữ liệu cũ giữ nguyên.
 - **Khai vai cô cho từng nhóm** (Quản trị → Nhóm lớp: cô phụ trách nhóm / cô nước ngoài /
@@ -46,13 +46,19 @@ Chủ dự án đã chốt 06/10 bốn điểm vướng quy tắc (xem cuối t�
 - **Gắn lứa cho bài trong kho** (Kế hoạch của bé → Kho bài học). Hôm nay mọi bài là "mọi
   lứa" nên cô thấy đủ cả kho; trường gắn lứa tới đâu thì danh sách của từng bé gọn tới đó.
   Bé dưới 4 tuổi (kể cả nhà trẻ) dùng kho 3–4 — trường muốn kho riêng cho dưới 3 tuổi thì báo.
-- **Nháp chưa gắn bé có ảnh (Đ230)** nằm trong máy chủ tới khi cô gắn bé hoặc bỏ (tối đa
-  200 nháp mỗi cô). Đề xuất: nháp quá 30 ngày chưa gắn thì tự bỏ, kể cả ảnh — chờ trường đồng ý.
+- ~~**Nháp chưa gắn bé có ảnh (Đ230).**~~ **Chốt 07/10, đã làm Đ231:** nháp quá 30 ngày chưa
+  gắn bé thì tự bỏ, kể cả ảnh. Phân hệ Hành trình đang tắt thì không dọn gì; ảnh mà một quan
+  sát của bé đang dùng không bao giờ bị xóa theo nháp.
 - **Nói thành chữ (Đ230).** Đang dùng nhận dạng có sẵn trong trình duyệt của điện thoại
   (Chrome Android → Google, Safari iPhone → Apple), tiếng Việt, miễn phí, không cài thêm gì.
   Âm thanh đi qua dịch vụ của Google / Apple — app đã ghi rõ dưới nút và dặn cô gọi bé bằng
   tên ở lớp. Muốn âm thanh KHÔNG rời khỏi hệ thống của trường thì phải dựng nhận dạng phía máy
   chủ (FPT.AI / Viettel AI / Google Cloud / Whisper tự chạy): tốn tiền hoặc máy mạnh, và cần
   hợp đồng xử lý dữ liệu theo Nghị định 13 — chưa làm, chờ trường quyết sau khi các cô dùng thử.
-- **Ô "Dán bảng từ Excel"** (Đ132) vẫn còn bên cạnh tệp Excel mẫu (Đ226). Bỏ hẳn hay giữ
-  làm đường phụ — nhà trường quyết sau khi dùng thử tệp mẫu.
+- ~~**Ô "Dán bảng từ Excel"** (Đ132).~~ **Chốt 07/10, đã làm Đ231:** bỏ ô dán, Thực đơn chỉ
+  còn đường tải tệp Excel mẫu → điền → nạp lên (Đ226). Thực đơn đã nhập bằng ô dán trước đây
+  giữ nguyên.
+- ~~**Chữ M/S/W/N/NA trong Báo cáo tháng.**~~ **Chốt 07/10, đã làm Đ231:** phần Báo cáo tháng
+  tự điền từ Kế hoạch của bé nay mang chữ của từng bài (vd "Tháp hồng (học mới · S)") kèm MỘT
+  dòng chú giải đúng các chữ đã dùng ở ô đó. Cô vẫn sửa được trước khi gửi; gia đình chỉ thấy
+  khi bản báo cáo được duyệt và gửi như trước.

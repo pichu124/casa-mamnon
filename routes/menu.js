@@ -213,7 +213,8 @@ function thucDonCua(campusId, from, to) {
 //
 // MẪU THEO THÁNG: mỗi hàng một ngày học (thứ Hai – thứ Sáu), mỗi cột một bữa;
 // ô nhiều món thì xuống dòng (Alt+Enter) hoặc cách nhau bằng dấu chấm phẩy —
-// đúng luật tách món của ô "Dán bảng" (Đ132), để hai đường không hiểu khác nhau.
+// đúng luật tách món của ô "Dán bảng" cũ (Đ132, đã gỡ ở Đ231) — món đã soạn theo
+// luật ấy đọc lại vẫn y nguyên.
 // Ngày đã có thực đơn thì mẫu điền sẵn món, sửa trên đó là xong.
 //
 // NẠP LÊN LÀ HAI BƯỚC: xem trước (không ghi gì) rồi mới lưu. Ngày có món trong
@@ -683,10 +684,10 @@ module.exports = (app) => {
       } catch (err) {
         return res.status(400).json({
           // Từ Đ226 (góp ý 06/10, mục 3) Excel có đường riêng: tải tệp mẫu rồi
-          // nạp lại — chỉ sang đó trước, ô dán bảng sau.
+          // nạp lại. Ô dán bảng đã gỡ ở Đ231 (chủ dự án chốt 07/10).
           error: 'Tệp này app chưa nhận được. Nhận ảnh chụp, PDF hoặc Word; '
-            + 'còn tệp Excel thì dùng nút "Nạp tệp Excel đã điền" (tải tệp mẫu ở cùng chỗ), '
-            + 'hoặc ô "Dán bảng từ Excel" — app đọc từng món để gia đình xem thực đơn theo từng ngày.',
+            + 'còn tệp Excel thì dùng nút "Nạp tệp Excel đã điền" (tải tệp mẫu ở cùng chỗ) — '
+            + 'app đọc từng món để gia đình xem thực đơn theo từng ngày.',
         });
       }
     }

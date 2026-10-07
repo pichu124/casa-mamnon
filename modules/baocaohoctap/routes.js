@@ -765,6 +765,25 @@ module.exports = (app, { db, modules }) => {
       `SELECT mb.*, b.ten AS ten, b.gocLinhVuc AS gocLinhVuc
          FROM kehoachbe_muc_bai mb LEFT JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
         WHERE mb.keId = ? ORDER BY mb.rowid`, [ke.id]).filter(m => m.ten);
+    // CHỮ QUY ƯỚC CỦA TỪNG BÀI (chủ dự án chốt 07/10: dùng cả trong Báo cáo
+    // tháng). Cô nhìn lại từng bài bằng M/S/W/N/NA ở Kế hoạch của bé (Đ230);
+    // đọc bảng phụ ấy, không có thì như cũ. Chữ lấy từ `MUC` của chính tệp này
+    // — một bộ chữ cho cả phân hệ.
+    const mucDoBai = new Map();
+    const tiepTucBai = new Map();
+    try {
+      for (const r of db.all('kehoachbe_bai_muc_do',
+        `SELECT d.mucBaiId, d.mucDo, d.tiepTuc FROM kehoachbe_bai_muc_do d
+           JOIN kehoachbe_muc_bai mb ON mb.id = d.mucBaiId WHERE mb.keId = ?`, [ke.id])) {
+        if (MA_MUC.includes(r.mucDo)) mucDoBai.set(r.mucBaiId, r.mucDo);
+        if (r.tiepTuc) tiepTucBai.set(r.mucBaiId, r.tiepTuc);
+      }
+    } catch (_) { /* phân hệ Kế hoạch đời cũ chưa có bảng mức độ */ }
+    const chuCuaBai = (m) => {
+      const t = MUC.find(x => x[0] === mucDoBai.get(m.id));
+      return t ? t[2] : '';
+    };
+    const TIEP = { 'hoc-moi': 'tháng sau dạy mới', 'on-tap': 'tháng sau ôn tập' };
     const muc = db.all('kehoachbe_muc', 'SELECT * FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
     if (!bai.length && !muc.length) return [];
 
@@ -779,11 +798,24 @@ module.exports = (app, { db, modules }) => {
         const bg = bai.filter(m => m.gocLinhVuc === d.gocLinhVuc);
         const mg = muc.filter(m => m.gocLinhVuc === d.gocLinhVuc);
         const dong = [];
-        if (bg.length) dong.push(`Bài học tháng này: ${bg.map(m => `${m.ten} (${NHAN[m.nhan] || m.nhan})`).join(', ')}`);
+        // Chữ quy ước đứng ở dòng "Bài học tháng này" — dòng DUY NHẤT có đủ mọi
+        // bài. Bài mức W/N/NA không rơi vào "Đã thấy" hay "Tiếp tục", để chữ ở
+        // hai dòng ấy thì chính những bài cần nói rõ nhất lại mất chữ.
+        if (bg.length) {
+          dong.push(`Bài học tháng này: ${bg.map(m => `${m.ten} (${[NHAN[m.nhan] || m.nhan, chuCuaBai(m)].filter(Boolean).join(' · ')})`).join(', ')}`);
+        }
         const daThay = bg.filter(m => m.ketQua === 'da-thay');
         const tiepTuc = bg.filter(m => m.ketQua === 'tiep-tuc');
         if (daThay.length) dong.push(`Đã thấy con làm được: ${daThay.map(m => m.ten).join(', ')}`);
-        if (tiepTuc.length) dong.push(`Tiếp tục cùng con: ${tiepTuc.map(m => m.ten).join(', ')}`);
+        if (tiepTuc.length) {
+          dong.push(`Tiếp tục cùng con: ${tiepTuc.map(m => (TIEP[tiepTucBai.get(m.id)] ? `${m.ten} (${TIEP[tiepTucBai.get(m.id)]})` : m.ten)).join(', ')}`);
+        }
+        // Có chữ quy ước thì kèm MỘT dòng chú giải các chữ đã dùng ở ô này —
+        // gia đình không phải đoán "S" là gì.
+        const chuDung = [...new Set(bg.map(chuCuaBai).filter(Boolean))];
+        if (chuDung.length) {
+          dong.push(`Chữ quy ước: ${MUC.filter(x => chuDung.includes(x[2])).reverse().map(x => `${x[2]} = ${x[1].toLowerCase()}`).join(', ')}.`);
+        }
         for (const m of bg) if (String(m.nhanXet || '').trim()) dong.push(`${m.ten}: ${m.nhanXet.trim()}`);
         for (const m of mg) {
           const nd = String(m.noiDung || '').trim();

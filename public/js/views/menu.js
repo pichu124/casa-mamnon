@@ -224,8 +224,8 @@ App.views.menu = {
   // đó mình sẽ up lên và bạn sẽ tự điền vào từng ngày"*. Tải mẫu của MỘT
   // tháng (ngày học điền sẵn, món đã có điền sẵn) → điền → nạp lên → xem trước
   // từng ngày → Lưu. Ngày để trống trong tệp không bị đụng tới.
-  // Ô "Dán bảng" của Đ132 vẫn còn trong màn soạn cả tuần — bỏ một đường đang
-  // chạy là việc của nhà trường quyết, không phải của đợt này.
+  // Ô "Dán bảng" của Đ132 đã gỡ ở Đ231 (chủ dự án chốt 07/10): tệp mẫu là
+  // đường duy nhất để đổ thực đơn từ Excel.
   veExcel(tuNgay) {
     const o = document.getElementById('menu-excel');
     if (!o) return;
@@ -530,18 +530,6 @@ App.views.menu = {
           Ngày nào để trống thì bỏ qua, không tạo ra một ngày trắng trên màn hình của gia đình.
         </div>
       </div>
-      <details class="card" id="td-dan" style="padding:0">
-        <summary style="cursor:pointer;padding:12px 14px;font-weight:700">${UI.icon('plus', 15)} Dán từ bảng Excel / Word</summary>
-        <div style="padding:0 14px 14px">
-          <div class="muted small" style="line-height:1.6;margin-bottom:8px">
-            Chép bảng thực đơn của trường (mỗi hàng một bữa: Bữa sáng, Bữa phụ sáng, Bữa trưa, Bữa phụ chiều,
-            Sữa Vinamilk; mỗi cột một thứ từ Thứ Hai tới Thứ Sáu) rồi dán vào ô này. Ô có nhiều món thì
-            xuống dòng hoặc cách nhau bằng dấu chấm phẩy. Bảng xếp ngược (mỗi hàng một thứ) cũng nhận.
-          </div>
-          <textarea id="td-dan-o" rows="6" placeholder="Bữa sáng	Cháo thịt	Phở gà	…"></textarea>
-          <button class="btn outline block mt-8" id="td-dan-do">${UI.icon('check', 16)} Đổ vào các ngày còn trống</button>
-        </div>
-      </details>
       <div class="luoi-tuan dang-soan">
         ${this._tuan.map((ng, i) => this.theSoanNgay(ng, i)).join('')}
       </div>
@@ -552,7 +540,6 @@ App.views.menu = {
 
     document.getElementById('td-huy').onclick = () => { if (this.boSoanNeuDongY()) this.load(); };
     document.getElementById('td-luu-tuan').onclick = () => this.luuCaTuan();
-    document.getElementById('td-dan-do').onclick = () => this.doTuBang();
     for (const b of zone.querySelectorAll('[data-chep-tu]')) {
       b.onclick = () => this.chepNgayTruoc(Number(b.dataset.chepTu));
     }
@@ -605,92 +592,10 @@ App.views.menu = {
     });
   },
 
-  // DÁN TỪ BẢNG (Đ132). Nhà trường: "admin cơ sở sẽ làm → có nút tải file sẽ
-  // tiện hơn, hoặc điền theo mẫu sẵn kiểu như thế này copy cho nhanh" — kèm
-  // ảnh một bảng Excel: hàng là bữa, cột là thứ. Bảng đó chép từ Excel/Word
-  // vào ô văn bản thành các ô cách nhau bằng dấu tab; đọc lại ở đây, không
-  // cần tải tệp lên máy chủ (tệp Excel là thứ máy chủ phải mở bằng thư viện,
-  // còn văn bản dán thì đọc ngay trên máy của người soạn).
-  //
-  // Hai hướng bảng đều nhận: hàng = bữa (như ảnh của trường) hay hàng = thứ.
-  // Chỉ đổ vào ngày CÒN TRỐNG, để không xoá thứ vừa gõ tay.
-  docBangDan(text) {
-    // Ô nhiều dòng từ Excel được bọc trong dấu nháy kép — tách tab có xét nháy.
-    const hang = [];
-    let o = '', dong = [], trongNhay = false;
-    const chuoi = String(text || '').replace(/\r\n?/g, '\n');
-    for (let i = 0; i < chuoi.length; i++) {
-      const c = chuoi[i];
-      if (c === '"') {
-        if (trongNhay && chuoi[i + 1] === '"') { o += '"'; i++; } else trongNhay = !trongNhay;
-      } else if (c === '\t' && !trongNhay) { dong.push(o); o = ''; }
-      else if (c === '\n' && !trongNhay) { dong.push(o); hang.push(dong); dong = []; o = ''; }
-      else o += c;
-    }
-    if (o || dong.length) { dong.push(o); hang.push(dong); }
-    return hang.map(d => d.map(x => x.trim())).filter(d => d.some(Boolean));
-  },
-
-  // Tên bữa trong bảng → bữa trong khung năm bữa. Không khớp thì giữ nguyên
-  // tên người soạn gõ.
-  nhanBua(ten) {
-    const t = String(ten || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    const bang = [
-      ['breakfast', /^(bữa )?sáng$|breakfast|bua sang/],
-      ['snack_sang', /phụ sáng|phu sang|snack.*(am|sáng|morning)|^snacks? ?1$|^(bữa )?phụ 1$/],
-      ['lunch', /trưa|lunch|bua trua/],
-      ['snack', /phụ chiều|phu chieu|xế|xe$|snack|^(bữa )?phụ 2$/],
-      ['milk', /sữa|sua|milk/],
-    ];
-    for (const [type, re] of bang) if (re.test(t)) return this.BUA_MAC_DINH.find(b => b.type === type);
-    return null;
-  },
-
-  laThu(ten) {
-    return /^(t\s?[2-6]|thứ\s?[2-6]|thứ (hai|ba|tư|năm|sáu)|mon|tue|wed|thu|fri)/i.test(String(ten || '').trim());
-  },
-
-  doTuBang() {
-    const o = document.getElementById('td-dan-o');
-    const hang = this.docBangDan(o ? o.value : '');
-    if (!hang.length) return UI.toast('Ô dán còn trống — chép bảng thực đơn rồi dán vào nhé', 'error');
-    this.docManHinh();
-
-    // Bỏ hàng tiêu đề (ô đầu trống hoặc các ô là tên thứ).
-    let than = hang;
-    if (hang[0].slice(1).filter(Boolean).every(x => this.laThu(x)) || (!hang[0][0] && hang.length > 1)) than = hang.slice(1);
-    // Hàng = thứ → xoay lại thành hàng = bữa.
-    if (than.length && than.every(d => this.laThu(d[0]))) {
-      const tieuDe = hang[0];
-      const xoay = [];
-      for (let j = 1; j < tieuDe.length; j++) xoay.push([tieuDe[j], ...than.map(d => d[j] || '')]);
-      than = xoay;
-    }
-    const tachMon = (o) => String(o || '').split(/[;\n•]/).map(x => x.trim()).filter(Boolean);
-    const buaTheoNgay = [[], [], [], [], []];
-    for (const d of than) {
-      const mau = this.nhanBua(d[0]);
-      const label = mau ? mau.label : String(d[0] || '').slice(0, 40);
-      if (!label) continue;
-      for (let i = 0; i < 5; i++) {
-        buaTheoNgay[i].push({
-          type: mau ? mau.type : 'other', label, time: mau ? mau.time : '',
-          items: tachMon(d[i + 1]),
-        });
-      }
-    }
-    let daDo = 0;
-    this._tuan.forEach((ng, i) => {
-      const trong = (ng.meals || []).every(b => !(b.items || []).length);
-      const moi = buaTheoNgay[i].filter(b => b.items.length);
-      if (!trong || !moi.length) return;
-      ng.meals = buaTheoNgay[i].slice(0, 5);
-      daDo++;
-    });
-    this.veSoanTuan(document.getElementById('menu-days'));
-    UI.toast(daDo ? `Đã đổ thực đơn vào ${daDo} ngày còn trống — xem lại rồi bấm Lưu cả tuần`
-      : 'Không đổ được ngày nào: các ngày đều đã có món, hoặc bảng dán chưa đúng dạng', daDo ? 'success' : 'error');
-  },
+  // Ô "DÁN TỪ BẢNG" (Đ132) ĐÃ GỠ — chủ dự án chốt 07/10: chỉ dùng tệp Excel mẫu
+  // (`veExcel` / `/api/menu/nap-excel`, Đ226). Hai đường cùng làm một việc là
+  // hai chỗ phải giữ cho hiểu bảng giống nhau; tệp mẫu thì máy chủ đọc và cho
+  // xem trước từng ngày trước khi lưu, nên chắc hơn.
 
   // "Giống hôm trước" — thứ Ba giống thứ Hai là chuyện thường ở bếp trường, và
   // chép rồi sửa một hai món nhanh hơn gõ lại cả ngày.

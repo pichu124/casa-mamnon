@@ -161,7 +161,8 @@ check('mở ra cả 5 ngày trên CÙNG MỘT TRANG',
 check('và chỉ có MỘT nút Lưu cho cả tuần', await page.locator('#td-luu-tuan').count() === 1);
 check('tên bữa và giờ ăn gấp lại, không chiếm chỗ khi không cần',
   await page.locator('#view .luoi-tuan details').count() === 5, await page.locator('#view .luoi-tuan details').count());
-check('có ô "Dán từ bảng Excel / Word" cho văn phòng (Đ132)', await page.locator('#td-dan').count() === 1);
+// Ô "Dán từ bảng Excel / Word" (Đ132) đã gỡ ở Đ231 — chủ dự án chốt 07/10: chỉ dùng tệp Excel mẫu.
+check('ô "Dán từ bảng Excel / Word" đã gỡ — đổ từ Excel chỉ qua tệp mẫu (Đ231)', await page.locator('#td-dan').count() === 0);
 
 await page.fill('#tt-mon-0-1', 'Cơm gà kiểm thử tuần\nCanh cải');
 await page.fill('#tt-mon-2-1', 'Bún chả kiểm thử tuần');

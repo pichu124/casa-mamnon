@@ -61,7 +61,7 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[2] Thực đơn — năm bữa của trường, xem theo thứ, dán từ bảng (Đ132)');
+  console.log('\n[2] Thực đơn — năm bữa của trường, xem theo thứ; ô dán bảng (Đ132) đã gỡ ở Đ231');
   {
     const v = fs.readFileSync(path.join(GOC, 'public/js/views/menu.js'), 'utf8');
     // Nạp màn thực đơn vào một sandbox nhỏ để gọi thẳng hàm đọc bảng.
@@ -78,19 +78,10 @@ try {
     check('có dải chọn T2…T6 và "Cả tuần"', /segNgay\(\)/.test(v) && /Cả tuần/.test(v));
     check('màn xem cả tuần vẫn dùng lưới tuần', /class="luoi-tuan"/.test(v));
 
-    // Bảng như ảnh của trường: hàng = bữa, cột = thứ; ô nhiều dòng bọc nháy.
-    const bangTruong = 'Bữa\tThứ 2\tThứ 3\tThứ 4\tThứ 5\tThứ 6\n'
-      + 'Bữa sáng\tCháo thịt\t"Phở gà\nSữa"\tBún bò\tXôi\tMì\n'
-      + 'Lunch\tCơm; Cá kho; Canh\tCơm; Gà\tCơm; Trứng\tCơm; Tôm\tCơm; Thịt\n'
-      + 'Sữa Vinamilk\tSữa tươi\tSữa tươi\tSữa tươi\tSữa tươi\tSữa tươi\n';
-    const hang = menu.docBangDan(bangTruong);
-    check('đọc được 4 hàng (1 tiêu đề + 3 bữa)', hang.length === 4, hang.length);
-    check('ô nhiều dòng trong nháy kép giữ nguyên xuống dòng', hang[1][2] === 'Phở gà\nSữa', JSON.stringify(hang[1][2]));
-    check('"Lunch" nhận ra là Bữa trưa', menu.nhanBua('Lunch') && menu.nhanBua('Lunch').type === 'lunch');
-    check('"Bữa phụ sáng" và "Snacks" đều nhận ra', menu.nhanBua('Bữa phụ sáng').type === 'snack_sang' && menu.nhanBua('Snacks').type === 'snack');
-    check('"Sữa Vinamilk" nhận ra là sữa', menu.nhanBua('Sữa Vinamilk').type === 'milk');
-    check('tên thứ nhận ra ở cả "Thứ 2", "T3" và "Monday"', menu.laThu('Thứ 2') && menu.laThu('T3') && menu.laThu('Monday') && !menu.laThu('Bữa sáng'));
-    check('tên bữa lạ thì không đoán bừa', menu.nhanBua('Tráng miệng') === null);
+    // Ô "dán từ bảng" của Đ132 đã GỠ ở Đ231 — chủ dự án chốt 07/10: đổ thực
+    // đơn từ Excel chỉ qua tệp mẫu (Đ226, canh ở test/thuc-don-excel.test.mjs).
+    check('ô dán từ bảng đã gỡ khỏi màn soạn tuần', !/id="td-dan"/.test(v) && typeof menu.docBangDan !== 'function');
+    check('đường tải tệp Excel mẫu vẫn còn ở màn thực đơn', /mn-xl-tai/.test(v) && /\/api\/menu\/nap-excel/.test(v));
   }
 
   // =========================================================================

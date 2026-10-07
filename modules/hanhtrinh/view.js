@@ -121,6 +121,7 @@ App.views.hanhtrinh = {
           <div class="muted small mb-8" style="line-height:1.6">
             Cô ghi vội lúc đứng lớp, chưa chọn bé. Rảnh tay thì gắn bé và chương trình —
             nháp thành một quan sát như mọi quan sát khác, rồi cô kể cho gia đình khi muốn.
+            Nháp quá <b>30 ngày</b> chưa gắn bé sẽ tự bỏ, kể cả ảnh.
           </div>
           ${this._nhap.map(n => `
             <div class="list-row" style="flex-wrap:wrap;gap:8px">
@@ -409,7 +410,7 @@ App.views.hanhtrinh = {
       if (!body.moTa && !body.anh) return UI.toast('Cô ghi một dòng hoặc chọn một tấm ảnh nhé', 'error');
       try {
         await API.post('/api/hanhtrinh/nhap', { moTa: body.moTa, anh: body.anh, nhom: body.nhom || '' });
-        UI.toast('Đã lưu nháp — rảnh tay cô gắn bé ở mục "Nháp chưa gắn bé"', 'success');
+        UI.toast('Đã lưu nháp — rảnh tay cô gắn bé ở mục "Nháp chưa gắn bé" (quá 30 ngày chưa gắn thì tự bỏ)', 'success');
         UI.closeModal();
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); }

@@ -1127,6 +1127,28 @@ module.exports = (app) => {
   function dongCong(userId, ngayXem) {
     return db.first('staff_checkin', 'SELECT * FROM staff_checkin WHERE userId = ? AND ngay = ?', [userId, ngayXem]);
   }
+
+  // GIỮ ẢNH CHẤM CÔNG 90 NGÀY, GIỜ VÀO / RA GIỮ MÃI (chủ dự án chốt 07/10).
+  //
+  // Ảnh khuôn mặt người lớn là dữ liệu nhạy cảm theo Nghị định 13; giữ lâu hơn
+  // mức cần để đối chiếu công là giữ rủi ro mà không được gì. Đồng hồ định giờ
+  // (lib/hen-gio.js, mỗi 15 phút) xoá TỆP ẢNH của những ngày quá 90 ngày và
+  // để trống cột ảnh; dòng công — ngày, giờ vào, giờ ra, ai chụp — còn nguyên.
+  // Bản sao lưu cũ vẫn giữ ảnh theo lịch dọn của chính nó.
+  const NGAY_GIU_ANH_CONG = 90;
+  function donAnhChamCong() {
+    const moc = ngay.ngayCua(Date.now() - NGAY_GIU_ANH_CONG * 86400000);
+    const ds = db.all('staff_checkin',
+      `SELECT id, anhVao, anhRa FROM staff_checkin
+        WHERE ngay < ? AND (COALESCE(anhVao, '') != '' OR COALESCE(anhRa, '') != '') LIMIT 500`, [moc]);
+    for (const r of ds) {
+      if (r.anhVao) uploads.remove(r.anhVao);
+      if (r.anhRa) uploads.remove(r.anhRa);
+      db.update('staff_checkin', r.id, { anhVao: '', anhRa: '' });
+    }
+    return ds.length;
+  }
+  require('../lib/hen-gio').dangKy('diemdanh:don-anh-cham-cong', donAnhChamCong);
   // Nhân sự đang bật thì chép giờ sang bảng công — chỉ điền ô CÒN TRỐNG, không
   // đè giờ Nhân sự đã sửa tay, không đổi loại ngày công đã ghi.
   function chepSangNhanSu(userId, ngayGhi, phan, gio, nguoi) {

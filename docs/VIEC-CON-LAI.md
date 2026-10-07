@@ -927,7 +927,7 @@ có kéo theo bên kia không (ba lớp nói là hai bản ghi riêng, nhưng c�
 *Bằng chứng:* PHAN-HOI-TRUONG-0709.md dòng HT-01 'lớn | làm một phần', Đã làm TRỐNG;
 dòng HT-03 'nhỏ | làm một phần', Đã làm TRỐNG
 
-**~~TD-04 — nút tải tệp thực đơn~~ — ĐÃ LÀM Đ160** (ảnh chụp / PDF / Word treo theo TUẦN, kèm thêm chứ không thay bảng thực đơn đã gõ; Excel vẫn đi ô "Dán bảng" của Đ132 vì đường ấy đưa nội dung vào đúng bảng)
+**~~TD-04 — nút tải tệp thực đơn~~ — ĐÃ LÀM Đ160** (ảnh chụp / PDF / Word treo theo TUẦN, kèm thêm chứ không thay bảng thực đơn đã gõ; Excel vẫn đi ô "Dán bảng" của Đ132 vì đường ấy đưa nội dung vào đúng bảng. *Cập nhật Đ231:* ô "Dán bảng" đã gỡ theo chủ dự án chốt 07/10 — Excel nay đi tệp mẫu tải về rồi nạp lên của Đ226)
 
 Đ132 làm ô 'dán bảng từ Excel', không có nút tải tệp lên.
 

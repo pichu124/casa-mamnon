@@ -851,6 +851,31 @@ module.exports = (app, { db, modules }) => {
     res.status(201).json({ ...choNguoiXem(rec, req.user), nhomCo: nhom, tenNhomCo: nhomCo.TEN_NHOM[nhom] || '' });
   });
 
+  // NHÁP QUÁ 30 NGÀY CHƯA GẮN BÉ THÌ TỰ BỎ, KỂ CẢ ẢNH (chủ dự án chốt 07/10).
+  //
+  // Nháp có thể mang ảnh khuôn mặt trẻ mà chưa thuộc hồ sơ bé nào — để lâu là
+  // giữ dữ liệu nhạy cảm không ai dùng. Đồng hồ định giờ (mỗi 15 phút) bỏ dòng
+  // nháp và tệp ảnh của nó; ảnh chỉ bị xoá khi KHÔNG quan sát nào đang dùng
+  // đúng tệp ấy. Phân hệ đang TẮT thì không dọn: tắt một phân hệ là dữ liệu của
+  // nó giữ nguyên (CLAUDE.md), bật lại cô vẫn thấy nháp của mình.
+  const NGAY_GIU_NHAP = 30;
+  function donNhapCu() {
+    if (!modules || typeof modules.dangBat !== 'function' || !modules.dangBat('hanhtrinh')) return 0;
+    const moc = new Date(Date.now() - NGAY_GIU_NHAP * 86400000).toISOString();
+    let ds = [];
+    try {
+      ds = db.all('hanhtrinh_nhap', 'SELECT id, anh FROM hanhtrinh_nhap WHERE taoLuc < ? LIMIT 500', [moc]);
+    } catch (_) { return 0; }
+    for (const r of ds) {
+      db.run('DELETE FROM hanhtrinh_nhap WHERE id = ?', [r.id]);
+      if (r.anh && !db.first('hanhtrinh_quansat', 'SELECT id FROM hanhtrinh_quansat WHERE anh = ?', [r.anh])) {
+        uploads.remove(r.anh);
+      }
+    }
+    return ds.length;
+  }
+  require('../../lib/hen-gio').dangKy('hanhtrinh:don-nhap-cu', donNhapCu);
+
   // Bỏ một nháp ghi nhầm. Đây là ghi chép của chính cô, chưa gắn bé nào và
   // chưa ai khác đọc — bỏ hẳn, không cần giữ vết.
   app.delete('/api/hanhtrinh/nhap/:id', requireRole('teacher', 'admin'), (req, res) => {
