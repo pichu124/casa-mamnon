@@ -152,7 +152,18 @@ App.views.kehoachbe = {
     const sel = document.getElementById('kb-nhom');
     if (sel) sel.onchange = (e) => { this._classId = e.target.value; this._be = ''; App.route(); };
     const selBe = document.getElementById('kb-be');
-    if (selBe) selBe.onchange = (e) => { this._be = e.target.value; this.veLap(document.getElementById('kb-than')); };
+    // Đổi bé vẽ lại từ bản đã lưu — hỏi như nút đổi tab, không thì mọi chip
+    // cô vừa bấm mà chưa Lưu nháp mất im lặng (vòng rà Đ232).
+    if (selBe) {
+      selBe.onchange = (e) => {
+        if (this.dangSuaDo() && !confirm('Cô đang sửa dở mà chưa bấm Lưu nháp.\n\nĐổi bé sẽ mất phần vừa sửa. Cô vẫn đổi chứ?')) {
+          e.target.value = this._be || '';
+          return;
+        }
+        this._be = e.target.value;
+        this.veLap(document.getElementById('kb-than'));
+      };
+    }
     const tabs = document.getElementById('kb-tabs');
     // Tab Duyệt có địa chỉ riêng (#/kehoachbe/duyet) để tin báo mở thẳng vào
     // đó; hai tab kia về #/kehoachbe — không thì địa chỉ cũ kéo màn về tab Duyệt.
@@ -324,9 +335,19 @@ App.views.kehoachbe = {
 
   // Bài của một góc dành cho bé này: đúng lứa của bé (bài không gắn lứa nào là
   // của mọi lứa), cộng bài bé ĐÃ được tích dù khác lứa — không giấu thứ đã lập.
+  //
+  // Bài đã tích mà văn phòng ẨN khỏi kho sau đó (kho trên màn chỉ có bài đang
+  // dùng) vẫn phải có chip: không có chip thì lần Lưu nháp kế tiếp không gửi
+  // bài ấy và máy chủ xoá nó khỏi kế hoạch — kèm cả phần nhìn lại (vòng rà
+  // Đ232). Chip dựng từ chính dòng đã tích (tên, góc).
   baiChoBe(goc, x, daTich) {
-    return this.baiCuaGoc(goc).filter(b => !(b.lua || []).length || !x.lua || (b.lua || []).includes(x.lua)
+    const kho = this.baiCuaGoc(goc);
+    const ds = kho.filter(b => !(b.lua || []).length || !x.lua || (b.lua || []).includes(x.lua)
       || daTich.some(t => t.baiHocId === b.id));
+    const daAn = daTich.filter(t => t.gocLinhVuc === goc && t.ten && !kho.some(b => b.id === t.baiHocId))
+      .filter((t, i, a) => a.findIndex(y => y.baiHocId === t.baiHocId) === i)
+      .map(t => ({ id: t.baiHocId, ten: t.ten, gocLinhVuc: goc, lua: [] }));
+    return ds.concat(daAn);
   },
 
   theBe(x) {
@@ -342,9 +363,11 @@ App.views.kehoachbe = {
     const muc = k ? (k.muc || []).filter(m => maGoc.includes(m.gocLinhVuc)) : [];
 
     const baiDaTich = k ? (k.baiHoc || []).filter(b => maGoc.includes(b.gocLinhVuc)) : [];
-    // Bé chưa có bản: bài "Tiếp tục cùng con" của tháng gần nhất được TÍCH SẴN
-    // là ôn tập. Chỉ tích trên màn — chưa ghi gì cho tới khi cô bấm Lưu.
-    const goiY = !k && x.goiY ? x.goiY : null;
+    // Bé chưa có bản — hoặc PHẦN NÀY chưa ai soạn (vòng rà Đ232): bài "Tiếp
+    // tục cùng con" của tháng gần nhất được TÍCH SẴN đúng nhãn cô chọn. Chỉ
+    // tích trên màn — chưa ghi gì cho tới khi cô bấm Lưu.
+    const goiY = !k ? (x.goiY || null)
+      : (p && !p.coNoiDung && p.trangThai === 'nhap' ? (x.goiYPhanTrong || null) : null);
     const goiYCt = goiY ? (goiY.baiHoc || []).filter(b => maGoc.includes(b.gocLinhVuc)) : [];
     const nhanSan = (baiId) => {
       const t = baiDaTich.find(b => b.baiHocId === baiId);
@@ -356,7 +379,7 @@ App.views.kehoachbe = {
     const oGoc = (g) => {
       const m = muc.find(y => y.gocLinhVuc === g.ma);
       const gt = m ? m.noiDung : '';
-      const ds = this.baiChoBe(g.ma, x, baiDaTich);
+      const ds = this.baiChoBe(g.ma, x, baiDaTich.concat(goiYCt));
       if (khoa) {
         const bg = baiDaTich.filter(b => b.gocLinhVuc === g.ma);
         if (!gt && !bg.length) return `<div class="kb-vung" data-goc="${UI.esc(g.ma)}"></div>`;
@@ -382,7 +405,9 @@ App.views.kehoachbe = {
             value="${UI.esc(gt)}" placeholder="Việc khác ngoài danh mục (không bắt buộc)">
         </div>`;
     };
-    const dx = k && k.deXuat;
+    // Đề xuất của ĐÚNG phần này; máy chủ đời cũ chưa có khoá theo phần thì
+    // dùng đề xuất của cả bản như trước.
+    const dx = k && (k.deXuatTheoCt ? k.deXuatTheoCt[ct] : k.deXuat);
     const suaDuoc = this.duocSuaCt(ct);
 
     return `

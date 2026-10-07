@@ -90,12 +90,21 @@ App.views.nhansu = {
             <div class="row-main">
               <div class="row-title">${UI.esc(UI.fmtDate(d.ngay))}</div>
               ${d.ghiChu ? `<div class="row-sub">${UI.esc(d.ghiChu)}</div>` : ''}
+              ${this.linkAnhCong(d, '/toi')}
             </div>
             <div class="row-end">${UI.esc(this.LOAI_CONG[d.loai] || d.loai)}${
   d.gioVao ? ` · ${UI.esc(d.gioVao)}${d.gioRa ? `–${UI.esc(d.gioRa)}` : ''}` : ''}</div>
           </div>`).join('')
         : '<div class="muted small">Tháng này chưa có ngày công nào được ghi.</div>'}
       </div>` : UI.emptyState('📅', 'Tháng này chưa có bảng công.')}`;
+  },
+
+  // Ảnh chấm công ở cổng của một ngày (vòng rà Đ232) — máy chủ chỉ gửi tên
+  // tệp cho người được xem; trước đó ảnh được giữ mà không màn nào mở ra được.
+  linkAnhCong(d, duoi = '') {
+    const ra = [['anhVao', 'Ảnh vào'], ['anhRa', 'Ảnh ra']].filter(([k]) => d && d[k])
+      .map(([k, nhan]) => `<a href="/api/nhansu/anh-cham-cong/${encodeURIComponent(d[k])}${duoi}" target="_blank" rel="noopener">${UI.esc(nhan)}</a>`);
+    return ra.length ? `<div class="row-sub">📷 ${ra.join(' · ')} <span class="muted">· giữ 90 ngày</span></div>` : '';
   },
 
   // ================= Màn của NHÂN SỰ =================
@@ -286,7 +295,8 @@ App.views.nhansu = {
         ${ds.map(n => {
     const d = daGhi.get(n) || {};
     return `<div class="list-row">
-            <div class="row-main"><div class="row-sub">${UI.esc(UI.fmtDate(n))}</div></div>
+            <div class="row-main"><div class="row-sub">${UI.esc(UI.fmtDate(n))}${
+  d.gioVao ? ` · ${UI.esc(d.gioVao)}${d.gioRa ? `–${UI.esc(d.gioRa)}` : ''}` : ''}</div>${this.linkAnhCong(d)}</div>
             <div class="row-end">
               <select data-ngay="${UI.esc(n)}">
                 <option value="">—</option>

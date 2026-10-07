@@ -532,11 +532,26 @@ App.views.hanhtrinh = {
       };
       try { r.start(); } catch (_) { return; }
       this._noi = r;
+      this._noiO = o;
+      this._noiTam = tam;
       nut.textContent = '⏹ Dừng';
     };
   },
+  // Dừng nghe. Câu đang nghe dở (chữ xám) được CHÈN NGAY vào ô: kết quả chốt
+  // của nó chỉ tới sau `stop()`, lúc cô đã bấm Lưu và hộp thoại đã đóng — chờ
+  // nó là mất câu cuối (vòng rà Đ232). Kết quả tới muộn thì bỏ, để một câu
+  // không bị chèn hai lần.
   dungGiongNoi() {
-    if (this._noi) { try { this._noi.stop(); } catch (_) { /* đã dừng */ } this._noi = null; }
+    if (!this._noi) return;
+    const r = this._noi;
+    const o = this._noiO;
+    const tam = this._noiTam;
+    const cau = tam ? String(tam.textContent || '').trim() : '';
+    if (o && cau) o.value = `${o.value.trim()}${o.value.trim() ? ' ' : ''}${cau.charAt(0).toUpperCase()}${cau.slice(1)}`;
+    if (tam) tam.textContent = '';
+    r.onresult = null;
+    try { r.stop(); } catch (_) { /* đã dừng */ }
+    this._noi = null;
   },
 
   // ---- Hộp thoại: suy ngẫm (lớp 2) ----

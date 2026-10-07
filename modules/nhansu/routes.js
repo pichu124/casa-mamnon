@@ -219,7 +219,30 @@ module.exports = (app, { db }) => {
     return t;
   }
 
-  function bangThang(thang, chiUserId) {
+  // `xemAnh`: kèm tên tệp ảnh chấm công ở cổng của từng ngày — trước đợt vá
+  // này ảnh được chụp, giữ 90 ngày, mà không màn nào mở ra được (vòng rà
+  // Đ232). `{ khoa }` cho Nhân sự / Ban giám hiệu (khoá một cơ sở thì chỉ ảnh
+  // của cơ sở ấy, cùng luật với đường xem ảnh); `{ toi: true }` cho chính
+  // người được chụp. Không truyền thì như cũ — không có tên tệp nào.
+  function ganAnhCong(theoNguoi, tu, den, ids, xemAnh) {
+    if (!xemAnh || !ids.length) return;
+    let ds = [];
+    try {
+      ds = db.all('staff_checkin',
+        `SELECT userId, ngay, anhVao, anhRa, campusId FROM staff_checkin
+          WHERE ngay BETWEEN ? AND ? AND userId IN (${ids.map(() => '?').join(',')})
+            AND (COALESCE(anhVao, '') != '' OR COALESCE(anhRa, '') != '')`, [tu, den, ...ids]);
+    } catch (_) { return; }
+    for (const r of ds) {
+      if (!xemAnh.toi && xemAnh.khoa && xemAnh.khoa !== r.campusId) continue;
+      const d = (theoNguoi.get(r.userId) || []).find(x => x.ngay === r.ngay);
+      if (!d) continue;
+      if (r.anhVao) d.anhVao = r.anhVao;
+      if (r.anhRa) d.anhRa = r.anhRa;
+    }
+  }
+
+  function bangThang(thang, chiUserId, xemAnh) {
     const [tu, den] = khoangThang(thang);
     const nguoi = chiUserId
       ? nguoiCuaTruong().filter(u => u.id === chiUserId)
@@ -236,6 +259,7 @@ module.exports = (app, { db }) => {
           ngay: r.ngay, loai: r.loai, gioVao: r.gioVao, gioRa: r.gioRa, ghiChu: r.ghiChu,
         });
       }
+      ganAnhCong(theoNguoi, tu, den, ids, xemAnh);
     }
     const danhSach = nguoi.map((u) => {
       const dong = theoNguoi.get(u.id) || [];
@@ -264,7 +288,7 @@ module.exports = (app, { db }) => {
   app.get('/api/nhansu/cham-cong/toi', requireRole('teacher', 'admin'), (req, res) => {
     const thang = thangHopLe(req, res);
     if (!thang) return;
-    const b = bangThang(thang, req.user.id);
+    const b = bangThang(thang, req.user.id, { toi: true });
     res.json({ ...b, cuaToi: b.danhSach[0] || null, danhSach: undefined });
   });
 
@@ -272,7 +296,7 @@ module.exports = (app, { db }) => {
     if (chiNhanSu(req, res)) return;
     const thang = thangHopLe(req, res);
     if (!thang) return;
-    res.json(bangThang(thang));
+    res.json(bangThang(thang, null, { khoa: db.phamViCoSo(req.user) }));
   });
 
   app.put('/api/nhansu/cham-cong/:userId/:ngay', requireRole('teacher', 'admin'), (req, res) => {

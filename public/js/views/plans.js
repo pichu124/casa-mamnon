@@ -82,9 +82,15 @@ App.views.plans = {
     const data = await API.get(`/api/plans?classId=${encodeURIComponent(classId)}`);
     this._plans = data.plans || [];
     const suaDuoc = this.canEdit();
+    // Lịch sinh hoạt TẮT thì ô Kế hoạch giáo dục quay lại trang chủ và mở màn
+    // này — mà kế hoạch TUẦN chung cả trường (Đ225) chỉ được vẽ trong Lịch sinh
+    // hoạt. Không vẽ ở đây là không ai đọc được, văn phòng cũng không soạn được
+    // (vòng rà Đ232). Vẽ nó ở đầu màn, kế hoạch tháng theo nhóm ở dưới.
+    const coTuan = !nhung && !App.moduleEnabled('timetable');
     root.innerHTML = `
       ${nhung ? '' : UI.pageHeader('Kế hoạch giáo dục', suaDuoc ? { action: { id: 'btn-soan-kh', label: 'Soạn kế hoạch', icon: 'edit' } } : {})}
       ${nhung || user.role !== 'parent' ? '' : UI.studentBar() + UI.thanhChonBeTheoCap()}
+      ${coTuan ? '<div id="kht-trong-plans"></div><div class="section-label">Kế hoạch tháng của nhóm</div>' : ''}
       ${this.oChonNhom(dsNhom)}
       ${suaDuoc && nhung ? `<button class="btn primary block mb-8" id="btn-soan-kh-nhung">
         ${UI.icon('edit', 18)} Soạn kế hoạch giáo dục</button>` : ''}
@@ -94,15 +100,23 @@ App.views.plans = {
     if (suaDuoc && nutSoan) nutSoan.onclick = () => this.moSoan();
     const nutLSH = document.getElementById('btn-ve-lich-sinh-hoat');
     if (nutLSH) nutLSH.onclick = () => { location.hash = '#/timetable/kehoach'; };
+    const oTuan = document.getElementById('kht-trong-plans');
+    if (oTuan) this.renderTuan(oTuan, { trongPlans: true }).catch(() => { oTuan.innerHTML = ''; });
   },
 
   // Kế hoạch giáo dục nay nằm trong màn Lịch sinh hoạt — CHỈ ĐƯỜNG, KHÔNG ÉP.
   // Ai mở địa chỉ cũ vẫn đọc được đủ nội dung ngay tại đây; dòng này chỉ nói
   // cho biết chỗ mới, đúng cách modules/dontra/view.js đã làm ở Đ126.
+  //
+  // Từ Đ225 phần ở Lịch sinh hoạt là KẾ HOẠCH TUẦN CHUNG CẢ TRƯỜNG, không còn
+  // là kế hoạch tháng này — nói đúng như thế, đừng hứa "cũng nằm trong" (vòng
+  // rà Đ232): văn phòng sẽ tưởng gia đình đọc được kế hoạch tháng họ soạn.
   dongChiDuongLichSinhHoat() {
     if (!App.moduleEnabled('timetable')) return '';
     return `<button type="button" class="btn outline block mt-8" id="btn-ve-lich-sinh-hoat">
-      ${UI.icon('calendar', 16)} Phần này cũng nằm trong Lịch sinh hoạt → Kế hoạch giáo dục</button>`;
+      ${UI.icon('calendar', 16)} Kế hoạch tuần chung cả trường ở Lịch sinh hoạt → Kế hoạch giáo dục</button>
+      <div class="muted small center mt-8" style="line-height:1.6">Gia đình đọc kế hoạch tuần ở đó.
+        Kế hoạch tháng theo nhóm ở màn này là bản lưu của nhà trường.</div>`;
   },
 
   // Thân màn hình: kế hoạch tháng này, hoặc kế hoạch tháng sau nếu đã soạn.
@@ -229,7 +243,7 @@ App.views.plans = {
     return `<li style="margin:6px 0;line-height:1.55">${UI.esc(dong)}</li>`;
   },
 
-  async renderTuan(o) {
+  async renderTuan(o, tuyChon = {}) {
     const q = this._tuan ? `?tuan=${encodeURIComponent(this._tuan)}` : '';
     const d = await API.get(`/api/plans/tuan${q}`);
     this._tuan = d.tuan;
@@ -258,9 +272,9 @@ App.views.plans = {
           <button class="btn primary block mt-14" id="btn-soan-kh-tuan">${UI.icon('edit', 16)} Soạn kế hoạch tuần</button>` : ''}
         ${d.tuan !== d.tuanNay ? `<button class="btn outline block mt-8" id="kht-ve-nay">Về tuần này</button>` : ''}
       </div>
-      ${u.role !== 'parent' ? `
+      ${u.role !== 'parent' && !tuyChon.trongPlans ? `
         <div class="muted small center mb-8"><a href="#/plans">Xem kế hoạch tháng theo nhóm đã soạn trước đây →</a></div>` : ''}`;
-    const di = (t) => { this._tuan = t; this.renderTuan(o).catch(err => UI.toast(err.message, 'error')); };
+    const di = (t) => { this._tuan = t; this.renderTuan(o, tuyChon).catch(err => UI.toast(err.message, 'error')); };
     const nt = document.getElementById('kht-truoc');
     if (nt && d.tuanTruocCo) nt.onclick = () => di(d.tuanTruocCo);
     const ns = document.getElementById('kht-sau');
@@ -268,10 +282,10 @@ App.views.plans = {
     const nn = document.getElementById('kht-ve-nay');
     if (nn) nn.onclick = () => di(d.tuanNay);
     const soan = document.getElementById('btn-soan-kh-tuan');
-    if (soan) soan.onclick = () => this.moSoanTuan(o);
+    if (soan) soan.onclick = () => this.moSoanTuan(o, tuyChon);
   },
 
-  moSoanTuan(o) {
+  moSoanTuan(o, tuyChon = {}) {
     const d = this._duLieuTuan || {};
     const k = d.keHoach || {};
     UI.modal(`
@@ -293,11 +307,34 @@ App.views.plans = {
       </div>
       <button class="btn primary block" id="kht-luu">${UI.icon('check', 18)} Lưu kế hoạch tuần</button>
     `, 'Soạn kế hoạch tuần');
+    // ĐỔI TUẦN THÌ NẠP ĐÚNG TUẦN ẤY (vòng rà Đ232). Trước đây hộp luôn mang
+    // chữ của tuần đang xem; đổi ngày sang một tuần ĐÃ có kế hoạch rồi Lưu là
+    // thay mất bản ấy, không một lời hỏi, không có bản cũ để lấy lại.
+    const oNgay = document.getElementById('kht-o-tuan');
+    const oTieuDe = document.getElementById('kht-o-tieu-de');
+    const oNoiDung = document.getElementById('kht-o-noi-dung');
+    let goc = { tuan: d.tuan, tieuDe: oTieuDe.value, noiDung: oNoiDung.value };   // tuần mà chữ trong hộp thuộc về
+    let dich = { tuan: d.tuan, tieuDe: k.tieuDe || '', co: !!d.keHoach };       // tuần sẽ được ghi
+    oNgay.onchange = async () => {
+      if (!oNgay.value) return;
+      let dt;
+      try { dt = await API.get(`/api/plans/tuan?tuan=${encodeURIComponent(oNgay.value)}`); } catch (_) { return; }
+      const kk = dt.keHoach || {};
+      dich = { tuan: dt.tuan, tieuDe: kk.tieuDe || '', co: !!dt.keHoach };
+      const dangGo = oTieuDe.value !== goc.tieuDe || oNoiDung.value !== goc.noiDung;
+      if (!dangGo) {
+        oTieuDe.value = kk.tieuDe || `${this.nhanTuan(dt.tuan)}: `;
+        oNoiDung.value = kk.noiDung || '';
+        goc = { tuan: dt.tuan, tieuDe: oTieuDe.value, noiDung: oNoiDung.value };
+      }
+    };
     document.getElementById('kht-luu').onclick = async () => {
-      const ngayChon = document.getElementById('kht-o-tuan').value;
-      const tieuDe = document.getElementById('kht-o-tieu-de').value.trim();
+      const ngayChon = oNgay.value;
+      const tieuDe = oTieuDe.value.trim();
       if (!ngayChon) return UI.toast('Cần chọn tuần', 'error');
       if (!tieuDe) return UI.toast('Cần một tiêu đề tuần', 'error');
+      if (dich.co && dich.tuan !== goc.tuan
+        && !confirm(`${this.nhanTuan(dich.tuan)} đã có kế hoạch "${dich.tieuDe}".\n\nLưu là THAY bản đó bằng nội dung đang gõ. Vẫn lưu?`)) return;
       try {
         const r = await API.put(`/api/plans/tuan/${encodeURIComponent(ngayChon)}`, {
           tieuDe, noiDung: document.getElementById('kht-o-noi-dung').value,
@@ -305,7 +342,7 @@ App.views.plans = {
         UI.closeModal();
         UI.toast('Đã lưu kế hoạch tuần', 'success');
         this._tuan = r.keHoach ? r.keHoach.tuan : ngayChon;
-        await this.renderTuan(o);
+        await this.renderTuan(o, tuyChon);
       } catch (err) { UI.toast(err.message, 'error'); }
     };
   },

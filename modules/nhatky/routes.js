@@ -475,7 +475,10 @@ module.exports = (app, { db, modules }) => {
           guiLuc: g[ph] ? g[ph].guiLuc : null,
           coNoiDung: co,
           // Ngày có từ trước mốc đổi luật: gia đình đã đọc thẳng như cũ, không còn gì "chờ gửi".
-          chuaGui: !g.cu && co && (!g[ph] || g[ph].banGui !== JSON.stringify(snap)),
+          chuaGui: !g.cu && (co ? (!g[ph] || g[ph].banGui !== JSON.stringify(snap)) : !!g[ph]),
+          // Đã gửi rồi cô bỏ hết phần đó (ghi nhầm bé, bé nghỉ ở nhà): gia đình
+          // vẫn đang đọc bản cũ — gửi lần nữa là GỠ bản ấy (vòng rà Đ232).
+          canGo: !g.cu && !co && !!g[ph],
         };
       }
       return ra;
@@ -1005,16 +1008,26 @@ module.exports = (app, { db, modules }) => {
     const daGui = [];
     const khongDoi = [];
     const chuaGhi = [];
+    const daGo = [];
     db.tx(() => {
       for (const be of dsBe) {
         const hang = db.first('nhatky_ngay', 'SELECT * FROM nhatky_ngay WHERE studentId = ? AND ngay = ?', [be.id, ngay]);
         const theoBua = new Map(db.all('nhatky_bua',
           'SELECT * FROM nhatky_bua WHERE studentId = ? AND ngay = ?', [be.id, ngay]).map(r => [r.bua, r]));
         const snap = chupPhan(phan, hang, theoBua, dsBua, suKienCua(be.id, ngay));
-        if (!coNoiDung(phan, snap)) { chuaGhi.push({ studentId: be.id, hoTen: be.name }); continue; }
-        const banGui = JSON.stringify(snap);
         const cu = db.first('nhatky_gui',
           'SELECT * FROM nhatky_gui WHERE studentId = ? AND ngay = ? AND phan = ?', [be.id, ngay, phan]);
+        if (!coNoiDung(phan, snap)) {
+          // Phần này ĐÃ GỬI mà nay cô bỏ hết: gỡ bản gia đình đang đọc — không
+          // thì "ngủ 11:30 – 14:00" của một ngày con ở nhà nằm đó mãi (vòng rà
+          // Đ232). Không báo tin: một tin "con không ngủ" còn tệ hơn im lặng.
+          if (cu) {
+            db.run('DELETE FROM nhatky_gui WHERE studentId = ? AND ngay = ? AND phan = ?', [be.id, ngay, phan]);
+            daGo.push({ studentId: be.id, hoTen: be.name });
+          } else chuaGhi.push({ studentId: be.id, hoTen: be.name });
+          continue;
+        }
+        const banGui = JSON.stringify(snap);
         if (cu && cu.banGui === banGui) { khongDoi.push({ studentId: be.id, hoTen: be.name }); continue; }
         db.run(`INSERT INTO nhatky_gui (studentId, ngay, phan, banGui, guiLuc, nguoiGui) VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(studentId, ngay, phan) DO UPDATE SET banGui = excluded.banGui,
@@ -1036,13 +1049,14 @@ module.exports = (app, { db, modules }) => {
       });
     }
     db.audit(req.user.id, 'nhatky-gui', null, {
-      classId, ngay, phan, soBe: daGui.length, khongDoi: khongDoi.length, chuaGhi: chuaGhi.length,
+      classId, ngay, phan, soBe: daGui.length, khongDoi: khongDoi.length, chuaGhi: chuaGhi.length, daGo: daGo.length,
     });
     res.json({
       ok: true, ngay, phan,
       daGui: daGui.length,
       khongDoi,
       chuaGhi,
+      daGo,
       ...(chuaGhi.length ? {
         nhac: `${chuaGhi.length} bé chưa có gì ở phần ${TEN_PHAN[phan].toLowerCase()} nên chưa gửi: `
           + `${chuaGhi.map(x => x.hoTen).join(', ')}.`,
@@ -1124,9 +1138,22 @@ module.exports = (app, { db, modules }) => {
         daGhi.push(be.id);
       }
     });
-    db.audit(req.user.id, 'nhatky-ve-sinh', null, { ngay, loai, luc: lucGio, soBe: daGhi.length });
+    // Bé có đơn nghỉ được duyệt hôm nay mà vẫn được ghi (cô bấm "Chọn cả
+    // nhóm"): NÓI RA, như hai đường ghi kia — không thì gia đình của bé đang ốm
+    // ở nhà nhận "thay bỉm 10:00" (vòng rà Đ232). Ghi vẫn giữ: có thể bé đi học
+    // lại giữa buổi, cô là người biết.
+    const nghiNay = daGhi.length ? nghiHoc.nghiCoPhep(daGhi, ngay) : new Map();
+    const nhacNghi = dsBe.filter(be => daGhi.includes(be.id) && nghiNay.get(be.id))
+      .map(be => ({ studentId: be.id, hoTen: be.name, lyDo: nghiNay.get(be.id).reason }));
+    db.audit(req.user.id, 'nhatky-ve-sinh', null, { ngay, loai, luc: lucGio, soBe: daGhi.length, nghiPhep: nhacNghi.length });
     res.json({
       ok: true, ngay, daGhi: daGhi.length, boQua,
+      nhacNghi,
+      ...(nhacNghi.length ? {
+        nhacNghiChu: `${nhacNghi.length} bé đã có đơn nghỉ được duyệt cho hôm nay `
+          + `(${nhacNghi.map(x => x.hoTen).join(', ')}). Cô xem lại giúp — `
+          + 'gia đình sẽ đọc đúng dòng này về ngày con ở nhà.',
+      } : {}),
       ...(boQua.length ? { nhac: `Chưa ghi cho ${boQua.map(x => `${x.hoTen} (${x.lyDo})`).join(', ')}.` } : {}),
     });
   });

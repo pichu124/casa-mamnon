@@ -639,7 +639,11 @@ module.exports = (app, { db, modules }) => {
       }
       return co;
     };
-    const coGanDay = daCo(moc, `${moc}T00:00:00`);
+    // Mốc giờ của Ghi nhanh là UTC (`taoLuc` ISO): ghép "T00:00:00" vào ngày
+    // giờ Việt Nam là lệch 7 tiếng — ảnh chụp trước 7h sáng ngày đầu không được
+    // tính (vòng rà Đ232). Đổi đúng 0h giờ Việt Nam ra UTC như chỗ khác trong tệp.
+    const lucDau = (ngayVn) => ngay2.khoangUtcCuaNgay(ngayVn)[0];
+    const coGanDay = daCo(moc, lucDau(moc));
     const be = dsHs
       .filter(s => !coGanDay.has(s.id))
       .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar }))
@@ -648,7 +652,7 @@ module.exports = (app, { db, modules }) => {
     // sát nào. Chỉ TÊN, xếp theo tên — đây là việc của cô, không phải con số
     // về bé (QUY TẮC 2 và 4).
     const thuHai = thuHaiCua(homNay()) || homNay();
-    const coTuan = daCo(thuHai, `${thuHai}T00:00:00`);
+    const coTuan = daCo(thuHai, lucDau(thuHai));
     const tuanNay = dsHs
       .filter(s => !coTuan.has(s.id))
       .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar }))
@@ -886,6 +890,12 @@ module.exports = (app, { db, modules }) => {
     } catch (_) { r = null; }
     if (!r) return res.status(404).json({ error: 'Không tìm thấy bản nháp này' });
     db.run('DELETE FROM hanhtrinh_nhap WHERE id = ? AND coGhi = ?', [r.id, req.user.id]);
+    // Bỏ nháp là bỏ cả ẢNH — ảnh khuôn mặt trẻ chưa thuộc hồ sơ bé nào, và
+    // xoá dòng rồi thì việc dọn 30 ngày không còn thấy tệp này nữa (vòng rà
+    // Đ232). Ảnh mà một quan sát đang dùng thì giữ, cùng luật với việc dọn.
+    if (r.anh && !db.first('hanhtrinh_quansat', 'SELECT id FROM hanhtrinh_quansat WHERE anh = ?', [r.anh])) {
+      try { uploads.remove(r.anh); } catch (_) { /* tệp đã không còn */ }
+    }
     db.audit(req.user.id, 'hanhtrinh-nhap-bo', null, { nhapId: r.id });
     res.json({ ok: true });
   });

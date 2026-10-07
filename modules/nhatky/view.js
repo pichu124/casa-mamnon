@@ -131,7 +131,7 @@ App.views.nhatky = {
     const sk = b.suKien || [];
     const nhan = Object.fromEntries(this.LOAI_VS);
     if (sk.length) {
-      return sk.map(e => `${e.luc} ${nhan[e.loai] || ''}${e.coPoo ? ' (có đi ngoài)' : ''}`).join(' · ');
+      return sk.map(e => `${e.luc} ${nhan[e.loai] || ''}${e.coPoo ? ' (có đi ngoài)' : ''}${e.ghiChu ? ` — ${e.ghiChu}` : ''}`).join(' · ');
     }
     return [co(b.bimSoLan) ? `Thay bỉm ${b.bimSoLan} lần` : '',
       co(b.veSinhSoLan) ? `Đi vệ sinh ${b.veSinhSoLan} lần` : '',
@@ -655,7 +655,8 @@ App.views.nhatky = {
             classId: this._classId, ngay: this._ngay, studentIds: chon, luc,
             loai: gt('nk-vs-loai'), coPoo, tinhChat: coPoo ? gt('nk-vs-tc') : '', ghiChu: gt('nk-vs-ghichu'),
           });
-          UI.toast(r.nhac || `Đã ghi ${luc} cho ${r.daGhi} bé — nhớ bấm Gửi khi xong`, r.nhac ? 'error' : 'success');
+          const canNhac = [r.nhacNghiChu, r.nhac].filter(Boolean).join(' ');
+          UI.toast(canNhac || `Đã ghi ${luc} cho ${r.daGhi} bé — nhớ bấm Gửi khi xong`, canNhac ? 'error' : 'success');
           App.route();
         } catch (err) { UI.toast(err.message, 'error'); ghi.disabled = false; }
       };
@@ -682,11 +683,15 @@ App.views.nhatky = {
     const chon = this.dsChon();
     const dong = dsBe.map(b => {
       const g = (b.gui || {})[phan] || {};
-      const tom = this.tomTatBe(b, phan);
-      const coGi = g.coNoiDung !== undefined ? g.coNoiDung : !!tom;
-      const bat = coGi && g.chuaGui && (!chon.size || chon.has(b.studentId));
-      const trangThai = !coGi ? 'chưa ghi'
-        : (g.chuaGui ? (g.guiLuc ? 'đã sửa sau lần gửi trước' : 'chưa gửi') : `đã gửi ${UI.fmtTime(g.guiLuc)}`);
+      const tom = g.canGo ? 'Cô đã bỏ hết phần này — gửi để gỡ bản gia đình đang đọc' : this.tomTatBe(b, phan);
+      const coGi = g.coNoiDung !== undefined ? (g.coNoiDung || !!g.canGo) : !!tom;
+      // Bé có đơn nghỉ hôm nay thì KHÔNG chọn sẵn — cô tự tích nếu bé đi học
+      // lại giữa buổi (vòng rà Đ232).
+      const bat = coGi && g.chuaGui && !b.nghiPhep && (!chon.size || chon.has(b.studentId));
+      const trangThai = (!coGi ? 'chưa ghi'
+        : (g.canGo ? 'đã bỏ, gia đình còn thấy bản cũ'
+          : (g.chuaGui ? (g.guiLuc ? 'đã sửa sau lần gửi trước' : 'chưa gửi') : `đã gửi ${UI.fmtTime(g.guiLuc)}`)))
+        + (b.nghiPhep ? ' · có đơn nghỉ hôm nay' : '');
       return `
         <label class="list-row" style="gap:10px;align-items:flex-start;${coGi ? '' : 'opacity:.55'}">
           <input type="checkbox" class="nk-gui-be" value="${UI.esc(b.studentId)}" ${bat ? 'checked' : ''}
@@ -721,7 +726,9 @@ App.views.nhatky = {
       try {
         const r = await API.post('/api/nhatky/gui', { classId: this._classId, ngay: this._ngay, phan, studentIds: ids });
         UI.closeModal();
-        UI.toast(`Đã gửi cho ${r.daGui} gia đình` + (r.nhac ? `. ${r.nhac}` : ''), 'success');
+        const go = (r.daGo || []).length;
+        UI.toast(`Đã gửi cho ${r.daGui} gia đình` + (go ? ` · đã gỡ phần cô bỏ của ${go} bé` : '')
+          + (r.nhac ? `. ${r.nhac}` : ''), 'success');
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); nut.disabled = false; }
     };
@@ -849,7 +856,7 @@ App.views.nhatky = {
       if (g && g.chuaGui) nhan = UI.badge(g.guiLuc ? 'Đã ghi · chưa gửi lại' : 'Đã ghi · chưa gửi', 'orange');
       else if (g && g.guiLuc) nhan = UI.badge(`Đã gửi ${UI.fmtTime(g.guiLuc)}`, 'blue');
       else nhan = UI.badge('Đã ghi', 'green');
-    }
+    } else if (g && g.canGo) nhan = UI.badge('Đã bỏ · gia đình còn thấy bản cũ', 'orange');
     const dangChon = !!(boChon && boChon.has(b.studentId));
     return `
       <div class="card"${nghi ? ' style="opacity:.75"' : ''}>
@@ -1086,8 +1093,11 @@ App.views.nhatky = {
       </div></div>`;
     // Từng mốc giờ thay bỉm / đi vệ sinh, nếu cô có ghi.
     const sk = n.suKien || [];
+    // Ghi chú ngắn của từng mốc (vd "hăm đỏ, cô đã bôi kem") đi trong bản gửi
+    // và hiện cho gia đình — như mọi ghi chú khác của nhật ký (vòng rà Đ232).
     const moc = (loai) => sk.filter(e => e.loai === loai).map(e => `${e.luc}${e.coPoo
-      ? ` (có đi ngoài${e.tinhChat ? `, ${this.nhanTinhChat(e.tinhChat).toLowerCase()}` : ''})` : ''}`).join(' · ');
+      ? ` (có đi ngoài${e.tinhChat ? `, ${this.nhanTinhChat(e.tinhChat).toLowerCase()}` : ''})` : ''}${
+      e.ghiChu ? ` — ${e.ghiChu}` : ''}`).join(' · ');
 
     // NĂM BỮA THEO THỰC ĐƠN NGÀY ĐÓ (máy chủ mới gửi `buaAn`): mỗi bữa một
     // dòng — tên bữa, món của bếp, và bé ăn được bao nhiêu phần. Máy chủ đời cũ

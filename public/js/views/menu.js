@@ -278,7 +278,7 @@ App.views.menu = {
     let xem;
     try { xem = await API.post('/api/menu/nap-excel', than); } catch (err) { return UI.toast(err.message, 'error'); }
     const ds = xem.ngay || [];
-    const soGhiDe = ds.filter(n => n.daCo).length;
+    const soGhiDe = ds.filter(n => n.daCo && !n.khongDoi).length;
     UI.modal(`
       <div class="muted small" style="line-height:1.6;margin-bottom:8px">
         Tệp <b>${UI.esc(f.name)}</b> có <b>${ds.length}</b> ngày có món${soGhiDe ? ` — trong đó <b>${soGhiDe}</b> ngày đang có
@@ -290,8 +290,11 @@ App.views.menu = {
         ${ds.map(n => `
           <div class="list-row" style="align-items:flex-start">
             <div class="row-main">
-              <div class="row-title">${UI.esc(n.thu)} ${UI.esc(n.date.slice(8, 10))}/${UI.esc(n.date.slice(5, 7))}${n.daCo ? ' · <span class="muted small">thay bản đang có</span>' : ''}</div>
+              <div class="row-title">${UI.esc(n.thu)} ${UI.esc(n.date.slice(8, 10))}/${UI.esc(n.date.slice(5, 7))}${
+  n.khongDoi ? ' · <span class="muted small">giống bản đang có, không đổi</span>'
+    : (n.daCo ? ' · <span class="muted small">thay bản đang có</span>' : '')}</div>
               ${n.bua.map(b => `<div class="row-sub"><b>${UI.esc(b.label)}:</b> ${UI.esc(b.items.join(', '))}</div>`).join('')}
+              ${(n.giuBua || []).length ? `<div class="row-sub muted">Giữ nguyên (tệp mẫu không có cột): ${UI.esc(n.giuBua.join(', '))}</div>` : ''}
             </div>
           </div>`).join('') || '<div class="muted small">Không có ngày nào có món trong tệp.</div>'}
       </div>
@@ -299,6 +302,9 @@ App.views.menu = {
     `, 'Xem trước thực đơn từ tệp Excel');
     const luu = document.getElementById('mn-xl-luu');
     if (luu) luu.onclick = async () => {
+      // Lưu từ tệp vẽ lại cả màn — đang soạn cả tuần dở thì hỏi trước, như mọi
+      // đường rời màn soạn khác (vòng rà Đ232).
+      if (!this.boSoanNeuDongY()) return;
       luu.disabled = true;
       try {
         const r = await API.post('/api/menu/nap-excel', { ...than, luu: true });

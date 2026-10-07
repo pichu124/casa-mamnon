@@ -17,11 +17,11 @@ làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lạ
 | | |
 |---|---|
 | Nhánh đang làm | `claude/code-review-optimization-at4jzk` |
-| Commit mới nhất | Đ231 (bốn quyết định 07/10) — đo bằng `git log --oneline -1` |
+| Commit mới nhất | Đ232 (vá 27 lỗi vòng rà đối kháng) — đo bằng `git log --oneline -1` |
 | Đã đẩy lên GitHub | **rồi**, `HEAD` trùng `origin` |
 | Cây làm việc | sạch, không còn gì chưa commit |
-| `npm test` | **126 bộ, 6916 phép kiểm, 0 đỏ** (đo 07/10, Đ231) |
-| `npm run test:giao-dien` | **17 bộ, 932 phép kiểm, 0 đỏ** (đo 07/10) |
+| `npm test` | **127 bộ, 6974 phép kiểm, 0 đỏ** (đo 07/10, Đ232) |
+| `npm run test:giao-dien` | **18 bộ, 954 phép kiểm, 0 đỏ** (đo 07/10, Đ232) |
 | CI trên GitHub (`Kiểm tra`) | xanh cho mọi lần đẩy Đ224–Đ231 (đo 07/10) |
 
 ### `main` KHÔNG phải bản đầy đủ
@@ -53,9 +53,9 @@ Cả chín mục góp ý ngày 06/10 đã làm (Đ222–Đ230), bảng đối ch
 chấm công giữ 90 ngày (giờ vào/ra giữ mãi), nháp chưa gắn bé quá 30 ngày tự bỏ,
 bỏ ô "Dán bảng từ Excel" ở Thực đơn, chữ M/S/W/N/NA trong Báo cáo tháng.
 
-**Đợt này CHƯA qua vòng rà đối kháng nào** — khoảng 4.300 dòng mã chạy (không kể
-bài kiểm thử) do một tay viết. Ba vòng rà trước (Đ171, Đ173, Đ174) mỗi vòng bắt
-được 6–14 lỗi thật mà bộ kiểm thử xanh không thấy.
+**Vòng rà đối kháng đã chạy (Đ232, chủ dự án duyệt 07/10):** 38 phát hiện, 28 sống
+sót vòng phản bác (27 lỗi riêng, 7 mức cao) — đã vá cả 27, có bài canh riêng
+(`test:ra-soat-0710`, `test:ra-soat-0710-gd`). Chi tiết ở dòng Đ232 của `TIEN-DO.md`.
 
 ### Đợt 16–30/09
 
@@ -152,7 +152,7 @@ soi ba chỗ của đợt này:
 - **Học phí → Tài khoản nhận tiền** — cuối màn có ô **tải ảnh mã QR** *(Đ214)*
 
 Còn hiện bản cũ thì kéo xuống làm mới trang — app là PWA, bản cũ nằm trong bộ
-nhớ đệm máy. `VERSION` trong `public/sw.js` nay là `v132` (Đ231).
+nhớ đệm máy. `VERSION` trong `public/sw.js` nay là `v133` (Đ232).
 
 ### 4.3 Máy chủ còn lành không
 

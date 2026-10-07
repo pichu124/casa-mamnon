@@ -292,8 +292,14 @@ function docThucDonExcel(buf) {
   tieuDe.forEach((ten, i) => {
     if (i === cotNgay || /^thứ$/i.test(String(ten ?? '').trim()) || ten === undefined || ten === null || ten === '') return;
     const b = buaTheoTieuDe(ten);
-    if (b) { if (!cotBua.some(x => x.bua.type === b.type)) cotBua.push({ i, bua: b }); }
-    else canhBao.push(`Cột "${String(ten).slice(0, 40)}" không phải tên bữa nào — bỏ qua.`);
+    const trung = b && cotBua.find(x => x.bua.type === b.type);
+    if (b && !trung) cotBua.push({ i, bua: b, ten: String(ten).trim() });
+    // Cột thêm vào mà trùng loại bữa với một cột đã có ("Sữa chua" cạnh "Sữa
+    // Vinamilk") cũng phải được NÓI RA — trước đây bị bỏ không một lời (vòng rà Đ232).
+    else if (trung) {
+      canhBao.push(`Cột "${String(ten).slice(0, 40)}" trùng bữa với cột "${trung.ten.slice(0, 40)}" — bỏ qua. `
+        + `Gộp món vào cột "${trung.ten.slice(0, 40)}" (xuống dòng trong ô) nhé.`);
+    } else canhBao.push(`Cột "${String(ten).slice(0, 40)}" không phải tên bữa nào — bỏ qua.`);
   });
   if (!cotBua.length) return { loi: 'Hàng tiêu đề không có cột bữa nào (Bữa sáng, Bữa trưa…). Dùng đúng tệp mẫu của app nhé.' };
 
@@ -326,7 +332,19 @@ function docThucDonExcel(buf) {
     });
   });
   ngay.sort((a, b) => a.date.localeCompare(b.date));
-  return { ngay, canhBao };
+  return { ngay, canhBao, loaiCot: cotBua.map(c => c.bua.type) };
+}
+
+// Một ngày đang có, nhìn qua đúng các cột của tệp: mỗi loại bữa lấy BỮA ĐẦU
+// của loại ấy — y như tệp mẫu điền sẵn. Dùng để nhận ra ngày người dùng không
+// sửa gì (vòng rà Đ232).
+function buaNhuMau(meals, loaiCot) {
+  const ra = {};
+  for (const t of loaiCot) {
+    const m = (meals || []).find(x => x.type === t);
+    ra[t] = tachMon(((m && m.items) || []).join('\n')).map(x => x.slice(0, TOI_DA_TEN_MON)).slice(0, TOI_DA_MON_BUA).join('\n');
+  }
+  return ra;
 }
 
 module.exports = (app) => {
@@ -428,39 +446,72 @@ module.exports = (app) => {
     const cu = (date) => (campusId
       ? db.first('menu_campus', 'SELECT * FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, date])
       : db.first('menus', 'SELECT * FROM menus WHERE date = ?', [date]));
-    const xemTruoc = kq.ngay.map(n => ({ ...n, daCo: !!cu(n.date) }));
+    // MẪU CHỈ CÓ NĂM CỘT, MỘT BỮA MỖI LOẠI (vòng rà Đ232). Ngày đang có bữa
+    // "Tráng miệng", hay hai bữa cùng loại sữa (ô dán Đ132 sinh ra những bữa
+    // ấy) thì tệp không chứa được chúng. Hai luật:
+    //  • ngày giống hệt bản mẫu đã điền sẵn = người dùng KHÔNG sửa → không đụng;
+    //  • ngày có sửa thì THAY các bữa có cột trong tệp, còn những bữa tệp không
+    //    chứa được thì GIỮ NGUYÊN — và màn xem trước nói ra là giữ bữa nào.
+    const loaiCot = kq.loaiCot || [];
+    const tinhNgay = (n) => {
+      const truoc = cu(n.date);
+      const buaCu = (truoc && Array.isArray(truoc.meals)) ? truoc.meals : [];
+      const moi = Object.fromEntries(loaiCot.map(t => [t, ((n.bua.find(b => b.type === t) || {}).items || []).join('\n')]));
+      const khongDoi = !!truoc && JSON.stringify(buaNhuMau(buaCu, loaiCot)) === JSON.stringify(moi);
+      const daGap = new Set();
+      const giu = buaCu.filter(x => {
+        if (!loaiCot.includes(x.type)) return true;
+        if (daGap.has(x.type)) return true;   // bữa thứ hai cùng loại — mẫu không có chỗ cho nó
+        daGap.add(x.type);
+        return false;
+      });
+      return { truoc, buaCu, khongDoi, giu };
+    };
+    const xemTruoc = kq.ngay.map(n => {
+      const t = tinhNgay(n);
+      return { ...n, daCo: !!t.truoc, khongDoi: t.khongDoi, giuBua: t.khongDoi ? [] : t.giu.map(x => x.label) };
+    });
     if (!body.luu) {
       return res.json({ ngay: xemTruoc, canhBao: kq.canhBao, campusId: campusId || null });
     }
     if (!kq.ngay.length) return res.status(400).json({ error: 'Tệp không có ngày nào có món để lưu' });
     const luc = new Date().toISOString();
+    const daGhi = [];
     db.tx(() => {
       for (const n of kq.ngay) {
-        const truoc = cu(n.date);
-        const buaCu = (truoc && Array.isArray(truoc.meals)) ? truoc.meals : [];
+        const { truoc, buaCu, khongDoi, giu } = tinhNgay(n);
+        if (khongDoi) continue;
         // Giữ tên bữa và giờ ăn bếp đã đặt riêng cho ngày ấy, nếu có.
-        const meals = lamSachBuaAn(n.bua.map(b => {
+        const meals = lamSachBuaAn([...n.bua.map(b => {
           const g = buaCu.find(x => x.type === b.type) || {};
           return { type: b.type, label: g.label || b.label, time: g.time || b.time, items: b.items };
-        }));
+        }), ...giu]);
         if (!meals) continue;
+        daGhi.push(n.date);
         if (campusId) {
           db.upsert('menu_campus', { campusId, date: n.date, meals, nguoiDang: req.user.id, capNhatLuc: luc }, ['campusId', 'date']);
         } else if (truoc) db.update('menus', truoc.id, { meals });
         else db.insert('menus', { id: db.nextId('menu'), date: n.date, meals });
       }
     });
-    db.audit(req.user.id, 'menu-nap-excel', campusId || null, { soNgay: kq.ngay.length, campusId });
-    const nhom = campusId
-      ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
-      : db.classes().map(c => c.id);
-    const tu = kq.ngay[0].date; const den = kq.ngay[kq.ngay.length - 1].date;
-    tb.guiChoNhom(nhom, {
-      title: `Thực đơn từ ${ddmm(tu)} đến ${ddmm(den)} đã có`,
-      body: 'Nhà bếp vừa đăng thực đơn. Mở Thực đơn để xem từng ngày con ăn gì.',
-      category: 'Khác', createdBy: req.user.id, hash: '#/menu',
+    db.audit(req.user.id, 'menu-nap-excel', campusId || null, { soNgay: kq.ngay.length, daGhi: daGhi.length, campusId });
+    // Không ngày nào thật sự đổi (nạp lại đúng tệp mẫu) thì không báo gia đình.
+    if (daGhi.length) {
+      const nhom = campusId
+        ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
+        : db.classes().map(c => c.id);
+      const tu = daGhi[0]; const den = daGhi[daGhi.length - 1];
+      tb.guiChoNhom(nhom, {
+        title: `Thực đơn từ ${ddmm(tu)} đến ${ddmm(den)} đã có`,
+        body: 'Nhà bếp vừa đăng thực đơn. Mở Thực đơn để xem từng ngày con ăn gì.',
+        category: 'Khác', createdBy: req.user.id, hash: '#/menu',
+      });
+    }
+    res.json({
+      daLuu: kq.ngay.length, ngay: kq.ngay.map(n => n.date), canhBao: kq.canhBao, campusId: campusId || null,
+      // Thêm khoá, không đổi khoá cũ: số ngày thật sự ghi, và số ngày giống hệt bản đang có.
+      daGhi: daGhi.length, khongDoi: kq.ngay.length - daGhi.length,
     });
-    res.json({ daLuu: kq.ngay.length, ngay: kq.ngay.map(n => n.date), canhBao: kq.canhBao, campusId: campusId || null });
   });
 
   app.put('/api/menu/tuan', requireRole('admin'), (req, res) => {

@@ -977,13 +977,29 @@ App.views.attendance = {
   // về"*. Chưa có mặt → ảnh tới lớp; đã có mặt mà chưa về → ảnh ra về (giờ là
   // lúc chụp); đã về rồi → không làm gì, tránh một chạm nhầm đè giờ đã ghi.
   // Nút "Ghi con đã về" (ghi giờ không ảnh) vẫn còn cho hôm máy ảnh hỏng.
+  //
+  // "LẦN 1 / LẦN 2" ĐẾM THEO ẢNH, KHÔNG THEO TRẠNG THÁI (vòng rà Đ232). Bé
+  // được ghi có mặt KHÔNG kèm ảnh ("Cả nhóm có mặt", Sửa → Muộn) thì lần chạm
+  // đầu tiên chưa phải "lần 2": tự đoán "ra về" là báo gia đình "con đã được
+  // đón về" lúc 8 giờ sáng. Cảnh ấy thì HỎI cô đây là ảnh nào.
   chamNhanh(studentId) {
     const dong = (this._roster || []).find(x => x.student.id === studentId);
     const rec = dong && dong.record;
     const coMat = !!rec && (rec.status === 'present' || rec.status === 'late');
+    const coAnhToi = !!(dong && dong.anhDenLop && dong.anhDenLop.file);
+    if (coMat && rec.checkOut) return UI.toast('Bé đã được ghi ra về hôm nay', '');
     if (!coMat) return this.chonAnh(studentId);
-    if (!rec.checkOut) return this.chupRaVe(studentId);
-    UI.toast('Bé đã được ghi ra về hôm nay', '');
+    if (coAnhToi) return this.chupRaVe(studentId);
+    UI.modal(`
+      <p class="muted small" style="line-height:1.6;margin-top:0">
+        Bé đã được ghi có mặt nhưng chưa có ảnh tới lớp. Cô chụp ảnh nào?
+      </p>
+      <button class="btn primary block" id="att-cn-toi">${UI.icon('album', 16)} Ảnh con tới lớp</button>
+      <button class="btn outline block mt-8" id="att-cn-ve">📸 Ảnh ra về (ghi giờ về)</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, dong && dong.student ? dong.student.name : 'Chụp ảnh');
+    document.getElementById('att-cn-toi').onclick = () => { UI.closeModal(); this.chonAnh(studentId); };
+    document.getElementById('att-cn-ve').onclick = () => { UI.closeModal(); this.chupRaVe(studentId); };
   },
 
   chupRaVe(studentId) {
@@ -1013,7 +1029,20 @@ App.views.attendance = {
       try {
         const anh = await UI.nenAnh(f, { canhToiDa: 900, chatLuong: 0.72 });
         const ngayLucBam = this.date;
-        const kq = await API.post('/api/attendance/anh', { studentId, date: ngayLucBam, anh });
+        let kq;
+        try {
+          // `yDinh`: máy chủ không âm thầm thay ảnh sáng khi màn này đã cũ.
+          kq = await API.post('/api/attendance/anh', { studentId, date: ngayLucBam, anh, yDinh: 'toi-lop' });
+        } catch (e) {
+          if (e.status !== 409) throw e;
+          // Máy khác đã chụp ảnh tới lớp cho bé — màn này mở từ sáng nên chưa
+          // thấy. Tấm vừa chụp gần như chắc là ảnh RA VỀ: hỏi, không tự đoán.
+          if (confirm(`${e.message}\n\nGhi tấm ảnh vừa chụp là ảnh RA VỀ lúc ${UI.gioVN()}?`)) {
+            await this.ghiRaVe(studentId, { gio: UI.gioVN(), anh });
+          }
+          App.route();
+          return;
+        }
         UI.toast('Đã ghi có mặt và gửi ảnh cho gia đình', 'success');
         const dong = ngayLucBam === this.date
           ? (this._roster || []).find(x => x.student.id === studentId) : null;
@@ -1092,7 +1121,7 @@ App.views.attendance = {
                  </button>`}
             ${coMat ? (record && record.checkOut
               ? `<button class="btn sm outline" onclick="App.views.attendance.goRaVe('${UI.esc(s.id)}')">Gỡ giờ ra</button>`
-              : `<button class="btn sm primary" onclick="App.views.attendance.chupRaVe('${UI.esc(s.id)}')">
+              : `<button class="btn sm ${coAnh ? 'primary' : 'outline'}" onclick="App.views.attendance.chupRaVe('${UI.esc(s.id)}')">
                    📸 Chụp ảnh ra về
                  </button>
                  <button class="btn sm success-soft" onclick="App.views.attendance.moRaVe('${UI.esc(s.id)}')">

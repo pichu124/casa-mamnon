@@ -399,6 +399,30 @@ module.exports = (app, { db, modules }) => {
     return d ? { ...d, coDeXuatTen: tenNguoi(d.coDeXuat), nguoiDuyetTen: tenNguoi(d.nguoiDuyet) } : null;
   }
 
+  // Chương trình của một đề xuất (Đ229 ghi ở bảng phụ); đề xuất đời cũ không có
+  // dòng phụ thì là đề xuất cho CẢ BẢN — trả null.
+  function ctCuaDeXuat(deXuatId) {
+    try {
+      const r = db.first('kehoachbe_de_xuat_ct', 'SELECT chuongTrinh FROM kehoachbe_de_xuat_ct WHERE deXuatId = ?', [deXuatId]);
+      return r ? r.chuongTrinh : null;
+    } catch (_) { return null; }
+  }
+
+  // ĐỀ XUẤT THEO TỪNG CHƯƠNG TRÌNH (vòng rà Đ232). Đề xuất của cô Montessori
+  // không được hiện — và không được chặn — ở tab Cambridge. Đề xuất đời cũ
+  // (cả bản) thì vẫn áp cho mọi phần như trước. Khoá cũ `deXuat` giữ nguyên.
+  function deXuatTheoCt(keId) {
+    const ds = db.all('kehoachbe_de_xuat',
+      'SELECT * FROM kehoachbe_de_xuat WHERE keId = ? ORDER BY taoLuc DESC LIMIT 50', [keId]);
+    const ra = {};
+    for (const ct of MA_CT) {
+      const cua = ds.filter(d => { const c = ctCuaDeXuat(d.id); return c === null || c === ct; });
+      const d = cua.find(x => x.trangThai === 'cho-duyet') || cua[0] || null;
+      ra[ct] = d ? { ...d, coDeXuatTen: tenNguoi(d.coDeXuat), nguoiDuyetTen: tenNguoi(d.nguoiDuyet) } : null;
+    }
+    return ra;
+  }
+
   function keCuaBe(studentId, thang) {
     const k = db.first('kehoachbe_ke',
       'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [studentId, thang]);
@@ -411,6 +435,7 @@ module.exports = (app, { db, modules }) => {
       muc: mucCuaKe(k.id),
       baiHoc: baiCuaKe(k.id),
       deXuat: deXuatCuaKe(k.id),
+      deXuatTheoCt: deXuatTheoCt(k.id),
       // Trạng thái từng chương trình (góp ý 06/10, mục 6) — thêm khoá mới,
       // không đổi khoá cũ.
       chuongTrinh: Object.fromEntries(MA_CT.map(ct => [ct, {
@@ -604,7 +629,14 @@ module.exports = (app, { db, modules }) => {
     if (!k) return;
     const tt = trangThaiCt(k);
     const co = MA_CT.filter(ct => tt[ct].coNoiDung).map(ct => tt[ct]);
-    if (!co.length) return;
+    if (!co.length) {
+      // Bản đã tách mà không còn phần nào có nội dung: cả bản là một bản nháp
+      // trống — không để cột gộp kẹt "gửi lại" (vòng rà Đ232).
+      if (MA_CT.some(ct => tt[ct].daTach) && k.trangThai === 'tra-lai') {
+        db.update('kehoachbe_ke', k.id, { trangThai: 'nhap', guiLuc: null, yKienDuyet: '' });
+      }
+      return;
+    }
     const gom = co.some(x => x.trangThai === 'cho-duyet') ? 'cho-duyet'
       : co.some(x => x.trangThai === 'tra-lai') ? 'tra-lai'
         : co.some(x => x.trangThai === 'nhap') ? 'nhap' : 'da-duyet';
@@ -690,6 +722,13 @@ module.exports = (app, { db, modules }) => {
         // Gợi ý từ tháng gần nhất — chỉ khi bé CHƯA có bản tháng này; đã có
         // bản thì cô đã quyết rồi, gợi ý nữa là nói chen.
         goiY: ke ? null : goiYChoThang(b.id, thang),
+        // KHOÁ MỚI (vòng rà Đ232): bé đã có bản nhưng còn PHẦN chương trình
+        // chưa ai soạn. Từ Đ229 mỗi cô lưu phần của mình — cô Montessori lưu
+        // trước không có nghĩa cô Cambridge "đã quyết rồi". Màn hình dùng khoá
+        // này cho đúng phần còn trống; khoá `goiY` giữ nguyên nghĩa cũ.
+        goiYPhanTrong: ke && MA_CT.some(ct => ke.chuongTrinh && ke.chuongTrinh[ct]
+          && !ke.chuongTrinh[ct].coNoiDung && ke.chuongTrinh[ct].trangThai === 'nhap')
+          ? goiYChoThang(b.id, thang) : null,
       };
     });
 
@@ -970,6 +1009,13 @@ module.exports = (app, { db, modules }) => {
           if (baiHoc) ghiBaiHoc(keId, baiHoc, luc, ct);
           const dong = dongCt(keId).get(ct);
           datCt(keId, ct, { capNhatLuc: luc, coLap: (dong && dong.coLap) || req.user.id });
+          // Phần bị GỬI LẠI mà cô bỏ hết nội dung (quản lý dặn "tháng này bé
+          // không học phần này"): về nháp. Không thế thì phần rỗng kẹt "gửi lại"
+          // mãi — gửi duyệt bỏ qua phần rỗng, quản lý không có gì để duyệt, và
+          // huy hiệu của cô không bao giờ về 0 (vòng rà Đ232).
+          if (dong && dong.trangThai === 'tra-lai' && !ctCoNoiDung(keId).has(ct)) {
+            datCt(keId, ct, { trangThai: 'nhap', guiLuc: null, yKienDuyet: '' });
+          }
           dongBoKe(keId);
           daLuu += 1;
           continue;
@@ -1068,6 +1114,17 @@ module.exports = (app, { db, modules }) => {
           const tt = trangThaiCt(k)[ct];
           if (tt.trangThai !== 'nhap' && tt.trangThai !== 'tra-lai') { boQua += 1; continue; }
         } else if (k && !duocSuaNoiDung(k)) { boQua += 1; continue; }
+        else if (k) {
+          // App đời cũ (không gửi chuongTrinh) gặp bản ĐÃ TÁCH theo chương trình:
+          // trạng thái gộp có thể là "nháp" trong khi một phần đã duyệt, và chèn
+          // bài vào phần ấy là gia đình thấy ngay thứ chưa ai duyệt (vòng rà
+          // Đ232). Cùng luật với PUT ở trên — bỏ qua bé đó, không ghi.
+          const tt = trangThaiCt(k);
+          if (MA_CT.some(c => tt[c].daTach)
+            && MA_CT.some(c => tt[c].coNoiDung && !['nhap', 'tra-lai'].includes(tt[c].trangThai))) {
+            boQua += 1; continue;
+          }
+        }
         if (!k) {
           const id = db.nextId('khb');
           db.insert('kehoachbe_ke', {
@@ -1568,13 +1625,30 @@ module.exports = (app, { db, modules }) => {
       if (kl && !MA_KET_LUAN.includes(kl)) {
         return res.status(400).json({ error: 'Kết luận cho bài chỉ có hai lựa chọn: đã thấy con làm được, hoặc tiếp tục cùng con' });
       }
+      // KHÔNG GỬI = KHÔNG ĐỤNG (vòng rà Đ232). Hai màn đời mới gửi MỌI bài của
+      // phần, kể cả bài cô không chạm:
+      //  • tab Kế hoạch của Hành trình không có ô ghi chú → thiếu `nhanXet` thì
+      //    giữ ghi chú cũ, không xoá trắng (Báo cáo tháng đọc chính ghi chú ấy);
+      //  • bài nhìn lại bằng kết luận hai mức ĐỜI CŨ (chưa có dòng mức độ) hiện
+      //    trống ở ô chữ quy ước → hai ô trống thì giữ kết luận cũ và gợi ý tháng
+      //    sau, chỉ suy ra lại khi cô thật sự chọn một mức.
+      const coKhoa = (khoa) => Object.prototype.hasOwnProperty.call(m || {}, khoa);
+      let giuKetLuanCu = false;
+      if (coMucDo && !mucDo && !tiepTuc && !coKhoa('ketQua')) {
+        let daCoMucDo = false;
+        try {
+          daCoMucDo = !!db.first('kehoachbe_bai_muc_do', 'SELECT mucBaiId FROM kehoachbe_bai_muc_do WHERE mucBaiId = ?', [cu.id]);
+        } catch (_) { /* chưa có bảng */ }
+        giuKetLuanCu = !daCoMucDo;
+      }
       sachBai.push({
         id: cu.id,
-        ketQua: kl,
-        nhanXet: chuoi((m || {}).nhanXet, TOI_DA_NHAN_XET),
+        ketQua: giuKetLuanCu ? (cu.ketQua || '') : kl,
+        nhanXet: coKhoa('nhanXet') ? chuoi((m || {}).nhanXet, TOI_DA_NHAN_XET) : (cu.nhanXet || ''),
         // "Tiếp tục cùng con" TỰ ĐỘNG là việc của tháng sau — cô không phải
         // tích thêm một ô nữa để nói cùng một điều.
-        tiepTucThangSau: (kl === 'tiep-tuc' || (m || {}).tiepTucThangSau || tiepTuc) ? 1 : 0,
+        tiepTucThangSau: giuKetLuanCu ? (cu.tiepTucThangSau ? 1 : 0)
+          : ((kl === 'tiep-tuc' || (m || {}).tiepTucThangSau || tiepTuc) ? 1 : 0),
         mucDo: coMucDo ? { mucDo, tiepTuc } : null,
       });
     }
@@ -1652,8 +1726,11 @@ module.exports = (app, { db, modules }) => {
     // Lý do là thứ nhà trường đòi hỏi bằng lời: "ghi rõ lý do rồi quản lý mới
     // phê duyệt". Không có lý do thì quản lý không có gì để cân nhắc.
     if (!lyDo) return res.status(400).json({ error: 'Cô ghi rõ lý do muốn sửa nhé — quản lý đọc dòng này để quyết' });
-    const dangCho = db.first('kehoachbe_de_xuat',
-      "SELECT id FROM kehoachbe_de_xuat WHERE keId = ? AND trangThai = 'cho-duyet'", [k.id]);
+    // Đang chờ thì chặn THEO PHẦN: đề xuất của chương trình khác không cản
+    // cô này; đề xuất đời cũ (cả bản) và app đời cũ thì vẫn chặn cả bản.
+    const dangCho = db.all('kehoachbe_de_xuat',
+      "SELECT id FROM kehoachbe_de_xuat WHERE keId = ? AND trangThai = 'cho-duyet'", [k.id])
+      .some(d => { const c = ctCuaDeXuat(d.id); return !ctDx || c === null || c === ctDx; });
     if (dangCho) return res.status(400).json({ error: 'Kế hoạch này đã có một đề xuất đang chờ quản lý xem' });
 
     const luc = new Date().toISOString();

@@ -487,13 +487,15 @@ App.views.cambridge = {
         </select>
         <div class="hint">Bài cho lứa 3–4 chỉ tới gia đình bé 3–4; bài cho mọi lứa tới mọi nhà trong phạm vi (trừ nhóm nhà trẻ).</div>
       </div>
-      <div class="field" data-cho="cambridge ket-noi"><label>Hoạt động (Cambridge)</label>
+      <!-- Ô của bài cũ CÒN CHỮ thì hiện ở mọi loại bài (vòng rà Đ232): gia
+           đình vẫn đọc chữ ấy, nên người sửa phải thấy và sửa được nó. -->
+      <div class="field" data-cho="cambridge ket-noi${k.monHoc ? ' thu-phu-huynh' : ''}"><label>Hoạt động (Cambridge)</label>
         <input id="cam-mon" value="${UI.esc(k.monHoc || '')}" placeholder="Ví dụ: Communication and Language / Mathematics / Let's Explore"></div>
-      <div class="field" data-cho="cambridge ket-noi"><label>Chủ đề</label>
+      <div class="field" data-cho="cambridge ket-noi${k.chuDe ? ' thu-phu-huynh' : ''}"><label>Chủ đề</label>
         <input id="cam-chu-de" value="${UI.esc(k.chuDe || '')}" placeholder="Ví dụ: My school"></div>
-      <div class="field" data-cho="cambridge ket-noi"><label>Từ vựng</label>
+      <div class="field" data-cho="cambridge ket-noi${k.tuVung ? ' thu-phu-huynh' : ''}"><label>Từ vựng</label>
         <textarea id="cam-tu-vung" rows="2" placeholder="Ví dụ: classroom, teacher, friend, book">${UI.esc(k.tuVung || '')}</textarea></div>
-      <div class="field" data-cho="cambridge ket-noi"><label>Song / Chant</label>
+      <div class="field" data-cho="cambridge ket-noi${k.songChant ? ' thu-phu-huynh' : ''}"><label>Song / Chant</label>
         <textarea id="cam-song" rows="2" placeholder="Ví dụ: If You're Happy and You Know It — kèm đường dẫn nếu có">${UI.esc(k.songChant || '')}</textarea></div>
       <div class="field" data-cho="${k.ketNoiONha ? 'thu-phu-huynh cambridge ket-noi' : ''}"><label>Kết nối ở nhà</label>
         <textarea id="cam-ket-noi" rows="3" placeholder="Video, worksheet, việc gia đình làm cùng con tuần này">${UI.esc(k.ketNoiONha || '')}</textarea></div>

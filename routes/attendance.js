@@ -558,6 +558,24 @@ module.exports = (app) => {
     if (!anh || typeof anh !== 'string') {
       return res.status(400).json({ error: 'Chưa chọn ảnh' });
     }
+    // MÀN HÌNH NÓI RÕ Ý ĐỊNH (vòng rà Đ232). Chạm vào bé để chụp "lần 1" gửi
+    // `yDinh: 'toi-lop'`. Máy ở cổng mở từ sáng không tự làm mới: bé đã được
+    // máy khác chụp ảnh tới lớp mà màn này vẫn thấy "chưa có mặt", và lần chạm
+    // buổi chiều lại thay mất ảnh sáng. Gặp đúng cảnh ấy thì trả 409 để màn
+    // hình hỏi lại — không âm thầm thay ảnh. Không có `yDinh` (app đời cũ, nút
+    // "Chụp lại ảnh tới lớp") thì như cũ.
+    if ((req.body || {}).yDinh === 'toi-lop') {
+      const daCoAnh = db.first('attendance_photo',
+        'SELECT file FROM attendance_photo WHERE studentId = ? AND date = ?', [studentId, ngayGhi]);
+      const dongNay = db.first('attendance',
+        'SELECT * FROM attendance WHERE studentId = ? AND date = ?', [studentId, ngayGhi]);
+      if (daCoAnh && dongNay && CO_MAT.includes(dongNay.status)) {
+        return res.status(409).json({
+          error: `Bé đã có ảnh tới lớp${dongNay.checkIn ? ` lúc ${dongNay.checkIn}` : ''} (máy khác vừa chụp).`,
+          daCoAnhToiLop: true, record: dongNay,
+        });
+      }
+    }
 
     // Trần riêng của ảnh điểm danh, SIẾT trước khi gọi kho ảnh.
     //
@@ -1109,6 +1127,7 @@ module.exports = (app) => {
     if (r) return r.campusId;
     const c = db.first('class_teachers',
       `SELECT cc.campusId FROM class_teachers ct JOIN class_campus cc ON cc.classId = ct.classId
+       JOIN classes c ON c.id = ct.classId AND c.active = 1
        WHERE ct.teacherId = ? ORDER BY ct.vaiTro = 'chinh' DESC LIMIT 1`, [u.id]);
     return c ? c.campusId : '';
   }
@@ -1117,9 +1136,14 @@ module.exports = (app) => {
       "SELECT id, name, title, avatar, role FROM users WHERE active = 1 AND role IN ('teacher', 'admin') ORDER BY name");
     const khoa = db.phamViCoSo(user);
     if (!khoa) return ds;
+    // Chỉ nhóm ĐANG MỞ: chuyển năm học giữ lại dòng phân công của nhóm đã
+    // đóng (lib/db.js lọc đúng như vậy ở classIdsOfTeacher). Không lọc thì cô
+    // đã chuyển cơ sở vẫn nằm ở cổng cơ sở cũ, và ảnh công của cô ghi nhầm cơ
+    // sở cũ — đúng trường dữ liệu Nhân sự dùng để cắt quyền xem (vòng rà Đ232).
     const coCo = new Set(db.all('class_teachers',
       `SELECT DISTINCT ct.teacherId AS id FROM class_teachers ct
-       JOIN class_campus cc ON cc.classId = ct.classId WHERE cc.campusId = ?`, [khoa]).map(r => r.id));
+       JOIN class_campus cc ON cc.classId = ct.classId
+       JOIN classes c ON c.id = ct.classId AND c.active = 1 WHERE cc.campusId = ?`, [khoa]).map(r => r.id));
     const coNv = new Set(db.all('user_campus',
       'SELECT userId AS id FROM user_campus WHERE campusId = ?', [khoa]).map(r => r.id));
     return ds.filter(u => coCo.has(u.id) || coNv.has(u.id));
@@ -1168,6 +1192,28 @@ module.exports = (app) => {
     } catch (_) { /* phân hệ Nhân sự hỏng thì không làm hỏng việc chấm ở cổng */ }
   }
 
+  // GỠ MỘT LẦN CHỤP THÌ GỠ CẢ BẢN ĐÃ CHÉP SANG BẢNG CÔNG (vòng rà Đ232).
+  // Không thế thì chụp nhầm cô Lan rồi gỡ, bảng công và tệp xuất cho kế toán
+  // vẫn tính cô Lan một công. Chỉ gỡ đúng thứ CỔNG đã ghi: dòng mang ghi chú
+  // "Chụp ảnh ở cổng", loại đi làm, ô giờ còn đúng giờ vừa gỡ — Nhân sự đã sửa
+  // tay thì không đụng. Dòng do cổng tạo mà hết cả giờ vào lẫn giờ ra thì bỏ.
+  function hoanNhanSu(userId, ngayGhi, phan, gio) {
+    if (!gio || !modules.dangBat('nhansu')) return;
+    try {
+      const cu = db.first('nhansu_cham_cong', 'SELECT * FROM nhansu_cham_cong WHERE userId = ? AND ngay = ?', [userId, ngayGhi]);
+      if (!cu || cu.ghiChu !== 'Chụp ảnh ở cổng' || cu.loai !== 'di-lam') return;
+      const cot = phan === 'ra' ? 'gioRa' : 'gioVao';
+      if (cu[cot] !== gio) return;
+      const con = { gioVao: cu.gioVao || '', gioRa: cu.gioRa || '', [cot]: '' };
+      if (!con.gioVao && !con.gioRa) {
+        db.run('DELETE FROM nhansu_cham_cong WHERE userId = ? AND ngay = ?', [userId, ngayGhi]);
+      } else {
+        db.run(`UPDATE nhansu_cham_cong SET ${cot} = '', capNhatLuc = ? WHERE userId = ? AND ngay = ?`,
+          [new Date().toISOString(), userId, ngayGhi]);
+      }
+    } catch (_) { /* phân hệ Nhân sự hỏng thì không làm hỏng việc gỡ ở cổng */ }
+  }
+
   app.get('/api/attendance/nhan-vien', requireRole('admin'), (req, res) => {
     if (!chupCongDuoc(req.user)) return res.status(403).json({ error: 'Tài khoản này không chấm công ở cổng' });
     const ngayXem = String(req.query.date || todayStr());
@@ -1212,7 +1258,9 @@ module.exports = (app) => {
     if (!cu) {
       db.insert('staff_checkin', {
         id: db.nextId('ccn'), userId: u.id, ngay: ngayGhi, gioVao: gio, anhVao: luu.file,
-        campusId: coSoCuaNguoi(u), nguoiChupVao: req.user.id, capNhatLuc: luc,
+        // Cơ sở của CỔNG chụp (người bấm khoá vào một cơ sở) trước, rồi mới tới
+        // cơ sở của người được chụp — đó mới là nơi người ấy thật sự đi qua.
+        campusId: db.phamViCoSo(req.user) || coSoCuaNguoi(u), nguoiChupVao: req.user.id, capNhatLuc: luc,
       });
     } else if (phan === 'vao') {
       db.update('staff_checkin', cu.id, { gioVao: gio, anhVao: luu.file, nguoiChupVao: req.user.id, capNhatLuc: luc });
@@ -1240,11 +1288,13 @@ module.exports = (app) => {
     if (cu.gioRa) {
       db.update('staff_checkin', cu.id, { gioRa: '', anhRa: '', nguoiChupRa: null, capNhatLuc: luc });
       if (cu.anhRa) uploads.remove(cu.anhRa);
+      hoanNhanSu(userId, ngayGhi, 'ra', cu.gioRa);
       db.audit(req.user.id, 'cong-anh-go', userId, { ngay: ngayGhi, phan: 'ra' });
       return res.json({ ok: true, daGo: 'ra' });
     }
     db.run('DELETE FROM staff_checkin WHERE id = ?', [cu.id]);
     if (cu.anhVao) uploads.remove(cu.anhVao);
+    hoanNhanSu(userId, ngayGhi, 'vao', cu.gioVao);
     db.audit(req.user.id, 'cong-anh-go', userId, { ngay: ngayGhi, phan: 'vao' });
     res.json({ ok: true, daGo: 'vao' });
   });
