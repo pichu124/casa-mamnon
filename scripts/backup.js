@@ -35,6 +35,11 @@ const BACKUP_DIR = outIdx >= 0 && args[outIdx + 1]
 // Xem chú thích ở mục 3 bên dưới — vì sao không còn "một bản mỗi ngày".
 const GIU_NGAY = 7, GIU_TUAN = 4, GIU_THANG = 12;
 const GIU_GAN_DAY_MS = 48 * 3600 * 1000, GIU_GAN_DAY_TOI_DA = 24;
+// Bản mang giờ TƯƠNG LAI (đồng hồ máy từng chạy nhanh, hay thư mục chép từ một
+// máy như thế sang) không được tính là "gần đây": tên chúng xếp đầu danh sách,
+// tính vào thì chúng chiếm hết 24 chỗ và đẩy bản thật sự mới — kể cả bản vừa
+// chụp — ra ngoài. Cho lệch 5 phút để đồng hồ hai máy chênh nhau chút ít.
+const GIU_GAN_DAY_LECH_MS = 5 * 60 * 1000;
 
 // Tên bản sao lưu đọc theo GIỜ VIỆT NAM.
 //
@@ -273,7 +278,8 @@ db.backup(tmp).then(() => {
     dauNgay.set(khoaNgay, b.file);
     if (!theoTuan.has(khoaTuan)) theoTuan.set(khoaTuan, b.file);
     if (!theoThang.has(khoaThang)) theoThang.set(khoaThang, b.file);
-    if (ganDay < GIU_GAN_DAY_TOI_DA && bayGioMs - b.at.getTime() <= GIU_GAN_DAY_MS) {
+    const tuoi = bayGioMs - b.at.getTime();
+    if (ganDay < GIU_GAN_DAY_TOI_DA && tuoi >= -GIU_GAN_DAY_LECH_MS && tuoi <= GIU_GAN_DAY_MS) {
       giu.add(b.file);
       ganDay++;
     }

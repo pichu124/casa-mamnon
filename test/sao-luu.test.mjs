@@ -859,8 +859,26 @@ console.log('\n[12] SAO LƯU BẰNG TAY TRONG NGÀY không được xoá mất b
     kqT.status === 0 && sau <= 24 + 4, { sau, out: kqT.stdout.slice(-200) });
   check('và vẫn giữ bản đầu ngày (bản cũ nhất) dù nằm ngoài 24 bản mới nhất', con(T, cuNhat), dsBan(T).slice(-3));
 
+  // GIỜ TƯƠNG LAI: đồng hồ máy từng chạy nhanh (hay thư mục chép từ một máy như
+  // thế sang) để lại 30 bản mang tên và giờ của ngày mai. Tên chúng xếp đầu
+  // danh sách; tính chúng là "48 giờ gần đây" thì chúng chiếm hết 24 chỗ và đẩy
+  // bản thật sự mới ra ngoài — kể cả chính bản vừa chụp.
+  const F = taoKho('sao-luu-vong-doi-tuong-lai');
+  // Hai bản sát hai bên để bản "trước khi cập nhật" là bản GIỮA ngày — luật
+  // đầu / cuối ngày không cứu nó, chỉ vế 48 giờ cứu được.
+  datBan(F, Date.now() - 2 * 3600000 - 60000);
+  const truocCapNhatF = datBan(F, Date.now() - 2 * 3600000);
+  datBan(F, Date.now() - 2 * 3600000 + 60000);
+  for (let i = 1; i <= 30; i++) datBan(F, Date.now() + i * 3600000);
+  const truocF = new Set(dsBan(F));
+  const kqF = chayBackup(F);
+  check('GIỜ TƯƠNG LAI: bản "trước khi cập nhật" 2 giờ trước vẫn còn',
+    kqF.status === 0 && con(F, truocCapNhatF), dsBan(F).slice(-4));
+  check('GIỜ TƯƠNG LAI: bản vừa chụp lượt này vẫn còn', dsBan(F).some(f => !truocF.has(f)), dsBan(F).slice(-4));
+
   donThuMucTam(D);
   donThuMucTam(T);
+  donThuMucTam(F);
 }
 
 donThuMucTam(DIR);
