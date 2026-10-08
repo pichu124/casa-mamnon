@@ -881,5 +881,75 @@ console.log('\n[12] SAO LƯU BẰNG TAY TRONG NGÀY không được xoá mất b
   donThuMucTam(F);
 }
 
+// ===========================================================================
+console.log('\n[13] CHÉP KHO SAO LƯU SANG MÁY MỚI MÀ KHÔNG GIỮ GIỜ — lịch sử và ảnh không được mất');
+{
+  // VÌ SAO CÓ MỤC NÀY (Đ236, 08/10/2026)
+  //
+  // Vòng đời dọn bản cũ từng đọc GIỜ SỬA TỆP (mtime). Chuyển máy chủ mà chép
+  // thư mục sao lưu bằng `scp -r` / `cp -r` không có `-p` thì mọi bản mang
+  // cùng một mtime — lúc chép. Vòng đời thấy cả kho là "bản của hôm nay" và dọn
+  // sạch lịch sử theo tháng; phần dọn ảnh (3b) tưởng mọi bản đều mới nên dọn
+  // luôn ảnh mà các bản cũ còn cần. Giờ CHỤP thật nằm trong TÊN tệp, đi theo
+  // tệp tới bất cứ đâu — nay đọc từ đó.
+  const MS_NGAY = 86400000;
+  const ngayTruoc = (n) => ngay.ngayCua(Date.now() - n * MS_NGAY);
+  const lucVN = (ngayVN, gio) => Date.parse(`${ngayVN}T${gio}:00+07:00`);
+  const tenBan = (moc) => `school-${ngay.ngayCua(moc).replace(/-/g, '')}-${ngay.gioCua(moc).replace(':', '')}.db.gz`;
+  const D = thuMucTam('sao-luu-chep-may-moi');
+  fs.mkdirSync(path.join(D, 'backups', 'uploads'), { recursive: true });
+  fs.mkdirSync(path.join(D, 'uploads'), { recursive: true });
+  sinhDuLieu(D);
+  const BK = path.join(D, 'backups');
+  const LUC_CHEP = Date.now() - 60000;            // mọi tệp mang đúng giờ này, như vừa chép xong
+  const datBan = (moc) => {
+    const f = path.join(BK, tenBan(moc));
+    fs.writeFileSync(f, 'ban-sao-gia');
+    fs.utimesSync(f, LUC_CHEP / 1000, LUC_CHEP / 1000);
+    return path.basename(f);
+  };
+  // Mười bản theo tháng (ngày 15 của 2 → 11 tháng trước — mỗi tháng chỉ có một
+  // bản nên luật "12 bản theo tháng" phải giữ hết), bảy bản 02:00 của tuần qua,
+  // và 15 bản chạy tay hôm qua: tổng 32 bản, hơn hẳn 24 chỗ của vế 48 giờ.
+  const theoThang = [];
+  for (let k = 2; k <= 11; k++) {
+    const d = new Date(Date.now());
+    d.setUTCDate(15);
+    d.setUTCMonth(d.getUTCMonth() - k);
+    theoThang.push(datBan(lucVN(d.toISOString().slice(0, 10), '02:00')));
+  }
+  for (let n = 1; n <= 7; n++) datBan(lucVN(ngayTruoc(n), '02:00'));
+  for (let i = 0; i < 15; i++) datBan(lucVN(ngayTruoc(1), '08:00') + i * 20 * 60000);
+  // Một tệp mang tên hỏng (tháng 13): không được làm sập lượt sao lưu.
+  const tenHong = 'school-20261340-0200.db.gz';
+  fs.writeFileSync(path.join(BK, tenHong), 'ban-sao-gia');
+
+  // ẢNH: một tấm vắng mặt từ 30 ngày trước — các bản theo tháng cũ hơn thế còn
+  // nhắc tới nó, nên phải GIỮ. Một tấm vắng từ 400 ngày trước — cũ hơn mọi bản
+  // còn giữ, không bản nào cần nữa — được DỌN (luật dọn ảnh vẫn chạy).
+  fs.writeFileSync(path.join(BK, 'uploads', 'anh-ba-muoi-ngay.jpg'), 'a'.repeat(300));
+  fs.writeFileSync(path.join(BK, 'uploads', 'anh-bon-tram-ngay.jpg'), 'b'.repeat(300));
+  fs.writeFileSync(path.join(BK, 'uploads-da-vang.json'), JSON.stringify({
+    'anh-ba-muoi-ngay.jpg': new Date(Date.now() - 30 * MS_NGAY).toISOString(),
+    'anh-bon-tram-ngay.jpg': new Date(Date.now() - 400 * MS_NGAY).toISOString(),
+  }));
+  const truoc = fs.readdirSync(BK).filter(f => /^school-\d{8}-\d{4}\.db\.gz$/.test(f)).length;
+
+  const kq = spawnSync('node', [path.join(GOC, 'scripts', 'backup.js')],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D } });
+  const con = (f) => fs.existsSync(path.join(BK, f));
+  check('tiền đề: 32 bản sao (+1 tên hỏng) mang cùng một giờ sửa tệp', truoc === 33, truoc);
+  check('lượt sao lưu chạy xong, tệp tên hỏng không làm sập', kq.status === 0, (kq.stderr || kq.stdout).slice(-300));
+  const conThang = theoThang.filter(con);
+  check('LỊCH SỬ THEO THÁNG CÒN ĐỦ cả 10 bản dù mọi tệp mang cùng giờ sửa tệp',
+    conThang.length === 10, { con: conThang.length, mat: theoThang.filter(f => !con(f)) });
+  check('ẢNH mà bản theo tháng cũ còn cần (vắng 30 ngày) KHÔNG bị dọn',
+    fs.existsSync(path.join(BK, 'uploads', 'anh-ba-muoi-ngay.jpg')), (kq.stdout || '').slice(-300));
+  check('ảnh vắng từ trước mọi bản còn giữ (400 ngày) vẫn được dọn như luật',
+    !fs.existsSync(path.join(BK, 'uploads', 'anh-bon-tram-ngay.jpg')), (kq.stdout || '').slice(-300));
+
+  donThuMucTam(D);
+}
+
 donThuMucTam(DIR);
 tongKet();

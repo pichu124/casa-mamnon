@@ -251,9 +251,19 @@ kiem('Bản sao lưu gần nhất', () => {
       `DATA_DIR=${DATA_DIR} npm run backup`);
     return;
   }
+  // Tuổi của bản sao = mốc SỚM HƠN trong hai mốc: giờ chụp ghi trong tên tệp
+  // và giờ sửa tệp (Đ236). Chép thư mục sao lưu sang máy mới mà không giữ giờ
+  // thì mtime là lúc chép — đọc riêng nó là báo một bản đã cũ là "vừa chụp",
+  // che mất đúng chuyện cần thấy: lịch sao lưu ở máy mới chưa chạy. Lấy mốc
+  // sớm hơn thì sai về phía báo động sớm, phía an toàn của một bộ soát.
+  const { mocCuaTen } = require('./moc-ban-sao');
   const ds = fs.readdirSync(BACKUP_DIR)
     .filter(f => f.endsWith('.db.gz'))
-    .map(f => ({ f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+    .map(f => {
+      const mtime = fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs;
+      const ten = mocCuaTen(f);
+      return { f, mtime: Number.isFinite(ten) ? Math.min(ten, mtime) : mtime };
+    })
     .sort((a, b) => b.mtime - a.mtime);
   if (!ds.length) {
     canSua('Bản sao lưu gần nhất', 'thư mục sao lưu rỗng',

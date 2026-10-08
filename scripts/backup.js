@@ -15,6 +15,7 @@ require('./canh-thu-muc-du-lieu')();
 const fs = require('fs');
 const path = require('path');
 const ngay = require('../lib/ngay');
+const { mocCuaTen } = require('./moc-ban-sao');
 const zlib = require('zlib');
 const Database = require('better-sqlite3');
 
@@ -105,7 +106,10 @@ function danhSach() {
     .reverse()
     .map(f => {
       const st = fs.statSync(path.join(BACKUP_DIR, f));
-      return { file: f, size: st.size, at: st.mtime };
+      // `moc`: giờ CHỤP, đọc từ tên tệp — xem scripts/moc-ban-sao.js. Tên hỏng
+      // thì lùi về giờ sửa tệp. `at` (giờ sửa tệp) chỉ còn để in ra ở --list.
+      const ten = mocCuaTen(f);
+      return { file: f, size: st.size, at: st.mtime, moc: Number.isFinite(ten) ? ten : st.mtimeMs };
     });
 }
 
@@ -266,10 +270,15 @@ db.backup(tmp).then(() => {
 
   // `list` xếp MỚI → CŨ, nên gặp đầu tiên là bản cuối ngày, gặp sau cùng là
   // bản đầu ngày.
+  //
+  // MỌI MỐC Ở ĐÂY LÀ GIỜ CHỤP ĐỌC TỪ TÊN (`b.moc`), KHÔNG PHẢI GIỜ SỬA TỆP
+  // (Đ236). Chép thư mục sao lưu sang máy mới mà không giữ giờ thì mọi bản mang
+  // cùng một mtime; đọc mtime ở đây là thấy cả kho là "bản của hôm nay" và dọn
+  // sạch lịch sử theo tháng.
   for (const b of list) {
     // Khoá gom nhóm cũng theo giờ Việt Nam, để "mỗi ngày" nghĩa là mỗi ngày
     // CỦA TRƯỜNG, không phải mỗi ngày của máy chủ.
-    const ngayVN = ngay.ngayCua(b.at.getTime());
+    const ngayVN = ngay.ngayCua(b.moc);
     const khoaNgay = ngayVN;
     const khoaThang = ngayVN.slice(0, 7);
     const tuan = Math.floor(Date.parse(`${ngayVN}T00:00:00Z`) / (7 * 86400000));
@@ -278,7 +287,7 @@ db.backup(tmp).then(() => {
     dauNgay.set(khoaNgay, b.file);
     if (!theoTuan.has(khoaTuan)) theoTuan.set(khoaTuan, b.file);
     if (!theoThang.has(khoaThang)) theoThang.set(khoaThang, b.file);
-    const tuoi = bayGioMs - b.at.getTime();
+    const tuoi = bayGioMs - b.moc;
     if (ganDay < GIU_GAN_DAY_TOI_DA && tuoi >= -GIU_GAN_DAY_LECH_MS && tuoi <= GIU_GAN_DAY_MS) {
       giu.add(b.file);
       ganDay++;
@@ -313,7 +322,11 @@ db.backup(tmp).then(() => {
     console.log(`  Khoá giữ ảnh ĐANG BẬT — giữ lại ${n} ảnh đã xoá khỏi thư mục gốc (${mb(dungLuong)}).`);
     console.log('  Tắt bằng: node scripts/backup.js --thoi-giu-anh');
   } else if (fs.existsSync(anhDir) && conGiu.length) {
-    const mocCuNhat = Math.min(...conGiu.map(b => b.at.getTime()));
+    // Lấy mốc SỚM HƠN trong hai mốc của mỗi bản (giờ trong tên, giờ sửa tệp):
+    // sai về phía coi bản sao là CŨ hơn, tức giữ ảnh lâu hơn. Chép sang máy
+    // mới mà không giữ giờ thì mtime là lúc chép — dùng nó là tưởng mọi bản
+    // đều mới và dọn mất ảnh mà các bản cũ còn cần (Đ236).
+    const mocCuNhat = Math.min(...conGiu.map(b => Math.min(b.moc, b.at.getTime())));
     const soVang = docSoVang();
     let doiRac = 0, dungLuong = 0;
     for (const [f, luc] of Object.entries(soVang)) {
