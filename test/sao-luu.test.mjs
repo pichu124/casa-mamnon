@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { createRequire } from 'module';
-import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, HOM_NAY } from './_chung.mjs';
+import { GOC, taoBoDem, thuMucTam, donThuMucTam, sinhDuLieu, HOM_NAY, ngay } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
 const Database = require(path.join(GOC, 'node_modules', 'better-sqlite3'));
@@ -775,6 +775,110 @@ console.log('\n[11] --kiem-tra phải soát cả ẢNH, không chỉ tệp .db.g
     /Kiểm tra toàn vẹn: đạt/.test(chuKhong), chuKhong.slice(0, 300));
 
   donThuMucTam(D11);
+}
+
+// ===========================================================================
+console.log('\n[12] SAO LƯU BẰNG TAY TRONG NGÀY không được xoá mất bản 02:00 hay bản "trước khi cập nhật"');
+{
+  // VÌ SAO CÓ MỤC NÀY (Đ235, 08/10/2026)
+  //
+  // Vòng đời cũ giữ đúng MỘT bản mỗi ngày — bản MỚI NHẤT. Trên máy chủ thử
+  // ngày 08/10, chạy sao lưu tay lúc 09:54 trước khi cập nhật là bản 02:00 tự
+  // động của hôm đó biến mất (và cả bản 08:36 chạy tay buổi sáng). Ca hỏng thật:
+  // 8 giờ có người lỡ xoá nhầm, 10 giờ sao lưu "cho chắc" → bản 02:00 SẠCH bị
+  // xoá, bản 10 giờ đã mang chỗ bị xoá, bản sạch gần nhất là 02:00 hôm trước —
+  // mọi thứ ghi trong cả ngày hôm trước mà bị xoá nhầm là mất hẳn.
+  //
+  // Mục này dựng sẵn các bản sao giả mang đúng giờ (giờ Việt Nam) rồi chạy
+  // backup.js THẬT; vòng đời chỉ đọc tên và giờ tệp nên nội dung không quan trọng.
+  const MS_NGAY = 86400000;
+  const ngayTruoc = (n) => ngay.ngayCua(Date.now() - n * MS_NGAY);           // 'YYYY-MM-DD' giờ VN
+  const lucVN = (ngayVN, gio) => Date.parse(`${ngayVN}T${gio}:00+07:00`);
+  const tenBan = (moc) => `school-${ngay.ngayCua(moc).replace(/-/g, '')}-${ngay.gioCua(moc).replace(':', '')}.db.gz`;
+  const taoKho = (ten) => {
+    const D = thuMucTam(ten);
+    fs.mkdirSync(path.join(D, 'backups'), { recursive: true });
+    sinhDuLieu(D);
+    return D;
+  };
+  const datBan = (D, moc) => {
+    const f = path.join(D, 'backups', tenBan(moc));
+    fs.writeFileSync(f, 'ban-sao-gia');
+    fs.utimesSync(f, moc / 1000, moc / 1000);
+    return path.basename(f);
+  };
+  const chayBackup = (D) => spawnSync('node', [path.join(GOC, 'scripts', 'backup.js')],
+    { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: D } });
+  const con = (D, f) => fs.existsSync(path.join(D, 'backups', f));
+  const dsBan = (D) => fs.readdirSync(path.join(D, 'backups')).filter(f => /^school-\d{8}-\d{4}\.db\.gz$/.test(f));
+
+  const D = taoKho('sao-luu-vong-doi');
+  const D3 = ngayTruoc(3), D1 = ngayTruoc(1);
+  // (a) Ba ngày trước: bản 02:00 tự động, rồi hai lần sao lưu tay. Đã quá 48 giờ.
+  const dem3 = datBan(D, lucVN(D3, '02:00'));
+  const giua3 = datBan(D, lucVN(D3, '10:00'));
+  const chieu3 = datBan(D, lucVN(D3, '15:00'));
+  // (b) Hôm qua: 03:00, 09:00 ("trước khi cập nhật"), 16:00 — cả ba trong 48 giờ.
+  const dau1 = datBan(D, lucVN(D1, '03:00'));
+  const truocCapNhat1 = datBan(D, lucVN(D1, '09:00'));
+  const cuoi1 = datBan(D, lucVN(D1, '16:00'));
+  // Bảy ngày nữa, mỗi ngày một bản 02:00 (4 → 10 ngày trước), để ngày 12 rơi ra
+  // ngoài khoảng "7 ngày gần nhất có bản sao".
+  for (let n = 4; n <= 10; n++) datBan(D, lucVN(ngayTruoc(n), '02:00'));
+  const dem12 = datBan(D, lucVN(ngayTruoc(12), '02:00'));
+  datBan(D, lucVN(ngayTruoc(12), '15:00'));
+  // Một bản lẻ hai tháng trước: bản theo tháng phải còn, như cũ.
+  const thang = datBan(D, lucVN(ngayTruoc(62), '02:00'));
+
+  const truocChay = new Set(dsBan(D));
+  const kq = chayBackup(D);
+  check('tiền đề: lượt sao lưu chạy xong', kq.status === 0, (kq.stderr || kq.stdout).slice(-300));
+  check('BẢN 02:00 của một ngày có sao lưu tay KHÔNG bị xoá — kể cả khi đã quá 48 giờ',
+    con(D, dem3), dsBan(D));
+  check('bản cuối của ngày ấy cũng còn', con(D, chieu3));
+  check('bản giữa ngày đã quá 48 giờ thì được dọn (không phình mãi)', !con(D, giua3), dsBan(D));
+  check('BẢN "TRƯỚC KHI CẬP NHẬT" lúc giữa ngày, trong 48 giờ: còn nguyên',
+    con(D, truocCapNhat1), dsBan(D));
+  check('bản đầu và bản cuối của hôm qua cũng còn', con(D, dau1) && con(D, cuoi1));
+  check('ngày nằm ngoài 7 ngày gần nhất: bản đầu ngày được dọn như trước', !con(D, dem12), dsBan(D));
+  check('bản theo tháng (hai tháng trước) vẫn còn, như cũ', con(D, thang), dsBan(D));
+  check('bản vừa chụp lượt này còn đó', dsBan(D).some(f => !truocChay.has(f)), dsBan(D));
+
+  // TRẦN: một dòng cron lỡ đặt chạy MỖI PHÚT không được làm đầy đĩa. Bốn mươi
+  // bản cách nhau một phút trong giờ vừa qua → chỉ giữ 24 bản mới nhất của 48
+  // giờ, cộng bản đầu / cuối mỗi ngày (cùng lắm hai ngày nếu chạy qua nửa đêm).
+  const T = taoKho('sao-luu-vong-doi-tran');
+  const bayGio = Date.now();
+  const cuNhat = datBan(T, bayGio - 41 * 60000);
+  for (let i = 40; i >= 2; i--) datBan(T, bayGio - i * 60000);
+  const truoc = dsBan(T).length;
+  const kqT = chayBackup(T);
+  const sau = dsBan(T).length;
+  check('tiền đề: 40 bản giả trong giờ vừa qua', truoc === 40, truoc);
+  check('TRẦN: không giữ quá 24 bản của 48 giờ (+ bản đầu / cuối mỗi ngày)',
+    kqT.status === 0 && sau <= 24 + 4, { sau, out: kqT.stdout.slice(-200) });
+  check('và vẫn giữ bản đầu ngày (bản cũ nhất) dù nằm ngoài 24 bản mới nhất', con(T, cuNhat), dsBan(T).slice(-3));
+
+  // GIỜ TƯƠNG LAI: đồng hồ máy từng chạy nhanh (hay thư mục chép từ một máy như
+  // thế sang) để lại 30 bản mang tên và giờ của ngày mai. Tên chúng xếp đầu
+  // danh sách; tính chúng là "48 giờ gần đây" thì chúng chiếm hết 24 chỗ và đẩy
+  // bản thật sự mới ra ngoài — kể cả chính bản vừa chụp.
+  const F = taoKho('sao-luu-vong-doi-tuong-lai');
+  // Hai bản sát hai bên để bản "trước khi cập nhật" là bản GIỮA ngày — luật
+  // đầu / cuối ngày không cứu nó, chỉ vế 48 giờ cứu được.
+  datBan(F, Date.now() - 2 * 3600000 - 60000);
+  const truocCapNhatF = datBan(F, Date.now() - 2 * 3600000);
+  datBan(F, Date.now() - 2 * 3600000 + 60000);
+  for (let i = 1; i <= 30; i++) datBan(F, Date.now() + i * 3600000);
+  const truocF = new Set(dsBan(F));
+  const kqF = chayBackup(F);
+  check('GIỜ TƯƠNG LAI: bản "trước khi cập nhật" 2 giờ trước vẫn còn',
+    kqF.status === 0 && con(F, truocCapNhatF), dsBan(F).slice(-4));
+  check('GIỜ TƯƠNG LAI: bản vừa chụp lượt này vẫn còn', dsBan(F).some(f => !truocF.has(f)), dsBan(F).slice(-4));
+
+  donThuMucTam(D);
+  donThuMucTam(T);
+  donThuMucTam(F);
 }
 
 donThuMucTam(DIR);
