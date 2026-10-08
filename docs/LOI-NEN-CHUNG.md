@@ -447,8 +447,9 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   thử, rồi máy chủ `git pull` + `npm ci` như mọi lần.
 - **Lệnh quản trị gõ thiếu `DATA_DIR` trên máy chủ thật thì im lặng xem
   `./data` trong kho mã và in một bản báo cáo SAI** (`scripts/backup.js`,
-  `restore.js`, `kiem-tra-may-chu.js`, `create-admin.js` — vá ở app 2 tại Đ234
-  bằng tệp MỚI `scripts/canh-thu-muc-du-lieu.js`, gọi ở dòng đầu mỗi lệnh).
+  `restore.js`, `kiem-tra-may-chu.js`, `create-admin.js`,
+  `sua-quyen-chu-nhiem.js` — vá ở app 2 tại Đ234/Đ234b bằng tệp MỚI
+  `scripts/canh-thu-muc-du-lieu.js`, gọi ở dòng đầu mỗi lệnh).
   Ngày 08/10 xảy ra thật ở máy chủ thử app 2: *"chưa có bản sao lưu nào"*,
   *"không thấy cơ sở dữ liệu"*, kèm gợi ý đặt bản sao lưu vào ngay trong kho mã
   — trong khi máy chủ có đủ chín bản. Không bắt buộc vì không mất dữ liệu: lệnh

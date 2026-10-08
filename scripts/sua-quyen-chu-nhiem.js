@@ -47,6 +47,9 @@
 // phải khởi động lại.
 'use strict';
 
+// Dòng đầu tiên: thiếu DATA_DIR trên máy chủ thật thì dừng ngay (Đ234b).
+require('./canh-thu-muc-du-lieu')();
+
 // Chụp bảng quyền TRƯỚC khi nạp lib/db.js — xem ghi chú "CHỈ XEM" ở trên. Mở
 // bằng kết nối riêng, chỉ đọc, và hỏng thì bỏ qua: đây là phần để BÁO CÁO, không
 // được phép làm script chết trước khi nó kịp dọn.
