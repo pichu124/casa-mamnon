@@ -25,6 +25,8 @@
 // và định kỳ hằng tháng.
 'use strict';
 
+// Dòng đầu tiên: thiếu DATA_DIR trên máy chủ thật thì dừng ngay (Đ234).
+require('./canh-thu-muc-du-lieu')();
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

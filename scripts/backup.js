@@ -10,6 +10,8 @@
 // Dùng lệnh .backup của SQLite nên an toàn tuyệt đối ngay cả khi máy chủ đang
 // chạy và có người đang ghi dữ liệu — khác hẳn việc chép tệp trực tiếp, vốn có
 // thể tạo ra bản sao hỏng không khôi phục được.
+// Dòng đầu tiên: thiếu DATA_DIR trên máy chủ thật thì dừng ngay (Đ234).
+require('./canh-thu-muc-du-lieu')();
 const fs = require('fs');
 const path = require('path');
 const ngay = require('../lib/ngay');

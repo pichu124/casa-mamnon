@@ -5,6 +5,8 @@
 //
 // Mật khẩu được sinh ngẫu nhiên và in ra một lần duy nhất. Người dùng buộc phải
 // đổi ngay khi đăng nhập lần đầu.
+// Dòng đầu tiên: thiếu DATA_DIR trên máy chủ thật thì dừng ngay (Đ234).
+require('./canh-thu-muc-du-lieu')();
 const crypto = require('crypto');
 const db = require('../lib/db');
 const password = require('../lib/password');

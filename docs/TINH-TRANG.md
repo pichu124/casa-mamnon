@@ -139,6 +139,11 @@ DATA_DIR=/var/lib/casa-mamnon npm run backup:list
 Phải thấy các bản mang mốc **02:0x** của những ngày gần đây. **Đặt lịch xong
 không phải là lịch đã chạy** — đó đúng là bài học của 12 ngày vừa rồi.
 
+Quên `DATA_DIR=…` ở đầu thì từ Đ234 lệnh **dừng** với dòng *"⛔ THIẾU
+DATA_DIR"* và in sẵn lệnh gõ lại — không còn in một bản báo cáo sai về thư mục
+`data/` trong kho mã như ngày 08/10. Áp cho cả `backup`, `restore`,
+`kiem-tra-may-chu`, `create-admin`.
+
 Không có bản nào sau 16/09 thì lịch lại hỏng theo một kiểu khác, và phải xem
 `tail -30 /var/lib/casa-mamnon/backup.log`.
 

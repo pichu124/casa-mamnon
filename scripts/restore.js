@@ -13,6 +13,8 @@
 //
 // Script này TỰ KIỂM TRA xem có ai đang mở cơ sở dữ liệu hay không, và từ chối
 // nếu có — xem `mayChuDangMoCSDL()` bên dưới để biết vì sao đó là chuyện sống còn.
+// Dòng đầu tiên: thiếu DATA_DIR trên máy chủ thật thì dừng ngay (Đ234).
+require('./canh-thu-muc-du-lieu')();
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');

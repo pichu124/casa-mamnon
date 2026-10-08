@@ -304,9 +304,9 @@ chức vụ đặt Kế toán lo học phí và tiền ăn). Ở app 1 cô đang
 khoảng 300 gia đình — đổi vai bên đó khi nhà trường chưa nói gì là làm hỏng việc
 đang chạy. Lý lẽ đầy đủ ở `docs/QUYET-DINH-TU-CHOT.md` mục 25.
 
-### Còn mười tám món KHÔNG bắt buộc, ghi lại cho khỏi quên
+### Còn hai mươi món KHÔNG bắt buộc, ghi lại cho khỏi quên
 
-Mười tám chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
+Hai mươi chỗ dưới đây cũng nằm ở phần nền chung và app 1 gần như chắc chắn dính,
 nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá chéo. Ghi ra đây
 để người sang kho app 1 sau này khỏi phải phát hiện lại từ đầu:
 
@@ -436,6 +436,26 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   hiện). Chỉ `CREATE IF NOT EXISTS`, không đụng bảng `albums`. Bộ lọc theo thẻ
   nằm ở `routes/albums.js`, chạy SAU luật đồng ý chia sẻ. App 1 **không bắt
   buộc**: album tiểu học là album lớp, không có nhu cầu cá nhân hoá từng em.
+- **Gói `proxy-addr` 2.0.7 có lỗ giả địa chỉ IP qua dải tin cậy IPv6 dạng
+  `::ffff:`** (mức NGHIÊM TRỌNG, GHSA-jqcg-44mw-7w3h — vá ở app 2 tại Đ234a
+  bằng cách nâng lên 2.0.8, chỉ đổi `package-lock.json`). Không bắt buộc vì cả
+  hai app không đi qua đường hỏng: `server.js:16` đặt `trust proxy` bằng **số
+  chặng** (`1`), không bằng dải địa chỉ — đã đối chiếu tận nơi ở `bc9dfa3`, cùng
+  một dòng. Ai đổi dòng đó sang dải địa chỉ mà chưa nâng gói thì lỗ mở thật.
+  **Đừng `npm audit fix` trên máy chủ** của bên nào: nó sửa tệp khoá đang được
+  git theo dõi, lần `git pull` sau sẽ vấp — nâng trong kho mã, chạy đủ bộ kiểm
+  thử, rồi máy chủ `git pull` + `npm ci` như mọi lần.
+- **Lệnh quản trị gõ thiếu `DATA_DIR` trên máy chủ thật thì im lặng xem
+  `./data` trong kho mã và in một bản báo cáo SAI** (`scripts/backup.js`,
+  `restore.js`, `kiem-tra-may-chu.js`, `create-admin.js` — vá ở app 2 tại Đ234
+  bằng tệp MỚI `scripts/canh-thu-muc-du-lieu.js`, gọi ở dòng đầu mỗi lệnh).
+  Ngày 08/10 xảy ra thật ở máy chủ thử app 2: *"chưa có bản sao lưu nào"*,
+  *"không thấy cơ sở dữ liệu"*, kèm gợi ý đặt bản sao lưu vào ngay trong kho mã
+  — trong khi máy chủ có đủ chín bản. Không bắt buộc vì không mất dữ liệu: lệnh
+  không ghi gì vào chỗ dữ liệu thật, chỉ nói sai. Nhưng người vận hành tin bản
+  báo cáo sai thì có thể làm theo gợi ý sai. Chép sang app 1 được gần nguyên vẹn
+  — **chỉ phải sửa `THU_MUC_CHUAN`** cho đúng thư mục dữ liệu của máy chủ app 1,
+  rồi chép kèm `test/thu-muc-du-lieu.test.mjs`.
 
 > **Đợt Đ54–Đ58 KHÔNG sinh thêm món nợ BẮT BUỘC nào.** Đ55 là bộ canh riêng của
 > app 2 (app 1 không có 5 QUY TẮC). Đ57 **không áp dụng cho app 1**: tầng chức

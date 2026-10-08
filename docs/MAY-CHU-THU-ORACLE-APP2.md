@@ -602,6 +602,13 @@ DATA_DIR=/var/lib/casa-mamnon npm run restore:check
 DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu -- --ten-mien=casa-school.duckdns.org
 ```
 
+**Luôn có `DATA_DIR=/var/lib/casa-mamnon` ở đầu** — với mọi lệnh `backup`,
+`restore`, `kiem-tra-may-chu`, `create-admin`. Từ Đ234, quên nó trên máy này
+thì lệnh **dừng ngay** với dòng *"⛔ THIẾU DATA_DIR"* và in sẵn lệnh gõ lại —
+chép dòng đó chạy lại là xong. (Trước Đ234 lệnh không dừng mà lặng lẽ xem
+thư mục `data/` trong kho mã và báo sai: "chưa có bản sao lưu nào", "không
+thấy cơ sở dữ liệu".)
+
 Lệnh soát in 8 mục kèm cách sửa cho từng mục hỏng. Với bàn thử, đặt lịch sao lưu
 hằng đêm bằng cron là đủ:
 
