@@ -175,6 +175,11 @@ Script tự dọn bản cũ theo nguyên tắc (Đ235, 08/10/2026):
 Nhờ vậy vẫn tra được dữ liệu của nhiều tháng trước, mà tổng số bản luôn có
 trần — một dòng cron lỡ đặt chạy mỗi phút cũng không làm đầy đĩa.
 
+**Giờ của mỗi bản đọc từ TÊN tệp** (`school-20261008-0200.db.gz` = 02:00 ngày
+08/10/2026, giờ Việt Nam), không đọc giờ sửa tệp (Đ236). Nhờ vậy chép cả thư
+mục sao lưu sang máy chủ mới — kể cả bằng `scp -r` hay `cp -r` không giữ giờ —
+vẫn giữ nguyên lịch sử. **Đừng đổi tên tệp sao lưu**: tên chính là giờ chụp.
+
 > **Vì sao không còn "một bản mỗi ngày".** Luật cũ chỉ giữ bản mới nhất mỗi
 > ngày, nên chạy sao lưu tay (việc tài liệu dặn làm trước mỗi lần cập nhật) là
 > xoá mất bản 02:00 của chính hôm đó. Nếu sáng hôm ấy có người lỡ xoá nhầm dữ

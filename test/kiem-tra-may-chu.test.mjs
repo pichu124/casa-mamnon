@@ -114,6 +114,24 @@ console.log('\n[4] Sao lưu — có chạy không, và có MỞ RA ĐƯỢC khô
   check('bản sao lưu quá 48 tiếng → CẦN SỬA', trangThai(cu.out, 'Bản sao lưu gần nhất') === 'CẦN SỬA', trangThai(cu.out, 'Bản sao lưu gần nhất'));
   check('nói rõ nghi ngờ lịch hằng đêm đã ngừng', /lịch sao lưu hằng đêm nhiều khả năng đã ngừng chạy/.test(cu.out));
 
+  // CHÉP SANG MÁY MỚI MÀ KHÔNG GIỮ GIỜ (Đ236): tên tệp nói bản này chụp 72 giờ
+  // trước, nhưng giờ sửa tệp là "vừa chép xong". Đọc riêng giờ sửa tệp là báo
+  // ĐẠT — che mất đúng chuyện cần thấy: lịch sao lưu ở máy mới chưa chạy lần nào.
+  {
+    const ngayVN = require2(path.join(GOC, 'lib', 'ngay.js'));
+    const moc72 = Date.now() - 72 * 3600 * 1000;
+    const tenCu = `school-${ngayVN.ngayCua(moc72).replace(/-/g, '')}-${ngayVN.gioCua(moc72).replace(':', '')}.db.gz`;
+    const duongCu = path.join(DIR, 'backups', tenCu);
+    fs.renameSync(duongDan, duongCu);
+    const vuaChep = new Date();
+    fs.utimesSync(duongCu, vuaChep, vuaChep);
+    const chep = chay(DIR);
+    check('bản sao CHÉP SANG máy mới (tên cũ 72 giờ, giờ sửa tệp mới tinh) → CẦN SỬA, không báo "vừa chụp"',
+      trangThai(chep.out, 'Bản sao lưu gần nhất') === 'CẦN SỬA', trangThai(chep.out, 'Bản sao lưu gần nhất'));
+    fs.renameSync(duongCu, duongDan);           // trả về như cũ cho các bước dưới
+    fs.utimesSync(duongDan, cuKy, cuKy);
+  }
+
   // Bản sao lưu hỏng còn nguy hiểm hơn không có: người ta tưởng mình đang an toàn.
   fs.writeFileSync(duongDan, 'day khong phai tep gzip');
   const hong = chay(DIR);
