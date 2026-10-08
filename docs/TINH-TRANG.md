@@ -16,31 +16,30 @@ làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lạ
 
 | | |
 |---|---|
-| Nhánh đang làm | `claude/code-review-optimization-at4jzk` |
-| Commit mới nhất | Đ232 (vá 27 lỗi vòng rà đối kháng) — đo bằng `git log --oneline -1` |
+| Nhánh đang làm | `claude/code-review-optimization-at4jzk` — việc xong được gộp vào `main` bằng pull request |
+| Commit mới nhất | Đ233 (gộp vào `main`, sửa tài liệu triển khai) — đo bằng `git log --oneline -1` |
 | Đã đẩy lên GitHub | **rồi**, `HEAD` trùng `origin` |
 | Cây làm việc | sạch, không còn gì chưa commit |
 | `npm test` | **127 bộ, 6974 phép kiểm, 0 đỏ** (đo 07/10, Đ232) |
 | `npm run test:giao-dien` | **19 bộ, 990 phép kiểm, 0 đỏ** (đo 07/10, Đ232b) |
-| CI trên GitHub (`Kiểm tra`) | xanh cho mọi lần đẩy Đ224–Đ231 (đo 07/10) |
+| CI trên GitHub (`Kiểm tra`) | xanh cho mọi lần đẩy Đ224–Đ232b và cho pull request #2 (đo 07/10) |
 
-### `main` KHÔNG phải bản đầy đủ
-
-Đây là điều dễ vấp nhất khi có người mới vào việc:
+### `main` là bản để cài — gộp lần gần nhất 07/10/2026
 
 ```
-origin/main   = a91cee8, ngày 31/08/2026, đợt Đ116
-nhánh làm việc đi trước 186 commit (đo 07/10)
+origin/main   = 221b537, gộp pull request #2 ngày 07/10/2026 (Đ117 → Đ232b, 189 commit)
 ```
 
-`main` **thiếu** ô Lưu ý nội bộ (Đ207), số tài khoản + QR học phí (Đ208), một
-dòng Vào/Ra (Đ210), mật khẩu sinh bằng nguồn ngẫu nhiên thật (Đ212), ảnh QR
-trường tự tải (Đ214) — và `lib/vietqr.js` thì **chưa tồn tại** trên đó.
+Trước đó `main` dừng ở Đ116 (31/08) và các tài liệu phải dặn "đừng clone
+`main`". Từ 07/10 luật là: **máy chủ chỉ cài `main`; việc làm xong vào `main`
+bằng pull request.** Nhánh làm việc là chỗ đang làm dở, không phải chỗ để cài.
 
-**Đừng clone `main`.** Cách tự kiểm ghi ở bước 4 của `docs/CAI-DAT-VPS.docx`.
+Đây là một LUẬT, không phải lời khẳng định "main đã đủ" — lời khẳng định ấy
+từng sai hai lần khi nhánh làm việc dài thêm. Nên vẫn đo, không nhớ:
 
-> Con số 186 đúng ngày 07/10. Đo lại bằng:
-> `git rev-list --count origin/main..origin/<nhánh>`
+> Đợt cuối trên `main`: `git clone <kho-mã> /tmp/soi && tail -1 /tmp/soi/docs/TIEN-DO.md | cut -c1-60`.
+> Số commit nhánh làm việc chưa gộp: `git rev-list --count origin/main..origin/<nhánh>`
+> (0 nghĩa là `main` đã có hết).
 
 ---
 
@@ -140,6 +139,11 @@ DATA_DIR=/var/lib/casa-mamnon npm run backup:list
 Phải thấy các bản mang mốc **02:0x** của những ngày gần đây. **Đặt lịch xong
 không phải là lịch đã chạy** — đó đúng là bài học của 12 ngày vừa rồi.
 
+Quên `DATA_DIR=…` ở đầu thì từ Đ234 lệnh **dừng** với dòng *"⛔ THIẾU
+DATA_DIR"* và in sẵn lệnh gõ lại — không còn in một bản báo cáo sai về thư mục
+`data/` trong kho mã như ngày 08/10. Áp cho cả `backup`, `restore`,
+`kiem-tra-may-chu`, `create-admin`, `sua-quyen-chu-nhiem`.
+
 Không có bản nào sau 16/09 thì lịch lại hỏng theo một kiểu khác, và phải xem
 `tail -30 /var/lib/casa-mamnon/backup.log`.
 
@@ -171,9 +175,11 @@ tuổi, ổ đĩa sắp đầy, chứng chỉ HTTPS sắp hết hạn.
 cd /opt/casa-mamnon && tail -1 docs/TIEN-DO.md | cut -c1-60
 ```
 
-Lần cuối đo là **Đ217**. Kho nay ở **Đ231** — lần này **có đổi mã chạy rất nhiều**
+Lần cuối đo là **Đ217**. `main` nay ở **Đ232b** — lần này **có đổi mã chạy rất nhiều**
 (cả chín mục góp ý 06/10). Trường muốn bấm thử bản mới thì phải cập nhật máy theo
-`docs/CAP-NHAT-MAY-CHU.md` trước.
+`docs/MAY-CHU-THU-ORACLE-APP2.md` Bước 10 (máy cài trước 07/10 thì chuyển sang
+`main` một lần, có ghi ngay ở bước ấy). `docs/CAP-NHAT-MAY-CHU.md` là tài liệu
+của app 1, đừng làm theo nguyên văn.
 
 Lượt khởi động đầu sau khi cập nhật sẽ chạy hai việc dọn mới của Đ231 (ảnh chấm
 công quá 90 ngày, nháp quá 30 ngày). Hai tính năng ấy mới có từ 06/10 nên lúc này
