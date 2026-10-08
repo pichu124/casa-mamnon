@@ -30,8 +30,11 @@ const BACKUP_DIR = outIdx >= 0 && args[outIdx + 1]
   ? path.resolve(args[outIdx + 1])
   : path.join(DATA_DIR, 'backups');
 
-// Vòng đời bản sao: giữ 7 bản gần nhất theo ngày, 4 bản theo tuần, 12 theo tháng.
+// Vòng đời bản sao: 7 ngày gần nhất (bản ĐẦU và bản CUỐI của mỗi ngày), mọi
+// bản trong 48 giờ gần nhất (tối đa 24 bản), 4 bản theo tuần, 12 theo tháng.
+// Xem chú thích ở mục 3 bên dưới — vì sao không còn "một bản mỗi ngày".
 const GIU_NGAY = 7, GIU_TUAN = 4, GIU_THANG = 12;
+const GIU_GAN_DAY_MS = 48 * 3600 * 1000, GIU_GAN_DAY_TOI_DA = 24;
 
 // Tên bản sao lưu đọc theo GIỜ VIỆT NAM.
 //
@@ -229,23 +232,56 @@ db.backup(tmp).then(() => {
   }
 
   // ---- 3. Dọn bản cũ theo vòng đời ----
+  //
+  // VÌ SAO KHÔNG CÒN "MỘT BẢN MỖI NGÀY" (Đ235, 08/10/2026)
+  //
+  // Bản cũ giữ đúng MỘT bản mỗi ngày — bản MỚI NHẤT. Mà tài liệu lại dặn chạy
+  // sao lưu bằng tay trước mỗi lần cập nhật. Thấy tận mắt trên máy chủ thử
+  // ngày 08/10: chạy tay lúc 09:54 là bản 02:00 tự động của hôm đó biến mất.
+  // Ca hỏng thật: 8 giờ sáng có người lỡ xoá nhầm, 10 giờ quản trị sao lưu
+  // "cho chắc" trước khi cập nhật → bản 02:00 SẠCH của hôm đó bị xoá, bản 10
+  // giờ thì đã mang chỗ bị xoá. Bản sạch gần nhất còn lại là 02:00 hôm TRƯỚC,
+  // nên mọi thứ ghi trong cả ngày hôm trước mà bị xoá nhầm là mất hẳn.
+  //
+  // Luật mới — mỗi vế che một ca, và tổng số bản vẫn có trần:
+  //   (a) 7 ngày gần nhất: giữ bản ĐẦU và bản CUỐI của mỗi ngày. Bản đầu
+  //       thường là bản 02:00 tự động — bản sạch của cả ngày ấy, giữ đủ 7
+  //       ngày, vì chuyện xoá nhầm hay vài ngày sau mới có người nhận ra.
+  //   (b) Mọi bản chụp trong 48 giờ gần nhất (tối đa 24 bản mới nhất): bản
+  //       "trước khi cập nhật" lúc giữa ngày không bị một lần sao lưu sau đó
+  //       trong ngày xoá mất, trong lúc còn kịp thấy bản cập nhật có hỏng gì.
+  //   (c) Như cũ: 4 bản theo tuần, 12 bản theo tháng (bản mới nhất mỗi khe).
+  // Trần: 2×7 + 24 + 4 + 12 bản, nên một dòng cron lỡ đặt chạy mỗi phút cũng
+  // không làm đầy đĩa.
   const list = danhSach();
   const giu = new Set();
-  const theoNgay = new Map(), theoTuan = new Map(), theoThang = new Map();
+  const cuoiNgay = new Map(), dauNgay = new Map(), theoTuan = new Map(), theoThang = new Map();
+  const bayGioMs = Date.now();
+  let ganDay = 0;
 
+  // `list` xếp MỚI → CŨ, nên gặp đầu tiên là bản cuối ngày, gặp sau cùng là
+  // bản đầu ngày.
   for (const b of list) {
-    // Khoá gom nhóm cũng theo giờ Việt Nam, để "một bản mỗi ngày" nghĩa là một
-    // bản mỗi ngày CỦA TRƯỜNG, không phải mỗi ngày của máy chủ.
+    // Khoá gom nhóm cũng theo giờ Việt Nam, để "mỗi ngày" nghĩa là mỗi ngày
+    // CỦA TRƯỜNG, không phải mỗi ngày của máy chủ.
     const ngayVN = ngay.ngayCua(b.at.getTime());
     const khoaNgay = ngayVN;
     const khoaThang = ngayVN.slice(0, 7);
     const tuan = Math.floor(Date.parse(`${ngayVN}T00:00:00Z`) / (7 * 86400000));
     const khoaTuan = String(tuan);
-    if (!theoNgay.has(khoaNgay)) theoNgay.set(khoaNgay, b.file);
+    if (!cuoiNgay.has(khoaNgay)) cuoiNgay.set(khoaNgay, b.file);
+    dauNgay.set(khoaNgay, b.file);
     if (!theoTuan.has(khoaTuan)) theoTuan.set(khoaTuan, b.file);
     if (!theoThang.has(khoaThang)) theoThang.set(khoaThang, b.file);
+    if (ganDay < GIU_GAN_DAY_TOI_DA && bayGioMs - b.at.getTime() <= GIU_GAN_DAY_MS) {
+      giu.add(b.file);
+      ganDay++;
+    }
   }
-  [...theoNgay.values()].slice(0, GIU_NGAY).forEach(f => giu.add(f));
+  for (const khoaNgay of [...cuoiNgay.keys()].slice(0, GIU_NGAY)) {
+    giu.add(cuoiNgay.get(khoaNgay));
+    giu.add(dauNgay.get(khoaNgay));
+  }
   [...theoTuan.values()].slice(0, GIU_TUAN).forEach(f => giu.add(f));
   [...theoThang.values()].slice(0, GIU_THANG).forEach(f => giu.add(f));
 

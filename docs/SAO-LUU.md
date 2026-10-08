@@ -163,9 +163,22 @@ rclone copy /var/lib/casa-mamnon/backups vngcloud:casa-mamnon-backup
 
 ## Vòng đời bản sao
 
-Script tự dọn bản cũ theo nguyên tắc: giữ **7 bản gần nhất theo ngày**,
-**4 bản theo tuần**, **12 bản theo tháng**. Nhờ vậy vẫn tra được dữ liệu của
-nhiều tháng trước mà không để thư mục phình to vô hạn.
+Script tự dọn bản cũ theo nguyên tắc (Đ235, 08/10/2026):
+
+- **7 ngày gần nhất:** giữ bản **đầu** và bản **cuối** của mỗi ngày. Bản đầu
+  thường là bản 02:00 tự động — bản sạch của cả ngày ấy.
+- **48 giờ gần nhất:** giữ **mọi** bản (tối đa 24 bản mới nhất), để bản sao
+  chạy tay "trước khi cập nhật" không bị một lần sao lưu sau đó trong ngày
+  xoá mất.
+- **4 bản theo tuần**, **12 bản theo tháng**, như trước.
+
+Nhờ vậy vẫn tra được dữ liệu của nhiều tháng trước, mà tổng số bản luôn có
+trần — một dòng cron lỡ đặt chạy mỗi phút cũng không làm đầy đĩa.
+
+> **Vì sao không còn "một bản mỗi ngày".** Luật cũ chỉ giữ bản mới nhất mỗi
+> ngày, nên chạy sao lưu tay (việc tài liệu dặn làm trước mỗi lần cập nhật) là
+> xoá mất bản 02:00 của chính hôm đó. Nếu sáng hôm ấy có người lỡ xoá nhầm dữ
+> liệu, bản sạch duy nhất của cả ngày hôm trước cũng đi theo.
 
 Mỗi bản sao được nén lại, thường chỉ còn khoảng 1/5 dung lượng gốc.
 

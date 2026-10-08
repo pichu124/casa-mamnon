@@ -24,10 +24,14 @@ làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lạ
 | `npm run test:giao-dien` | **19 bộ, 990 phép kiểm, 0 đỏ** (đo 07/10, Đ232b) |
 | CI trên GitHub (`Kiểm tra`) | xanh cho mọi lần đẩy Đ224–Đ232b và cho pull request #2 (đo 07/10) |
 
-### `main` là bản để cài — gộp lần gần nhất 07/10/2026
+### `main` là bản để cài
+
+Các lần gộp vào `main` (lịch sử — muốn biết `main` ĐANG ở đâu thì đo bằng lệnh
+ngay dưới, đừng đọc dòng này):
 
 ```
-origin/main   = 221b537, gộp pull request #2 ngày 07/10/2026 (Đ117 → Đ232b, 189 commit)
+07/10/2026  pull request #2  Đ117 → Đ232b (189 commit)
+08/10/2026  pull request #3  Đ233 → Đ234c
 ```
 
 Trước đó `main` dừng ở Đ116 (31/08) và các tài liệu phải dặn "đừng clone
