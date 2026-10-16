@@ -32,6 +32,8 @@ ngay dưới, đừng đọc dòng này):
 ```
 07/10/2026  pull request #2  Đ117 → Đ232b (189 commit)
 08/10/2026  pull request #3  Đ233 → Đ234c
+08/10/2026  pull request #4  Đ235 → Đ235b
+08/10/2026  pull request #5  Đ236
 ```
 
 Trước đó `main` dừng ở Đ116 (31/08) và các tài liệu phải dặn "đừng clone
