@@ -34,6 +34,7 @@ ngay dưới, đừng đọc dòng này):
 08/10/2026  pull request #3  Đ233 → Đ234c
 08/10/2026  pull request #4  Đ235 → Đ235b
 08/10/2026  pull request #5  Đ236
+16/10/2026  pull request #6  Đ237 (chỉ tài liệu)
 ```
 
 Trước đó `main` dừng ở Đ116 (31/08) và các tài liệu phải dặn "đừng clone
