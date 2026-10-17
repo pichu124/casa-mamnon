@@ -231,6 +231,22 @@ try {
     check('s1 có quan sát Montessori của cô phụ trách nhóm → không nằm trong danh sách của cô ấy', !(n1.tuanNay || []).some(b => b.studentId === 's1'));
   }
 
+  // =========================================================================
+  console.log('\n[11] Màn bốn tab của cô biết trước cô ghi được phần nào — gia đình không nhận gì thêm');
+  {
+    const cua = async (cookie) => (await req('GET', '/api/hanhtrinh?studentId=s1', { cookie })).data || {};
+    const sx = (x) => [...(x || [])].sort().join(',');
+    check('cô nước ngoài của nhóm: chỉ ghi được phần Cambridge', sx((await cua(GV3)).nhomDuocGhi) === 'nuoc-ngoai', (await cua(GV3)).nhomDuocGhi);
+    check('cô phụ trách nhóm (nhóm đã có cô nước ngoài): Montessori và phần P.E chưa ai giữ',
+      sx((await cua(GV)).nhomDuocGhi) === 'chu-nhiem,the-chat', (await cua(GV)).nhomDuocGhi);
+    check('văn phòng ghi được cả ba phần', sx((await cua(QL)).nhomDuocGhi) === 'chu-nhiem,nuoc-ngoai,the-chat', (await cua(QL)).nhomDuocGhi);
+    check('gia đình KHÔNG nhận khoá này', !('nhomDuocGhi' in (await cua(PH))));
+    const hn = (await req('GET', '/api/hanhtrinh/hom-nay', { cookie: GV3 })).data || {};
+    const be = (hn.danhSachBe || []);
+    check('danh sách bé của màn cô kèm nhóm của từng bé (để chọn nhóm rồi chọn bé)',
+      be.some(b => b.id === 's1' && b.classId === 'c1') && be.some(b => b.id === 's2' && b.classId === 'c2'), be.slice(0, 3));
+  }
+
 } finally {
   await sv.dung();
   donThuMucTam(DIR);
