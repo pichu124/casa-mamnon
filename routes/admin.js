@@ -1039,7 +1039,7 @@ module.exports = (app) => {
   app.get('/api/admin/teachers', onlyAdmin, (req, res) => {
     const pham = phamViNhom(req.user);
     res.json(db.all('users', `SELECT * FROM users WHERE role = 'teacher' AND active = 1 ORDER BY name`)
-      // Cấp 3 thấy cô có nhóm ở cơ sở mình, cộng cô CHƯA có nhóm nào mà do
+      // Cấp 3 thấy cô có nhóm ở cơ sở mình, cộng cô CHƯA TỪNG có nhóm nào mà do
       // chính cơ sở mình tạo ra (Đ239d1) — trước đó cô vừa tạo xong là biến
       // khỏi danh sách của người tạo. Cô chưa có nhóm do ban giám hiệu tạo thì
       // vẫn chỉ Cấp 1 thấy, như cũ.
@@ -2434,16 +2434,19 @@ function coConTrongPhamVi(user, parentId) {
 // Một cô có nằm trong tầm của người này không — luật của danh sách cô.
 //
 // Cô đã phụ trách nhóm đang mở: thuộc cơ sở của nhóm, như từ trước tới nay.
-// Cô CHƯA phụ trách nhóm nào: thuộc cơ sở của quản lý đã tạo ra cô, nếu có
-// (bảng `giao_vien_co_so`, Đ239d1). Dòng ghi nhận ấy KHÔNG được hỏi khi cô đã
-// có nhóm — phân công sau này mới là sự thật, kể cả khi ban giám hiệu chuyển
-// cô sang hẳn cơ sở khác.
+// Cô CHƯA TỪNG được phân vào nhóm nào: thuộc cơ sở của quản lý đã tạo ra cô,
+// nếu có (bảng `giao_vien_co_so`, Đ239d1). Dòng ghi nhận ấy KHÔNG được hỏi khi
+// cô đã từng có nhóm, kể cả nhóm đã đóng — phân công sau này mới là sự thật.
+// Hỏi theo nhóm ĐANG MỞ là sai: ban giám hiệu chuyển cô sang cơ sở 2, chuyển
+// năm học đóng nhóm ấy, thế là quản lý cơ sở 1 lại thấy cô, cấp lại mật khẩu
+// và kéo cô về nhóm mình. Cô chỉ có nhóm đã đóng thì chỉ Cấp 1 thấy.
 //
 // `pham` truyền vào được để đường liệt kê không tính lại cho từng cô.
 function coTrongTamNhin(user, teacherId, pham = phamViNhom(user)) {
   if (pham === null) return true;
   const nhom = db.classIdsOfTeacher(teacherId);
   if (nhom.length) return nhom.some(id => pham.includes(id));
+  if (db.classIdsEverOfTeacher(teacherId).length) return false;
   const coSo = db.phamViCoSo(user);
   const r = db.first('giao_vien_co_so', 'SELECT campusId FROM giao_vien_co_so WHERE userId = ?', [teacherId]);
   return !!coSo && !!r && r.campusId === coSo;

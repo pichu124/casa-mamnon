@@ -33,7 +33,7 @@ import path from 'path';
 import { createRequire } from 'module';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, datChucVu, HOM_NAY,
+  taoBoDem, taoReq, taoLogin, datChucVu, HOM_NAY, dongNhom,
 } from './_chung.mjs';
 
 const require_ = createRequire(import.meta.url);
@@ -546,6 +546,30 @@ console.log('\n[10] Quản lý cơ sở cấp lại mật khẩu cho cô mình t
   check('cô được phân sang nhóm Cơ sở 2 thì quản lý CS1 hết cấp lại được',
     (await capLai(QL1, co.data?.id)).status === 403);
   check('và quản lý CS2 cấp lại được', (await capLai(QL2, co.data?.id)).status === 200);
+
+  // Đ239-vá3: chuyển năm học đóng nhóm Cơ sở 2 của cô. Cô không còn nhóm ĐANG
+  // MỞ nào, nhưng đã TỪNG được phân nhóm — dòng "do quản lý CS1 tạo" không được
+  // sống lại: quản lý CS1 từng thấy lại cô, cấp lại mật khẩu, kéo cô về nhóm mình.
+  dongNhom(DIR, 'c3');
+  const moiDs = async (ck) => ((await req('GET', '/api/admin/teachers', { cookie: ck })).data || []).map(t => t.id);
+  const bghThay = ((await req('GET', '/api/admin/teachers', { cookie: BGH })).data || []).find(t => t.id === co.data?.id);
+  check('(đối chứng) nhóm Cơ sở 2 đã đóng: cô không còn nhóm đang mở, ban giám hiệu vẫn thấy cô',
+    !!bghThay && (bghThay.classIds || []).length === 0, bghThay);
+  check('QUẢN LÝ CS1 KHÔNG thấy lại cô trong danh sách cô', !(await moiDs(QL1)).includes(co.data?.id), await moiDs(QL1));
+  const capLaiSau = await capLai(QL1, co.data?.id);
+  check('quản lý CS1 KHÔNG cấp lại được mật khẩu cho cô', [403, 404].includes(capLaiSau.status), capLaiSau.status);
+  const coC1 = docDb('SELECT teacherId FROM class_teachers WHERE classId = ?', 'c1').map(r => r.teacherId);
+  const keo = await req('PUT', '/api/admin/classes/c1/teachers', { cookie: QL1, body: { teacherIds: [...coC1, co.data?.id] } });
+  check('quản lý CS1 KHÔNG kéo được cô vào nhóm của mình → 404', keo.status === 404, keo.status);
+  check('và cô không có dòng phân công nào ở Chồi 2',
+    !docDb('SELECT teacherId FROM class_teachers WHERE classId = ?', 'c1').some(r => r.teacherId === co.data?.id));
+  check('quản lý CS2 cũng không còn thấy cô (nhóm của cô đã đóng)', !(await moiDs(QL2)).includes(co.data?.id));
+  check('ban giám hiệu vẫn cấp lại được mật khẩu cho cô', (await capLai(BGH, co.data?.id)).status === 200);
+
+  // Cô MỚI do quản lý CS1 tạo, chưa từng có nhóm: vẫn thấy và cấp lại được (Đ239d1/d2).
+  const coMoi2 = await req('POST', '/api/admin/teachers', { cookie: QL1, body: { name: 'Cô Mới Sau Năm Học' } });
+  check('cô mới tạo chưa nhóm: quản lý CS1 vẫn thấy', coMoi2.status === 201 && (await moiDs(QL1)).includes(coMoi2.data?.id), coMoi2.status);
+  check('và vẫn cấp lại được mật khẩu', (await capLai(QL1, coMoi2.data?.id)).status === 200);
 }
 
 sv.dung();
