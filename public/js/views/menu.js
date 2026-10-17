@@ -299,7 +299,15 @@ App.views.menu = {
     // Gửi kèm tuần đã chọn: tệp khuôn tuần chỉ có Thứ Hai… Thứ Sáu, máy chủ đặt vào đúng ngày.
     const than = { tep, campusId: this._coSo || '', tuan: this._tuanXl };
     let xem;
-    try { xem = await API.post('/api/menu/nap-excel', than); } catch (err) { return UI.toast(err.message, 'error'); }
+    try { xem = await API.post('/api/menu/nap-excel', than); } catch (err) {
+      // Hộp thoại, không phải thông báo thoáng qua: câu của máy chủ chỉ cách sửa
+      // (chọn đúng tuần, dùng tệp mẫu…), cần đọc hết rồi mới làm theo được.
+      return UI.modal(`
+        <div id="mn-xl-loi" class="card" style="background:var(--danger-tint);line-height:1.6">${UI.esc(err.message)}</div>
+        <div class="muted small mt-8">Chưa lưu gì vào thực đơn.</div>
+        <button class="btn outline block mt-14" onclick="UI.closeModal()">Đã hiểu</button>
+      `, 'Chưa nạp được tệp Excel');
+    }
     const ds = xem.ngay || [];
     const soGhiDe = ds.filter(n => n.daCo && !n.khongDoi).length;
     UI.modal(`

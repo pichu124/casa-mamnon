@@ -286,6 +286,11 @@ function ngayTuO(gt) {
 }
 const tachMon = (o) => String(o ?? '').split(/[;\n•]/).map(x => x.trim()).filter(Boolean);
 const ddmm = (s) => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+// Thứ Hai → "19/10 – 23/10/2026" (qua năm thì ghi năm ở cả hai đầu).
+const tenTuan = (thuHai) => {
+  const thuSau = congNgay(thuHai, 4);
+  return `${ddmm(thuHai)}${thuHai.slice(0, 4) === thuSau.slice(0, 4) ? '' : `/${thuHai.slice(0, 4)}`} – ${ddmm(thuSau)}/${thuSau.slice(0, 4)}`;
+};
 
 // ---- Đọc khuôn TUẦN ----
 const boDau = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u0111\u0110]/g, 'd').toLowerCase();
@@ -359,6 +364,19 @@ function docKhuonTuan(trang, hangTieuDe, cacO, tuanChon) {
   if (!thuHai) {
     return { loi: 'Chưa biết tệp này là thực đơn của tuần nào. Chọn tuần trên màn hình rồi nạp lại, '
       + 'hoặc ghi ngày dưới chữ Thứ ở hàng tiêu đề (ví dụ: Thứ Hai 19/10).' };
+  }
+  // MỌI ngày ghi dưới chữ Thứ cùng một tuần KHÁC tuần đã chọn → từ chối, không
+  // lưu gì. Mẫu của app luôn ghi ngày, còn ô chọn tuần mỗi lần mở lại app quay về
+  // "tuần sau": tải mẫu hôm trước, hôm sau nạp mà quên chọn lại tuần là đè thực
+  // đơn của một tuần khác. Ngày lộn xộn (nhiều tuần) thì không biết tệp của tuần
+  // nào — theo tuần đã chọn, kèm lời nhắc ở dưới.
+  if (tuanChon) {
+    const tuanTep = new Set(cacO.filter(c => c.d).map(c => (c.ngay ? congNgay(c.ngay, -lechThuHai(c.ngay)) : '')));
+    const tuan = tuanTep.size === 1 ? [...tuanTep][0] : '';
+    if (tuan && tuan !== thuHai) {
+      return { loi: `Tệp này là thực đơn tuần ${tenTuan(tuan)}, nhưng trên màn hình đang chọn tuần ${tenTuan(thuHai)}. `
+        + 'Chọn đúng tuần rồi nạp lại nhé.' };
+    }
   }
   const cotTen = Math.min(...cacO.map(c => c.i)) - 1;
   if (cotTen < 0) return { loi: 'Cần một cột tên bữa (Bữa sáng, Bữa trưa…) ở bên trái cột Thứ Hai. Dùng đúng tệp mẫu của app nhé.' };
@@ -519,10 +537,9 @@ function mauExcelTuan(campusId, thuHai) {
   const thuSau = cacNgay[4];
   const coSan = new Map(thucDonCua(campusId, thuHai, thuSau).map(m => [m.date, Array.isArray(m.meals) ? m.meals : []]));
   const cs = campusId ? db.findCampus(campusId) : null;
-  const tenTuan = `${ddmm(thuHai)}${thuHai.slice(0, 4) === thuSau.slice(0, 4) ? '' : `/${thuHai.slice(0, 4)}`}`
-    + ` – ${ddmm(thuSau)}/${thuSau.slice(0, 4)}`;
+  const ten = tenTuan(thuHai);
   const hang = [
-    [`THỰC ĐƠN TUẦN ${tenTuan}${cs ? ` — Bếp ${cs.name}` : ''}`],
+    [`THỰC ĐƠN TUẦN ${ten}${cs ? ` — Bếp ${cs.name}` : ''}`],
     ['', ...cacNgay.map((d, i) => `${TEN_THU[i + 1]}\n${ddmm(d)}`)],
   ];
   const gop = ['A1:F1'];
@@ -545,7 +562,7 @@ function mauExcelTuan(campusId, thuHai) {
     ['5. Dán bảng thực đơn của trường vào cũng được: cột tên bữa (Bữa sáng, Bữa phụ sáng, Bữa trưa, Bữa chiều, Bữa sữa chiều) '
       + 'ở bên trái, rồi các cột Thứ Hai → Thứ Sáu. Ô tên bữa gộp hay không gộp đều được.'],
     ['6. Điền xong: lưu tệp (giữ dạng .xlsx), vào app → Thực đơn → chọn đúng tuần → "Nạp tệp Excel đã điền". App cho xem trước rồi mới lưu.'],
-    [`Tệp này của tuần ${tenTuan}${cs ? ` — bếp ${cs.name}` : ' — dùng chung mọi cơ sở'}.`],
+    [`Tệp này của tuần ${ten}${cs ? ` — bếp ${cs.name}` : ' — dùng chung mọi cơ sở'}.`],
   ];
   return xlsx.ghi([
     { ten: 'Thực đơn', dongTieuDe: true, cot: [24, 28, 28, 28, 28, 28], hang, gop },

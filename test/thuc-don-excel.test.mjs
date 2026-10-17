@@ -402,13 +402,48 @@ console.log('\n[9] Bảng KHÔNG gộp ô (tên bữa chỉ ở dòng đầu), n
   check('cột Thứ 7 bị bỏ, có lời nhắc', /Thứ 7/.test(cb) && !ds.some(n => n.date === congN(W, 5)), cb);
   check('dòng "Tráng miệng" không phải tên bữa → lời nhắc, bỏ qua', /Tráng miệng/.test(cb) && !JSON.stringify(ds).includes('Dưa hấu'), cb);
 
+  const khop = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep, tuan: congN(W, 3) } });
+  check('chọn ĐÚNG tuần ghi trong tệp → đọc như cũ, không có lời nhắc lệch tuần',
+    khop.status === 200 && khop.data?.tuan === W
+    && JSON.stringify((khop.data?.ngay || []).map(n => n.date)) === JSON.stringify([W, congN(W, 1), congN(W, 4)])
+    && !(khop.data?.canhBao || []).some(c => /khác tuần/.test(c)), khop.data);
+
+  // Đ239-vá3: mẫu của app luôn ghi ngày dưới chữ Thứ, còn ô chọn tuần mỗi lần mở
+  // lại app quay về "tuần sau". Tải mẫu tuần W hôm trước, hôm sau nạp mà quên chọn
+  // lại tuần → tệp tuần W từng ĐÈ thực đơn tuần W2, chỉ kèm một dòng nhắc vàng.
   const W2 = congN(W, 7);
+  const datW2 = await req('PUT', '/api/menu/tuan', { cookie: QT, body: { ngay: [{ date: W2, meals: [
+    { type: 'lunch', label: 'Bữa trưa', time: '11:20', items: ['Cơm tuần đã chọn', 'Canh cua'] },
+  ] }] } });
+  check('(đối chứng) Thứ Hai tuần đã chọn đang có thực đơn', datW2.status === 200, datW2.data);
+  const docTuan = (t2) => {
+    const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
+    const ra = [0, 1, 2, 3, 4].map(i => conn.prepare('SELECT meals FROM menus WHERE date = ?').get(congN(t2, i))?.meals || null);
+    conn.close();
+    return JSON.stringify(ra);
+  };
+  const truocW = docTuan(W); const truocW2 = docTuan(W2);
+  const tenW = `${dm(W)} – ${dm(congN(W, 4))}/${congN(W, 4).slice(0, 4)}`;
+  const tenW2 = `${dm(W2)} – ${dm(congN(W2, 4))}/${congN(W2, 4).slice(0, 4)}`;
   const lech = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep, tuan: congN(W2, 2) } });
-  const dsLech = lech.data?.ngay || [];
-  check('chọn tuần khác ngày ghi trong tệp → vẫn theo tuần ĐÃ CHỌN',
-    JSON.stringify(dsLech.map(n => n.date)) === JSON.stringify([W2, congN(W2, 1), congN(W2, 4)]), dsLech.map(n => n.date));
+  check('mọi ngày trong tệp cùng một tuần KHÁC tuần đã chọn → 400, nói rõ tuần của tệp và tuần đang chọn',
+    lech.status === 400 && (lech.data?.error || '').includes(`Tệp này là thực đơn tuần ${tenW}`)
+    && (lech.data?.error || '').includes(`đang chọn tuần ${tenW2}`) && /Chọn đúng tuần rồi nạp lại/.test(lech.data?.error || ''),
+    { status: lech.status, data: lech.data });
+  const luuLech = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep, tuan: congN(W2, 2), luu: true } });
+  check('bấm Lưu với tệp lệch tuần cũng 400', luuLech.status === 400 && (luuLech.data?.error || '').includes(tenW), { status: luuLech.status, data: luuLech.data });
+  check('thực đơn tuần đã chọn KHÔNG đổi', docTuan(W2) === truocW2, { truoc: truocW2, sau: docTuan(W2) });
+  check('thực đơn tuần ghi trong tệp cũng không bị ghi', docTuan(W) === truocW, { truoc: truocW, sau: docTuan(W) });
+
+  // Ngày trong tệp lộn xộn (hai tuần): không biết tệp của tuần nào → theo tuần đã
+  // chọn kèm lời nhắc, như trước.
+  const honLoan = hang.map((h, r) => (r === 1 ? ['', `Thứ Hai\n${dm(W)}`, `Thứ Ba\n${dm(congN(W, 8))}`, 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'] : h.slice(0, 6)));
+  const tron = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(xlsx.ghi([{ ten: 'Thực đơn', hang: honLoan }])), tuan: congN(W2, 2) } });
+  check('ngày trong tệp thuộc nhiều tuần → vẫn đọc, theo tuần ĐÃ CHỌN',
+    tron.status === 200 && JSON.stringify((tron.data?.ngay || []).map(n => n.date)) === JSON.stringify([W2, congN(W2, 1), congN(W2, 4)]),
+    { status: tron.status, data: tron.data });
   check('và có lời nhắc ngày trong tệp lệch với tuần đã chọn',
-    (lech.data?.canhBao || []).some(c => c.includes(dm(W)) && c.includes(dm(W2))), lech.data?.canhBao);
+    (tron.data?.canhBao || []).some(c => c.includes('khác tuần đã chọn') && c.includes(dm(W2))), tron.data?.canhBao);
 
   const khongNgay = dataUrl(xlsx.ghi([{ ten: 'A', hang: [['', 'T2', 'T3', 'T4', 'T5', 'T6'], ['Bữa trưa', 'Cơm', 'Bún', '', '', '']] }]));
   const thieu = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: khongNgay } });
