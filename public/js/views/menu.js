@@ -219,43 +219,64 @@ App.views.menu = {
   // khác cho tới khi soạn xong là biến một nếp tốt thành một cái cửa khoá, và
   // thứ Sáu là hôm bận nhất của văn phòng. Nhắc thì người ta làm; chặn thì
   // người ta tìm đường vòng.
-  // ---- Thực đơn bằng tệp Excel mẫu (góp ý 06/10, mục 3) ----
+  // ---- Thực đơn bằng tệp Excel mẫu THEO TUẦN (góp ý 06/10 mục 3; 16/10 mục 1) ----
   //
-  // Trường: *"hãy tạo 1 form mẫu bằng Excel theo đúng cấu trúc bạn cần, sau
-  // đó mình sẽ up lên và bạn sẽ tự điền vào từng ngày"*. Tải mẫu của MỘT
-  // tháng (ngày học điền sẵn, món đã có điền sẵn) → điền → nạp lên → xem trước
-  // từng ngày → Lưu. Ngày để trống trong tệp không bị đụng tới.
+  // 06/10: *"hãy tạo 1 form mẫu bằng Excel theo đúng cấu trúc bạn cần, sau đó
+  // mình sẽ up lên và bạn sẽ tự điền vào từng ngày"*. 16/10: *"Để upload theo
+  // tuần k cần để theo tháng"* — mẫu nay là MỘT TUẦN đúng khuôn bảng của trường
+  // (cột là Thứ Hai → Thứ Sáu, hàng là món của từng bữa, mỗi ô một món). Chọn
+  // tuần → tải mẫu (món đã có điền sẵn) → điền, hay dán bảng của trường → nạp
+  // lên → xem trước từng ngày → Lưu. Ngày để trống trong tệp không bị đụng tới.
+  // Tệp khuôn tháng đã điền trước đây vẫn nạp được (máy chủ tự nhận khuôn).
   // Ô "Dán bảng" của Đ132 đã gỡ ở Đ231 (chủ dự án chốt 07/10): tệp mẫu là
   // đường duy nhất để đổ thực đơn từ Excel.
+  _tuanXl: '',   // Thứ Hai của tuần đang chọn ở thẻ Excel
+
+  congNgay(iso, n) {
+    const d = UI.parseDate(iso);
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  // "Tuần 19/10 – 23/10/2026" (qua năm thì ghi năm ở cả hai đầu).
+  tenTuan(thuHai) {
+    const t6 = this.congNgay(thuHai, 4);
+    const nam = thuHai.slice(0, 4) === t6.slice(0, 4) ? '' : `/${thuHai.slice(0, 4)}`;
+    return `Tuần ${UI.fmtDateShort(thuHai)}${nam} – ${UI.fmtDateShort(t6)}/${t6.slice(0, 4)}`;
+  },
+
   veExcel(tuNgay) {
     const o = document.getElementById('menu-excel');
     if (!o) return;
-    const goc = UI.parseDate(tuNgay || UI.todayStr());
-    const thang = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const nay = thang(goc);
-    const sau = thang(new Date(goc.getFullYear(), goc.getMonth() + 1, 1));
+    // `tuNgay` là Thứ Hai của tuần đang xem, do máy chủ tính theo giờ Việt Nam.
+    const nay = this.congNgay(tuNgay, -7 * this.week);
+    const cacTuan = [['tuần này', 0], ['tuần sau', 7], ['tuần sau nữa', 14]].map(([ten, n]) => ({ ten, t2: this.congNgay(nay, n) }));
+    // Mặc định tuần sau — tuần văn phòng soạn vào thứ Sáu; vẽ lại thì giữ tuần đã chọn.
+    if (!cacTuan.some(t => t.t2 === this._tuanXl)) this._tuanXl = cacTuan[1].t2;
     o.innerHTML = `
       <div class="card">
         <div class="card-title">📊 Thực đơn bằng tệp Excel</div>
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
-          Tải tệp mẫu của một tháng về, điền món vào từng ngày (ô nhiều món thì xuống dòng bằng
-          Alt + Enter), rồi nạp lên — app tự điền vào từng ngày. Ngày để trống trong tệp thì giữ nguyên.
+          Chọn tuần rồi tải tệp mẫu về: mỗi cột là một ngày từ Thứ Hai đến Thứ Sáu, mỗi ô một món
+          (bữa sáng 3 dòng riêng). Điền món — hoặc dán bảng thực đơn của trường vào — rồi nạp lên,
+          app tự đặt món vào đúng từng ngày của tuần đã chọn. Ngày để trống trong tệp thì giữ nguyên.
         </div>
-        <div class="grid-2">
-          <select id="mn-xl-thang" aria-label="Tháng của tệp mẫu">
-            <option value="${UI.esc(nay)}">Tháng ${UI.esc(nay.slice(5))}/${UI.esc(nay.slice(0, 4))}</option>
-            <option value="${UI.esc(sau)}">Tháng ${UI.esc(sau.slice(5))}/${UI.esc(sau.slice(0, 4))}</option>
+        <div class="field" style="margin-bottom:8px">
+          <label for="mn-xl-tuan">Thực đơn của tuần</label>
+          <select id="mn-xl-tuan">
+            ${cacTuan.map(t => `<option value="${UI.esc(t.t2)}" ${t.t2 === this._tuanXl ? 'selected' : ''}>${UI.esc(this.tenTuan(t.t2))} (${UI.esc(t.ten)})</option>`).join('')}
           </select>
-          <a class="btn outline" id="mn-xl-tai" href="#">📥 Tải tệp mẫu</a>
         </div>
+        <a class="btn outline block" id="mn-xl-tai" href="#">📥 Tải tệp mẫu</a>
         <button class="btn primary block mt-8" id="mn-xl-nap">📤 Nạp tệp Excel đã điền</button>
         <input type="file" id="mn-xl-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
       </div>`;
-    const lienKet = () => `/api/menu/mau-excel?thang=${encodeURIComponent(document.getElementById('mn-xl-thang').value)}`
+    const lienKet = () => `/api/menu/mau-excel?tuan=${encodeURIComponent(this._tuanXl)}`
       + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : '');
     const tai = document.getElementById('mn-xl-tai');
     tai.href = lienKet();
-    document.getElementById('mn-xl-thang').onchange = () => { tai.href = lienKet(); };
+    const chon = document.getElementById('mn-xl-tuan');
+    chon.onchange = () => { this._tuanXl = chon.value; tai.href = lienKet(); };
     const oFile = document.getElementById('mn-xl-file');
     document.getElementById('mn-xl-nap').onclick = () => oFile.click();
     oFile.onchange = () => this.napExcel(oFile);
@@ -266,7 +287,7 @@ App.views.menu = {
     oFile.value = '';
     if (!f) return;
     if (!/\.xlsx$/i.test(f.name)) return UI.toast('Cần tệp Excel dạng .xlsx — tải tệp mẫu của app về rồi điền vào đó nhé', 'error');
-    if (f.size > 3 * 1024 * 1024) return UI.toast('Tệp quá lớn — tệp thực đơn một tháng chỉ vài chục KB', 'error');
+    if (f.size > 3 * 1024 * 1024) return UI.toast('Tệp quá lớn — tệp thực đơn chỉ vài chục KB', 'error');
     let tep;
     try {
       tep = await new Promise((ok, that) => {
@@ -275,14 +296,15 @@ App.views.menu = {
         r.readAsDataURL(f);
       });
     } catch (err) { return UI.toast(err.message, 'error'); }
-    const than = { tep, campusId: this._coSo || '' };
+    // Gửi kèm tuần đã chọn: tệp khuôn tuần chỉ có Thứ Hai… Thứ Sáu, máy chủ đặt vào đúng ngày.
+    const than = { tep, campusId: this._coSo || '', tuan: this._tuanXl };
     let xem;
     try { xem = await API.post('/api/menu/nap-excel', than); } catch (err) { return UI.toast(err.message, 'error'); }
     const ds = xem.ngay || [];
     const soGhiDe = ds.filter(n => n.daCo && !n.khongDoi).length;
     UI.modal(`
       <div class="muted small" style="line-height:1.6;margin-bottom:8px">
-        Tệp <b>${UI.esc(f.name)}</b> có <b>${ds.length}</b> ngày có món${soGhiDe ? ` — trong đó <b>${soGhiDe}</b> ngày đang có
+        Tệp <b>${UI.esc(f.name)}</b>${xem.tuan ? ` — thực đơn <b>${UI.esc(this.tenTuan(xem.tuan))}</b> —` : ''} có <b>${ds.length}</b> ngày có món${soGhiDe ? ` — trong đó <b>${soGhiDe}</b> ngày đang có
         thực đơn sẽ được THAY bằng món trong tệp` : ''}. Xem lại rồi bấm Lưu.
       </div>
       ${(xem.canhBao || []).length ? `<div class="card" style="background:#fff8e1;margin-bottom:10px">
@@ -291,11 +313,11 @@ App.views.menu = {
         ${ds.map(n => `
           <div class="list-row" style="align-items:flex-start">
             <div class="row-main">
-              <div class="row-title">${UI.esc(n.thu)} ${UI.esc(n.date.slice(8, 10))}/${UI.esc(n.date.slice(5, 7))}${
+              <div class="row-title">${UI.esc(n.thu)} ${UI.esc(UI.fmtDate(n.date, { weekday: false }))}${
   n.khongDoi ? ' · <span class="muted small">giống bản đang có, không đổi</span>'
     : (n.daCo ? ' · <span class="muted small">thay bản đang có</span>' : '')}</div>
               ${n.bua.map(b => `<div class="row-sub"><b>${UI.esc(b.label)}:</b> ${UI.esc(b.items.join(', '))}</div>`).join('')}
-              ${(n.giuBua || []).length ? `<div class="row-sub muted">Giữ nguyên (tệp mẫu không có cột): ${UI.esc(n.giuBua.join(', '))}</div>` : ''}
+              ${(n.giuBua || []).length ? `<div class="row-sub muted">Giữ nguyên (trong tệp không có bữa này): ${UI.esc(n.giuBua.join(', '))}</div>` : ''}
             </div>
           </div>`).join('') || '<div class="muted small">Không có ngày nào có món trong tệp.</div>'}
       </div>
