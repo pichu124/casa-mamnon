@@ -75,6 +75,17 @@ const TEN_BUA = {
   snack: 'Bữa phụ chiều',
   milk: 'Bữa sữa chiều',
 };
+// Giờ chuẩn của năm bữa, cùng giờ với `BUA_MAU` ở routes/menu.js (chép, không
+// gọi sang: gỡ Thực đơn thì Nhật ký vẫn phải chạy). Bữa thực đơn hôm đó không
+// có thì mang giờ này, để màn cô tự mở đúng bữa theo giờ. `test/nhat-ky-bua`
+// [11] so hai danh sách.
+const GIO_BUA = {
+  breakfast: '08:00',
+  snack_sang: '09:30',
+  lunch: '11:20',
+  snack: '14:00',
+  milk: '15:30',
+};
 
 // Các cột của `nhatky_ngay` mà màn hình được ghi. Đường PUT cũ nhận thêm
 // `truong: [...]` để chỉ ghi MỘT NHÓM cột (một bước của màn cô) — tên ngoài
@@ -222,14 +233,23 @@ module.exports = (app, { db, modules }) => {
   // Một dòng tóm tắt cho tin báo — gia đình đọc được ngay trên màn khoá.
   function tomTat(phan, s) {
     if (phan === 'an') {
-      // "Bữa sáng: Bánh bao xá xíu — con ăn hết"; bữa không có món thì
-      // "Bữa sáng — con ăn hết" (góp ý 16/10, mục 7).
-      const ds = s.buaAn.filter(b => b.muc)
-        .map(b => `${b.ten}${(b.mon || []).length ? `: ${b.mon.join(', ')}` : ''} — ${CAU_MUC_AN[b.muc] || ''}`);
+      // "Bữa sáng — con ăn hết · Bữa trưa — con ăn ít", KHÔNG kèm món: tin bị
+      // cắt ở 160 ký tự, và một ngày đủ năm bữa với bữa trưa sáu món thì kèm
+      // món là cắt giữa chữ, mất bữa cuối. Món gia đình đọc ở màn Nhật ký.
+      const ds = s.buaAn.filter(b => b.muc).map(b => `${b.ten} — ${CAU_MUC_AN[b.muc] || ''}`);
       if (s.buBinhSoLan !== null && s.buBinhSoLan !== undefined) {
         ds.push(`Bú bình ${s.buBinhSoLan} lần${s.buBinhMl ? ` (${s.buBinhMl} ml)` : ''}`);
       }
-      return (ds.join(' · ') || s.ghiChu || s.anGhiChu || 'Mở Nhật ký ngày để xem.').slice(0, 160);
+      if (!ds.length) return (s.ghiChu || s.anGhiChu || 'Mở Nhật ký ngày để xem.').slice(0, 160);
+      const du = ds.join(' · ');
+      if (du.length <= 160) return du;
+      // Vẫn quá dài (năm bữa "khoảng nửa suất") thì dừng ở ranh giới một bữa.
+      const giu = [];
+      for (const x of ds) {
+        if ([...giu, x, '…'].join(' · ').length > 160) break;
+        giu.push(x);
+      }
+      return [...giu, '…'].join(' · ');
     }
     if (phan === 'ngu') {
       return (s.nguTuLuc && s.nguDenLuc ? `Ngủ ${s.nguTuLuc} – ${s.nguDenLuc}` : (s.nguGhiChu || 'Mở Nhật ký ngày để xem.')).slice(0, 160);
@@ -558,7 +578,8 @@ module.exports = (app, { db, modules }) => {
   //
   // LUÔN đủ năm bữa của trường, đúng thứ tự và đúng tên ở `TEN_BUA` (góp ý
   // 16/10, mục 7) — kể cả hôm bếp chưa soạn, thực đơn thiếu bữa, hay phần Thực
-  // đơn đang tắt. Thực đơn chỉ góp MÓN và GIỜ; bữa nó không có thì món rỗng.
+  // đơn đang tắt. Thực đơn chỉ góp MÓN và GIỜ; bữa nó không có thì món rỗng,
+  // giờ là giờ chuẩn ở `GIO_BUA`.
   // Bữa lạ khác trong thực đơn hôm đó (vd 'other') nối phía sau, giữ nhãn của
   // thực đơn.
   //
@@ -574,7 +595,7 @@ module.exports = (app, { db, modules }) => {
     const mot = (kieu, x) => ({
       bua: kieu,
       ten: TEN_BUA[kieu] || String((x && x.label) || '').trim() || 'Bữa ăn',
-      gio: String((x && x.time) || '').trim(),
+      gio: String((x && x.time) || '').trim() || GIO_BUA[kieu] || '',
       mon: x && Array.isArray(x.items) ? x.items.map(String) : [],
     });
     return [

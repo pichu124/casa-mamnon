@@ -136,8 +136,8 @@ try {
     check('mẹ s9 nhận ĐÚNG MỘT tin', tin.length === truocTin + 1, `${truocTin} → ${tin.length}`);
     const moi = tin[0] || {};
     check('tin gọi đúng phần và tên bé', moi.title === `Ăn uống của ${ten9}`, moi.title);
-    // Ngày này bếp chưa soạn thực đơn nên câu không có món (góp ý 16/10, mục 7).
-    check('nội dung tóm tắt đúng bữa và mức ăn, viết thành câu', /Bữa trưa — con ăn hết/.test(moi.body || ''), moi.body);
+    // Tin báo chỉ "<bữa> — con <mức>", không kèm món (Đ239j); s9 mới có bữa trưa.
+    check('nội dung tóm tắt đúng bữa và mức ăn, viết thành câu', moi.body === 'Bữa trưa — con ăn hết', moi.body);
     check('bấm tin mở đúng màn Nhật ký', moi.hash === '#/nhatky', moi.hash);
 
     const doc = await giaDinhDoc();

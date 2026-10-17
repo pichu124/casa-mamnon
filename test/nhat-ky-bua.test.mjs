@@ -254,12 +254,13 @@ try {
     check('mẹ s9 nhận thêm đúng MỘT tin', tin.length === 2, tin.length);
     check('tin gọi đúng phần, tên bé, và nói là cô vừa cập nhật', (tin[0] || {}).title === `Ăn uống của ${ten} — cô vừa cập nhật`, (tin[0] || {}).title);
     // Đổi 16/10 (góp ý mục 7): năm bữa chuẩn LUÔN mang tên của trường — thực
-    // đơn ghi "Sữa Vinamilk" vẫn là "Bữa sữa chiều" — và mỗi bữa đọc thành câu
-    // "<bữa>: <món> — con <mức>".
-    check('tin đọc "<bữa>: <món của bếp> — con <mức>", tên bữa là tên chuẩn của trường',
-      /Bữa sữa chiều: Sữa tươi 180ml — con ăn hết/.test((tin[0] || {}).body || '')
-      && /Bữa phụ sáng: Sữa chua nếp cẩm — con ăn hết/.test((tin[0] || {}).body || '')
-      && !/Sữa Vinamilk/.test((tin[0] || {}).body || ''), (tin[0] || {}).body);
+    // đơn ghi "Sữa Vinamilk" vẫn là "Bữa sữa chiều". Tin báo chỉ "<bữa> — con
+    // <mức>", KHÔNG kèm món (Đ239j): màn khoá cắt tin ở 160 ký tự; món đọc ở
+    // màn Nhật ký của gia đình.
+    const than = (tin[0] || {}).body || '';
+    check('tin đọc "<bữa> — con <mức>", tên bữa là tên chuẩn của trường, không kèm món',
+      /Bữa sữa chiều — con ăn hết/.test(than) && /Bữa phụ sáng — con ăn hết/.test(than)
+      && !/Sữa Vinamilk/.test(than) && !/Sữa tươi 180ml|Sữa chua nếp cẩm/.test(than), than);
     check('tin mở đúng màn Nhật ký', tin.every(n => n.hash === '#/nhatky'));
     check('nhà khác KHÔNG có tin về s9', !((await req('GET', '/api/notifications/rieng-be', { cookie: PH })).data || []).some(n => n.studentId === 's9'));
 
@@ -340,6 +341,15 @@ try {
     check('ngày chưa có thực đơn: vẫn đủ NĂM bữa, đúng thứ tự của trường', dsA.map(b => b.bua).join(',') === NAM, dsA.map(b => b.bua));
     check('và đúng năm tên của trường', dsA.map(b => b.ten).join(',') === TEN, dsA.map(b => b.ten));
     check('chưa có thực đơn thì không bữa nào có món — không bịa món', dsA.every(b => Array.isArray(b.mon) && !b.mon.length), dsA.map(b => b.mon));
+    // Bữa thực đơn không có vẫn mang GIỜ CHUẨN của trường (Đ239j) — màn cô tự
+    // mở đúng bữa theo giờ. Phân hệ giữ hằng riêng (không gọi sang routes/), nên
+    // so với `BUA_MAU` của Thực đơn để hai danh sách không trôi khỏi nhau.
+    const rtMenu = fs.readFileSync(path.join(GOC, 'routes', 'menu.js'), 'utf8');
+    const buaMau = [...rtMenu.slice(rtMenu.indexOf('const BUA_MAU = ['), rtMenu.indexOf('const BUA_MAU = [') + 900)
+      .matchAll(/type: '([^']+)', label: '([^']+)', time: '([^']+)'/g)].slice(0, 5).map(m => m.slice(1).join('|'));
+    const buaNk = dsA.map(b => `${b.bua}|${b.ten}|${b.gio}`);
+    check('ngày chưa có thực đơn: năm bữa mang đúng mã, tên và giờ của BUA_MAU (Thực đơn)',
+      buaMau.length === 5 && JSON.stringify(buaNk) === JSON.stringify(buaMau), { buaMau, buaNk });
     check('từng bé cũng đủ năm bữa', ((a.data || {}).danhSach || []).every(b => (b.buaAn || []).map(x => x.bua).join(',') === NAM),
       JSON.stringify(((a.data || {}).danhSach || [])[0]?.buaAn || []).slice(0, 200));
 
@@ -361,6 +371,9 @@ try {
     check('bữa sáng mang món và giờ của bếp', (buaB('breakfast').mon || []).join(',') === 'Bánh bao xá xíu' && buaB('breakfast').gio === '07:00', buaB('breakfast'));
     check('bữa thực đơn ngày đó không có thì không có món', !(buaB('snack_sang').mon || [1]).length && !(buaB('milk').mon || [1]).length,
       [buaB('snack_sang'), buaB('milk')]);
+    check('bữa thực đơn ngày đó không có mang giờ chuẩn; bữa có giờ riêng giữ giờ của bếp',
+      buaB('snack_sang').gio === '09:30' && buaB('milk').gio === '15:30' && buaB('snack').gio === '14:30',
+      dsB.map(x => `${x.bua} ${x.gio}`));
     check('bữa lạ giữ nhãn của thực đơn', buaB('other').ten === 'Tiệc sinh nhật', buaB('other'));
 
     // (c) Ghi được cả bữa mà thực đơn ngày đó không có.
@@ -374,7 +387,8 @@ try {
       classId: 'c4', ngay: NGAY_TRONG, bua: 'other', danhSach: [{ studentId: 's9', muc: 'het' }] } });
     check('bữa lạ mà thực đơn ngày đó không có thì vẫn từ chối', c3.status === 400, c3.status);
 
-    // (d) Gia đình đọc "Bữa sáng: Bánh bao xá xíu — con ăn hết".
+    // (d) Màn gia đình đọc "Bữa sáng: Bánh bao xá xíu — con ăn hết"; tin báo
+    // chỉ "Bữa sáng — con ăn hết" (Đ239j).
     await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
       classId: 'c4', ngay: NGAY_CU, bua: 'breakfast', danhSach: [{ studentId: 's9', muc: 'het' }] } });
     await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
@@ -383,8 +397,9 @@ try {
     check('cô gửi phần ăn uống của ngày đó', gui.status === 200 && gui.data.daGui === 1, JSON.stringify(gui.data).slice(0, 160));
     const tin = (((await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT })).data || [])
       .filter(n => n.laRiengBe && n.loai === 'nhatky')[0] || {}).body || '';
-    check('tin báo: "Bữa sáng: Bánh bao xá xíu — con ăn hết"', tin.includes('Bữa sáng: Bánh bao xá xíu — con ăn hết'), tin);
-    check('mức khác viết thành câu: "— con ăn khoảng nửa suất"', tin.includes('Bữa trưa: Cơm, Thịt kho trứng — con ăn khoảng nửa suất'), tin);
+    check('tin báo: "Bữa sáng — con ăn hết", không kèm món', tin.includes('Bữa sáng — con ăn hết') && !tin.includes('Bánh bao xá xíu'), tin);
+    check('mức khác viết thành câu: "Bữa trưa — con ăn khoảng nửa suất"',
+      tin.includes('Bữa trưa — con ăn khoảng nửa suất') && !tin.includes('Thịt kho trứng'), tin);
     check('bữa không có món: "Bữa sữa chiều — con ăn hết"', tin.includes('Bữa sữa chiều — con ăn hết'), tin);
     check('không nhắc bú bình khi cô không ghi số bú bình', !/Bú bình/.test(tin), tin);
     const doc = await req('GET', `/api/nhatky?studentId=s9&tu=${NGAY_CU}&den=${NGAY_CU}`, { cookie: PH_NT });
@@ -403,6 +418,37 @@ try {
     const tin2 = (((await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT })).data || [])
       .filter(n => n.laRiengBe && n.loai === 'nhatky')[0] || {}).body || '';
     check('có số bú bình thì tin có nhắc', /Bú bình 2 lần \(120 ml\)/.test(tin2), tin2);
+
+    // (e) Ngày đủ năm bữa, bữa trưa sáu món: tin báo vẫn trong 160 ký tự và
+    // KHÔNG cắt giữa chữ — quá dài thì dừng ở ranh giới một bữa, thêm "…".
+    const NGAY_DU = lui(42);
+    const tdDu = await req('PUT', `/api/menu/${NGAY_DU}`, { cookie: C1, body: { campusId: 'cs1', meals: [
+      { type: 'breakfast', label: 'Bữa sáng', time: '08:00', items: ['Bánh bao xá xíu', 'Trứng cút luộc', 'Sữa đậu nành'] },
+      { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:30', items: ['Chuối tiêu'] },
+      { type: 'lunch', label: 'Bữa trưa', time: '11:20', items: ['Cơm tám thơm', 'Thịt heo kho trứng cút', 'Cá basa sốt cà chua',
+        'Canh bí đỏ nấu tôm', 'Su su xào cà rốt', 'Dưa hấu'] },
+      { type: 'snack', label: 'Bữa phụ chiều', time: '14:00', items: ['Nui xào hải sản', 'Nước ép dưa hấu'] },
+      { type: 'milk', label: 'Bữa sữa chiều', time: '15:30', items: ['Sữa tươi'] },
+    ] } });
+    check('đối chứng — soạn được thực đơn đủ năm bữa, bữa trưa sáu món', tdDu.status === 200, tdDu.status);
+    const ghiGui = async (muc) => {
+      for (const bua of NAM.split(',')) {
+        await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
+          classId: 'c4', ngay: NGAY_DU, bua, danhSach: [{ studentId: 's9', muc }] } });
+      }
+      const g = await req('POST', '/api/nhatky/gui', { cookie: GV_NT, body: { classId: 'c4', ngay: NGAY_DU, phan: 'an', studentIds: ['s9'] } });
+      return g.status === 200 && g.data.daGui === 1
+        ? ((((await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT })).data || [])
+          .filter(n => n.laRiengBe && n.loai === 'nhatky')[0] || {}).body || '') : `(không gửi được: ${g.status})`;
+    };
+    const tinDu = await ghiGui('het');
+    check('năm bữa ăn hết: tin kể đủ năm bữa theo đúng thứ tự, không món nào',
+      tinDu === TEN.split(',').map(t => `${t} — con ăn hết`).join(' · '), tinDu);
+    const tinDai = await ghiGui('nua-suat');
+    const doan = tinDai.replace(/\s*·?\s*…$/, '').split(' · ');
+    check('quá 160 ký tự thì cắt: tin ≤ 160 ký tự và kết thúc bằng "…"', tinDai.length <= 160 && tinDai.endsWith('…'), `${tinDai.length}: ${tinDai}`);
+    check('và cắt ở ranh giới bữa: mỗi đoạn còn lại là một bữa trọn câu, đúng thứ tự',
+      doan.length >= 1 && doan.length < 5 && doan.every((x, i) => x === `${TEN.split(',')[i]} — con ăn khoảng nửa suất`), doan);
   }
 } finally {
   await sv.dung();
