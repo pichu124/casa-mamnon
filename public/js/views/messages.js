@@ -91,9 +91,10 @@ App.views.messages = {
   //
   // Nhà trường 10/09: *"giao diện phụ huynh phải nhắn tin với LỚP và nhắn tin
   // với VĂN PHÒNG, chứ mình cũng k muốn là nhắn tin với từng cô riêng lẻ"*.
-  // Nên danh sách này với gia đình là hai dòng cô cho mỗi bé cộng MỘT dòng văn
-  // phòng cho cả nhà (góp ý 16/10, PH1), không phải danh sách các cô. Với cô thì
-  // là các gia đình trong nhóm mình.
+  // Nên danh sách này với gia đình là ba dòng cho MỖI bé — hai dòng cô và một
+  // dòng văn phòng — không phải danh sách các cô. Gộp văn phòng thành một dòng
+  // cho cả nhà (góp ý 16/10, PH1) đang chờ chủ dự án quyết, xem
+  // docs/PHAN-HOI-TRUONG-1610.md. Với cô thì là các gia đình trong nhóm mình.
   //
   // Văn phòng KHÔNG có dòng nào ở đây — văn phòng trả lời gia đình, còn muốn
   // nói với cả trường thì đã có Thông báo. Câu trong ô trống nói rõ điều đó
