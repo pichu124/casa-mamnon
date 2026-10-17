@@ -2515,6 +2515,12 @@ Vẫn nhận bé này?`)) {
       'nhansu-cham-ca-truong': 'Chấm công cả trường',
       'nhansu-xoa-cong': 'Xoá một dòng chấm công',
       'nhansu-xuat-cong': 'Xuất bảng chấm công',
+
+      // Xuất báo cáo (Đ239c)
+      'xuatbaocao-diemdanh-be': 'Xuất báo cáo điểm danh của bé',
+      'xuatbaocao-diemdanh-co': 'Xuất báo cáo điểm danh cô và nhân viên',
+      'xuatbaocao-baocao-hoctap': 'Xuất báo cáo tháng / 6 tháng',
+      'xuatbaocao-kehoach-be': 'Xuất kế hoạch của bé',
     };
     body.innerHTML = rows.length ? `
       <div class="card">

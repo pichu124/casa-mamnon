@@ -1,0 +1,17 @@
+{
+  "key": "xuatbaocao",
+  "name": "Xuất báo cáo",
+  "desc": "Tải Excel: điểm danh bé, điểm danh cô và nhân viên, đối chiếu tiền ăn, báo cáo tháng / 6 tháng, kế hoạch của bé, hồ sơ bé",
+  "hash": "#/xuatbaocao",
+  "view": "xuatbaocao",
+  "emoji": "📤",
+  "bg": "linear-gradient(135deg,#4aa3a0,#2c7f7c)",
+  "api": [
+    "/api/xuatbaocao"
+  ],
+  "roles": [
+    "admin"
+  ],
+  "defaultEnabled": true,
+  "version": "0.1.0"
+}
