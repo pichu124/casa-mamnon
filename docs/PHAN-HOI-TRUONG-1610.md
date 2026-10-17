@@ -199,8 +199,10 @@ nên hai dòng "Cô phụ trách nhóm" của hai con phân biệt được.
    sau): hiện vẫn phải nhờ quản lý cơ sở, vì bài phân quyền bất khả xâm phạm `ho-so-be-ai-sua`
    chặn văn phòng ở MỌI lần sửa nhân thân. Muốn "văn phòng nhập ô trống, quản lý sửa ô đã có"
    thì phải đổi bài đó — cần chủ dự án duyệt.
-4. **Bảo lưu dài hơn 12 tháng:** bảo lưu đi đúng đường "Cho nghỉ", nên sau 12 tháng tính từ ngày
-   bảo lưu gia đình hết xem hồ sơ cũ của con dù bé vẫn "đang bảo lưu".
+4. **Bảo lưu dài hơn 12 tháng:** bảo lưu đi đúng đường "Cho nghỉ", nên sau 12 tháng tính từ hôm
+   văn phòng BẤM Bảo lưu, gia đình hết xem hồ sơ cũ của con dù bé vẫn "đang bảo lưu". Ngày bắt đầu
+   bảo lưu ghi lùi được tối đa 60 ngày; "Thôi bảo lưu, nghỉ hẳn" lùi ngày nghỉ về ngày bắt đầu bảo
+   lưu, trừ khi việc lùi làm gia đình hết hạn xem hồ sơ ngay (khi đó giữ ngày đã ghi).
 5. **Sau chuyển năm học**, nhóm năm mới chưa có cô và cô chỉ còn nhóm đã đóng → quản lý cơ sở
    không thấy cô nào để phân, phải nhờ ban giám hiệu (như trước Đ239). Có luật an toàn để quản
    lý cơ sở tự phân: "cô không có nhóm đang mở thì hiện với cơ sở X khi MỌI nhóm cô từng dạy đều
@@ -221,3 +223,7 @@ nên hai dòng "Cô phụ trách nhóm" của hai con phân biệt được.
      06:00) — cần đồng hồ giả cho bài.
    - `data/seed.js` (`xoaBangPhanHe`) không xoá các bảng phụ của Cambridge → chạy lại bàn thử
      có thể dính khung / hoạt động cũ vào bài mẫu cùng mã (chỉ máy thử).
+   - Màn quản trị còn vài chữ "giáo viên" ("Thêm giáo viên", "Tài khoản giáo viên", "Giáo viên &
+     nhân viên" ở Điểm danh) — CLAUDE.md đòi gọi là "cô". Màn đặt mật khẩu mới của tài khoản quản
+     trị vẫn viết "để bảo vệ thông tin của con". Phụ huynh tạo không có danh xưng thì tên hiện có
+     dấu cách đầu. (Verifier ghi nhận 18/10; chưa sửa.)
