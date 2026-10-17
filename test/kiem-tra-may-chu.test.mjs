@@ -27,7 +27,10 @@ const CAU_SUA_MUI_GIO = {
 const NEN_THAT = process.platform === 'win32' ? 'win32' : 'linux';
 
 // Giả hệ điều hành cho script, để máy nào cũng canh được CẢ HAI nhánh: chỉ canh
-// nhánh của máy đang chạy thì nhánh kia hỏng mà không ai hay.
+// nhánh của máy đang chạy thì nhánh kia hỏng mà không ai hay. Chỉ giả
+// os.platform() — đúng thứ scripts/kiem-tra-may-chu.js hỏi để rẽ nhánh;
+// process.platform vẫn là thật. Script đổi sang hỏi process.platform thì phải
+// giả thêm ở đây.
 const GIA_NEN = thuMucTam('may-chu-gia-nen');
 fs.mkdirSync(GIA_NEN, { recursive: true });
 function tepGiaNen(nen) {

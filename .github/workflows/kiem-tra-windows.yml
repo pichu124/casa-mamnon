@@ -11,13 +11,21 @@ name: Kiểm thử trên Windows
 # Job này giữ cho lỗi kiểu đó không quay lại, và bắt những lỗi chỉ Windows mới
 # lộ ra: không xoá được tệp CSDL đang mở, SIGTERM là giết cứng.
 #
-# CHỈ CHẠY KHI MỞ PULL REQUEST VÀO main HOẶC BẤM TAY (Actions → Kiểm thử trên
-# Windows → Run workflow), không chạy mỗi lần push. Kho riêng tư tính phút chạy
-# Windows gấp đôi Linux, và cả bộ chạy trên Windows chậm hơn nhiều.
+# CHẠY KHI NÀO: khi mở pull request vào main, và mỗi lần đẩy thêm commit lên
+# pull request đó (GitHub mặc định coi cả hai là sự kiện pull_request). Không
+# chạy khi đẩy lên một nhánh chưa có pull request, như job Linux vẫn chạy. Kho
+# riêng tư tính phút chạy Windows gấp đôi Linux, nên có `concurrency` bên dưới:
+# đẩy commit mới thì lượt cũ của cùng pull request bị huỷ, không chạy song song.
+# Bấm tay (Actions → Kiểm thử trên Windows → Run workflow) chỉ được sau khi tệp
+# này đã nằm trên main — GitHub chỉ hiện nút đó cho workflow có trên nhánh chính.
 on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: kiem-tra-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   kiem-thu-windows:

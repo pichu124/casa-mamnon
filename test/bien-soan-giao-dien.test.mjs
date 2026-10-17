@@ -4,6 +4,7 @@
 // Cần trình duyệt Playwright. Chạy bằng:  npm run test:giao-dien
 import { chromium } from 'playwright';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
 import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerMoiCai } from './_chung.mjs';
 
@@ -198,7 +199,10 @@ console.log('\n[3c] Thực đơn — tệp Excel mẫu: tải về, nạp lên, 
   }, href);
   check('bấm tải về được tệp Excel thật', tai.status === 200 && /spreadsheetml/.test(tai.kieu || ''), tai);
   // Nạp tệp do LibreOffice lưu (giống tệp Excel thật trường sẽ nạp).
-  await page.setInputFiles('#mn-xl-file', path.join(path.dirname(new URL(import.meta.url).pathname), 'mau', 'thuc-don-libreoffice.xlsx'));
+  // fileURLToPath, không lấy `.pathname`: trên Windows pathname ra '/C:/…', và ở
+  // mọi hệ nó giữ dạng mã hoá %xx khi đường dẫn có dấu tiếng Việt hay khoảng
+  // trắng — tệp mẫu không tìm thấy.
+  await page.setInputFiles('#mn-xl-file', fileURLToPath(new URL('./mau/thuc-don-libreoffice.xlsx', import.meta.url)));
   await page.waitForSelector('#mn-xl-xem', { timeout: 8000 });
   const xem = await page.locator('#modal-overlay').innerText();
   check('hiện bản XEM TRƯỚC từng ngày, chưa lưu gì', /Phở gà/.test(xem) && /Bánh flan/.test(xem) && /Xem trước/.test(xem), xem.slice(0, 300));
