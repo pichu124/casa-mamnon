@@ -618,6 +618,18 @@ console.log('\n[13] Bé nghỉ / bảo lưu GIỮA KỲ vẫn có trong tệp');
     check('quản lý cơ sở 2 xin nhóm c1 → 403',
       (await tai(`${API}/diemdanh-be?pham=nhom&classId=c1&thang=${THANG_CU}&kieu=gio`, QL2)).status === 403);
   }
+  {
+    // Kế hoạch tính theo tháng: khoảng bắt đầu SAU ngày bé nghỉ nhưng cùng tháng
+    // thì bé vẫn có dòng của tháng ấy.
+    const ke = await tai(`${API}/kehoach-be?pham=nhom&classId=c1&tu=${D4}&den=${THANG_NAY}`, HT);
+    const n = dongCo(ke, 'Bé Nghỉ Giữa Tháng');
+    check('kế hoạch: bé nghỉ trong tháng đầu khoảng vẫn có dòng, kèm ghi chú',
+      ke.status === 200 && n.length === 1 && n[0][(trang(ke).hang[0] || []).indexOf('Ghi chú')] === `Nghỉ từ ${dmy(D2)}`, [ke.status, n]);
+    check('kế hoạch: bé nghỉ trước khoảng thì không có dòng', !/Bé Nghỉ Từ Lâu/.test(chuCaTep(ke)));
+    const bc = await tai(`${API}/baocao-hoctap?pham=nhom&classId=c1&loai=thang&thang=${THANG_NAY}`, HT);
+    check('báo cáo tháng này: bé đã nghỉ từ tháng cũ không có dòng',
+      bc.status === 200 && !/Bé Nghỉ Giữa Tháng|Bé Bảo Lưu|Bé Nghỉ Từ Lâu/.test(chuCaTep(bc)), bc.status);
+  }
 
   // Đúng đường của văn phòng: bé An (đã có điểm danh, báo cáo tháng, kế hoạch
   // tháng này) được bấm "Nghỉ học bảo lưu" hôm nay.

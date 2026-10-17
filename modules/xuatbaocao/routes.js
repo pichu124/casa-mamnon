@@ -354,7 +354,8 @@ module.exports = (app, { db, modules }) => {
     for (const b of dsBe) {
       if (b.active) continue;
       const bl = baoLuu.get(b.id) || '';
-      const roi = NGAY_RE.test(String(b.leftAt || '').slice(0, 10)) ? b.leftAt.slice(0, 10) : '';
+      const ngayRoi = String(b.leftAt || '').slice(0, 10);
+      const roi = NGAY_RE.test(ngayRoi) ? ngayRoi : '';
       const tu = bl && (!roi || bl < roi) ? bl : roi;
       ra.set(b.id, { tu, baoLuu: !!bl, chu: tu ? `${bl ? 'Bảo lưu' : 'Nghỉ'} từ ${dmy(tu)}` : 'Đã nghỉ' });
     }
