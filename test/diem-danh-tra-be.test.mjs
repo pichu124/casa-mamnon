@@ -29,7 +29,7 @@
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, batPhanHe,
-  taoBoDem, CHROMIUM, tatBannerMoiCai, MAU,
+  taoBoDem, CHROMIUM, tatBannerMoiCai, MAU, HOM_NAY,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -55,6 +55,15 @@ const ckTam = await dnApi('htruong', mkTam);
 await goiApi('/api/auth/set-new-password', { newPassword: 'quantri2026' }, ckTam);
 const ckQT = await dnApi('htruong', 'quantri2026');
 const batTat = async (key, bat) => goiApi(`/api/admin/modules/${key}`, { enabled: bat }, ckQT, 'PUT');
+
+// Dữ liệu mẫu chỉ điểm danh NGÀY HỌC, nên chạy vào cuối tuần thì "hôm nay"
+// chưa bé nào vào lớp và mọi nút "Ghi con đã về" biến mất (docs/VIEC-DANG-DO.md,
+// việc 3). Ngày thường khối này không chạy, bài y như cũ.
+if ([0, 6].includes(new Date(`${HOM_NAY()}T00:00:00Z`).getUTCDay())) {
+  const r = await goiApi('/api/attendance/mark-all',
+    { date: HOM_NAY(), status: 'present', classId: 'c1' }, await dnApi('giaovien', '123456'));
+  check('(cuối tuần) cô chấm có mặt cả nhóm Chồi 2 cho hôm nay', r.status === 200, r.data);
+}
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
 const ctx = await tatBannerMoiCai(await browser.newContext({
