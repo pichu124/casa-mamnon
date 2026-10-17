@@ -1126,7 +1126,7 @@ App.views.admin = {
           ${daNghiHoc
             ? (s.baoLuu
               ? `<button class="btn sm outline" onclick="App.views.admin.diHocLai('${UI.esc(s.id)}')">Đi học lại</button>
-                 <button class="btn sm outline" onclick="App.views.admin.thoiBaoLuu('${UI.esc(s.id)}', '${UI.esc(s.baoLuu.tuNgay)}')">Thôi bảo lưu, nghỉ hẳn</button>`
+                 <button class="btn sm outline" onclick="App.views.admin.thoiBaoLuu('${UI.esc(s.id)}', '${UI.maAnToan(s.baoLuu.tuNgay)}')">Thôi bảo lưu, nghỉ hẳn</button>`
               : `<button class="btn sm outline" onclick="App.views.admin.nhanLaiHocSinh('${UI.esc(s.id)}')">Nhận lại</button>`)
             : `<button class="btn sm outline" onclick="App.views.admin.suaHocSinh('${UI.esc(s.id)}')">Sửa</button>
                <button class="btn sm outline" onclick="App.views.admin.choBaoLuu('${UI.esc(s.id)}')">Bảo lưu</button>
