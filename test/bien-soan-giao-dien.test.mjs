@@ -217,7 +217,9 @@ console.log('\n[3c] Thực đơn — tệp Excel mẫu: tải về, nạp lên, 
   dbXem.close();
   check('xem trước KHÔNG ghi gì', truocLuu === 0, truocLuu);
   await page.click('#mn-xl-luu');
-  await page.waitForTimeout(1500);
+  // Chờ hộp xem trước đóng (máy chủ đã trả lời Lưu) thay vì ngủ cố định: máy
+  // đang tải nặng thì 1,5 giây chưa đủ và bài đỏ oan.
+  await page.waitForSelector('#mn-xl-xem', { state: 'detached', timeout: 15000 }).catch(() => {});
   const dbSau = new Database(path.join(DIR, 'school.db'), { readonly: true });
   const sauLuu = dbSau.prepare("SELECT meals FROM menus WHERE date = '2027-03-01'").get();
   dbSau.close();
@@ -236,7 +238,9 @@ console.log('\n[3c] Thực đơn — tệp Excel mẫu: tải về, nạp lên, 
   check('xem trước nói rõ tuần và ghi ngày tháng từng ngày',
     xemTuan.includes(`Tuần ${d}/${m}`) && xemTuan.includes(`Thứ Hai ${d}/${m}/${y}`) && /Bún cá rau cải xanh/.test(xemTuan), xemTuan.slice(0, 400));
   await page.click('#mn-xl-luu');
-  await page.waitForTimeout(1500);
+  // Chờ hộp xem trước đóng (máy chủ đã trả lời Lưu) thay vì ngủ cố định: máy
+  // đang tải nặng thì 1,5 giây chưa đủ và bài đỏ oan.
+  await page.waitForSelector('#mn-xl-xem', { state: 'detached', timeout: 15000 }).catch(() => {});
   const dbTuan = new Database(path.join(DIR, 'school.db'), { readonly: true });
   const thuHai = dbTuan.prepare('SELECT meals FROM menus WHERE date = ?').get(t2);
   dbTuan.close();
