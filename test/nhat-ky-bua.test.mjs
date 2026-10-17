@@ -6,8 +6,9 @@
 //
 //   1. "Bữa nào ăn sẽ cập nhật bữa đó, chứ không phải cuối ngày mới làm một
 //      loạt — tách riêng từng bữa theo thực đơn của nhà trường." → có đường ghi
-//      MỘT BỮA cho cả nhóm; bữa lấy theo THỰC ĐƠN NGÀY ĐÓ của bếp cơ sở (năm
-//      bữa), không có thực đơn thì ba bữa mặc định.
+//      MỘT BỮA cho cả nhóm; món lấy theo THỰC ĐƠN NGÀY ĐÓ của bếp cơ sở. (Đổi
+//      16/10 — góp ý mục 7: LUÔN đủ năm bữa đúng tên của trường, kể cả ngày
+//      bếp chưa soạn hay thực đơn thiếu bữa; mục [11].)
 //   2. Bảng `nhatky_ngay` KHÔNG đổi cột. Bữa ghi ở bảng phụ `nhatky_bua`, và
 //      ba bữa trùng cột cũ được đồng bộ ngược — app cũ còn trong máy vẫn đúng.
 //   3. (Đổi 06/10 — góp ý mục 9, chủ dự án chốt "Lưu là nháp, Gửi mới thấy".)
@@ -63,16 +64,17 @@ const buaCua = (b, kieu) => ((b && b.buaAn) || []).find(x => x.bua === kieu) || 
 
 try {
   // =========================================================================
-  console.log('\n[1] Không có thực đơn riêng thì có BA BỮA MẶC ĐỊNH; bếp soạn NĂM bữa thì có năm bước');
+  console.log('\n[1] Chưa có thực đơn năm bữa thì VẪN ĐỦ NĂM BỮA; bếp soạn năm bữa thì món theo bếp');
   {
-    // Dữ liệu mẫu có thực đơn dùng chung ba bữa cho tuần này — hôm nay là ngày
-    // trong tuần thì thấy ba, cuối tuần thì cũng về ba bữa mặc định.
+    // Dữ liệu mẫu có thực đơn dùng chung ba bữa cho các ngày trong tuần; cuối
+    // tuần thì không có thực đơn. Cả hai trường hợp đều phải đủ năm bữa
+    // (góp ý 16/10, mục 7 — trước đó là ba bữa mặc định).
     const r = await req('GET', '/api/nhatky?classId=c4', { cookie: GV_NT });
     check('cô nhà trẻ mở được màn nhóm', r.status === 200, r.status);
     const ds = (r.data || {}).buaAn || [];
-    check('máy chủ gửi kèm danh sách bữa của NGÀY ĐÓ', Array.isArray(ds) && ds.length >= 3, ds.length);
-    check('có đủ sáng / trưa / xế khi chưa có thực đơn năm bữa',
-      ['breakfast', 'lunch', 'snack'].every(k => ds.some(b => b.bua === k)), ds.map(b => b.bua));
+    check('máy chủ gửi kèm danh sách bữa của NGÀY ĐÓ', Array.isArray(ds) && ds.length === 5, ds.length);
+    check('đủ năm bữa của trường, đúng thứ tự, khi chưa có thực đơn năm bữa',
+      ds.map(b => b.bua).join(',') === 'breakfast,snack_sang,lunch,snack,milk', ds.map(b => b.bua));
     check('từng bé cũng có buaAn cùng số bữa, mỗi bữa muc rỗng = cô chưa ghi',
       (r.data.danhSach || []).every(b => Array.isArray(b.buaAn) && b.buaAn.length === ds.length && b.buaAn.every(x => x.muc === '')),
       JSON.stringify((r.data.danhSach || [])[0]?.buaAn || []).slice(0, 200));
@@ -251,8 +253,13 @@ try {
     const tin = (sau.data || []).filter(n => n.laRiengBe && n.loai === 'nhatky');
     check('mẹ s9 nhận thêm đúng MỘT tin', tin.length === 2, tin.length);
     check('tin gọi đúng phần, tên bé, và nói là cô vừa cập nhật', (tin[0] || {}).title === `Ăn uống của ${ten} — cô vừa cập nhật`, (tin[0] || {}).title);
-    check('tên bữa lấy từ thực đơn ("Sữa Vinamilk"), không tự đặt, kèm mức ăn',
-      /Sữa Vinamilk: Ăn hết/.test((tin[0] || {}).body || '') && /Bữa phụ sáng: Ăn hết/.test((tin[0] || {}).body || ''), (tin[0] || {}).body);
+    // Đổi 16/10 (góp ý mục 7): năm bữa chuẩn LUÔN mang tên của trường — thực
+    // đơn ghi "Sữa Vinamilk" vẫn là "Bữa sữa chiều" — và mỗi bữa đọc thành câu
+    // "<bữa>: <món> — con <mức>".
+    check('tin đọc "<bữa>: <món của bếp> — con <mức>", tên bữa là tên chuẩn của trường',
+      /Bữa sữa chiều: Sữa tươi 180ml — con ăn hết/.test((tin[0] || {}).body || '')
+      && /Bữa phụ sáng: Sữa chua nếp cẩm — con ăn hết/.test((tin[0] || {}).body || '')
+      && !/Sữa Vinamilk/.test((tin[0] || {}).body || ''), (tin[0] || {}).body);
     check('tin mở đúng màn Nhật ký', tin.every(n => n.hash === '#/nhatky'));
     check('nhà khác KHÔNG có tin về s9', !((await req('GET', '/api/notifications/rieng-be', { cookie: PH })).data || []).some(n => n.studentId === 's9'));
 
@@ -314,6 +321,88 @@ try {
     const routes = fs.readFileSync(path.join(GOC, 'modules/nhatky/routes.js'), 'utf8');
     check('ghi bữa đi qua canAccessClass VÀ canAccessStudent', /\/api\/nhatky\/bua[\s\S]*?canAccessClass[\s\S]*?canAccessStudent/.test(routes));
     check('ghi xong gọi lib/thong-bao-be, không ghi thẳng bảng thongbao_be', /thong-bao-be/.test(routes) && !/INSERT INTO thongbao_be/.test(routes));
+  }
+
+  // =========================================================================
+  console.log('\n[11] LUÔN ĐỦ NĂM BỮA ĐÚNG TÊN, món nối từ thực đơn hôm đó (góp ý 16/10, mục 7)');
+  {
+    // Trường: "Bữa sáng / Bữa Phụ Sáng / Bữa trưa / bữa phụ chiều / Bữa sữa
+    // chiều. Phần ăn uống từng bữa sẽ link thực đơn của hôm đó qua và thể hiện
+    // như bữa sáng bánh bao xá xíu - con ăn hết".
+    const NAM = 'breakfast,snack_sang,lunch,snack,milk';
+    const TEN = 'Bữa sáng,Bữa phụ sáng,Bữa trưa,Bữa phụ chiều,Bữa sữa chiều';
+    const lui = (n) => new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+
+    // (a) Ngày bếp chưa soạn gì (dữ liệu mẫu chỉ có thực đơn tuần này và tuần sau).
+    const NGAY_TRONG = lui(40);
+    const a = await req('GET', `/api/nhatky?classId=c4&ngay=${NGAY_TRONG}`, { cookie: GV_NT });
+    const dsA = (a.data || {}).buaAn || [];
+    check('ngày chưa có thực đơn: vẫn đủ NĂM bữa, đúng thứ tự của trường', dsA.map(b => b.bua).join(',') === NAM, dsA.map(b => b.bua));
+    check('và đúng năm tên của trường', dsA.map(b => b.ten).join(',') === TEN, dsA.map(b => b.ten));
+    check('chưa có thực đơn thì không bữa nào có món — không bịa món', dsA.every(b => Array.isArray(b.mon) && !b.mon.length), dsA.map(b => b.mon));
+    check('từng bé cũng đủ năm bữa', ((a.data || {}).danhSach || []).every(b => (b.buaAn || []).map(x => x.bua).join(',') === NAM),
+      JSON.stringify(((a.data || {}).danhSach || [])[0]?.buaAn || []).slice(0, 200));
+
+    // (b) Thực đơn đời cũ: ba bữa, nhãn "Bữa xế", kèm một bữa lạ.
+    const NGAY_CU = lui(41);
+    const td = await req('PUT', `/api/menu/${NGAY_CU}`, { cookie: C1, body: { campusId: 'cs1', meals: [
+      { type: 'breakfast', label: 'Bữa sáng', time: '07:00', items: ['Bánh bao xá xíu'] },
+      { type: 'lunch', label: 'Bữa trưa', time: '10:45', items: ['Cơm', 'Thịt kho trứng'] },
+      { type: 'snack', label: 'Bữa xế', time: '14:30', items: ['Chè đậu xanh'] },
+      { type: 'other', label: 'Tiệc sinh nhật', time: '15:00', items: ['Bánh kem'] },
+    ] } });
+    check('đối chứng — soạn được thực đơn ba bữa nhãn cũ (kèm một bữa lạ) cho bếp cs1', td.status === 200, `${td.status} ${JSON.stringify(td.data).slice(0, 120)}`);
+    const b = await req('GET', `/api/nhatky?classId=c4&ngay=${NGAY_CU}`, { cookie: GV_NT });
+    const dsB = (b.data || {}).buaAn || [];
+    const buaB = (k) => dsB.find(x => x.bua === k) || {};
+    check('thực đơn chỉ ba bữa: vẫn đủ năm bữa, bữa lạ của thực đơn nối phía sau', dsB.map(x => x.bua).join(',') === `${NAM},other`, dsB.map(x => x.bua));
+    check('"Bữa xế" của thực đơn cũ hiện thành "Bữa phụ chiều", kèm đúng món của bếp',
+      buaB('snack').ten === 'Bữa phụ chiều' && (buaB('snack').mon || []).join(',') === 'Chè đậu xanh', buaB('snack'));
+    check('bữa sáng mang món và giờ của bếp', (buaB('breakfast').mon || []).join(',') === 'Bánh bao xá xíu' && buaB('breakfast').gio === '07:00', buaB('breakfast'));
+    check('bữa thực đơn ngày đó không có thì không có món', !(buaB('snack_sang').mon || [1]).length && !(buaB('milk').mon || [1]).length,
+      [buaB('snack_sang'), buaB('milk')]);
+    check('bữa lạ giữ nhãn của thực đơn', buaB('other').ten === 'Tiệc sinh nhật', buaB('other'));
+
+    // (c) Ghi được cả bữa mà thực đơn ngày đó không có.
+    const c = await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
+      classId: 'c4', ngay: NGAY_CU, bua: 'milk', danhSach: [{ studentId: 's9', muc: 'het' }] } });
+    check('ghi được Bữa sữa chiều cho ngày thực đơn không có bữa sữa', c.status === 200 && c.data.daGhi === 1, `${c.status} ${JSON.stringify(c.data).slice(0, 120)}`);
+    const c2 = await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
+      classId: 'c4', ngay: NGAY_TRONG, bua: 'snack_sang', danhSach: [{ studentId: 's9', muc: 'it' }] } });
+    check('ghi được Bữa phụ sáng cho ngày chưa có thực đơn', c2.status === 200 && c2.data.daGhi === 1, `${c2.status} ${JSON.stringify(c2.data).slice(0, 120)}`);
+    const c3 = await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
+      classId: 'c4', ngay: NGAY_TRONG, bua: 'other', danhSach: [{ studentId: 's9', muc: 'het' }] } });
+    check('bữa lạ mà thực đơn ngày đó không có thì vẫn từ chối', c3.status === 400, c3.status);
+
+    // (d) Gia đình đọc "Bữa sáng: Bánh bao xá xíu — con ăn hết".
+    await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
+      classId: 'c4', ngay: NGAY_CU, bua: 'breakfast', danhSach: [{ studentId: 's9', muc: 'het' }] } });
+    await req('PUT', '/api/nhatky/bua', { cookie: GV_NT, body: {
+      classId: 'c4', ngay: NGAY_CU, bua: 'lunch', danhSach: [{ studentId: 's9', muc: 'nua-suat' }] } });
+    const gui = await req('POST', '/api/nhatky/gui', { cookie: GV_NT, body: { classId: 'c4', ngay: NGAY_CU, phan: 'an', studentIds: ['s9'] } });
+    check('cô gửi phần ăn uống của ngày đó', gui.status === 200 && gui.data.daGui === 1, JSON.stringify(gui.data).slice(0, 160));
+    const tin = (((await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT })).data || [])
+      .filter(n => n.laRiengBe && n.loai === 'nhatky')[0] || {}).body || '';
+    check('tin báo: "Bữa sáng: Bánh bao xá xíu — con ăn hết"', tin.includes('Bữa sáng: Bánh bao xá xíu — con ăn hết'), tin);
+    check('mức khác viết thành câu: "— con ăn khoảng nửa suất"', tin.includes('Bữa trưa: Cơm, Thịt kho trứng — con ăn khoảng nửa suất'), tin);
+    check('bữa không có món: "Bữa sữa chiều — con ăn hết"', tin.includes('Bữa sữa chiều — con ăn hết'), tin);
+    check('không nhắc bú bình khi cô không ghi số bú bình', !/Bú bình/.test(tin), tin);
+    const doc = await req('GET', `/api/nhatky?studentId=s9&tu=${NGAY_CU}&den=${NGAY_CU}`, { cookie: PH_NT });
+    const nd = ((doc.data || {}).ngayCo || [])[0] || {};
+    const buaPH = (k) => (nd.buaAn || []).find(x => x.bua === k) || {};
+    check('gia đình đọc đủ năm bữa của ngày đó (và bữa lạ)', (nd.buaAn || []).map(x => x.bua).join(',') === `${NAM},other`, (nd.buaAn || []).map(x => x.bua));
+    check('gia đình đọc "Bữa phụ chiều" kèm món, không phải "Bữa xế"', buaPH('snack').ten === 'Bữa phụ chiều' && (buaPH('snack').mon || []).join() === 'Chè đậu xanh', buaPH('snack'));
+    check('và bữa sáng: món của bếp + mức cô ghi', (buaPH('breakfast').mon || []).join() === 'Bánh bao xá xíu' && buaPH('breakfast').muc === 'het', buaPH('breakfast'));
+    check('nhà khác vẫn không đọc được', (await req('GET', `/api/nhatky?studentId=s9&tu=${NGAY_CU}&den=${NGAY_CU}`, { cookie: PH })).status === 403);
+
+    // Đường ghi bú bình của app đời cũ vẫn nhận; có số thì tin mới nhắc.
+    const bb = await req('PUT', '/api/nhatky', { cookie: GV_NT, body: {
+      ngay: NGAY_CU, truong: ['buBinhSoLan', 'buBinhMl'], danhSach: [{ studentId: 's9', buBinhSoLan: 2, buBinhMl: 120 }] } });
+    check('đường ghi bú bình cũ vẫn nhận (app cũ còn trong máy)', bb.status === 200 && bb.data.daGhi === 1, JSON.stringify(bb.data).slice(0, 120));
+    await req('POST', '/api/nhatky/gui', { cookie: GV_NT, body: { classId: 'c4', ngay: NGAY_CU, phan: 'an', studentIds: ['s9'] } });
+    const tin2 = (((await req('GET', '/api/notifications/rieng-be', { cookie: PH_NT })).data || [])
+      .filter(n => n.laRiengBe && n.loai === 'nhatky')[0] || {}).body || '';
+    check('có số bú bình thì tin có nhắc', /Bú bình 2 lần \(120 ml\)/.test(tin2), tin2);
   }
 } finally {
   await sv.dung();

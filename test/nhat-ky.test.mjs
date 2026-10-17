@@ -558,6 +558,16 @@ console.log('\n[11] Tắt phân hệ Thực đơn thì nhật ký KHÔNG hiện 
   check('NHẬT KÝ VẪN CHẠY BÌNH THƯỜNG — tắt phân hệ khác không kéo theo phân hệ này',
     r.status === 200 && (r.data?.danhSach || []).length > 0, r.status);
   check('nhưng không còn thực đơn trong đó', r.data?.thucDon === null, r.data?.thucDon);
+  // Góp ý 16/10, mục 7: tắt Thực đơn thì VẪN đủ năm bữa để cô ghi, chỉ không có món.
+  check('vẫn đủ năm bữa của trường để cô ghi',
+    (r.data?.buaAn || []).map(b => b.bua).join(',') === 'breakfast,snack_sang,lunch,snack,milk'
+    && (r.data?.buaAn || []).map(b => b.ten).join(',') === 'Bữa sáng,Bữa phụ sáng,Bữa trưa,Bữa phụ chiều,Bữa sữa chiều',
+    (r.data?.buaAn || []).map(b => `${b.bua}:${b.ten}`));
+  check('nhưng không bữa nào mang món của thực đơn đã tắt', (r.data?.buaAn || []).every(b => !(b.mon || []).length),
+    (r.data?.buaAn || []).map(b => b.mon));
+  const ghiTat = await req('PUT', '/api/nhatky/bua', { cookie: GV, body: {
+    classId: 'c1', ngay: '2019-01-07', bua: 'milk', danhSach: [{ studentId: 's1', muc: 'het' }] } });
+  check('và vẫn ghi được Bữa sữa chiều khi Thực đơn tắt', ghiTat.status === 200 && ghiTat.data?.daGhi === 1, ghiTat.data);
 
   const ph = await req('GET', '/api/nhatky?studentId=s1', { cookie: PH });
   check('màn của gia đình cũng vậy', ph.status === 200

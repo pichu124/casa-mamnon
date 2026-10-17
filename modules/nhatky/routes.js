@@ -19,7 +19,7 @@
 // Nhà trường: "Bữa nào ăn sẽ cập nhật bữa đó, chứ không phải cuối ngày mới làm
 // một loạt — tách riêng từng bữa theo thực đơn của nhà trường. Hiện tại đang
 // chỉ có bữa trưa." Nên có thêm đường `PUT /api/nhatky/bua`: ghi MỘT bữa cho
-// cả nhóm, bữa lấy theo thực đơn NGÀY ĐÓ của bếp cơ sở bé (năm bữa), lưu ở
+// cả nhóm, món lấy theo thực đơn NGÀY ĐÓ của bếp cơ sở bé (năm bữa), lưu ở
 // bảng phụ `nhatky_bua`. Đường `PUT /api/nhatky` cũ vẫn nguyên — app cũ còn
 // trong bộ nhớ điện thoại vẫn dùng — và hai bảng được đồng bộ hai chiều.
 //
@@ -41,8 +41,11 @@ const tbb = require('../../lib/thong-bao-be');
 // người cộng lại rồi sắp các bé trên dưới nhau.
 const MUC_AN = ['het', 'gan-het', 'nua-suat', 'it', 'khong-an'];
 const TINH_CHAT = ['binh-thuong', 'hoi-long', 'long', 'tao'];
-const TEN_MUC_AN = {
-  het: 'Ăn hết', 'gan-het': 'Gần hết', 'nua-suat': 'Khoảng nửa suất', it: 'Ăn ít', 'khong-an': 'Không ăn',
+// Mức ăn viết thành nửa câu cho gia đình đọc (góp ý 16/10, mục 7): "Bữa sáng:
+// Bánh bao xá xíu — con ăn hết". Trùng với `CAU_MUC_AN` ở view.js.
+const CAU_MUC_AN = {
+  het: 'con ăn hết', 'gan-het': 'con ăn gần hết', 'nua-suat': 'con ăn khoảng nửa suất',
+  it: 'con ăn ít', 'khong-an': 'con không ăn',
 };
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -57,21 +60,20 @@ function homNay() {
 }
 
 // Ba bữa của nhật ký ĐỜI CŨ khớp với ba `type` mà màn Thực đơn đang dùng.
-// Giữ nguyên: đây là ba cột của `nhatky_ngay`, và là ba bữa mặc định khi hôm
-// đó bếp chưa soạn thực đơn.
+// Giữ nguyên: đây là ba cột của `nhatky_ngay`.
 const BUA = [['anSang', 'breakfast'], ['anTrua', 'lunch'], ['anXe', 'snack']];
 const COT_CUA_BUA = { breakfast: 'anSang', lunch: 'anTrua', snack: 'anXe' };
 
-// Năm bữa của thực đơn trường — cùng tên và cùng `type` với `BUA_MAC_DINH` ở
-// public/js/views/menu.js, để hai màn của cùng một trường gọi một bữa bằng một
-// tên. Chỉ dùng để đặt TÊN khi thực đơn ngày đó thiếu nhãn; bữa nào có trong
-// ngày là do thực đơn quyết định, không phải bảng này.
+// NĂM BỮA CỦA TRƯỜNG, đúng thứ tự trong ngày — cùng tên và cùng `type` với
+// `BUA_MAU` ở routes/menu.js. Góp ý 16/10, mục 7: nhật ký LUÔN có đủ năm bữa
+// này, gọi đúng năm tên này — thực đơn cũ ghi "Bữa xế" hay "Sữa Vinamilk"
+// thì vẫn là "Bữa phụ chiều", "Bữa sữa chiều". Thực đơn chỉ quyết định MÓN.
 const TEN_BUA = {
   breakfast: 'Bữa sáng',
   snack_sang: 'Bữa phụ sáng',
   lunch: 'Bữa trưa',
   snack: 'Bữa phụ chiều',
-  milk: 'Sữa',
+  milk: 'Bữa sữa chiều',
 };
 
 // Các cột của `nhatky_ngay` mà màn hình được ghi. Đường PUT cũ nhận thêm
@@ -191,8 +193,9 @@ module.exports = (app, { db, modules }) => {
     const h = hang || {};
     const so = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
     if (phan === 'an') {
-      // Bú bình đi cùng phần ĂN UỐNG — ba tab nhà trường đặt là Ăn uống /
-      // Nghỉ trưa / Vệ sinh, và bú bình là chuyện ăn của bé nhà trẻ.
+      // Bú bình đi cùng phần ĂN UỐNG. Màn cô đã bỏ bước Bú bình (góp ý 16/10,
+      // mục 7) nhưng cột và đường ghi cũ vẫn còn, nên số đã ghi vẫn được chụp
+      // — gia đình chỉ thấy dòng Bú bình ở ngày có số.
       return {
         buaAn: ghepBua(dsBua, hang, theoBua)
           .map(b => ({ bua: b.bua, ten: b.ten, gio: b.gio, mon: b.mon, muc: b.muc, ghiChu: b.ghiChu })),
@@ -219,7 +222,10 @@ module.exports = (app, { db, modules }) => {
   // Một dòng tóm tắt cho tin báo — gia đình đọc được ngay trên màn khoá.
   function tomTat(phan, s) {
     if (phan === 'an') {
-      const ds = s.buaAn.filter(b => b.muc).map(b => `${b.ten}: ${TEN_MUC_AN[b.muc] || ''}`);
+      // "Bữa sáng: Bánh bao xá xíu — con ăn hết"; bữa không có món thì
+      // "Bữa sáng — con ăn hết" (góp ý 16/10, mục 7).
+      const ds = s.buaAn.filter(b => b.muc)
+        .map(b => `${b.ten}${(b.mon || []).length ? `: ${b.mon.join(', ')}` : ''} — ${CAU_MUC_AN[b.muc] || ''}`);
       if (s.buBinhSoLan !== null && s.buBinhSoLan !== undefined) {
         ds.push(`Bú bình ${s.buBinhSoLan} lần${s.buBinhMl ? ` (${s.buBinhMl} ml)` : ''}`);
       }
@@ -366,8 +372,8 @@ module.exports = (app, { db, modules }) => {
         ...r,
         nguoiGhiTen: tenNguoiGhi(r.nguoiGhi),
         thucDon: banGhi.has(r.ngay) ? gomBua(banGhi.get(r.ngay)) : null,
-        // NĂM BỮA THEO THỰC ĐƠN NGÀY ĐÓ, kèm tên món và mức bé ăn — gia đình
-        // đọc "Bữa phụ sáng · Sữa chua nếp cẩm · Ăn hết" thành một dòng.
+        // NĂM BỮA CỦA TRƯỜNG, kèm món theo thực đơn ngày đó và mức bé ăn — gia
+        // đình đọc "Bữa sáng: Bánh bao xá xíu — con ăn hết" thành một dòng.
         buaAn: ghepBua(danhSachBua(banGhi.get(r.ngay) || null), r, buaTheoNgay.get(r.ngay)),
         suKien: suKienCua(studentId, r.ngay),
       }));
@@ -498,8 +504,8 @@ module.exports = (app, { db, modules }) => {
       // Vẫn hình dạng đời cũ: phần Thực đơn đang bật mà hôm đó chưa soạn thì ba
       // ô null (không phải lỗi); phần Thực đơn tắt thì cả khối null.
       thucDon: thucDonBat() ? gomBua(banGhiTD) : null,
-      // Các bữa của NGÀY ĐÓ theo thực đơn bếp cơ sở — màn cô dựng dải bước từ
-      // đây, không tự đoán hôm nay có mấy bữa.
+      // Các bữa của NGÀY ĐÓ (năm bữa của trường, món theo thực đơn bếp cơ sở)
+      // — màn cô dựng dải bước từ đây, không tự đoán hôm nay có mấy bữa.
       buaAn: dsBua,
       khungGioNgu: GIO_NGU,
       phanGui: PHAN_GUI.map(ma => ({ ma, ten: TEN_PHAN[ma] })),
@@ -548,31 +554,33 @@ module.exports = (app, { db, modules }) => {
     return ra;
   }
 
-  // Một bản ghi thực đơn → DANH SÁCH BỮA của ngày đó, theo đúng thứ tự bếp soạn.
+  // Một bản ghi thực đơn → DANH SÁCH BỮA của ngày đó.
   //
-  // Không có thực đơn (bếp chưa soạn, hay phần Thực đơn đang tắt) thì về ba
-  // bữa mặc định sáng / trưa / xế — đúng ba cột của `nhatky_ngay`, để cô vẫn
-  // ghi được và không mất một bữa nào so với trước.
+  // LUÔN đủ năm bữa của trường, đúng thứ tự và đúng tên ở `TEN_BUA` (góp ý
+  // 16/10, mục 7) — kể cả hôm bếp chưa soạn, thực đơn thiếu bữa, hay phần Thực
+  // đơn đang tắt. Thực đơn chỉ góp MÓN và GIỜ; bữa nó không có thì món rỗng.
+  // Bữa lạ khác trong thực đơn hôm đó (vd 'other') nối phía sau, giữ nhãn của
+  // thực đơn.
   //
   // Bữa trùng `type` thì giữ bữa đầu: bảng `nhatky_bua` khoá (bé, ngày, bữa)
   // nên hai bữa cùng mã là hai dòng đè nhau.
   function danhSachBua(m) {
     const meals = (m && Array.isArray(m.meals)) ? m.meals : [];
-    const ra = [];
-    const daCo = new Set();
+    const theoKieu = new Map();
     for (const x of meals) {
       const kieu = String((x && x.type) || '').trim();
-      if (!BUA_RE.test(kieu) || daCo.has(kieu)) continue;
-      daCo.add(kieu);
-      ra.push({
-        bua: kieu,
-        ten: String((x && x.label) || '').trim() || TEN_BUA[kieu] || 'Bữa ăn',
-        gio: String((x && x.time) || '').trim(),
-        mon: Array.isArray(x.items) ? x.items.map(String) : [],
-      });
+      if (BUA_RE.test(kieu) && !theoKieu.has(kieu)) theoKieu.set(kieu, x);
     }
-    if (ra.length) return ra;
-    return BUA.map(([, kieu]) => ({ bua: kieu, ten: TEN_BUA[kieu], gio: '', mon: [] }));
+    const mot = (kieu, x) => ({
+      bua: kieu,
+      ten: TEN_BUA[kieu] || String((x && x.label) || '').trim() || 'Bữa ăn',
+      gio: String((x && x.time) || '').trim(),
+      mon: x && Array.isArray(x.items) ? x.items.map(String) : [],
+    });
+    return [
+      ...Object.keys(TEN_BUA).map(kieu => mot(kieu, theoKieu.get(kieu))),
+      ...[...theoKieu].filter(([kieu]) => !TEN_BUA[kieu]).map(([kieu, x]) => mot(kieu, x)),
+    ];
   }
 
   // TẮT THỰC ĐƠN LÀ TẮT Ở MỌI MÀN HÌNH, KỂ CẢ MÀN HÌNH NÀY.
@@ -876,9 +884,10 @@ module.exports = (app, { db, modules }) => {
   // cùng ghi thì người sau không xoá người trước (so `capNhatLucGoc` với dấu
   // thời gian của ĐÚNG DÒNG BỮA ĐÓ), bé nghỉ có phép thì nhắc chứ không chặn.
   //
-  // `bua` phải là một bữa CÓ TRONG thực đơn ngày đó của bếp cơ sở nhóm (không
-  // có thực đơn thì ba bữa mặc định). Ghi một bữa bếp không nấu là ghi vào
-  // một thứ không tồn tại, và gia đình đọc thấy con "ăn hết" một bữa không có.
+  // `bua` phải là một trong năm bữa của trường, hoặc một bữa lạ CÓ TRONG thực
+  // đơn ngày đó của bếp cơ sở nhóm (`danhSachBua`). Mã bữa ngoài danh sách đó
+  // là ghi vào một thứ không tồn tại, và gia đình đọc thấy con "ăn hết" một
+  // bữa không có.
   app.put('/api/nhatky/bua', requireRole('teacher', 'admin'), (req, res) => {
     const body = req.body || {};
     const ngay = NGAY_RE.test(String(body.ngay || '')) ? body.ngay : homNay();
