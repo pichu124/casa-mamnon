@@ -127,6 +127,32 @@ CREATE TABLE IF NOT EXISTS student_parents (
 );
 CREATE INDEX IF NOT EXISTS idx_sp_parent ON student_parents(parentId);
 
+-- Người này là gì của bé: bố, mẹ, ông, bà, người giám hộ (Đ239d2 — góp ý 16/10,
+-- mục 5). Theo TỪNG CẶP bé – người lớn, không theo người: cùng một người có thể
+-- là mẹ của bé này và là bà của bé kia. Bảng riêng vì lược đồ lõi không có câu
+-- ALTER TABLE nào. Không có dòng = chưa ai ghi quan hệ, KHÔNG phải "không là gì".
+CREATE TABLE IF NOT EXISTS quan_he_phu_huynh (
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  parentId  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quanHe    TEXT NOT NULL DEFAULT '',
+  ghiLuc    TEXT,
+  PRIMARY KEY (studentId, parentId)
+);
+
+-- Bé đang NGHỈ HỌC BẢO LƯU (Đ239d2 — góp ý 16/10, mục 5).
+--
+-- Bảo lưu đi đúng đường "Cho nghỉ" (students.active = 0, leftAt = hôm bấm):
+-- bảng này chỉ ghi thêm rằng lần nghỉ ấy là TẠM, kèm tháng dự kiến quay lại.
+-- Đi học lại (đường "Nhận lại") thì xoá dòng; dấu vết còn ở nhật ký thao tác.
+CREATE TABLE IF NOT EXISTS hoc_sinh_bao_luu (
+  studentId     TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  tuNgay        TEXT NOT NULL,            -- YYYY-MM-DD
+  duKienQuayLai TEXT NOT NULL DEFAULT '', -- YYYY-MM, rỗng = chưa hẹn
+  lyDo          TEXT NOT NULL DEFAULT '',
+  nguoiGhi      TEXT,
+  ghiLuc        TEXT
+);
+
 -- ===== Điểm danh — bảng lớn nhất, khoảng 52.500 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS attendance (
   id        TEXT PRIMARY KEY,
