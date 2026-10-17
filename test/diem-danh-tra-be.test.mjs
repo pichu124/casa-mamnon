@@ -644,6 +644,116 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 }
 
+// ===========================================================================
+// Góp ý 16/10 (phía phụ huynh, mục 2): *"Chưa thấy update hình ảnh con check
+// out tại trường, chỉ ghi nhận thông báo"*. Máy chủ đã lưu ảnh ra về từ Đ210
+// và báo gia đình "xem ảnh trong Điểm danh" — nhưng màn của gia đình chưa vẽ.
+console.log('\n[9] Gia đình thấy ảnh con lúc ra về ngay ở Điểm danh (góp ý 16/10, PH2)');
+{
+  const hn = HOM_NAY();
+  const ANH_URL = `data:image/png;base64,${ANH_THU.toString('base64')}`;
+  const ckCo = await dnApi('giaovien', '123456');
+  const toi = await goiApi('/api/attendance/anh', { studentId: maBeAn, date: hn, anh: ANH_URL }, ckCo);
+  check('(đối chứng) cô gắn được ảnh tới lớp cho bé An', toi.status === 201 && !!toi.data.file, toi.data);
+  const ve = await goiApi('/api/attendance/ra-ve',
+    { studentId: maBeAn, date: hn, gio: '16:40', anh: ANH_URL }, ckCo);
+  const fileVe = (ve.data && ve.data.anh && ve.data.anh.file) || '';
+  check('cô ghi được giờ ra về kèm ảnh cho bé An', ve.status === 200 && !!fileVe, ve.data);
+  const SRC_VE = `/api/attendance/anh/${fileVe}`;
+
+  // Phân hệ Đón trả bé TẮT (đúng như trường chọn ở mục 4): ảnh vẫn hiện,
+  // vì nó là của lõi, và hộp ngày không có dấu vết Trả bé nào.
+  await batTat('dontra', false);
+  await dangNhap('phuhuynh', '123456');
+  loiJs = [];
+  await moMan('#/attendance');
+  await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
+  await page.waitForTimeout(1000);
+  const dongHn = page.locator(`#view .list-row[onclick*="'${hn}'"]`);
+  check('(đối chứng) có dòng của hôm nay trong "Bản ghi gần nhất"', await dongHn.count() === 1, await dongHn.count());
+  check('dòng hôm nay có ẢNH NHỎ LÚC RA VỀ, trỏ đường có canh quyền',
+    await dongHn.locator(`img[alt="Ảnh con lúc ra về"][src="${SRC_VE}"]`).count() === 1,
+    await dongHn.innerHTML().catch(() => ''));
+  check('…đứng cạnh ảnh nhỏ lúc tới lớp', await dongHn.locator('img[alt="Ảnh con tới lớp"]').count() === 1);
+  await dongHn.click();
+  await page.waitForSelector('.modal', { timeout: 5000 });
+  const hop = await page.locator('.modal').innerText();
+  check('hộp ngày có chú thích "Ảnh con tới lớp" và "Ảnh con lúc ra về"',
+    /Ảnh con tới lớp/.test(hop) && /Ảnh con lúc ra về/.test(hop), hop.slice(0, 300));
+  check('kèm giờ ra về cô đã ghi', /Giờ ra về\s*16:40/.test(hop), hop.slice(0, 300));
+  const anhVeHop = page.locator(`.modal img[src="${SRC_VE}"]`);
+  check('hộp có thẻ ảnh ra về trỏ /api/attendance/anh/<tệp>', await anhVeHop.count() === 1);
+  await page.waitForTimeout(300);
+  check('ảnh ra về hiện ra thật (tải về được, không vỡ)',
+    await anhVeHop.evaluate(el => el.complete && el.naturalWidth > 0).catch(() => false));
+  const taiVe = await page.evaluate(async (src) => (await fetch(src)).status, SRC_VE);
+  check('gia đình tải ảnh ra về: 200', taiVe === 200, taiVe);
+  check('phân hệ Đón trả bé tắt: hộp ngày KHÔNG có nửa Trả bé', !/Trả bé|Về với/.test(hop), hop.slice(0, 300));
+  await page.evaluate(() => UI.closeModal());
+  const lac = await goiApi(SRC_VE, null, await dnApi('phuhuynh2', '123456'));
+  check('gia đình KHÁC không mở được ảnh ra về của bé An (403/404)', [403, 404].includes(lac.status), lac.status);
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+
+  // CHẠM THÔNG BÁO LÀ THẤY NGAY ẢNH. Đang xem bé kia cũng vậy: thông báo
+  // chọn đúng bé rồi mở thẳng hộp của ngày hôm đó.
+  const tin = ((await page.evaluate(() => API.get('/api/notifications/rieng-be'))) || [])
+    .find(n => n.title === 'Con đã được đón về' && n.studentId === maBeAn);
+  check('thông báo "Con đã được đón về" trỏ thẳng tới ngày hôm đó',
+    !!tin && tin.hash === `#/attendance/${hn}`, tin && tin.hash);
+  await page.evaluate(() => App.setStudent(App.state.students.find(s => s.name !== 'Nguyễn Bảo An').id));
+  await page.waitForTimeout(800);
+  await moMan('#/notifications');
+  await page.locator('#view .list-row', { hasText: 'Con đã được đón về' }).first().click();
+  await page.waitForSelector('.modal', { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  const hopTb = await page.locator('.modal').innerText().catch(() => '');
+  check('chạm thông báo → hộp ngày của bé An mở sẵn, có ảnh lúc ra về',
+    await dem(`.modal img[src="${SRC_VE}"]`) === 1 && /Ảnh con lúc ra về/.test(hopTb), hopTb.slice(0, 200));
+  check('…và địa chỉ trở về #/attendance (đổi tháng không bật lại hộp)',
+    await page.evaluate(() => location.hash) === '#/attendance');
+  await page.evaluate(() => UI.closeModal());
+  await page.locator('button[aria-label="Tháng trước"]').click();
+  await page.waitForTimeout(1000);
+  check('lùi một tháng: không hộp nào tự bật lên', await dem('.modal') === 0);
+
+  // Phân hệ BẬT: ảnh trả bé do phân hệ ghi (máy chủ gộp vào `anhVe`) hiện ở
+  // cùng chỗ trên dòng của ngày. Nửa Trả bé của phân hệ cũng tự vẽ tấm ấy
+  // trong hộp ngày, nên tấm đó không được hiện hai lần.
+  await batTat('dontra', true);
+  const ghi = await goiApi('/api/dontra/ghi',
+    { studentId: 's2', ngay: hn, nguonLoai: 'khac', nguoiDon: 'Bà ngoại', luc: '16:45' }, ckQT);
+  const cu = await goiApi('/api/dontra/anh-tra', { studentId: 's2', ngay: hn, anh: ANH_URL }, ckQT);
+  const fileCu = (cu.data && cu.data.file) || '';
+  const coMat = await goiApi('/api/attendance/mark', { studentId: 's2', date: hn, status: 'present' }, ckQT);
+  check('(đối chứng) bé Nam có mặt, có sổ trả bé kèm ảnh của phân hệ',
+    ghi.status < 300 && cu.status === 201 && !!fileCu && coMat.status < 300, [ghi.status, cu.status, coMat.status]);
+  await dangNhap('phuhuynh', '123456');
+  loiJs = [];
+  await moMan('#/attendance');
+  await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
+  await page.waitForTimeout(1000);
+  await page.evaluate((d) => App.views.attendance.showDay(d), hn);
+  await page.waitForSelector('.modal', { timeout: 5000 });
+  check('phân hệ bật: hộp của bé An vẫn có ảnh lúc ra về', await dem(`.modal img[src="${SRC_VE}"]`) === 1);
+  await page.evaluate(() => UI.closeModal());
+
+  await page.locator('.student-chip', { hasText: 'Nguyễn Bảo Nam' }).click();
+  await page.waitForTimeout(1000);
+  const dongNam = page.locator(`#view .list-row[onclick*="'${hn}'"]`);
+  check('ảnh trả bé của phân hệ hiện ở ảnh nhỏ lúc ra về trên dòng hôm nay',
+    await dongNam.locator(`img[alt="Ảnh con lúc ra về"][src="/api/attendance/anh/${fileCu}"]`).count() === 1,
+    await dongNam.innerHTML().catch(() => ''));
+  check('…và mở ra được', await dongNam.locator('img[alt="Ảnh con lúc ra về"]')
+    .evaluate(el => el.complete && el.naturalWidth > 0).catch(() => false));
+  await page.evaluate((d) => App.views.attendance.showDay(d), hn);
+  await page.waitForSelector('.modal', { timeout: 5000 });
+  const soTam = await page.evaluate((f) => [...document.querySelectorAll('.modal img')]
+    .filter(i => (i.getAttribute('src') || '').endsWith(`/${f}`)).length, fileCu);
+  check('trong hộp ngày, tấm ảnh ấy hiện ĐÚNG MỘT lần (không trùng với nửa Trả bé)', soTam === 1, soTam);
+  await page.evaluate(() => UI.closeModal());
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+}
+
 check('không có lỗi JavaScript nào còn sót', loiJs.length === 0, loiJs);
 await browser.close();
 sv.dung();
