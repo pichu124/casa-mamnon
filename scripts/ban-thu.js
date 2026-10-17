@@ -114,7 +114,7 @@ console.log('\n[2/4] Bật các phân hệ mầm non…');
 //
 // `tatCa()` trả về `[...CORE, ...MO_RONG]`, mà `MO_RONG` chỉ được đổ đầy khi
 // `napMoRong()` chạy — `server.js` gọi nó lúc khởi động. Không gọi ở đây thì
-// mười phân hệ cắm thêm KHÔNG có mặt trong danh sách, vòng lặp bên dưới không
+// các phân hệ cắm thêm KHÔNG có mặt trong danh sách, vòng lặp bên dưới không
 // bật gì cả, và bàn thử im lặng dựng ra đúng cái app mà nó sinh ra để tránh.
 modules.napMoRong();
 
@@ -166,7 +166,7 @@ if (tat.length) {
 // dựng, vì buổi thử sẽ đo nhầm một app khác.
 if (!camThem.length) {
   console.error('\n⛔ Không tìm thấy phân hệ cắm thêm nào trong modules/.');
-  console.error('   Bàn thử phải có đủ mười phân hệ cắm thêm thì cô mới nhìn thấy đúng app.');
+  console.error('   Bàn thử phải có đủ các phân hệ cắm thêm thì cô mới nhìn thấy đúng app.');
   process.exit(1);
 }
 const conTat = canBat.filter(m => !tt[m.key]);

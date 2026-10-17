@@ -71,7 +71,8 @@ console.log('\n[2] ĐỦ CÁC PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳ
   // bật là đúng thứ bài này sinh ra để bắt. Nên giữ con số, và ghi ngay cạnh
   // rằng sửa nó là việc bình thường — khác hẳn với việc nới một bộ canh.
   // 9 → 10 ở Đ152 (thêm phân hệ Nhân sự & chấm công).
-  const SO_CAM_THEM = 10;
+  // 10 → 11 ở Đ239c (thêm phân hệ Xuất báo cáo, góp ý 16/10 mục 2).
+  const SO_CAM_THEM = 11;
   const camThem = modules.moRong().map(m => m.key);
   check(`kho mã có đúng ${SO_CAM_THEM} phân hệ cắm thêm`, camThem.length === SO_CAM_THEM, camThem);
 
@@ -93,11 +94,11 @@ console.log('\n[2] ĐỦ CÁC PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳ
   const chuaBat = camThem.filter(k => !PHAI_TAT.includes(k) && batHieuLuc(k) !== true);
   check('TẤT CẢ phân hệ cắm thêm (trừ cái trường đã tắt) đều bật có hiệu lực trên bàn thử',
     chuaBat.length === 0, chuaBat);
-  check('và đó là CHÍN cái — chỉ đúng Đón trả bé đứng ngoài',
+  check(`và đó là ${SO_CAM_THEM - 1} cái — chỉ đúng Đón trả bé đứng ngoài`,
     camThem.filter(k => !PHAI_TAT.includes(k)).length === SO_CAM_THEM - 1,
     camThem.filter(k => PHAI_TAT.includes(k)));
   // ĐỐI CHỨNG: phép hỏi trên phải biết nói KHÔNG, nếu không thì dòng trên xanh
-  // vì nó luôn trả true chứ không phải vì chín phân hệ kia đang bật thật.
+  // vì nó luôn trả true chứ không phải vì các phân hệ kia đang bật thật.
   check('đối chứng — phép hỏi này biết nói KHÔNG với một phân hệ đã tắt',
     batHieuLuc('nenep') === false, batHieuLuc('nenep'));
 }
