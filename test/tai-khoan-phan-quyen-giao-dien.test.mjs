@@ -7,6 +7,10 @@
 // vai thấy ĐÚNG phần việc của mình — ban giám hiệu thấy ô tạo tài khoản quản
 // trị, quản lý cơ sở không thấy ô đó nhưng tạo được cô và chuyển cô giữa các
 // nhóm, văn phòng cơ sở thấy phần phụ huynh và bé.
+//
+// Đ239d2: văn phòng làm trọn bốn việc trường kể ra ngay trên tab này — thêm
+// phụ huynh cho bé, chuyển nhóm cho bé, nghỉ học bảo lưu / đi học lại, nhận bé
+// nhập đủ thông tin kèm phụ huynh thứ hai.
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, taoBoDem, taoReq, taoLogin,
@@ -143,6 +147,17 @@ try {
     /Lá 1/.test(sau) && !/Nhà trẻ 1/.test(sau), sau);
   const coHong = ((await req('GET', '/api/admin/teachers', { cookie: BGH })).data || []).find(t => t.id === 't4');
   check('máy chủ cũng nói đúng như màn hình', JSON.stringify(coHong?.classIds) === '["c2"]', coHong?.classIds);
+
+  // Đ239d2: cô mình tạo mà chưa phân nhóm thì cấp lại mật khẩu được ngay.
+  const QL = (await login('quanly.thu', 'quantri2026')).cookie;
+  await req('POST', '/api/admin/teachers', { cookie: QL, body: { name: 'Cô Chưa Phân Nhóm' } });
+  await moTabTaiKhoanTuCaiDat();
+  const dongMoi = page.locator('#tk-co .list-row', { hasText: 'Cô Chưa Phân Nhóm' });
+  check('cô chưa phân nhóm do quản lý tạo có nút "Cấp lại mật khẩu"',
+    await dongMoi.locator('button', { hasText: 'Cấp lại mật khẩu' }).count() === 1,
+    await dongMoi.count() ? await dongMoi.innerText() : '(không có dòng)');
+  check('và không còn câu "Phân cô vào một nhóm… rồi mới cấp lại"',
+    !/rồi mới cấp lại/.test(await chuTrongTab()));
   await dangXuat();
 
   // =========================================================================
@@ -157,6 +172,143 @@ try {
   check('có lối nhận bé vào nhóm', await page.locator('#tk-van-phong button', { hasText: 'Nhận bé' }).count() > 0);
   check('KHÔNG có thẻ tạo tài khoản quản trị', await page.locator('#tk-quan-tri').count() === 0);
   check('KHÔNG có phần tài khoản cô', await page.locator('#tk-co').count() === 0);
+
+  // =========================================================================
+  console.log('\n[6] Văn phòng: bốn việc của trường, mỗi việc một nút (Đ239d2)');
+  const nutVP = (chu) => page.locator('#tk-van-phong button', { hasText: chu });
+  for (const chu of ['Nhận bé mới (nhập đủ thông tin)', 'Thêm phụ huynh cho bé', 'Chuyển nhóm cho bé', 'Nghỉ học bảo lưu / Đi học lại']) {
+    check(`có nút "${chu}"`, await nutVP(chu).count() === 1);
+  }
+  check('không còn các dòng chỉ đường tạm "bấm Xem bé, bấm Sửa…"', !/bấm Sửa ở dòng của bé/.test(await chuTrongTab()));
+  const chonBe = async (classId, studentId) => {
+    await page.waitForSelector('#tk-cb-nhom', { timeout: 5000 });
+    await page.selectOption('#tk-cb-nhom', classId);
+    await page.waitForSelector(`#tk-cb-be option[value="${studentId}"]`, { state: 'attached', timeout: 5000 });
+    await page.selectOption('#tk-cb-be', studentId);
+  };
+  const beQuaApi = async (classId, id) => (((await req('GET', `/api/admin/students?classId=${classId}&keCaNghi=1`, { cookie: BGH })).data || [])
+    .find(s => s.id === id) || {});
+
+  // -- Thêm phụ huynh cho bé
+  await nutVP('Thêm phụ huynh cho bé').click();
+  await chonBe('c1', 's3');
+  await page.click('#tk-cb-tiep');
+  await page.waitForSelector('#tk-ph-ten', { timeout: 5000 });
+  check('phiếu thêm phụ huynh nói rõ là tài khoản mới', /tài khoản mới/.test(await page.locator('.modal').innerText()));
+  await page.fill('#tk-ph-ten', 'Trần Thị Mẹ Thử');
+  await page.fill('#tk-ph-sdt', '0977 555 111');
+  await page.fill('#tk-ph-qh', 'Mẹ');
+  await page.click('#tk-ph-luu');
+  await page.waitForSelector('#tk-mat-khau', { timeout: 8000 });
+  const mkPh = (await page.locator('#tk-mat-khau').innerText()).trim();
+  check('hiện mật khẩu tạm của phụ huynh mới một lần', /^[a-z]{5}[2-9]{3}$/.test(mkPh), mkPh);
+  check('kèm nút chép mật khẩu', await page.locator('#tk-chep').count() === 1);
+  const s3 = await beQuaApi('c1', 's3');
+  check('máy chủ: bé Gia Hân có thêm phụ huynh "Mẹ"',
+    (s3.parents || []).some(p => /Mẹ Thử/.test(p.name) && p.quanHe === 'Mẹ'), s3.parents);
+  await page.locator('.modal button', { hasText: 'Đã ghi lại' }).click();
+  await page.waitForTimeout(700);
+
+  // -- Nghỉ học bảo lưu rồi đi học lại
+  await nutVP('Nghỉ học bảo lưu / Đi học lại').click();
+  await chonBe('c1', 's4');
+  check('nút nói đúng việc sắp làm với bé đang học',
+    (await page.locator('#tk-cb-tiep').innerText()).trim() === 'Ghi nghỉ học bảo lưu',
+    await page.locator('#tk-cb-tiep').innerText());
+  await page.click('#tk-cb-tiep');
+  await page.waitForSelector('#ad-bl-ok', { timeout: 5000 });
+  check('phiếu bảo lưu nói rõ dữ liệu cũ giữ nguyên', /giữ nguyên/.test(await page.locator('.modal').innerText()));
+  const namSau = Number((await page.evaluate(() => UI.todayStr())).slice(0, 4)) + 1;
+  await page.fill('#ad-bl-den', `${namSau}-01`);
+  await page.fill('#ad-bl-ly-do', 'Gia đình về quê');
+  await page.click('#ad-bl-ok');
+  await page.waitForSelector('.modal .list-row', { timeout: 8000 });
+  await page.waitForTimeout(600);
+  const dongBL = page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first();
+  const chuBL = await dongBL.innerText();
+  check('danh sách nhóm: bé mang nhãn "Bảo lưu", không phải "Đã nghỉ"',
+    /Bảo lưu/.test(chuBL) && !/Đã nghỉ/.test(chuBL), chuBL);
+  check(`và ghi "từ dd/mm/yyyy · dự kiến quay lại 01/${namSau}"`,
+    /Bảo lưu · từ \d{2}\/\d{2}\/\d{4} · dự kiến quay lại 01\//.test(chuBL) && chuBL.includes(`01/${namSau}`), chuBL);
+  check('máy chủ: bé đã nghỉ, có dòng bảo lưu', (await beQuaApi('c1', 's4')).baoLuu?.duKienQuayLai === `${namSau}-01`);
+  await dongBL.locator('button', { hasText: 'Đi học lại' }).click();
+  await page.waitForTimeout(1500);
+  const sauDHL = await page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first().innerText();
+  check('bấm "Đi học lại": bé về mục đang học, hết nhãn bảo lưu',
+    !/Bảo lưu ·|Đi học lại/.test(sauDHL) && /Sửa/.test(sauDHL), sauDHL);
+  const s4 = await beQuaApi('c1', 's4');
+  check('máy chủ: bé đang học lại, không còn bảo lưu', s4.active === true && !s4.baoLuu, [s4.active, s4.baoLuu]);
+  check('dòng của bé đang học có nút "Bảo lưu" cạnh "Cho nghỉ"',
+    await page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first().locator('button', { hasText: 'Bảo lưu' }).count() === 1);
+  await page.evaluate(() => UI.closeModal());
+
+  // -- Chuyển nhóm cho bé
+  await nutVP('Chuyển nhóm cho bé').click();
+  await chonBe('c1', 's5');
+  await page.click('#tk-cb-tiep');
+  await page.waitForSelector('#tk-cnb-den', { timeout: 5000 });
+  const nhomDen = await page.locator('#tk-cnb-den option').allInnerTexts();
+  check('nhóm đến không có nhóm bé đang học, không có nhóm cơ sở khác',
+    !nhomDen.some(t => /Chồi 2|Mầm 1/.test(t)) && nhomDen.length > 0, nhomDen);
+  await page.selectOption('#tk-cnb-den', 'c4');
+  await page.click('#tk-cnb-luu');
+  await page.waitForTimeout(1500);
+  check('máy chủ: bé Khánh Vy đã sang Nhà trẻ 1', (await beQuaApi('c4', 's5')).classId === 'c4');
+  await page.evaluate(() => UI.closeModal());
+
+  // -- Nhận bé mới nhập đủ thông tin, kèm phụ huynh thứ hai
+  await moTabTaiKhoanTuCaiDat();
+  await nutVP('Nhận bé mới').click();
+  await page.waitForSelector('#tk-cb-nhom', { timeout: 5000 });
+  await page.selectOption('#tk-cb-nhom', 'c1');
+  await page.click('#tk-cb-tiep');
+  await page.waitForSelector('#nb-ten', { timeout: 5000 });
+  for (const id of ['nb-dt', 'nb-nm', 'nb-ddcn', 'nb-tsb', 'nb-email', 'nb-qh', 'nb-ph2', 'nb-sdt2', 'nb-qh2']) {
+    check(`phiếu nhận bé có ô #${id}`, await page.locator(`#${id}`).count() === 1);
+  }
+  check('phiếu nhận bé có ô liên hệ khẩn cấp', await page.locator('#nb-lhkc .lhkc-dong').count() === 1);
+  await page.fill('#nb-ten', 'Lê Minh Thử');
+  await page.fill('#nb-ns', '2023-03-03');
+  await page.fill('#nb-dt', 'Mường');
+  await page.fill('#nb-nm', 'B');
+  await page.fill('#nb-ddcn', '001223009999');
+  await page.fill('#nb-tsb', 'Dị ứng sữa bò');
+  await page.fill('#nb-lhkc .lhkc-ten', 'Lê Thị Bà');
+  await page.fill('#nb-lhkc .lhkc-qh', 'Bà ngoại');
+  await page.fill('#nb-lhkc .lhkc-dt', '0909 777 000');
+  await page.fill('#nb-ph', 'Lê Văn Bố Thử');
+  await page.fill('#nb-sdt', '0977 666 111');
+  await page.fill('#nb-qh', 'Bố');
+  await page.fill('#nb-ph2', 'Phan Thị Mẹ Thử');
+  await page.fill('#nb-sdt2', '0977 666 222');
+  await page.fill('#nb-qh2', 'Mẹ');
+  await page.click('#nb-luu');
+  await page.waitForSelector('#nb-xong', { timeout: 8000 });
+  const phieu = await page.locator('.modal').innerText();
+  check('phiếu kết quả có tài khoản của phụ huynh thứ hai', await page.locator('#nb-tk2').count() === 1, phieu.slice(0, 300));
+  check('và hiện mật khẩu tạm của CẢ HAI phụ huynh',
+    (phieu.match(/\b[a-z]{5}[2-9]{3}\b/g) || []).length === 2, phieu.slice(0, 400));
+  const moi = (((await req('GET', '/api/admin/students?classId=c1', { cookie: BGH })).data || [])
+    .find(s => s.name === 'Lê Minh Thử') || {});
+  check('máy chủ: dân tộc, nhóm máu, số định danh, tiền sử bệnh đã lưu',
+    moi.ethnicity === 'Mường' && moi.bloodType === 'B' && moi.soDinhDanh === '001223009999' && moi.tienSuBenh === 'Dị ứng sữa bò',
+    [moi.ethnicity, moi.bloodType, moi.soDinhDanh, moi.tienSuBenh]);
+  check('máy chủ: liên hệ khẩn cấp và hai phụ huynh Bố / Mẹ đã lưu',
+    (moi.lienHeKhanCap || []).length === 1 && JSON.stringify((moi.parents || []).map(p => p.quanHe).sort()) === '["Bố","Mẹ"]',
+    [moi.lienHeKhanCap, moi.parents]);
+  await page.click('#nb-xong');
+  await page.waitForTimeout(800);
+
+  // -- Thẻ Sửa bé: danh sách phụ huynh + nút thêm phụ huynh (văn phòng mở được phiếu)
+  await page.locator('.modal .list-row', { hasText: 'Lê Minh Thử' }).first().locator('button', { hasText: 'Sửa' }).click();
+  await page.waitForSelector('#ad-hs-ph', { timeout: 5000 });
+  const dsPh = await page.locator('#ad-hs-ph').innerText();
+  check('thẻ Sửa bé liệt kê phụ huynh kèm quan hệ', /Bố/.test(dsPh) && /Mẹ/.test(dsPh), dsPh);
+  check('và có nút "Thêm phụ huynh"', await page.locator('#ad-hs-them-ph').count() === 1);
+  await page.click('#ad-hs-them-ph');
+  await page.waitForSelector('#tk-ph-ten', { timeout: 5000 });
+  check('nút ấy mở phiếu thêm phụ huynh cho đúng bé', /Lê Minh Thử/.test(await page.locator('.modal-title').innerText()));
+  await page.evaluate(() => UI.closeModal());
 
   check('không có lỗi chạy mã nào trên trang', loi.length === 0, loi);
 } finally {
