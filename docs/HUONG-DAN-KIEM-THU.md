@@ -109,8 +109,9 @@ Các mật khẩu này **chỉ dùng cho máy thử**: không dùng lại trên 
 | Mất mật khẩu của | Cách lấy lại | Tác dụng phụ |
 | --- | --- | --- |
 | Một gia đình | Cô của nhóm bé, `quanly1` hoặc `hieutruong` làm trên màn hình: “Cài đặt” → “Tài khoản phụ huynh” → bấm “Cấp mật khẩu tạm” cạnh tên nhà đó → bấm OK → đọc mật khẩu trong hộp “Mật khẩu tạm” → bấm “Đã ghi lại”. `vanphong1`, `nhansu`, `ketoan`, `marketing` không làm được việc này. | Chỉ đụng tới nhà đó. Mật khẩu cũ hết dùng được; gia đình bị đăng xuất khỏi mọi máy và lần vào sau phải qua màn “Đặt mật khẩu mới”. Nhật ký ghi “Cấp lại mật khẩu”. |
-| Một cô, `hieutruong`, `vanphong1`, `nhansu`, `ketoan`, `marketing`, hoặc mất cả bản in | Màn hình không có nút cho việc này. Người giữ máy chủ chạy lại bàn thử bằng lệnh ở dưới. | Xem danh sách ngay dưới lệnh. |
-| `quanly1` | Màn hình không có nút, và chạy lại bàn thử cũng không đụng tới `quanly1`. Người giữ máy chủ tạo một tài khoản mới (ví dụ `quanly1b`) theo đúng các bước tạo `quanly1`, rồi `hieutruong` gắn lại cơ sở và gán chức vụ. | Tài khoản cũ vẫn còn và vẫn đăng nhập được bằng mật khẩu cũ, vì màn hình không khoá hay xoá được tài khoản quản trị. `hieutruong` đổi ngay chức vụ của tài khoản cũ sang “Bảo vệ cổng”, vẫn gắn Cơ sở 1, để nó chỉ còn chụp điểm danh ở cổng. |
+| Một cô | `hieutruong`, `quanly1` hoặc `nhansu` làm trên màn hình: “Cài đặt” → “Tài khoản & phân quyền” → ở thẻ “Tài khoản cô” bấm “Cấp lại mật khẩu” cạnh tên cô → bấm OK → đọc mật khẩu trong hộp “Mật khẩu tạm” → bấm “Đã ghi lại”. `quanly1` chỉ làm được cho cô đang phụ trách nhóm của Cơ sở 1. | Chỉ đụng tới cô đó. Mật khẩu cũ hết dùng được; cô bị đăng xuất khỏi mọi máy và lần vào sau phải qua màn “Đặt mật khẩu mới”. Nhật ký ghi “Cấp lại mật khẩu”. |
+| `hieutruong`, `vanphong1`, `nhansu`, `ketoan`, `marketing`, hoặc mất cả bản in | Màn hình không có nút cho việc này. Người giữ máy chủ chạy lại bàn thử bằng lệnh ở dưới. | Xem danh sách ngay dưới lệnh. |
+| `quanly1` | Màn hình không có nút, và chạy lại bàn thử cũng không đụng tới `quanly1`. `hieutruong` tạo một tài khoản mới (ví dụ `quanly1b`) ở “Cài đặt” → “Tài khoản & phân quyền” → “+ Tạo tài khoản quản trị”, chọn chức vụ “Quản lý cơ sở” và cơ sở “Cơ sở 1”. | Tài khoản cũ vẫn còn và vẫn đăng nhập được bằng mật khẩu cũ, vì màn hình không khoá hay xoá được tài khoản quản trị. `hieutruong` đổi ngay chức vụ của tài khoản cũ sang “Bảo vệ cổng”, vẫn gắn Cơ sở 1, để nó chỉ còn chụp điểm danh ở cổng. |
 
 Lệnh chạy lại bàn thử. Báo trước cả nhóm: sau lệnh này mật khẩu cũ của cô, gia đình và năm tài khoản quản trị của bàn thử hết dùng được. Người giữ máy chủ gõ bằng tài khoản `ubuntu`, không cần dừng app:
 
@@ -134,7 +135,7 @@ Lệnh này chỉ dùng cho máy thử. Chạy trên máy chủ thật, nó đ�
 
 ### Tạo tài khoản quanly1 (Quản lý cơ sở)
 
-Máy thử chưa có tài khoản nào mang chức vụ Quản lý cơ sở, và trên màn hình không có nút tạo tài khoản quản trị. Việc này chia làm hai phần: người giữ máy chủ tạo tài khoản bằng lệnh, rồi `hieutruong` gắn cơ sở và gán chức vụ trên màn hình. App cứ để chạy, không cần dừng hay khởi động lại.
+Máy thử chưa có tài khoản nào mang chức vụ Quản lý cơ sở. Cách nhanh nhất: `hieutruong` (đã đổi mật khẩu lần đầu) vào “Cài đặt” → “Tài khoản & phân quyền” → “+ Tạo tài khoản quản trị”, gõ họ tên “Quản lý Cơ sở 1 (thử)”, tên đăng nhập `quanly1`, chọn chức vụ “Quản lý cơ sở” và cơ sở “Cơ sở 1”, bấm “Tạo tài khoản”, rồi chép mật khẩu tạm (hiện một lần) vào dòng `quanly1` của bảng Mật khẩu. Tài khoản tạo cách này đã đủ cả chức vụ và cơ sở ngay từ đầu: bỏ qua phần A và B, làm luôn phần C. Cách cũ bằng lệnh trên máy chủ vẫn dùng được, chia làm hai phần: người giữ máy chủ tạo tài khoản bằng lệnh, rồi `hieutruong` gắn cơ sở và gán chức vụ trên màn hình. App cứ để chạy, không cần dừng hay khởi động lại.
 
 **Phần A — người giữ máy chủ (khoảng 5 phút)**
 
@@ -228,7 +229,7 @@ Máy thử dùng chung cho cả nhóm. Một thao tác dưới đây làm hỏng
 - “Thông báo” và “Nhắn tin” nằm ở thanh dưới, không phải ô trên Trang chủ. Album không có số đỏ.
 - App chưa có tính năng AI nào. Quy tắc “AI gợi ý, cô quyết định” được kiểm qua các chỗ duyệt: cô bấm Gửi ở Nhật ký, cô chọn kể chuyện cho gia đình, quản lý duyệt kế hoạch và báo cáo, bài Cambridge nháp không tới gia đình.
 - Dữ liệu mẫu tính theo ngày dựng máy (khoảng 08/10/2026). Thử muộn hơn thì sổ điểm danh hôm nay, thực đơn, kế hoạch tuần có thể trống: trống là đúng.
-- Có ở máy chủ nhưng chưa có nút, đừng tìm: thu hồi tin nhắn, đóng cuộc trò chuyện, lập phòng chung, album “Cả trường xem được”, tạo tài khoản quản trị, xoá nhóm/cơ sở/cô, phiếu QR tài khoản.
+- Có ở máy chủ nhưng chưa có nút, đừng tìm: thu hồi tin nhắn, đóng cuộc trò chuyện, lập phòng chung, album “Cả trường xem được”, xoá nhóm/cơ sở/cô, phiếu QR tài khoản.
 - Lời nhắc thứ Sáu về chủ đề tuần sau chỉ hiện vào thứ Sáu. Trạng thái “trước mốc” của bảng rà soát điểm danh chỉ thấy trước 12 giờ trưa.
 
 ### Lỗi và giới hạn đã biết
@@ -251,7 +252,7 @@ Danh sách này rút ra từ việc đọc mã nguồn, **chưa ai bấm thử t
 | L12 | Thông báo | Văn phòng một cơ sở chọn “Toàn trường” là gửi tới cả 3 cơ sở; tài khoản một cơ sở (vanphong1, quanly1) sửa và thu hồi được thông báo “Gửi toàn trường” của người khác, kể cả của ban giám hiệu. Cần nhà trường xác nhận. | Giới hạn |
 | L13 | Thực đơn, Soạn cả tuần một lượt | Rời màn bằng thanh dưới hoặc nút quay lại của điện thoại thì không hỏi, chữ chưa lưu bị mất. Chỉ các nút trong màn Thực đơn mới hỏi. | Giới hạn |
 | L14 | Nhắn tin | Cuộc mới do gia đình mở chưa vào số đỏ của cô cho tới khi cô mở màn Nhắn tin. Kênh “Cô nước ngoài” ở nhóm chưa có cô giữ vai: tin nằm chờ, không ai biết. | Giới hạn |
-| L15 | Đăng nhập, mật khẩu | Không có tự lấy lại mật khẩu. Không có nút cấp lại mật khẩu cho cô và tài khoản quản trị: cô quên mật khẩu phải nhờ người giữ máy chủ. quanly1 mất mật khẩu thì chạy lại bàn thử cũng không giúp được: phải tạo tài khoản quản lý mới. | Giới hạn |
+| L15 | Đăng nhập, mật khẩu | Không có tự lấy lại mật khẩu. Không có nút cấp lại mật khẩu cho tài khoản quản trị: quanly1 mất mật khẩu thì chạy lại bàn thử cũng không giúp được, phải tạo tài khoản quản lý mới (`hieutruong` tạo được ở “Cài đặt” → “Tài khoản & phân quyền”). Cô quên mật khẩu thì `hieutruong`, `quanly1` hoặc `nhansu` cấp lại ở “Cài đặt” → “Tài khoản & phân quyền”, nút “Cấp lại mật khẩu” cạnh tên cô. | Giới hạn |
 | L16 | Album ảnh | Album “Cả nhóm” ở nhóm có nhà từ chối chia sẻ ảnh: các nhà vẫn nhận tin “Album mới: …” nhưng mở ra thấy 0 ảnh cho tới khi cô gắn thẻ. | Giới hạn |
 | L17 | Bảng tài khoản do người dựng máy thử in ra | Ghi phuhuynh là mẹ “bé An (Chồi 2) và bé Ngọc (Lá 1)” là sai. Con thứ hai là bé Nguyễn Bảo Nam (Lá 1); bé Lý Bảo Ngọc là con ph.duy ở Nhà trẻ 1. Bảng ở mục 1 tài liệu này là đúng. | Chữ chưa đúng |
 | L18 | Cambridge | Sửa bài đã gửi rồi bấm “Lưu nháp”: báo “Đã lưu nháp — gia đình chưa đọc được” nhưng gia đình vẫn đọc bài. Bài “Một cơ sở” hiện lặp “Cơ sở Cơ sở 1”. | Chữ chưa đúng |
