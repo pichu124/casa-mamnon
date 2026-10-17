@@ -22,7 +22,7 @@
 > | Xuất báo cáo (mới) | — | Ô “Xuất báo cáo”: điểm danh bé và cô (giờ vào ra / có mặt – nghỉ phép – nghỉ không phép), báo cáo tháng / 6 tháng, kế hoạch của bé, hồ sơ bé; chọn cả trường / cơ sở / nhóm / một bé. |
 > | Tài khoản (mục 1, 3.x) | Tạo tài khoản quản trị chỉ bằng lệnh trên máy chủ | Quản trị → tab “Tài khoản” (hoặc Cài đặt → “Tài khoản & phân quyền”): ban giám hiệu tạo tài khoản quản trị kèm chức vụ và cơ sở; quản lý cơ sở tạo cô, chuyển cô sang nhóm khác, cấp lại mật khẩu cô; văn phòng thêm phụ huynh cho bé, chuyển nhóm, “Nghỉ học bảo lưu” / “Đi học lại”, nhận bé nhập đủ thông tin. |
 > | Cambridge | Weekly Plan một bộ Hoạt động / Chủ đề / Từ vựng | Weekly Plan 1–3 hoạt động (chủ đề, từ vựng, mục tiêu) rồi Song / Chant, Story. Home Connection không còn các ô đó. |
-> | Nhắn tin (phụ huynh) | “Văn phòng nhà trường — Về bé …” cho từng con | Một mục “Văn phòng nhà trường” (gia đình bố mẹ riêng: một mục cho mỗi nhóm con có cùng bố mẹ). |
+> | Nhắn tin (phụ huynh) | Danh sách hội thoại chỉ hiện tên | Danh sách hiện thêm dòng phụ (bé nào, nhóm nào). Mục “Văn phòng nhà trường” VẪN theo từng con (“Về bé …”) — gộp làm một đang chờ chủ dự án chọn cách làm an toàn. |
 > | Điểm danh (phụ huynh) | Chỉ ảnh lúc tới lớp | Thêm ảnh con lúc ra về; chạm thông báo “Con đã được đón về” mở thẳng ngày đó. |
 > | Đón trả bé | Có thể vẫn hiện trên máy thử | Tắt. Máy thử dựng trước Đ239: `hieutruong` vào Quản trị → Tính năng → tắt “Đón trả bé” (một chạm, dữ liệu giữ nguyên). |
 

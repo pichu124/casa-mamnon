@@ -15,7 +15,7 @@ Nguồn: tệp PDF 3 trang chủ dự án gửi ngày 17/10/2026. Tệp gốc **
 | 7 | Nhật ký ngày — bỏ Bú bình, đủ 5 bữa, mỗi bữa nối món của thực đơn hôm đó | Đ239b, Đ239j | ✅ |
 | 8 | Cambridge Weekly Plan — 2–3 hoạt động, mỗi hoạt động: chủ đề, từ vựng, mục tiêu; rồi Song / Chant / Story | Đ239f | ✅ |
 | 9 | Home Connection — bỏ hoạt động, chủ đề, từ vựng, song/chant | Đ239f | ✅ |
-| PH1 | Nhắn tin với văn phòng — một mục, không tách theo từng bé | Đ239g, Đ239g-vá | ✅ |
+| PH1 | Nhắn tin với văn phòng — một mục, không tách theo từng bé | Đ239g → hoàn tác | ⏸ **chờ chủ dự án chọn phương án** (gộp đơn giản làm rò tin — xem mục PH1) |
 | PH2 | Điểm danh phía phụ huynh — thấy ảnh con lúc ra về, không chỉ thông báo | Đ239h | ✅ |
 
 ---
@@ -147,16 +147,37 @@ Cambridge (block, tuần trong block, lứa tuổi).
 **Làm:** Weekly Plan soạn được 1–3 hoạt động (bảng phụ mới, bài cũ hiện như cũ), thêm ô
 Story; Home Connection bỏ các ô đó khỏi form (bài cũ có chữ trong các ô ấy vẫn hiện đủ).
 
-## PH1. Nhắn tin với văn phòng
+## PH1. Nhắn tin với văn phòng — CHƯA LÀM, chờ chủ dự án chọn phương án
 
 **Trường:** *"không cần tách ra Văn phòng nhà trường về bé này bé kia, chỉ cần ghi Nhắn tin
 với văn phòng nhà trường"*.
 
-**Làm:** gia đình có nhiều con chỉ thấy MỘT mục "Văn phòng nhà trường" (mỗi cơ sở một mục
-nếu các con học khác cơ sở), không còn dòng "Về bé…". Hội thoại cũ theo từng bé vẫn giữ và
-vẫn mở được. **Ngoại lệ an toàn (Đ239g-vá):** chỉ gộp các bé có CÙNG bộ phụ huynh. Gia đình bố
-mẹ riêng (bé chung + con riêng của mỗi người) thấy một mục cho mỗi nhóm bé, có ghi "Về bé…" —
-nếu gộp hết thì tin nhắn về con riêng của người này đọc được bởi người kia.
+**Mã hiện nay:** mỗi bé một kênh văn phòng (bảng `kenh_hoi_thoai`), mọi phụ huynh HIỆN TẠI của
+bé đọc chung kênh đó. Gia đình hai con thấy hai dòng "Văn phòng nhà trường — Về bé …".
+
+**Đã thử và hoàn tác (Đ239g, Đ239g-vá):** gộp các con thành một mục, gắn vào kênh văn phòng của
+MỘT bé. Hai vòng review đối kháng đều chặn, cả hai đã chạy thử thấy rò thật:
+- bố mẹ riêng (bé chung + con riêng mỗi người) → tin về con riêng của người này tới người kia;
+- vá bằng "chỉ gộp các bé có cùng bộ phụ huynh" vẫn rò khi bộ phụ huynh ĐỔI SAU: mẹ là phụ
+  huynh duy nhất của bé A và bé B, kể chuyện bé B trong mục gộp (kênh bé A); trường thêm tài
+  khoản bố (chỉ là bố bé A) → bố đọc được chuyện của bé B.
+
+Gốc rễ: nội dung một cuộc gộp phủ nhiều bé, còn quyền đọc tính theo phụ huynh hiện tại của một
+bé. Đóng kín được mọi biến thể cần một mô hình kênh mới — và mô hình nào cũng đổi hành vi, nên
+phải chủ dự án chọn:
+
+| | Phương án | Được | Mất |
+|---|---|---|---|
+| **A** (architect đề xuất) | Mỗi TÀI KHOẢN phụ huynh × cơ sở một hộp thư riêng với văn phòng | Luôn đúng MỘT mục "Văn phòng nhà trường", kể cả nhà bố mẹ riêng; không ai đọc được thư không phải của mình, kể cả khi gia đình thay đổi | Bố và mẹ KHÔNG còn chung một cuộc với văn phòng (văn phòng trả lời từng người); tin văn phòng chỉ đẩy về máy + số đỏ ở ô Nhắn tin, không vào chuông Thông báo; phụ huynh gắn với bé sau ngày cập nhật không đọc được cuộc văn phòng CŨ của bé đó |
+| **B** | Cuộc gộp với người đọc "đóng băng" lúc lập (bộ phụ huynh + bộ bé); bộ đổi thì mở cuộc mới | Vợ chồng vẫn chung cuộc | Nhà bố mẹ riêng vẫn thấy "Về bé…"; nhiều nhánh hơn, rủi ro cao hơn |
+| **C** | Giữ như hiện nay (mỗi bé một kênh) | Không đổi gì, không rò | Trái lời trường: nhà nhiều con vẫn thấy "Về bé …" |
+
+Cả A và B ước khoảng 500–600 dòng ở lõi nhắn tin + bảng mới (chỉ CREATE), hội thoại cũ giữ
+nguyên. Bản thiết kế chi tiết của A (luật quyền, danh sách, chưa đọc, đẩy tin, cuộc đã đóng,
+kế hoạch kiểm thử 6 ca mới) đã có, làm được ngay khi chủ dự án chọn.
+
+Phần AN TOÀN của Đ239g vẫn giữ: danh sách hội thoại hiện dòng phụ dưới tên (bé nào, nhóm nào),
+nên hai dòng "Cô phụ trách nhóm" của hai con phân biệt được.
 
 ## PH2. Ảnh con lúc ra về
 
