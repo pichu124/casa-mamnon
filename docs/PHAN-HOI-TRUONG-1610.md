@@ -6,17 +6,17 @@ Nguồn: tệp PDF 3 trang chủ dự án gửi ngày 17/10/2026. Tệp gốc **
 
 | # | Mục | Làm ở | Trạng thái |
 |---|---|---|---|
-| 1 | Thực đơn — mẫu Excel theo TUẦN, bữa sáng 3 dòng riêng, đúng khuôn của trường | Đ239a | đang làm |
-| 2 | Xuất báo cáo dữ liệu — điểm danh bé và cô, nhận xét tháng / 6 tháng, kế hoạch học tập, hồ sơ bé | Đ239c | đang làm |
-| 3 | Báo ăn và tiền ăn — bỏ báo ăn cho bếp, chỉ cần Excel đối chiếu tiền ăn tháng, lồng vào điểm danh | Đ239c | đang làm |
-| 4 | Đón trẻ — loại khỏi app | Đ239i | đang làm |
-| 5 | Tạo tài khoản và phân quyền ở đâu | Đ239d | đang làm |
-| 6 | Hành trình của bé — đúng bốn tab: Kế hoạch / Cambridge / P.E / Montessori & Kỹ năng sống | Đ239e | đang làm |
-| 7 | Nhật ký ngày — bỏ Bú bình, đủ 5 bữa, mỗi bữa nối món của thực đơn hôm đó | Đ239b | đang làm |
-| 8 | Cambridge Weekly Plan — 2–3 hoạt động, mỗi hoạt động: chủ đề, từ vựng, mục tiêu; rồi Song / Chant / Story | Đ239f | đang làm |
-| 9 | Home Connection — bỏ hoạt động, chủ đề, từ vựng, song/chant | Đ239f | đang làm |
-| PH1 | Nhắn tin với văn phòng — một mục, không tách theo từng bé | Đ239g | đang làm |
-| PH2 | Điểm danh phía phụ huynh — thấy ảnh con lúc ra về, không chỉ thông báo | Đ239h | đang làm |
+| 1 | Thực đơn — mẫu Excel theo TUẦN, bữa sáng 3 dòng riêng, đúng khuôn của trường | Đ239a, Đ239j, Đ239-vá3 | ✅ |
+| 2 | Xuất báo cáo dữ liệu — điểm danh bé và cô, nhận xét tháng / 6 tháng, kế hoạch học tập, hồ sơ bé | Đ239c, Đ239c-vá | ✅ |
+| 3 | Báo ăn và tiền ăn — bỏ báo ăn cho bếp, chỉ cần Excel đối chiếu tiền ăn tháng, lồng vào điểm danh | Đ239c, Đ239c-vá, Đ239h | ✅ |
+| 4 | Đón trẻ — loại khỏi app | Đ239i | ✅ (máy thử đang có: tắt tay một lần, xem mục 4) |
+| 5 | Tạo tài khoản và phân quyền ở đâu | Đ239d1, Đ239d2, Đ239-vá3 | ✅ |
+| 6 | Hành trình của bé — đúng bốn tab: Kế hoạch / Cambridge / P.E / Montessori & Kỹ năng sống | Đ239e, Đ239j | ✅ |
+| 7 | Nhật ký ngày — bỏ Bú bình, đủ 5 bữa, mỗi bữa nối món của thực đơn hôm đó | Đ239b, Đ239j | ✅ |
+| 8 | Cambridge Weekly Plan — 2–3 hoạt động, mỗi hoạt động: chủ đề, từ vựng, mục tiêu; rồi Song / Chant / Story | Đ239f | ✅ |
+| 9 | Home Connection — bỏ hoạt động, chủ đề, từ vựng, song/chant | Đ239f | ✅ |
+| PH1 | Nhắn tin với văn phòng — một mục, không tách theo từng bé | Đ239g, Đ239g-vá | ✅ |
+| PH2 | Điểm danh phía phụ huynh — thấy ảnh con lúc ra về, không chỉ thông báo | Đ239h | ✅ |
 
 ---
 
@@ -65,8 +65,11 @@ nhà trường, mọi tệp là **Excel thật (.xlsx)**:
 - Ai thấy phần nào: đúng phần dữ liệu người đó vốn đã mở được ở màn gốc (không nới quyền);
   tài khoản một cơ sở chỉ xuất được cơ sở của mình. Không phần trăm, không xếp hạng (QUY TẮC 4).
 - Màn Điểm danh của nhà trường có lối vào "Xuất báo cáo điểm danh" và "Đối chiếu tiền ăn".
-- Ô "Báo ăn & tiền ăn" **gộp vào màn Điểm danh** với tài khoản nhà trường (cùng cơ chế đã dùng
-  cho Kế hoạch giáo dục → Lịch sinh hoạt). Đường `#/tienan`, dữ liệu và API giữ nguyên.
+- Ô "Báo ăn & tiền ăn" (nay tên "Tiền ăn") **gộp vào màn Điểm danh** với tài khoản nhà trường
+  (cùng cơ chế đã dùng cho Kế hoạch giáo dục → Lịch sinh hoạt); màn Tiền ăn mở thẳng "Đối chiếu
+  tháng", **bỏ tab "Báo ăn hằng ngày"** cho bếp. Đường `#/tienan`, dữ liệu và API giữ nguyên.
+  Kế toán (không mở màn Điểm danh) vẫn có ô Tiền ăn trên trang chủ.
+- Bé nghỉ hoặc bảo lưu GIỮA kỳ vẫn có trong tệp (kèm cột "Ghi chú: Bảo lưu từ … / Nghỉ từ …").
 
 ## 4. Đón trẻ
 
@@ -95,11 +98,15 @@ thấy lại cô đó.
 đúng việc của mình:
 - Ban giám hiệu (cả trường): tạo tài khoản quản trị kèm chức vụ (Cấp 2, quản lý cơ sở, văn
   phòng cơ sở…) và cơ sở; mật khẩu tạm hiện một lần.
-- Quản lý cơ sở: tạo tài khoản cô (bắt buộc chọn nhóm của cơ sở mình — hết cảnh tạo xong
-  không thấy cô đâu); **chuyển cô** từ nhóm này sang nhóm khác một bước, giữ vai của cô.
-- Văn phòng cơ sở: thêm tài khoản phụ huynh thứ hai cho bé (bố / mẹ); chuyển nhóm (đã có);
-  **nghỉ học bảo lưu** (bé tạm nghỉ, dữ liệu giữ nguyên, đi học lại một chạm); form nhận bé
-  nhập được đủ thông tin (dân tộc, nhóm máu, số định danh, tiền sử bệnh, liên hệ khẩn cấp).
+- Quản lý cơ sở: tạo tài khoản cô (cô vừa tạo, chưa phân nhóm, nay vẫn hiện lại trong danh
+  sách của quản lý cơ sở đó để phân nhóm và cấp lại mật khẩu — trước đây tạo xong là "mất");
+  **chuyển cô** từ nhóm này sang nhóm khác một bước, giữ vai của cô.
+- Văn phòng cơ sở: thêm tài khoản phụ huynh thứ hai cho bé (bố / mẹ — luôn là tài khoản
+  mới, tối đa 4 phụ huynh mỗi bé); chuyển nhóm (đã có, nay có nút ở tab Tài khoản);
+  **nghỉ học bảo lưu** (bé tạm nghỉ, dữ liệu giữ nguyên, "Đi học lại" một chạm, hoặc "Thôi bảo
+  lưu, nghỉ hẳn"); form nhận bé nhập được đủ thông tin (dân tộc, nhóm máu, số định danh, tiền
+  sử bệnh, liên hệ khẩn cấp, phụ huynh thứ hai). Sửa phần nhân thân SAU khi đã nhận bé vẫn là
+  việc của quản lý cơ sở / ban giám hiệu (luật trường chốt 07/09 — xem mục quyết định bên dưới).
 
 ## 6. Hành trình của bé
 
@@ -147,7 +154,9 @@ với văn phòng nhà trường"*.
 
 **Làm:** gia đình có nhiều con chỉ thấy MỘT mục "Văn phòng nhà trường" (mỗi cơ sở một mục
 nếu các con học khác cơ sở), không còn dòng "Về bé…". Hội thoại cũ theo từng bé vẫn giữ và
-vẫn mở được.
+vẫn mở được. **Ngoại lệ an toàn (Đ239g-vá):** chỉ gộp các bé có CÙNG bộ phụ huynh. Gia đình bố
+mẹ riêng (bé chung + con riêng của mỗi người) thấy một mục cho mỗi nhóm bé, có ghi "Về bé…" —
+nếu gộp hết thì tin nhắn về con riêng của người này đọc được bởi người kia.
 
 ## PH2. Ảnh con lúc ra về
 
@@ -159,6 +168,35 @@ vẫn mở được.
 
 ---
 
-## Điểm cần chủ dự án quyết (phát sinh khi làm)
+## Còn để chủ dự án quyết (phát sinh khi làm)
 
-Ghi ở cuối đợt, xem mục "Còn để chủ dự án quyết" bên dưới khi đợt xong.
+1. **Giờ "Bữa sữa chiều"** đang để 15:30 — ảnh mẫu bị cắt ở Bữa chiều 14h00. Bữa trưa lưu một giờ
+   11:20; mẫu Excel ghi cả "0–3 tuổi 11h20 / 3–6 tuổi 11h40" ở cột tên bữa.
+2. **Ô "Tiền ăn" phía gia đình** (số ngày con ăn ở trường trong tháng) vẫn giữ. Trường muốn bỏ
+   luôn phía gia đình thì báo.
+3. **Văn phòng điền bổ sung ô nhân thân còn TRỐNG sau khi đã nhận bé** (vd số định danh nhận
+   sau): hiện vẫn phải nhờ quản lý cơ sở, vì bài phân quyền bất khả xâm phạm `ho-so-be-ai-sua`
+   chặn văn phòng ở MỌI lần sửa nhân thân. Muốn "văn phòng nhập ô trống, quản lý sửa ô đã có"
+   thì phải đổi bài đó — cần chủ dự án duyệt.
+4. **Bảo lưu dài hơn 12 tháng:** bảo lưu đi đúng đường "Cho nghỉ", nên sau 12 tháng tính từ ngày
+   bảo lưu gia đình hết xem hồ sơ cũ của con dù bé vẫn "đang bảo lưu".
+5. **Sau chuyển năm học**, nhóm năm mới chưa có cô và cô chỉ còn nhóm đã đóng → quản lý cơ sở
+   không thấy cô nào để phân, phải nhờ ban giám hiệu (như trước Đ239). Có luật an toàn để quản
+   lý cơ sở tự phân: "cô không có nhóm đang mở thì hiện với cơ sở X khi MỌI nhóm cô từng dạy đều
+   thuộc cơ sở X". Chưa làm.
+6. **Hành trình:** tab chương trình có "Kể cho gia đình" nhưng chưa có nút "Suy ngẫm" (gắn lĩnh
+   vực, lớp 2) — vẫn làm ở lối phụ "Suy ngẫm cuối ngày". Tiêu đề màn vẫn "Hành trình học tập"
+   (tên phân hệ); trường gọi "Hành trình của bé" — đổi thì báo.
+7. **Chạy lại `ban-thu`** sẽ tắt Đón trả bé kể cả khi người giữ máy đã bật lại bằng tay.
+8. **Lỗi có từ trước, tìm thấy khi làm đợt này, CHƯA sửa** (đụng bài canh quyền ảnh hoặc ngoài
+   phạm vi):
+   - "Nhận lại" / "Đi học lại" không mở khoảng lịch sử nhóm từ hôm nay (`lsl.baoDamCoKhoang` gọi
+     trước khi bé được bật lại) → khoảng được mở muộn, phủ cả thời gian bé vắng; khi nhóm đóng,
+     luật ngày của album có thể cho gia đình thấy ảnh chụp lúc bé không có mặt.
+   - Danh sách hội thoại đọc theo `conversation_members`: phụ huynh đã bị gỡ khỏi bé có thể vẫn
+     thấy tiêu đề và tin cuối của kênh cũ (mở vào thì bị chặn). Chưa thử.
+   - Gọi thẳng API "Cho nghỉ" trên bé đã nghỉ đặt lại `leftAt` = hôm nay → kéo dài hạn 12 tháng.
+   - Bài giao diện `diem-danh-tra-be` [8] đỏ khi chạy 00:00–06:00 giờ Việt Nam (mốc rà soát
+     06:00) — cần đồng hồ giả cho bài.
+   - `data/seed.js` (`xoaBangPhanHe`) không xoá các bảng phụ của Cambridge → chạy lại bàn thử
+     có thể dính khung / hoạt động cũ vào bài mẫu cùng mã (chỉ máy thử).

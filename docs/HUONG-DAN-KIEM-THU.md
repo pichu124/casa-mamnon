@@ -9,6 +9,23 @@
 > **Không bao giờ điền mật khẩu vào bản này.** Kho mã không chứa mật khẩu hay
 > dữ liệu thật của trường; bảng "Mật khẩu" ở mục 1 cố ý để trống.
 
+> **Đổi sau góp ý của trường ngày 16/10 (Đ239) — đọc trước khi thử.** Bảng bên dưới viết
+> trước đợt đổi này. Những dòng nào đụng tới các phần sau thì làm theo cách MỚI ở đây
+> (chi tiết từng mục: `docs/PHAN-HOI-TRUONG-1610.md`):
+>
+> | Phần | Trước | Nay |
+> |---|---|---|
+> | Thực đơn (3.x, 10.x) | Tệp Excel mẫu theo THÁNG | Chọn TUẦN → “Tải mẫu” → điền (cột Thứ Hai…Thứ Sáu, Bữa sáng 3 dòng) → nạp → xem trước → Lưu. Tệp ghi ngày của tuần khác tuần đang chọn thì bị từ chối. |
+> | Nhật ký ngày (5.1, 5.7, 11.2) | Bước “Bú bình”; 3 bữa khi chưa có thực đơn | Không còn bước Bú bình. Luôn đủ Bữa sáng / Bữa phụ sáng / Bữa trưa / Bữa phụ chiều / Bữa sữa chiều; gia đình đọc “Bữa sáng: <món> — con ăn hết”. Dòng 5.7 bỏ qua. |
+> | Hành trình (3.25, 6.3, 6.4, 6.7, 6.10, 12.3) | “Hành trình học tập” → tab “Hành trình từng bé” → chọn bé | Mở “Hành trình học tập” là thấy chọn bé + 4 tab: Kế hoạch của bé / Cambridge / P.E (Thể chất) / Montessori & Kỹ năng sống. “Suy ngẫm cuối ngày” và “Chủ đề tuần” là hai nút nhỏ dưới tiêu đề. |
+> | Tiền ăn (10.2, 10.3, 10.6) | Ô “Báo ăn & tiền ăn”, tab “Báo ăn hằng ngày” | Ô tên “Tiền ăn”, với tài khoản nhà trường nằm trong màn Điểm danh (thẻ “Báo cáo”). Không còn tab Báo ăn hằng ngày; màn mở thẳng Đối chiếu tháng, nút Xuất ra tệp Excel thật (.xlsx). Dòng 10.2 bỏ qua. |
+> | Xuất báo cáo (mới) | — | Ô “Xuất báo cáo”: điểm danh bé và cô (giờ vào ra / có mặt – nghỉ phép – nghỉ không phép), báo cáo tháng / 6 tháng, kế hoạch của bé, hồ sơ bé; chọn cả trường / cơ sở / nhóm / một bé. |
+> | Tài khoản (mục 1, 3.x) | Tạo tài khoản quản trị chỉ bằng lệnh trên máy chủ | Quản trị → tab “Tài khoản” (hoặc Cài đặt → “Tài khoản & phân quyền”): ban giám hiệu tạo tài khoản quản trị kèm chức vụ và cơ sở; quản lý cơ sở tạo cô, chuyển cô sang nhóm khác, cấp lại mật khẩu cô; văn phòng thêm phụ huynh cho bé, chuyển nhóm, “Nghỉ học bảo lưu” / “Đi học lại”, nhận bé nhập đủ thông tin. |
+> | Cambridge | Weekly Plan một bộ Hoạt động / Chủ đề / Từ vựng | Weekly Plan 1–3 hoạt động (chủ đề, từ vựng, mục tiêu) rồi Song / Chant, Story. Home Connection không còn các ô đó. |
+> | Nhắn tin (phụ huynh) | “Văn phòng nhà trường — Về bé …” cho từng con | Một mục “Văn phòng nhà trường” (gia đình bố mẹ riêng: một mục cho mỗi nhóm con có cùng bố mẹ). |
+> | Điểm danh (phụ huynh) | Chỉ ảnh lúc tới lớp | Thêm ảnh con lúc ra về; chạm thông báo “Con đã được đón về” mở thẳng ngày đó. |
+> | Đón trả bé | Có thể vẫn hiện trên máy thử | Tắt. Máy thử dựng trước Đ239: `hieutruong` vào Quản trị → Tính năng → tắt “Đón trả bé” (một chạm, dữ liệu giữ nguyên). |
+
 ## Cách dùng tài liệu này
 
 Mỗi người thử đúng phần của vai mình, đánh dấu từng dòng, và ghi mọi chỗ sai vào **Phiếu báo lỗi** ở mục 13.
@@ -126,7 +143,7 @@ npm run ban-thu -- --khong-chay --thu-muc /var/lib/casa-mamnon
 - Dữ liệu giữ nguyên; máy in dòng “\[1/4\] Bàn thử đã có sẵn, giữ nguyên dữ liệu.”
 - Mọi tài khoản cô và gia đình chuyển sang một mật khẩu chung **mới**. Việc này gồm 13 tài khoản mẫu và các tài khoản tạo thêm khi thử (cô mới, gia đình mới), kể cả những người đã tự đổi (như ph.huong, ph.minh). Ai đang đăng nhập thì vẫn dùng tiếp được.
 - `hieutruong` nhận mật khẩu riêng mới. `vanphong1`, `nhansu`, `ketoan`, `marketing` về mật khẩu chung mới. Cả năm tài khoản này lại bị buộc đổi mật khẩu, và chức vụ, cơ sở của bốn tài khoản phòng ban trở về như lúc dựng máy.
-- Mọi tính năng cắm thêm bị bật lại, kể cả “Đón trả bé”, và Nhật ký không ghi lại việc này. `hieutruong` phải vào tab “Tính năng” tắt lại những phần trường đang để tắt.
+- Mọi tính năng cắm thêm bị bật lại, **trừ** những phần trường đã quyết tắt (từ Đ239: “Đón trả bé” bị tắt lại nếu đang bật), và Nhật ký không ghi lại việc này. Phần nào trường tự tắt thêm bằng tay thì `hieutruong` vào tab “Tính năng” tắt lại.
 - `quanly1` giữ nguyên mật khẩu, chức vụ và cơ sở.
 - Lệnh còn in dòng “cloudflared tunnel …”, dòng “Chạy máy chủ bằng: … npm start” và mục “DỌN SAU BUỔI THỬ” có lệnh `rm -rf /var/lib/casa-mamnon`. Bỏ qua cả ba: app đã chạy sẵn, còn lệnh `rm -rf` xoá sạch dữ liệu thử và mọi bản sao lưu.
 - Mật khẩu mới cũng chỉ in một lần: điền lại bảng ở trên.

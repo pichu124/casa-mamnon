@@ -7,6 +7,10 @@ rồi mới đọc `docs/TIEN-DO.md`.
 Xong việc nào thì gạch ngang việc đó tại chỗ (không xoá), ghi số Đ… đã làm, rồi cập
 nhật `docs/TIEN-DO.md` như thường lệ.
 
+> **18/10/2026 — Đ239:** phiên sau làm đợt góp ý của trường ngày 16/10 (11 mục) trên nhánh
+> `claude/nice-keller-ab1mso`, xem `docs/PHAN-HOI-TRUONG-1610.md`. PR #7 (Đ238) đã gộp vào
+> `main` trước đó. Các việc 1, 2, 4 và mục 2–4 dưới đây CHƯA đụng tới trong Đ239.
+
 ---
 
 ## 0. Tình trạng lúc giao lại
@@ -86,7 +90,11 @@ Ngoài phạm vi đó, Đ238 còn **siết** (không chỗ nào nới — đã t
 
 **Đề xuất:** giữ. Nếu chủ dự án bảo bỏ thì bỏ đúng các dòng trên, giữ phần đổi cách so.
 
-### Việc 3 — Bài giao diện `diem-danh-tra-be` đỏ mỗi thứ Bảy, Chủ nhật
+### ~~Việc 3 — Bài giao diện `diem-danh-tra-be` đỏ mỗi thứ Bảy, Chủ nhật~~ — ĐÃ LÀM ở Đ239h (18/10)
+
+> Khối cuối tuần đã thêm vào đầu bài đúng như đề xuất dưới đây; chạy Chủ nhật 18/10 các phép
+> cuối tuần xanh. CÒN một phép phụ thuộc GIỜ: mục [8] "bảng cần gọi xác nhận có nút Gọi" đỏ khi
+> chạy 00:00–06:00 giờ Việt Nam (mốc rà soát 06:00) — xem `docs/PHAN-HOI-TRUONG-1610.md`, mục cuối.
 
 `data/seed.js` dùng `recentWeekdays(20)` (bỏ T7/CN) → cuối tuần "hôm nay" không bé nào
 có mặt → nút "Ghi con đã về" (`public/js/views/attendance.js` ~1121, chỉ hiện khi bé có
