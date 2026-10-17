@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, ganPhuHuynh, GOC,
+  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, ganPhuHuynh, GOC, HOM_NAY,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -74,7 +74,7 @@ khoaVaoCoSo(DIR, 'vpcs2', 'cs2');
   // Nhà anh Bảo (p2): bé s3 học Chồi 2 ở cơ sở 1; thêm một bé ở Mầm 1 — cơ sở 2.
   c.prepare(`INSERT INTO students (id, name, dob, gender, classId, active, createdAt)
              VALUES ('s_cs2', 'Phạm Gia Khang', ?, 'Nam', 'c3', 1, ?)`)
-    .run(`${new Date().getFullYear() - 3}-06-01`, new Date().toISOString());
+    .run(`${Number(HOM_NAY().slice(0, 4)) - 3}-06-01`, new Date().toISOString());
   c.close();
 }
 ganPhuHuynh(DIR, 's_cs2', 'p2');
