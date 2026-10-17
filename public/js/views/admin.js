@@ -2341,6 +2341,8 @@ Vẫn nhận bé này?`)) {
       'student-create': 'Nhận một bé vào trường',
       'student-update': 'Sửa hồ sơ của bé',
       'student-deactivate': 'Cho bé nghỉ học',
+      'student-bao-luu': 'Cho bé nghỉ học bảo lưu',
+      'phu-huynh-them': 'Thêm tài khoản phụ huynh cho bé',
       'students-export': 'Xuất danh sách bé',
       'import-students': 'Nhập danh sách bé',
       'class-create': 'Tạo nhóm lớp',

@@ -17,11 +17,23 @@
 //      phân vào nhóm được — trước đây cô "mất" khỏi danh sách ngay khi tạo xong.
 //      Quản lý cơ sở KHÁC thì vẫn không thấy, không đụng được.
 //   3. POST /api/admin/teachers/:id/chuyen-nhom — chuyển cô một bước, giữ vai.
+//
+// Phần 2 (Đ239d2) — việc của VĂN PHÒNG CƠ SỞ: "tạo tài khoản cho phụ huynh và
+// điều chuyển học sinh chuyển lớp, nghỉ học bảo lưu và nhập thông tin đầy đủ":
+//
+//   4. POST /api/admin/students/:id/phu-huynh — thêm phụ huynh cho bé đã có.
+//      LUÔN là tài khoản mới: gắn theo số điện thoại trùng là cho người lạ xem
+//      con nhà khác.
+//   5. POST /api/admin/students/:id/bao-luu — nghỉ học bảo lưu, cùng hiệu ứng
+//      với "Cho nghỉ"; "Nhận lại" (PUT {active:true}) là đi học lại.
+//   6. Nhận bé nhập đủ thông tin, kể cả phụ huynh thứ hai — văn phòng NHẬP được,
+//      nhưng SỬA nhân thân sau đó thì vẫn không (luật 07/09 giữ nguyên).
+//   7. Quản lý cơ sở cấp lại mật khẩu cho cô mình tạo mà chưa phân nhóm.
 import path from 'path';
 import { createRequire } from 'module';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, datChucVu,
+  taoBoDem, taoReq, taoLogin, datChucVu, HOM_NAY,
 } from './_chung.mjs';
 
 const require_ = createRequire(import.meta.url);
@@ -55,6 +67,10 @@ function demTaiKhoan() {
 function coTenDangNhap(u) {
   const d = new Database(path.join(DIR, 'school.db'), { readonly: true, fileMustExist: true });
   try { return !!d.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(u); } finally { d.close(); }
+}
+function docDb(sql, ...thamSo) {
+  const d = new Database(path.join(DIR, 'school.db'), { readonly: true, fileMustExist: true });
+  try { return d.prepare(sql).all(...thamSo); } finally { d.close(); }
 }
 
 const BGH = await vao('hieutruong', mkBGH);
@@ -296,6 +312,240 @@ console.log('\n[6] Tab "Tài khoản" vẽ nút theo lời máy chủ — và l�
   const capLai = await req('POST', `/api/accounts/${idCoMoi}/reset-password`, { cookie: QL1 });
   check('quản lý cơ sở cấp lại được mật khẩu cho cô đang dạy nhóm của cơ sở mình',
     capLai.status === 200 && !!capLai.data?.temporaryPassword, capLai.status);
+}
+
+// ===========================================================================
+// PHẦN 2 (Đ239d2) — VIỆC CỦA VĂN PHÒNG CƠ SỞ
+// ===========================================================================
+const rVP2 = await tao(BGH, { name: 'Văn Phòng CS2', username: 'vanphong.cs2', chucVu: 'vanphong-coso', campusId: 'cs2' });
+const VP2 = await vao('vanphong.cs2', rVP2.data?.temporaryPassword);
+const MAT_KHAU_TAM = /^[a-z]{5}[2-9]{3}$/;
+// Không đọc được danh sách thì trả một dấu lỗi, KHÔNG trả mảng rỗng: rỗng làm
+// mọi phép "không thấy bé X" xanh mà không thử gì.
+const beCua = async (ck) => {
+  const r = await req('GET', '/api/students', { cookie: ck });
+  return Array.isArray(r.data) ? r.data.map(s => s.id).sort() : [`(lỗi ${r.status})`];
+};
+const hoSoNhom = async (ck, classId, keCaNghi = false) => (await req('GET',
+  `/api/admin/students?classId=${classId}${keCaNghi ? '&keCaNghi=1' : ''}`, { cookie: ck })).data || [];
+async function vaoPhuHuynhMoi(username, matKhauTam) {
+  const d = await login(username, matKhauTam);
+  await req('POST', '/api/auth/set-new-password', { cookie: d.cookie, body: { newPassword: 'giadinh2026' } });
+  return { lanDau: d, cookie: (await login(username, 'giadinh2026')).cookie };
+}
+
+// ===========================================================================
+console.log('\n[7] Văn phòng thêm phụ huynh thứ hai cho một bé đã có');
+{
+  const them = (ck, sid, body) => req('POST', `/api/admin/students/${sid}/phu-huynh`, { cookie: ck, body });
+  const r = await them(VP, 's3', { name: 'Trần Thị Thu', phone: '0977 000 111', quanHe: 'Mẹ', email: 'thu@example.vn' });
+  check('văn phòng thêm được phụ huynh cho bé Gia Hân → 201', r.status === 201, r.data);
+  check('trả tên đăng nhập và mật khẩu tạm MỘT lần',
+    !!r.data?.username && MAT_KHAU_TAM.test(r.data?.temporaryPassword || ''), r.data);
+  check('tài khoản mới, không phải tài khoản của phụ huynh đang có', r.data?.id && r.data.id !== 'p2', r.data?.id);
+
+  const ph = await vaoPhuHuynhMoi(r.data?.username, r.data?.temporaryPassword);
+  check('phụ huynh mới đăng nhập được bằng mật khẩu tạm', ph.lanDau.status === 200, ph.lanDau.status);
+  check('và bị buộc đổi mật khẩu ở lần đầu', ph.lanDau.data?.user?.mustChangePassword === true, ph.lanDau.data?.user);
+  check('PHỤ HUYNH MỚI THẤY ĐÚNG MỘT BÉ: bé Gia Hân', JSON.stringify(await beCua(ph.cookie)) === '["s3"]',
+    await beCua(ph.cookie));
+  check('mở được hồ sơ bé Gia Hân', (await req('GET', '/api/students/s3', { cookie: ph.cookie })).status === 200);
+  check('KHÔNG mở được hồ sơ bé khác cùng nhóm (canAccessStudent)',
+    (await req('GET', '/api/students/s4', { cookie: ph.cookie })).status === 403);
+  check('KHÔNG mở được hồ sơ sức khoẻ bé khác',
+    (await req('GET', '/api/health?studentId=s1', { cookie: ph.cookie })).status === 403);
+  check('phụ huynh đang có của bé vẫn thấy bé như cũ',
+    (await beCua((await login('phuhuynh2', '123456')).cookie)).includes('s3'));
+
+  const s3 = (await hoSoNhom(VP, 'c1')).find(s => s.id === 's3') || {};
+  const moi = (s3.parents || []).find(p => p.id === r.data?.id);
+  check('hồ sơ bé liệt kê hai phụ huynh', (s3.parents || []).length === 2, (s3.parents || []).map(p => p.name));
+  check('phụ huynh mới mang đúng quan hệ "Mẹ" và số điện thoại', moi?.quanHe === 'Mẹ' && moi?.phone === '0977 000 111', moi);
+  check('thẻ "hồ sơ chưa đủ" thôi đòi bố mẹ cho bé này', !(s3.thieuHoSo || []).includes('bo-me'), s3.thieuHoSo);
+  check('email phụ huynh được lưu',
+    docDb('SELECT email FROM users WHERE id = ?', r.data?.id)[0]?.email === 'thu@example.vn');
+
+  const nk = (await req('GET', '/api/admin/audit', { cookie: BGH })).data || [];
+  check('Nhật ký ghi lượt thêm phụ huynh', nk.some(x => x.action === 'phu-huynh-them' && x.target === 's3'),
+    nk.slice(0, 3).map(x => x.action));
+  check('và Nhật ký KHÔNG chứa mật khẩu tạm', !JSON.stringify(nk).includes(r.data?.temporaryPassword || '@@'));
+
+  // TRÙNG SỐ ĐIỆN THOẠI KHÔNG ĐƯỢC NỐI VÀO TÀI KHOẢN CÓ SẴN.
+  const trung = await them(VP, 's4', { name: 'Người Gõ Trùng Số', phone: '0912 345 678' });
+  check('trùng số với một phụ huynh đang có vẫn tạo TÀI KHOẢN MỚI', trung.status === 201 && trung.data?.id !== 'p1', trung.data);
+  const cuaPH = await beCua(PH);
+  check('và phụ huynh mang số đó KHÔNG được thấy bé Đức Anh (vẫn thấy con mình)',
+    cuaPH.includes('s1') && !cuaPH.includes('s4'), cuaPH);
+
+  const truoc = demTaiKhoan();
+  const vp2 = await them(VP2, 's3', { name: 'Người Cơ Sở 2', phone: '0977 000 222' });
+  check('văn phòng CƠ SỞ KHÁC → 404', vp2.status === 404, vp2.status);
+  const ql2 = await them(QL2, 's3', { name: 'Người Cơ Sở 2', phone: '0977 000 222' });
+  check('quản lý CƠ SỞ KHÁC → 404', ql2.status === 404, ql2.status);
+  for (const [ten, ck] of [['cô', GV], ['phụ huynh', PH], ['nhân sự', NS]]) {
+    const x = await them(ck, 's3', { name: `Do ${ten} thêm`, phone: '0977 000 333' });
+    check(`${ten} → 403`, x.status === 403, x.status);
+  }
+  check('thiếu họ tên → 400', (await them(VP, 's3', { name: ' ', phone: '0977 000 444' })).status === 400);
+  check('thiếu số điện thoại → 400', (await them(VP, 's3', { name: 'Không Có Số' })).status === 400);
+  check('bé không tồn tại → 404', (await them(VP, 's-khong-co', { name: 'Ai Đó', phone: '0977 000 555' })).status === 404);
+  check('không lượt bị từ chối nào để lại tài khoản', demTaiKhoan() === truoc, [truoc, demTaiKhoan()]);
+
+  // GIỚI HẠN 4 PHỤ HUYNH MỖI BÉ — quản lý cơ sở và ban giám hiệu cũng làm được.
+  const ba = await them(QL1, 's3', { name: 'Phạm Văn Ông', phone: '0977 000 666', quanHe: 'Ông nội' });
+  check('quản lý cơ sở thêm được phụ huynh thứ ba', ba.status === 201, ba.status);
+  const bon = await them(BGH, 's3', { name: 'Phạm Thị Bà', phone: '0977 000 777', quanHe: 'Bà nội' });
+  check('ban giám hiệu thêm được phụ huynh thứ tư', bon.status === 201, bon.status);
+  const truoc5 = demTaiKhoan();
+  const nam = await them(VP, 's3', { name: 'Người Thứ Năm', phone: '0977 000 888' });
+  check('phụ huynh thứ năm → 400', nam.status === 400, nam.status);
+  check('câu từ chối nói rõ giới hạn 4', /4/.test(nam.data?.error || ''), nam.data);
+  check('và không tạo tài khoản nào', demTaiKhoan() === truoc5, [truoc5, demTaiKhoan()]);
+}
+
+// ===========================================================================
+console.log('\n[8] Nghỉ học bảo lưu — cùng hiệu ứng với "Cho nghỉ", rồi đi học lại');
+{
+  const baoLuu = (ck, sid, body) => req('POST', `/api/admin/students/${sid}/bao-luu`, { cookie: ck, body });
+  const homNay = HOM_NAY();
+  const quayLai = `${Number(homNay.slice(0, 4)) + 1}-01`;
+  const diemDanhS6 = () => docDb('SELECT COUNT(*) AS n FROM attendance WHERE studentId = ?', 's6')[0].n;
+  const soDiemDanh = diemDanhS6();
+  check('đối chứng — bé Gia Bảo có sẵn dữ liệu điểm danh cũ', soDiemDanh > 0, soDiemDanh);
+
+  check('cô → 403', (await baoLuu(GV, 's6', {})).status === 403);
+  check('văn phòng cơ sở khác → 404', (await baoLuu(VP2, 's6', {})).status === 404);
+  check('tháng dự kiến quay lại sai dạng → 400', (await baoLuu(VP, 's6', { duKienQuayLai: 'tháng sau' })).status === 400);
+  check('ngày bắt đầu bảo lưu ở tương lai → 400',
+    (await baoLuu(VP, 's6', { tuNgay: `${Number(homNay.slice(0, 4)) + 1}-01-05` })).status === 400);
+  check('sau các lượt bị từ chối bé vẫn đang học', (await hoSoNhom(BGH, 'c1')).some(s => s.id === 's6'));
+
+  const r = await baoLuu(VP, 's6', { tuNgay: homNay, duKienQuayLai: quayLai, lyDo: 'Gia đình về quê một thời gian' });
+  check('văn phòng cho bé Gia Bảo nghỉ học bảo lưu → 200', r.status === 200, r.data);
+  check('bé ra khỏi danh sách đang học của nhóm', !(await hoSoNhom(BGH, 'c1')).some(s => s.id === 's6'));
+  const so = (await req('GET', `/api/attendance/class?classId=c1&date=${homNay}`, { cookie: GV })).data;
+  const trongSo = ((so || {}).students || []).map(x => x.student.id);
+  check('bé ra khỏi sổ điểm danh hôm nay của cô (các bé khác vẫn còn)',
+    trongSo.includes('s1') && !trongSo.includes('s6'), trongSo);
+  const cuaCo = await beCua(GV);
+  check('cô thôi thấy bé trong danh sách bé của mình', cuaCo.includes('s1') && !cuaCo.includes('s6'), cuaCo);
+  check('DỮ LIỆU CŨ CÒN NGUYÊN — điểm danh cũ không mất dòng nào', diemDanhS6() === soDiemDanh, [soDiemDanh, diemDanhS6()]);
+  check('hồ sơ bé còn trong cơ sở dữ liệu', docDb('SELECT id FROM students WHERE id = ?', 's6').length === 1);
+
+  // Nghỉ hẳn một bé khác bằng đường cũ, để so hai kiểu nghỉ.
+  check('cho nghỉ hẳn bé Khánh Vy bằng đường cũ', (await req('DELETE', '/api/admin/students/s5', { cookie: VP })).status === 200);
+  const daNghi = await hoSoNhom(VP, 'c1', true);
+  const s6 = daNghi.find(s => s.id === 's6') || {};
+  const s5 = daNghi.find(s => s.id === 's5') || {};
+  check('danh sách đã nghỉ có nhãn bảo lưu cho bé Gia Bảo',
+    s6.baoLuu?.tuNgay === homNay && s6.baoLuu?.duKienQuayLai === quayLai && /về quê/.test(s6.baoLuu?.lyDo || ''), s6.baoLuu);
+  check('bé nghỉ hẳn KHÔNG mang nhãn bảo lưu', s5.active === false && !s5.baoLuu, s5.baoLuu);
+  check('bé đang nghỉ thì không bảo lưu thêm lần nữa → 400', (await baoLuu(VP, 's5', {})).status === 400);
+
+  // Gia đình của bé bảo lưu thấy ĐÚNG như gia đình của bé nghỉ hẳn — không luật mới.
+  const giaDinhBaoLuu = (await login('ph.minh', '123456')).cookie;
+  const giaDinhNghi = (await login('ph.lan', '123456')).cookie;
+  const nhin = async (ck, sid) => [
+    (await beCua(ck)).includes(sid),
+    (await req('GET', `/api/students/${sid}`, { cookie: ck })).status,
+  ];
+  check('gia đình bé bảo lưu và gia đình bé nghỉ hẳn thấy y như nhau',
+    JSON.stringify(await nhin(giaDinhBaoLuu, 's6')) === JSON.stringify(await nhin(giaDinhNghi, 's5')),
+    [await nhin(giaDinhBaoLuu, 's6'), await nhin(giaDinhNghi, 's5')]);
+
+  const nk = (await req('GET', '/api/admin/audit', { cookie: BGH })).data || [];
+  check('Nhật ký ghi lượt bảo lưu', nk.some(x => x.action === 'student-bao-luu' && x.target === 's6'));
+
+  // ĐI HỌC LẠI = đúng đường "Nhận lại" đang có.
+  const lai = await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
+  check('văn phòng cho bé đi học lại → 200', lai.status === 200, lai.status);
+  check('bé trở lại danh sách đang học của nhóm', (await hoSoNhom(BGH, 'c1')).some(s => s.id === 's6'));
+  check('cô thấy lại bé', (await beCua(GV)).includes('s6'));
+  check('dòng bảo lưu đã hết', docDb('SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', 's6').length === 0);
+  check('và hồ sơ không còn nhãn bảo lưu', !((await hoSoNhom(BGH, 'c1')).find(s => s.id === 's6') || {}).baoLuu);
+  check('điểm danh cũ vẫn đủ sau khi đi học lại', diemDanhS6() === soDiemDanh);
+  check('nhận lại bé nghỉ hẳn vẫn chạy như cũ',
+    (await req('PUT', '/api/admin/students/s5', { cookie: VP, body: { active: true } })).status === 200);
+}
+
+// ===========================================================================
+console.log('\n[9] Văn phòng nhận bé nhập ĐỦ thông tin, kể cả phụ huynh thứ hai');
+{
+  const truoc = demTaiKhoan();
+  const goi = {
+    hoTen: 'Trần Minh Khang', classId: 'c1', tenLop: 'Chồi 2', ngaySinh: '2023-05-01', gioiTinh: 'Nam',
+    phHoTen: 'Trần Văn Bố', phSdt: '0966 111 222', phEmail: 'bo.khang@example.vn', phQuanHe: 'Bố',
+    diaChi: '1 Ngõ Thử', danToc: 'Tày', nhomMau: 'A', soDinhDanh: '001223000111',
+    tienSuBenh: 'Dị ứng tôm', lienHeKhanCap: [{ hoTen: 'Trần Thị Bà', quanHe: 'Bà nội', dienThoai: '0909 000 111' }],
+    phuHuynh2: { name: 'Nguyễn Thị Mẹ', phone: '0966 333 444', quanHe: 'Mẹ' },
+  };
+  const thieuSo = await req('POST', '/api/admin/students', {
+    cookie: VP, body: { ...goi, phuHuynh2: { name: 'Mẹ Không Số' } },
+  });
+  check('phụ huynh thứ hai thiếu số điện thoại → 400, và nói đúng ô thiếu',
+    thieuSo.status === 400 && /thứ hai.*số điện thoại/i.test(thieuSo.data?.error || ''), thieuSo.data);
+  const trungSo = await req('POST', '/api/admin/students', {
+    cookie: VP, body: { ...goi, phuHuynh2: { name: 'Mẹ Trùng Số', phone: '0966111222' } },
+  });
+  check('phụ huynh thứ hai trùng số với phụ huynh thứ nhất → 400',
+    trungSo.status === 400 && /trùng/i.test(trungSo.data?.error || ''), trungSo.data);
+  check('hai lượt bị từ chối không tạo bé nào, không tạo tài khoản nào',
+    demTaiKhoan() === truoc && !docDb('SELECT id FROM students WHERE name = ?', 'Trần Minh Khang').length);
+
+  const r = await req('POST', '/api/admin/students', { cookie: VP, body: goi });
+  check('văn phòng nhận bé đủ thông tin → 201', r.status === 201, r.data);
+  check('trả mật khẩu tạm của phụ huynh thứ nhất', MAT_KHAU_TAM.test(r.data?.taiKhoan?.matKhau || ''), r.data?.taiKhoan);
+  const tk2 = r.data?.taiKhoanPhuHuynh2;
+  check('VÀ của phụ huynh thứ hai, cùng lúc', !!tk2?.username && MAT_KHAU_TAM.test(tk2?.matKhau || ''), tk2);
+  check('tạo đúng hai tài khoản', demTaiKhoan() === truoc + 2, [truoc, demTaiKhoan()]);
+
+  const be = (await hoSoNhom(VP, 'c1')).find(s => s.id === r.data?.id) || {};
+  check('dân tộc và nhóm máu được lưu', be.ethnicity === 'Tày' && be.bloodType === 'A', [be.ethnicity, be.bloodType]);
+  check('số định danh và tiền sử bệnh được lưu', be.soDinhDanh === '001223000111' && be.tienSuBenh === 'Dị ứng tôm',
+    [be.soDinhDanh, be.tienSuBenh]);
+  check('liên hệ khẩn cấp được lưu',
+    (be.lienHeKhanCap || []).length === 1 && be.lienHeKhanCap[0].hoTen === 'Trần Thị Bà' && be.lienHeKhanCap[0].quanHe === 'Bà nội',
+    be.lienHeKhanCap);
+  const quanHe = (be.parents || []).map(p => p.quanHe).sort();
+  check('bé có hai phụ huynh, mang đúng quan hệ Bố và Mẹ', JSON.stringify(quanHe) === '["Bố","Mẹ"]', be.parents);
+  check('hồ sơ đủ ngay từ lúc nhận — không còn món nào phải đòi', (be.thieuHoSo || []).length === 0, be.thieuHoSo);
+  check('email phụ huynh thứ nhất được lưu',
+    docDb("SELECT email FROM users WHERE role = 'parent' AND name = ?", 'Trần Văn Bố')[0]?.email === 'bo.khang@example.vn');
+
+  const me = await vaoPhuHuynhMoi(tk2?.username, tk2?.matKhau);
+  check('phụ huynh thứ hai đăng nhập và thấy đúng bé vừa nhận', JSON.stringify(await beCua(me.cookie)) === JSON.stringify([r.data?.id]),
+    await beCua(me.cookie));
+
+  // ĐỐI CHỨNG LUẬT CŨ: nhập được, nhưng SỬA nhân thân sau đó thì không.
+  for (const [k, v] of [['ethnicity', 'Kinh'], ['soDinhDanh', '009999999999'], ['name', 'Tên Khác']]) {
+    const sua = await req('PUT', `/api/admin/students/${r.data?.id}`, { cookie: VP, body: { [k]: v } });
+    check(`văn phòng SỬA "${k}" sau khi nhận → vẫn 403`, sua.status === 403, sua.status);
+  }
+  const ql = await req('PUT', `/api/admin/students/${r.data?.id}`, { cookie: QL1, body: { ethnicity: 'Kinh' } });
+  check('quản lý cơ sở thì sửa được như cũ', ql.status === 200, ql.status);
+}
+
+// ===========================================================================
+console.log('\n[10] Quản lý cơ sở cấp lại mật khẩu cho cô mình tạo mà chưa phân nhóm');
+{
+  const capLai = (ck, id) => req('POST', `/api/accounts/${id}/reset-password`, { cookie: ck });
+  const co = await req('POST', '/api/admin/teachers', { cookie: QL1, body: { name: 'Cô Chưa Có Nhóm' } });
+  check('quản lý CS1 tạo cô chưa gán nhóm', co.status === 201, co.status);
+  const ok = await capLai(QL1, co.data?.id);
+  check('QUẢN LÝ CS1 CẤP LẠI ĐƯỢC mật khẩu cho cô ấy', ok.status === 200 && MAT_KHAU_TAM.test(ok.data?.temporaryPassword || ''),
+    ok.status);
+  check('quản lý CƠ SỞ KHÁC thì không', (await capLai(QL2, co.data?.id)).status === 403);
+  check('văn phòng cơ sở thì không (như cũ)', (await capLai(VP, co.data?.id)).status === 403);
+
+  const coBgh = await req('POST', '/api/admin/teachers', { cookie: BGH, body: { name: 'Cô Ban Giám Hiệu Tạo' } });
+  check('cô chưa nhóm do ban giám hiệu tạo: quản lý cơ sở vẫn KHÔNG cấp lại được (như cũ)',
+    (await capLai(QL1, coBgh.data?.id)).status === 403);
+
+  // Cô đã có nhóm thì nhóm mới là sự thật: phân sang cơ sở 2 là QL1 hết quyền.
+  await req('PUT', '/api/admin/classes/c3/teachers', { cookie: BGH, body: { teacherIds: [co.data?.id], chinhId: co.data?.id } });
+  check('cô được phân sang nhóm Cơ sở 2 thì quản lý CS1 hết cấp lại được',
+    (await capLai(QL1, co.data?.id)).status === 403);
+  check('và quản lý CS2 cấp lại được', (await capLai(QL2, co.data?.id)).status === 200);
 }
 
 sv.dung();
