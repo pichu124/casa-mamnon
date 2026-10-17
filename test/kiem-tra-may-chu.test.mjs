@@ -17,9 +17,29 @@ const require2 = createRequire(import.meta.url);
 const { check, tongKet } = taoBoDem();
 const SCRIPT = path.join(GOC, 'scripts', 'kiem-tra-may-chu.js');
 
+// Câu chỉ cách sửa múi giờ đi theo hệ điều hành của máy chủ: script rẽ nhánh
+// theo os.platform(). Bài canh phải rẽ theo, nếu không thì chạy trên Windows là
+// đỏ oan — script in đúng câu của Windows mà bài lại đòi câu của Linux.
+const CAU_SUA_MUI_GIO = {
+  linux: /sudo timedatectl set-timezone Asia\/Ho_Chi_Minh/,
+  win32: /Thời gian và ngôn ngữ → chọn múi giờ \(UTC\+07:00\) Hà Nội/,
+};
+const NEN_THAT = process.platform === 'win32' ? 'win32' : 'linux';
+
+// Giả hệ điều hành cho script, để máy nào cũng canh được CẢ HAI nhánh: chỉ canh
+// nhánh của máy đang chạy thì nhánh kia hỏng mà không ai hay.
+const GIA_NEN = thuMucTam('may-chu-gia-nen');
+fs.mkdirSync(GIA_NEN, { recursive: true });
+function tepGiaNen(nen) {
+  const tep = path.join(GIA_NEN, `${nen}.cjs`);
+  fs.writeFileSync(tep, `require('os').platform = () => ${JSON.stringify(nen)};\n`);
+  return tep;
+}
+
 // Chạy bộ kiểm tra, trả về toàn bộ chữ nó in ra và mã thoát.
-function chay(dir, { TZ = 'Asia/Ho_Chi_Minh', args = [] } = {}) {
-  const r = spawnSync(process.execPath, [SCRIPT, ...args], {
+function chay(dir, { TZ = 'Asia/Ho_Chi_Minh', args = [], nen = null } = {}) {
+  const giaNen = nen ? ['-r', tepGiaNen(nen)] : [];
+  const r = spawnSync(process.execPath, [...giaNen, SCRIPT, ...args], {
     cwd: GOC, encoding: 'utf8',
     env: { ...process.env, DATA_DIR: dir, TZ },
   });
@@ -46,7 +66,15 @@ console.log('\n[1] Múi giờ — bắt đúng lỗi đã gặp khi triển khai
   const utc = chay(DIR, { TZ: 'UTC' });
   check('máy chủ chạy giờ UTC → CẦN SỬA', trangThai(utc.out, 'Múi giờ máy chủ') === 'CẦN SỬA', trangThai(utc.out, 'Múi giờ máy chủ'));
   check('nói rõ lệch mấy tiếng', /lệch giờ Việt Nam 7 tiếng/.test(utc.out));
-  check('chỉ luôn câu lệnh sửa', /timedatectl set-timezone Asia\/Ho_Chi_Minh/.test(utc.out));
+  check('chỉ luôn câu lệnh sửa', CAU_SUA_MUI_GIO[NEN_THAT].test(utc.out), NEN_THAT);
+  for (const nen of ['linux', 'win32']) {
+    const khac = nen === 'win32' ? 'linux' : 'win32';
+    const r = chay(DIR, { TZ: 'UTC', nen });
+    check(`máy chủ ${nen === 'win32' ? 'Windows' : 'Linux'} → chỉ đúng cách sửa của hệ đó, không lẫn hệ kia`,
+      trangThai(r.out, 'Múi giờ máy chủ') === 'CẦN SỬA'
+        && CAU_SUA_MUI_GIO[nen].test(r.out) && !CAU_SUA_MUI_GIO[khac].test(r.out),
+      r.out.split('\n').filter(l => /múi giờ|timedatectl/i.test(l)).join(' | ').slice(0, 300));
+  }
   check('nêu đúng hậu quả: lịch sao lưu chạy sai giờ', /Lịch sao lưu .* sẽ chạy sai giờ/.test(utc.out));
 
   const tokyo = chay(DIR, { TZ: 'Asia/Tokyo' });
@@ -470,4 +498,5 @@ console.log('\n[8] Kho ảnh — cảnh báo SỚM, trước khi đĩa kịp đ�
 }
 
 donThuMucTam(DIR);
+donThuMucTam(GIA_NEN);
 tongKet();

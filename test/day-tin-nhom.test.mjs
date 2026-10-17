@@ -15,6 +15,7 @@
 // màn hình chờ của điện thoại là mất hai tin đầu, nên không ai đối chiếu ra.
 import path from 'node:path';
 import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
@@ -87,8 +88,10 @@ try {
     // CHƯA AI BẬT ĐẨY THÌ KHÔNG AI NHẬN — và đó là câu trả lời đúng, không
     // phải một lỗi. Hỏi cả trường rồi mới biết ai có máy là mỗi tin toàn
     // trường một lượt quét vô ích qua từng tài khoản.
-    const { nguoiNhanCua } = await import(path.join(GOC, 'lib/thong-bao.js'));
-    // Không nạp được kiểu ESM thì bỏ mục đo trực tiếp, các mục sau vẫn chạy.
+    // Nạp qua URL tệp, KHÔNG qua đường dẫn thô: trên Windows đường dẫn thô là
+    // 'C:\...', bộ nạp hiểu 'c:' là một giao thức lạ và cả bài chết ngay ở
+    // đây — mọi mục phía sau không chạy.
+    const { nguoiNhanCua } = await import(pathToFileURL(path.join(GOC, 'lib/thong-bao.js')).href);
     check('nạp được hàm để đo thẳng', typeof nguoiNhanCua === 'function');
   }
 
@@ -117,7 +120,7 @@ try {
   // =========================================================================
   console.log('\n[3] TRẦN SỐ TIN GỬI ĐỒNG THỜI — đo bằng HÀNH VI, không bằng chữ (việc 17)');
   {
-    const day = await import(path.join(GOC, 'lib/day.js'));
+    const day = await import(pathToFileURL(path.join(GOC, 'lib/day.js')).href);
     check('máy chủ nói ra được trần của mình', typeof day.trangThaiHangDoi === 'function');
     const t0 = day.trangThaiHangDoi();
     check('trần là một con số dương', t0.tran >= 1, t0.tran);

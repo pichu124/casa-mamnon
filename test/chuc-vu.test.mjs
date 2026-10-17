@@ -19,6 +19,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
+import { pathToFileURL } from 'url';
 import {
   GOC,
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
@@ -157,7 +158,7 @@ console.log('\n[3] DANH SÁCH CHO PHÉP — mỗi chức vụ chỉ mở phần 
   // nào chạm tới hai mảng ấy — kể cả một tiền tố rộng bao trùm chúng. Đây mới
   // là chỗ bắt được kiểu nới tay mô tả ở trên.
   {
-    const dbMod = await import(`file://${path.join(GOC, 'lib', 'db.js')}`);
+    const dbMod = await import(pathToFileURL(path.join(GOC, 'lib', 'db.js')).href);
     const bang = (dbMod.default || dbMod).CHUC_VU || [];
     const CAM = ['/api/surveys', '/api/health'];
     const cap2 = bang.filter(c => ['nhansu', 'marketing', 'ketoan'].includes(c.ma));

@@ -19,6 +19,7 @@
 //   [4] CHUỖI QR ĐÚNG CHUẨN — sai một ô là ngân hàng từ chối hoặc hiểu khác.
 import path from 'node:path';
 import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
@@ -70,7 +71,7 @@ function bungTLV(s) {
 // Rút chuỗi QR ra khỏi SVG: thư viện vẽ hình chứ không in chuỗi, nên bài này
 // gọi thẳng bộ dựng chuỗi của app để đọc nội dung, và chỉ dùng SVG để chắc
 // rằng màn hình có cái để hiện.
-const vietqr = (await import(`file://${path.join(GOC, 'lib/vietqr.js')}`)).default;
+const vietqr = (await import(pathToFileURL(path.join(GOC, 'lib/vietqr.js')).href)).default;
 
 let khoanId = null;
 
