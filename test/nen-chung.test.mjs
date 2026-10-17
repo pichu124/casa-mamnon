@@ -30,6 +30,11 @@ import { GOC, taoBoDem } from './_chung.mjs';
 const { check, tongKet } = taoBoDem();
 const DIEM_TACH = 'bc9dfa3';
 const TAI_LIEU = path.join(GOC, 'docs', 'LOI-NEN-CHUNG.md');
+// Đọc tài liệu với xuống dòng đã quy về '\n'. Máy Windows tải mã về có thể
+// mang CRLF, và khi đó mục [2] tìm '\n\n' không thấy: bảng bị cắt tới tận cuối
+// tệp, nuốt cả Sổ nợ, nên gỡ một tệp khỏi bảng mà bài VẪN XANH — lỏng đi mà
+// không ai hay. Quy về '\n' ở một chỗ thì mọi mục đọc giống hệt trên mọi máy.
+const docTaiLieu = () => fs.readFileSync(TAI_LIEU, 'utf8').replace(/\r\n/g, '\n');
 
 const git = (...a) => execFileSync('git', a, { cwd: GOC, encoding: 'utf8' });
 
@@ -80,7 +85,7 @@ let nenTaiDiemTach = [];
 // ===========================================================================
 console.log('\n[2] BẢNG PHẢI NHẮC TỚI TỪNG TỆP NỀN — không được bỏ sót cái nào');
 {
-  const vb = fs.readFileSync(TAI_LIEU, 'utf8');
+  const vb = docTaiLieu();
 
   // CHỈ ĐỌC PHẦN BẢNG, KHÔNG ĐỌC CẢ TỆP.
   //
@@ -89,8 +94,12 @@ console.log('\n[2] BẢNG PHẢI NHẮC TỚI TỪNG TỆP NỀN — không đư
   // xuất hiện trong một câu văn xuôi ở chỗ khác. Nhắc tên trong một câu chuyện
   // không phải là XẾP LOẠI nó.
   const dauBang = vb.indexOf('| Nhóm | Tệp | Có coi là nền chung không |');
-  const bang = dauBang < 0 ? '' : vb.slice(dauBang, vb.indexOf('\n\n', dauBang));
-  check('cắt ra được đúng phần bảng phân loại', bang.split('\n').length > 10,
+  // Không thấy dòng trống cuối bảng thì coi như KHÔNG cắt được, chứ không cắt
+  // tới cuối tệp — cắt tới cuối tệp là đọc cả văn xuôi, đúng cái lỗ ở trên.
+  const cuoiBang = dauBang < 0 ? -1 : vb.indexOf('\n\n', dauBang);
+  const bang = cuoiBang < 0 ? '' : vb.slice(dauBang, cuoiBang);
+  check('cắt ra được đúng phần bảng phân loại',
+    bang.split('\n').length > 10 && !bang.includes('## Sổ nợ'),
     bang.split('\n').length);
 
   const thieu = nenTaiDiemTach.filter(f => !bang.includes(`\`${f}\``));
@@ -111,7 +120,7 @@ console.log('\n[2] BẢNG PHẢI NHẮC TỚI TỪNG TỆP NỀN — không đư
 // ===========================================================================
 console.log('\n[3] MẸO NHẬN DIỆN PHẢI ĐÚNG CHIỀU');
 {
-  const vb = fs.readFileSync(TAI_LIEU, 'utf8');
+  const vb = docTaiLieu();
   check('tài liệu dạy hỏi "CÓ MẶT TẠI điểm tách"',
     /cat-file -e bc9dfa3:/.test(vb) && /có mặt TẠI điểm tách/i.test(vb));
   check('và KHÔNG còn dạy mẹo cũ theo "commit gần nhất"',
@@ -131,7 +140,7 @@ console.log('\n[3] MẸO NHẬN DIỆN PHẢI ĐÚNG CHIỀU');
 // ===========================================================================
 console.log('\n[4] SỔ NỢ PHẢI NÓI VỀ NHỮNG TỆP CÓ THẬT');
 {
-  const vb = fs.readFileSync(TAI_LIEU, 'utf8');
+  const vb = docTaiLieu();
   const soNo = vb.slice(vb.indexOf('## Sổ nợ'));
   check('tìm thấy mục Sổ nợ', soNo.length > 500, soNo.length);
 
@@ -155,7 +164,7 @@ console.log('\n[5] CON SỐ "CÒN NỢ" PHẢI KHỚP VỚI CHÍNH BẢNG NGAY T
   //
   // Sổ nợ sai về phía TỰ TRẤN AN là kiểu sai nguy hiểm nhất của tệp này: người
   // sang kho app 1 đọc "còn 16 món" rồi đối chiếu 16 món và tin là xong.
-  const vb = fs.readFileSync(TAI_LIEU, 'utf8');
+  const vb = docTaiLieu();
   const soNo = vb.slice(vb.indexOf('## Sổ nợ'));
 
   // Cột "Còn nợ" là cột áp chót của bảng Sổ nợ. Chỉ lấy dòng bảng thật: bắt
