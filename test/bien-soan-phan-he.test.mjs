@@ -344,8 +344,12 @@ console.log('\n[4] Ghi nhanh — cô ghi một khoảnh khắc qua đúng nút t
 // ===========================================================================
 console.log('\n[5] Hành trình học tập — cô ghi một quan sát và chủ đề tuần');
 {
+  // Góp ý 16/10 (mục 6): Hành trình mở vào bốn tab của bé; Suy ngẫm cuối ngày
+  // và Chủ đề tuần là hai lối phụ dưới tiêu đề.
   await moMan('#/hanhtrinh');
-  check('tab suy ngẫm có nút ghi một quan sát', await page.locator('#ht-them').count() === 1);
+  await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Suy ngẫm cuối ngày' }).click();
+  await page.waitForTimeout(1200);
+  check('lối phụ Suy ngẫm cuối ngày có nút ghi một quan sát', await page.locator('#ht-them').count() === 1);
 
   await page.click('#ht-them');
   await page.waitForTimeout(800);
@@ -364,7 +368,7 @@ console.log('\n[5] Hành trình học tập — cô ghi một quan sát và ch�
     /xếp chồng năm khối gỗ/.test(sauQs), sauQs.slice(0, 250));
 
   // Chủ đề tuần là màn B9 nói tới đúng chữ trong docs/TIEN-DO.md.
-  await page.locator('#ht-tabs button', { hasText: 'Chủ đề tuần' }).click();
+  await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Chủ đề tuần' }).click();
   await page.waitForTimeout(1200);
   check('mở được màn soạn chủ đề tuần', await page.locator('#ht-cd-luu').count() >= 1,
     (await chuTrenMan()).slice(0, 160));

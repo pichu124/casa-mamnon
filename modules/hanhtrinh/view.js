@@ -13,24 +13,38 @@
 //     phần trăm, không xếp bé nào trên bé nào.
 //   • Lời nhắc "mấy bé tuần này chưa có ghi chép" nói rõ nó là lời nhắc cho CÔ,
 //     không phải nhận định về đứa trẻ.
-// GÓP Ý 06/10 (mục 7): BỐN TAB, CHO CẢ CÔ LẪN GIA ĐÌNH
+// BỐN TAB, CHO CẢ CÔ LẪN GIA ĐÌNH (góp ý 06/10 mục 7; thứ tự 16/10 mục 6)
 //
-//   [Kế hoạch của bé] [Montessori & Kỹ năng sống] [Cambridge] [Thể chất]
+//   [Kế hoạch của bé] [Cambridge] [P.E (Thể chất)] [Montessori & Kỹ năng sống]
 //
 // Tab đầu đọc kế hoạch tháng của bé từ phân hệ Kế hoạch; cô nhìn lại cuối tháng
 // từng bài bằng CHỮ QUY ƯỚC (M/S/W/N/NA — năm trạng thái trung tính, chủ dự án
 // chốt 06/10) và chọn "Tiếp tục ở tháng sau" (dạy mới / ôn tập). Gia đình chỉ
 // thấy TÊN BÀI của phần đã duyệt — không thấy mức độ từng bài (bài canh Đ191).
 // Ba tab sau là quan sát / câu chuyện theo chương trình.
+//
+// Góp ý 16/10: màn của cô mở THẲNG vào bốn tab này (trước đó chúng nằm ở tầng
+// hai, sau "Hành trình từng bé"). Suy ngẫm cuối ngày và Chủ đề tuần không mất —
+// thành hai lối phụ dưới tiêu đề. Tab đi theo đường dẫn `#/hanhtrinh/<mã>`.
 App.views.hanhtrinh = {
-  _tab: 'suyngam',
-  // Tab đang chọn ở màn "Hành trình từng bé" (Đ195, việc 24; góp ý 06/10 mục
-  // 7): 'kehoach' hoặc mã một chương trình. Mặc định là Kế hoạch của bé — tab
-  // đầu tiên nhà trường đặt.
-  _nhomBe: 'kehoach',
+  // Thứ tự và chữ của bốn tab do nhà trường đặt — khai ở ĐÚNG MỘT CHỖ này cho
+  // cả cô lẫn gia đình. Không đổi thứ tự ở `lib/nhom-co.js`: màn nhắn tin và
+  // Kế hoạch của bé đang đọc thứ tự ở đó.
+  BON_TAB: [
+    ['kehoach', 'Kế hoạch của bé'],
+    ['nuoc-ngoai', 'Cambridge'],
+    ['the-chat', 'P.E (Thể chất)'],
+    ['chu-nhiem', 'Montessori & Kỹ năng sống'],
+  ],
+  LOI_PHU: [['suyngam', 'Suy ngẫm cuối ngày'], ['chude', 'Chủ đề tuần']],
+  // Tên ba chương trình, cùng thứ tự với BON_TAB — đọc từ đó, không chép lại.
+  get TEN_CT() { return Object.fromEntries(this.BON_TAB.slice(1)); },
+  _tab: 'kehoach',
+  // Bé đang xem ở bốn tab. Mặc định CHƯA chọn bé nào: nút Ghi nhanh đặt sẵn
+  // bé này, nên đoán hộ bé đầu danh sách là mời cô ghi nhầm (xem `moGhi`).
+  _beDangXem: '',
   _tabGd: 'kehoach',
   _thangKH: null,
-  TEN_CT: { 'chu-nhiem': 'Montessori & Kỹ năng sống', 'nuoc-ngoai': 'Cambridge', 'the-chat': 'Thể chất' },
   MAU_DUYET_KH: {
     nhap: ['Cô đang soạn', 'gray'], 'cho-duyet': ['Chờ quản lý duyệt', 'orange'],
     'da-duyet': ['Đã duyệt', 'green'], 'tra-lai': ['Quản lý gửi lại', 'blue'],
@@ -61,9 +75,19 @@ App.views.hanhtrinh = {
     return t ? t.ten : '';
   },
 
-  async render(root) {
+  laTab(ds, ma) { return ds.some(([m]) => m === ma); },
+
+  async render(root, params) {
     this._ngay = this._ngay || UI.todayStr();
-    if (this.laGiaDinh()) return this.manGiaDinh(root);
+    const ma = (params && params[0]) || '';
+    if (this.laGiaDinh()) {
+      // Tin báo câu chuyện mở `#/hanhtrinh/<mã bé>` — không phải mã tab thì giữ tab đang xem.
+      if (this.laTab(this.BON_TAB, ma)) this._tabGd = ma;
+      return this.manGiaDinh(root);
+    }
+    // ĐƯỜNG DẪN QUYẾT ĐỊNH TAB: `#/hanhtrinh` là tab Kế hoạch của bé — không
+    // còn rơi vào Suy ngẫm như trước góp ý 16/10.
+    this._tab = this.laTab(this.BON_TAB, ma) || this.laTab(this.LOI_PHU, ma) ? ma : 'kehoach';
     return this.manCoGiao(root);
   },
 
@@ -71,15 +95,18 @@ App.views.hanhtrinh = {
   async manCoGiao(root) {
     root.innerHTML = `
       ${UI.pageHeader('Hành trình học tập')}
-      <div class="seg" id="ht-tabs">
-        <button class="${this._tab === 'suyngam' ? 'active' : ''}" data-tab="suyngam">Suy ngẫm cuối ngày</button>
-        <button class="${this._tab === 'chude' ? 'active' : ''}" data-tab="chude">Chủ đề tuần</button>
-        <button class="${this._tab === 'be' ? 'active' : ''}" data-tab="be">Hành trình từng bé</button>
+      <div class="flex" id="ht-loi-phu" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        ${this.LOI_PHU.map(([ma, ten]) => `<button class="btn sm ${this._tab === ma ? 'primary' : 'outline'}"
+          data-tab="${UI.esc(ma)}" style="min-height:36px">${UI.esc(ten)}</button>`).join('')}
+      </div>
+      <div id="ht-chon"></div>
+      <div class="seg" id="ht-tabs" style="flex-wrap:wrap">
+        ${this.BON_TAB.map(([ma, ten]) => `<button class="${this._tab === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${UI.esc(ten)}</button>`).join('')}
       </div>
       <div id="ht-than"><div class="loading">Đang tải</div></div>`;
 
-    for (const b of document.getElementById('ht-tabs').querySelectorAll('button')) {
-      b.onclick = () => { this._tab = b.dataset.tab; App.route(); };
+    for (const b of root.querySelectorAll('#ht-loi-phu [data-tab], #ht-tabs [data-tab]')) {
+      b.onclick = () => { location.hash = `#/hanhtrinh/${b.dataset.tab}`; };
     }
     const than = document.getElementById('ht-than');
     // Nút Ghi nhanh nằm ngoài phần thân nên nó ở nguyên khi cô đổi tab —
@@ -87,8 +114,8 @@ App.views.hanhtrinh = {
     root.insertAdjacentHTML('beforeend', this.nutGhiNhanh());
     const sau = (p) => Promise.resolve(p).then(() => this.ganNutGhiNhanh());
     if (this._tab === 'chude') return sau(this.manChuDe(than));
-    if (this._tab === 'be') return sau(this.manTungBe(than));
-    return sau(this.manSuyNgam(than));
+    if (this._tab === 'suyngam') return sau(this.manSuyNgam(than));
+    return sau(this.manBonTab(than, document.getElementById('ht-chon')));
   },
 
   // ---- Tab 1: suy ngẫm cuối ngày ----
@@ -115,25 +142,7 @@ App.views.hanhtrinh = {
 
       <button class="btn primary block" id="ht-them">${UI.icon('plus', 18)} Ghi một quan sát</button>
 
-      ${this._nhap.length ? `
-        <div class="section-label">Nháp chưa gắn bé · chỉ cô thấy</div>
-        <div class="card" id="ht-nhap-ds">
-          <div class="muted small mb-8" style="line-height:1.6">
-            Cô ghi vội lúc đứng lớp, chưa chọn bé. Rảnh tay thì gắn bé và chương trình —
-            nháp thành một quan sát như mọi quan sát khác, rồi cô kể cho gia đình khi muốn.
-            Nháp quá <b>30 ngày</b> chưa gắn bé sẽ tự bỏ, kể cả ảnh.
-          </div>
-          ${this._nhap.map(n => `
-            <div class="list-row" style="flex-wrap:wrap;gap:8px">
-              ${n.coAnh ? `<img src="/api/hanhtrinh/anh/${UI.esc(n.anh)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:10px;flex:none">` : ''}
-              <div class="row-main" style="min-width:140px">
-                <div class="row-title" style="font-weight:400">${UI.esc(n.moTa || '(chỉ có ảnh)')}</div>
-                <div class="row-sub">${UI.esc(UI.timeAgo(n.taoLuc))}${n.tenChuongTrinh ? ` · ${UI.esc(n.tenChuongTrinh)}` : ''}</div>
-              </div>
-              <button class="btn sm primary" data-nhap-gan="${UI.esc(n.id)}" style="min-height:36px">Gắn bé</button>
-              <button class="btn sm outline" data-nhap-bo="${UI.esc(n.id)}" style="min-height:36px">Bỏ</button>
-            </div>`).join('')}
-        </div>` : ''}
+      ${this.khoiNhap(this._nhap)}
 
       ${(d.ghiNhanhChuaDung || []).length ? `
         <div class="section-label">Ghi nhanh hôm nay chưa đưa vào hành trình</div>
@@ -183,14 +192,7 @@ App.views.hanhtrinh = {
 
     document.getElementById('ht-ngay').onchange = (e) => { this._ngay = e.target.value; App.route(); };
     document.getElementById('ht-them').onclick = () => this.moGhi(null);
-    for (const b of than.querySelectorAll('[data-nhap-gan]')) b.onclick = () => this.moGanNhap(b.dataset.nhapGan);
-    for (const b of than.querySelectorAll('[data-nhap-bo]')) {
-      b.onclick = async () => {
-        if (!confirm('Bỏ bản nháp này? Đây là ghi chép riêng của cô, bỏ rồi không lấy lại được.')) return;
-        try { await API.del(`/api/hanhtrinh/nhap/${encodeURIComponent(b.dataset.nhapBo)}`); App.route(); }
-        catch (err) { UI.toast(err.message, 'error'); }
-      };
-    }
+    this.ganNutNhap(than);
     for (const el of than.querySelectorAll('[data-tu-ghinhanh]')) {
       el.onclick = () => {
         // Mang sẵn chữ và cờ "có ảnh" sang hộp thoại. Không mang thì cô bấm
@@ -213,6 +215,43 @@ App.views.hanhtrinh = {
     }
     for (const el of than.querySelectorAll('[data-cauchuyen]')) {
       el.onclick = () => this.moCauChuyen(el.dataset.cauchuyen);
+    }
+  },
+
+  // NHÁP CHƯA GẮN BÉ CỦA CHÍNH CÔ (lớp 1 — máy chủ chỉ trả nháp của người
+  // đang đăng nhập). Một khối dùng chung cho Suy ngẫm và ba tab chương trình.
+  khoiNhap(ds) {
+    if (!ds.length) return '';
+    return `
+        <div class="section-label">Nháp chưa gắn bé · chỉ cô thấy</div>
+        <div class="card" id="ht-nhap-ds">
+          <div class="muted small mb-8" style="line-height:1.6">
+            Cô ghi vội lúc đứng lớp, chưa chọn bé. Rảnh tay thì gắn bé và chương trình —
+            nháp thành một quan sát như mọi quan sát khác, rồi cô kể cho gia đình khi muốn.
+            Nháp quá <b>30 ngày</b> chưa gắn bé sẽ tự bỏ, kể cả ảnh.
+          </div>
+          ${ds.map(n => `
+            <div class="list-row" style="flex-wrap:wrap;gap:8px">
+              ${n.coAnh ? `<img src="/api/hanhtrinh/anh/${UI.esc(n.anh)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:10px;flex:none">` : ''}
+              <div class="row-main" style="min-width:140px">
+                <div class="row-title" style="font-weight:400">${UI.esc(n.moTa || '(chỉ có ảnh)')}</div>
+                <div class="row-sub">${UI.esc(UI.timeAgo(n.taoLuc))}${n.tenChuongTrinh ? ` · ${UI.esc(n.tenChuongTrinh)}` : ''}</div>
+              </div>
+              <button class="btn sm primary" data-nhap-gan="${UI.esc(n.id)}" style="min-height:36px">Gắn bé</button>
+              <button class="btn sm outline" data-nhap-bo="${UI.esc(n.id)}" style="min-height:36px">Bỏ</button>
+            </div>`).join('')}
+        </div>`;
+  },
+
+  // `ct`: chương trình đặt sẵn khi cô bấm Gắn bé ở một tab chương trình.
+  ganNutNhap(than, ct) {
+    for (const b of than.querySelectorAll('[data-nhap-gan]')) b.onclick = () => this.moGanNhap(b.dataset.nhapGan, ct);
+    for (const b of than.querySelectorAll('[data-nhap-bo]')) {
+      b.onclick = async () => {
+        if (!confirm('Bỏ bản nháp này? Đây là ghi chép riêng của cô, bỏ rồi không lấy lại được.')) return;
+        try { await API.del(`/api/hanhtrinh/nhap/${encodeURIComponent(b.dataset.nhapBo)}`); App.route(); }
+        catch (err) { UI.toast(err.message, 'error'); }
+      };
     }
   },
 
@@ -319,7 +358,10 @@ App.views.hanhtrinh = {
   // Chú thích này để ở đây, KHÔNG để trong chuỗi HTML: chú thích `<!-- -->` đi
   // thẳng ra trình duyệt, nên bộ canh QUY TẮC 2 đọc nó như chữ trên màn hình —
   // và nó đọc đúng.
-  moGhi(id, tu = {}) {
+  //
+  // Bé đặt sẵn chỉ là bé CÔ ĐÃ TỰ CHỌN ở bốn tab (`dangMo`), không bao giờ là
+  // bé đầu danh sách.
+  moGhi(id, tu = this.dangMo()) {
     this._anhMoi = null;
     const ds = (this._data || {}).danhSachBe || [];
     UI.modal(`
@@ -340,7 +382,7 @@ App.views.hanhtrinh = {
         <label>Chương trình</label>
         <select id="ht-nhom">
           <option value="">Theo vai của cô ở nhóm</option>
-          ${Object.entries(this.TEN_CT).map(([ma, ten]) => `<option value="${UI.esc(ma)}">${UI.esc(ten)}</option>`).join('')}
+          ${Object.entries(this.TEN_CT).map(([ma, ten]) => `<option value="${UI.esc(ma)}" ${tu.nhom === ma ? 'selected' : ''}>${UI.esc(ten)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -402,7 +444,10 @@ App.views.hanhtrinh = {
       moTa: document.getElementById('ht-mota').value.trim(),
       ghiNhanhId,
     };
-    const oNhom = document.getElementById('ht-nhom');
+    // Hỏi TRONG HỘP THOẠI: màn Chủ đề tuần cũng có một ô `ht-nhom` (chọn nhóm
+    // lớp) đứng trước hộp trong trang — hỏi cả trang là gửi mã nhóm lớp lên
+    // làm chương trình, và máy chủ từ chối lượt ghi.
+    const oNhom = document.querySelector('#modal-overlay #ht-nhom');
     if (oNhom && oNhom.value) body.nhom = oNhom.value;
     if (this._anhMoi) body.anh = this._anhMoi;
     // CHƯA GẮN BÉ: lưu thành nháp riêng của cô, gắn bé sau (góp ý 06/10, mục 7).
@@ -426,8 +471,9 @@ App.views.hanhtrinh = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  // GẮN BÉ + CHƯƠNG TRÌNH cho một nháp (góp ý 06/10, mục 7).
-  moGanNhap(id) {
+  // GẮN BÉ + CHƯƠNG TRÌNH cho một nháp (góp ý 06/10, mục 7). Nháp chưa chọn
+  // chương trình thì đặt sẵn `ctMacDinh` — tab chương trình đang mở (16/10).
+  moGanNhap(id, ctMacDinh) {
     const n = (this._nhap || []).find(x => x.id === id);
     if (!n) return;
     const ds = (this._data || {}).danhSachBe || [];
@@ -441,7 +487,7 @@ App.views.hanhtrinh = {
       <div class="field"><label>Chương trình</label>
         <select id="ht-gan-nhom">
           <option value="">Theo vai của cô ở nhóm</option>
-          ${Object.entries(this.TEN_CT).map(([ma, ten]) => `<option value="${UI.esc(ma)}" ${n.nhom === ma ? 'selected' : ''}>${UI.esc(ten)}</option>`).join('')}
+          ${Object.entries(this.TEN_CT).map(([ma, ten]) => `<option value="${UI.esc(ma)}" ${(n.nhom || ctMacDinh) === ma ? 'selected' : ''}>${UI.esc(ten)}</option>`).join('')}
         </select></div>
       <div class="field"><label>Cô đã thấy gì</label>
         <textarea id="ht-gan-mota" rows="3">${UI.esc(n.moTa || '')}</textarea>
@@ -615,8 +661,12 @@ App.views.hanhtrinh = {
   },
 
   // ---- Hộp thoại: câu chuyện cho gia đình (lớp 3) ----
-  async moCauChuyen(id) {
-    const q = (this._data.quanSat || []).find(x => x.id === id);
+  //
+  // `tu`: quan sát mở từ một tab chương trình của bé (không nằm trong danh
+  // sách hôm nay của Suy ngẫm). Cùng một hộp, cùng một đường công bố — cô
+  // chủ động bấm mới kể, không có gì tự công bố.
+  async moCauChuyen(id, tu) {
+    const q = tu || (this._data.quanSat || []).find(x => x.id === id);
     if (!q) return;
     // ALBUM ĐỂ LƯU ẢNH VỀ (Đ144). Chỉ hỏi khi quan sát CÓ ảnh và chưa về album
     // nào; danh sách là album của đúng nhóm bé, nhóm đang mở. Tải lỗi thì bỏ
@@ -963,66 +1013,128 @@ App.views.hanhtrinh = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  // ---- Tab 3: hành trình từng bé ----
-  async manTungBe(than) {
-    const ds = (this._data && this._data.danhSachBe) || [];
-    if (!ds.length) {
-      const d = await API.get(`/api/hanhtrinh/hom-nay?ngay=${encodeURIComponent(this._ngay)}`);
-      this._data = d;
+  // ---- Bốn tab của bé (góp ý 16/10, mục 6) ----
+  //
+  // Đầu màn: chọn nhóm (cô nhiều nhóm / văn phòng) rồi chọn bé. Tab Kế hoạch
+  // cần một bé; tab chương trình thì chưa chọn bé vẫn có việc — khối nháp
+  // chưa gắn bé của chính cô thuộc chương trình ấy (hoặc chưa chọn chương
+  // trình), gắn bé ngay tại chỗ.
+  async manBonTab(than, vungChon) {
+    const d = await API.get(`/api/hanhtrinh/hom-nay?ngay=${encodeURIComponent(this._ngay)}`);
+    this._data = d;
+    const tatCa = d.danhSachBe || [];
+    // Chỉ những nhóm của cô (văn phòng: nhóm mình xem được) đang có bé —
+    // không mời cô bấm sang nhóm máy chủ sẽ từ chối.
+    const nhom = App.nhomCuaCo().filter(c => tatCa.some(b => b.classId === c.id));
+    if (!nhom.some(c => c.id === this._classId)) this._classId = (nhom[0] && nhom[0].id) || '';
+    const dsBe = nhom.length > 1 ? tatCa.filter(b => b.classId === this._classId) : tatCa;
+    if (!dsBe.some(b => b.id === this._beDangXem)) this._beDangXem = '';
+    this.veChonBe(vungChon, nhom, dsBe);
+
+    const dBe = this._beDangXem
+      ? await API.get(`/api/hanhtrinh?studentId=${encodeURIComponent(this._beDangXem)}`) : null;
+    // Phần nào cô ghi được ở nhóm của bé — máy chủ khai, màn chỉ phản ánh;
+    // chốt chặn vẫn là đường ghi của máy chủ.
+    this._duocGhi = (dBe && dBe.nhomDuocGhi) || null;
+    const ct = this._tab;
+    if (ct === 'kehoach') {
+      if (!dBe) {
+        than.innerHTML = `<div id="ht-be-than">${UI.emptyState('🧭',
+          'Cô chọn một bé ở ô trên để xem kế hoạch tháng của bé và nhìn lại cuối tháng.')}</div>`;
+        return;
+      }
+      than.innerHTML = '<div id="ht-be-than"><div class="loading">Đang tải</div></div>';
+      return this.veKeHoachCo(document.getElementById('ht-be-than'), dBe.be);
     }
-    const dsBe = (this._data.danhSachBe || []);
-    if (!dsBe.length) { than.innerHTML = UI.emptyState('🌱', 'Chưa có bé nào.'); return; }
-    this._beDangXem = this._beDangXem || dsBe[0].id;
 
-    const d = await API.get(`/api/hanhtrinh?studentId=${encodeURIComponent(this._beDangXem)}`);
-
-    // BA TAB THEO BA NHÓM CÔ (Đ195, việc 24).
-    //
-    // Tên và số của từng tab do MÁY CHỦ khai (`nhomCoTab`) — màn hình không
-    // kể lại tên ba nhóm lần nữa. Máy chủ đời cũ không gửi khoá ấy thì không
-    // vẽ dải tab và mọi quan sát hiện chung một danh sách, đúng như trước.
-    const tab = d.nhomCoTab || [];
-    if (this._nhomBe !== 'kehoach' && this._nhomBe && !tab.some(t => t.ma === this._nhomBe)) this._nhomBe = 'kehoach';
-    if (!this._nhomBe) this._nhomBe = 'kehoach';
-    const loc = this._nhomBe && this._nhomBe !== 'kehoach'
-      ? (d.quanSat || []).filter(q => q.nhomCo === this._nhomBe)
-      : (d.quanSat || []);
+    const nhap = await API.get('/api/hanhtrinh/nhap').catch(() => ({ nhap: [] }));
+    this._nhap = (nhap.nhap || []).filter(n => !n.nhom || n.nhom === ct);
+    const ten = this.TEN_CT[ct];
+    const ds = dBe ? (dBe.quanSat || []).filter(q => q.nhomCo === ct).map(q => ({ ...q, hoTen: dBe.be.hoTen })) : [];
+    // Kể cho gia đình: chỉ trên quan sát của chính cô (văn phòng: mọi quan
+    // sát) — đúng luật của đường công bố.
+    const nutKe = (q) => (q.cuaToi || App.state.user.role === 'admin' ? `
+      <button class="btn ${q.daCongBo ? 'outline' : 'success-soft'} block mt-8" data-cauchuyen="${UI.esc(q.id)}">
+        ${UI.icon('send', 16)} ${q.daCongBo ? 'Sửa câu chuyện' : 'Kể cho gia đình'}
+      </button>` : '');
 
     // CÂU KHI TAB RỖNG PHẢI KHÁC CÂU KHI BÉ CHƯA CÓ QUAN SÁT NÀO.
     //
     // QUY TẮC 2: "chưa quan sát thấy" không bao giờ được trình bày như một
-    // thất bại hay một khoảng trống cần lấp. Tab Cô nước ngoài trống nghĩa là
+    // thất bại hay một khoảng trống cần lấp. Tab Cambridge trống nghĩa là
     // chương trình ấy chưa tới lượt ghi, không phải bé thiếu gì cả.
-    const tenTab = (tab.find(t => t.ma === this._nhomBe) || {}).ten || '';
-    const trong = this._nhomBe
-      ? UI.emptyState('🌱', `Phần ${tenTab} chưa có dòng nào trong tháng này. Các phần khác vẫn ở dải trên.`)
-      : UI.emptyState('🌱',
-        'Chưa có quan sát nào về bé, và không sao cả — hành trình của mỗi bé bắt đầu từ dòng đầu tiên cô ghi.');
+    const trong = dBe && !(dBe.quanSat || []).length
+      ? UI.emptyState('🌱',
+        'Chưa có quan sát nào về bé, và không sao cả — hành trình của mỗi bé bắt đầu từ dòng đầu tiên cô ghi.')
+      : UI.emptyState('🌱', `Phần ${ten} của bé chưa có dòng nào. Các phần khác vẫn ở dải trên.`);
 
     than.innerHTML = `
-      <div class="card">
-        <div class="field" style="margin:0">
-          <label>Xem hành trình của bé</label>
-          <select id="ht-chon-be">
-            ${dsBe.map(b => `<option value="${UI.esc(b.id)}" ${b.id === this._beDangXem ? 'selected' : ''}>${UI.esc(b.hoTen)}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      ${tab.length ? `<div class="seg" id="ht-nhom-tabs" style="margin-bottom:10px;overflow-x:auto">
-        <button class="${this._nhomBe === 'kehoach' ? 'active' : ''}" data-nhom="kehoach">Kế hoạch của bé</button>
-        ${tab.map(t => `<button class="${this._nhomBe === t.ma ? 'active' : ''}" data-nhom="${UI.esc(t.ma)}"
-          title="${UI.esc(t.ten)}">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}${t.soQuanSat ? ` (${t.soQuanSat})` : ''}</button>`).join('')}
-      </div>` : ''}
-      <div id="ht-be-than">${this._nhomBe === 'kehoach' && tab.length ? '<div class="loading">Đang tải</div>'
-        : (loc.length ? loc.map(q => this.theDong(q, d)).join('') : trong)}</div>`;
-    document.getElementById('ht-chon-be').onchange = (e) => { this._beDangXem = e.target.value; App.route(); };
-    const dai = document.getElementById('ht-nhom-tabs');
-    if (dai) {
-      for (const b of dai.querySelectorAll('button')) {
-        b.onclick = () => { this._nhomBe = b.dataset.nhom; App.route(); };
-      }
+      <div id="ht-be-than">
+        ${dBe ? `
+          ${this._duocGhi && !this._duocGhi.includes(ct) ? `
+            <div class="card"><div class="muted small" style="line-height:1.6">
+              Phần ${UI.esc(ten)} ở nhóm của bé do cô khác phụ trách ghi. Cô vẫn đọc được những gì
+              đã ghi ở đây; quan sát của cô vào phần cô phụ trách.</div></div>` : ''}
+          ${ds.length ? ds.map(q => this.theDong(q, dBe, nutKe(q))).join('') : trong}`
+        : `
+          <div class="card"><div class="muted small" style="line-height:1.6">
+            Cô chọn một bé ở ô trên để xem nhận xét, ảnh và câu chuyện của bé ở phần ${UI.esc(ten)}.
+            Nút <b>Ghi nhanh</b> dùng được ngay — chưa chọn bé thì lưu nháp, gắn bé sau.</div></div>`}
+        ${this.khoiNhap(this._nhap)}
+      </div>`;
+    const vung = document.getElementById('ht-be-than');
+    this.ganNutNhap(vung, ct);
+    for (const el of vung.querySelectorAll('[data-cauchuyen]')) {
+      el.onclick = () => this.moCauChuyen(el.dataset.cauchuyen, ds.find(q => q.id === el.dataset.cauchuyen));
     }
-    if (this._nhomBe === 'kehoach' && tab.length) await this.veKeHoachCo(document.getElementById('ht-be-than'), d.be);
+  },
+
+  // Ô chọn nhóm + ô chọn bé (tìm theo tên, gõ không dấu cũng ra).
+  veChonBe(vung, nhom, dsBe) {
+    vung.innerHTML = `
+      <div class="card">
+        ${nhom.length > 1 ? `
+          <div class="field">
+            <label>Nhóm</label>
+            <select id="ht-chon-nhom">
+              ${nhom.map(c => `<option value="${UI.esc(c.id)}" ${c.id === this._classId ? 'selected' : ''}>${UI.esc(c.name)}</option>`).join('')}
+            </select>
+          </div>` : ''}
+        <div class="field" style="margin:0">
+          <label>Bé</label>
+          ${dsBe.length ? `
+            <input id="ht-tim-be" type="search" autocomplete="off" placeholder="Gõ tên để tìm bé…" aria-label="Tìm bé theo tên">
+            <select id="ht-chon-be" class="mt-8"></select>` : '<div class="muted small">Nhóm chưa có bé nào.</div>'}
+        </div>
+      </div>`;
+    const oNhom = document.getElementById('ht-chon-nhom');
+    if (oNhom) oNhom.onchange = () => { this._classId = oNhom.value; this._beDangXem = ''; App.route(); };
+    const oBe = document.getElementById('ht-chon-be');
+    if (!oBe) return;
+    const oTim = document.getElementById('ht-tim-be');
+    const boDau = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+    // Bé đang chọn luôn ở lại trong ô, để ô chọn không nói khác phần bên dưới.
+    const ve = () => {
+      const tim = boDau(oTim.value);
+      const trung = dsBe.filter(b => !tim || boDau(b.hoTen).includes(tim) || b.id === this._beDangXem);
+      oBe.innerHTML = `<option value="">— Chọn bé —</option>${trung.map(b => `
+        <option value="${UI.esc(b.id)}" ${b.id === this._beDangXem ? 'selected' : ''}>${UI.esc(b.hoTen)}</option>`).join('')}`;
+    };
+    ve();
+    oTim.oninput = ve;
+    oBe.onchange = () => { this._beDangXem = oBe.value; App.route(); };
+  },
+
+  // Nút Ghi nhanh biết cô đang đứng ở đâu (góp ý 16/10, mục 6). Ở bốn tab: bé
+  // đặt sẵn là bé cô đang chọn; ở tab chương trình: ô Chương trình đặt sẵn
+  // chương trình ấy — trừ khi phần ấy ở nhóm của bé do cô khác ghi (đặt sẵn
+  // một lựa chọn chắc chắn bị từ chối là bắt cô gõ xong mới biết). Ở hai lối
+  // phụ thì như cũ.
+  dangMo() {
+    if (this.laTab(this.LOI_PHU, this._tab)) return {};
+    const ct = this.TEN_CT[this._tab] && (!this._duocGhi || this._duocGhi.includes(this._tab)) ? this._tab : '';
+    return { studentId: this._beDangXem, nhom: ct };
   },
 
   // ---- Tab "Kế hoạch của bé" của CÔ (góp ý 06/10, mục 7) ----
@@ -1047,7 +1159,9 @@ App.views.hanhtrinh = {
     const chu = (ma) => { const t = (d.mucDo || []).find(y => y.ma === ma); return t ? `${t.chuCai} · ${t.ten}` : ''; };
     const MAU = { 'chua-day': 'gray', 'chua-quan-sat-thay': 'gray', 'dang-hinh-thanh': 'blue', 'da-vung': 'green', 'vuot-troi': 'green' };
 
-    const phan = (d.chuongTrinhTab || []).map(t => {
+    // Thẻ ba phần theo đúng thứ tự bốn tab của trường, không theo thứ tự máy chủ gửi.
+    const thuTu = Object.keys(this.TEN_CT);
+    const phan = [...(d.chuongTrinhTab || [])].sort((a, b) => thuTu.indexOf(a.ma) - thuTu.indexOf(b.ma)).map(t => {
       const goc = (t.goc || []).map(g => g.ma);
       const bai = k ? (k.baiHoc || []).filter(b => goc.includes(b.gocLinhVuc)) : [];
       const p = k && k.chuongTrinh ? k.chuongTrinh[t.ma] : null;
@@ -1116,7 +1230,8 @@ App.views.hanhtrinh = {
     }
   },
 
-  theDong(q, d) {
+  // `nut`: nút thao tác của cô dưới thẻ (vd "Kể cho gia đình" ở tab chương trình).
+  theDong(q, d, nut = '') {
     const tt = q.trangThai
       ? UI.badge(this.ten(d.trangThai, q.trangThai), this.MAU_TRANG_THAI[q.trangThai] || 'gray') : '';
     return `
@@ -1133,6 +1248,7 @@ App.views.hanhtrinh = {
         ${q.oLopLamGi ? `<div class="muted small" style="line-height:1.6">Ở lớp: ${UI.esc(q.oLopLamGi)}</div>` : ''}
         ${q.cauChuyen ? `<div class="mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">
           ${UI.esc(q.cauChuyen)}</div>` : ''}
+        ${nut}
       </div>`;
   },
 
@@ -1179,17 +1295,18 @@ App.views.hanhtrinh = {
     }
   },
 
-  // Bốn tab của gia đình (góp ý 06/10, mục 7). Máy chủ đời cũ chưa gửi
-  // `nhomCoTab` thì về đúng một danh sách như trước.
+  // Bốn tab của gia đình (góp ý 06/10, mục 7), cùng thứ tự và chữ với màn
+  // của cô (16/10, mục 6). Máy chủ đời cũ chưa gửi `nhomCoTab` thì về đúng
+  // một danh sách như trước.
   veTabGiaDinh(d) {
     const tab = d.nhomCoTab || [];
     if (!tab.length) return this.veBaiThangNay(d) + this.veCauChuyen(d.quanSat || []);
     if (this._tabGd !== 'kehoach' && !tab.some(t => t.ma === this._tabGd)) this._tabGd = 'kehoach';
     const loc = (d.quanSat || []).filter(q => q.nhomCo === this._tabGd);
     return `
-      <div class="seg" id="ht-ph-tabs" style="overflow-x:auto">
-        <button class="${this._tabGd === 'kehoach' ? 'active' : ''}" data-tab="kehoach">Kế hoạch của bé</button>
-        ${tab.map(t => `<button class="${this._tabGd === t.ma ? 'active' : ''}" data-tab="${UI.esc(t.ma)}">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}</button>`).join('')}
+      <div class="seg" id="ht-ph-tabs" style="flex-wrap:wrap">
+        ${this.BON_TAB.filter(([ma]) => ma === 'kehoach' || tab.some(t => t.ma === ma)).map(([ma, ten]) => `
+          <button class="${this._tabGd === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${UI.esc(ten)}</button>`).join('')}
       </div>
       ${this._tabGd === 'kehoach'
         ? (this.veBaiThangNay(d) || UI.emptyState('🧭', 'Kế hoạch tháng này của con sẽ hiện ở đây khi nhà trường đã duyệt.'))
@@ -1204,7 +1321,7 @@ App.views.hanhtrinh = {
     const goc = d.gocKeHoach || [];
     const ctCua = (ma) => (goc.find(g => g.ma === ma) || {}).chuongTrinh || 'chu-nhiem';
     const tenGoc = (ma) => (goc.find(g => g.ma === ma) || {}).ten || this.tenGoc(d, ma);
-    const nhom = ['chu-nhiem', 'nuoc-ngoai', 'the-chat']
+    const nhom = Object.keys(this.TEN_CT)
       .map(ct => [ct, ds.filter(b => ctCua(b.gocLinhVuc) === ct)]).filter(([, x]) => x.length);
     return `
       <div class="section-label">Tháng này con được học</div>

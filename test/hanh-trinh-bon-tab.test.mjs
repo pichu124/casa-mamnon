@@ -156,8 +156,12 @@ try {
   console.log('\n[7] Mã nguồn: bốn tab, chữ quy ước, không có "Đánh giá cuối tháng" ở phân hệ Kế hoạch');
   {
     const v = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
-    check('màn cô có tab "Kế hoạch của bé" đứng trước ba chương trình', /data-nhom="kehoach">Kế hoạch của bé</.test(v));
-    check('màn gia đình có bốn tab', /id="ht-ph-tabs"/.test(v) && /data-tab="kehoach">Kế hoạch của bé</.test(v));
+    // Góp ý 16/10 (mục 6): thứ tự và chữ của bốn tab khai MỘT chỗ trong phân
+    // hệ, cho cả cô lẫn gia đình — Kế hoạch của bé đứng trước ba chương trình.
+    check('bốn tab khai một chỗ, đúng thứ tự trường: Kế hoạch / Cambridge / P.E (Thể chất) / Montessori & Kỹ năng sống',
+      /BON_TAB:\s*\[\s*\['kehoach', 'Kế hoạch của bé'\],\s*\['nuoc-ngoai', 'Cambridge'\],\s*\['the-chat', 'P\.E \(Thể chất\)'\],\s*\['chu-nhiem', 'Montessori & Kỹ năng sống'\],?\s*\]/.test(v));
+    check('màn cô vẽ dải tab từ đúng hằng ấy', /id="ht-tabs"[\s\S]{0,200}?this\.BON_TAB\.map/.test(v));
+    check('màn gia đình có bốn tab, cũng vẽ từ hằng ấy', /id="ht-ph-tabs"[\s\S]{0,200}?this\.BON_TAB/.test(v));
     const kh = ['routes.js', 'view.js', 'schema.sql'].map(t => fs.readFileSync(path.join(GOC, 'modules/kehoachbe', t), 'utf8')).join('\n');
     check('phân hệ Kế hoạch vẫn gọi là "Nhìn lại", không "Đánh giá cuối tháng"', !/Đánh giá cuối tháng/.test(kh));
     check('màu của mức độ không đỏ, không cam', !/MAU_KET_QUA[^}]*(red|orange)/.test(kh) && !/MAU = \{[^}]*(red|orange)/.test(v));
