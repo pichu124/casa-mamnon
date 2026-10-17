@@ -92,11 +92,15 @@ function khungCau(ma, index) {
 }
 
 // Vùng quét: mọi tệp máy chủ có thể đọc bảng.
+//
+// Tên tệp trả về LUÔN viết bằng '/': nó được so với tệp gốc trong BANG. Ghép
+// bằng path.join thì trên Windows ra 'routes\albums.js', tệp gốc mất miễn trừ
+// và thành "lỗ" giả — bài đỏ oan ở máy của người mới tải mã về.
 function cacTep() {
   const ra = [];
   const them = (thuMuc, sau = 0) => {
     for (const ten of fs.readdirSync(path.join(GOC, thuMuc))) {
-      const duong = path.join(thuMuc, ten);
+      const duong = `${thuMuc}/${ten}`;
       const day = path.join(GOC, duong);
       if (fs.statSync(day).isDirectory()) { if (sau < 1) them(duong, sau + 1); continue; }
       if (ten.endsWith('.js')) ra.push(duong);
@@ -127,6 +131,14 @@ console.log('\n[1] Mọi câu ĐỌC bảng thu hồi được, ngoài tệp g�
   const tep = cacTep();
   // Đối chứng: quét vào chỗ rỗng thì mục này xanh mà không kiểm gì cả.
   check('quét được đủ tệp máy chủ để soi', tep.length >= 25, tep.length);
+  check('tên tệp trong vùng quét viết bằng / trên mọi hệ',
+    tep.every(t => !t.includes('\\')), tep.filter(t => t.includes('\\')).slice(0, 3));
+  // Tệp gốc của từng bảng phải nằm trong vùng quét. Nếu không khớp được tên
+  // (khác dấu phân cách, đổi chỗ tệp), dòng `t === tepGoc` ở dưới không bao
+  // giờ đúng và tệp gốc bị soi như mọi tệp khác.
+  check('tệp gốc của mọi bảng trong BANG đều có trong vùng quét',
+    Object.values(BANG).every(g => tep.includes(g)),
+    Object.values(BANG).filter(g => !tep.includes(g)));
 
   const lo = [];
   let soCauDaSoi = 0;

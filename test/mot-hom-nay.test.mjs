@@ -19,6 +19,7 @@
 // được cả dòng ai đó viết ngày mai.
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { GOC, taoBoDem } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -61,6 +62,10 @@ const MIEN = {
   'lib/ngay.js': 'chính là nơi định nghĩa "hôm nay" — nó phải được viết bằng tay',
 };
 
+// Tên tệp trả về LUÔN viết bằng '/': nó là khoá tra trong MIEN và là thứ
+// LA_MAN_HINH, LA_MA_TRINH_DUYET dùng để lọc. Ghép bằng path.join thì trên
+// Windows ra 'lib\ngay.js': tệp được miễn và các màn phân hệ mất miễn trừ, còn
+// vùng quét trình duyệt thành RỖNG — bài vừa đỏ oan vừa không soi được màn nào.
 function cacTep(muc) {
   const p = path.join(GOC, muc);
   if (!fs.existsSync(p)) return [];
@@ -68,12 +73,12 @@ function cacTep(muc) {
   for (const ten of fs.readdirSync(p)) {
     const con = path.join(p, ten);
     const st = fs.statSync(con);
-    if (st.isDirectory()) ra.push(...cacTep(path.join(muc, ten)));
+    if (st.isDirectory()) ra.push(...cacTep(`${muc}/${ten}`));
     // .mjs CŨNG PHẢI ĐƯỢC QUÉT. Bài test của kho mã này là `.mjs`, nên thêm
     // `test` vào vùng quét mà vẫn chỉ khớp `.js` là quét đúng 0 tệp — bộ canh
     // xanh vì không nhìn gì cả, đúng loại bài canh rỗng mà `test:bai-canh-that`
     // sinh ra để bắt.
-    else if (/\.(js|mjs)$/.test(ten)) ra.push(path.join(muc, ten));
+    else if (/\.(js|mjs)$/.test(ten)) ra.push(`${muc}/${ten}`);
   }
   return ra;
 }
@@ -150,6 +155,9 @@ console.log('\n[1] Bộ canh có thật sự nhìn tới nơi cần nhìn');
 {
   check('quét cả sáu vùng — kể cả thư mục bài test', VUNG_QUET.length === 6, VUNG_QUET);
   check('tìm được kha khá tệp để soi', tatCaTep.length >= 40, tatCaTep.length);
+  check('tên tệp trong vùng quét viết bằng / trên mọi hệ',
+    [...tatCaTep, ...tepTrinhDuyet].every(t => !t.includes('\\')),
+    [...tatCaTep, ...tepTrinhDuyet].filter(t => t.includes('\\')).slice(0, 3));
   check('có nhìn vào thư mục con của phân hệ',
     tatCaTep.some(t => /^modules\/[^/]+\/routes\.js$/.test(t)),
     tatCaTep.filter(t => t.startsWith('modules/')).slice(0, 4));
@@ -209,8 +217,8 @@ console.log('\n[3] Nơi cần dùng thì có dùng thật');
 // ===========================================================================
 console.log('\n[4] Hàm tính ngày trả đúng số');
 {
-  const ngay = (await import(`file://${path.join(GOC, 'lib/ngay.js')}`)).default
-    || (await import(`file://${path.join(GOC, 'lib/ngay.js')}`));
+  const ngay = (await import(pathToFileURL(path.join(GOC, 'lib/ngay.js')).href)).default
+    || (await import(pathToFileURL(path.join(GOC, 'lib/ngay.js')).href));
 
   check('Việt Nam là UTC+7', ngay.LECH_PHUT === 420, ngay.LECH_PHUT);
 

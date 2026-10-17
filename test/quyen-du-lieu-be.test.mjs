@@ -88,15 +88,18 @@ const GOC_CANH = [
 const MIEN = {};
 
 // --- Bộ quét ---------------------------------------------------------------
+// Tên tệp trả về LUÔN viết bằng '/': mục [1] soi bằng startsWith('routes/')
+// và startsWith('modules/'). Ghép bằng path.join thì trên Windows ra
+// 'routes\attendance.js' — bài đỏ oan ở máy của người mới tải mã về.
 function tepCoDuongDan() {
   const ds = [];
   for (const t of fs.readdirSync(path.join(GOC, 'routes')).sort()) {
-    if (t.endsWith('.js')) ds.push(path.join('routes', t));
+    if (t.endsWith('.js')) ds.push(`routes/${t}`);
   }
   const goc = path.join(GOC, 'modules');
   if (fs.existsSync(goc)) {
     for (const ma of fs.readdirSync(goc).sort()) {
-      const p = path.join('modules', ma, 'routes.js');
+      const p = `modules/${ma}/routes.js`;
       if (fs.existsSync(path.join(GOC, p))) ds.push(p);
     }
   }
@@ -208,6 +211,8 @@ console.log('\n[1] Bộ quét có thật sự nhìn thấy mã nguồn');
 {
   const ds = tepCoDuongDan();
   check('tìm thấy đủ tệp có đường dẫn API', ds.length >= 25, ds.length);
+  check('tên tệp trong danh sách quét viết bằng / trên mọi hệ',
+    ds.every(t => !t.includes('\\')), ds.filter(t => t.includes('\\')).slice(0, 3));
   check('có cả tệp lõi lẫn tệp của phân hệ cắm thêm',
     ds.some(t => t.startsWith('routes/')) && ds.some(t => t.startsWith('modules/')),
     ds.filter(t => t.startsWith('modules/')).length);

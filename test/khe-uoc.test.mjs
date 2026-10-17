@@ -221,13 +221,18 @@ console.log('\n[Một bản nén ảnh duy nhất]');
   ];
 
   // Mọi tệp chạy trên máy người dùng: view lõi, ui/app, và view của phân hệ.
+  //
+  // Tên tệp trong danh sách LUÔN viết bằng '/', không ghép bằng path.join: trên
+  // Windows path.join ra 'public\js\ui.js', không bằng CHO_PHEP, và bài này
+  // đỏ oan ngay ở máy của người mới tải mã về. Đọc tệp thì fs nhận '/' trên
+  // mọi hệ.
   function tepTrinhDuyet() {
     const ds = [];
     const themThuMuc = (tuongDoi, loc = () => true) => {
       const tm = path.join(GOC, tuongDoi);
       if (!fs.existsSync(tm)) return;
       for (const ten of fs.readdirSync(tm)) {
-        if (ten.endsWith('.js') && loc(ten)) ds.push(path.join(tuongDoi, ten));
+        if (ten.endsWith('.js') && loc(ten)) ds.push(`${tuongDoi}/${ten}`);
       }
     };
     themThuMuc('public/js');
@@ -235,7 +240,7 @@ console.log('\n[Một bản nén ảnh duy nhất]');
     const goc = path.join(GOC, 'modules');
     if (fs.existsSync(goc)) {
       for (const ma of fs.readdirSync(goc)) {
-        const v = path.join('modules', ma, 'view.js');
+        const v = `modules/${ma}/view.js`;
         if (fs.existsSync(path.join(GOC, v))) ds.push(v);
       }
     }
@@ -257,6 +262,8 @@ console.log('\n[Một bản nén ảnh duy nhất]');
   const ds = tepTrinhDuyet();
   check('có tìm thấy tệp để quét (bộ canh không quét vào khoảng không)',
     ds.length >= 20 && ds.includes(CHO_PHEP), ds.length);
+  check('tên tệp trong danh sách quét viết bằng / trên mọi hệ',
+    ds.every(t => !t.includes('\\')), ds.filter(t => t.includes('\\')).slice(0, 3));
 
   const doc = (tep) => fs.readFileSync(path.join(GOC, tep), 'utf8');
   const bat = batChepLai(ds, doc);
