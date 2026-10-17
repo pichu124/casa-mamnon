@@ -93,6 +93,8 @@ App.views.hanhtrinh = {
 
   // ================= Màn của CÔ =================
   async manCoGiao(root) {
+    // Khoảng đệm cuối màn: nút Ghi nhanh nổi cố định ở góc dưới, không chừa chỗ
+    // thì cuộn hết nó vẫn che dòng cuối (nút Gắn bé / Bỏ của khối nháp).
     root.innerHTML = `
       ${UI.pageHeader('Hành trình học tập')}
       <div class="flex" id="ht-loi-phu" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -103,7 +105,8 @@ App.views.hanhtrinh = {
       <div class="seg" id="ht-tabs" style="flex-wrap:wrap">
         ${this.BON_TAB.map(([ma, ten]) => `<button class="${this._tab === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${UI.esc(ten)}</button>`).join('')}
       </div>
-      <div id="ht-than"><div class="loading">Đang tải</div></div>`;
+      <div id="ht-than"><div class="loading">Đang tải</div></div>
+      <div aria-hidden="true" style="height:calc(56px + env(safe-area-inset-bottom, 0px))"></div>`;
 
     for (const b of root.querySelectorAll('#ht-loi-phu [data-tab], #ht-tabs [data-tab]')) {
       b.onclick = () => { location.hash = `#/hanhtrinh/${b.dataset.tab}`; };

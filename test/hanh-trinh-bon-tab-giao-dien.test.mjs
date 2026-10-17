@@ -326,6 +326,47 @@ try {
   }
 
   // =========================================================================
+  console.log('\n[1g] Khổ điện thoại: cuộn hết thì nút Ghi nhanh không che phần cuối của màn');
+  {
+    await dangNhap('giaovien', '123456');
+    // Thêm nháp cho màn chắc chắn phải cuộn — khối nháp (nút Gắn bé / Bỏ nằm
+    // bên phải) là phần cuối màn, đúng chỗ nút nổi hay đè lên.
+    for (let i = 1; i <= 4; i++) {
+      await req('POST', '/api/hanhtrinh/nhap', { cookie: GV, body: { moTa: `Nháp đệm ${i}: bé tự cất giày lên kệ`, nhom: 'nuoc-ngoai' } });
+    }
+    await moMan('#/hanhtrinh/nuoc-ngoai');
+    const doDac = async () => {
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForTimeout(400);
+      return page.evaluate(() => {
+        const nut = document.getElementById('ht-ghi-nhanh').getBoundingClientRect();
+        const cuoi = document.querySelector('#ht-than').lastElementChild;
+        const khoi = cuoi && cuoi.lastElementChild;
+        const dong = [...document.querySelectorAll('#ht-nhap-ds .list-row')].pop();
+        return {
+          cuon: document.documentElement.scrollHeight > window.innerHeight,
+          laKhoiNhap: !!khoi && khoi.id === 'ht-nhap-ds',
+          nutTren: Math.round(nut.top),
+          khoiDuoi: khoi ? Math.round(khoi.getBoundingClientRect().bottom) : null,
+          dongDuoi: dong ? Math.round(dong.getBoundingClientRect().bottom) : null,
+        };
+      });
+    };
+    const thuong = await doDac();
+    check('đối chứng — màn dài hơn khổ điện thoại, phần cuối màn là khối nháp', thuong.cuon && thuong.laKhoiNhap, thuong);
+    check('cuộn hết: khối nháp nằm trọn phía trên nút Ghi nhanh', thuong.khoiDuoi !== null && thuong.khoiDuoi <= thuong.nutTren, thuong);
+    // Điện thoại có thanh vuốt (iPhone): vùng an toàn dưới 34px đẩy nút lên.
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } });
+    const coVuot = await doDac();
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: {} });
+    await cdp.detach();
+    check('đối chứng — có vùng an toàn thì nút nhích lên', coVuot.nutTren < thuong.nutTren, { thuong, coVuot });
+    check('có vùng an toàn: khối nháp và dòng nháp cuối vẫn không bị nút che',
+      coVuot.khoiDuoi !== null && coVuot.khoiDuoi <= coVuot.nutTren && coVuot.dongDuoi <= coVuot.nutTren, coVuot);
+  }
+
+  // =========================================================================
   console.log('\n[2] Gia đình: bốn tab cùng thứ tự, tên bài chia theo chương trình, KHÔNG thấy mức độ');
   {
     await dangNhap('phuhuynh', '123456');
