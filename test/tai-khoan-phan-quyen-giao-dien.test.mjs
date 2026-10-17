@@ -14,7 +14,7 @@
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, taoBoDem, taoReq, taoLogin,
-  CHROMIUM, tatBannerMoiCai,
+  CHROMIUM, tatBannerMoiCai, HOM_NAY,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -241,8 +241,12 @@ try {
   check('dòng của bé đang học có nút "Bảo lưu" cạnh "Cho nghỉ"',
     await page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first().locator('button', { hasText: 'Bảo lưu' }).count() === 1);
 
-  // -- Bé bảo lưu không quay lại: "Thôi bảo lưu, nghỉ hẳn" (Đ239-vá3)
-  await page.evaluate(() => API.post('/api/admin/students/s4/bao-luu', {}));
+  // -- Bé bảo lưu không quay lại: "Thôi bảo lưu, nghỉ hẳn" (Đ239-vá3). Bảo lưu
+  // ghi lùi ba ngày (Đ239-vá4): bé tính là nghỉ từ ngày bắt đầu bảo lưu, không
+  // phải từ hôm văn phòng bấm Bảo lưu.
+  const tuNgayBL = new Date(Date.parse(`${HOM_NAY()}T00:00:00Z`) - 3 * 86400000).toISOString().slice(0, 10);
+  const dmyBL = `${tuNgayBL.slice(8, 10)}/${tuNgayBL.slice(5, 7)}/${tuNgayBL.slice(0, 4)}`;
+  await page.evaluate((tuNgay) => API.post('/api/admin/students/s4/bao-luu', { tuNgay }), tuNgayBL);
   await page.evaluate(() => App.views.admin.xemLop('c1'));
   await page.waitForSelector('.modal .list-row', { timeout: 8000 });
   const dongBL2 = page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first();
@@ -250,10 +254,13 @@ try {
     await dongBL2.locator('button', { hasText: 'Thôi bảo lưu, nghỉ hẳn' }).count() === 1
     && await dongBL2.locator('button', { hasText: 'Đi học lại' }).count() === 1, await dongBL2.innerText());
   const ngayNghiTruoc = (await beQuaApi('c1', 's4')).leftAt;
+  check('(đối chứng) ngày nghỉ đang là hôm bấm Bảo lưu, khác ngày bắt đầu bảo lưu',
+    !!ngayNghiTruoc && ngayNghiTruoc !== tuNgayBL, [ngayNghiTruoc, tuNgayBL]);
   await dongBL2.locator('button', { hasText: 'Thôi bảo lưu, nghỉ hẳn' }).click();
   await page.waitForSelector('#ad-thoi-bl-ok', { timeout: 5000 });
-  check('hộp xác nhận nói rõ ngày nghỉ và dữ liệu giữ nguyên', /Ngày nghỉ của bé giữ nguyên/.test(await page.locator('.modal').innerText())
-    && /giữ nguyên/.test(await page.locator('.modal').innerText()));
+  const hopThoi = await page.locator('.modal').innerText();
+  check(`hộp xác nhận nói bé tính là nghỉ từ ngày bắt đầu bảo lưu ${dmyBL}, dữ liệu giữ nguyên`,
+    hopThoi.includes(`Bé tính là nghỉ từ ngày bắt đầu bảo lưu ${dmyBL}`) && /dữ liệu cũ vẫn được giữ nguyên/.test(hopThoi), hopThoi);
   await page.click('#ad-thoi-bl-ok');
   await page.waitForSelector('.modal .list-row', { timeout: 8000 });
   await page.waitForTimeout(600);
@@ -261,8 +268,8 @@ try {
   check('bấm xác nhận: bé mang nhãn "Đã nghỉ", hết nhãn bảo lưu, có nút "Nhận lại"',
     /Đã nghỉ/.test(sauThoi) && !/Bảo lưu|Đi học lại/.test(sauThoi) && /Nhận lại/.test(sauThoi), sauThoi);
   const s4Nghi = await beQuaApi('c1', 's4');
-  check('máy chủ: bé vẫn nghỉ, không còn bảo lưu, ngày nghỉ không đổi',
-    s4Nghi.active === false && !s4Nghi.baoLuu && s4Nghi.leftAt === ngayNghiTruoc, [s4Nghi.active, s4Nghi.baoLuu, s4Nghi.leftAt, ngayNghiTruoc]);
+  check('máy chủ: bé vẫn nghỉ, không còn bảo lưu, ngày nghỉ là ngày bắt đầu bảo lưu',
+    s4Nghi.active === false && !s4Nghi.baoLuu && s4Nghi.leftAt === tuNgayBL, [s4Nghi.active, s4Nghi.baoLuu, s4Nghi.leftAt, tuNgayBL]);
   await page.evaluate(() => API.put('/api/admin/students/s4', { active: true }));
   await page.evaluate(() => UI.closeModal());
 

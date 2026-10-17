@@ -1673,17 +1673,27 @@ module.exports = (app) => {
   });
 
   // THÔI BẢO LƯU, NGHỈ HẲN (Đ239-vá3). Bé bảo lưu rồi gia đình báo không quay
-  // lại: bỏ nhãn bảo lưu, bé vẫn nghỉ, GIỮ NGUYÊN ngày nghỉ — mốc 12 tháng gia
-  // đình còn xem hồ sơ con tính từ hôm bé thôi đi học, không phải hôm văn phòng
-  // bấm nút này. Cùng quyền với ghi bảo lưu.
+  // lại: bỏ nhãn bảo lưu, bé vẫn nghỉ — mốc 12 tháng gia đình còn xem hồ sơ con
+  // tính từ hôm bé thôi đi học, không phải hôm văn phòng bấm nút này. Cùng
+  // quyền với ghi bảo lưu.
+  //
+  // Bảo lưu GHI LÙI ngày (Đ239-vá4) thì ngày nghỉ đang là hôm bấm Bảo lưu, muộn
+  // hơn ngày bắt đầu bảo lưu: ngày nghỉ lùi về ngày bắt đầu, không thì Xuất báo
+  // cáo đếm mấy ngày ở giữa là "Chưa điểm danh". Không bao giờ dời về sau.
   app.post('/api/admin/students/:id/thoi-bao-luu', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     if (!db.canAccessStudent(req.user, s.id) || !duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
     const bl = db.first('hoc_sinh_bao_luu', 'SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
     if (s.active || !bl) return res.status(400).json({ error: 'Bé không đang nghỉ học bảo lưu.' });
-    db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
-    db.audit(req.user.id, 'student-thoi-bao-luu', s.id, { name: s.name, tuNgay: bl.tuNgay, leftAt: s.leftAt || null });
+    const ngayNghi = String(s.leftAt || '').slice(0, 10);
+    const lui = !/^\d{4}-\d{2}-\d{2}$/.test(ngayNghi) || bl.tuNgay < ngayNghi;
+    db.tx(() => {
+      if (lui) db.update('students', s.id, { leftAt: bl.tuNgay });
+      db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
+    });
+    db.audit(req.user.id, 'student-thoi-bao-luu', s.id,
+      { name: s.name, tuNgay: bl.tuNgay, leftAt: lui ? bl.tuNgay : s.leftAt });
     res.json({ ok: true });
   });
 

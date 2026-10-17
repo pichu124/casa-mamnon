@@ -1126,7 +1126,7 @@ App.views.admin = {
           ${daNghiHoc
             ? (s.baoLuu
               ? `<button class="btn sm outline" onclick="App.views.admin.diHocLai('${UI.esc(s.id)}')">Đi học lại</button>
-                 <button class="btn sm outline" onclick="App.views.admin.thoiBaoLuu('${UI.esc(s.id)}')">Thôi bảo lưu, nghỉ hẳn</button>`
+                 <button class="btn sm outline" onclick="App.views.admin.thoiBaoLuu('${UI.esc(s.id)}', '${UI.esc(s.baoLuu.tuNgay)}')">Thôi bảo lưu, nghỉ hẳn</button>`
               : `<button class="btn sm outline" onclick="App.views.admin.nhanLaiHocSinh('${UI.esc(s.id)}')">Nhận lại</button>`)
             : `<button class="btn sm outline" onclick="App.views.admin.suaHocSinh('${UI.esc(s.id)}')">Sửa</button>
                <button class="btn sm outline" onclick="App.views.admin.choBaoLuu('${UI.esc(s.id)}')">Bảo lưu</button>
@@ -1590,12 +1590,15 @@ Vẫn nhận bé này?`)) {
     return this.nhanLaiHocSinh(studentId, 'Bé đã đi học lại');
   },
 
-  // Gia đình báo bé không quay lại: bỏ nhãn bảo lưu, bé vẫn nghỉ, ngày nghỉ giữ nguyên.
-  thoiBaoLuu(studentId) {
+  // Gia đình báo bé không quay lại: bỏ nhãn bảo lưu, bé vẫn nghỉ, tính là nghỉ
+  // từ ngày bắt đầu bảo lưu (máy chủ lùi ngày nghỉ khi bảo lưu ghi lùi ngày).
+  // `tuNgay` máy chủ đã soát đúng dạng YYYY-MM-DD lúc ghi bảo lưu.
+  thoiBaoLuu(studentId, tuNgay) {
     UI.modal(`
       <p style="line-height:1.6">Bé sẽ không quay lại? Bé chuyển từ <b>bảo lưu</b> sang <b>đã nghỉ học</b>.</p>
       <p class="muted small" style="line-height:1.6">
-        Ngày nghỉ của bé giữ nguyên như lúc bắt đầu bảo lưu. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b>.
+        Bé tính là nghỉ từ ngày bắt đầu bảo lưu${tuNgay ? ` <b>${UI.esc(UI.fmtDate(tuNgay, { weekday: false }))}</b>` : ''}.
+        <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b>.
         Sau này bé quay lại thì vẫn bấm "Nhận lại" ở danh sách nhóm.
       </p>
       <button class="btn primary block mt-14" id="ad-thoi-bl-ok">Xác nhận nghỉ hẳn</button>

@@ -32,7 +32,7 @@
 import path from 'path';
 import { createRequire } from 'module';
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, datChucVu, HOM_NAY, dongNhom,
 } from './_chung.mjs';
 
@@ -520,6 +520,77 @@ console.log('\n[8b] Bé đang bảo lưu chốt nghỉ hẳn — hết nhãn "B�
     (await req('DELETE', '/api/admin/students/s5', { cookie: VP })).status === 200 && (await beNghi('s5')).active === false);
   await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
   await req('PUT', '/api/admin/students/s5', { cookie: VP, body: { active: true } });
+}
+
+// ===========================================================================
+// Bảo lưu GHI LÙI ngày (bé đã thôi đến lớp từ mấy hôm trước) rồi gia đình báo
+// không quay lại: ngày nghỉ đang là hôm bấm Bảo lưu, muộn hơn ngày bắt đầu bảo
+// lưu. Giữ nguyên ngày ấy thì tệp Xuất báo cáo đổi "Bảo lưu từ <ngày bắt đầu>"
+// thành "Nghỉ từ <hôm bấm>" và đếm mấy ngày ở giữa là "Chưa điểm danh".
+console.log('\n[8c] Thôi bảo lưu một bảo lưu ghi lùi ngày — bé tính là nghỉ từ ngày bắt đầu bảo lưu (Đ239-vá4)');
+{
+  const thoi = (ck, sid) => req('POST', `/api/admin/students/${sid}/thoi-bao-luu`, { cookie: ck });
+  const baoLuu = (ck, sid, body) => req('POST', `/api/admin/students/${sid}/bao-luu`, { cookie: ck, body });
+  const ngayNghiCua = (sid) => (docDb('SELECT leftAt FROM students WHERE id = ?', sid)[0] || {}).leftAt;
+  const homNay = HOM_NAY();
+  const lui = (n) => new Date(Date.parse(`${homNay}T00:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+  const dmy = (s) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
+  // Số ngày thứ Hai – thứ Sáu trong [tu, truoc).
+  const soNgayThuong = (tu, truoc) => {
+    let n = 0;
+    for (let t = Date.parse(`${tu}T00:00:00Z`); t < Date.parse(`${truoc}T00:00:00Z`); t += 86400000) {
+      if ([1, 2, 3, 4, 5].includes(new Date(t).getUTCDay())) n += 1;
+    }
+    return n;
+  };
+  const tuNgay = lui(5);
+  // Một bé nhóm c1 nhận từ lâu và CHƯA có dòng điểm danh nào: mọi ngày thường
+  // trước ngày nghỉ đều là "Chưa điểm danh", nên đếm sai một ngày là thấy ngay.
+  {
+    const d = new Database(path.join(DIR, 'school.db'), { fileMustExist: true });
+    try {
+      d.prepare(`INSERT INTO students (id, code, name, dob, gender, classId, active, leftAt, createdAt)
+        VALUES ('sgl', 'MNGL', 'Bé Ghi Lùi', '2022-02-02', 'Nữ', 'c1', 1, NULL, ?)`).run(`${lui(400)}T00:00:00.000Z`);
+    } finally { d.close(); }
+  }
+  const xlsx = require_(path.join(GOC, 'lib', 'xlsx.js'));
+  const tongHop = async (tu) => {
+    const r = await fetch(`${sv.BASE}/api/xuatbaocao/diemdanh-be?pham=nhom&classId=c1&tu=${tu}&den=${homNay}&kieu=trangthai`,
+      { headers: { Cookie: BGH } });
+    if (r.status !== 200) return { status: r.status };
+    const hang = (xlsx.doc(Buffer.from(await r.arrayBuffer()))[0] || { hang: [] }).hang;
+    const tieuDe = hang[0] || [];
+    const dong = hang.find(h => h && h[1] === 'Bé Ghi Lùi') || [];
+    return { status: 200, chua: dong[tieuDe.indexOf('Chưa điểm danh')], ghiChu: dong[tieuDe.indexOf('Ghi chú')] };
+  };
+
+  const bl = await baoLuu(VP, 'sgl', { tuNgay, lyDo: 'Ốm dài ngày' });
+  check('(đối chứng) văn phòng ghi bảo lưu lùi 5 ngày → 200', bl.status === 200, bl.data);
+  check('(đối chứng) ngày nghỉ là hôm bấm, muộn hơn ngày bắt đầu bảo lưu',
+    ngayNghiCua('sgl') === homNay && (docDb('SELECT tuNgay FROM hoc_sinh_bao_luu WHERE studentId = ?', 'sgl')[0] || {}).tuNgay === tuNgay,
+    ngayNghiCua('sgl'));
+  check('(đối chứng) khoảng từ ngày bắt đầu bảo lưu tới hôm nay có ngày thường để đếm', soNgayThuong(tuNgay, homNay) > 0);
+
+  const r = await thoi(VP, 'sgl');
+  check('thôi bảo lưu → 200', r.status === 200, r.data);
+  check('NGÀY NGHỈ LÙI VỀ NGÀY BẮT ĐẦU BẢO LƯU', ngayNghiCua('sgl') === tuNgay, [ngayNghiCua('sgl'), tuNgay]);
+  check('bé vẫn nghỉ, hết nhãn bảo lưu',
+    docDb('SELECT active FROM students WHERE id = ?', 'sgl')[0].active === 0
+      && docDb('SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', 'sgl').length === 0);
+
+  const sau = await tongHop(tuNgay);
+  check(`xuất điểm danh sau khi thôi: ghi chú "Nghỉ từ ${dmy(tuNgay)}"`,
+    sau.status === 200 && sau.ghiChu === `Nghỉ từ ${dmy(tuNgay)}`, sau);
+  check('…và không đếm "Chưa điểm danh" từ ngày bắt đầu bảo lưu', sau.chua === '0', sau);
+  const rong = await tongHop(lui(12));
+  check('khoảng bắt đầu sớm hơn: chỉ ngày thường TRƯỚC ngày bắt đầu bảo lưu là "Chưa điểm danh"',
+    rong.status === 200 && rong.chua === String(soNgayThuong(lui(12), tuNgay)), [rong, soNgayThuong(lui(12), tuNgay)]);
+
+  // Bảo lưu KHÔNG ghi lùi: ngày nghỉ đã là ngày bắt đầu bảo lưu, giữ nguyên.
+  check('(đối chứng) bảo lưu bé Gia Bảo từ hôm nay', (await baoLuu(VP, 's6', {})).status === 200 && ngayNghiCua('s6') === homNay);
+  check('thôi bảo lưu không ghi lùi → 200', (await thoi(VP, 's6')).status === 200);
+  check('…ngày nghỉ giữ nguyên', ngayNghiCua('s6') === homNay, ngayNghiCua('s6'));
+  await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
 }
 
 // ===========================================================================
