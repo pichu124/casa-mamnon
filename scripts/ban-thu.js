@@ -16,7 +16,7 @@
 //   • Quên đổi mật khẩu mẫu → 13 tài khoản dùng chung "123456". Buổi thử thường
 //     chạy qua một đường hầm công khai để có HTTPS, nên đó là mở cửa thật.
 //   • Chỉ bật MỘT phân hệ (phiếu ghi "Quản trị → Tính năng → Ghi nhanh") → cô
-//     mở app ra và không thấy Nhật ký ngày, Đón trả bé, Hành trình… tức KHÔNG
+//     mở app ra và không thấy Nhật ký ngày, Báo ăn, Hành trình… tức KHÔNG
 //     nhìn thấy app ở đúng trạng thái trường sẽ dùng.
 //   • Quên `DATA_DIR` → dữ liệu thử nằm trong kho mã.
 //
@@ -106,7 +106,7 @@ const modules = require('../lib/modules');
 // 2. Bật đủ các phân hệ mầm non.
 //
 // Đây là bước mà phiếu thử ghi thiếu: nó chỉ bảo bật "Ghi nhanh". Nhưng một
-// ngày của cô đi qua Nhật ký ngày, Đón trả bé, Báo ăn, Hành trình… — bật một
+// ngày của cô đi qua Nhật ký ngày, Báo ăn, Hành trình… — bật một
 // cái là cô nhìn thấy một app khác hẳn app trường sẽ dùng.
 console.log('\n[2/4] Bật các phân hệ mầm non…');
 
@@ -129,9 +129,21 @@ modules.napMoRong();
 // nhà trường đã quyết TẮT, trong đó hai cái là món nợ N3 mà QUY TẮC 4 đang
 // canh. Bật chúng lên trong buổi thử là đưa cho cô xem đúng thứ app này tồn
 // tại để không làm.
-const canBat = modules.moRong();
+//
+// VÀ CHỈ NHỮNG PHÂN HỆ CẮM THÊM MẶC ĐỊNH BẬT (Đ239i). Phân hệ cắm thêm mà nhà
+// trường đã quyết tắt mang `defaultEnabled: false` trong `module.json` — Đón
+// trả bé từ Đ227, vì đã lồng vào Điểm danh. Bản trước bật hết `moRong()`, nên
+// ghi đè quyết định ấy bằng một dòng "bật" và máy thử vẫn hiện Đón trả bé.
+// Máy thử dựng bằng bản cũ đã mang sẵn dòng đó, nên ở đây TẮT lại cho đúng
+// quyết định của trường; dữ liệu của phân hệ không bị đụng tới.
+const camThem = modules.moRong();
+const canBat = camThem.filter(m => m.defaultEnabled !== false);
+const truongTat = camThem.filter(m => m.defaultEnabled === false);
 for (const m of canBat) {
   if (!modules.dangBat(m.key)) modules.datTrangThai(m.key, true);
+}
+for (const m of truongTat) {
+  if (modules.dangBat(m.key)) modules.datTrangThai(m.key, false);
 }
 
 const tt = modules.trangThai();
@@ -143,12 +155,16 @@ if (tat.length) {
   console.log(`\n      ${tat.length} phân hệ vẫn TẮT theo quyết định của nhà trường:`);
   console.log(`      ${tat.map(m => m.name).join(', ')}`);
   console.log('      (Nhận xét và Xe buýt: đợt A2. Báo cáo và Nề nếp: món nợ N3.)');
+  if (tat.some(m => m.key === 'dontra')) {
+    console.log('      (Đón trả bé: đã lồng vào Điểm danh, góp ý của trường 06/10 và 16/10.');
+    console.log('       Cần thì bật lại ở Quản trị → Tính năng; dữ liệu cũ vẫn giữ nguyên.)');
+  }
 }
 
 // VẾ ĐỐI CHỨNG. Bàn thử tồn tại để cho cô nhìn app ở ĐÚNG trạng thái trường sẽ
 // dùng; dựng ra một bàn thử thiếu phân hệ mà vẫn báo "xong" là tệ hơn không
 // dựng, vì buổi thử sẽ đo nhầm một app khác.
-if (!canBat.length) {
+if (!camThem.length) {
   console.error('\n⛔ Không tìm thấy phân hệ cắm thêm nào trong modules/.');
   console.error('   Bàn thử phải có đủ mười phân hệ cắm thêm thì cô mới nhìn thấy đúng app.');
   process.exit(1);
@@ -156,6 +172,11 @@ if (!canBat.length) {
 const conTat = canBat.filter(m => !tt[m.key]);
 if (conTat.length) {
   console.error(`\n⛔ Bật không thành công: ${conTat.map(m => m.key).join(', ')}`);
+  process.exit(1);
+}
+const conBat = truongTat.filter(m => tt[m.key]);
+if (conBat.length) {
+  console.error(`\n⛔ Tắt không thành công: ${conBat.map(m => m.key).join(', ')}`);
   process.exit(1);
 }
 
