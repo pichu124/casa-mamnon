@@ -31,3 +31,7 @@
 *.zip  binary
 *.gz   binary
 *.db   binary
+
+# Script shell của bộ agent team (.claude/hooks, scripts/*.sh): luôn là chữ, LF.
+# Bash trên Windows gặp CRLF thì báo $'\r': command not found và hook không chạy.
+*.sh text eol=lf

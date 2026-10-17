@@ -47,3 +47,6 @@ node_modules/
 
 # Worktree tạm của tác nhân làm việc song song — không bao giờ lên kho
 .claude/worktrees/
+
+# Bằng chứng của verifier (Agents-Team-coding)
+artifacts/

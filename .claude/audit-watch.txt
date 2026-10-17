@@ -1,0 +1,4 @@
+npm run (restore|migrate)|node scripts/(restore|migrate)	ghi đè hoặc chuyển dữ liệu của trường
+--no-verify	bỏ qua móc git canh dữ liệu và commit riêng
+(^|[^A-Za-z])(uploads|backups)/	đụng thư mục ảnh hoặc bản sao lưu của trường
+seed(\.js)?\b.*--force	xoá sạch dữ liệu rồi sinh dữ liệu mẫu
