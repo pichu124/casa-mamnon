@@ -35,7 +35,7 @@ App.views.tienan = {
     }
 
     root.innerHTML = `
-      ${UI.pageHeader('Báo ăn & tiền ăn')}
+      ${UI.pageHeader('Tiền ăn')}
       ${this.laVanPhong() ? `
         <div class="seg" id="ta-tabs">
           <button class="${this._tab === 'ngay' ? 'active' : ''}" data-tab="ngay">Báo ăn hằng ngày</button>
@@ -291,7 +291,7 @@ App.views.tienan = {
 
     document.getElementById('ta-thang').onchange = (e) => { this._thang = e.target.value; App.route(); };
     document.getElementById('ta-xuat').onclick = () => {
-      window.location.href = `/api/tienan/thang.csv?thang=${encodeURIComponent(this._thang)}`;
+      window.location.href = `/api/tienan/thang.xlsx?thang=${encodeURIComponent(this._thang)}`;
     };
   },
 
