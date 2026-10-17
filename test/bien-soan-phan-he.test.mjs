@@ -446,36 +446,74 @@ console.log('\n[7b] Cambridge — ba tab, ba mẫu soạn, gia đình chỉ th�
   check('soạn mới ở tab Letter thì loại bài chọn sẵn là Letter',
     await page.inputValue('#cam-loai') === 'thu-phu-huynh');
   check('Letter: CÓ ô Nội dung', await hien('#cam-noidung'));
-  check('Letter: KHÔNG có ô Hoạt động Cambridge', !(await hien('#cam-mon')));
+  check('Letter: KHÔNG có ô Hoạt động Cambridge', !(await hien('#cam-mon')) && !(await hien('#cam-hd-1-ten')));
   check('Letter: vẫn có Block và Lứa tuổi', (await hien('#cam-block')) && (await hien('#modal-overlay #cam-lua')));
   await page.selectOption('#cam-loai', 'cambridge');
   check('Weekly Plan: KHÔNG có ô Nội dung', !(await hien('#cam-noidung')));
-  check('Weekly Plan: có Hoạt động, Chủ đề, Từ vựng, Song/Chant',
-    (await hien('#cam-mon')) && (await hien('#cam-chu-de')) && (await hien('#cam-tu-vung')) && (await hien('#cam-song')));
+  // Góp ý 16/10, mục 8: 2 hoặc 3 hoạt động, mỗi hoạt động có tên chủ đề, từ
+  // vựng, mục tiêu; sau đó mới tới mục chung Song / Chant / Story.
+  const khoi = (i) => `#modal-overlay .cam-hd[data-hd="${i}"]`;
+  check('Weekly Plan: mặc định HAI khối "Hoạt động 1", "Hoạt động 2"; khối 3 chưa hiện',
+    (await hien(khoi(1))) && (await hien(khoi(2))) && !(await hien(khoi(3)))
+      && /Hoạt động 1/.test(await page.locator(khoi(1)).innerText()) && /Hoạt động 2/.test(await page.locator(khoi(2)).innerText()));
+  let duO = true;
+  for (const i of [1, 2]) {
+    for (const o of ['ten', 'chu-de', 'tu-vung', 'muc-tieu']) duO = duO && await hien(`#cam-hd-${i}-${o}`);
+  }
+  check('mỗi khối có Hoạt động (không bắt buộc), Tên chủ đề, Từ vựng, Mục tiêu', duO);
+  check('sau các khối là mục chung Song / Chant và Story', (await hien('#cam-song')) && (await hien('#cam-story')));
+  check('Weekly Plan: một bộ ô khung lẻ cũ (Hoạt động / Chủ đề / Từ vựng) không còn mời điền',
+    !(await hien('#cam-mon')) && !(await hien('#cam-chu-de')) && !(await hien('#cam-tu-vung')));
   check('Weekly Plan: không mời điền ô "Kết nối ở nhà" trùng lặp', !(await hien('#cam-ket-noi')));
+  await page.click('#cam-hd-them');
+  check('bấm "Thêm hoạt động" thì hiện khối 3', await hien(khoi(3)));
+  check('đủ BA khối thì nút "Thêm hoạt động" ẩn — tối đa ba', !(await hien('#cam-hd-them')));
+  // Góp ý 16/10, mục 9: Home Connection chỉ còn tiêu đề, nội dung, gửi cho ai,
+  // tuần, khung Cambridge (block, tuần trong block, lứa tuổi).
   await page.selectOption('#cam-loai', 'ket-noi');
-  check('Home Connection: có Nội dung VÀ khung Cambridge',
-    (await hien('#cam-noidung')) && (await hien('#cam-mon')));
+  check('Home Connection: có Nội dung, Gửi cho ai, Gắn vào tuần, Block, Tuần trong block, Lứa tuổi',
+    (await hien('#cam-noidung')) && (await hien('#cam-phamvi')) && (await hien('#cam-tuan'))
+      && (await hien('#cam-block')) && (await hien('#cam-tuan-so')) && (await hien('#modal-overlay #cam-lua')));
+  const hcThua = [];
+  for (const sel of ['#cam-mon', '#cam-chu-de', '#cam-tu-vung', '#cam-song', '#cam-story', '#cam-ket-noi', khoi(1), '#cam-hd-them']) {
+    if (await hien(sel)) hcThua.push(sel);
+  }
+  check('Home Connection: KHÔNG còn ô Hoạt động, Chủ đề, Từ vựng, Song / Chant (cũng không khối hoạt động)',
+    hcThua.length === 0, hcThua);
 
-  // Soạn một Weekly Plan CHỈ CÓ KHUNG, chọn lứa 4–5, rồi lưu bằng nút trên màn.
-  // Hai điều phải đúng: lứa đã chọn được GHI THẬT (Đ206 đặt trùng mã `cam-lua`
-  // giữa nút "Xem theo từng lứa" và ô chọn lứa, nên văn phòng lưu gì cũng
-  // thành "mọi lứa"), và tờ không có ô Nội dung vẫn gửi được tới gia đình.
+  // Soạn một Weekly Plan HAI HOẠT ĐỘNG, không có ô Nội dung, chọn lứa 4–5, rồi
+  // lưu bằng nút trên màn. Hai điều phải đúng: lứa đã chọn được GHI THẬT (Đ206
+  // đặt trùng mã `cam-lua` giữa nút "Xem theo từng lứa" và ô chọn lứa, nên văn
+  // phòng lưu gì cũng thành "mọi lứa"), và tờ không có ô Nội dung vẫn gửi được
+  // tới gia đình.
   await page.selectOption('#cam-loai', 'cambridge');
-  await page.fill('#cam-tieude', 'Weekly Plan chỉ có khung — Farm animals');
-  await page.fill('#cam-mon', 'Communication and Language');
-  await page.fill('#cam-chu-de', 'Farm animals');
+  await page.fill('#cam-tieude', 'Weekly Plan hai hoạt động — Farm animals');
+  await page.fill('#cam-hd-1-ten', 'Communication and Language');
+  await page.fill('#cam-hd-1-chu-de', 'Farm animals');
+  await page.fill('#cam-hd-1-tu-vung', 'cow, pig, duck');
+  await page.fill('#cam-hd-1-muc-tieu', 'Gọi tên ba con vật bằng tiếng Anh');
+  await page.fill('#cam-hd-2-ten', 'Mathematics');
+  await page.fill('#cam-hd-2-chu-de', 'Numbers');
+  await page.fill('#cam-hd-2-muc-tieu', 'Đếm tới ba');
+  await page.fill('#cam-song', 'Old MacDonald Had a Farm');
+  await page.fill('#cam-story', 'Brown Bear, Brown Bear');
   await page.selectOption('#modal-overlay #cam-lua', '4-5');
   await page.click('#cam-luu');
   await page.waitForTimeout(1500);
   const baiWp = await page.evaluate(async () => {
     const d = await (await fetch('/api/cambridge?loai=cambridge')).json();
-    return (d.bai || []).find(b => /chỉ có khung/.test(b.tieuDe)) || null;
+    return (d.bai || []).find(b => /hai hoạt động/.test(b.tieuDe)) || null;
   });
   check('lưu từ màn hình: LỨA ĐÃ CHỌN ĐƯỢC GHI THẬT (không rơi về "mọi lứa")',
     baiWp && baiWp.khung && baiWp.khung.luaTuoi === '4-5', baiWp && baiWp.khung);
+  check('lưu từ màn hình: HAI hoạt động đúng thứ tự, khối thứ ba để trống thì bị bỏ',
+    baiWp && (baiWp.hoatDong || []).map(h => h.chuDe).join('|') === 'Farm animals|Numbers'
+      && baiWp.hoatDong[0].mucTieu === 'Gọi tên ba con vật bằng tiếng Anh' && baiWp.hoatDong[1].hoatDong === 'Mathematics',
+    baiWp && baiWp.hoatDong);
+  check('và mục chung Song / Chant, Story được ghi', baiWp && baiWp.khung.songChant === 'Old MacDonald Had a Farm'
+    && baiWp.story === 'Brown Bear, Brown Bear', baiWp && { song: baiWp.khung.songChant, story: baiWp.story });
   const guiWp = await page.evaluate(async (id) => (await fetch(`/api/cambridge/${id}/cong-bo`, { method: 'POST' })).status, baiWp && baiWp.id);
-  check('Weekly Plan không có ô Nội dung, chỉ có khung, VẪN GỬI ĐƯỢC tới gia đình', guiWp === 200, guiWp);
+  check('Weekly Plan không có ô Nội dung, chỉ có hoạt động, VẪN GỬI ĐƯỢC tới gia đình', guiWp === 200, guiWp);
 
   // Đổi tab bằng đường dẫn; tab khác không có khối block.
   await page.locator('#cam-loc button', { hasText: 'Cambridge Weekly Plan' }).click();
@@ -483,6 +521,17 @@ console.log('\n[7b] Cambridge — ba tab, ba mẫu soạn, gia đình chỉ th�
   check('bấm tab đổi đường dẫn thành #/cambridge/cambridge',
     await page.evaluate(() => location.hash) === '#/cambridge/cambridge');
   check('tab Weekly Plan KHÔNG có nút Thêm block', await page.locator('#cam-block-quan-ly').count() === 0);
+  const theWp = await page.locator('.card', { hasText: 'Weekly Plan hai hoạt động' }).first().innerText().catch(() => '');
+  check('THẺ WEEKLY PLAN hiện lần lượt "Hoạt động 1 — …", "Hoạt động 2 — …" kèm Mục tiêu',
+    /Hoạt động 1 — Communication and Language/.test(theWp) && /Hoạt động 2 — Mathematics/.test(theWp) && /Mục tiêu:/.test(theWp), theWp);
+  check('rồi mới tới mục chung Song / Chant, Story',
+    theWp.indexOf('Song / Chant:') > theWp.indexOf('Hoạt động 2') && /Story:\s*Brown Bear/.test(theWp), theWp);
+  await page.locator(`[data-sua="${baiWp && baiWp.id}"]`).click();
+  await page.waitForTimeout(600);
+  check('mở Sửa: hai khối mang đúng chữ đã lưu',
+    (await page.inputValue('#cam-hd-1-chu-de')) === 'Farm animals' && (await page.inputValue('#cam-hd-2-muc-tieu')) === 'Đếm tới ba');
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(300);
 
   // Hai block lứa 4–5: một đã qua, một đang học. Gia đình chỉ thấy block đang học.
   const homNay = await page.evaluate(() => UI.ngayVN());
@@ -506,6 +555,10 @@ console.log('\n[7b] Cambridge — ba tab, ba mẫu soạn, gia đình chỉ th�
   check('GIA ĐÌNH THẤY BLOCK CON ĐANG HỌC', /Block Đang Học/.test(gd) && /Mục tiêu block này/.test(gd), gd.slice(0, 300));
   check('GIA ĐÌNH KHÔNG THẤY BLOCK ĐÃ QUA', !/Block Cũ Đã Qua/.test(gd), gd.slice(0, 300));
   check('gia đình không có dòng "Mọi block khác"', await page.locator('#cam-block-khac').count() === 0);
+  await moMan('#/cambridge/cambridge');
+  const theGd = await page.locator('.card', { hasText: 'Weekly Plan hai hoạt động' }).first().innerText().catch(() => '');
+  check('GIA ĐÌNH đọc thẻ Weekly Plan có "Hoạt động 2" và "Mục tiêu"',
+    /Hoạt động 2 — Mathematics/.test(theGd) && /Mục tiêu:\s*Đếm tới ba/.test(theGd), theGd);
 }
 
 // ===========================================================================
