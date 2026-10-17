@@ -140,9 +140,28 @@ App.views.attendance = {
       ${this.theNgayDaKhoa()}
       <div id="att-nv-o"></div>
       ${this.theDiemDanhCoSo(so)}
-      ${this.theChiDuongTraBe()}`;
+      ${this.theChiDuongTraBe()}
+      ${this.theBaoCao()}`;
     this.ganNutGoi(root);
     this.taiNhanVien();
+  },
+
+  // LỐI VÀO BÁO CÁO NGAY TẠI MÀN ĐIỂM DANH (góp ý 16/10, mục 2 + 3): *"lồng
+  // ghép vào trong mục điểm danh và xuất báo cáo điểm danh luôn"*. Màn này chỉ
+  // chỉ đường; tệp Excel và bảng đối chiếu do hai phân hệ ấy dựng. Phân hệ nào
+  // tắt hay ngoài phần việc của tài khoản thì lối đó không vẽ — không lối nào
+  // thì không có thẻ.
+  theBaoCao() {
+    const loi = [
+      App.moduleEnabled('xuatbaocao') && ['#/xuatbaocao', 'Xuất báo cáo điểm danh (Excel)'],
+      App.moduleEnabled('tienan') && ['#/tienan', 'Đối chiếu tiền ăn tháng'],
+    ].filter(Boolean);
+    if (!loi.length) return '';
+    return `<div class="card" id="att-bao-cao">
+      <div class="card-title">${UI.icon('report', 19)} Báo cáo</div>
+      ${loi.map(([hash, chu]) => `
+        <button class="btn outline block mt-8" onclick="location.hash='${hash}'">${UI.icon('chevron', 16)} ${chu}</button>`).join('')}
+    </div>`;
   },
 
   // =========================================================================

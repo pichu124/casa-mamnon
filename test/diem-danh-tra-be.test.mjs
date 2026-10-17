@@ -754,6 +754,50 @@ console.log('\n[9] Gia đình thấy ảnh con lúc ra về ngay ở Điểm dan
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 }
 
+// ===========================================================================
+// Góp ý 16/10, mục 2 + 3: *"lồng ghép vào trong mục điểm danh và xuất báo cáo
+// điểm danh luôn"*. Màn Điểm danh của NHÀ TRƯỜNG chỉ đường sang hai màn ấy.
+console.log('\n[10] Nhà trường: thẻ "Báo cáo" trên màn Điểm danh');
+{
+  await batTat('tienan', true);
+  await dangNhap('htruong', 'quantri2026');
+  loiJs = [];
+  await moMan('#/attendance');
+  const the = page.locator('#att-bao-cao');
+  check('văn phòng thấy thẻ "Báo cáo"', await the.count() === 1 && /Báo cáo/.test(await the.innerText()));
+  const coXbc = await page.evaluate(() => App.moduleEnabled('xuatbaocao'));
+  check('lối "Xuất báo cáo điểm danh (Excel)" có đúng khi phân hệ Xuất báo cáo đang bật',
+    await the.locator('button', { hasText: 'Xuất báo cáo điểm danh (Excel)' }).count() === (coXbc ? 1 : 0), coXbc);
+  const nutTa = the.locator('button', { hasText: 'Đối chiếu tiền ăn tháng' });
+  check('có lối "Đối chiếu tiền ăn tháng"', await nutTa.count() === 1);
+  if (await nutTa.count() === 1) await nutTa.click();
+  await page.waitForTimeout(800);
+  check('bấm → sang màn tiền ăn', await page.evaluate(() => location.hash) === '#/tienan');
+  await moMan('#/attendance');
+  const nhoQua = await page.evaluate(() => [...document.querySelectorAll('#att-bao-cao button')]
+    .map(b => b.getBoundingClientRect()).filter(r => r.height < 32 || r.right > window.innerWidth).length);
+  check('nút trong thẻ đủ lớn và không tràn khổ điện thoại', nhoQua === 0, nhoQua);
+
+  // Không lối nào bật thì không vẽ thẻ rỗng.
+  await batTat('tienan', false);
+  await batTat('xuatbaocao', false);
+  await dangNhap('htruong', 'quantri2026');
+  await moMan('#/attendance');
+  check('tắt cả hai phân hệ → không còn thẻ "Báo cáo"', await dem('#att-bao-cao') === 0);
+  check('…mà màn Điểm danh vẫn dựng đủ', await dem('#att-nv') === 1);
+  await batTat('tienan', true);
+  if (coXbc) await batTat('xuatbaocao', true);
+
+  await dangNhap('giaovien', '123456');
+  await moMan('#/attendance');
+  check('cô KHÔNG thấy thẻ "Báo cáo"', await dem('#att-bao-cao') === 0);
+  await dangNhap('phuhuynh', '123456');
+  await moMan('#/attendance');
+  check('gia đình KHÔNG thấy thẻ "Báo cáo" (dù phân hệ tiền ăn mở cho gia đình)',
+    await page.evaluate(() => App.moduleEnabled('tienan')) && await dem('#att-bao-cao') === 0);
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+}
+
 check('không có lỗi JavaScript nào còn sót', loiJs.length === 0, loiJs);
 await browser.close();
 sv.dung();
