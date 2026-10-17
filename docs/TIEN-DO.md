@@ -8,6 +8,7 @@ Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.
 - Vá lỗi phần nền chung với app 1 → `docs/LOI-NEN-CHUNG.md`
 - **Báo cáo gọn cho người dùng** (đã làm gì, tự quyết gì, chờ gì) → `docs/BAO-CAO-TU-LAM.md`
 - **Việc còn lại: cần quyết / phải làm / phải thử** → `docs/VIEC-CON-LAI.md`
+- **Việc đang dở lúc giao phiên (17/10, sau Đ238) — đọc trước khi làm tiếp** → `docs/VIEC-DANG-DO.md`
 
 > Nhật ký nâng cấp của **app 1** (các mục B1…B14) không nằm ở đây nữa. Nó vẫn còn
 > nguyên trong lịch sử git: `git show bc9dfa3:docs/TIEN-DO.md`.
