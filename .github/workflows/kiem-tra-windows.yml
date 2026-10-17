@@ -1,0 +1,101 @@
+name: Kiểm thử trên Windows
+
+# VÌ SAO CÓ JOB NÀY
+#
+# Máy chủ chạy Linux, nhưng người viết mã (và agent chạy trên máy cá nhân) có
+# thể dùng Windows. Ngày 16/10/2026, lần đầu chạy `npm test` trên một máy
+# Windows, bài đỏ ngay ở bộ thứ năm. Lỗi không nằm ở app mà ở bài kiểm thử:
+# ghép đường dẫn bằng `\` rồi đem so với chuỗi viết bằng `/`. Bộ kiểm thử chỉ
+# được chạy trên Linux nên không ai hay.
+#
+# Job này giữ cho lỗi kiểu đó không quay lại, và bắt những lỗi chỉ Windows mới
+# lộ ra: không xoá được tệp CSDL đang mở, SIGTERM là giết cứng.
+#
+# CHẠY KHI NÀO: khi mở pull request vào main, và mỗi lần đẩy thêm commit lên
+# pull request đó (GitHub mặc định coi cả hai là sự kiện pull_request). Không
+# chạy khi đẩy lên một nhánh chưa có pull request, như job Linux vẫn chạy. Kho
+# riêng tư tính phút chạy Windows gấp đôi Linux, nên có `concurrency` bên dưới:
+# đẩy commit mới thì lượt cũ của cùng pull request bị huỷ, không chạy song song.
+# Bấm tay (Actions → Kiểm thử trên Windows → Run workflow) chỉ được sau khi tệp
+# này đã nằm trên main — GitHub chỉ hiện nút đó cho workflow có trên nhánh chính.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: kiem-tra-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kiem-thu-windows:
+    name: Kiểm thử trên Windows (không cần trình duyệt)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # test/nen-chung.test.mjs cần điểm tách bc9dfa3 — xem job kiem-thu
+          # trong kiem-tra.yml.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Chạy ĐÚNG danh sách bộ của `npm test` (đọc thẳng từ package.json nên
+      # không bao giờ lệch), nhưng chạy HẾT rồi mới báo, không dừng ở bộ đỏ đầu
+      # tiên như chuỗi `&&`: một lượt chạy Windows tốn nhiều phút, nên mỗi lượt
+      # phải cho thấy đủ mọi bộ đỏ. Mỗi bộ có hạn 15 phút để một bộ treo không
+      # nuốt mất phần tổng kết.
+      #
+      # Chữ của mỗi bộ ghi ra tệp rồi mới in, và cuối job IN LẠI phần lỗi của
+      # từng bộ đỏ: nhật ký đủ 128 bộ dài gần 10 000 dòng, người đọc (và công
+      # cụ chỉ lấy được phần cuối nhật ký) phải thấy ngay vì sao đỏ. Ghi qua
+      # cmd ra tệp chứ không đọc ống dẫn: bộ nào để sót một tiến trình con còn
+      # giữ ống thì đọc ống sẽ treo mãi.
+      - name: Chạy từng bộ của npm test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          $lenh = (Get-Content package.json -Raw -Encoding UTF8 | ConvertFrom-Json).scripts.test -split '&&' |
+            ForEach-Object { $_.Trim() }
+          $thuMuc = Join-Path $env:RUNNER_TEMP 'nhat-ky-bo'
+          New-Item -ItemType Directory -Force $thuMuc | Out-Null
+          $do = @()
+          foreach ($l in $lenh) {
+            if ($l -notmatch '^node\s+(\S+)$') {
+              Write-Host "::error::Không hiểu một lệnh trong npm test: $l"
+              exit 1
+            }
+            $tep = $Matches[1]
+            $log = Join-Path $thuMuc ([IO.Path]::GetFileName($tep) + '.log')
+            # Gọi thẳng System.Diagnostics.Process, không qua Start-Process:
+            # Start-Process -PassThru có lúc trả ExitCode rỗng.
+            $psi = [Diagnostics.ProcessStartInfo]::new('cmd.exe', "/d /s /c `"node $tep > `"$log`" 2>&1`"")
+            $psi.UseShellExecute = $false
+            $p = [Diagnostics.Process]::Start($psi)
+            $ghiChu = ''
+            if (-not $p.WaitForExit(15 * 60 * 1000)) {
+              $p.Kill($true)
+              $ghiChu = ' (treo quá 15 phút)'
+            }
+            Write-Host "::group::$tep"
+            if (Test-Path $log) { Get-Content $log -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
+            Write-Host "::endgroup::"
+            if ($ghiChu -or $p.ExitCode -ne 0) { $do += [pscustomobject]@{ tep = $tep; log = $log; ghiChu = $ghiChu } }
+          }
+          Write-Host "===== $($lenh.Count) bộ, đỏ $($do.Count) bộ ====="
+          foreach ($d in $do) {
+            Write-Host "::error::Đỏ trên Windows: $($d.tep)$($d.ghiChu)"
+            Write-Host "----- $($d.tep)$($d.ghiChu) -----"
+            $dong = @(if (Test-Path $d.log) { Get-Content $d.log -Encoding UTF8 })
+            $i = [Array]::LastIndexOf($dong, 'LỖI:')
+            if ($i -ge 0) { $dong[$i..($dong.Count - 1)] | ForEach-Object { Write-Host $_ } }
+            else { $dong | Select-Object -Last 40 | ForEach-Object { Write-Host $_ } }
+          }
+          if ($do.Count) { exit 1 }
+          exit 0

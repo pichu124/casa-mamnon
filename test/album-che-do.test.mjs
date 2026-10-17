@@ -258,9 +258,19 @@ console.log('\n[5] Canh tĩnh: lược đồ chỉ thêm, chốt ở đường b
   check('thẻ tra theo lô ở đường liệt kê (beTrongCacAnh), không tra từng tấm', /beTrongCacAnh\(idsTheoThe\)/.test(rt));
   check('báo gia đình đi qua lib/thong-bao-be và lib/thong-bao, không ghi thẳng bảng', /tbb\.gui\(/.test(rt) && /tb\.guiChoNhom\(/.test(rt) && !/insert\('notifications'/.test(rt) && !/insert\('thongbao_be'/.test(rt));
 
-  const htRt = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/routes.js'), 'utf8');
+  // Quy xuống dòng về '\n': mẫu tìm ở dưới có '\n' bên trong, máy Windows tải mã
+  // về có thể mang CRLF và khi đó không tìm thấy.
+  const htRt = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/routes.js'), 'utf8').replace(/\r\n/g, '\n');
   check('ảnh về album gắn thẻ bé qua db.datBeTrongAnh và chép tệp bằng chepAnh', /db\.datBeTrongAnh\(photo\.id, \[r\.studentId\]\)/.test(htRt) && /const file = chepAnh\(r\.anh\)/.test(htRt));
-  check('kiểm album đứng TRƯỚC câu UPDATE công bố', htRt.indexOf("Chỉ cô phụ trách nhóm của album") < htRt.indexOf("congBoLuc: luc, capNhatLuc: luc,\n    });\n    db.audit(req.user.id, 'hanhtrinh-cong-bo'"));
+  {
+    // Cả hai mốc phải TÌM THẤY rồi mới so thứ tự: mốc kiểm quyền biến mất thì
+    // indexOf ra -1, và -1 nhỏ hơn mọi vị trí — phép so cũ vẫn xanh đúng lúc
+    // chốt quyền bị gỡ.
+    const kiemQuyen = htRt.indexOf("Chỉ cô phụ trách nhóm của album");
+    const congBo = htRt.indexOf("congBoLuc: luc, capNhatLuc: luc,\n    });\n    db.audit(req.user.id, 'hanhtrinh-cong-bo'");
+    check('kiểm album đứng TRƯỚC câu UPDATE công bố',
+      kiemQuyen >= 0 && congBo >= 0 && kiemQuyen < congBo, { kiemQuyen, congBo });
+  }
 
   const tc = fs.readFileSync(path.join(GOC, 'modules/thuchup/view.js'), 'utf8');
   check('Ghi nhanh chọn được NHIỀU bé (tập _beChon) và mỗi bé một bản ghi, một mã',
