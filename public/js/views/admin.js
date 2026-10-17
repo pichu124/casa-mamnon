@@ -1998,6 +1998,7 @@ Vẫn nhận bé này?`)) {
       'class-create': 'Tạo nhóm lớp',
       'class-update': 'Sửa nhóm lớp',
       'class-teachers-set': 'Phân công cô phụ trách',
+      'co-chuyen-nhom': 'Chuyển cô sang nhóm khác',
       'sua-quyen-chu-nhiem': 'Đổi cô phụ trách chính',
       'class-campus': 'Xếp nhóm vào cơ sở',
       'campus-create': 'Tạo cơ sở',

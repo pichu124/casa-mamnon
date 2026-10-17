@@ -52,9 +52,10 @@ function nhoTenNhom() {
 // bộ và các giá trị nối nhau theo một quy luật, nên biết một dãy giá trị liên
 // tiếp là suy ngược ra trạng thái rồi tính được những giá trị TRƯỚC và SAU.
 //
-// Hàm này được gọi ở hai chỗ, và chỗ thứ hai phạm đúng điều kiện ấy:
+// Hàm này được gọi ở ba chỗ, và chỗ cuối phạm đúng điều kiện ấy:
 //
 //   • tạo tài khoản cho MỘT cô — một lần một mật khẩu;
+//   • tạo MỘT tài khoản quản trị trên màn hình (Đ239d1) — cũng một lần một;
 //   • nhập danh sách đầu năm từ CSV — HÀNG TRĂM mật khẩu phụ huynh sinh liên
 //     tiếp từ cùng một dòng chảy, rồi in ra một lượt cho người nhập.
 //
@@ -285,6 +286,107 @@ module.exports = (app) => {
     }));
   });
 
+  // TẠO TÀI KHOẢN QUẢN TRỊ TRÊN MÀN HÌNH (Đ239d1 — góp ý 16/10, mục 5).
+  //
+  // Trường: "Giám đốc sẽ tạo tài khoản cho cấp 2 và quản lý cơ sở." Trước đợt
+  // này chỉ có lệnh `scripts/create-admin.js` trên máy chủ.
+  //
+  // BA ĐIỀU KHÔNG ĐƯỢC SAI:
+  //
+  //   1. CHỈ BAN GIÁM HIỆU — đúng hai chốt của đường đổi chức vụ bên dưới: không
+  //      khoá vào cơ sở nào VÀ không mang chức vụ Cấp 2/Cấp 3.
+  //   2. KHÔNG BAO GIỜ ĐỂ LẠI TÀI KHOẢN QUẢN TRỊ KHÔNG CHỨC VỤ. Thiếu chức vụ là
+  //      toàn quyền ban giám hiệu, thiếu cơ sở (với chức vụ Cấp 3) là thấy cả
+  //      ba cơ sở. Nên chức vụ bắt buộc, và tài khoản, chức vụ, cơ sở ghi trong
+  //      MỘT giao dịch: hỏng giữa chừng là không có gì được ghi.
+  //   3. KHÔNG TẠO ĐƯỢC BAN GIÁM HIỆU Ở ĐÂY. Tài khoản ban giám hiệu tạo được
+  //      tài khoản quản trị khác; cho nó tự nhân bản trên màn hình thì một phiên
+  //      đăng nhập bị lộ là đủ để cài thêm một tài khoản toàn quyền lâu dài.
+  //      Tài khoản Cấp 1 mới vẫn chỉ tạo bằng lệnh trên máy chủ.
+  app.post('/api/admin/managers', onlyAdmin, (req, res) => {
+    if (chanNeuChiMotCoSo(req, res, 'Tạo tài khoản quản trị')) return;
+    const capMinh = db.capChucVu(req.user);
+    if (capMinh !== null && capMinh !== 1) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu mới tạo được tài khoản quản trị. Xin liên hệ ban giám hiệu.',
+      });
+    }
+
+    const b = req.body || {};
+    const hoTen = String(b.name || '').trim();
+    if (!hoTen) return res.status(400).json({ error: 'Vui lòng nhập họ tên' });
+
+    // Cùng luật với `scripts/create-admin.js`.
+    const username = String(b.username || '').trim().toLowerCase();
+    if (!/^[a-z0-9._]{3,30}$/.test(username)) {
+      return res.status(400).json({
+        error: 'Tên đăng nhập chỉ gồm chữ thường không dấu, số, dấu chấm hoặc gạch dưới (3–30 ký tự).',
+      });
+    }
+    if (db.findUserByUsername(username)) {
+      return res.status(409).json({ error: `Tên đăng nhập "${username}" đã được dùng. Chọn tên khác.` });
+    }
+
+    const ma = String(b.chucVu || '').trim();
+    if (!ma) {
+      return res.status(400).json({
+        error: 'Chọn chức vụ cho tài khoản. Tài khoản quản trị không có chức vụ làm được mọi việc của ban giám hiệu.',
+      });
+    }
+    const mo = db.moTaChucVu(ma);
+    if (!mo) return res.status(400).json({ error: 'Không có chức vụ này' });
+    if (mo.cap === 1) {
+      return res.status(400).json({
+        error: 'Tài khoản Ban giám hiệu chỉ tạo bằng lệnh trên máy chủ, do người giữ máy chủ làm. '
+          + 'Tài khoản này làm được mọi việc, kể cả tạo thêm tài khoản quản trị, nên không mở việc tạo nó trên màn hình.',
+      });
+    }
+
+    const campusId = String(b.campusId || '').trim();
+    if (mo.cap === 3) {
+      const cs = campusId ? db.findCampus(campusId) : null;
+      if (!cs || cs.active === false) {
+        return res.status(400).json({
+          error: `Chức vụ "${mo.ten}" làm việc trong một cơ sở: chọn cơ sở cho tài khoản này.`,
+        });
+      }
+    } else if (campusId) {
+      return res.status(400).json({
+        error: `Chức vụ "${mo.ten}" làm việc cho cả trường, không gắn vào một cơ sở.`,
+      });
+    }
+
+    const matKhau = sinhMatKhau();
+    const rec = {
+      id: db.nextId('ad'),
+      username,
+      passwordHash: password.hash(matKhau),
+      role: 'admin',
+      name: hoTen,
+      title: '',
+      phone: '',
+      email: '',
+      classId: null,
+      avatar: { emoji: '🏫', bg: '#1f5e8c' },
+      mustChangePassword: true,
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
+    db.tx(() => {
+      db.insert('users', rec);
+      db.datChucVu(rec.id, ma);
+      if (mo.cap === 3) db.setUserCampus(rec.id, campusId);
+    });
+    db.audit(req.user.id, 'admin-create', rec.id, {
+      name: rec.name, username, chucVu: ma, campusId: mo.cap === 3 ? campusId : null,
+    });
+    res.status(201).json({
+      id: rec.id, name: rec.name, username,
+      chucVu: ma, chucVuTen: mo.ten, campusId: mo.cap === 3 ? campusId : null,
+      temporaryPassword: matKhau,
+    });
+  });
+
   // GIA ĐÌNH QUAN TÂM ĐIỀU GÌ — bảng đếm GỘP (Đ149).
   //
   // Đọc `luot_quan_tam`, bảng cố ý không có cột nào chỉ ra một người (xem chú
@@ -475,6 +577,8 @@ module.exports = (app) => {
       // có mấy cơ sở và mình đang ở cơ sở nào. Đây là tên và địa chỉ của một
       // toà nhà, không phải dữ liệu của bé.
       campuses: db.campuses(),
+      // Thêm ở Đ239d1, chỉ thêm: tab "Tài khoản" đọc để biết vẽ nút nào.
+      quyenTaiKhoan: quyenTaiKhoan(req.user),
       counts: {
         classes: nhom.length,
         students: beTrongPhamVi.length,
@@ -694,14 +798,7 @@ module.exports = (app) => {
       if (chanNeuVanPhong(req, res, 'Phân công cô phụ trách nhóm')) return;
       const t = db.findUser(teacherId);
       if (!t || t.role !== 'teacher') return res.status(400).json({ error: 'Giáo viên không hợp lệ' });
-      const ngoai = db.classIdsOfTeacher(t.id).filter(cid => !duocChamNhom(req.user, cid));
-      if (ngoai.length) {
-        return res.status(403).json({
-          error: `Cô ${t.name} đang phụ trách nhóm ở cơ sở khác. `
-            + 'Phân công lại cô này cần tài khoản quản trị toàn hệ thống, '
-            + 'nếu không cô sẽ mất quyền ở cơ sở kia mà bên đó không hay biết.',
-        });
-      }
+      if (chanCoDayCoSoKhac(req, res, t)) return;
     }
     const school = db.school() || {};
     const rec = {
@@ -787,16 +884,7 @@ module.exports = (app) => {
       // canh nhóm ghi trong địa chỉ, nên quản lý cơ sở 2 phân công một cô là
       // cô ấy lặng lẽ mất quyền ở cơ sở 1 — mà `class_teachers` là nguồn sự
       // thật duy nhất của quyền đọc hồ sơ trẻ.
-      if (t) {
-        const ngoai = db.classIdsOfTeacher(t.id).filter(cid => !duocChamNhom(req.user, cid));
-        if (ngoai.length) {
-          return res.status(403).json({
-            error: `Cô ${t.name} đang phụ trách nhóm ở cơ sở khác. `
-              + 'Phân công lại cô này cần tài khoản quản trị toàn hệ thống, '
-              + 'nếu không cô sẽ mất quyền ở cơ sở kia mà bên đó không hay biết.',
-          });
-        }
-      }
+      if (t && chanCoDayCoSoKhac(req, res, t)) return;
       patch.teacherId = req.body.teacherId || null;
       doiChuNhiem = true;
     }
@@ -836,21 +924,19 @@ module.exports = (app) => {
     res.json({ ok: true, classId: cls.id, lua: xin });
   });
 
-  // Đặt TOÀN BỘ danh sách cô phụ trách một nhóm — mô hình của trường mầm non.
+  // MỌI CHỐT CỦA MỘT LƯỢT ĐẶT DANH SÁCH CÔ CHO MỘT NHÓM.
   //
-  // Khác đường cũ ở đúng một điểm, và đó là toàn bộ lý do nó tồn tại: gán cô vào
-  // nhóm này KHÔNG gỡ cô khỏi các nhóm khác. Một cô dạy cả Chồi 2 lẫn Lá 1 là
-  // chuyện bình thường ở mầm non, ở tiểu học thì không.
-  app.put('/api/admin/classes/:id/teachers', onlyAdmin, (req, res) => {
-    if (chanNeuVanPhong(req, res, 'Phân công cô phụ trách nhóm')) return;
-    const cls = db.findClass(req.params.id);
-    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
-    if (!duocChamNhom(req.user, cls.id)) return khongThuocCoSo(res, 'nhóm lớp');
-
-    const xin = (req.body || {}).teacherIds;
-    if (!Array.isArray(xin)) {
-      return res.status(400).json({ error: 'Thiếu danh sách cô phụ trách nhóm' });
-    }
+  // Tách khỏi thân `PUT /api/admin/classes/:id/teachers` (Đ239d1) để đường
+  // chuyển cô đi qua ĐÚNG những chốt này cho cả nhóm đi lẫn nhóm đến, thay vì
+  // chép luật sang chỗ thứ hai rồi để hai chỗ trôi khỏi nhau. Ba chốt KHÔNG
+  // nằm ở đây vì chúng cần `req`/`res` hoặc đã chạy trước khi biết danh sách:
+  // văn phòng cơ sở, nhóm có tồn tại không, nhóm có trong cơ sở của người bấm
+  // không — mỗi đường tự hỏi ba chốt ấy, ngay trong thân của nó.
+  //
+  // Trả `{ loi: [mã HTTP, câu báo] }`, hoặc một lượt đã soát cho `ghiPhanCong`.
+  function soatPhanCong(user, cls, body) {
+    const xin = body.teacherIds;
+    if (!Array.isArray(xin)) return { loi: [400, 'Thiếu danh sách cô phụ trách nhóm'] };
     // Cô có tài khoản đang KHOÁ (nghỉ thai sản, nghỉ dài ngày) nhưng ĐANG có
     // sẵn trong nhóm thì được phép GIỮ trong danh sách — giữ không phải là
     // thêm. Không nới chỗ này thì mọi lần lưu danh sách đều buộc phải gạt cô
@@ -862,12 +948,22 @@ module.exports = (app) => {
       const laCoDangLam = t && t.role === 'teacher' && t.active !== false;
       const laCoDangNghiCoSan = t && t.role === 'teacher' && dangCoSan.has(id);
       if (!laCoDangLam && !laCoDangNghiCoSan) {
-        return res.status(400).json({ error: 'Danh sách có người không phải giáo viên đang làm việc' });
+        return { loi: [400, 'Danh sách có người không phải giáo viên đang làm việc'] };
+      }
+      // THÊM MỚI CHỈ ĐƯỢC CÔ NẰM TRONG TẦM CỦA NGƯỜI BẤM (Đ239d1).
+      //
+      // Đúng luật của danh sách cô (`coTrongTamNhin`). Không có chốt này thì
+      // quản lý cơ sở 1 biết mã của một cô cơ sở 2 là kéo được cô vào nhóm
+      // mình — rồi cấp lại mật khẩu cho cô (nay cô "thuộc" cơ sở 1) và đăng
+      // nhập bằng tài khoản của cô, đọc hồ sơ bé của cơ sở 2. Cô ĐANG CÓ SẴN
+      // trong nhóm thì giữ như cũ, kể cả cô dạy hai cơ sở.
+      if (!dangCoSan.has(id) && !coTrongTamNhin(user, id)) {
+        return { loi: [404, 'Không tìm thấy cô trong danh sách'] };
       }
     }
-    const chinhId = (req.body || {}).chinhId || null;
+    const chinhId = body.chinhId || null;
     if (chinhId && !xin.includes(chinhId)) {
-      return res.status(400).json({ error: 'Cô phụ trách chính phải nằm trong danh sách cô của nhóm' });
+      return { loi: [400, 'Cô phụ trách chính phải nằm trong danh sách cô của nhóm'] };
     }
 
     // MÀN SỬA NHÓM KHÔNG BAO GIỜ GỬI MÃ CÔ ĐANG KHOÁ: ô tích dựng từ GET
@@ -888,33 +984,54 @@ module.exports = (app) => {
     // KHÔNG GỬI = KHÔNG ĐỤNG TỚI: màn hình cũ và mọi chỗ gọi API bằng tay đều
     // chưa biết trường này, và một lượt lưu danh sách cô không được lặng lẽ
     // xoá vai trường đã khai.
-    const xinNhom = (req.body || {}).nhom;
+    const xinNhom = body.nhom;
     if (xinNhom !== undefined && (typeof xinNhom !== 'object' || xinNhom === null || Array.isArray(xinNhom))) {
-      return res.status(400).json({ error: 'Phần nhóm của cô gửi lên không đúng dạng' });
+      return { loi: [400, 'Phần nhóm của cô gửi lên không đúng dạng'] };
     }
     if (xinNhom) {
       for (const [tid, ma] of Object.entries(xinNhom)) {
         if (!xinDu.includes(tid)) {
-          return res.status(400).json({ error: 'Chỉ khai được nhóm cho cô có trong danh sách của nhóm lớp' });
+          return { loi: [400, 'Chỉ khai được nhóm cho cô có trong danh sách của nhóm lớp'] };
         }
         if (!nhomCo.hopLe(ma)) {
-          return res.status(400).json({
-            error: 'Nhóm của cô chỉ có: cô phụ trách nhóm, cô nước ngoài, cô thể chất',
-          });
+          return { loi: [400, 'Nhóm của cô chỉ có: cô phụ trách nhóm, cô nước ngoài, cô thể chất'] };
         }
       }
     }
+    return { cls, xinDu, chinhId, xinNhom };
+  }
 
-    const daGhi = db.setClassTeachers(cls.id, xinDu, chinhId);
-    db.tx(() => {
+  // Ghi một lượt đã qua `soatPhanCong`, trong MỘT giao dịch. Gọi lồng trong
+  // giao dịch của chỗ gọi thì gộp luôn vào giao dịch ấy (đường chuyển cô ghi
+  // hai nhóm một lượt). Trả về danh sách mã cô đã ghi.
+  function ghiPhanCong({ cls, xinDu, chinhId, xinNhom }) {
+    return db.tx(() => {
+      const daGhi = db.setClassTeachers(cls.id, xinDu, chinhId);
       if (xinNhom) {
         for (const [tid, ma] of Object.entries(xinNhom)) nhomCo.dat(db, cls.id, tid, ma);
       }
       // Cô đã rời nhóm thì dòng khai nhóm của cô cũng đi theo — không dọn thì
       // cô quay lại sẽ mang theo vai cũ mà không ai bấm gì.
       nhomCo.donTheoDanhSachCo(db, cls.id, daGhi);
+      return daGhi;
     });
-    db.audit(req.user.id, 'class-teachers-set', cls.id, { teacherIds: daGhi, chinhId, nhom: xinNhom || null });
+  }
+
+  // Đặt TOÀN BỘ danh sách cô phụ trách một nhóm — mô hình của trường mầm non.
+  //
+  // Khác đường cũ ở đúng một điểm, và đó là toàn bộ lý do nó tồn tại: gán cô vào
+  // nhóm này KHÔNG gỡ cô khỏi các nhóm khác. Một cô dạy cả Chồi 2 lẫn Lá 1 là
+  // chuyện bình thường ở mầm non, ở tiểu học thì không.
+  app.put('/api/admin/classes/:id/teachers', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Phân công cô phụ trách nhóm')) return;
+    const cls = db.findClass(req.params.id);
+    if (!cls) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!duocChamNhom(req.user, cls.id)) return khongThuocCoSo(res, 'nhóm lớp');
+
+    const p = soatPhanCong(req.user, cls, req.body || {});
+    if (p.loi) return res.status(p.loi[0]).json({ error: p.loi[1] });
+    const daGhi = ghiPhanCong(p);
+    db.audit(req.user.id, 'class-teachers-set', cls.id, { teacherIds: daGhi, chinhId: p.chinhId, nhom: p.xinNhom || null });
     res.json({ ok: true, classId: cls.id, ...nl.tomTat(cls.id), nhom: nhomCo.nhomTheoLop(db, cls.id) });
   });
 
@@ -922,10 +1039,11 @@ module.exports = (app) => {
   app.get('/api/admin/teachers', onlyAdmin, (req, res) => {
     const pham = phamViNhom(req.user);
     res.json(db.all('users', `SELECT * FROM users WHERE role = 'teacher' AND active = 1 ORDER BY name`)
-      // Cô CHƯA phụ trách nhóm nào thì Cấp 3 không thấy — cô đó chưa thuộc về
-      // cơ sở nào. Cấp 1 vẫn thấy, nên không cô nào bị bỏ quên; và đó cũng
-      // đúng người cần thấy, vì phân công cô là việc của ban giám hiệu.
-      .filter(u => pham === null || db.classIdsOfTeacher(u.id).some(id => pham.includes(id)))
+      // Cấp 3 thấy cô có nhóm ở cơ sở mình, cộng cô CHƯA có nhóm nào mà do
+      // chính cơ sở mình tạo ra (Đ239d1) — trước đó cô vừa tạo xong là biến
+      // khỏi danh sách của người tạo. Cô chưa có nhóm do ban giám hiệu tạo thì
+      // vẫn chỉ Cấp 1 thấy, như cũ.
+      .filter(u => coTrongTamNhin(req.user, u.id, pham))
       .map(({ passwordHash, ...u }) => {
         // Một cô có thể phụ trách nhiều nhóm, nên `className` (một tên) không đủ
         // nữa. Giữ lại cho màn hình cũ, thêm `classNames` + `classIds` cho mới.
@@ -987,9 +1105,95 @@ module.exports = (app) => {
         db.addClassTeacher(classId, rec.id,
           db.teacherIdsOfClass(classId).length ? 'phu' : 'chinh');
       }
+      // CÔ DO CẤP 3 TẠO THUỘC CƠ SỞ CỦA NGƯỜI TẠO (Đ239d1) — cùng lý do với
+      // nhóm mới do Cấp 3 tạo ở đường `POST /api/admin/classes`: không ghi thì
+      // cô chưa gán nhóm biến khỏi danh sách của chính người vừa tạo.
+      const coSoNguoiTao = db.phamViCoSo(req.user);
+      if (coSoNguoiTao) {
+        db.insert('giao_vien_co_so', { userId: rec.id, campusId: coSoNguoiTao, taoLuc: rec.createdAt });
+      }
     });
     db.audit(req.user.id, 'teacher-create', rec.id, { name: rec.name, classId: classId || null });
     res.status(201).json({ id: rec.id, name: rec.name, username, temporaryPassword: matKhau });
+  });
+
+  // CHUYỂN CÔ TỪ NHÓM NÀY SANG NHÓM KHÁC, MỘT BƯỚC (Đ239d1 — góp ý 16/10, mục 5).
+  //
+  // Trường: quản lý cơ sở "điều chuyển giáo viên từ lớp này qua lớp khác".
+  // Trước đây phải mở nhóm đi bỏ tích cô, rồi mở nhóm đến tích cô và chọn lại
+  // vai — hai lượt lưu, giữa hai lượt cô không thuộc nhóm nào, và vai của cô
+  // (cô nước ngoài, cô thể chất) mất theo lượt thứ nhất.
+  //
+  // Hai nhóm đi qua ĐÚNG bộ soát của `PUT /api/admin/classes/:id/teachers`
+  // (`soatPhanCong`) và ghi trong MỘT giao dịch: hỏng ở nhóm đến thì cô vẫn
+  // nguyên ở nhóm đi. Vai của cô đi theo sang nhóm đến nếu nhóm đến chưa khai
+  // vai nào cho cô. Cô chính ở nhóm đến giữ nguyên; nhóm đến chưa có cô nào
+  // thì cô vừa chuyển sang là cô chính, như khi tạo cô mới vào nhóm trống.
+  app.post('/api/admin/teachers/:id/chuyen-nhom', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Chuyển cô sang nhóm khác')) return;
+    // Chức vụ có danh sách đường riêng (Nhân sự) tới được đây qua tiền tố
+    // `/api/admin/teachers`, nhưng việc của đường này là việc của đường phân
+    // công cô — nên hỏi danh sách cho phép của chức vụ cho chính đường ấy.
+    if (chanNeuKhongGoiDuoc(req, res, '/api/admin/classes/:id/teachers', 'Phân công cô vào nhóm')) return;
+    const t = db.findUser(req.params.id);
+    if (!t || t.role !== 'teacher' || !coTrongTamNhin(req.user, t.id)) return khongThuocCoSo(res, 'cô này');
+
+    const tuNhom = String((req.body || {}).tuNhom || '').trim();
+    const denNhom = String((req.body || {}).denNhom || '').trim();
+    if (!tuNhom || !denNhom) {
+      return res.status(400).json({ error: 'Chọn nhóm cô đang dạy và nhóm chuyển sang' });
+    }
+    if (tuNhom === denNhom) {
+      return res.status(400).json({ error: 'Nhóm chuyển sang phải khác nhóm cô đang dạy' });
+    }
+    const lopTu = db.findClass(tuNhom);
+    const lopDen = db.findClass(denNhom);
+    if (!lopTu || !lopDen) return res.status(404).json({ error: 'Không tìm thấy nhóm lớp' });
+    if (!duocChamNhom(req.user, lopTu.id) || !duocChamNhom(req.user, lopDen.id)) {
+      return khongThuocCoSo(res, 'nhóm lớp');
+    }
+    if (!db.classIdsOfTeacher(t.id).includes(lopTu.id)) {
+      return res.status(400).json({ error: `Cô ${t.name} hiện không phụ trách nhóm ${lopTu.name}` });
+    }
+    if (lopDen.active === false) {
+      return res.status(400).json({ error: `Nhóm ${lopDen.name} đã đóng, không chuyển cô sang được` });
+    }
+    // Cùng chốt với đường cũ `PUT /api/admin/classes/:id`: cô đang dạy ở cơ sở
+    // khác thì Cấp 3 không đổi phân công của cô — nhận vai chính ở nhóm đến là
+    // hạ vai chính của cô ở nhóm bên kia mà bên đó không hay biết.
+    if (chanCoDayCoSoKhac(req, res, t)) return;
+
+    const dangChinh = (classId) => (db.teachersOfClass(classId).find(c => c.vaiTro === 'chinh') || {}).id || null;
+    const conLai = db.teacherIdsOfClass(lopTu.id).filter(id => id !== t.id);
+    const chinhTu = dangChinh(lopTu.id);
+    const pTu = soatPhanCong(req.user, lopTu, {
+      teacherIds: conLai, chinhId: chinhTu === t.id ? null : chinhTu,
+    });
+    if (pTu.loi) return res.status(pTu.loi[0]).json({ error: pTu.loi[1] });
+
+    const daODen = db.teacherIdsOfClass(lopDen.id).includes(t.id);
+    const vai = nhomCo.nhomCua(db, lopTu.id, t.id);
+    const chuaKhaiVaiODen = !(t.id in nhomCo.nhomTheoLop(db, lopDen.id));
+    const pDen = soatPhanCong(req.user, lopDen, {
+      teacherIds: daODen ? db.teacherIdsOfClass(lopDen.id) : [...db.teacherIdsOfClass(lopDen.id), t.id],
+      chinhId: dangChinh(lopDen.id),
+      nhom: !daODen && chuaKhaiVaiODen ? { [t.id]: vai } : undefined,
+    });
+    if (pDen.loi) return res.status(pDen.loi[0]).json({ error: pDen.loi[1] });
+
+    db.tx(() => {
+      ghiPhanCong(pTu);
+      ghiPhanCong(pDen);
+    });
+    db.audit(req.user.id, 'co-chuyen-nhom', t.id, {
+      name: t.name, tuNhom: lopTu.id, denNhom: lopDen.id, vai: nhomCo.nhomCua(db, lopDen.id, t.id),
+    });
+    res.json({
+      ok: true,
+      teacherId: t.id,
+      tuNhom: { classId: lopTu.id, ...nl.tomTat(lopTu.id) },
+      denNhom: { classId: lopDen.id, ...nl.tomTat(lopDen.id) },
+    });
   });
 
   // ---------- Học sinh ----------
@@ -2032,6 +2236,83 @@ function coConTrongPhamVi(user, parentId) {
     `SELECT COUNT(*) FROM student_parents sp
      JOIN students s ON s.id = sp.studentId
      WHERE sp.parentId = ? AND s.classId IN (${marks})`, [parentId, ...pham]) > 0;
+}
+
+// Một cô có nằm trong tầm của người này không — luật của danh sách cô.
+//
+// Cô đã phụ trách nhóm đang mở: thuộc cơ sở của nhóm, như từ trước tới nay.
+// Cô CHƯA phụ trách nhóm nào: thuộc cơ sở của quản lý đã tạo ra cô, nếu có
+// (bảng `giao_vien_co_so`, Đ239d1). Dòng ghi nhận ấy KHÔNG được hỏi khi cô đã
+// có nhóm — phân công sau này mới là sự thật, kể cả khi ban giám hiệu chuyển
+// cô sang hẳn cơ sở khác.
+//
+// `pham` truyền vào được để đường liệt kê không tính lại cho từng cô.
+function coTrongTamNhin(user, teacherId, pham = phamViNhom(user)) {
+  if (pham === null) return true;
+  const nhom = db.classIdsOfTeacher(teacherId);
+  if (nhom.length) return nhom.some(id => pham.includes(id));
+  const coSo = db.phamViCoSo(user);
+  const r = db.first('giao_vien_co_so', 'SELECT campusId FROM giao_vien_co_so WHERE userId = ?', [teacherId]);
+  return !!coSo && !!r && r.campusId === coSo;
+}
+
+// Cô đang dạy nhóm ở cơ sở NGOÀI tầm của người bấm thì người bấm không đổi
+// phân công của cô: đổi là cô mất quyền (hoặc mất vai chính) ở cơ sở kia mà
+// bên đó không hay biết. Trả về true nghĩa là ĐÃ gửi lỗi.
+function chanCoDayCoSoKhac(req, res, t) {
+  const ngoai = db.classIdsOfTeacher(t.id).filter(cid => !duocChamNhom(req.user, cid));
+  if (!ngoai.length) return false;
+  res.status(403).json({
+    error: `Cô ${t.name} đang phụ trách nhóm ở cơ sở khác. `
+      + 'Phân công lại cô này cần tài khoản quản trị toàn hệ thống, '
+      + 'nếu không cô sẽ mất quyền ở cơ sở kia mà bên đó không hay biết.',
+  });
+  return true;
+}
+
+// Danh sách đường cho phép của chức vụ có gồm `duong` không — khớp tiền tố
+// đúng như `chanApiNgoaiChucVu` ở lib/modules.js. Chưa khai chức vụ, hoặc
+// chức vụ không có danh sách riêng, là không hạn chế gì thêm.
+function duocGoiDuong(user, duong) {
+  const cho = db.apiChoPhep(user);
+  const p = duong.toLowerCase();
+  return !cho || cho.some(x => p === x || p.startsWith(`${x}/`));
+}
+
+// Chặn khi chức vụ không được gọi `duong`. Dùng cho đường nằm dưới một tiền tố
+// chức vụ ấy được mở, nhưng làm việc của một đường khác mà chức vụ ấy KHÔNG
+// được gọi. Trả về true nghĩa là ĐÃ gửi lỗi.
+function chanNeuKhongGoiDuoc(req, res, duong, viec) {
+  if (duocGoiDuong(req.user, duong)) return false;
+  const mo = db.moTaChucVu(db.chucVu(req.user)) || {};
+  res.status(403).json({
+    error: `${viec} không thuộc phần việc của tài khoản "${mo.ten || 'chức vụ này'}". `
+      + 'Xin nhờ quản lý cơ sở hoặc ban giám hiệu làm giúp.',
+  });
+  return true;
+}
+
+// Việc về tài khoản mà người này làm được — để tab "Tài khoản" chỉ vẽ nút
+// máy chủ sẽ nhận (Đ239d1). Mỗi ô hỏi đúng chốt của đường tương ứng, để màn
+// hình không phải tự kể mã chức vụ ra rồi trôi khỏi máy chủ ở lần sửa sau.
+// Đây chỉ là chỉ đường; chốt thật vẫn là từng đường.
+function quyenTaiKhoan(user) {
+  const vanPhong = db.chucVu(user) === 'vanphong-coso';
+  const cap = db.capChucVu(user);
+  return {
+    // Đúng hai chốt của `POST /api/admin/managers`.
+    taoQuanTri: db.phamViCoSo(user) === null && (cap === null || cap === 1),
+    // `POST /api/admin/teachers` — văn phòng bị `chanNeuVanPhong`.
+    taoCo: !vanPhong && duocGoiDuong(user, '/api/admin/teachers'),
+    // `PUT /api/admin/classes/:id/teachers` và đường chuyển cô.
+    phanCongCo: !vanPhong && duocGoiDuong(user, '/api/admin/classes/:id/teachers'),
+    // `POST /api/accounts/:id/reset-password`. Quản lý một cơ sở thì máy chủ
+    // chỉ nhận cho cô có nhóm ở cơ sở mình — màn hình đọc thêm `motCoSo`.
+    capLaiMatKhau: duocGoiDuong(user, '/api/accounts/:id/reset-password'),
+    motCoSo: db.phamViCoSo(user) !== null,
+    // Nhận một bé vào nhóm (= tạo tài khoản gia đình) — `POST /api/admin/students`.
+    nhanBe: duocGoiDuong(user, '/api/admin/students'),
+  };
 }
 
 // Chặn một việc ảnh hưởng TOÀN HỆ THỐNG khi người bấm chỉ phụ trách một cơ sở.

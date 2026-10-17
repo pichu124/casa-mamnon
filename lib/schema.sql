@@ -889,6 +889,20 @@ CREATE TABLE IF NOT EXISTS user_campus (
 );
 CREATE INDEX IF NOT EXISTS idx_uc_campus ON user_campus(campusId);
 
+-- Cô do quản lý cơ sở NÀO tạo ra (Đ239d1 — góp ý 16/10, mục 5).
+--
+-- Cô không có cơ sở của riêng mình: cơ sở của cô suy ra từ nhóm cô phụ trách.
+-- Cô vừa được quản lý cơ sở tạo mà chưa gán nhóm thì không suy ra được gì, nên
+-- chính người tạo không thấy lại cô để phân công. Bảng này ghi đúng điều đó,
+-- và CHỈ được hỏi khi cô chưa phụ trách nhóm nào đang mở: cô đã có nhóm thì
+-- nhóm mới là sự thật. Bảng không cấp quyền đọc dữ liệu bé nào cả.
+CREATE TABLE IF NOT EXISTS giao_vien_co_so (
+  userId   TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  campusId TEXT NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
+  taoLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_gvcs_campus ON giao_vien_co_so(campusId);
+
 -- ===== Cô phụ trách nhóm lớp — quan hệ NHIỀU CÔ ↔ MỘT NHÓM =====
 --
 -- App 1 là trường tiểu học: một lớp có đúng MỘT giáo viên chủ nhiệm. Quan hệ đó
