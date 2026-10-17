@@ -746,11 +746,17 @@ function generate() {
   ];
 
   // ---- Thực đơn bữa ăn ở trường: tuần này + tuần sau ----
+  //
+  // Đủ năm bữa đúng tên và giờ của mẫu Excel tuần (`BUA_MAU` ở routes/menu.js,
+  // góp ý 16/10 mục 1): bữa sáng 3 món, bữa trưa nhiều món như ảnh mẫu của trường.
   const breakfasts = [
-    ['Phở bò', 'Sữa tươi'], ['Bánh mì ốp la', 'Sữa đậu nành'], ['Xôi gà', 'Nước cam'],
-    ['Bún riêu cua', 'Sữa chua'], ['Hủ tiếu Nam Vang', 'Sữa tươi'], ['Cháo gà cà rốt', 'Chuối'],
-    ['Bánh cuốn chả', 'Sữa tươi'], ['Mì Quảng gà', 'Dưa hấu'], ['Nui xào bò', 'Sữa chua uống'], ['Bánh giò', 'Nước ép táo'],
+    ['Phở bò', 'Bánh bông lan', 'Sữa tươi'], ['Bánh mì ốp la', 'Chuối', 'Sữa đậu nành'],
+    ['Xôi gà', 'Bánh chuối hấp', 'Nước cam'], ['Bún riêu cua', 'Bánh pancake mật ong', 'Sữa chua'],
+    ['Hủ tiếu Nam Vang', 'Khoai lang hấp', 'Sữa tươi'], ['Cháo gà cà rốt', 'Bánh mì bơ sữa', 'Chuối'],
+    ['Bánh cuốn chả', 'Đu đủ', 'Sữa tươi'], ['Mì Quảng gà', 'Bánh bao chay', 'Dưa hấu'],
+    ['Nui xào bò', 'Bánh quy', 'Sữa chua uống'], ['Bánh bao xá xíu', 'Trứng cút luộc', 'Nước ép táo'],
   ];
+  const snacksSang = [['Táo'], ['Sữa chua'], ['Chuối'], ['Thanh long'], ['Lê'], ['Dưa hấu'], ['Sữa chua dẻo'], ['Xoài chín'], ['Đu đủ'], ['Cam']];
   const lunches = [
     ['Cơm trắng', 'Gà kho gừng', 'Canh bí đỏ nấu tôm', 'Rau muống xào tỏi', 'Dưa hấu'],
     ['Cơm trắng', 'Cá basa kho tộ', 'Canh chua cá lóc', 'Cải thìa xào nấm', 'Chuối'],
@@ -764,9 +770,10 @@ function generate() {
     ['Cơm trắng', 'Bò kho cà rốt + bánh mì', 'Canh cải thảo', 'Rau lang luộc', 'Quýt'],
   ];
   const snacks = [
-    ['Bánh flan', 'Sữa tươi'], ['Chè đậu xanh'], ['Yaourt trái cây'], ['Bánh bông lan', 'Sữa'],
+    ['Bánh flan', 'Nước ép cam'], ['Chè đậu xanh'], ['Yaourt trái cây'], ['Bánh bông lan', 'Sữa chua'],
     ['Súp gà ngô non'], ['Bánh su kem'], ['Chè chuối'], ['Sữa chua nếp cẩm'], ['Bánh da lợn'], ['Trái cây tổng hợp'],
   ];
+  const milks = [['Sữa tươi'], ['Sữa đậu nành'], ['Sữa chua uống']];
   const menus = [];
   const monday = mondayOf(today);
   for (let w = 0; w < 2; w++) {
@@ -778,9 +785,11 @@ function generate() {
         id: `menu_${w}_${d}`,
         date: fmt(date),
         meals: [
-          { type: 'breakfast', label: 'Bữa sáng', time: '07:00', items: pick(breakfasts, k) },
-          { type: 'lunch', label: 'Bữa trưa', time: '10:45', items: pick(lunches, k) },
-          { type: 'snack', label: 'Bữa xế', time: '14:30', items: pick(snacks, k) },
+          { type: 'breakfast', label: 'Bữa sáng', time: '08:00', items: pick(breakfasts, k) },
+          { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:30', items: pick(snacksSang, k) },
+          { type: 'lunch', label: 'Bữa trưa', time: '11:20', items: pick(lunches, k) },
+          { type: 'snack', label: 'Bữa phụ chiều', time: '14:00', items: pick(snacks, k) },
+          { type: 'milk', label: 'Bữa sữa chiều', time: '15:30', items: pick(milks, k) },
         ],
       });
     }

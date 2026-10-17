@@ -78,6 +78,21 @@ console.log('\n[1] Năm bữa của tệp mẫu khớp khung năm bữa của m�
   check('tên và giờ theo ảnh mẫu của trường (16/10)', JSON.stringify(mau) === JSON.stringify([
     'breakfast|Bữa sáng|08:00', 'snack_sang|Bữa phụ sáng|09:30', 'lunch|Bữa trưa|11:20',
     'snack|Bữa phụ chiều|14:00', 'milk|Bữa sữa chiều|15:30']), mau);
+
+  // Thực đơn của DỮ LIỆU MẪU cũng đúng năm bữa ấy (Đ239j): nhà trường thử trên
+  // máy thử mà màn Thực đơn hiện "Bữa xế" trong khi mẫu Excel nói "Bữa phụ
+  // chiều" là hai chỗ của cùng một app nói hai cách.
+  const Database = (await import('better-sqlite3')).default;
+  const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const mauSeed = conn.prepare('SELECT date, meals FROM menus ORDER BY date').all().map(m => ({ date: m.date, meals: JSON.parse(m.meals) }));
+  conn.close();
+  const khung = (m) => JSON.stringify(m.meals.map(b => `${b.type}|${b.label}|${b.time}`));
+  check('dữ liệu mẫu: mọi ngày có thực đơn đủ năm bữa, đúng mã, tên và giờ của BUA_MAU',
+    mauSeed.length === 10 && mauSeed.every(m => khung(m) === JSON.stringify(mau)), mauSeed.map(m => `${m.date} ${khung(m)}`).slice(0, 2));
+  const soMon = (m, type) => ((m.meals.find(b => b.type === type) || {}).items || []).length;
+  check('dữ liệu mẫu: bữa sáng 3 món, bữa trưa 4–6 món, bữa nào cũng có món',
+    mauSeed.every(m => soMon(m, 'breakfast') === 3 && soMon(m, 'lunch') >= 4 && soMon(m, 'lunch') <= 6 && m.meals.every(b => b.items.length)),
+    mauSeed.map(m => m.meals.map(b => `${b.type}:${b.items.length}`).join(' ')).slice(0, 3));
 }
 
 // ===========================================================================
@@ -313,6 +328,19 @@ console.log('\n[8] Nạp bảng của trường (LibreOffice lưu, ô bữa gộ
     && buaCua(ds[0], 'lunch').time === '11:20' && buaCua(ds[0], 'snack').time === '14:00', ds[0]?.bua?.map(b => `${b.type} ${b.time}`));
   check('tệp không có Bữa sữa chiều → không sinh bữa đó', !buaCua(ds[0], 'milk').type, ds[0]?.bua?.map(b => b.type));
   check('không có lời nhắc thừa với bảng đúng khuôn', (xem.data?.canhBao || []).length === 0, xem.data?.canhBao);
+
+  // Thứ Hai có bữa bếp đặt tên và giờ riêng — dựng ngay trong bài, không dựa
+  // vào dữ liệu mẫu (nay đã đúng năm bữa chuẩn): "Bữa xế" lúc 14:30, chưa có
+  // bữa phụ sáng.
+  const rieng = await req('PUT', '/api/menu/tuan', { cookie: QT, body: { ngay: [{ date: TUAN_SAU, meals: [
+    { type: 'breakfast', label: 'Bữa sáng', time: '07:00', items: ['Phở bò', 'Sữa tươi'] },
+    { type: 'lunch', label: 'Bữa trưa', time: '10:45', items: ['Cơm trắng', 'Gà kho gừng'] },
+    { type: 'snack', label: 'Bữa xế', time: '14:30', items: ['Bánh flan'] },
+  ] }] } });
+  const truocNap = (((await req('GET', '/api/menu?week=1', { cookie: PH })).data?.menus || []).find(m => m.date === TUAN_SAU) || {}).meals || [];
+  check('(đối chứng) Thứ Hai có "Bữa xế" 14:30 bếp đặt riêng, chưa có bữa phụ sáng',
+    rieng.status === 200 && truocNap.some(b => b.type === 'snack' && b.label === 'Bữa xế' && b.time === '14:30')
+    && !truocNap.some(b => b.type === 'snack_sang'), { s: rieng.status, truocNap });
 
   const luu = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(TEP_TRUONG), tuan: TUAN_SAU, luu: true } });
   check('lưu: 200, ghi đủ 5 ngày', luu.status === 200 && luu.data?.daGhi === 5, luu.data);
