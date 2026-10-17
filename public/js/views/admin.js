@@ -47,6 +47,12 @@ App.views.admin = {
   // KHÔNG đặt cờ /g: cùng một biểu thức dùng cho nhiều lần .test() sẽ nhớ vị trí
   // lần trước rồi trả kết quả đúng/sai xen kẽ.
   _hongBangMa: /[\uFFFD\u0000]/,
+  // Ba vai của cô ở một nhóm (Đ188, Câu 11) — cùng mã với lib/nhom-co.js.
+  VAI_CO: [
+    ['chu-nhiem', 'Cô phụ trách nhóm (Montessori)'],
+    ['nuoc-ngoai', 'Cô nước ngoài (Cambridge)'],
+    ['the-chat', 'Cô thể chất (P.E)'],
+  ],
   _tab: 'tongquan',
   _csv: null,
 
@@ -60,7 +66,7 @@ App.views.admin = {
     root.innerHTML = `
       ${UI.pageHeader('Quản trị nhà trường')}
       <div class="seg">
-        ${[['tongquan', 'Tổng quan'], ['motngay', 'Một ngày'], ['coso', 'Cơ sở'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['quantam', 'Quan tâm'], ['tinhnang', 'Tính năng'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
+        ${[['taikhoan', 'Tài khoản'], ['tongquan', 'Tổng quan'], ['motngay', 'Một ngày'], ['coso', 'Cơ sở'], ['nhaplieu', 'Nhập danh sách'], ['giaovien', 'Giáo viên'], ['quantam', 'Quan tâm'], ['tinhnang', 'Tính năng'], ['namhoc', 'Năm học'], ['nhatky', 'Nhật ký']]
           .map(([k, t]) => `<button class="${this._tab === k ? 'active' : ''}" onclick="App.views.admin.go('${k}')">${t}</button>`).join('')}
       </div>
       <div id="admin-body"><div class="loading">Đang tải</div></div>`;
@@ -71,6 +77,7 @@ App.views.admin = {
       // trả promise ra ngoài mà không chờ — lỗi của tab không bao giờ rơi vào
       // catch này, mà rơi về App.route() và bị vẽ đè "Có lỗi xảy ra" lên CẢ
       // trang, mất luôn dải tab để bấm sang tab khác còn chạy được.
+      if (this._tab === 'taikhoan') return await this.tabTaiKhoan(body);
       if (this._tab === 'motngay') return await this.tabMotNgay(body);
       if (this._tab === 'coso') return await this.tabCoSo(body);
       if (this._tab === 'nhaplieu') return await this.tabNhapLieu(body);
@@ -85,7 +92,18 @@ App.views.admin = {
     }
   },
 
-  go(tab) { this._tab = tab; App.route(); },
+  // Mở thẳng một tab bằng địa chỉ (`#/admin/taikhoan`, lối vào từ Cài đặt) thì
+  // địa chỉ phải đổi theo tab được bấm: `render` đọc tab từ địa chỉ, nên để
+  // nguyên địa chỉ cũ là bấm tab nào cũng vẽ lại đúng tab cũ.
+  go(tab) {
+    this._tab = tab;
+    const [ten, tabTrenDiaChi] = location.hash.replace(/^#\/?/, '').split('/');
+    if (ten === 'admin' && tabTrenDiaChi && tabTrenDiaChi !== tab) {
+      location.hash = `#/admin/${tab}`;
+      return;
+    }
+    App.route();
+  },
 
   // ---------- Một ngày của cả trường (Đ162) ----------
   //
@@ -952,11 +970,7 @@ App.views.admin = {
     // Vai của từng cô ở CHÍNH nhóm này (Đ188, Câu 11). Cô chưa khai thì là chủ
     // nhiệm — đúng cách máy chủ hiểu khi không có dòng nào.
     const vaiHienCo = Object.fromEntries((c.teachers || []).map(t => [t.id, t.nhomCo || 'chu-nhiem']));
-    const VAI = [
-      ['chu-nhiem', 'Cô phụ trách nhóm (Montessori)'],
-      ['nuoc-ngoai', 'Cô nước ngoài (Cambridge)'],
-      ['the-chat', 'Cô thể chất (P.E)'],
-    ];
+    const VAI = this.VAI_CO;
 
     UI.modal(`
       <div class="field"><label>Tên nhóm</label><input id="ad-sl-ten" value="${UI.esc(c.name)}"></div>
@@ -1703,6 +1717,340 @@ Vẫn nhận bé này?`)) {
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     };
+  },
+
+  // ---------- Tài khoản & phân quyền (Đ239d1 — góp ý 16/10, mục 5) ----------
+  //
+  // Trường hỏi: "tạo tài khoản cho giáo viên, phụ huynh ở đâu, phân quyền ở chỗ
+  // nào". Phần lớn việc đã có nhưng rải ở ba tab và mấy hộp thoại; tab này gom
+  // lại theo NGƯỜI LÀM, mỗi vai thấy đúng phần việc của mình.
+  //
+  // MÁY CHỦ QUYẾT VẼ NÚT NÀO (`quyenTaiKhoan` trong /api/admin/overview), màn
+  // hình không tự kể mã chức vụ ra — cùng lý do với thẻ thông báo đẩy ở Cài
+  // đặt (Đ157). Đó cũng chỉ là chỉ đường: chốt thật vẫn là từng đường API.
+  _tk: null,
+
+  async tabTaiKhoan(body) {
+    const gioiThieu = `
+      <div class="card">
+        <div class="card-title">Ai tạo tài khoản nào</div>
+        <div class="muted small" style="line-height:1.7">
+          <b>Ban giám hiệu</b> tạo tài khoản quản trị: Cấp 2 (Nhân sự, Kế toán, Marketing),
+          quản lý cơ sở, văn phòng cơ sở, bảo vệ cổng.<br>
+          <b>Quản lý cơ sở</b> tạo tài khoản cô, phân cô vào nhóm và chuyển cô giữa các nhóm.<br>
+          <b>Văn phòng cơ sở</b> tạo tài khoản gia đình khi nhận bé vào nhóm, và chuyển nhóm cho bé.
+        </div>
+      </div>`;
+    let d;
+    try {
+      d = await API.get('/api/admin/overview');
+    } catch (err) {
+      body.innerHTML = gioiThieu + UI.emptyState('🔒', err.message || 'Tài khoản này không có việc nào ở đây');
+      return;
+    }
+    const q = d.quyenTaiKhoan || {};
+    const lamCo = q.taoCo || q.phanCongCo || q.capLaiMatKhau;
+    this._lop = d.classes || [];
+    const [quanTri, chucVu, cacCo] = await Promise.all([
+      q.taoQuanTri ? API.get('/api/admin/managers') : [],
+      q.taoQuanTri ? API.get('/api/admin/chuc-vu') : [],
+      lamCo ? API.get('/api/admin/teachers') : [],
+    ]);
+    this._tk = { q, coSo: d.campuses || [], chucVu, co: cacCo };
+    body.innerHTML = gioiThieu
+      + (q.taoQuanTri ? this.theQuanTri(quanTri) : '')
+      + (lamCo ? this.theCo(cacCo) : '')
+      + (q.nhanBe ? this.theVanPhong() : '')
+      + (q.taoQuanTri || lamCo || q.nhanBe ? ''
+        : UI.emptyState('🔒', 'Tài khoản này không tạo hay phân công tài khoản nào. Cần thì nhờ ban giám hiệu.'));
+  },
+
+  theQuanTri(ds) {
+    const tenCoSo = new Map(this._tk.coSo.map(c => [c.id, c.name]));
+    return `
+      <div class="card" id="tk-quan-tri">
+        <div class="card-title">Tài khoản quản trị<span class="spacer"></span>
+          <button class="btn sm primary" onclick="App.views.admin.taoQuanTri()">+ Tạo tài khoản quản trị</button>
+        </div>
+        <div class="muted small mb-8" style="line-height:1.6">
+          Tài khoản mới nhận <b>mật khẩu tạm</b> hiện đúng một lần, và phải đổi ở lần đăng nhập đầu.
+          Tài khoản Ban giám hiệu chỉ tạo bằng lệnh trên máy chủ.
+        </div>
+        ${ds.map(u => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(`${u.title || ''} ${u.name}`.trim())}</div>
+              <div class="row-sub">${UI.esc(u.username)} · ${UI.esc(u.chucVuTen || 'Ban giám hiệu')} · ${
+    UI.esc(u.campusId ? (tenCoSo.get(u.campusId) || 'một cơ sở') : 'cả trường')}</div>
+            </div>
+          </div>`).join('')}
+        <button class="btn sm outline mt-8" onclick="App.views.admin.go('coso')">Đổi chức vụ hoặc cơ sở của một tài khoản</button>
+      </div>`;
+  },
+
+  taoQuanTri() {
+    const chon = (this._tk.chucVu || []).filter(c => c.cap !== 1);
+    UI.modal(`
+      <div class="field"><label>Họ tên</label><input id="tk-qt-ten" placeholder="Nguyễn Thị Lan"></div>
+      <div class="field"><label>Tên đăng nhập</label>
+        <input id="tk-qt-tdn" placeholder="quanly.coso1" autocapitalize="off" autocomplete="off">
+        <div class="hint">Chữ thường không dấu, số, dấu chấm hoặc gạch dưới; 3–30 ký tự.</div></div>
+      <div class="field"><label>Chức vụ</label>
+        <select id="tk-qt-cv">
+          <option value="">— Chọn chức vụ —</option>
+          ${chon.map(c => `<option value="${UI.esc(c.ma)}">${UI.esc(c.ten)}</option>`).join('')}
+        </select>
+        <div class="hint" id="tk-qt-mota"></div></div>
+      <div class="field" id="tk-qt-o-cs" style="display:none"><label>Cơ sở</label>
+        <select id="tk-qt-cs">
+          <option value="">— Chọn cơ sở —</option>
+          ${this._tk.coSo.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}
+        </select>
+        <div class="hint">Tài khoản chỉ thấy đúng cơ sở này.</div></div>
+      <button class="btn primary block" id="tk-qt-luu">Tạo tài khoản</button>
+    `, 'Tạo tài khoản quản trị');
+
+    const oCv = document.getElementById('tk-qt-cv');
+    const dangChon = () => chon.find(c => c.ma === oCv.value);
+    oCv.onchange = () => {
+      const c = dangChon();
+      document.getElementById('tk-qt-mota').textContent = c ? c.moTa : '';
+      document.getElementById('tk-qt-o-cs').style.display = c && c.cap === 3 ? '' : 'none';
+    };
+
+    const nut = document.getElementById('tk-qt-luu');
+    nut.onclick = async () => {
+      if (nut.disabled) return;
+      const c = dangChon();
+      const than = {
+        name: document.getElementById('tk-qt-ten').value,
+        username: document.getElementById('tk-qt-tdn').value,
+        chucVu: oCv.value,
+      };
+      // Chỉ gửi cơ sở khi chức vụ cần: chức vụ cả trường mà kèm cơ sở thì
+      // máy chủ từ chối, và ô cơ sở đang ẩn vẫn giữ lựa chọn cũ.
+      if (c && c.cap === 3) than.campusId = document.getElementById('tk-qt-cs').value;
+      nut.disabled = true;
+      try {
+        const r = await API.post('/api/admin/managers', than);
+        this.hienMatKhauTam(`${r.name} · ${r.chucVuTen}`, r.username, r.temporaryPassword,
+          'Người nhận sẽ được yêu cầu đặt mật khẩu riêng ngay ở lần đăng nhập đầu.');
+      } catch (err) {
+        UI.toast(err.message, 'error');
+        nut.disabled = false;
+      }
+    };
+  },
+
+  // Hộp mật khẩu tạm, hiện MỘT lần: máy chủ không giữ lại mật khẩu gốc.
+  hienMatKhauTam(ten, username, matKhau, loiDan) {
+    UI.modal(`
+      <p>Đọc thông tin sau cho <b>${UI.esc(ten)}</b>:</p>
+      <div class="card" style="margin:14px 0;text-align:center;background:var(--primary-tint);border-color:var(--primary)">
+        <div class="muted small">Tên đăng nhập</div>
+        <div style="font-size:1.2rem;font-weight:800">${UI.esc(username)}</div>
+        <div class="muted small mt-14">Mật khẩu tạm</div>
+        <div id="tk-mat-khau" style="font-size:1.5rem;font-weight:800;letter-spacing:.1em;font-family:ui-monospace,monospace">${UI.esc(matKhau)}</div>
+      </div>
+      <p class="muted small">Mật khẩu chỉ hiện đúng lần này. ${UI.esc(loiDan)}</p>
+      <button class="btn outline block" id="tk-chep">Chép mật khẩu</button>
+      <button class="btn primary block mt-8" onclick="UI.closeModal();App.route()">Đã ghi lại</button>
+    `, 'Mật khẩu tạm');
+    document.getElementById('tk-chep').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(matKhau);
+        UI.toast('Đã chép mật khẩu', 'success');
+      } catch (_) {
+        // Trình duyệt không cho chép tự động (trang chưa chạy https, máy cũ):
+        // bôi đen sẵn để người dùng tự chép, và nói thẳng như vậy.
+        const vung = document.createRange();
+        vung.selectNodeContents(document.getElementById('tk-mat-khau'));
+        const chon = window.getSelection();
+        chon.removeAllRanges();
+        chon.addRange(vung);
+        UI.toast('Máy chưa cho chép tự động. Mật khẩu đã được bôi đen, bấm giữ để chép.', 'error');
+      }
+    };
+  },
+
+  // Các nhóm (trong phạm vi người xem) mà cô đang dạy, kèm dòng của cô ở nhóm đó.
+  nhomCuaCoTk(teacherId) {
+    return (this._lop || [])
+      .map(c => ({ c, o: (c.teachers || []).find(x => x.id === teacherId) }))
+      .filter(x => x.o);
+  },
+
+  theCo(ds) {
+    const { q } = this._tk;
+    return `
+      <div class="card" id="tk-co">
+        <div class="card-title">Tài khoản cô<span class="spacer"></span>
+          ${q.taoCo ? '<button class="btn sm primary" onclick="App.views.admin.themGiaoVien()">+ Tạo tài khoản cô</button>' : ''}
+        </div>
+        <div class="muted small mb-8" style="line-height:1.6">
+          Cô chỉ xem được hồ sơ bé của những nhóm cô được phân vào.
+          ${q.phanCongCo ? '<b>Chuyển nhóm</b> là một bước: cô rời nhóm đi, vào nhóm đến và giữ nguyên vai đang có.' : ''}
+        </div>
+        ${ds.length ? ds.map(t => this.dongCo(t)).join('') : '<div class="muted small">Chưa có cô nào.</div>'}
+      </div>`;
+  },
+
+  dongCo(t) {
+    const { q } = this._tk;
+    const tenVai = Object.fromEntries(this.VAI_CO);
+    const nhom = this.nhomCuaCoTk(t.id);
+    // Quản lý một cơ sở chỉ cấp lại được cho cô có nhóm ở cơ sở mình
+    // (routes/accounts.js) — cô chưa phân nhóm thì chưa thuộc cơ sở nào ở đó.
+    const capLai = q.capLaiMatKhau && (!q.motCoSo || nhom.length > 0);
+    return `
+      <div class="list-row">
+        ${UI.avatar(t.avatar, 40)}
+        <div class="row-main">
+          <div class="row-title">${UI.esc(`${t.title || ''} ${t.name}`.trim())}</div>
+          <div class="row-sub">${UI.esc(t.username)}</div>
+          <div class="row-sub">${nhom.length
+    ? nhom.map(({ c, o }) => `${UI.esc(c.name)}: ${UI.esc(tenVai[o.nhomCo] || tenVai['chu-nhiem'])}${
+      o.vaiTro === 'chinh' ? ' · cô chính' : ''}`).join('<br>')
+    : 'Chưa phụ trách nhóm nào'}</div>
+          ${t.mustChangePassword ? `<div class="mt-8">${UI.badge('Chưa đổi mật khẩu', 'orange')}</div>` : ''}
+          ${q.capLaiMatKhau && !capLai
+    ? '<div class="muted small mt-8">Phân cô vào một nhóm của cơ sở rồi mới cấp lại mật khẩu được.</div>' : ''}
+        </div>
+        <div class="row-end" style="display:flex;flex-direction:column;gap:6px">
+          ${q.phanCongCo && nhom.length ? `<button class="btn sm outline" onclick="App.views.admin.chuyenNhomCo('${UI.esc(t.id)}')">Chuyển nhóm</button>` : ''}
+          ${q.phanCongCo && !nhom.length ? `<button class="btn sm outline" onclick="App.views.admin.phanCoVaoNhom('${UI.esc(t.id)}')">Phân vào nhóm</button>` : ''}
+          ${capLai ? `<button class="btn sm outline" onclick="App.views.admin.capLaiMatKhauCo('${UI.esc(t.id)}')">Cấp lại mật khẩu</button>` : ''}
+        </div>
+      </div>`;
+  },
+
+  coTheoMa(teacherId) {
+    const t = ((this._tk || {}).co || []).find(x => x.id === teacherId);
+    return t ? { ...t, hoTen: `${t.title || ''} ${t.name}`.trim() } : null;
+  },
+
+  chuyenNhomCo(teacherId) {
+    const t = this.coTheoMa(teacherId);
+    if (!t) return;
+    const dangDay = this.nhomCuaCoTk(teacherId).map(x => x.c);
+    const khac = (this._lop || []).filter(c => !dangDay.some(x => x.id === c.id));
+    if (!khac.length) return UI.toast('Chưa có nhóm nào khác để chuyển cô sang', 'error');
+    const oChon = (ds) => ds.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('');
+    UI.modal(`
+      <div class="muted small mb-8" style="line-height:1.6">
+        Cô rời nhóm đi và vào nhóm đến trong một bước, giữ nguyên vai đang có. Từ lúc
+        bấm, cô thôi xem được hồ sơ bé của nhóm đi.
+      </div>
+      <div class="field"><label>Nhóm đi</label><select id="tk-cn-tu">${oChon(dangDay)}</select></div>
+      <div class="field"><label>Nhóm đến</label><select id="tk-cn-den">${oChon(khac)}</select></div>
+      <button class="btn primary block" id="tk-cn-luu">Chuyển nhóm</button>
+    `, `Chuyển nhóm cho ${t.hoTen}`);
+    const nut = document.getElementById('tk-cn-luu');
+    nut.onclick = async () => {
+      if (nut.disabled) return;
+      nut.disabled = true;
+      try {
+        await API.post(`/api/admin/teachers/${encodeURIComponent(teacherId)}/chuyen-nhom`, {
+          tuNhom: document.getElementById('tk-cn-tu').value,
+          denNhom: document.getElementById('tk-cn-den').value,
+        });
+        UI.toast(`Đã chuyển ${t.hoTen} sang nhóm mới`, 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) {
+        UI.toast(err.message, 'error');
+        nut.disabled = false;
+      }
+    };
+  },
+
+  // Cô chưa phụ trách nhóm nào: thêm cô vào MỘT nhóm, giữ nguyên các cô đang
+  // dạy nhóm đó — đi qua đúng đường phân công của màn Sửa nhóm.
+  phanCoVaoNhom(teacherId) {
+    const t = this.coTheoMa(teacherId);
+    const lop = this._lop || [];
+    if (!t) return;
+    if (!lop.length) return UI.toast('Chưa có nhóm nào để phân cô vào', 'error');
+    UI.modal(`
+      <div class="field"><label>Nhóm</label>
+        <select id="tk-pv-nhom">${lop.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(c.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Vai của cô ở nhóm này</label>
+        <select id="tk-pv-vai">${this.VAI_CO.map(([ma, ten]) => `<option value="${UI.esc(ma)}">${UI.esc(ten)}</option>`).join('')}</select></div>
+      <div class="muted small mb-8">Các cô đang phụ trách nhóm giữ nguyên. Cô xem được hồ sơ bé của nhóm ngay khi lưu.</div>
+      <button class="btn primary block" id="tk-pv-luu">Phân vào nhóm</button>
+    `, `Phân ${t.hoTen} vào nhóm`);
+    const nut = document.getElementById('tk-pv-luu');
+    nut.onclick = async () => {
+      const c = lop.find(x => x.id === document.getElementById('tk-pv-nhom').value);
+      if (!c || nut.disabled) return;
+      const chinh = (c.teachers || []).find(x => x.vaiTro === 'chinh');
+      nut.disabled = true;
+      try {
+        await API.put(`/api/admin/classes/${encodeURIComponent(c.id)}/teachers`, {
+          teacherIds: [...(c.teachers || []).map(x => x.id), teacherId],
+          chinhId: chinh ? chinh.id : null,
+          nhom: { [teacherId]: document.getElementById('tk-pv-vai').value },
+        });
+        UI.toast(`Đã phân ${t.hoTen} vào ${c.name}`, 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) {
+        UI.toast(err.message, 'error');
+        nut.disabled = false;
+      }
+    };
+  },
+
+  async capLaiMatKhauCo(teacherId) {
+    const t = this.coTheoMa(teacherId);
+    if (!t) return;
+    if (!confirm(`Cấp mật khẩu tạm mới cho ${t.hoTen}?\n\nMật khẩu cũ sẽ không dùng được nữa và cô sẽ bị đăng xuất khỏi mọi thiết bị.`)) return;
+    try {
+      const r = await API.post(`/api/accounts/${encodeURIComponent(teacherId)}/reset-password`);
+      this.hienMatKhauTam(t.hoTen, r.username, r.temporaryPassword,
+        'Cô sẽ được yêu cầu đặt mật khẩu riêng ngay sau khi đăng nhập.');
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // Phần việc của văn phòng cơ sở với gia đình và bé. Hôm nay là các lối tới
+  // những việc ĐÃ CÓ; khối `#tk-van-phong` là chỗ đợt sau (Đ239d2) thêm
+  // "Thêm phụ huynh thứ hai" và "Bảo lưu".
+  theVanPhong() {
+    const { q } = this._tk;
+    return `
+      <div class="card" id="tk-van-phong">
+        <div class="card-title">Phụ huynh &amp; bé</div>
+        <div class="muted small mb-8" style="line-height:1.7">
+          <b>Tạo tài khoản gia đình:</b> bấm <b>Nhận bé</b> ở nhóm của bé. Máy tạo tài khoản
+          phụ huynh theo số điện thoại; nhà đã có con học ở trường thì nối vào tài khoản cũ.<br>
+          <b>Chuyển nhóm cho bé:</b> bấm <b>Xem bé</b>, bấm <b>Sửa</b> ở dòng của bé, đổi ô <b>Nhóm</b>.<br>
+          <b>Cho nghỉ học / nhận lại:</b> bấm <b>Xem bé</b>, rồi <b>Cho nghỉ</b> hoặc <b>Nhận lại</b>.
+          Dữ liệu của bé giữ nguyên.<br>
+          <b>Gia đình quên mật khẩu:</b> ${q.capLaiMatKhau
+    ? 'mở <b>Tài khoản phụ huynh</b>, bấm <b>Cấp mật khẩu tạm</b> cạnh tên nhà đó.'
+    : 'cô của nhóm bé hoặc quản lý cơ sở cấp lại ở <b>Cài đặt → Tài khoản phụ huynh</b>.'}
+        </div>
+        ${q.capLaiMatKhau ? '<button class="btn sm outline mb-8" onclick="location.hash=\'#/accounts\'">Mở Tài khoản phụ huynh</button>' : ''}
+        ${(this._lop || []).map(c => `
+          <div class="list-row">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(c.name)}</div>
+              <div class="row-sub">${UI.esc(String(c.studentCount))} bé</div>
+            </div>
+            <div class="row-end" style="display:flex;gap:6px">
+              <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem bé</button>
+              <button class="btn sm primary" onclick="App.views.admin.nhanBeVaoNhom('${UI.esc(c.id)}')">Nhận bé</button>
+            </div>
+          </div>`).join('') || '<div class="muted small">Chưa có nhóm nào.</div>'}
+      </div>`;
+  },
+
+  nhanBeVaoNhom(classId) {
+    const c = (this._lop || []).find(x => x.id === classId);
+    if (!c) return;
+    // Bấm "Xong" trên phiếu nhận bé là mở lại danh sách của ĐÚNG nhóm này.
+    this._lopDangXem = { classId, tenLop: c.name };
+    this.moNhanBe(classId, c.name);
   },
 
   // ---------- Giáo viên ----------

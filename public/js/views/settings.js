@@ -41,6 +41,13 @@ App.views.settings = {
       ${user.role === 'admin' ? `
         <div class="card">
           <div class="card-title">🏫 Quản trị nhà trường</div>
+          <div class="list-row clickable" id="st-tai-khoan" onclick="location.hash='#/admin/taikhoan'">
+            <div class="row-main">
+              <div class="row-title">Tài khoản &amp; phân quyền</div>
+              <div class="row-sub">Ai tạo tài khoản nào; tạo tài khoản, phân cô vào nhóm, chuyển cô giữa các nhóm</div>
+            </div>
+            <span class="muted">${UI.icon('chevron', 18)}</span>
+          </div>
           <div class="list-row clickable" onclick="location.hash='#/admin'">
             <div class="row-main">
               <div class="row-title">Nhóm lớp, cô, nhập danh sách</div>
