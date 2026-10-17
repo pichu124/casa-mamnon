@@ -175,6 +175,72 @@ function kenhCuaBe(studentId, loai) {
     'SELECT * FROM kenh_hoi_thoai WHERE studentId = ? AND loai = ?', [studentId, loai]);
 }
 
+// ---- VĂN PHÒNG LÀ MỘT ĐẦU MỐI CHO CẢ NHÀ (góp ý 16/10, mục phụ huynh 1) ----
+//
+// Nhà trường: *"Nhắn tin với cô, văn phòng nhà trường là 1. nên không cần tách
+// ra Văn phòng nhà trường về bé này bé kia"*. Gia đình thấy MỘT mục văn phòng
+// cho mỗi cơ sở có con học — gần như luôn là một.
+//
+// TẦNG DỮ LIỆU KHÔNG ĐỔI: kênh vẫn lưu theo (bé, loại), và quyền vẫn tính theo
+// bé đó (`vaoDuocKenh`), nên mục gộp chỉ là chọn MỘT bé để gắn. Cuộc văn phòng
+// cũ theo từng bé không bị gộp hay xoá; chúng vẫn nằm trong danh sách và vẫn mở
+// được. Gộp theo cơ sở, không gộp cả nhà: văn phòng đọc theo cơ sở của bé, nên
+// gắn chung một bé là cuộc nhắn về con ở cơ sở 2 rơi vào hộp thư cơ sở 1.
+function coSoCuaBe(s) {
+  return (s && s.classId && db.campusOfClass(s.classId)) || '';
+}
+
+// Cuộc văn phòng có tin GẦN NHẤT trong số các bé này, để mục gộp mở lại đúng
+// mạch đang dở. Cuộc nhà trường đã đóng xếp sau cuộc đang sống: gia đình không
+// mở được cuộc đã đóng, và cuộc đã đóng của bé này không được che mất cuộc đang
+// sống của bé kia.
+function kenhVanPhongGanNhat(studentIds) {
+  if (!studentIds.length) return null;
+  const m = studentIds.map(() => '?').join(',');
+  return db.first('kenh_hoi_thoai',
+    `SELECT k.* FROM kenh_hoi_thoai k
+      WHERE k.loai = 'vanphong' AND k.studentId IN (${m})
+      ORDER BY k.conversationId IN (SELECT conversationId FROM hoi_thoai_dong),
+               COALESCE((SELECT MAX(ms.createdAt) FROM messages ms
+                          WHERE ms.conversationId = k.conversationId), k.taoLuc, '') DESC,
+               k.conversationId DESC
+      LIMIT 1`, studentIds) || null;
+}
+
+// Dòng phụ của kênh văn phòng PHÍA GIA ĐÌNH: chỉ nhà có con học ở hai cơ sở mới
+// cần tên cơ sở để biết đang nhắn văn phòng nào; còn lại để trống.
+function tenCoSoVanPhong(user, be) {
+  const cuaBe = coSoCuaBe(be);
+  if (!cuaBe) return '';
+  const cacCoSo = new Set(db.studentsOf(user).filter(s => s.classId).map(coSoCuaBe));
+  if (cacCoSo.size < 2) return '';
+  const cs = db.findCampus(cuaBe);
+  return cs ? cs.name : '';
+}
+
+// Dòng phụ của kênh văn phòng PHÍA NHÀ TRƯỜNG: văn phòng trả lời một NHÀ, nên
+// nêu tên phụ huynh và các con của nhà ấy ở cùng cơ sở với bé gắn kênh. Chỉ bé
+// người đọc được: văn phòng cơ sở 1 không được biết tên bé học cơ sở 2.
+function nhaCuaKenhVanPhong(user, be) {
+  if (!be) return '';
+  const cs = coSoCuaBe(be);
+  const con = [be];
+  for (const s of db.all('students',
+    `SELECT DISTINCT s.* FROM students s
+       JOIN student_parents sp ON sp.studentId = s.id
+      WHERE sp.parentId IN (SELECT parentId FROM student_parents WHERE studentId = ?)
+        AND s.id != ? AND s.active = 1
+      ORDER BY s.name`, [be.id, be.id])) {
+    if (coSoCuaBe(s) === cs && db.canAccessStudent(user, s.id)) con.push(s);
+  }
+  const phuHuynh = (be.parentIds || []).map(id => db.findUser(id)).filter(Boolean).map(displayName);
+  const tenCon = con.map(s => {
+    const lop = s.classId ? db.findClass(s.classId) : null;
+    return `bé ${s.name}${lop ? ` (${lop.name})` : ''}`;
+  });
+  return [phuHuynh.join(', '), tenCon.join(', ')].filter(Boolean).join(' · ');
+}
+
 // ĐỒNG BỘ HÀNG THÀNH VIÊN CHO NHỮNG KÊNH NGƯỜI NÀY ĐƯỢC VÀO.
 //
 // Chạy ở đầu đường lấy danh sách hội thoại. Thường không ghi gì cả — chỉ ghi
@@ -284,8 +350,9 @@ function hoiThoaiRiengCua(userId) {
 // Nhà trường 10/09: *"chứ mình cũng k muốn là nhắn tin với từng cô riêng lẻ"*,
 // và *"GVCN là người nói chuyện chính, sau có thể thêm giáo viên nước ngoài"*.
 //
-//   Gia đình  → hai kênh cho MỖI bé: "Nhóm lớp <tên>" và "Văn phòng nhà trường".
-//               KHÔNG còn danh sách từng cô để bấm vào.
+//   Gia đình  → hai kênh cô cho MỖI bé, cộng MỘT mục "Văn phòng nhà trường"
+//               cho mỗi cơ sở có con học (góp ý 16/10, PH1). KHÔNG còn danh
+//               sách từng cô để bấm vào.
 //   Cô        → gia đình từng bé trong nhóm mình, mở đúng kênh "Nhóm lớp".
 //   Văn phòng → KHÔNG mời mở cuộc mới. Văn phòng TRẢ LỜI gia đình; còn muốn nói
 //               với cả trường thì đã có Thông báo. Danh sách liên hệ của văn
@@ -301,11 +368,13 @@ function hoiThoaiRiengCua(userId) {
 function contactsFor(user) {
   const out = [];
   if (user.role === 'parent') {
+    const theoCoSo = new Map();
     for (const s of db.studentsOf(user)) {
       if (!s.classId) continue;
       const cls = db.findClass(s.classId);
-      // ĐÚNG BA ĐẦU MỐI MỖI BÉ, theo lời trường (Đ188, Câu 11): giáo viên chủ
-      // nhiệm, giáo viên nước ngoài, văn phòng nhà trường.
+      // BA ĐẦU MỐI, theo lời trường (Đ188, Câu 11): giáo viên chủ nhiệm, giáo
+      // viên nước ngoài, văn phòng nhà trường. Hai đầu mối cô đi theo TỪNG bé;
+      // văn phòng gom theo cơ sở ở vòng dưới.
       //
       // Hai kênh đầu vẫn mời dù nhóm CHƯA có cô nào giữ vai ấy. Ẩn đi thì gia
       // đình không hiểu vì sao nhà bên cạnh có ba ô còn mình có hai, và họ sẽ
@@ -322,11 +391,19 @@ function contactsFor(user) {
           existingConversationId: daCo ? daCo.conversationId : null,
         });
       }
-      const daCoVP = kenhCuaBe(s.id, 'vanphong');
+      const cs = coSoCuaBe(s);
+      if (!theoCoSo.has(cs)) theoCoSo.set(cs, []);
+      theoCoSo.get(cs).push(s.id);
+    }
+    // MỘT mục văn phòng mỗi cơ sở. Đã nhắn rồi thì dùng lại cuộc gần nhất cho
+    // khỏi đứt mạch; chưa thì gắn với bé đứng đầu theo mã, lần nào cũng cùng bé.
+    for (const [cs, maBe] of theoCoSo) {
+      const daCoVP = kenhVanPhongGanNhat(maBe);
+      const coSo = theoCoSo.size > 1 ? db.findCampus(cs) : null;
       out.push({
-        kenh: 'vanphong', studentId: s.id,
+        kenh: 'vanphong', studentId: daCoVP ? daCoVP.studentId : [...maBe].sort()[0],
         name: 'Văn phòng nhà trường',
-        subtitle: `Về bé ${s.name}`,
+        subtitle: coSo ? coSo.name : '',
         avatar: null,
         existingConversationId: daCoVP ? daCoVP.conversationId : null,
       });
@@ -371,17 +448,19 @@ function convMeta(cv, user, members, tra) {
     const be = db.findStudent(k.studentId);
     const cls = be && be.classId ? db.findClass(be.classId) : null;
     if (user.role === 'parent') {
+      // Văn phòng là MỘT đầu mối cho cả nhà (góp ý 16/10, PH1): không "Về bé…".
+      if (k.loai === 'vanphong') {
+        return { title: 'Văn phòng nhà trường', subtitle: tenCoSoVanPhong(user, be), avatar: GROUP_AVATAR };
+      }
       return {
         // Gia đình đọc TÊN ĐẦU MỐI, không đọc mã kênh (Đ188). Trước đây chỉ có
         // một kênh cô nên nó mang tên nhóm lớp; nay có hai, và "Nhóm lớp Chồi 2"
         // không phân biệt được cô chủ nhiệm với cô nước ngoài.
-        title: k.loai === 'vanphong'
-          ? 'Văn phòng nhà trường'
-          : (nhomCo.TEN_NHOM[NHOM_CUA_KENH[k.loai]] || 'Cô của bé'),
+        title: nhomCo.TEN_NHOM[NHOM_CUA_KENH[k.loai]] || 'Cô của bé',
         subtitle: [
-          k.loai === 'vanphong' ? '' : nhomCo.CHUONG_TRINH[NHOM_CUA_KENH[k.loai]],
+          nhomCo.CHUONG_TRINH[NHOM_CUA_KENH[k.loai]],
           be ? `Về bé ${be.name}` : '',
-          k.loai === 'vanphong' ? '' : (cls ? cls.name : ''),
+          cls ? cls.name : '',
         ].filter(Boolean).join(' · '),
         avatar: GROUP_AVATAR,
       };
@@ -389,7 +468,7 @@ function convMeta(cv, user, members, tra) {
     return {
       title: be ? `Gia đình bé ${be.name}` : 'Gia đình',
       subtitle: k.loai === 'vanphong'
-        ? `Nhắn với văn phòng${cls ? ` · ${cls.name}` : ''}`
+        ? nhaCuaKenhVanPhong(user, be)
         : [nhomCo.TEN_NHOM[NHOM_CUA_KENH[k.loai]], cls ? cls.name : ''].filter(Boolean).join(' · '),
       avatar: be ? be.avatar : null,
     };
