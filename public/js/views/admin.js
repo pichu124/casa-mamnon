@@ -1112,7 +1112,8 @@ App.views.admin = {
     // Họ tên do người nhập gõ nên không bao giờ đi qua đường này — xem ghi chú ở
     // App.views.accounts.reset.
     // Bé bảo lưu (Đ239d2) nằm cùng mục đã nghỉ — máy đối xử y như nhau — nhưng
-    // mang nhãn riêng và nút "Đi học lại", để văn phòng không nhầm với bé nghỉ hẳn.
+    // mang nhãn riêng, nút "Đi học lại" và "Thôi bảo lưu, nghỉ hẳn", để văn phòng
+    // không nhầm với bé nghỉ hẳn.
     const dong = (s, daNghiHoc) => `
       <div class="list-row"${daNghiHoc ? ' style="opacity:.65"' : ''}>
         <div class="row-main">
@@ -1124,7 +1125,8 @@ App.views.admin = {
         <div class="row-end" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
           ${daNghiHoc
             ? (s.baoLuu
-              ? `<button class="btn sm outline" onclick="App.views.admin.diHocLai('${UI.esc(s.id)}')">Đi học lại</button>`
+              ? `<button class="btn sm outline" onclick="App.views.admin.diHocLai('${UI.esc(s.id)}')">Đi học lại</button>
+                 <button class="btn sm outline" onclick="App.views.admin.thoiBaoLuu('${UI.esc(s.id)}')">Thôi bảo lưu, nghỉ hẳn</button>`
               : `<button class="btn sm outline" onclick="App.views.admin.nhanLaiHocSinh('${UI.esc(s.id)}')">Nhận lại</button>`)
             : `<button class="btn sm outline" onclick="App.views.admin.suaHocSinh('${UI.esc(s.id)}')">Sửa</button>
                <button class="btn sm outline" onclick="App.views.admin.choBaoLuu('${UI.esc(s.id)}')">Bảo lưu</button>
@@ -1586,6 +1588,34 @@ Vẫn nhận bé này?`)) {
   // là đúng đường "Nhận lại" — một chạm.
   diHocLai(studentId) {
     return this.nhanLaiHocSinh(studentId, 'Bé đã đi học lại');
+  },
+
+  // Gia đình báo bé không quay lại: bỏ nhãn bảo lưu, bé vẫn nghỉ, ngày nghỉ giữ nguyên.
+  thoiBaoLuu(studentId) {
+    UI.modal(`
+      <p style="line-height:1.6">Bé sẽ không quay lại? Bé chuyển từ <b>bảo lưu</b> sang <b>đã nghỉ học</b>.</p>
+      <p class="muted small" style="line-height:1.6">
+        Ngày nghỉ của bé giữ nguyên như lúc bắt đầu bảo lưu. <b>Toàn bộ dữ liệu cũ vẫn được giữ nguyên</b>.
+        Sau này bé quay lại thì vẫn bấm "Nhận lại" ở danh sách nhóm.
+      </p>
+      <button class="btn primary block mt-14" id="ad-thoi-bl-ok">Xác nhận nghỉ hẳn</button>
+      <button class="btn outline block mt-8" onclick="App.views.admin.lamMoiLop()">Quay lại</button>
+    `, 'Thôi bảo lưu');
+
+    const nut = document.getElementById('ad-thoi-bl-ok');
+    nut.onclick = async () => {
+      if (nut.disabled) return;
+      nut.disabled = true;
+      try {
+        await API.post(`/api/admin/students/${encodeURIComponent(studentId)}/thoi-bao-luu`, {});
+        UI.toast('Bé đã chuyển sang nghỉ học', 'success');
+        App.route();
+        await this.lamMoiLop();
+      } catch (err) {
+        UI.toast(err.message, 'error');
+        nut.disabled = false;
+      }
+    };
   },
 
   chuBaoLuu(bl) {
@@ -2626,6 +2656,7 @@ Vẫn nhận bé này?`)) {
       'student-update': 'Sửa hồ sơ của bé',
       'student-deactivate': 'Cho bé nghỉ học',
       'student-bao-luu': 'Cho bé nghỉ học bảo lưu',
+      'student-thoi-bao-luu': 'Thôi bảo lưu, cho bé nghỉ hẳn',
       'phu-huynh-them': 'Thêm tài khoản phụ huynh cho bé',
       'students-export': 'Xuất danh sách bé',
       'import-students': 'Nhập danh sách bé',

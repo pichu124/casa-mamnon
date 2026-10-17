@@ -240,6 +240,30 @@ try {
   check('máy chủ: bé đang học lại, không còn bảo lưu', s4.active === true && !s4.baoLuu, [s4.active, s4.baoLuu]);
   check('dòng của bé đang học có nút "Bảo lưu" cạnh "Cho nghỉ"',
     await page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first().locator('button', { hasText: 'Bảo lưu' }).count() === 1);
+
+  // -- Bé bảo lưu không quay lại: "Thôi bảo lưu, nghỉ hẳn" (Đ239-vá3)
+  await page.evaluate(() => API.post('/api/admin/students/s4/bao-luu', {}));
+  await page.evaluate(() => App.views.admin.xemLop('c1'));
+  await page.waitForSelector('.modal .list-row', { timeout: 8000 });
+  const dongBL2 = page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first();
+  check('dòng bé bảo lưu có nút "Thôi bảo lưu, nghỉ hẳn" cạnh "Đi học lại"',
+    await dongBL2.locator('button', { hasText: 'Thôi bảo lưu, nghỉ hẳn' }).count() === 1
+    && await dongBL2.locator('button', { hasText: 'Đi học lại' }).count() === 1, await dongBL2.innerText());
+  const ngayNghiTruoc = (await beQuaApi('c1', 's4')).leftAt;
+  await dongBL2.locator('button', { hasText: 'Thôi bảo lưu, nghỉ hẳn' }).click();
+  await page.waitForSelector('#ad-thoi-bl-ok', { timeout: 5000 });
+  check('hộp xác nhận nói rõ ngày nghỉ và dữ liệu giữ nguyên', /Ngày nghỉ của bé giữ nguyên/.test(await page.locator('.modal').innerText())
+    && /giữ nguyên/.test(await page.locator('.modal').innerText()));
+  await page.click('#ad-thoi-bl-ok');
+  await page.waitForSelector('.modal .list-row', { timeout: 8000 });
+  await page.waitForTimeout(600);
+  const sauThoi = await page.locator('.modal .list-row', { hasText: 'Vũ Đức Anh' }).first().innerText();
+  check('bấm xác nhận: bé mang nhãn "Đã nghỉ", hết nhãn bảo lưu, có nút "Nhận lại"',
+    /Đã nghỉ/.test(sauThoi) && !/Bảo lưu|Đi học lại/.test(sauThoi) && /Nhận lại/.test(sauThoi), sauThoi);
+  const s4Nghi = await beQuaApi('c1', 's4');
+  check('máy chủ: bé vẫn nghỉ, không còn bảo lưu, ngày nghỉ không đổi',
+    s4Nghi.active === false && !s4Nghi.baoLuu && s4Nghi.leftAt === ngayNghiTruoc, [s4Nghi.active, s4Nghi.baoLuu, s4Nghi.leftAt, ngayNghiTruoc]);
+  await page.evaluate(() => API.put('/api/admin/students/s4', { active: true }));
   await page.evaluate(() => UI.closeModal());
 
   // -- Chuyển nhóm cho bé

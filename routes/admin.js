@@ -1577,8 +1577,9 @@ module.exports = (app) => {
       else if (s.classId) lsl.baoDamCoKhoang(s.id);
     }
     db.update('students', s.id, patch);
-    // Nhận lại cũng là ĐI HỌC LẠI sau bảo lưu (Đ239d2): hết bảo lưu thì hết nhãn.
-    if (patch.active) db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
+    // Nhận lại cũng là ĐI HỌC LẠI sau bảo lưu (Đ239d2), còn đánh dấu nghỉ ở đây
+    // là nghỉ HẲN: đằng nào cũng hết bảo lưu thì hết nhãn.
+    if (patch.active !== undefined) db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
 
     // Hồ sơ mở rộng và người liên hệ khẩn cấp nằm ở bảng riêng, nên ghi riêng.
     // Chỉ ghi khi màn hình có gửi lên: không gửi nghĩa là không đụng tới, chứ
@@ -1601,7 +1602,11 @@ module.exports = (app) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
     if (!duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
-    choBeNghiHoc(s);
+    // "Cho nghỉ" là nghỉ HẲN: bé đang bảo lưu mà bị cho nghỉ thì hết nhãn bảo lưu.
+    db.tx(() => {
+      choBeNghiHoc(s);
+      db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
+    });
     db.audit(req.user.id, 'student-deactivate', s.id, { name: s.name });
     res.json({ ok: true });
   });
@@ -1665,6 +1670,21 @@ module.exports = (app) => {
     // Lý do KHÔNG vào nhật ký: nó hay là chuyện sức khoẻ, chuyện nhà của bé.
     db.audit(req.user.id, 'student-bao-luu', s.id, { name: s.name, tuNgay, duKienQuayLai });
     res.json({ ok: true, baoLuu: rec });
+  });
+
+  // THÔI BẢO LƯU, NGHỈ HẲN (Đ239-vá3). Bé bảo lưu rồi gia đình báo không quay
+  // lại: bỏ nhãn bảo lưu, bé vẫn nghỉ, GIỮ NGUYÊN ngày nghỉ — mốc 12 tháng gia
+  // đình còn xem hồ sơ con tính từ hôm bé thôi đi học, không phải hôm văn phòng
+  // bấm nút này. Cùng quyền với ghi bảo lưu.
+  app.post('/api/admin/students/:id/thoi-bao-luu', onlyAdmin, (req, res) => {
+    const s = db.findStudent(req.params.id);
+    if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!db.canAccessStudent(req.user, s.id) || !duocChamBe(req.user, s.id)) return khongThuocCoSo(res, 'bé');
+    const bl = db.first('hoc_sinh_bao_luu', 'SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
+    if (s.active || !bl) return res.status(400).json({ error: 'Bé không đang nghỉ học bảo lưu.' });
+    db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
+    db.audit(req.user.id, 'student-thoi-bao-luu', s.id, { name: s.name, tuNgay: bl.tuNgay, leftAt: s.leftAt || null });
+    res.json({ ok: true });
   });
 
   // Mỗi bé tối đa bấy nhiêu tài khoản phụ huynh: bố, mẹ và hai người nữa (ông

@@ -469,6 +469,60 @@ console.log('\n[8] Nghỉ học bảo lưu — cùng hiệu ứng với "Cho ngh
 }
 
 // ===========================================================================
+console.log('\n[8b] Bé đang bảo lưu chốt nghỉ hẳn — hết nhãn "Bảo lưu", giữ ngày nghỉ (Đ239-vá3)');
+{
+  const thoi = (ck, sid) => req('POST', `/api/admin/students/${sid}/thoi-bao-luu`, { cookie: ck });
+  const baoLuu = (ck, sid) => req('POST', `/api/admin/students/${sid}/bao-luu`, { cookie: ck, body: { lyDo: 'Ốm dài ngày' } });
+  const dongBL = (sid) => docDb('SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', sid);
+  const beNghi = async (sid) => (await hoSoNhom(BGH, 'c1', true)).find(s => s.id === sid) || {};
+  const ghiDb = (sql, ...thamSo) => {
+    const d = new Database(path.join(DIR, 'school.db'), { fileMustExist: true });
+    try { d.prepare(sql).run(...thamSo); } finally { d.close(); }
+  };
+  // Bé bảo lưu từ đầu tháng 9 năm trước — ngày nghỉ khác hẳn hôm nay, để thấy được nó không bị đổi.
+  const ngayNghi = `${Number(HOM_NAY().slice(0, 4)) - 1}-09-01`;
+
+  check('(đối chứng) văn phòng ghi bảo lưu cho bé Gia Bảo', (await baoLuu(VP, 's6')).status === 200);
+  ghiDb('UPDATE students SET leftAt = ? WHERE id = ?', ngayNghi, 's6');
+  check('(đối chứng) bé mang nhãn bảo lưu, ngày nghỉ là ngày cũ',
+    !!(await beNghi('s6')).baoLuu && (await beNghi('s6')).leftAt === ngayNghi, await beNghi('s6'));
+
+  check('cô → 403', (await thoi(GV, 's6')).status === 403);
+  check('phụ huynh → 403', (await thoi(PH, 's6')).status === 403);
+  check('nhân sự (không mở hồ sơ bé) → 403', (await thoi(NS, 's6')).status === 403);
+  check('văn phòng cơ sở khác → 404', (await thoi(VP2, 's6')).status === 404);
+  check('quản lý cơ sở khác → 404', (await thoi(QL2, 's6')).status === 404);
+  check('sau các lượt bị từ chối bé vẫn bảo lưu', dongBL('s6').length === 1);
+
+  const r = await thoi(VP, 's6');
+  check('văn phòng bấm "Thôi bảo lưu, nghỉ hẳn" → 200', r.status === 200, r.data);
+  const sau = await beNghi('s6');
+  check('HẾT NHÃN BẢO LƯU', !sau.baoLuu && dongBL('s6').length === 0, sau.baoLuu);
+  check('bé vẫn nghỉ học', sau.active === false && !(await hoSoNhom(BGH, 'c1')).some(s => s.id === 's6'), sau.active);
+  check('NGÀY NGHỈ GIỮ NGUYÊN', sau.leftAt === ngayNghi, sau.leftAt);
+  const nk = (await req('GET', '/api/admin/audit', { cookie: BGH })).data || [];
+  check('Nhật ký ghi lượt thôi bảo lưu', nk.some(x => x.action === 'student-thoi-bao-luu' && x.target === 's6'),
+    nk.slice(0, 3).map(x => x.action));
+  check('bé không còn bảo lưu → bấm lần nữa 400', (await thoi(VP, 's6')).status === 400);
+  check('bé đang học → 400', (await thoi(VP, 's1')).status === 400);
+
+  // Hai đường "nghỉ hẳn" cũ, nếu gọi trên bé đang bảo lưu, cũng không để nhãn bảo lưu sót lại.
+  await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
+  check('(đối chứng) bảo lưu lại', (await baoLuu(VP, 's6')).status === 200 && dongBL('s6').length === 1);
+  check('"Cho nghỉ" (DELETE) trên bé đang bảo lưu → 200', (await req('DELETE', '/api/admin/students/s6', { cookie: VP })).status === 200);
+  check('và hết nhãn bảo lưu, bé vẫn nghỉ', !(await beNghi('s6')).baoLuu && (await beNghi('s6')).active === false, await beNghi('s6'));
+  await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
+  check('(đối chứng) bảo lưu lại lần nữa', (await baoLuu(VP, 's6')).status === 200 && dongBL('s6').length === 1);
+  check('PUT {active:false} trên bé đang bảo lưu → 200',
+    (await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: false } })).status === 200);
+  check('và hết nhãn bảo lưu, bé vẫn nghỉ', !(await beNghi('s6')).baoLuu && (await beNghi('s6')).active === false, await beNghi('s6'));
+  check('"Cho nghỉ" trên bé đang học vẫn như cũ',
+    (await req('DELETE', '/api/admin/students/s5', { cookie: VP })).status === 200 && (await beNghi('s5')).active === false);
+  await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
+  await req('PUT', '/api/admin/students/s5', { cookie: VP, body: { active: true } });
+}
+
+// ===========================================================================
 console.log('\n[9] Văn phòng nhận bé nhập ĐỦ thông tin, kể cả phụ huynh thứ hai');
 {
   const truoc = demTaiKhoan();
