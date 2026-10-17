@@ -94,8 +94,9 @@ console.log('\n[2] BẢNG PHẢI NHẮC TỚI TỪNG TỆP NỀN — không đư
   // xuất hiện trong một câu văn xuôi ở chỗ khác. Nhắc tên trong một câu chuyện
   // không phải là XẾP LOẠI nó.
   const dauBang = vb.indexOf('| Nhóm | Tệp | Có coi là nền chung không |');
-  // Không thấy dòng trống cuối bảng thì coi như KHÔNG cắt được, chứ không cắt
-  // tới cuối tệp — cắt tới cuối tệp là đọc cả văn xuôi, đúng cái lỗ ở trên.
+  // Không còn dòng trống nào sau đầu bảng thì coi như KHÔNG cắt được (đỏ), chứ
+  // không cắt tới cuối tệp — cắt tới cuối tệp là đọc cả văn xuôi, đúng cái lỗ
+  // ở trên. Phần cắt ra cũng không được lấn tới mục Sổ nợ.
   const cuoiBang = dauBang < 0 ? -1 : vb.indexOf('\n\n', dauBang);
   const bang = cuoiBang < 0 ? '' : vb.slice(dauBang, cuoiBang);
   check('cắt ra được đúng phần bảng phân loại',

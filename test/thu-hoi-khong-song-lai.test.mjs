@@ -94,8 +94,8 @@ function khungCau(ma, index) {
 // Vùng quét: mọi tệp máy chủ có thể đọc bảng.
 //
 // Tên tệp trả về LUÔN viết bằng '/': nó được so với tệp gốc trong BANG. Ghép
-// bằng path.join thì trên Windows ra 'routes\albums.js', tệp gốc mất miễn trừ
-// và thành "lỗ" giả — bài đỏ oan ở máy của người mới tải mã về.
+// bằng path.join thì trên Windows ra 'routes\notifications.js', tệp gốc mất
+// miễn trừ và thành "lỗ" giả — bài đỏ oan ở máy của người mới tải mã về.
 function cacTep() {
   const ra = [];
   const them = (thuMuc, sau = 0) => {
@@ -133,12 +133,16 @@ console.log('\n[1] Mọi câu ĐỌC bảng thu hồi được, ngoài tệp g�
   check('quét được đủ tệp máy chủ để soi', tep.length >= 25, tep.length);
   check('tên tệp trong vùng quét viết bằng / trên mọi hệ',
     tep.every(t => !t.includes('\\')), tep.filter(t => t.includes('\\')).slice(0, 3));
-  // Tệp gốc của từng bảng phải nằm trong vùng quét. Nếu không khớp được tên
-  // (khác dấu phân cách, đổi chỗ tệp), dòng `t === tepGoc` ở dưới không bao
-  // giờ đúng và tệp gốc bị soi như mọi tệp khác.
-  check('tệp gốc của mọi bảng trong BANG đều có trong vùng quét',
-    Object.values(BANG).every(g => tep.includes(g)),
-    Object.values(BANG).filter(g => !tep.includes(g)));
+  // Tệp gốc của từng bảng, nếu còn trên đĩa, phải khớp được một tên trong vùng
+  // quét. Không khớp (khác dấu phân cách) thì dòng `t === tepGoc` ở dưới không
+  // bao giờ đúng và tệp gốc bị soi như mọi tệp khác. Tệp gốc đã bị gỡ hẳn mã
+  // (bước 2 của "Bỏ một tính năng" trong CLAUDE.md: xoá tệp, giữ bảng) thì
+  // không đòi — đòi thì lối thoát dễ nhất là trỏ BANG sang một tệp khác, tức
+  // cấp miễn trừ cho đúng tệp cần canh.
+  const lechTen = Object.values(BANG)
+    .filter(g => fs.existsSync(path.join(GOC, g)) && !tep.includes(g));
+  check('tệp gốc còn trên đĩa của mọi bảng trong BANG đều có trong vùng quét',
+    lechTen.length === 0, lechTen);
 
   const lo = [];
   let soCauDaSoi = 0;
