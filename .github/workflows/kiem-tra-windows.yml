@@ -41,6 +41,12 @@ jobs:
       # tiên như chuỗi `&&`: một lượt chạy Windows tốn nhiều phút, nên mỗi lượt
       # phải cho thấy đủ mọi bộ đỏ. Mỗi bộ có hạn 15 phút để một bộ treo không
       # nuốt mất phần tổng kết.
+      #
+      # Chữ của mỗi bộ ghi ra tệp rồi mới in, và cuối job IN LẠI phần lỗi của
+      # từng bộ đỏ: nhật ký đủ 128 bộ dài gần 10 000 dòng, người đọc (và công
+      # cụ chỉ lấy được phần cuối nhật ký) phải thấy ngay vì sao đỏ. Ghi qua
+      # cmd ra tệp chứ không đọc ống dẫn: bộ nào để sót một tiến trình con còn
+      # giữ ống thì đọc ống sẽ treo mãi.
       - name: Chạy từng bộ của npm test
         shell: pwsh
         run: |
@@ -49,6 +55,8 @@ jobs:
           [Console]::OutputEncoding = [Text.Encoding]::UTF8
           $lenh = (Get-Content package.json -Raw -Encoding UTF8 | ConvertFrom-Json).scripts.test -split '&&' |
             ForEach-Object { $_.Trim() }
+          $thuMuc = Join-Path $env:RUNNER_TEMP 'nhat-ky-bo'
+          New-Item -ItemType Directory -Force $thuMuc | Out-Null
           $do = @()
           foreach ($l in $lenh) {
             if ($l -notmatch '^node\s+(\S+)$') {
@@ -56,21 +64,30 @@ jobs:
               exit 1
             }
             $tep = $Matches[1]
-            Write-Host "::group::$tep"
+            $log = Join-Path $thuMuc ([IO.Path]::GetFileName($tep) + '.log')
             # Gọi thẳng System.Diagnostics.Process, không qua Start-Process:
             # Start-Process -PassThru có lúc trả ExitCode rỗng.
-            $psi = [Diagnostics.ProcessStartInfo]::new('node', $tep)
+            $psi = [Diagnostics.ProcessStartInfo]::new('cmd.exe', "/d /s /c `"node $tep > `"$log`" 2>&1`"")
             $psi.UseShellExecute = $false
             $p = [Diagnostics.Process]::Start($psi)
+            $ghiChu = ''
             if (-not $p.WaitForExit(15 * 60 * 1000)) {
               $p.Kill($true)
-              $do += "$tep (treo quá 15 phút)"
-            } elseif ($p.ExitCode -ne 0) {
-              $do += $tep
+              $ghiChu = ' (treo quá 15 phút)'
             }
+            Write-Host "::group::$tep"
+            if (Test-Path $log) { Get-Content $log -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
             Write-Host "::endgroup::"
+            if ($ghiChu -or $p.ExitCode -ne 0) { $do += [pscustomobject]@{ tep = $tep; log = $log; ghiChu = $ghiChu } }
           }
           Write-Host "===== $($lenh.Count) bộ, đỏ $($do.Count) bộ ====="
-          foreach ($t in $do) { Write-Host "::error::Đỏ trên Windows: $t" }
+          foreach ($d in $do) {
+            Write-Host "::error::Đỏ trên Windows: $($d.tep)$($d.ghiChu)"
+            Write-Host "----- $($d.tep)$($d.ghiChu) -----"
+            $dong = @(if (Test-Path $d.log) { Get-Content $d.log -Encoding UTF8 })
+            $i = [Array]::LastIndexOf($dong, 'LỖI:')
+            if ($i -ge 0) { $dong[$i..($dong.Count - 1)] | ForEach-Object { Write-Host $_ } }
+            else { $dong | Select-Object -Last 40 | ForEach-Object { Write-Host $_ } }
+          }
           if ($do.Count) { exit 1 }
           exit 0
