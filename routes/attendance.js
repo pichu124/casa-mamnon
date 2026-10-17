@@ -863,9 +863,10 @@ module.exports = (app) => {
       tbb.gui({ studentId, loai: 'diemdanh', nguoiTao: req.user.id,
         tieuDe: 'Con đã được đón về',
         noiDung: `Cô đã trao con lúc ${gio}. Gia đình xem ảnh trong Điểm danh nhé.`,
-        // Mở thẳng hộp của ngày ấy (Đ239h). App đời cũ bỏ qua phần ngày và
-        // mở lịch tháng như trước.
-        hash: `#/attendance/${ngayGhi}` });
+        // Mở thẳng hộp của ngày ấy, đúng bé ấy (Đ239h, Đ239-vá4): tin đẩy chạm
+        // vào chỉ mở địa chỉ, nên nhà hai con phải có mã bé trong địa chỉ. App
+        // đời cũ bỏ qua phần ngày và mã, mở lịch tháng như trước.
+        hash: `#/attendance/${ngayGhi}/${studentId}` });
     }
     res.json({
       ok: true, date: ngayGhi, gio,

@@ -486,6 +486,12 @@ App.views.attendance = {
 
   // ---- Phụ huynh: lịch tháng của con ----
   async renderParent(root, params = []) {
+    // '#/attendance/<ngày>/<mã bé>' (Đ239-vá4): tin đẩy chỉ mở địa chỉ, không
+    // chọn bé như màn Thông báo — nhà hai con chạm tin của bé này mà màn đang
+    // để bé kia thì địa chỉ phải tự chọn đúng bé. Mã không phải con của tài
+    // khoản thì bỏ qua, màn mở như địa chỉ không có mã.
+    const maBe = params[1] || '';
+    if (maBe && (App.state.students || []).some(s => s.id === maBe)) App.state.currentStudentId = maBe;
     const current = App.currentStudent();
     if (!current) {
       root.innerHTML = UI.pageHeader('Điểm danh') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');

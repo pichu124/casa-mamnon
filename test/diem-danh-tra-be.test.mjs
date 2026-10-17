@@ -698,8 +698,8 @@ console.log('\n[9] Gia đình thấy ảnh con lúc ra về ngay ở Điểm dan
   // chọn đúng bé rồi mở thẳng hộp của ngày hôm đó.
   const tin = ((await page.evaluate(() => API.get('/api/notifications/rieng-be'))) || [])
     .find(n => n.title === 'Con đã được đón về' && n.studentId === maBeAn);
-  check('thông báo "Con đã được đón về" trỏ thẳng tới ngày hôm đó',
-    !!tin && tin.hash === `#/attendance/${hn}`, tin && tin.hash);
+  check('thông báo "Con đã được đón về" trỏ thẳng tới ngày hôm đó, kèm mã của bé',
+    !!tin && tin.hash === `#/attendance/${hn}/${maBeAn}`, tin && tin.hash);
   await page.evaluate(() => App.setStudent(App.state.students.find(s => s.name !== 'Nguyễn Bảo An').id));
   await page.waitForTimeout(800);
   await moMan('#/notifications');
@@ -715,6 +715,48 @@ console.log('\n[9] Gia đình thấy ảnh con lúc ra về ngay ở Điểm dan
   await page.locator('button[aria-label="Tháng trước"]').click();
   await page.waitForTimeout(1000);
   check('lùi một tháng: không hộp nào tự bật lên', await dem('.modal') === 0);
+
+  // CHẠM TIN ĐẨY trên điện thoại (Đ239-vá4): service worker chỉ mở địa chỉ
+  // trong tin, không chọn bé như màn Thông báo. Nhà hai con đang để bé Nam mà
+  // tin là của bé An thì chính địa chỉ phải chọn bé An.
+  const maBeNam = await page.evaluate(() => (App.state.students.find(s => s.name === 'Nguyễn Bảo Nam') || {}).id);
+  const dangXem = () => page.evaluate(() => App.currentStudent().id);
+  const moDiaChi = async (h) => {
+    await page.evaluate((x) => { location.hash = x; }, h);
+    await page.waitForSelector('.modal', { timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(600);
+  };
+  await page.evaluate((id) => App.setStudent(id), maBeNam);
+  await page.waitForTimeout(800);
+  check('(đối chứng) đang xem bé Nam', !!maBeNam && await dangXem() === maBeNam);
+  await moDiaChi(`#/attendance/${hn}/${maBeAn}`);
+  check('mở địa chỉ của tin đẩy khi đang xem bé Nam → hộp ngày của bé An, có ảnh lúc ra về',
+    await dem(`.modal img[src="${SRC_VE}"]`) === 1, (await page.locator('.modal').innerText().catch(() => '')).slice(0, 200));
+  check('…màn đã chuyển sang bé An',
+    await dangXem() === maBeAn && /Nguyễn Bảo An/.test(await page.locator('.student-chip.active').innerText().catch(() => '')));
+  check('…và địa chỉ trở về #/attendance', await page.evaluate(() => location.hash) === '#/attendance');
+  await page.evaluate(() => UI.closeModal());
+
+  // Địa chỉ cũ (thông báo đã gửi trước bản này) vẫn mở hộp của bé đang xem.
+  await moDiaChi(`#/attendance/${hn}`);
+  check('địa chỉ cũ #/attendance/<ngày> vẫn mở hộp ngày của bé đang xem',
+    await dangXem() === maBeAn && await dem(`.modal img[src="${SRC_VE}"]`) === 1);
+  await page.evaluate(() => UI.closeModal());
+
+  // Mã của bé nhà khác: bỏ qua phần mã, không hỏi máy chủ gì về bé ấy.
+  await page.evaluate((id) => App.setStudent(id), maBeNam);
+  await page.waitForTimeout(800);
+  const hoiBeLa = [];
+  const ngheHoi = (r) => { if (/[?&]studentId=s3\b|\/s3\b/.test(r.url())) hoiBeLa.push(r.url()); };
+  page.on('request', ngheHoi);
+  loiJs = [];
+  await moDiaChi(`#/attendance/${hn}/s3`);
+  page.off('request', ngheHoi);
+  check('mã bé nhà khác: màn vẫn ở bé Nam', await dangXem() === maBeNam, await dangXem());
+  check('…không hỏi máy chủ dữ liệu nào của bé ấy', hoiBeLa.length === 0, hoiBeLa);
+  check('…không mở hộp nào có ảnh của bé An', await dem(`.modal img[src="${SRC_VE}"]`) === 0);
+  check('…không lỗi JavaScript', loiJs.length === 0, loiJs);
+  await page.evaluate(() => UI.closeModal());
 
   // Phân hệ BẬT: ảnh trả bé do phân hệ ghi (máy chủ gộp vào `anhVe`) hiện ở
   // cùng chỗ trên dòng của ngày. Nửa Trả bé của phân hệ cũng tự vẽ tấm ấy
