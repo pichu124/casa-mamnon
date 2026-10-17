@@ -296,7 +296,12 @@ module.exports = (app, { db, modules }) => {
   // khoản không khoá cơ sở), rồi từng nhóm, từng bé vẫn được hỏi quyền riêng
   // trước khi đọc. `keCaNghi` (chỉ phần hồ sơ): kèm bé đã nghỉ, kể cả nhóm đã
   // đóng sau chuyển năm học — cùng luật `phamViNhomKeCaDaDong` của routes/admin.js.
-  function beTrongPhamVi(req, res, { keCaNghi = false } = {}) {
+  //
+  // `tuNgay` (các phần có khoảng ngày): kèm bé đã nghỉ / bảo lưu có ngày nghỉ
+  // (`leftAt`) từ ngày ấy trở đi. Bé bảo lưu giữa tháng vẫn phải còn đủ những
+  // ngày đã đi học, không thì đối chiếu cuối tháng thiếu dòng; bé nghỉ từ trước
+  // khoảng thì không vào tệp. Nhóm của bé là nhóm hiện tại trên hồ sơ.
+  function beTrongPhamVi(req, res, { keCaNghi = false, tuNgay = '' } = {}) {
     const user = req.user;
     const pham = String(req.query.pham || '');
     const khoa = db.phamViCoSo(user);
@@ -309,7 +314,7 @@ module.exports = (app, { db, modules }) => {
       const cs = String(req.query.campusId || '').trim() || khoa || '';
       if (!cs || !db.findCampus(cs)) return tuChoi(res, 404, 'Không tìm thấy cơ sở này');
       if (!db.canAccessCampus(user, cs)) return tuChoi(res, 403, 'Cơ sở này không thuộc phạm vi của tài khoản');
-      nhom = keCaNghi ? db.classIdsEverOfCampus(cs) : db.classIdsOfCampus(cs).filter(id => db.canAccessClass(user, id));
+      nhom = keCaNghi || tuNgay ? db.classIdsEverOfCampus(cs) : db.classIdsOfCampus(cs).filter(id => db.canAccessClass(user, id));
       moTa = cs;
     } else if (pham === 'nhom') {
       const classId = String(req.query.classId || '').trim();
@@ -329,12 +334,33 @@ module.exports = (app, { db, modules }) => {
     } else {
       return tuChoi(res, 400, 'Chưa chọn phạm vi: cả trường, một cơ sở, một nhóm hoặc một bé');
     }
-    const loc = keCaNghi ? '' : ' AND active = 1';
+    const loc = keCaNghi ? '' : (tuNgay ? ' AND (active = 1 OR leftAt >= ?)' : ' AND active = 1');
+    const thamSo = !keCaNghi && tuNgay ? [tuNgay] : [];
     const ds = nhom === null
-      ? db.all('students', `SELECT * FROM students WHERE 1 = 1${loc}`)
-      : theoLo(nhom, (lo, m) => db.all('students', `SELECT * FROM students WHERE classId IN (${m})${loc}`, lo));
+      ? db.all('students', `SELECT * FROM students WHERE 1 = 1${loc}`, thamSo)
+      : theoLo(nhom, (lo, m) => db.all('students', `SELECT * FROM students WHERE classId IN (${m})${loc}`, [...lo, ...thamSo]));
     return { ds: ds.filter(b => db.canAccessStudent(user, b.id)).sort(theoTen), moTa };
   }
+
+  // BÉ KHÔNG CÒN ĐANG HỌC: từ ngày nào, và chữ ghi chú cho tệp ("Bảo lưu từ
+  // dd/mm/yyyy", "Nghỉ từ dd/mm/yyyy"). Nhãn bảo lưu (bảng lõi
+  // `hoc_sinh_bao_luu`) chỉ tính khi bé đang nghỉ — cùng luật màn danh sách bé
+  // ở routes/admin.js. Bảo lưu ghi lùi ngày thì lấy ngày bắt đầu bảo lưu.
+  function beDaNghi(dsBe) {
+    const ids = dsBe.filter(b => !b.active).map(b => b.id);
+    const baoLuu = new Map(theoLo(ids, (lo, m) => db.all('hoc_sinh_bao_luu',
+      `SELECT studentId, tuNgay FROM hoc_sinh_bao_luu WHERE studentId IN (${m})`, lo)).map(r => [r.studentId, r.tuNgay]));
+    const ra = new Map();
+    for (const b of dsBe) {
+      if (b.active) continue;
+      const bl = baoLuu.get(b.id) || '';
+      const roi = NGAY_RE.test(String(b.leftAt || '').slice(0, 10)) ? b.leftAt.slice(0, 10) : '';
+      const tu = bl && (!roi || bl < roi) ? bl : roi;
+      ra.set(b.id, { tu, baoLuu: !!bl, chu: tu ? `${bl ? 'Bảo lưu' : 'Nghỉ'} từ ${dmy(tu)}` : 'Đã nghỉ' });
+    }
+    return ra;
+  }
+  const chuNghi = (nghi, id) => (nghi.get(id) || {}).chu || '';
 
   // NGƯỜI LỚN CỦA MỘT CƠ SỞ — cùng câu hỏi với `nhanVienTrongPhamVi` của
   // routes/attendance.js (danh sách ở cổng): cô có nhóm ĐANG MỞ ở cơ sở ấy,
@@ -432,9 +458,10 @@ module.exports = (app, { db, modules }) => {
     if (kieu !== 'gio' && kieu !== 'trangthai') return tuChoi(res, 400, 'Chưa chọn kiểu báo cáo');
     const k = khoangThoiGian(req, res);
     if (!k) return;
-    const pv = beTrongPhamVi(req, res);
+    const pv = beTrongPhamVi(req, res, { tuNgay: k.tu });
     if (!pv) return;
     const tenNhom = bangTenNhom();
+    const nghi = beDaNghi(pv.ds);
     const beTheoId = new Map(pv.ds.map(b => [b.id, b]));
     const ghi = theoLo(pv.ds.map(b => b.id), (lo, m) => db.all('attendance',
       `SELECT studentId, date, status, checkIn, checkOut FROM attendance
@@ -445,18 +472,18 @@ module.exports = (app, { db, modules }) => {
     if (kieu === 'gio') {
       ghi.sort((a, b) => a.date.localeCompare(b.date) || theoTen(beTheoId.get(a.studentId), beTheoId.get(b.studentId)));
       cacBang = [{
-        ten: 'Giờ vào ra', dongTieuDe: true, cot: [12, 12, 28, 16, 16, 10, 10],
+        ten: 'Giờ vào ra', dongTieuDe: true, cot: [12, 12, 28, 16, 16, 10, 10, 22],
         hang: [
-          ['Ngày', 'Mã bé', 'Họ và tên', 'Nhóm lớp', 'Trạng thái', 'Giờ vào', 'Giờ ra'],
+          ['Ngày', 'Mã bé', 'Họ và tên', 'Nhóm lớp', 'Trạng thái', 'Giờ vào', 'Giờ ra', 'Ghi chú'],
           ...ghi.map((r) => {
             const b = beTheoId.get(r.studentId);
             return [dmy(r.date), b.code || '', b.name, tenNhom.get(b.classId) || '', chuTrangThai(r.status),
-              r.checkIn || '', r.checkOut || ''];
+              r.checkIn || '', r.checkOut || '', chuNghi(nghi, b.id)];
           }),
         ],
       }];
     } else {
-      cacBang = bangTrangThaiBe(pv.ds, ghi, k, tenNhom);
+      cacBang = bangTrangThaiBe(pv.ds, ghi, k, tenNhom, nghi);
     }
     db.audit(req.user.id, 'xuatbaocao-diemdanh-be', null,
       { pham: req.query.pham, phamVi: pv.moTa, tu: k.tu, den: k.den, kieu, soBe: pv.ds.length });
@@ -467,9 +494,10 @@ module.exports = (app, { db, modules }) => {
   //
   // "Chưa điểm danh" là việc của SỔ (ngày học mà sổ chưa có dòng nào), không
   // phải điều gì về đứa trẻ. Chỉ đếm thứ Hai – thứ Sáu, tới hôm nay, kể từ
-  // ngày bé được nhận vào app, và không tính ngày trường nghỉ của cơ sở bé.
+  // ngày bé được nhận vào app, trước ngày bé nghỉ / bảo lưu (từ hôm ấy bé đã
+  // rời danh sách điểm danh của cô), và không tính ngày trường nghỉ của cơ sở bé.
   // Ngày cuối tuần mà sổ có ghi thì vẫn hiện trên lưới và vẫn được đếm.
-  function bangTrangThaiBe(dsBe, ghi, k, tenNhom) {
+  function bangTrangThaiBe(dsBe, ghi, k, tenNhom, nghiCuaBe) {
     const homNay = ngay.homNay();
     const ngayDem = k.tu <= homNay ? ngayThuong(k.tu, k.den < homNay ? k.den : homNay) : [];
     const nghiTheoCoSo = new Map();
@@ -484,29 +512,33 @@ module.exports = (app, { db, modules }) => {
       theoBe.get(r.studentId).set(r.date, r.status);
     }
     const cotNgay = [...new Set([...ngayDem, ...ghi.map(r => r.date)])].sort();
-    const tongHop = [['Mã bé', 'Họ và tên', 'Nhóm lớp', ...TRANG_THAI_BE.map(x => x[1]), 'Chưa điểm danh']];
-    const luoi = [['Mã bé', 'Họ và tên', 'Nhóm lớp', ...cotNgay.map(dm)]];
+    const tongHop = [['Mã bé', 'Họ và tên', 'Nhóm lớp', ...TRANG_THAI_BE.map(x => x[1]), 'Chưa điểm danh', 'Ghi chú']];
+    const luoi = [['Mã bé', 'Họ và tên', 'Nhóm lớp', ...cotNgay.map(dm), 'Ghi chú']];
     for (const b of dsBe) {
       const cua = theoBe.get(b.id) || new Map();
       const nghi = ngayNghi(b);
+      const roi = nghiCuaBe.get(b.id) || { tu: '' };
       const tuNgayBe = b.createdAt ? ngay.ngayCua(Date.parse(b.createdAt)) : '';
       const dem = TRANG_THAI_BE.map(([ma]) => [...cua.values()].filter(st => st === ma).length);
-      const chua = ngayDem.filter(ng => !cua.has(ng) && !nghi.has(ng) && (!tuNgayBe || ng >= tuNgayBe)).length;
+      const chua = ngayDem.filter(ng => !cua.has(ng) && !nghi.has(ng) && (!tuNgayBe || ng >= tuNgayBe)
+        && (!roi.tu || ng < roi.tu)).length;
       const dau = [b.code || '', b.name, tenNhom.get(b.classId) || ''];
-      tongHop.push([...dau, ...dem.map(String), String(chua)]);
+      tongHop.push([...dau, ...dem.map(String), String(chua), roi.chu || '']);
       luoi.push([...dau, ...cotNgay.map((ng) => {
         const st = cua.get(ng);
         if (st) return (TRANG_THAI_BE.find(x => x[0] === st) || ['', '', st])[2];
+        if (roi.tu && ng >= roi.tu) return roi.baoLuu ? 'BL' : 'ĐN';
         return nghi.has(ng) ? 'TN' : '';
-      })]);
+      }), roi.chu || '']);
     }
     tongHop.push([], ['Ghi chú', `Từ ${dmy(k.tu)} đến ${dmy(k.den)}. "Chưa điểm danh" đếm ngày thứ Hai – thứ Sáu `
-      + 'tới hôm nay mà sổ điểm danh chưa có dòng nào cho bé; không tính ngày trường nghỉ.']);
+      + 'tới hôm nay mà sổ điểm danh chưa có dòng nào cho bé; không tính ngày trường nghỉ, '
+      + 'không tính từ ngày bé bảo lưu hoặc nghỉ học (cột Ghi chú).']);
     luoi.push([], ['Ký hiệu', 'C = Có mặt · M = Đến muộn · P = Nghỉ có phép · K = Nghỉ không phép · '
-      + 'TN = Trường nghỉ · ô trống = chưa điểm danh']);
+      + 'TN = Trường nghỉ · BL = Bảo lưu · ĐN = Đã nghỉ học · ô trống = chưa điểm danh']);
     return [
-      { ten: 'Tổng hợp', dongTieuDe: true, cot: [12, 28, 16, 10, 10, 12, 14, 14], hang: tongHop },
-      { ten: 'Theo ngày', dongTieuDe: true, cot: [12, 28, 16, ...cotNgay.map(() => 6)], hang: luoi },
+      { ten: 'Tổng hợp', dongTieuDe: true, cot: [12, 28, 16, 10, 10, 12, 14, 14, 22], hang: tongHop },
+      { ten: 'Theo ngày', dongTieuDe: true, cot: [12, 28, 16, ...cotNgay.map(() => 6), 22], hang: luoi },
     ];
   }
 
@@ -603,9 +635,10 @@ module.exports = (app, { db, modules }) => {
     if (!LOAI_BAO_CAO[loai]) return tuChoi(res, 400, 'Chưa chọn loại báo cáo: báo cáo tháng hoặc báo cáo 6 tháng');
     const k = khoangThoiGian(req, res);
     if (!k) return;
-    const pv = beTrongPhamVi(req, res);
+    const pv = beTrongPhamVi(req, res, { tuNgay: k.tu });
     if (!pv) return;
     const tenNhom = bangTenNhom();
+    const nghi = beDaNghi(pv.ds);
     const ban = theoLo(pv.ds.map(b => b.id), (lo, m) => db.all('baocaohoctap_ban',
       `SELECT b.* FROM baocaohoctap_ban b JOIN baocaohoctap_mau m ON m.id = b.mauId
         WHERE m.loai = ? AND b.tuNgay <= ? AND b.denNgay >= ? AND b.studentId IN (${m})`,
@@ -646,11 +679,12 @@ module.exports = (app, { db, modules }) => {
       if (!banTheoBe.has(b.studentId)) banTheoBe.set(b.studentId, []);
       banTheoBe.get(b.studentId).push(b);
     }
-    const hang = [['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Kỳ báo cáo', 'Mẫu', 'Phần', 'Mục', 'Nội dung', 'Tình trạng bản']];
+    const hang = [['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Kỳ báo cáo', 'Mẫu', 'Phần', 'Mục', 'Nội dung', 'Tình trạng bản', 'Ghi chú']];
     for (const be of pv.ds) {
       const cua = (banTheoBe.get(be.id) || []).sort((a, b) => a.tuNgay.localeCompare(b.tuNgay));
+      const ghiChu = chuNghi(nghi, be.id);
       if (!cua.length) {
-        hang.push([be.code || '', be.name, tenNhom.get(be.classId) || '', '', '', '', '', '', 'Chưa có bản trong kỳ này']);
+        hang.push([be.code || '', be.name, tenNhom.get(be.classId) || '', '', '', '', '', '', 'Chưa có bản trong kỳ này', ghiChu]);
         continue;
       }
       for (const b of cua) {
@@ -661,19 +695,19 @@ module.exports = (app, { db, modules }) => {
         for (const d of dong) {
           const x = o.get(d.id);
           const noiDung = !x ? '' : (d.kieu === 'muc' ? [nhanMuc(x.muc), x.chu].filter(Boolean).join(' — ') : x.chu);
-          hang.push([...dau, d.nhom, d.tieuDe, noiDung, tinhTrang]);
+          hang.push([...dau, d.nhom, d.tieuDe, noiDung, tinhTrang, ghiChu]);
         }
         for (const [phan, muc, chu] of [
           ['Tổng hợp', 'Cô nhắn gia đình', b.tongHop],
           ['Việc làm tiếp', 'Ở lớp cô sẽ làm tiếp', b.oLopLamGi],
           ['Việc làm tiếp', 'Ở nhà gia đình chơi cùng con', b.oNhaChoiGi],
-        ]) if (chu) hang.push([...dau, phan, muc, chu, tinhTrang]);
+        ]) if (chu) hang.push([...dau, phan, muc, chu, tinhTrang, ghiChu]);
       }
     }
     db.audit(req.user.id, 'xuatbaocao-baocao-hoctap', null,
       { pham: req.query.pham, phamVi: pv.moTa, loai, tu: k.tu, den: k.den, soBe: pv.ds.length, soBan: ban.length });
     guiTep(res, `bao-cao-${loai}-${nhanKhoang(k)}`, [{
-      ten: LOAI_BAO_CAO[loai], dongTieuDe: true, cot: [12, 26, 14, 24, 22, 26, 30, 60, 22], hang,
+      ten: LOAI_BAO_CAO[loai], dongTieuDe: true, cot: [12, 26, 14, 24, 22, 26, 30, 60, 22, 22], hang,
     }]);
   });
 
@@ -688,9 +722,11 @@ module.exports = (app, { db, modules }) => {
     if (!chan(req, res, 'keHoachBe')) return;
     const k = khoangThoiGian(req, res);
     if (!k) return;
-    const pv = beTrongPhamVi(req, res);
+    // Kế hoạch tính theo tháng: bé nghỉ trong tháng đầu khoảng vẫn có kế hoạch tháng ấy.
+    const pv = beTrongPhamVi(req, res, { tuNgay: `${k.tu.slice(0, 7)}-01` });
     if (!pv) return;
     const tenNhom = bangTenNhom();
+    const nghi = beDaNghi(pv.ds);
     const ke = theoLo(pv.ds.map(b => b.id), (lo, m) => db.all('kehoachbe_ke',
       `SELECT * FROM kehoachbe_ke WHERE thang BETWEEN ? AND ? AND studentId IN (${m})`,
       [k.tu.slice(0, 7), k.den.slice(0, 7), ...lo]));
@@ -725,11 +761,12 @@ module.exports = (app, { db, modules }) => {
       keTheoBe.get(x.studentId).push(x);
     }
     const hang = [['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Tháng', 'Chương trình', 'Lĩnh vực', 'Bài', 'Dạy mới / Ôn tập',
-      'Nhìn lại cuối tháng', 'Tiếp tục tháng sau', 'Tình trạng kế hoạch']];
+      'Nhìn lại cuối tháng', 'Tiếp tục tháng sau', 'Tình trạng kế hoạch', 'Ghi chú']];
     for (const be of pv.ds) {
       const cua = (keTheoBe.get(be.id) || []).sort((a, b) => a.thang.localeCompare(b.thang));
+      const ghiChu = chuNghi(nghi, be.id);
       if (!cua.length) {
-        hang.push([be.code || '', be.name, tenNhom.get(be.classId) || '', '', '', '', '', '', '', '', 'Chưa lập trong khoảng này']);
+        hang.push([be.code || '', be.name, tenNhom.get(be.classId) || '', '', '', '', '', '', '', '', 'Chưa lập trong khoảng này', ghiChu]);
         continue;
       }
       for (const x of cua) {
@@ -746,9 +783,9 @@ module.exports = (app, { db, modules }) => {
             nhinLai: CHU_QUY_UOC[mc.ketQua] || '', tiepTuc: mc.tiepTucThangSau ? 'Có' : '',
           })),
         ].map((d, i) => ({ ...d, i })).sort((a, b) => thuTuGoc(a.goc) - thuTuGoc(b.goc) || a.i - b.i);
-        if (!dong.length) hang.push([...dau, '', '', '', '', '', '', tinhTrang]);
+        if (!dong.length) hang.push([...dau, '', '', '', '', '', '', tinhTrang, ghiChu]);
         for (const d of dong) {
-          hang.push([...dau, chuongTrinh(d.goc), tenGoc(d.goc), d.bai, d.nhan, d.nhinLai, d.tiepTuc, tinhTrang]);
+          hang.push([...dau, chuongTrinh(d.goc), tenGoc(d.goc), d.bai, d.nhan, d.nhinLai, d.tiepTuc, tinhTrang, ghiChu]);
         }
       }
     }
@@ -760,7 +797,7 @@ module.exports = (app, { db, modules }) => {
     db.audit(req.user.id, 'xuatbaocao-kehoach-be', null,
       { pham: req.query.pham, phamVi: pv.moTa, tu: k.tu.slice(0, 7), den: k.den.slice(0, 7), soBe: pv.ds.length });
     guiTep(res, `ke-hoach-be-${k.tu.slice(0, 7)}${k.tu.slice(0, 7) === k.den.slice(0, 7) ? '' : `_${k.den.slice(0, 7)}`}`, [
-      { ten: 'Kế hoạch của bé', dongTieuDe: true, cot: [12, 26, 14, 10, 18, 22, 40, 14, 12, 22, 18], hang },
+      { ten: 'Kế hoạch của bé', dongTieuDe: true, cot: [12, 26, 14, 10, 18, 22, 40, 14, 12, 22, 18, 22], hang },
       { ten: 'Chú giải', dongTieuDe: true, cot: [8, 90], hang: chuGiai },
     ]);
   });

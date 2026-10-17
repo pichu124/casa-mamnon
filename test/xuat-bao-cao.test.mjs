@@ -78,6 +78,18 @@ const TEN_CONG_THUC = '=HYPERLINK("http://x","Bấm")';
   dd.run('xb4', 's1', D3, 'absent_unexcused', null, null);
   dd.run('xb5', 'sx1', D0, 'present', '07:25', null);
   dd.run('xb6', 'sx2', D0, 'present', '07:30', '16:00');
+  // Ba bé nhóm c1 đã thôi đi học (mục [13]): bảo lưu từ D3 sau ba ngày đi học,
+  // nghỉ hẳn từ D2 sau một ngày đi học, và một bé nghỉ từ trước tháng cũ.
+  be.run('sx4', 'MNBL', 'Bé Bảo Lưu', '2021-08-08', 'Nữ', 'c1', 0, D3, lui(400));
+  be.run('sx5', 'MNNGT', 'Bé Nghỉ Giữa Tháng', '2021-09-09', 'Nam', 'c1', 0, D2, lui(400));
+  be.run('sx6', 'MNNTL', 'Bé Nghỉ Từ Lâu', '2021-10-10', 'Nữ', 'c1', 0, lui(140), lui(400));
+  c.prepare(`INSERT INTO hoc_sinh_bao_luu (studentId, tuNgay, duKienQuayLai, lyDo, nguoiGhi, ghiLuc)
+    VALUES ('sx4', ?, '', '', NULL, ?)`).run(D3, D3);
+  dd.run('xb7', 'sx4', D0, 'present', '07:30', '16:30');
+  dd.run('xb8', 'sx4', D1, 'present', '07:30', '16:30');
+  dd.run('xb9', 'sx4', D2, 'present', '07:30', '16:30');
+  dd.run('xb10', 'sx5', D0, 'present', '07:40', '16:20');
+  dd.run('xb11', 'sx6', lui(141), 'present', '07:40', '16:20');
   c.prepare(`INSERT INTO lich_nghi_truong (id, ten, tuNgay, denNgay, loai, campusId, hoanTienAn, ghiChu, taoLuc)
     VALUES ('lnx1', 'Nghỉ thử', ?, ?, 'khac', '', 'co', '', ?)`).run(D5, D5, D0);
   const cc = c.prepare(`INSERT INTO staff_checkin (id, userId, ngay, gioVao, gioRa, anhVao, anhRa, campusId, capNhatLuc)
@@ -218,7 +230,7 @@ console.log('\n[4] Điểm danh bé — giờ vào ra, và có mặt / nghỉ ph
   check('tải được tệp Excel thật', g.status === 200 && /spreadsheetml/.test(g.kieu), [g.status, g.kieu, g.json]);
   check('trình duyệt nhận là tệp tải về, tên có tháng', /attachment/.test(g.ten) && /\.xlsx/.test(g.ten) && g.ten.includes(THANG_CU), g.ten);
   check('đúng cột', JSON.stringify(trang(g).hang[0])
-    === JSON.stringify(['Ngày', 'Mã bé', 'Họ và tên', 'Nhóm lớp', 'Trạng thái', 'Giờ vào', 'Giờ ra']), trang(g).hang[0]);
+    === JSON.stringify(['Ngày', 'Mã bé', 'Họ và tên', 'Nhóm lớp', 'Trạng thái', 'Giờ vào', 'Giờ ra', 'Ghi chú']), trang(g).hang[0]);
   const an = dongCo(g, 'Nguyễn Bảo An');
   check('bé An đủ bốn ngày', an.length === 4, an);
   check('trạng thái bằng chữ, giờ vào giờ ra đúng',
@@ -233,7 +245,7 @@ console.log('\n[4] Điểm danh bé — giờ vào ra, và có mặt / nghỉ ph
   const t = await tai(`${API}/diemdanh-be?pham=nhom&classId=c1&thang=${THANG_CU}&kieu=trangthai`, HT);
   check('kiểu có mặt / nghỉ: tải được', t.status === 200 && t.bang && t.bang.length >= 2, [t.status, t.json]);
   check('trang tổng hợp đúng cột', JSON.stringify(trang(t).hang[0]) === JSON.stringify(
-    ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Có mặt', 'Đến muộn', 'Nghỉ có phép', 'Nghỉ không phép', 'Chưa điểm danh']), trang(t).hang[0]);
+    ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Có mặt', 'Đến muộn', 'Nghỉ có phép', 'Nghỉ không phép', 'Chưa điểm danh', 'Ghi chú']), trang(t).hang[0]);
   const a = dongCo(t, 'Nguyễn Bảo An')[0] || [];
   check('đếm đúng từng trạng thái của bé An', a[3] === '1' && a[4] === '1' && a[5] === '1' && a[6] === '1', a);
   check('"chưa điểm danh" đếm ngày thường, trừ ngày trường nghỉ',
@@ -391,7 +403,7 @@ console.log('\n[7] Báo cáo tháng và báo cáo 6 tháng');
   const t = await tai(`${API}/baocao-hoctap?pham=nhom&classId=c1&loai=thang&thang=${THANG_NAY}`, HT);
   check('tải được', t.status === 200 && !!t.bang, [t.status, t.json]);
   check('đúng cột', JSON.stringify(trang(t).hang[0]) === JSON.stringify(
-    ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Kỳ báo cáo', 'Mẫu', 'Phần', 'Mục', 'Nội dung', 'Tình trạng bản']), trang(t).hang[0]);
+    ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Kỳ báo cáo', 'Mẫu', 'Phần', 'Mục', 'Nội dung', 'Tình trạng bản', 'Ghi chú']), trang(t).hang[0]);
   const an = dongCo(t, 'Nguyễn Bảo An');
   check('mỗi mục của mẫu một dòng', an.length >= (ban?.dong || []).length, [an.length, (ban?.dong || []).length]);
   check('nội dung cô viết có mặt (đã khoá công thức)', an.some(h => h[7] === "'=1+1 con xếp tháp"), an.map(h => h[7]));
@@ -436,7 +448,7 @@ console.log('\n[8] Kế hoạch của bé');
   check('tải được', t.status === 200 && !!t.bang, [t.status, t.json]);
   check('đúng cột', JSON.stringify(trang(t).hang[0]) === JSON.stringify(
     ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Tháng', 'Chương trình', 'Lĩnh vực', 'Bài', 'Dạy mới / Ôn tập',
-      'Nhìn lại cuối tháng', 'Tiếp tục tháng sau', 'Tình trạng kế hoạch']), trang(t).hang[0]);
+      'Nhìn lại cuối tháng', 'Tiếp tục tháng sau', 'Tình trạng kế hoạch', 'Ghi chú']), trang(t).hang[0]);
   const an = dongCo(t, 'Nguyễn Bảo An');
   const toan = an.find(h => h[5] === 'Toán') || [];
   check('mục theo lĩnh vực của bé An', /Đếm và ghép số lượng/.test(toan[6] || ''), toan);
@@ -545,6 +557,106 @@ console.log('\n[12] Bản chép có người canh — không trôi khỏi bản 
   check('chữ quy ước khớp Kế hoạch của bé', chu(xb) !== '' && chu(xb) === chu(ke), [chu(xb), chu(ke)]);
   const tuoi = (s) => (s.match(/function tuoiCuaBe\(dob\) \{[\s\S]*?\n\}/) || [])[0] || '';
   check('cách tính tuổi khớp tệp danh sách bé', tuoi(xb) !== '' && tuoi(xb) === tuoi(doc('routes/admin.js')));
+}
+
+// ===========================================================================
+// Văn phòng bấm "Nghỉ học bảo lưu" (hay "Cho nghỉ") giữa tháng thì những ngày bé
+// ĐÃ đi học vẫn phải nằm trong tệp — không thì đối chiếu cuối tháng thiếu dòng.
+// Bé nghỉ từ trước khoảng thì không vào tệp; tài khoản cơ sở khác không thấy bé.
+console.log('\n[13] Bé nghỉ / bảo lưu GIỮA KỲ vẫn có trong tệp');
+{
+  const ghiChuCot = (t, i = 0) => (trang(t, i).hang[0] || []).indexOf('Ghi chú');
+  for (const [ai, duong, ck] of [
+    ['một nhóm', 'pham=nhom&classId=c1', HT], ['một cơ sở', 'pham=coso&campusId=cs1', QL1], ['cả trường', 'pham=truong', HT]]) {
+    const g = await tai(`${API}/diemdanh-be?${duong}&thang=${THANG_CU}&kieu=gio`, ck);
+    const bl = dongCo(g, 'Bé Bảo Lưu');
+    const gc = ghiChuCot(g);
+    check(`${ai}, giờ vào ra: bé bảo lưu từ D3 còn đủ ba ngày đã đi học`,
+      g.status === 200 && bl.length === 3 && [D0, D1, D2].every(ng => bl.some(h => h[0] === dmy(ng))), [g.status, bl]);
+    check(`${ai}, giờ vào ra: dòng của bé ghi "Bảo lưu từ ${dmy(D3)}"`,
+      gc > 0 && bl.every(h => h[gc] === `Bảo lưu từ ${dmy(D3)}`), bl.map(h => h[gc]));
+    check(`${ai}, giờ vào ra: bé nghỉ giữa tháng còn ngày đã đi học, ghi "Nghỉ từ ${dmy(D2)}"`,
+      dongCo(g, 'Bé Nghỉ Giữa Tháng').length === 1 && dongCo(g, 'Bé Nghỉ Giữa Tháng')[0][gc] === `Nghỉ từ ${dmy(D2)}`,
+      dongCo(g, 'Bé Nghỉ Giữa Tháng'));
+    check(`${ai}, giờ vào ra: bé đang học không mang ghi chú`, dongCo(g, 'Nguyễn Bảo An').every(h => !h[gc]));
+    check(`${ai}: bé nghỉ TRƯỚC tháng thì không có trong tệp`, !/Bé Nghỉ Từ Lâu/.test(chuCaTep(g)));
+
+    const t = await tai(`${API}/diemdanh-be?${duong}&thang=${THANG_CU}&kieu=trangthai`, ck);
+    const tc = ghiChuCot(t);
+    const a = dongCo(t, 'Bé Bảo Lưu')[0] || [];
+    check(`${ai}, tổng hợp: bé bảo lưu 3 ngày có mặt, "Chưa điểm danh" không đếm từ ngày bảo lưu`,
+      a[3] === '3' && a[7] === '0' && a[tc] === `Bảo lưu từ ${dmy(D3)}`, a);
+    const n = dongCo(t, 'Bé Nghỉ Giữa Tháng')[0] || [];
+    check(`${ai}, tổng hợp: bé nghỉ từ D2 chỉ còn D1 là chưa điểm danh`,
+      n[3] === '1' && n[7] === '1' && n[tc] === `Nghỉ từ ${dmy(D2)}`, n);
+    check(`${ai}, tổng hợp: bé nghỉ TRƯỚC tháng không có dòng`, !/Bé Nghỉ Từ Lâu/.test(chuCaTep(t)));
+  }
+  {
+    const t = await tai(`${API}/diemdanh-be?pham=nhom&classId=c1&thang=${THANG_CU}&kieu=trangthai`, HT);
+    const luoi = trang(t, 1);
+    const tieuDe = luoi.hang[0] || [];
+    const dong = (ten) => luoi.hang.find(h => h && h[1] === ten) || [];
+    const o = (ten, ng) => dong(ten)[tieuDe.indexOf(dm(ng))];
+    check('lưới: ngày bé đã đi học vẫn C, từ ngày bảo lưu ghi BL (cả ngày trường nghỉ)',
+      ['C', 'C', 'C', 'BL', 'BL', 'BL'].every((x, i) => o('Bé Bảo Lưu', [D0, D1, D2, D3, D4, D5][i]) === x),
+      [D0, D1, D2, D3, D4, D5].map(ng => o('Bé Bảo Lưu', ng)));
+    check('lưới: bé nghỉ hẳn từ D2 ghi ĐN, ngày D1 vẫn để trống (chưa điểm danh)',
+      o('Bé Nghỉ Giữa Tháng', D0) === 'C' && !o('Bé Nghỉ Giữa Tháng', D1) && o('Bé Nghỉ Giữa Tháng', D2) === 'ĐN',
+      [D0, D1, D2].map(ng => o('Bé Nghỉ Giữa Tháng', ng)));
+    check('lưới: bé đang học không bị ghi BL / ĐN', !dong('Nguyễn Bảo An').some(x => x === 'BL' || x === 'ĐN'));
+    check('lưới: có cột Ghi chú', dong('Bé Bảo Lưu')[tieuDe.indexOf('Ghi chú')] === `Bảo lưu từ ${dmy(D3)}`, tieuDe.slice(-2));
+    check('chú giải nói BL và ĐN', dongCo(t, 'BL = ', 1).length === 1 && dongCo(t, 'ĐN = ', 1).length === 1, luoi.hang.slice(-1));
+  }
+  {
+    const cs2 = await tai(`${API}/diemdanh-be?pham=coso&campusId=cs2&thang=${THANG_CU}&kieu=gio`, QL2);
+    check('quản lý cơ sở 2: tệp cơ sở mình KHÔNG có bé đã nghỉ của cơ sở 1',
+      cs2.status === 200 && !/Bé Bảo Lưu|Bé Nghỉ Giữa Tháng|Bé Đã Nghỉ/.test(chuCaTep(cs2)), cs2.status);
+    for (const id of ['sx4', 'sx5']) {
+      const r = await tai(`${API}/diemdanh-be?pham=be&studentId=${id}&thang=${THANG_CU}&kieu=gio`, QL2);
+      check(`quản lý cơ sở 2 xin riêng bé đã nghỉ ${id} của cơ sở 1 → 403`, r.status === 403, r.status);
+    }
+    check('quản lý cơ sở 2 xin nhóm c1 → 403',
+      (await tai(`${API}/diemdanh-be?pham=nhom&classId=c1&thang=${THANG_CU}&kieu=gio`, QL2)).status === 403);
+  }
+
+  // Đúng đường của văn phòng: bé An (đã có điểm danh, báo cáo tháng, kế hoạch
+  // tháng này) được bấm "Nghỉ học bảo lưu" hôm nay.
+  const homNay = HOM_NAY();
+  const gioAn = async (q, ck) => dongCo(await tai(`${API}/diemdanh-be?${q}&thang=${THANG_NAY}&kieu=gio`, ck), 'Nguyễn Bảo An');
+  const truoc = await gioAn('pham=nhom&classId=c1', HT);
+  const bl = await req('POST', '/api/admin/students/s1/bao-luu', { cookie: HT, body: { lyDo: 'về quê' } });
+  check('văn phòng bấm "Nghỉ học bảo lưu" cho bé An', bl.status === 200, [bl.status, bl.data]);
+  check('tháng này bé An đã có điểm danh trước khi bảo lưu', truoc.length > 0, truoc.length);
+  for (const [ai, q, ck] of [['một nhóm', 'pham=nhom&classId=c1', HT], ['một cơ sở', 'pham=coso&campusId=cs1', QL1],
+    ['cả trường', 'pham=truong', HT]]) {
+    const sau = await gioAn(q, ck);
+    check(`${ai}: sau bảo lưu vẫn đủ ${truoc.length} dòng điểm danh tháng này của bé An`,
+      sau.length === truoc.length && sau.every(h => h[7] === `Bảo lưu từ ${dmy(homNay)}`), [sau.length, sau[0]]);
+  }
+  const t = await tai(`${API}/diemdanh-be?pham=nhom&classId=c1&thang=${THANG_NAY}&kieu=trangthai`, HT);
+  check('tổng hợp tháng này còn dòng bé An, ghi chú bảo lưu',
+    (dongCo(t, 'Nguyễn Bảo An')[0] || [])[8] === `Bảo lưu từ ${dmy(homNay)}`, dongCo(t, 'Nguyễn Bảo An')[0]);
+  check('quản lý cơ sở 2 vẫn không thấy bé An',
+    !/Nguyễn Bảo An/.test(chuCaTep(await tai(`${API}/diemdanh-be?pham=coso&campusId=cs2&thang=${THANG_NAY}&kieu=gio`, QL2))));
+
+  const bc = await tai(`${API}/baocao-hoctap?pham=nhom&classId=c1&loai=thang&thang=${THANG_NAY}`, HT);
+  const bcAn = dongCo(bc, 'Nguyễn Bảo An');
+  check('báo cáo tháng của bé đã bảo lưu giữa kỳ vẫn xuất được',
+    bc.status === 200 && bcAn.some(h => h[7] === 'Cùng con tưới cây'), [bc.status, bcAn.length]);
+  check('và mang ghi chú bảo lưu', bcAn.every(h => h[ghiChuCot(bc)] === `Bảo lưu từ ${dmy(homNay)}`), bcAn.map(h => h[9]));
+  check('báo cáo tháng cả trường cũng còn bé An',
+    dongCo(await tai(`${API}/baocao-hoctap?pham=truong&loai=thang&thang=${THANG_NAY}`, HT), 'Cùng con tưới cây').length === 1);
+
+  const ke = await tai(`${API}/kehoach-be?pham=nhom&classId=c1&thang=${THANG_NAY}`, HT);
+  const keAn = dongCo(ke, 'Nguyễn Bảo An');
+  check('kế hoạch tháng này của bé đã bảo lưu vẫn xuất được',
+    ke.status === 200 && keAn.some(h => h[5] === 'Toán' && /Đếm và ghép số lượng/.test(h[6] || '')), [ke.status, keAn.length]);
+  check('và mang ghi chú bảo lưu', keAn.every(h => h[ghiChuCot(ke)] === `Bảo lưu từ ${dmy(homNay)}`), keAn.map(h => h[11]));
+  check('kế hoạch cơ sở 1 (quản lý cơ sở 1) còn bé An',
+    dongCo(await tai(`${API}/kehoach-be?pham=coso&campusId=cs1&thang=${THANG_NAY}`, QL1), 'Nguyễn Bảo An').length === keAn.length);
+  check('hồ sơ bé mặc định vẫn KHÔNG kèm bé đã nghỉ (giữ lựa chọn "kèm bé đã nghỉ")',
+    !dongCo(await tai(`${API}/ho-so-be?pham=nhom&classId=c1`, HT), 'Nguyễn Bảo An').length
+    && dongCo(await tai(`${API}/ho-so-be?pham=nhom&classId=c1&keCaNghi=1`, HT), 'Nguyễn Bảo An').length === 1);
 }
 
 sv.dung();
