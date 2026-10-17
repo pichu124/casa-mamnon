@@ -5,20 +5,21 @@
 //   • CÔ ghi cho cả nhóm, NGAY SAU MỖI BỮA, tay còn bận. Nhà trường 07/09:
 //     "Bữa nào ăn sẽ cập nhật bữa đó, chứ không phải cuối ngày mới làm một
 //     loạt — tách riêng từng bữa theo thực đơn của nhà trường." Nên màn của
-//     cô là một DẢI BƯỚC: [Bữa sáng] [Phụ sáng] [Bữa trưa] [Phụ chiều] [Sữa]
-//     [Ngủ trưa] [Vệ sinh · Bỉm] [Ghi chú]. Mỗi bước là danh sách bé với đúng
-//     một hai ô, có "Áp cho cả nhóm" và MỘT nút Lưu cho bước đó. Các bữa lấy
-//     theo THỰC ĐƠN NGÀY ĐÓ của bếp cơ sở, máy chủ đưa xuống — hôm nào bếp
-//     soạn bốn bữa thì có bốn bước bữa.
+//     cô là một DẢI BƯỚC: [Bữa sáng] [Bữa phụ sáng] [Bữa trưa] [Bữa phụ chiều]
+//     [Bữa sữa chiều] [Ghi chú]. Mỗi bước là danh sách bé với đúng một hai ô,
+//     có "Áp cho cả nhóm" và MỘT nút Lưu cho bước đó. Năm bữa LUÔN đủ, đúng
+//     tên của trường (góp ý 16/10, mục 7); món của từng bữa lấy theo THỰC ĐƠN
+//     NGÀY ĐÓ của bếp cơ sở, máy chủ đưa xuống.
 //
 //   • GIA ĐÌNH đọc, buổi tối, trên điện thoại, mỗi lần một bé. Nên màn của gia
 //     đình là từng ngày một, viết thành câu tiếng Việt chứ không phải bảng.
 //
 // GÓP Ý 06/10 (mục 9): BA TAB, CHỌN NHIỀU BÉ, GIỜ VỆ SINH, LƯU NHÁP + GỬI.
 //
-//   • Ba tab trên cùng đúng như trường đặt: Ăn uống (các bữa theo thực đơn,
-//     bú bình, ghi chú) / Nghỉ trưa / Vệ sinh. Dải bước cũ (`data-buoc`) vẫn
-//     còn, nằm trong tab Ăn uống.
+//   • Ba tab trên cùng đúng như trường đặt: Ăn uống (năm bữa, ghi chú) /
+//     Nghỉ trưa / Vệ sinh. Dải bước cũ (`data-buoc`) vẫn còn, nằm trong tab
+//     Ăn uống. Bước Bú bình đã bỏ (góp ý 16/10, mục 7) — số bú bình đã ghi
+//     trước đó vẫn hiện cho gia đình ở đúng những ngày đó.
 //   • Mỗi thẻ bé có ô chọn. Có bé được chọn thì "Áp" chỉ điền cho các bé đó;
 //     không chọn bé nào thì "Áp cho cả nhóm" như trước.
 //   • Tab Vệ sinh ghi TỪNG MỐC GIỜ thay bỉm / đi vệ sinh cho các bé đã chọn.
@@ -32,6 +33,12 @@ App.views.nhatky = {
     ['it', 'Ăn ít'],
     ['khong-an', 'Không ăn'],
   ],
+  // Mức ăn viết thành nửa câu cho GIA ĐÌNH đọc: "Bữa sáng: Bánh bao xá xíu —
+  // con ăn hết" (góp ý 16/10, mục 7). Màn của cô vẫn dùng nhãn `MUC_AN`.
+  CAU_MUC_AN: {
+    het: 'con ăn hết', 'gan-het': 'con ăn gần hết', 'nua-suat': 'con ăn khoảng nửa suất',
+    it: 'con ăn ít', 'khong-an': 'con không ăn',
+  },
   TINH_CHAT: [
     ['binh-thuong', 'Bình thường'],
     ['hoi-long', 'Hơi lỏng'],
@@ -47,9 +54,7 @@ App.views.nhatky = {
   LOAI_VS: [['thay-bim', 'Thay bỉm'], ['di-ve-sinh', 'Đi vệ sinh']],
   // Các bước không phải bữa ăn, đứng sau các bữa. `truong` là các cột mà bước
   // đó gửi lên — máy chủ chỉ ghi đúng các cột này, phần khác giữ nguyên.
-  // Bú bình tách khỏi Vệ sinh sang tab Ăn uống: bú bình là chuyện ăn.
   BUOC_KHAC: [
-    { ma: 'sua', phan: 'an', ten: 'Bú bình', kieu: 'sua', truong: ['buBinhSoLan', 'buBinhMl'], chiNhaTre: true },
     { ma: 'ghichu', phan: 'an', ten: 'Ghi chú', kieu: 'ghichu', truong: ['anGhiChu', 'ghiChu'] },
     { ma: 'ngu', phan: 'ngu', ten: 'Ngủ trưa', kieu: 'ngu', truong: ['nguTuLuc', 'nguDenLuc', 'nguGhiChu'] },
     { ma: 'vesinh', phan: 'vesinh', ten: 'Vệ sinh · Bỉm', kieu: 'vesinh', truong: [] },
@@ -93,15 +98,14 @@ App.views.nhatky = {
     return t ? t[1] : '';
   },
 
-  // Các bước của một ngày: từng bữa theo thực đơn ngày đó, rồi ngủ, vệ sinh,
-  // ghi chú. Máy chủ đời cũ không gửi `buaAn` thì về ba bữa sáng / trưa / xế.
+  // Các bước của một ngày: từng bữa máy chủ đưa xuống, rồi ghi chú, ngủ, vệ
+  // sinh. Máy chủ đời cũ không gửi `buaAn` thì về ba bữa sáng / trưa / xế.
   cacBuoc(d) {
     const ds = (d && Array.isArray(d.buaAn) && d.buaAn.length) ? d.buaAn
       : [{ bua: 'breakfast', ten: 'Bữa sáng' }, { bua: 'lunch', ten: 'Bữa trưa' }, { bua: 'snack', ten: 'Bữa phụ chiều' }];
-    const coNhaTre = !!(d && (d.danhSach || []).some(b => b.laNhaTre));
     return [
       ...ds.map(b => ({ ma: `bua:${b.bua}`, phan: 'an', ten: b.ten, kieu: 'bua', bua: b })),
-      ...this.BUOC_KHAC.filter(b => !b.chiNhaTre || coNhaTre),
+      ...this.BUOC_KHAC,
     ];
   },
 
@@ -761,9 +765,6 @@ App.views.nhatky = {
         <option value="">— chưa ghi —</option>
         ${ds.map(([v, t]) => `<option value="${UI.esc(v)}" ${dangChon === v ? 'selected' : ''}>${UI.esc(t)}</option>`).join('')}
       </select>`;
-    const so = (ma, gt, ph) => `
-      <input type="number" min="0" class="nk-o"${dnghi} data-be="${id}" data-truong="${UI.esc(ma)}"
-        value="${gt === null || gt === undefined ? '' : UI.esc(String(gt))}" placeholder="${UI.esc(ph)}">`;
     const chu = (ma, gt, ph) => `
       <div class="field mt-8" style="margin-bottom:0">
         <input class="nk-o" data-be="${id}" data-truong="${UI.esc(ma)}" placeholder="${UI.esc(ph)}"
@@ -827,16 +828,6 @@ App.views.nhatky = {
         <div class="muted small" style="line-height:1.6">Chưa ghi mốc giờ nào${soCu
           ? ` · đã ghi theo số lần: ${UI.esc(soCu)}` : ''}${b.veSinhTinhChat
           ? ` · ${UI.esc(this.nhanTinhChat(b.veSinhTinhChat).toLowerCase())}` : ''}.</div>`;
-    } else if (buoc.kieu === 'sua') {
-      const co = (v) => v !== null && v !== undefined && v !== '';
-      daGhi = co(b.buBinhSoLan) || co(b.buBinhMl);
-      // Ô sữa CHỈ cho bé nhà trẻ — bé lớn không thấy ô, đúng như sổ giấy của
-      // nhóm Lá không có cột bú bình.
-      than = b.laNhaTre ? `
-        <div class="grid-2">
-          <div class="field" style="margin:0"><label>Bú bình (lần)</label>${so('buBinhSoLan', b.buBinhSoLan, 'số lần')}</div>
-          <div class="field" style="margin:0"><label>Tổng lượng sữa (ml)</label>${so('buBinhMl', b.buBinhMl, 'ml')}</div>
-        </div>` : '<div class="muted small">Bé đã qua lứa nhà trẻ — không ghi bú bình.</div>';
     } else {
       daGhi = !!(b.ghiChu || b.anGhiChu);
       than = `
@@ -1099,13 +1090,21 @@ App.views.nhatky = {
       ? ` (có đi ngoài${e.tinhChat ? `, ${this.nhanTinhChat(e.tinhChat).toLowerCase()}` : ''})` : ''}${
       e.ghiChu ? ` — ${e.ghiChu}` : ''}`).join(' · ');
 
-    // NĂM BỮA THEO THỰC ĐƠN NGÀY ĐÓ (máy chủ mới gửi `buaAn`): mỗi bữa một
-    // dòng — tên bữa, món của bếp, và bé ăn được bao nhiêu phần. Máy chủ đời cũ
-    // không có `buaAn` thì đọc ba cột cũ như trước.
+    // NĂM BỮA (máy chủ mới gửi `buaAn`): mỗi bữa MỘT CÂU, đúng như trường
+    // viết (góp ý 16/10, mục 7) — "Bữa sáng: Bánh bao xá xíu — con ăn hết".
+    // Bữa không có món thì "Bữa sáng — con ăn hết"; bữa cô chưa ghi mức thì
+    // nói "cô chưa ghi". Máy chủ đời cũ không có `buaAn` thì đọc ba cột cũ.
     let phanAn = '';
     if (Array.isArray(n.buaAn) && n.buaAn.length) {
-      phanAn = n.buaAn.map(b => dong(b.ten, this.nhanMucAn(b.muc), (b.mon || []).join(', '))
-        + (b.ghiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(b.ghiChu)}</div>` : '')).join('');
+      phanAn = n.buaAn.map(b => {
+        const mon = (b.mon || []).join(', ');
+        const cau = this.CAU_MUC_AN[b.muc];
+        return `
+          <div class="list-row"><div class="row-main">
+            <div class="row-title">${UI.esc(`${b.ten}${mon ? `: ${mon}` : ''}`)} — ${cau ? UI.esc(cau) : chuaGhi}</div>
+          </div></div>`
+          + (b.ghiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(b.ghiChu)}</div>` : '');
+      }).join('');
     } else {
       const bua = this.BUA_NHAN
         .map(([k, t]) => [t, n[k]])
@@ -1129,6 +1128,8 @@ App.views.nhatky = {
       this.nhanTinhChat(n.veSinhTinhChat),
     ].filter(Boolean).join(' · ');
     const bim = moc('thay-bim') || (n.bimSoLan === null || n.bimSoLan === undefined ? '' : `${n.bimSoLan} lần`);
+    // Bú bình: chỉ hiện ở ngày THẬT SỰ có số (ghi trước khi bỏ bước Bú bình,
+    // hay bằng app đời cũ). Ngày không có số thì không có dòng này.
     const buBinh = [
       n.buBinhSoLan === null || n.buBinhSoLan === undefined ? '' : `${n.buBinhSoLan} lần`,
       n.buBinhMl === null || n.buBinhMl === undefined ? '' : `${n.buBinhMl} ml`,
@@ -1144,7 +1145,7 @@ App.views.nhatky = {
         ${chuaGui('an') ? dongChuaGui('Ăn uống') : `
           ${phanAn}
           ${n.anGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.anGhiChu)}</div>` : ''}
-          ${nhaTre ? dong('Bú bình', buBinh) : ''}`}
+          ${buBinh ? dong('Bú bình', buBinh) : ''}`}
         ${chuaGui('ngu') ? dongChuaGui('Ngủ trưa') : `
           ${dong('Ngủ trưa', ngu)}
           ${n.nguGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.nguGhiChu)}</div>` : ''}`}
