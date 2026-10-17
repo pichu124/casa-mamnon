@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, ganPhuHuynh, GOC, HOM_NAY,
+  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, GOC,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -42,56 +42,6 @@ khoaVaoCoSo(DIR, 'quanly2', 'cs2');
 // đã đóng KHÔNG mở cho văn phòng.
 const mkVP = taoQuanTri(DIR, 'Văn phòng CS1', 'vanphong1');
 datChucVu(DIR, 'vanphong1', 'vanphong-coso');
-
-// GÓP Ý 16/10, MỤC PHỤ HUYNH 1 — dựng cho mục [11] và [12].
-//
-// Văn phòng KHOÁ VÀO TỪNG CƠ SỞ: mục "Văn phòng nhà trường" gộp cho cả nhà vẫn
-// phải tới đúng văn phòng của cơ sở có con học, không lọt sang cơ sở kia.
-const mkVPcs1 = taoQuanTri(DIR, 'Văn phòng khoá CS1', 'vpcs1');
-datChucVu(DIR, 'vpcs1', 'vanphong-coso');
-khoaVaoCoSo(DIR, 'vpcs1', 'cs1');
-const mkVPcs2 = taoQuanTri(DIR, 'Văn phòng khoá CS2', 'vpcs2');
-datChucVu(DIR, 'vpcs2', 'vanphong-coso');
-khoaVaoCoSo(DIR, 'vpcs2', 'cs2');
-{
-  const c = new Database(path.join(DIR, 'school.db'));
-  // Nhà anh Tuấn (p3) có hai con cùng cơ sở 1 — bé s4 (Chồi 2), bé s8 (Lá 1) —
-  // và ĐÃ nhắn văn phòng theo từng bé từ trước đợt này. Dựng hai cuộc cũ ấy
-  // TRƯỚC khi máy chủ chạy, đúng hình dạng mã cũ đã ghi. Cuộc của s8 mới hơn.
-  const luc = (soNgay) => new Date(Date.now() - soNgay * 864e5).toISOString();
-  for (const [ma, be, tao, gui, chu] of [
-    ['cv_vp_cu_s4', 's4', luc(5), luc(4), 'Tuần sau bé xin nghỉ hai hôm ạ'],
-    ['cv_vp_cu_s8', 's8', luc(3), luc(2), 'Gia đình xin giấy xác nhận đang học cho bé ạ'],
-  ]) {
-    c.prepare("INSERT INTO conversations (id, type, name, classId) VALUES (?, 'kenh', NULL, NULL)").run(ma);
-    c.prepare(`INSERT INTO kenh_hoi_thoai (conversationId, loai, studentId, classId, taoLuc)
-               VALUES (?, 'vanphong', ?, '', ?)`).run(ma, be, tao);
-    c.prepare('INSERT INTO conversation_members (conversationId, userId, lastRead) VALUES (?, ?, NULL)')
-      .run(ma, 'p3');
-    c.prepare('INSERT INTO messages (id, conversationId, senderId, text, createdAt) VALUES (?, ?, ?, ?, ?)')
-      .run(`ms_${ma}`, ma, 'p3', chu, gui);
-  }
-  // Nhà anh Bảo (p2): bé s3 học Chồi 2 ở cơ sở 1; thêm một bé ở Mầm 1 — cơ sở 2.
-  c.prepare(`INSERT INTO students (id, name, dob, gender, classId, active, createdAt)
-             VALUES ('s_cs2', 'Phạm Gia Khang', ?, 'Nam', 'c3', 1, ?)`)
-    .run(`${Number(HOM_NAY().slice(0, 4)) - 3}-06-01`, new Date().toISOString());
-  // BỐ MẸ RIÊNG — dựng cho mục [13]. Bé `s0_chung` là con của CẢ chị Lan (p4)
-  // lẫn anh Minh (p5); chị Lan còn bé s5, anh Minh còn bé s6, cả ba cùng cơ sở 1.
-  // Mã bé chung đứng đầu theo thứ tự, đúng ca đã làm rò tin: mục gộp cũ gắn cả
-  // hai nhà vào kênh của bé này.
-  c.prepare(`INSERT INTO students (id, name, dob, gender, classId, active, createdAt)
-             VALUES ('s0_chung', 'Hoàng Minh Khuê', ?, 'Nữ', 'c2', 1, ?)`)
-    .run(`${Number(HOM_NAY().slice(0, 4)) - 5}-02-10`, new Date().toISOString());
-  const ganPH = c.prepare('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)');
-  ganPH.run('s0_chung', 'p4');
-  ganPH.run('s0_chung', 'p5');
-  // Nhà THƯỜNG có cả bố lẫn mẹ — dựng cho mục [14]: anh Duy (p8) và chị Nga (p9)
-  // cùng gắn với cả hai bé s10, s11.
-  ganPH.run('s10', 'p9');
-  ganPH.run('s11', 'p8');
-  c.close();
-}
-ganPhuHuynh(DIR, 's_cs2', 'p2');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4649), dir: DIR });
 const req = taoReq(sv.BASE);
@@ -120,17 +70,6 @@ const BE = conn0.prepare(
      FROM students s JOIN student_parents sp ON sp.studentId = s.id
      JOIN users u ON u.id = sp.parentId
     WHERE u.username = 'phuhuynh' AND s.active = 1 LIMIT 1`).get();
-// Mọi con của nhà ấy, theo mã — thứ tự máy chủ dùng để chọn bé gắn mục văn phòng.
-const CON_PH = conn0.prepare(
-  `SELECT s.id AS id, s.name AS name FROM students s
-     JOIN student_parents sp ON sp.studentId = s.id
-     JOIN users u ON u.id = sp.parentId
-    WHERE u.username = 'phuhuynh' AND s.active = 1 ORDER BY s.id`).all();
-const TEN = {};
-for (const r of conn0.prepare(`SELECT id, name FROM students
-  WHERE id IN ('s3', 's4', 's5', 's6', 's8', 's10', 's11', 's_cs2', 's0_chung')`).all()) TEN[r.id] = r.name;
-for (const r of conn0.prepare(`SELECT username, name FROM users
-  WHERE username IN ('phuhuynh', 'ph.tuan', 'ph.lan', 'ph.minh', 'ph.duy', 'ph.nga')`).all()) TEN[r.username] = r.name;
 conn0.close();
 
 // ===========================================================================
@@ -163,24 +102,11 @@ console.log('\n[1] Gia đình được mời ĐÚNG BA ĐẦU MỐI, không hơn
 
   const soCon = new Set(lh.map(c => c.studentId)).size;
   check('đối chứng — nhà này có ít nhất một con đang học', soCon >= 1, soCon);
-  // GÓP Ý 16/10, MỤC PHỤ HUYNH 1: *"Nhắn tin với cô, văn phòng nhà trường là 1.
-  // nên không cần tách ra Văn phòng nhà trường về bé này bé kia"*. Vẫn ba đầu
-  // mối, nhưng văn phòng là MỘT cho cả nhà — hai dòng cô mỗi bé, cộng một dòng
-  // văn phòng cho mỗi cơ sở có con học (nhà mẫu: hai con, cùng cơ sở 1).
-  const dongCo = lh.filter(c => c.kenh !== 'vanphong');
-  const dongVP = lh.filter(c => c.kenh === 'vanphong');
-  check('mỗi bé ĐÚNG HAI dòng cô, không hơn', dongCo.length === soCon * 2, { soCon, dong: dongCo.length });
-  check('và mỗi bé có đủ cả hai kênh cô',
+  check('mỗi bé ĐÚNG BA dòng, không hơn', lh.length === soCon * 3, { soCon, dong: lh.length });
+  check('và mỗi bé có đủ cả ba loại kênh',
     [...new Set(lh.map(c => c.studentId))].every(id =>
-      ['nhom', 'nuoc-ngoai'].every(k => dongCo.some(c => c.studentId === id && c.kenh === k))),
-    dongCo.map(c => `${c.studentId}:${c.kenh}`));
-  check('đối chứng — nhà mẫu có HAI con', CON_PH.length === 2 && soCon === 2, { CON_PH, soCon });
-  check('cả nhà ĐÚNG MỘT dòng "Văn phòng nhà trường" — không tách theo từng bé',
-    dongVP.length === 1, dongVP);
-  check('dòng ấy KHÔNG còn "Về bé…" — các con cùng cơ sở thì không cần dòng phụ',
-    dongVP.every(c => c.subtitle === ''), dongVP.map(c => c.subtitle));
-  check('chưa từng nhắn văn phòng thì gắn với bé đứng đầu theo mã — lần nào cũng cùng một bé',
-    dongVP[0]?.studentId === CON_PH[0].id && !dongVP[0]?.existingConversationId, dongVP[0]);
+      ['nhom', 'nuoc-ngoai', 'vanphong'].every(k => lh.some(c => c.studentId === id && c.kenh === k))),
+    lh.map(c => `${c.studentId}:${c.kenh}`));
 }
 
 // ===========================================================================
@@ -244,10 +170,7 @@ console.log('\n[3] "Nhắn với lớp" KHÔNG phải phòng chung — nhà này
 console.log('\n[4] Nhắn với VĂN PHÒNG: văn phòng đọc được, cô thì không');
 let KENH_VP;
 {
-  // Từ góp ý 16/10 cả nhà có MỘT mục văn phòng, gắn với một bé máy chủ chọn —
-  // mở đúng mục ấy, như màn hình vẫn làm.
-  const lhVP = ((await ds(PH)).contacts || []).find(c => c.kenh === 'vanphong');
-  const r = await mo(PH, 'vanphong', lhVP && lhVP.studentId);
+  const r = await mo(PH, 'vanphong', BE.id);
   check('gia đình mở được kênh văn phòng', r.status === 200 && !!r.data.id, r.data);
   KENH_VP = r.data.id;
   check('kênh văn phòng KHÁC kênh nhóm lớp', KENH_VP !== KENH_NHOM, { KENH_VP, KENH_NHOM });
@@ -256,16 +179,6 @@ let KENH_VP;
   const vpDoc = await doc(QT, KENH_VP);
   check('VĂN PHÒNG đọc được', vpDoc.status === 200
     && (vpDoc.data.messages || []).some(m => /bà ngoại/.test(m.text)), vpDoc.status);
-  // Gia đình bỏ "Về bé…", nhưng phía văn phòng thì PHẢI biết đang nói với ai.
-  const phuVP = vpDoc.data.subtitle || '';
-  check('văn phòng thấy rõ đang nói với PHỤ HUYNH NÀO',
-    phuVP.includes(TEN.phuhuynh), phuVP);
-  check('và về CÁC CON NÀO của nhà ấy — cả hai bé, không chỉ bé gắn kênh',
-    CON_PH.every(b => phuVP.includes(b.name)), phuVP);
-  const phDocVP = await doc(PH, KENH_VP);
-  check('gia đình thấy "Văn phòng nhà trường", KHÔNG kèm "Về bé…"',
-    phDocVP.data.title === 'Văn phòng nhà trường' && !/Về bé/.test(phDocVP.data.subtitle || ''),
-    { title: phDocVP.data.title, subtitle: phDocVP.data.subtitle });
   const coDoc = await doc(GV, KENH_VP);
   check('CÔ KHÔNG đọc được cuộc gia đình nói riêng với văn phòng', coDoc.status === 403, coDoc.status);
 
@@ -571,214 +484,6 @@ console.log('\n[10] HỘI THOẠI ĐÃ ĐÓNG — mất khỏi màn gia đình, 
   check('và nhắn tiếp được', (await gui(PH, KENH_MOI, 'em quay lại ạ')).status === 200);
   check('MỞ LẠI XONG thì ban giám hiệu KHÔNG còn đọc được nữa — chốt cũ trở lại đúng chỗ',
     (await doc(QT, KENH_MOI)).status === 403);
-}
-
-// ===========================================================================
-// GÓP Ý 16/10, MỤC PHỤ HUYNH 1 — văn phòng là MỘT mục cho cả nhà.
-//
-// Hai chỗ dễ làm sai: gộp mục mà làm mất các cuộc văn phòng cũ theo từng bé
-// (mất tin là mất lòng tin), và gộp mục mà mở luôn đường sang văn phòng cơ sở
-// khác. Cả hai đo ở đây; dữ liệu cũ dựng sẵn ở đầu tệp, trước khi máy chủ chạy.
-const VP1 = await vao('vpcs1', mkVPcs1);
-const VP2 = await vao('vpcs2', mkVPcs2);
-
-console.log('\n[11] Hai con cùng cơ sở, ĐÃ có cuộc văn phòng cũ theo từng bé');
-{
-  const PH3 = (await login('ph.tuan', '123456')).cookie;
-  const d = await ds(PH3);
-  const lh = d.contacts || [];
-  const vp = lh.filter(c => c.kenh === 'vanphong');
-  check('đối chứng — nhà này có hai con', new Set(lh.map(c => c.studentId)).size === 2,
-    lh.map(c => `${c.studentId}:${c.kenh}`));
-  check('ĐÚNG MỘT liên hệ "Văn phòng nhà trường" cho cả nhà',
-    vp.length === 1 && vp[0].name === 'Văn phòng nhà trường', vp);
-  check('và không còn "Về bé…"', vp.every(c => c.subtitle === ''), vp.map(c => c.subtitle));
-  check('DÙNG LẠI cuộc văn phòng có tin gần nhất — không mở cuộc mới, không đứt mạch',
-    vp[0]?.existingConversationId === 'cv_vp_cu_s8' && vp[0]?.studentId === 's8', vp[0]);
-
-  const cu = (d.conversations || []).filter(c => /^cv_vp_cu_/.test(c.id));
-  check('CẢ HAI cuộc văn phòng cũ vẫn nằm trong danh sách', cu.length === 2, cu.map(c => c.id));
-  check('và cả hai mang tên "Văn phòng nhà trường", không kèm "Về bé…"',
-    cu.every(c => c.title === 'Văn phòng nhà trường' && !/Về bé/.test(c.subtitle || '')),
-    cu.map(c => `${c.title} | ${c.subtitle}`));
-
-  const cuBeKia = await doc(PH3, 'cv_vp_cu_s4');
-  check('cuộc cũ của BÉ KIA vẫn mở được và còn nguyên tin', cuBeKia.status === 200
-    && (cuBeKia.data.messages || []).some(m => /nghỉ hai hôm/.test(m.text)), cuBeKia.status);
-
-  const r = await mo(PH3, 'vanphong', vp[0]?.studentId);
-  check('bấm mục văn phòng là vào đúng cuộc gần nhất', r.status === 200 && r.data.id === 'cv_vp_cu_s8', r.data);
-  check('gửi được tin', (await gui(PH3, r.data.id, 'Chiều nay ông nội đón hai cháu ạ')).status === 200);
-  check('cuộc cũ của bé kia vẫn nhắn tiếp được', (await gui(PH3, 'cv_vp_cu_s4', 'Dạ em hỏi thêm ạ')).status === 200);
-
-  const conn = new Database(path.join(DIR, 'school.db'));
-  const soKenh = conn.prepare(
-    "SELECT COUNT(*) AS n FROM kenh_hoi_thoai WHERE loai = 'vanphong' AND studentId IN ('s4', 's8')").get().n;
-  const soTin = conn.prepare(
-    "SELECT COUNT(*) AS n FROM messages WHERE conversationId IN ('cv_vp_cu_s4', 'cv_vp_cu_s8')").get().n;
-  conn.close();
-  check('TẦNG DỮ LIỆU KHÔNG ĐỔI — không gộp, không xoá, không đẻ thêm kênh', soKenh === 2, soKenh);
-  check('và không mất tin nào (2 tin cũ + 2 tin mới)', soTin === 4, soTin);
-
-  const vpDoc = await doc(VP1, r.data.id);
-  check('VĂN PHÒNG CƠ SỞ 1 đọc được tin vừa gửi', vpDoc.status === 200
-    && (vpDoc.data.messages || []).some(m => /ông nội/.test(m.text)), vpDoc.status);
-  const phu = vpDoc.data.subtitle || '';
-  check('và thấy rõ đang nói với phụ huynh nào', phu.includes(TEN['ph.tuan']), phu);
-  check('cùng CẢ HAI con của nhà ấy ở cơ sở mình', phu.includes(TEN.s4) && phu.includes(TEN.s8), phu);
-  const dsVP1 = (await ds(VP1)).conversations || [];
-  check('danh sách của văn phòng cũng nêu rõ nhà nào ở dòng phụ',
-    dsVP1.some(c => c.id === r.data.id && (c.subtitle || '').includes(TEN['ph.tuan'])),
-    dsVP1.filter(c => /^cv_vp_cu_/.test(c.id)).map(c => c.subtitle));
-
-  check('VĂN PHÒNG CƠ SỞ KHÁC không đọc được', (await doc(VP2, r.data.id)).status === 403);
-  check('kể cả cuộc cũ của bé kia', (await doc(VP2, 'cv_vp_cu_s4')).status === 403);
-  check('và không thấy chúng trong danh sách của mình',
-    !((await ds(VP2)).conversations || []).some(c => /^cv_vp_cu_/.test(c.id)));
-  check('CÔ không đọc được cuộc gia đình nhắn văn phòng', (await doc(GV, r.data.id)).status === 403);
-}
-
-console.log('\n[12] Hai con ở HAI cơ sở: hai mục văn phòng, phân biệt bằng tên cơ sở');
-{
-  const PH2 = (await login('phuhuynh2', '123456')).cookie;
-  const lh = (await ds(PH2)).contacts || [];
-  const vp = lh.filter(c => c.kenh === 'vanphong');
-  check('đối chứng — nhà này có hai con', new Set(lh.map(c => c.studentId)).size === 2,
-    lh.map(c => `${c.studentId}:${c.kenh}`));
-  check('HAI mục "Văn phòng nhà trường" — mỗi cơ sở một mục',
-    vp.length === 2 && vp.every(c => c.name === 'Văn phòng nhà trường'), vp);
-  check('phân biệt bằng TÊN CƠ SỞ, không bằng "Về bé…"',
-    vp.map(c => c.subtitle).sort().join('|') === 'Cơ sở 1|Cơ sở 2', vp.map(c => c.subtitle));
-  const muc1 = vp.find(c => c.subtitle === 'Cơ sở 1');
-  const muc2 = vp.find(c => c.subtitle === 'Cơ sở 2');
-  check('mục cơ sở 1 gắn với bé học cơ sở 1, mục cơ sở 2 với bé học cơ sở 2',
-    muc1?.studentId === 's3' && muc2?.studentId === 's_cs2', vp);
-
-  const r1 = await mo(PH2, 'vanphong', muc1?.studentId);
-  const r2 = await mo(PH2, 'vanphong', muc2?.studentId);
-  check('mở được cả hai, và đó là HAI cuộc khác nhau',
-    r1.status === 200 && r2.status === 200 && r1.data.id !== r2.data.id, { r1: r1.data, r2: r2.data });
-  await gui(PH2, r1.data.id, 'Gửi văn phòng cơ sở 1 ạ');
-  await gui(PH2, r2.data.id, 'Gửi văn phòng cơ sở 2 ạ');
-
-  const doc11 = await doc(VP1, r1.data.id);
-  check('văn phòng cơ sở 1 đọc được cuộc của cơ sở 1', doc11.status === 200, doc11.status);
-  check('nhưng KHÔNG đọc được cuộc của cơ sở 2', (await doc(VP1, r2.data.id)).status === 403);
-  check('văn phòng cơ sở 2 đọc được cuộc của cơ sở 2', (await doc(VP2, r2.data.id)).status === 200);
-  check('nhưng KHÔNG đọc được cuộc của cơ sở 1', (await doc(VP2, r1.data.id)).status === 403);
-  const phu = doc11.data.subtitle || '';
-  check('văn phòng cơ sở 1 thấy bé của cơ sở mình', phu.includes(TEN.s3), phu);
-  check('mà KHÔNG thấy tên bé học cơ sở khác', !phu.includes(TEN.s_cs2), phu);
-
-  const phDs = (await ds(PH2)).conversations || [];
-  check('danh sách của gia đình: hai cuộc văn phòng cũng phân biệt bằng tên cơ sở',
-    phDs.find(c => c.id === r1.data.id)?.subtitle === 'Cơ sở 1'
-      && phDs.find(c => c.id === r2.data.id)?.subtitle === 'Cơ sở 2',
-    phDs.filter(c => c.id === r1.data.id || c.id === r2.data.id).map(c => `${c.title} | ${c.subtitle}`));
-}
-
-// Một kênh văn phòng mở cho MỌI phụ huynh của bé gắn kênh. Nên mục gộp chỉ được
-// gộp các bé có CÙNG bộ phụ huynh: gộp bé chung với con riêng là chuyện con
-// riêng của nhà này hiện trước mặt người kia.
-const vpCua = async (cookie) => ((await ds(cookie)).contacts || []).filter(c => c.kenh === 'vanphong');
-
-console.log('\n[13] Bố mẹ RIÊNG: chỉ gộp các bé có CÙNG bộ phụ huynh');
-{
-  const PL = (await login('ph.lan', '123456')).cookie;
-  const PM = (await login('ph.minh', '123456')).cookie;
-  const vL = await vpCua(PL);
-  const vM = await vpCua(PM);
-  check('chị Lan thấy HAI mục văn phòng: một cho bé chung, một cho con riêng',
-    vL.length === 2 && vL.map(c => c.studentId).sort().join('|') === 's0_chung|s5', vL);
-  check('anh Minh cũng HAI mục: bé chung và con riêng của anh',
-    vM.length === 2 && vM.map(c => c.studentId).sort().join('|') === 's0_chung|s6', vM);
-  check('mục nào cũng vẫn tên "Văn phòng nhà trường"',
-    vL.concat(vM).every(c => c.name === 'Văn phòng nhà trường'), vL.concat(vM).map(c => c.name));
-  const chungL = vL.find(c => c.studentId === 's0_chung');
-  const riengL = vL.find(c => c.studentId === 's5');
-  check('mỗi mục nêu rõ VỀ BÉ NÀO, để biết mục nào người kia cũng đọc',
-    chungL?.subtitle === `Về bé ${TEN.s0_chung}` && riengL?.subtitle === `Về bé ${TEN.s5}`,
-    vL.map(c => c.subtitle));
-  check('phía anh Minh cũng vậy',
-    vM.find(c => c.studentId === 's0_chung')?.subtitle === `Về bé ${TEN.s0_chung}`
-      && vM.find(c => c.studentId === 's6')?.subtitle === `Về bé ${TEN.s6}`, vM.map(c => c.subtitle));
-
-  // Chị Lan nhắn CHUYỆN RIÊNG của bé Vy: chọn mục nói về bé Vy — hoặc, khi màn
-  // hình chỉ có một mục, chính mục ấy (đúng điều một gia đình sẽ làm).
-  const mucRieng = vL.length === 1 ? vL[0] : riengL;
-  const r = await mo(PL, 'vanphong', mucRieng?.studentId);
-  check('mở được mục văn phòng của con riêng', r.status === 200 && !!r.data.id, r.data);
-  const RIENG = r.data.id;
-  check('gửi được tin', (await gui(PL, RIENG, 'Bé Vy bị sốt, xin cho bé nghỉ hai hôm ạ')).status === 200);
-  check('ANH MINH KHÔNG ĐỌC ĐƯỢC chuyện riêng của bé Vy', (await doc(PM, RIENG)).status === 403);
-  const dsM = await ds(PM);
-  check('và cuộc ấy không có trong danh sách hội thoại của anh',
-    !(dsM.conversations || []).some(c => c.id === RIENG), (dsM.conversations || []).map(c => c.id));
-  check('cũng không mục liên hệ nào của anh trỏ vào nó',
-    !(dsM.contacts || []).some(c => c.existingConversationId === RIENG), dsM.contacts);
-
-  // ĐỐI CHỨNG: mục của bé chung thì cả hai cùng đọc — đúng là phải vậy.
-  const r2 = await mo(PL, 'vanphong', chungL?.studentId);
-  check('mục của bé chung là một cuộc KHÁC', r2.status === 200 && r2.data.id && r2.data.id !== RIENG, r2.data);
-  const CHUNG = r2.data.id;
-  await gui(PL, CHUNG, 'Chiều nay bố đón bé Khuê ạ');
-  const mDoc = await doc(PM, CHUNG);
-  check('anh Minh đọc được tin trong mục của bé chung', mDoc.status === 200
-    && (mDoc.data.messages || []).some(m => /bố đón/.test(m.text)), mDoc.status);
-
-  // Cuộc của bé chung nay có tin MỚI NHẤT. Mục của con riêng vẫn không được trỏ
-  // sang đó — đây đúng là chỗ mục gộp cũ đã làm rò tin.
-  const vL2 = await vpCua(PL);
-  const vM2 = await vpCua(PM);
-  check('mục của bé Vy vẫn trỏ đúng cuộc riêng, không bị kéo sang cuộc chung mới hơn',
-    vL2.find(c => c.studentId === 's5')?.existingConversationId === RIENG
-      && vL2.find(c => c.studentId === 's0_chung')?.existingConversationId === CHUNG, vL2);
-  check('mục con riêng của anh Minh KHÔNG gắn vào kênh của bé chung',
-    vM2.length === 2 && vM2.some(c => c.studentId === 's6' && !c.existingConversationId)
-      && vM2.some(c => c.studentId === 's0_chung' && c.existingConversationId === CHUNG), vM2);
-
-  const dsL = (await ds(PL)).conversations || [];
-  check('danh sách của chị Lan: hai cuộc văn phòng phân biệt bằng tên bé',
-    dsL.find(c => c.id === RIENG)?.subtitle === `Về bé ${TEN.s5}`
-      && dsL.find(c => c.id === CHUNG)?.subtitle === `Về bé ${TEN.s0_chung}`,
-    dsL.filter(c => c.id === RIENG || c.id === CHUNG).map(c => `${c.title} | ${c.subtitle}`));
-  const moRieng = await doc(PL, RIENG);
-  check('mở cuộc riêng ra cũng thấy đúng dòng phụ ấy',
-    moRieng.data.title === 'Văn phòng nhà trường' && moRieng.data.subtitle === `Về bé ${TEN.s5}`,
-    { title: moRieng.data.title, subtitle: moRieng.data.subtitle });
-
-  // PHÍA VĂN PHÒNG: dòng phụ chỉ nêu các bé cùng bộ phụ huynh với bé gắn kênh.
-  const vpR = await doc(VP1, RIENG);
-  const phuR = vpR.data.subtitle || '';
-  check('văn phòng đọc được cuộc riêng, thấy chị Lan và bé Vy',
-    vpR.status === 200 && phuR.includes(TEN['ph.lan']) && phuR.includes(TEN.s5), phuR);
-  check('mà KHÔNG nêu bé chung, cũng không nêu anh Minh',
-    !phuR.includes(TEN.s0_chung) && !phuR.includes(TEN['ph.minh']), phuR);
-  const phuC = (await doc(VP1, CHUNG)).data.subtitle || '';
-  check('cuộc của bé chung: văn phòng thấy CẢ HAI phụ huynh và bé chung',
-    phuC.includes(TEN['ph.lan']) && phuC.includes(TEN['ph.minh']) && phuC.includes(TEN.s0_chung), phuC);
-  check('mà KHÔNG nêu con riêng của nhà nào', !phuC.includes(TEN.s5) && !phuC.includes(TEN.s6), phuC);
-}
-
-console.log('\n[14] Nhà thường có cả bố lẫn mẹ cùng gắn hai con: vẫn MỘT mục văn phòng');
-{
-  const PD = (await login('ph.duy', '123456')).cookie;
-  const PN = (await login('ph.nga', '123456')).cookie;
-  const vD = await vpCua(PD);
-  const vN = await vpCua(PN);
-  check('anh Duy: ĐÚNG MỘT mục, không dòng phụ', vD.length === 1 && vD[0].subtitle === '', vD);
-  check('chị Nga cũng vậy, và hai người cùng một mục',
-    vN.length === 1 && vN[0].subtitle === '' && vN[0].studentId === vD[0]?.studentId, vN);
-  check('gắn với bé đứng đầu theo mã', vD[0]?.studentId === 's10', vD[0]);
-  const r = await mo(PD, 'vanphong', vD[0]?.studentId);
-  check('mở được mục văn phòng', r.status === 200 && !!r.data.id, r.data);
-  await gui(PD, r.data.id, 'Chiều nay bà nội đón hai cháu ạ');
-  const nDoc = await doc(PN, r.data.id);
-  check('chị Nga đọc được — chuyện của cả nhà', nDoc.status === 200
-    && (nDoc.data.messages || []).some(m => /bà nội/.test(m.text)), nDoc.status);
-  const phu = (await doc(VP1, r.data.id)).data.subtitle || '';
-  check('văn phòng thấy cả hai phụ huynh và cả hai con',
-    [TEN['ph.duy'], TEN['ph.nga'], TEN.s10, TEN.s11].every(t => phu.includes(t)), phu);
 }
 
 await sv.dung();
