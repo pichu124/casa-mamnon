@@ -493,14 +493,26 @@ console.log('\n[14] MỐC NGÀY NẰM TRONG CÂU TRUY VẤN — màn cổng khô
   // Uỷ quyền ĐÃ QUA thì đường API từ chối tạo ("Uỷ quyền đã qua thì không tạo
   // mới được nữa") — đúng như nó nên thế. Nên ba ca hết hạn phải viết thẳng
   // vào bảng, ngoài tiến trình, đúng nếp `chayTrenCsdl` của test/_chung.mjs.
-  const ghiThang = (rows) => execFileSync('node', ['-e', `
+  //
+  // Các dòng đi qua một TỆP, không qua dòng lệnh: mẻ 200 dòng ở dưới dài
+  // khoảng 45 000 ký tự, vượt trần 32 767 ký tự một dòng lệnh của Windows
+  // (spawnSync ENAMETOOLONG — cả bài chết giữa chừng, không in tổng kết).
+  const ghiThang = (rows) => {
+    const tep = path.join(DIR, 'ghi-thang-uy-quyen.json');
+    fs.writeFileSync(tep, JSON.stringify(rows));
+    try {
+      execFileSync('node', ['-e', `
     const D = require('better-sqlite3');
     const db = new D(process.argv[1]);
     const them = db.prepare('INSERT INTO dontra_uyquyen (id, studentId, hoTen, quanHe, dienThoai, anh, tuNgay, denNgay, lyDo, huyLuc, huyBoi, nguoiTao, taoLuc) VALUES (@id, @studentId, @hoTen, @quanHe, @dienThoai, @anh, @tuNgay, @denNgay, @lyDo, @huyLuc, @huyBoi, @nguoiTao, @taoLuc)');
     const nhieu = db.transaction((ds) => { for (const r of ds) them.run(r); });
-    nhieu(JSON.parse(process.argv[2]));
+    nhieu(JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8')));
     db.close();
-  `, path.join(DIR, 'school.db'), JSON.stringify(rows)], { cwd: GOC, stdio: 'inherit' });
+  `, path.join(DIR, 'school.db'), tep], { cwd: GOC, stdio: 'inherit' });
+    } finally {
+      fs.rmSync(tep, { force: true });
+    }
+  };
 
   const BE = 's3';   // cùng nhóm c1, nhà khác — không đụng dữ liệu mục [4]
   const luc = new Date().toISOString();
