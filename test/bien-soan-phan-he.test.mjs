@@ -51,7 +51,11 @@ const { check, tongKet } = taoBoDem();
 // ===========================================================================
 const PHU = [
   { ma: 'nhatky', ten: 'Nhật ký ngày', ai: 'cô' },
-  { ma: 'tienan', ten: 'Báo ăn & tiền ăn', ai: 'cô' },
+  {
+    ma: 'tienan', ten: 'Tiền ăn', ai: 'văn phòng',
+    vi_sao_khong_ghi: 'Từ góp ý 16/10 (mục 3) màn của nhà trường chỉ còn Đối chiếu tháng — ĐỌC số từ sổ điểm danh '
+      + 'và đơn nghỉ; tab Báo ăn cho bếp đã gỡ khỏi màn, API báo ăn có bài riêng test/tien-an.test.mjs.',
+  },
   { ma: 'dontra', ten: 'Đón trả bé', ai: 'gia đình khai + cô ghi sổ' },
   { ma: 'thuchup', ten: 'Ghi nhanh', ai: 'cô' },
   { ma: 'hanhtrinh', ten: 'Hành trình học tập', ai: 'cô' },
@@ -217,29 +221,22 @@ console.log('\n[1] Nhật ký ngày — cô ghi và thấy lại phần vừa gh
 }
 
 // ===========================================================================
-console.log('\n[2] Báo ăn & tiền ăn — văn phòng chốt số cho bếp và thấy lại');
+console.log('\n[2] Tiền ăn — nhà trường mở là vào thẳng Đối chiếu tháng, không còn Báo ăn cho bếp');
 {
-  // Từ Đ140 Báo ăn là việc của VĂN PHÒNG (bảng phân quyền của trường 07/09:
-  // "văn phòng nhập, không hiện với GV, PH") — cô không còn ô này.
+  // Góp ý 16/10, mục 3: *"Mình k cần báo ăn lên cho bếp, chỉ cần chức năng
+  // xuất excel tổng hợp phần tiền ăn đối chiếu tháng"*. Trước đây mục này đi
+  // vòng chốt báo ăn trên màn; vòng ấy đã gỡ khỏi màn, nên mục này đo đúng thứ
+  // THAY CHỖ NÓ: màn mở ra là bảng đối chiếu tháng có số thật, không còn tab
+  // hay nút chốt nào. Đường API báo ăn giữ nguyên, canh ở test/tien-an.test.mjs.
   await dangNhap('hieutruong', 'quantri2026');
   await moMan('#/tienan');
-  check('màn có nút chốt báo ăn', await page.locator('[data-chot]').count() >= 1);
-
-  await page.locator('[data-chot]').first().click();
-  await page.waitForTimeout(800);
-  check('mở được hộp chốt báo ăn', await page.locator('#ta-so').count() === 1);
-
-  await page.fill('#ta-ghichu', 'Thêm 2 suất cho cô, bé Bin ăn cháo loãng');
-  await page.click('#ta-luu');
-  await page.waitForTimeout(1600);
-
-  const sauChot = await chuTrenMan();
-  check('CHỐT XONG MÀN HIỆN GHI CHÚ CÔ GỬI BẾP',
-    /Thêm 2 suất cho cô/.test(sauChot), sauChot.slice(0, 200));
-  check('và nút đổi thành "Sửa số đã chốt"', /Sửa số đã chốt/.test(sauChot));
-
-  await moMan('#/tienan');
-  check('mở lại màn vẫn còn số đã chốt', /Thêm 2 suất cho cô/.test(await chuTrenMan()));
+  const chu = await chuTrenMan();
+  check('mở thẳng vào bảng đối chiếu tháng', await page.locator('#ta-thang').count() === 1, chu.slice(0, 200));
+  check('có nút Xuất ra Excel', await page.locator('#ta-xuat').count() === 1);
+  check('bảng có số thật của cả tháng', /Tổng số ngày ăn ở trường/.test(chu) && /Nguyễn Bảo An/.test(chu), chu.slice(0, 260));
+  check('KHÔNG còn tab "Báo ăn hằng ngày"', !/Báo ăn hằng ngày/.test(chu) && await page.locator('#ta-tabs').count() === 0);
+  check('KHÔNG còn nút chốt báo ăn cho bếp', await page.locator('[data-chot]').count() === 0);
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs.slice(0, 3));
 }
 
 // ===========================================================================
