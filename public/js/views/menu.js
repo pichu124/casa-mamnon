@@ -21,18 +21,19 @@ App.views.menu = {
   week: 0, // 0 = tuần này, 1 = tuần sau
   MEAL_EMOJI: { breakfast: '🌅', snack_sang: '🍎', lunch: '🍚', snack: '🍰', milk: '🥛' },
   // Bộ khung khi soạn một ngày mới tinh — NĂM BỮA theo đúng cấu trúc nhà
-  // trường chốt 07/09: "Bữa sáng / Bữa phụ sáng / Bữa trưa / Bữa phụ chiều /
-  // Sữa Vinamilk". Ba `type` cũ (breakfast, lunch, snack) giữ nguyên tên vì
+  // trường chốt 07/09; tên và giờ theo ảnh mẫu 16/10: "Bữa sáng 8h / Bữa phụ
+  // sáng 9h30 / Bữa trưa 11h20 / Bữa phụ chiều 14h / Bữa sữa chiều". Ba `type`
+  // cũ (breakfast, lunch, snack) giữ nguyên tên vì
   // Nhật ký ngày đọc đúng ba mã đó để ghép "hôm nay con ăn gì" — bữa phụ
   // chiều vẫn là `snack`, nên ô "Bữa xế" của nhật ký vẫn nối đúng bữa.
-  // Thực đơn đã soạn với ba bữa vẫn hiện y nguyên; khung năm bữa chỉ áp cho
+  // Thực đơn đã soạn giữ nguyên tên và giờ của nó; khung năm bữa chỉ áp cho
   // ngày soạn mới.
   BUA_MAC_DINH: [
-    { type: 'breakfast', label: 'Bữa sáng', time: '07:30', items: [] },
-    { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:00', items: [] },
-    { type: 'lunch', label: 'Bữa trưa', time: '10:45', items: [] },
-    { type: 'snack', label: 'Bữa phụ chiều', time: '14:30', items: [] },
-    { type: 'milk', label: 'Sữa Vinamilk', time: '15:30', items: [] },
+    { type: 'breakfast', label: 'Bữa sáng', time: '08:00', items: [] },
+    { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:30', items: [] },
+    { type: 'lunch', label: 'Bữa trưa', time: '11:20', items: [] },
+    { type: 'snack', label: 'Bữa phụ chiều', time: '14:00', items: [] },
+    { type: 'milk', label: 'Bữa sữa chiều', time: '15:30', items: [] },
   ],
   // Ngày đang xem: 1..5 = Thứ Hai..Thứ Sáu, 'tuan' = cả tuần một lượt.
   // Gia đình và cô mở trên điện thoại: một ngày một màn, bấm T2/T3 như bên

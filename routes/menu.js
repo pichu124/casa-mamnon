@@ -223,12 +223,13 @@ function thucDonCua(campusId, from, to) {
 //
 // Năm bữa PHẢI KHỚP `BUA_MAC_DINH` ở public/js/views/menu.js — Nhật ký ngày
 // đọc thực đơn theo đúng mã `type` ấy. `test:thuc-don-excel` canh hai bản.
+// Tên và giờ theo ảnh mẫu 16/10; thực đơn đã lưu giữ nguyên tên, giờ của nó.
 const BUA_MAU = [
-  { type: 'breakfast', label: 'Bữa sáng', time: '07:30' },
-  { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:00' },
-  { type: 'lunch', label: 'Bữa trưa', time: '10:45' },
-  { type: 'snack', label: 'Bữa phụ chiều', time: '14:30' },
-  { type: 'milk', label: 'Sữa Vinamilk', time: '15:30' },
+  { type: 'breakfast', label: 'Bữa sáng', time: '08:00' },
+  { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:30' },
+  { type: 'lunch', label: 'Bữa trưa', time: '11:20' },
+  { type: 'snack', label: 'Bữa phụ chiều', time: '14:00' },
+  { type: 'milk', label: 'Bữa sữa chiều', time: '15:30' },
 ];
 const TEN_THU = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const TOI_DA_HANG_EXCEL = 70;          // hơn hai tháng ngày học

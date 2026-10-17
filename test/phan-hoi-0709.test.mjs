@@ -72,7 +72,8 @@ try {
     check('đối chứng — nạp được màn thực đơn', !!(menu && menu.BUA_MAC_DINH), Object.keys(sb.App.views));
 
     const nhan = menu.BUA_MAC_DINH.map(b => b.label);
-    check('khung năm bữa đúng thứ tự trường chốt', JSON.stringify(nhan) === JSON.stringify(['Bữa sáng', 'Bữa phụ sáng', 'Bữa trưa', 'Bữa phụ chiều', 'Sữa Vinamilk']), nhan);
+    // Bữa thứ năm: "Sữa Vinamilk" (07/09) → "Bữa sữa chiều" theo góp ý 16/10 (mục 1 và 7).
+    check('khung năm bữa đúng thứ tự trường chốt', JSON.stringify(nhan) === JSON.stringify(['Bữa sáng', 'Bữa phụ sáng', 'Bữa trưa', 'Bữa phụ chiều', 'Bữa sữa chiều']), nhan);
     check('ba mã cũ giữ nguyên để Nhật ký ngày còn nối được bữa', ['breakfast', 'lunch', 'snack'].every(t => menu.BUA_MAC_DINH.some(b => b.type === t)));
     check('mỗi bữa có biểu tượng riêng', menu.BUA_MAC_DINH.every(b => menu.MEAL_EMOJI[b.type]));
     check('có dải chọn T2…T6 và "Cả tuần"', /segNgay\(\)/.test(v) && /Cả tuần/.test(v));

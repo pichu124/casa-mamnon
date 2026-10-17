@@ -69,6 +69,10 @@ console.log('\n[1] Năm bữa của tệp mẫu khớp khung năm bữa của m�
   const man = lay(vw, 'BUA_MAC_DINH: [');
   check('đọc được năm bữa ở cả hai chỗ', mau.length === 5 && man.length === 5, { mau, man });
   check('năm bữa giống hệt nhau (mã, tên, giờ)', JSON.stringify(mau) === JSON.stringify(man), { mau, man });
+  // Góp ý 16/10, mục 1: giờ theo ảnh mẫu của trường; "Sữa Vinamilk" → "Bữa sữa chiều" (cách gọi ở mục 7).
+  check('tên và giờ theo ảnh mẫu của trường (16/10)', JSON.stringify(mau) === JSON.stringify([
+    'breakfast|Bữa sáng|08:00', 'snack_sang|Bữa phụ sáng|09:30', 'lunch|Bữa trưa|11:20',
+    'snack|Bữa phụ chiều|14:00', 'milk|Bữa sữa chiều|15:30']), mau);
 }
 
 // ===========================================================================
@@ -82,7 +86,7 @@ console.log('\n[2] Tải tệp mẫu một tháng');
   const td = bang.find(b => b.ten === 'Thực đơn');
   check('có trang "Thực đơn" và trang "Hướng dẫn"', !!td && bang.some(b => b.ten === 'Hướng dẫn'), bang.map(b => b.ten));
   check('hàng tiêu đề: Ngày | Thứ | năm bữa',
-    JSON.stringify(td.hang[0]) === JSON.stringify(['Ngày', 'Thứ', 'Bữa sáng', 'Bữa phụ sáng', 'Bữa trưa', 'Bữa phụ chiều', 'Sữa Vinamilk']), td.hang[0]);
+    JSON.stringify(td.hang[0]) === JSON.stringify(['Ngày', 'Thứ', 'Bữa sáng', 'Bữa phụ sáng', 'Bữa trưa', 'Bữa phụ chiều', 'Bữa sữa chiều']), td.hang[0]);
   // Tháng 3/2027: 31 ngày, 23 ngày từ thứ Hai tới thứ Sáu.
   check('mỗi ngày học một hàng — tháng 3/2027 có 23 ngày học', td.hang.length - 1 === 23, td.hang.length - 1);
   check('hàng đầu là thứ Hai 01/03/2027', td.hang[1][0] === '01/03/2027' && td.hang[1][1] === 'Thứ Hai', td.hang[1]);
