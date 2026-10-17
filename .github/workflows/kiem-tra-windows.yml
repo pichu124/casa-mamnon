@@ -1,0 +1,76 @@
+name: Kiểm thử trên Windows
+
+# VÌ SAO CÓ JOB NÀY
+#
+# Máy chủ chạy Linux, nhưng người viết mã (và agent chạy trên máy cá nhân) có
+# thể dùng Windows. Ngày 16/10/2026, lần đầu chạy `npm test` trên một máy
+# Windows, bài đỏ ngay ở bộ thứ năm. Lỗi không nằm ở app mà ở bài kiểm thử:
+# ghép đường dẫn bằng `\` rồi đem so với chuỗi viết bằng `/`. Bộ kiểm thử chỉ
+# được chạy trên Linux nên không ai hay.
+#
+# Job này giữ cho lỗi kiểu đó không quay lại, và bắt những lỗi chỉ Windows mới
+# lộ ra: không xoá được tệp CSDL đang mở, SIGTERM là giết cứng.
+#
+# CHỈ CHẠY KHI MỞ PULL REQUEST VÀO main HOẶC BẤM TAY (Actions → Kiểm thử trên
+# Windows → Run workflow), không chạy mỗi lần push. Kho riêng tư tính phút chạy
+# Windows gấp đôi Linux, và cả bộ chạy trên Windows chậm hơn nhiều.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  kiem-thu-windows:
+    name: Kiểm thử trên Windows (không cần trình duyệt)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # test/nen-chung.test.mjs cần điểm tách bc9dfa3 — xem job kiem-thu
+          # trong kiem-tra.yml.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Chạy ĐÚNG danh sách bộ của `npm test` (đọc thẳng từ package.json nên
+      # không bao giờ lệch), nhưng chạy HẾT rồi mới báo, không dừng ở bộ đỏ đầu
+      # tiên như chuỗi `&&`: một lượt chạy Windows tốn nhiều phút, nên mỗi lượt
+      # phải cho thấy đủ mọi bộ đỏ. Mỗi bộ có hạn 15 phút để một bộ treo không
+      # nuốt mất phần tổng kết.
+      - name: Chạy từng bộ của npm test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          $lenh = (Get-Content package.json -Raw -Encoding UTF8 | ConvertFrom-Json).scripts.test -split '&&' |
+            ForEach-Object { $_.Trim() }
+          $do = @()
+          foreach ($l in $lenh) {
+            if ($l -notmatch '^node\s+(\S+)$') {
+              Write-Host "::error::Không hiểu một lệnh trong npm test: $l"
+              exit 1
+            }
+            $tep = $Matches[1]
+            Write-Host "::group::$tep"
+            # Gọi thẳng System.Diagnostics.Process, không qua Start-Process:
+            # Start-Process -PassThru có lúc trả ExitCode rỗng.
+            $psi = [Diagnostics.ProcessStartInfo]::new('node', $tep)
+            $psi.UseShellExecute = $false
+            $p = [Diagnostics.Process]::Start($psi)
+            if (-not $p.WaitForExit(15 * 60 * 1000)) {
+              $p.Kill($true)
+              $do += "$tep (treo quá 15 phút)"
+            } elseif ($p.ExitCode -ne 0) {
+              $do += $tep
+            }
+            Write-Host "::endgroup::"
+          }
+          Write-Host "===== $($lenh.Count) bộ, đỏ $($do.Count) bộ ====="
+          foreach ($t in $do) { Write-Host "::error::Đỏ trên Windows: $t" }
+          if ($do.Count) { exit 1 }
+          exit 0
