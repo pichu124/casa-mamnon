@@ -69,15 +69,20 @@ const DUOC_PHEP = {
 // Vùng mã CHẠY THẬT. Cố ý không quét `test/` — chính bài này phải được nhắc tên.
 const VUNG = ['lib', 'routes', 'modules', 'public/js', 'scripts', 'server.js', 'data'];
 
+// Tên tệp trả về LUÔN viết bằng '/', vì nó là khoá tra trong DUOC_PHEP. Trên
+// Windows path.relative ra 'routes\x.js': không khớp khoá nào, và cả sổ nợ
+// thành "chỗ mới" — bài đỏ oan ở máy của người mới tải mã về.
+const tuongDoi = (p) => path.relative(GOC, p).split(path.sep).join('/');
+
 function cacTep(muc) {
   const p = path.join(GOC, muc);
   if (!fs.existsSync(p)) return [];
-  if (fs.statSync(p).isFile()) return [path.relative(GOC, p)];
+  if (fs.statSync(p).isFile()) return [tuongDoi(p)];
   const ra = [];
   for (const f of fs.readdirSync(p)) {
     const d = path.join(p, f);
-    if (fs.statSync(d).isDirectory()) ra.push(...cacTep(path.relative(GOC, d)));
-    else if (/\.(js|mjs)$/.test(f)) ra.push(path.relative(GOC, d));
+    if (fs.statSync(d).isDirectory()) ra.push(...cacTep(tuongDoi(d)));
+    else if (/\.(js|mjs)$/.test(f)) ra.push(tuongDoi(d));
   }
   return ra;
 }
@@ -117,6 +122,9 @@ console.log('\n[2] Sổ nợ Math.random chỉ được NGẮN ĐI, không đư�
       if (so) thay[tep] = so;
     }
   }
+  check('tên tệp trong vùng quét viết bằng / trên mọi hệ',
+    VUNG.flatMap(cacTep).every((t) => !t.includes('\\')),
+    VUNG.flatMap(cacTep).filter((t) => t.includes('\\')).slice(0, 3));
   const moi = Object.keys(thay).filter((t) => !DUOC_PHEP[t]);
   check('KHÔNG chỗ nào mới sinh ra cách dùng Math.random',
     moi.length === 0, moi.map((t) => `${t}: ${thay[t]} chỗ`));

@@ -1,1 +1,37 @@
+# Kiểu xuống dòng: luôn LF (kiểu Linux), trên mọi máy.
+#
+# Git cho Windows mặc định core.autocrlf=true, tức đổi mọi tệp chữ sang CRLF
+# khi tải mã về. Bộ kiểm thử đọc thẳng tệp trên đĩa nên gặp CRLF thì có bài đỏ
+# oan, và có bài còn LỎNG ĐI mà vẫn xanh (nen-chung cắt bảng theo "\n\n").
+# Dòng dưới đây thắng core.autocrlf: máy nào tải về cũng nhận đúng LF như
+# máy chủ và GitHub.
+#
+# Máy Windows đã tải mã TRƯỚC khi có tệp này thì không tự đổi. Chạy một lần:
+#   git status --short          ← phải KHÔNG in ra tên tệp nào. Có việc đang
+#                                 dở thì `git commit` (hoặc `git stash -u`)
+#                                 trước: lệnh cuối XOÁ mọi sửa đổi chưa commit,
+#                                 kể cả tệp đã bấm lưu trong trình soạn thảo.
+#   git rm --cached -r -q .
+#   git reset --hard
+#
+# KHÔNG thêm `*.js text`: lib/csv.js đang chứa byte rỗng thật nên git tự nhận
+# là nhị phân. Tệp nhị phân thì để git tự nhận, đừng ép thành chữ.
+* text=auto eol=lf
+
+# Tệp nhị phân: không bao giờ đổi gì.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.xlsx binary
+*.docx binary
+*.zip  binary
+*.gz   binary
+*.db   binary
+
+# Script shell của bộ agent team (.claude/hooks, scripts/*.sh): luôn là chữ, LF.
+# Bash trên Windows gặp CRLF thì báo $'\r': command not found và hook không chạy.
 *.sh text eol=lf

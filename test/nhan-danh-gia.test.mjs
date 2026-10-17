@@ -19,6 +19,7 @@
 // lỗ nó sinh ra để bịt.
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, khoaVaoCoSo, batPhanHe,
@@ -186,7 +187,7 @@ try {
     // Một bản ghi đè có thể đã được ghi trước khi có người gác, hoặc bị sửa
     // thẳng bằng công cụ SQLite. Lúc đó màn hình phải về chữ mặc định chứ
     // tuyệt đối không hiện chữ cấm ra trước mặt cô và gia đình.
-    const ndg = (await import(`file://${path.join(GOC, 'lib', 'nhan-danh-gia.js')}`)).default;
+    const ndg = (await import(pathToFileURL(path.join(GOC, 'lib', 'nhan-danh-gia.js')).href)).default;
     check('đọc được lib bộ chữ', !!ndg && typeof ndg.kiemTraNhan === 'function', Object.keys(ndg || {}));
 
     const gia = { first: () => ({ value: { 'da-vung': 'Giỏi', 'chua-day': 'Chưa học tới' } }) };
@@ -212,7 +213,7 @@ try {
     // thấy ranh giới nào. Nghĩa là hai chữ bị cấm quan trọng nhất đi qua cửa
     // sạch sẽ, trong khi `/\bgiỏi\b/` (bắt đầu bằng `g`) thì chặn được — một
     // người gác chặn đúng nửa danh sách, và không nhận ra được bằng mắt.
-    const ndg = (await import(`file://${path.join(GOC, 'lib', 'nhan-danh-gia.js')}`)).default;
+    const ndg = (await import(pathToFileURL(path.join(GOC, 'lib', 'nhan-danh-gia.js')).href)).default;
     check('ĐỐI CHỨNG: `/\\bđạt\\b/` thật sự không khớp "Đạt" — cái bẫy có thật',
       /\bđạt\b/i.test('Đạt') === false);
     check('nhưng người gác thật thì CHẶN "Đạt"', !!ndg.kiemTraNhan('Đạt'));
