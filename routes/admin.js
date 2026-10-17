@@ -1647,6 +1647,16 @@ module.exports = (app) => {
     if (tuNgay > homNay) {
       return res.status(400).json({ error: 'Bảo lưu có hiệu lực ngay khi lưu, nên ngày bắt đầu không được sau hôm nay.' });
     }
+    // Ghi lùi có trần. Gõ nhầm năm (2025 thay vì 2026) mà máy nhận thì lúc thôi
+    // bảo lưu ngày nghỉ lùi về hơn một năm trước, và gia đình mất quyền xem hồ
+    // sơ con (hạn 12 tháng) ngay lập tức.
+    const somNhat = new Date(Date.parse(`${homNay}T00:00:00Z`) - 60 * 86400000).toISOString().slice(0, 10);
+    if (tuNgay < somNhat) {
+      const dmy = `${somNhat.slice(8, 10)}/${somNhat.slice(5, 7)}/${somNhat.slice(0, 4)}`;
+      return res.status(400).json({
+        error: `Ngày bắt đầu bảo lưu chỉ ghi lùi được tối đa 60 ngày, tức sớm nhất là ngày ${dmy}. Xin xem lại ngày, có thể bị gõ nhầm năm.`,
+      });
+    }
     const duKienQuayLai = String(b.duKienQuayLai || '').trim();
     if (duKienQuayLai && !/^\d{4}-(0[1-9]|1[0-2])$/.test(duKienQuayLai)) {
       return res.status(400).json({ error: 'Tháng dự kiến quay lại chưa đúng dạng, ví dụ đúng: 2027-01' });
@@ -1680,6 +1690,12 @@ module.exports = (app) => {
   // Bảo lưu GHI LÙI ngày (Đ239-vá4) thì ngày nghỉ đang là hôm bấm Bảo lưu, muộn
   // hơn ngày bắt đầu bảo lưu: ngày nghỉ lùi về ngày bắt đầu, không thì Xuất báo
   // cáo đếm mấy ngày ở giữa là "Chưa điểm danh". Không bao giờ dời về sau.
+  //
+  // Và không lùi tới mức gia đình hết hạn xem hồ sơ con (Đ239-vá5): dòng bảo lưu
+  // ghi từ trước khi có trần 60 ngày, hay bảo lưu đã kéo dài gần một năm, mang
+  // ngày bắt đầu quá 12 tháng — lùi về đó là gia đình đang xem được bỗng bị chặn
+  // ở mọi đường của bé. Khi ấy giữ ngày nghỉ cũ: Xuất báo cáo đếm thừa vài ngày
+  // "Chưa điểm danh" vẫn nhẹ hơn gia đình mất hồ sơ con.
   app.post('/api/admin/students/:id/thoi-bao-luu', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
@@ -1687,7 +1703,7 @@ module.exports = (app) => {
     const bl = db.first('hoc_sinh_bao_luu', 'SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
     if (s.active || !bl) return res.status(400).json({ error: 'Bé không đang nghỉ học bảo lưu.' });
     const ngayNghi = String(s.leftAt || '').slice(0, 10);
-    const lui = !/^\d{4}-\d{2}-\d{2}$/.test(ngayNghi) || bl.tuNgay < ngayNghi;
+    const lui = (!/^\d{4}-\d{2}-\d{2}$/.test(ngayNghi) || bl.tuNgay < ngayNghi) && db.conHanXemHoSo(bl.tuNgay);
     db.tx(() => {
       if (lui) db.update('students', s.id, { leftAt: bl.tuNgay });
       db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);

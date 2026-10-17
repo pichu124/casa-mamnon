@@ -418,6 +418,13 @@ console.log('\n[8] Nghỉ học bảo lưu — cùng hiệu ứng với "Cho ngh
   check('tháng dự kiến quay lại sai dạng → 400', (await baoLuu(VP, 's6', { duKienQuayLai: 'tháng sau' })).status === 400);
   check('ngày bắt đầu bảo lưu ở tương lai → 400',
     (await baoLuu(VP, 's6', { tuNgay: `${Number(homNay.slice(0, 4)) + 1}-01-05` })).status === 400);
+  // Gõ nhầm năm (2025 thay vì 2026) mà máy nhận thì lúc thôi bảo lưu ngày nghỉ
+  // lùi về hơn một năm trước, và gia đình mất quyền xem hồ sơ con ngay lập tức.
+  const qua60 = new Date(Date.parse(`${homNay}T00:00:00Z`) - 61 * 86400000).toISOString().slice(0, 10);
+  const cuQua = await baoLuu(VP, 's6', { tuNgay: qua60 });
+  check('ngày bắt đầu bảo lưu lùi quá 60 ngày → 400, và câu từ chối nói rõ 60 ngày',
+    cuQua.status === 400 && /60 ngày/.test(cuQua.data?.error || ''), [cuQua.status, cuQua.data]);
+  check('…và không có dòng bảo lưu nào', docDb('SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', 's6').length === 0);
   check('sau các lượt bị từ chối bé vẫn đang học', (await hoSoNhom(BGH, 'c1')).some(s => s.id === 's6'));
 
   const r = await baoLuu(VP, 's6', { tuNgay: homNay, duKienQuayLai: quayLai, lyDo: 'Gia đình về quê một thời gian' });
@@ -590,6 +597,41 @@ console.log('\n[8c] Thôi bảo lưu một bảo lưu ghi lùi ngày — bé tí
   check('(đối chứng) bảo lưu bé Gia Bảo từ hôm nay', (await baoLuu(VP, 's6', {})).status === 200 && ngayNghiCua('s6') === homNay);
   check('thôi bảo lưu không ghi lùi → 200', (await thoi(VP, 's6')).status === 200);
   check('…ngày nghỉ giữ nguyên', ngayNghiCua('s6') === homNay, ngayNghiCua('s6'));
+  await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
+}
+
+// ===========================================================================
+// Dòng bảo lưu ghi từ TRƯỚC khi có trần 60 ngày (hoặc bảo lưu đã kéo dài gần
+// một năm) mang ngày bắt đầu đã quá hạn 12 tháng. Lùi ngày nghỉ về đó là gia
+// đình đang xem được hồ sơ con bỗng bị chặn ở mọi đường của bé.
+console.log('\n[8d] Thôi bảo lưu không lùi ngày nghỉ tới mức gia đình hết hạn xem hồ sơ con (Đ239-vá5)');
+{
+  const thoi = (ck, sid) => req('POST', `/api/admin/students/${sid}/thoi-bao-luu`, { cookie: ck });
+  const ngayNghiCua = (sid) => (docDb('SELECT leftAt FROM students WHERE id = ?', sid)[0] || {}).leftAt;
+  const ghiDb = (sql, ...thamSo) => {
+    const d = new Database(path.join(DIR, 'school.db'), { fileMustExist: true });
+    try { d.prepare(sql).run(...thamSo); } finally { d.close(); }
+  };
+  const homNay = HOM_NAY();
+  const giaDinh = (await login('ph.minh', '123456')).cookie;
+  const xemHoSo = async () => (await req('GET', '/api/students/s6', { cookie: giaDinh })).status;
+
+  const dung60 = new Date(Date.parse(`${homNay}T00:00:00Z`) - 60 * 86400000).toISOString().slice(0, 10);
+  const bl = await req('POST', '/api/admin/students/s6/bao-luu', { cookie: VP, body: { tuNgay: dung60 } });
+  check('ghi lùi đúng 60 ngày vẫn nhận → 200', bl.status === 200, bl.data);
+  const ratCu = `${Number(homNay.slice(0, 4)) - 2}-09-01`;
+  ghiDb('UPDATE hoc_sinh_bao_luu SET tuNgay = ? WHERE studentId = ?', ratCu, 's6');
+  check('(đối chứng) ngày nghỉ là hôm nay, dòng bảo lưu mang ngày bắt đầu hơn một năm trước',
+    ngayNghiCua('s6') === homNay
+      && (docDb('SELECT tuNgay FROM hoc_sinh_bao_luu WHERE studentId = ?', 's6')[0] || {}).tuNgay === ratCu,
+    ngayNghiCua('s6'));
+  check('(đối chứng) gia đình đang xem được hồ sơ con → 200', (await xemHoSo()) === 200);
+
+  const r = await thoi(VP, 's6');
+  check('thôi bảo lưu → 200', r.status === 200, r.data);
+  check('NGÀY NGHỈ GIỮ NGUYÊN, không lùi về ngày bắt đầu bảo lưu đã quá hạn', ngayNghiCua('s6') === homNay, ngayNghiCua('s6'));
+  check('hết nhãn bảo lưu', docDb('SELECT * FROM hoc_sinh_bao_luu WHERE studentId = ?', 's6').length === 0);
+  check('GIA ĐÌNH VẪN XEM ĐƯỢC HỒ SƠ CON → 200', (await xemHoSo()) === 200);
   await req('PUT', '/api/admin/students/s6', { cookie: VP, body: { active: true } });
 }
 
