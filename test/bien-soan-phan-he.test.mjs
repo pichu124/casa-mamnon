@@ -60,6 +60,11 @@ const PHU = [
   { ma: 'hocphi', ten: 'Học phí', ai: 'văn phòng' },
   { ma: 'baocaohoctap', ten: 'Báo cáo học tập', ai: 'nhà trường soạn mẫu + cô soạn báo cáo' },
   { ma: 'nhansu', ten: 'Nhân sự & chấm công', ai: 'Nhân sự / ban giám hiệu' },
+  {
+    ma: 'xuatbaocao', ten: 'Xuất báo cáo', ai: 'văn phòng',
+    vi_sao_khong_ghi: 'Chỉ ĐỌC dữ liệu của phần khác ra tệp Excel, không có đường ghi nào; '
+      + 'đường tải tệp có bài riêng test/xuat-bao-cao.test.mjs.',
+  },
 ];
 
 // ===========================================================================
