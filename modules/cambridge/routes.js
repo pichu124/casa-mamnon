@@ -83,6 +83,8 @@ const TOI_DA_O_KHUNG = 2000;
 const TOI_DA_TEN_BLOCK = 80;
 const TOI_DA_MUC_TIEU = 4000;
 const TOI_DA_TEP = 4;
+// Weekly Plan có 2 hoặc 3 hoạt động (góp ý 16/10, mục 8).
+const TOI_DA_HOAT_DONG = 3;
 const TOI_DA_TEN_TEP = 120;
 const TUAN_TOI_DA = 52;
 
@@ -270,6 +272,8 @@ module.exports = (app, { db }) => {
       nhomCuaCoSo: new Map(),
       moiNhom: null,
       khung: null,
+      hoatDong: null,
+      story: null,
       tep: null,
       nguoi: new Map(),
       lop: new Map(),
@@ -287,6 +291,15 @@ module.exports = (app, { db }) => {
     nho.khung = new Map(db.all('cambridge_bai_khung',
       `SELECT * FROM cambridge_bai_khung WHERE baiId IN (${marks})`, ids)
       .map(r => [r.baiId, r]));
+    nho.hoatDong = new Map();
+    for (const h of db.all('cambridge_bai_hoat_dong',
+      `SELECT * FROM cambridge_bai_hoat_dong WHERE baiId IN (${marks}) ORDER BY baiId, thuTu`, ids)) {
+      if (!nho.hoatDong.has(h.baiId)) nho.hoatDong.set(h.baiId, []);
+      nho.hoatDong.get(h.baiId).push(h);
+    }
+    nho.story = new Map(db.all('cambridge_bai_them',
+      `SELECT baiId, story FROM cambridge_bai_them WHERE baiId IN (${marks})`, ids)
+      .map(r => [r.baiId, r.story]));
     nho.tep = new Map();
     for (const t of db.all('cambridge_tep',
       `SELECT id, baiId, tenGoc, bytes, file, taoLuc FROM cambridge_tep
@@ -432,6 +445,29 @@ module.exports = (app, { db }) => {
       songChant: k.songChant || '', ketNoiONha: k.ketNoiONha || '',
     };
   }
+  // CÁC HOẠT ĐỘNG CỦA MỘT BÀI (Đ239f), theo đúng thứ tự văn phòng điền.
+  //
+  // Weekly Plan CŨ chưa có dòng nào thì suy MỘT hoạt động từ khung (Hoạt
+  // động / Chủ đề / Từ vựng, mục tiêu rỗng) để thẻ bài cũ và bài mới hiện cùng
+  // một kiểu. Chỉ suy cho Weekly Plan: ở Letter và Home Connection các ô ấy là
+  // chữ cũ của khung, thẻ vẽ chúng như trước. Suy là chỉ đọc, không ghi gì.
+  function hoatDongCua(bai, k, nho) {
+    const rows = (nho && nho.hoatDong)
+      ? (nho.hoatDong.get(bai.id) || [])
+      : db.all('cambridge_bai_hoat_dong', 'SELECT * FROM cambridge_bai_hoat_dong WHERE baiId = ? ORDER BY thuTu', [bai.id]);
+    if (rows.length) {
+      return rows.map(h => ({ hoatDong: h.hoatDong || '', chuDe: h.chuDe || '', tuVung: h.tuVung || '', mucTieu: h.mucTieu || '' }));
+    }
+    if (bai.loai === 'cambridge' && k && (k.monHoc || k.chuDe || k.tuVung)) {
+      return [{ hoatDong: k.monHoc || '', chuDe: k.chuDe || '', tuVung: k.tuVung || '', mucTieu: '' }];
+    }
+    return [];
+  }
+  function storyCua(baiId, nho) {
+    if (nho && nho.story) return nho.story.get(baiId) || '';
+    const r = db.first('cambridge_bai_them', 'SELECT story FROM cambridge_bai_them WHERE baiId = ?', [baiId]);
+    return (r && r.story) || '';
+  }
   // Lứa Cambridge của các con một gia đình — tập rỗng với cô và văn phòng
   // (họ xem đủ cả hai lứa, vì họ cần biết cả hai).
   function luaTuoiCuaCon(user) {
@@ -466,13 +502,16 @@ module.exports = (app, { db }) => {
     const laMkt = laTruyenThong(user);
     const anMkt = !!anh.length && laMkt && !anhHienVoiTruyenThong(bai, nho);
     const coBe = anhCoMatBe(bai.id, nho);
+    const k = khungCua(bai.id, nho);
     return {
       ...bai,
       // LỌC Ở TẦNG DỮ LIỆU. Gia đình không nhận về tên tệp của ảnh bị ẩn —
       // không phải nhận rồi giao diện che bớt, vì tên tệp là thứ tải được.
       anh: ((an && laGiaDinh) || anMkt) ? [] : anh,
       daCongBo: !!bai.congBoLuc,
-      khung: vePhiaKhung(khungCua(bai.id, nho), nho),
+      khung: vePhiaKhung(k, nho),
+      hoatDong: hoatDongCua(bai, k, nho),
+      story: storyCua(bai.id, nho),
       tep: tepCua(bai.id, nho),
       nguoiDangTen: tenNguoi(bai.nguoiDang, nho),
       tenNhom: tenLop(bai.classId, nho),
@@ -729,6 +768,66 @@ module.exports = (app, { db }) => {
     else db.insert('cambridge_bai_khung', { baiId, ...khung, ghiLuc: luc });
   }
 
+  // HOẠT ĐỘNG CỦA WEEKLY PLAN (Đ239f). Cùng luật với khung: KHÔNG GỬI = KHÔNG
+  // ĐỤNG TỚI. Gửi danh sách thì nó THAY toàn bộ — kể cả danh sách rỗng.
+  // Phần tử rỗng hẳn bị bỏ (mẫu soạn luôn gửi đủ các khối, kể cả khối chưa
+  // điền). Quá ba thì từ chối chứ không cắt: cắt là hoạt động văn phòng đã gõ
+  // biến mất mà không ai được báo.
+  // Trả { hoatDong } (null = không đổi) hoặc { loi }.
+  function lamSachHoatDong(b) {
+    if (!b || b.hoatDong === undefined) return { hoatDong: null };
+    if (!Array.isArray(b.hoatDong)) {
+      return { loi: 'Phần hoạt động gửi lên chưa đúng dạng — cô tải lại màn rồi thử lại nhé' };
+    }
+    const ds = b.hoatDong.map((h) => {
+      const o = h && typeof h === 'object' ? h : {};
+      return {
+        hoatDong: chuoi(o.hoatDong, 200),
+        chuDe: chuoi(o.chuDe, 300),
+        tuVung: chuoi(o.tuVung, TOI_DA_O_KHUNG),
+        mucTieu: chuoi(o.mucTieu, TOI_DA_O_KHUNG),
+      };
+    }).filter(h => h.hoatDong || h.chuDe || h.tuVung || h.mucTieu);
+    if (ds.length > TOI_DA_HOAT_DONG) return { loi: `Mỗi Weekly Plan tối đa ${TOI_DA_HOAT_DONG} hoạt động` };
+    return { hoatDong: ds };
+  }
+  function ghiHoatDong(baiId, ds) {
+    if (!ds) return;
+    const luc = new Date().toISOString();
+    db.tx(() => {
+      db.run('DELETE FROM cambridge_bai_hoat_dong WHERE baiId = ?', [baiId]);
+      ds.forEach((h, i) => db.insert('cambridge_bai_hoat_dong', { baiId, thuTu: i + 1, ...h, ghiLuc: luc }));
+    });
+  }
+
+  // HOẠT ĐỘNG THỨ NHẤT CHÉP VÀO KHUNG CŨ, chỉ với Weekly Plan. Màn hình đời
+  // cũ còn trong bộ nhớ đệm điện thoại chỉ biết đọc khung — nó vẫn thấy hoạt
+  // động đầu tiên thay vì một tờ trống. Các ô khác của khung (block, tuần,
+  // lứa, Song / Chant) giữ đúng như vừa gửi, hoặc như đang có nếu không gửi.
+  const O_KHUNG = ['blockId', 'tuanSo', 'luaTuoi', 'monHoc', 'chuDe', 'tuVung', 'songChant', 'ketNoiONha'];
+  function khungKemHoatDong(baiId, loai, khung, ds) {
+    if (loai !== 'cambridge' || !ds) return khung;
+    const goc = khung || khungCua(baiId);
+    if (!goc && !ds.length) return null;
+    const ra = { blockId: '', tuanSo: 0, luaTuoi: '', songChant: '', ketNoiONha: '' };
+    for (const t of O_KHUNG) if (goc && goc[t] != null) ra[t] = goc[t];
+    const dau = ds[0] || {};
+    return { ...ra, monHoc: dau.hoatDong || '', chuDe: dau.chuDe || '', tuVung: dau.tuVung || '' };
+  }
+
+  // STORY — mục chung của Weekly Plan, cạnh Song / Chant. Không gửi = không đổi.
+  function lamSachStory(b) {
+    if (!b || b.story === undefined) return null;
+    return chuoi(b.story, TOI_DA_O_KHUNG);
+  }
+  function ghiStory(baiId, story) {
+    if (story === null) return;
+    if (!story && !db.first('cambridge_bai_them', 'SELECT baiId FROM cambridge_bai_them WHERE baiId = ?', [baiId])) return;
+    db.run(`INSERT INTO cambridge_bai_them (baiId, story, ghiLuc) VALUES (?, ?, ?)
+            ON CONFLICT(baiId) DO UPDATE SET story = excluded.story, ghiLuc = excluded.ghiLuc`,
+    [baiId, story, new Date().toISOString()]);
+  }
+
   // =========================================================================
   // CHỈ MỤC ẢNH THEO TÊN TỆP (Đ158 — món 2 của Đ120)
   // =========================================================================
@@ -801,6 +900,8 @@ module.exports = (app, { db }) => {
     if (s.loi) return res.status(400).json({ error: s.loi });
     const kh = lamSachKhung(req.body || {});
     if (kh.loi) return res.status(400).json({ error: kh.loi });
+    const hd = lamSachHoatDong(req.body || {});
+    if (hd.loi) return res.status(400).json({ error: hd.loi });
     const a = nhanAnh((req.body || {}).anh);
     if (a.loi) return res.status(400).json({ error: a.loi });
 
@@ -812,7 +913,9 @@ module.exports = (app, { db }) => {
     db.insert('cambridge_bai', rec);
     dongBoAnh(rec.id, rec.anh);
     ghiCoTich(rec.id, req.body || {});
-    ghiKhung(rec.id, kh.khung);
+    ghiKhung(rec.id, khungKemHoatDong(rec.id, rec.loai, kh.khung, hd.hoatDong));
+    ghiHoatDong(rec.id, hd.hoatDong);
+    ghiStory(rec.id, lamSachStory(req.body || {}));
     db.audit(req.user.id, 'cambridge-tao', rec.id, { loai: rec.loai, phamVi: rec.phamVi });
     res.status(201).json(keml(rec, req.user));
   });
@@ -827,6 +930,8 @@ module.exports = (app, { db }) => {
     if (s.loi) return res.status(400).json({ error: s.loi });
     const kh = lamSachKhung(req.body || {});
     if (kh.loi) return res.status(400).json({ error: kh.loi });
+    const hd = lamSachHoatDong(req.body || {});
+    if (hd.loi) return res.status(400).json({ error: hd.loi });
     const patch = { ...s, capNhatLuc: new Date().toISOString() };
     const a = nhanAnh((req.body || {}).anh);
     if (a.loi) return res.status(400).json({ error: a.loi });
@@ -843,7 +948,9 @@ module.exports = (app, { db }) => {
     if (patch.anh !== undefined) dongBoAnh(cu.id, patch.anh);
     db.audit(req.user.id, 'cambridge-sua', cu.id, { phamVi: patch.phamVi });
     ghiCoTich(cu.id, req.body || {});
-    ghiKhung(cu.id, kh.khung);
+    ghiKhung(cu.id, khungKemHoatDong(cu.id, s.loai, kh.khung, hd.hoatDong));
+    ghiHoatDong(cu.id, hd.hoatDong);
+    ghiStory(cu.id, lamSachStory(req.body || {}));
     res.json(keml(db.first('cambridge_bai', 'SELECT * FROM cambridge_bai WHERE id = ?', [cu.id]), req.user));
   });
 
@@ -883,11 +990,15 @@ module.exports = (app, { db }) => {
     res.json({ ok: true, id: b.id, daCongBo: false });
   });
 
-  // Tờ không có chữ ở ô Nội dung vẫn có gì để gửi không: khung có chữ, hoặc
-  // có tệp kèm. Dùng cho Weekly Plan, mẫu soạn không còn ô Nội dung.
+  // Tờ không có chữ ở ô Nội dung vẫn có gì để gửi không: khung có chữ, có
+  // hoạt động hay Story (Đ239f), hoặc có tệp kèm. Dùng cho Weekly Plan, mẫu
+  // soạn không còn ô Nội dung.
   function coNoiDungKhac(baiId) {
     const k = khungCua(baiId);
     if (k && ['monHoc', 'chuDe', 'tuVung', 'songChant', 'ketNoiONha'].some(t => chuoi(k[t], 10))) return true;
+    // Dòng hoạt động không bao giờ rỗng hẳn (`lamSachHoatDong` đã bỏ).
+    if (db.first('cambridge_bai_hoat_dong', 'SELECT baiId FROM cambridge_bai_hoat_dong WHERE baiId = ? LIMIT 1', [baiId])) return true;
+    if (storyCua(baiId)) return true;
     return !!db.first('cambridge_tep', 'SELECT id FROM cambridge_tep WHERE baiId = ? LIMIT 1', [baiId]);
   }
 

@@ -391,6 +391,148 @@ console.log('\n[6] Canh tĩnh: lược đồ chỉ thêm, kho tệp tách riêng
   check('tên tệp và nội dung khung đều bọc UI.esc', /UI\.esc\(t\.tenGoc\)/.test(view) && /UI\.esc\(gt\)/.test(view));
   check('màn có khối block với mục tiêu và thời gian áp dụng', /khoiBlock\(/.test(view) && /Áp dụng/.test(view));
   check('không có "học sinh" trên màn', !/học sinh/i.test(view));
+  check('hai bảng phụ của Weekly Plan nhiều hoạt động mang tiền tố cambridge_ (Đ239f)',
+    ['cambridge_bai_hoat_dong', 'cambridge_bai_them'].every(t => sql.includes(`CREATE TABLE IF NOT EXISTS ${t} (`)));
+}
+
+// ===========================================================================
+// Góp ý của trường 16/10, mục 8: *"Cambridge weekly plan … hiện luôn 3 hoặc 2
+// hoạt động do mình điền trong đó mỗi 1 hoạt động thể hiện đủ các nội dung:
+// Tên chủ đề, Từ vựng, Mục tiêu. Sau đó sẽ là những mục chung như Song/ Chant/
+// Story"*. Hoạt động đi vào bảng phụ `cambridge_bai_hoat_dong`, Story vào
+// `cambridge_bai_them`; hoạt động thứ nhất được chép vào khung cũ để màn hình
+// đời cũ (và bài canh cũ) vẫn đọc được.
+console.log('\n[7] Weekly Plan 2–3 hoạt động, mỗi hoạt động có chủ đề / từ vựng / mục tiêu, rồi Song / Chant / Story');
+{
+  const moDb = () => new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const dongHd = (id) => {
+    const c = moDb();
+    try { return c.prepare('SELECT * FROM cambridge_bai_hoat_dong WHERE baiId = ? ORDER BY thuTu').all(id); }
+    finally { c.close(); }
+  };
+  const baTrongDs = async (cookie, id) => ((await danhSach(cookie)).bai || []).find(b => b.id === id) || null;
+
+  const BA = [
+    { hoatDong: 'Communication and Language', chuDe: 'Color', tuVung: 'Red, Green, Yellow', mucTieu: 'Gọi tên ba màu bằng tiếng Anh' },
+    { hoatDong: 'Mathematics', chuDe: 'Numbers', tuVung: 'one, two, three', mucTieu: 'Đếm tới ba' },
+    { hoatDong: '', chuDe: 'Farm animals', tuVung: 'cow, pig', mucTieu: 'Bắt chước tiếng con vật' },
+  ];
+  const r = await dang({
+    tieuDe: 'Block 1, Week 2 — ba hoạt động',
+    khung: { blockId: BLOCK1, tuanSo: 2, luaTuoi: '3-4', songChant: 'I like color' },
+    hoatDong: BA,
+    story: 'Brown Bear, Brown Bear, What Do You See?',
+  }, false);
+  check('văn phòng tạo được Weekly Plan ba hoạt động kèm Story', r.status === 201, r.data);
+  const WP = r.data?.id;
+  const hd = r.data?.hoatDong || [];
+  check('trả về đủ ba hoạt động, ĐÚNG THỨ TỰ đã điền',
+    hd.length === 3 && hd.map(h => h.chuDe).join('|') === 'Color|Numbers|Farm animals', hd);
+  check('mỗi hoạt động giữ đủ tên hoạt động, từ vựng, mục tiêu',
+    hd[0]?.hoatDong === 'Communication and Language' && hd[1]?.tuVung === 'one, two, three'
+      && hd[2]?.mucTieu === 'Bắt chước tiếng con vật' && hd[2]?.hoatDong === '', hd);
+  check('Story trả về đúng chữ đã gửi', r.data?.story === 'Brown Bear, Brown Bear, What Do You See?', r.data?.story);
+  const k = r.data?.khung || {};
+  check('KHUNG CŨ MANG HOẠT ĐỘNG THỨ NHẤT — màn hình đời cũ vẫn đọc được',
+    k.monHoc === 'Communication and Language' && k.chuDe === 'Color' && k.tuVung === 'Red, Green, Yellow', k);
+  check('Song / Chant vẫn nằm ở khung, block / tuần / lứa không mất',
+    k.songChant === 'I like color' && k.blockTen === 'Block 1' && k.tuanSo === 2 && k.luaTuoi === '3-4', k);
+  check('cơ sở dữ liệu có đúng ba dòng, thuTu 1 → 3', dongHd(WP).map(x => x.thuTu).join(',') === '1,2,3', dongHd(WP));
+
+  const doc = await baTrongDs(VP, WP);
+  check('đọc lại ở đường liệt kê: ba hoạt động đúng thứ tự, kèm Story',
+    (doc?.hoatDong || []).map(h => h.chuDe).join('|') === 'Color|Numbers|Farm animals'
+      && doc?.story === 'Brown Bear, Brown Bear, What Do You See?', doc && { hoatDong: doc.hoatDong, story: doc.story });
+
+  // KHÔNG GỬI = KHÔNG ĐỤNG TỚI, cùng luật với khung và ô tích ảnh.
+  const sua = await req('PUT', `/api/cambridge/${WP}`, { cookie: VP, body: { tieuDe: 'Block 1, Week 2 — đã sửa tiêu đề' } });
+  check('sửa bài mà KHÔNG gửi hoạt động thì ba hoạt động giữ nguyên',
+    sua.status === 200 && (sua.data?.hoatDong || []).length === 3 && sua.data?.hoatDong?.[1]?.mucTieu === 'Đếm tới ba', sua.data?.hoatDong);
+  check('và Story cũng giữ nguyên', sua.data?.story === 'Brown Bear, Brown Bear, What Do You See?', sua.data?.story);
+  const suaKhung = await req('PUT', `/api/cambridge/${WP}`, { cookie: VP, body: { khung: { blockId: BLOCK1, tuanSo: 3, luaTuoi: '3-4', songChant: 'Rainbow song' } } });
+  check('sửa riêng khung (không gửi hoạt động) cũng không đụng hoạt động',
+    suaKhung.status === 200 && (suaKhung.data?.hoatDong || []).length === 3 && suaKhung.data?.khung?.songChant === 'Rainbow song', suaKhung.data);
+
+  // QUÁ BA HOẠT ĐỘNG THÌ TỪ CHỐI (400), không lặng lẽ cắt bớt: cắt thì hoạt
+  // động thứ tư văn phòng đã gõ biến mất mà không ai được báo.
+  const bon = await req('PUT', `/api/cambridge/${WP}`, { cookie: VP, body: { hoatDong: [...BA, { chuDe: 'Thứ tư' }] } });
+  check('gửi BỐN hoạt động thì từ chối (400) và nói rõ tối đa ba', bon.status === 400 && /tối đa 3/.test(bon.data?.error || ''), bon.data);
+  check('bị từ chối thì ba hoạt động cũ còn nguyên', dongHd(WP).length === 3, dongHd(WP).length);
+  const sai = await req('PUT', `/api/cambridge/${WP}`, { cookie: VP, body: { hoatDong: 'Color' } });
+  check('hoạt động không phải danh sách thì từ chối', sai.status === 400, sai.data);
+
+  // CÔ KHÔNG SỬA ĐƯỢC — như mọi đường ghi khác của phân hệ.
+  const co = await req('PUT', `/api/cambridge/${WP}`, { cookie: GV, body: { hoatDong: [{ chuDe: 'cô sửa' }] } });
+  check('cô gửi hoạt động: 403 như cũ', co.status === 403, co.status);
+  check('và hoạt động không đổi một chữ', dongHd(WP).map(x => x.chuDe).join('|') === 'Color|Numbers|Farm animals');
+  const coTao = await req('POST', '/api/cambridge', { cookie: GV, body: { loai: 'cambridge', tieuDe: 'x', hoatDong: [{ chuDe: 'y' }] } });
+  check('cô cũng không tạo được Weekly Plan', coTao.status === 403, coTao.status);
+
+  // Nháp: gia đình chưa đọc được gì, kể cả hoạt động.
+  check('bài NHÁP: gia đình đúng lứa chưa thấy', !(await baTrongDs(PH_34, WP)));
+  const cb = await req('POST', `/api/cambridge/${WP}/cong-bo`, { cookie: VP, body: {} });
+  check('công bố được', cb.status === 200, cb.data);
+  const gd = await baTrongDs(PH_34, WP);
+  check('GIA ĐÌNH ĐÚNG LỨA (3–4) đọc được đủ ba hoạt động và Story',
+    (gd?.hoatDong || []).length === 3 && gd?.hoatDong?.[0]?.mucTieu === 'Gọi tên ba màu bằng tiếng Anh' && /Brown Bear/.test(gd?.story || ''),
+    gd && { hoatDong: gd.hoatDong, story: gd.story });
+  check('nhà bé 4–5 KHÔNG nhận bài lứa 3–4 — kể cả phần hoạt động', !(await baTrongDs(PH_45, WP)));
+  check('nhà bé 14 tháng cũng không', !(await baTrongDs(PH_BE, WP)));
+
+  // Thu hồi: gỡ khỏi màn gia đình, KHÔNG xoá chữ đã viết.
+  const th = await req('POST', `/api/cambridge/${WP}/thu-hoi`, { cookie: VP, body: {} });
+  check('thu hồi được', th.status === 200, th.data);
+  check('THU HỒI RỒI thì gia đình không còn đọc được hoạt động', !(await baTrongDs(PH_34, WP)));
+  const sauTh = await baTrongDs(VP, WP);
+  check('nhưng văn phòng vẫn thấy đủ ba hoạt động và Story — thu hồi không xoá chữ',
+    (sauTh?.hoatDong || []).length === 3 && /Brown Bear/.test(sauTh?.story || '') && dongHd(WP).length === 3, sauTh?.hoatDong);
+
+  // Phần tử rỗng hẳn bị bỏ, phần còn lại dồn lên — không còn dòng cũ sót lại.
+  const don = await req('PUT', `/api/cambridge/${WP}`, {
+    cookie: VP, body: { hoatDong: [{ hoatDong: '', chuDe: '', tuVung: '', mucTieu: '' }, { chuDe: 'Shapes', mucTieu: 'Nhận ra hình tròn' }] },
+  });
+  check('bỏ phần tử RỖNG HẲN, còn MỘT hoạt động', don.status === 200 && (don.data?.hoatDong || []).length === 1
+    && don.data.hoatDong[0].chuDe === 'Shapes', don.data?.hoatDong);
+  check('dòng hoạt động 2, 3 cũ được dọn khỏi bảng — không sống lại', dongHd(WP).length === 1 && dongHd(WP)[0].thuTu === 1, dongHd(WP));
+  check('khung cũ đổi theo hoạt động thứ nhất mới', don.data?.khung?.chuDe === 'Shapes' && don.data?.khung?.monHoc === '', don.data?.khung);
+  const het = await req('PUT', `/api/cambridge/${WP}`, { cookie: VP, body: { hoatDong: [] } });
+  check('gửi danh sách rỗng thì mọi hoạt động được dọn, khung cũ cũng trống phần hoạt động',
+    het.status === 200 && (het.data?.hoatDong || []).length === 0 && dongHd(WP).length === 0 && het.data?.khung?.chuDe === '', het.data);
+  check('Story không bị kéo theo khi dọn hoạt động', /Brown Bear/.test(het.data?.story || ''), het.data?.story);
+  check('dọn bài này không đụng dòng của bài khác', (await baTrongDs(VP, BAI34))?.khung?.chuDe === 'My school');
+
+  const dai = await req('PUT', `/api/cambridge/${WP}`, { cookie: VP, body: { hoatDong: [{ mucTieu: 'x'.repeat(5000) }], story: 'y'.repeat(5000) } });
+  check('ô quá dài thì cắt theo trần của ô khung (2000 chữ)',
+    dai.status === 200 && dai.data?.hoatDong?.[0]?.mucTieu?.length === 2000 && dai.data?.story?.length === 2000,
+    { mucTieu: dai.data?.hoatDong?.[0]?.mucTieu?.length, story: dai.data?.story?.length });
+
+  // Tờ chỉ có mục tiêu, hoặc chỉ có Story, vẫn có nội dung để gửi.
+  const chiMucTieu = await dang({ tieuDe: 'Chỉ có mục tiêu', hoatDong: [{ mucTieu: 'Nghe và làm theo hai chỉ dẫn' }] });
+  check('Weekly Plan chỉ có MỤC TIÊU của một hoạt động vẫn gửi được', chiMucTieu.congBo?.status === 200, chiMucTieu.congBo?.data);
+  const chiStory = await dang({ tieuDe: 'Chỉ có Story', story: 'The Very Hungry Caterpillar' });
+  check('Weekly Plan chỉ có STORY vẫn gửi được', chiStory.congBo?.status === 200, chiStory.congBo?.data);
+  const trong = await dang({ tieuDe: 'Trống hẳn', hoatDong: [{}, {}] });
+  check('tờ TRỐNG HẲN vẫn bị chặn y như trước', trong.congBo?.status === 400, trong.congBo?.data);
+
+  // BÀI CŨ: chưa có dòng hoạt động nào → suy từ khung, để thẻ hiện thống nhất.
+  const cu = await baTrongDs(VP, BAI34);
+  check('Weekly Plan CŨ (chỉ có khung) trả về MỘT hoạt động suy từ khung, mục tiêu rỗng',
+    (cu?.hoatDong || []).length === 1 && cu.hoatDong[0].hoatDong === 'Let’s Explore'
+      && cu.hoatDong[0].chuDe === 'My school' && cu.hoatDong[0].tuVung === 'classroom, teacher' && cu.hoatDong[0].mucTieu === '',
+    cu?.hoatDong);
+  check('và story rỗng, không phải undefined', cu?.story === '', cu?.story);
+  check('suy từ khung thì KHÔNG ghi thêm dòng nào vào bảng', dongHd(BAI34).length === 0);
+
+  // Home Connection cũ có chữ ở khung: không bị biến thành "hoạt động" — thẻ
+  // của nó vẫn vẽ các ô khung như trước (mục 9: Home Connection bỏ các ô ấy
+  // khỏi mẫu soạn, nhưng chữ đã viết vẫn hiện đủ).
+  const hc = await dang({ loai: 'ket-noi', tieuDe: 'Home Connection cũ', noiDung: 'Cùng con hát',
+    khung: { luaTuoi: '', monHoc: 'Communication and Language', chuDe: 'Color' } });
+  check('Home Connection cũ có chữ ở khung: hoatDong rỗng, khung giữ nguyên chữ',
+    hc.status === 201 && (hc.data?.hoatDong || []).length === 0 && hc.data?.khung?.chuDe === 'Color', hc.data);
+  const hcSua = await req('PUT', `/api/cambridge/${hc.data?.id}`, { cookie: VP, body: { noiDung: 'Cùng con hát bài màu sắc' } });
+  check('sửa Home Connection không chép khung sang hoạt động', hcSua.status === 200 && dongHd(hc.data?.id).length === 0
+    && hcSua.data?.khung?.monHoc === 'Communication and Language', hcSua.data?.khung);
 }
 
 await sv.dung();
