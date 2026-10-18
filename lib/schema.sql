@@ -772,6 +772,23 @@ CREATE TABLE IF NOT EXISTS thongbao_be_doc (
   PRIMARY KEY (thongBaoId, userId)
 );
 
+-- Dòng chuông nào sinh ra TỪ bản ghi nào (Đ239p).
+--
+-- Một dòng `thongbao_be` chép sẵn một đoạn chữ của bản ghi gốc — tin nhắn của
+-- cô chép 140 chữ đầu. Bản gốc thu hồi được (`record_edits`), bản chép thì
+-- không biết mình chép từ đâu, nên câu cô đã rút lại cứ nằm trên màn Thông báo
+-- của gia đình. Bảng này nối hai đầu để lúc ĐỌC lọc được (lib/thong-bao-be.js).
+--
+-- Bảng phụ chứ không phải cột mới trên `thongbao_be`: tệp này chạy lại ở mỗi
+-- lần khởi động, ALTER TABLE ADD COLUMN chạy được lần đầu rồi báo trùng cột ở
+-- mọi lần sau (xem đầu lib/sua-thu-hoi.js). Dòng chuông không có nguồn đọc y
+-- như trước.
+CREATE TABLE IF NOT EXISTS thongbao_be_nguon (
+  thongBaoId TEXT PRIMARY KEY REFERENCES thongbao_be(id) ON DELETE CASCADE,
+  bang       TEXT NOT NULL,          -- tên bảng gốc, cùng nghĩa với record_edits.bang
+  recordId   TEXT NOT NULL
+);
+
 -- Đăng ký nhận thông báo ĐẨY (Web Push) của từng điện thoại. Một người có thể
 -- có vài máy; mỗi máy một dòng, khoá theo `endpoint` do trình duyệt cấp.
 CREATE TABLE IF NOT EXISTS push_dang_ky (
