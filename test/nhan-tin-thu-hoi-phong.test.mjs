@@ -236,6 +236,64 @@ try {
     check('ĐÓNG RỒI THÌ KHÔNG AI THU HỒI THÊM ĐƯỢC — một kho lưu mà sửa được thì không còn là kho lưu',
       th.status === 403 || th.status === 404, th.status);
   }
+
+  // =========================================================================
+  console.log('\n[6] DANH SÁCH HỘI THOẠI CŨNG KHÔNG ĐẾM, KHÔNG IN TIN ĐÃ THU HỒI');
+  {
+    // LỖI CÓ TỪ TRƯỚC, tìm được khi đọc mã ở Đ239n. Mục [2] đã canh huy hiệu
+    // trên trang chủ; nhưng màn Nhắn tin có câu đếm RIÊNG của nó cho từng
+    // dòng, và câu ấy quên lọc. Cô gửi rồi thu hồi trước khi nhà kịp đọc: ô
+    // Nhắn tin báo 0, mở màn Nhắn tin vẫn thấy chấm đỏ "1" với tên in đậm,
+    // bấm vào thì không có gì mới. Còn tệ hơn: dòng xem trước dưới tên in
+    // NGUYÊN CHỮ của lời đã thu hồi — đúng thứ cô vừa rút lại.
+    const tong = (ds) => (ds.conversations || []).reduce((s, c) => s + (Number(c.unreadCount) || 0), 0);
+    const mo = await req('POST', '/api/messages/start', {
+      cookie: PH4, body: { kenh: 'nhom', studentId: 's5' },
+    });
+    check('gia đình bé s5 mở được cuộc với cô phụ trách nhóm', mo.status === 200 && mo.data?.id, mo.status);
+    const cv6 = mo.data.id;
+    const g = await req('POST', `/api/messages/${cv6}`, {
+      cookie: GV, body: { text: 'Chị ơi chiều nay bé Bảo An bị sốt nhẹ ạ.' },
+    });
+    check('cô nhắn được cho gia đình', g.status === 200 && g.data?.id, g.status);
+
+    const ds0 = (await req('GET', '/api/messages', { cookie: PH4 })).data;
+    const dong0 = (ds0.conversations || []).find(c => c.id === cv6);
+    const huy0 = (await req('GET', '/api/dashboard/badges', { cookie: PH4 })).data?.nhantin;
+    check('đối chứng — trước khi thu hồi, dòng của cuộc này đếm 1 tin chưa đọc',
+      dong0?.unreadCount === 1, dong0?.unreadCount);
+    check('đối chứng — và dòng xem trước đang in chữ của lời nhắn',
+      dong0?.lastMessage?.text?.includes('sốt nhẹ') && dong0?.lastMessage?.daThuHoi !== true,
+      JSON.stringify(dong0?.lastMessage));
+    check('đối chứng — danh sách và huy hiệu đang nói cùng một con số',
+      tong(ds0) === Number(huy0), `danh sách ${tong(ds0)}, huy hiệu ${huy0}`);
+
+    // Cô nhắn nhầm tên bé — thu hồi trước khi gia đình mở ra đọc.
+    const th = await req('POST', `/api/messages/${cv6}/tin/${g.data.id}/thu-hoi`, { cookie: GV });
+    check('cô thu hồi được lời mình vừa gửi', th.status === 200, th.status);
+
+    const ds1 = (await req('GET', '/api/messages', { cookie: PH4 })).data;
+    const dong1 = (ds1.conversations || []).find(c => c.id === cv6);
+    const huy1 = (await req('GET', '/api/dashboard/badges', { cookie: PH4 })).data?.nhantin;
+    check('THU HỒI RỒI THÌ DÒNG ĐÓ KHÔNG CÒN CHẤM ĐỎ — không đếm thứ mở ra không có',
+      dong1?.unreadCount === 0, dong1?.unreadCount);
+    check('huy hiệu trang chủ giảm đúng một', Number(huy1) === Number(huy0) - 1, `${huy0} → ${huy1}`);
+    check('DANH SÁCH VÀ HUY HIỆU VẪN NÓI CÙNG MỘT CON SỐ',
+      tong(ds1) === Number(huy1), `danh sách ${tong(ds1)}, huy hiệu ${huy1}`);
+
+    // Dòng xem trước đi cùng luật với `messageDto`: GIỮ CHỖ, BỎ CHỮ. Cuộc vẫn
+    // còn tin cuối ấy — mở ra là thấy một dòng "đã thu hồi" — nhưng chữ không
+    // rời máy chủ, ở màn này cũng như ở màn trong.
+    check('dòng xem trước KHÔNG in lại chữ của lời đã thu hồi',
+      !JSON.stringify(dong1 || {}).includes('sốt nhẹ'), JSON.stringify(dong1?.lastMessage));
+    check('và báo được đây là tin đã thu hồi, giống hệt màn trong cuộc trò chuyện',
+      dong1?.lastMessage?.daThuHoi === true && dong1?.lastMessage?.text === '',
+      JSON.stringify(dong1?.lastMessage));
+    const trong = await req('GET', `/api/messages/${cv6}`, { cookie: PH4 });
+    const cuoi = (trong.data.messages || []).at(-1);
+    check('màn trong cuộc trò chuyện nói cùng một điều với dòng xem trước',
+      cuoi?.daThuHoi === true && cuoi?.text === dong1?.lastMessage?.text, JSON.stringify(cuoi));
+  }
 } finally {
   sv.dung();
   donThuMucTam(DIR);
