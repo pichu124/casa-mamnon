@@ -249,27 +249,40 @@ module.exports = (app) => {
 
     let daThem = 0, daSua = 0;
     db.tx(() => {
-      for (const { be, h, w } of sach) {
+      for (const x of sach) {
+        const { be, h, w } = x;
         const cu = db.first('health',
           `SELECT * FROM health WHERE studentId = ? AND date = ? AND type = 'checkup' AND title = ?
              AND ${st.dieuKienConHien(BANG, 'id')} ORDER BY rowid DESC`, [be.id, date, tieuDe]);
         if (cu) {
           db.update('health', cu.id, { height: h, weight: w });
+          x.healthId = cu.id;
           daSua += 1;
         } else {
           const idMoi = db.nextId('ht');
           db.insert('health', { id: idMoi, studentId: be.id, date, type: 'checkup', title: tieuDe, detail: '', height: h, weight: w });
           ghiLuc(idMoi, req.user.id);
+          x.healthId = idMoi;
           daThem += 1;
         }
       }
     });
     // Báo gia đình từng bé (Đ137) — một tin mỗi bé mỗi lượt lưu.
-    for (const { be } of sach) {
+    //
+    // Chữ của tin chung chung, không chép số đo nào, nhưng nó nói "số đo đã có
+    // trong Sức khoẻ của bé". Thu hồi dòng ấy (nạp tệp lệch dòng là ghi số của
+    // bé này sang bé kia) mà tin còn đó thì nó chỉ tới một thứ không còn, và
+    // số chưa đọc vẫn đếm nó — nên tin cũng mang `nguon` (Đ239q). Mỗi lượt lưu
+    // ghi hoặc sửa ĐÚNG MỘT dòng cho mỗi bé, nên mỗi tin có đúng một nguồn; hai
+    // lượt lưu cùng ngày là hai tin trỏ về cùng một dòng, và bảng nguồn cho
+    // phép thế. Ngày nào một tin phải phủ nhiều dòng thì bảng một-nguồn-một-tin
+    // không còn vừa: tách tin theo dòng, đừng chọn bừa một dòng làm nguồn.
+    for (const { be, healthId } of sach) {
       tbb.gui({ studentId: be.id, loai: 'suc-khoe', nguoiTao: req.user.id,
         tieuDe: `Cô vừa ghi cân đo của ${be.name}`,
         noiDung: `Số đo ngày ${date.slice(8, 10)}/${date.slice(5, 7)} đã có trong Sức khoẻ của bé.`,
-        hash: '#/health' });
+        hash: '#/health',
+        nguon: { bang: BANG, recordId: healthId } });
     }
     return { dem: { daThem, daSua, soBe: sach.length } };
   }
@@ -366,7 +379,11 @@ module.exports = (app) => {
         tieuDe: type === 'incident'
           ? `Cô ghi một sự cố y tế của ${be ? be.name : 'con'}`
           : `Cô vừa ghi ${type === 'checkup' ? 'khám / cân đo' : 'sức khoẻ'} của ${be ? be.name : 'con'}`,
-        noiDung: rec.title, hash: '#/health' });
+        noiDung: rec.title, hash: '#/health',
+        // Dòng chuông chép tiêu đề của ghi nhận, nên thu hồi ghi nhận (ca "sốt,
+        // nghi tay chân miệng" bấm nhầm sang bé khác) thì dòng chuông cũng thôi
+        // đi ra khỏi máy chủ (Đ239q, lib/thong-bao-be.js).
+        nguon: { bang: BANG, recordId: rec.id } });
     }
     res.status(201).json(rec);
   });
@@ -577,6 +594,9 @@ module.exports = (app) => {
           + 'Nhắn văn phòng giúp cô nhé — phần đã ghi vẫn giữ nguyên, không mất đi đâu cả.',
       });
     }
+    // Dòng chuông `thongbao_be` báo ghi nhận này cho gia đình KHÔNG cần đụng
+    // tới ở đây: nó được ghi kèm `nguon` trỏ về ghi nhận, và lib/thong-bao-be.js
+    // lọc theo chính vết `record_edits` mà dòng dưới ghi (Đ239q).
     st.ghiThuHoi(BANG, h.id, req.user.id);
     db.audit(req.user.id, 'health-withdraw', h.id, { title: h.title, studentId: h.studentId });
     res.json({ ok: true });

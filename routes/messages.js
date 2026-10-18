@@ -1075,6 +1075,10 @@ module.exports = (app) => {
   // sai ở đây: để quản trị gỡ lời của một gia đình trong phòng riêng của họ là
   // đưa cho trường một cái nút xoá tiếng nói của phụ huynh. Muốn dọn cả cuộc
   // thì đã có đường ĐÓNG hội thoại, và đường đó ghi tên người đóng.
+  //
+  // Dòng chuông `thongbao_be` của tin này (kênh theo bé, Đ151) KHÔNG cần đụng
+  // tới ở đây: nó được ghi kèm `nguon` trỏ về tin, và lib/thong-bao-be.js lọc
+  // theo chính vết `record_edits` mà dòng dưới ghi (Đ239p).
   app.post('/api/messages/:id/tin/:tinId/thu-hoi', allow, (req, res) => {
     const cv = findConv(req, res);
     if (!cv) return;
@@ -1351,6 +1355,9 @@ module.exports = (app) => {
           noiDung: text.slice(0, 140),
           hash: `#/messages/${cv.id}`,
           nguoiTao: req.user.id,
+          // Dòng chuông chép chữ của tin, nên cô thu hồi tin thì dòng chuông
+          // cũng thôi đi ra khỏi máy chủ (Đ239p, lib/thong-bao-be.js).
+          nguon: { bang: 'messages', recordId: msg.id },
         });
       }
     }

@@ -17,6 +17,7 @@
 // đó thay vì dựng thêm một đường nữa.
 import path from 'node:path';
 import fs from 'node:fs';
+import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, GOC,
@@ -293,6 +294,62 @@ try {
     const cuoi = (trong.data.messages || []).at(-1);
     check('màn trong cuộc trò chuyện nói cùng một điều với dòng xem trước',
       cuoi?.daThuHoi === true && cuoi?.text === dong1?.lastMessage?.text, JSON.stringify(cuoi));
+  }
+
+  // =========================================================================
+  console.log('\n[7] CHUÔNG THÔNG BÁO CỦA GIA ĐÌNH CŨNG KHÔNG GIỮ CHỮ CỦA TIN ĐÃ THU HỒI');
+  {
+    // LỖI CÓ TỪ TRƯỚC, tìm được khi soát bản sửa Đ239o. Cô nhắn vào kênh theo
+    // bé thì máy chủ còn ghi một dòng chuông `thongbao_be` cho gia đình, kèm
+    // 140 chữ đầu của tin (Đ151). Đường thu hồi chỉ đánh dấu bảng `messages`,
+    // nên màn Thông báo vẫn in nguyên câu cô vừa rút lại — đúng cảnh nhắn nhầm
+    // nhà: chuyện sức khoẻ của bé này nằm lại trên điện thoại nhà bé kia.
+    const MAU = 'sốt nhẹ 37,8 độ';
+    const chuong = async () => (await req('GET', '/api/notifications/rieng-be', { cookie: PH4 })).data || [];
+    const soChuaDoc = async () => Number((await req('GET', '/api/dashboard/badges', { cookie: PH4 })).data?.thongbao);
+
+    const mo = await req('POST', '/api/messages/start', {
+      cookie: GV, body: { kenh: 'nhom', studentId: 's5' },
+    });
+    check('cô mở được kênh nhóm với gia đình bé s5', mo.status === 200 && mo.data?.id, mo.status);
+    const cv7 = mo.data.id;
+    const huy0 = await soChuaDoc();
+
+    const gA = await req('POST', `/api/messages/${cv7}`, {
+      cookie: GV, body: { text: `Chị ơi chiều nay bé Bảo An bị ${MAU}, cô đã cho bé nằm nghỉ ạ.` },
+    });
+    const gB = await req('POST', `/api/messages/${cv7}`, {
+      cookie: GV, body: { text: 'Mai nhóm mình đi dạo vườn rau, chị cho bé mang mũ giúp cô ạ.' },
+    });
+    check('cô nhắn được hai lời', gA.status === 200 && gB.status === 200, `${gA.status} ${gB.status}`);
+
+    const c1 = await chuong();
+    check('đối chứng — trước khi thu hồi, chuông của gia đình đang in chữ của lời nhắn',
+      c1.some(n => n.laRiengBe && (n.body || '').includes(MAU)), JSON.stringify(c1.slice(0, 2)));
+    check('đối chứng — số chưa đọc của gia đình tăng đúng hai',
+      (await soChuaDoc()) === huy0 + 2, `${huy0} → ${await soChuaDoc()}`);
+
+    const th = await req('POST', `/api/messages/${cv7}/tin/${gA.data.id}/thu-hoi`, { cookie: GV });
+    check('cô thu hồi được lời nhắn nhầm', th.status === 200, th.status);
+
+    const c2 = await chuong();
+    check('THU HỒI RỒI THÌ CHUÔNG CỦA GIA ĐÌNH KHÔNG CÒN MỘT CHỮ NÀO CỦA TIN ẤY',
+      !JSON.stringify(c2).includes(MAU) && !JSON.stringify(c2).includes('Bảo An'),
+      JSON.stringify(c2.filter(n => JSON.stringify(n).includes(MAU))));
+    check('lời nhắn KHÔNG thu hồi vẫn báo như cũ — chỉ đúng dòng của tin ấy biến mất',
+      c2.some(n => (n.body || '').includes('vườn rau')), JSON.stringify(c2.slice(0, 2)));
+    check('số chưa đọc giảm theo — không đếm một dòng mở ra không có',
+      (await soChuaDoc()) === huy0 + 1, `${huy0} → ${await soChuaDoc()}`);
+
+    // THU HỒI LÀ ẨN, KHÔNG XOÁ — với dòng chuông cũng như với dòng tin.
+    const csdl = new Database(path.join(DIR, 'school.db'), { readonly: true });
+    try {
+      const conDong = csdl.prepare(
+        "SELECT COUNT(*) AS n FROM thongbao_be WHERE studentId = 's5' AND loai = 'tin-nhan' AND noiDung LIKE ?",
+      ).get(`%${MAU}%`).n;
+      check('dòng chuông gốc vẫn còn trong cơ sở dữ liệu — chỉ không đi ra khỏi máy chủ nữa',
+        conDong === 1, conDong);
+    } finally { csdl.close(); }
   }
 } finally {
   sv.dung();

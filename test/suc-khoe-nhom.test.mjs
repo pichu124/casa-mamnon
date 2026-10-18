@@ -15,6 +15,7 @@
 import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu, GOC, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
+import Database from 'better-sqlite3';
 
 const { check, tongKet } = taoBoDem();
 
@@ -25,7 +26,7 @@ const mkVp2 = taoQuanTri(DIR, 'Văn phòng cơ sở 2', 'skn_vp2');
 khoaVaoCoSo(DIR, 'skn_vp2', 'cs2');
 datChucVu(DIR, 'skn_vp2', 'vanphong-coso');
 
-const { BASE, dung } = await dungMayChu({ port: 4641, dir: DIR });
+const { BASE, dung } = await dungMayChu({ port: Number(process.env.TEST_PORT || 4641), dir: DIR });
 const req = taoReq(BASE);
 const login = taoLogin(req);
 const NGAY = HOM_NAY();
@@ -296,6 +297,117 @@ try {
       !/thừa cân|suy dinh dưỡng|béo phì|bình thường|đạt|chuẩn/i.test(mh.soDo({ height: 100, weight: 16 })),
       mh.soDo({ height: 100, weight: 16 }));
     check('chưa đo thì dòng số đo vẫn trống trơn như cũ', mh.soDo({}) === '', mh.soDo({}));
+  }
+
+  // =========================================================================
+  // Chuông của mẹ s1 và số chưa đọc trên huy hiệu — dùng chung cho [9], [10].
+  const chuong = async () => (await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie })).data || [];
+  const soChuaDoc = async () => Number((await req('GET', '/api/dashboard/badges', { cookie: ph.cookie })).data?.thongbao);
+
+  console.log('\n[9] THU HỒI MỘT GHI NHẬN THÌ CHUÔNG CỦA GIA ĐÌNH CŨNG THÔI IN CHỮ CỦA NÓ');
+  {
+    // LỖI CÓ TỪ TRƯỚC, cùng hình dạng với Đ239p (tin nhắn). Cô ghi một ghi
+    // nhận thì máy chủ ghi kèm một dòng chuông `thongbao_be` cho gia đình, chép
+    // nguyên TIÊU ĐỀ của ghi nhận (Đ137). Đường thu hồi sinh ra đúng cho ca
+    // "sốt, nghi tay chân miệng" bấm nhầm sang bé khác — nhưng nó chỉ đánh dấu
+    // bảng `health`, nên màn Thông báo của nhà bé bị bấm nhầm vẫn in nguyên câu
+    // về sức khoẻ của bé kia, và số chưa đọc vẫn đếm nó.
+    const MAU = 'Sốt 38,5 độ, nghi tay chân miệng';
+    const huy0 = await soChuaDoc();
+
+    const nham = await req('POST', '/api/health', {
+      cookie: co.cookie,
+      body: { studentId: 's1', type: 'incident', title: MAU, detail: 'Cô đã báo y tế trường và gọi gia đình đón sớm.' },
+    });
+    const giu = await req('POST', '/api/health', {
+      cookie: co.cookie,
+      body: { studentId: 's1', type: 'incident', title: 'Va nhẹ trán vào cửa tủ', detail: 'Y tế trường chườm lạnh, bé chơi tiếp.' },
+    });
+    check('cô ghi được hai sự cố cho s1', nham.status === 201 && giu.status === 201, `${nham.status} ${giu.status}`);
+
+    const c1 = await chuong();
+    check('đối chứng — trước khi thu hồi, chuông của gia đình in tiêu đề của ghi nhận',
+      c1.some(n => n.laRiengBe && n.loai === 'suc-khoe' && (n.body || '').includes(MAU)), JSON.stringify(c1.slice(0, 2)));
+    check('đối chứng — số chưa đọc của gia đình tăng đúng hai',
+      (await soChuaDoc()) === huy0 + 2, `${huy0} → ${await soChuaDoc()}`);
+
+    const th = await req('DELETE', `/api/health/${nham.data.id}`, { cookie: co.cookie });
+    check('cô thu hồi được ghi nhận vừa bấm nhầm', th.status === 200, `${th.status} ${th.data && th.data.error}`);
+    const hs = await req('GET', '/api/health?studentId=s1', { cookie: ph.cookie });
+    check('đối chứng — hồ sơ sức khoẻ của bé đã không còn ghi nhận ấy',
+      hs.status === 200 && !JSON.stringify(hs.data || {}).includes(MAU), hs.status);
+
+    const c2 = await chuong();
+    check('THU HỒI RỒI THÌ CHUÔNG CỦA GIA ĐÌNH KHÔNG CÒN MỘT CHỮ NÀO CỦA GHI NHẬN ẤY',
+      !JSON.stringify(c2).includes(MAU), JSON.stringify(c2.filter(n => JSON.stringify(n).includes(MAU))));
+    check('ghi nhận KHÔNG thu hồi vẫn báo như cũ — chỉ đúng dòng của ghi nhận ấy biến mất',
+      c2.some(n => (n.body || '').includes('Va nhẹ trán vào cửa tủ')), JSON.stringify(c2.slice(0, 2)));
+    check('số chưa đọc giảm theo — không đếm một dòng mở ra không có',
+      (await soChuaDoc()) === huy0 + 1, `${huy0} → ${await soChuaDoc()}`);
+
+    // THU HỒI LÀ ẨN, KHÔNG XOÁ — với dòng chuông cũng như với chính ghi nhận.
+    const csdl = new Database(path.join(DIR, 'school.db'), { readonly: true });
+    try {
+      const conChuong = csdl.prepare(
+        "SELECT COUNT(*) AS n FROM thongbao_be WHERE studentId = 's1' AND loai = 'suc-khoe' AND noiDung = ?",
+      ).get(MAU).n;
+      check('dòng chuông gốc vẫn còn trong cơ sở dữ liệu — chỉ không đi ra khỏi máy chủ nữa',
+        conChuong === 1, conChuong);
+      const conGhiNhan = csdl.prepare('SELECT COUNT(*) AS n FROM health WHERE id = ?').get(nham.data.id).n;
+      check('và chính ghi nhận cũng còn nguyên trong bảng', conGhiNhan === 1, conGhiNhan);
+    } finally { csdl.close(); }
+  }
+
+  // =========================================================================
+  console.log('\n[10] CÂN ĐO CẢ NHÓM: chuông trỏ về đúng dòng cân đo của bé');
+  {
+    // Lượt lưu cân đo cả nhóm gửi MỘT chuông mỗi bé, chữ chung chung — không
+    // chép số đo nào. Nhưng chuông vẫn nói "số đo đã có trong Sức khoẻ của bé":
+    // thu hồi dòng ấy (nạp tệp lệch dòng là ghi số của bé này sang bé kia) mà
+    // chuông còn đó thì nó chỉ tới một thứ không còn, và số chưa đọc đếm nó.
+    //
+    // Mỗi lượt lưu ghi hoặc sửa ĐÚNG MỘT dòng cho mỗi bé, nên mỗi chuông có
+    // đúng một nguồn. Hai lượt lưu cùng ngày là HAI chuông trỏ về CÙNG một
+    // dòng — thu hồi dòng ấy thì cả hai thôi hiện.
+    const homKia = new Date(Date.parse(`${NGAY}T00:00:00Z`) - 2 * 86400000).toISOString().slice(0, 10);
+    const NHAN = `Số đo ngày ${homKia.slice(8, 10)}/${homKia.slice(5, 7)}`;
+    const NHAN_HOM_NAY = `Số đo ngày ${NGAY.slice(8, 10)}/${NGAY.slice(5, 7)}`;
+    const huy0 = await soChuaDoc();
+
+    const l1 = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: homKia, danhSach: [
+      { studentId: 's1', height: 99, weight: 15 },
+    ] } });
+    const l2 = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: homKia, danhSach: [
+      { studentId: 's1', height: 99.5, weight: 15 },
+    ] } });
+    check('đối chứng — lượt đầu thêm một dòng, lượt sau sửa đúng dòng đó',
+      l1.status === 200 && l1.data.daThem === 1 && l2.status === 200 && l2.data.daSua === 1,
+      `${JSON.stringify(l1.data)} ${JSON.stringify(l2.data)}`);
+    const cA = await chuong();
+    check('đối chứng — mẹ s1 có hai chuông cân đo của ngày ấy',
+      cA.filter(n => (n.body || '').includes(NHAN)).length === 2, cA.filter(n => (n.body || '').includes(NHAN)).length);
+    check('đối chứng — số chưa đọc tăng đúng hai', (await soChuaDoc()) === huy0 + 2, `${huy0} → ${await soChuaDoc()}`);
+
+    const hs = await req('GET', '/api/health?studentId=s1', { cookie: co.cookie });
+    const dong = (hs.data?.records || []).filter(r => r.type === 'checkup' && r.date === homKia);
+    check('đối chứng — đúng một dòng cân đo của ngày ấy', dong.length === 1, JSON.stringify(dong));
+    const th = await req('DELETE', `/api/health/${dong[0] && dong[0].id}`, { cookie: co.cookie });
+    check('cô thu hồi được dòng cân đo ấy', th.status === 200, `${th.status} ${th.data && th.data.error}`);
+
+    const cB = await chuong();
+    check('THU HỒI DÒNG CÂN ĐO THÌ CẢ HAI CHUÔNG TRỎ VỀ NÓ THÔI HIỆN',
+      !cB.some(n => (n.body || '').includes(NHAN)), cB.filter(n => (n.body || '').includes(NHAN)).length);
+    check('chuông cân đo của hôm nay (dòng không thu hồi, mục [2]) vẫn còn',
+      cB.filter(n => (n.body || '').includes(NHAN_HOM_NAY)).length === 2, cB.filter(n => (n.body || '').includes(NHAN_HOM_NAY)).length);
+    check('số chưa đọc về lại như trước hai lượt lưu', (await soChuaDoc()) === huy0, `${huy0} → ${await soChuaDoc()}`);
+
+    const ghiLai = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: homKia, danhSach: [
+      { studentId: 's1', height: 99.5, weight: 15.1 },
+    ] } });
+    const cC = await chuong();
+    check('cô ghi lại sau khi thu hồi → dòng MỚI, và gia đình có lại đúng một chuông',
+      ghiLai.status === 200 && ghiLai.data.daThem === 1 && cC.filter(n => (n.body || '').includes(NHAN)).length === 1,
+      `${JSON.stringify(ghiLai.data)} ${cC.filter(n => (n.body || '').includes(NHAN)).length}`);
   }
 } finally {
   await dung();
