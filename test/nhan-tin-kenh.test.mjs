@@ -21,13 +21,21 @@
 //      bên đó đọc được — mục [2] và [4].
 //   4. HỘI THOẠI RIÊNG ĐÃ CÓ THÌ GIỮ NGUYÊN. Nguyên tắc số 1: bỏ một lối đi là
 //      thôi mời người ta đi lối đó, KHÔNG phải xoá những gì đã nói — mục [6].
+//
+// GÓP Ý 16/10, MỤC PH1 — PHƯƠNG ÁN A (Đ239m), canh ở [11]–[20]
+//
+//   Văn phòng là MỘT mục cho mỗi cơ sở có con học, không "Về bé…". Mỗi TÀI
+//   KHOẢN phụ huynh × cơ sở một hộp thư riêng: phía gia đình chỉ có đúng một
+//   người đọc, nên hai kiểu rò tin đã bắt được ở Đ239g (bố mẹ riêng — [13];
+//   phụ huynh được gắn thêm sau — [15]) không còn chỗ để xảy ra.
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, GOC,
+  taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, ganPhuHuynh, GOC, HOM_NAY,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -42,6 +50,78 @@ khoaVaoCoSo(DIR, 'quanly2', 'cs2');
 // đã đóng KHÔNG mở cho văn phòng.
 const mkVP = taoQuanTri(DIR, 'Văn phòng CS1', 'vanphong1');
 datChucVu(DIR, 'vanphong1', 'vanphong-coso');
+
+// GÓP Ý 16/10, MỤC PH1 — dựng cho [11]–[20], TRƯỚC khi máy chủ chạy.
+//
+// Văn phòng KHOÁ VÀO TỪNG CƠ SỞ: hộp thư của gia đình phải tới đúng văn phòng
+// của cơ sở có con học, không lọt sang cơ sở kia.
+const mkVPcs1 = taoQuanTri(DIR, 'Văn phòng khoá CS1', 'vpcs1');
+datChucVu(DIR, 'vpcs1', 'vanphong-coso');
+khoaVaoCoSo(DIR, 'vpcs1', 'cs1');
+const mkVPcs2 = taoQuanTri(DIR, 'Văn phòng khoá CS2', 'vpcs2');
+datChucVu(DIR, 'vpcs2', 'vanphong-coso');
+khoaVaoCoSo(DIR, 'vpcs2', 'cs2');
+{
+  const c = new Database(path.join(DIR, 'school.db'));
+  const luc = (soNgay) => new Date(Date.now() - soNgay * 864e5).toISOString();
+  const nam = Number(HOM_NAY().slice(0, 4));
+  // Kênh văn phòng CŨ theo từng bé, đúng hình dạng mã trước Đ239m đã ghi.
+  const kenhVPCu = (ma, be, nguoi, chu, tao) => {
+    c.prepare("INSERT INTO conversations (id, type, name, classId) VALUES (?, 'kenh', NULL, NULL)").run(ma);
+    c.prepare(`INSERT INTO kenh_hoi_thoai (conversationId, loai, studentId, classId, taoLuc)
+               VALUES (?, 'vanphong', ?, '', ?)`).run(ma, be, tao);
+    for (const u of nguoi) {
+      c.prepare('INSERT INTO conversation_members (conversationId, userId, lastRead) VALUES (?, ?, NULL)')
+        .run(ma, u);
+    }
+    c.prepare('INSERT INTO messages (id, conversationId, senderId, text, createdAt) VALUES (?, ?, ?, ?, ?)')
+      .run(`ms_${ma}`, ma, nguoi[0], chu, tao);
+  };
+  const themBe = (id, ten, tuoi, gioi, lop) => c.prepare(
+    `INSERT INTO students (id, name, dob, gender, classId, active, createdAt) VALUES (?, ?, ?, ?, ?, 1, ?)`)
+    .run(id, ten, `${nam - tuoi}-06-01`, gioi, lop, luc(60));
+  const matKhauMau = c.prepare("SELECT passwordHash FROM users WHERE id = 'p1'").get().passwordHash;
+  const themPH = (id, tenDN, ten, xung) => c.prepare(
+    `INSERT INTO users (id, username, passwordHash, role, name, title, createdAt)
+     VALUES (?, ?, ?, 'parent', ?, ?, ?)`).run(id, tenDN, matKhauMau, ten, xung, luc(60));
+  const ganPH = c.prepare('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)');
+
+  // [11] Nhà anh Tuấn (p3) có hai con cùng cơ sở 1 — s4 (Chồi 2), s8 (Lá 1) —
+  // và ĐÃ nhắn văn phòng theo từng bé từ trước đợt này.
+  kenhVPCu('cv_vp_cu_s4', 's4', ['p3'], 'Tuần sau bé xin nghỉ hai hôm ạ', luc(5));
+  kenhVPCu('cv_vp_cu_s8', 's8', ['p3'], 'Gia đình xin giấy xác nhận đang học cho bé ạ', luc(3));
+  // [12] Nhà anh Bảo (p2): bé s3 học Chồi 2 ở cơ sở 1; thêm một bé ở Mầm 1 — cơ sở 2.
+  themBe('s_cs2', 'Phạm Gia Khang', 3, 'Nam', 'c3');
+  // [13] BỐ MẸ RIÊNG: bé s0_chung là con của CẢ chị Lan (p4) lẫn anh Minh (p5);
+  // chị Lan còn bé s5, anh Minh còn bé s6, cả ba cùng cơ sở 1. Mã bé chung đứng
+  // đầu theo thứ tự — đúng ca đã làm rò tin ở Đ239g.
+  themBe('s0_chung', 'Hoàng Minh Khuê', 5, 'Nữ', 'c2');
+  ganPH.run('s0_chung', 'p4');
+  ganPH.run('s0_chung', 'p5');
+  // [14] Nhà thường có cả bố lẫn mẹ: anh Duy (p8) và chị Nga (p9) cùng gắn với cả
+  // hai bé s10, s11.
+  ganPH.run('s10', 'p9');
+  ganPH.run('s11', 'p8');
+  // [15] Chị Hương (p6) là phụ huynh DUY NHẤT của s7 và s7b (cùng cơ sở 1), và
+  // đã có một kênh văn phòng cũ trên s7 — giả lập đúng mục gộp của Đ239g — trong
+  // đó chị kể chuyện riêng của s7b.
+  themBe('s7b', 'Bùi Minh Châu', 4, 'Nữ', 'c2');
+  ganPH.run('s7b', 'p6');
+  kenhVPCu('cv_vp_gop_s7', 's7', ['p6'], 'Văn phòng ơi, chuyện riêng s7b: bé Châu đang điều trị tâm lý ạ', luc(6));
+  // [17] Ba phụ huynh của MỘT bé.
+  themBe('s_ba', 'Đặng Gia Linh', 4, 'Nữ', 'c1');
+  for (const [id, tenDN, ten, xung] of [
+    ['p_ba1', 'ph.ba1', 'Đặng Văn Hùng', 'Anh'],
+    ['p_ba2', 'ph.ba2', 'Mai Thị Hoa', 'Chị'],
+    ['p_ba3', 'ph.ba3', 'Đặng Thị Lụa', 'Bà'],
+  ]) { themPH(id, tenDN, ten, xung); ganPH.run('s_ba', id); }
+  // [18] Một nhà có đúng một con, rồi con nghỉ học.
+  themBe('s_nghi', 'Lâm Gia Phúc', 5, 'Nam', 'c2');
+  themPH('p_nghi', 'ph.nghi', 'Lâm Thị Thảo', 'Chị');
+  ganPH.run('s_nghi', 'p_nghi');
+  c.close();
+}
+ganPhuHuynh(DIR, 's_cs2', 'p2');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4649), dir: DIR });
 const req = taoReq(sv.BASE);
@@ -70,6 +150,15 @@ const BE = conn0.prepare(
      FROM students s JOIN student_parents sp ON sp.studentId = s.id
      JOIN users u ON u.id = sp.parentId
     WHERE u.username = 'phuhuynh' AND s.active = 1 LIMIT 1`).get();
+// Mọi con của nhà ấy, theo mã — mục văn phòng gắn với bé có mã nhỏ nhất.
+const CON_PH = conn0.prepare(
+  `SELECT s.id AS id, s.name AS name FROM students s
+     JOIN student_parents sp ON sp.studentId = s.id
+     JOIN users u ON u.id = sp.parentId
+    WHERE u.username = 'phuhuynh' AND s.active = 1 ORDER BY s.id`).all();
+const TEN = {};
+for (const r of conn0.prepare('SELECT id, name FROM students').all()) TEN[r.id] = r.name;
+for (const r of conn0.prepare("SELECT username, name FROM users WHERE role = 'parent'").all()) TEN[r.username] = r.name;
 conn0.close();
 
 // ===========================================================================
@@ -100,13 +189,24 @@ console.log('\n[1] Gia đình được mời ĐÚNG BA ĐẦU MỐI, không hơn
   check('KHÔNG có đầu mối nào cho cô thể chất',
     !lh.some(c => c.kenh === 'the-chat' || /thể chất/i.test(c.name || '')), lh.map(c => c.name));
 
-  const soCon = new Set(lh.map(c => c.studentId)).size;
-  check('đối chứng — nhà này có ít nhất một con đang học', soCon >= 1, soCon);
-  check('mỗi bé ĐÚNG BA dòng, không hơn', lh.length === soCon * 3, { soCon, dong: lh.length });
-  check('và mỗi bé có đủ cả ba loại kênh',
-    [...new Set(lh.map(c => c.studentId))].every(id =>
-      ['nhom', 'nuoc-ngoai', 'vanphong'].every(k => lh.some(c => c.studentId === id && c.kenh === k))),
-    lh.map(c => `${c.studentId}:${c.kenh}`));
+  // GÓP Ý 16/10, MỤC PH1: *"không cần tách ra Văn phòng nhà trường về bé này bé
+  // kia, chỉ cần ghi Nhắn tin với văn phòng nhà trường"*. Vẫn ba đầu mối, nhưng
+  // văn phòng là MỘT cho mỗi cơ sở có con học — hai dòng cô mỗi bé, cộng một
+  // dòng văn phòng (nhà mẫu: hai con, cùng cơ sở 1).
+  const dongCo = lh.filter(c => c.kenh !== 'vanphong');
+  const dongVP = lh.filter(c => c.kenh === 'vanphong');
+  const soCon = new Set(dongCo.map(c => c.studentId)).size;
+  check('đối chứng — nhà mẫu có HAI con', CON_PH.length === 2 && soCon === 2, { CON_PH, soCon });
+  check('mỗi bé ĐÚNG HAI dòng cô, không hơn', dongCo.length === soCon * 2, { soCon, dong: dongCo.length });
+  check('và mỗi bé có đủ cả hai kênh cô',
+    CON_PH.every(b => ['nhom', 'nuoc-ngoai'].every(k => dongCo.some(c => c.studentId === b.id && c.kenh === k))),
+    dongCo.map(c => `${c.studentId}:${c.kenh}`));
+  check('cả nhà ĐÚNG MỘT dòng "Văn phòng nhà trường" — không tách theo từng bé',
+    dongVP.length === 1, dongVP);
+  check('dòng ấy KHÔNG còn "Về bé…" — các con cùng cơ sở thì không cần dòng phụ',
+    dongVP.every(c => c.subtitle === ''), dongVP.map(c => c.subtitle));
+  check('gắn với bé có mã nhỏ nhất ở cơ sở đó — lần nào cũng cùng một bé, chưa có cuộc nào',
+    dongVP[0]?.studentId === CON_PH[0].id && !dongVP[0]?.existingConversationId, dongVP[0]);
 }
 
 // ===========================================================================
@@ -179,6 +279,16 @@ let KENH_VP;
   const vpDoc = await doc(QT, KENH_VP);
   check('VĂN PHÒNG đọc được', vpDoc.status === 200
     && (vpDoc.data.messages || []).some(m => /bà ngoại/.test(m.text)), vpDoc.status);
+  // Gia đình bỏ "Về bé…", nhưng phía văn phòng thì PHẢI biết đang nói với ai.
+  // Từ Đ239m tên phụ huynh nằm ở TIÊU ĐỀ, các con ở dòng phụ.
+  const nhanVP = `${vpDoc.data.title || ''} ${vpDoc.data.subtitle || ''}`;
+  check('văn phòng thấy rõ đang nói với PHỤ HUYNH NÀO', nhanVP.includes(TEN.phuhuynh), nhanVP);
+  check('và về CÁC CON NÀO của nhà ấy — cả hai bé, không chỉ bé gắn mục',
+    CON_PH.every(b => nhanVP.includes(b.name)), nhanVP);
+  const phDocVP = await doc(PH, KENH_VP);
+  check('gia đình thấy "Văn phòng nhà trường", KHÔNG kèm "Về bé…"',
+    phDocVP.data.title === 'Văn phòng nhà trường' && !/Về bé/.test(phDocVP.data.subtitle || ''),
+    { title: phDocVP.data.title, subtitle: phDocVP.data.subtitle });
   const coDoc = await doc(GV, KENH_VP);
   check('CÔ KHÔNG đọc được cuộc gia đình nói riêng với văn phòng', coDoc.status === 403, coDoc.status);
 
@@ -484,6 +594,366 @@ console.log('\n[10] HỘI THOẠI ĐÃ ĐÓNG — mất khỏi màn gia đình, 
   check('và nhắn tiếp được', (await gui(PH, KENH_MOI, 'em quay lại ạ')).status === 200);
   check('MỞ LẠI XONG thì ban giám hiệu KHÔNG còn đọc được nữa — chốt cũ trở lại đúng chỗ',
     (await doc(QT, KENH_MOI)).status === 403);
+}
+
+// ===========================================================================
+// GÓP Ý 16/10, MỤC PH1 — PHƯƠNG ÁN A (Đ239m): mỗi TÀI KHOẢN phụ huynh × cơ sở
+// một hộp thư riêng với văn phòng. Dữ liệu dựng sẵn ở đầu tệp.
+const VP1 = await vao('vpcs1', mkVPcs1);
+const VP2 = await vao('vpcs2', mkVPcs2);
+const vpCua = async (cookie) => ((await ds(cookie)).contacts || []).filter(c => c.kenh === 'vanphong');
+const dsHT = async (cookie) => (await ds(cookie)).conversations || [];
+const moCsdl = () => new Database(path.join(DIR, 'school.db'));
+const docCsdl = (sql, ...thamSo) => {
+  const c = moCsdl();
+  try { return c.prepare(sql).all(...thamSo); } finally { c.close(); }
+};
+const ghiCsdl = (sql, ...thamSo) => {
+  const c = moCsdl();
+  try { c.prepare(sql).run(...thamSo); } finally { c.close(); }
+};
+const thanhVienPH = (ma) => docCsdl(
+  `SELECT cm.userId AS id FROM conversation_members cm JOIN users u ON u.id = cm.userId
+    WHERE cm.conversationId = ? AND u.role = 'parent' ORDER BY cm.userId`, ma).map(r => r.id);
+
+let CUOC_P3 = '';
+console.log('\n[11] Hai con cùng cơ sở, ĐÃ có cuộc văn phòng cũ theo từng bé');
+{
+  const PH3 = (await login('ph.tuan', '123456')).cookie;
+  const d = await ds(PH3);
+  const vp = (d.contacts || []).filter(c => c.kenh === 'vanphong');
+  check('đối chứng — nhà này có hai con', new Set((d.contacts || []).map(c => c.studentId)).size === 2,
+    (d.contacts || []).map(c => `${c.studentId}:${c.kenh}`));
+  check('ĐÚNG MỘT liên hệ "Văn phòng nhà trường" cho cả nhà',
+    vp.length === 1 && vp[0].name === 'Văn phòng nhà trường', vp);
+  check('và không còn "Về bé…"', vp.every(c => c.subtitle === ''), vp.map(c => c.subtitle));
+  check('mục mới KHÔNG trỏ vào cuộc cũ nào — cuộc cũ đọc được bởi mọi phụ huynh của bé ấy',
+    vp[0] && !vp[0].existingConversationId && vp[0].studentId === 's4', vp[0]);
+
+  const cu = (d.conversations || []).filter(c => /^cv_vp_cu_/.test(c.id));
+  check('CẢ HAI cuộc văn phòng cũ vẫn nằm trong danh sách', cu.length === 2, cu.map(c => c.id));
+  check('và vẫn nói rõ "Về bé…" như trước — đó là cuộc của từng bé',
+    cu.find(c => c.id === 'cv_vp_cu_s4')?.subtitle === `Về bé ${TEN.s4}`
+      && cu.find(c => c.id === 'cv_vp_cu_s8')?.subtitle === `Về bé ${TEN.s8}`
+      && cu.every(c => c.title === 'Văn phòng nhà trường'),
+    cu.map(c => `${c.title} | ${c.subtitle}`));
+  const cuBe = await doc(PH3, 'cv_vp_cu_s4');
+  check('cuộc cũ vẫn mở được và còn nguyên tin', cuBe.status === 200
+    && (cuBe.data.messages || []).some(m => /nghỉ hai hôm/.test(m.text)), cuBe.status);
+  check('và vẫn nhắn tiếp được', (await gui(PH3, 'cv_vp_cu_s4', 'Dạ em hỏi thêm ạ')).status === 200);
+
+  const r = await mo(PH3, 'vanphong', 's8');
+  CUOC_P3 = r.data?.id || '';
+  check('bấm mục văn phòng (gửi mã bé nào của nhà cùng cơ sở cũng được) là mở một cuộc MỚI',
+    r.status === 200 && CUOC_P3 && !/^cv_vp_cu_/.test(CUOC_P3), r.data);
+  check('mở lại bằng mã bé kia vẫn về ĐÚNG cuộc ấy', (await mo(PH3, 'vanphong', 's4')).data?.id === CUOC_P3);
+  check('gửi được tin', (await gui(PH3, CUOC_P3, 'Chiều nay ông nội đón hai cháu ạ')).status === 200);
+
+  const kenhCu = docCsdl(
+    "SELECT COUNT(*) AS n FROM kenh_hoi_thoai WHERE loai = 'vanphong' AND studentId IN ('s4', 's8')")[0].n;
+  const hop = docCsdl('SELECT * FROM kenh_van_phong WHERE conversationId = ?', CUOC_P3)[0];
+  const loai = docCsdl('SELECT type FROM conversations WHERE id = ?', CUOC_P3)[0]?.type;
+  check('TẦNG DỮ LIỆU CŨ KHÔNG ĐỔI — không gộp, không xoá, không đẻ thêm kênh theo bé', kenhCu === 2, kenhCu);
+  check('cuộc mới là hộp thư của ĐÚNG người này ở ĐÚNG cơ sở 1',
+    loai === 'vanphong' && hop?.parentId === 'p3' && hop?.campusId === 'cs1', { loai, hop });
+  check('phía gia đình chỉ có MỘT người đọc', thanhVienPH(CUOC_P3).join() === 'p3', thanhVienPH(CUOC_P3));
+  check('mục liên hệ nay trỏ vào cuộc ấy', (await vpCua(PH3))[0]?.existingConversationId === CUOC_P3);
+
+  // Văn phòng chưa mở cuộc nào mà vẫn thấy trong danh sách — hàng thành viên
+  // phía văn phòng tự thêm, như kênh cũ.
+  const dsVP1 = await dsHT(VP1);
+  const dong = dsVP1.find(c => c.id === CUOC_P3);
+  check('VĂN PHÒNG CƠ SỞ 1 thấy cuộc trong danh sách dù chưa từng mở', !!dong, dsVP1.map(c => c.id));
+  check('tiêu đề là tên phụ huynh', (dong?.title || '').includes(TEN['ph.tuan']), dong);
+  check('và tin vừa gửi được đếm là chưa đọc', dong?.unreadCount >= 1, dong?.unreadCount);
+  const vpDoc = await doc(VP1, CUOC_P3);
+  check('VĂN PHÒNG CƠ SỞ 1 đọc được tin', vpDoc.status === 200
+    && (vpDoc.data.messages || []).some(m => /ông nội/.test(m.text)), vpDoc.status);
+  check('và thấy CẢ HAI con của nhà ấy ở cơ sở mình, kèm nhóm',
+    (vpDoc.data.subtitle || '').includes(TEN.s4) && (vpDoc.data.subtitle || '').includes(TEN.s8)
+      && /Chồi 2/.test(vpDoc.data.subtitle || '') && /Lá 1/.test(vpDoc.data.subtitle || ''),
+    vpDoc.data.subtitle);
+  check('VĂN PHÒNG CƠ SỞ KHÁC không đọc được', (await doc(VP2, CUOC_P3)).status === 403);
+  check('kể cả cuộc cũ', (await doc(VP2, 'cv_vp_cu_s4')).status === 403);
+  check('và không thấy chúng trong danh sách của mình',
+    !(await dsHT(VP2)).some(c => c.id === CUOC_P3 || /^cv_vp_cu_/.test(c.id)));
+  check('CÔ không đọc được hộp thư văn phòng', (await doc(GV, CUOC_P3)).status === 403);
+  check('và không thấy nó trong danh sách', !(await dsHT(GV)).some(c => c.id === CUOC_P3));
+}
+
+let CUOC_P2_CS1 = '';
+console.log('\n[12] Hai con ở HAI cơ sở: hai mục văn phòng, phân biệt bằng tên cơ sở');
+{
+  const PH2 = (await login('phuhuynh2', '123456')).cookie;
+  const vp = await vpCua(PH2);
+  check('HAI mục "Văn phòng nhà trường" — mỗi cơ sở một mục',
+    vp.length === 2 && vp.every(c => c.name === 'Văn phòng nhà trường'), vp);
+  check('phân biệt bằng TÊN CƠ SỞ, không bằng "Về bé…"',
+    vp.map(c => c.subtitle).sort().join('|') === 'Cơ sở 1|Cơ sở 2', vp.map(c => c.subtitle));
+  const muc1 = vp.find(c => c.subtitle === 'Cơ sở 1');
+  const muc2 = vp.find(c => c.subtitle === 'Cơ sở 2');
+  check('mục cơ sở 1 gắn với bé học cơ sở 1, mục cơ sở 2 với bé học cơ sở 2',
+    muc1?.studentId === 's3' && muc2?.studentId === 's_cs2', vp);
+
+  const r1 = await mo(PH2, 'vanphong', 's3');
+  const r2 = await mo(PH2, 'vanphong', 's_cs2');
+  CUOC_P2_CS1 = r1.data?.id || '';
+  check('mở được cả hai, và đó là HAI cuộc khác nhau',
+    r1.status === 200 && r2.status === 200 && r1.data.id !== r2.data.id, { r1: r1.data, r2: r2.data });
+  await gui(PH2, r1.data.id, 'Gửi văn phòng cơ sở 1 ạ');
+  await gui(PH2, r2.data.id, 'Gửi văn phòng cơ sở 2 ạ');
+
+  const ds2 = await dsHT(VP2);
+  check('văn phòng cơ sở 2 thấy cuộc của cơ sở 2 trong danh sách trước khi mở',
+    ds2.some(c => c.id === r2.data.id), ds2.map(c => c.id));
+  check('mà KHÔNG thấy cuộc của cơ sở 1', !ds2.some(c => c.id === r1.data.id));
+  const doc11 = await doc(VP1, r1.data.id);
+  check('văn phòng cơ sở 1 đọc được cuộc của cơ sở 1', doc11.status === 200, doc11.status);
+  check('nhưng KHÔNG đọc được cuộc của cơ sở 2', (await doc(VP1, r2.data.id)).status === 403);
+  check('văn phòng cơ sở 2 đọc được cuộc của cơ sở 2', (await doc(VP2, r2.data.id)).status === 200);
+  check('nhưng KHÔNG đọc được cuộc của cơ sở 1', (await doc(VP2, r1.data.id)).status === 403);
+  check('QUẢN LÝ cơ sở 2 cũng không', (await doc(QL2, r1.data.id)).status === 403);
+  const phu = doc11.data.subtitle || '';
+  check('văn phòng cơ sở 1 thấy bé của cơ sở mình', phu.includes(TEN.s3), phu);
+  check('mà KHÔNG thấy tên bé học cơ sở khác', !phu.includes(TEN.s_cs2), phu);
+
+  const phDs = await dsHT(PH2);
+  check('danh sách của gia đình: hai cuộc văn phòng cũng phân biệt bằng tên cơ sở',
+    phDs.find(c => c.id === r1.data.id)?.subtitle === 'Cơ sở 1'
+      && phDs.find(c => c.id === r2.data.id)?.subtitle === 'Cơ sở 2',
+    phDs.filter(c => c.id === r1.data.id || c.id === r2.data.id).map(c => `${c.title} | ${c.subtitle}`));
+}
+
+console.log('\n[13] Bố mẹ RIÊNG: mỗi người MỘT mục, và không ai đọc được thư của người kia');
+{
+  const PL = (await login('ph.lan', '123456')).cookie;
+  const PM = (await login('ph.minh', '123456')).cookie;
+  const vL = await vpCua(PL);
+  const vM = await vpCua(PM);
+  check('chị Lan thấy ĐÚNG MỘT mục văn phòng, không "Về bé…"',
+    vL.length === 1 && vL[0].subtitle === '', vL);
+  check('anh Minh cũng vậy', vM.length === 1 && vM[0].subtitle === '', vM);
+
+  // Chị Lan kể CHUYỆN RIÊNG của bé Vy (con riêng của chị) trong mục duy nhất ấy
+  // — đúng điều một gia đình sẽ làm, và đúng ca đã rò tin ở Đ239g.
+  const r = await mo(PL, 'vanphong', vL[0]?.studentId);
+  const RIENG = r.data?.id;
+  check('mở được mục văn phòng', r.status === 200 && !!RIENG, r.data);
+  check('gửi được tin', (await gui(PL, RIENG, 'Bé Vy bị sốt, xin cho bé nghỉ hai hôm ạ')).status === 200);
+  check('ANH MINH KHÔNG ĐỌC ĐƯỢC thư của chị Lan', (await doc(PM, RIENG)).status === 403);
+  const dsM = await ds(PM);
+  check('cuộc ấy không có trong danh sách hội thoại của anh',
+    !(dsM.conversations || []).some(c => c.id === RIENG), (dsM.conversations || []).map(c => c.id));
+  check('không tin cuối nào của anh nói về bé Vy',
+    !(dsM.conversations || []).some(c => /Bé Vy/.test(c.lastMessage?.text || '')));
+  check('cũng không mục liên hệ nào của anh trỏ vào nó',
+    !(dsM.contacts || []).some(c => c.existingConversationId === RIENG), dsM.contacts);
+  const rM = await mo(PM, 'vanphong', vM[0]?.studentId);
+  check('mục của anh Minh mở ra một cuộc KHÁC', rM.status === 200 && rM.data.id && rM.data.id !== RIENG, rM.data);
+  check('và chị Lan không đọc được cuộc của anh', (await doc(PL, rM.data.id)).status === 403);
+
+  // PHÍA VĂN PHÒNG: dòng phụ nêu các con của ĐÚNG người viết.
+  const vpR = await doc(VP1, RIENG);
+  const nhan = `${vpR.data.title || ''} | ${vpR.data.subtitle || ''}`;
+  check('văn phòng đọc được, thấy chị Lan cùng bé chung và bé Vy',
+    vpR.status === 200 && nhan.includes(TEN['ph.lan']) && nhan.includes(TEN.s0_chung) && nhan.includes(TEN.s5), nhan);
+  check('mà KHÔNG nêu anh Minh hay con riêng của anh', !nhan.includes(TEN['ph.minh']) && !nhan.includes(TEN.s6), nhan);
+}
+
+console.log('\n[14] Nhà thường có cả bố lẫn mẹ: vẫn MỘT mục, nhưng mỗi người một cuộc');
+{
+  const PD = (await login('ph.duy', '123456')).cookie;
+  const PN = (await login('ph.nga', '123456')).cookie;
+  const vD = await vpCua(PD);
+  const vN = await vpCua(PN);
+  check('anh Duy: ĐÚNG MỘT mục, không dòng phụ', vD.length === 1 && vD[0].subtitle === '', vD);
+  check('chị Nga cũng vậy', vN.length === 1 && vN[0].subtitle === '', vN);
+  const rD = await mo(PD, 'vanphong', vD[0]?.studentId);
+  await gui(PD, rD.data.id, 'Chiều nay bà nội đón hai cháu ạ');
+  const rN = await mo(PN, 'vanphong', vN[0]?.studentId);
+  // HỒI QUY CÓ CHỦ Ý — chủ dự án đã chấp nhận khi chọn phương án A: vợ chồng
+  // không chung một cuộc với văn phòng.
+  check('bố và mẹ MỖI NGƯỜI MỘT CUỘC', rD.status === 200 && rN.status === 200 && rD.data.id !== rN.data.id,
+    { rD: rD.data, rN: rN.data });
+  check('chị Nga không đọc được cuộc của anh Duy', (await doc(PN, rD.data.id)).status === 403);
+  const dsVP = await dsHT(VP1);
+  check('văn phòng thấy cả hai cuộc, mỗi cuộc mang tên đúng người',
+    (dsVP.find(c => c.id === rD.data.id)?.title || '').includes(TEN['ph.duy'])
+      && (dsVP.find(c => c.id === rN.data.id)?.title || '').includes(TEN['ph.nga']),
+    dsVP.filter(c => c.id === rD.data.id || c.id === rN.data.id).map(c => c.title));
+}
+
+let CUOC_P6 = '';
+let TIN_P6 = '';
+console.log('\n[15] Phụ huynh được gắn THÊM SAU không đọc được thư đã có (repro vòng 2 của Đ239g)');
+{
+  const PH6 = (await login('ph.huong', '123456')).cookie;
+  const v6 = await vpCua(PH6);
+  check('đối chứng — chị Hương có hai con cùng cơ sở, MỘT mục văn phòng', v6.length === 1, v6);
+  const r = await mo(PH6, 'vanphong', 's7b');
+  CUOC_P6 = r.data?.id || '';
+  const g = await gui(PH6, CUOC_P6, 'Văn phòng ơi, bí mật s7b: bé Châu sắp chuyển nhà ạ');
+  TIN_P6 = g.data?.id || '';
+  check('chị Hương nhắn được về bé Châu', r.status === 200 && g.status === 200, { r: r.data, g: g.data });
+
+  // Trường gắn tài khoản chị Trang (p7) làm phụ huynh của RIÊNG bé s7.
+  ganPhuHuynh(DIR, 's7', 'p7');
+  const PH7 = (await login('ph.trang', '123456')).cookie;
+  const d7 = await ds(PH7);
+  check('đối chứng — chị Trang nay là phụ huynh của s7',
+    (d7.contacts || []).some(c => c.studentId === 's7'), (d7.contacts || []).map(c => c.studentId));
+  check('chị Trang KHÔNG thấy cuộc của chị Hương trong danh sách',
+    !(d7.conversations || []).some(c => c.id === CUOC_P6), (d7.conversations || []).map(c => c.id));
+  check('không tin cuối nào lộ chuyện bé Châu',
+    !(d7.conversations || []).some(c => /s7b/.test(c.lastMessage?.text || '')),
+    (d7.conversations || []).map(c => c.lastMessage?.text));
+  check('không mục liên hệ nào của chị Trang trỏ vào cuộc ấy',
+    !(d7.contacts || []).some(c => c.existingConversationId === CUOC_P6 || c.existingConversationId === 'cv_vp_gop_s7'),
+    d7.contacts);
+  check('GET → 403', (await doc(PH7, CUOC_P6)).status === 403);
+  check('poll → 403',
+    (await req('GET', `/api/messages/${CUOC_P6}/poll?after=`, { cookie: PH7 })).status === 403);
+  check('POST → 403', (await gui(PH7, CUOC_P6, 'chen vào')).status === 403);
+  check('thu hồi tin của người khác → 403',
+    (await req('POST', `/api/messages/${CUOC_P6}/tin/${TIN_P6}/thu-hoi`, { cookie: PH7 })).status === 403);
+
+  // Kênh văn phòng CŨ của s7: người đọc phía gia đình đóng băng từ lúc triển
+  // khai Đ239m — phụ huynh được gắn sau không vào được, dù là phụ huynh của s7.
+  check('kênh văn phòng CŨ của s7 (có chuyện riêng s7b): chị Trang mở → 403',
+    (await doc(PH7, 'cv_vp_gop_s7')).status === 403);
+  const d7b = await ds(PH7);
+  check('và không thấy nó, cũng không thấy tin cuối của nó',
+    !(d7b.conversations || []).some(c => c.id === 'cv_vp_gop_s7' || /chuyện riêng s7b/.test(c.lastMessage?.text || '')),
+    (d7b.conversations || []).map(c => c.id));
+  check('không ai thêm chị Trang vào kênh cũ ấy', !thanhVienPH('cv_vp_gop_s7').includes('p7'),
+    thanhVienPH('cv_vp_gop_s7'));
+  const muc7 = (d7b.contacts || []).filter(c => c.kenh === 'vanphong');
+  check('mục văn phòng của chị Trang là của RIÊNG chị — chưa có cuộc nào',
+    muc7.length === 1 && !muc7[0].existingConversationId, muc7);
+  check('chị Hương vẫn đọc được kênh cũ của mình', (await doc(PH6, 'cv_vp_gop_s7')).status === 200);
+  check('và cuộc mới của mình', (await doc(PH6, CUOC_P6)).status === 200);
+}
+
+console.log('\n[16] Gỡ phụ huynh khỏi bé: còn con thì còn thư, hết con trong hạn thì hết');
+{
+  const PH6 = (await login('ph.huong', '123456')).cookie;
+  ghiCsdl("DELETE FROM student_parents WHERE studentId = 's7b' AND parentId = 'p6'");
+  check('gỡ khỏi s7b, còn s7: chị Hương VẪN đọc cuộc của mình', (await doc(PH6, CUOC_P6)).status === 200);
+  ghiCsdl("DELETE FROM student_parents WHERE studentId = 's7' AND parentId = 'p6'");
+  check('gỡ nốt s7: mở cuộc → 403', (await doc(PH6, CUOC_P6)).status === 403);
+  const d6 = await dsHT(PH6);
+  check('và cuộc ấy biến khỏi danh sách', !d6.some(c => c.id === CUOC_P6), d6.map(c => c.id));
+  check('kênh văn phòng cũ của bé đã gỡ cũng biến khỏi danh sách (không lộ tin cuối)',
+    !d6.some(c => c.id === 'cv_vp_gop_s7'), d6.map(c => c.id));
+  check('văn phòng vẫn giữ và đọc được cuộc — đóng đường xem không phải xoá',
+    (await doc(VP1, CUOC_P6)).status === 200);
+}
+
+console.log('\n[17] Ba phụ huynh của MỘT bé: mỗi người một cuộc, không ai đọc của ai');
+{
+  const ck = {};
+  const ma = {};
+  for (const u of ['ph.ba1', 'ph.ba2', 'ph.ba3']) {
+    ck[u] = (await login(u, '123456')).cookie;
+    const muc = await vpCua(ck[u]);
+    const r = await mo(ck[u], 'vanphong', muc[0]?.studentId);
+    ma[u] = r.data?.id;
+    await gui(ck[u], ma[u], `Tin riêng của ${u}`);
+  }
+  check('ba người, BA cuộc khác nhau', new Set(Object.values(ma).filter(Boolean)).size === 3, ma);
+  const cheo = [];
+  for (const a of Object.keys(ma)) {
+    for (const b of Object.keys(ma)) {
+      if (a !== b) cheo.push([a, b, (await doc(ck[a], ma[b])).status]);
+    }
+  }
+  check('mọi lượt đọc chéo đều 403', cheo.every(x => x[2] === 403), cheo);
+  const dsVP = await dsHT(VP1);
+  check('văn phòng thấy cả ba', Object.values(ma).every(id => dsVP.some(c => c.id === id)));
+}
+
+console.log('\n[18] Bé đã nghỉ: còn hạn 12 tháng thì còn thư, quá hạn thì hết');
+{
+  const PN = (await login('ph.nghi', '123456')).cookie;
+  const muc = await vpCua(PN);
+  const r = await mo(PN, 'vanphong', muc[0]?.studentId);
+  const CUOC = r.data?.id;
+  await gui(PN, CUOC, 'Gia đình xin bảng điểm danh tháng này ạ');
+  const k = await mo(PN, 'nhom', 's_nghi');
+  await gui(PN, k.data.id, 'Cô ơi con đỡ ho rồi ạ');
+  check('đối chứng — mở được cả hộp thư văn phòng lẫn kênh của cô', r.status === 200 && k.status === 200);
+
+  const luiThang = (n) => {
+    const [y, m, d] = HOM_NAY().split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1 - n, Math.min(d, 28))).toISOString().slice(0, 10);
+  };
+  ghiCsdl("UPDATE students SET active = 0, leftAt = ? WHERE id = 's_nghi'", luiThang(3));
+  check('nghỉ 3 tháng: vẫn mở được hộp thư', (await doc(PN, CUOC)).status === 200);
+  check('và nó vẫn trong danh sách', (await dsHT(PN)).some(c => c.id === CUOC));
+  check('nhưng không còn mục để MỞ cuộc mới với văn phòng', (await vpCua(PN)).length === 0);
+  const vpDoc = await doc(VP1, CUOC);
+  check('văn phòng vẫn đọc được, và dòng phụ nói rõ không còn bé nào đang học',
+    vpDoc.status === 200 && vpDoc.data.subtitle === 'Không còn bé đang học ở cơ sở này', vpDoc.data.subtitle);
+
+  ghiCsdl("UPDATE students SET leftAt = ? WHERE id = 's_nghi'", luiThang(13));
+  check('quá 12 tháng: mở hộp thư → 403', (await doc(PN, CUOC)).status === 403);
+  const d = await dsHT(PN);
+  check('và nó biến khỏi danh sách', !d.some(c => c.id === CUOC), d.map(c => c.id));
+  check('kênh của cô với bé ấy cũng biến khỏi danh sách', !d.some(c => c.id === k.data.id), d.map(c => c.id));
+}
+
+console.log('\n[19] Nhiều cơ sở và cuộc đã đóng');
+{
+  check('văn phòng cơ sở 2 không thấy cuộc của cơ sở 1', !(await dsHT(VP2)).some(c => c.id === CUOC_P6));
+  check('quản lý cơ sở 2 cũng không', !(await dsHT(QL2)).some(c => c.id === CUOC_P6));
+  const dongCheo = await req('POST', `/api/messages/${CUOC_P6}/dong`, { cookie: QL2 });
+  check('quản lý cơ sở 2 KHÔNG đóng được cuộc của cơ sở 1',
+    dongCheo.status === 403 && /cơ sở khác/.test(dongCheo.data?.error || ''), dongCheo.data);
+
+  const dong = await req('POST', `/api/messages/${CUOC_P2_CS1}/dong`, {
+    cookie: QT, body: { lyDo: 'Đã giải quyết xong' },
+  });
+  check('ban giám hiệu đóng được hộp thư cơ sở 1 của anh Bảo', dong.status === 200, dong.data);
+  check('quản lý cơ sở 2 không đọc được cuộc đã đóng ấy', (await doc(QL2, CUOC_P2_CS1)).status === 404);
+  check('và không thấy nó trong kho lưu của mình',
+    !(((await req('GET', '/api/messages/da-dong', { cookie: QL2 })).data || {}).ds || [])
+      .some(x => x.conversationId === CUOC_P2_CS1));
+  check('cũng không mở lại được',
+    (await req('POST', `/api/messages/${CUOC_P2_CS1}/mo-lai`, { cookie: QL2 })).status === 403);
+  check('ban giám hiệu đọc lại được', (await doc(QT, CUOC_P2_CS1)).status === 200);
+  const kho = (((await req('GET', '/api/messages/da-dong', { cookie: QT })).data || {}).ds || [])
+    .find(x => x.conversationId === CUOC_P2_CS1);
+  check('kho lưu nói rõ hộp thư của phụ huynh nào', (kho?.hoTenPhuHuynh || '').includes(TEN.phuhuynh2), kho);
+  const PH2 = (await login('phuhuynh2', '123456')).cookie;
+  check('gia đình không mở được cuộc đã đóng', (await doc(PH2, CUOC_P2_CS1)).status === 404);
+  const moi = await mo(PH2, 'vanphong', 's3');
+  check('và mục văn phòng cơ sở 1 mở ra một cuộc MỚI', moi.status === 200 && moi.data.id !== CUOC_P2_CS1, moi.data);
+}
+
+console.log('\n[20] Văn phòng trả lời: đẩy về đúng chủ cuộc, KHÔNG vào chuông thông báo của bé');
+{
+  // thongbao_be gắn theo BÉ: mọi phụ huynh hiện tại của bé đọc được, và nội dung
+  // chứa 140 ký tự đầu của tin — đi đường ấy là rò đúng thứ vừa đóng ở [15].
+  const dem = () => docCsdl("SELECT COUNT(*) AS n FROM thongbao_be WHERE loai = 'tin-nhan'")[0].n;
+  const truoc = dem();
+  check('trả lời trong hộp thư mới được', (await gui(VP1, CUOC_P3, 'Văn phòng đã nhận ạ')).status === 200);
+  check('trả lời trong kênh văn phòng cũ được', (await gui(VP1, 'cv_vp_cu_s4', 'Dạ văn phòng ghi nhận')).status === 200);
+  check('số tin riêng của bé KHÔNG tăng', dem() === truoc, { truoc, sau: dem() });
+  check('không dòng nào chỉ đường về hai cuộc ấy',
+    docCsdl('SELECT COUNT(*) AS n FROM thongbao_be WHERE hash IN (?, ?)',
+      `#/messages/${CUOC_P3}`, '#/messages/cv_vp_cu_s4')[0].n === 0);
+
+  // Ai nhận thông báo đẩy — hỏi thẳng luật, trong tiến trình bài canh (mẫu
+  // test/day-tin-nhom.test.mjs). `lib/db.js` đọc DATA_DIR lúc nạp.
+  process.env.DATA_DIR = DIR;
+  const kvp = createRequire(import.meta.url)(path.join(GOC, 'lib', 'kenh-van-phong.js'));
+  ganPhuHuynh(DIR, 's7b', 'p6');
+  const nhan = kvp.nguoiNhanDay(kvp.cuaHoiThoai(CUOC_P6));
+  check('chủ cuộc còn con đang học → đẩy cho đúng chủ cuộc', JSON.stringify(nhan) === '["p6"]', nhan);
+  ghiCsdl("DELETE FROM student_parents WHERE studentId = 's7b' AND parentId = 'p6'");
+  const het = kvp.nguoiNhanDay(kvp.cuaHoiThoai(CUOC_P6));
+  check('gỡ hết bé → không đẩy cho ai', JSON.stringify(het) === '[]', het);
+  createRequire(import.meta.url)(path.join(GOC, 'lib', 'db.js')).close();
 }
 
 await sv.dung();
