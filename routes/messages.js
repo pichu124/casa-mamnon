@@ -740,11 +740,17 @@ module.exports = (app) => {
     // WHERE, cùng lý do: hàng thành viên không cấp quyền, và lọc sau LIMIT là
     // đếm hụt trang.
     const dieuKienKenh = kvp.dieuKienDanhSach(user);
+    // TIN ĐÃ THU HỒI KHÔNG ĐẾM VÀO CHẤM ĐỎ CỦA TỪNG DÒNG — cùng luật với huy
+    // hiệu ở routes/dashboard.js. Thiếu điều kiện này (lỗi có từ Đ196): cô gửi
+    // rồi thu hồi trước khi nhà kịp đọc, ô Nhắn tin trên trang chủ báo 0 mà mở
+    // màn Nhắn tin vẫn thấy "1" với tên in đậm, bấm vào không có gì mới.
+    // Canh ở `test:nhan-tin-thu-hoi-phong`, mục [6].
     const rows = db.all('conversations',
       `SELECT c.*, cm.lastRead AS myLastRead,
               (SELECT COUNT(*) FROM messages m
                  WHERE m.conversationId = c.id AND m.senderId != ?
-                   AND (cm.lastRead IS NULL OR m.createdAt > cm.lastRead)) AS unreadCount
+                   AND (cm.lastRead IS NULL OR m.createdAt > cm.lastRead)
+                   AND ${st.dieuKienConHien('messages', 'm.id')}) AS unreadCount
        FROM conversations c
        JOIN conversation_members cm ON cm.conversationId = c.id AND cm.userId = ?
        WHERE ${dieuKienPhongNhom}
@@ -762,6 +768,13 @@ module.exports = (app) => {
     // cơ sở dữ liệu — mỗi lần cô mở màn Nhắn tin, và cô mở nó nhiều lần một
     // ngày. Câu ngay bên trên đã cố ý gộp phần đếm tin chưa đọc vào một truy
     // vấn với đúng lý do đó; phần tin cuối thì bị bỏ sót.
+    //
+    // TIN CUỐI ĐÃ THU HỒI: GIỮ CHỖ, BỎ CHỮ — đúng luật của `messageDto`. Tin
+    // ấy vẫn là tin cuối (mở cuộc ra là thấy dòng "đã thu hồi" ở cuối), nhưng
+    // chữ không được rời máy chủ ở màn này cũng như ở màn trong. Bản trước in
+    // nguyên `text` vào dòng xem trước, tức đúng thứ cô vừa rút lại hiện ngay
+    // dưới tên cuộc. Cờ `daThuHoi` hỏi ngay trong câu dưới, không hỏi lẻ từng
+    // hội thoại.
     // Luật của `findConv` (cô đã rời nhóm thì không thấy phòng chung) đã nằm
     // ngay trong WHERE của câu truy vấn trên — trước LIMIT, nên trang không
     // bị đếm hụt. `nhinThay` giữ nguyên tên cho phần dưới đọc không đổi.
@@ -774,7 +787,8 @@ module.exports = (app) => {
       for (const m of db.all('messages',
         `SELECT * FROM (
            SELECT m.*, ROW_NUMBER() OVER (
-                    PARTITION BY m.conversationId ORDER BY m.createdAt DESC, m.rowid DESC) AS hang
+                    PARTITION BY m.conversationId ORDER BY m.createdAt DESC, m.rowid DESC) AS hang,
+                  CASE WHEN ${st.dieuKienConHien('messages', 'm.id')} THEN 0 ELSE 1 END AS daThuHoi
              FROM messages m WHERE m.conversationId IN (${dauHT})
          ) WHERE hang = 1`, maHT)) {
         tinCuoi.set(m.conversationId, m);
@@ -867,7 +881,12 @@ module.exports = (app) => {
         type: cv.type,
         ...convMeta(cv, user, tra.thanhVien.get(cv.id), tra),
         lastMessage: last
-          ? { text: last.text, senderName: displayName(tra.nguoi.get(last.senderId)), createdAt: last.createdAt }
+          ? {
+            text: last.daThuHoi ? '' : last.text,
+            daThuHoi: !!last.daThuHoi,
+            senderName: displayName(tra.nguoi.get(last.senderId)),
+            createdAt: last.createdAt,
+          }
           : null,
         unreadCount: Number(cv.unreadCount) || 0,
       };
