@@ -371,6 +371,35 @@ CREATE TABLE IF NOT EXISTS kenh_hoi_thoai (
 CREATE INDEX IF NOT EXISTS idx_kenh_be ON kenh_hoi_thoai(studentId, loai);
 CREATE INDEX IF NOT EXISTS idx_kenh_lop ON kenh_hoi_thoai(classId);
 
+-- ===== HỘP THƯ VĂN PHÒNG: MỖI TÀI KHOẢN PHỤ HUYNH × CƠ SỞ MỘT CUỘC (Đ239m) =====
+--
+-- Nhà trường 16/10 (PH1): *"không cần tách ra Văn phòng nhà trường về bé này bé
+-- kia, chỉ cần ghi Nhắn tin với văn phòng nhà trường"*. Chủ dự án chọn phương án
+-- A ngày 18/10 (docs/PHAN-HOI-TRUONG-1610.md, mục PH1).
+--
+-- VÌ SAO GẮN THEO NGƯỜI, KHÔNG GẮN THEO BÉ. Một cuộc nói về cả nhà thì nội dung
+-- phủ nhiều bé, còn quyền đọc kênh của MỘT bé tính theo phụ huynh HIỆN TẠI của
+-- bé đó. Hai lần gộp kiểu ấy đều rò tin thật: bố mẹ riêng đọc chuyện con riêng
+-- của nhau, và phụ huynh được gắn THÊM SAU đọc chuyện của bé không phải con mình.
+-- Ở đây phía gia đình chỉ có ĐÚNG MỘT người đọc (`parentId`) và không ai được
+-- thêm vào sau — rò kiểu đó không còn chỗ để xảy ra, không phải nhờ một chốt
+-- chặn mà nhờ hình dạng dữ liệu.
+--
+-- KHÔNG UNIQUE (parentId, campusId): cuộc bị đóng (bảng hoi_thoai_dong) thì gia
+-- đình phải lập được cuộc mới. "Cuộc đang dùng" là dòng mới nhất chưa bị đóng.
+-- `parentId` không có khoá ngoại, cùng lối với `hoi_thoai_dong.dongBoi`: xoá một
+-- tài khoản không được kéo theo lời qua lại giữa trường và gia đình.
+-- `campusId` là cơ sở lúc lập; '' là nhóm chưa gắn cơ sở (chỉ ban giám hiệu đọc).
+-- Luật đọc nằm ở MỘT chỗ: lib/kenh-van-phong.js.
+CREATE TABLE IF NOT EXISTS kenh_van_phong (
+  conversationId TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  parentId       TEXT NOT NULL,
+  campusId       TEXT NOT NULL DEFAULT '',
+  taoLuc         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_kvp_nguoi ON kenh_van_phong(parentId, campusId);
+CREATE INDEX IF NOT EXISTS idx_kvp_coso ON kenh_van_phong(campusId);
+
 -- ===== Hội thoại nhà trường đã ĐÓNG (Đ192, Câu 5) =====
 --
 -- Nhà trường chốt: xoá một cuộc trò chuyện là xoá khỏi màn hình phụ huynh,
