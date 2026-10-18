@@ -223,13 +223,24 @@ nên hai dòng "Cô phụ trách nhóm" của hai con phân biệt được.
    vực, lớp 2) — vẫn làm ở lối phụ "Suy ngẫm cuối ngày". Tiêu đề màn vẫn "Hành trình học tập"
    (tên phân hệ); trường gọi "Hành trình của bé" — đổi thì báo.
 7. **Chạy lại `ban-thu`** sẽ tắt Đón trả bé kể cả khi người giữ máy đã bật lại bằng tay.
-8. **Lỗi có từ trước, tìm thấy khi làm đợt này, CHƯA sửa** (đụng bài canh quyền ảnh hoặc ngoài
+8. **Hộp thư văn phòng (phương án A) — hai điểm nên biết** (review đối kháng 18/10, không chặn):
+   - **Bé chuyển cơ sở:** hộp thư cũ của gia đình vẫn thuộc văn phòng cơ sở CŨ (thiết kế A cố ý
+     không buộc hộp thư theo nơi con đang học, để không ai mất lịch sử). Gia đình có thêm dòng
+     văn phòng của cơ sở mới; nếu vẫn viết vào hộp thư cũ thì văn phòng cơ sở cũ đọc được tin về
+     một bé nay đã ở cơ sở khác. Muốn đóng hộp thư cũ khi bé chuyển thì báo.
+   - **Dòng thông báo cũ của kênh văn phòng theo từng bé:** trước Đ239m, mỗi lần văn phòng trả lời
+     trong kênh của một bé thì ghi một dòng vào chuông Thông báo của bé đó (kèm 140 chữ đầu). Dòng
+     ấy hiện cho mọi phụ huynh HIỆN TẠI của bé, kể cả người gắn sau. Từ Đ239m không ghi dòng mới.
+     App chưa chạy thật ở trường nên chỉ có dòng của dữ liệu thử; khi trường dùng thật, bắt đầu
+     từ cơ sở dữ liệu mới (không dùng lại dữ liệu của máy thử) là đủ, không cần thêm mã.
+9. **Lỗi có từ trước, tìm thấy khi làm đợt này, CHƯA sửa** (đụng bài canh quyền ảnh hoặc ngoài
    phạm vi):
    - "Nhận lại" / "Đi học lại" không mở khoảng lịch sử nhóm từ hôm nay (`lsl.baoDamCoKhoang` gọi
      trước khi bé được bật lại) → khoảng được mở muộn, phủ cả thời gian bé vắng; khi nhóm đóng,
      luật ngày của album có thể cho gia đình thấy ảnh chụp lúc bé không có mặt.
-   - Danh sách hội thoại đọc theo `conversation_members`: phụ huynh đã bị gỡ khỏi bé có thể vẫn
-     thấy tiêu đề và tin cuối của kênh cũ (mở vào thì bị chặn). Chưa thử.
+   - ~~Danh sách hội thoại đọc theo `conversation_members`: phụ huynh đã bị gỡ khỏi bé có thể vẫn
+     thấy tiêu đề và tin cuối của kênh cũ (mở vào thì bị chặn).~~ **Đã sửa ở Đ239m**: điều kiện
+     danh sách lọc kênh theo các bé người này còn đọc được (`nhan-tin-kenh` [16]).
    - Gọi thẳng API "Cho nghỉ" trên bé đã nghỉ đặt lại `leftAt` = hôm nay → kéo dài hạn 12 tháng.
    - Bài giao diện `diem-danh-tra-be` [8] đỏ khi chạy 00:00–06:00 giờ Việt Nam (mốc rà soát
      06:00) — cần đồng hồ giả cho bài.
