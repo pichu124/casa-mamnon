@@ -156,8 +156,12 @@ try {
   console.log('\n[7] Mã nguồn: bốn tab, chữ quy ước, không có "Đánh giá cuối tháng" ở phân hệ Kế hoạch');
   {
     const v = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
-    check('màn cô có tab "Kế hoạch của bé" đứng trước ba chương trình', /data-nhom="kehoach">Kế hoạch của bé</.test(v));
-    check('màn gia đình có bốn tab', /id="ht-ph-tabs"/.test(v) && /data-tab="kehoach">Kế hoạch của bé</.test(v));
+    // Góp ý 16/10 (mục 6): thứ tự và chữ của bốn tab khai MỘT chỗ trong phân
+    // hệ, cho cả cô lẫn gia đình — Kế hoạch của bé đứng trước ba chương trình.
+    check('bốn tab khai một chỗ, đúng thứ tự trường: Kế hoạch / Cambridge / P.E (Thể chất) / Montessori & Kỹ năng sống',
+      /BON_TAB:\s*\[\s*\['kehoach', 'Kế hoạch của bé'\],\s*\['nuoc-ngoai', 'Cambridge'\],\s*\['the-chat', 'P\.E \(Thể chất\)'\],\s*\['chu-nhiem', 'Montessori & Kỹ năng sống'\],?\s*\]/.test(v));
+    check('màn cô vẽ dải tab từ đúng hằng ấy', /id="ht-tabs"[\s\S]{0,200}?this\.BON_TAB\.map/.test(v));
+    check('màn gia đình có bốn tab, cũng vẽ từ hằng ấy', /id="ht-ph-tabs"[\s\S]{0,200}?this\.BON_TAB/.test(v));
     const kh = ['routes.js', 'view.js', 'schema.sql'].map(t => fs.readFileSync(path.join(GOC, 'modules/kehoachbe', t), 'utf8')).join('\n');
     check('phân hệ Kế hoạch vẫn gọi là "Nhìn lại", không "Đánh giá cuối tháng"', !/Đánh giá cuối tháng/.test(kh));
     check('màu của mức độ không đỏ, không cam', !/MAU_KET_QUA[^}]*(red|orange)/.test(kh) && !/MAU = \{[^}]*(red|orange)/.test(v));
@@ -229,6 +233,22 @@ try {
     const n1 = (await req('GET', '/api/hanhtrinh/nhac-nhe', { cookie: GV })).data;
     check('quan sát Cambridge của cô nước ngoài KHÔNG làm cô phụ trách nhóm "xong việc" với bé khác', Array.isArray(n1.tuanNay), n1);
     check('s1 có quan sát Montessori của cô phụ trách nhóm → không nằm trong danh sách của cô ấy', !(n1.tuanNay || []).some(b => b.studentId === 's1'));
+  }
+
+  // =========================================================================
+  console.log('\n[11] Màn bốn tab của cô biết trước cô ghi được phần nào — gia đình không nhận gì thêm');
+  {
+    const cua = async (cookie) => (await req('GET', '/api/hanhtrinh?studentId=s1', { cookie })).data || {};
+    const sx = (x) => [...(x || [])].sort().join(',');
+    check('cô nước ngoài của nhóm: chỉ ghi được phần Cambridge', sx((await cua(GV3)).nhomDuocGhi) === 'nuoc-ngoai', (await cua(GV3)).nhomDuocGhi);
+    check('cô phụ trách nhóm (nhóm đã có cô nước ngoài): Montessori và phần P.E chưa ai giữ',
+      sx((await cua(GV)).nhomDuocGhi) === 'chu-nhiem,the-chat', (await cua(GV)).nhomDuocGhi);
+    check('văn phòng ghi được cả ba phần', sx((await cua(QL)).nhomDuocGhi) === 'chu-nhiem,nuoc-ngoai,the-chat', (await cua(QL)).nhomDuocGhi);
+    check('gia đình KHÔNG nhận khoá này', !('nhomDuocGhi' in (await cua(PH))));
+    const hn = (await req('GET', '/api/hanhtrinh/hom-nay', { cookie: GV3 })).data || {};
+    const be = (hn.danhSachBe || []);
+    check('danh sách bé của màn cô kèm nhóm của từng bé (để chọn nhóm rồi chọn bé)',
+      be.some(b => b.id === 's1' && b.classId === 'c1') && be.some(b => b.id === 's2' && b.classId === 'c2'), be.slice(0, 3));
   }
 
 } finally {

@@ -110,7 +110,21 @@ function coQuyenCapLai(actor, target) {
 // Cả hai đều KHÔNG có cơ sở của riêng mình — quan hệ đi vòng qua nhóm lớp:
 // cô thì qua nhóm cô phụ trách, phụ huynh thì qua nhóm con đang học. Người nào
 // không nối được tới nhóm nào của cơ sở này thì không thuộc về nó.
+//
+// Một ngoại lệ, cùng luật với danh sách cô ở routes/admin.js (Đ239d1): cô
+// CHƯA TỪNG được phân vào nhóm nào (kể cả nhóm đã đóng) thì thuộc cơ sở của
+// quản lý đã tạo ra cô (bảng `giao_vien_co_so`). Thiếu vế này thì quản lý cơ
+// sở thấy cô mình vừa tạo mà không cấp lại được mật khẩu cho cô (Đ239d2). Cô
+// đã từng có nhóm thì chỉ nhóm mới là sự thật — dòng ghi nhận ấy không được
+// hỏi tới nữa, kể cả khi chuyển năm học đóng hết nhóm của cô: không thì quản lý
+// cơ sở đã tạo cô lại "có" cô sau khi ban giám hiệu chuyển cô sang cơ sở khác.
 function trongCoSo(target, campusId) {
+  if (target.role === 'teacher') {
+    if (!db.classIdsEverOfTeacher(target.id).length) {
+      const r = db.first('giao_vien_co_so', 'SELECT campusId FROM giao_vien_co_so WHERE userId = ?', [target.id]);
+      return !!r && r.campusId === campusId;
+    }
+  }
   const nhom = db.classIdsOfCampus(campusId);
   if (!nhom.length) return false;
   const marks = nhom.map(() => '?').join(',');

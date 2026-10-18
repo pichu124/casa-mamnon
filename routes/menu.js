@@ -221,15 +221,31 @@ function thucDonCua(campusId, from, to) {
 // tệp thì THAY cả ngày; ngày để trống trong tệp thì KHÔNG đụng tới — nạp một
 // tệp thiếu vài ngày không được xoá thực đơn đang có của những ngày ấy.
 //
+// MẪU THEO TUẦN (góp ý 16/10, mục 1): *"Để upload theo tuần k cần để theo
+// tháng"*, *"Bữa sáng để luôn 3 dòng riêng biệt"*. Đúng khuôn bảng của trường:
+// cột A là bữa kèm giờ (ô gộp dọc), cột B → F là Thứ Hai → Thứ Sáu, MỖI Ô MỘT
+// MÓN. Đây là mẫu màn hình phát ra; mẫu tháng vẫn tải được bằng `?thang=` và
+// tệp tháng trường đã điền vẫn nạp được.
+//
 // Năm bữa PHẢI KHỚP `BUA_MAC_DINH` ở public/js/views/menu.js — Nhật ký ngày
 // đọc thực đơn theo đúng mã `type` ấy. `test:thuc-don-excel` canh hai bản.
+// Tên và giờ theo ảnh mẫu 16/10; thực đơn đã lưu giữ nguyên tên, giờ của nó.
 const BUA_MAU = [
-  { type: 'breakfast', label: 'Bữa sáng', time: '07:30' },
-  { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:00' },
-  { type: 'lunch', label: 'Bữa trưa', time: '10:45' },
-  { type: 'snack', label: 'Bữa phụ chiều', time: '14:30' },
-  { type: 'milk', label: 'Sữa Vinamilk', time: '15:30' },
+  { type: 'breakfast', label: 'Bữa sáng', time: '08:00' },
+  { type: 'snack_sang', label: 'Bữa phụ sáng', time: '09:30' },
+  { type: 'lunch', label: 'Bữa trưa', time: '11:20' },
+  { type: 'snack', label: 'Bữa phụ chiều', time: '14:00' },
+  { type: 'milk', label: 'Bữa sữa chiều', time: '15:30' },
 ];
+// Số dòng mỗi bữa trong mẫu tuần, theo ảnh của trường. Bữa nào tuần đó nhiều
+// món hơn thì mẫu thêm dòng — không cắt món. Bữa trưa ghi giờ của hai lứa.
+const KHUON_TUAN = {
+  breakfast: { dong: 3 },
+  snack_sang: { dong: 1 },
+  lunch: { dong: 6, gio: '0–3 tuổi: 11h20\n3–6 tuổi: 11h40' },
+  snack: { dong: 2 },
+  milk: { dong: 1 },
+};
 const TEN_THU = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const TOI_DA_HANG_EXCEL = 70;          // hơn hai tháng ngày học
 const TOI_DA_TEP_EXCEL = 3 * 1024 * 1024;
@@ -270,10 +286,169 @@ function ngayTuO(gt) {
 }
 const tachMon = (o) => String(o ?? '').split(/[;\n•]/).map(x => x.trim()).filter(Boolean);
 const ddmm = (s) => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+// Thứ Hai → "19/10 – 23/10/2026" (qua năm thì ghi năm ở cả hai đầu).
+const tenTuan = (thuHai) => {
+  const thuSau = congNgay(thuHai, 4);
+  return `${ddmm(thuHai)}${thuHai.slice(0, 4) === thuSau.slice(0, 4) ? '' : `/${thuHai.slice(0, 4)}`} – ${ddmm(thuSau)}/${thuSau.slice(0, 4)}`;
+};
+
+// ---- Đọc khuôn TUẦN ----
+const boDau = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u0111\u0110]/g, 'd').toLowerCase();
+const chuMotDong = (o) => String(o ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+const THU_CHU = { hai: 0, ba: 1, tu: 2, nam: 3, sau: 4, bay: 5 };
+
+// Ô tiêu đề cột ngày: "Thứ Hai", "Thứ 2", "T2"… "Chủ nhật", kèm ngày phía sau
+// nếu có ("Thứ Hai\n19/10"). Trả về { lech: 0 = Thứ Hai … 6 = Chủ nhật, d, m, y }.
+function thuCuaO(gt) {
+  if (typeof gt !== 'string') return null;
+  const s = boDau(gt).trim();
+  const k = /^(?:thu\s*(hai|ba|tu|nam|sau|bay|[2-7])|t\s*([2-7])|(chu\s*nhat|cn))(?![a-z0-9])/.exec(s);
+  if (!k) return null;
+  const lech = k[3] ? 6 : (k[2] ? Number(k[2]) - 2 : (THU_CHU[k[1]] ?? Number(k[1]) - 2));
+  const n = /(\d{1,2})\s*[/.-]\s*(\d{1,2})(?:\s*[/.-]\s*(\d{4}|\d{2}))?/.exec(s.slice(k[0].length));
+  if (!n) return { lech };
+  return { lech, d: Number(n[1]), m: Number(n[2]), y: n[3] ? Number(n[3].length === 2 ? `20${n[3]}` : n[3]) : null };
+}
+
+// "dd/mm" không ghi năm → năm làm ngày đó gần `moc` nhất (tuần soạn quanh Tết Dương lịch).
+function ngayGanMoc(d, m, moc) {
+  const y0 = Number(moc.slice(0, 4));
+  let tot = null;
+  for (const y of [y0 - 1, y0, y0 + 1]) {
+    const s = ngayTuO(`${y}-${m}-${d}`);
+    if (s && (!tot || Math.abs(Date.parse(s) - Date.parse(moc)) < Math.abs(Date.parse(tot) - Date.parse(moc)))) tot = s;
+  }
+  return tot;
+}
+
+// Tên bữa ở cột A → bữa của mẫu. Tên đúng như mẫu trước, rồi mới tới cách gọi
+// khác. "Sữa" xét TRƯỚC "chiều": "Bữa sữa chiều" là bữa sữa, không phải bữa phụ.
+// Chỉ đọc dòng đầu của ô — các dòng sau là giờ ăn.
+function buaTheoTenBua(o) {
+  const ten = boDau(String(o ?? '').trim().split('\n')[0]).replace(/\s+/g, ' ').trim();
+  if (!ten) return null;
+  const dung = BUA_MAU.find(b => boDau(b.label) === ten);
+  if (dung) return dung;
+  const bang = [
+    ['snack_sang', /phu sang/],
+    ['milk', /\bsua\b|milk/],
+    ['breakfast', /\bsang\b|breakfast/],
+    ['lunch', /\btrua\b|lunch/],
+    ['snack', /\bchieu\b|\bxe\b|snack/],
+  ];
+  for (const [type, re] of bang) if (re.test(ten)) return BUA_MAU.find(b => b.type === type);
+  return null;
+}
+
+// Giờ đầu tiên ghi trong ô tên bữa: "8h" → 08:00, "9h30", "11:20". "0-3: 11h20"
+// ra 11:20 — số chỉ lứa tuổi đứng trước dấu hai chấm không phải giờ.
+function gioTrongO(o) {
+  const re = /(?<!\d)(\d{1,2})\s?h(\d{2})?(?!\d)|(?<!\d)(\d{1,2}):(\d{2})(?!\d)/gi;
+  for (const k of String(o ?? '').matchAll(re)) {
+    const h = Number(k[1] ?? k[3]); const p = Number(k[2] ?? k[4] ?? 0);
+    if (h <= 23 && p <= 59) return `${String(h).padStart(2, '0')}:${String(p).padStart(2, '0')}`;
+  }
+  return '';
+}
+
+// Bảng tuần: hàng `hangTieuDe` có các ô Thứ, cột bên trái chúng là tên bữa. Ô
+// tên bữa trống thì mang tên bữa của dòng trên xuống — đọc được cả bảng gộp ô
+// lẫn bảng chỉ ghi tên ở dòng đầu. Ngày = Thứ Hai của tuần đã chọn + lệch.
+function docKhuonTuan(trang, hangTieuDe, cacO, tuanChon) {
+  const canhBao = [];
+  const moc = tuanChon || ngay.homNay();
+  for (const c of cacO) if (c.d) c.ngay = c.y ? ngayTuO(`${c.y}-${c.m}-${c.d}`) : ngayGanMoc(c.d, c.m, moc);
+  const coNgay = cacO.find(c => c.ngay);
+  const thuHai = tuanChon ? congNgay(tuanChon, -lechThuHai(tuanChon))
+    : (coNgay ? congNgay(coNgay.ngay, -lechThuHai(coNgay.ngay)) : null);
+  if (!thuHai) {
+    return { loi: 'Chưa biết tệp này là thực đơn của tuần nào. Chọn tuần trên màn hình rồi nạp lại, '
+      + 'hoặc ghi ngày dưới chữ Thứ ở hàng tiêu đề (ví dụ: Thứ Hai 19/10).' };
+  }
+  // MỌI ngày ghi dưới chữ Thứ cùng một tuần KHÁC tuần đã chọn → từ chối, không
+  // lưu gì. Mẫu của app luôn ghi ngày, còn ô chọn tuần mỗi lần mở lại app quay về
+  // "tuần sau": tải mẫu hôm trước, hôm sau nạp mà quên chọn lại tuần là đè thực
+  // đơn của một tuần khác. Ngày lộn xộn (nhiều tuần) thì không biết tệp của tuần
+  // nào — theo tuần đã chọn, kèm lời nhắc ở dưới.
+  if (tuanChon) {
+    const tuanTep = new Set(cacO.filter(c => c.d).map(c => (c.ngay ? congNgay(c.ngay, -lechThuHai(c.ngay)) : '')));
+    const tuan = tuanTep.size === 1 ? [...tuanTep][0] : '';
+    if (tuan && tuan !== thuHai) {
+      return { loi: `Tệp này là thực đơn tuần ${tenTuan(tuan)}, nhưng trên màn hình đang chọn tuần ${tenTuan(thuHai)}. `
+        + 'Chọn đúng tuần rồi nạp lại nhé.' };
+    }
+  }
+  const cotTen = Math.min(...cacO.map(c => c.i)) - 1;
+  if (cotTen < 0) return { loi: 'Cần một cột tên bữa (Bữa sáng, Bữa trưa…) ở bên trái cột Thứ Hai. Dùng đúng tệp mẫu của app nhé.' };
+
+  const cotNgay = [];
+  const lech = [];
+  for (const c of cacO) {
+    if (c.lech > 4) { canhBao.push(`Cột "${chuMotDong(c.chu)}" không phải ngày học — bỏ qua.`); continue; }
+    if (cotNgay.some(x => x.lech === c.lech)) { canhBao.push(`Có hai cột ${TEN_THU[c.lech + 1]} — lấy cột đầu, bỏ cột sau.`); continue; }
+    const date = congNgay(thuHai, c.lech);
+    if (c.ngay !== undefined && c.ngay !== date) lech.push(`"${chuMotDong(c.chu)}"`);
+    cotNgay.push({ i: c.i, lech: c.lech, date });
+  }
+  const thuSau = congNgay(thuHai, 4);
+  if (lech.length) {
+    canhBao.push(`Hàng tiêu đề ghi ngày khác tuần đã chọn (${lech.join(', ')}). App đặt món theo tuần đã chọn: `
+      + `Thứ Hai ${ddmm(thuHai)} – Thứ Sáu ${ddmm(thuSau)}/${thuSau.slice(0, 4)}. Nhầm tuần thì đóng lại, chọn đúng tuần rồi nạp lại nhé.`);
+  }
+
+  const hang = trang.hang.slice(hangTieuDe + 1, hangTieuDe + 1 + TOI_DA_HANG_EXCEL);
+  if (trang.hang.length - hangTieuDe - 1 > TOI_DA_HANG_EXCEL) {
+    canhBao.push(`Bảng có hơn ${TOI_DA_HANG_EXCEL} hàng — chỉ đọc ${TOI_DA_HANG_EXCEL} hàng đầu.`);
+  }
+  const nhom = new Map();   // type → { bua, ten, mon: [món của từng cột ngày] }
+  const khongNhan = [];
+  let tenTren = '';
+  let boQua = false;        // nhóm hàng đang đọc là bữa trùng loại — bỏ cả nhóm
+  hang.forEach((h, j) => {
+    h = h || [];
+    const o = String(h[cotTen] ?? '').trim();
+    const coMon = cotNgay.some(c => tachMon(h[c.i]).length);
+    if (o && o !== tenTren) {
+      tenTren = o;
+      const bua = buaTheoTenBua(o);
+      const truoc = bua && nhom.get(bua.type);
+      boQua = !!truoc;
+      if (truoc) {
+        canhBao.push(`Bữa "${chuMotDong(o)}" trùng bữa với "${chuMotDong(truoc.ten)}" ở trên — bỏ qua. `
+          + `Gộp món vào các dòng của "${chuMotDong(truoc.ten)}" nhé.`);
+      } else if (bua) nhom.set(bua.type, { bua: { ...bua, time: gioTrongO(o) || bua.time }, ten: o, mon: cotNgay.map(() => []) });
+    }
+    if (!coMon || boQua) return;
+    if (!tenTren) { canhBao.push(`Hàng ${hangTieuDe + j + 2} có món nhưng chưa có tên bữa ở cột bên trái — bỏ qua.`); return; }
+    const bua = buaTheoTenBua(tenTren);
+    if (!bua) { if (!khongNhan.includes(tenTren)) khongNhan.push(tenTren); return; }
+    cotNgay.forEach((c, k) => nhom.get(bua.type).mon[k].push(...tachMon(h[c.i])));
+  });
+  for (const t of khongNhan) {
+    canhBao.push(`Dòng "${chuMotDong(t)}" không phải tên bữa nào — bỏ qua. Tên bữa của app: ${BUA_MAU.map(b => b.label).join(', ')}.`);
+  }
+  if (!nhom.size) return { loi: 'Cột tên bữa không có bữa nào app nhận ra (Bữa sáng, Bữa trưa…). Dùng đúng tệp mẫu của app nhé.' };
+  const loai = [...nhom.values()];
+  const ngayRa = cotNgay.map((c, k) => ({
+    date: c.date, thu: TEN_THU[c.lech + 1],
+    bua: loai.map(g => ({ ...g.bua, items: g.mon[k].map(x => x.slice(0, TOI_DA_TEN_MON)).slice(0, TOI_DA_MON_BUA) }))
+      .filter(b => b.items.length),
+  })).filter(n => n.bua.length).sort((a, b) => a.date.localeCompare(b.date));
+  return { ngay: ngayRa, canhBao, loaiCot: loai.map(g => g.bua.type), tuan: thuHai };
+}
 
 // Đọc tệp đã điền → danh sách ngày có món + lời nhắc. KHÔNG ghi gì.
-function docThucDonExcel(buf) {
+// Khuôn TUẦN nhận ra trước: trong tám hàng đầu có hàng chứa từ hai ô "Thứ Hai…
+// Thứ Sáu" trở lên. Không thì đọc khuôn THÁNG cũ (cột "Ngày") như trước.
+function docThucDonExcel(buf, tuanChon) {
   const bang = xlsx.doc(buf);
+  for (const b of bang) {
+    for (let r = 0; r < Math.min(8, b.hang.length); r++) {
+      const cacO = [];
+      (b.hang[r] || []).forEach((gt, i) => { const t = thuCuaO(gt); if (t) cacO.push({ ...t, i, chu: gt }); });
+      if (cacO.length >= 2) return docKhuonTuan(b, r, cacO, tuanChon);
+    }
+  }
   const canhBao = [];
   // Trang có hàng tiêu đề chứa "Ngày" trong năm hàng đầu.
   let trang = null; let hangTieuDe = -1; let cotNgay = -1;
@@ -285,7 +460,7 @@ function docThucDonExcel(buf) {
     if (trang) break;
   }
   if (!trang) {
-    return { loi: 'Không tìm thấy hàng tiêu đề có cột "Ngày". Tải tệp mẫu của app về, điền vào đó rồi nạp lại nhé.' };
+    return { loi: 'Không tìm thấy hàng tiêu đề Thứ Hai… Thứ Sáu (hay cột "Ngày" của mẫu tháng). Tải tệp mẫu của app về, điền vào đó rồi nạp lại nhé.' };
   }
   const tieuDe = trang.hang[hangTieuDe] || [];
   const cotBua = [];
@@ -347,6 +522,54 @@ function buaNhuMau(meals, loaiCot) {
   return ra;
 }
 
+// "YYYY-MM-DD" có thật, năm 2020–2100 → chính nó; còn lại null.
+function ngayISO(s) {
+  const t = String(s || '');
+  const nam = Number(t.slice(0, 4));
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) && nam >= 2020 && nam <= 2100 ? ngayTuO(t) : null;
+}
+
+// Tệp mẫu của MỘT TUẦN: hàng 1 tiêu đề, hàng 2 "Thứ Hai\n19/10"…, rồi năm nhóm
+// hàng bữa, ô tên bữa gộp dọc. Món đang có điền sẵn, mỗi ô một món — tách đúng
+// như `buaNhuMau`, nên nạp lại tệp không sửa gì thì ngày ấy là "không đổi".
+function mauExcelTuan(campusId, thuHai) {
+  const cacNgay = [0, 1, 2, 3, 4].map(i => congNgay(thuHai, i));
+  const thuSau = cacNgay[4];
+  const coSan = new Map(thucDonCua(campusId, thuHai, thuSau).map(m => [m.date, Array.isArray(m.meals) ? m.meals : []]));
+  const cs = campusId ? db.findCampus(campusId) : null;
+  const ten = tenTuan(thuHai);
+  const hang = [
+    [`THỰC ĐƠN TUẦN ${ten}${cs ? ` — Bếp ${cs.name}` : ''}`],
+    ['', ...cacNgay.map((d, i) => `${TEN_THU[i + 1]}\n${ddmm(d)}`)],
+  ];
+  const gop = ['A1:F1'];
+  for (const b of BUA_MAU) {
+    const mon = cacNgay.map(d => {
+      const s = buaNhuMau(coSan.get(d), [b.type])[b.type];
+      return s ? s.split('\n') : [];
+    });
+    const soDong = Math.max(KHUON_TUAN[b.type].dong, ...mon.map(x => x.length));
+    const gio = KHUON_TUAN[b.type].gio || b.time.replace(/^0?(\d+):(\d+)$/, '$1h$2');
+    for (let r = 0; r < soDong; r++) hang.push([r ? '' : `${b.label}\n${gio}`, ...mon.map(x => x[r] || '')]);
+    if (soDong > 1) gop.push(`A${hang.length - soDong + 1}:A${hang.length}`);
+  }
+  const huongDan = [
+    ['CÁCH ĐIỀN TỆP THỰC ĐƠN TUẦN'],
+    ['1. Mỗi cột là một ngày (Thứ Hai → Thứ Sáu), mỗi nhóm hàng là một bữa. Đừng sửa cột A (tên bữa) và hàng Thứ.'],
+    ['2. Mỗi ô ghi MỘT món. Bữa nào nhiều món hơn số dòng có sẵn thì chèn thêm dòng ngay trong nhóm hàng của bữa đó.'],
+    ['3. Ngày nào để trống cả cột thì app KHÔNG đụng tới thực đơn đang có của ngày đó.'],
+    ['4. Ngày nào có món thì app THAY các bữa của ngày đó bằng các món trong tệp.'],
+    ['5. Dán bảng thực đơn của trường vào cũng được: cột tên bữa (Bữa sáng, Bữa phụ sáng, Bữa trưa, Bữa chiều, Bữa sữa chiều) '
+      + 'ở bên trái, rồi các cột Thứ Hai → Thứ Sáu. Ô tên bữa gộp hay không gộp đều được.'],
+    ['6. Điền xong: lưu tệp (giữ dạng .xlsx), vào app → Thực đơn → chọn đúng tuần → "Nạp tệp Excel đã điền". App cho xem trước rồi mới lưu.'],
+    [`Tệp này của tuần ${ten}${cs ? ` — bếp ${cs.name}` : ' — dùng chung mọi cơ sở'}.`],
+  ];
+  return xlsx.ghi([
+    { ten: 'Thực đơn', dongTieuDe: true, cot: [24, 28, 28, 28, 28, 28], hang, gop },
+    { ten: 'Hướng dẫn', cot: [110], hang: huongDan },
+  ]);
+}
+
 module.exports = (app) => {
   // Thực đơn theo tuần: ?week=0 (tuần này, mặc định) | 1 (tuần sau) | -1 (tuần trước).
   app.get('/api/menu', (req, res) => {
@@ -387,10 +610,21 @@ module.exports = (app) => {
   // MỘT GIAO DỊCH, KHÔNG PHẢI 5 LỜI GỌI. Gọi 5 lần thì lỗi ở ngày thứ ba để
   // lại một tuần soạn dở — hai ngày đã lưu, ba ngày chưa — mà màn hình vừa
   // báo lỗi nên người soạn không biết mình đang đứng ở đâu.
-  // Tệp mẫu của MỘT tháng, điền sẵn ngày học và món đã có.
+  // Tệp mẫu của MỘT TUẦN (`?tuan=` một ngày bất kỳ trong tuần; không gửi gì thì
+  // tuần sau — tuần cần soạn), hoặc của MỘT THÁNG theo khuôn cũ (`?thang=`).
   app.get('/api/menu/mau-excel', requireRole('admin'), (req, res) => {
     const quyen = coSoDuocGhi(req.user, String(req.query.campusId || ''));
     if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    if (req.query.tuan !== undefined || req.query.thang === undefined) {
+      const chon = req.query.tuan ? ngayISO(req.query.tuan) : thuHaiCuaTuan(1);
+      if (!chon) return res.status(400).json({ error: 'Tuần chưa hợp lệ, ví dụ đúng: 2026-10-19' });
+      const thuHai = congNgay(chon, -lechThuHai(chon));
+      const buf = mauExcelTuan(quyen.campusId, thuHai);
+      db.audit(req.user.id, 'menu-mau-excel', quyen.campusId || null, { tuan: thuHai });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="Thuc-don-tuan-${thuHai}.xlsx"`);
+      return res.send(buf);
+    }
     const thang = /^\d{4}-\d{2}$/.test(String(req.query.thang || '')) ? String(req.query.thang) : ngay.homNay().slice(0, 7);
     const [y, m] = thang.split('-').map(Number);
     if (m < 1 || m > 12 || y < 2020 || y > 2100) return res.status(400).json({ error: 'Tháng chưa hợp lệ, ví dụ đúng: 2026-10' });
@@ -429,17 +663,21 @@ module.exports = (app) => {
 
   // Nạp tệp đã điền. `luu: false` (mặc định) chỉ đọc và trả bản xem trước;
   // `luu: true` mới ghi — cùng bảng, cùng luật cơ sở với "Lưu cả tuần".
+  // `tuan` (một ngày trong tuần đã chọn trên màn hình) đặt các cột Thứ của tệp
+  // khuôn tuần vào đúng ngày; tệp khuôn tháng có cột Ngày riêng nên không cần.
   app.post('/api/menu/nap-excel', requireRole('admin'), (req, res) => {
     const body = req.body || {};
     const quyen = coSoDuocGhi(req.user, String(body.campusId || ''));
     if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
     const campusId = quyen.campusId;
+    const tuan = body.tuan ? ngayISO(body.tuan) : null;
+    if (body.tuan && !tuan) return res.status(400).json({ error: 'Tuần chưa hợp lệ — chọn lại tuần trên màn hình rồi nạp lại nhé' });
     const m = /^data:[^;,]*;base64,(.+)$/s.exec(String(body.tep || ''));
     if (!m) return res.status(400).json({ error: 'Chưa nhận được tệp Excel' });
     const buf = Buffer.from(m[1], 'base64');
-    if (buf.length > TOI_DA_TEP_EXCEL) return res.status(400).json({ error: 'Tệp quá lớn — tệp thực đơn một tháng chỉ vài chục KB' });
+    if (buf.length > TOI_DA_TEP_EXCEL) return res.status(400).json({ error: 'Tệp quá lớn — tệp thực đơn chỉ vài chục KB' });
     let kq;
-    try { kq = docThucDonExcel(buf); } catch (err) {
+    try { kq = docThucDonExcel(buf, tuan); } catch (err) {
       return res.status(400).json({ error: `Không đọc được tệp: ${err.message}. Mở bằng Excel rồi lưu lại dạng .xlsx thử nhé.` });
     }
     if (kq.loi) return res.status(400).json({ error: kq.loi });
@@ -472,7 +710,7 @@ module.exports = (app) => {
       return { ...n, daCo: !!t.truoc, khongDoi: t.khongDoi, giuBua: t.khongDoi ? [] : t.giu.map(x => x.label) };
     });
     if (!body.luu) {
-      return res.json({ ngay: xemTruoc, canhBao: kq.canhBao, campusId: campusId || null });
+      return res.json({ ngay: xemTruoc, canhBao: kq.canhBao, campusId: campusId || null, tuan: kq.tuan || null });
     }
     if (!kq.ngay.length) return res.status(400).json({ error: 'Tệp không có ngày nào có món để lưu' });
     const luc = new Date().toISOString();

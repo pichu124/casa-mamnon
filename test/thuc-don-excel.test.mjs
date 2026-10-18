@@ -19,6 +19,11 @@
 //     xoá mất thực đơn đang có của những ngày ấy là hỏng im lặng.
 //   • NĂM BỮA CỦA MẪU KHỚP KHUNG NĂM BỮA CỦA MÀN SOẠN — Nhật ký ngày đọc thực đơn
 //     theo đúng mã `type` ấy.
+//
+// Từ [6]: MẪU THEO TUẦN (góp ý 16/10, mục 1). `test/mau/thuc-don-tuan-truong.xlsx`
+// dựng lại đúng ảnh mẫu của trường (cột A "Bữa sáng\n8h"… gộp dọc, "Bữa chiều",
+// ô trống giữa bữa trưa, tiêu đề chỉ có "Thứ Hai…"), cũng openpyxl dựng rồi
+// LibreOffice lưu lại.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -69,6 +74,25 @@ console.log('\n[1] Năm bữa của tệp mẫu khớp khung năm bữa của m�
   const man = lay(vw, 'BUA_MAC_DINH: [');
   check('đọc được năm bữa ở cả hai chỗ', mau.length === 5 && man.length === 5, { mau, man });
   check('năm bữa giống hệt nhau (mã, tên, giờ)', JSON.stringify(mau) === JSON.stringify(man), { mau, man });
+  // Góp ý 16/10, mục 1: giờ theo ảnh mẫu của trường; "Sữa Vinamilk" → "Bữa sữa chiều" (cách gọi ở mục 7).
+  check('tên và giờ theo ảnh mẫu của trường (16/10)', JSON.stringify(mau) === JSON.stringify([
+    'breakfast|Bữa sáng|08:00', 'snack_sang|Bữa phụ sáng|09:30', 'lunch|Bữa trưa|11:20',
+    'snack|Bữa phụ chiều|14:00', 'milk|Bữa sữa chiều|15:30']), mau);
+
+  // Thực đơn của DỮ LIỆU MẪU cũng đúng năm bữa ấy (Đ239j): nhà trường thử trên
+  // máy thử mà màn Thực đơn hiện "Bữa xế" trong khi mẫu Excel nói "Bữa phụ
+  // chiều" là hai chỗ của cùng một app nói hai cách.
+  const Database = (await import('better-sqlite3')).default;
+  const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const mauSeed = conn.prepare('SELECT date, meals FROM menus ORDER BY date').all().map(m => ({ date: m.date, meals: JSON.parse(m.meals) }));
+  conn.close();
+  const khung = (m) => JSON.stringify(m.meals.map(b => `${b.type}|${b.label}|${b.time}`));
+  check('dữ liệu mẫu: mọi ngày có thực đơn đủ năm bữa, đúng mã, tên và giờ của BUA_MAU',
+    mauSeed.length === 10 && mauSeed.every(m => khung(m) === JSON.stringify(mau)), mauSeed.map(m => `${m.date} ${khung(m)}`).slice(0, 2));
+  const soMon = (m, type) => ((m.meals.find(b => b.type === type) || {}).items || []).length;
+  check('dữ liệu mẫu: bữa sáng 3 món, bữa trưa 4–6 món, bữa nào cũng có món',
+    mauSeed.every(m => soMon(m, 'breakfast') === 3 && soMon(m, 'lunch') >= 4 && soMon(m, 'lunch') <= 6 && m.meals.every(b => b.items.length)),
+    mauSeed.map(m => m.meals.map(b => `${b.type}:${b.items.length}`).join(' ')).slice(0, 3));
 }
 
 // ===========================================================================
@@ -82,7 +106,7 @@ console.log('\n[2] Tải tệp mẫu một tháng');
   const td = bang.find(b => b.ten === 'Thực đơn');
   check('có trang "Thực đơn" và trang "Hướng dẫn"', !!td && bang.some(b => b.ten === 'Hướng dẫn'), bang.map(b => b.ten));
   check('hàng tiêu đề: Ngày | Thứ | năm bữa',
-    JSON.stringify(td.hang[0]) === JSON.stringify(['Ngày', 'Thứ', 'Bữa sáng', 'Bữa phụ sáng', 'Bữa trưa', 'Bữa phụ chiều', 'Sữa Vinamilk']), td.hang[0]);
+    JSON.stringify(td.hang[0]) === JSON.stringify(['Ngày', 'Thứ', 'Bữa sáng', 'Bữa phụ sáng', 'Bữa trưa', 'Bữa phụ chiều', 'Bữa sữa chiều']), td.hang[0]);
   // Tháng 3/2027: 31 ngày, 23 ngày từ thứ Hai tới thứ Sáu.
   check('mỗi ngày học một hàng — tháng 3/2027 có 23 ngày học', td.hang.length - 1 === 23, td.hang.length - 1);
   check('hàng đầu là thứ Hai 01/03/2027', td.hang[1][0] === '01/03/2027' && td.hang[1][1] === 'Thứ Hai', td.hang[1]);
@@ -184,6 +208,272 @@ console.log('\n[5] Tệp hỏng, sai mẫu, sai quyền — từ chối nói rõ
   hang[1][4] = 'Cơm gà; Rau luộc';
   const tro = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(xlsx.ghi([{ ten: 'Thực đơn', dongTieuDe: true, hang }])) } });
   check('tệp mẫu của app điền thêm rồi nạp lại: đọc đúng ngày đầu tháng 4', tro.status === 200 && tro.data?.ngay?.[0]?.date === '2027-04-01', tro.data);
+}
+
+// ===========================================================================
+// THỰC ĐƠN THEO TUẦN (góp ý 16/10, mục 1): *"Để upload theo tuần k cần để theo
+// tháng"*; *"Bữa sáng để luôn 3 dòng riêng biệt"*. Khuôn của trường: cột A là
+// bữa kèm giờ (ô gộp dọc), cột B → F là Thứ Hai → Thứ Sáu, mỗi ô một món.
+// ===========================================================================
+const Database = (await import('better-sqlite3')).default;
+const congN = (s, n) => new Date(Date.parse(`${s}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const dm = (s) => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+const dongDau = (o) => String(o ?? '').split('\n')[0];
+const buaCua = (n, type) => ((n?.bua || []).find(b => b.type === type) || {});
+// Nhóm hàng của trang "Thực đơn" theo tên bữa ở cột A (bỏ hàng tiêu đề và hàng Thứ).
+const nhomBua = (td) => {
+  const ra = [];
+  for (const h of td.hang.slice(2)) {
+    const ten = dongDau(h && h[0]);
+    const cuoi = ra[ra.length - 1];
+    if (cuoi && cuoi.ten === ten) cuoi.dong.push(h); else ra.push({ ten, dong: [h] });
+  }
+  return ra;
+};
+const TUAN_SAU = (await req('GET', '/api/menu?week=1', { cookie: QT })).data.from;
+const TEP_TRUONG = fs.readFileSync(path.join(GOC, 'test', 'mau', 'thuc-don-tuan-truong.xlsx'));
+
+console.log('\n[6] lib/xlsx ghi(): ô gộp bằng tham số tuỳ chọn `gop`, đọc lại bằng doc()');
+{
+  const hang = [['Bữa sáng', 'Phở'], [null, 'Bánh mì'], [null, 'Sữa'], ['Bữa trưa', 'Cơm']];
+  const coGop = xlsx.doc(xlsx.ghi([{ ten: 'A', hang, gop: ['A1:A3'] }]))[0].hang;
+  check('vùng gộp dọc A1:A3: đọc lại thấy tên bữa ở cả ba hàng, hàng sau không bị dính',
+    coGop[1][0] === 'Bữa sáng' && coGop[2][0] === 'Bữa sáng' && coGop[3][0] === 'Bữa trưa', coGop);
+  const khongGop = xlsx.doc(xlsx.ghi([{ ten: 'A', hang }]))[0].hang;
+  check('không truyền `gop` thì như cũ: hàng 2, 3 trống ở cột A', khongGop[1][0] === undefined && khongGop[2][0] === undefined, khongGop);
+  const sai = xlsx.doc(xlsx.ghi([{ ten: 'A', hang, gop: ['A1', 'A3:A1', 'zz', 'A0:A2', 'A1:A2', 'A2:A3'] }]))[0].hang;
+  check('vùng viết sai, hay chồng lên vùng đã gộp, bị bỏ qua — tệp vẫn đọc được',
+    sai[1][0] === 'Bữa sáng' && sai[2][0] === undefined && sai[3][0] === 'Bữa trưa', sai);
+}
+
+console.log('\n[7] Tải tệp mẫu THEO TUẦN — đúng khuôn bảng của trường');
+{
+  const macDinh = await taiVe('/api/menu/mau-excel', QT);
+  check('không gửi tham số → mẫu của TUẦN SAU (tuần cần soạn)',
+    macDinh.status === 200 && macDinh.ten.includes(`Thuc-don-tuan-${TUAN_SAU}.xlsx`), { s: macDinh.status, ten: macDinh.ten });
+  const r = await taiVe(`/api/menu/mau-excel?tuan=${congN(TUAN_SAU, 2)}`, QT);
+  check('200, đúng kiểu tệp Excel', r.status === 200 && /spreadsheetml/.test(r.kieu), r.status);
+  check('gửi một ngày giữa tuần → quy về Thứ Hai (tên tệp có ngày Thứ Hai)', r.ten.includes(`Thuc-don-tuan-${TUAN_SAU}.xlsx`), r.ten);
+  const bang = xlsx.doc(r.buf);
+  const td = bang.find(b => b.ten === 'Thực đơn');
+  check('có trang "Thực đơn" và trang "Hướng dẫn"', !!td && bang.some(b => b.ten === 'Hướng dẫn'), bang.map(b => b.ten));
+  const t6 = congN(TUAN_SAU, 4);
+  check('hàng 1: "THỰC ĐƠN TUẦN dd/mm – dd/mm/yyyy"',
+    String(td.hang[0][0]).startsWith(`THỰC ĐƠN TUẦN ${dm(TUAN_SAU)}`) && String(td.hang[0][0]).includes(`– ${dm(t6)}/${t6.slice(0, 4)}`), td.hang[0]);
+  check('hàng tiêu đề: cột A trống, rồi Thứ Hai → Thứ Sáu',
+    !td.hang[1][0] && JSON.stringify(td.hang[1].slice(1).map(dongDau)) === JSON.stringify(['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu']), td.hang[1]);
+  check('dưới chữ Thứ là ngày của đúng tuần đó', td.hang[1].slice(1).every((o, i) => String(o).endsWith(`\n${dm(congN(TUAN_SAU, i))}`)), td.hang[1]);
+  const nhom = nhomBua(td);
+  check('đủ năm bữa, đúng thứ tự', JSON.stringify(nhom.map(n => n.ten))
+    === JSON.stringify(['Bữa sáng', 'Bữa phụ sáng', 'Bữa trưa', 'Bữa phụ chiều', 'Bữa sữa chiều']), nhom.map(n => n.ten));
+  check('Bữa sáng đúng 3 dòng riêng', nhom[0]?.dong.length === 3, nhom[0]?.dong.length);
+  check('số dòng mỗi bữa theo khuôn trường: 3 / 1 / 6 / 2 / 1', JSON.stringify(nhom.map(n => n.dong.length)) === '[3,1,6,2,1]', nhom.map(n => n.dong.length));
+  check('cột A ghi tên bữa kèm giờ (Bữa trưa có giờ của hai lứa tuổi)',
+    nhom[0]?.dong[0][0] === 'Bữa sáng\n8h00' && nhom[1]?.dong[0][0] === 'Bữa phụ sáng\n9h30'
+    && /11h20/.test(nhom[2]?.dong[0][0]) && /11h40/.test(nhom[2]?.dong[0][0]), nhom.map(n => n.dong[0][0]));
+  // Dữ liệu mẫu có thực đơn dùng chung cho tuần sau: mẫu điền sẵn, mỗi ô một món.
+  const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const meals = JSON.parse(conn.prepare('SELECT meals FROM menus WHERE date = ?').get(TUAN_SAU)?.meals || '[]');
+  conn.close();
+  const trua = (meals.find(b => b.type === 'lunch') || {}).items || [];
+  check('(đối chứng) tuần sau đang có bữa trưa Thứ Hai', trua.length >= 2, meals);
+  check('món đang có của Thứ Hai điền sẵn vào cột Thứ Hai, mỗi ô một món',
+    JSON.stringify(nhom[2].dong.map(h => h[1]).filter(Boolean)) === JSON.stringify(trua), nhom[2].dong.map(h => h[1]));
+
+  for (const [ten, c] of [['cô', GV], ['gia đình', PH]]) {
+    const x = await taiVe(`/api/menu/mau-excel?tuan=${TUAN_SAU}`, c);
+    check(`${ten} không tải được mẫu tuần`, [401, 403].includes(x.status), x.status);
+  }
+  const ql = await taiVe(`/api/menu/mau-excel?tuan=${TUAN_SAU}&campusId=cs2`, QL);
+  check('quản lý cơ sở 1 KHÔNG tải mẫu tuần của bếp cơ sở 2', ql.status === 403, ql.status);
+  const qlMinh = await taiVe(`/api/menu/mau-excel?tuan=${TUAN_SAU}`, QL);
+  check('quản lý cơ sở 1 tải mẫu bếp mình: tiêu đề có tên bếp',
+    qlMinh.status === 200 && / — Bếp \S/.test(String(xlsx.doc(qlMinh.buf)[0].hang[0][0])), qlMinh.status === 200 && xlsx.doc(qlMinh.buf)[0].hang[0]);
+  const sai = await taiVe('/api/menu/mau-excel?tuan=2027-02-30', QT);
+  check('tuần không có thật → 400', sai.status === 400, sai.status);
+
+  // Bữa có nhiều món hơn số dòng của khuôn: thêm dòng, không cắt món.
+  const sang = ['Phở gà', 'Bánh mì', 'Trứng luộc', 'Sữa đậu nành', 'Chuối'];
+  const dat = await req('PUT', '/api/menu/tuan', { cookie: QT, body: { ngay: [{ date: '2027-05-04', meals: [
+    { type: 'breakfast', label: 'Bữa sáng', time: '08:00', items: sang },
+    { type: 'lunch', label: 'Bữa trưa', time: '11:20', items: ['Cơm', 'Cá kho'] },
+  ] }] } });
+  check('(đối chứng) dựng được Thứ Ba 04/05/2027 có 5 món bữa sáng', dat.status === 200, dat.data);
+  const nhieu = await taiVe('/api/menu/mau-excel?tuan=2027-05-07', QT);
+  const nhom2 = nhomBua(xlsx.doc(nhieu.buf)[0]);
+  check('tên tệp theo Thứ Hai 03/05/2027', nhieu.ten.includes('Thuc-don-tuan-2027-05-03.xlsx'), nhieu.ten);
+  check('bữa sáng 5 món → nhóm Bữa sáng nới ra 5 dòng, đủ cả 5 món ở cột Thứ Ba',
+    nhom2[0]?.dong.length === 5 && JSON.stringify(nhom2[0].dong.map(h => h[2])) === JSON.stringify(sang), nhom2[0]?.dong);
+}
+
+console.log('\n[8] Nạp bảng của trường (LibreOffice lưu, ô bữa gộp dọc, "Bữa chiều", ô trống giữa bữa trưa)');
+{
+  const xem = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(TEP_TRUONG), tuan: congN(TUAN_SAU, 3) } });
+  check('xem trước 200', xem.status === 200, xem.data);
+  const ds = xem.data?.ngay || [];
+  check('5 ngày, đúng Thứ Hai → Thứ Sáu của tuần đã chọn',
+    JSON.stringify(ds.map(n => n.date)) === JSON.stringify([0, 1, 2, 3, 4].map(i => congN(TUAN_SAU, i))), ds.map(n => n.date));
+  check('trả về Thứ Hai của tuần đã đọc', xem.data?.tuan === TUAN_SAU, xem.data?.tuan);
+  check('Thứ Hai: bữa sáng đủ 3 món, mỗi dòng một món (dấu phẩy trong tên món giữ nguyên)',
+    JSON.stringify(buaCua(ds[0], 'breakfast').items) === JSON.stringify(['Bún cá rau cải xanh', 'Bánh pancake bơ đậu phộng', 'Sữa đậu gà, óc chó']),
+    buaCua(ds[0], 'breakfast'));
+  check('Bữa phụ sáng 1 món', JSON.stringify(buaCua(ds[0], 'snack_sang').items) === JSON.stringify(['Táo']), buaCua(ds[0], 'snack_sang'));
+  check('Thứ Hai: bữa trưa đủ 6 món', buaCua(ds[0], 'lunch').items?.length === 6, buaCua(ds[0], 'lunch'));
+  check('Thứ Ba: ô trống giữa bữa trưa bị bỏ, không sinh món rỗng',
+    JSON.stringify(buaCua(ds[1], 'lunch').items) === JSON.stringify(['Cơm tám thơm', 'Cá basa sốt cà', 'Bí đỏ luộc', 'Canh rau ngót']), buaCua(ds[1], 'lunch'));
+  check('"Bữa chiều" là Bữa phụ chiều (snack), 2 món',
+    JSON.stringify(buaCua(ds[0], 'snack').items) === JSON.stringify(['Nui xào hải sản', 'Nước ép dưa hấu']) && buaCua(ds[0], 'snack').label === 'Bữa phụ chiều', buaCua(ds[0], 'snack'));
+  check('giờ đọc từ cột A: 8h → 08:00, 9h30 → 09:30, "0-3: 11h20 / 3-6: 11h40" → 11:20, 14h00 → 14:00',
+    buaCua(ds[0], 'breakfast').time === '08:00' && buaCua(ds[0], 'snack_sang').time === '09:30'
+    && buaCua(ds[0], 'lunch').time === '11:20' && buaCua(ds[0], 'snack').time === '14:00', ds[0]?.bua?.map(b => `${b.type} ${b.time}`));
+  check('tệp không có Bữa sữa chiều → không sinh bữa đó', !buaCua(ds[0], 'milk').type, ds[0]?.bua?.map(b => b.type));
+  check('không có lời nhắc thừa với bảng đúng khuôn', (xem.data?.canhBao || []).length === 0, xem.data?.canhBao);
+
+  // Thứ Hai có bữa bếp đặt tên và giờ riêng — dựng ngay trong bài, không dựa
+  // vào dữ liệu mẫu (nay đã đúng năm bữa chuẩn): "Bữa xế" lúc 14:30, chưa có
+  // bữa phụ sáng.
+  const rieng = await req('PUT', '/api/menu/tuan', { cookie: QT, body: { ngay: [{ date: TUAN_SAU, meals: [
+    { type: 'breakfast', label: 'Bữa sáng', time: '07:00', items: ['Phở bò', 'Sữa tươi'] },
+    { type: 'lunch', label: 'Bữa trưa', time: '10:45', items: ['Cơm trắng', 'Gà kho gừng'] },
+    { type: 'snack', label: 'Bữa xế', time: '14:30', items: ['Bánh flan'] },
+  ] }] } });
+  const truocNap = (((await req('GET', '/api/menu?week=1', { cookie: PH })).data?.menus || []).find(m => m.date === TUAN_SAU) || {}).meals || [];
+  check('(đối chứng) Thứ Hai có "Bữa xế" 14:30 bếp đặt riêng, chưa có bữa phụ sáng',
+    rieng.status === 200 && truocNap.some(b => b.type === 'snack' && b.label === 'Bữa xế' && b.time === '14:30')
+    && !truocNap.some(b => b.type === 'snack_sang'), { s: rieng.status, truocNap });
+
+  const luu = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(TEP_TRUONG), tuan: TUAN_SAU, luu: true } });
+  check('lưu: 200, ghi đủ 5 ngày', luu.status === 200 && luu.data?.daGhi === 5, luu.data);
+  const tuan = (await req('GET', '/api/menu?week=1', { cookie: PH })).data;
+  const ngayPH = (d) => (tuan?.menus || []).find(m => m.date === d) || {};
+  const buaPH = (d, type) => (ngayPH(d).meals || []).find(b => b.type === type) || {};
+  check('gia đình mở Thực đơn tuần sau: Thứ Hai có đúng 3 món bữa sáng',
+    JSON.stringify(buaPH(TUAN_SAU, 'breakfast').items) === JSON.stringify(['Bún cá rau cải xanh', 'Bánh pancake bơ đậu phộng', 'Sữa đậu gà, óc chó']), buaPH(TUAN_SAU, 'breakfast'));
+  check('Thứ Sáu: bữa trưa bỏ ô trống, bữa chiều đủ hai món',
+    buaPH(congN(TUAN_SAU, 4), 'lunch').items?.length === 5 && JSON.stringify(buaPH(congN(TUAN_SAU, 4), 'snack').items) === JSON.stringify(['Bún gạo xào', 'Nước ép táo']),
+    ngayPH(congN(TUAN_SAU, 4)).meals);
+  check('món cũ của tuần đó đã được thay', !JSON.stringify(ngayPH(TUAN_SAU).meals || []).includes('Cơm trắng'), ngayPH(TUAN_SAU).meals);
+  check('bữa đã có giữ tên và giờ bếp đặt riêng; bữa mới lấy giờ trong tệp',
+    buaPH(TUAN_SAU, 'snack').label === 'Bữa xế' && buaPH(TUAN_SAU, 'snack').time === '14:30' && buaPH(TUAN_SAU, 'snack_sang').time === '09:30',
+    ngayPH(TUAN_SAU).meals);
+
+  const lai = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(TEP_TRUONG), tuan: TUAN_SAU, luu: true } });
+  check('nạp lại đúng tệp đó: 5 ngày "không đổi", không ghi ngày nào', lai.status === 200 && lai.data?.khongDoi === 5 && lai.data?.daGhi === 0, lai.data);
+
+  const ql = await req('POST', '/api/menu/nap-excel', { cookie: QL, body: { tep: dataUrl(TEP_TRUONG), tuan: TUAN_SAU, campusId: 'cs2', luu: true } });
+  check('quản lý cơ sở 1 nạp tệp tuần cho bếp cơ sở 2 → 403', ql.status === 403, ql.status);
+  const co = await req('POST', '/api/menu/nap-excel', { cookie: GV, body: { tep: dataUrl(TEP_TRUONG), tuan: TUAN_SAU } });
+  check('cô nạp tệp tuần thì bị chặn', [401, 403].includes(co.status), co.status);
+  const tuanSai = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(TEP_TRUONG), tuan: '19/10/2026' } });
+  check('tuần gửi lên sai dạng → 400 nói rõ', tuanSai.status === 400 && /[Tt]uần/.test(tuanSai.data?.error || ''), tuanSai.data);
+}
+
+console.log('\n[9] Bảng KHÔNG gộp ô (tên bữa chỉ ở dòng đầu), ngày ghi dưới chữ Thứ, cột Thứ Bảy, dòng lạ');
+{
+  // Tuần sau nữa, ngày ghi "dd/mm" không có năm — đúng như mẫu của app ghi.
+  const W = congN(TUAN_SAU, 7);
+  const hang = [
+    [`THỰC ĐƠN TUẦN ${dm(W)} – ${dm(congN(W, 4))}`],
+    ['', ...[2, 3, 4, 5, 6, 7].map((t, i) => `Thứ ${t}\n${dm(congN(W, i))}`)],
+    ['Bữa sáng 7h45', 'Cháo cá', 'Phở', '', '', 'Bún bò', 'Xôi'],
+    ['', 'Bánh mì', '', '', '', '', ''],
+    ['', 'Sữa bắp', '', '', '', '', ''],
+    ['BỮA TRƯA', 'Cơm', 'Cơm', '', '', 'Cơm', ''],
+    ['', 'Cá kho; Canh bí', '', '', '', 'Gà rim', ''],
+    ['Bữa phụ chiều', 'Bánh flan', '', '', '', '', ''],
+    ['Bữa sữa chiều\n15h30', 'Sữa tươi', '', '', '', '', ''],
+    ['Tráng miệng', 'Dưa hấu', '', '', '', '', ''],
+  ];
+  const tep = dataUrl(xlsx.ghi([{ ten: 'Thực đơn', hang }]));
+  const xem = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep } });
+  check('không gửi tuần mà ô Thứ có ngày → suy ra tuần từ ngày đó', xem.status === 200 && xem.data?.tuan === W, xem.data);
+  const ds = xem.data?.ngay || [];
+  check('chỉ những ngày có món: Thứ Hai, Thứ Ba, Thứ Sáu (ngày trống không đụng tới)',
+    JSON.stringify(ds.map(n => n.date)) === JSON.stringify([W, congN(W, 1), congN(W, 4)]), ds.map(n => n.date));
+  check('tên bữa chỉ ở dòng đầu vẫn mang xuống các dòng dưới: bữa sáng Thứ Hai 3 món',
+    JSON.stringify(buaCua(ds[0], 'breakfast').items) === JSON.stringify(['Cháo cá', 'Bánh mì', 'Sữa bắp']), buaCua(ds[0], 'breakfast'));
+  check('"Bữa sáng 7h45" → giờ 07:45', buaCua(ds[0], 'breakfast').time === '07:45', buaCua(ds[0], 'breakfast'));
+  check('chữ HOA "BỮA TRƯA" vẫn nhận; dấu chấm phẩy trong ô tách món như cũ',
+    JSON.stringify(buaCua(ds[0], 'lunch').items) === JSON.stringify(['Cơm', 'Cá kho', 'Canh bí']), buaCua(ds[0], 'lunch'));
+  check('không có giờ trong cột A → giờ mặc định của bữa', buaCua(ds[0], 'lunch').time === '11:20', buaCua(ds[0], 'lunch'));
+  check('"Bữa phụ chiều" → snack; "Bữa sữa chiều" → milk (không nhầm sang phụ chiều)',
+    buaCua(ds[0], 'snack').items?.[0] === 'Bánh flan' && buaCua(ds[0], 'milk').items?.[0] === 'Sữa tươi' && buaCua(ds[0], 'milk').time === '15:30', ds[0]?.bua);
+  const cb = (xem.data?.canhBao || []).join(' | ');
+  check('cột Thứ 7 bị bỏ, có lời nhắc', /Thứ 7/.test(cb) && !ds.some(n => n.date === congN(W, 5)), cb);
+  check('dòng "Tráng miệng" không phải tên bữa → lời nhắc, bỏ qua', /Tráng miệng/.test(cb) && !JSON.stringify(ds).includes('Dưa hấu'), cb);
+
+  const khop = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep, tuan: congN(W, 3) } });
+  check('chọn ĐÚNG tuần ghi trong tệp → đọc như cũ, không có lời nhắc lệch tuần',
+    khop.status === 200 && khop.data?.tuan === W
+    && JSON.stringify((khop.data?.ngay || []).map(n => n.date)) === JSON.stringify([W, congN(W, 1), congN(W, 4)])
+    && !(khop.data?.canhBao || []).some(c => /khác tuần/.test(c)), khop.data);
+
+  // Đ239-vá3: mẫu của app luôn ghi ngày dưới chữ Thứ, còn ô chọn tuần mỗi lần mở
+  // lại app quay về "tuần sau". Tải mẫu tuần W hôm trước, hôm sau nạp mà quên chọn
+  // lại tuần → tệp tuần W từng ĐÈ thực đơn tuần W2, chỉ kèm một dòng nhắc vàng.
+  const W2 = congN(W, 7);
+  const datW2 = await req('PUT', '/api/menu/tuan', { cookie: QT, body: { ngay: [{ date: W2, meals: [
+    { type: 'lunch', label: 'Bữa trưa', time: '11:20', items: ['Cơm tuần đã chọn', 'Canh cua'] },
+  ] }] } });
+  check('(đối chứng) Thứ Hai tuần đã chọn đang có thực đơn', datW2.status === 200, datW2.data);
+  const docTuan = (t2) => {
+    const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
+    const ra = [0, 1, 2, 3, 4].map(i => conn.prepare('SELECT meals FROM menus WHERE date = ?').get(congN(t2, i))?.meals || null);
+    conn.close();
+    return JSON.stringify(ra);
+  };
+  const truocW = docTuan(W); const truocW2 = docTuan(W2);
+  const tenW = `${dm(W)} – ${dm(congN(W, 4))}/${congN(W, 4).slice(0, 4)}`;
+  const tenW2 = `${dm(W2)} – ${dm(congN(W2, 4))}/${congN(W2, 4).slice(0, 4)}`;
+  const lech = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep, tuan: congN(W2, 2) } });
+  check('mọi ngày trong tệp cùng một tuần KHÁC tuần đã chọn → 400, nói rõ tuần của tệp và tuần đang chọn',
+    lech.status === 400 && (lech.data?.error || '').includes(`Tệp này là thực đơn tuần ${tenW}`)
+    && (lech.data?.error || '').includes(`đang chọn tuần ${tenW2}`) && /Chọn đúng tuần rồi nạp lại/.test(lech.data?.error || ''),
+    { status: lech.status, data: lech.data });
+  const luuLech = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep, tuan: congN(W2, 2), luu: true } });
+  check('bấm Lưu với tệp lệch tuần cũng 400', luuLech.status === 400 && (luuLech.data?.error || '').includes(tenW), { status: luuLech.status, data: luuLech.data });
+  check('thực đơn tuần đã chọn KHÔNG đổi', docTuan(W2) === truocW2, { truoc: truocW2, sau: docTuan(W2) });
+  check('thực đơn tuần ghi trong tệp cũng không bị ghi', docTuan(W) === truocW, { truoc: truocW, sau: docTuan(W) });
+
+  // Ngày trong tệp lộn xộn (hai tuần): không biết tệp của tuần nào → theo tuần đã
+  // chọn kèm lời nhắc, như trước.
+  const honLoan = hang.map((h, r) => (r === 1 ? ['', `Thứ Hai\n${dm(W)}`, `Thứ Ba\n${dm(congN(W, 8))}`, 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'] : h.slice(0, 6)));
+  const tron = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(xlsx.ghi([{ ten: 'Thực đơn', hang: honLoan }])), tuan: congN(W2, 2) } });
+  check('ngày trong tệp thuộc nhiều tuần → vẫn đọc, theo tuần ĐÃ CHỌN',
+    tron.status === 200 && JSON.stringify((tron.data?.ngay || []).map(n => n.date)) === JSON.stringify([W2, congN(W2, 1), congN(W2, 4)]),
+    { status: tron.status, data: tron.data });
+  check('và có lời nhắc ngày trong tệp lệch với tuần đã chọn',
+    (tron.data?.canhBao || []).some(c => c.includes('khác tuần đã chọn') && c.includes(dm(W2))), tron.data?.canhBao);
+
+  const khongNgay = dataUrl(xlsx.ghi([{ ten: 'A', hang: [['', 'T2', 'T3', 'T4', 'T5', 'T6'], ['Bữa trưa', 'Cơm', 'Bún', '', '', '']] }]));
+  const thieu = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: khongNgay } });
+  check('không chọn tuần, ô Thứ không có ngày → 400 bằng câu dễ hiểu', thieu.status === 400 && /tuần/.test(thieu.data?.error || ''), thieu.data);
+  const du = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: khongNgay, tuan: '2027-05-10' } });
+  check('cùng tệp đó (tiêu đề "T2…T6") có chọn tuần → đọc được',
+    du.status === 200 && JSON.stringify((du.data?.ngay || []).map(n => n.date)) === JSON.stringify(['2027-05-10', '2027-05-11']), du.data);
+}
+
+console.log('\n[10] Mẫu tuần của app tải về rồi nạp lại; tệp khuôn THÁNG cũ vẫn nạp như trước');
+{
+  const mau = await taiVe('/api/menu/mau-excel?tuan=2027-05-03', QT);
+  const y = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(mau.buf), tuan: '2027-05-03' } });
+  const t3 = (y.data?.ngay || []).find(n => n.date === '2027-05-04');
+  check('mẫu tải về nạp lại nguyên: ngày đang có được nhận ra là "không đổi"', y.status === 200 && t3?.khongDoi === true, y.data);
+  const td = xlsx.doc(mau.buf)[0];
+  const iTrua = td.hang.findIndex(h => dongDau(h && h[0]) === 'Bữa trưa');
+  td.hang[iTrua][2] = 'Cơm gạo lứt';
+  const sua = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(xlsx.ghi([{ ten: 'Thực đơn', hang: td.hang }])), tuan: '2027-05-03', luu: true } });
+  const conn = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const meals = JSON.parse(conn.prepare('SELECT meals FROM menus WHERE date = ?').get('2027-05-04')?.meals || '[]');
+  conn.close();
+  check('sửa một ô rồi nạp: ghi đúng ngày đó, bữa sáng 5 món còn nguyên',
+    sua.status === 200 && sua.data?.daGhi === 1
+    && JSON.stringify((meals.find(b => b.type === 'lunch') || {}).items) === JSON.stringify(['Cơm gạo lứt', 'Cá kho'])
+    && (meals.find(b => b.type === 'breakfast') || {}).items?.length === 5, { r: sua.data, meals });
+
+  const thang = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { tep: dataUrl(TEP_THAT), tuan: '2027-05-03' } });
+  check('tệp khuôn THÁNG cũ (màn hình nay luôn gửi kèm tuần) vẫn đọc theo cột Ngày như trước',
+    thang.status === 200 && JSON.stringify((thang.data?.ngay || []).map(n => n.date)) === JSON.stringify(['2027-03-01', '2027-03-02']), thang.data);
 }
 
 await sv.dung();

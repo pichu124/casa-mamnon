@@ -192,7 +192,12 @@ console.log('\n[3c] Thực đơn — tệp Excel mẫu: tải về, nạp lên, 
 {
   check('văn phòng thấy nút tải tệp mẫu', await page.locator('#mn-xl-tai').count() === 1);
   const href = await page.getAttribute('#mn-xl-tai', 'href');
-  check('nút tải trỏ đường tệp mẫu theo tháng', /\/api\/menu\/mau-excel\?thang=\d{4}-\d{2}/.test(href || ''), href);
+  // Góp ý 16/10, mục 1: "Để upload theo tuần k cần để theo tháng".
+  check('nút tải trỏ đường tệp mẫu THEO TUẦN', /\/api\/menu\/mau-excel\?tuan=\d{4}-\d{2}-\d{2}/.test(href || ''), href);
+  const cacTuan = await page.locator('#mn-xl-tuan option').allInnerTexts();
+  check('chọn được tuần này / tuần sau / tuần sau nữa, ghi rõ "Tuần dd/mm – dd/mm/yyyy"',
+    cacTuan.length === 3 && cacTuan.every(t => /^Tuần \d{2}\/\d{2}(\/\d{4})? – \d{2}\/\d{2}\/\d{4} \(tuần/.test(t)), cacTuan);
+  check('mặc định là tuần sau (tuần cần soạn)', /\(tuần sau\)/.test(await page.locator('#mn-xl-tuan option:checked').innerText()));
   const tai = await page.evaluate(async (h) => {
     const r = await fetch(h);
     return { status: r.status, kieu: r.headers.get('content-type') };
@@ -212,12 +217,52 @@ console.log('\n[3c] Thực đơn — tệp Excel mẫu: tải về, nạp lên, 
   dbXem.close();
   check('xem trước KHÔNG ghi gì', truocLuu === 0, truocLuu);
   await page.click('#mn-xl-luu');
-  await page.waitForTimeout(1500);
+  // Chờ hộp xem trước đóng (máy chủ đã trả lời Lưu) thay vì ngủ cố định: máy
+  // đang tải nặng thì 1,5 giây chưa đủ và bài đỏ oan.
+  await page.waitForSelector('#mn-xl-xem', { state: 'detached', timeout: 15000 }).catch(() => {});
   const dbSau = new Database(path.join(DIR, 'school.db'), { readonly: true });
   const sauLuu = dbSau.prepare("SELECT meals FROM menus WHERE date = '2027-03-01'").get();
   dbSau.close();
   check('bấm Lưu thì ngày 01/03/2027 có đúng món trong tệp', !!sauLuu && /Canh rau ngót/.test(sauLuu.meals), sauLuu);
   check('lưu xong đóng hộp xem trước', await page.locator('#mn-xl-xem').count() === 0);
+
+  // Bảng tuần đúng khuôn của trường (ô bữa gộp dọc, tiêu đề chỉ có "Thứ Hai…"):
+  // chọn "tuần sau nữa" rồi nạp — món phải vào đúng ngày của tuần đã chọn.
+  const t2 = await page.locator('#mn-xl-tuan option').nth(2).getAttribute('value');
+  await page.selectOption('#mn-xl-tuan', t2);
+  check('đổi tuần thì nút tải mẫu trỏ theo tuần mới', (await page.getAttribute('#mn-xl-tai', 'href') || '').includes(`tuan=${t2}`));
+  await page.setInputFiles('#mn-xl-file', fileURLToPath(new URL('./mau/thuc-don-tuan-truong.xlsx', import.meta.url)));
+  await page.waitForSelector('#mn-xl-xem', { timeout: 8000 });
+  const xemTuan = await page.locator('#modal-overlay').innerText();
+  const [y, m, d] = t2.split('-');
+  check('xem trước nói rõ tuần và ghi ngày tháng từng ngày',
+    xemTuan.includes(`Tuần ${d}/${m}`) && xemTuan.includes(`Thứ Hai ${d}/${m}/${y}`) && /Bún cá rau cải xanh/.test(xemTuan), xemTuan.slice(0, 400));
+  await page.click('#mn-xl-luu');
+  // Chờ hộp xem trước đóng (máy chủ đã trả lời Lưu) thay vì ngủ cố định: máy
+  // đang tải nặng thì 1,5 giây chưa đủ và bài đỏ oan.
+  await page.waitForSelector('#mn-xl-xem', { state: 'detached', timeout: 15000 }).catch(() => {});
+  const dbTuan = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const thuHai = dbTuan.prepare('SELECT meals FROM menus WHERE date = ?').get(t2);
+  dbTuan.close();
+  const sang = JSON.parse((thuHai || {}).meals || '[]').find(b => b.type === 'breakfast') || {};
+  check('bấm Lưu: Thứ Hai của tuần đã chọn có bữa sáng 3 món của bảng trường', (sang.items || []).length === 3 && sang.items[0] === 'Bún cá rau cải xanh', thuHai);
+
+  // Đ239-vá3: tệp mẫu của "tuần sau" (ghi ngày dưới chữ Thứ) nạp lúc ô đang chọn
+  // "tuần sau nữa" → hộp thoại nói rõ hai tuần, không có nút Lưu, không ghi gì.
+  const tSau = await page.locator('#mn-xl-tuan option').nth(1).getAttribute('value');
+  const mauSau = await page.evaluate(async (t) => Array.from(new Uint8Array(await (await fetch(`/api/menu/mau-excel?tuan=${t}`)).arrayBuffer())), tSau);
+  await page.setInputFiles('#mn-xl-file', { name: `Thuc-don-tuan-${tSau}.xlsx`, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(mauSau) });
+  await page.waitForSelector('#mn-xl-loi', { timeout: 8000 });
+  const loiLech = await page.locator('#modal-overlay').innerText();
+  const [, mS, dS] = tSau.split('-');
+  check('tệp tuần sau nạp vào tuần sau nữa: hộp thoại nói rõ tuần của tệp và tuần đang chọn',
+    loiLech.includes(`Tệp này là thực đơn tuần ${dS}/${mS}`) && loiLech.includes(`đang chọn tuần ${d}/${m}`) && /Chọn đúng tuần rồi nạp lại/.test(loiLech), loiLech);
+  check('hộp thoại lệch tuần không có nút Lưu', await page.locator('#mn-xl-luu').count() === 0);
+  const dbLech = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const thuHaiSau = dbLech.prepare('SELECT meals FROM menus WHERE date = ?').get(t2);
+  dbLech.close();
+  check('thực đơn tuần đang chọn không đổi', JSON.stringify(thuHaiSau) === JSON.stringify(thuHai), thuHaiSau);
+  await page.evaluate(() => UI.closeModal());
 }
 
 console.log('\n[4] Thực đơn — phụ huynh chỉ xem');

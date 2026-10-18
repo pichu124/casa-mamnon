@@ -26,7 +26,7 @@ import { spawnSync } from 'child_process';
 import Database from 'better-sqlite3';
 import { createRequire } from 'module';
 import {
-  GOC, thuMucTam, donThuMucTam, taoBoDem, taoReq, taoLogin, dungMayChu,
+  GOC, thuMucTam, donThuMucTam, taoBoDem, taoReq, taoLogin, dungMayChu, batPhanHe,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -34,11 +34,14 @@ const require2 = createRequire(import.meta.url);
 const modules = require2(path.join(GOC, 'lib', 'modules.js'));
 modules.napMoRong();
 
-// Năm phân hệ nhà trường đã quyết TẮT. Danh sách này CỐ Ý viết tay ở đây thay
+// Sáu phân hệ nhà trường đã quyết TẮT. Danh sách này CỐ Ý viết tay ở đây thay
 // vì suy từ `defaultEnabled`: suy ra thì bài canh chỉ nói "script làm đúng như
 // mã đang viết", còn viết tay thì nó nói "script làm đúng như NHÀ TRƯỜNG đã
 // quyết". Đổi quyết định thì phải sửa cả hai chỗ — đó là điều muốn.
-const PHAI_TAT = ['nhanxet', 'baocao', 'xebuyt', 'nenep', 'hocsinhcu'];
+// 5 → 6 ở Đ239i: Đón trả bé (`dontra`) — đã lồng vào Điểm danh, góp ý 06/10 và
+// 16/10. Đây là phân hệ CẮM THÊM đầu tiên trong danh sách, nên `ban-thu` phải
+// biết KHÔNG bật nó, chứ không chỉ "không đụng tới" như năm phân hệ lõi kia.
+const PHAI_TAT = ['nhanxet', 'baocao', 'xebuyt', 'nenep', 'hocsinhcu', 'dontra'];
 
 const DIR = thuMucTam('ban-thu');
 const chay = (...a) => spawnSync('node', [path.join(GOC, 'scripts', 'ban-thu.js'), ...a],
@@ -68,7 +71,8 @@ console.log('\n[2] ĐỦ CÁC PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳ
   // bật là đúng thứ bài này sinh ra để bắt. Nên giữ con số, và ghi ngay cạnh
   // rằng sửa nó là việc bình thường — khác hẳn với việc nới một bộ canh.
   // 9 → 10 ở Đ152 (thêm phân hệ Nhân sự & chấm công).
-  const SO_CAM_THEM = 10;
+  // 10 → 11 ở Đ239c (thêm phân hệ Xuất báo cáo, góp ý 16/10 mục 2).
+  const SO_CAM_THEM = 11;
   const camThem = modules.moRong().map(m => m.key);
   check(`kho mã có đúng ${SO_CAM_THEM} phân hệ cắm thêm`, camThem.length === SO_CAM_THEM, camThem);
 
@@ -85,16 +89,22 @@ console.log('\n[2] ĐỦ CÁC PHÂN HỆ MẦM NON PHẢI BẬT — đọc thẳ
     const m = modules.timTheoKey(k);
     return m ? m.defaultEnabled !== false : false;
   };
-  const chuaBat = camThem.filter(k => batHieuLuc(k) !== true);
-  check('TẤT CẢ đều bật có hiệu lực trên bàn thử', chuaBat.length === 0, chuaBat);
+  // Trừ những phân hệ cắm thêm nhà trường đã quyết TẮT (Đ239i: Đón trả bé) —
+  // chúng được hỏi ở mục [3], theo chiều ngược lại.
+  const chuaBat = camThem.filter(k => !PHAI_TAT.includes(k) && batHieuLuc(k) !== true);
+  check('TẤT CẢ phân hệ cắm thêm (trừ cái trường đã tắt) đều bật có hiệu lực trên bàn thử',
+    chuaBat.length === 0, chuaBat);
+  check(`và đó là ${SO_CAM_THEM - 1} cái — chỉ đúng Đón trả bé đứng ngoài`,
+    camThem.filter(k => !PHAI_TAT.includes(k)).length === SO_CAM_THEM - 1,
+    camThem.filter(k => PHAI_TAT.includes(k)));
   // ĐỐI CHỨNG: phép hỏi trên phải biết nói KHÔNG, nếu không thì dòng trên xanh
-  // vì nó luôn trả true chứ không phải vì chín phân hệ kia đang bật thật.
+  // vì nó luôn trả true chứ không phải vì các phân hệ kia đang bật thật.
   check('đối chứng — phép hỏi này biết nói KHÔNG với một phân hệ đã tắt',
     batHieuLuc('nenep') === false, batHieuLuc('nenep'));
 }
 
 // ===========================================================================
-console.log('\n[3] NĂM PHÂN HỆ NHÀ TRƯỜNG ĐÃ TẮT PHẢI VẪN TẮT');
+console.log('\n[3] SÁU PHÂN HỆ NHÀ TRƯỜNG ĐÃ TẮT PHẢI VẪN TẮT');
 {
   // Đây là phép kiểm bắt được lỗi thứ hai — và là phép kiểm quan trọng nhất
   // của cả bài. Bật nhầm Nhận xét và Báo cáo trong buổi thử là đưa cho cô xem
@@ -125,7 +135,7 @@ console.log('\n[3] NĂM PHÂN HỆ NHÀ TRƯỜNG ĐÃ TẮT PHẢI VẪN TẮT'
   };
 
   const batNham = PHAI_TAT.filter(k => hieuLuc(k) === true);
-  check('không phân hệ nào trong năm cái đó bị bật', batNham.length === 0,
+  check('không phân hệ nào trong sáu cái đó bị bật', batNham.length === 0,
     batNham.map(k => `${k} (bảng: ${dong.get(k)}, mặc định: ${modules.timTheoKey(k)?.defaultEnabled})`));
 
   // ĐỐI CHỨNG: `hieuLuc` phải biết nói CÓ, nếu không thì dòng trên xanh vì nó
@@ -137,7 +147,15 @@ console.log('\n[3] NĂM PHÂN HỆ NHÀ TRƯỜNG ĐÃ TẮT PHẢI VẪN TẮT'
   // Và chúng phải thật sự tồn tại — một danh sách gõ sai tên thì phép kiểm
   // trên xanh vì không tìm thấy gì cả.
   const khongCo = PHAI_TAT.filter(k => !modules.timTheoKey(k));
-  check('năm mã phân hệ đó đều có thật trong kho mã', khongCo.length === 0, khongCo);
+  check('sáu mã phân hệ đó đều có thật trong kho mã', khongCo.length === 0, khongCo);
+
+  // Người tổ chức đọc bảng in ra để biết vì sao một phân hệ vắng mặt. Thiếu
+  // dòng này thì người ta tưởng bàn thử dựng hỏng và tự bật Đón trả bé lên.
+  const doanTat = (chu.split('theo quyết định của nhà trường')[1] || '').split('[3/4]')[0];
+  check('bảng in ra liệt kê "Đón trả bé" trong số phân hệ TẮT theo quyết định của trường',
+    /Đón trả bé/.test(doanTat), doanTat || chu.slice(0, 1500));
+  check('và nói vì sao (đã lồng vào Điểm danh) cùng chỗ bật lại (Quản trị → Tính năng)',
+    /Điểm danh/.test(doanTat) && /Quản trị → Tính năng/.test(doanTat), doanTat);
 }
 
 // ===========================================================================
@@ -253,18 +271,21 @@ console.log('\n[7] MÁY CHỦ DỰNG TRÊN BÀN THỬ: cô nhìn thấy đúng a
   const thay = (ds.data?.modules || ds.data || []).map(m => m.key);
   check('màn hình của cô nhận được danh sách phân hệ', Array.isArray(thay) && thay.length > 0, ds.data);
 
-  for (const k of ['nhatky', 'thuchup', 'dontra', 'hanhtrinh']) {
+  // `dontra` rời danh sách này ở Đ239i: trước đó bàn thử bật nó và bài này
+  // đòi cô THẤY nó — nay nhà trường đã bỏ (lồng vào Điểm danh), nó sang vế
+  // "KHÔNG thấy" ngay dưới.
+  for (const k of ['nhatky', 'thuchup', 'hanhtrinh']) {
     check(`cô THẤY phân hệ ${k} trên máy chủ bàn thử`, thay.includes(k), thay);
   }
-  // ĐỦ CẢ NĂM, KHÔNG PHẢI BA. `xebuyt` cũng nằm trong danh sách nhà trường đã
-  // tắt và cũng mở cho vai cô, nên nó phải được hỏi ở đây như ba cái kia.
+  // ĐỦ CẢ NĂM, KHÔNG PHẢI BA. `xebuyt` và `dontra` cũng nằm trong danh sách
+  // nhà trường đã tắt và cũng mở cho vai cô, nên chúng phải được hỏi ở đây.
   // `hocsinhcu` thì chỉ mở cho vai phụ huynh (`roles: ['parent']`), nên hỏi
   // bằng cookie của cô là hỏi sai chỗ — nó được hỏi riêng ngay dưới.
-  for (const k of ['nhanxet', 'baocao', 'nenep', 'xebuyt']) {
+  for (const k of ['nhanxet', 'baocao', 'nenep', 'xebuyt', 'dontra']) {
     check(`và KHÔNG thấy ${k} — thứ nhà trường đã tắt`, !thay.includes(k), thay);
   }
   check('danh sách PHAI_TAT không lặng lẽ dài thêm mà bài này không hỏi tới',
-    PHAI_TAT.length === 5 && PHAI_TAT.includes('hocsinhcu'), PHAI_TAT);
+    PHAI_TAT.length === 6 && PHAI_TAT.includes('hocsinhcu') && PHAI_TAT.includes('dontra'), PHAI_TAT);
 
   // `hocsinhcu` chỉ hiện với gia đình, nên phải hỏi bằng tài khoản gia đình.
   const ph = await login('phuhuynh', mk || 'x');
@@ -282,6 +303,61 @@ console.log('\n[7] MÁY CHỦ DỰNG TRÊN BÀN THỬ: cô nhìn thấy đúng a
   }
 
   sv.dung();
+}
+
+// ===========================================================================
+console.log('\n[8] MÁY THỬ DỰNG TRƯỚC Đ239: chạy lại ban-thu thì Đón trả bé TẮT, dữ liệu còn nguyên');
+{
+  // Trước Đ239i `ban-thu` bật MỌI phân hệ cắm thêm, nên máy thử nào dựng bằng
+  // bản cũ đều có sẵn dòng "dontra bật" trong `module_settings` — dòng ấy thắng
+  // `defaultEnabled: false`, và Đón trả bé vẫn hiện dù trường đã bỏ. Dựng lại
+  // đúng cảnh đó: dòng bật + một người đón có thật trong sổ.
+  batPhanHe(DIR, ['dontra']);
+  const ghi = new Database(path.join(DIR, 'school.db'));
+  const beId = ghi.prepare('SELECT id FROM students ORDER BY id LIMIT 1').get()?.id;
+  ghi.prepare(`INSERT INTO dontra_nguoi (id, studentId, hoTen, quanHe, dangDung, taoLuc)
+               VALUES ('d239i-ba-ngoai', ?, 'Bà ngoại (bàn thử)', 'Bà ngoại', 1, ?)`)
+    .run(beId, new Date().toISOString());
+  const bangDontra = ghi.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'dontra\\_%' ESCAPE '\\'")
+    .all().map(x => x.name);
+  const demBang = (conn) => Object.fromEntries(
+    bangDontra.map(b => [b, conn.prepare(`SELECT COUNT(*) AS n FROM "${b}"`).get().n]));
+  const truoc = demBang(ghi);
+  const dongTruoc = ghi.prepare("SELECT enabled FROM module_settings WHERE moduleKey = 'dontra'").get();
+  ghi.close();
+  check('dựng được tình huống: có dòng "dontra bật" và một người đón trong sổ',
+    dongTruoc?.enabled === 1 && truoc.dontra_nguoi >= 1, { dongTruoc, truoc });
+
+  const lai = chay('--thu-muc', DIR, '--khong-chay');
+  const chuLai = lai.stdout + lai.stderr;
+  check('chạy lại ban-thu (không --lam-lai) xong không lỗi', lai.status === 0, chuLai.slice(-500));
+  check('và giữ nguyên dữ liệu, không sinh lại', /giữ nguyên dữ liệu/.test(chuLai), chuLai.slice(0, 600));
+
+  const doc = new Database(path.join(DIR, 'school.db'), { readonly: true });
+  const dong = new Map(doc.prepare('SELECT moduleKey, enabled FROM module_settings').all()
+    .map(x => [x.moduleKey, !!x.enabled]));
+  const sau = demBang(doc);
+  const baNgoai = doc.prepare("SELECT hoTen, dangDung FROM dontra_nguoi WHERE id = 'd239i-ba-ngoai'").get();
+  doc.close();
+  const hieuLuc = (k) => {
+    if (dong.has(k)) return dong.get(k);
+    const m = modules.timTheoKey(k);
+    return m ? m.defaultEnabled !== false : false;
+  };
+
+  check('ĐÓN TRẢ BÉ TẮT sau khi chạy lại — dòng "bật" cũ đã được ghi lại thành "tắt"',
+    hieuLuc('dontra') === false && dong.get('dontra') === false,
+    `bảng: ${dong.get('dontra')}, hiệu lực: ${hieuLuc('dontra')}`);
+  check('đối chứng — phân hệ mặc định bật (Nhật ký ngày) vẫn BẬT',
+    hieuLuc('nhatky') === true, `nhatky=${hieuLuc('nhatky')}`);
+  check('DỮ LIỆU ĐÓN TRẢ CÒN NGUYÊN — tắt là ngưng dùng, không phải xoá',
+    JSON.stringify(sau) === JSON.stringify(truoc), { truoc, sau });
+  check('và đúng người đón vừa ghi vẫn ở đó, vẫn đang dùng',
+    baNgoai?.hoTen === 'Bà ngoại (bàn thử)' && baNgoai?.dangDung === 1, baNgoai);
+  check('bảng in ra của lần chạy lại cũng nói Đón trả bé đang TẮT theo quyết định của trường',
+    /Đón trả bé/.test((chuLai.split('theo quyết định của nhà trường')[1] || '').split('[3/4]')[0]),
+    chuLai.slice(0, 1500));
 }
 
 donThuMucTam(DIR);

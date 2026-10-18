@@ -48,7 +48,7 @@ App.views.attendance = {
     // với `nhomId` rỗng — tức chấm điểm danh cho cả trường một lượt. Việc của
     // văn phòng ở đây là RÀ SOÁT, không phải chấm thay cô.
     if (App.state.user.role === 'admin') return this.renderVanPhong(root);
-    return this.renderParent(root);
+    return this.renderParent(root, params);
   },
 
   // ---- Điểm chạm DUY NHẤT sang phân hệ Đón trả bé (Đ126) ----
@@ -140,9 +140,28 @@ App.views.attendance = {
       ${this.theNgayDaKhoa()}
       <div id="att-nv-o"></div>
       ${this.theDiemDanhCoSo(so)}
-      ${this.theChiDuongTraBe()}`;
+      ${this.theChiDuongTraBe()}
+      ${this.theBaoCao()}`;
     this.ganNutGoi(root);
     this.taiNhanVien();
+  },
+
+  // LỐI VÀO BÁO CÁO NGAY TẠI MÀN ĐIỂM DANH (góp ý 16/10, mục 2 + 3): *"lồng
+  // ghép vào trong mục điểm danh và xuất báo cáo điểm danh luôn"*. Màn này chỉ
+  // chỉ đường; tệp Excel và bảng đối chiếu do hai phân hệ ấy dựng. Phân hệ nào
+  // tắt hay ngoài phần việc của tài khoản thì lối đó không vẽ — không lối nào
+  // thì không có thẻ.
+  theBaoCao() {
+    const loi = [
+      App.moduleEnabled('xuatbaocao') && ['#/xuatbaocao', 'Xuất báo cáo điểm danh (Excel)'],
+      App.moduleEnabled('tienan') && ['#/tienan', 'Đối chiếu tiền ăn tháng'],
+    ].filter(Boolean);
+    if (!loi.length) return '';
+    return `<div class="card" id="att-bao-cao">
+      <div class="card-title">${UI.icon('report', 19)} Báo cáo</div>
+      ${loi.map(([hash, chu]) => `
+        <button class="btn outline block mt-8" onclick="location.hash='${hash}'">${UI.icon('chevron', 16)} ${chu}</button>`).join('')}
+    </div>`;
   },
 
   // =========================================================================
@@ -466,12 +485,22 @@ App.views.attendance = {
   },
 
   // ---- Phụ huynh: lịch tháng của con ----
-  async renderParent(root) {
+  async renderParent(root, params = []) {
+    // '#/attendance/<ngày>/<mã bé>' (Đ239-vá4): tin đẩy chỉ mở địa chỉ, không
+    // chọn bé như màn Thông báo — nhà hai con chạm tin của bé này mà màn đang
+    // để bé kia thì địa chỉ phải tự chọn đúng bé. Mã không phải con của tài
+    // khoản thì bỏ qua, màn mở như địa chỉ không có mã.
+    const maBe = params[1] || '';
+    if (maBe && (App.state.students || []).some(s => s.id === maBe)) App.state.currentStudentId = maBe;
     const current = App.currentStudent();
     if (!current) {
       root.innerHTML = UI.pageHeader('Điểm danh') + UI.emptyState('🎒', 'Chưa có bé nào liên kết với tài khoản này');
       return;
     }
+    // '#/attendance/<ngày>' là địa chỉ thông báo "Con đã được đón về" trỏ tới:
+    // mở đúng tháng ấy rồi mở hộp của ngày ấy, để chạm thông báo là thấy ảnh.
+    const moNgay = /^\d{4}-\d{2}-\d{2}$/.test(params[0] || '') ? params[0] : '';
+    if (moNgay) this.month = moNgay.slice(0, 7);
     if (!this.month) this.month = UI.todayStr().slice(0, 7);
     // Ảnh "con đã tới lớp" và sổ trả bé của tháng (Đ126) hỏi song song. Hỏng
     // đường nào thì màn điểm danh vẫn phải dựng bình thường — chúng là phần
@@ -491,6 +520,10 @@ App.views.attendance = {
     records.forEach(r => { this._byDate[r.date] = r; });
     this._anhTheoNgay = {};
     (kho.anh || []).forEach(a => { this._anhTheoNgay[a.date] = a; });
+    // Ảnh lúc ra về: khoá riêng `anhVe`, máy chủ đã gộp sẵn ảnh trả bé cũ của
+    // phân hệ Đón trả bé khi phân hệ ấy bật.
+    this._anhVeTheoNgay = {};
+    (kho.anhVe || []).forEach(a => { this._anhVeTheoNgay[a.date] = a; });
     this._soThang = soTra instanceof Map ? soTra : new Map();
 
     const [y, m] = this.month.split('-').map(Number);
@@ -543,6 +576,12 @@ App.views.attendance = {
         </div>
         <button class="btn outline block mt-8" onclick="location.hash='#/dontra'">${UI.icon('chevron', 16)} Mở Đón trả bé</button>
       </div>` : ''}`;
+    if (moNgay) {
+      // Đổi tháng hay chọn bé khác là vẽ lại theo địa chỉ đang mở — bỏ phần
+      // ngày khỏi địa chỉ để hộp không tự bật lên lần nữa.
+      history.replaceState(null, '', '#/attendance');
+      this.showDay(moNgay);
+    }
   },
 
   // Lưới lịch tháng: hàng đầu T2..CN, ô ngoài tháng làm mờ (dim).
@@ -591,11 +630,15 @@ App.views.attendance = {
     const times = [r.checkIn ? `Vào lớp ${r.checkIn}` : null, gioVe ? `Ra về ${gioVe}` : null].filter(Boolean).join(' · ');
     const tra = this.chuTraBe(r.date);
     const a = (this._anhTheoNgay || {})[r.date];
+    const ve = (this._anhVeTheoNgay || {})[r.date];
+    // Ảnh lúc ra về (góp ý 16/10, PH2) đứng ngay sau ảnh lúc tới lớp.
+    const anhNho = [a && a.file && [a.file, 'Ảnh con tới lớp'], ve && [ve.file, 'Ảnh con lúc ra về']].filter(Boolean);
     return `
       <div class="list-row clickable" onclick="App.views.attendance.showDay('${UI.esc(r.date)}')">
-        ${a && a.file
-          ? `<img src="/api/attendance/anh/${UI.esc(a.file)}" alt="Ảnh con tới lớp" loading="lazy"
-               style="width:42px;height:42px;flex:none;border-radius:10px;object-fit:cover;border:2px solid ${st.color}">`
+        ${anhNho.length
+          ? `<span style="display:flex;gap:4px;flex:none">${anhNho.map(([file, chu]) => `
+              <img src="/api/attendance/anh/${UI.esc(file)}" alt="${chu}" loading="lazy"
+               style="width:42px;height:42px;flex:none;border-radius:10px;object-fit:cover;border:2px solid ${st.color}">`).join('')}</span>`
           : `<span style="width:10px;height:10px;border-radius:50%;background:${st.color};flex:none"></span>`}
         <div class="row-main">
           <div class="row-title">${UI.esc(UI.fmtDate(r.date))}</div>
@@ -622,7 +665,7 @@ App.views.attendance = {
         <div class="muted small">${UI.esc(UI.fmtDate(dateStr))}</div>
         <div class="mt-8">${st ? UI.badge(st.label, st.cls) : '<span class="muted small">Cô chưa chấm điểm danh ngày này</span>'}</div>
       </div>
-      ${this.anhCuaNgay(dateStr)}
+      ${this.anhCuaNgay(dateStr, traBe)}
       <div class="mt-14">
         ${this.detailRow('Giờ đến lớp', (r && r.checkIn) || '—')}
         ${this.detailRow('Giờ ra về', gioVe)}
@@ -636,14 +679,31 @@ App.views.attendance = {
   // Ngày không có ảnh thì KHÔNG hiện gì cả — không khung xám, không chữ "chưa
   // có ảnh". Cô chụp được hôm nào hay hôm ấy; biến ngày không có ảnh thành một
   // ô trống chờ lấp là đặt lên vai cô một nghĩa vụ mỗi ngày mà không ai hứa.
-  anhCuaNgay(date) {
+  //
+  // Có ảnh lúc ra về (góp ý 16/10, PH2) thì hai tấm đứng cạnh nhau, mỗi tấm
+  // một chú thích. Phân hệ Đón trả bé đang bật tự vẽ ảnh trả bé cũ ở nửa Trả
+  // bé của hộp (`traBe`), nên tấm nào đã có ở đó thì không vẽ lần nữa.
+  anhCuaNgay(date, traBe = '') {
     const a = (this._anhTheoNgay || {})[date];
-    if (!a) return '';
-    return `
+    const v = (this._anhVeTheoNgay || {})[date];
+    const ve = v && !traBe.includes(v.file) ? v : null;
+    if (!a && !ve) return '';
+    if (!ve) {
+      return `
       <div class="mt-14 center">
         <img src="/api/attendance/anh/${UI.esc(a.file)}" alt="Ảnh con tới lớp"
           style="max-width:100%;border-radius:12px">
         <div class="muted small mt-8">Cô chụp lúc ${UI.esc(a.taoLuc || '')}</div>
+      </div>`;
+    }
+    const tam = (x, chu) => `
+        <div style="flex:1;min-width:0">
+          <img src="/api/attendance/anh/${UI.esc(x.file)}" alt="${chu}" style="max-width:100%;border-radius:12px">
+          <div class="muted small mt-8">${chu}${x.taoLuc ? ` · cô chụp lúc ${UI.esc(x.taoLuc)}` : ''}</div>
+        </div>`;
+    return `
+      <div class="mt-14 center" style="display:flex;gap:10px;align-items:flex-start">
+        ${a ? tam(a, 'Ảnh con tới lớp') : ''}${tam(ve, 'Ảnh con lúc ra về')}
       </div>`;
   },
 

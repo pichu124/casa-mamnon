@@ -152,3 +152,34 @@ CREATE TABLE IF NOT EXISTS cambridge_anh (
   ghiLuc TEXT
 );
 CREATE INDEX IF NOT EXISTS cambridge_anh_theo_bai ON cambridge_anh(baiId);
+
+-- ===== WEEKLY PLAN 2–3 HOẠT ĐỘNG + STORY (góp ý 16/10, mục 8 — Đ239f) =====
+--
+-- Trường: *"hiện luôn 3 hoặc 2 hoạt động do mình điền trong đó mỗi 1 hoạt
+-- động thể hiện đủ các nội dung: Tên chủ đề, Từ vựng, Mục tiêu. Sau đó sẽ là
+-- những mục chung như Song/ Chant/ Story"*.
+--
+-- `cambridge_bai_khung` chỉ chứa MỘT bộ Hoạt động / Chủ đề / Từ vựng, và
+-- không ALTER được. Nên mỗi hoạt động là một dòng ở bảng phụ, khoá theo bài và
+-- thứ tự. Hoạt động thứ nhất vẫn được chép vào khung cũ (`monHoc`, `chuDe`,
+-- `tuVung`) để màn hình đời cũ còn trong bộ nhớ đệm điện thoại đọc được.
+-- Bài chưa có dòng nào thì máy chủ suy một hoạt động từ khung — bài cũ hiện
+-- như cũ, không phải chép dữ liệu.
+CREATE TABLE IF NOT EXISTS cambridge_bai_hoat_dong (
+  baiId     TEXT NOT NULL,
+  thuTu     INTEGER NOT NULL,             -- 1, 2, 3 — đúng thứ tự văn phòng điền
+  hoatDong  TEXT NOT NULL DEFAULT '',     -- Communication and Language / Mathematics… (không bắt buộc)
+  chuDe     TEXT NOT NULL DEFAULT '',
+  tuVung    TEXT NOT NULL DEFAULT '',
+  mucTieu   TEXT NOT NULL DEFAULT '',
+  ghiLuc    TEXT,
+  PRIMARY KEY (baiId, thuTu)
+);
+
+-- Ô chung thêm của một bài. Song / Chant đã có ở khung; Story thì chưa, và
+-- khung không thêm cột được.
+CREATE TABLE IF NOT EXISTS cambridge_bai_them (
+  baiId   TEXT PRIMARY KEY,
+  story   TEXT NOT NULL DEFAULT '',
+  ghiLuc  TEXT
+);

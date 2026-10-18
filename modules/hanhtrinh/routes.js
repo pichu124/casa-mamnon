@@ -420,6 +420,11 @@ module.exports = (app, { db, modules }) => {
       // ô ấy — và nhắc lại trên màn của con là biến quyết định của người lớn
       // thành một nhãn dán lên đứa trẻ.
       ngungHoSoHocTap: req.user.role === 'parent' ? undefined : db.beNgungHoSoHocTap(be.id),
+      // Phần chương trình người này ghi được ở nhóm của bé (góp ý 16/10, mục
+      // 6) — để tab chương trình của cô nói trước "phần này do cô khác ghi"
+      // thay vì để cô gõ xong mới nhận 403. Cùng luật với đường ghi; chốt chặn
+      // vẫn ở đường ghi. Gia đình không nhận khoá này.
+      nhomDuocGhi: req.user.role === 'parent' ? undefined : nhomDuocGhi(req.user, be.classId),
       trangThai: trangThaiDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       // BA TAB THEO BA NHÓM CÔ (Đ195, việc 24).
@@ -521,8 +526,9 @@ module.exports = (app, { db, modules }) => {
       danhSachBe: (() => {
         const ds = db.studentsOf(req.user);
         const ngung = db.dsBeNgungHoSoHocTap(ds.map(s => s.id));
+        // `classId`: màn bốn tab cho cô nhiều nhóm / văn phòng chọn nhóm rồi chọn bé (16/10, mục 6).
         return ds.map(s => ({
-          id: s.id, hoTen: s.name, avatar: s.avatar,
+          id: s.id, hoTen: s.name, avatar: s.avatar, classId: s.classId,
           ngungHoSoHocTap: ngung.has(s.id),
         }));
       })(),

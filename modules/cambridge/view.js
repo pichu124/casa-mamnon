@@ -36,6 +36,8 @@ App.views.cambridge = {
   // Tab đi theo ĐƯỜNG DẪN (`#/cambridge/<loại>`): tin báo bài Weekly Plan mở
   // thẳng đúng tab đó, và nút Quay lại của điện thoại đi đúng tab trước.
   LOAI_HOP_LE: ['thu-phu-huynh', 'cambridge', 'ket-noi'],
+  // Weekly Plan có 2 hoặc 3 hoạt động (góp ý 16/10, mục 8) — cùng trần với máy chủ.
+  TOI_DA_HOAT_DONG: 3,
 
   async render(root, params) {
     const tuDuongDan = params && params[0];
@@ -257,21 +259,36 @@ App.views.cambridge = {
     return ((d.luaTuoi || []).find(l => l.ma === ma) || {}).ten || ma;
   },
 
-  // Năm ô nội dung theo mẫu trường gửi. Ô trống thì không vẽ — bài cũ chưa có
+  // Phần nội dung theo mẫu trường gửi. Ô trống thì không vẽ — bài cũ chưa có
   // khung nhìn y như trước.
-  theKhung(k) {
-    if (!k) return '';
-    const o = [
-      ['Hoạt động', k.monHoc], ['Chủ đề', k.chuDe], ['Từ vựng', k.tuVung],
-      ['Song / Chant', k.songChant], ['Kết nối ở nhà', k.ketNoiONha],
-    ].filter(x => x[1]);
-    if (!o.length) return '';
-    return `
-      <div class="mt-8" style="border-left:3px solid var(--primary);padding-left:10px">
-        ${o.map(([ten, gt]) => `
+  //
+  // WEEKLY PLAN (góp ý 16/10, mục 8): lần lượt từng hoạt động — "Hoạt động 1 —
+  // Communication and Language", rồi Chủ đề / Từ vựng / Mục tiêu — sau đó mới
+  // tới mục chung Song / Chant, Story. Bài cũ chỉ có khung thì máy chủ đã suy
+  // sẵn một hoạt động, nên thẻ cũ và mới cùng một kiểu.
+  // LETTER, HOME CONNECTION: vẽ các ô khung như trước — mẫu soạn đã bỏ các ô
+  // ấy (mục 9), nên chỉ bài cũ còn chữ mới có gì để vẽ.
+  theKhung(b) {
+    const k = b.khung || {};
+    const hd = b.hoatDong || [];
+    const dong = (o) => o.filter(x => x[1]).map(([ten, gt]) => `
           <div class="small" style="line-height:1.6;margin-bottom:6px">
             <b>${UI.esc(ten)}:</b> <span style="white-space:pre-wrap">${UI.esc(gt)}</span>
-          </div>`).join('')}
+          </div>`).join('');
+    const html = (b.loai === 'cambridge' || hd.length)
+      ? hd.map((h, i) => `
+          <div class="cam-the-hd" style="margin-bottom:8px">
+            <div class="small" style="font-weight:600;margin-bottom:4px">${UI.esc(`Hoạt động ${i + 1}${h.hoatDong ? ` — ${h.hoatDong}` : ''}`)}</div>
+            ${dong([['Chủ đề', h.chuDe], ['Từ vựng', h.tuVung], ['Mục tiêu', h.mucTieu]])}
+          </div>`).join('')
+        + dong([['Song / Chant', k.songChant], ['Story', b.story], ['Kết nối ở nhà', k.ketNoiONha]])
+      : dong([
+        ['Hoạt động', k.monHoc], ['Chủ đề', k.chuDe], ['Từ vựng', k.tuVung],
+        ['Song / Chant', k.songChant], ['Story', b.story], ['Kết nối ở nhà', k.ketNoiONha],
+      ]);
+    if (!html) return '';
+    return `
+      <div class="mt-8" style="border-left:3px solid var(--primary);padding-left:10px">${html}
       </div>`;
   },
 
@@ -386,7 +403,7 @@ App.views.cambridge = {
         </div>
 
         ${b.noiDung ? `<div style="line-height:1.7;white-space:pre-wrap">${UI.esc(b.noiDung)}</div>` : ''}
-        ${this.theKhung(b.khung)}
+        ${this.theKhung(b)}
         ${this.theTep(b)}
 
         ${b.nhacAnhTamAn ? `
@@ -424,6 +441,21 @@ App.views.cambridge = {
     }
     this._anhMoi = null;
     this._tepMoi = [];
+    // Hoạt động của Weekly Plan (Đ239f). Máy chủ đã suy sẵn một hoạt động từ
+    // khung cho Weekly Plan cũ; bài loại khác chỉ có hoạt động khi đã lưu thật.
+    // `coHdCu` = bài đang có hoạt động: khi ấy các khối hoạt động hiện ở mọi
+    // loại bài (chữ đã viết không được nằm khuất) và ô khung lẻ thì thôi hiện
+    // (khung chỉ còn là bản chép của hoạt động thứ nhất).
+    const hdCu = (b && b.hoatDong) || [];
+    const coHdCu = hdCu.length > 0;
+    this._coHdCu = coHdCu;
+    // Bài Letter / Home Connection cũ có chữ ở khung mà đổi sang Weekly Plan
+    // ngay trong hộp này: khối 1 mang sẵn chữ ấy, để lưu không xoá trắng khung.
+    const hdForm = coHdCu ? hdCu
+      : ((k.monHoc || k.chuDe || k.tuVung) ? [{ hoatDong: k.monHoc, chuDe: k.chuDe, tuVung: k.tuVung, mucTieu: '' }] : []);
+    const soKhoi = Math.min(this.TOI_DA_HOAT_DONG, Math.max(2, hdForm.length));
+    const oKhungLe = (gt) => (gt && !coHdCu ? 'thu-phu-huynh ket-noi' : '');
+    const story = (b && b.story) || '';
     UI.modal(`
       <div class="field">
         <label>Loại bài</label>
@@ -488,15 +520,39 @@ App.views.cambridge = {
         <div class="hint">Bài cho lứa 3–4 chỉ tới gia đình bé 3–4; bài cho mọi lứa tới mọi nhà trong phạm vi (trừ nhóm nhà trẻ).</div>
       </div>
       <!-- Ô của bài cũ CÒN CHỮ thì hiện ở mọi loại bài (vòng rà Đ232): gia
-           đình vẫn đọc chữ ấy, nên người sửa phải thấy và sửa được nó. -->
-      <div class="field" data-cho="cambridge ket-noi${k.monHoc ? ' thu-phu-huynh' : ''}"><label>Hoạt động (Cambridge)</label>
+           đình vẫn đọc chữ ấy, nên người sửa phải thấy và sửa được nó.
+           Ba ô khung lẻ dưới đây KHÔNG còn mời điền ở loại nào (Weekly Plan
+           dùng các khối hoạt động, Home Connection bỏ hẳn — góp ý 16/10). -->
+      <div class="field" data-cho="${oKhungLe(k.monHoc)}"><label>Hoạt động (Cambridge)</label>
         <input id="cam-mon" value="${UI.esc(k.monHoc || '')}" placeholder="Ví dụ: Communication and Language / Mathematics / Let's Explore"></div>
-      <div class="field" data-cho="cambridge ket-noi${k.chuDe ? ' thu-phu-huynh' : ''}"><label>Chủ đề</label>
+      <div class="field" data-cho="${oKhungLe(k.chuDe)}"><label>Chủ đề</label>
         <input id="cam-chu-de" value="${UI.esc(k.chuDe || '')}" placeholder="Ví dụ: My school"></div>
-      <div class="field" data-cho="cambridge ket-noi${k.tuVung ? ' thu-phu-huynh' : ''}"><label>Từ vựng</label>
+      <div class="field" data-cho="${oKhungLe(k.tuVung)}"><label>Từ vựng</label>
         <textarea id="cam-tu-vung" rows="2" placeholder="Ví dụ: classroom, teacher, friend, book">${UI.esc(k.tuVung || '')}</textarea></div>
-      <div class="field" data-cho="cambridge ket-noi${k.songChant ? ' thu-phu-huynh' : ''}"><label>Song / Chant</label>
+
+      <div id="cam-hd-khoi" data-cho="cambridge${coHdCu ? ' thu-phu-huynh ket-noi' : ''}">
+        ${[1, 2, 3].map(i => {
+          const h = hdForm[i - 1] || {};
+          return `
+          <div class="cam-hd" data-hd="${i}" style="${i > soKhoi ? 'display:none;' : ''}border-left:3px solid var(--primary);padding-left:10px;margin-bottom:12px">
+            <div class="card-title">Hoạt động ${i}</div>
+            <div class="field"><label>Hoạt động (Cambridge) <span class="muted small" style="font-weight:400">— không bắt buộc</span></label>
+              <input id="cam-hd-${i}-ten" value="${UI.esc(h.hoatDong || '')}" placeholder="Ví dụ: Communication and Language"></div>
+            <div class="field"><label>Tên chủ đề</label>
+              <input id="cam-hd-${i}-chu-de" value="${UI.esc(h.chuDe || '')}" placeholder="Ví dụ: Color"></div>
+            <div class="field"><label>Từ vựng</label>
+              <textarea id="cam-hd-${i}-tu-vung" rows="2" placeholder="Ví dụ: Red, Green, Yellow">${UI.esc(h.tuVung || '')}</textarea></div>
+            <div class="field"><label>Mục tiêu</label>
+              <textarea id="cam-hd-${i}-muc-tieu" rows="2" placeholder="Ví dụ: Con gọi được tên ba màu bằng tiếng Anh">${UI.esc(h.mucTieu || '')}</textarea></div>
+          </div>`;
+        }).join('')}
+        <button type="button" class="btn outline sm mb-8" id="cam-hd-them" style="${soKhoi >= this.TOI_DA_HOAT_DONG ? 'display:none' : ''}">${UI.icon('plus', 14)} Thêm hoạt động</button>
+      </div>
+      <div class="card-title mt-8" data-cho="cambridge">Mục chung của tuần</div>
+      <div class="field" data-cho="cambridge${k.songChant ? ' thu-phu-huynh ket-noi' : ''}"><label>Song / Chant</label>
         <textarea id="cam-song" rows="2" placeholder="Ví dụ: If You're Happy and You Know It — kèm đường dẫn nếu có">${UI.esc(k.songChant || '')}</textarea></div>
+      <div class="field" data-cho="cambridge${story ? ' thu-phu-huynh ket-noi' : ''}"><label>Story</label>
+        <textarea id="cam-story" rows="2" placeholder="Ví dụ: Brown Bear, Brown Bear, What Do You See?">${UI.esc(story)}</textarea></div>
       <div class="field" data-cho="${k.ketNoiONha ? 'thu-phu-huynh cambridge ket-noi' : ''}"><label>Kết nối ở nhà</label>
         <textarea id="cam-ket-noi" rows="3" placeholder="Video, worksheet, việc gia đình làm cùng con tuần này">${UI.esc(k.ketNoiONha || '')}</textarea></div>
 
@@ -536,15 +592,22 @@ App.views.cambridge = {
       <div class="muted small center mt-8">Lưu xong bài vẫn là nháp — gia đình chỉ đọc được sau khi bấm "Gửi tới gia đình".</div>
     `, id ? 'Sửa bài đăng' : 'Soạn bài mới');
 
-    // MỖI LOẠI BÀI MỘT MẪU SOẠN (góp ý 06/10, mục 5).
+    // MỖI LOẠI BÀI MỘT MẪU SOẠN (góp ý 06/10, mục 5; góp ý 16/10, mục 8 + 9).
     //   Letter for Parent: một ô chữ — không cần ô hoạt động Cambridge.
-    //   Cambridge Weekly Plan: khung Cambridge — không có ô Nội dung.
-    //   Home Connection: ô Nội dung + khung Cambridge.
+    //   Cambridge Weekly Plan: 2–3 khối hoạt động (tên hoạt động, chủ đề, từ
+    //     vựng, mục tiêu), rồi mục chung Song / Chant, Story — không có ô Nội dung.
+    //   Home Connection: ô Nội dung + Block / Tuần trong block / Lứa tuổi.
     // Ô "Kết nối ở nhà" trùng với chính loại Home Connection nên thôi mời
     // điền. ẨN CHỨ KHÔNG BỎ khỏi mẫu: `luu()` đọc mọi ô và máy chủ ghi đè cả
     // khung — bỏ ô là sửa một bài cũ thì chữ đã viết ở ô ấy bị xoá trắng. Ô nào
     // của bài cũ CÒN CHỮ thì vẫn hiện (data-cho đã tính ở trên), để không có
     // chữ nào nằm khuất mà cô không thấy.
+    const nutThemHd = document.getElementById('cam-hd-them');
+    nutThemHd.onclick = () => {
+      const an = [...document.querySelectorAll('#modal-overlay .cam-hd')].filter(x => x.style.display === 'none');
+      if (an[0]) an[0].style.display = '';
+      if (an.length <= 1) nutThemHd.style.display = 'none';
+    };
     const oLoai = document.getElementById('cam-loai');
     const theoLoai = () => {
       for (const o of document.querySelectorAll('#modal-overlay [data-cho]')) {
@@ -616,8 +679,10 @@ App.views.cambridge = {
 
   async luu(id) {
     const phamVi = document.getElementById('cam-phamvi').value;
+    const loai = document.getElementById('cam-loai').value;
+    const o = (ma) => (document.getElementById(ma) || {}).value || '';
     const body = {
-      loai: document.getElementById('cam-loai').value,
+      loai,
       tieuDe: document.getElementById('cam-tieude').value.trim(),
       noiDung: document.getElementById('cam-noidung').value.trim(),
       phamVi,
@@ -633,7 +698,19 @@ App.views.cambridge = {
         songChant: (document.getElementById('cam-song') || {}).value || '',
         ketNoiONha: (document.getElementById('cam-ket-noi') || {}).value || '',
       },
+      story: o('cam-story'),
     };
+    // Gửi đủ ba khối, máy chủ bỏ khối trống. Loại khác Weekly Plan mà bài
+    // chưa từng có hoạt động thì KHÔNG gửi — các khối khi ấy đang ẩn, và gửi
+    // chúng là biến chữ khung cũ thành hoạt động.
+    if (loai === 'cambridge' || this._coHdCu) {
+      body.hoatDong = [1, 2, 3].map(i => ({
+        hoatDong: o(`cam-hd-${i}-ten`),
+        chuDe: o(`cam-hd-${i}-chu-de`),
+        tuVung: o(`cam-hd-${i}-tu-vung`),
+        mucTieu: o(`cam-hd-${i}-muc-tieu`),
+      }));
+    }
     if (phamVi === 'coso') body.campusId = (document.getElementById('cam-coso') || {}).value || '';
     if (phamVi === 'nhom') body.classId = (document.getElementById('cam-nhom') || {}).value || '';
     if (this._anhMoi) body.anh = this._anhMoi;

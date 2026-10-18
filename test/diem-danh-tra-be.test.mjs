@@ -29,7 +29,7 @@
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, batPhanHe,
-  taoBoDem, CHROMIUM, tatBannerMoiCai, MAU,
+  taoBoDem, CHROMIUM, tatBannerMoiCai, MAU, HOM_NAY, ngay,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -55,6 +55,15 @@ const ckTam = await dnApi('htruong', mkTam);
 await goiApi('/api/auth/set-new-password', { newPassword: 'quantri2026' }, ckTam);
 const ckQT = await dnApi('htruong', 'quantri2026');
 const batTat = async (key, bat) => goiApi(`/api/admin/modules/${key}`, { enabled: bat }, ckQT, 'PUT');
+
+// Dữ liệu mẫu chỉ điểm danh NGÀY HỌC, nên chạy vào cuối tuần thì "hôm nay"
+// chưa bé nào vào lớp và mọi nút "Ghi con đã về" biến mất (docs/VIEC-DANG-DO.md,
+// việc 3). Ngày thường khối này không chạy, bài y như cũ.
+if ([0, 6].includes(new Date(`${HOM_NAY()}T00:00:00Z`).getUTCDay())) {
+  const r = await goiApi('/api/attendance/mark-all',
+    { date: HOM_NAY(), status: 'present', classId: 'c1' }, await dnApi('giaovien', '123456'));
+  check('(cuối tuần) cô chấm có mặt cả nhóm Chồi 2 cho hôm nay', r.status === 200, r.data);
+}
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
 const ctx = await tatBannerMoiCai(await browser.newContext({
@@ -580,8 +589,14 @@ console.log('\n[7] Giờ Việt Nam, ngày viết bằng tiếng Việt, và ng�
 console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm gập sẵn, chụp hai lần, gọi một chạm');
 {
   await dangNhap('htruong', 'quantri2026');
-  // Kéo mốc rà soát về 06:00 để bảng "cần gọi xác nhận" có bé ngay bây giờ.
-  await goiApi('/api/attendance/cai-dat', { gioRaSoat: '06:00' }, ckQT, 'PUT');
+  // Kéo mốc rà soát về 06:00 — mốc sớm nhất máy chủ nhận (GIO_RA_SOAT_SOM_NHAT,
+  // routes/attendance.js) — để bảng "cần gọi xác nhận" có bé ngay bây giờ. Chạy
+  // bài lúc 0h–6h sáng giờ Việt Nam thì bảng ĐÚNG LÀ chưa hiện: chưa tới giờ rà
+  // soát thì chưa ai cần gọi. Khung giờ ấy đo đúng điều đó, không đo nút Gọi.
+  const MOC_RA_SOAT = '06:00';
+  const MOC_RA_SOAT_CHU = '6h';
+  await goiApi('/api/attendance/cai-dat', { gioRaSoat: MOC_RA_SOAT }, ckQT, 'PUT');
+  let truocMoc = ngay.bayGio() < MOC_RA_SOAT;   // đọc TRƯỚC khi màn hỏi bảng rà soát
   loiJs = [];
   await moMan('#/attendance');
   check('có mục "Giáo viên & nhân viên"', await dem('#att-nv') === 1);
@@ -609,14 +624,31 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
   check('người chụp KHÔNG thấy ảnh khuôn mặt của cô (chỉ tên và giờ)', await dem('#att-nv img') === 0, await dem('#att-nv img'));
 
   // Gọi xác nhận một chạm.
+  // Đồng hồ vừa qua 06:00 trong lúc chạy mục này thì bảng đã nạp trước mốc:
+  // nạp lại trang cho bảng nạp sau mốc, rồi đo như khung giờ sau. (moMan tới
+  // đúng địa chỉ đang mở thì trình duyệt không nạp lại gì cả.)
+  if (truocMoc && ngay.bayGio() >= MOC_RA_SOAT) {
+    truocMoc = false;
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(900);
+  }
   const nutGoi = await dem('[data-goi-be]');
-  check('bảng "cần gọi xác nhận" có nút Gọi cạnh từng bé', nutGoi > 0, nutGoi);
-  if (nutGoi > 0) {
-    await page.locator('[data-goi-be]').first().click();
-    await page.waitForTimeout(1200);
-    check('bấm Gọi mở số của gia đình kèm nút gọi thật (tel:)', await dem('#modal-overlay a[href^="tel:"]') > 0,
-      await page.locator('#modal-overlay').innerText().catch(() => ''));
-    await page.evaluate(() => UI.closeModal());
+  if (truocMoc) {
+    console.log(`  (giờ Việt Nam hiện là ${ngay.bayGio()} — trước ${MOC_RA_SOAT} giờ VN — phần nút Gọi kiểm ở khung giờ sau)`);
+    const man = await chu();
+    check(`chưa tới mốc rà soát: màn nói "Sáng nay còn đang điểm danh", chốt lúc ${MOC_RA_SOAT_CHU}`,
+      /Sáng nay còn đang điểm danh/.test(man) && man.includes(`chốt lúc ${MOC_RA_SOAT_CHU}.`), man.slice(0, 600));
+    check('chưa tới mốc rà soát: chưa có bảng "cần gọi xác nhận", không nút Gọi nào',
+      nutGoi === 0 && !/Cần gọi xác nhận/.test(man), nutGoi);
+  } else {
+    check('bảng "cần gọi xác nhận" có nút Gọi cạnh từng bé', nutGoi > 0, nutGoi);
+    if (nutGoi > 0) {
+      await page.locator('[data-goi-be]').first().click();
+      await page.waitForTimeout(1200);
+      check('bấm Gọi mở số của gia đình kèm nút gọi thật (tel:)', await dem('#modal-overlay a[href^="tel:"]') > 0,
+        await page.locator('#modal-overlay').innerText().catch(() => ''));
+      await page.evaluate(() => UI.closeModal());
+    }
   }
 
   // Chụp lần hai cho BÉ = ra về.
@@ -632,6 +664,202 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
     const dong = await page.locator(`#att-dong-${beCoMat}`).innerText();
     check('bé đã vào lớp: chụp ảnh lần hai là GHI RA VỀ', /Ra về \d{2}:\d{2}/.test(dong), dong);
   }
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+}
+
+// ===========================================================================
+// Góp ý 16/10 (phía phụ huynh, mục 2): *"Chưa thấy update hình ảnh con check
+// out tại trường, chỉ ghi nhận thông báo"*. Máy chủ đã lưu ảnh ra về từ Đ210
+// và báo gia đình "xem ảnh trong Điểm danh" — nhưng màn của gia đình chưa vẽ.
+console.log('\n[9] Gia đình thấy ảnh con lúc ra về ngay ở Điểm danh (góp ý 16/10, PH2)');
+{
+  const hn = HOM_NAY();
+  const ANH_URL = `data:image/png;base64,${ANH_THU.toString('base64')}`;
+  const ckCo = await dnApi('giaovien', '123456');
+  const toi = await goiApi('/api/attendance/anh', { studentId: maBeAn, date: hn, anh: ANH_URL }, ckCo);
+  check('(đối chứng) cô gắn được ảnh tới lớp cho bé An', toi.status === 201 && !!toi.data.file, toi.data);
+  const ve = await goiApi('/api/attendance/ra-ve',
+    { studentId: maBeAn, date: hn, gio: '16:40', anh: ANH_URL }, ckCo);
+  const fileVe = (ve.data && ve.data.anh && ve.data.anh.file) || '';
+  check('cô ghi được giờ ra về kèm ảnh cho bé An', ve.status === 200 && !!fileVe, ve.data);
+  const SRC_VE = `/api/attendance/anh/${fileVe}`;
+
+  // Phân hệ Đón trả bé TẮT (đúng như trường chọn ở mục 4): ảnh vẫn hiện,
+  // vì nó là của lõi, và hộp ngày không có dấu vết Trả bé nào.
+  await batTat('dontra', false);
+  await dangNhap('phuhuynh', '123456');
+  loiJs = [];
+  await moMan('#/attendance');
+  await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
+  await page.waitForTimeout(1000);
+  const dongHn = page.locator(`#view .list-row[onclick*="'${hn}'"]`);
+  check('(đối chứng) có dòng của hôm nay trong "Bản ghi gần nhất"', await dongHn.count() === 1, await dongHn.count());
+  check('dòng hôm nay có ẢNH NHỎ LÚC RA VỀ, trỏ đường có canh quyền',
+    await dongHn.locator(`img[alt="Ảnh con lúc ra về"][src="${SRC_VE}"]`).count() === 1,
+    await dongHn.innerHTML().catch(() => ''));
+  check('…đứng cạnh ảnh nhỏ lúc tới lớp', await dongHn.locator('img[alt="Ảnh con tới lớp"]').count() === 1);
+  await dongHn.click();
+  await page.waitForSelector('.modal', { timeout: 5000 });
+  const hop = await page.locator('.modal').innerText();
+  check('hộp ngày có chú thích "Ảnh con tới lớp" và "Ảnh con lúc ra về"',
+    /Ảnh con tới lớp/.test(hop) && /Ảnh con lúc ra về/.test(hop), hop.slice(0, 300));
+  check('kèm giờ ra về cô đã ghi', /Giờ ra về\s*16:40/.test(hop), hop.slice(0, 300));
+  const anhVeHop = page.locator(`.modal img[src="${SRC_VE}"]`);
+  check('hộp có thẻ ảnh ra về trỏ /api/attendance/anh/<tệp>', await anhVeHop.count() === 1);
+  await page.waitForTimeout(300);
+  check('ảnh ra về hiện ra thật (tải về được, không vỡ)',
+    await anhVeHop.evaluate(el => el.complete && el.naturalWidth > 0).catch(() => false));
+  const taiVe = await page.evaluate(async (src) => (await fetch(src)).status, SRC_VE);
+  check('gia đình tải ảnh ra về: 200', taiVe === 200, taiVe);
+  check('phân hệ Đón trả bé tắt: hộp ngày KHÔNG có nửa Trả bé', !/Trả bé|Về với/.test(hop), hop.slice(0, 300));
+  await page.evaluate(() => UI.closeModal());
+  const lac = await goiApi(SRC_VE, null, await dnApi('phuhuynh2', '123456'));
+  check('gia đình KHÁC không mở được ảnh ra về của bé An (403/404)', [403, 404].includes(lac.status), lac.status);
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+
+  // CHẠM THÔNG BÁO LÀ THẤY NGAY ẢNH. Đang xem bé kia cũng vậy: thông báo
+  // chọn đúng bé rồi mở thẳng hộp của ngày hôm đó.
+  const tin = ((await page.evaluate(() => API.get('/api/notifications/rieng-be'))) || [])
+    .find(n => n.title === 'Con đã được đón về' && n.studentId === maBeAn);
+  check('thông báo "Con đã được đón về" trỏ thẳng tới ngày hôm đó, kèm mã của bé',
+    !!tin && tin.hash === `#/attendance/${hn}/${maBeAn}`, tin && tin.hash);
+  await page.evaluate(() => App.setStudent(App.state.students.find(s => s.name !== 'Nguyễn Bảo An').id));
+  await page.waitForTimeout(800);
+  await moMan('#/notifications');
+  await page.locator('#view .list-row', { hasText: 'Con đã được đón về' }).first().click();
+  await page.waitForSelector('.modal', { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  const hopTb = await page.locator('.modal').innerText().catch(() => '');
+  check('chạm thông báo → hộp ngày của bé An mở sẵn, có ảnh lúc ra về',
+    await dem(`.modal img[src="${SRC_VE}"]`) === 1 && /Ảnh con lúc ra về/.test(hopTb), hopTb.slice(0, 200));
+  check('…và địa chỉ trở về #/attendance (đổi tháng không bật lại hộp)',
+    await page.evaluate(() => location.hash) === '#/attendance');
+  await page.evaluate(() => UI.closeModal());
+  await page.locator('button[aria-label="Tháng trước"]').click();
+  await page.waitForTimeout(1000);
+  check('lùi một tháng: không hộp nào tự bật lên', await dem('.modal') === 0);
+
+  // CHẠM TIN ĐẨY trên điện thoại (Đ239-vá4): service worker chỉ mở địa chỉ
+  // trong tin, không chọn bé như màn Thông báo. Nhà hai con đang để bé Nam mà
+  // tin là của bé An thì chính địa chỉ phải chọn bé An.
+  const maBeNam = await page.evaluate(() => (App.state.students.find(s => s.name === 'Nguyễn Bảo Nam') || {}).id);
+  const dangXem = () => page.evaluate(() => App.currentStudent().id);
+  const moDiaChi = async (h) => {
+    await page.evaluate((x) => { location.hash = x; }, h);
+    await page.waitForSelector('.modal', { timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(600);
+  };
+  await page.evaluate((id) => App.setStudent(id), maBeNam);
+  await page.waitForTimeout(800);
+  check('(đối chứng) đang xem bé Nam', !!maBeNam && await dangXem() === maBeNam);
+  await moDiaChi(`#/attendance/${hn}/${maBeAn}`);
+  check('mở địa chỉ của tin đẩy khi đang xem bé Nam → hộp ngày của bé An, có ảnh lúc ra về',
+    await dem(`.modal img[src="${SRC_VE}"]`) === 1, (await page.locator('.modal').innerText().catch(() => '')).slice(0, 200));
+  check('…màn đã chuyển sang bé An',
+    await dangXem() === maBeAn && /Nguyễn Bảo An/.test(await page.locator('.student-chip.active').innerText().catch(() => '')));
+  check('…và địa chỉ trở về #/attendance', await page.evaluate(() => location.hash) === '#/attendance');
+  await page.evaluate(() => UI.closeModal());
+
+  // Địa chỉ cũ (thông báo đã gửi trước bản này) vẫn mở hộp của bé đang xem.
+  await moDiaChi(`#/attendance/${hn}`);
+  check('địa chỉ cũ #/attendance/<ngày> vẫn mở hộp ngày của bé đang xem',
+    await dangXem() === maBeAn && await dem(`.modal img[src="${SRC_VE}"]`) === 1);
+  await page.evaluate(() => UI.closeModal());
+
+  // Mã của bé nhà khác: bỏ qua phần mã, không hỏi máy chủ gì về bé ấy.
+  await page.evaluate((id) => App.setStudent(id), maBeNam);
+  await page.waitForTimeout(800);
+  const hoiBeLa = [];
+  const ngheHoi = (r) => { if (/[?&]studentId=s3\b|\/s3\b/.test(r.url())) hoiBeLa.push(r.url()); };
+  page.on('request', ngheHoi);
+  loiJs = [];
+  await moDiaChi(`#/attendance/${hn}/s3`);
+  page.off('request', ngheHoi);
+  check('mã bé nhà khác: màn vẫn ở bé Nam', await dangXem() === maBeNam, await dangXem());
+  check('…không hỏi máy chủ dữ liệu nào của bé ấy', hoiBeLa.length === 0, hoiBeLa);
+  check('…không mở hộp nào có ảnh của bé An', await dem(`.modal img[src="${SRC_VE}"]`) === 0);
+  check('…không lỗi JavaScript', loiJs.length === 0, loiJs);
+  await page.evaluate(() => UI.closeModal());
+
+  // Phân hệ BẬT: ảnh trả bé do phân hệ ghi (máy chủ gộp vào `anhVe`) hiện ở
+  // cùng chỗ trên dòng của ngày. Nửa Trả bé của phân hệ cũng tự vẽ tấm ấy
+  // trong hộp ngày, nên tấm đó không được hiện hai lần.
+  await batTat('dontra', true);
+  const ghi = await goiApi('/api/dontra/ghi',
+    { studentId: 's2', ngay: hn, nguonLoai: 'khac', nguoiDon: 'Bà ngoại', luc: '16:45' }, ckQT);
+  const cu = await goiApi('/api/dontra/anh-tra', { studentId: 's2', ngay: hn, anh: ANH_URL }, ckQT);
+  const fileCu = (cu.data && cu.data.file) || '';
+  const coMat = await goiApi('/api/attendance/mark', { studentId: 's2', date: hn, status: 'present' }, ckQT);
+  check('(đối chứng) bé Nam có mặt, có sổ trả bé kèm ảnh của phân hệ',
+    ghi.status < 300 && cu.status === 201 && !!fileCu && coMat.status < 300, [ghi.status, cu.status, coMat.status]);
+  await dangNhap('phuhuynh', '123456');
+  loiJs = [];
+  await moMan('#/attendance');
+  await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
+  await page.waitForTimeout(1000);
+  await page.evaluate((d) => App.views.attendance.showDay(d), hn);
+  await page.waitForSelector('.modal', { timeout: 5000 });
+  check('phân hệ bật: hộp của bé An vẫn có ảnh lúc ra về', await dem(`.modal img[src="${SRC_VE}"]`) === 1);
+  await page.evaluate(() => UI.closeModal());
+
+  await page.locator('.student-chip', { hasText: 'Nguyễn Bảo Nam' }).click();
+  await page.waitForTimeout(1000);
+  const dongNam = page.locator(`#view .list-row[onclick*="'${hn}'"]`);
+  check('ảnh trả bé của phân hệ hiện ở ảnh nhỏ lúc ra về trên dòng hôm nay',
+    await dongNam.locator(`img[alt="Ảnh con lúc ra về"][src="/api/attendance/anh/${fileCu}"]`).count() === 1,
+    await dongNam.innerHTML().catch(() => ''));
+  check('…và mở ra được', await dongNam.locator('img[alt="Ảnh con lúc ra về"]')
+    .evaluate(el => el.complete && el.naturalWidth > 0).catch(() => false));
+  await page.evaluate((d) => App.views.attendance.showDay(d), hn);
+  await page.waitForSelector('.modal', { timeout: 5000 });
+  const soTam = await page.evaluate((f) => [...document.querySelectorAll('.modal img')]
+    .filter(i => (i.getAttribute('src') || '').endsWith(`/${f}`)).length, fileCu);
+  check('trong hộp ngày, tấm ảnh ấy hiện ĐÚNG MỘT lần (không trùng với nửa Trả bé)', soTam === 1, soTam);
+  await page.evaluate(() => UI.closeModal());
+  check('không lỗi JavaScript', loiJs.length === 0, loiJs);
+}
+
+// ===========================================================================
+// Góp ý 16/10, mục 2 + 3: *"lồng ghép vào trong mục điểm danh và xuất báo cáo
+// điểm danh luôn"*. Màn Điểm danh của NHÀ TRƯỜNG chỉ đường sang hai màn ấy.
+console.log('\n[10] Nhà trường: thẻ "Báo cáo" trên màn Điểm danh');
+{
+  await batTat('tienan', true);
+  await dangNhap('htruong', 'quantri2026');
+  loiJs = [];
+  await moMan('#/attendance');
+  const the = page.locator('#att-bao-cao');
+  check('văn phòng thấy thẻ "Báo cáo"', await the.count() === 1 && /Báo cáo/.test(await the.innerText()));
+  const coXbc = await page.evaluate(() => App.moduleEnabled('xuatbaocao'));
+  check('lối "Xuất báo cáo điểm danh (Excel)" có đúng khi phân hệ Xuất báo cáo đang bật',
+    await the.locator('button', { hasText: 'Xuất báo cáo điểm danh (Excel)' }).count() === (coXbc ? 1 : 0), coXbc);
+  const nutTa = the.locator('button', { hasText: 'Đối chiếu tiền ăn tháng' });
+  check('có lối "Đối chiếu tiền ăn tháng"', await nutTa.count() === 1);
+  if (await nutTa.count() === 1) await nutTa.click();
+  await page.waitForTimeout(800);
+  check('bấm → sang màn tiền ăn', await page.evaluate(() => location.hash) === '#/tienan');
+  await moMan('#/attendance');
+  const nhoQua = await page.evaluate(() => [...document.querySelectorAll('#att-bao-cao button')]
+    .map(b => b.getBoundingClientRect()).filter(r => r.height < 32 || r.right > window.innerWidth).length);
+  check('nút trong thẻ đủ lớn và không tràn khổ điện thoại', nhoQua === 0, nhoQua);
+
+  // Không lối nào bật thì không vẽ thẻ rỗng.
+  await batTat('tienan', false);
+  await batTat('xuatbaocao', false);
+  await dangNhap('htruong', 'quantri2026');
+  await moMan('#/attendance');
+  check('tắt cả hai phân hệ → không còn thẻ "Báo cáo"', await dem('#att-bao-cao') === 0);
+  check('…mà màn Điểm danh vẫn dựng đủ', await dem('#att-nv') === 1);
+  await batTat('tienan', true);
+  if (coXbc) await batTat('xuatbaocao', true);
+
+  await dangNhap('giaovien', '123456');
+  await moMan('#/attendance');
+  check('cô KHÔNG thấy thẻ "Báo cáo"', await dem('#att-bao-cao') === 0);
+  await dangNhap('phuhuynh', '123456');
+  await moMan('#/attendance');
+  check('gia đình KHÔNG thấy thẻ "Báo cáo" (dù phân hệ tiền ăn mở cho gia đình)',
+    await page.evaluate(() => App.moduleEnabled('tienan')) && await dem('#att-bao-cao') === 0);
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 }
 

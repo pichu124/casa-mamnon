@@ -9,6 +9,7 @@ const st = require('../lib/sua-thu-hoi');
 // bản chép tay từng trôi lệch giữa tệp này và routes/notifications.js.
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
+const kvp = require('../lib/kenh-van-phong');
 const { requireRole } = require('../lib/auth');
 const modules = require('../lib/modules');
 const nghiHoc = require('../lib/nghi-hoc');
@@ -53,6 +54,15 @@ function unreadMessages(user) {
   // ô Nhắn tin cho một lời nhắn mà mở ra chỉ còn chỗ trống — huy hiệu hứa một
   // thứ mà màn hình không có. Cùng hình dạng với ba chỗ `test:thu-hoi` đã bắt
   // được trước đây, chỉ khác bảng; chính bộ canh ấy bắt được chỗ này.
+  //
+  // HỘP THƯ VĂN PHÒNG VÀ KÊNH PHÍA GIA ĐÌNH (Đ239m) đếm cùng MỘT luật với
+  // danh sách, lấy từ lib/kenh-van-phong.js: người đã hết quyền đọc một cuộc
+  // thì tin trong đó thôi được đếm.
+  //
+  // CUỘC ĐÃ ĐÓNG (Đ239n) cũng vậy: danh sách loại nó và mở ra là 404, nên tin
+  // chưa đọc trong đó không còn đường nào để đọc. Thiếu điều kiện
+  // `hoi_thoai_dong` dưới đây thì huy hiệu đứng mãi — lỗi có từ Đ192.
+  const dieuKienKenh = kvp.dieuKienDanhSach(user);
   const rows = db.all('messages',
     `SELECT c.id AS convId, c.type AS type, c.classId AS classId, COUNT(*) AS n
        FROM messages m
@@ -61,8 +71,10 @@ function unreadMessages(user) {
       WHERE m.senderId != ?
         AND (cm.lastRead IS NULL OR m.createdAt > cm.lastRead)
         AND ${st.dieuKienConHien('messages', 'm.id')}
+        AND ${dieuKienKenh.sql}
+        AND c.id NOT IN (SELECT conversationId FROM hoi_thoai_dong)
       GROUP BY c.id, c.type, c.classId`,
-    [user.id, user.id]);
+    [user.id, user.id, ...dieuKienKenh.params]);
   if (!rows.length) return 0;
   // Cùng MỘT luật với danh sách hội thoại (lib/thong-bao.js) — quản trị thấy
   // cả phòng nhóm đã đóng trong cơ sở mình, nên huy hiệu cũng phải đếm chúng.

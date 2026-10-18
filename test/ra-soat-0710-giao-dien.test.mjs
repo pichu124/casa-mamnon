@@ -133,7 +133,7 @@ try {
   console.log('\n[3] Hành trình: bấm Lưu ngay khi câu nói còn đang nghe → câu ấy vẫn được lưu, một lần');
   {
     await moMan('#/hanhtrinh');
-    await page.locator('#ht-tabs button', { hasText: 'Suy ngẫm cuối ngày' }).click();
+    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Suy ngẫm cuối ngày' }).click();
     await page.waitForTimeout(1000);
     await page.click('#ht-them');
     await page.waitForTimeout(500);

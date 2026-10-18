@@ -209,6 +209,21 @@ for (const [label, dev] of [['iphone', devices['iPhone 14']], ['android', device
   // Phòng chat: ô nhập phải nằm trong màn hình
   await p.goto(`${BASE}/#/messages`);
   await p.waitForTimeout(800);
+  // Danh sách hội thoại hiện dòng phụ dưới tên để hai dòng cùng tên (hai "Cô
+  // phụ trách nhóm" của hai con) phân biệt được. Mục văn phòng là MỘT cho cả
+  // nhà ở cùng cơ sở (góp ý 16/10 PH1, phương án A — Đ239m): mỗi tài khoản phụ
+  // huynh một hộp thư riêng với văn phòng, nên không còn "Về bé …".
+  const dsChu = await p.locator('#view').innerText();
+  check(`[${label}] danh sách hội thoại có dòng phụ nói rõ người kia là ai`,
+    /Cô phụ trách/.test(dsChu), dsChu.slice(0, 200));
+  await p.click('#msg-new');
+  await p.waitForSelector('#modal-overlay');
+  const tenMoi = await p.locator('#modal-overlay .row-title').allInnerTexts();
+  check(`[${label}] "Trò chuyện mới": nhà hai con cùng cơ sở thấy MỘT dòng "Văn phòng nhà trường"`,
+    tenMoi.filter(t => t.trim() === 'Văn phòng nhà trường').length === 1, tenMoi);
+  check(`[${label}] và dòng ấy không kèm "Về bé…"`,
+    !/Về bé/.test(await p.locator('#modal-overlay').innerText()));
+  await p.evaluate(() => UI.closeModal());
   const row = p.locator('.chat-list-row').first();
   if (await row.count()) {
     await row.click();

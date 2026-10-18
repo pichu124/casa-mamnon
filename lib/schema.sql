@@ -127,6 +127,32 @@ CREATE TABLE IF NOT EXISTS student_parents (
 );
 CREATE INDEX IF NOT EXISTS idx_sp_parent ON student_parents(parentId);
 
+-- Người này là gì của bé: bố, mẹ, ông, bà, người giám hộ (Đ239d2 — góp ý 16/10,
+-- mục 5). Theo TỪNG CẶP bé – người lớn, không theo người: cùng một người có thể
+-- là mẹ của bé này và là bà của bé kia. Bảng riêng vì lược đồ lõi không có câu
+-- ALTER TABLE nào. Không có dòng = chưa ai ghi quan hệ, KHÔNG phải "không là gì".
+CREATE TABLE IF NOT EXISTS quan_he_phu_huynh (
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  parentId  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quanHe    TEXT NOT NULL DEFAULT '',
+  ghiLuc    TEXT,
+  PRIMARY KEY (studentId, parentId)
+);
+
+-- Bé đang NGHỈ HỌC BẢO LƯU (Đ239d2 — góp ý 16/10, mục 5).
+--
+-- Bảo lưu đi đúng đường "Cho nghỉ" (students.active = 0, leftAt = hôm bấm):
+-- bảng này chỉ ghi thêm rằng lần nghỉ ấy là TẠM, kèm tháng dự kiến quay lại.
+-- Đi học lại (đường "Nhận lại") thì xoá dòng; dấu vết còn ở nhật ký thao tác.
+CREATE TABLE IF NOT EXISTS hoc_sinh_bao_luu (
+  studentId     TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  tuNgay        TEXT NOT NULL,            -- YYYY-MM-DD
+  duKienQuayLai TEXT NOT NULL DEFAULT '', -- YYYY-MM, rỗng = chưa hẹn
+  lyDo          TEXT NOT NULL DEFAULT '',
+  nguoiGhi      TEXT,
+  ghiLuc        TEXT
+);
+
 -- ===== Điểm danh — bảng lớn nhất, khoảng 52.500 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS attendance (
   id        TEXT PRIMARY KEY,
@@ -344,6 +370,35 @@ CREATE TABLE IF NOT EXISTS kenh_hoi_thoai (
 );
 CREATE INDEX IF NOT EXISTS idx_kenh_be ON kenh_hoi_thoai(studentId, loai);
 CREATE INDEX IF NOT EXISTS idx_kenh_lop ON kenh_hoi_thoai(classId);
+
+-- ===== HỘP THƯ VĂN PHÒNG: MỖI TÀI KHOẢN PHỤ HUYNH × CƠ SỞ MỘT CUỘC (Đ239m) =====
+--
+-- Nhà trường 16/10 (PH1): *"không cần tách ra Văn phòng nhà trường về bé này bé
+-- kia, chỉ cần ghi Nhắn tin với văn phòng nhà trường"*. Chủ dự án chọn phương án
+-- A ngày 18/10 (docs/PHAN-HOI-TRUONG-1610.md, mục PH1).
+--
+-- VÌ SAO GẮN THEO NGƯỜI, KHÔNG GẮN THEO BÉ. Một cuộc nói về cả nhà thì nội dung
+-- phủ nhiều bé, còn quyền đọc kênh của MỘT bé tính theo phụ huynh HIỆN TẠI của
+-- bé đó. Hai lần gộp kiểu ấy đều rò tin thật: bố mẹ riêng đọc chuyện con riêng
+-- của nhau, và phụ huynh được gắn THÊM SAU đọc chuyện của bé không phải con mình.
+-- Ở đây phía gia đình chỉ có ĐÚNG MỘT người đọc (`parentId`) và không ai được
+-- thêm vào sau — rò kiểu đó không còn chỗ để xảy ra, không phải nhờ một chốt
+-- chặn mà nhờ hình dạng dữ liệu.
+--
+-- KHÔNG UNIQUE (parentId, campusId): cuộc bị đóng (bảng hoi_thoai_dong) thì gia
+-- đình phải lập được cuộc mới. "Cuộc đang dùng" là dòng mới nhất chưa bị đóng.
+-- `parentId` không có khoá ngoại, cùng lối với `hoi_thoai_dong.dongBoi`: xoá một
+-- tài khoản không được kéo theo lời qua lại giữa trường và gia đình.
+-- `campusId` là cơ sở lúc lập; '' là nhóm chưa gắn cơ sở (chỉ ban giám hiệu đọc).
+-- Luật đọc nằm ở MỘT chỗ: lib/kenh-van-phong.js.
+CREATE TABLE IF NOT EXISTS kenh_van_phong (
+  conversationId TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  parentId       TEXT NOT NULL,
+  campusId       TEXT NOT NULL DEFAULT '',
+  taoLuc         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_kvp_nguoi ON kenh_van_phong(parentId, campusId);
+CREATE INDEX IF NOT EXISTS idx_kvp_coso ON kenh_van_phong(campusId);
 
 -- ===== Hội thoại nhà trường đã ĐÓNG (Đ192, Câu 5) =====
 --
@@ -888,6 +943,20 @@ CREATE TABLE IF NOT EXISTS user_campus (
   ganLuc   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_uc_campus ON user_campus(campusId);
+
+-- Cô do quản lý cơ sở NÀO tạo ra (Đ239d1 — góp ý 16/10, mục 5).
+--
+-- Cô không có cơ sở của riêng mình: cơ sở của cô suy ra từ nhóm cô phụ trách.
+-- Cô vừa được quản lý cơ sở tạo mà chưa gán nhóm thì không suy ra được gì, nên
+-- chính người tạo không thấy lại cô để phân công. Bảng này ghi đúng điều đó,
+-- và CHỈ được hỏi khi cô chưa phụ trách nhóm nào đang mở: cô đã có nhóm thì
+-- nhóm mới là sự thật. Bảng không cấp quyền đọc dữ liệu bé nào cả.
+CREATE TABLE IF NOT EXISTS giao_vien_co_so (
+  userId   TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  campusId TEXT NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
+  taoLuc   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_gvcs_campus ON giao_vien_co_so(campusId);
 
 -- ===== Cô phụ trách nhóm lớp — quan hệ NHIỀU CÔ ↔ MỘT NHÓM =====
 --

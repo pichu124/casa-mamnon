@@ -20,6 +20,7 @@ const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
 const nghiHoc = require('../../lib/nghi-hoc');
 const csv = require('../../lib/csv');
+const xlsx = require('../../lib/xlsx');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -247,11 +248,14 @@ module.exports = (app, { db, modules }) => {
   // Chỗ khác duy nhất là ĐẦU VÀO: bảng của trường lấy mọi nhóm người gọi phụ
   // trách, còn ở đây là đúng một bé. Mọi bước tính phía sau đọc `ds`/`ids`/
   // `lopCuaToi`, nên không bước nào phải biết mình đang chạy cho ai.
-  function bangThang(user, thang, { chiBe = null } = {}) {
+  // `chiNhom` (Đ239c): chỉ một nhóm trong phạm vi người gọi — tệp Excel đối
+  // chiếu của một nhóm. Chỗ gọi đã hỏi `canAccessClass` trước; lọc trên
+  // `nhomCuaToi` nên nhóm ngoài phạm vi có lọt vào đây cũng chỉ ra bảng rỗng.
+  function bangThang(user, thang, { chiBe = null, chiNhom = null } = {}) {
     const [tu, den] = khoangThang(thang);
     const lopCuaToi = chiBe
       ? [db.findClass(chiBe.classId)].filter(Boolean)
-      : nhomCuaToi(user);
+      : nhomCuaToi(user).filter(c => !chiNhom || c.id === chiNhom);
     const tenLop = new Map(lopCuaToi.map(c => [c.id, c.name]));
     const ds = [];
     if (chiBe) ds.push({ ...chiBe, tenNhom: tenLop.get(chiBe.classId) || '' });
@@ -582,17 +586,14 @@ module.exports = (app, { db, modules }) => {
     });
   });
 
-  app.get('/api/tienan/thang.csv', requireRole('teacher', 'admin'), (req, res) => {
-    if (chiVanPhong(req, res)) return;
-    const thang = thangHopLe(req, res);
-    if (!thang) return;
-    const bang = bangThang(req.user, thang);
-
-    const COT = ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Số ngày ăn ở trường',
-      'Số ngày vắng có phép', 'Số ngày vắng không phép', 'Số ngày trường nghỉ',
-      'Số ngày trường hoàn tiền ăn', 'Số ngày bé vẫn đi học trong đơn hoàn',
-      'Đơn cần kiểm tra tay'];
-    const duLieu = bang.danhSach.map(x => khoaCongThuc({
+  // Cột của tệp đối chiếu — MỘT bộ cho cả CSV lẫn Excel (Đ239c), để hai tệp
+  // của cùng một tháng không bao giờ nói khác nhau.
+  const COT_DOI_CHIEU = ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Số ngày ăn ở trường',
+    'Số ngày vắng có phép', 'Số ngày vắng không phép', 'Số ngày trường nghỉ',
+    'Số ngày trường hoàn tiền ăn', 'Số ngày bé vẫn đi học trong đơn hoàn',
+    'Đơn cần kiểm tra tay'];
+  function dongDoiChieu(bang) {
+    return bang.danhSach.map(x => khoaCongThuc({
       'Mã bé': x.maBe,
       'Họ và tên': x.hoTen,
       'Nhóm lớp': x.tenNhom,
@@ -616,10 +617,46 @@ module.exports = (app, { db, modules }) => {
           .map(d => `${d.fromDate} → ${d.toDate} (${d.soNgay} ngày, bé vẫn đi học ${d.soNgayBeCoMat} hôm — trừ ra)`),
       ].join(' · '),
     }));
+  }
+
+  app.get('/api/tienan/thang.csv', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiVanPhong(req, res)) return;
+    const thang = thangHopLe(req, res);
+    if (!thang) return;
+    const duLieu = dongDoiChieu(bangThang(req.user, thang));
 
     db.audit(req.user.id, 'tienan-xuat', null, { thang, soBe: duLieu.length });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="doi-chieu-tien-an-${thang}.csv"`);
-    res.send(csv.stringify(COT, duLieu));
+    res.send(csv.stringify(COT_DOI_CHIEU, duLieu));
+  });
+
+  // CÙNG BẢNG ĐỐI CHIẾU, RA EXCEL THẬT (Đ239c — góp ý 16/10, mục 3).
+  //
+  // Nhà trường: *"chỉ cần chức năng xuất excel tổng hợp phần tiền ăn đối chiếu
+  // tháng"*. Nút trên màn vẫn ghi "Xuất ra Excel" từ trước nhưng ra CSV. Đường
+  // CSV giữ nguyên cho ai đang dùng; đường này cùng dữ liệu, cùng quyền, cùng
+  // dấu nhật ký. `classId` để trống là mọi nhóm trong phạm vi người gọi.
+  app.get('/api/tienan/thang.xlsx', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiVanPhong(req, res)) return;
+    const thang = thangHopLe(req, res);
+    if (!thang) return;
+    const classId = String(req.query.classId || '').trim();
+    if (classId && !db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
+    }
+    const duLieu = dongDoiChieu(bangThang(req.user, thang, { chiNhom: classId || null }));
+    const buf = xlsx.ghi([{
+      ten: `Tiền ăn ${thang.slice(5)}-${thang.slice(0, 4)}`,
+      dongTieuDe: true,
+      cot: [12, 26, 14, 14, 14, 14, 14, 16, 18, 60],
+      hang: [COT_DOI_CHIEU, ...duLieu.map(d => COT_DOI_CHIEU.map(k => d[k]))],
+    }]);
+
+    db.audit(req.user.id, 'tienan-xuat', classId || null, { thang, soBe: duLieu.length, tep: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="doi-chieu-tien-an-${thang}${classId ? `-${classId.replace(/[^\w-]/g, '')}` : ''}.xlsx"`);
+    res.send(buf);
   });
 };

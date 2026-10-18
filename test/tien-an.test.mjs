@@ -22,6 +22,7 @@
 import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, MAU, HOM_NAY as homNayVN } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
 import { GOC } from './_chung.mjs';
 import Database from 'better-sqlite3';
 
@@ -405,6 +406,40 @@ console.log('\n[10] Tệp Excel: mở được bằng Excel, và không chạy c
   const ma = fs.readFileSync(path.join(GOC, 'modules/tienan/routes.js'), 'utf8');
   check('có khoá công thức trước khi ghi ra tệp',
     /khoaCongThuc/.test(ma) && /\^\[=\+\\?-@/.test(ma), ma.match(/DAU_CONG_THUC = .*/)?.[0]);
+}
+
+// ===========================================================================
+console.log('\n[10b] Cùng bảng ấy ra Excel thật (.xlsx) — từng ô khớp tệp CSV (Đ239c)');
+{
+  // Nút trên màn ghi "Xuất ra Excel" mà trước đây ra CSV. Nay có tệp .xlsx
+  // thật; hai tệp của cùng một tháng không được nói khác nhau một ô nào.
+  const xlsx = createRequire(import.meta.url)(path.join(GOC, 'lib', 'xlsx.js'));
+  const csvLib = createRequire(import.meta.url)(path.join(GOC, 'lib', 'csv.js'));
+  const thang = HOM_NAY.slice(0, 7);
+  const r = await fetch(`${sv.BASE}/api/tienan/thang.xlsx?thang=${thang}`, { headers: { cookie: VP } });
+  const kieu = r.headers.get('content-type') || '';
+  check('văn phòng tải được tệp .xlsx', r.status === 200 && /spreadsheetml/.test(kieu), [r.status, kieu]);
+  check('tên tệp kèm tháng, đuôi .xlsx',
+    new RegExp(`doi-chieu-tien-an-${thang}\\.xlsx`).test(r.headers.get('content-disposition') || ''));
+  const hang = xlsx.doc(Buffer.from(await r.arrayBuffer()))[0].hang;
+  const c = csvLib.parse((await taiCsv(VP, `?thang=${thang}`)).chu);
+  check('cùng cột với tệp CSV', JSON.stringify(hang[0]) === JSON.stringify(c.headers), [hang[0], c.headers]);
+  const lech = [];
+  c.rows.forEach((d, i) => c.headers.forEach((h, j) => {
+    if (String(hang[i + 1]?.[j] ?? '').trim() !== String(d[h] ?? '').trim()) lech.push([i, h, hang[i + 1]?.[j], d[h]]);
+  }));
+  check('mỗi bé một dòng, TỪNG Ô khớp tệp CSV', hang.length === c.rows.length + 1 && lech.length === 0,
+    { soDong: [hang.length, c.rows.length + 1], lech: lech.slice(0, 3) });
+  const c1 = await fetch(`${sv.BASE}/api/tienan/thang.xlsx?thang=${thang}&classId=c1`, { headers: { cookie: VP } });
+  const h1 = xlsx.doc(Buffer.from(await c1.arrayBuffer()))[0].hang.slice(1);
+  check('chọn một nhóm thì chỉ bé của nhóm đó', h1.length === MAU.soBeNhomChoi2 && h1.every(h => h[2] === 'Chồi 2'),
+    h1.map(h => h[2]));
+  for (const [ai, ck] of [['cô', GV], ['phụ huynh', PH]]) {
+    const x = await fetch(`${sv.BASE}/api/tienan/thang.xlsx?thang=${thang}`, { headers: { cookie: ck } });
+    check(`${ai} KHÔNG tải được tệp .xlsx`, x.status === 403, x.status);
+  }
+  const view = fs.readFileSync(path.join(GOC, 'modules/tienan/view.js'), 'utf8');
+  check('nút "Xuất ra Excel" trỏ sang tệp .xlsx', /\/api\/tienan\/thang\.xlsx/.test(view));
 }
 
 // ===========================================================================

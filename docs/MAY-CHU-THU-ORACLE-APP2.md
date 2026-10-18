@@ -645,6 +645,12 @@ curl -I https://casa-school.duckdns.org/healthz
 Muốn chắc hơn thì chạy `npm test` trước khi restart (khoảng 12 phút, không cần
 gói dev); có bài đỏ thì **dừng, đừng restart** — bản đang chạy vẫn tốt.
 
+> **Máy thử dựng trước Đ239 (17/10/2026):** `ban-thu` bản cũ đã bật sẵn "Đón trả
+> bé", phân hệ nhà trường đã bỏ vì lồng vào Điểm danh. Cập nhật mã không tự tắt
+> nó: đăng nhập `hieutruong` → **Quản trị → Tính năng** → tắt **"Đón trả bé"**
+> (một chạm, dữ liệu giữ nguyên). Đừng chạy lại `ban-thu` chỉ để tắt nó: lệnh
+> đó đổi luôn mật khẩu của mọi tài khoản.
+
 ### Quay lại app 1
 
 ```bash
