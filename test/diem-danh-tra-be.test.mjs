@@ -29,7 +29,7 @@
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, batPhanHe,
-  taoBoDem, CHROMIUM, tatBannerMoiCai, MAU, HOM_NAY,
+  taoBoDem, CHROMIUM, tatBannerMoiCai, MAU, HOM_NAY, ngay,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -589,8 +589,14 @@ console.log('\n[7] Giờ Việt Nam, ngày viết bằng tiếng Việt, và ng�
 console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm gập sẵn, chụp hai lần, gọi một chạm');
 {
   await dangNhap('htruong', 'quantri2026');
-  // Kéo mốc rà soát về 06:00 để bảng "cần gọi xác nhận" có bé ngay bây giờ.
-  await goiApi('/api/attendance/cai-dat', { gioRaSoat: '06:00' }, ckQT, 'PUT');
+  // Kéo mốc rà soát về 06:00 — mốc sớm nhất máy chủ nhận (GIO_RA_SOAT_SOM_NHAT,
+  // routes/attendance.js) — để bảng "cần gọi xác nhận" có bé ngay bây giờ. Chạy
+  // bài lúc 0h–6h sáng giờ Việt Nam thì bảng ĐÚNG LÀ chưa hiện: chưa tới giờ rà
+  // soát thì chưa ai cần gọi. Khung giờ ấy đo đúng điều đó, không đo nút Gọi.
+  const MOC_RA_SOAT = '06:00';
+  const MOC_RA_SOAT_CHU = '6h';
+  await goiApi('/api/attendance/cai-dat', { gioRaSoat: MOC_RA_SOAT }, ckQT, 'PUT');
+  let truocMoc = ngay.bayGio() < MOC_RA_SOAT;   // đọc TRƯỚC khi màn hỏi bảng rà soát
   loiJs = [];
   await moMan('#/attendance');
   check('có mục "Giáo viên & nhân viên"', await dem('#att-nv') === 1);
@@ -618,14 +624,31 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
   check('người chụp KHÔNG thấy ảnh khuôn mặt của cô (chỉ tên và giờ)', await dem('#att-nv img') === 0, await dem('#att-nv img'));
 
   // Gọi xác nhận một chạm.
+  // Đồng hồ vừa qua 06:00 trong lúc chạy mục này thì bảng đã nạp trước mốc:
+  // nạp lại trang cho bảng nạp sau mốc, rồi đo như khung giờ sau. (moMan tới
+  // đúng địa chỉ đang mở thì trình duyệt không nạp lại gì cả.)
+  if (truocMoc && ngay.bayGio() >= MOC_RA_SOAT) {
+    truocMoc = false;
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(900);
+  }
   const nutGoi = await dem('[data-goi-be]');
-  check('bảng "cần gọi xác nhận" có nút Gọi cạnh từng bé', nutGoi > 0, nutGoi);
-  if (nutGoi > 0) {
-    await page.locator('[data-goi-be]').first().click();
-    await page.waitForTimeout(1200);
-    check('bấm Gọi mở số của gia đình kèm nút gọi thật (tel:)', await dem('#modal-overlay a[href^="tel:"]') > 0,
-      await page.locator('#modal-overlay').innerText().catch(() => ''));
-    await page.evaluate(() => UI.closeModal());
+  if (truocMoc) {
+    console.log(`  (giờ Việt Nam hiện là ${ngay.bayGio()} — trước ${MOC_RA_SOAT} giờ VN — phần nút Gọi kiểm ở khung giờ sau)`);
+    const man = await chu();
+    check(`chưa tới mốc rà soát: màn nói "Sáng nay còn đang điểm danh", chốt lúc ${MOC_RA_SOAT_CHU}`,
+      /Sáng nay còn đang điểm danh/.test(man) && man.includes(`chốt lúc ${MOC_RA_SOAT_CHU}.`), man.slice(0, 600));
+    check('chưa tới mốc rà soát: chưa có bảng "cần gọi xác nhận", không nút Gọi nào',
+      nutGoi === 0 && !/Cần gọi xác nhận/.test(man), nutGoi);
+  } else {
+    check('bảng "cần gọi xác nhận" có nút Gọi cạnh từng bé', nutGoi > 0, nutGoi);
+    if (nutGoi > 0) {
+      await page.locator('[data-goi-be]').first().click();
+      await page.waitForTimeout(1200);
+      check('bấm Gọi mở số của gia đình kèm nút gọi thật (tel:)', await dem('#modal-overlay a[href^="tel:"]') > 0,
+        await page.locator('#modal-overlay').innerText().catch(() => ''));
+      await page.evaluate(() => UI.closeModal());
+    }
   }
 
   // Chụp lần hai cho BÉ = ra về.
