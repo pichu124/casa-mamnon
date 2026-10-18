@@ -1105,6 +1105,9 @@ App.views.admin = {
     // Lấy cả em đã nghỉ: quản trị bấm nhầm "Cho nghỉ học" thì phải thấy em ở đâu
     // mà nhận lại, chứ không phải mở cơ sở dữ liệu ra sửa tay.
     const students = await API.get(`/api/admin/students?classId=${encodeURIComponent(classId)}&keCaNghi=1`);
+    // Giữ lại để nút trên từng dòng chỉ cần truyền MÃ bé qua onclick (bài A7 ở
+    // lo-hong-da-va cấm đưa dữ liệu khác vào tham số chuỗi của onclick).
+    this._beCuaLop = students;
     const dangHoc = students.filter(s => s.active !== false && s.active !== 0);
     const daNghi = students.filter(s => !(s.active !== false && s.active !== 0));
 
@@ -1126,7 +1129,7 @@ App.views.admin = {
           ${daNghiHoc
             ? (s.baoLuu
               ? `<button class="btn sm outline" onclick="App.views.admin.diHocLai('${UI.esc(s.id)}')">Đi học lại</button>
-                 <button class="btn sm outline" onclick="App.views.admin.thoiBaoLuu('${UI.esc(s.id)}', '${UI.maAnToan(s.baoLuu.tuNgay)}')">Thôi bảo lưu, nghỉ hẳn</button>`
+                 <button class="btn sm outline" onclick="App.views.admin.thoiBaoLuu('${UI.esc(s.id)}')">Thôi bảo lưu, nghỉ hẳn</button>`
               : `<button class="btn sm outline" onclick="App.views.admin.nhanLaiHocSinh('${UI.esc(s.id)}')">Nhận lại</button>`)
             : `<button class="btn sm outline" onclick="App.views.admin.suaHocSinh('${UI.esc(s.id)}')">Sửa</button>
                <button class="btn sm outline" onclick="App.views.admin.choBaoLuu('${UI.esc(s.id)}')">Bảo lưu</button>
@@ -1592,8 +1595,11 @@ Vẫn nhận bé này?`)) {
 
   // Gia đình báo bé không quay lại: bỏ nhãn bảo lưu, bé vẫn nghỉ, tính là nghỉ
   // từ ngày bắt đầu bảo lưu (máy chủ lùi ngày nghỉ khi bảo lưu ghi lùi ngày).
-  // `tuNgay` máy chủ đã soát đúng dạng YYYY-MM-DD lúc ghi bảo lưu.
-  thoiBaoLuu(studentId, tuNgay) {
+  // Ngày bắt đầu bảo lưu tra từ danh sách nhóm vừa vẽ (`_beCuaLop`), không đi
+  // qua onclick — chỉ MÃ bé được phép nằm trong tham số onclick (bài A7).
+  thoiBaoLuu(studentId) {
+    const be = (this._beCuaLop || []).find(x => x.id === studentId);
+    const tuNgay = (be && be.baoLuu && be.baoLuu.tuNgay) || '';
     UI.modal(`
       <p style="line-height:1.6">Bé sẽ không quay lại? Bé chuyển từ <b>bảo lưu</b> sang <b>đã nghỉ học</b>.</p>
       <p class="muted small" style="line-height:1.6">
