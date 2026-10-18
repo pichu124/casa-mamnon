@@ -58,6 +58,10 @@ function unreadMessages(user) {
   // HỘP THƯ VĂN PHÒNG VÀ KÊNH PHÍA GIA ĐÌNH (Đ239m) đếm cùng MỘT luật với
   // danh sách, lấy từ lib/kenh-van-phong.js: người đã hết quyền đọc một cuộc
   // thì tin trong đó thôi được đếm.
+  //
+  // CUỘC ĐÃ ĐÓNG (Đ239n) cũng vậy: danh sách loại nó và mở ra là 404, nên tin
+  // chưa đọc trong đó không còn đường nào để đọc. Thiếu điều kiện
+  // `hoi_thoai_dong` dưới đây thì huy hiệu đứng mãi — lỗi có từ Đ192.
   const dieuKienKenh = kvp.dieuKienDanhSach(user);
   const rows = db.all('messages',
     `SELECT c.id AS convId, c.type AS type, c.classId AS classId, COUNT(*) AS n
@@ -68,6 +72,7 @@ function unreadMessages(user) {
         AND (cm.lastRead IS NULL OR m.createdAt > cm.lastRead)
         AND ${st.dieuKienConHien('messages', 'm.id')}
         AND ${dieuKienKenh.sql}
+        AND c.id NOT IN (SELECT conversationId FROM hoi_thoai_dong)
       GROUP BY c.id, c.type, c.classId`,
     [user.id, user.id, ...dieuKienKenh.params]);
   if (!rows.length) return 0;

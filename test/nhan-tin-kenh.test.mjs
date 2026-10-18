@@ -28,6 +28,8 @@
 //   KHOẢN phụ huynh × cơ sở một hộp thư riêng: phía gia đình chỉ có đúng một
 //   người đọc, nên hai kiểu rò tin đã bắt được ở Đ239g (bố mẹ riêng — [13];
 //   phụ huynh được gắn thêm sau — [15]) không còn chỗ để xảy ra.
+//
+// HUY HIỆU KHÔNG ĐẾM CUỘC ĐÃ ĐÓNG (Đ239n), canh ở [21].
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -971,6 +973,35 @@ console.log('\n[20] Văn phòng trả lời: đẩy về đúng chủ cuộc, KH
   const het = kvp.nguoiNhanDay(kvp.cuaHoiThoai(CUOC_P6));
   check('gỡ hết bé → không đẩy cho ai', JSON.stringify(het) === '[]', het);
   createRequire(import.meta.url)(path.join(GOC, 'lib', 'db.js')).close();
+}
+
+console.log('\n[21] Cuộc ĐÃ ĐÓNG thôi được đếm vào huy hiệu — mở lại thì đếm lại (lỗi có từ Đ192)');
+{
+  // Cuộc đã đóng biến khỏi danh sách và mở ra là 404, nên tin chưa đọc trong
+  // đó không còn cách nào bấm vào để đọc. Huy hiệu mà vẫn đếm nó là con số
+  // đứng mãi trên ô Nhắn tin. Đóng được mọi loại cuộc, nên đo cả hộp thư văn
+  // phòng lẫn kênh với cô, và đo cả hai phía của kênh với cô.
+  const ca = [
+    ['hộp thư văn phòng, phía gia đình', KENH_VP, QT, PH],
+    ['kênh với cô, phía gia đình', KENH_NHOM, GV, PH],
+    ['kênh với cô, phía cô', KENH_NHOM, PH, GV],
+  ];
+  for (const [ten, cuoc, nguoiGui, nguoiNhan] of ca) {
+    await doc(nguoiNhan, cuoc);   // đọc hết tin cũ để đo đúng một tin mới
+    const truoc = await huyHieu(nguoiNhan);
+    await gui(nguoiGui, cuoc, 'Tin mới chưa đọc');
+    check(`${ten}: tin mới → huy hiệu tăng một`, (await huyHieu(nguoiNhan)) === truoc + 1,
+      { truoc, sau: await huyHieu(nguoiNhan) });
+    const dong = await req('POST', `/api/messages/${cuoc}/dong`, { cookie: QT, body: {} });
+    check(`${ten}: ban giám hiệu đóng được`, dong.status === 200, dong.data);
+    check(`${ten}: đóng rồi thì cuộc biến khỏi danh sách`, !(await dsHT(nguoiNhan)).some(c => c.id === cuoc));
+    check(`${ten}: VÀ TIN TRONG ĐÓ THÔI ĐƯỢC ĐẾM — huy hiệu về như trước`,
+      (await huyHieu(nguoiNhan)) === truoc, { truoc, sau: await huyHieu(nguoiNhan) });
+    const moLai = await req('POST', `/api/messages/${cuoc}/mo-lai`, { cookie: QT });
+    check(`${ten}: mở lại được`, moLai.status === 200, moLai.data);
+    check(`${ten}: MỞ LẠI thì tin chưa đọc được đếm lại`, (await huyHieu(nguoiNhan)) === truoc + 1,
+      { truoc, sau: await huyHieu(nguoiNhan) });
+  }
 }
 
 await sv.dung();
