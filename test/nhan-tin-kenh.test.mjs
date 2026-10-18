@@ -615,6 +615,7 @@ const ghiCsdl = (sql, ...thamSo) => {
 const thanhVienPH = (ma) => docCsdl(
   `SELECT cm.userId AS id FROM conversation_members cm JOIN users u ON u.id = cm.userId
     WHERE cm.conversationId = ? AND u.role = 'parent' ORDER BY cm.userId`, ma).map(r => r.id);
+const huyHieu = async (cookie) => (await req('GET', '/api/dashboard/badges', { cookie })).data?.nhantin;
 
 let CUOC_P3 = '';
 console.log('\n[11] Hai con cùng cơ sở, ĐÃ có cuộc văn phòng cũ theo từng bé');
@@ -902,7 +903,7 @@ console.log('\n[18] Bé đã nghỉ: còn hạn 12 tháng thì còn thư, quá h
   check('kênh của cô với bé ấy cũng biến khỏi danh sách', !d.some(c => c.id === k.data.id), d.map(c => c.id));
 }
 
-console.log('\n[19] Nhiều cơ sở và cuộc đã đóng');
+console.log('\n[19] Nhiều cơ sở, cuộc đã đóng, và huy hiệu tin chưa đọc');
 {
   check('văn phòng cơ sở 2 không thấy cuộc của cơ sở 1', !(await dsHT(VP2)).some(c => c.id === CUOC_P6));
   check('quản lý cơ sở 2 cũng không', !(await dsHT(QL2)).some(c => c.id === CUOC_P6));
@@ -928,6 +929,22 @@ console.log('\n[19] Nhiều cơ sở và cuộc đã đóng');
   check('gia đình không mở được cuộc đã đóng', (await doc(PH2, CUOC_P2_CS1)).status === 404);
   const moi = await mo(PH2, 'vanphong', 's3');
   check('và mục văn phòng cơ sở 1 mở ra một cuộc MỚI', moi.status === 200 && moi.data.id !== CUOC_P2_CS1, moi.data);
+
+  // HUY HIỆU ĐẾM CÙNG LUẬT VỚI DANH SÁCH.
+  ganPhuHuynh(DIR, 's7b', 'p6');
+  const PH6 = (await login('ph.huong', '123456')).cookie;
+  const PH7 = (await login('ph.trang', '123456')).cookie;
+  await doc(PH6, CUOC_P6);   // đọc hết tin cũ để đo đúng một tin mới
+  const truoc6 = await huyHieu(PH6);
+  const truoc7 = await huyHieu(PH7);
+  await gui(VP1, CUOC_P6, 'Văn phòng đã nhận, chị yên tâm ạ');
+  check('văn phòng trả lời → huy hiệu của chủ cuộc tăng một', (await huyHieu(PH6)) === truoc6 + 1,
+    { truoc6, sau: await huyHieu(PH6) });
+  check('và KHÔNG tính cho chị Trang — phụ huynh khác của s7', (await huyHieu(PH7)) === truoc7,
+    { truoc7, sau: await huyHieu(PH7) });
+  ghiCsdl("DELETE FROM student_parents WHERE studentId = 's7b' AND parentId = 'p6'");
+  check('chủ cuộc hết quyền đọc thì tin ấy thôi được đếm', (await huyHieu(PH6)) === truoc6,
+    { truoc6, sau: await huyHieu(PH6) });
 }
 
 console.log('\n[20] Văn phòng trả lời: đẩy về đúng chủ cuộc, KHÔNG vào chuông thông báo của bé');
