@@ -3,7 +3,7 @@
 Bản ngắn để gửi nhà trường. Cách thử từng việc: **Hướng dẫn kiểm thử bản 18/10** (người phụ
 trách buổi thử giữ); cột "Thử ở dòng" là số dòng trong hướng dẫn đó.
 
-**Kết quả: 10 / 11 mục đã xong. Mục còn lại (nhắn tin văn phòng) đang làm theo cách chủ dự án đã chọn ngày 18/10.**
+**Kết quả: 11 / 11 mục đã xong.**
 
 | # | Trường yêu cầu | App nay làm gì | Thử ở dòng |
 |---|---|---|---|
@@ -17,7 +17,7 @@ trách buổi thử giữ); cột "Thử ở dòng" là số dòng trong hướn
 | 8 | Cambridge Weekly Plan: 2–3 hoạt động, mỗi hoạt động có chủ đề, từ vựng, mục tiêu; sau đó Song / Chant / Story | Mẫu soạn có **Hoạt động 1, 2, 3** (chủ đề, từ vựng, mục tiêu) rồi mục chung **Song / Chant**, **Story**. Thẻ gửi phụ huynh hiện đủ. | 7.16 |
 | 9 | Home Connection bỏ hoạt động, chủ đề, từ vựng, song/chant | Mẫu soạn chỉ còn: tiêu đề, nội dung, gửi cho ai, tuần, khung Cambridge (block, tuần trong block, lứa tuổi). | 7.12 |
 | PH2 | Phụ huynh chưa thấy ảnh con lúc ra về, chỉ có thông báo | Màn Điểm danh của phụ huynh có **ảnh con lúc ra về** cạnh ảnh lúc tới lớp; chạm thông báo "Con đã được đón về" mở đúng ngày, đúng bé. | 4.2, 11.13 |
-| PH1 | Nhắn tin với văn phòng chỉ một mục, không tách "về bé này bé kia" | **Đang làm.** Gộp đơn giản làm lộ tin (gia đình bố mẹ riêng, hoặc tài khoản bố/mẹ thêm sau, đọc được tin về con không phải của mình), nên chủ dự án chọn ngày 18/10: **mỗi phụ huynh một hộp thư riêng với văn phòng** — luôn đúng một mục "Văn phòng nhà trường", không bao giờ lộ tin; bố và mẹ mỗi người một cuộc riêng. Trong lúc chờ, vẫn mỗi bé một mục "Văn phòng nhà trường — Về bé …"; danh sách hội thoại đã có dòng phụ ghi rõ bé nào, nhóm nào. | 8.2, 11.3 |
+| PH1 | Nhắn tin với văn phòng chỉ một mục, không tách "về bé này bé kia" | "Trò chuyện mới" có **một dòng "Văn phòng nhà trường"** cho cả nhà, không còn "Về bé …" (nhà có con ở hai cơ sở: hai dòng, ghi tên cơ sở). Mỗi tài khoản phụ huynh có **hộp thư riêng** với văn phòng: bố và mẹ là hai cuộc riêng, văn phòng thấy tên người đang nhắn và các con của người đó. Cách này để không ai đọc được tin về một bé không phải con mình, kể cả nhà bố mẹ riêng hay khi trường thêm tài khoản phụ huynh sau. Tin nhắn văn phòng cũ (theo từng bé) vẫn giữ nguyên cho người đã đọc. | 8.2, 8.3, 8.14, 11.3 |
 
 ## Nhà trường cần trả lời
 
