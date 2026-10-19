@@ -1,43 +1,43 @@
 # Hướng dẫn kiểm thử app CASA Mầm non
 
+Bản 19/10/2026 · máy chủ thử https://casa-school.duckdns.org · 177 dòng thử
+
 > **Bản chính nằm trên claude.ai** (chủ dự án chốt ngày 19/10/2026): tài liệu
 > “Hướng dẫn kiểm thử app CASA Mầm non”,
 > https://claude.ai/code/artifact/d5d69bca-9dd9-434e-b060-93ffd19fee23, do người phụ
 > trách buổi thử giữ. Ở đó cột *Kết quả* là ô chọn Đạt / Không đạt / Chưa thử, và có
 > chỗ điền mật khẩu. Tệp này là **bản chép**, để người tiếp quản đọc, để so khi app
-> đổi và để dựng file Word.
+> đổi và để dựng file Word (`npm run tai-lieu:huong-dan-thu`).
 >
 > **Muốn sửa hướng dẫn thì sửa bản chính trước.** Sau đó xuất bản chính ra markdown,
-> chép đè phần từ mục “Cách dùng tài liệu này” trở xuống của tệp này cho giống hệt, rồi
+> chép đè phần từ khung “Đợt này thay đổi gì” trở xuống của tệp này cho giống hệt, rồi
 > ghi ngày chép vào dòng dưới. Không mở được bản chính thì đừng sửa riêng tệp này: ghi
 > việc cần sửa vào `docs/VIEC-DANG-DO.md` và báo chủ dự án. Hai bản đã từng lệch nhau
 > một lần (bản trên claude.ai nằm lại ở 16/10 trong khi đợt Đ239 chỉ sửa tệp này).
 >
-> **Khung “Đợt này thay đổi gì” bên dưới cũng phải sửa tay** mỗi khi khung đó trên bản
-> chính đổi: nó nằm ngoài vùng chép (phía trên mục “Cách dùng tài liệu này”), nhưng file
-> Word lấy chính nó làm khung thay đổi. Hai khung cùng nội dung. Khung của kho có thêm
-> mã từng việc (Đ239n–q) và tên tệp. Khung trên bản chính viết cho trường, chỉ nhắc tên
-> đợt Đ239.
+> **Dòng phụ đề ngay dưới tiêu đề là phụ đề của file Word** và nằm ngoài vùng chép:
+> mỗi lần chép, sửa tay ngày và số dòng thử. Lệnh dựng file Word từ chối dựng khi số
+> dòng thử ở phụ đề khác số dòng của các bảng, hay ngày ở phụ đề khác ngày chép.
 >
 > **Chép từ bản chính lần cuối: 19/10/2026** (nội dung tới Đ239q, so khớp lại ở Đ239u).
+> Mã từng việc của đợt Đ239 ghi ở `docs/TIEN-DO.md`; chi tiết từng góp ý của trường ở
+> `docs/PHAN-HOI-TRUONG-1610.md`.
 >
 > **Không bao giờ điền mật khẩu vào bản này.** Kho mã không chứa mật khẩu hay
 > dữ liệu thật của trường; bảng "Mật khẩu" ở mục 1 cố ý để trống.
 
-> **Đợt này thay đổi gì (Đ239, sau góp ý của trường ngày 16/10).** Người phụ trách
-> buổi thử đọc đoạn này trước: dòng nào mới, dòng nào đã sửa theo app hiện tại. Chi
-> tiết từng góp ý: `docs/PHAN-HOI-TRUONG-1610.md`.
+> **Đợt này thay đổi gì (bản 19/10/2026, sau góp ý của trường ngày 16/10).** Người phụ trách buổi thử đọc đoạn này trước: dòng nào mới, dòng nào đã sửa theo app hiện tại. Trong tài liệu, “Đ239” là tên đợt sửa này.
 >
 > - **Tài khoản:** tab mới “Tài khoản” (“Cài đặt” → “Tài khoản & phân quyền”). Ban giám hiệu tạo tài khoản quản trị kèm chức vụ và cơ sở, nên `quanly1` nay tạo ngay trên màn hình (mục 1). Quản lý cơ sở tạo, phân, chuyển cô và cấp lại mật khẩu cô; văn phòng nhận bé nhập đủ thông tin, thêm phụ huynh, ghi bảo lưu. Dòng mới 3.29–3.37; sửa 3.3, 3.4, 3.10, 3.13, 3.19; L15, L30.
 > - **Thực đơn:** mẫu Excel theo TUẦN (cột Thứ Hai → Thứ Sáu, Bữa sáng 3 dòng), nạp được bảng thực đơn của trường, tệp của tuần khác tuần đang chọn bị từ chối. Sửa 7.3; dòng mới 7.14, 7.15.
-> - **Nhật ký ngày:** không còn bước Bú bình; luôn đủ năm bữa; gia đình đọc “Bữa sáng: <món> — con ăn hết”. Sửa 5.1, 5.7, 11.2; dòng mới 5.13.
+> - **Nhật ký ngày:** không còn bước Bú bình; luôn đủ năm bữa; gia đình đọc “Bữa sáng: \<món> — con ăn hết”. Sửa 5.1, 5.7, 11.2; dòng mới 5.13.
 > - **Hành trình:** mở thẳng vào ô chọn bé và bốn tab “Kế hoạch của bé” / “Cambridge” / “P.E (Thể chất)” / “Montessori & Kỹ năng sống”, không phải qua tầng chọn bé thứ hai như trước; “Suy ngẫm cuối ngày” và “Chủ đề tuần” là hai nút nhỏ dưới tiêu đề. Sửa 3.25, 6.3, 6.4, 6.7, 6.10, 6.14, 11.9, 12.3; dòng mới 6.15–6.17.
 > - **Tiền ăn và Xuất báo cáo:** bỏ “Báo ăn hằng ngày” cho bếp. Với ban giám hiệu, quản lý cơ sở, văn phòng, bảng đối chiếu tiền ăn nằm trong màn “Điểm danh” (thẻ “Báo cáo”); kế toán vẫn có ô “Tiền ăn”; tệp tải về là Excel thật (.xlsx). Ô mới “Xuất báo cáo”. Sửa 3.10, 10.2 (nay là dòng kiểm “không còn Báo ăn”), 10.3, 10.6, 10.13, 12.9; dòng mới 10.14–10.16.
 > - **Cambridge:** Weekly Plan có 2–3 hoạt động (chủ đề, từ vựng, mục tiêu) rồi Song / Chant, Story; mẫu Home Connection bỏ các ô hoạt động, chủ đề, từ vựng, song/chant. Sửa 7.12; dòng mới 7.16.
 > - **Phía gia đình:** Điểm danh có ảnh con lúc ra về; chạm thông báo “Con đã được đón về” mở đúng ngày, đúng bé. Danh sách Nhắn tin có dòng phụ dưới tên. “Trò chuyện mới” có MỘT dòng “Văn phòng nhà trường” cho cả nhà, không còn “Về bé …” (nhà có con ở hai cơ sở: hai dòng, ghi tên cơ sở). Mỗi tài khoản phụ huynh một hộp thư riêng với văn phòng: bố và mẹ là hai cuộc riêng, văn phòng thấy tên người đang nhắn. Máy thử đã dùng từ đợt trước có thể còn cuộc văn phòng cũ “Về bé …” trong danh sách: đó là tin cũ được giữ nguyên, không ghi Không đạt. Sửa 4.2, 8.2, 8.3, 9.12, 11.3, L1; dòng mới 8.14, 11.13.
 > - **Đón trả bé:** tắt; chạy lại bàn thử cũng tắt lại nếu đang bật (mục 1, 9.12).
-> - **Sức khoẻ (Đ239q):** thu hồi một ghi nhận y tế hay một lần cân đo thì tin báo về nó cũng biến khỏi màn “Thông báo” của gia đình, và số đỏ thôi đếm nó. Sửa 9.11; dòng mới 9.13.
-> - **Nhắn tin (Đ239n–p, chỉ ở máy chủ):** tin nhắn đã thu hồi không còn được đếm hay in chữ ở danh sách “Nhắn tin” và ở màn “Thông báo” của gia đình; cuộc đã đóng không còn làm số đỏ đứng mãi. Màn hình chưa có nút thu hồi tin nhắn hay đóng cuộc, nên đợt này không có dòng thử cho phần này.
+> - **Sức khoẻ:** thu hồi một ghi nhận y tế hay một lần cân đo thì tin báo về nó cũng biến khỏi màn “Thông báo” của gia đình, và số đỏ thôi đếm nó. Sửa 9.11; dòng mới 9.13.
+> - **Nhắn tin (chỉ ở máy chủ):** tin nhắn đã thu hồi không còn được đếm hay in chữ ở danh sách “Nhắn tin” và ở màn “Thông báo” của gia đình; cuộc đã đóng không còn làm số đỏ đứng mãi. Màn hình chưa có nút thu hồi tin nhắn hay đóng cuộc, nên đợt này không có dòng thử cho phần này.
 
 ## Cách dùng tài liệu này
 

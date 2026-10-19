@@ -202,7 +202,8 @@ có đường nào đang lọt dữ liệu.
   là bản chép. Việc nào làm đổi một dòng thử thì sửa bản chính trước, rồi xuất ra markdown
   và chép đè **phần thân** theo cách ghi ở đầu mỗi tệp. **Không đè cả tệp**: phần đầu tệp có
   ghi chú riêng của kho, câu cấm điền mật khẩu và phụ đề của file Word. Đường dẫn bản chính
-  ghi ở đầu mỗi tệp.
+  ghi ở đầu mỗi tệp. Dựng lại file Word gửi trường: `npm run tai-lieu:huong-dan-thu` (ra
+  thư mục `ban-word/`, git bỏ qua); lệnh từ chối dựng khi phụ đề lệch số việc hay ngày chép.
 
 - `npm test` hiện chạy khoảng 5 phút. Số phép kiểm **đổi theo ngày và giờ chạy**
   (lich-nghi-truong, diem-danh-theo-anh có nhánh trước/sau 9h; moc-ra-soat-tru-hoan theo

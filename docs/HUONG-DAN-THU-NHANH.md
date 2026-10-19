@@ -5,13 +5,17 @@ Bản ngắn 19/10/2026 · máy thử https://casa-school.duckdns.org · 41 vi�
 > **Bản chính nằm trên claude.ai** (chủ dự án chốt ngày 19/10/2026): tài liệu “Hướng dẫn
 > thử nhanh app CASA Mầm non”, https://claude.ai/code/artifact/1355cca3-8baf-4479-9131-24735525732b.
 > Ở đó cột *Kết quả* là ô chọn Chưa thử / Đạt / Không đạt. Tệp này là **bản chép**, để so
-> khi app đổi và để dựng file Word (khung ghi chú này không vào file Word).
+> khi app đổi và để dựng file Word (`npm run tai-lieu:huong-dan-thu`; khung ghi chú này
+> không vào file Word).
 >
 > **Muốn sửa thì sửa bản chính trước.** Sau đó xuất bản chính ra markdown, chép đè phần từ
 > mục “Trước khi thử” trở xuống của tệp này cho giống hệt, rồi ghi ngày chép vào dòng dưới.
-> Dòng ngay dưới tiêu đề (“Bản ngắn … · 41 việc …”) là phụ đề của file Word, nằm ngoài vùng
-> chép: sửa tay ngày và số việc khi bản chính đổi. Không mở được bản chính thì đừng sửa
-> riêng tệp này: ghi việc cần sửa vào `docs/VIEC-DANG-DO.md` và báo chủ dự án.
+> Không mở được bản chính thì đừng sửa riêng tệp này: ghi việc cần sửa vào
+> `docs/VIEC-DANG-DO.md` và báo chủ dự án.
+>
+> **Dòng phụ đề ngay dưới tiêu đề (“Bản ngắn <ngày> · … · <số> việc …”) là phụ đề của file Word** và
+> nằm ngoài vùng chép: mỗi lần chép, sửa tay ngày và số việc. Lệnh dựng file Word từ chối
+> dựng khi số việc ở phụ đề khác số dòng của các bảng, hay ngày ở phụ đề khác ngày chép.
 >
 > **Chép từ bản chính lần cuối: 19/10/2026.**
 
