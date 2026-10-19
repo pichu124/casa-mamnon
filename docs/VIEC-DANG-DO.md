@@ -197,6 +197,17 @@ có đường nào đang lọt dữ liệu.
 
 ## 5. Ghi chú kỹ thuật cho phiên mới
 
+- **Hướng dẫn kiểm thử: bản chính nằm trên claude.ai** (chủ dự án chốt 19/10/2026), cả bản
+  đầy đủ lẫn bản ngắn. `docs/HUONG-DAN-KIEM-THU.md` và `docs/HUONG-DAN-THU-NHANH.md` chỉ
+  là bản chép. Việc nào làm đổi một dòng thử thì sửa bản chính trước (đổi cả ô ngày dưới
+  tiêu đề: đó là ngày của bản, chủ dự án chốt 19/10), rồi xuất ra markdown và thay phần **từ
+  dòng tiêu đề trở xuống** bằng bản xuất, nguyên văn. **Giữ nguyên khung ghi chú trên cùng**
+  của tệp. Hai chỗ phải sửa khi chép: bỏ “ · @tên người viết” ở dòng ngày, và xoá sạch bảng
+  Mật khẩu (bản chính có thể đã được điền). Móc commit (tự bật sau `npm install`) chặn cả hai
+  mỗi lần `git commit`, kể cả commit tay, trừ khi dùng `--no-verify`; nó soát cả bản chép
+  mang tên khác và mọi tệp .md trong commit; `npm run test:huong-dan-thu` (trong bộ kiểm nhanh) soát thêm phụ đề và ngày. Đường dẫn bản chính và cách chép ghi ở đầu mỗi tệp. Dựng lại file
+  Word gửi trường: `npm run tai-lieu:huong-dan-thu` (ra thư mục `ban-word/`, git bỏ qua).
+
 - `npm test` hiện chạy khoảng 5 phút. Số phép kiểm **đổi theo ngày và giờ chạy**
   (lich-nghi-truong, diem-danh-theo-anh có nhánh trước/sau 9h; moc-ra-soat-tru-hoan theo
   ngày; thu-muc-du-lieu có khối 4 phép chỉ chạy khi hạ được quyền xuống `nobody`). So số

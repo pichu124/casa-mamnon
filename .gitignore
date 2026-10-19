@@ -50,3 +50,7 @@ node_modules/
 
 # Bằng chứng của verifier (Agents-Team-coding)
 artifacts/
+
+# File Word dựng từ hai hướng dẫn thử (npm run tai-lieu:huong-dan-thu). Dựng lại
+# được bất cứ lúc nào từ docs/, nên không lưu vào kho.
+/ban-word/

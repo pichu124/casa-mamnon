@@ -11,3 +11,8 @@ node "$DIR/scripts/kiem-tra-commit.js" --tin-nhan "$1" || exit 1
 
 # 3. Đổi public/ thì phải tăng VERSION, nếu không máy đã cài app kẹt bản cũ.
 node "$DIR/scripts/kiem-tra-sw.js" --tin-nhan "$1" || exit 1
+
+# 4. Hướng dẫn thử gửi trường (docs/HUONG-DAN-*.md) chép từ bản chính trên claude.ai,
+#    nơi người phụ trách điền mật khẩu thật. Bản đã `git add` mà có mật khẩu hay tên
+#    người thì chặn: lên kho rồi là không thu lại được. Chỉ app 2 có bước này.
+node "$DIR/scripts/xuat-huong-dan-thu.js" --kiem-tra --ban-sap-commit || exit 1

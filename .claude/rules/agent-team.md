@@ -18,6 +18,6 @@
 
 ## Riêng CASA Mầm non
 
-- `./scripts/check.sh` (và Stop gate) chạy **bộ nhanh** vài giây, chỉ gồm bài chỉ đọc: cú pháp JS vừa đổi, dữ liệu lạc trong kho, khế ước tệp dùng chung, QUY TẮC 3, phân quyền ảnh và dữ liệu của bé, VERSION service worker. Bộ nhanh **không** thay được `npm test`: cô lập lỗi (Nguyên tắc số 1), QUY TẮC 1, 2, 4, 5, bảo mật và mọi bài luồng chỉ chạy ở bộ đầy đủ.
+- `./scripts/check.sh` (và Stop gate) chạy **bộ nhanh** vài giây, chỉ gồm bài chỉ đọc: cú pháp JS vừa đổi, dữ liệu lạc trong kho, khế ước tệp dùng chung, QUY TẮC 3, phân quyền ảnh và dữ liệu của bé, VERSION service worker, hướng dẫn thử gửi trường (bảng mật khẩu trống, không tên người). Bộ nhanh **không** thay được `npm test`: cô lập lỗi (Nguyên tắc số 1), QUY TẮC 1, 2, 4, 5, bảo mật và mọi bài luồng chỉ chạy ở bộ đầy đủ.
 - Trước mỗi commit chạy **`CHECK_FULL=1 ./scripts/check.sh`** (= `npm test` đầy đủ, ~12 phút, có khoá chống chạy chồng). Không gọi `npm test` trần trong lúc phiên khác hay Stop gate có thể đang chạy test: nhiều bài ghi tạm vào kho mã và dùng cổng cố định. Đổi `public/` thì thêm `npm run test:giao-dien`.
 - Hợp đồng của `/team-lead` ghi cả hai lệnh: bộ nhanh cho mỗi vòng sửa, `CHECK_FULL=1 ./scripts/check.sh` cho cổng cuối.
