@@ -7,6 +7,8 @@
 //   npm run tai-lieu:huong-dan-thu -- --chi ngan      # chỉ bản ngắn (hoặc: day-du)
 //   npm run tai-lieu:huong-dan-thu -- --ra D:\GuiTruong
 //   npm run test:huong-dan-thu                        # chỉ soát hai tệp, không dựng
+//   (móc .githooks/commit-msg chạy `--kiem-tra --ban-sap-commit`: chỉ soát mật khẩu và
+//    tên người trong bản đã git add — xem soatBanSapCommit)
 //
 // BẢN CHÍNH KHÔNG NẰM Ở ĐÂY
 //
@@ -59,6 +61,9 @@ const GOC = path.join(__dirname, '..');
 const HUONG_DAN = {
   'day-du': {
     nguon: 'docs/HUONG-DAN-KIEM-THU.md',
+    // Móc commit nhận ra bản chép mang tên khác (vd "HUONG-DAN-KIEM-THU (1).md", tệp
+    // đã đổi tên) nhờ dòng tiêu đề này. Bài kiểm canh nó khớp tiêu đề trong tệp.
+    tieuDe: 'Hướng dẫn kiểm thử app CASA Mầm non',
     tenTep: 'Huong-dan-kiem-thu-CASA-Mam-non',
     donVi: 'dòng thử',
     // Bảng Mật khẩu ở mục 1 có hai cột "Mật khẩu lần đầu", "Mật khẩu mới sau khi đổi".
@@ -69,6 +74,7 @@ const HUONG_DAN = {
   },
   ngan: {
     nguon: 'docs/HUONG-DAN-THU-NHANH.md',
+    tieuDe: 'Hướng dẫn thử nhanh app CASA Mầm non',
     tenTep: 'Huong-dan-thu-nhanh-CASA-Mam-non',
     donVi: 'việc',
     soCotMatKhau: 0,
@@ -133,17 +139,55 @@ function oMatKhauCoChu(than) {
   return { thay, soCot };
 }
 
-// Trả về phần cần dựng, hoặc ném lỗi bằng tiếng Việt nói rõ phải sửa dòng nào.
-function docHuongDan(noiDung, cauHinh) {
-  const dong = noiDung.split(/\r?\n/);
-  const sauDong = (i) => { let k = i + 1; while (k < dong.length && !dong[k].trim()) k++; return k; };
+const tachDong = (noiDung) => noiDung.split(/\r?\n/);
+const sauDongCua = (dong) => (i) => { let k = i + 1; while (k < dong.length && !dong[k].trim()) k++; return k; };
 
-  // Soát cả tệp, kể cả khung ghi chú: mật khẩu nằm ở đâu cũng không được lên kho.
-  // Chỉ báo số dòng, không in lại chuỗi: nhật ký của máy CI là chỗ ai cũng đọc được.
-  const dongMkMay = dong.map((l, i) => (KHUON_MAT_KHAU_MAY_SINH.test(l) ? i + 1 : 0)).filter(Boolean);
+// Chỉ những gì LỌT DỮ LIỆU nếu lên kho: mật khẩu, tên người. Móc commit chạy đúng
+// phần này (lệch số việc ở phụ đề không làm lọt gì, để npm test bắt, không chặn
+// commit). Ném lỗi tiếng Việt; trả về số cột "Mật khẩu…" đếm được.
+// Chuỗi khớp khuôn mật khẩu do app sinh, ở bất cứ dòng nào. Chỉ báo số dòng, không in
+// lại chuỗi: nhật ký của máy CI là chỗ ai cũng đọc được.
+function soatKhuonMatKhau(noiDung) {
+  const dongMkMay = tachDong(noiDung).map((l, i) => (KHUON_MAT_KHAU_MAY_SINH.test(l) ? i + 1 : 0)).filter(Boolean);
   if (dongMkMay.length) {
     throw new Error(`dòng ${dongMkMay.join(', ')} có chuỗi trông như mật khẩu do app sinh ra. Xoá đi: mật khẩu không lưu vào kho, không in lên giấy.`);
   }
+}
+
+function soatRoRi(noiDung, cauHinh) {
+  const dong = tachDong(noiDung);
+
+  // Soát cả tệp, kể cả khung ghi chú: mật khẩu nằm ở đâu cũng không được lên kho.
+  soatKhuonMatKhau(noiDung);
+
+  const iTieuDe = dong.findIndex(l => l.startsWith('# '));
+  if (iTieuDe >= 0) {
+    const dongNgay = (dong[sauDongCua(dong)(iTieuDe)] || '').trim();
+    if (dongNgay.includes('@')) {
+      throw new Error(`dòng ngày dưới tiêu đề còn tên người viết ("${dongNgay}"). Bỏ phần " · @…": tên người không lưu vào kho.`);
+    }
+    if (!docNgay(dongNgay) && docNgay(dongNgay.split(' · ')[0].trim())) {
+      throw new Error(`dòng ngày dưới tiêu đề còn chữ khác ngoài ngày ("${dongNgay}"), có thể là tên người viết. Chỉ giữ ngày.`);
+    }
+  }
+
+  const matKhau = oMatKhauCoChu(dong);
+  if (matKhau.soCot !== cauHinh.soCotMatKhau) {
+    throw new Error(`đếm được ${matKhau.soCot} cột “Mật khẩu…” trong các bảng, thường lệ là ${cauHinh.soCotMatKhau}. `
+      + 'Bảng mật khẩu đã bị đổi tên cột hay tách đôi trên bản chính: soát bằng mắt cho chắc không có mật khẩu, '
+      + 'rồi sửa soCotMatKhau trong scripts/xuat-huong-dan-thu.js.');
+  }
+  if (matKhau.thay.length) {
+    throw new Error(`bảng mật khẩu có chữ ở: ${matKhau.thay.join('; ')}. Xoá sạch các ô đó: mật khẩu không lưu vào kho, không in lên giấy.`);
+  }
+  return matKhau.soCot;
+}
+
+// Trả về phần cần dựng, hoặc ném lỗi bằng tiếng Việt nói rõ phải sửa dòng nào.
+function docHuongDan(noiDung, cauHinh) {
+  const soCotMatKhau = soatRoRi(noiDung, cauHinh);
+  const dong = tachDong(noiDung);
+  const sauDong = sauDongCua(dong);
 
   const iTieuDe = dong.findIndex(l => l.startsWith('# '));
   if (iTieuDe < 0) throw new Error('không thấy dòng tiêu đề "# …".');
@@ -151,9 +195,6 @@ function docHuongDan(noiDung, cauHinh) {
 
   const iNgay = sauDong(iTieuDe);
   const dongNgay = (dong[iNgay] || '').trim();
-  if (dongNgay.includes('@')) {
-    throw new Error(`dòng ngày dưới tiêu đề còn tên người viết ("${dongNgay}"). Bỏ phần " · @…": tên người không lưu vào kho.`);
-  }
   const ngayBan = docNgay(dongNgay);
   if (!ngayBan) {
     throw new Error(`dòng ngay dưới tiêu đề phải là ngày của bản và chỉ có ngày (ô ngày dưới tiêu đề trên claude.ai, vd "Oct 19, 2026"; bỏ mọi phần " · …" phía sau); đang là "${dongNgay}".`);
@@ -166,16 +207,6 @@ function docHuongDan(noiDung, cauHinh) {
     throw new Error('thiếu dòng phụ đề ngay dưới dòng ngày (vd "Bản ngắn · máy thử … · 41 việc").');
   }
   const than = dong.slice(iPhuDe + 1);
-
-  const matKhau = oMatKhauCoChu(than);
-  if (matKhau.soCot !== cauHinh.soCotMatKhau) {
-    throw new Error(`đếm được ${matKhau.soCot} cột “Mật khẩu…” trong các bảng, thường lệ là ${cauHinh.soCotMatKhau}. `
-      + 'Bảng mật khẩu đã bị đổi tên cột hay tách đôi trên bản chính: soát bằng mắt cho chắc không có mật khẩu, '
-      + 'rồi sửa soCotMatKhau trong scripts/xuat-huong-dan-thu.js.');
-  }
-  if (matKhau.thay.length) {
-    throw new Error(`bảng mật khẩu có chữ ở: ${matKhau.thay.join('; ')}. Xoá sạch các ô đó: mật khẩu không lưu vào kho, không in lên giấy.`);
-  }
 
   const soDong = demDongThu(than);
   const mSo = phuDeGoc.match(new RegExp(`(\\d+)\\s+${cauHinh.donVi}`));
@@ -201,7 +232,7 @@ function docHuongDan(noiDung, cauHinh) {
   if (!mNgayPhuDe) doan[0] = `${doan[0]} ${ngay}`;
   const phuDe = doan.join(' · ');
   const dauTrang = `${tieuDe} · ${doan[0].charAt(0).toLowerCase()}${doan[0].slice(1)}`;
-  return { tieuDe, ngay, phuDeGoc, phuDe, dauTrang, than, soDong, soCotMatKhau: matKhau.soCot, sangTrangTuMuc: cauHinh.sangTrangTuMuc };
+  return { tieuDe, ngay, phuDeGoc, phuDe, dauTrang, than, soDong, soCotMatKhau, sangTrangTuMuc: cauHinh.sangTrangTuMuc };
 }
 
 // ---- Kích thước (DXA) -------------------------------------------------------
@@ -424,6 +455,34 @@ async function dungWord(phan) {
   return z.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
+// Móc commit (--ban-sap-commit): đọc bản đã `git add`, KHÔNG đọc tệp trên đĩa. Tệp trên
+// đĩa có thể đã sạch trong khi bản trong vùng chờ, tức bản sắp lên kho, vẫn còn mật
+// khẩu. (`git commit -a` hay `git commit <tệp>` dùng vùng chờ tạm; git truyền nó xuống
+// qua GIT_INDEX_FILE nên `git show :tệp` vẫn đọc đúng bản sắp commit.)
+//
+// Soát: hai hướng dẫn (nếu có trong vùng chờ), và mọi tệp .md thêm / sửa / đổi tên
+// trong commit này. Tệp .md nào mang tiêu đề của một hướng dẫn (bản chép tên khác,
+// tệp đã đổi tên) thì soát đủ như hướng dẫn; tệp .md khác thì soát khuôn mật khẩu.
+function soatBanSapCommit() {
+  const { execFileSync } = require('child_process');
+  const git = (...a) => execFileSync('git', a, { cwd: GOC, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const tep = new Set(git('diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z', '--', '*.md')
+    .split('\0').filter(Boolean));
+  for (const c of Object.values(HUONG_DAN)) if (git('ls-files', '--', c.nguon).trim()) tep.add(c.nguon);
+
+  for (const f of tep) {
+    const noiDung = git('show', `:${f}`);
+    const tieuDe = (tachDong(noiDung).find(l => l.startsWith('# ')) || '').slice(2).trim();
+    const cauHinh = Object.values(HUONG_DAN).find(c => c.nguon === f || c.tieuDe === tieuDe);
+    try {
+      if (cauHinh) soatRoRi(noiDung, cauHinh); else soatKhuonMatKhau(noiDung);
+    } catch (e) {
+      throw new Error(`${f} (bản đã git add): ${e.message}`);
+    }
+  }
+  return tep.size;
+}
+
 function tenTepWord(cauHinh, phan) {
   return `${cauHinh.tenTep}-${phan.ngay.replace(/\//g, '-')}.docx`;
 }
@@ -436,6 +495,10 @@ async function main(argv) {
     throw new Error(`"--chi ${chi}" không có. Chọn một trong: ${Object.keys(HUONG_DAN).join(', ')}.`);
   }
   const chiSoat = argv.includes('--kiem-tra');
+  if (argv.includes('--ban-sap-commit')) {
+    if (soatBanSapCommit()) console.log('✓ Hướng dẫn thử và các tệp .md trong commit này không có mật khẩu hay tên người.');
+    return;
+  }
   const thuMucRa = path.resolve(lay('--ra') || path.join(GOC, 'ban-word'));
   if (!chiSoat) fs.mkdirSync(thuMucRa, { recursive: true });
 
@@ -458,12 +521,17 @@ async function main(argv) {
   }
 }
 
-module.exports = { HUONG_DAN, docHuongDan, dungWord, tenTepWord, demDongThu, docNgay };
+module.exports = { HUONG_DAN, docHuongDan, soatRoRi, soatKhuonMatKhau, dungWord, tenTepWord, demDongThu, docNgay };
 
 if (require.main === module) {
   main(process.argv.slice(2)).catch((e) => {
-    const viec = process.argv.includes('--kiem-tra') ? 'Hướng dẫn thử chưa đạt' : 'Không dựng được file Word';
-    console.error(`${viec}: ${e.message}`);
+    if (process.argv.includes('--ban-sap-commit')) {
+      console.error(`\n✗ CHẶN COMMIT. ${e.message}\n  Sửa tệp, chạy lại "git add" tệp đó, rồi commit lại. `
+        + 'Mật khẩu hay tên người đã lên kho thì xoá sau cũng không thu lại được.\n');
+    } else {
+      const viec = process.argv.includes('--kiem-tra') ? 'Hướng dẫn thử chưa đạt' : 'Không dựng được file Word';
+      console.error(`${viec}: ${e.message}`);
+    }
     process.exit(1);
   });
 }

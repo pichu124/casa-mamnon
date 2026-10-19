@@ -203,8 +203,9 @@ có đường nào đang lọt dữ liệu.
   tiêu đề: đó là ngày của bản, chủ dự án chốt 19/10), rồi xuất ra markdown và thay phần **từ
   dòng tiêu đề trở xuống** bằng bản xuất, nguyên văn. **Giữ nguyên khung ghi chú trên cùng**
   của tệp. Hai chỗ phải sửa khi chép: bỏ “ · @tên người viết” ở dòng ngày, và xoá sạch bảng
-  Mật khẩu (bản chính có thể đã được điền). `npm run test:huong-dan-thu` (trong bộ kiểm
-  nhanh) chặn cả hai. Đường dẫn bản chính và cách chép ghi ở đầu mỗi tệp. Dựng lại file
+  Mật khẩu (bản chính có thể đã được điền). Móc commit (tự bật sau `npm install`) chặn cả hai
+  mỗi lần `git commit`, kể cả commit tay, trừ khi dùng `--no-verify`; nó soát cả bản chép
+  mang tên khác và mọi tệp .md trong commit; `npm run test:huong-dan-thu` (trong bộ kiểm nhanh) soát thêm phụ đề và ngày. Đường dẫn bản chính và cách chép ghi ở đầu mỗi tệp. Dựng lại file
   Word gửi trường: `npm run tai-lieu:huong-dan-thu` (ra thư mục `ban-word/`, git bỏ qua).
 
 - `npm test` hiện chạy khoảng 5 phút. Số phép kiểm **đổi theo ngày và giờ chạy**

@@ -15,7 +15,10 @@
 > - bảng **Mật khẩu** ở mục 1: phải trống. Bản chính có thể đã được điền; xoá sạch trước khi
 >   lưu, và soát cả những chỗ khác người phụ trách có thể đã ghi mật khẩu.
 >
-> `npm run test:huong-dan-thu` (có trong bộ kiểm nhanh) và lệnh dựng file Word từ chối khi
+> Móc commit (tự bật sau `npm install`; chạy mỗi lần `git commit`, kể cả commit tay, trừ khi
+> dùng `--no-verify`) chặn bản đã `git add` còn mật khẩu hay tên người, kể cả bản chép mang
+> tên khác và mọi tệp .md khác trong commit có chuỗi giống mật khẩu do app sinh. `npm run test:huong-dan-thu` (có trong bộ kiểm nhanh) và lệnh dựng file Word
+> soát thêm phần còn lại; cả hai từ chối khi
 > dòng ngày có gì ngoài ngày, khi bảng mật khẩu có chữ hay bị đổi tên cột, khi ở bất cứ đâu
 > trong tệp có chuỗi trông như mật khẩu do app sinh ra, khi số dòng thử ở phụ đề khác số
 > dòng của các bảng, hay khi ngày trong khung “Đợt này thay đổi gì” khác ngày của bản.

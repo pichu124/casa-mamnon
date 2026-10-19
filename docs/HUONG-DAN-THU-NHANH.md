@@ -9,7 +9,10 @@
 > từ dòng tiêu đề trở xuống của tệp này bằng bản xuất, nguyên văn, trừ dòng ngày ngay dưới
 > tiêu đề: chỉ giữ ngày, bỏ phần “ · @tên người viết” (tên người không lưu vào kho).
 >
-> `npm run test:huong-dan-thu` (có trong bộ kiểm nhanh) và lệnh dựng file Word từ chối khi
+> Móc commit (tự bật sau `npm install`; chạy mỗi lần `git commit`, kể cả commit tay, trừ khi
+> dùng `--no-verify`) chặn bản đã `git add` còn mật khẩu hay tên người, kể cả bản chép mang
+> tên khác và mọi tệp .md khác trong commit có chuỗi giống mật khẩu do app sinh. `npm run test:huong-dan-thu` (có trong bộ kiểm nhanh) và lệnh dựng file Word
+> soát thêm phần còn lại; cả hai từ chối khi
 > dòng ngày có gì ngoài ngày, khi trong tệp có chuỗi trông như mật khẩu do app sinh ra, hay
 > khi số việc ở phụ đề khác số dòng của các bảng. Không mở
 > được bản chính thì đừng sửa riêng tệp này: ghi việc cần sửa vào `docs/VIEC-DANG-DO.md` và

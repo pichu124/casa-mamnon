@@ -67,6 +67,11 @@ for (const khoa of Object.keys(xuat.HUONG_DAN)) {
   check(`${khoa}: phụ đề in lên file Word mang ngày của bản (${phan.ngay})`, phan.phuDe.includes(phan.ngay));
   check(`${khoa}: dòng ngày của bản xuất (tên người viết) KHÔNG vào file Word`, !/\b[A-Z][a-z]{2} \d{1,2}, \d{4}\b/.test(chu));
 }
+for (const [khoa, cauHinh] of Object.entries(xuat.HUONG_DAN)) {
+  // Móc commit nhận ra bản chép tên khác nhờ tiêu đề này; lệch là bản chép lọt qua.
+  check(`${khoa}: tiêu đề trong cấu hình khớp tiêu đề trong tệp (móc nhận ra bản chép tên khác)`,
+    ketQua[khoa]?.phan.tieuDe === cauHinh.tieuDe, [ketQua[khoa]?.phan.tieuDe, cauHinh.tieuDe]);
+}
 check('bản đầy đủ: thân bắt đầu từ khung "Đợt này thay đổi gì"',
   (ketQua['day-du']?.chu || '').includes('Đợt này thay đổi gì'));
 
@@ -194,6 +199,113 @@ console.log('\n[5] Chạy bằng dòng lệnh');
   // "git add ." là file Word dựng ra lên kho.
   const bq = spawnSync('git', ['check-ignore', '-q', 'ban-word/thu.docx'], { cwd: GOC });
   check('thư mục ra mặc định ban-word/ bị git bỏ qua', bq.status === 0, bq.status);
+}
+
+console.log('\n[6] Móc commit chặn mật khẩu và tên người TRƯỚC khi lên kho');
+{
+  // Commit tay (không qua phiên agent) thì bộ nhanh không chạy, còn CI chạy sau khi đã
+  // push — tức lúc mật khẩu đã nằm trên GitHub. Chỉ móc commit-msg chặn kịp.
+  const moc = fs.readFileSync(path.join(GOC, '.githooks', 'commit-msg'), 'utf8');
+  check('móc commit-msg gọi lệnh soát bản sắp commit, và chặn khi soát đỏ',
+    moc.split('\n').some(l => !l.trim().startsWith('#')
+      && /node "\$DIR\/scripts\/xuat-huong-dan-thu\.js" --kiem-tra --ban-sap-commit \|\| exit 1/.test(l)));
+
+  // Dựng kho git thật, chép ĐÚNG các script móc gọi tới (đọc từ móc, như test/du-lieu)
+  // cùng hai tệp hướng dẫn, rồi commit thật để móc chạy thật.
+  const kho = path.join(TAM, 'kho-moc');
+  for (const d of ['scripts', '.githooks', 'docs']) fs.mkdirSync(path.join(kho, d), { recursive: true });
+  for (const t of new Set([...moc.matchAll(/scripts\/([\w-]+\.js)/g)].map(m => m[1]))) {
+    fs.copyFileSync(path.join(GOC, 'scripts', t), path.join(kho, 'scripts', t));
+  }
+  fs.copyFileSync(path.join(GOC, '.githooks', 'commit-msg'), path.join(kho, '.githooks', 'commit-msg'));
+  fs.chmodSync(path.join(kho, '.githooks', 'commit-msg'), 0o755);
+  fs.copyFileSync(path.join(GOC, '.gitignore'), path.join(kho, '.gitignore'));
+  for (const k of Object.keys(xuat.HUONG_DAN)) {
+    fs.copyFileSync(path.join(GOC, xuat.HUONG_DAN[k].nguon), path.join(kho, xuat.HUONG_DAN[k].nguon));
+  }
+  const g = (...a) => spawnSync('git', a, { cwd: kho, encoding: 'utf8' });
+  g('init', '-q'); g('config', 'user.email', 'kiemthu@example.com'); g('config', 'user.name', 'Kiem Thu');
+  g('config', 'core.hooksPath', '.githooks');
+  g('add', '-A');
+  const dau = g('commit', '-q', '-m', 'khởi tạo');
+  check('commit hai hướng dẫn sạch thì đi qua', dau.status === 0, dau.stderr);
+  const dinh = () => g('rev-parse', 'HEAD').stdout.trim();
+  const truoc = dinh();
+
+  const tepDayDu = path.join(kho, xuat.HUONG_DAN['day-du'].nguon);
+  const sach = fs.readFileSync(tepDayDu, 'utf8');
+  const dongMk = sach.split('\n').find(l => /^\| hieutruong \|\s*\|\s*\|$/.test(l));
+  fs.writeFileSync(tepDayDu, sach.replace(dongMk, '| hieutruong | Thu12345abc |  |'));
+  g('add', '-A');
+  const mk = g('commit', '-q', '-m', 'chép bản chính về');
+  check('bảng mật khẩu có chữ → commit BỊ CHẶN, kho đứng yên',
+    mk.status !== 0 && dinh() === truoc, mk.stderr.slice(0, 300));
+  check('báo lỗi tiếng Việt, nói rõ ô nào và cách gỡ',
+    /CHẶN COMMIT/.test(mk.stderr) && /hieutruong/.test(mk.stderr) && /git add/.test(mk.stderr), mk.stderr.slice(0, 300));
+  check('báo lỗi KHÔNG in lại mật khẩu', !mk.stderr.includes('Thu12345abc'));
+
+  // Tệp trên đĩa đã sạch, nhưng bản trong vùng chờ (bản sắp lên kho) vẫn còn mật khẩu.
+  fs.writeFileSync(tepDayDu, sach);
+  const vungCho = g('commit', '-q', '-m', 'chép bản chính về');
+  check('sửa tệp trên đĩa mà chưa git add lại → VẪN bị chặn (móc soát bản sắp commit)',
+    vungCho.status !== 0 && dinh() === truoc, vungCho.stderr.slice(0, 200));
+
+  g('add', '-A');
+  const sachLai = g('commit', '-q', '--allow-empty', '-m', 'đã xoá mật khẩu');
+  check('git add bản sạch thì commit lại được', sachLai.status === 0 && dinh() !== truoc, sachLai.stderr);
+
+  const tepNgan = path.join(kho, xuat.HUONG_DAN.ngan.nguon);
+  const sachNgan = fs.readFileSync(tepNgan, 'utf8');
+  const dongNgay = sachNgan.split('\n').find(l => xuat.docNgay(l.trim()));
+  fs.writeFileSync(tepNgan, sachNgan.replace(dongNgay, `${dongNgay} · @Người Viết`));
+  g('add', '-A');
+  const ten = g('commit', '-q', '-m', 'chép bản ngắn về');
+  check('dòng ngày còn tên người viết → commit BỊ CHẶN', ten.status !== 0, ten.stderr.slice(0, 200));
+
+  // Lệch số việc ở phụ đề không làm lọt gì: móc để qua, npm test (mục [4]) mới bắt.
+  const phuDe = xuat.docHuongDan(sachNgan, xuat.HUONG_DAN.ngan).phuDeGoc;
+  fs.writeFileSync(tepNgan, sachNgan.replace(phuDe, phuDe.replace(/(\d+) việc/, (_, n) => `${Number(n) - 1} việc`)));
+  g('add', '-A');
+  const lechSo = g('commit', '-q', '-m', 'phụ đề lệch số');
+  check('phụ đề lệch số việc (không lọt dữ liệu) → móc KHÔNG chặn commit', lechSo.status === 0, lechSo.stderr.slice(0, 200));
+
+  fs.writeFileSync(tepNgan, sachNgan);
+  g('add', '-A');
+  check('trả bản ngắn về sạch thì commit được', g('commit', '-q', '-m', 'trả bản ngắn').status === 0);
+
+  // Bản chép mang TÊN KHÁC (tải về hai lần thành "… (1).md") hay tệp đã đổi tên: nhận ra
+  // nhờ dòng tiêu đề, soát đủ như hướng dẫn.
+  const dauMoi = dinh();
+  const banTenKhac = path.join(kho, 'docs', 'HUONG-DAN-KIEM-THU (1).md');
+  fs.writeFileSync(banTenKhac, sach.replace(dongMk, '| hieutruong | Thu12345abc |  |'));
+  g('add', '-A');
+  const tenKhac = g('commit', '-q', '-m', 'bản tải về');
+  check('bản chép tên khác, có mật khẩu → commit BỊ CHẶN', tenKhac.status !== 0 && dinh() === dauMoi, tenKhac.stderr.slice(0, 200));
+  g('rm', '-q', '--cached', 'docs/HUONG-DAN-KIEM-THU (1).md'); fs.rmSync(banTenKhac);
+
+  g('mv', xuat.HUONG_DAN['day-du'].nguon, 'docs/KHAC.md');
+  fs.writeFileSync(path.join(kho, 'docs', 'KHAC.md'), sach.replace(dongMk, '| hieutruong | Thu12345abc |  |'));
+  g('add', '-A');
+  const doiTen = g('commit', '-q', '-m', 'đổi tên');
+  check('đổi tên tệp hướng dẫn rồi điền mật khẩu → commit BỊ CHẶN', doiTen.status !== 0 && dinh() === dauMoi, doiTen.stderr.slice(0, 200));
+  g('reset', '-q', '--hard');
+
+  // Tệp .md khác: mật khẩu do app sinh dán vào ghi chú bất kỳ cũng bị chặn.
+  const ghiChu = path.join(kho, 'docs', 'GHI-CHU.md');
+  fs.writeFileSync(ghiChu, '# Ghi chú buổi thử\n\nMật khẩu chung: kqmtfa4827\n');
+  g('add', '-A');
+  const mdKhac = g('commit', '-q', '-m', 'ghi chú');
+  check('tệp .md khác có chuỗi khớp mật khẩu do app sinh → commit BỊ CHẶN, không in lại mật khẩu',
+    mdKhac.status !== 0 && dinh() === dauMoi && !mdKhac.stderr.includes('kqmtfa4827'), mdKhac.stderr.slice(0, 200));
+  fs.writeFileSync(ghiChu, '# Ghi chú buổi thử\n\nMật khẩu chung: hỏi người phụ trách.\n');
+  g('add', '-A');
+  check('tệp .md khác không có mật khẩu → commit đi qua', g('commit', '-q', '-m', 'ghi chú').status === 0);
+
+  // Commit không đụng tới hướng dẫn, ở kho không có hai tệp ấy (như kho tạm của
+  // test/du-lieu, test/commit-rieng) → bước này lặng lẽ cho qua.
+  g('rm', '-q', '--cached', ...Object.values(xuat.HUONG_DAN).map(c => c.nguon));
+  const khongCo = g('commit', '-q', '-m', 'bỏ hai hướng dẫn khỏi kho thử');
+  check('kho không có hai tệp hướng dẫn → móc cho qua, không đòi tệp', khongCo.status === 0, khongCo.stderr.slice(0, 200));
 }
 
 donThuMucTam(TAM);
