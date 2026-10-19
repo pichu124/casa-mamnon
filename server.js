@@ -226,8 +226,16 @@ app.use((err, req, res, next) => {
 //
 // Hai đường triển khai sẵn có KHÔNG bị ảnh hưởng: `Dockerfile` và `render.yaml`
 // đều đã đặt `DATA_DIR=/data`, nằm ngoài thư mục mã nguồn.
+//
+// KHÁC Ổ ĐĨA TRÊN WINDOWS: mã ở D:\casa-mamnon, dữ liệu ở C:\CasaMamNonData thì
+// `path.relative` không có đường tương đối nào để trả, nên trả nguyên đường
+// tuyệt đối "C:\CasaMamNonData" — không bắt đầu bằng "..". Chỉ soát ".." thì
+// máy chủ coi dữ liệu là nằm TRONG kho mã và dừng ở chế độ thật, đúng với cách
+// đặt mà chính câu hướng dẫn của `npm run kiem-tra-may-chu` khuyên dùng.
+// `scripts/ban-thu.js` đã soát đủ hai vế từ trước.
 function kiemTraViTriDuLieu() {
-  const trongKhoMa = !path.relative(__dirname, db.DATA_DIR).startsWith('..');
+  const tuongDoi = path.relative(__dirname, db.DATA_DIR);
+  const trongKhoMa = !tuongDoi.startsWith('..') && !path.isAbsolute(tuongDoi);
   if (!trongKhoMa) return;
 
   if (process.env.NODE_ENV === 'production') {
