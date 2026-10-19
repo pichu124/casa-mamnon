@@ -94,7 +94,10 @@ kiem('Múi giờ máy chủ', () => {
 // 2. Dữ liệu nằm ngoài kho mã
 // ---------------------------------------------------------------------------
 kiem('Vị trí dữ liệu', () => {
-  const trongKhoMa = !path.relative(GOC, DATA_DIR).startsWith('..');
+  // Khác ổ đĩa trên Windows, `path.relative` trả đường tuyệt đối chứ không có
+  // ".." — xem chú thích ở kiemTraViTriDuLieu() trong server.js.
+  const tuongDoi = path.relative(GOC, DATA_DIR);
+  const trongKhoMa = !tuongDoi.startsWith('..') && !path.isAbsolute(tuongDoi);
   const coGit = fs.existsSync(path.join(GOC, '.git'));
   if (!trongKhoMa) {
     dat('Vị trí dữ liệu', `${DATA_DIR} — nằm ngoài kho mã, an toàn khi cập nhật bằng git pull`);

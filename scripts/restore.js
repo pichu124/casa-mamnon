@@ -132,8 +132,14 @@ const tmp = path.join(DATA_DIR, `.khoi-phuc-${Date.now()}.db`);
 fs.writeFileSync(tmp, zlib.gunzipSync(fs.readFileSync(nguon)));
 
 let thongKe;
+// `db` khai báo NGOÀI khối try để nhánh lỗi đóng được nó. Tệp rác (một tệp
+// .db.gz không chứa cơ sở dữ liệu) vẫn mở được — SQLite chỉ đọc tệp ở câu lệnh
+// đầu tiên — nên lỗi nổ ra ở `integrity_check`, TRƯỚC `db.close()`. Linux cho
+// xóa tệp đang mở nên không ai thấy; Windows thì từ chối (EBUSY), và tệp tạm
+// `.khoi-phuc-*.db` nằm lại mãi trong thư mục dữ liệu của trường.
+let db = null;
 try {
-  const db = new Database(tmp, { readonly: true });
+  db = new Database(tmp, { readonly: true });
   const kq = db.pragma('integrity_check');
   const ok = kq.length === 1 && kq[0].integrity_check === 'ok';
   if (!ok) throw new Error('Cơ sở dữ liệu trong bản sao lưu bị hỏng');
@@ -159,7 +165,9 @@ try {
       + (dem("SELECT COUNT(*) c FROM dontra_nguoi WHERE anh IS NOT NULL AND anh != ''") || 0),
   };
   db.close();
+  db = null;
 } catch (err) {
+  try { if (db) db.close(); } catch { /* đóng không được thì thôi */ }
   donTam(tmp);
   console.error(`Bản sao lưu KHÔNG dùng được: ${err.message}`);
   process.exit(1);
@@ -301,15 +309,20 @@ if (fs.existsSync(DB_FILE)) {
   // dữ liệu chưa gộp nhất trong `-wal`.
   //
   // Tới đây đã chắc chắn không còn ai mở cơ sở dữ liệu, nên checkpoint an toàn.
+  //
+  // Đóng kết nối ở `finally`, kể cả khi checkpoint lỗi: kết nối còn mở thì trên
+  // Windows `renameSync(DB_FILE, ...)` ngay dưới đây bị từ chối (EBUSY).
+  let cu = null;
   try {
-    const cu = new Database(DB_FILE);
+    cu = new Database(DB_FILE);
     cu.pragma('wal_checkpoint(TRUNCATE)');
-    cu.close();
   } catch (err) {
     // Tệp cũ hỏng tới mức không mở được thì thôi — vẫn giữ nguyên nó lại, còn
     // hơn dừng cả việc khôi phục. Nhưng phải NÓI RA, đừng nuốt lặng.
     console.warn(`\n⚠️  Không gộp được nhật ký ghi của dữ liệu cũ: ${err.message}`);
     console.warn('   Bản giữ lại có thể thiếu phần ghi gần nhất.');
+  } finally {
+    try { if (cu) cu.close(); } catch { /* đóng không được thì thôi */ }
   }
 
   const luu = `${DB_FILE}.truoc-khi-khoi-phuc-${Date.now()}`;
