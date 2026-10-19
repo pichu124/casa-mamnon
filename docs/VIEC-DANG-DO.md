@@ -199,11 +199,13 @@ có đường nào đang lọt dữ liệu.
 
 - **Hướng dẫn kiểm thử: bản chính nằm trên claude.ai** (chủ dự án chốt 19/10/2026), cả bản
   đầy đủ lẫn bản ngắn. `docs/HUONG-DAN-KIEM-THU.md` và `docs/HUONG-DAN-THU-NHANH.md` chỉ
-  là bản chép. Việc nào làm đổi một dòng thử thì sửa bản chính trước, rồi xuất ra markdown
-  và chép đè **phần thân** theo cách ghi ở đầu mỗi tệp. **Không đè cả tệp**: phần đầu tệp có
-  ghi chú riêng của kho, câu cấm điền mật khẩu và phụ đề của file Word. Đường dẫn bản chính
-  ghi ở đầu mỗi tệp. Dựng lại file Word gửi trường: `npm run tai-lieu:huong-dan-thu` (ra
-  thư mục `ban-word/`, git bỏ qua); lệnh từ chối dựng khi phụ đề lệch số việc hay ngày chép.
+  là bản chép. Việc nào làm đổi một dòng thử thì sửa bản chính trước (đổi cả ô ngày dưới
+  tiêu đề: đó là ngày của bản, chủ dự án chốt 19/10), rồi xuất ra markdown và thay phần **từ
+  dòng tiêu đề trở xuống** bằng bản xuất, nguyên văn. **Giữ nguyên khung ghi chú trên cùng**
+  của tệp. Hai chỗ phải sửa khi chép: bỏ “ · @tên người viết” ở dòng ngày, và xoá sạch bảng
+  Mật khẩu (bản chính có thể đã được điền). `npm run test:huong-dan-thu` (trong bộ kiểm
+  nhanh) chặn cả hai. Đường dẫn bản chính và cách chép ghi ở đầu mỗi tệp. Dựng lại file
+  Word gửi trường: `npm run tai-lieu:huong-dan-thu` (ra thư mục `ban-word/`, git bỏ qua).
 
 - `npm test` hiện chạy khoảng 5 phút. Số phép kiểm **đổi theo ngày và giờ chạy**
   (lich-nghi-truong, diem-danh-theo-anh có nhánh trước/sau 9h; moc-ra-soat-tru-hoan theo

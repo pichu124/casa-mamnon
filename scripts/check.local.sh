@@ -3,7 +3,8 @@
 #
 # Mặc định: BỘ NHANH (vài giây) gồm những bài chỉ đọc, chạy chồng với bất cứ thứ gì cũng an toàn:
 #   cú pháp tệp JS vừa đổi, dữ liệu lạc trong kho, khế ước tệp dùng chung, QUY TẮC 3, phân quyền ảnh và
-#   dữ liệu của bé, VERSION của service worker.
+#   dữ liệu của bé, VERSION của service worker, hướng dẫn thử gửi trường (bảng mật khẩu trống, không
+#   tên người, phụ đề khớp với bảng — chặn trước khi bản chép từ claude.ai lên kho).
 # CỐ Ý KHÔNG có trong bộ nhanh: co-lap-loi, luoi-an-toan, quy-tac-2, quy-tac-4 (ghi tạm vào chính kho mã:
 #   routes/, modules/, test/) và các bài dựng máy chủ ở cổng cố định. Chạy chồng với `npm test` thì chúng
 #   phá nhau, có lần làm hỏng routes/surveys.js vĩnh viễn. Chúng chạy trong bộ đầy đủ.
@@ -69,6 +70,7 @@ for t in khe-uoc quy-tac-3 quyen-du-lieu-be anh-canh-quyen; do
   run npm run -s "test:$t"
 done
 run npm run -s test:sw-version
+run npm run -s test:huong-dan-thu
 
 if [ "$status" -eq 0 ]; then
   echo "Bộ nhanh xanh. Trước khi commit: CHECK_FULL=1 ./scripts/check.sh (npm test đầy đủ, ~12 phút)."

@@ -6,6 +6,7 @@
 //   npm run tai-lieu:huong-dan-thu                    # cả hai, vào thư mục ban-word/
 //   npm run tai-lieu:huong-dan-thu -- --chi ngan      # chỉ bản ngắn (hoặc: day-du)
 //   npm run tai-lieu:huong-dan-thu -- --ra D:\GuiTruong
+//   npm run test:huong-dan-thu                        # chỉ soát hai tệp, không dựng
 //
 // BẢN CHÍNH KHÔNG NẰM Ở ĐÂY
 //
@@ -14,29 +15,44 @@
 // chép bản chính về theo cách ghi ở đầu mỗi tệp. Dựng từ bản chép cũ là gửi
 // trường một hướng dẫn cũ, mà nhìn tệp Word thì không ai biết.
 //
-// LẤY GÌ TỪ TỆP
+// BỐ CỤC TỆP
 //
-//   - tiêu đề: dòng "# …" đầu tệp;
-//   - phụ đề: dòng chữ đầu tiên ngay sau tiêu đề;
-//   - thân: từ dòng mốc của từng bản (HUONG_DAN bên dưới) tới hết tệp.
-// Mọi thứ nằm giữa phụ đề và mốc (đường dẫn bản chính, cách chép, câu cấm điền
-// mật khẩu) là ghi chú của kho và KHÔNG vào file Word.
+//   > ghi chú của kho (bản chép, cách chép, ngày chép, …)    ← KHÔNG vào file Word
 //
-// PHỤ ĐỀ LỆCH THÌ DỪNG, KHÔNG DỰNG
+//   # Tiêu đề                                  ┐
+//   Oct 19, 2026                               │ bản xuất của bản chính,
+//   Bản ngắn · máy thử … · 41 việc, …          │ chép nguyên văn
+//   …thân…                                     ┘
 //
-// Phụ đề nằm ngoài vùng chép nên phải sửa tay. Quên sửa thì trang đầu file gửi
-// trường in số việc cũ — thứ người đọc tin ngay mà không ai đếm lại. Nên lệnh
-// này từ chối dựng khi số ghi ở phụ đề khác số dòng thật của các bảng thử, hay
-// ngày ở phụ đề khác ngày "Chép từ bản chính lần cuối".
+// Dòng ngay dưới tiêu đề là ô ngày dưới tiêu đề trên claude.ai, bản xuất ghi
+// kiểu "Oct 19, 2026" (nhận cả "19/10/2026"). Đó là NGÀY CỦA BẢN: ngày sửa trên
+// claude.ai (chủ dự án chốt 19/10/2026), in vào phụ đề, đầu trang và tên tệp
+// Word. Ngày lấy từ bản chính chứ không gõ tay ở kho, nên chép về là có đúng ngày.
+//
+// TỪ CHỐI DỰNG, KHÔNG DỰNG BỪA
+//
+//   - dòng ngày còn " · @tên người viết", hay bất cứ chữ gì ngoài ngày: tên người
+//     không lưu vào kho;
+//   - cột "Mật khẩu…" của một bảng có chữ, hay số cột ấy khác thường lệ (bị đổi
+//     tên, bị tách bảng): bản chính là chỗ người phụ trách điền mật khẩu, chép
+//     nguyên văn là mật khẩu lên kho và lên giấy gửi trường;
+//   - bất cứ chỗ nào trong tệp có một chuỗi trông như mật khẩu do app sinh ra
+//     (5–6 chữ thường rồi 3–4 chữ số, đúng bảng chữ của các bộ sinh mật khẩu);
+//   - số ghi ở phụ đề khác số dòng thật của các bảng thử: trang đầu in số việc
+//     cũ là thứ người đọc tin ngay mà không ai đếm lại;
+//   - ngày trong khung "Đợt này thay đổi gì (bản …)" khác ngày của bản: sửa
+//     khung mà quên đổi ô ngày, hay ngược lại.
 //
 // Cột "Kết quả" của mỗi bảng thử thành ba ô tích bấm được trong Word (Đạt /
 // Không đạt / Chưa thử). Giấy A4 nằm ngang, tiêu đề bảng lặp lại khi sang trang.
 //
-// Cần: thư viện `docx` (đã nằm trong devDependencies).
+// Cần: thư viện `docx` (đã nằm trong devDependencies), chỉ khi dựng; `--kiem-tra`
+// không cần thư viện nào ngoài Node.
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const d = require('docx');
+
+let d; // thư viện docx, chỉ nạp khi thật sự dựng (xem dungWord)
 
 const GOC = path.join(__dirname, '..');
 
@@ -44,19 +60,43 @@ const HUONG_DAN = {
   'day-du': {
     nguon: 'docs/HUONG-DAN-KIEM-THU.md',
     tenTep: 'Huong-dan-kiem-thu-CASA-Mam-non',
-    moc: '> **Đợt này thay đổi gì',
     donVi: 'dòng thử',
+    // Bảng Mật khẩu ở mục 1 có hai cột "Mật khẩu lần đầu", "Mật khẩu mới sau khi đổi".
+    // Đếm ra số khác là bảng đã bị đổi trên bản chính: bộ chặn không còn biết soi đâu.
+    soCotMatKhau: 2,
     // Mục "## …" thứ mấy trở đi thì bắt đầu trang mới (hai mục đầu ngắn, in liền).
     sangTrangTuMuc: 3,
   },
   ngan: {
     nguon: 'docs/HUONG-DAN-THU-NHANH.md',
     tenTep: 'Huong-dan-thu-nhanh-CASA-Mam-non',
-    moc: '## Trước khi thử',
     donVi: 'việc',
+    soCotMatKhau: 0,
     sangTrangTuMuc: 2,
   },
 };
+
+// Chữ được phép nằm trong cột "Mật khẩu…" của tệp trong kho. Mọi chữ khác có thể
+// là mật khẩu thật chép từ bản chính về.
+const CHU_GIU_CHO_MAT_KHAU = ['', '*(như dòng đầu)*'];
+// Mật khẩu do app sinh ra (scripts/ban-thu.js, scripts/create-admin.js, routes/accounts.js,
+// routes/admin.js): 5–6 chữ trong bảng không có i, l, o rồi 3–4 chữ số từ 2 tới 9.
+const KHUON_MAT_KHAU_MAY_SINH = /(?<![\p{L}\p{N}])[a-hj-km-np-z]{5,6}[2-9]{3,4}(?![\p{L}\p{N}])/u;
+
+const THANG_ANH = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+// "Oct 19, 2026" (bản xuất của claude.ai) hoặc "19/10/2026" → { ngay, thang, nam }.
+function docNgay(s) {
+  let n = null;
+  let m = s.match(/^([A-Za-z]{3})[a-z]*\.? (\d{1,2}), (\d{4})$/);
+  if (m && THANG_ANH.includes(m[1].toLowerCase())) {
+    n = { ngay: Number(m[2]), thang: THANG_ANH.indexOf(m[1].toLowerCase()) + 1, nam: Number(m[3]) };
+  } else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) {
+    n = { ngay: Number(m[1]), thang: Number(m[2]), nam: Number(m[3]) };
+  }
+  return n && n.thang >= 1 && n.thang <= 12 && n.ngay >= 1 && n.ngay <= 31 ? n : null;
+}
+const vietNgay = (n) => `${String(n.ngay).padStart(2, '0')}/${String(n.thang).padStart(2, '0')}/${n.nam}`;
+const cungNgay = (a, b) => a.ngay === b.ngay && a.thang === b.thang && a.nam === b.nam;
 
 // ---- Đọc tệp markdown ------------------------------------------------------
 function o(l) { return l.trim().replace(/^\|/, '').replace(/\|$/, '').split(' | ').map(x => x.trim()); }
@@ -73,40 +113,95 @@ function demDongThu(than) {
   return n;
 }
 
+// Cột có tiêu đề bắt đầu bằng "Mật khẩu" (vd "Mật khẩu lần đầu") của mọi bảng: chỉ được
+// trống hoặc chữ giữ chỗ. Cột như "Mất mật khẩu của" (cách cấp lại) không phải chỗ điền.
+function oMatKhauCoChu(than) {
+  const thay = [];
+  let soCot = 0;
+  for (let i = 0; i < than.length; i++) {
+    if (!than[i].startsWith('|')) continue;
+    const dau = o(than[i]);
+    const cot = dau.map((h, c) => (/^mật khẩu/i.test(h) ? c : -1)).filter(c => c >= 0);
+    soCot += cot.length;
+    i += 2;
+    while (i < than.length && than[i].startsWith('|')) {
+      const r = o(than[i]);
+      for (const c of cot) if (!CHU_GIU_CHO_MAT_KHAU.includes(r[c] || '')) thay.push(`${r[0]} / ${dau[c]}`);
+      i++;
+    }
+  }
+  return { thay, soCot };
+}
+
 // Trả về phần cần dựng, hoặc ném lỗi bằng tiếng Việt nói rõ phải sửa dòng nào.
 function docHuongDan(noiDung, cauHinh) {
   const dong = noiDung.split(/\r?\n/);
-  if (!dong[0] || !dong[0].startsWith('# ')) throw new Error('dòng đầu tệp phải là tiêu đề "# …".');
-  const tieuDe = dong[0].slice(2).trim();
+  const sauDong = (i) => { let k = i + 1; while (k < dong.length && !dong[k].trim()) k++; return k; };
 
-  const iPhuDe = dong.findIndex((l, i) => i > 0 && l.trim());
-  const phuDe = iPhuDe < 0 ? '' : dong[iPhuDe].trim();
-  if (!phuDe || /^[>#|-]/.test(phuDe)) {
-    throw new Error('thiếu dòng phụ đề ngay dưới tiêu đề (vd "Bản 19/10/2026 · … · 177 dòng thử").');
+  // Soát cả tệp, kể cả khung ghi chú: mật khẩu nằm ở đâu cũng không được lên kho.
+  // Chỉ báo số dòng, không in lại chuỗi: nhật ký của máy CI là chỗ ai cũng đọc được.
+  const dongMkMay = dong.map((l, i) => (KHUON_MAT_KHAU_MAY_SINH.test(l) ? i + 1 : 0)).filter(Boolean);
+  if (dongMkMay.length) {
+    throw new Error(`dòng ${dongMkMay.join(', ')} có chuỗi trông như mật khẩu do app sinh ra. Xoá đi: mật khẩu không lưu vào kho, không in lên giấy.`);
   }
 
-  const iMoc = dong.findIndex(l => l.startsWith(cauHinh.moc));
-  if (iMoc < 0) throw new Error(`không thấy dòng mốc bắt đầu bằng "${cauHinh.moc}".`);
-  const than = dong.slice(iMoc);
+  const iTieuDe = dong.findIndex(l => l.startsWith('# '));
+  if (iTieuDe < 0) throw new Error('không thấy dòng tiêu đề "# …".');
+  const tieuDe = dong[iTieuDe].slice(2).trim();
 
-  const mNgayChep = dong.slice(0, iMoc).join('\n').match(/Chép từ bản chính lần cuối:\s*(\d{1,2}\/\d{1,2}\/\d{4})/);
-  if (!mNgayChep) throw new Error('phần đầu tệp thiếu dòng "Chép từ bản chính lần cuối: dd/mm/yyyy".');
-  const ngayChep = mNgayChep[1];
+  const iNgay = sauDong(iTieuDe);
+  const dongNgay = (dong[iNgay] || '').trim();
+  if (dongNgay.includes('@')) {
+    throw new Error(`dòng ngày dưới tiêu đề còn tên người viết ("${dongNgay}"). Bỏ phần " · @…": tên người không lưu vào kho.`);
+  }
+  const ngayBan = docNgay(dongNgay);
+  if (!ngayBan) {
+    throw new Error(`dòng ngay dưới tiêu đề phải là ngày của bản và chỉ có ngày (ô ngày dưới tiêu đề trên claude.ai, vd "Oct 19, 2026"; bỏ mọi phần " · …" phía sau); đang là "${dongNgay}".`);
+  }
+  const ngay = vietNgay(ngayBan);
+
+  const iPhuDe = sauDong(iNgay);
+  const phuDeGoc = (dong[iPhuDe] || '').trim();
+  if (!phuDeGoc || /^[>#|-]/.test(phuDeGoc)) {
+    throw new Error('thiếu dòng phụ đề ngay dưới dòng ngày (vd "Bản ngắn · máy thử … · 41 việc").');
+  }
+  const than = dong.slice(iPhuDe + 1);
+
+  const matKhau = oMatKhauCoChu(than);
+  if (matKhau.soCot !== cauHinh.soCotMatKhau) {
+    throw new Error(`đếm được ${matKhau.soCot} cột “Mật khẩu…” trong các bảng, thường lệ là ${cauHinh.soCotMatKhau}. `
+      + 'Bảng mật khẩu đã bị đổi tên cột hay tách đôi trên bản chính: soát bằng mắt cho chắc không có mật khẩu, '
+      + 'rồi sửa soCotMatKhau trong scripts/xuat-huong-dan-thu.js.');
+  }
+  if (matKhau.thay.length) {
+    throw new Error(`bảng mật khẩu có chữ ở: ${matKhau.thay.join('; ')}. Xoá sạch các ô đó: mật khẩu không lưu vào kho, không in lên giấy.`);
+  }
 
   const soDong = demDongThu(than);
-  const mSo = phuDe.match(new RegExp(`(\\d+)\\s+${cauHinh.donVi}`));
+  const mSo = phuDeGoc.match(new RegExp(`(\\d+)\\s+${cauHinh.donVi}`));
   if (!mSo) throw new Error(`phụ đề không ghi số ${cauHinh.donVi} (vd "${soDong} ${cauHinh.donVi}").`);
   if (Number(mSo[1]) !== soDong) {
-    throw new Error(`phụ đề ghi ${mSo[1]} ${cauHinh.donVi} nhưng các bảng có ${soDong}. Sửa dòng phụ đề ngay dưới tiêu đề.`);
-  }
-  const mNgay = phuDe.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
-  if (!mNgay || mNgay[0] !== ngayChep) {
-    throw new Error(`ngày ở phụ đề (${mNgay ? mNgay[0] : 'không có'}) khác ngày chép từ bản chính (${ngayChep}). Sửa dòng phụ đề.`);
+    throw new Error(`phụ đề ghi ${mSo[1]} ${cauHinh.donVi} nhưng các bảng có ${soDong}. Sửa phụ đề trên bản chính rồi chép lại.`);
   }
 
-  const dau = phuDe.split(' · ')[0];
-  const dauTrang = `${tieuDe} · ${dau.charAt(0).toLowerCase()}${dau.slice(1)}`;
-  return { tieuDe, phuDe, dauTrang, than, soDong, ngayChep, sangTrangTuMuc: cauHinh.sangTrangTuMuc };
+  const kiemNgay = (s, noi) => {
+    const n = docNgay(s);
+    if (n && !cungNgay(n, ngayBan)) {
+      throw new Error(`${noi} ghi ${s} nhưng ngày của bản (ô ngày dưới tiêu đề) là ${ngay}. Sửa cho khớp trên bản chính rồi chép lại.`);
+    }
+  };
+  const mNgayPhuDe = phuDeGoc.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
+  if (mNgayPhuDe) kiemNgay(mNgayPhuDe[0], 'phụ đề');
+  const dongKhung = than.find(l => /^> \*\*Đợt này thay đổi gì/.test(l));
+  const mNgayKhung = dongKhung && dongKhung.match(/\(bản (\d{1,2}\/\d{1,2}\/\d{4})/);
+  if (mNgayKhung) kiemNgay(mNgayKhung[1], 'khung “Đợt này thay đổi gì”');
+
+  // Phụ đề in lên file Word mang ngày của bản: "Bản ngắn · …" → "Bản ngắn 19/10/2026 · …".
+  const doan = phuDeGoc.split(' · ');
+  if (!mNgayPhuDe) doan[0] = `${doan[0]} ${ngay}`;
+  const phuDe = doan.join(' · ');
+  const dauTrang = `${tieuDe} · ${doan[0].charAt(0).toLowerCase()}${doan[0].slice(1)}`;
+  return { tieuDe, ngay, phuDeGoc, phuDe, dauTrang, than, soDong, soCotMatKhau: matKhau.soCot, sangTrangTuMuc: cauHinh.sangTrangTuMuc };
 }
 
 // ---- Kích thước (DXA) -------------------------------------------------------
@@ -166,8 +261,10 @@ function doRong(dau, dong) {
   w[n - 1] += RONG - w.reduce((a, b) => a + b, 0);
   return w;
 }
-const vien = { style: d.BorderStyle.SINGLE, size: 4, color: VIEN };
-const vienO = { top: vien, bottom: vien, left: vien, right: vien };
+function vienO() {
+  const vien = { style: d.BorderStyle.SINGLE, size: 4, color: VIEN };
+  return { top: vien, bottom: vien, left: vien, right: vien };
+}
 function oChonKetQua() {
   return ['Đạt', 'Không đạt', 'Chưa thử'].map(nhan => new d.Paragraph({
     spacing: { after: 20 },
@@ -180,7 +277,7 @@ function bang(dau, dong) {
   const hang = [new d.TableRow({
     tableHeader: true, cantSplit: true,
     children: dau.map((h, c) => new d.TableCell({
-      width: { size: w[c], type: d.WidthType.DXA }, borders: vienO,
+      width: { size: w[c], type: d.WidthType.DXA }, borders: vienO(),
       shading: { type: d.ShadingType.CLEAR, fill: NEN_DAU, color: 'auto' },
       margins: { top: 60, bottom: 60, left: 80, right: 80 },
       children: [new d.Paragraph({ children: chay(h, { bold: true, size: CO_BANG }) })],
@@ -194,7 +291,7 @@ function bang(dau, dong) {
         const con = (thu && c === dau.length - 1) ? oChonKetQua()
           : [new d.Paragraph({ children: chay(txt, { size: CO_BANG, bold: (thu && c === 0) || (thu && dau[c] === 'Mức' && txt === 'Cao') || undefined }) })];
         return new d.TableCell({
-          width: { size: w[c], type: d.WidthType.DXA }, borders: vienO,
+          width: { size: w[c], type: d.WidthType.DXA }, borders: vienO(),
           margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: con,
         });
       }),
@@ -222,6 +319,7 @@ function khung(lines) {
 
 // ---- Dựng tài liệu ----------------------------------------------------------
 async function dungWord(phan) {
+  d = d || require('docx');
   const soDanhSach = [];
   let demDs = 0;
   const dsMoi = (batDau) => {
@@ -327,8 +425,7 @@ async function dungWord(phan) {
 }
 
 function tenTepWord(cauHinh, phan) {
-  const [ng, th, nam] = phan.ngayChep.split('/');
-  return `${cauHinh.tenTep}-${ng.padStart(2, '0')}-${th.padStart(2, '0')}-${nam}.docx`;
+  return `${cauHinh.tenTep}-${phan.ngay.replace(/\//g, '-')}.docx`;
 }
 
 // ---- Dòng lệnh --------------------------------------------------------------
@@ -338,8 +435,9 @@ async function main(argv) {
   if (chi !== undefined && !HUONG_DAN[chi]) {
     throw new Error(`"--chi ${chi}" không có. Chọn một trong: ${Object.keys(HUONG_DAN).join(', ')}.`);
   }
+  const chiSoat = argv.includes('--kiem-tra');
   const thuMucRa = path.resolve(lay('--ra') || path.join(GOC, 'ban-word'));
-  fs.mkdirSync(thuMucRa, { recursive: true });
+  if (!chiSoat) fs.mkdirSync(thuMucRa, { recursive: true });
 
   for (const khoa of chi ? [chi] : Object.keys(HUONG_DAN)) {
     const cauHinh = HUONG_DAN[khoa];
@@ -349,17 +447,23 @@ async function main(argv) {
     } catch (e) {
       throw new Error(`${cauHinh.nguon}: ${e.message}`);
     }
+    if (chiSoat) {
+      const mk = phan.soCotMatKhau ? 'bảng mật khẩu trống' : 'không có bảng mật khẩu';
+      console.log(`✓ ${cauHinh.nguon}: bản ${phan.ngay}, ${phan.soDong} ${cauHinh.donVi}, ${mk}, không có tên người, không có chuỗi giống mật khẩu.`);
+      continue;
+    }
     const ra = path.join(thuMucRa, tenTepWord(cauHinh, phan));
     fs.writeFileSync(ra, await dungWord(phan));
-    console.log(`Đã dựng ${ra} (${phan.soDong} ${cauHinh.donVi}, chép từ bản chính ngày ${phan.ngayChep}).`);
+    console.log(`Đã dựng ${ra} (bản ${phan.ngay}, ${phan.soDong} ${cauHinh.donVi}).`);
   }
 }
 
-module.exports = { HUONG_DAN, docHuongDan, dungWord, tenTepWord, demDongThu };
+module.exports = { HUONG_DAN, docHuongDan, dungWord, tenTepWord, demDongThu, docNgay };
 
 if (require.main === module) {
   main(process.argv.slice(2)).catch((e) => {
-    console.error(`Không dựng được file Word: ${e.message}`);
+    const viec = process.argv.includes('--kiem-tra') ? 'Hướng dẫn thử chưa đạt' : 'Không dựng được file Word';
+    console.error(`${viec}: ${e.message}`);
     process.exit(1);
   });
 }

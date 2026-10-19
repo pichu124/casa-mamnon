@@ -170,7 +170,8 @@
     "test:hocphi-qr-anh": "node test/hocphi-qr-anh.test.mjs",
     "tai-lieu:cai-dat-vps": "node scripts/xuat-cai-dat-vps.js",
     "test:xuat-huong-dan-thu": "node test/xuat-huong-dan-thu.test.mjs",
-    "tai-lieu:huong-dan-thu": "node scripts/xuat-huong-dan-thu.js"
+    "tai-lieu:huong-dan-thu": "node scripts/xuat-huong-dan-thu.js",
+    "test:huong-dan-thu": "node scripts/xuat-huong-dan-thu.js --kiem-tra"
   },
   "engines": {
     "node": "22.x"
