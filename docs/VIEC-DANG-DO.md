@@ -197,6 +197,13 @@ có đường nào đang lọt dữ liệu.
 
 ## 5. Ghi chú kỹ thuật cho phiên mới
 
+- **Hướng dẫn kiểm thử: bản chính nằm trên claude.ai** (chủ dự án chốt 19/10/2026), cả bản
+  đầy đủ lẫn bản ngắn. `docs/HUONG-DAN-KIEM-THU.md` và `docs/HUONG-DAN-THU-NHANH.md` chỉ
+  là bản chép. Việc nào làm đổi một dòng thử thì sửa bản chính trước, rồi xuất ra markdown
+  và chép đè **phần thân** theo cách ghi ở đầu mỗi tệp. **Không đè cả tệp**: phần đầu tệp có
+  ghi chú riêng của kho, câu cấm điền mật khẩu và phụ đề của file Word. Đường dẫn bản chính
+  ghi ở đầu mỗi tệp.
+
 - `npm test` hiện chạy khoảng 5 phút. Số phép kiểm **đổi theo ngày và giờ chạy**
   (lich-nghi-truong, diem-danh-theo-anh có nhánh trước/sau 9h; moc-ra-soat-tru-hoan theo
   ngày; thu-muc-du-lieu có khối 4 phép chỉ chạy khi hạ được quyền xuống `nobody`). So số

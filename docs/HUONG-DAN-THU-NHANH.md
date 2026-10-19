@@ -2,6 +2,19 @@
 
 Bản ngắn 19/10/2026 · máy thử https://casa-school.duckdns.org · 41 việc, mỗi người chỉ làm phần của mình
 
+> **Bản chính nằm trên claude.ai** (chủ dự án chốt ngày 19/10/2026): tài liệu “Hướng dẫn
+> thử nhanh app CASA Mầm non”, https://claude.ai/code/artifact/1355cca3-8baf-4479-9131-24735525732b.
+> Ở đó cột *Kết quả* là ô chọn Chưa thử / Đạt / Không đạt. Tệp này là **bản chép**, để so
+> khi app đổi và để dựng file Word (khung ghi chú này không vào file Word).
+>
+> **Muốn sửa thì sửa bản chính trước.** Sau đó xuất bản chính ra markdown, chép đè phần từ
+> mục “Trước khi thử” trở xuống của tệp này cho giống hệt, rồi ghi ngày chép vào dòng dưới.
+> Dòng ngay dưới tiêu đề (“Bản ngắn … · 41 việc …”) là phụ đề của file Word, nằm ngoài vùng
+> chép: sửa tay ngày và số việc khi bản chính đổi. Không mở được bản chính thì đừng sửa
+> riêng tệp này: ghi việc cần sửa vào `docs/VIEC-DANG-DO.md` và báo chủ dự án.
+>
+> **Chép từ bản chính lần cuối: 19/10/2026.**
+
 ## Trước khi thử (ai cũng đọc)
 
 | Người thử | Đăng nhập bằng | Làm phần | Thiết bị |
@@ -21,7 +34,7 @@ Bản ngắn 19/10/2026 · máy thử https://casa-school.duckdns.org · 41 vi�
 - Không bấm “Chuyển sang năm học …”, không gõ “DOI KHOA”, không bật “Nhận xét”, “Báo cáo”, “Nề nếp”.
 - Không bấm “Chốt sổ vắng” hay “Thêm đợt nghỉ” giữa buổi, không bấm “Xác nhận” học phí cho khoản thật.
 
-**Ghi kết quả:** làm xong mỗi việc thì tích Đạt hoặc Không đạt. Không đạt thì ghi vào **Phiếu báo lỗi** ở cuối: số việc, tài khoản, mong thấy gì, thực tế thấy gì, kèm ảnh chụp màn hình. Việc ở phần E (quyền riêng tư của trẻ) mà Không đạt thì báo người phụ trách ngay.
+**Ghi kết quả:** làm xong mỗi việc thì chọn Đạt hoặc Không đạt ở cột “Kết quả”. Không đạt thì ghi vào **Phiếu báo lỗi** ở cuối: số việc, tài khoản, mong thấy gì, thực tế thấy gì, kèm ảnh chụp màn hình. Việc ở phần E (quyền riêng tư của trẻ) mà Không đạt thì báo người phụ trách ngay.
 
 **Thử theo cặp:** cột “Ai làm” ghi “A → B” nghĩa là A làm, B kiểm ở phía bên kia. Hai người nên ngồi gần nhau. Việc ghi “sau …” thì chờ việc đó xong mới làm. Nên làm D2 (phụ huynh bật thông báo) đầu tiên.
 

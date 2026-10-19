@@ -1,11 +1,25 @@
 # Hướng dẫn kiểm thử app CASA Mầm non
 
-> **Bản chụp ngày 19/10/2026 (Đ239q).** Bản đang dùng cho buổi thử là một tài liệu
-> trên claude.ai do người phụ trách buổi thử giữ: ở đó cột *Kết quả* là ô chọn
-> Đạt / Không đạt / Chưa thử, và có chỗ điền mật khẩu. Bản trong kho mã này để
-> người tiếp quản đọc được, và để so khi app đổi — nếu hai bản nói khác nhau
-> thì bản trên claude.ai mới hơn. Hai bản được chép cho khớp nhau ngày 19/10
-> (trước đó bản trên claude.ai còn là bản 16/10, chưa có đợt Đ239).
+> **Bản chính nằm trên claude.ai** (chủ dự án chốt ngày 19/10/2026): tài liệu
+> “Hướng dẫn kiểm thử app CASA Mầm non”,
+> https://claude.ai/code/artifact/d5d69bca-9dd9-434e-b060-93ffd19fee23, do người phụ
+> trách buổi thử giữ. Ở đó cột *Kết quả* là ô chọn Đạt / Không đạt / Chưa thử, và có
+> chỗ điền mật khẩu. Tệp này là **bản chép**, để người tiếp quản đọc, để so khi app
+> đổi và để dựng file Word.
+>
+> **Muốn sửa hướng dẫn thì sửa bản chính trước.** Sau đó xuất bản chính ra markdown,
+> chép đè phần từ mục “Cách dùng tài liệu này” trở xuống của tệp này cho giống hệt, rồi
+> ghi ngày chép vào dòng dưới. Không mở được bản chính thì đừng sửa riêng tệp này: ghi
+> việc cần sửa vào `docs/VIEC-DANG-DO.md` và báo chủ dự án. Hai bản đã từng lệch nhau
+> một lần (bản trên claude.ai nằm lại ở 16/10 trong khi đợt Đ239 chỉ sửa tệp này).
+>
+> **Khung “Đợt này thay đổi gì” bên dưới cũng phải sửa tay** mỗi khi khung đó trên bản
+> chính đổi: nó nằm ngoài vùng chép (phía trên mục “Cách dùng tài liệu này”), nhưng file
+> Word lấy chính nó làm khung thay đổi. Hai khung cùng nội dung. Khung của kho có thêm
+> mã từng việc (Đ239n–q) và tên tệp. Khung trên bản chính viết cho trường, chỉ nhắc tên
+> đợt Đ239.
+>
+> **Chép từ bản chính lần cuối: 19/10/2026** (nội dung tới Đ239q, so khớp lại ở Đ239u).
 >
 > **Không bao giờ điền mật khẩu vào bản này.** Kho mã không chứa mật khẩu hay
 > dữ liệu thật của trường; bảng "Mật khẩu" ở mục 1 cố ý để trống.
