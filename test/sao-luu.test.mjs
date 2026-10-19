@@ -26,8 +26,10 @@ fs.mkdirSync(DIR, { recursive: true });
 const DB_FILE = path.join(DIR, 'school.db');
 const BACKUP_DIR = path.join(DIR, 'backups');
 
-const chay = (script, ...args) => spawnSync('node', [path.join(GOC, 'scripts', script), ...args],
+const chay = (script, ...args) => { const r = spawnSync('node', [path.join(GOC, 'scripts', script), ...args],
   { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: DIR } });
+  console.log(`[CHAN-DOAN] ${script} ${args.join(' ')} → ${r.status}; tệp: ${fs.readdirSync(DIR).join(',')}\n${(r.stderr || '').split('\n').filter(l => l.includes('CHAN-DOAN')).join('\n')}`);
+  return r; };
 
 sinhDuLieu(DIR);
 

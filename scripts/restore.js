@@ -123,7 +123,8 @@ console.log(`Bản sao lưu: ${path.basename(nguon)}`);
 // "bản lưu trước khi khôi phục" — rác tự sinh ở đúng chỗ không nên có rác.
 function donTam(duong) {
   for (const hau of ['', '-wal', '-shm']) {
-    try { fs.rmSync(duong + hau, { force: true }); } catch { /* xóa không được thì thôi */ }
+    try { fs.rmSync(duong + hau, { force: true }); } catch (e) { console.error(`[CHAN-DOAN] donTam ${duong + hau}: ${e.code} ${e.message}`); }
+    if (fs.existsSync(duong + hau)) console.error(`[CHAN-DOAN] donTam con sot ${duong + hau}`);
   }
 }
 
