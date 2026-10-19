@@ -1,6 +1,6 @@
 # Tổng kết — những việc đã hoàn thiện sau góp ý của trường ngày 16/10/2026
 
-Bản ngắn để gửi nhà trường. Cách thử từng việc: **Hướng dẫn kiểm thử bản 18/10** (người phụ
+Bản ngắn để gửi nhà trường. Cách thử từng việc: **Hướng dẫn kiểm thử bản 19/10** (người phụ
 trách buổi thử giữ); cột "Thử ở dòng" là số dòng trong hướng dẫn đó.
 
 **Kết quả: 11 / 11 mục đã xong.**

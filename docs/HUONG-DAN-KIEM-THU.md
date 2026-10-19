@@ -1,10 +1,11 @@
 # Hướng dẫn kiểm thử app CASA Mầm non
 
-> **Bản chụp ngày 18/10/2026 (Đ239).** Bản đang dùng cho buổi thử là một tài liệu
+> **Bản chụp ngày 19/10/2026 (Đ239q).** Bản đang dùng cho buổi thử là một tài liệu
 > trên claude.ai do người phụ trách buổi thử giữ: ở đó cột *Kết quả* là ô chọn
 > Đạt / Không đạt / Chưa thử, và có chỗ điền mật khẩu. Bản trong kho mã này để
 > người tiếp quản đọc được, và để so khi app đổi — nếu hai bản nói khác nhau
-> thì bản trên claude.ai mới hơn.
+> thì bản trên claude.ai mới hơn. Hai bản được chép cho khớp nhau ngày 19/10
+> (trước đó bản trên claude.ai còn là bản 16/10, chưa có đợt Đ239).
 >
 > **Không bao giờ điền mật khẩu vào bản này.** Kho mã không chứa mật khẩu hay
 > dữ liệu thật của trường; bảng "Mật khẩu" ở mục 1 cố ý để trống.
@@ -21,6 +22,8 @@
 > - **Cambridge:** Weekly Plan có 2–3 hoạt động (chủ đề, từ vựng, mục tiêu) rồi Song / Chant, Story; mẫu Home Connection bỏ các ô hoạt động, chủ đề, từ vựng, song/chant. Sửa 7.12; dòng mới 7.16.
 > - **Phía gia đình:** Điểm danh có ảnh con lúc ra về; chạm thông báo “Con đã được đón về” mở đúng ngày, đúng bé. Danh sách Nhắn tin có dòng phụ dưới tên. “Trò chuyện mới” có MỘT dòng “Văn phòng nhà trường” cho cả nhà, không còn “Về bé …” (nhà có con ở hai cơ sở: hai dòng, ghi tên cơ sở). Mỗi tài khoản phụ huynh một hộp thư riêng với văn phòng: bố và mẹ là hai cuộc riêng, văn phòng thấy tên người đang nhắn. Máy thử đã dùng từ đợt trước có thể còn cuộc văn phòng cũ “Về bé …” trong danh sách: đó là tin cũ được giữ nguyên, không ghi Không đạt. Sửa 4.2, 8.2, 8.3, 9.12, 11.3, L1; dòng mới 8.14, 11.13.
 > - **Đón trả bé:** tắt; chạy lại bàn thử cũng tắt lại nếu đang bật (mục 1, 9.12).
+> - **Sức khoẻ (Đ239q):** thu hồi một ghi nhận y tế hay một lần cân đo thì tin báo về nó cũng biến khỏi màn “Thông báo” của gia đình, và số đỏ thôi đếm nó. Sửa 9.11; dòng mới 9.13.
+> - **Nhắn tin (Đ239n–p, chỉ ở máy chủ):** tin nhắn đã thu hồi không còn được đếm hay in chữ ở danh sách “Nhắn tin” và ở màn “Thông báo” của gia đình; cuộc đã đóng không còn làm số đỏ đứng mãi. Màn hình chưa có nút thu hồi tin nhắn hay đóng cuộc, nên đợt này không có dòng thử cho phần này.
 
 ## Cách dùng tài liệu này
 
@@ -525,8 +528,9 @@ Phần này kiểm cân đo và hồ sơ sức khỏe, lưu ý nội bộ, dặn
 | 9.8 | giaovien4 | 1) giaovien4 → “Sức khỏe” → “Nhập cân đo cả nhóm”, xem chữ mờ ở ô “Cao (cm)” và “Nặng (kg)” của bé Ngô Gia Huy 2) Gõ Cao 170 cho bé Huy, bấm “Lưu cân đo cả nhóm” 3) Sửa thành 77 cm, 10 kg, để trống bé khác, bấm lưu lại 4) Bấm vào bé Huy và bé Trịnh Minh Khôi | Chữ mờ hợp lứa nhà trẻ (quanh 76 cm, 10 kg), không phải “VD: 105” / “VD: 17”. 170 cm bị báo “…nằm ngoài khoảng nhập được (40–160 cm)…”. Lưu lại báo “Đã ghi cân đo cho 1 bé”; BMI chỉ là số trơn. Tuổi bé Huy ghi bằng tháng, bé Khôi dạng 3 tuổi … tháng. | Cao |  |
 | 9.9 | giaovien4 → ph.trang, ph.duy | 1) giaovien4 xem bảng cân đo cả nhóm Nhà trẻ 1 2) ph.trang mở “Thông báo” và “Sức khỏe” 3) ph.duy mở “Sức khỏe” | Bé chưa đo hiện chữ xám “Tháng này chưa đo”. Không có điểm trung bình, xếp hạng, so chuẩn theo tuổi hay phần trăm, chỉ đếm số bé đã ghi. ph.trang có tin “Cô vừa ghi cân đo của Ngô Gia Huy” và thấy số đo ở “Chỉ số gần nhất”. ph.duy không thấy số đo của bé Huy. | Cao |  |
 | 9.10 | giaovien → ph.tuan | 1) giaovien → “Sức khỏe” → bé Vũ Đức Anh → “Thêm ghi nhận”, chọn “Sự cố”, gõ “Tiêu đề” và “Chi tiết”, bấm “Lưu ghi nhận” 2) Mở ghi nhận vừa tạo → “Sửa lại” → “Lưu thay đổi” 3) Mở ghi nhận cũ “Cân đo định kỳ đầu năm”, thử “Sửa lại” và “Thu hồi” 4) ph.tuan mở “Thông báo” và “Sức khỏe” | “Loại ghi nhận” chỉ có “Khám / cân đo” và “Sự cố”. Báo “Đã thêm ghi nhận y tế”; sửa trong ngày được. Ghi nhận ngày cũ bị từ chối, có câu nhờ văn phòng. ph.tuan có tin “Cô ghi một sự cố y tế của Vũ Đức Anh”, thấy ghi nhận, không có nút sửa hay thu hồi. | Cao |  |
-| 9.11 | vanphong1 → ph.tuan | 1) vanphong1 → “Sức khỏe” → nhóm Chồi 2 → bé Vũ Đức Anh → mở ghi nhận sự cố vừa tạo → “Thu hồi” 2) Đọc hộp rồi bấm “Xác nhận thu hồi” 3) ph.tuan mở lại “Sức khỏe” | Hộp “Thu hồi ghi nhận y tế” nói rõ “Nội dung vẫn được giữ lại” trong hệ thống. Báo “Đã thu hồi ghi nhận”. Ghi nhận biến khỏi hồ sơ sức khỏe mà gia đình bé Đức Anh thấy. | Cao |  |
+| 9.11 | vanphong1 → ph.tuan | 1) vanphong1 → “Sức khỏe” → nhóm Chồi 2 → bé Vũ Đức Anh → mở ghi nhận sự cố vừa tạo → “Thu hồi” 2) Đọc hộp rồi bấm “Xác nhận thu hồi” 3) ph.tuan mở lại “Sức khỏe” và “Thông báo” | Hộp “Thu hồi ghi nhận y tế” nói rõ “Nội dung vẫn được giữ lại” trong hệ thống. Báo “Đã thu hồi ghi nhận”. Ghi nhận biến khỏi hồ sơ sức khỏe mà gia đình bé Đức Anh thấy. Tin “Cô ghi một sự cố y tế của Vũ Đức Anh” (từ 9.10) cũng không còn trong “Thông báo” của ph.tuan. Thông báo đã hiện trên màn hình điện thoại thì không thu lại được: không ghi Không đạt vì chuyện đó. | Cao |  |
 | 9.12 | hieutruong, phuhuynh, giaovien, vanphong1 | 1) Khi “Đón trả bé” tắt: giaovien ghi ra về bằng ảnh (bấm vào ảnh thu nhỏ của bé, chụp đồ vật) cho MỘT bé Chồi 2 chưa ra về hôm nay — không dùng bé Nguyễn Bảo An (đã ra về ở 4.2) và bé Nguyễn Bảo Nam (dành cho 11.13); phuhuynh xem Trang chủ, “Điểm danh” của bé An (ảnh ra về từ 4.2 vẫn hiện) 2) phuhuynh → “Nhắn tin” → “Trò chuyện mới” → “Văn phòng nhà trường”, nhắn bà ngoại đón bé An hộ 3) vanphong1 trả lời, ghi “Lưu ý” cho bé An 4) Báo trước cả nhóm: hieutruong bật lại “Đón trả bé”, phuhuynh mở xem, rồi hieutruong tắt lại ngay | Khi tắt: gia đình không có ô “Đón trả bé”, không có nút “Mở Đón trả bé”; giờ ra về và “Ảnh con lúc ra về” vẫn hiện ngay trong Điểm danh của gia đình; cô vẫn ghi ra về bình thường, không báo lỗi. Văn phòng nhận và trả lời được tin; lưu ý chỉ nhà trường thấy. Bật lại thì “Sổ đón trả gần đây” còn nguyên: tắt chỉ ẩn, không xoá dữ liệu. Thử xong “Đón trả bé” phải về “Đang tắt”. | Cao |  |
+| 9.13 | giaovien4 → ph.trang | Làm cùng ngày với 9.8, sau 9.9. 1) ph.trang ghi lại số đỏ trên “Thông báo”, không bấm vào tin nào 2) giaovien4 → “Sức khỏe” → bé Ngô Gia Huy → mở ghi nhận “Cân đo tháng …” vừa lưu ở 9.8 → “Thu hồi” → “Xác nhận thu hồi” 3) ph.trang tải lại, mở “Thông báo” và “Sức khỏe” 4) giaovien4 nhập lại cân đo cho bé Huy như 9.8 bước 3 (77 cm, 10 kg) 5) ph.trang mở lại “Thông báo” | Báo “Đã thu hồi ghi nhận”. Sau bước 3, “Thông báo” của ph.trang không còn tin “Cô vừa ghi cân đo của Ngô Gia Huy” nào; nếu tin đó chưa được bấm đọc thì số đỏ giảm đúng 1. “Sức khỏe” của bé Huy không còn dòng “Cân đo tháng …” vừa thu hồi. Nhập lại thì có đúng một tin mới “Cô vừa ghi cân đo của Ngô Gia Huy” và số đo hiện lại. Thông báo đã hiện trên màn hình điện thoại thì không thu lại được: không ghi Không đạt vì chuyện đó. | Cao |  |
 
 ## 10. Học phí, tiền ăn, nhân sự
 
@@ -637,11 +641,11 @@ Cuối buổi, người phụ trách mỗi mục đếm số dòng theo cột *K
 | 6. Hành trình, Ghi nhanh, Kế hoạch của bé, Báo cáo tháng | 17 |  |  |  |  |
 | 7. Kế hoạch tuần, Lịch sinh hoạt, Thực đơn, Cambridge | 16 |  |  |  |  |
 | 8. Thông báo, nhắn tin, album ảnh, khảo sát | 14 |  |  |  |  |
-| 9. Sức khoẻ, dặn thuốc, xin nghỉ, đón trả | 12 |  |  |  |  |
+| 9. Sức khoẻ, dặn thuốc, xin nghỉ, đón trả | 13 |  |  |  |  |
 | 10. Học phí, tiền ăn, nhân sự | 16 |  |  |  |  |
 | 11. Nhìn từ phía phụ huynh | 13 |  |  |  |  |
 | 12. Những điều tuyệt đối không được xảy ra | 14 |  |  |  |  |
-| **Cộng** | **176** |  |  |  |  |
+| **Cộng** | **177** |  |  |  |  |
 
 ### Khi nào coi là sẵn sàng cho trường dùng thật
 
