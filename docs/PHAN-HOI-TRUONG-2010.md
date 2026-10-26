@@ -116,3 +116,25 @@ Làm một phần, phần còn lại chờ chủ dự án:
   dữ liệu mẫu từ trước thì phụ huynh mẫu chỉ còn thấy thông báo ghim và tin mới — dựng lại
   dữ liệu mẫu để thử.
 
+## Quyết định của chủ dự án (26/10/2026)
+
+- **H2 — bỏ.** *"Đoạn béo phì, suy dinh dưỡng thì kệ bỏ đi, sao có chỉ số BMI là được."* App đã
+  hiện BMI dạng con số (Đ186) cho cô, y tế và gia đình; không thêm cảnh báo màu. QUY TẮC 4 giữ nguyên.
+- **F1 — làm.** Quản lý xem được hội thoại cô ↔ gia đình (như LittleLives) để kiểm soát chuẩn
+  mực câu từ và thông tin. Chỉ đọc; ban giám hiệu mọi cuộc, quản lý / văn phòng cơ sở cuộc của
+  bé cơ sở mình; mỗi lần mở ghi nhật ký; màn Nhắn tin của cô và gia đình có dòng báo trước
+  (Nghị định 13/2023). Bài canh `nhan-tin-kenh` đổi đúng phần này, có ghi lý do. → **Đ242F**.
+- **B7 — làm theo luồng mới.** Ảnh kể cho gia đình là ảnh quá trình học tập ở 3 lĩnh vực.
+  Cô ghi nhanh ảnh/video → lưu tạm ở **Hình ảnh ghi nhanh** (bỏ tên "suy ngẫm") → khi rảnh viết
+  chú thích, gắn lĩnh vực → **Kể cho gia đình**: mục rời Hình ảnh ghi nhanh, vào tab lĩnh vực đã
+  gắn, gia đình thấy cả ảnh; gắn album thì ảnh vào album, gia đình xem trong Album. Gộp B1, B4,
+  B5, B7. Bài canh `hanh-trinh` [7] đổi đúng phần "ảnh cô chủ động kể"; ghi chú thô vẫn không bao
+  giờ tới gia đình. → thiết kế trước, rồi **Đ242B**.
+- **Học phí (I1–I4) — để sau.** Bác bỏ toàn bộ đặc tả trước (`docs/hoc-phi-tu-dong/`, bản 3.1,
+  G1–G22 — đã ghi chú đầu tệp, không xoá). Yêu cầu mới: tính tự động theo thời gian ưu đãi, làm
+  khi chủ dự án sẵn sàng. Trong lúc chờ: tắt **Học phí** (và **Tiền ăn** nếu muốn bỏ luôn khỏi
+  app gia đình) ở Quản trị → Tính năng — dữ liệu giữ nguyên, bật lại được.
+- **Đợt 2 làm tiếp với mặc định đã ghi** (trường chưa trả lời câu hỏi): D3 (ghi chú lúc vào lớp
+  gia đình đọc được), E1 + D4 + D5 (mốc 7 giờ theo giờ gửi đơn của chính ngày nghỉ đầu), F2, F3,
+  G2, O2, O4. K1 (ngày công cô) chờ trường trả lời.
+
