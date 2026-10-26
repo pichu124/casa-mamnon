@@ -107,6 +107,15 @@ function chanNgoaiNgay(res, ngayGhi, viec) {
 // gia đình để bắt đúng lúc đó.
 const TOI_DA_LUU_Y = 1000;
 
+// GHI CHÚ GIA ĐÌNH ĐỌC ĐƯỢC CỦA LƯỢT VÀO / RA (Đ242D). Trường `ghiChu` trong
+// thân yêu cầu là TUỲ CHỌN: app đời cũ không gửi thì không đụng gì cả. Gửi
+// chuỗi (kể cả rỗng) nghĩa là cô đã nhìn ô ấy trên màn "Xem lại" và chốt nó.
+const TOI_DA_GHI_CHU = 1000;
+function ghiChuTuThan(b) {
+  if (!b || typeof b.ghiChu !== 'string') return null;
+  return b.ghiChu.trim().slice(0, TOI_DA_GHI_CHU);
+}
+
 // Ô này không đi ra ngoài phạm vi trường nên trả đủ "ai ghi, lúc nào" — chính
 // hai thứ ấy là cái giá của việc cho ghi ngoài ngày.
 function luuYRaNgoai(x) {
@@ -309,6 +318,15 @@ module.exports = (app) => {
 
     // Ảnh lúc trả bé của đúng ngày ấy (Đ210) — lõi và phân hệ gộp lại.
     const anhVe = anhVeCuaNgay(ids, date);
+    // Ghi chú gia đình đọc được của lượt ra về (Đ242D).
+    const ghiChuVe = new Map();
+    if (ids.length) {
+      for (const x of db.all('attendance_ghi_chu_ve',
+        `SELECT studentId, ghiChu FROM attendance_ghi_chu_ve
+          WHERE date = ? AND studentId IN (${ids.map(() => '?').join(',')})`, [date, ...ids])) {
+        if (x.ghiChu) ghiChuVe.set(x.studentId, x.ghiChu);
+      }
+    }
 
     // Tên nhóm của từng bé — văn phòng mở màn này KHÔNG kèm mã nhóm (máy chủ
     // tự cắt theo phạm vi), nên bé của cả cơ sở về một danh sách và màn hình
@@ -353,6 +371,7 @@ module.exports = (app) => {
         anhDenLop: anh.get(s.id) || null,
         anhVeNha: anhVe.get(s.id) || null,
         luuY: luuYRaNgoai(luuY.get(s.id)),
+        ghiChuVe: ghiChuVe.get(s.id) || '',
       })),
     });
   });
@@ -620,6 +639,12 @@ module.exports = (app) => {
     db.audit(req.user.id, 'anh-toi-lop', studentId, { date: ngayGhi });
     // Ảnh đã vào kho thì bé là có mặt — xem `ghiCoMatTheoAnh`.
     const record = ghiCoMatTheoAnh(studentId, ngayGhi, req.user.id);
+    // Ghi chú lượt vào lớp là ô "Ghi chú (gia đình đọc được)" của chính dòng ấy.
+    const ghiChu = ghiChuTuThan(req.body);
+    if (ghiChu !== null) {
+      db.update('attendance', record.id, { note: ghiChu });
+      record.note = ghiChu;
+    }
     // BÁO GIA ĐÌNH NGAY (Đ137): "muốn ảnh điểm danh được gửi về thông báo cho
     // phụ huynh, khi ở trường check-in tự động gửi thông báo về chứ không
     // phải vào mục điểm danh mới nhìn được". Chỉ báo khi CÓ MẶT MỚI được ghi
@@ -696,6 +721,11 @@ module.exports = (app) => {
         `SELECT date, file, taoLuc FROM attendance_photo
           WHERE studentId = ? AND date LIKE ? ORDER BY date DESC`, [studentId, `${thang}-%`]),
       anhVe: [...theoNgay.values()].sort((a, b) => String(b.date).localeCompare(String(a.date))),
+      // Khoá riêng, thêm sau (Đ242D): ghi chú gia đình đọc được của lượt ra về.
+      // Ghi chú lượt vào lớp đã đi theo dòng điểm danh (`note`).
+      ghiChuVe: db.all('attendance_ghi_chu_ve',
+        `SELECT date, ghiChu FROM attendance_ghi_chu_ve
+          WHERE studentId = ? AND date LIKE ? AND ghiChu <> '' ORDER BY date DESC`, [studentId, `${thang}-%`]),
     });
   });
 
@@ -778,6 +808,12 @@ module.exports = (app) => {
     } catch (_) { return null; }   // phân hệ chưa từng bật thì chưa có bảng
   }
 
+  function ghiChuVeCua(studentId, ngayXem) {
+    const x = db.first('attendance_ghi_chu_ve',
+      'SELECT ghiChu FROM attendance_ghi_chu_ve WHERE studentId = ? AND date = ?', [studentId, ngayXem]);
+    return (x && x.ghiChu) || '';
+  }
+
   // Ảnh trả bé của một ngày cho cả nhóm — lõi trước, phân hệ sau.
   function anhVeCuaNgay(ids, ngayXem) {
     const ra = new Map();
@@ -854,6 +890,12 @@ module.exports = (app) => {
       // chuyện thường, mỗi lần bỏ lại một tệp là kho ảnh phình lên.
       if (anhCu && anhCu.file && anhCu.file !== anhMoi.file) uploads.remove(anhCu.file);
     }
+    const ghiChu = ghiChuTuThan(b);
+    if (ghiChu !== null) {
+      db.upsert('attendance_ghi_chu_ve', {
+        studentId, date: ngayGhi, ghiChu, nguoiGhi: req.user.id, capNhatLuc: new Date().toISOString(),
+      }, ['studentId', 'date']);
+    }
     db.audit(req.user.id, 'ghi-gio-ra-ve', studentId, { date: ngayGhi, gio, coAnh: !!anhMoi });
 
     // Báo gia đình — cùng lối với ảnh tới lớp.
@@ -870,6 +912,7 @@ module.exports = (app) => {
       ok: true, date: ngayGhi, gio,
       anh: anhMoi ? { file: anhMoi.file } : null,
       record: db.first('attendance', 'SELECT * FROM attendance WHERE id = ?', [cu.id]),
+      ghiChuVe: ghiChuVeCua(studentId, ngayGhi),
     });
   });
 
@@ -894,6 +937,12 @@ module.exports = (app) => {
         studentId, date: ngayGhi, file: '', taoLuc: nowTime(), byUserId: req.user.id,
       }, ['studentId', 'date']);
       if (anhCu.file) uploads.remove(anhCu.file);
+    }
+    // Ghi chú của lượt ra về bấm nhầm đi theo giờ ra; dòng ở lại làm vết.
+    if (ghiChuVeCua(studentId, ngayGhi)) {
+      db.upsert('attendance_ghi_chu_ve', {
+        studentId, date: ngayGhi, ghiChu: '', nguoiGhi: req.user.id, capNhatLuc: new Date().toISOString(),
+      }, ['studentId', 'date']);
     }
     db.audit(req.user.id, 'go-gio-ra-ve', studentId, { date: ngayGhi });
     res.json({ ok: true });

@@ -118,6 +118,8 @@ try {
         page.locator(`#att-dong-${id} span[title="Bấm để chụp ảnh"]`).click(),
       ]);
       await fc.setFiles({ name: 'anh.png', mimeType: 'image/png', buffer: Buffer.from(PNG_B64, 'base64') });
+      // Đ242D: chụp xong là màn xem lại; chỉ bấm "Vào lớp" mới gửi.
+      await page.locator('#att-xl-ok', { hasText: 'Vào lớp' }).click({ timeout: 5000 });
       await page.waitForTimeout(2000);
     };
 
