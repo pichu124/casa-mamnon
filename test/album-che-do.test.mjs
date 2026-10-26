@@ -285,7 +285,9 @@ console.log('\n[5] Canh tĩnh: lược đồ chỉ thêm, chốt ở đường b
   check('màn tạo album có ô chọn chế độ, gửi lên máy chủ', /id="al-che-do"/.test(av) && /cheDo, photos: first/.test(av));
   check('không có "học sinh" trên màn', !/học sinh/i.test(av) && !/học sinh/i.test(tc));
   const hv = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/view.js'), 'utf8');
-  check('hộp kể chuyện có ô chọn album, chỉ khi quan sát có ảnh', /id="ht-album"/.test(hv) && /q\.anh && !q\.daVeAlbum/.test(hv));
+  // Đ242B: hộp hoàn thiện nhận cả video và mục Ghi nhanh, nên điều kiện là
+  // "có tệp" (`coTep`) thay cho "có ảnh" (`anh`).
+  check('hộp kể chuyện có ô chọn album, chỉ khi quan sát có ảnh', /id="ht-album"/.test(hv) && /q\.coTep && !q\.daVeAlbum/.test(hv));
 }
 
 await sv.dung();

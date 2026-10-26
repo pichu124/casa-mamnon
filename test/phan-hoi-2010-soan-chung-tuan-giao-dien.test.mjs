@@ -3,7 +3,8 @@
 //
 // Góp ý 20/10 (B1): chủ đề tuần là thứ cô soạn cho Lịch sinh hoạt, nên lối
 // vào soạn phải nằm ở chính Lịch sinh hoạt — không phải ở một nút phụ trong
-// Hành trình. Bước này CHỈ THÊM lối mới; nút "Chủ đề tuần" cũ vẫn còn.
+// Hành trình. Bước đầu chỉ thêm lối mới; khi lối mới đã có, đơn vị màn
+// hình Đ242B bỏ nút "Chủ đề tuần" cũ ở Hành trình (địa chỉ vẫn mở).
 //
 // Bốn điều canh:
 //   [1] Cô (nhiều nhóm) thấy nút, kể cả khi tuần chưa soạn gì; bấm vào mở màn
@@ -105,11 +106,13 @@ try {
     await page.waitForTimeout(1200);
     check('bấm liên kết thì về phần Lịch sinh hoạt',
       (await page.evaluate(() => location.hash)) === '#/timetable/lich' && await dem('#tkb-seg button') === 5);
-    check('nút "Chủ đề tuần" cũ ở Hành trình VẪN CÒN (chưa bỏ ở bước này)',
+    // Đ242B — bước "bỏ cái cũ" sau khi lối mới đã chạy: nút cũ ở Hành trình
+    // không còn, lối vào duy nhất là nút ở Lịch sinh hoạt vừa kiểm ở trên.
+    check('nút "Chủ đề tuần" cũ ở Hành trình ĐÃ BỎ (lối vào nay ở Lịch sinh hoạt)',
       await (async () => {
         await moMan('#/hanhtrinh');
         return page.locator('#ht-loi-phu [data-tab="chude"]').count();
-      })() === 1);
+      })() === 0);
   }
 
   // =========================================================================

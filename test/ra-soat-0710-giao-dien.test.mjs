@@ -138,7 +138,8 @@ try {
   console.log('\n[3] Hành trình: trình duyệt có nhận giọng nhưng KHÔNG còn nút "Nói để ghi" (B2, 20/10)');
   {
     await moMan('#/hanhtrinh');
-    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Suy ngẫm cuối ngày' }).click();
+    // Đ242B (B1): lối phụ "Suy ngẫm cuối ngày" nay là "Hình ảnh ghi nhanh".
+    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Hình ảnh ghi nhanh' }).click();
     await page.waitForTimeout(1000);
     await page.click('#ht-them');
     await page.waitForTimeout(500);
