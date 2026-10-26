@@ -2679,6 +2679,7 @@ Vẫn nhận bé này?`)) {
       'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
       'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',
       'hoi-thoai-da-dong-mo': 'Xem lại một cuộc trò chuyện đã đóng',
+      'hoi-thoai-quan-ly-xem': 'Quản lý xem một cuộc trò chuyện giữa cô và gia đình',
       'module-enable': 'Bật tính năng',
       'module-disable': 'Tắt tính năng',
 

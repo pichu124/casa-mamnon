@@ -116,10 +116,10 @@ const NHOM_CUA_KENH = { nhom: 'chu-nhiem', 'nuoc-ngoai': 'nuoc-ngoai' };
 //
 // BA ĐIỀU LÀM CHO CHUYỆN NÀY KHÔNG PHÁ CHỐT PHÂN QUYỀN ĐANG CÓ:
 //
-//   1. CHỈ MỞ VỚI HỘI THOẠI ĐÃ ĐÓNG. Cuộc đang sống thì quản lý vẫn KHÔNG đọc
-//      được, y như trước — đó là chủ ý đã có bài canh riêng, và nó không được
-//      nới ra một ly. Đóng là một hành động có chủ ý của trường, ghi ngày giờ
-//      và ghi tên người đóng.
+//   1. CHỈ MỞ VỚI HỘI THOẠI ĐÃ ĐÓNG. Cuộc đang sống thì quản lý không vào được
+//      như người trong cuộc. Đóng là một hành động có chủ ý của trường, ghi
+//      ngày giờ và ghi tên người đóng. (Từ Đ242F quản lý XEM được cuộc đang
+//      sống qua một đường riêng, chỉ đọc — xem `xemDuocTinCo` bên dưới.)
 //   2. CHỈ ĐỌC, VỚI MỌI NGƯỜI. Cuộc đã đóng thì KHÔNG AI nhắn thêm được —
 //      không cô, không gia đình, không cả người vừa mở ra xem. Một kho lưu mà
 //      viết thêm được thì nó không còn là kho lưu.
@@ -138,6 +138,30 @@ function xemDuocDaDong(user) {
   // `null` là ban giám hiệu không khai chức vụ — cùng cách hiểu với mọi chốt
   // chức vụ khác trong kho này.
   return cv === null || CHUC_VU_XEM_DA_DONG.includes(cv);
+}
+
+// ---- QUẢN LÝ XEM HỘI THOẠI CÔ ↔ GIA ĐÌNH (Đ242F, góp ý 20/10 mục F1) ----
+//
+// Chủ dự án quyết 26/10: *"như LittleLives, để quản lý kiểm soát nội dung cô
+// trao đổi với phụ huynh, câu từ có chuẩn mực không, có truyền đạt sai thông
+// tin không"*.
+//
+// AI: ban giám hiệu (không khai chức vụ, hoặc `hieu-truong`) mọi cuộc; quản lý
+// cơ sở và văn phòng cơ sở chỉ cuộc của bé thuộc cơ sở mình — tầng cơ sở do
+// `canAccessStudent` lo, ở từng chỗ gọi. Kế toán, nhân sự, marketing, bảo vệ
+// thì không: họ cùng vai quản trị nhưng không có việc gì với lời cô nói.
+//
+// VÌ SAO LÀ MỘT ĐƯỜNG RIÊNG, không nới `findConv`: `findConv` là cửa của người
+// TRONG cuộc, và nó mở luôn cả gửi, thu hồi, hỏi tin mới, đánh dấu đã đọc, ghi
+// hàng thành viên. Nới nó là phải nhớ chặn lại từng thứ một; một chỗ quên là
+// quản lý nhắn được vào kênh của cô, hoặc hiện ra trong cuộc như một thành
+// viên và chấm đỏ của họ ngập theo mọi nhóm. Đường riêng chỉ biết đọc.
+const CHUC_VU_XEM_TIN_CO = ['hieu-truong', 'quanly-coso', 'vanphong-coso'];
+
+function xemDuocTinCo(user) {
+  if (!user || user.role !== 'admin') return false;
+  const cv = db.chucVu(user);
+  return cv === null || CHUC_VU_XEM_TIN_CO.includes(cv);
 }
 
 function dongCua(conversationId) {
@@ -730,6 +754,19 @@ function findConv(req, res) {
   return cv;
 }
 
+// Cửa sổ tin mới nhất của một cuộc, hoặc cửa sổ CŨ HƠN mốc `truoc`.
+//
+// Lấy NGƯỢC từ mới về cũ rồi lật lại: `LIMIT` phải cắt ở đầu MỚI, không phải
+// đầu cũ. Lấy xuôi rồi cắt là mở phòng ra thấy tin của tháng Chín. Lấy dư một
+// tin để biết PHÍA TRƯỚC CÒN NỮA KHÔNG mà không phải đếm cả bảng.
+function cuaSoTin(conversationId, truoc) {
+  const nguoc = db.all('messages',
+    `SELECT * FROM messages WHERE conversationId = ?${truoc ? ' AND createdAt < ?' : ''}
+     ORDER BY createdAt DESC, rowid DESC LIMIT ?`,
+    truoc ? [conversationId, truoc, CUA_SO_TIN + 1] : [conversationId, CUA_SO_TIN + 1]);
+  return { conCu: nguoc.length > CUA_SO_TIN, messages: nguoc.slice(0, CUA_SO_TIN).reverse() };
+}
+
 function markRead(conversationId, userId) {
   db.run('UPDATE conversation_members SET lastRead = ? WHERE conversationId = ? AND userId = ?',
     [new Date().toISOString(), conversationId, userId]);
@@ -1286,19 +1323,115 @@ module.exports = (app) => {
     res.status(201).json({ id, ten, soThanhVien: xin.length + 1 });
   });
 
+  // ---- Ô CHỌN CƠ SỞ → NHÓM → BÉ (Đ242F) ----
+  //
+  // Chỉ tải khi người dùng mở màn cần nó, KHÔNG gửi kèm danh sách hội thoại:
+  // lý do ở chú thích `contactsFor` — ba trăm bé chở theo mỗi lần mở màn Nhắn
+  // tin là việc máy phải làm mà không ai cần.
+  app.get('/api/messages/chon-be', allow, (req, res) => {
+    const u = req.user;
+    if (!xemDuocTinCo(u)) {
+      return res.status(403).json({ error: 'Tài khoản này không mở được danh sách các bé để chọn.' });
+    }
+    const nhomIds = db.classIdsOf(u).filter(cid => db.canAccessClass(u, cid));
+    const coNhom = new Set(nhomIds);
+    const nhom = nhomIds.map(cid => db.findClass(cid)).filter(Boolean)
+      .map(c => ({ id: c.id, ten: c.name, coSo: db.campusOfClass(c.id) || '' }))
+      .sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+    const coSo = [...new Set(nhom.map(n => n.coSo))]
+      .map(id => ({ id, ten: id ? tenCoSo(id) : 'Chưa xếp cơ sở' }))
+      .sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+    const be = db.studentsOf(u).filter(s => coNhom.has(s.classId))
+      .map(s => ({ id: s.id, ten: s.name, nhom: s.classId, coGiaDinh: (s.parentIds || []).length > 0 }));
+    res.json({ coSo, nhom, be });
+  });
+
+  // Các cuộc cô ↔ gia đình của một nhóm (hoặc một bé) — chỉ phần nhận diện,
+  // KHÔNG chép nội dung tin: đọc tin là một lượt mở có ghi nhật ký, còn liệt kê
+  // thì không ghi gì, nên danh sách không được thành một lối đọc vòng.
+  app.get('/api/messages/quan-ly/cuoc', allow, (req, res) => {
+    if (!xemDuocTinCo(req.user)) {
+      return res.status(403).json({ error: 'Chỉ ban giám hiệu, quản lý cơ sở và văn phòng cơ sở mới xem được.' });
+    }
+    const classId = String(req.query.classId || '');
+    const studentId = String(req.query.studentId || '');
+    if (!classId && !studentId) return res.status(400).json({ error: 'Chọn nhóm lớp hoặc bé trước nhé.' });
+    if ((classId && !db.canAccessClass(req.user, classId))
+      || (studentId && !db.canAccessStudent(req.user, studentId))) {
+      return res.status(403).json({ error: 'Nhóm lớp hoặc bé này thuộc cơ sở khác.' });
+    }
+    const dk = [];
+    const thamSo = [];
+    if (classId) { dk.push('s.classId = ?'); thamSo.push(classId); }
+    if (studentId) { dk.push('k.studentId = ?'); thamSo.push(studentId); }
+    const xemDaDong = xemDuocDaDong(req.user);
+    const cuoc = db.all('kenh_hoi_thoai',
+      `SELECT k.conversationId AS id, k.loai AS loai, k.studentId AS studentId,
+              s.name AS tenBe, l.name AS tenNhom,
+              (SELECT COUNT(*) FROM messages m WHERE m.conversationId = k.conversationId) AS soTin,
+              (SELECT MAX(createdAt) FROM messages m WHERE m.conversationId = k.conversationId) AS tinCuoiLuc,
+              (k.conversationId IN (SELECT conversationId FROM hoi_thoai_dong)) AS daDong
+         FROM kenh_hoi_thoai k
+         JOIN students s ON s.id = k.studentId
+         LEFT JOIN classes l ON l.id = s.classId
+        WHERE k.loai IN ('nhom', 'nuoc-ngoai') AND ${dk.join(' AND ')}
+        ORDER BY tinCuoiLuc IS NULL, tinCuoiLuc DESC, s.name`, thamSo)
+      .filter(r => db.canAccessStudent(req.user, r.studentId) && (xemDaDong || !r.daDong))
+      .map(r => ({
+        id: r.id,
+        loai: r.loai,
+        tenKenh: nhomCo.TEN_NHOM[NHOM_CUA_KENH[r.loai]] || 'Cô phụ trách',
+        studentId: r.studentId,
+        tenBe: r.tenBe,
+        tenNhom: r.tenNhom || '',
+        soTin: Number(r.soTin) || 0,
+        tinCuoiLuc: r.tinCuoiLuc || '',
+        daDong: !!r.daDong,
+      }));
+    res.json({ cuoc });
+  });
+
+  // MỞ MỘT CUỘC Ở CHẾ ĐỘ XEM CỦA QUẢN LÝ — chỉ đọc, ghi nhật ký mỗi lượt mở.
+  //
+  // KHÔNG ghi hàng thành viên, KHÔNG gọi `markRead`: quản lý không hiện ra
+  // trong cuộc như một thành viên, không đánh dấu đã đọc hộ ai, và chấm đỏ của
+  // họ không cộng tin của mọi nhóm. Cuộc đã đóng giữ luật Đ192: văn phòng cơ sở
+  // không có đường vào kho lưu, nên đường này cũng không mở cho họ.
+  app.get('/api/messages/quan-ly/cuoc/:id', allow, (req, res) => {
+    if (!xemDuocTinCo(req.user)) {
+      return res.status(403).json({
+        error: 'Chỉ ban giám hiệu, quản lý cơ sở và văn phòng cơ sở mới xem được cuộc trò chuyện giữa cô và gia đình.',
+      });
+    }
+    const cv = db.first('conversations', 'SELECT * FROM conversations WHERE id = ?', [req.params.id]);
+    const k = cv && cv.type === 'kenh' ? kenhCua(cv.id) : null;
+    if (!k || !laKenhCuaNhom(k.loai)) return res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
+    if (!db.canAccessStudent(req.user, k.studentId)) {
+      return res.status(403).json({ error: 'Cuộc trò chuyện này thuộc cơ sở khác' });
+    }
+    const dong = daDong(cv.id);
+    if (dong && !xemDuocDaDong(req.user)) return res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
+    const truoc = req.query.truoc ? String(req.query.truoc) : '';
+    const { conCu, messages } = cuaSoTin(cv.id, truoc);
+    // Một lượt mở là một dòng. Bấm "Xem tin cũ hơn" trong cùng lượt thì không.
+    if (!truoc) db.audit(req.user.id, 'hoi-thoai-quan-ly-xem', cv.id, { studentId: k.studentId, loai: k.loai });
+    res.json({
+      id: cv.id,
+      type: cv.type,
+      ...convMeta(cv, req.user),
+      messages: messages.map(m => messageDto(m, req.user)),
+      conCu,
+      tuLuc: messages.length ? messages[0].createdAt : '',
+      daDong: dong,
+      chiDoc: true,
+    });
+  });
+
   app.get('/api/messages/:id', allow, (req, res) => {
     const cv = findConv(req, res);
     if (!cv) return;
     const truoc = req.query.truoc ? String(req.query.truoc) : '';
-    // Lấy NGƯỢC từ mới về cũ rồi lật lại: `LIMIT` phải cắt ở đầu MỚI, không
-    // phải đầu cũ. Lấy xuôi rồi cắt là mở phòng ra thấy tin của tháng Chín.
-    const nguoc = db.all('messages',
-      `SELECT * FROM messages WHERE conversationId = ?${truoc ? ' AND createdAt < ?' : ''}
-       ORDER BY createdAt DESC, rowid DESC LIMIT ?`,
-      truoc ? [cv.id, truoc, CUA_SO_TIN + 1] : [cv.id, CUA_SO_TIN + 1]);
-    // Lấy dư một tin để biết PHÍA TRƯỚC CÒN NỮA KHÔNG mà không phải đếm cả bảng.
-    const conCu = nguoc.length > CUA_SO_TIN;
-    const messages = nguoc.slice(0, CUA_SO_TIN).reverse();
+    const { conCu, messages } = cuaSoTin(cv.id, truoc);
     // Chỉ đánh dấu đã đọc khi người dùng đang ở cửa sổ MỚI NHẤT. Cuộn ngược lên
     // đọc tin tháng trước mà bị coi là đã đọc hết là mất dấu tin chưa xem.
     if (!truoc) markRead(cv.id, req.user.id);
