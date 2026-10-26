@@ -809,6 +809,15 @@ CREATE TABLE IF NOT EXISTS notification_reads (
 );
 CREATE INDEX IF NOT EXISTS idx_nreads_user ON notification_reads(userId);
 
+-- Bấm thông báo thì mở thẳng màn nào (góp ý 20/10, G2). Thông báo khảo sát
+-- trỏ '#/surveys/<mã>' để gia đình làm khảo sát luôn, không phải tự đi tìm.
+-- Bảng phụ, KHÔNG ALTER `notifications`. Không có dòng = mở hộp chi tiết như
+-- mọi thông báo cũ. Liên kết không mở thêm quyền: màn đích tự hỏi máy chủ.
+CREATE TABLE IF NOT EXISTS notification_lien_ket (
+  notificationId TEXT PRIMARY KEY REFERENCES notifications(id) ON DELETE CASCADE,
+  lienKet        TEXT NOT NULL
+);
+
 -- ===== Nhắn tin — bảng lớn, khoảng 28.200 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS conversations (
   id      TEXT PRIMARY KEY,

@@ -432,13 +432,20 @@ module.exports = (app) => {
     //
     // Việc phụ: `guiChoNhom` tự nuốt lỗi, nên thông báo hỏng cũng không làm
     // hỏng việc chính là tạo khảo sát.
-    tb.guiChoNhom([rec.audience], {
+    //
+    // G2 (góp ý 20/10): bấm thông báo — trong app hay trên điện thoại — là mở
+    // thẳng khảo sát này. Liên kết ghi ở bảng phụ `notification_lien_ket`.
+    const lienKet = `#/surveys/${rec.id}`;
+    const daGui = tb.guiChoNhom([rec.audience], {
       title: `Khảo sát mới: ${rec.title}`,
       body: `Nhà trường mong gia đình trả lời giúp trước ngày ${rec.deadline.split('-').reverse().join('/')}.`,
       category: rec.audience === 'all' ? 'Nhà trường' : 'Nhóm lớp',
       createdBy: req.user.id,
-      hash: '#/surveys',
+      hash: lienKet,
     });
+    try {
+      for (const notificationId of daGui) db.insert('notification_lien_ket', { notificationId, lienKet });
+    } catch (_) { /* việc phụ: thiếu liên kết thì thông báo mở hộp chi tiết như cũ */ }
 
     db.audit(req.user.id, 'survey-create', rec.id, { audience: rec.audience });
     res.status(201).json(summary(rec, req.user, []));

@@ -70,9 +70,10 @@ module.exports = (app) => {
       Math.max(1, Math.floor(Number(req.query.soLuong) || MOI_TRANG)));
 
     const list = db.all('notifications',
-      `SELECT n.*, (r.userId IS NOT NULL) AS read
+      `SELECT n.*, (r.userId IS NOT NULL) AS read, l.lienKet AS lienKet
        FROM notifications n
        LEFT JOIN notification_reads r ON r.notificationId = n.id AND r.userId = ?
+       LEFT JOIN notification_lien_ket l ON l.notificationId = n.id
        WHERE ${f.sql} AND ${st.dieuKienConHien(BANG, 'n.id')}
        ORDER BY n.pinned DESC, n.createdAt DESC
        LIMIT ? OFFSET ?`,
@@ -95,11 +96,14 @@ module.exports = (app) => {
 
     // Đ124: mỗi dòng nói rõ gửi cho ai — "Toàn trường" hay "Nhóm X · Cơ sở Y".
     const moTaPhamVi = tb.taoMoTaPhamVi();
-    const cuaTruong = st.ganDauDaSua(BANG, list.map(n => {
+    const cuaTruong = st.ganDauDaSua(BANG, list.map(({ lienKet, ...n }) => {
       const author = n.createdBy ? nguoi.get(n.createdBy) : null;
       const pv = moTaPhamVi(n.audience);
       return {
         ...n,
+        // G2: bấm vào thì mở thẳng màn này (thông báo khảo sát). Chỉ có khi
+        // thông báo được gửi kèm liên kết — thông báo cũ hiện hộp chi tiết.
+        ...(lienKet ? { lienKet } : {}),
         // Thông báo mình tự gửi thì huy hiệu không đếm (routes/dashboard.js),
         // nên màn hình cũng không tô nó là chưa đọc — nếu không là có chấm
         // "chưa đọc" mà chuông im (P1).
