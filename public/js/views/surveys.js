@@ -16,8 +16,9 @@ App.views.surveys = {
     // từ đầu. KHÔNG dùng được ở màn Điểm danh: nhánh cô ở đó đọc
     // `user.nhomCuaCo`, mà `routes/auth.js` chỉ gán ô ấy cho vai `teacher`
     // (xem chú thích Đ97 ở public/js/views/attendance.js).
+    if (App.state.user.role !== 'parent') await this.renderTeacher(root);
+    else await this.renderParent(root);
     const laGiaDinh = App.state.user.role === 'parent';
-    await (laGiaDinh ? this.renderParent(root) : this.renderTeacher(root));
 
     // MỞ THẲNG MỘT KHẢO SÁT: #/surveys/<mã> (G2 — bấm thông báo khảo sát là
     // làm khảo sát luôn). Đưa đường dẫn về #/surveys trước khi mở, để lần vẽ

@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe,
+  taoBoDem, taoReq, taoLogin, batPhanHe, ngay,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -300,6 +300,31 @@ console.log('\n[11] D5 — ngày trường nghỉ không nằm trong bảng rà 
   check('và nói rõ bao nhiêu bé nghỉ theo lịch của trường', rs?.soTruongNghi > 0, rs?.soTruongNghi);
   const thuong = (await req('GET', '/api/attendance/ra-soat?date=2026-09-16', { cookie: VP })).data;
   check('ngày thường bên cạnh vẫn rà soát như cũ', thuong?.soTruongNghi === 0, thuong?.soTruongNghi);
+}
+
+// ===========================================================================
+console.log('\n[11b] Bé có đơn nghỉ (dòng tự ghi) mà vẫn được chụp ảnh tới lớp');
+{
+  // Ghi chú "Theo đơn xin nghỉ đã duyệt…" của dòng tự ghi là chữ GIA ĐÌNH ĐỌC
+  // ĐƯỢC — bé đã tới lớp thì câu ấy sai, phải bỏ (reviewer Đ242). Ghi chú do cô
+  // gõ trên dòng của cô thì giữ nguyên.
+  const homNay = ngay.homNay();
+  const ANH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const c = moCsdl();
+  const chen = c.prepare("INSERT OR REPLACE INTO attendance (id, studentId, date, status, checkIn, checkOut, note, markedBy) VALUES (?, ?, ?, 'absent_excused', NULL, NULL, ?, ?)");
+  chen.run('att_tn_tudong', 's3', homNay, 'Theo đơn xin nghỉ đã duyệt', 'tu-dong:don-nghi');
+  chen.run('att_tn_cogo', 's4', homNay, 'Mẹ báo con sốt', 't1');
+  c.close();
+  for (const be of ['s3', 's4']) {
+    const r = await req('POST', '/api/attendance/anh', { cookie: GV, body: { studentId: be, date: homNay, anh: ANH } });
+    check(`đối chứng — cô chụp ảnh tới lớp cho ${be}`, r.status === 201, r.status);
+  }
+  const c2 = moCsdl();
+  const doc = (be) => c2.prepare('SELECT status, note FROM attendance WHERE studentId = ? AND date = ?').get(be, homNay);
+  const a = doc('s3'); const b = doc('s4');
+  c2.close();
+  check('dòng tự ghi theo đơn → có mặt, BỎ ghi chú "Theo đơn xin nghỉ"', a?.status === 'present' && !a?.note, a);
+  check('dòng cô ghi → có mặt, ghi chú của cô giữ nguyên', b?.status === 'present' && b?.note === 'Mẹ báo con sốt', b);
 }
 
 // ===========================================================================

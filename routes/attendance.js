@@ -152,6 +152,10 @@ function ghiCoMatTheoAnh(studentId, date, userId) {
     id: db.nextId('att'), studentId, date,
     status: 'present', checkIn: null, checkOut: null, note: '', markedBy: userId,
   };
+  // Dòng "nghỉ" do việc tự động ghi theo đơn (Đ242E, markedBy 'tu-dong:don-nghi')
+  // mang ghi chú "Theo đơn xin nghỉ đã duyệt…" — bé đã tới lớp thì câu ấy sai,
+  // mà ô ghi chú này gia đình đọc được. Ghi chú do cô gõ thì giữ nguyên.
+  if (cu && cu.markedBy === 'tu-dong:don-nghi') rec.note = '';
   rec.status = 'present';
   rec.checkIn = nowTime();
   rec.markedBy = userId;
