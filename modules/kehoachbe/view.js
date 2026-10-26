@@ -46,6 +46,7 @@ App.views.kehoachbe = {
   _be: '',            // '' = cả nhóm; hoặc mã một bé
   _goc: {},           // lĩnh vực đang chọn, theo chương trình
   _dy: { ky: 'thang', moc: '', trangThai: 'cho-duyet' },
+  _nguoi: null,       // tài khoản mà mọi lựa chọn ở trên thuộc về
 
   TEN_CT: { 'chu-nhiem': 'Montessori & Kỹ năng sống', 'nuoc-ngoai': 'Cambridge', 'the-chat': 'Thể chất' },
   TEN_CO_CT: { 'chu-nhiem': 'cô phụ trách nhóm', 'nuoc-ngoai': 'cô nước ngoài', 'the-chat': 'cô thể chất' },
@@ -84,12 +85,29 @@ App.views.kehoachbe = {
   },
 
   async render(root, params) {
+    // LỰA CHỌN CỦA NGƯỜI TRƯỚC KHÔNG SANG NGƯỜI SAU (góp ý 20/10, N8). Đối
+    // tượng này sống suốt phiên trang, mà đăng xuất không tải lại trang: cô A
+    // chọn nhóm của mình, đăng xuất, cô B đăng nhập trên cùng máy là màn hỏi
+    // nhóm của cô A và nhận "Không có quyền xem kế hoạch của nhóm này".
+    const nguoi = App.state.user.id;
+    if (this._nguoi !== nguoi) {
+      this._nguoi = nguoi;
+      this._classId = null;
+      this._thang = null;
+      this._tab = 'lap';
+      this._ct = null;
+      this._be = '';
+      this._goc = {};
+      this._dy = { ky: 'thang', moc: '', trangThai: 'cho-duyet' };
+    }
     // `#/kehoachbe/duyet` mở thẳng màn duyệt (tin báo cho quản lý trỏ vào đây).
     if (params && params[0] === 'duyet' && this.laQuanLy()) this._tab = 'duyet';
     this._thang = this._thang || UI.todayStr().slice(0, 7);
-    const q = this._classId ? `?classId=${encodeURIComponent(this._classId)}&thang=${encodeURIComponent(this._thang)}`
-      : `?thang=${encodeURIComponent(this._thang)}`;
-    const d = await API.get(`/api/kehoachbe${q}`);
+    // Đứng ở tab Duyệt thì danh sách duyệt tự ghi số lên tab — khỏi hỏi hai lần.
+    const [d, soChoDuyet] = await Promise.all([
+      this.napNhom(),
+      this.laQuanLy() && this._tab !== 'duyet' ? this.demChoDuyet() : null,
+    ]);
     this._data = d;
     this._classId = d.classId || this._classId;
 
@@ -112,7 +130,7 @@ App.views.kehoachbe = {
       ${this.laQuanLy() ? `
         <div class="seg" id="kb-tabs">
           <button class="${this._tab === 'lap' ? 'active' : ''}" data-tab="lap">Lập kế hoạch</button>
-          <button class="${this._tab === 'duyet' ? 'active' : ''}" data-tab="duyet">Duyệt (${UI.esc(String(d.tong.choDuyet + (d.tong.deXuatCho || 0)))})</button>
+          <button class="${this._tab === 'duyet' ? 'active' : ''}" data-tab="duyet">${UI.esc(this.nhanTabDuyet(soChoDuyet))}</button>
           <button class="${this._tab === 'baihoc' ? 'active' : ''}" data-tab="baihoc">Kho bài học</button>
         </div>` : ''}
 
@@ -179,6 +197,46 @@ App.views.kehoachbe = {
     if (this.laQuanLy() && this._tab === 'duyet') return this.veDuyet(than);
     if (this.laQuanLy() && this._tab === 'baihoc') return this.veBaiHoc(than);
     return this.veLap(than);
+  },
+
+  // Nhóm đang nhớ mà máy chủ trả 403 — cô vừa bị gỡ khỏi nhóm đó trong lúc
+  // app còn mở (N8) — thì bỏ nó và để máy chủ chọn nhóm đầu tiên cô được phân.
+  async napNhom() {
+    const qThang = `thang=${encodeURIComponent(this._thang)}`;
+    if (this._classId) {
+      try {
+        return await API.get(`/api/kehoachbe?classId=${encodeURIComponent(this._classId)}&${qThang}`);
+      } catch (err) {
+        if (err.status !== 403) throw err;
+        this._classId = null;
+        this._be = '';
+      }
+    }
+    return API.get(`/api/kehoachbe?${qThang}`);
+  },
+
+  // SỐ TRÊN TAB "DUYỆT" HỎI ĐÚNG CÂU CỦA DANH SÁCH DUYỆT (góp ý 20/10, N7).
+  // Trước đây tab đếm một nhóm và một tháng kế hoạch đang chọn ở tab Lập kế
+  // hoạch, còn danh sách gom mọi nhóm theo ngày gửi: tab "Duyệt (0)" mở ra
+  // một bé đang chờ. Nay cả hai cùng gọi `urlDuyet`.
+  urlDuyet(trangThai) {
+    const dy = this._dy;
+    const homNay = UI.todayStr();
+    if (!dy.moc) dy.moc = dy.ky === 'ngay' ? homNay : dy.ky === 'thang' ? homNay.slice(0, 7) : homNay.slice(0, 4);
+    return `/api/kehoachbe/cho-duyet?ky=${encodeURIComponent(dy.ky)}&moc=${encodeURIComponent(dy.moc)}&trangThai=${encodeURIComponent(trangThai)}`;
+  },
+  // Đếm hỏng thì tab chỉ thiếu con số — không kéo cả màn Lập kế hoạch đổ theo.
+  async demChoDuyet() {
+    try { return (await API.get(this.urlDuyet('cho-duyet'))).tong; } catch (_) { return null; }
+  },
+  // Cộng đề xuất sửa đang chờ — đúng những đề xuất màn duyệt hiện bên dưới.
+  nhanTabDuyet(soChoDuyet) {
+    if (soChoDuyet == null) return 'Duyệt';
+    return `Duyệt (${soChoDuyet + (((this._data || {}).tong || {}).deXuatCho || 0)})`;
+  },
+  datSoTabDuyet(soChoDuyet) {
+    const b = document.querySelector('#kb-tabs [data-tab="duyet"]');
+    if (b) b.textContent = this.nhanTabDuyet(soChoDuyet);
   },
 
   // Bài học của một góc (danh mục đang bật).
@@ -429,7 +487,7 @@ App.views.kehoachbe = {
         ${goiYCt.length ? `
           <div class="small muted" style="line-height:1.6;margin-bottom:8px">
             Tháng ${UI.esc(goiY.tuThang)} cô ghi <b>Tiếp tục ở tháng sau</b>: ${UI.esc(goiYCt.map(b => b.ten).join(', '))}
-            — đã tích sẵn đúng lựa chọn của cô (dạy mới hoặc ôn tập), cô bỏ tích được.
+            — đã tích sẵn đúng lựa chọn của cô (dạy mới, ôn tập hoặc mở rộng), cô bỏ tích được.
           </div>` : ''}
 
         ${dx && dx.trangThai === 'cho-duyet' ? `
@@ -799,13 +857,12 @@ App.views.kehoachbe = {
   async veDuyet(than) {
     const d0 = this._data;
     const dy = this._dy;
-    const homNay = UI.todayStr();
-    if (!dy.moc) dy.moc = dy.ky === 'ngay' ? homNay : dy.ky === 'thang' ? homNay.slice(0, 7) : homNay.slice(0, 4);
     let d;
     try {
-      d = await API.get(`/api/kehoachbe/cho-duyet?ky=${encodeURIComponent(dy.ky)}&moc=${encodeURIComponent(dy.moc)}&trangThai=${encodeURIComponent(dy.trangThai)}`);
+      d = await API.get(this.urlDuyet(dy.trangThai));
     } catch (err) { than.innerHTML = UI.emptyState('🧭', err.message); return; }
     this._duyet = d;
+    this.datSoTabDuyet(d.trangThai === 'cho-duyet' ? d.tong : await this.demChoDuyet());
     const oMoc = dy.ky === 'ngay' ? `<input type="date" id="kb-dy-moc" value="${UI.esc(d.moc)}">`
       : dy.ky === 'thang' ? `<input type="month" id="kb-dy-moc" value="${UI.esc(d.moc)}">`
         : `<input type="number" id="kb-dy-moc" min="2020" max="2100" value="${UI.esc(d.moc)}">`;
