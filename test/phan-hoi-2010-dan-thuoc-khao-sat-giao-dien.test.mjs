@@ -97,6 +97,31 @@ try {
     check('bé An (mẹ đã trả lời) không nằm trong danh sách', !/Nguyễn Bảo An/.test(v));
     check('không có phần trăm trong danh sách', !/%/.test(v));
   }
+  // =========================================================================
+  console.log('\n[P1] Đang ở màn Thông báo mà bấm chuông thì danh sách tải lại');
+  await dangNhap('phuhuynh', '123456');
+  await moMan('#/notifications');
+  const tb = await req('POST', '/api/notifications', {
+    cookie: co.cookie,
+    body: { title: 'Thông báo P1 vừa gửi', body: 'Mai các con mặc đồ thể thao.', category: 'Nhóm lớp', audience: 'class' },
+  });
+  check('đối chứng — cô gửi được thông báo cho nhóm', tb.status === 201, tb.status);
+  check('đối chứng — danh sách đang mở chưa có thông báo mới', !(await chu()).includes('Thông báo P1 vừa gửi'));
+  const nutChuong = page.locator('#bottom-nav button', { hasText: 'Thông báo' });
+  await nutChuong.click();
+  await page.waitForTimeout(1000);
+  check('bấm chuông ngay tại màn Thông báo → thấy thông báo mới', (await chu()).includes('Thông báo P1 vừa gửi'));
+
+  // Từ màn khác bấm sang: hashchange đã vẽ, cú bấm không được vẽ thêm lần nữa.
+  await moMan('#/');
+  let soLanTai = 0;
+  const dem = r => { if (/\/api\/notifications\?bo=0/.test(r.url())) soLanTai += 1; };
+  page.on('request', dem);
+  await nutChuong.click();
+  await page.waitForTimeout(1200);
+  page.off('request', dem);
+  check('từ trang chủ bấm chuông: danh sách tải đúng một lần', soLanTai === 1, soLanTai);
+
   check('không có lỗi JavaScript', loiJs.length === 0, loiJs);
 } finally {
   await browser.close();

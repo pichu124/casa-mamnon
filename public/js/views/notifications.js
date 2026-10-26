@@ -20,12 +20,33 @@ App.views.notifications = {
   _conNua: false,
 
   async render(root) {
+    this.batBamChuong();
     this._root = root;
     this._list = [];
     this._rieng = [];
     this._conNua = false;
     await this.taiThem();
     this.paint();
+  },
+
+  // ĐANG Ở MÀN THÔNG BÁO MÀ BẤM CHUÔNG THÌ PHẢI TẢI LẠI (góp ý 20/10, P1).
+  //
+  // Nút chuông chỉ gán `location.hash`; đứng sẵn ở #/notifications thì hash
+  // không đổi, không có hashchange, nên chuông vừa lên "1" mà bấm vào vẫn là
+  // danh sách cũ — đúng câu "báo có 1 thông báo mà vào không thấy gì". Bắt cú
+  // bấm ở thanh dưới (gắn một lần), chỉ khi đang đứng đúng màn này.
+  batBamChuong() {
+    if (this._bamChuong) return;
+    const nav = document.getElementById('bottom-nav');
+    if (!nav) return;
+    this._bamChuong = true;
+    nav.addEventListener('click', (e) => {
+      const nut = e.target.closest('button');
+      if (!nut || !String(nut.getAttribute('onclick') || '').includes("'#/notifications'")) return;
+      if (location.hash !== '#/notifications') return;
+      if (this._root && document.body.contains(this._root)) this.render(this._root);
+    }, true); // bắt ở pha capture: chạy TRƯỚC onclick của nút, lúc hash chưa đổi —
+    // từ màn khác bấm sang thì hash lúc này chưa phải #/notifications, không vẽ đôi.
   },
 
   // Tải thêm một trang thông báo, nối vào phần đã có.
