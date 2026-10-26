@@ -7,7 +7,8 @@
 //       phím, ở cả ba hộp: ghi quan sát, gắn bé cho nháp, kể cho gia đình.
 //   B3. Không còn nút "Suy ngẫm" (gắn lĩnh vực / mức / ở lớp cô làm gì tiếp)
 //       trên từng quan sát. CHỈ ẨN: nhận định đã có vẫn nguyên ở máy chủ.
-//       Lối phụ "Suy ngẫm cuối ngày" dưới tiêu đề thì vẫn còn (đợt sau mới đổi).
+//       Lối phụ dưới tiêu đề nay là "Hình ảnh ghi nhanh" (Đ242B, B1 — thay
+//       "Suy ngẫm cuối ngày"); quan sát chưa kể của cô nằm ở đó.
 //   B6. Ban giám hiệu mở hộp "Kể cho gia đình" thấy ô "Lưu ảnh về album" và
 //       lưu được ảnh về album theo thẻ của nhóm.
 import { chromium } from 'playwright';
@@ -76,20 +77,21 @@ try {
   const AL = al.data?.id;
 
   // =========================================================================
-  console.log('\n[1] B3 — thẻ quan sát không còn nút Suy ngẫm; lối phụ vẫn còn');
+  console.log('\n[1] B3 — thẻ quan sát không còn nút Suy ngẫm; lối phụ Hình ảnh ghi nhanh');
   {
     await dangNhap('giaovien', '123456');
     await moMan('#/hanhtrinh');
-    check('lối phụ "Suy ngẫm cuối ngày" dưới tiêu đề vẫn còn',
-      await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Suy ngẫm cuối ngày' }).count() === 1);
-    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Suy ngẫm cuối ngày' }).click();
+    check('lối phụ "Hình ảnh ghi nhanh" dưới tiêu đề (Đ242B — thay Suy ngẫm cuối ngày)',
+      await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Hình ảnh ghi nhanh' }).count() === 1);
+    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Hình ảnh ghi nhanh' }).click();
     await page.waitForTimeout(1200);
     const than = await page.locator('#ht-than').innerText();
     check('đối chứng — quan sát hiện trên màn', /Bé tự rót nước vào ly/.test(than), than.slice(0, 200));
     check('KHÔNG còn nút mở hộp Suy ngẫm trên quan sát', await page.locator('#ht-than [data-suyngam]').count() === 0);
     check('KHÔNG còn chữ "Sửa nhận định" hay "chưa suy ngẫm"', !/Sửa nhận định|chưa suy ngẫm/.test(than), than.slice(0, 300));
     check('KHÔNG còn lời mời "gắn lĩnh vực lúc nào cũng được"', !/gắn lĩnh vực/.test(than));
-    check('nút "Kể cho gia đình" vẫn ở trên quan sát', await page.locator(`#ht-than [data-cauchuyen="${Q1}"]`).count() === 1);
+    // Đ242B: thẻ ở Hình ảnh ghi nhanh mở cùng hộp kể qua nút "Hoàn thiện & kể".
+    check('nút "Hoàn thiện & kể" vẫn ở trên quan sát', await page.locator(`#ht-than [data-hoan-thien="quansat:${Q1}"]`).count() === 1);
 
     const ht = (await req('GET', '/api/hanhtrinh?studentId=s1', { cookie: GV })).data || {};
     const q = (ht.quanSat || []).find(x => x.id === Q1) || {};
@@ -102,7 +104,7 @@ try {
   console.log('\n[2] B2 — không còn nút "Nói để ghi" ở cả ba hộp, chỉ còn lời nhắc micro bàn phím');
   {
     // Hộp kể cho gia đình
-    await page.click(`#ht-than [data-cauchuyen="${Q1}"]`);
+    await page.click(`#ht-than [data-hoan-thien="quansat:${Q1}"]`);
     await page.waitForTimeout(800);
     check('hộp Kể cho gia đình: không có nút nói', await page.locator('#modal-overlay .ht-noi').count() === 0
       && !/Nói để ghi/.test(await chuHop()));
@@ -121,6 +123,8 @@ try {
     await page.waitForTimeout(1500);
     check('lưu vẫn chạy như cũ (nháp hiện ra)', /Một bạn tự cất giày lên kệ/.test(await page.locator('#ht-than').innerText()));
 
+    // Đ242B: hộp "Gắn bé" của nháp nay ở khối nháp của tab chương trình.
+    await moMan('#/hanhtrinh/chu-nhiem');
     await page.locator('[data-nhap-gan]').first().click();
     await page.waitForTimeout(500);
     check('hộp Gắn bé cho bản nháp: không có nút nói', await page.locator('#modal-overlay .ht-noi').count() === 0
@@ -138,14 +142,21 @@ try {
   console.log('\n[3] B6 — ban giám hiệu lưu ảnh của câu chuyện về album theo thẻ');
   {
     await dangNhap('htg_qt', 'quantri2026');
-    await moMan('#/hanhtrinh/suyngam');
-    await page.click(`#ht-than [data-cauchuyen="${Q1}"]`);
+    // Đ242B: Hình ảnh ghi nhanh chỉ có mục của chính người đăng nhập — văn
+    // phòng kể quan sát của cô từ tab chương trình của bé.
+    await moMan('#/hanhtrinh/chu-nhiem');
+    await page.selectOption('#ht-chon-be', 's1');
+    await page.waitForTimeout(1500);
+    // Nút nằm cuối thẻ, sát thanh điều hướng cố định ở đáy — bấm bằng mã để
+    // thanh ấy không che mất cú bấm.
+    await page.locator(`#ht-than [data-cauchuyen="${Q1}"]`).evaluate(b => b.click());
     await page.waitForTimeout(1000);
     check('hộp có ô "Lưu ảnh về album" mời đúng album theo thẻ của nhóm',
       await page.locator(`#ht-album option[value="${AL}"]`).count() === 1, await chuHop());
     await page.fill('#ht-cc', 'Hôm nay An tự rót nước vào ly, không làm đổ.');
     await page.fill('#ht-cn', 'Tối nay để con tự rót nước vào cốc.');
     await page.selectOption('#ht-album', AL);
+    await page.check('#ht-chi-be');   // Đ242B, B7: gửi kèm ảnh thì phải nói trong ảnh có ai
     await page.click('#ht-cong-bo');
     await page.waitForTimeout(1500);
     const anh = ((await req('GET', `/api/albums/${AL}`, { cookie: GV })).data?.photos || []);
