@@ -72,7 +72,7 @@ Cỡ việc: **S** ≤ 1 giờ · **M** ≤ nửa ngày · **L** hơn nửa ngà
 | O1 | Ô viết to hơn trên máy tính | Ô 2–5 dòng | Cao, rộng hơn trên màn rộng | S | 1 |
 | O2 | Bố cục "Bài học trong tháng của con: • Xúc hạt (học mới)…" rồi "Nhận xét của cô" | Một dòng nối dài kèm chữ quy ước | Như trường tả | S–M | 2 |
 | O3 | "Mời chữ từ Kế hoạch của bé" lấy gì? | **Đã xác định**: chỉ đọc ô gõ tay, bỏ qua bài đã tích | Gộp bài đã tích vào chữ mời | S | 1 |
-| O4 | Gửi quản lý cơ sở duyệt trước | **Đã có** bước duyệt, nhưng mọi tài khoản quản trị (kể cả văn phòng) duyệt được | Chỉ quản lý cơ sở và ban giám hiệu duyệt | S | 2 |
+| O4 | Gửi quản lý cơ sở duyệt trước | **Đã có** từ Đ198: chỉ hiệu trưởng / quản lý cơ sở / quản trị chưa khai chức vụ duyệt được (bản trước của bảng này ghi sai) | Thêm lớp chặn ở đường gửi (Đ242G) | S | 2 |
 | O5 | Bỏ phần cô ký tên | Ô "Cô ký tên", tên in cuối "Cô kể thêm" | Ẩn; dữ liệu giữ | S | 1 |
 | P1 | **Lỗi:** báo 1 thông báo mà vào không thấy; có tin mới không có chấm đỏ | Vế 1 **phỏng đoán mạnh**: huy hiệu đếm mọi tin riêng về con, danh sách chỉ tải 50 tin. Vế 2 chưa dựng lại được | Huy hiệu và danh sách cùng một cửa sổ; "Đọc tất cả" hiện khi huy hiệu còn số | S–M | 1 |
 | P2 | **Lỗi:** phụ huynh bé mới nhập học thấy thông báo cũ | **Đã xác định**: lọc thông báo không có mốc thời gian | Chỉ thông báo từ ngày tài khoản phụ huynh được tạo (thông báo ghim vẫn hiện) | S–M | 1 |
@@ -137,4 +137,37 @@ Làm một phần, phần còn lại chờ chủ dự án:
 - **Đợt 2 làm tiếp với mặc định đã ghi** (trường chưa trả lời câu hỏi): D3 (ghi chú lúc vào lớp
   gia đình đọc được), E1 + D4 + D5 (mốc 7 giờ theo giờ gửi đơn của chính ngày nghỉ đầu), F2, F3,
   G2, O2, O4. K1 (ngày công cô) chờ trường trả lời.
+
+## Kết quả đợt 2 (26/10/2026)
+
+Xong:
+- **Thông báo, khảo sát:** G2.
+- **Báo cáo tháng:** O2, O4 (thêm lớp chặn).
+- **Điểm danh, xin phép:**
+  - D3 (bấm tên: vào lớp / ra về, màn Xem lại, nút "⋯");
+  - E1 + D4 + D5 (duyệt từng ngày, tự ghi điểm danh, ngày trường nghỉ không còn bị đếm là "chưa điểm danh").
+- **Nhắn tin:**
+  - F1 (quản lý xem chỉ đọc + nhật ký + câu báo trước nêu đủ ban giám hiệu, quản lý, văn phòng cơ sở);
+  - F2, F3;
+  - F6 (công tắc của nhà trường cho nhắn tin cô nước ngoài; dữ liệu mẫu mỗi nhóm có cô nước ngoài).
+- **Hồ sơ bé:** C1 (bỏ cả ô ở phiếu nhận bé).
+- **Hình ảnh ghi nhanh — B1, B4, B5, B7 và B6 cho văn phòng:**
+  - ảnh/video, kể cho gia đình bằng bản chép riêng, lọc đồng ý ảnh nhóm;
+  - chủ đề tuần soạn từ Lịch sinh hoạt;
+  - văn phòng thêm ảnh câu chuyện đã kể vào album;
+  - nhận video .mov của iPhone.
+
+Còn chờ trường / chủ dự án:
+- **Báo cáo tháng (O2):**
+  - chữ quy ước (S, N…) trên bản gia đình đọc: giữ (quyết định 07/10) hay bỏ như ví dụ của trường;
+  - nhận xét ở Kế hoạch tự chép vào bản nháp báo cáo hay chỉ gợi ý.
+- **Xin phép:**
+  - có cần nút huỷ đơn đã duyệt;
+  - ngoại lệ "không phép mà vẫn hoàn" (ốm đột xuất);
+  - Thứ Bảy trường có mở không.
+- **Điểm danh, chấm công:**
+  - ảnh chân dung thật trong hồ sơ bé để đối chiếu lúc ra về (là thêm dữ liệu khuôn mặt);
+  - chấm công cô ngày trường nghỉ.
+- **Nhắn tin:** bé chuyển nhóm thì kênh nhắn cô vẫn gắn nhóm cũ — cần sửa trước khi chuyển năm học.
+- **Còn lại từ trước:** K1 (ngày công cô), học phí (để sau), đợt 3 (kho bài học N1–N5, quản trị L1–L6, album M1).
 
