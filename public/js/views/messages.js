@@ -31,7 +31,7 @@ App.views.messages = {
   // báo trước, ngay trên màn Nhắn tin của mình, rằng quản lý có thể xem.
   dongMinhBach() {
     return '<div class="muted small" id="msg-minh-bach" style="margin:0 2px 12px;line-height:1.5">'
-      + 'Để bảo đảm chất lượng trao đổi, ban giám hiệu và quản lý cơ sở có thể xem '
+      + 'Để bảo đảm chất lượng trao đổi, ban giám hiệu, quản lý và văn phòng cơ sở có thể xem '
       + 'các cuộc trò chuyện giữa cô và gia đình.</div>';
   },
 

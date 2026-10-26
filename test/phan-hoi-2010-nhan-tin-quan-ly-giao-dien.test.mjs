@@ -6,7 +6,7 @@
 // Phần máy chủ có `test/phan-hoi-2010-nhan-tin-quan-ly.test.mjs`. Bài này đo
 // những gì chỉ trình duyệt trả lời được:
 //   1. MINH BẠCH: màn Nhắn tin của gia đình và của cô hiện dòng báo trước rằng
-//      ban giám hiệu và quản lý cơ sở có thể xem; màn của quản lý thì không.
+//      ban giám hiệu, quản lý và văn phòng cơ sở có thể xem; màn của quản lý thì không.
 //   2. Quản lý lọc cơ sở → nhóm → bé, mở một cuộc ở chế độ chỉ đọc: có dòng
 //      "Chế độ xem của quản lý — chỉ đọc", không có ô nhập, không có nút thu
 //      hồi, và mỗi bong bóng ghi tên người gửi.
@@ -57,7 +57,7 @@ const moMan = async (hash) => {
   await page.goto(`${sv.BASE}/${hash}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(800);
 };
-const CAU_MINH_BACH = 'Để bảo đảm chất lượng trao đổi, ban giám hiệu và quản lý cơ sở có thể xem '
+const CAU_MINH_BACH = 'Để bảo đảm chất lượng trao đổi, ban giám hiệu, quản lý và văn phòng cơ sở có thể xem '
   + 'các cuộc trò chuyện giữa cô và gia đình.';
 
 try {
