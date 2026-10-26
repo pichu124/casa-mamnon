@@ -122,6 +122,9 @@ const MUC = [
 ];
 const MA_MUC = MUC.map(x => x[0]);
 
+// Ba nhãn cô tích cho một bài ở Kế hoạch của bé (`kehoachbe_muc_bai.nhan`).
+const NHAN = { 'hoc-moi': 'học mới', 'on-tap': 'ôn tập', 'mo-rong': 'mở rộng' };
+
 // Ba mức nghĩa là CÔ ĐÃ THẤY BÉ LÀM. Hai mức còn lại ('chua-day',
 // 'chua-quan-sat-thay') thì chưa có gì để hành động.
 //
@@ -787,7 +790,6 @@ module.exports = (app, { db, modules }) => {
     const muc = db.all('kehoachbe_muc', 'SELECT * FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
     if (!bai.length && !muc.length) return [];
 
-    const NHAN = { 'hoc-moi': 'học mới', 'on-tap': 'ôn tập', 'mo-rong': 'mở rộng' };
     const daCo = new Set(db.all('baocaohoctap_o',
       'SELECT dongId FROM baocaohoctap_o WHERE banId = ?', [ban.id]).map(x => x.dongId));
     const luc = ngay.bayGio();
@@ -1173,12 +1175,37 @@ module.exports = (app, { db, modules }) => {
       'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [ban.studentId, thang]);
     if (!ke) return res.json({ bat: true, thang, goiY: [] });
 
+    // BÀI ĐÃ TÍCH LÀ CÁCH CÔ LẬP KẾ HOẠCH HẰNG THÁNG (góp ý 20/10, O3).
+    //
+    // Bản trước chỉ đọc ô gõ tay `kehoachbe_muc`, nên kế hoạch lập bằng cách
+    // tích bài — cách trường đang dùng — luôn ra "chưa có nhận xét nào". Gộp
+    // bài theo góc: một gợi ý mỗi góc, mang tên bài kèm nhãn cô đã tích, và
+    // nhận xét cuối tháng của từng bài nếu cô đã ghi.
+    const bai = db.all('kehoachbe_muc_bai',
+      `SELECT mb.*, b.ten AS ten, b.gocLinhVuc AS gocLinhVuc
+         FROM kehoachbe_muc_bai mb LEFT JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+        WHERE mb.keId = ? ORDER BY mb.rowid`, [ke.id]).filter(m => m.ten);
+    const theoGoc = new Map();
+    for (const m of bai) {
+      if (!theoGoc.has(m.gocLinhVuc)) theoGoc.set(m.gocLinhVuc, []);
+      theoGoc.get(m.gocLinhVuc).push(m);
+    }
+    const goiYBai = [...theoGoc].map(([goc, ds]) => ({
+      loai: 'bai',
+      gocLinhVuc: goc,
+      noiDung: ds.map(m => (NHAN[m.nhan] ? `${m.ten} (${NHAN[m.nhan]})` : m.ten)).join(', '),
+      nhanXet: ds.filter(m => String(m.nhanXet || '').trim())
+        .map(m => `${m.ten}: ${m.nhanXet.trim()}`).join('\n'),
+      ketQua: '',
+      tiepTucThangSau: ds.some(m => !!m.tiepTucThangSau),
+    }));
+
     const muc = db.all('kehoachbe_muc',
       'SELECT * FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
     res.json({
       bat: true,
       thang,
-      goiY: muc
+      goiY: goiYBai.concat(muc
         .filter(m => String(m.nhanXet || '').trim() || String(m.noiDung || '').trim())
         .map(m => ({
           gocLinhVuc: m.gocLinhVuc,
@@ -1186,7 +1213,7 @@ module.exports = (app, { db, modules }) => {
           nhanXet: m.nhanXet,
           ketQua: m.ketQua,
           tiepTucThangSau: !!m.tiepTucThangSau,
-        })),
+        }))),
     });
   });
   // =========================================================================
