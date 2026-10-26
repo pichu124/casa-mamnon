@@ -1203,6 +1203,26 @@ CREATE TABLE IF NOT EXISTS attendance_anh_ve (
 CREATE INDEX IF NOT EXISTS idx_att_anh_ve_date ON attendance_anh_ve(date);
 CREATE INDEX IF NOT EXISTS idx_att_anh_ve_file ON attendance_anh_ve(file);
 
+-- ===========================================================================
+-- GHI CHÚ LÚC RA VỀ — GIA ĐÌNH ĐỌC ĐƯỢC (Đ242D, góp ý D3)
+-- ===========================================================================
+--
+-- Màn "Xem lại" lúc bấm tên bé có một ô ghi chú gửi gia đình. Lượt VÀO LỚP
+-- ghi vào `attendance.note` — chính ô "Ghi chú (gia đình đọc được)" đã có.
+-- Lượt RA VỀ thì `attendance` không có ô thứ hai, và lược đồ lõi cấm ALTER,
+-- nên ghi chú ấy nằm ở bảng phụ này. Ghi chú NỘI BỘ là `attendance_luu_y`,
+-- không trộn với bảng này.
+--
+-- Gỡ giờ ra về (bấm nhầm bé) thì ghi chú về chuỗi rỗng, dòng ở lại làm vết.
+CREATE TABLE IF NOT EXISTS attendance_ghi_chu_ve (
+  studentId  TEXT NOT NULL,
+  date       TEXT NOT NULL,              -- YYYY-MM-DD
+  ghiChu     TEXT NOT NULL DEFAULT '',
+  nguoiGhi   TEXT,
+  capNhatLuc TEXT,
+  PRIMARY KEY (studentId, date)
+);
+
 -- ===== CHẤM CÔNG CÔ VÀ NHÂN VIÊN BẰNG ẢNH Ở CỔNG (góp ý 06/10, mục 2) =====
 -- Trường: mục "Giáo viên" đứng đầu màn điểm danh — bấm vào ra danh sách cô và
 -- nhân viên của cơ sở, chụp ảnh lần đầu là giờ vào, lần hai là giờ ra. Chủ dự
