@@ -170,13 +170,14 @@ try {
   {
     check('tab Vệ sinh không có nút Lưu — mốc giờ lưu ngay khi ghi', await page.locator('#nk-luu').count() === 0);
     check('vẫn nhớ hai bé đã chọn', /Đã chọn 2 bé/.test(await page.locator('#nk-so-chon').innerText()));
-    await page.selectOption('#nk-vs-loai', 'thay-bim');
+    // Góp ý 20/10 (J2): trường bỏ theo dõi bỉm — tab Vệ sinh chỉ còn ghi giờ
+    // đi vệ sinh, không còn ô chọn "Việc". Xem test/phan-hoi-2010-dot1g-giao-dien.test.mjs.
     await page.fill('#nk-vs-gio', '09:15');
     await page.selectOption('#nk-vs-poo', '1');
     await page.click('#nk-vs-ghi');
     await page.waitForTimeout(1500);
     const sau = await chu();
-    check('hai thẻ hiện mốc 09:15 thay bỉm', (sau.match(/09:15\s*Thay bỉm · có đi ngoài/g) || []).length === 2, sau.slice(0, 400));
+    check('hai thẻ hiện mốc 09:15 đi vệ sinh', (sau.match(/09:15\s*Đi vệ sinh · có đi ngoài/g) || []).length === 2, sau.slice(0, 400));
     check('có nút bỏ mốc cho từng mốc', await page.locator('.nk-vs-bo').count() === 2);
     await page.locator('.nk-vs-bo').first().click();
     await page.waitForTimeout(1500);
