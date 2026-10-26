@@ -812,17 +812,16 @@ module.exports = (app, { db, modules }) => {
         const bg = bai.filter(m => m.gocLinhVuc === d.gocLinhVuc);
         const mg = muc.filter(m => m.gocLinhVuc === d.gocLinhVuc);
         const dong = [];
-        // Chữ quy ước đứng ở dòng "Bài học tháng này" — dòng DUY NHẤT có đủ mọi
-        // bài. Bài mức W/N/NA không rơi vào "Đã thấy" hay "Tiếp tục", để chữ ở
-        // hai dòng ấy thì chính những bài cần nói rõ nhất lại mất chữ.
+        // BỐ CỤC GIA ĐÌNH ĐỌC (góp ý 20/10, O2): "Bài học trong tháng của con:"
+        // rồi mỗi bài một dòng, rồi "Nhận xét của cô:" — thay cho một dòng nối
+        // dài. Chỉ chữ điền sẵn MỚI; ô đã có chữ không bao giờ bị viết lại.
+        //
+        // Chữ quy ước đứng ở danh sách bài — chỗ DUY NHẤT có đủ mọi bài. Bài
+        // mức W/N/NA không rơi vào "Đã thấy" hay "Tiếp tục", để chữ ở hai dòng
+        // ấy thì chính những bài cần nói rõ nhất lại mất chữ.
         if (bg.length) {
-          dong.push(`Bài học tháng này: ${bg.map(m => `${m.ten} (${[NHAN[m.nhan] || m.nhan, chuCuaBai(m)].filter(Boolean).join(' · ')})`).join(', ')}`);
-        }
-        const daThay = bg.filter(m => m.ketQua === 'da-thay');
-        const tiepTuc = bg.filter(m => m.ketQua === 'tiep-tuc');
-        if (daThay.length) dong.push(`Đã thấy con làm được: ${daThay.map(m => m.ten).join(', ')}`);
-        if (tiepTuc.length) {
-          dong.push(`Tiếp tục cùng con: ${tiepTuc.map(m => (TIEP[tiepTucBai.get(m.id)] ? `${m.ten} (${TIEP[tiepTucBai.get(m.id)]})` : m.ten)).join(', ')}`);
+          dong.push('Bài học trong tháng của con:');
+          for (const m of bg) dong.push(`• ${m.ten} (${[NHAN[m.nhan] || m.nhan, chuCuaBai(m)].filter(Boolean).join(' · ')})`);
         }
         // Có chữ quy ước thì kèm MỘT dòng chú giải các chữ đã dùng ở ô này —
         // gia đình không phải đoán "S" là gì.
@@ -830,7 +829,17 @@ module.exports = (app, { db, modules }) => {
         if (chuDung.length) {
           dong.push(`Chữ quy ước: ${MUC.filter(x => chuDung.includes(x[2])).reverse().map(x => `${x[2]} = ${x[1].toLowerCase()}`).join(', ')}.`);
         }
-        for (const m of bg) if (String(m.nhanXet || '').trim()) dong.push(`${m.ten}: ${m.nhanXet.trim()}`);
+        const coNhanXet = bg.filter(m => String(m.nhanXet || '').trim());
+        if (coNhanXet.length) {
+          dong.push('Nhận xét của cô:');
+          for (const m of coNhanXet) dong.push(`• ${m.ten}: ${m.nhanXet.trim()}`);
+        }
+        const daThay = bg.filter(m => m.ketQua === 'da-thay');
+        const tiepTuc = bg.filter(m => m.ketQua === 'tiep-tuc');
+        if (daThay.length) dong.push(`Đã thấy con làm được: ${daThay.map(m => m.ten).join(', ')}`);
+        if (tiepTuc.length) {
+          dong.push(`Tiếp tục cùng con: ${tiepTuc.map(m => (TIEP[tiepTucBai.get(m.id)] ? `${m.ten} (${TIEP[tiepTucBai.get(m.id)]})` : m.ten)).join(', ')}`);
+        }
         for (const m of mg) {
           const nd = String(m.noiDung || '').trim();
           const nx = String(m.nhanXet || '').trim();
