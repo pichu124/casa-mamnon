@@ -2675,6 +2675,7 @@ Vẫn nhận bé này?`)) {
       'nhom-lua-tuoi-khai': 'Khai lứa tuổi của nhóm lớp',
       'nhom-lua-tuoi-go': 'Gỡ lời khai lứa tuổi của nhóm lớp',
       'tin-nhan-thu-hoi': 'Thu hồi một lời nhắn đã gửi',
+      'tin-nhan-gui-nhieu-nha': 'Nhắn một tin cho nhiều gia đình, mỗi nhà một cuộc riêng',
       'phong-chung-tao': 'Lập một phòng chung trong Nhắn tin',
       'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
       'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',

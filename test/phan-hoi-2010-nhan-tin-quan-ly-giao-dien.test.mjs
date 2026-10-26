@@ -132,6 +132,36 @@ try {
     check('quay lại thì bộ lọc vẫn giữ nhóm vừa chọn', await page.locator('#ql-nhom').inputValue() === 'c1');
   }
 
+  // =========================================================================
+  console.log('\n[3] Cô nhắn nhiều gia đình: ô tích, "chọn tất cả", một tin, mỗi nhà một cuộc');
+  {
+    await dangNhap('giaovien', '123456');
+    await moMan('#/messages');
+    await page.click('#msg-nhieu-nha');
+    await page.waitForSelector('#gn-ds .gn-be', { timeout: 5000 });
+    check('mở ra màn "Nhắn nhiều gia đình"', page.url().endsWith('#/messages/gui-nhieu'), page.url());
+    const ten = await page.locator('#gn-ds .gn-be').allInnerTexts();
+    check('liệt kê các bé của nhóm cô (Chồi 2)', ten.some(t => /Nguyễn Bảo An/.test(t)) && ten.some(t => /Phạm Gia Hân/.test(t)), ten);
+    check('không có bé của nhóm khác', !ten.some(t => /Nguyễn Bảo Nam/.test(t)), ten);
+    await page.check('#gn-tat-ca');
+    const soO = await page.locator('#gn-ds .gn-be input:not([disabled])').count();
+    check('"Chọn tất cả" tích mọi bé', await page.locator('#gn-ds .gn-be input:checked').count() === soO && soO >= 2);
+    check('và đếm đúng', (await page.locator('#gn-dem').innerText()).includes(`${soO} bé`));
+    await page.locator('#gn-ds .gn-be', { hasText: 'Nguyễn Bảo An' }).locator('input').uncheck();
+    check('bỏ một bé thì "Chọn tất cả" không còn tích', !(await page.isChecked('#gn-tat-ca')));
+    await page.fill('#gn-noi-dung', 'Thứ sáu này nhóm mình tổ chức sinh nhật chung ạ');
+    await page.click('#gn-gui');
+    await page.waitForSelector('#gn-ket-qua-the', { timeout: 5000 });
+    const kq = await page.locator('#gn-ket-qua-the').innerText();
+    check('báo số nhà đã gửi', kq.includes(`Đã gửi tới gia đình của ${soO - 1} bé`), kq);
+    const PH2 = (await login('phuhuynh2', '123456')).cookie;
+    const ds2 = (await req('GET', '/api/messages', { cookie: PH2 })).data?.conversations || [];
+    check('gia đình bé Gia Hân nhận trong cuộc riêng với cô',
+      ds2.some(c => c.type === 'kenh' && /sinh nhật chung/.test(c.lastMessage?.text || '')), ds2.map(c => c.lastMessage?.text));
+    const ds1 = (await req('GET', '/api/messages', { cookie: PH })).data?.conversations || [];
+    check('bé đã bỏ chọn thì gia đình không nhận', !ds1.some(c => /sinh nhật chung/.test(c.lastMessage?.text || '')));
+  }
+
   check('không có lỗi JavaScript nào trên trang', loiJs.length === 0, loiJs);
 } finally {
   await browser.close();
