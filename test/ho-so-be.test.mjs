@@ -350,13 +350,12 @@ console.log('\n[9] Dân tộc và Nhóm máu — hai ô ĐÃ HẾT CHẾT (mở 
   // ---- MÀN HÌNH: hai ô phải CÓ THẬT và phải ĐI THEO khi bấm Lưu ----
   const view = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
   check('màn Sửa hồ sơ có ô Dân tộc', /id="ad-hs-dt"/.test(view));
-  check('màn Sửa hồ sơ có ô Nhóm máu', /id="ad-hs-nm"/.test(view));
+  // Góp ý 20/10 (C1): trường bỏ ô Nhóm máu khỏi màn Sửa hồ sơ. Cột dữ liệu
+  // giữ nguyên; màn hình không gửi nữa thì máy chủ giữ giá trị cũ ("không gửi
+  // ≠ xoá" ở trên). Hành vi trên trình duyệt: test/phan-hoi-2010-dot1g-giao-dien.test.mjs.
+  check('màn Sửa hồ sơ KHÔNG còn ô Nhóm máu', !/id="ad-hs-nm"/.test(view));
   check('bấm Lưu là gửi dân tộc lên máy chủ', /ethnicity: document\.getElementById\('ad-hs-dt'\)/.test(view));
-  check('bấm Lưu là gửi nhóm máu lên máy chủ', /bloodType: document\.getElementById\('ad-hs-nm'\)/.test(view));
-  // Ô nhóm máu để TRỐNG ĐƯỢC, và màn hình phải nói ra điều đó: y tế trường
-  // không truyền máu, ghi theo trí nhớ nguy hiểm hơn để trống.
-  check('màn hình nói rõ để trống là được, không phải thiếu sót',
-    /Bỏ trống an toàn hơn/.test(view) && /cứ để trống/.test(view));
+  check('màn hình nói rõ để trống dân tộc là được, không phải thiếu sót', /cứ để trống/.test(view));
 
   // ---- ĐƯỜNG NHẬP CSV ĐẦU NĂM ----
   const csvNhap = 'Họ tên,Nhóm,Họ tên phụ huynh,Điện thoại,Dân tộc,Nhóm máu\n'
@@ -381,11 +380,12 @@ console.log('\n[9] Dân tộc và Nhóm máu — hai ô ĐÃ HẾT CHẾT (mở 
   check('TỆP KHÔNG CÓ HAI CỘT ĐÓ VẪN NHẬP ĐƯỢC NHƯ CŨ',
     cuGiuNguyen.status === 200 && cuGiuNguyen.data?.imported === 1, cuGiuNguyen.data);
 
-  // Mẫu tải về phải có sẵn hai cột, nếu không thì người điền không biết là
-  // điền được.
+  // Mẫu tải về phải có sẵn cột Dân tộc, nếu không thì người điền không biết
+  // là điền được. Cột Nhóm máu đã bỏ khỏi mẫu (góp ý 20/10, C1) — tệp cũ còn
+  // cột ấy vẫn nhập được và vẫn lưu, như mục ngay trên.
   const mau = await taiTep('/api/admin/import/template');
-  check('tệp mẫu tải về đã có hai cột đó',
-    /Dân tộc/.test(mau.chu) && /Nhóm máu/.test(mau.chu), mau.status);
+  check('tệp mẫu tải về có cột Dân tộc, không còn cột Nhóm máu',
+    /Dân tộc/.test(mau.chu) && !/Nhóm máu/.test(mau.chu), mau.status);
 }
 
 sv.dung();

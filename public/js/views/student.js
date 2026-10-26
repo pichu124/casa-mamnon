@@ -202,7 +202,6 @@ App.views.student = {
         ${infoRow('Giới tính', s.gender)}
         ${infoRow('Dân tộc', s.ethnicity)}
         ${infoRow('Địa chỉ', s.address)}
-        ${infoRow('Nhóm máu', s.bloodType)}
         ${infoRow('Tiền sử bệnh / lưu ý đặc biệt', s.tienSuBenh)}
       </div>
 
