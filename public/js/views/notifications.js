@@ -180,6 +180,9 @@ App.views.notifications = {
     const n = this.timTin(id);
     if (!n) return;
     if (n.laRiengBe) return this.moTinRiengBe(n);
+    // G2 (góp ý 20/10): thông báo khảo sát mở thẳng khảo sát. Người sửa / thu
+    // hồi được thông báo này thì vẫn vào hộp chi tiết, có thêm nút mở.
+    if (this.coLienKet(n) && !n.coTheSua) return this.moLienKet(n.id);
     const cat = this.catOf(n);
     UI.modal(`
       <div class="flex mb-8">
@@ -192,6 +195,8 @@ App.views.notifications = {
       <div style="white-space:pre-wrap;font-size:.94rem;line-height:1.55">${UI.esc(n.body)}</div>
       <div class="muted small mt-14">${UI.esc(n.authorName)} · ${UI.esc(UI.fmtDate(n.createdAt))} lúc ${UI.esc(UI.fmtTime(n.createdAt))}${
         n.daSua ? ` · đã chỉnh sửa lúc ${UI.esc(UI.fmtTime(n.suaLuc))} ${UI.esc(UI.fmtDateShort(n.suaLuc))}` : ''}</div>
+      ${this.coLienKet(n) ? `
+        <button class="btn primary block mt-14" onclick="App.views.notifications.moLienKet('${UI.esc(n.id)}')">${UI.esc(this.chuLienKet(n))}</button>` : ''}
       ${n.coTheSua ? `
         <div class="flex mt-14" style="gap:8px">
           <button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>
@@ -206,6 +211,21 @@ App.views.notifications = {
         App.refreshBadges();
       } catch (_) { /* bỏ qua lỗi mạng tạm thời */ }
     }
+  },
+
+  coLienKet(n) { return !!(n && n.lienKet && /^#\//.test(n.lienKet)); },
+  chuLienKet(n) { return /^#\/surveys\//.test(n.lienKet) ? 'Mở khảo sát' : 'Mở'; },
+
+  // Đánh dấu đã đọc rồi mở màn của liên kết. Màn đích tự hỏi máy chủ, nên
+  // liên kết không mở thêm quyền nào.
+  async moLienKet(id) {
+    const n = this.timTin(id);
+    if (!this.coLienKet(n)) return;
+    if (!n.read) {
+      try { await API.post(`/api/notifications/${n.id}/read`); n.read = true; App.refreshBadges(); } catch (_) {}
+    }
+    UI.closeModal();
+    location.hash = n.lienKet;
   },
 
   // Tin riêng về con: đánh dấu đã đọc rồi mở thẳng màn có tin (ảnh tới lớp,

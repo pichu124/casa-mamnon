@@ -1,7 +1,7 @@
 // Phân hệ Khảo sát.
 // Phụ huynh: trả lời / xem lại khảo sát. Giáo viên: tạo khảo sát, xem kết quả, đóng khảo sát.
 App.views.surveys = {
-  async render(root) {
+  async render(root, params) {
     // VAI QUẢN TRỊ KHÔNG PHẢI PHỤ HUYNH.
     //
     // Nhánh cũ chỉ hỏi `role === 'teacher'`, nên hiệu trưởng và văn phòng rơi
@@ -16,8 +16,18 @@ App.views.surveys = {
     // từ đầu. KHÔNG dùng được ở màn Điểm danh: nhánh cô ở đó đọc
     // `user.nhomCuaCo`, mà `routes/auth.js` chỉ gán ô ấy cho vai `teacher`
     // (xem chú thích Đ97 ở public/js/views/attendance.js).
-    if (App.state.user.role !== 'parent') return this.renderTeacher(root);
-    return this.renderParent(root);
+    const laGiaDinh = App.state.user.role === 'parent';
+    await (laGiaDinh ? this.renderParent(root) : this.renderTeacher(root));
+
+    // MỞ THẲNG MỘT KHẢO SÁT: #/surveys/<mã> (G2 — bấm thông báo khảo sát là
+    // làm khảo sát luôn). Đưa đường dẫn về #/surveys trước khi mở, để lần vẽ
+    // lại sau khi gửi trả lời không bật lại hộp này. Khảo sát ngoài phạm vi
+    // thì máy chủ trả "Không tìm thấy khảo sát", y như bấm từ danh sách.
+    const ma = params && params[0];
+    if (!ma) return;
+    history.replaceState(null, '', '#/surveys');
+    if (laGiaDinh) await this.openParent(ma);
+    else await this.openResults(ma);
   },
 
   // ==== Phụ huynh ====
