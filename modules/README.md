@@ -48,6 +48,7 @@ modules/hocphi/
 | `defaultEnabled` | `false` thì mặc định tắt, nhà trường tự bật |
 | `gopVao` | *Tuỳ chọn.* `{ "view": "attendance", "vai": ["teacher"] }` — với các vai này, ô của phân hệ **ẩn khỏi trang chủ khi màn `view` kia đang bật** (phần việc của nó đã nằm trong màn kia). Màn kia tắt thì ô tự hiện lại. Chỉ ẩn ô: đường dẫn `hash` và API của phân hệ vẫn phải tự đứng được, vì màn lõi có thể tắt bất cứ lúc nào |
 | `dieuKienHien` | *Tuỳ chọn.* Đường API của chính phân hệ, ví dụ `"/api/nhatky/pham-vi"`, trả về `{ "hien": true \| false }`. Trang chủ gọi đường này **trước khi vẽ ô** với người đang đăng nhập: `hien: false` thì không vẽ. Gọi lỗi hay máy chủ đời cũ thì **vẫn vẽ** — ẩn ô là tiện, không phải chốt chặn. Chỉ ẩn ô: API và `hash` vẫn mở cho người có quyền, dữ liệu đã ghi không bao giờ thành "không đọc được" |
+| `anKhoiTrangChu` | *Tuỳ chọn.* `true` — phân hệ vẫn bật nhưng **không vẽ ô trên lưới trang chủ**; lối vào nằm ở **Cài đặt → Phần việc khác**. Dành cho phân hệ phải chạy tiếp mà ít khi mở (Nhân sự & chấm công: giờ chụp cổng vẫn chép sang bảng công). Không khai thì ô hiện như cũ. Chỉ ẩn ô: `hash` và API giữ nguyên |
 
 ### `schema.sql`
 

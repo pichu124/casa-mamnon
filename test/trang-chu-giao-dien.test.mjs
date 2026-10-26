@@ -127,12 +127,16 @@ console.log('\n[2] Văn phòng: cây cơ sở → nhóm → bé');
   const t = await chu(page);
   check('có "Hôm nay theo cơ sở"', t.includes('Hôm nay theo cơ sở'), t.slice(0, 200));
   check('liệt kê cơ sở 1 và cơ sở 2', t.includes('Cơ sở 1') && t.includes('Cơ sở 2'));
-  check('liệt kê nhóm Chồi 2 và nhóm Mầm 1 (trống)', t.includes('Chồi 2') && t.includes('Mầm 1'));
+  // Đ241f (góp ý 20/10, A2): mỗi cơ sở là một khối gập sẵn — innerText không
+  // thấy phần gập, nên đếm nhóm bằng textContent.
+  const tq = await page.locator('#tq-panel').textContent();
+  check('liệt kê nhóm Chồi 2 và nhóm Mầm 1 (trống)', tq.includes('Chồi 2') && tq.includes('Mầm 1'));
   check('TRANG CHỦ KHÔNG còn ô chọn bé phẳng của cả trường', !t.includes('Đang xem hồ sơ của bé'));
   check('tổng bé và tổng nhóm ghi trên đầu', t.includes(`${MAU.soBe} bé`) && t.includes(`${MAU.soNhom} nhóm`), t.slice(0, 300));
   await page.screenshot({ path: SHOT + 'vanphong-trang-chu.png', fullPage: true });
 
-  // Bấm nhóm Chồi 2 → màn nhóm.
+  // Bấm nhóm Chồi 2 → màn nhóm (mở khối Cơ sở 1 trước — gập sẵn từ Đ241f).
+  await page.locator('#tq-panel details.tq-coso > summary', { hasText: 'Cơ sở 1' }).click();
   await page.locator('.tq-nhom', { hasText: 'Chồi 2' }).first().click();
   await page.waitForSelector('#view .card .list-row', { timeout: 6000 });
   check('tới màn nhóm', (await location(page)) === '#/dashboard/nhom/c1', await location(page));
