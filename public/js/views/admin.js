@@ -2462,7 +2462,41 @@ Vẫn nhận bé này?`)) {
         Các tính năng còn lại vẫn chạy bình thường.</div>` : ''}
       ${khoi('Trên màn hình chính', list.filter(m => !m.nav && !m.moRong))}
       ${khoi('Trên thanh điều hướng', list.filter(m => m.nav && !m.moRong))}
-      ${khoi('Tính năng cắm thêm', list.filter(m => m.moRong))}`;
+      ${khoi('Tính năng cắm thêm', list.filter(m => m.moRong))}
+      <div id="tn-nhan-tin-nn"></div>`;
+    this.veCongTacCoNuocNgoai();
+  },
+
+  // CÔNG TẮC "PHỤ HUYNH NHẮN TIN CÔ NƯỚC NGOÀI" (Đ242F — F6b). Tải riêng và nuốt
+  // lỗi: phân hệ Nhắn tin tắt hay hỏng thì thẻ này không hiện, còn các tính
+  // năng khác trên màn vẫn đổi được như thường.
+  async veCongTacCoNuocNgoai() {
+    const o = document.getElementById('tn-nhan-tin-nn');
+    if (!o) return;
+    let cd;
+    try { cd = await API.get('/api/messages/cai-dat'); } catch (_) { return; }
+    if (!cd || !cd.suaDuoc) return;
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">Nhắn tin</div>
+        <div class="list-row">
+          <div class="row-main">
+            <div class="row-title">Gia đình nhắn tin với cô nước ngoài</div>
+            <div class="row-sub">Tắt thì gia đình không mở được cuộc mới và cả hai bên không gửi thêm tin
+              với cô nước ngoài. Tin cũ vẫn đọc được. Bật lại là dùng tiếp như cũ.</div>
+          </div>
+          <button class="btn sm ${cd.coNuocNgoai ? 'success-soft' : 'outline'}" id="tn-nn-doi">
+            ${cd.coNuocNgoai ? 'Đang bật' : 'Đang tắt'}
+          </button>
+        </div>
+      </div>`;
+    document.getElementById('tn-nn-doi').onclick = async () => {
+      try {
+        await API.put('/api/messages/cai-dat', { coNuocNgoai: !cd.coNuocNgoai });
+        UI.toast(cd.coNuocNgoai ? 'Đã tắt nhắn tin với cô nước ngoài' : 'Đã bật nhắn tin với cô nước ngoài', 'success');
+        this.veCongTacCoNuocNgoai();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   async doiTinhNang(key, bat) {
@@ -2667,10 +2701,13 @@ Vẫn nhận bé này?`)) {
       'nhom-lua-tuoi-khai': 'Khai lứa tuổi của nhóm lớp',
       'nhom-lua-tuoi-go': 'Gỡ lời khai lứa tuổi của nhóm lớp',
       'tin-nhan-thu-hoi': 'Thu hồi một lời nhắn đã gửi',
+      'tin-nhan-gui-nhieu-nha': 'Nhắn một tin cho nhiều gia đình, mỗi nhà một cuộc riêng',
+      'nhantin-co-nuoc-ngoai': 'Bật hoặc tắt phần gia đình nhắn tin với cô nước ngoài',
       'phong-chung-tao': 'Lập một phòng chung trong Nhắn tin',
       'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
       'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',
       'hoi-thoai-da-dong-mo': 'Xem lại một cuộc trò chuyện đã đóng',
+      'hoi-thoai-quan-ly-xem': 'Quản lý xem một cuộc trò chuyện giữa cô và gia đình',
       'module-enable': 'Bật tính năng',
       'module-disable': 'Tắt tính năng',
 

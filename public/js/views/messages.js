@@ -10,8 +10,29 @@ App.views.messages = {
 
   async render(root, params) {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    if (params && params[0] === 'gui-nhieu') return this.renderGuiNhieu(root);
+    if (params && params[0] === 'quan-ly') {
+      return params[1] ? this.renderXem(root, params[1]) : this.renderQuanLy(root);
+    }
     if (params && params[0]) return this.renderChat(root, params[0]);
     return this.renderList(root);
+  },
+
+  // Ai trong khối quản trị xem được hội thoại cô – gia đình (Đ242F) — cùng danh
+  // sách với `CHUC_VU_XEM_TIN_CO` ở routes/messages.js. Chỉ để không mời bấm vào
+  // thứ sẽ bị từ chối; máy chủ vẫn là người chốt.
+  laQuanLyTinCo() {
+    const u = App.state.user || {};
+    return u.role === 'admin'
+      && (u.chucVu == null || ['hieu-truong', 'quanly-coso', 'vanphong-coso'].includes(u.chucVu));
+  },
+
+  // MINH BẠCH VỚI NGƯỜI BỊ XEM (Đ242F, Nghị định 13/2023): cô và gia đình được
+  // báo trước, ngay trên màn Nhắn tin của mình, rằng quản lý có thể xem.
+  dongMinhBach() {
+    return '<div class="muted small" id="msg-minh-bach" style="margin:0 2px 12px;line-height:1.5">'
+      + 'Để bảo đảm chất lượng trao đổi, ban giám hiệu và quản lý cơ sở có thể xem '
+      + 'các cuộc trò chuyện giữa cô và gia đình.</div>';
   },
 
   // ---- Danh sách hội thoại ----
@@ -52,8 +73,18 @@ App.views.messages = {
   veDanhSach() {
     const root = this._root;
     const convs = this._daTai;
+    const laQuanTri = App.state.user.role === 'admin';
     root.innerHTML = `
       ${UI.pageHeader('Nhắn tin', { action: { id: 'msg-new', label: 'Trò chuyện mới', icon: 'plus' } })}
+      ${laQuanTri ? '' : this.dongMinhBach()}
+      ${App.state.user.role === 'teacher' ? `
+        <button class="btn outline block mb-8" id="msg-nhieu-nha">
+          ${UI.icon('send', 16)} Nhắn nhiều gia đình
+        </button>` : ''}
+      ${this.laQuanLyTinCo() ? `
+        <button class="btn outline block mb-8" id="msg-quan-ly">
+          ${UI.icon('chat', 16)} Hội thoại cô – gia đình
+        </button>` : ''}
       ${convs.length ? `<div class="card">
         ${convs.map(cv => `
           <div class="chat-list-row" onclick="App.navigate('#/messages/${UI.esc(cv.id)}')">
@@ -76,6 +107,10 @@ App.views.messages = {
           ${UI.icon('plus', 16)} Xem hội thoại cũ hơn
         </button>` : ''}`;
     document.getElementById('msg-new').onclick = () => this.openNew();
+    const nutQuanLy = document.getElementById('msg-quan-ly');
+    if (nutQuanLy) nutQuanLy.onclick = () => App.navigate('#/messages/quan-ly');
+    const nutNhieu = document.getElementById('msg-nhieu-nha');
+    if (nutNhieu) nutNhieu.onclick = () => App.navigate('#/messages/gui-nhieu');
     const themNua = document.getElementById('btn-ht-cu-hon');
     if (themNua) {
       themNua.onclick = async () => {
@@ -101,6 +136,9 @@ App.views.messages = {
   // nói với cả trường thì đã có Thông báo. Câu trong ô trống nói rõ điều đó
   // thay vì để văn phòng đứng nhìn một danh sách rỗng mà đoán.
   openNew() {
+    // Văn phòng, quản lý cơ sở, ban giám hiệu: mở tin với gia đình ở màn chọn bé
+    // (Đ242F, F3) — danh sách liên hệ gửi kèm màn này cố ý rỗng với họ.
+    if (this.laQuanLyTinCo()) return App.navigate('#/messages/gui-nhieu');
     const laVanPhong = App.state.user.role === 'admin';
     // `coNguoiNhan: false`: nhóm của bé chưa có cô nào giữ vai này (góp ý
     // 20/10, F6). Dòng vẫn hiện và vẫn mở được cuộc cũ, nhưng nói rõ trước khi
@@ -137,9 +175,257 @@ App.views.messages = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
+  // ---- Một tin cho nhiều gia đình (Đ242F, F2) ----
+  //
+  // Mỗi gia đình nhận trong cuộc riêng của nhà mình — các nhà không thấy tên
+  // nhau. Lựa chọn giữ qua lúc đổi nhóm, để cô phụ trách hai nhóm chọn được bé
+  // của cả hai trong một lượt.
+  async renderGuiNhieu(root) {
+    const chon = await API.get('/api/messages/chon-be');
+    this._chonGN = chon;
+    this._daChonGN = new Set();
+    const loc = this._locGN = { coSo: chon.coSo.length === 1 ? chon.coSo[0].id : '', nhom: '' };
+    const nhomDau = chon.nhom.filter(n => !loc.coSo || n.coSo === loc.coSo);
+    if (nhomDau.length === 1) loc.nhom = nhomDau[0].id;
+    const laVanPhong = App.state.user.role === 'admin';
+    root.innerHTML = `
+      ${UI.pageHeader(laVanPhong ? 'Nhắn gia đình' : 'Nhắn nhiều gia đình')}
+      <div class="muted small" style="margin:0 2px 12px;line-height:1.5">
+        ${laVanPhong
+    ? 'Chọn một hay nhiều bé. Mỗi phụ huynh của bé nhận tin trong hộp thư riêng của mình với văn phòng nhà trường. Các gia đình không thấy tên nhau.'
+    : 'Mỗi gia đình nhận tin trong cuộc trò chuyện riêng của nhà mình. Các gia đình không thấy tên nhau.'}
+      </div>
+      <div class="card">
+        ${chon.coSo.length > 1 ? '<div class="field"><label for="gn-coso">Cơ sở</label><select id="gn-coso"></select></div>' : ''}
+        ${chon.nhom.length > 1 ? '<div class="field"><label for="gn-nhom">Nhóm lớp</label><select id="gn-nhom"></select></div>' : ''}
+        <label class="list-row" style="gap:10px;cursor:pointer">
+          <input type="checkbox" id="gn-tat-ca" style="width:22px;height:22px">
+          <span class="row-title">Chọn tất cả</span>
+        </label>
+        <div id="gn-ds"></div>
+        <div class="muted small mt-8" id="gn-dem"></div>
+      </div>
+      <div class="card mt-14">
+        <div class="field"><label for="gn-noi-dung">Nội dung</label>
+          <textarea id="gn-noi-dung" rows="4" maxlength="2000" placeholder="Viết lời nhắn gửi các gia đình…"></textarea></div>
+        <button class="btn block" id="gn-gui">${UI.icon('send', 16)} Gửi</button>
+      </div>
+      <div id="gn-ket-qua" class="mt-14"></div>`;
+    const oCoSo = document.getElementById('gn-coso');
+    if (oCoSo) oCoSo.onchange = (e) => { loc.coSo = e.target.value; loc.nhom = ''; this.veChonGN(); };
+    const oNhom = document.getElementById('gn-nhom');
+    if (oNhom) oNhom.onchange = (e) => { loc.nhom = e.target.value; this.veChonGN(); };
+    document.getElementById('gn-tat-ca').onchange = (e) => {
+      for (const b of this.beDangHienGN()) {
+        if (e.target.checked) this._daChonGN.add(b.id); else this._daChonGN.delete(b.id);
+      }
+      this.veChonGN();
+    };
+    document.getElementById('gn-gui').onclick = () => this.guiNhieu();
+    this.veChonGN();
+  },
+
+  // Bé đang hiện trong danh sách — chỉ bé có tài khoản gia đình mới chọn được.
+  beDangHienGN() {
+    const loc = this._locGN;
+    return loc.nhom ? this._chonGN.be.filter(b => b.nhom === loc.nhom && b.coGiaDinh) : [];
+  },
+
+  veChonGN() {
+    const chon = this._chonGN;
+    const loc = this._locGN;
+    const tuyChon = (ds, chonSan, nhanTrong) => `<option value="">${UI.esc(nhanTrong)}</option>`
+      + ds.map(x => `<option value="${UI.esc(x.id)}"${x.id === chonSan ? ' selected' : ''}>${UI.esc(x.ten)}</option>`).join('');
+    const oCoSo = document.getElementById('gn-coso');
+    if (oCoSo) oCoSo.innerHTML = tuyChon(chon.coSo, loc.coSo, 'Mọi cơ sở');
+    const oNhom = document.getElementById('gn-nhom');
+    if (oNhom) oNhom.innerHTML = tuyChon(chon.nhom.filter(n => !loc.coSo || n.coSo === loc.coSo), loc.nhom, 'Chọn nhóm lớp');
+    const o = document.getElementById('gn-ds');
+    const tatCa = document.getElementById('gn-tat-ca');
+    const ds = loc.nhom ? chon.be.filter(b => b.nhom === loc.nhom) : [];
+    if (!loc.nhom) o.innerHTML = '<p class="muted small">Chọn một nhóm lớp để hiện danh sách các bé.</p>';
+    else if (!ds.length) o.innerHTML = '<p class="muted small">Nhóm này chưa có bé nào.</p>';
+    else {
+      o.innerHTML = ds.map(b => `
+        <label class="list-row gn-be" style="gap:10px;cursor:pointer${b.coGiaDinh ? '' : ';opacity:.6'}">
+          <input type="checkbox" value="${UI.esc(b.id)}" style="width:22px;height:22px"
+            ${this._daChonGN.has(b.id) ? 'checked' : ''}${b.coGiaDinh ? '' : ' disabled'}>
+          <span class="row-main"><span class="row-title">${UI.esc(b.ten)}</span>
+            ${b.coGiaDinh ? '' : '<span class="row-sub">Bé chưa có tài khoản gia đình trên app</span>'}</span>
+        </label>`).join('');
+      for (const el of o.querySelectorAll('input[type=checkbox]')) {
+        el.onchange = () => {
+          if (el.checked) this._daChonGN.add(el.value); else this._daChonGN.delete(el.value);
+          this.veChonGN();
+        };
+      }
+    }
+    const hien = this.beDangHienGN();
+    tatCa.checked = hien.length > 0 && hien.every(b => this._daChonGN.has(b.id));
+    tatCa.disabled = !hien.length;
+    document.getElementById('gn-dem').textContent = this._daChonGN.size
+      ? `Đã chọn gia đình của ${this._daChonGN.size} bé` : 'Chưa chọn bé nào';
+  },
+
+  async guiNhieu() {
+    const nut = document.getElementById('gn-gui');
+    const o = document.getElementById('gn-noi-dung');
+    const text = o.value.trim();
+    if (!this._daChonGN.size) return UI.toast('Chọn ít nhất một bé để gửi nhé', 'error');
+    if (!text) return UI.toast('Viết nội dung tin nhắn trước nhé', 'error');
+    if (nut.disabled) return;
+    nut.disabled = true;
+    try {
+      const kq = await API.post('/api/messages/gui-nhieu-nha', { studentIds: [...this._daChonGN], text });
+      const ten = new Map(this._chonGN.be.map(b => [b.id, b.ten]));
+      document.getElementById('gn-ket-qua').innerHTML = `
+        <div class="card" id="gn-ket-qua-the">
+          <div style="font-weight:700">Đã gửi tới gia đình của ${UI.esc(kq.soNha)} bé.</div>
+          ${kq.khongGui.length ? `<div class="mt-8">Chưa gửi được:</div>
+            <ul style="margin:6px 0 0 18px;padding:0">${kq.khongGui.map(x => `
+              <li>${UI.esc(x.ten || ten.get(x.studentId) || 'Một bé')}: ${UI.esc(x.lyDo)}</li>`).join('')}</ul>` : ''}
+          ${kq.soCuoc === 1 ? '<button class="btn outline sm mt-8" id="gn-mo-cuoc">Mở cuộc trò chuyện</button>' : ''}
+        </div>`;
+      const nutMo = document.getElementById('gn-mo-cuoc');
+      const maCuoc = (kq.daGui[0] && kq.daGui[0].conversationIds || [])[0];
+      if (nutMo && maCuoc) nutMo.onclick = () => App.navigate('#/messages/' + encodeURIComponent(maCuoc));
+      o.value = '';
+      this._daChonGN.clear();
+      this.veChonGN();
+      UI.toast('Đã gửi tin nhắn', 'success');
+    } catch (err) {
+      UI.toast(err.message || 'Chưa gửi được tin nhắn', 'error');
+    } finally { nut.disabled = false; }
+  },
+
+  // ---- Hội thoại cô – gia đình: màn của quản lý (Đ242F, F1) ----
+  //
+  // Lọc cơ sở → nhóm → bé rồi mới liệt kê, không đổ cả trường ra một lần. Mở
+  // một cuộc là CHỈ ĐỌC: máy chủ không ghi quản lý vào cuộc, không đánh dấu đã
+  // đọc hộ ai, và ghi mỗi lượt mở vào nhật ký của trường.
+  _locQL: null,
+
+  async renderQuanLy(root) {
+    const chon = await API.get('/api/messages/chon-be');
+    this._chonQL = chon;
+    // Bộ lọc nhớ giữa hai lượt mở (bấm vào một cuộc rồi quay lại), nhưng chỉ khi
+    // vẫn còn trong phạm vi — đăng nhập tài khoản khác trên cùng máy thì làm lại.
+    let loc = this._locQL;
+    if (!loc || (loc.coSo && !chon.coSo.some(c => c.id === loc.coSo))
+      || (loc.nhom && !chon.nhom.some(n => n.id === loc.nhom))) {
+      loc = this._locQL = { coSo: '', nhom: '', be: '' };
+    }
+    if (!loc.coSo && chon.coSo.length === 1) loc.coSo = chon.coSo[0].id;
+    root.innerHTML = `
+      ${UI.pageHeader('Hội thoại cô – gia đình')}
+      <div class="muted small" style="margin:0 2px 12px;line-height:1.5">
+        Mở một cuộc là chỉ đọc: không nhắn vào được, không đánh dấu đã đọc thay cô hay gia đình,
+        và mỗi lượt mở đều được ghi vào nhật ký của trường.
+      </div>
+      <div class="card">
+        <div class="field"><label for="ql-coso">Cơ sở</label><select id="ql-coso"></select></div>
+        <div class="field"><label for="ql-nhom">Nhóm lớp</label><select id="ql-nhom"></select></div>
+        <div class="field"><label for="ql-be">Bé</label><select id="ql-be"></select></div>
+      </div>
+      <div id="ql-ds" class="mt-14"></div>`;
+    const doi = (khoa, ...xoa) => (e) => {
+      loc[khoa] = e.target.value;
+      for (const k of xoa) loc[k] = '';
+      this.veBoLocQL();
+      this.taiCuocQL();
+    };
+    document.getElementById('ql-coso').onchange = doi('coSo', 'nhom', 'be');
+    document.getElementById('ql-nhom').onchange = doi('nhom', 'be');
+    document.getElementById('ql-be').onchange = doi('be');
+    this.veBoLocQL();
+    await this.taiCuocQL();
+  },
+
+  veBoLocQL() {
+    const chon = this._chonQL;
+    const loc = this._locQL;
+    const tuyChon = (ds, chonSan, nhanTrong) => `<option value="">${UI.esc(nhanTrong)}</option>`
+      + ds.map(x => `<option value="${UI.esc(x.id)}"${x.id === chonSan ? ' selected' : ''}>${UI.esc(x.ten)}</option>`).join('');
+    const nhom = chon.nhom.filter(n => !loc.coSo || n.coSo === loc.coSo);
+    const be = chon.be.filter(b => b.nhom === loc.nhom);
+    document.getElementById('ql-coso').innerHTML = tuyChon(chon.coSo, loc.coSo, 'Mọi cơ sở');
+    document.getElementById('ql-nhom').innerHTML = tuyChon(nhom, loc.nhom, 'Chọn nhóm lớp');
+    document.getElementById('ql-be').innerHTML = tuyChon(be, loc.be, 'Mọi bé trong nhóm');
+    document.getElementById('ql-be').disabled = !loc.nhom;
+  },
+
+  async taiCuocQL() {
+    const o = document.getElementById('ql-ds');
+    const loc = this._locQL;
+    if (!o) return;
+    if (!loc.nhom) {
+      o.innerHTML = UI.emptyState('💬', 'Chọn một nhóm lớp để xem các cuộc trò chuyện giữa cô và gia đình.');
+      return;
+    }
+    o.innerHTML = '<div class="loading">Đang tải</div>';
+    const q = `classId=${encodeURIComponent(loc.nhom)}${loc.be ? `&studentId=${encodeURIComponent(loc.be)}` : ''}`;
+    try {
+      const { cuoc } = await API.get(`/api/messages/quan-ly/cuoc?${q}`);
+      o.innerHTML = cuoc.length ? `<div class="card">${cuoc.map(c => `
+        <div class="chat-list-row ql-cuoc" data-id="${UI.esc(c.id)}">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600">Gia đình bé ${UI.esc(c.tenBe)}</div>
+            <div class="chat-list-sub muted" style="font-size:.78rem">${UI.esc([c.tenKenh, c.tenNhom].filter(Boolean).join(' · '))}</div>
+            <div class="muted" style="font-size:.78rem">${c.soTin ? `${UI.esc(c.soTin)} tin nhắn` : 'Chưa có tin nhắn'}${c.daDong ? ' · Nhà trường đã đóng' : ''}</div>
+          </div>
+          ${c.tinCuoiLuc ? `<div class="muted" style="font-size:.74rem;flex:none">${UI.esc(UI.timeAgo(c.tinCuoiLuc))}</div>` : ''}
+        </div>`).join('')}</div>`
+        : UI.emptyState('💬', 'Chưa có cuộc trò chuyện nào giữa cô và gia đình ở đây.');
+      for (const el of o.querySelectorAll('.ql-cuoc')) {
+        el.onclick = () => App.navigate('#/messages/quan-ly/' + encodeURIComponent(el.dataset.id));
+      }
+    } catch (err) {
+      o.innerHTML = UI.emptyState('😥', err.message || 'Chưa tải được danh sách');
+    }
+  },
+
+  // Mở một cuộc ở chế độ xem của quản lý: KHÔNG ô nhập, KHÔNG hỏi tin mới
+  // (đường hỏi tin mới là của người trong cuộc), có ghi tên người gửi.
+  async renderXem(root, id) {
+    const cv = await API.get('/api/messages/quan-ly/cuoc/' + encodeURIComponent(id));
+    this._xemQL = true;
+    this._duongTin = '/api/messages/quan-ly/cuoc/';
+    this._convId = cv.id;
+    this._type = cv.type;
+    this._daDong = true;
+    this._lastDay = null;
+    this._tuLuc = cv.tuLuc || '';
+    let bubbles = cv.conCu ? this.nutTinCu() : '';
+    for (const m of cv.messages) {
+      const day = new Date(m.createdAt).toDateString();
+      if (day !== this._lastDay) { bubbles += this.dayLine(m.createdAt); this._lastDay = day; }
+      bubbles += this.bubbleHtml(m);
+    }
+    root.innerHTML = `
+      <div class="chat-screen">
+        <div class="page-head" style="position:static">
+          <button class="back-btn" onclick="history.back()" aria-label="Quay lại">${UI.icon('back', 20)}</button>
+          ${UI.avatar(cv.avatar, 42)}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700">${UI.esc(cv.title)}</div>
+            <div class="muted small">${UI.esc(cv.subtitle)}</div>
+          </div>
+        </div>
+        <div class="muted small" id="chat-chi-doc" style="padding:8px 14px;background:var(--soft,#f4f6fb);line-height:1.5">
+          <b>Chế độ xem của quản lý — chỉ đọc.</b>
+          ${cv.daDong ? ' Nhà trường đã đóng cuộc trò chuyện này.' : ''}
+        </div>
+        <div class="chat-msgs" id="chat-msgs">${bubbles || UI.emptyState('💬', 'Chưa có tin nhắn nào.')}</div>
+      </div>`;
+    const msgsEl = document.getElementById('chat-msgs');
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  },
+
   // ---- Phòng chat ----
   async renderChat(root, id) {
     const cv = await API.get('/api/messages/' + encodeURIComponent(id));
+    this._xemQL = false;
+    this._duongTin = '/api/messages/';
     this._convId = cv.id;
     this._type = cv.type;
     this._daDong = !!cv.daDong;
@@ -170,6 +456,9 @@ App.views.messages = {
             Nhà trường đã <b>đóng</b> cuộc trò chuyện này. Nội dung cũ vẫn được giữ nguyên,
             nhưng không nhắn thêm được nữa.
             ${cv.dongDuoc ? '<button class="btn outline sm mt-8" id="chat-mo-lai">Mở lại cuộc trò chuyện</button>' : ''}
+          </div>` : cv.tamDung ? `
+          <div class="muted small" id="chat-tam-dung" style="padding:12px 14px;line-height:1.6;border-top:1px solid var(--line,#e6e8ee)">
+            ${UI.esc(cv.tamDung)}
           </div>` : `
           <div class="chat-input-bar">
             <textarea id="chat-input" rows="1" placeholder="Nhắn tin..."></textarea>
@@ -181,7 +470,8 @@ App.views.messages = {
 
     // Cuộc đã đóng thì không có ô nhập để gắn sự kiện, và cũng không cần hỏi
     // tin mới — đóng rồi thì không ai nhắn được nữa.
-    if (cv.daDong) {
+    // Kênh nhà trường đang tạm tắt (F6b) cũng vậy: chỉ đọc, không ô nhập.
+    if (cv.daDong || cv.tamDung) {
       const nutMo = document.getElementById('chat-mo-lai');
       if (nutMo) nutMo.onclick = () => this.moLai(cv.id);
       App.refreshBadges();
@@ -262,7 +552,7 @@ App.views.messages = {
     if (!el || !o) return;
     o.innerHTML = '<span class="muted small">Đang tải…</span>';
     try {
-      const r = await API.get(`/api/messages/${encodeURIComponent(this._convId)}`
+      const r = await API.get(`${this._duongTin || '/api/messages/'}${encodeURIComponent(this._convId)}`
         + `?truoc=${encodeURIComponent(this._tuLuc || '')}`);
       const ds = r.messages || [];
       // Chèn LÊN ĐẦU và giữ nguyên chỗ cô đang đọc: nhảy về đầu hay về cuối
@@ -311,7 +601,9 @@ App.views.messages = {
   // Nút "Thu hồi" chỉ trên tin của chính mình, cuộc chưa đóng — đúng điều kiện
   // máy chủ nhận.
   bubbleHtml(m) {
-    const showSender = this._type === 'group' && !m.mine;
+    // Quản lý xem một cuộc của người khác thì mọi bong bóng đều "không phải của
+    // tôi" — không ghi tên người gửi là không biết câu nào của cô, câu nào của nhà.
+    const showSender = (this._type === 'group' || this._xemQL) && !m.mine;
     const noiDung = m.daThuHoi
       ? '<i class="bubble-thu-hoi" style="opacity:.75">Tin nhắn đã được thu hồi</i>'
       : UI.esc(m.text);

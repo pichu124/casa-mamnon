@@ -59,6 +59,23 @@ function mondayOf(d) {
 }
 function pick(arr, i) { return arr[i % arr.length]; }
 
+// MỖI NHÓM MỘT CÔ NƯỚC NGOÀI (Đ242F — F6b): cô Emily ở ba nhóm cơ sở 1, cô
+// Sarah ở Mầm 1 (cơ sở 2). Ghi thẳng hàng phân công vai `phu` và vai nhóm cô
+// `nuoc-ngoai` SAU khi nhập — đi qua `classes[].teacherIds` thì bộ nhập sẽ đặt
+// cô làm phụ trách chính của nhóm chưa có cô (Mầm 1), sai vai.
+const CO_NUOC_NGOAI = [['c1', 't5'], ['c2', 't5'], ['c4', 't5'], ['c3', 't6']];
+function ganCoNuocNgoai(db) {
+  const luc = new Date().toISOString();
+  db.tx(() => {
+    for (const [classId, teacherId] of CO_NUOC_NGOAI) {
+      db.run(`INSERT OR IGNORE INTO class_teachers (classId, teacherId, vaiTro, ganLuc)
+              VALUES (?, ?, 'phu', ?)`, [classId, teacherId, luc]);
+      db.run(`INSERT OR REPLACE INTO class_teacher_nhom (classId, teacherId, nhom)
+              VALUES (?, ?, 'nuoc-ngoai')`, [classId, teacherId]);
+    }
+  });
+}
+
 // Dữ liệu mẫu cho TÁM PHÂN HỆ MẦM NON.
 //
 // VÌ SAO TÁCH RA MỘT TỆP RIÊNG
@@ -649,6 +666,11 @@ function generate() {
     { id: 'p7', username: 'ph.trang', passwordHash: DEMO_HASH, role: 'parent', name: 'Ngô Thùy Trang', title: 'Chị', phone: '0909 111 555', email: 'thuytrang@gmail.com', avatar: { emoji: '👩', bg: '#9b59b6' } },
     { id: 'p8', username: 'ph.duy', passwordHash: DEMO_HASH, role: 'parent', name: 'Lý Khánh Duy', title: 'Anh', phone: '0909 222 666', email: 'khanhduy@gmail.com', avatar: { emoji: '👨', bg: '#34495e' } },
     { id: 'p9', username: 'ph.nga', passwordHash: DEMO_HASH, role: 'parent', name: 'Trịnh Hồng Nga', title: 'Chị', phone: '0909 333 777', email: 'hongnga@gmail.com', avatar: { emoji: '👩', bg: '#1abc9c' } },
+    // CÔ NƯỚC NGOÀI (Đ242F — F6b). Chủ dự án 26/10: "lớp nào cũng có cô nước
+    // ngoài", phụ huynh nhắn được cho cô ngay trên máy thử. Phân vào nhóm ở bước
+    // `ganCoNuocNgoai` bên dưới, vai `nuoc-ngoai`, KHÔNG làm cô phụ trách chính.
+    { id: 't5', username: 'giaovien.nn', passwordHash: DEMO_HASH, role: 'teacher', name: 'Emily Carter', title: 'Cô', phone: '0903 999 111', email: 'emily@casamamnon.edu.vn', classId: null, avatar: { emoji: '👩‍🏫', bg: '#3498db' } },
+    { id: 't6', username: 'giaovien.nn2', passwordHash: DEMO_HASH, role: 'teacher', name: 'Sarah Miller', title: 'Cô', phone: '0903 999 222', email: 'sarah@casamamnon.edu.vn', classId: null, avatar: { emoji: '👩‍🏫', bg: '#8e44ad' } },
   ];
   // Tài khoản mẫu có từ đầu năm học, TRƯỚC mọi thông báo mẫu. Gia đình chỉ
   // thấy thông báo từ ngày tài khoản được tạo (lib/thong-bao.js) — thiếu dòng
@@ -1242,6 +1264,7 @@ function generate() {
   };
 
   const stats = importSnapshot(db);
+  ganCoNuocNgoai(require('../lib/db'));
 
   // DỮ LIỆU MẪU CHO TÁM PHÂN HỆ MẦM NON.
   //
