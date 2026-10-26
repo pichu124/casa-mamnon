@@ -79,8 +79,9 @@ function memberIds(conversationId) {
 //
 // HÀNG THÀNH VIÊN VẪN GHI, nhưng chỉ để đếm tin chưa đọc và để hội thoại hiện
 // trong danh sách (hai thứ đó đi theo `conversation_members`). Hàng ấy được
-// THÊM VÀO khi người có quyền mở màn, và nó KHÔNG cấp quyền — quyền vẫn tính
-// lại ở `findConv`.
+// THÊM VÀO khi người có quyền mở màn, và khi có tin gửi vào cuộc (cho mọi
+// người nhận, xem `ghiNguoiNhan`). Nó KHÔNG cấp quyền — quyền vẫn tính lại ở
+// `findConv`.
 // BA ĐẦU MỐI CHO GIA ĐÌNH (Đ188, Câu 11).
 //
 // Nhà trường: *"Khi ở giao diện của Phụ huynh tôi chỉ muốn hiện lên 3 ng để PH
@@ -185,6 +186,59 @@ function vaoDuocKenh(user, k) {
   }
   if (user.role === 'admin') return k.loai === 'vanphong' && db.canAccessStudent(user, k.studentId);
   return false;
+}
+
+// Các cô đọc được một kênh cô của một nhóm: cô đang phụ trách nhóm VÀ giữ đúng
+// vai ứng với kênh. Cùng chốt `vaoDuocKenh`, hỏi cho từng cô của nhóm.
+function coNhanKenh(loai, classId) {
+  if (!laKenhCuaNhom(loai) || !classId) return [];
+  return db.teacherIdsOfClass(classId)
+    .map(id => db.findUser(id))
+    .filter(u => u && u.active !== false && vaoDuocKenh(u, { loai, classId }));
+}
+
+// Lời từ chối khi kênh cô chưa có ai nhận (F6, góp ý 20/10).
+function loiChuaCoNguoiNhan(loai) {
+  const ten = (nhomCo.TEN_NHOM[NHOM_CUA_KENH[loai]] || 'cô').toLowerCase();
+  return `Nhóm của bé hiện chưa có ${ten} nhận tin nhắn. Gia đình nhắn `
+    + `${loai === 'nhom' ? '' : 'cô phụ trách nhóm hoặc '}văn phòng nhà trường nhé.`;
+}
+
+// GHI HÀNG THÀNH VIÊN CHO NGƯỜI NHẬN NGAY LÚC CÓ TIN (Đ241c, góp ý 20/10 F5).
+//
+// Huy hiệu ở routes/dashboard.js đếm qua `conversation_members`. Trước đây
+// hàng của cô và văn phòng chỉ được thêm khi CHÍNH họ mở màn Nhắn tin
+// (`dongBoKenh`), nên gia đình nhắn tới mà ô Nhắn tin trên trang chủ vẫn 0.
+// Ghi ở đây, lúc gửi, thay vì đồng bộ trong đường huy hiệu: đường ấy chạy mỗi
+// lần đổi màn, còn đường này chỉ chạy khi có người nhắn.
+//
+// Chỉ thêm người mà chốt quyền đang có cho vào — `vaoDuocKenh` / `kvp.vaoDuoc`
+// — nên không cô nào của nhóm khác, không văn phòng cơ sở khác được ghi. Và
+// hàng thành viên vẫn KHÔNG cấp quyền: `findConv` tính lại mỗi lần mở.
+function ghiNguoiNhan(cv) {
+  let nhan = [];
+  const vanPhong = () => db.all('users', "SELECT id FROM users WHERE role = 'admin' AND active = 1")
+    .map(r => db.findUser(r.id)).filter(Boolean);
+  if (cv.type === kvp.LOAI) {
+    const row = kvp.cuaHoiThoai(cv.id);
+    nhan = vanPhong().filter(u => kvp.vanPhongVaoDuoc(u, row));
+  } else if (cv.type === 'kenh') {
+    const k = kenhCua(cv.id);
+    if (!k) return;
+    const be = db.findStudent(k.studentId);
+    const giaDinh = ((be && be.parentIds) || []).map(id => db.findUser(id))
+      .filter(u => u && vaoDuocKenh(u, k));
+    nhan = giaDinh.concat(laKenhCuaNhom(k.loai)
+      ? coNhanKenh(k.loai, k.classId)
+      : vanPhong().filter(u => vaoDuocKenh(u, k)));
+  }
+  if (!nhan.length) return;
+  const daCo = new Set(memberIds(cv.id));
+  for (const u of nhan) {
+    if (daCo.has(u.id)) continue;
+    daCo.add(u.id);
+    db.insert('conversation_members', { conversationId: cv.id, userId: u.id, lastRead: null });
+  }
 }
 
 // Kênh đã có của một bé, theo loại.
@@ -349,10 +403,10 @@ function contactsFor(user) {
       // ĐÚNG BA ĐẦU MỐI MỖI BÉ, theo lời trường (Đ188, Câu 11): giáo viên chủ
       // nhiệm, giáo viên nước ngoài, văn phòng nhà trường.
       //
-      // Hai kênh đầu vẫn mời dù nhóm CHƯA có cô nào giữ vai ấy. Ẩn đi thì gia
-      // đình không hiểu vì sao nhà bên cạnh có ba ô còn mình có hai, và họ sẽ
-      // gọi điện hỏi — trong khi chuyện thật chỉ là trường chưa khai xong phân
-      // công. Tin nhắn nằm chờ trong kênh, cô nhận vai là thấy ngay.
+      // Hai kênh đầu vẫn HIỆN dù nhóm CHƯA có cô nào giữ vai ấy — bài canh
+      // `test:nhan-tin-kenh` [1] giữ đúng ba đầu mối. Nhưng tin gửi vào đó không
+      // ai đọc (góp ý 20/10, F6), nên dòng mang cờ `coNguoiNhan: false`: màn
+      // hình nói rõ, và máy chủ không nhận tin mới vào kênh ấy.
       for (const vai of nhomCo.NHOM_NHAN_TIN) {
         const loai = vai === nhomCo.MAC_DINH ? 'nhom' : vai;
         const daCo = kenhCuaBe(s.id, loai);
@@ -362,6 +416,7 @@ function contactsFor(user) {
           subtitle: `${nhomCo.CHUONG_TRINH[vai]} · bé ${s.name}${cls ? ` · ${cls.name}` : ''}`,
           avatar: null,
           existingConversationId: daCo ? daCo.conversationId : null,
+          coNguoiNhan: coNhanKenh(loai, s.classId).length > 0,
         });
       }
     }
@@ -381,6 +436,7 @@ function contactsFor(user) {
         subtitle: theoCoSo.size >= 2 ? tenCoSo(cs) : '',
         avatar: null,
         existingConversationId: dangMo ? dangMo.conversationId : null,
+        coNguoiNhan: true,
       });
     }
   } else if (user.role === 'teacher') {
@@ -928,6 +984,8 @@ module.exports = (app) => {
       });
     }
     if (contact.existingConversationId) return res.json({ id: contact.existingConversationId });
+    // Không lập kênh mà chưa ai đọc được (F6). Cuộc đã có thì vẫn mở ở dòng trên.
+    if (contact.coNguoiNhan === false) return res.status(409).json({ error: loiChuaCoNguoiNhan(kenh) });
     // Hộp thư mới: KHÔNG ghi hàng thành viên cho ai khác, KHÔNG lập kênh theo bé.
     if (kenh === 'vanphong') return res.json({ id: kvp.taoCuoc(req.user.id, contact.coSo).conversationId });
 
@@ -1300,6 +1358,14 @@ module.exports = (app) => {
     }
     const text = String((req.body || {}).text || '').trim().slice(0, 2000);
     if (!text) return res.status(400).json({ error: 'Nội dung tin nhắn không được để trống' });
+    // Kênh cô mà nhóm chưa (hoặc không còn) có cô nào giữ vai ấy: tin gửi vào là
+    // rơi vào khoảng không (F6). Tin cũ vẫn đọc được qua đường GET.
+    if (req.user.role === 'parent' && cv.type === 'kenh') {
+      const k = kenhCua(cv.id);
+      if (k && laKenhCuaNhom(k.loai) && !coNhanKenh(k.loai, k.classId).length) {
+        return res.status(409).json({ error: loiChuaCoNguoiNhan(k.loai) });
+      }
+    }
 
     const msg = {
       id: db.nextId('ms'),
@@ -1310,6 +1376,7 @@ module.exports = (app) => {
     };
     db.tx(() => {
       db.insert('messages', msg);
+      ghiNguoiNhan(cv);
       markRead(cv.id, req.user.id);
     });
 

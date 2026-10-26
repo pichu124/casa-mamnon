@@ -61,7 +61,7 @@ App.views.messages = {
             <div style="flex:1;min-width:0">
               <div style="font-weight:${cv.unreadCount > 0 ? 800 : 600}">${UI.esc(cv.title)}</div>
               ${cv.subtitle ? `<div class="chat-list-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:.76rem">${UI.esc(cv.subtitle)}</div>` : ''}
-              <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:.84rem">${cv.lastMessage ? `${UI.esc(cv.lastMessage.senderName)}: ${UI.esc(cv.lastMessage.text)}` : 'Chưa có tin nhắn'}</div>
+              <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:.84rem">${cv.lastMessage ? `${UI.esc(cv.lastMessage.senderName)}: ${cv.lastMessage.daThuHoi ? '<i>Tin nhắn đã được thu hồi</i>' : UI.esc(cv.lastMessage.text)}` : 'Chưa có tin nhắn'}</div>
             </div>
             <div style="text-align:right;flex:none">
               ${cv.lastMessage ? `<div class="muted" style="font-size:.74rem">${UI.esc(UI.timeAgo(cv.lastMessage.createdAt))}</div>` : ''}
@@ -102,12 +102,16 @@ App.views.messages = {
   // thay vì để văn phòng đứng nhìn một danh sách rỗng mà đoán.
   openNew() {
     const laVanPhong = App.state.user.role === 'admin';
+    // `coNguoiNhan: false`: nhóm của bé chưa có cô nào giữ vai này (góp ý
+    // 20/10, F6). Dòng vẫn hiện và vẫn mở được cuộc cũ, nhưng nói rõ trước khi
+    // gia đình gõ một tin không ai đọc — máy chủ cũng không nhận tin mới.
     UI.modal(this._contacts.length ? this._contacts.map((c, i) => `
-      <div class="list-row clickable" onclick="App.views.messages.pickContact(${i})">
+      <div class="list-row clickable" onclick="App.views.messages.pickContact(${i})"${c.coNguoiNhan === false ? ' style="opacity:.6"' : ''}>
         ${UI.avatar(c.avatar, 44)}
         <div class="row-main">
           <div class="row-title">${UI.esc(c.name)}</div>
           ${c.subtitle ? `<div class="row-sub">${UI.esc(c.subtitle)}</div>` : ''}
+          ${c.coNguoiNhan === false ? '<div class="row-sub">Nhóm của bé hiện chưa có cô nhận tin ở mục này</div>' : ''}
         </div>
       </div>`).join('') : UI.emptyState('💬', laVanPhong
         ? 'Văn phòng trả lời ngay trong cuộc gia đình đã mở. Muốn nhắn cho cả trường '
@@ -138,6 +142,7 @@ App.views.messages = {
     const cv = await API.get('/api/messages/' + encodeURIComponent(id));
     this._convId = cv.id;
     this._type = cv.type;
+    this._daDong = !!cv.daDong;
     this._lastTs = null;
     this._lastDay = null;
     // Mốc của tin CŨ NHẤT đang hiện — nút "Xem tin cũ hơn" hỏi tiếp từ đây.
@@ -301,9 +306,31 @@ App.views.messages = {
     el.scrollTop = el.scrollHeight;
   },
 
+  // Tin đã thu hồi: máy chủ không gửi chữ về (giữ chỗ, bỏ chữ — routes/
+  // messages.js `messageDto`), màn hình nói rõ thay vì để một bong bóng trống.
+  // Nút "Thu hồi" chỉ trên tin của chính mình, cuộc chưa đóng — đúng điều kiện
+  // máy chủ nhận.
   bubbleHtml(m) {
     const showSender = this._type === 'group' && !m.mine;
-    return `<div class="bubble-row${m.mine ? ' mine' : ''}">${showSender ? UI.avatar(m.senderAvatar, 28) : ''}<div class="bubble">${showSender ? `<span class="bubble-name">${UI.esc(m.senderName)}</span>` : ''}${UI.esc(m.text)}<span class="bubble-time">${UI.esc(UI.fmtTime(m.createdAt))}</span></div></div>`;
+    const noiDung = m.daThuHoi
+      ? '<i class="bubble-thu-hoi" style="opacity:.75">Tin nhắn đã được thu hồi</i>'
+      : UI.esc(m.text);
+    const nutThuHoi = m.mine && !m.daThuHoi && !this._daDong
+      ? `<button type="button" class="bubble-nut-thu-hoi" onclick="App.views.messages.thuHoi('${UI.esc(m.id)}')" style="background:none;border:0;padding:0;margin-top:2px;color:inherit;opacity:.7;font-size:.7rem;text-decoration:underline;cursor:pointer">Thu hồi</button>`
+      : '';
+    return `<div class="bubble-row${m.mine ? ' mine' : ''}" data-tin="${UI.esc(m.id)}" data-luc="${UI.esc(m.createdAt)}">${showSender ? UI.avatar(m.senderAvatar, 28) : ''}<div class="bubble">${showSender ? `<span class="bubble-name">${UI.esc(m.senderName)}</span>` : ''}${noiDung}<span class="bubble-time">${UI.esc(UI.fmtTime(m.createdAt))}</span>${nutThuHoi}</div></div>`;
+  },
+
+  async thuHoi(tinId) {
+    if (!confirm('Thu hồi tin nhắn này?\n\nMọi người trong cuộc trò chuyện sẽ chỉ còn thấy "Tin nhắn đã được thu hồi".')) return;
+    try {
+      await API.post(`/api/messages/${encodeURIComponent(this._convId)}/tin/${encodeURIComponent(tinId)}/thu-hoi`, {});
+      const dong = [...document.querySelectorAll('#chat-msgs .bubble-row')].find(el => el.dataset.tin === tinId);
+      if (dong) {
+        dong.outerHTML = this.bubbleHtml({ id: tinId, mine: true, daThuHoi: true, createdAt: dong.dataset.luc });
+      }
+      UI.toast('Đã thu hồi tin nhắn', 'success');
+    } catch (err) { UI.toast(err.message || 'Chưa thu hồi được tin nhắn', 'error'); }
   },
 
   // `chat-ngay` để `xemTinCu()` nhận ra vạch ngày và bỏ vạch bị lặp ở chỗ nối
