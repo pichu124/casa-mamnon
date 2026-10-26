@@ -650,6 +650,10 @@ function generate() {
     { id: 'p8', username: 'ph.duy', passwordHash: DEMO_HASH, role: 'parent', name: 'Lý Khánh Duy', title: 'Anh', phone: '0909 222 666', email: 'khanhduy@gmail.com', avatar: { emoji: '👨', bg: '#34495e' } },
     { id: 'p9', username: 'ph.nga', passwordHash: DEMO_HASH, role: 'parent', name: 'Trịnh Hồng Nga', title: 'Chị', phone: '0909 333 777', email: 'hongnga@gmail.com', avatar: { emoji: '👩', bg: '#1abc9c' } },
   ];
+  // Tài khoản mẫu có từ đầu năm học, TRƯỚC mọi thông báo mẫu. Gia đình chỉ
+  // thấy thông báo từ ngày tài khoản được tạo (lib/thong-bao.js) — thiếu dòng
+  // này thì tài khoản mang mốc "lúc dựng dữ liệu" và mất hết thông báo mẫu.
+  for (const u of users) u.createdAt = iso(daysAgo(120), 8, 0);
 
   // Trung tâm của cả bộ dữ liệu mẫu là BÉ AN — nhóm Chồi 2, cơ sở 1. Bé xuất
   // hiện xuyên suốt: điểm danh, nhận xét, dặn thuốc, album, tin nhắn, đơn xin

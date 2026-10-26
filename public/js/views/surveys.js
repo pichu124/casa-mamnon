@@ -305,10 +305,32 @@ App.views.surveys = {
               chuyện riêng của từng nhà.
             </div>` : ''}
         </div>
+        ${this.chuaTraLoiHtml(sv.chuaTraLoi)}
         ${sv.status === 'open' && sv.createdByMe
           ? `<button class="btn danger-soft block mt-14" onclick="App.views.surveys.closeSurvey('${UI.esc(sv.id)}')">Đóng khảo sát</button>`
           : ''}`, sv.title);
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // GIA ĐÌNH CHƯA TRẢ LỜI (góp ý 20/10, G1) — để cô và văn phòng nhắc. Máy
+  // chủ đã cắt theo phạm vi người xem và đếm theo bé (một trong hai phụ huynh
+  // trả lời là bé đã có trả lời). Khảo sát đã đóng thì không có ô này.
+  chuaTraLoiHtml(ds) {
+    if (!Array.isArray(ds)) return '';
+    return `
+      <div class="mt-14" data-chua-tra-loi>
+        <div style="font-weight:700;font-size:.9rem">Gia đình chưa trả lời (${ds.length})</div>
+        ${ds.length ? ds.map(be => `
+          <div class="list-row" style="padding:8px 0">
+            <div class="row-main">
+              <div class="row-title">Bé ${UI.esc(be.tenBe)} · Nhóm ${UI.esc(be.tenNhom)}</div>
+              <div class="row-sub">${be.phuHuynh.length
+                ? UI.esc(be.phuHuynh.join(', '))
+                : 'Bé chưa có tài khoản gia đình'}</div>
+            </div>
+          </div>`).join('')
+          : '<div class="muted small mt-8">Mọi gia đình trong phạm vi mình đã trả lời.</div>'}
+      </div>`;
   },
 
   // Thanh phần trăm cho câu trắc nghiệm.

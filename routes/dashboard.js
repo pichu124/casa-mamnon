@@ -20,26 +20,32 @@ function todayStr() {
   return ngay.homNay();
 }
 
-function audienceFilter(user) {
-  return tb.audienceFilter(user, 'n.');
-}
-
 function unreadNotifications(user) {
   return unreadCuaTruong(user) + tbb.demChuaDoc(user);
 }
 
 function unreadCuaTruong(user) {
-  const f = audienceFilter(user);
+  // Cùng bộ lọc với danh sách (phạm vi gửi + mốc ngày tạo tài khoản của gia
+  // đình, P2) — lấy từ lib/thong-bao.js, không chép tay.
+  const f = tb.boLocThongBao(user, 'n.');
   // Thông báo ĐÃ THU HỒI phải bị loại khỏi bộ đếm này. Nếu không, phụ huynh sẽ
   // thấy một con số "chưa đọc" không bao giờ về 0: thông báo đã biến khỏi danh
   // sách nên không còn cách nào bấm vào để đánh dấu đã đọc.
+  //
+  // CHỈ ĐẾM TRONG TRANG ĐẦU của màn Thông báo (P1): cùng thứ tự, cùng LIMIT
+  // với GET /api/notifications. Đếm cả lịch sử là chuông báo số mà mở ra
+  // không thấy tin nào chưa đọc. Tin chưa đọc cũ hơn trang đầu vẫn được "Đọc
+  // tất cả" đánh dấu.
   return db.count(
-    `SELECT COUNT(*) FROM notifications n
-     WHERE ${f.sql}
-       AND n.createdBy IS NOT ?
-       AND ${st.dieuKienConHien('notifications', 'n.id')}
-       AND NOT EXISTS (SELECT 1 FROM notification_reads r WHERE r.notificationId = n.id AND r.userId = ?)`,
-    [...f.params, user.id, user.id]);
+    `SELECT COUNT(*) FROM (
+       SELECT n.id AS id, n.createdBy AS createdBy FROM notifications n
+        WHERE ${f.sql}
+          AND ${st.dieuKienConHien('notifications', 'n.id')}
+        ORDER BY n.pinned DESC, n.createdAt DESC
+        LIMIT ?) w
+     WHERE w.createdBy IS NOT ?
+       AND NOT EXISTS (SELECT 1 FROM notification_reads r WHERE r.notificationId = w.id AND r.userId = ?)`,
+    [...f.params, tb.TRANG_DAU, user.id, user.id]);
 }
 
 function unreadMessages(user) {

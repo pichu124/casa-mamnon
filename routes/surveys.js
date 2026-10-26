@@ -96,6 +96,48 @@ function locTheoPhamVi(user, responses) {
   return responses.filter(r => duoc.has(r.userId));
 }
 
+// GIA ĐÌNH CHƯA TRẢ LỜI (góp ý 20/10, G1) — để cô và văn phòng nhắc.
+//
+// ĐẾM THEO BÉ, không theo tài khoản. Phiếu lưu theo tài khoản phụ huynh
+// (`survey_responses.userId`), nhưng câu cô cần là "nhà bé nào chưa trả lời":
+// bé có hai phụ huynh thì MỘT người trả lời là bé đó đã có trả lời; nhà hai
+// con ở hai nhóm trả lời một phiếu toàn trường là cả hai bé đã có trả lời.
+//
+// PHẠM VI = nhóm người xem đang mở được (`classIdsOf`: cô → nhóm mình, quản lý
+// cơ sở → nhóm của cơ sở, ban giám hiệu → cả trường) GIAO với phạm vi khảo sát
+// được gửi tới. Chỉ bé đang học. Chỉ khảo sát đang mở: khảo sát đã đóng thì
+// không còn ai để nhắc, và danh sách bé hôm nay đã khác danh sách lúc gửi.
+//
+// Không có con số nào về bé — chỉ tên bé, nhóm, tên phụ huynh để gọi đúng nhà.
+function chuaTraLoiCua(user, sv, responses) {
+  const nhomXem = db.classIdsOf(user);
+  const nhom = sv.audience === 'all' ? nhomXem : nhomXem.filter(c => c === sv.audience);
+  if (!nhom.length) return [];
+  const daTraLoi = new Set(responses.map(r => r.userId));
+  const mn = nhom.map(() => '?').join(',');
+  const theoBe = new Map();
+  for (const r of db.all('students',
+    `SELECT s.id AS studentId, s.name AS tenBe, c.name AS tenNhom,
+            sp.parentId AS parentId, u.active AS conDung, u.title AS danhXung, u.name AS tenPhuHuynh
+       FROM students s
+       JOIN classes c ON c.id = s.classId
+       LEFT JOIN student_parents sp ON sp.studentId = s.id
+       LEFT JOIN users u ON u.id = sp.parentId
+      WHERE s.active = 1 AND s.classId IN (${mn})
+      ORDER BY c.name, s.name`, nhom)) {
+    if (!theoBe.has(r.studentId)) {
+      theoBe.set(r.studentId, { studentId: r.studentId, tenBe: r.tenBe, tenNhom: r.tenNhom, phuHuynh: [], daTraLoi: false });
+    }
+    const be = theoBe.get(r.studentId);
+    if (!r.parentId) continue;
+    if (daTraLoi.has(r.parentId)) be.daTraLoi = true;
+    // Tài khoản đã khoá vẫn tính phiếu đã gửi, nhưng không còn là người để nhắc.
+    if (r.conDung && r.tenPhuHuynh) be.phuHuynh.push(`${r.danhXung || ''} ${r.tenPhuHuynh}`.trim());
+  }
+  return [...theoBe.values()].filter(be => !be.daTraLoi)
+    .map(({ studentId, tenBe, tenNhom, phuHuynh }) => ({ studentId, tenBe, tenNhom, phuHuynh }));
+}
+
 // SQLite chặn ở 999 tham số một câu; chia lô để một khảo sát 600 phiếu không
 // làm nổ câu truy vấn. Chép tại chỗ chứ không gọi sang `lib/db.js` — hàm ở đó
 // không xuất ra, và đây là bốn dòng.
@@ -233,6 +275,8 @@ module.exports = (app) => {
       // trường. Thiếu con số này thì cô nhìn "12 phiếu" ở đầu màn rồi đếm được
       // 4 tên ở dưới, và tưởng app mất phiếu.
       soPhieuTrongPhamVi: cuaToi.length,
+      // G1 — chỉ khảo sát đang mở; đã đóng thì không có ô này.
+      chuaTraLoi: sv.status === 'open' ? chuaTraLoiCua(req.user, sv, responses) : undefined,
       createdByMe: sv.createdBy === req.user.id,
     });
   });
