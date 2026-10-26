@@ -148,7 +148,9 @@ App.views.timetable = {
   // Màn soạn ở phân hệ Hành trình đọc nhóm từ `_classId` của nó — đặt sẵn
   // nhóm đang xem ở đây, kẻo cô hai nhóm bấm từ nhóm thứ hai lại rơi về nhóm đầu.
   moSoanChungTuan() {
-    if (App.views.hanhtrinh) App.views.hanhtrinh._classId = this.classId;
+    // Lịch sinh hoạt luôn hiện TUẦN NÀY, nên màn soạn cũng phải mở tuần này —
+    // `_tuan` còn giữ tuần cô xem lần trước thì xoá đi.
+    if (App.views.hanhtrinh) { App.views.hanhtrinh._classId = this.classId; App.views.hanhtrinh._tuan = null; }
     location.hash = '#/hanhtrinh/chude';
   },
 
