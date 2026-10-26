@@ -643,6 +643,8 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
   } else {
     check('bảng "cần gọi xác nhận" có nút Gọi cạnh từng bé', nutGoi > 0, nutGoi);
     if (nutGoi > 0) {
+      // Khối "Cần gọi xác nhận" gập sẵn từ Đ241f (góp ý 20/10, D1).
+      await page.click('#att-can-goi > summary');
       await page.locator('[data-goi-be]').first().click();
       await page.waitForTimeout(1200);
       check('bấm Gọi mở số của gia đình kèm nút gọi thật (tel:)', await dem('#modal-overlay a[href^="tel:"]') > 0,

@@ -414,11 +414,14 @@ App.views.attendance = {
         </div>` : ''}
       </div>`;
     }
+    // GẬP SẴN (góp ý 20/10, D1): danh sách dài đẩy cả sổ điểm danh xuống
+    // dưới. Tiêu đề vẫn nói đủ số bé cần gọi; bấm mới mở danh sách.
     return `
       <div class="card" style="border-left:4px solid var(--danger)">
-        <div class="card-title" style="color:var(--danger)">
+        <details id="att-can-goi">
+        <summary class="card-title" style="color:var(--danger)">
           ${UI.icon('bell', 16)} Cần gọi xác nhận: ${UI.esc(String(ds.length))} bé
-        </div>
+        </summary>
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
           Đã qua ${UI.esc(this.chuGioRaSoat(r))} mà những bé dưới đây chưa có dòng
           điểm danh nào, và cũng chưa có đơn nghỉ được duyệt. Có thể cô chưa kịp chấm,
