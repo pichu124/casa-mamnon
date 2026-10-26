@@ -1012,9 +1012,13 @@ module.exports = (app, { db, modules }) => {
     // khi quản lý duyệt và tới ngày công bố — xem `giaDinhThay`. Quản lý
     // (admin) tự bấm gửi thì coi như duyệt luôn: một người, một tài khoản,
     // không bắt họ đi vòng sang thẻ Chờ duyệt để duyệt chính mình.
+    //
+    // "Quản lý" ở đây là người ĐƯỢC DUYỆT (`db.duyetBaoCaoDuoc`, góp ý 20/10
+    // O4), không phải mọi tài khoản quản trị: duyệt-luôn-khi-gửi là một đường
+    // duyệt, phải đứng sau cùng chốt chức vụ với đường /duyet.
     const luc = ngay.bayGio();
     const moc = new Date().toISOString();
-    const laQuanLy = req.user.role === 'admin';
+    const laQuanLy = db.duyetBaoCaoDuoc(req.user);
     const ngayCongBo = laQuanLy ? docNgayCongBo((req.body || {}).ngayCongBo) : '';
     if (laQuanLy && ngayCongBo === null) {
       return res.status(400).json({ error: 'Ngày công bố chưa đúng dạng, ví dụ đúng: 2026-09-15' });
