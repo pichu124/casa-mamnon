@@ -456,6 +456,9 @@ App.views.messages = {
             Nhà trường đã <b>đóng</b> cuộc trò chuyện này. Nội dung cũ vẫn được giữ nguyên,
             nhưng không nhắn thêm được nữa.
             ${cv.dongDuoc ? '<button class="btn outline sm mt-8" id="chat-mo-lai">Mở lại cuộc trò chuyện</button>' : ''}
+          </div>` : cv.tamDung ? `
+          <div class="muted small" id="chat-tam-dung" style="padding:12px 14px;line-height:1.6;border-top:1px solid var(--line,#e6e8ee)">
+            ${UI.esc(cv.tamDung)}
           </div>` : `
           <div class="chat-input-bar">
             <textarea id="chat-input" rows="1" placeholder="Nhắn tin..."></textarea>
@@ -467,7 +470,8 @@ App.views.messages = {
 
     // Cuộc đã đóng thì không có ô nhập để gắn sự kiện, và cũng không cần hỏi
     // tin mới — đóng rồi thì không ai nhắn được nữa.
-    if (cv.daDong) {
+    // Kênh nhà trường đang tạm tắt (F6b) cũng vậy: chỉ đọc, không ô nhập.
+    if (cv.daDong || cv.tamDung) {
       const nutMo = document.getElementById('chat-mo-lai');
       if (nutMo) nutMo.onclick = () => this.moLai(cv.id);
       App.refreshBadges();

@@ -188,6 +188,39 @@ try {
       ds.some(c => c.title === 'Văn phòng nhà trường' && /sổ sức khoẻ/.test(c.lastMessage?.text || '')), ds.map(c => c.title));
   }
 
+  // =========================================================================
+  console.log('\n[5] Công tắc "Gia đình nhắn tin với cô nước ngoài" (F6b)');
+  {
+    // Cô 2 làm cô nước ngoài của Chồi 2, gia đình bé An đã nhắn với cô.
+    const QT = (await login('gd_bgh', 'quantri2026')).cookie;
+    await req('PUT', '/api/admin/classes/c1/teachers', {
+      cookie: QT, body: { teacherIds: ['t1', 't3', 't2'], nhom: { t2: 'nuoc-ngoai' } },
+    });
+    const KNN = (await req('POST', '/api/messages/start', { cookie: PH, body: { kenh: 'nuoc-ngoai', studentId: 's1' } })).data?.id;
+    await req('POST', `/api/messages/${KNN}`, { cookie: PH, body: { text: 'Hello teacher' } });
+
+    await dangNhap('gd_bgh', 'quantri2026');
+    await moMan('#/admin/tinhnang');
+    await page.waitForSelector('#tn-nn-doi', { timeout: 5000 });
+    check('màn Tính năng có công tắc, mặc định đang bật', (await page.locator('#tn-nn-doi').innerText()).includes('Đang bật'));
+    await page.click('#tn-nn-doi');
+    await page.waitForTimeout(800);
+    check('bấm thì thành "Đang tắt"', (await page.locator('#tn-nn-doi').innerText()).includes('Đang tắt'));
+
+    await dangNhap('phuhuynh', '123456');
+    await moMan(`#/messages/${KNN}`);
+    check('gia đình vẫn đọc được cuộc cũ', (await page.locator('#chat-msgs').innerText()).includes('Hello teacher'));
+    check('nhưng không có ô nhập — thay bằng lời báo tạm tắt',
+      await page.locator('#chat-input').count() === 0
+        && /tạm tắt nhắn tin với cô nước ngoài/.test(await page.locator('#chat-tam-dung').innerText()));
+    await moMan('#/messages');
+    await page.click('#msg-new');
+    await page.waitForTimeout(400);
+    check('hộp "Trò chuyện mới" không còn dòng "Cô nước ngoài"',
+      !(await page.locator('#modal-overlay').innerText()).includes('Cô nước ngoài'));
+    await req('PUT', '/api/messages/cai-dat', { cookie: QT, body: { coNuocNgoai: true } });
+  }
+
   check('không có lỗi JavaScript nào trên trang', loiJs.length === 0, loiJs);
 } finally {
   await browser.close();

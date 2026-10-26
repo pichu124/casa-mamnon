@@ -203,6 +203,9 @@ console.log('\n[1] Gia đình được mời ĐÚNG BA ĐẦU MỐI, không hơn
   const dongVP = lh.filter(c => c.kenh === 'vanphong');
   const soCon = new Set(dongCo.map(c => c.studentId)).size;
   check('đối chứng — nhà mẫu có HAI con', CON_PH.length === 2 && soCon === 2, { CON_PH, soCon });
+  // F6b — chủ dự án quyết 26/10: nhà trường bật/tắt được phần nhắn tin với cô
+  // nước ngoài. Đòi hỏi "ĐÚNG HAI dòng cô" áp ở trạng thái MẶC ĐỊNH (công tắc
+  // BẬT, đúng như ở đây); ca công tắc TẮT canh ở mục [23].
   check('mỗi bé ĐÚNG HAI dòng cô, không hơn', dongCo.length === soCon * 2, { soCon, dong: dongCo.length });
   check('và mỗi bé có đủ cả hai kênh cô',
     CON_PH.every(b => ['nhom', 'nuoc-ngoai'].every(k => dongCo.some(c => c.studentId === b.id && c.kenh === k))),
@@ -1060,6 +1063,22 @@ console.log('\n[22] Quản lý XEM hội thoại cô ↔ gia đình — chỉ đ
     docCsdl('SELECT COUNT(*) AS n FROM conversation_members WHERE conversationId = ?', KENH_NHOM)[0].n === hangTruoc);
   const coDs = ((await ds(GV)).conversations || []).find(c => c.id === KENH_NHOM);
   check('cô vẫn thấy tin mới của gia đình là CHƯA ĐỌC', coDs?.unreadCount >= 1, coDs?.unreadCount);
+}
+
+console.log('\n[23] Công tắc "gia đình nhắn tin cô nước ngoài" TẮT — chỉ còn dòng cô phụ trách (F6b, chủ dự án 26/10)');
+{
+  const tat = await req('PUT', '/api/messages/cai-dat', { cookie: QT, body: { coNuocNgoai: false } });
+  check('ban giám hiệu tắt được', tat.status === 200, tat.data);
+  const lh = (await ds(PH)).contacts || [];
+  const dongCo = lh.filter(c => c.kenh !== 'vanphong');
+  check('TẮT: mỗi bé ĐÚNG MỘT dòng cô — dòng cô phụ trách nhóm',
+    dongCo.length === CON_PH.length && dongCo.every(c => c.kenh === 'nhom'), dongCo.map(c => `${c.studentId}:${c.kenh}`));
+  check('TẮT: vẫn ĐÚNG MỘT dòng văn phòng', lh.filter(c => c.kenh === 'vanphong').length === 1);
+  check('văn phòng cơ sở KHÔNG đổi được công tắc',
+    (await req('PUT', '/api/messages/cai-dat', { cookie: VP, body: { coNuocNgoai: true } })).status === 403);
+  await req('PUT', '/api/messages/cai-dat', { cookie: QT, body: { coNuocNgoai: true } });
+  check('BẬT LẠI: lại đủ hai dòng cô mỗi bé',
+    ((await ds(PH)).contacts || []).filter(c => c.kenh !== 'vanphong').length === CON_PH.length * 2);
 }
 
 await sv.dung();

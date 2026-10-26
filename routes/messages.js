@@ -98,6 +98,35 @@ function memberIds(conversationId) {
 // khác, không phải nhắn tin.
 const KENH = ['nhom', 'vanphong', 'nuoc-ngoai'];
 
+// CÔNG TẮC "PHỤ HUYNH NHẮN TIN CÔ NƯỚC NGOÀI" (Đ242F — F6b).
+//
+// Chủ dự án 26/10: *"setup cho nhà trường có quyền tắt bật phần chat với GVNN
+// này, vì chưa cân đối được GVNN chat với PH có ảnh hưởng quá nhiều tới thời
+// gian làm việc của cô hay không"*.
+//
+// Mặc định BẬT — thiếu dòng cài đặt là hành vi đang chạy. TẮT là thôi mời và
+// thôi nhận tin MỚI ở kênh 'nuoc-ngoai', cả hai chiều (đúng mục đích giảm tải
+// cho cô); cuộc cũ vẫn đọc được, không xoá gì. Chỉ ban giám hiệu đổi được.
+const KHOA_CAI_DAT = 'nhantin';
+const LOI_NN_TAT_GIA_DINH = 'Nhà trường đang tạm tắt nhắn tin với cô nước ngoài. '
+  + 'Gia đình nhắn cô phụ trách nhóm hoặc văn phòng nhé.';
+const LOI_NN_TAT_CO = 'Nhà trường đang tạm tắt nhắn tin giữa cô nước ngoài và gia đình. '
+  + 'Tin cũ vẫn đọc được.';
+
+function caiDatNhanTin() {
+  const r = db.first('settings', 'SELECT value FROM settings WHERE key = ?', [KHOA_CAI_DAT]);
+  return r && r.value && typeof r.value === 'object' ? r.value : {};
+}
+
+// Kênh loại này có đang nhận tin mới không.
+function kenhDangMo(loai) {
+  return loai !== 'nuoc-ngoai' || caiDatNhanTin().coNuocNgoai !== false;
+}
+
+function loiKenhTat(user) {
+  return user && user.role === 'parent' ? LOI_NN_TAT_GIA_DINH : LOI_NN_TAT_CO;
+}
+
 // Kênh thuộc về một NHÓM LỚP (cô đọc theo nhóm), khác kênh văn phòng (văn
 // phòng đọc theo cơ sở của bé). Gom thành một câu hỏi vì có bốn chỗ hỏi nó,
 // và bốn chỗ viết `=== 'nhom'` thì thêm kênh thứ ba là sót một chỗ.
@@ -473,6 +502,9 @@ function contactsFor(user) {
       // hình nói rõ, và máy chủ không nhận tin mới vào kênh ấy.
       for (const vai of nhomCo.NHOM_NHAN_TIN) {
         const loai = vai === nhomCo.MAC_DINH ? 'nhom' : vai;
+        // Nhà trường tạm tắt kênh này (F6b): thôi mời mở. Cuộc đã có vẫn nằm
+        // trong danh sách hội thoại và vẫn đọc được.
+        if (!kenhDangMo(loai)) continue;
         const daCo = kenhCuaBe(s.id, loai);
         out.push({
           kenh: loai, studentId: s.id,
@@ -509,7 +541,7 @@ function contactsFor(user) {
       const cls = db.findClass(s.classId);
       // Cô mở được đúng kênh ứng với vai cô giữ Ở NHÓM CỦA BÉ ĐÓ.
       const loai = loaiKenhCuaCo(s.classId, user.id);
-      if (!loai) continue;
+      if (!loai || !kenhDangMo(loai)) continue;
       const daCo = kenhCuaBe(s.id, loai);
       out.push({
         kenh: loai, studentId: s.id,
@@ -1121,6 +1153,7 @@ module.exports = (app) => {
         error: 'Chưa rõ muốn nhắn với cô phụ trách nhóm, cô nước ngoài hay văn phòng nhà trường',
       });
     }
+    if (!kenhDangMo(kenh)) return res.status(409).json({ error: loiKenhTat(req.user) });
     // Mục văn phòng là MỘT cho mỗi cơ sở, nên khớp theo cơ sở của bé gửi lên —
     // bé ấy phải là con đang học của chính người bấm. Màn hình cũ gửi mã bé nào
     // của nhà ở cơ sở đó cũng về đúng một hộp thư.
@@ -1414,6 +1447,30 @@ module.exports = (app) => {
     res.status(201).json({ id, ten, soThanhVien: xin.length + 1 });
   });
 
+  // ---- CÀI ĐẶT NHẮN TIN CỦA NHÀ TRƯỜNG (Đ242F — F6b) ----
+  //
+  // Chỉ BAN GIÁM HIỆU đổi được: đây là chuyện cân đối thời gian làm việc của cô
+  // cả trường, không phải việc của một cơ sở. Văn phòng cơ sở có `/api/messages`
+  // trong danh sách cho phép nên PHẢI chặn ngay ở đường này.
+  const laBanGiamHieu = (u) => !!u && u.role === 'admin'
+    && (db.chucVu(u) === null || db.chucVu(u) === 'hieu-truong');
+
+  app.get('/api/messages/cai-dat', allow, (req, res) => {
+    res.json({ coNuocNgoai: kenhDangMo('nuoc-ngoai'), suaDuoc: laBanGiamHieu(req.user) });
+  });
+
+  app.put('/api/messages/cai-dat', allow, (req, res) => {
+    if (!laBanGiamHieu(req.user)) {
+      return res.status(403).json({ error: 'Chỉ ban giám hiệu mới bật tắt được phần nhắn tin với cô nước ngoài.' });
+    }
+    const bat = (req.body || {}).coNuocNgoai;
+    if (typeof bat !== 'boolean') return res.status(400).json({ error: 'Chưa rõ muốn bật hay tắt' });
+    const truoc = kenhDangMo('nuoc-ngoai');
+    db.upsert('settings', { key: KHOA_CAI_DAT, value: { ...caiDatNhanTin(), coNuocNgoai: bat } }, ['key']);
+    db.audit(req.user.id, 'nhantin-co-nuoc-ngoai', null, { truoc, sau: bat });
+    res.json({ ok: true, coNuocNgoai: bat });
+  });
+
   // ---- MỘT TIN, NHIỀU GIA ĐÌNH, MỖI NHÀ MỘT CUỘC RIÊNG (Đ242F, F2) ----
   //
   // Cô chọn nhiều bé, viết một tin, bấm gửi: mỗi gia đình nhận trong CUỘC RIÊNG
@@ -1437,6 +1494,7 @@ module.exports = (app) => {
     if (!be || !be.active || !be.classId) return ngoaiTam;
     const loai = loaiKenhCuaCo(be.classId, co.id);
     if (!loai) return { lyDo: 'Ở nhóm của bé, cô không giữ vai nhắn tin với gia đình', ten: be.name };
+    if (!kenhDangMo(loai)) return { lyDo: 'Nhà trường đang tạm tắt nhắn tin với cô nước ngoài', ten: be.name };
     const nha = (be.parentIds || []).map(id => db.findUser(id))
       .filter(u => u && u.active !== false && db.canAccessStudent(u, be.id));
     if (!nha.length) return { lyDo: 'Bé chưa có tài khoản gia đình trên app', ten: be.name };
@@ -1536,7 +1594,7 @@ module.exports = (app) => {
       return res.status(403).json({ error: 'Tài khoản này không mở được danh sách các bé để chọn.' });
     }
     const nhomIds = db.classIdsOf(u).filter(cid => db.canAccessClass(u, cid)
-      && (u.role !== 'teacher' || !!loaiKenhCuaCo(cid, u.id)));
+      && (u.role !== 'teacher' || (!!loaiKenhCuaCo(cid, u.id) && kenhDangMo(loaiKenhCuaCo(cid, u.id)))));
     const coNhom = new Set(nhomIds);
     const nhom = nhomIds.map(cid => db.findClass(cid)).filter(Boolean)
       .map(c => ({ id: c.id, ten: c.name, coSo: db.campusOfClass(c.id) || '' }))
@@ -1653,6 +1711,8 @@ module.exports = (app) => {
       // trông như app hỏng chứ không như một quy định.
       daDong: daDong(cv.id),
       dongDuoc: xemDuocDaDong(req.user),
+      // Kênh nhà trường đang tạm tắt (F6b): màn hình thay ô nhập bằng câu này.
+      tamDung: cv.type === 'kenh' && !kenhDangMo((kenhCua(cv.id) || {}).loai) ? loiKenhTat(req.user) : null,
     });
   });
 
@@ -1692,6 +1752,8 @@ module.exports = (app) => {
           + 'Nội dung cũ vẫn được giữ nguyên.',
       });
     }
+    const kenhNay = cv.type === 'kenh' ? kenhCua(cv.id) : null;
+    if (kenhNay && !kenhDangMo(kenhNay.loai)) return res.status(409).json({ error: loiKenhTat(req.user) });
     const text = String((req.body || {}).text || '').trim().slice(0, 2000);
     if (!text) return res.status(400).json({ error: 'Nội dung tin nhắn không được để trống' });
     // Kênh cô mà nhóm chưa (hoặc không còn) có cô nào giữ vai ấy: tin gửi vào là
