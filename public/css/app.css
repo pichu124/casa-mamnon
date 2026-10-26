@@ -1113,6 +1113,11 @@ body:has(.chat-screen) #toast-zone { bottom: 96px; }
 .tq-coso-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .tq-coso-head b { font-size: .9rem; }
 .tq-coso-head span { margin-left: auto; font-size: .74rem; color: var(--muted); white-space: nowrap; }
+/* Mỗi cơ sở một khối gập (Đ241f): tiêu đề là chỗ bấm, mũi tên nói đang mở hay gập. */
+summary.tq-coso-head { cursor: pointer; list-style: none; padding: 2px 0 6px; margin-bottom: 0; }
+summary.tq-coso-head::-webkit-details-marker { display: none; }
+summary.tq-coso-head::after { content: '▾'; color: var(--muted); font-size: .8rem; transition: transform .16s; }
+details.tq-coso:not([open]) > summary.tq-coso-head::after { transform: rotate(-90deg); }
 .tq-nhom {
   width: 100%; display: flex; align-items: center; gap: 10px;
   padding: 8px 4px; border-top: 1px solid var(--line); text-align: left;

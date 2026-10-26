@@ -394,13 +394,19 @@ App.views.dashboard = {
 
   theTongQuan(d) {
     const tong = d.tong || {};
-    const khoi = (d.coSo || []).map(cs => this.theCoSo(cs, d));
+    const dsCoSo = (d.coSo || []).slice();
     if ((d.khongCoSo || []).length) {
-      khoi.push(this.theCoSo({
+      dsCoSo.push({
         id: '', name: (d.coSo || []).length ? 'Nhóm chưa gắn cơ sở' : 'Các nhóm',
         nhom: d.khongCoSo, dem: null,
-      }, d));
+      });
     }
+    // GẬP SẴN (góp ý 20/10, A2): ba cơ sở mở hết là cả màn điện thoại chỉ còn
+    // danh sách nhóm. Mỗi cơ sở một khối gập, tiêu đề giữ số bé · số nhóm;
+    // gập cả trên máy tính cho nhất quán. Chỉ một khối thì mở sẵn — gập một
+    // khối duy nhất là bắt bấm thừa (cùng luật với màn Điểm danh của văn phòng).
+    const moSan = dsCoSo.length <= 1;
+    const khoi = dsCoSo.map(cs => this.theCoSo(cs, d, moSan));
     return `
       <section class="hn-sheet" id="tq-panel">
         <div class="hn-head">
@@ -415,18 +421,18 @@ App.views.dashboard = {
       </section>`;
   },
 
-  theCoSo(cs, d) {
+  theCoSo(cs, d, moSan) {
     const soBe = cs.dem ? cs.dem.soBe : cs.nhom.reduce((s, n) => s + (n.soBe || 0), 0);
     return `
-      <div class="tq-coso">
-        <div class="tq-coso-head">
+      <details class="tq-coso"${moSan ? ' open' : ''}>
+        <summary class="tq-coso-head">
           <b>${UI.esc(cs.name)}</b>
           <span>${UI.esc(String(soBe))} bé · ${UI.esc(String(cs.nhom.length))} nhóm</span>
-        </div>
+        </summary>
         ${cs.nhom.length
           ? cs.nhom.map(n => this.dongNhom(n, d)).join('')
           : '<div class="muted small" style="padding:4px 0 8px">Chưa có nhóm nào ở cơ sở này.</div>'}
-      </div>`;
+      </details>`;
   },
 
   dongNhom(n, d) {
