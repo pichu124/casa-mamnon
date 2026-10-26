@@ -1842,7 +1842,11 @@ module.exports = (app, { db, modules }) => {
       const file = chepAnh(r.anh);
       if (!file) return null;
       const viTri = db.count('SELECT COUNT(*) FROM album_photos WHERE albumId = ?', [album.id]);
-      const photo = { id: db.nextId('ph'), albumId: album.id, file, caption: chuoi(cauChuyen, 200), position: viTri };
+      // CÂU CHUYỆN LÀ LỚP 3 CỦA RIÊNG BÉ CHÍNH. Ảnh có bé khác thì tấm ảnh hiện
+      // cả với gia đình bé ấy (theo thẻ + đồng ý) — chú thích mà là câu chuyện
+      // thì nhà bé B đọc chuyện cô kể riêng cho nhà bé A. Có bé khác → để trống.
+      const coBeKhac = (beCoMat || []).some(id => id && id !== r.studentId);
+      const photo = { id: db.nextId('ph'), albumId: album.id, file, caption: coBeKhac ? '' : chuoi(cauChuyen, 200), position: viTri };
       db.tx(() => {
         db.insert('album_photos', photo);
         db.datBeTrongAnh(photo.id, [r.studentId, ...beCoMat]);

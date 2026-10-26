@@ -1031,7 +1031,9 @@ module.exports = (app) => {
     const be = [...new Set([t.studentId, ...beCuaBanChep(t.id)])];
     const photo = {
       id: db.nextId('ph'), albumId: album.id, file,
-      caption: String(t.cauChuyen || '').trim().slice(0, 200), position: dangCo,
+      // Câu chuyện là lớp 3 của riêng bé chính: ảnh có bé khác thì gia đình bé
+      // ấy cũng thấy tấm ảnh, nên chú thích để trống (cùng luật luuAnhVeAlbum).
+      caption: be.length > 1 ? '' : String(t.cauChuyen || '').trim().slice(0, 200), position: dangCo,
     };
     try {
       db.tx(() => {

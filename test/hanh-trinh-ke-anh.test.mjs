@@ -324,6 +324,8 @@ try {
     const v = ds[ds.length - 1] || {};
     check('album có tấm video mới', /\.mp4$/.test(v.file || ''), v);
     check('gắn thẻ bé chính VÀ bé có mặt', (v.beTrongAnh || []).map(x => x.id).sort().join() === 's1,s4', v.beTrongAnh);
+    check('ảnh có bé khác → chú thích album để trống (câu chuyện là lớp 3 của riêng bé chính)',
+      !v.caption, v.caption);
   }
 
   // =========================================================================

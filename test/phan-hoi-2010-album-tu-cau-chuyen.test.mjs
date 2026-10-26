@@ -228,6 +228,11 @@ try {
     const p2 = (await anhAlbum(PH2)).map(p => p.id);
     check('bố bé s3 thấy tấm Q2 (có con mình, bé s1 đã đồng ý)', p2.includes(anhHai.id), p2);
     check('bố bé s3 không thấy tấm Q1 (album theo thẻ)', !p2.includes(anhMot.id), p2);
+    // Câu chuyện Q2 là lớp 3 của riêng bé s1 — nhà bé s3 thấy tấm ảnh nhưng
+    // KHÔNG được đọc chữ cô kể cho nhà bé s1 (reviewer Đ242, lỗi chặn).
+    const tamHaiCuaPH2 = (await anhAlbum(PH2)).find(p => p.id === anhHai.id) || {};
+    check('bố bé s3 KHÔNG đọc được câu chuyện của bé s1 trong chú thích',
+      !JSON.stringify(tamHaiCuaPH2).includes('KE-HAI'), tamHaiCuaPH2.caption);
     const p4 = (await anhAlbum(PH4)).map(p => p.id);
     check('nhà bé s5 (không có trong ảnh) không thấy tấm nào', !p4.includes(anhMot.id) && !p4.includes(anhHai.id), p4);
   }
