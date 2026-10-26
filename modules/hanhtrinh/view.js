@@ -687,6 +687,7 @@ App.views.hanhtrinh = {
     const nhac = await this.nhacThuSau();
 
     than.innerHTML = `
+      <a class="btn sm outline mb-8" href="#/timetable/lich" style="min-height:36px">← Lịch sinh hoạt</a>
       ${nhom.length > 1 ? `
         <div class="card">
           <div class="field" style="margin:0">
