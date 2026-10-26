@@ -57,8 +57,12 @@ console.log('\n[1] Dữ liệu mẫu tự kể được mô hình nhiều cô m�
   // đầu tiên người ta nhìn thấy — đó là lý do nó được canh ở đây.
   check('cô Mai Anh (t1) phụ trách nhóm Chồi 2',
     db.classIdsOfTeacher('t1').join(',') === 'c1', db.classIdsOfTeacher('t1'));
+  // Đ242F — F6b: nhóm còn có cô nước ngoài (t5, vai `nuoc-ngoai`), nên đếm
+  // riêng các cô giữ vai phụ trách nhóm.
+  const nhomCo = createRequire(import.meta.url)(path.join(GOC, 'lib', 'nhom-co.js'));
   check('nhóm Chồi 2 có HAI cô cùng phụ trách',
-    db.teachersOfClass('c1').length === 2, ten(db.teachersOfClass('c1')));
+    db.teachersOfClass('c1').filter(t => nhomCo.nhomCua(db, 'c1', t.id) === 'chu-nhiem').length === 2,
+    ten(db.teachersOfClass('c1')));
   check('cô Mai Anh là người phụ trách chính, đứng đầu danh sách',
     db.teachersOfClass('c1')[0]?.id === 't1' && db.teachersOfClass('c1')[0]?.vaiTro === 'chinh',
     db.teachersOfClass('c1').map(t => `${t.id}:${t.vaiTro}`));

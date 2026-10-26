@@ -191,6 +191,10 @@ App.views.albums = {
         <button class="btn outline block mt-8" id="btn-doi-che-do">
           ${UI.icon('settings', 16)} Đổi ai xem được album này
         </button>` : ''}
+      ${a.themTuCauChuyen ? `
+        <button class="btn outline block mt-8" id="btn-tu-cau-chuyen">
+          ${UI.icon('plus', 16)} Thêm từ câu chuyện đã kể
+        </button>` : ''}
       ${a.canXoa ? `
         <button class="btn danger-soft block mt-14" onclick="App.views.albums.deleteAlbum()">Xóa album này</button>` : ''}`;
 
@@ -199,6 +203,64 @@ App.views.albums = {
     if (nutNhieu) nutNhieu.onclick = () => this.moGanNhieuAnh();
     const nutCheDo = document.getElementById('btn-doi-che-do');
     if (nutCheDo) nutCheDo.onclick = () => this.moDoiCheDo();
+    const nutCauChuyen = document.getElementById('btn-tu-cau-chuyen');
+    if (nutCauChuyen) nutCauChuyen.onclick = () => this.moTuCauChuyen();
+  },
+
+  // THÊM TỪ CÂU CHUYỆN ĐÃ KỂ (góp ý B6, 26/10).
+  //
+  // Văn phòng gom ảnh cô đã gửi kèm câu chuyện cho gia đình vào album theo
+  // thẻ. Máy chủ chỉ đưa ra phần gia đình vốn đọc được — ảnh gửi kèm, tên bé,
+  // câu chuyện — không có ghi chép của cô.
+  async moTuCauChuyen() {
+    const a = this._detail;
+    if (!a) return;
+    let muc = [];
+    try {
+      muc = (await API.get(`/api/albums/${encodeURIComponent(a.id)}/tu-cau-chuyen`)).muc || [];
+    } catch (err) { return UI.toast(err.message, 'error'); }
+    const tep = (m) => (m.loai === 'video'
+      ? `<video src="${UI.esc(m.tepUrl)}" preload="none" playsinline controls
+           style="width:84px;height:84px;object-fit:cover;border-radius:10px;background:#000;flex:none"></video>`
+      : `<img src="${UI.esc(m.tepUrl)}" alt="" loading="lazy"
+           style="width:84px;height:84px;object-fit:cover;border-radius:10px;background:var(--bg-2);flex:none">`);
+    const nut = (m) => {
+      if (m.daCo) return '<div class="muted small mt-8">Đã có trong album</div>';
+      if (m.lyDo) return `<div class="muted small mt-8" style="line-height:1.5">${UI.esc(m.lyDo)}</div>`;
+      return `<button class="btn primary sm mt-8 tcc-them" data-id="${UI.esc(m.id)}">${UI.icon('plus', 14)} Thêm vào album</button>`;
+    };
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6">
+        Ảnh và video cô đã gửi kèm câu chuyện cho gia đình. Ảnh thêm vào được gắn thẻ
+        các bé có trong ảnh, nên mỗi nhà vẫn chỉ thấy ảnh có con mình.
+      </div>
+      <div class="mt-14" id="tcc-ds" style="max-height:56vh;overflow-y:auto">
+        ${muc.length ? muc.map(m => `
+          <div class="list-row" style="align-items:flex-start;gap:12px">
+            ${tep(m)}
+            <div class="row-main">
+              <div class="row-title">${UI.esc(m.hoTen)}</div>
+              <div class="small" style="line-height:1.5">${UI.esc(m.cauChuyen)}</div>
+              ${nut(m)}
+            </div>
+          </div>`).join('') : '<div class="muted small">Nhóm này chưa có câu chuyện nào được kể kèm ảnh hay video.</div>'}
+      </div>
+    `, 'Thêm từ câu chuyện đã kể');
+
+    document.querySelectorAll('#tcc-ds .tcc-them').forEach((b) => {
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          await API.post(`/api/albums/${encodeURIComponent(a.id)}/tu-cau-chuyen`, { tepId: b.dataset.id });
+          UI.toast('Đã thêm ảnh vào album', 'success');
+          UI.closeModal();
+          App.route();
+        } catch (err) {
+          b.disabled = false;
+          UI.toast(err.message, 'error');
+        }
+      };
+    });
   },
 
   // GẮN THẺ NHIỀU ẢNH MỘT LƯỢT (Đ153 / AL-01).
@@ -424,7 +486,7 @@ App.views.albums = {
     return `
       <div class="field">
         <label>Ảnh và video</label>
-        <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" multiple style="display:none">
+        <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple style="display:none">
         <button class="btn outline block" id="al-pick">📷 Chọn ảnh hoặc video từ máy</button>
         <div class="hint">
           Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp.
@@ -553,7 +615,9 @@ App.views.albums = {
       //
       // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
       // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
-      if (/^video\/(mp4|webm)$/.test(f.type)) {
+      // iPhone quay ra .mov (video/quicktime): cùng họ hộp `ftyp` với MP4, máy
+      // chủ nhận và lưu thành .mp4 — chặn nó ở đây là chặn gần hết máy iPhone.
+      if (/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
         try {
           const video = f.size > this.TRAN_VIDEO
             ? await this.nenVideoCoCho(f)

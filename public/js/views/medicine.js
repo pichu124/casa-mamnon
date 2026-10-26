@@ -65,6 +65,7 @@ App.views.medicine = {
           <span class="muted small">📅 ${UI.esc(UI.fmtDateShort(m.fromDate))} – ${UI.esc(UI.fmtDateShort(m.toDate))}</span>
         </div>
         ${manyKids ? `<div class="small mt-8" style="font-weight:700">🎒 ${UI.esc(m.studentName)}</div>` : ''}
+        ${this.guiLuc(m) ? `<div class="muted small mt-8">🕒 ${UI.esc(this.guiLuc(m))}</div>` : ''}
         <div class="mt-8">${this.medsTable(m.medicines)}</div>
         ${m.note ? `<div class="muted small mt-8">📝 ${UI.esc(m.note)}</div>` : ''}
         ${(m.status === 'received' || m.status === 'done') && m.confirmedAt
@@ -234,7 +235,8 @@ App.views.medicine = {
               ${UI.avatar(m.studentAvatar, 40)}
               <div class="row-main">
                 <div class="row-title">${UI.esc(m.studentName)}</div>
-                <div class="row-sub">${UI.esc(UI.fmtDateShort(m.fromDate))} – ${UI.esc(UI.fmtDateShort(m.toDate))}</div>
+                <div class="row-sub">${UI.esc(UI.fmtDateShort(m.fromDate))} – ${UI.esc(UI.fmtDateShort(m.toDate))}${
+                  this.guiLuc(m) ? ` · ${UI.esc(this.guiLuc(m))}` : ''}</div>
                 <div class="row-sub">${UI.esc(this.tomTatThuoc(m.medicines))}</div>
               </div>
               <div class="row-end">${UI.badge('Hoàn tất', 'green')}</div>
@@ -276,6 +278,7 @@ App.views.medicine = {
         <div class="row-main">
           <div class="row-title">${UI.esc(m.studentName)}</div>
           <div class="row-sub">${UI.esc(m.parentName)} · 📅 ${UI.esc(UI.fmtDateShort(m.fromDate))} – ${UI.esc(UI.fmtDateShort(m.toDate))}</div>
+          ${this.guiLuc(m) ? `<div class="row-sub">🕒 ${UI.esc(this.guiLuc(m))}</div>` : ''}
         </div>
         ${this.statusBadge(m.status)}
       </div>`;
@@ -302,6 +305,16 @@ App.views.medicine = {
   },
 
   // ---- Tiện ích ----
+  // Giờ gia đình gửi lời dặn (góp ý 20/10, Q1): "Gửi lúc 07:42 · 21/10", theo
+  // GIỜ VIỆT NAM như mọi mốc giờ khác của app (UI.fmtTime, UI.ngayVN) — không
+  // theo múi giờ đang đặt trên máy của cô.
+  guiLuc(m) {
+    if (!m || !m.createdAt) return '';
+    const gio = UI.fmtTime(m.createdAt);
+    const ngay = UI.ngayVN(m.createdAt);
+    return gio && ngay ? `Gửi lúc ${gio} · ${UI.fmtDateShort(ngay)}` : '';
+  },
+
   statusBadge(status) {
     const st = this.STATUS[status] || { label: status, cls: 'gray' };
     return UI.badge(st.label, st.cls);
@@ -328,6 +341,7 @@ App.views.medicine = {
         <div class="row-main">
           <div class="row-title">${UI.esc(m.studentName)}</div>
           <div class="row-sub">${UI.esc(UI.fmtDate(m.fromDate, { weekday: false }))} – ${UI.esc(UI.fmtDate(m.toDate, { weekday: false }))}</div>
+          ${this.guiLuc(m) ? `<div class="row-sub">🕒 ${UI.esc(this.guiLuc(m))}</div>` : ''}
         </div>
         <div class="row-end">${UI.badge('Hoàn tất', 'green')}</div>
       </div>

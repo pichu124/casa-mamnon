@@ -326,9 +326,9 @@ async function main() {
     p('Lệnh in ra ', { text: 'một mật khẩu tạm, một lần duy nhất — chép lại ngay', bold: true },
       '. Lần đăng nhập đầu app sẽ bắt đổi mật khẩu.'),
     viSao('Với NODE_ENV=production, cơ sở dữ liệu trống thì máy chủ DỪNG có chủ ý thay vì tự sinh dữ liệu mẫu. '
-      + 'Dữ liệu mẫu kèm 13 tài khoản dùng chung mật khẩu "123456"; sinh chúng ra trên một máy đang mở ra Internet '
+      + 'Dữ liệu mẫu kèm 15 tài khoản dùng chung mật khẩu "123456"; sinh chúng ra trên một máy đang mở ra Internet '
       + 'là tự mở cửa cho người lạ. Vì vậy phải tạo tài khoản thật TRƯỚC, rồi mới bật dịch vụ.'),
-    chuY('Đừng đi đường tắt "tạm bỏ NODE_ENV=production cho nó lên đã". Đó đúng là lúc 13 tài khoản '
+    chuY('Đừng đi đường tắt "tạm bỏ NODE_ENV=production cho nó lên đã". Đó đúng là lúc 15 tài khoản '
       + 'mật khẩu 123456 được sinh ra trên một máy công khai.'),
     h2('Bảng kiểm bước 5'),
     oKiem('Đã chép lại mật khẩu tạm vào chỗ an toàn'),

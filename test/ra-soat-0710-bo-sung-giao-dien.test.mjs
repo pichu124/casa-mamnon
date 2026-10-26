@@ -21,7 +21,7 @@ import Database from 'better-sqlite3';
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
-  batPhanHe, khoaVaoCoSo, datChucVu, HOM_NAY, CHROMIUM, tatBannerMoiCai, GOC,
+  batPhanHe, khoaVaoCoSo, datChucVu, HOM_NAY, CHROMIUM, tatBannerMoiCai, GOC, goCoNuocNgoaiMau,
 } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
@@ -29,6 +29,9 @@ const xlsx = require(path.join(GOC, 'lib', 'xlsx.js'));
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('ra-soat-0710-bs-gd');
 sinhDuLieu(DIR);
+// Đ242F — F6b: dữ liệu mẫu nay có cô nước ngoài khai vai ở mọi nhóm. Bài này
+// canh ca "trường CHƯA khai vai" (cô phụ trách soạn cả ba phần), nên gỡ đi.
+goCoNuocNgoaiMau(DIR);
 batPhanHe(DIR, ['kehoachbe', 'nhatky', 'xinphep', 'nhansu', 'diemdanh']);
 const mk = {
   qt: taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong'),
@@ -118,6 +121,8 @@ try {
         page.locator(`#att-dong-${id} span[title="Bấm để chụp ảnh"]`).click(),
       ]);
       await fc.setFiles({ name: 'anh.png', mimeType: 'image/png', buffer: Buffer.from(PNG_B64, 'base64') });
+      // Đ242D: chụp xong là màn xem lại; chỉ bấm "Vào lớp" mới gửi.
+      await page.locator('#att-xl-ok', { hasText: 'Vào lớp' }).click({ timeout: 5000 });
       await page.waitForTimeout(2000);
     };
 

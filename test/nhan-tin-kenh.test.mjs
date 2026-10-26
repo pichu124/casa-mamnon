@@ -144,6 +144,10 @@ const ds = async (cookie) => (await req('GET', '/api/messages', { cookie })).dat
 const mo = (cookie, kenh, studentId) => req('POST', '/api/messages/start', { cookie, body: { kenh, studentId } });
 const gui = (cookie, id, text) => req('POST', `/api/messages/${id}`, { cookie, body: { text } });
 const doc = (cookie, id) => req('GET', `/api/messages/${id}`, { cookie });
+// Đ242F — chủ dự án 26/10 cho quản lý xem hội thoại cô ↔ gia đình (như
+// LittleLives), CHỈ ĐỌC, qua một đường riêng có ghi nhật ký. `doc` ở trên là
+// đường của người TRONG cuộc và vẫn đóng với quản lý.
+const xem = (cookie, id) => req('GET', `/api/messages/quan-ly/cuoc/${id}`, { cookie });
 
 // Bé nào là con của tài khoản phụ huynh mẫu, và bé đó ở nhóm nào.
 const conn0 = new Database(path.join(DIR, 'school.db'));
@@ -199,6 +203,9 @@ console.log('\n[1] Gia đình được mời ĐÚNG BA ĐẦU MỐI, không hơn
   const dongVP = lh.filter(c => c.kenh === 'vanphong');
   const soCon = new Set(dongCo.map(c => c.studentId)).size;
   check('đối chứng — nhà mẫu có HAI con', CON_PH.length === 2 && soCon === 2, { CON_PH, soCon });
+  // F6b — chủ dự án quyết 26/10: nhà trường bật/tắt được phần nhắn tin với cô
+  // nước ngoài. Đòi hỏi "ĐÚNG HAI dòng cô" áp ở trạng thái MẶC ĐỊNH (công tắc
+  // BẬT, đúng như ở đây); ca công tắc TẮT canh ở mục [23].
   check('mỗi bé ĐÚNG HAI dòng cô, không hơn', dongCo.length === soCon * 2, { soCon, dong: dongCo.length });
   check('và mỗi bé có đủ cả hai kênh cô',
     CON_PH.every(b => ['nhom', 'nuoc-ngoai'].every(k => dongCo.some(c => c.studentId === b.id && c.kenh === k))),
@@ -235,8 +242,15 @@ let KENH_NHOM;
   check('và dòng phụ vẫn nói rõ đang nói về bé nào, ở nhóm nào',
     /Về bé /.test(phDoc.data.subtitle || ''), phDoc.data.subtitle);
 
+  // Đ242F — chủ dự án 26/10 cho quản lý xem hội thoại cô ↔ gia đình (như
+  // LittleLives) để kiểm soát chuẩn mực câu từ. Phép kiểm cũ đòi "quản lý KHÔNG
+  // đọc được"; nay quản lý XEM được, nhưng chỉ đọc và không bước vào cuộc như
+  // người trong cuộc.
   const vpDoc = await doc(QT, KENH_NHOM);
-  check('VĂN PHÒNG KHÔNG đọc được cuộc gia đình nói với cô', vpDoc.status === 403, vpDoc.status);
+  check('quản lý KHÔNG vào cuộc gia đình nói với cô như người trong cuộc', vpDoc.status === 403, vpDoc.status);
+  const qlXem = await xem(QT, KENH_NHOM);
+  check('nhưng XEM được ở chế độ chỉ đọc (Đ242F)', qlXem.status === 200 && qlXem.data?.chiDoc === true
+    && (qlXem.data?.messages || []).some(m => /hơi ho/.test(m.text)), qlXem.status);
 }
 
 // ===========================================================================
@@ -316,7 +330,10 @@ console.log('\n[5] Kênh hiện trong danh sách của cả hai bên, kèm tin c
   const dVP = await ds(QT);
   check('cuộc văn phòng hiện trong danh sách của VĂN PHÒNG',
     (dVP.conversations || []).some(c => c.id === KENH_VP), (dVP.conversations || []).map(c => c.title));
-  check('VĂN PHÒNG KHÔNG được mời mở cuộc mới — văn phòng trả lời, còn nói với cả trường thì có Thông báo',
+  // Đ242F — chủ dự án quyết theo góp ý F3 (26/10): văn phòng MỞ ĐƯỢC tin với gia
+  // đình, qua màn chọn bé tải riêng (`/api/messages/chon-be`). Danh sách liên hệ
+  // gửi kèm màn Nhắn tin thì vẫn rỗng — không chở ba trăm gia đình mỗi lần mở.
+  check('danh sách liên hệ gửi kèm màn Nhắn tin của VĂN PHÒNG vẫn rỗng — mở tin với gia đình đi đường chọn bé riêng',
     (dVP.contacts || []).length === 0, dVP.contacts);
   check('và văn phòng KHÔNG thấy kênh nhóm lớp trong danh sách',
     !(dVP.conversations || []).some(c => c.id === KENH_NHOM), (dVP.conversations || []).map(c => c.id));
@@ -464,8 +481,12 @@ console.log('\n[9] BA NHÓM CÔ — vai quyết định cô đọc được kên
     /nước ngoài/i.test(docNN.data.subtitle || ''), docNN.data.subtitle);
   const cheoNguoc = await doc(GV, KENH_NN);
   check('CÔ CHỦ NHIỆM KHÔNG đọc được cuộc của cô nước ngoài', cheoNguoc.status === 403, cheoNguoc.status);
+  // Đ242F — chủ dự án 26/10 cho quản lý xem hội thoại cô ↔ gia đình: kênh của
+  // cô vẫn là kênh của cô (không vào như người trong cuộc), nhưng xem chỉ đọc được.
   const vpNN = await doc(QT, KENH_NN);
-  check('văn phòng cũng KHÔNG đọc được — kênh của cô vẫn là kênh của cô', vpNN.status === 403, vpNN.status);
+  check('quản lý KHÔNG vào kênh cô nước ngoài như người trong cuộc — kênh của cô vẫn là kênh của cô',
+    vpNN.status === 403, vpNN.status);
+  check('nhưng xem chỉ đọc được (Đ242F)', (await xem(QT, KENH_NN)).status === 200);
 
   // Cô thể chất: có vai, nhưng KHÔNG có đầu mối nhắn tin nào. Trường liệt kê
   // ba nhóm cô ở phía nhà trường và ba đầu mối ở phía gia đình, nhưng hai danh
@@ -504,17 +525,21 @@ console.log('\n[10] HỘI THOẠI ĐÃ ĐÓNG — mất khỏi màn gia đình, 
   // 15/09: *"Quản lý cơ sở và cấp 1 có thể xem lại được -> chỉ xem lại được k
   // thể nhắn vào thêm được nữa"*.
   //
-  // Đây là chỗ dễ phá chốt phân quyền nhất trong cả đợt: hôm nay quản trị
-  // KHÔNG đọc được cuộc gia đình nhắn với cô, và mục [2] ở trên có một phép
-  // kiểm chốt đúng điều đó. Mở một đường đọc mà không cẩn thận là nới chính
-  // bài canh ấy — nên mục này đo cả hai chiều, và chiều KHÔNG ĐƯỢC ĐỌC đứng
-  // trước.
+  // Đây là chỗ dễ phá chốt phân quyền nhất trong cả đợt: quản trị KHÔNG vào
+  // được cuộc gia đình nhắn với cô như người trong cuộc, và mục [2] ở trên có
+  // một phép kiểm chốt đúng điều đó. Mở một đường đọc mà không cẩn thận là nới
+  // chính bài canh ấy — nên mục này đo cả hai chiều, và chiều KHÔNG ĐƯỢC VÀO
+  // đứng trước. (Từ Đ242F quản lý XEM được cuộc đang sống qua đường chỉ đọc
+  // riêng — chủ dự án 26/10.)
   const KENH_MOI = (await mo(PH, 'nhom', BE.id)).data.id;
   await gui(PH, KENH_MOI, 'Chuyện riêng của nhà em với cô ạ');
 
-  // CHIỀU MỘT: cuộc ĐANG SỐNG thì quản lý vẫn không đọc được, y như trước.
-  check('CUỘC ĐANG SỐNG: ban giám hiệu vẫn KHÔNG đọc được — chốt cũ không bị nới',
+  // CHIỀU MỘT: cuộc ĐANG SỐNG thì quản lý không vào được như người trong cuộc.
+  // Đ242F — chủ dự án 26/10 cho quản lý xem hội thoại cô ↔ gia đình: xem được,
+  // nhưng chỉ ở đường chỉ đọc riêng.
+  check('CUỘC ĐANG SỐNG: ban giám hiệu KHÔNG vào được như người trong cuộc',
     (await doc(QT, KENH_MOI)).status === 403);
+  check('CUỘC ĐANG SỐNG: ban giám hiệu xem chỉ đọc được (Đ242F)', (await xem(QT, KENH_MOI)).status === 200);
 
   const dong = await req('POST', `/api/messages/${KENH_MOI}/dong`, {
     cookie: QT, body: { lyDo: 'Gia đình đã chuyển trường' },
@@ -594,8 +619,11 @@ console.log('\n[10] HỘI THOẠI ĐÃ ĐÓNG — mất khỏi màn gia đình, 
   check('mở lại được cuộc đã đóng', moLai.status === 200, moLai.data);
   check('gia đình vào lại được ngay', (await doc(PH, KENH_MOI)).status === 200);
   check('và nhắn tiếp được', (await gui(PH, KENH_MOI, 'em quay lại ạ')).status === 200);
-  check('MỞ LẠI XONG thì ban giám hiệu KHÔNG còn đọc được nữa — chốt cũ trở lại đúng chỗ',
+  // Đ242F — chủ dự án 26/10 cho quản lý xem hội thoại cô ↔ gia đình: mở lại
+  // xong thì về đúng luật của cuộc đang sống — không vào được, xem chỉ đọc được.
+  check('MỞ LẠI XONG thì ban giám hiệu KHÔNG còn vào được như người trong cuộc — chốt cũ trở lại đúng chỗ',
     (await doc(QT, KENH_MOI)).status === 403);
+  check('và chỉ còn đường xem chỉ đọc (Đ242F)', (await xem(QT, KENH_MOI)).status === 200);
 }
 
 // ===========================================================================
@@ -1002,6 +1030,55 @@ console.log('\n[21] Cuộc ĐÃ ĐÓNG thôi được đếm vào huy hiệu —
     check(`${ten}: MỞ LẠI thì tin chưa đọc được đếm lại`, (await huyHieu(nguoiNhan)) === truoc + 1,
       { truoc, sau: await huyHieu(nguoiNhan) });
   }
+}
+
+console.log('\n[22] Quản lý XEM hội thoại cô ↔ gia đình — chỉ đọc, đúng cơ sở (Đ242F, chủ dự án 26/10)');
+{
+  // Mục [2] [9] [10] đã đổi theo luật mới: quản lý xem được. Mục này canh bốn
+  // ranh giới của luật ấy.
+  check('đối chứng — bé của kênh nhóm học ở cơ sở 1',
+    docCsdl('SELECT campusId FROM class_campus WHERE classId = ?', BE.classId)[0]?.campusId === 'cs1');
+  const ql2 = await xem(QL2, KENH_NHOM);
+  check('QUẢN LÝ CƠ SỞ 2 KHÔNG xem được cuộc của bé cơ sở 1', ql2.status === 403, ql2.status);
+  check('CÔ NHÓM KHÁC vẫn 403 ở đường của người trong cuộc', (await doc(GV2, KENH_NHOM)).status === 403);
+  check('và cũng 403 ở đường xem của quản lý', (await xem(GV2, KENH_NHOM)).status === 403);
+  check('GIA ĐÌNH không dùng được đường xem của quản lý', (await xem(PH, KENH_NHOM)).status === 403);
+
+  const soTin = () => docCsdl('SELECT COUNT(*) AS n FROM messages WHERE conversationId = ?', KENH_NHOM)[0].n;
+  const truoc = soTin();
+  check('QUẢN LÝ KHÔNG gửi được vào kênh của cô', (await gui(QT, KENH_NHOM, 'quản lý chen vào')).status === 403);
+  check('văn phòng cũng không', (await gui(VP, KENH_NHOM, 'văn phòng chen vào')).status === 403);
+  check('không tin nào được thêm', soTin() === truoc, { truoc, sau: soTin() });
+
+  // Cô đọc hết, rồi quản lý xem: "đã đọc" của cô không được đổi theo.
+  await gui(PH, KENH_NHOM, 'Cô ơi tin mới cho mục 22 ạ');
+  const lastReadCo = () => docCsdl(
+    `SELECT cm.lastRead FROM conversation_members cm JOIN users u ON u.id = cm.userId
+      WHERE cm.conversationId = ? AND u.username = 'giaovien'`, KENH_NHOM)[0]?.lastRead;
+  const coTruoc = lastReadCo();
+  const hangTruoc = docCsdl('SELECT COUNT(*) AS n FROM conversation_members WHERE conversationId = ?', KENH_NHOM)[0].n;
+  check('đối chứng — quản lý xem được cuộc này', (await xem(QT, KENH_NHOM)).status === 200);
+  check('XEM KHÔNG đổi trạng thái đã đọc của cô', lastReadCo() === coTruoc, { coTruoc, sau: lastReadCo() });
+  check('và không thêm hàng thành viên nào cho quản lý',
+    docCsdl('SELECT COUNT(*) AS n FROM conversation_members WHERE conversationId = ?', KENH_NHOM)[0].n === hangTruoc);
+  const coDs = ((await ds(GV)).conversations || []).find(c => c.id === KENH_NHOM);
+  check('cô vẫn thấy tin mới của gia đình là CHƯA ĐỌC', coDs?.unreadCount >= 1, coDs?.unreadCount);
+}
+
+console.log('\n[23] Công tắc "gia đình nhắn tin cô nước ngoài" TẮT — chỉ còn dòng cô phụ trách (F6b, chủ dự án 26/10)');
+{
+  const tat = await req('PUT', '/api/messages/cai-dat', { cookie: QT, body: { coNuocNgoai: false } });
+  check('ban giám hiệu tắt được', tat.status === 200, tat.data);
+  const lh = (await ds(PH)).contacts || [];
+  const dongCo = lh.filter(c => c.kenh !== 'vanphong');
+  check('TẮT: mỗi bé ĐÚNG MỘT dòng cô — dòng cô phụ trách nhóm',
+    dongCo.length === CON_PH.length && dongCo.every(c => c.kenh === 'nhom'), dongCo.map(c => `${c.studentId}:${c.kenh}`));
+  check('TẮT: vẫn ĐÚNG MỘT dòng văn phòng', lh.filter(c => c.kenh === 'vanphong').length === 1);
+  check('văn phòng cơ sở KHÔNG đổi được công tắc',
+    (await req('PUT', '/api/messages/cai-dat', { cookie: VP, body: { coNuocNgoai: true } })).status === 403);
+  await req('PUT', '/api/messages/cai-dat', { cookie: QT, body: { coNuocNgoai: true } });
+  check('BẬT LẠI: lại đủ hai dòng cô mỗi bé',
+    ((await ds(PH)).contacts || []).filter(c => c.kenh !== 'vanphong').length === CON_PH.length * 2);
 }
 
 await sv.dung();

@@ -87,6 +87,18 @@ const NHOM_CHUONG_TRINH = [
   ['nuoc-ngoai', 'Cô nước ngoài', 'Cambridge'],
   ['the-chat', 'Cô thể chất', 'Thể chất chuyên sâu'],
 ];
+// Tên góc để hiện cho cô và gia đình — mã góc ("giac-quan") không bao giờ
+// được lên màn hình hay vào chữ gửi gia đình. Cùng bảng với GOC_LINH_VUC của
+// kehoachbe; mã lạ (góc mới chưa chép sang đây) thì để trống, không lộ mã.
+const TEN_GOC = {
+  'toan': 'Toán',
+  'tieng-viet': 'Tiếng Việt',
+  'cambridge': 'Tiếng Anh (Cambridge)',
+  'thuc-hanh-cuoc-song': 'Thực hành cuộc sống',
+  'giac-quan': 'Giác quan',
+  'van-hoa': 'Văn hoá',
+  'the-chat': 'Thể chất',
+};
 const CHUONG_TRINH_CUA_GOC = {
   'toan': 'chu-nhiem',
   'tieng-viet': 'chu-nhiem',
@@ -121,6 +133,9 @@ const MUC = [
   ['vuot-troi', 'Vượt trội', 'M'],
 ];
 const MA_MUC = MUC.map(x => x[0]);
+
+// Ba nhãn cô tích cho một bài ở Kế hoạch của bé (`kehoachbe_muc_bai.nhan`).
+const NHAN = { 'hoc-moi': 'học mới', 'on-tap': 'ôn tập', 'mo-rong': 'mở rộng' };
 
 // Ba mức nghĩa là CÔ ĐÃ THẤY BÉ LÀM. Hai mức còn lại ('chua-day',
 // 'chua-quan-sat-thay') thì chưa có gì để hành động.
@@ -783,11 +798,10 @@ module.exports = (app, { db, modules }) => {
       const t = MUC.find(x => x[0] === mucDoBai.get(m.id));
       return t ? t[2] : '';
     };
-    const TIEP = { 'hoc-moi': 'tháng sau dạy mới', 'on-tap': 'tháng sau ôn tập' };
+    const TIEP = { 'hoc-moi': 'tháng sau dạy mới', 'on-tap': 'tháng sau ôn tập', 'mo-rong': 'tháng sau mở rộng' };
     const muc = db.all('kehoachbe_muc', 'SELECT * FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
     if (!bai.length && !muc.length) return [];
 
-    const NHAN = { 'hoc-moi': 'học mới', 'on-tap': 'ôn tập', 'mo-rong': 'mở rộng' };
     const daCo = new Set(db.all('baocaohoctap_o',
       'SELECT dongId FROM baocaohoctap_o WHERE banId = ?', [ban.id]).map(x => x.dongId));
     const luc = ngay.bayGio();
@@ -798,17 +812,16 @@ module.exports = (app, { db, modules }) => {
         const bg = bai.filter(m => m.gocLinhVuc === d.gocLinhVuc);
         const mg = muc.filter(m => m.gocLinhVuc === d.gocLinhVuc);
         const dong = [];
-        // Chữ quy ước đứng ở dòng "Bài học tháng này" — dòng DUY NHẤT có đủ mọi
-        // bài. Bài mức W/N/NA không rơi vào "Đã thấy" hay "Tiếp tục", để chữ ở
-        // hai dòng ấy thì chính những bài cần nói rõ nhất lại mất chữ.
+        // BỐ CỤC GIA ĐÌNH ĐỌC (góp ý 20/10, O2): "Bài học trong tháng của con:"
+        // rồi mỗi bài một dòng, rồi "Nhận xét của cô:" — thay cho một dòng nối
+        // dài. Chỉ chữ điền sẵn MỚI; ô đã có chữ không bao giờ bị viết lại.
+        //
+        // Chữ quy ước đứng ở danh sách bài — chỗ DUY NHẤT có đủ mọi bài. Bài
+        // mức W/N/NA không rơi vào "Đã thấy" hay "Tiếp tục", để chữ ở hai dòng
+        // ấy thì chính những bài cần nói rõ nhất lại mất chữ.
         if (bg.length) {
-          dong.push(`Bài học tháng này: ${bg.map(m => `${m.ten} (${[NHAN[m.nhan] || m.nhan, chuCuaBai(m)].filter(Boolean).join(' · ')})`).join(', ')}`);
-        }
-        const daThay = bg.filter(m => m.ketQua === 'da-thay');
-        const tiepTuc = bg.filter(m => m.ketQua === 'tiep-tuc');
-        if (daThay.length) dong.push(`Đã thấy con làm được: ${daThay.map(m => m.ten).join(', ')}`);
-        if (tiepTuc.length) {
-          dong.push(`Tiếp tục cùng con: ${tiepTuc.map(m => (TIEP[tiepTucBai.get(m.id)] ? `${m.ten} (${TIEP[tiepTucBai.get(m.id)]})` : m.ten)).join(', ')}`);
+          dong.push('Bài học trong tháng của con:');
+          for (const m of bg) dong.push(`• ${m.ten} (${[NHAN[m.nhan] || m.nhan, chuCuaBai(m)].filter(Boolean).join(' · ')})`);
         }
         // Có chữ quy ước thì kèm MỘT dòng chú giải các chữ đã dùng ở ô này —
         // gia đình không phải đoán "S" là gì.
@@ -816,7 +829,17 @@ module.exports = (app, { db, modules }) => {
         if (chuDung.length) {
           dong.push(`Chữ quy ước: ${MUC.filter(x => chuDung.includes(x[2])).reverse().map(x => `${x[2]} = ${x[1].toLowerCase()}`).join(', ')}.`);
         }
-        for (const m of bg) if (String(m.nhanXet || '').trim()) dong.push(`${m.ten}: ${m.nhanXet.trim()}`);
+        const coNhanXet = bg.filter(m => String(m.nhanXet || '').trim());
+        if (coNhanXet.length) {
+          dong.push('Nhận xét của cô:');
+          for (const m of coNhanXet) dong.push(`• ${m.ten}: ${m.nhanXet.trim()}`);
+        }
+        const daThay = bg.filter(m => m.ketQua === 'da-thay');
+        const tiepTuc = bg.filter(m => m.ketQua === 'tiep-tuc');
+        if (daThay.length) dong.push(`Đã thấy con làm được: ${daThay.map(m => m.ten).join(', ')}`);
+        if (tiepTuc.length) {
+          dong.push(`Tiếp tục cùng con: ${tiepTuc.map(m => (TIEP[tiepTucBai.get(m.id)] ? `${m.ten} (${TIEP[tiepTucBai.get(m.id)]})` : m.ten)).join(', ')}`);
+        }
         for (const m of mg) {
           const nd = String(m.noiDung || '').trim();
           const nx = String(m.nhanXet || '').trim();
@@ -989,9 +1012,13 @@ module.exports = (app, { db, modules }) => {
     // khi quản lý duyệt và tới ngày công bố — xem `giaDinhThay`. Quản lý
     // (admin) tự bấm gửi thì coi như duyệt luôn: một người, một tài khoản,
     // không bắt họ đi vòng sang thẻ Chờ duyệt để duyệt chính mình.
+    //
+    // "Quản lý" ở đây là người ĐƯỢC DUYỆT (`db.duyetBaoCaoDuoc`, góp ý 20/10
+    // O4), không phải mọi tài khoản quản trị: duyệt-luôn-khi-gửi là một đường
+    // duyệt, phải đứng sau cùng chốt chức vụ với đường /duyet.
     const luc = ngay.bayGio();
     const moc = new Date().toISOString();
-    const laQuanLy = req.user.role === 'admin';
+    const laQuanLy = db.duyetBaoCaoDuoc(req.user);
     const ngayCongBo = laQuanLy ? docNgayCongBo((req.body || {}).ngayCongBo) : '';
     if (laQuanLy && ngayCongBo === null) {
       return res.status(400).json({ error: 'Ngày công bố chưa đúng dạng, ví dụ đúng: 2026-09-15' });
@@ -1173,20 +1200,47 @@ module.exports = (app, { db, modules }) => {
       'SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang = ?', [ban.studentId, thang]);
     if (!ke) return res.json({ bat: true, thang, goiY: [] });
 
+    // BÀI ĐÃ TÍCH LÀ CÁCH CÔ LẬP KẾ HOẠCH HẰNG THÁNG (góp ý 20/10, O3).
+    //
+    // Bản trước chỉ đọc ô gõ tay `kehoachbe_muc`, nên kế hoạch lập bằng cách
+    // tích bài — cách trường đang dùng — luôn ra "chưa có nhận xét nào". Gộp
+    // bài theo góc: một gợi ý mỗi góc, mang tên bài kèm nhãn cô đã tích, và
+    // nhận xét cuối tháng của từng bài nếu cô đã ghi.
+    const bai = db.all('kehoachbe_muc_bai',
+      `SELECT mb.*, b.ten AS ten, b.gocLinhVuc AS gocLinhVuc
+         FROM kehoachbe_muc_bai mb LEFT JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+        WHERE mb.keId = ? ORDER BY mb.rowid`, [ke.id]).filter(m => m.ten);
+    const theoGoc = new Map();
+    for (const m of bai) {
+      if (!theoGoc.has(m.gocLinhVuc)) theoGoc.set(m.gocLinhVuc, []);
+      theoGoc.get(m.gocLinhVuc).push(m);
+    }
+    const goiYBai = [...theoGoc].map(([goc, ds]) => ({
+      loai: 'bai',
+      gocLinhVuc: goc,
+      tenGoc: TEN_GOC[goc] || '',
+      noiDung: ds.map(m => (NHAN[m.nhan] ? `${m.ten} (${NHAN[m.nhan]})` : m.ten)).join(', '),
+      nhanXet: ds.filter(m => String(m.nhanXet || '').trim())
+        .map(m => `${m.ten}: ${m.nhanXet.trim()}`).join('\n'),
+      ketQua: '',
+      tiepTucThangSau: ds.some(m => !!m.tiepTucThangSau),
+    }));
+
     const muc = db.all('kehoachbe_muc',
       'SELECT * FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
     res.json({
       bat: true,
       thang,
-      goiY: muc
+      goiY: goiYBai.concat(muc
         .filter(m => String(m.nhanXet || '').trim() || String(m.noiDung || '').trim())
         .map(m => ({
           gocLinhVuc: m.gocLinhVuc,
+          tenGoc: TEN_GOC[m.gocLinhVuc] || '',
           noiDung: m.noiDung,
           nhanXet: m.nhanXet,
           ketQua: m.ketQua,
           tiepTucThangSau: !!m.tiepTucThangSau,
-        })),
+        }))),
     });
   });
   // =========================================================================

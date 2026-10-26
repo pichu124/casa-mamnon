@@ -124,6 +124,23 @@ async function doBoCuc(ten) {
 
 let maBeAn = '';
 
+// Đ242D (góp ý D3): các nút trên dòng bé gom vào nút "⋯"; "Ghi con đã về"
+// nay nằm trong hộp ấy, ở dòng của bé đã vào lớp mà chưa về. Bảo đảm giữ
+// nguyên — nửa thứ hai của ngày vẫn ghi được ngay từ dòng bé — chỉ đổi chỗ đo.
+async function coLoiGhiVe() {
+  const id = await page.evaluate(() => {
+    const r = (App.views.attendance._roster || []).find(x =>
+      x.record && ['present', 'late'].includes(x.record.status) && !x.record.checkOut);
+    return r ? r.student.id : null;
+  });
+  if (!id) return false;
+  await page.locator(`#att-dong-${id} [data-viec-khac]`).click();
+  await page.waitForTimeout(400);
+  const co = /Ghi con đã về/.test(await page.locator('#modal-overlay').innerText().catch(() => ''));
+  await page.evaluate(() => UI.closeModal());
+  return co;
+}
+
 // ===========================================================================
 console.log('\n[1] Cô một nhóm: MỘT dòng Vào/Ra, và sổ đón trả ở màn riêng ghi tại chỗ');
 {
@@ -135,10 +152,12 @@ console.log('\n[1] Cô một nhóm: MỘT dòng Vào/Ra, và sổ đón trả �
   check('màn vẫn có ô đếm và danh sách chấm như trước',
     await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
     await dem('[id^="att-dong-"]'));
-  check('vẫn có nút "Chụp ảnh con tới lớp" (ảnh check-in)', /Chụp ảnh con tới lớp/.test(await chu()));
+  // Đ242D: chụp ảnh check-in là bấm TÊN bé (ảnh + tên là một nút).
+  check('mỗi dòng bé có nút tên để chụp ảnh check-in',
+    await dem('[id^="att-dong-"] button.att-ten') === MAU.soBeNhomChoi2, await dem('[id^="att-dong-"] button.att-ten'));
   // MỘT DÒNG MANG CẢ HAI NỬA CỦA NGÀY.
-  check('mỗi dòng bé có nút "Ghi con đã về" — nửa thứ hai nằm ngay trên dòng',
-    /Ghi con đã về/.test(await chu()), (await chu()).slice(0, 300));
+  check('dòng bé có lối "Ghi con đã về" (trong nút ⋯) — nửa thứ hai nằm ngay trên dòng',
+    await coLoiGhiVe(), (await chu()).slice(0, 300));
   check('CHỈ MỘT ô ngày trên màn', await dem('#view input[type=date]') === 1);
 
   // ĐƯỜNG DẪN CŨ KHÔNG ĐƯỢC CHẾT. Điện thoại đã cài app còn giữ nó trong lịch
@@ -296,7 +315,9 @@ console.log('\n[3] Gia đình: một ngày của con có cả hai nửa trong m�
   const hn = await homNay();
   check('lịch tháng có chấm "có ghi sổ trả bé" cho hôm nay', await dem('.att-cal .dot.tra') >= 1);
   check('chú thích lịch có mục "Có ghi sổ trả bé"', /Có ghi sổ trả bé/.test(await chu()));
-  check('có nút chỉ đường sang Đón trả bé (khai người đón, uỷ quyền)', /Mở Đón trả bé/.test(await chu()));
+  // Đ241f (góp ý 20/10, D2): trường xin bỏ thẻ chỉ đường "Mở Đón trả bé" ở
+  // màn Điểm danh. Phân hệ vẫn bật và vẫn có ô riêng trên trang chủ.
+  check('KHÔNG còn nút chỉ đường "Mở Đón trả bé" (Đ241f, D2)', !/Mở Đón trả bé/.test(await chu()));
   await page.evaluate((d) => App.views.attendance.showDay(d), hn);
   await page.waitForSelector('.modal', { timeout: 5000 });
   const hop = await page.locator('.modal').innerText();
@@ -339,8 +360,8 @@ console.log('\n[4] Tắt phân hệ Đón trả bé → Điểm danh y hệt tr�
   await moMan('#/attendance');
   check('KHÔNG có dải hai phần', await dem('#att-tab') === 0);
   check('màn Điểm danh đầy đủ', await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2);
-  check('…và vẫn có nút ghi con đã về (việc của LÕI, không phụ thuộc phân hệ)',
-    /Ghi con đã về/.test(await chu()), (await chu()).slice(0, 200));
+  check('…và vẫn có lối ghi con đã về (việc của LÕI, không phụ thuộc phân hệ)',
+    await coLoiGhiVe(), (await chu()).slice(0, 200));
   await moMan('#/attendance/tra');
   check('#/attendance/tra lặng lẽ về màn gộp, không ô sự cố', await dem('#att-so-da') === 1 && await dem('#att-tra') === 0);
   await moMan('#/');
@@ -386,7 +407,7 @@ console.log('\n[5] Tệp giao diện của phân hệ hỏng → màn Điểm da
     await dem('[id^="att-dong-"]'));
   check('không có ô sự cố nào trên màn Điểm danh', !/đang gặp sự cố/.test(man), man.slice(0, 200));
   check('không rơi vào màn "Có lỗi xảy ra" chung', !/Có lỗi xảy ra/.test(man));
-  check('nút ghi con đã về vẫn dùng được (việc của lõi)', /Ghi con đã về/.test(man));
+  check('lối ghi con đã về vẫn dùng được (việc của lõi)', await coLoiGhiVe());
   check('không lỗi JavaScript', loiJs.length === 0, loiJs);
 
   await dangNhap('phuhuynh', '123456');
@@ -443,7 +464,7 @@ console.log('\n[6] Trang chủ: cô chỉ còn một cửa, gia đình và văn 
   await moMan('#/attendance');
   const manVP = await chu();
   check('văn phòng: Điểm danh vẫn là bảng rà soát, không có dải hai phần', await dem('#att-tab') === 0);
-  check('văn phòng: có thẻ chỉ đường "Mở Đón trả bé"', /Mở Đón trả bé/.test(manVP), manVP.slice(0, 300));
+  check('văn phòng: KHÔNG còn thẻ chỉ đường "Mở Đón trả bé" (Đ241f, D2)', !/Mở Đón trả bé/.test(manVP), manVP.slice(0, 300));
   check('văn phòng: màn rà soát vẫn không có ô chọn nhóm', await dem('#view select') === 0);
 
   // Điểm danh TẮT → ô Đón trả bé phải quay lại cho cô, không có ngõ cụt.
@@ -643,6 +664,8 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
   } else {
     check('bảng "cần gọi xác nhận" có nút Gọi cạnh từng bé', nutGoi > 0, nutGoi);
     if (nutGoi > 0) {
+      // Khối "Cần gọi xác nhận" gập sẵn từ Đ241f (góp ý 20/10, D1).
+      await page.click('#att-can-goi > summary');
       await page.locator('[data-goi-be]').first().click();
       await page.waitForTimeout(1200);
       check('bấm Gọi mở số của gia đình kèm nút gọi thật (tel:)', await dem('#modal-overlay a[href^="tel:"]') > 0,
@@ -659,7 +682,13 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
   check('(đối chứng) có một bé đã vào lớp mà chưa về', !!beCoMat);
   if (beCoMat) {
     await page.evaluate((id) => { document.getElementById(`att-dong-${id}`).closest('details').open = true; }, beCoMat);
-    await page.locator(`#att-dong-${beCoMat} button`, { hasText: 'Chụp ảnh ra về' }).click();
+    // Đ242D: bấm tên lần hai → chụp → màn xem lại "Ra về" → xác nhận.
+    // Bé có mặt mà chưa có ảnh tới lớp thì màn hỏi ảnh nào trước (vòng rà Đ232).
+    await page.locator(`#att-dong-${beCoMat} button.att-ten`).click();
+    await page.waitForTimeout(600);
+    if (await dem('#att-cn-ve')) await page.locator('#att-cn-ve').click();
+    await page.waitForSelector('#att-xl-ok', { timeout: 5000 });
+    await page.locator('#att-xl-ok', { hasText: 'Ra về' }).click();
     await page.waitForTimeout(1800);
     const dong = await page.locator(`#att-dong-${beCoMat}`).innerText();
     check('bé đã vào lớp: chụp ảnh lần hai là GHI RA VỀ', /Ra về \d{2}:\d{2}/.test(dong), dong);

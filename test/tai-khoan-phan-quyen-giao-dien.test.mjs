@@ -294,14 +294,17 @@ try {
   await page.selectOption('#tk-cb-nhom', 'c1');
   await page.click('#tk-cb-tiep');
   await page.waitForSelector('#nb-ten', { timeout: 5000 });
-  for (const id of ['nb-dt', 'nb-nm', 'nb-ddcn', 'nb-tsb', 'nb-email', 'nb-qh', 'nb-ph2', 'nb-sdt2', 'nb-qh2']) {
+  for (const id of ['nb-dt', 'nb-ddcn', 'nb-tsb', 'nb-email', 'nb-qh', 'nb-ph2', 'nb-sdt2', 'nb-qh2']) {
     check(`phiếu nhận bé có ô #${id}`, await page.locator(`#${id}`).count() === 1);
   }
   check('phiếu nhận bé có ô liên hệ khẩn cấp', await page.locator('#nb-lhkc .lhkc-dong').count() === 1);
+  // Đ242 — chủ dự án 26/10 (góp ý C1, trả lời 2a): bỏ ô Nhóm máu khỏi phiếu
+  // nhận bé mới. Trước đây bài đòi có ô #nb-nm và kiểm bloodType === 'B'.
+  check('phiếu nhận bé KHÔNG còn ô Nhóm máu (C1)',
+    await page.locator('#nb-nm').count() === 0 && !/Nhóm máu/.test(await page.locator('.modal').innerText()));
   await page.fill('#nb-ten', 'Lê Minh Thử');
   await page.fill('#nb-ns', '2023-03-03');
   await page.fill('#nb-dt', 'Mường');
-  await page.fill('#nb-nm', 'B');
   await page.fill('#nb-ddcn', '001223009999');
   await page.fill('#nb-tsb', 'Dị ứng sữa bò');
   await page.fill('#nb-lhkc .lhkc-ten', 'Lê Thị Bà');
@@ -321,8 +324,8 @@ try {
     (phieu.match(/\b[a-z]{5}[2-9]{3}\b/g) || []).length === 2, phieu.slice(0, 400));
   const moi = (((await req('GET', '/api/admin/students?classId=c1', { cookie: BGH })).data || [])
     .find(s => s.name === 'Lê Minh Thử') || {});
-  check('máy chủ: dân tộc, nhóm máu, số định danh, tiền sử bệnh đã lưu',
-    moi.ethnicity === 'Mường' && moi.bloodType === 'B' && moi.soDinhDanh === '001223009999' && moi.tienSuBenh === 'Dị ứng sữa bò',
+  check('máy chủ: dân tộc, số định danh, tiền sử bệnh đã lưu (nhóm máu để trống — C1)',
+    moi.ethnicity === 'Mường' && !moi.bloodType && moi.soDinhDanh === '001223009999' && moi.tienSuBenh === 'Dị ứng sữa bò',
     [moi.ethnicity, moi.bloodType, moi.soDinhDanh, moi.tienSuBenh]);
   check('máy chủ: liên hệ khẩn cấp và hai phụ huynh Bố / Mẹ đã lưu',
     (moi.lienHeKhanCap || []).length === 1 && JSON.stringify((moi.parents || []).map(p => p.quanHe).sort()) === '["Bố","Mẹ"]',

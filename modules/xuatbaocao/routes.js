@@ -90,7 +90,7 @@ const CHUONG_TRINH_CUA_GOC = {
 const CHU_QUY_UOC = { 'chua-day': 'NA', 'chua-quan-sat-thay': 'N', 'dang-hinh-thanh': 'W', 'da-vung': 'S', 'vuot-troi': 'M' };
 const NHAN_BAI = { 'hoc-moi': 'Dạy mới', 'on-tap': 'Ôn tập', 'mo-rong': 'Mở rộng' };
 const KET_LUAN_BAI = { 'da-thay': 'Đã thấy con làm được', 'tiep-tuc': 'Tiếp tục cùng con' };
-const TIEP_TUC = { 'hoc-moi': 'Dạy mới ở tháng sau', 'on-tap': 'Ôn tập ở tháng sau' };
+const TIEP_TUC = { 'hoc-moi': 'Dạy mới ở tháng sau', 'on-tap': 'Ôn tập ở tháng sau', 'mo-rong': 'Mở rộng ở tháng sau' };
 const TRANG_THAI_KE = { nhap: 'Nháp', 'cho-duyet': 'Chờ duyệt', 'da-duyet': 'Đã duyệt', 'tra-lai': 'Gửi lại cô sửa' };
 
 const LOAI_BAO_CAO = { thang: 'Báo cáo tháng', hocky: 'Báo cáo 6 tháng' };
@@ -842,7 +842,7 @@ module.exports = (app, { db, modules }) => {
     const noi = (v) => (v === true ? 'Đồng ý' : v === false ? 'Không đồng ý' : 'Chưa trả lời');
 
     const hang = [['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
-      'Số định danh cá nhân', 'Dân tộc', 'Nhóm máu', 'Tiền sử bệnh / lưu ý đặc biệt',
+      'Số định danh cá nhân', 'Dân tộc', 'Tiền sử bệnh / lưu ý đặc biệt',
       'Địa chỉ', 'Bố / mẹ', 'Số CCCD của bố / mẹ', 'Người liên hệ khẩn cấp',
       'Đồng ý hồ sơ học tập', 'Đồng ý chia sẻ ảnh', 'Đồng ý truyền thông',
       'Người ký giấy', 'Ngày ký', 'Tình trạng']];
@@ -854,7 +854,7 @@ module.exports = (app, { db, modules }) => {
       hang.push([
         s.code || '', s.name || '', s.dob || '', tuoiCuaBe(s.dob), s.gender || '',
         lop ? lop.name : '', cs ? cs.name : '',
-        mr.soDinhDanh || '', s.ethnicity || '', s.bloodType || '',
+        mr.soDinhDanh || '', s.ethnicity || '',
         mr.tienSuBenh || s.allergies || '', s.address || '',
         (s.parentIds || []).map((id) => {
           const p = phuHuynhTheoId.get(id);

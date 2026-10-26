@@ -206,3 +206,49 @@ CREATE TABLE IF NOT EXISTS hanhtrinh_nhap (
 );
 CREATE INDEX IF NOT EXISTS hanhtrinh_nhap_theo_co ON hanhtrinh_nhap(coGhi, taoLuc DESC);
 CREATE INDEX IF NOT EXISTS hanhtrinh_nhap_theo_anh ON hanhtrinh_nhap(anh);
+
+-- ẢNH / VIDEO CÔ GỬI KÈM CÂU CHUYỆN CHO GIA ĐÌNH (Đ242B — chủ dự án quyết 26/10, B7).
+--
+-- Ảnh gốc của quan sát (`hanhtrinh_quansat.anh`) là tư liệu LỚP 1 và giữ đúng
+-- luật lớp 1: đường /api/hanhtrinh/anh/:file không nới một chữ. Thứ tới được
+-- gia đình là một BẢN CHÉP RIÊNG, do cô chủ động tích "gửi kèm" lúc kể — tệp
+-- khác, tên khác, mã khác. Thu hồi câu chuyện là gỡ bản chép (cả tệp), ảnh
+-- gốc của cô còn nguyên.
+--
+-- `file` KHÔNG BAO GIỜ ra JSON: màn hình chỉ nhận `id` và mở qua
+-- /api/hanhtrinh/ke-tep/:id, nơi có canh quyền và luật đồng ý ảnh nhóm.
+--
+-- `daXacNhanBe` = 1 khi cô đã trả lời "trong ảnh có những bé nào" (dòng ở
+-- `hanhtrinh_ke_tep_be`, luôn có bé chính). = 0 thì app KHÔNG BIẾT trong ảnh
+-- có ai — cùng luật với ảnh album chưa gắn thẻ: nhóm có nhà từ chối thì ẩn.
+CREATE TABLE IF NOT EXISTS hanhtrinh_ke_tep (
+  id          TEXT PRIMARY KEY,
+  quanSatId   TEXT NOT NULL,
+  file        TEXT NOT NULL,
+  loai        TEXT NOT NULL,              -- 'anh' | 'video'
+  daXacNhanBe INTEGER NOT NULL DEFAULT 0,
+  nguoiKe     TEXT NOT NULL,
+  keLuc       TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS hanhtrinh_ke_tep_theo_qs ON hanhtrinh_ke_tep(quanSatId);
+CREATE TABLE IF NOT EXISTS hanhtrinh_ke_tep_be (
+  tepId     TEXT NOT NULL,
+  studentId TEXT NOT NULL,
+  PRIMARY KEY (tepId, studentId)
+);
+CREATE INDEX IF NOT EXISTS hanhtrinh_ke_tep_be_theo_be ON hanhtrinh_ke_tep_be(studentId);
+
+-- GÓC MONTESSORI CỦA MỘT QUAN SÁT (Đ242B). Bảng phụ vì CREATE TABLE IF NOT
+-- EXISTS không thêm được cột vào bảng đã có (xem `hanhtrinh_chude_them`).
+-- Không có dòng = chưa chọn góc — trạng thái đúng của mọi quan sát cũ.
+CREATE TABLE IF NOT EXISTS hanhtrinh_quansat_goc (
+  quanSatId TEXT PRIMARY KEY,
+  goc       TEXT NOT NULL
+);
+-- "Hình ảnh ghi nhanh" đọc quan sát chưa kể của một cô.
+CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_cho_ke ON hanhtrinh_quansat(coGhi, congBoLuc);
+
+-- Đ242B: `GET /cho-ke` tìm Ghi nhanh chưa dùng bằng `NOT IN (SELECT ghiNhanhId …)`;
+-- không có chỉ mục thì mỗi lần cô mở Hình ảnh ghi nhanh là quét cả bảng quan
+-- sát — chậm dần theo từng năm học.
+CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_theo_ghinhanh ON hanhtrinh_quansat(ghiNhanhId);

@@ -1175,14 +1175,7 @@ App.views.admin = {
       <div class="field"><label>Mã của bé</label>
         <input id="nb-ma" placeholder="Để trống nếu trường không dùng mã"></div>
       <div class="field"><label>Địa chỉ</label><input id="nb-dc"></div>
-      <div class="grid-2">
-        <div class="field"><label>Dân tộc</label><input id="nb-dt" placeholder="Ví dụ: Kinh"></div>
-        <div class="field"><label>Nhóm máu</label><input id="nb-nm" list="nb-nm-goi" placeholder="Ví dụ: O">
-          <datalist id="nb-nm-goi">
-            <option value="A"></option><option value="B"></option>
-            <option value="AB"></option><option value="O"></option>
-          </datalist></div>
-      </div>
+      <div class="field"><label>Dân tộc</label><input id="nb-dt" placeholder="Ví dụ: Kinh"></div>
       <div class="field"><label>Số định danh cá nhân</label>
         <input id="nb-ddcn" placeholder="12 chữ số trên giấy khai sinh / CCCD của bé"></div>
       <div class="field"><label>Tiền sử bệnh / dị ứng / lưu ý đặc biệt</label>
@@ -1242,7 +1235,6 @@ App.views.admin = {
       phEmail: document.getElementById('nb-email').value,
       diaChi: document.getElementById('nb-dc').value,
       danToc: document.getElementById('nb-dt').value,
-      nhomMau: document.getElementById('nb-nm').value,
       soDinhDanh: document.getElementById('nb-ddcn').value,
       tienSuBenh: document.getElementById('nb-tsb').value,
       lienHeKhanCap: [...document.querySelectorAll('#nb-lhkc .lhkc-dong')].map(d => ({
@@ -1403,15 +1395,6 @@ Vẫn nhận bé này?`)) {
         <div class="hint">Mẫu sổ của Phòng có cột này. Gia đình chưa khai thì cứ để trống,
         không cần điền cho đủ ô.</div>
       </div>
-      <div class="field"><label>Nhóm máu</label>
-        <input id="ad-hs-nm" list="ad-hs-nm-goi" value="${UI.esc(s.bloodType || '')}" placeholder="Ví dụ: O">
-        <datalist id="ad-hs-nm-goi">
-          <option value="A"></option><option value="B"></option>
-          <option value="AB"></option><option value="O"></option>
-        </datalist>
-        <div class="hint">Chỉ ghi khi gia đình đã có kết quả xét nghiệm. Bỏ trống an toàn hơn
-        ghi theo trí nhớ: y tế trường không truyền máu, ô này chỉ để đưa cho bệnh viện.</div>
-      </div>
       <div class="field"><label>Số định danh cá nhân</label>
         <input id="ad-hs-ddcn" value="${UI.esc(s.soDinhDanh || '')}" placeholder="12 chữ số trên giấy khai sinh / CCCD của bé">
         <div class="hint">Chỉ nhà trường thấy ô này. Cô không cần số định danh để làm việc nên màn hình của cô không hiện.</div>
@@ -1507,7 +1490,8 @@ Vẫn nhận bé này?`)) {
           gender: document.getElementById('ad-hs-gt').value,
           address: document.getElementById('ad-hs-dc').value.trim(),
           ethnicity: document.getElementById('ad-hs-dt').value.trim(),
-          bloodType: document.getElementById('ad-hs-nm').value.trim(),
+          // Không gửi nhóm máu (góp ý 20/10, C1): ô đã bỏ khỏi màn, máy chủ
+          // giữ nguyên giá trị đã có khi gói không mang trường này.
           soDinhDanh: document.getElementById('ad-hs-ddcn').value.trim(),
           tienSuBenh: document.getElementById('ad-hs-tsb').value.trim(),
           lienHeKhanCap: [...document.querySelectorAll('#ad-hs-lhkc .lhkc-dong')].map(d => ({
@@ -2478,7 +2462,41 @@ Vẫn nhận bé này?`)) {
         Các tính năng còn lại vẫn chạy bình thường.</div>` : ''}
       ${khoi('Trên màn hình chính', list.filter(m => !m.nav && !m.moRong))}
       ${khoi('Trên thanh điều hướng', list.filter(m => m.nav && !m.moRong))}
-      ${khoi('Tính năng cắm thêm', list.filter(m => m.moRong))}`;
+      ${khoi('Tính năng cắm thêm', list.filter(m => m.moRong))}
+      <div id="tn-nhan-tin-nn"></div>`;
+    this.veCongTacCoNuocNgoai();
+  },
+
+  // CÔNG TẮC "PHỤ HUYNH NHẮN TIN CÔ NƯỚC NGOÀI" (Đ242F — F6b). Tải riêng và nuốt
+  // lỗi: phân hệ Nhắn tin tắt hay hỏng thì thẻ này không hiện, còn các tính
+  // năng khác trên màn vẫn đổi được như thường.
+  async veCongTacCoNuocNgoai() {
+    const o = document.getElementById('tn-nhan-tin-nn');
+    if (!o) return;
+    let cd;
+    try { cd = await API.get('/api/messages/cai-dat'); } catch (_) { return; }
+    if (!cd || !cd.suaDuoc) return;
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">Nhắn tin</div>
+        <div class="list-row">
+          <div class="row-main">
+            <div class="row-title">Gia đình nhắn tin với cô nước ngoài</div>
+            <div class="row-sub">Tắt thì gia đình không mở được cuộc mới và cả hai bên không gửi thêm tin
+              với cô nước ngoài. Tin cũ vẫn đọc được. Bật lại là dùng tiếp như cũ.</div>
+          </div>
+          <button class="btn sm ${cd.coNuocNgoai ? 'success-soft' : 'outline'}" id="tn-nn-doi">
+            ${cd.coNuocNgoai ? 'Đang bật' : 'Đang tắt'}
+          </button>
+        </div>
+      </div>`;
+    document.getElementById('tn-nn-doi').onclick = async () => {
+      try {
+        await API.put('/api/messages/cai-dat', { coNuocNgoai: !cd.coNuocNgoai });
+        UI.toast(cd.coNuocNgoai ? 'Đã tắt nhắn tin với cô nước ngoài' : 'Đã bật nhắn tin với cô nước ngoài', 'success');
+        this.veCongTacCoNuocNgoai();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   async doiTinhNang(key, bat) {
@@ -2683,10 +2701,13 @@ Vẫn nhận bé này?`)) {
       'nhom-lua-tuoi-khai': 'Khai lứa tuổi của nhóm lớp',
       'nhom-lua-tuoi-go': 'Gỡ lời khai lứa tuổi của nhóm lớp',
       'tin-nhan-thu-hoi': 'Thu hồi một lời nhắn đã gửi',
+      'tin-nhan-gui-nhieu-nha': 'Nhắn một tin cho nhiều gia đình, mỗi nhà một cuộc riêng',
+      'nhantin-co-nuoc-ngoai': 'Bật hoặc tắt phần gia đình nhắn tin với cô nước ngoài',
       'phong-chung-tao': 'Lập một phòng chung trong Nhắn tin',
       'hoi-thoai-dong': 'Đóng một cuộc trò chuyện với gia đình',
       'hoi-thoai-mo-lai': 'Mở lại một cuộc trò chuyện đã đóng',
       'hoi-thoai-da-dong-mo': 'Xem lại một cuộc trò chuyện đã đóng',
+      'hoi-thoai-quan-ly-xem': 'Quản lý xem một cuộc trò chuyện giữa cô và gia đình',
       'module-enable': 'Bật tính năng',
       'module-disable': 'Tắt tính năng',
 
@@ -2699,6 +2720,7 @@ Vẫn nhận bé này?`)) {
 
       // Điểm danh, xin phép, đón trả bé
       'leave-review': 'Duyệt đơn xin phép',
+      'leave-sua-ngay': 'Sửa kết quả từng ngày của đơn xin phép',
       'chot-vang': 'Chốt sổ vắng trong ngày',
       'diemdanh-gio-ra-soat': 'Đổi mốc giờ rà soát điểm danh',
       'anh-toi-lop': 'Chụp ảnh bé tới lớp',
@@ -2738,6 +2760,7 @@ Vẫn nhận bé này?`)) {
       // Ảnh và album
       'album-delete': 'Xoá album',
       'album-doi-che-do': 'Đổi chế độ xem album',
+      'album-tu-cau-chuyen': 'Thêm ảnh câu chuyện đã kể vào album',
       'photo-tag': 'Gắn tên bé vào ảnh',
       'photo-tag-nhieu': 'Gắn tên bé vào nhiều ảnh',
 

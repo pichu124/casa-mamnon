@@ -268,6 +268,35 @@ CREATE TABLE IF NOT EXISTS leave_refund (
   capNhatLuc TEXT
 );
 
+-- ===== Duyệt đơn nghỉ TỪNG NGÀY (góp ý 20/10, E1 + D4) =====
+--
+-- Mỗi (đơn, ngày) một dòng: có phép hay không, được hoàn tiền ăn hay không, vì
+-- sao. `leave_refund.soNgay` vẫn được ghi theo (= số dòng được hoàn) để mọi chỗ
+-- đang đọc con số ấy giữ nguyên. Đơn duyệt trước bảng này không có dòng nào —
+-- KHÔNG có dòng nghĩa là "duyệt theo một con số", không phải "không hoàn".
+--
+-- `diemDanh` ghi việc tự động ghi sổ điểm danh đã xét ngày này chưa:
+--   ''          chưa tới hạn (hoặc chưa xét)
+--   'tu-ghi'    đã tự ghi dòng `attId` (markedBy = 'tu-dong:don-nghi')
+--   'da-co'     sổ đã có dòng do người ghi — giữ nguyên, `diemDanhCo` là trạng
+--               thái lúc ấy để văn phòng xem
+--   'khong-ghi' cuối tuần / trường nghỉ / bé đã thôi học — không cần dòng
+-- Chữ 'co' / 'khong' cùng lý do với `leave_refund` (BOOL_COLS biến null thành 0).
+CREATE TABLE IF NOT EXISTS leave_ngay (
+  leaveId    TEXT NOT NULL REFERENCES leave_requests(id) ON DELETE CASCADE,
+  ngay       TEXT NOT NULL,                 -- YYYY-MM-DD
+  coPhep     TEXT NOT NULL DEFAULT 'co',
+  duocHoan   TEXT NOT NULL DEFAULT 'khong',
+  lyDo       TEXT NOT NULL DEFAULT '',
+  nguoiDuyet TEXT,
+  duyetLuc   TEXT,
+  diemDanh   TEXT NOT NULL DEFAULT '',
+  diemDanhCo TEXT NOT NULL DEFAULT '',
+  attId      TEXT,
+  PRIMARY KEY (leaveId, ngay)
+);
+CREATE INDEX IF NOT EXISTS idx_leave_ngay_cho ON leave_ngay(diemDanh, ngay);
+
 -- ===== LỊCH NGHỈ CỦA TRƯỜNG — nghỉ lễ, nghỉ hè, nghỉ Tết =====
 --
 -- Nhà trường 10/09: *"cần thêm phần set lịch được ghi nhận là nghỉ có phép để
@@ -809,6 +838,15 @@ CREATE TABLE IF NOT EXISTS notification_reads (
 );
 CREATE INDEX IF NOT EXISTS idx_nreads_user ON notification_reads(userId);
 
+-- Bấm thông báo thì mở thẳng màn nào (góp ý 20/10, G2). Thông báo khảo sát
+-- trỏ '#/surveys/<mã>' để gia đình làm khảo sát luôn, không phải tự đi tìm.
+-- Bảng phụ, KHÔNG ALTER `notifications`. Không có dòng = mở hộp chi tiết như
+-- mọi thông báo cũ. Liên kết không mở thêm quyền: màn đích tự hỏi máy chủ.
+CREATE TABLE IF NOT EXISTS notification_lien_ket (
+  notificationId TEXT PRIMARY KEY REFERENCES notifications(id) ON DELETE CASCADE,
+  lienKet        TEXT NOT NULL
+);
+
 -- ===== Nhắn tin — bảng lớn, khoảng 28.200 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS conversations (
   id      TEXT PRIMARY KEY,
@@ -1202,6 +1240,26 @@ CREATE TABLE IF NOT EXISTS attendance_anh_ve (
 );
 CREATE INDEX IF NOT EXISTS idx_att_anh_ve_date ON attendance_anh_ve(date);
 CREATE INDEX IF NOT EXISTS idx_att_anh_ve_file ON attendance_anh_ve(file);
+
+-- ===========================================================================
+-- GHI CHÚ LÚC RA VỀ — GIA ĐÌNH ĐỌC ĐƯỢC (Đ242D, góp ý D3)
+-- ===========================================================================
+--
+-- Màn "Xem lại" lúc bấm tên bé có một ô ghi chú gửi gia đình. Lượt VÀO LỚP
+-- ghi vào `attendance.note` — chính ô "Ghi chú (gia đình đọc được)" đã có.
+-- Lượt RA VỀ thì `attendance` không có ô thứ hai, và lược đồ lõi cấm ALTER,
+-- nên ghi chú ấy nằm ở bảng phụ này. Ghi chú NỘI BỘ là `attendance_luu_y`,
+-- không trộn với bảng này.
+--
+-- Gỡ giờ ra về (bấm nhầm bé) thì ghi chú về chuỗi rỗng, dòng ở lại làm vết.
+CREATE TABLE IF NOT EXISTS attendance_ghi_chu_ve (
+  studentId  TEXT NOT NULL,
+  date       TEXT NOT NULL,              -- YYYY-MM-DD
+  ghiChu     TEXT NOT NULL DEFAULT '',
+  nguoiGhi   TEXT,
+  capNhatLuc TEXT,
+  PRIMARY KEY (studentId, date)
+);
 
 -- ===== CHẤM CÔNG CÔ VÀ NHÂN VIÊN BẰNG ẢNH Ở CỔNG (góp ý 06/10, mục 2) =====
 -- Trường: mục "Giáo viên" đứng đầu màn điểm danh — bấm vào ra danh sách cô và

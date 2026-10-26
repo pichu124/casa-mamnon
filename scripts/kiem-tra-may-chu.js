@@ -14,7 +14,7 @@
 // mã có đúng không — và canh rất kỹ. Nhưng chúng KHÔNG nhìn thấy máy chủ thật.
 //
 // Một máy chủ đặt sai múi giờ, chưa hề sao lưu lần nào, để dữ liệu ngay trong
-// thư mục mã nguồn, và cả 13 tài khoản vẫn dùng mật khẩu "123456" — vẫn xanh
+// thư mục mã nguồn, và cả 15 tài khoản vẫn dùng mật khẩu "123456" — vẫn xanh
 // toàn bộ. Những lỗi ấy không nằm trong mã, chúng nằm ở khoảng cách giữa tài
 // liệu và việc thực sự làm trên máy.
 //

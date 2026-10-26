@@ -6,7 +6,8 @@
 // Phần máy chủ có `test/hanh-trinh-bon-tab.test.mjs`. Ở đây đo bằng mắt người:
 //   • cô: mở Hành trình là vào thẳng BỐN tab theo đúng thứ tự trường đặt
 //     (Kế hoạch của bé / Cambridge / P.E (Thể chất) / Montessori & Kỹ năng
-//     sống); Suy ngẫm cuối ngày và Chủ đề tuần là hai lối phụ, vẫn mở được;
+//     sống); lối phụ duy nhất là Hình ảnh ghi nhanh (Đ242B — trước đó là Suy
+//     ngẫm cuối ngày và Chủ đề tuần); địa chỉ cũ của hai lối ấy vẫn mở được;
 //     tab Kế hoạch có chữ quy ước, lưu mức độ từ chính tab ấy;
 //   • nút + biết tab đang mở: ô Chương trình đặt sẵn đúng chương trình, bé
 //     đặt sẵn là bé đang chọn;
@@ -19,12 +20,15 @@
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
-  batPhanHe, HOM_NAY, CHROMIUM, tatBannerMoiCai,
+  batPhanHe, HOM_NAY, CHROMIUM, tatBannerMoiCai, goCoNuocNgoaiMau,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('hanh-trinh-bon-tab-gd');
 sinhDuLieu(DIR);
+// Đ242F — F6b: dữ liệu mẫu nay có cô nước ngoài khai vai ở mọi nhóm. Bài này
+// canh ca "trường CHƯA khai vai" (cô phụ trách soạn cả ba phần), nên gỡ đi.
+goCoNuocNgoaiMau(DIR);
 batPhanHe(DIR, ['kehoachbe', 'hanhtrinh']);
 const mk1 = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3353), dir: DIR });
@@ -90,9 +94,11 @@ try {
       !tab.some(t => /Suy ngẫm|Chủ đề tuần|từng bé/.test(t)), tab);
     check('mở vào là tab Kế hoạch của bé (không rơi vào Suy ngẫm nữa)',
       /Kế hoạch của bé/.test(await chuCua('#ht-tabs button.active')) && await page.locator('#ht-them').count() === 0);
+    // Đ242B (góp ý 20/10, B1): "Suy ngẫm cuối ngày" đổi thành "Hình ảnh ghi
+    // nhanh"; nút "Chủ đề tuần" bỏ vì lối vào soạn nay ở Lịch sinh hoạt.
     const phu = (await page.locator('#ht-loi-phu [data-tab]').allInnerTexts()).map(t => t.trim());
-    check('có hai lối phụ dưới tiêu đề: Suy ngẫm cuối ngày, Chủ đề tuần',
-      phu.join(' | ') === 'Suy ngẫm cuối ngày | Chủ đề tuần', phu);
+    check('lối phụ dưới tiêu đề: Hình ảnh ghi nhanh (Chủ đề tuần đã chuyển sang Lịch sinh hoạt)',
+      phu.join(' | ') === 'Hình ảnh ghi nhanh', phu);
     check('đầu màn có ô chọn bé, chưa chọn sẵn bé nào',
       await page.locator('#ht-chon-be').count() === 1 && (await page.inputValue('#ht-chon-be')) === '');
     check('có ô tìm bé theo tên', await page.locator('#ht-tim-be').count() === 1);
@@ -134,46 +140,53 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[1a] Hai lối phụ vẫn mở đúng màn cũ; địa chỉ mở thẳng được từng tab');
+  console.log('\n[1a] Lối phụ Hình ảnh ghi nhanh; địa chỉ cũ của hai lối phụ vẫn mở; địa chỉ mở thẳng được từng tab');
   {
     await moMan('#/hanhtrinh');
-    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Suy ngẫm cuối ngày' }).click();
+    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Hình ảnh ghi nhanh' }).click();
     await page.waitForTimeout(1500);
-    check('lối phụ Suy ngẫm cuối ngày mở màn suy ngẫm, có nút ghi một quan sát', await page.locator('#ht-them').count() === 1);
+    check('lối phụ Hình ảnh ghi nhanh mở danh sách chờ kể, có nút ghi nhanh', await page.locator('#ht-them').count() === 1
+      && await page.locator('#ht-gn-ds').count() === 1);
     check('và bốn tab vẫn ở đó để quay về', (await page.locator('#ht-tabs [data-tab]').count()) === 4);
-    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Chủ đề tuần' }).click();
-    await page.waitForTimeout(1500);
-    check('lối phụ Chủ đề tuần mở màn soạn chủ đề tuần', await page.locator('#ht-cd-luu').count() === 1);
+    // Đ242B: không còn nút, nhưng địa chỉ vẫn mở — Lịch sinh hoạt dẫn tới đây.
+    await moMan('#/hanhtrinh/chude');
+    check('#/hanhtrinh/chude vẫn mở màn soạn chủ đề tuần', await page.locator('#ht-cd-luu').count() === 1);
     await moMan('#/hanhtrinh/the-chat');
     check('#/hanhtrinh/the-chat mở thẳng tab P.E (Thể chất)', /P\.E \(Thể chất\)/.test(await chuCua('#ht-tabs button.active')));
     await moMan('#/hanhtrinh/suyngam');
-    check('#/hanhtrinh/suyngam mở thẳng Suy ngẫm cuối ngày', await page.locator('#ht-them').count() === 1);
+    check('#/hanhtrinh/suyngam (địa chỉ cũ) mở Hình ảnh ghi nhanh', await page.locator('#ht-gn-ds').count() === 1);
   }
 
   // =========================================================================
-  console.log('\n[1b] Cô: ghi nháp CHƯA GẮN BÉ ở Suy ngẫm rồi gắn bé sau; nút nói thành chữ');
+  console.log('\n[1b] Cô: ghi nháp CHƯA GẮN BÉ ở Hình ảnh ghi nhanh rồi gắn bé lúc hoàn thiện; lời nhắc micro bàn phím');
   {
     await moMan('#/hanhtrinh/suyngam');
     await page.click('#ht-them');
     await page.waitForTimeout(600);
     check('ô chọn bé có lựa chọn "Chưa gắn bé · lưu nháp"', await page.locator('#ht-be option[value="__nhap__"]').count() === 1);
     check('có ô chọn chương trình', await page.locator('#ht-nhom option').count() === 4);
-    check('ở lối phụ Suy ngẫm, ô chương trình vẫn "theo vai" như cũ', (await page.inputValue('#ht-nhom')) === '');
-    const coNoi = await page.evaluate(() => !!(window.SpeechRecognition || window.webkitSpeechRecognition));
-    check('máy hỗ trợ nhận giọng thì có nút "Nói để ghi", không thì có lời chỉ micro bàn phím',
-      coNoi ? await page.locator('.ht-noi[data-o="ht-mota"]').count() === 1
-        : /micro trên bàn phím/.test(await page.locator('#modal-overlay').innerText()), coNoi);
+    check('ở lối phụ Hình ảnh ghi nhanh, ô chương trình vẫn "theo vai" như cũ', (await page.inputValue('#ht-nhom')) === '');
+    // Phản hồi 20/10 (B2): bỏ nút "Nói để ghi" dù máy có hỗ trợ nhận giọng.
+    check('không có nút "Nói để ghi", chỉ có lời chỉ micro bàn phím',
+      await page.locator('.ht-noi').count() === 0
+        && /micro trên bàn phím/.test(await page.locator('#modal-overlay').innerText()));
     await page.selectOption('#ht-be', '__nhap__');
     await page.fill('#ht-mota', 'Một bạn tự rót nước không làm đổ');
     await page.click('#ht-luu');
     await page.waitForTimeout(1500);
-    check('nháp hiện ở mục "Nháp chưa gắn bé"', /Một bạn tự rót nước không làm đổ/.test(await chuCua('#ht-nhap-ds')));
-    await page.locator('[data-nhap-gan]').first().click();
-    await page.waitForTimeout(500);
-    await page.selectOption('#ht-gan-be', 's3');
-    await page.click('#ht-gan-luu');
+    // Đ242B: nháp nằm chung danh sách Hình ảnh ghi nhanh; gắn bé ở hộp
+    // hoàn thiện ("Lưu, chưa kể" = gắn bé mà chưa kể cho gia đình).
+    const nhapRot = page.locator('#ht-gn-ds [data-muc^="nhap:"]', { hasText: 'Một bạn tự rót nước không làm đổ' });
+    check('nháp hiện ở Hình ảnh ghi nhanh, ghi rõ chưa gắn bé', await nhapRot.count() === 1 && /Chưa gắn bé/.test(await nhapRot.innerText()));
+    await nhapRot.locator('[data-hoan-thien]').click();
+    await page.waitForTimeout(800);
+    await page.selectOption('#ht-hc-be', 's3');
+    await page.waitForTimeout(800);
+    await page.click('#ht-luu-nhap');
     await page.waitForTimeout(1500);
-    check('gắn bé xong thì nháp rời danh sách', await page.locator('#ht-nhap-ds').count() === 0);
+    check('gắn bé xong thì không còn là nháp — thành quan sát chưa kể của bé, vẫn chờ kể ở danh sách',
+      await nhapRot.count() === 0
+        && await page.locator('#ht-gn-ds [data-muc^="quansat:"]', { hasText: 'Một bạn tự rót nước không làm đổ' }).count() === 1);
     const ht = (await req('GET', '/api/hanhtrinh?studentId=s3', { cookie: GV })).data;
     check('và thành một quan sát của bé s3', (ht.quanSat || []).some(q => /tự rót nước không làm đổ/.test(q.moTa || '')));
     // Tab chương trình của bé hiện cả ẢNH của quan sát (mục 7: "nhận xét, đánh
@@ -278,7 +291,7 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[1f] Cô khác: không thấy nháp của cô kia, không có nút kể chuyện thay; nút + ở Chủ đề tuần vẫn lưu được');
+  console.log('\n[1f] Cô khác: không thấy nháp của cô kia, không có nút kể chuyện thay; nút + ở màn Chủ đề tuần vẫn lưu được');
   {
     await dangNhap('giaovien3', '123456');
     await moMan('#/hanhtrinh/nuoc-ngoai');
@@ -310,8 +323,8 @@ try {
     check('và nút + đặt sẵn Cambridge', (await page.inputValue('#modal-overlay #ht-nhom')) === 'nuoc-ngoai');
     await dongHop();
 
-    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Chủ đề tuần' }).click();
-    await page.waitForTimeout(1500);
+    // Đ242B: nút Chủ đề tuần đã bỏ — mở bằng địa chỉ, như từ Lịch sinh hoạt.
+    await moMan('#/hanhtrinh/chude', 1500);
     check('đối chứng — màn Chủ đề tuần có ô chọn nhóm của chính nó', await page.locator('#view #ht-nhom').count() === 1);
     await page.click('#ht-ghi-nhanh');
     await page.waitForTimeout(600);

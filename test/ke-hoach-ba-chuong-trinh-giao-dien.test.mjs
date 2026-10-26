@@ -15,12 +15,15 @@
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem,
-  CHROMIUM, tatBannerMoiCai, batPhanHe,
+  CHROMIUM, tatBannerMoiCai, batPhanHe, goCoNuocNgoaiMau,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('ke-hoach-ba-ct-gd');
 sinhDuLieu(DIR);
+// Đ242F — F6b: dữ liệu mẫu nay có cô nước ngoài khai vai ở mọi nhóm. Bài này
+// canh ca "trường CHƯA khai vai" (cô phụ trách soạn cả ba phần), nên gỡ đi.
+goCoNuocNgoaiMau(DIR);
 batPhanHe(DIR, ['kehoachbe']);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 3347), dir: DIR });

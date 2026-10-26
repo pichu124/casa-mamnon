@@ -13,7 +13,7 @@
 // chỉ diễn ra khi ai đó chịu làm đủ sáu. Ba trong sáu bước là chỗ dễ bỏ sót
 // nhất, và mỗi chỗ bỏ sót đều làm hỏng buổi thử theo một kiểu riêng:
 //
-//   • Quên đổi mật khẩu mẫu → 13 tài khoản dùng chung "123456". Buổi thử thường
+//   • Quên đổi mật khẩu mẫu → 15 tài khoản dùng chung "123456". Buổi thử thường
 //     chạy qua một đường hầm công khai để có HTTPS, nên đó là mở cửa thật.
 //   • Chỉ bật MỘT phân hệ (phiếu ghi "Quản trị → Tính năng → Ghi nhanh") → cô
 //     mở app ra và không thấy Nhật ký ngày, Báo ăn, Hành trình… tức KHÔNG

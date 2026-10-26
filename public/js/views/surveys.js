@@ -1,7 +1,7 @@
 // Phân hệ Khảo sát.
 // Phụ huynh: trả lời / xem lại khảo sát. Giáo viên: tạo khảo sát, xem kết quả, đóng khảo sát.
 App.views.surveys = {
-  async render(root) {
+  async render(root, params) {
     // VAI QUẢN TRỊ KHÔNG PHẢI PHỤ HUYNH.
     //
     // Nhánh cũ chỉ hỏi `role === 'teacher'`, nên hiệu trưởng và văn phòng rơi
@@ -16,8 +16,19 @@ App.views.surveys = {
     // từ đầu. KHÔNG dùng được ở màn Điểm danh: nhánh cô ở đó đọc
     // `user.nhomCuaCo`, mà `routes/auth.js` chỉ gán ô ấy cho vai `teacher`
     // (xem chú thích Đ97 ở public/js/views/attendance.js).
-    if (App.state.user.role !== 'parent') return this.renderTeacher(root);
-    return this.renderParent(root);
+    if (App.state.user.role !== 'parent') await this.renderTeacher(root);
+    else await this.renderParent(root);
+    const laGiaDinh = App.state.user.role === 'parent';
+
+    // MỞ THẲNG MỘT KHẢO SÁT: #/surveys/<mã> (G2 — bấm thông báo khảo sát là
+    // làm khảo sát luôn). Đưa đường dẫn về #/surveys trước khi mở, để lần vẽ
+    // lại sau khi gửi trả lời không bật lại hộp này. Khảo sát ngoài phạm vi
+    // thì máy chủ trả "Không tìm thấy khảo sát", y như bấm từ danh sách.
+    const ma = params && params[0];
+    if (!ma) return;
+    history.replaceState(null, '', '#/surveys');
+    if (laGiaDinh) await this.openParent(ma);
+    else await this.openResults(ma);
   },
 
   // ==== Phụ huynh ====
@@ -305,10 +316,32 @@ App.views.surveys = {
               chuyện riêng của từng nhà.
             </div>` : ''}
         </div>
+        ${this.chuaTraLoiHtml(sv.chuaTraLoi)}
         ${sv.status === 'open' && sv.createdByMe
           ? `<button class="btn danger-soft block mt-14" onclick="App.views.surveys.closeSurvey('${UI.esc(sv.id)}')">Đóng khảo sát</button>`
           : ''}`, sv.title);
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // GIA ĐÌNH CHƯA TRẢ LỜI (góp ý 20/10, G1) — để cô và văn phòng nhắc. Máy
+  // chủ đã cắt theo phạm vi người xem và đếm theo bé (một trong hai phụ huynh
+  // trả lời là bé đã có trả lời). Khảo sát đã đóng thì không có ô này.
+  chuaTraLoiHtml(ds) {
+    if (!Array.isArray(ds)) return '';
+    return `
+      <div class="mt-14" data-chua-tra-loi>
+        <div style="font-weight:700;font-size:.9rem">Gia đình chưa trả lời (${ds.length})</div>
+        ${ds.length ? ds.map(be => `
+          <div class="list-row" style="padding:8px 0">
+            <div class="row-main">
+              <div class="row-title">Bé ${UI.esc(be.tenBe)} · Nhóm ${UI.esc(be.tenNhom)}</div>
+              <div class="row-sub">${be.phuHuynh.length
+                ? UI.esc(be.phuHuynh.join(', '))
+                : 'Bé chưa có tài khoản gia đình'}</div>
+            </div>
+          </div>`).join('')
+          : '<div class="muted small mt-8">Mọi gia đình trong phạm vi mình đã trả lời.</div>'}
+      </div>`;
   },
 
   // Thanh phần trăm cho câu trắc nghiệm.

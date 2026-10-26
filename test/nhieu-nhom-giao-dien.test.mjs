@@ -399,13 +399,20 @@ console.log('\n[6] CẤP 3 TRÊN TRÌNH DUYỆT THẬT — không thấy bé c�
     await page.waitForTimeout(1200);
     await page.evaluate((d) => App.views.attendance.setDate(d), NGAY_XA);
     await page.waitForTimeout(1400);
+    // Từ Đ241f (góp ý 20/10, D1) bảng rà soát "Cần gọi xác nhận" mặc định GẬP,
+    // và innerText không đọc phần đang gập. Mở mọi khối gập như cô bấm mở rồi
+    // mới đọc chữ hiện ra; còn phép "không lọt" đọc cả chữ ĐANG ẨN (textContent)
+    // — một tên bé cơ sở khác nằm trong khối gập vẫn là lọt.
+    await page.evaluate(() => document.querySelectorAll('details').forEach(d => { d.open = true; }));
+    await page.waitForTimeout(200);
     const chu = await page.locator('body').innerText();
+    const caChuAn = await page.evaluate(() => document.body.textContent);
     check(`${ten}: Cấp 3 mở được, không rơi vào màn lỗi hay màn "đang tắt"`,
       !/Có lỗi xảy ra|Không mở được/.test(chu), chu.slice(0, 150));
     check(`${ten}: MÀN CÓ HIỆN TÊN BÉ — nếu không thì phép kiểm sau vô nghĩa`,
       chu.includes(beCs1.name), `không thấy "${beCs1?.name}" trên ${hash}`);
     check(`${ten}: KHÔNG lọt tên bé của cơ sở khác lên màn hình`,
-      !chu.includes(be.name), `thấy "${be.name}" trên ${hash}`);
+      !chu.includes(be.name) && !caChuAn.includes(be.name), `thấy "${be.name}" trên ${hash}`);
   }
 
   // ĐI THẲNG TỪ TRONG PHIÊN CỦA TRÌNH DUYỆT.

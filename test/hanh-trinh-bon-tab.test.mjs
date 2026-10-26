@@ -54,8 +54,9 @@ try {
     const d = await nhom();
     check('mức độ = năm trạng thái trung tính, đúng chữ NA / N / W / S / M',
       (d.mucDo || []).map(x => `${x.ma}:${x.chuCai}`).join(',') === 'chua-day:NA,chua-quan-sat-thay:N,dang-hinh-thanh:W,da-vung:S,vuot-troi:M', d.mucDo);
-    check('"Tiếp tục ở tháng sau" có hai lựa chọn: dạy mới / ôn tập',
-      (d.tiepTuc || []).map(x => x.ma).join(',') === 'hoc-moi,on-tap', d.tiepTuc);
+    // Góp ý 20/10 (N6): thêm "Mở rộng ở tháng sau" — test/phan-hoi-2010-ke-hoach-be.test.mjs.
+    check('"Tiếp tục ở tháng sau" có ba lựa chọn: dạy mới / ôn tập / mở rộng',
+      (d.tiepTuc || []).map(x => x.ma).join(',') === 'hoc-moi,on-tap,mo-rong', d.tiepTuc);
     check('không chữ nào là phần trăm hay điểm số', !/%|điểm/.test(JSON.stringify(d.mucDo)));
   }
 

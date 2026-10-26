@@ -317,13 +317,17 @@ App.views.health = {
       return;
     }
     const data = await API.get(`/api/health?studentId=${current.id}`);
-    this._records = data.records;
+    // Gia đình không còn đọc danh sách khám định kỳ / tiêm chủng (góp ý 20/10,
+    // H1): số đo đã nằm ở hai thẻ trên. Chỉ giữ dòng SỰ CỐ Y TẾ — chuông "cô
+    // ghi một sự cố y tế" dẫn về đúng màn này. API không đổi; chỉ màn này lọc.
+    this._records = data.records.filter(r => r.type === 'incident');
+    const coSoDo = !!data.latestCheckup;
     root.innerHTML = `
       ${UI.pageHeader('Sức khỏe của bé')}
       ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
       ${this.latestCard(data.latestCheckup)}
       ${this.theLichSuCanDo(data.lichSuCanDo)}
-      ${this.recordsHtml()}`;
+      ${this._records.length || !coSoDo ? this.recordsHtml() : ''}`;
   },
 
   // (Màn "chọn bé trong ô chọn" của cô đã thay bằng bảng cả nhóm — Đ138.)

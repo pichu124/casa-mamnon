@@ -14,5 +14,6 @@
     "admin"
   ],
   "defaultEnabled": true,
+  "anKhoiTrangChu": true,
   "version": "1.0.0"
 }

@@ -27,9 +27,9 @@ export const GOC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 export const MAU = {
   soBe: 11,           // tổng số bé đang học
   soNhom: 4,          // Chồi 2, Lá 1, Mầm 1 (cơ sở 2, chưa có bé), Nhà trẻ 1
-  soCo: 4,
+  soCo: 6,            // 4 cô phụ trách + 2 cô nước ngoài (Đ242F — F6b)
   soPhuHuynh: 9,
-  soTaiKhoan: 13,     // cô + phụ huynh, chưa tính tài khoản quản trị tạo thêm
+  soTaiKhoan: 15,     // cô + phụ huynh, chưa tính tài khoản quản trị tạo thêm
   soBeNhomChoi2: 5,   // nhóm c1 — nhóm cô `giaovien` phụ trách
   soBeNhomLa1: 3,     // nhóm c2
   soBeNhaTre: 3,      // nhóm c4 — lứa 12–36 tháng
@@ -245,6 +245,22 @@ function chayTrenCsdl(dir, ma, doiSo = []) {
     const db = new D(process.argv[1]);
     ${ma}
     db.close();`, path.join(dir, 'school.db'), ...doiSo], { cwd: GOC, stdio: 'inherit' });
+}
+
+// GỠ CÔ NƯỚC NGOÀI CỦA DỮ LIỆU MẪU khỏi các nhóm (Đ242F — F6b).
+//
+// Từ F6b dữ liệu mẫu cho MỖI nhóm một cô nước ngoài (t5 ở cơ sở 1, t6 ở Mầm 1)
+// — chủ dự án 26/10: "lớp nào cũng có cô nước ngoài". Nhóm có cô khai vai thì
+// cô phụ trách thôi soạn phần Cambridge. Bài nào canh ca "trường CHƯA khai vai"
+// (cô phụ trách soạn cả ba phần, hoặc đầu mối cô nước ngoài chưa có ai nhận)
+// gọi hàm này để dựng lại đúng ca ấy, thay vì dựa vào dữ liệu mẫu.
+export function goCoNuocNgoaiMau(dir, cacNhom = ['c1', 'c2', 'c3', 'c4']) {
+  chayTrenCsdl(dir, `
+    for (const cid of process.argv.slice(2)) {
+      db.prepare("DELETE FROM class_teacher_nhom WHERE classId = ? AND teacherId IN ('t5', 't6')").run(cid);
+      db.prepare("DELETE FROM class_teachers WHERE classId = ? AND teacherId IN ('t5', 't6')").run(cid);
+    }
+  `, cacNhom);
 }
 
 // Tạo một tài khoản quản trị và trả về mật khẩu tạm mà script in ra.

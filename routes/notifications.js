@@ -21,8 +21,9 @@ const tbb = require('../lib/thong-bao-be');
 const audienceFilter = (user) => tb.audienceFilter(user);
 const canSee = tb.canSee;
 
-// Mỗi lượt trả về bao nhiêu thông báo, và trần cho lượt hỏi tự đặt số.
-const MOI_TRANG = 100;
+// Mỗi lượt trả về bao nhiêu thông báo, và trần cho lượt hỏi tự đặt số. Trang
+// đầu là cửa sổ mà huy hiệu chuông đếm theo (lib/thong-bao.js, P1).
+const MOI_TRANG = tb.TRANG_DAU;
 const TRANG_TOI_DA = 300;
 
 // Trần độ dài. Không có trần thì một lần dán nhầm cả một văn bản dài vào ô
@@ -46,7 +47,9 @@ module.exports = (app) => {
   // và tên người gửi. Trạng thái đã đọc lấy bằng một phép nối, không phải tra
   // từng thông báo một.
   app.get('/api/notifications', (req, res) => {
-    const f = audienceFilter(req.user);
+    // Phạm vi gửi + mốc ngày tạo tài khoản của gia đình (P2) — cùng một bộ
+    // lọc với huy hiệu chuông ở routes/dashboard.js.
+    const f = tb.boLocThongBao(req.user, 'n.');
 
     // CẮT CỬA SỔ NGAY TRONG CÂU TRUY VẤN.
     //
@@ -67,9 +70,10 @@ module.exports = (app) => {
       Math.max(1, Math.floor(Number(req.query.soLuong) || MOI_TRANG)));
 
     const list = db.all('notifications',
-      `SELECT n.*, (r.userId IS NOT NULL) AS read
+      `SELECT n.*, (r.userId IS NOT NULL) AS read, l.lienKet AS lienKet
        FROM notifications n
        LEFT JOIN notification_reads r ON r.notificationId = n.id AND r.userId = ?
+       LEFT JOIN notification_lien_ket l ON l.notificationId = n.id
        WHERE ${f.sql} AND ${st.dieuKienConHien(BANG, 'n.id')}
        ORDER BY n.pinned DESC, n.createdAt DESC
        LIMIT ? OFFSET ?`,
@@ -92,12 +96,18 @@ module.exports = (app) => {
 
     // Đ124: mỗi dòng nói rõ gửi cho ai — "Toàn trường" hay "Nhóm X · Cơ sở Y".
     const moTaPhamVi = tb.taoMoTaPhamVi();
-    const cuaTruong = st.ganDauDaSua(BANG, list.map(n => {
+    const cuaTruong = st.ganDauDaSua(BANG, list.map(({ lienKet, ...n }) => {
       const author = n.createdBy ? nguoi.get(n.createdBy) : null;
       const pv = moTaPhamVi(n.audience);
       return {
         ...n,
-        read: !!n.read,
+        // G2: bấm vào thì mở thẳng màn này (thông báo khảo sát). Chỉ có khi
+        // thông báo được gửi kèm liên kết — thông báo cũ hiện hộp chi tiết.
+        ...(lienKet ? { lienKet } : {}),
+        // Thông báo mình tự gửi thì huy hiệu không đếm (routes/dashboard.js),
+        // nên màn hình cũng không tô nó là chưa đọc — nếu không là có chấm
+        // "chưa đọc" mà chuông im (P1).
+        read: !!n.read || (!!n.createdBy && n.createdBy === req.user.id),
         authorName: author ? `${author.title} ${author.name}` : '',
         coTheSua: st.laChuBanGhi(req.user, n.createdBy),
         toanTruong: pv.toanTruong,
@@ -115,7 +125,7 @@ module.exports = (app) => {
   // vào; nhét thêm nguồn thứ hai vào là hai con đếm giẫm lên nhau. Màn Thông
   // báo tự ghép hai nguồn ở trang đầu. Cô, văn phòng: mảng rỗng.
   app.get('/api/notifications/rieng-be', (req, res) => {
-    res.json(tbb.danhSachCua(req.user, { soLuong: 50, bo: 0 }));
+    res.json(tbb.danhSachCua(req.user, { soLuong: tbb.TRANG_DAU, bo: 0 }));
   });
 
   // Đánh dấu đã đọc một thông báo.

@@ -261,7 +261,6 @@ App.views.baocaohoctap = {
           <div class="small" style="white-space:pre-wrap;line-height:1.7">${UI.esc(b.oLopLamGi)}</div></div>` : ''}
         ${b.oNhaChoiGi ? `<div class="mt-12"><div class="small" style="font-weight:600">Ở nhà gia đình chơi cùng con</div>
           <div class="small" style="white-space:pre-wrap;line-height:1.7">${UI.esc(b.oNhaChoiGi)}</div></div>` : ''}
-        ${b.coKy ? `<div class="muted small mt-12">${UI.esc(b.coKy)}</div>` : ''}
       </div>`;
   },
 
@@ -440,7 +439,7 @@ App.views.baocaohoctap = {
                       title="${UI.esc(m.ten)}">${UI.esc(m.chuCai)}</button>`).join('')}
                 </div>
                 <div class="muted small mt-8" data-ten-muc="${UI.esc(x.id)}">${UI.esc(this.tenMuc(x.muc))}</div>`
-              : `<textarea class="mt-8" rows="3" data-chu="${UI.esc(x.id)}" ${chiDoc ? 'disabled' : ''}
+              : `<textarea class="mt-8 bc-o-viet" rows="3" data-chu="${UI.esc(x.id)}" ${chiDoc ? 'disabled' : ''}
                     placeholder="Cô kể lại điều đã thấy">${UI.esc(x.chu)}</textarea>`}
               ${khoa ? `
                 <div class="row-between mt-8">
@@ -457,16 +456,14 @@ App.views.baocaohoctap = {
       <div class="card">
         <div class="card-title">Cô kể thêm</div>
         <div class="field"><label>Báo cáo tổng hợp</label>
-          <textarea id="bc-tong" rows="5" placeholder="Vài dòng cô muốn nhắn gia đình">${UI.esc(b.tongHop)}</textarea></div>
+          <textarea id="bc-tong" class="bc-o-viet" rows="5" placeholder="Vài dòng cô muốn nhắn gia đình">${UI.esc(b.tongHop)}</textarea></div>
         <div class="field"><label>Ở lớp cô sẽ làm tiếp</label>
-          <textarea id="bc-lop" rows="2">${UI.esc(b.oLopLamGi)}</textarea></div>
+          <textarea id="bc-lop" class="bc-o-viet" rows="2">${UI.esc(b.oLopLamGi)}</textarea></div>
         <div class="field"><label>Ở nhà gia đình chơi cùng con</label>
-          <textarea id="bc-nha" rows="2">${UI.esc(b.oNhaChoiGi)}</textarea>
+          <textarea id="bc-nha" class="bc-o-viet" rows="2">${UI.esc(b.oNhaChoiGi)}</textarea>
           <div class="hint">Bản nào có ghi nhận điều cô <b>đã quan sát thấy</b> ở bé thì cần
           ít nhất một trong hai ô trên — đây là màn hình duy nhất gia đình đọc được các mức
           đánh giá, và đọc xong họ cần biết làm gì tiếp.</div></div>
-        <div class="field"><label>Cô ký tên</label>
-          <input id="bc-ky" value="${UI.esc(b.coKy)}" placeholder="Tên cô"></div>
       </div>
 
       ${b.daGui ? '' : `<button class="btn block mt-14" id="bc-luu">${UI.icon('check', 18)} Lưu nháp</button>`}
@@ -594,7 +591,6 @@ App.views.baocaohoctap = {
         tongHop: document.getElementById('bc-tong').value,
         oLopLamGi: document.getElementById('bc-lop').value,
         oNhaChoiGi: document.getElementById('bc-nha').value,
-        coKy: document.getElementById('bc-ky').value,
       });
       if (!im) { UI.toast('Đã lưu nháp', 'success'); App.route(); }
       return true;
@@ -635,7 +631,7 @@ App.views.baocaohoctap = {
       return UI.toast('Nhà trường chưa bật phần Kế hoạch của bé', 'error');
     }
     if (!(d.goiY || []).length) {
-      return UI.toast(`Tháng ${d.thang || ''} chưa có nhận xét nào ở Kế hoạch của bé`, 'error');
+      return UI.toast(`Kế hoạch của bé tháng ${d.thang || ''} chưa có bài hay ghi chép nào để mời sang`, 'error');
     }
 
     UI.modal(`
@@ -645,8 +641,8 @@ App.views.baocaohoctap = {
       </div>
       ${(d.goiY || []).map((g, i) => `
         <div class="card" style="margin-bottom:8px">
-          <div class="small" style="font-weight:600">${UI.esc(g.gocLinhVuc || '')}</div>
-          ${g.noiDung ? `<div class="muted small mt-8">Kế hoạch: ${UI.esc(g.noiDung)}</div>` : ''}
+          ${g.tenGoc ? `<div class="small" style="font-weight:600">${UI.esc(g.tenGoc)}</div>` : ''}
+          ${g.noiDung ? `<div class="muted small mt-8">${g.loai === 'bai' ? 'Bài đã tích' : 'Kế hoạch'}: ${UI.esc(g.noiDung)}</div>` : ''}
           ${g.nhanXet ? `<div class="small mt-8" style="white-space:pre-wrap">${UI.esc(g.nhanXet)}</div>` : ''}
           <button class="btn outline block mt-8" data-chep="${i}">Chép câu này</button>
         </div>`).join('')}`, 'Mời chữ từ Kế hoạch của bé');
@@ -656,7 +652,10 @@ App.views.baocaohoctap = {
       b.onclick = () => {
         const g = d.goiY[Number(b.dataset.chep)];
         const o = document.getElementById('bc-tong');
-        const them = [g.gocLinhVuc, g.nhanXet || g.noiDung].filter(Boolean).join(': ');
+        // Bài đã tích: chép cả tên bài lẫn nhận xét — nhận xét "Tháp hồng: …"
+        // đứng một mình thì mất các bài cô chưa kịp ghi gì.
+        const chu = g.loai === 'bai' ? [g.noiDung, g.nhanXet].filter(Boolean).join('\n') : (g.nhanXet || g.noiDung);
+        const them = [g.tenGoc, chu].filter(Boolean).join(': ');
         o.value = (o.value ? `${o.value}\n` : '') + them;
         UI.closeModal();
         UI.toast('Đã chép vào ô tổng hợp, cô sửa lại rồi lưu nhé', 'success');

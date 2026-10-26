@@ -63,13 +63,23 @@ App.views.timetable = {
   //
   // Đây chính là Nguyên tắc số 1 ở mức một màn hình: thứ vừa thêm hỏng thì
   // thứ đang chạy không được sứt mẻ.
-  async khoiChungTuan(classId) {
+  //
+  // NÚT "SOẠN KẾ HOẠCH CHUNG TUẦN" (Đ242B — B1): chủ đề tuần soạn cho Lịch
+  // sinh hoạt thì lối vào soạn nằm ở đây. Hiện theo cờ `duocSoan` của máy chủ —
+  // màn hình không tự đoán ai được soạn — và hiện cả khi tuần chưa soạn gì
+  // (lúc đó chỉ có nút, vẫn không có khung trống). `chiNut` cho nhánh nhóm
+  // chưa có lịch sinh hoạt: ở đó chỉ thêm nút, không đổi gì khác.
+  async khoiChungTuan(classId, chiNut) {
     if (!classId || !App.moduleEnabled('hanhtrinh')) return '';
     let d = null;
     try {
       d = await API.get(`/api/hanhtrinh/chu-de?classId=${encodeURIComponent(classId)}`);
     } catch (_) { return ''; }
-    if (!d || !d.coKhoiChung) return '';
+    if (!d) return '';
+    const nut = d.duocSoan ? `
+      <button type="button" class="btn outline block mt-8 mb-8" id="tkb-soan-chung"
+        onclick="App.views.timetable.moSoanChungTuan()">${UI.icon('edit', 16)} Soạn kế hoạch chung tuần</button>` : '';
+    if (chiNut || !d.coKhoiChung) return nut;
 
     const c = d.chuDe || {};
     const t = d.them || {};
@@ -131,7 +141,17 @@ App.views.timetable = {
                  target="_blank" rel="noopener noreferrer">Mở</a>
             </div>
           </div>`).join('')}
+        ${nut}
       </div>`;
+  },
+
+  // Màn soạn ở phân hệ Hành trình đọc nhóm từ `_classId` của nó — đặt sẵn
+  // nhóm đang xem ở đây, kẻo cô hai nhóm bấm từ nhóm thứ hai lại rơi về nhóm đầu.
+  moSoanChungTuan() {
+    // Lịch sinh hoạt luôn hiện TUẦN NÀY, nên màn soạn cũng phải mở tuần này —
+    // `_tuan` còn giữ tuần cô xem lần trước thì xoá đi.
+    if (App.views.hanhtrinh) { App.views.hanhtrinh._classId = this.classId; App.views.hanhtrinh._tuan = null; }
+    location.hash = '#/hanhtrinh/chude';
   },
 
   nhomVanPhong() {
@@ -222,6 +242,7 @@ App.views.timetable = {
       // Chỉ mời tạo mới khi máy chủ xác nhận nhóm CHƯA có TKB. Lỗi mạng thì không —
       // kẻo lưu bản mặc định đè lên TKB thật đang có.
       const chuaCo = /chưa có lịch sinh hoạt/i.test(thongBao);
+      const nutChung = user.role === 'parent' ? '' : await this.khoiChungTuan(classId, true);
       // Ô chọn nhóm phải có CẢ khi nhóm đang chọn chưa có lịch: văn phòng mở
       // màn ra, nhóm đầu danh sách chưa lập lịch, mà không có ô chọn thì không
       // sang được nhóm khác — kẹt ở một nhóm trống.
@@ -232,7 +253,8 @@ App.views.timetable = {
         ${this.oChonNhom(dsNhom)}
         ${UI.emptyState('📚', thongBao)}
         ${this.canEdit() && chuaCo ? `
-          <button class="btn primary block" onclick="App.views.timetable.batDauTao()">${UI.icon('plus', 18)} Lập lịch sinh hoạt</button>` : ''}`;
+          <button class="btn primary block" onclick="App.views.timetable.batDauTao()">${UI.icon('plus', 18)} Lập lịch sinh hoạt</button>` : ''}
+        ${nutChung}`;
       this.ganSuKienPhan(root);
       return;
     }

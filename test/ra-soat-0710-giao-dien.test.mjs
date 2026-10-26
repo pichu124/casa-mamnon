@@ -7,8 +7,9 @@
 //   1. Điểm danh: chạm ảnh bé đã "có mặt" mà CHƯA có ảnh → hỏi ảnh nào, không
 //      tự ghi "ra về" (và không báo gia đình "con đã được đón về" lúc sáng).
 //   2. Kế hoạch của bé: đổi ô Bé khi đang sửa dở → hỏi trước, không mất im lặng.
-//   3. Hành trình: bấm Lưu ngay sau khi nói → câu đang nghe dở vẫn vào bản lưu,
-//      và không bị chèn hai lần.
+//   3. Hành trình: (Đ232 canh câu nói dở khi bấm Lưu.) Phản hồi 20/10 (B2) bỏ
+//      hẳn nút "Nói để ghi", nên mục này nay canh: trình duyệt CÓ nhận giọng
+//      mà màn vẫn không hiện nút, và chữ gõ tay được lưu đúng một lần.
 //   4. Kế hoạch tuần: hộp Soạn đổi sang tuần ĐÃ có kế hoạch thì nạp đúng tuần ấy.
 //   5. Cambridge: sửa bài Letter có chữ ở ô khung → ô ấy hiện ra để sửa.
 //   6. Tắt Lịch sinh hoạt → #/plans vẫn có kế hoạch tuần chung và nút soạn.
@@ -44,7 +45,8 @@ const ctx = await tatBannerMoiCai(await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
 }));
 // Máy nhận giọng GIẢ: start() ghi lại đối tượng; stop() bắn kết quả CHỐT về
-// muộn 50 ms rồi onend — đúng nhịp của trình duyệt thật.
+// muộn 50 ms rồi onend — đúng nhịp của trình duyệt thật. Từ B2 (20/10) app
+// không còn gọi tới nó; giữ để mục [3] đo đúng cảnh "trình duyệt có hỗ trợ".
 await ctx.addInitScript(() => {
   class Nhan {
     start() { window.__nhan = this; }
@@ -106,8 +108,11 @@ try {
     const s6 = c.prepare('SELECT status, checkOut FROM attendance WHERE studentId = ? AND date = ?').get('s6', HOM);
     c.close();
     check('bé vẫn "Muộn", chưa có giờ ra về', !!s6 && s6.status === 'late' && !s6.checkOut, s6);
-    check('nút "Chụp ảnh ra về" KHÔNG tô nổi khi bé chưa có ảnh tới lớp',
-      !/primary/.test(await dong.locator('button', { hasText: 'Chụp ảnh ra về' }).getAttribute('class') || ''));
+    // Đ242D (góp ý D3): dòng bé không còn nút "Chụp ảnh ra về" riêng — chụp là
+    // bấm tên, và bé chưa có ảnh tới lớp thì luôn qua hộp hỏi ở trên. Phép
+    // kiểm giữ đúng ý cũ: dòng không mời cô bấm thẳng vào ra về.
+    check('dòng KHÔNG có nút "Chụp ảnh ra về" tô nổi khi bé chưa có ảnh tới lớp',
+      await dong.locator('button.primary', { hasText: 'Chụp ảnh ra về' }).count() === 0);
   }
 
   // =========================================================================
@@ -130,27 +135,24 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[3] Hành trình: bấm Lưu ngay khi câu nói còn đang nghe → câu ấy vẫn được lưu, một lần');
+  console.log('\n[3] Hành trình: trình duyệt có nhận giọng nhưng KHÔNG còn nút "Nói để ghi" (B2, 20/10)');
   {
     await moMan('#/hanhtrinh');
-    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Suy ngẫm cuối ngày' }).click();
+    // Đ242B (B1): lối phụ "Suy ngẫm cuối ngày" nay là "Hình ảnh ghi nhanh".
+    await page.locator('#ht-loi-phu [data-tab]', { hasText: 'Hình ảnh ghi nhanh' }).click();
     await page.waitForTimeout(1000);
     await page.click('#ht-them');
     await page.waitForTimeout(500);
+    check('không có nút nói trong hộp ghi quan sát', await page.locator('.ht-noi').count() === 0);
     await page.selectOption('#ht-be', 's1');
-    await page.click('.ht-noi[data-o="ht-mota"]');
-    await page.evaluate(() => {
-      const kq = [{ transcript: 'bé tự rót nước không đổ' }]; kq.isFinal = false;
-      window.__nhan.onresult({ resultIndex: 0, results: [kq] });
-    });
-    check('đối chứng — câu đang nghe hiện ở dòng chữ xám', /tự rót nước/.test(await page.locator('.ht-noi-tam[data-o="ht-mota"]').innerText()));
+    await page.fill('#ht-mota', 'bé tự rót nước không đổ');
     await page.click('#ht-luu');
     await page.waitForTimeout(1500);
     const ht = (await req('GET', '/api/hanhtrinh?studentId=s1', { cookie: (await login('giaovien', '123456')).cookie })).data || {};
     const q = (ht.quanSat || []).find(x => /tự rót nước không đổ/.test(x.moTa || ''));
-    check('quan sát được lưu với đúng câu vừa nói', !!q, (ht.quanSat || []).slice(0, 2).map(x => x.moTa));
-    check('câu ấy không bị chèn hai lần khi kết quả chốt tới muộn',
+    check('quan sát gõ tay được lưu đúng chữ, một lần',
       !!q && (q.moTa.match(/rót nước/g) || []).length === 1, q && q.moTa);
+    check('app không khởi động nhận dạng giọng nói', !(await page.evaluate(() => !!window.__nhan)));
   }
 
   // =========================================================================

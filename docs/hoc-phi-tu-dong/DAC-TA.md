@@ -1,5 +1,13 @@
 # Đặc tả quy tắc tính học phí tự động — bản 3.1
 
+> **⚠ ĐÃ BỊ BÁC BỎ (chủ dự án, 26/10/2026).** *"Giờ tôi muốn tính tự động theo thời gian
+> ưu đãi, bác bỏ toàn bộ thông tin đề cập trước đó. Về học phí có thể để lại sau hoặc ẩn đi…
+> khi nào mình xây dựng hoàn thiện thì công bố."* Mọi quy tắc, giả định G1–G22 và kịch bản
+> trong thư mục này **không còn là yêu cầu** — giữ lại làm tư liệu, KHÔNG dùng làm hợp đồng
+> khi dựng học phí trong app. Yêu cầu mới sẽ được ghi riêng khi chủ dự án làm lại phần học phí.
+> Xem `docs/PHAN-HOI-TRUONG-2010.md` mục I.
+
+
 Nguồn yêu cầu: tài liệu "Xây dựng file tính biểu phí tự động" của nhà trường (3 mục:
 chu kỳ thu phí, cấu hình ưu đãi, quy tắc tính). Đặc tả này chốt MỘT cách hiểu cho mọi
 chỗ tài liệu còn mơ hồ; mỗi chỗ như vậy đánh dấu **[GIẢ ĐỊNH Gx]** và liệt kê lại cho nhà

@@ -22,7 +22,8 @@
 //     trước đó vẫn hiện cho gia đình ở đúng những ngày đó.
 //   • Mỗi thẻ bé có ô chọn. Có bé được chọn thì "Áp" chỉ điền cho các bé đó;
 //     không chọn bé nào thì "Áp cho cả nhóm" như trước.
-//   • Tab Vệ sinh ghi TỪNG MỐC GIỜ thay bỉm / đi vệ sinh cho các bé đã chọn.
+//   • Tab Vệ sinh ghi TỪNG MỐC GIỜ đi vệ sinh cho các bé đã chọn. Phần thay
+//     bỉm đã bỏ (góp ý 20/10, J2) — giờ bỉm đã ghi trước đó vẫn hiện.
 //   • LƯU LÀ NHÁP CỦA CÔ. Gia đình chỉ thấy và chỉ nhận tin khi cô bấm "Gửi",
 //     qua một hộp soát lại từng bé (chủ dự án chốt 06/10). Xem routes.js.
 App.views.nhatky = {
@@ -57,7 +58,7 @@ App.views.nhatky = {
   BUOC_KHAC: [
     { ma: 'ghichu', phan: 'an', ten: 'Ghi chú', kieu: 'ghichu', truong: ['anGhiChu', 'ghiChu'] },
     { ma: 'ngu', phan: 'ngu', ten: 'Ngủ trưa', kieu: 'ngu', truong: ['nguTuLuc', 'nguDenLuc', 'nguGhiChu'] },
-    { ma: 'vesinh', phan: 'vesinh', ten: 'Vệ sinh · Bỉm', kieu: 'vesinh', truong: [] },
+    { ma: 'vesinh', phan: 'vesinh', ten: 'Vệ sinh', kieu: 'vesinh', truong: [] },
   ],
   // Bé cô đang chọn trên màn (mã bé). Giữ qua các lần vẽ lại trong cùng
   // nhóm và ngày; đổi nhóm hay ngày thì bỏ hết.
@@ -381,7 +382,7 @@ App.views.nhatky = {
         ${theDau}
         ${UI.emptyState('📔', 'Nhóm này không có bé nhà trẻ nên không dùng Nhật ký ngày.')}
         <div class="muted small center" style="padding:0 16px 16px;line-height:1.6">
-          Nhật ký ăn, ngủ, vệ sinh, bỉm là của lứa nhà trẻ (dưới 36 tháng).
+          Nhật ký ăn, ngủ, vệ sinh là của lứa nhà trẻ (dưới 36 tháng).
           Với các bé lớn hơn, gia đình theo dõi qua ảnh đón bé, thực đơn và lịch sinh hoạt.
         </div>`;
       this.ganDoiNgayNhom();
@@ -513,11 +514,16 @@ App.views.nhatky = {
     let mon = '';
     if (buoc.kieu === 'bua') {
       const b = buoc.bua || {};
+      // Bữa chưa có món thì NÓI RA và chỉ chỗ nhập (góp ý 20/10, J1) — để
+      // trống thì cô tưởng app chưa nối thực đơn vào nhật ký.
       mon = (b.mon || []).length ? `
         <div class="muted small" style="margin-bottom:10px;line-height:1.6">
           ${b.gio ? `${UI.esc(b.gio)} · ` : ''}<b>${UI.esc((b.mon || []).join(', '))}</b>
           <span class="muted">— theo thực đơn của bếp, cô không phải gõ lại</span>
-        </div>` : '';
+        </div>` : `
+        <div class="muted small" style="margin-bottom:10px;line-height:1.6">
+          Chưa có thực đơn bữa này — văn phòng nhập ở Thực đơn
+        </div>`;
     }
     let ap = '';
     if (buoc.kieu === 'bua') {
@@ -558,26 +564,21 @@ App.views.nhatky = {
     return n ? `Áp cho ${n} bé đã chọn` : 'Áp cho cả nhóm';
   },
 
-  // Thẻ đầu tab Vệ sinh: ghi MỘT MỐC GIỜ cho mọi bé đang chọn.
+  // Thẻ đầu tab Vệ sinh: ghi MỘT MỐC GIỜ đi vệ sinh cho mọi bé đang chọn.
+  //
+  // KHÔNG CÒN GHI THAY BỈM (góp ý 20/10, J2): trường bỏ theo dõi bỉm. Chỉ bỏ
+  // ô ghi; mốc thay bỉm và số lần bỉm đã ghi của những ngày cũ vẫn hiện ở thẻ
+  // từng bé và ở màn gia đình. Đường `/api/nhatky/ve-sinh` vẫn nhận 'thay-bim'.
   theVeSinh() {
-    const dsBe = (this._data && this._data.danhSach) || [];
-    const coNhaTre = dsBe.some(b => b.laNhaTre);
-    const loai = this.LOAI_VS.filter(([ma]) => ma !== 'thay-bim' || coNhaTre);
     const homNay = this._ngay === UI.todayStr();
     return `
       <div class="card" id="nk-vs-the">
-        <div class="card-title">Ghi giờ thay bỉm / đi vệ sinh</div>
+        <div class="card-title">Ghi giờ đi vệ sinh</div>
         <div class="muted small" style="margin-bottom:10px;line-height:1.6">
           Chọn bé ở danh sách dưới (hoặc "Chọn cả nhóm"), chọn giờ rồi bấm Ghi.
           Mỗi lần bấm là một mốc giờ cho từng bé đã chọn — ghi xong là lưu ngay.
         </div>
-        <div class="field" style="margin:0">
-          <label>Việc</label>
-          <select id="nk-vs-loai">
-            ${loai.map(([ma, ten]) => `<option value="${UI.esc(ma)}">${UI.esc(ten)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="grid-2 mt-8">
+        <div class="grid-2">
           <div class="field" style="margin:0"><label>Giờ</label>
             <input type="time" id="nk-vs-gio" value="${homNay ? UI.esc(UI.gioVN()) : ''}"></div>
           <div class="field" style="margin:0"><label>Có đi ngoài không</label>
@@ -657,7 +658,7 @@ App.views.nhatky = {
         try {
           const r = await API.post('/api/nhatky/ve-sinh', {
             classId: this._classId, ngay: this._ngay, studentIds: chon, luc,
-            loai: gt('nk-vs-loai'), coPoo, tinhChat: coPoo ? gt('nk-vs-tc') : '', ghiChu: gt('nk-vs-ghichu'),
+            loai: 'di-ve-sinh', coPoo, tinhChat: coPoo ? gt('nk-vs-tc') : '', ghiChu: gt('nk-vs-ghichu'),
           });
           const canNhac = [r.nhacNghiChu, r.nhac].filter(Boolean).join(' ');
           UI.toast(canNhac || `Đã ghi ${luc} cho ${r.daGhi} bé — nhớ bấm Gửi khi xong`, canNhac ? 'error' : 'success');
@@ -789,8 +790,11 @@ App.views.nhatky = {
     if (buoc.kieu === 'bua') {
       daGhi = !!(bua.muc || bua.ghiChu);
       const ma = `bua.${buoc.bua.bua}`;
+      // Tên món ngay trên ô nhận xét của TỪNG bé (góp ý 20/10, J1): cô cuộn
+      // xuống giữa nhóm vẫn biết mình đang nhận xét món gì.
+      const mon = (buoc.bua.mon || []).join(', ');
       than = `
-        <div class="field" style="margin:0"><label>${UI.esc(buoc.ten)}</label>${chon(`${ma}.muc`, this.MUC_AN, bua.muc)}</div>
+        <div class="field" style="margin:0"><label>${UI.esc(mon ? `${buoc.ten}: ${mon}` : buoc.ten)}</label>${chon(`${ma}.muc`, this.MUC_AN, bua.muc)}</div>
         ${chu(`${ma}.ghiChu`, bua.ghiChu, 'Ghi chú ngắn về bữa này')}`;
     } else if (buoc.kieu === 'ngu') {
       daGhi = !!(b.nguTuLuc || b.nguDenLuc);
@@ -1056,13 +1060,13 @@ App.views.nhatky = {
         UI.studentBar()}${UI.thanhChonBeTheoCap()}
       <div class="muted small" style="margin:-2px 0 10px">Nhật ký của bé <b>${UI.esc(be.name)}</b></div>
       ${(d.ngayCo || []).length
-        ? (d.ngayCo || []).map(n => this.theNgay(n, d.be)).join('')
+        ? (d.ngayCo || []).map(n => this.theNgay(n)).join('')
         : (daLon
           ? UI.emptyState('📔', 'Nhật ký ăn, ngủ, vệ sinh là của lứa nhà trẻ. Bé đã lớn nên cô không ghi phần này nữa — gia đình theo dõi con qua ảnh đón bé, thực đơn và lịch sinh hoạt.')
           : UI.emptyState('📔', 'Hai tuần vừa rồi chưa có ngày nào cô ghi nhật ký cho con.'))}`;
   },
 
-  theNgay(n, be) {
+  theNgay(n) {
     // Viết thành CÂU, không phải bảng: gia đình đọc trên điện thoại buổi tối.
     // Ô trống thì nói "cô chưa ghi" — không bao giờ để người đọc tự suy ra.
     const chuaGhi = '<span class="muted" style="font-weight:400">cô chưa ghi</span>';
@@ -1127,6 +1131,9 @@ App.views.nhatky = {
       n.veSinhSoLan === null || n.veSinhSoLan === undefined ? '' : `${n.veSinhSoLan} lần`,
       this.nhanTinhChat(n.veSinhTinhChat),
     ].filter(Boolean).join(' · ');
+    // Thay bỉm: chỉ hiện ở ngày THẬT SỰ có (ghi trước khi trường bỏ phần bỉm,
+    // góp ý 20/10, J2). Ngày khác mà hiện "Thay bỉm · cô chưa ghi" là nhắc
+    // gia đình một việc cô không còn ghi nữa.
     const bim = moc('thay-bim') || (n.bimSoLan === null || n.bimSoLan === undefined ? '' : `${n.bimSoLan} lần`);
     // Bú bình: chỉ hiện ở ngày THẬT SỰ có số (ghi trước khi bỏ bước Bú bình,
     // hay bằng app đời cũ). Ngày không có số thì không có dòng này.
@@ -1134,7 +1141,6 @@ App.views.nhatky = {
       n.buBinhSoLan === null || n.buBinhSoLan === undefined ? '' : `${n.buBinhSoLan} lần`,
       n.buBinhMl === null || n.buBinhMl === undefined ? '' : `${n.buBinhMl} ml`,
     ].filter(Boolean).join(' · ');
-    const nhaTre = !!(be && be.laNhaTre);
 
     return `
       <div class="card">
@@ -1151,7 +1157,7 @@ App.views.nhatky = {
           ${n.nguGhiChu ? `<div class="muted small" style="padding:0 0 8px">${UI.esc(n.nguGhiChu)}</div>` : ''}`}
         ${chuaGui('vesinh') ? dongChuaGui('Vệ sinh') : `
           ${dong('Vệ sinh', vs)}
-          ${nhaTre ? dong('Thay bỉm', bim) : ''}`}
+          ${bim ? dong('Thay bỉm', bim) : ''}`}
         ${n.ghiChu ? `<div class="mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">
           ${UI.esc(n.ghiChu)}
         </div>` : ''}

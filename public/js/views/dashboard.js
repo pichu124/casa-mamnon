@@ -33,7 +33,11 @@ App.views.dashboard = {
     // cô, ô "Đón trả bé" ẩn khi màn Điểm danh đang bật vì phần Trả bé nằm
     // trong đó. Chỉ ẩn khi màn đích THẬT SỰ mở được với người này; màn đích
     // tắt thì ô quay lại ngay, không có ngõ cụt.
-    const tiles = (App.state.modules || []).filter(m => !m.nav && !this.gopVaoManKhac(m, user));
+    //
+    // `anKhoiTrangChu` (Đ241f): phân hệ vẫn bật mà không có ô ở đây — lối vào
+    // nằm ở Cài đặt (views/settings.js).
+    const tiles = (App.state.modules || [])
+      .filter(m => !m.nav && !m.anKhoiTrangChu && !this.gopVaoManKhac(m, user));
     // Ô có ĐIỀU KIỆN HIỆN (`dieuKienHien`, Đ141) — xem `apDieuKienHien` bên dưới.
     this._anView = new Set();
     const years = school ? school.years : [];
@@ -81,7 +85,7 @@ App.views.dashboard = {
           // sự hay Kế toán: nhà trường bật đủ cả, chỉ là phần việc của chức vụ
           // đó không nằm ở lưới này. Và "phân hệ" là chữ chỉ có trong mã nguồn.
           + 'Tài khoản của mình chưa có phần nào hiện ở đây. '
-          + 'Việc của mình mở trong <b>Cài đặt → Quản trị</b>. '
+          + 'Việc của mình mở trong <b>Cài đặt</b>. '
           + 'Cần thêm phần nào thì nhờ ban giám hiệu mở giúp.'
           + '</div>'}
         <div class="tile-grid">
@@ -227,9 +231,9 @@ App.views.dashboard = {
           </div>
           ${chonNhom}
         </div>
-        ${this.dongDem(d.dem, d.phanHe)}
+        ${this.dongDem(d.dem, d.phanHe, d.truongNghi)}
         ${d.be.length
-          ? `<div class="be-luoi">${d.be.map(b => this.chipBe(b)).join('')}</div>${this.chuThich()}`
+          ? `<div class="be-luoi">${d.be.map(b => this.chipBe(b, d.truongNghi)).join('')}</div>${this.chuThich()}`
           : '<div class="muted small" style="padding:6px 0">Nhóm chưa có bé nào.</div>'}
         <div class="hn-viec">${this.nutViec(d)}</div>
         <a class="hn-link" href="#/dashboard/nhom/${UI.maAnToan(d.nhom.id)}">
@@ -246,10 +250,11 @@ App.views.dashboard = {
     return 'var(--line-strong)';
   },
 
-  chuCua(b) {
+  chuCua(b, truongNghi) {
     if (b.diemDanh && UI.ATT_STATUS[b.diemDanh]) {
       return UI.ATT_STATUS[b.diemDanh].label + (b.gioVao ? ` · vào ${b.gioVao}` : '');
     }
+    if (truongNghi) return 'Trường nghỉ';
     if (b.nghiCoPhep) return 'Có đơn nghỉ đã duyệt, cô chưa chấm';
     return 'Chưa điểm danh';
   },
@@ -270,9 +275,9 @@ App.views.dashboard = {
     return dau.join('');
   },
 
-  chipBe(b) {
+  chipBe(b, truongNghi) {
     return `
-      <button class="be-chip" title="${UI.esc(b.name)} — ${UI.esc(this.chuCua(b))}"
+      <button class="be-chip" title="${UI.esc(b.name)} — ${UI.esc(this.chuCua(b, truongNghi))}"
         onclick="App.views.dashboard.moBe('${UI.maAnToan(b.id)}')">
         <span class="be-chip-avatar">${UI.avatar(b.avatar, 34)}<i class="be-dot" style="background:${this.mauCua(b)}"></i></span>
         <span class="be-chip-ten">${UI.esc(this.tenGoi(b.name))}</span>
@@ -295,7 +300,8 @@ App.views.dashboard = {
   },
 
   // Dãy số đếm của một nhóm. Phần của phân hệ đang tắt (null) thì không vẽ.
-  dongDem(dem, phanHe = {}) {
+  // Ngày trường nghỉ thì không có ô "Chưa điểm danh": không ai phải chấm.
+  dongDem(dem, phanHe = {}, truongNghi = null) {
     const p = (ten, so, mau) => `<span class="dem-pill">${mau ? `<i style="background:${mau}"></i>` : ''}${UI.esc(ten)} ${UI.esc(String(so))}</span>`;
     const muc = [p('bé', dem.soBe)];
     if (phanHe.diemdanh !== false) {
@@ -303,7 +309,7 @@ App.views.dashboard = {
       if (dem.denMuon) muc.push(p('Đến muộn', dem.denMuon, UI.ATT_STATUS.late.color));
       if (dem.nghiPhep) muc.push(p('Nghỉ có phép', dem.nghiPhep, UI.ATT_STATUS.absent_excused.color));
       if (dem.nghiKhongPhep) muc.push(p('Nghỉ không phép', dem.nghiKhongPhep, UI.ATT_STATUS.absent_unexcused.color));
-      muc.push(p('Chưa điểm danh', dem.chuaDiemDanh, 'var(--line-strong)'));
+      if (!truongNghi) muc.push(p('Chưa điểm danh', dem.chuaDiemDanh, 'var(--line-strong)'));
       // Ra về ghi ở màn Điểm danh từ Đ210 — đếm ở đây để số "đã về" không mất
       // khi phân hệ Đón trả bé tắt (góp ý 06/10).
       if (dem.daVe) muc.push(p('Đã về', dem.daVe));
@@ -332,8 +338,13 @@ App.views.dashboard = {
       viec.push(`<button class="viec-nut ${con ? 'con' : ''}" onclick="location.hash='${hash}'">
         <b>${UI.esc(ten)}</b><span>${UI.esc(phu)}</span></button>`);
     };
-    nut('attendance', '#/attendance', 'Điểm danh',
-      dem.chuaDiemDanh ? `còn ${dem.chuaDiemDanh} bé` : 'đã chấm đủ', !!dem.chuaDiemDanh);
+    // Ngày trường nghỉ: một dòng trung tính thay cho lời nhắc điểm danh.
+    if (d.truongNghi) {
+      nut('attendance', '#/attendance', 'Điểm danh', `Hôm nay trường nghỉ: ${d.truongNghi.ten}`, false);
+    } else {
+      nut('attendance', '#/attendance', 'Điểm danh',
+        dem.chuaDiemDanh ? `còn ${dem.chuaDiemDanh} bé` : 'đã chấm đủ', !!dem.chuaDiemDanh);
+    }
     if (dem.nhatKyDaGhi !== null && dem.nhatKyDaGhi !== undefined) {
       const con = Math.max(0, (dem.soBe || 0) - dem.nhatKyDaGhi);
       nut('nhatky', '#/nhatky', 'Nhật ký ngày',
@@ -390,13 +401,19 @@ App.views.dashboard = {
 
   theTongQuan(d) {
     const tong = d.tong || {};
-    const khoi = (d.coSo || []).map(cs => this.theCoSo(cs, d));
+    const dsCoSo = (d.coSo || []).slice();
     if ((d.khongCoSo || []).length) {
-      khoi.push(this.theCoSo({
+      dsCoSo.push({
         id: '', name: (d.coSo || []).length ? 'Nhóm chưa gắn cơ sở' : 'Các nhóm',
         nhom: d.khongCoSo, dem: null,
-      }, d));
+      });
     }
+    // GẬP SẴN (góp ý 20/10, A2): ba cơ sở mở hết là cả màn điện thoại chỉ còn
+    // danh sách nhóm. Mỗi cơ sở một khối gập, tiêu đề giữ số bé · số nhóm;
+    // gập cả trên máy tính cho nhất quán. Chỉ một khối thì mở sẵn — gập một
+    // khối duy nhất là bắt bấm thừa (cùng luật với màn Điểm danh của văn phòng).
+    const moSan = dsCoSo.length <= 1;
+    const khoi = dsCoSo.map(cs => this.theCoSo(cs, d, moSan));
     return `
       <section class="hn-sheet" id="tq-panel">
         <div class="hn-head">
@@ -411,18 +428,18 @@ App.views.dashboard = {
       </section>`;
   },
 
-  theCoSo(cs, d) {
+  theCoSo(cs, d, moSan) {
     const soBe = cs.dem ? cs.dem.soBe : cs.nhom.reduce((s, n) => s + (n.soBe || 0), 0);
     return `
-      <div class="tq-coso">
-        <div class="tq-coso-head">
+      <details class="tq-coso"${moSan ? ' open' : ''}>
+        <summary class="tq-coso-head">
           <b>${UI.esc(cs.name)}</b>
           <span>${UI.esc(String(soBe))} bé · ${UI.esc(String(cs.nhom.length))} nhóm</span>
-        </div>
+        </summary>
         ${cs.nhom.length
           ? cs.nhom.map(n => this.dongNhom(n, d)).join('')
           : '<div class="muted small" style="padding:4px 0 8px">Chưa có nhóm nào ở cơ sở này.</div>'}
-      </div>`;
+      </details>`;
   },
 
   dongNhom(n, d) {
@@ -463,21 +480,21 @@ App.views.dashboard = {
       <div class="card">
         <div class="row-title">${UI.esc(d.nhom.name)}${d.nhom.coSo ? ` · ${UI.esc(d.nhom.coSo.name)}` : ''}</div>
         <div class="row-sub">${UI.esc(UI.fmtDate(d.ngay))} · ${co}</div>
-        <div class="mt-8">${this.dongDem(d.dem, d.phanHe)}</div>
+        <div class="mt-8">${this.dongDem(d.dem, d.phanHe, d.truongNghi)}</div>
         <div class="hn-viec" style="margin-top:4px">${this.nutViec(d)}</div>
       </div>
       <div class="card">
         ${d.be.length
-          ? d.be.map(b => this.dongBe(b, laVanPhong)).join('')
+          ? d.be.map(b => this.dongBe(b, laVanPhong, d.truongNghi)).join('')
           : UI.emptyState('🎒', 'Nhóm chưa có bé nào')}
       </div>`;
   },
 
-  dongBe(b, laVanPhong) {
+  dongBe(b, laVanPhong, truongNghi) {
     const conf = b.diemDanh ? UI.ATT_STATUS[b.diemDanh] : null;
-    const trangThai = conf
-      ? UI.badge(conf.label, conf.cls)
+    const chuaCo = truongNghi ? UI.badge('Trường nghỉ', 'gray')
       : (b.nghiCoPhep ? UI.badge('Có đơn nghỉ đã duyệt', 'blue') : UI.badge('Chưa điểm danh', 'gray'));
+    const trangThai = conf ? UI.badge(conf.label, conf.cls) : chuaCo;
     const them = [];
     if (b.gioVao) them.push(`vào ${b.gioVao}`);
     if (b.thuoc === 'cho') them.push('thuốc chờ cô nhận');
