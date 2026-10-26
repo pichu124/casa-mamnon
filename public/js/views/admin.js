@@ -1175,14 +1175,7 @@ App.views.admin = {
       <div class="field"><label>Mã của bé</label>
         <input id="nb-ma" placeholder="Để trống nếu trường không dùng mã"></div>
       <div class="field"><label>Địa chỉ</label><input id="nb-dc"></div>
-      <div class="grid-2">
-        <div class="field"><label>Dân tộc</label><input id="nb-dt" placeholder="Ví dụ: Kinh"></div>
-        <div class="field"><label>Nhóm máu</label><input id="nb-nm" list="nb-nm-goi" placeholder="Ví dụ: O">
-          <datalist id="nb-nm-goi">
-            <option value="A"></option><option value="B"></option>
-            <option value="AB"></option><option value="O"></option>
-          </datalist></div>
-      </div>
+      <div class="field"><label>Dân tộc</label><input id="nb-dt" placeholder="Ví dụ: Kinh"></div>
       <div class="field"><label>Số định danh cá nhân</label>
         <input id="nb-ddcn" placeholder="12 chữ số trên giấy khai sinh / CCCD của bé"></div>
       <div class="field"><label>Tiền sử bệnh / dị ứng / lưu ý đặc biệt</label>
@@ -1242,7 +1235,6 @@ App.views.admin = {
       phEmail: document.getElementById('nb-email').value,
       diaChi: document.getElementById('nb-dc').value,
       danToc: document.getElementById('nb-dt').value,
-      nhomMau: document.getElementById('nb-nm').value,
       soDinhDanh: document.getElementById('nb-ddcn').value,
       tienSuBenh: document.getElementById('nb-tsb').value,
       lienHeKhanCap: [...document.querySelectorAll('#nb-lhkc .lhkc-dong')].map(d => ({
