@@ -32,11 +32,26 @@ const fs = require('fs');
 // Đọc lại rồi cho đi qua `uploads.saveDataUrl` thay vì `fs.copyFileSync`: như
 // vậy tệp mới được đặt tên theo đúng quy tắc của kho ảnh, và đi qua đủ phép
 // kiểm định dạng lẫn dung lượng — không có đường tắt nào bỏ qua chúng.
+// Video (Đ242B) đi qua `saveVideoDataUrl` theo đúng lý do ấy.
 function chepAnh(file) {
   const duong = uploads.pathOf(file);
   if (!duong || !uploads.exists(file)) return '';
   const buf = fs.readFileSync(duong);
-  return uploads.saveDataUrl(`data:${uploads.mimeOf(file)};base64,${buf.toString('base64')}`).file;
+  const dataUrl = `data:${uploads.mimeOf(file)};base64,${buf.toString('base64')}`;
+  return (uploads.laVideo(file) ? uploads.saveVideoDataUrl(dataUrl) : uploads.saveDataUrl(dataUrl)).file;
+}
+
+// Ảnh hoặc video lớp 1 cô gửi lên (Đ242B, B4). Một ghi chép một tệp. Trả về
+// { file } (rỗng khi không gửi gì) hoặc { loi } để trả 400.
+function luuTepLop1(b) {
+  if (b.anh && b.video) return { loi: 'Mỗi ghi chép kèm một tấm ảnh hoặc một đoạn video thôi nhé' };
+  try {
+    if (b.video) return { file: uploads.saveVideoDataUrl(b.video).file };
+    if (b.anh) return { file: uploads.saveDataUrl(b.anh).file };
+  } catch (err) {
+    return { loi: err.message || 'Tệp không hợp lệ' };
+  }
+  return { file: '' };
 }
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -214,6 +229,7 @@ module.exports = (app, { db, modules }) => {
     if (doLop1) {
       ra.moTa = r.moTa || '';
       ra.anh = r.anh || '';
+      ra.laVideo = uploads.laVideo(r.anh);
       ra.ghiNhanhId = r.ghiNhanhId || '';
       // Ảnh đã về album nào (Đ144) — chỉ người thấy lớp 1 mới cần biết. Bảng
       // `albums` là của phân hệ Album: hỏi công tắc trước, tắt thì không kể.
@@ -735,16 +751,20 @@ module.exports = (app, { db, modules }) => {
     // một bản Ghi nhanh để "chép sang" rồi phải gõ lại từ đầu đúng câu mình
     // vừa viết mười phút trước — nút đó không giúp được gì cả.
     const moTa = chuoi(b.moTa, TOI_DA_MO_TA) || chuoi(nguon && nguon.note, TOI_DA_MO_TA);
-    if (!moTa) return res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé nhé' });
+    // B5 (20/10): một tấm ảnh hay một đoạn video đã là điều cô thấy — chữ để
+    // sau cũng được. Trống cả hai thì không có gì để ghi.
+    const thieuCaHai = () => res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé, hoặc kèm một tấm ảnh hay đoạn video nhé' });
+    if (!moTa && !b.anh && !b.video && !(nguon && nguon.file)) return thieuCaHai();
     // Chương trình cô chọn gắn quan sát vào (góp ý 06/10, mục 7–8). Không
     // gửi = theo vai của cô như trước.
     const nhomChon = docNhomChon(res, req.user, be.classId, b.nhom);
     if (nhomChon === null) return;
 
     let anh = '';
-    if (b.anh) {
-      try { anh = uploads.saveDataUrl(b.anh).file; }
-      catch (err) { return res.status(400).json({ error: err.message || 'Ảnh không hợp lệ' }); }
+    if (b.anh || b.video) {
+      const t = luuTepLop1(b);
+      if (t.loi) return res.status(400).json({ error: t.loi });
+      anh = t.file;
     } else if (nguon && nguon.file) {
       // CHÉP TỆP, KHÔNG DÙNG CHUNG TÊN TỆP.
       //
@@ -753,6 +773,8 @@ module.exports = (app, { db, modules }) => {
       // vài trăm KB là cái giá rẻ hơn nhiều so với một tấm ảnh biến mất.
       try { anh = chepAnh(nguon.file); } catch (_) { anh = ''; }
     }
+    // Ghi nhanh chỉ có ảnh mà tệp đã mất thì không còn gì để ghi.
+    if (!moTa && !anh) return thieuCaHai();
 
     const luc = new Date().toISOString();
     const rec = {
@@ -776,7 +798,7 @@ module.exports = (app, { db, modules }) => {
   // ===========================================================================
   const TOI_DA_NHAP_MOI_CO = 200;
   function goiNhap(r) {
-    return { id: r.id, moTa: r.moTa, coAnh: !!r.anh, anh: r.anh || '', nhom: r.nhom || '',
+    return { id: r.id, moTa: r.moTa, coAnh: !!r.anh, anh: r.anh || '', laVideo: uploads.laVideo(r.anh), nhom: r.nhom || '',
       tenChuongTrinh: nhomCo.CHUONG_TRINH[r.nhom] || '', taoLuc: r.taoLuc };
   }
   // PHẠM VI SUY RA TỪ CHÍNH NGƯỜI ĐANG ĐĂNG NHẬP, NGAY TRONG CÂU TRUY VẤN:
@@ -805,18 +827,16 @@ module.exports = (app, { db, modules }) => {
   app.post('/api/hanhtrinh/nhap', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const moTa = chuoi(b.moTa, TOI_DA_MO_TA);
-    if (!moTa && !b.anh) return res.status(400).json({ error: 'Cô ghi một dòng hoặc chọn một tấm ảnh nhé' });
+    if (!moTa && !b.anh && !b.video) return res.status(400).json({ error: 'Cô ghi một dòng hoặc chọn một tấm ảnh, đoạn video nhé' });
     const nhom = chuoi(b.nhom, 20);
     if (nhom && !nhomCo.hopLe(nhom)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
     const soNhap = db.count('SELECT COUNT(*) AS n FROM hanhtrinh_nhap WHERE coGhi = ?', [req.user.id]);
     if (soNhap >= TOI_DA_NHAP_MOI_CO) {
       return res.status(400).json({ error: 'Cô đang có nhiều nháp chưa gắn bé quá — gắn bé hoặc bỏ bớt rồi ghi tiếp nhé' });
     }
-    let anh = '';
-    if (b.anh) {
-      try { anh = uploads.saveDataUrl(b.anh).file; }
-      catch (err) { return res.status(400).json({ error: err.message || 'Ảnh không hợp lệ' }); }
-    }
+    const t = luuTepLop1(b);
+    if (t.loi) return res.status(400).json({ error: t.loi });
+    const anh = t.file;
     const luc = new Date().toISOString();
     const rec = { id: db.nextId('htn'), coGhi: req.user.id, moTa, anh, nhom, taoLuc: luc, capNhatLuc: luc };
     db.insert('hanhtrinh_nhap', rec);
@@ -840,7 +860,7 @@ module.exports = (app, { db, modules }) => {
     const nhomChon = docNhomChon(res, req.user, be.classId, b.nhom !== undefined ? b.nhom : r.nhom);
     if (nhomChon === null) return;
     const moTa = chuoi(b.moTa, TOI_DA_MO_TA) || r.moTa;
-    if (!moTa) return res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé nhé' });
+    if (!moTa && !r.anh) return res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé nhé' });
     const ngayGhi = String(ngay2.ngayCua(Date.parse(r.taoLuc) || Date.now()));
     const luc = new Date().toISOString();
     const rec = {
@@ -904,6 +924,97 @@ module.exports = (app, { db, modules }) => {
     }
     db.audit(req.user.id, 'hanhtrinh-nhap-bo', null, { nhapId: r.id });
     res.json({ ok: true });
+  });
+
+  // ===========================================================================
+  // "HÌNH ẢNH GHI NHANH" — MỌI THỨ CÔ ĐÃ GHI MÀ CHƯA KỂ (Đ242B, B1/B7)
+  // ===========================================================================
+  //
+  // Ba nguồn, một danh sách: nháp chưa gắn bé, quan sát chưa kể cho gia đình,
+  // và Ghi nhanh chưa chép sang. KHÔNG lọc ngày: mục chưa kể thì còn nằm đó
+  // tới khi cô kể hoặc bỏ — lọc theo ngày là để nó lặng lẽ trôi mất.
+  //
+  // CHỈ CỦA NGƯỜI ĐANG ĐĂNG NHẬP, kể cả văn phòng: cả ba nguồn đều là lớp 1.
+  const TOI_DA_CHO_KE = 200;
+  const tepLop1 = (file) => (file ? `/api/hanhtrinh/anh/${file}` : '');
+
+  // { quanSatId → nhóm đã đóng dấu lúc ghi } cho cả danh sách một lượt.
+  function nhomDaGhiCua(qsIds) {
+    const ra = new Map();
+    if (!qsIds.length) return ra;
+    try {
+      for (const d of db.all('hanhtrinh_quansat_nhom',
+        `SELECT quanSatId, nhom FROM hanhtrinh_quansat_nhom WHERE quanSatId IN (${qsIds.map(() => '?').join(',')})`, qsIds)) {
+        if (nhomCo.hopLe(d.nhom)) ra.set(d.quanSatId, d.nhom);
+      }
+    } catch (_) { /* bảng chưa có thì suy từ vai, như nhomCuaQuanSat */ }
+    return ra;
+  }
+
+  app.get('/api/hanhtrinh/cho-ke', requireRole('teacher', 'admin'), (req, res) => {
+    const me = req.user.id;
+    const beTheoMa = new Map(db.studentsOf(req.user).map(s => [s.id, s]));
+    const ids = db.studentIdsOf(req.user);
+    const muc = [];
+
+    let nhap = [];
+    try {
+      nhap = db.all('hanhtrinh_nhap', 'SELECT * FROM hanhtrinh_nhap WHERE coGhi = ? ORDER BY taoLuc DESC LIMIT ?',
+        [me, TOI_DA_CHO_KE]);
+    } catch (_) { nhap = []; }
+    for (const r of nhap) {
+      muc.push({
+        nguon: 'nhap', id: r.id, studentId: null, hoTen: '', moTa: r.moTa || '',
+        coTep: !!r.anh, laVideo: uploads.laVideo(r.anh), tepUrl: tepLop1(r.anh),
+        nhom: r.nhom || '', goc: '', taoLuc: r.taoLuc,
+      });
+    }
+
+    if (ids.length) {
+      const marks = ids.map(() => '?').join(',');
+      const qs = db.all('hanhtrinh_quansat',
+        `SELECT * FROM hanhtrinh_quansat
+          WHERE coGhi = ? AND congBoLuc IS NULL AND studentId IN (${marks})
+          ORDER BY taoLuc DESC LIMIT ?`, [me, ...ids, TOI_DA_CHO_KE]);
+      const nhomDaGhi = nhomDaGhiCua(qs.map(r => r.id));
+      for (const r of qs) {
+        const be = beTheoMa.get(r.studentId) || {};
+        muc.push({
+          nguon: 'quansat', id: r.id, studentId: r.studentId, hoTen: be.name || '', moTa: r.moTa || '',
+          coTep: !!r.anh, laVideo: uploads.laVideo(r.anh), tepUrl: tepLop1(r.anh),
+          nhom: nhomDaGhi.get(r.id) || nhomCo.nhomCua(db, be.classId || null, r.coGhi), goc: '',
+          // Câu chuyện cô soạn dở (nháp lớp 3 của chính cô) — để hộp hoàn
+          // thiện mở ra đúng chữ cô đã gõ.
+          cauChuyen: r.cauChuyen || '', cungConONha: r.cungConONha || '',
+          taoLuc: r.taoLuc,
+        });
+      }
+
+      // Ghi nhanh là phân hệ KHÁC: hỏi công tắc, bọc lỗi (xem ghiNhanhChuaDung).
+      if (modules && typeof modules.dangBat === 'function' && modules.dangBat('thuchup')) {
+        try {
+          const gn = db.all('thuchup_ghinhanh',
+            `SELECT * FROM thuchup_ghinhanh
+              WHERE byTeacherId = ? AND studentId IN (${marks})
+                AND id NOT IN (SELECT ghiNhanhId FROM hanhtrinh_quansat WHERE ghiNhanhId <> '')
+              ORDER BY taoLuc DESC LIMIT ?`, [me, ...ids, TOI_DA_CHO_KE]);
+          for (const r of gn) {
+            muc.push({
+              nguon: 'ghinhanh', id: r.id, studentId: r.studentId, hoTen: (beTheoMa.get(r.studentId) || {}).name || '',
+              moTa: r.note || '', coTep: !!r.file, laVideo: uploads.laVideo(r.file),
+              tepUrl: r.file ? `/api/thuchup/anh/${r.id}` : '', nhom: '', goc: '', taoLuc: r.taoLuc,
+            });
+          }
+        } catch (_) { /* phân hệ Ghi nhanh đã gỡ — hai nguồn kia vẫn đủ */ }
+      }
+    }
+
+    muc.sort((a, b) => String(b.taoLuc || '').localeCompare(String(a.taoLuc || '')));
+    res.json({
+      muc,
+      toiDaVideo: uploads.MAX_VIDEO_BYTES,
+      chuongTrinh: nhomCo.NHOM.map(([ma, ten, ct]) => ({ ma, ten, chuongTrinh: ct })),
+    });
   });
 
   // =========================================================================
@@ -1264,7 +1375,8 @@ module.exports = (app, { db, modules }) => {
 
     if (b.moTa !== undefined) {
       const m = chuoi(b.moTa, TOI_DA_MO_TA);
-      if (!m) return res.status(400).json({ error: 'Phần mô tả không được để trống' });
+      // Có ảnh hay video thì chữ được để trống (B5) — tệp đã là điều cô thấy.
+      if (!m && !cu.anh) return res.status(400).json({ error: 'Phần mô tả không được để trống' });
       patch.moTa = m;
     }
 
