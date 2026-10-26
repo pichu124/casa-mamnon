@@ -129,8 +129,6 @@ App.views.hanhtrinh = {
     const nhap = await API.get('/api/hanhtrinh/nhap').catch(() => ({ nhap: [] }));
     this._nhap = nhap.nhap || [];
 
-    const chuaSuyNgam = (d.quanSat || []).filter(q => !q.daSuyNgam);
-
     than.innerHTML = `
       <div class="card">
         <div class="field" style="margin:0">
@@ -138,7 +136,6 @@ App.views.hanhtrinh = {
           <input type="date" id="ht-ngay" value="${UI.esc(this._ngay)}" max="${UI.esc(UI.todayStr())}">
         </div>
         <div class="muted small mt-8" style="line-height:1.6">
-          Ghi lúc nào cũng được, gắn lĩnh vực lúc nào cũng được — <b>hai việc riêng nhau</b>.
           Một quan sát chỉ có mô tả đã là một quan sát hoàn chỉnh.
         </div>
       </div>
@@ -161,7 +158,7 @@ App.views.hanhtrinh = {
             </div>`).join('')}
         </div>` : ''}
 
-      <div class="section-label">Quan sát hôm đó${chuaSuyNgam.length ? ` · ${chuaSuyNgam.length} cái chưa suy ngẫm` : ''}</div>
+      <div class="section-label">Quan sát hôm đó</div>
       ${(d.quanSat || []).length
         ? (d.quanSat || []).map(q => this.theQuanSat(q)).join('')
         : UI.emptyState('🌱', 'Hôm đó chưa có quan sát nào. Ghi một dòng bất cứ lúc nào cô thấy điều đáng nhớ.')}
@@ -212,9 +209,6 @@ App.views.hanhtrinh = {
     }
     for (const el of than.querySelectorAll('[data-ghinham]')) {
       el.onclick = () => this.moGhiNham(el.dataset.ghinham);
-    }
-    for (const el of than.querySelectorAll('[data-suyngam]')) {
-      el.onclick = () => this.moSuyNgam(el.dataset.suyngam);
     }
     for (const el of than.querySelectorAll('[data-cauchuyen]')) {
       el.onclick = () => this.moCauChuyen(el.dataset.cauchuyen);
@@ -284,14 +278,9 @@ App.views.hanhtrinh = {
     : ''}
         ${q.oLopLamGi ? `<div class="muted small" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px;margin-bottom:8px">
           Ở lớp: ${UI.esc(q.oLopLamGi)}</div>` : ''}
-        <div class="grid-2">
-          <button class="btn outline" data-suyngam="${UI.esc(q.id)}">
-            ${UI.icon('edit', 16)} ${q.daSuyNgam ? 'Sửa nhận định' : 'Suy ngẫm'}
-          </button>
-          <button class="btn ${q.daCongBo ? 'outline' : 'success-soft'}" data-cauchuyen="${UI.esc(q.id)}">
-            ${UI.icon('send', 16)} ${q.daCongBo ? 'Sửa câu chuyện' : 'Kể cho gia đình'}
-          </button>
-        </div>
+        <button class="btn block ${q.daCongBo ? 'outline' : 'success-soft'}" data-cauchuyen="${UI.esc(q.id)}">
+          ${UI.icon('send', 16)} ${q.daCongBo ? 'Sửa câu chuyện' : 'Kể cho gia đình'}
+        </button>
         ${q.cuaToi || App.state.user.role === 'admin' ? `
           <button class="btn danger-soft block" style="margin-top:8px" data-ghinham="${UI.esc(q.id)}">
             ${UI.icon('x', 16)} Ghi nhầm bé
@@ -392,7 +381,7 @@ App.views.hanhtrinh = {
         <label>Cô đã thấy gì</label>
         <textarea id="ht-mota" rows="4"
           placeholder="Chỉ mô tả điều đã thấy, chưa cần nhận xét. Ví dụ: Bin tự xúc hết bát cơm, làm rơi hai lần rồi tự lấy khăn lau.">${UI.esc(tu.moTa || '')}</textarea>
-        ${this.nutGiongNoi('ht-mota')}
+        ${this.nhacMicro()}
         <div class="hint">Đây là ghi chép riêng của cô. Gia đình <b>không</b> đọc được phần này —
           chỉ đọc câu chuyện cô chủ động kể sau. Ảnh đăng cho gia đình cần chú thích rõ
           bé đang làm gì, hoặc gia đình có thể cùng con thực hành gì ở nhà.</div>
@@ -410,7 +399,6 @@ App.views.hanhtrinh = {
       <button class="btn primary block" id="ht-luu">${UI.icon('check', 18)} Lưu quan sát</button>
     `, 'Ghi một quan sát');
     this.ganChonAnh();
-    this.ganGiongNoi('ht-mota');
 
     // NÓI TRƯỚC KHI CÔ GÕ, KHÔNG PHẢI SAU KHI CÔ GÕ XONG.
     //
@@ -440,7 +428,6 @@ App.views.hanhtrinh = {
   },
 
   async luuGhi(ghiNhanhId) {
-    this.dungGiongNoi();
     const body = {
       studentId: document.getElementById('ht-be').value,
       ngay: this._ngay,
@@ -494,12 +481,10 @@ App.views.hanhtrinh = {
         </select></div>
       <div class="field"><label>Cô đã thấy gì</label>
         <textarea id="ht-gan-mota" rows="3">${UI.esc(n.moTa || '')}</textarea>
-        ${this.nutGiongNoi('ht-gan-mota')}</div>
+        ${this.nhacMicro()}</div>
       <button class="btn primary block" id="ht-gan-luu">${UI.icon('check', 18)} Gắn bé</button>
     `, 'Gắn bé cho bản nháp');
-    this.ganGiongNoi('ht-gan-mota');
     document.getElementById('ht-gan-luu').onclick = async () => {
-      this.dungGiongNoi();
       const studentId = document.getElementById('ht-gan-be').value;
       if (!studentId) return UI.toast('Cô chọn bé giúp nhé', 'error');
       const moTa = document.getElementById('ht-gan-mota').value.trim();
@@ -515,95 +500,18 @@ App.views.hanhtrinh = {
     };
   },
 
-  // ===================== NÓI THÀNH CHỮ (góp ý 06/10, mục 7) =====================
-  //
-  // Nhận dạng giọng nói CÓ SẴN TRONG TRÌNH DUYỆT, tiếng Việt (`vi-VN`): Chrome
-  // trên Android dùng dịch vụ của Google, Safari trên iPhone dùng của Apple.
-  // App không gửi âm thanh đi đâu cả — nhưng chính trình duyệt gửi tới dịch vụ
-  // ấy để đổi ra chữ, nên lời nhắc dưới nút nói rõ điều đó và dặn cô đừng đọc
-  // họ tên đầy đủ của bé. Chữ nhận ra CHỈ được chèn vào ô, cô đọc và sửa rồi
-  // mới bấm Lưu — không có gì tự lưu từ giọng nói.
-  //
-  // Máy không hỗ trợ thì nút không hiện; lời nhắc chỉ cô dùng micro trên bàn
-  // phím điện thoại (Gboard / bàn phím iPhone, chọn tiếng Việt) — cũng đọc
-  // được thay gõ, và chạy trên mọi ô nhập.
-  coGiongNoi() {
-    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-  },
-  nutGiongNoi(oId) {
-    if (!this.coGiongNoi()) {
-      return `<div class="hint">Muốn nói thay gõ: bấm biểu tượng micro trên bàn phím điện thoại
-        (chọn tiếng Việt).</div>`;
-    }
-    return `
-      <div class="flex mt-8" style="gap:8px;align-items:center;flex-wrap:wrap">
-        <button type="button" class="btn sm outline ht-noi" data-o="${UI.esc(oId)}" style="min-height:36px">🎤 Nói để ghi</button>
-        <span class="muted small ht-noi-tam" data-o="${UI.esc(oId)}" style="flex:1;min-width:120px"></span>
-      </div>
-      <div class="hint">Nói chậm, rõ, từng câu ngắn; chữ hiện vào ô để cô đọc lại và sửa trước khi lưu.
-        Giọng nói được điện thoại gửi tới dịch vụ nhận dạng của Google / Apple để đổi ra chữ —
-        cô gọi bé bằng tên ở lớp, đừng đọc họ tên đầy đủ.</div>`;
-  },
-  ganGiongNoi(oId) {
-    const nut = document.querySelector(`.ht-noi[data-o="${oId}"]`);
-    const o = document.getElementById(oId);
-    if (!nut || !o) return;
-    const Nhan = window.SpeechRecognition || window.webkitSpeechRecognition;
-    nut.onclick = () => {
-      if (this._noi) { this.dungGiongNoi(); return; }
-      let r;
-      try { r = new Nhan(); } catch (_) { return UI.toast('Máy này chưa nói thành chữ được — cô dùng micro trên bàn phím nhé', 'error'); }
-      r.lang = 'vi-VN';
-      r.continuous = true;
-      r.interimResults = true;
-      const tam = document.querySelector(`.ht-noi-tam[data-o="${oId}"]`);
-      r.onresult = (e) => {
-        let dangNghe = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const kq = e.results[i];
-          const chu = (kq[0] && kq[0].transcript) || '';
-          if (kq.isFinal) {
-            const cau = chu.trim();
-            if (cau) o.value = `${o.value.trim()}${o.value.trim() ? ' ' : ''}${cau.charAt(0).toUpperCase()}${cau.slice(1)}`;
-          } else dangNghe += chu;
-        }
-        if (tam) tam.textContent = dangNghe;
-      };
-      r.onerror = (e) => {
-        UI.toast(e && e.error === 'not-allowed'
-          ? 'Cô cho phép app dùng micro trong cài đặt trình duyệt nhé'
-          : 'Chưa nghe rõ — cô thử lại hoặc dùng micro trên bàn phím', 'error');
-      };
-      r.onend = () => {
-        if (tam) tam.textContent = '';
-        nut.textContent = '🎤 Nói để ghi';
-        this._noi = null;
-      };
-      try { r.start(); } catch (_) { return; }
-      this._noi = r;
-      this._noiO = o;
-      this._noiTam = tam;
-      nut.textContent = '⏹ Dừng';
-    };
-  },
-  // Dừng nghe. Câu đang nghe dở (chữ xám) được CHÈN NGAY vào ô: kết quả chốt
-  // của nó chỉ tới sau `stop()`, lúc cô đã bấm Lưu và hộp thoại đã đóng — chờ
-  // nó là mất câu cuối (vòng rà Đ232). Kết quả tới muộn thì bỏ, để một câu
-  // không bị chèn hai lần.
-  dungGiongNoi() {
-    if (!this._noi) return;
-    const r = this._noi;
-    const o = this._noiO;
-    const tam = this._noiTam;
-    const cau = tam ? String(tam.textContent || '').trim() : '';
-    if (o && cau) o.value = `${o.value.trim()}${o.value.trim() ? ' ' : ''}${cau.charAt(0).toUpperCase()}${cau.slice(1)}`;
-    if (tam) tam.textContent = '';
-    r.onresult = null;
-    try { r.stop(); } catch (_) { /* đã dừng */ }
-    this._noi = null;
+  // NÓI THAY GÕ: dùng micro của bàn phím điện thoại (góp ý 20/10, B2 — nút
+  // nhận dạng giọng nói của trình duyệt nhận sai tiếng Việt quá nhiều, đã bỏ).
+  nhacMicro() {
+    return '<div class="hint">Có thể bấm micro trên bàn phím để nói thay gõ.</div>';
   },
 
   // ---- Hộp thoại: suy ngẫm (lớp 2) ----
+  //
+  // Từ góp ý 20/10 (B3) màn hình KHÔNG còn nút mở hộp này: nhà trường đánh giá
+  // trên hành trình phát triển ba lĩnh vực. Hộp, đường PUT và nhận định đã có
+  // giữ nguyên — ẩn, không xoá (Nguyên tắc số 1, điều 3). Bài canh
+  // test/hanh-trinh.test.mjs [8] và test/quy-tac-2.test.mjs [3] đọc mã hộp này.
   moSuyNgam(id) {
     const q = (this._data.quanSat || []).find(x => x.id === id);
     if (!q) return;
@@ -692,7 +600,7 @@ App.views.hanhtrinh = {
       <div class="field">
         <label>Câu chuyện kể cho gia đình</label>
         <textarea id="ht-cc" rows="4" placeholder="Kể lại bằng lời của cô: con đang làm gì ở lớp — và nếu có ảnh, ảnh chụp lúc nào, con làm ra sản phẩm gì.">${UI.esc(q.cauChuyen || '')}</textarea>
-        ${this.nutGiongNoi('ht-cc')}
+        ${this.nhacMicro()}
         <div class="hint">Phần này <b>chỉ công bố khi cô bấm nút</b>. Gõ dở để đó cũng không ai đọc được.
           Chú thích rõ hoạt động của con ở lớp, hoặc cách gia đình cùng con thực hành thêm ở nhà (ô dưới).</div>
       </div>
@@ -723,9 +631,8 @@ App.views.hanhtrinh = {
       ${q.daCongBo ? `<button class="btn danger-soft block mt-8" id="ht-thu-hoi">Thu hồi khỏi màn hình gia đình</button>` : ''}
     `, 'Câu chuyện cho gia đình');
 
-    this.ganGiongNoi('ht-cc');
     const doc = () => ({
-      cauChuyen: (this.dungGiongNoi(), document.getElementById('ht-cc').value.trim()),
+      cauChuyen: document.getElementById('ht-cc').value.trim(),
       cungConONha: document.getElementById('ht-cn').value.trim(),
     });
     document.getElementById('ht-luu-nhap').onclick = async () => {

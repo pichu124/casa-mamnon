@@ -1418,8 +1418,14 @@ module.exports = (app, { db, modules }) => {
       if (!r.anh) return res.status(400).json({ error: 'Quan sát này không có ảnh để lưu về album' });
       album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [albumId]);
       if (!album) return res.status(404).json({ error: 'Không tìm thấy album đã chọn' });
-      if (!(req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId))) {
-        return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm của album mới lưu ảnh vào đó được' });
+      // Cô: đúng nhóm mình phụ trách. Quản trị (góp ý 20/10, B6): nhóm thuộc
+      // phạm vi của mình — `canAccessClass` đã siết theo cơ sở, giống
+      // `datDuocCheDo` ở routes/albums.js.
+      const luuDuoc = req.user.role === 'teacher'
+        ? db.isTeacherOfClass(req.user.id, album.classId)
+        : req.user.role === 'admin' && db.canAccessClass(req.user, album.classId);
+      if (!luuDuoc) {
+        return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm của album, hoặc văn phòng / ban giám hiệu phụ trách nhóm đó, mới lưu ảnh vào album được' });
       }
       const be = db.findStudent(r.studentId);
       if (!be || be.classId !== album.classId) {
