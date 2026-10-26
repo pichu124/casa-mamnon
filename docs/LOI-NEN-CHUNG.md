@@ -428,6 +428,12 @@ nhưng không thuộc loại 1 hay loại 2 nên **không bắt buộc** vá ch�
   cho phân hệ có vai gia đình + văn phòng mà không có cô (Học phí); hai giá
   trị cũ giữ nguyên, `public/js/app.js` thêm một nhánh câu chữ bên cạnh. App 1
   không có phân hệ nào ở tổ hợp vai đó.
+- **`lib/modules.js` truyền thêm cờ `anKhoiTrangChu` của `module.json` xuống
+  trình duyệt** (thêm ở app 2 tại Đ241f, một dòng trong `choNguoiDung`, cùng
+  chỗ và cùng luật với `gopVao`/`dieuKienHien`). Phân hệ khai `true` thì vẫn
+  bật, vẫn chạy, chỉ không vẽ ô trên lưới trang chủ; lối vào chuyển sang
+  Cài đặt → "Phần việc khác". Dùng cho Nhân sự & chấm công (góp ý 20/10, A1).
+  Không khai thì `false`, mọi thứ y như trước. App 1 **không cần** mang sang.
 - **`lib/uploads.js` có bộ hàm riêng cho tài liệu PDF / Word** (thêm ở app 2
   tại Đ143: `saveTaiLieuDataUrl`, `pathOfTaiLieu`, `existsTaiLieu`,
   `removeTaiLieu`, `mimeOfTaiLieu`, trần `MAX_TAI_LIEU_BYTES` 8 MB). Đặt CẠNH

@@ -85,7 +85,7 @@ App.views.dashboard = {
           // sự hay Kế toán: nhà trường bật đủ cả, chỉ là phần việc của chức vụ
           // đó không nằm ở lưới này. Và "phân hệ" là chữ chỉ có trong mã nguồn.
           + 'Tài khoản của mình chưa có phần nào hiện ở đây. '
-          + 'Việc của mình mở trong <b>Cài đặt → Quản trị</b>. '
+          + 'Việc của mình mở trong <b>Cài đặt</b>. '
           + 'Cần thêm phần nào thì nhờ ban giám hiệu mở giúp.'
           + '</div>'}
         <div class="tile-grid">
