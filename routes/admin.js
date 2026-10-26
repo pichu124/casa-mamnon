@@ -1345,7 +1345,7 @@ module.exports = (app) => {
 
 
     const COT = ['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
-      'Số định danh cá nhân', 'Dân tộc', 'Nhóm máu', 'Tiền sử bệnh / lưu ý đặc biệt',
+      'Số định danh cá nhân', 'Dân tộc', 'Tiền sử bệnh / lưu ý đặc biệt',
       'Địa chỉ', 'Bố / mẹ', 'Số CCCD của bố / mẹ', 'Người liên hệ khẩn cấp',
       'Đồng ý hồ sơ học tập', 'Đồng ý chia sẻ ảnh', 'Đồng ý truyền thông',
       'Người ký giấy', 'Ngày ký', 'Tình trạng'];
@@ -1412,7 +1412,6 @@ module.exports = (app) => {
         'Cơ sở': cs ? cs.name : '',
         'Số định danh cá nhân': hs.soDinhDanh || '',
         'Dân tộc': s.ethnicity || '',
-        'Nhóm máu': s.bloodType || '',
         'Tiền sử bệnh / lưu ý đặc biệt': hs.tienSuBenh || '',
         'Địa chỉ': s.address || '',
         'Bố / mẹ': (s.parentIds || []).map(id => {
@@ -2349,11 +2348,12 @@ module.exports = (app) => {
     // nhóm — nhưng để sẵn trong mẫu thì rẻ hơn nhiều so với để văn phòng nhập
     // xong mới báo lỗi và phải sửa lại cả tệp.
     //
-    // 'Dân tộc' và 'Nhóm máu' đứng CUỐI, sau các cột bắt buộc: người điền đọc
-    // từ trái sang, và hai cột này để trống được nên không nên chen vào giữa
-    // những cột không được để trống.
+    // 'Dân tộc' đứng CUỐI, sau các cột bắt buộc: người điền đọc từ trái sang,
+    // và cột này để trống được nên không nên chen vào giữa những cột không được
+    // để trống. Cột 'Nhóm máu' đã bỏ khỏi mẫu (góp ý 20/10, C1); tệp cũ còn cột
+    // ấy vẫn nhập được và giá trị vẫn lưu — xem `lay(row, 'Nhóm máu', ...)`.
     const headers = ['Mã của bé', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Nhóm', 'Cơ sở', 'Địa chỉ',
-      'Họ tên phụ huynh', 'Điện thoại', 'Email', 'Dân tộc', 'Nhóm máu'];
+      'Họ tên phụ huynh', 'Điện thoại', 'Email', 'Dân tộc'];
     const namSinhMau = Number(ngayVN.homNay().slice(0, 4)) - 4;   // bé nhóm Chồi, 4 tuổi
     const mau = [{
       'Mã của bé': 'MN2026001', 'Họ tên': 'Nguyễn Bảo An', 'Ngày sinh': `${namSinhMau}-04-12`,
@@ -2361,7 +2361,7 @@ module.exports = (app) => {
       'Cơ sở': (db.campuses()[0] || {}).name || '',
       'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',
       'Họ tên phụ huynh': 'Lê Thị Thu Hà', 'Điện thoại': '0912345678', 'Email': 'thuha@gmail.com',
-      'Dân tộc': 'Kinh', 'Nhóm máu': '',
+      'Dân tộc': 'Kinh',
     }];
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="mau-danh-sach-be.csv"');

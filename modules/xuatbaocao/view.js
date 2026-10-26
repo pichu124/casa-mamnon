@@ -116,11 +116,17 @@ App.views.xuatbaocao = {
         ${this.oChon(`${id}-pham`, 'Phạm vi', this.luaChonPhamVi(p))}
         <div id="${id}-o-coso" hidden>${this.oChon(`${id}-coso`, 'Cơ sở', coSo)}</div>
         <div id="${id}-o-nhom" hidden>${this.oChon(`${id}-nhom`, 'Nhóm lớp', nhom)}</div>
+        ${p.doiTuong === 'nguoi' ? `
         <div class="field" id="${id}-o-ai" hidden>
-          <label for="${id}-tim">${p.doiTuong === 'nguoi' ? 'Tìm theo tên' : 'Tìm bé theo tên'}</label>
+          <label for="${id}-tim">Tìm theo tên</label>
           <input type="search" id="${id}-tim" placeholder="Gõ vài chữ trong tên" autocomplete="off">
           <select id="${id}-ai" size="5" style="margin-top:8px"></select>
-        </div>
+        </div>` : `
+        <div id="${id}-o-ai" hidden>
+          ${coSo.length > 1 ? this.oChon(`${id}-be-coso`, 'Cơ sở', coSo) : ''}
+          ${this.oChon(`${id}-be-nhom`, 'Nhóm lớp', [])}
+          ${this.oChon(`${id}-ai`, 'Bé', [])}
+        </div>`}
         ${p.thoiGian ? thoiGian[p.thoiGian] : ''}
         ${p.kieu ? this.oChon(`${id}-kieu`, 'Kiểu báo cáo', p.kieu) : ''}
         ${p.loai ? this.oChon(`${id}-loai`, 'Loại báo cáo', p.loai) : ''}
@@ -137,14 +143,42 @@ App.views.xuatbaocao = {
       .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
   },
 
+  // CHỌN MỘT BÉ THEO BẬC Cơ sở → Nhóm lớp → Bé (góp ý 20/10, K2), thay cho ô
+  // tìm + hộp danh sách dài. Ô sau lọc theo ô trước, và chỉ từ `pham-vi` máy
+  // chủ đã lọc theo quyền — màn hình không tự thêm bé nào. Trường một cơ sở
+  // (hay tài khoản một cơ sở) thì không có ô cơ sở.
+  ganChonBe(p) {
+    const pv = this._pv;
+    const $ = (k) => document.getElementById(`xb-${p.id}-${k}`);
+    const tuyChon = (ds, rong) => (ds.length
+      ? ds.map(([v, t]) => `<option value="${UI.esc(v)}">${UI.esc(t)}</option>`).join('')
+      : `<option value="">${UI.esc(rong)}</option>`);
+    const beTheoNhom = new Map();
+    for (const b of pv.be || []) {
+      if (!beTheoNhom.has(b.classId)) beTheoNhom.set(b.classId, []);
+      beTheoNhom.get(b.classId).push(b);
+    }
+    const veBe = () => {
+      const ds = (beTheoNhom.get($('be-nhom').value) || []).slice()
+        .sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
+      $('ai').innerHTML = tuyChon(ds.map(b => [b.id, b.name]), 'Nhóm này chưa có bé');
+    };
+    const veNhom = () => {
+      const cs = $('be-coso') ? $('be-coso').value : '';
+      const ds = (pv.nhom || []).filter(n => !cs || n.campusId === cs);
+      $('be-nhom').innerHTML = tuyChon(ds.map(n => [n.id, n.name]), 'Cơ sở này chưa có nhóm lớp');
+      veBe();
+    };
+    if ($('be-coso')) $('be-coso').onchange = veNhom;
+    $('be-nhom').onchange = veBe;
+    veNhom();
+  },
+
   gan(p) {
     const pv = this._pv;
     const id = `xb-${p.id}`;
     const $ = (k) => document.getElementById(`${id}-${k}`);
-    const tenNhom = new Map((pv.nhom || []).map(n => [n.id, n.name]));
-    const ds = p.doiTuong === 'nguoi'
-      ? (pv.nguoi || []).map(n => ({ id: n.id, ten: n.hoTen, phu: n.vai }))
-      : (pv.be || []).map(b => ({ id: b.id, ten: b.name, phu: tenNhom.get(b.classId) || '' }));
+    const ds = (pv.nguoi || []).map(n => ({ id: n.id, ten: n.hoTen, phu: n.vai }));
     const veDanhSach = () => {
       const tim = this.khongDau($('tim') ? $('tim').value.trim() : '');
       const hop = ds.filter(x => !tim || this.khongDau(x.ten).includes(tim)).slice(0, 50);
@@ -168,7 +202,8 @@ App.views.xuatbaocao = {
     }
     $('tai').onclick = () => this.tai(p);
     doiPham();
-    veDanhSach();
+    if (p.doiTuong === 'nguoi') veDanhSach();
+    else if (p.doiTuong === 'be') this.ganChonBe(p);
   },
 
   async tai(p) {

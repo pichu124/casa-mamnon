@@ -842,7 +842,7 @@ module.exports = (app, { db, modules }) => {
     const noi = (v) => (v === true ? 'Đồng ý' : v === false ? 'Không đồng ý' : 'Chưa trả lời');
 
     const hang = [['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
-      'Số định danh cá nhân', 'Dân tộc', 'Nhóm máu', 'Tiền sử bệnh / lưu ý đặc biệt',
+      'Số định danh cá nhân', 'Dân tộc', 'Tiền sử bệnh / lưu ý đặc biệt',
       'Địa chỉ', 'Bố / mẹ', 'Số CCCD của bố / mẹ', 'Người liên hệ khẩn cấp',
       'Đồng ý hồ sơ học tập', 'Đồng ý chia sẻ ảnh', 'Đồng ý truyền thông',
       'Người ký giấy', 'Ngày ký', 'Tình trạng']];
@@ -854,7 +854,7 @@ module.exports = (app, { db, modules }) => {
       hang.push([
         s.code || '', s.name || '', s.dob || '', tuoiCuaBe(s.dob), s.gender || '',
         lop ? lop.name : '', cs ? cs.name : '',
-        mr.soDinhDanh || '', s.ethnicity || '', s.bloodType || '',
+        mr.soDinhDanh || '', s.ethnicity || '',
         mr.tienSuBenh || s.allergies || '', s.address || '',
         (s.parentIds || []).map((id) => {
           const p = phuHuynhTheoId.get(id);
