@@ -247,3 +247,8 @@ CREATE TABLE IF NOT EXISTS hanhtrinh_quansat_goc (
 );
 -- "Hình ảnh ghi nhanh" đọc quan sát chưa kể của một cô.
 CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_cho_ke ON hanhtrinh_quansat(coGhi, congBoLuc);
+
+-- Đ242B: `GET /cho-ke` tìm Ghi nhanh chưa dùng bằng `NOT IN (SELECT ghiNhanhId …)`;
+-- không có chỉ mục thì mỗi lần cô mở Hình ảnh ghi nhanh là quét cả bảng quan
+-- sát — chậm dần theo từng năm học.
+CREATE INDEX IF NOT EXISTS hanhtrinh_quansat_theo_ghinhanh ON hanhtrinh_quansat(ghiNhanhId);
