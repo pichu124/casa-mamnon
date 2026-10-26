@@ -12,6 +12,7 @@ const lsl = require('../lib/lich-su-lop');
 const nl = require('../lib/nhom-lop');
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
+const modules = require('../lib/modules');
 
 // BỐN CHẾ ĐỘ ALBUM — xem chú thích bảng `album_che_do` trong lib/schema.sql.
 //
@@ -625,6 +626,7 @@ module.exports = (app) => {
       // lớp đã đóng thì không đăng thêm ảnh nữa.
       canEdit: req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId),
       canXoa: xoaDuocAlbum(req.user, album.classId),
+      themTuCauChuyen: modules.dangBat('hanhtrinh') && !chanThemTuCauChuyen(req.user, album),
       // Cô cần biết ảnh nào đang tạm ẩn với gia đình khác và VÌ SAO. Ẩn mà
       // không giải thích là chỗ cô mất lòng tin vào app nhanh nhất.
       ...(req.user.role === 'parent'
@@ -838,6 +840,213 @@ module.exports = (app) => {
         },
       } : {}),
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // THÊM TỪ CÂU CHUYỆN ĐÃ KỂ (góp ý 20/10, B6 — chủ dự án chọn phương án a 26/10)
+  //
+  // Văn phòng cơ sở gom ảnh câu chuyện cô đã kể cho gia đình vào album, mà vẫn
+  // KHÔNG đọc được ghi chép của cô: cả vùng /api/hanhtrinh vẫn đóng với họ
+  // (danh sách đường của chức vụ). Ba đường dưới chỉ chạm BẢN CHÉP LỚP 3
+  // (`hanhtrinh_ke_tep`) — tệp cô chủ động gửi kèm lúc kể — cùng tên bé và câu
+  // chuyện, là thứ gia đình vốn đã đọc. Mô tả, ảnh gốc, nháp, nhận định không
+  // có trong câu SELECT nào ở đây, nên không thể lọt ra gói trả về.
+  //
+  // Hành trình là phân hệ KHÁC: tắt nó là chặn cả dữ liệu, không chỉ giấu nút
+  // (modules/README.md). Bảng bản chép mới có từ Đ242B, nên trường cài bản cũ
+  // hơn chưa có bảng — coi như chưa có câu chuyện nào, không báo lỗi.
+  // ---------------------------------------------------------------------------
+
+  // Người này có thêm được ảnh câu chuyện vào album này không. Trả [mã, lời]
+  // khi không, `null` khi được.
+  function chanThemTuCauChuyen(user, album) {
+    if (db.chucVu(user) === 'marketing') {
+      return [403, 'Tài khoản Marketing chỉ xem ảnh, không đăng ảnh của nhóm.'];
+    }
+    // Cô: đúng nhóm mình phụ trách. Quản trị: nhóm trong phạm vi —
+    // `canAccessClass` đã siết theo cơ sở. Cùng luật lưu ảnh câu chuyện về
+    // album ở modules/hanhtrinh/routes.js.
+    if (!datDuocCheDo(user, album)) {
+      return [403, 'Chỉ cô phụ trách nhóm hoặc văn phòng của cơ sở đó mới thêm được ảnh vào album này'];
+    }
+    const lop = db.findClass(album.classId);
+    if (!lop || !lop.active) {
+      return [400, 'Nhóm đã đóng sau chuyển năm học — album năm cũ chỉ để xem lại, không đăng thêm ảnh'];
+    }
+    // Câu chuyện là của MỘT bé (lớp 3: phụ huynh của chính bé đó). Album cả
+    // nhóm hay cả trường đọc được thì không nhận — cùng chốt với đường kể.
+    if (cheDoCua(album.id) !== 'theo-the') {
+      return [400, 'Ảnh câu chuyện của một bé chỉ thêm được vào album "Chỉ nhà có con trong ảnh" — '
+        + 'ở đó mỗi nhà chỉ thấy ảnh có thẻ con mình.'];
+    }
+    return null;
+  }
+
+  // Bản chép của câu chuyện ĐÃ CÔNG BỐ, của bé ĐANG HỌC nhóm này. `tepId` thì
+  // chỉ lấy đúng một bản. Có cả `file` để chép và gửi tệp — KHÔNG đưa ra JSON.
+  function banChepCuaNhom(classId, tepId) {
+    if (!modules.dangBat('hanhtrinh')) return [];
+    try {
+      return db.all('hanhtrinh_ke_tep',
+        `SELECT t.id, t.file, t.loai, t.daXacNhanBe, t.quanSatId,
+                q.studentId, q.cauChuyen, q.congBoLuc, s.name AS hoTen
+           FROM hanhtrinh_ke_tep t
+           JOIN hanhtrinh_quansat q ON q.id = t.quanSatId
+           JOIN students s ON s.id = q.studentId
+          WHERE s.classId = ? AND s.active = 1 AND q.congBoLuc IS NOT NULL
+            ${tepId ? 'AND t.id = ?' : ''}
+          ORDER BY q.congBoLuc DESC LIMIT 200`, tepId ? [classId, tepId] : [classId]);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Bé trong ảnh mà cô đã khai lúc kể (luôn gồm bé chính).
+  function beCuaBanChep(tepId) {
+    try {
+      return db.all('hanhtrinh_ke_tep_be',
+        'SELECT studentId FROM hanhtrinh_ke_tep_be WHERE tepId = ?', [tepId]).map(r => r.studentId);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // { quanSatId → { albumId, title } } — câu chuyện nào đã có ảnh trong album
+  // nào. `hanhtrinh_album` là sổ chống chép đôi mà đường kể của cô cũng dùng;
+  // dòng trỏ tới tấm ảnh đã bị xoá khỏi album thì không tính.
+  function daVeAlbum(qsIds) {
+    const ra = new Map();
+    if (!qsIds.length || !modules.dangBat('hanhtrinh')) return ra;
+    try {
+      for (const r of db.all('hanhtrinh_album',
+        `SELECT h.quanSatId, h.albumId, a.title FROM hanhtrinh_album h
+           JOIN album_photos p ON p.id = h.photoId
+           JOIN albums a ON a.id = h.albumId
+          WHERE h.quanSatId IN (${qsIds.map(() => '?').join(',')})`, qsIds)) {
+        ra.set(r.quanSatId, { albumId: r.albumId, title: r.title });
+      }
+    } catch (_) { /* bảng chưa có = chưa về album nào */ }
+    return ra;
+  }
+
+  // Vì sao bản chép này CHƯA thêm được vào album này ('' = được).
+  function lyDoChuaThem(t, album, daCo, tuChoi) {
+    if (daCo && daCo.albumId !== album.id) {
+      return `Ảnh của câu chuyện này đã ở album "${daCo.title}".`;
+    }
+    // Cô chưa cho biết trong ảnh có những bé nào, mà nhóm có nhà từ chối chia
+    // sẻ: gắn thẻ một mình bé chính là để ảnh hiện với nhà bé ấy dù có thể còn
+    // gương mặt bé kia — chính chỗ Hành trình đang ẩn ảnh này đi.
+    if (!t.daXacNhanBe && tuChoi) {
+      return 'Cô chưa cho biết trong ảnh có những bé nào, mà nhóm có gia đình chưa đồng ý chia sẻ ảnh. '
+        + 'Nhờ cô kể lại và chọn các bé trong ảnh trước.';
+    }
+    return '';
+  }
+
+  function tepUrlCua(album, t) {
+    return `/api/albums/${encodeURIComponent(album.id)}/tu-cau-chuyen/${encodeURIComponent(t.id)}/tep`;
+  }
+
+  function moAlbumChoTuCauChuyen(req, res) {
+    const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
+    if (!album) { res.status(404).json({ error: 'Không tìm thấy album' }); return null; }
+    const chan = chanThemTuCauChuyen(req.user, album);
+    if (chan) { res.status(chan[0]).json({ error: chan[1] }); return null; }
+    return album;
+  }
+
+  app.get('/api/albums/:id/tu-cau-chuyen', requireRole('teacher', 'admin'), (req, res) => {
+    const album = moAlbumChoTuCauChuyen(req, res);
+    if (!album) return;
+    const tatCa = banChepCuaNhom(album.classId);
+    // Gia đình đã dừng hồ sơ học tập thì câu chuyện của bé không đi tiếp đâu nữa.
+    const ngung = db.dsBeNgungHoSoHocTap(tatCa.map(t => t.studentId));
+    const ds = tatCa.filter(t => !ngung.has(t.studentId));
+    const veAlbum = daVeAlbum(ds.map(t => t.quanSatId));
+    const tuChoi = ds.some(t => !t.daXacNhanBe) && db.coBeTuChoiChiaSeTungHoc(album.classId);
+    res.json({
+      muc: ds.map((t) => {
+        const daCo = veAlbum.get(t.quanSatId);
+        return {
+          id: t.id, loai: t.loai, studentId: t.studentId, hoTen: t.hoTen,
+          cauChuyen: t.cauChuyen, keLuc: t.congBoLuc, tepUrl: tepUrlCua(album, t),
+          daCo: !!(daCo && daCo.albumId === album.id),
+          lyDo: lyDoChuaThem(t, album, daCo, tuChoi),
+        };
+      }),
+    });
+  });
+
+  app.get('/api/albums/:id/tu-cau-chuyen/:tepId/tep', requireRole('teacher', 'admin'), (req, res) => {
+    const album = moAlbumChoTuCauChuyen(req, res);
+    if (!album) return;
+    const t = banChepCuaNhom(album.classId, String(req.params.tepId || '').slice(0, 60))[0];
+    if (!t || db.beNgungHoSoHocTap(t.studentId)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    const duong = uploads.pathOf(t.file);
+    if (!duong || !uploads.exists(t.file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    res.setHeader('Content-Type', uploads.mimeOf(t.file));
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.sendFile(duong);
+  });
+
+  app.post('/api/albums/:id/tu-cau-chuyen', requireRole('teacher', 'admin'), (req, res) => {
+    const album = moAlbumChoTuCauChuyen(req, res);
+    if (!album) return;
+    if (!modules.dangBat('hanhtrinh')) {
+      return res.status(400).json({ error: 'Phân hệ Hành trình học tập đang tắt, nên chưa thêm được ảnh câu chuyện.' });
+    }
+    const t = banChepCuaNhom(album.classId, String((req.body || {}).tepId || '').slice(0, 60))[0];
+    if (!t) return res.status(404).json({ error: 'Không tìm thấy câu chuyện này trong nhóm của album' });
+    if (db.beNgungHoSoHocTap(t.studentId)) {
+      return res.status(403).json({ error: 'Gia đình bé này đã dừng phần hồ sơ học tập.' });
+    }
+    const daCo = daVeAlbum([t.quanSatId]).get(t.quanSatId);
+    if (daCo && daCo.albumId === album.id) {
+      return res.status(409).json({ error: 'Ảnh của câu chuyện này đã có trong album rồi.' });
+    }
+    const lyDo = lyDoChuaThem(t, album, daCo,
+      !t.daXacNhanBe && db.coBeTuChoiChiaSeTungHoc(album.classId));
+    if (lyDo) return res.status(daCo ? 409 : 400).json({ error: lyDo });
+    const dangCo = db.count('SELECT COUNT(*) FROM album_photos WHERE albumId = ?', [album.id]);
+    if (dangCo + 1 > MAX_PHOTOS_PER_ALBUM) {
+      return res.status(400).json({ error: `Mỗi album tối đa ${MAX_PHOTOS_PER_ALBUM} ảnh` });
+    }
+
+    // CHÉP RA TỆP RIÊNG CỦA ALBUM, qua đúng phép kiểm định dạng và dung lượng
+    // của kho ảnh. Xoá ảnh khỏi album không được động tới bản chép của Hành
+    // trình (gia đình còn xem ở đó), và thu hồi câu chuyện không gỡ ảnh album.
+    let file = '';
+    try {
+      const duong = uploads.pathOf(t.file);
+      if (duong && uploads.exists(t.file)) {
+        const dataUrl = `data:${uploads.mimeOf(t.file)};base64,${fs.readFileSync(duong).toString('base64')}`;
+        file = (uploads.laVideo(t.file) ? uploads.saveVideoDataUrl(dataUrl) : uploads.saveDataUrl(dataUrl)).file;
+      }
+    } catch (_) { file = ''; }
+    if (!file) return res.status(400).json({ error: 'Chưa chép được ảnh của câu chuyện — thử lại giúp nhé' });
+
+    // Gắn thẻ bé chính và MỌI bé cô đã khai có mặt: luật đồng ý ảnh nhóm của
+    // album (`locAnhChoNguoiXem`) chỉ chặn được bé mà nó biết là có trong ảnh.
+    const be = [...new Set([t.studentId, ...beCuaBanChep(t.id)])];
+    const photo = {
+      id: db.nextId('ph'), albumId: album.id, file,
+      caption: String(t.cauChuyen || '').trim().slice(0, 200), position: dangCo,
+    };
+    try {
+      db.tx(() => {
+        db.insert('album_photos', photo);
+        db.datBeTrongAnh(photo.id, be);
+        db.upsert('hanhtrinh_album',
+          { quanSatId: t.quanSatId, albumId: album.id, photoId: photo.id, ghiLuc: new Date().toISOString() },
+          ['quanSatId']);
+      });
+    } catch (err) {
+      uploads.remove(file);
+      throw err;
+    }
+    db.audit(req.user.id, 'album-tu-cau-chuyen', t.studentId, { albumId: album.id, photoId: photo.id });
+    res.status(201).json({ added: 1, photoId: photo.id, soBe: be.length });
   });
 
   // Cô gắn thẻ bé vào một tấm ảnh — đặt TOÀN BỘ danh sách một lượt.
