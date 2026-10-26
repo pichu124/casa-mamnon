@@ -151,7 +151,7 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[1b] Cô: ghi nháp CHƯA GẮN BÉ ở Suy ngẫm rồi gắn bé sau; nút nói thành chữ');
+  console.log('\n[1b] Cô: ghi nháp CHƯA GẮN BÉ ở Suy ngẫm rồi gắn bé sau; lời nhắc micro bàn phím');
   {
     await moMan('#/hanhtrinh/suyngam');
     await page.click('#ht-them');
@@ -159,10 +159,10 @@ try {
     check('ô chọn bé có lựa chọn "Chưa gắn bé · lưu nháp"', await page.locator('#ht-be option[value="__nhap__"]').count() === 1);
     check('có ô chọn chương trình', await page.locator('#ht-nhom option').count() === 4);
     check('ở lối phụ Suy ngẫm, ô chương trình vẫn "theo vai" như cũ', (await page.inputValue('#ht-nhom')) === '');
-    const coNoi = await page.evaluate(() => !!(window.SpeechRecognition || window.webkitSpeechRecognition));
-    check('máy hỗ trợ nhận giọng thì có nút "Nói để ghi", không thì có lời chỉ micro bàn phím',
-      coNoi ? await page.locator('.ht-noi[data-o="ht-mota"]').count() === 1
-        : /micro trên bàn phím/.test(await page.locator('#modal-overlay').innerText()), coNoi);
+    // Phản hồi 20/10 (B2): bỏ nút "Nói để ghi" dù máy có hỗ trợ nhận giọng.
+    check('không có nút "Nói để ghi", chỉ có lời chỉ micro bàn phím',
+      await page.locator('.ht-noi').count() === 0
+        && /micro trên bàn phím/.test(await page.locator('#modal-overlay').innerText()));
     await page.selectOption('#ht-be', '__nhap__');
     await page.fill('#ht-mota', 'Một bạn tự rót nước không làm đổ');
     await page.click('#ht-luu');
