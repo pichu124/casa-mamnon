@@ -998,13 +998,7 @@ module.exports = (app) => {
     // Hỏi theo CƠ SỞ CỦA TỪNG NHÓM chứ không hỏi một lần cho cả lượt chốt: văn
     // phòng chốt gộp thì danh sách có bé của nhiều cơ sở, mà một đợt nghỉ có
     // thể chỉ áp cho một cơ sở (sửa chữa, mất nước).
-    const nghiTheoNhom = new Map();
-    const dotCuaNhom = (classId) => {
-      if (!nghiTheoNhom.has(classId)) {
-        nghiTheoNhom.set(classId, nghiHoc.ngayTruongNghi(ngay, db.campusOfClass(classId) || ''));
-      }
-      return nghiTheoNhom.get(classId);
-    };
+    const dotCuaNhom = nghiHoc.dotNghiTheoNhom(ngay);
 
     const daGhi = [];
     const tenDot = new Set();
@@ -1084,13 +1078,7 @@ module.exports = (app) => {
     // Cả trường (hoặc cả cơ sở) đóng cửa thì không bé nào phải điểm danh,
     // nên bảng gọi xác nhận không được liệt kê cả trăm bé đúng ngày Tết. Hỏi
     // theo cơ sở của TỪNG NHÓM, cùng cách với chốt sổ vắng bên trên.
-    const nghiTheoNhom = new Map();
-    const truongNghi = (classId) => {
-      if (!nghiTheoNhom.has(classId)) {
-        nghiTheoNhom.set(classId, !!nghiHoc.ngayTruongNghi(date, db.campusOfClass(classId) || ''));
-      }
-      return nghiTheoNhom.get(classId);
-    };
+    const truongNghi = nghiHoc.dotNghiTheoNhom(date);
     const chuaCham = students.filter(s => !daCham.has(s.id) && !dangNghi.get(s.id));
     const canRaSoat = chuaCham
       .filter(s => !truongNghi(s.classId))
