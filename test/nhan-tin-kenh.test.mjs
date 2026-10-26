@@ -327,7 +327,10 @@ console.log('\n[5] Kênh hiện trong danh sách của cả hai bên, kèm tin c
   const dVP = await ds(QT);
   check('cuộc văn phòng hiện trong danh sách của VĂN PHÒNG',
     (dVP.conversations || []).some(c => c.id === KENH_VP), (dVP.conversations || []).map(c => c.title));
-  check('VĂN PHÒNG KHÔNG được mời mở cuộc mới — văn phòng trả lời, còn nói với cả trường thì có Thông báo',
+  // Đ242F — chủ dự án quyết theo góp ý F3 (26/10): văn phòng MỞ ĐƯỢC tin với gia
+  // đình, qua màn chọn bé tải riêng (`/api/messages/chon-be`). Danh sách liên hệ
+  // gửi kèm màn Nhắn tin thì vẫn rỗng — không chở ba trăm gia đình mỗi lần mở.
+  check('danh sách liên hệ gửi kèm màn Nhắn tin của VĂN PHÒNG vẫn rỗng — mở tin với gia đình đi đường chọn bé riêng',
     (dVP.contacts || []).length === 0, dVP.contacts);
   check('và văn phòng KHÔNG thấy kênh nhóm lớp trong danh sách',
     !(dVP.conversations || []).some(c => c.id === KENH_NHOM), (dVP.conversations || []).map(c => c.id));

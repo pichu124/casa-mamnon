@@ -162,6 +162,32 @@ try {
     check('bé đã bỏ chọn thì gia đình không nhận', !ds1.some(c => /sinh nhật chung/.test(c.lastMessage?.text || '')));
   }
 
+  // =========================================================================
+  console.log('\n[4] Văn phòng / ban giám hiệu mở tin với gia đình ("hiện tại không gửi được")');
+  {
+    await dangNhap('gd_bgh', 'quantri2026');
+    await moMan('#/messages');
+    await page.click('#msg-new');
+    await page.waitForSelector('#gn-ds', { timeout: 5000 });
+    check('"Trò chuyện mới" của văn phòng mở màn chọn bé', page.url().endsWith('#/messages/gui-nhieu'), page.url());
+    check('màn mang tên "Nhắn gia đình"', /Nhắn gia đình/.test(await page.locator('.page-head h1').innerText()));
+    await page.selectOption('#gn-coso', 'cs1');
+    await page.selectOption('#gn-nhom', 'c1');
+    await page.waitForTimeout(300);
+    await page.locator('#gn-ds .gn-be', { hasText: 'Phạm Gia Hân' }).locator('input').check();
+    await page.fill('#gn-noi-dung', 'Văn phòng xin mời gia đình ghé nhận sổ sức khoẻ ạ');
+    await page.click('#gn-gui');
+    await page.waitForSelector('#gn-ket-qua-the', { timeout: 5000 });
+    check('báo đã gửi', (await page.locator('#gn-ket-qua-the').innerText()).includes('Đã gửi tới gia đình của 1 bé'));
+    await page.click('#gn-mo-cuoc');
+    await page.waitForSelector('#chat-input', { timeout: 5000 });
+    check('mở được cuộc vừa lập, nhắn tiếp được', (await page.locator('#chat-msgs').innerText()).includes('sổ sức khoẻ'));
+    const PH2 = (await login('phuhuynh2', '123456')).cookie;
+    const ds = (await req('GET', '/api/messages', { cookie: PH2 })).data?.conversations || [];
+    check('gia đình nhận trong "Văn phòng nhà trường"',
+      ds.some(c => c.title === 'Văn phòng nhà trường' && /sổ sức khoẻ/.test(c.lastMessage?.text || '')), ds.map(c => c.title));
+  }
+
   check('không có lỗi JavaScript nào trên trang', loiJs.length === 0, loiJs);
 } finally {
   await browser.close();

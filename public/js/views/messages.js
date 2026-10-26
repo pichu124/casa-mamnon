@@ -136,6 +136,9 @@ App.views.messages = {
   // nói với cả trường thì đã có Thông báo. Câu trong ô trống nói rõ điều đó
   // thay vì để văn phòng đứng nhìn một danh sách rỗng mà đoán.
   openNew() {
+    // Văn phòng, quản lý cơ sở, ban giám hiệu: mở tin với gia đình ở màn chọn bé
+    // (Đ242F, F3) — danh sách liên hệ gửi kèm màn này cố ý rỗng với họ.
+    if (this.laQuanLyTinCo()) return App.navigate('#/messages/gui-nhieu');
     const laVanPhong = App.state.user.role === 'admin';
     // `coNguoiNhan: false`: nhóm của bé chưa có cô nào giữ vai này (góp ý
     // 20/10, F6). Dòng vẫn hiện và vẫn mở được cuộc cũ, nhưng nói rõ trước khi
@@ -184,10 +187,13 @@ App.views.messages = {
     const loc = this._locGN = { coSo: chon.coSo.length === 1 ? chon.coSo[0].id : '', nhom: '' };
     const nhomDau = chon.nhom.filter(n => !loc.coSo || n.coSo === loc.coSo);
     if (nhomDau.length === 1) loc.nhom = nhomDau[0].id;
+    const laVanPhong = App.state.user.role === 'admin';
     root.innerHTML = `
-      ${UI.pageHeader('Nhắn nhiều gia đình')}
+      ${UI.pageHeader(laVanPhong ? 'Nhắn gia đình' : 'Nhắn nhiều gia đình')}
       <div class="muted small" style="margin:0 2px 12px;line-height:1.5">
-        Mỗi gia đình nhận tin trong cuộc trò chuyện riêng của nhà mình. Các gia đình không thấy tên nhau.
+        ${laVanPhong
+    ? 'Chọn một hay nhiều bé. Mỗi phụ huynh của bé nhận tin trong hộp thư riêng của mình với văn phòng nhà trường. Các gia đình không thấy tên nhau.'
+    : 'Mỗi gia đình nhận tin trong cuộc trò chuyện riêng của nhà mình. Các gia đình không thấy tên nhau.'}
       </div>
       <div class="card">
         ${chon.coSo.length > 1 ? '<div class="field"><label for="gn-coso">Cơ sở</label><select id="gn-coso"></select></div>' : ''}
@@ -278,7 +284,11 @@ App.views.messages = {
           ${kq.khongGui.length ? `<div class="mt-8">Chưa gửi được:</div>
             <ul style="margin:6px 0 0 18px;padding:0">${kq.khongGui.map(x => `
               <li>${UI.esc(x.ten || ten.get(x.studentId) || 'Một bé')}: ${UI.esc(x.lyDo)}</li>`).join('')}</ul>` : ''}
+          ${kq.soCuoc === 1 ? '<button class="btn outline sm mt-8" id="gn-mo-cuoc">Mở cuộc trò chuyện</button>' : ''}
         </div>`;
+      const nutMo = document.getElementById('gn-mo-cuoc');
+      const maCuoc = (kq.daGui[0] && kq.daGui[0].conversationIds || [])[0];
+      if (nutMo && maCuoc) nutMo.onclick = () => App.navigate('#/messages/' + encodeURIComponent(maCuoc));
       o.value = '';
       this._daChonGN.clear();
       this.veChonGN();

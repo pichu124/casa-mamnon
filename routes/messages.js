@@ -446,12 +446,12 @@ function tenCoSo(campusId) {
 //               cho mỗi cơ sở có con học (Đ239m). KHÔNG còn danh sách từng cô
 //               để bấm vào.
 //   Cô        → gia đình từng bé trong nhóm mình, mở đúng kênh "Nhóm lớp".
-//   Văn phòng → KHÔNG mời mở cuộc mới. Văn phòng TRẢ LỜI gia đình; còn muốn nói
-//               với cả trường thì đã có Thông báo. Danh sách liên hệ của văn
-//               phòng là ba trăm gia đình, và một danh sách ba trăm dòng gửi
-//               kèm mỗi lần mở màn Nhắn tin thì không ai bấm nổi mà máy vẫn
-//               phải chở. Kênh nào gia đình đã mở thì hiện trong danh sách như
-//               thường.
+//   Văn phòng → danh sách này RỖNG. Danh sách liên hệ của văn phòng là ba trăm
+//               gia đình, và một danh sách ba trăm dòng gửi kèm mỗi lần mở màn
+//               Nhắn tin thì không ai bấm nổi mà máy vẫn phải chở. Từ Đ242F
+//               (góp ý F3) văn phòng MỞ ĐƯỢC tin với gia đình qua màn "Nhắn
+//               gia đình": ô chọn tải riêng (`/api/messages/chon-be`), gửi ở
+//               `/api/messages/gui-nhieu-nha`.
 //
 // HỘI THOẠI RIÊNG ĐÃ CÓ THÌ GIỮ NGUYÊN. Nguyên tắc số 1: bỏ một lối đi là thôi
 // mời người ta đi lối đó, không phải xoá những gì đã nói. Mọi cuộc `direct` cũ
@@ -1454,9 +1454,34 @@ module.exports = (app) => {
     return { cv, ten: be.name, msg: ghiTin(cv, co, text) };
   }
 
+  // VĂN PHÒNG MỞ TIN VỚI GIA ĐÌNH (Đ242F, F3 — "hiện tại không gửi được").
+  //
+  // Mỗi TÀI KHOẢN phụ huynh của bé một hộp thư văn phòng ở cơ sở của bé — đúng
+  // phương án A (Đ239m, lib/kenh-van-phong.js): bố và mẹ hai cuộc, không ai đọc
+  // thư của người kia. Hộp thư đang mở thì dùng tiếp; đã đóng thì mở cuộc mới,
+  // không viết vào kho lưu. Trả `{ cuoc: [mã cuộc], ten }` hoặc `{ lyDo, ten }`.
+  function hopThuChoBe(nguoi, studentId) {
+    const ngoaiTam = { lyDo: 'Bé không thuộc cơ sở của tài khoản này', ten: '' };
+    if (!db.canAccessStudent(nguoi, studentId)) return ngoaiTam;
+    const be = db.findStudent(studentId);
+    if (!be) return ngoaiTam;
+    if (!be.active || !be.classId) return { lyDo: 'Bé không còn đang học ở nhóm nào', ten: be.name };
+    const coSo = db.campusOfClass(be.classId) || '';
+    const nha = (be.parentIds || []).map(id => db.findUser(id))
+      .filter(u => u && u.active !== false && kvp.beDocDuoc(u).includes(be.id));
+    if (!nha.length) return { lyDo: 'Bé chưa có tài khoản gia đình trên app', ten: be.name };
+    return {
+      ten: be.name,
+      cuoc: nha.map(u => (kvp.cuocDangMo(u.id, coSo) || kvp.taoCuoc(u.id, coSo)).conversationId),
+    };
+  }
+
   app.post('/api/messages/gui-nhieu-nha', allow, (req, res) => {
-    if (req.user.role !== 'teacher') {
-      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới nhắn nhiều gia đình một lượt được.' });
+    const laCo = req.user.role === 'teacher';
+    if (!laCo && !xemDuocTinCo(req.user)) {
+      return res.status(403).json({
+        error: 'Chỉ cô phụ trách nhóm, văn phòng, quản lý cơ sở và ban giám hiệu mới nhắn tin cho gia đình được.',
+      });
     }
     const b = req.body || {};
     const text = String(b.text || '').trim().slice(0, 2000);
@@ -1470,17 +1495,31 @@ module.exports = (app) => {
     const khongGui = [];
     const baoSau = [];
     db.tx(() => {
+      // Hai con cùng cơ sở thì về CÙNG một hộp thư của bố/mẹ: một tin, không hai.
+      const daGhi = new Set();
       for (const studentId of xin) {
-        const kq = guiTuCo(req.user, studentId, text);
+        if (laCo) {
+          const kq = guiTuCo(req.user, studentId, text);
+          if (kq.lyDo) { khongGui.push({ studentId, ten: kq.ten, lyDo: kq.lyDo }); continue; }
+          daGui.push({ studentId, ten: kq.ten, conversationId: kq.cv.id, conversationIds: [kq.cv.id] });
+          baoSau.push(kq);
+          continue;
+        }
+        const kq = hopThuChoBe(req.user, studentId);
         if (kq.lyDo) { khongGui.push({ studentId, ten: kq.ten, lyDo: kq.lyDo }); continue; }
-        daGui.push({ studentId, ten: kq.ten, conversationId: kq.cv.id });
-        baoSau.push(kq);
+        for (const id of kq.cuoc) {
+          if (daGhi.has(id)) continue;
+          daGhi.add(id);
+          const cv = db.first('conversations', 'SELECT * FROM conversations WHERE id = ?', [id]);
+          baoSau.push({ cv, msg: ghiTin(cv, req.user, text) });
+        }
+        daGui.push({ studentId, ten: kq.ten, conversationIds: kq.cuoc });
       }
     });
     for (const kq of baoSau) baoGiaDinh(kq.cv, req.user, kq.msg);
     db.audit(req.user.id, 'tin-nhan-gui-nhieu-nha', null,
       { soNha: daGui.length, khongGui: khongGui.length });
-    res.json({ soNha: daGui.length, daGui, khongGui });
+    res.json({ soNha: daGui.length, soCuoc: baoSau.length, daGui, khongGui });
   });
 
   // ---- Ô CHỌN CƠ SỞ → NHÓM → BÉ (Đ242F) ----
