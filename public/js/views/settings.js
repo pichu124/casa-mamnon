@@ -69,6 +69,8 @@ App.views.settings = {
           </div>
         </div>` : ''}
 
+      ${this.thePhanViecKhac()}
+
       <div class="card">
         <div class="card-title">${UI.icon('bell', 19)} Tin mới</div>
         <div class="list-row">
@@ -101,6 +103,29 @@ App.views.settings = {
     // Nút "Bật thông báo đẩy" từng bị gỡ ở Đ14 vì lúc đó là lời hứa suông.
     // Từ Đ137 đường đẩy có thật (public/sw.js nghe `push`, lib/day.js gửi,
     // bảng push_dang_ky giữ đăng ký) nên nút quay lại — xem `theThongBaoDay`.
+  },
+
+  // LỐI VÀO CỦA PHÂN HỆ KHÔNG CÓ Ô TRÊN TRANG CHỦ (Đ241f, góp ý 20/10 A1).
+  //
+  // `anKhoiTrangChu` trong module.json gỡ ô khỏi lưới trang chủ mà phân hệ
+  // vẫn bật — Nhân sự & chấm công phải chạy tiếp vì giờ chụp cổng chép sang
+  // bảng công. Ô biến mất thì lối vào phải còn ở đâu đó, cho cả văn phòng lẫn
+  // cô (cô mở "Hồ sơ của tôi" từ đây). Danh sách lấy từ chính danh sách máy
+  // chủ đã lọc theo vai và chức vụ, nên không bày lối vào nào sẽ bị từ chối.
+  thePhanViecKhac() {
+    const ds = (App.state.modules || []).filter(m => m.anKhoiTrangChu && m.hash);
+    if (!ds.length) return '';
+    return `
+      <div class="card">
+        <div class="card-title">📂 Phần việc khác</div>
+        ${ds.map(m => `
+          <div class="list-row clickable" onclick="location.hash='${UI.esc(m.hash)}'">
+            <div class="row-main">
+              <div class="row-title">${m.emoji ? `${UI.esc(m.emoji)} ` : ''}${UI.esc(m.name)}</div>
+            </div>
+            <span class="muted">${UI.icon('chevron', 18)}</span>
+          </div>`).join('')}
+      </div>`;
   },
 
   // ---- Thông báo trên điện thoại (Đ137) ----

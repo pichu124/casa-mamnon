@@ -33,7 +33,11 @@ App.views.dashboard = {
     // cô, ô "Đón trả bé" ẩn khi màn Điểm danh đang bật vì phần Trả bé nằm
     // trong đó. Chỉ ẩn khi màn đích THẬT SỰ mở được với người này; màn đích
     // tắt thì ô quay lại ngay, không có ngõ cụt.
-    const tiles = (App.state.modules || []).filter(m => !m.nav && !this.gopVaoManKhac(m, user));
+    //
+    // `anKhoiTrangChu` (Đ241f): phân hệ vẫn bật mà không có ô ở đây — lối vào
+    // nằm ở Cài đặt (views/settings.js).
+    const tiles = (App.state.modules || [])
+      .filter(m => !m.nav && !m.anKhoiTrangChu && !this.gopVaoManKhac(m, user));
     // Ô có ĐIỀU KIỆN HIỆN (`dieuKienHien`, Đ141) — xem `apDieuKienHien` bên dưới.
     this._anView = new Set();
     const years = school ? school.years : [];
