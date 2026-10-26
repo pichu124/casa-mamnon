@@ -138,6 +138,7 @@ function chuongTrinhCuaGoc(ma) {
 const TOI_DA_MO_TA = 1000;
 const TOI_DA_CAU_CHUYEN = 3000;
 const TOI_DA_NGAN = 500;
+const TOI_DA_BE_TRONG_ANH = 40;
 const GIOI_HAN_DANH_SACH = 60;
 // Bé lâu chưa có ghi chép nào — số ngày để coi là "lâu". Chỉ dùng cho một lời
 // nhắc nhẹ với cô, không bao giờ là một con số về đứa trẻ.
@@ -419,6 +420,9 @@ module.exports = (app, { db, modules }) => {
       `SELECT * FROM hanhtrinh_quansat WHERE studentId = ?
          ${chiCongBo ? 'AND congBoLuc IS NOT NULL' : ''}
        ORDER BY ngay DESC, taoLuc DESC LIMIT ? OFFSET ?`, [studentId, GIOI_HAN_DANH_SACH, bo]);
+    // Hai khoá THÊM vào từng quan sát (Đ242B), tra theo lô cho cả trang.
+    const tepKe = tepKeChoNguoiXem(rows, be, req.user);
+    const goc = gocCuaCacQuanSat(rows.map(r => r.id));
 
     res.json({
       // Còn trang sau không — màn hình chỉ cần đếm, không cần đoán.
@@ -460,7 +464,10 @@ module.exports = (app, { db, modules }) => {
         const x = choNguoiXem(r, req.user);
         if (!x) return null;
         const ma = nhomCuaQuanSat(r, be.classId);
-        return { ...x, nhomCo: ma, tenNhomCo: nhomCo.TEN_NHOM[ma] || '' };
+        return {
+          ...x, nhomCo: ma, tenNhomCo: nhomCo.TEN_NHOM[ma] || '',
+          goc: goc.get(r.id) || '', tepKe: tepKe.get(r.id) || [],
+        };
       }).filter(Boolean),
       chuDeTuan: chuDeCuaBe(be, req.user),
       // BÀI HỌC THÁNG NÀY, LẤY TỪ KẾ HOẠCH CỦA BÉ (Đ191, Câu 1). Xem
@@ -619,6 +626,138 @@ module.exports = (app, { db, modules }) => {
     const duong = uploads.pathOf(file);
     if (!duong || !uploads.exists(file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
     res.setHeader('Content-Type', uploads.mimeOf(file));
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.sendFile(duong);
+  });
+
+  // =========================================================================
+  // ẢNH / VIDEO KỂ CHO GIA ĐÌNH — BẢN CHÉP LỚP 3 (Đ242B, chủ dự án quyết 26/10)
+  // =========================================================================
+  //
+  // Đường ảnh gốc ở trên KHÔNG đổi. Gia đình chỉ nhận bản chép cô chủ động gửi
+  // kèm lúc kể (bảng `hanhtrinh_ke_tep`, lý do ở schema.sql), và bản chép đi
+  // qua luật ảnh nhóm của CLAUDE.md: một ảnh chỉ hiện cho gia đình khác khi
+  // MỌI bé trong ảnh đều đồng ý. Chép luật của `db.locAnhChoNguoiXem` vào đây
+  // vì hàm ấy đọc `photo_students` của album — cùng tiền lệ Cambridge.
+
+  // { quanSatId → { id, loai, daXacNhanBe, be: [studentId] } }. Hai câu cho cả
+  // danh sách. KHÔNG đọc cột `file`.
+  function tepKeCuaCacQuanSat(qsIds) {
+    const ra = new Map();
+    const sach = [...new Set(qsIds.filter(Boolean))];
+    if (!sach.length) return ra;
+    const teps = db.all('hanhtrinh_ke_tep',
+      `SELECT id, quanSatId, loai, daXacNhanBe FROM hanhtrinh_ke_tep
+        WHERE quanSatId IN (${sach.map(() => '?').join(',')})`, sach);
+    const beTheoTep = new Map(teps.map(t => [t.id, []]));
+    if (teps.length) {
+      for (const d of db.all('hanhtrinh_ke_tep_be',
+        `SELECT tepId, studentId FROM hanhtrinh_ke_tep_be WHERE tepId IN (${teps.map(() => '?').join(',')})`,
+        teps.map(t => t.id))) beTheoTep.get(d.tepId).push(d.studentId);
+    }
+    for (const t of teps) ra.set(t.quanSatId, { ...t, be: beTheoTep.get(t.id) });
+    return ra;
+  }
+
+  // Luật ảnh nhóm cho một bản chép. `conMinh`: các bé là con của người xem
+  // (miễn phép kiểm cho chính con mình, KHÔNG miễn cho bé khác trong ảnh).
+  // Chưa trả lời đồng ý KHÔNG phải đồng ý: phép so là `=== true`.
+  function xetTepKe(t, conMinh, dongY, nhomCoNguoiTuChoi) {
+    if (!t.daXacNhanBe) return { hien: !nhomCoNguoiTuChoi, chuaXacNhan: true, beChuaDongY: [] };
+    const chua = t.be.filter(id => !conMinh.has(id) && (dongY.get(id) || {}).chiaSeGiaDinh !== true);
+    return { hien: !chua.length, chuaXacNhan: false, beChuaDongY: chua };
+  }
+
+  function tepHienVoiGiaDinh(t, user, classId) {
+    if (!user || user.role !== 'parent') return true;
+    const conMinh = new Set(db.studentIdsCuaPhuHuynh(user.id));
+    const tuChoi = !t.daXacNhanBe && db.coBeTuChoiChiaSeTungHoc(classId);
+    return xetTepKe(t, conMinh, db.dongYCuaCacBe(t.be), tuChoi).hien;
+  }
+
+  // { quanSatId → [tệp kể theo người xem] } cho các quan sát ĐÃ công bố của
+  // MỘT bé. Gia đình: chỉ tệp qua luật đồng ý, đúng hai khoá. Cô / văn phòng:
+  // thêm bé trong ảnh và ảnh có đang hiện với gia đình bé không, kèm lý do —
+  // ẩn mà không nói vì sao là chỗ cô mất lòng tin vào app.
+  function tepKeChoNguoiXem(rows, be, user) {
+    const ra = new Map();
+    const tep = tepKeCuaCacQuanSat(rows.filter(r => r.congBoLuc).map(r => r.id));
+    if (!tep.size) return ra;
+    const laPhuHuynh = user.role === 'parent';
+    const conMinh = new Set(laPhuHuynh ? db.studentIdsCuaPhuHuynh(user.id) : [be.id]);
+    const moiBe = [...tep.values()].flatMap(t => t.be);
+    const dongY = db.dongYCuaCacBe(moiBe);
+    let tuChoi = null;
+    const nhomTuChoi = () => (tuChoi === null ? (tuChoi = db.coBeTuChoiChiaSeTungHoc(be.classId)) : tuChoi);
+    const tenBe = new Map();
+    const ten = (id) => {
+      if (!tenBe.has(id)) tenBe.set(id, (db.findStudent(id) || {}).name || '');
+      return tenBe.get(id);
+    };
+    for (const [qsId, t] of tep) {
+      const x = xetTepKe(t, conMinh, dongY, !t.daXacNhanBe && nhomTuChoi());
+      if (laPhuHuynh) {
+        if (x.hien) ra.set(qsId, [{ id: t.id, loai: t.loai }]);
+        continue;
+      }
+      let lyDo = '';
+      if (!x.hien && x.chuaXacNhan) {
+        lyDo = 'Ảnh tạm ẩn với gia đình: cô chưa cho biết trong ảnh có những bé nào, mà nhóm có gia đình '
+          + 'chưa đồng ý chia sẻ ảnh. Cô kể lại và chọn các bé trong ảnh để ảnh hiện.';
+      } else if (!x.hien) {
+        lyDo = `Ảnh tạm ẩn với gia đình vì ${x.beChuaDongY.map(ten).join(', ')} chưa có đồng ý chia sẻ ảnh với gia đình khác.`;
+      }
+      ra.set(qsId, [{
+        id: t.id, loai: t.loai, daXacNhanBe: !!t.daXacNhanBe,
+        beTrongAnh: t.be.map(id => ({ id, hoTen: ten(id) })),
+        hienVoiGiaDinh: x.hien, lyDo,
+      }]);
+    }
+    return ra;
+  }
+
+  // Gỡ bản chép của một quan sát: dòng trước, tệp sau. Gọi ở thu hồi, đổi bé,
+  // xoá, và khi cô bỏ tích "gửi kèm".
+  function goTepKe(quanSatId) {
+    const ds = db.all('hanhtrinh_ke_tep', 'SELECT id, file FROM hanhtrinh_ke_tep WHERE quanSatId = ?', [quanSatId]);
+    if (!ds.length) return;
+    db.tx(() => {
+      for (const t of ds) {
+        db.run('DELETE FROM hanhtrinh_ke_tep_be WHERE tepId = ?', [t.id]);
+        db.run('DELETE FROM hanhtrinh_ke_tep WHERE id = ?', [t.id]);
+      }
+    });
+    for (const t of ds) { try { uploads.remove(t.file); } catch (_) { /* tệp đã không còn */ } }
+  }
+
+  // { quanSatId → góc Montessori } cho cả danh sách.
+  function gocCuaCacQuanSat(qsIds) {
+    const sach = [...new Set(qsIds.filter(Boolean))];
+    if (!sach.length) return new Map();
+    return new Map(db.all('hanhtrinh_quansat_goc',
+      `SELECT quanSatId, goc FROM hanhtrinh_quansat_goc WHERE quanSatId IN (${sach.map(() => '?').join(',')})`, sach)
+      .map(d => [d.quanSatId, d.goc]));
+  }
+
+  app.get('/api/hanhtrinh/ke-tep/:id', (req, res) => {
+    const t = db.first('hanhtrinh_ke_tep', 'SELECT * FROM hanhtrinh_ke_tep WHERE id = ?', [chuoi(req.params.id, 60)]);
+    const qs = t && db.first('hanhtrinh_quansat', 'SELECT studentId, congBoLuc FROM hanhtrinh_quansat WHERE id = ?', [t.quanSatId]);
+    // Chưa công bố thì như không có — không lộ là từng có ảnh.
+    if (!t || !qs || !qs.congBoLuc) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    if (!db.canAccessStudent(req.user, qs.studentId)) {
+      return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
+    }
+    if (req.user.role === 'parent') {
+      const be = db.findStudent(qs.studentId) || {};
+      const be2 = db.all('hanhtrinh_ke_tep_be', 'SELECT studentId FROM hanhtrinh_ke_tep_be WHERE tepId = ?', [t.id])
+        .map(d => d.studentId);
+      if (!tepHienVoiGiaDinh({ ...t, be: be2 }, req.user, be.classId)) {
+        return res.status(403).json({ error: 'Ảnh này đang tạm ẩn vì có bé trong ảnh chưa có đồng ý chia sẻ' });
+      }
+    }
+    const duong = uploads.pathOf(t.file);
+    if (!duong || !uploads.exists(t.file)) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+    res.setHeader('Content-Type', uploads.mimeOf(t.file));
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.sendFile(duong);
   });
@@ -977,12 +1116,13 @@ module.exports = (app, { db, modules }) => {
           WHERE coGhi = ? AND congBoLuc IS NULL AND studentId IN (${marks})
           ORDER BY taoLuc DESC LIMIT ?`, [me, ...ids, TOI_DA_CHO_KE]);
       const nhomDaGhi = nhomDaGhiCua(qs.map(r => r.id));
+      const gocDaGhi = gocCuaCacQuanSat(qs.map(r => r.id));
       for (const r of qs) {
         const be = beTheoMa.get(r.studentId) || {};
         muc.push({
           nguon: 'quansat', id: r.id, studentId: r.studentId, hoTen: be.name || '', moTa: r.moTa || '',
           coTep: !!r.anh, laVideo: uploads.laVideo(r.anh), tepUrl: tepLop1(r.anh),
-          nhom: nhomDaGhi.get(r.id) || nhomCo.nhomCua(db, be.classId || null, r.coGhi), goc: '',
+          nhom: nhomDaGhi.get(r.id) || nhomCo.nhomCua(db, be.classId || null, r.coGhi), goc: gocDaGhi.get(r.id) || '',
           // Câu chuyện cô soạn dở (nháp lớp 3 của chính cô) — để hộp hoàn
           // thiện mở ra đúng chữ cô đã gõ.
           cauChuyen: r.cauChuyen || '', cungConONha: r.cungConONha || '',
@@ -1014,6 +1154,9 @@ module.exports = (app, { db, modules }) => {
       muc,
       toiDaVideo: uploads.MAX_VIDEO_BYTES,
       chuongTrinh: nhomCo.NHOM.map(([ma, ten, ct]) => ({ ma, ten, chuongTrinh: ct })),
+      // Góc chọn được theo từng chương trình — hộp hoàn thiện chỉ hiện góc
+      // khi cô chọn Montessori.
+      gocKeHoach: GOC_KE_HOACH.map(([ma, ten]) => ({ ma, ten, chuongTrinh: chuongTrinhCuaGoc(ma) })),
     });
   });
 
@@ -1448,6 +1591,8 @@ module.exports = (app, { db, modules }) => {
     if (b.cungConONha !== undefined) patch.cungConONha = chuoi(b.cungConONha, TOI_DA_NGAN);
 
     db.update('hanhtrinh_quansat', cu.id, patch);
+    // Đổi bé là thu lại công bố — bản chép ảnh gửi gia đình bé cũ cũng gỡ.
+    if (patch.studentId) goTepKe(cu.id);
     db.audit(req.user.id, 'hanhtrinh-suy-ngam', cu.studentId, {
       id: cu.id, trangThai: patch.trangThai, giay: patch.giaySuyNgam,
     });
@@ -1488,6 +1633,7 @@ module.exports = (app, { db, modules }) => {
     }
 
     db.run('DELETE FROM hanhtrinh_quansat WHERE id = ?', [cu.id]);
+    goTepKe(cu.id);
     db.audit(req.user.id, 'hanhtrinh-xoa', cu.studentId, {
       id: cu.id, ngay: cu.ngay, daCongBo: !!cu.congBoLuc,
     });
@@ -1518,6 +1664,43 @@ module.exports = (app, { db, modules }) => {
         error: 'Cô gợi ý giúp gia đình một việc "cùng con ở nhà" nhé — 5 tới 10 phút, '
           + 'đồ có sẵn trong nhà, không cần màn hình.',
       });
+    }
+
+    // ---- Đ242B: chương trình, góc, ảnh/video gửi kèm. Mọi khoá đều TUỲ
+    // CHỌN — app cũ không gửi gì thì công bố y như trước. KIỂM HẾT ở đây,
+    // trước khi chép tệp hay ghi một dòng nào.
+    const beChinh = db.findStudent(r.studentId) || {};
+    const nhomChon = docNhomChon(res, req.user, beChinh.classId, b.nhom);
+    if (nhomChon === null) return;
+    const nhomHieuLuc = nhomChon || nhomCuaQuanSat(r, beChinh.classId);
+    const gocCu = gocCuaCacQuanSat([r.id]).get(r.id) || '';
+    let goc = b.goc !== undefined ? chuoi(b.goc, 40) : gocCu;
+    if (b.goc !== undefined && goc
+      && (!GOC_KE_HOACH.some(([ma]) => ma === goc) || chuongTrinhCuaGoc(goc) !== nhomHieuLuc)) {
+      return res.status(400).json({ error: 'Góc này không thuộc chương trình đã chọn' });
+    }
+    // Đổi chương trình mà không chọn lại góc: góc cũ không còn đúng thì bỏ.
+    if (goc && chuongTrinhCuaGoc(goc) !== nhomHieuLuc) goc = '';
+
+    // Trong ảnh có những bé nào — để chặn theo đồng ý chia sẻ của từng bé và
+    // để gắn thẻ khi về album. Máy chủ tự thêm bé chính.
+    let beTrongAnh = null;
+    if (b.beTrongAnh !== undefined) {
+      if (!Array.isArray(b.beTrongAnh) || b.beTrongAnh.length > TOI_DA_BE_TRONG_ANH) {
+        return res.status(400).json({ error: 'Danh sách bé trong ảnh chưa đúng' });
+      }
+      beTrongAnh = [...new Set([r.studentId, ...b.beTrongAnh.map(x => chuoi(x, 40)).filter(Boolean)])];
+      for (const id of beTrongAnh) {
+        if (!db.findStudent(id)) return res.status(404).json({ error: 'Không tìm thấy bé trong ảnh' });
+        if (!db.canAccessStudent(req.user, id)) {
+          return res.status(403).json({ error: 'Có bé trong ảnh không thuộc nhóm cô phụ trách' });
+        }
+      }
+    }
+    const tepKeCu = db.first('hanhtrinh_ke_tep', 'SELECT * FROM hanhtrinh_ke_tep WHERE quanSatId = ?', [r.id]);
+    const canChep = b.kemTep === true && !tepKeCu;
+    if (canChep && !uploads.exists(r.anh)) {
+      return res.status(400).json({ error: 'Quan sát này không có ảnh hay video để gửi kèm' });
     }
 
     // ẢNH VỀ ALBUM (Đ144): cô chọn album của nhóm thì ảnh quan sát được chép
@@ -1578,17 +1761,68 @@ module.exports = (app, { db, modules }) => {
     }
 
     const luc = new Date().toISOString();
-    db.update('hanhtrinh_quansat', r.id, {
+    // CHÉP TỆP SAU KHI ĐÃ KIỂM HẾT, TRƯỚC KHI GHI. Hỏng ở bước ghi thì
+    // `ghiCongBo` xoá đúng tệp vừa chép — không để tệp mồ côi mang mặt trẻ.
+    let tepMoi = null;
+    if (canChep) {
+      let file = '';
+      try { file = chepAnh(r.anh); } catch (_) { file = ''; }
+      if (!file) return res.status(400).json({ error: 'Chưa chép được ảnh để gửi kèm — cô thử lại giúp nhé' });
+      tepMoi = {
+        id: db.nextId('htk'), quanSatId: r.id, file, loai: uploads.laVideo(file) ? 'video' : 'anh',
+        daXacNhanBe: beTrongAnh ? 1 : 0, nguoiKe: req.user.id, keLuc: luc,
+      };
+    }
+    const ke = {
+      nhom: nhomChon, goc, gocDoi: goc !== gocCu, tepMoi,
+      // Bản chép đã có thì giữ, chỉ cập nhật bé trong ảnh nếu cô gửi lại.
+      tepCu: b.kemTep === true ? tepKeCu : null,
+      beTrongAnh: b.kemTep === true ? beTrongAnh : null,
+    };
+    ghiCongBo(r, ke, {
       cauChuyen, cungConONha: cungCon, congBoLuc: luc, capNhatLuc: luc,
     });
-    db.audit(req.user.id, 'hanhtrinh-cong-bo', r.studentId, { id: r.id });
-    if (album) luuAnhVeAlbum(r, album, req.user, cauChuyen);
+    db.audit(req.user.id, 'hanhtrinh-cong-bo', r.studentId, {
+      id: r.id, nhom: nhomChon || undefined, goc: goc || undefined, kemTep: b.kemTep === true || undefined,
+    });
+    // Cô bỏ tích "gửi kèm": ảnh rời màn gia đình, bản chép gỡ hẳn.
+    if (b.kemTep === false) goTepKe(r.id);
+    if (album) luuAnhVeAlbum(r, album, req.user, cauChuyen, beTrongAnh || []);
     // Báo gia đình: câu chuyện là của MỘT bé, đi đường thông báo riêng của bé.
     // Cùng một câu chuyện công bố lại trong ngày thì không rung máy lần nữa.
     baoGiaDinhCauChuyen(r, req.user.id);
     const moi = db.first('hanhtrinh_quansat', 'SELECT * FROM hanhtrinh_quansat WHERE id = ?', [r.id]);
-    res.json(choNguoiXem(moi, req.user));
+    const ma = nhomCuaQuanSat(moi, beChinh.classId);
+    res.json({
+      ...choNguoiXem(moi, req.user), nhomCo: ma, tenNhomCo: nhomCo.TEN_NHOM[ma] || '',
+      goc: gocCuaCacQuanSat([r.id]).get(r.id) || '',
+      tepKe: tepKeChoNguoiXem([moi], beChinh, req.user).get(r.id) || [],
+    });
   });
+
+  // Ghi công bố cùng chương trình, góc và bản chép trong MỘT giao dịch: hoặc
+  // gia đình thấy đủ, hoặc không có gì đổi. Hỏng thì xoá tệp vừa chép rồi ném
+  // tiếp — máy chủ trả lỗi như mọi lỗi khác, không nuốt.
+  function ghiCongBo(r, ke, patch) {
+    try {
+      db.tx(() => {
+        db.update('hanhtrinh_quansat', r.id, patch);
+        if (ke.nhom) db.upsert('hanhtrinh_quansat_nhom', { quanSatId: r.id, nhom: ke.nhom }, ['quanSatId']);
+        if (ke.gocDoi && ke.goc) db.upsert('hanhtrinh_quansat_goc', { quanSatId: r.id, goc: ke.goc }, ['quanSatId']);
+        else if (ke.gocDoi) db.run('DELETE FROM hanhtrinh_quansat_goc WHERE quanSatId = ?', [r.id]);
+        if (ke.tepMoi) db.insert('hanhtrinh_ke_tep', ke.tepMoi);
+        const tepId = ke.tepMoi ? ke.tepMoi.id : (ke.tepCu && ke.tepCu.id);
+        if (tepId && ke.beTrongAnh) {
+          db.run('DELETE FROM hanhtrinh_ke_tep_be WHERE tepId = ?', [tepId]);
+          for (const studentId of ke.beTrongAnh) db.insert('hanhtrinh_ke_tep_be', { tepId, studentId });
+          if (!ke.tepMoi) db.update('hanhtrinh_ke_tep', tepId, { daXacNhanBe: 1 });
+        }
+      });
+    } catch (err) {
+      if (ke.tepMoi) { try { uploads.remove(ke.tepMoi.file); } catch (_) { /* tệp đã không còn */ } }
+      throw err;
+    }
+  }
 
   // Chép ảnh của quan sát sang album, gắn thẻ bé, nhớ lại để không chép đôi.
   // Việc phụ: hỏng thì câu chuyện vẫn đã tới gia đình.
@@ -1598,7 +1832,9 @@ module.exports = (app, { db, modules }) => {
     return !!(modules && typeof modules.dangBat === 'function' && modules.dangBat('album'));
   }
 
-  function luuAnhVeAlbum(r, album, user, cauChuyen) {
+  // `beCoMat`: mọi bé cô chọn là có trong ảnh (Đ242B) — gắn thẻ đủ để luật
+  // album theo thẻ và luật đồng ý ảnh nhóm biết trong ảnh có ai.
+  function luuAnhVeAlbum(r, album, user, cauChuyen, beCoMat) {
     if (!albumDangBat()) return null;
     try {
       const daCo = db.first('hanhtrinh_album', 'SELECT * FROM hanhtrinh_album WHERE quanSatId = ?', [r.id]);
@@ -1609,7 +1845,7 @@ module.exports = (app, { db, modules }) => {
       const photo = { id: db.nextId('ph'), albumId: album.id, file, caption: chuoi(cauChuyen, 200), position: viTri };
       db.tx(() => {
         db.insert('album_photos', photo);
-        db.datBeTrongAnh(photo.id, [r.studentId]);
+        db.datBeTrongAnh(photo.id, [r.studentId, ...beCoMat]);
         db.insert('hanhtrinh_album', { quanSatId: r.id, albumId: album.id, photoId: photo.id, ghiLuc: new Date().toISOString() });
       });
       db.audit(user.id, 'hanhtrinh-anh-ve-album', r.studentId, { id: r.id, albumId: album.id });
@@ -1646,6 +1882,8 @@ module.exports = (app, { db, modules }) => {
     if (!duocSua(req.user, r)) return res.status(403).json({ error: 'Không có quyền thu hồi' });
     if (!r.congBoLuc) return res.status(400).json({ error: 'Câu chuyện này chưa công bố' });
     db.update('hanhtrinh_quansat', r.id, { congBoLuc: null, capNhatLuc: new Date().toISOString() });
+    // Ảnh/video đã gửi kèm cũng rời màn gia đình — gỡ hẳn bản chép (Đ242B).
+    goTepKe(r.id);
     db.audit(req.user.id, 'hanhtrinh-thu-hoi', r.studentId, { id: r.id });
     res.json({ ok: true, id: r.id, daCongBo: false });
   });

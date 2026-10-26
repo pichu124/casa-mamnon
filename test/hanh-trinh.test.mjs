@@ -237,7 +237,10 @@ console.log('\n[6] LỚP 3 — cô CHỦ ĐỘNG công bố, và phải kèm vi�
 }
 
 // ===========================================================================
-console.log('\n[7] Ảnh là tư liệu LỚP 1 — công bố câu chuyện không mở ảnh ra theo');
+// Đ242B — chủ dự án quyết 26/10 (B7): ảnh kể cho gia đình là ảnh quá trình học
+// tập. Chỉ đổi TIÊU ĐỀ mục này; mọi phép kiểm giữ nguyên vì chúng nói về ảnh
+// GỐC, và ảnh gốc vẫn đúng luật lớp 1.
+console.log('\n[7] Ảnh GỐC là tư liệu lớp 1 — chỉ bản chép cô chủ động gửi kèm mới tới gia đình (xem test/hanh-trinh-ke-anh)');
 {
   const q = (await hoSo(GV)).quanSat.find(x => x.anh);
   check('có một quan sát kèm ảnh để thử', !!q, q);
