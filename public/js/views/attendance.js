@@ -134,6 +134,9 @@ App.views.attendance = {
           Văn phòng xem và chấm được cả phạm vi mình phụ trách: chụp ảnh con tới
           lớp ở cổng, và chốt sổ vắng sau giờ rà soát.
         </div>
+        ${App.moduleEnabled('leave') ? `<div class="small mt-8">
+          <a href="#/leave/lich-nghi" id="att-lich-nghi">${UI.icon('calendar', 14)} Lịch nghỉ của trường</a>
+        </div>` : ''}
         ${this.theMocRaSoat(r)}
       </div>
       ${this.theRaSoatVanPhong(r, ds, tenNhom)}
@@ -399,6 +402,9 @@ App.views.attendance = {
         ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
           ${UI.esc(String(r.soDaCoDonNghi))} bé đang nghỉ có đơn đã duyệt.
         </div>` : ''}
+        ${r.soTruongNghi ? `<div class="muted small mt-8">
+          ${UI.esc(String(r.soTruongNghi))} bé nghỉ theo lịch nghỉ của trường — không cần điểm danh.
+        </div>` : ''}
       </div>`;
     }
     // GẬP SẴN (góp ý 20/10, D1): danh sách dài đẩy cả sổ điểm danh xuống
@@ -425,6 +431,9 @@ App.views.attendance = {
           </div>`).join('')}
         ${r.soDaCoDonNghi ? `<div class="muted small mt-8">
           ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
+        </div>` : ''}
+        ${r.soTruongNghi ? `<div class="muted small mt-8">
+          ${UI.esc(String(r.soTruongNghi))} bé khác nghỉ theo lịch nghỉ của trường — không cần gọi.
         </div>` : ''}
         ${this.nutChotVang(ds.length)}
         </details>
