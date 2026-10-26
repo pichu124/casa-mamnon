@@ -486,7 +486,7 @@ App.views.albums = {
     return `
       <div class="field">
         <label>Ảnh và video</label>
-        <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" multiple style="display:none">
+        <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple style="display:none">
         <button class="btn outline block" id="al-pick">📷 Chọn ảnh hoặc video từ máy</button>
         <div class="hint">
           Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp.
@@ -615,7 +615,9 @@ App.views.albums = {
       //
       // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
       // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
-      if (/^video\/(mp4|webm)$/.test(f.type)) {
+      // iPhone quay ra .mov (video/quicktime): cùng họ hộp `ftyp` với MP4, máy
+      // chủ nhận và lưu thành .mp4 — chặn nó ở đây là chặn gần hết máy iPhone.
+      if (/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
         try {
           const video = f.size > this.TRAN_VIDEO
             ? await this.nenVideoCoCho(f)

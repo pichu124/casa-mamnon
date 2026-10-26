@@ -1578,7 +1578,9 @@ App.views.hanhtrinh = {
     const xem = document.getElementById('ht-anh-xem');
     const nen = document.getElementById('ht-nen');
     const nutLuu = document.getElementById('ht-luu');
-    if (!/^video\/(mp4|webm)$/.test(f.type)) {
+    // .mov của iPhone (video/quicktime) là cùng họ hộp `ftyp` với MP4 — máy chủ
+    // nhận và lưu thành .mp4 (lib/uploads.js), nên không chặn ở đây.
+    if (!/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
       UI.toast('Chỉ nhận video MP4 hoặc WebM — ảnh thì JPG, PNG, WebP', 'error');
       return;
     }

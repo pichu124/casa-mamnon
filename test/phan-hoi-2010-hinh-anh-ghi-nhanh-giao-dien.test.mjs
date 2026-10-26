@@ -21,12 +21,17 @@ import crypto from 'crypto';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
   batPhanHe, CHROMIUM, tatBannerMoiCai,
+  goCoNuocNgoaiMau,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('ph2010-hinh-anh-ghi-nhanh-gd');
 sinhDuLieu(DIR);
 batPhanHe(DIR, ['hanhtrinh', 'thuchup', 'album', 'tkb']);
+// Từ Đ242F dữ liệu mẫu có cô nước ngoài khai vai ở mọi nhóm, nên phần Cambridge
+// thuộc cô ấy. Bài này đi luồng của cô phụ trách ghi cả ba chương trình — đúng
+// trạng thái trường CHƯA khai vai — nên gỡ cô nước ngoài mẫu như các bài cùng loại.
+goCoNuocNgoaiMau(DIR);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hagn_qt');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7241), dir: DIR });
 const req = taoReq(sv.BASE);
@@ -116,6 +121,19 @@ try {
     check('video quá 8 MB: hỏi trước khi nén trên máy, báo phải chờ khoảng bằng độ dài đoạn phim',
       await page.locator('#ht-nen-ok').count() === 1 && /nén nhỏ lại[\s\S]*bằng độ dài đoạn phim/.test(await chuCua('#ht-nen')),
       await chuCua('#ht-nen'));
+    // iPhone quay ra .mov (video/quicktime) — cùng họ hộp `ftyp` với MP4. Chặn nó
+    // ở màn hình là chặn gần hết máy iPhone của cô.
+    const mov = Buffer.alloc(4096); mov.writeUInt32BE(4096, 0); mov.write('ftypqt  ', 4, 'ascii');
+    await page.setInputFiles('#ht-anh', { name: 'IMG_0001.MOV', mimeType: 'video/quicktime', buffer: mov });
+    await page.waitForTimeout(800);
+    check('video .mov của iPhone được nhận (ô xem trước là video, không báo "Chỉ nhận")',
+      await page.locator('#ht-anh-xem video').count() === 1 && !/Chỉ nhận video/.test(await page.locator('body').innerText()));
+    const movLen = await req('POST', '/api/hanhtrinh/nhap', { cookie: GV,
+      body: { moTa: '', video: `data:video/quicktime;base64,${mov.toString('base64')}` } });
+    check('máy chủ nhận nháp video .mov (lưu như MP4)', movLen.status === 201, movLen.status);
+    const movId = movLen.data && movLen.data.nhap && movLen.data.nhap.id;
+    check('đối chứng — nháp .mov có mã', !!movId, movLen.data);
+    if (movId) await req('DELETE', `/api/hanhtrinh/nhap/${movId}`, { cookie: GV });
     await page.setInputFiles('#ht-anh', { name: 'be-rot-nuoc.mp4', mimeType: 'video/mp4', buffer: mp4Buf() });
     await page.waitForTimeout(800);
     check('chọn lại đoạn ngắn thì lời mời nén biến mất', await page.locator('#ht-nen-ok').count() === 0);
