@@ -296,7 +296,9 @@ console.log('\n[3] Gia đình: một ngày của con có cả hai nửa trong m�
   const hn = await homNay();
   check('lịch tháng có chấm "có ghi sổ trả bé" cho hôm nay', await dem('.att-cal .dot.tra') >= 1);
   check('chú thích lịch có mục "Có ghi sổ trả bé"', /Có ghi sổ trả bé/.test(await chu()));
-  check('có nút chỉ đường sang Đón trả bé (khai người đón, uỷ quyền)', /Mở Đón trả bé/.test(await chu()));
+  // Đ241f (góp ý 20/10, D2): trường xin bỏ thẻ chỉ đường "Mở Đón trả bé" ở
+  // màn Điểm danh. Phân hệ vẫn bật và vẫn có ô riêng trên trang chủ.
+  check('KHÔNG còn nút chỉ đường "Mở Đón trả bé" (Đ241f, D2)', !/Mở Đón trả bé/.test(await chu()));
   await page.evaluate((d) => App.views.attendance.showDay(d), hn);
   await page.waitForSelector('.modal', { timeout: 5000 });
   const hop = await page.locator('.modal').innerText();
@@ -443,7 +445,7 @@ console.log('\n[6] Trang chủ: cô chỉ còn một cửa, gia đình và văn 
   await moMan('#/attendance');
   const manVP = await chu();
   check('văn phòng: Điểm danh vẫn là bảng rà soát, không có dải hai phần', await dem('#att-tab') === 0);
-  check('văn phòng: có thẻ chỉ đường "Mở Đón trả bé"', /Mở Đón trả bé/.test(manVP), manVP.slice(0, 300));
+  check('văn phòng: KHÔNG còn thẻ chỉ đường "Mở Đón trả bé" (Đ241f, D2)', !/Mở Đón trả bé/.test(manVP), manVP.slice(0, 300));
   check('văn phòng: màn rà soát vẫn không có ô chọn nhóm', await dem('#view select') === 0);
 
   // Điểm danh TẮT → ô Đón trả bé phải quay lại cho cô, không có ngõ cụt.

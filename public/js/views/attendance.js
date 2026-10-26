@@ -140,7 +140,6 @@ App.views.attendance = {
       ${this.theNgayDaKhoa()}
       <div id="att-nv-o"></div>
       ${this.theDiemDanhCoSo(so)}
-      ${this.theChiDuongTraBe()}
       ${this.theBaoCao()}`;
     this.ganNutGoi(root);
     this.taiNhanVien();
@@ -315,18 +314,6 @@ App.views.attendance = {
       }).join('');
   },
 
-  // Văn phòng: sổ trả bé xem theo từng nhóm ở màn Đón trả bé — màn rà soát này
-  // cố ý không có ô chọn nhóm (xem chú thích renderVanPhong), nên chỉ chỉ đường.
-  theChiDuongTraBe() {
-    if (!this.phanTraBe()) return '';
-    return `<div class="card">
-      <div class="muted small" style="line-height:1.6">
-        Sổ trả bé (ai đón, lúc mấy giờ, ảnh lúc trả) xem theo từng nhóm ở phần Đón trả bé.
-      </div>
-      <button class="btn outline block mt-8" onclick="location.hash='#/dontra'">${UI.icon('chevron', 16)} Mở Đón trả bé</button>
-    </div>`;
-  },
-
   // BA TRẠNG THÁI, KHÔNG PHẢI HAI.
   //
   // Máy chủ ép `soCanRaSoat: 0` và `danhSach: []` khi chưa qua giờ rà soát, nên
@@ -440,6 +427,7 @@ App.views.attendance = {
           ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
         </div>` : ''}
         ${this.nutChotVang(ds.length)}
+        </details>
       </div>`;
   },
 
@@ -571,14 +559,7 @@ App.views.attendance = {
         ${recent.length
           ? recent.map(r => this.recordRow(r)).join('')
           : UI.emptyState('🗓️', 'Tháng này chưa có dữ liệu điểm danh của con')}
-      </div>
-      ${this._pt ? `
-      <div class="card">
-        <div class="muted small" style="line-height:1.6">
-          Ai được đón bé, và uỷ quyền đón một lần khi nhờ người khác đón hộ — gia đình khai ở phần Đón trả bé.
-        </div>
-        <button class="btn outline block mt-8" onclick="location.hash='#/dontra'">${UI.icon('chevron', 16)} Mở Đón trả bé</button>
-      </div>` : ''}`;
+      </div>`;
     if (moNgay) {
       // Đổi tháng hay chọn bé khác là vẽ lại theo địa chỉ đang mở — bỏ phần
       // ngày khỏi địa chỉ để hộp không tự bật lên lần nữa.
