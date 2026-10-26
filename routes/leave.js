@@ -10,6 +10,9 @@
 const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
 const nghiHoc = require('../lib/nghi-hoc');
+const ngayVN = require('../lib/ngay');
+const modules = require('../lib/modules');
+const henGio = require('../lib/hen-gio');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_LY_DO = 1000;
@@ -150,12 +153,222 @@ function soNgayHocTrongDon(from, to) {
   return dem;
 }
 
+// ---------------------------------------------------------------------------
+// DUYỆT TỪNG NGÀY (góp ý 20/10, E1) và TỰ GHI ĐIỂM DANH (D4)
+//
+// Trường: "tách CHI TIẾT TỪNG NGÀY được phê duyệt / hoàn tiền ăn hay không để
+// link sang điểm danh cho chuẩn". Một con số "số ngày hoàn" không nói được
+// NGÀY NÀO hoàn, nên sổ điểm danh không biết ghi gì, và đơn vắt qua cuối tuần
+// hay ngày trường nghỉ thì văn phòng phải tự trừ nhẩm.
+//
+// Máy GỢI Ý từng dòng, văn phòng sửa được từng dòng, và dòng văn phòng gửi lên
+// mới là dòng được lưu. `leave_refund.soNgay` vẫn được ghi (= số dòng được
+// hoàn) để bảng tiền ăn và tệp xuất đang đọc con số ấy không phải đổi gì.
+// ---------------------------------------------------------------------------
+const TOI_DA_LY_DO_NGAY = 200;
+// Dấu nguồn của dòng điểm danh do việc tự động này ghi. Mọi đường ghi của
+// người (chấm tay, chụp ảnh, chốt sổ) đều đặt `markedBy` là mã người ấy, nên
+// còn dấu này nghĩa là chưa ai đụng vào — chỉ dòng như thế mới được tự sửa.
+const TU_DONG = 'tu-dong:don-nghi';
+const LY_DO_TRE = 'Gửi đơn sau 7 giờ sáng';
+const LY_DO_CUOI_TUAN = 'Thứ Bảy/Chủ Nhật không tính tiền ăn';
+
+function cacNgayTrongDon(from, to) {
+  const ra = [];
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return ra;
+  for (let t = a; t <= b; t += 86400000) ra.push(new Date(t).toISOString().slice(0, 10));
+  return ra;
+}
+
+function laCuoiTuan(ngay) {
+  const thu = new Date(`${ngay}T00:00:00Z`).getUTCDay();
+  return thu === 0 || thu === 6;
+}
+
+function chuNgay(ngay) {
+  const [y, m, d] = String(ngay).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// Đợt trường nghỉ chạm từng ngày của đơn, theo cơ sở của nhóm bé.
+function dotNghiTheoNgay(l) {
+  const s = db.findStudent(l.studentId);
+  const cs = s ? (db.campusOfClass(s.classId) || '') : '';
+  const ra = new Map();
+  for (const k of nghiHoc.truongNghiTrongKhoang(l.fromDate, l.toDate, cs)) {
+    for (const ng of cacNgayTrongDon(k.tuNgay, k.denNgay)) {
+      if (ng >= l.fromDate && ng <= l.toDate && !ra.has(ng)) ra.set(ng, k);
+    }
+  }
+  return ra;
+}
+
+// GỢI Ý cho từng ngày — văn phòng sửa được, máy không tự chốt.
+//
+// Thứ tự cố ý: trường nghỉ → cuối tuần → gửi muộn. Ngày trường đóng cửa thì
+// không ai phải xin phép, và tiền ăn ngày đó đã hoàn theo lịch nghỉ — ghi hoàn
+// thêm ở đây là hoàn hai lần. Mốc 7h tính theo giờ Việt Nam của CHÍNH ngày
+// nghỉ: gửi lúc 7h30 sáng 21/10 thì 21/10 muộn, 22/10 thì không.
+function goiYTheoNgay(l) {
+  const dot = dotNghiTheoNgay(l);
+  const guiLuc = Date.parse(l.createdAt);
+  return cacNgayTrongDon(l.fromDate, l.toDate).map((ngay) => {
+    const k = dot.get(ngay);
+    if (k) {
+      return {
+        ngay, coPhep: 'co', duocHoan: 'khong',
+        lyDo: `Trường nghỉ: ${k.ten}${k.hoanTienAn === 'co' ? ' — tiền ăn đã tính theo lịch nghỉ của trường' : ''}`,
+      };
+    }
+    if (laCuoiTuan(ngay)) return { ngay, coPhep: 'co', duocHoan: 'khong', lyDo: LY_DO_CUOI_TUAN };
+    const moc7h = Date.parse(`${ngay}T07:00:00Z`) - ngayVN.LECH_PHUT * 60000;
+    if (guiLuc > moc7h) return { ngay, coPhep: 'khong', duocHoan: 'khong', lyDo: LY_DO_TRE };
+    return { ngay, coPhep: 'co', duocHoan: 'co', lyDo: '' };
+  });
+}
+
+function coKhong(v) {
+  if (v === true || v === 'co') return 'co';
+  if (v === false || v === 'khong') return 'khong';
+  return null;
+}
+
+// Đọc các dòng văn phòng gửi lên. Phải đủ MỌI ngày của đơn, mỗi ngày một dòng.
+// Trả về { loi } hoặc { dong } (xếp theo ngày).
+function docTheoNgay(l, vao) {
+  if (!Array.isArray(vao)) return { loi: 'Văn phòng ghi giúp chi tiết từng ngày của đơn nhé' };
+  const can = cacNgayTrongDon(l.fromDate, l.toDate);
+  const dot = dotNghiTheoNgay(l);
+  const theo = new Map();
+  for (const x of vao) {
+    const ng = String((x && x.ngay) || '');
+    if (!can.includes(ng)) return { loi: `Ngày ${ng ? chuNgay(ng) : '?'} không nằm trong đơn xin nghỉ này` };
+    if (theo.has(ng)) return { loi: `Ngày ${chuNgay(ng)} được ghi hai lần` };
+    const coPhep = coKhong(x.coPhep);
+    const duocHoan = coKhong(x.duocHoan);
+    if (!coPhep || !duocHoan) {
+      return { loi: `Ngày ${chuNgay(ng)}: chọn giúp có phép hay không, và có hoàn tiền ăn hay không` };
+    }
+    if (coPhep === 'khong' && duocHoan === 'co') {
+      return { loi: `Ngày ${chuNgay(ng)} nghỉ không phép thì không hoàn tiền ăn` };
+    }
+    const k = dot.get(ng);
+    if (k && k.hoanTienAn === 'co' && duocHoan === 'co') {
+      return {
+        loi: `Ngày ${chuNgay(ng)} trường nghỉ (${k.ten}) — tiền ăn ngày này đã hoàn theo lịch nghỉ `
+          + 'của trường, không hoàn thêm lần nữa',
+      };
+    }
+    theo.set(ng, { ngay: ng, coPhep, duocHoan, lyDo: String(x.lyDo || '').trim().slice(0, TOI_DA_LY_DO_NGAY) });
+  }
+  const thieu = can.filter(ng => !theo.has(ng));
+  if (thieu.length) return { loi: `Còn ${thieu.length} ngày chưa ghi: ${thieu.map(chuNgay).join(', ')}` };
+  return { dong: can.map(ng => theo.get(ng)) };
+}
+
+// Phần tiền ăn suy ra từ các dòng — cùng hình dạng `leave_refund` đã có:
+// không hoàn ngày nào thì 'khong' và không kèm số ngày, đúng như duyệt kiểu cũ.
+function hoanTuDong(dong, ghiChu) {
+  const so = dong.filter(d => d.duocHoan === 'co').length;
+  return { hoanTienAn: so ? 'co' : 'khong', soNgay: so || null, ghiChu };
+}
+
+// Upsert chỉ ghi các cột liệt kê, nên `diemDanh` / `attId` của lần ghi sổ
+// trước còn nguyên khi văn phòng sửa lại dòng.
+function luuTheoNgay(leaveId, dong, user) {
+  const luc = new Date().toISOString();
+  for (const d of dong) {
+    db.upsert('leave_ngay', {
+      leaveId, ngay: d.ngay, coPhep: d.coPhep, duocHoan: d.duocHoan, lyDo: d.lyDo,
+      nguoiDuyet: user.id, duyetLuc: luc,
+    }, ['leaveId', 'ngay']);
+  }
+}
+
+function trangThaiTheoDong(d) {
+  return d.coPhep === 'co' ? 'absent_excused' : 'absent_unexcused';
+}
+function ghiChuTheoDong(d) {
+  return `Theo đơn xin nghỉ đã duyệt${d.lyDo ? ` — ${d.lyDo}` : ''}`;
+}
+
+// D4 — GHI SỔ ĐIỂM DANH THEO CÁC DÒNG ĐÃ DUYỆT, cho mọi ngày đã tới.
+//
+// Gọi ngay lúc duyệt (ngày đã qua và hôm nay) và từ đồng hồ định giờ (ngày tới
+// hạn sau đó). Mỗi dòng chỉ được xét MỘT lần — xét xong là đánh dấu `diemDanh`
+// — nên chạy lại bao nhiêu lần cũng không ghi đôi.
+//
+// KHÔNG BAO GIỜ ĐÈ: sổ đã có dòng cho bé ngày đó (cô chấm, ảnh tới lớp, chốt
+// sổ) thì giữ nguyên và đánh dấu 'da-co' cho văn phòng xem. Cuối tuần và ngày
+// trường nghỉ không sinh dòng: trường đóng cửa, không có gì để điểm danh.
+function ghiDiemDanhTheoDon(leaveId) {
+  if (!modules.dangBat('xinphep') || !modules.dangBat('diemdanh')) return 0;
+  const ds = db.all('leave_ngay',
+    `SELECT n.leaveId, n.ngay, n.coPhep, n.lyDo, l.studentId FROM leave_ngay n
+       JOIN leave_requests l ON l.id = n.leaveId
+      WHERE n.diemDanh = '' AND n.ngay <= ? AND l.status = 'approved' ${leaveId ? 'AND n.leaveId = ?' : ''}
+      ORDER BY n.ngay LIMIT 2000`, leaveId ? [ngayVN.homNay(), leaveId] : [ngayVN.homNay()]);
+  const danhDau = (d, diemDanh, diemDanhCo, attId) => db.run(
+    'UPDATE leave_ngay SET diemDanh = ?, diemDanhCo = ?, attId = ? WHERE leaveId = ? AND ngay = ?',
+    [diemDanh, diemDanhCo, attId, d.leaveId, d.ngay]);
+  let soGhi = 0;
+  db.tx(() => {
+    for (const d of ds) {
+      const s = db.findStudent(d.studentId);
+      if (!s || !s.active || laCuoiTuan(d.ngay)
+        || nghiHoc.ngayTruongNghi(d.ngay, db.campusOfClass(s.classId) || '')) {
+        danhDau(d, 'khong-ghi', '', null);
+        continue;
+      }
+      const cu = db.first('attendance',
+        'SELECT status FROM attendance WHERE studentId = ? AND date = ?', [d.studentId, d.ngay]);
+      if (cu) { danhDau(d, 'da-co', cu.status, null); continue; }
+      const id = db.nextId('att');
+      db.insert('attendance', {
+        id, studentId: d.studentId, date: d.ngay, status: trangThaiTheoDong(d),
+        checkIn: null, checkOut: null, note: ghiChuTheoDong(d), markedBy: TU_DONG,
+      });
+      danhDau(d, 'tu-ghi', '', id);
+      soGhi += 1;
+    }
+  });
+  return soGhi;
+}
+
+// Văn phòng sửa dòng sau khi sổ đã được tự ghi: chỉ sửa dòng điểm danh còn
+// mang dấu TU_DONG. Dòng đã thành của người (cô chấm lại, bé được chụp ảnh tới
+// lớp) thì giữ nguyên, và dòng theo ngày chuyển sang 'da-co' để văn phòng thấy.
+function suaDiemDanhTuGhi(leaveId) {
+  for (const d of db.all('leave_ngay',
+    "SELECT * FROM leave_ngay WHERE leaveId = ? AND diemDanh = 'tu-ghi'", [leaveId])) {
+    const r = d.attId ? db.first('attendance', 'SELECT * FROM attendance WHERE id = ?', [d.attId]) : null;
+    if (!r || r.markedBy !== TU_DONG) {
+      db.run("UPDATE leave_ngay SET diemDanh = 'da-co', diemDanhCo = ? WHERE leaveId = ? AND ngay = ?",
+        [r ? r.status : '', leaveId, d.ngay]);
+      continue;
+    }
+    if (r.status !== trangThaiTheoDong(d) || r.note !== ghiChuTheoDong(d)) {
+      db.update('attendance', r.id, { status: trangThaiTheoDong(d), note: ghiChuTheoDong(d) });
+    }
+  }
+}
+
 // Ghi chú hoàn tiền là ghi chú NỘI BỘ — hộp thoại duyệt ghi rõ "Ghi chú nội
 // bộ về tiền ăn", văn phòng viết cho văn phòng và cô đọc. Gia đình vẫn được
-// thấy CÓ hoàn hay không và mấy ngày; lời nội bộ thì không đi ra ngoài.
+// thấy CÓ hoàn hay không và mấy ngày; lời nội bộ thì không đi ra ngoài. Cùng
+// lẽ ấy, gia đình thấy KẾT QUẢ từng ngày (có phép, hoàn hay không, vì sao) chứ
+// không thấy việc ghi sổ nội bộ đằng sau nó.
 function anGhiChuNoiBo(l, user) {
-  if (user.role !== 'parent' || !l.hoanTien) return l;
-  return { ...l, hoanTien: { ...l.hoanTien, ghiChu: '' } };
+  if (user.role !== 'parent') return l;
+  return {
+    ...l,
+    hoanTien: l.hoanTien ? { ...l.hoanTien, ghiChu: '' } : l.hoanTien,
+    theoNgay: l.theoNgay
+      ? l.theoNgay.map(({ ngay, coPhep, duocHoan, lyDo }) => ({ ngay, coPhep, duocHoan, lyDo }))
+      : l.theoNgay,
+  };
 }
 
 module.exports = (app) => {
@@ -293,7 +506,12 @@ module.exports = (app) => {
       `SELECT * FROM leave_requests WHERE studentId IN (${marks}) AND status != 'pending'
        ORDER BY createdAt DESC LIMIT ?`, [...ids, gioiHan]);
 
-    res.json(decorateNhieu([...cho, ...xong]).map(l => anGhiChuNoiBo(l, req.user)));
+    const ds = decorateNhieu([...cho, ...xong]);
+    // Gợi ý từng ngày chỉ cho người duyệt, và chỉ cho đơn đang chờ.
+    if (req.user.role === 'admin') {
+      for (const l of ds) if (l.status === 'pending') l.goiYTheoNgay = goiYTheoNgay(l);
+    }
+    res.json(ds.map(l => anGhiChuNoiBo(l, req.user)));
   });
 
   // Phụ huynh tạo đơn xin phép cho con.
@@ -373,7 +591,7 @@ module.exports = (app) => {
     if (rec.status !== 'pending') {
       return res.status(400).json({ error: 'Đơn này đã được xử lý trước đó' });
     }
-    const { status, reviewNote, hoanTienAn, soNgayHoan, ghiChuHoan } = req.body || {};
+    const { status, reviewNote, hoanTienAn, soNgayHoan, ghiChuHoan, theoNgay } = req.body || {};
     if (status !== 'approved' && status !== 'rejected') {
       return res.status(400).json({ error: 'Trạng thái duyệt không hợp lệ' });
     }
@@ -383,8 +601,19 @@ module.exports = (app) => {
     // Nhà trường nói "khi duyệt thì ghi luôn có hoàn tiền ăn hay không". Cho
     // phép bỏ trống là cuối tháng bảng đối chiếu (Y3) có một cột trống mà
     // không ai nhớ vì sao — rồi gia đình hỏi thì không tra lại được.
+    //
+    // Hai cách chốt: TỪNG NGÀY (`theoNgay`, màn duyệt từ E1) hoặc MỘT CON SỐ
+    // (`hoanTienAn` + `soNgayHoan`, điện thoại còn giữ bản giao diện cũ). Cách
+    // cũ giữ nguyên hành vi và không sinh dòng theo ngày nào.
     let hoan = null;
-    if (status === 'approved') {
+    let dongNgay = null;
+    const ghiChu = String(ghiChuHoan || '').trim().slice(0, TOI_DA_GHI_CHU_DUYET);
+    if (status === 'approved' && theoNgay !== undefined) {
+      const doc = docTheoNgay(rec, theoNgay);
+      if (doc.loi) return res.status(400).json({ error: doc.loi });
+      dongNgay = doc.dong;
+      hoan = hoanTuDong(dongNgay, ghiChu);
+    } else if (status === 'approved') {
       const ht = String(hoanTienAn || '').trim();
       if (!HOAN.includes(ht)) {
         return res.status(400).json({
@@ -405,11 +634,7 @@ module.exports = (app) => {
           });
         }
       }
-      hoan = {
-        hoanTienAn: ht,
-        soNgay: ngay,
-        ghiChu: String(ghiChuHoan || '').trim().slice(0, TOI_DA_GHI_CHU_DUYET),
-      };
+      hoan = { hoanTienAn: ht, soNgay: ngay, ghiChu };
     }
 
     rec.status = status;
@@ -428,15 +653,83 @@ module.exports = (app) => {
           capNhatLuc: new Date().toISOString(),
         }, ['leaveId']);
       }
+      if (dongNgay) luuTheoNgay(rec.id, dongNgay, req.user);
     });
+    // Ngoài giao dịch duyệt, cố ý: ghi sổ điểm danh hỏng thì đơn vẫn đã duyệt,
+    // và đồng hồ định giờ ghi lại ở lượt sau (dòng chưa xét vẫn còn dấu '').
+    if (dongNgay) {
+      try { ghiDiemDanhTheoDon(rec.id); }
+      catch (err) { console.error(`[xinphep] chưa ghi được điểm danh theo đơn ${rec.id}: ${err.message}`); }
+    }
     db.audit(req.user.id, 'leave-review', rec.id, {
       status,
       hoanTienAn: hoan ? hoan.hoanTienAn : null,
       soNgay: hoan ? hoan.soNgay : null,
+      theoNgay: !!dongNgay,
     });
     res.json(decorate(rec));
   });
+
+  // VĂN PHÒNG SỬA LẠI TỪNG NGÀY của một đơn đã duyệt theo ngày.
+  //
+  // Đơn duyệt kiểu cũ (một con số) không có dòng nào để sửa — cho tạo dòng ở
+  // đây là đổi số liệu của đơn cũ sau lưng bảng tiền ăn đã chốt.
+  app.put('/api/leave/:id/ngay', requireRole('admin'), (req, res) => {
+    const rec = db.first('leave_requests', 'SELECT * FROM leave_requests WHERE id = ?', [req.params.id]);
+    if (!rec) return res.status(404).json({ error: 'Không tìm thấy đơn xin phép' });
+    if (!db.canAccessStudent(req.user, rec.studentId)) {
+      return res.status(403).json({ error: 'Đơn này không phải của bé nào thuộc cơ sở mình' });
+    }
+    if (rec.status !== 'approved') {
+      return res.status(400).json({ error: 'Chỉ sửa được từng ngày của đơn đã duyệt' });
+    }
+    if (!db.count('SELECT COUNT(*) FROM leave_ngay WHERE leaveId = ?', [rec.id])) {
+      return res.status(400).json({
+        error: 'Đơn này được duyệt theo cách cũ (một con số ngày hoàn) nên không có chi tiết từng ngày để sửa',
+      });
+    }
+    const { theoNgay, ghiChuHoan } = req.body || {};
+    const doc = docTheoNgay(rec, theoNgay);
+    if (doc.loi) return res.status(400).json({ error: doc.loi });
+    const cu = db.first('leave_refund', 'SELECT * FROM leave_refund WHERE leaveId = ?', [rec.id]);
+    const ghiChu = ghiChuHoan === undefined
+      ? ((cu && cu.ghiChu) || '')
+      : String(ghiChuHoan || '').trim().slice(0, TOI_DA_GHI_CHU_DUYET);
+    const hoan = hoanTuDong(doc.dong, ghiChu);
+    db.tx(() => {
+      luuTheoNgay(rec.id, doc.dong, req.user);
+      db.upsert('leave_refund', {
+        leaveId: rec.id, ...hoan, nguoiGhi: req.user.id, capNhatLuc: new Date().toISOString(),
+      }, ['leaveId']);
+      suaDiemDanhTuGhi(rec.id);
+    });
+    try { ghiDiemDanhTheoDon(rec.id); }
+    catch (err) { console.error(`[xinphep] chưa ghi được điểm danh theo đơn ${rec.id}: ${err.message}`); }
+    db.audit(req.user.id, 'leave-sua-ngay', rec.id, { hoanTienAn: hoan.hoanTienAn, soNgay: hoan.soNgay });
+    res.json(decorate(rec));
+  });
+
+  // Ngày tới hạn sau lúc duyệt: đồng hồ định giờ ghi (mỗi lượt 15 phút, và
+  // ngay lúc máy chủ khởi động). Tự hỏi công tắc ở trong `ghiDiemDanhTheoDon`.
+  henGio.dangKy('xinphep:tu-ghi-diemdanh', () => ghiDiemDanhTheoDon());
 };
+
+// Các dòng theo ngày của một lô đơn, Map<leaveId, dòng[]> xếp theo ngày.
+function theoNgayCuaDon(ids) {
+  const ra = new Map();
+  const ds = [...new Set(ids.filter(Boolean))];
+  for (let i = 0; i < ds.length; i += 400) {
+    const lo = ds.slice(i, i + 400);
+    for (const n of db.all('leave_ngay',
+      `SELECT leaveId, ngay, coPhep, duocHoan, lyDo, diemDanh, diemDanhCo FROM leave_ngay
+        WHERE leaveId IN (${lo.map(() => '?').join(',')}) ORDER BY ngay`, lo)) {
+      if (!ra.has(n.leaveId)) ra.set(n.leaveId, []);
+      const { leaveId, ...dong } = n;
+      ra.get(leaveId).push(dong);
+    }
+  }
+  return ra;
+}
 
 // Ghép thêm tên học sinh, lớp, phụ huynh, người duyệt cho một đơn.
 function decorate(l) {
@@ -445,6 +738,7 @@ function decorate(l) {
   const parent = db.findUser(l.parentId);
   const reviewer = l.reviewedBy ? db.findUser(l.reviewedBy) : null;
   const hoan = db.first('leave_refund', 'SELECT * FROM leave_refund WHERE leaveId = ?', [l.id]);
+  const ngay = theoNgayCuaDon([l.id]).get(l.id);
   return {
     ...l,
     studentName: s ? s.name : '',
@@ -456,6 +750,8 @@ function decorate(l) {
     hoanTien: hoan
       ? { hoanTienAn: hoan.hoanTienAn, soNgay: hoan.soNgay, ghiChu: hoan.ghiChu }
       : null,
+    // KHÔNG có dòng = chưa duyệt, hoặc duyệt theo một con số (đơn cũ).
+    theoNgay: ngay || null,
     soNgayTrongDon: soNgayTrongDon(l.fromDate, l.toDate),
     soNgayHocDeXuat: soNgayHocTrongDon(l.fromDate, l.toDate),
   };
@@ -493,6 +789,7 @@ function decorateNhieu(list) {
     'SELECT id, title, name FROM users WHERE id IN (__IN__)');
   const hoan = traTheoId('leave_refund', 'leaveId', ds.map(l => l.id),
     'SELECT * FROM leave_refund WHERE leaveId IN (__IN__)');
+  const ngay = theoNgayCuaDon(ds.map(l => l.id));
 
   return ds.map(l => {
     const s = be.get(l.studentId);
@@ -510,6 +807,7 @@ function decorateNhieu(list) {
       hoanTien: h
         ? { hoanTienAn: h.hoanTienAn, soNgay: h.soNgay, ghiChu: h.ghiChu }
         : null,
+      theoNgay: ngay.get(l.id) || null,
       soNgayTrongDon: soNgayTrongDon(l.fromDate, l.toDate),
       soNgayHocDeXuat: soNgayHocTrongDon(l.fromDate, l.toDate),
     };

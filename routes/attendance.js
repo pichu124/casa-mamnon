@@ -270,11 +270,9 @@ module.exports = (app) => {
       // nhập hai lần, và chỉ cần quên là phụ huynh thấy chữ đỏ "Nghỉ không phép"
       // cho con mình dù cô đã duyệt đơn.
       //
-      // CỐ Ý chỉ THÊM THÔNG TIN, tuyệt đối không tự sinh bản ghi điểm danh khi
-      // duyệt đơn: hệ thống không có khái niệm ngày học / ngày lễ / cuối tuần,
-      // nên một đơn từ thứ Sáu đến thứ Hai sẽ sinh cả thứ Bảy và Chủ nhật, thổi
-      // phồng số buổi nghỉ trong báo cáo học kỳ — đúng con số mà việc này định
-      // cứu. Muốn làm phần đó phải có lịch năm học trước.
+      // Đường này chỉ THÊM THÔNG TIN. Việc tự ghi sổ theo đơn đã duyệt nằm ở
+      // routes/leave.js (góp ý 20/10, D4): chỉ đơn duyệt TỪNG NGÀY, bỏ qua cuối
+      // tuần và ngày trường nghỉ, không bao giờ đè dòng đã có.
       // Nhà trường tắt Xin phép thì sổ đơn nghỉ không còn ai cập nhật. Đọc
       // tiếp là gắn nhãn "có đơn nghỉ" cho bé theo một cuốn sổ đã ngưng — cùng
       // hạng lỗi với Đ46, chỉ khác chỗ.
@@ -1081,8 +1079,21 @@ module.exports = (app) => {
     const mocRaSoat = gioRaSoat();
     const quaGio = date < homNay || (date === homNay && String(nowTime()).slice(0, 5) >= mocRaSoat);
 
-    const canRaSoat = students
-      .filter(s => !daCham.has(s.id) && !dangNghi.get(s.id))
+    // NGÀY TRƯỜNG NGHỈ KHÔNG PHẢI NGÀY "CHƯA ĐIỂM DANH" (góp ý 20/10, D5).
+    //
+    // Cả trường (hoặc cả cơ sở) đóng cửa thì không bé nào phải điểm danh,
+    // nên bảng gọi xác nhận không được liệt kê cả trăm bé đúng ngày Tết. Hỏi
+    // theo cơ sở của TỪNG NHÓM, cùng cách với chốt sổ vắng bên trên.
+    const nghiTheoNhom = new Map();
+    const truongNghi = (classId) => {
+      if (!nghiTheoNhom.has(classId)) {
+        nghiTheoNhom.set(classId, !!nghiHoc.ngayTruongNghi(date, db.campusOfClass(classId) || ''));
+      }
+      return nghiTheoNhom.get(classId);
+    };
+    const chuaCham = students.filter(s => !daCham.has(s.id) && !dangNghi.get(s.id));
+    const canRaSoat = chuaCham
+      .filter(s => !truongNghi(s.classId))
       .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar, classId: s.classId }));
 
     res.json({
@@ -1098,6 +1109,8 @@ module.exports = (app) => {
       // Trả về cả số bé đã có đơn nghỉ được duyệt, để văn phòng thấy vì sao
       // danh sách ngắn hơn mình tưởng và không đi tìm nhầm.
       soDaCoDonNghi: [...dangNghi.keys()].filter(id => !daCham.has(id)).length,
+      // Số bé chưa có dòng mà hôm ấy trường (cơ sở) nghỉ — không cần gọi.
+      soTruongNghi: chuaCham.length - canRaSoat.length,
     });
   });
 

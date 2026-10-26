@@ -16,13 +16,18 @@ App.views.leave = {
   },
   _list: [],
 
-  async render(root) {
+  async render(root, params = []) {
     const vai = App.state.user.role;
     // Quản trị trước đây rơi vào màn của phụ huynh — mà quản trị thì không có
     // "con đang chọn", nên màn đó vốn đã không dùng được. Nay văn phòng là
     // người duyệt, nên phải vào đúng màn duyệt.
-    if (vai === 'teacher' || vai === 'admin') return this.renderTeacher(root);
-    return this.renderParent(root);
+    if (vai === 'teacher' || vai === 'admin') await this.renderTeacher(root);
+    else await this.renderParent(root);
+    // '#/leave/lich-nghi' — lối vào từ màn Điểm danh của văn phòng (D5).
+    if (params[0] === 'lich-nghi') {
+      const o = document.getElementById('lich-nghi-truong');
+      if (o) o.scrollIntoView({ block: 'start' });
+    }
   },
 
   laVanPhong() { return App.state.user.role === 'admin'; },
@@ -48,7 +53,7 @@ App.views.leave = {
     const d = this._lichNghi;
     if (!d) return '';
     if (d.hong) {
-      return `<div class="section-label">Lịch nghỉ của trường</div>
+      return `<div class="section-label" id="lich-nghi-truong">Lịch nghỉ của trường</div>
         <div class="card"><div class="muted small">Chưa xem được lịch nghỉ lúc này. Cô thử mở lại màn sau ít phút giúp nhé.</div></div>`;
     }
     const homNay = UI.todayStr();
@@ -56,7 +61,7 @@ App.views.leave = {
     const daQua = (d.dot || []).filter(x => x.denNgay < homNay);
     const hien = this._hienDotCu ? [...sapToi, ...daQua] : sapToi;
     return `
-      <div class="section-label">Lịch nghỉ của trường</div>
+      <div class="section-label" id="lich-nghi-truong">Lịch nghỉ của trường</div>
       ${d.duocSua ? `<button class="btn outline block mb-8" onclick="App.views.leave.openDot('')">
         ${UI.icon('plus', 16)} Thêm đợt nghỉ
       </button>` : ''}
@@ -215,6 +220,88 @@ App.views.leave = {
     return `Hoàn tiền ăn ${n === null || n === undefined ? '' : `${n} ngày`}`.trim();
   },
 
+  // ---- TỪNG NGÀY CỦA ĐƠN (góp ý 20/10, E1) ----
+  //
+  // Kết quả từng ngày nói bằng chữ trung tính: "nghỉ không phép" là một dòng
+  // của sổ, không phải lời phê về bé hay về gia đình — không tô đỏ.
+  TRANG_THAI_SO: {
+    present: 'Có mặt', late: 'Đến muộn', absent_excused: 'Nghỉ có phép', absent_unexcused: 'Nghỉ không phép',
+  },
+
+  danhSachNgay(theoNgay) {
+    return (theoNgay || []).map(x => `
+      <div class="list-row" style="padding:6px 0">
+        <div class="row-main">
+          <div class="row-title small">${UI.esc(UI.fmtDate(x.ngay))}</div>
+          <div class="row-sub">${UI.esc(x.coPhep === 'co' ? 'Nghỉ có phép' : 'Nghỉ không phép')} · ${
+  UI.esc(x.duocHoan === 'co' ? 'Được hoàn tiền ăn' : 'Không hoàn tiền ăn')}${x.lyDo ? ` · ${UI.esc(x.lyDo)}` : ''}</div>
+        </div>
+      </div>`).join('');
+  },
+
+  // Sổ điểm danh đã có dòng do người ghi và nói khác đơn — văn phòng cần thấy.
+  soKhacDon(x) {
+    if (x.diemDanh !== 'da-co' || !x.diemDanhCo) return '';
+    const mong = x.coPhep === 'co' ? 'absent_excused' : 'absent_unexcused';
+    if (x.diemDanhCo === mong) return '';
+    return `Sổ điểm danh đã ghi: ${this.TRANG_THAI_SO[x.diemDanhCo] || x.diemDanhCo} — giữ nguyên`;
+  },
+
+  // Bảng sửa từng ngày, dùng chung cho lúc duyệt và lúc sửa lại sau duyệt.
+  bangSuaNgay(dong) {
+    return `
+      <div class="field">
+        <label>Chi tiết từng ngày</label>
+        <div class="hint">Máy điền sẵn gợi ý theo giờ gửi đơn, thứ trong tuần và lịch nghỉ của trường. Văn phòng sửa được từng dòng.</div>
+        ${dong.map((x, i) => `
+          <div class="list-row lv-ngay" data-ngay="${UI.esc(x.ngay)}" style="align-items:flex-start">
+            <div class="row-main">
+              <div class="row-title small">${UI.esc(UI.fmtDate(x.ngay))}</div>
+              <label class="small" style="display:flex;gap:6px;align-items:center;margin:4px 0">
+                <input type="checkbox" class="lv-ng-phep" id="lv-ng-phep-${i}" ${x.coPhep === 'co' ? 'checked' : ''}> Nghỉ có phép
+              </label>
+              <select class="lv-ng-hoan" id="lv-ng-hoan-${i}" ${x.coPhep === 'co' ? '' : 'disabled'}>
+                <option value="co" ${x.duocHoan === 'co' ? 'selected' : ''}>Được hoàn tiền ăn</option>
+                <option value="khong" ${x.duocHoan === 'co' ? '' : 'selected'}>Không hoàn tiền ăn</option>
+              </select>
+              <input class="lv-ng-lydo mt-8" id="lv-ng-lydo-${i}" value="${UI.esc(x.lyDo || '')}" placeholder="Lý do (không bắt buộc)">
+              ${this.soKhacDon(x) ? `<div class="hint">${UI.esc(this.soKhacDon(x))}</div>` : ''}
+            </div>
+          </div>`).join('')}
+        <div class="small mt-8" style="font-weight:700" id="lv-tong-hoan"></div>
+      </div>`;
+  },
+
+  // Bỏ tích "có phép" thì ô hoàn tự về "không hoàn" và khoá lại — máy chủ
+  // cũng không nhận một ngày nghỉ không phép mà được hoàn.
+  ganBangSuaNgay() {
+    const tong = () => {
+      const o = document.getElementById('lv-tong-hoan');
+      const n = [...document.querySelectorAll('.lv-ngay .lv-ng-hoan')].filter(s => s.value === 'co').length;
+      if (o) o.textContent = n ? `Hoàn tiền ăn ${n} ngày` : 'Không hoàn tiền ăn ngày nào';
+    };
+    for (const dongEl of document.querySelectorAll('.lv-ngay')) {
+      const phep = dongEl.querySelector('.lv-ng-phep');
+      const hoan = dongEl.querySelector('.lv-ng-hoan');
+      phep.onchange = () => {
+        if (!phep.checked) hoan.value = 'khong';
+        hoan.disabled = !phep.checked;
+        tong();
+      };
+      hoan.onchange = tong;
+    }
+    tong();
+  },
+
+  docBangSuaNgay() {
+    return [...document.querySelectorAll('.lv-ngay')].map(el => ({
+      ngay: el.dataset.ngay,
+      coPhep: el.querySelector('.lv-ng-phep').checked ? 'co' : 'khong',
+      duocHoan: el.querySelector('.lv-ng-hoan').value,
+      lyDo: el.querySelector('.lv-ng-lydo').value.trim(),
+    }));
+  },
+
   // ---- Phụ huynh: danh sách đơn của con đang chọn ----
   async renderParent(root) {
     this._list = await API.get('/api/leave');
@@ -318,7 +405,11 @@ App.views.leave = {
             <div class="small">${l.reviewNote ? UI.esc(l.reviewNote) : `${st.label === 'Đã duyệt' ? 'Nhà trường đã duyệt đơn cho con.' : 'Nhà trường chưa đồng ý với đơn này.'}`}</div>
             ${l.status === 'approved' ? `<div class="small mt-8" style="font-weight:700">${UI.esc(this.cauHoanTien(l))}</div>
               ${l.hoanTien && l.hoanTien.ghiChu ? `<div class="small">${UI.esc(l.hoanTien.ghiChu)}</div>` : ''}` : ''}
-          </div>`}
+          </div>
+          ${l.status === 'approved' && l.theoNgay ? `<div class="mt-14" id="lv-ket-qua-ngay">
+            <div class="small" style="font-weight:700">Kết quả từng ngày</div>
+            ${this.danhSachNgay(l.theoNgay)}
+          </div>` : ''}`}
     `, 'Chi tiết đơn xin phép');
   },
 
@@ -384,6 +475,11 @@ App.views.leave = {
               <div class="row-title">${UI.esc(l.studentName)} · ${UI.esc(this.fmtRange(l))}</div>
               <div class="row-sub">${UI.esc(l.reason)}${l.reviewNote ? ` — Phản hồi: ${UI.esc(l.reviewNote)}` : ''}</div>
               ${l.status === 'approved' ? `<div class="row-sub">${UI.esc(this.cauHoanTien(l))}</div>` : ''}
+              ${l.status === 'approved' && l.theoNgay ? `<div class="row-sub">${UI.esc(l.theoNgay.map(x =>
+    `${x.ngay.slice(8, 10)}/${x.ngay.slice(5, 7)} ${x.coPhep === 'co' ? 'có phép' : 'không phép'}`).join(' · '))}</div>
+              ${this.laVanPhong() && l.theoNgay.some(x => this.soKhacDon(x))
+    ? '<div class="row-sub">Có ngày sổ điểm danh ghi khác đơn — mở "Sửa từng ngày" để xem</div>' : ''}
+              ${this.laVanPhong() ? `<button class="btn sm outline mt-8" data-sua-ngay="${UI.esc(l.id)}">Sửa từng ngày</button>` : ''}` : ''}
             </div>
             <div class="row-end">${this.statusBadge(l.status)}</div>
           </div>`).join('')}
@@ -394,6 +490,8 @@ App.views.leave = {
           ${UI.icon('plus', 16)} Xem đơn cũ hơn
         </button>` : ''}
       ${this.theLichNghi()}`;
+
+    for (const b of root.querySelectorAll('[data-sua-ngay]')) b.onclick = () => this.openSuaNgay(b.dataset.suaNgay);
 
     const themNua = document.getElementById('btn-don-cu-hon');
     if (themNua) {
@@ -421,20 +519,7 @@ App.views.leave = {
       </div>
       <div class="small" style="margin:2px 0 12px">${UI.esc(l.reason)}</div>
       ${approve ? `
-        <div class="field">
-          <label>Tiền ăn của những ngày nghỉ này</label>
-          <select id="lv-hoan">
-            <option value="co" selected>Có hoàn tiền ăn</option>
-            <option value="khong">Không hoàn tiền ăn</option>
-          </select>
-        </div>
-        <div class="field" id="lv-hoan-ngay-o">
-          <label>Số ngày được hoàn</label>
-          <input type="number" id="lv-hoan-ngay" min="1" max="${UI.esc(String(l.soNgayTrongDon || 1))}"
-            value="${UI.esc(String(l.soNgayHocDeXuat || l.soNgayTrongDon || 1))}">
-          <div class="hint">Đơn xin nghỉ ${UI.esc(String(l.soNgayTrongDon || 1))} ngày, trong đó ${UI.esc(String(l.soNgayHocDeXuat || 0))} ngày rơi vào thứ Hai–thứ Sáu.
-            Đây chỉ là con số gợi ý — nghỉ lễ hay ngày trường có việc riêng thì văn phòng sửa lại.</div>
-        </div>
+        ${this.bangSuaNgay(l.goiYTheoNgay || [])}
         <div class="field">
           <label>Ghi chú nội bộ về tiền ăn</label>
           <input id="lv-hoan-ghichu" placeholder="Ví dụ: đã báo bếp cắt suất từ thứ Ba">
@@ -449,24 +534,14 @@ App.views.leave = {
         ${UI.icon(approve ? 'check' : 'x', 18)} ${approve ? 'Duyệt đơn' : 'Từ chối đơn'}
       </button>
     `, approve ? 'Duyệt đơn xin phép' : 'Từ chối đơn xin phép');
-
-    // Chọn "không hoàn" thì ô số ngày biến đi, chứ không để đó mờ mờ — ô mờ vẫn
-    // làm người nhập tưởng mình phải điền gì đó.
-    const chon = document.getElementById('lv-hoan');
-    if (chon) {
-      const o = document.getElementById('lv-hoan-ngay-o');
-      chon.onchange = () => { o.style.display = chon.value === 'co' ? '' : 'none'; };
-    }
+    if (approve) this.ganBangSuaNgay();
   },
 
   async submitReview(id, status) {
     const reviewNote = document.getElementById('lv-review-note').value.trim();
-    const chon = document.getElementById('lv-hoan');
-    const oNgay = document.getElementById('lv-hoan-ngay');
     const oGhiChu = document.getElementById('lv-hoan-ghichu');
-    const them = chon ? {
-      hoanTienAn: chon.value,
-      soNgayHoan: chon.value === 'co' && oNgay ? Number(oNgay.value) : null,
+    const them = status === 'approved' ? {
+      theoNgay: this.docBangSuaNgay(),
       ghiChuHoan: oGhiChu ? oGhiChu.value.trim() : '',
     } : {};
     try {
@@ -476,6 +551,41 @@ App.views.leave = {
       App.route();
       App.refreshBadges();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // Văn phòng sửa lại từng ngày sau khi đã duyệt. Dòng điểm danh do app tự ghi
+  // đổi theo; dòng cô đã ghi thì giữ nguyên (máy chủ giữ luật này).
+  openSuaNgay(id) {
+    const l = this._list.find(x => x.id === id);
+    if (!l || !l.theoNgay) return;
+    UI.modal(`
+      <div class="list-row" style="border-bottom:none;padding-top:0">
+        ${UI.avatar(l.studentAvatar, 44)}
+        <div class="row-main">
+          <div class="row-title">${UI.esc(l.studentName)}</div>
+          <div class="row-sub">${UI.esc(this.fmtRange(l))}</div>
+        </div>
+      </div>
+      ${this.bangSuaNgay(l.theoNgay)}
+      <div class="field">
+        <label>Ghi chú nội bộ về tiền ăn</label>
+        <input id="lv-hoan-ghichu" value="${UI.esc((l.hoanTien && l.hoanTien.ghiChu) || '')}">
+      </div>
+      <div class="hint mb-8">Dòng điểm danh app đã tự ghi theo đơn sẽ đổi theo. Dòng cô đã ghi (chấm tay, ảnh tới lớp) giữ nguyên.</div>
+      <button class="btn primary block" id="lv-luu-ngay">${UI.icon('check', 18)} Lưu thay đổi</button>
+    `, 'Sửa từng ngày của đơn');
+    this.ganBangSuaNgay();
+    document.getElementById('lv-luu-ngay').onclick = async () => {
+      try {
+        await API.put(`/api/leave/${encodeURIComponent(id)}/ngay`, {
+          theoNgay: this.docBangSuaNgay(),
+          ghiChuHoan: document.getElementById('lv-hoan-ghichu').value.trim(),
+        });
+        UI.toast('Đã lưu chi tiết từng ngày', 'success');
+        UI.closeModal();
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   // ---- Tiện ích ----
