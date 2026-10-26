@@ -223,12 +223,20 @@ function ketQuaDangDung(db) {
 // phân hệ Báo cáo học tập đang hiện (M/S/W/N/NA). Chỉ là NHÃN đọc kèm, không
 // nơi nào so sánh hay sắp xếp theo nó (QUY TẮC 4).
 const CHU_QUY_UOC = { 'chua-day': 'NA', 'chua-quan-sat-thay': 'N', 'dang-hinh-thanh': 'W', 'da-vung': 'S', 'vuot-troi': 'M' };
-// "Tiếp tục ở tháng sau" (góp ý 06/10, mục 7): hai cách mang bài sang tháng sau.
+// "Tiếp tục ở tháng sau" (góp ý 06/10, mục 7): các cách mang bài sang tháng
+// sau. Mã trùng mã nhãn bài (NHAN_BAI) — bài mang sang được tích đúng nhãn ấy.
+// Góp ý 20/10 (N6): thêm "Mở rộng ở tháng sau". Cột `tiepTuc` là TEXT, chỉ thêm
+// một giá trị, không đổi bảng.
 const TIEP_TUC = [
   ['hoc-moi', 'Dạy mới ở tháng sau'],
   ['on-tap', 'Ôn tập ở tháng sau'],
+  ['mo-rong', 'Mở rộng ở tháng sau'],
 ];
 const MA_TIEP_TUC = TIEP_TUC.map(x => x[0]);
+// Nhãn bài mang sang tháng sau của một dòng bài đã nhìn lại.
+function nhanTiepTuc(m) {
+  return MA_TIEP_TUC.includes(m.tiepTuc) ? m.tiepTuc : 'on-tap';
+}
 
 const TRANG_THAI_DUYET = ['nhap', 'cho-duyet', 'da-duyet', 'tra-lai'];
 
@@ -465,10 +473,10 @@ module.exports = (app, { db, modules }) => {
       tuThang: cu.thang,
       baiHoc: baiCuaKe(cu.id)
         .filter(m => m.ketQua === 'tiep-tuc' || m.tiepTucThangSau)
-        // "Tiếp tục ở tháng sau": cô chọn DẠY MỚI (bé nghỉ, chưa học) thì gợi
-        // ý dạy mới; còn lại là ôn tập như trước.
+        // "Tiếp tục ở tháng sau": gợi ý đúng nhãn cô chọn (dạy mới · ôn tập ·
+        // mở rộng); cô chưa chọn (kết luận hai mức đời cũ) thì ôn tập như trước.
         .map(m => ({ baiHocId: m.baiHocId, ten: m.ten, gocLinhVuc: m.gocLinhVuc, nhanXet: m.nhanXet,
-          nhan: m.tiepTuc === 'hoc-moi' ? 'hoc-moi' : 'on-tap' })),
+          nhan: nhanTiepTuc(m) })),
       muc: mucCuaKe(cu.id)
         .filter(m => m.tiepTucThangSau)
         .map(m => ({ gocLinhVuc: m.gocLinhVuc, noiDung: m.noiDung, nhanXet: m.nhanXet })),
@@ -1255,7 +1263,7 @@ module.exports = (app, { db, modules }) => {
         for (const m of bai.slice(0, TOI_DA_BAI_MOI_BE)) {
           db.insert('kehoachbe_muc_bai', {
             id: db.nextId('khmb'), keId: id, baiHocId: m.baiHocId,
-            nhan: laTiep(m) ? (m.tiepTuc === 'hoc-moi' ? 'hoc-moi' : 'on-tap') : m.nhan,
+            nhan: laTiep(m) ? nhanTiepTuc(m) : m.nhan,
             ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc,
           });
         }
@@ -1618,7 +1626,7 @@ module.exports = (app, { db, modules }) => {
       if (mucDo && !MA_KET_QUA.includes(mucDo)) return res.status(400).json({ error: 'Mức độ chưa hợp lệ' });
       const tiepTuc = chuoi((m || {}).tiepTuc, 20);
       if (tiepTuc && !MA_TIEP_TUC.includes(tiepTuc)) {
-        return res.status(400).json({ error: 'Tiếp tục ở tháng sau chỉ có dạy mới hoặc ôn tập' });
+        return res.status(400).json({ error: 'Tiếp tục ở tháng sau chỉ có dạy mới, ôn tập hoặc mở rộng' });
       }
       let kl = chuoi((m || {}).ketQua, 20);
       if (coMucDo && !kl) kl = tiepTuc ? 'tiep-tuc' : (['da-vung', 'vuot-troi'].includes(mucDo) ? 'da-thay' : '');
