@@ -91,6 +91,9 @@ App.views.xuatbaocao = {
     const thang = UI.todayStr().slice(0, 7);
     const coSo = (pv.coSo || []).map(c => [c.id, c.name]);
     const nhom = (pv.nhom || []).map(n => [n.id, n.name]);
+    // Nhóm chưa gắn cơ sở (ban giám hiệu tạo được) không thuộc ô cơ sở nào —
+    // thiếu dòng này thì bé của nhóm ấy không chọn được ở "Một bé".
+    const coSoBe = coSo.concat((pv.nhom || []).some(n => !n.campusId) ? [[this.CHUA_GAN, 'Nhóm chưa gắn cơ sở']] : []);
     const thoiGian = {
       ngay: `
         ${this.oChon(`${id}-cach`, 'Thời gian', [['thang', 'Một tháng'], ['khoang', 'Từ ngày… đến ngày…']])}
@@ -123,7 +126,7 @@ App.views.xuatbaocao = {
           <select id="${id}-ai" size="5" style="margin-top:8px"></select>
         </div>` : `
         <div id="${id}-o-ai" hidden>
-          ${coSo.length > 1 ? this.oChon(`${id}-be-coso`, 'Cơ sở', coSo) : ''}
+          ${coSoBe.length > 1 ? this.oChon(`${id}-be-coso`, 'Cơ sở', coSoBe) : ''}
           ${this.oChon(`${id}-be-nhom`, 'Nhóm lớp', [])}
           ${this.oChon(`${id}-ai`, 'Bé', [])}
         </div>`}
@@ -147,6 +150,7 @@ App.views.xuatbaocao = {
   // tìm + hộp danh sách dài. Ô sau lọc theo ô trước, và chỉ từ `pham-vi` máy
   // chủ đã lọc theo quyền — màn hình không tự thêm bé nào. Trường một cơ sở
   // (hay tài khoản một cơ sở) thì không có ô cơ sở.
+  CHUA_GAN: '__chua-gan-co-so__',
   ganChonBe(p) {
     const pv = this._pv;
     const $ = (k) => document.getElementById(`xb-${p.id}-${k}`);
@@ -165,7 +169,7 @@ App.views.xuatbaocao = {
     };
     const veNhom = () => {
       const cs = $('be-coso') ? $('be-coso').value : '';
-      const ds = (pv.nhom || []).filter(n => !cs || n.campusId === cs);
+      const ds = (pv.nhom || []).filter(n => !cs || (cs === this.CHUA_GAN ? !n.campusId : n.campusId === cs));
       $('be-nhom').innerHTML = tuyChon(ds.map(n => [n.id, n.name]), 'Cơ sở này chưa có nhóm lớp');
       veBe();
     };

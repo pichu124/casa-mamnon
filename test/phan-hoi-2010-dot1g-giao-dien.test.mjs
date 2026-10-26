@@ -67,6 +67,9 @@ const HOM_QUA = new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) - 86400000).toISOStr
     const g = await req('POST', '/api/nhatky/gui', { cookie: GV4, body: { classId: 'c4', ngay, phan: 'vesinh', studentIds: ['s9'] } });
     if (g.status !== 200 || g.data.daGui !== 1) throw new Error(`Không gửi được phần vệ sinh ngày ${ngay}: ${JSON.stringify(g.data)}`);
   }
+  // Một nhóm ban giám hiệu tạo mà chưa gắn cơ sở (đường tạo nhóm cho phép).
+  const nk = await req('POST', '/api/admin/classes', { cookie: QT, body: { name: 'Nhóm thử chưa gắn cơ sở' } });
+  if (nk.status !== 201) throw new Error(`Không tạo được nhóm chưa gắn cơ sở: ${JSON.stringify(nk.data)}`);
   // Thêm một lần cân đo cho s1 để màn gia đình có thẻ "Các lần cân đo".
   const cd = await req('POST', '/api/health', { cookie: QT, body: {
     studentId: 's1', type: 'checkup', title: 'Cân đo tháng này', height: 106, weight: 18, date: HOM_NAY } });
@@ -160,6 +163,14 @@ try {
     const be2 = await page.locator(`${X}-ai option`).evaluateAll(os => os.map(o => o.value).filter(Boolean));
     check('nhóm chưa có bé thì ô Bé không có bé nào để chọn', be2.length === 0, be2);
     check('ô Bé nói rõ nhóm chưa có bé', /chưa có bé/i.test(await page.locator(`${X}-ai`).innerText()));
+
+    // Nhóm chưa gắn cơ sở không thuộc ô cơ sở nào, nên phải có một lựa chọn
+    // riêng — thiếu nó thì bé của nhóm ấy không chọn được ở "Một bé".
+    const coSoDu = await page.locator(`${X}-be-coso option`).allInnerTexts();
+    check('ô Cơ sở có lựa chọn "Nhóm chưa gắn cơ sở"', coSoDu.includes('Nhóm chưa gắn cơ sở'), coSoDu);
+    await page.selectOption(`${X}-be-coso`, { label: 'Nhóm chưa gắn cơ sở' });
+    const nhomLe = await page.locator(`${X}-be-nhom option`).allInnerTexts();
+    check('chọn nó: ô Nhóm lớp có đúng nhóm chưa gắn cơ sở', JSON.stringify(nhomLe) === '["Nhóm thử chưa gắn cơ sở"]', nhomLe);
 
     // Báo cáo tháng dùng đúng bộ ba ô ấy.
     await page.selectOption('#xb-bao-cao-pham', 'be');

@@ -82,7 +82,9 @@ Cỡ việc: **S** ≤ 1 giờ · **M** ≤ nửa ngày · **L** hơn nửa ngà
 
 - **F6 — Nhắn "Cô nước ngoài" thì ai trả lời?** Cô được khai vai "Cô nước ngoài" ở đúng nhóm
   của bé (Cài đặt → Tài khoản & phân quyền → phân cô vào nhóm). Nhóm chưa khai cô nào thì hiện
-  chưa ai đọc được tin đó. Từ đợt 1: nhóm chưa có cô nước ngoài thì gia đình không thấy ô này.
+  chưa ai đọc được tin đó. Từ đợt 1: nhóm chưa có cô nước ngoài thì dòng này hiện mờ kèm câu
+  "Nhóm của bé hiện chưa có cô nhận tin ở mục này", và app không cho gửi vào đó (trước đây gửi
+  được mà không ai đọc). Ẩn hẳn dòng này cần sửa một bài kiểm thử phân quyền — chờ chủ dự án.
 - **O3 — "Mời chữ" lấy từ đâu?** Từ Kế hoạch của bé cùng tháng. Trước đây nút chỉ đọc ô gõ tay
   "Việc khác ngoài danh mục" nên báo "chưa có nhận xét nào"; từ đợt 1 nút đọc cả các bài đã tích.
 - **D5 — Cài ngày nghỉ lễ?** Đã có: màn Xin phép, kéo xuống cuối, thẻ "Lịch nghỉ của trường".
@@ -95,3 +97,22 @@ Cỡ việc: **S** ≤ 1 giờ · **M** ≤ nửa ngày · **L** hơn nửa ngà
 4. **I4** — các giả định G1–G22 ghi trong `docs/hoc-phi-tu-dong/Tinh-hoc-phi-tu-dong.xlsx`.
 5. **K1** — 8 tiếng có trừ nghỉ trưa? Ai duyệt giải trình?
 6. **M1** — "ai cũng tạo album" có gồm phụ huynh không?
+
+## Kết quả đợt 1 (26/10/2026)
+
+Xong: A1 (ô Nhân sự ẩn khỏi trang chủ, vào ở Cài đặt → Phần việc khác; ô Đón trả bé: trường
+tắt ở Quản trị → Tính năng), A2, B2, B3, C1 (trừ phiếu nhận bé mới), D1, D2, F4 (nút Thu hồi),
+F5, G1, H1, J1, J2, K2, N6, N7, N8, O1, O3, O5, P1, P2, Q1.
+
+Làm một phần, phần còn lại chờ chủ dự án:
+- **B6** — ban giám hiệu và quản lý cơ sở lưu ảnh về album được; tài khoản *Văn phòng cơ sở*
+  chưa (chức vụ này không mở được Hành trình; mở ra là đọc được cả ghi chú thô của cô).
+- **C1** — phiếu nhận bé mới còn ô Nhóm máu: một bài kiểm thử phân quyền đang đòi ô đó.
+  Cũng cần hỏi: tệp xuất danh sách cho Phòng có còn cần cột Nhóm máu không.
+- **F6** — xem câu trả lời ở trên.
+- **F5** — tin gia đình gửi TRƯỚC bản sửa: cô chưa từng mở Nhắn tin thì chưa có chấm đỏ cho
+  tới khi gia đình nhắn thêm hoặc cô mở Nhắn tin một lần.
+- **P2** — mốc là đầu ngày tạo tài khoản phụ huynh; tin riêng về con không áp mốc. Máy thử dựng
+  dữ liệu mẫu từ trước thì phụ huynh mẫu chỉ còn thấy thông báo ghim và tin mới — dựng lại
+  dữ liệu mẫu để thử.
+
