@@ -108,8 +108,11 @@ try {
     const s6 = c.prepare('SELECT status, checkOut FROM attendance WHERE studentId = ? AND date = ?').get('s6', HOM);
     c.close();
     check('bé vẫn "Muộn", chưa có giờ ra về', !!s6 && s6.status === 'late' && !s6.checkOut, s6);
-    check('nút "Chụp ảnh ra về" KHÔNG tô nổi khi bé chưa có ảnh tới lớp',
-      !/primary/.test(await dong.locator('button', { hasText: 'Chụp ảnh ra về' }).getAttribute('class') || ''));
+    // Đ242D (góp ý D3): dòng bé không còn nút "Chụp ảnh ra về" riêng — chụp là
+    // bấm tên, và bé chưa có ảnh tới lớp thì luôn qua hộp hỏi ở trên. Phép
+    // kiểm giữ đúng ý cũ: dòng không mời cô bấm thẳng vào ra về.
+    check('dòng KHÔNG có nút "Chụp ảnh ra về" tô nổi khi bé chưa có ảnh tới lớp',
+      await dong.locator('button.primary', { hasText: 'Chụp ảnh ra về' }).count() === 0);
   }
 
   // =========================================================================

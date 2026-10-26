@@ -598,8 +598,9 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   const cuoi = page.locator('[id^="att-dong-"]').last();
   const tenEm = await cuoi.locator('.row-title').innerText();
   // Từ Đ131 bốn nút tích không còn phơi trên dòng — ảnh là điểm danh, còn
-  // ghi tay nằm trong hộp "Sửa" của từng bé. Đường bấm đổi, phép kiểm giữ.
-  await cuoi.locator('button', { hasText: 'Sửa' }).click();
+  // ghi tay nằm trong hộp "Sửa" của từng bé, từ Đ242D mở bằng nút "⋯".
+  // Đường bấm đổi, phép kiểm giữ.
+  await cuoi.locator('button[data-viec-khac]').click();
   await page.waitForTimeout(500);
   await page.locator('.modal button', { hasText: 'Nghỉ CP' }).click();
   await page.waitForTimeout(1200);
@@ -719,9 +720,10 @@ console.log('\n[14] Đơn nghỉ đã duyệt hiện ngay trên màn điểm dan
   check('MÀN ĐIỂM DANH HIỆN HUY HIỆU ĐƠN NGHỈ ĐÃ DUYỆT', /Có đơn nghỉ đã duyệt/.test(man), man.slice(0, 400));
   check('kèm lý do để cô khỏi phải mở màn khác', /khám răng/.test(man));
 
-  // Chấm "Nghỉ KP" cho em đó phải bị hỏi lại. Nút nằm trong hộp "Sửa" (Đ131).
+  // Chấm "Nghỉ KP" cho em đó phải bị hỏi lại. Nút nằm trong hộp "Sửa" (Đ131),
+  // từ Đ242D mở bằng nút "⋯" của dòng.
   const dong = page.locator('.list-row', { hasText: 'Có đơn nghỉ đã duyệt' }).first();
-  await dong.locator('button', { hasText: 'Sửa' }).click();
+  await dong.locator('button[data-viec-khac]').click();
   await page.waitForTimeout(500);
   await page.locator('.modal button', { hasText: 'Nghỉ KP' }).click();
   await page.waitForTimeout(700);

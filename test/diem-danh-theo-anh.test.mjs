@@ -204,20 +204,27 @@ try {
     // này đỏ đúng lúc — đó là việc của nó. Vẫn ghim ĐỦ TÊN theo thứ tự chứ
     // không nới thành `[^)]*`: nới ra là thôi canh được việc ai đó lặng lẽ bỏ
     // một tham số đi.
-    const dong = (v.match(/  rosterRow\(\{ student: s, record, donNghiDaDuyet, anhDenLop, luuY, anhVeNha \}\) \{[\s\S]*?\n  \},/) || [''])[0];
+    // Đ242D thêm `ghiChuVe` (ghi chú gia đình đọc được của lượt ra về).
+    const dong = (v.match(/  rosterRow\(\{ student: s, record, donNghiDaDuyet, anhDenLop, luuY, anhVeNha, ghiChuVe \}\) \{[\s\S]*?\n  \},/) || [''])[0];
     check('đối chứng — tìm được dòng bé', dong.length > 400, dong.length);
     check('dòng bé KHÔNG còn vẽ bốn nút tích từ STATUS_KEYS', !/STATUS_KEYS\.map/.test(dong), 'còn STATUS_KEYS.map');
-    check('có nút "Chụp ảnh con tới lớp" và nút "Sửa"', /Chụp ảnh con tới lớp/.test(dong) && />Sửa</.test(dong));
-    // Đ207: ô lưu ý nội bộ có mặt trên dòng bé, VÀ nhãn của nó nói thẳng gia
+    // Đ242D (góp ý D3): nút chụp riêng và nút "Sửa" trên dòng đổi thành ảnh +
+    // tên là MỘT nút (chụp → màn xem lại) và một nút "⋯" mở hộp Sửa. Việc khác
+    // của dòng (lưu ý nội bộ, ghi con đã về) nay nằm trong hộp ấy.
+    const hopSua = (v.match(/  suaDiemDanh\(studentId\) \{[\s\S]*?\n  \},/) || [''])[0];
+    check('ảnh + tên bé là một nút chụp, và có nút "⋯" mở hộp Sửa',
+      /class="att-ten" onclick="App\.views\.attendance\.chamNhanh\('/.test(dong)
+        && /data-viec-khac[\s\S]*?suaDiemDanh\('/.test(dong), dong.slice(0, 200));
+    // Đ207: ô lưu ý nội bộ có lối mở từ dòng bé, VÀ nhãn của nó nói thẳng gia
     // đình không đọc — ngay bên trên đã có một ô mang nhãn "gia đình đọc
     // được", nên nhãn là thứ DUY NHẤT phân biệt hai ô chữ trông giống hệt nhau.
-    check('dòng bé có nút mở ô lưu ý nội bộ (Đ207)', /moLuuY\('/.test(dong), 'không thấy nút lưu ý');
+    check('dòng bé có lối mở ô lưu ý nội bộ (Đ207) — trong hộp "⋯"', /this\.moLuuY\(studentId\)/.test(hopSua), 'không thấy nút lưu ý');
     check('và ô lưu ý luôn nói rõ GIA ĐÌNH KHÔNG ĐỌC ô này',
       /gia đình KHÔNG đọc ô này/i.test(v), 'nhãn không nói rõ');
     check('ô ghi chú cũ VẪN mang nhãn "gia đình đọc được" — hai ô, hai nhãn',
       /Ghi chú \(gia đình đọc được\)/.test(v), 'mất nhãn ô cũ');
     // Đ210 — MỘT DÒNG VÀO/RA, không còn hai tab.
-    check('dòng bé có nút ghi con đã về (Đ210)', /moRaVe\('/.test(dong), 'không thấy nút ghi con về');
+    check('dòng bé có lối ghi con đã về (Đ210) — trong hộp "⋯"', /this\.moRaVe\(studentId\)/.test(hopSua), 'không thấy nút ghi con về');
     check('và dòng bé dựng CẢ HAI nửa của một ngày trên một dòng',
       /Vào lớp \$\{record\.checkIn\}/.test(dong) && /Ra về \$\{record\.checkOut\}/.test(dong), dong.slice(0, 200));
     check('dải tab Đón bé / Trả bé đã gỡ khỏi màn của cô',
