@@ -668,6 +668,12 @@ module.exports = (app) => {
     }
     const coSoDiemDanh = modules.dangBat('diemdanh');
 
+    // Bé chưa có dòng mà cơ sở của nhóm nghỉ theo lịch của trường thì KHÔNG
+    // phải "chưa chấm" — không ai phải chấm ngày ấy (góp ý 20/10, cùng luật
+    // với bảng rà soát ở routes/attendance.js). Cơ sở không nghỉ vẫn đếm.
+    const dotCuaNhom = nghiHoc.dotNghiTheoNhom(ngayXem);
+    const chuaChamBe = (s) => !theoBe.has(s.id) && !dotCuaNhom(s.classId);
+
     // ---- Cô đi làm hôm nay ----
     //
     // Đọc bảng của phân hệ Nhân sự nên phải hỏi công tắc trước. Bọc thêm một
@@ -741,7 +747,7 @@ module.exports = (app) => {
         if (!o) continue;
         o.dangHoc += 1;
         const r = theoBe.get(s.id);
-        if (!r) { o.chuaCham += 1; continue; }
+        if (!r) { if (chuaChamBe(s)) o.chuaCham += 1; continue; }
         if (r.status === 'present' || r.status === 'late') o.coMat += 1;
         if (r.checkOut) o.daRaVe += 1;
       }
@@ -763,7 +769,7 @@ module.exports = (app) => {
         daRaVe: coSoDiemDanh ? dem.daRaVe : null,
         nghiCoPhep: coSoDiemDanh ? dem.nghiCoPhep : null,
         nghiKhongPhep: coSoDiemDanh ? dem.nghiKhongPhep : null,
-        chuaCham: coSoDiemDanh ? be.length - theoBe.size : null,
+        chuaCham: coSoDiemDanh ? be.filter(chuaChamBe).length : null,
       },
       co: nhanSu,
       hocPhi,

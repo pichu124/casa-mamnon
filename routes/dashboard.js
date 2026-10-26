@@ -167,7 +167,11 @@ function tinhHomNay(ids, today) {
 
 // Số đếm của một nhóm. Vế của phân hệ đang tắt là null, không phải 0 — 0 là
 // "chưa ai ghi", null là "không có phần này".
-function demNhom(ids, hn) {
+//
+// `truongNghi`: hôm nay cơ sở của nhóm nghỉ theo lịch của trường. Khi đó bé
+// chưa có dòng KHÔNG phải "chưa điểm danh" — không ai phải chấm (góp ý 20/10,
+// cùng luật với bảng rà soát ở routes/attendance.js).
+function demNhom(ids, hn, truongNghi = false) {
   const dem = {
     soBe: ids.length, coMat: 0, denMuon: 0, nghiPhep: 0, nghiKhongPhep: 0, chuaDiemDanh: 0,
     nhatKyDaGhi: hn.nhatKy ? 0 : null, daTra: hn.daTra ? 0 : null,
@@ -179,7 +183,7 @@ function demNhom(ids, hn) {
   };
   for (const id of ids) {
     const d = hn.diemDanh.get(id);
-    if (!d) dem.chuaDiemDanh++;
+    if (!d) { if (!truongNghi) dem.chuaDiemDanh++; }
     else if (d.status === 'present') dem.coMat++;
     else if (d.status === 'late') dem.denMuon++;
     else if (d.status === 'absent_excused') dem.nghiPhep++;
@@ -249,11 +253,15 @@ module.exports = (app) => {
     const hn = tinhHomNay(ids, today);
     const csId = db.campusOfClass(classId);
     const cs = csId ? db.findCampus(csId) : null;
+    const dotNghi = nghiHoc.dotNghiTheoNhom(today)(classId);
     res.json({
       ngay: today,
       nhom: { id: cls.id, name: cls.name, coSo: cs ? { id: cs.id, name: cs.name } : null },
+      // Hôm nay cơ sở của nhóm nghỉ theo lịch của trường: màn hình nói tên
+      // ngày nghỉ thay cho lời nhắc điểm danh.
+      truongNghi: dotNghi ? { ten: dotNghi.ten, loai: dotNghi.loai } : null,
       co: nl.tomTat(classId).teachers.map(t => ({ id: t.id, title: t.title, name: t.name, vaiTro: t.vaiTro })),
-      dem: demNhom(ids, hn),
+      dem: demNhom(ids, hn, !!dotNghi),
       be: be.map(b => {
         const d = hn.diemDanh.get(b.id);
         return {
@@ -295,12 +303,13 @@ module.exports = (app) => {
       }
     }
     const hn = tinhHomNay(ids, today);
+    const dotCuaNhom = nghiHoc.dotNghiTheoNhom(today);
     const taNhom = (c) => {
       const co = nl.tomTat(c.id);
       return {
         id: c.id, name: c.name,
         coChinh: co.teacherName, cacCo: co.teacherNames,
-        ...demNhom(beTheoNhom.get(c.id) || [], hn),
+        ...demNhom(beTheoNhom.get(c.id) || [], hn, !!dotCuaNhom(c.id)),
       };
     };
     const coSo = dsCoSo.map(cs => {
@@ -418,10 +427,15 @@ module.exports = (app) => {
         `SELECT COUNT(*) FROM leave_requests WHERE status = 'pending' AND studentId IN (${marks})`, ids);
       badges.danthuoc = db.count(
         `SELECT COUNT(*) FROM medicine_requests WHERE status = 'pending' AND studentId IN (${marks})`, ids);
-      // Số học sinh chưa được điểm danh hôm nay
-      const marked = db.count(
-        `SELECT COUNT(*) FROM attendance WHERE date = ? AND studentId IN (${marks})`, [today, ...ids]);
-      badges.diemdanh = ids.length - marked;
+      // Số bé chưa được điểm danh hôm nay — trừ bé của nhóm mà cơ sở đang
+      // nghỉ theo lịch của trường (không ai phải chấm ngày ấy).
+      const dotCuaNhom = nghiHoc.dotNghiTheoNhom(today);
+      const phaiCham = db.all('students', `SELECT id, classId FROM students WHERE id IN (${marks})`, ids)
+        .filter(s => !dotCuaNhom(s.classId)).map(s => s.id);
+      const marked = phaiCham.length ? db.count(
+        `SELECT COUNT(*) FROM attendance WHERE date = ? AND studentId IN (${phaiCham.map(() => '?').join(',')})`,
+        [today, ...phaiCham]) : 0;
+      badges.diemdanh = phaiCham.length - marked;
     }
 
     res.json(badges);
