@@ -2720,6 +2720,7 @@ Vẫn nhận bé này?`)) {
 
       // Điểm danh, xin phép, đón trả bé
       'leave-review': 'Duyệt đơn xin phép',
+      'leave-sua-ngay': 'Sửa kết quả từng ngày của đơn xin phép',
       'chot-vang': 'Chốt sổ vắng trong ngày',
       'diemdanh-gio-ra-soat': 'Đổi mốc giờ rà soát điểm danh',
       'anh-toi-lop': 'Chụp ảnh bé tới lớp',
@@ -2759,6 +2760,7 @@ Vẫn nhận bé này?`)) {
       // Ảnh và album
       'album-delete': 'Xoá album',
       'album-doi-che-do': 'Đổi chế độ xem album',
+      'album-tu-cau-chuyen': 'Thêm ảnh câu chuyện đã kể vào album',
       'photo-tag': 'Gắn tên bé vào ảnh',
       'photo-tag-nhieu': 'Gắn tên bé vào nhiều ảnh',
 
