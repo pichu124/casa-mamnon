@@ -261,7 +261,10 @@ console.log('\n[5] Canh tĩnh: lược đồ chỉ thêm, chốt ở đường b
   // Quy xuống dòng về '\n': mẫu tìm ở dưới có '\n' bên trong, máy Windows tải mã
   // về có thể mang CRLF và khi đó không tìm thấy.
   const htRt = fs.readFileSync(path.join(GOC, 'modules/hanhtrinh/routes.js'), 'utf8').replace(/\r\n/g, '\n');
-  check('ảnh về album gắn thẻ bé qua db.datBeTrongAnh và chép tệp bằng chepAnh', /db\.datBeTrongAnh\(photo\.id, \[r\.studentId\]\)/.test(htRt) && /const file = chepAnh\(r\.anh\)/.test(htRt));
+  // Đ242B — chủ dự án quyết 26/10 (B7, mặc định 3): ảnh về album gắn thẻ bé
+  // chính VÀ mọi bé cô chọn là có mặt trong ảnh, để luật album theo thẻ và
+  // luật đồng ý ảnh nhóm biết trong ảnh có ai. Bé chính vẫn luôn được gắn.
+  check('ảnh về album gắn thẻ bé chính và mọi bé có mặt qua db.datBeTrongAnh, chép tệp bằng chepAnh', /db\.datBeTrongAnh\(photo\.id, \[r\.studentId, \.\.\.beCoMat\]\)/.test(htRt) && /const file = chepAnh\(r\.anh\)/.test(htRt));
   {
     // Cả hai mốc phải TÌM THẤY rồi mới so thứ tự: mốc kiểm quyền biến mất thì
     // indexOf ra -1, và -1 nhỏ hơn mọi vị trí — phép so cũ vẫn xanh đúng lúc
