@@ -50,7 +50,7 @@ const SANG_NAY = new Date(Date.parse(dauHomNay) + 60000).toISOString();
   csdl.close();
 }
 
-const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 5241), dir: DIR });
+const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 6411), dir: DIR });
 const req = taoReq(BASE);
 const login = taoLogin(req);
 
