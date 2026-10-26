@@ -87,6 +87,18 @@ const NHOM_CHUONG_TRINH = [
   ['nuoc-ngoai', 'Cô nước ngoài', 'Cambridge'],
   ['the-chat', 'Cô thể chất', 'Thể chất chuyên sâu'],
 ];
+// Tên góc để hiện cho cô và gia đình — mã góc ("giac-quan") không bao giờ
+// được lên màn hình hay vào chữ gửi gia đình. Cùng bảng với GOC_LINH_VUC của
+// kehoachbe; mã lạ (góc mới chưa chép sang đây) thì để trống, không lộ mã.
+const TEN_GOC = {
+  'toan': 'Toán',
+  'tieng-viet': 'Tiếng Việt',
+  'cambridge': 'Tiếng Anh (Cambridge)',
+  'thuc-hanh-cuoc-song': 'Thực hành cuộc sống',
+  'giac-quan': 'Giác quan',
+  'van-hoa': 'Văn hoá',
+  'the-chat': 'Thể chất',
+};
 const CHUONG_TRINH_CUA_GOC = {
   'toan': 'chu-nhiem',
   'tieng-viet': 'chu-nhiem',
@@ -786,7 +798,7 @@ module.exports = (app, { db, modules }) => {
       const t = MUC.find(x => x[0] === mucDoBai.get(m.id));
       return t ? t[2] : '';
     };
-    const TIEP = { 'hoc-moi': 'tháng sau dạy mới', 'on-tap': 'tháng sau ôn tập' };
+    const TIEP = { 'hoc-moi': 'tháng sau dạy mới', 'on-tap': 'tháng sau ôn tập', 'mo-rong': 'tháng sau mở rộng' };
     const muc = db.all('kehoachbe_muc', 'SELECT * FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
     if (!bai.length && !muc.length) return [];
 
@@ -1193,6 +1205,7 @@ module.exports = (app, { db, modules }) => {
     const goiYBai = [...theoGoc].map(([goc, ds]) => ({
       loai: 'bai',
       gocLinhVuc: goc,
+      tenGoc: TEN_GOC[goc] || '',
       noiDung: ds.map(m => (NHAN[m.nhan] ? `${m.ten} (${NHAN[m.nhan]})` : m.ten)).join(', '),
       nhanXet: ds.filter(m => String(m.nhanXet || '').trim())
         .map(m => `${m.ten}: ${m.nhanXet.trim()}`).join('\n'),
@@ -1209,6 +1222,7 @@ module.exports = (app, { db, modules }) => {
         .filter(m => String(m.nhanXet || '').trim() || String(m.noiDung || '').trim())
         .map(m => ({
           gocLinhVuc: m.gocLinhVuc,
+          tenGoc: TEN_GOC[m.gocLinhVuc] || '',
           noiDung: m.noiDung,
           nhanXet: m.nhanXet,
           ketQua: m.ketQua,

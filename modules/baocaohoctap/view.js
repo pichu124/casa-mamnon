@@ -641,7 +641,7 @@ App.views.baocaohoctap = {
       </div>
       ${(d.goiY || []).map((g, i) => `
         <div class="card" style="margin-bottom:8px">
-          <div class="small" style="font-weight:600">${UI.esc(g.gocLinhVuc || '')}</div>
+          ${g.tenGoc ? `<div class="small" style="font-weight:600">${UI.esc(g.tenGoc)}</div>` : ''}
           ${g.noiDung ? `<div class="muted small mt-8">${g.loai === 'bai' ? 'Bài đã tích' : 'Kế hoạch'}: ${UI.esc(g.noiDung)}</div>` : ''}
           ${g.nhanXet ? `<div class="small mt-8" style="white-space:pre-wrap">${UI.esc(g.nhanXet)}</div>` : ''}
           <button class="btn outline block mt-8" data-chep="${i}">Chép câu này</button>
@@ -655,7 +655,7 @@ App.views.baocaohoctap = {
         // Bài đã tích: chép cả tên bài lẫn nhận xét — nhận xét "Tháp hồng: …"
         // đứng một mình thì mất các bài cô chưa kịp ghi gì.
         const chu = g.loai === 'bai' ? [g.noiDung, g.nhanXet].filter(Boolean).join('\n') : (g.nhanXet || g.noiDung);
-        const them = [g.gocLinhVuc, chu].filter(Boolean).join(': ');
+        const them = [g.tenGoc, chu].filter(Boolean).join(': ');
         o.value = (o.value ? `${o.value}\n` : '') + them;
         UI.closeModal();
         UI.toast('Đã chép vào ô tổng hợp, cô sửa lại rồi lưu nhé', 'success');

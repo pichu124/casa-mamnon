@@ -90,7 +90,7 @@ const CHUONG_TRINH_CUA_GOC = {
 const CHU_QUY_UOC = { 'chua-day': 'NA', 'chua-quan-sat-thay': 'N', 'dang-hinh-thanh': 'W', 'da-vung': 'S', 'vuot-troi': 'M' };
 const NHAN_BAI = { 'hoc-moi': 'Dạy mới', 'on-tap': 'Ôn tập', 'mo-rong': 'Mở rộng' };
 const KET_LUAN_BAI = { 'da-thay': 'Đã thấy con làm được', 'tiep-tuc': 'Tiếp tục cùng con' };
-const TIEP_TUC = { 'hoc-moi': 'Dạy mới ở tháng sau', 'on-tap': 'Ôn tập ở tháng sau' };
+const TIEP_TUC = { 'hoc-moi': 'Dạy mới ở tháng sau', 'on-tap': 'Ôn tập ở tháng sau', 'mo-rong': 'Mở rộng ở tháng sau' };
 const TRANG_THAI_KE = { nhap: 'Nháp', 'cho-duyet': 'Chờ duyệt', 'da-duyet': 'Đã duyệt', 'tra-lai': 'Gửi lại cô sửa' };
 
 const LOAI_BAO_CAO = { thang: 'Báo cáo tháng', hocky: 'Báo cáo 6 tháng' };

@@ -103,6 +103,9 @@ try {
     check('chữ mời mang góc lĩnh vực của bài để cô biết thuộc phần nào',
       (gy.data.goiY || []).some(g => g.gocLinhVuc === 'giac-quan' && /Tháp hồng/.test(g.noiDung || ''))
         && (gy.data.goiY || []).some(g => g.gocLinhVuc === 'thuc-hanh-cuoc-song' && /Rót nước/.test(g.noiDung || '')), chu);
+    check('mỗi gợi ý mang tên góc để hiện ("Giác quan"), không phải mã góc',
+      (gy.data.goiY || []).some(g => g.gocLinhVuc === 'giac-quan' && g.tenGoc === 'Giác quan')
+        && (gy.data.goiY || []).every(g => !/^[a-z]+(-[a-z]+)*$/.test(g.tenGoc || '')), chu);
     check('KHÔNG lẫn bài của bé khác cùng nhóm', !chu.includes(baiKhac.ten), chu);
 
     // Nhìn lại cuối tháng: nhận xét của cô cho từng bài cũng phải sang.
