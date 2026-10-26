@@ -21,14 +21,14 @@
 #
 # Ổ đĩa mới là ổ trống. Với NODE_ENV=production, máy chủ DỪNG có chủ ý khi cơ
 # sở dữ liệu trống, thay vì tự sinh dữ liệu mẫu — vì dữ liệu mẫu kèm
-# 13 tài khoản dùng chung mật khẩu "123456". Đó là hành vi ĐÚNG, không phải lỗi.
+# 15 tài khoản dùng chung mật khẩu "123456". Đó là hành vi ĐÚNG, không phải lỗi.
 #
 # Nhưng trên Render nó thành một vòng kẹt: Shell chỉ mở được khi dịch vụ đang
 # chạy → dịch vụ không chạy được vì chưa có tài khoản quản trị → không mở được
 # Shell để tạo tài khoản quản trị.
 #
 # ĐỪNG đi đường tắt "tạm bỏ NODE_ENV=production cho nó lên đã". Làm vậy là dựng
-# 13 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
+# 15 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
 #
 # Hai đường đi thật, chọn một trước khi triển khai:
 #   [A] Máy chủ riêng / VPS thay cho Render — chạy `npm run create-admin` qua

@@ -131,7 +131,7 @@ Người phụ trách điền bảng này ngay khi nhận mật khẩu, và đi�
 
 | Tài khoản | Mật khẩu lần đầu | Mật khẩu mới sau khi đổi |
 | --- | --- | --- |
-| 13 tài khoản cô và gia đình (dùng chung) |  |  |
+| 15 tài khoản cô và gia đình (dùng chung) |  |  |
 | hieutruong |  |  |
 | vanphong1 | *(như dòng đầu)* |  |
 | nhansu | *(như dòng đầu)* |  |
@@ -142,7 +142,7 @@ Người phụ trách điền bảng này ngay khi nhận mật khẩu, và đi�
 | ph.minh (cấp mật khẩu tạm ở 3.6) | *(như dòng đầu)* |  |
 | Tài khoản tạo thêm khi thử (3.3, 3.4, 3.8, 3.19, 3.29, 3.33, 3.34), ghi kèm tên đăng nhập |  |  |
 
-- `hieutruong` và `quanly1` mỗi tài khoản có mật khẩu riêng. `vanphong1`, `nhansu`, `ketoan`, `marketing` dùng **chung mật khẩu ban đầu** với 13 tài khoản cô và gia đình.
+- `hieutruong` và `quanly1` mỗi tài khoản có mật khẩu riêng. `vanphong1`, `nhansu`, `ketoan`, `marketing` dùng **chung mật khẩu ban đầu** với 15 tài khoản cô và gia đình.
 - Sáu tài khoản quản trị (`hieutruong`, `vanphong1`, `nhansu`, `ketoan`, `marketing`, `quanly1`) bị buộc đổi mật khẩu ở lần đăng nhập đầu, và tài khoản tạo thêm khi thử cũng vậy. Mật khẩu mới phải từ 8 ký tự, có cả chữ và số. Cô và gia đình mẫu không bị buộc đổi.
 
 Các mật khẩu này **chỉ dùng cho máy thử**: không dùng lại trên máy chủ thật hay cho tài khoản riêng của ai. Tài khoản quản trị nào đổi mật khẩu lần đầu thì ghi ngay vào cột cuối và báo những người dùng tài khoản đó; riêng `quanly1` thì chỉ báo người phụ trách. Cô hay gia đình đổi mật khẩu khi thử (ph.huong ở 2.6, ph.minh ở 3.6) thì báo cả nhóm. Tài liệu đã điền chỉ chia sẻ cho người trong nhóm thử, không đăng vào nhóm chat chung. Hết đợt thử thì đổi hết: người giữ máy chủ chạy lại bàn thử (lệnh ở dưới), còn `quanly1` tự đổi ở “Cài đặt” → “Đổi mật khẩu”.
@@ -167,7 +167,7 @@ npm run ban-thu -- --khong-chay --thu-muc /var/lib/casa-mamnon
 **Tuyệt đối không thêm `--lam-lai`**: cờ đó xoá sạch dữ liệu thử, ảnh và cả các bản sao lưu. Chạy đúng như trên thì:
 
 - Dữ liệu giữ nguyên; máy in dòng “\[1/4\] Bàn thử đã có sẵn, giữ nguyên dữ liệu.”
-- Mọi tài khoản cô và gia đình chuyển sang một mật khẩu chung **mới**. Việc này gồm 13 tài khoản mẫu và các tài khoản tạo thêm khi thử (cô mới, gia đình mới), kể cả những người đã tự đổi (như ph.huong, ph.minh). Ai đang đăng nhập thì vẫn dùng tiếp được.
+- Mọi tài khoản cô và gia đình chuyển sang một mật khẩu chung **mới**. Việc này gồm 15 tài khoản mẫu và các tài khoản tạo thêm khi thử (cô mới, gia đình mới), kể cả những người đã tự đổi (như ph.huong, ph.minh). Ai đang đăng nhập thì vẫn dùng tiếp được.
 - `hieutruong` nhận mật khẩu riêng mới. `vanphong1`, `nhansu`, `ketoan`, `marketing` về mật khẩu chung mới. Cả năm tài khoản này lại bị buộc đổi mật khẩu, và chức vụ, cơ sở của bốn tài khoản phòng ban trở về như lúc dựng máy.
 - Mọi tính năng cắm thêm bị bật lại, **trừ** những phần trường đã quyết tắt: từ Đ239 lệnh không bật “Đón trả bé” nữa, và tắt lại nếu nó đang bật (kể cả khi `hieutruong` vừa bật lại bằng tay). Nhật ký không ghi lại việc này. Phần nào trường tự tắt thêm bằng tay thì `hieutruong` vào tab “Tính năng” tắt lại.
 - `quanly1` giữ nguyên mật khẩu, chức vụ và cơ sở.
@@ -262,7 +262,7 @@ Máy thử dùng chung cho cả nhóm. Một thao tác dưới đây làm hỏng
 
 ### Phối hợp vì dùng chung tài khoản
 
-- Máy thử không dùng mật khẩu 123456. 13 tài khoản cô và gia đình dùng chung một mật khẩu do người dựng máy giữ; hieutruong và quanly1 có mật khẩu riêng. Mật khẩu ghi ở bảng “Mật khẩu” trong mục này.
+- Máy thử không dùng mật khẩu 123456. 15 tài khoản cô và gia đình dùng chung một mật khẩu do người dựng máy giữ; hieutruong và quanly1 có mật khẩu riêng. Mật khẩu ghi ở bảng “Mật khẩu” trong mục này.
 - hieutruong, vanphong1, nhansu, ketoan, marketing, quanly1 bị buộc đổi mật khẩu lần đầu. Người đăng nhập đầu tiên ghi mật khẩu mới vào bảng “Mật khẩu” và báo những người dùng tài khoản đó; riêng quanly1 chỉ báo người phụ trách.
 - Sai mật khẩu 8 lần trong 15 phút từ cùng một mạng là khoá 15 phút. Cả trường chung Wi-Fi nên một người gõ sai là khoá cả nhóm. Muốn thử khoá thì dùng 4G.
 - Gõ sai một tên đăng nhập quá 3 lần thì máy trả lời chậm dần, tới 8 giây: đó không phải treo.

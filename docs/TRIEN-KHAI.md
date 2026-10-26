@@ -164,7 +164,7 @@ Lệnh in ra một mật khẩu tạm — ghi lại, lần đăng nhập đầu 
 
 **Vì sao phải làm trước:** với `NODE_ENV=production`, cơ sở dữ liệu trống thì
 máy chủ **dừng có chủ ý** thay vì tự sinh dữ liệu mẫu. Dữ liệu mẫu kèm
-13 tài khoản dùng chung mật khẩu `123456`; sinh chúng ra trên một máy đang mở ra
+15 tài khoản dùng chung mật khẩu `123456`; sinh chúng ra trên một máy đang mở ra
 Internet là tự mở cửa cho người lạ.
 
 Đó cũng là lý do đừng đi đường tắt *"tạm bỏ NODE_ENV=production cho nó lên đã"*.
@@ -393,13 +393,13 @@ mạng — xem mục 1 của `docs/PHEP-THU-DIEN-THOAI.md`.
 
 **Lần triển khai đầu tiên là một vòng kẹt, và nó có thật.** Ổ đĩa mới là ổ
 trống; với `NODE_ENV=production`, máy chủ DỪNG có chủ ý khi cơ sở dữ liệu trống
-thay vì tự sinh dữ liệu mẫu — vì dữ liệu mẫu kèm 13 tài khoản dùng chung mật
+thay vì tự sinh dữ liệu mẫu — vì dữ liệu mẫu kèm 15 tài khoản dùng chung mật
 khẩu "123456". Đó là hành vi ĐÚNG. Nhưng Shell của Render chỉ mở được khi dịch
 vụ đang chạy, nên: dịch vụ không chạy vì chưa có tài khoản quản trị → không mở
 được Shell để tạo tài khoản quản trị.
 
 **ĐỪNG đi đường tắt "tạm bỏ `NODE_ENV=production` cho nó lên đã".** Làm vậy là
-dựng 13 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
+dựng 15 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
 
 Đường ra, làm theo đúng thứ tự:
 

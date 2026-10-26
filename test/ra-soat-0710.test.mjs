@@ -18,7 +18,7 @@ import { createRequire } from 'node:module';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
-  batPhanHe, khoaVaoCoSo, datChucVu, HOM_NAY, GOC,
+  batPhanHe, khoaVaoCoSo, datChucVu, HOM_NAY, GOC, goCoNuocNgoaiMau,
 } from './_chung.mjs';
 
 const require = createRequire(import.meta.url);
@@ -27,6 +27,9 @@ const xlsx = require(path.join(GOC, 'lib', 'xlsx.js'));
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('ra-soat-0710');
 sinhDuLieu(DIR);
+// Đ242F — F6b: dữ liệu mẫu nay có cô nước ngoài khai vai ở mọi nhóm. Bài này
+// canh ca "trường CHƯA khai vai" (cô phụ trách soạn cả ba phần), nên gỡ đi.
+goCoNuocNgoaiMau(DIR);
 batPhanHe(DIR, ['kehoachbe', 'hanhtrinh', 'thuchup', 'nhatky', 'xinphep', 'nhansu', 'diemdanh']);
 const mk = {
   qt: taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong'),

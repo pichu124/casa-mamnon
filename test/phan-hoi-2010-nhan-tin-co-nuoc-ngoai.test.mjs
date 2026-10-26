@@ -30,15 +30,8 @@ khoaVaoCoSo(DIR, 'cn_ql1', 'cs1');
 const mkVP1 = taoQuanTri(DIR, 'Văn phòng CS1 NN', 'cn_vp1');
 datChucVu(DIR, 'cn_vp1', 'vanphong-coso');
 khoaVaoCoSo(DIR, 'cn_vp1', 'cs1');
+// Dữ liệu mẫu (Đ242F — F6b): cô Emily (t5) là cô nước ngoài của Chồi 2 (c1).
 const CSDL = path.join(DIR, 'school.db');
-{
-  // Cô 2 (t2) là cô nước ngoài của Chồi 2 (c1), vẫn là cô phụ trách Lá 1 (c2).
-  const c = new Database(CSDL);
-  c.prepare("DELETE FROM class_teacher_nhom WHERE classId = 'c1'").run();
-  c.prepare("INSERT OR IGNORE INTO class_teachers (classId, teacherId, vaiTro) VALUES ('c1', 't2', 'phu')").run();
-  c.prepare("INSERT INTO class_teacher_nhom (classId, teacherId, nhom) VALUES ('c1', 't2', 'nuoc-ngoai')").run();
-  c.close();
-}
 function hoi(sql, ...thamSo) {
   const conn = new Database(CSDL);
   try { return conn.prepare(sql).all(...thamSo); } finally { conn.close(); }
@@ -59,7 +52,7 @@ try {
   const QL1 = await vao('cn_ql1', mkQL1);
   const VP1 = await vao('cn_vp1', mkVP1);
   const GV = (await login('giaovien', '123456')).cookie;    // t1 — cô phụ trách Chồi 2
-  const NN = (await login('giaovien2', '123456')).cookie;   // t2 — cô nước ngoài Chồi 2
+  const NN = (await login('giaovien.nn', '123456')).cookie; // t5 — cô nước ngoài Chồi 2
   const PH = (await login('phuhuynh', '123456')).cookie;    // p1 — s1 (c1)
 
   const lh = async (cookie) => (await req('GET', '/api/messages', { cookie })).data?.contacts || [];

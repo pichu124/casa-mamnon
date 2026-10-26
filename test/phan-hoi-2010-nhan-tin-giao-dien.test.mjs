@@ -13,12 +13,16 @@
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem,
-  CHROMIUM, tatBannerMoiCai,
+  CHROMIUM, tatBannerMoiCai, goCoNuocNgoaiMau,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('phan-hoi-2010-nhan-tin-gd');
 sinhDuLieu(DIR);
+// Từ Đ242F — F6b dữ liệu mẫu cho MỖI nhóm một cô nước ngoài (chủ dự án 26/10).
+// Mục [1] canh dòng mờ "chưa có cô nhận tin" — ca "lỡ chưa phân cô" — nên tự gỡ
+// cô nước ngoài khỏi hai nhóm của các con nhà mẫu để dựng lại ca ấy.
+goCoNuocNgoaiMau(DIR, ['c1', 'c2']);
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4974), dir: DIR });
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });

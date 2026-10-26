@@ -297,7 +297,7 @@ function warnDefaultPasswords() {
 
 // Cơ sở dữ liệu trống (lần chạy đầu) thì sinh dữ liệu mẫu để có cái xem ngay.
 //
-// KHÔNG làm việc này khi chạy thật. Dữ liệu mẫu kèm 13 tài khoản dùng chung mật
+// KHÔNG làm việc này khi chạy thật. Dữ liệu mẫu kèm 15 tài khoản dùng chung mật
 // khẩu "123456" — sinh ra chúng trên một máy chủ đang mở ra Internet là tự mở
 // cửa cho người lạ. Ở chế độ production, cơ sở dữ liệu trống nghĩa là người
 // triển khai chưa nhập danh sách thật hoặc đang trỏ nhầm DATA_DIR: báo rõ rồi

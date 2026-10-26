@@ -16,7 +16,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, khoaVaoCoSo,
+  taoBoDem, taoReq, taoLogin, khoaVaoCoSo, goCoNuocNgoaiMau,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -31,6 +31,10 @@ function hoi(sql, ...thamSo) {
   const conn = new Database(CSDL);
   try { return conn.prepare(sql).all(...thamSo); } finally { conn.close(); }
 }
+// Từ Đ242F — F6b dữ liệu mẫu cho MỖI nhóm một cô nước ngoài (chủ dự án 26/10:
+// "lớp nào cũng có cô nước ngoài"). Mục [4] canh đúng ca "lỡ chưa phân cô", nên
+// tự gỡ cô nước ngoài khỏi nhóm Lá 1 (c2) để dựng lại ca ấy.
+goCoNuocNgoaiMau(DIR, ['c2']);
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4973), dir: DIR });
 const req = taoReq(sv.BASE);
