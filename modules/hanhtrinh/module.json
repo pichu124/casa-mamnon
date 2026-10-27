@@ -9,5 +9,6 @@
   "api": ["/api/hanhtrinh"],
   "roles": ["parent", "teacher", "admin"],
   "defaultEnabled": true,
+  "dieuKienHien": "/api/hanhtrinh/chu-de/hien-o",
   "version": "0.1.0"
 }
