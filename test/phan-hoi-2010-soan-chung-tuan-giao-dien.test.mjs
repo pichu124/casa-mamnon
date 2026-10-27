@@ -12,12 +12,15 @@
 //   [2] Nhóm CHƯA có lịch sinh hoạt vẫn có nút — chủ đề tuần không đợi lịch.
 //   [3] Văn phòng thấy nút (máy chủ cho văn phòng soạn).
 //   [4] Gia đình KHÔNG thấy nút, nhưng vẫn thấy khối kế hoạch chung như cũ.
+//   [5] Văn phòng CƠ SỞ (chức vụ, L39 — chủ dự án mở 27/10) thấy nút, mở màn
+//       soạn chỉ có phần kế hoạch chung tuần, ô nhóm chỉ có nhóm cơ sở mình,
+//       lưu được; Trang chủ của họ không có ô Hành trình.
 //
 // Chạy bằng:  node test/phan-hoi-2010-soan-chung-tuan-giao-dien.test.mjs
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, batPhanHe,
-  taoBoDem, CHROMIUM, tatBannerMoiCai, taoReq, taoLogin,
+  taoBoDem, CHROMIUM, tatBannerMoiCai, taoReq, taoLogin, khoaVaoCoSo, datChucVu,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -25,6 +28,9 @@ const DIR = thuMucTam('phan-hoi-2010-soan-chung-tuan');
 sinhDuLieu(DIR);
 batPhanHe(DIR, ['tkb', 'hanhtrinh']);
 const mkQT = taoQuanTri(DIR, 'Hieu Truong', 'htruong');
+const mkVP = taoQuanTri(DIR, 'Van Phong Co So 1', 'vpcs1');
+khoaVaoCoSo(DIR, 'vpcs1', 'cs1');
+datChucVu(DIR, 'vpcs1', 'vanphong-coso');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7201), dir: DIR });
 const req = taoReq(sv.BASE);
 const login = taoLogin(req);
@@ -157,6 +163,44 @@ try {
     await dangNhap('ph.trang', '123456');    // p7: con s9 ở c4 — nhóm chưa có lịch
     await moMan('#/timetable/lich');
     check('gia đình nhóm chưa có lịch: không có nút', await dem(NUT) === 0);
+  }
+
+  // =========================================================================
+  console.log('\n[5] Văn phòng cơ sở: nút ở Lịch sinh hoạt, màn soạn chỉ có kế hoạch chung tuần');
+  {
+    const d1 = await login('vpcs1', mkVP);
+    await req('POST', '/api/auth/set-new-password', { cookie: d1.cookie, body: { newPassword: 'quantri2026' } });
+    await dangNhap('vpcs1', 'quantri2026');
+    await page.waitForTimeout(1200);
+    check('Trang chủ của văn phòng KHÔNG có ô Hành trình học tập',
+      await dem('.tile[data-tile-key="hanhtrinh"]') === 0);
+
+    await moMan('#/timetable/lich');
+    check('văn phòng cơ sở có nút "Soạn kế hoạch chung tuần"', await dem(NUT) === 1);
+    await page.selectOption('#tkb-nhom', 'c2');
+    await page.waitForTimeout(1200);
+    check('và thấy khối kế hoạch chung của nhóm c2', /Chủ đề của nhóm Lá 1/.test(await chu()));
+    await bamNut();
+    check('bấm vào mở màn soạn của nhóm đang chọn (c2)',
+      (await page.inputValue('#ht-cd-ten')) === 'Chủ đề của nhóm Lá 1', await page.inputValue('#ht-cd-ten'));
+    check('tiêu đề màn là "Kế hoạch chung tuần"', /Kế hoạch chung tuần/i.test(await chu()));
+    check('KHÔNG có dải bốn tab của Hành trình', await dem('#ht-tabs') === 0);
+    check('KHÔNG có lối phụ "Hình ảnh ghi nhanh"', await dem('#ht-loi-phu') === 0);
+    check('KHÔNG có nút Ghi nhanh', await dem('#ht-ghi-nhanh') === 0);
+    const nhom = await page.$$eval('#ht-nhom option', os => os.map(o => o.value));
+    check('ô nhóm chỉ có nhóm của cơ sở 1 (không có Mầm 1 của cơ sở 2)',
+      nhom.length > 0 && !nhom.includes('c3') && nhom.includes('c2'), nhom);
+
+    await page.fill('#ht-cd-ten', 'Văn phòng cơ sở soạn chủ đề Lá 1');
+    await page.click('#ht-cd-luu');
+    await page.waitForTimeout(1200);
+    const sau = await req('GET', '/api/hanhtrinh/chu-de?classId=c2', { cookie: QT });
+    check('lưu được — máy chủ giữ đúng chủ đề văn phòng vừa gõ',
+      sau.data?.chuDe?.chuDe === 'Văn phòng cơ sở soạn chủ đề Lá 1', sau.data?.chuDe);
+
+    await moMan('#/hanhtrinh/ghinhanh');
+    check('gõ địa chỉ phần khác của Hành trình vẫn về màn soạn kế hoạch chung',
+      await dem('#ht-cd-luu') === 1 && await dem('#ht-tabs') === 0);
   }
 
   check('không lỗi JavaScript nào', loiJs.length === 0, loiJs);
