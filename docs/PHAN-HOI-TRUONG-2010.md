@@ -171,3 +171,21 @@ Còn chờ trường / chủ dự án:
 - **Nhắn tin:** bé chuyển nhóm thì kênh nhắn cô vẫn gắn nhóm cũ — cần sửa trước khi chuyển năm học.
 - **Còn lại từ trước:** K1 (ngày công cô), học phí (để sau), đợt 3 (kho bài học N1–N5, quản trị L1–L6, album M1).
 
+
+## Quyết định và kết quả ngày 27/10/2026 (Đ244)
+
+Chủ dự án trả lời ba việc còn treo sau khi soạn lại hướng dẫn thử (Đ243):
+
+- **Tài khoản cô nước ngoài trên máy thử — chọn cách (a), CHƯA làm.** `hieutruong` tạo tay
+  `giaovien.nn` (Emily Carter, vai "Cô nước ngoài (Cambridge)" ở Chồi 2, Lá 1, Nhà trẻ 1) và
+  `giaovien.nn2` (Sarah Miller, Mầm 1) trên màn hình, không dựng lại dữ liệu (`--lam-lai` xoá
+  sạch dữ liệu thử). Chủ dự án làm sau và sẽ báo; lúc đó thêm cách tạo vào mục 1 của hướng dẫn
+  thử (bản chính trên claude.ai trước). Trong lúc chờ, việc A13 của bản ngắn ghi "Chưa thử".
+- **L38 — tự sửa.** Thẻ "Hôm nay trường nghỉ" ở Điểm danh không còn mời bấm "Chốt sổ vắng"
+  (nút ấy không có khi cả cơ sở nghỉ); nay nói cô không cần điểm danh, bé nào vẫn tới thì ghi
+  như mọi ngày. Sửa kèm: cô chỉ phụ trách một nhóm trước đây không thấy thẻ khi riêng cơ sở
+  mình nghỉ (máy chủ chỉ hỏi đợt nghỉ cả trường khi màn hình không gửi mã nhóm).
+- **L39 — mở cho văn phòng cơ sở.** Văn phòng cơ sở soạn được kế hoạch chung tuần (chủ đề,
+  bài hát, talkshow, lời nhắc, tệp) cho nhóm của cơ sở mình, từ nút ở Lịch sinh hoạt. Chỉ mở
+  đúng `/api/hanhtrinh/chu-de`; quan sát, ảnh, câu chuyện từng bé vẫn đóng. Ô Hành trình không
+  hiện ở Trang chủ của văn phòng.
