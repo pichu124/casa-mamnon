@@ -597,7 +597,10 @@ console.log('\n[+] DANH SÁCH CHO PHÉP VIẾT TAY PHẢI THEO KỊP THƯ MỤC 
       + 'càng không. Mở ra là mở nguyên trang sổ của 20 bé cho người không dạy các bé đó.',
     hanhtrinh: 'Ba lớp dữ liệu của một quan sát là ranh giới chặt nhất trong cả '
       + 'app — lớp 1 chỉ cô đã ghi đọc được. Không chức vụ hành chính nào có '
-      + 'phần trong đó.',
+      + 'phần trong quan sát, ảnh hay câu chuyện của từng bé. Ngoại lệ duy nhất '
+      + '(L39, chủ dự án chốt 27/10): Văn phòng cơ sở được đúng đường con '
+      + '/api/hanhtrinh/chu-de — kế hoạch chung tuần của CẢ NHÓM, không phải dữ '
+      + 'liệu của bé nào; xem test/phan-hoi-2010-van-phong-chung-tuan.test.mjs.',
     kehoachbe: 'Kế hoạch từng bé là việc chuyên môn giữa cô và quản lý nhóm. '
       + 'Quản lý cơ sở đã thấy qua tầng cơ sở (api: null), không cần cấp thêm.',
     thuchup: 'Ghi nhanh là ghi chép thô của cô, đúng lớp 1 của bảng ba lớp.',
