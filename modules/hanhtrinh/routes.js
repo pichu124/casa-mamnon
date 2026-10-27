@@ -1267,6 +1267,22 @@ module.exports = (app, { db, modules }) => {
     else db.insert('hanhtrinh_chude_them', { id: db.nextId('htt'), classId, tuan, ...rec, taoLuc: luc });
   }
 
+  // CÓ VẼ Ô "HÀNH TRÌNH HỌC TẬP" Ở TRANG CHỦ KHÔNG (L39, 27/10).
+  //
+  // Văn phòng cơ sở được mở ĐÚNG phần kế hoạch chung tuần (`/api/hanhtrinh/
+  // chu-de` trong `lib/db.js`). Tầng chức vụ coi thế là phân hệ nằm trong
+  // phần việc của họ, nên ô Hành trình sẽ hiện ra — bấm vào là một màn mà
+  // mọi lượt gọi khác đều bị từ chối. Đường này để trang chủ bỏ ô ấy đi
+  // (`dieuKienHien` trong module.json); lối vào của văn phòng là nút "Soạn kế
+  // hoạch chung tuần" ở Lịch sinh hoạt.
+  //
+  // Nằm DƯỚI `/chu-de` là cố ý: một chức vụ chỉ được cấp phần chủ đề vẫn gọi
+  // tới được đường này để nghe câu trả lời "không hiện".
+  app.get('/api/hanhtrinh/chu-de/hien-o', (req, res) => {
+    const cho = db.apiChoPhep(req.user);
+    res.json({ hien: !cho || cho.some(x => x === '/api/hanhtrinh') });
+  });
+
   app.get('/api/hanhtrinh/chu-de', (req, res) => {
     const classId = chuoi(req.query.classId, 40);
     if (!classId) return res.status(400).json({ error: 'Cần chọn nhóm' });

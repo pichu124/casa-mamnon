@@ -95,8 +95,40 @@ App.views.hanhtrinh = {
     // vẫn mở: `suyngam` (trước Đ242B) về Hình ảnh ghi nhanh, `chude` mở màn
     // soạn chủ đề tuần mà Lịch sinh hoạt dẫn tới.
     if (ma === 'suyngam') ma = 'ghinhanh';
+    // Văn phòng cơ sở chỉ được phần kế hoạch chung tuần (L39) — địa chỉ nào
+    // của Hành trình cũng về đúng màn soạn ấy.
+    if (this.chiKeHoachChung()) { this._tab = 'chude'; return this.manChiKeHoachChung(root); }
     this._tab = this.laTab(this.BON_TAB, ma) || this.laTab(this.LOI_PHU, ma) || ma === 'chude' ? ma : 'kehoach';
     return this.manCoGiao(root);
+  },
+
+  // VĂN PHÒNG CƠ SỞ: CHỈ KẾ HOẠCH CHUNG TUẦN (L39, chủ dự án chốt 27/10).
+  //
+  // Máy chủ mở cho chức vụ này đúng `/api/hanhtrinh/chu-de` (`lib/db.js`) —
+  // quan sát, ảnh, câu chuyện từng bé vẫn đóng. Màn hình theo đúng phần đó:
+  // không dải tab, không lối phụ, không nút Ghi nhanh, vì mọi thứ ấy chỉ đem
+  // về một câu từ chối. Chốt chặn thật vẫn là tầng chức vụ ở máy chủ; đây chỉ
+  // để không mời ai bấm vào thứ chắc chắn bị từ chối.
+  chiKeHoachChung() {
+    const u = App.state.user || {};
+    return u.role === 'admin' && u.chucVu === 'vanphong-coso';
+  },
+
+  async manChiKeHoachChung(root) {
+    root.innerHTML = `
+      ${UI.pageHeader('Kế hoạch chung tuần')}
+      <div id="ht-than"><div class="loading">Đang tải</div></div>`;
+    return this.manChuDe(document.getElementById('ht-than'));
+  },
+
+  // Nhóm soạn được ở màn chủ đề. Cô: nhóm mình phụ trách. Tài khoản quản trị
+  // bị khoá vào một cơ sở: chỉ nhóm của cơ sở đó — ô chọn mời bấm sang nhóm
+  // cơ sở khác rồi nhận lỗi là một ô chọn nói dối (bài học Đ94, như
+  // `timetable.nhomVanPhong`).
+  nhomSoanChuDe() {
+    const u = App.state.user || {};
+    const nhom = App.nhomCuaCo();
+    return (u.role === 'admin' && u.coSo) ? nhom.filter(c => c.campusId === u.coSo) : nhom;
   },
 
   // ================= Màn của CÔ =================
@@ -877,11 +909,13 @@ App.views.hanhtrinh = {
 
   // ---- Tab 2: chủ đề tuần ----
   async manChuDe(than) {
-    // Nhóm của cô — xem chú thích ở `App.nhomCuaCo()`.
-    const nhom = App.nhomCuaCo();
+    // Nhóm của cô — xem chú thích ở `App.nhomCuaCo()` và `nhomSoanChuDe()`.
+    const nhom = this.nhomSoanChuDe();
+    if (this._classId && !nhom.some(x => x.id === this._classId)) this._classId = '';
     this._classId = this._classId || (nhom[0] && nhom[0].id) || '';
     if (!this._classId) {
-      than.innerHTML = UI.emptyState('🌱', 'Cô chưa phụ trách nhóm nào.');
+      than.innerHTML = UI.emptyState('🌱', (App.state.user || {}).role === 'admin'
+        ? 'Cơ sở này chưa có nhóm lớp nào.' : 'Cô chưa phụ trách nhóm nào.');
       return;
     }
     // Tuần đang soạn. Mặc định là tuần này; cô chuyển sang tuần sau được.
