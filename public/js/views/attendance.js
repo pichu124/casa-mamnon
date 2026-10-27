@@ -819,8 +819,12 @@ App.views.attendance = {
   // HÔM NAY TRƯỜNG NGHỈ (Đ147) — nói TRƯỚC khi cô chấm, không phải sau.
   //
   // Cô mở sổ ra thấy hai chục ô trống thì phản xạ là chấm cho xong. Dải này
-  // đứng trên đầu danh sách để cô biết hôm nay không ai đến, và biết rằng bấm
-  // "Chốt sổ vắng" sẽ ghi cả nhóm là nghỉ CÓ phép chứ không phải không phép.
+  // đứng trên đầu danh sách để cô biết hôm nay không ai đến.
+  //
+  // KHÔNG MỜI BẤM "CHỐT SỔ VẮNG" NỮA (L38, 27/10): từ Đ242E bảng rà soát bỏ
+  // qua bé của nhóm đang nghỉ, nên cả cơ sở nghỉ thì nút ấy không có. Ngày
+  // trường nghỉ không còn tính là "chưa điểm danh" ở đâu cả — thẻ chỉ cần nói
+  // không phải chấm, và bé nào vẫn tới thì ghi như thường.
   theTruongNghi() {
     const n = this._truongNghi;
     if (!n) return '';
@@ -830,8 +834,8 @@ App.views.attendance = {
         ${UI.esc(App.views.leave && App.views.leave.fmtKhoang
           ? App.views.leave.fmtKhoang(n.tuNgay, n.denNgay)
           : `${n.tuNgay} – ${n.denNgay}`)}.
-        Gia đình không phải xin phép cho những ngày này. Bấm “Chốt sổ vắng” thì các bé
-        chưa có dòng sẽ được ghi là <b>nghỉ có phép</b>.
+        Gia đình không phải xin phép cho những ngày này, và cô không cần điểm danh.
+        Bé nào vẫn tới lớp thì cô ghi như mọi ngày.
       </div>
     </div>`;
   },

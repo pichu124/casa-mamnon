@@ -349,9 +349,24 @@ module.exports = (app) => {
     // phòng) thì hỏi bằng chuỗi rỗng — CHỈ đợt nghỉ cả trường: một đợt nghỉ
     // riêng của cơ sở 2 không áp cho danh sách đang trộn cả ba cơ sở, và nói
     // rằng nó áp là sai với hai phần ba số bé trên màn.
+    //
+    // CÔ MỘT NHÓM KHÔNG KÈM MÃ NHÓM (L38, 27/10): cô chỉ phụ trách một nhóm thì
+    // màn hình không gửi `classId`, và bản cũ rơi xuống nhánh "gộp nhiều nhóm"
+    // — chỉ hỏi đợt nghỉ cả trường. Cơ sở của cô nghỉ thì thẻ "Hôm nay trường
+    // nghỉ" không hiện, trong khi Trang chủ của chính cô đã nói trường nghỉ.
+    // Mọi bé trên màn cùng MỘT cơ sở thì hỏi theo cơ sở ấy; trộn từ hai cơ sở
+    // trở lên thì giữ nguyên cách cũ.
+    let csCuaDanhSach = '';
+    {
+      // Tra cơ sở MỘT lần cho mỗi nhóm, không phải cho mỗi bé — danh sách cả
+      // trường là vài trăm bé nhưng chỉ vài chục nhóm.
+      const nhom = new Set(students.map(s => s.classId || ''));
+      const cs = new Set([...nhom].map(c => (c && db.campusOfClass(c)) || ''));
+      if (cs.size === 1) csCuaDanhSach = [...cs][0];
+    }
     const csXem = locNhom
       ? (db.campusOfClass(locNhom) || '')
-      : (db.phamViCoSo(req.user) || '');
+      : (db.phamViCoSo(req.user) || csCuaDanhSach || '');
     const dotNghi = nghiHoc.ngayTruongNghi(date, csXem);
 
     res.json({

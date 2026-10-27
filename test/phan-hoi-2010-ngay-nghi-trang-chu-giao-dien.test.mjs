@@ -82,6 +82,30 @@ console.log('\n[2] Cơ sở 1 nghỉ Tết: dòng trung tính thay cho lời nh�
   check('màn một nhóm: không bé nào bị ghi "Chưa điểm danh"', !/Chưa điểm danh/.test(man), man.slice(0, 400));
 }
 
+// ===========================================================================
+// L38 (hướng dẫn thử 26/10): thẻ "Hôm nay trường nghỉ" ở màn Điểm danh từng
+// mời bấm "Chốt sổ vắng", trong khi từ Đ242E bảng rà soát không đếm bé của
+// nhóm đang nghỉ — cả cơ sở nghỉ thì không có nút đó. Thẻ phải nói đúng việc
+// cần làm: không phải điểm danh, bé nào vẫn tới thì ghi như thường.
+console.log('\n[3] Màn Điểm danh ngày cơ sở nghỉ: thẻ không mời bấm nút không có');
+{
+  await page.evaluate(() => { location.hash = '#/attendance'; });
+  // textContent, không phải innerText: tiêu đề thẻ có thể viết hoa bằng CSS.
+  await page.waitForFunction(() => /Hôm nay trường nghỉ/.test(document.getElementById('view')?.textContent || ''),
+    null, { timeout: 8000 }).catch(() => {});
+  const the = await page.evaluate(() => {
+    const t = [...document.querySelectorAll('#view .card')].find(c => /Hôm nay trường nghỉ/.test(c.textContent));
+    return t ? t.textContent.replace(/\s+/g, ' ') : document.getElementById('view')?.textContent.slice(0, 300);
+  });
+  check('có thẻ "Hôm nay trường nghỉ — Nghỉ Tết Nguyên đán"', /Hôm nay trường nghỉ — Nghỉ Tết Nguyên đán/.test(the), the);
+  check('thẻ KHÔNG nhắc "Chốt sổ vắng"', !/Chốt sổ vắng/.test(the), the);
+  check('thẻ nói không cần điểm danh', /không cần điểm danh/i.test(the), the);
+  check('thẻ nói bé vẫn tới thì cô ghi như thường', /vẫn tới/.test(the), the);
+  const nutChot = await page.evaluate(() => [...document.querySelectorAll('#view button')]
+    .some(b => /Chốt sổ vắng/.test(b.innerText)));
+  check('và màn hình quả thật không có nút "Chốt sổ vắng"', !nutChot);
+}
+
 check('không có lỗi JavaScript trên trang', loiJs.length === 0, loiJs);
 
 await browser.close();
