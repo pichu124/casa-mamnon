@@ -74,7 +74,9 @@ try {
       (d.chuongTrinhTab || []).map(t => t.ma).join(',') === 'chu-nhiem,nuoc-ngoai,the-chat', d.chuongTrinhTab);
     check('nhãn đầu tiên là "Dạy mới" (mã giữ nguyên hoc-moi)',
       (d.nhanBai || [])[0]?.ma === 'hoc-moi' && (d.nhanBai || [])[0]?.ten === 'Dạy mới', d.nhanBai);
-    check('ba lứa của kho bài: 3–4, 4–5, 5–6', (d.luaKho || []).map(x => x.ma).join(',') === '3-4,4-5,5-6', d.luaKho);
+    // Góp ý 20/10: kho nhà trẻ (0-3) đứng trước ba lứa mẫu giáo — xem
+    // test/phan-hoi-2010-kho-bai-hoc.test.mjs.
+    check('lứa của kho bài: nhà trẻ, 3–4, 4–5, 5–6', (d.luaKho || []).map(x => x.ma).join(',') === '0-3,3-4,4-5,5-6', d.luaKho);
     check('mỗi bé mang lứa của kho bài ở tháng đang xem',
       (d.danhSach || []).every(x => ['3-4', '4-5', '5-6'].includes(x.lua)), (d.danhSach || []).map(x => x.lua));
     check('trường CHƯA khai vai: cô phụ trách nhóm soạn được cả ba phần như trước',

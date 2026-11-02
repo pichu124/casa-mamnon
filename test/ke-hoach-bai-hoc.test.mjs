@@ -81,9 +81,15 @@ try {
     check('và tab Cô thể chất KHÔNG rỗng — nếu rỗng thì việc trường giao cho cô ấy không tồn tại trong app',
       ((tab.find(t => t.ma === 'the-chat') || {}).goc || []).length > 0);
     for (const g of goc) baiTheoGoc[g] = (d.data.baiHoc || []).filter(b => b.gocLinhVuc === g);
-    check('MỖI góc có sẵn từ 6 tới 12 bài theo tinh thần Montessori',
-      goc.every(g => baiTheoGoc[g].length >= 6 && baiTheoGoc[g].length <= 12),
-      goc.map(g => `${g}:${baiTheoGoc[g].length}`));
+    // Góp ý 20/10: danh mục có thêm kho nhà trẻ (lứa 0-3), nên đếm riêng bài
+    // mẫu giáo và bài nhà trẻ theo `luaApDung` thay vì đếm gộp cả góc.
+    const mauGiao = (g) => baiTheoGoc[g].filter(b => (b.luaApDung || []).some(l => l !== '0-3')).length;
+    const nhaTre = (g) => baiTheoGoc[g].filter(b => (b.luaApDung || []).includes('0-3')).length;
+    check('MỖI góc có sẵn từ 6 tới 12 bài mẫu giáo theo tinh thần Montessori',
+      goc.every(g => mauGiao(g) >= 6 && mauGiao(g) <= 12),
+      goc.map(g => `${g}:${mauGiao(g)}`));
+    check('và MỖI góc có ít nhất 4 bài nhà trẻ',
+      goc.every(g => nhaTre(g) >= 4), goc.map(g => `${g}:${nhaTre(g)}`));
     check('ví dụ Thực hành cuộc sống có Rót nước, Giác quan có Tháp hồng',
       baiTheoGoc['thuc-hanh-cuoc-song'].some(b => b.ten === 'Rót nước') && baiTheoGoc['giac-quan'].some(b => b.ten === 'Tháp hồng'));
     check('ba nhãn đúng chữ nhà trường: học mới · ôn tập · mở rộng',

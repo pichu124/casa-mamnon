@@ -2761,6 +2761,7 @@ Vẫn nhận bé này?`)) {
       'album-delete': 'Xoá album',
       'album-doi-che-do': 'Đổi chế độ xem album',
       'album-tu-cau-chuyen': 'Thêm ảnh câu chuyện đã kể vào album',
+      'album-gop-anh': 'Bật/tắt album chung cho cô cùng cơ sở góp ảnh',
       'photo-tag': 'Gắn tên bé vào ảnh',
       'photo-tag-nhieu': 'Gắn tên bé vào nhiều ảnh',
 
@@ -2821,6 +2822,7 @@ Vẫn nhận bé này?`)) {
       'kehoachbe-dat-ca-nhom': 'Đặt kế hoạch cho cả nhóm',
       'kehoachbe-chep-thang': 'Chép kế hoạch tháng trước',
       'kehoachbe-nhin-lai': 'Ghi nhìn lại cuối tháng',
+      'kehoachbe-sap-xep-bai': 'Sắp xếp thứ tự bài trong kho bài học',
       'baocaohoctap-gui': 'Gửi báo cáo học tập chờ duyệt',
       'baocaohoctap-duyet': 'Duyệt báo cáo học tập',
       'baocaohoctap-tra-lai': 'Trả lại báo cáo cho cô',
@@ -2864,6 +2866,12 @@ Vẫn nhận bé này?`)) {
       'nhansu-cham-ca-truong': 'Chấm công cả trường',
       'nhansu-xoa-cong': 'Xoá một dòng chấm công',
       'nhansu-xuat-cong': 'Xuất bảng chấm công',
+      'nhansu-giai-trinh-gui': 'Gửi giải trình ngày công',
+      'nhansu-giai-trinh-rut': 'Rút giải trình ngày công',
+      'nhansu-giai-trinh-duyet': 'Duyệt giải trình ngày công',
+      'nhansu-giai-trinh-tu-choi': 'Từ chối giải trình ngày công',
+      'nhansu-quy-tac-cong-bat': 'Bật hoặc đổi cách tính công theo giờ ở cổng',
+      'nhansu-quy-tac-cong-tat': 'Tắt cách tính công theo giờ ở cổng',
 
       // Xuất báo cáo (Đ239c)
       'xuatbaocao-diemdanh-be': 'Xuất báo cáo điểm danh của bé',

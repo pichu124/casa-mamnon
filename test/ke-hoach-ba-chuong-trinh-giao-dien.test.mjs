@@ -147,12 +147,14 @@ try {
     await page.waitForTimeout(1000);
     check('có ô lọc lứa', await page.locator('#kb-bh-loc').count() === 1);
     const lua = await page.locator('#kb-bh-loc option').allInnerTexts();
-    check('lọc được ba lứa 3–4, 4–5, 5–6', lua.join('|') === 'Mọi lứa|3–4 tuổi|4–5 tuổi|5–6 tuổi', lua);
+    // Góp ý 20/10 (N2): kho thêm lứa nhà trẻ đứng đầu, ba lứa mẫu giáo giữ nguyên.
+    check('lọc được lứa nhà trẻ và ba lứa 3–4, 4–5, 5–6', lua.join('|') === 'Mọi lứa|Nhà trẻ (dưới 3 tuổi)|3–4 tuổi|4–5 tuổi|5–6 tuổi', lua);
     // textContent, không innerText: nhãn mục viết hoa bằng CSS.
     check('kho chia theo chương trình', /Montessori & Kỹ năng sống[\s\S]*Cambridge[\s\S]*Thể chất/.test(await page.locator('#view').textContent()));
     await page.locator('[data-sua-bai]').first().click();
     await page.waitForTimeout(400);
-    check('hộp sửa bài có ba ô tích lứa', await page.locator('.kb-bh-lua').count() === 3);
+    // Góp ý 20/10 (N2): thêm ô nhà trẻ bên cạnh ba ô mẫu giáo.
+    check('hộp sửa bài có bốn ô tích lứa (nhà trẻ + ba lứa mẫu giáo)', await page.locator('.kb-bh-lua').count() === 4);
     await page.locator('.kb-bh-lua[value="5-6"]').check();
     await page.click('#kb-bh-luu');
     await page.waitForTimeout(1200);
