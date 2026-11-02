@@ -86,3 +86,50 @@ CREATE TABLE IF NOT EXISTS nhansu_cham_cong (
   PRIMARY KEY (userId, ngay)
 );
 CREATE INDEX IF NOT EXISTS idx_nhansu_cc_thang ON nhansu_cham_cong(ngay);
+
+-- QUY TẮC TÍNH CÔNG TỪ GIỜ Ở CỔNG (K1-2). Mỗi dòng là MỘT ĐỢT, mang tham số
+-- riêng của đợt ấy: [apDungTu, tatTu) — `tatTu` NULL là đợt còn mở.
+--
+-- Đổi tham số là ĐÓNG đợt cũ và MỞ đợt mới từ ngày mai, không sửa dòng cũ: một
+-- ngày đã qua luôn tính theo đúng tham số của đợt chứa nó, nên công tháng
+-- trước không tự đổi khi Nhân sự chỉnh giờ ca hôm nay. Không có dòng nào là
+-- tính năng đang TẮT — mặc định của nhà trường.
+CREATE TABLE IF NOT EXISTS nhansu_quy_tac_cong (
+  id         TEXT PRIMARY KEY,
+  apDungTu   TEXT NOT NULL,                     -- YYYY-MM-DD, tính cả ngày này
+  tatTu      TEXT,                              -- YYYY-MM-DD, KHÔNG tính ngày này; NULL = còn mở
+  phutDuCong INTEGER NOT NULL DEFAULT 480,
+  ca1Tu      TEXT NOT NULL DEFAULT '07:00',
+  ca1Den     TEXT NOT NULL DEFAULT '14:00',
+  ca2Tu      TEXT NOT NULL DEFAULT '12:00',
+  ca2Den     TEXT NOT NULL DEFAULT '18:00',
+  phutDuDi   INTEGER NOT NULL DEFAULT 0,
+  nguoiBat   TEXT,
+  batLuc     TEXT,
+  nguoiTat   TEXT,
+  tatLuc     TEXT
+);
+
+-- GIẢI TRÌNH NGÀY CÔNG: cô đề nghị, Nhân sự / ban giám hiệu duyệt. Duyệt thì
+-- ghi một dòng tay vào `nhansu_cham_cong`; bảng này giữ lại câu chuyện vì sao.
+-- KHÔNG xoá dòng nào: rút là chuyển 'da-rut'.
+CREATE TABLE IF NOT EXISTS nhansu_giai_trinh (
+  id           TEXT PRIMARY KEY,
+  userId       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ngay         TEXT NOT NULL,                   -- YYYY-MM-DD
+  loaiDeNghi   TEXT NOT NULL,                   -- di-lam | nua-ngay
+  gioVaoDeNghi TEXT NOT NULL DEFAULT '',
+  gioRaDeNghi  TEXT NOT NULL DEFAULT '',
+  lyDo         TEXT NOT NULL,
+  trangThai    TEXT NOT NULL DEFAULT 'cho-duyet', -- cho-duyet | da-duyet | tu-choi | da-rut
+  nguoiGui     TEXT,
+  guiLuc       TEXT,
+  nguoiDuyet   TEXT,
+  duyetLuc     TEXT,
+  loaiDuyet    TEXT NOT NULL DEFAULT '',
+  ghiChuDuyet  TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_nhansu_gt_ngay ON nhansu_giai_trinh(ngay);
+-- Mỗi người mỗi ngày chỉ MỘT giải trình đang chờ — hai lần bấm gửi không thành
+-- hai việc phải duyệt.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_nhansu_gt_cho ON nhansu_giai_trinh(userId, ngay) WHERE trangThai = 'cho-duyet';

@@ -693,6 +693,26 @@ module.exports = (app) => {
             `SELECT userId, loai FROM nhansu_cham_cong WHERE ngay = ? AND userId IN (${m})`,
             [ngayXem, ...lo])) cham.set(r.userId, r.loai);
         }
+        // Ngày nằm trong một đợt tính công theo giờ cổng: cổng không chép sang
+        // bảng công nữa, nên đếm theo lib/ngay-cong.js — ai có giờ vào ở cổng
+        // là có đi làm, dòng ghi tay vẫn thắng. Ngoài mọi đợt thì giữ nguyên
+        // con số ở trên. Tính hỏng thì cũng giữ con số ở trên, không mất cả khối.
+        try {
+          const ngayCong = require('../lib/ngay-cong');
+          if (ngayCong.quyTacCuaNgay(ngayCong.cacQuyTac(db), ngayXem)) {
+            const tinh = new Map();
+            for (let i = 0; i < idCo.length; i += 400) {
+              for (const [userId, ds] of ngayCong.bangCong(db, idCo.slice(i, i + 400), ngayXem, ngayXem)) {
+                const d = ds[0];
+                if (d && d.trangThai !== 'chua-co-cong') tinh.set(userId, d.nguon === 'tinh' ? 'di-lam' : d.loai);
+              }
+            }
+            cham.clear();
+            for (const [userId, loai] of tinh) cham.set(userId, loai);
+          }
+        } catch (err) {
+          console.error(`[admin] không tính được ngày công theo giờ cổng: ${err.message}`);
+        }
         const diLam = [...cham.values()].filter(x => x === 'di-lam' || x === 'nua-ngay').length;
         nhanSu = {
           tong: coTrongPhamVi.length,
