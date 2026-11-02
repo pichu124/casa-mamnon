@@ -543,6 +543,30 @@ module.exports = (app, { db, modules }) => {
     ];
   }
 
+  // CÔNG TÍNH THEO GIỜ CỔNG (K1). Từ ngày Nhân sự bật quy tắc, cổng thôi chép
+  // sang bảng công, nên đếm thẳng `nhansu_cham_cong` là thiếu mọi ngày cô chỉ
+  // chụp ở cổng. Khoảng có chạm một đợt quy tắc thì lấy câu trả lời của
+  // lib/ngay-cong.js — đúng con số màn Nhân sự đang hiện. Không chạm đợt nào,
+  // hoặc tính hỏng, thì trả null để tệp ra y như trước.
+  function congTheoGioCong(ids, k) {
+    try {
+      const ngayCong = require('../../lib/ngay-cong');
+      const dot = ngayCong.cacQuyTac(db)
+        .filter(x => x.apDungTu <= k.den && (!x.tatTu || (x.tatTu > k.tu && x.tatTu > x.apDungTu)))
+        .map(x => [x.apDungTu < k.tu ? k.tu : x.apDungTu,
+          x.tatTu && ngayCong.congNgay(x.tatTu, -1) < k.den ? ngayCong.congNgay(x.tatTu, -1) : k.den]);
+      if (!dot.length) return null;
+      const ngay = new Map();
+      for (let i = 0; i < ids.length; i += 400) {
+        for (const [id, ds] of ngayCong.bangCong(db, ids.slice(i, i + 400), k.tu, k.den)) ngay.set(id, ds);
+      }
+      return { ngay, dot };
+    } catch (err) {
+      console.error(`[xuatbaocao] không tính được công theo giờ cổng: ${err.message}`);
+      return null;
+    }
+  }
+
   // =========================================================================
   // (b) ĐIỂM DANH CÔ VÀ NHÂN VIÊN — KHÔNG BAO GIỜ KÈM ẢNH
   //
@@ -597,7 +621,23 @@ module.exports = (app, { db, modules }) => {
         ],
       }];
     } else if (q.coNhanSu) {
-      cacBang = [{
+      const tinh = congTheoGioCong(ids, k);
+      cacBang = [tinh ? {
+        ten: 'Bảng công', dongTieuDe: true, cot: [30, 20, 10, 10, 10, 14, 10, 14],
+        hang: [
+          ['Họ và tên', 'Vai / chức vụ', ...LOAI_CONG.map(x => x[1]), 'Cần giải trình'],
+          ...pv.ds.map((u) => {
+            const ds = tinh.ngay.get(u.id) || [];
+            return [hoTenNguoi(u), vai.get(u.id),
+              ...LOAI_CONG.map(([ma]) => String(ds.filter(d => d.loaiTinh === ma).length)),
+              String(ds.filter(d => d.trangThai === 'can-giai-trinh').length)];
+          }),
+          [], ['Ghi chú', `Từ ${dmy(k.tu)} đến ${dmy(k.den)}, theo bảng công của bộ phận Nhân sự.`],
+          ['', `${tinh.dot.map(([a, b]) => (a === b ? `Ngày ${dmy(a)}` : `Từ ${dmy(a)} đến ${dmy(b)}`)).join('; ')}: `
+            + 'ngày không có ghi tay của Nhân sự thì tính theo giờ vào/ra ở cổng. '
+            + '"Cần giải trình" là ngày có giờ vào ở cổng nhưng thiếu giờ ra hoặc chưa đủ giờ cho nửa công.'],
+        ],
+      } : {
         ten: 'Bảng công', dongTieuDe: true, cot: [30, 20, 10, 10, 10, 14, 10],
         hang: [
           ['Họ và tên', 'Vai / chức vụ', ...LOAI_CONG.map(x => x[1])],

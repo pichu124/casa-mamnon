@@ -8,6 +8,7 @@ const modules = require('../lib/modules');
 const uploads = require('../lib/uploads');
 // Một chỗ duy nhất trả lời "hôm nay bé nào đang nghỉ có phép" (Đ84).
 const nghiHoc = require('../lib/nghi-hoc');
+const ngayCong = require('../lib/ngay-cong');
 const tbb = require('../lib/thong-bao-be');
 
 const STATUSES = ['present', 'late', 'absent_excused', 'absent_unexcused'];
@@ -1247,9 +1248,17 @@ module.exports = (app) => {
   require('../lib/hen-gio').dangKy('diemdanh:don-anh-cham-cong', donAnhChamCong);
   // Nhân sự đang bật thì chép giờ sang bảng công — chỉ điền ô CÒN TRỐNG, không
   // đè giờ Nhân sự đã sửa tay, không đổi loại ngày công đã ghi.
+  //
+  // TRỪ những ngày đã có quy tắc tính công (K1-2): từ đó công tính lúc đọc từ
+  // chính `staff_checkin`, và bảng công chỉ còn dòng ghi tay — xem
+  // lib/ngay-cong.js. Hai hàm dưới cùng hỏi một câu đó.
+  function ngayTinhTuCong(ngayGhi) {
+    return !!ngayCong.quyTacCuaNgay(ngayCong.cacQuyTac(db), ngayGhi);
+  }
   function chepSangNhanSu(userId, ngayGhi, phan, gio, nguoi) {
     if (!modules.dangBat('nhansu')) return;
     try {
+      if (ngayTinhTuCong(ngayGhi)) return;
       const cu = db.first('nhansu_cham_cong', 'SELECT * FROM nhansu_cham_cong WHERE userId = ? AND ngay = ?', [userId, ngayGhi]);
       const cot = phan === 'ra' ? 'gioRa' : 'gioVao';
       if (!cu) {
@@ -1272,6 +1281,7 @@ module.exports = (app) => {
   function hoanNhanSu(userId, ngayGhi, phan, gio) {
     if (!gio || !modules.dangBat('nhansu')) return;
     try {
+      if (ngayTinhTuCong(ngayGhi)) return;
       const cu = db.first('nhansu_cham_cong', 'SELECT * FROM nhansu_cham_cong WHERE userId = ? AND ngay = ?', [userId, ngayGhi]);
       if (!cu || cu.ghiChu !== 'Chụp ảnh ở cổng' || cu.loai !== 'di-lam') return;
       const cot = phan === 'ra' ? 'gioRa' : 'gioVao';

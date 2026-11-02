@@ -1127,6 +1127,20 @@ CREATE TABLE IF NOT EXISTS album_cung_con (
   ghiLuc      TEXT
 );
 
+-- AI ĐĂNG TẤM ẢNH NÀY (M1).
+--
+-- Chủ dự án: ngoài cô của nhóm, quản lý cơ sở và văn phòng cơ sở của cơ sở có
+-- nhóm đó, cùng ban giám hiệu, cũng đăng ảnh vào album. Người đăng được xoá
+-- ảnh của chính mình, không xoá ảnh người khác — nên phải nhớ ai đăng.
+--
+-- KHÔNG CÓ DÒNG = ảnh đăng trước khi có bảng này: hành vi giữ nguyên, chỉ cô
+-- của nhóm xoá được. Bảng riêng, không thêm cột vào `album_photos`.
+CREATE TABLE IF NOT EXISTS album_anh_nguoi_dang (
+  photoId   TEXT PRIMARY KEY REFERENCES album_photos(id) ON DELETE CASCADE,
+  userId    TEXT NOT NULL,
+  dangLuc   TEXT
+);
+
 -- ===========================================================================
 -- NGÀY CÔ GHI MỘT BẢN GHI SỨC KHOẺ (Đ205, việc 10)
 -- ===========================================================================
@@ -1287,3 +1301,34 @@ CREATE TABLE IF NOT EXISTS staff_checkin (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_checkin ON staff_checkin(userId, ngay);
 CREATE INDEX IF NOT EXISTS idx_staff_checkin_anh_vao ON staff_checkin(anhVao);
 CREATE INDEX IF NOT EXISTS idx_staff_checkin_anh_ra ON staff_checkin(anhRa);
+
+-- ===========================================================================
+-- ĐỀ XUẤT ĐỔI BỘ CHỮ ĐÁNH GIÁ (chủ dự án 02/11)
+-- ===========================================================================
+-- Quản lý cơ sở bị khoá vào một cơ sở không sửa thẳng bộ chữ dùng chung cả
+-- trường; họ gửi đề xuất, ban giám hiệu đồng ý (áp vào bộ chữ) hoặc chưa đồng
+-- ý. Bộ chữ ĐANG DÙNG vẫn chỉ nằm ở `settings['nhan-danh-gia']` — bảng này chỉ
+-- giữ ý định và vết, không bao giờ được đọc như nhãn đang dùng.
+--
+-- `nhan`: JSON {mã: chữ đề xuất}, CHỈ những mã đổi. `nen`: chữ đang dùng lúc
+-- gửi của đúng các mã ấy, để thẻ duyệt biết chữ nào đã bị sửa trực tiếp sau đó.
+-- Không khai trong JSON_COLS của lib/db.js: lib/nhan-danh-gia-de-xuat.js tự
+-- đọc JSON, dòng hỏng thì coi như rỗng.
+CREATE TABLE IF NOT EXISTS nhan_danh_gia_de_xuat (
+  id        TEXT PRIMARY KEY,
+  nhan      TEXT NOT NULL,
+  nen       TEXT NOT NULL DEFAULT '{}',
+  lyDo      TEXT NOT NULL DEFAULT '',
+  coDeXuat  TEXT NOT NULL,
+  coSoId    TEXT,
+  trangThai TEXT NOT NULL DEFAULT 'cho-duyet',  -- cho-duyet | da-duyet | tu-choi | da-rut
+  nguoiXem  TEXT,
+  xemLuc    TEXT,
+  yKien     TEXT NOT NULL DEFAULT '',
+  taoLuc    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS nhan_danh_gia_de_xuat_moi ON nhan_danh_gia_de_xuat(taoLuc DESC);
+-- Bộ chữ dùng chung nên cả trường chỉ có tối đa MỘT đề xuất chờ — chốt ở tầng
+-- dữ liệu, route chỉ là câu báo dễ hiểu đứng trước.
+CREATE UNIQUE INDEX IF NOT EXISTS nhan_danh_gia_de_xuat_mot_cho
+  ON nhan_danh_gia_de_xuat(trangThai) WHERE trangThai = 'cho-duyet';

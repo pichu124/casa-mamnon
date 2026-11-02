@@ -241,17 +241,131 @@ function xoaDuocAlbum(user, classId) {
   return laNguoiGiuLopCu(user, lopDaDong(classId));
 }
 
+// ---------------------------------------------------------------------------
+// AI LÀM ĐƯỢC GÌ VỚI MỘT ALBUM (M1) — MA TRẬN QUYỀN NẰM Ở ĐÂY, VÀ CHỈ Ở ĐÂY.
+//
+// Chủ dự án chốt: góp ảnh vào album của một nhóm chỉ có cô của nhóm đó, quản
+// lý cơ sở và văn phòng cơ sở của cơ sở có nhóm đó, và cấp 1 (ban giám hiệu,
+// quản trị không chức vụ). Cô nhóm khác KHÔNG góp ảnh, kể cả cùng cơ sở. Phụ
+// huynh không bao giờ; Marketing chỉ xem; gắn thẻ vẫn là việc của cô trong
+// nhóm; quản trị không xoá hộ ảnh của người khác.
+//
+// Mỗi đường ghi bên dưới hỏi hàm này thay vì tự viết lại điều kiện — bốn
+// đường mỗi đường một bản là bốn bản trôi khỏi nhau ở lần sửa thứ hai.
+// ---------------------------------------------------------------------------
+
+// Quản trị nào được đăng ảnh. Marketing chỉ xem; kế toán, nhân sự, bảo vệ
+// không vào được vùng /api/albums (danh sách đường của chức vụ).
+const CHUC_VU_DANG_ANH = [null, 'hieu-truong', 'quanly-coso', 'vanphong-coso'];
+function laQuanTriDangAnh(user) {
+  return !!user && user.role === 'admin' && CHUC_VU_DANG_ANH.includes(db.chucVu(user));
+}
+// Quản trị đăng ảnh được, và nhóm nằm trong phạm vi cơ sở của họ — nhóm đang
+// mở qua `canAccessClass`, nhóm đã đóng qua đúng luật người giữ nhóm cũ.
+function laQuanTriTrongPhamVi(user, classId) {
+  if (!laQuanTriDangAnh(user)) return false;
+  return db.canAccessClass(user, classId) || laNguoiGiuLopCu(user, lopDaDong(classId));
+}
+
+function quyenAlbum(user, album) {
+  const lop = db.findClass(album.classId);
+  const dangMo = !!(lop && lop.active);
+  const chiXem = db.chucVu(user) === 'marketing';
+  const coNhom = user.role === 'teacher' && db.isTeacherOfClass(user.id, album.classId);
+  const quanTri = laQuanTriTrongPhamVi(user, album.classId);
+  // Thêm ảnh nếu nhóm còn mở. Tách riêng để đường thêm ảnh trả 400 "nhóm đã
+  // đóng" cho người có quyền, và 403 cho người không có quyền gì.
+  const themAnhNeuMo = !chiXem && (coNhom || quanTri);
+  return {
+    xem: xemDuocAlbum(user, album.classId, album.date, album.id),
+    themAnh: dangMo && themAnhNeuMo,
+    themAnhNeuMo,
+    ganThe: coNhom,
+    datCheDo: !chiXem && (coNhom || (laQuanTriDangAnh(user) && db.canAccessClass(user, album.classId))),
+    // Quản trị xoá album MÌNH TẠO chỉ khi trong đó toàn ảnh của chính mình:
+    // xoá album là xoá luôn ảnh cô đã đăng vào, mà quản trị không xoá hộ ảnh
+    // của người khác (đúng luật xoá từng tấm ở `quyenXoaAnh`).
+    xoaAlbum: !chiXem && (xoaDuocAlbum(user, album.classId)
+      || (quanTri && album.createdBy === user.id && chiCoAnhCuaMinh(album.id, user.id))),
+  };
+}
+
+// Xoá một tấm: cô của nhóm xoá mọi tấm; quản trị trong phạm vi xoá tấm chính
+// mình đăng. Ảnh cũ không có dòng người đăng thì chỉ cô của nhóm — đúng như
+// trước.
+function quyenXoaAnh(user, album) {
+  if (db.chucVu(user) === 'marketing') return { tatCa: false, cuaMinh: false };
+  if (user.role === 'teacher' && db.isTeacherOfClass(user.id, album.classId)) {
+    return { tatCa: true, cuaMinh: true };
+  }
+  return {
+    tatCa: false,
+    cuaMinh: laQuanTriTrongPhamVi(user, album.classId),
+  };
+}
+function xoaAnhDuoc(user, album, photoId) {
+  const q = quyenXoaAnh(user, album);
+  if (q.tatCa || !q.cuaMinh) return q.tatCa;
+  const nd = db.first('album_anh_nguoi_dang',
+    'SELECT userId FROM album_anh_nguoi_dang WHERE photoId = ?', [photoId]);
+  return !!nd && nd.userId === user.id;
+}
+// Mọi tấm trong album đều do chính người này đăng (album rỗng cũng tính là
+// đúng). Tấm không có dòng người đăng — ảnh cũ, ảnh lưu từ câu chuyện — không
+// tính là của ai cả, nên chặn.
+function chiCoAnhCuaMinh(albumId, userId) {
+  return db.count(
+    `SELECT COUNT(*) FROM album_photos p
+      WHERE p.albumId = ?
+        AND NOT EXISTS (SELECT 1 FROM album_anh_nguoi_dang n WHERE n.photoId = p.id AND n.userId = ?)`,
+    [albumId, userId]) === 0;
+}
+// { photoId → userId } của một album, một lượt.
+function nguoiDangCuaAlbum(albumId) {
+  return new Map(db.all('album_anh_nguoi_dang',
+    `SELECT n.photoId, n.userId FROM album_anh_nguoi_dang n
+       JOIN album_photos p ON p.id = n.photoId WHERE p.albumId = ?`, [albumId])
+    .map(r => [r.photoId, r.userId]));
+}
+
+// Những nhóm người này tạo được album: cô — nhóm mình; quản trị đăng ảnh —
+// các nhóm đang mở trong phạm vi cơ sở. Marketing và phụ huynh: không nhóm nào.
+function nhomTaoDuoc(user) {
+  if (!user || db.chucVu(user) === 'marketing') return [];
+  if (user.role === 'teacher') return db.classIdsOfTeacher(user.id);
+  if (laQuanTriDangAnh(user)) return db.classIdsOf(user);
+  return [];
+}
+
+// Tin báo gia đình gọi người đăng thế nào: quản trị đăng thì là "Nhà trường".
+function nguoiDangGoi(user) {
+  return user && user.role === 'admin' ? 'Nhà trường' : 'Cô';
+}
+
+function ghiNguoiDang(photoIds, userId) {
+  const luc = new Date().toISOString();
+  for (const id of photoIds) {
+    db.insert('album_anh_nguoi_dang', { photoId: id, userId, dangLuc: luc });
+  }
+}
+
 // Ghép danh sách bé được gắn thẻ vào một tấm ảnh.
 //
 // Chỉ cô và quản trị nhận được danh sách này. Với phụ huynh, "trong ảnh còn có
 // bé nào" không phải việc của họ — biết tên và mã của con nhà khác trong một
 // tấm ảnh là chính thứ mà đồng ý chia sẻ đang bảo vệ.
-function ganThemDanhSachBe(anh, user) {
+//
+// Tên bé và việc gia đình bé có đồng ý chia sẻ ảnh hay không chỉ trả cho người
+// GẮN THẺ được (`dayDu`). Văn phòng, ban giám hiệu hay Marketing mở album ra
+// không được biết nhà nào đã từ chối — họ chỉ cần biết tấm ảnh đã có bé được
+// gắn hay chưa.
+function ganThemDanhSachBe(anh, user, dayDu = true) {
   if (!user || user.role === 'parent') return anh;
   const ids = db.beTrongAnh(anh.id);
   return {
     ...anh,
     beTrongAnh: ids.map(id => {
+      if (!dayDu) return { id };
       const b = db.findStudent(id);
       return b ? { id: b.id, name: b.name, dongYChiaSe: db.dongYCuaBe(b.id).chiaSeGiaDinh } : null;
     }).filter(Boolean),
@@ -403,21 +517,16 @@ function locAnhChoNguoiXemNhieuNhom(nhom, user) {
   return ra;
 }
 
-// Marketing CHỈ ĐỌC ảnh. Đăng ảnh vào album của một nhóm là việc của cô — cô
-// mới biết hôm đó có bé nào vắng, bé nào gia đình vừa rút đồng ý. Xoá thì càng
-// không: ảnh xoá rồi không lấy lại được, mà đây là kỷ niệm của gia đình.
+// Marketing CHỈ ĐỌC ảnh. Đăng ảnh vào album của một nhóm là việc của nhà
+// trường — người biết hôm đó có bé nào vắng, bé nào gia đình vừa rút đồng ý.
+// Xoá thì càng không: ảnh xoá rồi không lấy lại được, mà đây là kỷ niệm của
+// gia đình.
 //
-// CHỈ GẮN Ở HAI ĐƯỜNG, KHÔNG PHẢI BỐN. Thêm ảnh và xoá một tấm ảnh vốn đã chỉ
-// dành cho CÔ ĐANG DẠY nhóm, nên mọi tài khoản quản trị — Marketing gồm cả —
-// đã nhận 403 ở đó từ trước. Gắn thêm chốt vào hai đường ấy trông thì cẩn thận,
-// nhưng nó không bao giờ chạy, và một chốt không bao giờ chạy là một lời hứa
-// không ai kiểm được. Hai chỗ nó thật sự đỡ được:
-//
-//   • TẠO ALBUM — luật cũ trả 400 "Tài khoản chưa gắn với nhóm lớp nào", một
-//     câu sai sự thật với Marketing và không nói được họ phải làm gì.
-//   • XOÁ CẢ ALBUM của nhóm ĐÃ ĐÓNG — chỗ này thì hở thật: `xoaDuocAlbum` cho
-//     quản trị không khoá cơ sở xoá album của mọi nhóm đã đóng, mà sau mỗi lần
-//     chuyển năm học thì gần như toàn bộ album của trường đều đã đóng.
+// GẮN Ở MỌI ĐƯỜNG GHI. Trước M1, thêm ảnh và xoá một tấm chỉ dành cho cô của
+// nhóm nên chốt này chỉ cần ở hai đường. Nay văn phòng, ban giám hiệu, quản lý
+// cơ sở cũng đăng và xoá ảnh của mình, nên một tài khoản quản trị đi tới được
+// mọi đường ghi — và Marketing cũng là tài khoản quản trị. `quyenAlbum` đã loại
+// Marketing; chốt này đứng trước để câu trả lời nói đúng lý do.
 function chanNeuChiXemAnh(req, res) {
   if (db.chucVu(req.user) !== 'marketing') return false;
   res.status(403).json({
@@ -595,11 +704,23 @@ module.exports = (app) => {
       : list);
   });
 
+  // Người này tạo được album cho những nhóm nào — màn hình dựng nút "Tạo album"
+  // và ô chọn nhóm từ đây. Đăng ký TRƯỚC `/api/albums/:id`, nếu không thì
+  // "tao-duoc" bị hiểu là mã một album.
+  app.get('/api/albums/tao-duoc', (req, res) => {
+    const nhom = nhomTaoDuoc(req.user)
+      .map(id => db.findClass(id))
+      .filter(Boolean)
+      .map(c => ({ id: c.id, name: c.name }));
+    res.json({ taoDuoc: nhom.length > 0, nhom });
+  });
+
   // Chi tiết đầy đủ một album.
   app.get('/api/albums/:id', (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!xemDuocAlbum(req.user, album.classId, album.date, album.id)) {
+    const quyen = quyenAlbum(req.user, album);
+    if (!quyen.xem) {
       return res.status(403).json({ error: 'Không có quyền xem album này' });
     }
     // LỌC Ở TẦNG DỮ LIỆU. Phụ huynh chỉ nhận về những ảnh mình được xem —
@@ -607,8 +728,14 @@ module.exports = (app) => {
     const tatCaAnh = photosOf(album.id);
     const cheDo = cheDoCua(album.id);
     const quaDongY = locAnhChoNguoiXem(tatCaAnh, req.user, album.classId);
+    // Tấm nào người này xoá được — màn hình chỉ vẽ nút xoá trên đúng những tấm ấy.
+    const qx = quyenXoaAnh(req.user, album);
+    const nguoiDang = !qx.tatCa && qx.cuaMinh ? nguoiDangCuaAlbum(album.id) : new Map();
     album.photos = locTheoThe(quaDongY, req.user, cheDo, db.beTrongCacAnh(quaDongY.map(x => x.id)))
-      .map(a => ganThemDanhSachBe(a, req.user));
+      .map(a => ({
+        ...ganThemDanhSachBe(a, req.user, !!quyen.ganThe),
+        xoaDuoc: qx.tatCa || (qx.cuaMinh && nguoiDang.get(a.id) === req.user.id),
+      }));
     album.cheDo = cheDo;
     album.tenCheDo = TEN_CHE_DO[cheDo] || '';
     // Gợi ý cùng con ở nhà (Đ197, việc 32) — rỗng với album cũ, màn hình bỏ
@@ -625,7 +752,11 @@ module.exports = (app) => {
       // canEdit = thêm/xóa ảnh, chỉ cô đang dạy lớp đó. Giữ nguyên nghĩa cũ:
       // lớp đã đóng thì không đăng thêm ảnh nữa.
       canEdit: req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId),
-      canXoa: xoaDuocAlbum(req.user, album.classId),
+      canXoa: quyen.xoaAlbum,
+      // Từng quyền tách riêng (M1) — `canEdit` giữ nguyên nghĩa cũ ở trên.
+      themAnhDuoc: quyen.themAnh,
+      ganTheDuoc: quyen.ganThe,
+      doiCheDoDuoc: quyen.datCheDo,
       themTuCauChuyen: modules.dangBat('hanhtrinh') && !chanThemTuCauChuyen(req.user, album),
       // Cô cần biết ảnh nào đang tạm ẩn với gia đình khác và VÌ SAO. Ẩn mà
       // không giải thích là chỗ cô mất lòng tin vào app nhanh nhất.
@@ -679,7 +810,8 @@ module.exports = (app) => {
     res.sendFile(filePath);
   });
 
-  // Giáo viên tạo album mới cho lớp chủ nhiệm.
+  // Tạo album mới: cô cho nhóm mình; văn phòng, ban giám hiệu, quản lý cơ sở
+  // cho nhóm đang mở trong phạm vi cơ sở (M1). Ai được là do `nhomTaoDuoc`.
   app.post('/api/albums', requireRole('teacher', 'admin'), (req, res) => {
     if (chanNeuChiXemAnh(req, res)) return;
     const { title, description, photos } = req.body || {};
@@ -720,13 +852,36 @@ module.exports = (app) => {
     }
     // Cô phụ trách nhiều nhóm phải nói rõ album thuộc nhóm nào. Cô một nhóm
     // thì không phải chọn gì — đúng số thao tác như trước.
-    const nhomAlbum = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
-    if (!nhomAlbum) {
-      return res.status(400).json({
-        error: nl.nhomCuaCo(req.user.id).length > 1
-          ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm cho album này'
-          : 'Tài khoản chưa gắn với nhóm lớp nào',
-      });
+    let nhomAlbum = '';
+    if (req.user.role === 'teacher') {
+      nhomAlbum = nl.nhomDangThaoTac(req.user, (req.body || {}).classId);
+      if (!nhomAlbum) {
+        return res.status(400).json({
+          error: nl.nhomCuaCo(req.user.id).length > 1
+            ? 'Cô đang phụ trách nhiều nhóm — vui lòng chọn nhóm cho album này'
+            : 'Tài khoản chưa gắn với nhóm lớp nào',
+        });
+      }
+    } else {
+      // Văn phòng, ban giám hiệu, quản lý cơ sở (M1): nhóm đang mở trong phạm
+      // vi cơ sở. Phạm vi có nhiều nhóm thì phải chọn — đoán thay là đăng ảnh
+      // của trẻ vào nhầm nhóm, tức là nhầm gia đình.
+      const duoc = nhomTaoDuoc(req.user);
+      const chon = String((req.body || {}).classId || '');
+      if (chon && !duoc.includes(chon)) {
+        if (laQuanTriTrongPhamVi(req.user, chon)) {
+          return res.status(400).json({ error: 'Nhóm đã đóng sau chuyển năm học — không tạo album mới cho nhóm này' });
+        }
+        return res.status(403).json({ error: 'Nhóm lớp này không thuộc phạm vi của tài khoản' });
+      }
+      nhomAlbum = chon || (duoc.length === 1 ? duoc[0] : '');
+      if (!nhomAlbum) {
+        return res.status(400).json({
+          error: duoc.length
+            ? 'Vui lòng chọn nhóm lớp cho album này'
+            : 'Phạm vi của tài khoản chưa có nhóm lớp nào đang mở',
+        });
+      }
     }
 
     // Gom từng ảnh đã LƯU XUỐNG ĐĨA vào một danh sách, để thất bại giữa chừng
@@ -752,6 +907,7 @@ module.exports = (app) => {
       db.tx(() => {
         db.insert('albums', rec);
         built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: rec.id, position: i }));
+        ghiNguoiDang(built.map(p => p.id), req.user.id);
         if (cheDoXin !== 'cong-khai') ghiCheDo(rec.id, cheDoXin);
         if (cungCon) {
           db.insert('album_cung_con',
@@ -765,17 +921,21 @@ module.exports = (app) => {
     // Công khai thì báo cả nhóm ngay. Theo thẻ thì báo từng nhà khi cô gắn thẻ.
     if (cheDoXin === 'cong-khai') {
       baoNhomAlbum(rec, `Album mới: ${rec.title}`,
-        `Cô vừa đăng ${built.length} ảnh của nhóm. Mở Album ảnh để xem.`, req.user.id);
+        `${nguoiDangGoi(req.user)} vừa đăng ${built.length} ảnh của nhóm. Mở Album ảnh để xem.`, req.user.id);
     }
     res.status(201).json({ ...rec, cheDo: cheDoXin, photos: built });
   });
 
   // Thêm ảnh vào album đã có.
   app.post('/api/albums/:id/photos', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuChiXemAnh(req, res)) return;
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!(req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId))) {
-      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới thêm được ảnh' });
+    const quyen = quyenAlbum(req.user, album);
+    if (!quyen.themAnhNeuMo) {
+      return res.status(403).json({
+        error: 'Chỉ cô phụ trách nhóm hoặc văn phòng của cơ sở đó mới thêm được ảnh',
+      });
     }
     // NHÓM ĐÃ ĐÓNG THÌ ALBUM CHỈ ĐỂ XEM LẠI, KHÔNG ĐĂNG THÊM.
     //
@@ -783,8 +943,7 @@ module.exports = (app) => {
     // năm cũ), nên một mình nó không nói được "nhóm còn hoạt động không".
     // Chính màn chi tiết đã hứa điều này trong cờ `canEdit` ("lớp đã đóng thì
     // không đăng thêm ảnh nữa") — đây là chốt giữ lời hứa đó ở tầng API.
-    const lopCuaAlbum = db.findClass(album.classId);
-    if (!lopCuaAlbum || !lopCuaAlbum.active) {
+    if (!quyen.themAnh) {
       return res.status(400).json({ error: 'Nhóm đã đóng sau chuyển năm học — album năm cũ chỉ để xem lại, không đăng thêm ảnh' });
     }
     const { photos } = req.body || {};
@@ -803,6 +962,7 @@ module.exports = (app) => {
       photos.forEach((p, i) => built.push(buildPhoto(p, dangCo + i)));
       db.tx(() => {
         built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: album.id, position: dangCo + i }));
+        ghiNguoiDang(built.map(p => p.id), req.user.id);
       });
     } catch (err) {
       removeFiles(built);
@@ -810,7 +970,7 @@ module.exports = (app) => {
     }
     if (cheDoCua(album.id) === 'cong-khai') {
       baoNhomAlbum(album, `Album "${album.title}" có thêm ảnh`,
-        'Cô vừa đăng thêm ảnh của nhóm. Mở Album ảnh để xem.', req.user.id);
+        `${nguoiDangGoi(req.user)} vừa đăng thêm ảnh của nhóm. Mở Album ảnh để xem.`, req.user.id);
     }
     // Nhắc NGAY LÚC ĐĂNG, không đợi cô mở lại album.
     //
@@ -834,9 +994,13 @@ module.exports = (app) => {
       ...(db.coBeTuChoiChiaSe(album.classId) ? {
         nhacGanThe: {
           soAnhTamAn: built.length,
-          loiNhac: 'Nhóm này có gia đình chưa đồng ý cho ảnh của con hiện với các nhà khác, '
-            + 'nên ảnh vừa đăng đang tạm ẩn với gia đình khác. Cô bấm vào từng ảnh để gắn '
-            + 'thẻ bé — làm ngay bây giờ là nhanh nhất, vì cô còn nhớ trong ảnh là bé nào.',
+          loiNhac: quyen.ganThe
+            ? 'Nhóm này có gia đình chưa đồng ý cho ảnh của con hiện với các nhà khác, '
+              + 'nên ảnh vừa đăng đang tạm ẩn với gia đình khác. Cô bấm vào từng ảnh để gắn '
+              + 'thẻ bé — làm ngay bây giờ là nhanh nhất, vì cô còn nhớ trong ảnh là bé nào.'
+            : 'Nhóm này có gia đình chưa đồng ý cho ảnh của con hiện với các nhà khác, '
+              + 'nên ảnh vừa đăng đang tạm ẩn với gia đình khác cho tới khi cô phụ trách nhóm '
+              + 'gắn thẻ bé vào từng ảnh.',
         },
       } : {}),
     });
@@ -866,7 +1030,7 @@ module.exports = (app) => {
     // Cô: đúng nhóm mình phụ trách. Quản trị: nhóm trong phạm vi —
     // `canAccessClass` đã siết theo cơ sở. Cùng luật lưu ảnh câu chuyện về
     // album ở modules/hanhtrinh/routes.js.
-    if (!datDuocCheDo(user, album)) {
+    if (!quyenAlbum(user, album).datCheDo) {
       return [403, 'Chỉ cô phụ trách nhóm hoặc văn phòng của cơ sở đó mới thêm được ảnh vào album này'];
     }
     const lop = db.findClass(album.classId);
@@ -1038,6 +1202,7 @@ module.exports = (app) => {
     try {
       db.tx(() => {
         db.insert('album_photos', photo);
+        ghiNguoiDang([photo.id], req.user.id);
         db.datBeTrongAnh(photo.id, be);
         db.upsert('hanhtrinh_album',
           { quanSatId: t.quanSatId, albumId: album.id, photoId: photo.id, ghiLuc: new Date().toISOString() },
@@ -1124,21 +1289,15 @@ module.exports = (app) => {
   // trước chỉ cho vai CÔ, nên văn phòng đăng được ảnh mà không đặt được phạm
   // vi cho chính album mình vừa đăng — một nửa việc.
   //
-  // `requireRole('teacher', 'admin')` mở thêm cho quản trị, và `datDuocCheDo`
-  // ngay dưới giữ đúng phạm vi của từng người. GIA ĐÌNH THÌ KHÔNG, và đó là
-  // vế "trừ phụ huynh" của chính câu trường nói.
-  function datDuocCheDo(user, album) {
-    if (user.role === 'teacher') return db.isTeacherOfClass(user.id, album.classId);
-    // Quản trị: đúng cơ sở của nhóm ấy. `canAccessClass` đã siết theo cơ sở,
-    // nên quản lý cơ sở 1 không đặt lại phạm vi album của cơ sở 2.
-    if (user.role === 'admin') return db.canAccessClass(user, album.classId);
-    return false;
-  }
-
+  // `requireRole('teacher', 'admin')` mở thêm cho quản trị, và `quyenAlbum(…)
+  // .datCheDo` giữ đúng phạm vi của từng người: quản trị đúng cơ sở của nhóm
+  // ấy (`canAccessClass` đã siết theo cơ sở), Marketing thì không. GIA ĐÌNH
+  // THÌ KHÔNG, và đó là vế "trừ phụ huynh" của chính câu trường nói.
   app.put('/api/albums/:id/che-do', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuChiXemAnh(req, res)) return;
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!datDuocCheDo(req.user, album)) {
+    if (!quyenAlbum(req.user, album).datCheDo) {
       return res.status(403).json({
         error: 'Chỉ cô phụ trách nhóm hoặc văn phòng của cơ sở đó mới đặt được phạm vi album',
       });
@@ -1238,7 +1397,8 @@ module.exports = (app) => {
   app.get('/api/albums/:id/nha', requireRole('teacher', 'admin'), (req, res) => {
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!datDuocCheDo(req.user, album)) {
+    // Cùng quyền với đặt phạm vi — Marketing không đọc danh sách nhà được chọn.
+    if (!quyenAlbum(req.user, album).datCheDo) {
       return res.status(403).json({ error: 'Album này không thuộc phạm vi của tài khoản' });
     }
     if (!db.canAccessClass(req.user, album.classId)) {
@@ -1321,11 +1481,14 @@ module.exports = (app) => {
   });
 
   // Xóa một ảnh khỏi album.
+  // Cô của nhóm xoá mọi tấm; người đăng xoá tấm của chính mình (M1). Quản trị
+  // không xoá hộ ảnh người khác — ảnh xoá rồi không lấy lại được.
   app.delete('/api/albums/:id/photos/:photoId', requireRole('teacher', 'admin'), (req, res) => {
+    if (chanNeuChiXemAnh(req, res)) return;
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!(req.user.role === 'teacher' && db.isTeacherOfClass(req.user.id, album.classId))) {
-      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm mới xóa được ảnh' });
+    if (!xoaAnhDuoc(req.user, album, req.params.photoId)) {
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm hoặc người đã đăng ảnh này mới xóa được ảnh' });
     }
     const photo = db.first('album_photos',
       'SELECT * FROM album_photos WHERE id = ? AND albumId = ?', [req.params.photoId, album.id]);
@@ -1341,8 +1504,8 @@ module.exports = (app) => {
     if (chanNeuChiXemAnh(req, res)) return;
     const album = db.first('albums', 'SELECT * FROM albums WHERE id = ?', [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Không tìm thấy album' });
-    if (!xoaDuocAlbum(req.user, album.classId)) {
-      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm hoặc quản trị mới xóa được album' });
+    if (!quyenAlbum(req.user, album).xoaAlbum) {
+      return res.status(403).json({ error: 'Chỉ cô phụ trách nhóm, người tạo album hoặc quản trị mới xóa được album' });
     }
     const photos = photosOf(album.id);
     db.remove('albums', album.id);   // ảnh trong bảng con tự xóa theo ràng buộc khóa ngoại

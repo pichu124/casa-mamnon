@@ -21,11 +21,14 @@ const ngay = require('../../lib/ngay');
 const csv = require('../../lib/csv');
 const { requireRole } = require('../../lib/auth');
 const uploads = require('../../lib/uploads');
+const ngayCong = require('../../lib/ngay-cong');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const GIO_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const LOAI_CONG = ['di-lam', 'nua-ngay', 'nghi-phep', 'nghi-khong-phep', 'nghi-le'];
+const LOAI_DE_NGHI = ['di-lam', 'nua-ngay'];
+const TRANG_THAI_GT = ['cho-duyet', 'da-duyet', 'tu-choi', 'da-rut'];
 
 // Excel coi ô bắt đầu bằng = + - @ là CÔNG THỨC và chạy nó. Họ tên do người
 // nhập gõ, nên tệp đi ra khỏi app phải vô hiệu hoá chúng. Cùng luật với
@@ -242,28 +245,19 @@ module.exports = (app, { db }) => {
     }
   }
 
+  // Mỗi phần tử của `ngay` giữ nguyên các ô cũ (`loai` CHỈ là loại ghi tay)
+  // và có thêm nguon, cong, trangThai, lyDo, loaiTinh, giaiTrinh — gộp theo
+  // luật ở lib/ngay-cong.js. Các số đếm cộng cả ngày tính từ giờ cổng.
   function bangThang(thang, chiUserId, xemAnh) {
     const [tu, den] = khoangThang(thang);
     const nguoi = chiUserId
       ? nguoiCuaTruong().filter(u => u.id === chiUserId)
       : nguoiCuaTruong();
     const ids = nguoi.map(u => u.id);
-    const theoNguoi = new Map();
-    if (ids.length) {
-      const m = ids.map(() => '?').join(',');
-      for (const r of db.all('nhansu_cham_cong',
-        `SELECT * FROM nhansu_cham_cong WHERE ngay BETWEEN ? AND ? AND userId IN (${m})
-         ORDER BY ngay`, [tu, den, ...ids])) {
-        if (!theoNguoi.has(r.userId)) theoNguoi.set(r.userId, []);
-        theoNguoi.get(r.userId).push({
-          ngay: r.ngay, loai: r.loai, gioVao: r.gioVao, gioRa: r.gioRa, ghiChu: r.ghiChu,
-        });
-      }
-      ganAnhCong(theoNguoi, tu, den, ids, xemAnh);
-    }
+    const theoNguoi = ngayCong.bangCong(db, ids, tu, den, { homNay: ngay.homNay() });
+    ganAnhCong(theoNguoi, tu, den, ids, xemAnh);
     const danhSach = nguoi.map((u) => {
       const dong = theoNguoi.get(u.id) || [];
-      const dem = (l) => dong.filter(x => x.loai === l).length;
       return {
         userId: u.id,
         hoTen: `${u.title || ''} ${u.name}`.trim(),
@@ -274,22 +268,101 @@ module.exports = (app, { db }) => {
         // tới trẻ, và cũng không phải một cách xếp ai hơn ai. Nửa ngày tính
         // 0.5, và đó là quy ước duy nhất app tự đặt; mọi thứ khác (hệ số, phụ
         // cấp, thuế, bảo hiểm) kế toán tự tính trên tệp xuất ra.
-        soCong: dem('di-lam') + (dem('nua-ngay') * 0.5),
-        soNgayDiLam: dem('di-lam'),
-        soNuaNgay: dem('nua-ngay'),
-        soNghiPhep: dem('nghi-phep'),
-        soNghiKhongPhep: dem('nghi-khong-phep'),
-        soNghiLe: dem('nghi-le'),
+        ...ngayCong.tongHopCong(dong),
       };
     });
-    return { thang, tuNgay: tu, denNgay: den, danhSach };
+    return { thang, tuNgay: tu, denNgay: den, quyTac: quyTacHomNay(), danhSach };
+  }
+
+  // -------------------------------------------------------------------------
+  // QUY TẮC TÍNH CÔNG TỪ GIỜ Ở CỔNG (K1-2)
+  // -------------------------------------------------------------------------
+  const ngayMai = () => ngayCong.congNgay(ngay.homNay(), 1);
+  function quyTacHomNay() {
+    return ngayCong.quyTacCuaNgay(ngayCong.cacQuyTac(db), ngay.homNay());
+  }
+  function trangThaiQuyTac() {
+    const hn = ngay.homNay();
+    const ds = ngayCong.cacQuyTac(db);
+    const hienTai = ngayCong.quyTacCuaNgay(ds, hn);
+    const sapToi = ds.find(q => q.apDungTu > hn && (!q.tatTu || q.tatTu > q.apDungTu)) || null;
+    return {
+      homNay: hn, ngayMai: ngayMai(), dangBat: !!hienTai, hienTai, sapToi,
+      lichSu: ds, macDinh: ngayCong.QUY_TAC_MAC_DINH,
+    };
   }
 
   app.get('/api/nhansu/cham-cong/toi', requireRole('teacher', 'admin'), (req, res) => {
     const thang = thangHopLe(req, res);
     if (!thang) return;
     const b = bangThang(thang, req.user.id, { toi: true });
-    res.json({ ...b, cuaToi: b.danhSach[0] || null, danhSach: undefined });
+    const [tu, den] = khoangThang(thang);
+    const giaiTrinh = db.all('nhansu_giai_trinh',
+      `SELECT id, ngay, loaiDeNghi, gioVaoDeNghi, gioRaDeNghi, lyDo, trangThai, guiLuc,
+              duyetLuc, loaiDuyet, ghiChuDuyet
+         FROM nhansu_giai_trinh WHERE userId = ? AND ngay BETWEEN ? AND ?
+        ORDER BY ngay DESC, guiLuc DESC`, [req.user.id, tu, den]);
+    res.json({ ...b, cuaToi: b.danhSach[0] || null, danhSach: undefined, giaiTrinh });
+  });
+
+  // GỬI GIẢI TRÌNH cho một ngày của chính mình. Chỉ ngày công tính ra "cần
+  // giải trình" hoặc "chưa có công" — ngày đã có dòng ghi tay thì đã có người
+  // quyết rồi, ngày đủ công thì không có gì để giải trình.
+  app.post('/api/nhansu/cham-cong/toi', requireRole('teacher', 'admin'), (req, res) => {
+    const than = req.body || {};
+    const n = String(than.ngay || '').trim();
+    if (!NGAY_RE.test(n)) return res.status(400).json({ error: 'Ngày chưa hợp lệ (YYYY-MM-DD)' });
+    if (n > ngay.homNay()) return res.status(400).json({ error: 'Chưa tới ngày này nên chưa giải trình được' });
+    if (!ngayCong.quyTacCuaNgay(ngayCong.cacQuyTac(db), n)) {
+      return res.status(400).json({ error: 'Ngày này chưa tính công từ giờ ở cổng. Cần sửa thì nhờ bộ phận Nhân sự nhé.' });
+    }
+    const loai = String(than.loaiDeNghi || '');
+    if (!LOAI_DE_NGHI.includes(loai)) return res.status(400).json({ error: 'Chọn "đi làm" hoặc "nửa ngày"' });
+    const gioVao = String(than.gioVaoDeNghi || '').trim();
+    const gioRa = String(than.gioRaDeNghi || '').trim();
+    for (const [ten, g] of [['giờ vào', gioVao], ['giờ ra', gioRa]]) {
+      if (g && !GIO_RE.test(g)) return res.status(400).json({ error: `Ô ${ten} chưa đúng dạng giờ:phút` });
+    }
+    if (gioVao && gioRa && gioRa < gioVao) return res.status(400).json({ error: 'Giờ ra phải sau giờ vào' });
+    const lyDo = String(than.lyDo || '').trim();
+    if (lyDo.length < 5 || lyDo.length > 500) {
+      return res.status(400).json({ error: 'Lý do cần từ 5 đến 500 ký tự' });
+    }
+    const cho = db.first('nhansu_giai_trinh',
+      "SELECT id FROM nhansu_giai_trinh WHERE userId = ? AND ngay = ? AND trangThai = 'cho-duyet'", [req.user.id, n]);
+    if (cho) return res.status(409).json({ error: 'Ngày này đã có một giải trình đang chờ duyệt' });
+    const d = (ngayCong.bangCong(db, [req.user.id], n, n, { homNay: ngay.homNay() }).get(req.user.id) || [])[0];
+    if (d && d.trangThai === 'da-ghi') {
+      return res.status(400).json({ error: 'Ngày này Nhân sự đã ghi công rồi. Cần sửa thì nhờ bộ phận Nhân sự nhé.' });
+    }
+    if (!d || !['can-giai-trinh', 'chua-co-cong'].includes(d.trangThai)) {
+      return res.status(400).json({ error: 'Ngày này không cần giải trình' });
+    }
+    const gt = {
+      id: db.nextId('gt'), userId: req.user.id, ngay: n, loaiDeNghi: loai,
+      gioVaoDeNghi: gioVao, gioRaDeNghi: gioRa, lyDo, trangThai: 'cho-duyet',
+      nguoiGui: req.user.id, guiLuc: new Date().toISOString(),
+    };
+    try {
+      db.insert('nhansu_giai_trinh', gt);
+    } catch (err) {
+      if (/UNIQUE/i.test(err.message)) return res.status(409).json({ error: 'Ngày này đã có một giải trình đang chờ duyệt' });
+      throw err;
+    }
+    db.audit(req.user.id, 'nhansu-giai-trinh-gui', req.user.id, { ngay: n, loai });
+    res.status(201).json({ ok: true, giaiTrinh: gt });
+  });
+
+  // RÚT giải trình đang chờ của chính mình. Không xoá dòng — chuyển 'da-rut'.
+  app.delete('/api/nhansu/cham-cong/toi', requireRole('teacher', 'admin'), (req, res) => {
+    const id = String(req.query.id || '');
+    const g = id ? db.first('nhansu_giai_trinh',
+      'SELECT * FROM nhansu_giai_trinh WHERE id = ? AND userId = ?', [id, req.user.id]) : null;
+    if (!g) return res.status(404).json({ error: 'Không tìm thấy giải trình này' });
+    if (g.trangThai !== 'cho-duyet') return res.status(400).json({ error: 'Giải trình này đã được xử lý, không rút được nữa' });
+    db.run("UPDATE nhansu_giai_trinh SET trangThai = 'da-rut' WHERE id = ? AND trangThai = 'cho-duyet'", [id]);
+    db.audit(req.user.id, 'nhansu-giai-trinh-rut', req.user.id, { ngay: g.ngay });
+    res.json({ ok: true });
   });
 
   app.get('/api/nhansu/cham-cong', requireRole('teacher', 'admin'), (req, res) => {
@@ -319,8 +392,13 @@ module.exports = (app, { db }) => {
     }
     const loai = String(than.loai || 'di-lam');
     if (!LOAI_CONG.includes(loai)) return res.status(400).json({ error: 'Loại ngày công chưa hợp lệ' });
-    const gioVao = String(than.gioVao || '').trim();
-    const gioRa = String(than.gioRa || '').trim();
+    // Ô nào KHÔNG gửi thì giữ giá trị đang có: màn chọn loại ngày chỉ gửi
+    // `{ loai }`, và đổi "đi làm" sang "nửa ngày" không được xoá mất giờ vào/ra.
+    const cu = db.first('nhansu_cham_cong',
+      'SELECT gioVao, gioRa, ghiChu FROM nhansu_cham_cong WHERE userId = ? AND ngay = ?', [u.id, n]) || {};
+    const lay = k => String((than[k] !== undefined ? than[k] : cu[k]) || '').trim();
+    const gioVao = lay('gioVao');
+    const gioRa = lay('gioRa');
     for (const [ten, g] of [['giờ vào', gioVao], ['giờ ra', gioRa]]) {
       if (g && !GIO_RE.test(g)) return res.status(400).json({ error: `Ô ${ten} chưa đúng dạng giờ:phút` });
     }
@@ -329,7 +407,7 @@ module.exports = (app, { db }) => {
     }
     db.upsert('nhansu_cham_cong', {
       userId: u.id, ngay: n, loai, gioVao, gioRa,
-      ghiChu: String(than.ghiChu || '').trim().slice(0, 300),
+      ghiChu: lay('ghiChu').slice(0, 300),
       nguoiGhi: req.user.id, capNhatLuc: new Date().toISOString(),
     }, ['userId', 'ngay']);
     db.audit(req.user.id, 'nhansu-cham-cong', u.id, { ngay: n, loai });
@@ -349,7 +427,17 @@ module.exports = (app, { db }) => {
     const nguoi = nguoiCuaTruong().filter(u => u.active !== 0 && u.active !== false);
     const daCo = new Set(db.all('nhansu_cham_cong',
       'SELECT userId FROM nhansu_cham_cong WHERE ngay = ?', [n]).map(r => r.userId));
-    const them = nguoi.filter(u => !daCo.has(u.id));
+    // Ngày đã có quy tắc tính công thì người có giờ ở cổng đã có công tính sẵn;
+    // ghi tay "đi làm" cho họ là đè mất con số đúng bằng một con số đoán.
+    let coGioCong = new Set();
+    if (ngayCong.quyTacCuaNgay(ngayCong.cacQuyTac(db), n)) {
+      try {
+        coGioCong = new Set(db.all('staff_checkin',
+          "SELECT userId FROM staff_checkin WHERE ngay = ? AND COALESCE(gioVao, '') != ''", [n]).map(r => r.userId));
+      } catch (_) { coGioCong = new Set(); }
+    }
+    const chuaCo = nguoi.filter(u => !daCo.has(u.id));
+    const them = chuaCo.filter(u => !coGioCong.has(u.id));
     db.tx(() => {
       for (const u of them) {
         db.insert('nhansu_cham_cong', {
@@ -359,7 +447,10 @@ module.exports = (app, { db }) => {
       }
     });
     db.audit(req.user.id, 'nhansu-cham-ca-truong', null, { ngay: n, loai, soNguoi: them.length });
-    res.json({ ok: true, ngay: n, soDaCoTruoc: daCo.size, soVuaGhi: them.length });
+    res.json({
+      ok: true, ngay: n, soDaCoTruoc: daCo.size, soVuaGhi: them.length,
+      soCoGioCong: chuaCo.length - them.length,
+    });
   });
 
   app.get('/api/nhansu/cham-cong.csv', requireRole('teacher', 'admin'), (req, res) => {
@@ -367,8 +458,10 @@ module.exports = (app, { db }) => {
     const thang = thangHopLe(req, res);
     if (!thang) return;
     const b = bangThang(thang);
+    // Tám cột cũ giữ nguyên thứ tự (tệp của kế toán có thể đang đọc theo vị
+    // trí); hai cột mới đứng cuối.
     const COT = ['Họ và tên', 'Vai trò', 'Số công', 'Ngày đi làm', 'Nửa ngày',
-      'Nghỉ phép', 'Nghỉ không phép', 'Nghỉ lễ'];
+      'Nghỉ phép', 'Nghỉ không phép', 'Nghỉ lễ', 'Cần giải trình', 'Giải trình chờ duyệt'];
     const duLieu = b.danhSach.map(x => khoaCongThuc({
       'Họ và tên': x.hoTen,
       'Vai trò': x.vai === 'teacher' ? 'Cô' : 'Văn phòng',
@@ -378,11 +471,181 @@ module.exports = (app, { db }) => {
       'Nghỉ phép': x.soNghiPhep,
       'Nghỉ không phép': x.soNghiKhongPhep,
       'Nghỉ lễ': x.soNghiLe,
+      'Cần giải trình': x.soCanGiaiTrinh,
+      'Giải trình chờ duyệt': x.soChoDuyet,
     }));
     db.audit(req.user.id, 'nhansu-xuat-cong', null, { thang, soNguoi: duLieu.length });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="cham-cong-${thang}.csv"`);
     res.send(csv.stringify(COT, duLieu));
+  });
+
+  // -------------------------------------------------------------------------
+  // DUYỆT GIẢI TRÌNH — Nhân sự và ban giám hiệu
+  // -------------------------------------------------------------------------
+  app.get('/api/nhansu/giai-trinh', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiNhanSu(req, res)) return;
+    const dk = [];
+    const p = [];
+    const thang = String(req.query.thang || '').trim();
+    if (thang) {
+      if (!THANG_RE.test(thang)) return res.status(400).json({ error: 'Tháng chưa hợp lệ (YYYY-MM)' });
+      dk.push('g.ngay BETWEEN ? AND ?');
+      p.push(...khoangThang(thang));
+    }
+    const tt = String(req.query.trangThai || '').trim();
+    if (tt) {
+      if (!TRANG_THAI_GT.includes(tt)) return res.status(400).json({ error: 'Trạng thái chưa hợp lệ' });
+      dk.push('g.trangThai = ?');
+      p.push(tt);
+    }
+    const ds = db.all('nhansu_giai_trinh',
+      `SELECT g.*, u.name, u.title, u.role, s.gioVao AS gioVaoCong, s.gioRa AS gioRaCong
+         FROM nhansu_giai_trinh g
+         JOIN users u ON u.id = g.userId
+         LEFT JOIN staff_checkin s ON s.userId = g.userId AND s.ngay = g.ngay
+        ${dk.length ? `WHERE ${dk.join(' AND ')}` : ''}
+        ORDER BY g.guiLuc DESC LIMIT 500`, p);
+    res.json({
+      danhSach: ds.map(({ name, title, role, ...g }) => ({
+        ...g,
+        hoTen: `${title || ''} ${name}`.trim(),
+        vai: role,
+        gioVaoCong: g.gioVaoCong || '',
+        gioRaCong: g.gioRaCong || '',
+        laCuaToi: g.userId === req.user.id,
+      })),
+    });
+  });
+
+  // Duyệt: trong MỘT giao dịch, ghi dòng tay vào bảng công (loại và giờ do
+  // người duyệt chọn) và chuyển giải trình sang 'da-duyet'. Từ chối phải có
+  // lý do — người gửi cần biết vì sao. Không ai tự duyệt việc của mình.
+  app.put('/api/nhansu/giai-trinh/:id', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiNhanSu(req, res)) return;
+    const g = db.first('nhansu_giai_trinh', 'SELECT * FROM nhansu_giai_trinh WHERE id = ?', [String(req.params.id)]);
+    if (!g) return res.status(404).json({ error: 'Không tìm thấy giải trình này' });
+    if (g.userId === req.user.id) {
+      return res.status(403).json({ error: 'Giải trình của chính mình cần một người khác duyệt' });
+    }
+    if (g.trangThai !== 'cho-duyet') return res.status(400).json({ error: 'Giải trình này đã được xử lý rồi' });
+    const than = req.body || {};
+    const ghiChu = String(than.ghiChu || '').trim().slice(0, 300);
+    const luc = new Date().toISOString();
+
+    if (than.duyet === false) {
+      if (!ghiChu) return res.status(400).json({ error: 'Ghi lý do từ chối để người gửi biết nhé' });
+      db.run(`UPDATE nhansu_giai_trinh SET trangThai = 'tu-choi', nguoiDuyet = ?, duyetLuc = ?, ghiChuDuyet = ?
+               WHERE id = ? AND trangThai = 'cho-duyet'`, [req.user.id, luc, ghiChu, g.id]);
+      db.audit(req.user.id, 'nhansu-giai-trinh-tu-choi', g.userId, { ngay: g.ngay });
+      return res.json({ ok: true, trangThai: 'tu-choi' });
+    }
+    if (than.duyet !== true) return res.status(400).json({ error: 'Chọn duyệt hoặc từ chối' });
+
+    const loai = String(than.loai || g.loaiDeNghi);
+    if (!LOAI_CONG.includes(loai)) return res.status(400).json({ error: 'Loại ngày công chưa hợp lệ' });
+    const lay = (k, deNghi) => String((than[k] !== undefined ? than[k] : g[deNghi]) || '').trim();
+    const gioVao = lay('gioVao', 'gioVaoDeNghi');
+    const gioRa = lay('gioRa', 'gioRaDeNghi');
+    for (const [ten, gio] of [['giờ vào', gioVao], ['giờ ra', gioRa]]) {
+      if (gio && !GIO_RE.test(gio)) return res.status(400).json({ error: `Ô ${ten} chưa đúng dạng giờ:phút` });
+    }
+    if (gioVao && gioRa && gioRa < gioVao) return res.status(400).json({ error: 'Giờ ra phải sau giờ vào' });
+
+    const ketQua = db.tx(() => {
+      const daCo = db.first('nhansu_cham_cong',
+        'SELECT 1 AS co FROM nhansu_cham_cong WHERE userId = ? AND ngay = ?', [g.userId, g.ngay]);
+      if (daCo) return 'da-co';
+      const doi = db.run(`UPDATE nhansu_giai_trinh SET trangThai = 'da-duyet', nguoiDuyet = ?, duyetLuc = ?,
+                           loaiDuyet = ?, ghiChuDuyet = ? WHERE id = ? AND trangThai = 'cho-duyet'`,
+      [req.user.id, luc, loai, ghiChu, g.id]);
+      if (!doi.changes) return 'da-xu-ly';
+      db.insert('nhansu_cham_cong', {
+        userId: g.userId, ngay: g.ngay, loai, gioVao, gioRa,
+        ghiChu: `${ngayCong.GHI_CHU_GIAI_TRINH}${ghiChu ? `: ${ghiChu}` : ''}`.slice(0, 300),
+        nguoiGhi: req.user.id, capNhatLuc: luc,
+      });
+      return 'ok';
+    });
+    if (ketQua === 'da-co') {
+      return res.status(409).json({ error: 'Ngày này đã có dòng công ghi tay. Sửa thẳng ở bảng công, hoặc từ chối giải trình kèm lý do.' });
+    }
+    if (ketQua === 'da-xu-ly') return res.status(400).json({ error: 'Giải trình này đã được xử lý rồi' });
+    db.audit(req.user.id, 'nhansu-giai-trinh-duyet', g.userId, { ngay: g.ngay, loai });
+    res.json({ ok: true, trangThai: 'da-duyet' });
+  });
+
+  // -------------------------------------------------------------------------
+  // BẬT / TẮT / ĐỔI QUY TẮC TÍNH CÔNG — chỉ từ NGÀY MAI trở đi. Ngày đã qua
+  // và hôm nay giữ nguyên cách tính đang có; không dòng nào bị xoá.
+  // -------------------------------------------------------------------------
+  app.get('/api/nhansu/quy-tac-cong', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiNhanSu(req, res)) return;
+    res.json(trangThaiQuyTac());
+  });
+
+  app.put('/api/nhansu/quy-tac-cong', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiNhanSu(req, res)) return;
+    const than = req.body || {};
+    const mai = ngayMai();
+    const ds = ngayCong.cacQuyTac(db);
+    const luc = new Date().toISOString();
+    const tuNgayMai = (n, ten) => {
+      if (!NGAY_RE.test(n)) return `Ngày ${ten} chưa hợp lệ (YYYY-MM-DD)`;
+      if (n < mai) return `Chỉ ${ten} được từ ngày mai trở đi — những ngày đã qua giữ nguyên như đã tính`;
+      return null;
+    };
+
+    if (than.bat === false) {
+      const tatTu = String(than.tatTu || mai);
+      const loi = tuNgayMai(tatTu, 'tắt');
+      if (loi) return res.status(400).json({ error: loi });
+      const conChay = ds.filter(q => !q.tatTu || q.tatTu > tatTu);
+      if (!conChay.length) return res.status(400).json({ error: 'Quy tắc tính công đang tắt rồi' });
+      db.tx(() => {
+        for (const q of conChay) {
+          db.update('nhansu_quy_tac_cong', q.id, { tatTu, nguoiTat: req.user.id, tatLuc: luc });
+        }
+      });
+      db.audit(req.user.id, 'nhansu-quy-tac-cong-tat', null, { tatTu });
+      return res.json(trangThaiQuyTac());
+    }
+    if (than.bat !== true) return res.status(400).json({ error: 'Chọn bật hoặc tắt' });
+
+    const apDungTu = String(than.apDungTu || mai);
+    const loi = tuNgayMai(apDungTu, 'áp dụng');
+    if (loi) return res.status(400).json({ error: loi });
+    const goc = ds.filter(q => !q.tatTu).pop() || ngayCong.QUY_TAC_MAC_DINH;
+    const moi = {};
+    for (const k of ['phutDuCong', 'phutDuDi']) {
+      const v = than[k] !== undefined ? Number(than[k]) : Number(goc[k]);
+      const [thap, cao] = k === 'phutDuCong' ? [60, 720] : [0, 120];
+      if (!Number.isInteger(v) || v < thap || v > cao) {
+        return res.status(400).json({
+          error: k === 'phutDuCong' ? 'Số phút đủ một công phải từ 60 đến 720' : 'Số phút xê dịch phải từ 0 đến 120',
+        });
+      }
+      moi[k] = v;
+    }
+    for (const k of ['ca1Tu', 'ca1Den', 'ca2Tu', 'ca2Den']) {
+      moi[k] = String(than[k] !== undefined ? than[k] : goc[k]).trim();
+      if (!GIO_RE.test(moi[k])) return res.status(400).json({ error: 'Giờ ca chưa đúng dạng giờ:phút' });
+    }
+    if (moi.ca1Tu >= moi.ca1Den || moi.ca2Tu >= moi.ca2Den) {
+      return res.status(400).json({ error: 'Giờ kết thúc ca phải sau giờ bắt đầu' });
+    }
+    // Đợt nào còn chạy tới ngày áp dụng mới thì đóng lại đúng ở ngày đó.
+    const conChay = ds.filter(q => !q.tatTu || q.tatTu > apDungTu);
+    db.tx(() => {
+      for (const q of conChay) {
+        db.update('nhansu_quy_tac_cong', q.id, { tatTu: apDungTu, nguoiTat: req.user.id, tatLuc: luc });
+      }
+      db.insert('nhansu_quy_tac_cong', {
+        id: db.nextId('qtc'), apDungTu, tatTu: null, ...moi, nguoiBat: req.user.id, batLuc: luc,
+      });
+    });
+    db.audit(req.user.id, 'nhansu-quy-tac-cong-bat', null, { apDungTu, ...moi, doi: conChay.length > 0 });
+    res.json(trangThaiQuyTac());
   });
 
   // Danh sách ô nhạy cảm để bài canh đọc được, và để màn hình biết ô nào không

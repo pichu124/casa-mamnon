@@ -804,7 +804,11 @@ console.log('\n[8c] Nhân sự & chấm công — Nhân sự ghi hồ sơ và ch
   // chỉ tồn tại trong bài canh máy chủ, chưa từng ai bấm thử.
   await dangNhap('hieutruong', 'quantri2026');
   await moMan('#/nhansu');
-  check('ban giám hiệu thấy hai tab Hồ sơ / Chấm công', await page.locator('#ns-tab [data-tab]').count() === 2);
+  // Từ K1 (ngày công, 11/2026) người duyệt giải trình có thêm tab "Của tôi":
+  // họ cũng chụp ảnh ở cổng nên cũng cần tự gửi giải trình cho ngày của mình.
+  const tabNs = await page.locator('#ns-tab [data-tab]').evaluateAll(els => els.map(e => e.dataset.tab));
+  check('ban giám hiệu thấy tab Hồ sơ / Chấm công (và Của tôi)',
+    tabNs.length === 3 && tabNs.includes('toi') && tabNs.filter(t => t !== 'toi').length === 2, tabNs);
   const soNguoi = await page.locator('[data-mo]').count();
   check('và danh sách người của trường có nội dung thật', soNguoi >= 2, soNguoi);
 

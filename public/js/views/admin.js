@@ -2227,11 +2227,11 @@ Vẫn nhận bé này?`)) {
           Nhận bé là tạo luôn tài khoản gia đình; nhà đã có con học ở trường thì nối vào tài khoản cũ
           theo số điện thoại. Thêm phụ huynh thì luôn là tài khoản mới. Dữ liệu của bé nghỉ học hay
           bảo lưu đều giữ nguyên.<br>
-          <b>Gia đình quên mật khẩu:</b> ${q.capLaiMatKhau
+          <b>Gia đình quên mật khẩu:</b> ${q.capLaiPhuHuynh
     ? 'mở <b>Tài khoản phụ huynh</b>, bấm <b>Cấp mật khẩu tạm</b> cạnh tên nhà đó.'
-    : 'cô của nhóm bé hoặc quản lý cơ sở cấp lại ở <b>Cài đặt → Tài khoản phụ huynh</b>.'}
+    : 'văn phòng cơ sở, quản lý cơ sở hoặc ban giám hiệu cấp lại ở <b>Tài khoản phụ huynh</b>.'}
         </div>
-        ${q.capLaiMatKhau ? '<button class="btn sm outline mb-8" onclick="location.hash=\'#/accounts\'">Mở Tài khoản phụ huynh</button>' : ''}
+        ${q.capLaiPhuHuynh ? '<button class="btn sm outline mb-8" onclick="location.hash=\'#/accounts\'">Mở Tài khoản phụ huynh</button>' : ''}
         ${(this._lop || []).map(c => `
           <div class="list-row">
             <div class="row-main">
@@ -2687,6 +2687,10 @@ Vẫn nhận bé này?`)) {
       'phu-huynh-them': 'Thêm tài khoản phụ huynh cho bé',
       'students-export': 'Xuất danh sách bé',
       'import-students': 'Nhập danh sách bé',
+      'import-teachers': 'Nhập cô từ tệp',
+      'nhan-danh-gia-de-xuat': 'Quản lý cơ sở đề xuất đổi bộ chữ đánh giá',
+      'nhan-danh-gia-duyet': 'Ban giám hiệu xem đề xuất đổi bộ chữ đánh giá',
+      'nhan-danh-gia-rut': 'Rút đề xuất đổi bộ chữ đánh giá',
       'class-create': 'Tạo nhóm lớp',
       'class-update': 'Sửa nhóm lớp',
       'class-teachers-set': 'Phân công cô phụ trách',
@@ -2821,6 +2825,7 @@ Vẫn nhận bé này?`)) {
       'kehoachbe-dat-ca-nhom': 'Đặt kế hoạch cho cả nhóm',
       'kehoachbe-chep-thang': 'Chép kế hoạch tháng trước',
       'kehoachbe-nhin-lai': 'Ghi nhìn lại cuối tháng',
+      'kehoachbe-sap-xep-bai': 'Sắp xếp thứ tự bài trong kho bài học',
       'baocaohoctap-gui': 'Gửi báo cáo học tập chờ duyệt',
       'baocaohoctap-duyet': 'Duyệt báo cáo học tập',
       'baocaohoctap-tra-lai': 'Trả lại báo cáo cho cô',
@@ -2864,6 +2869,12 @@ Vẫn nhận bé này?`)) {
       'nhansu-cham-ca-truong': 'Chấm công cả trường',
       'nhansu-xoa-cong': 'Xoá một dòng chấm công',
       'nhansu-xuat-cong': 'Xuất bảng chấm công',
+      'nhansu-giai-trinh-gui': 'Gửi giải trình ngày công',
+      'nhansu-giai-trinh-rut': 'Rút giải trình ngày công',
+      'nhansu-giai-trinh-duyet': 'Duyệt giải trình ngày công',
+      'nhansu-giai-trinh-tu-choi': 'Từ chối giải trình ngày công',
+      'nhansu-quy-tac-cong-bat': 'Bật hoặc đổi cách tính công theo giờ ở cổng',
+      'nhansu-quy-tac-cong-tat': 'Tắt cách tính công theo giờ ở cổng',
 
       // Xuất báo cáo (Đ239c)
       'xuatbaocao-diemdanh-be': 'Xuất báo cáo điểm danh của bé',

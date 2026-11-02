@@ -189,3 +189,42 @@ Chủ dự án trả lời ba việc còn treo sau khi soạn lại hướng d�
   bài hát, talkshow, lời nhắc, tệp) cho nhóm của cơ sở mình, từ nút ở Lịch sinh hoạt. Chỉ mở
   đúng `/api/hanhtrinh/chu-de`; quan sát, ảnh, câu chuyện từng bé vẫn đóng. Ô Hành trình không
   hiện ở Trang chủ của văn phòng.
+
+## Kết quả ngày 02/11/2026 (Đ245, Đ247, Đ248)
+
+Chủ dự án: *"làm theo đề nghị"* — thứ tự N1–N5 → L1–L6 → M1 → K1; album không mở cho phụ huynh;
+K1 lấy mặc định 8 tiếng = lần vào đầu tới lần ra cuối, không trừ nghỉ trưa, nhân sự và ban
+giám hiệu duyệt giải trình (chủ dự án đổi được).
+
+- **N1–N5 — xong (Đ245).** Kho bài gập theo lĩnh vực con, mỗi bài một dòng có số thứ tự, sắp
+  xếp bằng ↑↓; bài cho nhà trẻ (dưới 3 tuổi) có kho mẫu riêng; dưới thẻ từng bé có "Đã học các
+  tháng trước". Bài mẫu "Quan sát thời tiết" đổi tên thành "Ngắm trời nắng, trời mưa".
+- **M1 — xong (Đ247).** Văn phòng, quản lý cơ sở, ban giám hiệu tạo album và đăng ảnh cho nhóm
+  trong cơ sở; cô của nhóm bật "album chung" để cô khác cùng cơ sở góp ảnh. Ảnh cô nhóm khác
+  góp chưa hiện với gia đình cho tới khi cô của nhóm gắn thẻ bé, và vẫn ẩn nếu nhóm của cô góp
+  có gia đình từ chối chia sẻ ảnh. **Để chủ dự án chọn sau:** cho cô góp tự gắn thẻ bé nhóm mình
+  vào ảnh của mình — khi đó chỉ ẩn khi đúng bé bị từ chối có trong ảnh (hiện chặn rộng hơn).
+- **K1 — xong (Đ248).** Nhân sự bật "Tính công theo giờ ở cổng" (áp dụng từ ngày mai). Chưa bật
+  thì chấm công như cũ. **Nên hỏi trường khi thử:** cô không chụp ảnh ở cổng sẽ thấy mỗi ngày
+  thường đã qua một dòng "Chưa có giờ ở cổng" (khoảng 20 dòng mỗi tháng) — có muốn gom lại?
+- **L1–L6 — chờ duyệt.** Cần đổi ba bài phân quyền (mat-khau, bao-ve-cong,
+  tai-khoan-phan-quyen-giao-dien) và thêm `/api/accounts` cho văn phòng cơ sở trong `lib/db.js`.
+
+## Quyết định của chủ dự án ngày 02/11/2026 (sau Đ245–Đ248)
+
+- **Ba cấp giữ như cũ:** Cấp 1 = Ban giám hiệu; Cấp 2 = Nhân sự, Kế toán, Marketing (toàn
+  trường, mỗi bộ phận một mảng); Cấp 3 = Quản lý cơ sở, Văn phòng cơ sở, Bảo vệ cổng.
+- **L1–L6 — duyệt.** Được đổi ba bài phân quyền (mat-khau, bao-ve-cong,
+  tai-khoan-phan-quyen-giao-dien) theo lý do đã nêu; được thêm `/api/accounts` cho văn phòng
+  cơ sở trong `lib/db.js` (commit riêng) và sửa câu mô tả chức vụ. Các điểm trường chưa nói:
+  1. Nhân sự giữ quyền cấp lại mật khẩu cho cô và xem đủ hồ sơ nhân sự.
+  2. Văn phòng cơ sở chỉ XEM hồ sơ cô.
+  3. Bộ chữ đánh giá: quản lý cơ sở ĐỀ XUẤT, cấp 1 DUYỆT cuối cùng.
+  4. Chỉ tab Tính năng là riêng cấp 1; Quan tâm giữ như nay.
+  5. Cô KHÔNG còn xem danh sách tài khoản phụ huynh (bỏ cả đường đọc lẫn lối vào).
+  7. Cấp 1 nhập cô có cột Cơ sở mà chưa có Nhóm → vẫn gắn cô vào cơ sở đó.
+- **M1 — thu hẹp.** Đóng góp ảnh vào album của một nhóm: chỉ cô của nhóm, quản lý cơ sở và
+  văn phòng cơ sở của cơ sở đó (cấp 1 như mọi nơi). **Cô nhóm khác không được góp** → bỏ
+  "album chung" của Đ247.
+- **K1 — gom lại.** Những ngày "Chưa có giờ ở cổng" gom thành một dòng, bấm vào mới sổ ra
+  từng ngày.

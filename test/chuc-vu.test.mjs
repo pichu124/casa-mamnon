@@ -859,13 +859,25 @@ console.log('\n[10] NHÂN SỰ LO TÀI KHOẢN CỦA TRƯỜNG, KHÔNG CHẠM T�
   const bghChoPH = await capCho(BGH, 'p1');
   check('ban giám hiệu VẪN cấp lại được cho gia đình', bghChoPH.status === 200, bghChoPH.status);
 
+  // L1 (góp ý 20/10 mục 12, chủ dự án duyệt 02/11): cấp lại mật khẩu cho gia
+  // đình nay là việc của VĂN PHÒNG CƠ SỞ (và quản lý cơ sở, ban giám hiệu) —
+  // "bỏ đoạn giáo viên được cấp lại mật khẩu cho phụ huynh". Phép thử ngược
+  // vì thế chuyển từ cô sang hai người của cơ sở; vế cô đảo thành bị từ chối.
+  //
   // Dùng cô giaovien3 chứ không phải GV: mục [8] bên trên đã ĐÓNG nhóm c1, nên
-  // cô của c1 không còn nhóm đang mở nào để mà cấp lại. giaovien3 dạy cả c1 lẫn
-  // c2, và con thứ hai của nhà p1 đang học c2.
+  // cô của c1 không còn nhóm đang mở nào. giaovien3 dạy cả c1 lẫn c2, và con
+  // thứ hai của nhà p1 đang học c2 — tức cô ấy ĐÚNG là cô của nhóm bé, và vẫn
+  // bị từ chối. Đó mới là thứ phép kiểm này cần chứng minh.
   const GV3 = (await login('giaovien3', '123456')).cookie;
   const coChoPH = await capCho(GV3, 'p1');
-  check('cô của nhóm bé VẪN cấp lại được cho gia đình nhóm mình',
-    coChoPH.status === 200, coChoPH.status);
+  check('cô của nhóm bé KHÔNG còn cấp lại được cho gia đình nhóm mình (việc của văn phòng)',
+    coChoPH.status === 403 && !coChoPH.data?.temporaryPassword, coChoPH.status);
+  const qlChoPH = await capCho(QL, 'p1');
+  check('quản lý cơ sở VẪN cấp lại được cho gia đình cơ sở mình',
+    qlChoPH.status === 200 && !!qlChoPH.data?.temporaryPassword, qlChoPH.status);
+  const vpChoPH = await capCho(VP, 'p1');
+  check('văn phòng cơ sở cấp lại được cho gia đình cơ sở mình',
+    vpChoPH.status === 200 && !!vpChoPH.data?.temporaryPassword, vpChoPH.status);
 
   const bghDsPH = await req('GET', '/api/accounts/parents', { cookie: BGH });
   check('ban giám hiệu VẪN mở được danh sách gia đình',

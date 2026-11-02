@@ -157,10 +157,11 @@ CREATE INDEX IF NOT EXISTS kehoachbe_ke_ct_trang_thai ON kehoachbe_ke_ct(trangTh
 -- KHO BÀI THEO LỨA TUỔI (góp ý 06/10, mục 6): "Được quản lý tách biệt theo độ
 -- tuổi (Lứa 3-4 tuổi, Lứa 4-5 tuổi, Lứa 5-6 tuổi)". Một bài dùng được cho nhiều
 -- lứa nên là bảng phụ, không phải một cột. Bài KHÔNG có dòng nào ở đây = dùng
--- cho mọi lứa — đúng như mọi bài đang có hôm nay.
+-- theo lứa mặc định của lĩnh vực con, không có thì cho mọi lứa mẫu giáo (3–6
+-- tuổi) — xem `luaApDung` ở routes.js.
 CREATE TABLE IF NOT EXISTS kehoachbe_baihoc_lua (
   baiHocId TEXT NOT NULL,
-  lua      TEXT NOT NULL              -- 3-4 | 4-5 | 5-6
+  lua      TEXT NOT NULL              -- 0-3 | 3-4 | 4-5 | 5-6
 );
 CREATE UNIQUE INDEX IF NOT EXISTS kehoachbe_baihoc_lua_mot ON kehoachbe_baihoc_lua(baiHocId, lua);
 
@@ -188,4 +189,23 @@ CREATE TABLE IF NOT EXISTS kehoachbe_bai_muc_do (
   tiepTuc    TEXT NOT NULL DEFAULT '',
   nguoiGhi   TEXT,
   capNhatLuc TEXT
+);
+
+-- LĨNH VỰC CON CỦA KHO BÀI (góp ý 20/10): một tầng xếp mục NẰM TRÊN góc, không
+-- thay góc. Cambridge chia "Communication and Language" / "Maths" / "Let's
+-- Explore" (và "Tiếng Anh" cho nhà trẻ), Thể chất chia vận động thô / tinh.
+-- Danh sách mã ở `LINH_VUC_CON` trong routes.js. Bài KHÔNG có dòng ở đây là
+-- "chưa xếp mục" — đúng như mọi bài đang có hôm nay.
+CREATE TABLE IF NOT EXISTS kehoachbe_baihoc_con (
+  baiHocId   TEXT PRIMARY KEY,
+  linhVucCon TEXT NOT NULL,
+  capNhatLuc TEXT
+);
+
+-- DẤU ĐÃ NẠP của từng đợt bài mẫu (vd kho nhà trẻ). Có dòng = đợt ấy đã nạp
+-- một lần, không bao giờ nạp lại — bài văn phòng đã ẩn thì không sống lại khi
+-- khởi động lại.
+CREATE TABLE IF NOT EXISTS kehoachbe_dot_nap (
+  dot TEXT PRIMARY KEY,
+  luc TEXT
 );

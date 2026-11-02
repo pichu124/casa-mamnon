@@ -164,7 +164,9 @@ console.log('\n[4] KHÔNG DỜI DỮ LIỆU CŨ — và tắt phân hệ thì l�
   // cũ của phân hệ. Đó là hành vi đúng (một ngày một tấm, cô gỡ là gỡ), nhưng
   // dựng hai thứ vào cùng một ngày thì bài này đo vào chỗ đã bị gỡ. Bản đầu
   // mắc đúng lỗi đó và báo đỏ với một mảng rỗng.
-  const NGAY_CU = `${THANG}-02`;
+  // Không cố định mùng 2: chạy bài đúng ngày mùng 2 thì NGAY_CU trùng NGAY
+  // (ngày mục [3] vừa gỡ ảnh) và bài đo vào chỗ đã gỡ — đỏ mỗi tháng một lần.
+  const NGAY_CU = `${THANG}-${NGAY.slice(8) === '02' ? '03' : '02'}`;
   const c = new Database(CSDL);
   c.prepare(`INSERT OR REPLACE INTO dontra_anh_tra (studentId, ngay, file, taoLuc, byUserId)
              VALUES ('s1', ?, 'anh-cu-cua-phan-he.png', ?, 't1')`).run(NGAY_CU, new Date().toISOString());

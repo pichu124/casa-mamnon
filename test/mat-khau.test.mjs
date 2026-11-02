@@ -3,11 +3,17 @@
 // Chạy bằng:  npm run test:mat-khau
 import fs from 'fs';
 import { spawn } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3400);
 const BASE = `http://localhost:${PORT}`;
 const DIR = thuMucTam('mat-khau');
+// L1 (góp ý 20/10 mục 12, chủ dự án chốt 'làm theo đề nghị'): bỏ quyền cô cấp
+// lại mật khẩu phụ huynh, văn phòng cơ sở làm. Dữ liệu mẫu không có tài khoản
+// quản trị, nên dựng sẵn dữ liệu và một ban giám hiệu TRƯỚC khi máy chủ chạy
+// (sinh đủ dữ liệu phân hệ, y như máy chủ tự sinh khi thư mục trống).
+sinhDuLieu(DIR, { phanHe: true });
+const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 
 let pass = 0, fail = 0; const errs = [];
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✓', n); } else { fail++; errs.push(`${n} ${x != null ? JSON.stringify(x).slice(0,200) : ''}`); console.log('  ✗', n, x ?? ''); } };
@@ -27,22 +33,44 @@ async function req(method, path, { body, cookie } = {}) {
 const login = async (u, p) => { const r = await req('POST', '/api/auth/login', { body: { username: u, password: p } });
   return { ...r, cookie: r.setCookie ? r.setCookie.split(';')[0] : null }; };
 
-console.log('\n[1] Giáo viên xem danh sách phụ huynh lớp mình');
+// L1 (góp ý 20/10 mục 12, chủ dự án chốt 'làm theo đề nghị'): bỏ quyền cô cấp
+// lại mật khẩu phụ huynh, văn phòng cơ sở làm. Luồng cấp lại, đăng nhập bằng
+// mật khẩu tạm, buộc đổi, nhật ký giữ nguyên, chỉ đổi người bấm. Thêm phép kiểm
+// cô bị từ chối. Từ 1c-5 (chủ dự án 02/11) cô cũng không còn đọc danh sách.
+console.log('\n[1] Nhà trường xem danh sách phụ huynh; cô thì không');
 const T = (await login('giaovien', '123456')).cookie;
+const A = await (async () => {
+  const dau = await login('hieutruong', mkBGH);
+  await req('POST', '/api/auth/set-new-password', { cookie: dau.cookie, body: { newPassword: 'quantri2026' } });
+  return (await login('hieutruong', 'quantri2026')).cookie;
+})();
 const P_before = await login('phuhuynh', '123456');
 {
-  const r = await req('GET', '/api/accounts/parents', { cookie: T });
+  const r = await req('GET', '/api/accounts/parents', { cookie: A });
   check('lấy được danh sách phụ huynh', r.status === 200 && r.data.length > 0, r.data?.length);
   check('kèm tên con để nhận diện', r.data.every(p => Array.isArray(p.children) && p.children.length), r.data?.[0]);
   const parent = await login('phuhuynh', '123456');
   const rp = await req('GET', '/api/accounts/parents', { cookie: parent.cookie });
   check('phụ huynh KHÔNG xem được danh sách này', rp.status === 403, rp.status);
+  const rt = await req('GET', '/api/accounts/parents', { cookie: T });
+  check('cô KHÔNG còn xem được danh sách này → 403', rt.status === 403, rt.status);
+  check('và không một tài khoản phụ huynh nào lọt ra', !Array.isArray(rt.data), rt.data);
 }
 
+// L1 (góp ý 20/10 mục 12, chủ dự án chốt 'làm theo đề nghị'): bỏ quyền cô cấp
+// lại mật khẩu phụ huynh, văn phòng cơ sở làm. Luồng cấp lại, đăng nhập bằng
+// mật khẩu tạm, buộc đổi, nhật ký giữ nguyên, chỉ đổi người bấm. Thêm phép kiểm
+// cô bị từ chối.
 console.log('\n[2] Cấp mật khẩu tạm');
 let tempPw;
 {
-  const r = await req('POST', '/api/accounts/p1/reset-password', { cookie: T });
+  const coThu = await req('POST', '/api/accounts/p1/reset-password', { cookie: T });
+  check('cô KHÔNG cấp được cho phụ huynh nhóm mình nữa → 403', coThu.status === 403, coThu.status);
+  check('và không có mật khẩu tạm nào lọt ra', !coThu.data?.temporaryPassword, coThu.data);
+  const vanVao = await req('GET', '/api/auth/me', { cookie: P_before.cookie });
+  check('bị từ chối thì phụ huynh vẫn còn đăng nhập', vanVao.status === 200, vanVao.status);
+
+  const r = await req('POST', '/api/accounts/p1/reset-password', { cookie: A });
   check('cấp được mật khẩu tạm → 200', r.status === 200, r.data);
   tempPw = r.data?.temporaryPassword;
   check('mật khẩu tạm có 8 ký tự dễ đọc', /^[a-z]{5}[2-9]{3}$/.test(tempPw || ''), tempPw);
@@ -100,9 +128,11 @@ console.log('\n[4] Phân quyền cấp lại mật khẩu');
   check('tài khoản không tồn tại → 404', missing.status === 404, missing.status);
 }
 
+// L1 (góp ý 20/10 mục 12, chủ dự án chốt 'làm theo đề nghị'): người bấm cấp lại
+// ở mục [2] nay là ban giám hiệu, nên nhật ký đọc bằng phiên ban giám hiệu.
 console.log('\n[5] Nhật ký cấp lại mật khẩu');
 {
-  const r = await req('GET', '/api/accounts/reset-log', { cookie: T });
+  const r = await req('GET', '/api/accounts/reset-log', { cookie: A });
   check('ghi lại lượt cấp mật khẩu', r.status === 200 && r.data.length >= 1, r.data?.length);
   check('nhật ký nêu rõ cấp cho ai', r.data?.[0]?.targetUsername === 'phuhuynh', r.data?.[0]);
 }
@@ -118,10 +148,13 @@ console.log('\n[5b] ĐƯỜNG NÀY TRẢ VỀ VIỆC MÌNH ĐÃ LÀM, không ph�
   //
   // Đợt này sửa lời chú thích và GIỮ NGUYÊN đường. Bài dưới ghim lại đúng cái
   // nghĩa ấy để lần sau không ai sửa lời mà quên mã, hay ngược lại.
+  //
+  // L1 (góp ý 20/10 mục 12, chủ dự án chốt 'làm theo đề nghị'): người vừa cấp
+  // lại nay là ban giám hiệu, không phải cô. Nghĩa của phép kiểm giữ nguyên.
   const T2 = (await login('giaovien2', '123456')).cookie;
 
-  const cuaCoLan = await req('GET', '/api/accounts/reset-log', { cookie: T });
-  check('cô vừa cấp lại thì thấy việc CỦA MÌNH', (cuaCoLan.data || []).length >= 1, cuaCoLan.data?.length);
+  const cuaCoLan = await req('GET', '/api/accounts/reset-log', { cookie: A });
+  check('ban giám hiệu vừa cấp lại thì thấy việc CỦA MÌNH', (cuaCoLan.data || []).length >= 1, cuaCoLan.data?.length);
 
   const cuaCoKhac = await req('GET', '/api/accounts/reset-log', { cookie: T2 });
   check('CÔ KHÁC KHÔNG THẤY VIỆC ĐÓ — đây là nhật ký việc mình làm',

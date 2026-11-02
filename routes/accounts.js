@@ -1,11 +1,12 @@
 // Cấp lại mật khẩu khi người dùng quên.
 //
 // Trường học thường không có máy chủ gửi thư điện tử, nên cách làm thực tế là:
-// giáo viên chủ nhiệm (hoặc quản trị viên) cấp một mật khẩu tạm, đọc cho phụ
-// huynh, và phụ huynh buộc phải đổi ngay khi đăng nhập.
+// văn phòng cơ sở (hoặc quản lý cơ sở, ban giám hiệu) cấp một mật khẩu tạm,
+// đọc cho phụ huynh, và phụ huynh buộc phải đổi ngay khi đăng nhập.
 const crypto = require('crypto');
 const db = require('../lib/db');
 const password = require('../lib/password');
+const nhomCo = require('../lib/nhom-co');
 const { requireRole, destroyUserSessions } = require('../lib/auth');
 
 // Mật khẩu tạm dễ đọc qua điện thoại: bỏ các ký tự dễ nhầm (0/O, 1/l/I).
@@ -21,9 +22,8 @@ function sinhMatKhauTam() {
   return out;
 }
 
-// Người dùng mà tài khoản hiện tại được phép cấp lại mật khẩu.
-// Cô: phụ huynh của trẻ trong CÁC nhóm mình phụ trách. Quản trị: mọi người trừ
-// chính mình — TRỪ hai chỗ nói ở dưới.
+// Ai được cấp lại mật khẩu cho ai: bảng `LUAT_CAP_LAI` ở dưới (L1). Các đoạn
+// chú thích tiếp theo ghi lại vì sao từng ô của bảng bị đóng.
 //
 // ĐƯỜNG NÀY TỪNG LÀ LỐI LEO THANG QUYỀN NGẮN NHẤT TRONG CẢ APP (N15)
 //
@@ -69,8 +69,8 @@ function sinhMatKhauTam() {
 // Đây không phải lỗ hổng cần vá gấp — app buộc đổi mật khẩu ở lần đăng nhập kế,
 // đá mọi thiết bị của gia đình ra, và ghi lại ai bấm cho ai. Nhưng "để lại dấu
 // vết" là cách xử lý sau khi chuyện đã xảy ra, còn đây là chặn từ đầu, và chặn
-// mà không ai mất việc: gia đình quên mật khẩu vẫn có cô của nhóm bé (đường
-// ngay dưới), ban giám hiệu, và quản trị toàn hệ thống lo được.
+// mà không ai mất việc: gia đình quên mật khẩu vẫn có văn phòng cơ sở, quản lý
+// cơ sở và ban giám hiệu lo được (L1 bỏ phần của cô).
 const CHUC_VU_KHONG_LO_GIA_DINH = ['nhansu'];
 
 function chiLoTaiKhoanTruong(user) {
@@ -79,35 +79,92 @@ function chiLoTaiKhoanTruong(user) {
 }
 
 const LOI_KHONG_LO_GIA_DINH = 'Tài khoản Nhân sự lo phần tài khoản của trường. '
-  + 'Phần của gia đình do cô phụ trách nhóm của bé, ban giám hiệu, hoặc quản trị '
-  + 'toàn hệ thống làm giúp.';
+  + 'Phần của gia đình do văn phòng cơ sở, quản lý cơ sở hoặc ban giám hiệu làm giúp.';
 
-function coQuyenCapLai(actor, target) {
-  if (!target || !target.active) return false;
-  if (actor.id === target.id) return false;
-  if (actor.role === 'admin') {
-    if (target.role === 'parent' && chiLoTaiKhoanTruong(actor)) return false;
-    if (db.capChucVu(actor) === 2 && target.role === 'admin') return false;
-    const pham = db.phamViCoSo(actor);
-    if (pham === null) return true;
-    if (target.role === 'admin') return false;
-    return trongCoSo(target, pham);
-  }
-  if (actor.role !== 'teacher') return false;
-  if (target.role !== 'parent') return false;
-  const nhom = db.classIdsOfTeacher(actor.id);
-  if (!nhom.length) return false;
-  const marks = nhom.map(() => '?').join(',');
-  return db.count(
-    `SELECT COUNT(*) FROM student_parents sp
-     JOIN students s ON s.id = sp.studentId
-     WHERE sp.parentId = ? AND s.classId IN (${marks}) AND s.active = 1`,
-    [target.id, ...nhom]) > 0;
+// L1 (góp ý 20/10 mục 12, chủ dự án chốt 02/11): cô thôi cấp lại mật khẩu và
+// thôi đọc danh sách tài khoản của gia đình. Việc đó về văn phòng cơ sở.
+const LOI_CO_CAP_LAI_GIA_DINH = 'Cấp lại mật khẩu cho gia đình nay do văn phòng cơ sở làm. '
+  + 'Cô nhờ văn phòng hoặc quản lý cơ sở giúp nhé.';
+const LOI_CO_DOC_DS_GIA_DINH = 'Danh sách tài khoản của gia đình nay do văn phòng cơ sở giữ. '
+  + 'Gia đình quên mật khẩu: cô nhờ văn phòng cơ sở cấp lại nhé.';
+
+// LUẬT CẤP LẠI MẬT KHẨU (L1) — một bảng thay cho chuỗi `if` cũ.
+//
+// Người cấp chia năm loại, tài khoản đích năm loại; một ô có trong bảng mới
+// được cấp. Hai loại người cấp có phạm vi CẢ TRƯỜNG (cap1, nhansu), còn lại
+// chỉ trong cơ sở mình (`phamViCoSo`).
+//
+// - cap1: ban giám hiệu (chưa khai chức vụ hoặc `hieu-truong`) VÀ không khoá
+//   vào cơ sở nào — đúng hai chốt của `POST /api/admin/managers`. Khoá vào một
+//   cơ sở thì là quản lý của cơ sở đó, không còn là cấp 1.
+// - quanly: quản lý cơ sở. CHƯA khoá vào cơ sở nào thì phạm vi cả trường,
+//   nhưng KHÔNG BAO GIỜ chạm tài khoản quản trị. Luật cũ nhận họ là ban giám
+//   hiệu (`phamViCoSo` trả null) và cho cấp lại cả mật khẩu ban giám hiệu.
+// - vanphong: chỉ gia đình trong cơ sở mình. Cửa `/api/accounts` của văn phòng
+//   (lib/db.js) mở ở bước sau; tới lúc đó dòng này chưa với tới được.
+// - Kế toán, Marketing, Bảo vệ, cô, phụ huynh: không cấp cho ai.
+const LUAT_CAP_LAI = {
+  cap1: ['quan-tri', 'quan-ly-co-so', 'nhan-vien-co-so', 'co', 'phu-huynh'],
+  nhansu: ['co'],
+  quanly: ['nhan-vien-co-so', 'co', 'phu-huynh'],
+  vanphong: ['phu-huynh'],
+  khong: [],
+};
+
+function loaiNguoiCap(actor) {
+  if (!actor || actor.role !== 'admin') return 'khong';
+  const cv = db.chucVu(actor);
+  if (cv === null || cv === 'hieu-truong') return db.phamViCoSo(actor) === null ? 'cap1' : 'quanly';
+  if (cv === 'nhansu') return 'nhansu';
+  if (cv === 'quanly-coso') return 'quanly';
+  // Văn phòng là việc của MỘT cơ sở. Chưa gắn cơ sở nào thì phạm vi rơi về
+  // "cả trường" — tài khoản cấu hình dở, không phải người được giao cả trường:
+  // không cấp lại cho ai (cùng luật với hồ sơ cô ở routes/admin.js).
+  if (cv === 'vanphong-coso') return db.phamViCoSo(actor) === null ? 'khong' : 'vanphong';
+  return 'khong';
 }
 
-// Một tài khoản cô hoặc phụ huynh có thuộc cơ sở này không.
+// `cv` truyền vào được khi bên gọi đã đọc sẵn chức vụ của cả trường một lượt.
+function loaiDich(target, cv) {
+  if (target.role === 'parent') return 'phu-huynh';
+  if (target.role === 'teacher') return 'co';
+  if (target.role !== 'admin') return null;
+  if (cv === undefined) cv = db.chucVu(target);
+  if (cv === 'quanly-coso') return 'quan-ly-co-so';
+  if (cv === 'vanphong-coso' || cv === 'baove') return 'nhan-vien-co-so';
+  return 'quan-tri';
+}
+
+// Loại và phạm vi cơ sở của người cấp — tính MỘT lần cho cả màn danh sách.
+function nguoiCap(actor) {
+  return { loai: loaiNguoiCap(actor), pham: db.phamViCoSo(actor) };
+}
+
+// `ngu` (tuỳ chọn): những điều bên gọi ĐÃ BIẾT, để màn danh sách tài khoản
+// khỏi hỏi máy cho từng dòng. Thiếu mục nào thì tự hỏi, đúng như đường cấp lại.
+//   ngu.nguoi  — `nguoiCap(actor)`;
+//   ngu.chucVu — chức vụ của tài khoản đích (null = chưa khai);
+//   ngu.coSo   — một cơ sở mà tài khoản đích CHẮC CHẮN thuộc về. Chỉ dùng để
+//                xác nhận; khác phạm vi của người cấp thì vẫn hỏi `trongCoSo`,
+//                vì một nhà có con ở hai cơ sở thuộc về cả hai.
+function quyenCapLai(actor, target, ngu = {}) {
+  if (!target || !target.active) return false;
+  if (actor.id === target.id) return false;
+  const { loai, pham } = ngu.nguoi || nguoiCap(actor);
+  if (!LUAT_CAP_LAI[loai].includes(loaiDich(target, ngu.chucVu))) return false;
+  if (loai === 'cap1' || loai === 'nhansu') return true;
+  if (pham === null) return target.role !== 'admin';
+  if (ngu.coSo === pham) return true;
+  return trongCoSo(target, pham);
+}
+
+// Một tài khoản có thuộc cơ sở này không.
 //
-// Cả hai đều KHÔNG có cơ sở của riêng mình — quan hệ đi vòng qua nhóm lớp:
+// Nhân viên cơ sở (văn phòng, bảo vệ) là tài khoản quản trị KHOÁ vào một cơ
+// sở (`user_campus`): thuộc đúng cơ sở ấy. Quản trị không khoá thì không thuộc
+// cơ sở nào.
+//
+// Cô và phụ huynh KHÔNG có cơ sở của riêng mình — quan hệ đi vòng qua nhóm lớp:
 // cô thì qua nhóm cô phụ trách, phụ huynh thì qua nhóm con đang học. Người nào
 // không nối được tới nhóm nào của cơ sở này thì không thuộc về nó.
 //
@@ -119,6 +176,7 @@ function coQuyenCapLai(actor, target) {
 // hỏi tới nữa, kể cả khi chuyển năm học đóng hết nhóm của cô: không thì quản lý
 // cơ sở đã tạo cô lại "có" cô sau khi ban giám hiệu chuyển cô sang cơ sở khác.
 function trongCoSo(target, campusId) {
+  if (target.role === 'admin') return db.campusOfUser(target.id) === campusId;
   if (target.role === 'teacher') {
     if (!db.classIdsEverOfTeacher(target.id).length) {
       const r = db.first('giao_vien_co_so', 'SELECT campusId FROM giao_vien_co_so WHERE userId = ?', [target.id]);
@@ -142,8 +200,14 @@ function trongCoSo(target, campusId) {
 }
 
 module.exports = (app) => {
-  // Danh sách phụ huynh lớp mình, kèm tên con — để giáo viên tìm đúng người.
+  // Danh sách phụ huynh trong phạm vi người xem, kèm tên con — để nhà trường
+  // tìm đúng người. Cô không còn mở được (1c-5, chủ dự án 02/11); giữ vai cô ở
+  // `requireRole` để bản giao diện cũ trong máy nhận câu tiếng Việt, không phải
+  // câu chung của máy chủ.
   app.get('/api/accounts/parents', requireRole('teacher', 'admin'), (req, res) => {
+    if (req.user.role === 'teacher') {
+      return res.status(403).json({ error: LOI_CO_DOC_DS_GIA_DINH });
+    }
     if (chiLoTaiKhoanTruong(req.user)) {
       return res.status(403).json({ error: LOI_KHONG_LO_GIA_DINH });
     }
@@ -170,16 +234,145 @@ module.exports = (app) => {
     res.json([...seen.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi')));
   });
 
+  // DANH SÁCH TÀI KHOẢN CHO TAB TÀI KHOẢN (L1): quản trị, rồi Cơ sở → nhóm lớp.
+  //
+  // Mỗi dòng mang cờ `capLai` tính bằng ĐÚNG `quyenCapLai` của đường cấp lại
+  // ngay dưới, nên nút hiện ra là nút bấm được. Ai thấy phần nào:
+  //   - chỉ cấp 1 nhận `quanTri` (tài khoản quản trị không khoá cơ sở);
+  //   - Nhân sự chỉ nhận dòng cô — không nhân viên cơ sở, không gia đình;
+  //   - quản lý và văn phòng cơ sở chỉ nhận cơ sở của mình (`classIdsOf`);
+  //   - cô, phụ huynh: 403 (1c-5). Kế toán, Marketing, Bảo vệ không có
+  //     `/api/accounts` trong danh sách chức vụ nên dừng ở `chanApiNgoaiChucVu`.
+  //
+  // Hỏi máy theo lô 400 nhóm một lượt, không hỏi từng phụ huynh hay từng cô.
+  app.get('/api/accounts/danh-sach', requireRole('admin'), (req, res) => {
+    const nguoi = nguoiCap(req.user);
+    if (nguoi.loai === 'khong') {
+      return res.status(403).json({ error: 'Tài khoản này không có việc ở danh sách tài khoản.' });
+    }
+    const pham = nguoi.pham;
+    const chiCo = nguoi.loai === 'nhansu';
+    const coTang = db.coTangCoSo();
+    const hoTen = (u) => [u.title, u.name].filter(Boolean).join(' ');
+    const COT = 'u.id, u.username, u.name, u.title, u.phone, u.role, u.active, u.mustChangePassword';
+    const dong = (u, them, ngu) => ({
+      id: u.id, hoTen: hoTen(u), username: u.username, loai: loaiDich(u, ngu.chucVu),
+      sdt: u.phone || '', ...them, matKhauTam: !!u.mustChangePassword,
+      capLai: quyenCapLai(req.user, u, { nguoi, ...ngu }),
+    });
+
+    // Khối cơ sở. Trường chưa khai cơ sở: một khối `''` duy nhất. Có cơ sở thì
+    // khối `''` gom phần chưa gắn cơ sở nào, và chỉ người thấy cả trường nhận.
+    const khoi = new Map();
+    const moKhoi = (campusId, ten) => {
+      if (!khoi.has(campusId)) khoi.set(campusId, { campusId, ten, nhanVien: [], nhom: [], coChuaNhom: [] });
+      return khoi.get(campusId);
+    };
+    if (!coTang) moKhoi('', 'Toàn trường');
+    else if (pham) moKhoi(pham, (db.findCampus(pham) || {}).name || '');
+    else for (const c of db.campuses()) moKhoi(c.id, c.name);
+    const khoiCua = (campusId) => khoi.get(campusId) || (pham ? null : moKhoi('', 'Chưa gắn cơ sở'));
+
+    // Nhân viên cơ sở và quản trị.
+    const quanTri = [];
+    if (!chiCo) {
+      const chucVu = new Map(db.all('user_chucvu', 'SELECT userId, chucVu FROM user_chucvu')
+        .map(r => [r.userId, db.moTaChucVu(r.chucVu) ? r.chucVu : null]));
+      const khoa = new Map(db.all('user_campus', 'SELECT userId, campusId FROM user_campus')
+        .map(r => [r.userId, r.campusId]));
+      for (const u of db.all('users', `SELECT ${COT} FROM users u
+        WHERE u.role = 'admin' AND u.active = 1 ORDER BY u.name`)) {
+        const cv = chucVu.get(u.id) || null;
+        const campusId = khoa.get(u.id) || null;
+        const them = { chucVuTen: cv ? db.moTaChucVu(cv).ten : '' };
+        if (!campusId) {
+          if (nguoi.loai === 'cap1') quanTri.push(dong(u, them, { chucVu: cv }));
+          continue;
+        }
+        const k = khoiCua(coTang ? campusId : '');
+        if (k) k.nhanVien.push(dong(u, them, { chucVu: cv, coSo: campusId }));
+      }
+    }
+
+    // Nhóm lớp trong phạm vi người xem.
+    const trongTam = new Set(db.classIdsOf(req.user));
+    const nhom = db.classes().filter(c => trongTam.has(c.id) && db.canAccessClass(req.user, c.id));
+    const coSoNhom = new Map(db.all('class_campus', 'SELECT classId, campusId FROM class_campus')
+      .map(r => [r.classId, r.campusId]));
+    const moiNhom = new Map();
+    for (const c of nhom) {
+      const campusId = coTang ? (coSoNhom.get(c.id) || '') : '';
+      const k = khoiCua(campusId);
+      if (!k) continue;
+      const m = { classId: c.id, ten: c.name, co: [], phuHuynh: [], campusId, nhomCo: nhomCo.nhomTheoLop(db, c.id) };
+      moiNhom.set(c.id, m);
+      k.nhom.push(m);
+    }
+
+    const ids = [...moiNhom.keys()];
+    const phTheoNhom = new Map(ids.map(id => [id, new Map()]));
+    for (let i = 0; i < ids.length; i += 400) {
+      const lo = ids.slice(i, i + 400);
+      const marks = lo.map(() => '?').join(',');
+      for (const r of db.all('users', `SELECT ct.classId AS lopId, ct.vaiTro, ${COT}
+        FROM class_teachers ct JOIN users u ON u.id = ct.teacherId
+        WHERE ct.classId IN (${marks}) AND u.role = 'teacher' AND u.active = 1
+        ORDER BY CASE ct.vaiTro WHEN 'chinh' THEN 0 ELSE 1 END, u.name`, lo)) {
+        const m = moiNhom.get(r.lopId);
+        m.co.push(dong(r, { nhomCo: m.nhomCo[r.id] || nhomCo.MAC_DINH, coChinh: r.vaiTro === 'chinh' },
+          { coSo: m.campusId }));
+      }
+      if (chiCo) continue;
+      for (const r of db.all('users', `SELECT s.classId AS lopId, s.name AS tenBe, ${COT}
+        FROM students s
+        JOIN student_parents sp ON sp.studentId = s.id
+        JOIN users u ON u.id = sp.parentId
+        WHERE s.classId IN (${marks}) AND s.active = 1 AND u.role = 'parent' AND u.active = 1
+        ORDER BY s.name`, lo)) {
+        const nha = phTheoNhom.get(r.lopId);
+        if (!nha.has(r.id)) nha.set(r.id, { u: r, con: [] });
+        nha.get(r.id).con.push(r.tenBe);
+      }
+    }
+    for (const [classId, nha] of phTheoNhom) {
+      const m = moiNhom.get(classId);
+      m.phuHuynh = [...nha.values()]
+        .map(({ u, con }) => dong(u, { con }, { coSo: m.campusId }))
+        .sort((a, b) => a.hoTen.localeCompare(b.hoTen, 'vi'));
+    }
+
+    // Cô chưa phụ trách nhóm nào đang mở. Cô CHƯA TỪNG có nhóm thì thuộc cơ sở
+    // của người đã tạo ra cô (`giao_vien_co_so`), cùng luật với `trongCoSo`;
+    // còn lại chỉ người thấy cả trường nhận, ở khối `''`.
+    for (const u of db.all('users', `SELECT ${COT}, g.campusId AS taoTai,
+        EXISTS (SELECT 1 FROM class_teachers ct WHERE ct.teacherId = u.id) AS tungCoNhom
+      FROM users u LEFT JOIN giao_vien_co_so g ON g.userId = u.id
+      WHERE u.role = 'teacher' AND u.active = 1
+        AND NOT EXISTS (SELECT 1 FROM class_teachers ct JOIN classes c ON c.id = ct.classId
+                        WHERE ct.teacherId = u.id AND c.active = 1)
+      ORDER BY u.name`)) {
+      const coSo = coTang && !u.tungCoNhom && u.taoTai && khoi.has(u.taoTai) ? u.taoTai : '';
+      const k = coSo ? khoi.get(coSo) : khoiCua('');
+      if (k) k.coChuaNhom.push(dong(u, {}, coSo ? { coSo } : {}));
+    }
+
+    const coSo = [...khoi.values()].map(({ campusId, ten, nhanVien, nhom: ds, coChuaNhom }) => ({
+      campusId, ten, nhanVien,
+      nhom: ds.map(({ classId, ten: tenNhom, co, phuHuynh }) => ({ classId, ten: tenNhom, co, phuHuynh })),
+      coChuaNhom,
+    }));
+    res.json({ quanTri, coSo });
+  });
+
   // Cấp mật khẩu tạm cho một tài khoản.
   app.post('/api/accounts/:id/reset-password', requireRole('teacher', 'admin'), (req, res) => {
     const target = db.findUser(req.params.id);
     if (!target) return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
-    if (!coQuyenCapLai(req.user, target)) {
-      return res.status(403).json({
-        error: target.role === 'parent' && chiLoTaiKhoanTruong(req.user)
-          ? LOI_KHONG_LO_GIA_DINH
-          : 'Bạn không có quyền cấp lại mật khẩu cho tài khoản này',
-      });
+    if (!quyenCapLai(req.user, target)) {
+      let error = 'Bạn không có quyền cấp lại mật khẩu cho tài khoản này';
+      if (target.role === 'parent' && req.user.role === 'teacher') error = LOI_CO_CAP_LAI_GIA_DINH;
+      else if (target.role === 'parent' && chiLoTaiKhoanTruong(req.user)) error = LOI_KHONG_LO_GIA_DINH;
+      return res.status(403).json({ error });
     }
 
     const matKhauTam = sinhMatKhauTam();

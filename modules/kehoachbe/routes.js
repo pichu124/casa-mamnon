@@ -173,6 +173,7 @@ const BAI_MAC_DINH = {
   'cambridge': [
     'Colours', 'Numbers 1–10', 'Animals', 'My family', 'Body parts',
     'Food', 'Shapes', 'Greetings & songs', 'Classroom objects', 'Weather',
+    'Big and small', 'Patterns',
   ],
   'thuc-hanh-cuoc-song': [
     'Rót nước', 'Xúc hạt', 'Cài khuy', 'Gấp khăn', 'Lau bàn', 'Rửa tay',
@@ -193,8 +194,64 @@ const BAI_MAC_DINH = {
     'Đi theo vạch', 'Bật xa tại chỗ', 'Ném bóng trúng đích', 'Bò chui qua cổng',
     'Đi thăng bằng trên ghế', 'Chuyền bóng qua đầu', 'Chạy đổi hướng theo hiệu lệnh',
     'Nhảy lò cò', 'Leo thang gióng', 'Khởi động cùng nhạc',
+    'Xâu hạt theo mẫu', 'Cắt giấy theo đường thẳng',
   ],
 };
+
+// LĨNH VỰC CON (góp ý 20/10) — một tầng xếp mục NẰM TRÊN góc, không thay góc:
+// kế hoạch đã lưu vẫn trỏ vào mã góc như cũ. Mỗi dòng: [mã, tên, góc cha, lứa
+// mặc định của bài chưa gắn lứa (null = theo luật chung của `luaApDung`)].
+// Năm góc Montessori không chia mục con.
+const LUA_MAU_GIAO = ['3-4', '4-5', '5-6'];
+const LINH_VUC_CON = [
+  ['cam-giao-tiep', 'Communication and Language', 'cambridge', LUA_MAU_GIAO],
+  ['cam-toan', 'Maths', 'cambridge', LUA_MAU_GIAO],
+  ['cam-kham-pha', "Let's Explore", 'cambridge', LUA_MAU_GIAO],
+  ['tieng-anh', 'Tiếng Anh', 'cambridge', ['0-3']],
+  ['van-dong-tho', 'Vận động thô', 'the-chat', null],
+  ['van-dong-tinh', 'Vận động tinh', 'the-chat', null],
+];
+function linhVucConHop(ma, goc) {
+  return LINH_VUC_CON.some(([m, , g]) => m === ma && g === goc);
+}
+// LUẬT DUY NHẤT cho "bài này dùng cho lứa nào": bài gắn lứa thì theo lứa đã
+// gắn; chưa gắn thì theo lứa mặc định của lĩnh vực con; không có nữa thì cho
+// mẫu giáo 3–6. Bé nhà trẻ chỉ thấy bài gắn rõ '0-3'.
+function luaApDung(lua, linhVucCon) {
+  if (lua.length) return lua;
+  const con = LINH_VUC_CON.find(([m]) => m === linhVucCon);
+  return (con && con[3]) || LUA_MAU_GIAO;
+}
+
+// Bài mặc định có lĩnh vực con — chỉ dùng khi nạp danh mục vào CSDL mới.
+// Bài đã có trong CSDL đang chạy không bị xếp lại: đó là việc của văn phòng.
+const CON_CUA_BAI_MAC_DINH = {
+  'Colours': 'cam-giao-tiep', 'My family': 'cam-giao-tiep', 'Food': 'cam-giao-tiep',
+  'Greetings & songs': 'cam-giao-tiep', 'Classroom objects': 'cam-giao-tiep',
+  'Numbers 1–10': 'cam-toan', 'Shapes': 'cam-toan', 'Big and small': 'cam-toan', 'Patterns': 'cam-toan',
+  'Animals': 'cam-kham-pha', 'Body parts': 'cam-kham-pha', 'Weather': 'cam-kham-pha',
+  'Đi theo vạch': 'van-dong-tho', 'Bật xa tại chỗ': 'van-dong-tho', 'Ném bóng trúng đích': 'van-dong-tho',
+  'Bò chui qua cổng': 'van-dong-tho', 'Đi thăng bằng trên ghế': 'van-dong-tho',
+  'Chuyền bóng qua đầu': 'van-dong-tho', 'Chạy đổi hướng theo hiệu lệnh': 'van-dong-tho',
+  'Nhảy lò cò': 'van-dong-tho', 'Leo thang gióng': 'van-dong-tho', 'Khởi động cùng nhạc': 'van-dong-tho',
+  'Xâu hạt theo mẫu': 'van-dong-tinh', 'Cắt giấy theo đường thẳng': 'van-dong-tinh',
+};
+
+// KHO BÀI NHÀ TRẺ (lứa 0–3) — điểm xuất phát cho nhóm nhà trẻ, văn phòng sửa /
+// ẩn được như mọi bài khác. Mỗi dòng: [góc, lĩnh vực con, tên các bài]. Nạp
+// đúng MỘT lần (dấu `DOT_NHA_TRE` ở bảng `kehoachbe_dot_nap`), kể cả vào CSDL
+// đang chạy.
+const DOT_NHA_TRE = 'bai-nha-tre';
+const BAI_NHA_TRE = [
+  ['toan', '', ['Hộp thả hình khối', 'Xếp vòng theo cột', 'Đếm cùng cô 1–3', 'Phân loại to – nhỏ']],
+  ['tieng-viet', '', ['Gọi tên đồ vật thật', 'Giỏ đồ vật – tranh', 'Đồng dao', 'Xem sách tranh cùng cô']],
+  ['thuc-hanh-cuoc-song', '', ['Tự cầm cốc', 'Tự xúc ăn', 'Cất giày lên kệ', 'Mở – đóng nắp hộp']],
+  ['giac-quan', '', ['Giỏ kho báu', 'Hộp bóng vật thật', 'Lắc hộp âm thanh', 'Xếp tháp 3 khối']],
+  ['van-hoa', '', ['Tranh con vật quen thuộc', 'Tưới cây cùng cô', 'Ngắm trời nắng, trời mưa', 'Hát về gia đình']],
+  ['cambridge', 'tieng-anh', ['Hello song', 'Animal sounds', 'Head shoulders knees and toes', 'Numbers 1–3', 'Bye-bye song']],
+  ['the-chat', 'van-dong-tho', ['Bò qua đường hầm', 'Đi men theo ghế', 'Đá bóng', 'Leo bậc thấp']],
+  ['the-chat', 'van-dong-tinh', ['Bỏ hạt to vào lọ', 'Xé giấy', 'Nặn đất mềm', 'Xâu vòng to']],
+];
 
 // NĂM TRẠNG THÁI — PHẢI TRÙNG KHỚP với phân hệ Hành trình học tập.
 //
@@ -269,21 +326,31 @@ function gocCuaCt(ct) {
   return MA_GOC.filter(g => chuongTrinhCuaGoc(g) === ct);
 }
 
-// LỨA TUỔI CỦA KHO BÀI: 3–4, 4–5, 5–6 — đúng ba lứa nhà trường đặt. Tính ở
-// GIỮA tháng lập kế hoạch. Bé dưới 48 tháng (kể cả bé nhà trẻ) dùng kho 3–4:
-// trường chưa có kho riêng cho dưới 3 tuổi, và một danh sách gần nhất có ích
-// hơn một danh sách trống. Đây là chỗ XẾP KHO BÀI, không phải nhận định về bé
-// — không so bé với "chuẩn" nào (QUY TẮC 4).
-const LUA_KHO = [['3-4', '3–4 tuổi'], ['4-5', '4–5 tuổi'], ['5-6', '5–6 tuổi']];
+// LỨA TUỔI CỦA KHO BÀI: nhà trẻ (dưới 3 tuổi) và ba lứa 3–4, 4–5, 5–6 nhà
+// trường đặt. Tính ở GIỮA tháng lập kế hoạch. Nhóm đã khai lứa (lib/lua-tuoi-
+// nhom.js) thì lời khai thắng ngày sinh: nhóm nhà trẻ → kho nhà trẻ cho mọi bé;
+// nhóm mẫu giáo → theo ngày sinh, thấp nhất là 3–4. Chưa khai: dưới 36 tháng
+// dùng kho nhà trẻ. Đây là chỗ XẾP KHO BÀI, không phải nhận định về bé — không
+// so bé với "chuẩn" nào (QUY TẮC 4).
+const luaNhom = require('../../lib/lua-tuoi-nhom');
+const LUA_KHO = [['0-3', 'Nhà trẻ (dưới 3 tuổi)'], ['3-4', '3–4 tuổi'], ['4-5', '4–5 tuổi'], ['5-6', '5–6 tuổi']];
 const MA_LUA_KHO = LUA_KHO.map(x => x[0]);
-function luaKhoCuaBe(dob, thang) {
+function luaKhoCuaBe(dob, thang, khai = null) {
+  if (khai === 'nha-tre') return '0-3';
   if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(String(dob)) || !THANG_RE.test(String(thang || ''))) return '';
   const [ns, ts, ds] = String(dob).split('-').map(Number);
   const [nm, tm] = String(thang).split('-').map(Number);
   let soThang = (nm - ns) * 12 + (tm - ts);
   if (15 < ds) soThang -= 1;
+  if (khai !== 'mau-giao' && soThang < 36) return '0-3';
   if (soThang < 48) return '3-4';
   return soThang < 60 ? '4-5' : '5-6';
+}
+function luaKhoChoManHinh() {
+  return LUA_KHO.map(([ma, ten]) => ({ ma, ten, macDinh: LUA_MAU_GIAO.includes(ma) }));
+}
+function linhVucConChoManHinh() {
+  return LINH_VUC_CON.map(([ma, ten, gocLinhVuc, lua]) => ({ ma, ten, gocLinhVuc, lua: lua || LUA_MAU_GIAO }));
 }
 
 function thangTruoc(thang) {
@@ -323,17 +390,40 @@ module.exports = (app, { db, modules }) => {
   // Nạp bộ mặc định đúng MỘT LẦN, khi bảng còn trống. Văn phòng ẩn hết đi
   // rồi thì bảng vẫn có dòng (active = 0) nên không nạp lại — ẩn là quyết
   // định của trường, không phải một lỗi cần máy sửa.
+  //
+  // Kho nhà trẻ nạp theo DẤU ĐỢT, không theo "bảng trống": CSDL đang chạy
+  // cũng nhận được nó, đúng một lần. Chỉ INSERT — không UPDATE / DELETE dòng
+  // nào đã có. Nạp hỏng thì bỏ qua, danh mục vẫn đọc như cũ và lần sau thử lại.
+  let daNapXong = false;
+  function themBai(goc, ten, thuTu, linhVucCon, lua, luc) {
+    const id = db.nextId('khbh');
+    db.insert('kehoachbe_baihoc', { id, gocLinhVuc: goc, ten, moTa: '', thuTu, active: 1, nguoiTao: null, taoLuc: luc });
+    if (linhVucCon) db.run('INSERT INTO kehoachbe_baihoc_con (baiHocId, linhVucCon, capNhatLuc) VALUES (?, ?, ?)', [id, linhVucCon, luc]);
+    if (lua) db.run('INSERT INTO kehoachbe_baihoc_lua (baiHocId, lua) VALUES (?, ?)', [id, lua]);
+  }
+  function napBaiNhaTre(luc) {
+    for (const [goc, con, ds] of BAI_NHA_TRE) {
+      const tiep = db.count('SELECT COALESCE(MAX(thuTu) + 1, 0) AS n FROM kehoachbe_baihoc WHERE gocLinhVuc = ?', [goc]);
+      ds.forEach((ten, i) => themBai(goc, ten, tiep + i, con, '0-3', luc));
+    }
+    db.run('INSERT INTO kehoachbe_dot_nap (dot, luc) VALUES (?, ?)', [DOT_NHA_TRE, luc]);
+  }
   function napDanhMucNeuTrong() {
-    if (db.count('SELECT COUNT(*) AS n FROM kehoachbe_baihoc')) return;
-    const luc = new Date().toISOString();
-    db.tx(() => {
-      for (const [goc, ds] of Object.entries(BAI_MAC_DINH)) {
-        ds.forEach((ten, i) => db.insert('kehoachbe_baihoc', {
-          id: db.nextId('khbh'), gocLinhVuc: goc, ten, moTa: '', thuTu: i,
-          active: 1, nguoiTao: null, taoLuc: luc,
-        }));
+    if (daNapXong) return;
+    try {
+      const luc = new Date().toISOString();
+      if (!db.count('SELECT COUNT(*) AS n FROM kehoachbe_baihoc')) {
+        db.tx(() => {
+          for (const [goc, ds] of Object.entries(BAI_MAC_DINH)) {
+            ds.forEach((ten, i) => themBai(goc, ten, i, CON_CUA_BAI_MAC_DINH[ten] || '', null, luc));
+          }
+          napBaiNhaTre(luc);
+        });
+      } else if (!db.count('SELECT COUNT(*) AS n FROM kehoachbe_dot_nap WHERE dot = ?', [DOT_NHA_TRE])) {
+        db.tx(() => napBaiNhaTre(luc));
       }
-    });
+      daNapXong = true;
+    } catch (_) { /* nạp hỏng: đọc danh mục như đang có */ }
   }
 
   function danhMucBai({ tatCa = false } = {}) {
@@ -345,13 +435,24 @@ module.exports = (app, { db, modules }) => {
         lua.get(r.baiHocId).push(r.lua);
       }
     } catch (_) { /* chưa có bảng lứa: mọi bài dùng cho mọi lứa */ }
+    const con = new Map();
+    try {
+      for (const r of db.all('kehoachbe_baihoc_con', 'SELECT baiHocId, linhVucCon FROM kehoachbe_baihoc_con')) {
+        con.set(r.baiHocId, r.linhVucCon);
+      }
+    } catch (_) { /* chưa có bảng lĩnh vực con: mọi bài chưa xếp mục */ }
     return db.all('kehoachbe_baihoc',
       `SELECT * FROM kehoachbe_baihoc ${tatCa ? '' : 'WHERE active = 1'} ORDER BY gocLinhVuc, thuTu, rowid`)
-      .map(b => ({ ...b, active: b.active !== 0, lua: lua.get(b.id) || [] }));
+      .map(b => {
+        const l = lua.get(b.id) || [];
+        const c = con.get(b.id) || '';
+        return { ...b, active: b.active !== 0, lua: l, linhVucCon: c, luaApDung: luaApDung(l, c) };
+      });
   }
 
   // Bài đã tích của một kế hoạch, kèm tên và góc lấy từ danh mục. Bài đã bị
   // ẨN sau này vẫn hiện đúng tên — kế hoạch tháng cũ không được đổi nghĩa.
+  const TEN_BAI_DA_GO = '(bài đã gỡ khỏi danh mục)';
   function baiCuaKe(keId) {
     let rows;
     try {
@@ -367,7 +468,7 @@ module.exports = (app, { db, modules }) => {
            FROM kehoachbe_muc_bai mb LEFT JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
           WHERE mb.keId = ? ORDER BY mb.rowid`, [keId]);
     }
-    return rows.map(m => ({ ...m, ten: m.ten || '(bài đã gỡ khỏi danh mục)', gocLinhVuc: m.gocLinhVuc || '',
+    return rows.map(m => ({ ...m, ten: m.ten || TEN_BAI_DA_GO, gocLinhVuc: m.gocLinhVuc || '',
       mucDo: m.mucDo || '', tiepTuc: m.tiepTuc || '',
       tiepTucThangSau: m.tiepTucThangSau !== 0 }));
   }
@@ -459,6 +560,56 @@ module.exports = (app, { db, modules }) => {
     return db.first('kehoachbe_ke',
       `SELECT * FROM kehoachbe_ke WHERE studentId = ? AND thang < ? AND thang >= ?
         ORDER BY thang DESC LIMIT 1`, [studentId, thang, lui12]);
+  }
+
+  // LỊCH SỬ CÁC THÁNG TRƯỚC của cả nhóm (góp ý 20/10, N3): mỗi bé tối đa
+  // SO_THANG_LICH_SU tháng gần nhất trước `thang`, lùi tối đa 12 tháng (cùng
+  // luật với `keGanNhatTruoc`), tháng mới nhất trước. Mọi trạng thái duyệt đều
+  // hiện, kèm `trangThai` để màn hình ghi rõ bản chưa duyệt. Chỉ nhãn bài (dạy
+  // mới · ôn tập · mở rộng) và mục chữ — không mang mức độ nhìn lại cuối tháng.
+  // Gom ba truy vấn cho cả nhóm, không hỏi từng bé.
+  const SO_THANG_LICH_SU = 3;
+  function lichSuCuaNhom(studentIds, thang) {
+    const ra = new Map(studentIds.map(id => [id, []]));
+    if (!studentIds.length) return ra;
+    const lui12 = `${Number(thang.slice(0, 4)) - 1}${thang.slice(4)}`;
+    const theoKe = new Map();
+    for (const k of db.all('kehoachbe_ke',
+      `SELECT id, studentId, thang, trangThai FROM kehoachbe_ke
+        WHERE studentId IN (${studentIds.map(() => '?').join(', ')}) AND thang < ? AND thang >= ?
+        ORDER BY thang DESC`, [...studentIds, thang, lui12])) {
+      const cua = ra.get(k.studentId);
+      if (cua.length >= SO_THANG_LICH_SU) continue;
+      const thangKe = { thang: k.thang, trangThai: k.trangThai, baiHoc: [], muc: [] };
+      cua.push(thangKe);
+      theoKe.set(k.id, thangKe);
+    }
+    if (!theoKe.size) return ra;
+    const keIds = [...theoKe.keys()];
+    const dauHoi = keIds.map(() => '?').join(', ');
+    let bai;
+    try {
+      bai = db.all('kehoachbe_muc_bai',
+        `SELECT mb.keId, mb.baiHocId, mb.nhan, b.ten, b.gocLinhVuc, c.linhVucCon
+           FROM kehoachbe_muc_bai mb LEFT JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+           LEFT JOIN kehoachbe_baihoc_con c ON c.baiHocId = mb.baiHocId
+          WHERE mb.keId IN (${dauHoi}) ORDER BY mb.rowid`, keIds);
+    } catch (_) {
+      // Chưa có bảng lĩnh vực con: đọc như mọi bài chưa xếp mục.
+      bai = db.all('kehoachbe_muc_bai',
+        `SELECT mb.keId, mb.baiHocId, mb.nhan, b.ten, b.gocLinhVuc
+           FROM kehoachbe_muc_bai mb LEFT JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+          WHERE mb.keId IN (${dauHoi}) ORDER BY mb.rowid`, keIds);
+    }
+    for (const m of bai) {
+      theoKe.get(m.keId).baiHoc.push({ baiHocId: m.baiHocId, ten: m.ten || TEN_BAI_DA_GO,
+        gocLinhVuc: m.gocLinhVuc || '', linhVucCon: m.linhVucCon || '', nhan: m.nhan });
+    }
+    for (const m of db.all('kehoachbe_muc',
+      `SELECT keId, gocLinhVuc, noiDung FROM kehoachbe_muc WHERE keId IN (${dauHoi}) ORDER BY rowid`, keIds)) {
+      theoKe.get(m.keId).muc.push({ gocLinhVuc: m.gocLinhVuc, noiDung: m.noiDung });
+    }
+    return ra;
   }
 
   // GỢI Ý CHO THÁNG SAU — QUY TẮC 5 thành một việc máy làm giúp.
@@ -707,6 +858,12 @@ module.exports = (app, { db, modules }) => {
         .map(r => r.lua);
     } catch (_) { return []; }
   }
+  function conCuaBai(baiHocId) {
+    try {
+      const r = db.first('kehoachbe_baihoc_con', 'SELECT linhVucCon FROM kehoachbe_baihoc_con WHERE baiHocId = ?', [baiHocId]);
+      return r ? r.linhVucCon : '';
+    } catch (_) { return ''; }
+  }
 
   // =========================================================================
   // ĐỌC
@@ -720,13 +877,18 @@ module.exports = (app, { db, modules }) => {
       return res.status(403).json({ error: 'Không có quyền xem kế hoạch của nhóm này' });
     }
     const thang = THANG_RE.test(String(req.query.thang || '')) ? req.query.thang : thangNay();
+    const khaiLua = luaNhom.khaiCua(db, classId);
 
-    const danhSach = beCuaNhom(classId).map(b => {
+    const be = beCuaNhom(classId);
+    const lichSu = lichSuCuaNhom(be.map(b => b.id), thang);
+    const danhSach = be.map(b => {
       const ke = keCuaBe(b.id, thang);
       return {
         studentId: b.id, hoTen: b.name, avatar: b.avatar, ke,
+        // Các tháng trước, mới nhất trước (góp ý 20/10, N3) — khoá thêm.
+        lichSu: lichSu.get(b.id),
         // Lứa của kho bài cho bé này ở tháng đang xem (góp ý 06/10, mục 6).
-        lua: luaKhoCuaBe(b.dob, thang),
+        lua: luaKhoCuaBe(b.dob, thang, khaiLua),
         // Gợi ý từ tháng gần nhất — chỉ khi bé CHƯA có bản tháng này; đã có
         // bản thì cô đã quyết rồi, gợi ý nữa là nói chen.
         goiY: ke ? null : goiYChoThang(b.id, thang),
@@ -762,7 +924,8 @@ module.exports = (app, { db, modules }) => {
       // Ba tab và phần cô này soạn được ở nhóm này (góp ý 06/10, mục 6).
       ctDuocSua: ctCuaCo(req.user, classId),
       ctCuaToi: req.user.role === 'admin' ? null : nhomCo.nhomCua(db, classId, req.user.id),
-      luaKho: LUA_KHO.map(([ma, ten]) => ({ ma, ten })),
+      luaKho: luaKhoChoManHinh(),
+      linhVucCon: linhVucConChoManHinh(),
       danhSach,
       // Đếm theo TRẠNG THÁI DUYỆT, không đếm gì về đứa trẻ: đây là con số về
       // việc giấy tờ của cô và của quản lý, không phải con số về các bé.
@@ -788,15 +951,21 @@ module.exports = (app, { db, modules }) => {
       // không hề biết `chuongTrinhTab` có mặt.
       chuongTrinhTab: tabChuongTrinh(),
       nhanBai: NHAN_BAI.map(([ma, ten]) => ({ ma, ten })),
-      luaKho: LUA_KHO.map(([ma, ten]) => ({ ma, ten })),
+      luaKho: luaKhoChoManHinh(),
+      linhVucCon: linhVucConChoManHinh(),
       baiHoc: danhMucBai({ tatCa }),
     });
   });
 
+  // Kho bài do văn phòng / quản lý soạn: chặn mọi vai khác. Trả true khi đã chặn.
+  function chiVanPhong(req, res) {
+    if (req.user.role === 'admin') return false;
+    res.status(403).json({ error: 'Danh mục bài học do văn phòng / quản lý soạn. Cô chỉ tích chọn từ danh mục.' });
+    return true;
+  }
+
   function luuBai(req, res, cu) {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Danh mục bài học do văn phòng / quản lý soạn. Cô chỉ tích chọn từ danh mục.' });
-    }
+    if (chiVanPhong(req, res)) return;
     const b = req.body || {};
     const goc = b.gocLinhVuc === undefined && cu ? cu.gocLinhVuc : chuoi(b.gocLinhVuc, 40);
     if (!MA_GOC.includes(goc)) return res.status(400).json({ error: `Góc lĩnh vực "${goc}" không hợp lệ` });
@@ -813,9 +982,21 @@ module.exports = (app, { db, modules }) => {
     let lua = null;
     if (b.lua !== undefined) {
       if (!Array.isArray(b.lua) || b.lua.some(x => !MA_LUA_KHO.includes(String(x)))) {
-        return res.status(400).json({ error: 'Lứa tuổi chỉ có 3–4, 4–5 hoặc 5–6' });
+        return res.status(400).json({ error: 'Lứa tuổi chỉ có nhà trẻ (dưới 3 tuổi), 3–4, 4–5 hoặc 5–6' });
       }
       lua = [...new Set(b.lua.map(String))];
+    }
+    // Lĩnh vực con (góp ý 20/10). Không gửi = giữ nguyên; rỗng = chưa xếp mục.
+    // Đổi góc mà không gửi thì mục cũ không thuộc góc mới sẽ được bỏ.
+    let con = null;
+    if (b.linhVucCon !== undefined) {
+      con = chuoi(b.linhVucCon, 40);
+      if (con && !linhVucConHop(con, goc)) {
+        return res.status(400).json({ error: 'Mục con này không thuộc góc lĩnh vực đã chọn' });
+      }
+    } else if (cu && cu.gocLinhVuc !== goc) {
+      const cuCon = conCuaBai(cu.id);
+      if (cuCon && !linhVucConHop(cuCon, goc)) con = '';
     }
 
     napDanhMucNeuTrong();
@@ -827,13 +1008,63 @@ module.exports = (app, { db, modules }) => {
         db.run('DELETE FROM kehoachbe_baihoc_lua WHERE baiHocId = ?', [id]);
         for (const l of lua) db.run('INSERT OR IGNORE INTO kehoachbe_baihoc_lua (baiHocId, lua) VALUES (?, ?)', [id, l]);
       }
+      if (con) {
+        db.run(`INSERT INTO kehoachbe_baihoc_con (baiHocId, linhVucCon, capNhatLuc) VALUES (?, ?, ?)
+                ON CONFLICT(baiHocId) DO UPDATE SET linhVucCon = excluded.linhVucCon, capNhatLuc = excluded.capNhatLuc`,
+        [id, con, new Date().toISOString()]);
+      } else if (con === '') {
+        db.run('DELETE FROM kehoachbe_baihoc_con WHERE baiHocId = ?', [id]);
+      }
     });
-    db.audit(req.user.id, cu ? 'kehoachbe-sua-bai' : 'kehoachbe-them-bai', id, { gocLinhVuc: goc, ten, active, lua: lua || undefined });
+    db.audit(req.user.id, cu ? 'kehoachbe-sua-bai' : 'kehoachbe-them-bai', id,
+      { gocLinhVuc: goc, ten, active, lua: lua || undefined, linhVucCon: con === null ? undefined : con });
     const r = db.first('kehoachbe_baihoc', 'SELECT * FROM kehoachbe_baihoc WHERE id = ?', [id]);
-    res.json({ ok: true, baiHoc: { ...r, active: r.active !== 0, lua: luaCuaBai(id) } });
+    const luaBai = luaCuaBai(id);
+    const conBai = conCuaBai(id);
+    res.json({ ok: true, baiHoc: { ...r, active: r.active !== 0, lua: luaBai, linhVucCon: conBai, luaApDung: luaApDung(luaBai, conBai) } });
   }
 
   app.post('/api/kehoachbe/bai-hoc', requireRole('teacher', 'admin'), (req, res) => luuBai(req, res, null));
+
+  // SẮP XẾP MỘT KHỐI BÀI (góp ý 20/10, N5). Khối = góc + lĩnh vực con ('' là
+  // khối "chưa xếp mục", cũng là cả góc Montessori). `ids` phải đúng trọn bộ
+  // bài của khối, kể cả bài đã ẩn: lệch là màn hình đang giữ bản cũ, xếp theo
+  // nó thì bài người khác vừa thêm / chuyển khối bị đặt sai chỗ. Đánh số lại
+  // CẢ GÓC theo khối, để phân hệ khác chỉ đọc `thuTu` vẫn thấy đúng thứ tự.
+  app.post('/api/kehoachbe/bai-hoc/sap-xep', requireRole('teacher', 'admin'), (req, res) => {
+    if (chiVanPhong(req, res)) return;
+    const b = req.body || {};
+    const goc = chuoi(b.gocLinhVuc, 40);
+    if (!MA_GOC.includes(goc)) return res.status(400).json({ error: `Góc lĩnh vực "${goc}" không hợp lệ` });
+    const con = chuoi(b.linhVucCon, 40);
+    if (con && !linhVucConHop(con, goc)) {
+      return res.status(400).json({ error: 'Mục con này không thuộc góc lĩnh vực đã chọn' });
+    }
+    if (!Array.isArray(b.ids)) return res.status(400).json({ error: 'Danh sách bài cần xếp chưa hợp lệ' });
+    const ids = b.ids.map(x => chuoi(x, 40));
+
+    const baiGoc = danhMucBai({ tatCa: true }).filter(x => x.gocLinhVuc === goc);
+    const cuaGoc = new Set(baiGoc.map(x => x.id));
+    const lac = ids.filter(id => !cuaGoc.has(id));
+    if (lac.length && db.first('kehoachbe_baihoc',
+      `SELECT id FROM kehoachbe_baihoc WHERE id IN (${lac.map(() => '?').join(', ')}) LIMIT 1`, lac)) {
+      return res.status(400).json({ error: 'Có bài không thuộc góc lĩnh vực này' });
+    }
+    // Bài mang mục con của góc khác (dữ liệu cũ) nằm ở khối "chưa xếp mục".
+    const khoiCua = x => (x.linhVucCon && linhVucConHop(x.linhVucCon, goc) ? x.linhVucCon : '');
+    const khoi = baiGoc.filter(x => khoiCua(x) === con).map(x => x.id);
+    if (ids.length !== khoi.length || new Set(ids).size !== ids.length || ids.some(id => !khoi.includes(id))) {
+      return res.status(409).json({ error: 'Kho bài vừa có người sửa, cô tải lại rồi xếp lại' });
+    }
+
+    const thuTuKhoi = [...LINH_VUC_CON.filter(([, , g]) => g === goc).map(([m]) => m), ''];
+    const moi = thuTuKhoi.flatMap(k => (k === con ? ids : baiGoc.filter(x => khoiCua(x) === k).map(x => x.id)));
+    db.tx(() => {
+      moi.forEach((id, i) => db.run('UPDATE kehoachbe_baihoc SET thuTu = ? WHERE id = ?', [i, id]));
+    });
+    db.audit(req.user.id, 'kehoachbe-sap-xep-bai', goc, { linhVucCon: con, soBai: ids.length });
+    res.json({ ok: true, baiHoc: danhMucBai({ tatCa: true }).filter(x => x.gocLinhVuc === goc) });
+  });
 
   // ẨN chứ không xoá (active = 0): bài đã tích trong kế hoạch cũ vẫn phải
   // hiện đúng tên. Không có đường DELETE, cố ý.
