@@ -1,9 +1,12 @@
 // Phân hệ Album ảnh.
 // Danh sách album (#/albums) và trang chi tiết (#/albums/<id>).
-// Giáo viên tạo album, thêm và xóa ảnh cho nhóm mình phụ trách.
+// Ai tạo album, thêm, xoá ảnh, gắn thẻ là do máy chủ quyết (M1): màn hình chỉ
+// dựng nút theo các cờ `tao-duoc`, `themAnhDuoc`, `ganTheDuoc`, `doiCheDoDuoc`,
+// `gopAnhDuoc` và `xoaDuoc` của từng tấm.
 App.views.albums = {
   _detail: null,
   _pending: [],   // ảnh đang chờ tải lên: [{ dataUrl, caption, name }]
+  _nhomTao: [],   // nhóm người này tạo được album: [{ id, name }]
 
   // Danh sách album tải theo từng trang. Máy chủ cắt ở 60 album một lượt để
   // điện thoại không phải kéo cả lịch sử ảnh của trường về chỉ để xem mấy
@@ -51,7 +54,12 @@ App.views.albums = {
 
     if (!this._giuTrang) { this._daTai = []; this._conNua = false; }
     this._giuTrang = false;
-    if (!this._daTai.length) await this.taiThem();
+    const [quyenTao] = await Promise.all([
+      this.layQuyenTao(),
+      this._daTai.length ? null : this.taiThem(),
+    ]);
+    this._nhomTao = quyenTao.nhom || [];
+    const taoDuoc = !!quyenTao.taoDuoc;
     const albums = this._daTai;
     // Tách theo "con/nhóm mình còn ở đó hay không", chứ không theo "nhóm đã đóng":
     // bé chuyển nhóm giữa năm thì nhóm cũ vẫn đang mở nhưng con đã rời rồi.
@@ -60,10 +68,10 @@ App.views.albums = {
     const namCu = albums.filter(laCu);
 
     root.innerHTML = `
-      ${UI.pageHeader('Album ảnh', isTeacher ? { action: { id: 'btn-new-album', label: 'Tạo album', icon: 'plus' } } : {})}
+      ${UI.pageHeader('Album ảnh', taoDuoc ? { action: { id: 'btn-new-album', label: 'Tạo album', icon: 'plus' } } : {})}
       ${namNay.length
         ? `<div class="grid-2">${namNay.map(a => this.albumCard(a)).join('')}</div>`
-        : UI.emptyState('📷', isTeacher
+        : UI.emptyState('📷', taoDuoc
           ? 'Chưa có album nào. Bấm "Tạo album" để đăng ảnh hoạt động của nhóm.'
           : 'Chưa có album ảnh nào của nhóm')}
       ${namCu.length ? `
@@ -81,7 +89,7 @@ App.views.albums = {
         <button class="btn outline block mt-14" id="btn-album-cu-hon">
           ${UI.icon('plus', 16)} Xem album cũ hơn
         </button>` : ''}`;
-    if (isTeacher) document.getElementById('btn-new-album').onclick = () => this.openCreate();
+    if (taoDuoc) document.getElementById('btn-new-album').onclick = () => this.openCreate();
     const themNua = document.getElementById('btn-album-cu-hon');
     if (themNua) {
       themNua.onclick = async () => {
@@ -96,6 +104,19 @@ App.views.albums = {
           UI.toast(err.message, 'error');
         }
       };
+    }
+  },
+
+  // Người này tạo được album cho những nhóm nào. Gia đình không bao giờ tạo
+  // album, nên không hỏi máy chủ. Hỏi lỗi thì giữ đúng hành vi cũ — cô có nút,
+  // quản trị không — để màn danh sách vẫn mở được.
+  async layQuyenTao() {
+    const vai = (App.state.user || {}).role;
+    if (vai !== 'teacher' && vai !== 'admin') return { taoDuoc: false, nhom: [] };
+    try {
+      return await API.get('/api/albums/tao-duoc');
+    } catch (_) {
+      return { taoDuoc: vai === 'teacher', nhom: [] };
     }
   },
 
@@ -117,7 +138,7 @@ App.views.albums = {
         ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
         <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
-        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.cheDo === 'theo-the' ? ` ${UI.badge('Theo thẻ', 'blue')}` : ''}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
+        <div class="mt-8">${UI.badge(a.className, 'gray')}${a.cheDo === 'theo-the' ? ` ${UI.badge('Theo thẻ', 'blue')}` : ''}${a.laAlbumChung ? ` ${UI.badge('Album chung', 'purple')}` : ''}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
       </div>`;
   },
 
@@ -148,10 +169,14 @@ App.views.albums = {
   async renderDetail(root, id) {
     const a = await API.get(`/api/albums/${id}`);
     this._detail = a;
+    // Cô nhóm khác góp ảnh vào album chung: không gắn thẻ được, nên ảnh của cô
+    // chờ cô phụ trách nhóm gắn thẻ rồi mới hiện với gia đình.
+    const laNguoiGop = a.laAlbumChung && a.themAnhDuoc && !a.ganTheDuoc
+      && (App.state.user || {}).role === 'teacher';
     root.innerHTML = `
-      ${UI.pageHeader(a.title, a.canEdit ? { action: { id: 'btn-add-photo', label: 'Thêm ảnh', icon: 'plus' } } : {})}
+      ${UI.pageHeader(a.title, a.themAnhDuoc ? { action: { id: 'btn-add-photo', label: 'Thêm ảnh', icon: 'plus' } } : {})}
       <div class="card">
-        <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}${a.cheDo === 'theo-the' ? ` · ${UI.badge('Theo thẻ từng bé', 'blue')}` : ''}</div>
+        <div class="muted small">${UI.esc(a.className)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}${a.authorName ? ` · Đăng bởi ${UI.esc(a.authorName)}` : ''}${a.cheDo === 'theo-the' ? ` · ${UI.badge('Theo thẻ từng bé', 'blue')}` : ''}${a.laAlbumChung ? ` · ${UI.badge('Album chung', 'purple')}` : ''}</div>
         ${a.description ? `<p class="mt-8" style="font-size:.93rem;line-height:1.55">${UI.esc(a.description)}</p>` : ''}
         ${a.lopDaDong ? `<div class="muted small mt-8" style="line-height:1.6">
           Nhóm này đã đóng sau khi chuyển sang năm học mới${a.namHoc ? ` (năm ${UI.esc(a.namHoc)})` : ''},
@@ -159,6 +184,10 @@ App.views.albums = {
         </div>` : ''}
         ${a.nhacGanThe ? `<div class="small mt-8" style="line-height:1.6;border-left:3px solid var(--warning);padding-left:10px">
           ${UI.esc(a.nhacGanThe.loiNhac)}
+        </div>` : ''}
+        ${laNguoiGop ? `<div class="muted small mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">
+          Đây là album chung của nhóm ${UI.esc(a.className)}. Ảnh cô góp vào sẽ hiện với gia đình
+          sau khi cô phụ trách nhóm gắn thẻ bé có trong ảnh.
         </div>` : ''}
         ${a.nhacChoPhuHuynh ? `<div class="muted small mt-8" style="line-height:1.6;border-left:3px solid var(--line);padding-left:10px">
           ${UI.esc(a.nhacChoPhuHuynh)}
@@ -172,25 +201,38 @@ App.views.albums = {
                 ${this.thumb(p, a.id)}
               </div>
               ${p.caption ? `<div class="photo-cap" style="pointer-events:none">${UI.esc(p.caption)}</div>` : ''}
-              ${a.canEdit ? `
+              ${p.xoaDuoc ? `
                 <button title="Xóa ảnh" onclick="event.stopPropagation();App.views.albums.deletePhoto('${UI.esc(p.id)}')"
                   style="position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;background:rgba(15,23,42,.62);color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)">
                   ${UI.icon('x', 15)}
-                </button>
+                </button>` : ''}
+              ${a.ganTheDuoc ? `
                 <button title="Gắn thẻ bé có trong ảnh" onclick="event.stopPropagation();App.views.albums.moGanThe('${UI.esc(p.id)}')"
                   style="position:absolute;top:6px;left:6px;height:30px;padding:0 10px;border-radius:15px;background:rgba(15,23,42,.62);color:#fff;display:flex;align-items:center;gap:5px;font-size:.78rem;backdrop-filter:blur(6px)">
                   ${(p.beTrongAnh || []).length ? `👧 ${(p.beTrongAnh || []).length}` : '＋ gắn bé'}
                 </button>` : ''}
             </div>`).join('')}
-        </div>` : UI.emptyState('📷', a.canEdit ? 'Album chưa có ảnh nào. Bấm "Thêm ảnh" để đăng.' : 'Album chưa có ảnh')}
-      ${a.canEdit && a.photos.length > 1 ? `
+        </div>` : UI.emptyState('📷', a.themAnhDuoc ? 'Album chưa có ảnh nào. Bấm "Thêm ảnh" để đăng.' : 'Album chưa có ảnh')}
+      ${a.ganTheDuoc && a.photos.length > 1 ? `
         <button class="btn outline block mt-14" id="btn-gan-nhieu">
           ${UI.icon('check', 16)} Gắn thẻ nhiều ảnh một lượt
         </button>` : ''}
-      ${a.canEdit ? `
+      ${a.doiCheDoDuoc ? `
         <button class="btn outline block mt-8" id="btn-doi-che-do">
           ${UI.icon('settings', 16)} Đổi ai xem được album này
         </button>` : ''}
+      ${a.gopAnhDuoc ? `
+        <label class="card mt-8" style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:0">
+          <input type="checkbox" id="al-gop-anh" ${a.laAlbumChung ? 'checked' : ''}
+            style="width:22px;height:22px;flex:none;margin-top:2px">
+          <span>
+            <span style="font-weight:700">Cho cô khác trong cơ sở góp ảnh</span>
+            <span class="muted small" style="display:block;line-height:1.6;margin-top:3px">
+              Cô các nhóm khác cùng cơ sở xem và đăng thêm ảnh vào album này. Ảnh cô khác góp
+              chỉ hiện với gia đình sau khi cô phụ trách nhóm gắn thẻ bé.
+            </span>
+          </span>
+        </label>` : ''}
       ${a.themTuCauChuyen ? `
         <button class="btn outline block mt-8" id="btn-tu-cau-chuyen">
           ${UI.icon('plus', 16)} Thêm từ câu chuyện đã kể
@@ -198,13 +240,33 @@ App.views.albums = {
       ${a.canXoa ? `
         <button class="btn danger-soft block mt-14" onclick="App.views.albums.deleteAlbum()">Xóa album này</button>` : ''}`;
 
-    if (a.canEdit) document.getElementById('btn-add-photo').onclick = () => this.openAddPhotos();
+    if (a.themAnhDuoc) document.getElementById('btn-add-photo').onclick = () => this.openAddPhotos();
+    const oGop = document.getElementById('al-gop-anh');
+    if (oGop) oGop.onchange = () => this.doiGopAnh(oGop);
     const nutNhieu = document.getElementById('btn-gan-nhieu');
     if (nutNhieu) nutNhieu.onclick = () => this.moGanNhieuAnh();
     const nutCheDo = document.getElementById('btn-doi-che-do');
     if (nutCheDo) nutCheDo.onclick = () => this.moDoiCheDo();
     const nutCauChuyen = document.getElementById('btn-tu-cau-chuyen');
     if (nutCauChuyen) nutCauChuyen.onclick = () => this.moTuCauChuyen();
+  },
+
+  // BẬT / TẮT ALBUM CHUNG (M1). Tắt không xoá ảnh nào cô khác đã góp.
+  async doiGopAnh(o) {
+    const a = this._detail;
+    if (!a) return;
+    const mo = o.checked;
+    o.disabled = true;
+    try {
+      await API.put(`/api/albums/${encodeURIComponent(a.id)}/gop-anh`, { mo });
+      UI.toast(mo ? 'Đã mở album chung: cô khác trong cơ sở góp ảnh được'
+        : 'Đã thôi cho cô khác góp ảnh. Ảnh đã góp vẫn giữ nguyên', 'success');
+      App.route();
+    } catch (err) {
+      o.checked = !mo;
+      o.disabled = false;
+      UI.toast(err.message, 'error');
+    }
   },
 
   // THÊM TỪ CÂU CHUYỆN ĐÃ KỂ (góp ý B6, 26/10).
@@ -441,10 +503,19 @@ App.views.albums = {
     `, 'Xem ảnh');
   },
 
-  // ================= Giáo viên: tạo album =================
+  // ================= Tạo album =================
   openCreate() {
     this._pending = [];
+    const nhom = this._nhomTao || [];
     UI.modal(`
+      ${nhom.length > 1 ? `
+      <div class="field">
+        <label for="al-nhom">Nhóm lớp</label>
+        <select id="al-nhom">
+          <option value="">— Chọn nhóm lớp —</option>
+          ${nhom.map(n => `<option value="${UI.esc(n.id)}">${UI.esc(n.name)}</option>`).join('')}
+        </select>
+      </div>` : ''}
       <div class="field">
         <label>Tên album</label>
         <input id="al-title" placeholder="Ví dụ: Hoạt động trải nghiệm tháng này">
@@ -470,7 +541,7 @@ App.views.albums = {
     document.getElementById('al-submit').onclick = () => this.submitCreate();
   },
 
-  // ================= Giáo viên: thêm ảnh vào album có sẵn =================
+  // ================= Thêm ảnh vào album có sẵn =================
   openAddPhotos() {
     this._pending = [];
     UI.modal(`
@@ -724,6 +795,10 @@ App.views.albums = {
     const description = document.getElementById('al-desc').value.trim();
     if (!title) return UI.toast('Cô nhập tên album giúp nhé', 'error');
     if (!this._pending.length) return UI.toast('Cô chọn ít nhất 1 ảnh nhé', 'error');
+    // Có ô chọn nhóm thì phải chọn: đoán thay là đăng ảnh của trẻ vào nhầm nhóm.
+    const oNhom = document.getElementById('al-nhom');
+    const classId = oNhom ? oNhom.value : '';
+    if (oNhom && !classId) return UI.toast('Vui lòng chọn nhóm lớp cho album này', 'error');
 
     const photos = this._pending;
     this._nhacGanTheSauKhiDang = false;
@@ -734,7 +809,7 @@ App.views.albums = {
       // album có thể ôm ba video cùng lúc và vỡ thân yêu cầu.
       const first = this.chiaLo(photos)[0] || [];
       const cheDo = (document.getElementById('al-che-do') || {}).value || 'cong-khai';
-      const album = await API.post('/api/albums', { title, description, cheDo, photos: first });
+      const album = await API.post('/api/albums', { title, description, cheDo, photos: first, ...(classId ? { classId } : {}) });
 
       const rest = photos.slice(first.length);
       if (rest.length) {
@@ -763,22 +838,33 @@ App.views.albums = {
     if (!this._pending.length) return UI.toast('Cô chọn ít nhất 1 ảnh nhé', 'error');
 
     const photos = this._pending;
+    this._nhacGanTheSauKhiDang = false;
+    let loiNhac = '';
     try {
       this.setSubmitting('Đang tải ảnh lên…');
       await this.uploadInBatches(
         photos,
         async (batch) => {
           const r = await API.post(`/api/albums/${a.id}/photos`, { photos: batch });
-          if (r && r.nhacGanThe) this._nhacGanTheSauKhiDang = true;
+          if (r && r.nhacGanThe) {
+            this._nhacGanTheSauKhiDang = true;
+            loiNhac = r.nhacGanThe.loiNhac || loiNhac;
+          }
           return r;
         },
         (sent) => this.setSubmitting(`Đang tải ảnh lên… ${sent}/${photos.length}`),
       );
       // Nhóm có gia đình từ chối thì nhắc gắn thẻ NGAY, không đợi cô mở lại
       // album: lúc vừa đăng là lúc duy nhất cô còn nhớ chắc trong ảnh là bé nào.
-      UI.toast(this._nhacGanTheSauKhiDang
-        ? `Đã thêm ${photos.length} ảnh. Cô bấm vào từng ảnh để gắn thẻ bé nhé.`
-        : `Đã thêm ${photos.length} ảnh vào album`, 'success');
+      // Người đăng không gắn thẻ được (cô nhóm khác, văn phòng) thì nói đúng lời
+      // máy chủ: ảnh chờ cô phụ trách nhóm gắn thẻ.
+      let bao = `Đã thêm ${photos.length} ảnh vào album`;
+      if (this._nhacGanTheSauKhiDang) {
+        bao = a.ganTheDuoc
+          ? `Đã thêm ${photos.length} ảnh. Cô bấm vào từng ảnh để gắn thẻ bé nhé.`
+          : `Đã thêm ${photos.length} ảnh. ${loiNhac}`;
+      }
+      UI.toast(bao, 'success');
       UI.closeModal();
       this._pending = [];
       App.route();

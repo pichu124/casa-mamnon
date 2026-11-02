@@ -1127,6 +1127,35 @@ CREATE TABLE IF NOT EXISTS album_cung_con (
   ghiLuc      TEXT
 );
 
+-- AI ĐĂNG TẤM ẢNH NÀY, VÀ NGƯỜI ĐĂNG CÓ Ở TRONG NHÓM KHÔNG (M1).
+--
+-- Chủ dự án: văn phòng, ban giám hiệu, quản lý cơ sở đăng ảnh trong phạm vi
+-- cơ sở mình; cô nhóm khác cùng cơ sở góp ảnh vào "album chung". Người đăng
+-- được xoá ảnh của chính mình, không xoá ảnh người khác — nên phải nhớ ai đăng.
+--
+-- `ngoaiNhom = 1`: người đăng không phải cô của nhóm, cũng không phải quản trị
+-- trong phạm vi — tức cô nhóm khác. Cô ấy không biết bé nào của nhóm này có
+-- đồng ý chia sẻ, nên ảnh CHƯA GẮN THẺ của cô ấy không hiện với gia đình nào
+-- cho tới khi cô của nhóm gắn thẻ (routes/albums.js, `locAnhChoNguoiXem`).
+--
+-- KHÔNG CÓ DÒNG = ảnh đăng trước khi có bảng này: hành vi giữ nguyên, chỉ cô
+-- của nhóm xoá được. Bảng riêng, không thêm cột vào `album_photos`.
+CREATE TABLE IF NOT EXISTS album_anh_nguoi_dang (
+  photoId   TEXT PRIMARY KEY REFERENCES album_photos(id) ON DELETE CASCADE,
+  userId    TEXT NOT NULL,
+  ngoaiNhom INTEGER NOT NULL DEFAULT 0,
+  dangLuc   TEXT
+);
+
+-- "ALBUM CHUNG" (M1): người tạo mở album cho cô nhóm khác CÙNG CƠ SỞ xem và
+-- góp ảnh. Có dòng = album chung. Không có dòng = album thường, như mọi album
+-- đang có. Gia đình không đổi gì: tầm nhìn của họ vẫn do `album_che_do` quyết.
+CREATE TABLE IF NOT EXISTS album_gop_anh (
+  albumId  TEXT PRIMARY KEY REFERENCES albums(id) ON DELETE CASCADE,
+  nguoiBat TEXT,
+  batLuc   TEXT
+);
+
 -- ===========================================================================
 -- NGÀY CÔ GHI MỘT BẢN GHI SỨC KHOẺ (Đ205, việc 10)
 -- ===========================================================================
