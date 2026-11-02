@@ -93,7 +93,7 @@ App.views.accounts = {
           Mật khẩu tạm này chỉ hiện một lần, nếu quên thì cấp lại lần nữa.
         </p>
         <button class="btn primary block mt-14" onclick="UI.closeModal();App.route()">Đã ghi lại</button>
-      `, 'Mật khẩu tạm');
+      `, 'Mật khẩu tạm', { giuKhiBamNen: true });
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 };

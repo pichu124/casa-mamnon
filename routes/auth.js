@@ -164,12 +164,21 @@ function duocDocHoSoBe(user) {
 // Tab màn Quản trị mà tài khoản này thấy (L6). Nạp tệp NGAY LÚC GỌI, trong
 // khối bắt lỗi: lib/tab-quan-tri.js hỏng hay bị gỡ thì trả null — màn hình vẽ
 // đủ tab như cũ, và đăng nhập không phụ thuộc vào tính năng này.
+// Tệp hỏng thì MỖI lần mở app đều rơi vào nhánh lỗi — ghi nhật ký một lần mỗi
+// giờ cho mỗi câu lỗi, đủ để người trông máy thấy mà không làm đầy ổ đĩa.
+const _daBaoTab = new Map();
 function tabQuanTriAnToan(user) {
   if (user.role !== 'admin') return null;
   try {
     return require('../lib/tab-quan-tri').tabQuanTri(db, user);
   } catch (err) {
-    console.error(`[auth] không tính được tab Quản trị: ${err.message}`);
+    const msg = String(err && err.message || err);
+    const luc = Date.now();
+    if (!_daBaoTab.has(msg) || luc - _daBaoTab.get(msg) > 60 * 60 * 1000) {
+      _daBaoTab.set(msg, luc);
+      if (_daBaoTab.size > 50) _daBaoTab.clear();
+      console.error(`[auth] không tính được tab Quản trị: ${msg}`);
+    }
     return null;
   }
 }

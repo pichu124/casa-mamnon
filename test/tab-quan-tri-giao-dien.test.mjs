@@ -10,13 +10,16 @@
 //   [4] Nhập cô từ tệp: xem trước → nhập → phiếu mật khẩu tạm.
 //   [5] Tổng quan ngày có thẻ cô đi làm theo ảnh chụp ở cổng (tên, giờ, không ảnh).
 //   [6] Cài đặt đánh giá: quản lý cơ sở gửi đề xuất, ban giám hiệu đồng ý.
+//   [6c] Màn tách nhiều tệp admin-*.js: tệp nào cũng 200, có trong đệm sw.js,
+//        tải sau admin.js; thiếu một tệp thì chỉ phần ấy báo "chưa tải được".
 //   [7] Không lỗi JS nào.
+import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoReq, taoLogin, taoBoDem,
-  CHROMIUM, tatBannerMoiCai, batPhanHe, taoQuanTri, khoaVaoCoSo, datChucVu,
+  CHROMIUM, tatBannerMoiCai, batPhanHe, taoQuanTri, khoaVaoCoSo, datChucVu, GOC,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -225,6 +228,11 @@ try {
     check('phiếu có tên đăng nhập của cô mới', !!co && phieu.includes(co.username), phieu.slice(0, 400));
     const mkTam = (await page.locator('.modal code').allInnerTexts()).filter(s => s !== co?.username);
     check('phiếu có một mật khẩu tạm', mkTam.length === 1 && mkTam[0].length >= 6, mkTam);
+    // Phiếu mật khẩu tạm chỉ hiện MỘT lần: lỡ chạm ra vùng tối bên ngoài
+    // (rất dễ trên điện thoại) không được làm mất cả loạt mật khẩu.
+    await page.mouse.click(5, 5);
+    await page.waitForTimeout(300);
+    check('bấm ra ngoài phiếu: phiếu mật khẩu tạm VẪN còn', await page.locator('#modal-overlay').count() === 1);
     check('dòng trùng bị bỏ qua, không tạo tài khoản',
       docDb("SELECT COUNT(*) AS n FROM users WHERE name LIKE 'Trùng Số%'")[0].n === 0);
     if (co && mkTam[0]) {
@@ -319,6 +327,60 @@ try {
         await mucDangMo() === 'Nhân sự' && await page.locator('#ad-tt-nhom').count() === 0
           && await page.locator('#ad-file').count() === 0, await mucDangMo());
     }
+  }
+
+  // =========================================================================
+  console.log('\n[6c] Màn Quản trị tách nhiều tệp: tệp nào cũng được phục vụ, đệm và tải sau lõi');
+  {
+    const tepPhu = fs.readdirSync(path.join(GOC, 'public/js/views')).filter(f => /^admin-.+\.js$/.test(f)).sort();
+    check('có ít nhất 4 tệp admin-*.js (không có thì các phép dưới vô nghĩa)', tepPhu.length >= 4, tepPhu);
+    const sw = fs.readFileSync(path.join(GOC, 'public/sw.js'), 'utf8');
+    const html = fs.readFileSync(path.join(GOC, 'public/index.html'), 'utf8');
+    const viTriLoi = html.indexOf('<script src="/js/views/admin.js"></script>');
+    for (const f of tepPhu) {
+      const r = await fetch(`${sv.BASE}/js/views/${f}`);
+      const ma = await r.text();
+      check(`${f}: máy chủ trả 200 và đúng tệp mã`, r.status === 200 && ma.includes('Object.assign(App.views.admin'), r.status);
+      check(`${f}: nằm trong danh sách đệm của sw.js`, sw.includes(`'/js/views/${f}',`));
+      const viTri = html.indexOf(`<script src="/js/views/${f}"></script>`);
+      check(`${f}: index.html tải SAU admin.js`, viTriLoi > 0 && viTri > viTriLoi, { viTriLoi, viTri });
+    }
+
+    // Nguyên tắc số 1: một tệp tab không tải được thì chỉ tab ấy báo, bằng
+    // tiếng Việt; dải tab và các tab khác vẫn chạy.
+    const ctx2 = await tatBannerMoiCai(await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } }));
+    const p2 = await ctx2.newPage();
+    const loi2 = [];
+    p2.on('pageerror', e => loi2.push(e.message));
+    await p2.route(/\/js\/views\/admin-(tai-khoan|nhan-su)\.js/, r => r.abort());
+    await p2.goto(sv.BASE, { waitUntil: 'networkidle' });
+    await p2.waitForSelector('#lg-user', { timeout: 10000 });
+    await p2.fill('#lg-user', 'bgh');
+    await p2.fill('#lg-pass', 'quantri2026');
+    await p2.click('button[type=submit]');
+    const vaoDuoc = await p2.waitForSelector('.tile-grid', { timeout: 10000 }).then(() => true, () => false);
+    check('thiếu hai tệp tab: vẫn đăng nhập được, Trang chủ có ô',
+      vaoDuoc && await p2.locator('.tile-grid .tile, .tile-grid a, .tile-grid button').count() > 0);
+    const mo2 = async (h) => { await p2.goto(`${sv.BASE}/${h}`, { waitUntil: 'networkidle' }); await p2.waitForTimeout(900); };
+    const chu2 = () => p2.locator('#view').innerText();
+
+    await mo2('#/admin/taikhoan');
+    check('tab Tài khoản thiếu tệp: dải tab vẫn còn', await p2.locator('#ad-tabs button').count() === 9);
+    check('… và báo bằng tiếng Việt, không lộ lỗi máy', /chưa tải được/.test(await chu2()) && !/is not a function|undefined/.test(await chu2()),
+      (await chu2()).slice(0, 300));
+    await mo2('#/admin/thongtin/nhansu');
+    check('mục Nhân sự thiếu tệp: báo chưa tải được, dải mục vẫn còn',
+      /chưa tải được/.test(await chu2()) && await p2.locator('#ad-tt-muc button').count() === 3, (await chu2()).slice(0, 300));
+    await mo2('#/admin/thongtin/nhom');
+    check('mục Nhóm lớp & bé vẫn có danh sách nhóm', /Danh sách nhóm lớp/.test(await chu2()), (await chu2()).slice(0, 300));
+    check('… chỉ ô thẻ văn phòng báo chưa tải được',
+      await p2.locator('#ad-tt-vp').count() === 1 && /chưa tải được/.test(await p2.locator('#ad-tt-vp').innerText()));
+    await mo2('#/admin/coso');
+    check('tab Cơ sở (tệp khác) vẫn chạy', /Danh sách cơ sở/.test(await chu2()), (await chu2()).slice(0, 300));
+    await mo2('#/admin/danhgia');
+    check('tab Cài đặt đánh giá vẫn chạy', await p2.locator('#ad-nhan-danh-gia').count() === 1);
+    check('không lỗi JS nào khi thiếu hai tệp tab', loi2.length === 0, loi2);
+    await ctx2.close();
   }
 
   // =========================================================================
