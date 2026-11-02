@@ -298,7 +298,11 @@ window.UI = (() => {
   }
 
   // Mở modal dạng bottom-sheet. Trả về phần tử overlay; đóng bằng UI.closeModal().
-  function modal(innerHtml, title = '') {
+  //
+  // `tuyChon.giuKhiBamNen` (thêm 11/2026): bấm ra vùng tối bên ngoài KHÔNG đóng
+  // hộp — dùng cho phiếu mật khẩu tạm, thứ chỉ hiện một lần: lỡ chạm ra ngoài
+  // trên điện thoại là mất cả loạt mật khẩu. Không truyền thì y như cũ.
+  function modal(innerHtml, title = '', tuyChon = {}) {
     closeModal();
     const ov = document.createElement('div');
     ov.className = 'modal-overlay';
@@ -307,7 +311,9 @@ window.UI = (() => {
       ${title ? `<div class="modal-title">${esc(title)}<button class="close-x" onclick="UI.closeModal()">${icon('x', 20)}</button></div>` : ''}
       <div class="modal-body">${innerHtml}</div>
     </div>`;
-    ov.addEventListener('click', (e) => { if (e.target === ov) closeModal(); });
+    if (!(tuyChon && tuyChon.giuKhiBamNen)) {
+      ov.addEventListener('click', (e) => { if (e.target === ov) closeModal(); });
+    }
     document.body.appendChild(ov);
     return ov;
   }
