@@ -334,6 +334,8 @@ try {
   {
     const tepPhu = fs.readdirSync(path.join(GOC, 'public/js/views')).filter(f => /^admin-.+\.js$/.test(f)).sort();
     check('có ít nhất 4 tệp admin-*.js (không có thì các phép dưới vô nghĩa)', tepPhu.length >= 4, tepPhu);
+    check('có đủ bốn tệp tách sau cùng: thong-tin, mot-ngay, nam-hoc, nhat-ky',
+      ['thong-tin', 'mot-ngay', 'nam-hoc', 'nhat-ky'].every(x => tepPhu.includes(`admin-${x}.js`)), tepPhu);
     const sw = fs.readFileSync(path.join(GOC, 'public/sw.js'), 'utf8');
     const html = fs.readFileSync(path.join(GOC, 'public/index.html'), 'utf8');
     const viTriLoi = html.indexOf('<script src="/js/views/admin.js"></script>');
@@ -381,6 +383,53 @@ try {
     check('tab Cài đặt đánh giá vẫn chạy', await p2.locator('#ad-nhan-danh-gia').count() === 1);
     check('không lỗi JS nào khi thiếu hai tệp tab', loi2.length === 0, loi2);
     await ctx2.close();
+
+    // Thiếu tệp của TAB MẶC ĐỊNH (Thông tin bé & nhân sự): #/admin mở thẳng vào
+    // tab ấy, nên đây là ca dễ trắng màn nhất. Chỉ tab ấy báo; các tab khác —
+    // cả những tab vừa tách ra tệp riêng — vẫn chạy.
+    const ctx3 = await tatBannerMoiCai(await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } }));
+    const p3 = await ctx3.newPage();
+    const loi3 = [];
+    p3.on('pageerror', e => loi3.push(e.message));
+    let daChan = 0;
+    await p3.route(/\/js\/views\/admin-thong-tin\.js/, r => { daChan++; return r.abort(); });
+    await p3.goto(sv.BASE, { waitUntil: 'networkidle' });
+    await p3.waitForSelector('#lg-user', { timeout: 10000 });
+    await p3.fill('#lg-user', 'bgh');
+    await p3.fill('#lg-pass', 'quantri2026');
+    await p3.click('button[type=submit]');
+    const vaoDuoc3 = await p3.waitForSelector('.tile-grid', { timeout: 10000 }).then(() => true, () => false);
+    check('dựng được tình huống: trình duyệt thật sự bị chặn tệp admin-thong-tin.js', daChan > 0, daChan);
+    check('thiếu admin-thong-tin.js: vẫn đăng nhập được, Trang chủ có ô',
+      vaoDuoc3 && await p3.locator('.tile-grid .tile, .tile-grid a, .tile-grid button').count() > 0);
+    const mo3 = async (h) => { await p3.goto(`${sv.BASE}/${h}`, { waitUntil: 'networkidle' }); await p3.waitForTimeout(900); };
+    const chu3 = () => p3.locator('#view').innerText();
+
+    await mo3('#/admin');
+    check('#/admin thiếu tệp tab mặc định: dải tab vẫn đủ 9', await p3.locator('#ad-tabs button').count() === 9);
+    check('… và báo bằng tiếng Việt, không lộ lỗi máy',
+      /chưa tải được/.test(await chu3()) && !/is not a function|undefined/.test(await chu3()), (await chu3()).slice(0, 300));
+    await mo3('#/admin/thongtin/nhapbe');
+    check('mục Nhập danh sách bé (cùng tệp) cũng chỉ báo chưa tải được',
+      /chưa tải được/.test(await chu3()) && await p3.locator('#ad-file').count() === 0, (await chu3()).slice(0, 300));
+    await mo3('#/admin/taikhoan');
+    check('tab Tài khoản (tệp khác) vẫn chạy', await p3.locator('#tk-tim').count() === 1, (await chu3()).slice(0, 300));
+    // Nút ở tab Tài khoản gọi sang tệp đang thiếu: báo bằng tiếng Việt, không
+    // phải một lỗi JS lặng lẽ (coHamBao).
+    const nutXemBe = p3.locator('button', { hasText: 'Xem bé' }).first();
+    check('dựng được tình huống: tab Tài khoản có nút “Xem bé”', await nutXemBe.count() === 1);
+    await nutXemBe.click();
+    await p3.waitForTimeout(400);
+    check('bấm “Xem bé” khi thiếu tệp: báo “chưa tải được”',
+      /chưa tải được/.test(await p3.locator('body').innerText()));
+    await mo3('#/admin/motngay');
+    check('tab Tổng quan ngày (tệp tách mới) vẫn chạy', await p3.locator('#ad-mn-ngay').count() === 1, (await chu3()).slice(0, 300));
+    await mo3('#/admin/namhoc');
+    check('tab Năm học (tệp tách mới) vẫn chạy', await p3.locator('#ny-cuu').count() === 1, (await chu3()).slice(0, 300));
+    await mo3('#/admin/nhatky');
+    check('tab Nhật ký (tệp tách mới) vẫn chạy', /thao tác gần nhất/.test(await chu3()), (await chu3()).slice(0, 300));
+    check('không lỗi JS nào khi thiếu admin-thong-tin.js', loi3.length === 0, loi3);
+    await ctx3.close();
   }
 
   // =========================================================================

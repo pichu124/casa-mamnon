@@ -450,7 +450,7 @@ Object.assign(App.views.admin, {
               <div class="row-sub">${UI.esc(String(c.studentCount))} bé</div>
             </div>
             <div class="row-end" style="display:flex;gap:6px">
-              <button class="btn sm outline" onclick="App.views.admin.xemLop('${UI.esc(c.id)}')">Xem bé</button>
+              <button class="btn sm outline" onclick="App.views.admin.coHamBao('xemLop') && App.views.admin.xemLop('${UI.esc(c.id)}')">Xem bé</button>
               <button class="btn sm primary" onclick="App.views.admin.nhanBeVaoNhom('${UI.esc(c.id)}')">Nhận bé</button>
             </div>
           </div>`).join('') || '<div class="muted small">Chưa có nhóm nào.</div>'}
@@ -462,6 +462,7 @@ Object.assign(App.views.admin, {
     if (!c) return;
     // Bấm "Xong" trên phiếu nhận bé là mở lại danh sách của ĐÚNG nhóm này.
     this._lopDangXem = { classId, tenLop: c.name };
+    if (!this.coHamBao('moNhanBe')) return;
     this.moNhanBe(classId, c.name);
   },
 
@@ -536,8 +537,9 @@ Object.assign(App.views.admin, {
       keCaNghi: true,
       chuNut: s => (s.active === false ? (s.baoLuu ? 'Cho bé đi học lại' : 'Nhận lại bé') : 'Ghi nghỉ học bảo lưu'),
     }, s => {
-      if (s.active !== false) return this.choBaoLuu(s.id);
-      return s.baoLuu ? this.diHocLai(s.id) : this.nhanLaiHocSinh(s.id);
+      const ham = s.active !== false ? 'choBaoLuu' : (s.baoLuu ? 'diHocLai' : 'nhanLaiHocSinh');
+      if (!this.coHamBao(ham)) return;
+      return this[ham](s.id);
     });
   },
 
