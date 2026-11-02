@@ -22,9 +22,9 @@
 
 # Hướng dẫn thử nhanh app CASA Mầm non
 
-Oct 26, 2026
+Nov 2, 2026
 
-Bản ngắn · máy thử https://casa-school.duckdns.org · 46 việc, mỗi người chỉ làm phần của mình
+Bản ngắn · máy thử https://casa-school.duckdns.org · 57 việc, mỗi người chỉ làm phần của mình
 
 ## Trước khi thử (ai cũng đọc)
 
@@ -32,7 +32,7 @@ Bản ngắn · máy thử https://casa-school.duckdns.org · 46 việc, mỗi n
 | --- | --- | --- | --- |
 | Cô giáo | giaovien (cô Mai Anh, nhóm Chồi 2), giaovien4 (cô Hồng, nhóm Nhà trẻ 1), giaovien.nn (cô Emily, cô nước ngoài của Chồi 2, Lá 1, Nhà trẻ 1, cho A13) | A | Điện thoại |
 | Văn phòng | vanphong1 | B | Máy tính |
-| Ban giám hiệu, quản lý cơ sở, kế toán | hieutruong, quanly1 (tạo ở C2), ketoan | C | Máy tính |
+| Ban giám hiệu, quản lý cơ sở, kế toán | hieutruong, quanly1 (tạo ở C2), ketoan, nhansu (C12, C13) | C | Máy tính |
 | Người đóng vai phụ huynh | phuhuynh (mẹ bé Bảo An và bé Bảo Nam), phuhuynh2 (bố bé Gia Hân), ph.minh (bố bé Gia Bảo), ph.trang (mẹ bé Gia Huy, nhà trẻ) | D | Điện thoại |
 | Cả nhóm, cuối buổi | như ghi ở từng việc | E |  |
 
@@ -68,6 +68,8 @@ Bản ngắn · máy thử https://casa-school.duckdns.org · 46 việc, mỗi n
 | A11 | giaovien → phuhuynh | Sau D4. “Dặn thuốc”: ở lời dặn của bé An bấm “Xác nhận đã nhận thuốc”. | Báo “Đã nhận thuốc từ gia đình”. Phụ huynh thấy “Cô đã nhận thuốc” kèm tên cô và giờ. |  |
 | A12 | giaovien → ph.minh | Sau A6. “Hành trình học tập” → nút “Ghi nhanh” ở góc dưới: quay một đoạn video vài giây (đồ vật), “Bé nào” chọn “Hoàng Gia Bảo”, không gõ chữ, bấm “Lưu”. Ở “Hình ảnh ghi nhanh” bấm “Hoàn thiện & kể”: “Chương trình” chọn “P.E (Thể chất)”, gõ chú thích, “Cùng con ở nhà”, chọn “Chỉ có bé Hoàng Gia Bảo”, bấm “Kể cho gia đình”. | Lưu được khi không có chữ (iPhone quay .mov cũng được). Kể xong mục rời “Hình ảnh ghi nhanh”. ph.minh thấy đoạn video phát được, kèm chú thích, ở đúng tab “P.E (Thể chất)”, không ở tab khác. |  |
 | A13 | phuhuynh ↔ giaovien.nn; đối chiếu giaovien | Sau D3. giaovien.nn mở “Nhắn tin”, trả lời tin phụ huynh gửi “Cô nước ngoài”. Rồi giaovien.nn và giaovien cùng mở “Kế hoạch của bé”, bé “Hoàng Gia Bảo”, tab “Cambridge”. | Tin “Cô nước ngoài” tới giaovien.nn; giaovien không thấy cuộc này. Ở tab Cambridge, giaovien.nn bấm được bài; giaovien chỉ đọc, có câu “Phần Cambridge do cô nước ngoài của nhóm soạn và gửi duyệt…”. |  |
+| A14 | giaovien4; giaovien | giaovien4: “Kế hoạch của bé”, bé “Ngô Gia Huy”, tab “Montessori & Kỹ năng sống”. Rồi giaovien mở bé “Hoàng Gia Bảo” cùng tab, kéo xuống dưới thẻ của bé. | Bé nhà trẻ chỉ có bài cho nhóm nhà trẻ (có “Giỏ kho báu”, không có “Tháp hồng”), mỗi bài một dòng có số thứ tự. Bé đã có kế hoạch tháng trước thì dưới thẻ có khối gập “Đã học các tháng trước”; tháng chưa duyệt ghi “· chưa duyệt”. |  |
+| A15 | giaovien | Mở “Cài đặt”. Rồi gõ #/accounts vào cuối địa chỉ (trình duyệt, không dùng app đã cài). | Không còn mục “Tài khoản phụ huynh”; có câu “Gia đình quên mật khẩu: nhờ văn phòng cơ sở cấp lại.” Gõ #/accounts cũng chỉ hiện câu đó, không có nút “Cấp mật khẩu tạm” nào. |  |
 
 ## B. Văn phòng (máy tính)
 
@@ -84,6 +86,8 @@ Bản ngắn · máy thử https://casa-school.duckdns.org · 46 việc, mỗi n
 | B9 | vanphong1 | Ô “Xuất báo cáo” → thẻ “Điểm danh của bé”: “Phạm vi” “Một nhóm”, nhóm Chồi 2, bấm “Tải Excel”, mở tệp. | Báo “Đã tải tệp Excel về máy”. Tệp mở thẳng bằng Excel, chữ có dấu đúng, có trang “Tổng hợp” và “Theo ngày”. Không có phần trăm hay xếp hạng. |  |
 | B10 | vanphong1 → phuhuynh2 | Bỏ qua nếu “Học phí” đang tắt. Sau C6, D7. “Học phí”: chọn bé “Phạm Gia Hân · Chồi 2”, ở khoản “Tiền dã ngoại (thử)” bấm “Xác nhận”, OK. | Khoản thành “Đã nộp”. Phụ huynh thấy “Đã nộp”, nút “Chuyển khoản” biến mất. |  |
 | B11 | vanphong1 → phuhuynh, phuhuynh2 | “Nhắn tin” → “Trò chuyện mới”: ở màn “Nhắn gia đình” chọn nhóm “Chồi 2”, tích bé “Nguyễn Bảo An” và “Phạm Gia Hân”, gõ \[TEST\] Văn phòng nhắn, bấm “Gửi”. Rồi về “Nhắn tin”, bấm “Hội thoại cô – gia đình”, chọn “Chồi 2”, mở cuộc phụ huynh gửi cô ở D3. | Báo “Đã gửi tới gia đình của 2 bé.” Mỗi nhà thấy tin trong cuộc “Văn phòng nhà trường” của riêng mình, không thấy tên nhà kia. Cuộc của cô mở ra có dải “Chế độ xem của quản lý — chỉ đọc.”, không có ô gõ hay nút gửi. |  |
+| B12 | vanphong1 → giaovien4, ph.trang; đối chiếu giaovien | “Album ảnh” → “Tạo album”: “Nhóm lớp” chọn “Nhà trẻ 1”, “Tên album” \[TEST\] Bé chơi cát, chọn một ảnh đồ vật, gõ chú thích nếu được hỏi, lưu. Rồi mở album: bấm thử nút xoá ở ảnh của mình. giaovien (Chồi 2) mở “Album ảnh”. | Chưa chọn nhóm thì báo “Vui lòng chọn nhóm lớp cho album này”. Lưu xong album nằm ở Nhà trẻ 1; ph.trang có tin “Nhà trường vừa đăng … ảnh của nhóm”. Văn phòng chỉ có nút xoá ở ảnh mình đăng. giaovien4 thấy album; giaovien KHÔNG thấy album này. |  |
+| B13 | vanphong1 | “Cài đặt” → “Tài khoản & phân quyền”. Đếm các tab. Tab “Tài khoản”: mở khối “Cơ sở 1”, gõ thu ha vào ô tìm. Rồi tab “Thông tin bé & nhân sự” → mục “Nhân sự”, mở hồ sơ một cô. | Chỉ có 5 tab: Tài khoản, Thông tin bé & nhân sự, Tổng quan ngày, Quan tâm, Nhật ký. Tài khoản xếp theo nhóm lớp (cô, gia đình) của Cơ sở 1; ô tìm ra nhà chị Lê Thị Thu Hà. Nút “Cấp lại mật khẩu” chỉ có ở dòng gia đình, không có ở dòng cô. Hồ sơ cô chỉ có nút “Xem”, phiếu không có ô sửa. |  |
 
 ## C. Ban giám hiệu, quản lý cơ sở, kế toán (máy tính)
 
@@ -97,6 +101,12 @@ Bản ngắn · máy thử https://casa-school.duckdns.org · 46 việc, mỗi n
 | C6 | ketoan → phuhuynh2 | Bỏ qua nếu “Học phí” đang tắt. “Học phí”, “Chọn bé” “Phạm Gia Hân · Chồi 2”, bấm “Tạo khoản”: “Nội dung” Tiền dã ngoại (thử), số tiền 150000, bấm “Tạo khoản thu” một lần. | Báo “Đã tạo khoản thu”. phuhuynh2 thấy khoản, “Còn phải nộp” tăng 150.000 đ. phuhuynh (bé An, bé Nam) không thấy khoản này. |  |
 | C7 | ketoan | Bỏ qua nếu “Tiền ăn” đang tắt. Ô “Tiền ăn”: ô “Tháng đối chiếu” chọn tháng này, bấm “Xuất ra Excel”, mở tệp. | Bé xếp theo tên, không phần trăm, không xếp hạng. Tệp mở thẳng bằng Excel, chữ có dấu đúng. |  |
 | C8 | hieutruong (hoặc quanly1) | Sau D3, A8. “Nhắn tin” → “Hội thoại cô – gia đình”: “Nhóm lớp” chọn “Chồi 2”, “Bé” chọn “Nguyễn Bảo An”, mở cuộc với cô. Rồi Quản trị → tab “Nhật ký”. | Đầu màn có câu “Mở một cuộc là chỉ đọc…”. Cuộc mở ra có dải “Chế độ xem của quản lý — chỉ đọc.”, KHÔNG có ô gõ, nút gửi hay “Thu hồi”. Tin chưa đọc của cô và gia đình vẫn nguyên. Tab “Nhật ký” có dòng “Quản lý xem một cuộc trò chuyện giữa cô và gia đình”. |  |
+| C9 | hieutruong | “Cài đặt” → “Tài khoản & phân quyền”. Đếm các tab. Tab “Thông tin bé & nhân sự” → mục “Nhân sự”: mở hồ sơ cô Mai Anh, sửa số điện thoại, bấm Lưu. Bấm “Tải tệp mẫu CSV”, điền một dòng cô \[TEST\] Cô Thử Nhập, chọn tệp đó, xem trước, bấm “Nhập 1 cô”. Khi phiếu hiện ra, bấm thử ra vùng tối bên ngoài phiếu. | Có 9 tab: Tài khoản, Thông tin bé & nhân sự, Tổng quan ngày, Cài đặt đánh giá, Cơ sở, Quan tâm, Tính năng, Năm học, Nhật ký. Danh sách hồ sơ không hiện CCCD, chỗ ở. Xem trước chưa tạo tài khoản nào. Phiếu có tên đăng nhập và mật khẩu tạm của cô mới; bấm ra ngoài phiếu KHÔNG đóng phiếu (chỉ đóng bằng nút). |  |
+| C10 | quanly1 → hieutruong | quanly1: tab “Cài đặt đánh giá”, đổi chữ của một mức, ô “Vì sao muốn đổi” gõ \[TEST\] chỉ thử, bấm “Gửi đề xuất cho ban giám hiệu”. hieutruong mở cùng tab, ở đề xuất đang chờ bấm “Chưa đồng ý”, ô ý kiến gõ \[TEST\] chỉ thử, gửi. | Quản lý không sửa thẳng được bộ chữ, chỉ gửi đề xuất; khi đang chờ thì thấy đề xuất của mình và nút rút. Ban giám hiệu thấy “Đang dùng → Đề xuất” kèm lý do. Chưa đồng ý thì bộ chữ giữ nguyên; quanly1 thấy “Chưa đồng ý” kèm ý kiến. |  |
+| C11 | quanly1 | “Cài đặt” → “Tài khoản & phân quyền”. Đếm các tab. Tab “Tài khoản”: xem các khối. (Không bấm cấp lại.) | Không có tab “Cơ sở”, “Tính năng”. Chỉ thấy khối Cơ sở 1; có nút “Cấp lại mật khẩu” ở dòng vanphong1, cô và gia đình của Cơ sở 1. |  |
+| C12 | nhansu | Ngày thứ nhất. “Cài đặt” → “Phần việc khác” → “Nhân sự & chấm công” → “📅 Chấm công”: thẻ “Tính công theo giờ ở cổng” → bấm “Bật từ ngày mai (…)”. | Thẻ nói cách tính: đủ 8 tiếng từ lần vào đầu tới lần ra cuối là đủ công, không trừ nghỉ trưa; 7:00–14:00 hoặc 12:00–18:00 là nửa ngày; ai duyệt giải trình. Bật xong thẻ ghi sẽ bật từ ngày mai; có mục “Các lần bật / tắt”. |  |
+| C13 | vanphong1 → giaovien → nhansu | Ngày thứ hai, sau C12. vanphong1: “Điểm danh” → khối “Giáo viên & nhân viên”, chụp ảnh vào cho cô Mai Anh, 1–2 tiếng sau chụp ảnh ra. giaovien: “Cài đặt” → “Phần việc khác” → “Nhân sự & chấm công” → “🙋 Của tôi”: ở ngày hôm nay bấm “📝 Gửi giải trình”, gõ lý do, gửi. nhansu: “📅 Chấm công” → “Giải trình chờ duyệt (1)” → “Duyệt”. | Ngày hôm nay của cô hiện “Cần giải trình” (chưa đủ giờ), màu tím nhạt (không đỏ), kèm giờ vào–ra ở cổng. Duyệt xong ngày ấy thành 1 công, ghi “theo giải trình đã duyệt”. Từ ngày thứ ba: các ngày thường đã qua mà cô không có giờ ở cổng gom thành một dòng “N ngày chưa có giờ ở cổng”, bấm mới sổ ra. |  |
+| C14 | hieutruong | “Kế hoạch của bé” → tab “Kho bài học”: mở khối “Maths” của Cambridge; ở một bài bấm ↑ rồi tải lại trang. Ô lọc chọn “Nhà trẻ (dưới 3 tuổi)”. Bấm “Sửa” một bài Cambridge. | Kho gập theo lĩnh vực con (Communication and Language, Maths, Let's Explore; P.E: Vận động thô, Vận động tinh), mỗi bài một dòng có số thứ tự. Thứ tự mới còn nguyên sau khi tải lại. Lọc nhà trẻ chỉ còn bài nhà trẻ. Hộp sửa có ô lĩnh vực con và 4 ô lứa tuổi, có “Nhà trẻ (dưới 3 tuổi)”. |  |
 
 ## D. Phụ huynh (điện thoại)
 
@@ -123,6 +133,7 @@ Phần quan trọng nhất: một việc ở đây Không đạt là app chưa s
 | E5 | vanphong1, ketoan, giaovien | Dùng trình duyệt (không dùng app đã cài), gõ vào cuối địa chỉ: vanphong1 gõ #/hanhtrinh; ketoan gõ #/student; giaovien gõ #/hocphi. | Lần nào cũng hiện câu chặn bằng tiếng Việt, ví dụ “Phần “Hành trình học tập” nằm ngoài phần việc của tài khoản này.” Không trang trắng, không lộ dữ liệu bé. |  |
 | E6 | phuhuynh rồi phuhuynh2, cùng một máy | phuhuynh mở “Hồ sơ của bé”, vào “Cài đặt” bấm “Đăng xuất”, bấm nút Quay lại vài lần. Rồi đăng nhập phuhuynh2 trên máy đó. | Bấm Quay lại KHÔNG hiện lại dữ liệu nào của bé An, bé Nam. phuhuynh2 chỉ thấy bé Phạm Gia Hân. |  |
 | E7 | giaovien → phuhuynh, phuhuynh2 | Hành trình → “Ghi nhanh”: chụp một đồ vật, bé “Nguyễn Bảo An”, Lưu. “Hình ảnh ghi nhanh” → “Hoàn thiện & kể”: chú thích, “Cùng con ở nhà”, “Có bé khác — cô chọn tên các bé”, tích “Phạm Gia Hân”, bấm “Kể cho gia đình”. Hai nhà mở “Hành trình học tập”. | Câu chuyện của cô có dòng “Ảnh tạm ẩn với gia đình vì Phạm Gia Hân chưa có đồng ý chia sẻ ảnh với gia đình khác.” phuhuynh thấy câu chuyện nhưng KHÔNG thấy ảnh. phuhuynh2 KHÔNG thấy câu chuyện của bé An dù con mình có trong ảnh. |  |
+| E8 | vanphong1 → phuhuynh2 | Làm cuối cùng, sau E6. “Cài đặt” → “Tài khoản & phân quyền” → tab “Tài khoản”: tìm nhà của bé Gia Hân (gõ gia han), bấm “Cấp lại mật khẩu”. Bấm thử ra vùng tối ngoài hộp. Đọc tên đăng nhập và mật khẩu tạm cho người cầm phuhuynh2. | Hộp hiện tên đăng nhập và mật khẩu tạm; bấm ra ngoài KHÔNG đóng hộp. phuhuynh2 đang mở app bị đăng xuất; đăng nhập bằng mật khẩu tạm thì bị buộc đặt mật khẩu mới. |  |
 
 ## Phiếu báo lỗi
 
@@ -139,4 +150,4 @@ Mỗi chỗ sai một dòng. Hết dòng thì kẻ thêm. Gửi phiếu cùng �
 | 7 |  |  |  |  |  |
 | 8 |  |  |  |  |  |
 
-Bản đầy đủ (195 dòng, có cách xử lý khi gặp lỗi) do người phụ trách buổi thử giữ.
+Bản đầy đủ (204 dòng, có cách xử lý khi gặp lỗi) do người phụ trách buổi thử giữ.
