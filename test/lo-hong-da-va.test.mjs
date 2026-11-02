@@ -16,7 +16,7 @@ import { spawnSync } from 'child_process';
 // dòng dữ liệu còn hay đã mất.
 const require_ = createRequire(import.meta.url);
 const DatabaseChiDoc = require_('better-sqlite3');
-import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri, docMaQuanTri } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
@@ -376,7 +376,12 @@ console.log('\n[10] A7 — không view nào nhét dữ liệu người dùng và
 
   const acc = fs.readFileSync(path.join(GOC, 'public/js/views/accounts.js'), 'utf8');
   check('accounts.js KHÔNG truyền tên phụ huynh vào onclick', !/accounts\.reset\('[^']*',\s*'/.test(acc));
-  const adm = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+  const adm = docMaQuanTri();
+  // Phép dưới là phép PHỦ ĐỊNH: không có `xemLop` nào trong mã thì nó xanh mà
+  // chẳng kiểm gì. Phải thấy cả định nghĩa lẫn chỗ gọi qua onclick thì mới tính.
+  check('màn Quản trị có hàm xemLop và có nút gọi nó', /async xemLop\(classId/.test(adm)
+    && /App\.views\.admin\.xemLop\('/.test(adm));
   check('admin.js KHÔNG truyền tên lớp vào onclick', !/xemLop\('[^']*',\s*'/.test(adm));
 }
 
@@ -437,7 +442,8 @@ console.log('\n[12] C1 — tệp danh sách lưu sai bảng mã bị chặn ở 
   // nhận nhầm dấu cách. Bản đầu tiên gõ thẳng ký tự vào lớp ký tự, byte 0 lặng
   // lẽ biến thành dấu cách, và mọi tệp thật đều bị chặn ngay tại máy người dùng
   // — máy chủ không hề biết vì tệp không bao giờ được gửi lên.
-  const nguon = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+  const nguon = docMaQuanTri();
   const bieuThuc = (nguon.match(/_hongBangMa:\s*\/\[(.*?)\]\//) || [])[1];
   check('giao diện có bộ lọc bảng mã riêng', !!bieuThuc, bieuThuc);
   check('bộ lọc KHÔNG coi dấu cách là ký tự hỏng (đã từng chặn nhầm mọi tệp thật)',

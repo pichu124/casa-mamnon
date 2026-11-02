@@ -30,7 +30,7 @@ import fs from 'fs';
 import path from 'path';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, batPhanHe, taoBeRaTruong, dongNhom, HOM_NAY,
+  taoBoDem, taoReq, taoLogin, batPhanHe, taoBeRaTruong, dongNhom, HOM_NAY, docMaQuanTri,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -82,7 +82,8 @@ try {
       !!be && !!be.name && be.className !== undefined && !!be.leftAt, be);
 
     // Đây là nửa đã hỏng: đường API đúng, mà không màn hình nào gọi.
-    const ad = doc('public/js/views/admin.js');
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const ad = docMaQuanTri();
     check('MÀN QUẢN TRỊ THẬT SỰ GỌI /api/schoolyear/alumni',
       /\/api\/schoolyear\/alumni/.test(ad));
     check('và gọi nó từ tab Năm học, nơi chú thích ở routes/hocsinh-cu.js chỉ tới',
