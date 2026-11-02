@@ -11,6 +11,14 @@
 // Đ239d2: văn phòng làm trọn bốn việc trường kể ra ngay trên tab này — thêm
 // phụ huynh cho bé, chuyển nhóm cho bé, nghỉ học bảo lưu / đi học lại, nhận bé
 // nhập đủ thông tin kèm phụ huynh thứ hai.
+//
+// L1/L2: tab Tài khoản dựng lại theo Cơ sở → nhóm lớp (chủ dự án duyệt đổi bài
+// này, 02/11). Thẻ "Tài khoản cô" (#tk-co) gộp vào khối #tk-co-so, nơi mỗi cơ
+// sở một khối, trong đó có nhân viên cơ sở, từng nhóm (cô + gia đình) và cô
+// chưa phân nhóm. Tài khoản quản trị đã gắn cơ sở nằm ở khối cơ sở ấy, không
+// còn ở #tk-quan-tri. Không bỏ khẳng định nào, chỉ đổi chỗ tìm nút. Vế "văn
+// phòng không có phần tài khoản cô" giữ nghĩa: không có nút tạo cô, chuyển
+// nhóm, phân vào nhóm hay cấp lại cho cô.
 import { chromium } from 'playwright';
 import {
   dungMayChu, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, taoBoDem, taoReq, taoLogin,
@@ -80,7 +88,8 @@ try {
   check('có dòng giải thích ai tạo tài khoản nào', /Ai tạo tài khoản nào/.test(await chuTrongTab()));
   check('ban giám hiệu thấy thẻ Tài khoản quản trị kèm nút tạo',
     await page.locator('#tk-quan-tri button', { hasText: 'Tạo tài khoản quản trị' }).count() === 1);
-  check('và thấy cả phần tài khoản cô', await page.locator('#tk-co').count() === 1);
+  check('và thấy cả phần tài khoản cô', await page.locator('#tk-co-so').count() === 1
+    && await page.locator('#tk-co-so .list-row[data-loai="co"]').count() > 0);
 
   // =========================================================================
   console.log('\n[2] Tạo một tài khoản Quản lý cơ sở trên màn hình');
@@ -107,10 +116,14 @@ try {
     /chép/i.test(await page.locator('#toast-zone').innerText().catch(() => '')));
   await page.locator('.modal button', { hasText: 'Đã ghi lại' }).click();
   await page.waitForTimeout(900);
-  const dongQL = page.locator('#tk-quan-tri .list-row', { hasText: 'quanly.thu' });
+  // L1: tài khoản đã gắn cơ sở nằm trong khối của cơ sở ấy; ban giám hiệu thấy
+  // ba cơ sở nên khối đang gập. Đọc dòng chữ phụ, không đọc cả dòng: dòng của
+  // ban giám hiệu có ô chọn, mà chữ của mọi lựa chọn cũng nằm trong dòng.
+  await page.locator('#tk-co-so summary', { hasText: 'Cơ sở 1' }).click();
+  const dongQL = page.locator('#tk-co-so .list-row', { hasText: 'quanly.thu' });
+  const chuQL = await dongQL.count() ? await dongQL.locator('.row-sub').first().innerText() : '(không có dòng)';
   check('tài khoản mới hiện trong danh sách, đúng chức vụ và cơ sở',
-    await dongQL.count() === 1 && /Quản lý cơ sở/.test(await dongQL.innerText()) && /Cơ sở 1/.test(await dongQL.innerText()),
-    await dongQL.count() ? await dongQL.innerText() : '(không có dòng)');
+    await dongQL.count() === 1 && /Quản lý cơ sở/.test(chuQL) && /Cơ sở 1/.test(chuQL), chuQL);
 
   // =========================================================================
   console.log('\n[3] Từ địa chỉ #/admin/taikhoan vẫn bấm sang được tab khác');
@@ -127,12 +140,12 @@ try {
   await moTabTaiKhoanTuCaiDat();
   check('quản lý cơ sở KHÔNG thấy thẻ tạo tài khoản quản trị', await page.locator('#tk-quan-tri').count() === 0);
   check('nhưng thấy nút tạo tài khoản cô',
-    await page.locator('#tk-co button', { hasText: 'Tạo tài khoản cô' }).count() === 1);
+    await page.locator('#tk-co-so button', { hasText: 'Tạo tài khoản cô' }).count() === 1);
   check('và nút chuyển nhóm cho cô',
-    await page.locator('#tk-co button', { hasText: 'Chuyển nhóm' }).count() > 0);
+    await page.locator('#tk-co-so button', { hasText: 'Chuyển nhóm' }).count() > 0);
   check('và phần phụ huynh & bé', await page.locator('#tk-van-phong').count() === 1);
 
-  const dongHong = page.locator('#tk-co .list-row', { hasText: 'Phạm Thị Hồng' });
+  const dongHong = page.locator('#tk-co-so .list-row', { hasText: 'Phạm Thị Hồng' });
   check('dòng cô Hồng ghi nhóm đang dạy', /Nhà trẻ 1/.test(await dongHong.innerText()), await dongHong.innerText());
   await dongHong.locator('button', { hasText: 'Chuyển nhóm' }).click();
   await page.waitForSelector('#tk-cn-den', { timeout: 5000 });
@@ -142,7 +155,7 @@ try {
   await page.selectOption('#tk-cn-den', 'c2');
   await page.click('#tk-cn-luu');
   await page.waitForTimeout(1200);
-  const sau = await page.locator('#tk-co .list-row', { hasText: 'Phạm Thị Hồng' }).innerText();
+  const sau = await page.locator('#tk-co-so .list-row', { hasText: 'Phạm Thị Hồng' }).innerText();
   check('chuyển xong, dòng cô Hồng ghi Lá 1, không còn Nhà trẻ 1',
     /Lá 1/.test(sau) && !/Nhà trẻ 1/.test(sau), sau);
   const coHong = ((await req('GET', '/api/admin/teachers', { cookie: BGH })).data || []).find(t => t.id === 't4');
@@ -152,7 +165,7 @@ try {
   const QL = (await login('quanly.thu', 'quantri2026')).cookie;
   await req('POST', '/api/admin/teachers', { cookie: QL, body: { name: 'Cô Chưa Phân Nhóm' } });
   await moTabTaiKhoanTuCaiDat();
-  const dongMoi = page.locator('#tk-co .list-row', { hasText: 'Cô Chưa Phân Nhóm' });
+  const dongMoi = page.locator('#tk-co-so .list-row', { hasText: 'Cô Chưa Phân Nhóm' });
   check('cô chưa phân nhóm do quản lý tạo có nút "Cấp lại mật khẩu"',
     await dongMoi.locator('button', { hasText: 'Cấp lại mật khẩu' }).count() === 1,
     await dongMoi.count() ? await dongMoi.innerText() : '(không có dòng)');
@@ -171,7 +184,9 @@ try {
   check('văn phòng thấy phần phụ huynh & bé', await page.locator('#tk-van-phong').count() === 1);
   check('có lối nhận bé vào nhóm', await page.locator('#tk-van-phong button', { hasText: 'Nhận bé' }).count() > 0);
   check('KHÔNG có thẻ tạo tài khoản quản trị', await page.locator('#tk-quan-tri').count() === 0);
-  check('KHÔNG có phần tài khoản cô', await page.locator('#tk-co').count() === 0);
+  check('KHÔNG có phần tài khoản cô',
+    await page.locator('#tk-co-so button', { hasText: /Tạo tài khoản cô|Chuyển nhóm|Phân vào nhóm/ }).count() === 0
+    && await page.locator('#tk-co-so .list-row[data-loai="co"] button', { hasText: 'Cấp lại mật khẩu' }).count() === 0);
 
   // =========================================================================
   console.log('\n[6] Văn phòng: bốn việc của trường, mỗi việc một nút (Đ239d2)');

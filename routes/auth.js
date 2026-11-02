@@ -161,6 +161,19 @@ function duocDocHoSoBe(user) {
   return api === null || api.includes('/api/students');
 }
 
+// Tab màn Quản trị mà tài khoản này thấy (L6). Nạp tệp NGAY LÚC GỌI, trong
+// khối bắt lỗi: lib/tab-quan-tri.js hỏng hay bị gỡ thì trả null — màn hình vẽ
+// đủ tab như cũ, và đăng nhập không phụ thuộc vào tính năng này.
+function tabQuanTriAnToan(user) {
+  if (user.role !== 'admin') return null;
+  try {
+    return require('../lib/tab-quan-tri').tabQuanTri(db, user);
+  } catch (err) {
+    console.error(`[auth] không tính được tab Quản trị: ${err.message}`);
+    return null;
+  }
+}
+
 // Gói dữ liệu trả về sau đăng nhập: người dùng + học sinh liên quan + lớp + trường.
 function mePayload(user) {
   const day = duocDocHoSoBe(user);
@@ -227,6 +240,7 @@ function mePayload(user) {
       // được mở hồ sơ bé — Nhân sự, Kế toán, Marketing thì không.
       chucVu: user.role === 'admin' ? db.chucVu(user) : null,
       moHoSoBe: day,
+      tabQuanTri: tabQuanTriAnToan(user),
     },
     students,
     // Kèm cơ sở của từng nhóm (quan hệ ở bảng class_campus) — CHỈ THÊM trường,
