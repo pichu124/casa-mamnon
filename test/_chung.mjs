@@ -263,6 +263,26 @@ export function goCoNuocNgoaiMau(dir, cacNhom = ['c1', 'c2', 'c3', 'c4']) {
   `, cacNhom);
 }
 
+// MÃ NGUỒN MÀN QUẢN TRỊ, GỘP ĐỦ MỌI TỆP.
+//
+// 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — `admin.js` là lõi,
+// từng tab nằm ở `admin-<phần>.js`. Bài nào soi mã của màn này mà chỉ đọc
+// `admin.js` thì hàm dời sang tệp khác là phép kiểm KHÔNG còn thấy gì: phép
+// "có X" đỏ oan, còn phép "KHÔNG có X" xanh lặng lẽ mà chẳng kiểm gì cả.
+//
+// Thứ tự cố định: lõi trước, rồi các tệp phần xếp theo tên. Thiếu lõi hoặc
+// không có tệp phần nào thì NÉM LỖI — đọc phải chuỗi rỗng mà vẫn chạy tiếp là
+// đúng kiểu xanh giả mà hàm này sinh ra để chặn.
+export function docMaQuanTri() {
+  const thuMuc = path.join(GOC, 'public/js/views');
+  const loi = path.join(thuMuc, 'admin.js');
+  if (!fs.existsSync(loi)) throw new Error('docMaQuanTri: không thấy public/js/views/admin.js');
+  const phan = fs.readdirSync(thuMuc).filter(f => /^admin-.+\.js$/.test(f)).sort();
+  if (!phan.length) throw new Error('docMaQuanTri: không thấy tệp public/js/views/admin-*.js nào');
+  return [loi, ...phan.map(f => path.join(thuMuc, f))]
+    .map(t => fs.readFileSync(t, 'utf8')).join('\n');
+}
+
 // Tạo một tài khoản quản trị và trả về mật khẩu tạm mà script in ra.
 export function taoQuanTri(dir, hoTen, tenDangNhap) {
   const out = execSync(

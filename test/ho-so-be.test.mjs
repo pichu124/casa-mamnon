@@ -16,9 +16,7 @@
 //   • LIÊN HỆ KHẨN CẤP không phải tài khoản đăng nhập. Người này không được xem
 //     bất cứ thứ gì trong app.
 import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
-import { GOC } from './_chung.mjs';
-import fs from 'fs';
-import path from 'path';
+import { docMaQuanTri } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('ho-so-be');
@@ -348,7 +346,8 @@ console.log('\n[9] Dân tộc và Nhóm máu — hai ô ĐÃ HẾT CHẾT (mở 
   check('tệp xuất ra có dòng mang dân tộc vừa nhập', !!dong, csv.status);
 
   // ---- MÀN HÌNH: hai ô phải CÓ THẬT và phải ĐI THEO khi bấm Lưu ----
-  const view = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+  const view = docMaQuanTri();
   check('màn Sửa hồ sơ có ô Dân tộc', /id="ad-hs-dt"/.test(view));
   // Góp ý 20/10 (C1): trường bỏ ô Nhóm máu khỏi màn Sửa hồ sơ. Cột dữ liệu
   // giữ nguyên; màn hình không gửi nữa thì máy chủ giữ giá trị cũ ("không gửi

@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v140';
+const VERSION = 'v141';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -44,6 +44,16 @@ const SHELL_ASSETS = [
   '/js/views/setpassword.js',
   '/js/views/accounts.js',
   '/js/views/admin.js',
+  '/js/views/admin-tai-khoan.js',
+  '/js/views/admin-nhan-su.js',
+  '/js/views/admin-danh-gia.js',
+  '/js/views/admin-co-so.js',
+  '/js/views/admin-quan-tam.js',
+  '/js/views/admin-tinh-nang.js',
+  '/js/views/admin-thong-tin.js',
+  '/js/views/admin-mot-ngay.js',
+  '/js/views/admin-nam-hoc.js',
+  '/js/views/admin-nhat-ky.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',

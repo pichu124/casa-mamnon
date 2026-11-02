@@ -30,6 +30,7 @@ import fs from 'node:fs';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu, GOC,
+  docMaQuanTri,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -187,7 +188,8 @@ try {
   // =========================================================================
   console.log('\n[4] Chữ trên màn hình nói về GIẤY TỜ NGƯỜI LỚN, không nói về bé');
   {
-    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const v = docMaQuanTri();
     // Neo vào ĐỊNH NGHĨA hàm, không phải chỗ gọi: `this.veHoSoChuaDu();` đứng
     // trước trong tệp, và cắt từ đó thì cửa sổ trượt hết khỏi thân hàm.
     const dau = v.indexOf('async veHoSoChuaDu() {');

@@ -25,12 +25,11 @@
 // [5] CẤP 3 CHỈ THẤY CƠ SỞ MÌNH, và KHÔNG nhận bảng chia theo cơ sở — đó đúng
 //     là thứ màn Tổng quan đã cố ý che (quy mô của cơ sở khác).
 import path from 'node:path';
-import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
   taoBoDem, taoReq, taoLogin, batPhanHe, tatPhanHe, khoaVaoCoSo, datChucVu,
-  HOM_NAY, GOC,
+  HOM_NAY, docMaQuanTri,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -136,7 +135,8 @@ try {
     check('đối chứng — các cơ sở KHÔNG cùng sĩ số, nên phép so trên có nghĩa',
       new Set(d.theoCoSo.map(x => x.dangHoc)).size > 1, d.theoCoSo.map(x => x.dangHoc));
 
-    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const v = docMaQuanTri();
     const dau = v.indexOf('async veMotNgay() {');
     // Cắt tới hết thân hàm, không cắt theo số ký tự — đếm tay là tự gài bẫy cho mình.
     const cuoi = v.indexOf('\n  },', dau);
@@ -165,7 +165,8 @@ try {
     check('nhưng tổng số bé đang học VẪN đếm được — đó là bảng của phần lõi',
       tat.be.dangHoc === boi.soBe, tat.be.dangHoc);
 
-    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const v = docMaQuanTri();
     const dau = v.indexOf('async veMotNgay() {');
     check('màn hình vẽ dấu gạch cho null, không vẽ số 0',
       /=== null \|\| v === undefined \? '—'/.test(v.slice(dau, dau + 1200)), 'admin.js');
@@ -196,7 +197,8 @@ try {
     // Ý (4) mảng Hồ sơ bé: bố cục duyệt theo Cơ sở → Lớp → Bé. Cây ba tầng ĐÃ
     // CÓ từ Đ124 ở trang chủ văn phòng; thứ còn phẳng là thẻ này ở màn Quản
     // trị, nơi tên cơ sở đứng lẫn trong dòng phụ cùng hàng với tên cô.
-    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const v = docMaQuanTri();
     const ma = v.split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
     check('có hàm gom nhóm theo cơ sở', /nhomTheoCoSo\(d\) \{/.test(ma), 'admin.js');
     check('thẻ danh sách nhóm lớp dùng hàm ấy', /this\.nhomTheoCoSo\(d\)\.map/.test(ma), 'admin.js');

@@ -95,13 +95,21 @@ const p = await ctx1.newPage();
   check('KHÔNG có tên bé nào nằm lại trong máy',
     !/Nguyễn|Trần|Phạm|Lê Thị|Vũ Đình/.test(chuoiNho), roRi.map(([k]) => k));
 
-  const giuSan = await p.evaluate(async () => {
-    for (const n of await caches.keys()) {
-      const c = await caches.open(n);
-      if ((await c.keys()).some(k => k.url.includes('/modules/thuchup/view.js'))) return true;
-    }
-    return false;
-  });
+  // Hỏi lặp tới 10 giây thay vì một lần: service worker giữ thêm tệp màn
+  // hình (từ 11/2026 màn Quản trị tách thành nhiều tệp) nên lúc cả bộ test
+  // chạy nặng, việc ghi vào bộ đệm có thể xong sau mốc chờ cố định ở trên.
+  // Phép kiểm không đổi: tệp màn hình phân hệ PHẢI nằm trong bộ đệm.
+  let giuSan = false;
+  for (let lan = 0; lan < 20 && !giuSan; lan++) {
+    giuSan = await p.evaluate(async () => {
+      for (const n of await caches.keys()) {
+        const c = await caches.open(n);
+        if ((await c.keys()).some(k => k.url.includes('/modules/thuchup/view.js'))) return true;
+      }
+      return false;
+    });
+    if (!giuSan) await p.waitForTimeout(500);
+  }
   check('SERVICE WORKER GIỮ SẴN TỆP MÀN HÌNH PHÂN HỆ', giuSan === true);
   await ctx1.close();
 }

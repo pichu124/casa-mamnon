@@ -33,7 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
-  taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu,
+  taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu, docMaQuanTri,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -309,7 +309,8 @@ try {
     // `UI.modal()` gọi `closeModal()` ở dòng đầu, nên vẽ lại danh sách nhóm khi
     // phiếu đang mở là ĐÓNG MẤT phiếu — và mật khẩu ấy không xem lại được, tức
     // gia đình không đăng nhập được nữa.
-    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const v = docMaQuanTri();
     const dau = v.indexOf('const gui = async (xacNhanTrung)');
     const than = v.slice(dau, v.indexOf('\n    };', dau));
     check('màn hình KHÔNG làm mới danh sách khi phiếu mật khẩu đang mở',
@@ -373,7 +374,8 @@ try {
     check('và cả SỐ ĐIỆN THOẠI đang lưu của tài khoản ấy',
       !!cachDau.data?.taiKhoan?.phuHuynhSdt, cachDau.data?.taiKhoan);
 
-    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8')
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const v = docMaQuanTri()
       .split('\n').filter(d => !/^\s*(\/\/|<!--)/.test(d)).join('\n');
     check('phiếu IN RA tên phụ huynh', /dongSoNgay\('Phụ huynh'/.test(v), 'admin.js');
     check('và in cả số điện thoại của tài khoản được nối vào',
@@ -412,7 +414,8 @@ try {
   // =========================================================================
   console.log('\n[9] Vòng rà đối kháng thứ ba — phiếu của ĐƯỜNG NHẬP TỆP, và nút bấm hai lần');
   {
-    const v = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8')
+    // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+    const v = docMaQuanTri()
       .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
 
     // (1) Ô MẬT KHẨU CHỈ ĐƯỢC CHỨA MẬT KHẨU — Ở CẢ HAI PHIẾU.

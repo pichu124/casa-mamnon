@@ -20,7 +20,7 @@
 // thật, cần cho người đọc mã. Chuỗi hiện lên màn hình thì không được phép.
 import fs from 'fs';
 import path from 'path';
-import { GOC, taoBoDem } from './_chung.mjs';
+import { GOC, taoBoDem, docMaQuanTri } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
@@ -576,7 +576,8 @@ console.log('\n[11] Nhật ký hoạt động phải đọc được bằng ti�
   };
   for (const v of VUNG) quet(path.join(GOC, v));
 
-  const admin = fs.readFileSync(path.join(GOC, 'public/js/views/admin.js'), 'utf8');
+  // 02/11 (chủ dự án duyệt): màn Quản trị tách nhiều tệp — đọc gộp admin*.js để phép kiểm không lặng lẽ xanh khi hàm dời tệp.
+  const admin = docMaQuanTri();
   const iT = admin.indexOf('const TEN = {');
   const khoiTen = iT < 0 ? '' : admin.slice(iT, admin.indexOf('\n    };', iT));
   const coTen = new Set([...khoiTen.matchAll(/^\s*'?([A-Za-z][A-Za-z0-9-]*)'?:/gm)].map(m => m[1]));
@@ -591,7 +592,7 @@ console.log('\n[11] Nhật ký hoạt động phải đọc được bằng ti�
     thieu.length === 0,
     thieu.length
       ? `Thiếu ${thieu.length} mã: ${thieu.slice(0, 8).join(', ')}${thieu.length > 8 ? '…' : ''}. `
-        + 'Thêm dòng tiếng Việt vào bảng TEN trong public/js/views/admin.js '
+        + 'Thêm dòng tiếng Việt vào bảng TEN trong public/js/views/admin-nhat-ky.js '
         + '(hàm tabNhatKy) — đừng để mã tiếng Anh rơi ra màn hình của văn phòng.'
       : '');
 
