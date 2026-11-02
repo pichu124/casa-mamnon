@@ -74,10 +74,19 @@ console.log('\n[2] Cô KHÔNG đọc được — cô không cần số giấy t
   const suaTrom = await req('PUT', '/api/admin/parents/p1/cccd', { cookie: GV, body: { soCccd: '1' } });
   check('cô cũng KHÔNG ghi được', suaTrom.status === 403, suaTrom.status);
 
-  // Danh sách phụ huynh của cô cũng không được lọt.
+  // 1c-5 (chủ dự án 02/11): cô không còn đọc danh sách tài khoản phụ huynh.
+  // Phép kiểm cũ ("danh sách của cô không chứa CCCD") chặt thêm thành: cô
+  // không nhận danh sách nào, và danh sách của nhà trường vẫn không chứa CCCD.
   const ds = await req('GET', '/api/accounts/parents', { cookie: GV });
-  check('danh sách phụ huynh của cô KHÔNG chứa số CCCD',
-    (ds.data || []).every(p => p.soCccd === undefined), ds.data?.[0]);
+  check('cô KHÔNG đọc được danh sách phụ huynh → 403', ds.status === 403, ds.status);
+  check('và không số CCCD nào lọt ra trong câu từ chối',
+    !JSON.stringify(ds.data || {}).includes('079182009999'), ds.data);
+  const dsQT = await req('GET', '/api/accounts/parents', { cookie: A });
+  check('danh sách phụ huynh của nhà trường có dữ liệu để soi',
+    dsQT.status === 200 && (dsQT.data || []).length > 0, dsQT.status);
+  check('và KHÔNG chứa số CCCD',
+    (dsQT.data || []).every(p => p.soCccd === undefined)
+      && !JSON.stringify(dsQT.data || []).includes('079182009999'), dsQT.data?.[0]);
 }
 
 // ===========================================================================

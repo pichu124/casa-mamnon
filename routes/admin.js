@@ -16,6 +16,8 @@ const modules = require('../lib/modules');
 const nghiHoc = require('../lib/nghi-hoc');
 // Bộ chữ đánh giá nhà trường tự sửa được (Đ185, Câu 6).
 const ndg = require('../lib/nhan-danh-gia');
+// Quản lý cơ sở đề xuất đổi bộ chữ, ban giám hiệu duyệt (chủ dự án 02/11).
+const ndgDx = require('../lib/nhan-danh-gia-de-xuat');
 // Ba nhóm cô: chủ nhiệm / nước ngoài / thể chất (Đ188, Câu 11).
 const nhomCo = require('../lib/nhom-co');
 // Lứa tuổi của nhóm lớp: nhà trẻ hay mẫu giáo (Đ193, việc 5).
@@ -200,6 +202,60 @@ module.exports = (app) => {
     if (kq.loi) return res.status(400).json({ error: kq.loi, ma: kq.ma });
     const dang = ndg.nhanDangDung(db);
     res.json({ ok: true, nhan: dang.map(([ma, nhan]) => ({ ma, nhan })) });
+  });
+
+  // ĐỀ XUẤT ĐỔI BỘ CHỮ (chủ dự án 02/11). Hai đường ở trên giữ nguyên: quản lý
+  // khoá vào một cơ sở vẫn không sửa thẳng được, nhưng gửi được một đề xuất;
+  // ban giám hiệu đồng ý thì đề xuất được áp vào bộ chữ qua đúng `ghiBo`.
+  // Ai được làm gì: `deXuatBoChuDuoc` / `duyetBoChuDuoc` ở cuối tệp, cả hai
+  // tính trên phạm vi cơ sở của người bấm.
+  app.get('/api/admin/nhan-danh-gia/de-xuat', onlyAdmin, (req, res) => {
+    const phamVi = db.phamViCoSo(req.user);
+    const deXuat = deXuatBoChuDuoc(req.user, phamVi);
+    const duyet = duyetBoChuDuoc(req.user, phamVi);
+    if (!deXuat && !duyet) {
+      return res.status(403).json({ error: 'Đề xuất đổi bộ chữ đánh giá là việc của quản lý cơ sở và ban giám hiệu.' });
+    }
+    res.json({
+      deXuatDuoc: deXuat,
+      duyetDuoc: duyet,
+      choDuyet: ndgDx.choDuyet(db, req.user.id),
+      ganDay: ndgDx.ganDay(db, req.user.id, duyet ? null : req.user.id),
+    });
+  });
+
+  app.post('/api/admin/nhan-danh-gia/de-xuat', onlyAdmin, (req, res) => {
+    const phamVi = db.phamViCoSo(req.user);
+    if (!deXuatBoChuDuoc(req.user, phamVi)) {
+      return res.status(403).json({
+        error: duyetBoChuDuoc(req.user, phamVi)
+          ? 'Ban giám hiệu sửa trực tiếp ở trên được, không cần gửi đề xuất.'
+          : 'Gửi đề xuất đổi bộ chữ đánh giá là việc của quản lý cơ sở.',
+      });
+    }
+    const kq = ndgDx.tao(db, req.body, req.user.id);
+    if (kq.error) return res.status(kq.status).json({ error: kq.error, ma: kq.ma });
+    res.status(201).json({ ok: true, id: kq.id });
+  });
+
+  app.post('/api/admin/nhan-danh-gia/de-xuat/:id/duyet', onlyAdmin, (req, res) => {
+    if (!duyetBoChuDuoc(req.user, db.phamViCoSo(req.user))) {
+      return res.status(403).json({ error: 'Đề xuất đổi bộ chữ đánh giá do ban giám hiệu xem.' });
+    }
+    const kq = ndgDx.xem(db, String(req.params.id).slice(0, 60), req.body, req.user.id);
+    if (kq.error) return res.status(kq.status).json({ error: kq.error, ma: kq.ma });
+    res.json(kq);
+  });
+
+  app.post('/api/admin/nhan-danh-gia/de-xuat/:id/rut', onlyAdmin, (req, res) => {
+    // Ai mở được thẻ thì rút được đề xuất CỦA CHÍNH MÌNH (lib kiểm người gửi).
+    const phamVi = db.phamViCoSo(req.user);
+    if (!deXuatBoChuDuoc(req.user, phamVi) && !duyetBoChuDuoc(req.user, phamVi)) {
+      return res.status(403).json({ error: 'Chỉ người đã gửi đề xuất mới rút được.' });
+    }
+    const kq = ndgDx.rut(db, String(req.params.id).slice(0, 60), req.user.id);
+    if (kq.error) return res.status(kq.status).json({ error: kq.error });
+    res.json(kq);
   });
 
   app.post('/api/admin/campuses', onlyAdmin, (req, res) => {
@@ -726,6 +782,46 @@ module.exports = (app) => {
       }
     }
 
+    // ---- Cô đi làm hôm nay, theo ảnh chụp ở cổng (L3) ----
+    //
+    // Đứng CẠNH thẻ bảng công ở trên, không thay nó: giờ cổng nằm ở bảng lõi
+    // `staff_checkin` của Điểm danh, nên đếm được cả khi Nhân sự tắt. Cùng tập
+    // cô `coTrongPhamVi`, để hai thẻ cùng ra một tổng số cô. Chỉ tên và giờ,
+    // không ảnh. Chức vụ khác hôm nay đã dừng ở middleware; chốt này giữ cho
+    // thẻ không mở theo khi ai đó thêm `/api/admin` vào danh sách của họ.
+    let coTheoCong = null;
+    const CHUC_VU_XEM_CONG = [null, 'hieu-truong', 'quanly-coso', 'vanphong-coso'];
+    if (coSoDiemDanh && CHUC_VU_XEM_CONG.includes(db.chucVu(req.user))) {
+      try {
+        const idCo = coTrongPhamVi.map(u => u.id);
+        const gio = new Map();
+        for (let i = 0; i < idCo.length; i += 400) {
+          const lo = idCo.slice(i, i + 400);
+          const m = lo.map(() => '?').join(',');
+          for (const r of db.all('staff_checkin',
+            `SELECT userId, gioVao, gioRa FROM staff_checkin WHERE ngay = ? AND userId IN (${m})`,
+            [ngayXem, ...lo])) gio.set(r.userId, r);
+        }
+        const danhSach = coTrongPhamVi
+          .map((u) => {
+            const g = gio.get(u.id) || {};
+            return { userId: u.id, hoTen: u.name, gioVao: g.gioVao || '', gioRa: g.gioRa || '' };
+          })
+          .sort((a, b) => String(a.hoTen).localeCompare(String(b.hoTen), 'vi'));
+        const daVao = danhSach.filter(x => x.gioVao).length;
+        coTheoCong = {
+          tong: danhSach.length,
+          daVao,
+          daRa: danhSach.filter(x => x.gioRa).length,
+          chuaVao: danhSach.length - daVao,
+          danhSach,
+        };
+      } catch (err) {
+        console.error(`[admin] không đọc được giờ chụp ở cổng: ${err.message}`);
+        coTheoCong = null;
+      }
+    }
+
     // ---- Học phí kỳ của tháng đang xem ----
     //
     // ĐẾM KHOẢN THU, KHÔNG NÊU TÊN NHÀ NÀO. Hai con số: đã nộp và chưa nộp
@@ -792,6 +888,8 @@ module.exports = (app) => {
         chuaCham: coSoDiemDanh ? be.filter(chuaChamBe).length : null,
       },
       co: nhanSu,
+      // `null` = Điểm danh tắt, hoặc người xem không thuộc ban giám hiệu / cơ sở.
+      coTheoCong,
       hocPhi,
       theoCoSo,
     });
@@ -1220,6 +1318,399 @@ module.exports = (app) => {
       tuNhom: { classId: lopTu.id, ...nl.tomTat(lopTu.id) },
       denNhom: { classId: lopDen.id, ...nl.tomTat(lopDen.id) },
     });
+  });
+
+  // ---------- Hồ sơ cô cơ bản (L2 — góp ý 20/10, mục 12) ----------
+  //
+  // Bốn ô trường cần: ngày sinh, CCCD, số điện thoại, chỗ ở. Đọc và ghi ĐÚNG
+  // dòng `nhansu_ho_so` của phân hệ Nhân sự — một nguồn dữ liệu, không bảng
+  // thứ hai. Nên phân hệ Nhân sự tắt thì phần này cũng tắt: không đọc, không
+  // ghi (test:doc-cheo).
+  //
+  // Ai làm được gì (chủ dự án chốt 02/11): ban giám hiệu và Nhân sự cả trường;
+  // quản lý cơ sở cô của cơ sở mình; văn phòng cơ sở CHỈ XEM cô của cơ sở mình.
+  // Phạm vi đi đúng luật của danh sách cô (`coTrongTamNhin`). Danh sách không
+  // bao giờ có CCCD và chỗ ở, cùng luật `O_NHAY_CAM` của phân hệ Nhân sự; màn
+  // chi tiết của một cô có, và mở ra là ghi nhật ký.
+  const CHUC_VU_HO_SO_CO = [null, 'hieu-truong', 'quanly-coso', 'vanphong-coso', 'nhansu'];
+  function chanHoSoCo(req, res) {
+    if (!CHUC_VU_HO_SO_CO.includes(db.chucVu(req.user))) {
+      res.status(403).json({
+        error: 'Hồ sơ cô do ban giám hiệu, Nhân sự và quản lý cơ sở giữ. Tài khoản này không mở được phần này.',
+      });
+      return true;
+    }
+    // Chức vụ của MỘT cơ sở (quản lý / văn phòng) mà chưa được gắn cơ sở nào
+    // thì phạm vi rơi về "cả trường" — đọc được CCCD của cô cả ba cơ sở. Đó là
+    // tài khoản cấu hình dở, không phải người được cấp quyền cả trường: chặn.
+    if (['quanly-coso', 'vanphong-coso'].includes(db.chucVu(req.user)) && db.phamViCoSo(req.user) === null) {
+      res.status(403).json({
+        error: 'Tài khoản này chưa được gắn vào cơ sở nào. Ban giám hiệu gắn cơ sở ở Quản trị rồi mở lại nhé.',
+      });
+      return true;
+    }
+    if (!modules.dangBat('nhansu')) {
+      res.status(404).json({
+        error: 'Phần hồ sơ cô đang tắt cùng phân hệ Nhân sự. Ban giám hiệu bật lại ở Quản trị → Tính năng.',
+      });
+      return true;
+    }
+    return false;
+  }
+  const suaDuocHoSoCo = (user) => db.chucVu(user) !== 'vanphong-coso';
+  const tenCo = (u) => `${u.title || ''} ${u.name}`.trim();
+
+  // Ngày sinh gõ theo 1990-05-12 hoặc 12/05/1990 → '1990-05-12'; ngày không
+  // có thật (30/02) hay sai dạng → null.
+  function ngayHopLe(chu) {
+    const t = String(chu || '').trim();
+    let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!m) {
+      const d = t.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+      if (d) m = [t, d[3], d[2], d[1]];
+    }
+    if (!m) return null;
+    const [nam, thang, ngay] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    const dt = new Date(Date.UTC(nam, thang - 1, ngay));
+    if (dt.getUTCFullYear() !== nam || dt.getUTCMonth() !== thang - 1 || dt.getUTCDate() !== ngay) return null;
+    return dt.toISOString().slice(0, 10);
+  }
+  const CCCD_RE = /^(\d{9}|\d{12})$/;
+  const LOI_CCCD = 'Số CCCD phải có 12 chữ số (CMND cũ: 9 chữ số)';
+
+  app.get('/api/admin/teachers/ho-so-co-ban', onlyAdmin, (req, res) => {
+    if (chanHoSoCo(req, res)) return;
+    const pham = phamViNhom(req.user);
+    const co = db.all('users', `SELECT id, name, title FROM users WHERE role = 'teacher' AND active = 1 ORDER BY name`)
+      .filter(u => coTrongTamNhin(req.user, u.id, pham));
+    const hs = new Map();
+    try {
+      const ids = co.map(u => u.id);
+      for (let i = 0; i < ids.length; i += 400) {
+        const lo = ids.slice(i, i + 400);
+        for (const r of db.all('nhansu_ho_so',
+          `SELECT userId, ngaySinh, dienThoai FROM nhansu_ho_so WHERE userId IN (${lo.map(() => '?').join(',')})`, lo)) {
+          hs.set(r.userId, r);
+        }
+      }
+    } catch (err) {
+      console.error(`[admin] không đọc được hồ sơ cô: ${err.message}`);
+      return res.status(503).json({ error: 'Chưa đọc được hồ sơ cô, xin thử lại sau ít phút.' });
+    }
+    res.json({
+      suaDuoc: suaDuocHoSoCo(req.user),
+      danhSach: co.map((u) => {
+        const h = hs.get(u.id) || {};
+        return { userId: u.id, hoTen: tenCo(u), ngaySinh: h.ngaySinh || '', dienThoai: h.dienThoai || '' };
+      }),
+    });
+  });
+
+  app.get('/api/admin/teachers/:id/ho-so-co-ban', onlyAdmin, (req, res) => {
+    if (chanHoSoCo(req, res)) return;
+    const t = db.findUser(req.params.id);
+    if (!t || t.role !== 'teacher' || !coTrongTamNhin(req.user, t.id, phamViNhom(req.user))) {
+      return khongThuocCoSo(res, 'cô này');
+    }
+    let h;
+    try {
+      h = db.first('nhansu_ho_so',
+        'SELECT ngaySinh, cccd, dienThoai, choO FROM nhansu_ho_so WHERE userId = ?', [t.id]) || {};
+    } catch (err) {
+      console.error(`[admin] không đọc được hồ sơ cô: ${err.message}`);
+      return res.status(503).json({ error: 'Chưa đọc được hồ sơ cô, xin thử lại sau ít phút.' });
+    }
+    db.audit(req.user.id, 'nhansu-xem-ho-so', t.id, null);
+    res.json({
+      userId: t.id, hoTen: tenCo(t),
+      ngaySinh: h.ngaySinh || '', cccd: h.cccd || '', dienThoai: h.dienThoai || '', choO: h.choO || '',
+      suaDuoc: suaDuocHoSoCo(req.user),
+    });
+  });
+
+  // Chỉ ô được gửi lên mới bị đổi; các ô khác của hồ sơ Nhân sự giữ nguyên.
+  app.put('/api/admin/teachers/:id/ho-so-co-ban', onlyAdmin, (req, res) => {
+    if (chanHoSoCo(req, res)) return;
+    if (chanNeuVanPhong(req, res, 'Sửa hồ sơ cô')) return;
+    const t = db.findUser(req.params.id);
+    if (!t || t.role !== 'teacher' || !coTrongTamNhin(req.user, t.id, phamViNhom(req.user))) {
+      return khongThuocCoSo(res, 'cô này');
+    }
+    const b = req.body || {};
+    const sua = {};
+    if (b.ngaySinh !== undefined) {
+      const chu = String(b.ngaySinh ?? '').trim();
+      const ngay = chu ? ngayHopLe(chu) : '';
+      if (ngay === null) return res.status(400).json({ error: 'Ngày sinh chưa đúng, ví dụ đúng: 1990-05-12' });
+      sua.ngaySinh = ngay;
+    }
+    if (b.cccd !== undefined) {
+      const so = String(b.cccd ?? '').replace(/\s/g, '');
+      if (so && !CCCD_RE.test(so)) return res.status(400).json({ error: LOI_CCCD });
+      sua.cccd = so;
+    }
+    if (b.dienThoai !== undefined) sua.dienThoai = String(b.dienThoai ?? '').trim().slice(0, 20);
+    if (b.choO !== undefined) sua.choO = String(b.choO ?? '').trim().slice(0, 200);
+    if (!Object.keys(sua).length) return res.status(400).json({ error: 'Chưa có ô nào để lưu' });
+    try {
+      db.upsert('nhansu_ho_so', {
+        userId: t.id, ...sua, capNhatLuc: new Date().toISOString(), nguoiCapNhat: req.user.id,
+      }, ['userId']);
+    } catch (err) {
+      console.error(`[admin] không ghi được hồ sơ cô: ${err.message}`);
+      return res.status(503).json({ error: 'Chưa lưu được hồ sơ cô, xin thử lại sau ít phút.' });
+    }
+    // Nhật ký không ghi nội dung: số định danh không nằm lần thứ hai ở đó.
+    db.audit(req.user.id, 'nhansu-sua-ho-so', t.id, { soO: Object.keys(sua).length });
+    res.json({ ok: true, userId: t.id });
+  });
+
+  // ---------- Nhập cô từ tệp (L2) ----------
+  //
+  // Cùng khuôn với nhập bé: đọc bằng `csv.parse`, chặn tệp hỏng phông
+  // (`chanBangMaSai`), xem trước rồi mới ghi, ghi trong MỘT giao dịch. Khác
+  // nhập bé ở một điểm: còn một dòng lỗi là KHÔNG ghi gì cả — tài khoản cô
+  // tạo nhầm thì mật khẩu tạm đã nằm trên phiếu, gỡ lại không sạch được.
+  //
+  //   • Văn phòng không nhập cô (`chanNeuVanPhong`), như không tạo cô.
+  //   • Có cột Nhóm là phân công cô vào nhóm: hỏi đúng chốt của đường phân
+  //     công, nên Nhân sự nhập được cô nhưng không kèm nhóm.
+  //   • Quản lý cơ sở nhập thì cô thuộc cơ sở của họ; ghi cơ sở khác là dòng
+  //     lỗi. Cấp 1 ghi cột Cơ sở mà không ghi Nhóm thì cô vẫn thuộc cơ sở ấy
+  //     (`giao_vien_co_so`), để quản lý cơ sở ấy thấy và phân nhóm (chủ dự án
+  //     chốt 02/11).
+  //   • Trùng số điện thoại (đã chuẩn hoá) hoặc CCCD với một cô đang làm, hay
+  //     với một dòng trước trong tệp: mặc định bỏ qua, cờ `nhapCaTrung` để nhập.
+  //   • Ngày sinh, CCCD ghi vào hồ sơ Nhân sự, nên khi Nhân sự tắt thì dòng có
+  //     hai cột ấy là dòng lỗi — không lặng lẽ bỏ dữ liệu người nhập đã gõ.
+  function vaiTuChu(chu) {
+    const k = csv.boDau(chu);
+    if (!k) return nhomCo.MAC_DINH;
+    for (const [ma, ten, chuongTrinh] of nhomCo.NHOM) {
+      if ([ma, ten, chuongTrinh].some(x => csv.boDau(x) === k)) return ma;
+    }
+    return { pe: 'the-chat', thechat: 'the-chat', nuocngoai: 'nuoc-ngoai', chunhiem: 'chu-nhiem' }[k] || null;
+  }
+
+  function phanTichCo(text, user, pham) {
+    const { rows } = csv.parse(text);
+    const coSoNguoiNhap = db.phamViCoSo(user);
+    const nhanSuBat = modules.dangBat('nhansu');
+    const campuses = db.campuses();
+
+    const sdtDaCo = new Map();
+    for (const u of db.all('users', "SELECT id, name, phone FROM users WHERE role = 'teacher' AND active = 1")) {
+      const k = chuanHoaSdt(u.phone);
+      if (k) sdtDaCo.set(k, u);
+    }
+    const cccdDaCo = new Map();
+    if (nhanSuBat) {
+      try {
+        for (const r of db.all('nhansu_ho_so',
+          `SELECT h.cccd, u.id, u.name FROM nhansu_ho_so h JOIN users u ON u.id = h.userId
+            WHERE u.role = 'teacher' AND u.active = 1 AND h.cccd != ''`)) {
+          cccdDaCo.set(String(r.cccd).replace(/\s/g, ''), r);
+        }
+      } catch (err) {
+        console.error(`[admin] không đọc được CCCD để soát trùng: ${err.message}`);
+      }
+    }
+    // Cô ngoài tầm của người nhập thì chỉ nói "đã có", không nói tên.
+    const daCo = (u, gi) => (coTrongTamNhin(user, u.id, pham)
+      ? `đã có cô ${u.name} cùng ${gi}` : `đã có một tài khoản cô cùng ${gi}`);
+
+    const daDungTen = new Set();
+    const sdtTrongTep = new Map();
+    const cccdTrongTep = new Map();
+    return rows.map((row) => {
+      const hoTen = lay(row, 'Họ tên', 'Họ và tên', 'Tên cô', 'name');
+      const dienThoai = lay(row, 'Điện thoại', 'SĐT', 'SDT', 'Số điện thoại', 'phone');
+      const ngaySinhGo = lay(row, 'Ngày sinh', 'dob');
+      const cccdGo = lay(row, 'CCCD', 'Số CCCD', 'Căn cước', 'cccd');
+      const tenCoSo = lay(row, 'Cơ sở', 'campus');
+      const tenNhom = lay(row, 'Nhóm', 'Nhóm lớp', 'Lớp', 'class');
+      const vaiGo = lay(row, 'Vai', 'Vai trò', 'Chương trình');
+
+      const loi = [];
+      if (!hoTen) loi.push('thiếu họ tên của cô');
+      const ngaySinh = ngaySinhGo ? ngayHopLe(ngaySinhGo) : '';
+      if (ngaySinh === null) loi.push(`ngày sinh "${ngaySinhGo}" chưa đúng, ví dụ đúng: 1990-05-12 hoặc 12/05/1990`);
+      const cccd = cccdGo.replace(/\s/g, '');
+      if (cccd && !CCCD_RE.test(cccd)) loi.push(LOI_CCCD.charAt(0).toLowerCase() + LOI_CCCD.slice(1));
+      if ((ngaySinhGo || cccdGo) && !nhanSuBat) {
+        loi.push('phần hồ sơ cô đang tắt cùng phân hệ Nhân sự: xoá cột Ngày sinh và CCCD, '
+          + 'hoặc nhờ ban giám hiệu bật phân hệ');
+      }
+
+      let campusId = coSoNguoiNhap || '';
+      if (tenCoSo) {
+        const cs = campuses.find(x => csv.boDau(x.name) === csv.boDau(tenCoSo));
+        if (!cs) loi.push(`không có cơ sở nào tên "${tenCoSo}"`);
+        else if (coSoNguoiNhap && cs.id !== coSoNguoiNhap) loi.push(`cơ sở "${tenCoSo}" không phải cơ sở của bạn`);
+        else campusId = cs.id;
+      }
+
+      let lop = null;
+      if (tenNhom) {
+        let ungVien = db.all('classes',
+          'SELECT * FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenNhom]);
+        if (pham !== null) ungVien = ungVien.filter(c => pham.includes(c.id));
+        if (campusId) ungVien = ungVien.filter(c => db.campusOfClass(c.id) === campusId);
+        if (ungVien.length === 1) {
+          lop = ungVien[0];
+          campusId = campusId || db.campusOfClass(lop.id) || '';
+        } else if (ungVien.length > 1) {
+          loi.push(`nhóm "${tenNhom}" có ở nhiều cơ sở — xin ghi rõ cơ sở ở cột "Cơ sở"`);
+        } else if (pham !== null && db.first('classes',
+          'SELECT id FROM classes WHERE name = ? COLLATE NOCASE AND active = 1', [tenNhom])) {
+          loi.push(`nhóm "${tenNhom}" không thuộc cơ sở của bạn`);
+        } else {
+          loi.push(`không có nhóm nào tên "${tenNhom}"${campusId ? ' ở cơ sở này' : ''}`);
+        }
+      }
+
+      const vai = vaiTuChu(vaiGo);
+      if (!vai) loi.push(`vai "${vaiGo}" chưa hiểu được — ghi một trong: Montessori, Cambridge, P.E`);
+      else if (vaiGo && !tenNhom) loi.push('cột Vai cần đi cùng cột Nhóm — vai là của cô ở một nhóm');
+
+      const sdt = chuanHoaSdt(dienThoai);
+      let trung = null;
+      if (!loi.length) {
+        if (sdt && sdtTrongTep.has(sdt)) trung = `trùng số điện thoại với dòng ${sdtTrongTep.get(sdt)} ngay trong tệp này`;
+        else if (cccd && cccdTrongTep.has(cccd)) trung = `trùng CCCD với dòng ${cccdTrongTep.get(cccd)} ngay trong tệp này`;
+        else if (sdt && sdtDaCo.has(sdt)) trung = daCo(sdtDaCo.get(sdt), 'số điện thoại');
+        else if (cccd && cccdDaCo.has(cccd)) trung = daCo(cccdDaCo.get(cccd), 'CCCD');
+      }
+      if (sdt && !sdtTrongTep.has(sdt)) sdtTrongTep.set(sdt, row.__line);
+      if (cccd && !cccdTrongTep.has(cccd)) cccdTrongTep.set(cccd, row.__line);
+
+      return {
+        line: row.__line,
+        hoTen, dienThoai,
+        email: lay(row, 'Email', 'email'),
+        ngaySinh: ngaySinh || '', cccd,
+        campusId, tenCoSo: ((campuses.find(x => x.id === campusId)) || {}).name || '',
+        tenNhom, classId: lop ? lop.id : null, vai: vai || '',
+        username: hoTen ? sinhTenDangNhap(hoTen, dienThoai, daDungTen) : '',
+        loi, trung,
+      };
+    });
+  }
+
+  // Có cột Nhóm mà chức vụ không được phân công cô thì chặn cả tệp. Trả về
+  // true nghĩa là ĐÃ gửi lỗi.
+  function chanNhomKhongPhanCongDuoc(req, res, rows) {
+    if (!rows.some(r => r.tenNhom)) return false;
+    return chanNeuKhongGoiDuoc(req, res, '/api/admin/classes/:id/teachers', 'Phân cô vào nhóm');
+  }
+
+  app.get('/api/admin/teachers/nhap/mau', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Nhập cô từ tệp')) return;
+    // Quản lý cơ sở nhận sẵn tên cơ sở của mình.
+    const coSo = db.phamViCoSo(req.user);
+    const tenCoSo = ((coSo ? db.findCampus(coSo) : db.campuses()[0]) || {}).name || '';
+    const headers = ['Họ tên', 'Điện thoại', 'Email', 'Ngày sinh', 'CCCD', 'Cơ sở', 'Nhóm', 'Vai'];
+    const mau = [{
+      'Họ tên': 'Trần Thị Lan', 'Điện thoại': '0912000111', 'Email': 'thilan@gmail.com',
+      'Ngày sinh': '', 'CCCD': '', 'Cơ sở': tenCoSo, 'Nhóm': '', 'Vai': '',
+    }];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="mau-danh-sach-co.csv"');
+    res.send(csv.stringify(headers, mau));
+  });
+
+  app.post('/api/admin/teachers/nhap/xem-truoc', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Nhập cô từ tệp')) return;
+    const text = String((req.body || {}).csv || '');
+    if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
+    if (chanBangMaSai(text, res)) return;
+    const rows = phanTichCo(text, req.user, phamViNhom(req.user));
+    if (!rows.length) return res.status(400).json({ error: 'Tệp không có dòng dữ liệu nào' });
+    if (chanNhomKhongPhanCongDuoc(req, res, rows)) return;
+    res.json({
+      total: rows.length,
+      loi: rows.filter(r => r.loi.length).length,
+      trung: rows.filter(r => r.trung).length,
+      rows,
+    });
+  });
+
+  app.post('/api/admin/teachers/nhap/ghi', onlyAdmin, (req, res) => {
+    if (chanNeuVanPhong(req, res, 'Nhập cô từ tệp')) return;
+    const text = String((req.body || {}).csv || '');
+    if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
+    if (chanBangMaSai(text, res)) return;
+    const rows = phanTichCo(text, req.user, phamViNhom(req.user));
+    if (!rows.length) return res.status(400).json({ error: 'Tệp không có dòng dữ liệu nào' });
+    if (chanNhomKhongPhanCongDuoc(req, res, rows)) return;
+    const hong = rows.filter(r => r.loi.length);
+    if (hong.length) {
+      return res.status(400).json({
+        error: `Tệp còn ${hong.length} dòng lỗi (dòng ${hong.slice(0, 5).map(r => r.line).join(', ')}`
+          + `${hong.length > 5 ? ', …' : ''}). Chưa tạo tài khoản nào — xin sửa tệp rồi tải lên lại.`,
+        rows: hong,
+      });
+    }
+    const nhapCaTrung = (req.body || {}).nhapCaTrung === true;
+    const boQuaTrung = nhapCaTrung ? 0 : rows.filter(r => r.trung).length;
+    const ghi = rows.filter(r => nhapCaTrung || !r.trung);
+    if (!ghi.length) {
+      return res.status(400).json({
+        error: `Tất cả ${boQuaTrung} cô trong tệp đều đã có tài khoản nên không có gì để nhập.`,
+      });
+    }
+
+    const nhanSuBat = modules.dangBat('nhansu');
+    const tenNhom = nhoTenNhom();
+    const taiKhoan = [];
+    let hoSoChuaLuu = 0;
+    db.tx(() => {
+      for (const r of ghi) {
+        const matKhau = sinhMatKhau();
+        const rec = {
+          id: db.nextId('t'),
+          username: r.username,
+          passwordHash: password.hash(matKhau),
+          role: 'teacher',
+          name: r.hoTen,
+          title: 'Cô',
+          phone: r.dienThoai,
+          email: r.email,
+          classId: r.classId,
+          avatar: { emoji: '👩‍🏫', bg: '#7c5cbf' },
+          mustChangePassword: true,
+          active: true,
+          createdAt: new Date().toISOString(),
+        };
+        db.insert('users', rec);
+        if (r.classId) {
+          // Như tạo một cô: nhóm đã có cô thì cô mới là cô phụ, không đè ai.
+          db.addClassTeacher(r.classId, rec.id, db.teacherIdsOfClass(r.classId).length ? 'phu' : 'chinh');
+          if (r.vai !== nhomCo.MAC_DINH) nhomCo.dat(db, r.classId, rec.id, r.vai);
+        }
+        if (r.campusId) db.insert('giao_vien_co_so', { userId: rec.id, campusId: r.campusId, taoLuc: rec.createdAt });
+        if (nhanSuBat && (r.ngaySinh || r.cccd)) {
+          // Hồ sơ là của phân hệ Nhân sự: hỏng ở đó thì tài khoản cô vẫn tạo,
+          // và phiếu nói rõ bao nhiêu hồ sơ chưa lưu được.
+          try {
+            db.upsert('nhansu_ho_so', {
+              userId: rec.id, ngaySinh: r.ngaySinh, cccd: r.cccd, dienThoai: r.dienThoai.slice(0, 20),
+              capNhatLuc: rec.createdAt, nguoiCapNhat: req.user.id,
+            }, ['userId']);
+          } catch (err) {
+            hoSoChuaLuu += 1;
+            console.error(`[admin] không ghi được hồ sơ cô khi nhập tệp: ${err.message}`);
+          }
+        }
+        taiKhoan.push({
+          hoTen: rec.name, username: rec.username, matKhau,
+          coSo: r.tenCoSo, nhom: tenNhom(r.classId),
+        });
+      }
+    });
+
+    db.audit(req.user.id, 'import-teachers', null, { soDong: ghi.length, boQuaTrung, nhapCaTrung });
+    res.json({ ok: true, imported: ghi.length, boQuaTrung, hoSoChuaLuu, taiKhoan });
   });
 
   // ---------- Học sinh ----------
@@ -2577,7 +3068,14 @@ function quyenTaiKhoan(user) {
     // `POST /api/accounts/:id/reset-password`. Quản lý một cơ sở thì máy chủ
     // chỉ nhận cho cô trong tầm cơ sở mình — đúng những cô danh sách cô của
     // họ liệt kê (`coTrongTamNhin`), kể cả cô chưa nhóm do cơ sở mình tạo.
-    capLaiMatKhau: duocGoiDuong(user, '/api/accounts/:id/reset-password'),
+    // Nghĩa của ô này là "cấp lại cho CÔ": văn phòng cơ sở mở được đường cấp
+    // lại để làm cho gia đình, không cho cô (L1).
+    capLaiMatKhau: !vanPhong && duocGoiDuong(user, '/api/accounts/:id/reset-password'),
+    // Cùng đường ấy, cho tài khoản gia đình: ban giám hiệu, quản lý cơ sở, văn
+    // phòng cơ sở. Nhân sự chỉ cấp lại cho cô.
+    capLaiPhuHuynh: db.chucVu(user) !== 'nhansu' && duocGoiDuong(user, '/api/accounts/:id/reset-password'),
+    // Đúng hai chốt của `PUT /api/admin/managers/:id/chuc-vu`.
+    doiChucVu: db.phamViCoSo(user) === null && (cap === null || cap === 1),
     motCoSo: db.phamViCoSo(user) !== null,
     // Nhận một bé vào nhóm (= tạo tài khoản gia đình) — `POST /api/admin/students`;
     // cùng tiền tố với thêm phụ huynh, bảo lưu, chuyển nhóm cho bé (Đ239d2).
@@ -2594,6 +3092,21 @@ function chanNeuChiMotCoSo(req, res, viec) {
       + 'toàn hệ thống mới làm được. Xin liên hệ ban giám hiệu.',
   });
   return true;
+}
+
+// Ai GỬI được đề xuất đổi bộ chữ đánh giá: quản trị khoá vào một cơ sở, chưa
+// khai chức vụ hoặc là quản lý cơ sở. Danh sách trắng — văn phòng (Đ192 "văn
+// phòng KHÔNG"), các chức vụ cấp 2 và bảo vệ đều bị loại.
+// `phamVi` là `db.phamViCoSo(u)`, chỗ gọi tính sẵn.
+function deXuatBoChuDuoc(u, phamVi) {
+  return !!u && u.role === 'admin' && phamVi !== null
+    && [null, 'quanly-coso'].includes(db.chucVu(u));
+}
+
+// Ai DUYỆT được: đúng chốt của `PUT /api/admin/nhan-danh-gia`. Duyệt mà khắt
+// khe hơn sửa trực tiếp thì vô nghĩa.
+function duyetBoChuDuoc(u, phamVi) {
+  return !!u && u.role === 'admin' && phamVi === null;
 }
 
 // Chặn một việc thuộc về BAN GIÁM HIỆU khi người bấm là "Văn phòng cơ sở".

@@ -57,7 +57,7 @@ App.views.settings = {
           </div>
         </div>` : ''}
 
-      ${user.role === 'teacher' || user.role === 'admin' ? `
+      ${user.role === 'admin' ? `
         <div class="card">
           <div class="card-title">👪 Tài khoản của gia đình</div>
           <div class="list-row clickable" onclick="location.hash='#/accounts'">
@@ -67,6 +67,12 @@ App.views.settings = {
             </div>
             <span class="muted">${UI.icon('chevron', 18)}</span>
           </div>
+        </div>` : ''}
+
+      ${user.role === 'teacher' ? `
+        <div class="card" id="st-gia-dinh-quen-mk">
+          <div class="card-title">👪 Tài khoản của gia đình</div>
+          <p class="muted small" style="line-height:1.6">Gia đình quên mật khẩu: nhờ văn phòng cơ sở cấp lại.</p>
         </div>` : ''}
 
       ${this.thePhanViecKhac()}

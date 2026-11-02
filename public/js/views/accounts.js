@@ -1,4 +1,5 @@
-// Giáo viên cấp lại mật khẩu cho phụ huynh nhóm mình khi họ quên.
+// Nhà trường cấp lại mật khẩu cho phụ huynh khi họ quên. Cô không còn làm việc
+// này (L1, 1c-5): màn của cô chỉ chỉ sang văn phòng cơ sở.
 App.views.accounts = {
   _parents: [],
 
@@ -12,6 +13,14 @@ App.views.accounts = {
     if (!['teacher', 'admin'].includes(App.state.user.role)) {
       root.innerHTML = UI.pageHeader('Tài khoản phụ huynh')
         + UI.emptyState('🔒', 'Mục này dành cho cô và nhà trường');
+      return;
+    }
+    if (App.state.user.role === 'teacher') {
+      root.innerHTML = UI.pageHeader('Tài khoản phụ huynh') + `
+        <div class="card">
+          <div class="card-title">${UI.icon('info', 19)} Gia đình quên mật khẩu</div>
+          <p class="muted small" style="line-height:1.6">Gia đình quên mật khẩu: nhờ văn phòng cơ sở cấp lại.</p>
+        </div>`;
       return;
     }
     let parents;
@@ -33,7 +42,7 @@ App.views.accounts = {
         <div class="card-title">${UI.icon('info', 19)} Khi phụ huynh quên mật khẩu</div>
         <p class="muted small" style="line-height:1.6">
           Bấm <b>Cấp mật khẩu tạm</b> bên cạnh tên phụ huynh. Hệ thống sinh một mật khẩu
-          ngắn, cô đọc cho phụ huynh qua điện thoại. Phụ huynh đăng nhập xong sẽ được
+          ngắn, đọc cho phụ huynh qua điện thoại. Phụ huynh đăng nhập xong sẽ được
           yêu cầu đặt lại mật khẩu riêng ngay.
         </p>
       </div>
