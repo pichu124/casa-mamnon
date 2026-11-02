@@ -209,3 +209,22 @@ giám hiệu duyệt giải trình (chủ dự án đổi được).
   thường đã qua một dòng "Chưa có giờ ở cổng" (khoảng 20 dòng mỗi tháng) — có muốn gom lại?
 - **L1–L6 — chờ duyệt.** Cần đổi ba bài phân quyền (mat-khau, bao-ve-cong,
   tai-khoan-phan-quyen-giao-dien) và thêm `/api/accounts` cho văn phòng cơ sở trong `lib/db.js`.
+
+## Quyết định của chủ dự án ngày 02/11/2026 (sau Đ245–Đ248)
+
+- **Ba cấp giữ như cũ:** Cấp 1 = Ban giám hiệu; Cấp 2 = Nhân sự, Kế toán, Marketing (toàn
+  trường, mỗi bộ phận một mảng); Cấp 3 = Quản lý cơ sở, Văn phòng cơ sở, Bảo vệ cổng.
+- **L1–L6 — duyệt.** Được đổi ba bài phân quyền (mat-khau, bao-ve-cong,
+  tai-khoan-phan-quyen-giao-dien) theo lý do đã nêu; được thêm `/api/accounts` cho văn phòng
+  cơ sở trong `lib/db.js` (commit riêng) và sửa câu mô tả chức vụ. Các điểm trường chưa nói:
+  1. Nhân sự giữ quyền cấp lại mật khẩu cho cô và xem đủ hồ sơ nhân sự.
+  2. Văn phòng cơ sở chỉ XEM hồ sơ cô.
+  3. Bộ chữ đánh giá: quản lý cơ sở ĐỀ XUẤT, cấp 1 DUYỆT cuối cùng.
+  4. Chỉ tab Tính năng là riêng cấp 1; Quan tâm giữ như nay.
+  5. Cô KHÔNG còn xem danh sách tài khoản phụ huynh (bỏ cả đường đọc lẫn lối vào).
+  7. Cấp 1 nhập cô có cột Cơ sở mà chưa có Nhóm → vẫn gắn cô vào cơ sở đó.
+- **M1 — thu hẹp.** Đóng góp ảnh vào album của một nhóm: chỉ cô của nhóm, quản lý cơ sở và
+  văn phòng cơ sở của cơ sở đó (cấp 1 như mọi nơi). **Cô nhóm khác không được góp** → bỏ
+  "album chung" của Đ247.
+- **K1 — gom lại.** Những ngày "Chưa có giờ ở cổng" gom thành một dòng, bấm vào mới sổ ra
+  từng ngày.
