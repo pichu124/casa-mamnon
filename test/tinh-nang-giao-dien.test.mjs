@@ -150,13 +150,15 @@ check('thực đơn vẫn có nội dung cũ', manTd.length > 60, manTd.length);
 await page.screenshot({ path: SHOT + '07-bat-lai-thucdon.png', fullPage: true });
 
 console.log('\n[7] Quản trị: gán chức vụ cho một tài khoản quản trị khác');
+// L1/L2: tab Tài khoản dựng lại theo Cơ sở → nhóm lớp; thẻ "Chức vụ của tài
+// khoản quản trị" ở tab Cơ sở dời thành ô chọn ngay trên dòng ở thẻ #tk-quan-tri
+// của tab Tài khoản. Dòng giờ có thêm ô chọn cơ sở, nên chỉ rõ ô chức vụ
+// (`select.tk-chon-cv`). Các khẳng định giữ nguyên.
 {
-  await page.goto(BASE + '/#/admin', { waitUntil: 'networkidle' });
-  await page.waitForTimeout(700);
-  await page.locator('.admin-tabs button, .tabs button, button', { hasText: 'Cơ sở' }).first().click();
+  await page.goto(BASE + '/#/admin/taikhoan', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
 
-  const the = page.locator('.card', { hasText: 'Chức vụ của tài khoản quản trị' }).first();
+  const the = page.locator('#tk-quan-tri').first();
   check('thẻ Chức vụ hiện ra ngay cả khi trường chưa khai cơ sở nào',
     await the.count() > 0, await page.locator('#view').innerText().then(t => t.slice(0, 200)));
   check('thẻ nói rõ để trống nghĩa là gì',
@@ -164,26 +166,29 @@ console.log('\n[7] Quản trị: gán chức vụ cho một tài khoản quản 
 
   const dong = the.locator('.list-row', { hasText: 'Chi Ke Toan' }).first();
   check('có dòng của tài khoản quản trị thứ hai', await dong.count() > 0);
+  // Đọc `.row-sub`, KHÔNG đọc cả dòng: dòng có ô chọn chức vụ nên chữ của mọi
+  // lựa chọn ("Ban giám hiệu", "Kế toán"…) đều nằm trong innerText của nó —
+  // đọc cả dòng thì ba phép kiểm dưới luôn đúng, không canh gì cả.
+  const phu = async (d) => d.locator('.row-sub').first().innerText();
   check('người chưa khai thì hiện "Ban giám hiệu", không phải một ô trống',
-    /Ban giám hiệu/.test(await dong.innerText()), await dong.innerText());
+    /Ban giám hiệu/.test(await phu(dong)), await phu(dong));
 
-  await dong.locator('select').selectOption('ketoan');
+  await dong.locator('select.tk-chon-cv').selectOption('ketoan');
   await page.waitForTimeout(1500);
-  const dong2 = page.locator('.card', { hasText: 'Chức vụ của tài khoản quản trị' })
-    .first().locator('.list-row', { hasText: 'Chi Ke Toan' }).first();
+  const dong2 = page.locator('#tk-quan-tri .list-row', { hasText: 'Chi Ke Toan' }).first();
   check('gán xong thì dòng đó đổi sang "Kế toán"',
-    /Kế toán/.test(await dong2.innerText()), await dong2.innerText());
+    /Kế toán/.test(await phu(dong2)) && await dong2.locator('select.tk-chon-cv').inputValue() === 'ketoan',
+    await phu(dong2));
   check('và nói luôn chức vụ đó mở được những gì',
     /học phí/i.test(await dong2.innerText()), await dong2.innerText());
   await page.screenshot({ path: SHOT + '08-chuc-vu.png', fullPage: true });
 
   // Gỡ ra là quay về đúng như trước — không có đường một chiều.
-  await dong2.locator('select').selectOption('');
+  await dong2.locator('select.tk-chon-cv').selectOption('');
   await page.waitForTimeout(1500);
-  const dong3 = page.locator('.card', { hasText: 'Chức vụ của tài khoản quản trị' })
-    .first().locator('.list-row', { hasText: 'Chi Ke Toan' }).first();
+  const dong3 = page.locator('#tk-quan-tri .list-row', { hasText: 'Chi Ke Toan' }).first();
   check('gỡ chức vụ thì quay lại "Ban giám hiệu"',
-    /Ban giám hiệu/.test(await dong3.innerText()), await dong3.innerText());
+    /Ban giám hiệu/.test(await phu(dong3)) && !/Kế toán/.test(await phu(dong3)), await phu(dong3));
 }
 
 // ===========================================================================
