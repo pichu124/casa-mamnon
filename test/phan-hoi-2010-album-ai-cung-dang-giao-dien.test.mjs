@@ -2,13 +2,12 @@
 //
 // Chạy bằng:  node test/phan-hoi-2010-album-ai-cung-dang-giao-dien.test.mjs
 //
-// Phần máy chủ (ma trận quyền, lọc ảnh cô nhóm khác góp) có
-// test/phan-hoi-2010-album-ai-cung-dang.test.mjs. Bài này canh màn hình dựng
-// nút theo đúng quyền máy chủ trả về:
+// Phần máy chủ (ma trận quyền) có test/phan-hoi-2010-album-ai-cung-dang.test.mjs.
+// Bài này canh màn hình dựng nút theo đúng quyền máy chủ trả về:
 //   - nút "Tạo album" theo `tao-duoc`, ô chọn nhóm khi có hơn một nhóm (vá
 //     luôn lỗi cô phụ trách nhiều nhóm không tạo được album);
 //   - "Thêm ảnh", gắn thẻ, đổi chế độ, nút xoá từng tấm theo từng cờ riêng;
-//   - công tắc "Cho cô khác trong cơ sở góp ảnh" và nhãn "Album chung".
+//   - cô nhóm khác không thấy album của nhóm khác (không có "album chung").
 //
 // Dữ liệu mẫu: c1, c2, c4 ở cơ sở 1; c3 ở cơ sở 2. giaovien dạy c1, giaovien4
 // dạy c4, cô Emily (giaovien.nn) dạy c1, c2, c4.
@@ -66,7 +65,6 @@ const dem = (sel) => page.locator(sel).count();
 const loiBao = () => page.locator('#toast-zone').innerText().catch(() => '');
 const NUT_XOA = '.photo button[title="Xóa ảnh"]';
 const NUT_GAN = '.photo button[title="Gắn thẻ bé có trong ảnh"]';
-const GOP = '#al-gop-anh';
 
 // Mở hộp tạo album, điền tên, chọn một ảnh. Không bấm đăng.
 async function moHopTao(ten) {
@@ -114,33 +112,19 @@ try {
   check('có nút xoá trên tấm mình đăng', await dem(NUT_XOA) === 1);
   check('KHÔNG có nút gắn thẻ bé (gắn thẻ là việc của cô trong nhóm)', await dem(NUT_GAN) === 0);
   check('có nút đổi ai xem được album', await dem('#btn-doi-che-do') === 1);
-  check('có công tắc "Cho cô khác trong cơ sở góp ảnh", đang tắt',
-    await dem(GOP) === 1 && !(await page.locator(GOP).isChecked()));
-  check('câu của công tắc nói đúng tên',
-    (await page.locator('#view').innerText()).includes('Cho cô khác trong cơ sở góp ảnh'));
-  await page.locator(GOP).check();
-  await page.waitForTimeout(1500);
-  const sauBat = await req('GET', `/api/albums/${idVP}`, { cookie: VP });
-  check('bật công tắc → máy chủ ghi album chung', sauBat.data && sauBat.data.laAlbumChung === true, sauBat.data && sauBat.data.laAlbumChung);
-  check('vẽ lại thì công tắc đang bật', await dem(GOP) === 1 && await page.locator(GOP).isChecked());
+  check('không còn công tắc "album chung"', await dem('#al-gop-anh') === 0
+    && !(await page.locator('#view').innerText()).includes('Cho cô khác trong cơ sở góp ảnh'));
 
   // =========================================================================
-  console.log('\n[3] Cô nhóm khác cùng cơ sở góp ảnh vào album chung');
-  await dangNhap('giaovien', '123456');
-  await moMan('#/albums');
-  const the = page.locator('.card.clickable', { hasText: 'Ngày hội trăng rằm' });
-  check('album chung hiện trong danh sách của cô nhóm c1', await the.count() === 1);
-  check('thẻ album có nhãn "Album chung"', (await the.innerText().catch(() => '')).includes('Album chung'));
-  check('album thường của nhóm mình KHÔNG có nhãn "Album chung"',
-    !(await page.locator('.card.clickable', { hasNotText: 'Ngày hội trăng rằm' }).allInnerTexts()).join(' ').includes('Album chung'));
-  await moMan(`#/albums/${idVP}`);
-  check('cô nhóm khác có nút "Thêm ảnh"', await dem('#btn-add-photo') === 1);
-  check('cô nhóm khác KHÔNG xoá được tấm của văn phòng', await dem(NUT_XOA) === 0);
-  check('cô nhóm khác KHÔNG gắn thẻ', await dem(NUT_GAN) === 0);
-  check('cô nhóm khác KHÔNG đổi ai xem được', await dem('#btn-doi-che-do') === 0);
-  check('cô nhóm khác KHÔNG bật/tắt album chung', await dem(GOP) === 0);
-  check('cô nhóm khác được báo trước ảnh góp vào chờ gắn thẻ mới hiện với gia đình',
-    (await page.locator('#view').innerText()).includes('Ảnh cô góp vào sẽ hiện với gia đình'));
+  console.log('\n[3] Văn phòng thêm ảnh vào nhóm có nhà từ chối chia sẻ');
+  // Chồi 2 (c1) có gia đình chưa đồng ý chia sẻ ảnh. Văn phòng không gắn thẻ
+  // được, nên lời báo phải nói ảnh chờ cô phụ trách nhóm gắn thẻ.
+  const alC1 = await req('POST', '/api/albums', {
+    cookie: VP, body: { title: 'Bé tập thể dục', classId: 'c1', photos: [{ dataUrl: `data:image/jpeg;base64,${JPEG_B64}` }] },
+  });
+  check('đối chứng — văn phòng tạo album cho Chồi 2', alC1.status === 201, alC1.data);
+  const idC1 = alC1.data && alC1.data.id;
+  await moMan(`#/albums/${idC1}`);
   await page.click('#btn-add-photo');
   await page.waitForSelector('#al-file', { state: 'attached' });
   await page.setInputFiles('#al-file', [TEP_ANH]);
@@ -148,13 +132,27 @@ try {
   await page.click('#al-submit');
   await page.waitForTimeout(2200);
   const baoGop = await loiBao();
-  check('lời báo sau khi góp nói ảnh tạm ẩn chờ cô phụ trách nhóm gắn thẻ, không bảo cô tự gắn',
+  check('lời báo sau khi đăng nói ảnh tạm ẩn chờ cô phụ trách nhóm gắn thẻ, không bảo văn phòng tự gắn',
     baoGop.includes('cô phụ trách nhóm gắn thẻ') && !baoGop.includes('Cô bấm vào từng ảnh'), baoGop);
-  check('album có 2 tấm, cô góp chỉ xoá được đúng tấm của mình',
-    await dem('.photo-grid .photo') === 2 && await dem(NUT_XOA) === 1);
+  check('album có 2 tấm, văn phòng không có nút gắn thẻ',
+    await dem('.photo-grid .photo') === 2 && await dem(NUT_GAN) === 0);
 
   // =========================================================================
-  console.log('\n[4] Cô phụ trách nhiều nhóm chọn được nhóm khi tạo album');
+  console.log('\n[4] Cô nhóm khác cùng cơ sở không thấy album của nhóm khác');
+  await dangNhap('giaovien', '123456');
+  await moMan('#/albums');
+  check('đối chứng — danh sách của cô nhóm c1 có album nhóm mình',
+    await page.locator('.card.clickable').count() > 0);
+  check('album của nhóm c4 KHÔNG hiện trong danh sách của cô nhóm c1',
+    await page.locator('.card.clickable', { hasText: 'Ngày hội trăng rằm' }).count() === 0);
+  check('không thẻ album nào có nhãn "Album chung"',
+    !(await page.locator('.card.clickable').allInnerTexts()).join(' ').includes('Album chung'));
+  await moMan(`#/albums/${idVP}`);
+  check('mở thẳng đường dẫn: cô nhóm khác KHÔNG có nút "Thêm ảnh"', await dem('#btn-add-photo') === 0);
+  check('và không thấy tấm ảnh nào', await dem('.photo-grid .photo') === 0);
+
+  // =========================================================================
+  console.log('\n[5] Cô phụ trách nhiều nhóm chọn được nhóm khi tạo album');
   await dangNhap('giaovien.nn', '123456');
   await moHopTao('Giờ tiếng Anh nhóm Lá');
   const oNhomEm = await giaTriO('#al-nhom');
@@ -168,7 +166,7 @@ try {
   check('tạo được album cho nhóm c2', ctEm.data && ctEm.data.classId === 'c2', [page.url(), await loiBao()]);
 
   // =========================================================================
-  console.log('\n[5] Cô phụ trách một nhóm: y như cũ');
+  console.log('\n[6] Cô phụ trách một nhóm: y như cũ');
   await dangNhap('giaovien4', '123456');
   await moMan('#/albums');
   await page.click('#btn-new-album');
@@ -176,29 +174,26 @@ try {
   check('cô một nhóm KHÔNG phải chọn nhóm', await dem('#al-nhom') === 0);
   await moMan(`#/albums/${idVP}`);
   check('cô của nhóm thấy "Thêm ảnh"', await dem('#btn-add-photo') === 1);
-  check('cô của nhóm gắn thẻ được mọi tấm', await dem(NUT_GAN) === 2);
-  check('cô của nhóm xoá được mọi tấm', await dem(NUT_XOA) === 2);
+  check('cô của nhóm gắn thẻ được tấm văn phòng đăng', await dem('.photo-grid .photo') === 1 && await dem(NUT_GAN) === 1);
+  check('cô của nhóm xoá được tấm văn phòng đăng', await dem(NUT_XOA) === 1);
   check('cô của nhóm đổi được ai xem', await dem('#btn-doi-che-do') === 1);
-  check('cô của nhóm thấy công tắc album chung đang bật', await dem(GOP) === 1 && await page.locator(GOP).isChecked());
-  check('cô của nhóm KHÔNG thấy câu dặn dành cho người góp',
-    !(await page.locator('#view').innerText()).includes('Ảnh cô góp vào sẽ hiện với gia đình'));
 
   // =========================================================================
-  console.log('\n[6] Gia đình và Marketing chỉ xem');
+  console.log('\n[7] Gia đình và Marketing chỉ xem');
   await dangNhap('ph.trang', '123456');
   await moMan('#/albums');
   check('gia đình KHÔNG có nút "Tạo album"', await dem('#btn-new-album') === 0);
   await moMan(`#/albums/${idVP}`);
-  check('gia đình KHÔNG có "Thêm ảnh", xoá, gắn thẻ, công tắc album chung',
-    await dem('#btn-add-photo') === 0 && await dem(NUT_XOA) === 0 && await dem(NUT_GAN) === 0 && await dem(GOP) === 0);
+  check('gia đình KHÔNG có "Thêm ảnh", xoá, gắn thẻ',
+    await dem('#btn-add-photo') === 0 && await dem(NUT_XOA) === 0 && await dem(NUT_GAN) === 0);
 
   await dangNhap('aag_mk', 'quantri2026');
   await moMan('#/albums');
   check('Marketing KHÔNG có nút "Tạo album"', await dem('#btn-new-album') === 0);
   await moMan(`#/albums/${idVP}`);
-  check('Marketing KHÔNG có "Thêm ảnh", xoá, đổi ai xem, công tắc album chung',
+  check('Marketing KHÔNG có "Thêm ảnh", xoá, đổi ai xem',
     await dem('#btn-add-photo') === 0 && await dem(NUT_XOA) === 0
-      && await dem('#btn-doi-che-do') === 0 && await dem(GOP) === 0);
+      && await dem('#btn-doi-che-do') === 0);
 
   check('không có lỗi JavaScript trên trang', !loiJs.length, loiJs);
 } finally {

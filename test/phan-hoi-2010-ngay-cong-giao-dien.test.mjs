@@ -216,6 +216,8 @@ try {
     check('ngày thiếu giờ có nút "Gửi giải trình"', await page.locator(`${o(W[2])} [data-gui]`).count() === 1);
     check('ngày đủ công KHÔNG có nút', await page.locator(`${o(W[0])} [data-gui]`).count() === 0);
     check('ngày Nhân sự đã ghi tay KHÔNG có nút', await page.locator(`${o(W[5])} [data-gui]`).count() === 0);
+    await page.click('#view [data-nhom-chua-co] > summary');   // gom gập sẵn, xem [7]
+    await nghi(400);
     const tc = await chuCua(o(chuaCo));
     check('ngày không có giờ ở cổng: "Chưa có giờ ở cổng" và có nút gửi',
       /Chưa có giờ ở cổng/.test(tc) && await page.locator(`${o(chuaCo)} [data-gui]`).count() === 1, tc);
@@ -360,6 +362,103 @@ try {
     const the3 = await chuCua('#ns-quy-tac');
     check('thẻ nói "sẽ tắt từ" ngày mai và cho bật lại',
       /sẽ tắt từ/i.test(the3) && the3.includes(fmt(MAI)) && await page.locator('#ns-qt-bat').count() === 1, the3);
+  }
+
+  // =========================================================================
+  console.log('\n[7] Ngày "chưa có giờ ở cổng" gom thành một dòng gập, mở ra vẫn gửi được');
+  {
+    // Cô t1 chỉ có giờ cổng W[0]–W[3] và một dòng ghi tay W[5]; mọi ngày thường
+    // khác của tháng trước nằm trong đợt quy tắc (apDungTu đã lùi về đầu tháng
+    // trước ở trên) nên đều là "chưa có giờ ở cổng".
+    const toi = (await req('GET', `/api/nhansu/cham-cong/toi?thang=${THANG_TRUOC}`, { cookie: GV })).data;
+    const ngayToi = toi?.cuaToi?.ngay || [];
+    const chua = ngayToi.filter(d => d.trangThai === 'chua-co-cong').map(d => d.ngay);
+    check('đối chứng — cô có nhiều ngày "chưa có giờ ở cổng" tháng trước', chua.length >= 5, chua);
+    const truocNhom = ngayToi.filter(d => d.ngay < chua[0]).map(d => d.ngay);
+    const sauNhom = ngayToi.filter(d => d.ngay > chua[0] && d.trangThai !== 'chua-co-cong').map(d => d.ngay);
+
+    await dangNhap('giaovien', '123456');
+    await moMan('#/nhansu');
+    await chonThang('#ns-toi-thang', THANG_TRUOC);
+    const nhom = '#view [data-nhom-chua-co]';
+    check('Của tôi: đúng MỘT dòng gom', await page.locator(nhom).count() === 1);
+    const tom = await chuCua(`${nhom} > summary`);
+    check(`dòng gom ghi "${chua.length} ngày chưa có giờ ở cổng"`, tom.trim() === `${chua.length} ngày chưa có giờ ở cổng`, tom);
+    check('dòng gom gập sẵn', await page.locator(nhom).evaluate(e => !e.open));
+    const trongNhom = await page.locator(`${nhom} [data-ngay-toi]`).evaluateAll(es => es.map(e => e.dataset.ngayToi));
+    check('trong nhóm có đủ từng ngày chưa có giờ, đúng thứ tự', JSON.stringify(trongNhom) === JSON.stringify(chua), trongNhom);
+    const thuTu = await page.locator('#view [data-ngay-toi], #view [data-nhom-chua-co]').evaluateAll(es => es
+      .filter(e => !e.closest('[data-nhom-chua-co]') || e.matches('[data-nhom-chua-co]'))
+      .map(e => (e.matches('[data-nhom-chua-co]') ? 'NHOM' : e.dataset.ngayToi)));
+    check('ngày khác vẫn từng dòng theo ngày, dòng gom đứng chỗ ngày chưa có giờ đầu tiên',
+      JSON.stringify(thuTu) === JSON.stringify([...truocNhom, 'NHOM', ...sauNhom]), thuTu);
+    check('các ngày khác không bị gom (đủ công, ghi tay vẫn ngoài nhóm)',
+      await page.locator(`${nhom} [data-ngay-toi="${W[0]}"], ${nhom} [data-ngay-toi="${W[5]}"]`).count() === 0);
+
+    await page.click(`${nhom} > summary`);
+    await nghi(400);
+    const n0 = chua[1];
+    const o0 = `${nhom} [data-ngay-toi="${n0}"]`;
+    check('mở nhóm: từng ngày hiện như cũ, có chữ "Chưa có giờ ở cổng" và nút gửi',
+      await page.locator(o0).isVisible() && /Chưa có giờ ở cổng/.test(await chuCua(o0))
+        && await page.locator(`${o0} [data-gui]`).count() === 1, await chuCua(o0));
+    await page.click(`${o0} [data-gui]`);
+    await nghi(600);
+    await page.fill('#gt-lydo', 'Đi họp ở phòng giáo dục cả ngày');
+    await page.click('#gt-gui');
+    await nghi(1500);
+    const g = giaiTrinhCua('t1', n0)[0];
+    check('nút gửi trong nhóm chạy: máy chủ có giải trình chờ duyệt', g && g.trangThai === 'cho-duyet' && /họp/.test(g.lyDo), g);
+    // Ngày đang có giải trình chờ duyệt (hoặc bị "không duyệt") ra NGOÀI nhóm:
+    // cô phải thấy ngay trạng thái và lý do, không phải mở nhóm mới thấy.
+    const oNgoai = `#view [data-ngay-toi="${n0}"]`;
+    check('gửi xong: ngày ấy ra ngoài nhóm, hiện "đang chờ duyệt" và nút rút',
+      await page.locator(`${nhom} [data-ngay-toi="${n0}"]`).count() === 0
+        && /đang chờ duyệt/.test(await chuCua(oNgoai))
+        && await page.locator(`${oNgoai} [data-rut]`).count() === 1, await chuCua(oNgoai));
+    const tomSau = await chuCua(`${nhom} > summary`);
+    check(`… nhóm còn ${chua.length - 1} ngày`, tomSau.trim() === `${chua.length - 1} ngày chưa có giờ ở cổng`, tomSau);
+    await page.click(`${oNgoai} [data-rut]`);
+    await nghi(1500);
+    check('nút rút chạy: máy chủ chuyển "đã rút"', giaiTrinhCua('t1', n0)[0]?.trangThai === 'da-rut');
+    check('rút xong: ngày ấy về lại trong nhóm',
+      await page.locator(`${nhom} [data-ngay-toi="${n0}"]`).count() === 1);
+
+    // Bảng chấm từng ngày Nhân sự / BGH mở cho một người.
+    await dangNhap('nhansu1', 'quantri2026');
+    await moTabChamCong(THANG_TRUOC);
+    await page.locator('[data-cc]', { hasText: 'Mai Anh' }).first().click();
+    await nghi(800);
+    const nhomNs = '#modal-overlay [data-nhom-chua-co]';
+    check('Nhân sự: đúng MỘT dòng gom trong bảng từng ngày', await page.locator(nhomNs).count() === 1);
+    const tomNs = await chuCua(`${nhomNs} > summary`);
+    check(`… ghi "${chua.length} ngày chưa có giờ ở cổng"`, tomNs.trim() === `${chua.length} ngày chưa có giờ ở cổng`, tomNs);
+    const trongNs = await page.locator(`${nhomNs} [data-dong]`).evaluateAll(es => es.map(e => e.dataset.dong));
+    check('… trong nhóm đủ từng ngày', JSON.stringify(trongNs) === JSON.stringify(chua), trongNs);
+    check('… ngày cuối tuần và ngày có giờ cổng vẫn ngoài nhóm',
+      await page.locator(`#modal-overlay [data-dong="${W[0]}"]`).count() === 1
+        && await page.locator(`${nhomNs} [data-dong="${W[0]}"]`).count() === 0
+        && await page.locator(`${nhomNs} [data-dong="${DAU_THANG_TRUOC}"]`).count() === 0);
+    await page.click(`${nhomNs} > summary`);
+    await nghi(400);
+    const n1 = chua[2];
+    await page.selectOption(`${nhomNs} [data-dong="${n1}"] select`, 'nghi-phep');
+    await nghi(1500);
+    check('ô chọn trong nhóm chạy: ghi tay "nghỉ phép"', dongTay('t1', n1)?.loai === 'nghi-phep', dongTay('t1', n1));
+    await page.evaluate(() => UI.closeModal());
+
+    // Chỉ một ngày chưa có giờ thì để nguyên một dòng, không gom.
+    const motNgay = W[W.length - 1];
+    csdl(c => c.prepare('UPDATE users SET createdAt = ? WHERE id = ?').run(`${motNgay}T00:00:00.000Z`, NS_ID));
+    const toiNs = (await req('GET', `/api/nhansu/cham-cong/toi?thang=${THANG_TRUOC}`, { cookie: NS })).data;
+    const chuaNs = (toiNs?.cuaToi?.ngay || []).filter(d => d.trangThai === 'chua-co-cong').map(d => d.ngay);
+    check('đối chứng — người Nhân sự có đúng 1 ngày chưa có giờ', JSON.stringify(chuaNs) === JSON.stringify([motNgay]), chuaNs);
+    await page.click('#ns-tab [data-tab="toi"]');
+    await nghi(1200);
+    await chonThang('#ns-toi-thang', THANG_TRUOC);
+    check('1 ngày: không có dòng gom', await page.locator(nhom).count() === 0);
+    check('1 ngày: hiện thành dòng thường, có nút gửi',
+      await page.locator(`#view [data-ngay-toi="${motNgay}"] [data-gui]`).isVisible());
   }
 
   check('không có lỗi JavaScript', loiJs.length === 0, loiJs);

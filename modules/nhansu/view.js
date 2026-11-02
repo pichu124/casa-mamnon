@@ -92,6 +92,7 @@ App.views.nhansu = {
     ]);
     const h = hs.hoSo || {};
     const t = cc && cc.cuaToi;
+    const moNhom = !!el.querySelector('[data-nhom-chua-co][open]');
     const dong = (nhan, gt) => (gt ? UI.dongThongTin(nhan, gt) : '');
     el.innerHTML = `
       <div class="card" style="border-left:4px solid var(--primary)">
@@ -140,7 +141,7 @@ App.views.nhansu = {
           <div class="stat-box"><div class="stat-num">${UI.esc(String(t.soNghiPhep))}</div><div class="stat-label">Nghỉ phép</div></div>
           <div class="stat-box"><div class="stat-num">${UI.esc(String(t.soNghiLe))}</div><div class="stat-label">Nghỉ lễ</div></div>
         </div>
-        ${(t.ngay || []).length ? (t.ngay || []).map(d => this.dongNgayToi(d)).join('')
+        ${(t.ngay || []).length ? this.gomChuaCo(t.ngay, d => this.trangThaiDeGom(d), d => this.dongNgayToi(d), moNhom)
     : '<div class="muted small">Tháng này chưa có ngày công nào được ghi.</div>'}
       </div>` : UI.emptyState('📅', 'Tháng này chưa có bảng công.')}`;
 
@@ -161,6 +162,27 @@ App.views.nhansu = {
         } catch (err) { b.disabled = false; UI.toast(err.message, 'error'); }
       };
     }
+  },
+
+  // Cô không chụp ở cổng có tới ~20 ngày "chưa có giờ ở cổng" mỗi tháng: gom
+  // thành MỘT dòng gập, đặt đúng chỗ ngày đầu tiên; mở ra vẫn là từng dòng như
+  // cũ. Chỉ một ngày thì để nguyên, gom lại chẳng gọn hơn.
+  // Ngày đang có giải trình chờ duyệt hoặc vừa bị "không duyệt" thì để ngoài
+  // nhóm: cô phải thấy ngay lý do bị từ chối, không phải mở nhóm mới thấy.
+  trangThaiDeGom(d) {
+    const gt = d && d.giaiTrinh;
+    if (gt && ['cho-duyet', 'tu-choi'].includes(gt.trangThai)) return 'co-giai-trinh';
+    return d ? d.trangThai : '';
+  },
+  gomChuaCo(ds, trangThaiCua, ve, moSan = false) {
+    const la = x => trangThaiCua(x) === 'chua-co-cong';
+    const chua = ds.filter(la);
+    if (chua.length < 2) return ds.map(ve).join('');
+    const nhom = `<details data-nhom-chua-co${moSan ? ' open' : ''} style="border-bottom:1px solid var(--line)">
+        <summary class="small" style="cursor:pointer;padding:13px 4px">${UI.esc(`${chua.length} ngày chưa có giờ ở cổng`)}</summary>
+        <div style="padding-left:10px">${chua.map(ve).join('')}</div>
+      </details>`;
+    return ds.map(x => (!la(x) ? ve(x) : (x === chua[0] ? nhom : ''))).join('');
   },
 
   guiDuoc(d) {
@@ -708,7 +730,8 @@ App.views.nhansu = {
       ${this._cc && this._cc.quyTac ? `<div class="muted small mt-8" style="line-height:1.6">
         Ô chọn là phần <b>ghi tay</b> và luôn được ưu tiên. Để trống (—) thì công tính theo giờ ở cổng.</div>` : ''}
       <div class="mt-14">
-        ${ds.map(n => `<div class="list-row" data-dong="${UI.esc(n)}">${this.dongNgayNS(n, daGhi.get(n) || {})}</div>`).join('')}
+        ${this.gomChuaCo(ds, n => this.trangThaiDeGom(daGhi.get(n) || {}),
+    n => `<div class="list-row" data-dong="${UI.esc(n)}">${this.dongNgayNS(n, daGhi.get(n) || {})}</div>`)}
       </div>
     `, 'Chấm công từng ngày');
     for (const o of document.querySelectorAll('#modal-overlay [data-ngay]')) this.ganONgay(row.userId, o);
