@@ -96,11 +96,16 @@ try {
       ['đơn xin nghỉ', '/api/leave'],
       ['thực đơn', '/api/menu'],
     ];
-    // /api/accounts thì CẢ HAI đều đóng (văn phòng cố ý không có, xem lib/db.js),
-    // nên nó không nằm trong danh sách so sánh ở trên — nhưng vẫn phải canh,
-    // vì "mở được tài khoản từ chiếc máy ngoài cổng" là chỗ hỏng nặng nhất.
-    check('cấp lại mật khẩu: bảo vệ đóng, và văn phòng cũng đóng',
-      (await ma(BV, '/api/accounts')) === 403 && (await ma(VP, '/api/accounts')) === 403);
+    // L1 (góp ý 20/10 mục 12, chủ dự án duyệt 02/11): văn phòng cơ sở nay có
+    // `/api/accounts` để cấp lại mật khẩu gia đình cơ sở mình. Vế BẢO VỆ giữ
+    // nguyên 403 — "mở được tài khoản từ chiếc máy ngoài cổng" vẫn là chỗ hỏng
+    // nặng nhất. Vế văn phòng chuyển thành phép so sánh: văn phòng mở được
+    // danh sách gia đình, bảo vệ thì không.
+    check('cấp lại mật khẩu: bảo vệ vẫn đóng', (await ma(BV, '/api/accounts')) === 403);
+    const vpGiaDinh = await ma(VP, '/api/accounts/parents');
+    const bvGiaDinh = await ma(BV, '/api/accounts/parents');
+    check(`danh sách tài khoản gia đình: văn phòng mở được (${vpGiaDinh}) mà bảo vệ thì KHÔNG (${bvGiaDinh})`,
+      vpGiaDinh === 200 && bvGiaDinh === 403);
 
     for (const [ten, duong] of CUA) {
       const vp = await ma(VP, duong);

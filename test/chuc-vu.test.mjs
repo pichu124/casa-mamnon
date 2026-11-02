@@ -875,6 +875,9 @@ console.log('\n[10] NHÂN SỰ LO TÀI KHOẢN CỦA TRƯỜNG, KHÔNG CHẠM T�
   const qlChoPH = await capCho(QL, 'p1');
   check('quản lý cơ sở VẪN cấp lại được cho gia đình cơ sở mình',
     qlChoPH.status === 200 && !!qlChoPH.data?.temporaryPassword, qlChoPH.status);
+  const vpChoPH = await capCho(VP, 'p1');
+  check('văn phòng cơ sở cấp lại được cho gia đình cơ sở mình',
+    vpChoPH.status === 200 && !!vpChoPH.data?.temporaryPassword, vpChoPH.status);
 
   const bghDsPH = await req('GET', '/api/accounts/parents', { cookie: BGH });
   check('ban giám hiệu VẪN mở được danh sách gia đình',

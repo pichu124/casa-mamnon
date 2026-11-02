@@ -102,9 +102,9 @@ const MA_TRAN = {
   ql1:           [0, 0, 0, 1, 1, 0, 1, 0, 1, 0],
   ql2:           [0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
   'ql.chuakhoa': [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-  // Văn phòng: luật đã có ('phu-huynh' trong cơ sở) nhưng cửa `/api/accounts`
-  // ở lib/db.js chưa mở — commit riêng ngay sau đổi hàng này thành 1 ở ph1.
-  vp1:           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  // Văn phòng cơ sở: chỉ gia đình của cơ sở mình (cửa `/api/accounts` mở ở
+  // lib/db.js, commit riêng sau luật này).
+  vp1:           [0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
   // Văn phòng CHƯA gắn cơ sở: phạm vi rơi về cả trường — không được vì thế mà
   // cấp lại mật khẩu gia đình cả ba cơ sở.
   'vp.chuakhoa': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -198,6 +198,11 @@ console.log('\n[4] Phép thử ngược — người còn làm được vẫn l�
   const tenQL = (dsQL.data || []).map(p => p.username);
   check('quản lý cơ sở 1 đọc được phụ huynh cơ sở mình, không thấy phụ huynh cơ sở 2',
     dsQL.status === 200 && tenQL.includes('ph.lan') && !tenQL.includes('ph.huong'), tenQL);
+  const VP1 = await vao('vp1');
+  const dsVP = await req('GET', '/api/accounts/parents', { cookie: VP1 });
+  const tenVP = (dsVP.data || []).map(p => p.username);
+  check('văn phòng cơ sở 1 đọc được phụ huynh cơ sở mình, không thấy phụ huynh cơ sở 2',
+    dsVP.status === 200 && tenVP.includes('ph.lan') && !tenVP.includes('ph.huong'), tenVP);
 }
 
 sv.dung();
