@@ -410,7 +410,11 @@ console.log('\n[10] CHUYỂN NĂM HỌC KHÔNG ĐƯỢC LÀM LỜI TỪ CHỐI H
   check('TRƯỚC chuyển năm: mẹ bé s1 KHÔNG thấy ảnh chưa gắn thẻ', anhTruoc === 0, anhTruoc);
 
   // Chuyển năm học. Bé s3 sang nhóm mới, nhóm Chồi 2 đóng lại.
-  const ch = await req('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi: '2027-2028' } });
+  // Năm học kế tiếp HỎI MÁY CHỦ (cùng chỗ màn Quản trị hỏi), không ghi cứng:
+  // từ tháng 8/2027 năm học hiện tại của dữ liệu mẫu đã là 2027-2028, nên
+  // chuyển sang '2027-2028' bị từ chối "phải khác năm học hiện tại".
+  const namMoi = (await req('GET', '/api/schoolyear/preview', { cookie: A })).data?.namMoi;
+  const ch = await req('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi } });
   check('chuyển được năm học', ch.status === 200, ch.data);
 
   const beS3 = (await req('GET', '/api/admin/students', { cookie: A })).data

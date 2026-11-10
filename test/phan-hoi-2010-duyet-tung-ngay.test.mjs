@@ -23,6 +23,20 @@ import {
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
+
+// NGÀY "CÒN Ở PHÍA TRƯỚC" TÍNH THEO HÔM NAY — KHÔNG GHI CỨNG.
+//
+// Bản trước ghi cứng 02/03 và 09–10/03/2027. Qua tháng 3/2027 các ngày đó thành
+// quá khứ, D4 ghi sổ ngay lúc duyệt, và mục [7] đỏ oan ("ngày chưa tới thì chưa
+// có dòng điểm danh"). Chọn thứ Ba cách hôm nay ít nhất 5 tuần, giữ đúng thứ
+// trong tuần như bản cũ. Các ngày 9–10/2026 ở dưới vẫn để nguyên: chúng là
+// quá khứ có chủ ý, và mãi mãi là quá khứ.
+const ngayCong = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const THU_BA_TOI = (() => {
+  const d = ngayCong(ngay.homNay(), 35);
+  return ngayCong(d, (9 - new Date(`${d}T00:00:00Z`).getUTCDay()) % 7);   // 2 = thứ Ba
+})();
+const TOI_1 = THU_BA_TOI, TOI_2 = ngayCong(THU_BA_TOI, 7), TOI_3 = ngayCong(THU_BA_TOI, 8);
 const DIR = thuMucTam('phan-hoi-2010-duyet-tung-ngay');
 sinhDuLieu(DIR);
 batPhanHe(DIR, ['xinphep', 'diemdanh', 'tienan']);
@@ -205,12 +219,12 @@ let DON2;
 console.log('\n[7] D4 — ngày tới hạn sau lúc duyệt thì việc định giờ ghi');
 {
   // Đơn cho một ngày còn ở phía trước: lúc duyệt chưa ghi gì.
-  const id = await guiDon('2027-03-02', '2027-03-02');
+  const id = await guiDon(TOI_1, TOI_1);
   const l = await donCua(VP, id);
   const r = await req('POST', `/api/leave/${id}/review`, { cookie: VP, body: { status: 'approved', theoNgay: l?.goiYTheoNgay } });
   check('duyệt đơn ngày tương lai', r.status === 200, r.data);
   const c0 = moCsdl();
-  const truoc = c0.prepare("SELECT COUNT(*) AS n FROM attendance WHERE studentId = 's1' AND date = '2027-03-02'").get().n;
+  const truoc = c0.prepare("SELECT COUNT(*) AS n FROM attendance WHERE studentId = 's1' AND date = ?").get(TOI_1).n;
   // Giả lập "ngày ấy đã tới": dời đơn và dòng theo ngày về 16/10/2026 (thứ Sáu).
   c0.prepare("UPDATE leave_requests SET fromDate = '2026-10-16', toDate = '2026-10-16' WHERE id = ?").run(id);
   c0.prepare("UPDATE leave_ngay SET ngay = '2026-10-16' WHERE leaveId = ?").run(id);
@@ -254,7 +268,7 @@ console.log('\n[8] Sửa đơn sau khi đã ghi: chỉ sửa dòng do việc t�
 // ===========================================================================
 console.log('\n[9] Đơn duyệt kiểu cũ (một con số) đọc và hiện như trước');
 {
-  const id = await guiDon('2027-03-09', '2027-03-10');
+  const id = await guiDon(TOI_2, TOI_3);
   const r = await req('POST', `/api/leave/${id}/review`, {
     cookie: VP, body: { status: 'approved', hoanTienAn: 'co', soNgayHoan: 1 },
   });

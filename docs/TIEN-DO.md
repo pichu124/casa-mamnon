@@ -718,10 +718,26 @@ theo lịch trong khi app tính theo hôm nay.
 Bài học: `npm test` dừng ở tệp đỏ đầu tiên, nên một tệp đỏ che các tệp đỏ phía
 sau. Khi gặp đỏ, chạy riêng từng tệp để thấy hết.
 
-**Còn ngày ghi cứng sẽ hết hạn (chưa sửa):** `nghi-hoc` (2027-03-01…11),
-`phan-hoi-2010-duyet-tung-ngay` (2027-03-02, 03-09 — bài canh D4 không ghi sổ
-trước ngày chưa tới), `thuc-don-excel` và `bien-soan-giao-dien` (thực đơn
-2027-03-01). Nên sửa trước tháng 2/2027.
+**Soát cả bộ bằng đồng hồ giả, rồi sửa nốt.** Dời `Date` của mọi tiến trình
+Node sang 15/03/2027 và 15/09/2027 (`NODE_OPTIONS=--require <tệp dời đồng hồ>`),
+chạy riêng cả 162 tệp. Bốn tệp đỏ thật, đã sửa:
+
+- `phan-hoi-2010-duyet-tung-ngay` [7]: ngày "còn ở phía trước" ghi cứng
+  02/03/2027 — qua tháng 3 thành quá khứ, D4 ghi sổ ngay lúc duyệt. Nay là thứ
+  Ba cách hôm nay ≥ 5 tuần.
+- `nam-hoc-co-so`, `anh-nhom`, `lo-hong-da-va`: chuyển sang năm học ghi cứng
+  '2027-2028' — từ tháng 8/2027 đó đã là năm học hiện tại nên bị từ chối. Nay hỏi
+  năm kế tiếp từ `/api/schoolyear/preview`.
+
+Sau khi sửa: xanh ở hôm nay, 15/03/2027, 15/09/2027, 15/02/2028.
+
+Hai tệp đỏ dưới đồng hồ giả nhưng **không** phải lỗi: `sao-luu` và
+`kiem-tra-may-chu` đọc giờ sửa tệp trên ổ đĩa (vẫn là giờ thật) rồi so với
+"hôm nay" đã dời. Ngoài đời hai mốc này luôn khớp. Đặt đồng hồ giả bằng đúng
+hôm nay thì cả hai xanh.
+
+Ngày cứng còn lại trong `nghi-hoc`, `thuc-don-excel`… chạy xanh ở mọi mốc đã
+thử: chúng không đụng tới logic "hôm nay" nên không hết hạn.
 
 ---
 
