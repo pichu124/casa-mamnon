@@ -701,6 +701,20 @@ Riêng `test:goi-ten` còn canh cả **ngoại lệ của chính nó**: dựng m
 dòng được chừa lẫn dòng phải bắt, rồi kiểm rằng ngoại lệ chỉ chừa đúng một dòng.
 Một ngoại lệ viết rộng quá sẽ lặng lẽ mở cửa cho cả tệp.
 
+### App không lên kết quả tìm kiếm ✅ *(10/11/2026)*
+
+Mọi phản hồi của máy chủ mang `X-Robots-Tag: noindex, nofollow, noarchive`
+(`server.js`, khối header bảo mật). Lý do: trường sắp có website tuyển sinh riêng
+cho cơ sở Ciputra; phụ huynh tìm tên trường phải gặp trang tuyển sinh, không phải
+ô mật khẩu của app hay tên miền chạy thử.
+
+Cố ý **không** thêm `Disallow: /` vào robots.txt: chặn bằng robots.txt thì Google
+không bò vào thấy `noindex`, và địa chỉ đã lọt ra vẫn hiện được dưới dạng link
+trơn. Đây không phải lớp bảo vệ dữ liệu — dữ liệu của bé vẫn do đăng nhập và phân
+quyền canh. Canh bằng `test:bao-mat` mục [4] (trang, API, tệp tĩnh, đường SPA lạc).
+
+App 1 dùng chung `server.js` nhưng không cần đổi theo: đây không phải lỗi nền.
+
 ### Bài kiểm thử không "hết hạn" theo lịch ✅ *(10/11/2026)*
 
 Hai tệp đỏ trên nhánh chính dù app không sai, cùng một gốc: dữ liệu ghi cứng

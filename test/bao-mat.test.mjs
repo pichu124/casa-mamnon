@@ -92,6 +92,15 @@ console.log('\n[4] Header bảo mật');
   check('không lộ Express qua X-Powered-By', !r.headers.get('x-powered-by'));
   const api = await fetch(BASE + '/api/auth/me');
   check('API có Cache-Control: no-store (không lưu dữ liệu riêng tư)', api.headers.get('cache-control') === 'no-store');
+  // App là sổ liên lạc nội bộ, không phải trang tuyển sinh: không trang nào được
+  // lên kết quả tìm kiếm. Soát cả trang đăng nhập, tệp tĩnh, đường SPA lạc và API.
+  const khongIndex = h => /noindex/i.test(h || '') && /nofollow/i.test(h || '');
+  check('trang chủ có X-Robots-Tag: noindex, nofollow', khongIndex(r.headers.get('x-robots-tag')), r.headers.get('x-robots-tag'));
+  check('API có X-Robots-Tag: noindex', khongIndex(api.headers.get('x-robots-tag')));
+  const tinh = await fetch(BASE + '/manifest.json');
+  check('tệp tĩnh có X-Robots-Tag: noindex', khongIndex(tinh.headers.get('x-robots-tag')));
+  const spa = await fetch(BASE + '/mot-duong-bat-ky');
+  check('đường SPA lạc có X-Robots-Tag: noindex', khongIndex(spa.headers.get('x-robots-tag')));
 }
 
 console.log('\n[5] Đổi mật khẩu');
