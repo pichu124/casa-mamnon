@@ -707,17 +707,28 @@ function generate() {
     return d.toISOString().slice(0, 10);
   }
 
-  const namChoi = YEAR - 4;   // các bé nhóm Chồi sinh năm này
-  const namLa = YEAR - 5;     // các bé nhóm Lá
+  // NGÀY SINH CỦA TÁM BÉ CHỒI/LÁ CŨNG TÍNH LÙI TỪ HÔM NAY (10/11/2026).
+  //
+  // Bản trước ghi ngày sinh theo năm (`${namChoi}-11-08`...). App xếp lứa
+  // Cambridge theo SỐ THÁNG TUỔI chính xác, nên mỗi lần một bé qua sinh nhật
+  // 4 hay 5 tuổi là bé đổi lứa giữa năm học, và bài kiểm thử dựa vào lứa của bé
+  // đỏ oan: s5 sang 48 tháng ngày 08/11/2026 làm `cambridge-khung` đỏ; s8 sẽ
+  // sang 60 tháng ngày 01/12, rồi s3, s6, s1, s4 lần lượt tới tháng 7/2027.
+  //
+  // Số tháng dưới đây giữ ĐÚNG tuổi của từng bé vào ngày đổi, trừ s5 về 46
+  // tháng (3 tuổi 10 tháng — bé lứa 3–4 duy nhất của nhóm Chồi, như
+  // `cambridge-khung` mô tả). Mã bé vẫn theo năm, không ảnh hưởng gì.
+  const namChoi = YEAR - 4;   // mã bé nhóm Chồi
+  const namLa = YEAR - 5;     // mã bé nhóm Lá
   const students = [
-    { id: 's1', name: 'Nguyễn Bảo An', dob: `${namChoi}-04-12`, gender: 'Nữ', classId: 'c1', parentIds: ['p1'], avatar: { emoji: '👧', bg: '#3f6ad8' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Không', code: `MN${namChoi}041` },
-    { id: 's2', name: 'Nguyễn Bảo Nam', dob: `${namLa}-09-03`, gender: 'Nam', classId: 'c2', parentIds: ['p1'], avatar: { emoji: '👦', bg: '#e0576f' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Tôm, cua', code: `MN${namLa}093` },
-    { id: 's3', name: 'Phạm Gia Hân', dob: `${namChoi}-01-25`, gender: 'Nữ', classId: 'c1', parentIds: ['p2'], avatar: { emoji: '👧', bg: '#27ae60' }, address: '45 Trường Sa, Q. Bình Thạnh', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${namChoi}012` },
-    { id: 's4', name: 'Vũ Đức Anh', dob: `${namChoi}-07-19`, gender: 'Nam', classId: 'c1', parentIds: ['p3'], avatar: { emoji: '🧒', bg: '#d68910' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Đậu phộng', code: `MN${namChoi}071` },
-    { id: 's5', name: 'Đỗ Khánh Vy', dob: `${namChoi}-11-08`, gender: 'Nữ', classId: 'c1', parentIds: ['p4'], avatar: { emoji: '👧', bg: '#16a085' }, address: '102 Nguyễn Kiệm, Q. Gò Vấp', ethnicity: 'Kinh', bloodType: 'AB', allergies: 'Không', code: `MN${namChoi}118` },
-    { id: 's6', name: 'Hoàng Gia Bảo', dob: `${namChoi}-03-30`, gender: 'Nam', classId: 'c1', parentIds: ['p5'], avatar: { emoji: '👦', bg: '#8e44ad' }, address: '5 Đặng Văn Ngữ, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Không', code: `MN${namChoi}033` },
-    { id: 's7', name: 'Bùi Minh Thư', dob: `${namLa}-05-16`, gender: 'Nữ', classId: 'c2', parentIds: ['p6'], avatar: { emoji: '👧', bg: '#c0392b' }, address: '210 Lê Văn Sỹ, Q.3', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Sữa bò', code: `MN${namLa}051` },
-    { id: 's8', name: 'Vũ Hải Đăng', dob: `${namLa}-12-01`, gender: 'Nam', classId: 'c2', parentIds: ['p3'], avatar: { emoji: '👦', bg: '#2c3e50' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${namLa}121` },
+    { id: 's1', name: 'Nguyễn Bảo An', dob: thangTruoc(54), gender: 'Nữ', classId: 'c1', parentIds: ['p1'], avatar: { emoji: '👧', bg: '#3f6ad8' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Không', code: `MN${namChoi}041` },
+    { id: 's2', name: 'Nguyễn Bảo Nam', dob: thangTruoc(62), gender: 'Nam', classId: 'c2', parentIds: ['p1'], avatar: { emoji: '👦', bg: '#e0576f' }, address: '12 Hoa Phượng, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Tôm, cua', code: `MN${namLa}093` },
+    { id: 's3', name: 'Phạm Gia Hân', dob: thangTruoc(57), gender: 'Nữ', classId: 'c1', parentIds: ['p2'], avatar: { emoji: '👧', bg: '#27ae60' }, address: '45 Trường Sa, Q. Bình Thạnh', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${namChoi}012` },
+    { id: 's4', name: 'Vũ Đức Anh', dob: thangTruoc(51), gender: 'Nam', classId: 'c1', parentIds: ['p3'], avatar: { emoji: '🧒', bg: '#d68910' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Đậu phộng', code: `MN${namChoi}071` },
+    { id: 's5', name: 'Đỗ Khánh Vy', dob: thangTruoc(46), gender: 'Nữ', classId: 'c1', parentIds: ['p4'], avatar: { emoji: '👧', bg: '#16a085' }, address: '102 Nguyễn Kiệm, Q. Gò Vấp', ethnicity: 'Kinh', bloodType: 'AB', allergies: 'Không', code: `MN${namChoi}118` },
+    { id: 's6', name: 'Hoàng Gia Bảo', dob: thangTruoc(55), gender: 'Nam', classId: 'c1', parentIds: ['p5'], avatar: { emoji: '👦', bg: '#8e44ad' }, address: '5 Đặng Văn Ngữ, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'A', allergies: 'Không', code: `MN${namChoi}033` },
+    { id: 's7', name: 'Bùi Minh Thư', dob: thangTruoc(65), gender: 'Nữ', classId: 'c2', parentIds: ['p6'], avatar: { emoji: '👧', bg: '#c0392b' }, address: '210 Lê Văn Sỹ, Q.3', ethnicity: 'Kinh', bloodType: 'O', allergies: 'Sữa bò', code: `MN${namLa}051` },
+    { id: 's8', name: 'Vũ Hải Đăng', dob: thangTruoc(59), gender: 'Nam', classId: 'c2', parentIds: ['p3'], avatar: { emoji: '👦', bg: '#2c3e50' }, address: '78 Phan Xích Long, Q. Phú Nhuận', ethnicity: 'Kinh', bloodType: 'B', allergies: 'Không', code: `MN${namLa}121` },
     // NHÓM NHÀ TRẺ — ba bé nhỏ nhất trường.
     //
     // Trường nhận bé từ 12 tháng, nhưng dữ liệu mẫu cũ toàn bé 4–6 tuổi. Nghĩa

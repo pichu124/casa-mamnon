@@ -701,6 +701,28 @@ Riêng `test:goi-ten` còn canh cả **ngoại lệ của chính nó**: dựng m
 dòng được chừa lẫn dòng phải bắt, rồi kiểm rằng ngoại lệ chỉ chừa đúng một dòng.
 Một ngoại lệ viết rộng quá sẽ lặng lẽ mở cửa cho cả tệp.
 
+### Bài kiểm thử không "hết hạn" theo lịch ✅ *(10/11/2026)*
+
+Hai tệp đỏ trên nhánh chính dù app không sai, cùng một gốc: dữ liệu ghi cứng
+theo lịch trong khi app tính theo hôm nay.
+
+- `test:lo-hong` [17] dùng ngày cứng 02–04/11/2026; dữ liệu mẫu sinh điểm danh
+  cho 20 ngày học gần nhất nên ngày đó trôi vào cửa sổ. Nay tính ngày theo hôm nay.
+- `cambridge-khung`: bé mẫu s5 sinh `${năm}-11-08`, tròn 48 tháng ngày 08/11/2026
+  nên app (đúng) chuyển bé sang lứa 4–5. Cả tám bé Chồi/Lá nay có ngày sinh
+  **tính lùi từ hôm nay** (`thangTruoc`), giữ đúng số tháng tuổi; s5 về 46 tháng.
+  Không sửa thì s8 đỏ tiếp ngày 01/12/2026, rồi s3, s6, s1, s4 tới tháng 7/2027.
+  Đã thử bằng đồng hồ giả: xanh ở 15/12/2026, 01/05/2027, 31/07/2027; dữ liệu cũ
+  đỏ 11 câu ngay ở 15/12/2026.
+
+Bài học: `npm test` dừng ở tệp đỏ đầu tiên, nên một tệp đỏ che các tệp đỏ phía
+sau. Khi gặp đỏ, chạy riêng từng tệp để thấy hết.
+
+**Còn ngày ghi cứng sẽ hết hạn (chưa sửa):** `nghi-hoc` (2027-03-01…11),
+`phan-hoi-2010-duyet-tung-ngay` (2027-03-02, 03-09 — bài canh D4 không ghi sổ
+trước ngày chưa tới), `thuc-don-excel` và `bien-soan-giao-dien` (thực đơn
+2027-03-01). Nên sửa trước tháng 2/2027.
+
 ---
 
 ## Việc đã biết trước, chưa làm — không được quên
