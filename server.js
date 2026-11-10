@@ -32,6 +32,21 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');            // chống nhúng vào trang lạ
   res.setHeader('Referrer-Policy', 'same-origin');
+  // KHÔNG CHO MÁY TÌM KIẾM ĐƯA APP LÊN KẾT QUẢ.
+  //
+  // App là sổ liên lạc nội bộ; trang tuyển sinh của trường là một website riêng.
+  // Thiếu dòng này thì Google lập chỉ mục trang đăng nhập (và tên miền chạy thử),
+  // nên phụ huynh mới tìm tên trường có thể rơi vào ô mật khẩu thay vì trang
+  // tuyển sinh, còn bot dò mật khẩu thì có sẵn một địa chỉ để nhắm tới.
+  //
+  // Dùng header chứ không dùng `Disallow` trong robots.txt, có chủ ý: robots.txt
+  // chặn thì Google không bò vào được để thấy `noindex`, và một địa chỉ đã lọt ra
+  // ngoài vẫn có thể hiện trên kết quả (chỉ có đường link, không có nội dung).
+  // Header áp cho MỌI phản hồi — trang, ảnh, tệp tĩnh, API — kể cả đường thêm sau.
+  //
+  // Đây không phải lớp bảo vệ dữ liệu: dữ liệu của bé vẫn do đăng nhập và phân
+  // quyền canh. Dòng này chỉ giữ cho app khỏi lộ diện trên máy tìm kiếm.
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
   // microphone=(self): nút "Nói để ghi" của Hành trình (góp ý 06/10, mục 7) cần micro của
   // CHÍNH app; mọi trang nhúng hay nguồn khác vẫn bị chặn như trước.
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');

@@ -701,9 +701,28 @@ Riêng `test:goi-ten` còn canh cả **ngoại lệ của chính nó**: dựng m
 dòng được chừa lẫn dòng phải bắt, rồi kiểm rằng ngoại lệ chỉ chừa đúng một dòng.
 Một ngoại lệ viết rộng quá sẽ lặng lẽ mở cửa cho cả tệp.
 
+### App không lên kết quả tìm kiếm ✅ *(10/11/2026)*
+
+Mọi phản hồi của máy chủ mang `X-Robots-Tag: noindex, nofollow, noarchive`
+(`server.js`, khối header bảo mật). Lý do: trường sắp có website tuyển sinh riêng
+cho cơ sở Ciputra; phụ huynh tìm tên trường phải gặp trang tuyển sinh, không phải
+ô mật khẩu của app hay tên miền chạy thử.
+
+Cố ý **không** thêm `Disallow: /` vào robots.txt: chặn bằng robots.txt thì Google
+không bò vào thấy `noindex`, và địa chỉ đã lọt ra vẫn hiện được dưới dạng link
+trơn. Đây không phải lớp bảo vệ dữ liệu — dữ liệu của bé vẫn do đăng nhập và phân
+quyền canh. Canh bằng `test:bao-mat` mục [4] (trang, API, tệp tĩnh, đường SPA lạc).
+
+App 1 dùng chung `server.js` nhưng không cần đổi theo: đây không phải lỗi nền.
+
 ---
 
 ## Việc đã biết trước, chưa làm — không được quên
+
+- **`test:lo-hong` đỏ một bài trên nhánh chính** (phát hiện 10/11/2026, đỏ cả khi
+  chưa có thay đổi nào): *"duyệt đơn KHÔNG tự sinh bản ghi điểm danh (hệ thống chưa
+  biết ngày nghỉ lễ)"*. Bài dùng ngày cứng 02–04/11 và 01/12/2026; nghi do lịch đã
+  trôi qua mốc đó. Cần tra nguyên nhân gốc trước khi `npm test` xanh trở lại.
 
 Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ không nhớ.
 
