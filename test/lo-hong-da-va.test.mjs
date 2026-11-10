@@ -1064,7 +1064,11 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   }
 
   // -- Chuyển năm học: đây là lúc album rơi khỏi tầm với.
-  const ch = await r3('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi: '2027-2028' } });
+  // Năm học kế tiếp HỎI MÁY CHỦ (cùng chỗ màn Quản trị hỏi), không ghi cứng:
+  // từ tháng 8/2027 năm học hiện tại của dữ liệu mẫu đã là 2027-2028, nên
+  // chuyển sang '2027-2028' bị từ chối "phải khác năm học hiện tại".
+  const namMoi = (await r3('GET', '/api/schoolyear/preview', { cookie: A })).data?.namMoi;
+  const ch = await r3('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi } });
   check('chuyển được năm học', ch.status === 200, ch.data);
 
   check('PHỤ HUYNH mất album như cũ (chưa mở, cố ý)',
