@@ -103,9 +103,14 @@ console.log('\n[2] Màn XEM TRƯỚC nói đúng nhóm đích của từng cơ s
 
 // ===========================================================================
 console.log('\n[3] CHUYỂN NĂM: hai nhóm trùng tên KHÔNG được nhập làm một');
+// Năm học kế tiếp HỎI MÁY CHỦ (cùng chỗ màn Quản trị hỏi), không ghi cứng:
+// từ tháng 8/2027 năm học hiện tại của dữ liệu mẫu đã là 2027-2028, nên
+// chuyển sang '2027-2028' bị từ chối "phải khác năm học hiện tại".
+const namKeTiep = async () => (await req('GET', '/api/schoolyear/preview', { cookie: C1 })).data?.namMoi;
+const NAM_MOI = await namKeTiep();
 {
   const r = await req('POST', '/api/schoolyear/promote', {
-    cookie: C1, body: { namMoi: '2027-2028' },
+    cookie: C1, body: { namMoi: NAM_MOI },
   });
   check('chuyển được năm học', r.status === 200, r.data);
 
@@ -121,7 +126,7 @@ console.log('\n[3] CHUYỂN NĂM: hai nhóm trùng tên KHÔNG được nhập l
 console.log('\n[4] NHÓM CỦA NĂM MỚI PHẢI CÓ CƠ SỞ — không được mồ côi');
 {
   const sau = await nhomCua(C1);
-  const moi = sau.filter(c => c.year === '2027-2028');
+  const moi = sau.filter(c => c.year === NAM_MOI);
   check('có nhóm của năm mới', moi.length >= 2, moi.length);
   const moCoi = moi.filter(c => !c.campusId);
   check('KHÔNG NHÓM MỚI NÀO THIẾU CƠ SỞ', moCoi.length === 0, moCoi.map(c => c.name));
@@ -154,13 +159,15 @@ console.log('\n[6] Chuyển năm LẦN HAI cũng không nối nhầm hai cơ s�
 {
   // Lần thứ hai đi qua nhánh "nhóm của năm mới ĐÃ CÓ" — nhánh khác hẳn nhánh
   // tạo mới, và cũng từng tra theo tên không lọc cơ sở.
+  const NAM_MOI_2 = await namKeTiep();
+  check('tiền đề: năm học lần hai khác lần một', !!NAM_MOI_2 && NAM_MOI_2 !== NAM_MOI, { NAM_MOI, NAM_MOI_2 });
   const r = await req('POST', '/api/schoolyear/promote', {
-    cookie: C1, body: { namMoi: '2028-2029' },
+    cookie: C1, body: { namMoi: NAM_MOI_2 },
   });
   check('chuyển được năm học lần hai', r.status === 200, r.data);
 
   const sau = await nhomCua(C1);
-  const cuaNamMoi = sau.filter(x => x.year === '2028-2029');
+  const cuaNamMoi = sau.filter(x => x.year === NAM_MOI_2);
   // Không có dòng này thì hai phép kiểm dưới đây báo xanh cả khi lần chuyển
   // năm thứ hai KHÔNG đẻ ra nhóm nào: đếm trên một danh sách rỗng thì không
   // bao giờ thấy trùng, cũng không bao giờ thấy nhóm mồ côi.

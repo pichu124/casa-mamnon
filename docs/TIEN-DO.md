@@ -715,14 +715,47 @@ quyền canh. Canh bằng `test:bao-mat` mục [4] (trang, API, tệp tĩnh, đ�
 
 App 1 dùng chung `server.js` nhưng không cần đổi theo: đây không phải lỗi nền.
 
+### Bài kiểm thử không "hết hạn" theo lịch ✅ *(10/11/2026)*
+
+Hai tệp đỏ trên nhánh chính dù app không sai, cùng một gốc: dữ liệu ghi cứng
+theo lịch trong khi app tính theo hôm nay.
+
+- `test:lo-hong` [17] dùng ngày cứng 02–04/11/2026; dữ liệu mẫu sinh điểm danh
+  cho 20 ngày học gần nhất nên ngày đó trôi vào cửa sổ. Nay tính ngày theo hôm nay.
+- `cambridge-khung`: bé mẫu s5 sinh `${năm}-11-08`, tròn 48 tháng ngày 08/11/2026
+  nên app (đúng) chuyển bé sang lứa 4–5. Cả tám bé Chồi/Lá nay có ngày sinh
+  **tính lùi từ hôm nay** (`thangTruoc`), giữ đúng số tháng tuổi; s5 về 46 tháng.
+  Không sửa thì s8 đỏ tiếp ngày 01/12/2026, rồi s3, s6, s1, s4 tới tháng 7/2027.
+  Đã thử bằng đồng hồ giả: xanh ở 15/12/2026, 01/05/2027, 31/07/2027; dữ liệu cũ
+  đỏ 11 câu ngay ở 15/12/2026.
+
+Bài học: `npm test` dừng ở tệp đỏ đầu tiên, nên một tệp đỏ che các tệp đỏ phía
+sau. Khi gặp đỏ, chạy riêng từng tệp để thấy hết.
+
+**Soát cả bộ bằng đồng hồ giả, rồi sửa nốt.** Dời `Date` của mọi tiến trình
+Node sang 15/03/2027 và 15/09/2027 (`NODE_OPTIONS=--require <tệp dời đồng hồ>`),
+chạy riêng cả 162 tệp. Bốn tệp đỏ thật, đã sửa:
+
+- `phan-hoi-2010-duyet-tung-ngay` [7]: ngày "còn ở phía trước" ghi cứng
+  02/03/2027 — qua tháng 3 thành quá khứ, D4 ghi sổ ngay lúc duyệt. Nay là thứ
+  Ba cách hôm nay ≥ 5 tuần.
+- `nam-hoc-co-so`, `anh-nhom`, `lo-hong-da-va`: chuyển sang năm học ghi cứng
+  '2027-2028' — từ tháng 8/2027 đó đã là năm học hiện tại nên bị từ chối. Nay hỏi
+  năm kế tiếp từ `/api/schoolyear/preview`.
+
+Sau khi sửa: xanh ở hôm nay, 15/03/2027, 15/09/2027, 15/02/2028.
+
+Hai tệp đỏ dưới đồng hồ giả nhưng **không** phải lỗi: `sao-luu` và
+`kiem-tra-may-chu` đọc giờ sửa tệp trên ổ đĩa (vẫn là giờ thật) rồi so với
+"hôm nay" đã dời. Ngoài đời hai mốc này luôn khớp. Đặt đồng hồ giả bằng đúng
+hôm nay thì cả hai xanh.
+
+Ngày cứng còn lại trong `nghi-hoc`, `thuc-don-excel`… chạy xanh ở mọi mốc đã
+thử: chúng không đụng tới logic "hôm nay" nên không hết hạn.
+
 ---
 
 ## Việc đã biết trước, chưa làm — không được quên
-
-- **`test:lo-hong` đỏ một bài trên nhánh chính** (phát hiện 10/11/2026, đỏ cả khi
-  chưa có thay đổi nào): *"duyệt đơn KHÔNG tự sinh bản ghi điểm danh (hệ thống chưa
-  biết ngày nghỉ lễ)"*. Bài dùng ngày cứng 02–04/11 và 01/12/2026; nghi do lịch đã
-  trôi qua mốc đó. Cần tra nguyên nhân gốc trước khi `npm test` xanh trở lại.
 
 Ghi ở đây thay vì để trong đầu, vì phiên làm việc sau sẽ không nhớ.
 

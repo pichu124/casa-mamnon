@@ -16,7 +16,7 @@ import { spawnSync } from 'child_process';
 // dòng dữ liệu còn hay đã mất.
 const require_ = createRequire(import.meta.url);
 const DatabaseChiDoc = require_('better-sqlite3');
-import { GOC, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri, docMaQuanTri } from './_chung.mjs';
+import { GOC, HOM_NAY, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, dungMayChu, taoBoDem, taoReq, taoLogin, taoQuanTri, docMaQuanTri } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
@@ -923,7 +923,23 @@ console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơ
   // duyệt, mọi câu khẳng định giữ nguyên từng chữ. Chiều ngược lại (cô bấm
   // duyệt phải bị chặn) có bài canh riêng ở ngay dưới.
   const VP = (await login('ht.lohong', 'quantri2026')).cookie;
-  const NGAY = '2026-11-03';
+  // NGÀY THỬ PHẢI Ở TƯƠNG LAI, TÍNH THEO HÔM NAY — KHÔNG GHI CỨNG.
+  //
+  // Bản trước ghi cứng 02–04/11/2026. Lúc viết, đó là tương lai nên sổ điểm danh
+  // trống. Từ 03/11/2026 bài đỏ dù app không sai gì: dữ liệu mẫu sinh điểm danh
+  // cho 20 ngày học GẦN NHẤT tính lùi từ hôm nay, nên ngày ghi cứng sớm muộn cũng
+  // trôi vào cửa sổ đó và sổ có sẵn bản ghi.
+  //
+  // Chọn thứ Hai cách hôm nay ít nhất 5 tuần: đủ xa cửa sổ dữ liệu mẫu, và cả
+  // bài chỉ dùng ngày thường (thứ Hai → thứ Năm, thứ Ba tuần sau).
+  const ngayCong = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  const thuHaiToi = (() => {
+    const d = ngayCong(HOM_NAY(), 35);
+    const thu = new Date(`${d}T00:00:00Z`).getUTCDay();   // 0 = Chủ nhật
+    return ngayCong(d, (8 - thu) % 7);
+  })();
+  const TU = thuHaiToi, NGAY = ngayCong(TU, 1), DEN = ngayCong(TU, 2);
+  const NGOAI = ngayCong(TU, 3), NGAY_TU_CHOI = ngayCong(TU, 8);
 
   const lop = async () => (await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: GV })).data;
   const dau = await lop();
@@ -938,7 +954,7 @@ console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơ
   check('tìm được một con của phụ huynh trong lớp này để thử', !!em, { conCuaPh, em });
   const don = await req('POST', '/api/leave', {
     cookie: PH,
-    body: { studentId: em, fromDate: '2026-11-02', toDate: '2026-11-04', reason: 'Con về quê giỗ ông' },
+    body: { studentId: em, fromDate: TU, toDate: DEN, reason: 'Con về quê giỗ ông' },
   });
   const donId = don.data?.id;
   check('phụ huynh gửi được đơn', don.status === 201 || don.status === 200, don.data?.error);
@@ -964,31 +980,36 @@ console.log('\n[17] B5 — sổ điểm danh phải BIẾT em nào đã có đơ
   const sau = (await lop()).students.find(x => x.student.id === em);
   check('DUYỆT XONG THÌ SỔ ĐIỂM DANH BIẾT NGAY', !!sau?.donNghiDaDuyet, sau?.donNghiDaDuyet);
   check('kèm khoảng ngày để cô đối chiếu',
-    sau?.donNghiDaDuyet?.fromDate === '2026-11-02' && sau?.donNghiDaDuyet?.toDate === '2026-11-04',
+    sau?.donNghiDaDuyet?.fromDate === TU && sau?.donNghiDaDuyet?.toDate === DEN,
     sau?.donNghiDaDuyet);
   check('kèm lý do để cô khỏi phải mở màn khác', /giỗ ông/.test(sau?.donNghiDaDuyet?.reason || ''));
   check('các em khác không bị gắn nhầm đơn',
     (await lop()).students.filter(x => x.donNghiDaDuyet).length === 1);
 
   // Ngày ngoài khoảng đơn thì không hiện.
-  const ngoai = (await req('GET', '/api/attendance/class?date=2026-11-05', { cookie: GV })).data;
+  const ngoai = (await req('GET', `/api/attendance/class?date=${NGOAI}`, { cookie: GV })).data;
   check('ngày ngoài khoảng của đơn thì KHÔNG hiện', ngoai.students.every(x => !x.donNghiDaDuyet));
-  const trong = (await req('GET', '/api/attendance/class?date=2026-11-04', { cookie: GV })).data;
+  const trong = (await req('GET', `/api/attendance/class?date=${DEN}`, { cookie: GV })).data;
   check('ngày cuối của đơn vẫn tính là trong khoảng',
     !!trong.students.find(x => x.student.id === em)?.donNghiDaDuyet);
 
   // Đơn bị TỪ CHỐI thì không được hiện — nếu không cô sẽ chấm nhầm thành có phép.
   const don2 = await req('POST', '/api/leave', {
     cookie: PH,
-    body: { studentId: em, fromDate: '2026-12-01', toDate: '2026-12-01', reason: 'Xin nghỉ đi chơi' },
+    body: { studentId: em, fromDate: NGAY_TU_CHOI, toDate: NGAY_TU_CHOI, reason: 'Xin nghỉ đi chơi' },
   });
   await req('POST', `/api/leave/${don2.data.id}/review`, { cookie: VP, body: { status: 'rejected' } });
-  const tuChoi = (await req('GET', '/api/attendance/class?date=2026-12-01', { cookie: GV })).data;
+  const tuChoi = (await req('GET', `/api/attendance/class?date=${NGAY_TU_CHOI}`, { cookie: GV })).data;
   check('đơn bị TỪ CHỐI thì KHÔNG hiện trên sổ điểm danh',
     tuChoi.students.every(x => !x.donNghiDaDuyet));
 
-  // Bản vá chỉ THÊM thông tin, tuyệt đối không tự sinh bản ghi điểm danh.
-  check('duyệt đơn KHÔNG tự sinh bản ghi điểm danh (hệ thống chưa biết ngày nghỉ lễ)',
+  // Bản vá B5 chỉ THÊM thông tin lên sổ điểm danh, tự nó không sinh bản ghi.
+  //
+  // Bài này duyệt theo cách CŨ (không kèm `theoNgay`), nên D4 không chạy: đơn
+  // duyệt kiểu đó không có dòng từng ngày để ghi sổ. Việc D4 ghi sổ cho ngày đã
+  // tới — và không ghi trước ngày chưa tới — do
+  // test/phan-hoi-2010-duyet-tung-ngay.test.mjs canh, không phải bài này.
+  check('duyệt đơn (cách cũ, không chi tiết từng ngày) KHÔNG tự sinh bản ghi điểm danh',
     (await lop()).students.every(x => !x.record), (await lop()).filter);
 }
 
@@ -1043,7 +1064,11 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   }
 
   // -- Chuyển năm học: đây là lúc album rơi khỏi tầm với.
-  const ch = await r3('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi: '2027-2028' } });
+  // Năm học kế tiếp HỎI MÁY CHỦ (cùng chỗ màn Quản trị hỏi), không ghi cứng:
+  // từ tháng 8/2027 năm học hiện tại của dữ liệu mẫu đã là 2027-2028, nên
+  // chuyển sang '2027-2028' bị từ chối "phải khác năm học hiện tại".
+  const namMoi = (await r3('GET', '/api/schoolyear/preview', { cookie: A })).data?.namMoi;
+  const ch = await r3('POST', '/api/schoolyear/promote', { cookie: A, body: { namMoi } });
   check('chuyển được năm học', ch.status === 200, ch.data);
 
   check('PHỤ HUYNH mất album như cũ (chưa mở, cố ý)',
