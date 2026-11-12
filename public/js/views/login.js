@@ -33,7 +33,7 @@ App.views.login = {
         location.hash = '#/';
         App.route();
         App.startBadgePolling();
-        App.maybeShowPushBanner();
+        App.moiCaiVaoManHinhChinh();
         UI.toast(`Xin chào ${me.user.title} ${me.user.name}!`, 'success');
       } catch (err) {
         UI.toast(err.message, 'error');
