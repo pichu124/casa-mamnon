@@ -145,9 +145,9 @@ App.views.hocphi = {
   // Trùng họ tên trong tiếng Việt là chuyện thường, và chính app thừa nhận
   // điều đó: đường nhận bé có hẳn một câu hỏi lại *"có thật chuyện hai bé
   // trùng cả tên lẫn ngày sinh"*. Khuôn dùng chung của cả kho đã in kèm nhóm
-  // từ lâu (`UI.thanhChonBe`, màn Sức khoẻ, Xin phép, Dặn thuốc); riêng phân
-  // hệ này bỏ vế sau ở CẢ HAI ô chọn bé — mà đây là hai ô ra tiền: một ô ghi
-  // nợ cho một nhà, một ô giảm tiền cho một nhà.
+  // từ lâu (màn Sức khoẻ, Xin phép, Dặn thuốc); riêng phân hệ này bỏ vế sau ở
+  // CẢ HAI ô chọn bé — mà đây là hai ô ra tiền: một ô ghi nợ cho một nhà, một
+  // ô giảm tiền cho một nhà.
   //
   // `className` đã có sẵn trong `App.state.students` cho MỌI vai, kể cả những
   // chức vụ bị cắt bớt hồ sơ bé (routes/auth.js, TRUONG_TOI_THIEU) — nên
