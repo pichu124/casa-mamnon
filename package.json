@@ -7,7 +7,6 @@
     "start": "node server.js",
     "ban-thu": "node scripts/ban-thu.js",
     "seed": "node data/seed.js",
-    "migrate": "node scripts/migrate-json-to-sqlite.js",
     "backup": "node scripts/backup.js",
     "backup:list": "node scripts/backup.js --list",
     "restore": "node scripts/restore.js",
