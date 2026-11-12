@@ -330,12 +330,6 @@ App.views.health = {
       ${this._records.length || !coSoDo ? this.recordsHtml() : ''}`;
   },
 
-  // (Màn "chọn bé trong ô chọn" của cô đã thay bằng bảng cả nhóm — Đ138.)
-  changeStudent(id) {
-    this._sid = id;
-    App.route();
-  },
-
   // ---- Thẻ chỉ số lần khám gần nhất ----
   latestCard(lc) {
     if (!lc) return '';
