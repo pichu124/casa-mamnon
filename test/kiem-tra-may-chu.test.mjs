@@ -177,9 +177,9 @@ console.log('\n[5] Lịch sao lưu tự động và dung lượng đĩa');
   check('máy không có lịch sao lưu → CẦN SỬA', trangThai(r.out, 'Lịch sao lưu tự động') === 'CẦN SỬA', trangThai(r.out, 'Lịch sao lưu tự động'));
   // CHỖ TRA CỨU PHẢI LÀ TÀI LIỆU CỦA APP NÀY.
   //
-  // Bản trước chốt `docs/QUY-TRINH-TRIEN-KHAI.docx` — tài liệu của APP 1, và
-  // là một tệp .docx không có trong kho mã app 2. Người vận hành đọc dòng gợi
-  // ý đó rồi đi tìm một tệp không tồn tại, ngay lúc bộ soát vừa nói "không tìm
+  // Bản trước chốt `docs/QUY-TRINH-TRIEN-KHAI.docx` — tài liệu Word của APP 1
+  // (đã gỡ hẳn khỏi kho này ở Đ252). Người vận hành đọc dòng gợi ý đó rồi đi
+  // tìm một tệp không dành cho app này, ngay lúc bộ soát vừa nói "không tìm
   // thấy lịch sao lưu nào". Bài canh thì vẫn xanh, vì nó chốt đúng cái chuỗi
   // sai ấy.
   check('chỉ đúng chỗ tra cứu cách đặt lịch — runbook của app 2',

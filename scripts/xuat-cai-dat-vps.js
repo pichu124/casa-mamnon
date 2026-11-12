@@ -5,19 +5,15 @@
 //
 // VÌ SAO LÀ MỘT SCRIPT CHỨ KHÔNG PHẢI MỘT TỆP WORD ĐỂ SẴN
 //
-// Cùng lý do đã ghi ở `scripts/xuat-quy-trinh.js`: tệp Word không theo dõi thay
-// đổi cùng mã nguồn được. Nguồn nằm ở đây, trong kho mã; app đổi cách cài thì
-// sửa tệp này rồi chạy lại lệnh trên, và bản Word mới luôn khớp với phiên bản
-// app hiện tại — trang bìa tự đóng dấu mã commit và ngày sinh.
+// Tệp Word không theo dõi thay đổi cùng mã nguồn được. Nguồn nằm ở đây, trong
+// kho mã; app đổi cách cài thì sửa tệp này rồi chạy lại lệnh trên, và bản Word
+// mới luôn khớp với phiên bản app hiện tại — trang bìa tự đóng dấu mã commit
+// và ngày sinh.
 //
-// VÌ SAO KHÔNG SỬA `xuat-quy-trinh.js` MÀ THÊM TỆP MỚI BÊN CẠNH
-//
-// `QUY-TRINH-TRIEN-KHAI.docx` là tài liệu của APP 1 (SchoolConnect, tiểu học),
-// mang sang lúc tách kho và tự nó mở đầu bằng cảnh báo "đừng làm theo nguyên
-// văn cho app 2". Nó trình bày HAI phương án (máy tại trường / VPS) cho một
-// trường tiểu học ~300 học sinh. Tài liệu này thì khác hẳn: MỘT phương án duy
-// nhất (VPS tại Việt Nam), viết cho CASA Mầm non, và viết cho người làm lần
-// đầu. Trộn hai thứ vào một script là làm hỏng cả hai.
+// Tài liệu trình bày MỘT phương án duy nhất (VPS tại Việt Nam), viết cho CASA
+// Mầm non và cho người làm lần đầu. Bộ tài liệu Word triển khai của app 1
+// (`xuat-quy-trinh.js` → `QUY-TRINH-TRIEN-KHAI.docx`, hai phương án cho trường
+// tiểu học) từng nằm cạnh tệp này; đã gỡ khỏi kho ở Đ252.
 //
 // Cần thư viện `docx` (đã nằm trong devDependencies). KHÔNG cần Playwright —
 // tài liệu này không có sơ đồ, cố ý: người đang dựng máy chủ cần lệnh chép
@@ -35,8 +31,7 @@ const {
 } = require('docx');
 
 // ---------------------------------------------------------------------------
-// Hàm dựng đoạn — giữ ĐÚNG bộ màu và bộ hàm của `xuat-quy-trinh.js`, để hai
-// tệp Word của cùng một dự án nhìn ra là một bộ.
+// Hàm dựng đoạn.
 // ---------------------------------------------------------------------------
 const XANH_DAM = '1E3A8A', XAM = '475569', DO = '9F1239', XANH_LA = '166534';
 const NEN_MA = 'F1F5F9', NEN_BANG = 'EEF2FF';
@@ -140,9 +135,6 @@ async function main() {
       + 'Làm từ trên xuống, không đảo thứ tự. Cuối mỗi bước có bảng kiểm — đánh dấu đủ rồi mới đi tiếp.'),
     p('Các lệnh trong khung xám gõ trong phiên SSH vào VPS, mỗi lần một dòng. '
       + 'Chỗ nào có dấu ngoặc nhọn như <tên miền của trường> thì thay bằng giá trị thật, bỏ luôn dấu ngoặc.'),
-    chuY('Tệp docs/QUY-TRINH-TRIEN-KHAI.docx nằm cùng thư mục là tài liệu của APP 1 — '
-      + 'trường tiểu học, và chính nó mở đầu bằng lời dặn đừng làm theo nguyên văn cho app này. '
-      + 'Đừng lẫn hai tệp.'),
 
     h2('Hai điều nhà trường phải chốt trước, không phải việc kỹ thuật'),
     p({ text: '1. Máy chủ đặt tại Việt Nam. ', bold: true },

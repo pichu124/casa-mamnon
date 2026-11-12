@@ -1,5 +1,10 @@
 # Những chỗ tôi tự quyết — chờ nhà trường xem lại
 
+> **Ghi chú Đ252 (12/11/2026).** Các sổ `RA-SOAT-2026-09.md`, `BAO-CAO-TU-LAM.md`,
+> `TONG-KET-GOP-Y-1610.md` và `PHAN-HOI-TRUONG-1409.md` đã gỡ khỏi kho ở Đ252.
+> Dẫn chứng theo số dòng tới chúng trong tệp này giữ nguyên, và đọc ở lịch sử
+> git tại commit `1b87add`: `git show 1b87add:docs/<tên tệp>`.
+
 Tệp này ghi **mọi điểm cần người quyết mà tôi đã tự chọn một hướng** trong đợt
 dọn tồn đọng sau GĐ 2. Người dùng bảo *"làm theo hướng anh thấy tốt nhất, nhưng
 lưu lại để báo"* — đây là chỗ lưu.

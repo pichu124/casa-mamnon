@@ -198,13 +198,6 @@ const NGOAI_LE = [
       + 'nhắn với cô — đó là tiếng Việt đúng và tự nhiên, không phải gọi trẻ là "em". '
       + 'Chặn ở đây là ép dữ liệu mẫu nói thứ tiếng Việt không ai nói.',
   },
-  {
-    tep: 'scripts/xuat-quy-trinh.js',
-    vi_sao: 'Đây là NỘI DUNG của tài liệu triển khai app 1, đã dán cảnh báo "chưa cập '
-      + 'nhật cho app 2" ngay trang đầu (N1). Đổi chữ trong đó là làm nó TRÔNG như '
-      + 'đã cập nhật trong khi quy trình thì chưa — nguy hiểm hơn là để nguyên. '
-      + 'Chính khối cảnh báo cũng phải trích nguyên mấy từ cũ để nói rõ cái gì đã đổi.',
-  },
 ];
 
 function boChuThich(noiDung) {

@@ -26,8 +26,8 @@ những thứ tốn nhiều thời gian nhất.
 > **Đây là máy chủ TẬP DƯỢT, không phải máy chủ thật của trường.**
 > Chỉ dùng dữ liệu demo. Tuyệt đối không nhập danh sách học sinh thật lên máy này:
 > gói miễn phí không có cam kết vận hành, không sao lưu, và có thể bị thu hồi bất
-> cứ lúc nào. Khi triển khai thật cho trường, làm theo
-> `docs/QUY-TRINH-TRIEN-KHAI.docx` với một VPS trả phí đặt tại Việt Nam.
+> cứ lúc nào. Khi triển khai thật cho trường, dùng một VPS trả phí đặt tại Việt
+> Nam và làm theo `docs/TRIEN-KHAI.md` (bản Word: `docs/CAI-DAT-VPS.docx`).
 
 Mục đích của việc tập dượt: làm quen trọn quy trình vận hành — systemd tự bật lại
 khi app sập, Caddy tự xin HTTPS, sao lưu hằng đêm, kiểm tra sức khỏe máy chủ.
@@ -383,8 +383,8 @@ Lệnh cuối là phép thử thật: nó giải nén bản sao lưu ra và đ�
 trong. Sao lưu chưa từng kiểm thì chưa gọi là sao lưu.
 
 **Hẹn giờ hằng đêm** — dùng systemd timer vì lịch tự mang theo múi giờ (cách làm
-đầy đủ trong `docs/QUY-TRINH-TRIEN-KHAI.docx` mục 4.2). Với máy tập dượt thì cron
-cũng đủ:
+đầy đủ nằm ở mục 4.2 của `QUY-TRINH-TRIEN-KHAI.docx` — tài liệu Word của app 1,
+đã gỡ ở Đ252; xem lịch sử git). Với máy tập dượt thì cron cũng đủ:
 
 ```bash
 (crontab -l 2>/dev/null; echo "0 2 * * * cd /opt/schoolconnect && DATA_DIR=/var/lib/schoolconnect npm run backup >> /home/ubuntu/backup.log 2>&1") | crontab -

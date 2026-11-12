@@ -277,10 +277,6 @@ console.log('\n[8] Mọi chỗ đều chỉ về CÙNG MỘT thư mục dữ li�
   // trấn an sai — tệ hơn là báo lỗi.
   const nguon = ['server.js', ...fs.readdirSync(path.join(GOC, 'scripts'))
     .filter(f => f.endsWith('.js'))
-    // scripts/xuat-quy-trinh.js là NỘI DUNG tài liệu triển khai của app 1, đã
-    // dán cảnh báo "chưa cập nhật cho app 2" ở trang đầu (N1). Sửa đường dẫn
-    // trong đó là làm nó TRÔNG như đã cập nhật trong khi quy trình thì chưa.
-    .filter(f => f !== 'xuat-quy-trinh.js')
     .map(f => `scripts/${f}`)];
 
   const thay = new Map();

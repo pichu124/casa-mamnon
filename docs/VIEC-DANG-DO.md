@@ -1,8 +1,7 @@
-# Việc đang dở — đọc trước khi làm tiếp
+# Việc đang dở lúc giao phiên 17/10/2026
 
-**Ghi ngày 17/10/2026, cuối phiên làm Đ238.** Chủ dự án mở phiên mới để làm tiếp,
-nên tệp này gom MỌI việc còn treo vào một chỗ. Phiên mới đọc tệp này sau `CLAUDE.md`,
-rồi mới đọc `docs/TIEN-DO.md`.
+**Ghi ngày 17/10/2026, cuối phiên làm Đ238.** Tệp này là ảnh chụp mọi việc còn treo
+lúc giao phiên, chốt ngày đó. **Tình trạng hiện tại xem `docs/TIEN-DO.md`.**
 
 Xong việc nào thì gạch ngang việc đó tại chỗ (không xoá), ghi số Đ… đã làm, rồi cập
 nhật `docs/TIEN-DO.md` như thường lệ.

@@ -6,10 +6,9 @@ Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.
 - Đang xây cái gì, theo thứ tự nào → `docs/KE-HOACH.md`
 - Quy định bắt buộc khi sửa mã → `CLAUDE.md`
 - Vá lỗi phần nền chung với app 1 → `docs/LOI-NEN-CHUNG.md`
-- **Báo cáo gọn cho người dùng** (đã làm gì, tự quyết gì, chờ gì) → `docs/BAO-CAO-TU-LAM.md`
 - **Việc còn lại: cần quyết / phải làm / phải thử** → `docs/VIEC-CON-LAI.md`
-- **Việc đang dở lúc giao phiên (17/10, sau Đ238) — đọc trước khi làm tiếp** → `docs/VIEC-DANG-DO.md`
-- **Góp ý của trường 16/10 (Đ239): bảng tổng kết gửi trường** → `docs/TONG-KET-GOP-Y-1610.md`; chi tiết + việc chờ quyết → `docs/PHAN-HOI-TRUONG-1610.md`
+- Việc đang dở lúc giao phiên 17/10 (sau Đ238), ảnh chụp ngày đó → `docs/VIEC-DANG-DO.md`
+- **Góp ý của trường 16/10 (Đ239): từng mục + việc chờ quyết** → `docs/PHAN-HOI-TRUONG-1610.md`
 - **Góp ý của trường 20/10 (Đ241): từng mục, đợt làm, việc chờ quyết** → `docs/PHAN-HOI-TRUONG-2010.md`
 
 > Nhật ký nâng cấp của **app 1** (các mục B1…B14) không nằm ở đây nữa. Nó vẫn còn

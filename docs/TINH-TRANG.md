@@ -1,10 +1,10 @@
-# Tình trạng hiện tại — chốt ngày 07/10/2026
+# Tình trạng chốt ngày 07/10/2026
 
-**Tệp này trả lời đúng một câu: *đang đứng ở đâu, và việc gì đang chờ ai.***
+**Tệp này là ảnh chụp một thời điểm: *đứng ở đâu và việc gì chờ ai* tại ngày
+07/10/2026.** Tình trạng hiện tại xem `docs/TIEN-DO.md`.
 
 Khác với `docs/TIEN-DO.md` — sổ nhật ký chỉ ghi thêm, không bao giờ sửa dòng cũ —
-tệp này là **ảnh chụp một thời điểm** và **được phép ghi đè**. Đọc nó trước khi
-làm gì tiếp; đọc `TIEN-DO.md` khi cần biết *vì sao* một thứ lại như bây giờ.
+tệp này **được phép ghi đè**.
 
 > **Mốc chốt sổ: 07/10/2026.** Mọi câu ở dưới đúng tại ngày đó. Phần nói về máy
 > chủ thật thì **đo lần cuối ngày 16/09** — xem mục "Những điều chưa ai kiểm lại"

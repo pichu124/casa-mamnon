@@ -4,7 +4,8 @@
 //
 // MỘT MÓN TRONG SỔ, VÀ KẾT QUẢ ĐO KHÁC VỚI ĐIỀU SỔ GHI
 //
-// `docs/BAO-CAO-TU-LAM.md` để lại một dòng cho chủ dự án: *"đường liệt kê
+// Sổ `docs/BAO-CAO-TU-LAM.md` (đã gỡ khỏi kho ở Đ252, còn trong lịch sử git)
+// để lại một dòng cho chủ dự án: *"đường liệt kê
 // album đếm số ảnh bằng cách nạp từng tấm ảnh của từng album, rồi với mỗi tấm
 // lại hỏi tiếp ai được gắn thẻ và nhà đó đồng ý chưa… sau vài năm học, một
 // lần gia đình mở màn Album là hàng nghìn câu truy vấn."* Kèm một lý do rất
@@ -158,7 +159,7 @@ try {
   // =========================================================================
   console.log('\n[3] ĐI NHANH KHÔNG ĐƯỢC ĐỔI LUẬT ĐỒNG Ý');
   {
-    // Đây là đúng nỗi lo mà dòng trong `BAO-CAO-TU-LAM.md` nêu ra: cách tăng
+    // Đây là đúng nỗi lo mà dòng trong sổ `BAO-CAO-TU-LAM.md` cũ nêu ra: cách tăng
     // tốc nhanh nhất là nhớ tạm lời đồng ý của từng bé, và bộ nhớ ấy sẽ hiện
     // một tấm ảnh mà gia đình VỪA MỚI rút đồng ý.
     const conCuaToi = db.all('student_parents', 'SELECT studentId FROM student_parents WHERE parentId = ?', ['p1'])

@@ -137,9 +137,10 @@ liệu mẫu khi chạy thật — nhưng **các tài khoản đã lỡ tạo ra
 DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
 ```
 
-Mục *Mật khẩu mẫu* còn báo CẦN SỬA thì làm theo mục 4.1 của
-`docs/QUY-TRINH-TRIEN-KHAI.docx`: đổi mật khẩu từng tài khoản, và cho các học sinh
-mẫu nghỉ học để ẩn đi.
+Mục *Mật khẩu mẫu* còn báo CẦN SỬA thì đổi mật khẩu từng tài khoản, và cho các
+học sinh mẫu nghỉ học để ẩn đi (cách làm từng bước nằm ở mục 4.1 của
+`QUY-TRINH-TRIEN-KHAI.docx` — tài liệu Word của app 1, đã gỡ ở Đ252; xem lịch sử
+git).
 
 **3. Kiểm `TRUST_PROXY` theo bảng ở trên.** Đây là lần đầu cấu hình này thật sự có
 ảnh hưởng, nên đáng soát lại một lượt.
