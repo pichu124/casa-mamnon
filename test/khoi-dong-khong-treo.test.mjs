@@ -67,6 +67,10 @@ const proc = spawn('node', ['server.js'], {
 const tatMayChu = () => { try { proc.kill('SIGKILL'); } catch { /* đã tắt */ } };
 process.on('exit', tatMayChu);
 for (const dong of [proc.stdout, proc.stderr]) {
+  // Giải mã theo DÒNG CHẢY, không theo từng mẩu: một mẩu cắt ngang chữ có dấu
+  // ("Ả" trong "CẢNH BÁO") mà đổi thẳng ra chuỗi thì chữ ấy hỏng và mẫu tìm
+  // bên dưới không bao giờ khớp — bài đỏ ngẫu nhiên.
+  dong.setEncoding('utf8');
   dong.on('data', (d) => {
     nhatKy += String(d);
     if (!moc.dangChay && /đang chạy tại/.test(nhatKy)) moc.dangChay = Date.now();

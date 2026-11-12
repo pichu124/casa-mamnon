@@ -419,11 +419,6 @@ function directConvId(a, b) {
   return row ? row.id : null;
 }
 
-// Danh sách người có thể bắt đầu trò chuyện mới.
-//
-// Phụ huynh: TẤT CẢ các cô phụ trách nhóm của con mình — nhóm mầm non có 2–3 cô
-// cùng phụ trách, chỉ hiện một cô thì gia đình không nhắn được cho cô đang trực
-// hôm đó. Giáo viên: phụ huynh của trẻ trong nhóm mình.
 // Cơ sở → các bé đã xếp nhóm ở cơ sở đó. '' là nhóm chưa gắn cơ sở nào.
 function coSoCuaCacBe(cacBe) {
   const ra = new Map();
