@@ -300,14 +300,36 @@ function warnDefaultPasswords() {
   const mauCu = '123456';
   const demo = process.env.DEMO_PASSWORD || mauCu;
   const dsMau = [...new Set([demo, mauCu])];
-  const weak = db.all('users', 'SELECT id, passwordHash FROM users')
-    .filter(u => dsMau.some(m => password.verify(m, u.passwordHash)));
-  if (!weak.length) return;
-  console.warn(
-    `\n⚠️  CẢNH BÁO BẢO MẬT: ${weak.length} tài khoản vẫn dùng mật khẩu mẫu "${demo}".\n` +
-    '   Trước khi cho phụ huynh dùng thật, hãy đăng nhập từng tài khoản và đổi\n' +
-    '   mật khẩu trong mục Cài đặt → Đổi mật khẩu.\n'
-  );
+
+  // MỖI NHỊP SOÁT MỘT TÀI KHOẢN, RỒI NHẢ MÁY CHO NGƯỜI ĐANG CHỜ (Đ251).
+  //
+  // Mỗi lần băm thử là khoảng 40 mili-giây và chặn cả tiến trình. Bản trước
+  // lọc cả danh sách trong một mạch, ngay sau khi mở cổng: trường ~640 tài
+  // khoản là chừng nửa phút máy chủ nhận kết nối mà không trả lời ai, sau MỖI
+  // lần cập nhật. Nay giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ
+  // trước; lời cảnh báo in ra muộn hơn vài giây nhưng vẫn đếm đủ từng tài
+  // khoản. `test/khoi-dong-khong-treo.test.mjs` canh cả hai điều ấy.
+  //
+  // Danh sách đọc MỘT lần ở đây; các nhịp sau không chạm cơ sở dữ liệu, nên
+  // máy chủ tắt giữa chừng cũng không có gì dở dang.
+  const ds = db.all('users', 'SELECT id, passwordHash FROM users');
+  let i = 0;
+  let soYeu = 0;
+  const soatTiep = () => {
+    if (i >= ds.length) {
+      if (!soYeu) return;
+      console.warn(
+        `\n⚠️  CẢNH BÁO BẢO MẬT: ${soYeu} tài khoản vẫn dùng mật khẩu mẫu "${demo}".\n` +
+        '   Trước khi cho phụ huynh dùng thật, hãy đăng nhập từng tài khoản và đổi\n' +
+        '   mật khẩu trong mục Cài đặt → Đổi mật khẩu.\n'
+      );
+      return;
+    }
+    const u = ds[i++];
+    if (dsMau.some(m => password.verify(m, u.passwordHash))) soYeu++;
+    setImmediate(soatTiep);
+  };
+  soatTiep();
 }
 
 // Cơ sở dữ liệu trống (lần chạy đầu) thì sinh dữ liệu mẫu để có cái xem ngay.
