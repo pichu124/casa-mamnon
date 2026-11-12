@@ -424,31 +424,6 @@ function directConvId(a, b) {
 // Phụ huynh: TẤT CẢ các cô phụ trách nhóm của con mình — nhóm mầm non có 2–3 cô
 // cùng phụ trách, chỉ hiện một cô thì gia đình không nhắn được cho cô đang trực
 // hôm đó. Giáo viên: phụ huynh của trẻ trong nhóm mình.
-// MỌI HỘI THOẠI RIÊNG CỦA TÔI TRONG MỘT CÂU, tra theo "người kia".
-//
-// `directConvId` ở trên đúng nhưng đắt: nó hỏi MỘT câu cho MỖI liên hệ, mà cô
-// mầm non có 30–40 liên hệ (mỗi bé 1–2 gia đình) — chỉ để trả lời đúng một câu
-// hỏi: "đã có phòng chat với người này chưa".
-//
-// Cùng đúng điều kiện với `directConvId`: hội thoại loại 'direct', có ĐÚNG hai
-// thành viên, và tôi là một trong hai. `ORDER BY c.id` để nếu lỡ có hai phòng
-// trùng nhau thì lần nào cũng chọn cùng một phòng — `LIMIT 1` của bản cũ không
-// kèm thứ tự nên chọn phòng nào là tuỳ cơ sở dữ liệu.
-function hoiThoaiRiengCua(userId) {
-  const ra = new Map();
-  for (const r of db.all('conversations',
-    `SELECT m2.userId AS nguoiKia, c.id AS maHT
-       FROM conversations c
-       JOIN conversation_members m1 ON m1.conversationId = c.id AND m1.userId = ?
-       JOIN conversation_members m2 ON m2.conversationId = c.id AND m2.userId <> ?
-      WHERE c.type = 'direct'
-        AND (SELECT COUNT(*) FROM conversation_members m WHERE m.conversationId = c.id) = 2
-      ORDER BY c.id`, [userId, userId])) {
-    if (!ra.has(r.nguoiKia)) ra.set(r.nguoiKia, r.maHT);
-  }
-  return ra;
-}
-
 // Cơ sở → các bé đã xếp nhóm ở cơ sở đó. '' là nhóm chưa gắn cơ sở nào.
 function coSoCuaCacBe(cacBe) {
   const ra = new Map();

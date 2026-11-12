@@ -9,7 +9,7 @@ const lsl = require('../lib/lich-su-lop');
 const nl = require('../lib/nhom-lop');
 const csv = require('../lib/csv');
 const password = require('../lib/password');
-const { requireRole, destroyUserSessions } = require('../lib/auth');
+const { requireRole } = require('../lib/auth');
 const modules = require('../lib/modules');
 // Lịch nghỉ của trường (Đ147) — màn tổng quan một ngày phải nói được "hôm nay
 // trường nghỉ", chứ không im lặng rồi để hiệu trưởng tưởng cả trường vắng.

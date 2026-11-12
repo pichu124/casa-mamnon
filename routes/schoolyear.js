@@ -82,16 +82,12 @@ function chiCap1(req, res, viec) {
   return true;
 }
 
-// Danh sách nhóm trong tầm của người này, null nghĩa là không hạn chế.
-function phamViNhomLop(user) {
-  const coSo = db.phamViCoSo(user);
-  return coSo === null ? null : db.classIdsOfCampus(coSo);
-}
-
-// Cùng thứ, nhưng KỂ CẢ NHÓM ĐÃ ĐÓNG. Chỉ dùng cho đường nhìn lại quá khứ.
+// Danh sách nhóm trong tầm của người này (null nghĩa là không hạn chế),
+// KỂ CẢ NHÓM ĐÃ ĐÓNG. Chỉ dùng cho đường nhìn lại quá khứ.
 //
 // Chuyển năm học đóng mọi nhóm của năm cũ, mà bé ra trường vẫn giữ `classId`
-// của nhóm cuối cùng. Dùng bản thường ở đường tra bé đã ra trường thì từ lần
+// của nhóm cuối cùng. Dùng bản chỉ tính nhóm đang mở (`db.classIdsOfCampus`)
+// ở đường tra bé đã ra trường thì từ lần
 // chuyển năm ĐẦU TIÊN trở đi, quản lý cơ sở mở màn ấy ra thấy trống trơn —
 // vĩnh viễn, không một dòng nào nói vì sao, trong khi ban giám hiệu vẫn thấy
 // đủ. Không mất dữ liệu, không rò sang cơ sở khác: mất ĐƯỜNG TRA CỨU, và mất

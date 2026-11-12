@@ -35,16 +35,7 @@ const LOAI_MAC_DINH = 'hoc-phi';
 const LOAI_DUOC_UU_DAI = ['hoc-phi'];
 
 module.exports = (app, { db, modules }) => {
-  // Loại của một khoản, và của cả một danh sách (đọc MỘT lượt).
-  function loaiCua(khoanId) {
-    try {
-      const r = db.first('hocphi_khoan_loai',
-        'SELECT loai FROM hocphi_khoan_loai WHERE khoanId = ?', [khoanId]);
-      return r && MA_LOAI_KHOAN.includes(r.loai) ? r.loai : LOAI_MAC_DINH;
-    } catch (_) {
-      return LOAI_MAC_DINH;
-    }
-  }
+  // Loại của cả một danh sách khoản (đọc MỘT lượt).
   function loaiTheoKhoan(ids) {
     const ra = new Map();
     const ds = (ids || []).filter(Boolean);
@@ -1653,13 +1644,6 @@ module.exports = (app, { db, modules }) => {
   // KHÔNG NÊU SỐ TIỀN TRONG TIN ĐẨY. Tin hiện trên màn hình khoá điện thoại,
   // nơi người đi qua cũng đọc được; số tiền một nhà đang nợ là chuyện riêng
   // của nhà ấy. Cùng lối đã ghi ở `quetHanUuDai` cho tên ưu đãi.
-  function daNhacKhoan(id) {
-    try {
-      return !!db.first('hocphi_khoan_nhac',
-        'SELECT khoanId FROM hocphi_khoan_nhac WHERE khoanId = ?', [id]);
-    } catch (_) { return true; }   // bảng hỏng thì THÔI nhắc, không nhắc loạn
-  }
-
   function quetHanNop() {
     if (!phanHeDangBat()) return;
     const homNay = ngay.homNay();

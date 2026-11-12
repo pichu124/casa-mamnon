@@ -164,7 +164,6 @@ function ghiCoMatTheoAnh(studentId, date, userId) {
   return rec;
 }
 
-function pad(n) { return String(n).padStart(2, '0'); }
 function currentMonth() {
   return ngay.thangNay();
 }
