@@ -1,11 +1,7 @@
 {
   "lib/db.js": {
     "CHUC_VU": "object",
-    "CHUC_VU_DAT_NEP": "object",
     "CHUC_VU_DUYET_BAO_CAO": "object",
-    "CHUC_VU_DUYET_BIEU_PHI": "object",
-    "CHUC_VU_SUA_HO_SO_BE": "object",
-    "CHUC_VU_TAO_KHOAN_THU": "object",
     "DATA_DIR": "string",
     "DB_FILE": "string",
     "SO_THANG_GIU_HO_SO": "number",
