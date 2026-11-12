@@ -99,7 +99,6 @@
     "createSession": "ham(1)",
     "destroySession": "ham(1)",
     "destroyUserSessions": "ham(2)",
-    "flushSessions": "ham(0)",
     "isSecureRequest": "ham(1)",
     "requireAuth": "ham(3)",
     "requireRole": "ham(0)",
