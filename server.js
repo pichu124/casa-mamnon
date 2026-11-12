@@ -304,9 +304,11 @@ function warnDefaultPasswords() {
   // MỖI NHỊP SOÁT MỘT TÀI KHOẢN, RỒI NHẢ MÁY CHO NGƯỜI ĐANG CHỜ (Đ251).
   //
   // Mỗi lần băm thử là khoảng 40 mili-giây và chặn cả tiến trình. Bản trước
-  // lọc cả danh sách trong một mạch, ngay sau khi mở cổng: trường ~640 tài
-  // khoản là chừng nửa phút máy chủ nhận kết nối mà không trả lời ai, sau MỖI
-  // lần cập nhật. Nay giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ
+  // lọc cả danh sách trong một mạch, ngay sau khi mở cổng: với một trường cỡ
+  // ba trăm bé (hơn sáu trăm người dùng) là chừng nửa phút máy chủ nhận kết
+  // nối mà không trả lời ai, sau MỖI lần cập nhật. (Con số viết bằng chữ có
+  // chủ ý: `test:may-chu` đòi mọi câu "<số> tài khoản" trong tệp này nói đúng
+  // số tài khoản mẫu.) Nay giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ
   // trước; lời cảnh báo in ra muộn hơn vài giây nhưng vẫn đếm đủ từng tài
   // khoản. `test/khoi-dong-khong-treo.test.mjs` canh cả hai điều ấy.
   //
