@@ -544,13 +544,6 @@ window.App = {
     document.getElementById('pb-enable').onclick = () => { this.promptInstall(); tat(); };
     document.getElementById('pb-close').onclick = tat;
   },
-
-  // Tên cũ, giữ lại cho khỏi phá khế ước tệp dùng chung.
-  //
-  // CLAUDE.md bắt đi ba bước khi bỏ một thứ dùng chung: thêm cái mới bên cạnh →
-  // chuyển từng chỗ gọi → khi không còn ai gọi mới xóa. Đây là bước 2; bước 3
-  // để lại cho một commit riêng sau, khi chắc chắn không còn chỗ nào gọi.
-  maybeShowPushBanner() { return this.moiCaiVaoManHinhChinh(); },
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init());

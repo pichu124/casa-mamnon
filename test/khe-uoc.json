@@ -224,7 +224,6 @@
     "loadScript": "ham(1)",
     "logout": "ham(0)",
     "loiKhongMoDuoc": "ham(1)",
-    "maybeShowPushBanner": "ham(0)",
     "moduleEnabled": "ham(1)",
     "moiCaiVaoManHinhChinh": "ham(0)",
     "navigate": "ham(1)",
