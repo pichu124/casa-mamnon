@@ -23,12 +23,19 @@ Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.
 
 > **Đọc bảng trên cho đúng.** "Đã xong phần mã" của một giai đoạn KHÔNG có nghĩa
 > là giai đoạn đó đã qua. Mỗi giai đoạn có một cổng DỪNG mà chỉ nhà trường mở
-> được — và cả ba cổng đều đang đóng. **Chín** phân hệ cắm thêm nay **mặc định BẬT**
-> (Đ146 bật chín phân hệ mầm non, chủ dự án chốt; Đ152 thêm phân hệ thứ mười là
-> Nhân sự & chấm công; **Đ227 tắt sẵn Đón trả bé** theo góp ý 06/10 mục 2 — dữ liệu
-> và đường API giữ nguyên): trước Đ146 cả chín tắt sẵn, nên suốt hai buổi trường bấm
-> thử không ai thấy Nhật ký, Kế hoạch hay Cambridge. Tắt / bật lại được bất cứ lúc
-> nào ở Quản trị → Tính năng.
+> được — và cả ba cổng đều đang đóng. **Mười** phân hệ cắm thêm đang có, cả mười
+> **mặc định BẬT** (Đ146 bật chín phân hệ mầm non, chủ dự án chốt; Đ152 thêm Nhân sự
+> & chấm công; Đ239c thêm Xuất báo cáo): trước Đ146 cả chín tắt sẵn, nên suốt hai
+> buổi trường bấm thử không ai thấy Nhật ký, Kế hoạch hay Cambridge. Tắt / bật lại
+> được bất cứ lúc nào ở Quản trị → Tính năng.
+>
+> **Đón trả bé không còn là một phân hệ.** Nó là một trong chín phân hệ ban đầu;
+> nhà trường ba lần bảo bỏ vì đã lồng vào Điểm danh (góp ý 07/09, 06/10, 16/10),
+> Đ227 tắt sẵn, và **Đ252 gỡ hẳn mã** (`modules/dontra/`, màn `#/dontra`, đường
+> `/api/dontra/*` và mọi cầu nối trong phần lõi). **Dữ liệu giữ nguyên**: bốn bảng
+> `dontra_*` và ảnh trong `uploads/` của máy đã chạy bản cũ không bị đụng tới, vẫn
+> đi theo sao lưu / khôi phục — `test/da-go-don-tra.test.mjs` canh điều đó. Giờ ra
+> về và ảnh ra về ghi ở sổ điểm danh lõi từ Đ210.
 
 ---
 

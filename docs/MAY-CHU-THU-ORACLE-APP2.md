@@ -379,10 +379,10 @@ Muốn chắc hơn thì chạy `npm test` trước khi restart (khoảng 12 phú
 gói dev); có bài đỏ thì **dừng, đừng restart** — bản đang chạy vẫn tốt.
 
 > **Máy thử dựng trước Đ239 (17/10/2026):** `ban-thu` bản cũ đã bật sẵn "Đón trả
-> bé", phân hệ nhà trường đã bỏ vì lồng vào Điểm danh. Cập nhật mã không tự tắt
-> nó: đăng nhập `hieutruong` → **Quản trị → Tính năng** → tắt **"Đón trả bé"**
-> (một chạm, dữ liệu giữ nguyên). Đừng chạy lại `ban-thu` chỉ để tắt nó: lệnh
-> đó đổi luôn mật khẩu của mọi tài khoản.
+> bé", phân hệ nhà trường đã bỏ vì lồng vào Điểm danh. **Từ Đ252 không còn phải
+> tắt tay**: mã của phân hệ đã gỡ hẳn, nên cập nhật mã xong là ô "Đón trả bé"
+> biến khỏi mọi màn, kể cả khi máy còn dòng "bật" cũ. Dữ liệu của nó (các bảng
+> `dontra_*`, ảnh trong `uploads/`) vẫn nằm nguyên trong máy và trong bản sao lưu.
 
 ### Quay lại app 1
 

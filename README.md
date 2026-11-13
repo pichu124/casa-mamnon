@@ -3,8 +3,8 @@
 Ứng dụng liên lạc **nhà trường ↔ gia đình** cho một trường mầm non **3 cơ sở**,
 trẻ **12 tháng – 6 tuổi** (nhận hầu hết từ 18 tháng, sớm hơn khi trường đồng ý).
 
-Mục tiêu số một: **thay hẳn sổ liên lạc giấy** — điểm danh, báo ăn, nhật ký
-ăn–ngủ–vệ sinh, đón trả, dặn thuốc, xin nghỉ, thông báo, album ảnh. Sau đó mới
+Mục tiêu số một: **thay hẳn sổ liên lạc giấy** — điểm danh vào/ra, báo ăn, nhật ký
+ăn–ngủ–vệ sinh, dặn thuốc, xin nghỉ, thông báo, album ảnh. Sau đó mới
 tới phần **hành trình học tập** theo triết lý CASA: cô ghi lại khoảnh khắc của
 trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, không xếp hạng trẻ.
 
