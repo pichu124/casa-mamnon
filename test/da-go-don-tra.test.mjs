@@ -205,16 +205,20 @@ console.log('\n[3] Điểm danh (lõi) chạy bình thường, và không còn d
   const cham = await req('POST', '/api/attendance/mark',
     { cookie: co, body: { studentId: 's1', date: NGAY, status: 'present' } });
   check('cô chấm được điểm danh', cham.status === 200, cham.data);
+  // GIỜ RA 23:5x CHỨ KHÔNG PHẢI MỘT GIỜ CHIỀU CỐ ĐỊNH (Đ253). Ngày không có
+  // dòng mẫu (thứ Bảy, Chủ nhật) thì giờ vào của bé là lúc bài này chạy, và
+  // máy chủ nay từ chối giờ ra sớm hơn giờ vào — "16:45" làm bài này đỏ mỗi
+  // lần chạy cuối tuần sau 16h45.
   const ve = await req('POST', '/api/attendance/ra-ve',
-    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '16:45', anh: ANH_URL } });
+    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '23:59', anh: ANH_URL } });
   const fileLoi = (ve.data && ve.data.anh && ve.data.anh.file) || '';
   check('"Ghi con đã về" kèm ảnh ra về (việc của LÕI) vẫn ghi được',
-    ve.status === 200 && ve.data.gio === '16:45' && !!fileLoi, ve.data);
+    ve.status === 200 && ve.data.gio === '23:59' && !!fileLoi, ve.data);
 
   const lop2 = await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: co });
   const dongS1 = (lop2.data.students || []).find(x => x.student.id === 's1') || {};
   check('dòng của bé mang giờ ra về và ảnh ra về do lõi ghi',
-    dongS1.record && dongS1.record.checkOut === '16:45' && dongS1.anhVeNha && dongS1.anhVeNha.file === fileLoi,
+    dongS1.record && dongS1.record.checkOut === '23:59' && dongS1.anhVeNha && dongS1.anhVeNha.file === fileLoi,
     { checkOut: dongS1.record && dongS1.record.checkOut, anhVeNha: dongS1.anhVeNha });
   const dongS3 = (lop2.data.students || []).find(x => x.student.id === 's3');
   check('sổ của cô KHÔNG còn dọn ảnh của phân hệ đã gỡ ra dòng bé, dù máy cũ còn dòng "bật"',
@@ -247,7 +251,7 @@ console.log('\n[4] Trang chủ: số "Đã về" đếm từ sổ điểm danh l
   check('số "Đã về" (daVe) đúng bằng số bé có giờ ra về trong sổ điểm danh',
     daVeThat >= 1 && hn.data.dem.daVe === daVeThat, { daVe: hn.data.dem.daVe, daVeThat });
   const beS1 = hn.data.be.find(b => b.id === 's1') || {};
-  check('dòng của bé mang giờ ra về', beS1.gioRa === '16:45', beS1.gioRa);
+  check('dòng của bé mang giờ ra về', beS1.gioRa === '23:59', beS1.gioRa);
   check('số đếm KHÔNG còn vế `daTra` của phân hệ đã gỡ', !('daTra' in hn.data.dem), hn.data.dem);
   check('từng bé KHÔNG còn trường `daTra`', hn.data.be.every(b => !('daTra' in b)), beS1);
   check('danh sách phân hệ của trang chủ KHÔNG còn khoá `dontra`', !('dontra' in hn.data.phanHe), hn.data.phanHe);

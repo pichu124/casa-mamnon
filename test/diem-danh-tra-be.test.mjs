@@ -451,8 +451,12 @@ console.log('\n[9] Gia đình thấy ảnh con lúc ra về ngay ở Điểm dan
   const ckCo = await dnApi('giaovien', '123456');
   const toi = await goiApi('/api/attendance/anh', { studentId: maBeAn, date: hn, anh: ANH_URL }, ckCo);
   check('(đối chứng) cô gắn được ảnh tới lớp cho bé An', toi.status === 201 && !!toi.data.file, toi.data);
+  // GIỜ RA 23:5x CHỨ KHÔNG PHẢI MỘT GIỜ CHIỀU CỐ ĐỊNH (Đ253). Ngày không có
+  // dòng mẫu (thứ Bảy, Chủ nhật) thì giờ vào của bé là lúc bài này chạy, và
+  // máy chủ nay từ chối giờ ra sớm hơn giờ vào — "16:40" làm bài này đỏ mỗi
+  // lần chạy cuối tuần sau 16h40.
   const ve = await goiApi('/api/attendance/ra-ve',
-    { studentId: maBeAn, date: hn, gio: '16:40', anh: ANH_URL }, ckCo);
+    { studentId: maBeAn, date: hn, gio: '23:59', anh: ANH_URL }, ckCo);
   const fileVe = (ve.data && ve.data.anh && ve.data.anh.file) || '';
   check('cô ghi được giờ ra về kèm ảnh cho bé An', ve.status === 200 && !!fileVe, ve.data);
   const SRC_VE = `/api/attendance/anh/${fileVe}`;
@@ -475,7 +479,7 @@ console.log('\n[9] Gia đình thấy ảnh con lúc ra về ngay ở Điểm dan
   const hop = await page.locator('.modal').innerText();
   check('hộp ngày có chú thích "Ảnh con tới lớp" và "Ảnh con lúc ra về"',
     /Ảnh con tới lớp/.test(hop) && /Ảnh con lúc ra về/.test(hop), hop.slice(0, 300));
-  check('kèm giờ ra về cô đã ghi', /Giờ ra về\s*16:40/.test(hop), hop.slice(0, 300));
+  check('kèm giờ ra về cô đã ghi', /Giờ ra về\s*23:59/.test(hop), hop.slice(0, 300));
   const anhVeHop = page.locator(`.modal img[src="${SRC_VE}"]`);
   check('hộp có thẻ ảnh ra về trỏ /api/attendance/anh/<tệp>', await anhVeHop.count() === 1);
   await page.waitForTimeout(300);

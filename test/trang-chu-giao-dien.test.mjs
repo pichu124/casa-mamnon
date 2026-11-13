@@ -52,7 +52,10 @@ await goiApi('/api/notifications', { title: 'Nghỉ lễ Quốc khánh', body: '
 // Một bé của nhóm Chồi 2 đã vào lớp và đã về — để soi số "Đã về" đếm từ sổ
 // điểm danh lõi (Đ227).
 const chamS1 = await goiApi('/api/attendance/mark', { studentId: 's1', date: HOM_NAY(), status: 'present' }, ckGv);
-const veS1 = await goiApi('/api/attendance/ra-ve', { studentId: 's1', date: HOM_NAY(), gio: '16:45' }, ckGv);
+// Giờ ra 23:59 chứ không phải một giờ chiều cố định (Đ253): ngày không có dòng
+// mẫu thì giờ vào là lúc bài này chạy, và máy chủ nay từ chối giờ ra sớm hơn
+// giờ vào — "16:45" làm bài này đỏ mỗi lần chạy cuối tuần sau 16h45.
+const veS1 = await goiApi('/api/attendance/ra-ve', { studentId: 's1', date: HOM_NAY(), gio: '23:59' }, ckGv);
 const soDaVe = ((await goiApi('/api/dashboard/hom-nay?classId=c1', null, ckGv)).data || { dem: {} }).dem.daVe;
 
 const SHOT = path.join(thuMucTam('trang-chu-anh-chup'), '/');

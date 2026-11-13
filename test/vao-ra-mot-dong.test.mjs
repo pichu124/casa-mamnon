@@ -66,10 +66,14 @@ console.log('\n[1] Đường GHI giờ ra về — thứ trước đợt này ho
   check('đối chứng — cột checkOut đang RỖNG, đúng như trước đợt này',
     r.data.checkOut === null || r.data.checkOut === undefined, r.data.checkOut);
 
+  // GIỜ RA 23:5x CHỨ KHÔNG PHẢI MỘT GIỜ CHIỀU CỐ ĐỊNH (Đ253). Ngày không có
+  // dòng mẫu (thứ Bảy, Chủ nhật) thì giờ vào của bé là lúc bài này chạy, và
+  // máy chủ nay từ chối giờ ra sớm hơn giờ vào — "16:45" làm bài này đỏ mỗi
+  // lần chạy cuối tuần sau 16h45.
   r = await req('POST', '/api/attendance/ra-ve',
-    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '16:45' } });
-  check('GHI ĐƯỢC GIỜ RA VỀ', r.status === 200 && r.data.gio === '16:45', `${r.status} ${r.data?.error || ''}`);
-  check('…và dòng điểm danh nay MANG giờ ấy', r.data.record && r.data.record.checkOut === '16:45',
+    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '23:58' } });
+  check('GHI ĐƯỢC GIỜ RA VỀ', r.status === 200 && r.data.gio === '23:58', `${r.status} ${r.data?.error || ''}`);
+  check('…và dòng điểm danh nay MANG giờ ấy', r.data.record && r.data.record.checkOut === '23:58',
     r.data?.record?.checkOut);
 
   // KHÔNG ĐỔI TRẠNG THÁI ĐIỂM DANH. Bấm nhầm nút ra về cho bé nghỉ thì dòng
@@ -110,7 +114,7 @@ console.log('\n[2] Ảnh lúc trả bé do LÕI ghi, và gia đình xem được
 let fileMoi = null;
 {
   let r = await req('POST', '/api/attendance/ra-ve',
-    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '16:50', anh: ANH } });
+    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '23:59', anh: ANH } });
   check('ghi được giờ ra kèm ảnh', r.status === 200 && r.data.anh && r.data.anh.file,
     `${r.status} ${r.data?.error || ''}`);
   fileMoi = r.data.anh && r.data.anh.file;

@@ -133,6 +133,37 @@ function luuYRaNgoai(x) {
 // lớp", không phải ảnh để phóng to xem.
 const TOI_DA_ANH_BYTE = 900 * 1024;
 
+// TRONG MỘT NGÀY, GIỜ RA VỀ KHÔNG ĐƯỢC SỚM HƠN GIỜ VÀO LỚP (Đ253).
+//
+// Sổ từng nhận giờ ra 16:45 cho bé vào lúc 16:57 — tức ghi bé "về trước khi
+// tới", và gia đình đọc được dòng ấy. Luật nằm ở MỌI đường ghi một trong hai
+// giờ: đường ghi giờ ra thì từ chối; ba đường máy chủ tự đóng giờ vào (chấm
+// từng bé, chấm cả nhóm, chụp ảnh tới lớp) thì không đóng một giờ vào muộn
+// hơn giờ ra đã có.
+//
+// SO THEO SỐ PHÚT, KHÔNG SO THEO CHỮ. Giờ do máy chủ đóng luôn đủ "HH:MM",
+// nhưng sổ nhập từ tệp có thể mang "9:30" hay "16:57:40" — so chữ thì
+// "10:00" < "9:30". Giờ nào không đọc ra được thì coi như chưa có: thà không
+// chặn còn hơn chặn oan cô đang đứng ở cửa lớp.
+function phutTrongNgay(gio) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(gio || ''));
+  if (!m) return null;
+  const h = Number(m[1]);
+  const p = Number(m[2]);
+  return h < 24 && p < 60 ? h * 60 + p : null;
+}
+function raSomHonVao(gioVao, gioRa) {
+  const vao = phutTrongNgay(gioVao);
+  const ra = phutTrongNgay(gioRa);
+  return vao !== null && ra !== null && ra < vao;
+}
+// Giờ vào máy chủ tự đóng cho một dòng = "bây giờ", trừ khi dòng ấy đã có
+// giờ ra sớm hơn — khi đó giữ nguyên giờ vào đang có (thường là trống).
+function dongGioVao(rec) {
+  const bayGio = nowTime();
+  if (!raSomHonVao(bayGio, rec.checkOut)) rec.checkIn = bayGio;
+}
+
 // ẢNH ĐẾN LỚP LÀ ĐIỂM DANH (Đ131).
 //
 // Nhà trường chốt 07/09: "Đã chụp ảnh đến lớp thì auto là có mặt, không cần
@@ -158,7 +189,7 @@ function ghiCoMatTheoAnh(studentId, date, userId) {
   // mà ô ghi chú này gia đình đọc được. Ghi chú do cô gõ thì giữ nguyên.
   if (cu && cu.markedBy === 'tu-dong:don-nghi') rec.note = '';
   rec.status = 'present';
-  rec.checkIn = nowTime();
+  dongGioVao(rec);
   rec.markedBy = userId;
   db.upsert('attendance', rec, ['studentId', 'date']);
   return rec;
@@ -485,7 +516,7 @@ module.exports = (app) => {
     };
     rec.status = status;
     if (typeof note === 'string') rec.note = note;
-    if (status === 'present' && !rec.checkIn) rec.checkIn = nowTime();
+    if (status === 'present' && !rec.checkIn) dongGioVao(rec);
     if (status === 'absent_excused' || status === 'absent_unexcused') {
       rec.checkIn = null;
       rec.checkOut = null;
@@ -555,7 +586,7 @@ module.exports = (app) => {
         };
         rec.status = trangThai;
         // Giữ đúng quy tắc giờ vào/ra của đường ghi từng em.
-        if (trangThai === 'present' && !rec.checkIn) rec.checkIn = nowTime();
+        if (trangThai === 'present' && !rec.checkIn) dongGioVao(rec);
         if (trangThai === 'absent_excused' || trangThai === 'absent_unexcused') {
           rec.checkIn = null;
           rec.checkOut = null;
@@ -841,6 +872,17 @@ module.exports = (app) => {
       });
     }
 
+    // Soát giờ TRƯỚC khi lưu ảnh: bị từ chối thì không được bỏ lại tệp ảnh
+    // nào, và gia đình không nhận tin "Cô đã trao con lúc…" với một giờ sai.
+    const gio = /^\d{2}:\d{2}$/.test(String(b.gio || '')) ? String(b.gio) : nowTime().slice(0, 5);
+    if (raSomHonVao(cu.checkIn, gio)) {
+      const vao = phutTrongNgay(cu.checkIn);
+      const gioVao = `${String(Math.floor(vao / 60)).padStart(2, '0')}:${String(vao % 60).padStart(2, '0')}`;
+      return res.status(400).json({
+        error: `Giờ ra về (${gio}) sớm hơn giờ con tới lớp (${gioVao}). Cô xem lại giúp nhé.`,
+      });
+    }
+
     let anhMoi = null;
     if (b.anh) {
       if (typeof b.anh !== 'string') return res.status(400).json({ error: 'Ảnh chưa gửi lên được' });
@@ -852,7 +894,6 @@ module.exports = (app) => {
       catch (err) { return res.status(400).json({ error: err.message || 'Ảnh chưa gửi lên được' }); }
     }
 
-    const gio = /^\d{2}:\d{2}$/.test(String(b.gio || '')) ? String(b.gio) : nowTime().slice(0, 5);
     db.update('attendance', cu.id, { checkOut: gio });
     if (anhMoi) {
       const anhCu = db.first('attendance_anh_ve',
