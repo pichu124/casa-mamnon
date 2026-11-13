@@ -293,7 +293,6 @@ console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh 
   // dưới. Nên lần này con số được canh bằng máy, không bằng lời hứa.
   const NOI = [
     'server.js',
-    'render.yaml',
     'scripts/kiem-tra-may-chu.js',
     'docs/PHEP-THU-DIEN-THOAI.md',
     'docs/TRIEN-KHAI.md',
@@ -302,10 +301,11 @@ console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh 
   // CÂU BỊ NGẮT DÒNG VẪN PHẢI BỊ SOI.
   //
   // Bản đầu dò thẳng trên nội dung thô, nên câu "…kèm 9 tài\n# khoản dùng
-  // chung…" trong `render.yaml` KHÔNG khớp mẫu: giữa "tài" và "khoản" có một
-  // dấu `#` mở đầu dòng chú thích. Con số 9 nằm đó suốt từ lúc dữ liệu mẫu lên
-  // 13 tài khoản, và bài canh này vẫn xanh — vì cùng tệp còn một câu KHÁC nói
-  // đúng 13, và chỉ cần một câu khớp là vòng lặp coi như đã soi tới tệp.
+  // chung…" trong `render.yaml` (tệp đã gỡ khỏi kho ở Đ252) KHÔNG khớp mẫu:
+  // giữa "tài" và "khoản" có một dấu `#` mở đầu dòng chú thích. Con số 9 nằm
+  // đó suốt từ lúc dữ liệu mẫu lên 13 tài khoản, và bài canh này vẫn xanh — vì
+  // cùng tệp còn một câu KHÁC nói đúng 13, và chỉ cần một câu khớp là vòng lặp
+  // coi như đã soi tới tệp.
   //
   // Gộp dòng lại trước khi dò: bỏ tiền tố chú thích (`#`, `//`, `*`) ở đầu
   // dòng rồi thay mọi khoảng trắng liên tiếp bằng một dấu cách.
@@ -390,7 +390,10 @@ console.log('\n[12] TÀI LIỆU KHÔNG ĐƯỢC CHỈ NGƯỜI VẬN HÀNH VÀO 
       const d = m[1];
       if (d === CHUAN) continue;
       if (d.startsWith('/tmp/')) continue;                 // ví dụ chạy thử
-      if (d === '/data') continue;                          // ổ đĩa của Render
+      // `/data` là ổ đĩa của bản Docker/Render đã gỡ ở Đ252. Chỉ còn nhật ký
+      // (dòng Đ234 của TIEN-DO, không sửa lại lịch sử) được nhắc tới nó; tài
+      // liệu nào khác chỉ vào `/data` thì nay bị bắt.
+      if (d === '/data' && f === 'TIEN-DO.md') continue;
       if (coCo) continue;                                   // tệp trong danh sách miễn trừ
       xau.push(`${f}: DATA_DIR=${d}`);
     }
@@ -414,12 +417,19 @@ console.log('\n[12] TÀI LIỆU KHÔNG ĐƯỢC CHỈ NGƯỜI VẬN HÀNH VÀO 
   check('tài liệu triển khai CÓ nêu thư mục dữ liệu chuẩn',
     trienKhai.includes(CHUAN), CHUAN);
 
-  // Và hai kịch bản phải cùng có mặt: viết sẵn cả hai là chủ ý, không phải sót.
-  check('tài liệu triển khai có kịch bản VPS', /\[A\]\s*VPS/.test(trienKhai));
-  check('và kịch bản Render', /\[B\]\s*Render/.test(trienKhai));
-  check('kèm lời dặn xoá nửa không dùng sau khi chốt',
-    /XOÁ HẲN nửa không dùng/.test(trienKhai));
-  check('và nói rõ bước nào CHƯA ai chạy thử', /chưa ai chạy thử|Chưa ai đi hết đường này/i.test(trienKhai));
+  // MỘT ĐƯỜNG DUY NHẤT (Đ252). Trước 12/11/2026 tệp này viết sẵn hai kịch bản
+  // — [A] VPS và [B] Render — kèm lời dặn xoá nửa không dùng sau khi chốt, và
+  // bài này đòi cả hai cùng có mặt. Chủ dự án đã chốt VPS trong nước, nên nay
+  // canh NGƯỢC LẠI: nửa kia quay về là có hai quy trình trong một tệp, đúng
+  // chỗ người vận hành làm lẫn bước của kịch bản kia.
+  check('tài liệu triển khai có kịch bản VPS',
+    /^## Triển khai trên VPS đặt tại Việt Nam$/m.test(trienKhai));
+  const conNuaKia = trienKhai.split('\n').filter(d => /render|docker|\[B\]/i.test(d));
+  check('và KHÔNG còn kịch bản Render hay hướng dẫn Docker nào', conNuaKia.length === 0, conNuaKia);
+  check('ghi rõ ngày chủ dự án chốt VPS', /chốt ngày 12\/11\/2026/.test(trienKhai));
+  for (const t of ['render.yaml', 'Dockerfile', '.dockerignore']) {
+    check(`${t} đã gỡ khỏi kho`, !fs.existsSync(path.join(GOC, t)));
+  }
 }
 
 // ---------------------------------------------------------------------------

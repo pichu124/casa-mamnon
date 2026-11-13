@@ -132,9 +132,9 @@ console.log('\n[5] Đổi mật khẩu');
 
 console.log('\n[7] Health check — mở cho bộ theo dõi, KÍN với người lạ');
 {
-  // Đường này bắt buộc phải mở cho người chưa đăng nhập: `render.yaml` dùng nó
-  // làm `healthCheckPath`, `Dockerfile` dùng làm HEALTHCHECK. Nhưng bộ theo dõi
-  // chỉ đọc MÃ TRẢ VỀ, không đọc phần thân.
+  // Đường này bắt buộc phải mở cho người chưa đăng nhập: bộ theo dõi bên ngoài
+  // và phép kiểm `curl …/healthz` trong tài liệu cài VPS gọi nó khi chưa có
+  // phiên nào. Nhưng bộ theo dõi chỉ đọc MÃ TRẢ VỀ, không đọc phần thân.
   //
   // Bản trước trả luôn `uptime` và `sessions` cho bất kỳ ai hỏi — và bài này
   // khẳng định điều đó là ĐÚNG. Khi app ra Internet, mỗi lượt quét cổng đọc
@@ -166,7 +166,7 @@ console.log('\n[8] Phiên và dữ liệu sống sót qua khởi động lại m
   });
   check('tạo được bản ghi mới', made.status === 200 || made.status === 201, made.status);
 
-  // Tắt êm bằng SIGTERM — đúng tín hiệu Render/Railway gửi khi deploy lại.
+  // Tắt êm bằng SIGTERM — đúng tín hiệu systemd gửi khi `systemctl restart`.
   server.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 1500));
   server = await startServer();

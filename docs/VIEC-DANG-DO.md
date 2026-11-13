@@ -188,7 +188,7 @@ có đường nào đang lọt dữ liệu.
 - **Node 24:** chủ dự án hỏi có nên nâng app lên Node 24 không (máy có app khác dùng
   Node 24). Hiện dùng nvm-windows để giữ cả hai. Đề xuất đã nêu: bước 1 cho phép `22.x`
   hoặc `24.x` (`package.json` `engines`, `.nvmrc`, `.npmrc engine-strict`) và chạy CI cả
-  hai bản; Dockerfile và tài liệu đổi sau. **Chưa quyết, không gấp.**
+  hai bản; tài liệu đổi sau (Dockerfile đã gỡ ở Đ252). **Chưa quyết, không gấp.**
 - **Việc phía nhà trường / chủ dự án:** tạo tài khoản `quanly1` trên máy thử theo
   `docs/HUONG-DAN-KIEM-THU.md`; cập nhật máy thử lên bản có Đ235/Đ236 nếu chưa làm.
 

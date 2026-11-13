@@ -11,7 +11,7 @@
 > | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
 > | **Đã sửa cho app 2** | Mọi ĐƯỜNG DẪN và tên dịch vụ trong tệp này — `/var/lib/casa-mamnon`, `/opt/casa-mamnon`, `systemctl … casa-mamnon`. Xem lý do ngay dưới |
 > | **KHÔNG** còn đúng | Máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
-> | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
+> | **Đã chốt (12/11/2026)** | App 2 triển khai trên **VPS đặt tại Việt Nam, tên miền đứng tên trường**. Còn chờ nhà trường thuê máy và đăng ký tên miền (N7) |
 > | **Với app 2 thì làm theo đâu** | `docs/TRIEN-KHAI.md` — viết riêng cho CASA Mầm non. Thư mục dữ liệu của app 2 là **`/var/lib/casa-mamnon`**, không phải `/var/lib/schoolconnect` |
 >
 > **Vì sao đường dẫn được sửa trước, dù cả tệp còn chờ N1.** Một đường dẫn sai

@@ -8,7 +8,8 @@ chạy thật) — chúng vẫn đúng cho app 1 và không được sửa theo 
 
 ## Đọc phần này trước, đừng bỏ qua
 
-**Chưa chọn xong máy chủ thì chưa triển khai được, và điều đó là cố ý.**
+**Chủ dự án chốt ngày 12/11/2026: app này triển khai trên VPS đặt tại Việt
+Nam.** Tệp này chỉ còn một đường đi, không còn kịch bản nào khác để chọn.
 
 Dữ liệu ở app này là thông tin trẻ **12 tháng – 6 tuổi**, kèm **ảnh khuôn mặt**
 và **hồ sơ sức khoẻ** — nhóm dữ liệu nhạy cảm theo Nghị định 13/2023/NĐ-CP và
@@ -20,10 +21,6 @@ Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15. Hai hệ quả:
    làm chỉ để chạy một sổ liên lạc.
 2. **Tên miền và tài khoản máy chủ phải đứng tên trường**, không phải tên cá
    nhân của ai. Người làm phần mềm nghỉ việc thì trường vẫn phải vào được.
-
-`render.yaml` trong kho này **chỉ để chạy thử với dữ liệu giả** — Render không
-có vùng máy nào ở Việt Nam. Chính tệp đó mở đầu bằng lời cảnh báo, và có bài
-test canh để lời cảnh báo không bị gỡ đi.
 
 > **Mục N7 của `docs/TIEN-DO.md` đang chờ nhà trường:** đăng ký VPS trong nước
 > và một tên miền. Khoảng 3–6 triệu đồng một năm cho cả hai app. Chưa có hai
@@ -58,9 +55,6 @@ sudo mkdir -p /var/lib/casa-mamnon
 sudo chown "$USER" /var/lib/casa-mamnon
 DATA_DIR=/var/lib/casa-mamnon npm start
 ```
-
-Chạy bằng **Docker thì không phải làm gì** — `Dockerfile` đã đặt sẵn
-`DATA_DIR=/data`; việc còn lại là gắn một ổ đĩa vào `/data`.
 
 ### "Múi giờ sửa thế nào?"
 
@@ -228,7 +222,7 @@ npm install --omit=dev
 npm test
 
 # 5. Khởi động lại dịch vụ
-#    (lệnh cụ thể tuỳ cách cài — systemd, pm2, docker)
+sudo systemctl restart casa-mamnon
 
 # 6. Soát lại
 DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu
@@ -240,41 +234,9 @@ phép thử cho lược đồ dữ liệu: một câu `ALTER TABLE` viết sai t
 
 ---
 
-## Docker
-
-`Dockerfile` trong kho dựng trên `node:22-bookworm-slim`.
-
-**Đừng đổi sang alpine.** Alpine dùng thư viện C là musl, còn `better-sqlite3`
-chỉ phát hành bản dựng sẵn cho glibc — trên alpine nó phải tự biên dịch lại từ
-mã C++, mà ảnh alpine của Node không có sẵn `python3`, `make`, `g++`. Lệnh build
-gãy ngay bước cài, và gãy ở chỗ khó đọc. Có bài test canh chỗ này.
-
-Vẫn phải tạo tài khoản quản trị trước, trên chính ổ đĩa sẽ gắn vào:
-
-```bash
-docker run --rm -v casa-data:/data <tên-ảnh> \
-  npm run create-admin "Nguyễn Văn Hiệu" hieutruong
-```
-
----
-
-## HAI KỊCH BẢN — viết sẵn cả hai, chốt xong thì xoá nửa không dùng
-
-Bản trước của tệp này để trống toàn bộ phần triển khai với lý do *"chờ nhà
-trường chốt N7, viết trước là đoán"*. Đúng một nửa: **tên miền và địa chỉ máy
-chủ** thì đúng là phải chờ. Nhưng **quy trình** thì không — chỉ có đúng hai
-kịch bản, cả hai đều biết trước được, và chờ tới lúc chốt mới viết là để nhà
-trường phải chờ thêm một buổi nữa ở đúng lúc họ muốn đi nhanh nhất.
-
-Nên cả hai được viết sẵn ở đây. **Chốt xong thì XOÁ HẲN nửa không dùng** — hai
-quy trình cùng nằm trong một tệp là chỗ người vận hành làm lẫn bước của kịch bản
-kia, và đó là kiểu lẫn không ai phát hiện cho tới lúc chữa cháy.
+## Triển khai trên VPS đặt tại Việt Nam
 
 Chỗ nào cần nhà trường điền, ghi rõ `<…>`.
-
----
-
-### [A] VPS đặt tại Việt Nam — hướng dùng được với trẻ thật
 
 > **Chưa thuê máy?** `docs/XIN-BAO-GIA-VPS.md` có sẵn bản yêu cầu chép thẳng gửi
 > nhà cung cấp, kèm mười câu phải hỏi rõ trong báo giá và bảng so sánh ba nơi.
@@ -385,37 +347,8 @@ grep "CẦN SỬA" /var/lib/casa-mamnon/soat-may-chu.log | tail -20
 có HTTPS thì app không cài được lên màn hình chính và không mở được lúc mất
 mạng — xem mục 1 của `docs/PHEP-THU-DIEN-THOAI.md`.
 
----
-
-### [B] Render — chỉ để chạy thử, KHÔNG dùng với dữ liệu trẻ thật
-
-`render.yaml` đã ghi rõ ở đầu tệp: máy Render đặt ngoài Việt Nam.
-
-**Lần triển khai đầu tiên là một vòng kẹt, và nó có thật.** Ổ đĩa mới là ổ
-trống; với `NODE_ENV=production`, máy chủ DỪNG có chủ ý khi cơ sở dữ liệu trống
-thay vì tự sinh dữ liệu mẫu — vì dữ liệu mẫu kèm 15 tài khoản dùng chung mật
-khẩu "123456". Đó là hành vi ĐÚNG. Nhưng Shell của Render chỉ mở được khi dịch
-vụ đang chạy, nên: dịch vụ không chạy vì chưa có tài khoản quản trị → không mở
-được Shell để tạo tài khoản quản trị.
-
-**ĐỪNG đi đường tắt "tạm bỏ `NODE_ENV=production` cho nó lên đã".** Làm vậy là
-dựng 15 tài khoản mật khẩu "123456" trên một địa chỉ công khai, kèm hồ sơ trẻ.
-
-Đường ra, làm theo đúng thứ tự:
-
-1. Tạo dịch vụ và ổ đĩa theo `render.yaml`, **nhưng chưa bấm deploy**.
-2. Dùng **Render Job** gắn cùng ổ đĩa đó, chạy đúng một lần:
-   `DATA_DIR=/data npm run create-admin -- "<họ tên>" <tên đăng nhập>`
-   Chép lại mật khẩu tạm từ log của Job.
-3. Giờ mới deploy dịch vụ web. Cơ sở dữ liệu đã có tài khoản quản trị nên máy
-   chủ khởi động bình thường.
-4. `npm run kiem-tra-may-chu` qua Shell để soát lại.
-
-> **Chưa ai đi hết đường này một lần nào.** Bước 2 là điểm chưa thử. Thử trước
-> khi hẹn với nhà trường, đừng thử lần đầu vào hôm có người ngồi chờ.
-
-Muốn xem app chạy mà không cần vòng kẹt trên: dùng `npm run ban-thu` trên máy
-của mình (xem `docs/PHEP-THU-DIEN-THOAI.md`).
+Muốn xem app chạy khi chưa có máy chủ: dùng `npm run ban-thu` trên máy của mình
+(xem `docs/PHEP-THU-DIEN-THOAI.md`).
 
 ---
 
@@ -426,5 +359,4 @@ Ghi ra đây thay vì để người đọc tự phát hiện:
 | Phần | Vì sao chưa viết |
 |---|---|
 | Tên miền, địa chỉ IP, chứng chỉ HTTPS cụ thể | Chờ N7 — nhà trường chưa đăng ký. Đây là chỗ **thật sự** phải chờ, khác với quy trình ở trên |
-| Bước 2 của kịch bản [B] (Render Job) | Viết ra rồi nhưng **chưa ai chạy thử lần nào** |
 | Hồ sơ đánh giá tác động theo Điều 24 NĐ 13/2023 | Cần phần mô tả kỹ thuật viết cùng nhà trường, chưa làm |

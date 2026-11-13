@@ -224,6 +224,10 @@ trong khi cửa vẫn mở**. Đây là kiểu hỏng tệ nhất của một b�
 
 ## 13. `render.yaml` bị dán nhãn "chỉ để chạy thử"
 
+> **Đ252 (12/11/2026): mục này chỉ còn là lịch sử.** Chủ dự án chốt triển khai
+> trên VPS trong nước; `render.yaml`, `Dockerfile` và bài test canh nhãn đã gỡ
+> khỏi kho.
+
 **Chọn:** giữ tệp lại nhưng mở đầu bằng một khối cảnh báo: Render không có máy
 ở Việt Nam, nên tệp này **không được dùng cho dữ liệu trẻ thật**. Đồng thời sửa
 tên dịch vụ và ổ đĩa về `casa-mamnon`, và nâng ổ từ 1 GB lên 20 GB. Có bài test

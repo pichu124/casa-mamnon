@@ -275,7 +275,7 @@ Giữ cả hai đường. Xem `docs/QUYET-DINH-TU-CHOT.md` mục 21.
 | Tệp | Dùng khi |
 |---|---|
 | `docs/CAI-DAT-VPS.docx` | Cài lên máy chủ — 10 bước, mỗi bước một bảng kiểm. Sinh lại bằng `npm run tai-lieu:cai-dat-vps` |
-| `docs/TRIEN-KHAI.md` | Bản Markdown của cùng nội dung, có thêm kịch bản Render |
+| `docs/TRIEN-KHAI.md` | Bản Markdown của cùng nội dung |
 | `docs/TIEN-DO.md` | Vì sao một thứ lại như bây giờ — dòng cuối là đợt mới nhất |
 | `docs/LOI-NEN-CHUNG.md` | Nợ nền chung với app 1, và cách kiểm cho đúng |
 

@@ -11,7 +11,7 @@
 > | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
 > | **Đã sửa cho app 2** | Mọi ĐƯỜNG DẪN trong tệp này — `/var/lib/casa-mamnon`, `/var/lib/casa-mamnon/backup.log`. Xem lý do ngay dưới |
 > | **KHÔNG** còn đúng | Máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
-> | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
+> | **Đã chốt (12/11/2026)** | App 2 triển khai trên **VPS đặt tại Việt Nam, tên miền đứng tên trường**. Còn chờ nhà trường thuê máy và đăng ký tên miền (N7) |
 >
 > **Vì sao đường dẫn được sửa trước, dù cả tệp còn chờ N1.** Một đường dẫn sai
 > không làm người vận hành gặp lỗi — nó làm script mở một cơ sở dữ liệu TRỐNG
@@ -120,7 +120,7 @@ Sao lưu thủ công sẽ bị quên. Hãy đặt lịch chạy tự động lú
 > Đưa nhóm dữ liệu đó lên một dịch vụ lưu trữ nước ngoài — Cloudflare R2,
 > Amazon S3, Backblaze, Google Drive, Dropbox, OneDrive — là **chuyển dữ liệu
 > xuyên biên giới**, kéo theo thủ tục mà trường chưa làm và cũng không nên
-> phải làm. Chính vì lý do này mà `render.yaml` bị đánh dấu "chỉ để chạy thử",
+> phải làm. Chính vì lý do này mà app chỉ triển khai trên VPS đặt trong nước,
 > và bản sao thì còn nhạy cảm hơn máy chủ đang chạy: nó là một tệp duy nhất,
 > chép đi được, và không có màn đăng nhập nào canh.
 >
