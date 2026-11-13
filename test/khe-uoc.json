@@ -90,6 +90,7 @@
     "withParents": "ham(1)"
   },
   "lib/auth.js": {
+    "SESSION_TTL": "number",
     "attachUser": "ham(3)",
     "clearCookie": "ham(1)",
     "createSession": "ham(1)",
