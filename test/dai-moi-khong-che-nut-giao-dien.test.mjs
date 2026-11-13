@@ -100,7 +100,7 @@ const NUT_CA_NHOM = 'button[onclick="App.views.attendance.markAll()"]';
 
 // ===========================================================================
 console.log('\n[1][2] NÚT ĐĂNG XUẤT Ở MÀN CÀI ĐẶT — dải mời cài đang hiện');
-for (const [rong, cao] of [[320, 568], [360, 640], [390, 844], [420, 900], [1280, 800]]) {
+for (const [rong, cao] of [[320, 568], [360, 640], [375, 667], [390, 844], [420, 900], [1280, 800]]) {
   const khung = `${rong}x${cao}`;
   const { ctx, page } = await moMay(rong, cao);
   await dangNhap(page, 'phuhuynh');
@@ -123,6 +123,32 @@ for (const [rong, cao] of [[320, 568], [360, 640], [390, 844], [420, 900], [1280
   check(`${khung}: chưa cuộn — dải ở đúng chỗ cũ: sát trên thanh điều hướng, canh giữa`,
     luc0.cuon === 0 && luc0.top > 0 && luc0.cachDay === 86 && luc0.lechGiua <= 1
     && luc0.rong === Math.round(Math.min(430, rong * 0.92)), luc0);
+
+  // DẢI KHÔNG ĐƯỢC ĐÈ LÊN THANH ĐIỀU HƯỚNG (Đ256). Trên màn rộng từ 375px
+  // trở xuống, chữ của năm mục ("Thông báo", "Trang chủ"…) từng rớt xuống hai
+  // dòng: thanh cao 89px thay vì 71px, trong khi dải, hộp báo nổi và nút nổi
+  // đều đặt theo chiều cao một dòng — dải đè lên mép trên của thanh 3px.
+  if (rong < 700) {
+    const t = await page.evaluate(() => {
+      const hop = (e) => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), cao: Math.round(r.height) }; };
+      const nav = document.getElementById('bottom-nav');
+      const muc = [...nav.querySelectorAll('.nav-item')];
+      return {
+        thanh: hop(nav), dai: hop(document.getElementById('push-banner')), rongKhung: document.documentElement.clientWidth,
+        soMuc: muc.length,
+        // Mỗi mục: chữ có rớt dòng không (cao hơn mục thấp nhất), có tràn ra ngoài mục hay ngoài khung không.
+        muc: muc.map(e => ({ chu: e.textContent.trim().replace(/\s+/g, ' '), ...hop(e), tranChu: e.scrollWidth > e.clientWidth + 1 })),
+        tranNgang: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+    const caoMuc = t.muc.map(m => m.cao);
+    check(`${khung}: thanh điều hướng có đủ năm mục, chữ MỘT dòng (thanh không cao quá 72px)`,
+      t.soMuc === 5 && t.thanh.cao <= 72 && Math.max(...caoMuc) === Math.min(...caoMuc), { cao: t.thanh.cao, muc: t.muc });
+    check(`${khung}: không mục nào tràn chữ, tràn khung hay chồng lên mục bên cạnh`,
+      !t.tranNgang && t.muc.every(m => !m.tranChu && m.left >= 0 && m.right <= t.rongKhung)
+      && t.muc.every((m, i) => i === 0 || m.left >= t.muc[i - 1].right), t.muc);
+    check(`${khung}: dải mời cài KHÔNG đè lên thanh điều hướng`, t.dai.bottom <= t.thanh.top, { dai: t.dai, thanh: t.thanh });
+  }
 
   const do1 = await doNutCuoiTrang(page, NUT_DANG_XUAT);
   check(`${khung}: cuộn hết trang — nút Đăng xuất nằm trọn trong khung`, do1.coNut && do1.trongKhung, do1);
