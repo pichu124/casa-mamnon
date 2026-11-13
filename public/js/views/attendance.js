@@ -880,7 +880,10 @@ App.views.attendance = {
   moGioVao(studentId) {
     const dong = (this._roster || []).find(x => x.student.id === studentId);
     if (!dong || !dong.record) return;
-    const dangGhi = String(dong.record.checkIn || '').slice(0, 5);
+    // Sổ nhập từ tệp có thể mang "9:30": viết lại đủ hai chữ số, nếu không ô
+    // giờ sẽ rơi về "bây giờ" và cô bấm Lưu là ghi nhầm giờ hiện tại.
+    const m = /^(\d{1,2}):(\d{2})/.exec(String(dong.record.checkIn || ''));
+    const dangGhi = m ? `${m[1].padStart(2, '0')}:${m[2]}` : '';
     UI.modal(`
       <div class="muted small" style="line-height:1.7;margin-bottom:10px">
         Giờ tới lớp là lúc cô chấm “Có mặt” hoặc chụp ảnh con tới lớp. Cô chấm bù muộn thì

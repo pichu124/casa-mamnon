@@ -165,6 +165,21 @@ console.log('\n[3] Máy chủ từ chối thì hộp CÒN MỞ, sổ không đ�
 }
 
 // ===========================================================================
+console.log('\n[3b] Giờ cũ thiếu số 0 ("9:30", sổ nhập từ tệp) vẫn được điền sẵn đúng');
+{
+  // Không điền được thì ô rơi về "bây giờ", cô bấm Lưu là ghi nhầm giờ hiện tại.
+  csdl(c => c.prepare("UPDATE attendance SET checkIn = '0:05', checkOut = NULL WHERE studentId = 's1' AND date = ?").run(HOM));
+  await page.goto(`${sv.BASE}/#/`, { waitUntil: 'networkidle' });
+  await page.goto(`${sv.BASE}/#/attendance`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('#att-dong-s1', { timeout: 10000 });
+  await moBaCham('s1');
+  await page.click('#att-vk-gio-vao');
+  await page.waitForSelector('#att-gv-gio', { timeout: 5000 });
+  check('giờ đang ghi "0:05" → ô điền sẵn 00:05', (await page.inputValue('#att-gv-gio')) === '00:05', await page.inputValue('#att-gv-gio'));
+  await dongHop();
+}
+
+// ===========================================================================
 console.log('\n[4] Không lỗi JavaScript nào trong suốt bài');
 check('trang không ném lỗi', loiJs.length === 0, loiJs);
 
