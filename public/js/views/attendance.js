@@ -620,24 +620,28 @@ App.views.attendance = {
     const ghiRa = (this._ghiChuVeTheoNgay || {})[date] || '';
     const ghi = (chu) => (chu
       ? `<div class="small mt-8" style="line-height:1.5;text-align:left;white-space:pre-wrap">📝 ${UI.esc(chu)}</div>` : '');
+    // GIỜ TỚI LỚP ĐANG GHI LÀ GIỜ CÔ SỬA TAY (Đ255) thì không hiện giờ chụp
+    // của ảnh TỚI LỚP: cô chụp bù 17:00 rồi sửa giờ thành 07:45 là gia đình
+    // đọc hai giờ khác nhau cho cùng một buổi sáng. Ảnh ra về không đụng.
+    const anGioChup = !!(a && a.gioVaoDaSua);
     if (!ve) {
       return `
       <div class="mt-14 center att-anh-ngay">
         <img src="/api/attendance/anh/${UI.esc(a.file)}" alt="Ảnh con tới lớp"
           style="max-width:100%;border-radius:12px">
-        <div class="muted small mt-8">Cô chụp lúc ${UI.esc(a.taoLuc || '')}</div>
+        ${anGioChup ? '' : `<div class="muted small mt-8">Cô chụp lúc ${UI.esc(a.taoLuc || '')}</div>`}
         ${ghi(ghiVao)}
       </div>`;
     }
-    const tam = (x, chu, ghiChu) => `
+    const tam = (x, chu, ghiChu, hienGioChup = true) => `
         <div class="att-anh-ngay" style="flex:1;min-width:0">
           <img src="/api/attendance/anh/${UI.esc(x.file)}" alt="${chu}" style="max-width:100%;border-radius:12px">
-          <div class="muted small mt-8">${chu}${x.taoLuc ? ` · cô chụp lúc ${UI.esc(x.taoLuc)}` : ''}</div>
+          <div class="muted small mt-8">${chu}${hienGioChup && x.taoLuc ? ` · cô chụp lúc ${UI.esc(x.taoLuc)}` : ''}</div>
           ${ghi(ghiChu)}
         </div>`;
     return `
       <div class="mt-14 center" style="display:flex;gap:10px;align-items:flex-start">
-        ${a ? tam(a, 'Ảnh con tới lớp', ghiVao) : ''}${tam(ve, 'Ảnh con lúc ra về', ghiRa)}
+        ${a ? tam(a, 'Ảnh con tới lớp', ghiVao, !anGioChup) : ''}${tam(ve, 'Ảnh con lúc ra về', ghiRa)}
       </div>`;
   },
 
