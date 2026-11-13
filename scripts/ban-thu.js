@@ -153,7 +153,7 @@ console.log(`      ${bat.map(m => m.name).join(' · ')}`);
 if (tat.length) {
   console.log(`\n      ${tat.length} phân hệ vẫn TẮT theo quyết định của nhà trường:`);
   console.log(`      ${tat.map(m => m.name).join(', ')}`);
-  console.log('      (Nhận xét và Xe buýt: đợt A2. Báo cáo và Nề nếp: món nợ N3.)');
+  console.log('      (Xe buýt: đợt A2. Báo cáo và Nề nếp: món nợ N3.)');
 }
 
 // VẾ ĐỐI CHỨNG. Bàn thử tồn tại để cho cô nhìn app ở ĐÚNG trạng thái trường sẽ
