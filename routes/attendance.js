@@ -755,11 +755,24 @@ module.exports = (app) => {
       `SELECT date, file, taoLuc FROM attendance_anh_ve
         WHERE studentId = ? AND date LIKE ? AND file <> '' ORDER BY date DESC`, [studentId, `${thang}-%`]);
 
+    // NGÀY NÀO GIỜ TỚI LỚP ĐANG GHI LÀ GIỜ CÔ SỬA TAY (Đ255), một câu cho cả
+    // tháng. Cô chụp bù 17:00 rồi sửa giờ thành 07:45 thì giờ chụp của tấm ảnh
+    // không còn nói đúng lúc con tới lớp; màn hình đọc cờ này để thôi hiện giờ
+    // chụp. `gioSau` phải còn bằng giờ đang ghi: cô chấm nghỉ rồi chấm có mặt
+    // lại là giờ máy đóng, không phải giờ cô sửa.
+    const ngayDaSuaGio = new Set(db.all('attendance_gio_vao_sua',
+      `SELECT s.date FROM attendance_gio_vao_sua s
+         JOIN attendance a ON a.studentId = s.studentId AND a.date = s.date
+        WHERE s.studentId = ? AND s.date LIKE ? AND a.checkIn = s.gioSau`,
+      [studentId, `${thang}-%`]).map(x => x.date));
+
     res.json({
       studentId, month: thang,
+      // `gioVaoDaSua` là trường THÊM trên từng tấm; app đời cũ bỏ qua nó.
       anh: db.all('attendance_photo',
         `SELECT date, file, taoLuc FROM attendance_photo
-          WHERE studentId = ? AND date LIKE ? ORDER BY date DESC`, [studentId, `${thang}-%`]),
+          WHERE studentId = ? AND date LIKE ? ORDER BY date DESC`, [studentId, `${thang}-%`])
+        .map(a => ({ ...a, gioVaoDaSua: ngayDaSuaGio.has(a.date) })),
       anhVe,
       // Khoá riêng, thêm sau (Đ242D): ghi chú gia đình đọc được của lượt ra về.
       // Ghi chú lượt vào lớp đã đi theo dòng điểm danh (`note`).
@@ -986,6 +999,12 @@ module.exports = (app) => {
     }
 
     db.update('attendance', cu.id, { checkIn: gio });
+    // Vết của lượt sửa sau cùng (Đ255): đường ảnh của gia đình dựa vào đây để
+    // biết giờ đang ghi là giờ cô sửa — xem `attendance_gio_vao_sua`.
+    db.upsert('attendance_gio_vao_sua', {
+      studentId, date: ngayGhi, gioTruoc: cu.checkIn || null, gioSau: gio,
+      nguoiSua: req.user.id, suaLuc: new Date().toISOString(),
+    }, ['studentId', 'date']);
     db.audit(req.user.id, 'sua-gio-vao', studentId, { date: ngayGhi, truoc: cu.checkIn || '', sau: gio });
     res.json({
       ok: true, date: ngayGhi, gio,

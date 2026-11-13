@@ -1275,6 +1275,29 @@ CREATE TABLE IF NOT EXISTS attendance_ghi_chu_ve (
   PRIMARY KEY (studentId, date)
 );
 
+-- ===========================================================================
+-- GIỜ TỚI LỚP DO CÔ SỬA TAY (Đ255, chủ dự án duyệt 13/11)
+-- ===========================================================================
+--
+-- Cô chụp ảnh tới lớp bù lúc 17:00 rồi sửa giờ tới lớp thành 07:45 (Đ254) thì
+-- gia đình đọc "Giờ đến lớp 07:45" ngay trên chữ "Cô chụp lúc 17:00" của tấm
+-- ảnh. Màn hình cần biết giờ đang ghi là giờ cô sửa để thôi hiện giờ chụp, mà
+-- `attendance` không có ô nào nói điều ấy và lược đồ lõi cấm ALTER, nên lượt
+-- sửa sau cùng của mỗi bé mỗi ngày nằm ở bảng phụ này.
+--
+-- Giờ đang ghi CHỈ được coi là giờ cô sửa khi `gioSau` còn bằng đúng
+-- `attendance.checkIn`. Cô chấm nghỉ rồi chấm có mặt lại thì máy đóng giờ
+-- mới, khác `gioSau`: dòng ở lại làm vết, không cần dọn.
+CREATE TABLE IF NOT EXISTS attendance_gio_vao_sua (
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  date      TEXT NOT NULL,              -- YYYY-MM-DD
+  gioTruoc  TEXT,
+  gioSau    TEXT NOT NULL,
+  nguoiSua  TEXT,
+  suaLuc    TEXT,
+  PRIMARY KEY (studentId, date)
+);
+
 -- ===== CHẤM CÔNG CÔ VÀ NHÂN VIÊN BẰNG ẢNH Ở CỔNG (góp ý 06/10, mục 2) =====
 -- Trường: mục "Giáo viên" đứng đầu màn điểm danh — bấm vào ra danh sách cô và
 -- nhân viên của cơ sở, chụp ảnh lần đầu là giờ vào, lần hai là giờ ra. Chủ dự
