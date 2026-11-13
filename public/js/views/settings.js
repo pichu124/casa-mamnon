@@ -330,9 +330,18 @@ App.views.settings = {
       await API.post('/api/push/dang-ky', { subscription: sub.toJSON() });
       UI.toast('Đã bật thông báo trên máy này', 'success');
     } catch (e) {
-      UI.toast(e.message || 'Chưa bật được thông báo trên máy này', 'error');
+      UI.toast(this.chuLoiDay(e, 'Chưa bật được thông báo trên máy này. Thử lại sau ít phút nhé.'), 'error');
     }
     await this.veTrangThaiDay();
+  },
+
+  // Câu báo lỗi cho người dùng (Đ257C). Lỗi do MÁY CHỦ trả về đã là tiếng
+  // Việt — giữ nguyên. Lỗi do TRÌNH DUYỆT ném ra khi đăng ký hay huỷ đăng ký
+  // đẩy (DOMException) là câu tiếng Anh kỹ thuật, kiểu "Registration failed -
+  // push service error": thay bằng câu cố định của app.
+  chuLoiDay(e, macDinh) {
+    const cuaTrinhDuyet = typeof DOMException !== 'undefined' && e instanceof DOMException;
+    return (!cuaTrinhDuyet && e && e.message) || macDinh;
   },
 
   async tatThongBaoDay() {
@@ -343,7 +352,7 @@ App.views.settings = {
         await sub.unsubscribe();
       }
       UI.toast('Đã tắt thông báo trên máy này', 'success');
-    } catch (e) { UI.toast(e.message || 'Chưa tắt được', 'error'); }
+    } catch (e) { UI.toast(this.chuLoiDay(e, 'Chưa tắt được thông báo trên máy này. Thử lại sau ít phút nhé.'), 'error'); }
     await this.veTrangThaiDay();
   },
 

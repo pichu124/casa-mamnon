@@ -184,7 +184,11 @@ module.exports = (app) => {
     }
     const r = await day.guiChoNguoi(req.user.id, {
       tieuDe: 'CASA Mầm non',
-      noiDung: 'Thông báo thử — máy này đã nhận được. Từ giờ có tin về con là máy sẽ báo.',
+      // "Tin về con" chỉ đúng với gia đình; kế toán, ban giám hiệu, quản lý
+      // cơ sở cũng bấm Gửi thử được (Đ257) và họ nhận tin của nhà trường.
+      noiDung: req.user.role === 'parent'
+        ? 'Thông báo thử — máy này đã nhận được. Từ giờ có tin về con là máy sẽ báo.'
+        : 'Thông báo thử — máy này đã nhận được. Từ giờ có tin của nhà trường là máy sẽ báo.',
       hash: '#/settings',
     });
     res.json({ ok: true, ...r });

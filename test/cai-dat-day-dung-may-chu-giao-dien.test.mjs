@@ -44,8 +44,10 @@ const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('cai-dat-day-may-chu-gd');
 sinhDuLieu(DIR);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng Thử', 'c_qt');
-const mkKT = taoQuanTri(DIR, 'Kế Toán Thử', 'c_kt');
-datChucVu(DIR, 'c_kt', 'ketoan');
+// Nhân sự: chức vụ KHÔNG có loại tin đẩy nào. (Bản đầu của bài dùng kế toán;
+// từ Đ257B kế toán nhận tin nhắc hạn nộp nên không còn là ví dụ đúng.)
+const mkKT = taoQuanTri(DIR, 'Nhân Sự Thử', 'c_ns');
+datChucVu(DIR, 'c_ns', 'nhansu');
 const CSDL = path.join(DIR, 'school.db');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7367), dir: DIR });
 const req = taoReq(sv.BASE);
@@ -73,7 +75,7 @@ async function datMatKhau(u, mkTam) {
   return (await login(u, MK_QT)).cookie;
 }
 const QT = await datMatKhau('c_qt', mkQT);
-await datMatKhau('c_kt', mkKT);
+await datMatKhau('c_ns', mkKT);
 
 const MAY_1 = 'https://day.example.invalid/may-gia-1';
 const MAY_2 = 'https://day.example.invalid/may-gia-2';
@@ -103,6 +105,11 @@ await ctx.addInitScript(() => {
   const reg = { pushManager: {
     getSubscription: () => { const o = doc(); return Promise.resolve(o.endpoint ? taoSub(o.endpoint) : null); },
     subscribe: (tuyChon) => {
+      if (doc().hongDichVu) {
+        // Dịch vụ thông báo của hãng trình duyệt không tới được: lỗi tiếng Anh.
+        viec('dich-vu-hong');
+        return Promise.reject(new DOMException('Registration failed - push service error', 'AbortError'));
+      }
       const khoa = Array.from((tuyChon && tuyChon.applicationServerKey) || []).join('.');
       const o = doc();
       if (o.endpoint && o.khoaDangKy !== khoa) {
@@ -433,6 +440,26 @@ try {
       [m.chu, await nutHien()]);
     await datGia({ endpoint: '' });
 
+    // Dịch vụ thông báo của trình duyệt hỏng lúc bấm Bật: câu báo phải là tiếng
+    // Việt của app, không phải câu tiếng Anh trình duyệt ném ra (Đ257C).
+    {
+      const b1 = (await cacBao()).length;
+      const dong0 = soDong();
+      await datGia({ hongDichVu: true });
+      await page.click('#st-push-bat', { timeout: 3000 }).catch(() => {});
+      await page.waitForFunction((n) => JSON.parse(localStorage.getItem('gia-bao') || '[]').length > n, b1, { timeout: 10000 })
+        .catch(() => { /* phép kiểm bên dưới sẽ nói */ });
+      await page.waitForLoadState('networkidle');
+      const bao = (await cacBao()).slice(b1);
+      check('trình duyệt không đăng ký được: app báo MỘT câu lỗi tiếng Việt, không lộ câu tiếng Anh của trình duyệt',
+        bao.length === 1 && bao[0].loi && /Chưa bật được thông báo trên máy này/.test(bao[0].chu)
+          && !/Registration|failed|push service|Error/i.test(bao[0].chu), bao);
+      check('…không dòng nào được ghi ở máy chủ, thẻ vẫn ghi chưa bật và còn nút Bật',
+        soDong() === dong0 && /chưa bật/i.test((await page.locator('#st-push-trang-thai').innerText()).trim())
+          && (await nutHien()).bat, [soDong(), await nutHien()]);
+      await datGia({ hongDichVu: false });
+    }
+
     const chu = await bamBat();
     check('bật máy này nữa: thẻ ghi đang nhận và kể tài khoản có 2 máy',
       chu === `${DANG_NHAN} Tài khoản có 2 máy đang bật.`, chu);
@@ -452,14 +479,14 @@ try {
       (await page.locator('#st-push-card').count()) === 0 && luotTu(n0).length === 0, luotTu(n0));
 
     await roiMayKhongDangXuat();
-    await dangNhapTrenManHinh('c_kt', MK_QT);
+    await dangNhapTrenManHinh('c_ns', MK_QT);
     n0 = luotDay.length;
     await page.evaluate(() => { location.hash = '#/settings'; });
     await page.waitForSelector('#st-change-pw', { timeout: 10000 });
     await page.waitForFunction(() => !document.getElementById('st-push-card'), null, { timeout: 10000 })
       .catch(() => { /* phép kiểm bên dưới sẽ nói */ });
     await page.waitForLoadState('networkidle');
-    check('kế toán (máy chủ nói không có loại tin nào): thẻ được gỡ đi, không hỏi máy chủ về máy này',
+    check('nhân sự (máy chủ nói không có loại tin nào): thẻ được gỡ đi, không hỏi máy chủ về máy này',
       (await page.locator('#st-push-card').count()) === 0 && bang(luotTu(n0), [HOI_TRANG_THAI]), luotTu(n0));
   }
 
