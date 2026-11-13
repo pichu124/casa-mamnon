@@ -212,6 +212,40 @@ App.views.settings = {
     } catch (_) { return null; }
   },
 
+  // MÁY CHỦ CÓ ĐĂNG KÝ CỦA ĐÚNG NGƯỜI ĐANG ĐĂNG NHẬP CHO MÁY NÀY KHÔNG (Đ257).
+  //
+  // Trình duyệt còn giữ đăng ký đẩy CHƯA có nghĩa là người đang đăng nhập nhận
+  // được tin. Người khác đăng nhập trên máy mà người cũ không bấm Đăng xuất
+  // thì dòng ở máy chủ vẫn của người cũ; trường vừa đổi khoá hay quản trị vừa
+  // gỡ máy thì máy chủ không còn dòng nào. Bản trước chỉ hỏi trình duyệt, nên
+  // cả hai ca đều ghi "đang nhận" và giấu luôn nút Bật — người ấy không bao
+  // giờ nhận tin, và không có nút nào để sửa.
+  //
+  // Dùng lại đường nối lại của Đ255: nó không bao giờ tạo dòng mới, và khi có
+  // dòng của đúng người thì nối luôn với phiên đang dùng — nên lần nối lại lúc
+  // đăng nhập có bị rớt mạng thì mở Cài đặt cũng nối xong trước khi "Gửi thử".
+  //
+  // Trả `true` / `false` khi máy chủ trả lời được; `null` khi KHÔNG hỏi được
+  // (mất mạng, lỗi máy chủ, chức vụ không được gọi đường này, máy chủ đời cũ).
+  // `null` thì chỗ gọi tin vào trình duyệt như bản trước — không báo oan "chưa
+  // bật" cho một máy đang nhận tin bình thường.
+  //
+  // Gọi `fetch` thẳng, cùng lý do với `App.dongBoDangKyDay`: đây là câu hỏi
+  // nền, hỏng thì im, không lời báo lỗi và không đưa ai về màn đăng nhập.
+  async mayChuCoMayNay(endpoint) {
+    try {
+      const res = await fetch('/api/push/dong-bo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint }),
+        credentials: 'same-origin',
+      });
+      if (!res.ok) return null;
+      const tra = await res.json();
+      return typeof tra.conDangKy === 'boolean' ? tra.conDangKy : null;
+    } catch (_) { return null; }
+  },
+
   async veTrangThaiDay() {
     const o = document.getElementById('st-push-trang-thai');
     const bat = document.getElementById('st-push-bat');
@@ -246,7 +280,10 @@ App.views.settings = {
     }
     const sub = await this.dangKyHienTai();
     const quyen = typeof Notification !== 'undefined' ? Notification.permission : 'default';
-    if (sub) {
+    // Hỏi máy chủ XONG rồi mới vẽ, để thẻ đổi trạng thái đúng một lần. Máy chủ
+    // nói rõ "không có" thì rơi xuống đúng nhánh "chưa bật" bên dưới — cùng
+    // câu chữ, cùng nút Bật.
+    if (sub && await this.mayChuCoMayNay(sub.endpoint) !== false) {
       o.innerHTML = `<span style="color:var(--success)">Máy này đang nhận thông báo.</span>${tt.soMay > 1 ? ` Tài khoản có ${UI.esc(String(tt.soMay))} máy đang bật.` : ''}`;
       bat.style.display = 'none'; tat.style.display = ''; thu.style.display = '';
     } else if (quyen === 'denied') {
@@ -273,7 +310,23 @@ App.views.settings = {
       if (quyen !== 'granted') return UI.toast('Chưa được phép hiện thông báo — trình duyệt đang chặn hoặc bạn vừa từ chối', 'error');
       const { khoa } = await API.get('/api/push/khoa-cong-khai');
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: this.khoaSangMang(khoa) });
+      const tuyChon = { userVisibleOnly: true, applicationServerKey: this.khoaSangMang(khoa) };
+      // Trình duyệt còn đăng ký cũ tạo bằng CÙNG khoá (người khác vừa đăng nhập
+      // trên máy này, quản trị vừa gỡ máy) thì `subscribe` trả lại chính đăng ký
+      // ấy, và lời gọi bên dưới ghi nó sang tên người đang bấm.
+      //
+      // Còn đăng ký cũ tạo bằng khoá KHÁC (trường vừa đổi khoá) thì trình duyệt
+      // từ chối. Khi ấy phải huỷ đăng ký cũ rồi mới đăng ký lại được — đăng ký
+      // cũ đằng nào cũng không còn nhận được tin của trường.
+      let sub;
+      try {
+        sub = await reg.pushManager.subscribe(tuyChon);
+      } catch (loi) {
+        const cu = await reg.pushManager.getSubscription();
+        if (!cu) throw loi;
+        await cu.unsubscribe();
+        sub = await reg.pushManager.subscribe(tuyChon);
+      }
       await API.post('/api/push/dang-ky', { subscription: sub.toJSON() });
       UI.toast('Đã bật thông báo trên máy này', 'success');
     } catch (e) {
