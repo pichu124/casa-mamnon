@@ -179,6 +179,13 @@ console.log('\n[d] LƯỢT SỬA BỊ TỪ CHỐI KHÔNG BẬT CỜ');
   check('sau mọi lượt bị từ chối: sổ của s5 còn giờ cũ, không dòng sửa nào', gioDangGhi('s5') === '00:10' && soDong() === 0,
     { gio: gioDangGhi('s5'), dong: soDong() });
   check('…và cờ của s5 vẫn tắt', (await anhToi('s5', co))?.gioVaoDaSua === false, await anhToi('s5', co));
+
+  // Cô mở hộp sửa giờ rồi bấm Lưu mà KHÔNG đổi giờ: không có gì được sửa, nên
+  // giờ chụp của tấm ảnh không được biến mất vì một cú bấm ấy.
+  r = await suaVao({ studentId: 's5', gio: '00:10' });
+  check('lưu lại đúng giờ đang ghi → vẫn 200', r.status === 200 && gioDangGhi('s5') === '00:10', `${r.status} ${loi(r)}`);
+  check('…nhưng KHÔNG tính là sửa: không dòng sửa nào, cờ vẫn tắt',
+    soDong() === 0 && (await anhToi('s5', co))?.gioVaoDaSua === false, { dong: soDong(), anh: await anhToi('s5', co) });
 }
 
 // ===========================================================================

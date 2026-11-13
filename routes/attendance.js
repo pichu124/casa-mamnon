@@ -1001,10 +1001,14 @@ module.exports = (app) => {
     db.update('attendance', cu.id, { checkIn: gio });
     // Vết của lượt sửa sau cùng (Đ255): đường ảnh của gia đình dựa vào đây để
     // biết giờ đang ghi là giờ cô sửa — xem `attendance_gio_vao_sua`.
-    db.upsert('attendance_gio_vao_sua', {
-      studentId, date: ngayGhi, gioTruoc: cu.checkIn || null, gioSau: gio,
-      nguoiSua: req.user.id, suaLuc: new Date().toISOString(),
-    }, ['studentId', 'date']);
+    // Lưu lại ĐÚNG giờ đang ghi thì không có gì được sửa: không ghi vết, để
+    // một cú bấm Lưu không làm giờ chụp của tấm ảnh biến mất.
+    if (phutTrongNgay(cu.checkIn) !== phutTrongNgay(gio)) {
+      db.upsert('attendance_gio_vao_sua', {
+        studentId, date: ngayGhi, gioTruoc: cu.checkIn || null, gioSau: gio,
+        nguoiSua: req.user.id, suaLuc: new Date().toISOString(),
+      }, ['studentId', 'date']);
+    }
     db.audit(req.user.id, 'sua-gio-vao', studentId, { date: ngayGhi, truoc: cu.checkIn || '', sau: gio });
     res.json({
       ok: true, date: ngayGhi, gio,
