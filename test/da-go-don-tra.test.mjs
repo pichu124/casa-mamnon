@@ -19,9 +19,6 @@
 //   2. Sau khi máy chủ chạy, khởi động lại, rồi sao lưu và khôi phục, từng dòng
 //      của bốn bảng ấy và tệp ảnh có còn y nguyên không?
 //
-// (Bước này mới gỡ cầu nối trong phần lõi; các mục về Quản trị → Tính năng,
-// đường /api/dontra và kho mã tới cùng bước gỡ thư mục phân hệ.)
-//
 // Bốn câu CREATE bên dưới là ẢNH CHỤP `modules/dontra/schema.sql` tại lúc gỡ.
 // Chép vào đây chứ không đọc từ tệp: tệp ấy không còn, và "máy cũ" là thứ đã
 // có sẵn bảng từ trước, không phải thứ máy chủ mới dựng ra.
@@ -270,6 +267,57 @@ console.log('\n[4] Trang chủ: số "Đã về" đếm từ sổ điểm danh l
 }
 
 // ===========================================================================
+console.log('\n[5] Quản trị → Tính năng: không dòng ma, không lỗi');
+{
+  const ds = await req('GET', '/api/admin/modules', { cookie: qt });
+  check('danh sách tính năng mở được', ds.status === 200 && Array.isArray(ds.data) && ds.data.length > 10,
+    `${ds.status} ${Array.isArray(ds.data) ? ds.data.length : ''}`);
+  const dsQT = Array.isArray(ds.data) ? ds.data : [];
+  check('không có dòng `dontra` nào dù bảng cài đặt còn dòng của nó',
+    !dsQT.some(m => m.key === 'dontra' || /đón trả/i.test(m.name || '')), dsQT.map(m => m.key));
+  check('mọi dòng đều có tên và không dòng nào báo sự cố',
+    dsQT.every(m => m.key && m.name && !m.loi), dsQT.filter(m => !m.name || m.loi));
+
+  for (const [ten, ck] of [['cô', co], ['gia đình', ph], ['quản trị', qt]]) {
+    const m = await req('GET', '/api/modules', { cookie: ck });
+    check(`lưới ô của ${ten} không có Đón trả bé`,
+      m.status === 200 && m.data.length > 5 && !m.data.some(x => x.key === 'dontra' || x.view === 'dontra'),
+      Array.isArray(m.data) ? m.data.map(x => x.key) : m.status);
+  }
+
+  const bat = await req('PUT', '/api/admin/modules/dontra', { cookie: qt, body: { enabled: true } });
+  check('bật lại một phân hệ không còn mã thì bị từ chối tử tế (400), không lỗi máy chủ', bat.status === 400, bat.status);
+  const viSao = await req('GET', '/api/modules/vi-sao/dontra', { cookie: ph });
+  check('địa chỉ cũ #/dontra: máy chủ trả lời "không có phần nào ở địa chỉ này"',
+    viSao.status === 200 && viSao.data.ly === 'khong-co', viSao.data);
+}
+
+// ===========================================================================
+console.log('\n[6] Không còn đường /api/dontra nào, không còn tệp giao diện của phân hệ');
+{
+  const DUONG = ['/api/dontra', '/api/dontra?studentId=s1', `/api/dontra/nhom?classId=c1&ngay=${NGAY}`,
+    '/api/dontra/so?classId=c1', `/api/dontra/anh/${ANH_NGUOI_DON}`, `/api/dontra/anh/${ANH_TRA_BE}`];
+  for (const [ten, ck] of [['cô', co], ['gia đình', ph], ['quản trị', qt]]) {
+    const ma = [];
+    for (const d of DUONG) ma.push((await req('GET', d, { cookie: ck })).status);
+    check(`${ten}: mọi đường đọc /api/dontra/* trả 404`, ma.every(x => x === 404), ma);
+  }
+  const ghi = await req('POST', '/api/dontra/ghi',
+    { cookie: co, body: { studentId: 's3', ngay: NGAY, nguonLoai: 'khac', nguoiDon: 'Ai đó' } });
+  check('đường ghi sổ trả bé cũng 404', ghi.status === 404, ghi.status);
+  const them = await req('POST', '/api/dontra/nguoi',
+    { cookie: ph, body: { studentId: 's1', hoTen: 'Ai đó', quanHe: 'Bác' } });
+  check('đường khai người đón cũng 404', them.status === 404, them.status);
+  // Không đòi một mã trạng thái: địa chỉ không có tệp rơi về lớp đỡ của trang
+  // đơn. Điều phải đúng là máy chủ không còn phát mã giao diện của phân hệ.
+  const view = await fetch(`${sv.BASE}/modules/dontra/view.js`);
+  const thanView = await view.text();
+  check('/modules/dontra/view.js không còn phát mã giao diện của phân hệ',
+    !/App\.views\.dontra/.test(thanView) && !/javascript/.test(view.headers.get('content-type') || ''),
+    [view.status, view.headers.get('content-type'), thanView.slice(0, 80)]);
+}
+
+// ===========================================================================
 console.log('\n[7] Dữ liệu của máy cũ CÒN NGUYÊN sau khi máy chủ chạy');
 const conNguyen = (luc) => {
   const sau = chupBonBang();
@@ -290,6 +338,9 @@ console.log('\n[8] Khởi động lại: vẫn lên, vẫn đăng nhập, dữ l
   const lop = await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: co2 });
   check('cô đăng nhập lại và mở được sổ điểm danh',
     !!co2 && lop.status === 200 && (lop.data.students || []).length === MAU.soBeNhomChoi2, lop.status);
+  const ds = await req('GET', '/api/admin/modules', { cookie: (await login('mc_qt', mkQT)).cookie });
+  check('Quản trị → Tính năng vẫn mở được, vẫn không có dòng ma',
+    ds.status === 200 && Array.isArray(ds.data) && !ds.data.some(m => m.key === 'dontra'), ds.status);
   conNguyen('sau khi khởi động lại');
 }
 
@@ -320,6 +371,42 @@ console.log('\n[9] Sao lưu rồi khôi phục: bốn bảng mồ côi đi theo 
   check('sau khôi phục: bốn bảng dontra_* đủ số dòng', JSON.stringify(soDong(sau)) === JSON.stringify(SO_DONG), soDong(sau));
   check('sau khôi phục: từng ô y như máy cũ', JSON.stringify(sau) === CHUOI_BAN_DAU);
   check('sau khôi phục: ba tệp ảnh còn nguyên', BA_ANH.every(anhConNguyen), BA_ANH.filter(a => !anhConNguyen(a)));
+}
+
+// ===========================================================================
+console.log('\n[10] Kho mã: thư mục phân hệ đã hết, phần lõi không còn biết tên nó');
+{
+  check('không còn thư mục modules/dontra', !fs.existsSync(path.join(GOC, 'modules', 'dontra')));
+  check('không còn bài test riêng của phân hệ', !fs.existsSync(path.join(GOC, 'test', 'don-tra.test.mjs')));
+
+  // Quét phần mã CHẠY ĐƯỢC của lõi và của các phân hệ còn lại. Một ngoại lệ có
+  // tên: tám nhãn tiếng Việt của nhật ký thao tác — máy cũ còn dòng nhật ký
+  // mang mã `dontra-…`, bỏ nhãn là màn Nhật ký hiện mã thô cho ban giám hiệu.
+  const NHAN_NHAT_KY = /^\s*'dontra-[a-z-]+': '[^']+',\s*$/;
+  const tep = [];
+  const quet = (thuMuc) => {
+    for (const e of fs.readdirSync(path.join(GOC, thuMuc), { withFileTypes: true })) {
+      const p = path.join(thuMuc, e.name);
+      if (e.isDirectory()) quet(p);
+      else if (/\.(js|json|html|css|sql)$/.test(e.name)) tep.push(p);
+    }
+  };
+  ['routes', 'public', 'modules'].forEach(quet);
+  tep.push('server.js', 'data/seed.js', 'scripts/ban-thu.js');
+  const conNhac = [];
+  for (const p of tep) {
+    fs.readFileSync(path.join(GOC, p), 'utf8').split('\n').forEach((dong, i) => {
+      if (!/dontra/i.test(dong)) return;
+      if (p === path.join('public', 'js', 'views', 'admin-nhat-ky.js') && NHAN_NHAT_KY.test(dong)) return;
+      conNhac.push(`${p}:${i + 1}`);
+    });
+  }
+  check(`đã quét đủ rộng (${tep.length} tệp)`, tep.length > 80, tep.length);
+  check('routes/, public/, modules/, server.js, data/seed.js, scripts/ban-thu.js không còn chữ "dontra"',
+    conNhac.length === 0, conNhac.slice(0, 12));
+  const nhan = fs.readFileSync(path.join(GOC, 'public/js/views/admin-nhat-ky.js'), 'utf8')
+    .split('\n').filter(d => NHAN_NHAT_KY.test(d)).length;
+  check('tám nhãn nhật ký thao tác của phân hệ cũ vẫn còn (dòng nhật ký cũ đọc được bằng tiếng Việt)', nhan === 8, nhan);
 }
 
 donThuMucTam(DIR);

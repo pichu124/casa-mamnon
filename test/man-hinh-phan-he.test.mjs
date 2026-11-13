@@ -35,7 +35,7 @@ sinhDuLieu(DIR);
 
 // Cả tám đều TẮT SẴN — đó là thiết kế, nhà trường tự bật. Bật hết ở đây để soi
 // được chúng; nếu không thì bài này chỉ kiểm được màn "phân hệ đang tắt".
-const MA = ['nhatky', 'tienan', 'dontra', 'thuchup', 'hanhtrinh', 'kehoachbe', 'cambridge', 'hocphi',
+const MA = ['nhatky', 'tienan', 'thuchup', 'hanhtrinh', 'kehoachbe', 'cambridge', 'hocphi',
   'baocaohoctap'];
 batPhanHe(DIR, MA);
 
@@ -48,7 +48,6 @@ const MAN = [
   // Đ140: Báo ăn là việc của văn phòng (bảng phân quyền của trường 07/09) — ô
   // không còn hiện với cô, nên vai phải mở được là văn phòng.
   { ma: 'tienan', hash: '#/tienan', ten: 'Báo ăn & tiền ăn', vai: ['qt'] },
-  { ma: 'dontra', hash: '#/dontra', ten: 'Đón trả bé', vai: ['co', 'ph'] },
   { ma: 'thuchup', hash: '#/thuchup', ten: 'Ghi nhanh', vai: ['co'] },
   { ma: 'hanhtrinh', hash: '#/hanhtrinh', ten: 'Hành trình học tập', vai: ['co', 'ph'] },
   { ma: 'kehoachbe', hash: '#/kehoachbe', ten: 'Kế hoạch của bé', vai: ['co'] },

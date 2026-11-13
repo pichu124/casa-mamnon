@@ -4,8 +4,7 @@
 //
 // VÌ SAO CÓ BÀI NÀY
 //
-// Luật này đã được viết rõ trong chú thích ở bốn phân hệ —
-// `modules/dontra/routes.js` ("ĐI QUA CANH QUYỀN, KHÔNG PHỤC VỤ TĨNH"),
+// Luật này đã được viết rõ trong chú thích ở các phân hệ có ảnh —
 // `modules/cambridge/routes.js`, `modules/thuchup/routes.js`,
 // `modules/hanhtrinh/routes.js` — nhưng **không bài canh nào thi hành nó**.
 //

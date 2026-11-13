@@ -43,7 +43,7 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('nhan-tin-kenh');
 sinhDuLieu(DIR);
-batPhanHe(DIR, ['nhantin', 'dontra']);   // Đón trả mặc định TẮT từ góp ý 06/10 mục 2 — mục [8] cần nó bật
+batPhanHe(DIR, ['nhantin']);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkCS2 = taoQuanTri(DIR, 'Quản lý CS2', 'quanly2');
 khoaVaoCoSo(DIR, 'quanly2', 'cs2');
@@ -400,24 +400,16 @@ console.log('\n[7] Trường nhắn thì GIA ĐÌNH được báo; gia đình nh
 }
 
 // ===========================================================================
-console.log('\n[8] Màn Đón trả bé: gỡ phần khai người đón, GIỮ nguyên đường API và dữ liệu');
+console.log('\n[8] Màn Đón trả bé đã gỡ cùng phân hệ (Đ252) — đường API không còn');
 {
-  const v = fs.readFileSync(path.join(GOC, 'modules/dontra/view.js'), 'utf8');
-  check('màn của gia đình không còn nút "Thêm người được đón"', !/id="dt-them"/.test(v));
-  check('cũng không còn nút "Uỷ quyền một lần"', !/id="dt-uy"/.test(v));
-  check('mà chỉ đường sang nhắn tin với văn phòng — đúng cách trường nói sẽ làm',
-    /dt-nhan-vp/.test(v) && /Nhắn cho văn phòng nhà trường/.test(v));
-
-  // GIỮ NGUYÊN DỮ LIỆU: đây là bước 2 của "Bỏ một tính năng" trong CLAUDE.md.
-  const r = fs.readFileSync(path.join(GOC, 'modules/dontra/routes.js'), 'utf8');
-  check('đường API khai người đón VẪN CÒN — gỡ lối vào, không gỡ dữ liệu',
-    /\/api\/dontra\/nguoi/.test(r) && /\/api\/dontra\/uyquyen/.test(r));
-  const sc = fs.readFileSync(path.join(GOC, 'modules/dontra/schema.sql'), 'utf8');
-  check('và bảng dữ liệu của chúng cũng vậy', /CREATE TABLE IF NOT EXISTS dontra_/.test(sc));
-
+  // Đ151 gỡ phần khai người đón khỏi màn của gia đình và giữ đường API. Đ252
+  // (chủ dự án duyệt 12/11) gỡ hẳn mã phân hệ; DỮ LIỆU thì giữ nguyên — bài
+  // test/da-go-don-tra.test.mjs canh từng dòng của các bảng `dontra_*`.
+  check('không còn thư mục modules/dontra', !fs.existsSync(path.join(GOC, 'modules/dontra')));
   const con = await req('GET', `/api/dontra?studentId=${encodeURIComponent(BE.id)}`, { cookie: PH });
-  check('gia đình vẫn đọc được sổ đón trả của con', con.status === 200, con.status);
-  check('và sổ ấy vẫn là sổ cũ, không mất trường nào', Array.isArray(con.data.soGanDay), Object.keys(con.data || {}));
+  check('đường đọc sổ đón trả KHÔNG còn (404)', con.status === 404, con.status);
+  const them = await req('POST', '/api/dontra/nguoi', { cookie: PH, body: { studentId: BE.id, hoTen: 'Ai đó', quanHe: 'Bác' } });
+  check('đường khai người đón KHÔNG còn (404)', them.status === 404, them.status);
 }
 
 // ===========================================================================

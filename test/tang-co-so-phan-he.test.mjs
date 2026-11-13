@@ -35,7 +35,7 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('tang-co-so-phan-he');
 sinhDuLieu(DIR);
-batPhanHe(DIR, ['nhatky', 'hanhtrinh', 'dontra', 'hocphi', 'thucdon',
+batPhanHe(DIR, ['nhatky', 'hanhtrinh', 'hocphi', 'thucdon',
   'thuchup', 'cambridge', 'kehoachbe', 'baocaohoctap']);
 const mk1 = taoQuanTri(DIR, 'Hiệu Trưởng P', 'p_ht');          // Cấp 1
 const mk3 = taoQuanTri(DIR, 'Quản lý CS1 P', 'p_cs1');         // Cấp 3, cơ sở 1
@@ -121,7 +121,6 @@ try {
       'GET /api/nhatky?classId=c1',
       'GET /api/nhatky/pham-vi',
       'GET /api/hanhtrinh/hom-nay',
-      'GET /api/dontra/nhom?classId=c1',
       'GET /api/hocphi/bang',
       'GET /api/hocphi/uu-dai/bang',
       'GET /api/hocphi/bieu-phi',
@@ -153,9 +152,6 @@ try {
       'GET /api/nhatky?studentId=s2',
       'GET /api/hanhtrinh?studentId=s2',
       'GET /api/hanhtrinh/chu-de?classId=c2&tuan=2026-09-07',
-      'GET /api/dontra?studentId=s2',
-      'GET /api/dontra/so?classId=c2',
-      'GET /api/dontra/nhom?classId=c2',
       'GET /api/kehoachbe?classId=c2',
     ];
 
@@ -189,7 +185,6 @@ try {
       ['PUT /api/hanhtrinh/chu-de', { classId: 'c2', tuan: '2026-09-14', chuDe: 'Ghi chéo' }],
       ['POST /api/hanhtrinh/chu-de/chep-tuan-truoc', { classId: 'c2', tuan: '2026-09-14' }],
       ['POST /api/hocphi/uu-dai', { studentId: 's2', ten: 'Ghi chéo', kieu: 'so-tien', giaTri: 100000 }],
-      ['POST /api/dontra/nguoi', { studentId: 's2', hoTen: 'Ghi chéo', quanHe: 'Bác' }],
       // Cambridge và Ghi nhanh KHÔNG đọc tham số chọn bé ở đường ĐỌC (xem chú
       // thích ở mục [2]), nhưng đường GHI của chúng thì có — nên chốt chặn của
       // hai phân hệ ấy canh được ở đây chứ không phải ở trên.
@@ -226,7 +221,7 @@ try {
     // dữ liệu của chính cơ sở 1 ở ít nhất vài màn khác nhau.
     const thay = [];
     for (const u of ['/api/hocphi/bang', '/api/nhatky?classId=c1',
-      '/api/dontra/nhom?classId=c1', '/api/hanhtrinh/hom-nay']) {
+      '/api/hanhtrinh/hom-nay']) {
       const r = await req('GET', u, { cookie: C3 });
       const s = JSON.stringify(r.data ?? '');
       if (/Nguyễn Bảo An|Trần Gia Hân|Chồi 2/.test(s)) thay.push(u);
@@ -247,7 +242,7 @@ try {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const { GOC } = await import('./_chung.mjs');
-    const PHAN_HE = ['nhatky', 'hanhtrinh', 'dontra', 'hocphi', 'thuchup',
+    const PHAN_HE = ['nhatky', 'hanhtrinh', 'hocphi', 'thuchup',
       'cambridge', 'kehoachbe', 'baocaohoctap'];
     const HAM_CANH = /canAccessStudent|canAccessClass|canAccessCampus|classIdsOf|studentsOf|phamViCoSo|beCuaToi|nhomCuaToi/;
     const thieu = [];

@@ -28,7 +28,7 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('bon-diem-truong-giao');
 sinhDuLieu(DIR);
-batPhanHe(DIR, ['tienan', 'dontra', 'kehoachbe', 'cambridge', 'diemdanh', 'xinphep']);
+batPhanHe(DIR, ['tienan', 'kehoachbe', 'cambridge', 'diemdanh', 'xinphep']);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng D', 'd_qt');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4819), dir: DIR });
@@ -137,45 +137,22 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[2] Y5-c GIỮ — uỷ quyền đón một lần KHÔNG cần văn phòng duyệt');
+  console.log('\n[2] Y5-c — uỷ quyền đón một lần: rời app cùng phân hệ Đón trả bé (Đ252)');
   {
-    // QUYẾT: GIỮ NGUYÊN. Gia đình là người có quyền quyết ai đón con mình, và
-    // bắt duyệt là thêm một khâu chờ đúng lúc gấp nhất — 4 giờ chiều, mẹ kẹt
-    // họp, nhờ bác sang đón. Khâu duyệt ấy chỉ chạy được khi văn phòng đang
-    // ngồi trước máy, mà đúng giờ đó văn phòng đang ở sân trả bé.
-    //
-    // ĐỔI LẠI KHÔNG ĐƯỢC LỎNG Ở CHỖ KHÁC, và đó là thứ mục này canh: mỗi lượt
-    // uỷ quyền phải còn vết AI TẠO và LÚC NÀO trong Nhật ký thao tác — chặt
-    // hơn mẩu giấy hay cuộc điện thoại của cách cũ, thứ không để lại gì.
+    // Quyết định Y5-c ("giữ nguyên, không cần văn phòng duyệt") nói về một
+    // đường của phân hệ Đón trả bé. Chủ dự án duyệt gỡ mã phân hệ ngày 12/11 —
+    // nhà trường dùng bản giấy ở văn phòng và nhắn tin (góp ý 10/09). Điều còn
+    // phải đúng: đường ấy không còn nhận gì, với nhà mình lẫn nhà khác.
     const tao = await req('POST', '/api/dontra/uyquyen', {
       cookie: PH,
       body: { studentId: 's1', hoTen: 'Bác Tư hàng xóm', quanHe: 'Bác',
         tuNgay: NGAY },
     });
-    check('gia đình tạo được uỷ quyền một lần, KHÔNG phải chờ duyệt',
-      tao.status === 200 || tao.status === 201, `${tao.status} ${JSON.stringify(tao.data).slice(0, 160)}`);
-    check('và bản ghi KHÔNG mang trạng thái chờ duyệt nào',
-      !/cho-duyet|choDuyet|pending/.test(JSON.stringify(tao.data || {})),
-      JSON.stringify(tao.data || {}).slice(0, 160));
-
-    const nk = await req('GET', '/api/admin/audit', { cookie: QT });
-    const vet = (nk.data?.items || nk.data || []).filter(x => /uyquyen|uy-quyen/i.test(x.action || ''));
-    check('LƯỢT UỶ QUYỀN CÓ VẾT trong Nhật ký thao tác', vet.length > 0,
-      (nk.data?.items || nk.data || []).slice(0, 4).map(x => x.action));
-    // Nhật ký trả về TÊN người làm (`who`) chứ không trả mã tài khoản — đúng
-    // hơn cho màn của văn phòng, và vẫn trả lời được câu "ai, lúc nào".
-    check('vết ấy ghi ai tạo và lúc nào',
-      vet.every(x => !!x.who && !!x.at), JSON.stringify(vet[0] || {}).slice(0, 200));
-    check('và ghi rõ người được uỷ quyền là ai, từ ngày nào',
-      vet.some(x => /Bác Tư hàng xóm/.test(String(x.detail || ''))),
-      String((vet[0] || {}).detail || '').slice(0, 160));
-
-    // Và người ngoài vẫn không uỷ quyền hộ nhà khác được.
+    check('đường uỷ quyền đón một lần KHÔNG còn (404)', tao.status === 404, tao.status);
     const cheo = await req('POST', '/api/dontra/uyquyen', {
       cookie: PH3, body: { studentId: 's1', hoTen: 'Người lạ', quanHe: 'Bác' },
     });
-    check('NHÀ KHÁC KHÔNG uỷ quyền hộ được — bỏ khâu duyệt không phải bỏ khâu quyền',
-      cheo.status === 403, cheo.status);
+    check('…với nhà khác cũng vậy (404)', cheo.status === 404, cheo.status);
   }
 
   // =========================================================================

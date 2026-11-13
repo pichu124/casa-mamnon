@@ -35,7 +35,7 @@ sinhDuLieu(DIR);
 // `hocsinhcu` (màn "Hồ sơ con đã ra trường") TẮT SẴN từ Đ5 — nhà trường quyết.
 // Bật tường minh ở đây vì mục [7] soi đúng lời từ chối của màn đó: luật quyền
 // phải đúng vào lúc nhà trường bật lại, không phải chỉ đúng khi nó đang tắt.
-batPhanHe(DIR, ['nhatky', 'hanhtrinh', 'dontra', 'hocphi', 'hocsinhcu',
+batPhanHe(DIR, ['nhatky', 'hanhtrinh', 'hocphi', 'hocsinhcu',
   // `nhanxet`: mã của phân hệ Nhận xét đã GỠ HẲN ở Đ252. Dòng BẬT cũ vẫn ghi
   // vào đây có chủ ý — bài này đóng vai một máy từng bật nó, và mục [9] canh
   // rằng dòng cài đặt cũ ấy không làm màn "Hồ sơ con đã ra trường" bày lại
@@ -74,7 +74,6 @@ const CAC_DUONG = (id) => [
   ['hồ sơ bé', `/api/students/${id}`],
   ['nhật ký ngày', `/api/nhatky?studentId=${id}`],
   ['hành trình học tập', `/api/hanhtrinh?studentId=${id}`],
-  ['đón trả bé', `/api/dontra?studentId=${id}`],
   ['hồ sơ sức khoẻ', `/api/health?studentId=${id}`],
   ['học phí', `/api/hocphi?studentId=${id}`],
 ];

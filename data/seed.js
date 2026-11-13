@@ -111,7 +111,6 @@ const MODULES_DIR = path.join(__dirname, '..', 'modules');
 const BANG = [
   'nhatky_gui', 'nhatky_vesinh', 'nhatky_bua', 'nhatky_ngay',
   'tienan_chot',
-  'dontra_ghi', 'dontra_uyquyen', 'dontra_nguoi',
   'hanhtrinh_nhap', 'hanhtrinh_quansat', 'hanhtrinh_chude',
   'kehoachbe_bai_muc_do', 'kehoachbe_de_xuat_ct', 'kehoachbe_ke_ct', 'kehoachbe_muc', 'kehoachbe_ke',
   'cambridge_anh_be', 'cambridge_bai',
@@ -253,43 +252,6 @@ function sinh(db, moc) {
       ghiChu: 'Bé Huy mới ốm dậy, bếp nấu cháo riêng', nguoiChot: 't4', chotLuc: luc(d, 7, 45),
     });
   }
-
-  // ---- ĐÓN TRẢ BÉ ---------------------------------------------------------
-  const nguoiDon = [
-    { id: 'dt_ba_lan', studentId: 's1', hoTen: 'Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: 'Ở cùng nhà, đón chiều thứ Ba và thứ Năm' },
-    { id: 'dt_me_ha', studentId: 's1', hoTen: 'Lê Thị Thu Hà', quanHe: 'Mẹ', dienThoai: '0903 222 111', ghiChu: '' },
-    { id: 'dt_bo_bao', studentId: 's3', hoTen: 'Phạm Quốc Bảo', quanHe: 'Bố', dienThoai: '0912 555 333', ghiChu: '' },
-    { id: 'dt_bac_nam', studentId: 's4', hoTen: 'Vũ Đình Nam', quanHe: 'Bác ruột', dienThoai: '0912 333 444', ghiChu: 'Chỉ đón khi bố mẹ báo trước' },
-  ];
-  for (const n of nguoiDon) {
-    them('dontra_nguoi', {
-      ...n, anh: '', dangDung: 1, nguoiTao: 't1',
-      taoLuc: luc(daysAgo(30), 8), capNhatLuc: luc(daysAgo(30), 8),
-    });
-  }
-
-  // Một giấy uỷ quyền còn hiệu lực trong tuần này — để màn hình có cái để hiện.
-  them('dontra_uyquyen', {
-    id: ma('uq'), studentId: 's5', hoTen: 'Đỗ Minh Tuấn', quanHe: 'Chú ruột',
-    dienThoai: '0977 888 999', anh: '',
-    tuNgay: fmt(daysAgo(1)), denNgay: fmt(new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) + 3 * 86400000)),
-    lyDo: 'Bố mẹ đi công tác tỉnh, chú đón giúp ba ngày',
-    huyLuc: null, huyBoi: null, nguoiTao: 't1', taoLuc: luc(daysAgo(1), 7, 50),
-  });
-
-  // Sổ đón trả của hai ngày gần nhất.
-  ngayHoc.slice(0, 2).forEach((d, i) => {
-    beChoi2.slice(0, 4).forEach((sid, j) => {
-      them('dontra_ghi', {
-        id: ma('dg'), studentId: sid, ngay: fmt(d),
-        luc: `1${6 + (j % 2)}:${j % 2 ? '30' : '05'}`,
-        nguoiDon: sid === 's1' && i === 0 ? 'Trần Thị Lan (Bà ngoại)' : 'Mẹ',
-        nguonLoai: sid === 's1' && i === 0 ? 'nguoi' : '',
-        nguonId: sid === 's1' && i === 0 ? 'dt_ba_lan' : '',
-        ghiChu: '', coGhi: 't1', capNhatLuc: luc(d, 17, 0),
-      });
-    });
-  });
 
   // ---- HÀNH TRÌNH HỌC TẬP -------------------------------------------------
   const tuanNay = fmt(thuHai(daysAgo(0)));

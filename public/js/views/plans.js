@@ -106,7 +106,7 @@ App.views.plans = {
 
   // Kế hoạch giáo dục nay nằm trong màn Lịch sinh hoạt — CHỈ ĐƯỜNG, KHÔNG ÉP.
   // Ai mở địa chỉ cũ vẫn đọc được đủ nội dung ngay tại đây; dòng này chỉ nói
-  // cho biết chỗ mới, đúng cách modules/dontra/view.js đã làm ở Đ126.
+  // cho biết chỗ mới.
   //
   // Từ Đ225 phần ở Lịch sinh hoạt là KẾ HOẠCH TUẦN CHUNG CẢ TRƯỜNG, không còn
   // là kế hoạch tháng này — nói đúng như thế, đừng hứa "cũng nằm trong" (vòng

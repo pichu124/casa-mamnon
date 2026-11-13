@@ -47,7 +47,7 @@ sinhDuLieu(DIR);
 // qua nó mà không quét gì. Lỗ hổng tầng cơ sở KHÔNG biến mất chỉ vì phân hệ
 // đang tắt — nó chỉ nằm im tới ngày nhà trường bật lại.
 batPhanHe(DIR, ['hocsinhcu', 'namhoccu', 'nhatky', 'hanhtrinh',
-  'dontra', 'hocphi', 'thucdon', 'thuchup', 'cambridge', 'kehoachbe']);
+  'hocphi', 'thucdon', 'thuchup', 'cambridge', 'kehoachbe']);
 const mk1 = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');     // Cấp 1
 const mk3 = taoQuanTri(DIR, 'Quản lý CS1', 'quanlycs1');      // Cấp 3, cơ sở 1
 khoaVaoCoSo(DIR, 'quanlycs1', 'cs1');

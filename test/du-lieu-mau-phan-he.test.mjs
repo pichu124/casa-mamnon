@@ -42,13 +42,11 @@ const dem = (bang, dieuKien = '', tham = []) => {
 const lay = (sql, tham = []) => { try { return db.prepare(sql).all(...tham); } catch (_) { return []; } };
 
 // ===========================================================================
-console.log('\n[1] Bật phân hệ lên là có cái để xem — cả TÁM, không sót cái nào');
+console.log('\n[1] Bật phân hệ lên là có cái để xem — cả BẢY, không sót cái nào');
 {
   const bang = [
     ['nhatky_ngay', 'Nhật ký ngày'],
     ['tienan_chot', 'Báo ăn & tiền ăn'],
-    ['dontra_nguoi', 'Đón trả bé — người đón quen'],
-    ['dontra_ghi', 'Đón trả bé — sổ đón trả'],
     ['hanhtrinh_quansat', 'Hành trình học tập — quan sát'],
     ['hanhtrinh_chude', 'Hành trình học tập — chủ đề tuần'],
     ['kehoachbe_ke', 'Kế hoạch của bé'],
@@ -60,6 +58,10 @@ console.log('\n[1] Bật phân hệ lên là có cái để xem — cả TÁM, k
   for (const [t, ten] of bang) {
     check(`${ten}: có dữ liệu mẫu`, dem(t) > 0, dem(t));
   }
+  // Đ252 gỡ mã phân hệ Đón trả bé: dữ liệu mẫu không còn dựng bảng của nó.
+  const bangDonTra = lay("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'dontra%'");
+  check('dữ liệu mẫu KHÔNG còn dựng bảng dontra_* nào (phân hệ đã gỡ ở Đ252)',
+    dem('nhatky_ngay') > 0 && bangDonTra.length === 0, bangDonTra);
 }
 
 // ===========================================================================
@@ -68,7 +70,6 @@ console.log('\n[2] Câu chuyện của bé An chạy xuyên suốt, không đứ
   // Đây là điều bản kế hoạch đòi, và cũng là thứ dễ trôi nhất: mỗi lần thêm
   // một phân hệ, người viết chọn đại một mã bé, và câu chuyện gãy dần.
   check('bé An (s1) có nhật ký ngày', dem('nhatky_ngay', 'studentId = ?', ['s1']) > 0);
-  check('bé An có người đón quen đã khai', dem('dontra_nguoi', 'studentId = ?', ['s1']) > 0);
   check('bé An có kế hoạch tháng', dem('kehoachbe_ke', 'studentId = ?', ['s1']) > 0);
   check('bé An có một câu chuyện học tập ĐÃ CÔNG BỐ cho gia đình',
     dem('hanhtrinh_quansat', "studentId = ? AND congBoLuc IS NOT NULL AND congBoLuc <> ''", ['s1']) > 0);
@@ -191,15 +192,15 @@ console.log('\n[8] NHẬP LẠI DỮ LIỆU KHÔNG ĐỂ GHI CHÉP CỦA BÉ Đ�
   const D = thuMucTam('nhap-lai-phan-he');
   sinhDuLieu(D, { phanHe: true });
   const BANG_THEO_BE = ['nhatky_ngay', 'hanhtrinh_quansat', 'kehoachbe_ke',
-    'dontra_nguoi', 'thuchup_ghinhanh'];
+    'thuchup_ghinhanh'];
 
   const db4 = new Database(path.join(D, 'school.db'), { readonly: true });
   const truoc = db4.prepare('SELECT COUNT(*) n FROM nhatky_ngay').get().n;
   const beTruoc = db4.prepare('SELECT COUNT(*) n FROM students').get().n;
   // Chốt chặn cho phép kiểm "không còn dòng mồ côi" ở cuối mục này: nó đếm
-  // trên năm bảng, và một bảng RỖNG SẴN thì không bao giờ có dòng mồ côi.
-  // Đếm trước khi nhập lại để biết chắc cả năm bảng đều thật sự có dữ liệu —
-  // và nhân tiện biết chắc cả năm bảng đều có cột `studentId` để mà tra.
+  // trên bốn bảng, và một bảng RỖNG SẴN thì không bao giờ có dòng mồ côi.
+  // Đếm trước khi nhập lại để biết chắc cả bốn bảng đều thật sự có dữ liệu —
+  // và nhân tiện biết chắc cả bốn bảng đều có cột `studentId` để mà tra.
   const truocTungBang = {};
   for (const b of BANG_THEO_BE) {
     truocTungBang[b] = db4.prepare(
@@ -207,7 +208,7 @@ console.log('\n[8] NHẬP LẠI DỮ LIỆU KHÔNG ĐỂ GHI CHÉP CỦA BÉ Đ�
   }
   db4.close();
   check('có dữ liệu phân hệ để mà kiểm', truoc > 0 && beTruoc > 0, { truoc, beTruoc });
-  check('CẢ NĂM BẢNG THEO BÉ ĐỀU CÓ DỮ LIỆU TRƯỚC KHI NHẬP LẠI',
+  check('CẢ BỐN BẢNG THEO BÉ ĐỀU CÓ DỮ LIỆU TRƯỚC KHI NHẬP LẠI',
     BANG_THEO_BE.every(b => truocTungBang[b] > 0), truocTungBang);
 
   // Nhập lại NHƯNG KHÔNG sinh dữ liệu mẫu phân hệ. Đây đúng cảnh nhập lại kho

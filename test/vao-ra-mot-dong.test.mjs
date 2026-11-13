@@ -205,27 +205,22 @@ console.log('\n[5] Phạm vi: cô nhóm khác không ghi được giờ ra cho b
   check('gia đình KHÔNG tự ghi giờ con về được', r.status === 403, r.status);
 }
 
-console.log('\n[6] Sổ đón trả bé GIỮ NGUYÊN — bỏ khỏi màn không phải bỏ dữ liệu');
+console.log('\n[6] Mã phân hệ Đón trả bé đã gỡ (Đ252) — màn Điểm danh không còn dấu vết của nó');
 {
-  // Việc 3 dễ bị đọc thành "xoá sổ trả bé". `dontra_ghi` là chứng từ trả lời
-  // câu "hôm ấy ai đón bé" — thứ không được mất vì một màn hình gộp lại.
-  const mj = JSON.parse(fs.readFileSync(path.join(GOC, 'modules/dontra/module.json'), 'utf8'));
-  check('phân hệ Đón trả bé vẫn còn, vẫn có màn riêng', mj.hash === '#/dontra' && mj.view === 'dontra', mj.hash);
-  check('và KHÔNG còn gấp vào màn Điểm danh (nếu còn, cô mất hẳn lối vào sổ)',
-    !mj.gopVao, mj.gopVao);
-
-  const sc = fs.readFileSync(path.join(GOC, 'modules/dontra/schema.sql'), 'utf8');
-  check('bảng sổ trả bé `dontra_ghi` vẫn khai trong schema, không bị gỡ',
-    /CREATE TABLE IF NOT EXISTS dontra_ghi/.test(sc), 'mất bảng sổ');
-  check('bảng ảnh trả bé cũ `dontra_anh_tra` cũng còn nguyên',
-    /CREATE TABLE IF NOT EXISTS dontra_anh_tra/.test(sc), 'mất bảng ảnh cũ');
-
-  const rt = fs.readFileSync(path.join(GOC, 'modules/dontra/routes.js'), 'utf8');
-  check('đường ghi sổ trả bé của phân hệ vẫn còn', /app\.post\('\/api\/dontra\/tra-bang-anh'/.test(rt),
-    'mất đường ghi sổ');
+  // Trước Đ252 mục này đòi phân hệ còn nguyên màn riêng, schema và đường ghi
+  // sổ. Chủ dự án duyệt gỡ mã ngày 12/11. DỮ LIỆU thì không gỡ: mục [4] ở trên
+  // và test/da-go-don-tra.test.mjs canh các bảng `dontra_*` của máy cũ.
+  check('không còn thư mục modules/dontra', !fs.existsSync(path.join(GOC, 'modules/dontra')));
+  const tra = await req('POST', '/api/dontra/tra-bang-anh', { cookie: co, body: { studentId: 's1', anh: ANH } });
+  check('đường ghi sổ trả bé của phân hệ KHÔNG còn (404)', tra.status === 404, tra.status);
 
   const v = fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8');
   check('màn Điểm danh KHÔNG còn vẽ tab Trả bé nữa', !/att-tra/.test(v), 'vẫn còn ô att-tra');
+  check('…và không còn gọi sang phân hệ đã gỡ', v.length > 10000 && !/dontra|TraBe/.test(v),
+    (v.match(/.{0,30}(dontra|TraBe).{0,30}/) || [])[0]);
+  const r = fs.readFileSync(path.join(GOC, 'routes/attendance.js'), 'utf8');
+  check('đường Điểm danh trên máy chủ không còn đọc bảng nào của phân hệ đã gỡ',
+    r.length > 10000 && !/dontra/.test(r), (r.match(/.{0,30}dontra.{0,30}/) || [])[0]);
 }
 
 tongKet(sv);
