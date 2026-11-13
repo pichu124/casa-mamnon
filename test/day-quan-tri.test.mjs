@@ -94,8 +94,11 @@ try {
       ph.loaiTin.some(t => /ảnh con tới lớp/.test(t)), ph.loaiTin);
 
     const qt = (await req('GET', '/api/push/trang-thai', { cookie: QT })).data;
-    check('BAN GIÁM HIỆU bật được, và chỉ được hứa đúng việc chờ duyệt',
-      qt.batDuoc === true && qt.loaiTin.every(t => /chờ duyệt/.test(t)), qt);
+    // Từ Đ257 danh sách của ban giám hiệu có thêm dòng nhắc hạn nộp: bộ quét
+    // của Học phí vốn gửi tin ấy cho họ từ Đ199, chỉ là danh sách chưa nói.
+    check('BAN GIÁM HIỆU bật được, và chỉ được hứa đúng việc chờ duyệt cùng khoản thu sắp tới hạn',
+      qt.batDuoc === true && qt.loaiTin.some(t => /chờ duyệt/.test(t))
+        && qt.loaiTin.every(t => /chờ duyệt|^khoản thu sắp tới hạn nộp$/.test(t)), qt);
 
     const gv = (await req('GET', '/api/push/trang-thai', { cookie: GV })).data;
     check('CÔ: chưa có loại tin nào nên batDuoc = false (Đ145 giữ nguyên)',
@@ -105,7 +108,7 @@ try {
   // =========================================================================
   console.log('\n[2] Chức vụ HỎI được, nhưng KHÔNG đăng ký được');
   {
-    for (const [ten, cookie] of [['văn phòng cơ sở', VP], ['kế toán', KT], ['bảo vệ cổng', BV]]) {
+    for (const [ten, cookie] of [['văn phòng cơ sở', VP], ['bảo vệ cổng', BV]]) {
       const tt = await req('GET', '/api/push/trang-thai', { cookie });
       check(`${ten}: hỏi được (không còn nhận 403 rồi bị đọc nhầm thành "máy chủ chưa cài")`,
         tt.status === 200, tt.status);
@@ -117,6 +120,26 @@ try {
         dk.status === 403, dk.status);
       const thu = await req('POST', '/api/push/thu', { cookie });
       check(`${ten}: và không bấm được "Gửi thử"`, thu.status === 403, thu.status);
+    }
+
+    // KẾ TOÁN RỜI KHỎI NHÓM TRÊN (Đ257, chủ dự án duyệt 14/11/2026).
+    //
+    // Kế toán CÓ một loại tin thật — bộ quét hạn nộp gửi cho người lo tiền —
+    // nên chặn họ đăng ký máy mới là lời hứa suông, theo chiều ngược lại.
+    // Bài đầy đủ: test/ke-toan-bat-thong-bao.test.mjs.
+    {
+      const tt = await req('GET', '/api/push/trang-thai', { cookie: KT });
+      check('kế toán: được hứa ĐÚNG MỘT loại tin — khoản thu sắp tới hạn nộp',
+        tt.status === 200 && tt.data.batDuoc === true
+          && JSON.stringify(tt.data.loaiTin) === JSON.stringify(['khoản thu sắp tới hạn nộp']), tt.data);
+      // Gửi thử lúc chưa có máy nào: đo cánh cửa, không có gì đi ra mạng.
+      const thu = await req('POST', '/api/push/thu', { cookie: KT });
+      check('kế toán: bấm được "Gửi thử"', thu.status === 200, thu.status);
+      const sub = { endpoint: 'https://fcm.googleapis.com/x-ke-toan', keys: { p256dh: 'a', auth: 'b' } };
+      const dk = await req('POST', '/api/push/dang-ky', { cookie: KT, body: { subscription: sub } });
+      check('kế toán: ĐĂNG KÝ MÁY ĐƯỢC', dk.status === 200 && dk.data.soMay === 1, `${dk.status} ${JSON.stringify(dk.data)}`);
+      const huy = await req('DELETE', '/api/push/dang-ky', { cookie: KT, body: { endpoint: sub.endpoint } });
+      check('kế toán: và tắt được trên máy mình', huy.status === 200 && huy.data.soMay === 0, `${huy.status} ${JSON.stringify(huy.data)}`);
     }
   }
 

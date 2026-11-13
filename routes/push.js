@@ -7,6 +7,7 @@
 const day = require('../lib/day');
 const db = require('../lib/db');
 const baoNT = require('../lib/bao-nha-truong');
+const modules = require('../lib/modules');
 const { requireRole } = require('../lib/auth');
 
 // LOẠI TIN ĐẨY MÀ TÀI KHOẢN NÀY THẬT SỰ SẼ NHẬN (Đ157).
@@ -38,11 +39,18 @@ function loaiTinCua(user) {
   // thêm đường đẩy cho cô thì thêm dòng vào đây, và thẻ tự hiện lại.
   if (user.role !== 'admin') return [];
   const cv = db.chucVu(user);
-  if (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv)) return [];
-  return [
-    'báo cáo học tập cô gửi chờ duyệt',
-    'đề xuất sửa kế hoạch cô gửi chờ duyệt',
-  ];
+  const ds = [];
+  if (cv === null || baoNT.CHUC_VU_NHAN.includes(cv)) {
+    ds.push('báo cáo học tập cô gửi chờ duyệt', 'đề xuất sửa kế hoạch cô gửi chờ duyệt');
+  }
+  // NGƯỜI LO TIỀN (Đ257): bộ quét hạn nộp của phân hệ Học phí gửi "Có khoản
+  // thu sắp tới hạn" qua `baoNT.guiChoNguoiLoTienCuaBe` — tới kế toán, và tới
+  // cả ban giám hiệu lẫn quản lý cơ sở. Với kế toán đây là dòng DUY NHẤT.
+  // Học phí tắt thì bộ quét không gửi gì, nên cũng không hứa.
+  if ((cv === null || baoNT.CHUC_VU_LO_TIEN.includes(cv)) && modules.dangBat('hocphi')) {
+    ds.push('khoản thu sắp tới hạn nộp');
+  }
+  return ds;
 }
 
 // AI ĐƯỢC XEM VÀ DỌN ĐƯỜNG ĐẨY CỦA CẢ TRƯỜNG.
@@ -55,8 +63,9 @@ function loaiTinCua(user) {
 //
 // Ba nhóm đi qua được — quản trị chưa khai chức vụ, ban giám hiệu, quản lý cơ
 // sở — và cả ba đều có `api: null`, nên tầng chức vụ không chặn họ ở đường
-// `/api/push/...`. Danh sách này TRÙNG với `baoNT.CHUC_VU_NHAN`, tức trùng
-// với đúng nhóm thật sự nhận được tin đẩy.
+// `/api/push/...`. Danh sách này TRÙNG với `baoNT.CHUC_VU_NHAN`. Kế toán bật
+// được thông báo trên máy mình để nhận tin nhắc hạn nộp (Đ257), nhưng KHÔNG
+// thuộc nhóm giữ khoá.
 function chiNguoiGiuKhoa(req, res) {
   const cv = db.chucVu(req.user);
   if (req.user.role !== 'admin' || (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv))) {
