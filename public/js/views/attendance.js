@@ -849,8 +849,11 @@ App.views.attendance = {
       return /^\d{2}:\d{2}$/.test(v) ? v : undefined;
     };
     document.getElementById('att-rv-khong').onclick = () => {
+      // Đọc ô giờ TRƯỚC khi đóng hộp (Đ254). Bản cũ đóng hộp rồi mới đọc: ô đã
+      // biến mất, giờ cô gõ bị bỏ, máy chủ lặng lẽ ghi "bây giờ" thay vào.
+      const gio = gioGo();
       UI.closeModal();
-      this.ghiRaVe(studentId, { gio: gioGo() });
+      this.ghiRaVe(studentId, { gio });
     };
     document.getElementById('att-rv-anh').onclick = () => {
       const gio = gioGo();
@@ -869,6 +872,57 @@ App.views.attendance = {
       };
       o.click();
     };
+  },
+
+  // SỬA GIỜ CON TỚI LỚP (Đ254). Giờ vào do máy chủ tự đóng lúc cô chấm; cô
+  // chấm bù muộn thì giờ ấy không phải lúc con tới, và giờ về thật của con
+  // (sớm hơn giờ chấm) bị từ chối. Hộp này là chỗ sửa lại cho đúng.
+  moGioVao(studentId) {
+    const dong = (this._roster || []).find(x => x.student.id === studentId);
+    if (!dong || !dong.record) return;
+    const dangGhi = String(dong.record.checkIn || '').slice(0, 5);
+    UI.modal(`
+      <div class="muted small" style="line-height:1.7;margin-bottom:10px">
+        Giờ tới lớp là lúc cô chấm “Có mặt” hoặc chụp ảnh con tới lớp. Cô chấm bù muộn thì
+        sửa lại ở đây cho đúng lúc con tới. Gia đình thấy giờ này trong Điểm danh của con.
+      </div>
+      <div class="field">
+        <label for="att-gv-gio">Giờ con tới lớp</label>
+        <input id="att-gv-gio" type="time" value="${UI.esc(/^\d{2}:\d{2}$/.test(dangGhi) ? dangGhi : UI.gioVN())}">
+      </div>
+      <button class="btn primary block" id="att-gv-luu">Lưu giờ tới lớp</button>
+      <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
+    `, `Giờ tới lớp — ${dong.student.name}`);
+    document.getElementById('att-gv-luu').onclick = async () => {
+      const gio = String((document.getElementById('att-gv-gio') || {}).value || '').trim().slice(0, 5);
+      if (!/^\d{2}:\d{2}$/.test(gio)) return UI.toast('Cô chọn giờ và phút con tới lớp nhé', 'error');
+      const nut = document.getElementById('att-gv-luu');
+      if (nut) nut.disabled = true;
+      if (await this.suaGioVao(studentId, gio)) UI.closeModal();
+      else if (nut) nut.disabled = false;
+    };
+  },
+
+  // Trả về true khi đã lưu được — hộp chỉ đóng khi đó, để câu báo lỗi của máy
+  // chủ hiện ra lúc cô còn nhìn thấy ô giờ mình vừa gõ.
+  async suaGioVao(studentId, gio) {
+    const ngayLucBam = this.date;
+    try {
+      const kq = await API.post('/api/attendance/gio-vao', { studentId, date: ngayLucBam, gio });
+      UI.toast(`Đã ghi giờ tới lớp ${gio}`, 'success');
+      const dong = ngayLucBam === this.date
+        ? (this._roster || []).find(x => x.student.id === studentId) : null;
+      if (dong && kq && kq.record) {
+        dong.record = kq.record;
+        this.veLaiDong(studentId);
+      } else {
+        App.route();
+      }
+      return true;
+    } catch (e) {
+      UI.toast(e.message || 'Chưa lưu được giờ tới lớp', 'error');
+      return false;
+    }
   },
 
   // Trả về true khi đã ghi được — màn "Xem lại" chỉ đóng khi đó.
@@ -1250,6 +1304,7 @@ App.views.attendance = {
     const lua = [['present', 'success-soft'], ['absent_excused', 'outline'], ['absent_unexcused', 'outline']];
     const viec = [
       coMat && !rec.checkOut && ['ve', '🌇 Ghi con đã về (không chụp ảnh)', () => this.moRaVe(studentId)],
+      coMat && ['gio-vao', rec.checkIn ? '🕗 Sửa giờ tới lớp' : '🕗 Ghi giờ tới lớp', () => this.moGioVao(studentId)],
       dong.anhDenLop && dong.anhDenLop.file
         && ['go-anh', 'Gỡ ảnh tới lớp', () => { UI.closeModal(); this.goAnh(studentId); }],
       rec && rec.checkOut && ['go-ra', 'Gỡ giờ ra về', () => { UI.closeModal(); this.goRaVe(studentId); }],

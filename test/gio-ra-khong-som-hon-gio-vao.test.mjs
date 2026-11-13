@@ -12,10 +12,11 @@
 //       giờ; sổ, ảnh, ghi chú, nhật ký, tin báo gia đình đều KHÔNG được ghi.
 //   (b) giờ ra BẰNG giờ vào → nhận.
 //   (c) bé chưa có giờ vào → như cũ, nhận.
-//   (d) không có đường nào cho cô gõ giờ vào. Nhưng máy chủ tự đóng giờ vào
-//       (= lúc chấm) ở ba đường: chấm từng bé, chấm cả nhóm, chụp ảnh tới
-//       lớp. Dòng ĐÃ có giờ ra sớm hơn "bây giờ" thì ba đường ấy vẫn ghi
-//       trạng thái, nhưng KHÔNG đóng một giờ vào muộn hơn giờ ra.
+//   (d) máy chủ tự đóng giờ vào (= lúc chấm) ở ba đường: chấm từng bé, chấm
+//       cả nhóm, chụp ảnh tới lớp. Dòng ĐÃ có giờ ra sớm hơn "bây giờ" thì
+//       ba đường ấy vẫn ghi trạng thái, nhưng KHÔNG đóng một giờ vào muộn
+//       hơn giờ ra. (Đường cho cô GÕ giờ vào có từ Đ254, cùng luật thứ tự —
+//       canh ở `test/sua-gio-vao.test.mjs`.)
 //   (e) bé nghỉ → như cũ: ghi được giờ ra, trạng thái nghỉ ở nguyên.
 //
 // GIỜ ĐƯỢC ĐẶT THẲNG VÀO BẢNG, không lấy theo đồng hồ lúc chạy: bài này phải

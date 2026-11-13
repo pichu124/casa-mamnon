@@ -879,7 +879,8 @@ module.exports = (app) => {
       const vao = phutTrongNgay(cu.checkIn);
       const gioVao = `${String(Math.floor(vao / 60)).padStart(2, '0')}:${String(vao % 60).padStart(2, '0')}`;
       return res.status(400).json({
-        error: `Giờ ra về (${gio}) sớm hơn giờ con tới lớp (${gioVao}). Cô xem lại giúp nhé.`,
+        error: `Giờ ra về (${gio}) sớm hơn giờ con tới lớp (${gioVao}). Cô xem lại giúp nhé. `
+          + 'Nếu giờ tới lớp ghi chưa đúng (cô chấm bù muộn), cô mở nút ⋯ của bé → “Sửa giờ tới lớp” trước.',
       });
     }
 
@@ -929,6 +930,66 @@ module.exports = (app) => {
       anh: anhMoi ? { file: anhMoi.file } : null,
       record: db.first('attendance', 'SELECT * FROM attendance WHERE id = ?', [cu.id]),
       ghiChuVe: ghiChuVeCua(studentId, ngayGhi),
+    });
+  });
+
+  // CÔ SỬA GIỜ CON TỚI LỚP (Đ254, chủ dự án duyệt 13/11).
+  //
+  // Giờ vào do máy chủ tự đóng = lúc cô chấm. Sáng quên điểm danh, 17:00 mới
+  // chấm bù thì sổ ghi bé tới lớp lúc 17:00; từ Đ253 giờ về thật (16:45) của
+  // bé ấy bị từ chối vì sớm hơn giờ vào, và cô không có đường nào gỡ. Đây là
+  // đường ấy.
+  //
+  // CHỈ SỬA MỘT Ô. Không đổi trạng thái, không sinh dòng, không đổi người
+  // chấm, không báo gia đình: đây không phải lối vòng để chấm có mặt cho bé
+  // đang ghi nghỉ, và giờ cũ vẫn nằm trong nhật ký thao tác.
+  app.post('/api/attendance/gio-vao', requireRole('teacher', 'admin'), (req, res) => {
+    const b = req.body || {};
+    const studentId = String(b.studentId || '');
+    const ngayGhi = String(b.date || todayStr());
+    if (!studentId) return res.status(400).json({ error: 'Thiếu mã của bé' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngayGhi)) {
+      return res.status(400).json({ error: 'Ngày không hợp lệ (định dạng YYYY-MM-DD)' });
+    }
+    if (chanNgoaiNgay(res, ngayGhi, 'sửa giờ tới lớp')) return;
+    if (!db.canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Bé không thuộc nhóm cô phụ trách' });
+    }
+
+    // Giờ phải do cô gõ ra, đủ "HH:MM". Thiếu hay hỏng thì từ chối — khác
+    // đường ghi giờ ra, ở đây lấy "bây giờ" thay vào là đúng cái sai cần sửa.
+    const gio = typeof b.gio === 'string' ? b.gio.trim() : '';
+    if (!/^\d{2}:\d{2}$/.test(gio) || phutTrongNgay(gio) === null) {
+      return res.status(400).json({ error: 'Giờ tới lớp chưa đúng. Cô chọn lại giờ và phút giúp nhé.' });
+    }
+
+    const cu = db.first('attendance',
+      'SELECT * FROM attendance WHERE studentId = ? AND date = ?', [studentId, ngayGhi]);
+    if (!cu || !CO_MAT.includes(cu.status)) {
+      return res.status(400).json({
+        error: 'Bé chưa được ghi có mặt hôm nay, nên chưa có giờ tới lớp để sửa. '
+          + 'Cô chấm “Có mặt” hoặc chụp ảnh con tới lớp trước nhé.',
+      });
+    }
+    if (raSomHonVao(gio, cu.checkOut)) {
+      const ra = phutTrongNgay(cu.checkOut);
+      const gioRa = `${String(Math.floor(ra / 60)).padStart(2, '0')}:${String(ra % 60).padStart(2, '0')}`;
+      return res.status(400).json({
+        error: `Giờ tới lớp (${gio}) muộn hơn giờ ra về đã ghi (${gioRa}). Cô xem lại giúp nhé.`,
+      });
+    }
+    const bayGio = nowTime();
+    if (raSomHonVao(gio, bayGio)) {
+      return res.status(400).json({
+        error: `Giờ tới lớp (${gio}) chưa tới — bây giờ mới ${bayGio}. Cô xem lại giúp nhé.`,
+      });
+    }
+
+    db.update('attendance', cu.id, { checkIn: gio });
+    db.audit(req.user.id, 'sua-gio-vao', studentId, { date: ngayGhi, truoc: cu.checkIn || '', sau: gio });
+    res.json({
+      ok: true, date: ngayGhi, gio,
+      record: db.first('attendance', 'SELECT * FROM attendance WHERE id = ?', [cu.id]),
     });
   });
 
