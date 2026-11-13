@@ -115,6 +115,7 @@ Vào https://www.duckdns.org (đăng nhập Google/GitHub), tạo subdomain
 ```bash
 sudo tee /etc/caddy/Caddyfile > /dev/null <<'CADDY'
 casa-school.duckdns.org {
+    encode zstd gzip
     reverse_proxy localhost:3000
 }
 CADDY
@@ -225,6 +226,7 @@ ExecStart=/usr/bin/node server.js
 Environment=DATA_DIR=/var/lib/casa-mamnon
 Environment=NODE_ENV=production
 Environment=PORT=3000
+Environment=HOST=127.0.0.1
 Environment=FORCE_HTTPS=1
 Restart=always
 RestartSec=5
@@ -241,17 +243,26 @@ Dòng cuối phải thấy *"CASA Mầm non đang chạy tại"*. Nếu thấy m
 nhắc *"tạo tài khoản quản trị"* hoặc *"mật khẩu mẫu"*: bước 5 chưa chạy xong,
 hoặc `--thu-muc` ở bước 5 gõ khác đường với `DATA_DIR` ở đây.
 
+**`HOST=127.0.0.1`** để app chỉ nghe trên chính máy này; Caddy là cửa duy nhất ra
+Internet. Thiếu dòng đó app nghe ở mọi địa chỉ của máy, và cổng 3000 chỉ còn
+trông vào tường lửa.
+
 **Giữ nguyên `TRUST_PROXY` mặc định.** Có Caddy đứng trước nên app lấy đúng địa
 chỉ thật của người dùng; đặt `TRUST_PROXY=0` ở máy này là một người gõ sai mật
 khẩu 8 lần khoá luôn cả trường.
 
 ### Bước 7. Tên miền và HTTPS
 
-Caddy vẫn trỏ `casa-school.duckdns.org` về cổng 3000, không phải sửa gì:
+Caddy vẫn trỏ `casa-school.duckdns.org` về cổng 3000. Chỉ thêm một dòng bật nén
+nếu khối Caddy của máy chưa có (máy dựng theo mục 0.6 của bản này thì đã có):
 
 ```bash
+grep -n encode /etc/caddy/Caddyfile || \
+  sudo sed -i 's/^\([[:space:]]*\)reverse_proxy localhost:3000/\1encode zstd gzip\n\1reverse_proxy localhost:3000/' /etc/caddy/Caddyfile
 sudo systemctl restart caddy
 curl -I https://casa-school.duckdns.org/healthz      # phải ra HTTP/2 200
+curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' \
+  https://casa-school.duckdns.org/js/app.js | grep -i content-encoding   # phải ra gzip
 ```
 
 Muốn tên miền mang tên mầm non: tạo thêm một subdomain trên duckdns.org trỏ cùng

@@ -293,6 +293,10 @@ DATA_DIR=/var/lib/casa-mamnon npm run backup
 DATA_DIR=/var/lib/casa-mamnon npm run restore:check
 
 # 5. Dựng dịch vụ tự bật lại
+#    Dòng HOST=127.0.0.1 để app CHỈ nghe trên chính máy này; nginx ở bước 8 là
+#    cửa duy nhất ra Internet. Thiếu dòng đó app nghe ở mọi địa chỉ của máy, và
+#    ai gõ http://<IP>:3000 là vào thẳng app bằng kết nối KHÔNG mã hoá, vòng
+#    qua HTTPS.
 sudo tee /etc/systemd/system/casa-mamnon.service >/dev/null <<'UNIT'
 [Unit]
 Description=CASA Mam non
@@ -305,6 +309,7 @@ WorkingDirectory=/opt/casa-mamnon
 Environment=NODE_ENV=production
 Environment=DATA_DIR=/var/lib/casa-mamnon
 Environment=PORT=3000
+Environment=HOST=127.0.0.1
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5
@@ -314,6 +319,7 @@ WantedBy=multi-user.target
 UNIT
 sudo systemctl daemon-reload
 sudo systemctl enable --now casa-mamnon
+curl -s http://127.0.0.1:3000/healthz     # chờ vài giây rồi gõ; phải in ra {"ok":true}
 
 # 6. Sao lưu hằng đêm + MỘT BẢN RA Ổ NGOÀI
 #    Bản ra ổ ngoài là bản cứu được khi ổ máy chủ hỏng. Xem docs/SAO-LUU.md.
@@ -343,9 +349,99 @@ mục mà bước 1 đã cấp quyền ghi cho tài khoản chạy dịch vụ. 
 grep "CẦN SỬA" /var/lib/casa-mamnon/soat-may-chu.log | tail -20
 ```
 
-**HTTPS** đặt trước app bằng nginx + certbot cho `<tên miền của trường>`. Không
-có HTTPS thì app không cài được lên màn hình chính và không mở được lúc mất
-mạng — xem mục 1 của `docs/PHEP-THU-DIEN-THOAI.md`.
+### HTTPS, nén và tường lửa — xong cả ba rồi mới mở cho người dùng
+
+Không có HTTPS thì app không cài được lên màn hình chính và không mở được lúc
+mất mạng — xem mục 1 của `docs/PHEP-THU-DIEN-THOAI.md`. Bước 9 của
+`docs/CAI-DAT-VPS.docx` ghi cùng các lệnh dưới đây, kèm bảng kiểm.
+
+```bash
+# 8. nginx đứng trước app: HTTPS và nén
+sudo apt install -y nginx
+
+sudo tee /etc/nginx/sites-available/casa-mamnon >/dev/null <<'CONF'
+server {
+    server_name <tên-miền-của-trường>;
+    client_max_body_size 20M;
+
+    # Nén chữ trước khi gửi về điện thoại. KHÔNG ghi loại ảnh nào vào đây: ảnh
+    # đã nén sẵn, nén lần nữa chỉ tốn máy. text/html thì nginx tự nén khi đã
+    # "gzip on", ghi thêm vào là nginx cảnh báo trùng.
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_min_length 1024;
+    gzip_types text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml text/plain;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+CONF
+
+sudo ln -sf /etc/nginx/sites-available/casa-mamnon /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+
+#    Chứng chỉ HTTPS miễn phí, tự gia hạn
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d <tên-miền-của-trường>
+
+#    Kiểm nén — phải in ra dòng "content-encoding: gzip".
+#    Dùng đúng lệnh này, đừng đổi sang `curl -I`: nginx không nén câu hỏi HEAD.
+curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' \
+  https://<tên-miền-của-trường>/js/app.js | grep -i content-encoding
+
+# 9. Buộc HTTPS — chỉ SAU KHI ổ khoá đã lên
+sudo sed -i "/Environment=PORT=/a Environment=FORCE_HTTPS=1" \
+  /etc/systemd/system/casa-mamnon.service
+sudo systemctl daemon-reload
+sudo systemctl restart casa-mamnon
+systemctl show casa-mamnon -p Environment   # phải thấy HOST=127.0.0.1 và FORCE_HTTPS=1
+
+#    Từ đây `curl http://127.0.0.1:3000/healthz` trên máy chủ trả 308 (chuyển
+#    sang https) — đó là app làm đúng. Muốn hỏi thẳng app thì gửi kèm header
+#    mà nginx vẫn gửi:
+curl -s -H 'X-Forwarded-Proto: https' http://127.0.0.1:3000/healthz   # {"ok":true}
+
+# 10. Tường lửa: chỉ mở 22 (SSH), 80 và 443 (nginx)
+#     SSH của máy chạy cổng KHÁC 22 thì mở đúng cổng đó trước khi `ufw enable`,
+#     không thì tự khoá mình ngoài cửa.
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
+Rồi **từ một máy KHÁC** (máy tính ở nhà, không phải phiên SSH đang mở), kiểm
+rằng cổng của app **không** vào được từ ngoài:
+
+```bash
+curl -m 5 http://<địa-chỉ-IP-máy-chủ>:3000/healthz ; echo "mã thoát: $?"
+# ĐÚNG: không in ra {"ok":true}, mã thoát khác 0 (7 = bị từ chối, 28 = hết giờ chờ).
+# SAI:  in ra {"ok":true} — cổng 3000 đang mở ra Internet. Xem lại dòng HOST ở
+#       bước 5 và `sudo ufw status`.
+
+curl -s -o /dev/null -w '%{http_code}\n' https://<tên-miền-của-trường>/healthz   # phải ra 200
+```
+
+**Vì sao cần cả `HOST=127.0.0.1` lẫn tường lửa.** Hai chốt cho cùng một cửa:
+không đặt `HOST` thì app nghe ở `0.0.0.0`, và chỉ còn tường lửa đứng giữa
+Internet với một cổng không mã hoá — một lần `ufw disable` lúc gỡ rối là mở
+toang. Đặt `HOST` rồi thì tường lửa có tắt nhầm, cổng 3000 vẫn không ai ngoài
+máy chạm tới được. Nhà cung cấp VPS thường có thêm tường lửa ở trang quản trị:
+ở đó cũng chỉ mở ba cổng trên.
+
+**Vì sao danh sách `gzip_types` có `text/javascript`.** App gửi tệp `.js` với
+loại `text/javascript`; chỉ ghi `application/javascript` như nhiều mẫu trên mạng
+là không tệp mã nào được nén, mà nginx không báo gì.
 
 Muốn xem app chạy khi chưa có máy chủ: dùng `npm run ban-thu` trên máy của mình
 (xem `docs/PHEP-THU-DIEN-THOAI.md`).

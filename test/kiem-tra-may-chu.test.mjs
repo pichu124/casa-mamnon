@@ -433,6 +433,89 @@ console.log('\n[12] TÀI LIỆU KHÔNG ĐƯỢC CHỈ NGƯỜI VẬN HÀNH VÀO 
 }
 
 // ---------------------------------------------------------------------------
+console.log('\n[13] Hướng dẫn dựng VPS: app chỉ nghe nội bộ, có tường lửa, có bật nén');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ (Đ252)
+  //
+  // `server.js` mặc định nghe ở 0.0.0.0 — đúng cho máy lập trình, để điện thoại
+  // cùng Wi-Fi vào được. Trên VPS thì đó là một cổng KHÔNG mã hoá mở ra
+  // Internet: gõ http://<IP>:3000 là vào thẳng app, vòng qua HTTPS. Trước đợt
+  // này unit systemd trong tài liệu không đặt HOST, tài liệu Markdown không có
+  // bước tường lửa, và không nơi nào bật nén (app tự nó không nén).
+  //
+  // Cả ba là chữ trong tài liệu chứ không phải mã, nên chỉ canh được bằng cách
+  // đọc tài liệu: bỏ một dòng đi thì không bài nào khác đỏ.
+  const NEN_PHAI_CO = ['text/css', 'text/javascript', 'application/javascript',
+    'application/json', 'application/manifest+json', 'image/svg+xml'];
+
+  // Trả về danh sách thứ CÒN THIẾU của một bản hướng dẫn dùng nginx + ufw.
+  // Nhận chữ thô: tệp Markdown, hoặc mã nguồn của script sinh bản Word.
+  const thieuGi = (chu) => {
+    const thieu = [];
+    if (!/^\s*'?Environment=HOST=127\.0\.0\.1'?,?\s*$/m.test(chu)) {
+      thieu.push('unit systemd không đặt Environment=HOST=127.0.0.1');
+    }
+    if (!/Environment=FORCE_HTTPS=1/.test(chu)) thieu.push('không có bước bật FORCE_HTTPS=1');
+    if (!/proxy_pass http:\/\/127\.0\.0\.1:/.test(chu)) thieu.push('nginx không trỏ về 127.0.0.1');
+
+    if (!/ufw default deny incoming/.test(chu)) thieu.push('tường lửa không chặn mặc định chiều vào');
+    if (!/ufw enable/.test(chu)) thieu.push('không có lệnh ufw enable');
+    const mo = [...chu.matchAll(/ufw allow\s+'?([\w/ ]+?)'?(?=\s{2,}|\s*#|'|\s*$)/gm)].map(m => m[1].trim()).sort();
+    if (mo.join(',') !== '22/tcp,443/tcp,80/tcp') thieu.push(`tường lửa mở [${mo.join(', ')}], đúng phải là đúng ba cổng 22, 80, 443`);
+    if (!/curl -m \d+ http:\/\/<[^>\n]*IP[^>\n]*>:(3000|\$\{CONG\})\/healthz/.test(chu)) {
+      thieu.push('không có lệnh kiểm từ máy khác rằng cổng app không vào được');
+    }
+
+    if (!/^\s*'?\s*gzip on;/m.test(chu)) thieu.push('nginx không bật gzip');
+    const loai = (chu.match(/gzip_types ([^;]+);/) || [])[1] || '';
+    for (const l of NEN_PHAI_CO) {
+      if (!loai.split(/\s+/).includes(l)) thieu.push(`gzip_types thiếu ${l}`);
+    }
+    const thua = loai.split(/\s+/).filter(l => /^image\/(?!svg\+xml$)|^video\/|^text\/html$/.test(l));
+    if (thua.length) thieu.push(`gzip_types có loại không được nén: ${thua.join(', ')}`);
+    return thieu;
+  };
+
+  const trienKhai = fs.readFileSync(path.join(GOC, 'docs', 'TRIEN-KHAI.md'), 'utf8');
+  const sinhWord = fs.readFileSync(path.join(GOC, 'scripts', 'xuat-cai-dat-vps.js'), 'utf8');
+  check('docs/TRIEN-KHAI.md: đủ HOST=127.0.0.1, tường lửa ba cổng, lệnh kiểm từ máy khác, nén',
+    thieuGi(trienKhai).length === 0, thieuGi(trienKhai));
+  check('scripts/xuat-cai-dat-vps.js (nguồn của bản Word): đủ cùng những thứ đó',
+    thieuGi(sinhWord).length === 0, thieuGi(sinhWord));
+
+  // PHÉP THỬ NGƯỢC: làm hỏng từng thứ một trên chính tài liệu thật, hàm soát
+  // phải kêu đúng thứ đó. Không có vế này thì không phân biệt được "tài liệu
+  // đủ" với "hàm soát không bắt được gì".
+  const hong = [
+    ['bỏ dòng HOST', trienKhai.replace(/^Environment=HOST=127\.0\.0\.1\n/m, ''), /HOST=127\.0\.0\.1/],
+    ['mở thêm cổng của app ở tường lửa', trienKhai.replace('sudo ufw allow 443/tcp', 'sudo ufw allow 443/tcp\nsudo ufw allow 3000/tcp'), /đúng ba cổng/],
+    ['bỏ một trong ba cổng', trienKhai.replace('sudo ufw allow 80/tcp\n', ''), /đúng ba cổng/],
+    ['bỏ lệnh kiểm từ máy khác', trienKhai.replace(/^curl -m 5 http:.*$/m, ''), /từ máy khác/],
+    ['tắt gzip', trienKhai.replace('    gzip on;\n', ''), /không bật gzip/],
+    ['bỏ text/javascript khỏi gzip_types', trienKhai.replace('gzip_types text/css text/javascript ', 'gzip_types text/css '), /thiếu text\/javascript/],
+    ['thêm ảnh vào gzip_types', trienKhai.replace('image/svg+xml text/plain;', 'image/svg+xml image/jpeg text/plain;'), /image\/jpeg/],
+  ];
+  for (const [ten, chu, mau] of hong) {
+    const kq = thieuGi(chu);
+    check(`PHÉP THỬ NGƯỢC — ${ten} → hàm soát kêu đúng chỗ`,
+      chu !== trienKhai && kq.length === 1 && mau.test(kq[0]), kq);
+  }
+
+  // Tài liệu dựa vào hai điều của `server.js`. Mã đổi mà tài liệu không đổi
+  // theo thì dòng HOST trong unit thành dòng chết, và không ai hay.
+  const sv = fs.readFileSync(path.join(GOC, 'server.js'), 'utf8');
+  check('server.js vẫn đọc địa chỉ nghe từ biến HOST', /const HOST = process\.env\.HOST \|\|/.test(sv));
+  check('và vẫn truyền HOST vào lệnh mở cổng', /app\.listen\(PORT, HOST\b/.test(sv));
+
+  // Máy thử Oracle dùng Caddy thay nginx: cùng hai điều, viết theo Caddy.
+  const oracle = fs.readFileSync(path.join(GOC, 'docs', 'MAY-CHU-THU-ORACLE-APP2.md'), 'utf8');
+  check('docs/MAY-CHU-THU-ORACLE-APP2.md: unit systemd đặt HOST=127.0.0.1',
+    /^Environment=HOST=127\.0\.0\.1$/m.test(oracle));
+  check('và khối Caddy bật nén ngay trước reverse_proxy',
+    /\{\n\s+encode zstd gzip\n\s+reverse_proxy localhost:3000\n\}/.test(oracle));
+}
+
+// ---------------------------------------------------------------------------
 console.log('\n[8] Kho ảnh — cảnh báo SỚM, trước khi đĩa kịp đầy');
 {
   // PHÉP TÍNH THỬ BẰNG SỐ, KHÔNG BẰNG Ổ ĐĨA THẬT.
