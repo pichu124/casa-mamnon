@@ -25,7 +25,9 @@
 //   [5] Dải vẫn ở đúng chỗ cũ khi chưa cuộn; phòng nhắn tin vẫn ẩn dải.
 //   [6] Đăng xuất rồi đăng nhập lại mà không tải trang: vẫn đúng MỘT dải,
 //       và nút ✕ của nó vẫn tắt được.
-//   [7] Không lỗi JS nào.
+//   [7] Nút nổi "Ghi nhanh" ở Hành trình: có dải thì đứng ngay TRÊN dải, bấm
+//       được, không che chữ hay nút ✕ của dải; hết dải thì về đúng chỗ cũ.
+//   [8] Không lỗi JS nào.
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, CHROMIUM,
@@ -255,7 +257,118 @@ console.log('\n[6] ĐĂNG XUẤT RỒI ĐĂNG NHẬP LẠI, KHÔNG TẢI TRANG �
 }
 
 // ===========================================================================
-console.log('\n[7] KHÔNG LỖI JS');
+console.log('\n[7] NÚT NỔI "GHI NHANH" Ở HÀNH TRÌNH — không nằm dưới dải, không che dải');
+{
+  // LỖI ĐÃ CÓ THẬT: nút "Ghi nhanh" đứng cố định ở góc dưới phải, đúng chỗ dải
+  // mời cài chiếm trên điện thoại, và nằm DƯỚI dải. Cô thấy một mẩu nút ló ra
+  // dưới dải mà bấm vào thì trúng dải. Chừa chỗ cuối trang không cứu được: cả
+  // hai đều đứng yên theo màn hình, không theo trang.
+  const NUT = '#ht-ghi-nhanh';
+  const doNutNoi = (page) => page.evaluate(() => {
+    const hop = (e) => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) }; };
+    const chong = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const tren = (e) => { const r = e.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); };
+    const nut = document.getElementById('ht-ghi-nhanh');
+    const n = hop(nut);
+    const dai = [...document.querySelectorAll('.push-banner')].filter(d => getComputedStyle(d).display !== 'none');
+    const tNut = tren(nut);
+    return {
+      nut: n, tam: { x: (n.left + n.right) / 2, y: (n.top + n.bottom) / 2 },
+      dai: dai.map(d => ({ id: d.id, ...hop(d) })),
+      cachDay: innerHeight - n.bottom, cachPhai: document.documentElement.clientWidth - n.right,
+      tamLaNut: !!tNut && (tNut === nut || nut.contains(tNut)),
+      chongDai: dai.some(d => chong(n, hop(d))),
+      trongKhung: n.top >= 0 && n.bottom <= innerHeight,
+      // Chữ và hai nút của dải: thứ nằm trên cùng tại tâm của chúng phải thuộc về dải.
+      daiBiChe: dai.flatMap(d => [...d.querySelectorAll('.pb-text, .pb-bell, .pb-close')]
+        .filter(e => { const t = tren(e); return !t || !d.contains(t); }).map(e => `${d.id} ${e.className}`)),
+    };
+  });
+  const dungYen = (page) => page.waitForFunction(() => document.getAnimations().every(a => a.playState !== 'running'), null, { timeout: 10000 });
+  const khongCheNhau = (d) => d.dai.length >= 1 && d.tamLaNut && !d.chongDai && d.trongKhung && d.daiBiChe.length === 0;
+  // Chỗ CŨ của nút, đo trên mã trước khi sửa: đáy nút cách đáy khung 76px,
+  // mép phải cách mép phải khung 16px.
+  const choCu = (d) => d.cachDay === 76 && d.cachPhai === 16 && d.tamLaNut;
+
+  for (const [rong, cao] of [[320, 568], [360, 640], [390, 844], [420, 900]]) {
+    const khung = `${rong}x${cao}`;
+    const { ctx, page } = await moMay(rong, cao);
+    await dangNhap(page, 'giaovien');
+    await page.waitForSelector('#push-banner', { timeout: 10000 });
+    await moManHinh(page, '#/hanhtrinh', NUT);
+    let d = await doNutNoi(page);
+    check(`${khung}: có dải — nút Ghi nhanh KHÔNG nằm dưới dải, KHÔNG che chữ hay nút của dải`, khongCheNhau(d), d);
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(150);
+    d = await doNutNoi(page);
+    check(`${khung}: cuộn hết trang cũng vậy`, khongCheNhau(d), d);
+
+    // Bấm theo toạ độ: thứ nằm trên tâm nút nhận cú bấm.
+    await page.mouse.click(d.tam.x, d.tam.y);
+    const moDuoc = await page.waitForSelector('#modal-overlay', { timeout: 4000 }).then(() => true, () => false);
+    check(`${khung}: bấm thật vào nút thì mở biểu mẫu ghi quan sát`, moDuoc);
+    if (moDuoc) await page.evaluate(() => UI.closeModal());
+
+    // Tắt dải: nút về ĐÚNG chỗ cũ.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.click('#pb-close');
+    await page.waitForFunction(() => !document.querySelector('.push-banner'), null, { timeout: 5000 });
+    await page.waitForTimeout(150);
+    d = await doNutNoi(page);
+    check(`${khung}: không còn dải — nút về đúng chỗ cũ (cách đáy 76, cách phải 16)`, d.dai.length === 0 && choCu(d), d);
+
+    if (rong === 360) {
+      // Dải hiện ra SAU khi màn đã vẽ (dải "Đã có bản mới" tới bất cứ lúc nào).
+      await page.evaluate(() => App.baoCoBanMoi());
+      await page.waitForSelector('#ban-moi-banner', { timeout: 5000 });
+      await dungYen(page);
+      await page.waitForTimeout(150);
+      d = await doNutNoi(page);
+      check(`${khung}: dải "Đã có bản mới" hiện sau khi màn đã vẽ — nút tự nhường chỗ`, khongCheNhau(d) && d.dai[0].id === 'ban-moi-banner', d);
+      // Đổi tab trong Hành trình (màn vẽ lại): nút vẫn ở trên dải.
+      await moManHinh(page, '#/hanhtrinh/ghinhanh', NUT);
+      await page.waitForTimeout(300);
+      d = await doNutNoi(page);
+      check(`${khung}: đổi tab, màn vẽ lại — nút vẫn không nằm dưới dải`, khongCheNhau(d), d);
+      await page.click('#bm-de-sau');
+      await page.waitForTimeout(200);
+      d = await doNutNoi(page);
+      check(`${khung}: bấm "để sau" — nút lại về đúng chỗ cũ`, d.dai.length === 0 && choCu(d), d);
+    }
+    await ctx.close();
+  }
+
+  // Mở thẳng app ở màn Hành trình (tải lại trang): dải được dựng SAU khi màn vẽ.
+  {
+    const { ctx, page } = await moMay(360, 640);
+    await dangNhap(page, 'giaovien');
+    await moManHinh(page, '#/hanhtrinh', NUT);
+    await page.reload();
+    await page.waitForSelector(NUT, { timeout: 10000 });
+    await page.waitForSelector('#push-banner', { timeout: 10000 });
+    await dungYen(page);
+    await page.waitForTimeout(300);
+    const d = await doNutNoi(page);
+    check('tải lại trang ngay ở màn Hành trình — nút vẫn không nằm dưới dải', khongCheNhau(d), d);
+    await ctx.close();
+  }
+
+  // Màn rộng: dải ở giữa, nút ở góc phải, không chạm nhau — nút KHÔNG được dời.
+  {
+    const { ctx, page } = await moMay(1280, 800);
+    await dangNhap(page, 'giaovien');
+    await page.waitForSelector('#push-banner', { timeout: 10000 });
+    await moManHinh(page, '#/hanhtrinh', NUT);
+    const d = await doNutNoi(page);
+    check('1280x800: dải không chạm nút — nút ở nguyên chỗ cũ dù dải đang hiện',
+      d.dai.length === 1 && !d.chongDai && choCu(d) && d.daiBiChe.length === 0, d);
+    await ctx.close();
+  }
+}
+
+// ===========================================================================
+console.log('\n[8] KHÔNG LỖI JS');
 check('không lỗi JS nào trong suốt bài', loiJs.length === 0, loiJs);
 
 await browser.close();
