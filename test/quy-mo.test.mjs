@@ -21,7 +21,7 @@
 //   2. `/api/auth/me` và `/api/students` — hỏi lại thông tin nhóm cho TỪNG bé,
 //      dù cả trường chỉ có hai chục nhóm. Đây là đường chạy MỖI LẦN mở app.
 //   3. Màn cổng đón trả — nạp toàn bộ lịch sử uỷ quyền rồi vứt gần hết bằng
-//      JavaScript. Canh riêng ở test/don-tra.test.mjs mục [14].
+//      JavaScript. (Màn ấy rời kho cùng mã phân hệ Đón trả bé ở Đ252.)
 //   4. Xin phép nghỉ và Dặn thuốc — máy chủ CÓ cắt ở 60 đơn, mà màn hình không
 //      gửi giới hạn và cũng không nói một chữ nào là đã cắt.
 //

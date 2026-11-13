@@ -9,7 +9,7 @@
 // tệp khóa mang 385 mục thừa — gấp bốn lần số gói thật — và không bộ canh nào
 // kêu, vì:
 //
-//   • `npm ci` (CI, Docker) lấy `package.json` làm gốc rồi lặng lẽ bỏ qua mục
+//   • `npm ci` (CI, máy chủ) lấy `package.json` làm gốc rồi lặng lẽ bỏ qua mục
 //     thừa → cài vẫn đúng, xanh vẫn xanh.
 //   • `npm audit` thì đọc CẢ tệp khóa → báo 11 lỗ, có cả một lỗ "nghiêm trọng"
 //     ở `tar`, toàn của những gói không ai cài. Lỗ THẬT duy nhất (`qs`, một

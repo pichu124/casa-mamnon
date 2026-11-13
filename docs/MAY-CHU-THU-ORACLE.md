@@ -10,7 +10,7 @@
 > |---|---|
 > | Còn dùng được | Quy trình chung: sao lưu hằng đêm, cập nhật bằng `git pull`, dựng dịch vụ tự bật lại, cấu hình HTTPS |
 > | **KHÔNG** còn đúng | Tên dịch vụ và thư mục `schoolconnect`; máy chủ thử trên Oracle Cloud; cách gọi *học sinh / lớp / giáo viên chủ nhiệm* |
-> | Chưa chốt | App 2 chạy **VPS đặt tại Việt Nam, tên miền đứng tên trường** — nhà trường chưa đăng ký (N7) |
+> | **Đã chốt (12/11/2026)** | App 2 triển khai trên **VPS đặt tại Việt Nam, tên miền đứng tên trường**. Còn chờ nhà trường thuê máy và đăng ký tên miền (N7) |
 > | **Với app 2 thì làm theo đâu** | `docs/TRIEN-KHAI.md` — viết riêng cho CASA Mầm non. Thư mục dữ liệu của app 2 là **`/var/lib/casa-mamnon`**, không phải `/var/lib/schoolconnect`. Muốn chạy **bản thử app 2 trên chính máy Oracle này**: `docs/MAY-CHU-THU-ORACLE-APP2.md` |
 >
 > Việc cập nhật bộ tài liệu này là **N1** trong `docs/TIEN-DO.md`. Nó chờ nhà
@@ -26,8 +26,8 @@ những thứ tốn nhiều thời gian nhất.
 > **Đây là máy chủ TẬP DƯỢT, không phải máy chủ thật của trường.**
 > Chỉ dùng dữ liệu demo. Tuyệt đối không nhập danh sách học sinh thật lên máy này:
 > gói miễn phí không có cam kết vận hành, không sao lưu, và có thể bị thu hồi bất
-> cứ lúc nào. Khi triển khai thật cho trường, làm theo
-> `docs/QUY-TRINH-TRIEN-KHAI.docx` với một VPS trả phí đặt tại Việt Nam.
+> cứ lúc nào. Khi triển khai thật cho trường, dùng một VPS trả phí đặt tại Việt
+> Nam và làm theo `docs/TRIEN-KHAI.md` (bản Word: `docs/CAI-DAT-VPS.docx`).
 
 Mục đích của việc tập dượt: làm quen trọn quy trình vận hành — systemd tự bật lại
 khi app sập, Caddy tự xin HTTPS, sao lưu hằng đêm, kiểm tra sức khỏe máy chủ.
@@ -383,8 +383,8 @@ Lệnh cuối là phép thử thật: nó giải nén bản sao lưu ra và đ�
 trong. Sao lưu chưa từng kiểm thì chưa gọi là sao lưu.
 
 **Hẹn giờ hằng đêm** — dùng systemd timer vì lịch tự mang theo múi giờ (cách làm
-đầy đủ trong `docs/QUY-TRINH-TRIEN-KHAI.docx` mục 4.2). Với máy tập dượt thì cron
-cũng đủ:
+đầy đủ nằm ở mục 4.2 của `QUY-TRINH-TRIEN-KHAI.docx` — tài liệu Word của app 1,
+đã gỡ ở Đ252; xem lịch sử git). Với máy tập dượt thì cron cũng đủ:
 
 ```bash
 (crontab -l 2>/dev/null; echo "0 2 * * * cd /opt/schoolconnect && DATA_DIR=/var/lib/schoolconnect npm run backup >> /home/ubuntu/backup.log 2>&1") | crontab -

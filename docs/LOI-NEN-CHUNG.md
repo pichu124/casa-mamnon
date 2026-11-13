@@ -89,7 +89,7 @@ hôm nay. `npm run test:nen-chung` canh cho không tệp nào lọt khỏi bản
 | Kiểu dáng | `public/css/app.css` | **Có** — một lớp CSS hỏng thì hỏng ở cả hai app |
 | Bộ canh | `scripts/kiem-tra-commit.js`, `scripts/kiem-tra-du-lieu.js`, `scripts/kiem-tra-may-chu.js`, `scripts/cai-hook.js` | **Có** |
 | Sao lưu / khôi phục | `scripts/backup.js`, `scripts/restore.js` | **Có** |
-| Việc vặt vận hành | `scripts/create-admin.js`, `scripts/prepare-mobile.js`, `scripts/xuat-quy-trinh.js`, `scripts/migrate-json-to-sqlite.js` | **Có**, nhưng gần như đóng băng. `migrate-json-to-sqlite.js` là đường một chiều của app 1 đời cũ — app 2 không bao giờ chạy nó |
+| Việc vặt vận hành | `scripts/create-admin.js`, `scripts/prepare-mobile.js`, `scripts/xuat-quy-trinh.js`, `scripts/migrate-json-to-sqlite.js` | **Có**, nhưng gần như đóng băng. `prepare-mobile.js` (N2), `migrate-json-to-sqlite.js` (Đ251) và `xuat-quy-trinh.js` (Đ252) **đã gỡ khỏi app 2**: cái thứ hai là đường một chiều của app 1 đời cũ, app 2 không bao giờ chạy nó; cái thứ ba sinh tài liệu Word triển khai của app 1, app 2 có `scripts/xuat-cai-dat-vps.js` riêng. Ở kho app 1 ba tệp này vẫn còn |
 | Chữa cháy phân công | `scripts/sua-quyen-chu-nhiem.js` | **Một phần** — app 2 đã đổi sang mô hình *nhiều cô một nhóm* (G0.4) nên phần bảng `class_teachers` KHÔNG mang sang được; phần còn lại thì có |
 | Cấu trúc bảng | `lib/schema.sql` | **Một phần** — bảng nền chung, bảng riêng thì không |
 | Khung kiểm thử | `test/*.mjs` phần dựng máy chủ và tiện ích chung | **Có** |

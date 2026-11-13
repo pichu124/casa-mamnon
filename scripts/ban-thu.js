@@ -131,10 +131,9 @@ modules.napMoRong();
 // tại để không làm.
 //
 // VÀ CHỈ NHỮNG PHÂN HỆ CẮM THÊM MẶC ĐỊNH BẬT (Đ239i). Phân hệ cắm thêm mà nhà
-// trường đã quyết tắt mang `defaultEnabled: false` trong `module.json` — Đón
-// trả bé từ Đ227, vì đã lồng vào Điểm danh. Bản trước bật hết `moRong()`, nên
-// ghi đè quyết định ấy bằng một dòng "bật" và máy thử vẫn hiện Đón trả bé.
-// Máy thử dựng bằng bản cũ đã mang sẵn dòng đó, nên ở đây TẮT lại cho đúng
+// trường đã quyết tắt mang `defaultEnabled: false` trong `module.json`. Bản
+// trước bật hết `moRong()`, nên ghi đè quyết định ấy bằng một dòng "bật". Máy
+// thử dựng bằng bản cũ có thể đã mang sẵn dòng đó, nên ở đây TẮT lại cho đúng
 // quyết định của trường; dữ liệu của phân hệ không bị đụng tới.
 const camThem = modules.moRong();
 const canBat = camThem.filter(m => m.defaultEnabled !== false);
@@ -154,11 +153,7 @@ console.log(`      ${bat.map(m => m.name).join(' · ')}`);
 if (tat.length) {
   console.log(`\n      ${tat.length} phân hệ vẫn TẮT theo quyết định của nhà trường:`);
   console.log(`      ${tat.map(m => m.name).join(', ')}`);
-  console.log('      (Nhận xét và Xe buýt: đợt A2. Báo cáo và Nề nếp: món nợ N3.)');
-  if (tat.some(m => m.key === 'dontra')) {
-    console.log('      (Đón trả bé: đã lồng vào Điểm danh, góp ý của trường 06/10 và 16/10.');
-    console.log('       Cần thì bật lại ở Quản trị → Tính năng; dữ liệu cũ vẫn giữ nguyên.)');
-  }
+  console.log('      (Xe buýt: đợt A2. Báo cáo và Nề nếp: món nợ N3.)');
 }
 
 // VẾ ĐỐI CHỨNG. Bàn thử tồn tại để cho cô nhìn app ở ĐÚNG trạng thái trường sẽ

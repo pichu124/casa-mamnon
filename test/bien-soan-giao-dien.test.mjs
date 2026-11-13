@@ -10,9 +10,14 @@ import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHR
 
 const DIR = thuMucTam('bien-soan-giao-dien');
 sinhDuLieu(DIR);
-// Bộ này soi màn "Soạn báo cáo", màn ghi nhận Nề nếp và màn Viết nhận xét — ba
-// phân hệ nay tắt sẵn (N3 · A2). Bật tường minh: đường soạn của chúng phải vẫn
-// đúng vào lúc nhà trường bật lại.
+// Bộ này soi màn "Soạn báo cáo" và màn ghi nhận Nề nếp — hai phân hệ nay tắt
+// sẵn (N3). Bật tường minh: đường soạn của chúng phải vẫn đúng vào lúc nhà
+// trường bật lại.
+//
+// `nhanxet` (màn Viết nhận xét) thì khác từ Đ252: mã của nó đã gỡ hẳn. Dòng BẬT
+// cũ vẫn ghi vào đây có chủ ý — bài này đóng vai một máy từng bật nó, và phần
+// "Nhận xét" ở cuối canh rằng địa chỉ cũ dẫn tới một câu tử tế chứ không phải
+// một màn vỡ.
 batPhanHe(DIR, ['baocao', 'nenep', 'nhanxet']);
 const mkTam = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3950), dir: DIR });
@@ -822,27 +827,30 @@ console.log('\n[15] Sửa lại và thu hồi: thông báo, nề nếp, y tế, 
   check('THU HỒI XONG GHI NHẬN Y TẾ BIẾN KHỎI HỒ SƠ',
     !/Sốt nghi tay chân miệng/.test(await page.locator('#view').innerText()));
 
-  // ---- Nhận xét ----
+  // ---- Nhận xét: MÀN ĐÃ GỠ HẲN (Đ252) ----
+  //
+  // Trước Đ252 chỗ này viết một nhận xét rồi sửa nó trên trình duyệt. Mã của
+  // phân hệ ấy đã gỡ (chủ dự án duyệt 12/11), nên thứ phải canh đổi chiều: ai
+  // còn giữ địa chỉ cũ — một dấu trang, một thông báo cũ — mở ra phải gặp một
+  // câu tiếng Việt chỉ đường về, không phải màn trắng hay một form còn sót.
   await page.goto(BASE + '/#/remarks', { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1000);
-  await page.locator('button', { hasText: 'Viết nhận xét' }).first().click();
-  await page.waitForTimeout(700);
-  await page.fill('#rm-content', 'Con hôm nay chưa tập trung');
-  await page.locator('#rm-submit').click();
-  await page.waitForTimeout(1500);
-
-  const dongNx = page.locator('.list-row', { hasText: 'Con hôm nay chưa tập trung' }).first();
-  check('nhận xét vừa viết có nút Sửa', await dongNx.locator('button', { hasText: 'Sửa' }).count() === 1);
-  await dongNx.locator('button', { hasText: 'Sửa' }).click();
-  await page.waitForTimeout(700);
-  check('mở được form sửa nhận xét', await page.locator('#rm-s-content').count() === 1);
-  check('form sửa có ô chọn ngày', await page.locator('#rm-s-date').count() === 1);
-  await page.fill('#rm-s-content', 'Con hôm nay rất cố gắng');
-  await page.locator('button', { hasText: 'Lưu thay đổi' }).click();
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1200);
   const manNx = await page.locator('#view').innerText();
-  check('nhận xét hiện nội dung đã sửa', /rất cố gắng/.test(manNx));
-  check('và được đánh dấu là đã chỉnh sửa', /đã chỉnh sửa/.test(manNx), manNx.slice(0, 300));
+  check('địa chỉ cũ của màn Nhận xét: báo "không có phần nào ở địa chỉ này"',
+    /Không có phần nào ở địa chỉ này/.test(manNx), manNx.slice(0, 300));
+  check('và KHÔNG nói "nhà trường đang tắt" — tắt là còn bật lại được, gỡ thì không',
+    !/đang tắt/.test(manNx), manNx.slice(0, 300));
+  check('không còn nút Viết nhận xét hay form nào của màn cũ',
+    await page.locator('button', { hasText: 'Viết nhận xét' }).count() === 0
+      && await page.locator('#rm-content, #rm-submit, #rm-s-content').count() === 0);
+  check('trình duyệt không còn nạp tệp giao diện của màn cũ',
+    await page.evaluate(() => !('remarks' in App.views)
+      && ![...document.scripts].some(sc => /remarks\.js/.test(sc.src))));
+  await page.goto(BASE + '/#/', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(800);
+  check('trang chủ không còn ô Nhận xét',
+    await page.locator('[data-tile-badge="nhanxet"]').count() === 0
+      && await page.locator('[data-tile-badge]').count() > 3);
 }
 
 check('không có lỗi JavaScript trong suốt quá trình', loiJs.length === 0, loiJs);

@@ -13,10 +13,11 @@
 // tới giờ chỗ ấy luôn rỗng — và không ai thấy gì sai, vì màn hình chỉ đơn
 // giản không hiện dòng đó. Mục [1] là đường ghi còn thiếu ấy.
 //
-// VIỆC 2 GỠ MỘT LỚP BẢO VỆ, nên mục [4] canh đúng cái giá của nó: ảnh cũ do
-// phân hệ ghi vẫn phải mở ra xem được (không dời một dòng dữ liệu nào), NHƯNG
-// tắt phân hệ thì lõi cũng không được dọn ảnh cũ của nó ra màn hình — tắt một
-// phân hệ phải chặn được cả dữ liệu, không chỉ giấu biểu tượng.
+// Đ252 GỠ MÃ PHÂN HỆ ĐÓN TRẢ BÉ (chủ dự án duyệt 12/11). Trước đó mục [4] canh
+// hai chiều: phân hệ bật thì lõi dọn ảnh trả bé cũ của nó ra màn Điểm danh, tắt
+// thì thôi. Nay phân hệ không còn, nên chỉ còn một chiều — lõi KHÔNG đọc bảng
+// `dontra_anh_tra` nữa, kể cả trên máy cũ còn dòng "dontra bật" — và một điều
+// không đổi: không dời, không xoá một dòng dữ liệu nào của bảng ấy.
 import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
@@ -28,6 +29,7 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('vao-ra-mot-dong');
 sinhDuLieu(DIR);
+// Máy cũ: còn dòng "dontra bật" trong bảng cài đặt, dù mã phân hệ đã gỡ.
 batPhanHe(DIR, ['dontra']);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng V', 'v_qt');
 
@@ -64,10 +66,14 @@ console.log('\n[1] Đường GHI giờ ra về — thứ trước đợt này ho
   check('đối chứng — cột checkOut đang RỖNG, đúng như trước đợt này',
     r.data.checkOut === null || r.data.checkOut === undefined, r.data.checkOut);
 
+  // GIỜ RA 23:5x CHỨ KHÔNG PHẢI MỘT GIỜ CHIỀU CỐ ĐỊNH (Đ253). Ngày không có
+  // dòng mẫu (thứ Bảy, Chủ nhật) thì giờ vào của bé là lúc bài này chạy, và
+  // máy chủ nay từ chối giờ ra sớm hơn giờ vào — "16:45" làm bài này đỏ mỗi
+  // lần chạy cuối tuần sau 16h45.
   r = await req('POST', '/api/attendance/ra-ve',
-    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '16:45' } });
-  check('GHI ĐƯỢC GIỜ RA VỀ', r.status === 200 && r.data.gio === '16:45', `${r.status} ${r.data?.error || ''}`);
-  check('…và dòng điểm danh nay MANG giờ ấy', r.data.record && r.data.record.checkOut === '16:45',
+    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '23:58' } });
+  check('GHI ĐƯỢC GIỜ RA VỀ', r.status === 200 && r.data.gio === '23:58', `${r.status} ${r.data?.error || ''}`);
+  check('…và dòng điểm danh nay MANG giờ ấy', r.data.record && r.data.record.checkOut === '23:58',
     r.data?.record?.checkOut);
 
   // KHÔNG ĐỔI TRẠNG THÁI ĐIỂM DANH. Bấm nhầm nút ra về cho bé nghỉ thì dòng
@@ -108,7 +114,7 @@ console.log('\n[2] Ảnh lúc trả bé do LÕI ghi, và gia đình xem được
 let fileMoi = null;
 {
   let r = await req('POST', '/api/attendance/ra-ve',
-    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '16:50', anh: ANH } });
+    { cookie: co, body: { studentId: 's1', date: NGAY, gio: '23:59', anh: ANH } });
   check('ghi được giờ ra kèm ảnh', r.status === 200 && r.data.anh && r.data.anh.file,
     `${r.status} ${r.data?.error || ''}`);
   fileMoi = r.data.anh && r.data.anh.file;
@@ -154,48 +160,43 @@ console.log('\n[3] Gỡ giờ ra về: mất giờ và mất ảnh, KHÔNG mất
   check('dòng ở lại làm vết, ô file rỗng', !!dong && dong.file === '', dong);
 }
 
-console.log('\n[4] KHÔNG DỜI DỮ LIỆU CŨ — và tắt phân hệ thì lõi cũng thôi đọc');
+console.log('\n[4] Ảnh trả bé cũ của phân hệ đã gỡ: lõi KHÔNG đọc nữa, dữ liệu KHÔNG mất');
 {
-  // Dựng một tấm ảnh trả bé kiểu CŨ, do phân hệ ghi, thẳng vào bảng của nó.
+  // Dựng một tấm ảnh trả bé kiểu CŨ, do phân hệ ghi, thẳng vào bảng của nó —
+  // đúng thứ một máy đã chạy bản trước Đ252 đang có. Câu CREATE chép từ
+  // `modules/dontra/schema.sql` tại lúc gỡ; máy mới thì không có bảng này.
   //
-  // ĐẶT Ở MỘT NGÀY KHÁC với ngày mục [3] vừa GỠ ảnh. Mục [3] để lại một dòng
-  // lõi với ô `file` rỗng — nghĩa là "cô đã gỡ ảnh của ngày ấy" — và đường đọc
-  // hiểu đúng như vậy: dòng lõi rỗng thì ngày ấy KHÔNG còn ảnh nào, kể cả tấm
-  // cũ của phân hệ. Đó là hành vi đúng (một ngày một tấm, cô gỡ là gỡ), nhưng
-  // dựng hai thứ vào cùng một ngày thì bài này đo vào chỗ đã bị gỡ. Bản đầu
-  // mắc đúng lỗi đó và báo đỏ với một mảng rỗng.
-  // Không cố định mùng 2: chạy bài đúng ngày mùng 2 thì NGAY_CU trùng NGAY
-  // (ngày mục [3] vừa gỡ ảnh) và bài đo vào chỗ đã gỡ — đỏ mỗi tháng một lần.
+  // ĐẶT Ở MỘT NGÀY KHÁC với ngày mục [3] vừa GỠ ảnh, để phép đo không rơi vào
+  // một ngày vốn đã không còn ảnh. Không cố định mùng 2: chạy bài đúng ngày
+  // mùng 2 thì NGAY_CU trùng NGAY — đỏ mỗi tháng một lần.
   const NGAY_CU = `${THANG}-${NGAY.slice(8) === '02' ? '03' : '02'}`;
   const c = new Database(CSDL);
+  c.exec(`CREATE TABLE IF NOT EXISTS dontra_anh_tra (
+    studentId TEXT NOT NULL, ngay TEXT NOT NULL, file TEXT NOT NULL, taoLuc TEXT, byUserId TEXT,
+    PRIMARY KEY (studentId, ngay))`);
   c.prepare(`INSERT OR REPLACE INTO dontra_anh_tra (studentId, ngay, file, taoLuc, byUserId)
              VALUES ('s1', ?, 'anh-cu-cua-phan-he.png', ?, 't1')`).run(NGAY_CU, new Date().toISOString());
   const conCu = c.prepare('SELECT COUNT(*) n FROM attendance_anh_ve WHERE studentId = ? AND date = ?')
     .get('s1', NGAY_CU).n;
+  const batCu = c.prepare("SELECT enabled FROM module_settings WHERE moduleKey = 'dontra'").get();
   c.close();
-  check('đối chứng — ngày ấy CHƯA có dòng nào của lõi, nên đo được đúng tấm cũ',
-    conCu === 0, conCu);
+  check('đối chứng — ngày ấy CHƯA có dòng nào của lõi', conCu === 0, conCu);
+  check('đối chứng — máy cũ còn dòng "dontra bật"', !!batCu && batCu.enabled === 1, batCu);
 
-  let g = await req('GET', `/api/attendance/anh?studentId=s1&month=${THANG}`, { cookie: ph });
-  check('ẢNH CŨ DO PHÂN HỆ GHI VẪN HIỆN Ở MÀN LÕI — không dời một dòng nào',
-    (g.data.anhVe || []).some(x => x.file === 'anh-cu-cua-phan-he.png'),
-    JSON.stringify(g.data.anhVe || []));
-
-  // TẮT PHÂN HỆ: lõi phải thôi đọc bảng của nó. Tắt một phân hệ mà dữ liệu của
-  // nó vẫn chảy ra ở màn khác thì tắt chỉ còn là giấu biểu tượng (bài học Đ46).
-  await req('PUT', '/api/admin/modules/dontra', { cookie: qt, body: { enabled: false } });
-  g = await req('GET', `/api/attendance/anh?studentId=s1&month=${THANG}`, { cookie: ph });
-  check('TẮT phân hệ → lõi thôi dọn ảnh cũ của nó ra màn hình',
+  const g = await req('GET', `/api/attendance/anh?studentId=s1&month=${THANG}`, { cookie: ph });
+  check('màn điểm danh của gia đình vẫn chạy bình thường', g.status === 200 && Array.isArray(g.data.anhVe), g.status);
+  check('LÕI KHÔNG CÒN DỌN ẢNH CỦA PHÂN HỆ ĐÃ GỠ ra màn hình, dù còn dòng "bật"',
     !(g.data.anhVe || []).some(x => x.file === 'anh-cu-cua-phan-he.png'),
     JSON.stringify(g.data.anhVe || []));
-  check('…nhưng màn điểm danh của gia đình vẫn chạy bình thường', g.status === 200, g.status);
+  const lop = await req('GET', `/api/attendance/class?date=${NGAY}`, { cookie: co });
+  check('sổ của cô vẫn mở được', lop.status === 200 && lop.data.students.length > 0, lop.status);
 
-  // Và dữ liệu KHÔNG mất — bật lại là thấy đủ.
-  await req('PUT', '/api/admin/modules/dontra', { cookie: qt, body: { enabled: true } });
-  g = await req('GET', `/api/attendance/anh?studentId=s1&month=${THANG}`, { cookie: ph });
-  check('BẬT LẠI → ảnh cũ còn nguyên, không mất gì', 
-    (g.data.anhVe || []).some(x => x.file === 'anh-cu-cua-phan-he.png'),
-    JSON.stringify(g.data.anhVe || []));
+  // Và dữ liệu KHÔNG mất: dòng cũ nằm nguyên trong bảng của nó.
+  const c2 = new Database(CSDL);
+  const dongCu = c2.prepare("SELECT file FROM dontra_anh_tra WHERE studentId = 's1' AND ngay = ?").get(NGAY_CU);
+  c2.close();
+  check('dòng ảnh cũ CÒN NGUYÊN trong bảng `dontra_anh_tra`',
+    !!dongCu && dongCu.file === 'anh-cu-cua-phan-he.png', dongCu);
 }
 
 console.log('\n[5] Phạm vi: cô nhóm khác không ghi được giờ ra cho bé không phải nhóm mình');
@@ -208,27 +209,22 @@ console.log('\n[5] Phạm vi: cô nhóm khác không ghi được giờ ra cho b
   check('gia đình KHÔNG tự ghi giờ con về được', r.status === 403, r.status);
 }
 
-console.log('\n[6] Sổ đón trả bé GIỮ NGUYÊN — bỏ khỏi màn không phải bỏ dữ liệu');
+console.log('\n[6] Mã phân hệ Đón trả bé đã gỡ (Đ252) — màn Điểm danh không còn dấu vết của nó');
 {
-  // Việc 3 dễ bị đọc thành "xoá sổ trả bé". `dontra_ghi` là chứng từ trả lời
-  // câu "hôm ấy ai đón bé" — thứ không được mất vì một màn hình gộp lại.
-  const mj = JSON.parse(fs.readFileSync(path.join(GOC, 'modules/dontra/module.json'), 'utf8'));
-  check('phân hệ Đón trả bé vẫn còn, vẫn có màn riêng', mj.hash === '#/dontra' && mj.view === 'dontra', mj.hash);
-  check('và KHÔNG còn gấp vào màn Điểm danh (nếu còn, cô mất hẳn lối vào sổ)',
-    !mj.gopVao, mj.gopVao);
-
-  const sc = fs.readFileSync(path.join(GOC, 'modules/dontra/schema.sql'), 'utf8');
-  check('bảng sổ trả bé `dontra_ghi` vẫn khai trong schema, không bị gỡ',
-    /CREATE TABLE IF NOT EXISTS dontra_ghi/.test(sc), 'mất bảng sổ');
-  check('bảng ảnh trả bé cũ `dontra_anh_tra` cũng còn nguyên',
-    /CREATE TABLE IF NOT EXISTS dontra_anh_tra/.test(sc), 'mất bảng ảnh cũ');
-
-  const rt = fs.readFileSync(path.join(GOC, 'modules/dontra/routes.js'), 'utf8');
-  check('đường ghi sổ trả bé của phân hệ vẫn còn', /app\.post\('\/api\/dontra\/tra-bang-anh'/.test(rt),
-    'mất đường ghi sổ');
+  // Trước Đ252 mục này đòi phân hệ còn nguyên màn riêng, schema và đường ghi
+  // sổ. Chủ dự án duyệt gỡ mã ngày 12/11. DỮ LIỆU thì không gỡ: mục [4] ở trên
+  // và test/da-go-don-tra.test.mjs canh các bảng `dontra_*` của máy cũ.
+  check('không còn thư mục modules/dontra', !fs.existsSync(path.join(GOC, 'modules/dontra')));
+  const tra = await req('POST', '/api/dontra/tra-bang-anh', { cookie: co, body: { studentId: 's1', anh: ANH } });
+  check('đường ghi sổ trả bé của phân hệ KHÔNG còn (404)', tra.status === 404, tra.status);
 
   const v = fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8');
   check('màn Điểm danh KHÔNG còn vẽ tab Trả bé nữa', !/att-tra/.test(v), 'vẫn còn ô att-tra');
+  check('…và không còn gọi sang phân hệ đã gỡ', v.length > 10000 && !/dontra|TraBe/.test(v),
+    (v.match(/.{0,30}(dontra|TraBe).{0,30}/) || [])[0]);
+  const r = fs.readFileSync(path.join(GOC, 'routes/attendance.js'), 'utf8');
+  check('đường Điểm danh trên máy chủ không còn đọc bảng nào của phân hệ đã gỡ',
+    r.length > 10000 && !/dontra/.test(r), (r.match(/.{0,30}dontra.{0,30}/) || [])[0]);
 }
 
 tongKet(sv);

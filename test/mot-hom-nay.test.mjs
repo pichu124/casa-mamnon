@@ -200,10 +200,10 @@ console.log('\n[2] KHÔNG CHỖ NÀO CÒN TỰ HỎI "HÔM NAY" THEO CÁCH CŨ')
 // ===========================================================================
 console.log('\n[3] Nơi cần dùng thì có dùng thật');
 {
-  // Bốn phân hệ ghi bản ghi THEO NGÀY — đây là nhóm mà lệch ngày thành mất dữ
+  // Ba phân hệ ghi bản ghi THEO NGÀY — đây là nhóm mà lệch ngày thành mất dữ
   // liệu, không chỉ là hiển thị sai.
   for (const t of ['modules/tienan/routes.js', 'modules/nhatky/routes.js',
-    'modules/dontra/routes.js', 'modules/hanhtrinh/routes.js']) {
+    'modules/hanhtrinh/routes.js']) {
     const ma = fs.readFileSync(path.join(GOC, t), 'utf8');
     check(`${t} hỏi ngày qua lib/ngay`, /require\('\.\.\/\.\.\/lib\/ngay'\)/.test(ma));
   }

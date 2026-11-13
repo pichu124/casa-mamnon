@@ -177,9 +177,9 @@ console.log('\n[5] Lịch sao lưu tự động và dung lượng đĩa');
   check('máy không có lịch sao lưu → CẦN SỬA', trangThai(r.out, 'Lịch sao lưu tự động') === 'CẦN SỬA', trangThai(r.out, 'Lịch sao lưu tự động'));
   // CHỖ TRA CỨU PHẢI LÀ TÀI LIỆU CỦA APP NÀY.
   //
-  // Bản trước chốt `docs/QUY-TRINH-TRIEN-KHAI.docx` — tài liệu của APP 1, và
-  // là một tệp .docx không có trong kho mã app 2. Người vận hành đọc dòng gợi
-  // ý đó rồi đi tìm một tệp không tồn tại, ngay lúc bộ soát vừa nói "không tìm
+  // Bản trước chốt `docs/QUY-TRINH-TRIEN-KHAI.docx` — tài liệu Word của APP 1
+  // (đã gỡ hẳn khỏi kho này ở Đ252). Người vận hành đọc dòng gợi ý đó rồi đi
+  // tìm một tệp không dành cho app này, ngay lúc bộ soát vừa nói "không tìm
   // thấy lịch sao lưu nào". Bài canh thì vẫn xanh, vì nó chốt đúng cái chuỗi
   // sai ấy.
   check('chỉ đúng chỗ tra cứu cách đặt lịch — runbook của app 2',
@@ -293,7 +293,6 @@ console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh 
   // dưới. Nên lần này con số được canh bằng máy, không bằng lời hứa.
   const NOI = [
     'server.js',
-    'render.yaml',
     'scripts/kiem-tra-may-chu.js',
     'docs/PHEP-THU-DIEN-THOAI.md',
     'docs/TRIEN-KHAI.md',
@@ -302,10 +301,11 @@ console.log('\n[11] "N tài khoản mật khẩu 123456" — bốn chỗ cảnh 
   // CÂU BỊ NGẮT DÒNG VẪN PHẢI BỊ SOI.
   //
   // Bản đầu dò thẳng trên nội dung thô, nên câu "…kèm 9 tài\n# khoản dùng
-  // chung…" trong `render.yaml` KHÔNG khớp mẫu: giữa "tài" và "khoản" có một
-  // dấu `#` mở đầu dòng chú thích. Con số 9 nằm đó suốt từ lúc dữ liệu mẫu lên
-  // 13 tài khoản, và bài canh này vẫn xanh — vì cùng tệp còn một câu KHÁC nói
-  // đúng 13, và chỉ cần một câu khớp là vòng lặp coi như đã soi tới tệp.
+  // chung…" trong `render.yaml` (tệp đã gỡ khỏi kho ở Đ252) KHÔNG khớp mẫu:
+  // giữa "tài" và "khoản" có một dấu `#` mở đầu dòng chú thích. Con số 9 nằm
+  // đó suốt từ lúc dữ liệu mẫu lên 13 tài khoản, và bài canh này vẫn xanh — vì
+  // cùng tệp còn một câu KHÁC nói đúng 13, và chỉ cần một câu khớp là vòng lặp
+  // coi như đã soi tới tệp.
   //
   // Gộp dòng lại trước khi dò: bỏ tiền tố chú thích (`#`, `//`, `*`) ở đầu
   // dòng rồi thay mọi khoảng trắng liên tiếp bằng một dấu cách.
@@ -390,7 +390,10 @@ console.log('\n[12] TÀI LIỆU KHÔNG ĐƯỢC CHỈ NGƯỜI VẬN HÀNH VÀO 
       const d = m[1];
       if (d === CHUAN) continue;
       if (d.startsWith('/tmp/')) continue;                 // ví dụ chạy thử
-      if (d === '/data') continue;                          // ổ đĩa của Render
+      // `/data` là ổ đĩa của bản Docker/Render đã gỡ ở Đ252. Chỉ còn nhật ký
+      // (dòng Đ234 của TIEN-DO, không sửa lại lịch sử) được nhắc tới nó; tài
+      // liệu nào khác chỉ vào `/data` thì nay bị bắt.
+      if (d === '/data' && f === 'TIEN-DO.md') continue;
       if (coCo) continue;                                   // tệp trong danh sách miễn trừ
       xau.push(`${f}: DATA_DIR=${d}`);
     }
@@ -414,12 +417,102 @@ console.log('\n[12] TÀI LIỆU KHÔNG ĐƯỢC CHỈ NGƯỜI VẬN HÀNH VÀO 
   check('tài liệu triển khai CÓ nêu thư mục dữ liệu chuẩn',
     trienKhai.includes(CHUAN), CHUAN);
 
-  // Và hai kịch bản phải cùng có mặt: viết sẵn cả hai là chủ ý, không phải sót.
-  check('tài liệu triển khai có kịch bản VPS', /\[A\]\s*VPS/.test(trienKhai));
-  check('và kịch bản Render', /\[B\]\s*Render/.test(trienKhai));
-  check('kèm lời dặn xoá nửa không dùng sau khi chốt',
-    /XOÁ HẲN nửa không dùng/.test(trienKhai));
-  check('và nói rõ bước nào CHƯA ai chạy thử', /chưa ai chạy thử|Chưa ai đi hết đường này/i.test(trienKhai));
+  // MỘT ĐƯỜNG DUY NHẤT (Đ252). Trước 12/11/2026 tệp này viết sẵn hai kịch bản
+  // — [A] VPS và [B] Render — kèm lời dặn xoá nửa không dùng sau khi chốt, và
+  // bài này đòi cả hai cùng có mặt. Chủ dự án đã chốt VPS trong nước, nên nay
+  // canh NGƯỢC LẠI: nửa kia quay về là có hai quy trình trong một tệp, đúng
+  // chỗ người vận hành làm lẫn bước của kịch bản kia.
+  check('tài liệu triển khai có kịch bản VPS',
+    /^## Triển khai trên VPS đặt tại Việt Nam$/m.test(trienKhai));
+  const conNuaKia = trienKhai.split('\n').filter(d => /render|docker|\[B\]/i.test(d));
+  check('và KHÔNG còn kịch bản Render hay hướng dẫn Docker nào', conNuaKia.length === 0, conNuaKia);
+  check('ghi rõ ngày chủ dự án chốt VPS', /chốt ngày 12\/11\/2026/.test(trienKhai));
+  for (const t of ['render.yaml', 'Dockerfile', '.dockerignore']) {
+    check(`${t} đã gỡ khỏi kho`, !fs.existsSync(path.join(GOC, t)));
+  }
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n[13] Hướng dẫn dựng VPS: app chỉ nghe nội bộ, có tường lửa, có bật nén');
+{
+  // VÌ SAO MỤC NÀY ĐÁNG GIÁ (Đ252)
+  //
+  // `server.js` mặc định nghe ở 0.0.0.0 — đúng cho máy lập trình, để điện thoại
+  // cùng Wi-Fi vào được. Trên VPS thì đó là một cổng KHÔNG mã hoá mở ra
+  // Internet: gõ http://<IP>:3000 là vào thẳng app, vòng qua HTTPS. Trước đợt
+  // này unit systemd trong tài liệu không đặt HOST, tài liệu Markdown không có
+  // bước tường lửa, và không nơi nào bật nén (app tự nó không nén).
+  //
+  // Cả ba là chữ trong tài liệu chứ không phải mã, nên chỉ canh được bằng cách
+  // đọc tài liệu: bỏ một dòng đi thì không bài nào khác đỏ.
+  const NEN_PHAI_CO = ['text/css', 'text/javascript', 'application/javascript',
+    'application/json', 'application/manifest+json', 'image/svg+xml'];
+
+  // Trả về danh sách thứ CÒN THIẾU của một bản hướng dẫn dùng nginx + ufw.
+  // Nhận chữ thô: tệp Markdown, hoặc mã nguồn của script sinh bản Word.
+  const thieuGi = (chu) => {
+    const thieu = [];
+    if (!/^\s*'?Environment=HOST=127\.0\.0\.1'?,?\s*$/m.test(chu)) {
+      thieu.push('unit systemd không đặt Environment=HOST=127.0.0.1');
+    }
+    if (!/Environment=FORCE_HTTPS=1/.test(chu)) thieu.push('không có bước bật FORCE_HTTPS=1');
+    if (!/proxy_pass http:\/\/127\.0\.0\.1:/.test(chu)) thieu.push('nginx không trỏ về 127.0.0.1');
+
+    if (!/ufw default deny incoming/.test(chu)) thieu.push('tường lửa không chặn mặc định chiều vào');
+    if (!/ufw enable/.test(chu)) thieu.push('không có lệnh ufw enable');
+    const mo = [...chu.matchAll(/ufw allow\s+'?([\w/ ]+?)'?(?=\s{2,}|\s*#|'|\s*$)/gm)].map(m => m[1].trim()).sort();
+    if (mo.join(',') !== '22/tcp,443/tcp,80/tcp') thieu.push(`tường lửa mở [${mo.join(', ')}], đúng phải là đúng ba cổng 22, 80, 443`);
+    if (!/curl -m \d+ http:\/\/<[^>\n]*IP[^>\n]*>:(3000|\$\{CONG\})\/healthz/.test(chu)) {
+      thieu.push('không có lệnh kiểm từ máy khác rằng cổng app không vào được');
+    }
+
+    if (!/^\s*'?\s*gzip on;/m.test(chu)) thieu.push('nginx không bật gzip');
+    const loai = (chu.match(/gzip_types ([^;]+);/) || [])[1] || '';
+    for (const l of NEN_PHAI_CO) {
+      if (!loai.split(/\s+/).includes(l)) thieu.push(`gzip_types thiếu ${l}`);
+    }
+    const thua = loai.split(/\s+/).filter(l => /^image\/(?!svg\+xml$)|^video\/|^text\/html$/.test(l));
+    if (thua.length) thieu.push(`gzip_types có loại không được nén: ${thua.join(', ')}`);
+    return thieu;
+  };
+
+  const trienKhai = fs.readFileSync(path.join(GOC, 'docs', 'TRIEN-KHAI.md'), 'utf8');
+  const sinhWord = fs.readFileSync(path.join(GOC, 'scripts', 'xuat-cai-dat-vps.js'), 'utf8');
+  check('docs/TRIEN-KHAI.md: đủ HOST=127.0.0.1, tường lửa ba cổng, lệnh kiểm từ máy khác, nén',
+    thieuGi(trienKhai).length === 0, thieuGi(trienKhai));
+  check('scripts/xuat-cai-dat-vps.js (nguồn của bản Word): đủ cùng những thứ đó',
+    thieuGi(sinhWord).length === 0, thieuGi(sinhWord));
+
+  // PHÉP THỬ NGƯỢC: làm hỏng từng thứ một trên chính tài liệu thật, hàm soát
+  // phải kêu đúng thứ đó. Không có vế này thì không phân biệt được "tài liệu
+  // đủ" với "hàm soát không bắt được gì".
+  const hong = [
+    ['bỏ dòng HOST', trienKhai.replace(/^Environment=HOST=127\.0\.0\.1\n/m, ''), /HOST=127\.0\.0\.1/],
+    ['mở thêm cổng của app ở tường lửa', trienKhai.replace('sudo ufw allow 443/tcp', 'sudo ufw allow 443/tcp\nsudo ufw allow 3000/tcp'), /đúng ba cổng/],
+    ['bỏ một trong ba cổng', trienKhai.replace('sudo ufw allow 80/tcp\n', ''), /đúng ba cổng/],
+    ['bỏ lệnh kiểm từ máy khác', trienKhai.replace(/^curl -m 5 http:.*$/m, ''), /từ máy khác/],
+    ['tắt gzip', trienKhai.replace('    gzip on;\n', ''), /không bật gzip/],
+    ['bỏ text/javascript khỏi gzip_types', trienKhai.replace('gzip_types text/css text/javascript ', 'gzip_types text/css '), /thiếu text\/javascript/],
+    ['thêm ảnh vào gzip_types', trienKhai.replace('image/svg+xml text/plain;', 'image/svg+xml image/jpeg text/plain;'), /image\/jpeg/],
+  ];
+  for (const [ten, chu, mau] of hong) {
+    const kq = thieuGi(chu);
+    check(`PHÉP THỬ NGƯỢC — ${ten} → hàm soát kêu đúng chỗ`,
+      chu !== trienKhai && kq.length === 1 && mau.test(kq[0]), kq);
+  }
+
+  // Tài liệu dựa vào hai điều của `server.js`. Mã đổi mà tài liệu không đổi
+  // theo thì dòng HOST trong unit thành dòng chết, và không ai hay.
+  const sv = fs.readFileSync(path.join(GOC, 'server.js'), 'utf8');
+  check('server.js vẫn đọc địa chỉ nghe từ biến HOST', /const HOST = process\.env\.HOST \|\|/.test(sv));
+  check('và vẫn truyền HOST vào lệnh mở cổng', /app\.listen\(PORT, HOST\b/.test(sv));
+
+  // Máy thử Oracle dùng Caddy thay nginx: cùng hai điều, viết theo Caddy.
+  const oracle = fs.readFileSync(path.join(GOC, 'docs', 'MAY-CHU-THU-ORACLE-APP2.md'), 'utf8');
+  check('docs/MAY-CHU-THU-ORACLE-APP2.md: unit systemd đặt HOST=127.0.0.1',
+    /^Environment=HOST=127\.0\.0\.1$/m.test(oracle));
+  check('và khối Caddy bật nén ngay trước reverse_proxy',
+    /\{\n\s+encode zstd gzip\n\s+reverse_proxy localhost:3000\n\}/.test(oracle));
 }
 
 // ---------------------------------------------------------------------------

@@ -313,8 +313,8 @@ console.log('\n[+] GHI NHẦM BÉ — xoá được, và ẢNH PHẢI ĐƯỢC D
   // đợt Đ15 không có một `app.delete` nào trong cả thư mục modules/, nên bản
   // ghi sai nằm lại vĩnh viễn trong danh sách của một đứa trẻ khác.
   //
-  // Và phần đáng lo hơn dung lượng: `uploads.remove` được gọi ở dontra,
-  // cambridge, albums — nhưng không ở đây. Nên TẤM ẢNH KHUÔN MẶT TRẺ vẫn nằm
+  // Và phần đáng lo hơn dung lượng: `uploads.remove` được gọi ở cambridge,
+  // albums — nhưng không ở đây. Nên TẤM ẢNH KHUÔN MẶT TRẺ vẫn nằm
   // trên ổ đĩa sau khi bản ghi đã biến mất khỏi màn hình.
   const MA = 'dddddddd-1111-2222-3333-444444444444';
   const tao = await req('POST', '/api/thuchup', {

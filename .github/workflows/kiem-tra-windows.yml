@@ -51,8 +51,9 @@ jobs:
       # nuốt mất phần tổng kết.
       #
       # Chữ của mỗi bộ ghi ra tệp rồi mới in, và cuối job IN LẠI phần lỗi của
-      # từng bộ đỏ: nhật ký đủ 128 bộ dài gần 10 000 dòng, người đọc (và công
-      # cụ chỉ lấy được phần cuối nhật ký) phải thấy ngay vì sao đỏ. Ghi qua
+      # từng bộ đỏ: nhật ký của mọi bộ trong chuỗi npm test dài gần 10 000 dòng,
+      # người đọc (và công cụ chỉ lấy được phần cuối nhật ký) phải thấy ngay vì
+      # sao đỏ. Ghi qua
       # cmd ra tệp chứ không đọc ống dẫn: bộ nào để sót một tiến trình con còn
       # giữ ống thì đọc ống sẽ treo mãi.
       - name: Chạy từng bộ của npm test

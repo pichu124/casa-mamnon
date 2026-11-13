@@ -71,7 +71,11 @@ console.log('\n[3] Cookie phiên an toàn');
   const r = await login('giaovien', '123456');
   check('cookie có HttpOnly (JS không đọc được)', /HttpOnly/i.test(r.setCookie || ''), r.setCookie);
   check('cookie có SameSite=Lax (chống CSRF cơ bản)', /SameSite=Lax/i.test(r.setCookie || ''));
-  check('cookie có hạn dùng 7 ngày', /Max-Age=604800/.test(r.setCookie || ''));
+  // 2592000 giây = 30 ngày. Trước 12/11/2026 phép này đòi 604800 (7 ngày); chủ
+  // dự án quyết ngày 12/11: "phiên đăng nhập hết hạn sau 30 ngày thay vì 7
+  // ngày". Con số đổi THEO quyết định ấy, không phải nới cho mã chạy qua.
+  // Hạn thật của phiên do máy chủ giữ — xem mục [8b].
+  check('cookie có hạn dùng 30 ngày', /Max-Age=2592000(;|$)/.test(r.setCookie || ''), r.setCookie);
   check('qua HTTP nội bộ KHÔNG gắn Secure (để dùng LAN được)', !/Secure/i.test(r.setCookie || ''));
   // Giả lập truy cập qua HTTPS sau reverse proxy
   const https = await req('POST', '/api/auth/login', {
@@ -132,9 +136,9 @@ console.log('\n[5] Đổi mật khẩu');
 
 console.log('\n[7] Health check — mở cho bộ theo dõi, KÍN với người lạ');
 {
-  // Đường này bắt buộc phải mở cho người chưa đăng nhập: `render.yaml` dùng nó
-  // làm `healthCheckPath`, `Dockerfile` dùng làm HEALTHCHECK. Nhưng bộ theo dõi
-  // chỉ đọc MÃ TRẢ VỀ, không đọc phần thân.
+  // Đường này bắt buộc phải mở cho người chưa đăng nhập: bộ theo dõi bên ngoài
+  // và phép kiểm `curl …/healthz` trong tài liệu cài VPS gọi nó khi chưa có
+  // phiên nào. Nhưng bộ theo dõi chỉ đọc MÃ TRẢ VỀ, không đọc phần thân.
   //
   // Bản trước trả luôn `uptime` và `sessions` cho bất kỳ ai hỏi — và bài này
   // khẳng định điều đó là ĐÚNG. Khi app ra Internet, mỗi lượt quét cổng đọc
@@ -166,7 +170,7 @@ console.log('\n[8] Phiên và dữ liệu sống sót qua khởi động lại m
   });
   check('tạo được bản ghi mới', made.status === 200 || made.status === 201, made.status);
 
-  // Tắt êm bằng SIGTERM — đúng tín hiệu Render/Railway gửi khi deploy lại.
+  // Tắt êm bằng SIGTERM — đúng tín hiệu systemd gửi khi `systemctl restart`.
   server.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 1500));
   server = await startServer();
@@ -178,6 +182,41 @@ console.log('\n[8] Phiên và dữ liệu sống sót qua khởi động lại m
   const leaves = await req('GET', '/api/leave', { cookie: s.cookie });
   const kept = Array.isArray(leaves.data) && leaves.data.some(l => /Kiểm tra lưu dữ liệu/.test(l.reason || ''));
   check('bản ghi tạo trước khi tắt không bị mất', kept, leaves.data?.length);
+}
+
+console.log('\n[8b] Phiên hết hạn sau 30 ngày KỂ TỪ LÚC ĐĂNG NHẬP, không gia hạn khi dùng');
+{
+  // Hạn của cookie chỉ là lời dặn trình duyệt; thứ quyết định là cột
+  // `createdAt` của bảng `sessions` mà máy chủ đọc lại ở MỖI yêu cầu (không
+  // có bộ đệm phiên trong bộ nhớ). Nên lùi thẳng `createdAt` trong cơ sở dữ
+  // liệu tạm là đúng cách giả "đã đăng nhập từ N ngày trước".
+  const { default: Database } = await import('better-sqlite3');
+  const NGAY = 24 * 60 * 60 * 1000;
+  const luiPhien = (cookie, soNgay) => {
+    const raw = new Database(`${TEST_DIR}/school.db`);
+    const r = raw.prepare('UPDATE sessions SET createdAt = ? WHERE token = ?')
+      .run(Date.now() - soNgay * NGAY, cookie.replace(/^session=/, ''));
+    raw.close();
+    return r.changes;
+  };
+
+  const con = await login('phuhuynh2', '123456');
+  check('lùi được đúng một phiên về 29 ngày trước', luiPhien(con.cookie, 29) === 1);
+  const sau29 = await req('GET', '/api/auth/me', { cookie: con.cookie });
+  check('phiên đăng nhập từ 29 ngày trước VẪN còn hiệu lực', sau29.status === 200, sau29.status);
+  check('và vẫn là đúng người ấy', sau29.data?.user?.username === 'phuhuynh2', sau29.data?.user?.username);
+  // Dùng app ở ngày thứ 29 KHÔNG được kéo dài thêm hạn: mốc vẫn là lúc đăng nhập.
+  check('lùi tiếp chính phiên ấy về 31 ngày trước', luiPhien(con.cookie, 31) === 1);
+  const sau31 = await req('GET', '/api/auth/me', { cookie: con.cookie });
+  check('phiên đăng nhập từ 31 ngày trước bị từ chối', sau31.status === 401, sau31.status);
+  const lai = await req('GET', '/api/auth/me', { cookie: con.cookie });
+  check('phiên hết hạn bị xoá hẳn, hỏi lại vẫn 401', lai.status === 401, lai.status);
+  {
+    const raw = new Database(`${TEST_DIR}/school.db`, { readonly: true });
+    const n = raw.prepare('SELECT COUNT(*) AS n FROM sessions WHERE token = ?').get(con.cookie.replace(/^session=/, '')).n;
+    raw.close();
+    check('dòng phiên hết hạn không còn trong bảng', n === 0, n);
+  }
 }
 
 // Để cuối cùng: phần này khóa địa chỉ IP nên sẽ chặn mọi lần đăng nhập sau đó.

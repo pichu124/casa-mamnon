@@ -11,7 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0'; // 0.0.0.0 để điện thoại cùng Wi-Fi vào được
 
-// Khi chạy sau reverse proxy (Render, Railway, Nginx, Cloudflare) thì tin cậy
+// Khi chạy sau reverse proxy (nginx, Caddy, Cloudflare) thì tin cậy
 // header X-Forwarded-* để biết địa chỉ IP thật và giao thức thật (http/https).
 if (process.env.TRUST_PROXY !== '0') app.set('trust proxy', 1);
 app.disable('x-powered-by');
@@ -94,9 +94,9 @@ if (moRong.length) {
 
 // Kiểm tra máy chủ còn sống (dịch vụ triển khai dùng để theo dõi).
 //
-// Đường này BẮT BUỘC phải mở cho người chưa đăng nhập: `render.yaml` dùng nó
-// làm `healthCheckPath` và `Dockerfile` dùng làm HEALTHCHECK. Nhưng bộ theo dõi
-// chỉ cần mã 200 — nó không đọc phần thân.
+// Đường này BẮT BUỘC phải mở cho người chưa đăng nhập: bộ theo dõi bên ngoài
+// và phép kiểm `curl …/healthz` trong tài liệu cài VPS gọi nó khi chưa có
+// phiên nào. Nhưng bộ theo dõi chỉ cần mã 200 — nó không đọc phần thân.
 //
 // Bản trước trả luôn `uptime` và `sessions` cho bất kỳ ai hỏi. Khi app ra
 // Internet, người ngoài dò được máy chủ vừa khởi động lại lúc nào, và số phiên
@@ -239,8 +239,9 @@ app.use((err, req, res, next) => {
 // được dùng vào lúc 11 giờ đêm. Cách sửa chỉ là đặt đúng một biến, và câu báo
 // lỗi nói thẳng ra đó là biến nào.
 //
-// Hai đường triển khai sẵn có KHÔNG bị ảnh hưởng: `Dockerfile` và `render.yaml`
-// đều đã đặt `DATA_DIR=/data`, nằm ngoài thư mục mã nguồn.
+// Đường triển khai trên VPS KHÔNG bị ảnh hưởng: unit systemd trong
+// `docs/TRIEN-KHAI.md` đặt `DATA_DIR=/var/lib/casa-mamnon`, nằm ngoài thư mục
+// mã nguồn.
 //
 // KHÁC Ổ ĐĨA TRÊN WINDOWS: mã ở D:\casa-mamnon, dữ liệu ở C:\CasaMamNonData thì
 // `path.relative` không có đường tương đối nào để trả, nên trả nguyên đường
@@ -293,21 +294,45 @@ kiemTraViTriDuLieu();
 function warnDefaultPasswords() {
   // SOÁT CẢ HAI MẬT KHẨU MẪU, KHÔNG CHỈ CÁI ĐANG CẤU HÌNH.
   //
-  // render.yaml đặt DEMO_PASSWORD bằng một chuỗi Render tự sinh. Nếu chỉ soát
+  // DEMO_PASSWORD có thể được đặt thành một chuỗi ngẫu nhiên. Nếu chỉ soát
   // đúng chuỗi đó thì mọi tài khoản còn giữ "123456" — bản khôi phục từ sao lưu
   // cũ, tài khoản tạo trước khi có biến môi trường này — đều lọt, và bộ canh
   // báo xanh trong khi cửa vẫn mở. Soát cả hai thì không sót đường nào.
   const mauCu = '123456';
   const demo = process.env.DEMO_PASSWORD || mauCu;
   const dsMau = [...new Set([demo, mauCu])];
-  const weak = db.all('users', 'SELECT id, passwordHash FROM users')
-    .filter(u => dsMau.some(m => password.verify(m, u.passwordHash)));
-  if (!weak.length) return;
-  console.warn(
-    `\n⚠️  CẢNH BÁO BẢO MẬT: ${weak.length} tài khoản vẫn dùng mật khẩu mẫu "${demo}".\n` +
-    '   Trước khi cho phụ huynh dùng thật, hãy đăng nhập từng tài khoản và đổi\n' +
-    '   mật khẩu trong mục Cài đặt → Đổi mật khẩu.\n'
-  );
+
+  // MỖI NHỊP SOÁT MỘT TÀI KHOẢN, RỒI NHẢ MÁY CHO NGƯỜI ĐANG CHỜ (Đ251).
+  //
+  // Mỗi lần băm thử là khoảng 40 mili-giây và chặn cả tiến trình. Bản trước
+  // lọc cả danh sách trong một mạch, ngay sau khi mở cổng: với một trường cỡ
+  // ba trăm bé (hơn sáu trăm người dùng) là chừng nửa phút máy chủ nhận kết
+  // nối mà không trả lời ai, sau MỖI lần cập nhật. (Con số viết bằng chữ có
+  // chủ ý: `test:may-chu` đòi mọi câu "<số> tài khoản" trong tệp này nói đúng
+  // số tài khoản mẫu.) Nay giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ
+  // trước; lời cảnh báo in ra muộn hơn vài giây nhưng vẫn đếm đủ từng tài
+  // khoản. `test/khoi-dong-khong-treo.test.mjs` canh cả hai điều ấy.
+  //
+  // Danh sách đọc MỘT lần ở đây; các nhịp sau không chạm cơ sở dữ liệu, nên
+  // máy chủ tắt giữa chừng cũng không có gì dở dang.
+  const ds = db.all('users', 'SELECT id, passwordHash FROM users');
+  let i = 0;
+  let soYeu = 0;
+  const soatTiep = () => {
+    if (i >= ds.length) {
+      if (!soYeu) return;
+      console.warn(
+        `\n⚠️  CẢNH BÁO BẢO MẬT: ${soYeu} tài khoản vẫn dùng mật khẩu mẫu "${demo}".\n` +
+        '   Trước khi cho phụ huynh dùng thật, hãy đăng nhập từng tài khoản và đổi\n' +
+        '   mật khẩu trong mục Cài đặt → Đổi mật khẩu.\n'
+      );
+      return;
+    }
+    const u = ds[i++];
+    if (dsMau.some(m => password.verify(m, u.passwordHash))) soYeu++;
+    setImmediate(soatTiep);
+  };
+  soatTiep();
 }
 
 // Cơ sở dữ liệu trống (lần chạy đầu) thì sinh dữ liệu mẫu để có cái xem ngay.

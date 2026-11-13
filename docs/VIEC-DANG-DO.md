@@ -1,8 +1,7 @@
-# Việc đang dở — đọc trước khi làm tiếp
+# Việc đang dở lúc giao phiên 17/10/2026
 
-**Ghi ngày 17/10/2026, cuối phiên làm Đ238.** Chủ dự án mở phiên mới để làm tiếp,
-nên tệp này gom MỌI việc còn treo vào một chỗ. Phiên mới đọc tệp này sau `CLAUDE.md`,
-rồi mới đọc `docs/TIEN-DO.md`.
+**Ghi ngày 17/10/2026, cuối phiên làm Đ238.** Tệp này là ảnh chụp mọi việc còn treo
+lúc giao phiên, chốt ngày đó. **Tình trạng hiện tại xem `docs/TIEN-DO.md`.**
 
 Xong việc nào thì gạch ngang việc đó tại chỗ (không xoá), ghi số Đ… đã làm, rồi cập
 nhật `docs/TIEN-DO.md` như thường lệ.
@@ -189,7 +188,7 @@ có đường nào đang lọt dữ liệu.
 - **Node 24:** chủ dự án hỏi có nên nâng app lên Node 24 không (máy có app khác dùng
   Node 24). Hiện dùng nvm-windows để giữ cả hai. Đề xuất đã nêu: bước 1 cho phép `22.x`
   hoặc `24.x` (`package.json` `engines`, `.nvmrc`, `.npmrc engine-strict`) và chạy CI cả
-  hai bản; Dockerfile và tài liệu đổi sau. **Chưa quyết, không gấp.**
+  hai bản; tài liệu đổi sau (Dockerfile đã gỡ ở Đ252). **Chưa quyết, không gấp.**
 - **Việc phía nhà trường / chủ dự án:** tạo tài khoản `quanly1` trên máy thử theo
   `docs/HUONG-DAN-KIEM-THU.md`; cập nhật máy thử lên bản có Đ235/Đ236 nếu chưa làm.
 

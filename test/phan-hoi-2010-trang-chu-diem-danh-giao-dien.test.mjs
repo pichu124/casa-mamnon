@@ -8,14 +8,14 @@
 //       ở Cài đặt cho cả văn phòng lẫn cô ("Hồ sơ của tôi"). Cờ đi qua đúng
 //       đường nạp phân hệ: `anKhoiTrangChu` trong module.json, máy chủ truyền
 //       qua /api/modules, phân hệ không khai thì hiện như cũ.
-//       Ô "Đón trả bé" không làm bằng mã: phân hệ mặc định tắt, trường tắt ở
-//       Quản trị → Tính năng.
+//       Ô "Đón trả bé": Đ252 gỡ hẳn mã phân hệ (chủ dự án duyệt 12/11), nên
+//       ô ấy không còn ở vai nào — kể cả trên máy cũ còn dòng "dontra bật".
 //   A2. "Hôm nay theo cơ sở": mỗi cơ sở một khối gập, mặc định GẬP (cả trên
 //       điện thoại lẫn máy tính); chỉ một cơ sở thì mở sẵn.
 //   D1. Màn Điểm danh của văn phòng: "Cần gọi xác nhận: N bé" là khối gập,
 //       mặc định gập, tiêu đề vẫn có số bé.
 //   D2. Không còn thẻ "Mở Đón trả bé" ở màn Điểm danh của văn phòng và của
-//       gia đình — kể cả khi phân hệ Đón trả bé đang bật.
+//       gia đình.
 import fs from 'fs';
 import path from 'path';
 import { chromium } from 'playwright';
@@ -27,6 +27,7 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('phan-hoi-2010-trang-chu-diem-danh');
 sinhDuLieu(DIR, { phanHe: true });
+// Máy cũ: còn dòng "dontra bật" trong bảng cài đặt, dù mã phân hệ đã gỡ.
 batPhanHe(DIR, ['dontra']);
 const mkTam = taoQuanTri(DIR, 'Hieu Truong', 'htruong');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4937), dir: DIR });
@@ -55,8 +56,9 @@ console.log('\n[A1-máy chủ] Cờ anKhoiTrangChu đi qua /api/modules');
   check('mọi phân hệ không khai cờ → anKhoiTrangChu: false (hiện như cũ)', khac.length === 0, khac.map(m => m.key));
   const dsCo = (await goiApi('/api/modules', null, ckGV)).data || [];
   check('cô: Nhân sự vẫn bật (phần "Hồ sơ của tôi")', dsCo.some(m => m.key === 'nhansu' && m.anKhoiTrangChu === true));
-  const meta = JSON.parse(fs.readFileSync(path.join(GOC, 'modules', 'dontra', 'module.json'), 'utf8'));
-  check('Đón trả bé mặc định TẮT (defaultEnabled: false) — trường tắt ở Quản trị → Tính năng', meta.defaultEnabled === false, meta.defaultEnabled);
+  check('phân hệ Đón trả bé đã gỡ khỏi kho mã (Đ252)', !fs.existsSync(path.join(GOC, 'modules', 'dontra')));
+  check('…nên không còn trong danh sách của văn phòng hay của cô, dù máy cũ còn dòng "bật"',
+    ds.length > 5 && !ds.some(m => m.key === 'dontra') && !dsCo.some(m => m.key === 'dontra'), ds.map(m => m.key));
 }
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
@@ -98,7 +100,7 @@ for (const [ten, u, p, tieuDe] of [
     !nhan.includes('Nhân sự & chấm công') && await page.locator('.tile[data-tile-key="nhansu"]').count() === 0, nhan);
   check(`${ten}: lưới vẫn còn các ô khác`, nhan.length >= 5, nhan);
   check(`${ten}: phân hệ Nhân sự vẫn bật trên máy`, await page.evaluate(() => App.moduleEnabled('nhansu')));
-  if (u === 'htruong') check('văn phòng: ô "Đón trả bé" vẫn hiện khi trường bật phân hệ ấy', nhan.includes('Đón trả bé'), nhan);
+  check(`${ten}: KHÔNG còn ô "Đón trả bé" (phân hệ đã gỡ ở Đ252)`, !nhan.includes('Đón trả bé'), nhan);
   await moMan(page, '#/settings');
   const loi = page.locator('#view [onclick*="#/nhansu"]');
   check(`${ten}: Cài đặt có lối vào "Nhân sự & chấm công"`,
@@ -169,7 +171,7 @@ console.log('\n[D1 + D2] Màn Điểm danh của văn phòng');
     });
   });
   await dangNhap(page, 'htruong', 'quantri2026');
-  check('(đối chứng) phân hệ Đón trả bé đang BẬT với văn phòng', await page.evaluate(() => App.moduleEnabled('dontra')));
+  check('phân hệ Đón trả bé KHÔNG còn với văn phòng', !(await page.evaluate(() => App.moduleEnabled('dontra'))));
   await moMan(page, '#/attendance');
   const khoi = page.locator('#att-can-goi');
   check('D1: "Cần gọi xác nhận" là một khối <details>', await khoi.count() === 1
@@ -196,7 +198,7 @@ console.log('\n[D2] Màn Điểm danh của gia đình');
 {
   const page = await moTrang();
   await dangNhap(page, 'phuhuynh', '123456');
-  check('(đối chứng) phân hệ Đón trả bé đang BẬT với gia đình', await page.evaluate(() => App.moduleEnabled('dontra')));
+  check('phân hệ Đón trả bé KHÔNG còn với gia đình', !(await page.evaluate(() => App.moduleEnabled('dontra'))));
   await moMan(page, '#/attendance');
   const man = await chu(page);
   check('(đối chứng) màn Điểm danh của gia đình đã dựng', /Lịch điểm danh của con/.test(man), man.slice(0, 200));
@@ -204,8 +206,8 @@ console.log('\n[D2] Màn Điểm danh của gia đình');
   check('D2: gia đình KHÔNG còn dòng "gia đình khai ở phần Đón trả bé"', !/khai ở phần Đón trả bé/.test(man));
   check('D2: không nút nào trỏ sang #/dontra trên màn Điểm danh',
     await page.locator('#view [onclick*="#/dontra"]').count() === 0);
-  check('ô "Đón trả bé" vẫn còn trên trang chủ của gia đình (phân hệ giữ nguyên)', await page.evaluate(() =>
-    (App.state.modules || []).some(m => m.key === 'dontra')));
+  check('ô "Đón trả bé" KHÔNG còn trên trang chủ của gia đình (phân hệ đã gỡ ở Đ252)', await page.evaluate(() =>
+    (App.state.modules || []).length > 5 && !(App.state.modules || []).some(m => m.key === 'dontra')));
   await page.context().close();
 }
 

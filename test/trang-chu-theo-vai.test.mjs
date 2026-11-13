@@ -25,7 +25,7 @@ import {
 } from './_chung.mjs';
 
 const DIR = thuMucTam('trang-chu-theo-vai');
-sinhDuLieu(DIR);   // phân hệ mở rộng TẮT → vế nhật ký / đón trả phải là null, không phải 0
+sinhDuLieu(DIR);   // phân hệ mở rộng TẮT → vế nhật ký phải là null, không phải 0
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkCS2 = taoQuanTri(DIR, 'Quản Lý CS2', 'quanly2');
 khoaVaoCoSo(DIR, 'quanly2', 'cs2');
@@ -60,8 +60,14 @@ console.log('\n[1] Cô một nhóm: /hom-nay không cần chọn nhóm, trả đ
   check('ngày là hôm nay theo giờ Việt Nam', r.data && r.data.ngay === homNay, r.data && r.data.ngay);
   check('có tên cô phụ trách', r.data && r.data.co.some(c => c.name), r.data && r.data.co);
   const be = r.data ? r.data.be[0] : null;
-  check('mỗi bé có đủ các ô trạng thái việc', be && ['diemDanh', 'nghiCoPhep', 'donCho', 'thuoc', 'nhatKy', 'daTra']
+  check('mỗi bé có đủ các ô trạng thái việc', be && ['diemDanh', 'nghiCoPhep', 'donCho', 'thuoc', 'nhatKy', 'gioRa']
     .every(k => k in be), be);
+  // Đ252 gỡ mã phân hệ Đón trả bé: vế `daTra` của nó rời câu trả lời. Số "đã
+  // về" là `daVe`, đếm từ giờ ra về của sổ điểm danh lõi.
+  check('KHÔNG còn vế `daTra` của phân hệ Đón trả bé đã gỡ (Đ252)',
+    be && !('daTra' in be) && !('daTra' in r.data.dem) && !('dontra' in r.data.phanHe),
+    r.data && { be, dem: r.data.dem, ph: r.data.phanHe });
+  check('vế "đã về" của sổ điểm danh lõi (`daVe`) là SỐ', r.data && typeof r.data.dem.daVe === 'number', r.data && r.data.dem);
   // TẮT THÌ null, BẬT THÌ SỐ — và bài này tự dựng lấy cả hai vế.
   //
   // Đây là bài học Đ112: `null` nghĩa là "phân hệ đang tắt, đừng vẽ ô này",
@@ -71,28 +77,19 @@ console.log('\n[1] Cô một nhóm: /hom-nay không cần chọn nhóm, trả đ
   // Bản cũ mượn `defaultEnabled: false` làm điều kiện đầu vào nên Đ146 đổi mặc
   // định là đỏ, dù hành vi không hỏng. Nay tự tắt rồi tự bật lại, canh ĐỦ HAI
   // CHIỀU — mạnh hơn bản cũ, vì bản cũ không bao giờ thử chiều đang bật.
-  for (const k of ['nhatky', 'dontra']) {
-    await req('PUT', `/api/admin/modules/${k}`, { cookie: bgh.cookie, body: { enabled: false } });
-  }
+  await req('PUT', '/api/admin/modules/nhatky', { cookie: bgh.cookie, body: { enabled: false } });
   const rTat = (await homNayCua(gv.cookie)).data;
   const beTat = rTat ? rTat.be[0] : null;
   check('phân hệ nhật ký TẮT → vế nhật ký là null, không phải 0',
     rTat && rTat.phanHe.nhatky === false && rTat.dem.nhatKyDaGhi === null && beTat.nhatKy === null,
     rTat && { ph: rTat.phanHe, dem: rTat.dem.nhatKyDaGhi, be: beTat.nhatKy });
-  check('phân hệ đón trả TẮT → vế đón trả là null',
-    rTat && rTat.dem.daTra === null && beTat.daTra === null);
 
-  for (const k of ['nhatky', 'dontra']) {
-    await req('PUT', `/api/admin/modules/${k}`, { cookie: bgh.cookie, body: { enabled: true } });
-  }
+  await req('PUT', '/api/admin/modules/nhatky', { cookie: bgh.cookie, body: { enabled: true } });
   const rBat = (await homNayCua(gv.cookie)).data;
   const beBat = rBat ? rBat.be[0] : null;
   check('BẬT LẠI → vế nhật ký thành SỐ, không còn null',
     rBat && rBat.phanHe.nhatky === true && typeof rBat.dem.nhatKyDaGhi === 'number' && beBat.nhatKy !== null,
     rBat && { ph: rBat.phanHe, dem: rBat.dem.nhatKyDaGhi, be: beBat.nhatKy });
-  check('và vế đón trả cũng thành số',
-    rBat && typeof rBat.dem.daTra === 'number' && beBat.daTra !== null,
-    rBat && { dem: rBat.dem.daTra, be: beBat.daTra });
   const chuaCo = r.data ? r.data.be.filter(b => !b.diemDanh).length : 0;
   check('"chưa điểm danh" đếm đúng số bé chưa có dòng', r.data && r.data.dem.chuaDiemDanh === chuaCo,
     r.data && [r.data.dem.chuaDiemDanh, chuaCo]);
@@ -236,11 +233,11 @@ console.log('\n[8] Thông báo và khảo sát nói rõ gửi cho ai');
 sv.dung();
 
 // ===========================================================================
-console.log('\n[9] Bật phân hệ mầm non: vế nhật ký / đón trả là SỐ, không còn null');
+console.log('\n[9] Bật phân hệ mầm non: vế nhật ký là SỐ, không còn null');
 {
   const DIR2 = thuMucTam('trang-chu-theo-vai-phan-he');
   sinhDuLieu(DIR2, { phanHe: true });
-  batPhanHe(DIR2, ['nhatky', 'dontra', 'thuchup']);
+  batPhanHe(DIR2, ['nhatky', 'thuchup']);
   const sv2 = await dungMayChu({ port: Number(process.env.TEST_PORT || 4160) + 1, dir: DIR2 });
   const req2 = taoReq(sv2.BASE);
   const login2 = taoLogin(req2);
@@ -250,8 +247,7 @@ console.log('\n[9] Bật phân hệ mầm non: vế nhật ký / đón trả là
   const d = r.data || { dem: {}, phanHe: {}, be: [] };
   check('phanHe.nhatky = true', d.phanHe.nhatky === true, d.phanHe);
   check('nhatKyDaGhi là số (0 hoặc hơn), không phải null', typeof d.dem.nhatKyDaGhi === 'number', d.dem);
-  check('daTra là số, không phải null', typeof d.dem.daTra === 'number', d.dem);
-  check('từng bé: nhatKy / daTra là boolean', d.be.every(b => typeof b.nhatKy === 'boolean' && typeof b.daTra === 'boolean'), d.be[0]);
+  check('từng bé: nhatKy là boolean', d.be.every(b => typeof b.nhatKy === 'boolean'), d.be[0]);
   sv2.dung();
 }
 

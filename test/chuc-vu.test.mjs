@@ -30,7 +30,7 @@ const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('chuc-vu');
 sinhDuLieu(DIR);
 batPhanHe(DIR, ['hocphi', 'tienan', 'cambridge', 'hanhtrinh',
-  'thuchup', 'nhatky', 'dontra', 'kehoachbe']);
+  'thuchup', 'nhatky', 'kehoachbe']);
 
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkNS = taoQuanTri(DIR, 'Chị Nhân Sự', 'nhansu');
@@ -358,8 +358,9 @@ console.log('\n[6b] BỐN PHÂN HỆ NHẠY CẢM NHẤT — thử THẬT, khôn
   // --- Chiều CHO PHÉP: việc hằng ngày của văn phòng cơ sở phải chạy ---------
   check('Văn phòng MỞ ĐƯỢC nhật ký ngày của nhóm mình',
     (await ma(VP, '/api/nhatky?classId=c1')) === 200);
-  check('Văn phòng MỞ ĐƯỢC sổ đón trả của một bé',
-    (await ma(VP, '/api/dontra?studentId=s1')) === 200);
+  // Đ252 gỡ mã phân hệ Đón trả bé: đường của nó không còn, với mọi chức vụ.
+  check('đường sổ đón trả KHÔNG còn (404) — phân hệ đã gỡ ở Đ252',
+    (await ma(VP, '/api/dontra?studentId=s1')) === 404, await ma(VP, '/api/dontra?studentId=s1'));
   check('Văn phòng MỞ ĐƯỢC báo ăn', (await ma(VP, '/api/tienan/bao-an')) === 200);
 
   // --- Chiều CẤM: ba phân hệ chuyên môn thì không -------------------------
@@ -383,10 +384,10 @@ console.log('\n[6b] BỐN PHÂN HỆ NHẠY CẢM NHẤT — thử THẬT, khôn
     check('câu từ chối chỉ ra ai gỡ được', loi.includes('ban giám hiệu'), loi);
   }
 
-  // --- Ba chức vụ Cấp 2 thì không đường nào trong bốn đường ----------------
+  // --- Ba chức vụ Cấp 2 thì không đường nào trong ba đường -----------------
   for (const [ten, cookie] of [['Nhân sự', NS], ['Kế toán', KT], ['Marketing', MK]]) {
     for (const duong of ['/api/thuchup', '/api/nhatky?classId=c1',
-      '/api/dontra?studentId=s1', '/api/kehoachbe?classId=c1']) {
+      '/api/kehoachbe?classId=c1']) {
       const st = await ma(cookie, duong);
       check(`${ten} KHÔNG mở được ${duong.split('?')[0]}`, st === 403, st);
     }
@@ -400,9 +401,9 @@ console.log('\n[6b] BỐN PHÂN HỆ NHẠY CẢM NHẤT — thử THẬT, khôn
   check('và mở được Kế hoạch của bé', (await ma(QL, '/api/kehoachbe?classId=c1')) === 200);
 
   // --- Và ban giám hiệu (chưa khai chức vụ) không bị đụng tới --------------
-  check('Ban giám hiệu vẫn mở được cả bốn', (await Promise.all([
+  check('Ban giám hiệu vẫn mở được cả ba', (await Promise.all([
     ma(BGH, '/api/thuchup'), ma(BGH, '/api/nhatky?classId=c1'),
-    ma(BGH, '/api/dontra?studentId=s1'), ma(BGH, '/api/kehoachbe?classId=c1'),
+    ma(BGH, '/api/kehoachbe?classId=c1'),
   ])).every(s => s === 200));
 }
 

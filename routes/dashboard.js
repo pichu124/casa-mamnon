@@ -151,17 +151,12 @@ function tinhHomNay(ids, today) {
     ? docBangPhanHe('nhatky', 'nhatky_ngay',
       `SELECT studentId FROM nhatky_ngay WHERE ngay = ? AND studentId IN (${marks})`, [today, ...ids])
     : (modules.dangBat('nhatky') ? [] : null);
-  const tra = ids.length
-    ? docBangPhanHe('dontra', 'dontra_ghi',
-      `SELECT studentId FROM dontra_ghi WHERE ngay = ? AND studentId IN (${marks})`, [today, ...ids])
-    : (modules.dangBat('dontra') ? [] : null);
   return {
     // Điểm danh có đang bật không — để vế "đã về" (giờ ra về của sổ lõi) là
     // null khi điểm danh tắt, đúng luật null ≠ 0 của Đ112.
     coDiemDanh: modules.dangBat('diemdanh'),
     diemDanh, nghiPhep, donCho, thuoc,
     nhatKy: nk ? new Set(nk.map(r => r.studentId)) : null,
-    daTra: tra ? new Set(tra.map(r => r.studentId)) : null,
   };
 }
 
@@ -174,10 +169,9 @@ function tinhHomNay(ids, today) {
 function demNhom(ids, hn, truongNghi = false) {
   const dem = {
     soBe: ids.length, coMat: 0, denMuon: 0, nghiPhep: 0, nghiKhongPhep: 0, chuaDiemDanh: 0,
-    nhatKyDaGhi: hn.nhatKy ? 0 : null, daTra: hn.daTra ? 0 : null,
+    nhatKyDaGhi: hn.nhatKy ? 0 : null,
     // ĐÃ VỀ theo giờ ra về của sổ điểm danh lõi (Đ227). Từ Đ210 ra về ghi ở
-    // màn Điểm danh; góp ý 06/10 bỏ phân hệ Đón trả bé (tắt sẵn) — vế `daTra`
-    // của phân hệ ấy giữ nguyên nghĩa cũ, vế này là của lõi.
+    // màn Điểm danh.
     daVe: hn.coDiemDanh ? 0 : null,
     donCho: 0, thuocCho: 0, thuocDang: 0,
   };
@@ -189,7 +183,6 @@ function demNhom(ids, hn, truongNghi = false) {
     else if (d.status === 'absent_excused') dem.nghiPhep++;
     else if (d.status === 'absent_unexcused') dem.nghiKhongPhep++;
     if (hn.nhatKy && hn.nhatKy.has(id)) dem.nhatKyDaGhi++;
-    if (hn.daTra && hn.daTra.has(id)) dem.daTra++;
     if (hn.coDiemDanh && d && d.checkOut) dem.daVe++;
     if (hn.donCho.has(id)) dem.donCho++;
     const t = hn.thuoc.get(id);
@@ -201,7 +194,7 @@ function demNhom(ids, hn, truongNghi = false) {
 
 function gopDem(ds) {
   const KHOA = ['soBe', 'coMat', 'denMuon', 'nghiPhep', 'nghiKhongPhep', 'chuaDiemDanh',
-    'nhatKyDaGhi', 'daTra', 'daVe', 'donCho', 'thuocCho', 'thuocDang'];
+    'nhatKyDaGhi', 'daVe', 'donCho', 'thuocCho', 'thuocDang'];
   const ra = {};
   for (const k of KHOA) {
     const co = ds.filter(d => d[k] !== null && d[k] !== undefined);
@@ -214,7 +207,7 @@ function gopDem(ds) {
 function phanHeDangBat() {
   return {
     diemdanh: modules.dangBat('diemdanh'), nhatky: modules.dangBat('nhatky'),
-    dontra: modules.dangBat('dontra'), thuchup: modules.dangBat('thuchup'),
+    thuchup: modules.dangBat('thuchup'),
     xinphep: modules.dangBat('xinphep'), danthuoc: modules.dangBat('danthuoc'),
     hocsinh: modules.dangBat('hocsinh'),
   };
@@ -273,7 +266,6 @@ module.exports = (app) => {
           donCho: hn.donCho.has(b.id),
           thuoc: hn.thuoc.get(b.id) || null,
           nhatKy: hn.nhatKy ? hn.nhatKy.has(b.id) : null,
-          daTra: hn.daTra ? hn.daTra.has(b.id) : null,
         };
       }),
       phanHe: phanHeDangBat(),
@@ -397,17 +389,6 @@ module.exports = (app) => {
       // Điểm danh: số lượt điểm danh hôm nay của các con
       badges.diemdanh = db.count(
         `SELECT COUNT(*) FROM attendance WHERE date = ? AND studentId IN (${marks})`, [today, ...ids]);
-      // Nhận xét mới chưa xem. Bản ĐÃ THU HỒI phải bị loại, cùng lý do đã ghi
-      // ở `unreadNotifications` bên trên: thu hồi rồi thì không còn cách nào
-      // bấm vào để đánh dấu đã xem, nên con số ấy sẽ đứng mãi không về 0.
-      //
-      // Phân hệ Nhận xét hằng ngày đang TẮT (A2) nên hôm nay chưa ai gặp. Vá
-      // sẵn vì nó cùng một hình dạng với hai chỗ vừa vá trong đợt này, và vì
-      // ngày nhà trường bật lại thì không ai còn nhớ để đi tìm.
-      badges.nhanxet = db.count(
-        `SELECT COUNT(*) FROM remarks
-          WHERE parentSeen = 0 AND studentId IN (${marks})
-            AND ${st.dieuKienConHien('remarks', 'id')}`, ids);
       // Khảo sát đang mở mà mình chưa trả lời — TRONG PHẠM VI mình được thấy.
       // Từ Đ119 khảo sát gửi riêng được cho một nhóm, và cột `audience` của
       // nó mang đúng nghĩa với cột cùng tên của thông báo, nên dùng chung một

@@ -1,5 +1,10 @@
 # Việc còn lại sau đợt 2 — sổ để anh quyết
 
+> **Ghi chú Đ252 (12/11/2026).** Các sổ `RA-SOAT-2026-09.md`, `BAO-CAO-TU-LAM.md`,
+> `TONG-KET-GOP-Y-1610.md` và `PHAN-HOI-TRUONG-1409.md` đã gỡ khỏi kho ở Đ252.
+> Dẫn chứng theo số dòng tới chúng trong tệp này giữ nguyên, và đọc ở lịch sử
+> git tại commit `1b87add`: `git show 1b87add:docs/<tên tệp>`.
+
 Sổ này dựng ngày 10/09/2026, ngay sau khi đợt 2 (Đ137–Đ144) đẩy xong và hai bộ kiểm thử
 đều xanh. Sáu lượt đọc mã và tài liệu chạy song song, rồi một lượt phản biện gộp lại,
 loại tám mục sai hoặc đã làm rồi, và bổ sung ba chỗ không lượt nào nêu. Mỗi mục đều có
@@ -381,7 +386,7 @@ sổ sai còn tệ hơn sổ trống' (:193)
 *Bằng chứng:* docs/LOI-NEN-CHUNG.md:153 (cột Còn nợ '**app 1**') vs :171 '| Đ44+Đ59 luật
 12 tháng… | f1c421f · 59148bc · 02b03c4 |'; đối chiếu :155 đã gạch ~~app 1~~
 
-**Kịch bản triển khai [A] VPS Việt Nam hay [B] Render, tên miền, và tên chính thức của app**
+**Kịch bản triển khai ~~[A] VPS Việt Nam hay [B] Render~~ (ĐÃ CHỐT 12/11, Đ252: VPS Việt Nam; kịch bản Render đã gỡ), tên miền, và tên chính thức của app**
 
 N7 (VPS Việt Nam + tên miền đứng tên trường) là việc nhà trường làm và đang CHẶN toàn bộ
 phần triển khai; đã có bản xin báo giá gửi nhà cung cấp. Kèm theo: chốt tên chính thức
@@ -864,6 +869,10 @@ lib/csv.js bẻ gãy ô có xuống dòng.
 'app 1'); :154-156, :161 đã gạch
 
 **N1 + N13 — hoàn tất tài liệu triển khai và vá vòng kẹt sau khi có N7**
+
+> **Đ252 (12/11/2026):** chủ dự án chốt VPS. `docs/TRIEN-KHAI.md` chỉ còn một
+> đường, nửa Render đã xoá; N13 không còn áp dụng. Việc còn lại của mục này:
+> điền tên miền, IP, chứng chỉ HTTPS thật sau N7.
 
 docs/TRIEN-KHAI.md còn cả hai kịch bản [A] VPS Việt Nam và [B] Render; sau khi trường
 chốt phải điền tên miền, IP, chứng chỉ HTTPS thật và XOÁ HẲN nửa không dùng. N13: vòng
@@ -1532,7 +1541,7 @@ chạy lại đủ bộ ở app 1 (mốc đã đo: 932 → 1017, FAIL 0). Kiểm
 :110-113, :94-98, :104-109, :187-188, :141, :364-366 ('canh bằng người, không canh bằng
 máy')
 
-**N13 — bước Render Job create-admin chưa ai chạy thử**
+**~~N13 — bước Render Job create-admin chưa ai chạy thử~~ — KHÔNG CÒN ÁP DỤNG (Đ252: chốt VPS, kịch bản Render đã gỡ)**
 
 Nếu chọn kịch bản [B] Render: chạy thử đủ bốn bước trong docs/TRIEN-KHAI.md, đặc biệt
 bước 2 (Render Job gắn CÙNG ổ đĩa chạy create-admin một lần TRƯỚC khi deploy) — thử

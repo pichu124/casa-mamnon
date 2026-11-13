@@ -132,7 +132,6 @@ if (!ph) {
     '/api/dashboard',
     '/api/students',
     '/api/thong-bao-be',
-    `/api/remarks?studentId=s1`,
     `/api/health?studentId=s1`,
     `/api/attendance/anh?studentId=s1&date=${NGAY}`,
   ];
@@ -141,7 +140,11 @@ if (!ph) {
     const x = await req('GET', d, { cookie: ph });
     if (coDau(x.data)) { loLot = d; break; }
   }
-  check('quét 7 đường gia đình mở được: không đường nào mang dấu ấy', loLot === null, loLot);
+  // 7 → 6 ở Đ252: `/api/remarks` rời danh sách vì mã của phân hệ Nhận xét đã gỡ
+  // hẳn — đường ấy nay là 404 với mọi vai (test/da-go-nhan-xet.test.mjs), không
+  // còn là "đường gia đình mở được".
+  check('quét 6 đường gia đình mở được: không đường nào mang dấu ấy',
+    duong.length === 6 && loLot === null, loLot);
 }
 
 // NGÀY ĐÃ KHOÁ: HỎI DỮ LIỆU, ĐỪNG GHI CỨNG MỘT NGÀY VÀO BÀI.

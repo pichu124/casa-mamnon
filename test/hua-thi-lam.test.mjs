@@ -13,7 +13,8 @@
 //   1. Điểm danh ghi "Gia đình đã thấy ảnh" trong khi app KHÔNG hề biết gia
 //      đình đã mở hay chưa. Cô đọc dòng đó rồi thôi không gọi điện.
 //   2. Gia đình bấm "Ngưng dùng" một người được đón, và cô vẫn ghi sổ trả bé
-//      bằng đúng tên đó từ danh sách cũ còn trong bộ nhớ trang.
+//      bằng đúng tên đó từ danh sách cũ còn trong bộ nhớ trang. (Lời hứa này
+//      rời app cùng phân hệ Đón trả bé ở Đ252 — mục [3] canh chiều ngược lại.)
 //   3. Quản trị mở Khảo sát / Dặn thuốc thì rơi vào NHÁNH CỦA GIA ĐÌNH, tức
 //      màn hình hỏi "con bạn là bé nào" với một người không có con nào.
 //   4. `/api/schoolyear/alumni` lọc đúng theo cơ sở, chạy tốt, và KHÔNG màn
@@ -36,7 +37,7 @@ import {
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('hua-thi-lam');
 sinhDuLieu(DIR);
-batPhanHe(DIR, ['baocaohoctap', 'dontra', 'hanhtrinh']);
+batPhanHe(DIR, ['baocaohoctap', 'hanhtrinh']);
 
 // Vài bé đã ra trường ở nhóm c1 — chỗ duy nhất dựng được tình huống này.
 taoBeRaTruong(DIR, 'c1', 3, '2025-05-31', 'ratruong');
@@ -157,47 +158,22 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[3] NGƯỜI ĐÓN GIA ĐÌNH ĐÃ NGƯNG DÙNG THÌ KHÔNG GHI SỔ BẰNG HỌ');
+  console.log('\n[3] PHÂN HỆ ĐÓN TRẢ BÉ ĐÃ GỠ (Đ252) — APP KHÔNG CÒN HỨA GHI SỔ NGƯỜI ĐÓN');
   {
+    // Mục này trước canh lời hứa "người đón đã ngưng dùng thì không ghi sổ bằng
+    // họ". Chủ dự án duyệt gỡ mã phân hệ ngày 12/11; lời hứa đi cùng nó. Điều
+    // còn phải đúng: không đường nào của nó còn nhận ghi — một đường còn sót
+    // là một lời hứa không ai giữ.
     const them = await req('POST', '/api/dontra/nguoi', {
       cookie: PH,
       body: { studentId: 's1', hoTen: 'Bà Nguyễn Thị Tám', quanHe: 'Bà nội', dienThoai: '0909000111' },
     });
-    check('gia đình khai được người đón thường xuyên',
-      them.status === 201 || them.status === 200, them.status);
-    const nid = them.data && them.data.id;
-
-    const ok = await req('POST', '/api/dontra/ghi', {
-      cookie: CO,
-      body: { studentId: 's1', nguonLoai: 'thuong-xuyen', nguonId: nid, luc: '16:30' },
-    });
-    check('đang dùng thì cô ghi sổ trả bé bình thường', ok.status === 200 || ok.status === 201,
-      { status: ok.status, data: ok.data });
-
-    const ngung = await req('PUT', `/api/dontra/nguoi/${nid}`, {
-      cookie: PH, body: { dangDung: false },
-    });
-    check('gia đình ngưng dùng được', ngung.status === 200, ngung.status);
-
-    // ĐÂY LÀ PHÉP KIỂM CHÍNH: danh sách cũ còn trong bộ nhớ trang của cô, nên
-    // cô vẫn gửi lên đúng mã ấy. Máy chủ phải là chỗ nói không.
-    const chan = await req('POST', '/api/dontra/ghi', {
-      cookie: CO,
-      body: { studentId: 's1', nguonLoai: 'thuong-xuyen', nguonId: nid, luc: '16:40' },
-    });
-    check('NGƯNG DÙNG RỒI THÌ MÁY CHỦ TỪ CHỐI, dù màn hình cũ vẫn gửi lên',
-      chan.status === 400, { status: chan.status, data: chan.data });
-    check('và lời từ chối nói tiếng của trường, có tên người, có đường ra',
-      chan.status === 400 && /ngưng dùng/i.test(chan.data.error || '')
-        && /Người khác/.test(chan.data.error || ''), chan.data);
-
-    // GIỮ ĐƯỜNG RA CHO CÔ. Chặn mà không có lối khác là đẩy cô ra ngoài app.
-    const khac = await req('POST', '/api/dontra/ghi', {
+    check('đường khai người đón KHÔNG còn (404)', them.status === 404, them.status);
+    const ghi = await req('POST', '/api/dontra/ghi', {
       cookie: CO,
       body: { studentId: 's1', nguonLoai: 'khac', nguoiDon: 'Bà Nguyễn Thị Tám', luc: '16:45' },
     });
-    check('cô vẫn trả bé được bằng "Người khác" và ghi rõ tên',
-      khac.status === 200 || khac.status === 201, { status: khac.status, data: khac.data });
+    check('đường ghi sổ trả bé KHÔNG còn (404)', ghi.status === 404, ghi.status);
   }
 
   // =========================================================================

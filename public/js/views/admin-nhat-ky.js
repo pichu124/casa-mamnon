@@ -164,6 +164,7 @@ Object.assign(App.views.admin, {
       'hocphi-tai-qr-anh': 'TẢI ẢNH MÃ QR NHẬN TIỀN CỦA TRƯỜNG',
       'hocphi-go-qr-anh': 'GỠ ẢNH MÃ QR NHẬN TIỀN CỦA TRƯỜNG',
       'ghi-gio-ra-ve': 'Ghi giờ bé ra về',
+      'sua-gio-vao': 'Sửa giờ bé tới lớp',
       'go-gio-ra-ve': 'Gỡ giờ bé ra về',
       'hanhtrinh-chu-de-tep-them': 'Treo tệp kế hoạch tuần',
       'hanhtrinh-chu-de-tep-xoa': 'Gỡ tệp kế hoạch tuần',

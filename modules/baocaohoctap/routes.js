@@ -147,7 +147,6 @@ const NHAN = { 'hoc-moi': 'học mới', 'on-tap': 'ôn tập', 'mo-rong': 'mở
 const DA_QUAN_SAT_THAY = ['dang-hinh-thanh', 'da-vung', 'vuot-troi'];
 
 const KIEU_DONG = ['chu', 'muc'];
-const TRANG_THAI = ['nhap', 'da-gui'];
 
 const TOI_DA_O = 2000;
 const TOI_DA_TONG_HOP = 4000;

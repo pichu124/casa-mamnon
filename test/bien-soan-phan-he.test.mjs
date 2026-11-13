@@ -46,7 +46,7 @@ const { check, tongKet } = taoBoDem();
 //   ma      mã phân hệ, khớp `key` trong module.json
 //   ten     tên hiển thị, chỉ để đọc lời báo lỗi cho dễ
 //   ai      vai NGƯỜI SOẠN của phân hệ đó — không phải phân hệ nào cũng là cô:
-//           Cambridge chỉ văn phòng đăng được, hồ sơ đón trả thì gia đình khai
+//           Cambridge chỉ văn phòng đăng được, học phí do văn phòng tạo
 //   vi_sao_khong_ghi  chỉ điền khi phân hệ THẬT SỰ không có đường ghi nào
 // ===========================================================================
 const PHU = [
@@ -56,7 +56,6 @@ const PHU = [
     vi_sao_khong_ghi: 'Từ góp ý 16/10 (mục 3) màn của nhà trường chỉ còn Đối chiếu tháng — ĐỌC số từ sổ điểm danh '
       + 'và đơn nghỉ; tab Báo ăn cho bếp đã gỡ khỏi màn, API báo ăn có bài riêng test/tien-an.test.mjs.',
   },
-  { ma: 'dontra', ten: 'Đón trả bé', ai: 'gia đình khai + cô ghi sổ' },
   { ma: 'thuchup', ten: 'Ghi nhanh', ai: 'cô' },
   { ma: 'hanhtrinh', ten: 'Hành trình học tập', ai: 'cô' },
   { ma: 'kehoachbe', ten: 'Kế hoạch của bé', ai: 'cô' },
@@ -240,84 +239,12 @@ console.log('\n[2] Tiền ăn — nhà trường mở là vào thẳng Đối ch
 }
 
 // ===========================================================================
-console.log('\n[3] Đón trả bé — gia đình đọc sổ và nhắn văn phòng, cô ghi sổ ở cổng');
-{
-  // Phân hệ này có HAI người soạn ở hai màn khác nhau. Bỏ sót vế nào cũng là
-  // một nửa món nợ B9 còn nguyên.
-  await dangNhap('phuhuynh', '123456');
-  await moMan('#/dontra');
-  // Nhà này có hai con, hai nhóm. Khai nhầm bé thì vế "cô ở cổng thấy người
-  // gia đình vừa khai" xanh hay đỏ đều do may rủi, nên chọn tường minh bé An —
-  // bé của nhóm mà tài khoản cô bên dưới phụ trách.
-  await page.locator('.student-chip', { hasText: 'Nguyễn Bảo An' }).click();
-  await page.waitForTimeout(1000);
-  // TỪ Đ151, GIA ĐÌNH KHÔNG KHAI NGƯỜI ĐÓN TRONG APP NỮA.
-  //
-  // Nhà trường 10/09: *"trường khi đón trả bé đã đăng ký bằng file giấy rồi,
-  // mình nghĩ điền file giấy lưu vết sẽ an toàn hơn cho trường"*, và đón thay
-  // một lần thì *"PH sẽ nhắn tin với văn phòng để thông báo"*.
-  //
-  // Mục này trước đây đo vế "gia đình khai người đón". Vế ấy đã gỡ khỏi màn,
-  // nên nay đo đúng thứ THAY CHỖ NÓ — và đo cả hai điều mà việc gỡ dễ làm hỏng:
-  // gia đình có được chỉ đường đi tiếp không, và sổ đón trả có còn nguyên không.
-  const manPH = await chuTrenMan();
-  check('gia đình KHÔNG còn nút khai người được đón', await page.locator('#dt-them').count() === 0);
-  check('cũng không còn nút uỷ quyền một lần', await page.locator('#dt-uy').count() === 0);
-  check('mà có nút NHẮN CHO VĂN PHÒNG — đúng cách trường nói sẽ làm',
-    await page.locator('#dt-nhan-vp').count() === 1);
-  check('và màn nói rõ vì sao: nhà trường dùng bản giấy ở văn phòng',
-    /bản giấy/.test(manPH), manPH.slice(0, 260));
-  // `innerText` trả về chữ ĐÃ QUA CSS, mà `.section-label` viết hoa toàn bộ —
-  // nên phải dò không phân biệt hoa thường, không thì phép kiểm đỏ vì một luật
-  // trình bày chứ không vì thứ nó đang canh.
-  check('SỔ ĐÓN TRẢ CỦA CON VẪN CÒN — gỡ lối vào, không gỡ dữ liệu',
-    /sổ đón trả gần đây/i.test(manPH), manPH.slice(0, 300));
-
-  await page.click('#dt-nhan-vp');
-  await page.waitForTimeout(1200);
-  check('bấm vào là sang đúng màn Nhắn tin',
-    await page.evaluate(() => location.hash) === '#/messages');
-  await moMan('#/dontra');
-  await page.waitForTimeout(600);
-
-  // Vế thứ hai: cô ở cổng chọn đúng người gia đình vừa khai rồi ghi vào sổ.
-  await dangNhap('giaovien', '123456');
-  await moMan('#/dontra');
-  check('màn cổng của cô có nút ghi đã trả bé', await page.locator('[data-tra]').count() >= 1);
-
-  const maBeAn = await page.evaluate(async () => {
-    const d = await API.get('/api/students');
-    const ds = Array.isArray(d) ? d : (d.students || []);
-    return (ds.find(s => s.name === 'Nguyễn Bảo An') || {}).id || '';
-  });
-  check('cô tìm được thẻ của đúng bé gia đình vừa khai người đón',
-    !!maBeAn && await page.locator(`[data-tra="${maBeAn}"]`).count() === 1, maBeAn);
-  await page.locator(`[data-tra="${maBeAn}"]`).click();
-  await page.waitForTimeout(800);
-  check('mở được hộp ghi trả bé', await page.locator('#dt-ai').count() === 1);
-  const cacNguoi = await page.locator('#dt-ai option').allInnerTexts();
-  // Gia đình không khai trước nữa, nên ô chọn của cô phải LUÔN có lối "người
-  // khác — ghi rõ tên". Không có lối đó thì từ Đ151 cô ở cổng không ghi nổi
-  // một dòng nào vào sổ.
-  check('ô chọn người đón luôn có lối "Người khác — ghi rõ tên"',
-    cacNguoi.some(t => /Người khác/.test(t)), cacNguoi);
-  await page.selectOption('#dt-ai', 'khac|');
-  await page.waitForTimeout(400);
-  check('chọn "Người khác" thì hiện ô gõ tên', await page.locator('#dt-ten').isVisible());
-  await page.fill('#dt-ten', 'Nguyễn Thị Lan');
-
-  await page.fill('#dt-ghichu', 'Có đối chiếu ảnh ở cổng');
-  await page.click('#dt-luu');
-  await page.waitForTimeout(1600);
-  const manCo = await chuTrenMan();
-  check('CÔ GHI XONG THÌ MÀN CỔNG HIỆN NGAY LẦN TRẢ ĐÓ',
-    /Có đối chiếu ảnh ở cổng/.test(manCo) || /Sửa lại người đã đón/.test(manCo),
-    manCo.slice(0, 250));
-}
+console.log('\n[3] (Đón trả bé — đã gỡ mã phân hệ ở Đ252, không còn đường ghi nào để đi)');
 
 // ===========================================================================
 console.log('\n[4] Ghi nhanh — cô ghi một khoảnh khắc qua đúng nút trên màn');
 {
+  await dangNhap('giaovien', '123456');
   await moMan('#/thuchup');
   check('màn có nút ghi nhanh một khoảnh khắc', await page.locator('#tc-ghi').count() === 1);
 

@@ -217,28 +217,6 @@ h1, h2, h3, h4 { line-height: 1.25; letter-spacing: -.015em; font-weight: 750; }
 /* Bảng nổi đè lên hero (đặt ngay sau .hero) */
 .hero + .tile-sheet { margin-top: -58px; }
 
-/* ===== Thanh trên (màn hình phụ) ===== */
-.topbar {
-  position: sticky; top: 0; z-index: 30;
-  margin: 0 -16px 18px;
-  padding: calc(12px + env(safe-area-inset-top)) 18px 12px;
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  background: var(--surface-glass);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border-bottom: 1px solid var(--line);
-}
-.topbar .logo {
-  width: 40px; height: 40px; border-radius: 13px; flex: none;
-  display: flex; align-items: center; justify-content: center; font-size: 20px;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  box-shadow: var(--shadow-glow);
-}
-.topbar select {
-  border: 1.5px solid var(--line); border-radius: var(--r-full);
-  padding: 8px 14px; background: var(--surface); font-weight: 650; font-size: .88rem;
-}
-
 /* ===== Tiêu đề trang con ===== */
 .page-head {
   position: sticky; top: 0; z-index: 30;
@@ -919,15 +897,15 @@ body:has(.chat-screen) #toast-zone { bottom: 96px; }
   text-align: center; margin-bottom: 24px; margin-top: 5px;
   font-size: .87rem; color: var(--muted); line-height: 1.5;
 }
-.demo-accounts { margin-top: 20px; padding-top: 17px; border-top: 1px dashed var(--line-strong); }
-.demo-accounts p { margin-bottom: 11px; text-align: center; font-size: .78rem; color: var(--muted); font-weight: 600; }
-.demo-accounts .demo-row { display: flex; gap: 9px; }
-.demo-accounts .btn { flex-direction: column; gap: 2px; line-height: 1.35; padding: 10px 8px; }
 
-/* ===== Banner mời bật thông báo ===== */
+/* ===== Dải nổi ở đáy: mời cài app, báo có bản mới ===== */
+/* `sticky` chứ không `fixed`: dải vẫn đứng yên ngay trên thanh điều hướng,
+   nhưng nó có chỗ thật ở cuối trang, nên cuộn hết trang thì nút cuối cùng
+   (Đăng xuất, Lưu…) nằm TRÊN dải chứ không nằm dưới. Chỗ chừa tự bằng đúng
+   chiều cao của dải — chữ xuống mấy dòng cũng đủ, và tắt dải là hết chừa. */
 .push-banner {
-  position: fixed; left: 50%; bottom: calc(var(--nav-h) + 18px);
-  transform: translateX(-50%);
+  position: sticky; bottom: calc(var(--nav-h) + 18px);
+  margin: 0 auto;
   z-index: 60;
   display: flex; align-items: center; gap: 12px;
   width: min(430px, 92vw);

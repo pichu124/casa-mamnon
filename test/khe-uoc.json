@@ -1,11 +1,7 @@
 {
   "lib/db.js": {
     "CHUC_VU": "object",
-    "CHUC_VU_DAT_NEP": "object",
     "CHUC_VU_DUYET_BAO_CAO": "object",
-    "CHUC_VU_DUYET_BIEU_PHI": "object",
-    "CHUC_VU_SUA_HO_SO_BE": "object",
-    "CHUC_VU_TAO_KHOAN_THU": "object",
     "DATA_DIR": "string",
     "DB_FILE": "string",
     "SO_THANG_GIU_HO_SO": "number",
@@ -99,7 +95,6 @@
     "createSession": "ham(1)",
     "destroySession": "ham(1)",
     "destroyUserSessions": "ham(2)",
-    "flushSessions": "ham(0)",
     "isSecureRequest": "ham(1)",
     "requireAuth": "ham(3)",
     "requireRole": "ham(0)",
@@ -114,7 +109,6 @@
     "choNguoiDung": "ham(1)",
     "choQuanTri": "ham(0)",
     "dangBat": "ham(1)",
-    "danhDauLoi": "ham(2)",
     "danhDauLoiTheoTep": "ham(2)",
     "datTrangThai": "ham(2)",
     "kiemTraDuongDan": "ham(1)",
@@ -159,8 +153,7 @@
     "dangBat": "ham(0)",
     "dangKy": "ham(2)",
     "danhSach": "ham(0)",
-    "dung": "ham(0)",
-    "lanChayCuoi": "ham(0)"
+    "dung": "ham(0)"
   },
   "lib/huy-hieu.js": {
     "dangKy": "ham(2)",
@@ -203,7 +196,6 @@
     "soGioVN": "ham(1)",
     "studentBar": "ham(0)",
     "thangVN": "ham(1)",
-    "thanhChonBe": "ham(0)",
     "thanhChonBeTheoCap": "ham(0)",
     "thuVN": "ham(1)",
     "timeAgo": "ham(1)",
@@ -225,7 +217,6 @@
     "loadScript": "ham(1)",
     "logout": "ham(0)",
     "loiKhongMoDuoc": "ham(1)",
-    "maybeShowPushBanner": "ham(0)",
     "moduleEnabled": "ham(1)",
     "moiCaiVaoManHinhChinh": "ham(0)",
     "navigate": "ham(1)",

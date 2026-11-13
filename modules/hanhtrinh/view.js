@@ -1537,7 +1537,7 @@ App.views.hanhtrinh = {
       <button class="btn primary" id="ht-ghi-nhanh"
               style="position:fixed;right:16px;z-index:40;border-radius:999px;
                      box-shadow:0 6px 20px rgba(0,0,0,.18);padding:12px 18px;
-                     bottom:calc(76px + env(safe-area-inset-bottom, 0px))">
+                     bottom:max(calc(76px + env(safe-area-inset-bottom, 0px)), var(--ht-tren-dai, 0px))">
         ${UI.icon('plus', 18)} Ghi nhanh
       </button>`;
   },
@@ -1545,6 +1545,54 @@ App.views.hanhtrinh = {
   ganNutGhiNhanh() {
     const n = document.getElementById('ht-ghi-nhanh');
     if (n) n.onclick = () => this.moGhi(null);
+    if (n) this.canhDaiNoi();
+  },
+
+  // NÚT NHƯỜNG CHỖ CHO DẢI NỔI Ở ĐÁY (Đ253).
+  //
+  // Dải mời cài app và dải "Đã có bản mới" (`.push-banner`) đứng ngay trên
+  // thanh điều hướng, rộng gần hết màn hình điện thoại và nằm TRÊN nút này:
+  // cô thấy một mẩu nút ló ra dưới dải mà bấm vào thì trúng dải. Có dải chạm
+  // vào nút thì nút đứng ngay trên dải; hết dải thì `--ht-tren-dai` được gỡ
+  // và nút về đúng chỗ cũ (76px). Màn rộng dải ở giữa, không chạm nút, nên
+  // nút không dời.
+  //
+  // ĐO DẢI THẬT, KHÔNG GHI CỨNG CHIỀU CAO: chữ của dải xuống hai hay ba dòng
+  // tuỳ bề rộng máy, nên dải cao từ 75 tới hơn 120px.
+  neDaiNoi() {
+    const n = document.getElementById('ht-ghi-nhanh');
+    if (!n) return;
+    const nut = n.getBoundingClientRect();
+    let cao = 0;
+    let day = 0;
+    for (const d of document.querySelectorAll('.push-banner')) {
+      const r = d.getBoundingClientRect();
+      // Dải đang ẩn (phòng nhắn tin) hoặc không chạm nút theo chiều ngang.
+      if (!r.height || r.right <= nut.left || r.left >= nut.right) continue;
+      cao += r.height;
+      day = Math.max(day, parseFloat(getComputedStyle(d).bottom) || 0);
+    }
+    if (cao) n.style.setProperty('--ht-tren-dai', `${Math.ceil(day + cao) + 12}px`);
+    else n.style.removeProperty('--ht-tren-dai');
+  },
+
+  // Dải tới và đi bất cứ lúc nào (cô bấm ✕, app báo có bản mới), và đổi chiều
+  // cao khi xoay máy — nên đo lại mỗi lần ấy chứ không chỉ lúc vẽ màn. Gắn
+  // MỘT lần cho cả phiên; không còn nút trên màn thì `neDaiNoi` tự bỏ qua.
+  canhDaiNoi() {
+    if (!this._canhDai) {
+      this._canhDai = true;
+      const doLai = () => this.neDaiNoi();
+      const doCao = typeof ResizeObserver === 'function' ? new ResizeObserver(doLai) : null;
+      const theoDoi = () => {
+        if (doCao) for (const d of document.querySelectorAll('.push-banner')) doCao.observe(d);
+        doLai();
+      };
+      this._theoDoiDai = theoDoi;
+      new MutationObserver(theoDoi).observe(document.body, { childList: true });
+      window.addEventListener('resize', doLai);
+    }
+    this._theoDoiDai();
   },
 
   // Tên góc lĩnh vực đọc từ chính gói máy chủ gửi, không chép lại bảng: chép

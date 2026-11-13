@@ -15,12 +15,12 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import {
-  dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, batPhanHe, CHROMIUM, tatBannerMoiCai, MAU,
+  dungMayChu, thuMucTam, sinhDuLieu, taoQuanTri, batPhanHe, CHROMIUM, tatBannerMoiCai, MAU, HOM_NAY,
 } from './_chung.mjs';
 
 const DIR = thuMucTam('trang-chu-giao-dien');
 sinhDuLieu(DIR, { phanHe: true });
-batPhanHe(DIR, ['nhatky', 'dontra', 'thuchup']);
+batPhanHe(DIR, ['nhatky', 'thuchup']);
 const mkTam = taoQuanTri(DIR, 'Hieu Truong', 'htruong');
 const { BASE, dung } = await dungMayChu({ port: Number(process.env.TEST_PORT || 4170), dir: DIR });
 
@@ -48,6 +48,15 @@ const ckGv = await dnApi('giaovien', '123456');
 await goiApi('/api/notifications', { title: 'Mai nhóm mình chơi với nước', body: 'Gửi thêm quần áo', category: 'Nhóm lớp', audience: 'class' }, ckGv);
 const ckQT2 = await dnApi('htruong', 'quantri2026');
 await goiApi('/api/notifications', { title: 'Nghỉ lễ Quốc khánh', body: 'Toàn trường nghỉ', category: 'Nhà trường', audience: 'all' }, ckQT2);
+
+// Một bé của nhóm Chồi 2 đã vào lớp và đã về — để soi số "Đã về" đếm từ sổ
+// điểm danh lõi (Đ227).
+const chamS1 = await goiApi('/api/attendance/mark', { studentId: 's1', date: HOM_NAY(), status: 'present' }, ckGv);
+// Giờ ra 23:59 chứ không phải một giờ chiều cố định (Đ253): ngày không có dòng
+// mẫu thì giờ vào là lúc bài này chạy, và máy chủ nay từ chối giờ ra sớm hơn
+// giờ vào — "16:45" làm bài này đỏ mỗi lần chạy cuối tuần sau 16h45.
+const veS1 = await goiApi('/api/attendance/ra-ve', { studentId: 's1', date: HOM_NAY(), gio: '23:59' }, ckGv);
+const soDaVe = ((await goiApi('/api/dashboard/hom-nay?classId=c1', null, ckGv)).data || { dem: {} }).dem.daVe;
 
 const SHOT = path.join(thuMucTam('trang-chu-anh-chup'), '/');
 fs.mkdirSync(SHOT, { recursive: true });
@@ -85,8 +94,21 @@ console.log('\n[1] Cô: bảng "Hôm nay ở nhóm" trên điện thoại');
   const soChip = await page.locator('#hn-panel .be-chip').count();
   check(`đủ ${MAU.soBeNhomChoi2} bé của nhóm Chồi 2 thành chip`, soChip === MAU.soBeNhomChoi2, soChip);
   check('có dãy số đếm với tổng bé', t.includes(`bé ${MAU.soBeNhomChoi2}`), t.slice(0, 400));
-  check('có nút việc Điểm danh, Đón trả bé, Ghi nhanh',
-    ['Điểm danh', 'Đón trả bé', 'Ghi nhanh'].every(x => t.includes(x)), t.slice(0, 500));
+  check('có nút việc Điểm danh, Ghi nhanh',
+    (await page.locator('.viec-nut', { hasText: 'Điểm danh' }).count()) === 1
+    && (await page.locator('.viec-nut', { hasText: 'Ghi nhanh' }).count()) === 1, t.slice(0, 500));
+  // Đ252 gỡ mã phân hệ Đón trả bé. Nửa "ra về" của ngày nằm ở sổ điểm danh
+  // lõi, và trang chủ đếm nó ở ô "Đã về".
+  check('KHÔNG còn nút việc hay ô "Đón trả bé" (Đ252)',
+    !(await page.locator('.viec-nut', { hasText: 'Đón trả bé' }).count())
+    && !(await page.locator('.tile-label', { hasText: 'Đón trả bé' }).count()) && !/Đã đón về \d/.test(t), t.slice(0, 500));
+  check('(đối chứng) cô ghi được một bé đã về qua sổ điểm danh',
+    chamS1.status === 200 && veS1.status === 200 && soDaVe >= 1, [chamS1.status, veS1.status, soDaVe]);
+  check('dãy số đếm có ô "Đã về" đúng bằng số bé có giờ ra về',
+    (await page.locator('#hn-panel .dem-pill', { hasText: `Đã về ${soDaVe}` }).count()) === 1, t.slice(0, 500));
+  check('bé đã về mang dấu 🏠 trên chip',
+    (await page.locator('#hn-panel .be-chip', { hasText: '🏠' }).count()) === soDaVe,
+    await page.locator('#hn-panel .be-chip', { hasText: '🏠' }).count());
   // Nhà trường 07/09: "Nhật ký ngày sẽ được tự động bỏ đi với các bạn không
   // phải lớp nhà trẻ." Chồi 2 không có bé nhà trẻ → không ô, không nút việc
   // (module.json `dieuKienHien` → /api/nhatky/pham-vi). Xem test/nhat-ky-bua.

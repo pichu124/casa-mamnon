@@ -176,14 +176,12 @@ console.log('\n[5] 10:32 — cô vẫn GHI ĐƯỢC nếu bé có tới lớp, n
 }
 
 // ===========================================================================
-console.log('\n[6] 16:30 — SỔ ĐÓN TRẢ cũng phải biết');
+console.log('\n[6] 16:30 — sổ đón trả đã gỡ cùng phân hệ (Đ252)');
 {
+  // Mục này trước đòi sổ đón trả nói ra bé đang nghỉ. Mã phân hệ Đón trả bé đã
+  // gỡ (chủ dự án duyệt 12/11); nửa "ra về" của ngày ghi ở sổ điểm danh lõi.
   const r = await req('GET', `/api/dontra/nhom?classId=c1&ngay=${NGAY}`, { cookie: GV });
-  const be = (r.data?.danhSach || []).find(x => x.studentId === BE);
-  check('sổ đón trả mở được', r.status === 200, r.status);
-  check('và NÓI RA là bé đang nghỉ', !!(be && be.nghiPhep), be && Object.keys(be));
-  check('bảng đếm cuối buổi tách riêng số bé nghỉ — cô không đi tìm bé ở nhà',
-    Number(r.data?.tong?.soNghi) === 1, r.data?.tong);
+  check('đường sổ đón trả KHÔNG còn (404)', r.status === 404, r.status);
 }
 
 // ===========================================================================
@@ -199,10 +197,10 @@ console.log('\n[7] MỘT CÂU HỎI, MỘT CHỖ TRẢ LỜI');
   check('mảng rỗng thì trả Map rỗng, không nổ', nghiHoc.nghiCoPhep([], NGAY).size === 0);
   check('thiếu ngày thì trả Map rỗng, không nổ', nghiHoc.nghiCoPhep([BE], '').size === 0);
 
-  const goi = ['modules/nhatky/routes.js', 'modules/dontra/routes.js', 'modules/tienan/routes.js']
+  const goi = ['modules/nhatky/routes.js', 'modules/tienan/routes.js']
     .filter(f => /require\(['"]\.\.\/\.\.\/lib\/nghi-hoc['"]\)/.test(
       fs.readFileSync(path.join(GOC, f), 'utf8')));
-  check('CẢ BA màn hằng ngày đều hỏi cùng một chỗ', goi.length === 3, goi);
+  check('CẢ HAI màn hằng ngày của phân hệ đều hỏi cùng một chỗ', goi.length === 2, goi);
 
   // Và không màn nào giữ bản sao riêng của câu truy vấn đó.
   //
@@ -216,7 +214,7 @@ console.log('\n[7] MỘT CÂU HỎI, MỘT CHỖ TRẢ LỜI');
   // Câu "bé nào đang nghỉ HÔM NAY" có một hình dạng riêng không lẫn được: một
   // ngày duy nhất nằm giữa hai đầu khoảng.
   const MAU_BAN_SAO = /fromDate\s*<=\s*\?\s*AND\s*toDate\s*>=\s*\?/;
-  const chep = ['modules/nhatky/routes.js', 'modules/dontra/routes.js', 'modules/tienan/routes.js']
+  const chep = ['modules/nhatky/routes.js', 'modules/tienan/routes.js']
     .filter(f => MAU_BAN_SAO.test(fs.readFileSync(path.join(GOC, f), 'utf8')));
   check('và không màn nào giữ bản sao riêng của câu truy vấn đơn nghỉ',
     chep.length === 0, chep);
@@ -240,10 +238,6 @@ console.log('\n[8] TẮT PHÂN HỆ XIN PHÉP thì thôi hỏi, không nổ');
   const be = (r.data?.danhSach || []).find(x => x.studentId === BE);
   check('và thôi nói bé nghỉ — vì quyển sổ đó không còn ai cập nhật',
     be && be.nghiPhep === null, be?.nghiPhep);
-
-  const dt = await req('GET', `/api/dontra/nhom?classId=c1&ngay=${NGAY}`, { cookie: GV });
-  check('sổ đón trả cũng vậy', dt.status === 200
-    && (dt.data?.danhSach || []).find(x => x.studentId === BE)?.nghiPhep === null, dt.status);
 }
 
 sv.dung();

@@ -40,12 +40,14 @@ const DIR = thuMucTam('co-so-quan-tri');
 sinhDuLieu(DIR);
 // BẬT MỌI PHÂN HỆ TẮT SẴN.
 //
-// `hocsinhcu` (Đ5) và `nhanxet` (A2) do nhà trường tắt. Mục [10] quét 22 đường
+// `hocsinhcu` (Đ5) do nhà trường tắt. (`nhanxet` từng đứng cạnh nó trong danh
+// sách dưới; rút ra ở Đ252 vì mã của phân hệ ấy đã gỡ hẳn — không còn gì để
+// bật, và không đường nào của nó nằm trong phép quét.) Mục [10] quét 22 đường
 // tìm dấu vết cơ sở khác; đường của phân hệ đang tắt trả về lỗi và phép quét đi
 // qua nó mà không quét gì. Lỗ hổng tầng cơ sở KHÔNG biến mất chỉ vì phân hệ
 // đang tắt — nó chỉ nằm im tới ngày nhà trường bật lại.
-batPhanHe(DIR, ['hocsinhcu', 'nhanxet', 'namhoccu', 'nhatky', 'hanhtrinh',
-  'dontra', 'hocphi', 'thucdon', 'thuchup', 'cambridge', 'kehoachbe']);
+batPhanHe(DIR, ['hocsinhcu', 'namhoccu', 'nhatky', 'hanhtrinh',
+  'hocphi', 'thucdon', 'thuchup', 'cambridge', 'kehoachbe']);
 const mk1 = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');     // Cấp 1
 const mk3 = taoQuanTri(DIR, 'Quản lý CS1', 'quanlycs1');      // Cấp 3, cơ sở 1
 khoaVaoCoSo(DIR, 'quanlycs1', 'cs1');

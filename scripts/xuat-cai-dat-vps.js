@@ -5,19 +5,15 @@
 //
 // VÌ SAO LÀ MỘT SCRIPT CHỨ KHÔNG PHẢI MỘT TỆP WORD ĐỂ SẴN
 //
-// Cùng lý do đã ghi ở `scripts/xuat-quy-trinh.js`: tệp Word không theo dõi thay
-// đổi cùng mã nguồn được. Nguồn nằm ở đây, trong kho mã; app đổi cách cài thì
-// sửa tệp này rồi chạy lại lệnh trên, và bản Word mới luôn khớp với phiên bản
-// app hiện tại — trang bìa tự đóng dấu mã commit và ngày sinh.
+// Tệp Word không theo dõi thay đổi cùng mã nguồn được. Nguồn nằm ở đây, trong
+// kho mã; app đổi cách cài thì sửa tệp này rồi chạy lại lệnh trên, và bản Word
+// mới luôn khớp với phiên bản app hiện tại — trang bìa tự đóng dấu mã commit
+// và ngày sinh.
 //
-// VÌ SAO KHÔNG SỬA `xuat-quy-trinh.js` MÀ THÊM TỆP MỚI BÊN CẠNH
-//
-// `QUY-TRINH-TRIEN-KHAI.docx` là tài liệu của APP 1 (SchoolConnect, tiểu học),
-// mang sang lúc tách kho và tự nó mở đầu bằng cảnh báo "đừng làm theo nguyên
-// văn cho app 2". Nó trình bày HAI phương án (máy tại trường / VPS) cho một
-// trường tiểu học ~300 học sinh. Tài liệu này thì khác hẳn: MỘT phương án duy
-// nhất (VPS tại Việt Nam), viết cho CASA Mầm non, và viết cho người làm lần
-// đầu. Trộn hai thứ vào một script là làm hỏng cả hai.
+// Tài liệu trình bày MỘT phương án duy nhất (VPS tại Việt Nam), viết cho CASA
+// Mầm non và cho người làm lần đầu. Bộ tài liệu Word triển khai của app 1
+// (`xuat-quy-trinh.js` → `QUY-TRINH-TRIEN-KHAI.docx`, hai phương án cho trường
+// tiểu học) từng nằm cạnh tệp này; đã gỡ khỏi kho ở Đ252.
 //
 // Cần thư viện `docx` (đã nằm trong devDependencies). KHÔNG cần Playwright —
 // tài liệu này không có sơ đồ, cố ý: người đang dựng máy chủ cần lệnh chép
@@ -35,8 +31,7 @@ const {
 } = require('docx');
 
 // ---------------------------------------------------------------------------
-// Hàm dựng đoạn — giữ ĐÚNG bộ màu và bộ hàm của `xuat-quy-trinh.js`, để hai
-// tệp Word của cùng một dự án nhìn ra là một bộ.
+// Hàm dựng đoạn.
 // ---------------------------------------------------------------------------
 const XANH_DAM = '1E3A8A', XAM = '475569', DO = '9F1239', XANH_LA = '166534';
 const NEN_MA = 'F1F5F9', NEN_BANG = 'EEF2FF';
@@ -140,9 +135,6 @@ async function main() {
       + 'Làm từ trên xuống, không đảo thứ tự. Cuối mỗi bước có bảng kiểm — đánh dấu đủ rồi mới đi tiếp.'),
     p('Các lệnh trong khung xám gõ trong phiên SSH vào VPS, mỗi lần một dòng. '
       + 'Chỗ nào có dấu ngoặc nhọn như <tên miền của trường> thì thay bằng giá trị thật, bỏ luôn dấu ngoặc.'),
-    chuY('Tệp docs/QUY-TRINH-TRIEN-KHAI.docx nằm cùng thư mục là tài liệu của APP 1 — '
-      + 'trường tiểu học, và chính nó mở đầu bằng lời dặn đừng làm theo nguyên văn cho app này. '
-      + 'Đừng lẫn hai tệp.'),
 
     h2('Hai điều nhà trường phải chốt trước, không phải việc kỹ thuật'),
     p({ text: '1. Máy chủ đặt tại Việt Nam. ', bold: true },
@@ -373,6 +365,7 @@ async function main() {
       'Environment=NODE_ENV=production',
       'Environment=DATA_DIR=/var/lib/casa-mamnon',
       `Environment=PORT=${CONG}`,
+      'Environment=HOST=127.0.0.1',
       'ExecStart=/usr/bin/node server.js',
       'Restart=always',
       'RestartSec=5',
@@ -390,8 +383,11 @@ async function main() {
       + 'Sửa tệp trên đĩa mà quên `daemon-reload` thì `systemctl restart` vẫn chạy — bằng bản CŨ. '
       + '`systemctl show` in ra bản đang có hiệu lực, nên nó là chỗ duy nhất trả lời đúng câu '
       + '"app đang chạy với DATA_DIR nào".'),
+    viSao('Dòng HOST=127.0.0.1 để app CHỈ nghe trên chính máy này; nginx ở bước 9 là cửa duy nhất ra Internet. '
+      + `Thiếu dòng đó app nghe ở mọi địa chỉ của máy, và ai gõ http://<IP>:${CONG} là vào thẳng app bằng `
+      + 'kết nối KHÔNG mã hoá, vòng qua HTTPS.'),
     p('Xem app có trả lời không:'),
-    ...lenh(`curl -s localhost:${CONG}/healthz`),
+    ...lenh(`curl -s http://127.0.0.1:${CONG}/healthz     # phải in ra {"ok":true}`),
     p({ text: 'Khởi động lại HAI LẦN liên tiếp và kiểm cả hai lần đều lên được.', bold: true }),
     ...lenh(
       'sudo systemctl restart casa-mamnon && sleep 3 && systemctl is-active casa-mamnon',
@@ -401,6 +397,7 @@ async function main() {
       + 'là bỏ sót đúng loại lỗi ấy.'),
     h2('Bảng kiểm bước 7'),
     oKiem('Dòng User= trong tệp service mang đúng tên tài khoản của bước 1'),
+    oKiem('systemctl show in ra HOST=127.0.0.1'),
     oKiem('systemctl status in ra active (running)'),
     oKiem('curl /healthz trả về kết quả'),
     oKiem('Khởi động lại hai lần, cả hai lần đều active'),
@@ -464,6 +461,13 @@ async function main() {
       'server {',
       '    server_name <tên-miền-của-trường>;',
       '    client_max_body_size 20M;',
+      '',
+      '    gzip on;',
+      '    gzip_vary on;',
+      '    gzip_proxied any;',
+      '    gzip_min_length 1024;',
+      '    gzip_types text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml text/plain;',
+      '',
       '    location / {',
       `        proxy_pass http://127.0.0.1:${CONG};`,
       '        proxy_set_header Host $host;',
@@ -483,6 +487,16 @@ async function main() {
       'sudo certbot --nginx -d <tên-miền-của-trường>'),
     chuY('client_max_body_size 20M là bắt buộc. Mặc định nginx chỉ cho 1 MB, và cô đăng ảnh hay video '
       + 'ngắn sẽ bị chặn ở tầng nginx trước khi tới app — app không hề biết để báo lỗi tử tế.'),
+    viSao('Năm dòng gzip nén phần chữ của app (mã, kiểu dáng, dữ liệu) trước khi gửi về điện thoại — '
+      + 'app tự nó không nén, nên thiếu chúng thì phần chữ tải về nặng gấp ba (đo ở Đ252: 2,0 MB còn 0,6 MB). '
+      + 'KHÔNG ghi loại ảnh nào vào gzip_types: ảnh đã nén sẵn, nén lần nữa chỉ tốn máy. '
+      + 'Phải có text/javascript: app gửi tệp .js với đúng loại đó, chỉ ghi application/javascript là '
+      + 'không tệp mã nào được nén mà nginx không báo gì.'),
+    p('Kiểm nén — phải in ra dòng "content-encoding: gzip". Dùng đúng lệnh này, đừng đổi sang `curl -I`: '
+      + 'nginx không nén câu hỏi HEAD.'),
+    ...lenh(
+      "curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' \\",
+      '  https://<tên-miền-của-trường>/js/app.js | grep -i content-encoding'),
     viSao('HTTPS không phải để cho đẹp. Không có HTTPS thì app KHÔNG cài được lên màn hình chính điện thoại '
       + 'và KHÔNG mở được lúc mất mạng — hai thứ mà cô cần nhất ở sân trường. Thông báo đẩy cũng không chạy.'),
     h2('Bật buộc HTTPS — chỉ SAU KHI ổ khoá đã lên'),
@@ -493,23 +507,44 @@ async function main() {
       '',
       'sudo systemctl daemon-reload',
       'sudo systemctl restart casa-mamnon',
-      'systemctl show casa-mamnon -p Environment   # phải thấy FORCE_HTTPS=1'),
+      'systemctl show casa-mamnon -p Environment   # phải thấy FORCE_HTTPS=1',
+      '',
+      '# Từ đây curl thẳng vào cổng app trên máy chủ sẽ trả 308 (chuyển sang https) — app làm đúng.',
+      '# Muốn hỏi thẳng app thì gửi kèm header mà nginx vẫn gửi:',
+      `curl -s -H 'X-Forwarded-Proto: https' http://127.0.0.1:${CONG}/healthz   # {"ok":true}`),
     chuY('ĐỪNG bật FORCE_HTTPS ở bước 7. Lúc ấy chưa có nginx nên phép kiểm '
-      + '`curl localhost:3000/healthz` của chính bước đó sẽ nhận một lệnh chuyển hướng sang https '
+      + '`curl http://127.0.0.1:3000/healthz` của chính bước đó sẽ nhận một lệnh chuyển hướng sang https '
       + 'thay vì câu trả lời — và người cài sẽ tưởng app hỏng.'),
     viSao('Không có biến này thì ai gõ http:// vẫn vào được bằng kết nối không mã hoá, '
       + 'và mật khẩu của cô đi qua mạng dưới dạng chữ thường. App KHÔNG cần khai thêm biến nào cho '
       + 'nginx: `server.js` đã bật `trust proxy` sẵn, nên nó đọc được `X-Forwarded-Proto` mà bước 9 '
       + 'đã khai trong cấu hình nginx ở trên.'),
-    p('Đóng cổng app, chỉ để nginx nói chuyện với thế giới:'),
+    h2('Tường lửa — chỉ mở 22, 80 và 443, TRƯỚC khi mở cho người dùng'),
+    p('Đóng cổng app, chỉ để SSH và nginx nói chuyện với thế giới:'),
     ...lenh(
-      'sudo ufw allow OpenSSH',
-      "sudo ufw allow 'Nginx Full'",
+      'sudo ufw default deny incoming',
+      'sudo ufw default allow outgoing',
+      'sudo ufw allow 22/tcp            # SSH',
+      'sudo ufw allow 80/tcp            # nginx — chuyển sang HTTPS, gia hạn chứng chỉ',
+      'sudo ufw allow 443/tcp           # nginx — HTTPS',
       'sudo ufw enable',
-      'sudo ufw status'),
+      'sudo ufw status verbose'),
+    chuY('SSH của máy chạy cổng KHÁC 22 thì mở đúng cổng đó trước khi gõ `ufw enable`, không thì tự khoá '
+      + 'mình ngoài cửa. Nhà cung cấp VPS thường có thêm tường lửa ở trang quản trị: ở đó cũng chỉ mở ba cổng này.'),
+    p('Rồi ', { text: 'từ một máy KHÁC', bold: true },
+      ' (máy tính ở nhà, không phải phiên SSH đang mở), kiểm rằng cổng của app KHÔNG vào được từ ngoài:'),
+    ...lenh(
+      `curl -m 5 http://<địa-chỉ-IP-của-máy>:${CONG}/healthz ; echo "mã thoát: $?"`,
+      '# ĐÚNG: không in ra {"ok":true}, mã thoát khác 0 (7 = bị từ chối, 28 = hết giờ chờ).',
+      `# SAI:  in ra {"ok":true} — cổng ${CONG} đang mở ra Internet. Xem lại dòng HOST ở bước 7 và sudo ufw status.`),
+    viSao('HOST=127.0.0.1 ở bước 7 và tường lửa ở đây là hai chốt cho cùng một cửa. Chỉ có tường lửa thì một lần '
+      + '`ufw disable` lúc gỡ rối là cổng app mở toang ra Internet, không mã hoá. Có cả hai thì tắt nhầm một '
+      + 'cái, cái kia vẫn giữ.'),
     h2('Bảng kiểm bước 9'),
     oKiem('Mở https://<tên-miền> trên điện thoại thấy màn đăng nhập, có ổ khoá'),
-    oKiem(`Gõ http://<IP>:${CONG} từ ngoài KHÔNG vào được (tường lửa đã chặn)`),
+    oKiem('Lệnh kiểm nén in ra content-encoding: gzip'),
+    oKiem('sudo ufw status verbose chỉ liệt kê 22, 80, 443'),
+    oKiem(`Từ máy KHÁC: curl http://<IP>:${CONG}/healthz KHÔNG in ra {"ok":true}`),
     oKiem('Cài được app lên màn hình chính điện thoại'),
     oKiem('systemctl show in ra FORCE_HTTPS=1'),
     oKiem('Gõ http://<tên-miền> tự nhảy sang https://'),

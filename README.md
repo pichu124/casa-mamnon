@@ -3,8 +3,8 @@
 Ứng dụng liên lạc **nhà trường ↔ gia đình** cho một trường mầm non **3 cơ sở**,
 trẻ **12 tháng – 6 tuổi** (nhận hầu hết từ 18 tháng, sớm hơn khi trường đồng ý).
 
-Mục tiêu số một: **thay hẳn sổ liên lạc giấy** — điểm danh, báo ăn, nhật ký
-ăn–ngủ–vệ sinh, đón trả, dặn thuốc, xin nghỉ, thông báo, album ảnh. Sau đó mới
+Mục tiêu số một: **thay hẳn sổ liên lạc giấy** — điểm danh vào/ra, báo ăn, nhật ký
+ăn–ngủ–vệ sinh, dặn thuốc, xin nghỉ, thông báo, album ảnh. Sau đó mới
 tới phần **hành trình học tập** theo triết lý CASA: cô ghi lại khoảnh khắc của
 trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, không xếp hạng trẻ.
 
@@ -22,7 +22,8 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 | [`CLAUDE.md`](CLAUDE.md) | Luật bắt buộc khi sửa mã: Nguyên tắc số 1 + 5 QUY TẮC giáo dục |
 | [`docs/LOI-NEN-CHUNG.md`](docs/LOI-NEN-CHUNG.md) | Lỗi ở phần nền thì vá hai kho ra sao |
 | [`modules/README.md`](modules/README.md) | Cách thêm một tính năng mà không đụng phần đang chạy |
-| [`docs/TINH-TRANG.md`](docs/TINH-TRANG.md) | **Đang đứng ở đâu, việc gì chờ ai** — ảnh chụp một thời điểm, được phép ghi đè. Đọc tệp này TRƯỚC khi làm gì tiếp |
+| [`docs/TINH-TRANG.md`](docs/TINH-TRANG.md) | Ảnh chụp tình trạng **chốt ngày 07/10/2026** (việc gì chờ ai lúc đó). Tình trạng hiện tại xem `docs/TIEN-DO.md` |
+| [`docs/VIEC-DANG-DO.md`](docs/VIEC-DANG-DO.md) | Việc còn treo lúc giao phiên, **chốt ngày 17/10/2026**. Tình trạng hiện tại xem `docs/TIEN-DO.md` |
 | [`docs/TRIEN-KHAI.md`](docs/TRIEN-KHAI.md) | **Cài lên máy chủ của trường**: VPS trong nước, tài khoản quản trị, dịch vụ tự bật lại, lịch sao lưu |
 | [`docs/CAI-DAT-VPS.docx`](docs/CAI-DAT-VPS.docx) | **Bản Word từ A đến Z** cho người cài lần đầu — 10 bước, mỗi bước một bảng kiểm. Sinh lại bằng `npm run tai-lieu:cai-dat-vps` |
 | [`docs/XIN-BAO-GIA-VPS.md`](docs/XIN-BAO-GIA-VPS.md) | **Bản yêu cầu xin báo giá máy chủ** — chép thẳng gửi nhà cung cấp, kèm bảng so sánh và ba chỗ dễ bị hớ |
@@ -35,7 +36,9 @@ trẻ, kể thành câu chuyện cho gia đình — không chấm điểm, khôn
 > **Mọi tệp triển khai KHÁC trong `docs/` là của app 1.** Chúng đi theo phần nền
 > lúc tách kho và chưa được cập nhật cho trường mầm non — mỗi tệp có một khối cờ
 > ở ngay đầu nói rõ phần nào còn đúng, phần nào không. Đọc cờ đó trước khi làm
-> theo. Ba tệp trong bảng trên thì đã viết cho app 2.
+> theo. Trong bảng trên, `TRIEN-KHAI.md`, `CAI-DAT-VPS.docx`, `XIN-BAO-GIA-VPS.md`
+> và `MAY-CHU-THU-ORACLE-APP2.md` đã viết cho app 2; `SAO-LUU.md` còn mang cờ
+> app 1, mới sửa phần đường dẫn.
 
 ---
 

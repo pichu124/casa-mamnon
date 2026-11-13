@@ -207,7 +207,7 @@ window.UI = (() => {
     return `${ten.slice(0, -1).join(', ')} và ${ten[ten.length - 1]}`;
   }
 
-  // Ô chọn bé dành cho vai QUẢN TRỊ.
+  // Ô chọn bé dành cho vai QUẢN TRỊ, THEO CẤP: Cơ sở › Nhóm › Bé (Đ124).
   //
   // VÌ SAO LÀ HÀM RIÊNG, KHÔNG NỚI `studentBar`
   //
@@ -224,33 +224,15 @@ window.UI = (() => {
   // liệu của bé đầu bảng chữ cái — không ô chọn, và có màn không ghi tên bé nào
   // trên đó cả. Quản trị đang đọc nhận xét của một đứa trẻ mà không biết là đứa
   // nào. Lúc phụ huynh gọi điện khiếu nại thì đó là chỗ nhầm rất đắt.
-  function thanhChonBe() {
-    const u = App.state.user || {};
-    const students = App.state.students || [];
-    if (u.role !== 'admin' || !students.length) return '';
-    const dang = students.find(s => s.id === App.state.currentStudentId) || students[0];
-    return `
-      <div class="card">
-        <div class="field" style="margin-bottom:0">
-          <label>Đang xem hồ sơ của bé</label>
-          <select onchange="App.setStudent(this.value)">
-            ${students.map(s => `<option value="${esc(s.id)}" ${s.id === dang.id ? 'selected' : ''}>${
-              esc(s.name)}${s.className ? ` · ${esc(s.className)}` : ''}</option>`).join('')}
-          </select>
-        </div>
-      </div>`;
-  }
-
-  // Ô chọn bé THEO CẤP cho vai quản trị: Cơ sở › Nhóm › Bé (Đ124).
   //
-  // `thanhChonBe` liệt kê cả trường thành MỘT danh sách phẳng — 11 bé mẫu còn
-  // nhìn được, 300 bé của ba cơ sở thì không, và hiệu trưởng thì theo dõi theo
-  // cấp chứ không theo từng bé. Bản này gom bé theo nhóm, và gom nhóm theo cơ
-  // sở khi trường có từ hai cơ sở; vẫn là MỘT ô <select> với <optgroup>, nên
-  // bộ chọn có sẵn của điện thoại và bàn phím vẫn dùng được y như cũ.
+  // VÌ SAO THEO CẤP
   //
-  // HÀM MỚI BÊN CẠNH HÀM CŨ — luật ba bước của CLAUDE.md cho tệp dùng chung:
-  // thêm cái mới → chuyển từng chỗ gọi → khi không còn ai gọi mới xoá cái cũ.
+  // Một danh sách phẳng cả trường thì 11 bé mẫu còn nhìn được, 300 bé của ba
+  // cơ sở thì không, và hiệu trưởng thì theo dõi theo cấp chứ không theo từng
+  // bé. Hàm này gom bé theo nhóm, và gom nhóm theo cơ sở khi trường có từ hai
+  // cơ sở; vẫn là MỘT ô <select> với <optgroup>, nên bộ chọn có sẵn của điện
+  // thoại và bàn phím vẫn dùng được y như cũ.
+  //
   // Tên cơ sở lấy từ `App.state.school.coSo` (máy chủ trả từ Đ124); máy chủ đời
   // cũ không trả thì gom theo nhóm thôi — không bao giờ trắng.
   function thanhChonBeTheoCap() {
@@ -604,7 +586,7 @@ window.UI = (() => {
   return {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
     ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
-    pageHeader, avatar, emptyState, studentBar, thanhChonBe, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
+    pageHeader, avatar, emptyState, studentBar, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, DOW,
     nenAnh, nenVideo,
     maAnToan, dongThongTin,

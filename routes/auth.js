@@ -335,7 +335,24 @@ module.exports = (app) => {
     res.json(mePayload(user));
   });
 
+  // ĐĂNG XUẤT TRÊN MÁY NÀO THÌ MÁY ĐÓ THÔI NHẬN THÔNG BÁO ĐẨY (Đ252).
+  //
+  // Đăng ký đẩy gắn với TÀI KHOẢN chứ không gắn với phiên, nên chỉ xoá phiên
+  // thì máy đã đăng xuất — hay máy mượn — vẫn hiện tin về bé lên màn hình
+  // khoá. App gửi kèm `endpoint` (địa chỉ đẩy của chính trình duyệt đó) và
+  // máy chủ xoá đúng dòng ấy; các máy khác của cùng người không bị đụng.
+  //
+  // `endpoint` là TUỲ CHỌN: điện thoại còn chạy vỏ app đời trước không gửi gì,
+  // và khi đó đăng xuất y như cũ. `huyDangKy` chỉ xoá dòng thuộc CHÍNH người
+  // đang đăng xuất, nên gửi địa chỉ của người khác lên cũng không xoá được.
+  //
+  // Nạp `lib/day.js` ngay lúc gọi, trong khối bắt lỗi: đẩy là việc phụ, nó
+  // hỏng thì đăng nhập và đăng xuất vẫn phải chạy.
   app.post('/api/auth/logout', (req, res) => {
+    const endpoint = (req.body || {}).endpoint;
+    if (req.user && typeof endpoint === 'string' && endpoint) {
+      try { require('../lib/day').huyDangKy(req.user.id, endpoint); } catch (_) { /* vẫn đăng xuất */ }
+    }
     if (req.sessionToken) destroySession(req.sessionToken);
     res.setHeader('Set-Cookie', clearCookie(req));
     res.json({ ok: true });

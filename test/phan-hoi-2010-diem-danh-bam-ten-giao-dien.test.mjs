@@ -292,8 +292,11 @@ try {
     const anh = await goiApi('/api/attendance/anh', { studentId: 's3', date: HOM, anh: PNG }, ckGV);
     check('gắn ảnh KHÔNG kèm ghi chú vẫn 201', anh.status === 201, anh.data);
     check('…và ghi chú cũ của dòng giữ nguyên', dongHom('s3').rec.note === 'ghi chú cũ', dongHom('s3').rec);
-    const ra = await goiApi('/api/attendance/ra-ve', { studentId: 's3', date: HOM, gio: '16:30' }, ckGV);
-    check('ghi ra về KHÔNG kèm ghi chú vẫn 200', ra.status === 200 && ra.data.gio === '16:30', ra.data);
+    // Giờ ra 23:59 chứ không phải một giờ chiều cố định: giờ vào của bé là lúc
+    // bài này chạy, và từ Đ253 máy chủ từ chối giờ ra sớm hơn giờ vào — "16:30"
+    // làm bài này đỏ mỗi lần chạy sau 16h30.
+    const ra = await goiApi('/api/attendance/ra-ve', { studentId: 's3', date: HOM, gio: '23:59' }, ckGV);
+    check('ghi ra về KHÔNG kèm ghi chú vẫn 200', ra.status === 200 && ra.data.gio === '23:59', ra.data);
     check('…và không sinh ghi chú ra về nào', !ghiChuVe('s3'), ghiChuVe('s3'));
     const ckPH = await dnApi('phuhuynh', '123456');
     const la = await goiApi('/api/attendance/ra-ve', { studentId: 's3', date: HOM, ghiChu: 'x' }, ckPH);

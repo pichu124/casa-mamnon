@@ -229,7 +229,7 @@ console.log('\n[6] Tệp dữ liệu LẠC trong kho mã — thứ .gitignore gi
     (kq.stdout + kq.stderr).slice(0, 200));
 }
 
-console.log('\n[7] .dockerignore chặn đúng những gì .gitignore chặn');
+console.log('\n[7] Không còn đường đóng gói kho mã vào ảnh Docker');
 {
   // VÌ SAO
   //
@@ -237,32 +237,24 @@ console.log('\n[7] .dockerignore chặn đúng những gì .gitignore chặn');
   // mục, kể cả tệp mà .gitignore đang giấu. Ảnh đó đẩy lên registry rồi kéo về
   // mọi máy chủ — lộ rộng hơn cả đẩy nhầm lên GitHub, mà lại lặng lẽ hơn.
   //
-  // Bản .dockerignore cũ chỉ chặn `data/db.json` và `data/sessions.json` của
-  // thời kho JSON. Từ khi chuyển sang SQLite, `data/school.db` KHÔNG bị chặn.
-  const chu = fs.readFileSync(path.join(GOC, '.dockerignore'), 'utf8');
-  const dong = chu.split('\n').map(d => d.trim()).filter(d => d && !d.startsWith('#'));
+  // Mục này từng canh `.dockerignore` chặn đúng những gì `.gitignore` chặn.
+  // Đ252 (12/11/2026): chủ dự án chốt triển khai trên VPS, `Dockerfile` và
+  // `.dockerignore` đã xoá. Nay canh NGƯỢC LẠI: ai thêm lại một tệp dựng ảnh
+  // vào gốc kho thì mục này đỏ — vì không còn bộ canh nào bảo đảm ảnh đó
+  // không mang theo `data/school.db` và `uploads/`.
+  const laTepDungAnh = (ten) =>
+    /^(dockerfile|\.dockerignore|docker-compose|compose\.ya?ml$|render\.ya?ml$)/i.test(ten);
+  const conLai = fs.readdirSync(GOC).filter(laTepDungAnh);
+  check('gốc kho không còn tệp dựng ảnh Docker hay cấu hình Render nào',
+    conLai.length === 0, conLai);
 
-  // Đúng những loại mà scripts/kiem-tra-du-lieu.js gọi là dữ liệu của trường.
-  const PHAI_CO = [
-    'data/*', '*.db', '*.db-wal', '*.db-shm', '*.sqlite', '*.sqlite3',
-    'uploads/', 'backups/', '.khoi-phuc-*', 'db.json*', 'sessions.json*',
-    '.env', '.env.*', '*.pem', '*.key', '*.p12',
-  ];
-  for (const mau of PHAI_CO) {
-    check(`chặn ${mau}`, dong.includes(mau), dong);
+  // PHÉP THỬ NGƯỢC: bộ lọc phải thật sự nhận ra các tên đó, và không bắt nhầm.
+  for (const ten of ['Dockerfile', 'Dockerfile.prod', '.dockerignore',
+    'docker-compose.yml', 'compose.yaml', 'render.yaml']) {
+    check(`bộ lọc nhận ra "${ten}"`, laTepDungAnh(ten));
   }
-  check('vẫn cho data/seed.js vào ảnh (đó là mã nguồn, không phải dữ liệu)',
-    dong.includes('!data/seed.js'), dong);
-
-  // Hai tệp phải nói cùng một chuyện. Quên đồng bộ là lối rò quay lại ngay.
-  const gitig = fs.readFileSync(path.join(GOC, '.gitignore'), 'utf8')
-    .split('\n').map(d => d.trim()).filter(d => d && !d.startsWith('#'));
-  const thieu = gitig
-    .filter(d => !d.startsWith('!'))
-    .filter(d => /\.db|\.sqlite|uploads|backups|khoi-phuc|db\.json|sessions\.json|\.env|\.pem|\.key|\.p12|jks|keystore/.test(d))
-    .filter(d => !dong.includes(d.replace(/^\//, '')));
-  check('mọi loại dữ liệu .gitignore chặn thì .dockerignore cũng chặn',
-    thieu.length === 0, thieu);
+  check('và không bắt nhầm tệp thường',
+    !['README.md', 'server.js', 'package.json', '.gitignore'].some(laTepDungAnh));
 }
 
 
@@ -277,10 +269,6 @@ console.log('\n[8] Mọi chỗ đều chỉ về CÙNG MỘT thư mục dữ li�
   // trấn an sai — tệ hơn là báo lỗi.
   const nguon = ['server.js', ...fs.readdirSync(path.join(GOC, 'scripts'))
     .filter(f => f.endsWith('.js'))
-    // scripts/xuat-quy-trinh.js là NỘI DUNG tài liệu triển khai của app 1, đã
-    // dán cảnh báo "chưa cập nhật cho app 2" ở trang đầu (N1). Sửa đường dẫn
-    // trong đó là làm nó TRÔNG như đã cập nhật trong khi quy trình thì chưa.
-    .filter(f => f !== 'xuat-quy-trinh.js')
     .map(f => `scripts/${f}`)];
 
   const thay = new Map();

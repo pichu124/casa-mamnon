@@ -270,7 +270,7 @@ console.log('\n[Một bản nén ảnh duy nhất]');
   check('KHÔNG TỆP NÀO NGOÀI public/js/ui.js TỰ NÉN ẢNH', bat.length === 0,
     bat.length ? `${bat.join(' · ')}\n\n  Dùng UI.nenAnh(file, { canhToiDa, chatLuong }) thay vì chép lại.` : undefined);
 
-  // Và năm màn hình có gửi ảnh phải thật sự gọi tới bản dùng chung — nếu không
+  // Và bốn màn hình có gửi ảnh phải thật sự gọi tới bản dùng chung — nếu không
   // thì bài trên vẫn xanh trong khi ảnh đi thẳng lên máy chủ, không qua bước
   // xoá toạ độ.
   for (const tep of [
@@ -278,7 +278,6 @@ console.log('\n[Một bản nén ảnh duy nhất]');
     'modules/thuchup/view.js',
     'modules/hanhtrinh/view.js',
     'modules/cambridge/view.js',
-    'modules/dontra/view.js',
   ]) {
     check(`${tep} gọi UI.nenAnh`, /UI\.nenAnh\s*\(/.test(doc(tep)));
   }

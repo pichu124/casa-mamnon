@@ -96,8 +96,9 @@ App.views.hocsinhcu = {
         <div class="card">
           <div class="timeline">
             ${d.nhanXet.map(r => {
-              // Ba mức xếp trẻ trên dưới đã gỡ ở Đ203 (việc 47) — xem chú thích
-              // dài ở `public/js/views/remarks.js`. Còn lại lời nhận xét của cô.
+              // Ba mức xếp trẻ trên dưới đã gỡ ở Đ203 (việc 47). Từ Đ252 máy
+              // chủ luôn trả danh sách này RỖNG: mã của phân hệ Nhận xét đã
+              // gỡ hẳn (xem đầu `lib/modules.js`), bảng dữ liệu thì còn nguyên.
               return `
                 <div class="tl-item">
                   <div class="tl-time">${UI.esc(UI.fmtDate(r.date))}</div>

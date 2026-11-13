@@ -162,6 +162,8 @@ try {
     anhTrongCsdl:
       (dem("SELECT COUNT(*) c FROM album_photos WHERE file IS NOT NULL AND file != ''") || 0)
       + (dem("SELECT COUNT(*) c FROM attendance_photo WHERE file IS NOT NULL AND file != ''") || 0)
+      // Mã phân hệ Đón trả bé đã gỡ (Đ252), nhưng bảng và ảnh người được đón
+      // của máy cũ vẫn giữ — nên vẫn đếm; máy không có bảng này thì là 0.
       + (dem("SELECT COUNT(*) c FROM dontra_nguoi WHERE anh IS NOT NULL AND anh != ''") || 0),
   };
   db.close();

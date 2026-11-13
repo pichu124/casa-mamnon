@@ -1626,7 +1626,7 @@ module.exports = (app, { db, modules }) => {
   // đúng là RÁC: cô bấm Lưu hai lần, hay ghi vào giữa chừng rồi bỏ. Không có
   // đường xoá thì chúng nằm lại vĩnh viễn trong hành trình của một đứa trẻ.
   //
-  // `uploads.remove` được gọi ở dontra, cambridge, thuchup và albums, nhưng
+  // `uploads.remove` được gọi ở cambridge, thuchup và albums, nhưng
   // KHÔNG hề có trong phân hệ này — nên ảnh của một quan sát không bao giờ được
   // dọn. Ổ đĩa chỉ có tăng, và tấm ảnh khuôn mặt trẻ vẫn nằm đó sau khi bản ghi
   // đã biến mất khỏi màn hình. Đó mới là phần đáng lo, không phải dung lượng.

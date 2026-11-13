@@ -1,5 +1,10 @@
 # Những chỗ tôi tự quyết — chờ nhà trường xem lại
 
+> **Ghi chú Đ252 (12/11/2026).** Các sổ `RA-SOAT-2026-09.md`, `BAO-CAO-TU-LAM.md`,
+> `TONG-KET-GOP-Y-1610.md` và `PHAN-HOI-TRUONG-1409.md` đã gỡ khỏi kho ở Đ252.
+> Dẫn chứng theo số dòng tới chúng trong tệp này giữ nguyên, và đọc ở lịch sử
+> git tại commit `1b87add`: `git show 1b87add:docs/<tên tệp>`.
+
 Tệp này ghi **mọi điểm cần người quyết mà tôi đã tự chọn một hướng** trong đợt
 dọn tồn đọng sau GĐ 2. Người dùng bảo *"làm theo hướng anh thấy tốt nhất, nhưng
 lưu lại để báo"* — đây là chỗ lưu.
@@ -218,6 +223,10 @@ trong khi cửa vẫn mở**. Đây là kiểu hỏng tệ nhất của một b�
 ---
 
 ## 13. `render.yaml` bị dán nhãn "chỉ để chạy thử"
+
+> **Đ252 (12/11/2026): mục này chỉ còn là lịch sử.** Chủ dự án chốt triển khai
+> trên VPS trong nước; `render.yaml`, `Dockerfile` và bài test canh nhãn đã gỡ
+> khỏi kho.
 
 **Chọn:** giữ tệp lại nhưng mở đầu bằng một khối cảnh báo: Render không có máy
 ở Việt Nam, nên tệp này **không được dùng cho dữ liệu trẻ thật**. Đồng thời sửa

@@ -111,7 +111,6 @@ const MODULES_DIR = path.join(__dirname, '..', 'modules');
 const BANG = [
   'nhatky_gui', 'nhatky_vesinh', 'nhatky_bua', 'nhatky_ngay',
   'tienan_chot',
-  'dontra_ghi', 'dontra_uyquyen', 'dontra_nguoi',
   'hanhtrinh_nhap', 'hanhtrinh_quansat', 'hanhtrinh_chude',
   'kehoachbe_bai_muc_do', 'kehoachbe_de_xuat_ct', 'kehoachbe_ke_ct', 'kehoachbe_muc', 'kehoachbe_ke',
   'cambridge_anh_be', 'cambridge_bai',
@@ -253,43 +252,6 @@ function sinh(db, moc) {
       ghiChu: 'Bé Huy mới ốm dậy, bếp nấu cháo riêng', nguoiChot: 't4', chotLuc: luc(d, 7, 45),
     });
   }
-
-  // ---- ĐÓN TRẢ BÉ ---------------------------------------------------------
-  const nguoiDon = [
-    { id: 'dt_ba_lan', studentId: 's1', hoTen: 'Trần Thị Lan', quanHe: 'Bà ngoại', dienThoai: '0909 111 222', ghiChu: 'Ở cùng nhà, đón chiều thứ Ba và thứ Năm' },
-    { id: 'dt_me_ha', studentId: 's1', hoTen: 'Lê Thị Thu Hà', quanHe: 'Mẹ', dienThoai: '0903 222 111', ghiChu: '' },
-    { id: 'dt_bo_bao', studentId: 's3', hoTen: 'Phạm Quốc Bảo', quanHe: 'Bố', dienThoai: '0912 555 333', ghiChu: '' },
-    { id: 'dt_bac_nam', studentId: 's4', hoTen: 'Vũ Đình Nam', quanHe: 'Bác ruột', dienThoai: '0912 333 444', ghiChu: 'Chỉ đón khi bố mẹ báo trước' },
-  ];
-  for (const n of nguoiDon) {
-    them('dontra_nguoi', {
-      ...n, anh: '', dangDung: 1, nguoiTao: 't1',
-      taoLuc: luc(daysAgo(30), 8), capNhatLuc: luc(daysAgo(30), 8),
-    });
-  }
-
-  // Một giấy uỷ quyền còn hiệu lực trong tuần này — để màn hình có cái để hiện.
-  them('dontra_uyquyen', {
-    id: ma('uq'), studentId: 's5', hoTen: 'Đỗ Minh Tuấn', quanHe: 'Chú ruột',
-    dienThoai: '0977 888 999', anh: '',
-    tuNgay: fmt(daysAgo(1)), denNgay: fmt(new Date(Date.parse(`${HOM_NAY}T00:00:00Z`) + 3 * 86400000)),
-    lyDo: 'Bố mẹ đi công tác tỉnh, chú đón giúp ba ngày',
-    huyLuc: null, huyBoi: null, nguoiTao: 't1', taoLuc: luc(daysAgo(1), 7, 50),
-  });
-
-  // Sổ đón trả của hai ngày gần nhất.
-  ngayHoc.slice(0, 2).forEach((d, i) => {
-    beChoi2.slice(0, 4).forEach((sid, j) => {
-      them('dontra_ghi', {
-        id: ma('dg'), studentId: sid, ngay: fmt(d),
-        luc: `1${6 + (j % 2)}:${j % 2 ? '30' : '05'}`,
-        nguoiDon: sid === 's1' && i === 0 ? 'Trần Thị Lan (Bà ngoại)' : 'Mẹ',
-        nguonLoai: sid === 's1' && i === 0 ? 'nguoi' : '',
-        nguonId: sid === 's1' && i === 0 ? 'dt_ba_lan' : '',
-        ghiChu: '', coGhi: 't1', capNhatLuc: luc(d, 17, 0),
-      });
-    });
-  });
 
   // ---- HÀNH TRÌNH HỌC TẬP -------------------------------------------------
   const tuanNay = fmt(thuHai(daysAgo(0)));
@@ -678,7 +640,7 @@ function generate() {
   for (const u of users) u.createdAt = iso(daysAgo(120), 8, 0);
 
   // Trung tâm của cả bộ dữ liệu mẫu là BÉ AN — nhóm Chồi 2, cơ sở 1. Bé xuất
-  // hiện xuyên suốt: điểm danh, nhận xét, dặn thuốc, album, tin nhắn, đơn xin
+  // hiện xuyên suốt: điểm danh, dặn thuốc, album, tin nhắn, đơn xin
   // nghỉ. Anh của bé (bé Nam) học nhóm Lá 1, cùng một mẹ — nhờ vậy màn hình
   // "đổi con đang xem" của phụ huynh có thật sự hai bé để đổi.
   //
@@ -868,38 +830,10 @@ function generate() {
     },
   ];
 
-  // ---- Nhận xét hằng ngày ----
-  // Viết theo QUY TẮC 1: MÔ TẢ điều cô đã thấy, không phán xét con.
-  // Câu mở đầu luôn là việc quan sát được, không phải lời khen chung chung.
-  const remarkTexts = [
-    { content: 'Hôm nay con tự xúc hết bát cơm mà không cần cô nhắc, ngủ trưa một mạch tới 14 giờ.', rating: 'great' },
-    { content: 'Giờ chơi góc, con xếp khối gỗ thành một cái cầu rồi cho ô tô chạy qua, làm đi làm lại bốn lần.', rating: 'great' },
-    { content: 'Con rủ bạn Gia Hân cùng chơi bán hàng, hai bạn chơi với nhau gần hết giờ hoạt động góc.', rating: 'great' },
-    { content: 'Sáng nay con khóc khi mẹ về, cô bế con ra xem cá khoảng năm phút thì con nín và vào chơi cùng các bạn.', rating: 'good' },
-    { content: 'Con còn nhờ cô xúc giúp mấy thìa cuối bữa trưa. Cô để con tự xúc trước rồi mới giúp phần còn lại.', rating: 'good' },
-    { content: 'Con cất dép vào đúng ô của mình, không cần cô nhắc. Ba hôm nay con đều tự làm việc này.', rating: 'great' },
-  ];
-  // Lĩnh vực phát triển theo chương trình mầm non — cô gắn SAU khi đã mô tả,
-  // và có thể không gắn (QUY TẮC 1: quan sát ≠ đánh giá).
-  const skillsPool = [['Tự phục vụ'], ['Nhận thức', 'Sáng tạo'], ['Tình cảm — kỹ năng xã hội'], ['Ngôn ngữ'], ['Thể chất'], ['Thẩm mỹ']];
-  const remarks = [];
-  let rmId = 1;
-  students.forEach((s, si) => {
-    recentWeekdays(10).forEach((d, di) => {
-      if ((di + si) % 3 === 2) return; // không phải ngày nào cũng có nhận xét
-      const t = pick(remarkTexts, di + si);
-      remarks.push({
-        id: 'rm_' + rmId++,
-        studentId: s.id,
-        teacherId: coCuaNhom(s.classId),
-        date: fmt(d),
-        content: t.content,
-        rating: t.rating,
-        skills: pick(skillsPool, di + si),
-        parentSeen: di > 1,
-      });
-    });
-  });
+  // ---- Nhận xét hằng ngày: THÔI SINH (Đ252) ----
+  // Mã của phân hệ Nhận xét đã gỡ hẳn — xem đầu `lib/modules.js`. Bảng
+  // `remarks` vẫn nằm trong lược đồ để máy đã có dữ liệu không mất dòng nào,
+  // nhưng dữ liệu mẫu không đổ thêm vào một bảng mà không màn nào còn đọc.
 
   // ---- Báo cáo học tập ----
   // KHÔNG MỘT ĐIỂM SỐ NÀO trong dữ liệu mẫu — QUY TẮC 4.
@@ -1269,7 +1203,7 @@ function generate() {
   const db = {
     school, campuses, classes, users, students, studentProfiles, userProfiles, emergencyContacts,
     consents,
-    attendance, leaveRequests, menus, timetable, remarks, reports,
+    attendance, leaveRequests, menus, timetable, reports,
     busRoutes, conduct, surveys, health, medicineRequests, albums, eduPlans,
     notifications, conversations,
   };

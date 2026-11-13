@@ -271,7 +271,7 @@ App.views.dashboard = {
     else if (b.thuoc === 'dang') dau.push('<span title="Đang có thuốc gia đình gửi">💊</span>');
     if (b.donCho) dau.push('<span title="Có đơn xin nghỉ chờ duyệt">✉️</span>');
     if (b.nhatKy) dau.push('<span title="Đã ghi nhật ký hôm nay">📝</span>');
-    if (b.daTra || b.gioRa) dau.push('<span title="Đã được đón về">🏠</span>');
+    if (b.gioRa) dau.push('<span title="Đã được đón về">🏠</span>');
     return dau.join('');
   },
 
@@ -310,12 +310,10 @@ App.views.dashboard = {
       if (dem.nghiPhep) muc.push(p('Nghỉ có phép', dem.nghiPhep, UI.ATT_STATUS.absent_excused.color));
       if (dem.nghiKhongPhep) muc.push(p('Nghỉ không phép', dem.nghiKhongPhep, UI.ATT_STATUS.absent_unexcused.color));
       if (!truongNghi) muc.push(p('Chưa điểm danh', dem.chuaDiemDanh, 'var(--line-strong)'));
-      // Ra về ghi ở màn Điểm danh từ Đ210 — đếm ở đây để số "đã về" không mất
-      // khi phân hệ Đón trả bé tắt (góp ý 06/10).
+      // Ra về ghi ở màn Điểm danh từ Đ210.
       if (dem.daVe) muc.push(p('Đã về', dem.daVe));
     }
     if (dem.nhatKyDaGhi !== null && dem.nhatKyDaGhi !== undefined) muc.push(p('Đã ghi nhật ký', dem.nhatKyDaGhi));
-    if (dem.daTra !== null && dem.daTra !== undefined && dem.daTra) muc.push(p('Đã đón về', dem.daTra));
     if (dem.donCho) muc.push(p('Đơn chờ duyệt', dem.donCho));
     if (dem.thuocCho) muc.push(p('Thuốc chờ nhận', dem.thuocCho));
     return `<div class="dem-hang">${muc.join('')}</div>`;
@@ -349,14 +347,6 @@ App.views.dashboard = {
       const con = Math.max(0, (dem.soBe || 0) - dem.nhatKyDaGhi);
       nut('nhatky', '#/nhatky', 'Nhật ký ngày',
         con ? `đã ghi ${dem.nhatKyDaGhi} · còn ${con}` : 'đã ghi đủ', !!con);
-    }
-    if (dem.daTra !== null && dem.daTra !== undefined) {
-      // Đ210 GỠ TAB "Trả bé" khỏi màn Điểm danh, nên nút việc trỏ thẳng vào
-      // màn riêng của phân hệ. Để nguyên '#/attendance/tra' là cô bấm vào và
-      // rơi xuống màn Điểm danh gộp — không sai màn, nhưng không phải chỗ ghi
-      // sổ, tức nút việc chỉ sai đường mà không báo gì.
-      nut('dontra', '#/dontra',
-        'Đón trả bé', `đã đón về ${dem.daTra}`, false);
     }
     nut('thuchup', '#/thuchup', 'Ghi nhanh', 'một khoảnh khắc của bé', false);
     if (dem.donCho) nut('leave', '#/leave', 'Xin phép', `${dem.donCho} đơn chờ duyệt`, true);
@@ -501,7 +491,7 @@ App.views.dashboard = {
     else if (b.thuoc === 'dang') them.push('đang có thuốc gia đình gửi');
     if (b.donCho) them.push('đơn xin nghỉ chờ duyệt');
     if (b.nhatKy === true) them.push('đã ghi nhật ký');
-    if (b.daTra || b.gioRa) them.push(b.gioRa ? `đã về ${b.gioRa}` : 'đã đón về');
+    if (b.gioRa) them.push(`đã về ${b.gioRa}`);
     return `
       <div class="list-row clickable" onclick="App.views.dashboard.moBe('${UI.maAnToan(b.id)}')">
         ${UI.avatar(b.avatar, 36)}

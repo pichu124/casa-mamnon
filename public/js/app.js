@@ -333,8 +333,38 @@ window.App = {
     this.views.login.render(root);
   },
 
+  // ĐĂNG XUẤT TRÊN MÁY NÀO THÌ MÁY ĐÓ THÔI NHẬN THÔNG BÁO ĐẨY (Đ252).
+  //
+  // Đăng ký đẩy gắn với TÀI KHOẢN chứ không gắn với phiên đăng nhập. Bản cũ
+  // chỉ xoá phiên, nên máy đã đăng xuất — hay máy mượn — vẫn hiện tiêu đề và
+  // nội dung tin về bé lên màn hình khoá. Nay làm cả hai đầu: gửi kèm địa chỉ
+  // đẩy của máy này để máy chủ xoá đúng dòng ấy, và bảo trình duyệt thôi nhận.
+  // Mỗi đầu đỡ cho đầu kia: máy chủ không tới được thì trình duyệt đã thôi
+  // nhận; trình duyệt từ chối thì máy chủ đã thôi gửi.
+  //
+  // ĐĂNG XUẤT LÀ VIỆC CHÍNH, HUỶ ĐẨY LÀ VIỆC PHỤ. Bước huỷ hỏng kiểu gì
+  // (trình duyệt không có đẩy, service worker ném lỗi hay im luôn) thì người
+  // dùng vẫn phải ra được màn đăng nhập, và không thấy lời báo lỗi nào.
+  //
+  // Máy CHƯA cho phép thông báo thì không thể có đăng ký đẩy, nên bỏ qua hẳn
+  // bước hỏi: yêu cầu đăng xuất đi ngay trong cùng nhịp bấm, y như bản cũ.
+  // Đừng "dọn" điều kiện này đi — hỏi service worker là việc phải chờ, và ai
+  // rời trang ngay sau khi bấm thì yêu cầu đăng xuất chưa kịp đi.
   async logout() {
-    try { await API.post('/api/auth/logout'); } catch (_) {}
+    let dangKy = null;
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        dangKy = await Promise.race([
+          navigator.serviceWorker.getRegistration().then(reg => (reg ? reg.pushManager.getSubscription() : null)),
+          new Promise(xong => setTimeout(() => xong(null), 1500)),
+        ]);
+      } catch (_) { dangKy = null; }
+    }
+    // Không chờ trình duyệt trả lời: nó chậm hay im thì đăng xuất vẫn đi tiếp.
+    if (dangKy) Promise.resolve().then(() => dangKy.unsubscribe()).catch(() => {});
+    try {
+      await API.post('/api/auth/logout', dangKy && dangKy.endpoint ? { endpoint: dangKy.endpoint } : undefined);
+    } catch (_) {}
     this.state.user = null;
     location.hash = '';
     this.showLogin();
@@ -527,6 +557,10 @@ window.App = {
   // mở nhanh và mở được cả khi mất mạng (Đ12).
   moiCaiVaoManHinhChinh() {
     if (localStorage.getItem('casa.moi-cai-app-da-tat')) return;
+    // Dải của lần đăng nhập trước còn trong trang (đăng xuất không tải lại
+    // trang) thì dùng tiếp, không dựng thêm: hai dải trùng mã là nút ✕ của dải
+    // nằm trên không tắt được gì.
+    if (document.getElementById('push-banner')) return;
     // Đã chạy như app rồi thì không mời nữa.
     try {
       if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
@@ -544,13 +578,6 @@ window.App = {
     document.getElementById('pb-enable').onclick = () => { this.promptInstall(); tat(); };
     document.getElementById('pb-close').onclick = tat;
   },
-
-  // Tên cũ, giữ lại cho khỏi phá khế ước tệp dùng chung.
-  //
-  // CLAUDE.md bắt đi ba bước khi bỏ một thứ dùng chung: thêm cái mới bên cạnh →
-  // chuyển từng chỗ gọi → khi không còn ai gọi mới xóa. Đây là bước 2; bước 3
-  // để lại cho một commit riêng sau, khi chắc chắn không còn chỗ nào gọi.
-  maybeShowPushBanner() { return this.moiCaiVaoManHinhChinh(); },
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init());
