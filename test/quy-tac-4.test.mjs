@@ -221,10 +221,11 @@ const NO_DA_BIET = {
 // xâm phạm để bịt một lỗ của chính nó. Đổi lại: một bánh cóc thứ hai, siết
 // từ lúc sinh ra, còn bánh cóc cũ không bị chạm một dòng nào.
 //
-// Hôm nay chưa gia đình nào nhìn thấy ba mức đó: cả Nhận xét hàng ngày (A2)
-// lẫn Hồ sơ con đã ra trường (Đ5) đều TẮT SẴN. Nhưng "đang tắt" không phải là
-// "đã gỡ" — bật lại một trong hai màn là ba mức hiện lên ngay, và trước bộ
-// canh này thì không có gì kêu một tiếng.
+// Hôm bộ canh này sinh ra chưa gia đình nào nhìn thấy ba mức đó: cả Nhận xét
+// hàng ngày (A2) lẫn Hồ sơ con đã ra trường (Đ5) đều TẮT SẴN. Nhưng "đang tắt"
+// không phải là "đã gỡ" — bật lại một trong hai màn là ba mức hiện lên ngay, và
+// trước bộ canh này thì không có gì kêu một tiếng. (Từ Đ252 thì Nhận xét ĐÃ GỠ
+// hẳn mã — xem sổ nợ ngay dưới.)
 const DAU_HIEU_BA_MUC = [
   { ten: 'mã của mức thấp nhất', re: /\bneeds_effort\b|\bneedsEffort\b/ },
   { ten: 'nhãn xếp trẻ trên dưới', re: /Cần cố gắng thêm|Con làm rất tốt|Cần cố gắng</ },
@@ -243,15 +244,23 @@ const DAU_HIEU_BA_MUC = [
 //   • `public/js/views/remarks.js` và `public/js/views/hocsinhcu.js` — sạch ở
 //     bước 2, cả chỗ HIỆN lẫn hai ô CHỌN bắt cô đặt bậc cho một đứa trẻ.
 //
-// CÒN ĐÚNG MỘT TỆP, VÀ NÓ Ở LẠI CÓ CHỦ Ý: `routes/remarks.js` giữ danh sách ba
-// mã cũ để nhận xét cô đã viết từ trước vẫn đọc được, và để điện thoại còn giữ
-// bản app cũ vẫn gửi được. Bỏ một tính năng là ngưng dùng nó, không phải xoá
-// dữ liệu của nó (Nguyên tắc số 1). Không màn hình nào dựng nó thành một cái
-// bậc nữa — đó mới là thứ QUY TẮC 4 hỏi.
-const NO_BA_MUC = {
-  'routes/remarks.js': { so: 1, vi_sao: 'Máy chủ giữ danh sách mã cũ cho bản ghi cũ và cho app đời cũ. Ở lại có chủ ý.' },
-};
+// SIẾT TỪ MỘT TỆP XUỐNG KHÔNG, ghi ở Đ252 (chủ dự án duyệt 12/11).
+//
+// Tệp cuối cùng trong sổ là `routes/remarks.js`, nợ 1 dòng: nó giữ danh sách ba
+// mã cũ để nhận xét cô đã viết từ trước vẫn đọc được và để điện thoại còn giữ
+// bản app cũ vẫn gửi được. Đ252 đi bước 2 của "Bỏ một tính năng" cho phân hệ
+// Nhận xét — xoá hẳn tệp ấy, giữ nguyên bảng `remarks` — nên dòng nợ đi theo
+// tệp. Con số 1 → 0 KHÔNG gõ tay cho vừa: nó là chính kết quả phép quét của mục
+// [2c] trên kho mã sau khi gỡ (không tệp nào khớp một mẫu nào trong ba).
+//
+// SỔ RỖNG THÌ LUẬT THÀNH TUYỆT ĐỐI: mẫu ba mức không được có mặt ở BẤT KỲ tệp
+// nào trong vùng quét. Giá trị cũ còn nằm trong cột `rating` của bảng `remarks`
+// (bỏ một tính năng là ngưng dùng nó, không phải xoá dữ liệu của nó — Nguyên
+// tắc số 1), nhưng không dòng mã nào còn gọi tên hay dựng chúng thành bậc.
+const NO_BA_MUC = {};
 const TEP_NO_BA_MUC = Object.keys(NO_BA_MUC);
+// Tệp cuối cùng từng nằm trong sổ. Mục [2c] canh nó KHÔNG quay lại.
+const TEP_NO_BA_MUC_DA_GO = 'routes/remarks.js';
 
 // Danh sách tệp còn nợ, KHOÁ CỨNG. Chỉ được ngắn đi.
 const TEP_CON_NO = Object.keys(NO_DA_BIET);
@@ -352,8 +361,25 @@ console.log('\n[2c] Mẫu XẾP TRẺ BA BẬC — bánh cóc riêng, siết t�
   // TRƯỚC HẾT: cái thước phải đo được thật. Không có phép kiểm này thì cả mục
   // vẫn xanh kể cả khi ba mẫu regex trên không khớp một dòng nào — đúng kiểu
   // bài canh luôn đúng mà CLAUDE.md dặn phải nêu.
-  check('bộ dò có thật sự nhìn thấy mẫu ba mức đang tồn tại',
-    Object.keys(theoTep).length > 0, theoTep);
+  //
+  // Trước Đ252 phép này dựa vào dòng nợ có thật trong `routes/remarks.js`. Tệp
+  // ấy đã gỡ và kho mã không còn dòng nào để dò, nên thước được thử bằng DÒNG
+  // GÀI — đúng cách mục [4] thử các dấu hiệu khác — và thử ĐỦ CẢ BA mẫu, chặt
+  // hơn bản cũ (chỉ đòi "có ít nhất một tệp khớp").
+  {
+    const tam = path.join(GOC, 'test', '__tam-qt4-bamuc');
+    fs.rmSync(tam, { recursive: true, force: true });
+    fs.mkdirSync(tam, { recursive: true });
+    fs.writeFileSync(path.join(tam, 'ban.js'),
+      "const RATINGS = ['great', 'good', 'needs_effort'];\n"
+      + "const nhan = '<span>Cần cố gắng thêm</span>';\n"
+      + 'const m = UI.RATING[r.rating];\n'
+      + "const sach = 'Con tự cất dép vào đúng ô của mình';\n");
+    const gai = quet(['test/__tam-qt4-bamuc'], DAU_HIEU_BA_MUC)['test/__tam-qt4-bamuc/ban.js'] || [];
+    fs.rmSync(tam, { recursive: true, force: true });
+    check('bộ dò có thật sự nhìn thấy mẫu ba mức — bắt đủ ba dòng gài, chừa dòng sạch',
+      gai.length === 3 && DAU_HIEU_BA_MUC.every(d => gai.some(v => v.dau.includes(d.ten))), gai);
+  }
 
   const moi = Object.keys(theoTep).filter((t) => !NO_BA_MUC[t]);
   check('KHÔNG chỗ nào mới chép lại mẫu ba mức xếp trẻ trên dưới',
@@ -368,11 +394,15 @@ console.log('\n[2c] Mẫu XẾP TRẺ BA BẬC — bánh cóc riêng, siết t�
     }
   }
 
-  check('danh sách tệp nợ mẫu ba mức chỉ được NGẮN ĐI',
-    TEP_NO_BA_MUC.length === 1, TEP_NO_BA_MUC);
-  check('mọi tệp trong sổ nợ này đều tồn tại thật',
-    TEP_NO_BA_MUC.every(t => fs.existsSync(path.join(GOC, t))),
-    TEP_NO_BA_MUC.filter(t => !fs.existsSync(path.join(GOC, t))));
+  check('danh sách tệp nợ mẫu ba mức chỉ được NGẮN ĐI — nay đã về KHÔNG',
+    TEP_NO_BA_MUC.length === 0, TEP_NO_BA_MUC);
+  // Trước Đ252 chỗ này đòi "mọi tệp trong sổ nợ đều tồn tại thật". Sổ đã rỗng
+  // nên phép ấy thành luôn đúng; thay bằng chiều ngược lại — tệp cuối cùng từng
+  // nợ phải ĐÃ HẾT, và cả kho không còn một dòng nào khớp mẫu.
+  check(`tệp cuối cùng từng nợ (${TEP_NO_BA_MUC_DA_GO}) đã gỡ hẳn, không quay lại`,
+    !fs.existsSync(path.join(GOC, TEP_NO_BA_MUC_DA_GO)));
+  check('cả vùng quét không còn MỘT dòng nào mang mẫu ba mức',
+    Object.keys(theoTep).length === 0, theoTep);
 
   // Hai bánh cóc phải TÁCH BẠCH. Trộn vào nhau là mục [2b] ("đúng bốn tệp của
   // phần tiểu học") hỏng ngay, và đó là bộ canh bất khả xâm phạm.

@@ -292,8 +292,16 @@ console.log('\n[9] Phân hệ hỏng không làm sập ứng dụng');
   fs.rmSync(xau, { recursive: true, force: true });
 }
 
-console.log('\n[10] Bốn phân hệ TẮT SẴN, nhưng dữ liệu còn nguyên (N3 · A2)');
+console.log('\n[10] Ba phân hệ TẮT SẴN, nhưng dữ liệu còn nguyên (N3 · A2) — và Nhận xét đã GỠ HẲN (Đ252)');
 {
+  // MỤC NÀY TỪNG NÓI VỀ BỐN PHÂN HỆ. Cái thứ tư, Nhận xét hằng ngày, đã đi tiếp
+  // sang BƯỚC 2 ở Đ252 (chủ dự án duyệt 12/11): mã gỡ hẳn, bảng `remarks` giữ
+  // nguyên. Hai phép kiểm về nó vẫn nằm đây nhưng ĐỔI NGHĨA — không còn là
+  // "đang tắt, bật lại được" mà là "đã hết": API trả 404 của đường không tồn
+  // tại, và Quản trị → Tính năng không còn dòng nào của nó để mà bật.
+  // `test/da-go-nhan-xet.test.mjs` canh trọn việc gỡ ấy; mục [7] ở trên vẫn
+  // đòi bảng `remarks` có mặt.
+  //
   // VÌ SAO CÓ MỤC NÀY
   //
   // Nhà trường đã quyết tắt sẵn hai phân hệ này vì chúng xếp trẻ trên dưới
@@ -310,7 +318,8 @@ console.log('\n[10] Bốn phân hệ TẮT SẴN, nhưng dữ liệu còn nguyê
   const co = (k) => ds.some((m) => m.key === k);
   check('phụ huynh KHÔNG thấy ô Nề nếp trên trang chủ', !co('nenep'), ds.map((m) => m.key));
   check('phụ huynh KHÔNG thấy ô Báo cáo trên trang chủ', !co('baocao'), ds.map((m) => m.key));
-  check('phụ huynh KHÔNG thấy ô Nhận xét trên trang chủ', !co('nhanxet'), ds.map((m) => m.key));
+  check('phụ huynh KHÔNG thấy ô Nhận xét trên trang chủ (mã đã gỡ hẳn)',
+    !co('nhanxet') && !ds.some((m) => m.view === 'remarks'), ds.map((m) => m.key));
   check('phụ huynh KHÔNG thấy ô Xe buýt trên trang chủ', !co('xebuyt'), ds.map((m) => m.key));
 
   // Giấu ô mà vẫn gọi được API thì chưa gọi là tắt.
@@ -318,8 +327,11 @@ console.log('\n[10] Bốn phân hệ TẮT SẴN, nhưng dữ liệu còn nguyê
     (await req('GET', '/api/conduct?studentId=s1', { cookie: P })).status === 404);
   check('API Báo cáo bị chặn, không chỉ ẩn biểu tượng',
     (await req('GET', '/api/reports?studentId=s1', { cookie: P })).status === 404);
-  check('API Nhận xét bị chặn, không chỉ ẩn biểu tượng',
-    (await req('GET', '/api/remarks?studentId=s1', { cookie: P })).status === 404);
+  {
+    const nx = await req('GET', '/api/remarks?studentId=s1', { cookie: P });
+    check('API Nhận xét ĐÃ HẾT — 404 của đường không tồn tại, không phải của công tắc đang tắt',
+      nx.status === 404 && nx.data?.error === 'Không tìm thấy API', [nx.status, nx.data]);
+  }
   check('API Xe buýt bị chặn, không chỉ ẩn biểu tượng',
     (await req('GET', '/api/bus', { cookie: P })).status === 404);
 
@@ -336,6 +348,10 @@ console.log('\n[10] Bốn phân hệ TẮT SẴN, nhưng dữ liệu còn nguyê
   check('và thấy đúng trạng thái đang tắt',
     qt('nenep').enabled === false && qt('baocao').enabled === false,
     { nenep: qt('nenep').enabled, baocao: qt('baocao').enabled });
+  // Chiều ngược lại cho thứ đã gỡ hẳn: TẮT thì quản trị còn thấy để bật lại,
+  // GỠ thì không còn dòng nào — một dòng ma báo "chưa cài đặt" là gỡ dở.
+  check('còn Nhận xét thì KHÔNG còn trong Quản trị → Tính năng — đã gỡ, không phải đang tắt',
+    !qt('nhanxet') && dsQt.length > 10, dsQt.map((m) => m.key));
 
   // LỜI HỨA QUAN TRỌNG NHẤT: dữ liệu không mất.
   const batLai = await req('PUT', '/api/admin/modules/nenep', { cookie: A.cookie, body: { enabled: true } });

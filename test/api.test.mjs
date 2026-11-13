@@ -8,9 +8,11 @@ import pathTb from 'path';
 
 const DIR = thuMucTam('api');
 sinhDuLieu(DIR);
-// Bộ này quét TOÀN BỘ mặt API, nên phải bật cả bốn phân hệ nay tắt sẵn —
+// Bộ này quét TOÀN BỘ mặt API, nên phải bật cả ba phân hệ lõi nay tắt sẵn —
 // nhà trường bật lại lúc nào thì đường dẫn của chúng phải vẫn đúng lúc đó.
-batPhanHe(DIR, ['nenep', 'baocao', 'nhanxet', 'xebuyt']);
+// (Cái thứ tư, `nhanxet`, rời danh sách ở Đ252: mã của nó đã gỡ hẳn, và mặt
+// API của nó nay được quét theo chiều ngược lại — xem "remarks" bên dưới.)
+batPhanHe(DIR, ['nenep', 'baocao', 'xebuyt']);
 // Từ Y2, đơn xin nghỉ do VĂN PHÒNG duyệt — bộ này cần thêm một tài khoản quản trị.
 const MK_VP = taoQuanTri(DIR, 'Văn Phòng', 'vanphong');
 const { BASE } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3100), dir: DIR });
@@ -91,11 +93,11 @@ r = await call(P.cookie, 'GET', '/api/timetable?classId=c1'); check('P tkb c1', 
 r = await call(P.cookie, 'GET', '/api/timetable?classId=c2'); check('P tkb c2 (con thứ 2)', r.status === 200, r);
 r = await call(T.cookie, 'GET', '/api/timetable?classId=c2'); check('T tkb lớp khác -> 403', r.status === 403, r);
 
-// ---- remarks / reports ----
-r = await call(P.cookie, 'GET', '/api/remarks?studentId=s1'); check('P remarks s1', r.status === 200 && r.data.length > 0 && r.data[0].teacherName, r);
-r = await call(T.cookie, 'GET', '/api/remarks/class'); check('T remarks class', r.status === 200, r);
+// ---- remarks (mã đã gỡ hẳn ở Đ252: cả ba đường phải 404) / reports ----
+r = await call(P.cookie, 'GET', '/api/remarks?studentId=s1'); check('P remarks s1 -> 404 (đã gỡ)', r.status === 404, r);
+r = await call(T.cookie, 'GET', '/api/remarks/class'); check('T remarks class -> 404 (đã gỡ)', r.status === 404, r);
 r = await call(T.cookie, 'POST', '/api/remarks', { studentId: 's1', content: 'Test nhận xét', rating: 'great', skills: ['Test'] });
-check('T tạo remark', r.status === 200 || r.status === 201, r);
+check('T tạo remark -> 404 (đã gỡ)', r.status === 404, r);
 r = await call(P.cookie, 'GET', '/api/reports?studentId=s1'); check('P reports s1', r.status === 200 && r.data.length === 2, r);
 r = await call(P.cookie, 'GET', '/api/reports?studentId=s4'); check('P reports s4 -> 403', r.status === 403, r);
 

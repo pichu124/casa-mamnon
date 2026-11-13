@@ -14,8 +14,6 @@ const db = require('../lib/db');
 // HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC — bước mà `modules/README.md`
 // dạy, và đã bị quên ba lần trước đó (Y1, N24, Đ46).
 const modules = require('../lib/modules');
-// Nhận xét đã bị thu hồi thì thu hồi ở MỌI màn, kể cả màn này.
-const st = require('../lib/sua-thu-hoi');
 
 // Giữ quyền bao lâu sau khi em rời trường.
 //
@@ -118,12 +116,12 @@ module.exports = (app) => {
     }
 
     const cls = hs.classId ? db.findClass(hs.classId) : null;
-    // BA BẢNG DƯỚI ĐÂY THUỘC VỀ BA PHÂN HỆ KHÁC, và hai trong ba đang TẮT SẴN.
+    // HAI BẢNG DƯỚI ĐÂY THUỘC VỀ HAI PHÂN HỆ KHÁC, và một trong hai đang TẮT SẴN.
     //
-    // Nhận xét (A2) và Báo cáo (N3) đã được nhà trường tắt — Báo cáo còn là một
-    // trong hai màn thuộc món nợ N3 mà QUY TẮC 4 đang canh. Nhưng màn này đọc
-    // thẳng bảng của chúng, nên bật "Hồ sơ con đã ra trường" lên là nội dung
-    // của hai phân hệ đã tắt quay lại màn hình gia đình, im lặng.
+    // Báo cáo (N3) đã được nhà trường tắt — nó còn là một trong hai màn thuộc
+    // món nợ N3 mà QUY TẮC 4 đang canh. Nhưng màn này đọc thẳng bảng của nó,
+    // nên bật "Hồ sơ con đã ra trường" lên là nội dung của một phân hệ đã tắt
+    // quay lại màn hình gia đình, im lặng.
     //
     // (Chú thích này cố ý KHÔNG viết ra mấy chữ mà bộ canh QUY TẮC 4 đi tìm:
     // bộ canh quét cả dòng chú thích, và mở một ngoại lệ cho cả tệp thì sau này
@@ -133,27 +131,6 @@ module.exports = (app) => {
     // màn của chính nó.
     const baoCao = modules.dangBat('baocao') ? db.all('reports',
       'SELECT * FROM reports WHERE studentId = ? ORDER BY year DESC, term DESC', [hs.id]) : [];
-    // THU HỒI PHẢI THU HỒI Ở MỌI MÀN.
-    //
-    // `lib/sua-thu-hoi.js` sinh ra để cô gỡ được một nhận xét bấm nhầm sang bé
-    // khác — và nó ghi nhớ bằng BẢNG PHỤ `record_edits`, không phải bằng một
-    // cột trên chính bảng `remarks`. Nên câu `SELECT * FROM remarks` ở đây đọc
-    // ra cả những dòng cô đã gỡ: cô bấm Thu hồi, màn Nhận xét sạch, gia đình mở
-    // "Hồ sơ con đã ra trường" thì dòng đó vẫn nằm nguyên đó.
-    //
-    // Nặng hơn một lỗi hiển thị: Nghị định 13/2023 cho cha mẹ quyền yêu cầu
-    // chỉnh sửa và xoá dữ liệu cá nhân của con, và đây là chỗ nhà trường đã làm
-    // đúng thao tác mà app vẫn không thực hiện.
-    //
-    // `ganDauDaSua` đi kèm để màn này nói cùng một câu với màn Nhận xét: dòng
-    // nào cô đã sửa thì gia đình thấy "đã chỉnh sửa lúc…", không phải im lặng.
-    const nhanXet = modules.dangBat('nhanxet') ? st.ganDauDaSua('remarks', db.all('remarks',
-      `SELECT * FROM remarks WHERE studentId = ? AND ${st.dieuKienConHien('remarks', 'id')}
-       ORDER BY date DESC, id DESC LIMIT 200`, [hs.id]))
-      .map(r => {
-        const t = r.teacherId ? db.findUser(r.teacherId) : null;
-        return { ...r, teacherName: t ? `${t.title} ${t.name}` : '' };
-      }) : [];
     const chuyenCan = !modules.dangBat('diemdanh') ? {} : db.first('attendance',
       `SELECT
          COUNT(*) AS tong,
@@ -170,7 +147,17 @@ module.exports = (app) => {
         namCuoi: cls ? cls.year || '' : '',
       },
       baoCao,
-      nhanXet,
+      // LUÔN RỖNG, NHƯNG TRƯỜNG NÀY Ở LẠI (Đ252).
+      //
+      // Mục này từng mang nhận xét hằng ngày của cô, khi phân hệ Nhận xét còn
+      // và đang bật. Mã của phân hệ ấy đã gỡ hẳn (xem đầu `lib/modules.js`),
+      // nên không màn nào còn bày bảng của nó ra — kể cả màn này.
+      //
+      // Giữ tên trường vì `public/js/views/hocsinhcu.js` — cả bản hôm nay lẫn
+      // bản cũ còn nằm trong điện thoại đã cài app — đọc thẳng
+      // `d.nhanXet.length`: bỏ trường đi là màn hồ sơ hỏng ngay ở dòng đó.
+      // Dữ liệu trong bảng thì không đụng tới.
+      nhanXet: [],
       chuyenCan: {
         tong: Number(chuyenCan.tong) || 0,
         coMat: Number(chuyenCan.coMat) || 0,

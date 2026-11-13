@@ -22,11 +22,31 @@ const { check, tongKet } = taoBoDem();
 
 const DIR = thuMucTam('lo-hong');
 sinhDuLieu(DIR);
-// Mục [13] và [19] canh những lỗ hổng ĐÃ VÁ bên trong hai phân hệ nay TẮT SẴN —
-// Nề nếp (N3, nó xếp trẻ trên dưới nhau) và Nhận xét (A2, nhà trường không
-// dùng). Lỗ hổng đó KHÔNG biến mất chỉ vì phân hệ đang tắt: nhà trường bật lại
-// là nó quay về. Nên bật tường minh ở đây, và bài canh giữ nguyên từng chữ.
+// Mục [13] và [19] canh những lỗ hổng ĐÃ VÁ bên trong phân hệ Nề nếp nay TẮT
+// SẴN (N3, nó xếp trẻ trên dưới nhau). Lỗ hổng đó KHÔNG biến mất chỉ vì phân hệ
+// đang tắt: nhà trường bật lại là nó quay về. Nên bật tường minh ở đây, và bài
+// canh giữ nguyên từng chữ.
+//
+// `nhanxet` (Nhận xét hằng ngày) thì KHÁC từ Đ252: mã của nó đã gỡ hẳn, chủ dự
+// án duyệt 12/11. Dòng BẬT cũ vẫn được ghi vào đây CÓ CHỦ Ý — bài này đóng vai
+// một máy từng bật phân hệ ấy, và phần [19] canh rằng dòng cài đặt cũ đó
+// không mở lại được đường nào.
 batPhanHe(DIR, ['nenep', 'nhanxet']);
+// Ba dòng nhận xét cũ của bé s4, ghi thẳng vào bảng như dữ liệu máy cũ để lại.
+// Mục [13] dùng chúng để canh "cho nghỉ học là đánh dấu, KHÔNG xoá": trước Đ252
+// phép ấy đọc qua /api/remarks, nay đường đó hết nên đọc thẳng cơ sở dữ liệu.
+{
+  const conn = new DatabaseChiDoc(path.join(DIR, 'school.db'));
+  const them = conn.prepare(
+    'INSERT INTO remarks (id, studentId, teacherId, date, content, parentSeen) VALUES (?, ?, ?, ?, ?, 0)');
+  for (const i of [1, 2, 3]) them.run(`rm_cu_s4_${i}`, 's4', 't1', `2026-08-2${i}`, `Lời cô ghi cho con, dòng ${i}`);
+  conn.close();
+}
+const demNhanXetCu = (studentId) => {
+  const conn = new DatabaseChiDoc(path.join(DIR, 'school.db'), { readonly: true });
+  try { return conn.prepare('SELECT COUNT(*) n FROM remarks WHERE studentId = ?').get(studentId).n; }
+  finally { conn.close(); }
+};
 const { BASE, dung } = await dungMayChu({ port: Number(process.env.TEST_PORT || 3170), dir: DIR });
 const req = taoReq(BASE);
 const login = taoLogin(req);
@@ -486,7 +506,7 @@ console.log('\n[13] A6a — sửa hồ sơ học sinh và cho nghỉ học mà K
   check('mã học sinh không bị xóa oan khi không gửi lên', r.data?.code === goc.code, r.data?.code);
 
   // -- Cho nghỉ học: đánh dấu, KHÔNG xóa.
-  const truoc = (await req('GET', '/api/remarks?studentId=s4', { cookie: QT })).data;
+  const truoc = demNhanXetCu('s4');
   r = await req('DELETE', '/api/admin/students/s4', { cookie: QT });
   check('cho nghỉ học → 200', r.status === 200, r.status);
 
@@ -501,9 +521,13 @@ console.log('\n[13] A6a — sửa hồ sơ học sinh và cho nghỉ học mà K
 
   const hoSo = await req('GET', '/api/students/s4', { cookie: QT });
   check('HỒ SƠ CỦA EM KHÔNG BỊ XÓA', hoSo.status === 200 && hoSo.data?.id === 's4', hoSo.status);
-  const sau = (await req('GET', '/api/remarks?studentId=s4', { cookie: QT })).data;
+  // Đọc thẳng bảng `remarks`: mã của phân hệ Nhận xét đã gỡ ở Đ252 nên không
+  // còn đường API nào để hỏi, nhưng lời hứa "không xoá" thì vẫn phải canh —
+  // bảng này là bảng con của `students` (ON DELETE CASCADE), tức đúng thứ bay
+  // mất đầu tiên nếu "cho nghỉ học" lỡ thành xoá thật.
+  const sau = demNhanXetCu('s4');
   check('SỔ LIÊN LẠC CŨ CỦA EM CÒN NGUYÊN',
-    Array.isArray(sau) && sau.length === (truoc || []).length, `${truoc?.length} → ${sau?.length}`);
+    truoc === 3 && sau === truoc, `${truoc} → ${sau}`);
 
   // -- Nhận lại em bấm nhầm.
   r = await req('PUT', '/api/admin/students/s4', { cookie: QT, body: { active: true } });
@@ -799,25 +823,26 @@ console.log('\n[19] B7 — sửa và thu hồi được, mà KHÔNG mất dữ l
   check('ghi nhận biến khỏi hồ sơ sức khỏe của em', !hoSoYt.some(x => x.id === yt.data.id));
   check('nhưng ghi nhận khác của em còn nguyên', hoSoYt.some(x => x.id === ytCu.data.id));
 
-  // --- NHẬN XÉT ---
-  const nx = await req('POST', '/api/remarks', {
-    cookie: GV, body: { studentId: em, content: 'Con hôm nay chưa tập trung', rating: 'needs_effort' },
-  });
-  check('cô viết được nhận xét', nx.status === 200, nx.data?.error);
-  r = await req('PUT', `/api/remarks/${nx.data.id}`, {
-    cookie: GV, body: { content: 'Con hôm nay rất cố gắng', rating: 'good' },
-  });
-  check('SỬA ĐƯỢC nhận xét', r.status === 200, r.data?.error);
-  const dsNx = (await req('GET', `/api/remarks?studentId=${em}`, { cookie: GV })).data;
-  const nxSua = dsNx.find(x => x.id === nx.data.id);
-  check('nội dung mới đã lưu', nxSua?.content === 'Con hôm nay rất cố gắng', nxSua?.content);
-  check('sửa xong phụ huynh được báo lại là MỚI', nxSua?.parentSeen === false, nxSua?.parentSeen);
-  check('có dấu đã chỉnh sửa', nxSua?.daSua === true);
-
-  r = await req('DELETE', `/api/remarks/${nx.data.id}`, { cookie: GV });
-  check('THU HỒI ĐƯỢC nhận xét', r.status === 200, r.data?.error);
-  check('nhận xét biến khỏi sổ liên lạc',
-    !(await req('GET', `/api/remarks?studentId=${em}`, { cookie: PH })).data.some(x => x.id === nx.data.id));
+  // --- NHẬN XÉT: MÃ ĐÃ GỠ HẲN (Đ252) ---
+  //
+  // Trước Đ252 chỗ này canh bảy điều về sửa / thu hồi một nhận xét. Mã của
+  // phân hệ ấy nay không còn, nên thứ phải canh đổi chiều: KHÔNG vai nào còn
+  // ghi, sửa, thu hồi hay đọc được qua đường cũ — kể cả trên máy mà dòng cài
+  // đặt cũ vẫn ghi phân hệ đang BẬT (đầu tệp). Một đường sửa/thu hồi sống sót
+  // mà không còn màn hình nào trông nó thì tệ hơn hẳn một đường đang có chủ.
+  for (const [vai, cookie] of [['cô', GV], ['phụ huynh', PH], ['quản trị', QT], ['cô nhóm khác', GV_KHAC]]) {
+    const goi = [
+      await req('POST', '/api/remarks', { cookie, body: { studentId: em, content: 'thử ghi', rating: 'good' } }),
+      await req('PUT', '/api/remarks/rm_cu_s4_1', { cookie, body: { content: 'thử sửa' } }),
+      await req('DELETE', '/api/remarks/rm_cu_s4_1', { cookie }),
+      await req('GET', `/api/remarks?studentId=${em}`, { cookie }),
+      await req('GET', '/api/remarks/class', { cookie }),
+    ];
+    check(`${vai}: ghi / sửa / thu hồi / đọc nhận xét qua đường cũ đều 404`,
+      goi.every(x => x.status === 404), goi.map(x => x.status));
+  }
+  check('và ba dòng nhận xét cũ trong bảng không bị đường nào ở trên đụng tới',
+    demNhanXetCu('s4') === 3, demNhanXetCu('s4'));
 
   // --- Phân quyền ---
   const nn2 = await req('POST', '/api/conduct', {
@@ -1023,7 +1048,7 @@ console.log('\n[16] B6 — album của lớp đã đóng phải lấy lại đư
   // `hocsinhcu` nay TẮT SẴN (Đ5): phân hệ đó là của app 1 và màn của nó bày ra
   // học bạ, học kỳ, điểm từng môn cho gia đình — trái QUY TẮC 4. Nhưng LỖ HỔNG
   // mà mục này canh KHÔNG biến mất vì phân hệ đang tắt: nhà trường bật lại là
-  // nó quay về. Cùng lý do và cùng cách xử lý với `nenep`/`nhanxet` ở đầu tệp.
+  // nó quay về. Cùng lý do và cùng cách xử lý với `nenep` ở đầu tệp.
   //
   // KHÔNG một phép kiểm nào bị bỏ hay nới — chỉ thêm một dòng dựng bối cảnh.
   batPhanHe(DIR3, ['hocsinhcu']);

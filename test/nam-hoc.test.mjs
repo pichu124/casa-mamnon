@@ -3,7 +3,9 @@
 // Chạy bằng:  npm run test:nam-hoc
 import fs from 'fs';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam, batPhanHe, dongNhom, MAU,
+import path from 'path';
+import { createRequire } from 'module';
+import { GOC, thuMucTam, donThuMucTam, dongNhom, MAU,
 } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3600);
@@ -20,9 +22,29 @@ execSync('node data/seed.js --force', {
   env: { ...process.env, DATA_DIR: DIR, CASA_SEED_PHAN_HE: '0' },
 });
 // Bài này dùng Nhận xét làm bằng chứng "dữ liệu cũ KHÔNG mất khi chuyển năm".
-// Nhận xét nay tắt sẵn (A2), nhưng dữ liệu của nó vẫn còn nguyên — đó chính là
-// điều đang cần chứng minh. Bật tường minh để hỏi được nó.
-batPhanHe(DIR, ['nhanxet']);
+//
+// Mã của phân hệ Nhận xét đã gỡ hẳn ở Đ252 (chủ dự án duyệt 12/11), bảng
+// `remarks` thì giữ nguyên — nên bằng chứng ấy vẫn dùng được, chỉ đổi cách
+// hỏi: trước đây bật phân hệ rồi gọi /api/remarks, nay ghi vài dòng thẳng vào
+// bảng như dữ liệu máy cũ để lại, và mục [5] đếm thẳng trong cơ sở dữ liệu.
+// Ghi cho CẢ HAI con của `phuhuynh`: s1 ở lại lên lớp, s2 ra trường — chuyển
+// năm không được làm mất dòng nào của bé nào.
+const Db0 = createRequire(import.meta.url)('better-sqlite3');
+{
+  const conn = new Db0(path.join(DIR, 'school.db'));
+  const them = conn.prepare(
+    'INSERT INTO remarks (id, studentId, teacherId, date, content, parentSeen) VALUES (?, ?, ?, ?, ?, 1)');
+  them.run('rm_cu_a', 's1', 't1', '2026-05-11', 'Con tự xúc hết bát cơm.');
+  them.run('rm_cu_b', 's1', 't1', '2026-05-12', 'Con rủ bạn cùng xếp khối gỗ.');
+  them.run('rm_cu_c', 's2', 't2', '2026-05-12', 'Con kể lại chuyện cho cả nhóm nghe.');
+  conn.close();
+}
+const demNhanXetCu = () => {
+  const conn = new Db0(path.join(DIR, 'school.db'), { readonly: true });
+  try { return conn.prepare('SELECT studentId, COUNT(*) n FROM remarks GROUP BY studentId ORDER BY studentId').all(); }
+  finally { conn.close(); }
+};
+const NHAN_XET_TRUOC = JSON.stringify(demNhanXetCu());
 const out = execSync('node scripts/create-admin.js "Hiệu Trưởng" hieutruong', { cwd: GOC, env: { ...process.env, DATA_DIR: DIR } }).toString();
 const adminPw = (out.match(/Mật khẩu:\s+(\S+)/) || [])[1];
 
@@ -122,8 +144,10 @@ console.log('\n[5] Dữ liệu học tập năm cũ không mất');
   const con = meP.data.students[0];
   const att = await req('GET', `/api/attendance?studentId=${con.id}`, { cookie: P });
   check('điểm danh của con vẫn xem được', att.status === 200, att.status);
-  const rm = await req('GET', `/api/remarks?studentId=${con.id}`, { cookie: P });
-  check('nhận xét cũ vẫn còn', rm.status === 200 && rm.data.length > 0, rm.data?.length);
+  // Đếm thẳng trong bảng: đường /api/remarks đã gỡ ở Đ252 (xem đầu tệp).
+  check('nhận xét cũ vẫn còn — của bé ở lại lẫn bé đã ra trường',
+    NHAN_XET_TRUOC === '[{"studentId":"s1","n":2},{"studentId":"s2","n":1}]'
+      && JSON.stringify(demNhanXetCu()) === NHAN_XET_TRUOC, [NHAN_XET_TRUOC, demNhanXetCu()]);
 }
 
 console.log('\n[6] Không cho chuyển trùng năm');

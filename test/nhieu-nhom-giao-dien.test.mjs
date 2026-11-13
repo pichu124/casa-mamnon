@@ -269,7 +269,11 @@ console.log('\n[4c] Phụ huynh và cô KHÔNG thấy ô chọn của quản tr�
   // Ô chọn này liệt kê TÊN MỌI BÉ CỦA TRƯỜNG. Nó lọt sang màn hình phụ huynh là
   // rò danh sách trẻ ra ngoài — chỗ rò lặng lẽ nhất, vì màn hình vẫn chạy đúng.
   await dangNhap('phuhuynh', '123456');
-  for (const duong of ['/#/', '/#/student', '/#/remarks']) {
+  // '/#/remarks' rời danh sách ở Đ252 (mã của màn Nhận xét đã gỡ hẳn — địa chỉ
+  // ấy nay chỉ còn một câu "không có phần nào ở đây", canh nó là canh khoảng
+  // không). Thay bằng '/#/health': một màn phụ huynh mở được THẬT và cũng có
+  // thanh chọn con, tức đúng loại màn mà ô chọn của quản trị dễ lọt sang.
+  for (const duong of ['/#/', '/#/student', '/#/health']) {
     await mo(duong);
     check(`phụ huynh KHÔNG thấy ô chọn của quản trị ở ${duong}`,
       !(await chuTrenMan()).includes('Đang xem hồ sơ của bé'));

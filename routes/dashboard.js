@@ -397,17 +397,6 @@ module.exports = (app) => {
       // Điểm danh: số lượt điểm danh hôm nay của các con
       badges.diemdanh = db.count(
         `SELECT COUNT(*) FROM attendance WHERE date = ? AND studentId IN (${marks})`, [today, ...ids]);
-      // Nhận xét mới chưa xem. Bản ĐÃ THU HỒI phải bị loại, cùng lý do đã ghi
-      // ở `unreadNotifications` bên trên: thu hồi rồi thì không còn cách nào
-      // bấm vào để đánh dấu đã xem, nên con số ấy sẽ đứng mãi không về 0.
-      //
-      // Phân hệ Nhận xét hằng ngày đang TẮT (A2) nên hôm nay chưa ai gặp. Vá
-      // sẵn vì nó cùng một hình dạng với hai chỗ vừa vá trong đợt này, và vì
-      // ngày nhà trường bật lại thì không ai còn nhớ để đi tìm.
-      badges.nhanxet = db.count(
-        `SELECT COUNT(*) FROM remarks
-          WHERE parentSeen = 0 AND studentId IN (${marks})
-            AND ${st.dieuKienConHien('remarks', 'id')}`, ids);
       // Khảo sát đang mở mà mình chưa trả lời — TRONG PHẠM VI mình được thấy.
       // Từ Đ119 khảo sát gửi riêng được cho một nhóm, và cột `audience` của
       // nó mang đúng nghĩa với cột cùng tên của thông báo, nên dùng chung một

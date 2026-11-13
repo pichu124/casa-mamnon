@@ -27,7 +27,6 @@ const SHELL_ASSETS = [
   '/js/views/leave.js',
   '/js/views/menu.js',
   '/js/views/timetable.js',
-  '/js/views/remarks.js',
   '/js/views/reports.js',
   '/js/views/bus.js',
   '/js/views/conduct.js',

@@ -34,14 +34,17 @@ const require2 = createRequire(import.meta.url);
 const modules = require2(path.join(GOC, 'lib', 'modules.js'));
 modules.napMoRong();
 
-// Sáu phân hệ nhà trường đã quyết TẮT. Danh sách này CỐ Ý viết tay ở đây thay
+// Năm phân hệ nhà trường đã quyết TẮT. Danh sách này CỐ Ý viết tay ở đây thay
 // vì suy từ `defaultEnabled`: suy ra thì bài canh chỉ nói "script làm đúng như
 // mã đang viết", còn viết tay thì nó nói "script làm đúng như NHÀ TRƯỜNG đã
 // quyết". Đổi quyết định thì phải sửa cả hai chỗ — đó là điều muốn.
 // 5 → 6 ở Đ239i: Đón trả bé (`dontra`) — đã lồng vào Điểm danh, góp ý 06/10 và
 // 16/10. Đây là phân hệ CẮM THÊM đầu tiên trong danh sách, nên `ban-thu` phải
-// biết KHÔNG bật nó, chứ không chỉ "không đụng tới" như năm phân hệ lõi kia.
-const PHAI_TAT = ['nhanxet', 'baocao', 'xebuyt', 'nenep', 'hocsinhcu', 'dontra'];
+// biết KHÔNG bật nó, chứ không chỉ "không đụng tới" như các phân hệ lõi kia.
+// 6 → 5 ở Đ252: `nhanxet` (Nhận xét hằng ngày) rời danh sách vì mã của nó đã
+// GỠ HẲN (chủ dự án duyệt 12/11) — không còn phân hệ nào mang mã ấy để mà tắt.
+// Nó sang một phép kiểm riêng ở mục [5]: cô KHÔNG thấy nó, và không bao giờ nữa.
+const PHAI_TAT = ['baocao', 'xebuyt', 'nenep', 'hocsinhcu', 'dontra'];
 
 const DIR = thuMucTam('ban-thu');
 const chay = (...a) => spawnSync('node', [path.join(GOC, 'scripts', 'ban-thu.js'), ...a],
@@ -135,7 +138,7 @@ console.log('\n[3] SÁU PHÂN HỆ NHÀ TRƯỜNG ĐÃ TẮT PHẢI VẪN TẮT'
   };
 
   const batNham = PHAI_TAT.filter(k => hieuLuc(k) === true);
-  check('không phân hệ nào trong sáu cái đó bị bật', batNham.length === 0,
+  check('không phân hệ nào trong năm cái đó bị bật', batNham.length === 0,
     batNham.map(k => `${k} (bảng: ${dong.get(k)}, mặc định: ${modules.timTheoKey(k)?.defaultEnabled})`));
 
   // ĐỐI CHỨNG: `hieuLuc` phải biết nói CÓ, nếu không thì dòng trên xanh vì nó
@@ -147,7 +150,7 @@ console.log('\n[3] SÁU PHÂN HỆ NHÀ TRƯỜNG ĐÃ TẮT PHẢI VẪN TẮT'
   // Và chúng phải thật sự tồn tại — một danh sách gõ sai tên thì phép kiểm
   // trên xanh vì không tìm thấy gì cả.
   const khongCo = PHAI_TAT.filter(k => !modules.timTheoKey(k));
-  check('sáu mã phân hệ đó đều có thật trong kho mã', khongCo.length === 0, khongCo);
+  check('năm mã phân hệ đó đều có thật trong kho mã', khongCo.length === 0, khongCo);
 
   // Người tổ chức đọc bảng in ra để biết vì sao một phân hệ vắng mặt. Thiếu
   // dòng này thì người ta tưởng bàn thử dựng hỏng và tự bật Đón trả bé lên.
@@ -277,15 +280,19 @@ console.log('\n[7] MÁY CHỦ DỰNG TRÊN BÀN THỬ: cô nhìn thấy đúng a
   for (const k of ['nhatky', 'thuchup', 'hanhtrinh']) {
     check(`cô THẤY phân hệ ${k} trên máy chủ bàn thử`, thay.includes(k), thay);
   }
-  // ĐỦ CẢ NĂM, KHÔNG PHẢI BA. `xebuyt` và `dontra` cũng nằm trong danh sách
+  // ĐỦ CẢ BỐN, KHÔNG PHẢI HAI. `xebuyt` và `dontra` cũng nằm trong danh sách
   // nhà trường đã tắt và cũng mở cho vai cô, nên chúng phải được hỏi ở đây.
   // `hocsinhcu` thì chỉ mở cho vai phụ huynh (`roles: ['parent']`), nên hỏi
   // bằng cookie của cô là hỏi sai chỗ — nó được hỏi riêng ngay dưới.
-  for (const k of ['nhanxet', 'baocao', 'nenep', 'xebuyt', 'dontra']) {
+  for (const k of ['baocao', 'nenep', 'xebuyt', 'dontra']) {
     check(`và KHÔNG thấy ${k} — thứ nhà trường đã tắt`, !thay.includes(k), thay);
   }
+  // `nhanxet`: mã đã gỡ hẳn ở Đ252, nên hỏi theo cả mã lẫn tên màn cũ.
+  check('và KHÔNG thấy nhanxet — mã của nó đã gỡ hẳn khỏi kho',
+    !thay.includes('nhanxet') && !(ds.data?.modules || ds.data || []).some(m => m.view === 'remarks')
+      && !modules.timTheoKey('nhanxet'), thay);
   check('danh sách PHAI_TAT không lặng lẽ dài thêm mà bài này không hỏi tới',
-    PHAI_TAT.length === 6 && PHAI_TAT.includes('hocsinhcu') && PHAI_TAT.includes('dontra'), PHAI_TAT);
+    PHAI_TAT.length === 5 && PHAI_TAT.includes('hocsinhcu') && PHAI_TAT.includes('dontra'), PHAI_TAT);
 
   // `hocsinhcu` chỉ hiện với gia đình, nên phải hỏi bằng tài khoản gia đình.
   const ph = await login('phuhuynh', mk || 'x');

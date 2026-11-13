@@ -47,12 +47,18 @@ const BANG_LOI = {
   leave_refund: 'xinphep',
   menus: 'thucdon',
   timetable: 'tkb',
-  // Thêm sau đợt soát 30/08: `routes/hocsinh-cu.js` đọc `reports` + `remarks`,
-  // `routes/namhoccu.js` đọc `notifications` + `surveys` + `edu_plans`. Cả năm
-  // bảng này đều thuộc phân hệ TẮT ĐƯỢC, hai trong số đó đang tắt sẵn — mà
+  // Thêm sau đợt soát 30/08: `routes/hocsinh-cu.js` đọc `reports`,
+  // `routes/namhoccu.js` đọc `notifications` + `surveys` + `edu_plans`. Cả bốn
+  // bảng này đều thuộc phân hệ TẮT ĐƯỢC, một trong số đó đang tắt sẵn — mà
   // trước đó không có tên nào ở đây nên bộ canh không thấy gì.
+  //
+  // Dòng `remarks: 'nhanxet'` từng đứng ở đây, RÚT RA ở Đ252: mã của phân hệ
+  // Nhận xét đã gỡ hẳn (chủ dự án duyệt 12/11) nên không còn công tắc nào để
+  // hỏi, và mục [1] bên dưới đòi mọi mã ở đây phải là phân hệ có thật. Bảng
+  // `remarks` KHÔNG vì thế mà thành bảng ai đọc cũng được — luật với nó nay
+  // chặt hơn: `test/da-go-nhan-xet.test.mjs` mục [6] đòi KHÔNG tệp route nào
+  // đụng tới bảng này, có hỏi công tắc hay không cũng vậy.
   reports: 'baocao',
-  remarks: 'nhanxet',
   notifications: 'thongbao',
   surveys: 'khaosat',
   survey_responses: 'khaosat',
@@ -161,7 +167,8 @@ console.log('\n[2b] PHẦN LÕI CŨNG PHẢI HỎI CÔNG TẮC — không chỉ 
   //   • `routes/hocsinh-cu.js` đọc thẳng `reports` và `remarks` — hai phân hệ
   //     ĐANG TẮT SẴN (A2, N3), một trong hai là màn xếp hạng trẻ mà QUY TẮC 4
   //     cấm. Bật "Hồ sơ con đã ra trường" lên là chúng quay lại màn hình gia
-  //     đình, im lặng.
+  //     đình, im lặng. (Vế `remarks` hết ở Đ252: mã phân hệ Nhận xét đã gỡ
+  //     hẳn và tệp ấy thôi đọc bảng đó — xem chú thích ở BANG_LOI đầu tệp.)
   //   • `routes/namhoccu.js` — BẬT SẴN cho mọi gia đình — đọc bảng của BỐN
   //     phân hệ khác. Nhà trường tắt Thông báo hay Khảo sát mà dữ liệu vẫn hiện
   //     ra ở đây thì công tắc kia coi như không có tác dụng.
