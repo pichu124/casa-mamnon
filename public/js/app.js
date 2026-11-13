@@ -333,8 +333,38 @@ window.App = {
     this.views.login.render(root);
   },
 
+  // ĐĂNG XUẤT TRÊN MÁY NÀO THÌ MÁY ĐÓ THÔI NHẬN THÔNG BÁO ĐẨY (Đ252).
+  //
+  // Đăng ký đẩy gắn với TÀI KHOẢN chứ không gắn với phiên đăng nhập. Bản cũ
+  // chỉ xoá phiên, nên máy đã đăng xuất — hay máy mượn — vẫn hiện tiêu đề và
+  // nội dung tin về bé lên màn hình khoá. Nay làm cả hai đầu: gửi kèm địa chỉ
+  // đẩy của máy này để máy chủ xoá đúng dòng ấy, và bảo trình duyệt thôi nhận.
+  // Mỗi đầu đỡ cho đầu kia: máy chủ không tới được thì trình duyệt đã thôi
+  // nhận; trình duyệt từ chối thì máy chủ đã thôi gửi.
+  //
+  // ĐĂNG XUẤT LÀ VIỆC CHÍNH, HUỶ ĐẨY LÀ VIỆC PHỤ. Bước huỷ hỏng kiểu gì
+  // (trình duyệt không có đẩy, service worker ném lỗi hay im luôn) thì người
+  // dùng vẫn phải ra được màn đăng nhập, và không thấy lời báo lỗi nào.
+  //
+  // Máy CHƯA cho phép thông báo thì không thể có đăng ký đẩy, nên bỏ qua hẳn
+  // bước hỏi: yêu cầu đăng xuất đi ngay trong cùng nhịp bấm, y như bản cũ.
+  // Đừng "dọn" điều kiện này đi — hỏi service worker là việc phải chờ, và ai
+  // rời trang ngay sau khi bấm thì yêu cầu đăng xuất chưa kịp đi.
   async logout() {
-    try { await API.post('/api/auth/logout'); } catch (_) {}
+    let dangKy = null;
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        dangKy = await Promise.race([
+          navigator.serviceWorker.getRegistration().then(reg => (reg ? reg.pushManager.getSubscription() : null)),
+          new Promise(xong => setTimeout(() => xong(null), 1500)),
+        ]);
+      } catch (_) { dangKy = null; }
+    }
+    // Không chờ trình duyệt trả lời: nó chậm hay im thì đăng xuất vẫn đi tiếp.
+    if (dangKy) Promise.resolve().then(() => dangKy.unsubscribe()).catch(() => {});
+    try {
+      await API.post('/api/auth/logout', dangKy && dangKy.endpoint ? { endpoint: dangKy.endpoint } : undefined);
+    } catch (_) {}
     this.state.user = null;
     location.hash = '';
     this.showLogin();
