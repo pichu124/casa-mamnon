@@ -48,7 +48,12 @@
   --shadow-lg: 0 28px 56px -18px rgba(15, 23, 42, .28), 0 6px 16px rgba(15, 23, 42, .08);
   --shadow-glow: 0 10px 24px -8px rgba(79, 70, 229, .5);
 
-  --nav-h: 68px;
+  /* Chỗ thanh điều hướng dưới đáy chiếm, TÍNH CẢ vùng an toàn của iPhone có
+     vạch Home (34px khi chạy như app đã cài). Dải nổi, hộp báo nổi và lề đáy
+     của trang đều đặt theo biến này; trước Đ256 nó là 68px trần nên trên
+     iPhone đời mới những thứ ấy đè lên thanh. Máy không có vùng an toàn thì
+     env() bằng 0 và mọi thứ ở đúng chỗ cũ. */
+  --nav-h: calc(68px + env(safe-area-inset-bottom, 0px));
   --ease: cubic-bezier(.22, .8, .3, 1);
   color-scheme: light;
 }
