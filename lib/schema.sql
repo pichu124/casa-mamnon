@@ -830,6 +830,21 @@ CREATE TABLE IF NOT EXISTS push_dang_ky (
 );
 CREATE INDEX IF NOT EXISTS idx_push_dang_ky_user ON push_dang_ky(userId);
 
+-- Đăng ký đẩy của máy này thuộc PHIÊN ĐĂNG NHẬP nào (Đ255).
+--
+-- Phiên hết hạn hay bị huỷ thì máy đó thôi nhận tin về bé (lib/day.js).
+-- `phienTaoLuc` là `sessions.createdAt` của phiên đã bật hoặc nối lại đăng ký
+-- — một mốc thời gian, KHÔNG chép mã phiên sang bảng thứ hai. `daNhac` = 1 khi
+-- máy đã nhận tin nhắc "đăng nhập lại": chỉ nhắc một lần rồi im.
+--
+-- Bảng phụ, KHÔNG ALTER `push_dang_ky`. Đăng ký có từ trước bản này không có
+-- dòng ở đây; lib/day.js xử riêng ca đó.
+CREATE TABLE IF NOT EXISTS push_dang_ky_phien (
+  endpoint    TEXT PRIMARY KEY REFERENCES push_dang_ky(endpoint) ON DELETE CASCADE,
+  phienTaoLuc INTEGER NOT NULL,
+  daNhac      INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS notification_reads (
   notificationId TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
   userId         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

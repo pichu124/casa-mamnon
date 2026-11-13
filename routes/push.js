@@ -68,6 +68,13 @@ function chiNguoiGiuKhoa(req, res) {
   return false;
 }
 
+// Mốc tạo của phiên đang gọi (`sessions.createdAt`) — thứ nối một đăng ký đẩy
+// với phiên đăng nhập của máy đó (Đ255, xem `guiChoNguoi` ở lib/day.js).
+function mocPhien(req) {
+  const s = db.first('sessions', 'SELECT createdAt FROM sessions WHERE token = ?', [req.sessionToken || '']);
+  return s ? Number(s.createdAt) : null;
+}
+
 module.exports = (app) => {
   app.get('/api/push/trang-thai', (req, res) => {
     const loaiTin = loaiTinCua(req.user);
@@ -90,9 +97,21 @@ module.exports = (app) => {
   });
 
   app.post('/api/push/dang-ky', (req, res) => {
-    const r = day.dangKy(req.user.id, (req.body || {}).subscription);
+    const r = day.dangKy(req.user.id, (req.body || {}).subscription, mocPhien(req));
     if (!r.ok) return res.status(400).json({ error: r.loi });
     res.json({ ok: true, soMay: day.soMayCua(req.user.id) });
+  });
+
+  // NỐI ĐĂNG KÝ ĐẨY CỦA MÁY NÀY VỚI PHIÊN VỪA ĐĂNG NHẬP (Đ255).
+  //
+  // App tự gọi mỗi lần mở và sau mỗi lần đăng nhập, khi trình duyệt còn giữ
+  // đăng ký đẩy. Không tạo đăng ký mới: `conDangKy: false` nghĩa là máy chủ
+  // không có dòng nào của ĐÚNG người này cho địa chỉ ấy, và muốn nhận tin thì
+  // phải tự bấm "Bật trên máy này". Thiếu hay sai địa chỉ cũng trả lời như
+  // vậy — đây là lời gọi nền, không có ai đứng đọc câu báo lỗi.
+  app.post('/api/push/dong-bo', (req, res) => {
+    const r = day.noiLaiPhien(req.user.id, (req.body || {}).endpoint, mocPhien(req));
+    res.json({ ok: true, conDangKy: r.conDangKy });
   });
 
   app.delete('/api/push/dang-ky', (req, res) => {

@@ -151,6 +151,10 @@ const ra = execFileSync('node', ['-e', `
   (async () => {
     const kq = {};
     // p1 là bố mẹ của bé s1 (hai máy), p2 là bố mẹ của bé s3 (một máy).
+    // Cả hai đang đăng nhập: từ Đ255, người không còn phiên nào thì máy của họ
+    // thôi nhận tin về bé (test/het-phien-thoi-day.test.mjs canh riêng).
+    const auth = require('./lib/auth');
+    auth.createSession('p1'); auth.createSession('p2');
     dk('p1', 'p1-a'); dk('p1', 'p1-b'); dk('p2', 'p2-a');
 
     kq.dangMo = await day.guiChoNguoi('p1', goi); kq.dangMoGoi = lay();
