@@ -557,6 +557,10 @@ window.App = {
   // mở nhanh và mở được cả khi mất mạng (Đ12).
   moiCaiVaoManHinhChinh() {
     if (localStorage.getItem('casa.moi-cai-app-da-tat')) return;
+    // Dải của lần đăng nhập trước còn trong trang (đăng xuất không tải lại
+    // trang) thì dùng tiếp, không dựng thêm: hai dải trùng mã là nút ✕ của dải
+    // nằm trên không tắt được gì.
+    if (document.getElementById('push-banner')) return;
     // Đã chạy như app rồi thì không mời nữa.
     try {
       if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;

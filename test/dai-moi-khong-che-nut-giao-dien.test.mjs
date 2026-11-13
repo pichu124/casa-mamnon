@@ -23,7 +23,9 @@
 //   [3] Dải "Đã có bản mới" — cùng lớp, cùng luật.
 //   [4] Màn của cô: nút cuối sổ điểm danh cũng không bị che.
 //   [5] Dải vẫn ở đúng chỗ cũ khi chưa cuộn; phòng nhắn tin vẫn ẩn dải.
-//   [6] Không lỗi JS nào.
+//   [6] Đăng xuất rồi đăng nhập lại mà không tải trang: vẫn đúng MỘT dải,
+//       và nút ✕ của nó vẫn tắt được.
+//   [7] Không lỗi JS nào.
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, CHROMIUM,
@@ -199,7 +201,61 @@ console.log('\n[4] MÀN CỦA CÔ — nút cuối sổ điểm danh');
 }
 
 // ===========================================================================
-console.log('\n[6] KHÔNG LỖI JS');
+console.log('\n[6] ĐĂNG XUẤT RỒI ĐĂNG NHẬP LẠI, KHÔNG TẢI TRANG — vẫn đúng MỘT dải, ✕ vẫn tắt được');
+{
+  // LỖI ĐÃ CÓ THẬT: mỗi lần đăng nhập dựng thêm một dải, mà dải của lần trước
+  // vẫn còn trong trang. Hai dải trùng mã: nút ✕ của dải nằm trên không có
+  // tay nghe nào (tay nghe gắn nhầm vào dải cũ nằm dưới), nên bấm ✕ không
+  // tắt được gì. Máy dùng chung ở phòng giáo viên là gặp ngay.
+  const { ctx, page } = await moMay(360, 640);
+  const dai = () => page.evaluate(() => ({
+    theoMa: document.querySelectorAll('#push-banner').length,
+    theoLop: document.querySelectorAll('.push-banner').length,
+    chu: [...document.querySelectorAll('.push-banner .pb-text')].map(d => d.textContent),
+  }));
+  const motDai = (d) => d.theoMa === 1 && d.theoLop === 1 && d.chu[0] === `My Casa${CHU_DAI}`;
+  // Cùng hàm mà nút Đăng xuất gọi; cú bấm thật vào nút đã đo ở mục [2].
+  const dangXuat = async () => {
+    await page.evaluate(() => App.logout());
+    await page.waitForSelector('#lg-user', { timeout: 10000 });
+  };
+
+  await dangNhap(page, 'phuhuynh');
+  await page.waitForSelector('#push-banner', { timeout: 10000 });
+  check('đối chứng — đăng nhập lần đầu: đúng một dải', motDai(await dai()), await dai());
+
+  for (const [vong, ten] of [[1, 'phuhuynh'], [2, 'phuhuynh'], [3, 'giaovien']]) {
+    await dangXuat();
+    check(`vòng ${vong}: ở màn đăng nhập dải vẫn còn, vẫn đúng một`, motDai(await dai()), await dai());
+    await dangNhap(page, ten);
+    check(`vòng ${vong}: đăng nhập lại (${ten}) không tải trang — vẫn đúng MỘT dải`, motDai(await dai()), await dai());
+  }
+  // Vòng 3 là NGƯỜI KHÁC đăng nhập trên cùng máy: dải của người trước ở lại
+  // là đúng — nó mời cài app, không mang tên hay dữ liệu của ai (phép kiểm
+  // `motDai` ở trên so nguyên văn chữ của dải).
+
+  // Bấm ✕ theo TOẠ ĐỘ: dải nào nằm trên thì dải đó nhận cú bấm.
+  const diem = await page.evaluate(() => {
+    const r = document.getElementById('pb-close').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(diem.x, diem.y);
+  await page.waitForTimeout(200);
+  const sauTat = await page.evaluate(() => ({
+    conDai: document.querySelectorAll('.push-banner').length,
+    nho: localStorage.getItem('casa.moi-cai-app-da-tat'),
+  }));
+  check('bấm ✕ một lần: KHÔNG dải nào còn lại, máy nhớ là đã tắt', sauTat.conDai === 0 && sauTat.nho === '1', sauTat);
+
+  await dangXuat();
+  await dangNhap(page, 'phuhuynh');
+  await page.waitForTimeout(300);
+  check('đã tắt rồi thì đăng nhập lại không mời nữa', (await dai()).theoLop === 0, await dai());
+  await ctx.close();
+}
+
+// ===========================================================================
+console.log('\n[7] KHÔNG LỖI JS');
 check('không lỗi JS nào trong suốt bài', loiJs.length === 0, loiJs);
 
 await browser.close();
