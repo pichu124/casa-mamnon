@@ -18,11 +18,11 @@
 > được bản chính thì đừng sửa riêng tệp này: ghi việc cần sửa vào `docs/VIEC-DANG-DO.md` và
 > báo chủ dự án.
 >
-> **Chép từ bản chính lần cuối: 26/10/2026.**
+> **Chép từ bản chính lần cuối: 13/11/2026.**
 
 # Hướng dẫn thử nhanh app CASA Mầm non
 
-Nov 2, 2026
+Nov 13, 2026
 
 Bản ngắn · máy thử https://casa-school.duckdns.org · 57 việc, mỗi người chỉ làm phần của mình
 
@@ -42,7 +42,7 @@ Bản ngắn · máy thử https://casa-school.duckdns.org · 57 việc, mỗi n
 
 - Không nhập tên, ảnh khuôn mặt hay hồ sơ sức khoẻ của trẻ thật. Cần chụp ảnh thì chụp đồ vật.
 - Không dùng số điện thoại thật. Thứ gì tạo thử thì đặt tên có chữ \[TEST\] hoặc “Thử”: màn hình không xoá được.
-- Không bấm “Chuyển sang năm học …”, không gõ “DOI KHOA”, không bật “Nhận xét”, “Báo cáo”, “Nề nếp”.
+- Không bấm “Chuyển sang năm học …”, không gõ “DOI KHOA”, không bật “Báo cáo”, “Nề nếp”.
 - Không bấm “Chốt sổ vắng” hay “Thêm đợt nghỉ” giữa buổi, không bấm “Xác nhận” học phí cho khoản thật.
 - Học phí trường để lại sau: không có ô “Học phí” (hoặc “Tiền ăn”) vì đang tắt ở Tính năng thì các việc B10, C6, C7, D7 ghi Chưa thử, không tự bật lại.
 - Máy thử chưa có tài khoản giaovien.nn (dữ liệu mẫu dựng trước 26/10/2026) thì A13 ghi Chưa thử và báo người phụ trách.
