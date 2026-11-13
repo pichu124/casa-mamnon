@@ -144,7 +144,7 @@ kiem('Mật khẩu mẫu', () => {
   if (!sqlite) { boQua('Mật khẩu mẫu', 'chưa mở được cơ sở dữ liệu'); return; }
   const password = require('../lib/password');
   // Soát CẢ HAI mật khẩu mẫu — xem chú thích cùng nội dung ở server.js. Chỉ
-  // soát chuỗi Render tự sinh thì tài khoản còn giữ "123456" lọt hết.
+  // soát chuỗi đặt trong DEMO_PASSWORD thì tài khoản còn giữ "123456" lọt hết.
   const MAU_CU = '123456';
   const mau = process.env.DEMO_PASSWORD || MAU_CU;
   const dsMau = [...new Set([mau, MAU_CU])];
