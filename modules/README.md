@@ -142,7 +142,7 @@ quyền theo học sinh và theo lớp thì phân hệ phải tự làm** bằng
 `db.canAccessStudent(req.user, studentId)` hoặc `db.canAccessClass(req.user, classId)`.
 
 `app` truyền vào đây đã được bọc lại: phân hệ **chỉ đăng ký được đường dẫn nằm
-trong vùng `api` đã khai báo**. Thử đăng ký `/api/remarks` hay `/api/students` sẽ
+trong vùng `api` đã khai báo**. Thử đăng ký `/api/attendance` hay `/api/students` sẽ
 bị từ chối ngay khi khởi động, kèm thông báo nêu rõ lý do. Nhờ vậy một phân hệ
 viết vội không thể vô tình chiếm mất đường dẫn của tính năng đang chạy.
 
