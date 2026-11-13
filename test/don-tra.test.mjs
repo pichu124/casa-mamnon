@@ -786,11 +786,11 @@ console.log('\n[16] MỘT NGÀY HAI PHẦN — sổ trả bé theo tháng cho l�
   // ĐÚNG MỘT chỗ và không gọi thẳng API của nó; phân hệ không đọc màn lõi.
   const boChuThich = (v) => v.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
   const dd = boChuThich(fs.readFileSync(path.join(GOC, 'public/js/views/attendance.js'), 'utf8'));
-  check('attendance.js nhắc tới App.views.dontra ĐÚNG MỘT lần (ngoài chú thích)',
-    (dd.match(/App\.views\.dontra/g) || []).length === 1, (dd.match(/App\.views\.dontra/g) || []).length);
+  check('attendance.js KHÔNG còn nhắc tới App.views.dontra (cầu nối đã gỡ ở Đ252)',
+    (dd.match(/App\.views\.dontra/g) || []).length === 0, (dd.match(/App\.views\.dontra/g) || []).length);
   check('attendance.js KHÔNG gọi thẳng đường /api/dontra nào', !/['"`]\/api\/dontra/.test(dd));
-  check('attendance.js canh cả ba lớp: tắt (moduleEnabled), thiếu hàm (typeof), lỗi khi gọi (catch)',
-    /moduleEnabled\('dontra'\)/.test(dd) && /typeof v\[t\] === 'function'/.test(dd) && /catch \(e\)/.test(dd));
+  check('attendance.js KHÔNG còn hỏi công tắc của phân hệ này (cầu nối đã gỡ ở Đ252)',
+    !/moduleEnabled\('dontra'\)/.test(dd));
   const vw = boChuThich(fs.readFileSync(path.join(GOC, 'modules/dontra/view.js'), 'utf8'));
   check('modules/dontra/view.js KHÔNG đọc App.views.attendance (phân hệ không dựa vào màn lõi)',
     !/App\.views\.attendance/.test(vw));
