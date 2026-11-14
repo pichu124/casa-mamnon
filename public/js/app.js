@@ -431,7 +431,7 @@ window.App = {
     // Vào thẳng đường dẫn của phân hệ đã tắt thì báo rõ thay vì hiện màn hình trống.
     if (!LUON_CO.includes(name) && !this.moduleEnabled(name)) {
       this.baoKhongMoDuoc(root, name);
-      this.renderBottomNav('dashboard');
+      this.veThanhDuoi('dashboard');
       return;
     }
 
@@ -443,7 +443,7 @@ window.App = {
       root.innerHTML = UI.pageHeader('Chưa mở được') +
         UI.emptyState('🛠️', 'Phần này đang gặp sự cố. Các phần khác vẫn dùng bình thường — ' +
           'bấm Trang chủ để quay lại.');
-      this.renderBottomNav(name);
+      this.veThanhDuoi(name);
       return;
     }
 
@@ -456,7 +456,7 @@ window.App = {
       root.innerHTML = UI.pageHeader('Có lỗi xảy ra') + UI.emptyState('😥', err.message || 'Không tải được dữ liệu');
     });
     this.demQuanTam(name);
-    this.renderBottomNav(name);
+    this.veThanhDuoi(name);
   },
 
   // GIA ĐÌNH QUAN TÂM ĐIỀU GÌ — ĐẾM GỘP, KHÔNG THEO DÕI AI (Đ149).
@@ -568,7 +568,7 @@ window.App = {
       // 401 của chính nó và được đưa về màn đăng nhập đàng hoàng.
       this.state.badges = await (API.getNen || API.get)('/api/dashboard/badges');
       const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean);
-      this.renderBottomNav(parts[0] || 'dashboard');
+      this.veThanhDuoi(parts[0] || 'dashboard');
       // cập nhật badge trên lưới icon nếu đang ở dashboard
       document.querySelectorAll('[data-tile-badge]').forEach(el => {
         const n = this.state.badges[el.dataset.tileBadge] || 0;
