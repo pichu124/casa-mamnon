@@ -1201,6 +1201,51 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
    ============================================================ */
 
 /* == Đ258-N: thanh điều hướng dưới đáy theo vai == */
+/* Ô NỔI Ở GIỮA THANH CỦA CÔ ("Ghi nhanh"): một vòng tròn tím nhô lên khỏi mép
+   trên của thanh. Vòng tròn đặt tuyệt đối nên KHÔNG làm ô cao lên — thanh vẫn
+   71px, và mọi thứ đặt theo --nav-h (dải mời cài, hộp báo nổi) vẫn đúng chỗ.
+   --nav-nho là phần nhô lên: dải mời cài chỉ cách mép thanh 18px. */
+.bottom-nav { --nav-nho: 10px; --nav-vong: 50px; }
+.bottom-nav .nav-noi,
+.bottom-nav .nav-noi:hover,
+.bottom-nav .nav-noi.active { justify-content: flex-end; background: none; color: var(--primary); font-weight: 700; }
+.bottom-nav .nav-noi.active::before { display: none; }
+/* Chữ của ô nổi thấp dòng hơn để nhường chỗ cho vòng tròn, lề đáy bù lại 2px
+   cho chữ vẫn thẳng hàng với chữ các ô bên cạnh. */
+.bottom-nav .nav-noi { padding-bottom: 7px; }
+.bottom-nav .nav-noi > span:last-child { line-height: 1.2; }
+.bottom-nav .nav-noi-vong {
+  /* Ô cách mép trên của thanh 9px (viền 1 + lề 8). */
+  position: absolute; left: 50%; top: calc(-9px - var(--nav-nho)); margin-left: calc(var(--nav-vong) / -2);
+  width: var(--nav-vong); height: var(--nav-vong); box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  border: 3px solid var(--surface); border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff;
+  box-shadow: 0 8px 16px -8px rgba(79, 70, 229, .9);
+}
+.bottom-nav .nav-noi.active .nav-noi-vong { box-shadow: 0 0 0 3px var(--primary-tint), 0 8px 16px -8px rgba(79, 70, 229, .9); }
+@media (max-width: 699px) {
+  /* Thanh của cô chia đều năm cột để vòng tròn đứng đúng giữa màn. `min-width:
+     auto` giữ cho cột không bao giờ hẹp hơn chữ của nó: máy nào chữ rộng hơn
+     thì cột ấy nới ra, chứ chữ không tràn sang ô bên cạnh. */
+  body[data-vai="teacher"] .bottom-nav .nav-item { flex: 1 1 0; min-width: auto; max-width: 96px; padding-left: 2px; padding-right: 2px; }
+}
+@media (max-width: 379px) {
+  /* Màn hẹp: nút nổi "Ghi nhanh" của Hành trình (cách đáy 76px, tức cách mép
+     thanh 5px) vươn tới gần giữa màn — vòng tròn không được nhô cao hơn thế. */
+  .bottom-nav { --nav-nho: 5px; --nav-vong: 46px; }
+}
+@media (min-width: 700px) {
+  /* Màn rộng: thanh nằm ngang, ô nổi thành một viên tím cùng cỡ các ô khác. */
+  .bottom-nav .nav-noi,
+  .bottom-nav .nav-noi:hover,
+  .bottom-nav .nav-noi.active { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; }
+  .bottom-nav .nav-noi { padding-bottom: 10px; }
+  .bottom-nav .nav-noi.active { box-shadow: 0 0 0 3px var(--primary-tint); }
+  .bottom-nav .nav-noi > span:last-child { line-height: inherit; }
+  .bottom-nav .nav-noi-vong,
+  .bottom-nav .nav-noi.active .nav-noi-vong { position: static; margin: 0; width: auto; height: auto; border: 0; border-radius: 0; background: none; box-shadow: none; }
+}
 /* == hết Đ258-N == */
 
 /* ------------------------------------------------------------

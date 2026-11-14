@@ -27,15 +27,23 @@
 //       và nút ✕ của nó vẫn tắt được.
 //   [7] Nút nổi "Ghi nhanh" ở Hành trình: có dải thì đứng ngay TRÊN dải, bấm
 //       được, không che chữ hay nút ✕ của dải; hết dải thì về đúng chỗ cũ.
+//   [7c] Thanh điều hướng dưới đáy THEO VAI (Đ258-N): gia đình có ô Điểm
+//       danh; cô có ô "Ghi nhanh" nổi ở giữa mà không che dải, không làm
+//       thanh cao lên; quản trị vẫn đúng năm ô cũ kể cả "Quay lại"; phần
+//       nào tắt thì ô của nó không hiện.
 //   [8] Không lỗi JS nào.
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, CHROMIUM,
+  taoQuanTri, taoReq, taoLogin, tatPhanHe,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('dai-moi-khong-che-nut');
 sinhDuLieu(DIR);
+// Tài khoản quản trị cho mục [7c]: thanh điều hướng của quản trị phải y như cũ.
+const MK_TAM_QUAN_TRI = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
+const MK_QUAN_TRI = 'quantri2026';
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4797), dir: DIR });
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
@@ -52,10 +60,10 @@ async function moMay(rong, cao) {
   return { ctx, page };
 }
 
-async function dangNhap(page, ten) {
+async function dangNhap(page, ten, matKhau = '123456') {
   await page.waitForSelector('#lg-user', { timeout: 10000 });
   await page.fill('#lg-user', ten);
-  await page.fill('#lg-pass', '123456');
+  await page.fill('#lg-pass', matKhau);
   await page.click('button[type=submit]');
   await page.waitForSelector('.tile-grid', { timeout: 10000 });
 }
@@ -434,6 +442,260 @@ console.log('\n[7b] IPHONE CÓ VẠCH HOME — vùng an toàn đáy 34px (Đ256)
   check('cuộn hết trang — nút Đăng xuất không nằm dưới dải, không nằm dưới thanh, bấm trúng nút',
     d.coNut && d.trongKhung && !d.duoiDai && !d.duoiThanh && d.tamLaNut, d);
   await ctx.close();
+}
+
+// ===========================================================================
+console.log('\n[7c] THANH ĐIỀU HƯỚNG THEO VAI (Đ258-N)');
+{
+  // Gia đình mở app chủ yếu để xem con đã tới lớp chưa; cô thì ghi nhanh cả
+  // chục lần một ngày. Trước Đ258 cả ba vai dùng chung năm ô, ô đầu là "Quay
+  // lại" — thứ điện thoại nào cũng đã có sẵn.
+  const PHU_HUYNH = ['Trang chủ', 'Điểm danh', 'Thông báo', 'Nhắn tin', 'Cài đặt'];
+  const CO = ['Trang chủ', 'Thông báo', 'Ghi nhanh', 'Nhắn tin', 'Cài đặt'];
+  const QUAN_TRI = ['Quay lại', 'Trang chủ', 'Thông báo', 'Nhắn tin', 'Cài đặt'];
+  const HASH = {
+    'Trang chủ': '#/', 'Điểm danh': '#/attendance', 'Thông báo': '#/notifications',
+    'Nhắn tin': '#/messages', 'Cài đặt': '#/settings', 'Ghi nhanh': '#/thuchup',
+  };
+  const giong = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+  // Đo cả thanh. Vòng tròn của ô nổi nhô ra NGOÀI nút, đo riêng cái nút thì
+  // không thấy: `bao` là hộp bao cả nút lẫn mọi thứ vẽ trong nó (để biết nhô
+  // lên bao nhiêu), còn chuyện chạm vào thứ khác thì xét TỪNG phần một.
+  const doThanh = (page) => page.evaluate(() => {
+    const lam = (r) => ({ top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), cao: Math.round(r.height), rong: Math.round(r.width) });
+    const hop = (e) => lam(e.getBoundingClientRect());
+    const chong = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const tai = (x, y) => document.elementFromPoint(x, y);
+    const nav = document.getElementById('bottom-nav');
+    const thanh = hop(nav);
+    const rongKhung = document.documentElement.clientWidth;
+    const dai = [...document.querySelectorAll('.push-banner')].filter(d => getComputedStyle(d).display !== 'none');
+    const phanDai = dai.flatMap(d => [d, ...d.querySelectorAll('.pb-text, .pb-bell, .pb-close')]);
+    const nutNoiHanhTrinh = document.getElementById('ht-ghi-nhanh');
+    const muc = [...nav.querySelectorAll('.nav-item')].map((e) => {
+      const ban = e.cloneNode(true);
+      ban.querySelectorAll('.nav-badge').forEach(b => b.remove());
+      const con = [e, ...e.querySelectorAll(':scope > *')].filter(x => { const r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+      const cac = con.map(x => x.getBoundingClientRect());
+      const bao = {
+        top: Math.round(Math.min(...cac.map(r => r.top))), bottom: Math.round(Math.max(...cac.map(r => r.bottom))),
+        left: Math.round(Math.min(...cac.map(r => r.left))), right: Math.round(Math.max(...cac.map(r => r.right))),
+      };
+      // Thứ nhô cao nhất trong ô (với ô nổi là vòng tròn có máy ảnh).
+      const dinh = con.reduce((a, x) => (x.getBoundingClientRect().top < a.getBoundingClientRect().top ? x : a), e);
+      const d = dinh.getBoundingClientRect();
+      const tDinh = tai(d.left + d.width / 2, d.top + d.height / 2);
+      const n = e.getBoundingClientRect();
+      const tNut = tai(n.left + n.width / 2, n.top + n.height / 2);
+      return {
+        chu: ban.textContent.trim().replace(/\s+/g, ' '),
+        ...hop(e), bao,
+        noi: e.classList.contains('nav-noi'), dangChon: e.classList.contains('active'),
+        tranChu: e.scrollWidth > e.clientWidth + 1,
+        nhoLen: thanh.top - bao.top,
+        dinh: { ...hop(dinh), tamX: d.left + d.width / 2, tamY: d.top + d.height / 2 },
+        tamDinhLaNo: !!tDinh && e.contains(tDinh),
+        tamNutLaNo: !!tNut && e.contains(tNut),
+        tam: { x: n.left + n.width / 2, y: n.top + n.height / 2 },
+        chongDai: phanDai.filter(p => con.some(x => chong(hop(x), hop(p)))).map(p => p.id || p.className),
+        chongNutHanhTrinh: !!nutNoiHanhTrinh && con.some(x => chong(hop(x), hop(nutNoiHanhTrinh))),
+      };
+    });
+    return {
+      thanh, rongKhung, muc, nhan: muc.map(m => m.chu), soDai: dai.length,
+      tranNgang: document.documentElement.scrollWidth > rongKhung,
+      // Chữ và hai nút của dải: thứ nằm trên cùng tại tâm của chúng phải thuộc về dải.
+      daiBiChe: dai.flatMap(d => [...d.querySelectorAll('.pb-text, .pb-bell, .pb-close')]
+        .filter((p) => { const r = p.getBoundingClientRect(); const t = tai(r.left + r.width / 2, r.top + r.height / 2); return !t || !d.contains(t); })
+        .map(p => `${d.id} ${p.className}`)),
+    };
+  });
+  const motDong = (t) => !t.tranNgang
+    && t.muc.every(m => !m.tranChu && m.left >= 0 && m.right <= t.rongKhung)
+    && t.muc.every((m, i) => i === 0 || m.left >= t.muc[i - 1].right);
+  // Bấm theo TOẠ ĐỘ vào từng ô rồi xem địa chỉ. Ô đầu bấm SAU CÙNG: lúc mới
+  // đăng nhập đã đứng sẵn ở trang chủ, bấm "Trang chủ" trước thì chẳng đo gì.
+  const bamTungO = async (page, t, khung) => {
+    for (const m of [...t.muc.slice(1), t.muc[0]]) {
+      if (!HASH[m.chu]) continue;
+      await page.mouse.click(m.tam.x, m.tam.y);
+      // Chờ cả địa chỉ LẪN thanh vẽ lại: địa chỉ đổi trước, màn và thanh vẽ sau.
+      const toi = await page.waitForFunction(([h, chu]) => {
+        const chon = [...document.querySelectorAll('#bottom-nav .nav-item.active')];
+        return (location.hash || '#/') === h && chon.length === 1 && chon[0].textContent.includes(chu);
+      }, [HASH[m.chu], m.chu], { timeout: 4000 }).then(() => true, () => false);
+      const sau = await doThanh(page);
+      const chon = sau.muc.filter(x => x.dangChon).map(x => x.chu);
+      check(`${khung}: bấm ô "${m.chu}" thì tới ${HASH[m.chu]}, và đúng ô ấy sáng lên`,
+        toi && giong(chon, [m.chu]), { hash: await page.evaluate(() => location.hash), chon });
+    }
+  };
+
+  let caoThanhGiaDinh = null;
+  for (const [rong, cao] of [[320, 568], [360, 640], [390, 844], [420, 900]]) {
+    const khung = `${rong}x${cao}`;
+
+    // ---- GIA ĐÌNH ----
+    {
+      const { ctx, page } = await moMay(rong, cao);
+      await dangNhap(page, 'phuhuynh');
+      await page.waitForSelector('#push-banner', { timeout: 10000 });
+      await moManHinh(page, '#/', '.tile-grid');
+      const t = await doThanh(page);
+      caoThanhGiaDinh = t.thanh.cao;
+      check(`${khung} gia đình: năm ô đúng thứ tự — Trang chủ · Điểm danh · Thông báo · Nhắn tin · Cài đặt`, giong(t.nhan, PHU_HUYNH), t.nhan);
+      check(`${khung} gia đình: không có ô nổi, không ô nào nhô khỏi thanh`, t.muc.every(m => !m.noi && m.nhoLen <= 0), t.muc.map(m => [m.chu, m.noi, m.nhoLen]));
+      check(`${khung} gia đình: thanh cao đúng 71px như cũ, chữ một dòng`, t.thanh.cao === 71 && motDong(t), { cao: t.thanh.cao, muc: t.muc });
+      await bamTungO(page, t, `${khung} gia đình`);
+      await ctx.close();
+    }
+
+    // ---- CÔ ----
+    {
+      const { ctx, page } = await moMay(rong, cao);
+      await dangNhap(page, 'giaovien');
+      await page.waitForSelector('#push-banner', { timeout: 10000 });
+      await moManHinh(page, '#/', '.tile-grid');
+      const t = await doThanh(page);
+      const noi = t.muc.filter(m => m.noi);
+      const giua = t.muc[2] || {};
+      check(`${khung} cô: năm ô đúng thứ tự — Trang chủ · Thông báo · Ghi nhanh · Nhắn tin · Cài đặt`, giong(t.nhan, CO), t.nhan);
+      check(`${khung} cô: đúng MỘT ô nổi, là ô giữa "Ghi nhanh"`, noi.length === 1 && giua.noi === true && giua.chu === 'Ghi nhanh', t.muc.map(m => [m.chu, m.noi]));
+      check(`${khung} cô: thanh vẫn cao 71px, bằng thanh của gia đình; chữ một dòng`,
+        t.thanh.cao === 71 && t.thanh.cao === caoThanhGiaDinh && motDong(t), { cao: t.thanh.cao, caoThanhGiaDinh, muc: t.muc });
+      check(`${khung} cô: ô nổi nhô khỏi mép trên của thanh, nhưng KHÔNG quá 12px`, giua.nhoLen > 0 && giua.nhoLen <= 12, giua);
+      // Lệch tối đa 2px: ở 320px cột "Thông báo" phải rộng hơn bốn cột kia một
+      // chút cho đủ chữ, nên vòng tròn xê đi hơn 1px; từ 340px trở lên là 0.
+      check(`${khung} cô: vòng tròn của ô nổi đủ lớn để bấm (từ 44px) và đứng giữa màn (lệch không quá 2px)`,
+        !!giua.dinh && giua.dinh.rong >= 44 && giua.dinh.cao >= 44 && Math.abs(giua.dinh.tamX - t.rongKhung / 2) <= 2, { dinh: giua.dinh, rongKhung: t.rongKhung });
+      check(`${khung} cô: tại tâm vòng tròn và tại tâm ô nổi, thứ nằm trên cùng là chính ô ấy`, giua.tamDinhLaNo === true && giua.tamNutLaNo === true, giua);
+      check(`${khung} cô: ô nổi KHÔNG chạm dải mời cài, KHÔNG che chữ hay nút của dải`,
+        t.soDai === 1 && !!giua.chongDai && giua.chongDai.length === 0 && t.daiBiChe.length === 0, { chongDai: giua.chongDai, daiBiChe: t.daiBiChe });
+      check(`${khung} cô: không ô thường nào nhô khỏi thanh`, t.muc.filter(m => !m.noi).every(m => m.nhoLen <= 0), t.muc.map(m => [m.chu, m.nhoLen]));
+
+      // Bấm theo toạ độ vào TÂM VÒNG TRÒN (phần nhô lên), không phải tâm ô.
+      if (giua.dinh) await page.mouse.click(giua.dinh.tamX, giua.dinh.tamY);
+      const toiGhiNhanh = await page.waitForFunction(() => location.hash === '#/thuchup', null, { timeout: 4000 }).then(() => true, () => false);
+      check(`${khung} cô: bấm vào vòng tròn thì mở Ghi nhanh`, toiGhiNhanh, await page.evaluate(() => location.hash));
+      await bamTungO(page, t, `${khung} cô`);
+
+      // Màn Hành trình có sẵn một nút nổi "Ghi nhanh" ở góc phải (mục [7]).
+      // Hết dải thì nút ấy về chỗ cũ, sát thanh: ô nổi không được chạm vào nó.
+      await moManHinh(page, '#/hanhtrinh', '#ht-ghi-nhanh');
+      await page.click('#pb-close');
+      await page.waitForFunction(() => !document.querySelector('.push-banner'), null, { timeout: 5000 });
+      await page.waitForTimeout(150);
+      const h = await doThanh(page);
+      const giuaH = h.muc.find(m => m.noi) || {};
+      check(`${khung} cô: ở Hành trình, ô nổi KHÔNG chạm nút nổi "Ghi nhanh" của màn ấy`, giuaH.chongNutHanhTrinh === false, giuaH);
+      await ctx.close();
+    }
+  }
+
+  // ---- MÀN RỘNG: thanh nằm ngang, ô nổi không được làm thanh cao lên ----
+  {
+    const mo = async (ten, mk) => {
+      const { ctx, page } = await moMay(1280, 800);
+      await dangNhap(page, ten, mk);
+      await moManHinh(page, '#/', '.tile-grid');
+      return { ctx, t: await doThanh(page) };
+    };
+    const gd = await mo('phuhuynh');
+    const co = await mo('giaovien');
+    check('1280x800 cô: vẫn năm ô ấy, ô giữa là "Ghi nhanh"', giong(co.t.nhan, CO) && co.t.muc[2].noi === true, co.t.nhan);
+    check('1280x800 cô: thanh cao bằng thanh của gia đình, chữ một dòng, ô nổi không nhô quá 12px',
+      co.t.thanh.cao === gd.t.thanh.cao && motDong(co.t) && co.t.muc.every(m => m.nhoLen <= 12) && co.t.muc[2].tamNutLaNo === true,
+      { co: co.t.thanh, giaDinh: gd.t.thanh, muc: co.t.muc });
+    await gd.ctx.close();
+    await co.ctx.close();
+  }
+
+  // ---- QUẢN TRỊ: ĐÚNG NĂM Ô CŨ, KỂ CẢ "QUAY LẠI" ----
+  {
+    const req = taoReq(sv.BASE);
+    const d0 = await taoLogin(req)('hieutruong', MK_TAM_QUAN_TRI);
+    const doi = await req('POST', '/api/auth/set-new-password', { cookie: d0.cookie, body: { newPassword: MK_QUAN_TRI } });
+    check('đối chứng — tài khoản quản trị đặt được mật khẩu riêng', doi.status === 200, doi.status);
+    for (const [rong, cao] of [[320, 568], [390, 844]]) {
+      const khung = `${rong}x${cao}`;
+      const { ctx, page } = await moMay(rong, cao);
+      await dangNhap(page, 'hieutruong', MK_QUAN_TRI);
+      await moManHinh(page, '#/', '.tile-grid');
+      const t = await doThanh(page);
+      check(`${khung} quản trị: đúng năm ô cũ, cùng thứ tự — Quay lại · Trang chủ · Thông báo · Nhắn tin · Cài đặt`, giong(t.nhan, QUAN_TRI), t.nhan);
+      check(`${khung} quản trị: không có ô nổi; thanh cao 71px, chữ một dòng`,
+        t.muc.every(m => !m.noi && m.nhoLen <= 0) && t.thanh.cao === 71 && motDong(t), { cao: t.thanh.cao, muc: t.muc });
+      await bamTungO(page, t, `${khung} quản trị`);
+      // "Quay lại" là lùi một bước, không phải một địa chỉ: đi Thông báo rồi
+      // Cài đặt, bấm "Quay lại" thì phải về Thông báo.
+      const tim = (chu) => t.muc.find(m => m.chu === chu).tam;
+      await page.mouse.click(tim('Thông báo').x, tim('Thông báo').y);
+      await page.waitForFunction(() => location.hash === '#/notifications', null, { timeout: 4000 }).catch(() => {});
+      await page.mouse.click(tim('Cài đặt').x, tim('Cài đặt').y);
+      await page.waitForFunction(() => location.hash === '#/settings', null, { timeout: 4000 }).catch(() => {});
+      await page.mouse.click(tim('Quay lại').x, tim('Quay lại').y);
+      const lui = await page.waitForFunction(() => location.hash === '#/notifications', null, { timeout: 4000 }).then(() => true, () => false);
+      check(`${khung} quản trị: bấm "Quay lại" thì lùi về màn vừa rời`, lui, await page.evaluate(() => location.hash));
+      await ctx.close();
+    }
+  }
+
+  // ---- PHẦN NÀO TẮT THÌ Ô CỦA NÓ KHÔNG HIỆN ----
+  // Mục này ĐỨNG CUỐI: nó tắt phân hệ trong cơ sở dữ liệu của cả bài.
+  {
+    const nhanCua = async (ten, rong, cao) => {
+      const { ctx, page } = await moMay(rong, cao);
+      await dangNhap(page, ten);
+      await moManHinh(page, '#/', '.tile-grid');
+      return { ctx, page, t: await doThanh(page) };
+    };
+
+    tatPhanHe(DIR, ['thuchup']);
+    for (const [rong, cao] of [[320, 568], [390, 844]]) {
+      const khung = `${rong}x${cao}`;
+      const { ctx, page, t } = await nhanCua('giaovien', rong, cao);
+      check(`${khung} cô, Ghi nhanh TẮT: chỗ giữa là ô "Điểm danh" THƯỜNG — không nổi, không nhô`,
+        giong(t.nhan, ['Trang chủ', 'Thông báo', 'Điểm danh', 'Nhắn tin', 'Cài đặt']) && t.muc.every(m => !m.noi && m.nhoLen <= 0),
+        t.muc.map(m => [m.chu, m.noi, m.nhoLen]));
+      check(`${khung} cô, Ghi nhanh TẮT: thanh vẫn cao 71px, chữ một dòng`, t.thanh.cao === 71 && motDong(t), { cao: t.thanh.cao, muc: t.muc });
+      await bamTungO(page, t, `${khung} cô, Ghi nhanh tắt`);
+      await ctx.close();
+    }
+    {
+      const { ctx, t } = await nhanCua('phuhuynh', 390, 844);
+      check('gia đình, Ghi nhanh TẮT: năm ô không đổi', giong(t.nhan, PHU_HUYNH), t.nhan);
+      await ctx.close();
+    }
+
+    tatPhanHe(DIR, ['diemdanh']);
+    {
+      const { ctx, t } = await nhanCua('giaovien', 390, 844);
+      check('cô, Ghi nhanh và Điểm danh CÙNG TẮT: bỏ hẳn ô giữa, còn bốn ô',
+        giong(t.nhan, ['Trang chủ', 'Thông báo', 'Nhắn tin', 'Cài đặt']) && t.muc.every(m => !m.noi), t.nhan);
+      await ctx.close();
+    }
+    {
+      const { ctx, t } = await nhanCua('phuhuynh', 390, 844);
+      check('gia đình, Điểm danh TẮT: không còn ô Điểm danh', giong(t.nhan, ['Trang chủ', 'Thông báo', 'Nhắn tin', 'Cài đặt']), t.nhan);
+      await ctx.close();
+    }
+
+    tatPhanHe(DIR, ['thongbao', 'nhantin']);
+    {
+      const { ctx, t } = await nhanCua('phuhuynh', 390, 844);
+      check('gia đình, Thông báo và Nhắn tin cũng TẮT: chỉ còn Trang chủ · Cài đặt', giong(t.nhan, ['Trang chủ', 'Cài đặt']), t.nhan);
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await moMay(390, 844);
+      await dangNhap(page, 'hieutruong', MK_QUAN_TRI);
+      await moManHinh(page, '#/', '.tile-grid');
+      const t = await doThanh(page);
+      check('quản trị, Thông báo và Nhắn tin TẮT: còn Quay lại · Trang chủ · Cài đặt (như cũ)', giong(t.nhan, ['Quay lại', 'Trang chủ', 'Cài đặt']), t.nhan);
+      await ctx.close();
+    }
+  }
 }
 
 // ===========================================================================
