@@ -479,7 +479,7 @@ console.log('\n[11] Sửa hồ sơ bé và cho nghỉ học ngay trong màn hìn
   const hoi = await page.locator('.modal').innerText();
   check('hỏi lại trước khi cho nghỉ học', /Xác nhận/.test(hoi), hoi.slice(0, 120));
   check('nói rõ dữ liệu cũ vẫn được giữ nguyên', /giữ nguyên/.test(hoi));
-  check('có đường quay lại nếu bấm nhầm', await page.locator('button', { hasText: 'Quay lại' }).count() >= 1);
+  check('có đường quay lại nếu bấm nhầm', await page.locator('.modal button', { hasText: 'Quay lại' }).count() >= 1);
 
   await page.locator('#ad-nghi-ok').click();
   await page.waitForTimeout(1500);
@@ -635,7 +635,7 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   check('nói rõ em đã đánh dấu sẽ được giữ nguyên', /giữ nguyên/.test(hoi), hoi.slice(0, 300));
   check('có nút riêng để ghi đè, không phải mặc định',
     await page.locator('#att-ghi-de').count() === 1);
-  check('có đường quay lại nếu bấm nhầm', await page.locator('button', { hasText: 'Quay lại' }).count() >= 1);
+  check('có đường quay lại nếu bấm nhầm', await page.locator('.modal button', { hasText: 'Quay lại' }).count() >= 1);
 
   await page.locator('#att-tat-ca').click();
   await page.waitForTimeout(1500);
