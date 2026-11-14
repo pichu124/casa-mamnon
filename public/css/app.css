@@ -1253,6 +1253,132 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
    ------------------------------------------------------------ */
 
 /* == Đ258-P: trang chủ của phụ huynh == */
+/* Chữ phụ của bản vẽ (#55627a). Không dùng var(--muted): cỡ 12–13px nó chỉ
+   đạt 4.3:1. Nền tối thì đổi sang một xám sáng cùng họ. */
+.ph-hero, .ph-than { --ph-phu: #55627a; }
+@media (prefers-color-scheme: dark) { .ph-hero, .ph-than { --ph-phu: #a9b4c9; } }
+
+/* Phần đầu: tên trường, một dòng chào, dải chọn con. Thẻ bên dưới đè lên 34px. */
+.ph-hero {
+  margin-bottom: 0;
+  padding-top: calc(22px + env(safe-area-inset-top));
+  padding-bottom: 52px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-radius: 0 0 32px 32px;
+}
+.ph-truong { font-size: 13px; font-weight: 500; color: #e7e5ff; }
+.ph-chao { margin-top: 2px; font-size: 22px; font-weight: 800; line-height: 1.3; letter-spacing: -.01em; color: #fff; }
+.ph-hero .student-bar { margin: 14px -20px -4px; padding: 0 20px 6px; }
+.ph-hero .student-chip { min-height: 46px; font-size: 14px; }
+.ph-hero .student-chip.active { color: #3730a3; }
+
+.ph-than { position: relative; z-index: 2; margin-top: -34px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Thẻ "Hôm nay của <tên bé>" */
+.ph-the {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px 16px 14px;
+  background: var(--surface);
+  border-radius: 24px;
+  box-shadow: 0 18px 36px -16px rgba(49, 46, 129, .35), 0 2px 6px rgba(15, 23, 42, .05);
+}
+.ph-the-dau { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ph-the-dau h2 { min-width: 0; font-size: 17px; font-weight: 800; letter-spacing: 0; color: var(--text); }
+.ph-ngay {
+  flex: none; display: flex; align-items: center;
+  height: 26px; padding: 0 10px; border-radius: 13px;
+  background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 700;
+}
+.ph-the-than { position: relative; display: flex; flex-direction: column; gap: 14px; }
+/* Đường nối các mốc trong ngày, chạy sau lưng các vòng tròn. */
+.ph-the-than::before {
+  content: ''; position: absolute; left: 19px; top: 22px; bottom: 22px;
+  width: 2px; background: var(--line);
+}
+.ph-dang-nap { font-size: 13px; color: var(--ph-phu); }
+.ph-dong { position: relative; display: flex; align-items: center; gap: 12px; }
+.ph-dong[data-ph="loi-co"] { align-items: flex-start; }
+.ph-cham {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 20px;
+  border: 3px solid var(--surface);
+}
+.ph-k-xanh .ph-cham { background: #d1fae5; color: #065f46; }
+.ph-k-cam .ph-cham { background: #ffedd5; color: #c2410c; }
+.ph-k-duong .ph-cham { background: #e0f2fe; color: #0369a1; }
+.ph-k-xam .ph-cham { background: #f1f3f8; color: #334155; }
+/* Việc người lớn chưa ghi: vòng nét đứt xám, không màu cảnh báo (QUY TẮC 2). */
+.ph-k-ngo .ph-cham { background: var(--surface); border: 2px dashed #b6c0d4; color: var(--ph-phu); }
+.ph-dong-than { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ph-dong-dau { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.ph-dong-ten { font-size: 15px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.ph-k-xam .ph-dong-ten, .ph-k-ngo .ph-dong-ten { color: var(--text-2); }
+.ph-gio {
+  display: inline-flex; align-items: center;
+  height: 22px; padding: 0 8px; border-radius: 11px;
+  background: #f1f3f8; color: #334155; font-size: 12px; font-weight: 700;
+}
+.ph-k-xanh .ph-gio { background: #d1fae5; color: #065f46; }
+.ph-phu { font-size: 13px; color: var(--ph-phu); overflow-wrap: anywhere; }
+.ph-loi {
+  margin-top: 4px; padding: 10px 12px;
+  border-radius: 4px 16px 16px 16px;
+  background: #f0f9ff; color: #0f172a;
+  font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ph-loi .ph-phu { color: #55627a; font-weight: 600; }
+.ph-anh { flex: none; width: 64px; height: 64px; border-radius: 18px; overflow: hidden; background: #eef2ff; }
+.ph-anh img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Dòng "N khảo sát chờ gia đình trả lời" */
+.ph-ks {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 54px; padding: 8px 12px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .04);
+}
+.ph-ks-hinh {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 12px;
+  background: #fffbeb; color: #7c2d12;
+}
+.ph-ks-chu { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; }
+.ph-ks > svg { flex: none; color: var(--ph-phu); }
+
+/* Nhóm ô "Hằng ngày" và các ô còn lại — vẫn MỘT lưới. Lưới chia 60 phần để
+   năm ô hằng ngày đứng một hàng (mỗi ô 12 phần) còn các ô khác đứng bốn ô một
+   hàng (15 phần); phần hằng ngày nào tắt thì các ô còn lại giãn cho kín hàng. */
+.ph-o.tile-sheet { margin: 2px 0 18px; padding: 0; background: none; border: 0; box-shadow: none; }
+.ph-nhom { margin: 0 4px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; color: var(--ph-phu); }
+.ph-o .tile-grid { grid-template-columns: repeat(60, minmax(0, 1fr)); gap: 14px 0; }
+.ph-o .tile { grid-column: span 15; min-width: 0; gap: 6px; padding: 0 2px; }
+.ph-o .tile-grid[data-hn="5"] .tile:not(.tile-phu) { grid-column: span 12; }
+.ph-o .tile-grid[data-hn="3"] .tile:not(.tile-phu) { grid-column: span 20; }
+.ph-o .tile-grid[data-hn="2"] .tile:not(.tile-phu) { grid-column: span 30; }
+.ph-o .tile-grid[data-hn="1"] .tile:not(.tile-phu) { grid-column: span 60; }
+.ph-o .tile .tile-icon { width: 52px; height: 52px; border-radius: 18px; }
+.ph-o .tile .tile-icon svg { width: 24px; height: 24px; }
+.ph-o .tile .tile-label { max-width: 100%; font-size: 12px; font-weight: 600; color: var(--text); overflow-wrap: break-word; }
+.ph-o .tile .tile-badge { margin-right: -34px; }
+.tile-sheet:not(.mo-them) .tile-phu { display: none; }
+
+/* Dòng "… và N mục khác": bấm để mở / thu gọn các ô ngoài nhóm Hằng ngày. */
+.ph-them {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 46px; margin-top: 12px; padding: 8px 14px;
+  border-radius: 16px; background: #eef2ff; color: #3730a3; text-align: left;
+}
+.ph-them-chu { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; }
+.ph-them > svg { flex: none; transition: transform .18s var(--ease); }
+.ph-them[aria-expanded="true"] > svg { transform: rotate(-90deg); }
+.ph-so {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: #be123c; color: #fff; font-size: 11px; font-weight: 700;
+}
+/* Ô đã lộ ra thì con số nằm trên chính ô ấy, không lặp lại ở dòng này. */
+.ph-o.mo-them .ph-so { display: none !important; }
 /* == hết Đ258-P == */
 
 /* ------------------------------------------------------------
