@@ -231,8 +231,9 @@ try {
       !/data-tab="tra"/.test(v) && !/thanhTab\(/.test(v), 'vẫn còn dải tab');
     check('giờ ra về lấy theo GIỜ VIỆT NAM, không phải giờ máy',
       /UI\.gioVN\(\)/.test(v), 'không thấy UI.gioVN');
-    check('bé chưa có dòng → huy hiệu XÁM "Chưa có ảnh đến lớp", không đỏ',
-      /badge gray">Chưa có ảnh đến lớp/.test(v) && !/badge red">Chưa/.test(v));
+    // Đ258-T: huy hiệu xám đổi thành dòng chữ xám, khai trong bảng trạng thái.
+    check('bé chưa có dòng → chữ XÁM "Chưa có ảnh đến lớp", không đỏ',
+      /chua: \{ chu: 'Chưa có ảnh đến lớp', lop: 'dd-chua', vien: 'dd-vien-chua'/.test(v) && !/badge red">Chưa/.test(v));
     check('hộp Sửa không còn mời chọn "Đến muộn"', /suaDiemDanh\(studentId\)[\s\S]*?const lua = \[\['present'[^\n]*\]\];/.test(v) && !/\['late',/.test(v));
     check('màn văn phòng dựng sổ cả cơ sở theo nhóm', /theDiemDanhCoSo\(so\)/.test(v) && /<details class="card"/.test(v));
     check('có nút chốt sổ vắng cho cả cô lẫn văn phòng', (v.match(/nutChotVang\(/g) || []).length >= 3, (v.match(/nutChotVang\(/g) || []).length);

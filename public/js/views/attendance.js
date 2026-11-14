@@ -76,17 +76,16 @@ App.views.attendance = {
     } catch (e) { so = { students: [], loi: e.message }; }
     this._roster = so.students || [];
     this._raSoat = r;
+    const soBe = this._roster.length;
+    const soNhom = new Set(this._roster.map(x => x.student.classId).filter(Boolean)).size;
 
     root.innerHTML = `
-      ${UI.pageHeader('Điểm danh')}
+      ${this.theDauDiemDanh({
+        tieuDe: 'Điểm danh',
+        phu: [soNhom && `${soNhom} nhóm lớp`, soBe && `${soBe} bé`].filter(Boolean).join(' · '),
+      })}
       <div class="card">
-        <div class="field" style="margin-bottom:0">
-          <label>Ngày điểm danh</label>
-          <input type="date" value="${UI.esc(this.date)}" max="${UI.esc(UI.todayStr())}"
-                 onchange="App.views.attendance.setDate(this.value)">
-          ${UI.dongNgayViet(this.date)}
-        </div>
-        <div class="muted small mt-8" style="line-height:1.6">
+        <div class="muted small" style="line-height:1.6">
           Văn phòng xem và chấm được cả phạm vi mình phụ trách: chụp ảnh con tới
           lớp ở cổng, và chốt sổ vắng sau giờ rà soát.
         </div>
@@ -683,45 +682,101 @@ App.views.attendance = {
       ? (dsNhom.find(n => n.id === this.nhomId) || {}).name || ''
       : UI.noiTenNhom(dsNhom);
     const total = this._roster.length;
-    const marked = this._roster.filter(r => r.record).length;
+    // Thẻ từng bé chỉ dựng cho ngày đang chấm được; ngày đã khoá và nhóm chưa
+    // có bé vẫn nằm trong một thẻ chung như trước.
+    const theRieng = total && !this.ngayDaKhoa();
 
     root.innerHTML = `
-      ${UI.pageHeader(`Điểm danh ${tenNhom}`)}
-
-      <div class="card">
-        ${dsNhom.length > 1 ? `
-          <div class="field">
-            <label>Nhóm lớp</label>
+      ${this.theDauDiemDanh({
+        tieuDe: 'Điểm danh',
+        phu: [tenNhom && (/^nhóm\s/i.test(tenNhom) ? tenNhom : `Nhóm ${tenNhom}`), `${total} bé`].filter(Boolean).join(' · '),
+        chonNhom: dsNhom.length > 1 ? `
+          <label class="dd-chon-nhom">
+            <span>Nhóm lớp</span>
             <select onchange="App.views.attendance.setNhom(this.value)">
               ${dsNhom.map(n => `<option value="${UI.esc(n.id)}" ${n.id === this.nhomId ? 'selected' : ''}>${UI.esc(n.name)}</option>`).join('')}
             </select>
-          </div>` : ''}
-        <div class="field" style="margin-bottom:0">
-          <label>Ngày điểm danh</label>
-          <input type="date" value="${UI.esc(this.date)}" max="${UI.esc(UI.todayStr())}"
-                 onchange="App.views.attendance.setDate(this.value)">
-          ${UI.dongNgayViet(this.date)}
-        </div>
-      </div>
+          </label>` : '',
+        coOSo: true,
+      })}
+      ${this.theOSo()}
       ${this.theTruongNghi()}
       ${this.theNgayDaKhoa()}
-      <div class="stat-row">
-        <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Số bé</div></div>
-        <div class="stat-box"><div class="stat-num" id="att-so-da" style="color:var(--success)">${marked}</div><div class="stat-label">Đã điểm danh</div></div>
-        <div class="stat-box"><div class="stat-num" id="att-so-chua" style="color:${total - marked ? 'var(--warning)' : 'var(--muted)'}">${total - marked}</div><div class="stat-label">Chưa điểm danh</div></div>
-      </div>
       ${this.theRaSoat()}
-      <div class="card mt-14">
+      <div class="${theRieng ? 'dd-ds' : 'card'}">
         ${total
           ? this._roster.map(r => this.rosterRow(r)).join('')
           : UI.emptyState('🎒', 'Nhóm chưa có bé nào')}
       </div>
-      ${this.ngayDaKhoa() || !total ? '' : `
+      ${theRieng ? `
       <div class="muted small" style="line-height:1.6;margin:0 2px 8px">
         Hôm nào không chụp ảnh được (máy hỏng, mất mạng ở cổng) thì ghi tay một lượt:
       </div>
-      <button class="btn outline block" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt (không kèm ảnh)</button>`}`;
+      <button class="btn block dd-ca-nhom" onclick="App.views.attendance.markAll()">${UI.icon('check', 18)} Cả nhóm có mặt (không kèm ảnh)</button>` : ''}`;
     this.ganNutGoi(root);
+  },
+
+  // PHẦN ĐẦU MÀN ĐIỂM DANH THEO NGÀY (Đ258-T), dùng chung cho cô và văn phòng.
+  //
+  // Dựng ngay ở đây chứ không qua `UI.pageHeader`: hai nút ngày nằm trong phần
+  // đầu, mà `ui.js` là tệp cả ứng dụng dựa vào. `coOSo` báo ngay dưới là hàng ô
+  // đếm, để phần đầu chừa chỗ cho hàng ấy gối lên.
+  theDauDiemDanh({ tieuDe, phu, chonNhom = '', coOSo = false }) {
+    return `
+      <div class="dd-dau${coOSo ? ' dd-dau-co-o' : ''}">
+        <div class="dd-dau-tren">
+          <button type="button" class="back-btn" onclick="history.back()" aria-label="Quay lại">${UI.icon('back', 20)}</button>
+          <div>
+            <h1>${UI.esc(tieuDe)}</h1>
+            ${phu ? `<div class="dd-dau-phu">${UI.esc(phu)}</div>` : ''}
+          </div>
+        </div>
+        ${chonNhom}
+        ${this.theChonNgay()}
+      </div>`;
+  },
+
+  // HAI NÚT NGÀY (Đ258-T): "Hôm nay" là việc của mọi buổi sáng, xem lại ngày
+  // khác là việc hiếm. Ô ngày của hệ điều hành vẫn là ô DUY NHẤT trên màn, phủ
+  // trong suốt lên nút "Ngày khác" để một chạm là mở lịch. Luật khoá ngày không
+  // đổi (`ngayDaKhoa`), và dòng ngày tiếng Việt vẫn đứng ngay dưới — lý do có
+  // dòng ấy ghi ở `UI.dongNgayViet`.
+  theChonNgay() {
+    const homNay = UI.todayStr();
+    const dangHomNay = this.date === homNay;
+    return `
+        <div class="dd-ngay">
+          <button type="button" id="att-hom-nay" class="dd-ngay-nut${dangHomNay ? ' dd-dang-chon' : ''}"
+            aria-pressed="${dangHomNay}" onclick="App.views.attendance.setDate(UI.todayStr())">
+            Hôm nay · ${UI.esc(UI.DOW[UI.thuVN()])} ${UI.esc(UI.fmtDateShort(homNay))}
+          </button>
+          <label id="att-ngay-khac" class="dd-ngay-nut${dangHomNay ? '' : ' dd-dang-chon'}">
+            ${UI.icon('calendar', 18)}
+            <span>${dangHomNay ? 'Ngày khác' : UI.esc(UI.fmtDate(this.date, { weekday: false }))}</span>
+            <input type="date" value="${UI.esc(this.date)}" max="${UI.esc(homNay)}" aria-label="Chọn ngày khác"
+                   onchange="App.views.attendance.setDate(this.value)">
+          </label>
+        </div>
+        ${UI.dongNgayViet(this.date)}`;
+  },
+
+  // Ô ĐẾM (Đ258-T): Đã tới lớp · Nghỉ có phép · Chưa điểm danh; ô "Nghỉ không
+  // phép" chỉ có khi sổ ghi bé nào như vậy. Bốn ô cộng lại bằng số bé của nhóm.
+  //
+  // "Chưa điểm danh" là việc người lớn chưa làm, không phải một lời nào về bé:
+  // ô ấy màu xám, còn bao nhiêu bé cũng không đổi sang màu báo động (QUY TẮC 2).
+  theOSo() {
+    const dem = (dung) => this._roster.filter(dung).length;
+    const cua = (...cacTrangThai) => (x) => !!x.record && cacTrangThai.includes(x.record.status);
+    const o = [
+      ['att-so-toi', 'dd-la', dem(cua('present', 'late')), 'Đã tới lớp'],
+      ['att-so-phep', 'dd-duong', dem(cua('absent_excused')), 'Nghỉ có phép'],
+      ['att-so-chua', 'dd-xam', dem(x => !x.record), 'Chưa điểm danh'],
+      ['att-so-kp', 'dd-cam', dem(cua('absent_unexcused')), 'Nghỉ không phép'],
+    ].filter(([id, , n]) => id !== 'att-so-kp' || n > 0);
+    return `<div class="dd-o-so${o.length > 3 ? ' dd-o-so-4' : ''}" id="att-o-so">${o.map(([id, mau, n, chu]) => `
+        <div class="dd-o ${mau}"><b id="${id}">${n}</b><span>${chu}</span></div>`).join('')}
+      </div>`;
   },
 
   // NGÀY KHÁC HÔM NAY THÌ CHỈ XEM LẠI (Đ127).
@@ -785,14 +840,24 @@ App.views.attendance = {
   //
   // Chưa tới giờ rà soát thì KHÔNG hiện gì cả. Hiện từ 7h30 là kêu suốt tiếng
   // rưỡi đầu giờ, và người ta tắt nó đi trước khi nó kịp có ích một lần.
+  //
+  // GẬP SẴN (Đ258-T), như bản của văn phòng từ góp ý 20/10: mở hẳn thì danh
+  // sách đẩy cả sổ điểm danh xuống dưới. Dòng tóm tắt vẫn nói đủ số bé và mốc
+  // giờ; bấm mới mở đúng nội dung cũ.
   theRaSoat() {
     const r = this._raSoat || {};
     if (!r.quaGio || !(r.danhSach || []).length) return '';
     return `
-      <div class="card" style="border-left:4px solid var(--danger)">
-        <div class="card-title" style="color:var(--danger)">
-          ${UI.icon('bell', 16)} Cần văn phòng gọi xác nhận
-        </div>
+      <details class="dd-can-goi" id="att-co-can-goi">
+        <summary>
+          <span class="dd-can-goi-hinh" aria-hidden="true">${UI.icon('phone', 18)}</span>
+          <span class="dd-can-goi-chu">
+            <b>${UI.esc(String(r.danhSach.length))} bé chưa có điểm danh sau ${UI.esc(this.chuGioRaSoat(r))}</b>
+            <span>Cần văn phòng gọi xác nhận</span>
+          </span>
+          <span class="dd-can-goi-mui" aria-hidden="true">${UI.icon('chevron', 18)}</span>
+        </summary>
+        <div class="dd-can-goi-than">
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
           Đã qua ${UI.esc(this.chuGioRaSoat(r))} mà ${UI.esc(String(r.danhSach.length))} bé
           chưa có dòng điểm danh nào, và cũng chưa có đơn nghỉ được duyệt.
@@ -808,7 +873,8 @@ App.views.attendance = {
           ${UI.esc(String(r.soDaCoDonNghi))} bé khác đang nghỉ có đơn đã duyệt — không cần gọi.
         </div>` : ''}
         ${this.nutChotVang(r.danhSach.length)}
-      </div>`;
+        </div>
+      </details>`;
   },
 
   // Cô chụp một khung hình "con đã tới lớp" để gửi gia đình.
@@ -1140,9 +1206,9 @@ App.views.attendance = {
   // (máy hỏng, mạng cổng rớt) hay cần sửa lại một dòng đã ghi. Bốn nút tích
   // cũ vẫn tồn tại, nhưng nằm trong hộp Sửa chứ không phơi trên từng dòng.
   //
-  // Bé chưa có dòng nào thì huy hiệu XÁM "Chưa có ảnh đến lớp" — đó là việc
-  // của người lớn chưa làm, không phải một lời nào về bé (QUY TẮC 2). Màu đỏ
-  // chỉ có ở bảng rà soát sau 9 giờ, và ở dòng đã ghi "Nghỉ không phép" thật.
+  // Bé chưa có dòng nào thì chữ XÁM "Chưa có ảnh đến lớp" — đó là việc của
+  // người lớn chưa làm, không phải một lời nào về bé (QUY TẮC 2). Chữ, màu và
+  // viền của từng trạng thái nằm trong bảng `TRANG_THAI_DONG`.
   //
   // BẤM TÊN (Đ242D, góp ý D3): trường kêu mỗi dòng 5–6 nút dễ bấm nhầm. Nay cả
   // ảnh + tên là MỘT nút — lần 1 vào lớp, lần 2 ra về, lần nào cũng qua màn
@@ -1162,17 +1228,18 @@ App.views.attendance = {
       : '';
     const coAnh = !!(anhDenLop && anhDenLop.file);
     const goiY = !coMat ? 'Bấm tên để vào lớp' : (record.checkOut ? '' : 'Bấm tên để ra về');
+    const tt = this.trangThaiDong(record, donNghiDaDuyet);
     return `
-      <div class="list-row" id="att-dong-${UI.esc(s.id)}" style="align-items:flex-start">
-        <button type="button" class="att-ten" onclick="App.views.attendance.chamNhanh('${UI.esc(s.id)}')"
-          style="flex:1;min-width:0;display:flex;gap:12px;align-items:flex-start;text-align:left;background:none;
-                 border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer">
-        <span style="flex:none" title="Bấm để chụp ảnh">${coAnh
-          ? `<img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp"
-               style="width:54px;height:54px;flex:none;border-radius:12px;object-fit:cover">`
+      <div class="list-row dd-the" id="att-dong-${UI.esc(s.id)}">
+        <button type="button" class="att-ten" onclick="App.views.attendance.chamNhanh('${UI.esc(s.id)}')">
+        <span class="dd-anh ${tt.vien}${coAnh ? ' dd-anh-vuong' : ''}" title="Bấm để chụp ảnh">${coAnh
+          ? `<img src="/api/attendance/anh/${UI.esc(anhDenLop.file)}" alt="Ảnh ${UI.esc(s.name)} tới lớp">`
           : UI.avatar(s.avatar, 42)}</span>
-        <div class="row-main">
-          <div class="row-title">${UI.esc(s.name)}</div>
+        <div class="row-title">${UI.esc(s.name)}</div>
+        ${tt.vaoLop
+          ? `<span class="dd-vao-lop">${UI.icon('album', 14)} Vào lớp</span>`
+          : `<span class="dd-nhan ${tt.lop}">${tt.hinh ? UI.icon(tt.hinh, 14) : ''}${tt.chu}</span>`}
+        <div class="dd-duoi">
           <div class="row-sub">${UI.esc(s.code)}${times ? ` · ${UI.esc(times)}` : ''}${record && record.note ? ` · ${UI.esc(record.note)}` : ''}</div>
           ${donNghiDaDuyet ? `
             <div class="small mt-8" style="color:var(--info)">
@@ -1180,8 +1247,8 @@ App.views.attendance = {
                 ? ` (${UI.esc(UI.fmtDateShort(donNghiDaDuyet.fromDate))} – ${UI.esc(UI.fmtDateShort(donNghiDaDuyet.toDate))})`
                 : ''}${donNghiDaDuyet.reason ? ` · ${UI.esc(donNghiDaDuyet.reason.slice(0, 60))}` : ''}
             </div>` : ''}
-          <div class="flex" style="flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px">
-            ${this.huyHieuDong(record, donNghiDaDuyet)}
+          <div class="dd-ghi">
+            ${tt.vaoLop ? `<span class="${tt.lop}">${tt.chu}</span>` : ''}
             ${coMat && coAnh ? `
                 <!-- "ĐÃ GỬI", KHÔNG PHẢI "ĐÃ THẤY".
                      App không có đường nào biết gia đình đã mở ảnh ra xem —
@@ -1191,17 +1258,16 @@ App.views.attendance = {
                      đúng dòng chữ ấy là lý do cô không gọi điện.
                      Muốn nói "đã thấy" thật thì phải ghi lượt xem ở
                      GET /api/attendance/anh/:file trước — việc riêng. -->
-                <span class="small" style="color:var(--success)">Đã gửi cho gia đình</span>`
+                <span style="color:var(--success)">Đã gửi cho gia đình</span>`
               : ''}
-            ${goiY ? `<span class="small muted">${goiY}</span>` : ''}
+            ${goiY ? `<span>${goiY}</span>` : ''}
           </div>
           ${this.oAnhVe(anhVeNha, record, ghiChuVe)}
           ${this.oLuuY(luuY)}
         </div>
         </button>
-        <button type="button" class="btn sm outline" data-viec-khac="${UI.esc(s.id)}"
+        <button type="button" class="dd-viec-khac" data-viec-khac="${UI.esc(s.id)}"
           aria-label="Việc khác của bé: ghi tay có mặt hoặc nghỉ, lưu ý, gọi gia đình, gỡ ảnh"
-          style="flex:none;min-width:44px;min-height:40px;font-size:1.15rem;line-height:1"
           onclick="App.views.attendance.suaDiemDanh('${UI.esc(s.id)}')">⋯</button>
       </div>`;
   },
@@ -1284,16 +1350,29 @@ App.views.attendance = {
     if (nutGo) nutGo.onclick = () => gui('');
   },
 
-  // Huy hiệu của một dòng. Có dòng thì nói đúng dòng; chưa có dòng mà đã có
-  // đơn nghỉ được duyệt thì báo trước "Nghỉ CP theo đơn" — lúc chốt sổ nó sẽ
-  // thành dòng thật; còn lại là chữ xám về việc chưa làm.
-  huyHieuDong(record, donNghiDaDuyet) {
-    if (record) {
-      const conf = UI.ATT_STATUS[record.status] || UI.ATT_STATUS.present;
-      return UI.badge(this.SHORT[record.status] || conf.label, conf.cls);
-    }
-    if (donNghiDaDuyet) return '<span class="badge blue" style="opacity:.8">Nghỉ CP theo đơn</span>';
-    return '<span class="badge gray">Chưa có ảnh đến lớp</span>';
+  // TRẠNG THÁI CỦA MỘT DÒNG BÉ — MỘT BẢNG (Đ258-T): chữ của nhãn, lớp màu của
+  // nhãn, kiểu viền quanh ảnh. Nhãn viết đủ chữ; chữ tắt của `SHORT` chỉ còn
+  // trong hộp "⋯".
+  //
+  // Bé chưa có dòng nào (`chua`) không mang nhãn màu: chỗ của nhãn là nút "Vào
+  // lớp", còn trạng thái là một dòng chữ xám với viền đứt nét xám — việc của
+  // người lớn chưa làm, không phải một lời nào về bé (QUY TẮC 2). Chưa có dòng
+  // mà đã có đơn nghỉ được duyệt (`don`) thì báo trước bằng nhãn viền đứt nét;
+  // lúc chốt sổ nó thành dòng "Nghỉ có phép" thật.
+  TRANG_THAI_DONG: {
+    chua: { chu: 'Chưa có ảnh đến lớp', lop: 'dd-chua', vien: 'dd-vien-chua', vaoLop: true },
+    don: { chu: 'Nghỉ có phép theo đơn', lop: 'dd-duong dd-du-kien', vien: 'dd-vien-chua' },
+    present: { chu: 'Có mặt', lop: 'dd-la', vien: 'dd-vien-la', hinh: 'check' },
+    late: { chu: 'Đến muộn', lop: 'dd-vang', vien: 'dd-vien-la' },
+    daVe: { chu: 'Đã về', lop: 'dd-xam', vien: 'dd-vien-xam', hinh: 'home' },
+    absent_excused: { chu: 'Nghỉ có phép', lop: 'dd-duong', vien: 'dd-vien-duong' },
+    absent_unexcused: { chu: 'Nghỉ không phép', lop: 'dd-cam', vien: 'dd-vien-cam' },
+  },
+
+  trangThaiDong(record, donNghiDaDuyet) {
+    const khoa = !record ? (donNghiDaDuyet ? 'don' : 'chua')
+      : (record.status === 'present' && record.checkOut ? 'daVe' : record.status);
+    return this.TRANG_THAI_DONG[khoa] || this.TRANG_THAI_DONG.present;
   },
 
   // Hộp "⋯" của dòng: ba trạng thái + ghi chú, cho lúc không chụp được ảnh
@@ -1393,7 +1472,7 @@ App.views.attendance = {
   //
   // App.route() vẽ lại cả trang rồi cuộn về đầu. Nhóm 30 bé thì cô chạm bé thứ 25
   // xong bị ném về đầu danh sách, phải cuộn lại từ đầu cho từng em — điểm danh
-  // một nhóm thành 30 lần cuộn. Chỉ vẽ lại đúng dòng vừa đổi và hai ô đếm.
+  // một nhóm thành 30 lần cuộn. Chỉ vẽ lại đúng dòng vừa đổi và hàng ô đếm.
   async mark(studentId, status, note) {
     // Chấm "Nghỉ không phép" đúng vào ngày em đã có đơn được duyệt gần như luôn
     // là nhầm — và phụ huynh sẽ thấy chữ đỏ cho con mình dù cô đã duyệt đơn.
@@ -1456,16 +1535,11 @@ App.views.attendance = {
     el.outerHTML = this.rosterRow(dong);
   },
 
+  // Vẽ lại cả hàng ô đếm: ô "Nghỉ không phép" có lúc hiện, có lúc không. Màn
+  // của văn phòng không có hàng này nên không làm gì.
   veLaiSoDem() {
-    const tong = this._roster.length;
-    const daDiem = this._roster.filter(x => x.record).length;
-    const oDa = document.getElementById('att-so-da');
-    const oChua = document.getElementById('att-so-chua');
-    if (oDa) oDa.textContent = daDiem;
-    if (oChua) {
-      oChua.textContent = tong - daDiem;
-      oChua.style.color = tong - daDiem ? 'var(--warning)' : 'var(--muted)';
-    }
+    const o = document.getElementById('att-o-so');
+    if (o) o.outerHTML = this.theOSo();
   },
 
   // Hỏi lại trước khi ghi hàng loạt. Trước đây một lần chạm nhầm ghi đè toàn bộ

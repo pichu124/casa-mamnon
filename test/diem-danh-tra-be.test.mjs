@@ -152,7 +152,7 @@ console.log('\n[1] Cô một nhóm: MỘT dòng Vào/Ra');
   // DẢI TAB ĐÃ GỠ (Đ210). Trước đợt ấy chỗ này đòi đúng hai tab.
   check('KHÔNG còn dải hai phần Đón bé / Trả bé', await dem('#att-tab') === 0, await dem('#att-tab'));
   check('màn vẫn có ô đếm và danh sách chấm như trước',
-    await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
+    await dem('#att-so-chua') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
     await dem('[id^="att-dong-"]'));
   // Đ242D: chụp ảnh check-in là bấm TÊN bé (ảnh + tên là một nút).
   check('mỗi dòng bé có nút tên để chụp ảnh check-in',
@@ -166,7 +166,7 @@ console.log('\n[1] Cô một nhóm: MỘT dòng Vào/Ra');
   // sử, và một liên kết chết là cô bấm vào thấy trang trắng.
   await moMan('#/attendance/tra');
   check('#/attendance/tra lặng lẽ về màn gộp, không trang trắng',
-    await dem('#att-so-da') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
+    await dem('#att-so-chua') === 1 && await dem('[id^="att-dong-"]') === MAU.soBeNhomChoi2,
     await dem('[id^="att-dong-"]'));
   check('…và không có ô sự cố nào', await dem('#att-tra') === 0);
   await doBoCuc('Điểm danh gộp');

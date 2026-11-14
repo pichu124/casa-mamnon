@@ -1215,4 +1215,177 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
    ------------------------------------------------------------ */
 
 /* == Đ258-T: điểm danh của cô == */
+/* Màu lấy đúng bảng màu của bản vẽ. Nhãn và ô đếm tự mang nền + chữ nên giữ
+   nguyên ở nền tối; chữ phụ (#55627a) và khối vàng chỉ đủ tương phản trên nền
+   sáng nên đi qua biến, nền tối đổi sang cặp màu khác. */
+.dd-dau, .dd-o-so, .dd-the, .dd-can-goi {
+  --dd-phu: #55627a;
+  --dd-vang-nen: #fffbeb; --dd-vang-vien: #f3d98a; --dd-vang-chu: #7c2d12;
+}
+@media (prefers-color-scheme: dark) {
+  .dd-dau, .dd-o-so, .dd-the, .dd-can-goi {
+    --dd-phu: #a3b0c8;
+    --dd-vang-nen: #2a2114; --dd-vang-vien: #5b4514; --dd-vang-chu: #fcd34d;
+  }
+}
+
+/* Năm cặp màu dùng chung cho ô đếm và nhãn trạng thái. */
+.dd-la { background: #d1fae5; color: #065f46; }
+.dd-duong { background: #e0f2fe; color: #0369a1; }
+.dd-xam { background: #f1f3f8; color: #334155; }
+.dd-cam { background: #ffedd5; color: #c2410c; }
+.dd-vang { background: #fffbeb; color: #7c2d12; box-shadow: inset 0 0 0 1px #f3d98a; }
+
+/* Phần đầu màu tím: nút quay lại, tên màn, ô chọn nhóm, hai nút ngày. */
+.dd-dau {
+  position: relative; overflow: hidden; isolation: isolate;
+  display: flex; flex-direction: column; gap: 12px;
+  margin: 0 -16px 14px;
+  padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 16px calc(16px + env(safe-area-inset-left));
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-radius: 0 0 32px 32px;
+}
+.dd-dau::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  right: -46px; top: -58px; width: 190px; height: 190px; border-radius: 50%;
+  background: rgba(255, 255, 255, .1);
+}
+/* Có hàng ô đếm ngay dưới thì chừa chỗ cho hàng ấy gối lên 26px. */
+.dd-dau.dd-dau-co-o { margin-bottom: 0; padding-bottom: 40px; }
+.dd-dau-tren { display: flex; align-items: center; gap: 10px; }
+.dd-dau .back-btn {
+  flex: none; width: 44px; height: 44px; border-radius: 15px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .4); background: rgba(255, 255, 255, .16); color: #fff;
+}
+.dd-dau h1 { font-size: 20px; font-weight: 800; color: #fff; }
+.dd-dau-phu { margin-top: 1px; font-size: 13px; font-weight: 500; color: #e7e5ff; }
+.dd-dau > .muted { margin-top: -4px !important; color: #e7e5ff; }
+.dd-chon-nhom > span { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: #e7e5ff; }
+.dd-chon-nhom select {
+  width: 100%; min-height: 44px; padding: 0 12px;
+  border: 0; border-radius: 14px; background: #fff; color: #0f172a; font-weight: 600;
+}
+
+.dd-ngay { display: flex; gap: 6px; padding: 4px; border-radius: 18px; background: rgba(255, 255, 255, .16); }
+.dd-ngay-nut {
+  position: relative; flex: none; min-height: 44px; padding: 4px 14px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 14px; font-weight: 600; line-height: 1.25; text-align: center; color: #fff; cursor: pointer;
+}
+#att-hom-nay { flex: 1; min-width: 0; }
+.dd-ngay-nut.dd-dang-chon { background: #fff; color: #3730a3; font-weight: 700; box-shadow: 0 6px 14px -8px rgba(15, 23, 42, .45); }
+.dd-ngay-nut:focus-visible, .dd-ngay-nut:focus-within { outline: 2px solid #fff; outline-offset: 2px; }
+/* Ô ngày của hệ điều hành phủ trong suốt lên cả nút "Ngày khác". Trên máy tính
+   Chromium chỉ mở lịch khi bấm đúng biểu tượng lịch, nên biểu tượng ấy cũng
+   được kéo ra phủ kín ô. */
+.dd-ngay-nut input[type=date] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer;
+}
+.dd-ngay-nut input[type=date]::-webkit-calendar-picker-indicator {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; cursor: pointer;
+}
+
+/* Hàng ô đếm. */
+.dd-o-so {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
+  margin: 0 0 12px; padding: 10px;
+  background: var(--surface); border-radius: 20px;
+  box-shadow: 0 18px 36px -16px rgba(49, 46, 129, .35), 0 2px 6px rgba(15, 23, 42, .05);
+}
+.dd-dau-co-o + .dd-o-so { margin-top: -26px; }
+.dd-o-so.dd-o-so-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dd-o {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 8px 4px; border-radius: 14px; text-align: center;
+}
+.dd-o b { font-size: 20px; font-weight: 800; line-height: 1.2; }
+.dd-o span { font-size: 12px; font-weight: 600; line-height: 1.25; }
+
+/* Khối "Cần văn phòng gọi xác nhận" của cô: một dòng, bấm mới mở. */
+.dd-can-goi {
+  margin: 0 0 12px;
+  border: 1px solid var(--dd-vang-vien); border-radius: 18px; background: var(--dd-vang-nen);
+}
+.dd-can-goi > summary {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 56px; padding: 8px 12px; cursor: pointer; list-style: none;
+}
+.dd-can-goi > summary::-webkit-details-marker { display: none; }
+.dd-can-goi-hinh {
+  flex: none; width: 38px; height: 38px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #f59e0b; color: #fff;
+}
+.dd-can-goi-chu { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dd-can-goi-chu b { font-size: 14px; font-weight: 700; color: var(--dd-vang-chu); }
+.dd-can-goi-chu span { font-size: 13px; color: var(--text-2); }
+.dd-can-goi-mui { flex: none; color: var(--dd-vang-chu); transform: rotate(90deg); transition: transform .16s; }
+.dd-can-goi[open] .dd-can-goi-mui { transform: rotate(-90deg); }
+.dd-can-goi-than { padding: 0 12px 12px; }
+
+/* Thẻ của một bé. `#view` đứng đầu để thắng luật thu gọn `.list-row` của vai
+   cô và quản trị ở phần trên của tệp. */
+.dd-ds { margin: 0 0 12px; }
+#view .dd-the {
+  align-items: flex-start; gap: 0;
+  margin-bottom: 8px; padding: 0;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .05);
+}
+.dd-the .att-ten {
+  flex: 1; min-width: 0; min-height: 60px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "anh ten nhan" "anh duoi duoi";
+  column-gap: 10px; row-gap: 2px; align-items: center; align-content: center;
+  padding: 8px 4px 8px 10px; text-align: left; color: var(--text);
+}
+.dd-anh {
+  grid-area: anh; align-self: start;
+  display: inline-flex; padding: 2px; border: 2px solid #b6c0d4; border-radius: 50%;
+}
+.dd-anh.dd-anh-vuong { border-radius: 16px; }
+.dd-anh img { width: 54px; height: 54px; border-radius: 12px; object-fit: cover; }
+.dd-vien-chua { border-style: dashed; }
+.dd-vien-xam { border-color: #b6c0d4; }
+.dd-vien-la { border-color: #10b981; }
+.dd-vien-duong { border-color: #60a5fa; }
+.dd-vien-cam { border-color: #fb923c; }
+.dd-the .row-title { grid-area: ten; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+.dd-duoi { grid-area: duoi; min-width: 0; }
+.dd-duoi svg { display: inline-block; vertical-align: -2px; }
+.dd-the .row-sub { margin-top: 0; font-size: 13px; color: var(--dd-phu); overflow-wrap: anywhere; }
+.dd-ghi {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px;
+  margin-top: 2px; font-size: 13px; color: var(--dd-phu);
+}
+.dd-chua { font-weight: 600; }
+.dd-nhan, .dd-vao-lop {
+  grid-area: nhan; align-self: start;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; line-height: 1.25;
+}
+.dd-nhan { min-height: 28px; max-width: 124px; padding: 4px 10px; border-radius: 14px; }
+.dd-nhan.dd-du-kien { border: 1px dashed #38bdf8; background: #f0f9ff; }
+.dd-vao-lop { min-height: 32px; padding: 0 12px; border-radius: 16px; background: #4f46e5; color: #fff; white-space: nowrap; }
+.dd-viec-khac {
+  flex: none; width: 44px; height: 44px; margin: 8px 2px 0 0; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--dd-phu); font-size: 1.4rem; line-height: 1;
+}
+
+.btn.dd-ca-nhom {
+  min-height: 46px; border: 1px dashed #818cf8; border-radius: 16px;
+  background: #eef2ff; color: #3730a3; white-space: normal;
+}
+
+/* Màn hẹp: nhãn xuống dưới tên bé, bốn ô đếm xếp hai hàng. */
+@media (max-width: 359px) {
+  .dd-the .att-ten { grid-template-areas: "anh ten ten" "anh nhan nhan" "anh duoi duoi"; }
+  .dd-nhan, .dd-vao-lop { justify-self: start; max-width: none; margin: 2px 0; }
+  .dd-o-so.dd-o-so-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 /* == hết Đ258-T == */
