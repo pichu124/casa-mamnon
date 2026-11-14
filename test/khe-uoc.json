@@ -222,6 +222,7 @@
     "loiKhongMoDuoc": "ham(1)",
     "moduleEnabled": "ham(1)",
     "moiCaiVaoManHinhChinh": "ham(0)",
+    "mucThanhDuoi": "ham(1)",
     "navigate": "ham(1)",
     "ngheBanMoi": "ham(0)",
     "nhoManHinhPhanHe": "ham(0)",
@@ -238,6 +239,7 @@
     "startBadgePolling": "ham(0)",
     "state": "object",
     "stopBadgePolling": "ham(0)",
+    "veThanhDuoi": "ham(1)",
     "views": "object",
     "watchInstallPrompt": "ham(0)",
     "watchVisibility": "ham(0)"

@@ -518,6 +518,47 @@ window.App = {
       </button>`).join('');
   },
 
+  // THANH DƯỚI THEO VAI (Đ258).
+  //
+  // Gia đình mở app trước hết để biết con đã tới lớp chưa, nên có ô Điểm danh.
+  // Cô ghi nhanh nhiều lần mỗi ngày, nên ô ấy nổi ở giữa (`noi`); phần Ghi
+  // nhanh tắt thì chỗ giữa là ô Điểm danh thường. Quản trị và mọi vai khác giữ
+  // đúng năm ô của `renderBottomNav`, kể cả "Quay lại".
+  //
+  // Ô nào mà phần của nó không mở với người này thì không có trong danh sách.
+  mucThanhDuoi(vai) {
+    const so = this.state.badges || {};
+    const o = {
+      back: { key: 'back', label: 'Quay lại', icon: 'back', onclick: 'history.back()' },
+      dashboard: { key: 'dashboard', label: 'Trang chủ', icon: 'home', hash: '#/' },
+      attendance: { key: 'attendance', label: 'Điểm danh', icon: 'attendance', hash: '#/attendance', module: 'attendance' },
+      notifications: { key: 'notifications', label: 'Thông báo', icon: 'bell', hash: '#/notifications', badge: so.thongbao, module: 'notifications' },
+      thuchup: { key: 'thuchup', label: 'Ghi nhanh', icon: 'plus', hash: '#/thuchup', module: 'thuchup', noi: true },
+      messages: { key: 'messages', label: 'Nhắn tin', icon: 'chat', hash: '#/messages', badge: so.nhantin, module: 'messages' },
+      settings: { key: 'settings', label: 'Cài đặt', icon: 'settings', hash: '#/settings' },
+    };
+    const mo = (it) => !it.module || this.moduleEnabled(it.module);
+    let ds = [o.back, o.dashboard, o.notifications, o.messages, o.settings];
+    if (vai === 'parent') ds = [o.dashboard, o.attendance, o.notifications, o.messages, o.settings];
+    if (vai === 'teacher') ds = [o.dashboard, o.notifications, mo(o.thuchup) ? o.thuchup : o.attendance, o.messages, o.settings];
+    return ds.filter(mo);
+  },
+
+  // Dựng thanh dưới từ `mucThanhDuoi`. Mỗi ô vẫn là
+  // `<button class="nav-item" onclick="location.hash='…'">`: màn Thông báo
+  // đang nhận ra cú bấm chuông theo đúng dạng ấy.
+  veThanhDuoi(active) {
+    const nav = document.getElementById('bottom-nav');
+    const u = this.state.user;
+    nav.innerHTML = this.mucThanhDuoi(u && u.role).map(it => `
+      <button class="nav-item ${it.noi ? 'nav-noi ' : ''}${active === it.key ? 'active' : ''}"
+        onclick="${it.onclick || `location.hash='${it.hash}'`}">
+        ${it.noi ? `<span class="nav-noi-vong">${UI.icon(it.icon, 22)}</span>` : UI.icon(it.icon, 22)}
+        <span>${it.label}</span>
+        ${it.badge ? `<span class="nav-badge">${it.badge > 99 ? '99+' : it.badge}</span>` : ''}
+      </button>`).join('');
+  },
+
   async refreshBadges() {
     if (!this.state.user) return;
     try {
