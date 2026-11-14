@@ -830,6 +830,21 @@ CREATE TABLE IF NOT EXISTS push_dang_ky (
 );
 CREATE INDEX IF NOT EXISTS idx_push_dang_ky_user ON push_dang_ky(userId);
 
+-- Đăng ký đẩy của máy này thuộc PHIÊN ĐĂNG NHẬP nào (Đ255).
+--
+-- Phiên hết hạn hay bị huỷ thì máy đó thôi nhận tin về bé (lib/day.js).
+-- `phienTaoLuc` là `sessions.createdAt` của phiên đã bật hoặc nối lại đăng ký
+-- — một mốc thời gian, KHÔNG chép mã phiên sang bảng thứ hai. `daNhac` = 1 khi
+-- máy đã nhận tin nhắc "đăng nhập lại": chỉ nhắc một lần rồi im.
+--
+-- Bảng phụ, KHÔNG ALTER `push_dang_ky`. Đăng ký có từ trước bản này không có
+-- dòng ở đây; lib/day.js xử riêng ca đó.
+CREATE TABLE IF NOT EXISTS push_dang_ky_phien (
+  endpoint    TEXT PRIMARY KEY REFERENCES push_dang_ky(endpoint) ON DELETE CASCADE,
+  phienTaoLuc INTEGER NOT NULL,
+  daNhac      INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS notification_reads (
   notificationId TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
   userId         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1272,6 +1287,29 @@ CREATE TABLE IF NOT EXISTS attendance_ghi_chu_ve (
   ghiChu     TEXT NOT NULL DEFAULT '',
   nguoiGhi   TEXT,
   capNhatLuc TEXT,
+  PRIMARY KEY (studentId, date)
+);
+
+-- ===========================================================================
+-- GIỜ TỚI LỚP DO CÔ SỬA TAY (Đ255, chủ dự án duyệt 13/11)
+-- ===========================================================================
+--
+-- Cô chụp ảnh tới lớp bù lúc 17:00 rồi sửa giờ tới lớp thành 07:45 (Đ254) thì
+-- gia đình đọc "Giờ đến lớp 07:45" ngay trên chữ "Cô chụp lúc 17:00" của tấm
+-- ảnh. Màn hình cần biết giờ đang ghi là giờ cô sửa để thôi hiện giờ chụp, mà
+-- `attendance` không có ô nào nói điều ấy và lược đồ lõi cấm ALTER, nên lượt
+-- sửa sau cùng của mỗi bé mỗi ngày nằm ở bảng phụ này.
+--
+-- Giờ đang ghi CHỈ được coi là giờ cô sửa khi `gioSau` còn bằng đúng
+-- `attendance.checkIn`. Cô chấm nghỉ rồi chấm có mặt lại thì máy đóng giờ
+-- mới, khác `gioSau`: dòng ở lại làm vết, không cần dọn.
+CREATE TABLE IF NOT EXISTS attendance_gio_vao_sua (
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  date      TEXT NOT NULL,              -- YYYY-MM-DD
+  gioTruoc  TEXT,
+  gioSau    TEXT NOT NULL,
+  nguoiSua  TEXT,
+  suaLuc    TEXT,
   PRIMARY KEY (studentId, date)
 );
 

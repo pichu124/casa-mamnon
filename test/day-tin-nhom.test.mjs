@@ -142,6 +142,9 @@ try {
     // Đăng ký giả trỏ vào một cổng chắc chắn không ai nghe: lỗi trả về NGAY,
     // không phải chờ hết giờ mạng. Bài canh không được phụ thuộc vào Internet.
     const ai = idCua('phuhuynh');
+    // Người nhận đang đăng nhập: từ Đ255, không còn phiên nào thì ba mươi máy
+    // này chỉ nhận tin nhắc đăng nhập lại, không phải tin đang đo.
+    await login('phuhuynh', '123456');
     for (let i = 0; i < 30; i += 1) themDangKy(ai, `https://127.0.0.1:1/gia-${i}`);
     await duong.guiChoNguoi(ai, { tieuDe: 'Đo trần', noiDung: 'x', hash: '#/notifications' });
 

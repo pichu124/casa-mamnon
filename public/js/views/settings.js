@@ -167,7 +167,9 @@ App.views.settings = {
     // TỪ Đ154 QUẢN LÝ ĐÃ CÓ TIN ĐẨY THẬT.
     //
     // Ai còn thấy thẻ này sau hai dòng chặn ở trên: gia đình, quản trị Cấp 1
-    // (chưa gắn chức vụ), hiệu trưởng và quản lý cơ sở. Đúng ba nhóm sau là
+    // (chưa gắn chức vụ), hiệu trưởng, quản lý cơ sở, và từ Đ257 là kế toán
+    // khi Học phí đang bật (chỉ nhận tin nhắc hạn nộp — xem `veTrangThaiDay`
+    // đổi câu giới thiệu cho người không có việc duyệt). Ba nhóm giữa là
     // những người `lib/bao-nha-truong.js` gửi tới khi cô gửi báo cáo học tập
     // hay đề xuất sửa kế hoạch — nên câu "tài khoản nhà trường không nhận tin
     // tự động" của bản trước nay đã sai, và phải sửa cùng lúc với việc thêm
@@ -181,7 +183,7 @@ App.views.settings = {
           ${laGiaDinh
             ? `Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`
-            : `Bật để máy tự báo khi có <b>việc chờ mình duyệt</b><span id="st-push-loai"></span>.
+            : `Bật để máy tự báo khi có <b id="st-push-viec">việc chờ mình duyệt</b><span id="st-push-loai"></span>.
                Nút "Gửi thử" còn dùng để kiểm đường thông báo của trường — nhận được nghĩa là
                máy chủ gửi được tin tới điện thoại phụ huynh.
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`}
@@ -212,6 +214,40 @@ App.views.settings = {
     } catch (_) { return null; }
   },
 
+  // MÁY CHỦ CÓ ĐĂNG KÝ CỦA ĐÚNG NGƯỜI ĐANG ĐĂNG NHẬP CHO MÁY NÀY KHÔNG (Đ257).
+  //
+  // Trình duyệt còn giữ đăng ký đẩy CHƯA có nghĩa là người đang đăng nhập nhận
+  // được tin. Người khác đăng nhập trên máy mà người cũ không bấm Đăng xuất
+  // thì dòng ở máy chủ vẫn của người cũ; trường vừa đổi khoá hay quản trị vừa
+  // gỡ máy thì máy chủ không còn dòng nào. Bản trước chỉ hỏi trình duyệt, nên
+  // cả hai ca đều ghi "đang nhận" và giấu luôn nút Bật — người ấy không bao
+  // giờ nhận tin, và không có nút nào để sửa.
+  //
+  // Dùng lại đường nối lại của Đ255: nó không bao giờ tạo dòng mới, và khi có
+  // dòng của đúng người thì nối luôn với phiên đang dùng — nên lần nối lại lúc
+  // đăng nhập có bị rớt mạng thì mở Cài đặt cũng nối xong trước khi "Gửi thử".
+  //
+  // Trả `true` / `false` khi máy chủ trả lời được; `null` khi KHÔNG hỏi được
+  // (mất mạng, lỗi máy chủ, chức vụ không được gọi đường này, máy chủ đời cũ).
+  // `null` thì chỗ gọi tin vào trình duyệt như bản trước — không báo oan "chưa
+  // bật" cho một máy đang nhận tin bình thường.
+  //
+  // Gọi `fetch` thẳng, cùng lý do với `App.dongBoDangKyDay`: đây là câu hỏi
+  // nền, hỏng thì im, không lời báo lỗi và không đưa ai về màn đăng nhập.
+  async mayChuCoMayNay(endpoint) {
+    try {
+      const res = await fetch('/api/push/dong-bo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint }),
+        credentials: 'same-origin',
+      });
+      if (!res.ok) return null;
+      const tra = await res.json();
+      return typeof tra.conDangKy === 'boolean' ? tra.conDangKy : null;
+    } catch (_) { return null; }
+  },
+
   async veTrangThaiDay() {
     const o = document.getElementById('st-push-trang-thai');
     const bat = document.getElementById('st-push-bat');
@@ -237,6 +273,11 @@ App.views.settings = {
     const oLoai = document.getElementById('st-push-loai');
     if (oLoai && Array.isArray(tt.loaiTin) && tt.loaiTin.length) {
       oLoai.textContent = `: ${tt.loaiTin.join(', ')}`;
+      // Kế toán không duyệt việc gì (Đ257E): danh sách của họ không có dòng
+      // "chờ duyệt" nào, nên câu "việc chờ mình duyệt" là nói sai về chính
+      // loại tin họ nhận.
+      const oViec = document.getElementById('st-push-viec');
+      if (oViec && !tt.loaiTin.some(t => /chờ duyệt/.test(t))) oViec.textContent = 'tin nhà trường gửi cho mình';
     }
 
     if (!tt.coGoiDay) {
@@ -246,7 +287,10 @@ App.views.settings = {
     }
     const sub = await this.dangKyHienTai();
     const quyen = typeof Notification !== 'undefined' ? Notification.permission : 'default';
-    if (sub) {
+    // Hỏi máy chủ XONG rồi mới vẽ, để thẻ đổi trạng thái đúng một lần. Máy chủ
+    // nói rõ "không có" thì rơi xuống đúng nhánh "chưa bật" bên dưới — cùng
+    // câu chữ, cùng nút Bật.
+    if (sub && await this.mayChuCoMayNay(sub.endpoint) !== false) {
       o.innerHTML = `<span style="color:var(--success)">Máy này đang nhận thông báo.</span>${tt.soMay > 1 ? ` Tài khoản có ${UI.esc(String(tt.soMay))} máy đang bật.` : ''}`;
       bat.style.display = 'none'; tat.style.display = ''; thu.style.display = '';
     } else if (quyen === 'denied') {
@@ -273,13 +317,43 @@ App.views.settings = {
       if (quyen !== 'granted') return UI.toast('Chưa được phép hiện thông báo — trình duyệt đang chặn hoặc bạn vừa từ chối', 'error');
       const { khoa } = await API.get('/api/push/khoa-cong-khai');
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: this.khoaSangMang(khoa) });
+      const tuyChon = { userVisibleOnly: true, applicationServerKey: this.khoaSangMang(khoa) };
+      // Trình duyệt còn đăng ký cũ tạo bằng CÙNG khoá (người khác vừa đăng nhập
+      // trên máy này, quản trị vừa gỡ máy) thì `subscribe` trả lại chính đăng ký
+      // ấy, và lời gọi bên dưới ghi nó sang tên người đang bấm.
+      //
+      // Còn đăng ký cũ tạo bằng khoá KHÁC (trường vừa đổi khoá) thì trình duyệt
+      // từ chối. Khi ấy phải huỷ đăng ký cũ rồi mới đăng ký lại được — đăng ký
+      // cũ đằng nào cũng không còn nhận được tin của trường.
+      let sub;
+      try {
+        sub = await reg.pushManager.subscribe(tuyChon);
+      } catch (loi) {
+        // CHỈ huỷ khi trình duyệt từ chối VÌ KHÁC KHOÁ (InvalidStateError).
+        // Lỗi nào khác (rớt mạng, dịch vụ đẩy không tới được) mà cũng huỷ thì
+        // một đăng ký đang chạy tốt bị xoá oan, và đăng ký lại cũng hỏng nốt:
+        // máy mất thông báo vì một cú bấm lúc sóng yếu (Đ257E).
+        if (!loi || loi.name !== 'InvalidStateError') throw loi;
+        const cu = await reg.pushManager.getSubscription();
+        if (!cu) throw loi;
+        await cu.unsubscribe();
+        sub = await reg.pushManager.subscribe(tuyChon);
+      }
       await API.post('/api/push/dang-ky', { subscription: sub.toJSON() });
       UI.toast('Đã bật thông báo trên máy này', 'success');
     } catch (e) {
-      UI.toast(e.message || 'Chưa bật được thông báo trên máy này', 'error');
+      UI.toast(this.chuLoiDay(e, 'Chưa bật được thông báo trên máy này. Thử lại sau ít phút nhé.'), 'error');
     }
     await this.veTrangThaiDay();
+  },
+
+  // Câu báo lỗi cho người dùng (Đ257C). Lỗi do MÁY CHỦ trả về đã là tiếng
+  // Việt — giữ nguyên. Lỗi do TRÌNH DUYỆT ném ra khi đăng ký hay huỷ đăng ký
+  // đẩy (DOMException) là câu tiếng Anh kỹ thuật, kiểu "Registration failed -
+  // push service error": thay bằng câu cố định của app.
+  chuLoiDay(e, macDinh) {
+    const cuaTrinhDuyet = typeof DOMException !== 'undefined' && e instanceof DOMException;
+    return (!cuaTrinhDuyet && e && e.message) || macDinh;
   },
 
   async tatThongBaoDay() {
@@ -290,7 +364,7 @@ App.views.settings = {
         await sub.unsubscribe();
       }
       UI.toast('Đã tắt thông báo trên máy này', 'success');
-    } catch (e) { UI.toast(e.message || 'Chưa tắt được', 'error'); }
+    } catch (e) { UI.toast(this.chuLoiDay(e, 'Chưa tắt được thông báo trên máy này. Thử lại sau ít phút nhé.'), 'error'); }
     await this.veTrangThaiDay();
   },
 

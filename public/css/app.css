@@ -48,7 +48,12 @@
   --shadow-lg: 0 28px 56px -18px rgba(15, 23, 42, .28), 0 6px 16px rgba(15, 23, 42, .08);
   --shadow-glow: 0 10px 24px -8px rgba(79, 70, 229, .5);
 
-  --nav-h: 68px;
+  /* Chỗ thanh điều hướng dưới đáy chiếm, TÍNH CẢ vùng an toàn của iPhone có
+     vạch Home (34px khi chạy như app đã cài). Dải nổi, hộp báo nổi và lề đáy
+     của trang đều đặt theo biến này; trước Đ256 nó là 68px trần nên trên
+     iPhone đời mới những thứ ấy đè lên thanh. Máy không có vùng an toàn thì
+     env() bằng 0 và mọi thứ ở đúng chỗ cũ. */
+  --nav-h: calc(68px + env(safe-area-inset-bottom, 0px));
   --ease: cubic-bezier(.22, .8, .3, 1);
   color-scheme: light;
 }
@@ -340,6 +345,17 @@ h1, h2, h3, h4 { line-height: 1.25; letter-spacing: -.015em; font-weight: 750; }
   color: #fff; font-size: .64rem; font-weight: 750;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid var(--surface);
+}
+/* MÀN HẸP (dưới 390px — iPhone SE, iPhone mini, máy Android nhỏ): năm mục
+   không đủ chỗ với bề rộng và lề thường ngày. Trước Đ256 chữ "Thông báo",
+   "Trang chủ" rớt xuống hai dòng, thanh cao 89px thay vì 71px, và mọi thứ đặt
+   theo --nav-h (dải mời cài, hộp báo nổi, nút nổi) đè lên mép trên của thanh;
+   ở 320px mục đầu còn tràn ra ngoài mép trái. Nay chữ luôn một dòng, mục co
+   lề lại và chia đều chỗ còn dư. */
+.bottom-nav .nav-item { white-space: nowrap; }
+@media (max-width: 389px) {
+  .bottom-nav { gap: 0; padding-left: 4px; padding-right: 4px; }
+  .bottom-nav .nav-item { min-width: 0; flex: 1 1 auto; padding-left: 3px; padding-right: 3px; }
 }
 
 /* ===== Thẻ nội dung ===== */

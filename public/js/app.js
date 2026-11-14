@@ -23,6 +23,7 @@ window.App = {
       this.route();
       this.startBadgePolling();
       this.moiCaiVaoManHinhChinh();
+      this.dongBoDangKyDay();
     } catch (err) {
       // MẤT MẠNG KHÔNG PHẢI LÀ HẾT PHIÊN ĐĂNG NHẬP.
       //
@@ -368,6 +369,43 @@ window.App = {
     this.state.user = null;
     location.hash = '';
     this.showLogin();
+  },
+
+  // NỐI ĐĂNG KÝ ĐẨY CỦA MÁY NÀY VỚI PHIÊN ĐĂNG NHẬP HIỆN TẠI (Đ255).
+  //
+  // Phiên đăng nhập hết (30 ngày, hoặc đổi mật khẩu ở máy khác) thì máy chủ
+  // thôi gửi tin về bé tới máy này, chỉ nhắc một lần "đăng nhập lại". Trình
+  // duyệt thì vẫn giữ đăng ký đẩy. Nên mỗi lần mở app và sau mỗi lần đăng nhập
+  // app báo địa chỉ đẩy của máy cho máy chủ, để nó nối đăng ký ấy với phiên
+  // mới — gia đình không phải vào Cài đặt bấm "Bật trên máy này" lần nữa.
+  //
+  // VIỆC NỀN, IM LẶNG TUYỆT ĐỐI: không chờ, không báo lỗi, không bao giờ làm
+  // chậm hay làm hỏng việc mở app và đăng nhập. Máy chưa cho phép thông báo
+  // thì không thể có đăng ký đẩy, nên không hỏi service worker lần nào. Hạn
+  // chờ để một service worker treo không để lại lời gọi bắn ra muộn.
+  //
+  // Gọi `fetch` thẳng chứ KHÔNG qua `API.post`: `API.post` gặp 401 là đưa
+  // người dùng về màn đăng nhập, mà một lời gọi nền không được có quyền đó.
+  //
+  // Máy chủ KHÔNG tạo đăng ký mới ở đường này: người khác đăng nhập trên máy
+  // này, hay đăng ký đã bị xoá (đăng xuất, trường đổi khoá) thì vẫn phải tự
+  // bấm Bật.
+  dongBoDangKyDay() {
+    try {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      Promise.race([
+        navigator.serviceWorker.getRegistration().then(reg => (reg ? reg.pushManager.getSubscription() : null)),
+        new Promise(xong => setTimeout(() => xong(null), 10000)),
+      ]).then((dangKy) => {
+        if (!dangKy || !dangKy.endpoint || !this.state.user) return null;
+        return fetch('/api/push/dong-bo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: dangKy.endpoint }),
+          credentials: 'same-origin',
+        });
+      }).catch(() => {});
+    } catch (_) { /* trình duyệt không có phần đẩy — app vẫn chạy như thường */ }
   },
 
   navigate(hash) { location.hash = hash; },

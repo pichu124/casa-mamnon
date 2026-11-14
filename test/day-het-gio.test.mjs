@@ -30,6 +30,8 @@ const ra = execFileSync('node', ['-e', `
   const db = require('./lib/db');
   const day = require('./lib/day');
   const u = db.first('users', "SELECT id FROM users WHERE role = 'parent' ORDER BY id LIMIT 1");
+  // Người nhận đang đăng nhập: từ Đ255, không còn phiên nào thì máy thôi nhận tin thật.
+  require('./lib/auth').createSession(u.id);
   const dk = day.dangKy(u.id, { endpoint: 'https://day.example.invalid/may-1', keys: { p256dh: 'khoa-thu', auth: 'khoa-thu' } });
   day.guiChoNguoi(u.id, { tieuDe: 'Thử', noiDung: 'Thử hạn chờ', hash: '#/' }).then((kq) => {
     process.stdout.write(JSON.stringify({ dk, kq, thay }));

@@ -306,8 +306,11 @@ try {
     const ttCs2 = (await req('GET', '/api/push/trang-thai', { cookie: CS2 })).data;
     check('quản lý cơ sở cũng vậy', ttCs2.batDuoc === true, ttCs2);
     const ttKt = (await req('GET', '/api/push/trang-thai', { cookie: KT })).data;
-    check('còn chức vụ không nhận tin nào thì máy chủ nói thẳng là không',
-      ttKt.batDuoc === false && (ttKt.loaiTin || []).length === 0, ttKt);
+    // Từ Đ257 kế toán được hứa đúng thứ `CHUC_VU_LO_TIEN` gửi cho họ (tin
+    // nhắc hạn nộp) — và vẫn KHÔNG được hứa việc chờ duyệt của danh sách trên.
+    check('còn kế toán — ngoài danh sách nhận — chỉ được hứa tin nhắc hạn nộp, KHÔNG việc chờ duyệt nào',
+      ttKt.batDuoc === true
+        && JSON.stringify(ttKt.loaiTin) === JSON.stringify(['khoản thu sắp tới hạn nộp']), ttKt);
     check('và thẻ KHÔNG còn nói "tài khoản nhà trường thì không" — câu đó nay đã sai',
       !/tài khoản nhà trường thì không/.test(st));
 

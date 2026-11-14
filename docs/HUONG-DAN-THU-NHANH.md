@@ -18,11 +18,11 @@
 > được bản chính thì đừng sửa riêng tệp này: ghi việc cần sửa vào `docs/VIEC-DANG-DO.md` và
 > báo chủ dự án.
 >
-> **Chép từ bản chính lần cuối: 13/11/2026.**
+> **Chép từ bản chính lần cuối: 14/11/2026.**
 
 # Hướng dẫn thử nhanh app CASA Mầm non
 
-Nov 13, 2026
+Nov 14, 2026
 
 Bản ngắn · máy thử https://casa-school.duckdns.org · 57 việc, mỗi người chỉ làm phần của mình
 
@@ -50,6 +50,21 @@ Bản ngắn · máy thử https://casa-school.duckdns.org · 57 việc, mỗi n
 **Ghi kết quả:** làm xong mỗi việc thì chọn Đạt hoặc Không đạt ở cột “Kết quả”. Không đạt thì ghi vào **Phiếu báo lỗi** ở cuối: số việc, tài khoản, mong thấy gì, thực tế thấy gì, kèm ảnh chụp màn hình. Việc ở phần E (quyền riêng tư của trẻ) mà Không đạt thì báo người phụ trách ngay.
 
 **Thử theo cặp:** cột “Ai làm” ghi “A → B” nghĩa là A làm, B kiểm ở phía bên kia. Hai người nên ngồi gần nhau. Việc ghi “sau …” thì chờ việc đó xong mới làm. Nên làm D2 (phụ huynh bật thông báo) đầu tiên.
+
+## Ưu tiên thử trên điện thoại thật
+
+Các phần dưới đây mới chỉ được kiểm bằng máy (trình duyệt Chromium và dịch vụ gửi thông báo giả), chưa ai thử trên điện thoại thật. Thử chúng trước, trên một iPhone (Safari, app đã thêm vào màn hình chính) và một máy Android. Việc nào bản ngắn này chưa có thì làm theo dòng đã ghi của bản đầy đủ.
+
+| Thử gì | Làm theo | Vì sao quan trọng |
+| --- | --- | --- |
+| Thông báo về điện thoại: bật, bấm “Gửi thử”, nhận tin thật khi cô điểm danh | D2, A2 | Chưa từng gửi qua dịch vụ thông báo thật. |
+| Đăng xuất thì máy đó thôi nhận thông báo | Bản đầy đủ, dòng 2.9 | Chưa thử trên điện thoại thật. |
+| Bị đăng xuất do đổi mật khẩu ở máy khác: nhận đúng một tin nhắc chung, đăng nhập lại là nhận tiếp, thẻ ở “Cài đặt” ghi đúng “Máy này đang nhận thông báo” | Bản đầy đủ, dòng 2.6, bước 6–7 | Riêng iPhone chưa biết có tự nhận lại được không. |
+| Kế toán bật được thông báo (chỉ khi “Học phí” đang bật) | Bản đầy đủ, dòng 2.8 | Vừa làm, chưa thử trên điện thoại thật. |
+| Thanh dưới đáy (năm mục, chữ một dòng) và dải “Cài vào màn hình chính” không đè lên nhau, trên máy nhỏ (iPhone SE, iPhone mini) và iPhone có vạch Home | A1 | Vừa sửa, mới đo bằng máy. |
+| Sửa giờ tới lớp, ghi giờ về | Bản đầy đủ, dòng 4.3, bước 6–7 | Tính năng mới. |
+| Ảnh tới lớp sau khi cô sửa giờ | Bản đầy đủ, dòng 11.13, bước 5–6 | Tính năng mới. |
+| Máy đã cài app tự lên bản mới | Mở app hai lần | Sau hai lần mở, app không còn “Đón trả bé” và “Nhận xét”. |
 
 ## A. Cô giáo (điện thoại)
 

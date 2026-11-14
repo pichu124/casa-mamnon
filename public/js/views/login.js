@@ -34,6 +34,7 @@ App.views.login = {
         App.route();
         App.startBadgePolling();
         App.moiCaiVaoManHinhChinh();
+        App.dongBoDangKyDay();
         UI.toast(`Xin chào ${me.user.title} ${me.user.name}!`, 'success');
       } catch (err) {
         UI.toast(err.message, 'error');

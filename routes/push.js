@@ -7,6 +7,7 @@
 const day = require('../lib/day');
 const db = require('../lib/db');
 const baoNT = require('../lib/bao-nha-truong');
+const modules = require('../lib/modules');
 const { requireRole } = require('../lib/auth');
 
 // LOẠI TIN ĐẨY MÀ TÀI KHOẢN NÀY THẬT SỰ SẼ NHẬN (Đ157).
@@ -38,11 +39,21 @@ function loaiTinCua(user) {
   // thêm đường đẩy cho cô thì thêm dòng vào đây, và thẻ tự hiện lại.
   if (user.role !== 'admin') return [];
   const cv = db.chucVu(user);
-  if (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv)) return [];
-  return [
-    'báo cáo học tập cô gửi chờ duyệt',
-    'đề xuất sửa kế hoạch cô gửi chờ duyệt',
-  ];
+  const ds = [];
+  if (cv === null || baoNT.CHUC_VU_NHAN.includes(cv)) {
+    ds.push('báo cáo học tập cô gửi chờ duyệt', 'đề xuất sửa kế hoạch cô gửi chờ duyệt');
+    // Bộ quét ưu đãi của Học phí gửi "Có ưu đãi học phí sắp hết hạn" tới đúng
+    // nhóm này (`baoNT.guiChoQuanLyCuaBe`) từ lâu mà danh sách chưa nói (Đ257E).
+    if (modules.dangBat('hocphi')) ds.push('ưu đãi học phí sắp hết hạn');
+  }
+  // NGƯỜI LO TIỀN (Đ257): bộ quét hạn nộp của phân hệ Học phí gửi "Có khoản
+  // thu sắp tới hạn" qua `baoNT.guiChoNguoiLoTienCuaBe` — tới kế toán, và tới
+  // cả ban giám hiệu lẫn quản lý cơ sở. Với kế toán đây là dòng DUY NHẤT.
+  // Học phí tắt thì bộ quét không gửi gì, nên cũng không hứa.
+  if ((cv === null || baoNT.CHUC_VU_LO_TIEN.includes(cv)) && modules.dangBat('hocphi')) {
+    ds.push('khoản thu sắp tới hạn nộp');
+  }
+  return ds;
 }
 
 // AI ĐƯỢC XEM VÀ DỌN ĐƯỜNG ĐẨY CỦA CẢ TRƯỜNG.
@@ -55,8 +66,9 @@ function loaiTinCua(user) {
 //
 // Ba nhóm đi qua được — quản trị chưa khai chức vụ, ban giám hiệu, quản lý cơ
 // sở — và cả ba đều có `api: null`, nên tầng chức vụ không chặn họ ở đường
-// `/api/push/...`. Danh sách này TRÙNG với `baoNT.CHUC_VU_NHAN`, tức trùng
-// với đúng nhóm thật sự nhận được tin đẩy.
+// `/api/push/...`. Danh sách này TRÙNG với `baoNT.CHUC_VU_NHAN`. Kế toán bật
+// được thông báo trên máy mình để nhận tin nhắc hạn nộp (Đ257), nhưng KHÔNG
+// thuộc nhóm giữ khoá.
 function chiNguoiGiuKhoa(req, res) {
   const cv = db.chucVu(req.user);
   if (req.user.role !== 'admin' || (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv))) {
@@ -66,6 +78,13 @@ function chiNguoiGiuKhoa(req, res) {
     return true;
   }
   return false;
+}
+
+// Mốc tạo của phiên đang gọi (`sessions.createdAt`) — thứ nối một đăng ký đẩy
+// với phiên đăng nhập của máy đó (Đ255, xem `guiChoNguoi` ở lib/day.js).
+function mocPhien(req) {
+  const s = db.first('sessions', 'SELECT createdAt FROM sessions WHERE token = ?', [req.sessionToken || '']);
+  return s ? Number(s.createdAt) : null;
 }
 
 module.exports = (app) => {
@@ -90,9 +109,21 @@ module.exports = (app) => {
   });
 
   app.post('/api/push/dang-ky', (req, res) => {
-    const r = day.dangKy(req.user.id, (req.body || {}).subscription);
+    const r = day.dangKy(req.user.id, (req.body || {}).subscription, mocPhien(req));
     if (!r.ok) return res.status(400).json({ error: r.loi });
     res.json({ ok: true, soMay: day.soMayCua(req.user.id) });
+  });
+
+  // NỐI ĐĂNG KÝ ĐẨY CỦA MÁY NÀY VỚI PHIÊN VỪA ĐĂNG NHẬP (Đ255).
+  //
+  // App tự gọi mỗi lần mở và sau mỗi lần đăng nhập, khi trình duyệt còn giữ
+  // đăng ký đẩy. Không tạo đăng ký mới: `conDangKy: false` nghĩa là máy chủ
+  // không có dòng nào của ĐÚNG người này cho địa chỉ ấy, và muốn nhận tin thì
+  // phải tự bấm "Bật trên máy này". Thiếu hay sai địa chỉ cũng trả lời như
+  // vậy — đây là lời gọi nền, không có ai đứng đọc câu báo lỗi.
+  app.post('/api/push/dong-bo', (req, res) => {
+    const r = day.noiLaiPhien(req.user.id, (req.body || {}).endpoint, mocPhien(req));
+    res.json({ ok: true, conDangKy: r.conDangKy });
   });
 
   app.delete('/api/push/dang-ky', (req, res) => {
@@ -156,7 +187,11 @@ module.exports = (app) => {
     }
     const r = await day.guiChoNguoi(req.user.id, {
       tieuDe: 'CASA Mầm non',
-      noiDung: 'Thông báo thử — máy này đã nhận được. Từ giờ có tin về con là máy sẽ báo.',
+      // "Tin về con" chỉ đúng với gia đình; kế toán, ban giám hiệu, quản lý
+      // cơ sở cũng bấm Gửi thử được (Đ257) và họ nhận tin của nhà trường.
+      noiDung: req.user.role === 'parent'
+        ? 'Thông báo thử — máy này đã nhận được. Từ giờ có tin về con là máy sẽ báo.'
+        : 'Thông báo thử — máy này đã nhận được. Từ giờ có tin của nhà trường là máy sẽ báo.',
       hash: '#/settings',
     });
     res.json({ ok: true, ...r });
