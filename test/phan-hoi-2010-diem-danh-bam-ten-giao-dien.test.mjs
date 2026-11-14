@@ -526,6 +526,18 @@ try {
         await so('#att-so-kp') === 1 && /Nghỉ không phép/.test(await chu('#att-o-so .dd-o:nth-child(4)')), await chu('#att-o-so'));
       check('…ô "Chưa điểm danh" giảm còn 1, trang không vẽ lại toàn bộ',
         await so('#att-so-chua') === 1 && await p.evaluate(() => document.getElementById('view').dataset.moc) === 'con-nguyen', await chu('#att-o-so'));
+      // Khối "cần gọi" đếm theo sổ đang hiện: bé vừa có dòng thì rời khối ngay,
+      // không chờ tải lại — nếu không nó cãi nhau với ô "Chưa điểm danh".
+      const canGoi = await p.evaluate(() => {
+        const e = document.getElementById('att-co-can-goi');
+        return e ? { tomTat: e.querySelector('summary').innerText, mo: e.open, nut: e.querySelectorAll('[data-goi-be]').length } : null;
+      });
+      check('…khối "cần gọi" của cô đếm lại tại chỗ: còn 1 bé, vẫn đang mở, còn 1 nút Gọi',
+        !!canGoi && /1 bé chưa có điểm danh/.test(canGoi.tomTat) && canGoi.mo === true && canGoi.nut === 1, canGoi);
+      await p.locator('#att-co-can-goi [data-goi-be]').first().click({ timeout: 3000 }).catch(() => {});
+      await p.waitForTimeout(800);
+      check('…nút Gọi của khối vừa vẽ lại vẫn bấm được', /Gọi xác nhận/.test(await chu('#modal-overlay')), await chu('#modal-overlay'));
+      await p.evaluate(() => UI.closeModal());
       check('…dòng của bé mang nhãn viết đủ "Nghỉ không phép", không còn nút "Vào lớp"',
         await chu('#att-dong-s6 .dd-nhan') === 'Nghỉ không phép' && await dem('#att-dong-s6 .dd-vao-lop') === 0, await chu('#att-dong-s6'));
       await bam('#att-dong-s6 button[data-viec-khac]');

@@ -1540,6 +1540,26 @@ App.views.attendance = {
   veLaiSoDem() {
     const o = document.getElementById('att-o-so');
     if (o) o.outerHTML = this.theOSo();
+    this.veLaiCanGoi();
+  },
+
+  // Khối "cần gọi" của cô dựng từ danh sách máy chủ trả lúc mở màn. Cô vừa
+  // chấm xong một bé mà dòng tóm tắt vẫn đếm bé ấy thì nó cãi nhau với ô
+  // "Chưa điểm danh" ngay bên trên. Bé nào đã có dòng thì rời danh sách tại
+  // chỗ; khối đang mở thì vẫn mở. Hết bé thì khối tự biến mất. Màn của văn
+  // phòng không có khối này nên hàm không làm gì ở đó.
+  veLaiCanGoi() {
+    const khoi = document.getElementById('att-co-can-goi');
+    const r = this._raSoat;
+    if (!khoi || !r || !Array.isArray(r.danhSach)) return;
+    const daCo = new Set((this._roster || []).filter(x => x.record).map(x => x.student.id));
+    const con = r.danhSach.filter(x => !daCo.has(x.studentId));
+    if (con.length === r.danhSach.length) return;
+    r.danhSach = con;
+    const dangMo = khoi.open;
+    khoi.outerHTML = this.theRaSoat();
+    const moi = document.getElementById('att-co-can-goi');
+    if (moi) { moi.open = dangMo; this.ganNutGoi(moi); }
   },
 
   // Hỏi lại trước khi ghi hàng loạt. Trước đây một lần chạm nhầm ghi đè toàn bộ
