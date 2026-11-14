@@ -89,6 +89,8 @@ App.views.settings = {
         </div>
       </div>
 
+      ${this.theNamHoc()}
+
       <div class="card">
         <div class="card-title">🏫 Nhà trường</div>
         <div class="list-row"><div class="row-main"><div class="row-sub">Trường</div><div class="row-title">${UI.esc(school.name)}</div></div></div>
@@ -105,10 +107,49 @@ App.views.settings = {
     this.ganThongBaoDay();
 
     document.getElementById('st-change-pw').onclick = () => this.showChangePassword();
+    this.ganNamHoc();
 
     // Nút "Bật thông báo đẩy" từng bị gỡ ở Đ14 vì lúc đó là lời hứa suông.
     // Từ Đ137 đường đẩy có thật (public/sw.js nghe `push`, lib/day.js gửi,
     // bảng push_dang_ky giữ đăng ký) nên nút quay lại — xem `theThongBaoDay`.
+  },
+
+  // Ô CHỌN NĂM HỌC CỦA GIA ĐÌNH (Đ258) — chuyển từ phần đầu trang chủ sang đây.
+  //
+  // Ô này chỉ dẫn tới màn "Năm học trước", màn CHỈ dành cho gia đình
+  // (lib/modules.js: roles ['parent']) — nên cô và văn phòng không có thẻ này.
+  theNamHoc() {
+    const { user, school } = App.state;
+    if (user.role !== 'parent' || !school) return '';
+    return `
+      <div class="card" id="st-nam-hoc">
+        <div class="card-title">${UI.icon('calendar', 19)} Năm học</div>
+        <div class="field" style="margin-bottom:0">
+          <label for="year-select">Chọn năm học</label>
+          <select id="year-select">
+            ${(school.years || []).map(y => `<option value="${UI.esc(y)}" ${y === App.state.year ? 'selected' : ''}>${UI.esc(y)}</option>`).join('')}
+          </select>
+          ${App.moduleEnabled('namhoccu')
+            ? '<div class="hint">Chọn một năm học cũ để mở phần "Năm học trước" của nhóm con từng học.</div>' : ''}
+        </div>
+      </div>`;
+  },
+
+  ganNamHoc() {
+    const oNam = document.getElementById('year-select');
+    if (!oNam) return;
+    oNam.onchange = (e) => {
+      // Cùng hành vi với ô cũ ở trang chủ: dữ liệu năm cũ nằm ở màn "Năm học
+      // trước" — đưa gia đình tới đúng đó, còn năm hiện hành của app giữ
+      // nguyên (đổi `App.state.year` là màn Báo cáo tính nhầm học kỳ).
+      const { school } = App.state;
+      const nam = e.target.value;
+      if (school && nam !== school.currentYear) {
+        e.target.value = school.currentYear;
+        if (App.moduleEnabled('namhoccu')) App.navigate('#/namhoccu');
+        else UI.toast('Dữ liệu năm cũ xem ở phần "Năm học trước" — nhờ nhà trường bật phần này giúp nhé');
+      }
+    };
   },
 
   // LỐI VÀO CỦA PHÂN HỆ KHÔNG CÓ Ô TRÊN TRANG CHỦ (Đ241f, góp ý 20/10 A1).
