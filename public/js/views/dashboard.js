@@ -534,8 +534,13 @@ App.views.dashboard = {
   _moThem: false,     // gia đình đang mở các ô ngoài nhóm "Hằng ngày"
   _theoDoiKs: null,   // bộ theo dõi huy hiệu của ô Khảo sát
 
-  // Năm phần gia đình mở mỗi ngày, đúng thứ tự của bản vẽ. Kể theo `view`.
-  O_HANG_NGAY: ['attendance', 'leave', 'menu', 'medicine', 'albums'],
+  // Những phần gia đình mở mỗi ngày, đúng thứ tự của bản vẽ. Kể theo `view`.
+  //
+  // "Nhật ký ngày" đứng ngay sau Điểm danh: với nhà có bé nhà trẻ đó là trang
+  // sổ đọc mỗi chiều (ăn, ngủ), giấu nó sau dòng "mục khác" là giấu đúng thứ
+  // họ mở app để xem. Nhà chỉ có bé lớn thì máy chủ đã bảo bỏ ô này
+  // (`dieuKienHien`), nhóm vẫn còn năm ô như bản vẽ.
+  O_HANG_NGAY: ['attendance', 'nhatky', 'leave', 'menu', 'medicine', 'albums'],
 
   renderPhuHuynh(root) {
     const { school, user } = App.state;
@@ -556,7 +561,7 @@ App.views.dashboard = {
         <h1 class="ph-chao">${UI.esc(this.greeting())}, ${UI.esc(tenChao)}</h1>
         ${UI.studentBar()}
       </header>
-      <div class="ph-than">
+      <div class="ph-than${be ? '' : ' ph-khong-the'}">
         ${be ? this.khungHomNay(be) : ''}
         ${oKs ? `
         <a class="ph-ks" id="ph-khao-sat" href="${UI.esc(oKs.hash)}" style="display:none">
@@ -565,6 +570,10 @@ App.views.dashboard = {
           ${UI.icon('chevron', 18)}
         </a>` : ''}
         <div class="tile-sheet ph-o${this._moThem ? ' mo-them' : ''}">
+          ${tiles.length ? '' : `<div class="muted small center" style="padding:24px 8px">
+            Tài khoản của mình chưa có phần nào hiện ở đây.
+            Cần thêm phần nào thì nhờ nhà trường mở giúp.
+          </div>`}
           ${coNhom ? '<h2 class="ph-nhom">Hằng ngày</h2>' : ''}
           <div class="tile-grid"${coNhom ? ` data-hn="${hangNgay.length}"` : ''}>
             ${hangNgay.map(t => this.oPhuHuynh(t, false)).join('')}${conLai.map(t => this.oPhuHuynh(t, coNhom)).join('')}
@@ -685,7 +694,15 @@ App.views.dashboard = {
   },
 
   async napHomNayPhuHuynh(be) {
-    const goThe = () => { const o = document.getElementById('ph-hom-nay'); if (o) o.remove(); };
+    // Gỡ thẻ thì báo luôn cho phần thân: thân trang đang gối lên phần đầu tím
+    // để thẻ nổi trên đó; không còn thẻ mà vẫn gối thì chữ "Hằng ngày" nằm đè
+    // lên nền tím, không đọc được.
+    const goThe = () => {
+      const o = document.getElementById('ph-hom-nay');
+      if (!o) return;
+      if (o.parentElement) o.parentElement.classList.add('ph-khong-the');
+      o.remove();
+    };
     try {
       const ngay = UI.todayStr();
       const coDiemDanh = App.moduleEnabled('attendance');
@@ -736,6 +753,12 @@ App.views.dashboard = {
     const bua = (((d.thucDon && d.thucDon.menus) || []).find(m => m.date === ngay) || {}).meals || [];
     const mon = bua.filter(b => b && b.type === 'lunch').flatMap(b => b.items || []).map(String).filter(Boolean);
 
+    // Thứ Bảy, Chủ nhật: cả app coi thứ Hai – thứ Sáu là ngày học (đơn xin
+    // nghỉ, lịch nghỉ đều đếm như vậy). Cuối tuần mà viết "cô chưa điểm danh"
+    // là trách cô một việc không ai chờ. Cô có chấm thì dòng vẫn hiện như
+    // thường; không có gì để nói thì thẻ được gỡ.
+    const cuoiTuan = [0, 6].includes(UI.parseDate(ngay).getDay());
+
     const ra = [];
     if (dot) {
       ra.push(this.dongThe({ loai: 'truong-nghi', kieu: 'xam', bieuTuong: 'calendar', ten: `Hôm nay trường nghỉ: ${dot.ten}` }));
@@ -754,7 +777,7 @@ App.views.dashboard = {
       // Ghi chú của một dòng nghỉ (kể cả dòng app tự ghi theo đơn đã duyệt)
       // đứng ngay dưới nhãn, không đội tên "cô nhắn".
       ra.push(this.dongThe({ loai: 'be-nghi', kieu: 'xam', bieuTuong: 'calendar', ten: nhan, phu: r.note || '' }));
-    } else if (d.coDiemDanh && !dot) {
+    } else if (d.coDiemDanh && !dot && !cuoiTuan) {
       ra.push(this.dongThe({ loai: 'chua', kieu: 'ngo', bieuTuong: 'attendance', ten: 'Cô chưa điểm danh hôm nay' }));
     }
     // Ngày trường nghỉ thì bếp không nấu: món còn nằm trong thực đơn tuần

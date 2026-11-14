@@ -1273,6 +1273,9 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
 .ph-hero .student-chip.active { color: #3730a3; }
 
 .ph-than { position: relative; z-index: 2; margin-top: -34px; display: flex; flex-direction: column; gap: 12px; }
+/* Không có thẻ "Hôm nay" (đường điểm danh hỏng, cuối tuần không có gì để nói,
+   tài khoản chưa gắn bé) thì thân trang thôi gối lên phần đầu tím. */
+.ph-than.ph-khong-the { margin-top: 14px; }
 
 /* Thẻ "Hôm nay của <tên bé>" */
 .ph-the {
@@ -1353,6 +1356,7 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
 .ph-nhom { margin: 0 4px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; color: var(--ph-phu); }
 .ph-o .tile-grid { grid-template-columns: repeat(60, minmax(0, 1fr)); gap: 14px 0; }
 .ph-o .tile { grid-column: span 15; min-width: 0; gap: 6px; padding: 0 2px; }
+.ph-o .tile-grid[data-hn="6"] .tile:not(.tile-phu) { grid-column: span 20; }
 .ph-o .tile-grid[data-hn="5"] .tile:not(.tile-phu) { grid-column: span 12; }
 .ph-o .tile-grid[data-hn="3"] .tile:not(.tile-phu) { grid-column: span 20; }
 .ph-o .tile-grid[data-hn="2"] .tile:not(.tile-phu) { grid-column: span 30; }

@@ -402,8 +402,30 @@ console.log('\n[5] Gia đình: phần đầu gọn và thẻ "Hôm nay của <t�
   check('đổi con thì thẻ đổi theo: "Hôm nay của Bảo Nam", không còn dòng nào của bé An',
     the2.includes('Hôm nay của Bảo Nam') && !the2.includes('Con hơi ho') && !thuTu2.includes('toi')
     && (await dem(page, '#ph-hom-nay a.ph-anh')) === 0, the2.slice(0, 200));
-  check('chưa có dòng điểm danh → "Cô chưa điểm danh hôm nay", không có dòng Ra về',
-    thuTu2[0] === 'chua' && the2.includes('Cô chưa điểm danh hôm nay') && !thuTu2.includes('ra-ve') && !the2.includes('Ra về'), thuTu2);
+  // Cả app coi thứ Hai – thứ Sáu là ngày học. Luật ấy kiểm thẳng trên hàm ghép
+  // dòng với ba ngày cố định, để bài này nói cùng một điều dù chạy thứ mấy.
+  const theoThu = await page.evaluate(() => {
+    const v = App.views.dashboard, be = App.currentStudent();
+    const loai = (ngay) => v.dongHomNay(be, ngay, { so: [], kho: null, thucDon: null, lich: null, coSo: '', coDiemDanh: true })
+      .map(h => (h.match(/data-ph="([^"]+)"/) || [])[1]);
+    return { thuHai: loai('2026-11-09'), thuBay: loai('2026-11-14'), chuNhat: loai('2026-11-15') };
+  });
+  check('ngày thường chưa có dòng điểm danh → nhắc "cô chưa điểm danh"; thứ Bảy, Chủ nhật thì KHÔNG nhắc',
+    JSON.stringify(theoThu) === JSON.stringify({ thuHai: ['chua'], thuBay: [], chuNhat: [] }), theoThu);
+  const CUOI_TUAN = [0, 6].includes(new Date(`${NGAY}T00:00:00`).getDay());
+  if (CUOI_TUAN) {
+    check('(hôm nay là cuối tuần) thẻ của bé chưa có dòng điểm danh KHÔNG nhắc cô, không có dòng Ra về',
+      !thuTu2.includes('chua') && !the2.includes('Cô chưa điểm danh') && !thuTu2.includes('ra-ve') && !the2.includes('Ra về'), thuTu2);
+    // Vẽ dòng của một ngày thường vào thẻ để phép đo màu ngay dưới vẫn chạy.
+    await page.evaluate(() => {
+      const v = App.views.dashboard;
+      document.querySelector('#ph-hom-nay .ph-the-than').innerHTML = v.dongHomNay(App.currentStudent(), '2026-11-09',
+        { so: [], kho: null, thucDon: null, lich: null, coSo: '', coDiemDanh: true }).join('');
+    });
+  } else {
+    check('chưa có dòng điểm danh → "Cô chưa điểm danh hôm nay", không có dòng Ra về',
+      thuTu2[0] === 'chua' && the2.includes('Cô chưa điểm danh hôm nay') && !thuTu2.includes('ra-ve') && !the2.includes('Ra về'), thuTu2);
+  }
   const mauChua = await mauCua(page, '#ph-hom-nay [data-ph="chua"]');
   check('"chưa điểm danh" là chữ xám trung tính: không đỏ, không cam, không viền cảnh báo, không phần trăm (QUY TẮC 2, 4)',
     !!mauChua && mauTrungTinh(mauChua.chu) && mauTrungTinh(mauChua.vien) && mauTrungTinh(mauChua.bieuTuong) && !/%/.test(the2), mauChua);
@@ -468,6 +490,28 @@ console.log('\n[6] Gia đình: dòng khảo sát, nhóm "Hằng ngày", dòng "�
   check('nhóm "Hằng ngày" đủ 5 ô đúng thứ tự bản vẽ, đều đang HIỆN',
     JSON.stringify(hangNgay.map(o => o.key)) === JSON.stringify(O_HANG_NGAY) && hangNgay.every(o => o.hien)
     && (await chu(page)).includes('Hằng ngày'), hangNgay);
+
+  // Nhà có bé nhà trẻ: "Nhật ký ngày" là trang sổ đọc mỗi chiều, phải nằm
+  // ngay trong nhóm Hằng ngày chứ không sau dòng "mục khác".
+  {
+    const pageNt = await moTrang({ width: 390, height: 844 }, KHONG_SW);
+    await dangNhap(pageNt, 'ph.trang', '123456');
+    await cho(pageNt, '#ph-them');
+    await pageNt.waitForTimeout(900);
+    const nt = await pageNt.locator('.tile-grid .tile:not(.tile-phu)').evaluateAll(els => els.map(e => {
+      const k = e.getBoundingClientRect();
+      return { key: e.dataset.tileKey, hien: e.offsetParent !== null, tren: Math.round(k.top), rong: Math.round(k.width) };
+    }));
+    const hang = [...new Set(nt.map(o => o.tren))];
+    check('gia đình có bé nhà trẻ: "Nhật ký ngày" đứng thứ hai trong nhóm Hằng ngày, đang HIỆN',
+      nt.length === 6 && nt[0].key === 'diemdanh' && nt[1].key === 'nhatky' && nt.every(o => o.hien), nt);
+    check('… sáu ô xếp hai hàng ba ô, ô nào cũng rộng ≥ 44px', hang.length === 2
+      && nt.filter(o => o.tren === hang[0]).length === 3 && nt.every(o => o.rong >= 44), nt);
+    check('… dòng "mục khác" của nhà này không kể "Nhật ký ngày"',
+      !(await chuO(pageNt, '#ph-them')).includes('Nhật ký ngày'), await chuO(pageNt, '#ph-them'));
+    await pageNt.screenshot({ path: SHOT + 'gia-dinh-nha-tre.png', fullPage: true });
+    await pageNt.context().close();
+  }
 
   // MỌI phần đang bật với gia đình phải có ô — tính lại từ danh sách máy chủ
   // trả về và từ chính các đường `dieuKienHien`, không tin vào lưới đang vẽ.
@@ -591,6 +635,19 @@ console.log('\n[8] Thẻ hôm nay hỏng thì trang chủ vẫn dùng được (
     (await dem(page, '#ph-them')) === 1 && (await dem(page, '#ph-hom-nay')) === 0, await dem(page, '#ph-hom-nay'));
   check('… trang chủ vẫn đủ ô, nhóm Hằng ngày vẫn hiện', (await dem(page, '.tile')) >= 10
     && (await dem(page, '.tile:not(.tile-phu):visible')) === O_HANG_NGAY.length);
+  // Không còn thẻ thì thân trang thôi gối lên phần đầu tím: chữ "Hằng ngày"
+  // màu xám mà nằm trên nền tím là không đọc được.
+  // Giấu dòng khảo sát trước khi đo: có dòng ấy thì chính nó (thẻ trắng) gối
+  // lên phần đầu, che mất ca cần canh là nhà không có khảo sát nào chờ.
+  const gheDau = await page.evaluate(() => {
+    const ks = document.getElementById('ph-khao-sat');
+    if (ks) ks.style.display = 'none';
+    const dau = document.querySelector('.ph-hero').getBoundingClientRect();
+    const chu = document.querySelector('.ph-nhom').getBoundingClientRect();
+    return { dayDau: Math.round(dau.bottom), dinhChu: Math.round(chu.top) };
+  });
+  check('… thẻ đã gỡ thì chữ "Hằng ngày" nằm DƯỚI phần đầu tím, không đè lên',
+    gheDau.dinhChu >= gheDau.dayDau, gheDau);
   if (await dem(page, '#ph-them')) await page.click('#ph-them');
   await page.waitForTimeout(250);
   check('… dòng "mục khác" vẫn mở được', (await dem(page, '.tile.tile-phu:visible')) > 3);
