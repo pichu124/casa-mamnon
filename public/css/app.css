@@ -1193,3 +1193,26 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
   body[data-vai="teacher"] .tile-grid,
   body[data-vai="admin"] .tile-grid { grid-template-columns: repeat(8, 1fr); }
 }
+
+/* ============================================================
+   Đ258 — GIAO DIỆN MỚI THEO BẢN VẼ ĐÃ DUYỆT (14/11/2026)
+   Ba khối dưới đây, mỗi khối do MỘT đơn vị viết. Không sửa ngoài
+   khối của mình, không xoá các dòng mốc.
+   ============================================================ */
+
+/* == Đ258-N: thanh điều hướng dưới đáy theo vai == */
+/* == hết Đ258-N == */
+
+/* ------------------------------------------------------------
+   mốc ngăn N | P — ba dòng này không đổi
+   ------------------------------------------------------------ */
+
+/* == Đ258-P: trang chủ của phụ huynh == */
+/* == hết Đ258-P == */
+
+/* ------------------------------------------------------------
+   mốc ngăn P | T — ba dòng này không đổi
+   ------------------------------------------------------------ */
+
+/* == Đ258-T: điểm danh của cô == */
+/* == hết Đ258-T == */
