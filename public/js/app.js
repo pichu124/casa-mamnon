@@ -533,7 +533,7 @@ window.App = {
       dashboard: { key: 'dashboard', label: 'Trang chủ', icon: 'home', hash: '#/' },
       attendance: { key: 'attendance', label: 'Điểm danh', icon: 'attendance', hash: '#/attendance', module: 'attendance' },
       notifications: { key: 'notifications', label: 'Thông báo', icon: 'bell', hash: '#/notifications', badge: so.thongbao, module: 'notifications' },
-      thuchup: { key: 'thuchup', label: 'Ghi nhanh', icon: 'plus', hash: '#/thuchup', module: 'thuchup', noi: true },
+      thuchup: { key: 'thuchup', label: 'Ghi nhanh', icon: 'camera', hash: '#/thuchup', module: 'thuchup', noi: true },
       messages: { key: 'messages', label: 'Nhắn tin', icon: 'chat', hash: '#/messages', badge: so.nhantin, module: 'messages' },
       settings: { key: 'settings', label: 'Cài đặt', icon: 'settings', hash: '#/settings' },
     };
