@@ -98,7 +98,7 @@ try {
     // của Học phí vốn gửi tin ấy cho họ từ Đ199, chỉ là danh sách chưa nói.
     check('BAN GIÁM HIỆU bật được, và chỉ được hứa đúng việc chờ duyệt cùng khoản thu sắp tới hạn',
       qt.batDuoc === true && qt.loaiTin.some(t => /chờ duyệt/.test(t))
-        && qt.loaiTin.every(t => /chờ duyệt|^khoản thu sắp tới hạn nộp$/.test(t)), qt);
+        && qt.loaiTin.every(t => /chờ duyệt|^khoản thu sắp tới hạn nộp$|^ưu đãi học phí sắp hết hạn$/.test(t)), qt);
 
     const gv = (await req('GET', '/api/push/trang-thai', { cookie: GV })).data;
     check('CÔ: chưa có loại tin nào nên batDuoc = false (Đ145 giữ nguyên)',

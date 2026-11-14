@@ -213,10 +213,12 @@ try {
   // =========================================================================
   console.log('\n[5] Ban giám hiệu và quản lý cơ sở được nói thêm ĐÚNG dòng ấy');
   {
-    const mong = JSON.stringify([...DONG_CHO_DUYET, DONG_HAN_NOP]);
+    // Người duyệt còn nhận tin "Có ưu đãi học phí sắp hết hạn" (bộ quét ưu
+    // đãi, `guiChoQuanLyCuaBe`) — kế toán thì không (Đ257E).
+    const mong = JSON.stringify([...DONG_CHO_DUYET, 'ưu đãi học phí sắp hết hạn', DONG_HAN_NOP]);
     for (const [ten, cookie] of [['ban giám hiệu', HT], ['quản lý cơ sở', QL], ['quản trị chưa khai chức vụ', QT]]) {
       const tt = (await trangThai(cookie)).data;
-      check(`${ten}: hai việc chờ duyệt như cũ, thêm khoản thu sắp tới hạn nộp`,
+      check(`${ten}: hai việc chờ duyệt như cũ, thêm ưu đãi sắp hết hạn và khoản thu sắp tới hạn nộp`,
         tt.batDuoc === true && JSON.stringify(tt.loaiTin) === mong, tt.loaiTin);
     }
   }

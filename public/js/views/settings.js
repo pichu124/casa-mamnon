@@ -167,7 +167,9 @@ App.views.settings = {
     // TỪ Đ154 QUẢN LÝ ĐÃ CÓ TIN ĐẨY THẬT.
     //
     // Ai còn thấy thẻ này sau hai dòng chặn ở trên: gia đình, quản trị Cấp 1
-    // (chưa gắn chức vụ), hiệu trưởng và quản lý cơ sở. Đúng ba nhóm sau là
+    // (chưa gắn chức vụ), hiệu trưởng, quản lý cơ sở, và từ Đ257 là kế toán
+    // khi Học phí đang bật (chỉ nhận tin nhắc hạn nộp — xem `veTrangThaiDay`
+    // đổi câu giới thiệu cho người không có việc duyệt). Ba nhóm giữa là
     // những người `lib/bao-nha-truong.js` gửi tới khi cô gửi báo cáo học tập
     // hay đề xuất sửa kế hoạch — nên câu "tài khoản nhà trường không nhận tin
     // tự động" của bản trước nay đã sai, và phải sửa cùng lúc với việc thêm
@@ -181,7 +183,7 @@ App.views.settings = {
           ${laGiaDinh
             ? `Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`
-            : `Bật để máy tự báo khi có <b>việc chờ mình duyệt</b><span id="st-push-loai"></span>.
+            : `Bật để máy tự báo khi có <b id="st-push-viec">việc chờ mình duyệt</b><span id="st-push-loai"></span>.
                Nút "Gửi thử" còn dùng để kiểm đường thông báo của trường — nhận được nghĩa là
                máy chủ gửi được tin tới điện thoại phụ huynh.
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`}
@@ -271,6 +273,11 @@ App.views.settings = {
     const oLoai = document.getElementById('st-push-loai');
     if (oLoai && Array.isArray(tt.loaiTin) && tt.loaiTin.length) {
       oLoai.textContent = `: ${tt.loaiTin.join(', ')}`;
+      // Kế toán không duyệt việc gì (Đ257E): danh sách của họ không có dòng
+      // "chờ duyệt" nào, nên câu "việc chờ mình duyệt" là nói sai về chính
+      // loại tin họ nhận.
+      const oViec = document.getElementById('st-push-viec');
+      if (oViec && !tt.loaiTin.some(t => /chờ duyệt/.test(t))) oViec.textContent = 'tin nhà trường gửi cho mình';
     }
 
     if (!tt.coGoiDay) {
@@ -322,6 +329,11 @@ App.views.settings = {
       try {
         sub = await reg.pushManager.subscribe(tuyChon);
       } catch (loi) {
+        // CHỈ huỷ khi trình duyệt từ chối VÌ KHÁC KHOÁ (InvalidStateError).
+        // Lỗi nào khác (rớt mạng, dịch vụ đẩy không tới được) mà cũng huỷ thì
+        // một đăng ký đang chạy tốt bị xoá oan, và đăng ký lại cũng hỏng nốt:
+        // máy mất thông báo vì một cú bấm lúc sóng yếu (Đ257E).
+        if (!loi || loi.name !== 'InvalidStateError') throw loi;
         const cu = await reg.pushManager.getSubscription();
         if (!cu) throw loi;
         await cu.unsubscribe();

@@ -42,6 +42,9 @@ function loaiTinCua(user) {
   const ds = [];
   if (cv === null || baoNT.CHUC_VU_NHAN.includes(cv)) {
     ds.push('báo cáo học tập cô gửi chờ duyệt', 'đề xuất sửa kế hoạch cô gửi chờ duyệt');
+    // Bộ quét ưu đãi của Học phí gửi "Có ưu đãi học phí sắp hết hạn" tới đúng
+    // nhóm này (`baoNT.guiChoQuanLyCuaBe`) từ lâu mà danh sách chưa nói (Đ257E).
+    if (modules.dangBat('hocphi')) ds.push('ưu đãi học phí sắp hết hạn');
   }
   // NGƯỜI LO TIỀN (Đ257): bộ quét hạn nộp của phân hệ Học phí gửi "Có khoản
   // thu sắp tới hạn" qua `baoNT.guiChoNguoiLoTienCuaBe` — tới kế toán, và tới

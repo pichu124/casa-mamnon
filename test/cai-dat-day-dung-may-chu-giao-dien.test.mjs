@@ -48,6 +48,9 @@ const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng Thử', 'c_qt');
 // từ Đ257B kế toán nhận tin nhắc hạn nộp nên không còn là ví dụ đúng.)
 const mkKT = taoQuanTri(DIR, 'Nhân Sự Thử', 'c_ns');
 datChucVu(DIR, 'c_ns', 'nhansu');
+// Kế toán: từ Đ257B có thẻ thông báo khi phân hệ Học phí đang bật (mục [9]).
+const mkKeToan = taoQuanTri(DIR, 'Kế Toán Thử', 'c_kt');
+datChucVu(DIR, 'c_kt', 'ketoan');
 const CSDL = path.join(DIR, 'school.db');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7367), dir: DIR });
 const req = taoReq(sv.BASE);
@@ -76,6 +79,7 @@ async function datMatKhau(u, mkTam) {
 }
 const QT = await datMatKhau('c_qt', mkQT);
 await datMatKhau('c_ns', mkKT);
+await datMatKhau('c_kt', mkKeToan);
 
 const MAY_1 = 'https://day.example.invalid/may-gia-1';
 const MAY_2 = 'https://day.example.invalid/may-gia-2';
@@ -463,6 +467,27 @@ try {
     const chu = await bamBat();
     check('bật máy này nữa: thẻ ghi đang nhận và kể tài khoản có 2 máy',
       chu === `${DANG_NHAN} Tài khoản có 2 máy đang bật.`, chu);
+
+    // KHÔNG HUỶ OAN MỘT ĐĂNG KÝ ĐANG CHẠY TỐT (Đ257E, reviewer nêu). Nút Bật
+    // bấm được cả lúc thẻ còn "Đang kiểm tra…". Nếu lúc ấy trình duyệt không
+    // đăng ký được vì lý do KHÁC "khác khoá" (rớt mạng), app không được huỷ
+    // đăng ký đang có — huỷ rồi mà đăng ký lại cũng hỏng là máy mất thông báo.
+    {
+      const truoc = await gia();
+      const dong0 = soDong();
+      await datGia({ hongDichVu: true });
+      await page.evaluate(() => App.views.settings.batThongBaoDay());
+      await page.waitForLoadState('networkidle');
+      const sau = await gia();
+      check('đăng ký đang tốt, trình duyệt báo lỗi mạng khi bấm Bật: KHÔNG huỷ đăng ký đang có',
+        !!truoc.endpoint && sau.endpoint === truoc.endpoint
+          && (sau.viec || []).slice((truoc.viec || []).length).every(v => v !== 'huy'),
+        { truoc: truoc.endpoint, sau: sau.endpoint, viec: (sau.viec || []).slice((truoc.viec || []).length) });
+      check('…máy chủ vẫn giữ đủ dòng, thẻ vẫn ghi đang nhận',
+        soDong() === dong0 && /đang nhận thông báo/.test((await page.locator('#st-push-trang-thai').innerText()).trim()),
+        [soDong(), (await page.locator('#st-push-trang-thai').innerText()).trim()]);
+      await datGia({ hongDichVu: false });
+    }
   }
 
   // =========================================================================
@@ -488,6 +513,36 @@ try {
     await page.waitForLoadState('networkidle');
     check('nhân sự (máy chủ nói không có loại tin nào): thẻ được gỡ đi, không hỏi máy chủ về máy này',
       (await page.locator('#st-push-card').count()) === 0 && bang(luotTu(n0), [HOI_TRANG_THAI]), luotTu(n0));
+  }
+
+  // =========================================================================
+  console.log('\n[9b] Kế toán (Học phí đang bật): có thẻ, câu giới thiệu không nói "việc chờ mình duyệt"');
+  {
+    const bat = await req('PUT', '/api/admin/modules/hocphi', { cookie: QT, body: { enabled: true } });
+    check('đối chứng — bật được phân hệ Học phí', bat.status === 200, bat.status);
+    await roiMayKhongDangXuat();
+    await datGia({ endpoint: '', quyen: 'default' });
+    await dangNhapTrenManHinh('c_kt', MK_QT);
+    await page.evaluate(() => { location.hash = '#/settings'; });
+    await page.waitForSelector('#st-push-card', { timeout: 10000 }).catch(() => { /* phép kiểm bên dưới sẽ nói */ });
+    await page.waitForFunction(() => /khoản thu/.test((document.getElementById('st-push-card') || {}).textContent || ''), null, { timeout: 10000 })
+      .catch(() => { /* phép kiểm bên dưới sẽ nói */ });
+    const chuThe = (await page.locator('#st-push-card').innerText().catch(() => '')).replace(/\s+/g, ' ');
+    check('kế toán thấy thẻ, và thẻ kể đúng loại tin: khoản thu sắp tới hạn nộp', /khoản thu sắp tới hạn nộp/.test(chuThe), chuThe);
+    // Kế toán không duyệt việc gì: câu "việc chờ mình duyệt" là nói sai về
+    // chính loại tin duy nhất họ nhận.
+    check('…câu giới thiệu KHÔNG gọi đó là "việc chờ mình duyệt"', chuThe.length > 0 && !/chờ mình duyệt/.test(chuThe), chuThe);
+
+    // Ban giám hiệu vẫn đọc đúng câu cũ: họ có việc chờ duyệt thật.
+    await roiMayKhongDangXuat();
+    await dangNhapTrenManHinh('c_qt', MK_QT);
+    await page.evaluate(() => { location.hash = '#/settings'; });
+    await page.waitForSelector('#st-push-card', { timeout: 10000 }).catch(() => { /* phép kiểm bên dưới sẽ nói */ });
+    await page.waitForFunction(() => /chờ duyệt, /.test((document.getElementById('st-push-card') || {}).textContent || ''), null, { timeout: 10000 })
+      .catch(() => { /* phép kiểm bên dưới sẽ nói */ });
+    const chuQt = (await page.locator('#st-push-card').innerText().catch(() => '')).replace(/\s+/g, ' ');
+    check('ban giám hiệu: vẫn câu "việc chờ mình duyệt", kể thêm ưu đãi học phí sắp hết hạn và khoản thu sắp tới hạn nộp',
+      /việc chờ mình duyệt: báo cáo học tập cô gửi chờ duyệt, đề xuất sửa kế hoạch cô gửi chờ duyệt, ưu đãi học phí sắp hết hạn, khoản thu sắp tới hạn nộp/.test(chuQt), chuQt);
   }
 
   // =========================================================================
