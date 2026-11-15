@@ -479,7 +479,7 @@ console.log('\n[11] Sửa hồ sơ bé và cho nghỉ học ngay trong màn hìn
   const hoi = await page.locator('.modal').innerText();
   check('hỏi lại trước khi cho nghỉ học', /Xác nhận/.test(hoi), hoi.slice(0, 120));
   check('nói rõ dữ liệu cũ vẫn được giữ nguyên', /giữ nguyên/.test(hoi));
-  check('có đường quay lại nếu bấm nhầm', await page.locator('button', { hasText: 'Quay lại' }).count() >= 1);
+  check('có đường quay lại nếu bấm nhầm', await page.locator('.modal button', { hasText: 'Quay lại' }).count() >= 1);
 
   await page.locator('#ad-nghi-ok').click();
   await page.waitForTimeout(1500);
@@ -588,8 +588,8 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   const soDong = await page.locator('[id^="att-dong-"]').count();
   check('màn hình điểm danh hiện danh sách lớp', soDong > 0, soDong);
   check('ngày mới chọn chưa em nào được điểm danh',
-    Number(await page.locator('#att-so-da').innerText()) === 0,
-    await page.locator('#att-so-da').innerText());
+    Number(await page.locator('#att-so-chua').innerText()) === soDong,
+    await page.locator('#att-so-chua').innerText());
 
   // Đánh dấu để biết trang có bị vẽ lại toàn bộ hay không: App.route() thay sạch
   // #view nên dấu này sẽ biến mất.
@@ -620,8 +620,8 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   const dongMoi = page.locator('[id^="att-dong-"]').last();
   check('vẫn đúng em vừa chạm', (await dongMoi.locator('.row-title').innerText()) === tenEm, tenEm);
   check('hai ô đếm cập nhật ngay',
-    Number(await page.locator('#att-so-da').innerText()) === 1,
-    await page.locator('#att-so-da').innerText());
+    Number(await page.locator('#att-so-phep').innerText()) === 1,
+    await page.locator('#att-so-phep').innerText());
   check('số em chưa điểm danh giảm đi một',
     Number(await page.locator('#att-so-chua').innerText()) === soDong - 1,
     await page.locator('#att-so-chua').innerText());
@@ -635,15 +635,17 @@ console.log('\n[13] Điểm danh: chạm một em KHÔNG ném cô về đầu da
   check('nói rõ em đã đánh dấu sẽ được giữ nguyên', /giữ nguyên/.test(hoi), hoi.slice(0, 300));
   check('có nút riêng để ghi đè, không phải mặc định',
     await page.locator('#att-ghi-de').count() === 1);
-  check('có đường quay lại nếu bấm nhầm', await page.locator('button', { hasText: 'Quay lại' }).count() >= 1);
+  check('có đường quay lại nếu bấm nhầm', await page.locator('.modal button', { hasText: 'Quay lại' }).count() >= 1);
 
   await page.locator('#att-tat-ca').click();
   await page.waitForTimeout(1500);
-  const man = await page.locator('#view').innerText();
+  // Đ258-T: nhãn trên dòng viết đủ "Nghỉ có phép". Đọc trong ĐÚNG dòng của em
+  // ấy — ô đếm lúc nào cũng có chữ này, đọc cả màn thì phép kiểm luôn đúng.
+  const dongNghi = await page.locator('[id^="att-dong-"]', { hasText: tenEm }).innerText();
   check('điểm danh cả lớp xong không còn ai chưa đánh dấu',
     Number(await page.locator('#att-so-chua').innerText()) === 0,
     await page.locator('#att-so-chua').innerText());
-  check('EM NGHỈ CÓ PHÉP KHÔNG BỊ GHI ĐÈ THÀNH CÓ MẶT', /Nghỉ CP/.test(man));
+  check('EM NGHỈ CÓ PHÉP KHÔNG BỊ GHI ĐÈ THÀNH CÓ MẶT', /Nghỉ có phép/.test(dongNghi), dongNghi);
 
   await page.setViewportSize({ width: 390, height: 844 });
 }
