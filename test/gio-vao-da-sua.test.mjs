@@ -158,8 +158,15 @@ console.log('\n[c] GIỜ ĐANG GHI KHÔNG CÒN LÀ GIỜ CÔ SỬA → cờ tắ
   check('cô sửa lần nữa thành 00:00 → cờ bật lại',
     r.status === 200 && (await anhToi('s1', ph))?.gioVaoDaSua === true, `${r.status} ${loi(r)}`);
   const dong = csdl(c => c.prepare('SELECT gioTruoc, gioSau FROM attendance_gio_vao_sua WHERE studentId = ? AND date = ?').all('s1', NGAY));
-  check('…dòng ghi lại giờ trước là giờ máy vừa đóng',
-    dong.length === 1 && dong[0].gioTruoc === gioMay && dong[0].gioSau === '00:00', dong);
+  if (gioMay === '00:00') {
+    // Đúng phút 00:00: "sửa" thành 00:00 là lưu lại đúng giờ đang ghi, không
+    // phải một lượt sửa (Đ255) — dòng cũ của mục [b] giữ nguyên.
+    check('(đúng phút 00:00: lưu lại đúng giờ đang ghi, dòng sửa cũ giữ nguyên)',
+      dong.length === 1 && dong[0].gioTruoc === '23:59' && dong[0].gioSau === '00:00', dong);
+  } else {
+    check('…dòng ghi lại giờ trước là giờ máy vừa đóng',
+      dong.length === 1 && dong[0].gioTruoc === gioMay && dong[0].gioSau === '00:00', dong);
+  }
 }
 
 // ===========================================================================
@@ -182,8 +189,14 @@ console.log('\n[d] LƯỢT SỬA BỊ TỪ CHỐI KHÔNG BẬT CỜ');
 
   // Cô mở hộp sửa giờ rồi bấm Lưu mà KHÔNG đổi giờ: không có gì được sửa, nên
   // giờ chụp của tấm ảnh không được biến mất vì một cú bấm ấy.
+  // Trước 00:10 thì "00:10" còn là giờ chưa tới: máy từ chối như mọi giờ
+  // tương lai (chạy đúng lúc nửa đêm thì gặp ca này). Phần dưới vẫn đúng.
   r = await suaVao({ studentId: 's5', gio: '00:10' });
-  check('lưu lại đúng giờ đang ghi → vẫn 200', r.status === 200 && gioDangGhi('s5') === '00:10', `${r.status} ${loi(r)}`);
+  if (ngay.bayGio() >= '00:10') {
+    check('lưu lại đúng giờ đang ghi → vẫn 200', r.status === 200 && gioDangGhi('s5') === '00:10', `${r.status} ${loi(r)}`);
+  } else {
+    check('(trước 00:10: "00:10" còn là giờ chưa tới → 400, sổ giữ nguyên)', r.status === 400 && gioDangGhi('s5') === '00:10', `${r.status} ${loi(r)}`);
+  }
   check('…nhưng KHÔNG tính là sửa: không dòng sửa nào, cờ vẫn tắt',
     soDong() === 0 && (await anhToi('s5', co))?.gioVaoDaSua === false, { dong: soDong(), anh: await anhToi('s5', co) });
 }
