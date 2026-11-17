@@ -425,6 +425,20 @@ console.log('\n[8] Văn phòng: Giáo viên & nhân viên đứng đầu, nhóm 
   });
   check('(đối chứng) có một bé đã vào lớp mà chưa về', !!beCoMat);
   if (beCoMat) {
+    // Dữ liệu mẫu cho bé vào lớp lúc 07:15–08:05. Chạy trước giờ ấy (CI chạy cả
+    // lúc nửa đêm giờ Việt Nam) thì giờ ra về là "bây giờ", sớm hơn giờ vào, và
+    // máy từ chối đúng luật Đ253. Sửa giờ tới lớp của bé về 00:00 trước — bằng
+    // chính đường "Sửa giờ tới lớp" của cô — để phép dưới đúng ở mọi giờ chạy.
+    const doi = await page.evaluate(async (id) => {
+      const r = (App.views.attendance._roster || []).find(x => x.student.id === id);
+      if (!r || !r.record.checkIn || r.record.checkIn <= UI.gioVN()) return null;
+      await API.post('/api/attendance/gio-vao', { studentId: id, date: UI.todayStr(), gio: '00:00' });
+      return r.record.checkIn;
+    }, beCoMat);
+    if (doi) {
+      await page.evaluate(() => App.route());
+      await page.waitForSelector(`#att-dong-${beCoMat}`, { state: 'attached', timeout: 5000 });
+    }
     await page.evaluate((id) => { document.getElementById(`att-dong-${id}`).closest('details').open = true; }, beCoMat);
     // Đ242D: bấm tên lần hai → chụp → màn xem lại "Ra về" → xác nhận.
     // Bé có mặt mà chưa có ảnh tới lớp thì màn hỏi ảnh nào trước (vòng rà Đ232).
