@@ -1387,9 +1387,14 @@ App.views.hanhtrinh = {
   theDong(q, d, nut = '') {
     const tt = q.trangThai
       ? UI.badge(this.ten(d.trangThai, q.trangThai), this.MAU_TRANG_THAI[q.trangThai] || 'gray') : '';
+    // Đầu thẻ được phép xuống dòng: ngày dạng "Thứ Năm, 19/11/2026" cộng ba
+    // nhãn (trạng thái, nhóm cô, "Đã kể cho gia đình") dài hơn màn 390px vào
+    // những ngày có thứ dài. Không xuống dòng thì nhãn cuối tràn ra ngoài, cả
+    // trang rộng hơn màn điện thoại: trang bị lệch ngang, và chạm vào nút trúng
+    // lệch chỗ (bộ giao diện trên GitHub bắt được ngày 17/11).
     return `
       <div class="card">
-        <div class="card-title">${UI.esc(UI.fmtDate(q.ngay))}
+        <div class="card-title" style="flex-wrap:wrap;row-gap:6px">${UI.esc(UI.fmtDate(q.ngay))}
           <span class="spacer"></span>${tt}
           ${q.tenNhomCo ? UI.badge(q.tenNhomCo, 'blue') : ''}
           ${q.daCongBo ? UI.badge('Đã kể cho gia đình', 'green') : ''}

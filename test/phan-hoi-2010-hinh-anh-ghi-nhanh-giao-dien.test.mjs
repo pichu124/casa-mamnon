@@ -275,6 +275,17 @@ try {
     const mau = await theTab.locator('[data-ly-do]').evaluate(el => getComputedStyle(el).color).catch(() => '');
     check('chữ lý do màu trung tính, không đỏ (QUY TẮC 2)', !!mau && !/rgb\(2[0-5]\d, [0-9]{1,2}, [0-9]{1,2}\)/.test(mau), mau);
 
+    // Đầu thẻ (ngày + ba nhãn) dài hơn màn điện thoại vào ngày có thứ dài. Không
+    // xuống dòng thì trang rộng hơn màn: trên điện thoại, khung bố cục nới ra
+    // (innerWidth > bề rộng màn) và chạm vào nút trúng lệch chỗ. Đo bằng
+    // visualViewport chứ không bằng scrollWidth: ở chế độ điện thoại, scrollWidth
+    // nới theo cùng khung bố cục nên luôn bằng clientWidth.
+    const be = await page.evaluate(() => {
+      const tran = [...document.querySelectorAll('#view *')].filter(e => e.getBoundingClientRect().right > visualViewport.width + 1);
+      return { manHinh: Math.round(visualViewport.width), boCuc: innerWidth, tran: tran.slice(0, 3).map(e => e.outerHTML.slice(0, 80)) };
+    });
+    check('màn Hành trình không rộng hơn màn điện thoại (đầu thẻ có nhãn "Đã kể cho gia đình" xuống dòng được)',
+      be.boCuc === be.manHinh && be.tran.length === 0, be);
     await theTab.locator('[data-cauchuyen]').click();
     await page.waitForTimeout(900);
     check('hộp sửa câu chuyện có nút thu hồi', await page.locator('#ht-thu-hoi').count() === 1);
