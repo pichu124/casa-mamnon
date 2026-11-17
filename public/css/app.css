@@ -1206,6 +1206,17 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
    71px, và mọi thứ đặt theo --nav-h (dải mời cài, hộp báo nổi) vẫn đúng chỗ.
    --nav-nho là phần nhô lên: dải mời cài chỉ cách mép thanh 18px. */
 .bottom-nav { --nav-nho: 10px; --nav-vong: 50px; }
+/* CUỘN TỚI MỘT Ô THÌ Ô ẤY PHẢI NẰM TRÊN THANH, KHÔNG NẰM DƯỚI NÓ. Thanh dưới
+   đáy đứng yên che 71px cuối màn, và vòng tròn "Ghi nhanh" nhô thêm 19px nữa.
+   Trình duyệt cuộn tới một nút (bấm Tab, trình đọc màn hình, hay một màn tự
+   cuộn tới ô vừa lỗi) mà không biết có thanh thì đặt nút ngay mép đáy — tức là
+   nằm dưới thanh, bấm vào là trúng thanh. `scroll-padding-bottom` báo cho mọi
+   lần cuộn ấy chừa ra đúng phần bị che. */
+html { scroll-padding-bottom: calc(var(--nav-h) + 24px); }
+/* Đang có dải nổi (mời cài app, báo bản mới) thì dải đứng ngay trên thanh,
+   cách 18px, cao chừng 70–90px tuỳ chữ xuống dòng: chừa thêm cả phần ấy. Dải
+   tắt là bị gỡ khỏi trang, chỗ chừa tự về như cũ. */
+html:has(.push-banner) { scroll-padding-bottom: calc(var(--nav-h) + 18px + 104px); }
 .bottom-nav .nav-noi,
 .bottom-nav .nav-noi:hover,
 .bottom-nav .nav-noi.active { justify-content: flex-end; background: none; color: var(--primary); font-weight: 700; }

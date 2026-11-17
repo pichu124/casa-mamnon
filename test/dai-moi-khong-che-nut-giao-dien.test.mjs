@@ -699,6 +699,32 @@ console.log('\n[7c] THANH ĐIỀU HƯỚNG THEO VAI (Đ258-N)');
 }
 
 // ===========================================================================
+console.log('\n[7d] TRÌNH DUYỆT TỰ CUỘN TỚI MỘT NÚT — nút nằm TRÊN thanh, không nằm dưới vòng tròn "Ghi nhanh"');
+// Bấm Tab, trình đọc màn hình, hay một màn tự cuộn tới ô vừa lỗi đều gọi
+// scrollIntoView. Không biết có thanh đứng yên ở đáy thì trình duyệt đặt nút
+// ngay mép màn — nằm dưới thanh và vòng tròn nhô lên, bấm là trúng thanh.
+// (Bộ giao diện trên GitHub bắt được đúng ca này ngày 17/11 ở màn Hành trình.)
+for (const [rong, cao] of [[390, 844], [360, 640]]) {
+  const { ctx, page } = await moMay(rong, cao);
+  await dangNhap(page, 'giaovien');
+  await moManHinh(page, '#/settings', NUT_DANG_XUAT);
+  const d = await page.evaluate((chon) => {
+    const nut = document.querySelector(chon);
+    window.scrollTo(0, 0);
+    nut.scrollIntoView({ block: 'end' });
+    const r = nut.getBoundingClientRect();
+    const tren = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const vong = document.querySelector('#bottom-nav .nav-noi-vong');
+    const dinhVong = vong ? vong.getBoundingClientRect().top : document.getElementById('bottom-nav').getBoundingClientRect().top;
+    return { day: Math.round(r.bottom), dinhVong: Math.round(dinhVong), tamLaNut: !!tren && (tren === nut || nut.contains(tren)),
+      trenCung: tren ? tren.outerHTML.slice(0, 80) : null };
+  }, NUT_DANG_XUAT);
+  check(`${rong}x${cao}, cô: scrollIntoView tới nút Đăng xuất — nút nằm trọn TRÊN vòng tròn nổi`, d.day <= d.dinhVong, d);
+  check(`${rong}x${cao}, cô: tại tâm nút, thứ nằm trên cùng là chính cái nút`, d.tamLaNut, d);
+  await ctx.close();
+}
+
+// ===========================================================================
 console.log('\n[8] KHÔNG LỖI JS');
 check('không lỗi JS nào trong suốt bài', loiJs.length === 0, loiJs);
 
