@@ -531,7 +531,7 @@ console.log('\n[5b] Thẻ "Hôm nay": dòng chỉ sang thực đơn cả ngày, 
     thuTu.indexOf('nhat-ky') === thuTu.indexOf('thuc-don') + 1 && thuTu.indexOf('thuc-don') >= 0, thuTu);
   const nk = await chuO(page, '#ph-hom-nay [data-ph="nhat-ky"]');
   check('ghi đúng từng bữa cô đã ghi mức, theo câu của màn Nhật ký; bữa chưa ghi mức thì không viết gì',
-    nk.includes('Nhật ký của con') && nk.includes('Bữa sáng: con ăn hết') && nk.includes('con ăn gần hết')
+    nk.includes('Nhật ký của con') && nk.includes('Bữa sáng — con ăn hết') && nk.includes('con ăn gần hết')
     && !nk.includes('Bữa phụ chiều'), nk);
   check('ghi giờ ngủ trưa', nk.includes('Ngủ trưa 11:45 – 14:00'), nk);
   check('tên bữa hiện ra là CHỮ, không thành thẻ HTML',
@@ -548,7 +548,27 @@ console.log('\n[5b] Thẻ "Hôm nay": dòng chỉ sang thực đơn cả ngày, 
   traNhatKy.ngayCo[0].daGui = { an: '10:00' };
   await veLaiThe();
   const nk2 = await chuO(page, '#ph-hom-nay [data-ph="nhat-ky"]');
-  check('cô mới gửi phần ăn → chỉ có phần ăn, KHÔNG có giờ ngủ', nk2.includes('Bữa sáng: con ăn hết') && !nk2.includes('Ngủ trưa'), nk2);
+  check('cô mới gửi phần ăn → chỉ có phần ăn, KHÔNG có giờ ngủ', nk2.includes('Bữa sáng — con ăn hết') && !nk2.includes('Ngủ trưa'), nk2);
+
+  // Luật trên hàm ghép dòng, không cần dựng dữ liệu: ngày "cũ" (trước luật
+  // gửi mới thấy, không có daGui) đọc như màn Nhật ký ngày; bé nghỉ hay trường
+  // nghỉ thì không có dòng nhật ký dù có bản lỡ gửi.
+  const luat = await page.evaluate((ngay) => {
+    const v = App.views.dashboard, be = App.currentStudent();
+    const nk = { ngayCo: [{ ngay, buaAn: [{ bua: 'lunch', ten: 'Bữa trưa', muc: 'het' }], nguTuLuc: '11:30', nguDenLuc: '14:00' }] };
+    const loai = (so, lich) => v.dongHomNay(be, ngay, { so, kho: null, thucDon: null, lich, nk, coSo: '', coDiemDanh: true })
+      .map(h => (h.match(/data-ph="([^"]+)"/) || [])[1]);
+    return {
+      cu: v.nhatKyHomNay(nk, ngay),
+      nghi: loai([{ date: ngay, status: 'absent_excused', note: '' }], null),
+      truongNghi: loai([], { dot: [{ ten: 'Nghỉ lễ', tuNgay: ngay, denNgay: ngay }] }),
+      coMat: loai([{ date: ngay, status: 'present', checkIn: '07:30' }], null),
+    };
+  }, NGAY);
+  check('ngày "cũ" không có daGui → hiện như màn Nhật ký ngày (bữa và giờ ngủ)',
+    luat.cu.includes('Bữa trưa — con ăn hết') && luat.cu.includes('Ngủ trưa 11:30 – 14:00'), luat.cu);
+  check('bé nghỉ, hay hôm nay trường nghỉ → KHÔNG có dòng nhật ký dù có bản đã gửi; bé có mặt thì có',
+    !luat.nghi.includes('nhat-ky') && !luat.truongNghi.includes('nhat-ky') && luat.coMat.includes('nhat-ky'), luat);
 
   // Đã gửi nhưng chưa ghi mức bữa nào và chưa ghi giờ ngủ: không có gì để nói.
   traNhatKy = { be: { id: 's1' }, ngayCo: [{ ngay: NGAY, daGui: { an: '10:00', ngu: '14:30' },

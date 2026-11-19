@@ -794,7 +794,11 @@ App.views.dashboard = {
         them: '<a class="ph-xem" href="#/menu">Xem thực đơn cả ngày →</a>',
       }));
     }
-    const nhatKy = this.nhatKyHomNay(d.nk, ngay);
+    // Bé nghỉ hay trường nghỉ thì không có bữa nào ở lớp: một bản nhật ký lỡ
+    // gửi hôm ấy (cô "áp cả nhóm" rồi Gửi) không được đứng ngay dưới chữ
+    // "Nghỉ có phép" — cùng luật với dòng thực đơn ngày trường nghỉ. Màn Nhật
+    // ký ngày vẫn hiện để cô thấy mà gỡ.
+    const nhatKy = (beNghi || (dot && !coMat)) ? '' : this.nhatKyHomNay(d.nk, ngay);
     if (nhatKy) {
       ra.push(this.dongThe({ loai: 'nhat-ky', kieu: 'xanh', bieuTuong: 'plan', ten: 'Nhật ký của con', them: nhatKy }));
     }
@@ -825,7 +829,8 @@ App.views.dashboard = {
     it: 'con ăn ít', 'khong-an': 'con không ăn',
   },
 
-  // DÒNG NHẬT KÝ CỦA THẺ: con ăn mỗi bữa thế nào, ngủ trưa từ mấy giờ.
+  // DÒNG NHẬT KÝ CỦA THẺ: con ăn mỗi bữa thế nào, ngủ trưa từ mấy giờ. Câu
+  // "Bữa sáng — con ăn hết" viết như màn Nhật ký ngày và tin báo của máy chủ.
   //
   // Chỉ những gì cô ĐÃ GỬI: máy chủ đã lọc theo luật "gửi mới thấy", và ở đây
   // soát lại `daGui` lần nữa — phần chưa gửi không được lọt lên thẻ dù câu trả
@@ -841,7 +846,7 @@ App.views.dashboard = {
     if (daGui('an')) {
       const an = (n.buaAn || [])
         .filter(b => b && this.CAU_MUC_AN[b.muc])
-        .map(b => `${b.ten || 'Bữa ăn'}: ${this.CAU_MUC_AN[b.muc]}`);
+        .map(b => `${b.ten || 'Bữa ăn'} — ${this.CAU_MUC_AN[b.muc]}`);
       // Mỗi bữa một dòng: nối bằng dấu chấm giữa thì câu gãy ngang chữ "con
       // ăn | gần hết" trên màn điện thoại, khó đọc.
       dong.push(...an);
