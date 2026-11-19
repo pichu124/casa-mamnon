@@ -1323,6 +1323,10 @@ body[data-vai="admin"] .section-label { margin: 16px 4px 8px; }
 }
 .ph-k-xanh .ph-gio { background: #d1fae5; color: #065f46; }
 .ph-phu { font-size: 13px; color: var(--ph-phu); overflow-wrap: anywhere; }
+/* Dòng nhật ký (con ăn, ngủ) là nội dung chính, chữ đậm màu; dòng chỉ đường
+   ("Xem thực đơn cả ngày →") cao đủ một cú chạm. */
+.ph-nk { font-size: 14px; line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
+.ph-xem { display: inline-flex; align-items: center; min-height: 44px; margin: -6px 0 -10px; font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; }
 .ph-loi {
   margin-top: 4px; padding: 10px 12px;
   border-radius: 4px 16px 16px 16px;

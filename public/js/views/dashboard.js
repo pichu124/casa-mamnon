@@ -711,11 +711,15 @@ App.views.dashboard = {
       // Phần nào đang tắt thì không hỏi. Mỗi đường một `catch` riêng: thực đơn
       // hỏng không được kéo mất dòng tới lớp, và ngược lại.
       const hoi = (bat, duong) => (bat ? API.get(duong).catch(() => null) : Promise.resolve(null));
-      const [so, kho, thucDon, lich] = await Promise.all([
+      const [so, kho, thucDon, lich, nk] = await Promise.all([
         hoi(coDiemDanh, `/api/attendance?${cuaBe}`),
         hoi(coDiemDanh, `/api/attendance/anh?${cuaBe}`),
         hoi(App.moduleEnabled('menu'), `/api/menu?week=0${coSo ? `&campusId=${encodeURIComponent(coSo)}` : ''}`),
         hoi(App.moduleEnabled('leave'), `/api/leave/lich-nghi?tu=${ngay}&den=${ngay}`),
+        // Nhật ký ngày: đường của gia đình chỉ trả phần cô ĐÃ GỬI (góp ý 06/10,
+        // mục 9), và chỉ của chính con mình (db.canAccessStudent). Bé lớn không
+        // có nhật ký thì câu trả lời rỗng, thẻ không có dòng này.
+        hoi(App.moduleEnabled('nhatky'), `/api/nhatky?studentId=${encodeURIComponent(be.id)}&ngay=${ngay}`),
       ]);
       // Gia đình đã đổi con hoặc sang màn khác trong lúc chờ: câu trả lời này
       // là của bé kia, không được vẽ vào thẻ đang hiện.
@@ -723,7 +727,7 @@ App.views.dashboard = {
       // Phần Điểm danh đang bật mà không đọc được sổ thì KHÔNG đoán: viết "cô
       // chưa điểm danh" lúc ấy là nói một điều app không biết. Gỡ thẻ.
       const dong = (coDiemDanh && !Array.isArray(so)) ? []
-        : this.dongHomNay(be, ngay, { so: so || [], kho, thucDon, lich, coSo, coDiemDanh });
+        : this.dongHomNay(be, ngay, { so: so || [], kho, thucDon, lich, nk, coSo, coDiemDanh });
       if (!dong.length) { goThe(); return; }
       document.querySelector('#ph-hom-nay .ph-the-than').innerHTML = dong.join('');
     } catch (loi) {
@@ -783,7 +787,16 @@ App.views.dashboard = {
     // Ngày trường nghỉ thì bếp không nấu: món còn nằm trong thực đơn tuần
     // cũng không đưa lên thẻ.
     if (mon.length && (!dot || coMat)) {
-      ra.push(this.dongThe({ loai: 'thuc-don', kieu: 'cam', bieuTuong: 'menu', ten: 'Thực đơn bữa trưa', phu: mon.join(', ') }));
+      // Chỉ bữa trưa cho thẻ gọn (bữa chính); cả ngày có tới năm bữa, nằm ở
+      // màn Thực đơn — dòng chỉ đường nói cho gia đình biết còn các bữa khác.
+      ra.push(this.dongThe({
+        loai: 'thuc-don', kieu: 'cam', bieuTuong: 'menu', ten: 'Thực đơn bữa trưa', phu: mon.join(', '),
+        them: '<a class="ph-xem" href="#/menu">Xem thực đơn cả ngày →</a>',
+      }));
+    }
+    const nhatKy = this.nhatKyHomNay(d.nk, ngay);
+    if (nhatKy) {
+      ra.push(this.dongThe({ loai: 'nhat-ky', kieu: 'xanh', bieuTuong: 'plan', ten: 'Nhật ký của con', them: nhatKy }));
     }
     if (coMat && (r.note || ghiVe)) {
       // Tên cô CHỈ ghi khi người chấm dòng này là một cô của nhóm bé mà trang
@@ -802,6 +815,41 @@ App.views.dashboard = {
         : this.dongThe({ loai: 'ra-ve', kieu: 'ngo', bieuTuong: 'home', ten: 'Ra về', phu: 'Cô chưa ghi giờ về' }));
     }
     return ra;
+  },
+
+  // Câu cho từng mức ăn — đúng như màn Nhật ký ngày của gia đình
+  // (modules/nhatky/view.js, CAU_MUC_AN) và bản tóm tắt máy chủ gửi đi.
+  // Chép lại ở đây vì màn ấy là một phân hệ, trang chủ không được dựa vào nó.
+  CAU_MUC_AN: {
+    het: 'con ăn hết', 'gan-het': 'con ăn gần hết', 'nua-suat': 'con ăn khoảng nửa suất',
+    it: 'con ăn ít', 'khong-an': 'con không ăn',
+  },
+
+  // DÒNG NHẬT KÝ CỦA THẺ: con ăn mỗi bữa thế nào, ngủ trưa từ mấy giờ.
+  //
+  // Chỉ những gì cô ĐÃ GỬI: máy chủ đã lọc theo luật "gửi mới thấy", và ở đây
+  // soát lại `daGui` lần nữa — phần chưa gửi không được lọt lên thẻ dù câu trả
+  // lời có lỡ mang theo. Bữa cô chưa ghi mức thì không viết gì cho bữa ấy,
+  // không đoán; không có gì đã ghi thì không có dòng. Vệ sinh để ở màn Nhật ký,
+  // thẻ chỉ giữ hai điều gia đình hỏi đầu tiên. Trả về HTML đã bọc.
+  nhatKyHomNay(d, ngay) {
+    const n = ((d && d.ngayCo) || []).find(x => x && x.ngay === ngay);
+    if (!n) return '';
+    const gui = n.daGui || null;
+    const daGui = (phan) => !gui || !!gui[phan];
+    const dong = [];
+    if (daGui('an')) {
+      const an = (n.buaAn || [])
+        .filter(b => b && this.CAU_MUC_AN[b.muc])
+        .map(b => `${b.ten || 'Bữa ăn'}: ${this.CAU_MUC_AN[b.muc]}`);
+      // Mỗi bữa một dòng: nối bằng dấu chấm giữa thì câu gãy ngang chữ "con
+      // ăn | gần hết" trên màn điện thoại, khó đọc.
+      dong.push(...an);
+    }
+    if (daGui('ngu') && n.nguTuLuc && n.nguDenLuc) dong.push(`Ngủ trưa ${n.nguTuLuc} – ${n.nguDenLuc}`);
+    if (!dong.length) return '';
+    return dong.map(t => `<div class="ph-nk">${UI.esc(t)}</div>`).join('')
+      + (App.moduleEnabled('nhatky') ? '<a class="ph-xem" href="#/nhatky">Xem nhật ký ngày →</a>' : '');
   },
 
   // Một dòng của thẻ. `ten`, `gio`, `phu` là CHỮ THÔ, hàm này bọc; `them` và

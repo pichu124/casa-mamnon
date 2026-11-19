@@ -302,6 +302,10 @@ const cho = (page, sel, ms = 6000) => page.waitForSelector(sel, { timeout: ms })
 const chuO = (page, sel) => page.locator(sel).first().innerText({ timeout: 1500 }).catch(() => '');
 const dem = (page, sel) => page.locator(sel).count();
 const dongThe = (page) => page.locator('#ph-hom-nay [data-ph]').evaluateAll(els => els.map(e => e.dataset.ph));
+// Thứ tự các dòng KHÁC dòng nhật ký. Dữ liệu mẫu có nhật ký của bé Chồi 2 vào
+// ngày học (thứ Bảy, Chủ nhật thì không), nên dòng nhật ký có hay không tuỳ
+// hôm chạy; mục [5] đối chiếu nó với đúng dữ liệu, mục [5b] canh riêng nó.
+const dongTheKhacNk = async (page) => (await dongThe(page)).filter(x => x !== 'nhat-ky');
 const veLai = async (page, sel) => {
   await page.evaluate(() => App.route());
   await cho(page, sel);
@@ -350,8 +354,22 @@ console.log('\n[5] Gia đình: phần đầu gọn và thẻ "Hôm nay của <t�
   check('thẻ có tiêu đề "Hôm nay của Bảo An" kèm thứ và ngày dd/mm theo giờ Việt Nam',
     the.includes('Hôm nay của Bảo An') && the.includes(`${THU}, ${DDMM}`), the.slice(0, 200));
   const thuTu = await dongThe(page);
-  check('các dòng đúng thứ tự: tới lớp → thực đơn bữa trưa → lời cô nhắn → ra về',
-    JSON.stringify(thuTu) === JSON.stringify(['toi', 'thuc-don', 'loi-co', 'ra-ve']), thuTu);
+  check('các dòng đúng thứ tự: tới lớp → thực đơn bữa trưa → (nhật ký) → lời cô nhắn → ra về',
+    JSON.stringify(thuTu.filter(x => x !== 'nhat-ky')) === JSON.stringify(['toi', 'thuc-don', 'loi-co', 'ra-ve']), thuTu);
+  // Nhật ký THẬT của dữ liệu mẫu: gia đình đọc được gì ở màn Nhật ký thì thẻ
+  // có dòng nhật ký đúng như vậy, ngay sau thực đơn.
+  const nkThat = ((await goi('GET', `/api/nhatky?studentId=s1&ngay=${NGAY}`, null, await dnApi('phuhuynh', '123456'))).data || {});
+  const homNayNk = (nkThat.ngayCo || []).find(x => x.ngay === NGAY);
+  const coMucAn = !!homNayNk && (homNayNk.buaAn || []).some(b => b.muc);
+  const chuNk = await chuO(page, '#ph-hom-nay [data-ph="nhat-ky"]');
+  check(coMucAn
+    ? 'dữ liệu mẫu có nhật ký hôm nay của bé An → dòng "Nhật ký của con" ngay sau thực đơn, có giờ ngủ đúng như sổ'
+    : '(hôm nay dữ liệu mẫu không có nhật ký của bé An) → thẻ không có dòng nhật ký',
+    coMucAn
+      ? thuTu.indexOf('nhat-ky') === thuTu.indexOf('thuc-don') + 1 && chuNk.includes('con ăn')
+        && chuNk.includes(`Ngủ trưa ${homNayNk.nguTuLuc} – ${homNayNk.nguDenLuc}`)
+      : !thuTu.includes('nhat-ky'),
+    { thuTu, chuNk, homNayNk });
   const toi = await chuO(page, '#ph-hom-nay [data-ph="toi"]');
   check('dòng Tới lớp ghi đúng giờ cô đã ghi', toi.includes('Tới lớp') && toi.includes(String(dongS1.checkIn)), toi);
   const td = await chuO(page, '#ph-hom-nay [data-ph="thuc-don"]');
@@ -465,6 +483,91 @@ console.log('\n[5] Gia đình: phần đầu gọn và thẻ "Hôm nay của <t�
       { xoa: xoaDot.status, cham: cham.status, thuTu4, mauBeNghi, the4: the4.slice(0, 200) });
   }
   await page.screenshot({ path: SHOT + 'gia-dinh-be-nghi.png', fullPage: true });
+  await page.context().close();
+}
+
+// ===========================================================================
+console.log('\n[5b] Thẻ "Hôm nay": dòng chỉ sang thực đơn cả ngày, và nhật ký của con khi cô đã gửi');
+{
+  // Câu trả lời của /api/nhatky được ghép giả cho từng ca: luật "gửi mới thấy"
+  // của máy chủ đã có bài riêng (nhat-ky-gui); ở đây chỉ canh thẻ vẽ đúng thứ
+  // nó nhận, và KHÔNG vẽ phần chưa gửi dù câu trả lời có lỡ mang theo.
+  const page = await moTrang({ width: 390, height: 844 }, KHONG_SW);
+  await gaThucDon(page);
+  let traNhatKy = { be: { id: 's1' }, ngayCo: [] };
+  const hoiNhatKy = [];
+  await page.route(/\/api\/nhatky\?/, (route) => { hoiNhatKy.push(route.request().url()); route.fulfill({ json: traNhatKy }); });
+  await dangNhap(page, 'phuhuynh', '123456');
+  await cho(page, '#ph-hom-nay [data-ph]');
+
+  const td = await page.evaluate(() => {
+    const a = document.querySelector('#ph-hom-nay [data-ph="thuc-don"] a.ph-xem');
+    return a ? { chu: a.innerText.trim(), href: a.getAttribute('href'), cao: a.getBoundingClientRect().height } : null;
+  });
+  check('dòng thực đơn có lối "Xem thực đơn cả ngày →" sang màn Thực đơn, đủ cao để chạm',
+    !!td && td.chu === 'Xem thực đơn cả ngày →' && td.href === '#/menu' && td.cao >= 44, td);
+  check('hỏi nhật ký của đúng con đang chọn, đúng hôm nay',
+    hoiNhatKy.length > 0 && hoiNhatKy.every(u => /studentId=s1/.test(u) && u.includes(`ngay=${NGAY}`)), hoiNhatKy);
+  check('chưa có nhật ký nào của hôm nay → thẻ KHÔNG có dòng nhật ký', (await dem(page, '#ph-hom-nay [data-ph="nhat-ky"]')) === 0);
+
+  const veLaiThe = async () => {
+    await page.evaluate(() => { const o = document.getElementById('ph-hom-nay'); if (o) o.dataset.cu = '1'; App.route(); });
+    await page.waitForFunction(() => { const o = document.getElementById('ph-hom-nay'); return !!o && !o.dataset.cu && !!o.querySelector('[data-ph]'); },
+      null, { timeout: 6000 }).catch(() => {});
+  };
+
+  // Cô đã gửi cả phần ăn lẫn phần ngủ.
+  traNhatKy = { be: { id: 's1' }, ngayCo: [{
+    ngay: NGAY, daGui: { an: '10:00', ngu: '14:30' }, nguTuLuc: '11:45', nguDenLuc: '14:00',
+    buaAn: [
+      { bua: 'breakfast', ten: 'Bữa sáng', muc: 'het' },
+      { bua: 'lunch', ten: 'Bữa <i>trưa</i>', muc: 'gan-het' },
+      { bua: 'snack', ten: 'Bữa phụ chiều', muc: '' },
+    ],
+  }] };
+  await veLaiThe();
+  const thuTu = await dongThe(page);
+  check('có nhật ký → dòng "Nhật ký của con" đứng ngay sau dòng thực đơn',
+    thuTu.indexOf('nhat-ky') === thuTu.indexOf('thuc-don') + 1 && thuTu.indexOf('thuc-don') >= 0, thuTu);
+  const nk = await chuO(page, '#ph-hom-nay [data-ph="nhat-ky"]');
+  check('ghi đúng từng bữa cô đã ghi mức, theo câu của màn Nhật ký; bữa chưa ghi mức thì không viết gì',
+    nk.includes('Nhật ký của con') && nk.includes('Bữa sáng: con ăn hết') && nk.includes('con ăn gần hết')
+    && !nk.includes('Bữa phụ chiều'), nk);
+  check('ghi giờ ngủ trưa', nk.includes('Ngủ trưa 11:45 – 14:00'), nk);
+  check('tên bữa hiện ra là CHỮ, không thành thẻ HTML',
+    nk.includes('Bữa <i>trưa</i>') && (await dem(page, '#ph-hom-nay [data-ph="nhat-ky"] i')) === 0, nk);
+  check('có lối "Xem nhật ký ngày →" sang màn Nhật ký ngày',
+    (await page.locator('#ph-hom-nay [data-ph="nhat-ky"] a.ph-xem[href="#/nhatky"]').count()) === 1);
+  const mauNk = await mauCua(page, '#ph-hom-nay [data-ph="nhat-ky"]');
+  check('dòng nhật ký không mang màu cảnh báo, không phần trăm (QUY TẮC 2, 4)',
+    !!mauNk && mauTrungTinh(mauNk.chu) && !/%/.test(nk), mauNk);
+  check('thẻ vẫn nằm gọn trong khung, không làm trang rộng hơn màn',
+    await page.evaluate(() => innerWidth === Math.round(visualViewport.width)));
+
+  // Cô mới gửi phần ăn: phần ngủ không được hiện dù câu trả lời có mang theo.
+  traNhatKy.ngayCo[0].daGui = { an: '10:00' };
+  await veLaiThe();
+  const nk2 = await chuO(page, '#ph-hom-nay [data-ph="nhat-ky"]');
+  check('cô mới gửi phần ăn → chỉ có phần ăn, KHÔNG có giờ ngủ', nk2.includes('Bữa sáng: con ăn hết') && !nk2.includes('Ngủ trưa'), nk2);
+
+  // Đã gửi nhưng chưa ghi mức bữa nào và chưa ghi giờ ngủ: không có gì để nói.
+  traNhatKy = { be: { id: 's1' }, ngayCo: [{ ngay: NGAY, daGui: { an: '10:00', ngu: '14:30' },
+    buaAn: [{ bua: 'lunch', ten: 'Bữa trưa', muc: '' }] }] };
+  await veLaiThe();
+  check('nhật ký không có gì đã ghi → không có dòng nhật ký', (await dem(page, '#ph-hom-nay [data-ph="nhat-ky"]')) === 0, await dongThe(page));
+
+  // Nhật ký của ngày khác không được hiện như của hôm nay.
+  traNhatKy = { be: { id: 's1' }, ngayCo: [{ ngay: '2000-01-03', daGui: { an: '10:00' }, buaAn: [{ bua: 'lunch', ten: 'Bữa trưa', muc: 'het' }] }] };
+  await veLaiThe();
+  check('nhật ký của ngày khác → không có dòng nhật ký', (await dem(page, '#ph-hom-nay [data-ph="nhat-ky"]')) === 0);
+
+  // Đường nhật ký hỏng: thẻ vẫn đủ phần điểm danh, không trắng.
+  await page.unroute(/\/api\/nhatky\?/);
+  await page.route(/\/api\/nhatky\?/, r => r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"thử hỏng"}' }));
+  await veLaiThe();
+  const thuTu5 = await dongThe(page);
+  check('đường nhật ký trả 500 → thẻ vẫn còn, chỉ thiếu dòng nhật ký',
+    thuTu5.includes('toi') && thuTu5.includes('thuc-don') && !thuTu5.includes('nhat-ky'), thuTu5);
   await page.context().close();
 }
 
@@ -657,7 +760,7 @@ console.log('\n[8] Thẻ hôm nay hỏng thì trang chủ vẫn dùng được (
   await page.unroute(/\/api\/menu\?/);
   await chan500(/\/api\/menu\?/);
   await veLai(page, '#ph-hom-nay [data-ph]');
-  const thuTu = await dongThe(page);
+  const thuTu = await dongTheKhacNk(page);
   check('chỉ thực đơn và lịch nghỉ hỏng → thẻ vẫn có phần điểm danh, chỉ thiếu dòng thực đơn',
     JSON.stringify(thuTu) === JSON.stringify(['toi', 'loi-co', 'ra-ve']), thuTu);
 
@@ -730,7 +833,7 @@ console.log('\n[10] Nhà trường tắt phần Thực đơn / Điểm danh: th�
   const tatTd = await goi('PUT', '/api/admin/modules/thucdon', { enabled: false }, ckQT2);
   {
     const { page, hoi } = await moVaGhi();
-    const thuTu = await dongThe(page);
+    const thuTu = await dongTheKhacNk(page);
     const o = await page.locator('.tile-grid .tile:not(.tile-phu):visible').evaluateAll(els => els.map(e => e.dataset.tileKey));
     check('Thực đơn tắt → không hỏi /api/menu, thẻ còn tới lớp · lời cô nhắn · ra về, nhóm Hằng ngày còn 4 ô',
       tatTd.status === 200 && !hoi.includes('/api/menu') && hoi.includes('/api/attendance')
@@ -742,7 +845,7 @@ console.log('\n[10] Nhà trường tắt phần Thực đơn / Điểm danh: th�
   const tatDd = await goi('PUT', '/api/admin/modules/diemdanh', { enabled: false }, ckQT2);
   {
     const { page, hoi } = await moVaGhi();
-    const thuTu = await dongThe(page);
+    const thuTu = await dongTheKhacNk(page);
     const the = await chuO(page, '#ph-hom-nay');
     check('Điểm danh tắt → không hỏi /api/attendance, thẻ chỉ còn thực đơn, không nói gì về điểm danh',
       batTd.status === 200 && tatDd.status === 200 && !hoi.some(u => u.startsWith('/api/attendance')) && hoi.includes('/api/menu')
