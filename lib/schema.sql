@@ -720,6 +720,20 @@ CREATE TABLE IF NOT EXISTS survey_responses (
 );
 CREATE INDEX IF NOT EXISTS idx_sr_survey ON survey_responses(surveyId);
 
+-- GỬI RIÊNG MỘT SỐ GIA ĐÌNH TRONG NHÓM (Đ260b). Cô chọn "Cả nhóm" hoặc tích
+-- từng bé; có dòng ở đây thì CHỈ phụ huynh của các bé này thấy khảo sát
+-- (danh sách, chi tiết, trả lời, huy hiệu). Không có dòng = cả phạm vi
+-- `audience` như mọi khảo sát cũ. Lưu theo BÉ, không theo tài khoản, để bố và
+-- mẹ của cùng một bé đều nhận. Bảng phụ, KHÔNG ALTER `surveys`.
+-- `studentId` cố ý KHÔNG có khoá ngoài xoá dây chuyền: mất dòng người nhận là
+-- khảo sát gửi riêng bỗng mở cho cả nhóm — hỏng theo hướng lộ, không được phép.
+CREATE TABLE IF NOT EXISTS survey_nguoi_nhan (
+  surveyId  TEXT NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+  studentId TEXT NOT NULL,
+  PRIMARY KEY (surveyId, studentId)
+);
+CREATE INDEX IF NOT EXISTS idx_svnn_student ON survey_nguoi_nhan(studentId);
+
 -- ===== Album ảnh =====
 CREATE TABLE IF NOT EXISTS albums (
   id          TEXT PRIMARY KEY,
@@ -945,6 +959,17 @@ CREATE TABLE IF NOT EXISTS notification_lien_ket (
   notificationId TEXT PRIMARY KEY REFERENCES notifications(id) ON DELETE CASCADE,
   lienKet        TEXT NOT NULL
 );
+
+-- GỬI RIÊNG MỘT SỐ GIA ĐÌNH TRONG NHÓM (Đ260b) — cùng luật với
+-- `survey_nguoi_nhan`: có dòng thì chỉ phụ huynh của các bé này thấy thông báo
+-- (danh sách, chi tiết, huy hiệu chuông, tin đẩy); không có dòng = cả phạm vi
+-- `audience`. Cô và quản trị của nhóm vẫn thấy tin như cũ.
+CREATE TABLE IF NOT EXISTS notification_nguoi_nhan (
+  notificationId TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  studentId      TEXT NOT NULL,
+  PRIMARY KEY (notificationId, studentId)
+);
+CREATE INDEX IF NOT EXISTS idx_ntnn_student ON notification_nguoi_nhan(studentId);
 
 -- ===== Nhắn tin — bảng lớn, khoảng 28.200 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS conversations (

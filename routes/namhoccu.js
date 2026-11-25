@@ -16,6 +16,7 @@
 const db = require('../lib/db');
 const st = require('../lib/sua-thu-hoi');
 const lsl = require('../lib/lich-su-lop');
+const tb = require('../lib/thong-bao');
 // HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC — bước mà `modules/README.md`
 // dạy. Màn này BẬT SẴN cho mọi gia đình và đọc bảng của BỐN phân hệ khác, nên
 // nhà trường tắt Thông báo / Khảo sát / Kế hoạch / Lịch sinh hoạt mà dữ liệu
@@ -30,6 +31,13 @@ function trongKhoang(khoang, ngay) {
   if (!ngay) return true;
   const d = String(ngay).slice(0, 10);
   return d >= khoang.tu && d <= khoang.den;
+}
+
+// Tin / khảo sát cô gửi riêng vài gia đình (Đ260b) chỉ hiện lại ở năm cũ của
+// đúng bé được gửi — cùng luật với màn Thông báo và Khảo sát.
+function guiChoBe(loai, id, studentId) {
+  const be = tb.beNhanRieng(loai, id);
+  return !be.length || be.includes(studentId);
 }
 
 module.exports = (app) => {
@@ -76,7 +84,7 @@ module.exports = (app) => {
       `SELECT * FROM notifications WHERE audience = ?
          AND ${st.dieuKienConHien('notifications', 'id')}
        ORDER BY createdAt DESC`, [k.classId])
-      .filter(n => trongKhoang(k, n.createdAt))
+      .filter(n => trongKhoang(k, n.createdAt) && guiChoBe('notifications', n.id, k.studentId))
       .map(n => {
         const a = n.createdBy ? db.findUser(n.createdBy) : null;
         return {
@@ -88,7 +96,7 @@ module.exports = (app) => {
 
     const khaoSat = !modules.dangBat('khaosat') ? [] : db.all('surveys',
       `SELECT * FROM surveys WHERE audience = ? ORDER BY createdAt DESC`, [k.classId])
-      .filter(s => trongKhoang(k, s.createdAt))
+      .filter(s => trongKhoang(k, s.createdAt) && guiChoBe('surveys', s.id, k.studentId))
       .map(s => ({ id: s.id, title: s.title, createdAt: s.createdAt, deadline: s.deadline }));
 
     // Kế hoạch giáo dục ghi theo tháng: dựng ngày mùng 1 của tháng đó để so.

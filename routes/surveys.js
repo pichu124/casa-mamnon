@@ -21,12 +21,26 @@ const TOI_DA_CAU_TRA_LOI = 1000;
 // `taoBoLocXem` hỏi db MỘT lần cho người xem rồi trả về một hàm — đường danh
 // sách chạy nó trên tới 100 khảo sát mà không hỏi lại nhóm của người xem cho
 // từng dòng. `visibleTo` giữ nguyên chữ ký cho các đường một-khảo-sát.
+//
+// GỬI RIÊNG VÀI GIA ĐÌNH (Đ260b): khảo sát có dòng ở `survey_nguoi_nhan` thì
+// phụ huynh chỉ thấy khi một bé của nhà có tên trong đó. Hai câu hỏi MỘT lần
+// cho cả danh sách, như phần còn lại của hàm này.
 function taoBoLocXem(user) {
   const dangMo = new Set(db.classIdsOf(user));
   const tungDay = user.role === 'teacher' ? new Set(db.classIdsEverOfTeacher(user.id)) : null;
   const coSo = user.role === 'admin' ? db.phamViCoSo(user) : null;
   const coSoCuaNhom = new Map();
+  const laGiaDinh = user.role === 'parent';
+  const coHanChe = laGiaDinh
+    ? new Set(db.all('survey_nguoi_nhan', 'SELECT DISTINCT surveyId FROM survey_nguoi_nhan').map(r => r.surveyId))
+    : null;
+  const duocGui = laGiaDinh && coHanChe.size
+    ? new Set(db.all('survey_nguoi_nhan',
+      `SELECT DISTINCT nn.surveyId AS surveyId FROM survey_nguoi_nhan nn
+         JOIN student_parents sp ON sp.studentId = nn.studentId WHERE sp.parentId = ?`, [user.id]).map(r => r.surveyId))
+    : null;
   return (sv) => {
+    if (laGiaDinh && coHanChe.has(sv.id) && !duocGui.has(sv.id)) return false;
     if (sv.audience === 'all') return true;
     if (dangMo.has(sv.audience)) return true;
     if (sv.createdBy === user.id) return true;
@@ -111,10 +125,14 @@ function locTheoPhamVi(user, responses) {
 // không còn ai để nhắc, và danh sách bé hôm nay đã khác danh sách lúc gửi.
 //
 // Không có con số nào về bé — chỉ tên bé, nhóm, tên phụ huynh để gọi đúng nhà.
+//
+// Khảo sát gửi riêng vài gia đình (Đ260b): chỉ đếm và nhắc đúng các bé được
+// gửi — nhà không được gửi thì không có gì để "chưa trả lời".
 function chuaTraLoiCua(user, sv, responses) {
   const nhomXem = db.classIdsOf(user);
   const nhom = sv.audience === 'all' ? nhomXem : nhomXem.filter(c => c === sv.audience);
   if (!nhom.length) return [];
+  const beRieng = new Set(tb.beNhanRieng('surveys', sv.id));
   const daTraLoi = new Set(responses.map(r => r.userId));
   const mn = nhom.map(() => '?').join(',');
   const theoBe = new Map();
@@ -127,6 +145,7 @@ function chuaTraLoiCua(user, sv, responses) {
        LEFT JOIN users u ON u.id = sp.parentId
       WHERE s.active = 1 AND s.classId IN (${mn})
       ORDER BY c.name, s.name`, nhom)) {
+    if (beRieng.size && !beRieng.has(r.studentId)) continue;
     if (!theoBe.has(r.studentId)) {
       theoBe.set(r.studentId, { studentId: r.studentId, tenBe: r.tenBe, tenNhom: r.tenNhom, phuHuynh: [], daTraLoi: false });
     }
@@ -174,6 +193,7 @@ function tenNhomCua(audience) {
 
 function summary(sv, user, responses) {
   const list = responses || responsesOf(sv.id);
+  const soBeNhan = user.role !== 'parent' ? soBeNhanCua(sv.id) : 0;
   return {
     id: sv.id,
     title: sv.title,
@@ -186,7 +206,14 @@ function summary(sv, user, responses) {
     questionCount: (sv.questions || []).length,
     responseCount: list.length,
     answered: list.some(r => r.userId === user.id),
+    // Đ260b: cô và văn phòng thấy khảo sát gửi riêng mấy gia đình — mẫu số
+    // của "đã trả lời". Phụ huynh không nhận danh sách người nhận.
+    ...(soBeNhan ? { soBeNhan } : {}),
   };
+}
+
+function soBeNhanCua(surveyId) {
+  return db.count('SELECT COUNT(*) FROM survey_nguoi_nhan WHERE surveyId = ?', [surveyId]);
 }
 
 module.exports = (app) => {
@@ -214,6 +241,8 @@ module.exports = (app) => {
     // VÀ CÓ TRẦN: bảng này chỉ dài thêm theo mỗi năm học, không bao giờ ngắn
     // đi. Không có trần thì sang năm thứ ba màn hình gia đình phải tải về cả
     // lịch sử khảo sát của trường.
+    const soBe = req.user.role === 'parent' ? new Map() : new Map(db.all('survey_nguoi_nhan',
+      'SELECT surveyId, COUNT(*) AS n FROM survey_nguoi_nhan GROUP BY surveyId').map(r => [r.surveyId, r.n]));
     const list = db.all('surveys',
       `SELECT * FROM surveys ORDER BY (status = 'open') DESC, createdAt DESC LIMIT ?`,
       [GIOI_HAN_DANH_SACH])
@@ -230,6 +259,7 @@ module.exports = (app) => {
         questionCount: (sv.questions || []).length,
         responseCount: dem.get(sv.id) || 0,
         answered: daTraLoi.has(sv.id),
+        ...(soBe.has(sv.id) ? { soBeNhan: soBe.get(sv.id) } : {}),
       }));
     res.json(list);
   });
@@ -286,6 +316,12 @@ module.exports = (app) => {
   // Phụ huynh gửi câu trả lời (mỗi phụ huynh chỉ trả lời một lần).
   app.post('/api/surveys/:id/respond', requireRole('parent'), (req, res) => {
     const sv = db.first('surveys', 'SELECT * FROM surveys WHERE id = ?', [req.params.id]);
+    if (sv && !tb.duocNhan(req.user, 'surveys', sv.id)
+      && (sv.audience === 'all' || db.classIdsOf(req.user).includes(sv.audience))) {
+      // Cùng nhóm nhưng khảo sát không gửi cho nhà này (Đ260b): nói rõ, không
+      // phải "không tìm thấy" — nhà biết mã thì đã biết khảo sát có thật.
+      return res.status(403).json({ error: 'Khảo sát này chỉ gửi tới một số gia đình khác trong nhóm' });
+    }
     if (!sv || !visibleTo(req.user, sv)) {
       return res.status(404).json({ error: 'Không tìm thấy khảo sát' });
     }
@@ -326,7 +362,10 @@ module.exports = (app) => {
         thieu,
       });
     }
-    const firstChild = db.studentsOf(req.user)[0];
+    // Phiếu ghi kèm bé của nhà: khảo sát gửi riêng thì là bé được gửi.
+    const beRieng = new Set(tb.beNhanRieng('surveys', sv.id));
+    const cacCon = db.studentsOf(req.user);
+    const firstChild = cacCon.find(c => beRieng.has(c.id)) || cacCon[0];
     db.insert('survey_responses', {
       id: db.nextId('sr'),
       surveyId: sv.id,
@@ -365,9 +404,17 @@ module.exports = (app) => {
     // Tầng đọc không phải sửa gì — `visibleTo` và bộ đếm huy hiệu đã lọc theo
     // cột `audience` từ trước, chỉ có đường tạo là chưa bao giờ ghi gì khác
     // 'all' vào đó.
-    const phamVi = audience === undefined ? 'all' : audience;
+    //
+    // TOÀN TRƯỜNG CHỈ QUẢN TRỊ GỬI (Đ260b). Cô tạo khảo sát cho nhóm mình: cả
+    // nhóm, hoặc vài gia đình tích chọn. App đời cũ của cô không gửi trường
+    // này thì hiểu là nhóm của cô — trước đây là toàn trường, nay cô không
+    // còn quyền ấy, và 403 cho một nút bấm không hề chọn "toàn trường" là sai.
+    const phamVi = audience === undefined ? (req.user.role === 'admin' ? 'all' : 'class') : audience;
     if (phamVi !== 'all' && phamVi !== 'class') {
       return res.status(400).json({ error: 'Phạm vi gửi không hợp lệ' });
+    }
+    if (phamVi === 'all' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Cô tạo khảo sát cho nhóm mình. Khảo sát toàn trường do văn phòng hoặc ban giám hiệu tạo.' });
     }
     let nhomNhan = '';
     if (phamVi === 'class') {
@@ -391,6 +438,8 @@ module.exports = (app) => {
         }
       }
     }
+    const nhan = tb.kiemNguoiNhan(req.user, phamVi === 'class' ? nhomNhan : 'all', (req.body || {}).nguoiNhan);
+    if (nhan.loi) return res.status(nhan.ma).json({ error: nhan.loi });
     if (!DATE_RE.test(String(deadline || ''))) {
       return res.status(400).json({ error: 'Hạn trả lời không hợp lệ' });
     }
@@ -429,6 +478,7 @@ module.exports = (app) => {
       questions: qs,
     };
     db.insert('surveys', rec);
+    if (nhan.ids.length) tb.ghiNguoiNhan('surveys', rec.id, nhan.ids);
 
     // BÁO CHO GIA ĐÌNH BIẾT CÓ KHẢO SÁT MỚI (Đ145).
     //
@@ -449,20 +499,19 @@ module.exports = (app) => {
     // hỏng việc chính là tạo khảo sát.
     //
     // G2 (góp ý 20/10): bấm thông báo — trong app hay trên điện thoại — là mở
-    // thẳng khảo sát này. Liên kết ghi ở bảng phụ `notification_lien_ket`.
-    const lienKet = `#/surveys/${rec.id}`;
-    const daGui = tb.guiChoNhom([rec.audience], {
+    // thẳng khảo sát này. `guiChoNhom` tự ghi liên kết ở bảng phụ
+    // `notification_lien_ket` (Đ260b), và gửi riêng đúng các gia đình được
+    // chọn cho khảo sát.
+    tb.guiChoNhom([rec.audience], {
       title: `Khảo sát mới: ${rec.title}`,
       body: `Nhà trường mong gia đình trả lời giúp trước ngày ${rec.deadline.split('-').reverse().join('/')}.`,
       category: rec.audience === 'all' ? 'Nhà trường' : 'Nhóm lớp',
       createdBy: req.user.id,
-      hash: lienKet,
+      hash: `#/surveys/${rec.id}`,
+      nguoiNhan: nhan.ids,
     });
-    try {
-      for (const notificationId of daGui) db.insert('notification_lien_ket', { notificationId, lienKet });
-    } catch (_) { /* việc phụ: thiếu liên kết thì thông báo mở hộp chi tiết như cũ */ }
 
-    db.audit(req.user.id, 'survey-create', rec.id, { audience: rec.audience });
+    db.audit(req.user.id, 'survey-create', rec.id, { audience: rec.audience, ...(nhan.ids.length ? { soBeNhan: nhan.ids.length } : {}) });
     res.status(201).json(summary(rec, req.user, []));
   });
 

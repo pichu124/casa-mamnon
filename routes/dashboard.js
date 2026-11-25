@@ -414,13 +414,16 @@ module.exports = (app) => {
       // nó mang đúng nghĩa với cột cùng tên của thông báo, nên dùng chung một
       // luật lọc (lib/thong-bao.js). Không lọc thì huy hiệu đếm cả khảo sát
       // gia đình không mở được — một con số không bao giờ về 0.
+      // Khảo sát cô gửi riêng vài gia đình (Đ260b) chỉ đếm ở nhà được gửi.
       const fKs = tb.audienceFilter(user, 's.');
+      const nnKs = tb.locNguoiNhan(user, 'surveys', 's.id');
       badges.khaosat = db.count(
         `SELECT COUNT(*) FROM surveys s
          WHERE s.status = 'open'
            AND ${fKs.sql}
+           AND ${nnKs.sql}
            AND NOT EXISTS (SELECT 1 FROM survey_responses r WHERE r.surveyId = s.id AND r.userId = ?)`,
-        [...fKs.params, user.id]);
+        [...fKs.params, ...nnKs.params, user.id]);
     }
 
     if (user.role === 'teacher' || user.role === 'admin') {

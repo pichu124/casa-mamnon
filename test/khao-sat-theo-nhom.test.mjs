@@ -158,8 +158,18 @@ console.log('\n[4] Cô nhóm khác và các vai quản trị');
 // ===========================================================================
 console.log('\n[5] App đời cũ và đầu vào lạ');
 {
-  const cu = await tao(gv.cookie);   // không gửi audience — như app trước Đ119
-  check('app cũ không gửi phạm vi thì giữ nghĩa cũ: toàn trường',
+  // Đ260b (nhà trường 18/11, chủ dự án duyệt): cô chỉ tạo khảo sát cho nhóm
+  // mình, toàn trường là việc của quản lý / văn phòng / hiệu trưởng. Nên app
+  // cũ của CÔ không gửi phạm vi thì hiểu là nhóm của cô (không còn là toàn
+  // trường); app cũ của QUẢN TRỊ thì giữ nghĩa cũ: toàn trường.
+  const cuCo = await tao(gv.cookie);   // không gửi audience — như app trước Đ119
+  check('app cũ của cô không gửi phạm vi thì hiểu là nhóm của cô (Đ260b)',
+    cuCo.status === 201 && cuCo.data?.audience === 'c1', cuCo.data);
+  const coToanTruong = await tao(gv.cookie, { audience: 'all' });
+  check('cô gửi thẳng "toàn trường" thì 403 (Đ260b)', coToanTruong.status === 403, coToanTruong.status);
+
+  const cu = await tao(bgh.cookie);   // quản trị, không gửi audience
+  check('app cũ của quản trị không gửi phạm vi thì giữ nghĩa cũ: toàn trường',
     cu.status === 201 && cu.data?.audience === 'all', cu.data);
   check('khảo sát toàn trường không mang tên nhóm', !cu.data?.tenNhom, cu.data?.tenNhom);
 
