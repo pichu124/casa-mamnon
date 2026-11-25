@@ -155,8 +155,13 @@ console.log('\n[6] Cân đo: chặn số GÕ NHẦM, và chỉ chặn số gõ n
   // đang so bé với "chuẩn của độ tuổi" — thứ CLAUDE.md cấm. Nên khoảng nhận vào
   // cố ý RỘNG HẾT MỨC: nó chỉ bắt thứ chắc chắn là gõ nhầm, và câu từ chối nói
   // về CHỮ SỐ chứ không nói gì về đứa trẻ.
+  // Mỗi lượt ghi một THÁNG RIÊNG: từ Đ260e một tháng chỉ một lần cân đo gửi
+  // gia đình, lần hai trong tháng là 409. Mục này đo khoảng số nhập được,
+  // không đo luật theo tháng (luật ấy canh ở phan-hoi-1811-suc-khoe).
+  let thangThu = 0;
   const them = (body) => req('POST', '/api/health', {
-    cookie: GV, body: { studentId: 's1', type: 'checkup', title: 'Cân đo định kỳ', ...body },
+    cookie: GV, body: { studentId: 's1', type: 'checkup', title: 'Cân đo định kỳ',
+      date: `2025-${String(++thangThu).padStart(2, '0')}-10`, ...body },
   });
 
   const caoQua = await them({ height: 170 });
@@ -197,7 +202,7 @@ console.log('\n[7] Sửa lại ghi nhận cũng đi qua đúng chốt chặn đ�
 {
   const tao = await req('POST', '/api/health', {
     cookie: GV,
-    body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng 9', height: 100, weight: 16 },
+    body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng 9', date: '2025-09-10', height: 100, weight: 16 },
   });
   const id = tao.data?.id;
   check('tạo được ghi nhận để sửa', !!id, tao.data);
@@ -223,7 +228,7 @@ console.log('\n[8] Thị lực và Đánh giá thể trạng — hai ô ĐÃ H�
   const tao = await req('POST', '/api/health', {
     cookie: GV,
     body: {
-      studentId: 's1', type: 'checkup', title: 'Khám sức khoẻ đầu năm',
+      studentId: 's1', type: 'checkup', title: 'Khám sức khoẻ đầu năm', date: '2025-10-10',
       height: 96, weight: 14.5, vision: '10/10', bmiNote: 'Phát triển bình thường',
     },
   });
@@ -257,7 +262,7 @@ console.log('\n[8] Thị lực và Đánh giá thể trạng — hai ô ĐÃ H�
   // Đây là phép kiểm sẽ báo đỏ đúng lúc ai đó thêm một dòng "tính BMI hộ cô".
   const khongGoi = await req('POST', '/api/health', {
     cookie: GV,
-    body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng 10', height: 97, weight: 14.8 },
+    body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng 10', date: '2025-11-10', height: 97, weight: 14.8 },
   });
   check('gửi chiều cao + cân nặng mà không gửi ô đánh giá thì ô đó Ở NGUYÊN TRỐNG',
     khongGoi.status === 201 && !khongGoi.data?.bmiNote, khongGoi.data);
