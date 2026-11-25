@@ -1577,29 +1577,19 @@ module.exports = (app, { db, modules }) => {
     // "Lưu nháp" rồi báo "Đã lưu nháp — gia đình chưa đọc được". Cả ba đều SAI
     // khi `congBoLuc` đã có: chữ đi thẳng lên màn hình gia đình.
     //
-    // Hai hậu quả, cái thứ hai nặng hơn:
-    //   • cô sửa một câu tưởng là nháp, gia đình đọc được ngay;
-    //   • và `cungConONha` XOÁ TRẮNG được qua đường này, trong khi đường
-    //     `cong-bo` bắt buộc phải có nó (QUY TẮC 5 — mỗi nhận định phải kèm
-    //     một việc làm được). Tức là đi vòng qua chính quy tắc ấy.
+    // Hậu quả: cô sửa một câu tưởng là nháp, gia đình đọc được ngay.
     //
     // Không cấm sửa: sửa một lỗi chính tả trong câu chuyện đã kể mà bắt cô thu
-    // hồi rồi công bố lại là làm phiền cô vì một việc đúng. Chỉ ép ĐÚNG HAI
-    // ĐIỀU KIỆN mà `cong-bo` đã ép, để bản đang hiện với gia đình không bao giờ
-    // rơi xuống dưới mức mà chính nó phải đạt để được công bố.
-    if ((b.cauChuyen !== undefined || b.cungConONha !== undefined) && cu.congBoLuc) {
-      const cc = chuoi(b.cauChuyen !== undefined ? b.cauChuyen : cu.cauChuyen, TOI_DA_CAU_CHUYEN);
-      const cn = chuoi(b.cungConONha !== undefined ? b.cungConONha : cu.cungConONha, TOI_DA_NGAN);
-      if (!cc) {
+    // hồi rồi công bố lại là làm phiền cô vì một việc đúng. Chỉ ép ĐÚNG ĐIỀU
+    // KIỆN mà `cong-bo` đã ép — có chữ kể cho gia đình — để bản đang hiện với
+    // gia đình không bao giờ rơi xuống dưới mức mà chính nó phải đạt để được
+    // công bố. "Cùng con ở nhà" không bắt buộc ở `cong-bo` (góp ý của trường
+    // 18/11) nên ở đây cũng xoá trắng được.
+    if (b.cauChuyen !== undefined && cu.congBoLuc) {
+      if (!chuoi(b.cauChuyen, TOI_DA_CAU_CHUYEN)) {
         return res.status(400).json({
           error: 'Câu chuyện này đang hiện trên màn hình gia đình, nên không để trống được. '
             + 'Muốn gỡ hẳn thì bấm "Thu hồi khỏi màn hình gia đình".',
-        });
-      }
-      if (!cn) {
-        return res.status(400).json({
-          error: 'Câu chuyện này đang hiện với gia đình, nên vẫn cần gợi ý "cùng con ở nhà". '
-            + 'Muốn bỏ hẳn thì thu hồi câu chuyện trước.',
         });
       }
     }
@@ -1673,14 +1663,9 @@ module.exports = (app, { db, modules }) => {
     if (!cauChuyen) {
       return res.status(400).json({ error: 'Cô viết câu chuyện gửi gia đình trước khi công bố nhé' });
     }
-    // QUY TẮC 5 phía gia đình. Một câu chuyện hay mà gia đình đọc xong không
-    // biết làm gì tiếp thì mới là nửa việc.
-    if (!cungCon) {
-      return res.status(400).json({
-        error: 'Cô gợi ý giúp gia đình một việc "cùng con ở nhà" nhé — 5 tới 10 phút, '
-          + 'đồ có sẵn trong nhà, không cần màn hình.',
-      });
-    }
+    // "Cùng con ở nhà" KHÔNG BẮT BUỘC (góp ý của trường 18/11, chủ dự án
+    // duyệt): cô có gợi ý thì gia đình thấy một dòng "Đồng hành cùng bé tại
+    // nhà"; không có thì câu chuyện vẫn tới gia đình, không dòng trống.
 
     // ---- Đ242B: chương trình, góc, ảnh/video gửi kèm. Mọi khoá đều TUỲ
     // CHỌN — app cũ không gửi gì thì công bố y như trước. KIỂM HẾT ở đây,
@@ -1880,7 +1865,7 @@ module.exports = (app, { db, modules }) => {
       const be = db.findStudent(r.studentId);
       if (!be) return;
       const hash = `#/hanhtrinh/${r.studentId}`;
-      const moi = db.first('hanhtrinh_quansat', 'SELECT cauChuyen FROM hanhtrinh_quansat WHERE id = ?', [r.id]) || {};
+      const moi = db.first('hanhtrinh_quansat', 'SELECT cauChuyen, cungConONha FROM hanhtrinh_quansat WHERE id = ?', [r.id]) || {};
       const tieuDe = `Câu chuyện về ${be.name}: ${chuoi(moi.cauChuyen, 60)}`.trim().slice(0, 120);
       const [tuUtc, denUtc] = ngay2.khoangUtcCuaNgay(ngay2.homNay());
       const daBao = db.first('thongbao_be',
@@ -1889,7 +1874,10 @@ module.exports = (app, { db, modules }) => {
       if (daBao) return;
       tbb.gui({
         studentId: be.id, loai: 'hanh-trinh', tieuDe,
-        noiDung: 'Cô vừa kể một câu chuyện về con và gợi ý một việc làm cùng con ở nhà. Mở Hành trình học tập để đọc.',
+        // Gợi ý ở nhà không bắt buộc nữa: chỉ nói "có gợi ý" khi cô thật sự ghi.
+        noiDung: moi.cungConONha
+          ? 'Cô vừa kể một câu chuyện về con và gợi ý một việc làm cùng con ở nhà. Mở Hành trình học tập để đọc.'
+          : 'Cô vừa kể một câu chuyện về con. Mở Hành trình học tập để đọc.',
         hash, nguoiTao,
       });
     } catch (_) { /* việc phụ */ }

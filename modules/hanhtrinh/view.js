@@ -615,8 +615,10 @@ App.views.hanhtrinh = {
   // gọi máy chủ. Hỏng ở bước kể thì ghi chép đã là một quan sát chưa kể của
   // bé — vẫn nằm ở Hình ảnh ghi nhanh, cô kể lại được, không mất gì.
   //
-  // "CÙNG CON Ở NHÀ" VẪN BẮT BUỘC (QUY TẮC 5) nhưng điền sẵn từ "Cùng con ở
-  // nhà tuần này" của chủ đề tuần nhóm bé — cô sửa cho hợp khoảnh khắc nếu muốn.
+  // Ô "ĐỒNG HÀNH CÙNG BÉ TẠI NHÀ" (`cungConONha`) KHÔNG BẮT BUỘC từ góp ý của
+  // trường 18/11: cô không phải nghĩ ra một việc cho mọi khoảnh khắc. Ô vẫn
+  // điền sẵn từ "Cùng con ở nhà tuần này" của chủ đề tuần nhóm bé — cô sửa
+  // cho hợp khoảnh khắc, hoặc để trống.
   //
   // GỬI KÈM ẢNH THÌ PHẢI NÓI TRONG ẢNH CÓ AI. Ảnh có bé khác chỉ tới gia đình
   // khi mọi bé trong ảnh đều có đồng ý chia sẻ; máy chủ lọc, hộp này chỉ hỏi.
@@ -682,12 +684,11 @@ App.views.hanhtrinh = {
           Chú thích rõ hoạt động của con ở lớp, hoặc cách gia đình cùng con thực hành thêm ở nhà (ô dưới).</div>
       </div>
       <div class="field">
-        <label>Cùng con ở nhà</label>
+        <label>Đồng hành cùng bé tại nhà (không bắt buộc)</label>
         <textarea id="ht-cn" rows="3" placeholder="Ví dụ: tối nay bố mẹ để con tự rót nước vào cốc — 5 phút, dùng luôn ca nước trên bàn.">${UI.esc(cnDau)}</textarea>
         <div class="hint" id="ht-cn-nguon" ${st.cnDienSan ? '' : 'hidden'}>Điền sẵn từ <b>"Cùng con ở nhà tuần này"</b> của chủ đề tuần —
           cô sửa cho hợp với khoảnh khắc này nếu muốn.</div>
-        <div class="hint">5–10 phút, đồ có sẵn trong nhà, không cần màn hình.
-          Đây là <b>lời rủ chơi</b> gửi gia đình, không phải việc phải nộp lại cho cô.</div>
+        <div class="hint">Một việc nhỏ 5–10 phút gia đình làm cùng con, nếu cô có gợi ý.</div>
       </div>
       ${q.coTep ? `
       <div class="field">
@@ -864,9 +865,6 @@ App.views.hanhtrinh = {
       // chữ là bắt cô mở lại hộp ở một mục khác.
       if (!st.be) return UI.toast('Cô chọn bé cho ghi chép này nhé', 'error');
       if (!v.cauChuyen) return UI.toast('Cô viết chú thích gửi gia đình trước khi kể nhé', 'error');
-      if (!v.cungConONha) {
-        return UI.toast('Cô gợi ý giúp gia đình một việc "cùng con ở nhà" nhé — 5 tới 10 phút, đồ có sẵn trong nhà.', 'error');
-      }
       const body = { ...v, goc: st.nhom === 'chu-nhiem' ? st.goc : '' };
       if (q.coTep) {
         body.kemTep = $('ht-kem-tep').checked;
@@ -1444,8 +1442,7 @@ App.views.hanhtrinh = {
           <div class="card-title">Tuần này ở lớp: ${UI.esc(cd.chuDe)}</div>
           ${cd.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(cd.moTa)}</div>` : ''}
           ${cd.cungConONha ? `
-            <div class="section-label">Cùng con ở nhà</div>
-            <div class="small" style="line-height:1.6">${UI.esc(cd.cungConONha)}</div>
+            ${this.dongHanh(cd.cungConONha)}
             <div class="muted small mt-8">Một lời rủ chơi 5–10 phút, đồ có sẵn trong nhà — không phải việc phải nộp lại cho cô.</div>` : ''}
         </div>` : ''}
 
@@ -1453,9 +1450,7 @@ App.views.hanhtrinh = {
         <div class="card">
           <div class="card-title">Tuần sau ở lớp: ${UI.esc(cds.chuDe)}</div>
           ${cds.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(cds.moTa)}</div>` : ''}
-          ${cds.cungConONha ? `
-            <div class="section-label">Cùng con ở nhà</div>
-            <div class="small" style="line-height:1.6">${UI.esc(cds.cungConONha)}</div>` : ''}
+          ${cds.cungConONha ? this.dongHanh(cds.cungConONha) : ''}
           <div class="muted small mt-8">Cô đã soạn sẵn cho tuần tới. Cuối tuần này nhà chơi trước cũng được.</div>
         </div>` : ''}
 
@@ -1619,10 +1614,17 @@ App.views.hanhtrinh = {
         <div class="card-title">${UI.esc(UI.fmtDate(q.ngay))}<span class="spacer"></span>${goc ? UI.badge(goc, 'blue') : ''}</div>
         ${tep}
         <div style="line-height:1.7">${UI.esc(q.cauChuyen || '')}</div>
-        ${q.cungConONha ? `
-          <div class="section-label">Cùng con ở nhà</div>
-          <div class="small" style="line-height:1.6">${UI.esc(q.cungConONha)}</div>` : ''}
+        ${q.cungConONha ? this.dongHanh(q.cungConONha) : ''}
       </div>`;
+  },
+
+  // Gợi ý cô gửi gia đình làm cùng con ở nhà — một dòng nhỏ, dịu, không phải
+  // tiêu đề viết hoa (góp ý của trường 18/11): đây là lời rủ, không phải mục
+  // phải làm. Chỗ gọi chỉ vẽ khi cô có ghi.
+  dongHanh(chu) {
+    return `
+      <div class="ht-dong-hanh muted" style="margin-top:12px;font-size:13px">Đồng hành cùng bé tại nhà</div>
+      <div class="small" style="line-height:1.6">${UI.esc(chu)}</div>`;
   },
 
   // ---- Ảnh hoặc video của hộp Ghi nhanh ----
