@@ -207,7 +207,10 @@ console.log('\n[7] Màn Cài đặt: thẻ thông báo đẩy chỉ mời đúng
   await dangNhap('giaovien', '123456');
   await page.goto(BASE + '/#/settings', { waitUntil: 'networkidle' });
   await page.waitForTimeout(900);
-  check('CÔ KHÔNG thấy thẻ thông báo đẩy', await page.locator('#st-push-card').count() === 0);
+  // Đ260b/Đ260c (chủ dự án duyệt 25/11): cô có chuông riêng và tin đẩy thật
+  // (việc gia đình gửi tới cô, việc văn phòng / quản lý trả về), nên thẻ trở
+  // lại màn Cài đặt của cô — vẫn không hứa "tin về con" (phép kiểm bên dưới).
+  check('CÔ THẤY thẻ thông báo đẩy', await page.locator('#st-push-card').count() === 1);
   const manCo = await page.locator('#view').innerText();
   check('và màn Cài đặt của cô vẫn dùng được như thường',
     /Cài đặt/.test(manCo) && /Tài khoản/.test(manCo), manCo.slice(0, 160));
