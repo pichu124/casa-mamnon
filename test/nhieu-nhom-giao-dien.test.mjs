@@ -166,8 +166,12 @@ console.log('\n[3] Cô phụ trách MỘT nhóm — màn hình không đổi m�
   // trách … · Lá 1" của kế hoạch tháng, chứ không phải nhờ lịch của nhóm.
   await mo('/#/timetable/lich');
   check('Lịch sinh hoạt: KHÔNG hiện ô chọn nhóm', !(await oChon()));
+  // Tên nhóm từng nằm ở thẻ "Ghi chú" cuối màn; thẻ ấy bỏ theo góp ý của
+  // trường 18/11 (Đ260a), nên soi đúng hoạt động riêng của Lá 1 ở Thứ Hai.
+  await page.click('#tkb-seg button:first-child');
+  await page.waitForTimeout(400);
   const tkb = await chuTrenMan();
-  check('vẫn mở đúng lịch sinh hoạt của nhóm cô', tkb.includes('Lá 1'), tkb.slice(0, 200));
+  check('vẫn mở đúng lịch sinh hoạt của nhóm cô', tkb.includes('Nước và hiện tượng tự nhiên'), tkb.slice(0, 200));
 
   await mo('/#/plans');
   check('Kế hoạch: KHÔNG hiện ô chọn nhóm', !(await oChon()));
