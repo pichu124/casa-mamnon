@@ -180,9 +180,6 @@ App.views.student = {
     }
     const s = await API.get(`/api/students/${current.id}`);
     const tuoi = this.tuoiCuaBe(s.dob);
-    // Giấy đồng ý nạp riêng và nuốt lỗi: hồ sơ bé là màn quan trọng hơn, không
-    // được trắng chỉ vì phần này hỏng.
-    const gd = await API.get(`/api/dong-y?studentId=${encodeURIComponent(current.id)}`).catch(() => null);
     const lichSu = await this.lichSuNhom(current.id);
     root.innerHTML = `
       ${UI.pageHeader('Hồ sơ của bé')}
@@ -233,74 +230,8 @@ App.views.student = {
         Nhà trường giữ số này để đối chiếu khi giao bé cho người tới đón.</div>
       </div>
 
-      ${this.theDongY(gd)}`;
-
-    this.ganNutRutDongY(current.id);
-  },
-
-  // ---- Giấy đồng ý: gia đình xem mình đã ký gì, và rút lại được ----
-  //
-  // BA TRẠNG THÁI, KHÔNG PHẢI HAI. "Chưa nộp giấy" khác hẳn "gia đình đã nói
-  // không" — gộp lại là hoặc vu cho gia đình đã từ chối, hoặc coi im lặng là
-  // đồng ý. Cùng luật với tầng dữ liệu.
-  MUC_DONG_Y: [
-    ['hoSoHocTap', 'Lập hồ sơ học tập cho con',
-      'Cô ghi lại quan sát và câu chuyện học tập của con trong năm. '
-      + 'Rút lại thì trường ngưng ghi mới ngay; phần đã ghi vẫn giữ và gia đình vẫn xem lại được.'],
-    ['chiaSeGiaDinh', 'Chia sẻ ảnh có mặt con cho gia đình khác trong nhóm',
-      'Ảnh chụp chung cả nhóm. Rút lại thì ảnh có mặt con thôi hiện với nhà khác ngay.'],
-    ['truyenThong', 'Dùng ảnh của con cho trang tin của trường',
-      'Ảnh đăng ra ngoài phạm vi nhóm lớp, ví dụ trang tin tuyển sinh.'],
-  ],
-
-  nhanDongY(v) {
-    if (v === true) return UI.badge('Đã đồng ý', 'green');
-    if (v === false) return UI.badge('Không đồng ý', 'gray');
-    return UI.badge('Chưa nộp giấy', 'orange');
-  },
-
-  theDongY(gd) {
-    if (!gd || !gd.dongY) return '';
-    const d = gd.dongY;
-    return `
-      <div class="card">
-        <div class="card-title">📝 Giấy đồng ý của gia đình</div>
-        ${d.nguoiKy || d.ngayKy ? `<div class="muted small" style="line-height:1.7;margin-bottom:10px">
-          Giấy do <b>${UI.esc(d.nguoiKy || 'gia đình')}</b> ký${d.ngayKy ? ` ngày ${UI.fmtDate(d.ngayKy, { weekday: false })}` : ''}.
-        </div>` : ''}
-        ${this.MUC_DONG_Y.map(([khoa, ten, mo]) => `
-          <div class="list-row">
-            <div class="row-main">
-              <div class="row-title">${UI.esc(ten)}</div>
-              <div class="row-sub" style="line-height:1.6">${UI.esc(mo)}</div>
-            </div>
-            <div class="row-end">
-              ${this.nhanDongY(d[khoa])}
-              ${gd.tuRutDuoc && d[khoa] === true
-                ? `<button class="btn sm outline" data-rut="${UI.esc(khoa)}">Rút lại</button>` : ''}
-            </div>
-          </div>`).join('')}
-        <div class="muted small mt-8" style="line-height:1.7">
-          Gia đình <b>rút lại bất cứ lúc nào</b>, ngay trên màn hình này, và có hiệu lực ngay.
-          Muốn <b>đồng ý</b> trở lại thì nhờ văn phòng ghi giúp — phần đó cần chữ ký trên giấy,
-          app không thay chữ ký được.
-        </div>
-      </div>`;
-  },
-
-  ganNutRutDongY(studentId) {
-    for (const el of document.querySelectorAll('[data-rut]')) {
-      el.onclick = async () => {
-        const khoa = el.dataset.rut;
-        const ten = (this.MUC_DONG_Y.find(m => m[0] === khoa) || [])[1] || 'mục này';
-        if (!confirm(`Rút lại đồng ý cho "${ten}"?\n\nCó hiệu lực ngay. Muốn đồng ý lại thì nhờ văn phòng ghi giúp.`)) return;
-        try {
-          await API.put('/api/dong-y', { studentId, [khoa]: false });
-          UI.toast('Đã rút lại đồng ý', 'success');
-          App.route();
-        } catch (err) { UI.toast(err.message, 'error'); }
-      };
-    }
+      ${App.state.user.role === 'admin' ? '' : `<div class="muted small mt-8" data-dong-y-giay style="line-height:1.6">
+        Việc dùng ảnh của con theo giấy nhập học. Gia đình muốn thay đổi, xin liên hệ văn phòng nhà trường.</div>`}`;
   },
 
   // Thông tin liên hệ của TRƯỜNG, không phải của cô.
