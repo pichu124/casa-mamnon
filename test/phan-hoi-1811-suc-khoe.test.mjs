@@ -212,6 +212,16 @@ try {
       sua.status === 200 && sua.data.daSua === true && sua.data.height === 105 && sua.data.weight === 16.8 && sua.data.date === NGAY, sua.data);
     check('vẫn MỘT dòng cân đo trong tháng, không báo thêm', soDongCanDo('s1', THANG) === 1 && (await tinSucKhoe()) === tin0);
 
+    // App cũ trên điện thoại vẫn gửi ô thị lực (đã ẩn trên giao diện mới) cùng ghi chú khám.
+    const suaKham = await req('POST', '/api/health', { cookie: co, body: {
+      studentId: 's1', type: 'checkup', title: 'Khám định kỳ tháng', date: DAU_THANG, height: 105.5,
+      vision: 'Mắt trái 10/10, mắt phải 9/10', detail: 'Tai mũi họng bình thường', suaLai: true } });
+    check('sửa lại kèm nội dung khám: thị lực và ghi chú khám KHÔNG bị bỏ',
+      suaKham.status === 200 && suaKham.data.daSua === true && suaKham.data.height === 105.5
+      && suaKham.data.vision === 'Mắt trái 10/10, mắt phải 9/10' && suaKham.data.detail === 'Tai mũi họng bình thường', suaKham.data);
+    check('…cân nặng không gửi lên thì giữ số cũ, vẫn MỘT dòng',
+      suaKham.data.weight === 16.8 && soDongCanDo('s1', THANG) === 1, suaKham.data);
+
     const khongSo = await req('POST', '/api/health', { cookie: co, body: {
       studentId: 's1', type: 'checkup', title: 'Khám răng', detail: 'Răng sạch', date: NGAY } });
     check('khám KHÔNG có số đo không phải lần cân đo → ghi bình thường (201)', khongSo.status === 201, khongSo.status);

@@ -428,10 +428,11 @@ module.exports = (app) => {
           if (req.body.suaLai !== true) {
             return res.status(409).json({ error: cauDaCoCanDo(ngay.slice(0, 7), daCo), daCo });
           }
+          // Số đo đè vào lần cân đo của tháng; nội dung khám gửi kèm (thị lực
+          // từ app cũ, ghi chú) có giá trị thì cũng ghi vào, không bỏ im lặng.
           const patch = {};
           for (const k of ['height', 'weight']) if (rec[k] !== undefined) patch[k] = rec[k];
-          if (rec.bmiNote) patch.bmiNote = rec.bmiNote;
-          if (rec.detail) patch.detail = rec.detail;
+          for (const k of ['bmiNote', 'vision', 'detail']) if (rec[k]) patch[k] = rec[k];
           db.update('health', cu.id, patch);
           st.ghiDaSua(BANG, cu.id, req.user.id);
           db.audit(req.user.id, 'health-update', cu.id, patch);
