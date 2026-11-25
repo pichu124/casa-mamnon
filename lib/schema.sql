@@ -1532,3 +1532,32 @@ CREATE INDEX IF NOT EXISTS nhan_danh_gia_de_xuat_moi ON nhan_danh_gia_de_xuat(ta
 -- dữ liệu, route chỉ là câu báo dễ hiểu đứng trước.
 CREATE UNIQUE INDEX IF NOT EXISTS nhan_danh_gia_de_xuat_mot_cho
   ON nhan_danh_gia_de_xuat(trangThai) WHERE trangThai = 'cho-duyet';
+
+-- ===========================================================================
+-- VIDEO CHỜ MÁY CHỦ NÉN (Đ260f, chủ dự án 25/11)
+-- ===========================================================================
+-- Một dòng là một lượt cô gửi video gốc lên từng phần để máy chủ nén bằng
+-- ffmpeg (lib/nen-video.js). Đây là sổ ghi TẠM, không phải dữ liệu của bé:
+-- tệp nằm ở DATA_DIR/video-tam cho tới khi cô đăng (tệp đã nén chuyển sang
+-- uploads/ như mọi video khác, dòng thành 'da-dung'), và đồng hồ định giờ xoá
+-- dòng lẫn tệp quá 24 giờ. Mã lượt (`id`) cũng là `maTep` cô gửi kèm lúc đăng.
+CREATE TABLE IF NOT EXISTS video_nen (
+  id          TEXT PRIMARY KEY,            -- 32 chữ số hex ngẫu nhiên
+  userId      TEXT NOT NULL,
+  vung        TEXT NOT NULL,               -- album | hanhtrinh: mã chỉ dùng được ở đúng nơi đã gửi
+  ten         TEXT NOT NULL DEFAULT '',
+  kichThuoc   INTEGER NOT NULL,            -- dung lượng gốc cô khai lúc bắt đầu
+  kichMoiPhan INTEGER NOT NULL,
+  daNhan      INTEGER NOT NULL DEFAULT 0,
+  soPhan      INTEGER NOT NULL DEFAULT 0,
+  trangThai   TEXT NOT NULL,               -- dang-gui | dang-nen | xong | loi | da-dung
+  loi         TEXT NOT NULL DEFAULT '',
+  coBia       INTEGER NOT NULL DEFAULT 0,
+  doDaiGiay   REAL,
+  taoLuc      TEXT NOT NULL,
+  capNhatLuc  TEXT NOT NULL,
+  xongLuc     TEXT,
+  dungLuc     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_video_nen_nguoi ON video_nen(userId, trangThai);
+CREATE INDEX IF NOT EXISTS idx_video_nen_cu ON video_nen(capNhatLuc);

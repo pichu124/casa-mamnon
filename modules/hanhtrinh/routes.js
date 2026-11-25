@@ -25,6 +25,7 @@ const { requireRole } = require('../../lib/auth');
 const ngay2 = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
 const tbb = require('../../lib/thong-bao-be');
+const nenVideo = require('../../lib/nen-video');
 const fs = require('fs');
 
 // Chép một tệp ảnh đã có thành một tệp MỚI trong kho ảnh.
@@ -32,20 +33,28 @@ const fs = require('fs');
 // Đọc lại rồi cho đi qua `uploads.saveDataUrl` thay vì `fs.copyFileSync`: như
 // vậy tệp mới được đặt tên theo đúng quy tắc của kho ảnh, và đi qua đủ phép
 // kiểm định dạng lẫn dung lượng — không có đường tắt nào bỏ qua chúng.
-// Video (Đ242B) đi qua `saveVideoDataUrl` theo đúng lý do ấy.
+// Video (Đ242B) đi qua `chepVideo`: cùng phép kiểm chữ ký, nhưng chép thẳng
+// tệp — video máy chủ nén (Đ260f) có thể nặng hơn trần 25 MB của base64.
 function chepAnh(file) {
   const duong = uploads.pathOf(file);
   if (!duong || !uploads.exists(file)) return '';
+  if (uploads.laVideo(file)) return uploads.chepVideo(file).file;
   const buf = fs.readFileSync(duong);
   const dataUrl = `data:${uploads.mimeOf(file)};base64,${buf.toString('base64')}`;
-  return (uploads.laVideo(file) ? uploads.saveVideoDataUrl(dataUrl) : uploads.saveDataUrl(dataUrl)).file;
+  return uploads.saveDataUrl(dataUrl).file;
 }
 
 // Ảnh hoặc video lớp 1 cô gửi lên (Đ242B, B4). Một ghi chép một tệp. Trả về
 // { file } (rỗng khi không gửi gì) hoặc { loi } để trả 400.
-function luuTepLop1(b) {
-  if (b.anh && b.video) return { loi: 'Mỗi ghi chép kèm một tấm ảnh hoặc một đoạn video thôi nhé' };
+//
+// `videoDaNen` (Đ260f): mã video máy chủ đã nén (lib/nen-video.js) — chỉ mã
+// của chính cô, gửi ở Hành trình, chưa dùng, chưa quá 24 giờ.
+function luuTepLop1(b, user) {
+  if ([b.anh, b.video, b.videoDaNen].filter(Boolean).length > 1) {
+    return { loi: 'Mỗi ghi chép kèm một tấm ảnh hoặc một đoạn video thôi nhé' };
+  }
   try {
+    if (b.videoDaNen) return { file: nenVideo.dungVideo(user, b.videoDaNen, 'hanhtrinh').file };
     if (b.video) return { file: uploads.saveVideoDataUrl(b.video).file };
     if (b.anh) return { file: uploads.saveDataUrl(b.anh).file };
   } catch (err) {
@@ -186,6 +195,10 @@ function thuHaiCua(ngay) {
 }
 
 module.exports = (app, { db, modules }) => {
+  // Gửi video gốc từng phần để máy chủ nén (Đ260f). Đăng ký TRƯỚC mọi đường
+  // `/api/hanhtrinh/:id/...` để chữ "video" không bị hiểu là mã một quan sát.
+  nenVideo.ganDuong(app, '/api/hanhtrinh/video', { vung: 'hanhtrinh' });
+
   // =========================================================================
   // BA LỚP DỮ LIỆU — MỘT CHỖ LỌC DUY NHẤT
   // =========================================================================
@@ -937,15 +950,15 @@ module.exports = (app, { db, modules }) => {
     // B5 (20/10): một tấm ảnh hay một đoạn video đã là điều cô thấy — chữ để
     // sau cũng được. Trống cả hai thì không có gì để ghi.
     const thieuCaHai = () => res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé, hoặc kèm một tấm ảnh hay đoạn video nhé' });
-    if (!moTa && !b.anh && !b.video && !(nguon && nguon.file)) return thieuCaHai();
+    if (!moTa && !b.anh && !b.video && !b.videoDaNen && !(nguon && nguon.file)) return thieuCaHai();
     // Chương trình cô chọn gắn quan sát vào (góp ý 06/10, mục 7–8). Không
     // gửi = theo vai của cô như trước.
     const nhomChon = docNhomChon(res, req.user, be.classId, b.nhom);
     if (nhomChon === null) return;
 
     let anh = '';
-    if (b.anh || b.video) {
-      const t = luuTepLop1(b);
+    if (b.anh || b.video || b.videoDaNen) {
+      const t = luuTepLop1(b, req.user);
       if (t.loi) return res.status(400).json({ error: t.loi });
       anh = t.file;
     } else if (nguon && nguon.file) {
@@ -1010,14 +1023,14 @@ module.exports = (app, { db, modules }) => {
   app.post('/api/hanhtrinh/nhap', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const moTa = chuoi(b.moTa, TOI_DA_MO_TA);
-    if (!moTa && !b.anh && !b.video) return res.status(400).json({ error: 'Cô ghi một dòng hoặc chọn một tấm ảnh, đoạn video nhé' });
+    if (!moTa && !b.anh && !b.video && !b.videoDaNen) return res.status(400).json({ error: 'Cô ghi một dòng hoặc chọn một tấm ảnh, đoạn video nhé' });
     const nhom = chuoi(b.nhom, 20);
     if (nhom && !nhomCo.hopLe(nhom)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
     const soNhap = db.count('SELECT COUNT(*) AS n FROM hanhtrinh_nhap WHERE coGhi = ?', [req.user.id]);
     if (soNhap >= TOI_DA_NHAP_MOI_CO) {
       return res.status(400).json({ error: 'Cô đang có nhiều nháp chưa gắn bé quá — gắn bé hoặc bỏ bớt rồi ghi tiếp nhé' });
     }
-    const t = luuTepLop1(b);
+    const t = luuTepLop1(b, req.user);
     if (t.loi) return res.status(400).json({ error: t.loi });
     const anh = t.file;
     const luc = new Date().toISOString();

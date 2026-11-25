@@ -13,6 +13,7 @@ const nl = require('../lib/nhom-lop');
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
 const modules = require('../lib/modules');
+const nenVideo = require('../lib/nen-video');
 
 // BỐN CHẾ ĐỘ ALBUM — xem chú thích bảng `album_che_do` trong lib/schema.sql.
 //
@@ -70,7 +71,7 @@ function todayStr() {
 
 // Dựng bản ghi ảnh từ dữ liệu trình duyệt gửi lên.
 // Ưu tiên ảnh thật; không có ảnh thì quay về emoji minh họa như trước.
-function buildPhoto(input, index) {
+function buildPhoto(input, index, user) {
   const p = input || {};
   const caption = String(p.caption || '').trim().slice(0, 200);
   // VIDEO LƯU THÀNH MỘT DÒNG Y NHƯ ẢNH — và đó là cả thiết kế.
@@ -85,6 +86,13 @@ function buildPhoto(input, index) {
   //
   // Màn hình phân biệt ảnh với video bằng phần mở rộng của tên tệp
   // (`uploads.laVideo`), không cần thêm cột nào.
+  //
+  // `videoDaNen` (Đ260f): mã của video máy chủ đã nén (lib/nen-video.js) —
+  // chỉ nhận mã của CHÍNH người đăng, gửi ở Album, chưa dùng, chưa quá 24 giờ.
+  if (p.videoDaNen) {
+    const { file } = nenVideo.dungVideo(user, p.videoDaNen, 'album'); // ném lỗi nếu mã không dùng được
+    return { id: db.nextId('ph'), file, caption };
+  }
   if (p.video) {
     const { file } = uploads.saveVideoDataUrl(p.video); // ném lỗi nếu không phải video
     return { id: db.nextId('ph'), file, caption };
@@ -541,6 +549,11 @@ const MOI_TRANG = 60;
 const TRANG_TOI_DA = 200;
 
 module.exports = (app) => {
+  // Gửi video gốc từng phần để máy chủ nén (Đ260f). Nằm trong vùng
+  // '/api/albums' nên tắt Album là các đường này bị chặn theo. Marketing chỉ
+  // xem ảnh, nên cũng không gửi video lên được.
+  nenVideo.ganDuong(app, '/api/albums/video', { vung: 'album', chan: chanNeuChiXemAnh });
+
   // Danh sách album các lớp liên quan, mới nhất trước (không kèm toàn bộ ảnh).
   app.get('/api/albums', (req, res) => {
     const classIds = db.classIdsOf(req.user);
@@ -693,7 +706,11 @@ module.exports = (app) => {
         // hình. Và số đếm phải là số ảnh NGƯỜI NÀY xem được, không phải tổng.
         ...(() => {
           const xemDuoc = xemDuocTheoAlbum.get(a.id) || [];
-          return { photoCount: xemDuoc.length, cover: xemDuoc[0] || null };
+          const cover = xemDuoc[0] || null;
+          return {
+            photoCount: xemDuoc.length,
+            cover: cover && uploads.biaCua(cover.file) ? { ...cover, coBia: true } : cover,
+          };
         })(),
       };
     });
@@ -735,6 +752,8 @@ module.exports = (app) => {
       .map(a => ({
         ...ganThemDanhSachBe(a, req.user, !!quyen.ganThe),
         xoaDuoc: qx.tatCa || (qx.cuaMinh && nguoiDang.get(a.id) === req.user.id),
+        // Video máy chủ nén có ảnh bìa (Đ260f): ô lưới dùng làm poster.
+        ...(uploads.biaCua(a.file) ? { coBia: true } : {}),
       }));
     album.cheDo = cheDo;
     album.tenCheDo = TEN_CHE_DO[cheDo] || '';
@@ -797,6 +816,16 @@ module.exports = (app) => {
       return res.status(403).json({ error: 'Ảnh này chưa gắn thẻ con mình' });
     }
     if (!photo.file) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
+
+    // `?bia=1`: ảnh bìa của video máy chủ đã nén (Đ260f). Đi qua ĐÚNG các chốt
+    // ở trên — ảnh bìa là một khung hình của chính đoạn phim, lộ y như nó.
+    if (String(req.query.bia || '') === '1') {
+      const bia = uploads.biaCua(photo.file);
+      if (!bia) return res.status(404).json({ error: 'Video này không có ảnh bìa' });
+      res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+      res.setHeader('Content-Type', uploads.mimeOf(bia));
+      return res.sendFile(uploads.pathOf(bia));
+    }
 
     const filePath = uploads.pathOf(photo.file);
     if (!filePath || !fs.existsSync(filePath)) {
@@ -903,7 +932,7 @@ module.exports = (app) => {
       createdBy: req.user.id,
     };
     try {
-      photos.forEach((p, i) => built.push(buildPhoto(p, i)));
+      photos.forEach((p, i) => built.push(buildPhoto(p, i, req.user)));
       db.tx(() => {
         db.insert('albums', rec);
         built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: rec.id, position: i }));
@@ -959,7 +988,7 @@ module.exports = (app) => {
     // mà không vào được cơ sở dữ liệu thì phải gỡ đi, không để mồ côi.
     const built = [];
     try {
-      photos.forEach((p, i) => built.push(buildPhoto(p, dangCo + i)));
+      photos.forEach((p, i) => built.push(buildPhoto(p, dangCo + i, req.user)));
       db.tx(() => {
         built.forEach((p, i) => db.insert('album_photos', { ...p, albumId: album.id, position: dangCo + i }));
         ghiNguoiDang(built.map(p => p.id), req.user.id);
@@ -1183,9 +1212,13 @@ module.exports = (app) => {
     let file = '';
     try {
       const duong = uploads.pathOf(t.file);
-      if (duong && uploads.exists(t.file)) {
+      if (duong && uploads.exists(t.file) && uploads.laVideo(t.file)) {
+        // Chép thẳng tệp: video máy chủ nén (Đ260f) có thể nặng hơn trần 25 MB
+        // của đường base64.
+        file = uploads.chepVideo(t.file).file;
+      } else if (duong && uploads.exists(t.file)) {
         const dataUrl = `data:${uploads.mimeOf(t.file)};base64,${fs.readFileSync(duong).toString('base64')}`;
-        file = (uploads.laVideo(t.file) ? uploads.saveVideoDataUrl(dataUrl) : uploads.saveDataUrl(dataUrl)).file;
+        file = uploads.saveDataUrl(dataUrl).file;
       }
     } catch (_) { file = ''; }
     if (!file) return res.status(400).json({ error: 'Chưa chép được ảnh của câu chuyện — thử lại giúp nhé' });
