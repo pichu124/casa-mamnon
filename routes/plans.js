@@ -80,7 +80,11 @@ module.exports = (app) => {
       .filter(p => p.year > nam || (p.year === nam && p.month > thang))
       .sort((a, b) => a.year - b.year || a.month - b.month)[0] || null;
 
-    res.json({ plan, planSapToi: sapToi, plans });
+    // GIA ĐÌNH KHÔNG NHẬN LỊCH SỬ (góp ý 18/11, Đ260m): *"phụ huynh không xem
+    // lại bài học tuần trước, tháng trước"*. Chỉ tháng này và tháng tới đã
+    // soạn sẵn — đúng hai thứ màn hình của họ vẽ. Cô và văn phòng nhận đủ.
+    const ds = req.user.role === 'parent' ? [plan, sapToi].filter(Boolean) : plans;
+    res.json({ plan, planSapToi: sapToi, plans: ds });
   });
 
   // VĂN PHÒNG SOẠN KẾ HOẠCH CHUNG, CÔ THÔI SOẠN (Đ198, việc 42).
@@ -176,14 +180,21 @@ module.exports = (app) => {
   // Kế hoạch của MỘT tuần (mặc định tuần này), kèm hai tuần gần nhất trước /
   // sau CÓ kế hoạch — để màn hình có nút "tuần trước / tuần sau" không dẫn vào
   // một tuần trống.
+  //
+  // GIA ĐÌNH CHỈ THẤY TUẦN NÀY (góp ý 18/11, Đ260m): *"chỉ hiện duy nhất thông
+  // tin về tuần … còn lại không lưu vết cho phụ huynh"*. Hỏi tuần nào cũng nhận
+  // tuần này, và không có đường sang tuần trước / tuần sau. Chủ dự án chốt
+  // 25/11: không xem trước tuần sau. Người trong trường vẫn đi tuần như cũ.
   app.get('/api/plans/tuan', (req, res) => {
-    const tuan = thuHaiCua(req.query.tuan ? String(req.query.tuan) : ngay.homNay());
-    if (!tuan) return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-10-05' });
+    const hoi = thuHaiCua(req.query.tuan ? String(req.query.tuan) : ngay.homNay());
+    if (!hoi) return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-10-05' });
+    const laGiaDinh = req.user.role === 'parent';
+    const tuan = laGiaDinh ? thuHaiCua(ngay.homNay()) : hoi;
     const r = db.first('edu_plan_tuan',
       "SELECT * FROM edu_plan_tuan WHERE tuan = ? AND campusId = ''", [tuan]);
-    const truoc = db.first('edu_plan_tuan',
+    const truoc = laGiaDinh ? null : db.first('edu_plan_tuan',
       "SELECT tuan FROM edu_plan_tuan WHERE tuan < ? AND campusId = '' ORDER BY tuan DESC LIMIT 1", [tuan]);
-    const sau = db.first('edu_plan_tuan',
+    const sau = laGiaDinh ? null : db.first('edu_plan_tuan',
       "SELECT tuan FROM edu_plan_tuan WHERE tuan > ? AND campusId = '' ORDER BY tuan LIMIT 1", [tuan]);
     res.json({
       tuan,

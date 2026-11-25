@@ -219,8 +219,12 @@ App.views.plans = {
   // trách"; và *"mục này mình sẽ để là soạn kế hoạch tuần"*: một tiêu đề tuần
   // ("Tuần 1 tháng 9: Trường của bé") rồi "Nội dung học của tuần".
   //
-  // Kế hoạch tháng theo nhóm đã soạn KHÔNG mất: vẫn mở ở #/plans, và cô/văn
-  // phòng có một dòng chỉ đường ở cuối khối.
+  // Kế hoạch tháng theo nhóm đã soạn KHÔNG mất: vẫn mở ở #/plans bằng địa
+  // chỉ. Dòng chỉ đường "Xem kế hoạch tháng … trước đây" ở cuối khối đã bỏ
+  // (góp ý 18/11, Đ260m — trường gạch dòng ấy trên ảnh chụp).
+  //
+  // GIA ĐÌNH CHỈ THẤY TUẦN NÀY: máy chủ luôn trả tuần này cho họ, và màn hình
+  // không vẽ nút ‹ › — *"còn lại không lưu vết cho phụ huynh"*.
   _tuan: null,
 
   // "Tuần 1 tháng 10" của một thứ Hai: tuần thứ mấy tính theo ngày của thứ Hai.
@@ -250,16 +254,16 @@ App.views.plans = {
     this._duLieuTuan = d;
     const k = d.keHoach;
     const dong = k ? String(k.noiDung || '').split('\n').filter(Boolean) : [];
-    const u = App.state.user || {};
+    const diTuan = (App.state.user || {}).role !== 'parent';
     o.innerHTML = `
       <div class="card" id="kht-the">
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-          <button class="btn outline sm" id="kht-truoc" ${d.tuanTruocCo ? '' : 'disabled'} aria-label="Tuần trước có kế hoạch">‹</button>
+          ${diTuan ? `<button class="btn outline sm" id="kht-truoc" ${d.tuanTruocCo ? '' : 'disabled'} aria-label="Tuần trước có kế hoạch">‹</button>` : ''}
           <div class="center small" style="flex:1">
             <b>${UI.esc(this.nhanTuan(d.tuan))}</b>${d.tuan === d.tuanNay ? ' · tuần này' : ''}
             <div class="muted">${UI.esc(this.khoangNgay(d.tuan))}</div>
           </div>
-          <button class="btn outline sm" id="kht-sau" ${d.tuanSauCo ? '' : 'disabled'} aria-label="Tuần sau có kế hoạch">›</button>
+          ${diTuan ? `<button class="btn outline sm" id="kht-sau" ${d.tuanSauCo ? '' : 'disabled'} aria-label="Tuần sau có kế hoạch">›</button>` : ''}
         </div>
         ${k ? `
           <div style="font-size:1.25rem;font-weight:800;line-height:1.35;text-transform:uppercase" id="kht-tieu-de">${UI.esc(k.tieuDe)}</div>
@@ -271,9 +275,7 @@ App.views.plans = {
         ${d.duocSoan ? `
           <button class="btn primary block mt-14" id="btn-soan-kh-tuan">${UI.icon('edit', 16)} Soạn kế hoạch tuần</button>` : ''}
         ${d.tuan !== d.tuanNay ? `<button class="btn outline block mt-8" id="kht-ve-nay">Về tuần này</button>` : ''}
-      </div>
-      ${u.role !== 'parent' && !tuyChon.trongPlans ? `
-        <div class="muted small center mb-8"><a href="#/plans">Xem kế hoạch tháng theo nhóm đã soạn trước đây →</a></div>` : ''}`;
+      </div>`;
     const di = (t) => { this._tuan = t; this.renderTuan(o, tuyChon).catch(err => UI.toast(err.message, 'error')); };
     const nt = document.getElementById('kht-truoc');
     if (nt && d.tuanTruocCo) nt.onclick = () => di(d.tuanTruocCo);

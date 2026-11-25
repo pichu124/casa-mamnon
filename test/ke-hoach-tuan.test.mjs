@@ -119,14 +119,44 @@ console.log('\n[3] Ô sai thì từ chối nói rõ; dữ liệu cũ không bị
 }
 
 // ===========================================================================
-console.log('\n[4] Đi tuần trước / tuần sau chỉ tới tuần CÓ kế hoạch');
+// Người trong trường đi được tuần trước / tuần sau. Gia đình thì KHÔNG (góp ý
+// 18/11, Đ260m): *"chỉ hiện duy nhất thông tin về tuần … còn lại không lưu vết
+// cho phụ huynh"* — nên ca đi tuần ở đây dùng tài khoản ban giám hiệu, và mục
+// [4b] canh phía gia đình.
+console.log('\n[4] Đi tuần trước / tuần sau chỉ tới tuần CÓ kế hoạch (người trong trường)');
 {
   await req('PUT', `/api/plans/tuan/${cong(TUAN_NAY, -21)}`, { cookie: QT, body: { tieuDe: 'Ba tuần trước' } });
-  const d = (await req('GET', '/api/plans/tuan', { cookie: PH })).data;
+  const d = (await req('GET', '/api/plans/tuan', { cookie: QT })).data;
   check('tuần trước có kế hoạch gần nhất là ba tuần trước (bỏ qua tuần trống)', d?.tuanTruocCo === cong(TUAN_NAY, -21), d?.tuanTruocCo);
   check('tuần sau có kế hoạch là tuần kế tiếp', d?.tuanSauCo === cong(TUAN_NAY, 7), d?.tuanSauCo);
-  const xa = (await req('GET', `/api/plans/tuan?tuan=${cong(TUAN_NAY, -14)}`, { cookie: PH })).data;
+  const xa = (await req('GET', `/api/plans/tuan?tuan=${cong(TUAN_NAY, -14)}`, { cookie: QT })).data;
   check('hỏi một tuần trống thì keHoach = null, không lỗi', xa?.keHoach === null && xa?.tuan === cong(TUAN_NAY, -14), xa);
+  const co = (await req('GET', `/api/plans/tuan?tuan=${cong(TUAN_NAY, -21)}`, { cookie: GV })).data;
+  check('cô cũng xem lại được tuần cũ', co?.tuan === cong(TUAN_NAY, -21) && co?.keHoach?.tieuDe === 'Ba tuần trước', co);
+}
+
+// ===========================================================================
+console.log('\n[4b] Gia đình chỉ thấy TUẦN NÀY — không lùi về tuần trước, không xem trước tuần sau');
+{
+  const d = (await req('GET', '/api/plans/tuan', { cookie: PH })).data;
+  check('gia đình: không có đường sang tuần trước', d?.tuanTruocCo === null, d?.tuanTruocCo);
+  check('gia đình: không có đường sang tuần sau', d?.tuanSauCo === null, d?.tuanSauCo);
+  const cu = (await req('GET', `/api/plans/tuan?tuan=${cong(TUAN_NAY, -21)}`, { cookie: PH })).data;
+  check('gia đình hỏi thẳng ba tuần trước vẫn chỉ nhận TUẦN NÀY',
+    cu?.tuan === TUAN_NAY && cu?.keHoach?.tieuDe !== 'Ba tuần trước', cu && { tuan: cu.tuan, kh: cu.keHoach });
+  const sau = (await req('GET', `/api/plans/tuan?tuan=${cong(TUAN_NAY, 7)}`, { cookie: PH })).data;
+  check('gia đình hỏi tuần sau cũng nhận tuần này', sau?.tuan === TUAN_NAY && sau?.tuanSauCo === null, sau && sau.tuan);
+
+  // Kế hoạch THÁNG theo nhóm: gia đình chỉ nhận tháng này (và tháng tới đã
+  // soạn sẵn), không nhận cả lịch sử.
+  const thangCu = await req('PUT', '/api/plans/c1/2025/1', { cookie: QT, body: { theme: 'Tháng cũ năm ngoái' } });
+  check('đối chứng — soạn được một tháng cũ', thangCu.status === 200, thangCu.data);
+  const ph = (await req('GET', '/api/plans?classId=c1', { cookie: PH })).data;
+  check('gia đình: danh sách tháng KHÔNG có tháng cũ', !(ph?.plans || []).some(p => p.theme === 'Tháng cũ năm ngoái'), (ph?.plans || []).map(p => `${p.month}/${p.year}`));
+  check('gia đình: danh sách chỉ còn tháng này / tháng tới',
+    (ph?.plans || []).every(p => (ph.plan && p.id === ph.plan.id) || (ph.planSapToi && p.id === ph.planSapToi.id)), ph?.plans);
+  const gv = (await req('GET', '/api/plans?classId=c1', { cookie: GV })).data;
+  check('cô vẫn nhận đủ lịch sử tháng', (gv?.plans || []).some(p => p.theme === 'Tháng cũ năm ngoái'));
 }
 
 // ===========================================================================
