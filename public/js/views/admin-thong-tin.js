@@ -120,9 +120,11 @@ Object.assign(App.views.admin, {
     : '<div class="muted small">Chưa có nhóm nào. Bấm "Thêm nhóm" hoặc nhập danh sách để tạo tự động.</div>'}
       </div>
 
+      <div id="ad-lhkc-cho"></div>
       <div id="ad-ho-so"></div>
       <div id="ad-day"></div>`;
 
+    this.veLienHeCho();
     this.veHoSoChuaDu();
     this.veThongBaoDay();
   },
@@ -157,6 +159,98 @@ Object.assign(App.views.admin, {
     for (const cs of ds) cs.nhom.sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
     const nhieuCoSo = ds.length > 1;
     return ds.map(cs => ({ ...cs, tieuDe: nhieuCoSo }));
+  },
+
+  // ---- Liên hệ khẩn cấp gia đình đề xuất, chờ nhà trường xác nhận (Đ260j) ----
+  //
+  // Không có đề xuất nào thì không hiện thẻ. Ai không có quyền thêm (văn
+  // phòng cơ sở — Đ168) vẫn thấy danh sách để nhắc người phụ trách.
+  async veLienHeCho() {
+    const o = document.getElementById('ad-lhkc-cho');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get('/api/students/lien-he-de-xuat/cho'); } catch (_) { o.innerHTML = ''; return; }
+    const ds = d.danhSach || [];
+    if (!ds.length) { o.innerHTML = ''; return; }
+    o.innerHTML = `
+      <div class="card">
+        <div class="card-title">📇 Liên hệ khẩn cấp chờ xác nhận (${UI.esc(String(ds.length))})</div>
+        <div class="muted small mb-8" style="line-height:1.6">Gia đình đề xuất thêm người liên hệ khẩn cấp cho bé.
+          ${d.duocXet ? 'Bấm "Thêm vào hồ sơ" là người này được nối vào danh sách đang có — không ai bị xoá.'
+    : 'Quản lý cơ sở hoặc ban giám hiệu xác nhận các đề xuất này.'}</div>
+        ${ds.map(x => this.dongDeXuatQT(x, d.duocXet, true)).join('')}
+      </div>`;
+    this.ganNutDeXuat(o, () => this.veLienHeCho());
+  },
+
+  dongDeXuatQT(x, duocXet, kemBe) {
+    return `
+      <div class="list-row" data-de-xuat="${UI.esc(x.id)}" style="flex-wrap:wrap">
+        <div class="row-main">
+          ${kemBe ? `<div class="row-sub">Bé ${UI.esc(x.tenBe)}${x.tenNhom ? ` · ${UI.esc(x.tenNhom)}` : ''}</div>` : ''}
+          <div class="row-title">${UI.esc(x.ten)}${x.quanHe ? ` · ${UI.esc(x.quanHe)}` : ''}</div>
+          <div class="row-sub">${UI.esc(x.sdt)}${x.ghiChu ? ` · ${UI.esc(x.ghiChu)}` : ''}</div>
+          ${x.nguoiDeXuat ? `<div class="row-sub">Gia đình đề xuất: ${UI.esc(x.nguoiDeXuat)}</div>` : ''}
+          ${duocXet ? `<input class="dx-ly-do mt-8" maxlength="300" placeholder="Lý do nếu không thêm (không bắt buộc, gia đình đọc được)">
+          <div class="mt-8" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn sm primary" data-dx-them="${UI.esc(x.id)}">Thêm vào hồ sơ</button>
+            <button class="btn sm outline" data-dx-khong="${UI.esc(x.id)}">Không thêm</button>
+          </div>` : `<div class="mt-8">${UI.badge('Chờ nhà trường xác nhận', 'gray')}</div>`}
+        </div>
+      </div>`;
+  },
+
+  // `sauKhiXet(them, kq)` chạy sau khi máy chủ đã ghi xong (kq: câu trả lời của máy chủ).
+  ganNutDeXuat(khung, sauKhiXet) {
+    const xet = async (nut, them) => {
+      const dong = nut.closest('[data-de-xuat]');
+      const id = dong.dataset.deXuat;
+      nut.disabled = true;
+      try {
+        const kq = them
+          ? await API.post(`/api/students/lien-he-de-xuat/${encodeURIComponent(id)}/them`, {})
+          : await API.post(`/api/students/lien-he-de-xuat/${encodeURIComponent(id)}/khong-them`, {
+            lyDo: (dong.querySelector('.dx-ly-do') || {}).value || '',
+          });
+        UI.toast(them ? 'Đã thêm vào liên hệ khẩn cấp của bé' : 'Đã báo gia đình là chưa thêm', 'success');
+        sauKhiXet(them, kq);
+      } catch (err) {
+        nut.disabled = false;
+        UI.toast(err.message, 'error');
+      }
+    };
+    for (const b of khung.querySelectorAll('[data-dx-them]')) b.onclick = () => xet(b, true);
+    for (const b of khung.querySelectorAll('[data-dx-khong]')) b.onclick = () => xet(b, false);
+  },
+
+  // Đề xuất của một bé trong phiếu Sửa hồ sơ. Thêm xong thì người ấy cũng
+  // được NỐI vào các dòng đang mở trong phiếu: không vậy thì bấm "Lưu thay
+  // đổi" ngay sau đó gửi lên danh sách cũ và xoá mất người vừa thêm.
+  async veDeXuatTrongPhieu(studentId) {
+    const o = document.getElementById('ad-hs-lhdx');
+    if (!o) return;
+    let d = null;
+    try { d = await API.get(`/api/students/${encodeURIComponent(studentId)}/lien-he-de-xuat`); } catch (_) { return; }
+    const ds = d.danhSach || [];
+    if (!ds.length) { o.innerHTML = ''; return; }
+    o.innerHTML = `
+      <div class="small mt-8" style="font-weight:650">Gia đình đề xuất thêm (${UI.esc(String(ds.length))})</div>
+      ${ds.map(x => this.dongDeXuatQT(x, d.duocXet, false)).join('')}`;
+    this.ganNutDeXuat(o, (them, kq) => {
+      if (them) this.noiDongLienHe(kq.deXuat);
+      this.veDeXuatTrongPhieu(studentId);
+    });
+  },
+
+  noiDongLienHe(x) {
+    const hop = document.getElementById('ad-hs-lhkc');
+    if (!hop || !x) return;
+    const dong = [...hop.querySelectorAll('.lhkc-dong')];
+    let d = dong.length === 1 && ![...dong[0].querySelectorAll('input')].some(i => i.value.trim()) ? dong[0] : null;
+    if (!d) { this.themDongLienHe(); d = hop.lastElementChild; }
+    d.querySelector('.lhkc-ten').value = x.ten || '';
+    d.querySelector('.lhkc-qh').value = x.quanHe || '';
+    d.querySelector('.lhkc-dt').value = x.sdt || '';
   },
 
   // ---- Hồ sơ bé còn thiếu giấy tờ người lớn (Đ161) ----
@@ -838,6 +932,7 @@ Vẫn nhận bé này?`)) {
         </div>
         <button class="btn sm outline" onclick="App.views.admin.themDongLienHe()">+ Thêm người</button>
         <div class="hint">Nhà trường gọi những số này khi không liên lạc được với bố mẹ. Bỏ trống họ tên là dòng đó không được lưu.</div>
+        <div id="ad-hs-lhdx"></div>
       </div>
       <div class="field"><label>Phụ huynh của bé</label>
         <div id="ad-hs-ph">${(s.parents || []).map(p => `
@@ -906,6 +1001,7 @@ Vẫn nhận bé này?`)) {
 
     const nutThemPh = document.getElementById('ad-hs-them-ph');
     if (nutThemPh) nutThemPh.onclick = () => this.moThemPhuHuynh(s);
+    this.veDeXuatTrongPhieu(studentId);
 
     document.getElementById('ad-hs-luu').onclick = async () => {
       const name = document.getElementById('ad-hs-ten').value.trim();
