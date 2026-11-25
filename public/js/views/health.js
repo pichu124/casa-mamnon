@@ -101,7 +101,8 @@ App.views.health = {
   //     Một con số không lưu thì không bao giờ trở thành dữ liệu về đứa trẻ mà
   //     ai đó lọc, sắp xếp hay đem ra so.
   //   - KHÔNG kèm bất kỳ lời nào: không màu, không huy hiệu, không mũi tên lên
-  //     xuống, không "so với lần trước". Con số đứng một mình.
+  //     xuống, không "so với lần trước". Con số đứng một mình. (Từ Đ260e có
+  //     màu theo bảng WHO, đặt bên cạnh chứ không trong hàm này — xem ngay dưới.)
   //   - Thiếu một trong hai số đo thì KHÔNG hiện gì cả, chứ không hiện số 0 —
   //     một ô trống là "chưa đo", còn số 0 trông như một kết quả.
   //
@@ -116,6 +117,54 @@ App.views.health = {
     const v = nang / (m * m);
     if (!Number.isFinite(v)) return null;
     return v.toFixed(1);
+  },
+
+  // TÔ MÀU Ô BMI THEO BẢNG TĂNG TRƯỞNG WHO (Đ260e).
+  //
+  // Đoạn trên được viết khi trường chọn "con số" (Đ186). Ngày 18/11 trường xin
+  // thêm màu — trong ngưỡng xanh, dưới ngưỡng cam, trên ngưỡng đỏ — để cô thấy
+  // ngay lúc nhập và trao đổi với gia đình về bữa ăn. Chủ dự án duyệt 25/11,
+  // cả gia đình cũng thấy màu: ngoại lệ có duyệt của QUY TẮC 4, chỉ cho chỉ số
+  // BMI ở phân hệ này. Phần "tính ở tầng hiển thị, không lưu" vẫn giữ nguyên:
+  // bảng và phép tính nằm ở public/js/bmi-who.js, máy chủ chỉ gửi ngày sinh và
+  // giới tính. Màu luôn đi kèm chữ, và chữ luôn kèm một việc làm được.
+  //
+  // `BmiWho` hỏi lúc gọi, không lúc nạp tệp: tệp này còn được nạp riêng trong
+  // bài test để gọi `bmi()`, và ở đó không có bảng WHO nào cả.
+  mucBmi(x, be) {
+    if (typeof BmiWho === 'undefined' || !x || !be) return null;
+    return BmiWho.phanLoai(x, be);
+  },
+
+  MAU_BMI: {
+    xanh: { vien: 'var(--success)', nen: 'var(--success-tint)' },
+    cam: { vien: 'var(--warning)', nen: 'var(--warning-tint)' },
+    do: { vien: 'var(--danger)', nen: 'var(--danger-tint)' },
+  },
+
+  kieuBmi(m) {
+    const c = m && this.MAU_BMI[m.mau];
+    return c ? `border:2px solid ${c.vien};background:${c.nen}` : '';
+  },
+
+  // "trong ngưỡng" / "dưới ngưỡng" / "trên ngưỡng" — chữ ngắn cạnh con số.
+  nhanNgan(m) {
+    return m ? m.nhan.replace(/^BMI /, '') : '';
+  },
+
+  dongGoiYBmi(m) {
+    if (!m) return '';
+    return `
+      <div class="ht-bmi-goi-y small mt-8" data-muc-bmi="${UI.esc(m.muc)}" style="${this.kieuBmi(m)};border-radius:12px;padding:8px 10px;line-height:1.55">
+        <b>${UI.esc(m.nhan)}</b> <span class="muted">(${UI.esc(m.nguon)})</span><br>${UI.esc(m.goiY)}
+      </div>`;
+  },
+
+  chamBmi(m) {
+    if (!m) return '';
+    return ` <span class="ht-cham-bmi" data-muc-bmi="${UI.esc(m.muc)}" style="white-space:nowrap">`
+      + `<span aria-hidden="true" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${this.MAU_BMI[m.mau].vien};vertical-align:middle"></span>`
+      + ` <span class="small muted">${UI.esc(this.nhanNgan(m))}</span></span>`;
   },
 
   soDo(x) {
@@ -174,8 +223,8 @@ App.views.health = {
           </div>
         </div>
       </div>
-      ${this.latestCard(data.latestCheckup)}
-      ${this.theLichSuCanDo(data.lichSuCanDo)}
+      ${this.latestCard(data.latestCheckup, data.thongTinBe)}
+      ${this.theLichSuCanDo(data.lichSuCanDo, data.thongTinBe)}
       ${this.recordsHtml()}`;
     document.getElementById('btn-new-health').onclick = () => this.openCreate(sid);
     document.getElementById('ht-ve-nhom').onclick = () => { this._beDangMo = null; App.route(); };
@@ -189,7 +238,9 @@ App.views.health = {
 
   // Lịch sử cân đo (Đ138): từng lần một, mới nhất trước. Chỉ con số của lần
   // đó — không chênh lệch, không mũi tên lên xuống.
-  theLichSuCanDo(ds) {
+  // Chấm màu BMI cạnh từng lần (Đ260e) là mức của CHÍNH lần đó, không phải
+  // một mũi tên so với lần trước.
+  theLichSuCanDo(ds, be) {
     if (!Array.isArray(ds) || ds.length < 2) return '';
     return `
       <div class="card">
@@ -197,7 +248,7 @@ App.views.health = {
         ${ds.map(x => `
           <div class="list-row">
             <div class="row-main">
-              <div class="row-title">${UI.esc(this.soDo(x) || '—')}</div>
+              <div class="row-title">${UI.esc(this.soDo(x) || '—')}${this.chamBmi(this.mucBmi(x, be))}</div>
               <div class="row-sub">${UI.esc(UI.fmtDate(x.date, { weekday: false }))}${x.title ? ` · ${UI.esc(x.title)}` : ''}</div>
             </div>
           </div>`).join('')}
@@ -206,32 +257,55 @@ App.views.health = {
 
   // Hộp NHẬP CÂN ĐO CẢ NHÓM (Đ138): mỗi bé một dòng hai ô, một nút Lưu.
   // Ô điền sẵn số đã ghi trong tháng (nếu có) để sửa được; để trống là bỏ qua bé đó.
+  //
+  // Đ260e, góp ý của trường 18/11, thêm ba thứ cho mỗi dòng:
+  //   • "Lần đo gần nhất" — số của lần TRƯỚC tháng đang xem (`doTruocThang`),
+  //     để cô nhận ra mình đang gõ nhầm sang bé khác. Chiều cao mới thấp hơn
+  //     lần trước thì viền cam và một dòng nhắc nhỏ — nhắc, không chặn lưu.
+  //   • Ô BMI tính ngay khi cô gõ, tô màu theo bảng WHO (xem `mucBmi`).
+  //   • Hộp hỏi lại khi tháng này đã gửi số cho gia đình (máy chủ trả 409).
+  //
+  // Mỗi bé hai hàng thay vì một: hàng trên tên + lần đo gần nhất (xuống dòng
+  // được), hàng dưới ba ô cao / nặng / BMI. Năm cột trên một hàng thì điện
+  // thoại 390px tràn ngang.
   moCanDoNhom(d) {
     const ds = this._dsBe || [];
     if (!ds.length) return UI.toast('Nhóm chưa có bé nào', 'error');
+    const LUOI = 'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr);gap:6px;align-items:center';
+    const O = 'border:1.5px solid var(--line);border-radius:10px;padding:9px 8px;min-width:0;width:100%;min-height:40px';
     UI.modal(`
       <div class="field">
         <label>Ngày cân đo</label>
         <input type="date" id="ht-cd-ngay" value="${UI.esc(UI.todayStr())}" max="${UI.esc(UI.todayStr())}">
         <div class="hint">Bé nào để trống cả hai ô thì không ghi. Số đã có trong tháng được điền sẵn để cô sửa.</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 84px 84px;gap:6px;align-items:center;margin-bottom:6px" class="muted small">
-        <span>Bé</span><span>Cao (cm)</span><span>Nặng (kg)</span>
+      <div style="${LUOI};margin-bottom:4px" class="muted small">
+        <span>Cao (cm)</span><span>Nặng (kg)</span><span>BMI</span>
       </div>
       ${ds.map(b => {
         const g = this.goiYCanDo(this.thangTuoiTu(b.dob));
         const tt = b.doTrongThang || {};
         return `
-        <div style="display:grid;grid-template-columns:1fr 84px 84px;gap:6px;align-items:center;margin-bottom:8px">
-          <div class="small" style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${UI.esc(b.hoTen)}</div>
-          <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="height" min="0" step="0.1" inputmode="decimal"
-            value="${tt.height !== null && tt.height !== undefined ? UI.esc(String(tt.height)) : ''}" placeholder="${UI.esc(g.cao)}"
-            style="border:1.5px solid var(--line);border-radius:10px;padding:9px 8px;min-width:0;min-height:40px">
-          <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="weight" min="0" step="0.1" inputmode="decimal"
-            value="${tt.weight !== null && tt.weight !== undefined ? UI.esc(String(tt.weight)) : ''}" placeholder="${UI.esc(g.nang)}"
-            style="border:1.5px solid var(--line);border-radius:10px;padding:9px 8px;min-width:0;min-height:40px">
+        <div class="ht-cd-hang" data-hang="${UI.esc(b.studentId)}" style="padding:8px 0;border-bottom:1px solid var(--line)">
+          <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin-bottom:6px">
+            <span class="small" style="font-weight:600;overflow-wrap:anywhere">${UI.esc(b.hoTen)}</span>
+            <span class="muted small ht-cd-truoc" style="overflow-wrap:anywhere">${this.lanDoTruoc(b.doTruocThang)}</span>
+          </div>
+          <div style="${LUOI}">
+            <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="height" min="0" step="0.1" inputmode="decimal"
+              value="${tt.height !== null && tt.height !== undefined ? UI.esc(String(tt.height)) : ''}" placeholder="${UI.esc(g.cao)}"
+              aria-label="Chiều cao (cm) của ${UI.esc(b.hoTen)}" style="${O}">
+            <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="weight" min="0" step="0.1" inputmode="decimal"
+              value="${tt.weight !== null && tt.weight !== undefined ? UI.esc(String(tt.weight)) : ''}" placeholder="${UI.esc(g.nang)}"
+              aria-label="Cân nặng (kg) của ${UI.esc(b.hoTen)}" style="${O}">
+            <div class="ht-cd-bmi small" data-muc-bmi="" style="${this.KIEU_O_BMI}"><span class="muted">—</span></div>
+          </div>
+          <div class="ht-cd-nhac small" hidden style="color:var(--text);margin-top:4px">
+            <span aria-hidden="true" style="color:var(--warning)">●</span> Thấp hơn lần trước — cô xem lại có nhầm bé không
+          </div>
         </div>`;
       }).join('')}
+      ${this.hopHoiSuaLai('ht-cd')}
       <button class="btn primary block mt-8" id="ht-cd-luu">${UI.icon('check', 18)} Lưu cân đo cả nhóm</button>
 
       <div class="card-title mt-8">Hoặc làm bằng tệp</div>
@@ -252,6 +326,72 @@ App.views.health = {
     document.getElementById('ht-cd-luu').onclick = () => this.luuCanDoNhom();
     const oTep = document.getElementById('ht-cd-tep');
     if (oTep) oTep.onchange = () => this.napTepCanDo(oTep, d.classId);
+    for (const o of document.querySelectorAll('.ht-cd')) o.oninput = () => this.capNhatHangCanDo(o.closest('.ht-cd-hang'));
+    const capNhatHet = () => document.querySelectorAll('.ht-cd-hang').forEach(h => this.capNhatHangCanDo(h));
+    document.getElementById('ht-cd-ngay').onchange = capNhatHet;
+    capNhatHet();
+  },
+
+  KIEU_O_BMI: 'border:1.5px solid var(--line);border-radius:10px;padding:5px 6px;min-height:40px;display:flex;flex-direction:column;justify-content:center;line-height:1.25;min-width:0;overflow-wrap:anywhere',
+
+  lanDoTruoc(x) {
+    if (!x) return 'Chưa có lần đo trước';
+    const so = [
+      x.height !== null && x.height !== undefined ? `${x.height} cm` : '',
+      x.weight !== null && x.weight !== undefined ? `${x.weight} kg` : '',
+    ].filter(Boolean).join(' · ');
+    return `Lần đo gần nhất: ${UI.esc(so)} (${UI.esc(UI.fmtDateShort(x.date))})`;
+  },
+
+  // Một dòng của hộp nhập cả nhóm: ô BMI và dòng nhắc "thấp hơn lần trước".
+  capNhatHangCanDo(hang) {
+    if (!hang) return;
+    const b = (this._dsBe || []).find(x => x.studentId === hang.dataset.hang);
+    const oCao = hang.querySelector('[data-cot="height"]');
+    const cao = oCao.value.trim();
+    const nang = hang.querySelector('[data-cot="weight"]').value.trim();
+    const x = {
+      height: cao === '' ? null : Number(cao),
+      weight: nang === '' ? null : Number(nang),
+      date: (document.getElementById('ht-cd-ngay') || {}).value || UI.todayStr(),
+    };
+    const chiSo = this.bmi(x);
+    const m = chiSo ? this.mucBmi(x, b) : null;
+    const o = hang.querySelector('.ht-cd-bmi');
+    o.dataset.mucBmi = m ? m.muc : '';
+    o.setAttribute('style', this.KIEU_O_BMI + (m ? `;${this.kieuBmi(m)}` : ''));
+    o.innerHTML = chiSo
+      ? `<b>${UI.esc(chiSo)}</b>${m ? `<span style="font-size:.72rem">${UI.esc(this.nhanNgan(m))}</span>` : ''}`
+      : '<span class="muted">—</span>';
+
+    const truoc = b && b.doTruocThang;
+    const thap = !!(truoc && truoc.height && cao !== '' && Number(cao) > 0 && Number(cao) < Number(truoc.height));
+    oCao.style.borderColor = thap ? 'var(--warning)' : 'var(--line)';
+    hang.querySelector('.ht-cd-nhac').hidden = !thap;
+  },
+
+  // HỘP HỎI LẠI "THÁNG NÀY ĐÃ GỬI SỐ ĐO" (Đ260e). Nằm ngay trong hộp đang mở,
+  // không mở hộp mới đè lên — mở hộp mới là mất hết số cô vừa gõ cho cả nhóm.
+  hopHoiSuaLai(tienTo) {
+    return `
+      <div id="${tienTo}-hoi" hidden role="alertdialog" style="border:1.5px solid var(--warning);background:var(--warning-tint);border-radius:12px;padding:10px 12px;margin-top:10px">
+        <div class="small ht-hoi-chu" style="line-height:1.55"></div>
+        <div class="muted small mt-8">Sửa lại thì số mới thay số cũ của tháng này; gia đình không nhận thêm tin báo.</div>
+        <div class="grid-2 mt-8">
+          <button class="btn primary" id="${tienTo}-sua-lai">Sửa lại</button>
+          <button class="btn outline" id="${tienTo}-thoi">Thôi</button>
+        </div>
+      </div>`;
+  },
+
+  hoiSuaLai(tienTo, cau, lamTiep) {
+    const hop = document.getElementById(`${tienTo}-hoi`);
+    if (!hop) return UI.toast(cau, 'error');
+    hop.querySelector('.ht-hoi-chu').textContent = cau;
+    hop.hidden = false;
+    hop.scrollIntoView({ block: 'nearest' });
+    document.getElementById(`${tienTo}-sua-lai`).onclick = () => { hop.hidden = true; lamTiep(); };
+    document.getElementById(`${tienTo}-thoi`).onclick = () => { hop.hidden = true; };
   },
 
   // NẠP TỆP CÂN ĐO (Đ205, việc 11).
@@ -263,24 +403,32 @@ App.views.health = {
     const f = o.files && o.files[0];
     if (!f) return;
     o.disabled = true;
+    const text = await f.text();
+    await this.guiTepCanDo(o, classId, text, false);
+  },
+
+  async guiTepCanDo(o, classId, text, suaLai) {
     try {
-      const text = await f.text();
-      const kq = await API.post('/api/health/nap-can-do', { classId, text });
+      const kq = await API.post('/api/health/nap-can-do', { classId, text, ...(suaLai ? { suaLai: true } : {}) });
       UI.closeModal();
       const boQua = (kq.boQua || []).length;
       UI.toast(`Đã nạp cân đo cho ${kq.soBe} bé`
+        + (kq.daSua ? ` (sửa lại ${kq.daSua})` : '')
         + (boQua ? ` · ${boQua} bé để trống nên bỏ qua` : ''), 'success');
       App.route();
     } catch (err) {
+      o.disabled = false;
+      o.value = '';
+      if (err.status === 409 && !suaLai) {
+        return this.hoiSuaLai('ht-cd', err.message, () => this.guiTepCanDo(o, classId, text, true));
+      }
       // Câu lỗi của máy chủ nói rõ DÒNG nào sai, nên hiện nguyên văn chứ không
       // rút gọn — cô cần biết mở tệp ra sửa dòng nào.
       UI.toast(err.message, 'error');
-      o.disabled = false;
-      o.value = '';
     }
   },
 
-  async luuCanDoNhom() {
+  async luuCanDoNhom(suaLai = false) {
     const theoBe = new Map();
     for (const o of document.querySelectorAll('.ht-cd')) {
       const be = o.dataset.be;
@@ -292,11 +440,15 @@ App.views.health = {
     try {
       const kq = await API.post('/api/health/can-do-nhom', {
         classId: this._classId, date: document.getElementById('ht-cd-ngay').value, danhSach,
+        ...(suaLai ? { suaLai: true } : {}),
       });
       UI.closeModal();
       UI.toast(`Đã ghi cân đo cho ${kq.soBe} bé${kq.daSua ? ` (sửa lại ${kq.daSua})` : ''}`, 'success');
       App.route();
-    } catch (e) { UI.toast(e.message || 'Chưa lưu được', 'error'); }
+    } catch (e) {
+      if (e.status === 409 && !suaLai) return this.hoiSuaLai('ht-cd', e.message, () => this.luuCanDoNhom(true));
+      UI.toast(e.message || 'Chưa lưu được', 'error');
+    }
   },
 
   thangTuoiTu(dob) {
@@ -325,22 +477,26 @@ App.views.health = {
     root.innerHTML = `
       ${UI.pageHeader('Sức khỏe của bé')}
       ${UI.studentBar()}${UI.thanhChonBeTheoCap()}
-      ${this.latestCard(data.latestCheckup)}
-      ${this.theLichSuCanDo(data.lichSuCanDo)}
+      ${this.latestCard(data.latestCheckup, data.thongTinBe)}
+      ${this.theLichSuCanDo(data.lichSuCanDo, data.thongTinBe)}
       ${this._records.length || !coSoDo ? this.recordsHtml() : ''}`;
   },
 
   // ---- Thẻ chỉ số lần khám gần nhất ----
-  latestCard(lc) {
+  // Ô BMI mang màu theo bảng WHO, và ngay dưới hàng ba ô là chữ của mức ấy
+  // kèm một việc cô và gia đình làm được (Đ260e) — màu không đứng một mình.
+  latestCard(lc, be) {
     if (!lc) return '';
+    const m = this.bmi(lc) ? this.mucBmi(lc, be) : null;
     return `
       <div class="card">
         <div class="card-title">${UI.icon('health', 19)} Chỉ số gần nhất</div>
         <div class="stat-row" style="margin-bottom:0">
           ${this.statBox(lc.height, 'cm', 'Chiều cao')}
           ${this.statBox(lc.weight, 'kg', 'Cân nặng')}
-          ${this.bmi(lc) ? this.statBox(this.bmi(lc), '', 'BMI') : ''}
+          ${this.bmi(lc) ? this.statBox(this.bmi(lc), '', 'BMI', m) : ''}
         </div>
+        ${this.dongGoiYBmi(m)}
         <div class="muted small mt-8 flex">
           <span>Khám ngày ${UI.esc(UI.fmtDate(lc.date, { weekday: false }))}</span>
           ${
@@ -352,10 +508,10 @@ App.views.health = {
       </div>`;
   },
 
-  statBox(value, unit, label) {
+  statBox(value, unit, label, mucBmi) {
     const has = value !== undefined && value !== null && value !== '';
     return `
-      <div class="stat-box">
+      <div class="stat-box"${mucBmi ? ` data-muc-bmi="${UI.esc(mucBmi.muc)}" style="${this.kieuBmi(mucBmi)}"` : ''}>
         <div class="stat-num">${has ? `${UI.esc(value)}${unit ? ` <span style="font-size:.82rem;font-weight:600">${UI.esc(unit)}</span>` : ''}` : '—'}</div>
         <div class="stat-label">${UI.esc(label)}</div>
       </div>`;
@@ -456,7 +612,7 @@ App.views.health = {
     // Bé của nhóm đang xem (cô lẫn văn phòng) — App.state.students chỉ có
     // với cô, và là mọi nhóm của cô gộp lại.
     const students = (this._dsBe && this._dsBe.length)
-      ? this._dsBe.map(b => ({ id: b.studentId, name: b.hoTen, dob: b.dob, className: '' }))
+      ? this._dsBe.map(b => ({ id: b.studentId, name: b.hoTen, dob: b.dob, gender: b.gender, className: '' }))
       : (App.state.students || []);
     if (studentId) this._sid = studentId;
     this._newType = 'checkup';
@@ -495,6 +651,7 @@ App.views.health = {
           <label>Cân nặng (kg)</label>
           <input type="number" id="ht-weight" min="0" step="0.1" placeholder="${UI.esc(goiY.nang)}">
         </div>
+        <div id="ht-c-bmi" style="grid-column:1/-1;margin:-4px 0 10px"></div>
         <div class="field" style="grid-column:1/-1">
           <label>Đánh giá thể trạng</label>
           <input id="ht-bmi" placeholder="VD: phát triển bình thường">
@@ -505,11 +662,33 @@ App.views.health = {
         <input type="date" id="ht-date" value="${UI.todayStr()}">
         <div class="hint">Mặc định hôm nay. Đổi lại khi nhập kết quả khám định kỳ đã làm trước đó.</div>
       </div>
-      <button class="btn primary block" onclick="App.views.health.submitCreate()">${UI.icon('check', 18)} Lưu ghi nhận</button>
+      ${this.hopHoiSuaLai('ht-c')}
+      <button class="btn primary block mt-8" onclick="App.views.health.submitCreate()">${UI.icon('check', 18)} Lưu ghi nhận</button>
     `, 'Thêm ghi nhận y tế');
 
+    this._beHopLe = students;
     const oBe = document.getElementById('ht-c-student');
-    if (oBe) oBe.onchange = () => this.capNhatGoiYCanDo();
+    if (oBe) oBe.onchange = () => { this.capNhatGoiYCanDo(); this.capNhatBmiLe(); };
+    for (const id of ['ht-height', 'ht-weight', 'ht-date']) {
+      const o = document.getElementById(id);
+      if (o) o.oninput = () => this.capNhatBmiLe();
+    }
+  },
+
+  // Hộp nhập lẻ cũng thấy BMI và màu ngay khi gõ xong cao / nặng (Đ260e).
+  capNhatBmiLe() {
+    const o = document.getElementById('ht-c-bmi');
+    if (!o) return;
+    const sid = (document.getElementById('ht-c-student') || {}).value;
+    const be = (this._beHopLe || []).find(s => s.id === sid) || null;
+    const x = {
+      height: Number(document.getElementById('ht-height').value) || null,
+      weight: Number(document.getElementById('ht-weight').value) || null,
+      date: (document.getElementById('ht-date') || {}).value || UI.todayStr(),
+    };
+    const chiSo = this.bmi(x);
+    const m = chiSo ? this.mucBmi(x, be) : null;
+    o.innerHTML = chiSo ? `<div class="small"><b>BMI ${UI.esc(chiSo)}</b></div>${this.dongGoiYBmi(m)}` : '';
   },
 
   pickType(t) {
@@ -519,7 +698,7 @@ App.views.health = {
     if (metrics) metrics.style.display = t === 'checkup' ? '' : 'none';
   },
 
-  async submitCreate() {
+  async submitCreate(suaLai = false) {
     const studentId = document.getElementById('ht-c-student').value;
     const type = this._newType;
     const title = document.getElementById('ht-title').value.trim();
@@ -536,15 +715,20 @@ App.views.health = {
       const tt = (document.getElementById('ht-bmi') || {}).value;
       if (tt && tt.trim()) body.bmiNote = tt.trim();
     }
+    if (suaLai) body.suaLai = true;
     try {
       await API.post('/api/health', body);
-      UI.toast('Đã thêm ghi nhận y tế', 'success');
+      UI.toast(suaLai ? 'Đã sửa lại số đo tháng này' : 'Đã thêm ghi nhận y tế', 'success');
       UI.closeModal();
       this._sid = studentId;
       if (App.state.user.role !== 'parent') this._beDangMo = studentId;
       App.route();
       App.refreshBadges();
-    } catch (err) { UI.toast(err.message, 'error'); }
+    } catch (err) {
+      // Tháng này bé đã có lần cân đo gửi gia đình (Đ260e): hỏi lại ngay trong hộp.
+      if (err.status === 409 && !suaLai) return this.hoiSuaLai('ht-c', err.message, () => this.submitCreate(true));
+      UI.toast(err.message, 'error');
+    }
   },
 
   // ---- Sửa lại và thu hồi một ghi nhận y tế ----

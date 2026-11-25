@@ -141,7 +141,9 @@ try {
     // 17h UTC / 0h sáng hôm sau giờ Việt Nam.
     const ghi = await req('POST', '/api/health', {
       cookie: CO,
-      body: { studentId: 's1', type: 'checkup', title: 'Ghi kiểu cũ', height: 104, weight: 17.5 },
+      // Ngày khám ở tháng khác: mục [5] cần tháng này còn trống cân đo (Đ260e:
+      // một tháng một lần cân đo). Khoá sửa đi theo ngày GÕ, không theo ngày khám.
+      body: { studentId: 's1', type: 'checkup', title: 'Ghi kiểu cũ', date: '2025-07-15', height: 104, weight: 17.5 },
     });
     check('đối chứng — ghi được một bản ghi mới', ghi.status === 200 || ghi.status === 201, ghi.status);
     xoaNgayGhi(ghi.data.id);
@@ -181,7 +183,7 @@ try {
   {
     const ghi = await req('POST', '/api/health', {
       cookie: CO,
-      body: { studentId: 's1', type: 'checkup', title: 'Ghi hôm kia', height: 103, weight: 17 },
+      body: { studentId: 's1', type: 'checkup', title: 'Ghi hôm kia', date: '2025-08-20', height: 103, weight: 17 },
     });
     const id = ghi.data.id;
     luiNgayGhi(id, '2026-09-13');           // dựng cảnh cô gõ hôm kia
@@ -255,9 +257,10 @@ try {
     const demSau1 = soDong('s1', NGAY);
     const nap2 = await req('POST', '/api/health/nap-can-do', {
       cookie: CO,
-      body: { classId: 'c1', text: 'Mã của bé,Họ và tên,Nhóm lớp,Chiều cao (cm),Cân nặng (kg)\n,Nguyễn Bảo An,Chồi 2,106,18.5\n' },
+      // Đ260e: lần hai trong tháng phải nói rõ là sửa lại, không thì 409.
+      body: { classId: 'c1', suaLai: true, text: 'Mã của bé,Họ và tên,Nhóm lớp,Chiều cao (cm),Cân nặng (kg)\n,Nguyễn Bảo An,Chồi 2,106,18.5\n' },
     });
-    check('nạp lại lần hai vẫn được', nap2.status === 200, nap2.status);
+    check('nạp lại lần hai (sửa lại) vẫn được', nap2.status === 200, nap2.status);
     check('KHÔNG SINH RA DÒNG THỨ HAI cùng tháng — sửa chứ không thêm',
       soDong('s1', NGAY) === demSau1, `${demSau1} → ${soDong('s1', NGAY)}`);
     check('và số mới đã thay số cũ', (canDo('s1', NGAY) || {}).height === 106,
@@ -329,7 +332,8 @@ try {
     check('đối chứng — bé s1 có mã thật trong dữ liệu mẫu', !!ma, ma);
     const coMa = await req('POST', '/api/health/nap-can-do', {
       cookie: CO,
-      body: { classId: 'c1',
+      // s1 đã có số tháng này từ mục [5] — sửa lại (Đ260e).
+      body: { classId: 'c1', suaLai: true,
         text: `Mã của bé,Họ và tên,Nhóm lớp,Chiều cao (cm),Cân nặng (kg)\n${ma},Nguyễn Bảo An,Chồi 2,109,18\n` },
     });
     check('cùng tên ấy nhưng CÓ MÃ thì nạp được bình thường', coMa.status === 200,
