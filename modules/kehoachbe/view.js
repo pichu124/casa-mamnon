@@ -409,9 +409,11 @@ App.views.kehoachbe = {
     const kho = this.baiCuaGoc(goc);
     const ds = kho.filter(b => !x.lua || b.luaApDung.includes(x.lua)
       || daTich.some(t => t.baiHocId === b.id));
+    // Bài cơ sở đã tắt môn (góp ý 18/11) cũng rơi vào đây: kho không còn, chip
+    // vẫn có và vẫn nằm đúng mục con của nó.
     const daAn = daTich.filter(t => t.gocLinhVuc === goc && t.ten && !kho.some(b => b.id === t.baiHocId))
       .filter((t, i, a) => a.findIndex(y => y.baiHocId === t.baiHocId) === i)
-      .map(t => ({ id: t.baiHocId, ten: t.ten, gocLinhVuc: goc, lua: [] }));
+      .map(t => ({ id: t.baiHocId, ten: t.ten, gocLinhVuc: goc, linhVucCon: t.linhVucCon || '', lua: [] }));
     return ds.concat(daAn);
   },
 
@@ -522,14 +524,22 @@ App.views.kehoachbe = {
       if (khoa) {
         const bg = baiDaTich.filter(b => b.gocLinhVuc === g.ma);
         if (!gt && !bg.length) return `<div class="kb-vung" data-goc="${UI.esc(g.ma)}"></div>`;
+        const dsBai = (ds) => `<div class="small" style="line-height:1.7">${ds.map((b, i) =>
+          `${i + 1}. ${UI.esc(b.ten)} <span class="muted">· ${UI.esc(this.tenNhan(b.nhan))}</span>${
+            b.mucDo ? ` ${UI.badge(this.chuMucDo(b.mucDo), this.MAU_KET_QUA[b.mucDo] || 'gray')}`
+              : (b.ketQua ? ` ${UI.badge(this.ten(d.ketLuanBai, b.ketQua), this.MAU_KET_LUAN[b.ketQua] || 'gray')}` : '')}${
+            b.tiepTuc ? ` <span class="muted small">· ${UI.esc(this.ten(d.tiepTuc, b.tiepTuc).toLowerCase())}</span>` : ''}`).join('<br>')}</div>`;
+        // Góp ý 18/11: phần Cambridge / Thể chất đã khoá cũng chia theo mục
+        // con (Maths, Let's Explore…), đánh số riêng từng mục — như cô
+        // Montessori chia theo lĩnh vực.
+        const theoMuc = this.coMucCon(g.ma, d.linhVucCon)
+          ? this.khoiBai(g.ma, bg, d.linhVucCon).filter(kh => kh.ds.length).map(kh => `
+            <div class="small kb-muc-con" style="font-weight:600;margin-top:6px">${UI.esc(kh.ten)}</div>${dsBai(kh.ds)}`).join('')
+          : (bg.length ? dsBai(bg) : '');
         return `
           <div class="list-row kb-vung" data-goc="${UI.esc(g.ma)}"><div class="row-main">
             <div class="row-sub">${UI.esc(g.ten)}</div>
-            ${bg.length ? `<div class="small" style="line-height:1.7">${bg.map((b, i) =>
-              `${i + 1}. ${UI.esc(b.ten)} <span class="muted">· ${UI.esc(this.tenNhan(b.nhan))}</span>${
-                b.mucDo ? ` ${UI.badge(this.chuMucDo(b.mucDo), this.MAU_KET_QUA[b.mucDo] || 'gray')}`
-                  : (b.ketQua ? ` ${UI.badge(this.ten(d.ketLuanBai, b.ketQua), this.MAU_KET_LUAN[b.ketQua] || 'gray')}` : '')}${
-                b.tiepTuc ? ` <span class="muted small">· ${UI.esc(this.ten(d.tiepTuc, b.tiepTuc).toLowerCase())}</span>` : ''}`).join('<br>')}</div>` : ''}
+            ${theoMuc}
             ${gt ? `<div class="row-title" style="font-weight:400">${UI.esc(gt)}</div>` : ''}
             ${m && m.ketQua ? `<div class="row-sub">${UI.esc(this.ten(d.ketQua, m.ketQua))}${m.tiepTucThangSau ? ' · tiếp tục ở tháng sau' : ''}</div>` : ''}
           </div></div>`;
@@ -541,7 +551,7 @@ App.views.kehoachbe = {
           ${ds.length ? `<div style="margin-bottom:6px">${this.veKhoiChon(x.studentId, g.ma, ds, x.studentId, nhanSan)}</div>`
             : '<div class="muted small" style="margin-bottom:6px">Kho chưa có bài cho lứa này — văn phòng thêm ở mục Kho bài học.</div>'}
           <input class="kb-o" data-be="${UI.esc(x.studentId)}" data-goc="${UI.esc(g.ma)}"
-            value="${UI.esc(gt)}" placeholder="Việc khác ngoài danh mục (không bắt buộc)">
+            value="${UI.esc(gt)}" placeholder="Việc khác — gia đình sẽ đọc dòng này khi đã duyệt">
         </div>`;
     };
     // Đề xuất của ĐÚNG phần này; máy chủ đời cũ chưa có khoá theo phần thì
@@ -597,30 +607,105 @@ App.views.kehoachbe = {
   },
 
   // ĐỀ XUẤT SỬA KẾ HOẠCH ĐÃ DUYỆT — lý do là bắt buộc, đúng lời nhà trường.
+  //
+  // Góp ý 18/11: hộp hiện LẠI ĐỦ danh sách đã duyệt của phần này để cô sửa
+  // ngay trên đó (Dạy mới → Ôn tập, bỏ bài), thêm bài từ kho, sửa "Việc khác".
+  // Bản sửa đi kèm đề xuất; quản lý đồng ý thì bản đó thay bản đã duyệt.
+  //
+  // Mọi ô của hộp mang class `kb-dx-*` và chỉ tra TRONG HỘP — không dùng
+  // `.kb-bai` / `.kb-o` của màn lập: `luuCaNhom` và `anhChup` gom hai class đó
+  // trên cả trang, thêm chip vào hộp là làm lệch cả hai.
   moDeXuat(keId) {
+    const d = this._data;
+    const ct = this._ct;
+    const x = (d.danhSach || []).find(y => y.ke && y.ke.id === keId);
+    if (!x) return;
+    const goc = this.gocCuaCt(ct);
+    const maGoc = goc.map(g => g.ma);
+    const lvc = d.linhVucCon;
+    const daDuyet = (x.ke.baiHoc || []).filter(b => maGoc.includes(b.gocLinhVuc));
+    const mucCu = (x.ke.muc || []).filter(m => maGoc.includes(m.gocLinhVuc));
+    const nhanBai = d.nhanBai || [];
+    const chonNhan = (b) => `
+      <div class="field" style="margin:0;flex:none;width:150px">
+        <select class="kb-dx-nhan" data-bai="${UI.esc(b.baiHocId)}" aria-label="${UI.esc(b.ten)}">
+          ${nhanBai.map(n => `<option value="${UI.esc(n.ma)}" ${n.ma === b.nhan ? 'selected' : ''}>${UI.esc(n.ten)}</option>`).join('')}
+          <option value="">Bỏ bài này</option>
+        </select>
+      </div>`;
+    const dongDaDuyet = (ds) => ds.map((b, i) => `
+      <div class="kb-dx-dong" style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <span class="muted small" style="flex:none;min-width:22px;text-align:right">${i + 1}.</span>
+        <span style="flex:1;min-width:0">${UI.esc(b.ten)}</span>
+        ${chonNhan(b)}
+      </div>`).join('');
+    // Chia theo mục con như màn lập; góc Montessori là một khối mang tên góc.
+    const theoKhoi = (g, ds, ve) => (this.coMucCon(g.ma, lvc)
+      ? this.khoiBai(g.ma, ds, lvc).filter(k => k.ds.length)
+        .map(k => `<div class="small" style="font-weight:600;margin:6px 0 4px">${UI.esc(k.ten)}</div>${ve(k.ds)}`).join('')
+      : ve(ds));
+    const chipThem = (ds) => ds.map(b => `
+      <button type="button" class="btn sm outline kb-dx-them" data-bai="${UI.esc(b.id)}" data-ten="${UI.esc(b.ten)}" data-nhan=""
+        style="width:100%;white-space:normal;justify-content:flex-start;text-align:left;margin-bottom:6px">${UI.esc(b.ten)}</button>`).join('');
+    const khoiGoc = goc.map(g => {
+      const cua = daDuyet.filter(b => b.gocLinhVuc === g.ma);
+      const conLai = this.baiChoBe(g.ma, x, daDuyet).filter(b => !daDuyet.some(t => t.baiHocId === b.id));
+      const mucGoc = mucCu.filter(m => m.gocLinhVuc === g.ma);
+      return `
+        <div class="kb-dx-goc" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">
+          <div class="small" style="font-weight:700">${UI.esc(g.ten)}</div>
+          ${cua.length ? theoKhoi(g, cua, dongDaDuyet) : '<div class="muted small">Chưa có bài nào ở góc này.</div>'}
+          ${conLai.length ? `
+            <details class="kb-dx-kho" style="margin-top:4px">
+              <summary style="cursor:pointer;padding:6px 0" class="small">Thêm bài ${UI.esc(g.ten)} <span class="muted">· ${UI.esc(String(conLai.length))} bài trong kho</span></summary>
+              ${theoKhoi(g, conLai, chipThem)}
+            </details>` : ''}
+          ${(mucGoc.length ? mucGoc : [{ noiDung: '' }]).map(m => `
+            <div class="field" style="margin:8px 0 0">
+              <input class="kb-dx-muc" data-goc="${UI.esc(g.ma)}" value="${UI.esc(m.noiDung)}" aria-label="Việc khác · ${UI.esc(g.ten)}"
+                placeholder="Việc khác — gia đình sẽ đọc dòng này khi đã duyệt">
+            </div>`).join('')}
+        </div>`;
+    }).join('');
     UI.modal(`
       <div class="muted small" style="line-height:1.6;margin-bottom:12px">
-        Kế hoạch này quản lý đã duyệt. Cô ghi <b>vì sao</b> muốn đổi và định đổi gì;
-        quản lý đồng ý thì kế hoạch mở lại cho cô sửa, sửa xong gửi duyệt lại.
+        Phần <b>${UI.esc(this.TEN_CT[ct] || '')}</b> của bé ${UI.esc(x.hoTen)} quản lý đã duyệt. Cô sửa ngay trên danh sách
+        dưới đây (đổi nhãn, bỏ bài, thêm bài) và ghi <b>vì sao</b>. Quản lý đồng ý thì bản này thay bản đã duyệt;
+        gia đình vẫn thấy bản cũ tới lúc đó.
       </div>
       <div class="field">
         <label>Lý do</label>
         <textarea id="kb-dx-lydo" rows="2" placeholder="Ví dụ: bé nghỉ ốm hai tuần, bài Gậy số chưa kịp bắt đầu"></textarea>
       </div>
-      <div class="field">
-        <label>Định đổi gì (mỗi dòng một ý, không bắt buộc)</label>
-        <textarea id="kb-dx-nd" rows="3" placeholder="Toán: bỏ Gậy số, thêm Số nhám"></textarea>
-      </div>
-      <button class="btn primary block" id="kb-dx-gui">${UI.icon('send', 16)} Gửi đề xuất</button>
+      ${khoiGoc}
+      <button class="btn primary block mt-14" id="kb-dx-gui">${UI.icon('send', 16)} Gửi đề xuất cho quản lý</button>
     `, 'Đề xuất sửa kế hoạch');
-    document.getElementById('kb-dx-gui').onclick = async () => {
-      const lyDo = document.getElementById('kb-dx-lydo').value.trim();
+    const hop = document.getElementById('modal-overlay');
+    if (!hop) return;
+    // Bấm chip thêm: Dạy mới → Ôn tập → Mở rộng → bỏ, như màn lập.
+    for (const c of hop.querySelectorAll('.kb-dx-them')) {
+      c.onclick = () => {
+        const i = this.VONG_NHAN.indexOf(c.dataset.nhan || '');
+        const nhan = this.VONG_NHAN[(i + 1) % this.VONG_NHAN.length];
+        c.dataset.nhan = nhan;
+        c.classList.toggle('primary', !!nhan);
+        c.classList.toggle('outline', !nhan);
+        c.textContent = nhan ? `${c.dataset.ten} · ${this.tenNhan(nhan)}` : c.dataset.ten;
+      };
+    }
+    hop.querySelector('#kb-dx-gui').onclick = async () => {
+      const lyDo = hop.querySelector('#kb-dx-lydo').value.trim();
       if (!lyDo) return UI.toast('Cô ghi rõ lý do nhé — quản lý đọc dòng này để quyết', 'error');
+      const baiHoc = [
+        ...[...hop.querySelectorAll('.kb-dx-nhan')].filter(o => o.value).map(o => ({ baiHocId: o.dataset.bai, nhan: o.value })),
+        ...[...hop.querySelectorAll('.kb-dx-them')].filter(c => c.dataset.nhan).map(c => ({ baiHocId: c.dataset.bai, nhan: c.dataset.nhan })),
+      ];
+      const muc = [...hop.querySelectorAll('.kb-dx-muc')].map(o => ({ gocLinhVuc: o.dataset.goc, noiDung: o.value.trim() }))
+        .filter(m => m.noiDung);
+      if (!baiHoc.length && !muc.length) return UI.toast('Bản sửa cần còn ít nhất một bài hoặc một việc', 'error');
       try {
-        await API.post(`/api/kehoachbe/${encodeURIComponent(keId)}/de-xuat`, {
-          lyDo, noiDung: document.getElementById('kb-dx-nd').value.trim(), chuongTrinh: this._ct,
-        });
-        UI.toast('Đã gửi đề xuất — quản lý duyệt thì kế hoạch mở lại cho cô', 'success');
+        await API.post(`/api/kehoachbe/${encodeURIComponent(keId)}/de-xuat`, { lyDo, chuongTrinh: ct, ban: { baiHoc, muc } });
+        UI.toast('Đã gửi đề xuất. Quản lý đồng ý thì bản này thay bản đã duyệt; gia đình vẫn thấy bản cũ tới lúc đó', 'success');
         UI.closeModal();
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); }
@@ -754,7 +839,7 @@ App.views.kehoachbe = {
         <div class="field">
           <label>${UI.esc(g.ten)}</label>
           ${baiNhom(g.ma).length ? `<div style="margin-bottom:6px">${this.veKhoiChon('*', g.ma, baiNhom(g.ma), '*', () => '')}</div>` : ''}
-          <input id="kb-cn-${UI.esc(g.ma)}" placeholder="Việc khác ngoài danh mục — để trống thì bỏ qua">
+          <input id="kb-cn-${UI.esc(g.ma)}" placeholder="Việc khác — gia đình sẽ đọc dòng này khi đã duyệt">
         </div>`).join('')}
       <button class="btn primary block" id="kb-cn-luu">${UI.icon('check', 18)} Đặt cho cả nhóm</button>
     `, `Đặt cho cả nhóm · ${this.TEN_CT[this._ct] || ''}`);
@@ -987,11 +1072,13 @@ App.views.kehoachbe = {
         <div class="card">
           <div class="card-title">Đề xuất sửa kế hoạch đã duyệt · nhóm ${UI.esc(((d0.nhom || []).find(c => c.id === d0.classId) || {}).name || '')}, tháng ${UI.esc(d0.thang)}</div>
           <div class="muted small" style="line-height:1.6">
-            Đồng ý thì phần đó <b>mở lại</b> cho cô sửa, sửa xong cô gửi duyệt lại. Từ chối thì ghi một dòng vì sao.
+            Đề xuất kèm <b>bản sửa</b>: đồng ý thì bản đó thay bản đã duyệt ngay, gia đình thấy bản mới.
+            Đề xuất chỉ có lời: đồng ý thì phần đó <b>mở lại</b> cho cô sửa, sửa xong cô gửi duyệt lại.
+            Từ chối thì ghi một dòng vì sao.
           </div>
         </div>
         ${dxCho.map(x => `
-          <div class="card">
+          <div class="card kb-dx-the">
             <div class="list-row" style="border-bottom:none;padding-top:0">
               ${UI.avatar(x.avatar, 40)}
               <div class="row-main">
@@ -1000,9 +1087,10 @@ App.views.kehoachbe = {
               </div>
             </div>
             <div class="small" style="line-height:1.6"><b>Lý do:</b> ${UI.esc(x.ke.deXuat.lyDo)}</div>
-            ${x.ke.deXuat.noiDung ? `<div class="small mt-8" style="white-space:pre-wrap;line-height:1.6">${UI.esc(x.ke.deXuat.noiDung)}</div>` : ''}
-            <div class="grid-2 mt-8">
-              <button class="btn success-soft" data-dx-duyet="${UI.esc(x.ke.deXuat.id)}">${UI.icon('check', 16)} Đồng ý, mở lại</button>
+            ${x.ke.deXuat.ban ? this.veBanDeXuat(x.ke, x.ke.deXuat.ban)
+    : (x.ke.deXuat.noiDung ? `<div class="small mt-8" style="white-space:pre-wrap;line-height:1.6">${UI.esc(x.ke.deXuat.noiDung)}</div>` : '')}
+            <div class="${x.ke.deXuat.ban ? 'flex' : 'grid-2'} mt-8" style="${x.ke.deXuat.ban ? 'flex-direction:column;gap:8px;align-items:stretch' : ''}">
+              <button class="btn success-soft" data-dx-duyet="${UI.esc(x.ke.deXuat.id)}" data-dx-ban="${x.ke.deXuat.ban ? '1' : ''}">${UI.icon('check', 16)} ${x.ke.deXuat.ban ? 'Đồng ý, thay bản đã duyệt' : 'Đồng ý, mở lại'}</button>
               <button class="btn danger-soft" data-dx-tu-choi="${UI.esc(x.ke.deXuat.id)}">Từ chối</button>
             </div>
           </div>`).join('')}` : ''}`;
@@ -1011,7 +1099,7 @@ App.views.kehoachbe = {
     document.getElementById('kb-dy-moc').onchange = (e) => { dy.moc = String(e.target.value || ''); this.veDuyet(than); };
     document.getElementById('kb-dy-tt').onchange = (e) => { dy.trangThai = e.target.value; this.veDuyet(than); };
     for (const b of than.querySelectorAll('[data-dx-duyet]')) {
-      b.onclick = () => this.duyetDeXuat(b.dataset.dxDuyet, 'da-duyet');
+      b.onclick = () => this.duyetDeXuat(b.dataset.dxDuyet, 'da-duyet', '', !!b.dataset.dxBan);
     }
     for (const b of than.querySelectorAll('[data-dx-tu-choi]')) {
       b.onclick = () => this.moTuChoiDeXuat(b.dataset.dxTuChoi);
@@ -1033,6 +1121,8 @@ App.views.kehoachbe = {
   theNhomDuyet(n, choDuyet) {
     const nhan = (ds) => (ds || []).map(b => `${UI.esc(b.ten)} <span class="muted">· ${UI.esc(this.ten((this._duyet || {}).nhanBai, b.nhan))}</span>`).join('<br>');
     const tenGoc = (ma) => this.ten((this._duyet || {}).gocLinhVuc, ma);
+    // Góp ý 18/11: phần Cambridge / Thể chất chia theo mục con.
+    const lvc = (this._duyet || {}).linhVucCon || (this._data || {}).linhVucCon;
     const coTheDuyet = n.ds.filter(x => x.trangThai === 'cho-duyet' && !x.laCuaToi).length;
     return `
       <div class="card">
@@ -1055,8 +1145,11 @@ App.views.kehoachbe = {
               </div>
               ${UI.badge(tt[0], tt[1])}
             </div>
-            ${Object.entries(theoGoc).map(([g, ds]) => `
-              <div class="small" style="line-height:1.7"><span class="muted">${UI.esc(tenGoc(g))}:</span><br>${nhan(ds)}</div>`).join('')}
+            ${Object.entries(theoGoc).map(([g, ds]) => (this.coMucCon(g, lvc)
+    ? this.khoiBai(g, ds, lvc).filter(k => k.ds.length).map(k => `
+              <div class="small kb-muc-con" style="line-height:1.7"><span class="muted">${UI.esc(tenGoc(g))} · ${UI.esc(k.ten)}:</span><br>${nhan(k.ds)}</div>`).join('')
+    : `
+              <div class="small" style="line-height:1.7"><span class="muted">${UI.esc(tenGoc(g))}:</span><br>${nhan(ds)}</div>`)).join('')}
             ${x.muc.map(m => `<div class="small" style="line-height:1.6"><span class="muted">${UI.esc(tenGoc(m.gocLinhVuc))}:</span> ${UI.esc(m.noiDung)}</div>`).join('')}
             ${x.trangThai === 'tra-lai' && x.yKienDuyet ? `<div class="small muted mt-8">Đã gửi lại: ${UI.esc(x.yKienDuyet)}</div>` : ''}
             ${x.trangThai === 'cho-duyet' ? (x.laCuaToi
@@ -1097,10 +1190,35 @@ App.views.kehoachbe = {
     };
   },
 
-  async duyetDeXuat(id, quyetDinh, yKien = '') {
+  // Bản sửa của một đề xuất, cho quản lý đọc trước khi đồng ý: thêm / bỏ / đổi
+  // nhãn so với bản đã duyệt, rồi đủ danh sách mới và "Việc khác".
+  veBanDeXuat(ke, ban) {
+    const td = ban.thayDoi || { them: [], bo: [], doiNhan: [] };
+    // Bài sắp bỏ mà cô đã nhìn lại cuối tháng: phần nhìn lại nằm lại trong vết
+    // của đề xuất, quản lý nên biết trước khi đồng ý.
+    const boCoNhinLai = (ke.baiHoc || []).filter(b => td.bo.includes(b.ten) && (b.mucDo || b.ketQua));
+    const tenGoc = (ma) => this.ten((this._data || {}).gocLinhVuc, ma) || ma;
+    const dong = (nhan, ds) => (ds.length ? `<div class="small" style="line-height:1.6"><b>${UI.esc(nhan)}:</b> ${ds.map(t => UI.esc(t)).join(', ')}</div>` : '');
+    return `
+      <div class="kb-dx-ban mt-8" style="border-left:3px solid var(--line);padding-left:10px">
+        ${dong('Thêm', td.them)}
+        ${dong('Bỏ', td.bo)}
+        ${dong('Đổi nhãn', td.doiNhan.map(x => `${x.ten} (${this.tenNhan(x.tu)} → ${this.tenNhan(x.sang)})`))}
+        ${!td.them.length && !td.bo.length && !td.doiNhan.length ? '<div class="small muted">Danh sách bài giữ nguyên.</div>' : ''}
+        ${boCoNhinLai.length ? `<div class="small muted" style="line-height:1.6">Bài bỏ đã có phần nhìn lại cuối tháng (${UI.esc(boCoNhinLai.map(b => b.ten).join(', '))}) — phần đó vẫn lưu trong vết của đề xuất.</div>` : ''}
+        <details style="margin-top:4px">
+          <summary class="small" style="cursor:pointer;padding:4px 0">Cả bản sửa (${UI.esc(String(ban.baiHoc.length))} bài)</summary>
+          <div class="small" style="line-height:1.7">${ban.baiHoc.map((b, i) => `${i + 1}. ${UI.esc(b.ten)} <span class="muted">· ${UI.esc(this.tenNhan(b.nhan))}</span>`).join('<br>')}</div>
+        </details>
+        ${(ban.muc || []).map(m => `<div class="small" style="line-height:1.6"><b>Việc khác</b> <span class="muted">(${UI.esc(tenGoc(m.gocLinhVuc))})</span>: ${UI.esc(m.noiDung)}</div>`).join('')}
+      </div>`;
+  },
+
+  async duyetDeXuat(id, quyetDinh, yKien = '', thayBan = false) {
     try {
       await API.post(`/api/kehoachbe/de-xuat/${encodeURIComponent(id)}/duyet`, { quyetDinh, yKien });
-      UI.toast(quyetDinh === 'da-duyet' ? 'Đã mở lại kế hoạch cho cô sửa' : 'Đã từ chối đề xuất', 'success');
+      UI.toast(quyetDinh !== 'da-duyet' ? 'Đã từ chối đề xuất'
+        : (thayBan ? 'Đã thay bản đã duyệt bằng bản cô đề xuất — gia đình thấy bản mới' : 'Đã mở lại kế hoạch cho cô sửa'), 'success');
       UI.closeModal();
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }
@@ -1131,6 +1249,9 @@ App.views.kehoachbe = {
     let d;
     try { d = await API.get('/api/kehoachbe/bai-hoc?tatCa=1'); }
     catch (err) { than.innerHTML = UI.emptyState('🧭', err.message); return; }
+    // Môn Cambridge theo cơ sở (góp ý 18/11) — chỉ ban giám hiệu nhận được;
+    // người khác (403) hoặc máy chủ đời cũ thì không vẽ thẻ này.
+    const monCs = await API.get('/api/kehoachbe/mon-co-so').catch(() => null);
     const goc = d.gocLinhVuc || [];
     const lvc = d.linhVucCon || [];
     this._luaKho = d.luaKho || [];
@@ -1199,6 +1320,7 @@ App.views.kehoachbe = {
         </div>
         <button class="btn primary block mt-8" id="kb-bh-them">${UI.icon('plus', 16)} Thêm bài học</button>
       </div>
+      ${monCs && (monCs.coSo || []).length ? this.theMonCoSo(monCs) : ''}
       ${theoCt.map(t => `
         <div class="section-label">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}</div>
         ${t.goc.map(g => {
@@ -1207,6 +1329,15 @@ App.views.kehoachbe = {
           return khoi.map(k => veKhoi(g, k)).join('');
         }).join('')}`).join('')}`;
     document.getElementById('kb-bh-loc').onchange = (e) => { this._locLua = e.target.value; this.veBaiHoc(than); };
+    for (const o of than.querySelectorAll('.kb-mon-cs')) {
+      o.onchange = async () => {
+        try {
+          await API.put('/api/kehoachbe/mon-co-so', { campusId: o.dataset.coSo, linhVucCon: o.dataset.mon, tat: !o.checked });
+          UI.toast(o.checked ? `Đã bật lại ${o.dataset.tenMon} ở ${o.dataset.tenCoSo}`
+            : `Đã tắt ${o.dataset.tenMon} ở ${o.dataset.tenCoSo} — kho bài của cơ sở này không còn môn đó`, 'success');
+        } catch (err) { o.checked = !o.checked; UI.toast(err.message, 'error'); }
+      };
+    }
     document.getElementById('kb-bh-them').onclick = () => this.moSuaBai(null, goc, d.baiHoc || [], lvc);
     for (const b of than.querySelectorAll('[data-sua-bai]')) {
       b.onclick = () => this.moSuaBai(b.dataset.suaBai, goc, d.baiHoc || [], lvc);
@@ -1215,6 +1346,31 @@ App.views.kehoachbe = {
       b.onclick = () => this.doiThuTu(than, khoiDu.get(b.dataset.khoi), b.dataset.len || b.dataset.xuong, b.dataset.len ? -1 : 1);
     }
     this.ganNho(than);
+  },
+
+  // Thẻ "Môn Cambridge theo cơ sở": mỗi cơ sở hai công tắc, có tích = cơ sở đó
+  // đang dạy môn ấy. Tắt chỉ bỏ môn khỏi kho khi lập mới — bài đã tích trong
+  // kế hoạch của bé vẫn giữ nguyên.
+  theMonCoSo(m) {
+    return `
+      <div class="card" id="kb-mon-co-so">
+        <div class="card-title">Môn Cambridge theo cơ sở</div>
+        <div class="muted small" style="line-height:1.6;margin-bottom:6px">
+          Cơ sở chỉ dạy tiếng Anh thì bỏ tích môn không dạy: cô của cơ sở đó không thấy môn ấy trong kho bài
+          khi lập kế hoạch. Bài đã có trong kế hoạch của bé vẫn giữ nguyên.
+        </div>
+        ${(m.coSo || []).map(c => `
+          <div class="kb-mon-cs-dong" data-co-so="${UI.esc(c.id)}" style="border-top:1px solid var(--line);padding:8px 0">
+            <div style="font-weight:600">${UI.esc(c.name || c.id)}</div>
+            ${(m.monTatDuoc || []).map(mon => `
+              <label style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 0;cursor:pointer">
+                <span>Dạy ${UI.esc(mon.ten)}</span>
+                <input type="checkbox" class="kb-mon-cs" data-co-so="${UI.esc(c.id)}" data-mon="${UI.esc(mon.ma)}"
+                  data-ten-mon="${UI.esc(mon.ten)}" data-ten-co-so="${UI.esc(c.name || c.id)}"
+                  ${(c.tat || []).includes(mon.ma) ? '' : 'checked'} style="width:32px;height:32px;margin:0">
+              </label>`).join('')}
+          </div>`).join('')}
+      </div>`;
   },
 
   // Đưa một bài lên / xuống MỘT hàng trong danh sách đang hiện. Đang lọc lứa
