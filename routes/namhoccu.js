@@ -17,6 +17,7 @@ const db = require('../lib/db');
 const st = require('../lib/sua-thu-hoi');
 const lsl = require('../lib/lich-su-lop');
 const tb = require('../lib/thong-bao');
+const nhapHoc = require('../lib/nhap-hoc');
 // HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC — bước mà `modules/README.md`
 // dạy. Màn này BẬT SẴN cho mọi gia đình và đọc bảng của BỐN phân hệ khác, nên
 // nhà trường tắt Thông báo / Khảo sát / Kế hoạch / Lịch sinh hoạt mà dữ liệu
@@ -66,6 +67,11 @@ module.exports = (app) => {
   app.get('/api/namhoccu/:id', (req, res) => {
     const k = lsl.lopCuCuaPhuHuynh(req.user).find(x => x.id === req.params.id);
     if (!k) return res.status(404).json({ error: 'Không tìm thấy nhóm cũ này của con' });
+    // Thông báo, khảo sát của nhóm cũ cũng tính từ NGÀY NHẬP HỌC của bé
+    // (Đ260l) — cùng luật với màn Thông báo và Khảo sát. Kế hoạch tháng vẫn
+    // theo khoảng lớp.
+    const ngayVao = nhapHoc.ngayCua(k.studentId);
+    const khoangTin = ngayVao && ngayVao > k.tu ? { ...k, tu: ngayVao } : k;
 
     const lop = db.findClass(k.classId);
     const hs = db.findStudent(k.studentId);
@@ -84,7 +90,7 @@ module.exports = (app) => {
       `SELECT * FROM notifications WHERE audience = ?
          AND ${st.dieuKienConHien('notifications', 'id')}
        ORDER BY createdAt DESC`, [k.classId])
-      .filter(n => trongKhoang(k, n.createdAt) && guiChoBe('notifications', n.id, k.studentId))
+      .filter(n => trongKhoang(khoangTin, n.createdAt) && guiChoBe('notifications', n.id, k.studentId))
       .map(n => {
         const a = n.createdBy ? db.findUser(n.createdBy) : null;
         return {
@@ -96,7 +102,7 @@ module.exports = (app) => {
 
     const khaoSat = !modules.dangBat('khaosat') ? [] : db.all('surveys',
       `SELECT * FROM surveys WHERE audience = ? ORDER BY createdAt DESC`, [k.classId])
-      .filter(s => trongKhoang(k, s.createdAt) && guiChoBe('surveys', s.id, k.studentId))
+      .filter(s => trongKhoang(khoangTin, s.createdAt) && guiChoBe('surveys', s.id, k.studentId))
       .map(s => ({ id: s.id, title: s.title, createdAt: s.createdAt, deadline: s.deadline }));
 
     // Kế hoạch giáo dục ghi theo tháng: dựng ngày mùng 1 của tháng đó để so.

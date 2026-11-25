@@ -4,8 +4,10 @@
 //
 // P2 — "phụ huynh bé vừa nhập học, vừa được tạo tài khoản, vẫn thấy các thông
 //      báo cũ của trường". Gia đình chỉ thấy thông báo từ NGÀY tài khoản của
-//      mình được tạo (giờ Việt Nam); thông báo GHIM vẫn hiện. Cô và văn phòng
-//      không đổi. Danh sách và huy hiệu chuông dùng CÙNG một mốc.
+//      mình được tạo (giờ Việt Nam). Từ Đ260l (chủ dự án quyết 25/11) thông
+//      báo GHIM tạo trước mốc cũng KHÔNG hiện — đúng lời trường phàn nàn về
+//      tin ghim "nghỉ 2/9"; văn phòng cần thì gửi lại. Cô và văn phòng không
+//      đổi. Danh sách và huy hiệu chuông dùng CÙNG một mốc.
 //
 // P1 — "báo có 1 thông báo mà vào không thấy gì". Huy hiệu chuông và màn
 //      Thông báo phải nói CÙNG một con số: huy hiệu đếm đúng những tin chưa
@@ -93,7 +95,7 @@ try {
     check('KHÔNG thấy thông báo cũ của nhóm con mình', !t.ids.has('ph_cu_c1'));
     check('KHÔNG thấy thông báo của hôm qua (23:59)', !t.ids.has('ph_hom_qua'));
     check('KHÔNG thấy lô thông báo cũ nào', ![...t.ids].some(id => /^ph_lo_/.test(id)));
-    check('VẪN thấy thông báo GHIM dù đã cũ', t.ids.has('ph_cu_ghim'));
+    check('KHÔNG thấy thông báo GHIM tạo trước mốc (Đ260l)', !t.ids.has('ph_cu_ghim'));
     check('thấy thông báo của ngày tạo tài khoản (sáng nay)', t.ids.has('ph_sang_nay'));
     check('thấy thông báo cô gửi sau khi có tài khoản', t.ids.has(tao.data.id));
     const hh = await huyHieu(moi.cookie);

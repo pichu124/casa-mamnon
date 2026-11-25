@@ -25,6 +25,11 @@ const TOI_DA_CAU_TRA_LOI = 1000;
 // GỬI RIÊNG VÀI GIA ĐÌNH (Đ260b): khảo sát có dòng ở `survey_nguoi_nhan` thì
 // phụ huynh chỉ thấy khi một bé của nhà có tên trong đó. Hai câu hỏi MỘT lần
 // cho cả danh sách, như phần còn lại của hàm này.
+//
+// MỐC NHẬP HỌC (Đ260l): gia đình không thấy khảo sát tạo trước mốc của nhà
+// (lib/thong-bao.js `mocGiaDinh`), TRỪ khảo sát còn hiệu lực — đang mở và
+// chưa quá hạn — vì đó là việc nhà mới vẫn phải làm. Huy hiệu khảo sát ở
+// routes/dashboard.js đếm theo đúng điều kiện này.
 function taoBoLocXem(user) {
   const dangMo = new Set(db.classIdsOf(user));
   const tungDay = user.role === 'teacher' ? new Set(db.classIdsEverOfTeacher(user.id)) : null;
@@ -39,8 +44,12 @@ function taoBoLocXem(user) {
       `SELECT DISTINCT nn.surveyId AS surveyId FROM survey_nguoi_nhan nn
          JOIN student_parents sp ON sp.studentId = nn.studentId WHERE sp.parentId = ?`, [user.id]).map(r => r.surveyId))
     : null;
+  const moc = laGiaDinh ? tb.mocGiaDinh(user) : null;
+  const homNay = ngay.homNay();
   return (sv) => {
     if (laGiaDinh && coHanChe.has(sv.id) && !duocGui.has(sv.id)) return false;
+    if (moc && !(String(sv.createdAt || '') >= moc
+      || (sv.status === 'open' && String(sv.deadline || '') >= homNay))) return false;
     if (sv.audience === 'all') return true;
     if (dangMo.has(sv.audience)) return true;
     if (sv.createdBy === user.id) return true;
