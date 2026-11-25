@@ -287,6 +287,23 @@ try {
     await dem('#al-nen-ok') === 0 && !(await page.locator('#al-submit').isDisabled().catch(() => true))
       && !(await page.locator('#al-pick').isDisabled().catch(() => true)) && await giaTri('#al-title') === 'Bé tưới cây');
 
+  console.log('\n[4c] Đang đọc ảnh vừa chọn: nút chọn tệp và nút đăng khoá tới khi xong');
+  await page.evaluate(() => {
+    if (!window.__nenAnhThat) window.__nenAnhThat = UI.nenAnh;
+    UI.nenAnh = (f, o) => new Promise((ok, hong) => setTimeout(() => window.__nenAnhThat(f, o).then(ok, hong), 1500));
+  });
+  await page.setInputFiles('#al-file', [TEP_ANH]);
+  await page.waitForTimeout(300);
+  check('đang đọc ảnh: nút chọn tệp khoá (chọn thêm lúc này là hai lượt giành nhau khối #al-nen)',
+    await page.locator('#al-pick').isDisabled().catch(() => false));
+  check('đang đọc ảnh: nút đăng khoá (đăng lúc này là đăng thiếu ảnh)',
+    await page.locator('#al-submit').isDisabled().catch(() => false));
+  await page.waitForFunction(() => /1 ảnh/.test((document.getElementById('al-preview') || {}).innerText || ''), null, { timeout: 8000 }).catch(() => {});
+  check('đọc xong: ảnh vào ô xem trước, hai nút mở lại',
+    /Đã chọn 1 ảnh/.test(await chu('#al-preview')) && !(await page.locator('#al-pick').isDisabled().catch(() => true))
+      && !(await page.locator('#al-submit').isDisabled().catch(() => true)), await chu('#al-preview'));
+  await page.evaluate(() => { UI.nenAnh = window.__nenAnhThat; });
+
   // =========================================================================
   console.log('\n[5] Đóng form giữa chừng: dừng nén, form mở lại không nhận video cũ');
   await haNguong({ giaLap: true, tongGiay: 3 });

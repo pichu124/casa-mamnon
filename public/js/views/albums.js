@@ -580,9 +580,7 @@ App.views.albums = {
   async nenLanLuot(ds, conMo) {
     const khoi = document.getElementById('al-nen');
     if (!khoi) return;
-    // Khoá ngay từ lúc hỏi: chọn thêm tệp lúc này là lượt sau vẽ đè lên câu
-    // hỏi của lượt trước, và mấy video đang chờ hỏi biến mất không một lời.
-    this.khoaForm(true);
+    // Form đã khoá từ đầu lượt chọn tệp (`handleFiles`), mở lại khi lượt xong.
     let dung = false;
     try {
       khoi.innerHTML = '<div class="muted small">Đang đọc độ dài video…</div>';
@@ -635,10 +633,7 @@ App.views.albums = {
         }
       }
     } finally {
-      if (conMo()) {
-        khoi.innerHTML = '';
-        this.khoaForm(false);
-      }
+      if (conMo()) khoi.innerHTML = '';
     }
   },
 
@@ -674,7 +669,7 @@ App.views.albums = {
     });
   },
 
-  // Khoá nút đăng và nút chọn tệp trong lúc hỏi và nén: đăng lúc này là đăng
+  // Khoá nút đăng và nút chọn tệp trong lúc đọc tệp, hỏi và nén: đăng lúc này là đăng
   // thiếu video, chọn thêm lúc này là hai lượt nén giành nhau một khối #al-nen.
   khoaForm(khoa) {
     for (const id of ['al-submit', 'al-pick']) {
@@ -768,44 +763,52 @@ App.views.albums = {
     const phien = this._phien;
     const conMo = () => this._phien === phien && !!document.getElementById('al-preview');
     const khoi = document.getElementById('al-nen');
-    if (khoi) khoi.innerHTML = '<div class="muted small">Đang xử lý ảnh…</div>';
+    // Khoá nút chọn tệp và nút đăng ngay từ đầu tới khi xong cả lượt (kể cả
+    // lúc hỏi nén): chọn thêm lúc đang đọc ảnh là lượt sau vẽ đè khối #al-nen
+    // của lượt trước, câu hỏi nén biến mất và form khoá mãi.
+    this.khoaForm(true);
+    try {
+      if (khoi) khoi.innerHTML = '<div class="muted small">Đang xử lý ảnh…</div>';
 
-    const canNen = [];
-    for (const f of files) {
-      // VIDEO: KHÔNG NÉN ĐƯỢC, NÊN CHẶN NGAY Ở ĐÂY.
-      //
-      // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
-      // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
-      // iPhone quay ra .mov (video/quicktime): cùng họ hộp `ftyp` với MP4, máy
-      // chủ nhận và lưu thành .mp4 — chặn nó ở đây là chặn gần hết máy iPhone.
-      if (/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
-        if (f.size > this.TRAN_VIDEO) { canNen.push(f); continue; }
-        try {
-          const video = await this.docTep(f);
-          if (!conMo()) return;
-          this._pending.push({ video, caption: '', name: f.name, laVideo: true });
-        } catch (err) {
-          UI.toast(err && err.message ? err.message : `Không đọc được video "${f.name}"`, 'error');
+      const canNen = [];
+      for (const f of files) {
+        // VIDEO: KHÔNG NÉN ĐƯỢC, NÊN CHẶN NGAY Ở ĐÂY.
+        //
+        // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
+        // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
+        // iPhone quay ra .mov (video/quicktime): cùng họ hộp `ftyp` với MP4, máy
+        // chủ nhận và lưu thành .mp4 — chặn nó ở đây là chặn gần hết máy iPhone.
+        if (/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
+          if (f.size > this.TRAN_VIDEO) { canNen.push(f); continue; }
+          try {
+            const video = await this.docTep(f);
+            if (!conMo()) return;
+            this._pending.push({ video, caption: '', name: f.name, laVideo: true });
+          } catch (err) {
+            UI.toast(err && err.message ? err.message : `Không đọc được video "${f.name}"`, 'error');
+          }
+          continue;
         }
-        continue;
+        if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
+          UI.toast(`Bỏ qua "${f.name}" — chỉ nhận ảnh JPG, PNG, WebP và video MP4, WebM`, 'error');
+          continue;
+        }
+        try {
+          const dataUrl = await UI.nenAnh(f, { canhToiDa: 1600 });
+          if (!conMo()) return;
+          this._pending.push({ dataUrl, caption: '', name: f.name });
+        } catch (_) {
+          UI.toast(`Không đọc được ảnh "${f.name}"`, 'error');
+        }
       }
-      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
-        UI.toast(`Bỏ qua "${f.name}" — chỉ nhận ảnh JPG, PNG, WebP và video MP4, WebM`, 'error');
-        continue;
-      }
-      try {
-        const dataUrl = await UI.nenAnh(f, { canhToiDa: 1600 });
-        if (!conMo()) return;
-        this._pending.push({ dataUrl, caption: '', name: f.name });
-      } catch (_) {
-        UI.toast(`Không đọc được ảnh "${f.name}"`, 'error');
-      }
-    }
 
-    if (!conMo()) return;
-    if (khoi) khoi.innerHTML = '';
-    this.renderPreview();
-    if (canNen.length) await this.nenLanLuot(canNen, conMo);
+      if (!conMo()) return;
+      if (khoi) khoi.innerHTML = '';
+      this.renderPreview();
+      if (canNen.length) await this.nenLanLuot(canNen, conMo);
+    } finally {
+      if (conMo()) this.khoaForm(false);
+    }
   },
 
 
