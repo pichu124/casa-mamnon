@@ -447,6 +447,26 @@ CREATE TABLE IF NOT EXISTS hoi_thoai_dong (
   lyDo           TEXT NOT NULL DEFAULT ''
 );
 
+-- ===== Phòng trao đổi chung của một nhóm lớp (Đ260k, góp ý 18/11) =====
+--
+-- Nhà trường: *"Chưa biết cách tạo cuộc hội thoại nhóm, để cho phụ huynh khác
+-- cùng nhắn bàn bạc về 1 vấn đề chung của lớp"*. Phòng là một dòng
+-- `conversations` loại 'group' CÓ `classId`; bảng này chỉ ghi thêm rằng đó là
+-- phòng nhóm kiểu mới (cô quản phòng, gia đình hiện là "Mẹ bé …") và phòng có
+-- đang KHOÁ không. Không có dòng ở đây = phòng chung cũ, giữ y hành vi cũ.
+--
+-- KHOÁ LÀ CHỈ ĐỌC, không phải đóng: mọi người trong phòng vẫn đọc lại được, chỉ
+-- không ai nhắn thêm. `classId` cố ý không có khoá ngoại tới `classes`.
+CREATE TABLE IF NOT EXISTS phong_nhom (
+  conversationId TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  classId        TEXT NOT NULL,
+  taoBoi         TEXT,
+  taoLuc         TEXT,
+  khoaLuc        TEXT,
+  khoaBoi        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_phong_nhom_lop ON phong_nhom(classId);
+
 -- ===== Nhận xét hằng ngày — khoảng 34.800 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS remarks (
   id         TEXT PRIMARY KEY,
