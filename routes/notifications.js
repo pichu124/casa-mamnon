@@ -19,6 +19,7 @@ const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Kh
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
 const tbnv = require('../lib/thong-bao-nv');
+const modules = require('../lib/modules');
 const audienceFilter = (user, tienTo) => tb.audienceFilter(user, tienTo);
 const canSee = tb.canSee;
 
@@ -65,13 +66,15 @@ function taoSuyLienKet() {
     if (/^Thực đơn (tuần )?từ .+ đã có$/.test(t)) return '#/menu';
     if (/^Lịch sinh hoạt nhóm .+ vừa được cập nhật$/.test(t)) return '#/timetable/lich';
     const album = t.match(/^Album mới: (.+)$/) || t.match(/^Album "(.+)" có thêm ảnh$/);
-    if (album && n.audience && n.audience !== 'all') {
+    // Đọc bảng của phân hệ khác thì hỏi công tắc trước (phan-he-doc-cheo):
+    // Album / Khảo sát đang tắt thì không trỏ tới màn đã đóng.
+    if (album && n.audience && n.audience !== 'all' && modules.dangBat('album')) {
       const a = tra(`a:${n.audience}:${album[1]}`, () => db.first('albums',
         'SELECT id FROM albums WHERE classId = ? AND title = ? ORDER BY date DESC LIMIT 1', [n.audience, album[1]]));
       return a ? `#/albums/${a.id}` : '#/albums';
     }
     const ks = t.match(/^Khảo sát mới: (.+)$/);
-    if (ks) {
+    if (ks && modules.dangBat('khaosat')) {
       const k = tra(`k:${n.audience}:${ks[1]}`, () => db.first('surveys',
         'SELECT id FROM surveys WHERE audience = ? AND title = ? ORDER BY createdAt DESC LIMIT 1', [n.audience, ks[1]]));
       return k ? `#/surveys/${k.id}` : '#/surveys';
