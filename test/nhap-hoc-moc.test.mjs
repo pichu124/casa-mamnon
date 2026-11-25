@@ -64,6 +64,10 @@ const CSDL = path.join(DIR, 'school.db');
              VALUES ('scp-nh', 's1', 'c_cu_nh', '2025-09-01', '2026-05-31')`).run();
   tb.run('nh_cu_truoc', 'Nhóm cũ — trước ngày nhập học', 'cũ', 'c_cu_nh', '2025-10-01T03:00:00.000Z', 0);
   tb.run('nh_cu_sau', 'Nhóm cũ — sau ngày nhập học', 'cũ', 'c_cu_nh', '2026-03-01T03:00:00.000Z', 0);
+  // Hai tin sát mép, so theo NGÀY VIỆT NAM: 01:00 sáng 01/01/2026 giờ VN (vẫn là
+  // 31/12 theo UTC) và 01:00 sáng 01/06/2026 giờ VN (vẫn là 31/05 theo UTC).
+  tb.run('nh_cu_mep_vao', 'Nhóm cũ — rạng sáng ngày nhập học', 'cũ', 'c_cu_nh', '2025-12-31T18:00:00.000Z', 0);
+  tb.run('nh_cu_mep_ra', 'Nhóm cũ — rạng sáng sau ngày rời nhóm', 'cũ', 'c_cu_nh', '2026-05-31T18:00:00.000Z', 0);
   c.prepare(`INSERT INTO surveys (id, title, description, createdBy, createdAt, deadline, audience, status, questions)
     VALUES (?, ?, '', 't1', ?, '2026-05-01', 'c_cu_nh', 'closed', ?)`)
     .run('ks_nhomcu_truoc', 'Khảo sát nhóm cũ — trước', '2025-10-01T03:00:00.000Z', cau);
@@ -271,6 +275,8 @@ try {
     check('tin nhóm cũ trước ngày nhập học bị ẩn', !sau.tb.has('nh_cu_truoc'));
     check('khảo sát nhóm cũ trước ngày nhập học bị ẩn', !sau.ks.has('ks_nhomcu_truoc'));
     check('tin nhóm cũ sau ngày nhập học vẫn còn', sau.tb.has('nh_cu_sau'));
+    check('tin lúc 01:00 sáng ngày nhập học (giờ VN) vẫn còn', sau.tb.has('nh_cu_mep_vao'));
+    check('tin lúc 01:00 sáng hôm sau ngày rời nhóm (giờ VN) bị ẩn', !sau.tb.has('nh_cu_mep_ra'));
   }
 } catch (err) {
   check(`bài chạy hết không lỗi: ${err.message}`, false, err.stack);

@@ -18,6 +18,7 @@ const st = require('../lib/sua-thu-hoi');
 const lsl = require('../lib/lich-su-lop');
 const tb = require('../lib/thong-bao');
 const nhapHoc = require('../lib/nhap-hoc');
+const ngayVN = require('../lib/ngay');
 // HỎI CÔNG TẮC TRƯỚC KHI ĐỌC BẢNG CỦA PHÂN HỆ KHÁC — bước mà `modules/README.md`
 // dạy. Màn này BẬT SẴN cho mọi gia đình và đọc bảng của BỐN phân hệ khác, nên
 // nhà trường tắt Thông báo / Khảo sát / Kế hoạch / Lịch sinh hoạt mà dữ liệu
@@ -28,9 +29,13 @@ const modules = require('../lib/modules');
 // khoảng con còn ở lớp đó. Album có mặt nhiều trẻ khác, thông báo lớp nhắc tên
 // các bạn khác — mở cả lớp cũ là gia đình đã rời lớp vẫn đọc được chuyện của lớp
 // sau khi con mình đi rồi.
+//
+// `khoang.tu/den` là ngày Việt Nam; mốc giờ (createdAt, UTC) cũng phải đổi ra
+// ngày Việt Nam trước khi so — tin 01:00 sáng giờ VN vẫn là hôm trước theo UTC.
 function trongKhoang(khoang, ngay) {
   if (!ngay) return true;
-  const d = String(ngay).slice(0, 10);
+  const s = String(ngay);
+  const d = s.length > 10 ? ngayVN.ngayCua(Date.parse(s)) || s.slice(0, 10) : s;
   return d >= khoang.tu && d <= khoang.den;
 }
 
