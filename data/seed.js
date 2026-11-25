@@ -76,6 +76,22 @@ function ganCoNuocNgoai(db) {
   });
 }
 
+// PHÒNG TRAO ĐỔI CHUNG MẪU (Đ260k): cv4 là phòng của nhóm Chồi 2, và vài gia
+// đình đã ghi quan hệ với bé để phòng hiện "Mẹ bé …", "Bố bé …". Nhà p5 cố ý
+// chưa ghi — màn hình phải chịu được "Phụ huynh bé …".
+const QUAN_HE_MAU = [['s1', 'p1', 'Mẹ'], ['s3', 'p2', 'Bố'], ['s4', 'p3', 'Bố'], ['s5', 'p4', 'Mẹ']];
+function ganPhongNhomMau(db) {
+  const luc = new Date().toISOString();
+  db.tx(() => {
+    for (const [studentId, parentId, quanHe] of QUAN_HE_MAU) {
+      db.run(`INSERT OR REPLACE INTO quan_he_phu_huynh (studentId, parentId, quanHe, ghiLuc)
+              VALUES (?, ?, ?, ?)`, [studentId, parentId, quanHe, luc]);
+    }
+    db.run(`INSERT OR IGNORE INTO phong_nhom (conversationId, classId, taoBoi, taoLuc)
+            VALUES ('cv4', 'c1', 't1', ?)`, [luc]);
+  });
+}
+
 // Dữ liệu mẫu cho TÁM PHÂN HỆ MẦM NON.
 //
 // VÌ SAO TÁCH RA MỘT TỆP RIÊNG
@@ -1210,6 +1226,7 @@ function generate() {
 
   const stats = importSnapshot(db);
   ganCoNuocNgoai(require('../lib/db'));
+  ganPhongNhomMau(require('../lib/db'));
 
   // DỮ LIỆU MẪU CHO TÁM PHÂN HỆ MẦM NON.
   //
