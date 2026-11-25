@@ -153,6 +153,17 @@ CREATE TABLE IF NOT EXISTS hoc_sinh_bao_luu (
   ghiLuc        TEXT
 );
 
+-- NGÀY NHẬP HỌC của bé (Đ260l — góp ý 18/11 của văn phòng). Mốc để gia đình
+-- mới không thấy thông báo, khảo sát tạo trước ngày bé vào trường. Bé chưa có
+-- dòng thì mốc là ngày tạo tài khoản phụ huynh, như trước. Luật nằm ở
+-- lib/nhap-hoc.js.
+CREATE TABLE IF NOT EXISTS student_nhap_hoc (
+  studentId   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  ngayNhapHoc TEXT NOT NULL,              -- YYYY-MM-DD
+  nguoiGhi    TEXT,
+  capNhatLuc  TEXT
+);
+
 -- ===== Điểm danh — bảng lớn nhất, khoảng 52.500 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS attendance (
   id        TEXT PRIMARY KEY,
