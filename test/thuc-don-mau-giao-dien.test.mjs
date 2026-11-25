@@ -112,13 +112,19 @@ try {
   console.log('\n[3] Thực đơn dự kiến: đặt lịch từ tuần sau');
   await page.click('#menu-tab-seg [data-tab="dukien"]');
   await page.waitForSelector('#mn-lich-luu', { timeout: 8000 });
-  await page.fill('#mn-lich-tu', TUAN_SAU);
+  // Chọn Thứ Tư: máy chủ tính từ Thứ Hai của tuần đó, màn hình phải nói ra.
+  await page.fill('#mn-lich-tu', congNgay(TUAN_SAU, 2));
   await page.fill('#mn-lich-den', congNgay(TUAN_SAU, 4 * 7 + 4));
   check('thứ tự dùng có sẵn mẫu trong kho', await page.locator('[data-thu-tu]').count() === 1);
+  check('form nói rõ ngày đã qua giữ nguyên thực đơn đã đăng',
+    /ngày đã qua/i.test(await page.locator('#mn-lich-form').innerText()), await page.locator('#mn-lich-form').innerText());
   tn = await khongTranNgang();
   check('form đặt lịch không tràn ngang', tn.ok, tn);
   await page.click('#mn-lich-luu');
   await page.waitForSelector('[data-huy-doan]', { timeout: 8000 });
+  const tLich = await toastCuoi();
+  check('ngày bắt đầu giữa tuần: báo tính từ Thứ Hai của tuần đó',
+    tLich.includes(`Thứ Hai ${TUAN_SAU.slice(8, 10)}/${TUAN_SAU.slice(5, 7)}/${TUAN_SAU.slice(0, 4)}`), tLich);
   const doan = await page.locator('#menu-dukien').innerText();
   check('hiện đoạn lịch vừa đặt', doan.includes(`${TUAN_SAU.slice(8, 10)}/${TUAN_SAU.slice(5, 7)}/${TUAN_SAU.slice(0, 4)}`) && /Thực đơn 1 → quay lại/.test(doan), doan.slice(0, 400));
   const dong = await page.locator(`[data-mo-tuan="${TUAN_SAU}"]`).innerText();
@@ -141,6 +147,7 @@ try {
   check('soạn cả tuần điền sẵn món của mẫu', (await page.inputValue('#tt-mon-0-2')).startsWith('Cơm mẫu GD T2'));
   await page.fill('#tt-mon-0-2', 'Hết táo — đổi sang lê');
   await page.click('#td-luu-tuan');
+  await page.waitForSelector('.toast:has-text("Đã lưu thực đơn cho")', { timeout: 8000 }).catch(() => {});
   const t = await toastCuoi();
   check('lưu: 1 ngày sửa riêng, 4 ngày giống mẫu', /Đã lưu thực đơn cho 1 ngày/.test(t) && /4 ngày giống thực đơn mẫu/.test(t), t);
   await page.waitForSelector('#menu-days .card', { timeout: 8000 });

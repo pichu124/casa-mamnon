@@ -1003,6 +1003,7 @@ App.views.menu = {
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
           Từ tuần bắt đầu, mỗi tuần dùng một thực đơn theo thứ tự dưới đây; hết lượt thì quay lại thực đơn đầu.
           Ngày bắt đầu giữa tuần thì app tính từ Thứ Hai của tuần đó.
+          Những ngày đã qua (tới hôm nay) giữ nguyên thực đơn đã đăng, thực đơn mẫu chỉ áp từ ngày mai.
         </div>
         <div class="grid-2">
           <div class="field" style="margin-bottom:8px"><label for="mn-lich-tu">Từ ngày</label>
@@ -1093,12 +1094,15 @@ App.views.menu = {
     const denNgay = document.getElementById('mn-lich-den').value;
     if (!tuNgay || !denNgay) return UI.toast('Chọn ngày bắt đầu và ngày kết thúc nhé', 'error');
     try {
+      // Máy chủ đưa ngày bắt đầu về Thứ Hai của tuần đó: nói ra cho văn phòng biết.
+      const tuThuHai = (kq) => (kq && kq.lich && kq.lich.tuNgay && kq.lich.tuNgay !== tuNgay
+        ? ` (tính từ Thứ Hai ${this.ddmmyyyy(kq.lich.tuNgay)})` : '');
       if (this._doanSua) {
-        await API.put(`/api/menu/lich-xoay/${encodeURIComponent(this._doanSua.id)}`, { tuNgay, denNgay, thuTu });
-        UI.toast('Đã lưu đoạn lịch', 'success');
+        const kq = await API.put(`/api/menu/lich-xoay/${encodeURIComponent(this._doanSua.id)}`, { tuNgay, denNgay, thuTu });
+        UI.toast(`Đã lưu đoạn lịch${tuThuHai(kq)}`, 'success');
       } else {
-        await API.post('/api/menu/lich-xoay', { campusId: this._coSo || '', tuNgay, denNgay, thuTu });
-        UI.toast('Đã đặt lịch — các tuần trong đoạn tự lấy thực đơn theo thứ tự', 'success');
+        const kq = await API.post('/api/menu/lich-xoay', { campusId: this._coSo || '', tuNgay, denNgay, thuTu });
+        UI.toast(`Đã đặt lịch${tuThuHai(kq)} — các tuần trong đoạn tự lấy thực đơn theo thứ tự`, 'success');
       }
       await this.taiDuKien();
     } catch (err) { UI.toast(err.message, 'error'); }

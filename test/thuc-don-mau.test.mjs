@@ -117,10 +117,22 @@ try {
       !!mau.kiemLich('', { tuNgay: tuan(20), denNgay: tuan(19), thuTu: [M[0].id] }).loi);
   }
 
-  console.log('\n[4] chotQuaKhu: chép đúng các ngày tới mốc, không đè dòng thật');
+  console.log('\n[4] Đặt lịch phủ ngày đã qua: ngày chưa có thực đơn vẫn trống');
+  let lichQuaKhu;
   {
     const P = mau.themMau('', { ngay: ngayMau('quá khứ') }).mau;
-    mau.themLich('', { tuNgay: tuan(-3), denNgay: congNgay(tuan(-1), 6), thuTu: [P.id] });
+    lichQuaKhu = mau.themLich('', { tuNgay: tuan(-3), denNgay: congNgay(tuan(-1), 6), thuTu: [P.id] }).lich;
+    const g = mau.giaiKhoang(null, tuan(-3), congNgay(tuan(-1), 6));
+    check('ba tuần đã qua chưa có thực đơn: đặt lịch xong vẫn không hiện món mẫu', g.size === 0, [...g.keys()]);
+    check('…và không ghi dòng thực đơn nào cho các ngày đó',
+      db.count('SELECT COUNT(*) FROM menus WHERE date BETWEEN ? AND ?', [tuan(-3), congNgay(tuan(-1), 6)]) === 0);
+  }
+
+  console.log('\n[4b] chotQuaKhu: chép đúng các ngày tới mốc, không đè dòng thật');
+  {
+    // Giả như đoạn lịch trên đã đặt từ trước tuần (-3): các tuần đó ăn theo mẫu.
+    db.update('menu_lich_xoay', lichQuaKhu.id, { capNhatLuc: `${congNgay(tuan(-3), -1)}T00:00:00.000Z` });
+    check('lịch đặt từ trước: tuần (-3) lấy món mẫu', trua(mau.giaiKhoang(null, tuan(-3), tuan(-3)).get(tuan(-3))) === 'Trưa quá khứ T2');
     db.insert('menus', { id: 'menu_that_qua_khu', date: tuan(-2), meals: buaMau('đã ăn thật', 0) });
     const moc = congNgay(tuan(-2), 2);   // Thứ Tư hai tuần trước
     const soDong = mau.chotQuaKhu('', null, moc);
@@ -230,8 +242,8 @@ try {
     check('lưu mẫu và lịch KHÔNG gửi thông báo nào', demThongBao() === soTb0, { truoc: soTb0, sau: demThongBao() });
 
     const w = async (q) => (await xem(ph, q)).menus || [];
-    const truoc = await w('week=-1');
-    check('gia đình, tuần trước: cả 5 ngày là Thực đơn 1', truoc.length === 5 && truoc.every(m => m.tuMau && m.tuMau.so === 1), truoc.map(m => m.tuMau));
+    const truocKhiLui = await w('week=-1');
+    check('tuần trước chưa có thực đơn: đặt lịch phủ lên vẫn trống, không hiện món mẫu', truocKhiLui.length === 0, truocKhiLui.map(m => [m.date, trua(m)]));
     const nay = await w('week=0');
     const daQua = nay.filter(m => m.date <= HOM);
     const chuaToi = nay.filter(m => m.date > HOM);
@@ -239,6 +251,10 @@ try {
       daQua.every(m => m.tuMau === null && JSON.stringify(m.meals) === JSON.stringify((tuan0Truoc.menus.find(x => x.date === m.date) || {}).meals)),
       daQua.map(m => [m.date, trua(m)]));
     check('tuần này: ngày chưa tới lấy Thực đơn 2', chuaToi.every(m => m.tuMau && m.tuMau.so === 2), chuaToi.map(m => m.tuMau));
+    // Từ đây giả như đoạn lịch đã đặt từ trước tuần trước, để có "tuần đã ăn theo mẫu".
+    ghiCsdl(c => c.prepare('UPDATE menu_lich_xoay SET capNhatLuc = ? WHERE id = ?').run(`${congNgay(tuan(-1), -1)}T00:00:00.000Z`, lichCs1.id));
+    const truoc = await w('week=-1');
+    check('lịch đặt từ trước: tuần trước cả 5 ngày là Thực đơn 1', truoc.length === 5 && truoc.every(m => m.tuMau && m.tuMau.so === 1), truoc.map(m => m.tuMau));
     const sau = await w('week=1');
     check('tuần sau: Thực đơn 3, mẫu cơ sở thắng dòng dùng chung của dữ liệu mẫu',
       sau.length === 5 && sau.every(m => m.tuMau && m.tuMau.so === 3) && trua(sau[0]) === 'Trưa M3 T2', sau.map(m => trua(m)));
