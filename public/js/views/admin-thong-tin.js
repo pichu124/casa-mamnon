@@ -602,6 +602,8 @@ Object.assign(App.views.admin, {
       <div class="muted small mb-8">Nhận vào nhóm <b>${UI.esc(tenLop)}</b></div>
       <div class="field"><label>Họ và tên của bé</label><input id="nb-ten" placeholder="Nguyễn Văn An"></div>
       <div class="field"><label>Ngày sinh</label><input id="nb-ns" type="date"></div>
+      <div class="field"><label>Ngày nhập học</label><input id="nb-nhap-hoc" type="date" value="${UI.esc(UI.todayStr())}">
+        <div class="hint">Gia đình chỉ thấy thông báo và khảo sát của trường từ ngày này (khảo sát còn hạn vẫn thấy).</div></div>
       <div class="field"><label>Giới tính</label>
         <select id="nb-gt"><option value="">—</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
       <div class="field"><label>Mã của bé</label>
@@ -659,6 +661,7 @@ Object.assign(App.views.admin, {
       classId,
       tenLop,
       ngaySinh: document.getElementById('nb-ns').value,
+      ngayNhapHoc: document.getElementById('nb-nhap-hoc').value,
       gioiTinh: document.getElementById('nb-gt').value,
       ma: document.getElementById('nb-ma').value,
       phHoTen: document.getElementById('nb-ph').value,
@@ -806,6 +809,9 @@ Vẫn nhận bé này?`)) {
         <div class="hint">Mỗi bé một mã riêng. Trùng mã sẽ báo lỗi khi lưu.</div>
       </div>
       <div class="field"><label>Ngày sinh</label><input id="ad-hs-ns" type="date" value="${UI.esc(s.dob || '')}"></div>
+      <div class="field"><label>Ngày nhập học</label><input id="ad-hs-nhap-hoc" type="date" value="${UI.esc(s.ngayNhapHoc || '')}">
+        <div class="hint">Gia đình chỉ thấy thông báo và khảo sát của trường từ ngày này (khảo sát còn hạn vẫn thấy).
+        Để trống: tính từ ngày tạo tài khoản phụ huynh.</div></div>
       <div class="field"><label>Giới tính</label>
         <select id="ad-hs-gt">
           <option value="">— Chưa ghi —</option>
@@ -939,6 +945,12 @@ Vẫn nhận bé này?`)) {
         dy.nguoiKy = document.getElementById('ad-dy-nguoiky').value.trim();
         dy.ngayKy = document.getElementById('ad-dy-ngayky').value;
         await API.put(`/api/admin/students/${encodeURIComponent(studentId)}/dong-y`, dy);
+
+        // Ngày nhập học đi đường riêng (văn phòng cơ sở ghi được); chỉ gửi khi đổi.
+        const nhapHoc = document.getElementById('ad-hs-nhap-hoc').value;
+        if (nhapHoc !== (s.ngayNhapHoc || '')) {
+          await API.put(`/api/admin/students/${encodeURIComponent(studentId)}/nhap-hoc`, { ngayNhapHoc: nhapHoc });
+        }
 
         // Số CCCD đi đường RIÊNG vì nó thuộc về người lớn, không thuộc về bé.
         // Chỉ gửi những ô người dùng thật sự sửa: gửi hết là mỗi lần lưu hồ sơ
