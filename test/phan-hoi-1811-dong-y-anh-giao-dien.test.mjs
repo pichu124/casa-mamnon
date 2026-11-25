@@ -108,8 +108,11 @@ try {
     await page.waitForTimeout(1800);
     check('kể xong hộp đóng lại', await page.locator('#modal-overlay #ht-cong-bo').count() === 0, await chuCua('#modal-overlay'));
     const t = tepCua(q?.id);
-    check('máy chủ ghi bản chép đã xác nhận "chỉ có bé chính"', t?.daXacNhanBe === 1
-      && doc('SELECT studentId FROM hanhtrinh_ke_tep_be WHERE tepId = ?', t.id).map(r => r.studentId).join() === 's2', t);
+    // Theo review cổng cuối (a9c557a): không ai trả lời "trong ảnh có ai", nên
+    // máy chủ KHÔNG tự ghi "đã xác nhận chỉ có bé chính" — bản chép giữ chưa xác
+    // nhận và tự ẩn nếu sau này có nhà trong nhóm rút đồng ý.
+    check('máy chủ KHÔNG tự ghi "đã xác nhận chỉ có bé chính"', t?.daXacNhanBe === 0
+      && doc('SELECT studentId FROM hanhtrinh_ke_tep_be WHERE tepId = ?', t.id).length === 0, t);
     const ph = ((await req('GET', '/api/hanhtrinh?studentId=s2', { cookie: PH })).data?.quanSat || []).find(x => x.id === q?.id);
     check('gia đình bé thấy ảnh kèm câu chuyện', ph?.tepKe?.length === 1, ph?.tepKe);
   }
