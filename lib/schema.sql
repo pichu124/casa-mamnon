@@ -99,6 +99,28 @@ CREATE TABLE IF NOT EXISTS student_emergency_contacts (
 );
 CREATE INDEX IF NOT EXISTS idx_sec_student ON student_emergency_contacts(studentId);
 
+-- Gia đình ĐỀ XUẤT thêm người liên hệ khẩn cấp; nhà trường xác nhận (Đ260j).
+--
+-- Bảng phụ chứ không ghi thẳng vào `student_emergency_contacts`: một số do gia
+-- đình gõ chỉ thành số cô gọi lúc khẩn cấp SAU KHI quản lý cơ sở / ban giám
+-- hiệu xác nhận — cùng quyền sửa phần nhân thân (Đ168). Dòng đã quyết vẫn giữ
+-- để tra lại ai đề xuất, ai thêm. trangThai: cho | da-them | tu-choi | huy.
+CREATE TABLE IF NOT EXISTS lien_he_khan_de_xuat (
+  id        TEXT PRIMARY KEY,
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  parentId  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  ten       TEXT NOT NULL,
+  quanHe    TEXT NOT NULL DEFAULT '',
+  sdt       TEXT NOT NULL DEFAULT '',
+  ghiChu    TEXT NOT NULL DEFAULT '',
+  trangThai TEXT NOT NULL DEFAULT 'cho',
+  nguoiXet  TEXT,
+  xetLuc    TEXT,
+  lyDo      TEXT NOT NULL DEFAULT '',
+  taoLuc    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lhkdx_student ON lien_he_khan_de_xuat(studentId, trangThai);
+
 -- Hồ sơ mở rộng của NGƯỜI LỚN — hiện chỉ có số CCCD.
 --
 -- Nhà trường cần số CCCD của phụ huynh để đối chiếu khi ký hợp đồng và khi giao
