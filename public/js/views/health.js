@@ -340,7 +340,6 @@ App.views.health = {
           ${this.statBox(lc.height, 'cm', 'Chiều cao')}
           ${this.statBox(lc.weight, 'kg', 'Cân nặng')}
           ${this.bmi(lc) ? this.statBox(this.bmi(lc), '', 'BMI') : ''}
-          ${this.statBox(lc.vision, '', 'Thị lực')}
         </div>
         <div class="muted small mt-8 flex">
           <span>Khám ngày ${UI.esc(UI.fmtDate(lc.date, { weekday: false }))}</span>
@@ -400,7 +399,6 @@ App.views.health = {
         ${r.height !== undefined && r.height !== null ? infoRowHealth('Chiều cao', `${r.height} cm`) : ''}
         ${r.weight !== undefined && r.weight !== null ? infoRowHealth('Cân nặng', `${r.weight} kg`) : ''}
         ${this.bmi(r) ? infoRowHealth('BMI', this.bmi(r)) : ''}
-        ${r.vision ? infoRowHealth('Thị lực', r.vision) : ''}
         ${r.bmiNote ? infoRowHealth('Đánh giá thể trạng', r.bmiNote) : ''}
         ${r.daSua ? `<div class="muted small mt-8">Đã chỉnh sửa lúc ${UI.esc(UI.fmtTime(r.suaLuc))} ${UI.esc(UI.fmtDateShort(r.suaLuc))}</div>` : ''}
       </div>
@@ -497,11 +495,7 @@ App.views.health = {
           <label>Cân nặng (kg)</label>
           <input type="number" id="ht-weight" min="0" step="0.1" placeholder="${UI.esc(goiY.nang)}">
         </div>
-        <div class="field">
-          <label>Thị lực</label>
-          <input id="ht-vision" placeholder="VD: 10/10">
-        </div>
-        <div class="field">
+        <div class="field" style="grid-column:1/-1">
           <label>Đánh giá thể trạng</label>
           <input id="ht-bmi" placeholder="VD: phát triển bình thường">
         </div>
@@ -539,9 +533,7 @@ App.views.health = {
       const w = document.getElementById('ht-weight').value;
       if (h) body.height = Number(h);
       if (w) body.weight = Number(w);
-      const tl = (document.getElementById('ht-vision') || {}).value;
       const tt = (document.getElementById('ht-bmi') || {}).value;
-      if (tl && tl.trim()) body.vision = tl.trim();
       if (tt && tt.trim()) body.bmiNote = tt.trim();
     }
     try {
@@ -579,8 +571,7 @@ App.views.health = {
       <div class="grid-2">
         <div class="field"><label>Chiều cao (cm)</label><input type="number" id="ht-s-height" min="0" step="0.1" value="${UI.esc(r.height ?? '')}"></div>
         <div class="field"><label>Cân nặng (kg)</label><input type="number" id="ht-s-weight" min="0" step="0.1" value="${UI.esc(r.weight ?? '')}"></div>
-        <div class="field"><label>Thị lực</label><input id="ht-s-vision" value="${UI.esc(r.vision || '')}" placeholder="VD: 10/10"></div>
-        <div class="field"><label>Đánh giá thể trạng</label><input id="ht-s-bmi" value="${UI.esc(r.bmiNote || '')}" placeholder="VD: phát triển bình thường"></div>
+        <div class="field" style="grid-column:1/-1"><label>Đánh giá thể trạng</label><input id="ht-s-bmi" value="${UI.esc(r.bmiNote || '')}" placeholder="VD: phát triển bình thường"></div>
       </div>
       <div class="field"><label>Ngày ghi nhận</label><input type="date" id="ht-s-date" value="${UI.esc(r.date)}"></div>
       <button class="btn primary block" id="ht-s-luu">${UI.icon('check', 18)} Lưu thay đổi</button>
@@ -596,7 +587,6 @@ App.views.health = {
           detail: document.getElementById('ht-s-detail').value.trim(),
           height: document.getElementById('ht-s-height').value || null,
           weight: document.getElementById('ht-s-weight').value || null,
-          vision: document.getElementById('ht-s-vision').value.trim(),
           bmiNote: document.getElementById('ht-s-bmi').value.trim(),
           date: document.getElementById('ht-s-date').value || undefined,
         });
