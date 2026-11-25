@@ -7,6 +7,7 @@ const db = require('../lib/db');
 const ngayVN = require('../lib/ngay');
 const lsl = require('../lib/lich-su-lop');
 const nl = require('../lib/nhom-lop');
+const dongYMacDinh = require('../lib/dong-y-mac-dinh');
 const csv = require('../lib/csv');
 const password = require('../lib/password');
 const { requireRole } = require('../lib/auth');
@@ -2756,6 +2757,8 @@ module.exports = (app) => {
     };
     db.insert('students', student);
     if (classId) lsl.moKhoang(student.id, classId, lsl.homNay());
+    // Giấy nhập học đã gồm ba mục đồng ý (Đ260i) — văn phòng ghi "xin rút" sau.
+    dongYMacDinh.ghiChoBeMoi(student.id);
     db.run('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)',
       [student.id, parent.id]);
 

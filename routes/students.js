@@ -2,6 +2,7 @@
 const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
 const { publicUser } = require('./auth');
+const dongYMacDinh = require('../lib/dong-y-mac-dinh');
 
 // `choGiaDinh` = gói này đang đi tới một tài khoản phụ huynh, nên KHÔNG kèm số
 // điện thoại riêng của cô (Đ161) — xem chú thích dài ở `lib/nhom-lop.js`.
@@ -44,6 +45,10 @@ function taoNhoNhom(choGiaDinh = false) {
 }
 
 module.exports = (app) => {
+  // Bé đã có từ trước quyết định 25/11: điền "đồng ý theo giấy nhập học" cho
+  // mục chưa trả lời, một lần duy nhất (Đ260i). Tự bắt lỗi — xem tệp lib.
+  dongYMacDinh.dienMacDinhMotLan();
+
   // Danh sách học sinh mà người dùng được xem, kèm thông tin lớp + GVCN.
   app.get('/api/students', (req, res) => {
     // Một bảng nhớ cho ĐÚNG lượt gọi này — xem `taoNhoNhom` ở trên.
@@ -130,6 +135,11 @@ module.exports = (app) => {
   // `docs/KE-HOACH.md` ghi "rút lại được bất cứ lúc nào", và Nghị định
   // 13/2023 cho chủ thể dữ liệu quyền đó. Một quyền mà chỉ thực hiện được qua
   // điện thoại bàn thì trên thực tế là một quyền khó dùng.
+  //
+  // TỪ Đ260i (chủ dự án quyết 25/11) màn phụ huynh KHÔNG còn khối này: ba mục
+  // nằm trong giấy nhập học, gia đình muốn rút thì báo văn phòng, văn phòng ghi
+  // ở Quản trị → Hồ sơ bé. Hai đường dưới GIỮ NGUYÊN cho bản app cũ còn trong
+  // máy và cho ngày trường muốn mở lại nút rút trên màn gia đình.
   app.get('/api/dong-y', (req, res) => {
     const studentId = String((req.query || {}).studentId || '');
     if (!db.canAccessStudent(req.user, studentId)) {

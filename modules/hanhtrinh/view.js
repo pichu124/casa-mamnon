@@ -620,8 +620,9 @@ App.views.hanhtrinh = {
   // điền sẵn từ "Cùng con ở nhà tuần này" của chủ đề tuần nhóm bé — cô sửa
   // cho hợp khoảnh khắc, hoặc để trống.
   //
-  // GỬI KÈM ẢNH THÌ PHẢI NÓI TRONG ẢNH CÓ AI. Ảnh có bé khác chỉ tới gia đình
-  // khi mọi bé trong ảnh đều có đồng ý chia sẻ; máy chủ lọc, hộp này chỉ hỏi.
+  // GỬI KÈM ẢNH THÌ PHẢI NÓI TRONG ẢNH CÓ AI — ở nhóm có gia đình đã rút đồng
+  // ý chia sẻ ảnh (Đ260i). Ảnh có bé khác chỉ tới gia đình khi mọi bé trong ảnh
+  // đều có đồng ý chia sẻ; máy chủ lọc, hộp này chỉ hỏi.
   mucTuQuanSat(q) {
     return {
       nguon: 'quansat', id: q.id, studentId: q.studentId, hoTen: q.hoTen || '',
@@ -741,14 +742,18 @@ App.views.hanhtrinh = {
       if (oGoc) oGoc.onchange = () => { st.goc = oGoc.value; };
     };
 
-    // "Trong ảnh có bé khác không?" — bắt buộc trả lời khi gửi kèm ảnh.
+    // "Trong ảnh có bé khác không?" — bắt buộc trả lời khi gửi kèm ảnh, NHƯNG
+    // chỉ hỏi ở nhóm có gia đình đã rút đồng ý chia sẻ ảnh (Đ260i, máy chủ khai
+    // `canHoiBeTrongAnh`). Nhóm không ai rút: không hỏi, máy chủ coi như chỉ
+    // có bé chính. Chưa biết (chưa chọn bé, mạng lỗi) thì vẫn hỏi.
+    const canHoi = () => !st.tt || st.tt.canHoiBeTrongAnh !== false;
     const daXacNhan = tepCu && tepCu.daXacNhanBe;
     st.beKhac = daXacNhan ? ((tepCu.beTrongAnh || []).some(b => b.id !== q.studentId) ? 'co' : 'chi') : '';
     st.beChon = new Set(daXacNhan ? (tepCu.beTrongAnh || []).map(b => b.id).filter(x => x !== q.studentId) : []);
     const veAnh = () => {
       const vung = $('ht-hc-anh');
       if (!vung) return;
-      if (!$('ht-kem-tep').checked) { vung.innerHTML = ''; return; }
+      if (!$('ht-kem-tep').checked || !canHoi()) { vung.innerHTML = ''; return; }
       const lop = lopCua();
       const ban = dsBe.filter(b => b.classId === lop && b.id !== st.be);
       const ten = tenCua();
@@ -868,7 +873,7 @@ App.views.hanhtrinh = {
       const body = { ...v, goc: st.nhom === 'chu-nhiem' ? st.goc : '' };
       if (q.coTep) {
         body.kemTep = $('ht-kem-tep').checked;
-        if (body.kemTep) {
+        if (body.kemTep && canHoi()) {
           if (!st.beKhac) return UI.toast('Cô cho biết giúp trong ảnh có bé khác không nhé', 'error');
           if (st.beKhac === 'co' && !st.beChon.size) return UI.toast('Cô chọn tên các bé có trong ảnh nhé', 'error');
           body.beTrongAnh = st.beKhac === 'co' ? [...st.beChon] : [];

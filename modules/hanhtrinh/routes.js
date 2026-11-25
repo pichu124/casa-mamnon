@@ -445,6 +445,9 @@ module.exports = (app, { db, modules }) => {
       // thay vì để cô gõ xong mới nhận 403. Cùng luật với đường ghi; chốt chặn
       // vẫn ở đường ghi. Gia đình không nhận khoá này.
       nhomDuocGhi: req.user.role === 'parent' ? undefined : nhomDuocGhi(req.user, be.classId),
+      // Hộp kể có hỏi "Trong ảnh có bé khác không?" hay không (Đ260i): chỉ ở
+      // nhóm có gia đình đã rút đồng ý chia sẻ ảnh. Đường công bố tự xét lại.
+      canHoiBeTrongAnh: req.user.role === 'parent' ? undefined : db.coBeTuChoiChiaSeTungHoc(be.classId),
       trangThai: trangThaiDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       // BA TAB THEO BA NHÓM CÔ (Đ195, việc 24).
@@ -1699,6 +1702,15 @@ module.exports = (app, { db, modules }) => {
       }
     }
     const tepKeCu = db.first('hanhtrinh_ke_tep', 'SELECT * FROM hanhtrinh_ke_tep WHERE quanSatId = ?', [r.id]);
+    // NHÓM KHÔNG AI RÚT ĐỒNG Ý CHIA SẺ ẢNH (Đ260i): hộp kể không hỏi trong ảnh
+    // có ai, nên coi như chỉ có bé chính — y như cô chọn "Chỉ có bé X". Máy chủ
+    // tự xét nhóm, không tin trình duyệt: nhóm có bé rút thì không trả lời vẫn
+    // là chưa xác nhận, ảnh tạm ẩn như cũ. Bản chép đã xác nhận thì giữ nguyên
+    // danh sách bé cô đã chọn.
+    if (b.kemTep === true && beTrongAnh === null && !(tepKeCu && tepKeCu.daXacNhanBe)
+      && !db.coBeTuChoiChiaSeTungHoc(beChinh.classId)) {
+      beTrongAnh = [r.studentId];
+    }
     const canChep = b.kemTep === true && !tepKeCu;
     if (canChep && !uploads.exists(r.anh)) {
       return res.status(400).json({ error: 'Quan sát này không có ảnh hay video để gửi kèm' });

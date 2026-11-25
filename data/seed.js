@@ -1210,6 +1210,10 @@ function generate() {
 
   const stats = importSnapshot(db);
   ganCoNuocNgoai(require('../lib/db'));
+  // Ba trạng thái đồng ý ở trên là CỐ Ý, kể cả bé chưa nộp giấy: đánh dấu đã
+  // qua bước điền "đồng ý theo giấy nhập học" (Đ260i) để máy chủ không điền lấp
+  // chúng — các bài canh luật "chưa trả lời ≠ đồng ý" cần đúng những bé đó.
+  require('../lib/dong-y-mac-dinh').danhDauDaChay({ duLieuMau: true });
 
   // DỮ LIỆU MẪU CHO TÁM PHÂN HỆ MẦM NON.
   //
