@@ -289,6 +289,16 @@ try {
 
     const caNhom = await req('POST', '/api/surveys', { cookie: CO, body: { title: 'Cả nhóm Đ260b', deadline: '2030-01-01', audience: 'class', questions: CAU_HOI } });
     check('đối chứng — khảo sát cả nhóm (không chọn ai) vẫn tới nhà bé s6', caNhom.status === 201 && (await dsKs(P5)).some(s => s.id === caNhom.data.id));
+
+    // Cùng ngày, cô gửi khảo sát CÙNG TÊN cho cả nhóm: tin gửi riêng 2 nhà lúc nãy
+    // không được tính là "đã báo cả nhóm hôm nay".
+    const caNhomCungTen = await req('POST', '/api/surveys', {
+      cookie: CO, body: { title: 'Riêng: đón muộn thứ Sáu', deadline: '2030-01-01', audience: 'class', questions: CAU_HOI },
+    });
+    check('khảo sát cùng tên cho cả nhóm → 201', caNhomCungTen.status === 201, caNhomCungTen.data);
+    const tinCaNhom = (await ds(P5)).find(n => n.title === 'Khảo sát mới: Riêng: đón muộn thứ Sáu');
+    check('…nhà KHÔNG được chọn lần trước nay nhận thông báo "Khảo sát mới", mở đúng khảo sát cả nhóm',
+      tinCaNhom && tinCaNhom.lienKet === `#/surveys/${caNhomCungTen.data?.id}`, tinCaNhom);
   }
 } finally {
   sv.dung();
