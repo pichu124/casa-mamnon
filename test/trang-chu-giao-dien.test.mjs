@@ -9,7 +9,8 @@
 //     nhóm; bấm bé → Hồ sơ của bé với ô chọn theo cấp (optgroup Cơ sở › Nhóm).
 //   • Gia đình: không có bảng của cô / văn phòng; từ Đ258 có trang chủ riêng
 //     theo bản vẽ — phần đầu gọn, thẻ "Hôm nay của <tên bé>", dòng khảo sát
-//     chờ trả lời, nhóm "Hằng ngày" và dòng "… mục khác" (mục [5]–[10]).
+//     chờ trả lời, nhóm "Hằng ngày" rồi mọi ô còn lại hiện ngay — từ góp ý
+//     của trường 18/11 (Đ260a) không còn dòng "… mục khác" (mục [5]–[10]).
 // Kèm: thông báo nói rõ gửi cho ai; không lỗi JavaScript nào trên bất kỳ màn.
 //
 // Ảnh chụp từng màn để người đọc nhìn được, không chỉ tin con số.
@@ -592,11 +593,11 @@ console.log('\n[5b] Thẻ "Hôm nay": dòng chỉ sang thực đơn cả ngày, 
 }
 
 // ===========================================================================
-console.log('\n[6] Gia đình: dòng khảo sát, nhóm "Hằng ngày", dòng "… mục khác"');
+console.log('\n[6] Gia đình: dòng khảo sát, nhóm "Hằng ngày", mọi ô hiện ngay');
 {
   const page = await moTrang({ width: 390, height: 844 }, KHONG_SW);
   await dangNhap(page, 'phuhuynh', '123456');
-  await cho(page, '#ph-them');
+  await cho(page, '.ph-o .tile-grid');
   await page.waitForTimeout(900);   // các ô có điều kiện hiện hỏi máy chủ xong
 
   check('(đối chứng) gia đình mẫu đang có khảo sát chờ trả lời', soKs >= 1, soKs);
@@ -615,11 +616,11 @@ console.log('\n[6] Gia đình: dòng khảo sát, nhóm "Hằng ngày", dòng "�
     && (await chu(page)).includes('Hằng ngày'), hangNgay);
 
   // Nhà có bé nhà trẻ: "Nhật ký ngày" là trang sổ đọc mỗi chiều, phải nằm
-  // ngay trong nhóm Hằng ngày chứ không sau dòng "mục khác".
+  // ngay trong nhóm Hằng ngày chứ không lẫn vào các ô còn lại.
   {
     const pageNt = await moTrang({ width: 390, height: 844 }, KHONG_SW);
     await dangNhap(pageNt, 'ph.trang', '123456');
-    await cho(pageNt, '#ph-them');
+    await cho(pageNt, '.ph-o .tile-grid');
     await pageNt.waitForTimeout(900);
     const nt = await pageNt.locator('.tile-grid .tile:not(.tile-phu)').evaluateAll(els => els.map(e => {
       const k = e.getBoundingClientRect();
@@ -630,8 +631,8 @@ console.log('\n[6] Gia đình: dòng khảo sát, nhóm "Hằng ngày", dòng "�
       nt.length === 6 && nt[0].key === 'diemdanh' && nt[1].key === 'nhatky' && nt.every(o => o.hien), nt);
     check('… sáu ô xếp hai hàng ba ô, ô nào cũng rộng ≥ 44px', hang.length === 2
       && nt.filter(o => o.tren === hang[0]).length === 3 && nt.every(o => o.rong >= 44), nt);
-    check('… dòng "mục khác" của nhà này không kể "Nhật ký ngày"',
-      !(await chuO(pageNt, '#ph-them')).includes('Nhật ký ngày'), await chuO(pageNt, '#ph-them'));
+    check('… "Nhật ký ngày" không lặp lại trong các ô còn lại',
+      (await dem(pageNt, '.tile[data-tile-key="nhatky"]')) === 1 && (await dem(pageNt, '.tile.tile-phu[data-tile-key="nhatky"]')) === 0);
     await pageNt.screenshot({ path: SHOT + 'gia-dinh-nha-tre.png', fullPage: true });
     await pageNt.context().close();
   }
@@ -662,45 +663,34 @@ console.log('\n[6] Gia đình: dòng khảo sát, nhóm "Hằng ngày", dòng "�
     && mong.every(m => coO.some(o => o.key === m.key && o.onclick.includes(`'${m.hash}'`) && o.huyHieu === 1 && o.nhan === 1)),
     { mong: mong.map(m => m.key), co: coO.map(o => o.key) });
   const soPhu = coO.length - O_HANG_NGAY.length;
-  check('các ô ngoài nhóm Hằng ngày đang GIẤU nhưng vẫn nằm trong trang (lớp tile-phu)',
-    soPhu > 3 && (await dem(page, '.tile.tile-phu')) === soPhu && coO.filter(o => o.hien).length === O_HANG_NGAY.length,
-    { soPhu, hien: coO.filter(o => o.hien).map(o => o.key) });
-  const them = await page.evaluate(() => {
-    const o = document.getElementById('ph-them');
-    return o ? { chu: o.innerText, mo: o.getAttribute('aria-expanded'), cao: o.getBoundingClientRect().height } : null;
-  });
-  check(`dòng "… và N mục khác" đếm đúng ${soPhu} ô đang giấu (ba tên + ${soPhu - 3} mục khác)`,
-    !!them && new RegExp(`và ${soPhu - 3} mục khác`).test(them.chu) && them.chu.includes('Hồ sơ của bé')
-    && them.mo === 'false' && them.cao >= 44, them);
+  // Góp ý của trường 18/11 (Đ260a, chủ dự án duyệt): bỏ dòng "… và N mục
+  // khác" / "Thu gọn" — các ô ngoài nhóm Hằng ngày HIỆN NGAY. Lớp tile-phu chỉ
+  // còn để xếp các ô ấy bốn ô một hàng.
+  check('các ô ngoài nhóm Hằng ngày HIỆN NGAY, không phải bấm gì (lớp tile-phu)',
+    soPhu > 3 && (await dem(page, '.tile.tile-phu')) === soPhu && coO.every(o => o.hien),
+    { soPhu, an: coO.filter(o => !o.hien).map(o => o.key) });
+  check('không còn dòng "… và N mục khác" / "Thu gọn"',
+    (await dem(page, '#ph-them, .ph-them')) === 0 && !/mục khác|Thu gọn/.test(await chu(page)));
   const bong = await page.evaluate(() => {
-    const o = document.querySelector('#ph-them [data-tile-badge="khaosat"]');
+    const o = document.querySelector('.tile[data-tile-key="khaosat"] [data-tile-badge="khaosat"]');
     return o ? { chu: o.textContent.trim(), hien: o.offsetParent !== null } : null;
   });
-  check('ô Khảo sát đang giấu thì con số của nó hiện ngay trên dòng "mục khác"',
+  check('con số khảo sát hiện ngay trên ô Khảo sát',
     !!bong && bong.hien && bong.chu === String(soKs), bong);
-
-  if (them) await page.click('#ph-them');
-  await page.waitForTimeout(250);
   const sauMo = await page.evaluate(() => ({
     an: [...document.querySelectorAll('.tile')].filter(e => e.offsetParent === null).map(e => e.dataset.tileKey),
     tong: document.querySelectorAll('.tile').length,
-    mo: (document.getElementById('ph-them') || { getAttribute: () => null }).getAttribute('aria-expanded'),
     luoi: document.querySelectorAll('.tile-grid').length,
   }));
-  check('bấm "mục khác" thì hiện HẾT ô, vẫn một lưới', !!them && sauMo.tong === mong.length && sauMo.an.length === 0
-    && sauMo.mo === 'true' && sauMo.luoi === 1, sauMo);
+  check('hiện HẾT ô, vẫn một lưới', sauMo.tong === mong.length && sauMo.an.length === 0 && sauMo.luoi === 1, sauMo);
   await page.screenshot({ path: SHOT + 'gia-dinh-mo-het-o.png', fullPage: true });
   if (await dem(page, '.tile.tile-phu[data-tile-key="hocsinh"]')) await page.click('.tile.tile-phu[data-tile-key="hocsinh"]');
   await page.waitForTimeout(500);
-  check('ô vừa lộ ra bấm được, tới đúng màn', (await location(page)) === '#/student', await location(page));
+  check('ô ngoài nhóm Hằng ngày bấm được, tới đúng màn', (await location(page)) === '#/student', await location(page));
   await page.goto(BASE + '/#/', { waitUntil: 'networkidle' });
   await cho(page, '.tile-grid');
-  check('quay lại trang chủ: các ô vẫn đang mở như lúc rời đi',
-    (await dem(page, '#ph-them[aria-expanded="true"]')) === 1 && (await dem(page, '.tile:visible')) === mong.length);
-  if (them) await page.click('#ph-them');
-  await page.waitForTimeout(250);
-  check('bấm lần nữa thì gọn lại còn nhóm Hằng ngày',
-    (await dem(page, '#ph-them[aria-expanded="false"]')) === 1 && (await dem(page, '.tile:visible')) === O_HANG_NGAY.length);
+  await page.waitForTimeout(600);
+  check('quay lại trang chủ: vẫn hiện hết ô', (await dem(page, '.tile:visible')) === mong.length);
 
   // Con số khảo sát đổi (app tự hỏi lại huy hiệu mỗi 15 giây) thì dòng đổi theo.
   const datHuyHieu = async (soMoi) => {
@@ -710,7 +700,7 @@ console.log('\n[6] Gia đình: dòng khảo sát, nhóm "Hằng ngày", dòng "�
     await page.waitForTimeout(200);
     return page.evaluate(() => {
       const o = document.getElementById('ph-khao-sat');
-      const b = document.querySelector('#ph-them [data-tile-badge="khaosat"]');
+      const b = document.querySelector('.tile [data-tile-badge="khaosat"]');
       return { dong: o ? o.offsetParent !== null : null, chu: o ? o.innerText.trim().split('\n')[0] : '', bong: b ? b.offsetParent !== null : null };
     });
   };
@@ -733,13 +723,11 @@ console.log('\n[7] Gia đình trên màn hẹp 320px: không cuộn ngang, chỗ
   await cho(page, '#ph-hom-nay [data-ph]');
   await page.waitForTimeout(600);
   const tran = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  check('có thẻ hôm nay và không cuộn ngang khi đang gọn', (await dem(page, '#ph-hom-nay [data-ph]')) > 0 && (await tran()) <= 0, await tran());
-  const kich = await page.evaluate(() => ['#ph-them', '#ph-khao-sat', '.hero .student-chip', '.tile:not(.tile-phu)']
+  check('có thẻ hôm nay và không cuộn ngang', (await dem(page, '#ph-hom-nay [data-ph]')) > 0 && (await tran()) <= 0, await tran());
+  const kich = await page.evaluate(() => ['#ph-khao-sat', '.hero .student-chip', '.tile:not(.tile-phu)', '.tile.tile-phu']
     .map(s => { const o = document.querySelector(s); return { s, cao: o ? Math.round(o.getBoundingClientRect().height) : 0 }; }));
-  check('dòng mục khác, dòng khảo sát, ô chọn con, ô Hằng ngày đều cao ≥ 44px', kich.every(k => k.cao >= 44), kich);
-  if (await dem(page, '#ph-them')) await page.click('#ph-them');
-  await page.waitForTimeout(250);
-  check('mở hết ô vẫn không cuộn ngang', (await dem(page, '.tile.tile-phu:visible')) > 0 && (await tran()) <= 0, await tran());
+  check('dòng khảo sát, ô chọn con, ô Hằng ngày, ô còn lại đều cao ≥ 44px', kich.every(k => k.cao >= 44), kich);
+  check('mọi ô hiện ngay mà vẫn không cuộn ngang', (await dem(page, '.tile.tile-phu:visible')) > 0 && (await tran()) <= 0, await tran());
   await page.screenshot({ path: SHOT + 'gia-dinh-320.png', fullPage: true });
   await page.context().close();
 }
@@ -752,10 +740,10 @@ console.log('\n[8] Thẻ hôm nay hỏng thì trang chủ vẫn dùng được (
   const chan500 = (re) => page.route(re, r => r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"thử hỏng"}' }));
   await chan500(/\/api\/attendance/);
   await dangNhap(page, 'phuhuynh', '123456');
-  await cho(page, '#ph-them');
+  await cho(page, '.ph-o .tile-grid');
   await page.waitForTimeout(1200);
   check('đường điểm danh trả 500 → thẻ hôm nay được gỡ, không để thẻ dở',
-    (await dem(page, '#ph-them')) === 1 && (await dem(page, '#ph-hom-nay')) === 0, await dem(page, '#ph-hom-nay'));
+    (await dem(page, '.ph-o .tile-grid')) === 1 && (await dem(page, '#ph-hom-nay')) === 0, await dem(page, '#ph-hom-nay'));
   check('… trang chủ vẫn đủ ô, nhóm Hằng ngày vẫn hiện', (await dem(page, '.tile')) >= 10
     && (await dem(page, '.tile:not(.tile-phu):visible')) === O_HANG_NGAY.length);
   // Không còn thẻ thì thân trang thôi gối lên phần đầu tím: chữ "Hằng ngày"
@@ -771,9 +759,7 @@ console.log('\n[8] Thẻ hôm nay hỏng thì trang chủ vẫn dùng được (
   });
   check('… thẻ đã gỡ thì chữ "Hằng ngày" nằm DƯỚI phần đầu tím, không đè lên',
     gheDau.dinhChu >= gheDau.dayDau, gheDau);
-  if (await dem(page, '#ph-them')) await page.click('#ph-them');
-  await page.waitForTimeout(250);
-  check('… dòng "mục khác" vẫn mở được', (await dem(page, '.tile.tile-phu:visible')) > 3);
+  check('… các ô ngoài nhóm Hằng ngày vẫn hiện', (await dem(page, '.tile.tile-phu:visible')) > 3);
 
   await page.unroute(/\/api\/attendance/);
   await chan500(/\/api\/leave\/lich-nghi/);
@@ -846,7 +832,7 @@ console.log('\n[10] Nhà trường tắt phần Thực đơn / Điểm danh: th�
     page.on('request', q => { if (/\/api\/(menu|attendance|leave)\b/.test(q.url())) hoi.push(new URL(q.url()).pathname); });
     await gaThucDon(page);
     await dangNhap(page, 'phuhuynh', '123456');
-    await cho(page, '#ph-them');
+    await cho(page, '.ph-o .tile-grid');
     await page.waitForTimeout(1200);
     return { page, hoi };
   };
