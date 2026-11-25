@@ -268,16 +268,31 @@ App.views.health = {
   // Mỗi bé hai hàng thay vì một: hàng trên tên + lần đo gần nhất (xuống dòng
   // được), hàng dưới ba ô cao / nặng / BMI. Năm cột trên một hàng thì điện
   // thoại 390px tràn ngang.
+  //
+  // NGÀY VÀ SỐ ĐIỀN SẴN THEO CÙNG MỘT THÁNG. Số điền sẵn là của tháng đang
+  // xem (`d.thang`), nên ngày mặc định cũng thuộc tháng đó: tháng này thì hôm
+  // nay, tháng trước thì ngày cuối tháng ấy. Cô đổi ngày sang tháng khác thì
+  // nạp lại số của tháng đó (`doiThangCanDo`) — không thì "Lưu" ghi số tháng
+  // 10 thành tháng 11, và "Sửa lại" đè lên số thật của tháng 11.
   moCanDoNhom(d) {
     const ds = this._dsBe || [];
     if (!ds.length) return UI.toast('Nhóm chưa có bé nào', 'error');
+    const homNay = UI.todayStr();
+    const thang = /^\d{4}-\d{2}$/.test(String(d.thang || '')) ? d.thang : homNay.slice(0, 7);
+    const ngayMacDinh = thang < homNay.slice(0, 7)
+      ? new Date(Date.UTC(Number(thang.slice(0, 4)), Number(thang.slice(5, 7)), 0)).toISOString().slice(0, 10)
+      : homNay;
+    this._dsCanDo = ds;
+    this._thangCanDo = thang;
+    this._thangDangNap = null;
+    const soSan = (v) => (v !== null && v !== undefined ? String(v) : '');
     const LUOI = 'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr);gap:6px;align-items:center';
     const O = 'border:1.5px solid var(--line);border-radius:10px;padding:9px 8px;min-width:0;width:100%;min-height:40px';
     UI.modal(`
       <div class="field">
         <label>Ngày cân đo</label>
-        <input type="date" id="ht-cd-ngay" value="${UI.esc(UI.todayStr())}" max="${UI.esc(UI.todayStr())}">
-        <div class="hint">Bé nào để trống cả hai ô thì không ghi. Số đã có trong tháng được điền sẵn để cô sửa.</div>
+        <input type="date" id="ht-cd-ngay" value="${UI.esc(ngayMacDinh)}" max="${UI.esc(homNay)}">
+        <div class="hint">Bé nào để trống cả hai ô thì không ghi. Số đã có trong tháng của ngày đang chọn được điền sẵn để cô sửa.</div>
       </div>
       <div style="${LUOI};margin-bottom:4px" class="muted small">
         <span>Cao (cm)</span><span>Nặng (kg)</span><span>BMI</span>
@@ -293,10 +308,10 @@ App.views.health = {
           </div>
           <div style="${LUOI}">
             <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="height" min="0" step="0.1" inputmode="decimal"
-              value="${tt.height !== null && tt.height !== undefined ? UI.esc(String(tt.height)) : ''}" placeholder="${UI.esc(g.cao)}"
+              value="${UI.esc(soSan(tt.height))}" data-san="${UI.esc(soSan(tt.height))}" placeholder="${UI.esc(g.cao)}"
               aria-label="Chiều cao (cm) của ${UI.esc(b.hoTen)}" style="${O}">
             <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="weight" min="0" step="0.1" inputmode="decimal"
-              value="${tt.weight !== null && tt.weight !== undefined ? UI.esc(String(tt.weight)) : ''}" placeholder="${UI.esc(g.nang)}"
+              value="${UI.esc(soSan(tt.weight))}" data-san="${UI.esc(soSan(tt.weight))}" placeholder="${UI.esc(g.nang)}"
               aria-label="Cân nặng (kg) của ${UI.esc(b.hoTen)}" style="${O}">
             <div class="ht-cd-bmi small" data-muc-bmi="" style="${this.KIEU_O_BMI}"><span class="muted">—</span></div>
           </div>
@@ -328,8 +343,40 @@ App.views.health = {
     if (oTep) oTep.onchange = () => this.napTepCanDo(oTep, d.classId);
     for (const o of document.querySelectorAll('.ht-cd')) o.oninput = () => this.capNhatHangCanDo(o.closest('.ht-cd-hang'));
     const capNhatHet = () => document.querySelectorAll('.ht-cd-hang').forEach(h => this.capNhatHangCanDo(h));
-    document.getElementById('ht-cd-ngay').onchange = capNhatHet;
+    document.getElementById('ht-cd-ngay').onchange = () => { capNhatHet(); this.doiThangCanDo(d.classId); };
     capNhatHet();
+  },
+
+  // Ngày cân đo sang tháng khác: nạp số đã có của tháng đó vào các ô cô chưa
+  // gõ gì (ô cô đã tự gõ thì giữ), cùng "Lần đo gần nhất" trước tháng đó.
+  async doiThangCanDo(classId) {
+    const thang = String((document.getElementById('ht-cd-ngay') || {}).value || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(thang) || thang === this._thangDangNap) return;
+    if (thang === this._thangCanDo) { this._thangDangNap = null; return; }   // quay lại tháng đang có: bỏ lượt nạp dở
+    this._thangDangNap = thang;
+    let ds = null;
+    try {
+      ds = (await API.get(`/api/health/nhom?classId=${encodeURIComponent(classId)}&thang=${encodeURIComponent(thang)}`)).danhSach || [];
+    } catch (e) {
+      UI.toast(e.message || 'Chưa tải được số đo của tháng này', 'error');
+    }
+    if (this._thangDangNap !== thang) return;      // cô đã đổi ngày lần nữa
+    this._thangDangNap = null;
+    // Tải hỏng: bỏ số điền sẵn của tháng cũ, để không ghi nhầm sang tháng mới.
+    this._thangCanDo = ds ? thang : null;
+    if (ds) this._dsCanDo = ds;
+    const theoBe = new Map((ds || []).map(b => [b.studentId, b]));
+    for (const h of document.querySelectorAll('.ht-cd-hang')) {
+      const b = theoBe.get(h.dataset.hang);
+      const tt = (b && b.doTrongThang) || {};
+      for (const o of h.querySelectorAll('.ht-cd')) {
+        const moi = tt[o.dataset.cot] !== null && tt[o.dataset.cot] !== undefined ? String(tt[o.dataset.cot]) : '';
+        if (o.value.trim() === (o.dataset.san || '')) o.value = moi;
+        o.dataset.san = moi;
+      }
+      if (b) h.querySelector('.ht-cd-truoc').innerHTML = this.lanDoTruoc(b.doTruocThang);
+      this.capNhatHangCanDo(h);
+    }
   },
 
   KIEU_O_BMI: 'border:1.5px solid var(--line);border-radius:10px;padding:5px 6px;min-height:40px;display:flex;flex-direction:column;justify-content:center;line-height:1.25;min-width:0;overflow-wrap:anywhere',
@@ -346,7 +393,7 @@ App.views.health = {
   // Một dòng của hộp nhập cả nhóm: ô BMI và dòng nhắc "thấp hơn lần trước".
   capNhatHangCanDo(hang) {
     if (!hang) return;
-    const b = (this._dsBe || []).find(x => x.studentId === hang.dataset.hang);
+    const b = (this._dsCanDo || this._dsBe || []).find(x => x.studentId === hang.dataset.hang);
     const oCao = hang.querySelector('[data-cot="height"]');
     const cao = oCao.value.trim();
     const nang = hang.querySelector('[data-cot="weight"]').value.trim();

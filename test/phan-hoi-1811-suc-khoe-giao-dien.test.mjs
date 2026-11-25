@@ -192,6 +192,45 @@ try {
     check('thẻ "Chỉ số gần nhất" của cô cũng có ô BMI tô màu',
       (await page.locator('.stat-box[data-muc-bmi]').count()) === 1);
   }
+
+  // =========================================================================
+  console.log('\n[3b] Xem tháng trước rồi mở "Cân đo cả nhóm": ngày và số theo đúng tháng đang xem');
+  {
+    const [n, t] = THANG.split('-').map(Number);
+    const TRUOC = t === 1 ? `${n - 1}-12` : `${n}-${String(t - 1).padStart(2, '0')}`;
+    const CUOI_TRUOC = new Date(Date.UTC(Number(TRUOC.slice(0, 4)), Number(TRUOC.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    const soCua = async (thang) => {
+      const x = (await req('GET', `/api/health/nhom?classId=c1&thang=${thang}`, { cookie: GV })).data.danhSach.find(b => b.studentId === 's1');
+      return x.doTrongThang && x.doTrongThang.height != null ? String(x.doTrongThang.height) : '';
+    };
+    // Đối chứng: tháng trước có số khác tháng này, để phân biệt hai tháng trên màn.
+    await req('POST', '/api/health/can-do-nhom', { cookie: GV, body: { classId: 'c1', date: `${TRUOC}-15`, suaLai: true, danhSach: [{ studentId: 's1', height: 98.5 }] } });
+    const soTruoc = await soCua(TRUOC);
+    const soNay = await soCua(THANG);
+    check('đối chứng — tháng trước và tháng này có số khác nhau', soTruoc === '98.5' && soNay && soNay !== soTruoc, { soTruoc, soNay });
+
+    await page.evaluate((th) => { const v = App.views.health; v._beDangMo = null; v._sid = null; v._thang = th; App.route(); }, TRUOC);
+    await page.waitForSelector('#btn-can-do-nhom', { timeout: 8000 });
+    await page.click('#btn-can-do-nhom');
+    await page.waitForSelector('.ht-cd-hang', { timeout: 5000 });
+    check('ngày cân đo mặc định thuộc tháng đang xem (ngày cuối tháng trước)',
+      (await page.inputValue('#ht-cd-ngay')) === CUOI_TRUOC, await page.inputValue('#ht-cd-ngay'));
+    check('ô điền sẵn số của tháng đang xem', (await page.inputValue(`${hang('s1')} [data-cot="height"]`)) === soTruoc);
+
+    await page.fill('#ht-cd-ngay', NGAY);
+    await page.dispatchEvent('#ht-cd-ngay', 'change');
+    await page.waitForFunction((v) => document.querySelector('.ht-cd-hang[data-hang="s1"] [data-cot="height"]').value === v, soNay, { timeout: 5000 }).catch(() => {});
+    check('đổi ngày sang tháng này: ô nạp lại số của tháng này', (await page.inputValue(`${hang('s1')} [data-cot="height"]`)) === soNay,
+      await page.inputValue(`${hang('s1')} [data-cot="height"]`));
+
+    await page.fill(`${hang('s6')} [data-cot="weight"]`, '15.5');
+    await page.fill('#ht-cd-ngay', `${TRUOC}-20`);
+    await page.dispatchEvent('#ht-cd-ngay', 'change');
+    await page.waitForFunction((v) => document.querySelector('.ht-cd-hang[data-hang="s1"] [data-cot="height"]').value === v, soTruoc, { timeout: 5000 }).catch(() => {});
+    check('đổi lại về tháng trước: số tháng trước quay lại', (await page.inputValue(`${hang('s1')} [data-cot="height"]`)) === soTruoc);
+    check('…số cô vừa tự gõ thì giữ nguyên', (await page.inputValue(`${hang('s6')} [data-cot="weight"]`)) === '15.5');
+    await page.evaluate(() => UI.closeModal());
+  }
   await page.context().close();
 
   // =========================================================================
