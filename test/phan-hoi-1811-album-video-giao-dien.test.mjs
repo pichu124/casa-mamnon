@@ -115,6 +115,7 @@ async function dungVideoMau(giay) {
 // như bản thật.
 async function haNguong({ giaLap = false, tongGiay = 2 } = {}) {
   await page.evaluate(({ giaLap, tongGiay }) => {
+    if (window.__tranGoc === undefined) window.__tranGoc = App.views.albums.TRAN_VIDEO;
     App.views.albums.TRAN_VIDEO = 1000;
     window.__daHuy = 0;
     window.__soLanNen = 0;
@@ -126,6 +127,7 @@ async function haNguong({ giaLap = false, tongGiay = 2 } = {}) {
     }
     UI.nenVideo = (f, o) => new Promise((ok, hong) => {
       window.__soLanNen += 1;
+      window.__tuyChonNen = { ...o };
       let g = 0;
       const t = setInterval(() => {
         if (o.huy && o.huy()) { clearInterval(t); window.__daHuy += 1; hong(new Error('Đã dừng nén video')); return; }
@@ -239,6 +241,14 @@ try {
   await page.click('#al-nen-ok');
   await page.waitForFunction(() => /Video 2\/2/.test((document.getElementById('al-nen') || {}).innerText || ''),
     null, { timeout: 10000 }).catch(() => {});
+  // CHẤT LƯỢNG NÉN (Đ260f, chủ dự án 25/11: bản 480px, 15 khung/giây, 8 MB
+  // "chất lượng rất kém"): album xin 720px, 24 khung/giây, trần đích 25 MB.
+  const tuyChon = await page.evaluate(() => ({ ...window.__tuyChonNen, tranGoc: window.__tranGoc }));
+  check('trần video của màn Album là 25 MB, khớp máy chủ', tuyChon.tranGoc === 25 * 1024 * 1024, tuyChon.tranGoc);
+  check('album gọi UI.nenVideo với cạnh dài 720 và 24 khung/giây',
+    tuyChon.canhToiDa === 720 && tuyChon.khung === 24, tuyChon);
+  check('và trần đích là đúng trần của màn hình (TRAN_VIDEO), không phải số khác',
+    tuyChon.tranByte === 1000, tuyChon.tranByte);
   check('đang nén video thứ hai thì hiện "Video 2/2"', /Video 2\/2/.test(await chu('#al-nen')), await chu('#al-nen'));
   check('video thứ nhất đã hiện ở ô xem trước trước khi xong cả lượt',
     /1 ảnh, 1 video/.test(await chu('#al-preview')), await chu('#al-preview'));

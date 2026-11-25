@@ -542,7 +542,13 @@ App.views.albums = {
 
   // Trần dung lượng video, PHẢI khớp với `MAX_VIDEO_BYTES` của máy chủ.
   // Bài canh đối chiếu hai con số này với nhau.
-  TRAN_VIDEO: 8 * 1024 * 1024,
+  TRAN_VIDEO: 25 * 1024 * 1024,
+
+  // Chất lượng bản nén (Đ260f, chủ dự án 25/11: mặc định 480px, 15 khung/giây
+  // của `UI.nenVideo` "chất lượng rất kém"). 720px, 24 khung/giây vẫn vừa trần
+  // 25 MB cho đoạn 3–5 phút vì ngân sách bit chia theo độ dài thật.
+  CANH_VIDEO: 720,
+  KHUNG_VIDEO: 24,
 
   // Trần ĐỘ DÀI video. Nhà trường xin 3–5 phút; 6 phút rưỡi là chừa dư cho
   // đoạn quay lố mấy giây, mà vẫn chặn được đoạn nửa tiếng quay quên tắt.
@@ -611,6 +617,8 @@ App.views.albums = {
         try {
           const video = await UI.nenVideo(f, {
             tranByte: this.TRAN_VIDEO,
+            canhToiDa: this.CANH_VIDEO,
+            khung: this.KHUNG_VIDEO,
             toiDaGiay: this.TOI_DA_GIAY_VIDEO,
             huy: () => dung || !conMo(),
             tien: ({ giay, tongGiay }) => {
@@ -845,9 +853,9 @@ App.views.albums = {
   // Gửi ảnh theo từng nhóm nhỏ để không vượt giới hạn dung lượng mỗi lần gửi.
   // GOM LÔ: ba ảnh một lượt, NHƯNG VIDEO THÌ MỘT MÌNH MỘT LƯỢT.
   //
-  // Thân yêu cầu của máy chủ là 12 MB. Ba tấm ảnh đã nén thì thừa sức lọt; hai
-  // video 8 MB thì base64 lên hơn 21 MB và bị Express từ chối bằng một lỗi
-  // trơ trước khi tới mã của ta.
+  // Thân yêu cầu của máy chủ là 12 MB, riêng đường tải video 40 MB. Ba tấm ảnh
+  // đã nén thì thừa sức lọt; hai video 25 MB thì base64 lên hơn 66 MB và bị
+  // Express từ chối bằng một lỗi trơ trước khi tới mã của ta.
   //
   // Bản đầu để nguyên `BATCH = 3` cho cả hai loại. Bắt được khi đọc lại
   // `server.js` trước lúc commit, chứ không phải khi cô đứng ở sân trường.

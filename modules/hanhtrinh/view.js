@@ -1713,9 +1713,9 @@ App.views.hanhtrinh = {
   },
 
   // Trần video, khớp `MAX_VIDEO_BYTES` của máy chủ — đọc từ chính gói
-  // Hình ảnh ghi nhanh khi đã có, không thì 8 MB như màn Album.
+  // Hình ảnh ghi nhanh khi đã có, không thì 25 MB như màn Album.
   tranVideo() {
-    return Number((this._choKe || {}).toiDaVideo) || 8 * 1024 * 1024;
+    return Number((this._choKe || {}).toiDaVideo) || 25 * 1024 * 1024;
   },
 
   // VIDEO: CÙNG LUẬT VỚI MÀN ALBUM (public/js/views/albums.js). Nhỏ hơn trần
