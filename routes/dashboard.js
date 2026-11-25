@@ -25,14 +25,20 @@ function unreadNotifications(user) {
   return unreadCuaTruong(user) + tbb.demChuaDoc(user) + tbnv.demChuaDoc(user);
 }
 
-// SỐ TRÊN Ô TỪ CHUÔNG RIÊNG CỦA CÔ / VĂN PHÒNG (Đ260c). Lấy số LỚN HƠN chứ
-// không cộng: ô Xin phép đã đếm đơn chờ, ô Nhắn tin đã đếm tin chưa đọc — cộng
-// thêm là đếm một việc hai lần. Ô chưa có số (Khảo sát của cô) thì nhận số
-// của chuông. Phải gọi ở CẢ HAI lối ra của đường huy hiệu, sau mọi phép gán.
+// SỐ TRÊN Ô TỪ CHUÔNG RIÊNG CỦA CÔ / VĂN PHÒNG (Đ260c).
+//
+// CHỈ cho ô CHƯA có bộ đếm riêng (Khảo sát của cô, Hồ sơ của bé…). Ô đã có
+// bộ đếm thì để nguyên con số của nó: Xin phép, Dặn thuốc đếm đơn CHỜ và tự
+// về 0 khi văn phòng xử lý xong; Nhắn tin đếm tin chưa đọc theo đúng luật của
+// danh sách (cuộc đã đóng thôi đếm); Kế hoạch, Báo cáo đếm việc chờ chính người
+// này. Trộn số của chuông vào đó là ô đứng một con số mà mở ra không còn việc
+// gì — việc mới của những màn ấy vẫn hiện ở chuông. Gọi ở CẢ HAI lối ra.
+const O_DA_CO_SO = ['thongbao', 'nhantin', 'xinphep', 'danthuoc', 'diemdanh'];
 function gopSoChuongRieng(badges, user) {
   try {
+    const daCo = new Set([...O_DA_CO_SO, ...huyHieu.danhSach()]);
     for (const [key, n] of Object.entries(tbnv.demTheoO(user))) {
-      badges[key] = Math.max(Number(badges[key]) || 0, n);
+      if (!daCo.has(key) && n > 0) badges[key] = n;
     }
   } catch (_) { /* thiếu số còn hơn hỏng trang chủ */ }
   return badges;
