@@ -391,14 +391,20 @@ App.views.cambridge = {
   // dụng (máy chủ đã lọc), nên với họ dòng này chỉ nói "từ … đến …". Cô và
   // văn phòng thấy thêm nhãn trạng thái, để biết bài nào gia đình không còn
   // thấy. Không màu đỏ: một bài đã qua là chuyện bình thường của chương trình.
+  // Nháp chưa ghi khoảng thì chưa có tuần gửi — nói đúng như thế, đừng lấy
+  // tuần soạn ra làm thời gian áp dụng.
+  chuaCoKhoang(b) {
+    return !b.daCongBo && (!b.apDung || b.apDung.nguon === 'cong-bo');
+  },
   nhanApDung(b) {
     const a = b.apDung;
     if (!a) return '';
+    if (this.chuaCoKhoang(b)) return ' · Áp dụng trong tuần gửi tới gia đình';
     return ` · Áp dụng ${UI.esc(UI.fmtDateShort(a.tuNgay))} – ${UI.esc(UI.fmtDate(a.denNgay, { weekday: false }))}`;
   },
   nhanTrangThaiApDung(b) {
     const a = b.apDung;
-    if (!a || App.state.user.role === 'parent') return '';
+    if (!a || App.state.user.role === 'parent' || this.chuaCoKhoang(b)) return '';
     if (b.dangApDung) return ` · ${UI.badge('Đang áp dụng', 'blue')}`;
     if (a.tuNgay > UI.ngayVN()) return ` · ${UI.badge('Sắp tới — gia đình chưa thấy', 'purple')}`;
     return ` · ${UI.badge('Đã qua — gia đình không còn thấy', 'gray')}`;

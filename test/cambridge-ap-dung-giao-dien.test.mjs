@@ -41,6 +41,8 @@ const TU_BLOCK = cong(HOM, -5), DEN_BLOCK = cong(HOM, 30);
 const bl = await req('POST', '/api/cambridge/block', { cookie: VP, body: {
   ten: 'Block 3', luaTuoi: '', tuNgay: TU_BLOCK, denNgay: DEN_BLOCK, mucTieu: 'Animals', thuTu: 1 } });
 check('đối chứng — dựng được bài cũ và block', cu.status === 201 && bl.status === 201, { cu: cu.status, bl: bl.status });
+// Một nháp chưa ghi khoảng: chưa có tuần gửi nên chưa có ngày áp dụng.
+await req('POST', '/api/cambridge', { cookie: VP, body: { loai: 'cambridge', phamVi: 'truong', tieuDe: 'Nháp chưa ghi khoảng', noiDung: 'x' } });
 
 const browser = await chromium.launch({ executablePath: CHROMIUM });
 const ctx = await tatBannerMoiCai(await browser.newContext({
@@ -105,6 +107,9 @@ try {
     /Đã qua — gia đình không còn thấy/.test(theCu), theCu.slice(0, 200));
   const mau = await the('Weekly Plan THÁNG TRƯỚC').locator('.badge', { hasText: 'Đã qua' }).getAttribute('class');
   check('nhãn "Đã qua" không tô đỏ (QUY TẮC 2)', !/\bred\b/.test(mau || ''), mau);
+  const theNhap = await the('Nháp chưa ghi khoảng').innerText();
+  check('nháp chưa ghi khoảng: "Áp dụng trong tuần gửi tới gia đình", không nhãn trạng thái',
+    /Áp dụng trong tuần gửi tới gia đình/.test(theNhap) && !/Đang áp dụng|Đã qua|Sắp tới/.test(theNhap), theNhap.slice(0, 200));
 
   // Sửa bài: hai ô mang sẵn khoảng đã ghi.
   await page.locator(`[data-sua="${moi?.id}"]`).click();
