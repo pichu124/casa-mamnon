@@ -7,6 +7,7 @@
 const day = require('../lib/day');
 const db = require('../lib/db');
 const baoNT = require('../lib/bao-nha-truong');
+const tbnv = require('../lib/thong-bao-nv');
 const modules = require('../lib/modules');
 const { requireRole } = require('../lib/auth');
 
@@ -34,9 +35,14 @@ function loaiTinCua(user) {
       'báo cáo học tập của con',
     ];
   }
-  // CÔ: chưa có loại tin nào — `lib/day.js` chỉ đẩy tới bố mẹ của một bé
-  // (guiChoGiaDinhCuaBe) và tới quản lý (lib/bao-nha-truong.js). Ngày ai đó
-  // thêm đường đẩy cho cô thì thêm dòng vào đây, và thẻ tự hiện lại.
+  // CÔ (Đ260c): chuông riêng của cô (lib/thong-bao-nv.js) đẩy về máy cô mọi
+  // loại tin trong `tbnv.LOAI` — và danh sách ở đây đọc đúng bảng ấy, nên
+  // thêm một loại tin là thẻ tự kể thêm, không phải nhớ sửa hai chỗ.
+  //
+  // Quản trị thì KHÔNG đổi: các loại tin mới chỉ vào chuông trong app của văn
+  // phòng và quản lý, không đẩy về máy (văn phòng chưa có đường đẩy ở
+  // lib/db.js); loại tin quản lý vẫn được đẩy là đúng các dòng bên dưới.
+  if (user.role === 'teacher') return tbnv.nhanDayCuaCo();
   if (user.role !== 'admin') return [];
   const cv = db.chucVu(user);
   const ds = [];

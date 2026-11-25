@@ -250,7 +250,10 @@ try {
       check(`${ten}: vẫn KHÔNG bấm được "Gửi thử"`, (await req('POST', '/api/push/thu', { cookie, body: {} })).status === 403);
     }
     const gv = (await trangThai(GV)).data;
-    check('cô: vẫn chưa có loại tin nào', gv.batDuoc === false && gv.loaiTin.length === 0, gv);
+    // Đ260c (chủ dự án duyệt, QL2): cô nay có loại tin của chuông riêng —
+    // điều còn phải giữ ở đây là cô KHÔNG được hứa khoản thu của trường.
+    check('cô: có loại tin của chuông riêng (Đ260c), không có dòng về khoản thu',
+      gv.batDuoc === true && gv.loaiTin.length > 0 && !gv.loaiTin.includes(DONG_HAN_NOP), gv);
     const ph = (await trangThai(PH)).data;
     check('gia đình: sáu loại tin như cũ, không có dòng về khoản thu của trường',
       ph.batDuoc === true && ph.loaiTin.length === 6 && !ph.loaiTin.includes(DONG_HAN_NOP), ph.loaiTin);
