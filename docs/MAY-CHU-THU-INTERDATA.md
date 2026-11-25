@@ -276,3 +276,42 @@ bước 4–9), khác ở mấy chỗ:
 | Không SSH vào được | Bảng điều khiển InterData → Enduser Panel (Virtualizor) → mở màn hình máy (VNC) |
 | Sao lưu đêm qua không có | `tail -50 ~/backup-casa.log`, `crontab -l` |
 | Đĩa sắp đầy | `df -h /`, `du -sh /var/lib/casa-mamnon/*`; ngưỡng cảnh báo có sẵn trong `npm run kiem-tra-may-chu` |
+| Video lại nén trên điện thoại (mờ), hay cô báo "máy chủ chưa làm nét được" | `ffmpeg -version`; `sudo journalctl -u casa-mamnon -n 200 --no-pager \| grep nen-video` — xem mục 7 |
+
+---
+
+## 7. Nén video trên máy chủ (Đ260f, 25/11/2026)
+
+Từ đợt này, khi cô đăng video ở **Album** hay **Hình ảnh ghi nhanh**, điện thoại
+gửi **nguyên tệp gốc** lên máy chủ (từng phần 4 MB), máy chủ nén lại bằng
+**ffmpeg** thành MP4 H.264 720p (cạnh ngắn 720, AAC 96 kbps, kèm ảnh bìa cho ô
+lưới album). Lý do: bản nén ngay trên iPhone rất mờ (Safari bỏ qua bitrate).
+
+Cài một lần:
+
+```bash
+sudo apt install -y ffmpeg
+ffmpeg -version | head -1      # phải in ra "ffmpeg version 6.x ..."
+ffprobe -version | head -1
+sudo systemctl restart casa-mamnon   # app dò ffmpeg MỘT lần lúc khởi động
+```
+
+**Không có ffmpeg thì app vẫn chạy y như cũ**: màn hình tự quay về nén video
+ngay trên điện thoại (đường trước Đ260f). Nhật ký dịch vụ khi đó có một dòng
+`[nen-video] Máy chủ chưa có ffmpeg …`. Cài ffmpeg rồi khởi động lại là xong,
+không cần đổi gì khác.
+
+Ghi nhớ khi vận hành:
+
+- **Thư mục tạm:** `/var/lib/casa-mamnon/video-tam/` giữ tệp gốc đang gửi và bản
+  nén chưa đăng. Đồng hồ định giờ xoá lượt dở / bản nén không ai dùng sau 24
+  giờ. Mỗi cô tối đa 3 lượt dở, mỗi tệp gốc tối đa 500 MB — lúc đông nhất thư
+  mục này có thể chiếm vài GB; soát cùng lúc với `df -h /`.
+- **CPU:** tối đa 2 video nén cùng lúc, chạy `nice -n 10` (máy chủ trả lời cô
+  và gia đình trước). Một đoạn 1 phút nén mất vài giây trên máy 12 nhân; mỗi
+  video quá 10 phút thì bị dừng và cô nhận lời báo gửi lại.
+- **Video đã nén** nằm trong `uploads/` như mọi ảnh, video khác (trần 120 MB mỗi
+  tệp, ~6 phút rưỡi), nên đi theo sao lưu như cũ. Tệp gốc không bao giờ được
+  phục vụ ra ngoài và không vào sao lưu.
+- Khởi động lại app giữa lúc cô đang gửi: lượt đó báo "Máy chủ vừa khởi động lại
+  giữa chừng — cô gửi lại video giúp nhé".
