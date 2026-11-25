@@ -664,7 +664,9 @@ module.exports = (app, { db, modules }) => {
     });
     const tat = (coSo && coSo.tat) || new Set();
     const daGhi = (coSo && coSo.daGhi) || new Set();
-    const bepRieng = !!(m && m.campusId);
+    // Bản ghi đọc thẳng menu_campus có `campusId`; bản ghi đi qua bộ giải
+    // thực đơn mẫu (lib/thuc-don-mau.js, Đ260d) mang cờ `rieng` thay vào đó.
+    const bepRieng = !!(m && (m.campusId || m.rieng === true));
     const nam = [];
     for (const kieu of Object.keys(TEN_BUA)) {
       const b = mot(kieu, theoKieu.get(kieu));
