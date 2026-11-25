@@ -459,6 +459,43 @@ quyền khó dùng, nhất là với chuyện ảnh của con.
 app (ví dụ có chữ ký điện tử), phần đó thêm vào được — nhưng đó là một hạng mục
 riêng và phải bàn về giá trị pháp lý của chữ ký trước.
 
+### 22b. Đổi ngày 25/11/2026: đồng ý theo giấy nhập học, rút qua văn phòng (Đ260i)
+
+**Chủ dự án quyết, sau góp ý của trường ngày 18/11** — không phải tự chốt. Mục 22
+ở trên là lịch sử; luật đang chạy là luật dưới đây.
+
+- **Mặc định đồng ý.** Giấy nhập học của trường đã gồm ba điều khoản (① hồ sơ học
+  tập, ② chia sẻ ảnh cho gia đình khác trong nhóm, ③ truyền thông / tuyển sinh),
+  nên bé mới nhận vào có sẵn cả ba mục "Đồng ý (theo giấy nhập học)". Bé đã có từ
+  trước: lúc khởi động, máy chủ điền **một lần** "đồng ý" cho mục còn *chưa trả
+  lời* (không đè mục đã "đồng ý" hay "xin rút", giữ ghi chú cũ, ghi nhật ký kèm
+  tổng số, đánh dấu đã chạy ở `settings['dong-y-mac-dinh']`). Dữ liệu mẫu và
+  trường cài mới (kho chưa có bé) đánh dấu đã chạy ngay, để không điền lấp những
+  mục cố ý để trống. `lib/dong-y-mac-dinh.js`.
+- **Gia đình không còn tự rút trong app.** Khối "Giấy đồng ý của gia đình" và nút
+  "Rút lại" bỏ khỏi màn phụ huynh, thay bằng một dòng: *"Việc dùng ảnh của con
+  theo giấy nhập học. Gia đình muốn thay đổi, xin liên hệ văn phòng nhà trường."*
+  Đường `/api/dong-y` vẫn giữ. Văn phòng (hoặc quản lý, ban giám hiệu) ghi "Gia
+  đình xin rút: …" ở Sửa hồ sơ bé; có hiệu lực ngay như trước, vì luật lọc ảnh ở
+  `lib/db.js` không đổi một dòng.
+- **Câu "Trong ảnh có bé khác không?"** chỉ hỏi ở nhóm (kể cả bé từng học) có
+  gia đình đã xin rút chia sẻ ảnh. Nhóm chưa ai rút thì không hỏi, và bản chép
+  **không** ghi "đã xác nhận chỉ có bé chính": ảnh hiện vì nhóm chưa ai rút, và
+  tự tạm ẩn với gia đình khác ngay khi có nhà rút sau này (commit `a9c557a`).
+
+**Cái giá, nói thẳng:** quyền rút (NĐ 13/2023) nay đi qua một người — văn phòng
+phải ghi **trong ngày** gia đình báo. Và "mặc định đồng ý" chỉ đứng được khi giấy
+nhập học của **mọi khoá** đang lưu trong app thật sự có đủ ba điều khoản; khoá nào
+thiếu (nhất là ③ truyền thông) thì văn phòng phải ghi lại "Chưa trả lời" cho các
+bé khoá đó. Hai việc này nằm ở mục Đ260 của `docs/TIEN-DO.md`, phần việc còn mở.
+Khôi phục một bản sao lưu JSON xoá dấu đã chạy, nên lần khởi động sau sẽ điền lại
+"đồng ý" cho mục chưa trả lời, kể cả mục văn phòng cố ý để trống — cũng đã ghi ở đó.
+
+**Đổi lại thì tốn gì:** rẻ ở mã (khối cũ của phụ huynh nằm trong lịch sử git,
+đường máy chủ còn nguyên), nhưng các mục đã được điền "đồng ý" một lần thì không
+phân biệt lại được với mục gia đình tự đồng ý, trừ khi tra nhật ký thao tác
+`consent-mac-dinh-giay-nhap-hoc`.
+
 ## 23. Nén ảnh: một bản dùng chung, và chọn tuỳ chọn có tên thay vì tham số vị trí
 
 **Chọn:** gom năm bản hàm nén ảnh về `UI.nenAnh(file, { canhToiDa, chatLuong })`
