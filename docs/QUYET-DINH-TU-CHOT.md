@@ -724,6 +724,12 @@ và để bật cái này không vô tình bật cái kia.
 
 ### 5. Trần video 8 MB, và KHÔNG nới giới hạn thân yêu cầu của máy chủ
 
+> **Đã thay ngày 25/11/2026 (Đ260f):** chủ dự án thử trên máy thật thấy video album "chất lượng rất kém".
+> Trần video lên **25 MB**; album và Hình ảnh ghi nhanh nén ở 720px, 24 khung/giây, tối đa 2,5 Mbps;
+> video ≤ 25 MB gửi nguyên bản. Giới hạn thân yêu cầu **vẫn 12 MB** cho mọi đường, chỉ bốn đường tải
+> video mở 40 MB và chỉ cho cô / quản trị **đã đăng nhập** (người lạ không gửi được thân lớn). Dung lượng
+> ước ≈ 9–10 GB một năm học. Phần dưới giữ làm lịch sử.
+
 **Việc:** nhà trường muốn có video ("1 video quý hơn hàng trăm bức ảnh"). Video
 **không nén được trong trình duyệt** như ảnh — `UI.nenAnh` vẽ lại ảnh qua canvas,
 video không có đường tương đương chạy nổi trên điện thoại của cô. Nên trần phải
