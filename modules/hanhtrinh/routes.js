@@ -134,6 +134,18 @@ const CHUONG_TRINH_CUA_GOC = {
 function chuongTrinhCuaGoc(ma) {
   return CHUONG_TRINH_CUA_GOC[String(ma || '')] || 'chu-nhiem';
 }
+// MỤC CON CỦA KẾ HOẠCH (góp ý 18/11): Cambridge chia Communication and
+// Language / Maths / Let's Explore, Thể chất chia vận động thô / tinh. Chép
+// từ `LINH_VUC_CON` của Kế hoạch (mã, tên, góc cha), cùng lý do và cùng bài
+// đối chiếu với bản chép `GOC_KE_HOACH` ở trên.
+const LINH_VUC_CON_KH = [
+  ['cam-giao-tiep', 'Communication and Language', 'cambridge'],
+  ['cam-toan', 'Maths', 'cambridge'],
+  ['cam-kham-pha', "Let's Explore", 'cambridge'],
+  ['tieng-anh', 'Tiếng Anh', 'cambridge'],
+  ['van-dong-tho', 'Vận động thô', 'the-chat'],
+  ['van-dong-tinh', 'Vận động tinh', 'the-chat'],
+];
 
 const TOI_DA_MO_TA = 1000;
 const TOI_DA_CAU_CHUYEN = 3000;
@@ -360,7 +372,12 @@ module.exports = (app, { db, modules }) => {
   // qua chốt chặn — tắt một phân hệ phải chặn được cả dữ liệu, không chỉ giấu
   // biểu tượng. Tắt thì trả về mảng RỖNG, không báo lỗi: thiếu danh sách bài
   // không làm hỏng màn hành trình, phần còn lại vẫn đọc được bình thường.
-  function baiThangNayCuaBe(be, user) {
+  //
+  // MỤC "VIỆC KHÁC" CỦA BẢN ĐÃ DUYỆT CŨNG ĐI RA (góp ý 18/11, chủ dự án duyệt
+  // 25/11). Bản chỉ có mục chữ mà không tích bài nào từ kho trước đây ra màn
+  // gia đình trống trơn dù quản lý đã duyệt. Chỉ `noiDung` — `ketQua` và
+  // `nhanXet` của mục cũng là phần nhìn lại, cùng luật với bài.
+  function dongThangNay(be, user) {
     if (!modules || typeof modules.dangBat !== 'function' || !modules.dangBat('kehoachbe')) return [];
     const chiDaDuyet = user.role === 'parent';
     try {
@@ -380,17 +397,36 @@ module.exports = (app, { db, modules }) => {
         if (dong.length) phanDaDuyet = new Set(dong.filter(r => r.trangThai === 'da-duyet').map(r => r.chuongTrinh));
         else if (ke.trangThai !== 'da-duyet') return [];
       }
-      return db.all('kehoachbe_muc_bai',
-        `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, mb.nhan AS nhan
-           FROM kehoachbe_muc_bai mb
-           JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
-          WHERE mb.keId = ?
-          ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id])
-        .filter(r => !phanDaDuyet || phanDaDuyet.has(chuongTrinhCuaGoc(r.gocLinhVuc)))
-        // Dựng lại từng ô một thay vì trả thẳng hàng truy vấn: câu SELECT trên
-        // hôm nay không lấy `ketQua`, nhưng người sửa sau có thể thêm `mb.*`
-        // vào cho tiện mà không nhớ ra rằng gói này đi thẳng ra màn gia đình.
-        .map(r => ({ ten: r.ten, gocLinhVuc: r.gocLinhVuc, nhan: r.nhan }));
+      const hop = r => !phanDaDuyet || phanDaDuyet.has(chuongTrinhCuaGoc(r.gocLinhVuc));
+      let bai;
+      try {
+        bai = db.all('kehoachbe_muc_bai',
+          `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, c.linhVucCon AS linhVucCon, mb.nhan AS nhan
+             FROM kehoachbe_muc_bai mb
+             JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+             LEFT JOIN kehoachbe_baihoc_con c ON c.baiHocId = mb.baiHocId
+            WHERE mb.keId = ?
+            ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id]);
+      } catch (_) {
+        // Chưa có bảng mục con: đọc như mọi bài chưa xếp mục.
+        bai = db.all('kehoachbe_muc_bai',
+          `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, mb.nhan AS nhan
+             FROM kehoachbe_muc_bai mb
+             JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+            WHERE mb.keId = ?
+            ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id]);
+      }
+      const muc = db.all('kehoachbe_muc',
+        'SELECT gocLinhVuc, noiDung FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
+      // Dựng lại từng ô một thay vì trả thẳng hàng truy vấn: câu SELECT trên
+      // hôm nay không lấy `ketQua`, nhưng người sửa sau có thể thêm `mb.*`
+      // vào cho tiện mà không nhớ ra rằng gói này đi thẳng ra màn gia đình.
+      return [
+        ...bai.filter(hop).map(r => ({ ten: r.ten, gocLinhVuc: r.gocLinhVuc, linhVucCon: r.linhVucCon || '', nhan: r.nhan })),
+        // Mục chữ không có nhãn bài: nhãn rỗng là "việc khác", không phải bài.
+        ...muc.filter(m => m.noiDung).filter(hop)
+          .map(m => ({ ten: m.noiDung, gocLinhVuc: m.gocLinhVuc, linhVucCon: '', nhan: '' })),
+      ];
     } catch (_) {
       return [];
     }
@@ -424,6 +460,7 @@ module.exports = (app, { db, modules }) => {
     const tepKe = tepKeChoNguoiXem(rows, be, req.user);
     const goc = gocCuaCacQuanSat(rows.map(r => r.id));
 
+    const dongKeHoach = dongThangNay(be, req.user);
     res.json({
       // Còn trang sau không — màn hình chỉ cần đếm, không cần đoán.
       conNua: rows.length === GIOI_HAN_DANH_SACH,
@@ -474,8 +511,12 @@ module.exports = (app, { db, modules }) => {
       }).filter(Boolean),
       chuDeTuan: chuDeCuaBe(be, req.user),
       // BÀI HỌC THÁNG NÀY, LẤY TỪ KẾ HOẠCH CỦA BÉ (Đ191, Câu 1). Xem
-      // `baiThangNayCuaBe` ngay dưới để biết vì sao chỉ có TÊN BÀI.
-      baiThangNay: baiThangNayCuaBe(be, req.user),
+      // `dongThangNay` ở trên để biết vì sao chỉ có TÊN BÀI.
+      baiThangNay: dongKeHoach.map(({ ten, gocLinhVuc, nhan }) => ({ ten, gocLinhVuc, nhan })),
+      // Cùng danh sách ấy kèm MỤC CON của từng bài (góp ý 18/11) — khoá THÊM
+      // BÊN CẠNH: bài canh Đ191 giữ `baiThangNay` đúng ba khoá, app cũ đọc nó.
+      baiThangNayTheoMuc: dongKeHoach,
+      linhVucConKeHoach: LINH_VUC_CON_KH.map(([ma, ten, gocLinhVuc]) => ({ ma, ten, gocLinhVuc })),
       // Tên góc của kế hoạch và chương trình của từng góc, để màn hình chia bài
       // theo ba chương trình mà không phải nhét thêm khoá vào từng bài (gói bài
       // gửi gia đình giữ đúng ba khoá: tên, góc, nhãn).

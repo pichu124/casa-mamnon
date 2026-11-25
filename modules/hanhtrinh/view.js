@@ -40,6 +40,50 @@ App.views.hanhtrinh = {
     ['the-chat', 'P.E (Thể chất)'],
     ['chu-nhiem', 'Montessori & Kỹ năng sống'],
   ],
+  // MÀU NHẬN RA BA CHƯƠNG TRÌNH (góp ý 18/11: gia đình khó phân biệt Cam, Mon,
+  // PE). Màu chỉ để nhận ra chương trình, KHÔNG mang nghĩa mức độ nào — nên
+  // không màu nào thuộc họ đỏ / cam / vàng (QUY TẮC 2). Khai một chỗ cho cả màn
+  // gia đình lẫn màn cô.
+  MAU_CT: {
+    'nuoc-ngoai': { vien: 'var(--info)', nen: 'rgba(14,165,233,.10)' },
+    'the-chat': { vien: '#8b5cf6', nen: 'rgba(139,92,246,.10)' },
+    'chu-nhiem': { vien: 'var(--success)', nen: 'rgba(16,185,129,.10)' },
+  },
+  // Chấm màu trong nút tab — không chữ, để chữ của tab giữ nguyên.
+  chamCt(ma) {
+    const m = this.MAU_CT[ma];
+    return m ? `<span aria-hidden="true" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${m.vien};margin-right:6px;vertical-align:middle"></span>` : '';
+  },
+  // Khối có màu của một chương trình: viền trái và tiêu đề nền nhạt.
+  khoiCt(ct, tieuDe, than) {
+    const m = this.MAU_CT[ct] || { vien: 'var(--line)', nen: 'transparent' };
+    return `
+      <div class="ht-kh-ct" data-ct="${UI.esc(ct)}" style="border-left:4px solid ${m.vien};border-radius:10px;margin-top:10px;overflow:hidden">
+        <div class="ht-kh-ct-ten" style="background:${m.nen};padding:8px 10px;font-weight:700">${UI.esc(tieuDe)}</div>
+        <div style="padding:2px 10px 8px">${than}</div>
+      </div>`;
+  },
+  // Chia bài của một chương trình thành khối có tiêu đề: góc có mục con
+  // (Cambridge, Thể chất) chia theo mục con đúng thứ tự máy chủ khai, bài chưa
+  // xếp mục vào khối `khac`; góc không có mục con (Montessori) là một khối
+  // mang tên góc. Khối rỗng thì bỏ.
+  chiaMuc(dsGoc, bai, con, khac) {
+    const ra = [];
+    const maGoc = dsGoc.map(g => g.ma);
+    const goc = dsGoc.concat([...new Set(bai.map(b => b.gocLinhVuc))].filter(m => !maGoc.includes(m)).map(m => ({ ma: m, ten: m })));
+    for (const g of goc) {
+      const cua = bai.filter(b => b.gocLinhVuc === g.ma);
+      const cg = (con || []).filter(c => c.gocLinhVuc === g.ma);
+      if (!cg.length) { if (cua.length) ra.push([g.ten, cua]); continue; }
+      for (const c of cg) {
+        const x = cua.filter(b => b.linhVucCon === c.ma);
+        if (x.length) ra.push([c.ten, x]);
+      }
+      const le = cua.filter(b => !cg.some(c => c.ma === b.linhVucCon));
+      if (le.length) ra.push([khac, le]);
+    }
+    return ra;
+  },
   LOI_PHU: [['ghinhanh', 'Hình ảnh ghi nhanh']],
   // Tên ba chương trình, cùng thứ tự với BON_TAB — đọc từ đó, không chép lại.
   get TEN_CT() { return Object.fromEntries(this.BON_TAB.slice(1)); },
@@ -143,7 +187,7 @@ App.views.hanhtrinh = {
       </div>
       <div id="ht-chon"></div>
       <div class="seg" id="ht-tabs" style="flex-wrap:wrap">
-        ${this.BON_TAB.map(([ma, ten]) => `<button class="${this._tab === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${UI.esc(ten)}</button>`).join('')}
+        ${this.BON_TAB.map(([ma, ten]) => `<button class="${this._tab === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${this.chamCt(ma)}${UI.esc(ten)}</button>`).join('')}
       </div>
       <div id="ht-than"><div class="loading">Đang tải</div></div>
       <div aria-hidden="true" style="height:calc(56px + env(safe-area-inset-bottom, 0px))"></div>`;
@@ -1317,21 +1361,31 @@ App.views.hanhtrinh = {
 
     // Thẻ ba phần theo đúng thứ tự bốn tab của trường, không theo thứ tự máy chủ gửi.
     const thuTu = Object.keys(this.TEN_CT);
+    // Góp ý 18/11: phần Cambridge chia theo mục con như phần Montessori chia
+    // theo góc; mục "Việc khác" của bản kế hoạch hiện cùng góc của nó.
     const phan = [...(d.chuongTrinhTab || [])].sort((a, b) => thuTu.indexOf(a.ma) - thuTu.indexOf(b.ma)).map(t => {
       const goc = (t.goc || []).map(g => g.ma);
       const bai = k ? (k.baiHoc || []).filter(b => goc.includes(b.gocLinhVuc)) : [];
+      const muc = k ? (k.muc || []).filter(m => goc.includes(m.gocLinhVuc) && m.noiDung) : [];
       const p = k && k.chuongTrinh ? k.chuongTrinh[t.ma] : null;
       const tt = p && (p.coNoiDung || p.trangThai !== 'nhap') ? (this.MAU_DUYET_KH[p.trangThai] || ['', 'gray']) : null;
       const duocNhin = sua.includes(t.ma) && bai.length;
+      const dsGoc = (t.goc || []).map(g => ({ ma: g.ma, ten: g.ten || tenGoc(g.ma) }));
+      const khoi = this.chiaMuc(dsGoc, [...bai, ...muc.map(m => ({ ...m, laMuc: true }))], d.linhVucCon, 'Khác');
       return `
-        <div class="card">
-          <div class="card-title">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}
+        <div class="card ht-kh-phan" data-ct="${UI.esc(t.ma)}" style="border-left:4px solid ${(this.MAU_CT[t.ma] || {}).vien || 'var(--line)'}">
+          <div class="card-title">${this.chamCt(t.ma)}${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}
             <span class="spacer"></span>${tt ? UI.badge(tt[0], tt[1]) : ''}</div>
-          ${bai.length ? bai.map(b => `
+          ${khoi.length ? khoi.map(([tenKhoi, ds]) => `
+            <div class="small ht-kh-muc" style="font-weight:700;margin-top:8px">${UI.esc(tenKhoi)}</div>
+            ${ds.map(b => b.laMuc ? `
+            <div class="list-row ht-kh-viec-khac"><div class="row-main">
+              <div class="row-title" style="font-weight:400">Việc khác: ${UI.esc(b.noiDung)}</div>
+            </div></div>` : `
             <div class="list-row" style="flex-wrap:wrap;gap:6px">
               <div class="row-main" style="min-width:150px">
                 <div class="row-title">${UI.esc(b.ten)}</div>
-                <div class="row-sub">${UI.esc(tenGoc(b.gocLinhVuc))} · ${UI.esc(tenNhan(b.nhan))}</div>
+                <div class="row-sub">${UI.esc(tenNhan(b.nhan))}</div>
               </div>
               ${duocNhin ? `
                 <div class="grid-2" style="width:100%">
@@ -1347,7 +1401,7 @@ App.views.hanhtrinh = {
                     </select></div>
                 </div>`
                 : (b.mucDo ? UI.badge(chu(b.mucDo), MAU[b.mucDo] || 'gray') : '')}
-            </div>`).join('')
+            </div>`).join('')}`).join('')
             : '<div class="muted small">Tháng này chưa có bài nào ở phần này.</div>'}
           ${duocNhin ? `<button class="btn primary block mt-8" data-ht-kh-luu="${UI.esc(t.ma)}">${UI.icon('check', 16)} Lưu phần nhìn lại</button>` : ''}
         </div>`;
@@ -1476,7 +1530,7 @@ App.views.hanhtrinh = {
     return `
       <div class="seg" id="ht-ph-tabs" style="flex-wrap:wrap">
         ${this.BON_TAB.filter(([ma]) => ma === 'kehoach' || tab.some(t => t.ma === ma)).map(([ma, ten]) => `
-          <button class="${this._tabGd === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${UI.esc(ten)}</button>`).join('')}
+          <button class="${this._tabGd === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${this.chamCt(ma)}${UI.esc(ten)}</button>`).join('')}
       </div>
       ${this._tabGd === 'kehoach'
         ? (this.veBaiThangNay(d) || UI.emptyState('🧭', 'Kế hoạch tháng này của con sẽ hiện ở đây khi nhà trường đã duyệt.'))
@@ -1485,14 +1539,24 @@ App.views.hanhtrinh = {
 
   // Bài tháng này, chia theo chương trình. CHỈ TÊN BÀI VÀ NHÃN — không có mức
   // độ cuối tháng (bài canh Đ191).
+  //
+  // Góp ý 18/11: mỗi chương trình là một khối có màu riêng; trong khối chia
+  // tiếp theo mục con (Cambridge: Communication and Language / Maths / Let's
+  // Explore) hoặc theo góc (Montessori), không gộp. Mục "Việc khác" của cô (nhãn
+  // rỗng) nằm cùng góc của nó. Máy chủ đời cũ chỉ gửi `baiThangNay`: bài chưa
+  // có mục con thì vào khối "Khác" của góc.
   veBaiThangNay(d) {
-    const ds = d.baiThangNay || [];
+    const ds = d.baiThangNayTheoMuc || d.baiThangNay || [];
     if (!ds.length) return '';
-    const goc = d.gocKeHoach || [];
+    const goc = (d.gocKeHoach || []).map(g => ({ ...g, ten: g.ten || this.tenGoc(d, g.ma) }));
     const ctCua = (ma) => (goc.find(g => g.ma === ma) || {}).chuongTrinh || 'chu-nhiem';
-    const tenGoc = (ma) => (goc.find(g => g.ma === ma) || {}).ten || this.tenGoc(d, ma);
     const nhom = Object.keys(this.TEN_CT)
       .map(ct => [ct, ds.filter(b => ctCua(b.gocLinhVuc) === ct)]).filter(([, x]) => x.length);
+    const dong = (b) => `
+      <div class="list-row" style="padding:6px 0">
+        <div class="row-main"><div class="row-title" style="${b.nhan ? '' : 'font-weight:400'}">${UI.esc(b.ten)}</div></div>
+        ${b.nhan && b.nhan !== 'hoc-moi' ? UI.badge(b.nhan === 'on-tap' ? 'Ôn lại' : 'Mở rộng', 'gray') : ''}
+      </div>`;
     return `
       <div class="section-label">Tháng này con được học</div>
       <div class="card">
@@ -1500,17 +1564,10 @@ App.views.hanhtrinh = {
           Những bài cô đã đưa vào kế hoạch tháng này cho con. Đây là
           <b>việc cô làm cùng con ở lớp</b>, không phải bài tập giao về nhà.
         </div>
-        ${nhom.map(([ct, bai]) => `
-          <div class="small" style="font-weight:700;margin-top:8px">${UI.esc(this.TEN_CT[ct] || '')}</div>
-          ${bai.map(b => `
-            <div class="list-row" style="padding:6px 4px">
-              <div class="row-main">
-                <div class="row-title">${UI.esc(b.ten)}</div>
-                <div class="row-sub">${UI.esc(tenGoc(b.gocLinhVuc))}</div>
-              </div>
-              ${b.nhan && b.nhan !== 'hoc-moi'
-    ? UI.badge(b.nhan === 'on-tap' ? 'Ôn lại' : 'Mở rộng', 'gray') : ''}
-            </div>`).join('')}`).join('')}
+        ${nhom.map(([ct, bai]) => this.khoiCt(ct, this.TEN_CT[ct] || '',
+          this.chiaMuc(goc.filter(g => g.chuongTrinh === ct), bai, d.linhVucConKeHoach, 'Khác').map(([ten, x]) => `
+            <div class="small ht-kh-muc" style="font-weight:700;margin-top:8px">${UI.esc(ten)}</div>
+            ${x.map(dong).join('')}`).join(''))).join('')}
       </div>`;
   },
 

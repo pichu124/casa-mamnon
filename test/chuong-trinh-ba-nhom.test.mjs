@@ -67,6 +67,20 @@ try {
     check('bản chép ở Hành trình học tập cũng khớp từng dòng',
       JSON.stringify(ht) === JSON.stringify(ke), `${JSON.stringify(ht)}\n  vs\n  ${JSON.stringify(ke)}`);
 
+    // Bản chép MỤC CON (góp ý 18/11): màn gia đình chia bài Cambridge theo
+    // Maths / Let's Explore… bằng bản chép ở Hành trình — mã, tên, góc cha phải
+    // khớp `LINH_VUC_CON` của Kế hoạch.
+    const mucCon = (tep, ten) => {
+      const s = fs.readFileSync(path.join(GOC, tep), 'utf8');
+      const khoi = (s.match(new RegExp(`const ${ten} = \\[([\\s\\S]*?)\\n\\];`)) || [])[1] || '';
+      return [...khoi.matchAll(/\['([^']+)', (?:'([^']*)'|"([^"]*)"), '([^']+)'/g)].map(m => [m[1], m[2] ?? m[3], m[4]]);
+    };
+    const conKe = mucCon('modules/kehoachbe/routes.js', 'LINH_VUC_CON');
+    const conHt = mucCon('modules/hanhtrinh/routes.js', 'LINH_VUC_CON_KH');
+    check('đối chứng — đọc được mục con ở cả hai phân hệ', conKe.length >= 6 && conHt.length >= 6, [conKe.length, conHt.length]);
+    check('bản chép mục con ở Hành trình khớp Kế hoạch từng dòng (mã, tên, góc)',
+      JSON.stringify(conHt) === JSON.stringify(conKe), `${JSON.stringify(conHt)}\n  vs\n  ${JSON.stringify(conKe)}`);
+
     // Và bản đồ phải dùng ĐÚNG mã nhóm cô của lib/nhom-co.js — không đặt bộ
     // mã thứ hai cho cùng một khái niệm.
     const nc = fs.readFileSync(path.join(GOC, 'lib/nhom-co.js'), 'utf8');

@@ -71,6 +71,15 @@ console.log('\n[2] Câu chuyện của bé An chạy xuyên suốt, không đứ
   // một phân hệ, người viết chọn đại một mã bé, và câu chuyện gãy dần.
   check('bé An (s1) có nhật ký ngày', dem('nhatky_ngay', 'studentId = ?', ['s1']) > 0);
   check('bé An có kế hoạch tháng', dem('kehoachbe_ke', 'studentId = ?', ['s1']) > 0);
+  // Góp ý 18/11: bản đã duyệt của bé An có cả bài TÍCH TỪ KHO, trong đó có bài
+  // Cambridge thuộc Maths và Let's Explore — để màn gia đình và Hành trình của
+  // quản lý có bài chia theo mục ngay trên bản thử.
+  const baiAn = lay(`SELECT b.ten, c.linhVucCon FROM kehoachbe_muc_bai mb
+      JOIN kehoachbe_ke k ON k.id = mb.keId JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+      LEFT JOIN kehoachbe_baihoc_con c ON c.baiHocId = b.id
+     WHERE k.studentId = 's1' AND k.trangThai = 'da-duyet'`);
+  check('bé An có bài Cambridge từ kho thuộc Maths và Let\'s Explore (bản đã duyệt)',
+    baiAn.some(b => b.linhVucCon === 'cam-toan') && baiAn.some(b => b.linhVucCon === 'cam-kham-pha'), baiAn);
   check('bé An có một câu chuyện học tập ĐÃ CÔNG BỐ cho gia đình',
     dem('hanhtrinh_quansat', "studentId = ? AND congBoLuc IS NOT NULL AND congBoLuc <> ''", ['s1']) > 0);
 
