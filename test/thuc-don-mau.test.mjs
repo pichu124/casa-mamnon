@@ -235,8 +235,32 @@ try {
       M.push(r.data.mau);
     }
     check('bốn mẫu cơ sở 1, số 1 → 4', M.map(m => m && m.so).join() === '1,2,3,4', M);
+
+    // Cơ sở 1 tắt Bữa sữa chiều; Thứ Hai tuần này (đã qua) ăn thực đơn DÙNG
+    // CHUNG có bữa sữa, cô đã gửi phần ăn uống của bé s1 cho gia đình.
+    const tatSua = await req('PUT', '/api/nhatky/bua-co-so', { cookie: cap1, body: { campusId: 'cs1', bua: 'milk', tat: true } });
+    const ghiAn = await req('PUT', '/api/nhatky/bua', { cookie: co, body: { classId: 'c1', ngay: T2, bua: 'lunch', danhSach: [{ studentId: 's1', muc: 'het' }] } });
+    const guiAn = await req('POST', '/api/nhatky/gui', { cookie: co, body: { classId: 'c1', ngay: T2, phan: 'an', studentIds: ['s1'] } });
+    const nkT2 = async () => {
+      const x = await req('GET', `/api/nhatky?classId=c1&ngay=${T2}`, { cookie: co });
+      const be = ((x.data || {}).danhSach || []).find(b => b.studentId === 's1') || {};
+      return { bua: ((x.data || {}).buaAn || []).map(b => b.bua), chuaGui: ((be.gui || {}).an || {}).chuaGui };
+    };
+    const nkTruoc = await nkT2();
+    check('trước khi đặt lịch: Thứ Hai không có bữa sữa, phần ăn uống đã gửi',
+      tatSua.status === 200 && ghiAn.status === 200 && guiAn.status === 200 && !nkTruoc.bua.includes('milk') && nkTruoc.chuaGui === false,
+      { tatSua: tatSua.status, ghiAn: ghiAn.status, guiAn: guiAn.status, nkTruoc });
+
     const r = await req('POST', '/api/menu/lich-xoay', { cookie: cap1, body: {
       campusId: 'cs1', tuNgay: tuan(-1), denNgay: congNgay(tuan(8), 4), thuTu: M.map(m => m.id) } });
+    const nkSau = await nkT2();
+    check('đặt lịch phủ Thứ Hai: bữa sữa cơ sở đã tắt KHÔNG hiện lại', !nkSau.bua.includes('milk'), nkSau);
+    check('…nhật ký đã gửi không bị coi là sửa sau khi gửi', nkSau.chuaGui === false, nkSau);
+    const t2Cs1 = ((await xem(cap1, 'week=0&campusId=cs1')).menus || []).find(m => m.date === T2) || {};
+    check('…Thứ Hai vẫn là thực đơn dùng chung, không thành "riêng cơ sở"', t2Cs1.rieng === false && t2Cs1.tuMau === null, t2Cs1);
+    check('…và không chép thành dòng riêng của cơ sở 1',
+      docCsdl(c => c.prepare("SELECT COUNT(*) AS n FROM menu_campus WHERE campusId = 'cs1' AND date = ?").get(T2).n) === 0);
+    await req('PUT', '/api/nhatky/bua-co-so', { cookie: cap1, body: { campusId: 'cs1', bua: 'milk', tat: false } });
     check('đặt được lịch xoay vòng', r.status === 201 && r.data.lich.tuNgay === tuan(-1), r.data);
     lichCs1 = r.data.lich;
     check('lưu mẫu và lịch KHÔNG gửi thông báo nào', demThongBao() === soTb0, { truoc: soTb0, sau: demThongBao() });
