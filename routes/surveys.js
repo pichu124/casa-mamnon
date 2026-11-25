@@ -2,6 +2,8 @@
 const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
 const tb = require('../lib/thong-bao');
+const tbnv = require('../lib/thong-bao-nv');
+const ngay = require('../lib/ngay');
 const { requireRole } = require('../lib/auth');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -333,6 +335,19 @@ module.exports = (app) => {
       submittedAt: new Date().toISOString(),
       answers,
     });
+    // BÁO NGƯỜI TẠO (Đ260c). Mỗi khảo sát mỗi ngày MỘT dòng chuông, cộng dồn số
+    // gia đình đã trả lời tới khi người tạo mở màn Khảo sát — ba mươi nhà trả
+    // lời trong một buổi sáng không phải ba mươi tiếng chuông.
+    {
+      const ten = String(sv.title || '').slice(0, 60);
+      tbnv.gui({
+        toi: { userIds: [sv.createdBy] }, classId: sv.audience !== 'all' ? sv.audience : null,
+        loai: 'khao-sat', hash: '#/surveys', nguoiTao: req.user.id,
+        tieuDe: `Một gia đình vừa trả lời khảo sát “${ten}”`,
+        tieuDeGop: (n) => `${n} gia đình vừa trả lời khảo sát “${ten}”`,
+        gop: `khaosat:${sv.id}:${ngay.homNay()}`,
+      });
+    }
     res.status(201).json({ ok: true });
   });
 
