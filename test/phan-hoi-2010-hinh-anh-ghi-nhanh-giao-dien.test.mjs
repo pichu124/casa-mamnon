@@ -33,7 +33,10 @@ batPhanHe(DIR, ['hanhtrinh', 'thuchup', 'album', 'tkb']);
 // trạng thái trường CHƯA khai vai — nên gỡ cô nước ngoài mẫu như các bài cùng loại.
 goCoNuocNgoaiMau(DIR);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hagn_qt');
-const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7241), dir: DIR });
+// Bài này canh ĐƯỜNG NÉN TRÊN ĐIỆN THOẠI. Từ Đ260f máy chủ có ffmpeg thì mọi
+// video gửi nguyên bản cho máy chủ nén (bài riêng: nen-video-may-chu*); đường
+// trên điện thoại chỉ còn chạy khi máy chủ thiếu ffmpeg — nên dựng đúng cảnh ấy.
+const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7241), dir: DIR, env: { CASA_FFMPEG: '/khong-co/ffmpeg' } });
 const req = taoReq(sv.BASE);
 const login = taoLogin(req);
 

@@ -443,6 +443,8 @@ App.views.hanhtrinh = {
   moGhi(id, tu = this.dangMo()) {
     this._anhMoi = null;
     this._videoMoi = null;
+    this._videoDaNen = null;
+    this._coNen = null;
     this._luotGhi = (this._luotGhi || 0) + 1;
     const ds = (this._data || {}).danhSachBe || [];
     UI.modal(`
@@ -526,6 +528,7 @@ App.views.hanhtrinh = {
     if (oNhom && oNhom.value) body.nhom = oNhom.value;
     if (this._anhMoi) body.anh = this._anhMoi;
     if (this._videoMoi) body.video = this._videoMoi;
+    if (this._videoDaNen) body.videoDaNen = this._videoDaNen;
     // CHƯA GẮN BÉ: lưu thành nháp riêng của cô, gắn bé lúc hoàn thiện (góp ý
     // 06/10, mục 7; 20/10, B1).
     const laNhap = !studentId || studentId === '__nhap__';
@@ -1697,6 +1700,8 @@ App.views.hanhtrinh = {
       const f = o.files && o.files[0];
       this._anhMoi = null;
       this._videoMoi = null;
+      this._videoDaNen = null;
+      this._luotChon = (this._luotChon || 0) + 1;
       const nen = document.getElementById('ht-nen');
       if (nen) nen.innerHTML = '';
       if (!f) return;
@@ -1741,6 +1746,8 @@ App.views.hanhtrinh = {
       xem.innerHTML = '<video muted playsinline style="width:100%;height:100%;object-fit:cover"></video>';
       xem.firstChild.src = URL.createObjectURL(f);
     };
+    if (await this.coNenMayChu()) return this.guiVideoMayChu(f);
+    if (!conHop()) return;
     const tran = this.tranVideo();
     if (f.size <= tran) {
       try {
@@ -1795,5 +1802,79 @@ App.views.hanhtrinh = {
         if (nutLuu) nutLuu.disabled = false;
       }
     };
+  },
+
+  // MÁY CHỦ CÓ NÉN VIDEO ĐƯỢC KHÔNG (Đ260f) — hỏi một lần mỗi lần mở hộp.
+  // Không nén được, hay hỏi không được, thì đi đúng đường cũ ở `chonVideo`.
+  coNenMayChu() {
+    if (!this._coNen) {
+      this._coNen = API.get('/api/hanhtrinh/video/co-nen').then(r => !!(r && r.coNen)).catch(() => false);
+    }
+    return this._coNen;
+  },
+
+  // GỬI VIDEO GỐC ĐỂ MÁY CHỦ NÉN (Đ260f) — cùng luật với màn Album: mọi video,
+  // kể cả video nhỏ, vì bản nén trên iPhone rất mờ. Tiến độ ngay TRONG hộp Ghi
+  // nhanh, không mở hộp khác (mở hộp khác là mất chữ cô đang gõ). Đóng hộp
+  // hay chọn tệp khác giữa chừng thì lượt bị bỏ trên máy chủ.
+  async guiVideoMayChu(f) {
+    const luot = this._luotGhi;
+    const chon = this._luotChon;
+    const conHop = () => luot === this._luotGhi && chon === this._luotChon && !!document.getElementById('ht-nen');
+    const xem = document.getElementById('ht-anh-xem');
+    const nen = document.getElementById('ht-nen');
+    const nutLuu = document.getElementById('ht-luu');
+    let dung = false;
+    const mb = (b, tong) => {
+      const so = x => (tong < 10 * 1048576 ? (x / 1048576).toFixed(1).replace('.', ',') : String(Math.round(x / 1048576)));
+      return `${so(b)} / ${so(tong)} MB`;
+    };
+    nen.innerHTML = `
+      <div class="small mt-8" style="font-weight:700" id="ht-nen-tieu-de">Đang gửi video lên máy chủ</div>
+      <progress id="ht-nen-thanh" value="0" max="1" style="width:100%;margin-top:6px"></progress>
+      <div class="muted small" id="ht-nen-dongho">Đang gửi ${UI.esc(mb(0, f.size))}</div>
+      <button class="btn outline block mt-8" id="ht-nen-dung">Dừng lại</button>`;
+    document.getElementById('ht-nen-dung').onclick = (e) => {
+      dung = true;
+      e.target.disabled = true;
+      e.target.textContent = 'Đang dừng…';
+    };
+    const ve = (id, chu) => { const o = document.getElementById(id); if (o) o.textContent = chu; };
+    const thanh = (gt, td) => { const o = document.getElementById('ht-nen-thanh'); if (o) { o.max = td; o.value = gt; } };
+    if (nutLuu) nutLuu.disabled = true;
+    this._soDangGui = (this._soDangGui || 0) + 1;
+    try {
+      const kq = await UI.guiVideoMayChu(f, {
+        tienTo: '/api/hanhtrinh/video',
+        huy: () => dung || !conHop(),
+        tien: ({ daGui, tong }) => { ve('ht-nen-dongho', `Đang gửi ${mb(daGui, tong)}`); thanh(daGui, tong || 1); },
+        dangNen: ({ tienDo }) => {
+          ve('ht-nen-tieu-de', 'Máy chủ đang làm nét video…');
+          ve('ht-nen-dongho', '(thường bằng độ dài đoạn phim hoặc nhanh hơn)');
+          thanh(tienDo, 1);
+        },
+      });
+      if (!conHop()) return;
+      if (!kq.coNen) {
+        // Máy chủ vừa thôi nén được (hiếm): đi đường cũ.
+        this._coNen = Promise.resolve(false);
+        nen.innerHTML = '';
+        await this.chonVideo(f);
+        return;
+      }
+      this._videoDaNen = kq.maTep;
+      xem.innerHTML = '<video muted playsinline style="width:100%;height:100%;object-fit:cover"></video>';
+      xem.firstChild.src = URL.createObjectURL(f);
+      nen.innerHTML = '<div class="hint">Máy chủ đã làm nét xong — cô bấm Lưu nhé.</div>';
+    } catch (err) {
+      if (!conHop()) return;
+      nen.innerHTML = '';
+      UI.toast(dung ? 'Đã dừng gửi video.' : ((err && err.message) || 'Chưa gửi được video này'), dung ? undefined : 'error');
+    } finally {
+      // Cô chọn tệp khác giữa chừng thì lượt mới tự giữ nút Lưu; chỉ mở lại
+      // khi không còn lượt gửi nào của hộp này đang chạy.
+      this._soDangGui -= 1;
+      if (nutLuu && luot === this._luotGhi && !this._soDangGui) nutLuu.disabled = false;
+    }
   },
 };

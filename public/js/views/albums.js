@@ -154,10 +154,14 @@ App.views.albums = {
     // kéo phần đầu tệp (máy chủ trả theo từng đoạn), không kéo cả đoạn phim;
     // `#t=0.1` để Safari trên iPhone vẽ khung hình đầu làm ảnh bìa.
     // Không để `controls` trong lưới: chạm vào ô là mở màn xem lớn, có dấu ▶.
+    //
+    // Video máy chủ nén (Đ260f) có ảnh bìa riêng (`coBia`): ô lưới dùng nó làm
+    // poster và không tải gì của đoạn phim cho tới khi gia đình bấm xem.
     if (photo && photo.file && this.laVideo(photo)) {
+      const src = `/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}`;
       return `<div style="${extraStyle};position:relative;width:100%;height:100%;overflow:hidden;background:#000">
-        <video src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}#t=0.1"
-          preload="metadata" playsinline
+        <video src="${src}${photo.coBia ? '' : '#t=0.1'}"${photo.coBia ? ` poster="${src}?bia=1"` : ''}
+          preload="${photo.coBia ? 'none' : 'metadata'}" playsinline
           style="display:block;width:100%;height:100%;object-fit:cover"></video>
         <div aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
           <span style="width:44px;height:44px;border-radius:50%;background:rgba(15,23,42,.6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;padding-left:3px">▶</span>
@@ -460,7 +464,8 @@ App.views.albums = {
         // đoạn quay của con chỉ thấy một ô ảnh vỡ. Lưới bên ngoài đã phân
         // biệt đúng (this.laVideo) — màn phóng to dùng cùng một phép thử.
         ? (this.laVideo(p)
-          ? `<video src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" controls playsinline
+          ? `<video src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" controls playsinline${
+            p.coBia ? ` poster="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}?bia=1"` : ''}
                style="width:100%;max-height:66vh;border-radius:14px;background:#000"></video>`
           : `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || '')}"
              style="width:100%;max-height:66vh;object-fit:contain;border-radius:14px;background:var(--bg-2)">`)
@@ -529,7 +534,7 @@ App.views.albums = {
         <label>Ảnh và video</label>
         <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple style="display:none">
         <button class="btn outline block" id="al-pick">📷 Chọn ảnh hoặc video từ máy</button>
-        <div class="hint">
+        <div class="hint" id="al-pick-goi-y">
           Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp.
           Ảnh tự thu nhỏ trước khi gửi. <b>Video lớn phải nén trên máy của cô</b>, mất
           khoảng bằng độ dài video — cô quay khoảng 10–20 giây, hoặc cắt ngắn trên điện
@@ -761,6 +766,102 @@ App.views.albums = {
     if (!input || !nut) return;
     nut.onclick = () => input.click();
     input.onchange = () => this.handleFiles(input.files);
+    const phien = this._phien;
+    this.coNenMayChu().then((co) => {
+      const goiY = document.getElementById('al-pick-goi-y');
+      if (!co || !goiY || this._phien !== phien) return;
+      goiY.innerHTML = 'Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp. '
+        + 'Ảnh tự thu nhỏ trước khi gửi. <b>Video gửi nguyên bản lên máy chủ</b> để máy chủ làm nét lại '
+        + '(720p) — video dài thì gửi lâu hơn, cô giữ màn hình mở tới khi xong.';
+    });
+  },
+
+  // MÁY CHỦ CÓ NÉN VIDEO ĐƯỢC KHÔNG (Đ260f) — hỏi một lần cho mỗi lượt mở form.
+  // Máy chủ chưa cài ffmpeg, hay hỏi không được, thì đi đúng đường cũ: nén
+  // trên máy của cô (`nenLanLuot`) như trước giờ.
+  coNenMayChu() {
+    const phien = this._phien || (this._phien = {});
+    if (!phien.coNen) {
+      phien.coNen = API.get('/api/albums/video/co-nen').then(r => !!(r && r.coNen)).catch(() => false);
+    }
+    return phien.coNen;
+  },
+
+  // "12 / 48 MB" — tệp nhỏ thì một số lẻ, để thanh chữ không đứng ở "0 / 0".
+  soMB(b, tong) {
+    const mb = x => (tong < 10 * 1048576 ? (x / 1048576).toFixed(1).replace('.', ',') : String(Math.round(x / 1048576)));
+    return `${mb(b)} / ${mb(tong)} MB`;
+  },
+
+  // GỬI VIDEO GỐC LÊN MÁY CHỦ NÉN (Đ260f, chủ dự án 25/11). Mọi video, kể cả
+  // video nhỏ: bản nén trên iPhone rất mờ. Tiến độ nằm NGAY TRONG form, như
+  // `nenLanLuot` (Đ260f, góp ý 18/11) — không mở hộp mới, không mất chữ đã gõ.
+  // Đóng form giữa chừng thì `huy` trả true: lượt bị bỏ trên máy chủ, kết quả
+  // không đổ vào form mở sau.
+  async guiLenMayChu(ds, conMo) {
+    const khoi = document.getElementById('al-nen');
+    if (!khoi) return;
+    let dung = false;
+    try {
+      for (let i = 0; i < ds.length && !dung; i += 1) {
+        const f = ds[i];
+        khoi.innerHTML = `
+          <div style="border-left:4px solid var(--info);padding:10px 12px;border-radius:10px;background:var(--bg-2)">
+            <div style="font-weight:700" id="al-nen-tieu-de">⏳ Đang gửi video lên máy chủ</div>
+            <div class="muted small" style="word-break:break-all">${ds.length > 1 ? `Video ${i + 1}/${ds.length} · ` : ''}${UI.esc(f.name)}</div>
+            <progress id="al-nen-thanh" value="0" max="1" style="width:100%;margin-top:10px"></progress>
+            <div class="small" id="al-nen-dongho">Đang gửi ${UI.esc(this.soMB(0, f.size))}</div>
+            <div class="muted small mt-8" style="line-height:1.6" id="al-nen-loi-dan">
+              Xin cô để nguyên màn hình này tới khi xong — video sẽ hiện ngay bên dưới.
+            </div>
+            <button class="btn outline block mt-8" id="al-nen-dung">Dừng lại</button>
+          </div>`;
+        const nutDung = document.getElementById('al-nen-dung');
+        if (nutDung) {
+          nutDung.onclick = () => {
+            dung = true;
+            nutDung.disabled = true;
+            nutDung.textContent = 'Đang dừng…';
+          };
+        }
+        const ve = (id, chu) => { const o = document.getElementById(id); if (o) o.textContent = chu; };
+        const thanh = (gt, td) => { const o = document.getElementById('al-nen-thanh'); if (o) { o.max = td; o.value = gt; } };
+        try {
+          const kq = await UI.guiVideoMayChu(f, {
+            tienTo: '/api/albums/video',
+            huy: () => dung || !conMo(),
+            tien: ({ daGui, tong }) => {
+              ve('al-nen-dongho', `Đang gửi ${this.soMB(daGui, tong)}`);
+              thanh(daGui, tong || 1);
+            },
+            dangNen: ({ tienDo }) => {
+              ve('al-nen-tieu-de', '✨ Máy chủ đang làm nét video…');
+              ve('al-nen-dongho', '(thường bằng độ dài đoạn phim hoặc nhanh hơn)');
+              ve('al-nen-loi-dan', 'Đã gửi xong. Xin cô để nguyên màn hình này — video sẽ hiện ngay bên dưới.');
+              thanh(tienDo, 1);
+            },
+          });
+          if (!conMo()) return;
+          if (!kq.coNen) {
+            // Máy chủ vừa thôi nén được (hiếm): đi đường cũ cho video này.
+            if (f.size <= this.TRAN_VIDEO) this._pending.push({ video: await this.docTep(f), caption: '', name: f.name, laVideo: true });
+            else await this.nenLanLuot([f], conMo);
+          } else {
+            this._pending.push({ videoDaNen: kq.maTep, caption: '', name: f.name, laVideo: true });
+          }
+          this.renderPreview();
+        } catch (err) {
+          if (!conMo()) return;   // cô đã đóng form: không báo gì thêm
+          if (dung) {
+            UI.toast('Đã dừng gửi video. Ảnh và video đã xong vẫn còn trong danh sách.');
+            break;
+          }
+          UI.toast(err && err.message ? err.message : `Chưa gửi được video "${f.name}"`, 'error');
+        }
+      }
+    } finally {
+      if (conMo()) khoi.innerHTML = '';
+    }
   },
 
   // Đọc ảnh người dùng chọn, thu nhỏ rồi đưa vào danh sách chờ.
@@ -784,6 +885,7 @@ App.views.albums = {
       if (khoi) khoi.innerHTML = '<div class="muted small">Đang xử lý ảnh…</div>';
 
       const canNen = [];
+      const guiMayChu = [];
       for (const f of files) {
         // VIDEO: KHÔNG NÉN ĐƯỢC, NÊN CHẶN NGAY Ở ĐÂY.
         //
@@ -792,6 +894,9 @@ App.views.albums = {
         // iPhone quay ra .mov (video/quicktime): cùng họ hộp `ftyp` với MP4, máy
         // chủ nhận và lưu thành .mp4 — chặn nó ở đây là chặn gần hết máy iPhone.
         if (/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
+          // Máy chủ nén được (Đ260f): mọi video gửi nguyên bản, sau ảnh.
+          if (await this.coNenMayChu()) { guiMayChu.push(f); continue; }
+          if (!conMo()) return;
           if (f.size > this.TRAN_VIDEO) { canNen.push(f); continue; }
           try {
             const video = await this.docTep(f);
@@ -819,6 +924,7 @@ App.views.albums = {
       if (khoi) khoi.innerHTML = '';
       this.renderPreview();
       if (canNen.length) await this.nenLanLuot(canNen, conMo);
+      if (guiMayChu.length) await this.guiLenMayChu(guiMayChu, conMo);
     } finally {
       if (conMo()) this.khoaForm(false);
     }
