@@ -6,6 +6,9 @@ const { requireRole } = require('../lib/auth');
 const tb = require('../lib/thong-bao');
 const uploads = require('../lib/uploads');
 const xlsx = require('../lib/xlsx');
+// Kho thực đơn mẫu và lịch xoay vòng (Đ260d). Luật gộp bốn lớp nằm ở đó.
+const mau = require('../lib/thuc-don-mau');
+const henGio = require('../lib/hen-gio');
 
 // Giới hạn để dữ liệu lưu xuống luôn hiển thị lại được trên điện thoại.
 const TOI_DA_BUA = 5;        // số bữa mỗi ngày
@@ -187,18 +190,10 @@ function tepCuaTuan(thuHai, campusId) {
 //
 // Dòng riêng của cơ sở thắng; ngày nào cơ sở chưa soạn riêng thì lấy bản dùng
 // chung. Nhờ vậy trường có thể chỉ soạn riêng đúng những ngày bếp nấu khác.
+// Từ Đ260d mỗi phạm vi có thêm lớp thực đơn mẫu theo lịch — luật gộp đầy đủ ở
+// `lib/thuc-don-mau.js`, mỗi ngày kèm `tuMau` (mẫu nào, hoặc null).
 function thucDonCua(campusId, from, to) {
-  const chung = new Map(db.all('menus',
-    'SELECT * FROM menus WHERE date BETWEEN ? AND ? ORDER BY date', [from, to])
-    .map(m => [m.date, { date: m.date, meals: m.meals, rieng: false }]));
-  if (campusId) {
-    for (const m of db.all('menu_campus',
-      'SELECT * FROM menu_campus WHERE campusId = ? AND date BETWEEN ? AND ? ORDER BY date',
-      [campusId, from, to])) {
-      chung.set(m.date, { date: m.date, meals: m.meals, rieng: true, capNhatLuc: m.capNhatLuc });
-    }
-  }
-  return [...chung.values()].sort((a, b) => a.date.localeCompare(b.date));
+  return [...mau.giaiKhoang(campusId, from, to).values()];
 }
 
 // ===========================================================================
@@ -354,7 +349,9 @@ function gioTrongO(o) {
 // Bảng tuần: hàng `hangTieuDe` có các ô Thứ, cột bên trái chúng là tên bữa. Ô
 // tên bữa trống thì mang tên bữa của dòng trên xuống — đọc được cả bảng gộp ô
 // lẫn bảng chỉ ghi tên ở dòng đầu. Ngày = Thứ Hai của tuần đã chọn + lệch.
-function docKhuonTuan(trang, hangTieuDe, cacO, tuanChon) {
+// `boQuaNgay` (thực đơn mẫu, Đ260d): mẫu không thuộc tuần nào, nên ngày ghi
+// dưới chữ Thứ — tệp trường đang dùng có ghi — không được từ chối hay nhắc lệch.
+function docKhuonTuan(trang, hangTieuDe, cacO, tuanChon, { boQuaNgay = false } = {}) {
   const canhBao = [];
   const moc = tuanChon || ngay.homNay();
   for (const c of cacO) if (c.d) c.ngay = c.y ? ngayTuO(`${c.y}-${c.m}-${c.d}`) : ngayGanMoc(c.d, c.m, moc);
@@ -370,7 +367,7 @@ function docKhuonTuan(trang, hangTieuDe, cacO, tuanChon) {
   // "tuần sau": tải mẫu hôm trước, hôm sau nạp mà quên chọn lại tuần là đè thực
   // đơn của một tuần khác. Ngày lộn xộn (nhiều tuần) thì không biết tệp của tuần
   // nào — theo tuần đã chọn, kèm lời nhắc ở dưới.
-  if (tuanChon) {
+  if (tuanChon && !boQuaNgay) {
     const tuanTep = new Set(cacO.filter(c => c.d).map(c => (c.ngay ? congNgay(c.ngay, -lechThuHai(c.ngay)) : '')));
     const tuan = tuanTep.size === 1 ? [...tuanTep][0] : '';
     if (tuan && tuan !== thuHai) {
@@ -387,7 +384,7 @@ function docKhuonTuan(trang, hangTieuDe, cacO, tuanChon) {
     if (c.lech > 4) { canhBao.push(`Cột "${chuMotDong(c.chu)}" không phải ngày học — bỏ qua.`); continue; }
     if (cotNgay.some(x => x.lech === c.lech)) { canhBao.push(`Có hai cột ${TEN_THU[c.lech + 1]} — lấy cột đầu, bỏ cột sau.`); continue; }
     const date = congNgay(thuHai, c.lech);
-    if (c.ngay !== undefined && c.ngay !== date) lech.push(`"${chuMotDong(c.chu)}"`);
+    if (!boQuaNgay && c.ngay !== undefined && c.ngay !== date) lech.push(`"${chuMotDong(c.chu)}"`);
     cotNgay.push({ i: c.i, lech: c.lech, date });
   }
   const thuSau = congNgay(thuHai, 4);
@@ -440,13 +437,13 @@ function docKhuonTuan(trang, hangTieuDe, cacO, tuanChon) {
 // Đọc tệp đã điền → danh sách ngày có món + lời nhắc. KHÔNG ghi gì.
 // Khuôn TUẦN nhận ra trước: trong tám hàng đầu có hàng chứa từ hai ô "Thứ Hai…
 // Thứ Sáu" trở lên. Không thì đọc khuôn THÁNG cũ (cột "Ngày") như trước.
-function docThucDonExcel(buf, tuanChon) {
+function docThucDonExcel(buf, tuanChon, tuyChon = {}) {
   const bang = xlsx.doc(buf);
   for (const b of bang) {
     for (let r = 0; r < Math.min(8, b.hang.length); r++) {
       const cacO = [];
       (b.hang[r] || []).forEach((gt, i) => { const t = thuCuaO(gt); if (t) cacO.push({ ...t, i, chu: gt }); });
-      if (cacO.length >= 2) return docKhuonTuan(b, r, cacO, tuanChon);
+      if (cacO.length >= 2) return docKhuonTuan(b, r, cacO, tuanChon, tuyChon);
     }
   }
   const canhBao = [];
@@ -532,20 +529,15 @@ function ngayISO(s) {
 // Tệp mẫu của MỘT TUẦN: hàng 1 tiêu đề, hàng 2 "Thứ Hai\n19/10"…, rồi năm nhóm
 // hàng bữa, ô tên bữa gộp dọc. Món đang có điền sẵn, mỗi ô một món — tách đúng
 // như `buaNhuMau`, nên nạp lại tệp không sửa gì thì ngày ấy là "không đổi".
-function mauExcelTuan(campusId, thuHai) {
-  const cacNgay = [0, 1, 2, 3, 4].map(i => congNgay(thuHai, i));
-  const thuSau = cacNgay[4];
-  const coSan = new Map(thucDonCua(campusId, thuHai, thuSau).map(m => [m.date, Array.isArray(m.meals) ? m.meals : []]));
-  const cs = campusId ? db.findCampus(campusId) : null;
-  const ten = tenTuan(thuHai);
-  const hang = [
-    [`THỰC ĐƠN TUẦN ${ten}${cs ? ` — Bếp ${cs.name}` : ''}`],
-    ['', ...cacNgay.map((d, i) => `${TEN_THU[i + 1]}\n${ddmm(d)}`)],
-  ];
+//
+// `cot`: năm cột ngày {tieuDe, meals}; `ghiChu`: dòng cuối trang Hướng dẫn.
+// Dùng chung cho tuần thật và cho thực đơn mẫu (Đ260d — hàng Thứ không ghi ngày).
+function mauExcelTuanTu(tieuDe, cot, ghiChu, { buocNap } = {}) {
+  const hang = [[tieuDe], ['', ...cot.map(c => c.tieuDe)]];
   const gop = ['A1:F1'];
   for (const b of BUA_MAU) {
-    const mon = cacNgay.map(d => {
-      const s = buaNhuMau(coSan.get(d), [b.type])[b.type];
+    const mon = cot.map(c => {
+      const s = buaNhuMau(Array.isArray(c.meals) ? c.meals : [], [b.type])[b.type];
       return s ? s.split('\n') : [];
     });
     const soDong = Math.max(KHUON_TUAN[b.type].dong, ...mon.map(x => x.length));
@@ -561,8 +553,8 @@ function mauExcelTuan(campusId, thuHai) {
     ['4. Ngày nào có món thì app THAY các bữa của ngày đó bằng các món trong tệp.'],
     ['5. Dán bảng thực đơn của trường vào cũng được: cột tên bữa (Bữa sáng, Bữa phụ sáng, Bữa trưa, Bữa chiều, Bữa sữa chiều) '
       + 'ở bên trái, rồi các cột Thứ Hai → Thứ Sáu. Ô tên bữa gộp hay không gộp đều được.'],
-    ['6. Điền xong: lưu tệp (giữ dạng .xlsx), vào app → Thực đơn → chọn đúng tuần → "Nạp tệp Excel đã điền". App cho xem trước rồi mới lưu.'],
-    [`Tệp này của tuần ${ten}${cs ? ` — bếp ${cs.name}` : ' — dùng chung mọi cơ sở'}.`],
+    [buocNap || '6. Điền xong: lưu tệp (giữ dạng .xlsx), vào app → Thực đơn → chọn đúng tuần → "Nạp tệp Excel đã điền". App cho xem trước rồi mới lưu.'],
+    [ghiChu],
   ];
   return xlsx.ghi([
     { ten: 'Thực đơn', dongTieuDe: true, cot: [24, 28, 28, 28, 28, 28], hang, gop },
@@ -570,11 +562,60 @@ function mauExcelTuan(campusId, thuHai) {
   ]);
 }
 
+function mauExcelTuan(campusId, thuHai) {
+  const cacNgay = [0, 1, 2, 3, 4].map(i => congNgay(thuHai, i));
+  const coSan = new Map(thucDonCua(campusId, thuHai, cacNgay[4]).map(m => [m.date, Array.isArray(m.meals) ? m.meals : []]));
+  const cs = campusId ? db.findCampus(campusId) : null;
+  const ten = tenTuan(thuHai);
+  return mauExcelTuanTu(
+    `THỰC ĐƠN TUẦN ${ten}${cs ? ` — Bếp ${cs.name}` : ''}`,
+    cacNgay.map((d, i) => ({ tieuDe: `${TEN_THU[i + 1]}\n${ddmm(d)}`, meals: coSan.get(d) })),
+    `Tệp này của tuần ${ten}${cs ? ` — bếp ${cs.name}` : ' — dùng chung mọi cơ sở'}.`);
+}
+
+// Năm ngày của một thực đơn mẫu, làm sạch từng ngày. Ngày không có món nào thì
+// lưu mảng rỗng (mẫu chưa soạn ngày đó). Trả { loi } hoặc { ngay }.
+function lamSachNgayMau(vao) {
+  const ra = {};
+  const nguon = vao && typeof vao === 'object' ? vao : {};
+  for (let i = 0; i < 5; i++) {
+    const meals = nguon[String(i)];
+    if (meals === undefined || meals === null) { ra[String(i)] = []; continue; }
+    if (!Array.isArray(meals)) return { loi: `Thực đơn ${TEN_THU[i + 1]} chưa hợp lệ` };
+    if (!meals.some(m => ((m && m.items) || []).some(x => String(x ?? '').trim()))) { ra[String(i)] = []; continue; }
+    const sach = lamSachBuaAn(meals);
+    if (!sach) return { loi: `Thực đơn ${TEN_THU[i + 1]} chưa hợp lệ. Mỗi bữa cần có tên bữa.` };
+    ra[String(i)] = sach;
+  }
+  return { ngay: ra };
+}
+
+// Quyền với một bản ghi mẫu/lịch: đúng quyền ghi của PUT /tuan (mọi quản trị
+// trong phạm vi cơ sở), cộng phép so phạm vi như đường xoá tệp — quản lý cơ sở
+// không sửa được bản của cả trường.
+function quyenBanGhi(user, campusId) {
+  const quyen = coSoDuocGhi(user, campusId || '');
+  if (!quyen.ok) return quyen;
+  if ((quyen.campusId || '') !== (campusId || '')) return { ok: false, loi: 'Thực đơn này thuộc phạm vi khác' };
+  return quyen;
+}
+
 module.exports = (app) => {
+  // Tuần sau lấy từ thực đơn mẫu thì không ai bấm Lưu — việc hẹn giờ thứ Sáu
+  // báo gia đình thay (Đ260d). Nó tự hỏi Thực đơn còn bật không.
+  henGio.dangKy('thucdon:bao-tuan-sau', () => mau.baoTuanSau());
+
   // Thực đơn theo tuần: ?week=0 (tuần này, mặc định) | 1 (tuần sau) | -1 (tuần trước).
   app.get('/api/menu', (req, res) => {
-    const week = req.query.week === '1' ? 1 : (req.query.week === '-1' ? -1 : 0);
-    const from = thuHaiCuaTuan(week);
+    let week = req.query.week === '1' ? 1 : (req.query.week === '-1' ? -1 : 0);
+    let from = thuHaiCuaTuan(week);
+    // `?tuan=` (Đ260d, chỉ quản trị): mở một tuần bất kỳ để sửa riêng tuần đã
+    // lấy từ mẫu, xa hơn "Tuần sau". `week` khi đó là số tuần cách tuần này.
+    const tuanChon = req.user && req.user.role === 'admin' && req.query.tuan ? ngayISO(req.query.tuan) : null;
+    if (tuanChon) {
+      from = congNgay(tuanChon, -lechThuHai(tuanChon));
+      week = Math.round((Date.parse(from) - Date.parse(thuHaiCuaTuan(0))) / (7 * 86400000));
+    }
     const to = congNgay(from, 4);
     const campusId = coSoDangXem(req.user, String(req.query.campusId || ''));
     const cs = campusId ? db.findCampus(campusId) : null;
@@ -595,6 +636,186 @@ module.exports = (app) => {
       tep: tepCuaTuan(from, campusId),
       taiTepDuoc: !!(req.user && req.user.role === 'admin'),
     });
+  });
+
+  // =========================================================================
+  // KHO THỰC ĐƠN MẪU VÀ THỰC ĐƠN DỰ KIẾN (Đ260d)
+  // =========================================================================
+  //
+  // Thay nút "Chép tuần trước": bốn mẫu lặp lại, văn phòng đặt lịch xoay vòng
+  // một lần, tuần nào cần đổi món thì sửa riêng tuần ấy như cũ. Luật gộp và
+  // phần chốt quá khứ ở `lib/thuc-don-mau.js`. Lưu mẫu hay lịch KHÔNG báo gia
+  // đình — tin "thực đơn tuần sau đã có" do việc hẹn giờ thứ Sáu gửi.
+  //
+  // ĐẶT TRƯỚC `/api/menu/:date`, cùng lý do với `/api/menu/tuan`.
+  const ganMa = (m) => ({ id: m.id, so: m.so, ten: m.ten, campusId: m.campusId || null, ngay: m.ngay, capNhatLuc: m.capNhatLuc });
+
+  app.get('/api/menu/mau', requireRole('admin'), (req, res) => {
+    const quyen = coSoDuocGhi(req.user, String(req.query.campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    res.json({ campusId: quyen.campusId || null, toiDa: mau.TOI_DA_MAU, mau: mau.dsMau(quyen.campusId).map(ganMa) });
+  });
+
+  app.post('/api/menu/mau', requireRole('admin'), (req, res) => {
+    const b = req.body || {};
+    const quyen = coSoDuocGhi(req.user, String(b.campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const sach = lamSachNgayMau(b.ngay);
+    if (sach.loi) return res.status(400).json({ error: sach.loi });
+    const kq = mau.themMau(quyen.campusId, { ten: b.ten, ngay: sach.ngay }, req.user.id);
+    if (kq.loi) return res.status(400).json({ error: kq.loi });
+    db.audit(req.user.id, 'menu-mau-them', kq.mau.id, { campusId: quyen.campusId || null, so: kq.mau.so });
+    res.status(201).json({ mau: ganMa(kq.mau) });
+  });
+
+  app.put('/api/menu/mau/:id', requireRole('admin'), (req, res) => {
+    const m = mau.layMau(req.params.id);
+    if (!m) return res.status(404).json({ error: 'Không tìm thấy thực đơn mẫu này' });
+    const quyen = quyenBanGhi(req.user, m.campusId);
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const b = req.body || {};
+    let ngayMau;
+    if (b.ngay !== undefined) {
+      const sach = lamSachNgayMau(b.ngay);
+      if (sach.loi) return res.status(400).json({ error: sach.loi });
+      ngayMau = sach.ngay;
+    }
+    const kq = mau.suaMau(m.id, { ten: b.ten, ngay: ngayMau }, req.user.id);
+    if (kq.loi) return res.status(400).json({ error: kq.loi });
+    db.audit(req.user.id, 'menu-mau-sua', m.id, { campusId: m.campusId || null });
+    res.json({ mau: ganMa(kq.mau) });
+  });
+
+  app.get('/api/menu/mau/:id/excel', requireRole('admin'), (req, res) => {
+    const m = mau.layMau(req.params.id);
+    if (!m) return res.status(404).json({ error: 'Không tìm thấy thực đơn mẫu này' });
+    const quyen = quyenBanGhi(req.user, m.campusId);
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const cs = m.campusId ? db.findCampus(m.campusId) : null;
+    const ten = m.ten || `Thực đơn ${m.so}`;
+    const buf = mauExcelTuanTu(
+      `THỰC ĐƠN MẪU ${m.so} — ${ten}${cs ? ` — Bếp ${cs.name}` : ''}`,
+      [0, 1, 2, 3, 4].map(i => ({ tieuDe: TEN_THU[i + 1], meals: m.ngay[String(i)] })),
+      `Tệp này là thực đơn mẫu "${ten}"${cs ? ` — bếp ${cs.name}` : ' — dùng chung mọi cơ sở'}.`,
+      { buocNap: '6. Điền xong: lưu tệp (giữ dạng .xlsx), vào app → Thực đơn → Kho thực đơn mẫu → "Nạp Excel" ở đúng mẫu này. App cho xem trước rồi mới lưu.' });
+    db.audit(req.user.id, 'menu-mau-excel', m.id, { mau: m.id });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Thuc-don-mau-${m.so}.xlsx"`);
+    res.send(buf);
+  });
+
+  // Nạp tệp vào MỘT mẫu. Cùng hai bước và cùng luật "ngày trống không đụng,
+  // ngày có món thì thay các bữa có cột trong tệp" với nạp tệp của một tuần.
+  app.post('/api/menu/mau/:id/nap-excel', requireRole('admin'), (req, res) => {
+    const m = mau.layMau(req.params.id);
+    if (!m) return res.status(404).json({ error: 'Không tìm thấy thực đơn mẫu này' });
+    const quyen = quyenBanGhi(req.user, m.campusId);
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const body = req.body || {};
+    const k = /^data:[^;,]*;base64,(.+)$/s.exec(String(body.tep || ''));
+    if (!k) return res.status(400).json({ error: 'Chưa nhận được tệp Excel' });
+    const buf = Buffer.from(k[1], 'base64');
+    if (buf.length > TOI_DA_TEP_EXCEL) return res.status(400).json({ error: 'Tệp quá lớn — tệp thực đơn chỉ vài chục KB' });
+    // Một Thứ Hai bất kỳ làm mốc: mẫu không thuộc tuần nào, chỉ cần biết cột nào là thứ mấy.
+    const MOC = '2024-01-01';
+    let kq;
+    try { kq = docThucDonExcel(buf, MOC, { boQuaNgay: true }); } catch (err) {
+      return res.status(400).json({ error: `Không đọc được tệp: ${err.message}. Mở bằng Excel rồi lưu lại dạng .xlsx thử nhé.` });
+    }
+    if (kq.loi) return res.status(400).json({ error: kq.loi });
+    if (!kq.tuan) {
+      return res.status(400).json({ error: 'Thực đơn mẫu dùng khuôn tuần (cột Thứ Hai → Thứ Sáu). '
+        + 'Tải tệp mẫu của đúng thực đơn này về rồi điền vào đó nhé.' });
+    }
+    const loaiCot = kq.loaiCot || [];
+    const tinh = (n) => {
+      const lech = lechThuHai(n.date);
+      const buaCu = Array.isArray(m.ngay[String(lech)]) ? m.ngay[String(lech)] : [];
+      const moi = Object.fromEntries(loaiCot.map(t => [t, ((n.bua.find(b => b.type === t) || {}).items || []).join('\n')]));
+      const khongDoi = buaCu.length > 0 && JSON.stringify(buaNhuMau(buaCu, loaiCot)) === JSON.stringify(moi);
+      const daGap = new Set();
+      const giu = buaCu.filter(x => {
+        if (!loaiCot.includes(x.type) || daGap.has(x.type)) return true;
+        daGap.add(x.type);
+        return false;
+      });
+      return { lech, buaCu, khongDoi, giu };
+    };
+    const xemTruoc = kq.ngay.map(n => {
+      const t = tinh(n);
+      return { thu: n.thu, lech: t.lech, bua: n.bua, daCo: t.buaCu.length > 0, khongDoi: t.khongDoi,
+        giuBua: t.khongDoi ? [] : t.giu.map(x => x.label) };
+    });
+    if (!body.luu) return res.json({ ngay: xemTruoc, canhBao: kq.canhBao, mauId: m.id });
+    if (!kq.ngay.length) return res.status(400).json({ error: 'Tệp không có ngày nào có món để lưu' });
+    const ngayMoi = { ...m.ngay };
+    let daGhi = 0;
+    for (const n of kq.ngay) {
+      const { lech, buaCu, khongDoi, giu } = tinh(n);
+      if (khongDoi) continue;
+      const meals = lamSachBuaAn([...n.bua.map(b => {
+        const g = buaCu.find(x => x.type === b.type) || {};
+        return { type: b.type, label: g.label || b.label, time: g.time || b.time, items: b.items };
+      }), ...giu]);
+      if (!meals) continue;
+      ngayMoi[String(lech)] = meals;
+      daGhi++;
+    }
+    if (daGhi) mau.suaMau(m.id, { ngay: ngayMoi }, req.user.id);
+    db.audit(req.user.id, 'menu-mau-nap-excel', m.id, { soNgay: kq.ngay.length, daGhi });
+    res.json({
+      daLuu: kq.ngay.length, daGhi, khongDoi: kq.ngay.length - daGhi, canhBao: kq.canhBao,
+      mau: ganMa(mau.layMau(m.id)),
+    });
+  });
+
+  // ---- Thực đơn dự kiến: các đoạn lịch xoay vòng ----
+  const ganLich = (l) => ({
+    id: l.id, campusId: l.campusId || null, tuNgay: l.tuNgay, denNgay: l.denNgay, thuTu: l.thuTu, capNhatLuc: l.capNhatLuc,
+  });
+
+  app.get('/api/menu/lich-xoay', requireRole('admin'), (req, res) => {
+    const quyen = coSoDuocGhi(req.user, String(req.query.campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    res.json({
+      campusId: quyen.campusId || null,
+      doan: mau.dsLich(quyen.campusId).map(ganLich),
+      mau: mau.dsMau(quyen.campusId).map(x => ({ id: x.id, so: x.so, ten: x.ten })),
+      duKien: mau.duKien(quyen.campusId),
+    });
+  });
+
+  app.post('/api/menu/lich-xoay', requireRole('admin'), (req, res) => {
+    const b = req.body || {};
+    const quyen = coSoDuocGhi(req.user, String(b.campusId || ''));
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const kq = mau.themLich(quyen.campusId, { tuNgay: b.tuNgay, denNgay: b.denNgay, thuTu: b.thuTu }, req.user.id);
+    if (kq.loi) return res.status(400).json({ error: kq.loi });
+    db.audit(req.user.id, 'menu-lich-them', kq.lich.id, { campusId: quyen.campusId || null, tuNgay: kq.lich.tuNgay, denNgay: kq.lich.denNgay });
+    res.status(201).json({ lich: ganLich(kq.lich) });
+  });
+
+  app.put('/api/menu/lich-xoay/:id', requireRole('admin'), (req, res) => {
+    const l = mau.layLich(req.params.id);
+    if (!l || l.huy) return res.status(404).json({ error: 'Không tìm thấy đoạn lịch này' });
+    const quyen = quyenBanGhi(req.user, l.campusId);
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const b = req.body || {};
+    const kq = mau.suaLich(l.id, { tuNgay: b.tuNgay, denNgay: b.denNgay, thuTu: b.thuTu }, req.user.id);
+    if (kq.loi) return res.status(400).json({ error: kq.loi });
+    db.audit(req.user.id, 'menu-lich-sua', l.id, { campusId: l.campusId || null, tuNgay: kq.lich.tuNgay, denNgay: kq.lich.denNgay });
+    res.json({ lich: ganLich(kq.lich) });
+  });
+
+  app.post('/api/menu/lich-xoay/:id/huy', requireRole('admin'), (req, res) => {
+    const l = mau.layLich(req.params.id);
+    if (!l || l.huy) return res.status(404).json({ error: 'Không tìm thấy đoạn lịch này' });
+    const quyen = quyenBanGhi(req.user, l.campusId);
+    if (!quyen.ok) return res.status(403).json({ error: quyen.loi });
+    const kq = mau.huyLich(l.id, req.user.id);
+    if (kq.loi) return res.status(400).json({ error: kq.loi });
+    db.audit(req.user.id, 'menu-lich-huy', l.id, { campusId: l.campusId || null });
+    res.json({ ok: true });
   });
 
   // SOẠN CẢ TUẦN TRONG MỘT LẦN LƯU.
@@ -630,14 +851,14 @@ module.exports = (app) => {
     if (m < 1 || m > 12 || y < 2020 || y > 2100) return res.status(400).json({ error: 'Tháng chưa hợp lệ, ví dụ đúng: 2026-10' });
     const campusId = quyen.campusId;
     const hang = [['Ngày', 'Thứ', ...BUA_MAU.map(b => b.label)]];
+    const daGiai = mau.giaiKhoang(campusId, `${thang}-01`, congNgay(`${thang}-01`, 30));
     for (let d = 1; d <= 31; d++) {
       const t = Date.UTC(y, m - 1, d);
       if (new Date(t).getUTCMonth() !== m - 1) break;
       const thu = new Date(t).getUTCDay();
       if (thu === 0 || thu === 6) continue;
       const date = new Date(t).toISOString().slice(0, 10);
-      const ban = (campusId ? db.first('menu_campus', 'SELECT meals FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, date]) : null)
-        || db.first('menus', 'SELECT meals FROM menus WHERE date = ?', [date]);
+      const ban = daGiai.get(date);
       const meals = (ban && Array.isArray(ban.meals)) ? ban.meals : [];
       hang.push([`${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`, TEN_THU[thu],
         ...BUA_MAU.map(b => ((meals.find(x => x.type === b.type) || {}).items || []).join('\n'))]);
@@ -693,9 +914,13 @@ module.exports = (app) => {
     const loaiCot = kq.loaiCot || [];
     const tinhNgay = (n) => {
       const truoc = cu(n.date);
-      const buaCu = (truoc && Array.isArray(truoc.meals)) ? truoc.meals : [];
+      // Ngày chưa có dòng thật mà đang lấy từ thực đơn mẫu (Đ260d): so với món
+      // của mẫu, để nạp lại đúng tệp vừa tải không biến cả tuần thành "sửa riêng".
+      const nen = truoc ? null : mau.nenMau(campusId, n.date);
+      const goc = truoc ? truoc.meals : nen;
+      const buaCu = Array.isArray(goc) ? goc : [];
       const moi = Object.fromEntries(loaiCot.map(t => [t, ((n.bua.find(b => b.type === t) || {}).items || []).join('\n')]));
-      const khongDoi = !!truoc && JSON.stringify(buaNhuMau(buaCu, loaiCot)) === JSON.stringify(moi);
+      const khongDoi = !!goc && JSON.stringify(buaNhuMau(buaCu, loaiCot)) === JSON.stringify(moi);
       const daGap = new Set();
       const giu = buaCu.filter(x => {
         if (!loaiCot.includes(x.type)) return true;
@@ -707,7 +932,7 @@ module.exports = (app) => {
     };
     const xemTruoc = kq.ngay.map(n => {
       const t = tinhNgay(n);
-      return { ...n, daCo: !!t.truoc, khongDoi: t.khongDoi, giuBua: t.khongDoi ? [] : t.giu.map(x => x.label) };
+      return { ...n, daCo: !!t.truoc || t.buaCu.length > 0, khongDoi: t.khongDoi, giuBua: t.khongDoi ? [] : t.giu.map(x => x.label) };
     });
     if (!body.luu) {
       return res.json({ ngay: xemTruoc, canhBao: kq.canhBao, campusId: campusId || null, tuan: kq.tuan || null });
@@ -766,6 +991,7 @@ module.exports = (app) => {
     // Kiểm TOÀN BỘ trước khi ghi dòng nào.
     const sach = [];
     const daThay = new Set();
+    let giongMau = 0;
     for (const x of ds) {
       const date = String((x || {}).date || '').trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -784,12 +1010,17 @@ module.exports = (app) => {
       // như bếp quên soạn.
       const trongHan = Array.isArray((x || {}).meals)
         && (x.meals || []).every(m => !((m && m.items) || []).length);
-      if (!cu && trongHan) continue;
+      // Ngày đang lấy từ thực đơn mẫu (Đ260d): để trống thì GHI dòng rỗng — đó là
+      // văn phòng bỏ ngày ấy khỏi mẫu; còn lưu y hệt mẫu thì không cần dòng riêng.
+      const nen = cu ? null : mau.nenMau(campusId, date);
+      if (!cu && trongHan && !nen) continue;
 
-      const meals = lamSachBuaAn((x || {}).meals);
+      const meals = lamSachBuaAn((x || {}).meals)
+        || (trongHan && nen ? lamSachBuaAn(nen.map(m => ({ ...m, items: [] }))) : null);
       if (!meals) {
         return res.status(400).json({ error: `Thực đơn ngày ${date} chưa hợp lệ. Mỗi bữa cần có tên bữa.` });
       }
+      if (nen && JSON.stringify(meals) === JSON.stringify(lamSachBuaAn(nen))) { giongMau++; continue; }
       sach.push({ date, meals, cu });
     }
 
@@ -826,7 +1057,7 @@ module.exports = (app) => {
         hash: '#/menu',
       });
     }
-    res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null });
+    res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null, giongMau });
   });
 
   // Quản trị soạn/sửa thực đơn một ngày. Mỗi ngày một bản ghi, ghi đè cả ngày.
