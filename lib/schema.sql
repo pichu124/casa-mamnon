@@ -588,6 +588,57 @@ CREATE TABLE IF NOT EXISTS menu_tep (
 );
 CREATE INDEX IF NOT EXISTS idx_menu_tep_tuan ON menu_tep(tuNgay, campusId);
 
+-- ===== KHO THỰC ĐƠN MẪU VÀ LỊCH XOAY VÒNG (Đ260d) =====
+--
+-- Góp ý 18/11: *"Thực đơn sẽ có 4 thực đơn mẫu lặp đi lặp lại… văn phòng setup
+-- từ thời gian này tới thời gian này dùng thực đơn 1, sau đó tự động tới 2, 3, 4
+-- rồi quay vòng về 1."*
+--
+-- GIẢI LÚC ĐỌC, KHÔNG GHI SẴN. Lịch không sinh dòng nào trong `menus` /
+-- `menu_campus`; màn hình hỏi `lib/thuc-don-mau.js` và nó gộp bốn lớp theo thứ
+-- tự: dòng riêng cơ sở → mẫu theo lịch của cơ sở → dòng dùng chung → mẫu theo
+-- lịch dùng chung. Sửa một tuần sau khi lấy từ mẫu là ghi dòng thật như cũ, và
+-- dòng thật luôn thắng mẫu.
+--
+-- QUÁ KHỨ KHÔNG BỊ VIẾT LẠI. Trước mỗi lần sửa mẫu hay sửa/huỷ lịch, các ngày
+-- đã qua đang lấy từ mẫu được chép thành dòng thật (`chotQuaKhu`), nên Nhật ký
+-- và thực đơn tháng trước giữ nguyên món đã ăn.
+--
+-- `campusId` rỗng = cả trường, cùng quy ước `menu_tep`. Không có đường xoá mẫu;
+-- lịch thì huỷ bằng cờ `huy`, không xoá dòng.
+CREATE TABLE IF NOT EXISTS menu_mau (
+  id         TEXT PRIMARY KEY,
+  campusId   TEXT NOT NULL DEFAULT '',
+  so         INTEGER NOT NULL,            -- "Thực đơn 1", "Thực đơn 2"…
+  ten        TEXT NOT NULL DEFAULT '',
+  ngay       TEXT NOT NULL,               -- JSON {"0":[bữa T2],…,"4":[bữa T6]}
+  nguoiSua   TEXT,
+  capNhatLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_menu_mau_coso ON menu_mau(campusId, so);
+
+CREATE TABLE IF NOT EXISTS menu_lich_xoay (
+  id         TEXT PRIMARY KEY,
+  campusId   TEXT NOT NULL DEFAULT '',
+  tuNgay     TEXT NOT NULL,               -- luôn là Thứ Hai
+  denNgay    TEXT NOT NULL,               -- tính cả ngày này
+  thuTu      TEXT NOT NULL,               -- JSON [mã mẫu…], tuần k dùng thuTu[k % n]
+  huy        INTEGER NOT NULL DEFAULT 0,
+  nguoiSua   TEXT,
+  capNhatLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_menu_lich_xoay_coso ON menu_lich_xoay(campusId, huy);
+
+-- Dấu "đã báo gia đình thực đơn tuần này" của việc hẹn giờ thứ Sáu. Đồng hồ
+-- chạy lại mỗi 15 phút và mỗi lần máy chủ khởi động; thiếu dấu này là mỗi lượt
+-- một tiếng chuông.
+CREATE TABLE IF NOT EXISTS menu_mau_bao (
+  campusId TEXT NOT NULL DEFAULT '',
+  thuHai   TEXT NOT NULL,
+  baoLuc   TEXT,
+  PRIMARY KEY (campusId, thuHai)
+);
+
 -- ===== Thời khóa biểu (một dòng mỗi lớp) =====
 CREATE TABLE IF NOT EXISTS timetable (
   classId     TEXT PRIMARY KEY REFERENCES classes(id) ON DELETE CASCADE,

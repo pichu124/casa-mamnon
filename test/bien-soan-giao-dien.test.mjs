@@ -140,7 +140,7 @@ await dangXuat();
 await dangNhap('hieutruong', 'quantri2026');
 await page.goto(BASE + '/#/menu', { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
-check('quản trị thấy nút Chép tuần trước', await page.locator('#btn-chep-tuan').count() === 1);
+check('không còn nút Chép tuần trước (Đ260d — thay bằng kho thực đơn mẫu)', await page.locator('#btn-chep-tuan').count() === 0);
 const soNutSua = await page.locator('#view .card .head-action').count();
 check('mỗi ngày trong tuần có nút Sửa/Soạn', soNutSua === 5, soNutSua);
 
