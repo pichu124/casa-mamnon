@@ -12,6 +12,7 @@ const BANG = 'notifications';
 // màu trong public/js/views/notifications.js — lệch một chỗ là thông báo cũ
 // mất màu, mất biểu tượng mà không báo lỗi gì.
 const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Khác'];
+const CAU_GHIM_TOAN_TRUONG = 'Thông báo toàn trường do ban giám hiệu ghim. Cơ sở ghim được thông báo của các nhóm trong cơ sở mình.';
 
 // Điều kiện SQL lọc theo phạm vi gửi mà người dùng được thấy.
 // Luật "ai thấy thông báo nào" nằm ở MỘT chỗ — lib/thong-bao.js — thay cho hai
@@ -256,6 +257,9 @@ module.exports = (app) => {
     if (pinned !== undefined && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Chỉ văn phòng hoặc ban giám hiệu mới ghim được thông báo' });
     }
+    if (pinned === true && audience === 'all' && !ghimDuocToanTruong(req.user)) {
+      return res.status(403).json({ error: CAU_GHIM_TOAN_TRUONG });
+    }
     // Cô mầm non có thể phụ trách nhiều nhóm, nên "gửi cho nhóm" phải hỏi cho
     // rõ nhóm nào. Cô chỉ có một nhóm thì vẫn không phải chọn gì — giữ nguyên
     // đúng số thao tác như trước.
@@ -327,6 +331,14 @@ module.exports = (app) => {
   // vẫn như cũ: nó gửi cho cả cơ sở mình nên không tính là "của cơ sở khác".
   // `campusOfClass` đọc được cả nhóm đã đóng, nên thông báo của năm cũ không
   // làm chốt này chặn nhầm Cấp 1.
+  // GHIM TIN TOÀN TRƯỜNG (theo review Đ260b): tin ghim đứng đầu danh sách
+  // của mọi gia đình ba cơ sở, nên chỉ quản trị không khoá cơ sở hoặc hiệu
+  // trưởng ghim / bỏ ghim được. Văn phòng, quản lý một cơ sở ghim tin của nhóm
+  // trong cơ sở mình (`trongPhamViCoSo`).
+  function ghimDuocToanTruong(user) {
+    return db.phamViCoSo(user) === null || db.chucVu(user) === 'hieu-truong';
+  }
+
   function trongPhamViCoSo(user, n) {
     if (!user || user.role !== 'admin') return true;   // vai cô: laChuBanGhi đã giữ
     const pham = db.phamViCoSo(user);
@@ -353,6 +365,9 @@ module.exports = (app) => {
         return res.status(403).json({ error: 'Chỉ văn phòng hoặc ban giám hiệu mới ghim được thông báo' });
       }
       if (typeof body.pinned !== 'boolean') return res.status(400).json({ error: 'Giá trị ghim không hợp lệ' });
+      if (n.audience === 'all' && !ghimDuocToanTruong(req.user)) {
+        return res.status(403).json({ error: CAU_GHIM_TOAN_TRUONG });
+      }
     }
     const patch = {};
     const daiQuaSua = loiQuaDai(req.body.title, req.body.body);

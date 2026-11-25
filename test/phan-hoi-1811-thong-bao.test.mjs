@@ -100,6 +100,23 @@ try {
     const cs2 = await req('PUT', `/api/notifications/${cuaCo.data.id}`, { cookie: CS2, body: { pinned: false } });
     check('quản lý cơ sở 2 bỏ ghim tin nhóm của cơ sở 1 → 403', cs2.status === 403, cs2.status);
 
+    // Tin TOÀN TRƯỜNG đứng đầu danh sách của mọi gia đình ba cơ sở: chỉ ban giám
+    // hiệu (quản trị không khoá cơ sở) ghim / bỏ ghim được.
+    const cs2BoGhimAll = await req('PUT', `/api/notifications/${tao.data.id}`, { cookie: CS2, body: { pinned: false } });
+    check('quản lý cơ sở 2 bỏ ghim tin toàn trường → 403', cs2BoGhimAll.status === 403, cs2BoGhimAll.status);
+    check('…tin toàn trường vẫn ghim', doc('SELECT pinned FROM notifications WHERE id = ?', tao.data.id)[0].pinned === 1);
+    const cs2TaoGhimAll = await req('POST', '/api/notifications', {
+      cookie: CS2, body: { title: 'Cơ sở 2 ghim toàn trường', body: 'x', category: 'Nhà trường', audience: 'all', pinned: true },
+    });
+    check('quản lý cơ sở 2 tạo tin toàn trường kèm ghim → 403', cs2TaoGhimAll.status === 403, cs2TaoGhimAll.status);
+    check('…và không có bản ghi nào được tạo', doc("SELECT COUNT(*) AS n FROM notifications WHERE title = 'Cơ sở 2 ghim toàn trường'")[0].n === 0);
+    const cs2TaoGhimNhom = await req('POST', '/api/notifications', {
+      cookie: CS2, body: { title: 'Nhóm Mầm 1 họp phụ huynh', body: 'x', audience: 'class', classId: 'c3', pinned: true },
+    });
+    check('đối chứng — quản lý cơ sở 2 ghim được tin của nhóm trong cơ sở mình', cs2TaoGhimNhom.status === 201 && cs2TaoGhimNhom.data?.pinned === true, cs2TaoGhimNhom.data);
+    const cs2BoGhimNhom = await req('PUT', `/api/notifications/${cs2TaoGhimNhom.data?.id}`, { cookie: CS2, body: { pinned: false } });
+    check('…và bỏ ghim được tin đó', cs2BoGhimNhom.status === 200 && cs2BoGhimNhom.data?.pinned === false, cs2BoGhimNhom.data);
+
     const boGhim = await req('PUT', `/api/notifications/${cuaCo.data.id}`, { cookie: BGH, body: { pinned: false } });
     check('quản trị bỏ ghim → 200, hết ghim', boGhim.status === 200 && boGhim.data?.pinned === false, boGhim.data);
     check('…nhật ký ghi "notification-unpin"',
