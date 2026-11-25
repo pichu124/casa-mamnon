@@ -108,3 +108,22 @@ CREATE TABLE IF NOT EXISTS nhatky_vesinh (
   taoLuc    TEXT
 );
 CREATE INDEX IF NOT EXISTS nhatky_vesinh_be_ngay ON nhatky_vesinh(studentId, ngay);
+
+-- BỮA ĂN THEO CƠ SỞ — góp ý 18/11 (Đ260g): "Với bữa sữa chiều thì ở 1 cơ sở
+-- sẽ không có. Có cách nào bỏ đi không, 2 cơ sở kia thì có bữa này."
+--
+-- Một dòng `tat = 1` = cơ sở này KHÔNG dùng bữa đó: màn cô, màn gia đình và
+-- bản gửi gia đình bỏ bữa ấy đi. KHÔNG CÓ DÒNG = dùng đủ năm bữa như cũ, nên
+-- trường chưa đụng tới cài đặt này thì không đổi gì. Bật lại là ghi `tat = 0`,
+-- không xoá dòng — còn dấu ai đổi, lúc nào.
+--
+-- Tắt bữa không xoá gì: ngày đã có ghi chép của bữa đó, hay thực đơn ngày đó
+-- có món cho bữa đó, thì bữa vẫn hiện (routes.js, `danhSachBua`).
+CREATE TABLE IF NOT EXISTS nhatky_bua_coso (
+  campusId   TEXT NOT NULL,
+  bua        TEXT NOT NULL,              -- một trong năm mã: breakfast / snack_sang / lunch / snack / milk
+  tat        INTEGER NOT NULL DEFAULT 1,
+  nguoiSua   TEXT,
+  capNhatLuc TEXT,
+  PRIMARY KEY (campusId, bua)
+);

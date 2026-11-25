@@ -215,7 +215,10 @@ module.exports = (app, { db, modules }) => {
       // mục 7) nhưng cột và đường ghi cũ vẫn còn, nên số đã ghi vẫn được chụp
       // — gia đình chỉ thấy dòng Bú bình ở ngày có số.
       return {
+        // Bữa cơ sở đã tắt mà vẫn hiện vì bé KHÁC trong nhóm đã được ghi: bản
+        // gửi của bé này không mang nó (Đ260g).
         buaAn: ghepBua(dsBua, hang, theoBua)
+          .filter(b => !b.tatOCoSo || b.muc || b.ghiChu)
           .map(b => ({ bua: b.bua, ten: b.ten, gio: b.gio, mon: b.mon, muc: b.muc, ghiChu: b.ghiChu })),
         anGhiChu: h.anGhiChu || '', ghiChu: h.ghiChu || '',
         buBinhSoLan: so(h.buBinhSoLan), buBinhMl: so(h.buBinhMl),
@@ -388,6 +391,7 @@ module.exports = (app, { db, modules }) => {
       // có hai con ở hai cơ sở, nên câu hỏi đúng luôn là "bé này ăn bếp nào".
       const campusId = db.campusOfClass(be.classId);
       const banGhi = thucDonKhoang(tu, den, campusId);
+      const buaTat = buaTatCua(campusId);
       // Từng bữa đã ghi trong khoảng, gom theo ngày.
       const buaTheoNgay = new Map();
       for (const r of db.all('nhatky_bua',
@@ -401,7 +405,9 @@ module.exports = (app, { db, modules }) => {
         thucDon: banGhi.has(r.ngay) ? gomBua(banGhi.get(r.ngay)) : null,
         // NĂM BỮA CỦA TRƯỜNG, kèm món theo thực đơn ngày đó và mức bé ăn — gia
         // đình đọc "Bữa sáng: Bánh bao xá xíu — con ăn hết" thành một dòng.
-        buaAn: ghepBua(danhSachBua(banGhi.get(r.ngay) || null), r, buaTheoNgay.get(r.ngay)),
+        // Bữa cơ sở đã tắt thì bỏ, trừ bữa bé này đã được ghi ngày đó (Đ260g).
+        buaAn: ghepBua(danhSachBua(banGhi.get(r.ngay) || null,
+          { tat: buaTat, daGhi: buaDaGhiCua(r, buaTheoNgay.get(r.ngay), new Set()) }), r, buaTheoNgay.get(r.ngay)),
         suKien: suKienCua(studentId, r.ngay),
       }));
       // GIA ĐÌNH CHỈ ĐỌC PHẦN CÔ ĐÃ GỬI (góp ý 06/10, mục 9). Cô và văn phòng
@@ -488,7 +494,7 @@ module.exports = (app, { db, modules }) => {
     }
     const campusId = db.campusOfClass(classId);
     const banGhiTD = banGhiThucDon(ngay, campusId);
-    const dsBua = danhSachBua(banGhiTD);
+    const dsBua = buaCuaNhom(classId, ngay, banGhiTD);
     // Trạng thái GỬI từng phần của từng bé, và giờ thay bỉm / đi vệ sinh.
     const guiTheoBe = new Map();
     try {
@@ -569,6 +575,47 @@ module.exports = (app, { db, modules }) => {
     res.json({ hien: ds.some(b => coSoNhaTre(b)) });
   });
 
+  // BỮA ĂN THEO CƠ SỞ (góp ý 18/11, Đ260g) — "Với bữa sữa chiều thì ở 1 cơ sở
+  // sẽ không có. Có cách nào bỏ đi không, 2 cơ sở kia thì có bữa này."
+  //
+  // Chỉ quản trị, và chỉ cơ sở trong phạm vi của mình (`db.canAccessCampus`):
+  // quản lý cơ sở 2 không đổi được bữa của cơ sở 1. Cô và gia đình không có
+  // đường này — họ chỉ thấy kết quả ở danh sách bữa.
+  const MA_BUA = Object.keys(TEN_BUA);
+  app.get('/api/nhatky/bua-co-so', requireRole('admin'), (req, res) => {
+    res.json({
+      bua: MA_BUA.map(ma => ({ ma, ten: TEN_BUA[ma] })),
+      coSo: db.campuses().filter(cs => db.canAccessCampus(req.user, cs.id)).map(cs => {
+        const tat = buaTatCua(cs.id);
+        return { id: cs.id, name: cs.name, tat: MA_BUA.filter(ma => tat.has(ma)) };
+      }),
+    });
+  });
+
+  // Thân: { campusId, bua, tat: true | false }. Bật lại ghi `tat = 0`, không xoá dòng.
+  app.put('/api/nhatky/bua-co-so', requireRole('admin'), (req, res) => {
+    const body = req.body || {};
+    const cs = db.findCampus(String(body.campusId || ''));
+    if (!cs || !cs.active) return res.status(404).json({ error: 'Không tìm thấy cơ sở' });
+    if (!db.canAccessCampus(req.user, cs.id)) {
+      return res.status(403).json({ error: 'Không có quyền đổi bữa ăn của cơ sở này' });
+    }
+    const bua = String(body.bua || '');
+    if (!TEN_BUA[bua]) return res.status(400).json({ error: 'Bữa ăn chưa hợp lệ' });
+    if (typeof body.tat !== 'boolean') return res.status(400).json({ error: 'Chưa rõ tắt hay bật bữa này' });
+    const tat = buaTatCua(cs.id);
+    if (body.tat && !tat.has(bua) && tat.size + 1 >= MA_BUA.length) {
+      return res.status(400).json({ error: 'Cơ sở phải giữ ít nhất một bữa ăn trong nhật ký' });
+    }
+    db.run(`INSERT INTO nhatky_bua_coso (campusId, bua, tat, nguoiSua, capNhatLuc) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(campusId, bua) DO UPDATE SET tat = excluded.tat,
+              nguoiSua = excluded.nguoiSua, capNhatLuc = excluded.capNhatLuc`,
+    [cs.id, bua, body.tat ? 1 : 0, req.user.id, new Date().toISOString()]);
+    db.audit(req.user.id, 'nhatky-bua-coso', cs.id, { bua, tat: body.tat });
+    const sau = buaTatCua(cs.id);
+    res.json({ ok: true, campusId: cs.id, tat: MA_BUA.filter(ma => sau.has(ma)) });
+  });
+
   // Một bản ghi thực đơn → đúng ba ô ăn của nhật ký (hình dạng đời cũ, màn gia
   // đình đời cũ còn đọc).
   function gomBua(m) {
@@ -592,7 +639,17 @@ module.exports = (app, { db, modules }) => {
   //
   // Bữa trùng `type` thì giữ bữa đầu: bảng `nhatky_bua` khoá (bé, ngày, bữa)
   // nên hai bữa cùng mã là hai dòng đè nhau.
-  function danhSachBua(m) {
+  //
+  // BỮA CƠ SỞ ĐÃ TẮT (góp ý 18/11, Đ260g). `coSo = { tat, daGhi }`: `tat` là
+  // các bữa cơ sở không dùng (`buaTatCua`), `daGhi` là các bữa ĐÃ CÓ GHI CHÉP
+  // trong ngày đó (`buaDaGhiCua`). Bữa đã tắt bị bỏ, TRỪ KHI ngày đó đã có ghi
+  // chép của nó (tắt bữa không được giấu dữ liệu đã ghi — vẫn xem, vẫn sửa
+  // được) hoặc thực đơn RIÊNG của bếp cơ sở ngày đó (`menu_campus`, có
+  // `campusId`) có món cho nó — trường đổi ý một ngày. Thực đơn DÙNG CHUNG thì
+  // không tính: ba cơ sở dùng chung một thực đơn có bữa sữa, mà một cơ sở không
+  // phát sữa, đúng là chuyện trường kể. Bữa chỉ còn vì ĐÃ CÓ GHI CHÉP mang cờ
+  // `tatOCoSo`. Không truyền `coSo` thì như cũ.
+  function danhSachBua(m, coSo) {
     const meals = (m && Array.isArray(m.meals)) ? m.meals : [];
     const theoKieu = new Map();
     for (const x of meals) {
@@ -605,10 +662,61 @@ module.exports = (app, { db, modules }) => {
       gio: String((x && x.time) || '').trim() || GIO_BUA[kieu] || '',
       mon: x && Array.isArray(x.items) ? x.items.map(String) : [],
     });
+    const tat = (coSo && coSo.tat) || new Set();
+    const daGhi = (coSo && coSo.daGhi) || new Set();
+    const bepRieng = !!(m && m.campusId);
+    const nam = [];
+    for (const kieu of Object.keys(TEN_BUA)) {
+      const b = mot(kieu, theoKieu.get(kieu));
+      if (!tat.has(kieu) || (bepRieng && b.mon.some(t => t.trim()))) nam.push(b);
+      else if (daGhi.has(kieu)) nam.push({ ...b, tatOCoSo: true });
+    }
     return [
-      ...Object.keys(TEN_BUA).map(kieu => mot(kieu, theoKieu.get(kieu))),
+      ...nam,
       ...[...theoKieu].filter(([kieu]) => !TEN_BUA[kieu]).map(([kieu, x]) => mot(kieu, x)),
     ];
+  }
+
+  // Các bữa cơ sở này đã tắt (bảng `nhatky_bua_coso`). Nhóm chưa gắn cơ sở thì
+  // không tắt gì.
+  function buaTatCua(campusId) {
+    if (!campusId) return new Set();
+    return new Set(db.all('nhatky_bua_coso',
+      'SELECT bua FROM nhatky_bua_coso WHERE campusId = ? AND tat = 1', [campusId]).map(r => r.bua));
+  }
+
+  // Thêm vào `ra` các bữa ĐÃ CÓ GHI CHÉP của một bé một ngày — đúng luật đọc
+  // của `ghepBua`: dòng ở `nhatky_bua` thắng, chưa có dòng thì nhìn cột cũ.
+  function buaDaGhiCua(hang, theoBua, ra) {
+    for (const kieu of Object.keys(TEN_BUA)) {
+      const r = theoBua && theoBua.get(kieu);
+      const cot = COT_CUA_BUA[kieu];
+      if (r ? (r.muc || r.ghiChu) : (cot && hang && hang[cot])) ra.add(kieu);
+    }
+    return ra;
+  }
+
+  // Danh sách bữa của MỘT NHÓM trong một ngày — màn cô, đường ghi một bữa và
+  // đường gửi đều đi qua đây, để ba chỗ thấy cùng một danh sách (bản gửi so
+  // với bản đang ghi bằng chuỗi JSON, lệch một bữa là "chưa gửi" giả).
+  function buaCuaNhom(classId, ngay, m = banGhiThucDon(ngay, db.campusOfClass(classId))) {
+    const tat = buaTatCua(db.campusOfClass(classId));
+    if (!tat.size) return danhSachBua(m);
+    const ids = db.all('students', 'SELECT id FROM students WHERE classId = ? AND active = 1', [classId]).map(r => r.id);
+    const daGhi = new Set();
+    if (ids.length) {
+      const marks = ids.map(() => '?').join(',');
+      const theoBe = new Map();
+      for (const r of db.all('nhatky_bua',
+        `SELECT * FROM nhatky_bua WHERE ngay = ? AND studentId IN (${marks})`, [ngay, ...ids])) {
+        if (!theoBe.has(r.studentId)) theoBe.set(r.studentId, new Map());
+        theoBe.get(r.studentId).set(r.bua, r);
+      }
+      const hang = new Map(db.all('nhatky_ngay',
+        `SELECT * FROM nhatky_ngay WHERE ngay = ? AND studentId IN (${marks})`, [ngay, ...ids]).map(r => [r.studentId, r]));
+      for (const id of ids) buaDaGhiCua(hang.get(id), theoBe.get(id), daGhi);
+    }
+    return danhSachBua(m, { tat, daGhi });
   }
 
   // TẮT THỰC ĐƠN LÀ TẮT Ở MỌI MÀN HÌNH, KỂ CẢ MÀN HÌNH NÀY.
@@ -930,10 +1038,12 @@ module.exports = (app, { db, modules }) => {
       return res.status(403).json({ error: 'Không có quyền ghi nhật ký cho nhóm này' });
     }
     const bua = String(body.bua || '').trim();
-    const dsBua = danhSachBua(banGhiThucDon(ngay, db.campusOfClass(classId)));
+    const dsBua = buaCuaNhom(classId, ngay);
     const buaChon = dsBua.find(b => b.bua === bua);
     if (!buaChon) {
-      return res.status(400).json({ error: 'Bữa này không có trong thực đơn của ngày đó' });
+      return res.status(400).json({ error: TEN_BUA[bua]
+        ? 'Cơ sở của nhóm này không dùng bữa này trong nhật ký'
+        : 'Bữa này không có trong thực đơn của ngày đó' });
     }
     const ban = body.danhSach;
     if (!Array.isArray(ban) || !ban.length) {
@@ -1042,7 +1152,7 @@ module.exports = (app, { db, modules }) => {
       dsBe.push(be);
     }
 
-    const dsBua = danhSachBua(banGhiThucDon(ngay, db.campusOfClass(classId)));
+    const dsBua = buaCuaNhom(classId, ngay);
     const luc = new Date().toISOString();
     const daGui = [];
     const khongDoi = [];

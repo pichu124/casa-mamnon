@@ -336,9 +336,20 @@ App.views.nhatky = {
     this._classId = this._classId || nhom[0] || '';
     this._ngay = this._ngay || UI.todayStr();
 
+    // Quản trị (văn phòng, ban giám hiệu) chọn bữa ăn cho từng cơ sở (Đ260g).
+    const laQuanTri = App.state.user.role === 'admin';
+    const nutBua = laQuanTri ? `
+      <button class="btn outline block mt-8" id="nk-bua-co-so">${UI.icon('settings', 18)} Bữa ăn theo cơ sở</button>` : '';
+    const ganNutBua = () => {
+      const n = document.getElementById('nk-bua-co-so');
+      if (n) n.onclick = () => this.moBuaCoSo();
+    };
+
     if (!this._classId) {
       root.innerHTML = UI.pageHeader('Nhật ký ngày')
+        + (laQuanTri ? `<div class="card">${nutBua}</div>` : '')
         + UI.emptyState('📔', 'Cô chưa phụ trách nhóm nào nên chưa ghi nhật ký được.');
+      ganNutBua();
       return;
     }
 
@@ -368,6 +379,7 @@ App.views.nhatky = {
               </select>
             </div>` : ''}
         </div>
+        ${nutBua}
       </div>`;
 
     // NHÓM TOÀN BÉ LỚN: KHÔNG PHẢI LỖI, CHỈ LÀ KHÔNG DÙNG.
@@ -386,6 +398,7 @@ App.views.nhatky = {
           Với các bé lớn hơn, gia đình theo dõi qua ảnh đón bé, thực đơn và lịch sinh hoạt.
         </div>`;
       this.ganDoiNgayNhom();
+      ganNutBua();
       return;
     }
 
@@ -436,6 +449,7 @@ App.views.nhatky = {
         </div>` : ''}`;
 
     this.ganDoiNgayNhom();
+    ganNutBua();
     const nutAp = document.getElementById('nk-ap');
     if (nutAp) nutAp.onclick = () => this.apCaNhom();
     const btn = document.getElementById('nk-luu');
@@ -524,6 +538,13 @@ App.views.nhatky = {
         <div class="muted small" style="margin-bottom:10px;line-height:1.6">
           Chưa có thực đơn bữa này — văn phòng nhập ở Thực đơn
         </div>`;
+      // Cơ sở đã tắt bữa này nhưng ngày đó đã có bé được ghi (Đ260g).
+      if (b.tatOCoSo) {
+        mon += `
+        <div class="muted small" style="margin-bottom:10px;line-height:1.6">
+          Cơ sở đã bỏ bữa này khỏi nhật ký. Bữa vẫn hiện vì ngày này đã có bé được ghi — cô xem, sửa được như cũ.
+        </div>`;
+      }
     }
     let ap = '';
     if (buoc.kieu === 'bua') {
@@ -737,6 +758,49 @@ App.views.nhatky = {
         App.route();
       } catch (err) { UI.toast(err.message, 'error'); nut.disabled = false; }
     };
+  },
+
+  // BỮA ĂN THEO CƠ SỞ (góp ý 18/11, Đ260g) — văn phòng / ban giám hiệu bỏ bữa
+  // mà cơ sở không có. Bỏ dấu chọn là lưu ngay; ngày đã ghi bữa đó vẫn giữ.
+  async moBuaCoSo() {
+    let d;
+    try { d = await API.get('/api/nhatky/bua-co-so'); } catch (err) { return UI.toast(err.message, 'error'); }
+    const coSo = d.coSo || [];
+    const bua = d.bua || [];
+    const tenBua = Object.fromEntries(bua.map(b => [b.ma, b.ten]));
+    const tenCoSo = Object.fromEntries(coSo.map(c => [c.id, c.name]));
+    const khoi = coSo.length ? coSo.map(cs => `
+      <div class="card" style="margin:0 0 10px">
+        <div class="card-title">${UI.esc(cs.name)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px 16px">
+          ${bua.map(b => `
+            <label class="nk-bua-cs" style="display:inline-flex;align-items:center;gap:8px;min-height:40px">
+              <input type="checkbox" data-co-so="${UI.esc(cs.id)}" data-bua="${UI.esc(b.ma)}"
+                ${(cs.tat || []).includes(b.ma) ? '' : 'checked'} style="width:32px;height:32px;margin:0;flex:none">
+              <span>${UI.esc(b.ten)}</span>
+            </label>`).join('')}
+        </div>
+      </div>`).join('') : UI.emptyState('🏫', 'Trường chưa khai báo cơ sở nào — mọi nhóm dùng đủ năm bữa.');
+    UI.modal(`
+      <p class="muted small" style="line-height:1.6;margin-top:0">
+        Bỏ dấu chọn bữa nào thì cô và gia đình ở cơ sở đó không còn thấy bữa ấy trong
+        Nhật ký ngày. Ngày đã ghi bữa đó vẫn giữ nguyên.
+      </p>
+      ${khoi}
+      <button class="btn primary block mt-14" id="nk-bua-xong">Xong</button>
+    `, 'Bữa ăn theo cơ sở');
+    for (const o of document.querySelectorAll('.nk-bua-cs input')) {
+      o.onchange = async () => {
+        o.disabled = true;
+        const ten = `${tenBua[o.dataset.bua] || 'bữa này'} ở ${tenCoSo[o.dataset.coSo] || 'cơ sở này'}`;
+        try {
+          await API.put('/api/nhatky/bua-co-so', { campusId: o.dataset.coSo, bua: o.dataset.bua, tat: !o.checked });
+          UI.toast(o.checked ? `Đã dùng lại ${ten}` : `Đã bỏ ${ten}`, 'success');
+        } catch (err) { o.checked = !o.checked; UI.toast(err.message, 'error'); }
+        o.disabled = false;
+      };
+    }
+    document.getElementById('nk-bua-xong').onclick = () => { UI.closeModal(); App.route(); };
   },
 
   // Một thẻ cho một bé, chỉ các ô của BƯỚC đang mở.
