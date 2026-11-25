@@ -36,6 +36,13 @@ const ngay = require('../../lib/ngay');
 const nghiHoc = require('../../lib/nghi-hoc');
 // Báo cho gia đình một bé ngay khi cô ghi xong (Đ137). Không bao giờ ném lỗi.
 const tbb = require('../../lib/thong-bao-be');
+// Thực đơn mẫu theo lịch xoay vòng (Đ260d): luật gộp bốn lớp ở đúng một chỗ.
+// Nạp trong khối bắt lỗi — tệp ấy hỏng hay mất thì Nhật ký vẫn chạy, chỉ quay
+// về luật hai lớp cũ ở dưới (Nguyên tắc số 1).
+let thucDonMau = null;
+try { thucDonMau = require('../../lib/thuc-don-mau'); } catch (err) {
+  console.error(`[nhatky] không nạp được lib/thuc-don-mau.js (${err.message}) — đọc thực đơn theo luật cũ.`);
+}
 
 // Mức ăn hợp lệ. Cố ý là NHÃN CHỮ, không phải số — để là số thì sớm muộn có
 // người cộng lại rồi sắp các bé trên dưới nhau.
@@ -637,6 +644,7 @@ module.exports = (app, { db, modules }) => {
   // đường cũ, không đổi một chữ nào so với trước.
   function banGhiThucDon(ngay, campusId) {
     if (!thucDonBat()) return null;
+    if (thucDonMau) return thucDonMau.giaiKhoang(campusId || null, ngay, ngay).get(ngay) || null;
     const rieng = campusId
       ? db.first('menu_campus',
         'SELECT * FROM menu_campus WHERE campusId = ? AND date = ?', [campusId, ngay])
@@ -655,6 +663,7 @@ module.exports = (app, { db, modules }) => {
   function thucDonKhoang(tu, den, campusId) {
     const ra = new Map();
     if (!thucDonBat()) return ra;
+    if (thucDonMau) return thucDonMau.giaiKhoang(campusId || null, tu, den);
     for (const m of db.all('menus',
       'SELECT * FROM menus WHERE date BETWEEN ? AND ?', [tu, den])) {
       ra.set(m.date, m);
