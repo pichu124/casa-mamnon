@@ -195,6 +195,15 @@ try {
     check('đối chứng — nhận em của bé An vào cùng tài khoản phụ huynh', em.status === 201 && em.data.taiKhoan?.daCoTaiKhoan === true, `${em.status} ${JSON.stringify(em.data?.taiKhoan)}`);
     const sau = await trangDau(PH);
     check('nhà có con lớn từ trước, thêm em nhập học tuần sau → vẫn thấy lịch sử', sau.ids.has('nh_cu_all') && sau.ids.has('nh_10_c1'));
+    // Con lớn ra trường / nghỉ học thì mốc KHÔNG được nhảy lên ngày nhập học
+    // của em: nhà sẽ mất những tin đã đọc. Mốc tính trên mọi bé từng gắn với
+    // tài khoản, không chỉ bé đang học.
+    // Nhà mẫu có hai con (s1, s2): cho cả hai nghỉ, chỉ còn em vừa nhận.
+    ghiDb("UPDATE students SET active = 0 WHERE id IN ('s1', 's2')");
+    const conLonNghi = await trangDau(PH);
+    check('con lớn nghỉ học, em nhập học tuần sau → nhà vẫn thấy lịch sử đã đọc',
+      conLonNghi.ids.has('nh_cu_all') && conLonNghi.ids.has('nh_10_c1'), [...conLonNghi.ids]);
+    ghiDb("UPDATE students SET active = 1 WHERE id IN ('s1', 's2')");
     const tCo = await trangDau(CO);
     check('cô không đổi — vẫn thấy tin cũ', tCo.ids.has('nh_cu_all') && tCo.ids.has('nh_10_c1'));
   }
