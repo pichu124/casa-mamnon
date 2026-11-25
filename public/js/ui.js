@@ -404,11 +404,14 @@ window.UI = (() => {
   //     tranByte  trần dung lượng đích, mặc định 8 MB (khớp MAX_VIDEO_BYTES)
   //     tien      hàm gọi lại mỗi giây: tien({ giay, tongGiay })
   //     huy       hàm trả về true để dừng giữa chừng
+  //     bitToiDa  trần bitrate hình (bit/giây), mặc định 900000 — chỗ gọi cần
+  //               hình nét hơn (album 720p) truyền số lớn hơn; bỏ trống giữ y cũ
   function nenVideo(file, tuyChon = {}) {
     const tranByte = Number(tuyChon.tranByte) > 0 ? Number(tuyChon.tranByte) : 8 * 1024 * 1024;
     const canhToiDa = Number(tuyChon.canhToiDa) > 0 ? Number(tuyChon.canhToiDa) : 480;
     const toiDaGiay = Number(tuyChon.toiDaGiay) > 0 ? Number(tuyChon.toiDaGiay) : 390;
     const khung = Number(tuyChon.khung) > 0 ? Number(tuyChon.khung) : 15;
+    const bitToiDa = Number(tuyChon.bitToiDa) > 0 ? Number(tuyChon.bitToiDa) : 900000;
     const tien = typeof tuyChon.tien === 'function' ? tuyChon.tien : () => {};
     const huy = typeof tuyChon.huy === 'function' ? tuyChon.huy : () => false;
 
@@ -483,7 +486,7 @@ window.UI = (() => {
         // ở phút thứ tư nghĩa là cô chờ xong bốn phút rồi mới nhận câu từ chối.
         // Thà mờ hơn một chút mà chắc chắn gửi được.
         const bitTieng = 24000;
-        const bitHinh = Math.max(120000, Math.min(900000,
+        const bitHinh = Math.max(120000, Math.min(bitToiDa,
           Math.floor((tranByte * 8 * 0.8) / tongGiay) - bitTieng));
 
         // Tiếng của bé là nửa giá trị của một đoạn phim ở trường mầm non, nên
