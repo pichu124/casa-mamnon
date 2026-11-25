@@ -251,6 +251,7 @@ Object.assign(App.views.admin, {
     d.querySelector('.lhkc-ten').value = x.ten || '';
     d.querySelector('.lhkc-qh').value = x.quanHe || '';
     d.querySelector('.lhkc-dt').value = x.sdt || '';
+    d.dataset.ghiChu = x.ghiChu || '';
   },
 
   // ---- Hồ sơ bé còn thiếu giấy tờ người lớn (Đ161) ----
@@ -924,7 +925,7 @@ Vẫn nhận bé này?`)) {
       <div class="field"><label>Liên hệ khẩn cấp (ngoài bố mẹ)</label>
         <div id="ad-hs-lhkc">
           ${(s.lienHeKhanCap && s.lienHeKhanCap.length ? s.lienHeKhanCap : [{}]).map((x, i) => `
-            <div class="lhkc-dong" style="display:flex;gap:6px;margin-bottom:6px">
+            <div class="lhkc-dong" data-ghi-chu="${UI.esc(x.ghiChu || '')}" style="display:flex;gap:6px;margin-bottom:6px">
               <input class="lhkc-ten" value="${UI.esc(x.hoTen || '')}" placeholder="Họ tên" style="flex:2">
               <input class="lhkc-qh" value="${UI.esc(x.quanHe || '')}" placeholder="Quan hệ" style="flex:1">
               <input class="lhkc-dt" value="${UI.esc(x.dienThoai || '')}" placeholder="Điện thoại" style="flex:1.4">
@@ -1018,10 +1019,14 @@ Vẫn nhận bé này?`)) {
           // giữ nguyên giá trị đã có khi gói không mang trường này.
           soDinhDanh: document.getElementById('ad-hs-ddcn').value.trim(),
           tienSuBenh: document.getElementById('ad-hs-tsb').value.trim(),
+          // Ghi chú của từng người (vd "chỉ đón khi bố mẹ báo trước") không có
+          // ô sửa trên phiếu nhưng phải đi theo dòng: datLienHeKhanCap ghi đè cả
+          // danh sách, gửi thiếu là xoá trắng ghi chú mỗi lần lưu phiếu.
           lienHeKhanCap: [...document.querySelectorAll('#ad-hs-lhkc .lhkc-dong')].map(d => ({
             hoTen: d.querySelector('.lhkc-ten').value.trim(),
             quanHe: d.querySelector('.lhkc-qh').value.trim(),
             dienThoai: d.querySelector('.lhkc-dt').value.trim(),
+            ghiChu: d.dataset.ghiChu || '',
           })),
           classId: document.getElementById('ad-hs-lop').value || null,
         });

@@ -165,6 +165,8 @@ try {
     await page.waitForTimeout(1500);
     const sau = lienHe('s3').map(x => x.hoTen);
     check('lưu phiếu xong hồ sơ vẫn đủ hai người', JSON.stringify(sau) === JSON.stringify(['Bà Trần Thị Hoa', 'Chú Phạm Văn Long']), sau);
+    const gcHoa = doc('SELECT ghiChu FROM student_emergency_contacts WHERE studentId = ? AND hoTen = ?', 's3', 'Bà Trần Thị Hoa');
+    check('lưu phiếu xong ghi chú của người đã có KHÔNG bị xoá trắng', gcHoa.length === 1 && gcHoa[0].ghiChu === 'Đón được bé buổi chiều', gcHoa);
   }
 
   check('không có lỗi JavaScript trên trang', loiJs.length === 0, loiJs);
