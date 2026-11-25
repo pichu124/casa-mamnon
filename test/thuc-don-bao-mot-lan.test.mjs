@@ -35,7 +35,7 @@ const mkQT = taoQuanTri(DIR, 'Ban Giám Hiệu', 'tdb_qt');
 const chay = (ma, ...thamSo) => execFileSync(process.execPath, ['-e', ma, ...thamSo],
   { cwd: GOC, encoding: 'utf8', env: { ...process.env, DATA_DIR: DIR, HEN_GIO_PHUT: '0' } });
 
-// Mỗi cơ sở một thực đơn mẫu, lịch phủ tuần +1 → +3: tuần nào cũng "lấy từ mẫu".
+// Mỗi cơ sở một thực đơn mẫu, lịch phủ tuần +1 → +4: tuần nào cũng "lấy từ mẫu".
 chay(`
   const mau = require('./lib/thuc-don-mau');
   const ngay = Object.fromEntries([0, 1, 2, 3, 4].map(i => [String(i), [{ type: 'lunch', label: 'Bữa trưa', time: '11:20', items: ['Mẫu ' + i] }]]));
@@ -44,7 +44,7 @@ chay(`
     const kq = mau.themLich(cs, { tuNgay: process.argv[1], denNgay: process.argv[2], thuTu: [m.id] });
     if (!kq.lich) throw new Error(JSON.stringify(kq));
   }
-`, tuan(1), thuSauCua(3));
+`, tuan(1), thuSauCua(4));
 
 const CSDL = path.join(DIR, 'school.db');
 const doc = (sql, ...p) => { const c = new Database(CSDL, { readonly: true }); try { return c.prepare(sql).all(...p); } finally { c.close(); } };
@@ -115,6 +115,21 @@ try {
     check('đối chứng — lưu được', r.status === 200 && r.data.daLuu === 1, r.data);
     check('ghi dấu cho dùng chung và cả hai cơ sở', ['', 'cs1', 'cs2'].every(cs => daDanhDau(cs, tuan(3))));
     check('thứ Sáu: không báo thêm cơ sở nào', baoTuanSau(thuSauCua(2)).length === 0);
+  }
+
+  // =========================================================================
+  console.log('\n[4] Thứ Sáu gửi hỏng → KHÔNG ghi dấu, lượt sau vẫn báo');
+  {
+    // Chặn mọi tin mới ở tầng dữ liệu: guiChoNhom nuốt lỗi và trả danh sách rỗng.
+    ghi("CREATE TRIGGER chan_tin_thu BEFORE INSERT ON notifications BEGIN SELECT RAISE(ABORT, 'thử gửi hỏng'); END");
+    const hong = baoTuanSau(thuSauCua(3));
+    check('gửi hỏng: không báo là đã báo cơ sở nào', hong.length === 0, hong);
+    check('gửi hỏng: KHÔNG ghi dấu "đã báo" cho tuần +4', !daDanhDau('cs1', tuan(4)) && !daDanhDau('cs2', tuan(4)));
+    ghi('DROP TRIGGER chan_tin_thu');
+    const lai = baoTuanSau(thuSauCua(3));
+    check('lượt sau (gửi được): báo cả hai cơ sở', lai.includes('cs1') && lai.includes('cs2'), lai);
+    check('…gia đình nhận đúng một tin, có dấu đã báo',
+      soTin(tuan(4), 'c1') === 1 && soTin(tuan(4), 'c3') === 1 && daDanhDau('cs1', tuan(4)), [soTin(tuan(4), 'c1'), soTin(tuan(4), 'c3')]);
   }
 } catch (err) {
   check(`bài chạy hết không lỗi: ${err.message}`, false, err.stack);
