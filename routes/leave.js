@@ -13,6 +13,8 @@ const nghiHoc = require('../lib/nghi-hoc');
 const ngayVN = require('../lib/ngay');
 const modules = require('../lib/modules');
 const henGio = require('../lib/hen-gio');
+const tbnv = require('../lib/thong-bao-nv');
+const tbb = require('../lib/thong-bao-be');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_LY_DO = 1000;
@@ -371,6 +373,44 @@ function anGhiChuNoiBo(l, user) {
   };
 }
 
+// CHUÔNG CHO NHÀ TRƯỜNG VÀ GIA ĐÌNH (Đ260c).
+//
+// Nhà trường 18/11: đơn xin nghỉ chỉ hiện ở màn Xin phép, cô và văn phòng
+// không được báo. Dòng chuông chỉ ghi NGÀY: lý do nghỉ thường là chuyện sức
+// khoẻ của bé, mà dòng này hiện cả trên màn khoá điện thoại.
+const khoangNgayDon = (l) => (l.fromDate === l.toDate
+  ? `Ngày ${chuNgay(l.fromDate)}`
+  : `Từ ${chuNgay(l.fromDate)} đến ${chuNgay(l.toDate)} (${soNgayTrongDon(l.fromDate, l.toDate)} ngày)`);
+
+function baoDonMoi(l, nguoiGui) {
+  const be = db.findStudent(l.studentId);
+  tbnv.gui({
+    toi: { coCuaBe: l.studentId, vanPhongCuaBe: l.studentId },
+    studentId: l.studentId, loai: 'xin-nghi',
+    tieuDe: `Gia đình xin nghỉ cho bé ${be ? be.name : ''}`.trim(),
+    noiDung: khoangNgayDon(l), hash: '#/leave', nguoiTao: nguoiGui.id,
+  });
+}
+
+// Văn phòng duyệt xong: gia đình được báo kết quả (kèm lời nhắn của văn phòng,
+// thứ gia đình vốn đọc được), cô của nhóm được một dòng ngắn để biết bé nghỉ.
+// KHÔNG chép ghi chú hoàn tiền hay ghi chú theo ngày — đó là ghi chú nội bộ.
+function baoKetQua(l, nguoiDuyet) {
+  const be = db.findStudent(l.studentId);
+  const ten = be ? be.name : '';
+  const duyet = l.status === 'approved';
+  tbb.gui({
+    studentId: l.studentId, loai: 'xin-nghi', nguoiTao: nguoiDuyet.id, hash: '#/leave',
+    tieuDe: `Nhà trường ${duyet ? 'đã duyệt' : 'không duyệt'} đơn xin nghỉ của bé ${ten}`.trim(),
+    noiDung: l.reviewNote || khoangNgayDon(l),
+  });
+  tbnv.gui({
+    toi: { coCuaBe: l.studentId }, studentId: l.studentId, loai: 'xin-nghi-ket-qua',
+    tieuDe: `Văn phòng ${duyet ? 'đã duyệt' : 'không duyệt'} đơn xin nghỉ của bé ${ten}`.trim(),
+    noiDung: khoangNgayDon(l), hash: '#/leave', nguoiTao: nguoiDuyet.id, tru: nguoiDuyet.id,
+  });
+}
+
 module.exports = (app) => {
   // ---- LỊCH NGHỈ CỦA TRƯỜNG ----
   //
@@ -569,6 +609,7 @@ module.exports = (app) => {
       reviewNote: '',
     };
     db.insert('leave_requests', rec);
+    baoDonMoi(rec, req.user);
     res.status(201).json(anGhiChuNoiBo(decorate(rec), req.user));
   });
 
@@ -667,6 +708,7 @@ module.exports = (app) => {
       soNgay: hoan ? hoan.soNgay : null,
       theoNgay: !!dongNgay,
     });
+    baoKetQua(rec, req.user);
     res.json(decorate(rec));
   });
 

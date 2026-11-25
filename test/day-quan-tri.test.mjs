@@ -101,8 +101,12 @@ try {
         && qt.loaiTin.every(t => /chờ duyệt|^khoản thu sắp tới hạn nộp$|^ưu đãi học phí sắp hết hạn$/.test(t)), qt);
 
     const gv = (await req('GET', '/api/push/trang-thai', { cookie: GV })).data;
-    check('CÔ: chưa có loại tin nào nên batDuoc = false (Đ145 giữ nguyên)',
-      gv.batDuoc === false && gv.loaiTin.length === 0, gv);
+    // Đ260c (chủ dự án duyệt, QL2): cô có chuông riêng và nhận đẩy cho việc
+    // gia đình gửi tới cô. Phép cũ "cô chưa có loại tin nào" hết đúng; giữ
+    // phần còn đúng — cô không được hứa việc chờ duyệt hay khoản thu.
+    check('CÔ: được hứa đúng việc gia đình gửi tới cô (Đ260c), không việc chờ duyệt, không khoản thu',
+      gv.batDuoc === true && gv.loaiTin.includes('gia đình gửi đơn xin nghỉ cho bé')
+        && !gv.loaiTin.some(t => /chờ duyệt|khoản thu/.test(t)), gv);
   }
 
   // =========================================================================

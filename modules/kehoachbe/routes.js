@@ -55,6 +55,7 @@ const { requireRole } = require('../../lib/auth');
 const ngay = require('../../lib/ngay');
 const huyHieu = require('../../lib/huy-hieu');
 const baoNT = require('../../lib/bao-nha-truong');
+const tbnv = require('../../lib/thong-bao-nv');
 
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -486,17 +487,19 @@ module.exports = (app, { db, modules }) => {
 
   // Đề xuất gần nhất của một kế hoạch (đang chờ thì ưu tiên).
   // Báo người của nhà trường (Đ154). Bọc một chỗ để phân hệ đang TẮT thì không
-  // gửi gì, và một lỗi ở đường đẩy không làm hỏng lượt gửi của cô.
+  // gửi gì, và một lỗi ở đường đẩy không làm hỏng lượt gửi của cô. Từ Đ260c
+  // báo qua chuông của quản lý (lib/thong-bao-nv.js) — vẫn đúng những người
+  // `baoNT.quanLyCuaBe` chọn, vẫn đẩy về điện thoại như trước.
   function baoNhaTruong(studentId, goi) {
     try {
       if (!modules.dangBat('kehoachbe')) return 0;
-      return baoNT.guiChoQuanLyCuaBe(studentId, goi);
+      return tbnv.gui({ ...goi, toi: { quanLyCuaBe: studentId }, studentId });
     } catch (_) { return 0; }
   }
   function baoNhaTruongTheoNhom(classId, goi) {
     try {
       if (!modules.dangBat('kehoachbe')) return 0;
-      return baoNT.guiChoQuanLyCuaNhom(classId, goi);
+      return tbnv.gui({ ...goi, toi: { quanLyCuaNhom: classId }, classId });
     } catch (_) { return 0; }
   }
 
@@ -845,11 +848,12 @@ module.exports = (app, { db, modules }) => {
 
   // Báo cô đã gửi duyệt: được duyệt, hay được gửi lại kèm lý do. Tin đẩy là
   // dấu hiệu NGAY; huy hiệu ở cuối tệp là dấu vết BỀN (đếm phần bị gửi lại).
+  // Từ Đ260c tin này vào cả chuông của cô (lib/thong-bao-nv.js), không chỉ đẩy.
   function baoCo(coId, goi) {
     try {
       if (!coId || !modules.dangBat('kehoachbe')) return;
-      require('../../lib/day').guiChoNguoi(coId, goi).catch(() => {});
-    } catch (_) { /* đẩy là việc phụ */ }
+      tbnv.gui({ ...goi, toi: { userIds: [coId] } });
+    } catch (_) { /* chuông và đẩy là việc phụ */ }
   }
 
   function luaCuaBai(baiHocId) {
@@ -1560,6 +1564,7 @@ module.exports = (app, { db, modules }) => {
     if (daGui > 0 && req.user.role !== 'admin') {
       const lop = db.findClass(classId);
       baoNhaTruongTheoNhom(classId, {
+        loai: 'ke-hoach-gui', nguoiTao: req.user.id,
         tieuDe: 'Có kế hoạch của bé chờ duyệt',
         noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${daGui} kế hoạch tháng ${thang}`
           + `${ct ? ` (${nhomCo.CHUONG_TRINH[ct]})` : ''}${lop ? ` của nhóm ${lop.name}` : ''}.`,
@@ -1688,9 +1693,10 @@ module.exports = (app, { db, modules }) => {
     }
     for (const [coId, ds] of theoCo) {
       baoCo(coId, quyet === 'tra-lai'
-        ? { tieuDe: 'Kế hoạch của bé được gửi lại để sửa',
+        ? { loai: 'ke-hoach-tra-lai', nguoiTao: req.user.id, tieuDe: 'Kế hoạch của bé được gửi lại để sửa',
           noiDung: `${ds.join(', ')} — lý do: ${yKien}`.slice(0, 300), hash: '#/kehoachbe' }
-        : { tieuDe: 'Kế hoạch của bé đã được duyệt', noiDung: ds.join(', ').slice(0, 300), hash: '#/kehoachbe' });
+        : { loai: 'ke-hoach-duyet', nguoiTao: req.user.id, tieuDe: 'Kế hoạch của bé đã được duyệt',
+          noiDung: ds.join(', ').slice(0, 300), hash: '#/kehoachbe' });
     }
     res.json({ ok: true, quyetDinh: quyet, so: sach.length, daBaoCo: theoCo.size });
   });
@@ -1986,6 +1992,7 @@ module.exports = (app, { db, modules }) => {
     if (req.user.role !== 'admin') {
       const be = db.findStudent(k.studentId);
       baoNhaTruong(k.studentId, {
+        loai: 'de-xuat', nguoiTao: req.user.id,
         tieuDe: 'Có đề xuất sửa kế hoạch chờ duyệt',
         noiDung: `${tenNguoi(req.user.id) || 'Cô'} xin sửa kế hoạch của ${be ? be.name : 'một bé'}: ${lyDo}`,
         hash: '#/kehoachbe',
@@ -2050,8 +2057,8 @@ module.exports = (app, { db, modules }) => {
     {
       const be = db.findStudent(k.studentId);
       baoCo(d.coDeXuat, quyet === 'da-duyet'
-        ? { tieuDe: 'Đề xuất sửa kế hoạch đã được đồng ý', noiDung: `Kế hoạch của ${be ? be.name : 'bé'} đã mở lại cho cô sửa.`, hash: '#/kehoachbe' }
-        : { tieuDe: 'Đề xuất sửa kế hoạch chưa được đồng ý', noiDung: `${be ? be.name : 'Bé'}: ${yKien}`.slice(0, 300), hash: '#/kehoachbe' });
+        ? { loai: 'de-xuat-quyet', studentId: k.studentId, nguoiTao: req.user.id, tieuDe: 'Đề xuất sửa kế hoạch đã được đồng ý', noiDung: `Kế hoạch của ${be ? be.name : 'bé'} đã mở lại cho cô sửa.`, hash: '#/kehoachbe' }
+        : { loai: 'de-xuat-quyet', studentId: k.studentId, nguoiTao: req.user.id, tieuDe: 'Đề xuất sửa kế hoạch chưa được đồng ý', noiDung: `${be ? be.name : 'Bé'}: ${yKien}`.slice(0, 300), hash: '#/kehoachbe' });
     }
     db.audit(req.user.id, 'kehoachbe-duyet-de-xuat', k.studentId, { id: d.id, keId: k.id, quyetDinh: quyet });
     res.json({ ok: true, quyetDinh: quyet, deXuat: deXuatCuaKe(k.id), ke: keCuaBe(k.studentId, k.thang) });

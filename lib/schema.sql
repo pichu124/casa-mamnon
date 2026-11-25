@@ -818,6 +818,39 @@ CREATE TABLE IF NOT EXISTS thongbao_be_nguon (
   recordId   TEXT NOT NULL
 );
 
+-- ===== CHUÔNG CỦA CÔ, VĂN PHÒNG VÀ QUẢN LÝ (Đ260c) =====
+--
+-- Nhà trường 18/11: gia đình xin nghỉ cho con mà cô và văn phòng không được
+-- báo ở chuông, chỉ thấy khi tự mở màn Xin phép. `thongbao_be` là của GIA ĐÌNH
+-- (đọc theo `student_parents`), `notifications` thì tới tay phụ huynh — không
+-- bảng nào nói riêng được với người lớn trong trường. Đọc/ghi ở
+-- lib/thong-bao-nv.js.
+--
+-- MỘT DÒNG CHO MỘT NGƯỜI NHẬN, chụp lại lúc ghi. Lúc đọc vẫn lọc lại bằng
+-- canAccessStudent/canAccessClass, nên cô đã rời nhóm thôi thấy dòng cũ.
+-- Chỉ ghi SỰ KIỆN hành chính: không chép lý do nghỉ, tên thuốc, chữ tin nhắn.
+-- `man` là đoạn đầu của `hash` ('leave', 'messages'…) để nối với ô trên trang
+-- chủ; `gop` khác rỗng thì việc tiếp theo cùng khoá cộng vào dòng chưa đọc.
+CREATE TABLE IF NOT EXISTS thongbao_nv (
+  id        TEXT PRIMARY KEY,
+  userId    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  studentId TEXT REFERENCES students(id) ON DELETE CASCADE,
+  classId   TEXT,
+  loai      TEXT NOT NULL,
+  tieuDe    TEXT NOT NULL,
+  noiDung   TEXT NOT NULL DEFAULT '',
+  hash      TEXT NOT NULL DEFAULT '',
+  man       TEXT NOT NULL DEFAULT '',
+  gop       TEXT NOT NULL DEFAULT '',
+  soLan     INTEGER NOT NULL DEFAULT 1,
+  xemLaDoc  INTEGER NOT NULL DEFAULT 1,
+  nguoiTao  TEXT,
+  taoLuc    TEXT NOT NULL,
+  docLuc    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_thongbao_nv_user ON thongbao_nv(userId, taoLuc DESC);
+CREATE INDEX IF NOT EXISTS idx_thongbao_nv_gop ON thongbao_nv(userId, gop);
+
 -- Đăng ký nhận thông báo ĐẨY (Web Push) của từng điện thoại. Một người có thể
 -- có vài máy; mỗi máy một dòng, khoá theo `endpoint` do trình duyệt cấp.
 CREATE TABLE IF NOT EXISTS push_dang_ky (

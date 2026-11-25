@@ -2,6 +2,7 @@
 const db = require('../lib/db');
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
+const tbnv = require('../lib/thong-bao-nv');
 const nl = require('../lib/nhom-lop');
 // Hộp thư văn phòng theo từng tài khoản phụ huynh × cơ sở (Đ239m, góp ý 16/10
 // mục PH1). Luật ai đọc được nằm trọn trong tệp ấy.
@@ -276,7 +277,10 @@ function loiChuaCoNguoiNhan(loai) {
 // Chỉ thêm người mà chốt quyền đang có cho vào — `vaoDuocKenh` / `kvp.vaoDuoc`
 // — nên không cô nào của nhóm khác, không văn phòng cơ sở khác được ghi. Và
 // hàng thành viên vẫn KHÔNG cấp quyền: `findConv` tính lại mỗi lần mở.
-function ghiNguoiNhan(cv) {
+//
+// Danh sách người nhận tách ra `nguoiNhanTin` (Đ260c) để chuông của cô dùng
+// đúng danh sách ấy. Phòng chung nhiều gia đình và cuộc riêng cũ: rỗng, như cũ.
+function nguoiNhanTin(cv) {
   let nhan = [];
   const vanPhong = () => db.all('users', "SELECT id FROM users WHERE role = 'admin' AND active = 1")
     .map(r => db.findUser(r.id)).filter(Boolean);
@@ -285,7 +289,7 @@ function ghiNguoiNhan(cv) {
     nhan = vanPhong().filter(u => kvp.vanPhongVaoDuoc(u, row));
   } else if (cv.type === 'kenh') {
     const k = kenhCua(cv.id);
-    if (!k) return;
+    if (!k) return [];
     const be = db.findStudent(k.studentId);
     const giaDinh = ((be && be.parentIds) || []).map(id => db.findUser(id))
       .filter(u => u && vaoDuocKenh(u, k));
@@ -293,6 +297,11 @@ function ghiNguoiNhan(cv) {
       ? coNhanKenh(k.loai, k.classId)
       : vanPhong().filter(u => vaoDuocKenh(u, k)));
   }
+  return nhan;
+}
+
+function ghiNguoiNhan(cv) {
+  const nhan = nguoiNhanTin(cv);
   if (!nhan.length) return;
   const daCo = new Set(memberIds(cv.id));
   for (const u of nhan) {
@@ -889,6 +898,48 @@ function baoGiaDinh(cv, nguoiGui, msg) {
       });
     } catch (_) { /* đẩy là việc phụ — tin đã lưu, gia đình vẫn thấy số đỏ */ }
   }
+}
+
+// GIA ĐÌNH NHẮN THÌ CÔ / VĂN PHÒNG CÓ MỘT DÒNG CHUÔNG (Đ260c).
+//
+// Một dòng cho cả cuộc (khoá gộp `tin:<mã cuộc>`), cộng dồn số lần tới khi cô
+// mở đúng cuộc ấy. KHÔNG chép chữ tin nhắn: chỉ nói ai vừa nhắn. Phòng chung
+// nhiều gia đình KHÔNG ghi chuông (người điều phối 25/11): một buổi sáng sôi
+// nổi là cô bị ngập.
+function baoNhaTruong(cv, nguoiGui) {
+  try {
+    if (nguoiGui.role !== 'parent' || cv.type === 'group') return;
+    let nhan = [];
+    let be = null;
+    let tieuDe = '';
+    if (cv.type === 'direct') {
+      nhan = memberIds(cv.id).filter(id => id !== nguoiGui.id).map(id => db.findUser(id)).filter(Boolean);
+    } else {
+      nhan = nguoiNhanTin(cv);
+    }
+    nhan = nhan.filter(u => u.role === 'teacher' || tbnv.laVanPhong(u));
+    if (!nhan.length) return;
+    if (cv.type === 'kenh') {
+      const k = kenhCua(cv.id);
+      be = k ? db.findStudent(k.studentId) : null;
+    }
+    if (be) {
+      tieuDe = `Gia đình bé ${be.name} vừa nhắn tin`;
+    } else if (cv.type === kvp.LOAI) {
+      const row = kvp.cuaHoiThoai(cv.id);
+      const ten = db.studentsOf(nguoiGui)
+        .filter(s => s.classId && (!row || db.campusOfClass(s.classId) === row.campusId))
+        .map(s => s.name);
+      tieuDe = ten.length ? `Gia đình bé ${ten.join(', ')} vừa nhắn văn phòng` : 'Một gia đình vừa nhắn văn phòng';
+    } else {
+      tieuDe = 'Một gia đình vừa nhắn tin';
+    }
+    tbnv.gui({
+      toi: { userIds: nhan.map(u => u.id) }, studentId: be ? be.id : null, loai: 'tin-nhan',
+      tieuDe, tieuDeGop: (n) => `${tieuDe} (${n} tin)`, hash: `#/messages/${cv.id}`,
+      gop: `tin:${cv.id}`, xemLaDoc: false, nguoiTao: nguoiGui.id, tru: nguoiGui.id,
+    });
+  } catch (_) { /* chuông là việc phụ — tin đã lưu */ }
 }
 
 module.exports = (app) => {
@@ -1665,7 +1716,10 @@ module.exports = (app) => {
     const { conCu, messages } = cuaSoTin(cv.id, truoc);
     // Chỉ đánh dấu đã đọc khi người dùng đang ở cửa sổ MỚI NHẤT. Cuộn ngược lên
     // đọc tin tháng trước mà bị coi là đã đọc hết là mất dấu tin chưa xem.
-    if (!truoc) markRead(cv.id, req.user.id);
+    if (!truoc) {
+      markRead(cv.id, req.user.id);
+      tbnv.docTheoGop(req.user.id, `tin:${cv.id}`);
+    }
     res.json({
       id: cv.id,
       type: cv.type,
@@ -1705,7 +1759,10 @@ module.exports = (app) => {
       `SELECT * FROM messages WHERE conversationId = ? AND createdAt > ?
        ORDER BY createdAt, rowid LIMIT ?`,
       [cv.id, after, CUA_SO_TIN]);
-    if (fresh.length) markRead(cv.id, req.user.id);
+    if (fresh.length) {
+      markRead(cv.id, req.user.id);
+      tbnv.docTheoGop(req.user.id, `tin:${cv.id}`);
+    }
     res.json({ messages: fresh.map(m => messageDto(m, req.user)) });
   });
 
@@ -1737,6 +1794,7 @@ module.exports = (app) => {
 
     const msg = ghiTin(cv, req.user, text);
     baoGiaDinh(cv, req.user, msg);
+    baoNhaTruong(cv, req.user);
     res.json(messageDto(msg, req.user));
   });
 };
