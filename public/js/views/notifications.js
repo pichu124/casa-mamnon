@@ -1,6 +1,7 @@
 // Phân hệ Thông báo.
-// Danh sách thông báo (ghim trước, mới nhất trước), đánh dấu đã đọc,
-// giáo viên tạo thông báo gửi nhóm mình hoặc toàn trường.
+// Danh sách thông báo (ghim trước, mới nhất trước), đánh dấu đã đọc. Cô gửi
+// cho cả nhóm hoặc vài gia đình tích chọn; văn phòng gửi thêm được toàn trường
+// và ghim / bỏ ghim (Đ260b).
 App.views.notifications = {
   CATS: {
     'Nhà trường': { emoji: '🏫', bg: '#e6efff' },
@@ -126,14 +127,20 @@ App.views.notifications = {
 
   // Đ124: thông báo phải nói rõ gửi cho ai — "Toàn trường" hay "Nhóm Chồi 2 ·
   // Cơ sở 1". Máy chủ đời cũ không trả hai ô này thì chuỗi rỗng, dòng như cũ.
+  // Đ260b: tin gửi riêng vài gia đình nói thêm "· 2 gia đình" (chỉ cô và văn
+  // phòng nhận ô `soBeNhan`).
   chuPhamVi(n) {
     if (n.toanTruong) return 'Toàn trường';
-    if (n.tenNhom) return `Nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`;
+    if (n.tenNhom) return `Nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}${n.soBeNhan ? ` · ${n.soBeNhan} gia đình` : ''}`;
     return '';
   },
   theoPhamVi(n) {
     if (n.toanTruong) return UI.badge('Gửi toàn trường', 'purple');
-    if (n.tenNhom) return UI.badge(`Gửi nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`, 'blue');
+    if (n.tenNhom) {
+      return UI.badge(n.soBeNhan
+        ? `Gửi riêng ${n.soBeNhan} gia đình nhóm ${n.tenNhom}`
+        : `Gửi nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`, 'blue');
+    }
     return '';
   },
 
@@ -209,6 +216,9 @@ App.views.notifications = {
         n.daSua ? ` · đã chỉnh sửa lúc ${UI.esc(UI.fmtTime(n.suaLuc))} ${UI.esc(UI.fmtDateShort(n.suaLuc))}` : ''}</div>
       ${this.coLienKet(n) ? `
         <button class="btn primary block mt-14" onclick="App.views.notifications.moLienKet('${UI.esc(n.id)}')">${UI.esc(this.chuLienKet(n))}</button>` : ''}
+      ${App.state.user.role === 'admin' ? `
+        <button class="btn outline block mt-14" onclick="App.views.notifications.datGhim('${UI.esc(n.id)}', ${n.pinned ? 'false' : 'true'})">${
+          n.pinned ? 'Bỏ ghim' : '📌 Ghim lên đầu'}</button>` : ''}
       ${n.coTheSua ? `
         <div class="flex mt-14" style="gap:8px">
           <button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>
@@ -226,7 +236,26 @@ App.views.notifications = {
   },
 
   coLienKet(n) { return !!(n && n.lienKet && /^#\//.test(n.lienKet)); },
-  chuLienKet(n) { return /^#\/surveys\//.test(n.lienKet) ? 'Mở khảo sát' : 'Mở'; },
+  // Nút nói đúng nơi sẽ mở ra (Đ260b).
+  chuLienKet(n) {
+    const lk = String((n && n.lienKet) || '');
+    if (/^#\/surveys(\/|$)/.test(lk)) return 'Mở khảo sát';
+    if (/^#\/albums(\/|$)/.test(lk)) return 'Xem album';
+    if (/^#\/menu(\/|$)/.test(lk)) return 'Xem thực đơn';
+    if (/^#\/timetable\/lich(\/|$)/.test(lk)) return 'Xem lịch sinh hoạt';
+    return 'Xem chi tiết';
+  },
+
+  // GHIM / BỎ GHIM (Đ260b) — chỉ văn phòng, ban giám hiệu; máy chủ tự chặn vai
+  // khác và tin của cơ sở khác.
+  async datGhim(id, ghim) {
+    try {
+      await API.put(`/api/notifications/${encodeURIComponent(id)}`, { pinned: !!ghim });
+      UI.toast(ghim ? 'Đã ghim thông báo lên đầu' : 'Đã bỏ ghim thông báo', 'success');
+      UI.closeModal();
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
 
   // Đánh dấu đã đọc rồi mở màn của liên kết. Màn đích tự hỏi máy chủ, nên
   // liên kết không mở thêm quyền nào.
@@ -286,6 +315,7 @@ App.views.notifications = {
     const nhom = App.nhomCuaCo().filter(c => !coSo || c.campusId === coSo);
     const laVanPhong = App.state.user.role === 'admin';
     const canChonNhom = laVanPhong || nhom.length > 1;
+    this._dsBe = null;
     UI.modal(`
       <div class="field">
         <label>Tiêu đề</label>
@@ -308,27 +338,91 @@ App.views.notifications = {
       <div class="field">
         <label>Phạm vi gửi</label>
         <div class="seg" id="nt-aud" style="margin-bottom:0">
-          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Nhóm mình'}</button>
-          <button data-aud="all" onclick="App.views.notifications.setAud('all')">Toàn trường</button>
+          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Cả nhóm'}</button>
+          <button data-aud="chon" onclick="App.views.notifications.setAud('chon')">Chọn gia đình</button>
+          ${laVanPhong ? `<button data-aud="all" onclick="App.views.notifications.setAud('all')">Toàn trường</button>` : ''}
         </div>
       </div>
       ${canChonNhom ? `
       <div class="field" id="nt-lop-o">
         <label>Gửi cho nhóm</label>
-        <select id="nt-lop">
+        <select id="nt-lop" onchange="App.views.notifications.doiNhomChon('nt')">
           ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(this.nhanNhom(c))}</option>`).join('')}
         </select>
+      </div>` : ''}
+      <div class="field" id="nt-gd-o" style="display:none">
+        <label>Gia đình nhận</label>
+        <div id="nt-gd"></div>
+      </div>
+      ${laVanPhong ? `
+      <div class="field">
+        <label class="flex" style="gap:8px;font-weight:600"><input type="checkbox" id="nt-ghim"> 📌 Ghim lên đầu danh sách</label>
       </div>` : ''}
       <button class="btn primary block" onclick="App.views.notifications.submitCreate()">${UI.icon('send', 18)} Gửi thông báo</button>
     `, 'Tạo thông báo');
   },
 
+  // PHẠM VI GỬI (Đ260b). Toàn trường là việc của văn phòng, ban giám hiệu; cô
+  // gửi cho cả nhóm, hoặc tích chọn vài gia đình. Máy chủ chặn cô gửi toàn
+  // trường bằng 403 — nút ấy không có trên màn của cô để không ai bấm vào một
+  // lỗi. Ba hàm dưới dùng chung với form Tạo khảo sát (public/js/views/
+  // surveys.js); `tienTo` là 'nt' hoặc 'sv'.
+  //
+  // Đổi phạm vi: ô nhóm khi gửi một nhóm, danh sách tích khi chọn gia đình.
+  doiPhamVi(tienTo, aud) {
+    document.querySelectorAll(`#${tienTo}-aud button`).forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
+    const lop = document.getElementById(`${tienTo}-lop-o`);
+    if (lop) lop.style.display = aud === 'all' ? 'none' : '';
+    const gd = document.getElementById(`${tienTo}-gd-o`);
+    if (gd) gd.style.display = aud === 'chon' ? '' : 'none';
+    if (aud === 'chon') this.veChonGiaDinh(tienTo);
+  },
+
+  doiNhomChon(tienTo) {
+    const gd = document.getElementById(`${tienTo}-gd-o`);
+    if (gd && gd.style.display !== 'none') this.veChonGiaDinh(tienTo);
+  },
+
+  // Danh sách bé của nhóm đang chọn, mỗi bé một ô tích "Gia đình bé …".
+  // `/api/students` đã cắt theo phạm vi người hỏi (cô: nhóm mình; văn phòng:
+  // cơ sở mình). Cô một nhóm không có ô chọn nhóm: mọi bé đều của nhóm ấy.
+  _dsBe: null,
+  async veChonGiaDinh(tienTo) {
+    const o = document.getElementById(`${tienTo}-gd`);
+    if (!o) return;
+    const lop = document.getElementById(`${tienTo}-lop`);
+    const nhom = lop ? lop.value : '';
+    o.innerHTML = '<div class="muted small">Đang tải danh sách bé…</div>';
+    let ds = [];
+    try {
+      if (!this._dsBe) this._dsBe = await API.get('/api/students');
+      ds = this._dsBe.filter(b => !nhom || b.classId === nhom);
+    } catch (err) {
+      o.innerHTML = `<div class="muted small">${UI.esc(err.message)}</div>`;
+      return;
+    }
+    o.innerHTML = ds.length ? `
+      <label class="flex" style="gap:8px;padding:6px 0;font-weight:600">
+        <input type="checkbox" id="${tienTo}-gd-tat-ca"> Chọn tất cả
+      </label>
+      ${ds.map(b => `
+      <label class="flex" style="gap:8px;padding:6px 0">
+        <input type="checkbox" class="${tienTo}-gd-be" value="${UI.esc(b.id)}"> Gia đình bé ${UI.esc(b.name)}
+      </label>`).join('')}`
+      : '<div class="muted small">Nhóm này chưa có bé nào.</div>';
+    const tatCa = document.getElementById(`${tienTo}-gd-tat-ca`);
+    const cacO = [...o.querySelectorAll(`.${tienTo}-gd-be`)];
+    if (tatCa) tatCa.onchange = () => cacO.forEach(c => { c.checked = tatCa.checked; });
+    cacO.forEach(c => { c.onchange = () => { if (tatCa) tatCa.checked = cacO.every(x => x.checked); }; });
+  },
+
+  beDaChon(tienTo) {
+    return [...document.querySelectorAll(`.${tienTo}-gd-be:checked`)].map(c => c.value);
+  },
+
   setAud(aud) {
     this._aud = aud;
-    document.querySelectorAll('#nt-aud button').forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
-    // Ô chọn nhóm chỉ có nghĩa khi gửi cho một nhóm.
-    const o = document.getElementById('nt-lop-o');
-    if (o) o.style.display = aud === 'class' ? '' : 'none';
+    this.doiPhamVi('nt', aud);
   },
 
   async submitCreate() {
@@ -337,9 +431,15 @@ App.views.notifications = {
     const category = document.getElementById('nt-cat').value;
     if (!title) return UI.toast('Vui lòng nhập tiêu đề thông báo', 'error');
     if (!body) return UI.toast('Vui lòng nhập nội dung thông báo', 'error');
-    const goi = { title, body, category, audience: this._aud };
+    const goi = { title, body, category, audience: this._aud === 'all' ? 'all' : 'class' };
     const lop = document.getElementById('nt-lop');
-    if (this._aud === 'class' && lop) goi.classId = lop.value;
+    if (this._aud !== 'all' && lop) goi.classId = lop.value;
+    if (this._aud === 'chon') {
+      goi.nguoiNhan = this.beDaChon('nt');
+      if (!goi.nguoiNhan.length) return UI.toast('Vui lòng tích chọn ít nhất một gia đình', 'error');
+    }
+    const ghim = document.getElementById('nt-ghim');
+    if (ghim && ghim.checked) goi.pinned = true;
     try {
       await API.post('/api/notifications', goi);
       UI.toast('Đã gửi thông báo', 'success');
