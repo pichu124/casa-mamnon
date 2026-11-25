@@ -9,6 +9,7 @@ const st = require('../lib/sua-thu-hoi');
 // bản chép tay từng trôi lệch giữa tệp này và routes/notifications.js.
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
+const tbnv = require('../lib/thong-bao-nv');
 const kvp = require('../lib/kenh-van-phong');
 const { requireRole } = require('../lib/auth');
 const modules = require('../lib/modules');
@@ -21,7 +22,20 @@ function todayStr() {
 }
 
 function unreadNotifications(user) {
-  return unreadCuaTruong(user) + tbb.demChuaDoc(user);
+  return unreadCuaTruong(user) + tbb.demChuaDoc(user) + tbnv.demChuaDoc(user);
+}
+
+// SỐ TRÊN Ô TỪ CHUÔNG RIÊNG CỦA CÔ / VĂN PHÒNG (Đ260c). Lấy số LỚN HƠN chứ
+// không cộng: ô Xin phép đã đếm đơn chờ, ô Nhắn tin đã đếm tin chưa đọc — cộng
+// thêm là đếm một việc hai lần. Ô chưa có số (Khảo sát của cô) thì nhận số
+// của chuông. Phải gọi ở CẢ HAI lối ra của đường huy hiệu, sau mọi phép gán.
+function gopSoChuongRieng(badges, user) {
+  try {
+    for (const [key, n] of Object.entries(tbnv.demTheoO(user))) {
+      badges[key] = Math.max(Number(badges[key]) || 0, n);
+    }
+  } catch (_) { /* thiếu số còn hơn hỏng trang chủ */ }
+  return badges;
 }
 
 function unreadCuaTruong(user) {
@@ -383,7 +397,7 @@ module.exports = (app) => {
     // chính vẫn hiện đủ, chỉ thiếu con số của nó (Nguyên tắc số 1).
     try { Object.assign(badges, huyHieu.demTatCa(user)); } catch (_) { /* lưới cuối */ }
 
-    if (!ids.length) return res.json(badges);
+    if (!ids.length) return res.json(gopSoChuongRieng(badges, user));
 
     if (user.role === 'parent') {
       // Điểm danh: số lượt điểm danh hôm nay của các con
@@ -419,6 +433,6 @@ module.exports = (app) => {
       badges.diemdanh = phaiCham.length - marked;
     }
 
-    res.json(badges);
+    res.json(gopSoChuongRieng(badges, user));
   });
 };

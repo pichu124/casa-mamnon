@@ -18,6 +18,7 @@ const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Kh
 // bản chép tay từng trôi lệch giữa tệp này và routes/dashboard.js.
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
+const tbnv = require('../lib/thong-bao-nv');
 const audienceFilter = (user) => tb.audienceFilter(user);
 const canSee = tb.canSee;
 
@@ -128,8 +129,27 @@ module.exports = (app) => {
     res.json(tbb.danhSachCua(req.user, { soLuong: tbb.TRANG_DAU, bo: 0 }));
   });
 
+  // CHUÔNG RIÊNG CỦA CÔ, VĂN PHÒNG, QUẢN LÝ (Đ260c) — đường thứ ba, đứng cạnh
+  // `/rieng-be` chứ không nhét vào nó: khế ước của `/rieng-be` là "cô, văn
+  // phòng: mảng rỗng". Phụ huynh gọi đường này thì nhận mảng rỗng.
+  app.get('/api/notifications/rieng-nv', (req, res) => {
+    res.json(tbnv.danhSachCua(req.user));
+  });
+
+  // Mở một màn (Xin phép, Khảo sát…) là đã đọc những dòng chuông của màn ấy.
+  app.post('/api/notifications/rieng-nv/da-xem', (req, res) => {
+    res.json({ ok: true, marked: tbnv.docTheoMan(req.user, String((req.body || {}).man || '').slice(0, 40)) });
+  });
+
   // Đánh dấu đã đọc một thông báo.
   app.post('/api/notifications/:id/read', (req, res) => {
+    // Chuông riêng của cô / văn phòng (Đ260c) có mã 'tbn_…'. Dòng của người
+    // khác trả 404 như không có.
+    if (tbnv.laMa(req.params.id)) {
+      const r = tbnv.danhDaDoc(req.user, req.params.id);
+      if (!r.ok) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
+      return res.json({ ok: true });
+    }
     // Thông báo riêng về con (Đ137) có mã 'tbb…' — đánh dấu ở bảng riêng.
     if (tbb.laMaRiengBe(req.params.id)) {
       const r = tbb.danhDaDoc(req.user, req.params.id);
@@ -153,7 +173,7 @@ module.exports = (app) => {
       `INSERT OR IGNORE INTO notification_reads (notificationId, userId, readAt)
        SELECT id, ?, ? FROM notifications WHERE ${f.sql}`,
       [req.user.id, new Date().toISOString(), ...f.params]);
-    const rieng = tbb.docTatCa(req.user);
+    const rieng = tbb.docTatCa(req.user) + tbnv.docTatCa(req.user);
     res.json({ ok: true, marked: r.changes + rieng });
   });
 
