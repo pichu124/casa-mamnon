@@ -179,14 +179,14 @@ try {
     check('gia đình KHÔNG nhận cờ (không lộ nhóm có nhà đã rút)', (await canHoi(PH, 's1')) === undefined);
   }
 
-  console.log('\n[4b] Nhóm không ai rút: kể kèm ảnh không cần trả lời — coi như chỉ có bé chính');
+  console.log('\n[4b] Nhóm không ai rút: kể kèm ảnh không cần trả lời — bản chép CHƯA xác nhận, ảnh vẫn hiện');
   let qC2 = null;
   {
     const { q, cb } = await ghiVaKe(GV2, 's2');
     qC2 = q;
     check('kể được → 200', cb.status === 200, cb.data);
     const t = tepCua(q?.id);
-    check('bản chép ĐÃ XÁC NHẬN, trong ảnh chỉ có bé s2', t?.daXacNhanBe === 1 && beCuaTep(t.id).join() === 's2', [t, t && beCuaTep(t.id)]);
+    check('máy chủ KHÔNG tự ghi "đã xác nhận chỉ có bé s2" (không ai trả lời câu đó)', t?.daXacNhanBe === 0 && beCuaTep(t.id).length === 0, [t, t && beCuaTep(t.id)]);
     check('gia đình bé s2 thấy ảnh', (await muc(PH, q?.id, 's2'))?.tepKe?.length === 1);
     const co = (await muc(GV2, q?.id, 's2'))?.tepKe?.[0];
     check('cô thấy ảnh đang hiện với gia đình, không có lời nhắc ẩn', co?.hienVoiGiaDinh === true && !co.lyDo, co);
@@ -221,7 +221,8 @@ try {
     const t = tepCua(q?.id);
     check('trình duyệt cũ không trả lời → máy chủ KHÔNG coi là "chỉ có bé chính"', t?.daXacNhanBe === 0 && beCuaTep(t.id).length === 0, t);
     check('→ ảnh tạm ẩn với gia đình', (await muc(PH, q?.id, 's2'))?.tepKe?.length === 0);
-    check('ảnh đã kể trước đó (đã xác nhận chỉ có s2) vẫn hiện', (await muc(PH, qC2?.id, 's2'))?.tepKe?.length === 1);
+    check('ảnh kể lúc nhóm chưa ai rút (không ai xác nhận người trong ảnh) nay TẠM ẨN — có thể có mặt bé vừa rút',
+      (await muc(PH, qC2?.id, 's2'))?.tepKe?.length === 0);
     await req('PUT', '/api/admin/students/s7/dong-y', { cookie: VP, body: { chiaSeGiaDinh: true } });
     check('văn phòng bật lại → nhóm c2 thôi hỏi', (await canHoi(GV2, 's2')) === false);
   }
@@ -233,6 +234,24 @@ try {
     check('GET /api/dong-y → 200', g.status === 200 && g.data?.dongY?.chiaSeGiaDinh === true, g.data);
     const rut = await req('PUT', '/api/dong-y', { cookie: PH, body: { studentId: 's1', truyenThong: false } });
     check('PUT /api/dong-y (rút) vẫn chạy', rut.status === 200 && rut.data?.dongY?.truyenThong === false, rut.data);
+  }
+
+  console.log('\n[9] Trường cài mới (kho chưa có bé) — đánh dấu ngay, về sau không đè "Chưa trả lời"');
+  {
+    const { execFileSync } = await import('node:child_process');
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const moi = fs.mkdtempSync(path.join(os.tmpdir(), 'dong-y-moi-'));
+    try {
+      const kq = execFileSync(process.execPath, ['-e', `
+        const db = require('./lib/db');
+        const dy = require('./lib/dong-y-mac-dinh');
+        dy.dienMacDinhMotLan();
+        const dau = db.first('settings', "SELECT value FROM settings WHERE key = 'dong-y-mac-dinh'", []);
+        process.stdout.write(JSON.stringify({ daDanhDau: !!dau }));
+      `], { cwd: path.resolve(path.dirname(new URL(import.meta.url).pathname), '..'), env: { ...process.env, DATA_DIR: moi } }).toString();
+      check('kho trống: bước điền mặc định đánh dấu đã chạy ngay', JSON.parse(kq).daDanhDau === true, kq);
+    } finally { fs.rmSync(moi, { recursive: true, force: true }); }
   }
 } finally {
   sv?.dung();

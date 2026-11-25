@@ -1744,14 +1744,10 @@ module.exports = (app, { db, modules }) => {
     }
     const tepKeCu = db.first('hanhtrinh_ke_tep', 'SELECT * FROM hanhtrinh_ke_tep WHERE quanSatId = ?', [r.id]);
     // NHÓM KHÔNG AI RÚT ĐỒNG Ý CHIA SẺ ẢNH (Đ260i): hộp kể không hỏi trong ảnh
-    // có ai, nên coi như chỉ có bé chính — y như cô chọn "Chỉ có bé X". Máy chủ
-    // tự xét nhóm, không tin trình duyệt: nhóm có bé rút thì không trả lời vẫn
-    // là chưa xác nhận, ảnh tạm ẩn như cũ. Bản chép đã xác nhận thì giữ nguyên
-    // danh sách bé cô đã chọn.
-    if (b.kemTep === true && beTrongAnh === null && !(tepKeCu && tepKeCu.daXacNhanBe)
-      && !db.coBeTuChoiChiaSeTungHoc(beChinh.classId)) {
-      beTrongAnh = [r.studentId];
-    }
+    // có ai. Máy chủ KHÔNG được tự ghi "đã xác nhận chỉ có bé chính" — không ai
+    // trả lời câu đó. Để bản chép CHƯA xác nhận: luật lúc đọc (xetTepKe) cho
+    // ảnh hiện khi nhóm không ai rút, và tự ẩn ngay khi có nhà rút sau này, nên
+    // ảnh có mặt bé vừa rút không lọt sang nhà khác.
     const canChep = b.kemTep === true && !tepKeCu;
     if (canChep && !uploads.exists(r.anh)) {
       return res.status(400).json({ error: 'Quan sát này không có ảnh hay video để gửi kèm' });
