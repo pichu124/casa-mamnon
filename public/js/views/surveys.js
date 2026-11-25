@@ -50,6 +50,8 @@ App.views.surveys = {
     return 'Toàn trường';
   },
   theoPhamVi(s) {
+    // Đ260b: khảo sát gửi riêng vài gia đình — chỉ cô và văn phòng nhận `soBeNhan`.
+    if (s.tenNhom && s.soBeNhan) return UI.badge(`Gửi riêng ${s.soBeNhan} gia đình nhóm ${s.tenNhom}`, 'blue');
     return s.tenNhom ? UI.badge(this.chuPhamVi(s), 'blue') : UI.badge('Toàn trường', 'gray');
   },
   nhanNhom(c) {
@@ -195,6 +197,7 @@ App.views.surveys = {
     const nhom = App.nhomCuaCo().filter(c => !coSo || c.campusId === coSo);
     const laVanPhong = App.state.user.role === 'admin';
     const canChonNhom = laVanPhong || nhom.length > 1;
+    App.views.notifications._dsBe = null;
     UI.modal(`
       <div class="field"><label>Tiêu đề khảo sát</label>
         <input id="sv-title" placeholder="Ví dụ: Khảo sát ý kiến phụ huynh về..."></div>
@@ -205,17 +208,22 @@ App.views.surveys = {
       <div class="field">
         <label>Gửi tới phụ huynh</label>
         <div class="seg" id="sv-aud" style="margin-bottom:0">
-          <button class="active" data-aud="class" onclick="App.views.surveys.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Nhóm mình'}</button>
-          <button data-aud="all" onclick="App.views.surveys.setAud('all')">Toàn trường</button>
+          <button class="active" data-aud="class" onclick="App.views.surveys.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Cả nhóm'}</button>
+          <button data-aud="chon" onclick="App.views.surveys.setAud('chon')">Chọn gia đình</button>
+          ${laVanPhong ? `<button data-aud="all" onclick="App.views.surveys.setAud('all')">Toàn trường</button>` : ''}
         </div>
       </div>
       ${canChonNhom ? `
       <div class="field" id="sv-lop-o">
         <label>Gửi cho nhóm</label>
-        <select id="sv-lop">
+        <select id="sv-lop" onchange="App.views.notifications.doiNhomChon('sv')">
           ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(this.nhanNhom(c))}</option>`).join('')}
         </select>
       </div>` : ''}
+      <div class="field" id="sv-gd-o" style="display:none">
+        <label>Gia đình nhận</label>
+        <div id="sv-gd"></div>
+      </div>
       <div class="field"><label>Câu hỏi</label>
         <div id="sv-questions"></div>
         <button class="btn outline sm mt-8" onclick="App.views.surveys.addQuestion()">${UI.icon('plus', 15)} Thêm câu hỏi</button>
@@ -224,12 +232,11 @@ App.views.surveys = {
     this.addQuestion();
   },
 
+  // Cùng khuôn với form Tạo thông báo (Đ260b): cô chỉ có "Cả nhóm" và "Chọn
+  // gia đình"; văn phòng có thêm "Toàn trường".
   setAud(aud) {
     this._aud = aud;
-    document.querySelectorAll('#sv-aud button').forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
-    // Ô chọn nhóm chỉ có nghĩa khi gửi cho một nhóm.
-    const o = document.getElementById('sv-lop-o');
-    if (o) o.style.display = aud === 'class' ? '' : 'none';
+    App.views.notifications.doiPhamVi('sv', aud);
   },
 
   // Thêm một khối câu hỏi vào form tạo khảo sát.
@@ -274,9 +281,13 @@ App.views.surveys = {
         return UI.toast(`Câu ${i + 1}: cần ít nhất 2 lựa chọn, phân cách bằng dấu phẩy`, 'error');
       }
     }
-    const goi = { title, description, deadline, questions, audience: this._aud };
+    const goi = { title, description, deadline, questions, audience: this._aud === 'all' ? 'all' : 'class' };
     const lop = document.getElementById('sv-lop');
-    if (this._aud === 'class' && lop) goi.classId = lop.value;
+    if (this._aud !== 'all' && lop) goi.classId = lop.value;
+    if (this._aud === 'chon') {
+      goi.nguoiNhan = App.views.notifications.beDaChon('sv');
+      if (!goi.nguoiNhan.length) return UI.toast('Vui lòng tích chọn ít nhất một gia đình', 'error');
+    }
     try {
       await API.post('/api/surveys', goi);
       UI.toast('Đã tạo khảo sát mới', 'success');

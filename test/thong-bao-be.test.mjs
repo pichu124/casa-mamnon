@@ -175,8 +175,13 @@ try {
       /function guiChoGiaDinhCuaBe/.test(day) && /student_parents/.test(day)
       && !/role\s*===\s*'teacher'/.test(day),
       'nếu vừa thêm đường đẩy cho cô thì mở lại thẻ trong settings.js theThongBaoDay');
-    check('màn Cài đặt ẩn thẻ với cô, đúng vì cô không nhận được gì',
-      /if \(u\.role === 'teacher'\) return '';/.test(st), st.slice(st.indexOf('theThongBaoDay'), st.indexOf('theThongBaoDay') + 400));
+    // Đ260b (chủ dự án duyệt): từ Đ260c cô CÓ tin đẩy thật — chuông riêng của
+    // cô (lib/thong-bao-nv.js) đẩy qua `guiChoNguoi` — nên thẻ không còn bị ẩn
+    // cứng với cô: máy chủ quyết qua `batDuoc` (`/api/push/trang-thai`), danh
+    // sách loại tin của cô rỗng thì thẻ vẫn tự gỡ.
+    check('màn Cài đặt KHÔNG còn ẩn cứng thẻ với cô — máy chủ quyết bằng batDuoc (Đ260b)',
+      !/if \(u\.role === 'teacher'\) return '';/.test(st) && /tt\.batDuoc === false/.test(st),
+      st.slice(st.indexOf('theThongBaoDay'), st.indexOf('theThongBaoDay') + 400));
     // BỎ CHÚ THÍCH TRƯỚC KHI SO THỨ TỰ. Chính khối chú thích giải thích bản vá
     // này có nhắc lại câu "tin về con", và nó đứng TRƯỚC dòng mã — so thẳng là
     // bài canh báo đỏ vì đọc đúng lời giải thích của chính mình.
