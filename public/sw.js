@@ -20,6 +20,7 @@ const SHELL_ASSETS = [
   '/js/api.js',
   '/js/ui.js',
   '/js/app.js',
+  '/js/bmi-who.js',
   '/js/views/login.js',
   '/js/views/dashboard.js',
   '/js/views/student.js',
