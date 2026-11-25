@@ -1770,8 +1770,12 @@ App.views.hanhtrinh = {
       if (nutLuu) nutLuu.disabled = true;
       const phutGiay = (g) => `${Math.floor(g / 60)}:${String(Math.floor(g % 60)).padStart(2, '0')}`;
       try {
+        // Cùng chất lượng với Album (Đ260f): 720px, 24 khung/giây, ≤ 2,5 Mbps.
         const data = await UI.nenVideo(f, {
           tranByte: tran,
+          canhToiDa: 720,
+          khung: 24,
+          bitToiDa: 2500000,
           toiDaGiay: 390,
           huy: () => boCuoc || !conHop(),
           tien: ({ giay, tongGiay }) => {

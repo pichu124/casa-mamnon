@@ -549,6 +549,10 @@ App.views.albums = {
   // 25 MB cho đoạn 3–5 phút vì ngân sách bit chia theo độ dài thật.
   CANH_VIDEO: 720,
   KHUNG_VIDEO: 24,
+  // Trần bitrate hình: mặc định 900 kbps của UI.nenVideo làm đoạn ~1 phút ở
+  // 720p vẫn vỡ khối. 2,5 Mbps cho hình rõ; đoạn dài hơn thì ngân sách theo
+  // độ dài tự hạ xuống cho vừa trần 25 MB.
+  BIT_VIDEO: 2500000,
 
   // Trần ĐỘ DÀI video. Nhà trường xin 3–5 phút; 6 phút rưỡi là chừa dư cho
   // đoạn quay lố mấy giây, mà vẫn chặn được đoạn nửa tiếng quay quên tắt.
@@ -619,6 +623,7 @@ App.views.albums = {
             tranByte: this.TRAN_VIDEO,
             canhToiDa: this.CANH_VIDEO,
             khung: this.KHUNG_VIDEO,
+            bitToiDa: this.BIT_VIDEO,
             toiDaGiay: this.TOI_DA_GIAY_VIDEO,
             huy: () => dung || !conMo(),
             tien: ({ giay, tongGiay }) => {

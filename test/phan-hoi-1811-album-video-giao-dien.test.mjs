@@ -246,7 +246,7 @@ try {
   const tuyChon = await page.evaluate(() => ({ ...window.__tuyChonNen, tranGoc: window.__tranGoc }));
   check('trần video của màn Album là 25 MB, khớp máy chủ', tuyChon.tranGoc === 25 * 1024 * 1024, tuyChon.tranGoc);
   check('album gọi UI.nenVideo với cạnh dài 720 và 24 khung/giây',
-    tuyChon.canhToiDa === 720 && tuyChon.khung === 24, tuyChon);
+    tuyChon.canhToiDa === 720 && tuyChon.khung === 24 && tuyChon.bitToiDa === 2500000, tuyChon);
   check('và trần đích là đúng trần của màn hình (TRAN_VIDEO), không phải số khác',
     tuyChon.tranByte === 1000, tuyChon.tranByte);
   check('đang nén video thứ hai thì hiện "Video 2/2"', /Video 2\/2/.test(await chu('#al-nen')), await chu('#al-nen'));
