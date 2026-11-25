@@ -209,3 +209,31 @@ CREATE TABLE IF NOT EXISTS kehoachbe_dot_nap (
   dot TEXT PRIMARY KEY,
   luc TEXT
 );
+
+-- BẢN MỚI ĐI KÈM ĐỀ XUẤT SỬA (góp ý 18/11). Cô sửa thẳng trên danh sách đã duyệt
+-- (đổi nhãn, bỏ bài, thêm bài, sửa "Việc khác") rồi gửi; bản đó nằm ở đây cho
+-- tới khi quản lý đồng ý — gia đình đọc `kehoachbe_muc_bai` / `kehoachbe_muc`,
+-- nên trong lúc chờ gia đình vẫn thấy bản cũ. Đề xuất KHÔNG có dòng ở đây là
+-- đề xuất đời cũ: đồng ý thì mở lại phần đó về nháp như trước.
+--   banJSON   = {baiHoc:[{baiHocId,nhan}], muc:[{gocLinhVuc,noiDung}]}
+--   banCuJSON = ảnh chụp bản đã duyệt bị thay, ghi lúc đồng ý (kèm mức độ đã
+--               nhìn lại) — bài bị bỏ không mất dấu phần nhìn lại.
+CREATE TABLE IF NOT EXISTS kehoachbe_de_xuat_ban (
+  deXuatId    TEXT PRIMARY KEY,
+  chuongTrinh TEXT NOT NULL,
+  banJSON     TEXT NOT NULL,
+  banCuJSON   TEXT NOT NULL DEFAULT '',
+  taoLuc      TEXT
+);
+
+-- MÔN CAMBRIDGE CƠ SỞ KHÔNG DẠY (góp ý 18/11): một cơ sở chỉ dạy tiếng Anh thì
+-- hiệu trưởng tắt Maths / Let's Explore trong kho bài của cơ sở đó. Có dòng =
+-- môn đang tắt; bật lại = bỏ dòng cấu hình này. Không đụng tới bài nào trong kho
+-- và không đụng tới kế hoạch nào đã lập — bài đã tích từ trước vẫn hiện.
+CREATE TABLE IF NOT EXISTS kehoachbe_tat_mon_coso (
+  campusId   TEXT NOT NULL,
+  linhVucCon TEXT NOT NULL,
+  nguoiTat   TEXT,
+  tatLuc     TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS kehoachbe_tat_mon_coso_mot ON kehoachbe_tat_mon_coso(campusId, linhVucCon);
