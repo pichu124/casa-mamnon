@@ -10,6 +10,8 @@ App.views.notifications = {
     'Học phí': { emoji: '💳', bg: '#fef0e0' },
   },
   DEFAULT_CAT: { emoji: '📣', bg: '#eef1f5' },
+  // Đ260l: gia đình chỉ thấy tin từ ngày bé nhập học — kể cả tin ghim.
+  GOI_Y_NHAP_HOC: 'Gia đình nhập học sau ngày đăng sẽ không thấy tin này — cần thì gửi lại.',
   _list: [],
   _root: null,
   _aud: 'class',
@@ -218,7 +220,8 @@ App.views.notifications = {
         <button class="btn primary block mt-14" onclick="App.views.notifications.moLienKet('${UI.esc(n.id)}')">${UI.esc(this.chuLienKet(n))}</button>` : ''}
       ${App.state.user.role === 'admin' ? `
         <button class="btn outline block mt-14" onclick="App.views.notifications.datGhim('${UI.esc(n.id)}', ${n.pinned ? 'false' : 'true'})">${
-          n.pinned ? 'Bỏ ghim' : '📌 Ghim lên đầu'}</button>` : ''}
+          n.pinned ? 'Bỏ ghim' : '📌 Ghim lên đầu'}</button>
+        <div class="hint" id="nt-ct-goi-y">${UI.esc(this.GOI_Y_NHAP_HOC)}</div>` : ''}
       ${n.coTheSua ? `
         <div class="flex mt-14" style="gap:8px">
           <button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>
@@ -357,6 +360,7 @@ App.views.notifications = {
       ${laVanPhong ? `
       <div class="field">
         <label class="flex" style="gap:8px;font-weight:600"><input type="checkbox" id="nt-ghim"> 📌 Ghim lên đầu danh sách</label>
+        <div class="hint" id="nt-ghim-goi-y">${UI.esc(this.GOI_Y_NHAP_HOC)}</div>
       </div>` : ''}
       <button class="btn primary block" onclick="App.views.notifications.submitCreate()">${UI.icon('send', 18)} Gửi thông báo</button>
     `, 'Tạo thông báo');

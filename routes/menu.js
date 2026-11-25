@@ -600,6 +600,26 @@ function quyenBanGhi(user, campusId) {
   return quyen;
 }
 
+// ĐÃ BÁO GIA ĐÌNH THỰC ĐƠN NHỮNG TUẦN NÀY (Đ260l). Đường lưu vừa gửi "Thực đơn
+// … đã có" thì ghi đúng dấu mà việc hẹn giờ thứ Sáu đọc (`menu_mau_bao`, xem
+// `baoTuanSau` ở lib/thuc-don-mau.js) — không thì văn phòng lưu tuần sau từ
+// thứ Ba, thứ Sáu gia đình nhận thêm một tiếng chuông cho cùng tin ấy. Bản
+// dùng chung gửi cho mọi nhóm nên ghi dấu cho mọi cơ sở. Việc phụ: hỏng thì
+// chỉ ghi nhật ký máy, không làm hỏng lượt lưu.
+function danhDauDaBao(campusId, cacNgay) {
+  try {
+    const phamVi = campusId ? [campusId] : ['', ...db.campuses().map(c => c.id)];
+    const luc = new Date().toISOString();
+    for (const thuHai of new Set(cacNgay.map(mau.thuHaiCua))) {
+      for (const cs of phamVi) {
+        db.run('INSERT OR IGNORE INTO menu_mau_bao (campusId, thuHai, baoLuc) VALUES (?, ?, ?)', [cs, thuHai, luc]);
+      }
+    }
+  } catch (err) {
+    console.error(`[thucdon] chưa ghi được dấu đã báo cho "${campusId || 'cả trường'}": ${err.message}`);
+  }
+}
+
 module.exports = (app) => {
   // Tuần sau lấy từ thực đơn mẫu thì không ai bấm Lưu — việc hẹn giờ thứ Sáu
   // báo gia đình thay (Đ260d). Nó tự hỏi Thực đơn còn bật không.
@@ -964,11 +984,12 @@ module.exports = (app) => {
         ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
         : db.classes().map(c => c.id);
       const tu = daGhi[0]; const den = daGhi[daGhi.length - 1];
-      tb.guiChoNhom(nhom, {
+      const daGui = tb.guiChoNhom(nhom, {
         title: `Thực đơn từ ${ddmm(tu)} đến ${ddmm(den)} đã có`,
         body: 'Nhà bếp vừa đăng thực đơn. Mở Thực đơn để xem từng ngày con ăn gì.',
         category: 'Khác', createdBy: req.user.id, hash: '#/menu',
       });
+      if (daGui.length) danhDauDaBao(campusId, daGhi);
     }
     res.json({
       daLuu: kq.ngay.length, ngay: kq.ngay.map(n => n.date), canhBao: kq.canhBao, campusId: campusId || null,
@@ -1048,7 +1069,7 @@ module.exports = (app) => {
         ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
         : db.classes().map(c => c.id);
       const tu = sach.map(x => x.date).sort()[0];
-      tb.guiChoNhom(nhom, {
+      const daGui = tb.guiChoNhom(nhom, {
         title: `Thực đơn tuần từ ${tu.slice(8, 10)}/${tu.slice(5, 7)} đã có`,
         body: 'Nhà bếp vừa đăng thực đơn tuần. Mở Thực đơn để xem từng ngày con ăn gì.',
         category: 'Khác', createdBy: req.user.id,
@@ -1056,6 +1077,7 @@ module.exports = (app) => {
         // không đổ gia đình vào danh sách thông báo rồi bắt tìm tiếp (Đ194).
         hash: '#/menu',
       });
+      if (daGui.length) danhDauDaBao(campusId, sach.map(x => x.date));
     }
     res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null, giongMau });
   });

@@ -415,15 +415,19 @@ module.exports = (app) => {
       // luật lọc (lib/thong-bao.js). Không lọc thì huy hiệu đếm cả khảo sát
       // gia đình không mở được — một con số không bao giờ về 0.
       // Khảo sát cô gửi riêng vài gia đình (Đ260b) chỉ đếm ở nhà được gửi.
+      // Mốc nhập học (Đ260l): cùng điều kiện với `taoBoLocXem` ở
+      // routes/surveys.js — khảo sát cũ hơn mốc chỉ đếm khi còn hạn.
       const fKs = tb.audienceFilter(user, 's.');
       const nnKs = tb.locNguoiNhan(user, 'surveys', 's.id');
+      const mocKs = tb.mocGiaDinh(user);
       badges.khaosat = db.count(
         `SELECT COUNT(*) FROM surveys s
          WHERE s.status = 'open'
            AND ${fKs.sql}
            AND ${nnKs.sql}
+           ${mocKs ? 'AND (s.createdAt >= ? OR s.deadline >= ?)' : ''}
            AND NOT EXISTS (SELECT 1 FROM survey_responses r WHERE r.surveyId = s.id AND r.userId = ?)`,
-        [...fKs.params, ...nnKs.params, user.id]);
+        [...fKs.params, ...nnKs.params, ...(mocKs ? [mocKs, today] : []), user.id]);
     }
 
     if (user.role === 'teacher' || user.role === 'admin') {
