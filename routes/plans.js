@@ -154,9 +154,18 @@ module.exports = (app) => {
   // chữ — kế hoạch tháng đã soạn vẫn đọc được ở #/plans.
   //
   // AI ĐỌC: mọi người đã đăng nhập (đây là kế hoạch chung, không phải dữ liệu
-  // của một bé nào). AI SOẠN: quản trị phạm vi CẢ TRƯỜNG (ban giám hiệu, quản
-  // trị không gắn cơ sở). Quản trị một cơ sở chỉ đọc — sửa bản chung của cả
-  // trường là đổi màn hình của hai cơ sở kia mà họ không biết.
+  // của một bé nào).
+  //
+  // AI SOẠN (góp ý 18/11 "Văn phòng có quyền tạo và sửa" — chủ dự án chốt
+  // phương án (a) ngày 25/11, Đ260m):
+  //   • quản trị phạm vi CẢ TRƯỜNG soạn BẢN CHUNG (`campusId` rỗng);
+  //   • văn phòng / quản lý MỘT cơ sở soạn BẢN RIÊNG của cơ sở mình. Bản ấy
+  //     thay bản chung cho gia đình và cô của cơ sở đó, đúng tuần ấy. Không
+  //     bao giờ đè bản chung — sửa bản chung là đổi màn hình của hai cơ sở kia
+  //     mà họ không biết.
+  // Cơ sở chưa soạn tuần nào thì thấy bản chung của tuần ấy. Chức vụ hẹp hơn
+  // (kế toán, bảo vệ…) không tới được đường này: danh sách cho phép của chức
+  // vụ trong lib/db.js không có '/api/plans'.
   const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
   const TOI_DA_TIEU_DE_TUAN = 150;
   const TOI_DA_NOI_DUNG_TUAN = 4000;
@@ -171,10 +180,29 @@ module.exports = (app) => {
     return new Date(t - thu * 86400000).toISOString().slice(0, 10);
   }
   function soanDuocTuan(user) {
-    return !!user && user.role === 'admin' && !db.phamViCoSo(user);
+    return !!user && user.role === 'admin';
+  }
+  // Bản của cơ sở nào mà người này ghi: cơ sở đang khoá, hoặc '' (bản chung).
+  function coSoSoan(user) {
+    return db.phamViCoSo(user) || '';
+  }
+  // Người này đọc bản của cơ sở nào. Quản trị: cơ sở đang khoá. Cô và gia
+  // đình: cơ sở của nhóm đang xem (`classId`, phải là nhóm của mình), không
+  // gửi thì cơ sở của các nhóm mình — nếu tất cả cùng một cơ sở. Không ra được
+  // một cơ sở duy nhất thì đọc bản chung.
+  function coSoXem(req) {
+    const u = req.user;
+    if (u.role === 'admin') return coSoSoan(u);
+    const classId = String(req.query.classId || '');
+    if (classId && db.canAccessClass(u, classId)) return db.campusOfClass(classId) || '';
+    const cs = [...new Set(db.classIdsOf(u).map(c => db.campusOfClass(c)).filter(Boolean))];
+    return cs.length === 1 ? cs[0] : '';
   }
   function veTuan(r) {
-    return r ? { tuan: r.tuan, tieuDe: r.tieuDe || '', noiDung: r.noiDung || '', capNhatLuc: r.capNhatLuc || '' } : null;
+    return r ? {
+      tuan: r.tuan, campusId: r.campusId || '',
+      tieuDe: r.tieuDe || '', noiDung: r.noiDung || '', capNhatLuc: r.capNhatLuc || '',
+    } : null;
   }
 
   // Kế hoạch của MỘT tuần (mặc định tuần này), kèm hai tuần gần nhất trước /
@@ -190,29 +218,31 @@ module.exports = (app) => {
     if (!hoi) return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-10-05' });
     const laGiaDinh = req.user.role === 'parent';
     const tuan = laGiaDinh ? thuHaiCua(ngay.homNay()) : hoi;
+    const cs = coSoXem(req);
+    // Bản của cơ sở đứng trước bản chung ('' xếp sau mọi mã cơ sở khi DESC).
     const r = db.first('edu_plan_tuan',
-      "SELECT * FROM edu_plan_tuan WHERE tuan = ? AND campusId = ''", [tuan]);
+      "SELECT * FROM edu_plan_tuan WHERE tuan = ? AND campusId IN (?, '') ORDER BY campusId DESC LIMIT 1", [tuan, cs]);
     const truoc = laGiaDinh ? null : db.first('edu_plan_tuan',
-      "SELECT tuan FROM edu_plan_tuan WHERE tuan < ? AND campusId = '' ORDER BY tuan DESC LIMIT 1", [tuan]);
+      "SELECT tuan FROM edu_plan_tuan WHERE tuan < ? AND campusId IN (?, '') ORDER BY tuan DESC LIMIT 1", [tuan, cs]);
     const sau = laGiaDinh ? null : db.first('edu_plan_tuan',
-      "SELECT tuan FROM edu_plan_tuan WHERE tuan > ? AND campusId = '' ORDER BY tuan LIMIT 1", [tuan]);
+      "SELECT tuan FROM edu_plan_tuan WHERE tuan > ? AND campusId IN (?, '') ORDER BY tuan LIMIT 1", [tuan, cs]);
+    const duocSoan = soanDuocTuan(req.user);
+    const csSoan = duocSoan ? coSoSoan(req.user) : null;
     res.json({
       tuan,
       tuanNay: thuHaiCua(ngay.homNay()),
       keHoach: veTuan(r),
       tuanTruocCo: truoc ? truoc.tuan : null,
       tuanSauCo: sau ? sau.tuan : null,
-      duocSoan: soanDuocTuan(req.user),
+      duocSoan,
+      // Bản người này sẽ ghi khi bấm Soạn: mã cơ sở, '' = bản chung, null = không soạn được.
+      soanChoCoSo: csSoan,
+      tenCoSoSoan: csSoan ? ((db.findCampus(csSoan) || {}).name || '') : '',
     });
   });
 
   app.put('/api/plans/tuan/:tuan', requireRole('admin'), (req, res) => {
-    if (!soanDuocTuan(req.user)) {
-      return res.status(403).json({
-        error: 'Kế hoạch giáo dục chung cả trường do ban giám hiệu soạn. '
-          + 'Văn phòng cơ sở xem được ở đây; cần đổi gì thì nhắn ban giám hiệu nhé.',
-      });
-    }
+    const campusId = coSoSoan(req.user);
     const tuan = thuHaiCua(String(req.params.tuan || ''));
     if (!tuan) return res.status(400).json({ error: 'Ngày chưa đúng dạng, ví dụ đúng: 2026-10-05' });
     const body = req.body || {};
@@ -223,7 +253,7 @@ module.exports = (app) => {
       .slice(0, TOI_DA_DONG_TUAN).join('\n').slice(0, TOI_DA_NOI_DUNG_TUAN);
     const luc = new Date().toISOString();
     const cu = db.first('edu_plan_tuan',
-      "SELECT * FROM edu_plan_tuan WHERE tuan = ? AND campusId = ''", [tuan]);
+      'SELECT * FROM edu_plan_tuan WHERE tuan = ? AND campusId = ?', [tuan, campusId]);
     let id;
     if (cu) {
       id = cu.id;
@@ -231,10 +261,10 @@ module.exports = (app) => {
     } else {
       id = db.nextId('kht');
       db.insert('edu_plan_tuan', {
-        id, tuan, campusId: '', tieuDe, noiDung, nguoiSoan: req.user.id, taoLuc: luc, capNhatLuc: luc,
+        id, tuan, campusId, tieuDe, noiDung, nguoiSoan: req.user.id, taoLuc: luc, capNhatLuc: luc,
       });
     }
-    db.audit(req.user.id, 'plan-tuan-luu', id, { tuan });
+    db.audit(req.user.id, 'plan-tuan-luu', id, { tuan, campusId });
     res.json({ ok: true, keHoach: veTuan(db.first('edu_plan_tuan', 'SELECT * FROM edu_plan_tuan WHERE id = ?', [id])) });
   });
 };
