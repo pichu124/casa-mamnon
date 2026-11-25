@@ -404,9 +404,11 @@ console.log('\n[7b] Cambridge — ba tab, ba mẫu soạn, gia đình chỉ th�
   check('đủ BA khối thì nút "Thêm hoạt động" ẩn — tối đa ba', !(await hien('#cam-hd-them')));
   // Góp ý 16/10, mục 9: Home Connection chỉ còn tiêu đề, nội dung, gửi cho ai,
   // tuần, khung Cambridge (block, tuần trong block, lứa tuổi).
+  // Góp ý 18/11 (Đ260m): ô "Gắn vào tuần" thay bằng hai ô "Áp dụng từ … đến …"
+  // — trường muốn ghi thời gian áp dụng, "không phải theo từng tuần".
   await page.selectOption('#cam-loai', 'ket-noi');
-  check('Home Connection: có Nội dung, Gửi cho ai, Gắn vào tuần, Block, Tuần trong block, Lứa tuổi',
-    (await hien('#cam-noidung')) && (await hien('#cam-phamvi')) && (await hien('#cam-tuan'))
+  check('Home Connection: có Nội dung, Gửi cho ai, Áp dụng từ – đến, Block, Tuần trong block, Lứa tuổi',
+    (await hien('#cam-noidung')) && (await hien('#cam-phamvi')) && (await hien('#cam-tu')) && (await hien('#cam-den'))
       && (await hien('#cam-block')) && (await hien('#cam-tuan-so')) && (await hien('#modal-overlay #cam-lua')));
   const hcThua = [];
   for (const sel of ['#cam-mon', '#cam-chu-de', '#cam-tu-vung', '#cam-song', '#cam-story', '#cam-ket-noi', khoi(1), '#cam-hd-them']) {

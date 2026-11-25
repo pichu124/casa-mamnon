@@ -433,9 +433,11 @@ function sinh(db, moc) {
   });
   // Màn Cambridge mở sẵn ở tab Letter for Parent (góp ý 06/10) — dữ liệu mẫu
   // cần ít nhất một lá thư, kẻo người bấm thử mở ra thấy tab đầu trống trơn.
+  // Thư viết theo tuần của block ("Block 1, Week 3"), không theo tháng: gia
+  // đình chỉ đọc thư của thời gian đang áp dụng (góp ý 18/11 — Đ260m).
   them('cambridge_bai', {
-    id: ma('cb'), loai: 'thu-phu-huynh', tieuDe: 'Thư gửi gia đình: tháng này các con học gì',
-    noiDung: 'Tháng này các con làm quen với màu sắc và các con số từ 1 đến 5 bằng tiếng Anh.\n\n'
+    id: ma('cb'), loai: 'thu-phu-huynh', tieuDe: 'Block 1, Week 3: Colours and numbers',
+    noiDung: 'Tuần này các con làm quen với màu sắc và các con số từ 1 đến 5 bằng tiếng Anh.\n\n'
       + 'Ở nhà, gia đình hỏi con "What colour is it?" khi cùng con xếp đồ chơi nhé.',
     tuan: tuanNay, phamVi: 'truong', campusId: '', classId: '', anh: '',
     congBoLuc: luc(daysAgo(3), 16), nguoiDang: '',

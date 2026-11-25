@@ -183,3 +183,19 @@ CREATE TABLE IF NOT EXISTS cambridge_bai_them (
   story   TEXT NOT NULL DEFAULT '',
   ghiLuc  TEXT
 );
+
+-- ===== KHOẢNG NGÀY ÁP DỤNG CỦA MỘT BÀI (góp ý 18/11 — Đ260m) =====
+--
+-- Trường: *"chương trình này dạy từ thời gian này tới thời gian này, chứ không
+-- phải theo từng tuần … phụ huynh không xem lại bài học tuần trước, tháng
+-- trước"*. Gia đình chỉ nhận bài có khoảng chứa hôm nay.
+--
+-- Bài KHÔNG có dòng ở đây vẫn có khoảng, suy ra lúc đọc (không ghi gì):
+-- gắn tuần (`cambridge_bai.tuan`) thì là tuần ấy, không thì là tuần gửi tới
+-- gia đình. Bảng riêng vì `cambridge_bai` không thêm cột được.
+CREATE TABLE IF NOT EXISTS cambridge_bai_khoang (
+  baiId    TEXT PRIMARY KEY,
+  tuNgay   TEXT NOT NULL,   -- YYYY-MM-DD, tính cả ngày này
+  denNgay  TEXT NOT NULL,   -- YYYY-MM-DD, tính cả ngày này
+  ghiLuc   TEXT
+);
