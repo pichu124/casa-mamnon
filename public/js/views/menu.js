@@ -496,6 +496,12 @@ App.views.menu = {
   // con mình ăn, mà nhà có bé dị ứng thì đó là chuyện an toàn.
   //
   // Gom về một hàm để không còn chỗ nào chép thiếu lần nữa.
+  // Đường dẫn của kho mẫu / lịch xoay cho ĐÚNG bếp đang chọn (Đ260d). Đi qua
+  // một hàm như duongDanTuan, để không lượt hỏi nào quên mã cơ sở (thuc-don-co-so).
+  duongDanCoSo(goc) {
+    return goc + (this._coSo ? `?campusId=${encodeURIComponent(this._coSo)}` : '');
+  },
+
   duongDanTuan() {
     return (this._tuanChon ? `/api/menu?tuan=${encodeURIComponent(this._tuanChon)}` : `/api/menu?week=${this.week}`)
       + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : '');
@@ -801,7 +807,8 @@ App.views.menu = {
     this._dangSoanTuan = false;
     zone.innerHTML = '<div class="loading">Đang tải</div>';
     try {
-      const data = await API.get(`/api/menu/mau${this._coSo ? `?campusId=${encodeURIComponent(this._coSo)}` : ''}`);
+      const duong = this.duongDanCoSo('/api/menu/mau');
+      const data = await API.get(duong);
       this._dsMau = data.mau || [];
       this.veKho(zone, data.toiDa || 12);
     } catch (err) {
@@ -969,7 +976,8 @@ App.views.menu = {
     if (!zone) return;
     zone.innerHTML = '<div class="loading">Đang tải</div>';
     try {
-      const data = await API.get(`/api/menu/lich-xoay${this._coSo ? `?campusId=${encodeURIComponent(this._coSo)}` : ''}`);
+      const duong = this.duongDanCoSo('/api/menu/lich-xoay');
+      const data = await API.get(duong);
       this._dsMau = data.mau || [];
       this._doan = data.doan || [];
       this._duKien = data.duKien || [];
