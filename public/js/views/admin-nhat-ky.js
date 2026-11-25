@@ -236,6 +236,26 @@ Object.assign(App.views.admin, {
       'xuatbaocao-diemdanh-co': 'Xuất báo cáo điểm danh cô và nhân viên',
       'xuatbaocao-baocao-hoctap': 'Xuất báo cáo tháng / 6 tháng',
       'xuatbaocao-kehoach-be': 'Xuất kế hoạch của bé',
+      // Đợt góp ý 18/11 (Đ260)
+      'consent-mac-dinh-giay-nhap-hoc': 'Ghi đồng ý mặc định theo giấy nhập học',
+      'kehoachbe-mon-co-so': 'Bật / tắt môn Cambridge của cơ sở',
+      'lien-he-khan-de-xuat': 'Gia đình đề xuất người liên hệ khẩn cấp',
+      'lien-he-khan-huy': 'Gia đình huỷ đề xuất liên hệ khẩn cấp',
+      'lien-he-khan-khong-them': 'Không thêm người liên hệ khẩn cấp gia đình đề xuất',
+      'lien-he-khan-them': 'Thêm người liên hệ khẩn cấp gia đình đề xuất',
+      'menu-lich-huy': 'Huỷ đoạn thực đơn dự kiến',
+      'menu-lich-sua': 'Sửa đoạn thực đơn dự kiến',
+      'menu-lich-them': 'Đặt đoạn thực đơn dự kiến',
+      'menu-mau-nap-excel': 'Nạp Excel vào thực đơn mẫu',
+      'menu-mau-sua': 'Sửa thực đơn mẫu',
+      'menu-mau-them': 'Thêm thực đơn mẫu',
+      'nhatky-bua-coso': 'Đổi bữa ăn theo cơ sở',
+      'phong-nhom-bo': 'Bỏ gia đình khỏi phòng trao đổi chung',
+      'phong-nhom-sua': 'Sửa phòng trao đổi chung',
+      'phong-nhom-tao': 'Tạo phòng trao đổi chung',
+      'phong-nhom-them': 'Thêm gia đình vào phòng trao đổi chung',
+      'student-nhap-hoc': 'Ghi ngày nhập học',
+      'tin-nhan-an': 'Ẩn tin nhắn trong phòng trao đổi chung',
     };
     body.innerHTML = rows.length ? `
       <div class="card">
