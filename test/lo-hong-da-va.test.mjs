@@ -553,10 +553,14 @@ console.log('\n[14] A6b — nhập lại cùng một tệp KHÔNG được nhân
 {
   const QT = (await login('ht.lohong', 'quantri2026')).cookie;
   const dem = async () => (await req('GET', '/api/admin/overview', { cookie: QT })).data.counts.students;
+  // Năm sinh tính lùi từ hôm nay (Đ261a): từ đợt ấy bé quá 7 tuổi là dòng lỗi,
+  // nên năm sinh cố định 2018 sẽ làm cả mục này đỏ vì một lý do khác hẳn.
+  const N4 = Number(HOM_NAY().slice(0, 4)) - 4;
+  const N3 = N4 + 1;
 
   const TEP = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
-Lý Thị Mai,2018-02-14,Lớp Trùng,Lý Văn Cha,0977000001
-Ngô Văn Nam,2018-06-20,Lớp Trùng,Ngô Thị Mẹ,0977000002`;
+Lý Thị Mai,${N4}-02-14,Lớp Trùng,Lý Văn Cha,0977000001
+Ngô Văn Nam,${N4}-06-20,Lớp Trùng,Ngô Thị Mẹ,0977000002`;
 
   const truoc = await dem();
   let r = await req('POST', '/api/admin/import/commit', { cookie: QT, body: { csv: TEP } });
@@ -581,7 +585,7 @@ Ngô Văn Nam,2018-06-20,Lớp Trùng,Ngô Thị Mẹ,0977000002`;
   check('SĨ SỐ KHÔNG ĐỔI — không nhân đôi cả trường', (await dem()) === truocLan2, await dem());
 
   // -- Tệp cũ có thêm em mới: em mới vẫn phải vào được.
-  const THEM = `${TEP}\nHồ Bảo Long,2018-09-09,Lớp Trùng,Hồ Văn Ba,0977000003`;
+  const THEM = `${TEP}\nHồ Bảo Long,${N4}-09-09,Lớp Trùng,Hồ Văn Ba,0977000003`;
   r = await req('POST', '/api/admin/import/commit', { cookie: QT, body: { csv: THEM } });
   check('tệp cũ thêm 1 em mới → chỉ nhập đúng em mới', r.status === 200 && r.data.imported === 1, r.data);
   check('và nói rõ đã bỏ qua 2 em có sẵn', r.data?.boQuaTrung === 2, r.data?.boQuaTrung);
@@ -589,23 +593,23 @@ Ngô Văn Nam,2018-06-20,Lớp Trùng,Ngô Thị Mẹ,0977000002`;
 
   // -- Trùng ngay trong một tệp cũng phải bắt được.
   const TRONG_TEP = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
-Đinh Song Sinh,2019-01-01,Lớp Trùng,Đinh Văn Cha,0977000004
-Đinh Song Sinh,2019-01-01,Lớp Trùng,Đinh Văn Cha,0977000004`;
+Đinh Song Sinh,${N3}-01-01,Lớp Trùng,Đinh Văn Cha,0977000004
+Đinh Song Sinh,${N3}-01-01,Lớp Trùng,Đinh Văn Cha,0977000004`;
   r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: TRONG_TEP } });
   check('bắt được hai dòng giống nhau trong cùng một tệp', r.data?.trung === 1, r.data?.trung);
   check('chỉ ra đúng dòng bị lặp', /dòng 2/.test(r.data.rows[1]?.trung || ''), r.data.rows[1]?.trung);
 
   // -- Khác ngày sinh thì là hai em khác nhau, không được coi là trùng.
   const KHAC = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
-Lý Thị Mai,2019-02-14,Lớp Trùng,Lý Văn Cha,0977000001`;
+Lý Thị Mai,${N3}-02-14,Lớp Trùng,Lý Văn Cha,0977000001`;
   r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: KHAC } });
   check('cùng tên cùng lớp nhưng khác ngày sinh → KHÔNG coi là trùng', r.data?.trung === 0, r.data?.trung);
 
   // -- Ngày sinh gõ kiểu Việt Nam vẫn nhận ra là cùng một em.
   const VN = `Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại
-Lý Thị Mai,14/02/2018,Lớp Trùng,Lý Văn Cha,0977000001`;
+Lý Thị Mai,14/02/${N4},Lớp Trùng,Lý Văn Cha,0977000001`;
   r = await req('POST', '/api/admin/import/preview', { cookie: QT, body: { csv: VN } });
-  check('ngày sinh gõ 14/02/2018 vẫn khớp với 2018-02-14 đã lưu', r.data?.trung === 1, r.data?.trung);
+  check(`ngày sinh gõ 14/02/${N4} vẫn khớp với ${N4}-02-14 đã lưu`, r.data?.trung === 1, r.data?.trung);
 
   // -- Quản trị vẫn phải có quyền nói "đúng, trường tôi có hai em như thế".
   const truocEp = await dem();
