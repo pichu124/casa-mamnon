@@ -51,6 +51,17 @@ const NGUONG_CHAM = 3;          // sai quá số lần này thì bắt đầu tr
 const CHAM_TOI_DA_MS = 8000;
 const TRAN_SO_MUC = 5000;       // trần số mục mỗi bộ đếm, để bộ nhớ không phình
 
+// ĐỘ DÀI TỐI ĐA CỦA CHUỖI NGƯỜI DÙNG GÕ (Đ261j). Tên đăng nhập là khoá của bộ
+// đếm, giữ trong bộ nhớ ít nhất 15 phút: không giới hạn thì vài chục lượt gửi
+// tên cỡ chục MB là máy chủ 1 GB hết bộ nhớ. Tên thật của trường (số điện
+// thoại, `ho.ten`) chỉ vài chục ký tự. Trần mật khẩu áp cả khi đặt mật khẩu
+// mới, nên không tài khoản nào có mật khẩu dài hơn trần đăng nhập.
+const TEN_TOI_DA = 100;
+const MAT_KHAU_TOI_DA = 200;
+const DAI_QUA = 'Tên đăng nhập hoặc mật khẩu dài quá. Vui lòng kiểm tra lại.';
+const MAT_KHAU_DAI_QUA = `Mật khẩu dài quá — tối đa ${MAT_KHAU_TOI_DA} ký tự.`;
+const daiQua = (x, tran) => String(x ?? '').length > tran;
+
 // Những khoá của khối `settings.school` được phép đi ra cho người đăng nhập
 // (Đ165). Xem chú thích dài ở chỗ dùng, trong gói `/api/auth/me`.
 //
@@ -65,8 +76,10 @@ const theoCap = new Map();
 const theoTen = new Map();
 const daVaoDung = new Map(); // cặp -> { firstAt: lần vào đúng gần nhất }
 
+// Cắt ngắn vì địa chỉ cũng là khoá của bộ đếm: sau proxy, `req.ip` lấy từ
+// X-Forwarded-For — chuỗi do người gửi khai, dài được tới cỡ 16 KB.
 function clientIp(req) {
-  return req.ip || req.socket.remoteAddress || 'unknown';
+  return String(req.ip || req.socket.remoteAddress || 'unknown').slice(0, 64);
 }
 
 // Ghi vào bộ đếm nhưng không để nó phình vô hạn: chạm trần thì bỏ bớt các mục cũ
@@ -82,7 +95,7 @@ function datVaoBo(bo, khoa, rec) {
 }
 
 function khoaTen(username) {
-  return String(username || '').trim().toLowerCase();
+  return String(username || '').trim().toLowerCase().slice(0, TEN_TOI_DA);
 }
 
 const khoaCap = (ip, ten) => `${ip}\n${ten}`;
@@ -138,6 +151,19 @@ function ghiLuotThu(ip, ten) {
   demThem(theoDiaChi, ip, TRAN_DIA_CHI);
   demThem(theoCap, khoaCap(ip, ten), TRAN_CAP);
   if (ten) demThem(theoTen, ten, TRAN_TEN);
+}
+
+// CẤP LẠI MẬT KHẨU GỠ KHOÁ CỦA TÊN ẤY (Đ261j). Câu báo khoá theo tên mời gia
+// đình "nhờ cô phụ trách cấp lại mật khẩu" — cấp lại mà không gỡ thì gia đình
+// vào bằng 4G (chưa từng vào đúng từ đó) vẫn bị chặn thêm tới 15 phút. Gỡ cả
+// khoá theo cặp của tên ấy: mật khẩu cũ đã hết hiệu lực, lượt dò cũ vô nghĩa.
+// Bộ đếm theo địa chỉ thì không đụng — nó không thuộc về tài khoản nào.
+function goKhoaTheoTen(username) {
+  const ten = khoaTen(username);
+  if (!ten) return;
+  theoTen.delete(ten);
+  const duoi = `\n${ten}`;
+  for (const k of [...theoCap.keys()]) if (k.endsWith(duoi)) theoCap.delete(k);
 }
 
 function daVaoDuoc(ip, ten) {
@@ -365,6 +391,10 @@ module.exports = (app) => {
   app.post('/api/auth/login', async (req, res) => {
     const ip = clientIp(req);
     const { username, password: plain } = req.body || {};
+    // Từ chối TRƯỚC khi chạm bộ đếm và trước khi băm (Đ261j).
+    if (daiQua(username, TEN_TOI_DA) || daiQua(plain, MAT_KHAU_TOI_DA)) {
+      return res.status(400).json({ error: DAI_QUA });
+    }
     const ten = khoaTen(username);
 
     const chan = biChan(ip, ten);
@@ -438,6 +468,7 @@ module.exports = (app) => {
       return res.status(400).json({ error: 'Tài khoản không ở trạng thái cần đổi mật khẩu' });
     }
     const { newPassword } = req.body || {};
+    if (daiQua(newPassword, MAT_KHAU_TOI_DA)) return res.status(400).json({ error: MAT_KHAU_DAI_QUA });
     const weak = password.checkStrength(newPassword);
     if (weak) return res.status(400).json({ error: weak });
     if (await password.verifyAsync(String(newPassword), req.user.passwordHash)) {
@@ -456,6 +487,8 @@ module.exports = (app) => {
   // Đổi mật khẩu. Sau khi đổi, mọi thiết bị khác bị đăng xuất.
   app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
+    if (daiQua(currentPassword, MAT_KHAU_TOI_DA)) return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng' });
+    if (daiQua(newPassword, MAT_KHAU_TOI_DA)) return res.status(400).json({ error: MAT_KHAU_DAI_QUA });
     if (!(await password.verifyAsync(String(currentPassword || ''), req.user.passwordHash))) {
       return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng' });
     }
@@ -482,3 +515,4 @@ module.exports = (app) => {
 
 module.exports.mePayload = mePayload;
 module.exports.publicUser = publicUser;
+module.exports.goKhoaTheoTen = goKhoaTheoTen;

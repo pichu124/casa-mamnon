@@ -36,7 +36,14 @@ const DUONG_TAI_VIDEO = [
   /^\/api\/hanhtrinh\/nhap\/?$/i,            // nháp chưa gắn bé kèm video
 ];
 const laDuongTaiVideo = req => req.method === 'POST' && DUONG_TAI_VIDEO.some(re => re.test(req.path));
-app.use((req, res, next) => (laDuongTaiVideo(req) ? next() : DOC_JSON(req, res, next)));
+// /api/auth/* mở cho người chưa đăng nhập và chỉ nhận vài chuỗi ngắn (tên,
+// mật khẩu, địa chỉ đẩy): 16 KB là thừa, để người lạ không đẩy được 12 MB vào
+// đường đăng nhập (Đ261j).
+const DOC_JSON_AUTH = express.json({ limit: '16kb' });
+app.use((req, res, next) => {
+  if (laDuongTaiVideo(req)) return next();
+  return (/^\/api\/auth\//i.test(req.path) ? DOC_JSON_AUTH : DOC_JSON)(req, res, next);
+});
 
 // Buộc dùng HTTPS khi đã bật FORCE_HTTPS (nên bật khi chạy trên Internet).
 app.use((req, res, next) => {
