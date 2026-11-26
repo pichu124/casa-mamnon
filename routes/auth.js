@@ -267,6 +267,7 @@ function tabQuanTriAnToan(user) {
 
 // Gói dữ liệu trả về sau đăng nhập: người dùng + học sinh liên quan + lớp + trường.
 function mePayload(user) {
+  if (user.mustChangePassword) return goiMatKhauTam(user);
   const day = duocDocHoSoBe(user);
 
   // MỘT NHÓM HỎI MỘT LẦN, KHÔNG PHẢI MỘT LẦN CHO MỖI BÉ.
@@ -374,16 +375,39 @@ function mePayload(user) {
     //
     // Danh sách này giữ ĐÚNG những gì đang đi ra hôm nay, không bớt một khoá:
     // hành vi không đổi một chút nào, chỉ khác ở chỗ ngày mai.
-    school: (() => {
-      const truong = db.school();
-      if (!truong) return truong;
-      const coSo = db.campuses().map(c => ({ id: c.id, name: c.name }));
-      const ra = { coSo };
-      for (const k of KHOA_TRUONG_CHO_PHEP) {
-        if (truong[k] !== undefined) ra[k] = truong[k];
-      }
-      return ra;
-    })(),
+    school: khoiTruong(),
+  };
+}
+
+function khoiTruong() {
+  const truong = db.school();
+  if (!truong) return truong;
+  const coSo = db.campuses().map(c => ({ id: c.id, name: c.name }));
+  const ra = { coSo };
+  for (const k of KHOA_TRUONG_CHO_PHEP) {
+    if (truong[k] !== undefined) ra[k] = truong[k];
+  }
+  return ra;
+}
+
+// TÀI KHOẢN CÒN MẬT KHẨU TẠM CHỈ NHẬN ĐỦ ĐỂ VẼ MÀN ĐẶT MẬT KHẨU (Đ261j, O5).
+//
+// Mật khẩu tạm đi qua tay nhiều người (giấy in, đọc qua điện thoại). server.js
+// đã chặn mọi API khác cho tài khoản này, nhưng /api/auth thì mở — và gói đầy
+// đủ ở trên mang theo hồ sơ bé (địa chỉ, nhóm máu, dị ứng), danh sách cô, mọi
+// nhóm của trường. Nên ở đây không có bé, không có nhóm, không có tab Quản
+// trị; giữ nguyên hình dạng các trường để app khởi động được. Đặt mật khẩu
+// xong, màn đặt mật khẩu gọi lại /api/auth/me để nạp đủ.
+function goiMatKhauTam(user) {
+  return {
+    user: {
+      id: user.id, username: user.username, name: user.name, title: user.title || '',
+      role: user.role, avatar: user.avatar || null, mustChangePassword: true,
+      nhomCuaCo: [], classIds: [], coSo: null, chucVu: null, moHoSoBe: false, tabQuanTri: null,
+    },
+    students: [],
+    classes: [],
+    school: khoiTruong(),
   };
 }
 

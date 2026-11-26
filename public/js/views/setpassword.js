@@ -36,8 +36,15 @@ App.views.setpassword = {
       try {
         const r = await API.post('/api/auth/set-new-password', { newPassword });
         UI.toast(r.message || 'Đã đặt mật khẩu mới', 'success');
-        App.state.user.mustChangePassword = false;
-        document.getElementById('bottom-nav').style.display = '';
+        // Lúc còn mật khẩu tạm máy chủ không gửi bé, nhóm, tab Quản trị (Đ261j,
+        // O5) — nạp lại đủ trước khi vào trang chủ. Không nạp được thì tải lại
+        // trang: mật khẩu đã đặt xong, app tự nạp lúc khởi động.
+        try {
+          App.applyMe(await API.get('/api/auth/me'));
+        } catch (_) {
+          location.reload();
+          return;
+        }
         location.hash = '#/';
         App.route();
         // Lúc đăng nhập bằng mật khẩu tạm máy chủ chặn đường nối đăng ký đẩy
