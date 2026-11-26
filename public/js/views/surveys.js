@@ -300,6 +300,7 @@ App.views.surveys = {
     }
     try {
       await API.post('/api/surveys', goi);
+      App.views.notifications.xoaBaoLoiCu();
       UI.toast('Đã tạo khảo sát mới', 'success');
       UI.closeModal();
       App.route();
