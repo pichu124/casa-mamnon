@@ -331,7 +331,14 @@ App.views.nhatky = {
     // Nhóm của cô, cho cả nhóm mặc định LẪN ô chọn bên dưới. Trước đây ô chọn
     // liệt kê nhóm của cả trường, nên cô bấm nhầm sang nhóm không phụ trách là
     // rơi vào màn "Có lỗi xảy ra" (403).
-    const nhomCua = App.nhomCuaCo();
+    //
+    // Văn phòng khoá vào một cơ sở chỉ thấy nhóm của cơ sở ấy, như màn Điểm
+    // danh — trước đây văn phòng Cơ sở 1 thấy cả Mầm 1 (Cơ sở 2), bấm vào là
+    // "Không có quyền xem nhật ký của nhóm này" (R2-L5).
+    const u = App.state.user || {};
+    const nhomCua = (u.role === 'admin' && u.coSo)
+      ? App.nhomCuaCo().filter(c => c.campusId === u.coSo)
+      : App.nhomCuaCo();
     const nhom = nhomCua.map(c => c.id);
     this._classId = this._classId || nhom[0] || '';
     this._ngay = this._ngay || UI.todayStr();
@@ -1042,6 +1049,10 @@ App.views.nhatky = {
       }
       theoBe.get(be)[o.dataset.truong] = o.value;
     }
+    // Câu "Đã lưu … cho N bé" chỉ đếm bé có ghi gì ở bước này (R2-C2): đếm cả bé
+    // để trống là nói 3 bé đã ngủ trưa khi cô mới ghi giờ cho 2 bé.
+    const soCoDuLieu = [...theoBe.values()].filter(x => Object.entries(x)
+      .some(([k, v]) => k !== 'studentId' && k !== 'capNhatLucGoc' && String(v || '').trim())).length;
     try {
       let r;
       if (buoc.kieu === 'bua') {
@@ -1091,12 +1102,16 @@ App.views.nhatky = {
         UI.toast(
           coNghi
             ? (r.nhacNghiChu || 'Có bé đang nghỉ hôm nay mà vẫn được ghi nhật ký')
-            : `Đã lưu ${buoc.ten} cho ${r.daGhi} bé`
+            : this.cauDaLuu(buoc.ten, Math.min(r.daGhi, soCoDuLieu))
               + (r.daBao ? ` · đã báo gia đình ${r.daBao} bé` : ' — gia đình chưa thấy, soát xong cô bấm Gửi'),
           coNghi ? 'error' : 'success');
       }
       App.route();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  cauDaLuu(tenBuoc, soBe) {
+    return soBe ? `Đã lưu ${tenBuoc} cho ${soBe} bé` : `Đã lưu ${tenBuoc}`;
   },
 
   // ================= Màn của gia đình: đọc từng ngày =================
