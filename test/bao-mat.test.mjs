@@ -5,7 +5,7 @@
 // Chạy bằng:  npm run test:bao-mat
 import fs from 'fs';
 import { spawn } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam, maPhienTrongBang } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3200);
 const BASE = `http://localhost:${PORT}`;
@@ -195,7 +195,7 @@ console.log('\n[8b] Phiên hết hạn sau 30 ngày KỂ TỪ LÚC ĐĂNG NHẬP
   const luiPhien = (cookie, soNgay) => {
     const raw = new Database(`${TEST_DIR}/school.db`);
     const r = raw.prepare('UPDATE sessions SET createdAt = ? WHERE token = ?')
-      .run(Date.now() - soNgay * NGAY, cookie.replace(/^session=/, ''));
+      .run(Date.now() - soNgay * NGAY, maPhienTrongBang(cookie.replace(/^session=/, '')));
     raw.close();
     return r.changes;
   };
@@ -213,7 +213,7 @@ console.log('\n[8b] Phiên hết hạn sau 30 ngày KỂ TỪ LÚC ĐĂNG NHẬP
   check('phiên hết hạn bị xoá hẳn, hỏi lại vẫn 401', lai.status === 401, lai.status);
   {
     const raw = new Database(`${TEST_DIR}/school.db`, { readonly: true });
-    const n = raw.prepare('SELECT COUNT(*) AS n FROM sessions WHERE token = ?').get(con.cookie.replace(/^session=/, '')).n;
+    const n = raw.prepare('SELECT COUNT(*) AS n FROM sessions WHERE token = ?').get(maPhienTrongBang(con.cookie.replace(/^session=/, ''))).n;
     raw.close();
     check('dòng phiên hết hạn không còn trong bảng', n === 0, n);
   }
