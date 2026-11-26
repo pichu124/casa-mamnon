@@ -81,7 +81,13 @@ App.views.baocaohoctap = {
     this._tuNgay = this._tuNgay || ky.tu;
     this._denNgay = this._denNgay || ky.den;
 
-    if (this.laGiaDinh()) return this.veGiaDinh(root);
+    // Gia đình cũng cần bảng năm mức: thiếu nó thì ô mức của báo cáo 6 tháng
+    // chỉ còn màu, không còn chữ (lỗi R3-1, đợt 26/11).
+    if (this.laGiaDinh()) {
+      const m = await API.get('/api/baocaohoctap/mau');
+      this._mucList = m.muc || [];
+      return this.veGiaDinh(root);
+    }
 
     // TẮT MỘT MẪU KHÔNG ĐƯỢC LÀ CỬA MỘT CHIỀU.
     //
