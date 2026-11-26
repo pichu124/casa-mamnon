@@ -152,11 +152,26 @@ try {
     const phuHuynh = nguoi.filter(x => x.vai === 'parent').map(x => x.id);
     check('cô mời được gia đình của nhóm mình', phuHuynh.length > 0, phuHuynh.length);
 
+    // ĐƯỜNG LẬP PHÒNG KIỂU CŨ ĐÃ NGỪNG (Đ261c, kiểm thử R4): nó không còn nút
+    // từ Đ260k và lập ra phòng cho các nhà thấy họ tên đầy đủ của nhau. Phòng
+    // cũ thì vẫn còn trong dữ liệu thật, nên dựng thẳng trong bảng đúng hình
+    // dạng đường cũ ghi, rồi canh y như trước: thành viên đọc được, người
+    // ngoài không đọc được một chữ nào.
     const tao = await req('POST', '/api/messages/phong-chung', {
       cookie: GV, body: { ten: 'Chuẩn bị hội chợ mùa xuân', thanhVien: phuHuynh.slice(0, 2) },
     });
-    check('cô lập được phòng chung', tao.status === 201, `${tao.status} ${JSON.stringify(tao.data).slice(0, 120)}`);
-    phongId = tao.data?.id;
+    check('ĐƯỜNG CŨ KHÔNG LẬP PHÒNG MỚI NỮA — chỉ sang "Tạo phòng trao đổi chung"',
+      tao.status === 410 && /Tạo phòng trao đổi chung/.test(tao.data?.error || ''), `${tao.status} ${JSON.stringify(tao.data).slice(0, 120)}`);
+    phongId = 'cv_phong_cu';
+    {
+      const c = new Database(path.join(DIR, 'school.db'));
+      c.prepare("INSERT INTO conversations (id, type, name, classId) VALUES (?, 'group', ?, NULL)")
+        .run(phongId, 'Chuẩn bị hội chợ mùa xuân');
+      const tv = c.prepare('INSERT INTO conversation_members (conversationId, userId, lastRead) VALUES (?, ?, NULL)');
+      for (const u of ['t1', ...phuHuynh.slice(0, 2)]) tv.run(phongId, u);
+      c.close();
+    }
+    check('đối chứng — phòng cũ có mẹ bé An (p1) là thành viên', phuHuynh.slice(0, 2).includes('p1'), phuHuynh.slice(0, 2));
 
     const mo = await req('GET', `/api/messages/${phongId}`, { cookie: GV });
     check('cô mở được phòng vừa lập', mo.status === 200, mo.status);
@@ -197,31 +212,26 @@ try {
     const chiCuaGV = (hoi1.data.nguoi || []).filter(x => !cuaGV2.has(x.id) && x.vai === 'parent');
     check('đối chứng — có ít nhất một gia đình chỉ cô nhóm c1 chạm tới được',
       chiCuaGV.length > 0, chiCuaGV.length);
+    // Đường cũ đã ngừng (Đ261c) nên mời ai cũng không lập được phòng nào —
+    // kể cả mời người ngoài nhóm. Chốt mời đúng nhóm nay nằm ở phòng trao đổi
+    // chung của nhóm (test/phan-hoi-1811-phong-nhom.test.mjs).
     const len = await req('POST', '/api/messages/phong-chung', {
       cookie: GV2, body: { ten: 'Thử mời người ngoài nhóm', thanhVien: [chiCuaGV[0]?.id] },
     });
-    check('CÔ KHÔNG MỜI ĐƯỢC GIA ĐÌNH NGOÀI NHÓM MÌNH', len.status === 403, len.status);
-    check('và câu từ chối NÓI RA ai bị từ chối, không cụt lủn',
-      /Không mời được vào phòng: .+/.test(len.data?.error || ''), len.data?.error);
-
-    // VIỆC 28 — "nhóm phụ huynh tuỳ chọn" chính là phòng chung chỉ có phụ
-    // huynh. Không có đường thứ hai, và mục này chứng minh điều đó.
+    check('CÔ KHÔNG LẬP ĐƯỢC PHÒNG MỜI GIA ĐÌNH NGOÀI NHÓM MÌNH', len.status === 410, len.status);
     const chiPH = (hoi1.data.nguoi || []).filter(x => x.vai === 'parent').map(x => x.id).slice(0, 2);
     const nhomPH = await req('POST', '/api/messages/phong-chung', {
       cookie: GV, body: { ten: 'Ban đại diện cha mẹ bé nhóm Chồi 2', thanhVien: chiPH },
     });
-    check('NHÓM PHỤ HUYNH TUỲ CHỌN = phòng chung chỉ có phụ huynh, không cần đường thứ hai',
-      nhomPH.status === 201, nhomPH.status);
-
-    const rong = await req('POST', '/api/messages/phong-chung', {
-      cookie: GV, body: { ten: 'Phòng một mình', thanhVien: [] },
-    });
-    check('phòng chỉ có mình cô thì từ chối, nói bằng tiếng của trường',
-      rong.status === 400 && /ít nhất một người/.test(rong.data?.error || ''), rong.data);
-    const khongTen = await req('POST', '/api/messages/phong-chung', {
-      cookie: GV, body: { ten: '   ', thanhVien: chiPH },
-    });
-    check('phòng không tên cũng vậy', khongTen.status === 400, khongTen.status);
+    check('phòng chỉ có phụ huynh cũng không lập qua đường cũ được nữa', nhomPH.status === 410, nhomPH.status);
+    const soPhong = (() => {
+      const c = new Database(path.join(DIR, 'school.db'));
+      try {
+        return c.prepare("SELECT COUNT(*) AS n FROM conversations WHERE type = 'group' AND classId IS NULL AND id != ?")
+          .get('cv_phong_cu').n;
+      } finally { c.close(); }
+    })();
+    check('và không một phòng không gắn nhóm nào được ghi thêm', soPhong === 0, soPhong);
   }
 
   // =========================================================================
