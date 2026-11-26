@@ -18,6 +18,8 @@
 //      "Việc khác: "; nhãn "Ôn lại" GIỮ NGUYÊN (loại hoạt động, không phải đánh giá).
 //   7. R3-10 — tab Montessori: thẻ quan sát ghi tên người ghi, không ghi vai
 //      "Cô phụ trách nhóm"; cô khác không thấy thẻ trống của quan sát chưa nhận định.
+//   8. R3-6 / R1-B7 — Ghi nhanh: thẻ "Đây là phép thử…" và bảng bấm giờ ẩn mặc
+//      định; chỉ hiện khi mở bằng địa chỉ có ?thu=1.
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
@@ -305,6 +307,30 @@ try {
       chu2.includes('Ghi chú thô Đ261e') && chu2.includes('Bé tự rót nước Đ261e'), chu2.slice(0, 600));
     check('…nhãn là tên cô, không phải vai "Cô phụ trách nhóm"', !chu2.includes('Cô phụ trách nhóm'), chu2.slice(0, 600));
     await p2.ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[8] R3-6 — Ghi nhanh: thẻ phép thử và bảng bấm giờ ẩn mặc định');
+  {
+    // Một lần ghi có bấm giờ, để bảng "Thường mất / Nhanh nhất" có số mà hiện.
+    const ghi = await req('POST', '/api/thuchup', { cookie: GV, body: {
+      id: `tc-d261e-${Date.now()}`, studentId: 's1', note: 'Bé xếp tháp Đ261e', giay: 12, ngoaiTuyen: false } });
+    check('đối chứng — có một lần ghi nhanh được bấm giờ', ghi.status === 200 || ghi.status === 201, ghi.data);
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'giaovien', '123456');
+    await moMan(page, '#/thuchup');
+    await page.waitForSelector('#tc-ghi', { timeout: 10000 });
+    const man = await chuMan(page);
+    check('mặc định KHÔNG có thẻ "Đây là phép thử, chưa phải bản dùng thật"', !/phép thử, chưa phải bản dùng thật/.test(man), man.slice(0, 300));
+    check('mặc định KHÔNG có bảng bấm giờ', !/Thường mất|Nhanh nhất|Chậm nhất/.test(man) && !/lần ghi xong dưới 20 giây/.test(man), man.slice(0, 500));
+    check('nút ghi nhanh vẫn ở đó', await page.locator('#tc-ghi').count() === 1);
+    await page.goto(`${sv.BASE}/?thu=1#/thuchup`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('#tc-ghi', { timeout: 10000 });
+    await page.waitForTimeout(600);
+    const manThu = await chuMan(page);
+    check('mở bằng ?thu=1: thẻ phép thử và bảng bấm giờ hiện lại',
+      /phép thử, chưa phải bản dùng thật/.test(manThu) && /Thường mất/.test(manThu), manThu.slice(0, 500));
+    await ctx.close();
   }
 
   check('không có lỗi JavaScript trên trang', loiJs.length === 0, loiJs);
