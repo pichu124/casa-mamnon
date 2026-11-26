@@ -294,6 +294,21 @@ export function taoQuanTri(dir, hoTen, tenDangNhap) {
   return mk;
 }
 
+// Đánh dấu các tài khoản là ĐÃ tự đặt mật khẩu riêng, giữ nguyên mật khẩu.
+//
+// Từ Đ261b (lỗi O5) tài khoản còn mật khẩu tạm chỉ gọi được /api/auth/* và
+// GET /api/modules. Bài nào chỉ cần một quản trị dùng được ngay — không phải
+// bài về chính bước đặt mật khẩu — gọi hàm này ngay sau `taoQuanTri`: đúng
+// trạng thái của tài khoản thật sau khi chủ nhân đã đổi mật khẩu tạm.
+export function daDoiMatKhau(dir, ...tenDangNhap) {
+  chayTrenCsdl(dir, `
+    const dat = db.prepare('UPDATE users SET mustChangePassword = 0 WHERE username = ?');
+    for (const t of process.argv.slice(2)) {
+      if (dat.run(t).changes !== 1) throw new Error('daDoiMatKhau: không có tài khoản ' + t);
+    }
+  `, tenDangNhap);
+}
+
 // Dựng máy chủ và chờ tới khi nó trả lời được. Trả về đối tượng có hàm `dung()`
 // và `khoiDongLai()` để thử các tình huống khởi động lại.
 export async function dungMayChu({ port, dir, env = {} }) {
