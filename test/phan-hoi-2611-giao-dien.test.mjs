@@ -14,6 +14,10 @@
 //      từ bản dùng chung gắn "giống bản đang có, không đổi", nút ghi "Lưu 1 ngày".
 //   5. R3-8 — hộp "Mời chữ từ Kế hoạch của bé" và tab Duyệt của Kế hoạch của bé
 //      ghi "tháng 11/2026", không ghi dạng máy "2026-11".
+//   6. R3-3 — gia đình xem "Kế hoạch của bé": mục chữ tự do có tiền tố
+//      "Việc khác: "; nhãn "Ôn lại" GIỮ NGUYÊN (loại hoạt động, không phải đánh giá).
+//   7. R3-10 — tab Montessori: thẻ quan sát ghi tên người ghi, không ghi vai
+//      "Cô phụ trách nhóm"; cô khác không thấy thẻ trống của quan sát chưa nhận định.
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
@@ -239,6 +243,68 @@ try {
     check(`dòng chờ duyệt ghi "· ${chuThang}"`, man.includes(`· ${chuThang}`), man.slice(0, 600));
     check(`…không còn "tháng ${THANG}"`, !man.includes(`tháng ${THANG}`), man.slice(0, 600));
     await ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[6] R3-3 — "Việc khác: " ở Kế hoạch của bé phía gia đình');
+  {
+    const THANG = HOM.slice(0, 7);
+    const dm = (await req('GET', '/api/kehoachbe/bai-hoc', { cookie: GV })).data.baiHoc;
+    const rotNuoc = dm.find(b => b.ten === 'Rót nước');
+    const lap = await req('PUT', '/api/kehoachbe', { cookie: GV, body: { classId: 'c1', thang: THANG, chuongTrinh: 'chu-nhiem',
+      danhSach: [{ studentId: 's3', capNhatLucGoc: null, baiHoc: [{ baiHocId: rotNuoc.id, nhan: 'on-tap' }],
+        muc: [{ gocLinhVuc: rotNuoc.gocLinhVuc, noiDung: 'Tập tự mặc áo khoác Đ261e' }] }] } });
+    check('đối chứng — cô lập kế hoạch có bài "Rót nước" (ôn tập) và một việc khác', lap.status === 200, lap.data);
+    await req('POST', '/api/kehoachbe/gui-duyet', { cookie: GV, body: { classId: 'c1', thang: THANG, studentId: 's3', chuongTrinh: 'chu-nhiem' } });
+    const k = ((await req('GET', `/api/kehoachbe?classId=c1&thang=${THANG}`, { cookie: GV })).data.danhSach || [])
+      .find(x => x.studentId === 's3').ke;
+    const dy = await req('POST', '/api/kehoachbe/duyet', { cookie: QT, body: { quyetDinh: 'da-duyet', phan: [{ keId: k.id, chuongTrinh: 'chu-nhiem' }] } });
+    check('đối chứng — quản lý duyệt', dy.status === 200, dy.data);
+
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'phuhuynh2', '123456');      // p2 — bé s3
+    await moMan(page, '#/hanhtrinh');
+    await page.waitForTimeout(800);
+    const man = await chuMan(page);
+    check('dòng việc khác có tiền tố "Việc khác: "', man.includes('Việc khác: Tập tự mặc áo khoác Đ261e'), man.slice(0, 800));
+    const hang = page.locator('#view .list-row', { hasText: 'Rót nước' });
+    check('nhãn "Ôn lại" của bài vẫn giữ (loại hoạt động, không phải đánh giá)',
+      (await hang.first().innerText().catch(() => '')).includes('Ôn lại'), await hang.first().innerText().catch(() => ''));
+    check('không có mức đánh giá nào ở màn này (QUY TẮC 4)', !/Đã vững|%|điểm/.test(man), man.slice(0, 400));
+    await ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[7] R3-10 — thẻ quan sát ghi tên người ghi; cô khác không thấy thẻ trống');
+  {
+    const tho = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's4', moTa: 'Ghi chú thô Đ261e' } });
+    const nd = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's4', moTa: 'Bé tự rót nước Đ261e' } });
+    const sua = await req('PUT', `/api/hanhtrinh/${nd.data.id}`, { cookie: GV, body: {
+      linhVuc: 'the-chat', trangThai: 'dang-hinh-thanh', oLopLamGi: 'Cô đặt thêm bình rót nhỏ ở góc.' } });
+    check('đối chứng — một quan sát thô, một quan sát đã nhận định', tho.status === 201 && sua.status === 200, [tho.data, sua.data]);
+    const moBe = async (page) => {
+      await moMan(page, '#/hanhtrinh/chu-nhiem');
+      await page.evaluate(() => { const v = App.views.hanhtrinh; v._classId = 'c1'; v._beDangXem = 's4'; App.route(); });
+      await page.waitForTimeout(1500);
+    };
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'giaovien3', '123456');      // t3 — cũng dạy c1
+    await moBe(page);
+    const the = page.locator('#ht-be-than .card', { has: page.locator('.card-title') });
+    const chu = await page.locator('#ht-be-than').innerText();
+    check('cô khác thấy quan sát đã nhận định, kèm tên người ghi',
+      chu.includes('Nguyễn Thị Mai Anh') && !chu.includes('Cô phụ trách nhóm'), chu.slice(0, 600));
+    check('cô khác KHÔNG thấy thẻ trống của quan sát chưa nhận định', await the.count() === 1, await the.count());
+    await ctx.close();
+
+    const p2 = await moTrang();
+    await dangNhap(p2.page, 'giaovien', '123456');
+    await moBe(p2.page);
+    const chu2 = await p2.page.locator('#ht-be-than').innerText();
+    check('cô đã ghi thấy cả hai, có ghi chú thô của mình',
+      chu2.includes('Ghi chú thô Đ261e') && chu2.includes('Bé tự rót nước Đ261e'), chu2.slice(0, 600));
+    check('…nhãn là tên cô, không phải vai "Cô phụ trách nhóm"', !chu2.includes('Cô phụ trách nhóm'), chu2.slice(0, 600));
+    await p2.ctx.close();
   }
 
   check('không có lỗi JavaScript trên trang', loiJs.length === 0, loiJs);

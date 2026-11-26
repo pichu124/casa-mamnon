@@ -11,6 +11,9 @@
 //      thứ máy không bao giờ điền sẵn.
 //   2. R3-8 — tin báo quản lý "vừa gửi … kế hoạch tháng 11/2026", tin báo cô
 //      "… (Montessori, tháng 11/2026)": không còn dạng máy "2026-11".
+//   3. R3-10 — cô khác trong nhóm KHÔNG nhận quan sát chưa nhận định, chưa kể
+//      của cô kia (trước đây nhận một thẻ chỉ có ngày), số của tab cũng không
+//      đếm nó; nhận định xong thì thấy, kèm tên người ghi.
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import {
@@ -131,6 +134,28 @@ try {
     check('đối chứng — quản lý duyệt', dy.status === 200, dy.data);
     const tinCo = doc("SELECT noiDung FROM thongbao_nv WHERE loai = 'ke-hoach-duyet' ORDER BY rowid DESC LIMIT 1")[0];
     check(`tin báo cô "đã được duyệt" ghi "${chu}"`, tinCo && tinCo.noiDung.includes(chu) && !tinCo.noiDung.includes(THANG), tinCo);
+  }
+
+  // =========================================================================
+  console.log('\n[3] R3-10 — quan sát chưa nhận định của cô khác không hiện thành thẻ trống');
+  {
+    const GV3 = (await login('giaovien3', '123456')).cookie;   // t3 — cũng dạy c1
+    const hoSo = async (ck) => (await req('GET', '/api/hanhtrinh?studentId=s4', { cookie: ck })).data;
+    const soTab = (d) => ((d.nhomCoTab || []).find(t => t.ma === 'chu-nhiem') || {}).soQuanSat;
+    const truoc = await hoSo(GV3);
+    const ghi = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's4', moTa: 'Ghi chú thô Đ261e, chưa nhận định' } });
+    check('đối chứng — cô Mai Anh ghi một quan sát thô cho s4', ghi.status === 201, ghi.data);
+    const id = ghi.data.id;
+    check('cô đã ghi vẫn thấy quan sát của mình', (await hoSo(GV)).quanSat.some(q => q.id === id));
+    const sau = await hoSo(GV3);
+    check('cô khác KHÔNG nhận quan sát chưa nhận định, chưa kể', !sau.quanSat.some(q => q.id === id), sau.quanSat.map(q => q.id));
+    check('…và số của tab không đếm nó', soTab(sau) === soTab(truoc), [soTab(truoc), soTab(sau)]);
+    check('quản trị vẫn thấy (lớp 1 cho quản trị khi cần)', (await hoSo(QT)).quanSat.some(q => q.id === id));
+    const sua = await req('PUT', `/api/hanhtrinh/${id}`, { cookie: GV, body: { linhVuc: 'the-chat', trangThai: 'dang-hinh-thanh', oLopLamGi: 'Cô bày thêm vòng ném ở sân.' } });
+    check('đối chứng — cô nhận định quan sát', sua.status === 200, sua.data);
+    const nd = (await hoSo(GV3)).quanSat.find(q => q.id === id);
+    check('nhận định xong: cô khác thấy, đọc được nhận định và tên người ghi, KHÔNG đọc ghi chú thô',
+      nd && nd.trangThai === 'dang-hinh-thanh' && /Mai Anh/.test(nd.coGhiTen || '') && nd.moTa === undefined, nd);
   }
 } catch (err) {
   check(`bài chạy hết không lỗi: ${err.message}`, false, err.stack);

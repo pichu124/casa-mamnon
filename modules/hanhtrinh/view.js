@@ -1456,7 +1456,7 @@ App.views.hanhtrinh = {
       <div class="card">
         <div class="card-title" style="flex-wrap:wrap;row-gap:6px">${UI.esc(UI.fmtDate(q.ngay))}
           <span class="spacer"></span>${tt}
-          ${q.tenNhomCo ? UI.badge(q.tenNhomCo, 'blue') : ''}
+          ${q.coGhiTen || q.tenNhomCo ? UI.badge(q.coGhiTen || q.tenNhomCo, 'blue') : ''}
           ${q.daCongBo ? UI.badge('Đã kể cho gia đình', 'green') : ''}
         </div>
         ${q.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(q.moTa)}</div>` : ''}
@@ -1557,7 +1557,7 @@ App.views.hanhtrinh = {
       .map(ct => [ct, ds.filter(b => ctCua(b.gocLinhVuc) === ct)]).filter(([, x]) => x.length);
     const dong = (b) => `
       <div class="list-row" style="padding:6px 0">
-        <div class="row-main"><div class="row-title" style="${b.nhan ? '' : 'font-weight:400'}">${UI.esc(b.ten)}</div></div>
+        <div class="row-main"><div class="row-title" style="${b.nhan ? '' : 'font-weight:400'}">${b.nhan ? '' : 'Việc khác: '}${UI.esc(b.ten)}</div></div>
         ${b.nhan && b.nhan !== 'hoc-moi' ? UI.badge(b.nhan === 'on-tap' ? 'Ôn lại' : 'Mở rộng', 'gray') : ''}
       </div>`;
     return `

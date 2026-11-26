@@ -268,6 +268,17 @@ module.exports = (app, { db, modules }) => {
     return ra;
   }
 
+  // CÓ GÌ ĐỂ NGƯỜI NÀY ĐỌC KHÔNG (Đ261e, R3-10). Quan sát cô khác ghi mà chưa
+  // nhận định, chưa kể cho gia đình thì qua `choNguoiXem` chỉ còn ngày: thẻ
+  // trống "Cô phụ trách nhóm" vừa khó hiểu, vừa lộ ra rằng cô kia đã ghi điều
+  // gì đó về bé. Cùng luật ba lớp với `choNguoiXem`, hỏi trên hàng dữ liệu.
+  function coGiDeXem(r, user) {
+    if (!r || !user) return false;
+    if (user.role === 'admin' || (user.role === 'teacher' && r.coGhi === user.id)) return true;
+    if (r.congBoLuc) return true;
+    return user.role === 'teacher' && !!(r.linhVuc || r.trangThai || r.minhChung || r.oLopLamGi);
+  }
+
   function tenNguoi(userId) {
     const u = userId ? db.findUser(userId) : null;
     return u ? `${u.title} ${u.name}` : '';
@@ -469,9 +480,12 @@ module.exports = (app, { db, modules }) => {
       `SELECT * FROM hanhtrinh_quansat WHERE studentId = ?
          ${chiCongBo ? 'AND congBoLuc IS NOT NULL' : ''}
        ORDER BY ngay DESC, taoLuc DESC LIMIT ? OFFSET ?`, [studentId, GIOI_HAN_DANH_SACH, bo]);
+    // Còn trang sau hay không vẫn đếm trên `rows`; mọi thứ trả ra (danh sách,
+    // số của từng tab) chỉ trên những dòng người này có gì để đọc (Đ261e).
+    const xem = rows.filter(r => coGiDeXem(r, req.user));
     // Hai khoá THÊM vào từng quan sát (Đ242B), tra theo lô cho cả trang.
-    const tepKe = tepKeChoNguoiXem(rows, be, req.user);
-    const goc = gocCuaCacQuanSat(rows.map(r => r.id));
+    const tepKe = tepKeChoNguoiXem(xem, be, req.user);
+    const goc = gocCuaCacQuanSat(xem.map(r => r.id));
 
     const dongKeHoach = dongThangNay(be, req.user);
     res.json({
@@ -511,9 +525,9 @@ module.exports = (app, { db, modules }) => {
       // rò ra "cô đã ghi 12 điều nhưng chỉ kể 2".
       nhomCoTab: nhomCo.NHOM.map(([ma, ten, chuongTrinh]) => ({
         ma, ten, chuongTrinh,
-        soQuanSat: rows.filter(r => nhomCuaQuanSat(r, be.classId) === ma).length,
+        soQuanSat: xem.filter(r => nhomCuaQuanSat(r, be.classId) === ma).length,
       })),
-      quanSat: rows.map((r) => {
+      quanSat: xem.map((r) => {
         const x = choNguoiXem(r, req.user);
         if (!x) return null;
         const ma = nhomCuaQuanSat(r, be.classId);
