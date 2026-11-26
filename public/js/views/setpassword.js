@@ -40,6 +40,9 @@ App.views.setpassword = {
         document.getElementById('bottom-nav').style.display = '';
         location.hash = '#/';
         App.route();
+        // Lúc đăng nhập bằng mật khẩu tạm máy chủ chặn đường nối đăng ký đẩy
+        // (Đ261b, O5) — nối lại ngay khi đã đặt xong mật khẩu riêng.
+        App.dongBoDangKyDay();
       } catch (err) {
         UI.toast(err.message, 'error');
         btn.disabled = false;
