@@ -1229,9 +1229,17 @@ module.exports = (app) => {
     // theo cơ sở của TỪNG NHÓM, cùng cách với chốt sổ vắng bên trên.
     const truongNghi = nghiHoc.dotNghiTheoNhom(date);
     const chuaCham = students.filter(s => !daCham.has(s.id) && !dangNghi.get(s.id));
-    const canRaSoat = chuaCham
+    // THỨ BẢY, CHỦ NHẬT CŨNG KHÔNG PHẢI NGÀY "CHƯA ĐIỂM DANH" (Đ261i). Cả app
+    // coi thứ Hai – thứ Sáu là ngày học (đơn xin nghỉ, lịch nghỉ, màn của cô);
+    // văn phòng mở màn Điểm danh cuối tuần mà thấy "Cần gọi xác nhận: 11 bé"
+    // là bị mời gọi cho những nhà không ai chờ cuộc gọi nào.
+    const thu = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const cuoiTuan = thu === 0 || thu === 6;
+    const canRaSoat = cuoiTuan ? [] : chuaCham
       .filter(s => !truongNghi(s.classId))
       .map(s => ({ studentId: s.id, hoTen: s.name, avatar: s.avatar, classId: s.classId }));
+    const ngayKhongHoc = cuoiTuan ? 'cuoi-tuan'
+      : (students.length && students.every(s => truongNghi(s.classId)) ? 'truong-nghi' : null);
 
     res.json({
       date, gioRaSoat: mocRaSoat, gioRaSoatChu: gioRaSoatChu(mocRaSoat), quaGio,
@@ -1247,7 +1255,10 @@ module.exports = (app) => {
       // danh sách ngắn hơn mình tưởng và không đi tìm nhầm.
       soDaCoDonNghi: [...dangNghi.keys()].filter(id => !daCham.has(id)).length,
       // Số bé chưa có dòng mà hôm ấy trường (cơ sở) nghỉ — không cần gọi.
-      soTruongNghi: chuaCham.length - canRaSoat.length,
+      soTruongNghi: cuoiTuan ? 0 : chuaCham.length - canRaSoat.length,
+      // 'cuoi-tuan' | 'truong-nghi' (mọi bé trong danh sách) | null — để màn
+      // văn phòng nói "không phải ngày học" thay vì "cả trường đã xong".
+      ngayKhongHoc,
     });
   });
 
