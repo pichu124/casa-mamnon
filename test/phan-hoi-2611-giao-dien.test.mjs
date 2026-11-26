@@ -43,7 +43,7 @@ khoaVaoCoSo(DIR, 'ph2611gd_ql', 'cs1');
 
 const HOM = HOM_NAY();
 
-const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7201), dir: DIR });
+const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7206), dir: DIR });
 const req = taoReq(sv.BASE);
 const login = taoLogin(req);
 
