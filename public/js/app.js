@@ -287,10 +287,7 @@ window.App = {
         <div class="card center" style="margin-top:36px">
           <div style="font-size:44px;line-height:1.2">📵</div>
           <h2 style="margin:8px 0 6px;font-size:19px">Máy đang không có mạng</h2>
-          <p class="muted" style="line-height:1.7;margin:0 0 14px">
-            App chưa gọi được về trường. Có sóng trở lại là màn hình tự mở ra,
-            và những gì cô đã ghi lúc mất mạng sẽ tự gửi đi, không mất.
-          </p>
+          <p class="muted" style="line-height:1.7;margin:0 0 14px">${UI.esc(this.cauMatMang())}</p>
           <button class="btn primary block" id="off-thu-lai">Thử lại</button>
         </div>`;
       const nut = document.getElementById('off-thu-lai');
@@ -301,6 +298,25 @@ window.App = {
       this._dangChoSong = true;
       window.addEventListener('online', () => location.reload());
     }
+  },
+
+  // CÂU CỦA MÀN MẤT MẠNG — CHỈ HỨA ĐIỀU APP LÀM ĐƯỢC (R2-L3, R4-B5).
+  //
+  // Câu cũ nói với mọi người "những gì cô đã ghi lúc mất mạng sẽ tự gửi đi":
+  // sai với điểm danh và nhật ký (không có hàng đợi, bật mạng lại bé vẫn chưa
+  // được ghi), và gia đình cũng đọc chữ "cô". Chỉ Ghi nhanh có hàng đợi trong
+  // máy. Lúc này app không gọi được /api/auth/me nên không biết vai; danh sách
+  // màn phân hệ nhớ trong máy có Ghi nhanh (chỉ cô và văn phòng có) thì nói
+  // câu của cô, không thì một câu trung tính đúng cho mọi người.
+  cauMatMang() {
+    let urls = [];
+    try { urls = JSON.parse(localStorage.getItem(this.KHOA_MAN_HINH_PHAN_HE) || '[]'); } catch (_) {}
+    const coGhiNhanh = Array.isArray(urls)
+      && urls.some(u => typeof u === 'string' && u.indexOf('/modules/thuchup/') === 0);
+    const dau = 'App chưa gọi được về trường. Có sóng trở lại là màn hình tự mở ra.';
+    return coGhiNhanh
+      ? `${dau} Bài Ghi nhanh đã lưu trên máy sẽ tự gửi đi khi có mạng; điểm danh và nhật ký cần có mạng mới ghi được.`
+      : `${dau} Gửi đơn, gửi tin nhắn hay câu trả lời cần có mạng mới gửi được.`;
   },
 
   // Địa chỉ tệp giao diện của các phân hệ đã bật, ghi lại lần nạp gần nhất.
