@@ -224,7 +224,7 @@ App.views.notifications = {
         <div class="hint" id="nt-ct-goi-y">${UI.esc(this.GOI_Y_NHAP_HOC)}</div>` : ''}
       ${n.coTheSua ? `
         <div class="flex mt-14" style="gap:8px">
-          <button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>
+          ${n.suaNoiDungDuoc === false ? '' : `<button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>`}
           <button class="btn danger-soft" style="flex:1" onclick="App.views.notifications.hoiThuHoi('${UI.esc(n.id)}')">Thu hồi</button>
         </div>` : ''}
     `, 'Chi tiết thông báo');

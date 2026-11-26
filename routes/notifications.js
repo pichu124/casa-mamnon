@@ -167,6 +167,8 @@ module.exports = (app) => {
         read: !!n.read || (!!n.createdBy && n.createdBy === req.user.id),
         authorName: author ? `${author.title} ${author.name}` : '',
         coTheSua: st.laChuBanGhi(req.user, n.createdBy),
+        // Thu hồi vẫn theo `coTheSua`; sửa chữ thì hẹp hơn (R4-B3).
+        suaNoiDungDuoc: suaNoiDungDuoc(req.user, n, id => nguoi.get(id)),
         toanTruong: pv.toanTruong,
         tenNhom: pv.tenNhom,
         tenCoSo: pv.tenCoSo,
@@ -339,6 +341,24 @@ module.exports = (app) => {
     return db.phamViCoSo(user) === null || db.chucVu(user) === 'hieu-truong';
   }
 
+  // SỬA CHỮ TRONG TIN NHÓM DO CÔ GỬI (Đ261c, kiểm thử R4-B3).
+  //
+  // Phụ huynh đọc tin dưới tên người gửi. Văn phòng, quản lý cơ sở sửa chữ
+  // trong tin cô gửi là gia đình đọc lời văn phòng viết dưới tên cô, kèm
+  // "đã chỉnh sửa" — như thể cô tự sửa. Nên nội dung tin NHÓM DO CÔ GỬI chỉ
+  // cô ấy và ban giám hiệu cấp 1 sửa được; quản trị cơ sở vẫn ghim và thu hồi
+  // được như cũ. Tin do quản trị gửi (lời nhà trường) và tin TOÀN TRƯỜNG giữ
+  // nguyên luật đang có (L12, chờ trường quyết).
+  // `tim` tra người gửi — đường danh sách truyền bảng đã tra sẵn (không N+1).
+  function suaNoiDungDuoc(user, n, tim = db.findUser) {
+    if (!st.laChuBanGhi(user, n.createdBy)) return false;
+    if (user.role !== 'admin' || n.createdBy === user.id) return true;
+    if (!n.audience || n.audience === 'all') return true;
+    const nguoiGui = n.createdBy ? tim(n.createdBy) : null;
+    if (!nguoiGui || nguoiGui.role !== 'teacher') return true;
+    return ghimDuocToanTruong(user);
+  }
+
   function trongPhamViCoSo(user, n) {
     if (!user || user.role !== 'admin') return true;   // vai cô: laChuBanGhi đã giữ
     const pham = db.phamViCoSo(user);
@@ -382,6 +402,12 @@ module.exports = (app) => {
     }
     if (req.body.category !== undefined) {
       patch.category = CATEGORIES.includes(req.body.category) ? req.body.category : 'Khác';
+    }
+    if (Object.keys(patch).length && !suaNoiDungDuoc(req.user, n)) {
+      return res.status(403).json({
+        error: 'Thông báo nhóm này do cô gửi nên chỉ người gửi hoặc ban giám hiệu sửa được nội dung. '
+          + 'Văn phòng vẫn ghim hoặc thu hồi được.',
+      });
     }
     // CỐ Ý không cho đổi `audience`: đổi phạm vi gửi sau khi đã gửi nghĩa là một
     // nhóm phụ huynh mất thông báo họ đã đọc, một nhóm khác bỗng thấy thông báo

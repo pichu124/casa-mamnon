@@ -2109,9 +2109,15 @@ module.exports = (app) => {
       patch.active = req.body.active ? 1 : 0;
       if (patch.active) patch.leftAt = null;
       if (!patch.active) lsl.ghiRoiLop(s.id, lsl.homNay());
-      else if (s.classId) lsl.baoDamCoKhoang(s.id);
     }
     db.update('students', s.id, patch);
+    // Mở khoảng học SAU khi đã ghi `active = 1` (Đ261c, R4-B2): gọi trước như
+    // bản cũ thì bé còn đang "nghỉ" nên không khoảng nào được mở, và lần nghỉ
+    // sau gia đình mất album của giai đoạn đi học lại.
+    if (patch.active) {
+      if (!s.active) lsl.ghiNhanLai(s.id, s.leftAt, lsl.homNay());
+      else if (s.classId) lsl.baoDamCoKhoang(s.id);
+    }
     // Nhận lại cũng là ĐI HỌC LẠI sau bảo lưu (Đ239d2), còn đánh dấu nghỉ ở đây
     // là nghỉ HẲN: đằng nào cũng hết bảo lưu thì hết nhãn.
     if (patch.active !== undefined) db.run('DELETE FROM hoc_sinh_bao_luu WHERE studentId = ?', [s.id]);
