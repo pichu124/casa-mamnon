@@ -521,7 +521,8 @@ App.views.dashboard = {
   //
   // Từ trên xuống: phần đầu gọn (tên trường, một dòng chào, dải chọn con) ·
   // thẻ "Hôm nay của <tên bé>" · dòng khảo sát chờ trả lời · nhóm ô "Hằng
-  // ngày" kèm dòng mở các ô còn lại. Ô chọn năm học sang Cài đặt.
+  // ngày" rồi tới mọi ô còn lại, hiện hết ngay (góp ý của trường 18/11: bỏ
+  // dòng "… và N mục khác" / "Thu gọn"). Ô chọn năm học sang Cài đặt.
   //
   // Ô VẼ TRƯỚC, THẺ HÔM NAY NẠP SAU — cùng nếp với bảng hôm nay của cô: mất
   // mạng hay một đường API hỏng thì gia đình vẫn đủ ô để đi tiếp, chỉ thiếu
@@ -531,14 +532,12 @@ App.views.dashboard = {
   //
   // Khuôn một ô và luật lọc ô chép lại từ `render` chứ không dùng chung hàm:
   // `render` là bước lui khi phần này hỏng, nên nó không được dựa vào phần này.
-  _moThem: false,     // gia đình đang mở các ô ngoài nhóm "Hằng ngày"
   _theoDoiKs: null,   // bộ theo dõi huy hiệu của ô Khảo sát
 
   // Những phần gia đình mở mỗi ngày, đúng thứ tự của bản vẽ. Kể theo `view`.
   //
   // "Nhật ký ngày" đứng ngay sau Điểm danh: với nhà có bé nhà trẻ đó là trang
-  // sổ đọc mỗi chiều (ăn, ngủ), giấu nó sau dòng "mục khác" là giấu đúng thứ
-  // họ mở app để xem. Nhà chỉ có bé lớn thì máy chủ đã bảo bỏ ô này
+  // sổ đọc mỗi chiều (ăn, ngủ). Nhà chỉ có bé lớn thì máy chủ đã bảo bỏ ô này
   // (`dieuKienHien`), nhóm vẫn còn năm ô như bản vẽ.
   O_HANG_NGAY: ['attendance', 'nhatky', 'leave', 'menu', 'medicine', 'albums'],
 
@@ -569,7 +568,7 @@ App.views.dashboard = {
           <span class="ph-ks-chu"></span>
           ${UI.icon('chevron', 18)}
         </a>` : ''}
-        <div class="tile-sheet ph-o${this._moThem ? ' mo-them' : ''}">
+        <div class="tile-sheet ph-o">
           ${tiles.length ? '' : `<div class="muted small center" style="padding:24px 8px">
             Tài khoản của mình chưa có phần nào hiện ở đây.
             Cần thêm phần nào thì nhờ nhà trường mở giúp.
@@ -578,29 +577,26 @@ App.views.dashboard = {
           <div class="tile-grid"${coNhom ? ` data-hn="${hangNgay.length}"` : ''}>
             ${hangNgay.map(t => this.oPhuHuynh(t, false)).join('')}${conLai.map(t => this.oPhuHuynh(t, coNhom)).join('')}
           </div>
-          ${coNhom && conLai.length
-            ? '<button type="button" class="ph-them" id="ph-them" onclick="App.views.dashboard.doiMoThem()"></button>' : ''}
         </div>
       </div>`;
 
-    this.veDongThem();
+    this.demHangNgay();
     this.theoDoiKhaoSat();
-    // Ô có điều kiện hiện trả lời xong thì đếm lại: ô nào máy chủ bảo bỏ là
-    // biến khỏi cả lưới lẫn dòng "mục khác".
-    this._dieuKienDangHoi = this.apDieuKienHien(tiles).finally(() => this.veDongThem());
+    // Ô có điều kiện hiện trả lời xong thì đếm lại: ô nào máy chủ bảo bỏ thì
+    // các ô Hằng ngày còn lại giãn cho kín hàng.
+    this._dieuKienDangHoi = this.apDieuKienHien(tiles).finally(() => this.demHangNgay());
     if (be) this.napHomNayPhuHuynh(be);
   },
 
   // Chia ô thành nhóm "Hằng ngày" và phần còn lại. Không phần hằng ngày nào
-  // đang bật thì nhóm rỗng, và chỗ gọi KHÔNG giấu ô nào: trang chủ chỉ còn
-  // một dòng "mục khác" là bắt gia đình bấm thừa mới thấy ô đầu tiên.
+  // đang bật thì nhóm rỗng: không tiêu đề nhóm, mọi ô cùng một cỡ.
   chiaO(tiles) {
     const hangNgay = this.O_HANG_NGAY.map(v => tiles.find(t => t.view === v)).filter(Boolean);
     return { hangNgay, conLai: tiles.filter(t => !hangNgay.includes(t)) };
   },
 
-  // Một ô. `phu` = ô ngoài nhóm "Hằng ngày": vẫn nằm trong lưới với đủ nhãn và
-  // chỗ huy hiệu, CSS giấu đi cho tới khi gia đình bấm dòng "mục khác".
+  // Một ô. `phu` = ô ngoài nhóm "Hằng ngày": cùng lưới, CSS chỉ dùng dấu này
+  // để xếp các ô ấy bốn ô một hàng, không giấu ô nào.
   oPhuHuynh(t, phu) {
     const so = (App.state.badges || {})[t.key];
     return `
@@ -613,48 +609,14 @@ App.views.dashboard = {
       </button>`;
   },
 
-  // DÒNG "… VÀ N MỤC KHÁC", DỰNG TỪ CHÍNH CÁC Ô ĐANG CÓ TRONG TRANG.
-  //
-  // Đếm trên trang chứ không trên danh sách phân hệ, vì `apDieuKienHien` gỡ ô
-  // sau khi trang đã vẽ. Mỗi ô đang giấu có một bong bóng mang cùng
-  // `data-tile-badge` với ô ấy: `App.refreshBadges` cập nhật mọi phần tử có
-  // thuộc tính đó, nên con số của ô giấu vẫn tới được mắt gia đình mà không
-  // phải sửa tệp dùng chung.
-  veDongThem() {
-    const luoi = document.querySelector('.ph-o .tile-grid');
+  // Số ô Hằng ngày đang hiện, đếm trên chính trang: `apDieuKienHien` gỡ ô
+  // sau khi trang đã vẽ, và CSS chia hàng theo con số này (`data-hn`).
+  demHangNgay() {
+    const luoi = document.querySelector('.ph-o .tile-grid[data-hn]');
     if (!luoi) return;
     // Ô còn chờ máy chủ trả lời điều kiện hiện thì chưa tính.
-    const daLo = (o) => o.style.display !== 'none';
-    if (luoi.hasAttribute('data-hn')) {
-      luoi.dataset.hn = String([...luoi.querySelectorAll('.tile:not(.tile-phu)')].filter(daLo).length);
-    }
-    const nut = document.getElementById('ph-them');
-    if (!nut) return;
-    const giau = [...luoi.querySelectorAll('.tile.tile-phu')].filter(daLo);
-    nut.style.display = giau.length ? '' : 'none';
-    nut.setAttribute('aria-expanded', this._moThem ? 'true' : 'false');
-    const ten = giau.map(o => (o.querySelector('.tile-label') || {}).textContent || '');
-    nut.innerHTML = `
-      <span class="ph-them-chu">${UI.esc(this._moThem ? 'Thu gọn' : this.chuMucKhac(ten))}</span>
-      ${giau.map((o) => {
-        const so = o.querySelector('.tile-badge');
-        const hien = so && so.style.display !== 'none';
-        return `<b class="ph-so" data-tile-badge="${UI.esc(o.dataset.tileKey)}" style="${hien ? '' : 'display:none'}">${UI.esc(hien ? so.textContent : '')}</b>`;
-      }).join('')}
-      ${UI.icon('chevron', 18)}`;
-  },
-
-  // "Hồ sơ của bé, Khảo sát, Sức khỏe và 7 mục khác"; từ ba ô trở xuống thì kể đủ tên.
-  chuMucKhac(ten) {
-    if (ten.length > 3) return `${ten.slice(0, 3).join(', ')} và ${ten.length - 3} mục khác`;
-    return ten.length > 1 ? `${ten.slice(0, -1).join(', ')} và ${ten[ten.length - 1]}` : (ten[0] || '');
-  },
-
-  doiMoThem() {
-    this._moThem = !this._moThem;
-    const o = document.querySelector('.ph-o');
-    if (o) o.classList.toggle('mo-them', this._moThem);
-    this.veDongThem();
+    luoi.dataset.hn = String([...luoi.querySelectorAll('.tile:not(.tile-phu)')]
+      .filter(o => o.style.display !== 'none').length);
   },
 
   // DÒNG "N KHẢO SÁT CHỜ GIA ĐÌNH TRẢ LỜI" ĐỌC TỪ HUY HIỆU CỦA Ô KHẢO SÁT.

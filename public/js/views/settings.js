@@ -191,23 +191,17 @@ App.views.settings = {
     // `veTrangThaiDay` gỡ hẳn thẻ khi danh sách rỗng. Thẻ hiện ra một nhịp rồi
     // biến mất là chấp nhận được: nó vốn mở đầu bằng "Đang kiểm tra…".
 
-    // CHỈ GIA ĐÌNH MỚI THẬT SỰ NHẬN ĐƯỢC TIN ĐẨY (Đ145).
+    // CÔ CÓ TIN ĐẨY THẬT TỪ Đ260c (Đ260b mở lại thẻ).
     //
-    // `lib/day.js` có đúng một đường gửi tin thật: `guiChoGiaDinhCuaBe`, và nó
-    // đọc bảng `student_parents`. Nghĩa là cô bật xong chỉ nhận được đúng cái
-    // "Gửi thử" rồi thôi — chuông không bao giờ kêu nữa. Thẻ lại còn viết
-    // "báo khi có tin về con", tức hứa một thứ tài khoản của cô không có.
-    //
-    // Đó đúng là kiểu hứa suông mà bài học Đ14 và `test/khong-hua-suong` sinh
-    // ra để chặn. Nên: ẩn hẳn với cô.
-    //
-    // Muốn cô cũng nhận đẩy thì phải THÊM loại tin cho cô trước (gia đình xin
-    // nghỉ, đơn chờ duyệt…), rồi mới mở lại thẻ này — ghi ở docs/VIEC-CON-LAI.md.
-    if (u.role === 'teacher') return '';
+    // Đ145 ẩn thẻ với cô vì khi ấy không đường nào đẩy tin về máy cô — bật xong
+    // chỉ nhận đúng cái "Gửi thử", hứa suông đúng kiểu bài học Đ14. Từ Đ260c
+    // chuông riêng của cô (lib/thong-bao-nv.js) đẩy về máy những việc gia đình
+    // gửi tới và việc văn phòng, quản lý trả về; `/api/push/trang-thai` kể
+    // đúng danh sách ấy, và thẻ vẫn tự gỡ khi danh sách rỗng (phân hệ tắt hết).
 
     // TỪ Đ154 QUẢN LÝ ĐÃ CÓ TIN ĐẨY THẬT.
     //
-    // Ai còn thấy thẻ này sau hai dòng chặn ở trên: gia đình, quản trị Cấp 1
+    // Ai thấy thẻ này: gia đình, cô (Đ260b), quản trị Cấp 1
     // (chưa gắn chức vụ), hiệu trưởng, quản lý cơ sở, và từ Đ257 là kế toán
     // khi Học phí đang bật (chỉ nhận tin nhắc hạn nộp — xem `veTrangThaiDay`
     // đổi câu giới thiệu cho người không có việc duyệt). Ba nhóm giữa là
@@ -216,6 +210,7 @@ App.views.settings = {
     // tự động" của bản trước nay đã sai, và phải sửa cùng lúc với việc thêm
     // đường gửi. Hai chỗ nói khác nhau chính là hứa suông.
     const laGiaDinh = u.role === 'parent';
+    const laCo = u.role === 'teacher';
     const hoTro = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     return `
       <div class="card" id="st-push-card">
@@ -223,6 +218,9 @@ App.views.settings = {
         <div class="muted small" style="line-height:1.6">
           ${laGiaDinh
             ? `Bật để máy tự báo khi có tin về con: ảnh con tới lớp, nhật ký ngày, cân đo, album mới…
+               Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`
+            : laCo
+            ? `Bật để máy tự báo khi có <b>việc gia đình gửi tới cô, việc văn phòng và quản lý trả về</b><span id="st-push-loai"></span>.
                Trên iPhone cần <b>thêm app vào màn hình chính</b> trước rồi mới bật được.`
             : `Bật để máy tự báo khi có <b id="st-push-viec">việc chờ mình duyệt</b><span id="st-push-loai"></span>.
                Nút "Gửi thử" còn dùng để kiểm đường thông báo của trường — nhận được nghĩa là

@@ -65,8 +65,8 @@ App.views.cambridge = {
         ? (d.bai || []).map(b => this.theBai(b, d)).join('')
         : UI.emptyState('🎓', this.laVanPhong()
           ? 'Chưa có bài nào. Bấm "Soạn bài mới" để bắt đầu.'
-          : 'Chưa có nội dung nào cho nhóm của con. Nhà trường đăng lên thì gia đình sẽ thấy ở đây.')}
-      ${this._conNua ? `
+          : 'Hiện chưa có nội dung nào đang áp dụng cho nhóm của con. Nhà trường đăng bài cho thời gian này thì gia đình sẽ thấy ở đây.')}
+      ${this._conNua && App.state.user.role !== 'parent' ? `
         <button class="btn outline block mt-14" id="cam-cu-hon">
           ${UI.icon('plus', 16)} Xem tờ cũ hơn
         </button>` : ''}`;
@@ -387,6 +387,29 @@ App.views.cambridge = {
     return 'Cả trường';
   },
 
+  // THỜI GIAN ÁP DỤNG (góp ý 18/11 — Đ260m). Gia đình chỉ nhận bài đang áp
+  // dụng (máy chủ đã lọc), nên với họ dòng này chỉ nói "từ … đến …". Cô và
+  // văn phòng thấy thêm nhãn trạng thái, để biết bài nào gia đình không còn
+  // thấy. Không màu đỏ: một bài đã qua là chuyện bình thường của chương trình.
+  // Nháp chưa ghi khoảng thì chưa có tuần gửi — nói đúng như thế, đừng lấy
+  // tuần soạn ra làm thời gian áp dụng.
+  chuaCoKhoang(b) {
+    return !b.daCongBo && (!b.apDung || b.apDung.nguon === 'cong-bo');
+  },
+  nhanApDung(b) {
+    const a = b.apDung;
+    if (!a) return '';
+    if (this.chuaCoKhoang(b)) return ' · Áp dụng trong tuần gửi tới gia đình';
+    return ` · Áp dụng ${UI.esc(UI.fmtDateShort(a.tuNgay))} – ${UI.esc(UI.fmtDate(a.denNgay, { weekday: false }))}`;
+  },
+  nhanTrangThaiApDung(b) {
+    const a = b.apDung;
+    if (!a || App.state.user.role === 'parent' || this.chuaCoKhoang(b)) return '';
+    if (b.dangApDung) return ` · ${UI.badge('Đang áp dụng', 'blue')}`;
+    if (a.tuNgay > UI.ngayVN()) return ` · ${UI.badge('Sắp tới — gia đình chưa thấy', 'purple')}`;
+    return ` · ${UI.badge('Đã qua — gia đình không còn thấy', 'gray')}`;
+  },
+
   theBai(b, d) {
     const tenLoai = ((d.loai || []).find(l => l.ma === b.loai) || {}).ten || '';
     return `
@@ -397,9 +420,10 @@ App.views.cambridge = {
         </div>
         <div class="muted small" style="line-height:1.6;margin-bottom:8px">
           ${UI.esc(this.nhanPhamVi(b))}
-          ${b.tuan ? ` · tuần từ ${UI.esc(UI.fmtDate(b.tuan, { weekday: false }))}` : ''}${this.nhanKhung(b, d)}
+          ${this.nhanApDung(b)}${this.nhanKhung(b, d)}
           ${b.nguoiDangTen ? ` · ${UI.esc(b.nguoiDangTen)}` : ''}
           ${this.laVanPhong() ? (b.daCongBo ? ` · ${UI.badge('Đã gửi gia đình', 'green')}` : ` · ${UI.badge('Nháp — gia đình chưa đọc được', 'orange')}`) : ''}
+          ${this.nhanTrangThaiApDung(b)}
         </div>
 
         ${b.noiDung ? `<div style="line-height:1.7;white-space:pre-wrap">${UI.esc(b.noiDung)}</div>` : ''}
@@ -456,6 +480,11 @@ App.views.cambridge = {
     const soKhoi = Math.min(this.TOI_DA_HOAT_DONG, Math.max(2, hdForm.length));
     const oKhungLe = (gt) => (gt && !coHdCu ? 'thu-phu-huynh ket-noi' : '');
     const story = (b && b.story) || '';
+    // Bài chỉ đang theo tuần gửi thì để trống hai ô: điền sẵn là ghim bài vào
+    // tuần soạn, mà nháp gửi tuần sau sẽ ẩn ngay khi vừa gửi.
+    const ap = (b && b.apDung && b.apDung.nguon !== 'cong-bo') ? b.apDung : null;
+    const apTu = ap ? ap.tuNgay : '';
+    const apDen = ap ? ap.denNgay : '';
     UI.modal(`
       <div class="field">
         <label>Loại bài</label>
@@ -493,10 +522,14 @@ App.views.cambridge = {
           ${(d.nhom || []).map(c => `<option value="${UI.esc(c.id)}" ${b && b.classId === c.id ? 'selected' : ''}>${UI.esc(c.name)}</option>`).join('')}
         </select>
       </div>
-      <div class="field">
-        <label>Gắn vào tuần (không bắt buộc)</label>
-        <input type="date" id="cam-tuan" value="${UI.esc(b ? b.tuan : '')}">
+      <div class="grid-2">
+        <div class="field"><label>Áp dụng từ</label><input type="date" id="cam-tu" value="${UI.esc(apTu)}"></div>
+        <div class="field"><label>Đến</label><input type="date" id="cam-den" value="${UI.esc(apDen)}"></div>
       </div>
+      <button type="button" class="btn outline sm mb-8" id="cam-lay-block">${UI.icon('calendar', 14)} Lấy theo thời gian của block</button>
+      <div class="hint" style="margin:-4px 0 10px">Gia đình chỉ thấy bài trong khoảng này — qua ngày kết thúc
+        thì bài tự ẩn với gia đình, cô và văn phòng vẫn thấy. Để trống cả hai ô: bài áp dụng trong tuần
+        được gửi tới gia đình (thứ Hai – Chủ nhật).</div>
 
       <div class="card-title mt-14">Khung Cambridge <span class="muted small" style="font-weight:400">(theo mẫu của trường)</span></div>
       <div class="grid-2">
@@ -628,6 +661,13 @@ App.views.cambridge = {
     for (const x of document.querySelectorAll('[data-xoa-tep]')) {
       x.onclick = () => this.xoaTep(id, x.dataset.xoaTep, x);
     }
+    document.getElementById('cam-lay-block').onclick = () => {
+      const bl = (d.blocks || []).find(x => x.id === document.getElementById('cam-block').value);
+      if (!bl) return UI.toast('Chọn block ở phần "Khung Cambridge" bên dưới trước nhé', 'error');
+      if (!bl.tuNgay || !bl.denNgay) return UI.toast('Block này chưa ghi đủ ngày bắt đầu và kết thúc', 'error');
+      document.getElementById('cam-tu').value = bl.tuNgay;
+      document.getElementById('cam-den').value = bl.denNgay;
+    };
     document.getElementById('cam-luu').onclick = () => this.luu(id);
   },
 
@@ -686,7 +726,7 @@ App.views.cambridge = {
       tieuDe: document.getElementById('cam-tieude').value.trim(),
       noiDung: document.getElementById('cam-noidung').value.trim(),
       phamVi,
-      tuan: document.getElementById('cam-tuan').value || '',
+      apDung: (o('cam-tu') || o('cam-den')) ? { tuNgay: o('cam-tu'), denNgay: o('cam-den') } : null,
       anhCoMatBe: !document.getElementById('cam-khong-co-be').checked,
       khung: {
         blockId: (document.getElementById('cam-block') || {}).value || '',
@@ -715,6 +755,9 @@ App.views.cambridge = {
     if (phamVi === 'nhom') body.classId = (document.getElementById('cam-nhom') || {}).value || '';
     if (this._anhMoi) body.anh = this._anhMoi;
     if (!body.tieuDe) return UI.toast('Cần một tiêu đề cho bài đăng', 'error');
+    if (body.apDung && (!body.apDung.tuNgay || !body.apDung.denNgay)) {
+      return UI.toast('Cần cả ngày "Áp dụng từ" và ngày "Đến" — hoặc để trống cả hai ô', 'error');
+    }
     try {
       let baiId = id;
       if (id) await API.put(`/api/cambridge/${encodeURIComponent(id)}`, body);

@@ -116,6 +116,36 @@ function chuoiYTe(v) {
   return String(v == null ? '' : v).trim().slice(0, TOI_DA_O_Y_TE);
 }
 
+// MỘT THÁNG MỘT LẦN CÂN ĐO GỬI GIA ĐÌNH (Đ260e, góp ý của trường 18/11).
+//
+// "Quy định 1 tháng chỉ cân đo 1 lần; cô có thể sửa lại thông tin đã ghi do
+// nhầm lẫn, nhưng không thể gửi cho PH 2 lần cân đo/tháng." Ảnh trường gửi kèm
+// là hai dòng cùng ngày 18/11 — "Cân đo tháng 11" (bảng cả nhóm) và "Khám định
+// kỳ tháng" (hộp nhập lẻ): hai đường ghi, mỗi đường một dòng, gia đình hai tin.
+//
+// Một "lần cân đo" là một ghi nhận khám có chiều cao hoặc cân nặng, còn hiện
+// (chưa thu hồi). Đã có trong tháng thì mọi đường ghi trả 409 kèm danh sách bé;
+// gửi lại với `suaLai: true` là SỬA dòng đã có của tháng đó — không thêm dòng,
+// không gửi tin mới cho gia đình. Dữ liệu cũ lỡ có hai lần trong một tháng thì
+// để nguyên; sửa lại chạm vào lần mới nhất.
+function canDoTrongThang(studentId, thang) {
+  return db.first('health',
+    `SELECT * FROM health WHERE studentId = ? AND type = 'checkup' AND date LIKE ?
+       AND (height IS NOT NULL OR weight IS NOT NULL)
+       AND ${st.dieuKienConHien(BANG, 'id')}
+     ORDER BY date DESC, rowid DESC`, [studentId, `${thang}-%`]) || null;
+}
+
+function cauDaCoCanDo(thang, daCo) {
+  const chu = thang === ngay.thangNay() ? 'Tháng này' : `Tháng ${thang.slice(5, 7)}/${thang.slice(0, 4)}`;
+  return `${chu} đã gửi số đo cho gia đình của ${daCo.length} bé (${daCo.map(x => x.hoTen).join(', ')}). `
+    + 'Cô muốn sửa lại số liệu?';
+}
+
+function dongDaCo(be, cu) {
+  return { studentId: be.id, hoTen: be.name, id: cu.id, date: cu.date, height: cu.height ?? null, weight: cu.weight ?? null };
+}
+
 module.exports = (app) => {
   // Hồ sơ y tế của một học sinh: danh sách ghi nhận (mới nhất trước)
   // + lần khám định kỳ gần nhất để hiển thị chỉ số.
@@ -142,7 +172,11 @@ module.exports = (app) => {
     const lichSuCanDo = records
       .filter(r => r.type === 'checkup' && (Number.isFinite(r.height) || Number.isFinite(r.weight)))
       .map(r => ({ id: r.id, date: r.date, height: r.height ?? null, weight: r.weight ?? null, title: r.title }));
-    res.json({ records, latestCheckup, lichSuCanDo });
+    // Ngày sinh và giới tính để MÀN HÌNH tô màu ô BMI theo bảng WHO (Đ260e).
+    // Máy chủ không tính gì từ hai ô này — xem public/js/bmi-who.js.
+    const be = db.findStudent(studentId);
+    const thongTinBe = be ? { dob: be.dob || null, gender: be.gender || null } : null;
+    res.json({ records, latestCheckup, lichSuCanDo, thongTinBe });
   });
 
   // BẢNG CÂN ĐO CẢ NHÓM THEO THÁNG (Đ138).
@@ -178,17 +212,23 @@ module.exports = (app) => {
         ORDER BY date DESC, rowid DESC`, dsBe.map(b => b.id));
     const trongThang = new Map();
     const ganNhat = new Map();
+    // LẦN ĐO TRƯỚC THÁNG ĐANG XEM (Đ260e). `doGanNhat` là lần mới nhất BẤT KỂ
+    // tháng — đã đo tháng này thì nó chính là số vừa nhập. Cột "Lần đo gần
+    // nhất" của hộp nhập cả nhóm cần số của lần TRƯỚC, để cô nhận ra gõ nhầm bé.
+    const truocThang = new Map();
     for (const r of rows) {
       if (!ganNhat.has(r.studentId)) ganNhat.set(r.studentId, r);
       if (r.date.slice(0, 7) === thang && !trongThang.has(r.studentId)) trongThang.set(r.studentId, r);
+      if (r.date.slice(0, 7) < thang && !truocThang.has(r.studentId)) truocThang.set(r.studentId, r);
     }
     const gon = r => r ? { id: r.id, date: r.date, height: r.height ?? null, weight: r.weight ?? null } : null;
     res.json({
       classId, className: cls.name, thang,
       danhSach: dsBe.map(b => ({
-        studentId: b.id, hoTen: b.name, avatar: b.avatar, dob: b.dob,
+        studentId: b.id, hoTen: b.name, avatar: b.avatar, dob: b.dob, gender: b.gender || null,
         doTrongThang: gon(trongThang.get(b.id)),
         doGanNhat: gon(ganNhat.get(b.id)),
+        doTruocThang: gon(truocThang.get(b.id)),
       })),
     });
   });
@@ -199,8 +239,9 @@ module.exports = (app) => {
   // sổ hết một loạt danh sách bé, GV điền chiều cao, cân nặng là xong."
   //
   // Kiểm TOÀN BỘ trước khi ghi dòng nào: một bé gõ nhầm 170 cm thì cả lượt
-  // dừng và nói rõ bé nào, không để nửa nhóm đã ghi nửa chưa. Cùng ngày cùng
-  // bé đã có dòng cân đo tháng thì SỬA dòng đó, không tạo dòng thứ hai.
+  // dừng và nói rõ bé nào, không để nửa nhóm đã ghi nửa chưa. Bé đã có lần
+  // cân đo trong tháng thì cả lượt trả 409; gửi lại với `suaLai: true` là SỬA
+  // dòng đó, không tạo dòng thứ hai (Đ260e, xem `canDoTrongThang`).
   app.post('/api/health/can-do-nhom', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const classId = String(b.classId || '').trim();
@@ -213,8 +254,8 @@ module.exports = (app) => {
     if (date > todayStr()) return res.status(400).json({ error: 'Chưa ghi cân đo cho ngày chưa tới được' });
     const ds = Array.isArray(b.danhSach) ? b.danhSach : [];
     if (!ds.length) return res.status(400).json({ error: 'Chưa có bé nào để ghi' });
-    const ra = ghiCanDoNhom(req, classId, date, ds);
-    if (ra.loi) return res.status(ra.ma || 400).json({ error: ra.loi });
+    const ra = ghiCanDoNhom(req, classId, date, ds, b.suaLai === true);
+    if (ra.loi) return res.status(ra.ma || 400).json({ error: ra.loi, ...(ra.daCo ? { daCo: ra.daCo } : {}) });
     db.audit(req.user.id, 'health-can-do-nhom', classId, { date, ...ra.dem });
     return res.json({ ok: true, date, ...ra.dem });
   });
@@ -226,8 +267,9 @@ module.exports = (app) => {
   // sửa, chưa có thì thêm", thứ quyết định một bé có hai dòng cân đo cùng
   // tháng hay một dòng.
   //
-  // Trả về { loi, ma } hoặc { dem: { daThem, daSua, soBe } }.
-  function ghiCanDoNhom(req, classId, date, ds) {
+  // Trả về { loi, ma, daCo? } hoặc { dem: { daThem, daSua, soBe } }.
+  function ghiCanDoNhom(req, classId, date, ds, suaLai) {
+    const thang = date.slice(0, 7);
     const tieuDe = `Cân đo tháng ${date.slice(5, 7)}/${date.slice(0, 4)}`;
     const sach = [];
     for (const x of ds) {
@@ -247,16 +289,22 @@ module.exports = (app) => {
     }
     if (!sach.length) return { loi: 'Chưa có số đo nào để ghi — cô điền ít nhất một bé nhé' };
 
+    for (const x of sach) x.cu = canDoTrongThang(x.be.id, thang);
+    const daCo = sach.filter(x => x.cu).map(x => dongDaCo(x.be, x.cu));
+    if (daCo.length && !suaLai) return { loi: cauDaCoCanDo(thang, daCo), ma: 409, daCo };
+
     let daThem = 0, daSua = 0;
     db.tx(() => {
       for (const x of sach) {
-        const { be, h, w } = x;
-        const cu = db.first('health',
-          `SELECT * FROM health WHERE studentId = ? AND date = ? AND type = 'checkup' AND title = ?
-             AND ${st.dieuKienConHien(BANG, 'id')} ORDER BY rowid DESC`, [be.id, date, tieuDe]);
+        const { be, h, w, cu } = x;
         if (cu) {
-          db.update('health', cu.id, { height: h, weight: w });
-          x.healthId = cu.id;
+          // Chỉ đè ô có số mới — dòng tệp chỉ điền chiều cao thì cân nặng đã
+          // ghi vẫn nguyên, không bị xoá thành trống.
+          const patch = {};
+          if (h !== null) patch.height = h;
+          if (w !== null) patch.weight = w;
+          if (Object.keys(patch).length) db.update('health', cu.id, patch);
+          st.ghiDaSua(BANG, cu.id, req.user.id);
           daSua += 1;
         } else {
           const idMoi = db.nextId('ht');
@@ -267,17 +315,19 @@ module.exports = (app) => {
         }
       }
     });
-    // Báo gia đình từng bé (Đ137) — một tin mỗi bé mỗi lượt lưu.
+    // Báo gia đình từng bé (Đ137) — một tin cho mỗi lần cân đo MỚI.
     //
     // Chữ của tin chung chung, không chép số đo nào, nhưng nó nói "số đo đã có
     // trong Sức khoẻ của bé". Thu hồi dòng ấy (nạp tệp lệch dòng là ghi số của
     // bé này sang bé kia) mà tin còn đó thì nó chỉ tới một thứ không còn, và
-    // số chưa đọc vẫn đếm nó — nên tin cũng mang `nguon` (Đ239q). Mỗi lượt lưu
-    // ghi hoặc sửa ĐÚNG MỘT dòng cho mỗi bé, nên mỗi tin có đúng một nguồn; hai
-    // lượt lưu cùng ngày là hai tin trỏ về cùng một dòng, và bảng nguồn cho
-    // phép thế. Ngày nào một tin phải phủ nhiều dòng thì bảng một-nguồn-một-tin
-    // không còn vừa: tách tin theo dòng, đừng chọn bừa một dòng làm nguồn.
-    for (const { be, healthId } of sach) {
+    // số chưa đọc vẫn đếm nó — nên tin cũng mang `nguon` (Đ239q). Mỗi tin có
+    // đúng một nguồn là dòng vừa thêm. Ngày nào một tin phải phủ nhiều dòng thì
+    // bảng một-nguồn-một-tin không còn vừa: tách tin theo dòng, đừng chọn bừa
+    // một dòng làm nguồn.
+    //
+    // SỬA LẠI số của tháng thì KHÔNG báo lần nữa (Đ260e): gia đình đã có tin
+    // của lần cân đo tháng này, tin trỏ về đúng dòng vừa sửa.
+    for (const { be, healthId } of sach.filter(x => !x.cu)) {
       tbb.gui({ studentId: be.id, loai: 'suc-khoe', nguoiTao: req.user.id,
         tieuDe: `Cô vừa ghi cân đo của ${be.name}`,
         noiDung: `Số đo ngày ${date.slice(8, 10)}/${date.slice(5, 7)} đã có trong Sức khoẻ của bé.`,
@@ -368,6 +418,27 @@ module.exports = (app) => {
       // không nhập được đúng thứ mình vừa đo là chuyện họ sẽ hỏi ngay.
       rec.vision = chuoiYTe(req.body.vision);
       rec.bmiNote = chuoiYTe(req.body.bmiNote);
+      // Một tháng một lần cân đo gửi gia đình (Đ260e) — cùng luật với bảng cả
+      // nhóm, vì ảnh trường gửi là đúng hai đường này ghi chồng lên nhau.
+      if (rec.height !== undefined || rec.weight !== undefined) {
+        const cu = canDoTrongThang(studentId, ngay.slice(0, 7));
+        if (cu) {
+          const be = db.findStudent(studentId);
+          const daCo = [dongDaCo(be, cu)];
+          if (req.body.suaLai !== true) {
+            return res.status(409).json({ error: cauDaCoCanDo(ngay.slice(0, 7), daCo), daCo });
+          }
+          // Số đo đè vào lần cân đo của tháng; nội dung khám gửi kèm (thị lực
+          // từ app cũ, ghi chú) có giá trị thì cũng ghi vào, không bỏ im lặng.
+          const patch = {};
+          for (const k of ['height', 'weight']) if (rec[k] !== undefined) patch[k] = rec[k];
+          for (const k of ['bmiNote', 'vision', 'detail']) if (rec[k]) patch[k] = rec[k];
+          db.update('health', cu.id, patch);
+          st.ghiDaSua(BANG, cu.id, req.user.id);
+          db.audit(req.user.id, 'health-update', cu.id, patch);
+          return res.json({ ...db.first('health', 'SELECT * FROM health WHERE id = ?', [cu.id]), daSua: true });
+        }
+      }
     }
     db.insert('health', rec);
     ghiLuc(rec.id, req.user.id);
@@ -523,8 +594,8 @@ module.exports = (app) => {
     }
 
     // ĐI QUA ĐÚNG HÀM ĐÃ DỰNG ĐƯỜNG GHI CỦA MÀN HÌNH. Xem chú thích đầu khối.
-    const ra = ghiCanDoNhom(req, classId, date, danhSach);
-    if (ra.loi) return res.status(ra.ma || 400).json({ error: ra.loi });
+    const ra = ghiCanDoNhom(req, classId, date, danhSach, b.suaLai === true);
+    if (ra.loi) return res.status(ra.ma || 400).json({ error: ra.loi, ...(ra.daCo ? { daCo: ra.daCo } : {}) });
     db.audit(req.user.id, 'health-nap-can-do', classId, { date, soDong: rows.length, ...ra.dem });
     res.json({ ok: true, date, ...ra.dem, boQua });
   });

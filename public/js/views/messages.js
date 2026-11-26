@@ -11,6 +11,7 @@ App.views.messages = {
   async render(root, params) {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
     if (params && params[0] === 'gui-nhieu') return this.renderGuiNhieu(root);
+    if (params && params[0] === 'tao-phong') return this.renderTaoPhong(root);
     if (params && params[0] === 'quan-ly') {
       return params[1] ? this.renderXem(root, params[1]) : this.renderQuanLy(root);
     }
@@ -81,6 +82,10 @@ App.views.messages = {
         <button class="btn outline block mb-8" id="msg-nhieu-nha">
           ${UI.icon('send', 16)} Nhắn nhiều gia đình
         </button>` : ''}
+      ${App.state.user.role === 'teacher' || this.laQuanLyTinCo() ? `
+        <button class="btn outline block mb-8" id="msg-tao-phong">
+          ${UI.icon('plus', 16)} Tạo phòng trao đổi chung
+        </button>` : ''}
       ${this.laQuanLyTinCo() ? `
         <button class="btn outline block mb-8" id="msg-quan-ly">
           ${UI.icon('chat', 16)} Hội thoại cô – gia đình
@@ -111,6 +116,8 @@ App.views.messages = {
     if (nutQuanLy) nutQuanLy.onclick = () => App.navigate('#/messages/quan-ly');
     const nutNhieu = document.getElementById('msg-nhieu-nha');
     if (nutNhieu) nutNhieu.onclick = () => App.navigate('#/messages/gui-nhieu');
+    const nutPhong = document.getElementById('msg-tao-phong');
+    if (nutPhong) nutPhong.onclick = () => App.navigate('#/messages/tao-phong');
     const themNua = document.getElementById('btn-ht-cu-hon');
     if (themNua) {
       themNua.onclick = async () => {
@@ -298,6 +305,193 @@ App.views.messages = {
     } finally { nut.disabled = false; }
   },
 
+  // ---- Phòng trao đổi chung của nhóm lớp (Đ260k, góp ý 18/11) ----
+  //
+  // Khác "Nhắn nhiều gia đình" ở trên: ở đây các gia đình CÙNG MỘT PHÒNG, thấy
+  // tin của nhau. Nên câu giải thích nói rõ điều đó trước khi cô bấm tạo, và
+  // gia đình hiện là "Mẹ bé An" — không họ tên người lớn, không số điện thoại.
+  async renderTaoPhong(root) {
+    const moi = await API.get('/api/messages/phong-nhom/moi');
+    this._moiPhong = moi;
+    const st = this._taoPhong = { nhom: moi.nhom.length ? moi.nhom[0].id : '', chon: new Set() };
+    root.innerHTML = `
+      ${UI.pageHeader('Tạo phòng trao đổi chung')}
+      <div class="muted small" id="tp-giai-thich" style="margin:0 2px 12px;line-height:1.5">
+        Các cô của nhóm tự có trong phòng. Gia đình trong phòng thấy tên gọi (vd "Mẹ bé An")
+        và đọc được tin của nhau.
+      </div>
+      <div class="card">
+        ${moi.nhom.length > 1 ? '<div class="field"><label for="tp-nhom">Nhóm lớp</label><select id="tp-nhom"></select></div>' : ''}
+        <div class="field"><label for="tp-ten">Tên phòng</label>
+          <input id="tp-ten" maxlength="80" autocomplete="off"></div>
+        <label class="list-row" style="gap:10px;cursor:pointer">
+          <input type="checkbox" id="tp-tat-ca" style="width:22px;height:22px">
+          <span class="row-title">Chọn tất cả</span>
+        </label>
+        <div id="tp-ds"></div>
+        <div class="muted small mt-8" id="tp-dem"></div>
+      </div>
+      <button class="btn primary block mt-14" id="tp-tao">${UI.icon('plus', 16)} Tạo phòng</button>`;
+    const oNhom = document.getElementById('tp-nhom');
+    if (oNhom) {
+      oNhom.innerHTML = moi.nhom.map(n => `<option value="${UI.esc(n.id)}">${UI.esc(n.ten)}</option>`).join('');
+      oNhom.onchange = (e) => { st.nhom = e.target.value; this.chonNhomTaoPhong(); };
+    }
+    document.getElementById('tp-tat-ca').onchange = (e) => {
+      for (const g of this.giaDinhTaoPhong()) {
+        if (e.target.checked) st.chon.add(g.id); else st.chon.delete(g.id);
+      }
+      this.veTaoPhong();
+    };
+    document.getElementById('tp-tao').onclick = () => this.taoPhong();
+    this.chonNhomTaoPhong();
+  },
+
+  giaDinhTaoPhong() {
+    return this._moiPhong.giaDinh.filter(g => g.classId === this._taoPhong.nhom);
+  },
+
+  // Đổi nhóm: gợi ý lại tên và bật sẵn "Chọn tất cả" — phòng cả nhóm là
+  // trường hợp thường gặp nhất, cô chỉ bỏ chọn khi cần phòng nhỏ hơn.
+  chonNhomTaoPhong() {
+    const st = this._taoPhong;
+    const nhom = this._moiPhong.nhom.find(n => n.id === st.nhom);
+    const oTen = document.getElementById('tp-ten');
+    const goiY = nhom ? `Trao đổi chung nhóm ${nhom.ten}` : '';
+    if (!oTen.value || oTen.dataset.goiY === oTen.value) oTen.value = goiY;
+    oTen.dataset.goiY = goiY;
+    st.chon = new Set(this.giaDinhTaoPhong().map(g => g.id));
+    this.veTaoPhong();
+  },
+
+  veTaoPhong() {
+    const st = this._taoPhong;
+    const ds = this.giaDinhTaoPhong();
+    const o = document.getElementById('tp-ds');
+    o.innerHTML = ds.length ? ds.map(g => `
+      <label class="list-row tp-gd" style="gap:10px;cursor:pointer">
+        <input type="checkbox" value="${UI.esc(g.id)}" style="width:22px;height:22px"${st.chon.has(g.id) ? ' checked' : ''}>
+        <span class="row-main" style="min-width:0"><span class="row-title">${UI.esc(g.nhan)}</span></span>
+      </label>`).join('')
+      : '<p class="muted small">Nhóm này chưa có gia đình nào trên app.</p>';
+    for (const el of o.querySelectorAll('input[type=checkbox]')) {
+      el.onchange = () => {
+        if (el.checked) st.chon.add(el.value); else st.chon.delete(el.value);
+        this.veTaoPhong();
+      };
+    }
+    const tatCa = document.getElementById('tp-tat-ca');
+    tatCa.checked = ds.length > 0 && ds.every(g => st.chon.has(g.id));
+    tatCa.disabled = !ds.length;
+    document.getElementById('tp-dem').textContent = st.chon.size
+      ? `Đã chọn ${st.chon.size} gia đình` : 'Chưa chọn gia đình nào';
+  },
+
+  async taoPhong() {
+    const st = this._taoPhong;
+    const nut = document.getElementById('tp-tao');
+    if (!st.chon.size) return UI.toast('Chọn ít nhất một gia đình cho phòng nhé', 'error');
+    if (nut.disabled) return;
+    nut.disabled = true;
+    try {
+      const r = await API.post('/api/messages/phong-nhom', {
+        classId: st.nhom, ten: document.getElementById('tp-ten').value.trim(), phuHuynh: [...st.chon],
+      });
+      UI.toast('Đã tạo phòng trao đổi chung', 'success');
+      App.navigate('#/messages/' + encodeURIComponent(r.id));
+    } catch (err) {
+      UI.toast(err.message || 'Chưa tạo được phòng', 'error');
+    } finally { nut.disabled = false; }
+  },
+
+  // Danh sách thành viên của phòng. Người quản phòng có thêm: đổi tên, thêm
+  // gia đình chưa có trong phòng, bỏ một gia đình, khoá / mở khoá.
+  async moThanhVien() {
+    const id = this._convId;
+    let tv;
+    try { tv = await API.get(`/api/messages/${encodeURIComponent(id)}/thanh-vien`); }
+    catch (err) { return UI.toast(err.message || 'Chưa tải được danh sách thành viên', 'error'); }
+    const phong = this._phong || {};
+    const quan = !!phong.quanLyDuoc && !this._daDong;
+    const dong = (x, nut) => `
+      <div class="list-row" style="gap:10px">
+        ${UI.avatar(x.avatar, 36)}
+        <div class="row-main" style="min-width:0"><div class="row-title">${UI.esc(x.nhan)}</div></div>
+        ${nut || ''}
+      </div>`;
+    UI.modal(`
+      ${quan ? `
+        <div class="field"><label for="tv-ten">Tên phòng</label>
+          <div style="display:flex;gap:8px"><input id="tv-ten" maxlength="80" style="flex:1;min-width:0" value="${UI.esc(this._tenPhong || '')}">
+          <button class="btn outline sm" id="tv-luu-ten" style="flex:none">Lưu</button></div></div>
+        <button class="btn outline block mb-8" id="tv-khoa">${phong.daKhoa ? 'Mở khoá phòng' : 'Khoá phòng (chỉ đọc)'}</button>` : ''}
+      <div class="muted small" style="margin:6px 0">Các cô (${UI.esc(tv.co.length)})</div>
+      ${tv.co.map(x => dong(x)).join('')}
+      <div class="muted small" style="margin:10px 0 6px">Gia đình (${UI.esc(tv.giaDinh.length)})</div>
+      ${tv.giaDinh.length ? tv.giaDinh.map(x => dong(x, quan
+    ? `<button class="btn outline sm tv-bo" data-id="${UI.esc(x.id)}" style="flex:none">Bỏ</button>` : '')).join('')
+    : '<p class="muted small">Chưa có gia đình nào.</p>'}
+      ${quan && tv.moiThem && tv.moiThem.length ? `
+        <div class="muted small" style="margin:12px 0 6px">Gia đình trong nhóm chưa có trong phòng</div>
+        ${tv.moiThem.map(x => `
+          <label class="list-row" style="gap:10px;cursor:pointer">
+            <input type="checkbox" class="tv-them" value="${UI.esc(x.id)}" style="width:22px;height:22px">
+            <span class="row-main" style="min-width:0"><span class="row-title">${UI.esc(x.nhan)}</span></span>
+          </label>`).join('')}
+        <button class="btn primary block mt-8" id="tv-them">Thêm vào phòng</button>` : ''}`, 'Thành viên');
+    const lamMoi = async (loiNhan) => {
+      UI.toast(loiNhan, 'success');
+      UI.closeModal();
+      await App.route();
+    };
+    const goi = async (fn, loiNhan) => {
+      try { await fn(); await lamMoi(loiNhan); }
+      catch (err) { UI.toast(err.message || 'Chưa làm được', 'error'); }
+    };
+    const duong = `/api/messages/${encodeURIComponent(id)}`;
+    const nutTen = document.getElementById('tv-luu-ten');
+    if (nutTen) {
+      nutTen.onclick = () => goi(() => API.put(`${duong}/phong`,
+        { ten: document.getElementById('tv-ten').value.trim() }), 'Đã đổi tên phòng');
+    }
+    const nutKhoa = document.getElementById('tv-khoa');
+    if (nutKhoa) {
+      nutKhoa.onclick = () => {
+        if (!phong.daKhoa && !confirm('Khoá phòng này?\n\nMọi người vẫn đọc được tin cũ nhưng không ai nhắn thêm được, tới khi cô mở khoá.')) return;
+        goi(() => API.put(`${duong}/phong`, { khoa: !phong.daKhoa }), phong.daKhoa ? 'Đã mở khoá phòng' : 'Đã khoá phòng');
+      };
+    }
+    for (const el of document.querySelectorAll('#modal-overlay .tv-bo')) {
+      el.onclick = () => {
+        if (!confirm('Bỏ gia đình này khỏi phòng?\n\nTin gia đình đã nhắn vẫn được giữ, nhưng gia đình sẽ không đọc được phòng nữa.')) return;
+        goi(() => API.post(`${duong}/thanh-vien/${encodeURIComponent(el.dataset.id)}/bo`, {}), 'Đã bỏ gia đình khỏi phòng');
+      };
+    }
+    const nutThem = document.getElementById('tv-them');
+    if (nutThem) {
+      nutThem.onclick = () => {
+        const chon = [...document.querySelectorAll('#modal-overlay .tv-them:checked')].map(el => el.value);
+        if (!chon.length) return UI.toast('Chọn ít nhất một gia đình để thêm nhé', 'error');
+        goi(() => API.post(`${duong}/thanh-vien`, { phuHuynh: chon }), 'Đã thêm vào phòng');
+      };
+    }
+  },
+
+  async anTin(tinId) {
+    if (!confirm('Ẩn tin nhắn này?\n\nMọi người trong phòng sẽ chỉ còn thấy "Tin nhắn đã được cô ẩn". Nhà trường vẫn lưu nội dung để tra khi cần.')) return;
+    try {
+      await API.post(`/api/messages/${encodeURIComponent(this._convId)}/tin/${encodeURIComponent(tinId)}/an`, {});
+      const dong = [...document.querySelectorAll('#chat-msgs .bubble-row')].find(el => el.dataset.tin === tinId);
+      if (dong) {
+        dong.outerHTML = this.bubbleHtml({
+          id: tinId, mine: false, daThuHoi: true, daAn: true, createdAt: dong.dataset.luc,
+          senderName: dong.dataset.ten || '', senderAvatar: null,
+        });
+      }
+      UI.toast('Đã ẩn tin nhắn', 'success');
+    } catch (err) { UI.toast(err.message || 'Chưa ẩn được tin nhắn', 'error'); }
+  },
+
   // ---- Hội thoại cô – gia đình: màn của quản lý (Đ242F, F1) ----
   //
   // Lọc cơ sở → nhóm → bé rồi mới liệt kê, không đổ cả trường ra một lần. Mở
@@ -389,6 +583,7 @@ App.views.messages = {
   async renderXem(root, id) {
     const cv = await API.get('/api/messages/quan-ly/cuoc/' + encodeURIComponent(id));
     this._xemQL = true;
+    this._phong = null;
     this._duongTin = '/api/messages/quan-ly/cuoc/';
     this._convId = cv.id;
     this._type = cv.type;
@@ -429,6 +624,9 @@ App.views.messages = {
     this._convId = cv.id;
     this._type = cv.type;
     this._daDong = !!cv.daDong;
+    // Phòng trao đổi chung của nhóm (Đ260k): null với mọi cuộc khác.
+    this._phong = cv.phong || null;
+    this._tenPhong = cv.title || '';
     this._lastTs = null;
     this._lastDay = null;
     // Mốc của tin CŨ NHẤT đang hiện — nút "Xem tin cũ hơn" hỏi tiếp từ đây.
@@ -446,9 +644,10 @@ App.views.messages = {
           <button class="back-btn" onclick="location.hash='#/messages'" aria-label="Quay lại">${UI.icon('back', 20)}</button>
           ${UI.avatar(cv.avatar, 42)}
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700">${UI.esc(cv.title)}</div>
-            <div class="muted small">${UI.esc(cv.subtitle)}</div>
+            <div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${UI.esc(cv.title)}</div>
+            <div class="muted small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${UI.esc(cv.subtitle)}</div>
           </div>
+          ${cv.phong ? `<button class="btn outline sm" id="chat-thanh-vien" style="flex:none">${UI.icon('user', 15)} Thành viên</button>` : ''}
         </div>
         <div class="chat-msgs" id="chat-msgs">${bubbles}</div>
         ${cv.daDong ? `
@@ -456,6 +655,9 @@ App.views.messages = {
             Nhà trường đã <b>đóng</b> cuộc trò chuyện này. Nội dung cũ vẫn được giữ nguyên,
             nhưng không nhắn thêm được nữa.
             ${cv.dongDuoc ? '<button class="btn outline sm mt-8" id="chat-mo-lai">Mở lại cuộc trò chuyện</button>' : ''}
+          </div>` : cv.phong && cv.phong.daKhoa ? `
+          <div class="muted small" id="chat-da-khoa" style="padding:12px 14px;line-height:1.6;border-top:1px solid var(--line,#e6e8ee)">
+            Cô đã <b>khoá</b> phòng này. Mọi người vẫn đọc được tin cũ nhưng không nhắn thêm được.
           </div>` : cv.tamDung ? `
           <div class="muted small" id="chat-tam-dung" style="padding:12px 14px;line-height:1.6;border-top:1px solid var(--line,#e6e8ee)">
             ${UI.esc(cv.tamDung)}
@@ -471,7 +673,10 @@ App.views.messages = {
     // Cuộc đã đóng thì không có ô nhập để gắn sự kiện, và cũng không cần hỏi
     // tin mới — đóng rồi thì không ai nhắn được nữa.
     // Kênh nhà trường đang tạm tắt (F6b) cũng vậy: chỉ đọc, không ô nhập.
-    if (cv.daDong || cv.tamDung) {
+    const nutTV = document.getElementById('chat-thanh-vien');
+    if (nutTV) nutTV.onclick = () => this.moThanhVien();
+    // Phòng đã khoá (Đ260k) cũng vậy: không ô nhập, không hỏi tin mới.
+    if (cv.daDong || cv.tamDung || (cv.phong && cv.phong.daKhoa)) {
       const nutMo = document.getElementById('chat-mo-lai');
       if (nutMo) nutMo.onclick = () => this.moLai(cv.id);
       App.refreshBadges();
@@ -604,13 +809,22 @@ App.views.messages = {
     // Quản lý xem một cuộc của người khác thì mọi bong bóng đều "không phải của
     // tôi" — không ghi tên người gửi là không biết câu nào của cô, câu nào của nhà.
     const showSender = (this._type === 'group' || this._xemQL) && !m.mine;
-    const noiDung = m.daThuHoi
-      ? '<i class="bubble-thu-hoi" style="opacity:.75">Tin nhắn đã được thu hồi</i>'
-      : UI.esc(m.text);
-    const nutThuHoi = m.mine && !m.daThuHoi && !this._daDong
-      ? `<button type="button" class="bubble-nut-thu-hoi" onclick="App.views.messages.thuHoi('${UI.esc(m.id)}')" style="background:none;border:0;padding:0;margin-top:2px;color:inherit;opacity:.7;font-size:.7rem;text-decoration:underline;cursor:pointer">Thu hồi</button>`
+    // Phòng nhóm (Đ260k): tin bị người quản phòng ẩn nói khác tin tự thu hồi;
+    // người quản phòng có nút "Ẩn" trên tin của người khác.
+    const noiDung = m.daAn
+      ? '<i class="bubble-thu-hoi" style="opacity:.75">Tin nhắn đã được cô ẩn</i>'
+      : m.daThuHoi
+        ? '<i class="bubble-thu-hoi" style="opacity:.75">Tin nhắn đã được thu hồi</i>'
+        : UI.esc(m.text);
+    const phong = this._xemQL ? null : this._phong;
+    const kieuNut = 'background:none;border:0;padding:0;margin-top:2px;color:inherit;opacity:.7;font-size:.7rem;text-decoration:underline;cursor:pointer';
+    const nutThuHoi = m.mine && !m.daThuHoi && !this._daDong && !(phong && phong.daKhoa)
+      ? `<button type="button" class="bubble-nut-thu-hoi" onclick="App.views.messages.thuHoi('${UI.esc(m.id)}')" style="${kieuNut}">Thu hồi</button>`
       : '';
-    return `<div class="bubble-row${m.mine ? ' mine' : ''}" data-tin="${UI.esc(m.id)}" data-luc="${UI.esc(m.createdAt)}">${showSender ? UI.avatar(m.senderAvatar, 28) : ''}<div class="bubble">${showSender ? `<span class="bubble-name">${UI.esc(m.senderName)}</span>` : ''}${noiDung}<span class="bubble-time">${UI.esc(UI.fmtTime(m.createdAt))}</span>${nutThuHoi}</div></div>`;
+    const nutAn = !m.mine && !m.daThuHoi && !this._daDong && phong && phong.quanLyDuoc
+      ? `<button type="button" class="bubble-nut-an" onclick="App.views.messages.anTin('${UI.esc(m.id)}')" style="${kieuNut}">Ẩn</button>`
+      : '';
+    return `<div class="bubble-row${m.mine ? ' mine' : ''}" data-tin="${UI.esc(m.id)}" data-luc="${UI.esc(m.createdAt)}" data-ten="${UI.esc(m.senderName || '')}">${showSender ? UI.avatar(m.senderAvatar, 28) : ''}<div class="bubble">${showSender ? `<span class="bubble-name">${UI.esc(m.senderName)}</span>` : ''}${noiDung}<span class="bubble-time">${UI.esc(UI.fmtTime(m.createdAt))}</span>${nutThuHoi}${nutAn}</div></div>`;
   },
 
   async thuHoi(tinId) {

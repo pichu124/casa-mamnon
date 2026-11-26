@@ -33,7 +33,10 @@ batPhanHe(DIR, ['hanhtrinh', 'thuchup', 'album', 'tkb']);
 // trạng thái trường CHƯA khai vai — nên gỡ cô nước ngoài mẫu như các bài cùng loại.
 goCoNuocNgoaiMau(DIR);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng', 'hagn_qt');
-const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7241), dir: DIR });
+// Bài này canh ĐƯỜNG NÉN TRÊN ĐIỆN THOẠI. Từ Đ260f máy chủ có ffmpeg thì mọi
+// video gửi nguyên bản cho máy chủ nén (bài riêng: nen-video-may-chu*); đường
+// trên điện thoại chỉ còn chạy khi máy chủ thiếu ffmpeg — nên dựng đúng cảnh ấy.
+const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7241), dir: DIR, env: { CASA_FFMPEG: '/khong-co/ffmpeg' } });
 const req = taoReq(sv.BASE);
 const login = taoLogin(req);
 
@@ -116,9 +119,9 @@ try {
     check('chụp/quay đứng TRƯỚC ô chọn bé và ô chữ', !!thuTu);
     check('ô chọn bé không đặt sẵn bé nào — mặc định là lưu nháp',
       (await page.inputValue('#ht-be')) === '__nhap__', await page.inputValue('#ht-be'));
-    await page.setInputFiles('#ht-anh', { name: 'dai.mp4', mimeType: 'video/mp4', buffer: mp4Buf(9 * 1024 * 1024) });
+    await page.setInputFiles('#ht-anh', { name: 'dai.mp4', mimeType: 'video/mp4', buffer: mp4Buf(26 * 1024 * 1024) });
     await page.waitForTimeout(800);
-    check('video quá 8 MB: hỏi trước khi nén trên máy, báo phải chờ khoảng bằng độ dài đoạn phim',
+    check('video quá 25 MB: hỏi trước khi nén trên máy, báo phải chờ khoảng bằng độ dài đoạn phim',
       await page.locator('#ht-nen-ok').count() === 1 && /nén nhỏ lại[\s\S]*bằng độ dài đoạn phim/.test(await chuCua('#ht-nen')),
       await chuCua('#ht-nen'));
     // iPhone quay ra .mov (video/quicktime) — cùng họ hộp `ftyp` với MP4. Chặn nó

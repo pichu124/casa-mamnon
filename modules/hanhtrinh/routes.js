@@ -25,6 +25,7 @@ const { requireRole } = require('../../lib/auth');
 const ngay2 = require('../../lib/ngay');
 const uploads = require('../../lib/uploads');
 const tbb = require('../../lib/thong-bao-be');
+const nenVideo = require('../../lib/nen-video');
 const fs = require('fs');
 
 // Chép một tệp ảnh đã có thành một tệp MỚI trong kho ảnh.
@@ -32,20 +33,28 @@ const fs = require('fs');
 // Đọc lại rồi cho đi qua `uploads.saveDataUrl` thay vì `fs.copyFileSync`: như
 // vậy tệp mới được đặt tên theo đúng quy tắc của kho ảnh, và đi qua đủ phép
 // kiểm định dạng lẫn dung lượng — không có đường tắt nào bỏ qua chúng.
-// Video (Đ242B) đi qua `saveVideoDataUrl` theo đúng lý do ấy.
+// Video (Đ242B) đi qua `chepVideo`: cùng phép kiểm chữ ký, nhưng chép thẳng
+// tệp — video máy chủ nén (Đ260f) có thể nặng hơn trần 25 MB của base64.
 function chepAnh(file) {
   const duong = uploads.pathOf(file);
   if (!duong || !uploads.exists(file)) return '';
+  if (uploads.laVideo(file)) return uploads.chepVideo(file).file;
   const buf = fs.readFileSync(duong);
   const dataUrl = `data:${uploads.mimeOf(file)};base64,${buf.toString('base64')}`;
-  return (uploads.laVideo(file) ? uploads.saveVideoDataUrl(dataUrl) : uploads.saveDataUrl(dataUrl)).file;
+  return uploads.saveDataUrl(dataUrl).file;
 }
 
 // Ảnh hoặc video lớp 1 cô gửi lên (Đ242B, B4). Một ghi chép một tệp. Trả về
 // { file } (rỗng khi không gửi gì) hoặc { loi } để trả 400.
-function luuTepLop1(b) {
-  if (b.anh && b.video) return { loi: 'Mỗi ghi chép kèm một tấm ảnh hoặc một đoạn video thôi nhé' };
+//
+// `videoDaNen` (Đ260f): mã video máy chủ đã nén (lib/nen-video.js) — chỉ mã
+// của chính cô, gửi ở Hành trình, chưa dùng, chưa quá 24 giờ.
+function luuTepLop1(b, user) {
+  if ([b.anh, b.video, b.videoDaNen].filter(Boolean).length > 1) {
+    return { loi: 'Mỗi ghi chép kèm một tấm ảnh hoặc một đoạn video thôi nhé' };
+  }
   try {
+    if (b.videoDaNen) return { file: nenVideo.dungVideo(user, b.videoDaNen, 'hanhtrinh').file };
     if (b.video) return { file: uploads.saveVideoDataUrl(b.video).file };
     if (b.anh) return { file: uploads.saveDataUrl(b.anh).file };
   } catch (err) {
@@ -134,6 +143,18 @@ const CHUONG_TRINH_CUA_GOC = {
 function chuongTrinhCuaGoc(ma) {
   return CHUONG_TRINH_CUA_GOC[String(ma || '')] || 'chu-nhiem';
 }
+// MỤC CON CỦA KẾ HOẠCH (góp ý 18/11): Cambridge chia Communication and
+// Language / Maths / Let's Explore, Thể chất chia vận động thô / tinh. Chép
+// từ `LINH_VUC_CON` của Kế hoạch (mã, tên, góc cha), cùng lý do và cùng bài
+// đối chiếu với bản chép `GOC_KE_HOACH` ở trên.
+const LINH_VUC_CON_KH = [
+  ['cam-giao-tiep', 'Communication and Language', 'cambridge'],
+  ['cam-toan', 'Maths', 'cambridge'],
+  ['cam-kham-pha', "Let's Explore", 'cambridge'],
+  ['tieng-anh', 'Tiếng Anh', 'cambridge'],
+  ['van-dong-tho', 'Vận động thô', 'the-chat'],
+  ['van-dong-tinh', 'Vận động tinh', 'the-chat'],
+];
 
 const TOI_DA_MO_TA = 1000;
 const TOI_DA_CAU_CHUYEN = 3000;
@@ -174,6 +195,10 @@ function thuHaiCua(ngay) {
 }
 
 module.exports = (app, { db, modules }) => {
+  // Gửi video gốc từng phần để máy chủ nén (Đ260f). Đăng ký TRƯỚC mọi đường
+  // `/api/hanhtrinh/:id/...` để chữ "video" không bị hiểu là mã một quan sát.
+  nenVideo.ganDuong(app, '/api/hanhtrinh/video', { vung: 'hanhtrinh' });
+
   // =========================================================================
   // BA LỚP DỮ LIỆU — MỘT CHỖ LỌC DUY NHẤT
   // =========================================================================
@@ -360,7 +385,12 @@ module.exports = (app, { db, modules }) => {
   // qua chốt chặn — tắt một phân hệ phải chặn được cả dữ liệu, không chỉ giấu
   // biểu tượng. Tắt thì trả về mảng RỖNG, không báo lỗi: thiếu danh sách bài
   // không làm hỏng màn hành trình, phần còn lại vẫn đọc được bình thường.
-  function baiThangNayCuaBe(be, user) {
+  //
+  // MỤC "VIỆC KHÁC" CỦA BẢN ĐÃ DUYỆT CŨNG ĐI RA (góp ý 18/11, chủ dự án duyệt
+  // 25/11). Bản chỉ có mục chữ mà không tích bài nào từ kho trước đây ra màn
+  // gia đình trống trơn dù quản lý đã duyệt. Chỉ `noiDung` — `ketQua` và
+  // `nhanXet` của mục cũng là phần nhìn lại, cùng luật với bài.
+  function dongThangNay(be, user) {
     if (!modules || typeof modules.dangBat !== 'function' || !modules.dangBat('kehoachbe')) return [];
     const chiDaDuyet = user.role === 'parent';
     try {
@@ -380,17 +410,36 @@ module.exports = (app, { db, modules }) => {
         if (dong.length) phanDaDuyet = new Set(dong.filter(r => r.trangThai === 'da-duyet').map(r => r.chuongTrinh));
         else if (ke.trangThai !== 'da-duyet') return [];
       }
-      return db.all('kehoachbe_muc_bai',
-        `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, mb.nhan AS nhan
-           FROM kehoachbe_muc_bai mb
-           JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
-          WHERE mb.keId = ?
-          ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id])
-        .filter(r => !phanDaDuyet || phanDaDuyet.has(chuongTrinhCuaGoc(r.gocLinhVuc)))
-        // Dựng lại từng ô một thay vì trả thẳng hàng truy vấn: câu SELECT trên
-        // hôm nay không lấy `ketQua`, nhưng người sửa sau có thể thêm `mb.*`
-        // vào cho tiện mà không nhớ ra rằng gói này đi thẳng ra màn gia đình.
-        .map(r => ({ ten: r.ten, gocLinhVuc: r.gocLinhVuc, nhan: r.nhan }));
+      const hop = r => !phanDaDuyet || phanDaDuyet.has(chuongTrinhCuaGoc(r.gocLinhVuc));
+      let bai;
+      try {
+        bai = db.all('kehoachbe_muc_bai',
+          `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, c.linhVucCon AS linhVucCon, mb.nhan AS nhan
+             FROM kehoachbe_muc_bai mb
+             JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+             LEFT JOIN kehoachbe_baihoc_con c ON c.baiHocId = mb.baiHocId
+            WHERE mb.keId = ?
+            ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id]);
+      } catch (_) {
+        // Chưa có bảng mục con: đọc như mọi bài chưa xếp mục.
+        bai = db.all('kehoachbe_muc_bai',
+          `SELECT b.ten AS ten, b.gocLinhVuc AS gocLinhVuc, mb.nhan AS nhan
+             FROM kehoachbe_muc_bai mb
+             JOIN kehoachbe_baihoc b ON b.id = mb.baiHocId
+            WHERE mb.keId = ?
+            ORDER BY b.gocLinhVuc, b.thuTu, mb.rowid`, [ke.id]);
+      }
+      const muc = db.all('kehoachbe_muc',
+        'SELECT gocLinhVuc, noiDung FROM kehoachbe_muc WHERE keId = ? ORDER BY rowid', [ke.id]);
+      // Dựng lại từng ô một thay vì trả thẳng hàng truy vấn: câu SELECT trên
+      // hôm nay không lấy `ketQua`, nhưng người sửa sau có thể thêm `mb.*`
+      // vào cho tiện mà không nhớ ra rằng gói này đi thẳng ra màn gia đình.
+      return [
+        ...bai.filter(hop).map(r => ({ ten: r.ten, gocLinhVuc: r.gocLinhVuc, linhVucCon: r.linhVucCon || '', nhan: r.nhan })),
+        // Mục chữ không có nhãn bài: nhãn rỗng là "việc khác", không phải bài.
+        ...muc.filter(m => m.noiDung).filter(hop)
+          .map(m => ({ ten: m.noiDung, gocLinhVuc: m.gocLinhVuc, linhVucCon: '', nhan: '' })),
+      ];
     } catch (_) {
       return [];
     }
@@ -424,6 +473,7 @@ module.exports = (app, { db, modules }) => {
     const tepKe = tepKeChoNguoiXem(rows, be, req.user);
     const goc = gocCuaCacQuanSat(rows.map(r => r.id));
 
+    const dongKeHoach = dongThangNay(be, req.user);
     res.json({
       // Còn trang sau không — màn hình chỉ cần đếm, không cần đoán.
       conNua: rows.length === GIOI_HAN_DANH_SACH,
@@ -445,6 +495,9 @@ module.exports = (app, { db, modules }) => {
       // thay vì để cô gõ xong mới nhận 403. Cùng luật với đường ghi; chốt chặn
       // vẫn ở đường ghi. Gia đình không nhận khoá này.
       nhomDuocGhi: req.user.role === 'parent' ? undefined : nhomDuocGhi(req.user, be.classId),
+      // Hộp kể có hỏi "Trong ảnh có bé khác không?" hay không (Đ260i): chỉ ở
+      // nhóm có gia đình đã rút đồng ý chia sẻ ảnh. Đường công bố tự xét lại.
+      canHoiBeTrongAnh: req.user.role === 'parent' ? undefined : db.coBeTuChoiChiaSeTungHoc(be.classId),
       trangThai: trangThaiDangDung(db).map(([ma, ten]) => ({ ma, ten })),
       linhVuc: LINH_VUC.map(([ma, ten]) => ({ ma, ten })),
       // BA TAB THEO BA NHÓM CÔ (Đ195, việc 24).
@@ -471,8 +524,12 @@ module.exports = (app, { db, modules }) => {
       }).filter(Boolean),
       chuDeTuan: chuDeCuaBe(be, req.user),
       // BÀI HỌC THÁNG NÀY, LẤY TỪ KẾ HOẠCH CỦA BÉ (Đ191, Câu 1). Xem
-      // `baiThangNayCuaBe` ngay dưới để biết vì sao chỉ có TÊN BÀI.
-      baiThangNay: baiThangNayCuaBe(be, req.user),
+      // `dongThangNay` ở trên để biết vì sao chỉ có TÊN BÀI.
+      baiThangNay: dongKeHoach.map(({ ten, gocLinhVuc, nhan }) => ({ ten, gocLinhVuc, nhan })),
+      // Cùng danh sách ấy kèm MỤC CON của từng bài (góp ý 18/11) — khoá THÊM
+      // BÊN CẠNH: bài canh Đ191 giữ `baiThangNay` đúng ba khoá, app cũ đọc nó.
+      baiThangNayTheoMuc: dongKeHoach,
+      linhVucConKeHoach: LINH_VUC_CON_KH.map(([ma, ten, gocLinhVuc]) => ({ ma, ten, gocLinhVuc })),
       // Tên góc của kế hoạch và chương trình của từng góc, để màn hình chia bài
       // theo ba chương trình mà không phải nhét thêm khoá vào từng bài (gói bài
       // gửi gia đình giữ đúng ba khoá: tên, góc, nhãn).
@@ -893,15 +950,15 @@ module.exports = (app, { db, modules }) => {
     // B5 (20/10): một tấm ảnh hay một đoạn video đã là điều cô thấy — chữ để
     // sau cũng được. Trống cả hai thì không có gì để ghi.
     const thieuCaHai = () => res.status(400).json({ error: 'Cô mô tả giúp điều đã thấy ở bé, hoặc kèm một tấm ảnh hay đoạn video nhé' });
-    if (!moTa && !b.anh && !b.video && !(nguon && nguon.file)) return thieuCaHai();
+    if (!moTa && !b.anh && !b.video && !b.videoDaNen && !(nguon && nguon.file)) return thieuCaHai();
     // Chương trình cô chọn gắn quan sát vào (góp ý 06/10, mục 7–8). Không
     // gửi = theo vai của cô như trước.
     const nhomChon = docNhomChon(res, req.user, be.classId, b.nhom);
     if (nhomChon === null) return;
 
     let anh = '';
-    if (b.anh || b.video) {
-      const t = luuTepLop1(b);
+    if (b.anh || b.video || b.videoDaNen) {
+      const t = luuTepLop1(b, req.user);
       if (t.loi) return res.status(400).json({ error: t.loi });
       anh = t.file;
     } else if (nguon && nguon.file) {
@@ -966,14 +1023,14 @@ module.exports = (app, { db, modules }) => {
   app.post('/api/hanhtrinh/nhap', requireRole('teacher', 'admin'), (req, res) => {
     const b = req.body || {};
     const moTa = chuoi(b.moTa, TOI_DA_MO_TA);
-    if (!moTa && !b.anh && !b.video) return res.status(400).json({ error: 'Cô ghi một dòng hoặc chọn một tấm ảnh, đoạn video nhé' });
+    if (!moTa && !b.anh && !b.video && !b.videoDaNen) return res.status(400).json({ error: 'Cô ghi một dòng hoặc chọn một tấm ảnh, đoạn video nhé' });
     const nhom = chuoi(b.nhom, 20);
     if (nhom && !nhomCo.hopLe(nhom)) return res.status(400).json({ error: 'Chương trình chưa hợp lệ' });
     const soNhap = db.count('SELECT COUNT(*) AS n FROM hanhtrinh_nhap WHERE coGhi = ?', [req.user.id]);
     if (soNhap >= TOI_DA_NHAP_MOI_CO) {
       return res.status(400).json({ error: 'Cô đang có nhiều nháp chưa gắn bé quá — gắn bé hoặc bỏ bớt rồi ghi tiếp nhé' });
     }
-    const t = luuTepLop1(b);
+    const t = luuTepLop1(b, req.user);
     if (t.loi) return res.status(400).json({ error: t.loi });
     const anh = t.file;
     const luc = new Date().toISOString();
@@ -1577,29 +1634,19 @@ module.exports = (app, { db, modules }) => {
     // "Lưu nháp" rồi báo "Đã lưu nháp — gia đình chưa đọc được". Cả ba đều SAI
     // khi `congBoLuc` đã có: chữ đi thẳng lên màn hình gia đình.
     //
-    // Hai hậu quả, cái thứ hai nặng hơn:
-    //   • cô sửa một câu tưởng là nháp, gia đình đọc được ngay;
-    //   • và `cungConONha` XOÁ TRẮNG được qua đường này, trong khi đường
-    //     `cong-bo` bắt buộc phải có nó (QUY TẮC 5 — mỗi nhận định phải kèm
-    //     một việc làm được). Tức là đi vòng qua chính quy tắc ấy.
+    // Hậu quả: cô sửa một câu tưởng là nháp, gia đình đọc được ngay.
     //
     // Không cấm sửa: sửa một lỗi chính tả trong câu chuyện đã kể mà bắt cô thu
-    // hồi rồi công bố lại là làm phiền cô vì một việc đúng. Chỉ ép ĐÚNG HAI
-    // ĐIỀU KIỆN mà `cong-bo` đã ép, để bản đang hiện với gia đình không bao giờ
-    // rơi xuống dưới mức mà chính nó phải đạt để được công bố.
-    if ((b.cauChuyen !== undefined || b.cungConONha !== undefined) && cu.congBoLuc) {
-      const cc = chuoi(b.cauChuyen !== undefined ? b.cauChuyen : cu.cauChuyen, TOI_DA_CAU_CHUYEN);
-      const cn = chuoi(b.cungConONha !== undefined ? b.cungConONha : cu.cungConONha, TOI_DA_NGAN);
-      if (!cc) {
+    // hồi rồi công bố lại là làm phiền cô vì một việc đúng. Chỉ ép ĐÚNG ĐIỀU
+    // KIỆN mà `cong-bo` đã ép — có chữ kể cho gia đình — để bản đang hiện với
+    // gia đình không bao giờ rơi xuống dưới mức mà chính nó phải đạt để được
+    // công bố. "Cùng con ở nhà" không bắt buộc ở `cong-bo` (góp ý của trường
+    // 18/11) nên ở đây cũng xoá trắng được.
+    if (b.cauChuyen !== undefined && cu.congBoLuc) {
+      if (!chuoi(b.cauChuyen, TOI_DA_CAU_CHUYEN)) {
         return res.status(400).json({
           error: 'Câu chuyện này đang hiện trên màn hình gia đình, nên không để trống được. '
             + 'Muốn gỡ hẳn thì bấm "Thu hồi khỏi màn hình gia đình".',
-        });
-      }
-      if (!cn) {
-        return res.status(400).json({
-          error: 'Câu chuyện này đang hiện với gia đình, nên vẫn cần gợi ý "cùng con ở nhà". '
-            + 'Muốn bỏ hẳn thì thu hồi câu chuyện trước.',
         });
       }
     }
@@ -1673,14 +1720,9 @@ module.exports = (app, { db, modules }) => {
     if (!cauChuyen) {
       return res.status(400).json({ error: 'Cô viết câu chuyện gửi gia đình trước khi công bố nhé' });
     }
-    // QUY TẮC 5 phía gia đình. Một câu chuyện hay mà gia đình đọc xong không
-    // biết làm gì tiếp thì mới là nửa việc.
-    if (!cungCon) {
-      return res.status(400).json({
-        error: 'Cô gợi ý giúp gia đình một việc "cùng con ở nhà" nhé — 5 tới 10 phút, '
-          + 'đồ có sẵn trong nhà, không cần màn hình.',
-      });
-    }
+    // "Cùng con ở nhà" KHÔNG BẮT BUỘC (góp ý của trường 18/11, chủ dự án
+    // duyệt): cô có gợi ý thì gia đình thấy một dòng "Đồng hành cùng bé tại
+    // nhà"; không có thì câu chuyện vẫn tới gia đình, không dòng trống.
 
     // ---- Đ242B: chương trình, góc, ảnh/video gửi kèm. Mọi khoá đều TUỲ
     // CHỌN — app cũ không gửi gì thì công bố y như trước. KIỂM HẾT ở đây,
@@ -1714,6 +1756,11 @@ module.exports = (app, { db, modules }) => {
       }
     }
     const tepKeCu = db.first('hanhtrinh_ke_tep', 'SELECT * FROM hanhtrinh_ke_tep WHERE quanSatId = ?', [r.id]);
+    // NHÓM KHÔNG AI RÚT ĐỒNG Ý CHIA SẺ ẢNH (Đ260i): hộp kể không hỏi trong ảnh
+    // có ai. Máy chủ KHÔNG được tự ghi "đã xác nhận chỉ có bé chính" — không ai
+    // trả lời câu đó. Để bản chép CHƯA xác nhận: luật lúc đọc (xetTepKe) cho
+    // ảnh hiện khi nhóm không ai rút, và tự ẩn ngay khi có nhà rút sau này, nên
+    // ảnh có mặt bé vừa rút không lọt sang nhà khác.
     const canChep = b.kemTep === true && !tepKeCu;
     if (canChep && !uploads.exists(r.anh)) {
       return res.status(400).json({ error: 'Quan sát này không có ảnh hay video để gửi kèm' });
@@ -1880,7 +1927,7 @@ module.exports = (app, { db, modules }) => {
       const be = db.findStudent(r.studentId);
       if (!be) return;
       const hash = `#/hanhtrinh/${r.studentId}`;
-      const moi = db.first('hanhtrinh_quansat', 'SELECT cauChuyen FROM hanhtrinh_quansat WHERE id = ?', [r.id]) || {};
+      const moi = db.first('hanhtrinh_quansat', 'SELECT cauChuyen, cungConONha FROM hanhtrinh_quansat WHERE id = ?', [r.id]) || {};
       const tieuDe = `Câu chuyện về ${be.name}: ${chuoi(moi.cauChuyen, 60)}`.trim().slice(0, 120);
       const [tuUtc, denUtc] = ngay2.khoangUtcCuaNgay(ngay2.homNay());
       const daBao = db.first('thongbao_be',
@@ -1889,7 +1936,10 @@ module.exports = (app, { db, modules }) => {
       if (daBao) return;
       tbb.gui({
         studentId: be.id, loai: 'hanh-trinh', tieuDe,
-        noiDung: 'Cô vừa kể một câu chuyện về con và gợi ý một việc làm cùng con ở nhà. Mở Hành trình học tập để đọc.',
+        // Gợi ý ở nhà không bắt buộc nữa: chỉ nói "có gợi ý" khi cô thật sự ghi.
+        noiDung: moi.cungConONha
+          ? 'Cô vừa kể một câu chuyện về con và gợi ý một việc làm cùng con ở nhà. Mở Hành trình học tập để đọc.'
+          : 'Cô vừa kể một câu chuyện về con. Mở Hành trình học tập để đọc.',
         hash, nguoiTao,
       });
     } catch (_) { /* việc phụ */ }

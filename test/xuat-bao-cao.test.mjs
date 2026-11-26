@@ -450,7 +450,9 @@ console.log('\n[8] Kế hoạch của bé');
     ['Mã bé', 'Họ và tên', 'Nhóm lớp', 'Tháng', 'Chương trình', 'Lĩnh vực', 'Bài', 'Dạy mới / Ôn tập',
       'Nhìn lại cuối tháng', 'Tiếp tục tháng sau', 'Tình trạng kế hoạch', 'Ghi chú']), trang(t).hang[0]);
   const an = dongCo(t, 'Nguyễn Bảo An');
-  const toan = an.find(h => h[5] === 'Toán') || [];
+  // Từ Đ260h dữ liệu mẫu của bé An có thêm bài lấy từ kho (vd "Gậy số"), nên
+  // tìm đúng dòng của mục chữ "Đếm và ghép số lượng", không lấy dòng Toán đầu tiên.
+  const toan = an.find(h => h[5] === 'Toán' && /Đếm và ghép số lượng/.test(h[6] || '')) || [];
   check('mục theo lĩnh vực của bé An', /Đếm và ghép số lượng/.test(toan[6] || ''), toan);
   check('nhìn lại bằng chữ quy ước', toan[8] === 'W', toan[8]);
   check('chương trình suy từ lĩnh vực', toan[4] === 'Montessori', toan[4]);

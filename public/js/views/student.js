@@ -180,10 +180,8 @@ App.views.student = {
     }
     const s = await API.get(`/api/students/${current.id}`);
     const tuoi = this.tuoiCuaBe(s.dob);
-    // Giấy đồng ý nạp riêng và nuốt lỗi: hồ sơ bé là màn quan trọng hơn, không
-    // được trắng chỉ vì phần này hỏng.
-    const gd = await API.get(`/api/dong-y?studentId=${encodeURIComponent(current.id)}`).catch(() => null);
     const lichSu = await this.lichSuNhom(current.id);
+    const deXuat = await this.deXuatLienHe(current.id);
     root.innerHTML = `
       ${UI.pageHeader('Hồ sơ của bé')}
       ${App.state.user.role === 'admin'
@@ -205,7 +203,7 @@ App.views.student = {
         ${infoRow('Tiền sử bệnh / lưu ý đặc biệt', s.tienSuBenh)}
       </div>
 
-      ${this.theLienHeKhanCap(s)}
+      ${this.theLienHeKhanCap(s, deXuat)}
 
       <div class="card">
         <div class="card-title">${UI.icon('student', 19)} Trường và nhóm lớp</div>
@@ -233,74 +231,9 @@ App.views.student = {
         Nhà trường giữ số này để đối chiếu khi giao bé cho người tới đón.</div>
       </div>
 
-      ${this.theDongY(gd)}`;
-
-    this.ganNutRutDongY(current.id);
-  },
-
-  // ---- Giấy đồng ý: gia đình xem mình đã ký gì, và rút lại được ----
-  //
-  // BA TRẠNG THÁI, KHÔNG PHẢI HAI. "Chưa nộp giấy" khác hẳn "gia đình đã nói
-  // không" — gộp lại là hoặc vu cho gia đình đã từ chối, hoặc coi im lặng là
-  // đồng ý. Cùng luật với tầng dữ liệu.
-  MUC_DONG_Y: [
-    ['hoSoHocTap', 'Lập hồ sơ học tập cho con',
-      'Cô ghi lại quan sát và câu chuyện học tập của con trong năm. '
-      + 'Rút lại thì trường ngưng ghi mới ngay; phần đã ghi vẫn giữ và gia đình vẫn xem lại được.'],
-    ['chiaSeGiaDinh', 'Chia sẻ ảnh có mặt con cho gia đình khác trong nhóm',
-      'Ảnh chụp chung cả nhóm. Rút lại thì ảnh có mặt con thôi hiện với nhà khác ngay.'],
-    ['truyenThong', 'Dùng ảnh của con cho trang tin của trường',
-      'Ảnh đăng ra ngoài phạm vi nhóm lớp, ví dụ trang tin tuyển sinh.'],
-  ],
-
-  nhanDongY(v) {
-    if (v === true) return UI.badge('Đã đồng ý', 'green');
-    if (v === false) return UI.badge('Không đồng ý', 'gray');
-    return UI.badge('Chưa nộp giấy', 'orange');
-  },
-
-  theDongY(gd) {
-    if (!gd || !gd.dongY) return '';
-    const d = gd.dongY;
-    return `
-      <div class="card">
-        <div class="card-title">📝 Giấy đồng ý của gia đình</div>
-        ${d.nguoiKy || d.ngayKy ? `<div class="muted small" style="line-height:1.7;margin-bottom:10px">
-          Giấy do <b>${UI.esc(d.nguoiKy || 'gia đình')}</b> ký${d.ngayKy ? ` ngày ${UI.fmtDate(d.ngayKy, { weekday: false })}` : ''}.
-        </div>` : ''}
-        ${this.MUC_DONG_Y.map(([khoa, ten, mo]) => `
-          <div class="list-row">
-            <div class="row-main">
-              <div class="row-title">${UI.esc(ten)}</div>
-              <div class="row-sub" style="line-height:1.6">${UI.esc(mo)}</div>
-            </div>
-            <div class="row-end">
-              ${this.nhanDongY(d[khoa])}
-              ${gd.tuRutDuoc && d[khoa] === true
-                ? `<button class="btn sm outline" data-rut="${UI.esc(khoa)}">Rút lại</button>` : ''}
-            </div>
-          </div>`).join('')}
-        <div class="muted small mt-8" style="line-height:1.7">
-          Gia đình <b>rút lại bất cứ lúc nào</b>, ngay trên màn hình này, và có hiệu lực ngay.
-          Muốn <b>đồng ý</b> trở lại thì nhờ văn phòng ghi giúp — phần đó cần chữ ký trên giấy,
-          app không thay chữ ký được.
-        </div>
-      </div>`;
-  },
-
-  ganNutRutDongY(studentId) {
-    for (const el of document.querySelectorAll('[data-rut]')) {
-      el.onclick = async () => {
-        const khoa = el.dataset.rut;
-        const ten = (this.MUC_DONG_Y.find(m => m[0] === khoa) || [])[1] || 'mục này';
-        if (!confirm(`Rút lại đồng ý cho "${ten}"?\n\nCó hiệu lực ngay. Muốn đồng ý lại thì nhờ văn phòng ghi giúp.`)) return;
-        try {
-          await API.put('/api/dong-y', { studentId, [khoa]: false });
-          UI.toast('Đã rút lại đồng ý', 'success');
-          App.route();
-        } catch (err) { UI.toast(err.message, 'error'); }
-      };
-    }
+      ${App.state.user.role === 'admin' ? '' : `<div class="muted small mt-8" data-dong-y-giay style="line-height:1.6">
+        Việc dùng ảnh của con theo giấy nhập học. Gia đình muốn thay đổi, xin liên hệ văn phòng nhà trường.</div>`}`;
+    this.ganNutLienHe(root, s);
   },
 
   // Thông tin liên hệ của TRƯỜNG, không phải của cô.
@@ -364,15 +297,26 @@ App.views.student = {
 
   // Người liên hệ khẩn cấp ngoài bố mẹ.
   //
-  // Chưa có ai thì KHÔNG hiện một ô trống — hiện ô trống trên màn hình của phụ
-  // huynh là bảo họ đi điền một thứ mà chỉ nhà trường mới nhập được.
-  theLienHeKhanCap(s) {
+  // Gia đình ĐỀ XUẤT thêm người, nhà trường xác nhận rồi mới vào hồ sơ
+  // (Đ260j). Nên với phụ huynh thẻ luôn hiện — kể cả khi chưa có ai — để có
+  // chỗ bấm "Thêm người liên hệ". Đề xuất đang chờ mang nhãn trung tính, không
+  // đỏ: chờ là việc của nhà trường, không phải gia đình làm sai.
+  // `dx` null = không đọc được đề xuất (phân hệ cũ, mạng lỗi): giữ nguyên thẻ
+  // như trước, không có nút thêm.
+  theLienHeKhanCap(s, dx = null) {
     const ds = s.lienHeKhanCap || [];
-    if (!ds.length) return '';
+    const laPhuHuynh = App.state.user.role === 'parent';
+    const deXuat = (dx && dx.danhSach) || [];
+    const themDuoc = laPhuHuynh && !!dx;
+    if (!ds.length && !deXuat.length && !themDuoc) return '';
     return `
-      <div class="card">
-        <div class="card-title">${UI.icon('bell', 19)} Liên hệ khẩn cấp</div>
-        <div class="muted small mb-8">Nhà trường gọi những số này khi không liên lạc được với bố mẹ.</div>
+      <div class="card" id="hs-lhkc">
+        <div class="card-title" style="flex-wrap:wrap">${UI.icon('bell', 19)} Liên hệ khẩn cấp<span class="spacer"></span>
+          ${themDuoc ? '<button class="btn sm outline" id="hs-lhkc-them">+ Thêm người liên hệ</button>' : ''}
+        </div>
+        <div class="muted small mb-8">${ds.length
+    ? 'Nhà trường gọi những số này khi không liên lạc được với bố mẹ.'
+    : 'Chưa có người liên hệ nào ngoài bố mẹ. Gia đình thêm được ở đây — nhà trường xác nhận rồi mới vào hồ sơ.'}</div>
         ${ds.map(x => `
           <div class="list-row">
             <div class="row-main">
@@ -381,7 +325,71 @@ App.views.student = {
             </div>
             ${x.dienThoai ? `<a class="btn sm outline" href="tel:${UI.esc(x.dienThoai.replace(/\s/g, ''))}">Gọi</a>` : ''}
           </div>`).join('')}
+        ${deXuat.map(x => this.dongDeXuat(x, laPhuHuynh)).join('')}
       </div>`;
+  },
+
+  // Một đề xuất của gia đình. Không có nút Gọi: số này chưa được nhà trường
+  // xác nhận. Bị từ chối thì nói lý do bằng giọng bình thường, không tô đỏ.
+  dongDeXuat(x, laPhuHuynh) {
+    const cho = x.trangThai === 'cho';
+    return `
+      <div class="list-row" data-de-xuat="${UI.esc(x.id)}">
+        <div class="row-main">
+          <div class="row-title">${UI.esc(x.ten)}${x.quanHe ? ` · ${UI.esc(x.quanHe)}` : ''}</div>
+          <div class="row-sub">${UI.esc(x.sdt)}${x.ghiChu ? ` · ${UI.esc(x.ghiChu)}` : ''}</div>
+          ${!laPhuHuynh && x.nguoiDeXuat ? `<div class="row-sub">Gia đình đề xuất: ${UI.esc(x.nguoiDeXuat)}</div>` : ''}
+          <div class="mt-8">${UI.badge(cho ? 'Chờ nhà trường xác nhận' : 'Nhà trường chưa thêm', 'gray')}</div>
+          ${!cho && x.lyDo ? `<div class="row-sub" style="white-space:normal">Lý do: ${UI.esc(x.lyDo)}</div>` : ''}
+        </div>
+        ${laPhuHuynh && cho ? `<button class="btn sm outline" data-huy-de-xuat="${UI.esc(x.id)}">Huỷ</button>` : ''}
+      </div>`;
+  },
+
+  // Đề xuất của bé. Hỏng thì null: thẻ quay về đúng như trước Đ260j.
+  async deXuatLienHe(studentId) {
+    return API.get(`/api/students/${encodeURIComponent(studentId)}/lien-he-de-xuat`).catch(() => null);
+  },
+
+  ganNutLienHe(root, s) {
+    const nut = root.querySelector('#hs-lhkc-them');
+    if (nut) nut.onclick = () => this.moThemLienHe(s);
+    for (const b of root.querySelectorAll('[data-huy-de-xuat]')) {
+      b.onclick = async () => {
+        if (!confirm('Huỷ đề xuất này? Nhà trường sẽ không xét nữa.')) return;
+        try {
+          await API.post(`/api/students/lien-he-de-xuat/${encodeURIComponent(b.dataset.huyDeXuat)}/huy`, {});
+          UI.toast('Đã huỷ đề xuất', 'success');
+          App.route();
+        } catch (err) { UI.toast(err.message, 'error'); }
+      };
+    }
+  },
+
+  moThemLienHe(s) {
+    UI.modal(`
+      <div class="muted small mb-8" style="line-height:1.6">Người nhà trường gọi khi không liên lạc được với bố mẹ.
+        Nhà trường xác nhận rồi mới thêm vào hồ sơ của bé.</div>
+      <div class="field"><label>Họ và tên</label><input id="lhdx-ten" maxlength="80" autocomplete="off" placeholder="Ví dụ: Trần Thị Lan"></div>
+      <div class="field"><label>Quan hệ với bé</label><input id="lhdx-qh" maxlength="40" autocomplete="off" placeholder="Ví dụ: Bà ngoại"></div>
+      <div class="field"><label>Số điện thoại</label><input id="lhdx-sdt" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="Ví dụ: 0909 111 222"></div>
+      <div class="field"><label>Ghi chú <span class="muted small">(không bắt buộc)</span></label><input id="lhdx-gc" maxlength="200" autocomplete="off" placeholder="Ví dụ: đón được bé buổi chiều"></div>
+      <button class="btn primary block" id="lhdx-gui">Gửi nhà trường xác nhận</button>`, 'Thêm người liên hệ khẩn cấp');
+    document.getElementById('lhdx-gui').onclick = async () => {
+      const ten = document.getElementById('lhdx-ten').value.trim();
+      if (!ten) return UI.toast('Vui lòng nhập họ tên người liên hệ', 'error');
+      try {
+        await API.post(`/api/students/${encodeURIComponent(s.id)}/lien-he-de-xuat`, {
+          ten,
+          quanHe: document.getElementById('lhdx-qh').value.trim(),
+          sdt: document.getElementById('lhdx-sdt').value.trim(),
+          ghiChu: document.getElementById('lhdx-gc').value.trim(),
+        });
+        UI.closeModal();
+        UI.toast('Đã gửi — chờ nhà trường xác nhận', 'success');
+        App.route();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
   },
 
   // ---- Cô: danh sách bé của nhóm ----
@@ -489,6 +497,7 @@ App.views.student = {
     try {
       const s = await API.get(`/api/students/${id}`);
       const lichSu = await this.lichSuNhom(id);
+      const deXuat = ((await this.deXuatLienHe(id)) || {}).danhSach || [];
       UI.modal(`
         <div class="center">${UI.avatar(s.avatar, 68)}<h3 class="mt-8">${UI.esc(s.name)}</h3>
           <div class="muted small">${UI.esc(s.code)} · ${UI.esc(s.className)}</div></div>
@@ -504,6 +513,7 @@ App.views.student = {
             `Khẩn cấp: ${x.hoTen}${x.quanHe ? ` (${x.quanHe})` : ''}`, x.dienThoai)).join('')}
           ${!s.parents.length && !(s.lienHeKhanCap || []).length
             ? '<div class="muted small mt-8">Hồ sơ chưa có số điện thoại nào — nhờ văn phòng bổ sung.</div>' : ''}
+          ${deXuat.map(x => this.dongDeXuat(x, false)).join('')}
           ${this.theLichSuNhom(lichSu)}
         </div>`, 'Hồ sơ của bé');
     } catch (err) { UI.toast(err.message, 'error'); }

@@ -131,6 +131,53 @@ function thuHaiCua(ngay) {
   return new Date(t - lui * 86400000).toISOString().slice(0, 10);
 }
 
+// =========================================================================
+// KHOẢNG NGÀY ÁP DỤNG CỦA MỘT BÀI (góp ý 18/11 — Đ260m)
+// =========================================================================
+//
+// Trường: *"chương trình này dạy từ thời gian này tới thời gian này, chứ không
+// phải theo từng tuần … còn lại không lưu vết cho phụ huynh (phụ huynh không
+// xem lại bài học tuần trước, tháng trước)"*.
+//
+// Gia đình chỉ nhận bài có khoảng chứa hôm nay. Khoảng lấy theo thứ tự:
+//   1. dòng riêng ở `cambridge_bai_khoang` — văn phòng ghi "Áp dụng từ … đến …";
+//   2. tuần đã gắn (`tuan`), thứ Hai tới Chủ nhật — nên thứ Bảy, Chủ nhật gia
+//      đình vẫn đọc được bài của tuần đang học;
+//   3. tuần gửi tới gia đình (`congBoLuc`, nháp thì `taoLuc`).
+//
+// KHÔNG SUY TỪ BLOCK. Bài cũ gắn một block đã qua mà suy theo block thì biến
+// khỏi màn gia đình ngay lúc triển khai, không ai được báo. Block chỉ là gợi
+// ý ở mẫu soạn (nút "Lấy theo thời gian của block" ghi ra một dòng riêng).
+//
+// `tuan` sai dạng (dữ liệu nhập tay, '2026-W37') rơi xuống bước 3, không ném.
+const KHOANG_TOI_DA_NGAY = 366;
+
+function ngayThat(s) {
+  if (!NGAY_RE.test(String(s || ''))) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
+}
+function congNgay(s, n) {
+  return new Date(Date.parse(`${s}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+}
+function khoangTuan(thuHai, nguon) {
+  return { tuNgay: thuHai, denNgay: congNgay(thuHai, 6), nguon };
+}
+function khoangCua(bai, rieng) {
+  if (rieng && rieng.tuNgay && rieng.denNgay) {
+    return { tuNgay: rieng.tuNgay, denNgay: rieng.denNgay, nguon: 'rieng' };
+  }
+  if (ngayThat(bai.tuan)) return khoangTuan(thuHaiCua(bai.tuan), 'tuan');
+  const moc = Date.parse(bai.congBoLuc || bai.taoLuc || '');
+  const ngayGui = Number.isFinite(moc) ? ngay.ngayCua(moc) : '';
+  return ngayGui ? khoangTuan(thuHaiCua(ngayGui), 'cong-bo') : null;
+}
+// Không ra được khoảng nào (bài không có cả ngày gửi lẫn ngày tạo) thì coi
+// như đang áp dụng — thà hiện thừa một bài còn hơn giấu mà không ai biết vì sao.
+function trongKhoang(k, hom) {
+  return !k || (k.tuNgay <= hom && hom <= k.denNgay);
+}
+
 // Danh sách ảnh lưu phẳng: mỗi dòng một tên tệp.
 function tachAnh(s) {
   return String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
@@ -275,6 +322,7 @@ module.exports = (app, { db }) => {
       hoatDong: null,
       story: null,
       tep: null,
+      khoang: null,
       nguoi: new Map(),
       lop: new Map(),
       coSo: new Map(),
@@ -297,6 +345,9 @@ module.exports = (app, { db }) => {
       if (!nho.hoatDong.has(h.baiId)) nho.hoatDong.set(h.baiId, []);
       nho.hoatDong.get(h.baiId).push(h);
     }
+    nho.khoang = new Map(db.all('cambridge_bai_khoang',
+      `SELECT baiId, tuNgay, denNgay FROM cambridge_bai_khoang WHERE baiId IN (${marks})`, ids)
+      .map(r => [r.baiId, r]));
     nho.story = new Map(db.all('cambridge_bai_them',
       `SELECT baiId, story FROM cambridge_bai_them WHERE baiId IN (${marks})`, ids)
       .map(r => [r.baiId, r.story]));
@@ -378,6 +429,9 @@ module.exports = (app, { db }) => {
   function anhHienVoiTruyenThong(bai, nho) {
     return !anhCoMatBe(bai.id, nho);
   }
+
+  const LOI_NGOAI_KHOANG = 'Bài này không nằm trong thời gian áp dụng hiện tại — '
+    + 'gia đình chỉ xem được bài của chương trình đang học.';
 
   function laTruyenThong(user) {
     return !!user && user.role === 'admin' && db.chucVu(user) === 'marketing';
@@ -463,6 +517,14 @@ module.exports = (app, { db }) => {
     }
     return [];
   }
+  // Khoảng riêng của một bài — đường liệt kê nạp sẵn cho cả trang (`napTruoc`).
+  function khoangRiengCua(baiId, nho) {
+    if (nho && nho.khoang) return nho.khoang.get(baiId) || null;
+    return db.first('cambridge_bai_khoang', 'SELECT tuNgay, denNgay FROM cambridge_bai_khoang WHERE baiId = ?', [baiId]) || null;
+  }
+  function baiDangApDung(bai, nho) {
+    return trongKhoang(khoangCua(bai, khoangRiengCua(bai.id, nho)), homNay());
+  }
   function storyCua(baiId, nho) {
     if (nho && nho.story) return nho.story.get(baiId) || '';
     const r = db.first('cambridge_bai_them', 'SELECT story FROM cambridge_bai_them WHERE baiId = ?', [baiId]);
@@ -503,8 +565,11 @@ module.exports = (app, { db }) => {
     const anMkt = !!anh.length && laMkt && !anhHienVoiTruyenThong(bai, nho);
     const coBe = anhCoMatBe(bai.id, nho);
     const k = khungCua(bai.id, nho);
+    const apDung = khoangCua(bai, khoangRiengCua(bai.id, nho));
     return {
       ...bai,
+      apDung,
+      dangApDung: trongKhoang(apDung, homNay()),
       // LỌC Ở TẦNG DỮ LIỆU. Gia đình không nhận về tên tệp của ảnh bị ẩn —
       // không phải nhận rồi giao diện che bớt, vì tên tệp là thứ tải được.
       anh: ((an && laGiaDinh) || anMkt) ? [] : anh,
@@ -585,8 +650,22 @@ module.exports = (app, { db }) => {
         khungTheoBai.set(k.baiId, k);
       }
     }
+    // GIA ĐÌNH CHỈ NHẬN BÀI ĐANG ÁP DỤNG (Đ260m) — cắt ở đây, TRƯỚC khi cắt
+    // trang, cùng lý do với bộ lọc quyền ở trên. Cô và văn phòng nhận đủ: họ
+    // cần thấy bài đã qua để đặt lại khoảng. Khoảng của cả bảng tính MỘT lượt,
+    // bằng một câu riêng: câu lọc ở trên giữ đúng mấy cột gọn của nó.
+    let dangApDung = null;
+    if (req.user.role === 'parent') {
+      const hom = homNay();
+      dangApDung = new Set(db.all('cambridge_bai',
+        `SELECT b.id AS id, b.tuan AS tuan, b.taoLuc AS taoLuc, b.congBoLuc AS congBoLuc,
+                k.tuNgay AS tuNgay, k.denNgay AS denNgay
+           FROM cambridge_bai b LEFT JOIN cambridge_bai_khoang k ON k.baiId = b.id`)
+        .filter(r => trongKhoang(khoangCua(r, r), hom)).map(r => r.id));
+    }
     const trang = rows.filter(xemNhanh)
       .filter(b => hopLua(khungTheoBai.get(b.id) || null, cacCon))
+      .filter(b => !dangApDung || dangApDung.has(b.id))
       .slice(bo, bo + soLuong);
     // Nguyên bài chỉ đọc cho đúng một trang, và giữ NGUYÊN THỨ TỰ đã xếp ở
     // trên — `WHERE id IN (...)` không hứa thứ tự nào cả.
@@ -648,6 +727,11 @@ module.exports = (app, { db }) => {
     }
     if (!chu) return res.status(404).json({ error: 'Không tìm thấy ảnh' });
     if (!xemDuoc(chu, req.user)) return res.status(403).json({ error: 'Không có quyền xem ảnh này' });
+    // Bài ngoài thời gian áp dụng (Đ260m): tên tệp nằm trong gói JSON gia
+    // đình nhận từ tuần trước, nên cắt ở đường liệt kê thôi là chưa đủ.
+    if (req.user.role === 'parent' && !baiDangApDung(chu)) {
+      return res.status(403).json({ error: LOI_NGOAI_KHOANG });
+    }
 
     // ĐÂY MỚI LÀ CHỐT CHẶN THẬT CỦA LUẬT ẢNH NHÓM Ở PHÂN HỆ NÀY.
     //
@@ -815,6 +899,51 @@ module.exports = (app, { db }) => {
     return { ...ra, monHoc: dau.hoatDong || '', chuDe: dau.chuDe || '', tuVung: dau.tuVung || '' };
   }
 
+  // KHOẢNG "ÁP DỤNG TỪ … ĐẾN …" (Đ260m). Cùng luật với khung: KHÔNG GỬI =
+  // KHÔNG ĐỤNG TỚI. Gửi null hoặc hai ô rỗng = bỏ khoảng riêng, bài quay về
+  // áp dụng theo tuần gửi tới gia đình.
+  // Trả { doi: false } | { doi: true, khoang: {tuNgay, denNgay} | null } | { loi }.
+  function lamSachKhoang(b) {
+    if (!b || b.apDung === undefined) return { doi: false };
+    if (b.apDung !== null && typeof b.apDung !== 'object') {
+      return { loi: 'Thời gian áp dụng gửi lên chưa đúng dạng — cô tải lại màn rồi thử lại nhé' };
+    }
+    const a = b.apDung || {};
+    const tuNgay = chuoi(a.tuNgay, 10);
+    const denNgay = chuoi(a.denNgay, 10);
+    if (!tuNgay && !denNgay) return { doi: true, khoang: null };
+    if (!tuNgay || !denNgay) {
+      return { loi: 'Cần cả ngày bắt đầu và ngày kết thúc áp dụng — hoặc để trống cả hai ô' };
+    }
+    if (!ngayThat(tuNgay) || !ngayThat(denNgay)) {
+      return { loi: 'Ngày áp dụng chưa đúng, ví dụ đúng: 2026-11-23' };
+    }
+    if (denNgay < tuNgay) return { loi: 'Ngày kết thúc áp dụng phải từ ngày bắt đầu trở đi' };
+    const soNgay = (Date.parse(`${denNgay}T00:00:00Z`) - Date.parse(`${tuNgay}T00:00:00Z`)) / 86400000 + 1;
+    if (soNgay > KHOANG_TOI_DA_NGAY) {
+      return { loi: `Một bài áp dụng tối đa ${KHOANG_TOI_DA_NGAY} ngày — chia thành nhiều bài theo block nhé` };
+    }
+    return { doi: true, khoang: { tuNgay, denNgay } };
+  }
+  // Có khoảng riêng thì `tuan` đi theo thứ Hai của ngày bắt đầu, để thứ tự
+  // xếp ở đường liệt kê vẫn đúng. Bỏ khoảng mà không gửi tuần thì bỏ luôn tuần
+  // cũ — người soạn vừa nói "không giới hạn riêng", không phải "tuần cũ".
+  function tuanTheoKhoang(s, kh, b) {
+    if (!kh.doi) return s;
+    if (kh.khoang) return { ...s, tuan: thuHaiCua(kh.khoang.tuNgay) };
+    return b.tuan === undefined ? { ...s, tuan: '' } : s;
+  }
+  function ghiKhoang(baiId, kh) {
+    if (!kh.doi) return;
+    if (!kh.khoang) {
+      db.run('DELETE FROM cambridge_bai_khoang WHERE baiId = ?', [baiId]);
+      return;
+    }
+    db.run(`INSERT INTO cambridge_bai_khoang (baiId, tuNgay, denNgay, ghiLuc) VALUES (?, ?, ?, ?)
+            ON CONFLICT(baiId) DO UPDATE SET tuNgay = excluded.tuNgay, denNgay = excluded.denNgay, ghiLuc = excluded.ghiLuc`,
+    [baiId, kh.khoang.tuNgay, kh.khoang.denNgay, new Date().toISOString()]);
+  }
+
   // STORY — mục chung của Weekly Plan, cạnh Song / Chant. Không gửi = không đổi.
   function lamSachStory(b) {
     if (!b || b.story === undefined) return null;
@@ -902,16 +1031,19 @@ module.exports = (app, { db }) => {
     if (kh.loi) return res.status(400).json({ error: kh.loi });
     const hd = lamSachHoatDong(req.body || {});
     if (hd.loi) return res.status(400).json({ error: hd.loi });
+    const ad = lamSachKhoang(req.body || {});
+    if (ad.loi) return res.status(400).json({ error: ad.loi });
     const a = nhanAnh((req.body || {}).anh);
     if (a.loi) return res.status(400).json({ error: a.loi });
 
     const luc = new Date().toISOString();
     const rec = {
-      id: db.nextId('cam'), ...s, anh: a.anh || '',
+      id: db.nextId('cam'), ...tuanTheoKhoang(s, ad, req.body || {}), anh: a.anh || '',
       congBoLuc: null, nguoiDang: req.user.id, taoLuc: luc, capNhatLuc: luc,
     };
     db.insert('cambridge_bai', rec);
     dongBoAnh(rec.id, rec.anh);
+    ghiKhoang(rec.id, ad);
     ghiCoTich(rec.id, req.body || {});
     ghiKhung(rec.id, khungKemHoatDong(rec.id, rec.loai, kh.khung, hd.hoatDong));
     ghiHoatDong(rec.id, hd.hoatDong);
@@ -932,7 +1064,9 @@ module.exports = (app, { db }) => {
     if (kh.loi) return res.status(400).json({ error: kh.loi });
     const hd = lamSachHoatDong(req.body || {});
     if (hd.loi) return res.status(400).json({ error: hd.loi });
-    const patch = { ...s, capNhatLuc: new Date().toISOString() };
+    const ad = lamSachKhoang(req.body || {});
+    if (ad.loi) return res.status(400).json({ error: ad.loi });
+    const patch = { ...tuanTheoKhoang(s, ad, req.body || {}), capNhatLuc: new Date().toISOString() };
     const a = nhanAnh((req.body || {}).anh);
     if (a.loi) return res.status(400).json({ error: a.loi });
     if (a.anh !== null) {
@@ -946,6 +1080,7 @@ module.exports = (app, { db }) => {
 
     db.update('cambridge_bai', cu.id, patch);
     if (patch.anh !== undefined) dongBoAnh(cu.id, patch.anh);
+    ghiKhoang(cu.id, ad);
     db.audit(req.user.id, 'cambridge-sua', cu.id, { phamVi: patch.phamVi });
     ghiCoTich(cu.id, req.body || {});
     ghiKhung(cu.id, khungKemHoatDong(cu.id, s.loai, kh.khung, hd.hoatDong));
@@ -974,7 +1109,9 @@ module.exports = (app, { db }) => {
     // BÁO GIA ĐÌNH TỪNG BÉ ĐÚNG LỨA (Đ143). Đi đường thông báo riêng của bé
     // chứ không đường thông báo nhóm: tờ lứa 3–4 không rung điện thoại của nhà
     // có bé 4–5. Việc phụ — hỏng cũng không làm hỏng công bố.
-    const soBao = baoGiaDinh(b);
+    // Bài chưa tới (hoặc đã qua) thời gian áp dụng thì chưa rung điện thoại:
+    // tin báo trỏ tới một bài mà màn hình gia đình chưa hiện là tin báo hỏng.
+    const soBao = baiDangApDung({ ...b, congBoLuc: luc }) ? baoGiaDinh(b) : 0;
     res.json({ ok: true, id: b.id, daCongBo: true, congBoLuc: luc, soGiaDinhDuocBao: soBao });
   });
 
@@ -1266,6 +1403,7 @@ module.exports = (app, { db }) => {
     if (!chu || !xemDuoc(chu, req.user)) return res.status(403).json({ error: 'Không có quyền tải tệp này' });
     const cacCon = luaTuoiCuaCon(req.user);
     if (!hopLua(khungCua(chu.id), cacCon)) return res.status(403).json({ error: 'Tệp này thuộc bài dành cho lứa tuổi khác' });
+    if (req.user.role === 'parent' && !baiDangApDung(chu)) return res.status(403).json({ error: LOI_NGOAI_KHOANG });
     const duong = uploads.pathOfTaiLieu(t.file);
     if (!duong || !uploads.existsTaiLieu(t.file)) return res.status(404).json({ error: 'Tệp không còn trên máy chủ' });
     res.setHeader('Content-Type', uploads.mimeOfTaiLieu(t.file));

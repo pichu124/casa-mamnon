@@ -4,7 +4,8 @@
 // Chạy bằng:  node test/phan-hoi-2010-bao-cao-thang-giao-dien.test.mjs
 //
 //   1. O1 — trên máy tính (≥ 900px) ô viết rộng hết cột, cao tối thiểu ~8
-//      dòng; trên điện thoại giữ đúng kích thước cũ.
+//      dòng. Trên điện thoại, từ góp ý 18/11 (Đ260a): rộng hết cột, cao tối
+//      thiểu ~5 dòng (bài canh riêng: phan-hoi-1811-viec-nho-giao-dien).
 //   2. O3 — bấm "Mời chữ từ Kế hoạch của bé" khi kế hoạch chỉ có bài đã tích:
 //      hộp mời hiện tên bài, bấm Chép thì chữ vào ô tổng hợp, CHƯA lưu gì.
 //   3. O5 — màn soạn không còn ô "Cô ký tên"; bản gia đình đọc không in tên cô.
@@ -91,7 +92,7 @@ try {
   check('đối chứng — kế hoạch tháng của s1 chỉ có bài đã tích', lap.status === 200, lap.data);
 
   // =========================================================================
-  console.log('\n[1] O1 — ô viết trên máy tính rộng và cao hơn, điện thoại giữ như cũ');
+  console.log('\n[1] O1 — ô viết trên máy tính rộng và cao hơn; điện thoại đủ rộng (góp ý 18/11)');
   mayTinh = await moTrang({ width: 1280, height: 900 }, false);
   await dangNhap(mayTinh.page, 'giaovien', '123456');
   await moBan(mayTinh.page, banId);
@@ -105,14 +106,16 @@ try {
   await dangNhap(dienThoai.page, 'giaovien', '123456');
   await moBan(dienThoai.page, banId);
   const dt = await kichThuoc(dienThoai.page);
-  // Cùng một trang, gỡ lớp mới đi thì kích thước phải y nguyên: điện thoại không đổi gì.
+  // Góp ý 18/11 (Đ260a, chủ dự án duyệt): trên điện thoại ô viết KHÔNG còn
+  // giữ kích thước cũ (ô dòng mẫu quá nhỏ). Gỡ lớp đi để thấy lớp ấy thật sự
+  // làm ô to ra.
   const dtCu = await dienThoai.page.evaluate(() => {
     for (const t of document.querySelectorAll('textarea.bc-o-viet')) t.classList.remove('bc-o-viet');
     const r = (el) => { const b = el.getBoundingClientRect(); return { w: Math.round(b.width), h: Math.round(b.height) }; };
     return { dong: r(document.querySelector('textarea[data-chu]')), tong: r(document.getElementById('bc-tong')) };
   });
-  check('điện thoại: ô viết giữ đúng kích thước cũ',
-    JSON.stringify(dt.dong) === JSON.stringify(dtCu.dong) && JSON.stringify(dt.tong) === JSON.stringify(dtCu.tong), { dt, dtCu });
+  check('điện thoại: ô của từng dòng mẫu rộng hết cột, cao tối thiểu ~5 dòng, to hơn khi chưa có lớp',
+    Math.abs(dt.dong.w - dt.cot) <= 2 && dt.dong.h >= 5 * dt.dongChu && dt.dong.h > dtCu.dong.h, { dt, dtCu });
   check('đối chứng — máy tính thật sự cao hơn điện thoại', mt.dong.h > dt.dong.h, { mt: mt.dong, dt: dt.dong });
 
   // =========================================================================

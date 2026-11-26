@@ -184,19 +184,15 @@ console.log('\n[5] QUY TẮC 2 — "Chưa quan sát thấy" là một lựa ch�
 }
 
 // ===========================================================================
-console.log('\n[6] LỚP 3 — cô CHỦ ĐỘNG công bố, và phải kèm việc cùng con ở nhà');
+console.log('\n[6] LỚP 3 — cô CHỦ ĐỘNG công bố');
 {
   const cuaToi = (await hoSo(GV)).quanSat.find(q => q.studentId === 's1');
 
   const chuaViet = await req('POST', `/api/hanhtrinh/${cuaToi.id}/cong-bo`, { cookie: GV, body: {} });
   check('chưa viết câu chuyện thì chưa công bố được', chuaViet.status === 400, chuaViet.status);
 
-  const thieuNha = await req('POST', `/api/hanhtrinh/${cuaToi.id}/cong-bo`, {
-    cookie: GV, body: { cauChuyen: 'Hôm nay Bin tự xúc hết bát cơm ạ.' },
-  });
-  check('QUY TẮC 5 — thiếu "cùng con ở nhà" thì chưa công bố được', thieuNha.status === 400, thieuNha.status);
-  check('và lời nhắc mô tả đúng loại việc cần gợi ý',
-    /5 tới 10 phút|đồ có sẵn|không cần màn hình/i.test(thieuNha.data?.error || ''), thieuNha.data?.error);
+  // Từ góp ý của trường 18/11 "cùng con ở nhà" không bắt buộc nữa — ca để
+  // trống mà vẫn công bố được nằm ở mục [15].
 
   // Nháp thì KHÔNG ai đọc được, kể cả khi đã gõ xong.
   await req('PUT', `/api/hanhtrinh/${cuaToi.id}`, {
@@ -664,7 +660,7 @@ console.log('\n[+] GHI NHẦM BÉ — phải có đường lùi, và đường l
 }
 
 // ===========================================================================
-console.log('\n[14] SỬA MỘT CÂU CHUYỆN ĐÃ CÔNG BỐ KHÔNG ĐƯỢC ĐI VÒNG QUA QUY TẮC 5');
+console.log('\n[14] SỬA MỘT CÂU CHUYỆN ĐÃ CÔNG BỐ KHÔNG ĐƯỢC ĐỂ TRỐNG CHỮ KỂ');
 {
   // VÌ SAO MỤC NÀY ĐÁNG GIÁ
   //
@@ -672,9 +668,8 @@ console.log('\n[14] SỬA MỘT CÂU CHUYỆN ĐÃ CÔNG BỐ KHÔNG ĐƯỢC Đ
   // và giao diện gọi nút đó là "Lưu nháp" rồi báo "gia đình chưa đọc được". Cả
   // ba đều SAI khi bản ghi đã công bố: chữ đi thẳng lên màn hình gia đình.
   //
-  // Nặng hơn: `cungConONha` XOÁ TRẮNG được qua đường này, trong khi đường
-  // `cong-bo` bắt buộc phải có nó. Tức đi vòng qua đúng QUY TẮC 5 — mỗi nhận
-  // định phải kèm một việc làm được.
+  // Từ góp ý của trường 18/11, `cong-bo` không bắt buộc "cùng con ở nhà" nữa,
+  // nên bản đã công bố cũng xoá trắng được ô ấy; chữ kể thì vẫn không.
   const tao = await req('POST', '/api/hanhtrinh', {
     cookie: GV, body: { studentId: 's1', moTa: 'Bé tự rót nước vào cốc, không đổ giọt nào.' },
   });
@@ -692,19 +687,19 @@ console.log('\n[14] SỬA MỘT CÂU CHUYỆN ĐÃ CÔNG BỐ KHÔNG ĐƯỢC Đ
     cb.status === 200 && !!(cb.data?.congBoLuc || cb.data?.daCongBo),
     `${cb.status} ${JSON.stringify(cb.data).slice(0, 160)}`);
 
-  // XOÁ TRẮNG "cùng con ở nhà" trên bản ĐÃ công bố phải bị từ chối.
-  const xoaTrang = await req('PUT', `/api/hanhtrinh/${id}`, {
-    cookie: GV, body: { cungConONha: '' },
-  });
-  check('KHÔNG xoá trắng được "cùng con ở nhà" của bản đã công bố',
-    xoaTrang.status === 400, `${xoaTrang.status} ${xoaTrang.data?.error || ''}`);
-  check('và lời từ chối chỉ đúng đường ra: thu hồi trước',
-    /thu hồi/i.test(xoaTrang.data?.error || ''), xoaTrang.data);
-
   const xoaChuyen = await req('PUT', `/api/hanhtrinh/${id}`, {
     cookie: GV, body: { cauChuyen: '' },
   });
-  check('cũng KHÔNG xoá trắng được chính câu chuyện', xoaChuyen.status === 400, xoaChuyen.status);
+  check('KHÔNG xoá trắng được chính câu chuyện', xoaChuyen.status === 400, xoaChuyen.status);
+  check('và lời từ chối chỉ đúng đường ra: thu hồi trước',
+    /Thu hồi/i.test(xoaChuyen.data?.error || ''), xoaChuyen.data);
+
+  // Ô "cùng con ở nhà" thì xoá trắng được, bản vẫn đang hiện với gia đình.
+  const xoaTrang = await req('PUT', `/api/hanhtrinh/${id}`, {
+    cookie: GV, body: { cungConONha: '' },
+  });
+  check('xoá trắng "cùng con ở nhà" của bản đã công bố thì ĐƯỢC (góp ý 18/11)',
+    xoaTrang.status === 200 && xoaTrang.data?.cungConONha === '', `${xoaTrang.status} ${xoaTrang.data?.error || ''}`);
 
   // NHƯNG SỬA MỘT LỖI CHÍNH TẢ THÌ VẪN PHẢI ĐƯỢC — không siết tới mức làm phiền
   // cô vì một việc đúng.
@@ -723,6 +718,30 @@ console.log('\n[14] SỬA MỘT CÂU CHUYỆN ĐÃ CÔNG BỐ KHÔNG ĐƯỢC Đ
   });
   check('bản CHƯA công bố thì vẫn để trống được — nháp dở dang là chuyện bình thường',
     trong.status === 200, `${trong.status} ${trong.data?.error || ''}`);
+}
+
+// ===========================================================================
+console.log('\n[15] KỂ CHO GIA ĐÌNH KHI ĐỂ TRỐNG "CÙNG CON Ở NHÀ" (góp ý 18/11)');
+{
+  const tao = await req('POST', '/api/hanhtrinh', {
+    cookie: GV, body: { studentId: 's1', moTa: 'Bé tự cài cúc áo khoác.' },
+  });
+  const id = tao.data?.id;
+  check('tạo được quan sát để thử', !!id, tao.data);
+  const cb = await req('POST', `/api/hanhtrinh/${id}/cong-bo`, {
+    cookie: GV, body: { cauChuyen: 'Sáng nay bé tự cài hết ba chiếc cúc áo khoác.', cungConONha: '' },
+  });
+  check('để trống "cùng con ở nhà" vẫn công bố được (200)',
+    cb.status === 200 && cb.data?.daCongBo === true, `${cb.status} ${JSON.stringify(cb.data).slice(0, 160)}`);
+  const q = ((await hoSo(PH)).quanSat || []).find(x => /ba chiếc cúc/.test(x.cauChuyen || ''));
+  check('gia đình đọc được câu chuyện, phần cùng con ở nhà rỗng',
+    !!q && q.cungConONha === '', q);
+  const tin = ((await req('GET', '/api/notifications/rieng-be', { cookie: PH })).data || [])
+    .find(n => n.loai === 'hanh-trinh' && /ba chiếc cúc/.test(n.title || ''));
+  check('tin báo gia đình KHÔNG hứa "gợi ý một việc làm cùng con ở nhà" khi cô để trống',
+    !!tin && /Cô vừa kể một câu chuyện về con/.test(tin.body || '') && !/cùng con ở nhà/.test(tin.body || ''), tin);
+  const chuaViet = await req('POST', `/api/hanhtrinh/${id}/cong-bo`, { cookie: GV, body: { cauChuyen: '' } });
+  check('chữ kể cho gia đình thì VẪN bắt buộc', chuaViet.status === 400, chuaViet.status);
 }
 
 sv.dung();

@@ -219,9 +219,22 @@ App.views.plans = {
   // trách"; và *"mục này mình sẽ để là soạn kế hoạch tuần"*: một tiêu đề tuần
   // ("Tuần 1 tháng 9: Trường của bé") rồi "Nội dung học của tuần".
   //
-  // Kế hoạch tháng theo nhóm đã soạn KHÔNG mất: vẫn mở ở #/plans, và cô/văn
-  // phòng có một dòng chỉ đường ở cuối khối.
+  // Kế hoạch tháng theo nhóm đã soạn KHÔNG mất: vẫn mở ở #/plans bằng địa
+  // chỉ. Dòng chỉ đường "Xem kế hoạch tháng … trước đây" ở cuối khối đã bỏ
+  // (góp ý 18/11, Đ260m — trường gạch dòng ấy trên ảnh chụp).
+  //
+  // GIA ĐÌNH CHỈ THẤY TUẦN NÀY: máy chủ luôn trả tuần này cho họ, và màn hình
+  // không vẽ nút ‹ › — *"còn lại không lưu vết cho phụ huynh"*.
+  //
+  // BẢN CỦA CƠ SỞ (Đ260m, phương án (a)): văn phòng một cơ sở soạn bản riêng
+  // của cơ sở mình; tuần chưa soạn thì cơ sở thấy bản chung. Gia đình gửi kèm
+  // nhóm của bé đang chọn để máy chủ biết đọc bản của cơ sở nào.
   _tuan: null,
+
+  // Bản đang hiện có phải bản mà người này sẽ ghi đè khi bấm Lưu không.
+  banCuaMinh(kh, d) {
+    return !!kh && (kh.campusId || '') === (d.soanChoCoSo || '');
+  },
 
   // "Tuần 1 tháng 10" của một thứ Hai: tuần thứ mấy tính theo ngày của thứ Hai.
   nhanTuan(thuHai) {
@@ -244,25 +257,33 @@ App.views.plans = {
   },
 
   async renderTuan(o, tuyChon = {}) {
-    const q = this._tuan ? `?tuan=${encodeURIComponent(this._tuan)}` : '';
-    const d = await API.get(`/api/plans/tuan${q}`);
+    const u = App.state.user || {};
+    const be = u.role === 'parent' ? App.currentStudent() : null;
+    const q = [
+      this._tuan ? `tuan=${encodeURIComponent(this._tuan)}` : '',
+      be && be.classId ? `classId=${encodeURIComponent(be.classId)}` : '',
+    ].filter(Boolean).join('&');
+    const d = await API.get(`/api/plans/tuan${q ? `?${q}` : ''}`);
     this._tuan = d.tuan;
     this._duLieuTuan = d;
     const k = d.keHoach;
     const dong = k ? String(k.noiDung || '').split('\n').filter(Boolean) : [];
-    const u = App.state.user || {};
+    const diTuan = u.role !== 'parent';
     o.innerHTML = `
       <div class="card" id="kht-the">
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-          <button class="btn outline sm" id="kht-truoc" ${d.tuanTruocCo ? '' : 'disabled'} aria-label="Tuần trước có kế hoạch">‹</button>
+          ${diTuan ? `<button class="btn outline sm" id="kht-truoc" ${d.tuanTruocCo ? '' : 'disabled'} aria-label="Tuần trước có kế hoạch">‹</button>` : ''}
           <div class="center small" style="flex:1">
             <b>${UI.esc(this.nhanTuan(d.tuan))}</b>${d.tuan === d.tuanNay ? ' · tuần này' : ''}
             <div class="muted">${UI.esc(this.khoangNgay(d.tuan))}</div>
           </div>
-          <button class="btn outline sm" id="kht-sau" ${d.tuanSauCo ? '' : 'disabled'} aria-label="Tuần sau có kế hoạch">›</button>
+          ${diTuan ? `<button class="btn outline sm" id="kht-sau" ${d.tuanSauCo ? '' : 'disabled'} aria-label="Tuần sau có kế hoạch">›</button>` : ''}
         </div>
         ${k ? `
           <div style="font-size:1.25rem;font-weight:800;line-height:1.35;text-transform:uppercase" id="kht-tieu-de">${UI.esc(k.tieuDe)}</div>
+          ${diTuan ? `<div class="muted small mt-8" id="kht-ban">${k.campusId
+            ? `Bản riêng của ${UI.esc(k.campusId === d.soanChoCoSo && d.tenCoSoSoan ? d.tenCoSoSoan : 'cơ sở')}`
+            : 'Bản chung cả trường'}</div>` : ''}
           ${dong.length ? `
             <div class="card-title mt-14" style="font-size:.85rem;letter-spacing:.02em">NỘI DUNG HỌC TRONG TUẦN</div>
             <ul style="margin:0;padding-left:20px" id="kht-noi-dung">${dong.map(x => this.dongNoiDung(x)).join('')}</ul>` : ''}`
@@ -271,9 +292,7 @@ App.views.plans = {
         ${d.duocSoan ? `
           <button class="btn primary block mt-14" id="btn-soan-kh-tuan">${UI.icon('edit', 16)} Soạn kế hoạch tuần</button>` : ''}
         ${d.tuan !== d.tuanNay ? `<button class="btn outline block mt-8" id="kht-ve-nay">Về tuần này</button>` : ''}
-      </div>
-      ${u.role !== 'parent' && !tuyChon.trongPlans ? `
-        <div class="muted small center mb-8"><a href="#/plans">Xem kế hoạch tháng theo nhóm đã soạn trước đây →</a></div>` : ''}`;
+      </div>`;
     const di = (t) => { this._tuan = t; this.renderTuan(o, tuyChon).catch(err => UI.toast(err.message, 'error')); };
     const nt = document.getElementById('kht-truoc');
     if (nt && d.tuanTruocCo) nt.onclick = () => di(d.tuanTruocCo);
@@ -302,8 +321,12 @@ App.views.plans = {
       <div class="field">
         <label>Nội dung học của tuần</label>
         <textarea id="kht-o-noi-dung" rows="9" placeholder="Mỗi dòng một mục, ví dụ:&#10;Khám phá: Trong tuần các con làm quen với môi trường xung quanh, từ vựng mới về trường mầm non.&#10;Kỹ năng sống: Bé làm quen với phép lịch sự nhã nhặn; tự lau dọn bàn sau bữa ăn.&#10;Âm nhạc: Bài hát của tuần: Trường chúng cháu là trường mầm non.">${UI.esc(k.noiDung || '')}</textarea>
-        <div class="hint">Mỗi dòng thành một gạch đầu dòng; chữ trước dấu hai chấm được in đậm.
-          Đây là kế hoạch chung — mọi gia đình và mọi cô của cả trường đều thấy.</div>
+        <div class="hint">Mỗi dòng thành một gạch đầu dòng; chữ trước dấu hai chấm được in đậm.</div>
+        <div class="hint" id="kht-o-ban">${d.soanChoCoSo
+          ? `Đây là bản của <b>${UI.esc(d.tenCoSoSoan || 'cơ sở')}</b>: gia đình và cô của cơ sở này thấy bản này
+            thay cho bản chung cả trường. Tuần nào cơ sở chưa soạn thì vẫn thấy bản chung.${d.keHoach && !this.banCuaMinh(d.keHoach, d)
+              ? ' Hộp đang mang sẵn chữ của bản chung — sửa rồi lưu là thành bản riêng của cơ sở, bản chung không đổi.' : ''}`
+          : 'Đây là bản chung cả trường. Cơ sở nào soạn bản riêng cho tuần ấy thì gia đình cơ sở đó thấy bản riêng.'}</div>
       </div>
       <button class="btn primary block" id="kht-luu">${UI.icon('check', 18)} Lưu kế hoạch tuần</button>
     `, 'Soạn kế hoạch tuần');
@@ -314,13 +337,13 @@ App.views.plans = {
     const oTieuDe = document.getElementById('kht-o-tieu-de');
     const oNoiDung = document.getElementById('kht-o-noi-dung');
     let goc = { tuan: d.tuan, tieuDe: oTieuDe.value, noiDung: oNoiDung.value };   // tuần mà chữ trong hộp thuộc về
-    let dich = { tuan: d.tuan, tieuDe: k.tieuDe || '', co: !!d.keHoach };       // tuần sẽ được ghi
+    let dich = { tuan: d.tuan, tieuDe: k.tieuDe || '', co: this.banCuaMinh(d.keHoach, d) };   // tuần sẽ được ghi
     oNgay.onchange = async () => {
       if (!oNgay.value) return;
       let dt;
       try { dt = await API.get(`/api/plans/tuan?tuan=${encodeURIComponent(oNgay.value)}`); } catch (_) { return; }
       const kk = dt.keHoach || {};
-      dich = { tuan: dt.tuan, tieuDe: kk.tieuDe || '', co: !!dt.keHoach };
+      dich = { tuan: dt.tuan, tieuDe: kk.tieuDe || '', co: this.banCuaMinh(dt.keHoach, d) };
       const dangGo = oTieuDe.value !== goc.tieuDe || oNoiDung.value !== goc.noiDung;
       if (!dangGo) {
         oTieuDe.value = kk.tieuDe || `${this.nhanTuan(dt.tuan)}: `;

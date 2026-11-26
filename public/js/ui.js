@@ -404,11 +404,14 @@ window.UI = (() => {
   //     tranByte  trần dung lượng đích, mặc định 8 MB (khớp MAX_VIDEO_BYTES)
   //     tien      hàm gọi lại mỗi giây: tien({ giay, tongGiay })
   //     huy       hàm trả về true để dừng giữa chừng
+  //     bitToiDa  trần bitrate hình (bit/giây), mặc định 900000 — chỗ gọi cần
+  //               hình nét hơn (album 720p) truyền số lớn hơn; bỏ trống giữ y cũ
   function nenVideo(file, tuyChon = {}) {
     const tranByte = Number(tuyChon.tranByte) > 0 ? Number(tuyChon.tranByte) : 8 * 1024 * 1024;
     const canhToiDa = Number(tuyChon.canhToiDa) > 0 ? Number(tuyChon.canhToiDa) : 480;
     const toiDaGiay = Number(tuyChon.toiDaGiay) > 0 ? Number(tuyChon.toiDaGiay) : 390;
     const khung = Number(tuyChon.khung) > 0 ? Number(tuyChon.khung) : 15;
+    const bitToiDa = Number(tuyChon.bitToiDa) > 0 ? Number(tuyChon.bitToiDa) : 900000;
     const tien = typeof tuyChon.tien === 'function' ? tuyChon.tien : () => {};
     const huy = typeof tuyChon.huy === 'function' ? tuyChon.huy : () => false;
 
@@ -483,7 +486,7 @@ window.UI = (() => {
         // ở phút thứ tư nghĩa là cô chờ xong bốn phút rồi mới nhận câu từ chối.
         // Thà mờ hơn một chút mà chắc chắn gửi được.
         const bitTieng = 24000;
-        const bitHinh = Math.max(120000, Math.min(900000,
+        const bitHinh = Math.max(120000, Math.min(bitToiDa,
           Math.floor((tranByte * 8 * 0.8) / tongGiay) - bitTieng));
 
         // Tiếng của bé là nửa giá trị của một đoạn phim ở trường mầm non, nên
@@ -576,6 +579,89 @@ window.UI = (() => {
     });
   }
 
+  // GỬI VIDEO GỐC ĐỂ MÁY CHỦ NÉN (Đ260f) — HÀM MỚI, `nenVideo` GIỮ NGUYÊN.
+  //
+  // Bản nén trên iPhone rất mờ (Safari bỏ qua bitrate), nên khi máy chủ có
+  // ffmpeg thì điện thoại gửi NGUYÊN tệp gốc, từng phần một (không base64,
+  // không đọc cả tệp vào bộ nhớ), rồi hỏi máy chủ mỗi 2 giây cho tới khi nén
+  // xong. Album và Hình ảnh ghi nhanh cùng gọi hàm này; mỗi màn tự vẽ tiến độ.
+  //
+  //   UI.guiVideoMayChu(file, { tienTo, tien, dangNen, huy })
+  //     tienTo   '/api/albums/video' hoặc '/api/hanhtrinh/video'
+  //     tien     gọi sau mỗi phần đã gửi: tien({ daGui, tong }) (byte)
+  //     dangNen  gọi khi máy chủ đang nén: dangNen({ tienDo }) (0–1)
+  //     huy      hàm trả true để dừng (cô bấm Dừng lại, hay đóng form)
+  //
+  // Trả về { coNen: false } khi máy chủ không nén được (chỗ gọi đi đường cũ),
+  // hoặc { coNen: true, maTep } để gửi kèm lúc đăng. Dừng giữa chừng thì ném
+  // lỗi có cờ `daHuy`; mọi lỗi khác mang câu tiếng Việt. Lượt dở luôn được bỏ
+  // trên máy chủ (DELETE) trước khi ném, để không giữ chỗ của cô.
+  async function guiVideoMayChu(file, tuyChon = {}) {
+    const tienTo = String(tuyChon.tienTo || '');
+    const tien = typeof tuyChon.tien === 'function' ? tuyChon.tien : () => {};
+    const dangNen = typeof tuyChon.dangNen === 'function' ? tuyChon.dangNen : () => {};
+    const huy = typeof tuyChon.huy === 'function' ? tuyChon.huy : () => false;
+    const nghi = ms => new Promise(r => setTimeout(r, ms));
+    const loiHuy = () => { const e = new Error('Đã dừng gửi video'); e.daHuy = true; return e; };
+
+    const bd = await API.post(`${tienTo}/bat-dau`, { ten: file.name || '', kichThuoc: file.size, loai: file.type || '' });
+    if (!bd || !bd.coNen) return { coNen: false };
+    const duong = `${tienTo}/${encodeURIComponent(bd.id)}`;
+    const k = Number(bd.kichMoiPhan) > 0 ? Number(bd.kichMoiPhan) : 4 * 1024 * 1024;
+    try {
+      const soPhan = Math.max(1, Math.ceil(file.size / k));
+      for (let so = 0; so < soPhan; so += 1) {
+        // Mạng chập chờn: thử lại đúng phần đó, chờ lâu dần (1, 2, 3, 4 giây).
+        for (let lan = 0; ; lan += 1) {
+          if (huy()) throw loiHuy();
+          let res = null;
+          try {
+            res = await fetch(`${duong}/phan/${so}`, {
+              method: 'PUT', credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/octet-stream' },
+              body: file.slice(so * k, Math.min(file.size, (so + 1) * k)),
+            });
+          } catch (_) { res = null; }
+          if (res && res.ok) break;
+          if (res && res.status === 401) { App.onUnauthorized(); throw new Error('Phiên đăng nhập đã hết hạn'); }
+          // Máy chủ trả lời rõ là sai (lượt đã đóng, sai thứ tự…): thử lại vô ích.
+          if (res && res.status >= 400 && res.status < 500) {
+            let data = null;
+            try { data = await res.json(); } catch (_) { /* không phải JSON */ }
+            throw new Error((data && data.error) || 'Chưa gửi được video — cô thử lại giúp nhé');
+          }
+          if (lan >= 4) throw new Error('Mạng chập chờn nên chưa gửi được video — cô kiểm tra sóng rồi thử lại nhé');
+          await nghi(1000 * (lan + 1));
+        }
+        tien({ daGui: Math.min(file.size, (so + 1) * k), tong: file.size });
+      }
+      if (huy()) throw loiHuy();
+      await API.post(`${duong}/xong`, {});
+      dangNen({ tienDo: 0 });
+      let matLienLac = 0;
+      for (;;) {
+        await nghi(2000);
+        if (huy()) throw loiHuy();
+        let tt = null;
+        try {
+          tt = await API.get(duong);
+          matLienLac = 0;
+        } catch (err) {
+          if (!API.laMatMang(err) && !(err.status >= 500)) throw err;
+          matLienLac += 1;
+          if (matLienLac >= 15) throw new Error('Mất liên lạc với máy chủ khi đang làm nét video — cô thử gửi lại giúp nhé');
+          continue;
+        }
+        if (tt.trangThai === 'xong') return { coNen: true, maTep: tt.maTep };
+        if (tt.trangThai === 'loi') throw new Error(tt.loi || 'Chưa làm nét được video này — cô gửi lại giúp nhé');
+        dangNen({ tienDo: Number(tt.tienDo) || 0 });
+      }
+    } catch (err) {
+      API.del(duong).catch(() => {});
+      throw err;
+    }
+  }
+
   const ATT_STATUS = {
     present: { label: 'Có mặt', cls: 'green', color: '#27ae60' },
     late: { label: 'Đến muộn', cls: 'orange', color: '#f2994a' },
@@ -589,7 +675,7 @@ window.UI = (() => {
     ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
     pageHeader, avatar, emptyState, studentBar, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
     badge, ATT_STATUS, DOW,
-    nenAnh, nenVideo,
+    nenAnh, nenVideo, guiVideoMayChu,
     maAnToan, dongThongTin,
   };
 })();

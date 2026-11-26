@@ -6,7 +6,7 @@
  *   lưu lại sẽ có nguy cơ người dùng sau nhìn thấy dữ liệu của người dùng trước.
  */
 
-const VERSION = 'v145';
+const VERSION = 'v148';
 // Đổi tên kho đệm theo app 2. Không sợ bỏ lại kho cũ: móc 'activate' bên dưới
 // xóa MỌI kho không phải kho hiện hành, không lọc theo tiền tố tên.
 const SHELL_CACHE = `casa-mamnon-shell-${VERSION}`;
@@ -20,6 +20,7 @@ const SHELL_ASSETS = [
   '/js/api.js',
   '/js/ui.js',
   '/js/app.js',
+  '/js/bmi-who.js',
   '/js/views/login.js',
   '/js/views/dashboard.js',
   '/js/views/student.js',

@@ -280,13 +280,7 @@ App.views.timetable = {
         <div class="card muted small" style="line-height:1.6">
           Lịch sinh hoạt do văn phòng cơ sở soạn cho từng nhóm. Cô xem được ở đây; cần đổi khung giờ
           hay hoạt động thì nhắn văn phòng nhé.
-        </div>` : ''}
-      <div class="card">
-        <div class="card-title">${UI.icon('info', 19)} Ghi chú</div>
-        <div class="list-row"><div class="row-main"><div class="row-sub">Nhóm</div><div class="row-title">${UI.esc(data.className)}</div></div></div>
-        <div class="list-row"><div class="row-main"><div class="row-sub">Một ngày ở nhóm</div><div class="row-title">Từ lúc đón bé tới lúc trả bé</div></div></div>
-        <div class="list-row"><div class="row-main"><div class="row-sub">Cô phụ trách</div><div class="row-title">${UI.esc(data.teacherNames || data.teacherName || '—')}</div></div></div>
-      </div>`;
+        </div>` : ''}`;
     if (suaDuoc) document.getElementById('btn-sua-tkb').onclick = () => this.batDauSua();
     const nutChep = document.getElementById('btn-chep-tkb');
     if (nutChep) nutChep.onclick = () => this.moChepSangNhom(dsNhom);

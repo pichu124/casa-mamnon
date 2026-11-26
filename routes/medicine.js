@@ -6,11 +6,19 @@
 // sống, xem chú thích ngay tại chỗ.
 const db = require('../lib/db');
 const { requireRole } = require('../lib/auth');
+const tbnv = require('../lib/thong-bao-nv');
+const tbb = require('../lib/thong-bao-be');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_SO_THUOC = 10;
 const TOI_DA_O_THUOC = 100;
 const TOI_DA_GHI_CHU = 500;
+
+// CHUÔNG (Đ260c). Dặn thuốc tới cô phụ trách nhóm và cô nước ngoài (người
+// điều phối chốt 25/11: cô thể chất không nhận) cùng văn phòng của cơ sở.
+// Chỉ nói SỐ loại thuốc và ngày — tên thuốc là thông tin sức khoẻ của bé, mà
+// dòng này hiện cả trên màn khoá điện thoại.
+const ngayNgan = (s) => `${String(s).slice(8, 10)}/${String(s).slice(5, 7)}`;
 
 module.exports = (app) => {
   // Danh sách đơn dặn thuốc người dùng được xem.
@@ -91,6 +99,16 @@ module.exports = (app) => {
       log: [],
     };
     db.insert('medicine_requests', rec);
+    {
+      const be = db.findStudent(studentId);
+      tbnv.gui({
+        toi: { coCuaBe: studentId, nhomCo: ['chu-nhiem', 'nuoc-ngoai'], vanPhongCuaBe: studentId },
+        studentId, loai: 'dan-thuoc', hash: '#/medicine', nguoiTao: req.user.id,
+        tieuDe: `Gia đình dặn thuốc cho bé ${be ? be.name : ''}`.trim(),
+        noiDung: `${meds.length} loại thuốc, ${fromDate === toDate
+          ? `ngày ${ngayNgan(fromDate)}` : `từ ${ngayNgan(fromDate)} đến ${ngayNgan(toDate)}`}`,
+      });
+    }
     res.status(201).json(decorate(rec));
   });
 
@@ -107,6 +125,13 @@ module.exports = (app) => {
     db.update('medicine_requests', rec.id, {
       status: rec.status, confirmedBy: rec.confirmedBy, confirmedAt: rec.confirmedAt,
     });
+    {
+      const be = db.findStudent(rec.studentId);
+      tbb.gui({
+        studentId: rec.studentId, loai: 'dan-thuoc', hash: '#/medicine', nguoiTao: req.user.id,
+        tieuDe: `${req.user.role === 'teacher' ? 'Cô' : 'Nhà trường'} đã nhận thuốc của bé ${be ? be.name : ''}`.trim(),
+      });
+    }
     res.json(decorate(rec));
   });
 

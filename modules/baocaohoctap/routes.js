@@ -55,6 +55,7 @@ const tbb = require('../../lib/thong-bao-be');
 const henGio = require('../../lib/hen-gio');
 const huyHieu = require('../../lib/huy-hieu');
 const baoNT = require('../../lib/bao-nha-truong');
+const tbnv = require('../../lib/thong-bao-nv');
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -303,11 +304,29 @@ module.exports = (app, { db, modules }) => {
   // Báo người của nhà trường, không phải gia đình. Bọc lại đúng một chỗ để
   // hai điều luôn đúng: phân hệ đang TẮT thì không gửi gì, và một lỗi ở đường
   // đẩy không bao giờ làm hỏng lượt gửi báo cáo của cô.
+  //
+  // Từ Đ260c đi qua chuông của quản lý (lib/thong-bao-nv.js): vẫn đúng những
+  // người `baoNT.quanLyCuaBe` chọn, vẫn đẩy về điện thoại như trước.
   function baoNhaTruong(studentId, goi) {
     try {
       if (!modules.dangBat('baocaohoctap')) return 0;
-      return baoNT.guiChoQuanLyCuaBe(studentId, goi);
+      return tbnv.gui({ ...goi, toi: { quanLyCuaBe: studentId }, studentId });
     } catch (_) { return 0; }
+  }
+
+  // Báo cô đã gửi bản: được duyệt, hay được gửi lại kèm ý kiến (Đ260c). Người
+  // duyệt cũng là người gửi (quản lý tự viết) thì không tự báo mình.
+  function baoCo(d, ban, nguoiDuyet, quyet, yKien) {
+    try {
+      if (!d || !d.nguoiGui || d.nguoiGui === nguoiDuyet.id || !modules.dangBat('baocaohoctap')) return;
+      const be = db.findStudent(ban.studentId);
+      const ten = be ? be.name : 'bé';
+      tbnv.gui(quyet === 'tu-choi'
+        ? { toi: { userIds: [d.nguoiGui] }, studentId: ban.studentId, loai: 'bao-cao-tra-lai', nguoiTao: nguoiDuyet.id,
+          tieuDe: `Báo cáo học tập của bé ${ten} được gửi lại để sửa`, noiDung: yKien, hash: '#/baocaohoctap' }
+        : { toi: { userIds: [d.nguoiGui] }, studentId: ban.studentId, loai: 'bao-cao-duyet', nguoiTao: nguoiDuyet.id,
+          tieuDe: `Báo cáo học tập của bé ${ten} đã được duyệt`, hash: '#/baocaohoctap' });
+    } catch (_) { /* chuông là việc phụ */ }
   }
 
   // ------------------------------------------------------------ KHOÁ Ô
@@ -1047,6 +1066,7 @@ module.exports = (app, { db, modules }) => {
       const be = db.findStudent(ban.studentId);
       const m = layMau(ban.mauId);
       baoNhaTruong(ban.studentId, {
+        loai: 'bao-cao-gui', nguoiTao: req.user.id,
         tieuDe: 'Có báo cáo học tập chờ duyệt',
         noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${m ? m.ten : 'báo cáo'} của ${be ? be.name : 'một bé'}.`,
         hash: '#/baocaohoctap',
@@ -1108,6 +1128,7 @@ module.exports = (app, { db, modules }) => {
         db.update('baocaohoctap_ban', ban.id, { trangThai: 'nhap', guiLuc: null, capNhatLuc: ngay.bayGio() });
       });
       db.audit(req.user.id, 'baocaohoctap-tra-lai', ban.studentId, { id: ban.id });
+      baoCo(d, ban, req.user, quyet, yKien);
       return res.json({ ok: true, quyetDinh: quyet, ban: banDayDu(db.first('baocaohoctap_ban', 'SELECT * FROM baocaohoctap_ban WHERE id = ?', [ban.id])) });
     }
 
@@ -1122,6 +1143,7 @@ module.exports = (app, { db, modules }) => {
       trangThai: 'da-duyet', nguoiDuyet: req.user.id, duyetLuc: moc, yKien, ngayCongBo,
     }, 'banId');
     db.audit(req.user.id, 'baocaohoctap-duyet', ban.studentId, { id: ban.id, ngayCongBo });
+    baoCo(d, ban, req.user, quyet, yKien);
     const daBao = baoNeuToiNgay(ban);
     res.json({ ok: true, quyetDinh: quyet, ngayCongBo, daBao, ban: banDayDu(ban) });
   });

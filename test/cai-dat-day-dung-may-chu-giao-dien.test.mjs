@@ -25,6 +25,7 @@
 //   [8] Ca thường ngày: tắt trên máy này, trình duyệt đang chặn, tài khoản
 //       còn máy khác đang bật.
 //   [9] Tài khoản không có loại tin nào: không thấy thẻ, không hỏi máy chủ.
+//       Cô thì từ Đ260b CÓ thẻ (chuông riêng của cô đẩy về máy từ Đ260c).
 //   [10] Không lỗi JS nào.
 //
 // Phần đẩy của trình duyệt được thay bằng bản giả giữ trạng thái trong
@@ -495,13 +496,22 @@ try {
   {
     // Trình duyệt vẫn còn quyền thông báo và đăng ký đẩy của người trước.
     await roiMayKhongDangXuat();
+    // Đ260b (chủ dự án duyệt): bản trước dùng CÔ làm ví dụ "không có thẻ" —
+    // đúng khi chưa đường nào đẩy tin về máy cô. Từ Đ260c cô có loại tin đẩy
+    // riêng, nên cô THẤY thẻ, và câu giới thiệu nói đúng việc của cô, không
+    // phải "việc chờ mình duyệt". Ví dụ "không có thẻ" còn lại là nhân sự.
     await dangNhapTrenManHinh('giaovien');
-    let n0 = luotDay.length;
     await page.evaluate(() => { location.hash = '#/settings'; });
     await page.waitForSelector('#st-change-pw', { timeout: 10000 });
+    await page.waitForFunction(() => /gia đình gửi đơn xin nghỉ/.test((document.getElementById('st-push-card') || {}).textContent || ''), null, { timeout: 10000 })
+      .catch(() => { /* phép kiểm bên dưới sẽ nói */ });
     await page.waitForLoadState('networkidle');
-    check('cô: không có thẻ "Thông báo trên điện thoại", màn Cài đặt không gọi phần đẩy',
-      (await page.locator('#st-push-card').count()) === 0 && luotTu(n0).length === 0, luotTu(n0));
+    const chuCo = (await page.locator('#st-push-card').innerText().catch(() => '')).replace(/\s+/g, ' ');
+    check('cô (Đ260b): có thẻ "Thông báo trên điện thoại", kể đúng loại tin của cô',
+      /việc gia đình gửi tới cô/.test(chuCo) && /gia đình gửi đơn xin nghỉ cho bé/.test(chuCo), chuCo);
+    check('…câu giới thiệu của cô KHÔNG nói "việc chờ mình duyệt"', chuCo.length > 0 && !/chờ mình duyệt/.test(chuCo), chuCo);
+
+    let n0;
 
     await roiMayKhongDangXuat();
     await dangNhapTrenManHinh('c_ns', MK_QT);

@@ -2,6 +2,7 @@
 const db = require('../lib/db');
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
+const tbnv = require('../lib/thong-bao-nv');
 const nl = require('../lib/nhom-lop');
 // Hộp thư văn phòng theo từng tài khoản phụ huynh × cơ sở (Đ239m, góp ý 16/10
 // mục PH1). Luật ai đọc được nằm trọn trong tệp ấy.
@@ -12,8 +13,13 @@ const { requireRole } = require('../lib/auth');
 // Thu hồi một lời nhắn (Đ196, việc 25) — dùng ĐÚNG cơ chế đã canh ở bốn chỗ
 // khác: đánh dấu ẩn, không xoá, và còn vết để tra khi có khiếu nại.
 const st = require('../lib/sua-thu-hoi');
+// Phòng trao đổi chung của một nhóm lớp (Đ260k).
+const pn = require('../lib/phong-nhom');
 
 const GROUP_AVATAR = { emoji: '👥', bg: '#5b6ceb' };
+
+const LOI_PHONG_KHOA = 'Phòng trao đổi này cô đã khoá nên không nhắn thêm được. '
+  + 'Tin cũ vẫn đọc được.';
 
 // MỞ MỘT PHÒNG CHAT KHÔNG ĐƯỢC KÉO VỀ CẢ NĂM HỌC.
 //
@@ -276,7 +282,10 @@ function loiChuaCoNguoiNhan(loai) {
 // Chỉ thêm người mà chốt quyền đang có cho vào — `vaoDuocKenh` / `kvp.vaoDuoc`
 // — nên không cô nào của nhóm khác, không văn phòng cơ sở khác được ghi. Và
 // hàng thành viên vẫn KHÔNG cấp quyền: `findConv` tính lại mỗi lần mở.
-function ghiNguoiNhan(cv) {
+//
+// Danh sách người nhận tách ra `nguoiNhanTin` (Đ260c) để chuông của cô dùng
+// đúng danh sách ấy. Phòng chung nhiều gia đình và cuộc riêng cũ: rỗng, như cũ.
+function nguoiNhanTin(cv) {
   let nhan = [];
   const vanPhong = () => db.all('users', "SELECT id FROM users WHERE role = 'admin' AND active = 1")
     .map(r => db.findUser(r.id)).filter(Boolean);
@@ -285,7 +294,7 @@ function ghiNguoiNhan(cv) {
     nhan = vanPhong().filter(u => kvp.vanPhongVaoDuoc(u, row));
   } else if (cv.type === 'kenh') {
     const k = kenhCua(cv.id);
-    if (!k) return;
+    if (!k) return [];
     const be = db.findStudent(k.studentId);
     const giaDinh = ((be && be.parentIds) || []).map(id => db.findUser(id))
       .filter(u => u && vaoDuocKenh(u, k));
@@ -293,6 +302,11 @@ function ghiNguoiNhan(cv) {
       ? coNhanKenh(k.loai, k.classId)
       : vanPhong().filter(u => vaoDuocKenh(u, k)));
   }
+  return nhan;
+}
+
+function ghiNguoiNhan(cv) {
+  const nhan = nguoiNhanTin(cv);
   if (!nhan.length) return;
   const daCo = new Set(memberIds(cv.id));
   for (const u of nhan) {
@@ -616,7 +630,13 @@ function convMeta(cv, user, members, tra) {
     };
   }
   if (cv.type === 'group') {
-    return { title: cv.name, subtitle: `${ids.length} thành viên`, avatar: GROUP_AVATAR };
+    const phong = pn.cuaPhong(cv.id);
+    const lop = phong ? db.findClass(phong.classId) : null;
+    return {
+      title: cv.name,
+      subtitle: [lop ? `Nhóm ${lop.name}` : '', `${ids.length} thành viên`].filter(Boolean).join(' · '),
+      avatar: GROUP_AVATAR,
+    };
   }
   const maKia = ids.find(id => id !== user.id);
   const other = (tra && tra.nguoi.has(maKia)) ? tra.nguoi.get(maKia) : db.findUser(maKia);
@@ -667,19 +687,65 @@ function convMeta(cv, user, members, tra) {
 // Người tự thu hồi cũng KHÔNG đọc lại được chữ cũ. Cho họ đọc thì hai người
 // trong cùng một phòng nhìn thấy hai nội dung khác nhau, và khi có khiếu nại
 // thì không ai biết màn hình nào là thật. Muốn tra thì tra `audit_log`.
-function messageDto(m, user) {
+//
+// `nhan` (tuỳ chọn, Đ260k): bảng nhãn người gửi của phòng nhóm — gia đình hiện
+// là "Mẹ bé An" thay cho họ tên. `daAn`: tin bị NGƯỜI QUẢN PHÒNG ẩn, không
+// phải người gửi tự thu hồi — màn hình nói khác nhau cho hai chuyện ấy.
+function messageDto(m, user, nhan) {
   const sender = db.findUser(m.senderId);
-  const daThuHoi = st.daThuHoi('messages', m.id);
+  const vet = st.trangThai('messages', m.id);
+  const daThuHoi = !!(vet && vet.thuHoi);
   return {
     id: m.id,
     senderId: m.senderId,
-    senderName: displayName(sender),
+    senderName: (nhan && nhan.get(m.senderId)) || displayName(sender),
     senderAvatar: sender ? sender.avatar : null,
     text: daThuHoi ? '' : m.text,
     daThuHoi,
+    daAn: daThuHoi && !!vet.thuHoiBoi && vet.thuHoiBoi !== m.senderId,
     createdAt: m.createdAt,
     mine: m.senderId === user.id,
   };
+}
+
+// PHÒNG CHUNG GẮN NHÓM ĐI THEO PHẠM VI CƠ SỞ, kể cả khi đã đóng (Đ260k).
+//
+// Ba đường "đóng" (kho lưu, đóng, mở lại) chỉ hỏi chức vụ, rồi hỏi cơ sở qua
+// bé của kênh hay qua hộp thư — phòng nhóm không có bé nào nên trước đây lọt
+// qua: quản lý cơ sở 2 đóng được, mở được phòng của nhóm cơ sở 1. Dùng ĐÚNG
+// danh sách nhóm của danh sách hội thoại và huy hiệu (`tb.nhomPhongChat`).
+function phongTrongPhamVi(user, cv) {
+  if (!cv || cv.type !== 'group' || !cv.classId) return true;
+  return tb.nhomPhongChat(user).includes(cv.classId);
+}
+
+// Người này quản được phòng nhóm không: đổi tên, thêm/bỏ gia đình, khoá, ẩn
+// tin. Cô của nhóm (mọi vai), hoặc văn phòng/quản lý/ban giám hiệu trong phạm
+// vi cơ sở ĐÃ ở trong phòng.
+function quanLyPhong(user, cv) {
+  if (!user || !cv || !cv.classId || !db.canAccessClass(user, cv.classId)) return false;
+  if (user.role === 'teacher') return true;
+  return user.role === 'admin' && xemDuocTinCo(user) && laThanhVien(cv.id, user.id);
+}
+
+function phongDto(phong, user, cv) {
+  if (!phong) return null;
+  const lop = db.findClass(phong.classId);
+  return {
+    classId: phong.classId,
+    tenNhom: lop ? lop.name : '',
+    daKhoa: !!phong.khoaLuc,
+    quanLyDuoc: quanLyPhong(user, cv),
+  };
+}
+
+// Bảng nhãn người gửi cho một lượt tin của phòng nhóm; null với mọi cuộc khác.
+function nhanTrongPhong(cv, messages) {
+  const phong = cv && cv.type === 'group' ? pn.cuaPhong(cv.id) : null;
+  if (!phong) return null;
+  const ph = [...new Set(messages.map(m => m.senderId))]
+    .filter(id => { const u = db.findUser(id); return u && u.role === 'parent'; });
+  return pn.nhanNguoiGui(phong.classId, ph);
 }
 
 // Tìm hội thoại + kiểm tra quyền tham gia. Tự trả lỗi 404/403 nếu không hợp lệ.
@@ -706,6 +772,10 @@ function findConv(req, res) {
       return null;
     }
     if (cv.type === kvp.LOAI && !kvp.vanPhongVaoDuoc(req.user, kvp.cuaHoiThoai(cv.id))) {
+      res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
+      return null;
+    }
+    if (!phongTrongPhamVi(req.user, cv)) {
       res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
       return null;
     }
@@ -747,6 +817,15 @@ function findConv(req, res) {
         { conversationId: cv.id, userId: req.user.id, lastRead: null });
     }
     return cv;
+  }
+
+  // PHÒNG NHÓM (Đ260k): mọi cô ĐANG phụ trách nhóm tự có trong phòng, không
+  // cần ai mời. Hàng thành viên thêm ở đây chỉ để đếm tin chưa đọc; chốt
+  // `canAccessClass` ngay bên dưới vẫn hỏi lại mỗi lần mở.
+  if (req.user.role === 'teacher' && cv.type === 'group' && cv.classId
+    && pn.cuaPhong(cv.id) && db.canAccessClass(req.user, cv.classId)
+    && !laThanhVien(cv.id, req.user.id)) {
+    db.insert('conversation_members', { conversationId: cv.id, userId: req.user.id, lastRead: null });
   }
 
   const isMember = db.count(
@@ -891,6 +970,48 @@ function baoGiaDinh(cv, nguoiGui, msg) {
   }
 }
 
+// GIA ĐÌNH NHẮN THÌ CÔ / VĂN PHÒNG CÓ MỘT DÒNG CHUÔNG (Đ260c).
+//
+// Một dòng cho cả cuộc (khoá gộp `tin:<mã cuộc>`), cộng dồn số lần tới khi cô
+// mở đúng cuộc ấy. KHÔNG chép chữ tin nhắn: chỉ nói ai vừa nhắn. Phòng chung
+// nhiều gia đình KHÔNG ghi chuông (người điều phối 25/11): một buổi sáng sôi
+// nổi là cô bị ngập.
+function baoNhaTruong(cv, nguoiGui) {
+  try {
+    if (nguoiGui.role !== 'parent' || cv.type === 'group') return;
+    let nhan = [];
+    let be = null;
+    let tieuDe = '';
+    if (cv.type === 'direct') {
+      nhan = memberIds(cv.id).filter(id => id !== nguoiGui.id).map(id => db.findUser(id)).filter(Boolean);
+    } else {
+      nhan = nguoiNhanTin(cv);
+    }
+    nhan = nhan.filter(u => u.role === 'teacher' || tbnv.laVanPhong(u));
+    if (!nhan.length) return;
+    if (cv.type === 'kenh') {
+      const k = kenhCua(cv.id);
+      be = k ? db.findStudent(k.studentId) : null;
+    }
+    if (be) {
+      tieuDe = `Gia đình bé ${be.name} vừa nhắn tin`;
+    } else if (cv.type === kvp.LOAI) {
+      const row = kvp.cuaHoiThoai(cv.id);
+      const ten = db.studentsOf(nguoiGui)
+        .filter(s => s.classId && (!row || db.campusOfClass(s.classId) === row.campusId))
+        .map(s => s.name);
+      tieuDe = ten.length ? `Gia đình bé ${ten.join(', ')} vừa nhắn văn phòng` : 'Một gia đình vừa nhắn văn phòng';
+    } else {
+      tieuDe = 'Một gia đình vừa nhắn tin';
+    }
+    tbnv.gui({
+      toi: { userIds: nhan.map(u => u.id) }, studentId: be ? be.id : null, loai: 'tin-nhan',
+      tieuDe, tieuDeGop: (n) => `${tieuDe} (${n} tin)`, hash: `#/messages/${cv.id}`,
+      gop: `tin:${cv.id}`, xemLaDoc: false, nguoiTao: nguoiGui.id, tru: nguoiGui.id,
+    });
+  } catch (_) { /* chuông là việc phụ — tin đã lưu */ }
+}
+
 module.exports = (app) => {
   const allow = requireRole('teacher', 'parent', 'admin');
 
@@ -901,6 +1022,7 @@ module.exports = (app) => {
     // TRƯỚC câu truy vấn danh sách — nhờ vậy câu truy vấn ấy không phải đổi một
     // chữ nào và phần cắt trang trong SQL vẫn đúng như ngày nó được viết.
     dongBoKenh(user);
+    pn.dongBoCo(user);
 
     // CẮT CỬA SỔ NGAY TRONG CÂU TRUY VẤN.
     //
@@ -1088,6 +1210,7 @@ module.exports = (app) => {
 
     const conversations = nhinThay.map(cv => {
       const last = tinCuoi.get(cv.id) || null;
+      const nhan = last ? nhanTrongPhong(cv, [last]) : null;
       return {
         id: cv.id,
         type: cv.type,
@@ -1096,7 +1219,7 @@ module.exports = (app) => {
           ? {
             text: last.daThuHoi ? '' : last.text,
             daThuHoi: !!last.daThuHoi,
-            senderName: displayName(tra.nguoi.get(last.senderId)),
+            senderName: (nhan && nhan.get(last.senderId)) || displayName(tra.nguoi.get(last.senderId)),
             createdAt: last.createdAt,
           }
           : null,
@@ -1165,16 +1288,19 @@ module.exports = (app) => {
     }
     const ds = db.all('hoi_thoai_dong',
       `SELECT d.*, k.studentId AS studentId, k.loai AS loai,
-              v.conversationId AS hopThu, v.parentId AS vpParentId, v.campusId AS vpCampusId
+              v.conversationId AS hopThu, v.parentId AS vpParentId, v.campusId AS vpCampusId,
+              c.type AS cvType, c.classId AS cvClassId
          FROM hoi_thoai_dong d
          LEFT JOIN kenh_hoi_thoai k ON k.conversationId = d.conversationId
          LEFT JOIN kenh_van_phong v ON v.conversationId = d.conversationId
+         LEFT JOIN conversations c ON c.id = d.conversationId
         ORDER BY d.dongLuc DESC`)
       // Quản lý cơ sở chỉ thấy cuộc của bé thuộc cơ sở mình — đóng một cuộc
       // không biến nó thành tài liệu chung của cả trường. Hộp thư văn phòng
       // (Đ239m) đi theo cơ sở của cuộc.
       .filter(d => (!d.studentId || db.canAccessStudent(req.user, d.studentId))
-        && (!d.hopThu || kvp.vanPhongVaoDuoc(req.user, { campusId: d.vpCampusId })))
+        && (!d.hopThu || kvp.vanPhongVaoDuoc(req.user, { campusId: d.vpCampusId }))
+        && phongTrongPhamVi(req.user, { type: d.cvType, classId: d.cvClassId }))
       .map(d => {
         const be = d.studentId ? db.findStudent(d.studentId) : null;
         const nguoi = d.dongBoi ? db.findUser(d.dongBoi) : null;
@@ -1207,7 +1333,8 @@ module.exports = (app) => {
     if (!cv) return res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
     const k = cv.type === 'kenh' ? kenhCua(cv.id) : null;
     if ((k && !db.canAccessStudent(req.user, k.studentId))
-      || (cv.type === kvp.LOAI && !kvp.vanPhongVaoDuoc(req.user, kvp.cuaHoiThoai(cv.id)))) {
+      || (cv.type === kvp.LOAI && !kvp.vanPhongVaoDuoc(req.user, kvp.cuaHoiThoai(cv.id)))
+      || !phongTrongPhamVi(req.user, cv)) {
       return res.status(403).json({ error: 'Cuộc trò chuyện này thuộc cơ sở khác' });
     }
     if (daDong(cv.id)) return res.json({ ok: true, daDong: true });
@@ -1233,7 +1360,8 @@ module.exports = (app) => {
     if (!cv) return res.status(404).json({ error: 'Không tìm thấy cuộc trò chuyện' });
     const k = cv.type === 'kenh' ? kenhCua(cv.id) : null;
     if ((k && !db.canAccessStudent(req.user, k.studentId))
-      || (cv.type === kvp.LOAI && !kvp.vanPhongVaoDuoc(req.user, kvp.cuaHoiThoai(cv.id)))) {
+      || (cv.type === kvp.LOAI && !kvp.vanPhongVaoDuoc(req.user, kvp.cuaHoiThoai(cv.id)))
+      || !phongTrongPhamVi(req.user, cv)) {
       return res.status(403).json({ error: 'Cuộc trò chuyện này thuộc cơ sở khác' });
     }
     db.remove('hoi_thoai_dong', cv.id, 'conversationId');
@@ -1276,6 +1404,7 @@ module.exports = (app) => {
         error: 'Cuộc trò chuyện này nhà trường đã đóng nên không đổi gì được nữa.',
       });
     }
+    if ((pn.cuaPhong(cv.id) || {}).khoaLuc) return res.status(403).json({ error: LOI_PHONG_KHOA });
     const m = db.first('messages',
       'SELECT * FROM messages WHERE id = ? AND conversationId = ?',
       [req.params.tinId, cv.id]);
@@ -1415,6 +1544,236 @@ module.exports = (app) => {
     });
     db.audit(req.user.id, 'phong-chung-tao', id, { ten, soThanhVien: xin.length + 1 });
     res.status(201).json({ id, ten, soThanhVien: xin.length + 1 });
+  });
+
+  // ---- PHÒNG TRAO ĐỔI CHUNG CỦA NHÓM LỚP (Đ260k, góp ý 18/11) ----
+  //
+  // Nhà trường: *"Chưa biết cách tạo cuộc hội thoại nhóm, để cho phụ huynh
+  // khác cùng nhắn bàn bạc về 1 vấn đề chung của lớp"*.
+  //
+  // KHÁC `/phong-chung` Ở TRÊN: phòng gắn ĐÚNG MỘT nhóm (`classId`), nên ba
+  // chốt tính lại mỗi lần hỏi đang có sẵn — `findConv`, danh sách hội thoại,
+  // huy hiệu — tự đóng cửa với gia đình có con đã chuyển nhóm hay nghỉ học,
+  // và với cô đã rời nhóm. Mọi cô của nhóm tự có trong phòng; gia đình do cô
+  // mời. Gia đình hiện là "Mẹ bé An": không họ tên người lớn, không số điện
+  // thoại. Không đường nào ở đây xoá tin: bỏ một nhà là bỏ hàng thành viên,
+  // ẩn một tin là đánh dấu thu hồi, khoá là chỉ đọc.
+  //
+  // `phong-nhom/...` đăng ký TRƯỚC `/api/messages/:id` để không bị `:id` nuốt.
+
+  // Nhóm người này lập được phòng. Cô: mọi nhóm đang phụ trách (mọi vai).
+  // Văn phòng / quản lý / ban giám hiệu: nhóm trong phạm vi cơ sở.
+  function nhomLapPhongDuoc(user) {
+    if (!user) return [];
+    if (user.role !== 'teacher' && !xemDuocTinCo(user)) return [];
+    return db.classIdsOf(user).filter(cid => db.canAccessClass(user, cid));
+  }
+
+  // Ai trong danh sách xin mời KHÔNG có bé đang học đúng nhóm. Trả '' khi mọi
+  // người hợp lệ. Chỉ nói SỐ người, không nêu tên: người ngoài nhóm là người
+  // ngoài tầm của người hỏi, và câu từ chối không được thành đường dò tên bé
+  // nhóm khác theo mã tài khoản. Màn hình chỉ đưa ra gia đình hợp lệ, nên câu
+  // này chỉ gặp khi danh sách trên máy đã cũ (bé vừa chuyển nhóm).
+  function loiMoiNgoaiNhom(classId, xin) {
+    const ngoai = xin.filter(id => {
+      const u = db.findUser(id);
+      return !u || !u.active || u.role !== 'parent' || !pn.laGiaDinhCuaNhom(id, classId);
+    });
+    if (!ngoai.length) return '';
+    return `Có ${ngoai.length} tài khoản không mời được vì không có bé đang học ở nhóm này. `
+      + 'Cô tải lại danh sách gia đình rồi chọn lại giúp nhé.';
+  }
+
+  const xinPhuHuynh = (b) => [...new Set((Array.isArray(b.phuHuynh) ? b.phuHuynh : []).map(String))]
+    .filter(Boolean);
+
+  app.get('/api/messages/phong-nhom/moi', allow, (req, res) => {
+    const nhomIds = nhomLapPhongDuoc(req.user);
+    if (!nhomIds.length) {
+      return res.status(403).json({ error: 'Chỉ cô của nhóm và văn phòng nhà trường mới lập được phòng trao đổi chung.' });
+    }
+    const nhom = nhomIds.map(cid => db.findClass(cid)).filter(Boolean)
+      .map(c => ({ id: c.id, ten: c.name }))
+      .sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+    const giaDinh = [];
+    for (const n of nhom) {
+      if (!db.canAccessClass(req.user, n.id)) continue;
+      for (const g of pn.giaDinhCuaNhom(n.id)) giaDinh.push({ id: g.id, nhan: g.nhan, classId: g.classId });
+    }
+    res.json({ nhom, giaDinh });
+  });
+
+  app.post('/api/messages/phong-nhom', allow, (req, res) => {
+    const b = req.body || {};
+    const classId = String(b.classId || '');
+    if (req.user.role === 'parent') {
+      return res.status(403).json({ error: 'Gia đình nhờ cô của nhóm lập phòng trao đổi chung nhé.' });
+    }
+    if (req.user.role === 'admin' && !xemDuocTinCo(req.user)) {
+      return res.status(403).json({ error: 'Chỉ văn phòng, quản lý cơ sở và ban giám hiệu mới lập được phòng trao đổi chung.' });
+    }
+    if (!db.canAccessClass(req.user, classId)) {
+      return res.status(403).json({ error: 'Chỉ lập được phòng cho nhóm lớp mình đang phụ trách.' });
+    }
+    const lop = db.findClass(classId);
+    const ten = String(b.ten || '').trim().slice(0, 80) || `Trao đổi chung nhóm ${lop.name}`;
+    const xin = xinPhuHuynh(b);
+    const loi = loiMoiNgoaiNhom(classId, xin);
+    if (loi) return res.status(403).json({ error: loi });
+    if (!xin.length) return res.status(400).json({ error: 'Chọn ít nhất một gia đình cho phòng nhé.' });
+
+    const co = db.teacherIdsOfClass(classId).filter(id => { const u = db.findUser(id); return u && u.active; });
+    const id = db.nextId('cv');
+    db.tx(() => {
+      db.insert('conversations', { id, type: 'group', name: ten, classId });
+      db.insert('phong_nhom', {
+        conversationId: id, classId, taoBoi: req.user.id, taoLuc: new Date().toISOString(), khoaLuc: null, khoaBoi: null,
+      });
+      for (const uid of new Set([req.user.id, ...co, ...xin])) {
+        db.insert('conversation_members', { conversationId: id, userId: uid, lastRead: null });
+      }
+    });
+    db.audit(req.user.id, 'phong-nhom-tao', id, { classId, ten, soGiaDinh: xin.length });
+    res.status(201).json({ id });
+  });
+
+  // Mở một phòng nhóm cho các đường của phòng: qua `findConv` (cùng chốt đọc),
+  // rồi đòi đúng là phòng nhóm và — khi `quan` — người quản phòng.
+  function moPhong(req, res, quan) {
+    const cv = findConv(req, res);
+    if (!cv) return null;
+    const phong = cv.type === 'group' ? pn.cuaPhong(cv.id) : null;
+    if (!phong) {
+      res.status(404).json({ error: 'Đây không phải phòng trao đổi chung của nhóm' });
+      return null;
+    }
+    if (quan && daDong(cv.id)) {
+      res.status(403).json({ error: 'Cuộc trò chuyện này nhà trường đã đóng nên không đổi gì được nữa.' });
+      return null;
+    }
+    if (quan && !quanLyPhong(req.user, cv)) {
+      res.status(403).json({ error: 'Chỉ cô của nhóm mới quản được phòng trao đổi chung.' });
+      return null;
+    }
+    return { cv, phong };
+  }
+
+  // Thành viên CÒN quyền đọc — không liệt kê nhà đã chuyển nhóm hay cô đã rời
+  // nhóm dù hàng thành viên cũ của họ còn đó.
+  app.get('/api/messages/:id/thanh-vien', allow, (req, res) => {
+    const mo = moPhong(req, res, false);
+    if (!mo) return;
+    const { cv, phong } = mo;
+    const tv = new Set(memberIds(cv.id));
+    const nguoi = (u, nhan) => ({ id: u.id, nhan, avatar: u.avatar || null });
+    const co = [];
+    const daCo = new Set();
+    for (const id of [...db.teacherIdsOfClass(phong.classId), ...tv]) {
+      if (daCo.has(id)) continue;
+      daCo.add(id);
+      const u = db.findUser(id);
+      if (!u || u.active === false || u.role === 'parent') continue;
+      if (u.role === 'teacher' && !db.canAccessClass(u, phong.classId)) continue;
+      if (u.role === 'admin' && !tv.has(id)) continue;
+      co.push(nguoi(u, displayName(u)));
+    }
+    const maPh = [...tv].filter(id => {
+      const u = db.findUser(id);
+      return u && u.role === 'parent' && u.active !== false && db.canAccessClass(u, phong.classId);
+    });
+    const nhan = pn.nhanNguoiGui(phong.classId, maPh);
+    const giaDinh = maPh.map(id => nguoi(db.findUser(id), nhan.get(id)))
+      .sort((a, b) => a.nhan.localeCompare(b.nhan, 'vi'));
+    const ra = { co, giaDinh };
+    if (quanLyPhong(req.user, cv)) {
+      ra.moiThem = pn.giaDinhCuaNhom(phong.classId).filter(g => !tv.has(g.id))
+        .map(g => ({ id: g.id, nhan: g.nhan, avatar: g.avatar }));
+    }
+    res.json(ra);
+  });
+
+  app.put('/api/messages/:id/phong', allow, (req, res) => {
+    const mo = moPhong(req, res, true);
+    if (!mo) return;
+    const { cv, phong } = mo;
+    const b = req.body || {};
+    const doi = {};
+    if (b.ten !== undefined) {
+      const ten = String(b.ten || '').trim().slice(0, 80);
+      if (!ten) return res.status(400).json({ error: 'Cô đặt giúp một cái tên cho phòng nhé' });
+      doi.ten = ten;
+    }
+    if (b.khoa !== undefined) {
+      if (typeof b.khoa !== 'boolean') return res.status(400).json({ error: 'Chưa rõ muốn khoá hay mở khoá phòng' });
+      doi.khoa = b.khoa;
+    }
+    if (!Object.keys(doi).length) return res.status(400).json({ error: 'Chưa có gì để đổi' });
+    db.tx(() => {
+      if (doi.ten) db.run('UPDATE conversations SET name = ? WHERE id = ?', [doi.ten, cv.id]);
+      if (doi.khoa !== undefined) {
+        db.run('UPDATE phong_nhom SET khoaLuc = ?, khoaBoi = ? WHERE conversationId = ?',
+          doi.khoa ? [new Date().toISOString(), req.user.id, cv.id] : [null, null, cv.id]);
+      }
+    });
+    db.audit(req.user.id, 'phong-nhom-sua', cv.id, { classId: phong.classId, ...doi });
+    res.json({ ok: true, ...doi });
+  });
+
+  app.post('/api/messages/:id/thanh-vien', allow, (req, res) => {
+    const mo = moPhong(req, res, true);
+    if (!mo) return;
+    const { cv, phong } = mo;
+    const xin = xinPhuHuynh(req.body || {});
+    if (!xin.length) return res.status(400).json({ error: 'Chọn ít nhất một gia đình để thêm nhé.' });
+    const loi = loiMoiNgoaiNhom(phong.classId, xin);
+    if (loi) return res.status(403).json({ error: loi });
+    const daCo = new Set(memberIds(cv.id));
+    const them = xin.filter(id => !daCo.has(id));
+    db.tx(() => {
+      for (const uid of them) db.insert('conversation_members', { conversationId: cv.id, userId: uid, lastRead: null });
+    });
+    if (them.length) db.audit(req.user.id, 'phong-nhom-them', cv.id, { classId: phong.classId, them });
+    res.json({ ok: true, soThem: them.length });
+  });
+
+  // BỎ MỘT GIA ĐÌNH = BỎ HÀNG THÀNH VIÊN CỦA HỌ. Tin họ đã nhắn ở lại nguyên.
+  // Chỉ bỏ được gia đình: cô của nhóm có trong phòng theo phân công, bỏ hàng
+  // của cô thì lần mở sau hàng ấy lại được thêm.
+  app.post('/api/messages/:id/thanh-vien/:userId/bo', allow, (req, res) => {
+    const mo = moPhong(req, res, true);
+    if (!mo) return;
+    const { cv, phong } = mo;
+    const u = db.findUser(req.params.userId);
+    if (!u || u.role !== 'parent') {
+      return res.status(400).json({ error: 'Chỉ bỏ được gia đình khỏi phòng. Các cô của nhóm luôn có trong phòng.' });
+    }
+    if (!laThanhVien(cv.id, u.id)) return res.json({ ok: true });
+    db.run('DELETE FROM conversation_members WHERE conversationId = ? AND userId = ?', [cv.id, u.id]);
+    db.audit(req.user.id, 'phong-nhom-bo', cv.id, { classId: phong.classId, userId: u.id });
+    res.json({ ok: true });
+  });
+
+  // NGƯỜI QUẢN PHÒNG ẨN MỘT TIN CỦA NGƯỜI KHÁC — chỉ trong phòng nhóm.
+  //
+  // Phòng chung hai mươi nhà thì phải có người giữ được nếp: một lời không hay
+  // để nguyên là cả phòng đọc. Đi ĐÚNG đường thu hồi (`st.ghiThuHoi`): chữ vẫn
+  // còn trong cơ sở dữ liệu, vết ghi ai ẩn lúc nào, nhật ký ghi thêm một dòng.
+  // Route `thu-hoi` ở trên vẫn chỉ cho người gửi: ở cuộc riêng, trường không
+  // có nút gỡ lời của gia đình. Phòng đang khoá vẫn ẩn được — khoá thường là
+  // lúc cần dọn.
+  app.post('/api/messages/:id/tin/:tinId/an', allow, (req, res) => {
+    const mo = moPhong(req, res, true);
+    if (!mo) return;
+    const { cv } = mo;
+    const m = db.first('messages', 'SELECT * FROM messages WHERE id = ? AND conversationId = ?', [req.params.tinId, cv.id]);
+    if (!m) return res.status(404).json({ error: 'Không tìm thấy lời nhắn này' });
+    if (m.senderId === req.user.id) {
+      return res.status(400).json({ error: 'Tin của chính mình thì dùng nút "Thu hồi" nhé.' });
+    }
+    if (st.daThuHoi('messages', m.id)) return res.json({ ok: true, id: m.id, daAn: true });
+    st.ghiThuHoi('messages', m.id, req.user.id);
+    db.audit(req.user.id, 'tin-nhan-an', m.id, { conversationId: cv.id, senderId: m.senderId });
+    res.json({ ok: true, id: m.id, daAn: true });
   });
 
   // ---- CÀI ĐẶT NHẮN TIN CỦA NHÀ TRƯỜNG (Đ242F — F6b) ----
@@ -1665,12 +2024,16 @@ module.exports = (app) => {
     const { conCu, messages } = cuaSoTin(cv.id, truoc);
     // Chỉ đánh dấu đã đọc khi người dùng đang ở cửa sổ MỚI NHẤT. Cuộn ngược lên
     // đọc tin tháng trước mà bị coi là đã đọc hết là mất dấu tin chưa xem.
-    if (!truoc) markRead(cv.id, req.user.id);
+    if (!truoc) {
+      markRead(cv.id, req.user.id);
+      tbnv.docTheoGop(req.user.id, `tin:${cv.id}`);
+    }
+    const nhan = nhanTrongPhong(cv, messages);
     res.json({
       id: cv.id,
       type: cv.type,
       ...convMeta(cv, req.user),
-      messages: messages.map(m => messageDto(m, req.user)),
+      messages: messages.map(m => messageDto(m, req.user, nhan)),
       // Màn hình dùng hai trường này để hiện nút "Xem tin cũ hơn". Thiếu chúng
       // thì cắt bớt tin biến thành GIẤU tin — người dùng không có đường nào
       // biết là còn, và đó mới là mất dữ liệu theo cách nhìn của họ.
@@ -1683,6 +2046,8 @@ module.exports = (app) => {
       dongDuoc: xemDuocDaDong(req.user),
       // Kênh nhà trường đang tạm tắt (F6b): màn hình thay ô nhập bằng câu này.
       tamDung: cv.type === 'kenh' && !kenhDangMo((kenhCua(cv.id) || {}).loai) ? loiKenhTat(req.user) : null,
+      // Phòng trao đổi chung của nhóm (Đ260k); null với mọi cuộc khác.
+      phong: phongDto(cv.type === 'group' ? pn.cuaPhong(cv.id) : null, req.user, cv),
     });
   });
 
@@ -1705,8 +2070,12 @@ module.exports = (app) => {
       `SELECT * FROM messages WHERE conversationId = ? AND createdAt > ?
        ORDER BY createdAt, rowid LIMIT ?`,
       [cv.id, after, CUA_SO_TIN]);
-    if (fresh.length) markRead(cv.id, req.user.id);
-    res.json({ messages: fresh.map(m => messageDto(m, req.user)) });
+    if (fresh.length) {
+      markRead(cv.id, req.user.id);
+      tbnv.docTheoGop(req.user.id, `tin:${cv.id}`);
+    }
+    const nhan = nhanTrongPhong(cv, fresh);
+    res.json({ messages: fresh.map(m => messageDto(m, req.user, nhan)) });
   });
 
   // Gửi tin nhắn vào hội thoại.
@@ -1724,6 +2093,8 @@ module.exports = (app) => {
     }
     const kenhNay = cv.type === 'kenh' ? kenhCua(cv.id) : null;
     if (kenhNay && !kenhDangMo(kenhNay.loai)) return res.status(409).json({ error: loiKenhTat(req.user) });
+    const phong = cv.type === 'group' ? pn.cuaPhong(cv.id) : null;
+    if (phong && phong.khoaLuc) return res.status(403).json({ error: LOI_PHONG_KHOA });
     const text = String((req.body || {}).text || '').trim().slice(0, 2000);
     if (!text) return res.status(400).json({ error: 'Nội dung tin nhắn không được để trống' });
     // Kênh cô mà nhóm chưa (hoặc không còn) có cô nào giữ vai ấy: tin gửi vào là
@@ -1737,6 +2108,13 @@ module.exports = (app) => {
 
     const msg = ghiTin(cv, req.user, text);
     baoGiaDinh(cv, req.user, msg);
-    res.json(messageDto(msg, req.user));
+    baoNhaTruong(cv, req.user);
+    if (phong) {
+      try {
+        const day = pn.goiDayPhong(cv, req.user, text);
+        if (day && day.nguoiNhan.length) require('../lib/day').guiChoNhieuNguoi(day.nguoiNhan, day.goi);
+      } catch (_) { /* đẩy là việc phụ — tin đã lưu, huy hiệu vẫn đếm */ }
+    }
+    res.json(messageDto(msg, req.user, nhanTrongPhong(cv, [msg])));
   });
 };

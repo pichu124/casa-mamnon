@@ -9,6 +9,7 @@ const st = require('../lib/sua-thu-hoi');
 // bản chép tay từng trôi lệch giữa tệp này và routes/notifications.js.
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
+const tbnv = require('../lib/thong-bao-nv');
 const kvp = require('../lib/kenh-van-phong');
 const { requireRole } = require('../lib/auth');
 const modules = require('../lib/modules');
@@ -21,7 +22,26 @@ function todayStr() {
 }
 
 function unreadNotifications(user) {
-  return unreadCuaTruong(user) + tbb.demChuaDoc(user);
+  return unreadCuaTruong(user) + tbb.demChuaDoc(user) + tbnv.demChuaDoc(user);
+}
+
+// SỐ TRÊN Ô TỪ CHUÔNG RIÊNG CỦA CÔ / VĂN PHÒNG (Đ260c).
+//
+// CHỈ cho ô CHƯA có bộ đếm riêng (Khảo sát của cô, Hồ sơ của bé…). Ô đã có
+// bộ đếm thì để nguyên con số của nó: Xin phép, Dặn thuốc đếm đơn CHỜ và tự
+// về 0 khi văn phòng xử lý xong; Nhắn tin đếm tin chưa đọc theo đúng luật của
+// danh sách (cuộc đã đóng thôi đếm); Kế hoạch, Báo cáo đếm việc chờ chính người
+// này. Trộn số của chuông vào đó là ô đứng một con số mà mở ra không còn việc
+// gì — việc mới của những màn ấy vẫn hiện ở chuông. Gọi ở CẢ HAI lối ra.
+const O_DA_CO_SO = ['thongbao', 'nhantin', 'xinphep', 'danthuoc', 'diemdanh'];
+function gopSoChuongRieng(badges, user) {
+  try {
+    const daCo = new Set([...O_DA_CO_SO, ...huyHieu.danhSach()]);
+    for (const [key, n] of Object.entries(tbnv.demTheoO(user))) {
+      if (!daCo.has(key) && n > 0) badges[key] = n;
+    }
+  } catch (_) { /* thiếu số còn hơn hỏng trang chủ */ }
+  return badges;
 }
 
 function unreadCuaTruong(user) {
@@ -383,7 +403,7 @@ module.exports = (app) => {
     // chính vẫn hiện đủ, chỉ thiếu con số của nó (Nguyên tắc số 1).
     try { Object.assign(badges, huyHieu.demTatCa(user)); } catch (_) { /* lưới cuối */ }
 
-    if (!ids.length) return res.json(badges);
+    if (!ids.length) return res.json(gopSoChuongRieng(badges, user));
 
     if (user.role === 'parent') {
       // Điểm danh: số lượt điểm danh hôm nay của các con
@@ -394,13 +414,20 @@ module.exports = (app) => {
       // nó mang đúng nghĩa với cột cùng tên của thông báo, nên dùng chung một
       // luật lọc (lib/thong-bao.js). Không lọc thì huy hiệu đếm cả khảo sát
       // gia đình không mở được — một con số không bao giờ về 0.
+      // Khảo sát cô gửi riêng vài gia đình (Đ260b) chỉ đếm ở nhà được gửi.
+      // Mốc nhập học (Đ260l): cùng điều kiện với `taoBoLocXem` ở
+      // routes/surveys.js — khảo sát cũ hơn mốc chỉ đếm khi còn hạn.
       const fKs = tb.audienceFilter(user, 's.');
+      const nnKs = tb.locNguoiNhan(user, 'surveys', 's.id');
+      const mocKs = tb.mocGiaDinh(user);
       badges.khaosat = db.count(
         `SELECT COUNT(*) FROM surveys s
          WHERE s.status = 'open'
            AND ${fKs.sql}
+           AND ${nnKs.sql}
+           ${mocKs ? 'AND (s.createdAt >= ? OR s.deadline >= ?)' : ''}
            AND NOT EXISTS (SELECT 1 FROM survey_responses r WHERE r.surveyId = s.id AND r.userId = ?)`,
-        [...fKs.params, user.id]);
+        [...fKs.params, ...nnKs.params, ...(mocKs ? [mocKs, today] : []), user.id]);
     }
 
     if (user.role === 'teacher' || user.role === 'admin') {
@@ -419,6 +446,6 @@ module.exports = (app) => {
       badges.diemdanh = phaiCham.length - marked;
     }
 
-    res.json(badges);
+    res.json(gopSoChuongRieng(badges, user));
   });
 };

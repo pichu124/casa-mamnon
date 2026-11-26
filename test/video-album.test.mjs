@@ -21,8 +21,11 @@
 //      (Dòng này trước đây viết "video không nén được trong trình duyệt như
 //      ảnh". Từ Đ150 thì nén được — nhà trường 10/09 chấp nhận đổi chất lượng
 //      lấy độ dài, nên `UI.nenVideo` nén ngay trên máy của cô để đoạn 3–5 phút
-//      lọt trần. Trần thì KHÔNG đổi, và mục [2] vẫn canh đúng nó; bài canh
-//      riêng cho việc nén là `test:nen-video`.)
+//      lọt trần. Bài canh riêng cho việc nén là `test:nen-video`.)
+//
+//      Trần nâng từ 8 MB lên 25 MB ở Đ260f (chủ dự án 25/11 thử máy thật: bản
+//      nén 8 MB, 480px "chất lượng rất kém"). Thân yêu cầu 40 MB CHỈ mở cho
+//      đường tải video, cho cô và quản trị đã đăng nhập — mục [2] canh cả hai.
 //
 //   3. TỆP KHÔNG PHẢI VIDEO PHẢI BỊ TỪ CHỐI THEO BYTE THẬT, không theo phần
 //      khai báo của trình duyệt — cùng luật với ảnh. Mục [2].
@@ -92,14 +95,23 @@ try {
   // =========================================================================
   console.log('\n[2] Trần dung lượng và định dạng chặn thật');
   {
-    // 8,5 MB: vượt trần 8 MB của ta, NHƯNG base64 của nó (11,3 MB) vẫn lọt qua
-    // thân yêu cầu 12 MB của Express — nên nó thử đúng chốt chặn CỦA MÌNH.
-    // Hai chốt là hai thứ khác nhau, và mục ngay dưới thử cái còn lại.
+    // TRẦN 25 MB (Đ260f, chủ dự án 25/11: bản nén 8 MB, 480px "chất lượng rất
+    // kém"). Một video 20 MB — quá thân yêu cầu 12 MB cũ khi thành base64 — giờ
+    // phải tới được tay cô, không bị Express chặn trước.
+    const vua = await req('POST', `/api/albums/${globalThis.AL}/photos`, { cookie: co.cookie, body: {
+      photos: [{ video: mp4(20 * 1024 * 1024), caption: 'Video 20 MB' }] } });
+    check('video 20 MB (dưới trần 25 MB) → cô đăng được', vua.status === 201,
+      `${vua.status} ${JSON.stringify(vua.data).slice(0, 140)}`);
+
+    // 26 MB: vượt trần 25 MB của ta, NHƯNG base64 của nó (34,7 MB) vẫn lọt qua
+    // thân yêu cầu 40 MB của đường tải video — nên nó thử đúng chốt chặn CỦA
+    // MÌNH. Hai chốt là hai thứ khác nhau, và mục ngay dưới thử cái còn lại.
     const to = await req('POST', `/api/albums/${globalThis.AL}/photos`, { cookie: co.cookie, body: {
-      photos: [{ video: mp4(Math.round(8.5 * 1024 * 1024)), caption: 'Video quá nặng' }] } });
-    check('video vượt trần bị từ chối', to.status === 400, `${to.status}`);
-    check('lời từ chối nói bằng tiếng cô hiểu, có nhắc quay ngắn lại',
-      /(nặng|dài|ngắn)/i.test((to.data || {}).error || ''), (to.data || {}).error);
+      photos: [{ video: mp4(26 * 1024 * 1024), caption: 'Video quá nặng' }] } });
+    check('video 26 MB (vượt trần) bị từ chối', to.status === 400, `${to.status}`);
+    check('lời từ chối nói bằng tiếng cô hiểu, có nhắc quay ngắn lại và nói đúng trần 25 MB',
+      /(nặng|dài|ngắn)/i.test((to.data || {}).error || '') && /25 MB/.test((to.data || {}).error || ''),
+      (to.data || {}).error);
 
     // VƯỢT LUÔN CẢ THÂN YÊU CẦU CỦA MÁY CHỦ.
     //
@@ -107,10 +119,27 @@ try {
     // trả lời tử tế: bản đầu trả "Lỗi máy chủ" — một câu không cho ai biết
     // phải làm gì, và cũng không nói được rằng vấn đề là dung lượng.
     const qua = await req('POST', `/api/albums/${globalThis.AL}/photos`, { cookie: co.cookie, body: {
-      photos: [{ video: mp4(20 * 1024 * 1024), caption: 'Vượt cả thân yêu cầu' }] } });
+      photos: [{ video: mp4(31 * 1024 * 1024), caption: 'Vượt cả thân yêu cầu' }] } });
     check('tệp vượt cả thân yêu cầu vẫn được trả lời tử tế, không phải "Lỗi máy chủ"',
       qua.status === 413 && /(nặng|dung lượng|ngắn)/i.test((qua.data || {}).error || ''),
       `${qua.status} ${JSON.stringify(qua.data)}`);
+
+    // THÂN YÊU CẦU LỚN CHỈ MỞ CHO ĐÚNG ĐƯỜNG TẢI VIDEO, ĐÚNG NGƯỜI ĐƯỢC TẢI.
+    //
+    // Mọi đường khác — kể cả đăng nhập, nơi chưa ai có phiên — vẫn chặn ở 12
+    // MB như trước. Người chưa đăng nhập bị trả 401 trước khi máy chủ đọc thân
+    // yêu cầu; gia đình (không được đăng album) cũng chỉ được 12 MB.
+    const than20 = { photos: [{ video: mp4(20 * 1024 * 1024) }] };
+    const dangNhapTo = await req('POST', '/api/auth/login', { body: { username: 'x', password: 'y', dem: mp4(20 * 1024 * 1024) } });
+    check('đường đăng nhập vẫn chặn thân yêu cầu ở 12 MB → 413', dangNhapTo.status === 413, dangNhapTo.status);
+    const khacTo = await req('PUT', `/api/albums/${globalThis.AL}/che-do`, { cookie: co.cookie, body: { cheDo: 'cong-khai', dem: mp4(20 * 1024 * 1024) } });
+    check('đường khác của album (đổi chế độ) vẫn chặn ở 12 MB → 413', khacTo.status === 413, khacTo.status);
+    const chuaDn = await req('POST', `/api/albums/${globalThis.AL}/photos`, { body: than20 });
+    check('chưa đăng nhập gửi video 20 MB → 401, không đọc thân yêu cầu', chuaDn.status === 401, chuaDn.status);
+    const phTo = await req('POST', `/api/albums/${globalThis.AL}/photos`, { cookie: ph.cookie, body: than20 });
+    check('gia đình gửi video 20 MB vào đường tải album → 413 (vẫn trần 12 MB)', phTo.status === 413, phTo.status);
+    const phNho = await req('POST', `/api/albums/${globalThis.AL}/photos`, { cookie: ph.cookie, body: { photos: [{ video: mp4() }] } });
+    check('đối chứng — gia đình gửi tệp nhỏ vào đường đó vẫn bị chặn bởi quyền (403)', phNho.status === 403, phNho.status);
 
     // Khai là video nhưng byte bên trong là ảnh PNG → phải trượt.
     const gia = await req('POST', `/api/albums/${globalThis.AL}/photos`, { cookie: co.cookie, body: {

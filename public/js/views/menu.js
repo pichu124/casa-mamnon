@@ -43,6 +43,9 @@ App.views.menu = {
   _editDate: null, // ngày đang soạn trong modal
   _editMeals: null,
   _tuan: null,     // cả tuần đang soạn trên màn "Soạn cả tuần"
+  // Quản trị (Đ260d): 'tuan' | 'kho' (kho thực đơn mẫu) | 'dukien' (lịch xoay vòng).
+  tab: 'tuan',
+  _tuanChon: null, // Thứ Hai của tuần mở từ "Thực đơn dự kiến" (xa hơn Tuần sau)
 
   laQuanTri() { return App.state.user && App.state.user.role === 'admin'; },
 
@@ -56,16 +59,29 @@ App.views.menu = {
 
   async render(root) {
     const qt = this.laQuanTri();
+    this._root = root;
+    if (!qt) { this.tab = 'tuan'; this._tuanChon = null; }
     if (this.ngay === null) {
       const dw = UI.thuVN();
       this.ngay = qt ? 'tuan' : (dw >= 1 && dw <= 5 ? dw : 1);
     }
+    this._dangSoanTuan = false;
+    const dau = `${UI.pageHeader('Thực đơn của bé')}${qt ? this.segTab() : ''}`;
+    if (qt && this.tab !== 'tuan') {
+      root.innerHTML = `${dau}<div id="menu-coso"></div><div id="menu-${this.tab}"></div>`;
+      this.ganSegTab(root);
+      this.veCoSo();
+      await this.taiLaiTab();
+      return;
+    }
+    const chon = this._tuanChon;
     root.innerHTML = `
-      ${UI.pageHeader('Thực đơn của bé', qt ? { action: { id: 'btn-chep-tuan', label: 'Chép tuần trước', icon: 'plus' } } : {})}
+      ${dau}
       <div class="seg" id="menu-seg">
-        <button class="${this.week === 0 ? 'active' : ''}" onclick="App.views.menu.setWeek(0)">Tuần này</button>
-        <button class="${this.week === 1 ? 'active' : ''}" onclick="App.views.menu.setWeek(1)">Tuần sau</button>
+        <button class="${!chon && this.week === 0 ? 'active' : ''}" onclick="App.views.menu.setWeek(0)">Tuần này</button>
+        <button class="${!chon && this.week === 1 ? 'active' : ''}" onclick="App.views.menu.setWeek(1)">Tuần sau</button>
       </div>
+      ${chon ? `<div class="muted small" id="menu-tuan-chon" style="margin:-6px 0 10px">Đang xem ${UI.esc(this.tenTuan(chon))} — mở từ Thực đơn dự kiến</div>` : ''}
       ${this.segNgay()}
       <div id="menu-coso"></div>
       <div id="menu-tep"></div>
@@ -74,11 +90,17 @@ App.views.menu = {
       <div id="menu-nhac"></div>
       <div id="menu-days"></div>`;
     if (qt) {
-      document.getElementById('btn-chep-tuan').onclick = () => this.chepTuanTruoc();
+      this.ganSegTab(root);
       document.getElementById('btn-soan-tuan').onclick = () => this.moSoanTuan();
     }
     this.ganSegNgay(root);
     await this.load();
+  },
+
+  ganSegTab(root) {
+    for (const b of root.querySelectorAll('#menu-tab-seg [data-tab]')) {
+      b.onclick = () => this.doiTab(b.dataset.tab);
+    }
   },
 
   // Đang soạn cả tuần mà chuyển tuần / chuyển bếp là màn hình vẽ lại — mất
@@ -94,9 +116,13 @@ App.views.menu = {
   },
 
   async setWeek(w) {
-    if (this.week === w) return;
+    if (this.week === w && !this._tuanChon) return;
     if (!this.boSoanNeuDongY()) return;
     this.week = w;
+    if (this._tuanChon) {
+      this._tuanChon = null;
+      return this.render(this._root);
+    }
     const seg = document.getElementById('menu-seg');
     if (seg) Array.from(seg.children).forEach((btn, i) => btn.classList.toggle('active', i === w));
     await this.load();
@@ -150,7 +176,7 @@ App.views.menu = {
       this._cacCoSo = data.cacCoSo || [];
       this.veCoSo();
       this.veTep(data.tep || [], data.from, !!data.taiTepDuoc);
-      if (this.laQuanTri()) this.veExcel(data.from);
+      if (this.laQuanTri()) this.veExcel(data.from, data.week);
       this.veNhac(menus, data.from);
 
       const coSan = new Map(menus.map(m => [m.date, m]));
@@ -201,7 +227,7 @@ App.views.menu = {
       document.getElementById('menu-chon-coso').onchange = (e) => {
         if (!this.boSoanNeuDongY()) { e.target.value = this._coSo; return; }
         this._coSo = e.target.value;
-        this.load();
+        this.taiLaiTab();
       };
       return;
     }
@@ -245,11 +271,12 @@ App.views.menu = {
     return `Tuần ${UI.fmtDateShort(thuHai)}${nam} – ${UI.fmtDateShort(t6)}/${t6.slice(0, 4)}`;
   },
 
-  veExcel(tuNgay) {
+  veExcel(tuNgay, week = this.week) {
     const o = document.getElementById('menu-excel');
     if (!o) return;
-    // `tuNgay` là Thứ Hai của tuần đang xem, do máy chủ tính theo giờ Việt Nam.
-    const nay = this.congNgay(tuNgay, -7 * this.week);
+    // `tuNgay` là Thứ Hai của tuần đang xem, do máy chủ tính theo giờ Việt Nam;
+    // `week` là số tuần cách tuần này (máy chủ trả, kể cả khi mở bằng ?tuan=).
+    const nay = this.congNgay(tuNgay, -7 * week);
     const cacTuan = [['tuần này', 0], ['tuần sau', 7], ['tuần sau nữa', 14]].map(([ten, n]) => ({ ten, t2: this.congNgay(nay, n) }));
     // Mặc định tuần sau — tuần văn phòng soạn vào thứ Sáu; vẽ lại thì giữ tuần đã chọn.
     if (!cacTuan.some(t => t.t2 === this._tuanXl)) this._tuanXl = cacTuan[1].t2;
@@ -439,7 +466,7 @@ App.views.menu = {
     const o = document.getElementById('menu-nhac');
     if (!o) return;
     o.innerHTML = '';
-    if (!this.laQuanTri() || this.week !== 1) return;
+    if (!this.laQuanTri() || this.week !== 1 || this._tuanChon) return;
     // Thứ Sáu = 5 theo giờ Việt Nam, lấy từ chính "hôm nay" của app.
     const t = UI.parseDate(UI.todayStr());
     if (!t || t.getDay() !== 5) return;
@@ -469,8 +496,14 @@ App.views.menu = {
   // con mình ăn, mà nhà có bé dị ứng thì đó là chuyện an toàn.
   //
   // Gom về một hàm để không còn chỗ nào chép thiếu lần nữa.
+  // Đường dẫn của kho mẫu / lịch xoay cho ĐÚNG bếp đang chọn (Đ260d). Đi qua
+  // một hàm như duongDanTuan, để không lượt hỏi nào quên mã cơ sở (thuc-don-co-so).
+  duongDanCoSo(goc) {
+    return goc + (this._coSo ? `?campusId=${encodeURIComponent(this._coSo)}` : '');
+  },
+
   duongDanTuan() {
-    return `/api/menu?week=${this.week}`
+    return (this._tuanChon ? `/api/menu?tuan=${encodeURIComponent(this._tuanChon)}` : `/api/menu?week=${this.week}`)
       + (this._coSo ? `&campusId=${encodeURIComponent(this._coSo)}` : '');
   },
 
@@ -495,6 +528,7 @@ App.views.menu = {
       <div class="card"${isToday ? ' style="border:1.5px solid var(--primary)"' : ''}>
         <div class="card-title">${UI.esc(this.tieuDeNgay(m.date))}
           ${isToday ? `${UI.badge('Hôm nay', 'blue')}` : ''}
+          ${this.laQuanTri() && m.tuMau ? UI.badge(`Thực đơn mẫu ${m.tuMau.so}`, 'purple') : ''}
           <span class="spacer"></span>
           ${this.laQuanTri() ? `<button class="head-action" onclick="App.views.menu.moSoan('${UI.esc(m.date)}')">${UI.icon('edit', 15)}Sửa</button>` : ''}
         </div>
@@ -551,20 +585,27 @@ App.views.menu = {
         meals: JSON.parse(JSON.stringify(
           coSan.get(date) ? coSan.get(date).meals : this.BUA_MAC_DINH)),
       }));
-      this.veSoanTuan(zone);
+      this.veSoanTuan(zone, { cheDo: 'tuan' });
     } catch (err) {
       zone.innerHTML = UI.emptyState('😥', err.message || 'Không tải được thực đơn');
     }
   },
 
-  veSoanTuan(zone) {
+  // `cheDo: 'mau'` (Đ260d): soạn một thực đơn mẫu — tiêu đề "Thứ Hai…" không
+  // ngày tháng, Lưu ghi vào kho mẫu, Quay lại về danh sách kho.
+  veSoanTuan(zone, { cheDo = this._cheDoSoan } = {}) {
     this._dangSoanTuan = true;
+    this._cheDoSoan = cheDo;
+    this._zoneSoan = zone;
+    const mau = cheDo === 'mau';
     zone.innerHTML = `
       <div class="card">
+        ${mau ? `<div class="card-title">${UI.esc(this._mauDangSua.ten || `Thực đơn ${this._mauDangSua.so}`)}</div>` : ''}
         <div class="muted small" style="line-height:1.6">
-          Mỗi dòng là một món. Gõ xong cả tuần rồi bấm <b>Lưu cả tuần</b> một lần —
+          Mỗi dòng là một món. Gõ xong cả tuần rồi bấm <b>${mau ? 'Lưu thực đơn mẫu' : 'Lưu cả tuần'}</b> một lần —
           lưu là lưu hết, lỗi ở một ngày thì không ngày nào bị ghi dở.
-          Ngày nào để trống thì bỏ qua, không tạo ra một ngày trắng trên màn hình của gia đình.
+          ${mau ? 'Các tuần sắp tới đang dùng mẫu này đổi theo; tuần đã qua giữ nguyên.'
+    : 'Ngày nào để trống thì bỏ qua, không tạo ra một ngày trắng trên màn hình của gia đình.'}
         </div>
       </div>
       <div class="luoi-tuan dang-soan">
@@ -572,21 +613,23 @@ App.views.menu = {
       </div>
       <div class="grid-2 mt-14">
         <button class="btn outline" id="td-huy">Quay lại</button>
-        <button class="btn primary" id="td-luu-tuan">${UI.icon('check', 18)} Lưu cả tuần</button>
+        <button class="btn primary" id="td-luu-tuan">${UI.icon('check', 18)} ${mau ? 'Lưu thực đơn mẫu' : 'Lưu cả tuần'}</button>
       </div>`;
 
-    document.getElementById('td-huy').onclick = () => { if (this.boSoanNeuDongY()) this.load(); };
-    document.getElementById('td-luu-tuan').onclick = () => this.luuCaTuan();
+    document.getElementById('td-huy').onclick = () => {
+      if (this.boSoanNeuDongY()) { if (mau) this.taiKho(); else this.load(); }
+    };
+    document.getElementById('td-luu-tuan').onclick = () => (mau ? this.luuMau() : this.luuCaTuan());
     for (const b of zone.querySelectorAll('[data-chep-tu]')) {
       b.onclick = () => this.chepNgayTruoc(Number(b.dataset.chepTu));
     }
   },
 
   theSoanNgay(ng, i) {
-    const homNay = ng.date === UI.todayStr();
+    const homNay = !!ng.date && ng.date === UI.todayStr();
     return `
       <div class="card"${homNay ? ' style="border:1.5px solid var(--primary)"' : ''}>
-        <div class="card-title">${UI.esc(this.tieuDeNgay(ng.date))}
+        <div class="card-title">${UI.esc(ng.date ? this.tieuDeNgay(ng.date) : this.THU_MAU[ng.lech])}
           ${homNay ? UI.badge('Hôm nay', 'blue') : ''}
           <span class="spacer"></span>
           ${i > 0 ? `<button class="head-action" data-chep-tu="${i}">${UI.icon('plus', 15)}Giống hôm trước</button>` : ''}
@@ -640,8 +683,9 @@ App.views.menu = {
     this.docManHinh();
     if (i < 1) return;
     this._tuan[i].meals = JSON.parse(JSON.stringify(this._tuan[i - 1].meals));
-    this.veSoanTuan(document.getElementById('menu-days'));
-    UI.toast(`Đã chép thực đơn ${this.tieuDeNgay(this._tuan[i - 1].date)} sang`, 'success');
+    this.veSoanTuan(this._zoneSoan || document.getElementById('menu-days'));
+    const truoc = this._tuan[i - 1];
+    UI.toast(`Đã chép thực đơn ${truoc.date ? this.tieuDeNgay(truoc.date) : this.THU_MAU[truoc.lech]} sang`, 'success');
   },
 
   async luuCaTuan() {
@@ -655,9 +699,12 @@ App.views.menu = {
         campusId: this._coSo || '',
         ngay: this._tuan.map(ng => ({ date: ng.date, meals: ng.meals })),
       });
+      // `giongMau` (Đ260d): ngày lưu y hệt thực đơn mẫu thì không cần bản riêng.
+      const giong = kq.giongMau ? `${kq.giongMau} ngày giống thực đơn mẫu, giữ theo mẫu` : '';
       UI.toast(kq.daLuu
-        ? `Đã lưu thực đơn cho ${kq.daLuu} ngày`
-        : 'Chưa có ngày nào được gõ món, nên chưa lưu gì', kq.daLuu ? 'success' : 'error');
+        ? `Đã lưu thực đơn cho ${kq.daLuu} ngày${giong ? ` — ${giong}` : ''}`
+        : (giong ? `Không có gì đổi: ${giong}` : 'Chưa có ngày nào được gõ món, nên chưa lưu gì'),
+      kq.daLuu || giong ? 'success' : 'error');
       if (kq.daLuu) await this.load();
     } catch (err) { UI.toast(err.message, 'error'); }
   },
@@ -711,16 +758,369 @@ App.views.menu = {
     } catch (err) { UI.toast(err.message, 'error'); }
   },
 
-  // Chép tuần liền trước vào tuần đang xem — chỉ đổ vào ngày còn trống.
-  async chepTuanTruoc() {
+  // ===========================================================================
+  // KHO THỰC ĐƠN MẪU VÀ THỰC ĐƠN DỰ KIẾN (Đ260d) — chỉ quản trị
+  // ===========================================================================
+  //
+  // Góp ý 18/11: *"bỏ mục sao chép tuần, thay bằng tab kho thực đơn mẫu gồm 4
+  // thực đơn… và tab thực đơn dự kiến: văn phòng setup từ thời gian này tới thời
+  // gian này dùng thực đơn 1, sau đó tự động tới 2, 3, 4 rồi quay vòng về 1."*
+  // Nút "Chép tuần trước" đã gỡ; "Giống hôm trước" trong cùng một tuần vẫn giữ.
+  //
+  // Mã mẫu và mã lịch đi qua `data-`, gắn sự kiện sau khi vẽ — không nhét giá
+  // trị vào chuỗi onclick (tên mẫu là chữ văn phòng gõ).
+  THU_MAU: ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'],
+  _dsMau: [],
+
+  segTab() {
+    const o = [['tuan', 'Thực đơn tuần'], ['kho', 'Kho thực đơn mẫu'], ['dukien', 'Thực đơn dự kiến']];
+    return `<div class="seg seg-tab" id="menu-tab-seg">
+      ${o.map(([v, t]) => `<button type="button" data-tab="${v}" class="${this.tab === v ? 'active' : ''}">${t}</button>`).join('')}
+    </div>`;
+  },
+
+  async doiTab(v) {
+    if (this.tab === v) return;
     if (!this.boSoanNeuDongY()) return;
+    this.tab = v;
+    if (v !== 'tuan') this._tuanChon = null;
+    await this.render(this._root);
+  },
+
+  // Đổi bếp ở ô chọn cơ sở: tải lại đúng tab đang mở.
+  taiLaiTab() {
+    if (this.tab === 'kho') return this.taiKho();
+    if (this.tab === 'dukien') return this.taiDuKien();
+    return this.load();
+  },
+
+  ddmmyyyy(iso) { return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; },
+  tenMau(id) {
+    const m = this._dsMau.find(x => x.id === id);
+    return m ? (m.ten || `Thực đơn ${m.so}`) : 'Thực đơn đã gỡ';
+  },
+
+  // ---- Kho thực đơn mẫu ----
+  async taiKho() {
+    const zone = document.getElementById('menu-kho');
+    if (!zone) return;
+    this._dangSoanTuan = false;
+    zone.innerHTML = '<div class="loading">Đang tải</div>';
     try {
-      const kq = await API.post('/api/menu/copy-week',
-        { week: this.week, campusId: this._coSo || '' });
-      UI.toast(kq.daChep
-        ? `Đã chép thực đơn cho ${kq.daChep} ngày còn trống`
-        : 'Không có ngày nào cần chép (tuần này đã soạn đủ hoặc tuần trước trống)');
-      await this.load();
+      const duong = this.duongDanCoSo('/api/menu/mau');
+      const data = await API.get(duong);
+      this._dsMau = data.mau || [];
+      this.veKho(zone, data.toiDa || 12);
+    } catch (err) {
+      zone.innerHTML = UI.emptyState('😥', err.message || 'Không tải được kho thực đơn mẫu');
+    }
+  },
+
+  veKho(zone, toiDa) {
+    const ds = this._dsMau;
+    const tomTat = (m) => {
+      const coMon = this.THU_MAU.filter((_, i) => (m.ngay[String(i)] || []).some(b => (b.items || []).length));
+      return coMon.length ? `Có món: ${coMon.join(', ')}` : 'Chưa soạn món nào';
+    };
+    zone.innerHTML = `
+      <div class="card">
+        <div class="muted small" style="line-height:1.6">
+          Mỗi thực đơn mẫu là thực đơn của <b>một tuần</b>, Thứ Hai đến Thứ Sáu. Sửa mẫu thì các tuần
+          <b>sắp tới</b> đang dùng mẫu đổi theo; tuần đã qua giữ nguyên món đã ăn. Tuần nào cần đổi món
+          (hết táo thì đổi loại khác) thì sửa riêng tuần đó ở tab <b>Thực đơn tuần</b>.
+        </div>
+        ${ds.length < toiDa ? `<button class="btn primary block mt-8" id="mn-mau-them">${UI.icon('plus', 18)} Thêm thực đơn mẫu</button>` : ''}
+      </div>
+      ${ds.length ? ds.map(m => `
+        <div class="card" data-the-mau="${UI.esc(m.id)}">
+          <div class="card-title">${UI.esc(m.ten || `Thực đơn ${m.so}`)} ${UI.badge(`Mẫu ${m.so}`, 'purple')}</div>
+          <div class="muted small" style="margin-bottom:8px">${UI.esc(tomTat(m))}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="btn sm primary" data-sua-mau="${UI.esc(m.id)}">${UI.icon('edit', 15)} Sửa món</button>
+            <button class="btn sm outline" data-doi-ten="${UI.esc(m.id)}">Đổi tên</button>
+            <a class="btn sm outline" href="/api/menu/mau/${encodeURIComponent(m.id)}/excel" data-tai-mau="${UI.esc(m.id)}">📥 Tải Excel</a>
+            <button class="btn sm outline" data-nap-mau="${UI.esc(m.id)}">📤 Nạp Excel</button>
+          </div>
+        </div>`).join('') : UI.emptyState('📚', 'Kho chưa có thực đơn mẫu nào. Bấm "Thêm thực đơn mẫu" để soạn mẫu đầu tiên.')}
+      <input type="file" id="mn-mau-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">`;
+    const them = document.getElementById('mn-mau-them');
+    if (them) them.onclick = () => this.themMau();
+    for (const b of zone.querySelectorAll('[data-sua-mau]')) b.onclick = () => this.moSoanMau(b.dataset.suaMau);
+    for (const b of zone.querySelectorAll('[data-doi-ten]')) b.onclick = () => this.doiTenMau(b.dataset.doiTen);
+    const oFile = document.getElementById('mn-mau-file');
+    for (const b of zone.querySelectorAll('[data-nap-mau]')) {
+      b.onclick = () => { this._mauNap = b.dataset.napMau; oFile.click(); };
+    }
+    oFile.onchange = () => this.napExcelMau(oFile);
+  },
+
+  async themMau() {
+    try {
+      const kq = await API.post('/api/menu/mau', { campusId: this._coSo || '' });
+      this._dsMau.push(kq.mau);
+      UI.toast(`Đã thêm ${kq.mau.ten} — gõ món cho từng ngày rồi bấm Lưu`, 'success');
+      this.moSoanMau(kq.mau.id);
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  doiTenMau(id) {
+    const m = this._dsMau.find(x => x.id === id);
+    if (!m) return;
+    UI.modal(`
+      <div class="field">
+        <label for="mn-mau-ten">Tên thực đơn mẫu</label>
+        <input id="mn-mau-ten" maxlength="60" value="${UI.esc(m.ten || '')}" placeholder="VD: Thực đơn 1 — mùa đông">
+      </div>
+      <button class="btn primary block" id="mn-mau-luu-ten">${UI.icon('check', 18)} Lưu tên</button>`, 'Đổi tên thực đơn mẫu');
+    document.getElementById('mn-mau-luu-ten').onclick = async () => {
+      try {
+        await API.put(`/api/menu/mau/${encodeURIComponent(id)}`, { ten: document.getElementById('mn-mau-ten').value });
+        UI.closeModal();
+        UI.toast('Đã đổi tên', 'success');
+        this.taiKho();
+      } catch (err) { UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // Soạn một mẫu bằng chính màn "Soạn cả tuần", chỉ khác tiêu đề ngày (không
+  // có ngày tháng) và nút Lưu gọi PUT /api/menu/mau/:id.
+  moSoanMau(id) {
+    const m = this._dsMau.find(x => x.id === id);
+    const zone = document.getElementById('menu-kho');
+    if (!m || !zone) return;
+    this._mauDangSua = m;
+    this._tuan = [0, 1, 2, 3, 4].map(i => {
+      const co = m.ngay[String(i)] || [];
+      return { date: null, lech: i, meals: JSON.parse(JSON.stringify(co.length ? co : this.BUA_MAC_DINH)) };
+    });
+    this.veSoanTuan(zone, { cheDo: 'mau' });
+  },
+
+  async luuMau() {
+    this.docManHinh();
+    const m = this._mauDangSua;
+    if (!m) return;
+    if (this._tuan.some(ng => ng.meals.some(b => !b.label))) {
+      return UI.toast('Mỗi bữa cần có tên bữa — mở "Sửa tên bữa và giờ ăn" để điền nhé', 'error');
+    }
+    try {
+      await API.put(`/api/menu/mau/${encodeURIComponent(m.id)}`, {
+        ngay: Object.fromEntries(this._tuan.map(ng => [String(ng.lech), ng.meals])),
+      });
+      this._dangSoanTuan = false;
+      UI.toast(`Đã lưu ${m.ten || `Thực đơn ${m.so}`}`, 'success');
+      await this.taiKho();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  async napExcelMau(oFile) {
+    const f = oFile.files && oFile.files[0];
+    oFile.value = '';
+    const id = this._mauNap;
+    if (!f || !id) return;
+    if (!/\.xlsx$/i.test(f.name)) return UI.toast('Cần tệp Excel dạng .xlsx — tải tệp của mẫu này về rồi điền vào đó nhé', 'error');
+    if (f.size > 3 * 1024 * 1024) return UI.toast('Tệp quá lớn — tệp thực đơn chỉ vài chục KB', 'error');
+    let tep;
+    try {
+      tep = await new Promise((ok, that) => {
+        const r = new FileReader();
+        r.onload = () => ok(r.result); r.onerror = () => that(new Error('Không đọc được tệp'));
+        r.readAsDataURL(f);
+      });
+    } catch (err) { return UI.toast(err.message, 'error'); }
+    const duong = `/api/menu/mau/${encodeURIComponent(id)}/nap-excel`;
+    let xem;
+    try { xem = await API.post(duong, { tep }); } catch (err) {
+      return UI.modal(`
+        <div id="mn-mau-loi" class="card" style="background:var(--danger-tint);line-height:1.6">${UI.esc(err.message)}</div>
+        <div class="muted small mt-8">Chưa lưu gì vào thực đơn mẫu.</div>
+        <button class="btn outline block mt-14" onclick="UI.closeModal()">Đã hiểu</button>`, 'Chưa nạp được tệp Excel');
+    }
+    const ds = xem.ngay || [];
+    UI.modal(`
+      <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+        Tệp <b>${UI.esc(f.name)}</b> nạp vào <b>${UI.esc(this.tenMau(id))}</b>: <b>${ds.length}</b> ngày có món.
+        Ngày để trống trong tệp giữ nguyên. Xem lại rồi bấm Lưu.
+      </div>
+      ${(xem.canhBao || []).length ? `<div class="card" style="background:#fff8e1;margin-bottom:10px">
+        ${(xem.canhBao || []).map(c => `<div class="small" style="line-height:1.6">• ${UI.esc(c)}</div>`).join('')}</div>` : ''}
+      <div id="mn-mau-xem" style="max-height:50vh;overflow:auto">
+        ${ds.map(n => `
+          <div class="list-row" style="align-items:flex-start">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(n.thu)}${n.khongDoi ? ' · <span class="muted small">giống mẫu đang có, không đổi</span>' : ''}</div>
+              ${n.bua.map(b => `<div class="row-sub"><b>${UI.esc(b.label)}:</b> ${UI.esc(b.items.join(', '))}</div>`).join('')}
+            </div>
+          </div>`).join('') || '<div class="muted small">Không có ngày nào có món trong tệp.</div>'}
+      </div>
+      ${ds.length ? `<button class="btn primary block mt-14" id="mn-mau-luu-xl">${UI.icon('check', 18)} Lưu vào thực đơn mẫu</button>` : ''}`,
+    'Xem trước thực đơn mẫu từ tệp Excel');
+    const luu = document.getElementById('mn-mau-luu-xl');
+    if (luu) luu.onclick = async () => {
+      luu.disabled = true;
+      try {
+        const r = await API.post(duong, { tep, luu: true });
+        UI.closeModal();
+        UI.toast(r.daGhi ? `Đã cập nhật ${r.daGhi} ngày của thực đơn mẫu` : 'Tệp giống hệt mẫu đang có — không đổi gì', 'success');
+        this.taiKho();
+      } catch (err) { luu.disabled = false; UI.toast(err.message, 'error'); }
+    };
+  },
+
+  // ---- Thực đơn dự kiến ----
+  _doanSua: null,   // đoạn lịch đang sửa (null = đang đặt đoạn mới)
+  _thuTuSoan: [],
+
+  async taiDuKien() {
+    const zone = document.getElementById('menu-dukien');
+    if (!zone) return;
+    zone.innerHTML = '<div class="loading">Đang tải</div>';
+    try {
+      const duong = this.duongDanCoSo('/api/menu/lich-xoay');
+      const data = await API.get(duong);
+      this._dsMau = data.mau || [];
+      this._doan = data.doan || [];
+      this._duKien = data.duKien || [];
+      this._doanSua = null;
+      this._thuTuSoan = this._dsMau.map(m => m.id);
+      this.veDuKien(zone);
+    } catch (err) {
+      zone.innerHTML = UI.emptyState('😥', err.message || 'Không tải được thực đơn dự kiến');
+    }
+  },
+
+  veDuKien(zone) {
+    if (!this._dsMau.length) {
+      zone.innerHTML = UI.emptyState('📚', 'Kho chưa có thực đơn mẫu nào — thêm ở tab "Kho thực đơn mẫu" trước, rồi quay lại đây đặt lịch.');
+      return;
+    }
+    const sua = this._doanSua;
+    const homNay = UI.todayStr();
+    const thuTu = this._thuTuSoan.length ? this._thuTuSoan : [this._dsMau[0].id];
+    zone.innerHTML = `
+      <div class="card" id="mn-lich-form">
+        <div class="card-title">${sua ? '✏️ Sửa đoạn lịch' : '🗓️ Đặt lịch xoay vòng'}</div>
+        <div class="muted small" style="line-height:1.6;margin-bottom:8px">
+          Từ tuần bắt đầu, mỗi tuần dùng một thực đơn theo thứ tự dưới đây; hết lượt thì quay lại thực đơn đầu.
+          Ngày bắt đầu giữa tuần thì app tính từ Thứ Hai của tuần đó.
+          Những ngày đã qua (tới hôm nay) giữ nguyên thực đơn đã đăng, thực đơn mẫu chỉ áp từ ngày mai.
+        </div>
+        <div class="grid-2">
+          <div class="field" style="margin-bottom:8px"><label for="mn-lich-tu">Từ ngày</label>
+            <input type="date" id="mn-lich-tu" value="${UI.esc(sua ? sua.tuNgay : homNay)}"></div>
+          <div class="field" style="margin-bottom:8px"><label for="mn-lich-den">Đến ngày</label>
+            <input type="date" id="mn-lich-den" value="${UI.esc(sua ? sua.denNgay : '')}"></div>
+        </div>
+        <label class="small" style="font-weight:700">Thứ tự dùng</label>
+        <div id="mn-lich-thu-tu">
+          ${thuTu.map((id, i) => `
+            <div class="field" style="margin:6px 0;display:flex;gap:8px;align-items:center">
+              <span class="small muted" style="min-width:52px">Tuần ${i + 1}</span>
+              <select data-thu-tu="${i}" style="flex:1;min-width:0">
+                ${this._dsMau.map(m => `<option value="${UI.esc(m.id)}" ${m.id === id ? 'selected' : ''}>${UI.esc(m.ten || `Thực đơn ${m.so}`)}</option>`).join('')}
+              </select>
+            </div>`).join('')}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px">
+          <button class="btn sm outline" id="mn-lich-them-tuan">+ Thêm tuần</button>
+          ${thuTu.length > 1 ? '<button class="btn sm outline" id="mn-lich-bot-tuan">− Bớt tuần</button>' : ''}
+        </div>
+        <div class="grid-2">
+          ${sua ? '<button class="btn outline" id="mn-lich-bo-sua">Thôi sửa</button>' : '<span></span>'}
+          <button class="btn primary" id="mn-lich-luu">${UI.icon('check', 18)} ${sua ? 'Lưu đoạn lịch' : 'Đặt lịch'}</button>
+        </div>
+      </div>
+      ${this._doan.length ? `<div class="card">
+        <div class="card-title">Các đoạn lịch đang dùng</div>
+        ${this._doan.map(d => `
+          <div class="list-row" style="align-items:flex-start;flex-wrap:wrap;gap:8px">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(this.ddmmyyyy(d.tuNgay))} → ${UI.esc(this.ddmmyyyy(d.denNgay))}</div>
+              <div class="row-sub">${d.thuTu.map(id => UI.esc(this.tenMau(id))).join(' → ')} → quay lại</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn sm outline" data-sua-doan="${UI.esc(d.id)}">Sửa</button>
+              <button class="btn sm outline" data-huy-doan="${UI.esc(d.id)}">Huỷ</button>
+            </div>
+          </div>`).join('')}
+      </div>` : ''}
+      <div class="card">
+        <div class="card-title">12 tuần tới</div>
+        <div class="muted small" style="margin-bottom:4px">Bấm một tuần để xem và sửa riêng tuần đó.</div>
+        ${this._duKien.map(t => `
+          <button type="button" class="list-row" data-mo-tuan="${UI.esc(t.thuHai)}" style="width:100%;text-align:left;background:none">
+            <div class="row-main">
+              <div class="row-title">${UI.esc(this.tenTuan(t.thuHai))}</div>
+              <div class="row-sub">${t.mau ? `${UI.esc(t.mau.ten)}${t.tuLichChung ? ' (lịch dùng chung)' : ''}` : 'Chưa có thực đơn mẫu'}${t.soNgaySuaRieng ? ` · ${UI.esc(String(t.soNgaySuaRieng))} ngày sửa riêng` : ''}</div>
+            </div>
+            ${UI.icon('chevron', 16)}
+          </button>`).join('')}
+      </div>`;
+    const docThuTu = () => [...zone.querySelectorAll('[data-thu-tu]')].map(s => s.value);
+    document.getElementById('mn-lich-them-tuan').onclick = () => {
+      const ds = docThuTu();
+      const tiep = this._dsMau[ds.length % this._dsMau.length];
+      this._thuTuSoan = [...ds, tiep.id];
+      this.giuForm(zone);
+    };
+    const bot = document.getElementById('mn-lich-bot-tuan');
+    if (bot) bot.onclick = () => { this._thuTuSoan = docThuTu().slice(0, -1); this.giuForm(zone); };
+    const boSua = document.getElementById('mn-lich-bo-sua');
+    if (boSua) boSua.onclick = () => { this._doanSua = null; this._thuTuSoan = this._dsMau.map(m => m.id); this.veDuKien(zone); };
+    document.getElementById('mn-lich-luu').onclick = () => this.luuLich(docThuTu());
+    for (const b of zone.querySelectorAll('[data-sua-doan]')) {
+      b.onclick = () => {
+        this._doanSua = this._doan.find(d => d.id === b.dataset.suaDoan) || null;
+        this._thuTuSoan = this._doanSua ? [...this._doanSua.thuTu] : [];
+        this.veDuKien(zone);
+        document.getElementById('mn-lich-form').scrollIntoView({ block: 'start' });
+      };
+    }
+    for (const b of zone.querySelectorAll('[data-huy-doan]')) b.onclick = () => this.huyLich(b.dataset.huyDoan);
+    for (const b of zone.querySelectorAll('[data-mo-tuan]')) b.onclick = () => this.moTuan(b.dataset.moTuan);
+  },
+
+  // Vẽ lại form mà không mất hai ô ngày đang gõ.
+  giuForm(zone) {
+    const tu = document.getElementById('mn-lich-tu').value;
+    const den = document.getElementById('mn-lich-den').value;
+    this.veDuKien(zone);
+    document.getElementById('mn-lich-tu').value = tu;
+    document.getElementById('mn-lich-den').value = den;
+  },
+
+  async luuLich(thuTu) {
+    const tuNgay = document.getElementById('mn-lich-tu').value;
+    const denNgay = document.getElementById('mn-lich-den').value;
+    if (!tuNgay || !denNgay) return UI.toast('Chọn ngày bắt đầu và ngày kết thúc nhé', 'error');
+    try {
+      // Máy chủ đưa ngày bắt đầu về Thứ Hai của tuần đó: nói ra cho văn phòng biết.
+      const tuThuHai = (kq) => (kq && kq.lich && kq.lich.tuNgay && kq.lich.tuNgay !== tuNgay
+        ? ` (tính từ Thứ Hai ${this.ddmmyyyy(kq.lich.tuNgay)})` : '');
+      if (this._doanSua) {
+        const kq = await API.put(`/api/menu/lich-xoay/${encodeURIComponent(this._doanSua.id)}`, { tuNgay, denNgay, thuTu });
+        UI.toast(`Đã lưu đoạn lịch${tuThuHai(kq)}`, 'success');
+      } else {
+        const kq = await API.post('/api/menu/lich-xoay', { campusId: this._coSo || '', tuNgay, denNgay, thuTu });
+        UI.toast(`Đã đặt lịch${tuThuHai(kq)} — các tuần trong đoạn tự lấy thực đơn theo thứ tự`, 'success');
+      }
+      await this.taiDuKien();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  async huyLich(id) {
+    if (!confirm('Huỷ đoạn lịch này? Tuần đã qua giữ nguyên món đã ăn; các tuần sắp tới thôi lấy từ thực đơn mẫu.')) return;
+    try {
+      await API.post(`/api/menu/lich-xoay/${encodeURIComponent(id)}/huy`, {});
+      UI.toast('Đã huỷ đoạn lịch', 'success');
+      await this.taiDuKien();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // Mở tab tuần ở đúng một tuần (có thể xa hơn "Tuần sau") để sửa riêng.
+  async moTuan(thuHai) {
+    this._tuanChon = thuHai;
+    this.tab = 'tuan';
+    await this.render(this._root);
   },
 };

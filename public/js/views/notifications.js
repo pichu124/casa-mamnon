@@ -1,6 +1,7 @@
 // Phân hệ Thông báo.
-// Danh sách thông báo (ghim trước, mới nhất trước), đánh dấu đã đọc,
-// giáo viên tạo thông báo gửi nhóm mình hoặc toàn trường.
+// Danh sách thông báo (ghim trước, mới nhất trước), đánh dấu đã đọc. Cô gửi
+// cho cả nhóm hoặc vài gia đình tích chọn; văn phòng gửi thêm được toàn trường
+// và ghim / bỏ ghim (Đ260b).
 App.views.notifications = {
   CATS: {
     'Nhà trường': { emoji: '🏫', bg: '#e6efff' },
@@ -9,6 +10,8 @@ App.views.notifications = {
     'Học phí': { emoji: '💳', bg: '#fef0e0' },
   },
   DEFAULT_CAT: { emoji: '📣', bg: '#eef1f5' },
+  // Đ260l: gia đình chỉ thấy tin từ ngày bé nhập học — kể cả tin ghim.
+  GOI_Y_NHAP_HOC: 'Gia đình nhập học sau ngày đăng sẽ không thấy tin này — cần thì gửi lại.',
   _list: [],
   _root: null,
   _aud: 'class',
@@ -58,12 +61,14 @@ App.views.notifications = {
     // `_list` CHỈ là thông báo nhà trường, nên `bo` = độ dài của nó vẫn đúng.
     // Tin riêng về con (Đ137) nằm ở `_rieng`, tải một lần ở lượt đầu, và chỉ
     // ghép lúc VẼ (`danhSachVe`) — hai nguồn không giẫm lên con đếm của nhau.
+    //
+    // Cô, văn phòng, quản lý có chuông riêng (Đ260c) ở `/rieng-nv`: cùng hình
+    // dạng, cùng chỗ `_rieng`, cùng cách ghép.
     const laDau = this._list.length === 0;
+    const duongRieng = App.state.user.role === 'parent' ? '/api/notifications/rieng-be' : '/api/notifications/rieng-nv';
     const [them, rieng] = await Promise.all([
       API.get(`/api/notifications?bo=${this._list.length}&soLuong=${this.MOI_TRANG}`),
-      laDau && App.state.user.role === 'parent'
-        ? API.get('/api/notifications/rieng-be').catch(() => [])
-        : Promise.resolve(null),
+      laDau ? API.get(duongRieng).catch(() => []) : Promise.resolve(null),
     ]);
     this._list = this._list.concat(them);
     if (rieng) this._rieng = rieng;
@@ -124,14 +129,20 @@ App.views.notifications = {
 
   // Đ124: thông báo phải nói rõ gửi cho ai — "Toàn trường" hay "Nhóm Chồi 2 ·
   // Cơ sở 1". Máy chủ đời cũ không trả hai ô này thì chuỗi rỗng, dòng như cũ.
+  // Đ260b: tin gửi riêng vài gia đình nói thêm "· 2 gia đình" (chỉ cô và văn
+  // phòng nhận ô `soBeNhan`).
   chuPhamVi(n) {
     if (n.toanTruong) return 'Toàn trường';
-    if (n.tenNhom) return `Nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`;
+    if (n.tenNhom) return `Nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}${n.soBeNhan ? ` · ${n.soBeNhan} gia đình` : ''}`;
     return '';
   },
   theoPhamVi(n) {
     if (n.toanTruong) return UI.badge('Gửi toàn trường', 'purple');
-    if (n.tenNhom) return UI.badge(`Gửi nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`, 'blue');
+    if (n.tenNhom) {
+      return UI.badge(n.soBeNhan
+        ? `Gửi riêng ${n.soBeNhan} gia đình nhóm ${n.tenNhom}`
+        : `Gửi nhóm ${n.tenNhom}${n.tenCoSo ? ` · ${n.tenCoSo}` : ''}`, 'blue');
+    }
     return '';
   },
 
@@ -148,16 +159,26 @@ App.views.notifications = {
   LOAI_RIENG: {
     'toi-lop': '📷', nhatky: '📔', 'suc-khoe': '🩺', album: '🖼️', 'bao-cao': '📘',
     'hanh-trinh': '🌱', 'ke-hoach': '🧭', cambridge: '🎓', 'dan-thuoc': '💊', 'xin-nghi': '📝',
+    // Chuông riêng của cô / văn phòng / quản lý (Đ260c).
+    'xin-nghi-ket-qua': '📝', 'xin-nghi-huy': '📝', 'tin-nhan': '💬', 'khao-sat': '📋',
+    'ke-hoach-gui': '🧭', 'ke-hoach-duyet': '🧭', 'ke-hoach-tra-lai': '🧭', 'de-xuat': '🧭', 'de-xuat-quyet': '🧭',
+    'bao-cao-gui': '📘', 'bao-cao-duyet': '📘', 'bao-cao-tra-lai': '📘', 'lien-he-khan': '☎️',
+  },
+
+  // Dòng phụ của tin riêng: về bé nào (hoặc nhóm nào), và mấy lần nếu đã gộp.
+  dongPhuRieng(n, coGio = true) {
+    const ve = n.tenBe ? `Về bé ${n.tenBe}` : (n.tenNhom ? `Nhóm ${n.tenNhom}` : '');
+    return [ve, n.soLan > 1 ? `${n.soLan} lần` : '', coGio ? UI.timeAgo(n.createdAt) : ''].filter(Boolean).join(' · ');
   },
 
   rowHtml(n) {
-    if (n.laRiengBe) {
+    if (n.laRiengBe || n.laRiengNv) {
       return `
       <div class="list-row clickable"${n.read ? '' : ' style="background:#f0f6ff;border-radius:10px"'} onclick="App.views.notifications.showDetail('${UI.esc(n.id)}')">
         <div class="row-icon" style="background:#e3f7ec;font-size:20px">${this.LOAI_RIENG[n.loai] || '🔔'}</div>
         <div class="row-main">
           <div class="row-title">${n.read ? '' : '<span style="color:var(--primary)">●</span> '}${UI.esc(n.title)}</div>
-          <div class="row-sub">Về bé ${UI.esc(n.tenBe || '')} · ${UI.esc(UI.timeAgo(n.createdAt))}</div>
+          <div class="row-sub">${UI.esc(this.dongPhuRieng(n))}</div>
         </div>
         <span class="muted">${UI.icon('chevron', 18)}</span>
       </div>`;
@@ -179,7 +200,7 @@ App.views.notifications = {
   async showDetail(id) {
     const n = this.timTin(id);
     if (!n) return;
-    if (n.laRiengBe) return this.moTinRiengBe(n);
+    if (n.laRiengBe || n.laRiengNv) return this.moTinRiengBe(n);
     // G2 (góp ý 20/10): thông báo khảo sát mở thẳng khảo sát. Người sửa / thu
     // hồi được thông báo này thì vẫn vào hộp chi tiết, có thêm nút mở.
     if (this.coLienKet(n) && !n.coTheSua) return this.moLienKet(n.id);
@@ -197,6 +218,10 @@ App.views.notifications = {
         n.daSua ? ` · đã chỉnh sửa lúc ${UI.esc(UI.fmtTime(n.suaLuc))} ${UI.esc(UI.fmtDateShort(n.suaLuc))}` : ''}</div>
       ${this.coLienKet(n) ? `
         <button class="btn primary block mt-14" onclick="App.views.notifications.moLienKet('${UI.esc(n.id)}')">${UI.esc(this.chuLienKet(n))}</button>` : ''}
+      ${App.state.user.role === 'admin' ? `
+        <button class="btn outline block mt-14" onclick="App.views.notifications.datGhim('${UI.esc(n.id)}', ${n.pinned ? 'false' : 'true'})">${
+          n.pinned ? 'Bỏ ghim' : '📌 Ghim lên đầu'}</button>
+        <div class="hint" id="nt-ct-goi-y">${UI.esc(this.GOI_Y_NHAP_HOC)}</div>` : ''}
       ${n.coTheSua ? `
         <div class="flex mt-14" style="gap:8px">
           <button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>
@@ -214,7 +239,26 @@ App.views.notifications = {
   },
 
   coLienKet(n) { return !!(n && n.lienKet && /^#\//.test(n.lienKet)); },
-  chuLienKet(n) { return /^#\/surveys\//.test(n.lienKet) ? 'Mở khảo sát' : 'Mở'; },
+  // Nút nói đúng nơi sẽ mở ra (Đ260b).
+  chuLienKet(n) {
+    const lk = String((n && n.lienKet) || '');
+    if (/^#\/surveys(\/|$)/.test(lk)) return 'Mở khảo sát';
+    if (/^#\/albums(\/|$)/.test(lk)) return 'Xem album';
+    if (/^#\/menu(\/|$)/.test(lk)) return 'Xem thực đơn';
+    if (/^#\/timetable\/lich(\/|$)/.test(lk)) return 'Xem lịch sinh hoạt';
+    return 'Xem chi tiết';
+  },
+
+  // GHIM / BỎ GHIM (Đ260b) — chỉ văn phòng, ban giám hiệu; máy chủ tự chặn vai
+  // khác và tin của cơ sở khác.
+  async datGhim(id, ghim) {
+    try {
+      await API.put(`/api/notifications/${encodeURIComponent(id)}`, { pinned: !!ghim });
+      UI.toast(ghim ? 'Đã ghim thông báo lên đầu' : 'Đã bỏ ghim thông báo', 'success');
+      UI.closeModal();
+      App.route();
+    } catch (err) { UI.toast(err.message, 'error'); }
+  },
 
   // Đánh dấu đã đọc rồi mở màn của liên kết. Màn đích tự hỏi máy chủ, nên
   // liên kết không mở thêm quyền nào.
@@ -235,12 +279,13 @@ App.views.notifications = {
       try { await API.post(`/api/notifications/${n.id}/read`); n.read = true; this.paint(); App.refreshBadges(); } catch (_) {}
     }
     if (n.hash && /^#\//.test(n.hash)) {
-      if (n.studentId && typeof App.setStudent === 'function') { try { App.setStudent(n.studentId); } catch (_) {} }
+      // Chỉ gia đình chọn bé theo tin: màn của cô và văn phòng tự vẽ cả nhóm.
+      if (n.laRiengBe && n.studentId && typeof App.setStudent === 'function') { try { App.setStudent(n.studentId); } catch (_) {} }
       location.hash = n.hash;
       return;
     }
     UI.modal(`
-      <div class="flex mb-8">${UI.badge(`Về bé ${n.tenBe || ''}`, 'green')}</div>
+      <div class="flex mb-8">${UI.badge(this.dongPhuRieng(n, false) || 'Việc của mình', 'green')}</div>
       <h3 style="margin:6px 0 8px">${UI.esc(n.title)}</h3>
       <div style="white-space:pre-wrap;font-size:.94rem;line-height:1.55">${UI.esc(n.body || '')}</div>
       <div class="muted small mt-14">${UI.esc(UI.fmtDate(n.createdAt))} lúc ${UI.esc(UI.fmtTime(n.createdAt))}</div>
@@ -273,6 +318,7 @@ App.views.notifications = {
     const nhom = App.nhomCuaCo().filter(c => !coSo || c.campusId === coSo);
     const laVanPhong = App.state.user.role === 'admin';
     const canChonNhom = laVanPhong || nhom.length > 1;
+    this._dsBe = null;
     UI.modal(`
       <div class="field">
         <label>Tiêu đề</label>
@@ -295,27 +341,92 @@ App.views.notifications = {
       <div class="field">
         <label>Phạm vi gửi</label>
         <div class="seg" id="nt-aud" style="margin-bottom:0">
-          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Nhóm mình'}</button>
-          <button data-aud="all" onclick="App.views.notifications.setAud('all')">Toàn trường</button>
+          <button class="active" data-aud="class" onclick="App.views.notifications.setAud('class')">${laVanPhong ? 'Một nhóm lớp' : 'Cả nhóm'}</button>
+          <button data-aud="chon" onclick="App.views.notifications.setAud('chon')">Chọn gia đình</button>
+          ${laVanPhong ? `<button data-aud="all" onclick="App.views.notifications.setAud('all')">Toàn trường</button>` : ''}
         </div>
       </div>
       ${canChonNhom ? `
       <div class="field" id="nt-lop-o">
         <label>Gửi cho nhóm</label>
-        <select id="nt-lop">
+        <select id="nt-lop" onchange="App.views.notifications.doiNhomChon('nt')">
           ${nhom.map(c => `<option value="${UI.esc(c.id)}">${UI.esc(this.nhanNhom(c))}</option>`).join('')}
         </select>
+      </div>` : ''}
+      <div class="field" id="nt-gd-o" style="display:none">
+        <label>Gia đình nhận</label>
+        <div id="nt-gd"></div>
+      </div>
+      ${laVanPhong ? `
+      <div class="field">
+        <label class="flex" style="gap:8px;font-weight:600"><input type="checkbox" id="nt-ghim"> 📌 Ghim lên đầu danh sách</label>
+        <div class="hint" id="nt-ghim-goi-y">${UI.esc(this.GOI_Y_NHAP_HOC)}</div>
       </div>` : ''}
       <button class="btn primary block" onclick="App.views.notifications.submitCreate()">${UI.icon('send', 18)} Gửi thông báo</button>
     `, 'Tạo thông báo');
   },
 
+  // PHẠM VI GỬI (Đ260b). Toàn trường là việc của văn phòng, ban giám hiệu; cô
+  // gửi cho cả nhóm, hoặc tích chọn vài gia đình. Máy chủ chặn cô gửi toàn
+  // trường bằng 403 — nút ấy không có trên màn của cô để không ai bấm vào một
+  // lỗi. Ba hàm dưới dùng chung với form Tạo khảo sát (public/js/views/
+  // surveys.js); `tienTo` là 'nt' hoặc 'sv'.
+  //
+  // Đổi phạm vi: ô nhóm khi gửi một nhóm, danh sách tích khi chọn gia đình.
+  doiPhamVi(tienTo, aud) {
+    document.querySelectorAll(`#${tienTo}-aud button`).forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
+    const lop = document.getElementById(`${tienTo}-lop-o`);
+    if (lop) lop.style.display = aud === 'all' ? 'none' : '';
+    const gd = document.getElementById(`${tienTo}-gd-o`);
+    if (gd) gd.style.display = aud === 'chon' ? '' : 'none';
+    if (aud === 'chon') this.veChonGiaDinh(tienTo);
+  },
+
+  doiNhomChon(tienTo) {
+    const gd = document.getElementById(`${tienTo}-gd-o`);
+    if (gd && gd.style.display !== 'none') this.veChonGiaDinh(tienTo);
+  },
+
+  // Danh sách bé của nhóm đang chọn, mỗi bé một ô tích "Gia đình bé …".
+  // `/api/students` đã cắt theo phạm vi người hỏi (cô: nhóm mình; văn phòng:
+  // cơ sở mình). Cô một nhóm không có ô chọn nhóm: mọi bé đều của nhóm ấy.
+  _dsBe: null,
+  async veChonGiaDinh(tienTo) {
+    const o = document.getElementById(`${tienTo}-gd`);
+    if (!o) return;
+    const lop = document.getElementById(`${tienTo}-lop`);
+    const nhom = lop ? lop.value : '';
+    o.innerHTML = '<div class="muted small">Đang tải danh sách bé…</div>';
+    let ds = [];
+    try {
+      if (!this._dsBe) this._dsBe = await API.get('/api/students');
+      ds = this._dsBe.filter(b => !nhom || b.classId === nhom);
+    } catch (err) {
+      o.innerHTML = `<div class="muted small">${UI.esc(err.message)}</div>`;
+      return;
+    }
+    o.innerHTML = ds.length ? `
+      <label class="flex" style="gap:8px;padding:6px 0;font-weight:600">
+        <input type="checkbox" id="${tienTo}-gd-tat-ca"> Chọn tất cả
+      </label>
+      ${ds.map(b => `
+      <label class="flex" style="gap:8px;padding:6px 0">
+        <input type="checkbox" class="${tienTo}-gd-be" value="${UI.esc(b.id)}"> Gia đình bé ${UI.esc(b.name)}
+      </label>`).join('')}`
+      : '<div class="muted small">Nhóm này chưa có bé nào.</div>';
+    const tatCa = document.getElementById(`${tienTo}-gd-tat-ca`);
+    const cacO = [...o.querySelectorAll(`.${tienTo}-gd-be`)];
+    if (tatCa) tatCa.onchange = () => cacO.forEach(c => { c.checked = tatCa.checked; });
+    cacO.forEach(c => { c.onchange = () => { if (tatCa) tatCa.checked = cacO.every(x => x.checked); }; });
+  },
+
+  beDaChon(tienTo) {
+    return [...document.querySelectorAll(`.${tienTo}-gd-be:checked`)].map(c => c.value);
+  },
+
   setAud(aud) {
     this._aud = aud;
-    document.querySelectorAll('#nt-aud button').forEach(b => b.classList.toggle('active', b.dataset.aud === aud));
-    // Ô chọn nhóm chỉ có nghĩa khi gửi cho một nhóm.
-    const o = document.getElementById('nt-lop-o');
-    if (o) o.style.display = aud === 'class' ? '' : 'none';
+    this.doiPhamVi('nt', aud);
   },
 
   async submitCreate() {
@@ -324,9 +435,15 @@ App.views.notifications = {
     const category = document.getElementById('nt-cat').value;
     if (!title) return UI.toast('Vui lòng nhập tiêu đề thông báo', 'error');
     if (!body) return UI.toast('Vui lòng nhập nội dung thông báo', 'error');
-    const goi = { title, body, category, audience: this._aud };
+    const goi = { title, body, category, audience: this._aud === 'all' ? 'all' : 'class' };
     const lop = document.getElementById('nt-lop');
-    if (this._aud === 'class' && lop) goi.classId = lop.value;
+    if (this._aud !== 'all' && lop) goi.classId = lop.value;
+    if (this._aud === 'chon') {
+      goi.nguoiNhan = this.beDaChon('nt');
+      if (!goi.nguoiNhan.length) return UI.toast('Vui lòng tích chọn ít nhất một gia đình', 'error');
+    }
+    const ghim = document.getElementById('nt-ghim');
+    if (ghim && ghim.checked) goi.pinned = true;
     try {
       await API.post('/api/notifications', goi);
       UI.toast('Đã gửi thông báo', 'success');
@@ -376,6 +493,27 @@ App.views.notifications = {
     };
   },
 
+  // MỞ MỘT MÀN LÀ ĐÃ ĐỌC CHUÔNG CỦA MÀN ẤY (Đ260c).
+  //
+  // Cô mở màn Xin phép thì dòng "Gia đình xin nghỉ cho bé…" thôi đỏ; máy chủ
+  // tự bỏ qua dòng phải mở đúng mục mới tính (tin nhắn: mở đúng cuộc). Chỉ hỏi
+  // khi chuông đang có số, nên không thêm lượt gọi nào cho người không có việc.
+  // Mở thẳng một màn bằng tải lại trang thì không có `hashchange` — dòng tắt
+  // ở lần đổi màn kế tiếp.
+  daXemMan() {
+    try {
+      const u = App.state.user;
+      if (!u || u.role === 'parent') return;
+      if (typeof App.moduleEnabled === 'function' && !App.moduleEnabled('notifications')) return;
+      if (!((App.state.badges || {}).thongbao > 0)) return;
+      const man = (location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] || '');
+      if (!man || man === 'notifications') return;
+      API.post('/api/notifications/rieng-nv/da-xem', { man })
+        .then((r) => { if (r && r.marked) App.refreshBadges(); })
+        .catch(() => { /* chuông là việc phụ */ });
+    } catch (_) { /* không bao giờ chặn việc đổi màn */ }
+  },
+
   hoiThuHoi(id) {
     const n = this._list.find(x => x.id === id);
     if (!n) return;
@@ -401,3 +539,9 @@ App.views.notifications = {
     };
   },
 };
+
+// Gắn MỘT lần khi tệp nạp (index.html nạp sẵn tệp này), không đợi mở màn Thông báo.
+window.addEventListener('hashchange', () => {
+  const v = App.views && App.views.notifications;
+  if (v && typeof v.daXemMan === 'function') v.daXemMan();
+});

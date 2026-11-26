@@ -76,6 +76,22 @@ function ganCoNuocNgoai(db) {
   });
 }
 
+// PHÒNG TRAO ĐỔI CHUNG MẪU (Đ260k): cv4 là phòng của nhóm Chồi 2, và vài gia
+// đình đã ghi quan hệ với bé để phòng hiện "Mẹ bé …", "Bố bé …". Nhà p5 cố ý
+// chưa ghi — màn hình phải chịu được "Phụ huynh bé …".
+const QUAN_HE_MAU = [['s1', 'p1', 'Mẹ'], ['s3', 'p2', 'Bố'], ['s4', 'p3', 'Bố'], ['s5', 'p4', 'Mẹ']];
+function ganPhongNhomMau(db) {
+  const luc = new Date().toISOString();
+  db.tx(() => {
+    for (const [studentId, parentId, quanHe] of QUAN_HE_MAU) {
+      db.run(`INSERT OR REPLACE INTO quan_he_phu_huynh (studentId, parentId, quanHe, ghiLuc)
+              VALUES (?, ?, ?, ?)`, [studentId, parentId, quanHe, luc]);
+    }
+    db.run(`INSERT OR IGNORE INTO phong_nhom (conversationId, classId, taoBoi, taoLuc)
+            VALUES ('cv4', 'c1', 't1', ?)`, [luc]);
+  });
+}
+
 // Dữ liệu mẫu cho TÁM PHÂN HỆ MẦM NON.
 //
 // VÌ SAO TÁCH RA MỘT TỆP RIÊNG
@@ -112,7 +128,7 @@ const BANG = [
   'nhatky_gui', 'nhatky_vesinh', 'nhatky_bua', 'nhatky_ngay',
   'tienan_chot',
   'hanhtrinh_nhap', 'hanhtrinh_quansat', 'hanhtrinh_chude',
-  'kehoachbe_bai_muc_do', 'kehoachbe_de_xuat_ct', 'kehoachbe_ke_ct', 'kehoachbe_muc', 'kehoachbe_ke',
+  'kehoachbe_bai_muc_do', 'kehoachbe_muc_bai', 'kehoachbe_de_xuat_ct', 'kehoachbe_ke_ct', 'kehoachbe_muc', 'kehoachbe_ke',
   'cambridge_anh_be', 'cambridge_bai',
   'thuchup_ghinhanh',
   'hocphi_khoan',
@@ -345,6 +361,34 @@ function sinh(db, moc) {
         nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc(daysAgo(4), 9),
       });
     });
+    if (k.sid === 's1') themBaiChoBeAn(keId);
+  }
+
+  // BÀI TỪ KHO CHO BÉ AN (góp ý 18/11): bản đã duyệt của bé có cả bài tích từ
+  // kho — Cambridge chia Maths / Let's Explore / Communication and Language —
+  // để người của trường mở màn gia đình và Hành trình là thấy ngay. Kho dựng
+  // bằng đúng hàm máy chủ dùng; bài tra theo tên, kho đã đổi tên thì bỏ qua.
+  function themBaiChoBeAn(keId) {
+    try {
+      require(path.join(MODULES_DIR, 'kehoachbe', 'routes.js')).napDanhMuc(db);
+    } catch (err) {
+      console.warn(`  (không dựng được kho bài của Kế hoạch: ${err.message})`);
+      return;
+    }
+    for (const [goc, ten, nhan] of [
+      ['cambridge', 'Shapes', 'hoc-moi'], ['cambridge', 'Numbers 1–10', 'on-tap'],
+      ['cambridge', 'Animals', 'hoc-moi'], ['cambridge', 'Colours', 'mo-rong'],
+      ['thuc-hanh-cuoc-song', 'Rót nước', 'on-tap'], ['toan', 'Gậy số', 'hoc-moi'],
+      ['the-chat', 'Ném bóng trúng đích', 'hoc-moi'],
+    ]) {
+      const b = db.first('kehoachbe_baihoc',
+        'SELECT id FROM kehoachbe_baihoc WHERE gocLinhVuc = ? AND ten = ? AND active = 1 ORDER BY rowid LIMIT 1', [goc, ten]);
+      if (!b) continue;
+      them('kehoachbe_muc_bai', {
+        id: ma('kmb'), keId, baiHocId: b.id, nhan,
+        ketQua: '', nhanXet: '', tiepTucThangSau: 0, capNhatLuc: luc(daysAgo(4), 9),
+      });
+    }
   }
 
   // ---- KẾ HOẠCH GIÁO DỤC CHUNG CẢ TRƯỜNG, THEO TUẦN (góp ý 06/10, mục 4) ----
@@ -389,9 +433,11 @@ function sinh(db, moc) {
   });
   // Màn Cambridge mở sẵn ở tab Letter for Parent (góp ý 06/10) — dữ liệu mẫu
   // cần ít nhất một lá thư, kẻo người bấm thử mở ra thấy tab đầu trống trơn.
+  // Thư viết theo tuần của block ("Block 1, Week 3"), không theo tháng: gia
+  // đình chỉ đọc thư của thời gian đang áp dụng (góp ý 18/11 — Đ260m).
   them('cambridge_bai', {
-    id: ma('cb'), loai: 'thu-phu-huynh', tieuDe: 'Thư gửi gia đình: tháng này các con học gì',
-    noiDung: 'Tháng này các con làm quen với màu sắc và các con số từ 1 đến 5 bằng tiếng Anh.\n\n'
+    id: ma('cb'), loai: 'thu-phu-huynh', tieuDe: 'Block 1, Week 3: Colours and numbers',
+    noiDung: 'Tuần này các con làm quen với màu sắc và các con số từ 1 đến 5 bằng tiếng Anh.\n\n'
       + 'Ở nhà, gia đình hỏi con "What colour is it?" khi cùng con xếp đồ chơi nhé.',
     tuan: tuanNay, phamVi: 'truong', campusId: '', classId: '', anh: '',
     congBoLuc: luc(daysAgo(3), 16), nguoiDang: '',
@@ -1210,6 +1256,11 @@ function generate() {
 
   const stats = importSnapshot(db);
   ganCoNuocNgoai(require('../lib/db'));
+  // Ba trạng thái đồng ý ở trên là CỐ Ý, kể cả bé chưa nộp giấy: đánh dấu đã
+  // qua bước điền "đồng ý theo giấy nhập học" (Đ260i) để máy chủ không điền lấp
+  // chúng — các bài canh luật "chưa trả lời ≠ đồng ý" cần đúng những bé đó.
+  require('../lib/dong-y-mac-dinh').danhDauDaChay({ duLieuMau: true });
+  ganPhongNhomMau(require('../lib/db'));
 
   // DỮ LIỆU MẪU CHO TÁM PHÂN HỆ MẦM NON.
   //

@@ -147,14 +147,26 @@ App.views.albums = {
 
   // Khung ảnh dùng chung: ảnh thật thì hiện ảnh, ảnh cũ thì hiện emoji trên nền màu.
   thumb(photo, albumId, extraStyle = '') {
-    // Ô video trong lưới KHÔNG tự phát và không tự tải.
+    // Ô video trong lưới KHÔNG tự phát, chỉ tải phần đầu để có ảnh bìa.
     //
-    // `preload="none"` là chủ ý: một album 20 video mà mỗi ô tải sẵn vài trăm
-    // KB là gia đình mở album ra hết vài chục MB dữ liệu 4G mà chưa xem gì.
+    // Trước Đ260f là `preload="none"` để đỡ tốn 4G, nhưng ô nào cũng thành một
+    // ô đen — cô đăng xong tưởng video không lên (góp ý 18/11). `metadata` chỉ
+    // kéo phần đầu tệp (máy chủ trả theo từng đoạn), không kéo cả đoạn phim;
+    // `#t=0.1` để Safari trên iPhone vẽ khung hình đầu làm ảnh bìa.
+    // Không để `controls` trong lưới: chạm vào ô là mở màn xem lớn, có dấu ▶.
+    //
+    // Video máy chủ nén (Đ260f) có ảnh bìa riêng (`coBia`): ô lưới dùng nó làm
+    // poster và không tải gì của đoạn phim cho tới khi gia đình bấm xem.
     if (photo && photo.file && this.laVideo(photo)) {
-      return `<video src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}"
-        preload="none" playsinline controls
-        style="${extraStyle};width:100%;height:100%;object-fit:cover;background:#000"></video>`;
+      const src = `/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}`;
+      return `<div style="${extraStyle};position:relative;width:100%;height:100%;overflow:hidden;background:#000">
+        <video src="${src}${photo.coBia ? '' : '#t=0.1'}"${photo.coBia ? ` poster="${src}?bia=1"` : ''}
+          preload="${photo.coBia ? 'none' : 'metadata'}" playsinline
+          style="display:block;width:100%;height:100%;object-fit:cover"></video>
+        <div aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <span style="width:44px;height:44px;border-radius:50%;background:rgba(15,23,42,.6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;padding-left:3px">▶</span>
+        </div>
+      </div>`;
     }
     if (photo && photo.file) {
       return `<img src="/api/albums/${UI.esc(albumId)}/photo/${UI.esc(photo.id)}" alt="${UI.esc(photo.caption || 'Ảnh của nhóm')}"
@@ -452,7 +464,8 @@ App.views.albums = {
         // đoạn quay của con chỉ thấy một ô ảnh vỡ. Lưới bên ngoài đã phân
         // biệt đúng (this.laVideo) — màn phóng to dùng cùng một phép thử.
         ? (this.laVideo(p)
-          ? `<video src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" controls playsinline
+          ? `<video src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" controls playsinline${
+            p.coBia ? ` poster="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}?bia=1"` : ''}
                style="width:100%;max-height:66vh;border-radius:14px;background:#000"></video>`
           : `<img src="/api/albums/${UI.esc(a.id)}/photo/${UI.esc(p.id)}" alt="${UI.esc(p.caption || '')}"
              style="width:100%;max-height:66vh;object-fit:contain;border-radius:14px;background:var(--bg-2)">`)
@@ -466,6 +479,7 @@ App.views.albums = {
   // ================= Tạo album =================
   openCreate() {
     this._pending = [];
+    this._phien = {};   // lượt mở form này — xem `handleFiles`
     const nhom = this._nhomTao || [];
     UI.modal(`
       ${nhom.length > 1 ? `
@@ -504,6 +518,7 @@ App.views.albums = {
   // ================= Thêm ảnh vào album có sẵn =================
   openAddPhotos() {
     this._pending = [];
+    this._phien = {};
     UI.modal(`
       ${this.pickerMarkup()}
       <button class="btn primary block mt-14" id="al-submit">${UI.icon('plus', 18)} Tải ảnh lên</button>
@@ -519,19 +534,30 @@ App.views.albums = {
         <label>Ảnh và video</label>
         <input type="file" id="al-file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple style="display:none">
         <button class="btn outline block" id="al-pick">📷 Chọn ảnh hoặc video từ máy</button>
-        <div class="hint">
+        <div class="hint" id="al-pick-goi-y">
           Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp.
-          Ảnh tự thu nhỏ trước khi gửi. <b>Video thì không thu nhỏ được</b> — cô quay
-          khoảng 10–20 giây thôi nhé, một đoạn ngắn gia đình xem hết vẫn hơn một đoạn
-          dài tải mãi không xong.
+          Ảnh tự thu nhỏ trước khi gửi. <b>Video lớn phải nén trên máy của cô</b>, mất
+          khoảng bằng độ dài video — cô quay khoảng 10–20 giây, hoặc cắt ngắn trên điện
+          thoại trước khi chọn, thì gửi nhanh nhất.
         </div>
+        <div id="al-nen" class="mt-14"></div>
         <div id="al-preview" class="mt-14"></div>
       </div>`;
   },
 
   // Trần dung lượng video, PHẢI khớp với `MAX_VIDEO_BYTES` của máy chủ.
   // Bài canh đối chiếu hai con số này với nhau.
-  TRAN_VIDEO: 8 * 1024 * 1024,
+  TRAN_VIDEO: 25 * 1024 * 1024,
+
+  // Chất lượng bản nén (Đ260f, chủ dự án 25/11: mặc định 480px, 15 khung/giây
+  // của `UI.nenVideo` "chất lượng rất kém"). 720px, 24 khung/giây vẫn vừa trần
+  // 25 MB cho đoạn 3–5 phút vì ngân sách bit chia theo độ dài thật.
+  CANH_VIDEO: 720,
+  KHUNG_VIDEO: 24,
+  // Trần bitrate hình: mặc định 900 kbps của UI.nenVideo làm đoạn ~1 phút ở
+  // 720p vẫn vỡ khối. 2,5 Mbps cho hình rõ; đoạn dài hơn thì ngân sách theo
+  // độ dài tự hạ xuống cho vừa trần 25 MB.
+  BIT_VIDEO: 2500000,
 
   // Trần ĐỘ DÀI video. Nhà trường xin 3–5 phút; 6 phút rưỡi là chừa dư cho
   // đoạn quay lố mấy giây, mà vẫn chặn được đoạn nửa tiếng quay quên tắt.
@@ -557,124 +583,351 @@ App.views.albums = {
   // đầu, HỎI CÔ MỘT CÂU kèm con số phút phải chờ, thay vì lẳng lặng chiếm máy
   // của cô bốn phút rồi để cô đoán xem app có treo không.
   //
-  // Trả về data URL, hoặc `null` nếu cô bấm Thôi.
-  nenVideoCoCho(f) {
-    const soMB = Math.round(f.size / 1048576);
-    return new Promise((xong, hong) => {
-      UI.modal(`
-        <div class="center">
-          <div style="font-size:34px">🎬</div>
-          <h3 class="mt-8">Đoạn phim này nặng ${UI.esc(String(soMB))} MB</h3>
-        </div>
-        <div class="muted small mt-8" style="line-height:1.7">
-          Máy sẽ <b>nén nhỏ lại</b> ngay trên điện thoại của cô rồi mới gửi, để đoạn dài
-          3–5 phút vẫn gửi được. Đổi lại <b>hình sẽ mờ hơn</b> bản gốc — nhà trường đã chọn
-          như vậy để có video dài.
-          <br><br>
-          Nén mất <b>khoảng đúng bằng độ dài đoạn phim</b>. Trong lúc đó xin cô
-          <b>để nguyên màn hình này</b>, đừng khoá máy hay chuyển sang app khác — chuyển đi
-          là bản nén dở dang. Bản gốc trong máy cô <b>không bị đụng tới</b>.
-        </div>
-        <button class="btn primary block mt-14" id="al-nen-ok">Nén và gửi</button>
-        <button class="btn outline block mt-8" id="al-nen-thoi">Thôi, để lần khác</button>
-      `, 'Gửi video dài');
-
-      let daQuyet = false;
-      document.getElementById('al-nen-thoi').onclick = () => {
-        if (daQuyet) return;
-        daQuyet = true; UI.closeModal(); xong(null);
-      };
-      document.getElementById('al-nen-ok').onclick = async () => {
-        if (daQuyet) return;
-        daQuyet = true;
-        let boCuoc = false;
-        UI.modal(`
-          <div class="center">
-            <div style="font-size:34px">⏳</div>
-            <h3 class="mt-8">Đang nén video</h3>
-            <div class="muted small mt-8" id="al-nen-dongho">Đang chuẩn bị…</div>
-            <div class="muted small mt-8" style="line-height:1.7">
-              Xin cô để nguyên màn hình này tới khi xong.
+  // HỎI VÀ HIỆN TIẾN ĐỘ NGAY TRONG FORM, KHÔNG MỞ HỘP MỚI (Đ260f, góp ý 18/11:
+  // *"up xong thì không thấy đâu cả"*). Bản trước mở hai hộp bằng `UI.modal`,
+  // mà `UI.modal` luôn đóng hộp đang mở — tức là chính form "Tạo album" / "Thêm
+  // ảnh" với tên, mô tả và ô xem trước. Nén xong, video rơi vào danh sách chờ
+  // của một form không còn nữa. Nay mọi thứ nằm trong khối #al-nen của form.
+  //
+  // `conMo()` trả lời "form của lượt chọn tệp này còn mở không". Cô đóng form
+  // giữa chừng thì việc nén dừng (qua `huy`) và kết quả bị bỏ, không đổ vào
+  // form mở sau. Nhiều video lớn thì hỏi một lần, nén lần lượt từng video.
+  async nenLanLuot(ds, conMo) {
+    const khoi = document.getElementById('al-nen');
+    if (!khoi) return;
+    // Form đã khoá từ đầu lượt chọn tệp (`handleFiles`), mở lại khi lượt xong.
+    let dung = false;
+    try {
+      khoi.innerHTML = '<div class="muted small">Đang đọc độ dài video…</div>';
+      const doDai = await Promise.all(ds.map(f => this.doDoDaiVideo(f)));
+      if (!conMo()) return;
+      if (!await this.hoiTruocKhiNen(khoi, ds, doDai)) return;
+      for (let i = 0; i < ds.length && !dung; i += 1) {
+        const f = ds[i];
+        khoi.innerHTML = `
+          <div style="border-left:4px solid var(--info);padding:10px 12px;border-radius:10px;background:var(--bg-2)">
+            <div style="font-weight:700">⏳ Đang nén video</div>
+            <div class="muted small" style="word-break:break-all">${ds.length > 1 ? `Video ${i + 1}/${ds.length} · ` : ''}${UI.esc(f.name)}</div>
+            <progress id="al-nen-thanh" value="0" max="1" style="width:100%;margin-top:10px"></progress>
+            <div class="small" id="al-nen-dongho">Đang chuẩn bị…</div>
+            <div class="muted small mt-8" style="line-height:1.6">
+              Xin cô để nguyên màn hình này tới khi xong — video sẽ hiện ngay bên dưới.
             </div>
-          </div>
-          <button class="btn outline block mt-14" id="al-nen-dung">Dừng lại</button>
-        `, 'Đang nén video');
-        document.getElementById('al-nen-dung').onclick = () => { boCuoc = true; };
-
-        const phutGiay = (g) => `${Math.floor(g / 60)}:${String(Math.floor(g % 60)).padStart(2, '0')}`;
+            <button class="btn outline block mt-8" id="al-nen-dung">Dừng lại</button>
+          </div>`;
+        const nutDung = document.getElementById('al-nen-dung');
+        if (nutDung) {
+          nutDung.onclick = () => {
+            dung = true;
+            nutDung.disabled = true;
+            nutDung.textContent = 'Đang dừng…';
+          };
+        }
         try {
-          const data = await UI.nenVideo(f, {
+          const video = await UI.nenVideo(f, {
             tranByte: this.TRAN_VIDEO,
+            canhToiDa: this.CANH_VIDEO,
+            khung: this.KHUNG_VIDEO,
+            bitToiDa: this.BIT_VIDEO,
             toiDaGiay: this.TOI_DA_GIAY_VIDEO,
-            huy: () => boCuoc,
+            huy: () => dung || !conMo(),
             tien: ({ giay, tongGiay }) => {
-              const o = document.getElementById('al-nen-dongho');
-              if (o) o.textContent = `${phutGiay(giay)} / ${phutGiay(tongGiay)}`;
+              const dongHo = document.getElementById('al-nen-dongho');
+              if (dongHo) dongHo.textContent = `${this.phutGiay(giay)} / ${this.phutGiay(tongGiay)}`;
+              const thanh = document.getElementById('al-nen-thanh');
+              if (thanh && tongGiay > 0) { thanh.max = tongGiay; thanh.value = giay; }
             },
           });
-          UI.closeModal();
-          xong(data);
+          if (!conMo()) return;
+          this._pending.push({ video, caption: '', name: f.name, laVideo: true });
+          this.renderPreview();
         } catch (err) {
-          UI.closeModal();
-          // Máy không nén được thì nói bằng tiếng của trường, không để lọt một
-          // chữ tiếng Anh nào ra màn hình của cô.
-          hong(err && err.message === 'KHONG_NEN_DUOC'
-            ? new Error('Máy này chưa nén được video. Cô quay đoạn ngắn hơn '
-              + `(dưới ${Math.round(this.TRAN_VIDEO / 1048576)} MB) giúp trường nhé.`)
-            : err);
+          if (!conMo()) return;   // cô đã đóng form: không báo gì thêm
+          if (dung) {
+            UI.toast('Đã dừng nén video. Ảnh và video đã xong vẫn còn trong danh sách.');
+            break;
+          }
+          UI.toast(this.loiNen(err, f), 'error');
         }
-      };
+      }
+    } finally {
+      if (conMo()) khoi.innerHTML = '';
+    }
+  },
+
+  // Hỏi cô trước khi nén, ngay trong form. Trả về true nếu cô đồng ý nén.
+  hoiTruocKhiNen(khoi, ds, doDai) {
+    const tong = doDai.every(g => g > 0) ? doDai.reduce((a, g) => a + g, 0) : null;
+    const soMB = Math.max(1, Math.round(ds.reduce((a, f) => a + f.size, 0) / 1048576));
+    const uoc = this.uocLuongNen(tong);
+    const dau = ds.length === 1
+      ? `${tong ? `Video dài ${this.phutGiay(tong)}` : `Video nặng ${soMB} MB`} — nén mất ${uoc}, cô giữ màn hình mở nhé`
+      : `${ds.length} video${tong ? ` dài tổng cộng ${this.phutGiay(tong)}` : ''} — máy nén lần lượt từng video, `
+        + `mất ${uoc}, cô giữ màn hình mở nhé`;
+    khoi.innerHTML = `
+      <div style="border-left:4px solid var(--info);padding:10px 12px;border-radius:10px;background:var(--bg-2)">
+        <div style="font-weight:700">🎬 ${UI.esc(dau)}</div>
+        <div class="muted small mt-8" style="line-height:1.7">
+          Video nặng ${UI.esc(String(soMB))} MB nên máy sẽ <b>nén nhỏ lại</b> ngay trên máy của cô rồi
+          mới gửi. Đổi lại <b>hình sẽ mờ hơn</b> bản gốc; bản gốc trong máy cô <b>không bị đụng tới</b>.
+          Nén mất <b>khoảng đúng bằng độ dài đoạn phim</b>. Trong lúc đó xin cô
+          <b>để nguyên màn hình này</b>, đừng khoá máy hay chuyển sang app khác.
+          ${!tong || tong > 60 ? `<br>Video dài thì cô <b>cắt bớt ngay trên điện thoại</b> (mở video trong
+          thư viện ảnh, bấm <b>Sửa</b>) rồi chọn lại — nén và gửi sẽ nhanh hơn nhiều.` : ''}
+        </div>
+        <button class="btn primary block mt-14" id="al-nen-ok">Nén và gửi</button>
+        <button class="btn outline block mt-8" id="al-nen-thoi">${ds.length > 1 ? 'Bỏ qua các video này' : 'Bỏ qua video này'}</button>
+      </div>`;
+    return new Promise((xong) => {
+      const ok = document.getElementById('al-nen-ok');
+      const thoi = document.getElementById('al-nen-thoi');
+      if (!ok || !thoi) { xong(false); return; }
+      ok.onclick = () => xong(true);
+      thoi.onclick = () => xong(false);
     });
+  },
+
+  // Khoá nút đăng và nút chọn tệp trong lúc đọc tệp, hỏi và nén: đăng lúc này là đăng
+  // thiếu video, chọn thêm lúc này là hai lượt nén giành nhau một khối #al-nen.
+  khoaForm(khoa) {
+    for (const id of ['al-submit', 'al-pick']) {
+      const nut = document.getElementById(id);
+      if (nut) nut.disabled = khoa;
+    }
+  },
+
+  // Đọc độ dài video trước khi nén, để nói trước với cô phải chờ bao lâu.
+  // Không đọc được thì trả null — câu dặn chuyển sang lời chung.
+  //
+  // Tệp webm (kể cả tệp trình duyệt thu ra) thường không khai độ dài: tua tới
+  // một mốc rất xa thì trình duyệt buộc phải đo — cùng cách `UI.nenVideo` làm.
+  doDoDaiVideo(f) {
+    return new Promise((ok) => {
+      let url;
+      try { url = URL.createObjectURL(f); } catch (_) { ok(null); return; }
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      let hen = null;
+      const tra = (g) => {
+        if (!url) return;
+        clearTimeout(hen);
+        URL.revokeObjectURL(url);
+        url = null;
+        ok(Number.isFinite(g) && g > 0 ? g : null);
+      };
+      hen = setTimeout(() => tra(null), 5000);
+      v.onerror = () => tra(null);
+      v.ondurationchange = () => { if (Number.isFinite(v.duration) && v.duration > 0) tra(v.duration); };
+      v.onloadedmetadata = () => {
+        if (Number.isFinite(v.duration) && v.duration > 0) { tra(v.duration); return; }
+        try { v.currentTime = 1e6; } catch (_) { tra(null); }
+      };
+      v.src = url;
+    });
+  },
+
+  phutGiay(g) {
+    const s = Math.max(0, Math.floor(Number(g) || 0));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  },
+
+  // "nén mất …": nén chạy theo thời gian thật, cộng chút thời gian đọc tệp.
+  uocLuongNen(giay) {
+    if (!giay) return 'khoảng đúng bằng độ dài video';
+    if (giay < 50) return 'chưa tới 1 phút';
+    const lo = Math.max(1, Math.floor(giay / 60));
+    return `khoảng ${lo}–${lo + 1} phút`;
+  },
+
+  // Máy không nén được thì nói bằng tiếng của trường. UI.nenVideo ném mã
+  // KHONG_NEN_DUOC — không để lọt một chữ tiếng Anh nào ra màn hình của cô.
+  loiNen(err, f) {
+    if (err && err.message === 'KHONG_NEN_DUOC') {
+      return 'Máy này chưa nén được video. Cô quay đoạn ngắn hơn '
+        + `(dưới ${Math.round(this.TRAN_VIDEO / 1048576)} MB) giúp trường nhé.`;
+    }
+    return err && err.message ? err.message : `Không nén được video "${f.name}"`;
+  },
+
+  // "2 ảnh, 1 video" — lời báo và dòng đếm không gọi video là ảnh.
+  demLoai(ds) {
+    const video = (ds || []).filter(p => p && p.laVideo).length;
+    const anh = (ds || []).length - video;
+    const phan = [];
+    if (anh || !video) phan.push(`${anh} ảnh`);
+    if (video) phan.push(`${video} video`);
+    return phan.join(', ');
   },
 
   bindPicker() {
     const input = document.getElementById('al-file');
-    document.getElementById('al-pick').onclick = () => input.click();
+    const nut = document.getElementById('al-pick');
+    if (!input || !nut) return;
+    nut.onclick = () => input.click();
     input.onchange = () => this.handleFiles(input.files);
+    const phien = this._phien;
+    this.coNenMayChu().then((co) => {
+      const goiY = document.getElementById('al-pick-goi-y');
+      if (!co || !goiY || this._phien !== phien) return;
+      goiY.innerHTML = 'Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp. '
+        + 'Ảnh tự thu nhỏ trước khi gửi. <b>Video gửi nguyên bản lên máy chủ</b> để máy chủ làm nét lại '
+        + '(720p) — video dài thì gửi lâu hơn, cô giữ màn hình mở tới khi xong.';
+    });
+  },
+
+  // MÁY CHỦ CÓ NÉN VIDEO ĐƯỢC KHÔNG (Đ260f) — hỏi một lần cho mỗi lượt mở form.
+  // Máy chủ chưa cài ffmpeg, hay hỏi không được, thì đi đúng đường cũ: nén
+  // trên máy của cô (`nenLanLuot`) như trước giờ.
+  coNenMayChu() {
+    const phien = this._phien || (this._phien = {});
+    if (!phien.coNen) {
+      phien.coNen = API.get('/api/albums/video/co-nen').then(r => !!(r && r.coNen)).catch(() => false);
+    }
+    return phien.coNen;
+  },
+
+  // "12 / 48 MB" — tệp nhỏ thì một số lẻ, để thanh chữ không đứng ở "0 / 0".
+  soMB(b, tong) {
+    const mb = x => (tong < 10 * 1048576 ? (x / 1048576).toFixed(1).replace('.', ',') : String(Math.round(x / 1048576)));
+    return `${mb(b)} / ${mb(tong)} MB`;
+  },
+
+  // GỬI VIDEO GỐC LÊN MÁY CHỦ NÉN (Đ260f, chủ dự án 25/11). Mọi video, kể cả
+  // video nhỏ: bản nén trên iPhone rất mờ. Tiến độ nằm NGAY TRONG form, như
+  // `nenLanLuot` (Đ260f, góp ý 18/11) — không mở hộp mới, không mất chữ đã gõ.
+  // Đóng form giữa chừng thì `huy` trả true: lượt bị bỏ trên máy chủ, kết quả
+  // không đổ vào form mở sau.
+  async guiLenMayChu(ds, conMo) {
+    const khoi = document.getElementById('al-nen');
+    if (!khoi) return;
+    let dung = false;
+    try {
+      for (let i = 0; i < ds.length && !dung; i += 1) {
+        const f = ds[i];
+        khoi.innerHTML = `
+          <div style="border-left:4px solid var(--info);padding:10px 12px;border-radius:10px;background:var(--bg-2)">
+            <div style="font-weight:700" id="al-nen-tieu-de">⏳ Đang gửi video lên máy chủ</div>
+            <div class="muted small" style="word-break:break-all">${ds.length > 1 ? `Video ${i + 1}/${ds.length} · ` : ''}${UI.esc(f.name)}</div>
+            <progress id="al-nen-thanh" value="0" max="1" style="width:100%;margin-top:10px"></progress>
+            <div class="small" id="al-nen-dongho">Đang gửi ${UI.esc(this.soMB(0, f.size))}</div>
+            <div class="muted small mt-8" style="line-height:1.6" id="al-nen-loi-dan">
+              Xin cô để nguyên màn hình này tới khi xong — video sẽ hiện ngay bên dưới.
+            </div>
+            <button class="btn outline block mt-8" id="al-nen-dung">Dừng lại</button>
+          </div>`;
+        const nutDung = document.getElementById('al-nen-dung');
+        if (nutDung) {
+          nutDung.onclick = () => {
+            dung = true;
+            nutDung.disabled = true;
+            nutDung.textContent = 'Đang dừng…';
+          };
+        }
+        const ve = (id, chu) => { const o = document.getElementById(id); if (o) o.textContent = chu; };
+        const thanh = (gt, td) => { const o = document.getElementById('al-nen-thanh'); if (o) { o.max = td; o.value = gt; } };
+        try {
+          const kq = await UI.guiVideoMayChu(f, {
+            tienTo: '/api/albums/video',
+            huy: () => dung || !conMo(),
+            tien: ({ daGui, tong }) => {
+              ve('al-nen-dongho', `Đang gửi ${this.soMB(daGui, tong)}`);
+              thanh(daGui, tong || 1);
+            },
+            dangNen: ({ tienDo }) => {
+              ve('al-nen-tieu-de', '✨ Máy chủ đang làm nét video…');
+              ve('al-nen-dongho', '(thường bằng độ dài đoạn phim hoặc nhanh hơn)');
+              ve('al-nen-loi-dan', 'Đã gửi xong. Xin cô để nguyên màn hình này — video sẽ hiện ngay bên dưới.');
+              thanh(tienDo, 1);
+            },
+          });
+          if (!conMo()) return;
+          if (!kq.coNen) {
+            // Máy chủ vừa thôi nén được (hiếm): đi đường cũ cho video này.
+            if (f.size <= this.TRAN_VIDEO) this._pending.push({ video: await this.docTep(f), caption: '', name: f.name, laVideo: true });
+            else await this.nenLanLuot([f], conMo);
+          } else {
+            this._pending.push({ videoDaNen: kq.maTep, caption: '', name: f.name, laVideo: true });
+          }
+          this.renderPreview();
+        } catch (err) {
+          if (!conMo()) return;   // cô đã đóng form: không báo gì thêm
+          if (dung) {
+            UI.toast('Đã dừng gửi video. Ảnh và video đã xong vẫn còn trong danh sách.');
+            break;
+          }
+          UI.toast(err && err.message ? err.message : `Chưa gửi được video "${f.name}"`, 'error');
+        }
+      }
+    } finally {
+      if (conMo()) khoi.innerHTML = '';
+    }
   },
 
   // Đọc ảnh người dùng chọn, thu nhỏ rồi đưa vào danh sách chờ.
+  //
+  // Ảnh và video nhỏ vào danh sách ngay; video lớn phải nén thì để sau cùng,
+  // nén lần lượt, mỗi video xong là hiện ngay ở ô xem trước.
   async handleFiles(fileList) {
     const files = [...(fileList || [])];
+    const input = document.getElementById('al-file');
+    if (input) input.value = ''; // cho phép chọn lại đúng tệp đó
     if (!files.length) return;
 
-    const zone = document.getElementById('al-preview');
-    if (zone) zone.insertAdjacentHTML('beforeend', '<div class="muted small" id="al-loading">Đang xử lý ảnh…</div>');
+    const phien = this._phien;
+    const conMo = () => this._phien === phien && !!document.getElementById('al-preview');
+    const khoi = document.getElementById('al-nen');
+    // Khoá nút chọn tệp và nút đăng ngay từ đầu tới khi xong cả lượt (kể cả
+    // lúc hỏi nén): chọn thêm lúc đang đọc ảnh là lượt sau vẽ đè khối #al-nen
+    // của lượt trước, câu hỏi nén biến mất và form khoá mãi.
+    this.khoaForm(true);
+    try {
+      if (khoi) khoi.innerHTML = '<div class="muted small">Đang xử lý ảnh…</div>';
 
-    for (const f of files) {
-      // VIDEO: KHÔNG NÉN ĐƯỢC, NÊN CHẶN NGAY Ở ĐÂY.
-      //
-      // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
-      // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
-      // iPhone quay ra .mov (video/quicktime): cùng họ hộp `ftyp` với MP4, máy
-      // chủ nhận và lưu thành .mp4 — chặn nó ở đây là chặn gần hết máy iPhone.
-      if (/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
-        try {
-          const video = f.size > this.TRAN_VIDEO
-            ? await this.nenVideoCoCho(f)
-            : await this.docTep(f);
-          if (video) this._pending.push({ video, caption: '', name: f.name, laVideo: true });
-        } catch (err) {
-          UI.toast(err && err.message ? err.message : `Không đọc được video "${f.name}"`, 'error');
+      const canNen = [];
+      const guiMayChu = [];
+      for (const f of files) {
+        // VIDEO: KHÔNG NÉN ĐƯỢC, NÊN CHẶN NGAY Ở ĐÂY.
+        //
+        // Máy chủ cũng chặn, nhưng chặn ở đây thì cô biết ngay lúc chọn tệp —
+        // thay vì đứng chờ tải lên 25 MB qua 4G rồi mới nhận câu từ chối.
+        // iPhone quay ra .mov (video/quicktime): cùng họ hộp `ftyp` với MP4, máy
+        // chủ nhận và lưu thành .mp4 — chặn nó ở đây là chặn gần hết máy iPhone.
+        if (/^video\/(mp4|webm|quicktime)$/.test(f.type)) {
+          // Máy chủ nén được (Đ260f): mọi video gửi nguyên bản, sau ảnh.
+          if (await this.coNenMayChu()) { guiMayChu.push(f); continue; }
+          if (!conMo()) return;
+          if (f.size > this.TRAN_VIDEO) { canNen.push(f); continue; }
+          try {
+            const video = await this.docTep(f);
+            if (!conMo()) return;
+            this._pending.push({ video, caption: '', name: f.name, laVideo: true });
+          } catch (err) {
+            UI.toast(err && err.message ? err.message : `Không đọc được video "${f.name}"`, 'error');
+          }
+          continue;
         }
-        continue;
+        if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
+          UI.toast(`Bỏ qua "${f.name}" — chỉ nhận ảnh JPG, PNG, WebP và video MP4, WebM`, 'error');
+          continue;
+        }
+        try {
+          const dataUrl = await UI.nenAnh(f, { canhToiDa: 1600 });
+          if (!conMo()) return;
+          this._pending.push({ dataUrl, caption: '', name: f.name });
+        } catch (_) {
+          UI.toast(`Không đọc được ảnh "${f.name}"`, 'error');
+        }
       }
-      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
-        UI.toast(`Bỏ qua "${f.name}" — chỉ nhận ảnh JPG, PNG, WebP và video MP4, WebM`, 'error');
-        continue;
-      }
-      try {
-        const dataUrl = await UI.nenAnh(f, { canhToiDa: 1600 });
-        this._pending.push({ dataUrl, caption: '', name: f.name });
-      } catch (_) {
-        UI.toast(`Không đọc được ảnh "${f.name}"`, 'error');
-      }
-    }
 
-    const loading = document.getElementById('al-loading');
-    if (loading) loading.remove();
-    this.renderPreview();
-    document.getElementById('al-file').value = ''; // cho phép chọn lại đúng ảnh đó
+      if (!conMo()) return;
+      if (khoi) khoi.innerHTML = '';
+      this.renderPreview();
+      if (canNen.length) await this.nenLanLuot(canNen, conMo);
+      if (guiMayChu.length) await this.guiLenMayChu(guiMayChu, conMo);
+    } finally {
+      if (conMo()) this.khoaForm(false);
+    }
   },
 
 
@@ -691,11 +944,11 @@ App.views.albums = {
         ${p.laVideo
           ? `<div style="width:56px;height:56px;flex:none;border-radius:10px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px">🎬</div>`
           : `<img src="${p.dataUrl}" alt="" style="width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover">`}
-        <input class="al-cap" data-i="${i}" value="${UI.esc(p.caption)}" placeholder="Chú thích ảnh (không bắt buộc)">
-        <button class="btn outline sm" style="flex:none;padding:9px 11px" title="Bỏ ảnh này"
+        <input class="al-cap" data-i="${i}" value="${UI.esc(p.caption)}" placeholder="${p.laVideo ? 'Chú thích video' : 'Chú thích ảnh'} (không bắt buộc)">
+        <button class="btn outline sm" style="flex:none;padding:9px 11px" title="${p.laVideo ? 'Bỏ video này' : 'Bỏ ảnh này'}"
           onclick="App.views.albums.removePending(${i})">${UI.icon('x', 16)}</button>
       </div>`).join('') +
-      `<div class="muted small">Đã chọn ${this._pending.length} ảnh.</div>`;
+      `<div class="muted small">Đã chọn ${UI.esc(this.demLoai(this._pending))}.</div>`;
 
     // Ghi nhớ chú thích ngay khi gõ để không mất khi danh sách vẽ lại.
     zone.querySelectorAll('.al-cap').forEach(inp => {
@@ -711,9 +964,9 @@ App.views.albums = {
   // Gửi ảnh theo từng nhóm nhỏ để không vượt giới hạn dung lượng mỗi lần gửi.
   // GOM LÔ: ba ảnh một lượt, NHƯNG VIDEO THÌ MỘT MÌNH MỘT LƯỢT.
   //
-  // Thân yêu cầu của máy chủ là 12 MB. Ba tấm ảnh đã nén thì thừa sức lọt; hai
-  // video 8 MB thì base64 lên hơn 21 MB và bị Express từ chối bằng một lỗi
-  // trơ trước khi tới mã của ta.
+  // Thân yêu cầu của máy chủ là 12 MB, riêng đường tải video 40 MB. Ba tấm ảnh
+  // đã nén thì thừa sức lọt; hai video 25 MB thì base64 lên hơn 66 MB và bị
+  // Express từ chối bằng một lỗi trơ trước khi tới mã của ta.
   //
   // Bản đầu để nguyên `BATCH = 3` cho cả hai loại. Bắt được khi đọc lại
   // `server.js` trước lúc commit, chứ không phải khi cô đứng ở sân trường.
@@ -780,7 +1033,7 @@ App.views.albums = {
         );
       }
 
-      UI.toast(`Đã đăng album với ${photos.length} ảnh`, 'success');
+      UI.toast(`Đã đăng album với ${this.demLoai(photos)}`, 'success');
       UI.closeModal();
       this._pending = [];
       App.navigate(`#/albums/${album.id}`);
@@ -818,11 +1071,12 @@ App.views.albums = {
       // album: lúc vừa đăng là lúc duy nhất cô còn nhớ chắc trong ảnh là bé nào.
       // Người đăng không gắn thẻ được (văn phòng, quản lý cơ sở, ban giám hiệu)
       // thì nói đúng lời máy chủ: ảnh chờ cô phụ trách nhóm gắn thẻ.
-      let bao = `Đã thêm ${photos.length} ảnh vào album`;
+      const soTep = this.demLoai(photos);
+      let bao = `Đã thêm ${soTep} vào album`;
       if (this._nhacGanTheSauKhiDang) {
         bao = a.ganTheDuoc
-          ? `Đã thêm ${photos.length} ảnh. Cô bấm vào từng ảnh để gắn thẻ bé nhé.`
-          : `Đã thêm ${photos.length} ảnh. ${loiNhac}`;
+          ? `Đã thêm ${soTep}. Cô bấm vào từng ảnh để gắn thẻ bé nhé.`
+          : `Đã thêm ${soTep}. ${loiNhac}`;
       }
       UI.toast(bao, 'success');
       UI.closeModal();

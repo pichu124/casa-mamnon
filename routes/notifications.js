@@ -12,13 +12,16 @@ const BANG = 'notifications';
 // màu trong public/js/views/notifications.js — lệch một chỗ là thông báo cũ
 // mất màu, mất biểu tượng mà không báo lỗi gì.
 const CATEGORIES = ['Nhóm lớp', 'Nhà trường', 'Y tế', 'Học phí', 'Khác'];
+const CAU_GHIM_TOAN_TRUONG = 'Thông báo toàn trường do ban giám hiệu ghim. Cơ sở ghim được thông báo của các nhóm trong cơ sở mình.';
 
 // Điều kiện SQL lọc theo phạm vi gửi mà người dùng được thấy.
 // Luật "ai thấy thông báo nào" nằm ở MỘT chỗ — lib/thong-bao.js — thay cho hai
 // bản chép tay từng trôi lệch giữa tệp này và routes/dashboard.js.
 const tb = require('../lib/thong-bao');
 const tbb = require('../lib/thong-bao-be');
-const audienceFilter = (user) => tb.audienceFilter(user);
+const tbnv = require('../lib/thong-bao-nv');
+const modules = require('../lib/modules');
+const audienceFilter = (user, tienTo) => tb.audienceFilter(user, tienTo);
 const canSee = tb.canSee;
 
 // Mỗi lượt trả về bao nhiêu thông báo, và trần cho lượt hỏi tự đặt số. Trang
@@ -40,6 +43,45 @@ function loiQuaDai(title, body) {
     return `Nội dung dài quá ${TOI_DA_NOI_DUNG} ký tự — nội dung dài nên gửi kèm trong buổi họp hoặc chia làm nhiều thông báo`;
   }
   return null;
+}
+
+// LIÊN KẾT CỦA THÔNG BÁO CŨ (Đ260b).
+//
+// Trước Đ260b chỉ thông báo khảo sát được ghi liên kết; tin "Album mới: …",
+// "Thực đơn … đã có", "Lịch sinh hoạt nhóm … vừa được cập nhật" do máy tự gửi
+// chỉ mang liên kết trong tin đẩy, nên trong app bấm vào chỉ ra một hộp chữ.
+// Những tin ấy đã nằm sẵn trong máy của trường; suy lại liên kết LÚC ĐỌC từ
+// đúng mẫu tiêu đề mà máy đã dùng — không ghi gì vào bảng.
+//
+// Album tra theo ĐÚNG nhóm nhận của thông báo (người đọc thấy được thông báo
+// nghĩa là nhóm ấy của họ); không tìm ra thì mở danh sách Album. Màn đích tự
+// hỏi máy chủ, nên liên kết suy ra không mở thêm quyền nào.
+function taoSuyLienKet() {
+  const nho = new Map();
+  const tra = (khoa, hoi) => {
+    if (!nho.has(khoa)) nho.set(khoa, hoi());
+    return nho.get(khoa);
+  };
+  return function suy(n) {
+    const t = String(n.title || '');
+    if (/^Thực đơn (tuần )?từ .+ đã có$/.test(t)) return '#/menu';
+    if (/^Lịch sinh hoạt nhóm .+ vừa được cập nhật$/.test(t)) return '#/timetable/lich';
+    const album = t.match(/^Album mới: (.+)$/) || t.match(/^Album "(.+)" có thêm ảnh$/);
+    // Đọc bảng của phân hệ khác thì hỏi công tắc trước (phan-he-doc-cheo):
+    // Album / Khảo sát đang tắt thì không trỏ tới màn đã đóng.
+    if (album && n.audience && n.audience !== 'all' && modules.dangBat('album')) {
+      const a = tra(`a:${n.audience}:${album[1]}`, () => db.first('albums',
+        'SELECT id FROM albums WHERE classId = ? AND title = ? ORDER BY date DESC LIMIT 1', [n.audience, album[1]]));
+      return a ? `#/albums/${a.id}` : '#/albums';
+    }
+    const ks = t.match(/^Khảo sát mới: (.+)$/);
+    if (ks && modules.dangBat('khaosat')) {
+      const k = tra(`k:${n.audience}:${ks[1]}`, () => db.first('surveys',
+        'SELECT id FROM surveys WHERE audience = ? AND title = ? ORDER BY createdAt DESC LIMIT 1', [n.audience, ks[1]]));
+      return k ? `#/surveys/${k.id}` : '#/surveys';
+    }
+    return '';
+  };
 }
 
 module.exports = (app) => {
@@ -94,16 +136,31 @@ module.exports = (app) => {
       }
     }
 
+    // Đ260b: cô và văn phòng thấy tin nào gửi riêng mấy gia đình. Phụ huynh
+    // không cần (và không được biết) danh sách người nhận.
+    const soBe = new Map();
+    if (req.user.role !== 'parent' && list.length) {
+      const marks = list.map(() => '?').join(',');
+      for (const r of db.all('notification_nguoi_nhan',
+        `SELECT notificationId, COUNT(*) AS n FROM notification_nguoi_nhan
+          WHERE notificationId IN (${marks}) GROUP BY notificationId`, list.map(n => n.id))) {
+        soBe.set(r.notificationId, r.n);
+      }
+    }
+
     // Đ124: mỗi dòng nói rõ gửi cho ai — "Toàn trường" hay "Nhóm X · Cơ sở Y".
     const moTaPhamVi = tb.taoMoTaPhamVi();
-    const cuaTruong = st.ganDauDaSua(BANG, list.map(({ lienKet, ...n }) => {
+    const suyLienKet = taoSuyLienKet();
+    const cuaTruong = st.ganDauDaSua(BANG, list.map(({ lienKet: daGhi, ...n }) => {
       const author = n.createdBy ? nguoi.get(n.createdBy) : null;
       const pv = moTaPhamVi(n.audience);
+      const lienKet = daGhi || suyLienKet(n);
       return {
         ...n,
-        // G2: bấm vào thì mở thẳng màn này (thông báo khảo sát). Chỉ có khi
-        // thông báo được gửi kèm liên kết — thông báo cũ hiện hộp chi tiết.
+        // G2: bấm vào thì mở thẳng màn này (khảo sát, album, thực đơn…). Tin
+        // không có liên kết (thông báo gõ tay) hiện hộp chi tiết.
         ...(lienKet ? { lienKet } : {}),
+        ...(soBe.has(n.id) ? { soBeNhan: soBe.get(n.id) } : {}),
         // Thông báo mình tự gửi thì huy hiệu không đếm (routes/dashboard.js),
         // nên màn hình cũng không tô nó là chưa đọc — nếu không là có chấm
         // "chưa đọc" mà chuông im (P1).
@@ -128,8 +185,27 @@ module.exports = (app) => {
     res.json(tbb.danhSachCua(req.user, { soLuong: tbb.TRANG_DAU, bo: 0 }));
   });
 
+  // CHUÔNG RIÊNG CỦA CÔ, VĂN PHÒNG, QUẢN LÝ (Đ260c) — đường thứ ba, đứng cạnh
+  // `/rieng-be` chứ không nhét vào nó: khế ước của `/rieng-be` là "cô, văn
+  // phòng: mảng rỗng". Phụ huynh gọi đường này thì nhận mảng rỗng.
+  app.get('/api/notifications/rieng-nv', (req, res) => {
+    res.json(tbnv.danhSachCua(req.user));
+  });
+
+  // Mở một màn (Xin phép, Khảo sát…) là đã đọc những dòng chuông của màn ấy.
+  app.post('/api/notifications/rieng-nv/da-xem', (req, res) => {
+    res.json({ ok: true, marked: tbnv.docTheoMan(req.user, String((req.body || {}).man || '').slice(0, 40)) });
+  });
+
   // Đánh dấu đã đọc một thông báo.
   app.post('/api/notifications/:id/read', (req, res) => {
+    // Chuông riêng của cô / văn phòng (Đ260c) có mã 'tbn_…'. Dòng của người
+    // khác trả 404 như không có.
+    if (tbnv.laMa(req.params.id)) {
+      const r = tbnv.danhDaDoc(req.user, req.params.id);
+      if (!r.ok) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
+      return res.json({ ok: true });
+    }
     // Thông báo riêng về con (Đ137) có mã 'tbb…' — đánh dấu ở bảng riêng.
     if (tbb.laMaRiengBe(req.params.id)) {
       const r = tbb.danhDaDoc(req.user, req.params.id);
@@ -148,18 +224,19 @@ module.exports = (app) => {
 
   // Đánh dấu đã đọc tất cả thông báo người dùng thấy được.
   app.post('/api/notifications/read-all', (req, res) => {
-    const f = audienceFilter(req.user);
+    const f = audienceFilter(req.user, 'n.');
+    const nn = tb.locNguoiNhan(req.user, 'notifications', 'n.id');
     const r = db.run(
       `INSERT OR IGNORE INTO notification_reads (notificationId, userId, readAt)
-       SELECT id, ?, ? FROM notifications WHERE ${f.sql}`,
-      [req.user.id, new Date().toISOString(), ...f.params]);
-    const rieng = tbb.docTatCa(req.user);
+       SELECT n.id, ?, ? FROM notifications n WHERE ${f.sql} AND ${nn.sql}`,
+      [req.user.id, new Date().toISOString(), ...f.params, ...nn.params]);
+    const rieng = tbb.docTatCa(req.user) + tbnv.docTatCa(req.user);
     res.json({ ok: true, marked: r.changes + rieng });
   });
 
   // Giáo viên tạo thông báo mới.
   app.post('/api/notifications', requireRole('teacher', 'admin'), (req, res) => {
-    const { title, body, category, audience } = req.body || {};
+    const { title, body, category, audience, pinned } = req.body || {};
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Vui lòng nhập tiêu đề thông báo' });
     }
@@ -170,6 +247,18 @@ module.exports = (app) => {
     if (daiQua) return res.status(400).json({ error: daiQua });
     if (audience !== 'all' && audience !== 'class') {
       return res.status(400).json({ error: 'Phạm vi gửi không hợp lệ' });
+    }
+    // TOÀN TRƯỜNG LÀ VIỆC CỦA QUẢN LÝ, VĂN PHÒNG, HIỆU TRƯỞNG (Đ260b). Cô gửi
+    // cho nhóm mình: cả nhóm, hoặc vài gia đình tích chọn.
+    if (audience === 'all' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Cô gửi thông báo cho nhóm mình. Thông báo toàn trường do văn phòng hoặc ban giám hiệu gửi.' });
+    }
+    // Ghim lên đầu là việc của quản trị (Đ260b).
+    if (pinned !== undefined && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ văn phòng hoặc ban giám hiệu mới ghim được thông báo' });
+    }
+    if (pinned === true && audience === 'all' && !ghimDuocToanTruong(req.user)) {
+      return res.status(403).json({ error: CAU_GHIM_TOAN_TRUONG });
     }
     // Cô mầm non có thể phụ trách nhiều nhóm, nên "gửi cho nhóm" phải hỏi cho
     // rõ nhóm nào. Cô chỉ có một nhóm thì vẫn không phải chọn gì — giữ nguyên
@@ -202,6 +291,8 @@ module.exports = (app) => {
         }
       }
     }
+    const nhan = tb.kiemNguoiNhan(req.user, audience === 'class' ? nhomNhan : 'all', (req.body || {}).nguoiNhan);
+    if (nhan.loi) return res.status(nhan.ma).json({ error: nhan.loi });
     const rec = {
       id: db.nextId('nt'),
       title: String(title).trim(),
@@ -210,9 +301,12 @@ module.exports = (app) => {
       audience: audience === 'class' ? nhomNhan : 'all',
       createdBy: req.user.id,
       createdAt: new Date().toISOString(),
-      pinned: false,
+      pinned: pinned === true,
     };
     db.insert('notifications', rec);
+    // Ghi người nhận TRƯỚC khi đẩy: `dayTin` đọc đúng bảng này để chỉ đẩy tới
+    // phụ huynh của các bé được chọn.
+    if (nhan.ids.length) tb.ghiNguoiNhan('notifications', rec.id, nhan.ids);
     // VỀ TỚI ĐIỆN THOẠI, KHÔNG CHỈ KÊU CHUÔNG TRONG APP (Đ194, việc 16).
     //
     // Nhà trường (A11): thông báo nhà trường phải đẩy về máy. Đây là loại tin
@@ -223,8 +317,10 @@ module.exports = (app) => {
     //
     // Mở thẳng màn Thông báo: tin này không có màn nào riêng của nó.
     tb.dayTin(rec, '#/notifications');
-    db.audit(req.user.id, 'notification-create', rec.id, { audience: rec.audience });
-    res.status(201).json({ ...rec, readBy: [] });
+    db.audit(req.user.id, 'notification-create', rec.id, {
+      audience: rec.audience, ...(nhan.ids.length ? { soBeNhan: nhan.ids.length } : {}), ...(rec.pinned ? { pinned: true } : {}),
+    });
+    res.status(201).json({ ...rec, readBy: [], ...(nhan.ids.length ? { soBeNhan: nhan.ids.length } : {}) });
   });
 
   // Quản trị Cấp 3 chỉ sửa/thu hồi được thông báo TRONG CƠ SỞ MÌNH.
@@ -235,6 +331,14 @@ module.exports = (app) => {
   // vẫn như cũ: nó gửi cho cả cơ sở mình nên không tính là "của cơ sở khác".
   // `campusOfClass` đọc được cả nhóm đã đóng, nên thông báo của năm cũ không
   // làm chốt này chặn nhầm Cấp 1.
+  // GHIM TIN TOÀN TRƯỜNG (theo review Đ260b): tin ghim đứng đầu danh sách
+  // của mọi gia đình ba cơ sở, nên chỉ quản trị không khoá cơ sở hoặc hiệu
+  // trưởng ghim / bỏ ghim được. Văn phòng, quản lý một cơ sở ghim tin của nhóm
+  // trong cơ sở mình (`trongPhamViCoSo`).
+  function ghimDuocToanTruong(user) {
+    return db.phamViCoSo(user) === null || db.chucVu(user) === 'hieu-truong';
+  }
+
   function trongPhamViCoSo(user, n) {
     if (!user || user.role !== 'admin') return true;   // vai cô: laChuBanGhi đã giữ
     const pham = db.phamViCoSo(user);
@@ -251,6 +355,19 @@ module.exports = (app) => {
     }
     if (!trongPhamViCoSo(req.user, n)) {
       return res.status(403).json({ error: 'Thông báo này thuộc cơ sở khác' });
+    }
+    // GHIM / BỎ GHIM (Đ260b) — chỉ quản trị, trong phạm vi cơ sở (chốt ngay
+    // trên). Cô gửi ô này thì 403, kể cả với tin của chính cô: thứ tự đầu
+    // danh sách của cả nhóm là việc nhà trường quyết.
+    const body = req.body || {};
+    if (body.pinned !== undefined) {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Chỉ văn phòng hoặc ban giám hiệu mới ghim được thông báo' });
+      }
+      if (typeof body.pinned !== 'boolean') return res.status(400).json({ error: 'Giá trị ghim không hợp lệ' });
+      if (n.audience === 'all' && !ghimDuocToanTruong(req.user)) {
+        return res.status(403).json({ error: CAU_GHIM_TOAN_TRUONG });
+      }
     }
     const patch = {};
     const daiQuaSua = loiQuaDai(req.body.title, req.body.body);
@@ -269,10 +386,19 @@ module.exports = (app) => {
     // CỐ Ý không cho đổi `audience`: đổi phạm vi gửi sau khi đã gửi nghĩa là một
     // nhóm phụ huynh mất thông báo họ đã đọc, một nhóm khác bỗng thấy thông báo
     // không dành cho mình.
-    db.update('notifications', n.id, patch);
-    st.ghiDaSua(BANG, n.id, req.user.id);
-    db.audit(req.user.id, 'notification-update', n.id, patch);
-    res.json({ ...db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [n.id]), daSua: true });
+    // Ghim không phải sửa nội dung: lượt chỉ ghim / bỏ ghim không ghi dấu "đã
+    // chỉnh sửa", nhật ký riêng. Lượt sửa không có ô ghim chạy y như trước.
+    const chiGhim = body.pinned !== undefined && !Object.keys(patch).length;
+    if (!chiGhim) {
+      db.update('notifications', n.id, patch);
+      st.ghiDaSua(BANG, n.id, req.user.id);
+      db.audit(req.user.id, 'notification-update', n.id, patch);
+    }
+    if (typeof body.pinned === 'boolean' && body.pinned !== !!n.pinned) {
+      db.update('notifications', n.id, { pinned: body.pinned });
+      db.audit(req.user.id, body.pinned ? 'notification-pin' : 'notification-unpin', n.id, { title: n.title });
+    }
+    res.json({ ...db.first('notifications', 'SELECT * FROM notifications WHERE id = ?', [n.id]), daSua: !chiGhim });
   });
 
   // Thu hồi một thông báo: ẩn khỏi mọi danh sách, KHÔNG xóa dữ liệu.

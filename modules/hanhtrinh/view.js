@@ -40,6 +40,50 @@ App.views.hanhtrinh = {
     ['the-chat', 'P.E (Thể chất)'],
     ['chu-nhiem', 'Montessori & Kỹ năng sống'],
   ],
+  // MÀU NHẬN RA BA CHƯƠNG TRÌNH (góp ý 18/11: gia đình khó phân biệt Cam, Mon,
+  // PE). Màu chỉ để nhận ra chương trình, KHÔNG mang nghĩa mức độ nào — nên
+  // không màu nào thuộc họ đỏ / cam / vàng (QUY TẮC 2). Khai một chỗ cho cả màn
+  // gia đình lẫn màn cô.
+  MAU_CT: {
+    'nuoc-ngoai': { vien: 'var(--info)', nen: 'rgba(14,165,233,.10)' },
+    'the-chat': { vien: '#8b5cf6', nen: 'rgba(139,92,246,.10)' },
+    'chu-nhiem': { vien: 'var(--success)', nen: 'rgba(16,185,129,.10)' },
+  },
+  // Chấm màu trong nút tab — không chữ, để chữ của tab giữ nguyên.
+  chamCt(ma) {
+    const m = this.MAU_CT[ma];
+    return m ? `<span aria-hidden="true" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${m.vien};margin-right:6px;vertical-align:middle"></span>` : '';
+  },
+  // Khối có màu của một chương trình: viền trái và tiêu đề nền nhạt.
+  khoiCt(ct, tieuDe, than) {
+    const m = this.MAU_CT[ct] || { vien: 'var(--line)', nen: 'transparent' };
+    return `
+      <div class="ht-kh-ct" data-ct="${UI.esc(ct)}" style="border-left:4px solid ${m.vien};border-radius:10px;margin-top:10px;overflow:hidden">
+        <div class="ht-kh-ct-ten" style="background:${m.nen};padding:8px 10px;font-weight:700">${UI.esc(tieuDe)}</div>
+        <div style="padding:2px 10px 8px">${than}</div>
+      </div>`;
+  },
+  // Chia bài của một chương trình thành khối có tiêu đề: góc có mục con
+  // (Cambridge, Thể chất) chia theo mục con đúng thứ tự máy chủ khai, bài chưa
+  // xếp mục vào khối `khac`; góc không có mục con (Montessori) là một khối
+  // mang tên góc. Khối rỗng thì bỏ.
+  chiaMuc(dsGoc, bai, con, khac) {
+    const ra = [];
+    const maGoc = dsGoc.map(g => g.ma);
+    const goc = dsGoc.concat([...new Set(bai.map(b => b.gocLinhVuc))].filter(m => !maGoc.includes(m)).map(m => ({ ma: m, ten: m })));
+    for (const g of goc) {
+      const cua = bai.filter(b => b.gocLinhVuc === g.ma);
+      const cg = (con || []).filter(c => c.gocLinhVuc === g.ma);
+      if (!cg.length) { if (cua.length) ra.push([g.ten, cua]); continue; }
+      for (const c of cg) {
+        const x = cua.filter(b => b.linhVucCon === c.ma);
+        if (x.length) ra.push([c.ten, x]);
+      }
+      const le = cua.filter(b => !cg.some(c => c.ma === b.linhVucCon));
+      if (le.length) ra.push([khac, le]);
+    }
+    return ra;
+  },
   LOI_PHU: [['ghinhanh', 'Hình ảnh ghi nhanh']],
   // Tên ba chương trình, cùng thứ tự với BON_TAB — đọc từ đó, không chép lại.
   get TEN_CT() { return Object.fromEntries(this.BON_TAB.slice(1)); },
@@ -143,7 +187,7 @@ App.views.hanhtrinh = {
       </div>
       <div id="ht-chon"></div>
       <div class="seg" id="ht-tabs" style="flex-wrap:wrap">
-        ${this.BON_TAB.map(([ma, ten]) => `<button class="${this._tab === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${UI.esc(ten)}</button>`).join('')}
+        ${this.BON_TAB.map(([ma, ten]) => `<button class="${this._tab === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${this.chamCt(ma)}${UI.esc(ten)}</button>`).join('')}
       </div>
       <div id="ht-than"><div class="loading">Đang tải</div></div>
       <div aria-hidden="true" style="height:calc(56px + env(safe-area-inset-bottom, 0px))"></div>`;
@@ -399,6 +443,8 @@ App.views.hanhtrinh = {
   moGhi(id, tu = this.dangMo()) {
     this._anhMoi = null;
     this._videoMoi = null;
+    this._videoDaNen = null;
+    this._coNen = null;
     this._luotGhi = (this._luotGhi || 0) + 1;
     const ds = (this._data || {}).danhSachBe || [];
     UI.modal(`
@@ -482,6 +528,7 @@ App.views.hanhtrinh = {
     if (oNhom && oNhom.value) body.nhom = oNhom.value;
     if (this._anhMoi) body.anh = this._anhMoi;
     if (this._videoMoi) body.video = this._videoMoi;
+    if (this._videoDaNen) body.videoDaNen = this._videoDaNen;
     // CHƯA GẮN BÉ: lưu thành nháp riêng của cô, gắn bé lúc hoàn thiện (góp ý
     // 06/10, mục 7; 20/10, B1).
     const laNhap = !studentId || studentId === '__nhap__';
@@ -615,11 +662,14 @@ App.views.hanhtrinh = {
   // gọi máy chủ. Hỏng ở bước kể thì ghi chép đã là một quan sát chưa kể của
   // bé — vẫn nằm ở Hình ảnh ghi nhanh, cô kể lại được, không mất gì.
   //
-  // "CÙNG CON Ở NHÀ" VẪN BẮT BUỘC (QUY TẮC 5) nhưng điền sẵn từ "Cùng con ở
-  // nhà tuần này" của chủ đề tuần nhóm bé — cô sửa cho hợp khoảnh khắc nếu muốn.
+  // Ô "ĐỒNG HÀNH CÙNG BÉ TẠI NHÀ" (`cungConONha`) KHÔNG BẮT BUỘC từ góp ý của
+  // trường 18/11: cô không phải nghĩ ra một việc cho mọi khoảnh khắc. Ô vẫn
+  // điền sẵn từ "Cùng con ở nhà tuần này" của chủ đề tuần nhóm bé — cô sửa
+  // cho hợp khoảnh khắc, hoặc để trống.
   //
-  // GỬI KÈM ẢNH THÌ PHẢI NÓI TRONG ẢNH CÓ AI. Ảnh có bé khác chỉ tới gia đình
-  // khi mọi bé trong ảnh đều có đồng ý chia sẻ; máy chủ lọc, hộp này chỉ hỏi.
+  // GỬI KÈM ẢNH THÌ PHẢI NÓI TRONG ẢNH CÓ AI — ở nhóm có gia đình đã rút đồng
+  // ý chia sẻ ảnh (Đ260i). Ảnh có bé khác chỉ tới gia đình khi mọi bé trong ảnh
+  // đều có đồng ý chia sẻ; máy chủ lọc, hộp này chỉ hỏi.
   mucTuQuanSat(q) {
     return {
       nguon: 'quansat', id: q.id, studentId: q.studentId, hoTen: q.hoTen || '',
@@ -682,12 +732,11 @@ App.views.hanhtrinh = {
           Chú thích rõ hoạt động của con ở lớp, hoặc cách gia đình cùng con thực hành thêm ở nhà (ô dưới).</div>
       </div>
       <div class="field">
-        <label>Cùng con ở nhà</label>
+        <label>Đồng hành cùng bé tại nhà (không bắt buộc)</label>
         <textarea id="ht-cn" rows="3" placeholder="Ví dụ: tối nay bố mẹ để con tự rót nước vào cốc — 5 phút, dùng luôn ca nước trên bàn.">${UI.esc(cnDau)}</textarea>
         <div class="hint" id="ht-cn-nguon" ${st.cnDienSan ? '' : 'hidden'}>Điền sẵn từ <b>"Cùng con ở nhà tuần này"</b> của chủ đề tuần —
           cô sửa cho hợp với khoảnh khắc này nếu muốn.</div>
-        <div class="hint">5–10 phút, đồ có sẵn trong nhà, không cần màn hình.
-          Đây là <b>lời rủ chơi</b> gửi gia đình, không phải việc phải nộp lại cho cô.</div>
+        <div class="hint">Một việc nhỏ 5–10 phút gia đình làm cùng con, nếu cô có gợi ý.</div>
       </div>
       ${q.coTep ? `
       <div class="field">
@@ -740,14 +789,18 @@ App.views.hanhtrinh = {
       if (oGoc) oGoc.onchange = () => { st.goc = oGoc.value; };
     };
 
-    // "Trong ảnh có bé khác không?" — bắt buộc trả lời khi gửi kèm ảnh.
+    // "Trong ảnh có bé khác không?" — bắt buộc trả lời khi gửi kèm ảnh, NHƯNG
+    // chỉ hỏi ở nhóm có gia đình đã rút đồng ý chia sẻ ảnh (Đ260i, máy chủ khai
+    // `canHoiBeTrongAnh`). Nhóm không ai rút: không hỏi, máy chủ coi như chỉ
+    // có bé chính. Chưa biết (chưa chọn bé, mạng lỗi) thì vẫn hỏi.
+    const canHoi = () => !st.tt || st.tt.canHoiBeTrongAnh !== false;
     const daXacNhan = tepCu && tepCu.daXacNhanBe;
     st.beKhac = daXacNhan ? ((tepCu.beTrongAnh || []).some(b => b.id !== q.studentId) ? 'co' : 'chi') : '';
     st.beChon = new Set(daXacNhan ? (tepCu.beTrongAnh || []).map(b => b.id).filter(x => x !== q.studentId) : []);
     const veAnh = () => {
       const vung = $('ht-hc-anh');
       if (!vung) return;
-      if (!$('ht-kem-tep').checked) { vung.innerHTML = ''; return; }
+      if (!$('ht-kem-tep').checked || !canHoi()) { vung.innerHTML = ''; return; }
       const lop = lopCua();
       const ban = dsBe.filter(b => b.classId === lop && b.id !== st.be);
       const ten = tenCua();
@@ -864,13 +917,10 @@ App.views.hanhtrinh = {
       // chữ là bắt cô mở lại hộp ở một mục khác.
       if (!st.be) return UI.toast('Cô chọn bé cho ghi chép này nhé', 'error');
       if (!v.cauChuyen) return UI.toast('Cô viết chú thích gửi gia đình trước khi kể nhé', 'error');
-      if (!v.cungConONha) {
-        return UI.toast('Cô gợi ý giúp gia đình một việc "cùng con ở nhà" nhé — 5 tới 10 phút, đồ có sẵn trong nhà.', 'error');
-      }
       const body = { ...v, goc: st.nhom === 'chu-nhiem' ? st.goc : '' };
       if (q.coTep) {
         body.kemTep = $('ht-kem-tep').checked;
-        if (body.kemTep) {
+        if (body.kemTep && canHoi()) {
           if (!st.beKhac) return UI.toast('Cô cho biết giúp trong ảnh có bé khác không nhé', 'error');
           if (st.beKhac === 'co' && !st.beChon.size) return UI.toast('Cô chọn tên các bé có trong ảnh nhé', 'error');
           body.beTrongAnh = st.beKhac === 'co' ? [...st.beChon] : [];
@@ -1314,21 +1364,31 @@ App.views.hanhtrinh = {
 
     // Thẻ ba phần theo đúng thứ tự bốn tab của trường, không theo thứ tự máy chủ gửi.
     const thuTu = Object.keys(this.TEN_CT);
+    // Góp ý 18/11: phần Cambridge chia theo mục con như phần Montessori chia
+    // theo góc; mục "Việc khác" của bản kế hoạch hiện cùng góc của nó.
     const phan = [...(d.chuongTrinhTab || [])].sort((a, b) => thuTu.indexOf(a.ma) - thuTu.indexOf(b.ma)).map(t => {
       const goc = (t.goc || []).map(g => g.ma);
       const bai = k ? (k.baiHoc || []).filter(b => goc.includes(b.gocLinhVuc)) : [];
+      const muc = k ? (k.muc || []).filter(m => goc.includes(m.gocLinhVuc) && m.noiDung) : [];
       const p = k && k.chuongTrinh ? k.chuongTrinh[t.ma] : null;
       const tt = p && (p.coNoiDung || p.trangThai !== 'nhap') ? (this.MAU_DUYET_KH[p.trangThai] || ['', 'gray']) : null;
       const duocNhin = sua.includes(t.ma) && bai.length;
+      const dsGoc = (t.goc || []).map(g => ({ ma: g.ma, ten: g.ten || tenGoc(g.ma) }));
+      const khoi = this.chiaMuc(dsGoc, [...bai, ...muc.map(m => ({ ...m, laMuc: true }))], d.linhVucCon, 'Khác');
       return `
-        <div class="card">
-          <div class="card-title">${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}
+        <div class="card ht-kh-phan" data-ct="${UI.esc(t.ma)}" style="border-left:4px solid ${(this.MAU_CT[t.ma] || {}).vien || 'var(--line)'}">
+          <div class="card-title">${this.chamCt(t.ma)}${UI.esc(this.TEN_CT[t.ma] || t.chuongTrinh)}
             <span class="spacer"></span>${tt ? UI.badge(tt[0], tt[1]) : ''}</div>
-          ${bai.length ? bai.map(b => `
+          ${khoi.length ? khoi.map(([tenKhoi, ds]) => `
+            <div class="small ht-kh-muc" style="font-weight:700;margin-top:8px">${UI.esc(tenKhoi)}</div>
+            ${ds.map(b => b.laMuc ? `
+            <div class="list-row ht-kh-viec-khac"><div class="row-main">
+              <div class="row-title" style="font-weight:400">Việc khác: ${UI.esc(b.noiDung)}</div>
+            </div></div>` : `
             <div class="list-row" style="flex-wrap:wrap;gap:6px">
               <div class="row-main" style="min-width:150px">
                 <div class="row-title">${UI.esc(b.ten)}</div>
-                <div class="row-sub">${UI.esc(tenGoc(b.gocLinhVuc))} · ${UI.esc(tenNhan(b.nhan))}</div>
+                <div class="row-sub">${UI.esc(tenNhan(b.nhan))}</div>
               </div>
               ${duocNhin ? `
                 <div class="grid-2" style="width:100%">
@@ -1344,7 +1404,7 @@ App.views.hanhtrinh = {
                     </select></div>
                 </div>`
                 : (b.mucDo ? UI.badge(chu(b.mucDo), MAU[b.mucDo] || 'gray') : '')}
-            </div>`).join('')
+            </div>`).join('')}`).join('')
             : '<div class="muted small">Tháng này chưa có bài nào ở phần này.</div>'}
           ${duocNhin ? `<button class="btn primary block mt-8" data-ht-kh-luu="${UI.esc(t.ma)}">${UI.icon('check', 16)} Lưu phần nhìn lại</button>` : ''}
         </div>`;
@@ -1444,8 +1504,7 @@ App.views.hanhtrinh = {
           <div class="card-title">Tuần này ở lớp: ${UI.esc(cd.chuDe)}</div>
           ${cd.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(cd.moTa)}</div>` : ''}
           ${cd.cungConONha ? `
-            <div class="section-label">Cùng con ở nhà</div>
-            <div class="small" style="line-height:1.6">${UI.esc(cd.cungConONha)}</div>
+            ${this.dongHanh(cd.cungConONha)}
             <div class="muted small mt-8">Một lời rủ chơi 5–10 phút, đồ có sẵn trong nhà — không phải việc phải nộp lại cho cô.</div>` : ''}
         </div>` : ''}
 
@@ -1453,9 +1512,7 @@ App.views.hanhtrinh = {
         <div class="card">
           <div class="card-title">Tuần sau ở lớp: ${UI.esc(cds.chuDe)}</div>
           ${cds.moTa ? `<div class="small" style="line-height:1.6">${UI.esc(cds.moTa)}</div>` : ''}
-          ${cds.cungConONha ? `
-            <div class="section-label">Cùng con ở nhà</div>
-            <div class="small" style="line-height:1.6">${UI.esc(cds.cungConONha)}</div>` : ''}
+          ${cds.cungConONha ? this.dongHanh(cds.cungConONha) : ''}
           <div class="muted small mt-8">Cô đã soạn sẵn cho tuần tới. Cuối tuần này nhà chơi trước cũng được.</div>
         </div>` : ''}
 
@@ -1476,7 +1533,7 @@ App.views.hanhtrinh = {
     return `
       <div class="seg" id="ht-ph-tabs" style="flex-wrap:wrap">
         ${this.BON_TAB.filter(([ma]) => ma === 'kehoach' || tab.some(t => t.ma === ma)).map(([ma, ten]) => `
-          <button class="${this._tabGd === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${UI.esc(ten)}</button>`).join('')}
+          <button class="${this._tabGd === ma ? 'active' : ''}" data-tab="${UI.esc(ma)}">${this.chamCt(ma)}${UI.esc(ten)}</button>`).join('')}
       </div>
       ${this._tabGd === 'kehoach'
         ? (this.veBaiThangNay(d) || UI.emptyState('🧭', 'Kế hoạch tháng này của con sẽ hiện ở đây khi nhà trường đã duyệt.'))
@@ -1485,14 +1542,24 @@ App.views.hanhtrinh = {
 
   // Bài tháng này, chia theo chương trình. CHỈ TÊN BÀI VÀ NHÃN — không có mức
   // độ cuối tháng (bài canh Đ191).
+  //
+  // Góp ý 18/11: mỗi chương trình là một khối có màu riêng; trong khối chia
+  // tiếp theo mục con (Cambridge: Communication and Language / Maths / Let's
+  // Explore) hoặc theo góc (Montessori), không gộp. Mục "Việc khác" của cô (nhãn
+  // rỗng) nằm cùng góc của nó. Máy chủ đời cũ chỉ gửi `baiThangNay`: bài chưa
+  // có mục con thì vào khối "Khác" của góc.
   veBaiThangNay(d) {
-    const ds = d.baiThangNay || [];
+    const ds = d.baiThangNayTheoMuc || d.baiThangNay || [];
     if (!ds.length) return '';
-    const goc = d.gocKeHoach || [];
+    const goc = (d.gocKeHoach || []).map(g => ({ ...g, ten: g.ten || this.tenGoc(d, g.ma) }));
     const ctCua = (ma) => (goc.find(g => g.ma === ma) || {}).chuongTrinh || 'chu-nhiem';
-    const tenGoc = (ma) => (goc.find(g => g.ma === ma) || {}).ten || this.tenGoc(d, ma);
     const nhom = Object.keys(this.TEN_CT)
       .map(ct => [ct, ds.filter(b => ctCua(b.gocLinhVuc) === ct)]).filter(([, x]) => x.length);
+    const dong = (b) => `
+      <div class="list-row" style="padding:6px 0">
+        <div class="row-main"><div class="row-title" style="${b.nhan ? '' : 'font-weight:400'}">${UI.esc(b.ten)}</div></div>
+        ${b.nhan && b.nhan !== 'hoc-moi' ? UI.badge(b.nhan === 'on-tap' ? 'Ôn lại' : 'Mở rộng', 'gray') : ''}
+      </div>`;
     return `
       <div class="section-label">Tháng này con được học</div>
       <div class="card">
@@ -1500,17 +1567,10 @@ App.views.hanhtrinh = {
           Những bài cô đã đưa vào kế hoạch tháng này cho con. Đây là
           <b>việc cô làm cùng con ở lớp</b>, không phải bài tập giao về nhà.
         </div>
-        ${nhom.map(([ct, bai]) => `
-          <div class="small" style="font-weight:700;margin-top:8px">${UI.esc(this.TEN_CT[ct] || '')}</div>
-          ${bai.map(b => `
-            <div class="list-row" style="padding:6px 4px">
-              <div class="row-main">
-                <div class="row-title">${UI.esc(b.ten)}</div>
-                <div class="row-sub">${UI.esc(tenGoc(b.gocLinhVuc))}</div>
-              </div>
-              ${b.nhan && b.nhan !== 'hoc-moi'
-    ? UI.badge(b.nhan === 'on-tap' ? 'Ôn lại' : 'Mở rộng', 'gray') : ''}
-            </div>`).join('')}`).join('')}
+        ${nhom.map(([ct, bai]) => this.khoiCt(ct, this.TEN_CT[ct] || '',
+          this.chiaMuc(goc.filter(g => g.chuongTrinh === ct), bai, d.linhVucConKeHoach, 'Khác').map(([ten, x]) => `
+            <div class="small ht-kh-muc" style="font-weight:700;margin-top:8px">${UI.esc(ten)}</div>
+            ${x.map(dong).join('')}`).join(''))).join('')}
       </div>`;
   },
 
@@ -1619,10 +1679,17 @@ App.views.hanhtrinh = {
         <div class="card-title">${UI.esc(UI.fmtDate(q.ngay))}<span class="spacer"></span>${goc ? UI.badge(goc, 'blue') : ''}</div>
         ${tep}
         <div style="line-height:1.7">${UI.esc(q.cauChuyen || '')}</div>
-        ${q.cungConONha ? `
-          <div class="section-label">Cùng con ở nhà</div>
-          <div class="small" style="line-height:1.6">${UI.esc(q.cungConONha)}</div>` : ''}
+        ${q.cungConONha ? this.dongHanh(q.cungConONha) : ''}
       </div>`;
+  },
+
+  // Gợi ý cô gửi gia đình làm cùng con ở nhà — một dòng nhỏ, dịu, không phải
+  // tiêu đề viết hoa (góp ý của trường 18/11): đây là lời rủ, không phải mục
+  // phải làm. Chỗ gọi chỉ vẽ khi cô có ghi.
+  dongHanh(chu) {
+    return `
+      <div class="ht-dong-hanh muted" style="margin-top:12px;font-size:13px">Đồng hành cùng bé tại nhà</div>
+      <div class="small" style="line-height:1.6">${UI.esc(chu)}</div>`;
   },
 
   // ---- Ảnh hoặc video của hộp Ghi nhanh ----
@@ -1633,6 +1700,8 @@ App.views.hanhtrinh = {
       const f = o.files && o.files[0];
       this._anhMoi = null;
       this._videoMoi = null;
+      this._videoDaNen = null;
+      this._luotChon = (this._luotChon || 0) + 1;
       const nen = document.getElementById('ht-nen');
       if (nen) nen.innerHTML = '';
       if (!f) return;
@@ -1649,9 +1718,9 @@ App.views.hanhtrinh = {
   },
 
   // Trần video, khớp `MAX_VIDEO_BYTES` của máy chủ — đọc từ chính gói
-  // Hình ảnh ghi nhanh khi đã có, không thì 8 MB như màn Album.
+  // Hình ảnh ghi nhanh khi đã có, không thì 25 MB như màn Album.
   tranVideo() {
-    return Number((this._choKe || {}).toiDaVideo) || 8 * 1024 * 1024;
+    return Number((this._choKe || {}).toiDaVideo) || 25 * 1024 * 1024;
   },
 
   // VIDEO: CÙNG LUẬT VỚI MÀN ALBUM (public/js/views/albums.js). Nhỏ hơn trần
@@ -1677,6 +1746,8 @@ App.views.hanhtrinh = {
       xem.innerHTML = '<video muted playsinline style="width:100%;height:100%;object-fit:cover"></video>';
       xem.firstChild.src = URL.createObjectURL(f);
     };
+    if (await this.coNenMayChu()) return this.guiVideoMayChu(f);
+    if (!conHop()) return;
     const tran = this.tranVideo();
     if (f.size <= tran) {
       try {
@@ -1706,8 +1777,12 @@ App.views.hanhtrinh = {
       if (nutLuu) nutLuu.disabled = true;
       const phutGiay = (g) => `${Math.floor(g / 60)}:${String(Math.floor(g % 60)).padStart(2, '0')}`;
       try {
+        // Cùng chất lượng với Album (Đ260f): 720px, 24 khung/giây, ≤ 2,5 Mbps.
         const data = await UI.nenVideo(f, {
           tranByte: tran,
+          canhToiDa: 720,
+          khung: 24,
+          bitToiDa: 2500000,
           toiDaGiay: 390,
           huy: () => boCuoc || !conHop(),
           tien: ({ giay, tongGiay }) => {
@@ -1727,5 +1802,79 @@ App.views.hanhtrinh = {
         if (nutLuu) nutLuu.disabled = false;
       }
     };
+  },
+
+  // MÁY CHỦ CÓ NÉN VIDEO ĐƯỢC KHÔNG (Đ260f) — hỏi một lần mỗi lần mở hộp.
+  // Không nén được, hay hỏi không được, thì đi đúng đường cũ ở `chonVideo`.
+  coNenMayChu() {
+    if (!this._coNen) {
+      this._coNen = API.get('/api/hanhtrinh/video/co-nen').then(r => !!(r && r.coNen)).catch(() => false);
+    }
+    return this._coNen;
+  },
+
+  // GỬI VIDEO GỐC ĐỂ MÁY CHỦ NÉN (Đ260f) — cùng luật với màn Album: mọi video,
+  // kể cả video nhỏ, vì bản nén trên iPhone rất mờ. Tiến độ ngay TRONG hộp Ghi
+  // nhanh, không mở hộp khác (mở hộp khác là mất chữ cô đang gõ). Đóng hộp
+  // hay chọn tệp khác giữa chừng thì lượt bị bỏ trên máy chủ.
+  async guiVideoMayChu(f) {
+    const luot = this._luotGhi;
+    const chon = this._luotChon;
+    const conHop = () => luot === this._luotGhi && chon === this._luotChon && !!document.getElementById('ht-nen');
+    const xem = document.getElementById('ht-anh-xem');
+    const nen = document.getElementById('ht-nen');
+    const nutLuu = document.getElementById('ht-luu');
+    let dung = false;
+    const mb = (b, tong) => {
+      const so = x => (tong < 10 * 1048576 ? (x / 1048576).toFixed(1).replace('.', ',') : String(Math.round(x / 1048576)));
+      return `${so(b)} / ${so(tong)} MB`;
+    };
+    nen.innerHTML = `
+      <div class="small mt-8" style="font-weight:700" id="ht-nen-tieu-de">Đang gửi video lên máy chủ</div>
+      <progress id="ht-nen-thanh" value="0" max="1" style="width:100%;margin-top:6px"></progress>
+      <div class="muted small" id="ht-nen-dongho">Đang gửi ${UI.esc(mb(0, f.size))}</div>
+      <button class="btn outline block mt-8" id="ht-nen-dung">Dừng lại</button>`;
+    document.getElementById('ht-nen-dung').onclick = (e) => {
+      dung = true;
+      e.target.disabled = true;
+      e.target.textContent = 'Đang dừng…';
+    };
+    const ve = (id, chu) => { const o = document.getElementById(id); if (o) o.textContent = chu; };
+    const thanh = (gt, td) => { const o = document.getElementById('ht-nen-thanh'); if (o) { o.max = td; o.value = gt; } };
+    if (nutLuu) nutLuu.disabled = true;
+    this._soDangGui = (this._soDangGui || 0) + 1;
+    try {
+      const kq = await UI.guiVideoMayChu(f, {
+        tienTo: '/api/hanhtrinh/video',
+        huy: () => dung || !conHop(),
+        tien: ({ daGui, tong }) => { ve('ht-nen-dongho', `Đang gửi ${mb(daGui, tong)}`); thanh(daGui, tong || 1); },
+        dangNen: ({ tienDo }) => {
+          ve('ht-nen-tieu-de', 'Máy chủ đang làm nét video…');
+          ve('ht-nen-dongho', '(thường bằng độ dài đoạn phim hoặc nhanh hơn)');
+          thanh(tienDo, 1);
+        },
+      });
+      if (!conHop()) return;
+      if (!kq.coNen) {
+        // Máy chủ vừa thôi nén được (hiếm): đi đường cũ.
+        this._coNen = Promise.resolve(false);
+        nen.innerHTML = '';
+        await this.chonVideo(f);
+        return;
+      }
+      this._videoDaNen = kq.maTep;
+      xem.innerHTML = '<video muted playsinline style="width:100%;height:100%;object-fit:cover"></video>';
+      xem.firstChild.src = URL.createObjectURL(f);
+      nen.innerHTML = '<div class="hint">Máy chủ đã làm nét xong — cô bấm Lưu nhé.</div>';
+    } catch (err) {
+      if (!conHop()) return;
+      nen.innerHTML = '';
+      UI.toast(dung ? 'Đã dừng gửi video.' : ((err && err.message) || 'Chưa gửi được video này'), dung ? undefined : 'error');
+    } finally {
+      // Cô chọn tệp khác giữa chừng thì lượt mới tự giữ nút Lưu; chỉ mở lại
+      // khi không còn lượt gửi nào của hộp này đang chạy.
+      this._soDangGui -= 1;
+      if (nutLuu && luot === this._luotGhi && !this._soDangGui) nutLuu.disabled = false;
+    }
   },
 };

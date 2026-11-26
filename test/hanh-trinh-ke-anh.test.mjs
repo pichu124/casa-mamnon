@@ -58,7 +58,7 @@ try {
   const PH = (await login('phuhuynh', '123456')).cookie;    // p1 — mẹ bé s1
 
   // =========================================================================
-  console.log('\n[g] Video ghi được ở lớp 1, quá trần 8 MB thì từ chối');
+  console.log('\n[g] Video ghi được ở lớp 1, quá trần 25 MB thì từ chối');
   {
     const v = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's1', moTa: 'Bé rót nước từ bình sang ly.', video: mp4() } });
     check('cô ghi quan sát kèm video → 201', v.status === 201, v.data);
@@ -71,8 +71,11 @@ try {
     const anh = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's1', moTa: 'Bé xếp tháp.', anh: ANH } });
     check('quan sát kèm ảnh vẫn như cũ, laVideo = false', anh.status === 201 && anh.data?.laVideo === false, anh.data);
 
-    const nang = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's1', moTa: 'Video dài', video: mp4(8.5 * 1024 * 1024) } });
-    check('video quá 8 MB → 400 kèm lời dễ hiểu', nang.status === 400 && /nặng quá/.test(nang.data?.error || ''), nang);
+    // Trần 25 MB (Đ260f, chủ dự án 25/11): 20 MB phải lọt cả thân yêu cầu lẫn trần.
+    const vua = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's1', moTa: 'Video 20 MB', video: mp4(20 * 1024 * 1024) } });
+    check('video 20 MB → 201', vua.status === 201 && vua.data?.laVideo === true, vua.status);
+    const nang = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's1', moTa: 'Video dài', video: mp4(26 * 1024 * 1024) } });
+    check('video 26 MB (quá trần 25 MB) → 400 kèm lời dễ hiểu', nang.status === 400 && /nặng quá/.test(nang.data?.error || ''), nang);
     const khongPhai = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's1', moTa: 'x', video: ANH } });
     check('ảnh khai là video → 400', khongPhai.status === 400, khongPhai);
     const ca2 = await req('POST', '/api/hanhtrinh', { cookie: GV, body: { studentId: 's1', moTa: 'x', anh: ANH, video: mp4() } });
@@ -80,8 +83,10 @@ try {
 
     const n = await req('POST', '/api/hanhtrinh/nhap', { cookie: GV, body: { video: mp4() } });
     check('nháp chưa gắn bé nhận video', n.status === 201 && n.data?.nhap?.coAnh === true && n.data?.nhap?.laVideo === true, n.data);
-    const nNang = await req('POST', '/api/hanhtrinh/nhap', { cookie: GV, body: { video: mp4(8.5 * 1024 * 1024) } });
-    check('nháp: video quá 8 MB → 400', nNang.status === 400, nNang);
+    const nVua = await req('POST', '/api/hanhtrinh/nhap', { cookie: GV, body: { video: mp4(20 * 1024 * 1024) } });
+    check('nháp: video 20 MB → 201', nVua.status === 201, nVua.status);
+    const nNang = await req('POST', '/api/hanhtrinh/nhap', { cookie: GV, body: { video: mp4(26 * 1024 * 1024) } });
+    check('nháp: video 26 MB (quá trần 25 MB) → 400', nNang.status === 400, nNang);
     const g = await req('POST', `/api/hanhtrinh/nhap/${n.data?.nhap?.id}/gan`, { cookie: GV, body: { studentId: 's1' } });
     check('gắn bé cho nháp video, không mô tả → 201, video đi theo', g.status === 201 && g.data?.laVideo === true && /\.mp4$/.test(g.data?.anh || ''), g.data);
   }
@@ -128,7 +133,7 @@ try {
     check('có Ghi nhanh chưa dùng', !!mG && mG.studentId === 's1' && mG.moTa === 'Ghi nhanh chưa dùng' && mG.coTep === true
       && mG.tepUrl === `/api/thuchup/anh/${gn.id}`, mG);
     check('mỗi mục đủ khoá', [mN, mQ, mG].every(m => m && ['nguon', 'id', 'studentId', 'hoTen', 'moTa', 'coTep', 'laVideo', 'tepUrl', 'nhom', 'goc', 'taoLuc'].every(k => k in m)), [mN, mQ, mG]);
-    check('kèm trần video để màn hình nén trước khi gửi', ck.data?.toiDaVideo === 8 * 1024 * 1024, ck.data?.toiDaVideo);
+    check('kèm trần video để màn hình nén trước khi gửi', ck.data?.toiDaVideo === 25 * 1024 * 1024, ck.data?.toiDaVideo);
     const lucs = (ck.data?.muc || []).map(m => m.taoLuc);
     check('mới nhất trước', lucs.every((t, i) => i === 0 || String(lucs[i - 1]) >= String(t)), lucs.slice(0, 6));
 

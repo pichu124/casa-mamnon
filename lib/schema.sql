@@ -99,6 +99,28 @@ CREATE TABLE IF NOT EXISTS student_emergency_contacts (
 );
 CREATE INDEX IF NOT EXISTS idx_sec_student ON student_emergency_contacts(studentId);
 
+-- Gia đình ĐỀ XUẤT thêm người liên hệ khẩn cấp; nhà trường xác nhận (Đ260j).
+--
+-- Bảng phụ chứ không ghi thẳng vào `student_emergency_contacts`: một số do gia
+-- đình gõ chỉ thành số cô gọi lúc khẩn cấp SAU KHI quản lý cơ sở / ban giám
+-- hiệu xác nhận — cùng quyền sửa phần nhân thân (Đ168). Dòng đã quyết vẫn giữ
+-- để tra lại ai đề xuất, ai thêm. trangThai: cho | da-them | tu-choi | huy.
+CREATE TABLE IF NOT EXISTS lien_he_khan_de_xuat (
+  id        TEXT PRIMARY KEY,
+  studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  parentId  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  ten       TEXT NOT NULL,
+  quanHe    TEXT NOT NULL DEFAULT '',
+  sdt       TEXT NOT NULL DEFAULT '',
+  ghiChu    TEXT NOT NULL DEFAULT '',
+  trangThai TEXT NOT NULL DEFAULT 'cho',
+  nguoiXet  TEXT,
+  xetLuc    TEXT,
+  lyDo      TEXT NOT NULL DEFAULT '',
+  taoLuc    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lhkdx_student ON lien_he_khan_de_xuat(studentId, trangThai);
+
 -- Hồ sơ mở rộng của NGƯỜI LỚN — hiện chỉ có số CCCD.
 --
 -- Nhà trường cần số CCCD của phụ huynh để đối chiếu khi ký hợp đồng và khi giao
@@ -151,6 +173,17 @@ CREATE TABLE IF NOT EXISTS hoc_sinh_bao_luu (
   lyDo          TEXT NOT NULL DEFAULT '',
   nguoiGhi      TEXT,
   ghiLuc        TEXT
+);
+
+-- NGÀY NHẬP HỌC của bé (Đ260l — góp ý 18/11 của văn phòng). Mốc để gia đình
+-- mới không thấy thông báo, khảo sát tạo trước ngày bé vào trường. Bé chưa có
+-- dòng thì mốc là ngày tạo tài khoản phụ huynh, như trước. Luật nằm ở
+-- lib/nhap-hoc.js.
+CREATE TABLE IF NOT EXISTS student_nhap_hoc (
+  studentId   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  ngayNhapHoc TEXT NOT NULL,              -- YYYY-MM-DD
+  nguoiGhi    TEXT,
+  capNhatLuc  TEXT
 );
 
 -- ===== Điểm danh — bảng lớn nhất, khoảng 52.500 dòng mỗi năm =====
@@ -447,6 +480,26 @@ CREATE TABLE IF NOT EXISTS hoi_thoai_dong (
   lyDo           TEXT NOT NULL DEFAULT ''
 );
 
+-- ===== Phòng trao đổi chung của một nhóm lớp (Đ260k, góp ý 18/11) =====
+--
+-- Nhà trường: *"Chưa biết cách tạo cuộc hội thoại nhóm, để cho phụ huynh khác
+-- cùng nhắn bàn bạc về 1 vấn đề chung của lớp"*. Phòng là một dòng
+-- `conversations` loại 'group' CÓ `classId`; bảng này chỉ ghi thêm rằng đó là
+-- phòng nhóm kiểu mới (cô quản phòng, gia đình hiện là "Mẹ bé …") và phòng có
+-- đang KHOÁ không. Không có dòng ở đây = phòng chung cũ, giữ y hành vi cũ.
+--
+-- KHOÁ LÀ CHỈ ĐỌC, không phải đóng: mọi người trong phòng vẫn đọc lại được, chỉ
+-- không ai nhắn thêm. `classId` cố ý không có khoá ngoại tới `classes`.
+CREATE TABLE IF NOT EXISTS phong_nhom (
+  conversationId TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  classId        TEXT NOT NULL,
+  taoBoi         TEXT,
+  taoLuc         TEXT,
+  khoaLuc        TEXT,
+  khoaBoi        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_phong_nhom_lop ON phong_nhom(classId);
+
 -- ===== Nhận xét hằng ngày — khoảng 34.800 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS remarks (
   id         TEXT PRIMARY KEY,
@@ -588,6 +641,57 @@ CREATE TABLE IF NOT EXISTS menu_tep (
 );
 CREATE INDEX IF NOT EXISTS idx_menu_tep_tuan ON menu_tep(tuNgay, campusId);
 
+-- ===== KHO THỰC ĐƠN MẪU VÀ LỊCH XOAY VÒNG (Đ260d) =====
+--
+-- Góp ý 18/11: *"Thực đơn sẽ có 4 thực đơn mẫu lặp đi lặp lại… văn phòng setup
+-- từ thời gian này tới thời gian này dùng thực đơn 1, sau đó tự động tới 2, 3, 4
+-- rồi quay vòng về 1."*
+--
+-- GIẢI LÚC ĐỌC, KHÔNG GHI SẴN. Lịch không sinh dòng nào trong `menus` /
+-- `menu_campus`; màn hình hỏi `lib/thuc-don-mau.js` và nó gộp bốn lớp theo thứ
+-- tự: dòng riêng cơ sở → mẫu theo lịch của cơ sở → dòng dùng chung → mẫu theo
+-- lịch dùng chung. Sửa một tuần sau khi lấy từ mẫu là ghi dòng thật như cũ, và
+-- dòng thật luôn thắng mẫu.
+--
+-- QUÁ KHỨ KHÔNG BỊ VIẾT LẠI. Trước mỗi lần sửa mẫu hay sửa/huỷ lịch, các ngày
+-- đã qua đang lấy từ mẫu được chép thành dòng thật (`chotQuaKhu`), nên Nhật ký
+-- và thực đơn tháng trước giữ nguyên món đã ăn.
+--
+-- `campusId` rỗng = cả trường, cùng quy ước `menu_tep`. Không có đường xoá mẫu;
+-- lịch thì huỷ bằng cờ `huy`, không xoá dòng.
+CREATE TABLE IF NOT EXISTS menu_mau (
+  id         TEXT PRIMARY KEY,
+  campusId   TEXT NOT NULL DEFAULT '',
+  so         INTEGER NOT NULL,            -- "Thực đơn 1", "Thực đơn 2"…
+  ten        TEXT NOT NULL DEFAULT '',
+  ngay       TEXT NOT NULL,               -- JSON {"0":[bữa T2],…,"4":[bữa T6]}
+  nguoiSua   TEXT,
+  capNhatLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_menu_mau_coso ON menu_mau(campusId, so);
+
+CREATE TABLE IF NOT EXISTS menu_lich_xoay (
+  id         TEXT PRIMARY KEY,
+  campusId   TEXT NOT NULL DEFAULT '',
+  tuNgay     TEXT NOT NULL,               -- luôn là Thứ Hai
+  denNgay    TEXT NOT NULL,               -- tính cả ngày này
+  thuTu      TEXT NOT NULL,               -- JSON [mã mẫu…], tuần k dùng thuTu[k % n]
+  huy        INTEGER NOT NULL DEFAULT 0,
+  nguoiSua   TEXT,
+  capNhatLuc TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_menu_lich_xoay_coso ON menu_lich_xoay(campusId, huy);
+
+-- Dấu "đã báo gia đình thực đơn tuần này" của việc hẹn giờ thứ Sáu. Đồng hồ
+-- chạy lại mỗi 15 phút và mỗi lần máy chủ khởi động; thiếu dấu này là mỗi lượt
+-- một tiếng chuông.
+CREATE TABLE IF NOT EXISTS menu_mau_bao (
+  campusId TEXT NOT NULL DEFAULT '',
+  thuHai   TEXT NOT NULL,
+  baoLuc   TEXT,
+  PRIMARY KEY (campusId, thuHai)
+);
+
 -- ===== Thời khóa biểu (một dòng mỗi lớp) =====
 CREATE TABLE IF NOT EXISTS timetable (
   classId     TEXT PRIMARY KEY REFERENCES classes(id) ON DELETE CASCADE,
@@ -668,6 +772,20 @@ CREATE TABLE IF NOT EXISTS survey_responses (
   UNIQUE (surveyId, userId)      -- mỗi phụ huynh trả lời một lần
 );
 CREATE INDEX IF NOT EXISTS idx_sr_survey ON survey_responses(surveyId);
+
+-- GỬI RIÊNG MỘT SỐ GIA ĐÌNH TRONG NHÓM (Đ260b). Cô chọn "Cả nhóm" hoặc tích
+-- từng bé; có dòng ở đây thì CHỈ phụ huynh của các bé này thấy khảo sát
+-- (danh sách, chi tiết, trả lời, huy hiệu). Không có dòng = cả phạm vi
+-- `audience` như mọi khảo sát cũ. Lưu theo BÉ, không theo tài khoản, để bố và
+-- mẹ của cùng một bé đều nhận. Bảng phụ, KHÔNG ALTER `surveys`.
+-- `studentId` cố ý KHÔNG có khoá ngoài xoá dây chuyền: mất dòng người nhận là
+-- khảo sát gửi riêng bỗng mở cho cả nhóm — hỏng theo hướng lộ, không được phép.
+CREATE TABLE IF NOT EXISTS survey_nguoi_nhan (
+  surveyId  TEXT NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+  studentId TEXT NOT NULL,
+  PRIMARY KEY (surveyId, studentId)
+);
+CREATE INDEX IF NOT EXISTS idx_svnn_student ON survey_nguoi_nhan(studentId);
 
 -- ===== Album ảnh =====
 CREATE TABLE IF NOT EXISTS albums (
@@ -818,6 +936,39 @@ CREATE TABLE IF NOT EXISTS thongbao_be_nguon (
   recordId   TEXT NOT NULL
 );
 
+-- ===== CHUÔNG CỦA CÔ, VĂN PHÒNG VÀ QUẢN LÝ (Đ260c) =====
+--
+-- Nhà trường 18/11: gia đình xin nghỉ cho con mà cô và văn phòng không được
+-- báo ở chuông, chỉ thấy khi tự mở màn Xin phép. `thongbao_be` là của GIA ĐÌNH
+-- (đọc theo `student_parents`), `notifications` thì tới tay phụ huynh — không
+-- bảng nào nói riêng được với người lớn trong trường. Đọc/ghi ở
+-- lib/thong-bao-nv.js.
+--
+-- MỘT DÒNG CHO MỘT NGƯỜI NHẬN, chụp lại lúc ghi. Lúc đọc vẫn lọc lại bằng
+-- canAccessStudent/canAccessClass, nên cô đã rời nhóm thôi thấy dòng cũ.
+-- Chỉ ghi SỰ KIỆN hành chính: không chép lý do nghỉ, tên thuốc, chữ tin nhắn.
+-- `man` là đoạn đầu của `hash` ('leave', 'messages'…) để nối với ô trên trang
+-- chủ; `gop` khác rỗng thì việc tiếp theo cùng khoá cộng vào dòng chưa đọc.
+CREATE TABLE IF NOT EXISTS thongbao_nv (
+  id        TEXT PRIMARY KEY,
+  userId    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  studentId TEXT REFERENCES students(id) ON DELETE CASCADE,
+  classId   TEXT,
+  loai      TEXT NOT NULL,
+  tieuDe    TEXT NOT NULL,
+  noiDung   TEXT NOT NULL DEFAULT '',
+  hash      TEXT NOT NULL DEFAULT '',
+  man       TEXT NOT NULL DEFAULT '',
+  gop       TEXT NOT NULL DEFAULT '',
+  soLan     INTEGER NOT NULL DEFAULT 1,
+  xemLaDoc  INTEGER NOT NULL DEFAULT 1,
+  nguoiTao  TEXT,
+  taoLuc    TEXT NOT NULL,
+  docLuc    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_thongbao_nv_user ON thongbao_nv(userId, taoLuc DESC);
+CREATE INDEX IF NOT EXISTS idx_thongbao_nv_gop ON thongbao_nv(userId, gop);
+
 -- Đăng ký nhận thông báo ĐẨY (Web Push) của từng điện thoại. Một người có thể
 -- có vài máy; mỗi máy một dòng, khoá theo `endpoint` do trình duyệt cấp.
 CREATE TABLE IF NOT EXISTS push_dang_ky (
@@ -861,6 +1012,17 @@ CREATE TABLE IF NOT EXISTS notification_lien_ket (
   notificationId TEXT PRIMARY KEY REFERENCES notifications(id) ON DELETE CASCADE,
   lienKet        TEXT NOT NULL
 );
+
+-- GỬI RIÊNG MỘT SỐ GIA ĐÌNH TRONG NHÓM (Đ260b) — cùng luật với
+-- `survey_nguoi_nhan`: có dòng thì chỉ phụ huynh của các bé này thấy thông báo
+-- (danh sách, chi tiết, huy hiệu chuông, tin đẩy); không có dòng = cả phạm vi
+-- `audience`. Cô và quản trị của nhóm vẫn thấy tin như cũ.
+CREATE TABLE IF NOT EXISTS notification_nguoi_nhan (
+  notificationId TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  studentId      TEXT NOT NULL,
+  PRIMARY KEY (notificationId, studentId)
+);
+CREATE INDEX IF NOT EXISTS idx_ntnn_student ON notification_nguoi_nhan(studentId);
 
 -- ===== Nhắn tin — bảng lớn, khoảng 28.200 dòng mỗi năm =====
 CREATE TABLE IF NOT EXISTS conversations (
@@ -1370,3 +1532,32 @@ CREATE INDEX IF NOT EXISTS nhan_danh_gia_de_xuat_moi ON nhan_danh_gia_de_xuat(ta
 -- dữ liệu, route chỉ là câu báo dễ hiểu đứng trước.
 CREATE UNIQUE INDEX IF NOT EXISTS nhan_danh_gia_de_xuat_mot_cho
   ON nhan_danh_gia_de_xuat(trangThai) WHERE trangThai = 'cho-duyet';
+
+-- ===========================================================================
+-- VIDEO CHỜ MÁY CHỦ NÉN (Đ260f, chủ dự án 25/11)
+-- ===========================================================================
+-- Một dòng là một lượt cô gửi video gốc lên từng phần để máy chủ nén bằng
+-- ffmpeg (lib/nen-video.js). Đây là sổ ghi TẠM, không phải dữ liệu của bé:
+-- tệp nằm ở DATA_DIR/video-tam cho tới khi cô đăng (tệp đã nén chuyển sang
+-- uploads/ như mọi video khác, dòng thành 'da-dung'), và đồng hồ định giờ xoá
+-- dòng lẫn tệp quá 24 giờ. Mã lượt (`id`) cũng là `maTep` cô gửi kèm lúc đăng.
+CREATE TABLE IF NOT EXISTS video_nen (
+  id          TEXT PRIMARY KEY,            -- 32 chữ số hex ngẫu nhiên
+  userId      TEXT NOT NULL,
+  vung        TEXT NOT NULL,               -- album | hanhtrinh: mã chỉ dùng được ở đúng nơi đã gửi
+  ten         TEXT NOT NULL DEFAULT '',
+  kichThuoc   INTEGER NOT NULL,            -- dung lượng gốc cô khai lúc bắt đầu
+  kichMoiPhan INTEGER NOT NULL,
+  daNhan      INTEGER NOT NULL DEFAULT 0,
+  soPhan      INTEGER NOT NULL DEFAULT 0,
+  trangThai   TEXT NOT NULL,               -- dang-gui | dang-nen | xong | loi | da-dung
+  loi         TEXT NOT NULL DEFAULT '',
+  coBia       INTEGER NOT NULL DEFAULT 0,
+  doDaiGiay   REAL,
+  taoLuc      TEXT NOT NULL,
+  capNhatLuc  TEXT NOT NULL,
+  xongLuc     TEXT,
+  dungLuc     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_video_nen_nguoi ON video_nen(userId, trangThai);
+CREATE INDEX IF NOT EXISTS idx_video_nen_cu ON video_nen(capNhatLuc);

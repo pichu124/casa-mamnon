@@ -17,7 +17,26 @@ if (process.env.TRUST_PROXY !== '0') app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
 // Giới hạn nới rộng để nhận ảnh album (trình duyệt đã nén trước khi gửi).
-app.use(express.json({ limit: '12mb' }));
+//
+// ĐƯỜNG TẢI VIDEO CÓ THÂN YÊU CẦU RIÊNG, ĐỌC SAU KHI ĐÃ BIẾT AI GỬI (Đ260f).
+//
+// Trần video 25 MB (lib/uploads.js) thành khoảng 33 MB chữ base64 — quá 12 MB.
+// Nới 12 MB cho cả app là mở thêm bề mặt cho MỌI đường, kể cả đăng nhập nơi
+// chưa ai có phiên. Nên đường trong `DUONG_TAI_VIDEO` bỏ qua bộ đọc chung ở
+// đây, và được đọc ở dưới — SAU lớp bắt đăng nhập (người lạ nhận 401 trước khi
+// máy chủ đọc một byte thân yêu cầu nào, phân hệ đang tắt hay chức vụ không
+// được dùng cũng bị chặn trước) — với 40 MB chỉ cho cô và quản trị; gia đình
+// gửi vào các đường này vẫn chỉ được 12 MB.
+const DOC_JSON = express.json({ limit: '12mb' });
+const DOC_JSON_VIDEO = express.json({ limit: '40mb' });
+const DUONG_TAI_VIDEO = [
+  /^\/api\/albums\/?$/i,                     // tạo album (routes/albums.js)
+  /^\/api\/albums\/[^/]+\/photos\/?$/i,      // thêm ảnh, video vào album
+  /^\/api\/hanhtrinh\/?$/i,                  // quan sát lớp 1 kèm video (modules/hanhtrinh)
+  /^\/api\/hanhtrinh\/nhap\/?$/i,            // nháp chưa gắn bé kèm video
+];
+const laDuongTaiVideo = req => req.method === 'POST' && DUONG_TAI_VIDEO.some(re => re.test(req.path));
+app.use((req, res, next) => (laDuongTaiVideo(req) ? next() : DOC_JSON(req, res, next)));
 
 // Buộc dùng HTTPS khi đã bật FORCE_HTTPS (nên bật khi chạy trên Internet).
 app.use((req, res, next) => {
@@ -128,6 +147,15 @@ app.use(modules.chanApiDaTat);
 // lớp này chỉ là một lần next(), tức trường đang chạy không đổi gì.
 app.use(modules.chanApiNgoaiChucVu);
 
+// Thân yêu cầu của đường tải video (xem `DUONG_TAI_VIDEO` ở đầu tệp). Đặt sau
+// lớp đăng nhập và hai lớp chặn trên: tính năng đang tắt, hay chức vụ không
+// được dùng, bị từ chối trước khi máy chủ đọc thân yêu cầu lớn.
+app.use((req, res, next) => {
+  if (!laDuongTaiVideo(req)) return next();
+  const duocTaiVideo = req.user && (req.user.role === 'teacher' || req.user.role === 'admin');
+  return (duocTaiVideo ? DOC_JSON_VIDEO : DOC_JSON)(req, res, next);
+});
+
 // Tự động nạp toàn bộ route trong thư mục routes/.
 //
 // Mỗi tệp nạp trong khối bắt lỗi riêng: một tính năng viết sai chỉ làm chính nó
@@ -202,8 +230,9 @@ app.use((req, res, next) => {
 app.use((err, req, res, next) => {
   // TỆP GỬI LÊN QUÁ NẶNG KHÔNG PHẢI "LỖI MÁY CHỦ".
   //
-  // `express.json` chặn thân yêu cầu quá 12 MB và ném `PayloadTooLargeError`
-  // TRƯỚC khi bất cứ đường dẫn nào của app chạy. Rơi vào nhánh chung bên dưới
+  // `express.json` chặn thân yêu cầu quá 12 MB (40 MB ở đường tải video) và
+  // ném `PayloadTooLargeError` TRƯỚC khi bất cứ đường dẫn nào của app chạy.
+  // Rơi vào nhánh chung bên dưới
   // thì cô nhận đúng bốn chữ "Lỗi máy chủ" — không cho biết vì sao, không cho
   // biết phải làm gì, và làm người ta tưởng app hỏng chứ không phải tệp nặng.
   //

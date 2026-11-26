@@ -87,7 +87,9 @@ try {
     check('s3 chỉ có chiều cao, cân nặng trống (không bịa 0)', s3 && s3.doTrongThang && s3.doTrongThang.height === 101.5 && s3.doTrongThang.weight === null, JSON.stringify(s3 && s3.doTrongThang));
     check('s4 bỏ trống → không có dòng tháng này', s4 && s4.doTrongThang === null, JSON.stringify(s4 && s4.doTrongThang));
 
-    const dung2 = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: NGAY, danhSach: [
+    // Đ260e: một tháng một lần cân đo gửi gia đình — ghi lại trong tháng phải
+    // nói rõ là SỬA LẠI (`suaLai: true`), không thì máy chủ trả 409.
+    const dung2 = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: NGAY, suaLai: true, danhSach: [
       { studentId: 's1', height: 98.5, weight: 15.2 },
     ] } });
     check('ghi lại cùng ngày → SỬA, không nhân đôi', dung2.status === 200 && dung2.data.daSua === 1 && dung2.data.daThem === 0, JSON.stringify(dung2.data));
@@ -104,7 +106,8 @@ try {
 
     const sau = await req('GET', '/api/notifications/rieng-be', { cookie: ph.cookie });
     const tin = (sau.data || []).filter(n => n.laRiengBe && n.loai === 'suc-khoe');
-    check('mẹ s1 nhận tin "cô vừa ghi cân đo" — hai lượt lưu là hai tin', tin.length === soTinTruoc + 2, `${soTinTruoc} → ${tin.length}`);
+    // Đ260e: lượt SỬA LẠI không báo gia đình lần nữa — một tháng một tin cân đo.
+    check('mẹ s1 nhận tin "cô vừa ghi cân đo" — một tin, lượt sửa lại không báo thêm', tin.length === soTinTruoc + 1, `${soTinTruoc} → ${tin.length}`);
     check('tin trỏ về màn Sức khoẻ', tin[0] && tin[0].hash === '#/health', tin[0] && tin[0].hash);
 
     const mai = new Date(Date.parse(`${NGAY}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
@@ -177,7 +180,8 @@ try {
     // Hai loại còn lại vẫn ghi được y như trước — Nguyên tắc số 1 vế 2.
     const kham = await req('POST', '/api/health', {
       cookie: co.cookie,
-      body: { studentId: 's1', type: 'checkup', title: 'Khám định kỳ tháng 9', height: 99, weight: 15 },
+      // Ngày ở tháng chưa có cân đo: tháng này s1 đã có số từ mục [2] (Đ260e).
+      body: { studentId: 's1', type: 'checkup', title: 'Khám định kỳ tháng 9', date: '2025-09-15', height: 99, weight: 15 },
     });
     check('loại Khám / cân đo vẫn ghi được y như trước', kham.status === 200 || kham.status === 201, `${kham.status}`);
 
@@ -247,7 +251,8 @@ try {
     const co2 = await login('giaovien', '123456');
     const ghi = await req('POST', '/api/health', {
       cookie: co2.cookie,
-      body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng', date: HOM_NAY, height: 100, weight: 16 },
+      // Ngày ở tháng chưa có cân đo (Đ260e: một tháng một lần cân đo).
+      body: { studentId: 's1', type: 'checkup', title: 'Cân đo tháng', date: '2025-08-20', height: 100, weight: 16 },
     });
     check('ghi được một lần cân đo có đủ chiều cao và cân nặng', ghi.status === 201, ghi.data);
 
@@ -367,9 +372,11 @@ try {
     // chuông còn đó thì nó chỉ tới một thứ không còn, và số chưa đọc đếm nó.
     //
     // Mỗi lượt lưu ghi hoặc sửa ĐÚNG MỘT dòng cho mỗi bé, nên mỗi chuông có
-    // đúng một nguồn. Hai lượt lưu cùng ngày là HAI chuông trỏ về CÙNG một
-    // dòng — thu hồi dòng ấy thì cả hai thôi hiện.
-    const homKia = new Date(Date.parse(`${NGAY}T00:00:00Z`) - 2 * 86400000).toISOString().slice(0, 10);
+    // đúng một nguồn. Từ Đ260e lượt sửa lại trong tháng không gửi chuông thứ
+    // hai — thu hồi dòng ấy thì chuông của nó thôi hiện.
+    // Một ngày ở tháng chưa có cân đo nào của s1 — tháng này đã có số từ mục
+    // [2], và từ Đ260e một tháng chỉ một lần cân đo gửi gia đình.
+    const homKia = '2025-06-12';
     const NHAN = `Số đo ngày ${homKia.slice(8, 10)}/${homKia.slice(5, 7)}`;
     const NHAN_HOM_NAY = `Số đo ngày ${NGAY.slice(8, 10)}/${NGAY.slice(5, 7)}`;
     const huy0 = await soChuaDoc();
@@ -377,16 +384,17 @@ try {
     const l1 = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: homKia, danhSach: [
       { studentId: 's1', height: 99, weight: 15 },
     ] } });
-    const l2 = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: homKia, danhSach: [
+    const l2 = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: homKia, suaLai: true, danhSach: [
       { studentId: 's1', height: 99.5, weight: 15 },
     ] } });
     check('đối chứng — lượt đầu thêm một dòng, lượt sau sửa đúng dòng đó',
       l1.status === 200 && l1.data.daThem === 1 && l2.status === 200 && l2.data.daSua === 1,
       `${JSON.stringify(l1.data)} ${JSON.stringify(l2.data)}`);
     const cA = await chuong();
-    check('đối chứng — mẹ s1 có hai chuông cân đo của ngày ấy',
-      cA.filter(n => (n.body || '').includes(NHAN)).length === 2, cA.filter(n => (n.body || '').includes(NHAN)).length);
-    check('đối chứng — số chưa đọc tăng đúng hai', (await soChuaDoc()) === huy0 + 2, `${huy0} → ${await soChuaDoc()}`);
+    // Đ260e: lượt sửa lại không báo thêm — một chuông cho lần cân đo ấy.
+    check('đối chứng — mẹ s1 có một chuông cân đo của ngày ấy',
+      cA.filter(n => (n.body || '').includes(NHAN)).length === 1, cA.filter(n => (n.body || '').includes(NHAN)).length);
+    check('đối chứng — số chưa đọc tăng đúng một', (await soChuaDoc()) === huy0 + 1, `${huy0} → ${await soChuaDoc()}`);
 
     const hs = await req('GET', '/api/health?studentId=s1', { cookie: co.cookie });
     const dong = (hs.data?.records || []).filter(r => r.type === 'checkup' && r.date === homKia);
@@ -395,10 +403,10 @@ try {
     check('cô thu hồi được dòng cân đo ấy', th.status === 200, `${th.status} ${th.data && th.data.error}`);
 
     const cB = await chuong();
-    check('THU HỒI DÒNG CÂN ĐO THÌ CẢ HAI CHUÔNG TRỎ VỀ NÓ THÔI HIỆN',
+    check('THU HỒI DÒNG CÂN ĐO THÌ CHUÔNG TRỎ VỀ NÓ THÔI HIỆN',
       !cB.some(n => (n.body || '').includes(NHAN)), cB.filter(n => (n.body || '').includes(NHAN)).length);
     check('chuông cân đo của hôm nay (dòng không thu hồi, mục [2]) vẫn còn',
-      cB.filter(n => (n.body || '').includes(NHAN_HOM_NAY)).length === 2, cB.filter(n => (n.body || '').includes(NHAN_HOM_NAY)).length);
+      cB.filter(n => (n.body || '').includes(NHAN_HOM_NAY)).length === 1, cB.filter(n => (n.body || '').includes(NHAN_HOM_NAY)).length);
     check('số chưa đọc về lại như trước hai lượt lưu', (await soChuaDoc()) === huy0, `${huy0} → ${await soChuaDoc()}`);
 
     const ghiLai = await req('POST', '/api/health/can-do-nhom', { cookie: co.cookie, body: { classId: 'c1', date: homKia, danhSach: [

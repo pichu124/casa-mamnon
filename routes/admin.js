@@ -7,6 +7,8 @@ const db = require('../lib/db');
 const ngayVN = require('../lib/ngay');
 const lsl = require('../lib/lich-su-lop');
 const nl = require('../lib/nhom-lop');
+const dongYMacDinh = require('../lib/dong-y-mac-dinh');
+const nhapHoc = require('../lib/nhap-hoc');
 const csv = require('../lib/csv');
 const password = require('../lib/password');
 const { requireRole } = require('../lib/auth');
@@ -1813,8 +1815,11 @@ module.exports = (app) => {
     const quanHe = new Map(ids.length ? db.all('quan_he_phu_huynh',
       `SELECT * FROM quan_he_phu_huynh WHERE studentId IN (${dau})`, ids)
       .map(r => [`${r.studentId}|${r.parentId}`, r.quanHe]) : []);
+    const ngayNhapHoc = nhapHoc.theoBe(ids);
     res.json(db.withParents(rows).map(s => ({
       ...s,
+      // Đ260l: null = chưa ghi, mốc của gia đình là ngày tạo tài khoản.
+      ngayNhapHoc: ngayNhapHoc.get(s.id) || null,
       ...db.hoSoBe(s.id),
       dongY: db.dongYCuaBe(s.id),
       // Hồ sơ còn thiếu món nào (Đ161) — để màn danh sách chỉ ngay chỗ phải
@@ -2334,6 +2339,24 @@ module.exports = (app) => {
     res.json({ id: be.id, dongY: ket });
   });
 
+  // NGÀY NHẬP HỌC CỦA BÉ (Đ260l). Từ ngày này gia đình mới thấy thông báo và
+  // khảo sát của trường (lib/nhap-hoc.js). Đường RIÊNG, không nằm trong PUT hồ
+  // sơ: đây là việc hành chính của bàn tiếp đón, không phải phần nhân thân mà
+  // Đ168 chỉ cho quản lý cơ sở sửa — văn phòng cơ sở ghi được. Để trống là bỏ
+  // ngày đã ghi, mốc quay về ngày tạo tài khoản phụ huynh.
+  app.put('/api/admin/students/:id/nhap-hoc', onlyAdmin, (req, res) => {
+    const be = db.findStudent(req.params.id);
+    if (!be) return res.status(404).json({ error: 'Không tìm thấy bé' });
+    if (!duocChamBe(req.user, be.id)) return khongThuocCoSo(res, 'bé');
+    const moi = String((req.body || {}).ngayNhapHoc ?? '').trim();
+    const loi = nhapHoc.kiemTra(moi, be.dob);
+    if (loi) return res.status(400).json({ error: loi });
+    const cu = nhapHoc.ngayCua(be.id);
+    const ra = nhapHoc.ghi(be.id, moi, req.user.id);
+    db.audit(req.user.id, 'student-nhap-hoc', be.id, { name: be.name, tu: cu, thanh: ra });
+    res.json({ id: be.id, ngayNhapHoc: ra });
+  });
+
   // Ghi số CCCD của một phụ huynh.
   //
   // Đường RIÊNG chứ không nhét vào PUT /api/admin/students/:id, vì một phụ
@@ -2628,8 +2651,13 @@ module.exports = (app) => {
     // thân sau đó, và đường PUT vẫn giữ nguyên chốt ấy.
     const soDinhDanh = String(b.soDinhDanh || '').trim();
     const tienSuBenh = String(b.tienSuBenh || '').trim();
+    // NGÀY NHẬP HỌC (Đ260l) — không bắt buộc; soát trước khi ghi bất cứ thứ gì.
+    const ngayNhapHoc = String(b.ngayNhapHoc || '').trim();
+    const loiNgay = nhapHoc.kiemTra(ngayNhapHoc, r.ngaySinh);
+    if (loiNgay) return res.status(400).json({ error: loiNgay });
     db.tx(() => {
       ra = nhanMotBe(r, new Map(), taiKhoan);
+      if (ngayNhapHoc) nhapHoc.ghi(ra.student.id, ngayNhapHoc, req.user.id);
       ghiQuanHe(ra.student.id, ra.parent.id, b.phQuanHe);
       if (soDinhDanh || tienSuBenh) db.luuHoSoBe(ra.student.id, { soDinhDanh, tienSuBenh });
       if (Array.isArray(b.lienHeKhanCap) && b.lienHeKhanCap.length) {
@@ -2638,9 +2666,10 @@ module.exports = (app) => {
       if (coPh2) ra2 = taoPhuHuynhChoBe(ra.student.id, ph2);
     });
     db.audit(req.user.id, 'student-create', ra.student.id,
-      { name: ra.student.name, classId: ra.student.classId, phuHuynhThuHai: !!ra2 });
+      { name: ra.student.name, classId: ra.student.classId, phuHuynhThuHai: !!ra2, ngayNhapHoc: ngayNhapHoc || null });
     res.status(201).json({
       ...ra.student,
+      ngayNhapHoc: ngayNhapHoc || null,
       taiKhoan: taiKhoan[0] || null,
       taiKhoanPhuHuynh2: ra2 ? {
         phuHuynh: ra2.parent.name,
@@ -2756,6 +2785,8 @@ module.exports = (app) => {
     };
     db.insert('students', student);
     if (classId) lsl.moKhoang(student.id, classId, lsl.homNay());
+    // Giấy nhập học đã gồm ba mục đồng ý (Đ260i) — văn phòng ghi "xin rút" sau.
+    dongYMacDinh.ghiChoBeMoi(student.id);
     db.run('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)',
       [student.id, parent.id]);
 
