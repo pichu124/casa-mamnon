@@ -18,7 +18,7 @@
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import {
-  thuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, khoaVaoCoSo, HOM_NAY,
 } from './_chung.mjs';
 
@@ -27,6 +27,7 @@ const DIR = thuMucTam('luu-y-noi-bo');
 sinhDuLieu(DIR);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng L', 'l_qt');
 const mkCS2 = taoQuanTri(DIR, 'Quản lý CS2 L', 'l_cs2');
+daDoiMatKhau(DIR, 'l_qt', 'l_cs2');
 khoaVaoCoSo(DIR, 'l_cs2', 'cs2');
 
 const CSDL = path.join(DIR, 'school.db');

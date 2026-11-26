@@ -20,7 +20,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import {
-  GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo, datChucVu,
+  GOC, thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, khoaVaoCoSo, datChucVu,
   dungMayChu, taoBoDem, taoReq, taoLogin,
 } from './_chung.mjs';
 
@@ -40,6 +40,7 @@ sinhDuLieu(DIR);
 const MK = {};
 function quanTri(hoTen, u, chucVu, coSo) {
   MK[u] = taoQuanTri(DIR, hoTen, u);
+  daDoiMatKhau(DIR, u);
   if (chucVu) datChucVu(DIR, u, chucVu);
   if (coSo) khoaVaoCoSo(DIR, u, coSo);
 }

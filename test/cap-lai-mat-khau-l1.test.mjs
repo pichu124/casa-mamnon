@@ -17,7 +17,7 @@
 //
 // Hàng văn phòng cơ sở cố ý toàn ✗ ở đơn vị này: cửa `/api/accounts` của văn
 // phòng (lib/db.js) mở ở đơn vị sau, SAU khi luật mới đã chạy.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, khoaVaoCoSo, datChucVu,
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, khoaVaoCoSo, datChucVu,
   dungMayChu, taoBoDem, taoReq, taoLogin } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -29,6 +29,7 @@ const MK = {};
 for (const u of ['giaovien', 'giaovien2', 'giaovien4', 'phuhuynh', 'ph.lan', 'ph.huong']) MK[u] = '123456';
 function quanTri(hoTen, u, chucVu, coSo) {
   MK[u] = taoQuanTri(DIR, hoTen, u);
+  daDoiMatKhau(DIR, u);
   if (chucVu) datChucVu(DIR, u, chucVu);
   if (coSo) khoaVaoCoSo(DIR, u, coSo);
 }

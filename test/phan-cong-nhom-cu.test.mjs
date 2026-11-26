@@ -23,7 +23,7 @@
 import path from 'path';
 import { createRequire } from 'module';
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin,
 } from './_chung.mjs';
 
@@ -55,6 +55,7 @@ sinhDuLieu(DIR);
 }
 
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
+daDoiMatKhau(DIR, 'hieutruong');
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4110), dir: DIR });
 const req = taoReq(sv.BASE);
 const login = taoLogin(req);
