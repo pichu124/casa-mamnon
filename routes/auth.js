@@ -320,9 +320,11 @@ module.exports = (app) => {
     // mật khẩu, để không giúp người lạ dò ra tài khoản nào có thật. Không tìm
     // thấy tài khoản thì vẫn băm một lần với chuỗi giả, cho thời gian trả lời
     // giống hệt trường hợp có tài khoản.
+    // Băm ở luồng phụ (verifyAsync, Đ261b): ~45 ms mỗi lượt mà chạy đồng bộ
+    // thì cả trường đứng chờ một người đăng nhập.
     const ok = user && user.active
-      ? password.verify(String(plain || ''), user.passwordHash)
-      : (password.verify(String(plain || ''), BAM_GIA), false);
+      ? await password.verifyAsync(String(plain || ''), user.passwordHash)
+      : (await password.verifyAsync(String(plain || ''), BAM_GIA), false);
     if (!ok) {
       noteFailure(ip, username);
       return res.status(401).json({ error: 'Sai tên đăng nhập hoặc mật khẩu' });
@@ -365,14 +367,14 @@ module.exports = (app) => {
 
   // Đổi mật khẩu khi đang dùng mật khẩu tạm do giáo viên cấp.
   // Không hỏi mật khẩu cũ vì người dùng vừa nhập nó để vào được đến đây.
-  app.post('/api/auth/set-new-password', requireAuth, (req, res) => {
+  app.post('/api/auth/set-new-password', requireAuth, async (req, res) => {
     if (!req.user.mustChangePassword) {
       return res.status(400).json({ error: 'Tài khoản không ở trạng thái cần đổi mật khẩu' });
     }
     const { newPassword } = req.body || {};
     const weak = password.checkStrength(newPassword);
     if (weak) return res.status(400).json({ error: weak });
-    if (password.verify(String(newPassword), req.user.passwordHash)) {
+    if (await password.verifyAsync(String(newPassword), req.user.passwordHash)) {
       return res.status(400).json({ error: 'Mật khẩu mới phải khác mật khẩu tạm vừa được cấp' });
     }
 
@@ -386,9 +388,9 @@ module.exports = (app) => {
   });
 
   // Đổi mật khẩu. Sau khi đổi, mọi thiết bị khác bị đăng xuất.
-  app.post('/api/auth/change-password', requireAuth, (req, res) => {
+  app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
-    if (!password.verify(String(currentPassword || ''), req.user.passwordHash)) {
+    if (!(await password.verifyAsync(String(currentPassword || ''), req.user.passwordHash))) {
       return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng' });
     }
     const weak = password.checkStrength(newPassword);
