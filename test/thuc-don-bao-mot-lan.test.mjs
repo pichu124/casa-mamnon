@@ -91,7 +91,12 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[2] Nạp tệp Excel cho cơ sở 1 → thứ Sáu không báo lại cơ sở 1');
+  // Đ261e (R1-B8, chủ dự án duyệt): tuần còn xa (≥ 2 tuần) KHÔNG báo ngay lúc
+  // lưu — gia đình chưa mở được tuần ấy — mà để việc báo thứ Sáu lo. Hai mục
+  // dưới trước đây canh "lưu là ghi dấu, thứ Sáu không báo lại"; nay canh
+  // cùng lời hứa "đúng một lần" theo đường mới: lưu không báo, không ghi dấu;
+  // thứ Sáu báo một lần rồi ghi dấu.
+  console.log('\n[2] Nạp tệp Excel cho cơ sở 1 tuần +2 → không báo ngay, thứ Sáu báo đúng một lần');
   {
     const thang = tuan(2).slice(0, 7);
     const r0 = await fetch(`${BASE}/api/menu/mau-excel?thang=${thang}&campusId=cs1`, { headers: { Cookie: QT } });
@@ -103,18 +108,25 @@ try {
     const tep = `data:x;base64,${xlsx.ghi([{ ten: 'Thực đơn', dongTieuDe: true, hang }]).toString('base64')}`;
     const r = await req('POST', '/api/menu/nap-excel', { cookie: QT, body: { campusId: 'cs1', tep, luu: true } });
     check('đối chứng — nạp được, ghi đúng một ngày', r.status === 200 && r.data.daGhi === 1, r.data);
-    check('ghi dấu "đã báo" cho (cơ sở 1, tuần +2)', daDanhDau('cs1', tuan(2)));
+    check('tuần còn xa: KHÔNG báo ngay, KHÔNG ghi dấu "đã báo" cho (cơ sở 1, tuần +2)',
+      !daDanhDau('cs1', tuan(2)) && doc("SELECT COUNT(*) AS n FROM notifications WHERE title LIKE 'Thực đơn từ%'")[0].n === 0);
     const kq = baoTuanSau(thuSauCua(1));
-    check('thứ Sáu: KHÔNG báo lại cơ sở 1', !kq.includes('cs1') && kq.includes('cs2'), kq);
+    check('thứ Sáu: báo cơ sở 1 và cơ sở 2 cho tuần +2', kq.includes('cs1') && kq.includes('cs2'), kq);
+    check('…gia đình cơ sở 1 có đúng một tin, có dấu đã báo', soTin(tuan(2), 'c1') === 1 && daDanhDau('cs1', tuan(2)), soTin(tuan(2), 'c1'));
+    check('gọi lại: KHÔNG báo lần hai', baoTuanSau(thuSauCua(1)).length === 0 && soTin(tuan(2), 'c1') === 1);
   }
 
   // =========================================================================
-  console.log('\n[3] Lưu thực đơn DÙNG CHUNG (gửi mọi nhóm) → không cơ sở nào bị báo lại');
+  console.log('\n[3] Lưu thực đơn DÙNG CHUNG tuần +3 → không báo ngay, thứ Sáu báo mỗi cơ sở một lần');
   {
     const r = await req('PUT', '/api/menu/tuan', { cookie: QT, body: { ngay: [{ date: tuan(3), meals: bua('Phở bò') }] } });
     check('đối chứng — lưu được', r.status === 200 && r.data.daLuu === 1, r.data);
-    check('ghi dấu cho dùng chung và cả hai cơ sở', ['', 'cs1', 'cs2'].every(cs => daDanhDau(cs, tuan(3))));
-    check('thứ Sáu: không báo thêm cơ sở nào', baoTuanSau(thuSauCua(2)).length === 0);
+    check('tuần còn xa: chưa ghi dấu cho phạm vi nào, chưa có tin', ['', 'cs1', 'cs2'].every(cs => !daDanhDau(cs, tuan(3)))
+      && soTin(tuan(3), 'c1') === 0);
+    const kq = baoTuanSau(thuSauCua(2));
+    check('thứ Sáu: báo cả hai cơ sở', kq.includes('cs1') && kq.includes('cs2'), kq);
+    check('…mỗi nhóm đúng một tin, gọi lại không báo thêm',
+      soTin(tuan(3), 'c1') === 1 && soTin(tuan(3), 'c3') === 1 && baoTuanSau(thuSauCua(2)).length === 0);
   }
 
   // =========================================================================

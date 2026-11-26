@@ -57,7 +57,7 @@ App.views.menu = {
   _cacCoSo: [],
   _dungChung: false,
 
-  async render(root) {
+  async render(root, params = []) {
     const qt = this.laQuanTri();
     this._root = root;
     if (!qt) { this.tab = 'tuan'; this._tuanChon = null; }
@@ -65,6 +65,7 @@ App.views.menu = {
       const dw = UI.thuVN();
       this.ngay = qt ? 'tuan' : (dw >= 1 && dw <= 5 ? dw : 1);
     }
+    if (params[0] === 'tuan') this.moTuTin(params[1]);
     this._dangSoanTuan = false;
     const dau = `${UI.pageHeader('Thực đơn của bé')}${qt ? this.segTab() : ''}`;
     if (qt && this.tab !== 'tuan') {
@@ -337,6 +338,8 @@ App.views.menu = {
     }
     const ds = xem.ngay || [];
     const soGhiDe = ds.filter(n => n.daCo && !n.khongDoi).length;
+    // Ngày "giống bản đang có" không được ghi, nên không tính vào số ngày lưu.
+    const soDoi = ds.filter(n => !n.khongDoi).length;
     UI.modal(`
       <div class="muted small" style="line-height:1.6;margin-bottom:8px">
         Tệp <b>${UI.esc(f.name)}</b>${xem.tuan ? ` — thực đơn <b>${UI.esc(this.tenTuan(xem.tuan))}</b> —` : ''} có <b>${ds.length}</b> ngày có món${soGhiDe ? ` — trong đó <b>${soGhiDe}</b> ngày đang có
@@ -356,7 +359,8 @@ App.views.menu = {
             </div>
           </div>`).join('') || '<div class="muted small">Không có ngày nào có món trong tệp.</div>'}
       </div>
-      ${ds.length ? `<button class="btn primary block mt-14" id="mn-xl-luu">${UI.icon('check', 18)} Lưu ${ds.length} ngày vào thực đơn</button>` : ''}
+      ${soDoi ? `<button class="btn primary block mt-14" id="mn-xl-luu">${UI.icon('check', 18)} Lưu ${soDoi} ngày vào thực đơn</button>`
+    : (ds.length ? '<div class="muted small mt-14" id="mn-xl-khong-doi">Tệp giống hệt thực đơn đang có — không có ngày nào cần lưu.</div>' : '')}
     `, 'Xem trước thực đơn từ tệp Excel');
     const luu = document.getElementById('mn-xl-luu');
     if (luu) luu.onclick = async () => {
@@ -367,7 +371,7 @@ App.views.menu = {
       try {
         const r = await API.post('/api/menu/nap-excel', { ...than, luu: true });
         UI.closeModal();
-        UI.toast(`Đã lưu thực đơn ${r.daLuu} ngày`, 'success');
+        UI.toast(`Đã lưu thực đơn ${r.daGhi ?? r.daLuu} ngày`, 'success');
         this.load();
       } catch (err) { luu.disabled = false; UI.toast(err.message, 'error'); }
     };
@@ -699,8 +703,10 @@ App.views.menu = {
         campusId: this._coSo || '',
         ngay: this._tuan.map(ng => ({ date: ng.date, meals: ng.meals })),
       });
-      // `giongMau` (Đ260d): ngày lưu y hệt thực đơn mẫu thì không cần bản riêng.
-      const giong = kq.giongMau ? `${kq.giongMau} ngày giống thực đơn mẫu, giữ theo mẫu` : '';
+      // Ngày lưu y hệt bản đang có (thực đơn mẫu, bản dùng chung, hay chính dòng
+      // đang có) thì không ghi lại (Đ260d, Đ261e). Máy chủ cũ chỉ trả `giongMau`.
+      const soGiong = kq.khongDoi ?? kq.giongMau;
+      const giong = soGiong ? `${soGiong} ngày giống bản đang có, không đổi` : '';
       UI.toast(kq.daLuu
         ? `Đã lưu thực đơn cho ${kq.daLuu} ngày${giong ? ` — ${giong}` : ''}`
         : (giong ? `Không có gì đổi: ${giong}` : 'Chưa có ngày nào được gõ món, nên chưa lưu gì'),
@@ -1115,6 +1121,29 @@ App.views.menu = {
       UI.toast('Đã huỷ đoạn lịch', 'success');
       await this.taiDuKien();
     } catch (err) { UI.toast(err.message, 'error'); }
+  },
+
+  // MỞ TỪ TIN BÁO "Thực đơn tuần từ … đã có" (Đ261e): #/menu/tuan/<ngày>. Tin
+  // của tuần sau mà mở ra tuần này là gia đình phải tự đi tìm. Gia đình và cô
+  // chỉ xem được tuần này và tuần sau — tuần khác thì về tuần này, như máy chủ
+  // vẫn trả. Văn phòng mở được tuần bất kỳ (như từ "Thực đơn dự kiến"). Xong
+  // thì trả địa chỉ về #/menu: vẽ lại màn (đổi bé…) không kéo về tuần của tin.
+  moTuTin(ngay) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(ngay || ''))) {
+      const d = UI.parseDate(ngay);
+      const thuHai = this.congNgay(ngay, -((d.getDay() + 6) % 7));
+      const nay = this.congNgay(UI.todayStr(), -((UI.parseDate(UI.todayStr()).getDay() + 6) % 7));
+      const tuanSau = this.congNgay(nay, 7);
+      if (thuHai === nay || thuHai === tuanSau) {
+        this.week = thuHai === nay ? 0 : 1;
+        this._tuanChon = null;
+        if (this.week === 1 && !this.laQuanTri()) this.ngay = 1;
+      } else if (this.laQuanTri()) {
+        this._tuanChon = thuHai;
+        this.tab = 'tuan';
+      } else this.week = 0;
+    }
+    history.replaceState(null, '', '#/menu');
   },
 
   // Mở tab tuần ở đúng một tuần (có thể xa hơn "Tuần sau") để sửa riêng.

@@ -666,11 +666,11 @@ window.UI = (() => {
         } catch (err) {
           if (!API.laMatMang(err) && !(err.status >= 500)) throw err;
           matLienLac += 1;
-          if (matLienLac >= 15) throw new Error('Mất liên lạc với máy chủ khi đang làm nét video — cô thử gửi lại giúp nhé');
+          if (matLienLac >= 15) throw new Error('Mất liên lạc với máy chủ khi đang xử lý video — cô thử gửi lại giúp nhé');
           continue;
         }
         if (tt.trangThai === 'xong') return { coNen: true, maTep: tt.maTep };
-        if (tt.trangThai === 'loi') throw new Error(tt.loi || 'Chưa làm nét được video này — cô gửi lại giúp nhé');
+        if (tt.trangThai === 'loi') throw new Error(tt.loi || 'Chưa xử lý được video này — cô gửi lại giúp nhé');
         dangNen({ tienDo: Number(tt.tienDo) || 0 });
       }
     } catch (err) {

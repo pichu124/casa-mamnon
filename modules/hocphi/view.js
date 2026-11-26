@@ -614,6 +614,7 @@ App.views.hocphi = {
             ${bp.quyen.duyetDuoc ? `<button class="btn sm primary" data-bp-duyet="${UI.esc(bp.id)}">Duyệt</button>` : ''}
             ${bp.quyen.duyetDuoc ? `<button class="btn sm outline" data-bp-tra="${UI.esc(bp.id)}">Trả lại</button>` : ''}
             ${bp.quyen.xinMoDuoc ? `<button class="btn sm outline" data-bp-xin="${UI.esc(bp.id)}">Xin mở khoá</button>` : ''}
+            ${bp.quyen.moKhoaDuoc ? `<button class="btn sm outline" data-bp-mo-thang="${UI.esc(bp.id)}">Mở khoá</button>` : ''}
             ${bp.quyen.traLoiXinMoDuoc ? `<button class="btn sm primary" data-bp-mo="${UI.esc(bp.id)}">Mở khoá</button>` : ''}
             ${bp.quyen.traLoiXinMoDuoc ? `<button class="btn sm outline" data-bp-tuchoimo="${UI.esc(bp.id)}">Chưa mở</button>` : ''}
           </div>
@@ -670,6 +671,15 @@ App.views.hocphi = {
         if (!y || !y.trim()) return;
         chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpXin)}/xin-mo`,
           { lyDo: y }, 'Đã gửi lời xin mở khoá');
+      };
+    }
+    // Người duyệt được mở thẳng (Đ261e): cùng đường xin-mo, máy chủ mở luôn.
+    for (const nut of document.querySelectorAll('button[data-bp-mo-thang]')) {
+      nut.onclick = () => {
+        const y = prompt('Mở khoá bảng giá này để sửa gì? (ghi lại cho sổ)');
+        if (!y || !y.trim()) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpMoThang)}/xin-mo`,
+          { lyDo: y }, 'Đã mở khoá — bảng giá về đang soạn');
       };
     }
     for (const nut of document.querySelectorAll('button[data-bp-mo]')) {
