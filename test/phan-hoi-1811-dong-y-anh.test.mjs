@@ -19,6 +19,7 @@
 //      xét lại nhóm, không tin trình duyệt.
 //   5. Đường của gia đình (/api/dong-y) vẫn còn nguyên.
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe,
@@ -249,7 +250,7 @@ try {
         dy.dienMacDinhMotLan();
         const dau = db.first('settings', "SELECT value FROM settings WHERE key = 'dong-y-mac-dinh'", []);
         process.stdout.write(JSON.stringify({ daDanhDau: !!dau }));
-      `], { cwd: path.resolve(path.dirname(new URL(import.meta.url).pathname), '..'), env: { ...process.env, DATA_DIR: moi } }).toString();
+      `], { cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), env: { ...process.env, DATA_DIR: moi } }).toString();
       check('kho trống: bước điền mặc định đánh dấu đã chạy ngay', JSON.parse(kq).daDanhDau === true, kq);
     } finally { fs.rmSync(moi, { recursive: true, force: true }); }
   }
