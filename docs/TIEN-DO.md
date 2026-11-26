@@ -40,8 +40,14 @@ Cập nhật ngay sau mỗi phần hoàn thiện, trước khi commit.
 
 ### Đ260 — việc còn mở / cần chủ dự án quyết (25/11/2026)
 
-Đợt góp ý 18/11 đã xong phần mã (chi tiết ở dòng Đ260 cuối nhật ký commit), **chưa
-gộp vào nhánh chính, chưa lên máy thử**. Những việc dưới đây mã không tự làm được:
+Đợt góp ý 18/11 đã xong phần mã (chi tiết ở dòng Đ260 cuối nhật ký commit). **Đã thử
+trên máy thử InterData (v148, máy chủ nén video bằng ffmpeg — video nét) và gộp vào
+nhánh chính ngày 26/11/2026.** Những việc dưới đây mã không tự làm được.
+
+**Bốn điểm chủ dự án hẹn CHỐT SAU (26/11):** mục **1** (giấy nhập học / NĐ 13), mục **4**
+(ai xác nhận liên hệ khẩn cấp), mục **9** (chữ tin nhắn phòng chung trên màn khoá) và
+mục **3** (Cambridge hẹn tương lai không tự báo). Chưa chốt thì app giữ nguyên hành vi
+đang mô tả ở từng mục.
 
 1. **NĐ 13/2023 — đồng ý theo giấy nhập học (Đ260i).** Mặc định "đồng ý" chỉ đứng
    được khi giấy nhập học của **mọi khoá** đang lưu trong app đều có đủ ba điều
