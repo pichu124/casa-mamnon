@@ -9,6 +9,7 @@ const lsl = require('../lib/lich-su-lop');
 const nl = require('../lib/nhom-lop');
 const dongYMacDinh = require('../lib/dong-y-mac-dinh');
 const nhapHoc = require('../lib/nhap-hoc');
+const ngaySinh = require('../lib/ngay-sinh');
 const csv = require('../lib/csv');
 const password = require('../lib/password');
 const { requireRole } = require('../lib/auth');
@@ -1132,7 +1133,7 @@ module.exports = (app) => {
   // hai nhóm một lượt). Trả về danh sách mã cô đã ghi.
   function ghiPhanCong({ cls, xinDu, chinhId, xinNhom }) {
     return db.tx(() => {
-      const daGhi = db.setClassTeachers(cls.id, xinDu, chinhId);
+      const daGhi = db.datCoCuaNhom(cls.id, xinDu, chinhId);
       if (xinNhom) {
         for (const [tid, ma] of Object.entries(xinNhom)) nhomCo.dat(db, cls.id, tid, ma);
       }
@@ -1228,7 +1229,7 @@ module.exports = (app) => {
       // Nhóm chưa có ai thì cô mới là cô phụ trách chính — giữ đúng hành vi cũ
       // cho luồng "tạo nhóm rồi tạo cô".
       if (classId) {
-        db.addClassTeacher(classId, rec.id,
+        db.themCoVaoNhom(classId, rec.id,
           db.teacherIdsOfClass(classId).length ? 'phu' : 'chinh');
       }
       // CÔ DO CẤP 3 TẠO THUỘC CƠ SỞ CỦA NGƯỜI TẠO (Đ239d1) — cùng lý do với
@@ -1687,7 +1688,7 @@ module.exports = (app) => {
         db.insert('users', rec);
         if (r.classId) {
           // Như tạo một cô: nhóm đã có cô thì cô mới là cô phụ, không đè ai.
-          db.addClassTeacher(r.classId, rec.id, db.teacherIdsOfClass(r.classId).length ? 'phu' : 'chinh');
+          db.themCoVaoNhom(r.classId, rec.id, db.teacherIdsOfClass(r.classId).length ? 'phu' : 'chinh');
           if (r.vai !== nhomCo.MAC_DINH) nhomCo.dat(db, r.classId, rec.id, r.vai);
         }
         if (r.campusId) db.insert('giao_vien_co_so', { userId: rec.id, campusId: r.campusId, taoLuc: rec.createdAt });
@@ -1923,6 +1924,11 @@ module.exports = (app) => {
       'SELECT * FROM student_emergency_contacts WHERE studentId IN (__IN__) ORDER BY taoLuc, rowid',
       beIds, 'studentId');
     const dongYTheoBe = db.dongYCuaCacBe(beIds);
+    // Bé BẢO LƯU ghi "Bảo lưu từ dd/mm/yyyy", không ghi "Đã nghỉ" (Đ261a — B9),
+    // cùng chữ với tệp Hồ sơ bé của phân hệ Xuất báo cáo.
+    const baoLuuTheoBe = goms('hoc_sinh_bao_luu',
+      'SELECT studentId, tuNgay FROM hoc_sinh_bao_luu WHERE studentId IN (__IN__)',
+      rows.filter(s => s.active === false || s.active === 0).map(s => s.id));
     const phuHuynhTheoId = new Map(db.all('users',
       "SELECT id, title, name, phone FROM users WHERE role = 'parent'").map(u => [u.id, u]));
     const cccdTheoNguoi = new Map(db.all('user_profile',
@@ -1975,7 +1981,13 @@ module.exports = (app) => {
             'Ngày ký': d.ngayKy,
           };
         })(),
-        'Tình trạng': s.active === false || s.active === 0 ? 'Đã nghỉ' : 'Đang học',
+        'Tình trạng': (() => {
+          if (s.active !== false && s.active !== 0) return 'Đang học';
+          const bl = (baoLuuTheoBe.get(s.id) || {}).tuNgay || '';
+          const roi = /^\d{4}-\d{2}-\d{2}/.test(String(s.leftAt || '')) ? String(s.leftAt).slice(0, 10) : '';
+          const tu = bl && (!roi || bl < roi) ? bl : roi;
+          return bl && tu ? `Bảo lưu từ ${tu.slice(8, 10)}/${tu.slice(5, 7)}/${tu.slice(0, 4)}` : 'Đã nghỉ';
+        })(),
       };
     }).map(khoaCongThuc);
 
@@ -2067,6 +2079,18 @@ module.exports = (app) => {
     // làm việc nên cô cũng không sửa được.
     for (const k of ['name', 'code', 'dob', 'gender', 'address', 'ethnicity', 'bloodType']) {
       if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
+    }
+    // NGÀY SINH ĐI QUA CÙNG LUẬT VỚI ĐƯỜNG NHẬP (Đ261a). Chỉ soát khi ô ấy THẬT
+    // SỰ ĐỔI: bé cũ còn lưu ngày sai từ trước đợt này thì lưu lại phiếu để
+    // chuyển nhóm vẫn phải được — ô cũ giữ nguyên, hồ sơ nhắc văn phòng sửa.
+    if (patch.dob !== undefined) {
+      if (patch.dob === String(s.dob || '').trim()) {
+        delete patch.dob;
+      } else {
+        const ns = ngaySinh.docVaSoat(patch.dob, ngayVN.homNay());
+        if (ns.loi) return res.status(400).json({ error: `Ngày sinh chưa đúng: ${ns.loi}` });
+        patch.dob = ns.ngay;
+      }
     }
     // Tên rỗng làm học sinh biến mất khỏi mọi danh sách mà không ai biết em là ai
     // nữa — điểm danh, sổ liên lạc, báo cáo đều hiện một dòng trống.
@@ -2265,12 +2289,21 @@ module.exports = (app) => {
   // có đúng phụ huynh được nhập lúc nhận bé — bố có rồi thì mẹ không có đường
   // nào để có tài khoản, trong khi thẻ "hồ sơ chưa đủ" lại đòi đủ bố và mẹ.
   //
-  // LUÔN TẠO TÀI KHOẢN MỚI, KHÔNG GẮN VÀO TÀI KHOẢN CÓ SẴN THEO SỐ ĐIỆN THOẠI.
-  // Đường nhận bé gộp theo số vì nhà hai con dùng chung một tài khoản — ở đó
-  // phiếu in ra tên nhà được nối để người ngồi bàn soát lại. Ở đây người ta
-  // đang thêm MỘT NGƯỜI MỚI cho một bé; gõ nhầm một chữ số mà máy tự gắn vào
-  // tài khoản trùng số là một người lạ mở app ra thấy ảnh và hồ sơ sức khoẻ của
-  // một đứa trẻ không phải con mình.
+  // KHÔNG TỰ GẮN VÀO TÀI KHOẢN CÓ SẴN THEO SỐ ĐIỆN THOẠI — nhưng cũng không
+  // lặng lẽ tạo tài khoản thứ hai cho cùng một người (Đ261a — O2).
+  //
+  // Bản Đ239d2 luôn tạo mới: gõ nhầm một chữ số mà máy tự gắn vào tài khoản
+  // trùng số là một người lạ mở app ra thấy ảnh và hồ sơ sức khoẻ của một đứa
+  // trẻ không phải con mình. Lý lẽ ấy vẫn đúng. Nhưng bố của ba anh em thì nhận
+  // ba tài khoản `0988111222`, `09881112222`, `09881112223`, ba mật khẩu, mỗi
+  // tài khoản thấy một con.
+  //
+  // Nay: số đã có tài khoản thì HỎI, nêu tên chủ tài khoản và tên con của họ
+  // để người ngồi bàn đối chiếu; chỉ nối khi gửi lại kèm `xacNhanNoi: true`
+  // (số trùng nhiều tài khoản thì luôn là tài khoản tạo sớm nhất — đúng tài
+  // khoản câu hỏi vừa nêu). Tên con của nhà khác chỉ nói ra với người có quyền với MỌI
+  // con của nhà ấy; không thì chỉ báo "số này đã có tài khoản" và chỉ đường hỏi
+  // văn phòng cơ sở kia.
   app.post('/api/admin/students/:id/phu-huynh', onlyAdmin, (req, res) => {
     const s = db.findStudent(req.params.id);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy bé' });
@@ -2282,6 +2315,44 @@ module.exports = (app) => {
       return res.status(400).json({
         error: `Bé đã có đủ ${SO_PHU_HUYNH_TOI_DA} tài khoản phụ huynh. Người nhà khác cần đón bé `
           + 'thì ghi ở mục Liên hệ khẩn cấp trong hồ sơ của bé.',
+      });
+    }
+    const daCo = timPhuHuynhTheoSdt(b.phone);
+    if (daCo) {
+      if ((s.parentIds || []).includes(daCo.id)) {
+        return res.status(400).json({ error: `Số này đã là tài khoản phụ huynh của bé ${s.name} rồi.` });
+      }
+      const con = db.all('students',
+        `SELECT s.id, s.name FROM students s JOIN student_parents sp ON sp.studentId = s.id
+         WHERE sp.parentId = ? AND s.active = 1 ORDER BY s.name`, [daCo.id]);
+      const thayDuoc = con.length
+        ? con.every(c => duocChamBe(req.user, c.id))
+        : db.phamViCoSo(req.user) === null;
+      if (!thayDuoc) {
+        return res.status(409).json({
+          error: 'Số này đã có tài khoản phụ huynh ở trường — liên hệ văn phòng cơ sở kia '
+            + '(hoặc ban giám hiệu) để nối bé vào tài khoản đó.',
+          daCoTaiKhoan: true,
+        });
+      }
+      if (b.xacNhanNoi !== true) {
+        const tenCon = con.length ? `, phụ huynh bé ${con.map(c => c.name).join(', bé ')}` : '';
+        return res.status(409).json({
+          error: `Số này đã là tài khoản của ${daCo.name}${tenCon}. Nối vào bé này?`,
+          canXacNhan: true,
+          daCoTaiKhoan: true,
+          phuHuynh: { id: daCo.id, name: daCo.name },
+        });
+      }
+      let quanHe = '';
+      db.tx(() => {
+        db.run('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)', [s.id, daCo.id]);
+        quanHe = ghiQuanHe(s.id, daCo.id, b.quanHe);
+      });
+      db.audit(req.user.id, 'phu-huynh-noi', s.id, { name: s.name, parentId: daCo.id, phuHuynh: daCo.name, quanHe });
+      return res.status(201).json({
+        id: daCo.id, studentId: s.id, name: daCo.name, phone: daCo.phone, quanHe,
+        username: daCo.username, daCoTaiKhoan: true, temporaryPassword: null,
       });
     }
     let ra = null;
@@ -2412,17 +2483,12 @@ module.exports = (app) => {
   // mã. Trước đây mỗi lần nhập lại là mỗi lần sinh thêm một bản sao của cả
   // trường — kèm tài khoản phụ huynh mới — mà không ai được báo gì.
   //
-  // Chỉ dùng để SO SÁNH. Ngày sinh vẫn được lưu xuống đúng như người dùng gõ.
+  // Đọc theo đúng luật của lib/ngay-sinh.js (Đ261a) để bé cũ lưu `24/09/2023`
+  // trước đợt ấy vẫn khớp với dòng mới ghi 2023-09-24. Chữ không đọc được thì
+  // so nguyên văn, như trước.
   function chuanNgaySinh(s) {
     const t = String(s || '').trim();
-    if (!t) return '';
-    let m = t.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);          // 2018-05-01
-    if (!m) {
-      const d = t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);       // 01/05/2018
-      if (d) m = [t, d[3], d[2], d[1]];
-    }
-    if (!m) return t.toLowerCase();
-    return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+    return ngaySinh.doc(t).ngay || t.toLowerCase();
   }
   function khoaHocSinh(hoTen, ngaySinh, tenLop) {
     return [
@@ -2454,6 +2520,7 @@ module.exports = (app) => {
     const daDungTen = new Set();
     const ketQua = [];
     const maDaGap = new Set();
+    const homNay = ngayVN.homNay();
 
     // Chụp một lần danh sách em đang học để đối chiếu, thay vì truy vấn mỗi dòng.
     //
@@ -2481,12 +2548,31 @@ module.exports = (app) => {
       const phHoTen = lay(row, 'Họ tên phụ huynh', 'Phụ huynh', 'Ho ten phu huynh', 'parent');
       const phSdt = lay(row, 'Điện thoại', 'SĐT', 'SDT', 'Số điện thoại', 'phone');
       const ma = lay(row, 'Mã của bé', 'Mã bé', 'Mã học sinh', 'Mã HS', 'Ma HS', 'code');
-      const ngaySinh = lay(row, 'Ngày sinh', 'Ngay sinh', 'dob');
+      // NGÀY SINH LƯU XUỐNG ĐÃ CHUẨN HOÁ VỀ YYYY-MM-DD (Đ261a). Ngày không có
+      // thật, chữ, ngày tương lai, bé quá 7 tuổi là lỗi của dòng; ngoài lứa
+      // 12 tháng – 6 tuổi chỉ là cảnh báo. Xem lib/ngay-sinh.js.
+      const ns = ngaySinh.docVaSoat(lay(row, 'Ngày sinh', 'Ngay sinh', 'dob'), homNay);
+      const canhBao = ns.canhBao ? [ns.canhBao] : [];
+
+      // PHỤ HUYNH THỨ HAI (Đ261a — O2): cột không bắt buộc. Có thì phải đủ họ
+      // tên và số điện thoại, vì tài khoản được nối theo số như phụ huynh 1.
+      const ph2HoTen = lay(row, 'Họ tên phụ huynh 2', 'Phụ huynh 2', 'parent2');
+      const ph2Sdt = lay(row, 'Điện thoại phụ huynh 2', 'SĐT phụ huynh 2', 'SDT phụ huynh 2', 'phone2');
+      const ph2QuanHe = lay(row, 'Quan hệ phụ huynh 2', 'relation2');
+
+      // DÒNG VÍ DỤ CỦA TỆP MẪU (Đ261a — B3) không bao giờ là một bé thật.
+      const viDu = csv.boDau(ma) === 'vidu' || csv.boDau(hoTen).includes('dongvidu');
 
       const loi = [];
       if (!hoTen) loi.push('thiếu họ tên của bé');
       if (!tenLop) loi.push('thiếu nhóm lớp');
       if (!phHoTen) loi.push('thiếu họ tên phụ huynh');
+      if (ns.loi) loi.push(ns.loi);
+      if (ph2HoTen || ph2Sdt) {
+        if (!ph2HoTen) loi.push('thiếu họ tên phụ huynh 2');
+        if (!ph2Sdt) loi.push('thiếu số điện thoại phụ huynh 2');
+        else if (chuanHoaSdt(ph2Sdt) === chuanHoaSdt(phSdt)) loi.push('số điện thoại phụ huynh 2 trùng với phụ huynh thứ nhất');
+      }
       if (ma && maDaGap.has(ma)) loi.push(`mã của bé "${ma}" bị lặp trong tệp`);
       if (ma) maDaGap.add(ma);
       if (ma && db.first('students', 'SELECT id FROM students WHERE code = ?', [ma])) {
@@ -2497,8 +2583,8 @@ module.exports = (app) => {
       // thật sự có hai em trùng cả họ tên, ngày sinh lẫn lớp, và quản trị phải
       // được quyền nói "đúng, cứ nhập".
       let trung = null;
-      if (hoTen && tenLop && !loi.length) {
-        const khoa = khoaHocSinh(hoTen, ngaySinh, tenLop);
+      if (hoTen && tenLop && !loi.length && !viDu) {
+        const khoa = khoaHocSinh(hoTen, ns.ngay, tenLop);
         if (khoaTrongTep.has(khoa)) {
           trung = `trùng với dòng ${khoaTrongTep.get(khoa)} ngay trong tệp này`;
         } else if (daCo.has(khoa)) {
@@ -2550,7 +2636,8 @@ module.exports = (app) => {
         campusId: maCoSo,
         phHoTen, phSdt,
         phEmail: lay(row, 'Email', 'Email phụ huynh', 'email'),
-        ngaySinh,
+        ph2HoTen, ph2Sdt, ph2QuanHe,
+        ngaySinh: ns.ngay,
         gioiTinh: lay(row, 'Giới tính', 'Gioi tinh', 'gender'),
         diaChi: lay(row, 'Địa chỉ', 'Dia chi', 'address'),
         // Hai cột KHÔNG bắt buộc và KHÔNG bao giờ làm dòng thành lỗi: mẫu sổ
@@ -2561,8 +2648,11 @@ module.exports = (app) => {
         classId: lop ? lop.id : null,
         taoLopMoi: !!tenLop && !lop,
         username: phHoTen ? sinhTenDangNhap(phHoTen, phSdt, daDungTen) : '',
+        ph2Username: ph2HoTen && ph2Sdt ? sinhTenDangNhap(ph2HoTen, ph2Sdt, daDungTen) : '',
         loi,
+        canhBao,
         trung,
+        viDu,
       });
     }
     return ketQua;
@@ -2629,6 +2719,9 @@ module.exports = (app) => {
       // ấy, nên bỏ đúng hai lỗi đó đi. Mọi lỗi khác giữ nguyên.
       r.loi = r.loi.filter(x => !/nhiều cơ sở|không thuộc cơ sở/.test(x));
     }
+    if (r.viDu) {
+      return res.status(400).json({ error: 'Đây là tên của dòng ví dụ trong tệp mẫu, không phải một bé thật.' });
+    }
     if (r.loi.length) {
       // Câu báo lỗi y hệt đường nhập tệp, chỉ bỏ chữ "dòng 1" đi cho đỡ lạ.
       return res.status(400).json({ error: r.loi.join('; ') });
@@ -2690,6 +2783,7 @@ module.exports = (app) => {
     res.status(201).json({
       ...ra.student,
       ngayNhapHoc: ngayNhapHoc || null,
+      canhBao: r.canhBao,
       taiKhoan: taiKhoan[0] || null,
       taiKhoanPhuHuynh2: ra2 ? {
         phuHuynh: ra2.parent.name,
@@ -2725,8 +2819,10 @@ module.exports = (app) => {
     const text = String((req.body || {}).csv || '');
     if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
     if (chanBangMaSai(text, res)) return;
-    const rows = phanTich(text, phamViNhom(req.user));
-    if (!rows.length) return res.status(400).json({ error: 'Tệp không có dòng dữ liệu nào' });
+    const pham = phamViNhom(req.user);
+    const { rows, viDu } = tachDongViDu(phanTich(text, pham));
+    if (!rows.length) return res.status(400).json({ error: viDu.length ? CHI_CO_VI_DU : 'Tệp không có dòng dữ liệu nào' });
+    const lopMoi = [...new Set(rows.filter(r => r.taoLopMoi).map(r => r.tenLop))];
     res.json({
       total: rows.length,
       loi: rows.filter(r => r.loi.length).length,
@@ -2734,10 +2830,38 @@ module.exports = (app) => {
       // mặc định không nhập. Gộp vào sẽ làm sai mọi chỗ đang tính "số dòng nhập
       // được = total - loi".
       trung: rows.filter(r => r.trung).length,
-      lopMoi: [...new Set(rows.filter(r => r.taoLopMoi).map(r => r.tenLop))],
+      // Cảnh báo (bé ngoài lứa tuổi) cũng tách riêng: dòng ấy VẪN nhập.
+      canhBao: rows.filter(r => !r.loi.length && r.canhBao.length).length,
+      lopMoi,
+      lopGanGiong: lopGanGiong(lopMoi, pham),
+      viDu: viDu.map(r => r.line),
       rows,
     });
   });
+
+  // DÒNG VÍ DỤ CỦA TỆP MẪU (Đ261a — B3). Văn phòng quên xoá dòng mẫu là tạo ra
+  // một bé ảo kèm tài khoản gia đình. Tách ra TRƯỚC mọi phép đếm, ở cả hai đường
+  // xem trước và ghi thật, để dòng ấy không bao giờ được nhập.
+  const CHI_CO_VI_DU = 'Tệp chỉ có dòng ví dụ của tệp mẫu. Xin xoá dòng ví dụ (mã "VI-DU") '
+    + 'rồi điền danh sách bé vào, mỗi bé một dòng.';
+  function tachDongViDu(tatCa) {
+    return { rows: tatCa.filter(r => !r.viDu), viDu: tatCa.filter(r => r.viDu) };
+  }
+
+  // TÊN NHÓM GÕ LỆCH (Đ261a — O7): "Mam 1" sẽ tạo nhóm MỚI bên cạnh "Mầm 1"
+  // đã có. So bỏ dấu, không phân biệt hoa thường, gộp dấu cách — với nhóm đang
+  // mở trong phạm vi người nhập và với các nhóm mới khác trong cùng tệp.
+  function lopGanGiong(lopMoi, pham) {
+    const gon = (t) => csv.boDau(String(t || '')).toLowerCase().replace(/\s+/g, ' ').trim();
+    const daCo = db.all('classes', 'SELECT id, name FROM classes WHERE active = 1')
+      .filter(c => pham === null || pham.includes(c.id)).map(c => c.name);
+    const ra = [];
+    for (const moi of lopMoi) {
+      const giong = [...daCo, ...lopMoi].find(t => t !== moi && gon(t) === gon(moi));
+      if (giong) ra.push({ moi, giong, daCo: daCo.includes(giong) });
+    }
+    return ra;
+  }
 
   // NHẬN MỘT BÉ VÀO TRƯỜNG — một chỗ duy nhất (Đ170).
   //
@@ -2772,21 +2896,28 @@ module.exports = (app) => {
     return String(x || '').replace(/[\s.\-()]/g, '');
   }
 
-  function nhanMotBe(r, lopTheoTen, taiKhoan) {
+  // Tài khoản phụ huynh đang mở có đúng số này (đã bỏ dấu cách, chấm, gạch).
+  function timPhuHuynhTheoSdt(sdt) {
+    const sdtChuan = chuanHoaSdt(sdt);
+    if (!sdtChuan) return null;
+    return db.first('users',
+      `SELECT * FROM users WHERE role = 'parent' AND active = 1
+         AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '.', ''), '-', ''), '(', ''), ')', '') = ?
+       ORDER BY createdAt, id`,
+      [sdtChuan]);
+  }
+
+  // `kho` (không bắt buộc): mật khẩu đã băm sẵn NGOÀI giao dịch — xem
+  // `taoKhoMatKhau`. Không có thì băm tại chỗ như trước.
+  function nhanMotBe(r, lopTheoTen, taiKhoan, kho) {
     const classId = r.classId || lopTheoTen.get(r.tenLop) || null;
 
     // Gộp phụ huynh trùng số điện thoại — nhà có hai con thì dùng chung một tài khoản.
-    const sdtChuan = chuanHoaSdt(r.phSdt);
-    let parent = sdtChuan
-      ? db.first('users',
-        `SELECT * FROM users WHERE role = 'parent' AND active = 1
-           AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '.', ''), '-', ''), '(', ''), ')', '') = ?`,
-        [sdtChuan])
-      : null;
+    let parent = timPhuHuynhTheoSdt(r.phSdt);
     let matKhau = null;
     if (!parent) {
       ({ parent, matKhau } = taoTaiKhoanPhuHuynh({
-        username: r.username, name: r.phHoTen, phone: r.phSdt, email: r.phEmail,
+        username: r.username, name: r.phHoTen, phone: r.phSdt, email: r.phEmail, kho,
       }));
     }
 
@@ -2822,17 +2953,76 @@ module.exports = (app) => {
       username: parent.username,
       matKhau: matKhau || '(đã có tài khoản từ trước)',
     });
+
+    // PHỤ HUYNH THỨ HAI CỦA TỆP NHẬP (Đ261a — O2): nối theo số y như phụ huynh
+    // thứ nhất, để bố của ba anh em có MỘT tài khoản thấy cả ba con.
+    if (r.ph2HoTen && r.ph2Sdt) {
+      let ph2 = timPhuHuynhTheoSdt(r.ph2Sdt);
+      let matKhau2 = null;
+      if (!ph2) {
+        ({ parent: ph2, matKhau: matKhau2 } = taoTaiKhoanPhuHuynh({
+          username: r.ph2Username, name: r.ph2HoTen, phone: r.ph2Sdt, email: '', kho,
+        }));
+      }
+      db.run('INSERT OR IGNORE INTO student_parents (studentId, parentId) VALUES (?, ?)', [student.id, ph2.id]);
+      ghiQuanHe(student.id, ph2.id, r.ph2QuanHe);
+      taiKhoan.push({
+        hocSinh: student.name,
+        lop: r.tenLop,
+        phuHuynh: ph2.name,
+        phuHuynhSdt: ph2.phone || '',
+        daCoTaiKhoan: !matKhau2,
+        username: ph2.username,
+        matKhau: matKhau2 || '(đã có tài khoản từ trước)',
+      });
+    }
     return { student, parent };
+  }
+
+  // BĂM MẬT KHẨU TRƯỚC GIAO DỊCH (Đ261a — O6). Mỗi lần băm scrypt mất cỡ 60 ms;
+  // băm đồng bộ 300 tài khoản trong giao dịch là cả máy chủ đứng 11 giây — cô
+  // đang điểm danh ở cơ sở khác cũng không bấm được gì. Băm bất đồng bộ, mỗi
+  // lượt HAI cái: phần còn lại của nhóm luồng nền để dành cho việc đọc tệp
+  // (ảnh, trang), không thì trang của người khác chờ sau cả hàng băm.
+  async function taoKhoMatKhau(soLuong) {
+    const kho = [];
+    for (let i = 0; i < soLuong; i += 2) {
+      const lo = Array.from({ length: Math.min(2, soLuong - i) }, () => sinhMatKhau());
+      const bam = await Promise.all(lo.map(m => password.hashAsync(m)));
+      lo.forEach((matKhau, j) => kho.push({ matKhau, hash: bam[j] }));
+    }
+    return kho;
+  }
+
+  // Số tài khoản MỚI mà các dòng này sẽ cần: số chưa có tài khoản, mỗi số một
+  // lần; dòng không có số thì mỗi dòng một tài khoản. Đếm dư không sao (thừa
+  // thì bỏ), đếm thiếu cũng không sao (thiếu thì băm tại chỗ).
+  function demTaiKhoanCanTao(rows) {
+    const daThay = new Set();
+    let n = 0;
+    for (const r of rows) {
+      const cacSo = [r.phSdt];
+      if (r.ph2HoTen && r.ph2Sdt) cacSo.push(r.ph2Sdt);
+      for (const sdt of cacSo) {
+        const chuan = chuanHoaSdt(sdt);
+        if (!chuan) { n++; continue; }
+        if (daThay.has(chuan)) continue;
+        daThay.add(chuan);
+        if (!timPhuHuynhTheoSdt(chuan)) n++;
+      }
+    }
+    return n;
   }
 
   // MỘT khuôn tài khoản phụ huynh cho mọi đường tạo: nhận bé, nhập tệp, thêm
   // phụ huynh cho bé đã có (Đ239d2). Mật khẩu tạm, buộc đổi ở lần đăng nhập đầu.
-  function taoTaiKhoanPhuHuynh({ username, name, phone, email }) {
-    const matKhau = sinhMatKhau();
+  function taoTaiKhoanPhuHuynh({ username, name, phone, email, kho }) {
+    const san = kho && kho.pop();
+    const matKhau = san ? san.matKhau : sinhMatKhau();
     const parent = {
       id: db.nextId('p'),
       username,
-      passwordHash: password.hash(matKhau),
+      passwordHash: san ? san.hash : password.hash(matKhau),
       role: 'parent',
       name,
       title: '',
@@ -2848,24 +3038,35 @@ module.exports = (app) => {
     return { parent, matKhau };
   }
 
-  app.post('/api/admin/import/commit', onlyAdmin, (req, res) => {
+  app.post('/api/admin/import/commit', onlyAdmin, async (req, res) => {
     const text = String((req.body || {}).csv || '');
     if (!text.trim()) return res.status(400).json({ error: 'Chưa có nội dung tệp' });
     if (chanBangMaSai(text, res)) return;
-    const rows = phanTich(text, phamViNhom(req.user));
     // Mặc định BỎ QUA dòng trùng thay vì chặn cả tệp. Chặn cả tệp thì bản giao
     // diện cũ còn trong bộ nhớ đệm của điện thoại sẽ báo lỗi mà không nói được
     // vì sao; bỏ qua thì phần còn lại vẫn nhập được và số liệu trả về nói rõ.
     const nhapCaTrung = (req.body || {}).nhapCaTrung === true;
-    const trungBiBoQua = nhapCaTrung ? [] : rows.filter(r => !r.loi.length && r.trung);
-    const hopLe = rows.filter(r => !r.loi.length && (nhapCaTrung || !r.trung));
-    if (!hopLe.length) {
-      return res.status(400).json({
-        error: trungBiBoQua.length
+    const soat = () => {
+      const { rows, viDu } = tachDongViDu(phanTich(text, phamViNhom(req.user)));
+      const trungBiBoQua = nhapCaTrung ? [] : rows.filter(r => !r.loi.length && r.trung);
+      const hopLe = rows.filter(r => !r.loi.length && (nhapCaTrung || !r.trung));
+      let loi = '';
+      if (!hopLe.length) {
+        loi = trungBiBoQua.length
           ? `Tất cả ${trungBiBoQua.length} bé trong tệp đều đã có trong hệ thống nên không có gì để nhập.`
-          : 'Không có dòng nào hợp lệ để nhập',
-      });
-    }
+          : (!rows.length && viDu.length ? CHI_CO_VI_DU : 'Không có dòng nào hợp lệ để nhập');
+      }
+      return { rows, hopLe, trungBiBoQua, viDu, loi };
+    };
+    let p = soat();
+    if (p.loi) return res.status(400).json({ error: p.loi });
+    const kho = await taoKhoMatKhau(demTaiKhoanCanTao(p.hopLe));
+    // SOÁT LẠI SAU KHI CHỜ BĂM. Trong lúc chờ, một lượt nhập khác (bấm hai lần,
+    // hai người cùng nhập) có thể đã ghi xong — soát lại thì bé vừa được nhập
+    // ở lượt kia hiện ra là "đã có" và được bỏ qua, như khi hai lượt nối nhau.
+    p = soat();
+    if (p.loi) return res.status(400).json({ error: p.loi });
+    const { rows, hopLe, trungBiBoQua, viDu } = p;
 
     const school = db.school() || {};
     const coSoNguoiNhap = db.phamViCoSo(req.user);
@@ -2893,7 +3094,7 @@ module.exports = (app) => {
         lopTheoTen.set(r.tenLop, id);
       }
 
-      for (const r of hopLe) nhanMotBe(r, lopTheoTen, taiKhoan);
+      for (const r of hopLe) nhanMotBe(r, lopTheoTen, taiKhoan, kho);
     });
 
     db.audit(req.user.id, 'import-students', null, {
@@ -2906,6 +3107,7 @@ module.exports = (app) => {
       imported: hopLe.length,
       boQua: rows.length - hopLe.length,
       boQuaTrung: trungBiBoQua.length,
+      boQuaViDu: viDu.length,
       taiKhoan,
     });
   });
@@ -2920,16 +3122,25 @@ module.exports = (app) => {
     // và cột này để trống được nên không nên chen vào giữa những cột không được
     // để trống. Cột 'Nhóm máu' đã bỏ khỏi mẫu (góp ý 20/10, C1); tệp cũ còn cột
     // ấy vẫn nhập được và giá trị vẫn lưu — xem `lay(row, 'Nhóm máu', ...)`.
+    //
+    // Ba cột PHỤ HUYNH 2 (Đ261a — O2) đứng cuối, cùng lý do: để trống được.
+    //
+    // DÒNG MẪU LÀ DÒNG VÍ DỤ, VÀ NÓI RÕ NHƯ VẬY (Đ261a — B3). Bản cũ mượn đúng
+    // tên một bé và số một gia đình của dữ liệu mẫu, nên ai quên xoá dòng ấy là
+    // tạo ra một bé ảo nối vào tài khoản nhà người ta. Nay mã "VI-DU" và tên
+    // tự nói mình là ví dụ; bước xem trước bỏ qua dòng ấy kèm lời báo.
     const headers = ['Mã của bé', 'Họ tên', 'Ngày sinh', 'Giới tính', 'Nhóm', 'Cơ sở', 'Địa chỉ',
-      'Họ tên phụ huynh', 'Điện thoại', 'Email', 'Dân tộc'];
+      'Họ tên phụ huynh', 'Điện thoại', 'Email', 'Dân tộc',
+      'Họ tên phụ huynh 2', 'Điện thoại phụ huynh 2', 'Quan hệ phụ huynh 2'];
     const namSinhMau = Number(ngayVN.homNay().slice(0, 4)) - 4;   // bé nhóm Chồi, 4 tuổi
     const mau = [{
-      'Mã của bé': 'MN2026001', 'Họ tên': 'Nguyễn Bảo An', 'Ngày sinh': `${namSinhMau}-04-12`,
-      'Giới tính': 'Nữ', 'Nhóm': 'Chồi 2',
+      'Mã của bé': 'VI-DU', 'Họ tên': 'Nguyễn Văn Mẫu (dòng ví dụ — xoá đi)', 'Ngày sinh': `12/04/${namSinhMau}`,
+      'Giới tính': 'Nam', 'Nhóm': 'Chồi 2',
       'Cơ sở': (db.campuses()[0] || {}).name || '',
       'Địa chỉ': '12 Hoa Phượng, Q. Phú Nhuận',
-      'Họ tên phụ huynh': 'Lê Thị Thu Hà', 'Điện thoại': '0912345678', 'Email': 'thuha@gmail.com',
+      'Họ tên phụ huynh': 'Trần Thị Mẫu', 'Điện thoại': '0900000001', 'Email': '',
       'Dân tộc': 'Kinh',
+      'Họ tên phụ huynh 2': 'Nguyễn Văn Mẫu Bố', 'Điện thoại phụ huynh 2': '0900000002', 'Quan hệ phụ huynh 2': 'Bố',
     }];
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="mau-danh-sach-be.csv"');

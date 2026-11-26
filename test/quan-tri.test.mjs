@@ -3,7 +3,7 @@
 // Chạy bằng:  npm run test:quan-tri
 import fs from 'fs';
 import { spawn, execSync } from 'child_process';
-import { GOC, thuMucTam, donThuMucTam , MAU } from './_chung.mjs';
+import { GOC, thuMucTam, donThuMucTam , MAU, HOM_NAY } from './_chung.mjs';
 
 const PORT = Number(process.env.TEST_PORT || 3500);
 const BASE = `http://localhost:${PORT}`;
@@ -84,13 +84,16 @@ console.log('\n[3] Tổng quan và quản lý lớp');
 }
 
 console.log('\n[4] Xem trước khi nhập danh sách (bắt lỗi)');
+// Năm sinh tính lùi từ hôm nay (Đ261a): từ đợt ấy bé quá 7 tuổi là dòng lỗi,
+// nên năm sinh cố định của tệp tiểu học cũ (2016, 2018) làm sai phép đếm lỗi.
+const N = Number(HOM_NAY().slice(0, 4));
 const CSV = `Mã học sinh,Họ tên,Ngày sinh,Giới tính,Lớp,Địa chỉ,Họ tên phụ huynh,Điện thoại,Email
-HS001,Trần Văn An,2018-05-10,Nam,Lớp 2A,"12 Lê Lợi, Q.1",Trần Văn Bình,0911111111,binh@gmail.com
-HS002,Trần Thị Bích,2016-03-22,Nữ,Lớp 4B,"12 Lê Lợi, Q.1",Trần Văn Bình,0911111111,binh@gmail.com
-HS003,Lê Minh Cường,2018-07-01,Nam,Lớp 2A,45 Trần Phú,Lê Văn Dũng,0922222222,
-HS001,Nguyễn Trùng Mã,2018-01-01,Nam,Lớp 2A,,Nguyễn Văn E,0933333333,
-,Thiếu Tên Lớp,2018-01-01,Nữ,,,Phạm Thị F,0944444444,
-HS005,Hoàng Thiếu PH,2018-01-01,Nam,Lớp 2A,,,,`;
+HS001,Trần Văn An,${N - 4}-05-10,Nam,Lớp 2A,"12 Lê Lợi, Q.1",Trần Văn Bình,0911111111,binh@gmail.com
+HS002,Trần Thị Bích,${N - 5}-03-22,Nữ,Lớp 4B,"12 Lê Lợi, Q.1",Trần Văn Bình,0911111111,binh@gmail.com
+HS003,Lê Minh Cường,${N - 4}-07-01,Nam,Lớp 2A,45 Trần Phú,Lê Văn Dũng,0922222222,
+HS001,Nguyễn Trùng Mã,${N - 4}-01-01,Nam,Lớp 2A,,Nguyễn Văn E,0933333333,
+,Thiếu Tên Lớp,${N - 4}-01-01,Nữ,,,Phạm Thị F,0944444444,
+HS005,Hoàng Thiếu PH,${N - 4}-01-01,Nam,Lớp 2A,,,,`;
 {
   const r = await req('POST', '/api/admin/import/preview', { cookie: A.cookie, body: { csv: CSV } });
   check('đọc được tệp CSV', r.status === 200 && r.data.total === 6, r.data?.total);

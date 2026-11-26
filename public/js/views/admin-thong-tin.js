@@ -509,10 +509,7 @@ Object.assign(App.views.admin, {
           <option value="mau-giao" ${c.luaTuoi === 'mau-giao' ? 'selected' : ''}>Mẫu giáo (3–6 tuổi)</option>
         </select>
         <div class="muted small mt-8" style="line-height:1.6">
-          Khai <b>Nhà trẻ</b> thì cô của nhóm thấy ô <b>thay bỉm</b> và <b>bú bình</b> cho
-          <b>mọi bé trong nhóm</b>, kể cả bé vừa qua 36 tháng — hỏi theo ngày sinh thì ô ấy
-          biến mất giữa năm học, ngay lúc cô đang dùng.
-          <div class="mt-8">
+          <div>
             Khai <b>Mẫu giáo</b> thì mục <b>Nhật ký của bé</b> không hiện ở màn gia đình nữa.
             Dữ liệu đã ghi <b>vẫn còn nguyên</b> — khai lại là hiện lại.
           </div>
@@ -546,7 +543,8 @@ Object.assign(App.views.admin, {
           Nhóm mầm non thường có 2–3 cô cùng phụ trách. Cô được tích ở đây sẽ xem
           được hồ sơ các bé của nhóm; cô chọn ở ô trên là cô phụ trách chính.
           Một cô có thể phụ trách nhiều nhóm — tích thêm ở nhóm khác KHÔNG gỡ cô
-          khỏi nhóm này.
+          khỏi nhóm này, và chọn cô làm cô phụ trách ở đây KHÔNG đổi vai của cô ở
+          nhóm khác.
           <div class="mt-8">
             Ô bên phải là <b>chương trình cô phụ trách ở nhóm này</b>, khác với
             cô phụ trách chính ở ô trên. Gia đình nhắn tin được với
@@ -796,7 +794,8 @@ Object.assign(App.views.admin, {
       const tk = d.taiKhoan;
       const tk2 = d.taiKhoanPhuHuynh2;
       UI.modal(`
-        <div class="card"><div class="card-title">Đã nhận ${UI.esc(d.name)} vào nhóm ${UI.esc(tenLop)}</div></div>
+        <div class="card"><div class="card-title">Đã nhận ${UI.esc(d.name)} vào nhóm ${UI.esc(tenLop)}</div>
+          ${(d.canhBao || []).map(c => `<div class="small mt-8" data-canh-bao style="color:var(--warning)">⚠ ${UI.esc(c)}</div>`).join('')}</div>
         ${tk ? `
           <div class="card">
             <div class="card-title">Tài khoản của gia đình</div>
@@ -821,7 +820,7 @@ Object.assign(App.views.admin, {
             <div class="muted small mt-8">Mật khẩu chỉ hiện đúng lần này; lần đăng nhập đầu app sẽ bắt đổi.</div>
           </div>` : ''}
         <button class="btn primary block mt-8" id="nb-xong">Xong</button>
-      `, 'Đã nhận bé');
+      `, 'Đã nhận bé', { giuKhiBamNen: true });
       // KHÔNG vẽ lại danh sách nhóm khi phiếu đang mở. `UI.modal()` gọi
       // `closeModal()` ngay dòng đầu, nên một lượt vẽ lại là ĐÓNG MẤT phiếu —
       // và mật khẩu ấy không xem lại được, tức gia đình không đăng nhập được
@@ -1273,6 +1272,8 @@ Vẫn nhận bé này?`)) {
     try {
       const r = await API.post('/api/admin/import/preview', { csv: this._csv });
       const loi = r.rows.filter(x => x.loi.length);
+      // Máy chủ cũ chưa có trường `canhBao` trên từng dòng — coi như không có.
+      const canhBao = r.rows.filter(x => !x.loi.length && (x.canhBao || []).length);
       // Máy chủ cũ chưa có trường `trung` — mặc định 0 để bản giao diện mới vẫn
       // chạy đúng nếu người dùng mở app trước khi máy chủ kịp cập nhật.
       const soTrung = r.trung || 0;
@@ -1286,6 +1287,14 @@ Vẫn nhận bé này?`)) {
           <div class="stat-box"><div class="stat-num" style="color:${r.loi ? 'var(--danger)' : 'var(--muted)'}">${r.loi}</div><div class="stat-label">Có lỗi</div></div>
           <div class="stat-box"><div class="stat-num" style="color:${soTrung ? 'var(--warning)' : 'var(--muted)'}">${soTrung}</div><div class="stat-label">Đã có</div></div>
         </div>
+        ${(r.viDu || []).length ? `<div class="card" data-vi-du style="border-left:4px solid var(--info)">
+          Đã bỏ qua dòng ví dụ của tệp mẫu (dòng ${UI.esc(r.viDu.join(', '))}) — dòng đó không bao giờ được nhập.</div>` : ''}
+        ${(r.lopGanGiong || []).length ? `<div class="card" data-lop-gan-giong style="border-left:4px solid var(--danger)">
+          <div class="card-title">Xem lại tên nhóm trước khi nhập</div>
+          ${r.lopGanGiong.map(x => `<div class="small mt-8">Sẽ tạo nhóm MỚI <b>'${UI.esc(x.moi)}'</b>
+            (giống <b>'${UI.esc(x.giong)}'</b>${x.daCo ? ' đã có' : ' cũng trong tệp này'}?)</div>`).join('')}
+          <div class="muted small mt-8" style="line-height:1.6">Nếu là gõ thiếu dấu, xin sửa tên nhóm trong tệp
+            cho đúng từng chữ rồi tải lên lại — không thì các bé ấy vào một nhóm riêng.</div></div>` : ''}
         ${r.lopMoi.length ? `<div class="card" style="border-left:4px solid var(--info)">
           Sẽ tạo mới ${r.lopMoi.length} nhóm: <b>${UI.esc(r.lopMoi.join(', '))}</b></div>` : ''}
         ${soTrung ? `
@@ -1303,6 +1312,13 @@ Vẫn nhận bé này?`)) {
               <span class="small">Trường tôi có những bé trùng cả họ tên, ngày sinh lẫn nhóm —
                 cứ nhập cả ${soTrung} bé này.</span>
             </label>
+          </div>` : ''}
+        ${canhBao.length ? `
+          <div class="card" data-canh-bao style="border-left:4px solid var(--warning)">
+            <div class="card-title">${canhBao.length} dòng cần xem lại — vẫn sẽ được nhập</div>
+            ${canhBao.slice(0, 15).map(x => `<div class="small" style="margin-bottom:6px">
+              <b>Dòng ${x.line}</b> ${UI.esc(x.hoTen)} — ${UI.esc(x.canhBao.join('; '))}</div>`).join('')}
+            ${canhBao.length > 15 ? `<div class="muted small">…và ${canhBao.length - 15} dòng khác</div>` : ''}
           </div>` : ''}
         ${loi.length ? `
           <div class="card" style="border-left:4px solid var(--danger)">
@@ -1376,7 +1392,7 @@ Vẫn nhận bé này?`)) {
     const rows = r.taiKhoan;
     const daCo = rows.filter(t => t.daCoTaiKhoan);
     UI.modal(`
-      <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} bé đã có sẵn trong hệ thống)` : ''}.</p>
+      <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} bé đã có sẵn trong hệ thống)` : ''}${r.boQuaViDu ? `. Dòng ví dụ của tệp mẫu không được nhập` : ''}.</p>
       <p class="muted small">Danh sách tài khoản dưới đây <b>chỉ hiện một lần</b>. Hãy tải về và in
       phát cho phụ huynh. Mật khẩu sẽ được yêu cầu đổi khi đăng nhập lần đầu.</p>
       ${daCo.length ? `<p class="muted small"><b>${daCo.length} nhà</b> trong danh sách
