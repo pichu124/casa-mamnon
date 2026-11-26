@@ -1909,6 +1909,11 @@ module.exports = (app) => {
       'SELECT * FROM student_emergency_contacts WHERE studentId IN (__IN__) ORDER BY taoLuc, rowid',
       beIds, 'studentId');
     const dongYTheoBe = db.dongYCuaCacBe(beIds);
+    // Bé BẢO LƯU ghi "Bảo lưu từ dd/mm/yyyy", không ghi "Đã nghỉ" (Đ261a — B9),
+    // cùng chữ với tệp Hồ sơ bé của phân hệ Xuất báo cáo.
+    const baoLuuTheoBe = goms('hoc_sinh_bao_luu',
+      'SELECT studentId, tuNgay FROM hoc_sinh_bao_luu WHERE studentId IN (__IN__)',
+      rows.filter(s => s.active === false || s.active === 0).map(s => s.id));
     const phuHuynhTheoId = new Map(db.all('users',
       "SELECT id, title, name, phone FROM users WHERE role = 'parent'").map(u => [u.id, u]));
     const cccdTheoNguoi = new Map(db.all('user_profile',
@@ -1961,7 +1966,13 @@ module.exports = (app) => {
             'Ngày ký': d.ngayKy,
           };
         })(),
-        'Tình trạng': s.active === false || s.active === 0 ? 'Đã nghỉ' : 'Đang học',
+        'Tình trạng': (() => {
+          if (s.active !== false && s.active !== 0) return 'Đang học';
+          const bl = (baoLuuTheoBe.get(s.id) || {}).tuNgay || '';
+          const roi = /^\d{4}-\d{2}-\d{2}/.test(String(s.leftAt || '')) ? String(s.leftAt).slice(0, 10) : '';
+          const tu = bl && (!roi || bl < roi) ? bl : roi;
+          return bl && tu ? `Bảo lưu từ ${tu.slice(8, 10)}/${tu.slice(5, 7)}/${tu.slice(0, 4)}` : 'Đã nghỉ';
+        })(),
       };
     }).map(khoaCongThuc);
 

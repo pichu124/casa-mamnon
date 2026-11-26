@@ -880,6 +880,14 @@ module.exports = (app, { db, modules }) => {
     const cccdTheoNguoi = new Map(db.all('user_profile',
       'SELECT userId, soCccd FROM user_profile').map(r => [r.userId, r.soCccd || '']));
     const noi = (v) => (v === true ? 'Đồng ý' : v === false ? 'Không đồng ý' : 'Chưa trả lời');
+    // Bé BẢO LƯU không phải bé đã nghỉ (Đ261a — B9): ghi "Bảo lưu từ …" như
+    // tệp điểm danh. Bé nghỉ hẳn giữ nguyên chữ "Đã nghỉ" của cột này.
+    const nghi = beDaNghi(rows);
+    const tinhTrang = (s) => {
+      if (s.active !== false && s.active !== 0) return 'Đang học';
+      const n = nghi.get(s.id);
+      return n && n.baoLuu ? n.chu : 'Đã nghỉ';
+    };
 
     const hang = [['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
       'Số định danh cá nhân', 'Dân tộc', 'Tiền sử bệnh / lưu ý đặc biệt',
@@ -909,7 +917,7 @@ module.exports = (app, { db, modules }) => {
           .map(l => `${l.hoTen}${l.quanHe ? ` — ${l.quanHe}` : ''}${l.dienThoai ? ` (${l.dienThoai})` : ''}`)
           .join(' · '),
         noi(d.hoSoHocTap), noi(d.chiaSeGiaDinh), noi(d.truyenThong), d.nguoiKy, d.ngayKy,
-        s.active === false || s.active === 0 ? 'Đã nghỉ' : 'Đang học',
+        tinhTrang(s),
       ]);
     }
     db.audit(req.user.id, 'students-export', null,
