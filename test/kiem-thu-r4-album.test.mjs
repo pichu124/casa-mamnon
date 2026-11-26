@@ -216,6 +216,35 @@ try {
     const ds3 = ((await req('GET', '/api/albums?keCaLopCu=1', { cookie: PH9 })).data || []).map(a => a.id);
     check('và gia đình vẫn xem album của giai đoạn con đã học', ds3.includes(alNt), ds3);
   }
+
+  // =========================================================================
+  console.log('\n[5] B6 — DANH SÁCH ALBUM ĐẾM VIDEO RIÊNG, KHÔNG GỌI VIDEO LÀ ẢNH');
+  {
+    // Hộp `ftyp` ở byte 4–8 là đủ qua phép kiểm chữ ký video của máy chủ.
+    const mp4 = () => {
+      const b = Buffer.alloc(4096);
+      b.writeUInt32BE(4096, 0);
+      b.write('ftypisom', 4, 'ascii');
+      return `data:video/mp4;base64,${b.toString('base64')}`;
+    };
+    const chiVideo = await req('POST', '/api/albums', {
+      cookie: GV, body: { title: 'Chỉ có video', photos: [{ video: mp4() }] },
+    });
+    check('cô đăng được album chỉ có video', chiVideo.status === 201, chiVideo.status);
+    await req('POST', `/api/albums/${chiVideo.data?.id}/photos`, { cookie: GV, body: { photos: [{ video: mp4() }] } });
+    const tron = await req('POST', '/api/albums', {
+      cookie: GV, body: { title: 'Ảnh và video', photos: [{ emoji: '🎈' }, { emoji: '🧸' }] },
+    });
+    await req('POST', `/api/albums/${tron.data?.id}/photos`, { cookie: GV, body: { photos: [{ video: mp4() }] } });
+    const ds = (await req('GET', '/api/albums', { cookie: GV })).data || [];
+    const a1 = ds.find(a => a.id === chiVideo.data?.id);
+    const a2 = ds.find(a => a.id === tron.data?.id);
+    check('ALBUM CHỈ CÓ VIDEO: máy chủ nói rõ 2 video', a1 && a1.photoCount === 2 && a1.videoCount === 2, a1);
+    check('ALBUM TRỘN: 3 tệp, trong đó 1 video', a2 && a2.photoCount === 3 && a2.videoCount === 1, a2);
+    const anhCu = ds.find(a => a.id === 'al1');
+    check('album chỉ có ảnh: 0 video (màn hình cũ vẫn đọc photoCount như trước)',
+      anhCu && anhCu.videoCount === 0 && anhCu.photoCount > 0, anhCu);
+  }
 } finally {
   sv.dung();
   donThuMucTam(DIR);

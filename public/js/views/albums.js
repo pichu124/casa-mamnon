@@ -137,9 +137,20 @@ App.views.albums = {
       <div class="card clickable" style="margin-bottom:0${a.lopDaDong || a.lopCuCuaCon ? ';opacity:.8' : ''}" onclick="App.navigate('#/albums/${UI.esc(a.id)}')">
         ${this.thumb(a.cover, a.id, 'aspect-ratio:4/3;border-radius:12px')}
         <div style="font-weight:700;margin-top:9px">${UI.esc(a.title)}</div>
-        <div class="muted small" style="margin-top:3px">${UI.esc(a.photoCount)} ảnh · ${UI.esc(UI.fmtDateShort(a.date))}</div>
+        <div class="muted small" style="margin-top:3px">${UI.esc(this.demTrongThe(a))} · ${UI.esc(UI.fmtDateShort(a.date))}</div>
         <div class="mt-8">${UI.badge(a.className, 'gray')}${a.cheDo === 'theo-the' ? ` ${UI.badge('Theo thẻ', 'blue')}` : ''}${a.lopDaDong || a.lopCuCuaCon ? ` ${UI.badge(a.namHoc || 'nhóm cũ', 'orange')}` : ''}</div>
       </div>`;
+  },
+
+  // "2 ảnh, 1 video" trên thẻ album (R4-B6). Máy chủ cũ chưa gửi `videoCount`
+  // thì đếm như trước.
+  demTrongThe(a) {
+    const video = Math.max(0, Number(a.videoCount) || 0);
+    const anh = Math.max(0, (Number(a.photoCount) || 0) - video);
+    const phan = [];
+    if (anh || !video) phan.push(`${anh} ảnh`);
+    if (video) phan.push(`${video} video`);
+    return phan.join(', ');
   },
 
   // Tệp này là video hay ảnh — nhận theo phần mở rộng, không cần cột mới.
@@ -472,8 +483,8 @@ App.views.albums = {
         : `<div style="height:260px;border-radius:14px;background:linear-gradient(135deg, ${UI.esc(p.g[0])}, ${UI.esc(p.g[1])});display:flex;align-items:center;justify-content:center;font-size:90px">${UI.esc(p.emoji)}</div>`}
       ${p.caption ? `<div class="center mt-14" style="font-weight:700">${UI.esc(p.caption)}</div>` : ''}
       <div class="muted small center mt-8">${UI.esc(a.title)} · ${UI.esc(UI.fmtDate(a.date, { weekday: false }))}</div>
-      <div class="muted small center mt-8">Ảnh ${index + 1} / ${a.photos.length}</div>
-    `, 'Xem ảnh');
+      <div class="muted small center mt-8">${this.laVideo(p) ? 'Video' : 'Ảnh'} ${index + 1} / ${a.photos.length}</div>
+    `, this.laVideo(p) ? 'Xem video' : 'Xem ảnh');
   },
 
   // ================= Tạo album =================
@@ -639,7 +650,7 @@ App.views.albums = {
             },
           });
           if (!conMo()) return;
-          this._pending.push({ video, caption: '', name: f.name, laVideo: true });
+          this._pending.push({ video, caption: '', name: f.name, laVideo: true, xemTruoc: this.xemTruocTep(f) });
           this.renderPreview();
         } catch (err) {
           if (!conMo()) return;   // cô đã đóng form: không báo gì thêm
@@ -844,10 +855,10 @@ App.views.albums = {
           if (!conMo()) return;
           if (!kq.coNen) {
             // Máy chủ vừa thôi nén được (hiếm): đi đường cũ cho video này.
-            if (f.size <= this.TRAN_VIDEO) this._pending.push({ video: await this.docTep(f), caption: '', name: f.name, laVideo: true });
+            if (f.size <= this.TRAN_VIDEO) this._pending.push({ video: await this.docTep(f), caption: '', name: f.name, laVideo: true, xemTruoc: this.xemTruocTep(f) });
             else await this.nenLanLuot([f], conMo);
           } else {
-            this._pending.push({ videoDaNen: kq.maTep, caption: '', name: f.name, laVideo: true });
+            this._pending.push({ videoDaNen: kq.maTep, caption: '', name: f.name, laVideo: true, xemTruoc: this.xemTruocTep(f) });
           }
           this.renderPreview();
         } catch (err) {
@@ -901,7 +912,7 @@ App.views.albums = {
           try {
             const video = await this.docTep(f);
             if (!conMo()) return;
-            this._pending.push({ video, caption: '', name: f.name, laVideo: true });
+            this._pending.push({ video, caption: '', name: f.name, laVideo: true, xemTruoc: this.xemTruocTep(f) });
           } catch (err) {
             UI.toast(err && err.message ? err.message : `Không đọc được video "${f.name}"`, 'error');
           }
@@ -932,6 +943,12 @@ App.views.albums = {
 
 
 
+  // Địa chỉ `blob:` của tệp video trong máy, chỉ để vẽ khung đầu ở ô xem
+  // trước. Không gửi lên máy chủ (máy chủ chỉ đọc `video` / `videoDaNen`).
+  xemTruocTep(f) {
+    try { return URL.createObjectURL(f); } catch (_) { return ''; }
+  },
+
   renderPreview() {
     const zone = document.getElementById('al-preview');
     if (!zone) return;
@@ -942,7 +959,13 @@ App.views.albums = {
     zone.innerHTML = this._pending.map((p, i) => `
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
         ${p.laVideo
-          ? `<div style="width:56px;height:56px;flex:none;border-radius:10px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px">🎬</div>`
+          // Khung đầu của chính đoạn phim cô vừa chọn (R4-B6), đọc từ tệp trong
+          // máy (`blob:` — CSP cho phép ở media-src, `data:` thì không). Không
+          // có tệp thì giữ ô đen như trước.
+          ? `<div style="width:56px;height:56px;flex:none;border-radius:10px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;position:relative">${
+            p.xemTruoc
+              ? `<video class="al-xem-truoc" src="${UI.esc(p.xemTruoc)}#t=0.1" muted playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover"></video><span aria-hidden="true" style="position:absolute;font-size:16px">▶</span>`
+              : '🎬'}</div>`
           : `<img src="${p.dataUrl}" alt="" style="width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover">`}
         <input class="al-cap" data-i="${i}" value="${UI.esc(p.caption)}" placeholder="${p.laVideo ? 'Chú thích video' : 'Chú thích ảnh'} (không bắt buộc)">
         <button class="btn outline sm" style="flex:none;padding:9px 11px" title="${p.laVideo ? 'Bỏ video này' : 'Bỏ ảnh này'}"
@@ -957,7 +980,8 @@ App.views.albums = {
   },
 
   removePending(i) {
-    this._pending.splice(i, 1);
+    const [bo] = this._pending.splice(i, 1);
+    if (bo && bo.xemTruoc) { try { URL.revokeObjectURL(bo.xemTruoc); } catch (_) { /* đã thu */ } }
     this.renderPreview();
   },
 

@@ -742,6 +742,9 @@ module.exports = (app) => {
           const cover = xemDuoc[0] || null;
           return {
             photoCount: xemDuoc.length,
+            // Trong số ấy bao nhiêu là video — thẻ album ghi "2 ảnh, 1 video"
+            // thay vì gọi video là ảnh (R4-B6).
+            videoCount: xemDuoc.filter(x => uploads.laVideo(x.file)).length,
             cover: cover && uploads.biaCua(cover.file) ? { ...cover, coBia: true } : cover,
           };
         })(),
