@@ -9,6 +9,10 @@
 //      con: …" nằm trong ô lĩnh vực, KHÔNG được tính là gợi ý hành động: gợi ý
 //      chỉ là hai ô "Ở lớp cô sẽ làm tiếp" / "Ở nhà gia đình chơi cùng con",
 //      thứ máy không bao giờ điền sẵn.
+//   2. R3-8 — tin báo quản lý "vừa gửi … kế hoạch tháng 11/2026", tin báo cô
+//      "… (Montessori, tháng 11/2026)": không còn dạng máy "2026-11".
+import path from 'node:path';
+import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
   batPhanHe, HOM_NAY,
@@ -107,6 +111,26 @@ try {
     await req('PUT', `/api/baocaohoctap/ban/${b1.id}`, { cookie: GV, body: { oLopLamGi: 'Cô mời con xếp tháp hồng nhắm mắt.' } });
     const g1b = await req('POST', `/api/baocaohoctap/ban/${b1.id}/gui`, { cookie: GV, body: {} });
     check('s1 ghi "Ở lớp cô sẽ làm tiếp" → gửi duyệt được', g1b.status === 200, g1b);
+  }
+
+  // =========================================================================
+  console.log('\n[2] R3-8 — tin báo kế hoạch ghi "tháng 11/2026", không ghi "2026-11"');
+  {
+    const CSDL = path.join(DIR, 'school.db');
+    const doc = (sql, ...p) => { const c = new Database(CSDL, { readonly: true }); try { return c.prepare(sql).all(...p); } finally { c.close(); } };
+    const chu = `tháng ${Number(THANG.slice(5, 7))}/${THANG.slice(0, 4)}`;
+    const g = await req('POST', '/api/kehoachbe/gui-duyet', { cookie: GV, body: {
+      classId: 'c1', thang: THANG, studentId: 's1', chuongTrinh: 'chu-nhiem' } });
+    check('đối chứng — cô gửi duyệt kế hoạch của s1', g.status === 200 && g.data.daGui >= 1, g.data);
+    const tinQl = doc("SELECT noiDung FROM thongbao_nv WHERE loai = 'ke-hoach-gui' ORDER BY rowid DESC LIMIT 1")[0];
+    check(`tin báo quản lý ghi "${chu}"`, tinQl && tinQl.noiDung.includes(`kế hoạch ${chu}`), tinQl);
+    check('…và không còn dạng máy', tinQl && !tinQl.noiDung.includes(THANG), tinQl);
+    const k = ((await req('GET', `/api/kehoachbe?classId=c1&thang=${THANG}`, { cookie: GV })).data.danhSach || [])
+      .find(x => x.studentId === 's1').ke;
+    const dy = await req('POST', '/api/kehoachbe/duyet', { cookie: QT, body: { quyetDinh: 'da-duyet', phan: [{ keId: k.id, chuongTrinh: 'chu-nhiem' }] } });
+    check('đối chứng — quản lý duyệt', dy.status === 200, dy.data);
+    const tinCo = doc("SELECT noiDung FROM thongbao_nv WHERE loai = 'ke-hoach-duyet' ORDER BY rowid DESC LIMIT 1")[0];
+    check(`tin báo cô "đã được duyệt" ghi "${chu}"`, tinCo && tinCo.noiDung.includes(chu) && !tinCo.noiDung.includes(THANG), tinCo);
   }
 } catch (err) {
   check(`bài chạy hết không lỗi: ${err.message}`, false, err.stack);

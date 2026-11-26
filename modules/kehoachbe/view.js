@@ -308,7 +308,7 @@ App.views.kehoachbe = {
       ${sua && !motBe ? `
         <div class="card">
           <div class="card-title">Đường tắt cho cả nhóm</div>
-          <button class="btn outline block" id="kb-chep">${UI.icon('plus', 16)} Chép phần này của tháng ${UI.esc(d.thangTruoc)}</button>
+          <button class="btn outline block" id="kb-chep">${UI.icon('plus', 16)} Chép phần này của tháng ${UI.esc(this.thangSo(d.thangTruoc))}</button>
           <button class="btn outline block mt-8" id="kb-ca-nhom">${UI.icon('edit', 16)} Đặt một kế hoạch cho cả nhóm</button>
         </div>` : ''}
 
@@ -468,6 +468,12 @@ App.views.kehoachbe = {
     const [n, t] = String(thang || '').split('-');
     return t ? `Tháng ${Number(t)}/${n}` : String(thang || '');
   },
+  // "10/2026" từ "2026-10" — đứng sau chữ "tháng" giữa câu (Đ261e: màn và tin
+  // không còn in dạng máy "2026-10").
+  thangSo(thang) {
+    const [n, t] = String(thang || '').split('-');
+    return t ? `${Number(t)}/${n}` : String(thang || '');
+  },
 
   // ĐÃ HỌC CÁC THÁNG TRƯỚC (góp ý 20/10, N3) — chỉ phần của tab đang mở. Ghi
   // nhãn bài (dạy mới / ôn tập / mở rộng), không mang mức độ nhìn lại.
@@ -577,7 +583,7 @@ App.views.kehoachbe = {
 
         ${goiYCt.length ? `
           <div class="small muted" style="line-height:1.6;margin-bottom:8px">
-            Tháng ${UI.esc(goiY.tuThang)} cô ghi <b>Tiếp tục ở tháng sau</b>: ${UI.esc(goiYCt.map(b => b.ten).join(', '))}
+            ${UI.esc(this.tenThang(goiY.tuThang))} cô ghi <b>Tiếp tục ở tháng sau</b>: ${UI.esc(goiYCt.map(b => b.ten).join(', '))}
             — đã tích sẵn đúng lựa chọn của cô (dạy mới, ôn tập hoặc mở rộng), cô bỏ tích được.
           </div>` : ''}
 
@@ -923,7 +929,7 @@ App.views.kehoachbe = {
       <div class="list-row" style="border-bottom:none;padding-top:0">
         ${UI.avatar(x.avatar, 40)}
         <div class="row-main"><div class="row-title">${UI.esc(x.hoTen)}</div>
-          <div class="row-sub">Tháng ${UI.esc(k.thang)} · ${UI.esc(this.TEN_CT[this._ct] || '')}</div></div>
+          <div class="row-sub">${UI.esc(this.tenThang(k.thang))} · ${UI.esc(this.TEN_CT[this._ct] || '')}</div></div>
       </div>
       <div class="muted small" style="line-height:1.6;margin-bottom:12px">
         Đây là chỗ <b>nhìn lại</b>, không phải chỗ chấm điểm. "Chưa quan sát thấy" nghĩa là
@@ -1070,7 +1076,7 @@ App.views.kehoachbe = {
 
       ${dxCho.length ? `
         <div class="card">
-          <div class="card-title">Đề xuất sửa kế hoạch đã duyệt · nhóm ${UI.esc(((d0.nhom || []).find(c => c.id === d0.classId) || {}).name || '')}, tháng ${UI.esc(d0.thang)}</div>
+          <div class="card-title">Đề xuất sửa kế hoạch đã duyệt · nhóm ${UI.esc(((d0.nhom || []).find(c => c.id === d0.classId) || {}).name || '')}, tháng ${UI.esc(this.thangSo(d0.thang))}</div>
           <div class="muted small" style="line-height:1.6">
             Đề xuất kèm <b>bản sửa</b>: đồng ý thì bản đó thay bản đã duyệt ngay, gia đình thấy bản mới.
             Đề xuất chỉ có lời: đồng ý thì phần đó <b>mở lại</b> cho cô sửa, sửa xong cô gửi duyệt lại.
@@ -1140,7 +1146,7 @@ App.views.kehoachbe = {
           <div class="kb-dong-duyet" style="border-top:1px solid var(--line);padding:10px 0">
             <div class="list-row" style="border-bottom:none;padding:0 0 6px">
               <div class="row-main">
-                <div class="row-title">${UI.esc(x.hoTen)} <span class="muted small" style="font-weight:400">· ${UI.esc(this.TEN_CT[x.chuongTrinh] || x.tenChuongTrinh)} · tháng ${UI.esc(x.thang)}</span></div>
+                <div class="row-title">${UI.esc(x.hoTen)} <span class="muted small" style="font-weight:400">· ${UI.esc(this.TEN_CT[x.chuongTrinh] || x.tenChuongTrinh)} · tháng ${UI.esc(this.thangSo(x.thang))}</span></div>
                 <div class="row-sub">${UI.esc(x.coLapTen || 'Cô')} gửi ${UI.esc(UI.timeAgo(x.guiLuc))}</div>
               </div>
               ${UI.badge(tt[0], tt[1])}

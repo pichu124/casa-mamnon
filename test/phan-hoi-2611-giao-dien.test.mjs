@@ -12,6 +12,8 @@
 //      Thực đơn mở ở "Tuần sau", đúng ngày của tuần ấy; nhà hai con chỉ một tin.
 //   4. R3-5 — quản lý cơ sở nạp tệp Excel tuần sau chỉ sửa một ngày: ngày lấy
 //      từ bản dùng chung gắn "giống bản đang có, không đổi", nút ghi "Lưu 1 ngày".
+//   5. R3-8 — hộp "Mời chữ từ Kế hoạch của bé" và tab Duyệt của Kế hoạch của bé
+//      ghi "tháng 11/2026", không ghi dạng máy "2026-11".
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
@@ -134,6 +136,14 @@ try {
     await moMan(page, '#/baocaohoctap');
     await page.evaluate((id) => { App.views.baocaohoctap._banId = id; App.route(); }, banId);
     await page.waitForSelector('#bc-gui', { timeout: 10000 });
+    // [5] R3-8 — hộp mời chữ nói tháng theo kiểu người đọc.
+    await page.click('#bc-moi');
+    await page.waitForSelector('#modal-overlay', { timeout: 5000 }).catch(() => {});
+    const hopMoi = await page.locator('#modal-overlay').innerText().catch(() => '');
+    const chuThang = `tháng ${Number(THANG.slice(5, 7))}/${THANG.slice(0, 4)}`;
+    check(`[5] hộp "Mời chữ" ghi "Kế hoạch của bé ${chuThang}", không ghi "${THANG}"`,
+      hopMoi.includes(`Kế hoạch của bé ${chuThang}`) && !hopMoi.includes(THANG), hopMoi.slice(0, 300));
+    await page.evaluate(() => UI.closeModal());
     await page.click('#bc-gui');
     await page.waitForTimeout(1200);
     const loi = await page.locator('#toast, .toast').allInnerTexts().catch(() => []);
@@ -210,6 +220,24 @@ try {
     const sau = (await req('GET', '/api/menu?week=1', { cookie: QL })).data.menus;
     check('lưu xong: chỉ thứ Ba thành bản riêng, ba ngày kia vẫn theo bản dùng chung',
       sau.map(m => m.rieng).join() === 'true,true,false,false,false', sau.map(m => [m.date, m.rieng]));
+    await ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[5] R3-8 — tab Duyệt của Kế hoạch của bé ghi "tháng 11/2026"');
+  {
+    const THANG = HOM.slice(0, 7);
+    const chuThang = `tháng ${Number(THANG.slice(5, 7))}/${THANG.slice(0, 4)}`;
+    const g = await req('POST', '/api/kehoachbe/gui-duyet', { cookie: GV, body: {
+      classId: 'c1', thang: THANG, studentId: 's6', chuongTrinh: 'chu-nhiem' } });
+    check('đối chứng — cô gửi duyệt kế hoạch của s6', g.status === 200 && g.data.daGui >= 1, g.data);
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'ph2611gd_qt', 'quantri2026');
+    await moMan(page, '#/kehoachbe/duyet');
+    await page.waitForTimeout(800);
+    const man = await chuMan(page);
+    check(`dòng chờ duyệt ghi "· ${chuThang}"`, man.includes(`· ${chuThang}`), man.slice(0, 600));
+    check(`…không còn "tháng ${THANG}"`, !man.includes(`tháng ${THANG}`), man.slice(0, 600));
     await ctx.close();
   }
 

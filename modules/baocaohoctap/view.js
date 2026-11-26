@@ -67,6 +67,12 @@ App.views.baocaohoctap = {
     return { tu: `${t.slice(0, 7)}-01`, den: t };
   },
 
+  // "11/2026" từ "2026-11" (Đ261e: không in tháng dạng máy).
+  thangSo(thang) {
+    const [n, t] = String(thang || '').split('-');
+    return t ? `${Number(t)}/${n}` : String(thang || '');
+  },
+
   tenMuc(ma) {
     const m = (this._mucList || []).find(x => x.ma === ma);
     return m ? m.ten : '';
@@ -638,12 +644,12 @@ App.views.baocaohoctap = {
       return UI.toast('Nhà trường chưa bật phần Kế hoạch của bé', 'error');
     }
     if (!(d.goiY || []).length) {
-      return UI.toast(`Kế hoạch của bé tháng ${d.thang || ''} chưa có bài hay ghi chép nào để mời sang`, 'error');
+      return UI.toast(`Kế hoạch của bé tháng ${this.thangSo(d.thang)} chưa có bài hay ghi chép nào để mời sang`, 'error');
     }
 
     UI.modal(`
       <div class="muted small" style="line-height:1.7;margin-bottom:10px">
-        Đây là chữ cô đã ghi ở <b>Kế hoạch của bé</b> tháng ${UI.esc(d.thang)}.
+        Đây là chữ cô đã ghi ở <b>Kế hoạch của bé</b> tháng ${UI.esc(this.thangSo(d.thang))}.
         Bấm <b>Chép</b> để đưa vào ô tổng hợp rồi sửa lại cho gia đình đọc.
       </div>
       ${(d.goiY || []).map((g, i) => `

@@ -358,6 +358,13 @@ function linhVucConChoManHinh() {
   return LINH_VUC_CON.map(([ma, ten, gocLinhVuc, lua]) => ({ ma, ten, gocLinhVuc, lua: lua || LUA_MAU_GIAO }));
 }
 
+// "11/2026" từ "2026-11", để tin báo ghi "tháng 11/2026" chứ không phải dạng
+// máy "tháng 2026-11" (Đ261e).
+function thangSo(thang) {
+  const [n, t] = String(thang || '').split('-');
+  return t ? `${Number(t)}/${n}` : String(thang || '');
+}
+
 function thangTruoc(thang) {
   const [nam, th] = thang.split('-').map(Number);
   const d = new Date(Date.UTC(nam, th - 2, 1));
@@ -1690,7 +1697,7 @@ module.exports = (app, { db, modules }) => {
       baoNhaTruongTheoNhom(classId, {
         loai: 'ke-hoach-gui', nguoiTao: req.user.id,
         tieuDe: 'Có kế hoạch của bé chờ duyệt',
-        noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${daGui} kế hoạch tháng ${thang}`
+        noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${daGui} kế hoạch tháng ${thangSo(thang)}`
           + `${ct ? ` (${nhomCo.CHUONG_TRINH[ct]})` : ''}${lop ? ` của nhóm ${lop.name}` : ''}.`,
         hash: '#/kehoachbe/duyet',
         tru: req.user.id,
@@ -1813,7 +1820,7 @@ module.exports = (app, { db, modules }) => {
       if (!x.coLap) continue;
       if (!theoCo.has(x.coLap)) theoCo.set(x.coLap, []);
       const be = db.findStudent(x.k.studentId);
-      theoCo.get(x.coLap).push(`${be ? be.name : 'một bé'} (${nhomCo.CHUONG_TRINH[x.ct] || x.ct}, tháng ${x.k.thang})`);
+      theoCo.get(x.coLap).push(`${be ? be.name : 'một bé'} (${nhomCo.CHUONG_TRINH[x.ct] || x.ct}, tháng ${thangSo(x.k.thang)})`);
     }
     for (const [coId, ds] of theoCo) {
       baoCo(coId, quyet === 'tra-lai'
