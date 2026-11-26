@@ -12,7 +12,7 @@
 // (2) cùng ngày ghi lại thì SỬA, không nhân đôi; (3) cô nhóm khác / văn phòng
 // cơ sở khác / gia đình không mở được bảng nhóm; (4) QUY TẮC 4: không trung
 // bình, không xếp theo số đo, không "so với chuẩn" trên màn hình.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu, GOC, HOM_NAY } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu, GOC, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
@@ -23,6 +23,7 @@ const DIR = thuMucTam('suc-khoe-nhom');
 sinhDuLieu(DIR);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'skn_qt');
 const mkVp2 = taoQuanTri(DIR, 'Văn phòng cơ sở 2', 'skn_vp2');
+daDoiMatKhau(DIR, 'skn_qt', 'skn_vp2');
 khoaVaoCoSo(DIR, 'skn_vp2', 'cs2');
 datChucVu(DIR, 'skn_vp2', 'vanphong-coso');
 

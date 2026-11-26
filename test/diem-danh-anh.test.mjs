@@ -21,7 +21,7 @@
 //   3. MÀU ĐỎ Ở ĐÂY NÓI VỀ VIỆC CỦA NGƯỜI LỚN, KHÔNG NÓI GÌ VỀ ĐỨA TRẺ. Mục
 //      [5] soi chữ trên màn hình: không câu nào quy việc chưa điểm danh về
 //      phía bé.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, datChucVu, MAU, GOC, HOM_NAY } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, datChucVu, MAU, GOC, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -31,6 +31,7 @@ const DIR = thuMucTam('diem-danh-anh');
 sinhDuLieu(DIR);
 batPhanHe(DIR, ['xinphep']);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'dda_qt');
+daDoiMatKhau(DIR, 'dda_qt');
 
 const { BASE, dung } = await dungMayChu({ port: 4599, dir: DIR });
 const req = taoReq(BASE);

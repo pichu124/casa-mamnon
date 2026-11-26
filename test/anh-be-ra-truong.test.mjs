@@ -19,7 +19,7 @@
 import path from 'path';
 import { createRequire } from 'module';
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, datChucVu,
 } from './_chung.mjs';
 
@@ -73,6 +73,7 @@ sinhDuLieu(DIR);
 }
 
 const mkMK = taoQuanTri(DIR, 'Bạn Truyền Thông', 'truyenthong');
+daDoiMatKhau(DIR, 'truyenthong');
 datChucVu(DIR, 'truyenthong', 'marketing');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4120), dir: DIR });

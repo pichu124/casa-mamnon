@@ -8,7 +8,7 @@
 //       Excel đọc được cả hai hướng bảng và ô nhiều dòng trong nháy kép.
 //   [3] Dặn thuốc: gia đình dặn lại được đơn cũ — thuốc và ghi chú chép sang,
 //       ngày dùng là ngày mới.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, GOC } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, GOC } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
@@ -18,6 +18,7 @@ const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('phan-hoi-0709');
 sinhDuLieu(DIR);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'ph0709_qt');
+daDoiMatKhau(DIR, 'ph0709_qt');
 
 const { BASE, dung } = await dungMayChu({ port: 4617, dir: DIR });
 const req = taoReq(BASE);

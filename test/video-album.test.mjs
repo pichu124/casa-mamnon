@@ -29,7 +29,7 @@
 //
 //   3. TỆP KHÔNG PHẢI VIDEO PHẢI BỊ TỪ CHỐI THEO BYTE THẬT, không theo phần
 //      khai báo của trình duyệt — cùng luật với ảnh. Mục [2].
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, GOC } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, GOC } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -38,6 +38,7 @@ const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('video-album');
 sinhDuLieu(DIR);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'va_qt');
+daDoiMatKhau(DIR, 'va_qt');
 
 const { BASE, dung } = await dungMayChu({ port: 4611, dir: DIR });
 const req = taoReq(BASE);
