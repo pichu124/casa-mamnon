@@ -25,6 +25,10 @@ App.views.student = {
   // `test:xuat-danh-sach` canh để chúng không trôi ra khỏi nhau.
   tuoiCuaBe(dob, moc) {
     if (!dob) return null;
+    // Chỉ đọc YYYY-MM-DD, như bản ở máy chủ. Chữ khác (bé nhập trước Đ261a còn
+    // lưu `12/5/24`) mà đưa cho trình duyệt đoán thì nó đọc kiểu Mỹ, ra một
+    // tuổi sai mà trông như đúng.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dob))) return null;
     const ns = UI.parseDate(dob);
     if (!ns || Number.isNaN(ns.getTime())) return null;
     // "Bây giờ" theo giờ Việt Nam, không theo múi giờ máy (Đ127).
@@ -36,6 +40,16 @@ App.views.student = {
     const nam = Math.floor(thang / 12);
     const du = thang % 12;
     return du ? `${nam} tuổi ${du} tháng` : `${nam} tuổi`;
+  },
+
+  // Ngày sinh để HIỆN (Đ261a — O1). Bé nhập trước khi đường nhập danh sách
+  // chuẩn hoá ngày sinh có thể còn lưu `24/09/2023` hay `chưa rõ`: trước đây hồ
+  // sơ hiện "NaN/NaN/NaN". Nay nói thẳng việc cần làm, không đoán ngày.
+  ngaySinhChu(dob) {
+    if (!dob) return '';
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(String(dob)) ? UI.parseDate(dob) : null;
+    if (!d || Number.isNaN(d.getTime())) return 'Ngày sinh chưa đúng — văn phòng sửa lại';
+    return UI.fmtDate(dob, { weekday: false });
   },
 
   // VĂN PHÒNG: TÌM BÉ TRƯỚC, XEM HỒ SƠ SAU (góp ý của trường 06/10, mục 1).
@@ -190,13 +204,13 @@ App.views.student = {
       <div class="card center" style="padding-top:24px">
         ${UI.avatar(s.avatar, 84)}
         <h2 style="margin-top:10px">${UI.esc(s.name)}</h2>
-        <div class="muted small mt-8">Mã của bé: ${UI.esc(s.code)} · ${UI.esc(s.className)}</div>
-        <div class="mt-8">${UI.badge(s.gender, 'blue')}${tuoi ? ` ${UI.badge(tuoi, 'purple')}` : ''}</div>
+        <div class="muted small mt-8" data-ma-nhom>${[s.code ? `Mã của bé: ${UI.esc(s.code)}` : '', UI.esc(s.className || '')].filter(Boolean).join(' · ')}</div>
+        <div class="mt-8" data-nhan-be>${[s.gender ? UI.badge(s.gender, 'blue') : '', tuoi ? UI.badge(tuoi, 'purple') : ''].filter(Boolean).join(' ')}</div>
       </div>
 
       <div class="card">
         <div class="card-title">${UI.icon('info', 19)} Thông tin cá nhân</div>
-        ${infoRow('Ngày sinh', UI.fmtDate(s.dob, { weekday: false }))}
+        ${infoRow('Ngày sinh', this.ngaySinhChu(s.dob))}
         ${infoRow('Giới tính', s.gender)}
         ${infoRow('Dân tộc', s.ethnicity)}
         ${infoRow('Địa chỉ', s.address)}
@@ -462,7 +476,7 @@ App.views.student = {
             ${UI.avatar(s.avatar, 44)}
             <div class="row-main">
               <div class="row-title">${UI.esc(s.name)}</div>
-              <div class="row-sub">${UI.esc(s.code)} · ${UI.fmtDate(s.dob, { weekday: false })}</div>
+              <div class="row-sub">${[UI.esc(s.code || ''), UI.esc(this.ngaySinhChu(s.dob))].filter(Boolean).join(' · ')}</div>
             </div>
             <span class="muted">${UI.icon('chevron', 18)}</span>
           </div>`;
@@ -500,9 +514,9 @@ App.views.student = {
       const deXuat = ((await this.deXuatLienHe(id)) || {}).danhSach || [];
       UI.modal(`
         <div class="center">${UI.avatar(s.avatar, 68)}<h3 class="mt-8">${UI.esc(s.name)}</h3>
-          <div class="muted small">${UI.esc(s.code)} · ${UI.esc(s.className)}</div></div>
+          <div class="muted small">${[UI.esc(s.code || ''), UI.esc(s.className || '')].filter(Boolean).join(' · ')}</div></div>
         <div class="mt-14">
-          ${infoRow('Ngày sinh', UI.fmtDate(s.dob, { weekday: false }))}
+          ${infoRow('Ngày sinh', this.ngaySinhChu(s.dob))}
           ${this.tuoiCuaBe(s.dob) ? infoRow('Tuổi', this.tuoiCuaBe(s.dob)) : ''}
           ${infoRow('Địa chỉ', s.address)}
           ${infoRow('Tiền sử bệnh / lưu ý đặc biệt', s.tienSuBenh)}

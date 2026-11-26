@@ -181,8 +181,9 @@ App.views.admin = {
     UI.modal(`
       <div class="muted small mb-8" style="line-height:1.6">
         Đang có: ${UI.esc((s.parents || []).map(p => p.name).join(', ') || 'chưa có phụ huynh nào')}.<br>
-        Máy luôn tạo một <b>tài khoản mới</b> riêng cho người này, kể cả khi số điện thoại
-        đã có ở trường. Người này chỉ thấy bé <b>${UI.esc(s.name)}</b>.
+        Số điện thoại chưa có ở trường thì máy tạo một <b>tài khoản mới</b> riêng cho người
+        này. Số đã là tài khoản của một phụ huynh khác thì máy <b>hỏi trước</b> khi nối bé
+        <b>${UI.esc(s.name)}</b> vào tài khoản đó.
       </div>
       <div class="field"><label>Họ tên</label><input id="tk-ph-ten" placeholder="Trần Văn Cường"></div>
       <div class="field"><label>Điện thoại</label><input id="tk-ph-sdt" placeholder="09xxxxxxxx"></div>
@@ -197,17 +198,34 @@ App.views.admin = {
     nut.onclick = async () => {
       if (nut.disabled) return;
       nut.disabled = true;
-      try {
-        const r = await API.post(`/api/admin/students/${encodeURIComponent(s.id)}/phu-huynh`, {
-          name: document.getElementById('tk-ph-ten').value,
-          phone: document.getElementById('tk-ph-sdt').value,
-          quanHe: document.getElementById('tk-ph-qh').value,
-          email: document.getElementById('tk-ph-email').value,
-        });
+      // Chụp biểu mẫu một lần: lượt gửi lại sau câu hỏi không đọc lại ô nhập.
+      const than = {
+        name: document.getElementById('tk-ph-ten').value,
+        phone: document.getElementById('tk-ph-sdt').value,
+        quanHe: document.getElementById('tk-ph-qh').value,
+        email: document.getElementById('tk-ph-email').value,
+      };
+      const duong = `/api/admin/students/${encodeURIComponent(s.id)}/phu-huynh`;
+      const xong = (r) => {
+        if (r.daCoTaiKhoan) {
+          UI.toast(`Đã nối bé ${s.name} vào tài khoản của ${r.name} (${r.username})`, 'success');
+          UI.closeModal();
+          App.route();
+          return;
+        }
         this.hienMatKhauTam(`${r.name}${r.quanHe ? ` (${r.quanHe} của bé ${s.name})` : ` — phụ huynh của bé ${s.name}`}`,
           r.username, r.temporaryPassword, 'Lần đăng nhập đầu app sẽ bắt đổi mật khẩu.');
+      };
+      try {
+        xong(await API.post(duong, than));
       } catch (err) {
-        UI.toast(err.message, 'error');
+        // 409 + câu hỏi "Nối vào bé này?": số đã là tài khoản của một nhà mình
+        // được xem. Hỏi lại đúng câu máy chủ nói, đồng ý thì gửi kèm xác nhận.
+        if (err.status === 409 && /Nối vào bé này\?$/.test(err.message || '') && confirm(err.message)) {
+          try { xong(await API.post(duong, { ...than, xacNhanNoi: true })); return; } catch (e2) { UI.toast(e2.message, 'error'); }
+        } else {
+          UI.toast(err.message, 'error');
+        }
         nut.disabled = false;
       }
     };

@@ -797,7 +797,8 @@ Object.assign(App.views.admin, {
       const tk = d.taiKhoan;
       const tk2 = d.taiKhoanPhuHuynh2;
       UI.modal(`
-        <div class="card"><div class="card-title">Đã nhận ${UI.esc(d.name)} vào nhóm ${UI.esc(tenLop)}</div></div>
+        <div class="card"><div class="card-title">Đã nhận ${UI.esc(d.name)} vào nhóm ${UI.esc(tenLop)}</div>
+          ${(d.canhBao || []).map(c => `<div class="small mt-8" data-canh-bao style="color:var(--warning)">⚠ ${UI.esc(c)}</div>`).join('')}</div>
         ${tk ? `
           <div class="card">
             <div class="card-title">Tài khoản của gia đình</div>
@@ -1274,6 +1275,8 @@ Vẫn nhận bé này?`)) {
     try {
       const r = await API.post('/api/admin/import/preview', { csv: this._csv });
       const loi = r.rows.filter(x => x.loi.length);
+      // Máy chủ cũ chưa có trường `canhBao` trên từng dòng — coi như không có.
+      const canhBao = r.rows.filter(x => !x.loi.length && (x.canhBao || []).length);
       // Máy chủ cũ chưa có trường `trung` — mặc định 0 để bản giao diện mới vẫn
       // chạy đúng nếu người dùng mở app trước khi máy chủ kịp cập nhật.
       const soTrung = r.trung || 0;
@@ -1287,6 +1290,14 @@ Vẫn nhận bé này?`)) {
           <div class="stat-box"><div class="stat-num" style="color:${r.loi ? 'var(--danger)' : 'var(--muted)'}">${r.loi}</div><div class="stat-label">Có lỗi</div></div>
           <div class="stat-box"><div class="stat-num" style="color:${soTrung ? 'var(--warning)' : 'var(--muted)'}">${soTrung}</div><div class="stat-label">Đã có</div></div>
         </div>
+        ${(r.viDu || []).length ? `<div class="card" data-vi-du style="border-left:4px solid var(--info)">
+          Đã bỏ qua dòng ví dụ của tệp mẫu (dòng ${UI.esc(r.viDu.join(', '))}) — dòng đó không bao giờ được nhập.</div>` : ''}
+        ${(r.lopGanGiong || []).length ? `<div class="card" data-lop-gan-giong style="border-left:4px solid var(--danger)">
+          <div class="card-title">Xem lại tên nhóm trước khi nhập</div>
+          ${r.lopGanGiong.map(x => `<div class="small mt-8">Sẽ tạo nhóm MỚI <b>'${UI.esc(x.moi)}'</b>
+            (giống <b>'${UI.esc(x.giong)}'</b>${x.daCo ? ' đã có' : ' cũng trong tệp này'}?)</div>`).join('')}
+          <div class="muted small mt-8" style="line-height:1.6">Nếu là gõ thiếu dấu, xin sửa tên nhóm trong tệp
+            cho đúng từng chữ rồi tải lên lại — không thì các bé ấy vào một nhóm riêng.</div></div>` : ''}
         ${r.lopMoi.length ? `<div class="card" style="border-left:4px solid var(--info)">
           Sẽ tạo mới ${r.lopMoi.length} nhóm: <b>${UI.esc(r.lopMoi.join(', '))}</b></div>` : ''}
         ${soTrung ? `
@@ -1304,6 +1315,13 @@ Vẫn nhận bé này?`)) {
               <span class="small">Trường tôi có những bé trùng cả họ tên, ngày sinh lẫn nhóm —
                 cứ nhập cả ${soTrung} bé này.</span>
             </label>
+          </div>` : ''}
+        ${canhBao.length ? `
+          <div class="card" data-canh-bao style="border-left:4px solid var(--warning)">
+            <div class="card-title">${canhBao.length} dòng cần xem lại — vẫn sẽ được nhập</div>
+            ${canhBao.slice(0, 15).map(x => `<div class="small" style="margin-bottom:6px">
+              <b>Dòng ${x.line}</b> ${UI.esc(x.hoTen)} — ${UI.esc(x.canhBao.join('; '))}</div>`).join('')}
+            ${canhBao.length > 15 ? `<div class="muted small">…và ${canhBao.length - 15} dòng khác</div>` : ''}
           </div>` : ''}
         ${loi.length ? `
           <div class="card" style="border-left:4px solid var(--danger)">
@@ -1377,7 +1395,7 @@ Vẫn nhận bé này?`)) {
     const rows = r.taiKhoan;
     const daCo = rows.filter(t => t.daCoTaiKhoan);
     UI.modal(`
-      <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} bé đã có sẵn trong hệ thống)` : ''}.</p>
+      <p>Đã nhập <b>${r.imported}</b> bé${r.boQua ? `, bỏ qua ${r.boQua} dòng` : ''}${r.boQuaTrung ? ` (trong đó ${r.boQuaTrung} bé đã có sẵn trong hệ thống)` : ''}${r.boQuaViDu ? `. Dòng ví dụ của tệp mẫu không được nhập` : ''}.</p>
       <p class="muted small">Danh sách tài khoản dưới đây <b>chỉ hiện một lần</b>. Hãy tải về và in
       phát cho phụ huynh. Mật khẩu sẽ được yêu cầu đổi khi đăng nhập lần đầu.</p>
       ${daCo.length ? `<p class="muted small"><b>${daCo.length} nhà</b> trong danh sách
