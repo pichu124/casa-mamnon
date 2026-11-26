@@ -149,7 +149,9 @@ try {
   await page.click('#td-luu-tuan');
   await page.waitForSelector('.toast:has-text("Đã lưu thực đơn cho")', { timeout: 8000 }).catch(() => {});
   const t = await toastCuoi();
-  check('lưu: 1 ngày sửa riêng, 4 ngày giống mẫu', /Đã lưu thực đơn cho 1 ngày/.test(t) && /4 ngày giống thực đơn mẫu/.test(t), t);
+  // Đ261e: câu đổi thành "giống bản đang có" — từ nay so cả với bản dùng chung,
+  // không riêng thực đơn mẫu.
+  check('lưu: 1 ngày sửa riêng, 4 ngày giống mẫu', /Đã lưu thực đơn cho 1 ngày/.test(t) && /4 ngày giống bản đang có, không đổi/.test(t), t);
   await page.waitForSelector('#menu-days .card', { timeout: 8000 });
   check('ngày sửa riêng mất nhãn mẫu, bốn ngày còn lại giữ',
     await page.locator('#menu-days .badge', { hasText: 'Thực đơn mẫu 1' }).count() === 4

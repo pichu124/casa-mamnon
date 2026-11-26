@@ -8,7 +8,7 @@
 //
 //   [1] Form Tạo album: chọn video → "Đang gửi … MB" (thanh tiến độ, nút
 //       Dừng lại, nút đăng khoá) → mạng rớt một phần thì tự gửi lại → "Máy
-//       chủ đang làm nét video…" → xong hiện ở ô xem trước, chữ đã gõ còn
+//       chủ đang xử lý video…" → xong hiện ở ô xem trước, chữ đã gõ còn
 //       nguyên → đăng gửi `videoDaNen`, không gửi data URL.
 //   [2] Ô lưới: video .mp4 có ảnh bìa (poster), không tải trước; phát được
 //       (trình duyệt đọc ra 720x1280 — đã xoay đúng video dọc).
@@ -123,7 +123,7 @@ try {
   check('đối chứng — đăng nhập được cô nhóm Chồi 2', !!co);
 
   // =========================================================================
-  console.log('\n[1] Tạo album: gửi nguyên bản từng phần, máy chủ làm nét, ngay trong form');
+  console.log('\n[1] Tạo album: gửi nguyên bản từng phần, máy chủ xử lý, ngay trong form');
   let albumId = null;
   {
     await dangNhap('giaovien', '123456');
@@ -133,8 +133,9 @@ try {
     await page.fill('#al-title', 'Bé chơi cát');
     await page.fill('#al-desc', 'Cả nhóm ra sân cát buổi sáng');
     await choChu('#al-pick-goi-y', /nguyên bản lên máy chủ/, 5000);
-    check('lời gợi ý dưới nút chọn nói video gửi nguyên bản để máy chủ làm nét',
-      /nguyên bản lên máy chủ/.test(await chu('#al-pick-goi-y')), await chu('#al-pick-goi-y'));
+    check('lời gợi ý dưới nút chọn nói video gửi nguyên bản để máy chủ xử lý',
+      /nguyên bản lên máy chủ để máy chủ xử lý lại/.test(await chu('#al-pick-goi-y')) && !/làm nét/.test(await chu('#al-pick-goi-y')),
+      await chu('#al-pick-goi-y'));
     rotMang = 1;
     await page.setInputFiles('#al-file', [TEP]);
     const thayGui = await choChu('#al-nen', /Đang gửi .*MB/);
@@ -145,9 +146,9 @@ try {
     check('đang gửi: nút đăng và nút chọn tệp tạm khoá',
       await page.locator('#al-submit').isDisabled().catch(() => false) && await page.locator('#al-pick').isDisabled().catch(() => false));
     check('khối tiến độ gọn trong 390px (không tràn ngang)', await tranNgang());
-    const thayNen = await choChu('#al-nen', /Máy chủ đang làm nét video/);
+    const thayNen = await choChu('#al-nen', /Máy chủ đang xử lý video/);
     const khoiNen = await chu('#al-nen');
-    check('rồi "Máy chủ đang làm nét video… (thường bằng độ dài đoạn phim hoặc nhanh hơn)"',
+    check('rồi "Máy chủ đang xử lý video… (thường bằng độ dài đoạn phim hoặc nhanh hơn)"',
       thayNen && /thường bằng độ dài đoạn phim hoặc nhanh hơn/.test(khoiNen), khoiNen);
     await page.waitForFunction(() => !document.getElementById('al-nen-dung'), null, { timeout: 60000 }).catch(() => {});
     await page.waitForTimeout(300);
@@ -239,7 +240,7 @@ try {
   }
 
   // =========================================================================
-  console.log('\n[5] Hình ảnh ghi nhanh: gửi nguyên bản, máy chủ làm nét, lưu thành nháp có video');
+  console.log('\n[5] Hình ảnh ghi nhanh: gửi nguyên bản, máy chủ xử lý, lưu thành nháp có video');
   {
     await moMan('#/hanhtrinh/the-chat');
     await page.click('#ht-ghi-nhanh');
@@ -249,9 +250,9 @@ try {
     const gui = await choChu('#ht-nen', /Đang gửi .*MB/);
     check('Ghi nhanh: "Đang gửi … MB" trong hộp, nút Lưu tạm khoá',
       gui && await page.locator('#ht-luu').isDisabled().catch(() => false), await chu('#ht-nen'));
-    const nen = await choChu('#ht-nen', /Máy chủ đang làm nét video/);
-    check('Ghi nhanh: rồi "Máy chủ đang làm nét video…"', nen, await chu('#ht-nen'));
-    const xong = await choChu('#ht-nen', /làm nét xong/, 60000);
+    const nen = await choChu('#ht-nen', /Máy chủ đang xử lý video/);
+    check('Ghi nhanh: rồi "Máy chủ đang xử lý video…"', nen, await chu('#ht-nen'));
+    const xong = await choChu('#ht-nen', /Máy chủ đã xử lý xong/, 60000);
     check('Ghi nhanh: xong thì ô xem trước là video, chữ đã gõ còn nguyên',
       xong && await dem('#ht-anh-xem video') === 1 && await giaTri('#ht-mota') === 'Bé lăn bóng qua cầu');
     check('Ghi nhanh: hộp gọn trong 390px', await tranNgang());

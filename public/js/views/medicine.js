@@ -128,7 +128,7 @@ App.views.medicine = {
         <textarea id="md-note" placeholder="Ví dụ: Thuốc để trong ba lô, ngăn trước. Nhờ cô cho con uống đúng giờ giúp gia đình ạ.">${UI.esc(mau && mau.note ? mau.note : '')}</textarea>
         <div class="hint">Cô phụ trách sẽ xác nhận khi đã nhận thuốc của con.</div>
       </div>
-      <button class="btn primary block" onclick="App.views.medicine.submitCreate()">${UI.icon('send', 18)} Gửi lời dặn thuốc</button>
+      <button class="btn primary block" id="md-gui" onclick="App.views.medicine.submitCreate(this)">${UI.icon('send', 18)} Gửi lời dặn thuốc</button>
     `, 'Dặn thuốc cho con');
   },
 
@@ -161,7 +161,9 @@ App.views.medicine = {
     btn.closest('.med-item').remove();
   },
 
-  async submitCreate() {
+  // Khoá nút khi đang gửi — cùng lý do với màn Xin phép (R2-L1).
+  async submitCreate(nut) {
+    if (this._dangGui) return;
     const sel = document.getElementById('md-student');
     const current = App.currentStudent();
     const studentId = sel ? sel.value : (current ? current.id : null);
@@ -177,13 +179,20 @@ App.views.medicine = {
     })).filter(m => m.name || m.dose || m.timing);
     if (!medicines.length) return UI.toast('Gia đình thêm ít nhất một loại thuốc nhé', 'error');
     if (medicines.some(m => !m.name)) return UI.toast('Gia đình nhập tên cho từng loại thuốc nhé', 'error');
+    this._dangGui = true;
+    if (nut) nut.disabled = true;
     try {
       await API.post('/api/medicine', { studentId, fromDate, toDate, medicines, note });
       UI.toast('Đã gửi lời dặn thuốc tới cô giáo', 'success');
       UI.closeModal();
       App.route();
       App.refreshBadges();
-    } catch (err) { UI.toast(err.message, 'error'); }
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    } finally {
+      this._dangGui = false;
+      if (nut) nut.disabled = false;
+    }
   },
 
   // CẮT BỚT MÀ KHÔNG NÓI RA THÌ VỚI NGƯỜI DÙNG ĐÓ LÀ GIẤU.

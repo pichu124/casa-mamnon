@@ -307,10 +307,10 @@ App.views.health = {
             <span class="muted small ht-cd-truoc" style="overflow-wrap:anywhere">${this.lanDoTruoc(b.doTruocThang)}</span>
           </div>
           <div style="${LUOI}">
-            <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="height" min="0" step="0.1" inputmode="decimal"
+            <input type="text" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="height" inputmode="decimal" autocomplete="off"
               value="${UI.esc(soSan(tt.height))}" data-san="${UI.esc(soSan(tt.height))}" placeholder="${UI.esc(g.cao)}"
               aria-label="Chiều cao (cm) của ${UI.esc(b.hoTen)}" style="${O}">
-            <input type="number" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="weight" min="0" step="0.1" inputmode="decimal"
+            <input type="text" class="ht-cd" data-be="${UI.esc(b.studentId)}" data-cot="weight" inputmode="decimal" autocomplete="off"
               value="${UI.esc(soSan(tt.weight))}" data-san="${UI.esc(soSan(tt.weight))}" placeholder="${UI.esc(g.nang)}"
               aria-label="Cân nặng (kg) của ${UI.esc(b.hoTen)}" style="${O}">
             <div class="ht-cd-bmi small" data-muc-bmi="" style="${this.KIEU_O_BMI}"><span class="muted">—</span></div>
@@ -341,7 +341,10 @@ App.views.health = {
     document.getElementById('ht-cd-luu').onclick = () => this.luuCanDoNhom();
     const oTep = document.getElementById('ht-cd-tep');
     if (oTep) oTep.onchange = () => this.napTepCanDo(oTep, d.classId);
-    for (const o of document.querySelectorAll('.ht-cd')) o.oninput = () => this.capNhatHangCanDo(o.closest('.ht-cd-hang'));
+    for (const o of document.querySelectorAll('.ht-cd')) {
+      o.oninput = () => this.capNhatHangCanDo(o.closest('.ht-cd-hang'));
+      o.onchange = () => { o.value = this.soNhap(o.value); };
+    }
     const capNhatHet = () => document.querySelectorAll('.ht-cd-hang').forEach(h => this.capNhatHangCanDo(h));
     document.getElementById('ht-cd-ngay').onchange = () => { capNhatHet(); this.doiThangCanDo(d.classId); };
     capNhatHet();
@@ -379,6 +382,14 @@ App.views.health = {
     }
   },
 
+  // SỐ THẬP PHÂN GÕ BẰNG DẤU PHẨY (R2, bàn phím). Bàn phím tiếng Việt cho dấu
+  // phẩy; ô type="number" của Chromium bỏ dấu phẩy đi, nên "15,5" kg thành
+  // 155 và "5,5" thành 55 kg mà vẫn lọt khoảng hợp lệ. Ô cân đo nay là ô chữ
+  // inputmode="decimal", và mọi chỗ đọc số đều qua đây: "15,5" thành "15.5".
+  soNhap(v) {
+    return String(v == null ? '' : v).trim().replace(',', '.');
+  },
+
   KIEU_O_BMI: 'border:1.5px solid var(--line);border-radius:10px;padding:5px 6px;min-height:40px;display:flex;flex-direction:column;justify-content:center;line-height:1.25;min-width:0;overflow-wrap:anywhere',
 
   lanDoTruoc(x) {
@@ -395,8 +406,8 @@ App.views.health = {
     if (!hang) return;
     const b = (this._dsCanDo || this._dsBe || []).find(x => x.studentId === hang.dataset.hang);
     const oCao = hang.querySelector('[data-cot="height"]');
-    const cao = oCao.value.trim();
-    const nang = hang.querySelector('[data-cot="weight"]').value.trim();
+    const cao = this.soNhap(oCao.value);
+    const nang = this.soNhap(hang.querySelector('[data-cot="weight"]').value);
     const x = {
       height: cao === '' ? null : Number(cao),
       weight: nang === '' ? null : Number(nang),
@@ -480,7 +491,7 @@ App.views.health = {
     for (const o of document.querySelectorAll('.ht-cd')) {
       const be = o.dataset.be;
       if (!theoBe.has(be)) theoBe.set(be, { studentId: be, height: '', weight: '' });
-      theoBe.get(be)[o.dataset.cot] = o.value.trim();
+      theoBe.get(be)[o.dataset.cot] = this.soNhap(o.value);
     }
     const danhSach = [...theoBe.values()].filter(x => x.height !== '' || x.weight !== '');
     if (!danhSach.length) return UI.toast('Cô điền số đo cho ít nhất một bé nhé', 'error');
@@ -692,11 +703,11 @@ App.views.health = {
       <div class="grid-2" id="ht-metrics">
         <div class="field">
           <label>Chiều cao (cm)</label>
-          <input type="number" id="ht-height" min="0" step="0.1" placeholder="${UI.esc(goiY.cao)}">
+          <input type="text" id="ht-height" inputmode="decimal" autocomplete="off" placeholder="${UI.esc(goiY.cao)}">
         </div>
         <div class="field">
           <label>Cân nặng (kg)</label>
-          <input type="number" id="ht-weight" min="0" step="0.1" placeholder="${UI.esc(goiY.nang)}">
+          <input type="text" id="ht-weight" inputmode="decimal" autocomplete="off" placeholder="${UI.esc(goiY.nang)}">
         </div>
         <div id="ht-c-bmi" style="grid-column:1/-1;margin:-4px 0 10px"></div>
         <div class="field" style="grid-column:1/-1">
@@ -720,6 +731,10 @@ App.views.health = {
       const o = document.getElementById(id);
       if (o) o.oninput = () => this.capNhatBmiLe();
     }
+    for (const id of ['ht-height', 'ht-weight']) {
+      const o = document.getElementById(id);
+      if (o) o.onchange = () => { o.value = this.soNhap(o.value); };
+    }
   },
 
   // Hộp nhập lẻ cũng thấy BMI và màu ngay khi gõ xong cao / nặng (Đ260e).
@@ -729,8 +744,8 @@ App.views.health = {
     const sid = (document.getElementById('ht-c-student') || {}).value;
     const be = (this._beHopLe || []).find(s => s.id === sid) || null;
     const x = {
-      height: Number(document.getElementById('ht-height').value) || null,
-      weight: Number(document.getElementById('ht-weight').value) || null,
+      height: Number(this.soNhap(document.getElementById('ht-height').value)) || null,
+      weight: Number(this.soNhap(document.getElementById('ht-weight').value)) || null,
       date: (document.getElementById('ht-date') || {}).value || UI.todayStr(),
     };
     const chiSo = this.bmi(x);
@@ -755,8 +770,8 @@ App.views.health = {
     const ngay = (document.getElementById('ht-date') || {}).value;
     if (ngay) body.date = ngay;
     if (type === 'checkup') {
-      const h = document.getElementById('ht-height').value;
-      const w = document.getElementById('ht-weight').value;
+      const h = this.soNhap(document.getElementById('ht-height').value);
+      const w = this.soNhap(document.getElementById('ht-weight').value);
       if (h) body.height = Number(h);
       if (w) body.weight = Number(w);
       const tt = (document.getElementById('ht-bmi') || {}).value;
@@ -800,8 +815,8 @@ App.views.health = {
       <div class="field"><label>Tiêu đề</label><input id="ht-s-title" value="${UI.esc(r.title)}"></div>
       <div class="field"><label>Chi tiết</label><textarea id="ht-s-detail">${UI.esc(r.detail || '')}</textarea></div>
       <div class="grid-2">
-        <div class="field"><label>Chiều cao (cm)</label><input type="number" id="ht-s-height" min="0" step="0.1" value="${UI.esc(r.height ?? '')}"></div>
-        <div class="field"><label>Cân nặng (kg)</label><input type="number" id="ht-s-weight" min="0" step="0.1" value="${UI.esc(r.weight ?? '')}"></div>
+        <div class="field"><label>Chiều cao (cm)</label><input type="text" id="ht-s-height" inputmode="decimal" autocomplete="off" value="${UI.esc(r.height ?? '')}"></div>
+        <div class="field"><label>Cân nặng (kg)</label><input type="text" id="ht-s-weight" inputmode="decimal" autocomplete="off" value="${UI.esc(r.weight ?? '')}"></div>
         <div class="field" style="grid-column:1/-1"><label>Đánh giá thể trạng</label><input id="ht-s-bmi" value="${UI.esc(r.bmiNote || '')}" placeholder="VD: phát triển bình thường"></div>
       </div>
       <div class="field"><label>Ngày ghi nhận</label><input type="date" id="ht-s-date" value="${UI.esc(r.date)}"></div>
@@ -816,8 +831,8 @@ App.views.health = {
           type: this._typeSua,
           title,
           detail: document.getElementById('ht-s-detail').value.trim(),
-          height: document.getElementById('ht-s-height').value || null,
-          weight: document.getElementById('ht-s-weight').value || null,
+          height: this.soNhap(document.getElementById('ht-s-height').value) || null,
+          weight: this.soNhap(document.getElementById('ht-s-weight').value) || null,
           bmiNote: document.getElementById('ht-s-bmi').value.trim(),
           date: document.getElementById('ht-s-date').value || undefined,
         });

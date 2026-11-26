@@ -13,6 +13,10 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TOI_DA_SO_THUOC = 10;
 const TOI_DA_O_THUOC = 100;
 const TOI_DA_GHI_CHU = 500;
+// Bấm "Gửi lời dặn thuốc" hai lần khi mạng chậm: cùng lý do và cùng cách chặn
+// với đơn xin nghỉ (routes/leave.js, CUA_SO_TRUNG_MS). Hai đơn thuốc giống hệt
+// là cô có thể cho uống hai lần.
+const CUA_SO_TRUNG_MS = 60 * 1000;
 
 // CHUÔNG (Đ260c). Dặn thuốc tới cô phụ trách nhóm và cô nước ngoài (người
 // điều phối chốt 25/11: cô thể chất không nhận) cùng văn phòng của cơ sở.
@@ -84,6 +88,15 @@ module.exports = (app) => {
     if (meds.some(m => !m.name)) {
       return res.status(400).json({ error: 'Vui lòng nhập tên cho từng loại thuốc' });
     }
+    const ghiChu = String(note || '').trim().slice(0, TOI_DA_GHI_CHU);
+    const trung = db.all('medicine_requests',
+      `SELECT * FROM medicine_requests
+        WHERE studentId = ? AND parentId = ? AND fromDate = ? AND toDate = ? AND note = ?
+          AND status = 'pending' AND createdAt >= ?
+        ORDER BY createdAt`,
+      [studentId, req.user.id, fromDate, toDate, ghiChu, new Date(Date.now() - CUA_SO_TRUNG_MS).toISOString()])
+      .find(m => JSON.stringify(m.medicines) === JSON.stringify(meds));
+    if (trung) return res.json(decorate(trung));
     const rec = {
       id: db.nextId('md'),
       studentId,
@@ -91,7 +104,7 @@ module.exports = (app) => {
       fromDate,
       toDate,
       medicines: meds,
-      note: String(note || '').trim().slice(0, TOI_DA_GHI_CHU),
+      note: ghiChu,
       status: 'pending',
       createdAt: new Date().toISOString(),
       confirmedBy: null,

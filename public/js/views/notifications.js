@@ -429,6 +429,13 @@ App.views.notifications = {
     this.doiPhamVi('nt', aud);
   },
 
+  // Lời báo đỏ của lần bấm Gửi hỏng trước ("Vui lòng tích chọn…") còn đứng
+  // trên màn vài giây. Gửi lại được thì gỡ nó đi, để nó không đứng cạnh câu
+  // "Đã gửi thông báo" như thể vẫn còn lỗi (R4-B8). Màn Khảo sát dùng chung.
+  xoaBaoLoiCu() {
+    document.querySelectorAll('#toast-zone .toast.error').forEach(t => t.remove());
+  },
+
   async submitCreate() {
     const title = document.getElementById('nt-title').value.trim();
     const body = document.getElementById('nt-body').value.trim();
@@ -446,6 +453,7 @@ App.views.notifications = {
     if (ghim && ghim.checked) goi.pinned = true;
     try {
       await API.post('/api/notifications', goi);
+      this.xoaBaoLoiCu();
       UI.toast('Đã gửi thông báo', 'success');
       UI.closeModal();
       App.route();

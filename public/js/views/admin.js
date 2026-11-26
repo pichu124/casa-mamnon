@@ -111,6 +111,7 @@ App.views.admin = {
         ${tabs.map(([k, t]) => `<button class="${this._tab === k ? 'active' : ''}" onclick="App.views.admin.go('${k}')">${UI.esc(t)}</button>`).join('')}
       </div>
       <div id="admin-body"><div class="loading">Đang tải</div></div>`;
+    this.cuonToiTabDangChon();
 
     const body = document.getElementById('admin-body');
     try {
@@ -124,6 +125,18 @@ App.views.admin = {
     } catch (err) {
       body.innerHTML = UI.emptyState('😥', err.message);
     }
+  },
+
+  // Trên điện thoại dải tab dài hơn màn hình: mở thẳng "#/admin/coso" thì tab
+  // đang chọn nằm khuất bên phải và người dùng không biết mình đang ở đâu
+  // (R1-B14). Cuộn ngang dải tab cho tab ấy vào giữa — chỉ cuộn dải, không
+  // cuộn cả trang.
+  cuonToiTabDangChon() {
+    const dai = document.getElementById('ad-tabs');
+    const tab = dai && dai.querySelector('button.active');
+    if (!tab || dai.scrollWidth <= dai.clientWidth) return;
+    const lech = tab.getBoundingClientRect().left - dai.getBoundingClientRect().left;
+    dai.scrollLeft += lech - (dai.clientWidth - tab.offsetWidth) / 2;
   },
 
   // Hàm của một tab nằm ở tệp admin-<phần>.js chưa tải được (mạng chập chờn,

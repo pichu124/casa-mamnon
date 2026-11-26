@@ -260,7 +260,17 @@ function buaTheoTieuDe(ten) {
     ['milk', /sữa|sua|milk/],
   ];
   for (const [type, re] of bang) if (re.test(t)) return BUA_MAU.find(b => b.type === type);
-  return null;
+  return buaPhuTheoGio(t);
+}
+
+// "Bữa phụ 9h30", "Bữa phụ 15h": bếp trường gọi bữa phụ theo GIỜ chứ không theo
+// sáng/chiều (Đ261e). Trước 12 giờ là bữa phụ sáng, từ 12 giờ là bữa phụ
+// chiều. Không ghi giờ thì không đoán.
+function buaPhuTheoGio(o) {
+  if (!/\bphu\b/.test(boDau(o))) return null;
+  const gio = gioTrongO(o);
+  if (!gio) return null;
+  return BUA_MAU.find(b => b.type === (gio < '12:00' ? 'snack_sang' : 'snack'));
 }
 
 // Ô ngày → "YYYY-MM-DD". Nhận số sê-ri của Excel, "05/10/2026", "5/10/2026",
@@ -332,7 +342,8 @@ function buaTheoTenBua(o) {
     ['snack', /\bchieu\b|\bxe\b|snack/],
   ];
   for (const [type, re] of bang) if (re.test(ten)) return BUA_MAU.find(b => b.type === type);
-  return null;
+  // Giờ có thể nằm ở dòng dưới của ô ("Bữa phụ\n9h30") — xét cả ô.
+  return buaPhuTheoGio(String(o ?? ''));
 }
 
 // Giờ đầu tiên ghi trong ô tên bữa: "8h" → 08:00, "9h30", "11:20". "0-3: 11h20"
@@ -618,6 +629,26 @@ function danhDauDaBao(campusId, cacNgay) {
   } catch (err) {
     console.error(`[thucdon] chưa ghi được dấu đã báo cho "${campusId || 'cả trường'}": ${err.message}`);
   }
+}
+
+// TIN BÁO THỰC ĐƠN CHỈ CHO TUẦN GIA ĐÌNH MỞ ĐƯỢC (Đ261e). Gia đình xem được
+// tuần này và tuần sau; văn phòng sửa riêng một ngày của tuần còn xa thì chưa
+// báo — việc hẹn giờ thứ Sáu báo khi tuần ấy thành "tuần sau" (`baoTuanSau`).
+// Báo ngay là gia đình bấm vào mà không mở được tuần đó, rồi thứ Sáu nghe thêm
+// một tiếng chuông cho cùng tin.
+function trongTamBao(date) {
+  return date >= thuHaiCuaTuan(0) && date <= congNgay(thuHaiCuaTuan(1), 4);
+}
+
+// Bấm vào tin là mở đúng tuần của tin, không phải tuần đang chạy (Đ261e).
+// Dạng đường dẫn chứ không dạng `?tuan=`: bộ định tuyến tách theo dấu "/".
+const lienKetTuan = (date) => `#/menu/tuan/${congNgay(date, -lechThuHai(date))}`;
+
+// Các nhóm ăn theo bếp này: một cơ sở, hay mọi nhóm (bản dùng chung).
+function nhomCuaBep(campusId) {
+  return campusId
+    ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
+    : db.classes().map(c => c.id);
 }
 
 module.exports = (app) => {
@@ -934,9 +965,10 @@ module.exports = (app) => {
     const loaiCot = kq.loaiCot || [];
     const tinhNgay = (n) => {
       const truoc = cu(n.date);
-      // Ngày chưa có dòng thật mà đang lấy từ thực đơn mẫu (Đ260d): so với món
-      // của mẫu, để nạp lại đúng tệp vừa tải không biến cả tuần thành "sửa riêng".
-      const nen = truoc ? null : mau.nenMau(campusId, n.date);
+      // Ngày chưa có dòng thật mà đang lấy từ thực đơn mẫu (Đ260d) hay — với một
+      // cơ sở — từ bản dùng chung (Đ261e): so với món đang kế thừa, để nạp lại
+      // đúng tệp vừa tải không biến cả tuần thành "sửa riêng".
+      const nen = truoc ? null : mau.nenKeThua(campusId, n.date);
       const goc = truoc ? truoc.meals : nen;
       const buaCu = Array.isArray(goc) ? goc : [];
       const moi = Object.fromEntries(loaiCot.map(t => [t, ((n.bua.find(b => b.type === t) || {}).items || []).join('\n')]));
@@ -978,18 +1010,17 @@ module.exports = (app) => {
       }
     });
     db.audit(req.user.id, 'menu-nap-excel', campusId || null, { soNgay: kq.ngay.length, daGhi: daGhi.length, campusId });
-    // Không ngày nào thật sự đổi (nạp lại đúng tệp mẫu) thì không báo gia đình.
-    if (daGhi.length) {
-      const nhom = campusId
-        ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
-        : db.classes().map(c => c.id);
-      const tu = daGhi[0]; const den = daGhi[daGhi.length - 1];
-      const daGui = tb.guiChoNhom(nhom, {
+    // Không ngày nào thật sự đổi (nạp lại đúng tệp mẫu) thì không báo gia đình;
+    // ngày ngoài tuần này / tuần sau thì để việc báo thứ Sáu lo (Đ261e).
+    const baoNgay = daGhi.filter(trongTamBao).sort();
+    if (baoNgay.length) {
+      const tu = baoNgay[0]; const den = baoNgay[baoNgay.length - 1];
+      const daGui = tb.guiMoiNhaMotTin(nhomCuaBep(campusId), {
         title: `Thực đơn từ ${ddmm(tu)} đến ${ddmm(den)} đã có`,
         body: 'Nhà bếp vừa đăng thực đơn. Mở Thực đơn để xem từng ngày con ăn gì.',
-        category: 'Khác', createdBy: req.user.id, hash: '#/menu',
+        category: 'Khác', createdBy: req.user.id, hash: lienKetTuan(tu),
       });
-      if (daGui.length) danhDauDaBao(campusId, daGhi);
+      if (daGui.length) danhDauDaBao(campusId, baoNgay);
     }
     res.json({
       daLuu: kq.ngay.length, ngay: kq.ngay.map(n => n.date), canhBao: kq.canhBao, campusId: campusId || null,
@@ -1013,6 +1044,7 @@ module.exports = (app) => {
     const sach = [];
     const daThay = new Set();
     let giongMau = 0;
+    let khongDoi = 0;
     for (const x of ds) {
       const date = String((x || {}).date || '').trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -1041,7 +1073,16 @@ module.exports = (app) => {
       if (!meals) {
         return res.status(400).json({ error: `Thực đơn ngày ${date} chưa hợp lệ. Mỗi bữa cần có tên bữa.` });
       }
-      if (nen && JSON.stringify(meals) === JSON.stringify(lamSachBuaAn(nen))) { giongMau++; continue; }
+      // LƯU Y NGUYÊN BẢN ĐANG CÓ THÌ KHÔNG GHI (Đ261e): so với dòng của chính bếp
+      // này, hay — ngày chưa có dòng — với món đang kế thừa (mẫu, bản dùng chung).
+      // Ghi dòng riêng y hệt bản dùng chung là sau này sửa bản chung thì cơ sở
+      // không thấy; ghi lại y hệt dòng đang có là báo gia đình một tin vô cớ.
+      const dangCo = cu ? cu.meals : mau.nenKeThua(campusId, date);
+      if (dangCo && JSON.stringify(meals) === JSON.stringify(lamSachBuaAn(dangCo))) {
+        khongDoi++;
+        if (!cu) giongMau++;
+        continue;
+      }
       sach.push({ date, meals, cu });
     }
 
@@ -1062,24 +1103,26 @@ module.exports = (app) => {
     });
     db.audit(req.user.id, 'menu-update-tuan', campusId || null, { soNgay: sach.length, campusId });
     // BÁO GIA ĐÌNH (Đ137): "mọi update của nhà trường như thực đơn… cần có
-    // thông báo tới phụ huynh". Gửi cho mọi nhóm ăn bếp này; cùng tuần cùng
-    // ngày thì chỉ một lần (chống lặp ở lib/thong-bao.js).
-    if (sach.length) {
-      const nhom = campusId
-        ? db.all('class_campus', 'SELECT classId FROM class_campus WHERE campusId = ?', [campusId]).map(r => r.classId)
-        : db.classes().map(c => c.id);
-      const tu = sach.map(x => x.date).sort()[0];
-      const daGui = tb.guiChoNhom(nhom, {
+    // thông báo tới phụ huynh". Gửi cho mọi nhóm ăn bếp này, MỖI NHÀ MỘT TIN
+    // (Đ261e); cùng tuần cùng ngày thì chỉ một lần (chống lặp ở lib/thong-bao.js).
+    // Chỉ những ngày thật sự đổi món (`sach`) và gia đình mở được (`trongTamBao`).
+    const baoNgay = sach.map(x => x.date).filter(trongTamBao).sort();
+    if (baoNgay.length) {
+      const tu = baoNgay[0];
+      const daGui = tb.guiMoiNhaMotTin(nhomCuaBep(campusId), {
         title: `Thực đơn tuần từ ${tu.slice(8, 10)}/${tu.slice(5, 7)} đã có`,
         body: 'Nhà bếp vừa đăng thực đơn tuần. Mở Thực đơn để xem từng ngày con ăn gì.',
         category: 'Khác', createdBy: req.user.id,
         // Bấm vào tiếng chuông trên điện thoại là mở thẳng màn Thực đơn, chứ
-        // không đổ gia đình vào danh sách thông báo rồi bắt tìm tiếp (Đ194).
-        hash: '#/menu',
+        // không đổ gia đình vào danh sách thông báo rồi bắt tìm tiếp (Đ194) —
+        // ở đúng tuần của tin (Đ261e).
+        hash: lienKetTuan(tu),
       });
-      if (daGui.length) danhDauDaBao(campusId, sach.map(x => x.date));
+      if (daGui.length) danhDauDaBao(campusId, baoNgay);
     }
-    res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null, giongMau });
+    // `giongMau`: ngày giống món đang kế thừa (mẫu, bản dùng chung); `khongDoi`
+    // (Đ261e, khoá thêm): mọi ngày giống hệt bản đang có, không ghi.
+    res.json({ daLuu: sach.length, ngay: sach.map(x => x.date), campusId: campusId || null, giongMau, khongDoi });
   });
 
   // Quản trị soạn/sửa thực đơn một ngày. Mỗi ngày một bản ghi, ghi đè cả ngày.

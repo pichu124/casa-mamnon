@@ -111,6 +111,9 @@ try {
     moLai.data.ban.dong.find(d => d.id === oGq.id).chu === CU, moLai.data.ban.dong.find(d => d.id === oGq.id).chu);
   check('mở lại không điền thêm ô nào', (moLai.data.daDienSan || []).length === 0, moLai.data.daDienSan);
 
+  // Đ261e (R3-12): bản tháng có nhận định (chữ S/W cạnh bài) phải kèm một
+  // dòng việc làm tiếp mới gửi duyệt được — QUY TẮC 5, giống bản 6 tháng.
+  await req('PUT', `/api/baocaohoctap/ban/${BAN}`, { cookie: GV, body: { oLopLamGi: 'Cô mời con rót nước mỗi sáng.' } });
   const gui = await req('POST', `/api/baocaohoctap/ban/${BAN}/gui`, { cookie: GV, body: {} });
   check('đối chứng — cô gửi được bản', gui.status === 200, gui.data);
   const duyet = await req('POST', `/api/baocaohoctap/ban/${BAN}/duyet`, { cookie: QT, body: { quyetDinh: 'da-duyet' } });
