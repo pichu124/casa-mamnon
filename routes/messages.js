@@ -803,13 +803,15 @@ function phongDto(phong, user, cv) {
 // Bảng nhãn người gửi cho một lượt tin của phòng chung nhiều nhà; null với mọi
 // cuộc khác. Phòng chung KIỂU CŨ cũng dùng nhãn "Mẹ bé …" thay cho họ tên
 // người lớn (Đ261c): phòng gắn nhóm thì theo bé của nhóm ấy; phòng do đường
-// `/phong-chung` lập (không gắn nhóm) thì theo mọi bé đang học của nhà ấy.
+// `/phong-chung` lập (không gắn nhóm) thì theo bé chung nhóm với người khác
+// trong phòng (Đ261j).
 function nhanTrongPhong(cv, messages) {
   if (!cv || cv.type !== 'group') return null;
   const phong = pn.cuaPhong(cv.id);
   const ph = [...new Set(messages.map(m => m.senderId))]
     .filter(id => { const u = db.findUser(id); return u && u.role === 'parent'; });
-  return pn.nhanNguoiGui(phong ? phong.classId : (cv.classId || null), ph);
+  const classId = phong ? phong.classId : (cv.classId || null);
+  return classId ? pn.nhanNguoiGui(classId, ph) : pn.nhanNguoiGuiPhongCu(cv.id, ph);
 }
 
 // Tìm hội thoại + kiểm tra quyền tham gia. Tự trả lỗi 404/403 nếu không hợp lệ.
