@@ -31,6 +31,12 @@ const TOI_DA_LY_DO = 1000;
 // dài thật (mổ, về quê một học kỳ hè), và một đợt dài hơn thì đúng ra phải là
 // cuộc nói chuyện với nhà trường chứ không phải một đơn gửi qua app.
 const TOI_DA_NGAY_NGHI = 60;
+// ĐƠN TRÙNG VÌ BẤM HAI LẦN (kiểm thử thay trường 26/11, R2-L1). Mạng chậm thì
+// gia đình bấm "Gửi" lần nữa vì tưởng chưa ăn. Cùng phụ huynh, cùng bé, cùng
+// ngày và cùng lý do trong khoảng này thì trả lại đơn vừa tạo, không tạo đơn
+// thứ hai — văn phòng không phải duyệt hai lần. Nút trên màn hình đã khoá,
+// nhưng điện thoại giữ bản giao diện cũ thì chỉ máy chủ chặn được.
+const CUA_SO_TRUNG_MS = 60 * 1000;
 const TOI_DA_GHI_CHU_DUYET = 500;
 
 // Hai giá trị, cố ý là CHỮ chứ không phải 0/1 — xem chú thích bảng `leave_refund`.
@@ -263,7 +269,12 @@ function docTheoNgay(l, vao) {
           + 'của trường, không hoàn thêm lần nữa',
       };
     }
-    theo.set(ng, { ngay: ng, coPhep, duocHoan, lyDo: String(x.lyDo || '').trim().slice(0, TOI_DA_LY_DO_NGAY) });
+    let lyDo = String(x.lyDo || '').trim().slice(0, TOI_DA_LY_DO_NGAY);
+    // "Gửi đơn sau 7 giờ sáng" là lý do máy điền cho gợi ý KHÔNG phép. Văn phòng
+    // cho có phép mà câu ấy còn trong ô (màn duyệt đời cũ không xoá) thì gia
+    // đình đọc một lý do trái với kết quả, và sổ điểm danh nối theo (R2-L4).
+    if (coPhep === 'co' && lyDo === LY_DO_TRE) lyDo = '';
+    theo.set(ng, { ngay: ng, coPhep, duocHoan, lyDo });
   }
   const thieu = can.filter(ng => !theo.has(ng));
   if (thieu.length) return { loi: `Còn ${thieu.length} ngày chưa ghi: ${thieu.map(chuNgay).join(', ')}` };
@@ -596,6 +607,14 @@ module.exports = (app) => {
     if (String(reason).trim().length > TOI_DA_LY_DO) {
       return res.status(400).json({ error: `Lý do xin nghỉ quá dài, vui lòng viết ngắn gọn trong ${TOI_DA_LY_DO} ký tự` });
     }
+    const trung = db.first('leave_requests',
+      `SELECT * FROM leave_requests
+        WHERE studentId = ? AND parentId = ? AND fromDate = ? AND toDate = ? AND reason = ?
+          AND status = 'pending' AND createdAt >= ?
+        ORDER BY createdAt LIMIT 1`,
+      [studentId, req.user.id, fromDate, toDate, String(reason).trim(),
+        new Date(Date.now() - CUA_SO_TRUNG_MS).toISOString()]);
+    if (trung) return res.json(anGhiChuNoiBo(decorate(trung), req.user));
     const rec = {
       id: db.nextId('lv'),
       studentId,

@@ -389,9 +389,13 @@ App.views.student = {
       <div class="field"><label>Số điện thoại</label><input id="lhdx-sdt" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="Ví dụ: 0909 111 222"></div>
       <div class="field"><label>Ghi chú <span class="muted small">(không bắt buộc)</span></label><input id="lhdx-gc" maxlength="200" autocomplete="off" placeholder="Ví dụ: đón được bé buổi chiều"></div>
       <button class="btn primary block" id="lhdx-gui">Gửi nhà trường xác nhận</button>`, 'Thêm người liên hệ khẩn cấp');
-    document.getElementById('lhdx-gui').onclick = async () => {
+    const nut = document.getElementById('lhdx-gui');
+    nut.onclick = async () => {
+      // Khoá khi đang gửi (R2-L1): bấm hai lần lúc mạng chậm là hai đề xuất.
+      if (nut.disabled) return;
       const ten = document.getElementById('lhdx-ten').value.trim();
       if (!ten) return UI.toast('Vui lòng nhập họ tên người liên hệ', 'error');
+      nut.disabled = true;
       try {
         await API.post(`/api/students/${encodeURIComponent(s.id)}/lien-he-de-xuat`, {
           ten,
@@ -402,7 +406,11 @@ App.views.student = {
         UI.closeModal();
         UI.toast('Đã gửi — chờ nhà trường xác nhận', 'success');
         App.route();
-      } catch (err) { UI.toast(err.message, 'error'); }
+      } catch (err) {
+        UI.toast(err.message, 'error');
+      } finally {
+        nut.disabled = false;
+      }
     };
   },
 
