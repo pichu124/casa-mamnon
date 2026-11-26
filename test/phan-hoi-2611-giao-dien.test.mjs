@@ -20,6 +20,8 @@
 //      "Cô phụ trách nhóm"; cô khác không thấy thẻ trống của quan sát chưa nhận định.
 //   8. R3-6 / R1-B7 — Ghi nhanh: thẻ "Đây là phép thử…" và bảng bấm giờ ẩn mặc
 //      định; chỉ hiện khi mở bằng địa chỉ có ?thu=1.
+//   9. R1-B15 — biểu phí đã duyệt: hiệu trưởng thấy nút "Mở khoá", không thấy
+//      "Xin mở khoá".
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
@@ -330,6 +332,31 @@ try {
     const manThu = await chuMan(page);
     check('mở bằng ?thu=1: thẻ phép thử và bảng bấm giờ hiện lại',
       /phép thử, chưa phải bản dùng thật/.test(manThu) && /Thường mất/.test(manThu), manThu.slice(0, 500));
+    await ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[9] R1-B15 — hiệu trưởng thấy "Mở khoá", không thấy "Xin mở khoá"');
+  {
+    const tao = await req('POST', '/api/hocphi/bieu-phi', { cookie: QT, body: {
+      ten: 'Biểu phí thử giao diện Đ261e', dong: [{ noiDung: 'Học phí tháng', loai: 'hoc-phi', soTien: 3500000 }] } });
+    await req('POST', `/api/hocphi/bieu-phi/${tao.data.id}/gui`, { cookie: QT, body: {} });
+    const dy = await req('POST', `/api/hocphi/bieu-phi/${tao.data.id}/duyet`, { cookie: QT, body: { quyetDinh: 'duyet' } });
+    check('đối chứng — biểu phí đã duyệt', dy.status === 200 && dy.data.trangThai === 'da-duyet', dy.data);
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'ph2611gd_qt', 'quantri2026');
+    await moMan(page, '#/hocphi');
+    await page.evaluate(() => App.views.hocphi.moBieuPhi());
+    await page.waitForSelector('#modal-overlay .card', { timeout: 10000 });
+    const the = page.locator('#modal-overlay .card', { hasText: 'Biểu phí thử giao diện Đ261e' });
+    const nut = await the.locator('button').allInnerTexts();
+    check('không có nút "Xin mở khoá"', !nut.some(t => /Xin mở khoá/.test(t)), nut);
+    check('có nút "Mở khoá"', nut.some(t => t.trim() === 'Mở khoá'), nut);
+    page.once('dialog', d => d.accept('Đổi học phí theo quyết định mới'));
+    await the.locator('button', { hasText: 'Mở khoá' }).click();
+    await page.waitForTimeout(1500);
+    const bp = (await req('GET', '/api/hocphi/bieu-phi', { cookie: QT })).data.bieuPhi.find(b => b.id === tao.data.id);
+    check('bấm "Mở khoá", ghi lý do: bảng giá về đang soạn', bp.trangThai === 'nhap', bp.trangThai);
     await ctx.close();
   }
 

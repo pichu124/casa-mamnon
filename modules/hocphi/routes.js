@@ -888,7 +888,10 @@ module.exports = (app, { db, modules }) => {
         suaDuoc: bp.trangThai === 'nhap' && db.taoKhoanThuDuoc(user),
         guiDuyetDuoc: bp.trangThai === 'nhap' && dong.length > 0 && db.taoKhoanThuDuoc(user),
         duyetDuoc: bp.trangThai === 'cho-duyet' && db.duyetBieuPhiDuoc(user),
-        xinMoDuoc: bp.trangThai === 'da-duyet' && !xin && db.taoKhoanThuDuoc(user),
+        // Người duyệt được thì không xin chính mình (Đ261e, R1-B15): họ có
+        // `moKhoaDuoc` — cùng đường xin-mo, mở luôn, vẫn ghi lý do vào sổ.
+        xinMoDuoc: bp.trangThai === 'da-duyet' && !xin && db.taoKhoanThuDuoc(user) && !db.duyetBieuPhiDuoc(user),
+        moKhoaDuoc: bp.trangThai === 'da-duyet' && !xin && db.taoKhoanThuDuoc(user) && db.duyetBieuPhiDuoc(user),
         traLoiXinMoDuoc: !!xin && db.duyetBieuPhiDuoc(user),
         chepDuoc: bp.trangThai === 'da-duyet' && db.taoKhoanThuDuoc(user),
       },
@@ -1089,13 +1092,23 @@ module.exports = (app, { db, modules }) => {
         error: 'Ghi giúp vài chữ vì sao cần sửa bảng giá nhé — ban giám hiệu đọc dòng này để quyết.',
       });
     }
+    // NGƯỜI DUYỆT ĐƯỢC THÌ MỞ LUÔN (Đ261e, R1-B15). Hiệu trưởng bấm "Xin mở
+    // khoá" là tự xin chính mình rồi tự trả lời — hai bước cho một quyết định
+    // của một người. Nay cùng đường này: lượt xin ghi thẳng 'da-mo', người trả
+    // lời là chính họ, lý do vẫn bắt buộc và nằm lại trong sổ.
+    const moLuon = db.duyetBieuPhiDuoc(req.user);
+    const luc = new Date().toISOString();
     const id = db.nextId('bpm');
-    db.insert('hocphi_bieuphi_moKhoa', {
-      id, bieuPhiId: bp.id, lyDo, trangThai: 'cho-duyet',
-      xinBoi: req.user.id, xinLuc: new Date().toISOString(),
-      traLoiBoi: null, traLoiLuc: null, yKien: '',
+    db.tx(() => {
+      db.insert('hocphi_bieuphi_moKhoa', {
+        id, bieuPhiId: bp.id, lyDo, trangThai: moLuon ? 'da-mo' : 'cho-duyet',
+        xinBoi: req.user.id, xinLuc: luc,
+        traLoiBoi: moLuon ? req.user.id : null, traLoiLuc: moLuon ? luc : null, yKien: '',
+      });
+      // Như đường trả lời: về 'nhap', giữ nguyên dấu đã duyệt của bản trước.
+      if (moLuon) db.update('hocphi_bieuphi', bp.id, { trangThai: 'nhap' });
     });
-    db.audit(req.user.id, 'hocphi-bieuphi-xin-mo', bp.id, { lyDo });
+    db.audit(req.user.id, moLuon ? 'hocphi-bieuphi-mo-khoa' : 'hocphi-bieuphi-xin-mo', bp.id, { lyDo, moLuon: moLuon || undefined });
     res.status(201).json(goiBieuPhi(bieuPhiCua(bp.id), req.user));
   });
 

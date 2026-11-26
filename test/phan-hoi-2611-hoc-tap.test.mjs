@@ -14,11 +14,14 @@
 //   3. R3-10 — cô khác trong nhóm KHÔNG nhận quan sát chưa nhận định, chưa kể
 //      của cô kia (trước đây nhận một thẻ chỉ có ngày), số của tab cũng không
 //      đếm nó; nhận định xong thì thấy, kèm tên người ghi.
+//   4. R1-B15 — biểu phí đã duyệt: người duyệt được (hiệu trưởng) không thấy
+//      "Xin mở khoá" (tự xin chính mình) mà mở khoá thẳng, vẫn phải ghi lý do,
+//      lượt mở còn vết trong sổ. Kế toán vẫn đi đường xin như cũ.
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
-  batPhanHe, HOM_NAY,
+  batPhanHe, HOM_NAY, datChucVu,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -26,6 +29,9 @@ const DIR = thuMucTam('phan-hoi-2611-hoc-tap');
 sinhDuLieu(DIR);
 batPhanHe(DIR, ['kehoachbe', 'baocaohoctap', 'hanhtrinh', 'hocphi']);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng Đ261e', 'ht2611_qt');
+const mkKt = taoQuanTri(DIR, 'Kế Toán Đ261e', 'kt2611_kt');
+datChucVu(DIR, 'ht2611_qt', 'hieu-truong');
+datChucVu(DIR, 'kt2611_kt', 'ketoan');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 7202), dir: DIR });
 const req = taoReq(sv.BASE);
@@ -156,6 +162,37 @@ try {
     const nd = (await hoSo(GV3)).quanSat.find(q => q.id === id);
     check('nhận định xong: cô khác thấy, đọc được nhận định và tên người ghi, KHÔNG đọc ghi chú thô',
       nd && nd.trangThai === 'dang-hinh-thanh' && /Mai Anh/.test(nd.coGhiTen || '') && nd.moTa === undefined, nd);
+  }
+
+  // =========================================================================
+  console.log('\n[4] R1-B15 — hiệu trưởng mở khoá biểu phí đã duyệt, không tự xin mình');
+  {
+    const KT = await vao('kt2611_kt', mkKt);
+    const CSDL = path.join(DIR, 'school.db');
+    const doc = (sql, ...p) => { const c = new Database(CSDL, { readonly: true }); try { return c.prepare(sql).all(...p); } finally { c.close(); } };
+    const tao = await req('POST', '/api/hocphi/bieu-phi', { cookie: KT, body: {
+      ten: 'Biểu phí thử Đ261e', namHoc: '2026-2027', dong: [{ noiDung: 'Học phí tháng', loai: 'hoc-phi', soTien: 3500000 }] } });
+    const bpId = tao.data.id;
+    await req('POST', `/api/hocphi/bieu-phi/${bpId}/gui`, { cookie: KT, body: {} });
+    const dy = await req('POST', `/api/hocphi/bieu-phi/${bpId}/duyet`, { cookie: QT, body: { quyetDinh: 'duyet' } });
+    check('đối chứng — kế toán soạn, hiệu trưởng duyệt và khoá', dy.status === 200 && dy.data.trangThai === 'da-duyet', dy.data);
+    const quyen = async (ck) => ((await req('GET', '/api/hocphi/bieu-phi', { cookie: ck })).data.bieuPhi.find(b => b.id === bpId) || {}).quyen || {};
+    const qHt = await quyen(QT);
+    check('hiệu trưởng KHÔNG có nút "Xin mở khoá" (tự xin chính mình)', qHt.xinMoDuoc === false, qHt);
+    check('…mà có quyền "Mở khoá" thẳng', qHt.moKhoaDuoc === true, qHt);
+    const qKt = await quyen(KT);
+    check('kế toán vẫn có "Xin mở khoá", không có "Mở khoá"', qKt.xinMoDuoc === true && !qKt.moKhoaDuoc, qKt);
+
+    const khongLyDo = await req('POST', `/api/hocphi/bieu-phi/${bpId}/xin-mo`, { cookie: QT, body: { lyDo: 'sửa' } });
+    check('mở khoá thẳng vẫn phải ghi lý do đủ rõ', khongLyDo.status === 400, khongLyDo.status);
+    const mo = await req('POST', `/api/hocphi/bieu-phi/${bpId}/xin-mo`, { cookie: QT, body: { lyDo: 'Đổi học phí theo quyết định mới của trường' } });
+    check('hiệu trưởng mở khoá thẳng: bảng giá về ĐANG SOẠN', (mo.status === 200 || mo.status === 201) && mo.data.trangThai === 'nhap', mo.data);
+    const vet = doc('SELECT * FROM hocphi_bieuphi_moKhoa WHERE bieuPhiId = ?', bpId);
+    check('lượt mở còn vết: lý do, người mở, đã mở — không còn lượt nào chờ chính mình trả lời',
+      vet.length === 1 && vet[0].trangThai === 'da-mo' && vet[0].traLoiBoi && vet[0].traLoiBoi === vet[0].xinBoi
+        && /quyết định mới/.test(vet[0].lyDo), vet);
+    const bp = doc('SELECT * FROM hocphi_bieuphi WHERE id = ?', bpId)[0];
+    check('dấu đã duyệt của bản trước còn nguyên', !!bp.duyetBoi && !!bp.duyetLuc, bp);
   }
 } catch (err) {
   check(`bài chạy hết không lỗi: ${err.message}`, false, err.stack);
