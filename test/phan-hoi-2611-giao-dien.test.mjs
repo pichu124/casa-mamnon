@@ -8,17 +8,28 @@
 //   2. R3-12 (QUY TẮC 5) — cô bấm "Gửi quản lý duyệt" ở báo cáo tháng có
 //      "Đã thấy con làm được" mà hai ô việc làm tiếp trống: bị chặn, có lời
 //      nhắc, bản vẫn là nháp.
+//   3. R3-4 — gia đình chạm tin "Thực đơn tuần từ … đã có" của tuần sau: màn
+//      Thực đơn mở ở "Tuần sau", đúng ngày của tuần ấy; nhà hai con chỉ một tin.
+//   4. R3-5 — quản lý cơ sở nạp tệp Excel tuần sau chỉ sửa một ngày: ngày lấy
+//      từ bản dùng chung gắn "giống bản đang có, không đổi", nút ghi "Lưu 1 ngày".
+import path from 'node:path';
+import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
-  batPhanHe, HOM_NAY, CHROMIUM, tatBannerMoiCai,
+  batPhanHe, HOM_NAY, CHROMIUM, tatBannerMoiCai, khoaVaoCoSo, datChucVu, GOC,
 } from './_chung.mjs';
+
+const xlsx = createRequire(import.meta.url)(path.join(GOC, 'lib', 'xlsx.js'));
 
 const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('phan-hoi-2611-gd');
 sinhDuLieu(DIR);
 batPhanHe(DIR, ['baocaohoctap', 'kehoachbe', 'hanhtrinh', 'thuchup', 'hocphi']);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'ph2611gd_qt');
+const mkQl = taoQuanTri(DIR, 'Quản Lý Cơ Sở 1', 'ph2611gd_ql');
+datChucVu(DIR, 'ph2611gd_ql', 'quanly-coso');
+khoaVaoCoSo(DIR, 'ph2611gd_ql', 'cs1');
 
 const HOM = HOM_NAY();
 
@@ -135,6 +146,70 @@ try {
     await page.waitForTimeout(1200);
     const sau = (await req('GET', `/api/baocaohoctap/ban/${banId}`, { cookie: GV })).data.ban;
     check('ghi một dòng "Ở nhà gia đình chơi cùng con" rồi bấm gửi: sang chờ duyệt', sau.buoc === 'cho-duyet', sau.buoc);
+    await ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[3] R3-4 — chạm tin thực đơn tuần sau: mở đúng tuần sau');
+  {
+    const cong = (s, n) => new Date(Date.parse(`${s}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    const t2 = cong(HOM, -((new Date(`${HOM}T00:00:00Z`).getUTCDay() + 6) % 7));
+    const t2Sau = cong(t2, 7);
+    const ddmm = (x) => `${x.slice(8, 10)}/${x.slice(5, 7)}`;
+    const luu = await req('PUT', '/api/menu/tuan', { cookie: QT, body: { campusId: 'cs1',
+      ngay: [{ date: t2Sau, meals: [{ type: 'lunch', label: 'Bữa trưa', time: '11:20', items: ['Cơm gà Đ261e'] }] }] } });
+    check('đối chứng — văn phòng lưu thực đơn tuần sau của cơ sở 1', luu.status === 200 && luu.data.daLuu === 1, luu.data);
+    const tieuDe = `Thực đơn tuần từ ${ddmm(t2Sau)} đã có`;
+
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'phuhuynh', '123456');       // p1: hai con, Chồi 2 và Lá 1
+    await moMan(page, '#/notifications');
+    const dong = page.locator('#view .list-row', { hasText: tieuDe });
+    check('nhà hai con chỉ thấy MỘT tin thực đơn tuần sau', await dong.count() === 1, await dong.count());
+    await dong.first().click();
+    await page.waitForTimeout(1500);
+    check('chạm tin → sang màn Thực đơn', (await page.evaluate(() => location.hash)) === '#/menu', await page.evaluate(() => location.hash));
+    const dangChon = await page.locator('#menu-seg button.active').innerText().catch(() => '');
+    check('màn Thực đơn đang ở "Tuần sau"', dangChon.trim() === 'Tuần sau', dangChon);
+    const man = await chuMan(page);
+    check('…và hiện món của tuần ấy', /Cơm gà Đ261e/.test(man), man.slice(0, 400));
+    await ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[4] R3-5 — xem trước Excel: ngày lấy từ bản dùng chung là "không đổi"');
+  {
+    const qlTam = await login('ph2611gd_ql', mkQl);
+    await req('POST', '/api/auth/set-new-password', { cookie: qlTam.cookie, body: { newPassword: 'quanly2026' } });
+    const QL = (await login('ph2611gd_ql', 'quanly2026')).cookie;
+    const cong = (x, n) => new Date(Date.parse(`${x}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    const t2Sau = cong(cong(HOM, -((new Date(`${HOM}T00:00:00Z`).getUTCDay() + 6) % 7)), 7);
+    const xem = (await req('GET', '/api/menu?week=1', { cookie: QL })).data.menus;
+    check('đối chứng — tuần sau của cơ sở 1: thứ Hai bản riêng, bốn ngày lấy từ bản dùng chung',
+      xem.length === 5 && xem[0].rieng && xem.slice(1).every(m => !m.rieng), xem.map(m => [m.date, m.rieng]));
+    const r = await fetch(`${sv.BASE}/api/menu/mau-excel?tuan=${t2Sau}`, { headers: { Cookie: QL } });
+    const trang = xlsx.doc(Buffer.from(await r.arrayBuffer())).find(b => b.ten === 'Thực đơn');
+    const iTrua = trang.hang.findIndex(h => /^Bữa trưa/.test(String(h[0] || '')));
+    trang.hang[iTrua][2] = 'Bún cá Đ261e';     // cột C = Thứ Ba
+    const tep = xlsx.ghi([{ ten: 'Thực đơn', dongTieuDe: true, hang: trang.hang }]);
+
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'ph2611gd_ql', 'quanly2026');
+    await moMan(page, '#/menu');
+    await page.waitForSelector('#mn-xl-file', { state: 'attached', timeout: 10000 });
+    await page.setInputFiles('#mn-xl-file', {
+      name: 'thuc-don.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: tep });
+    await page.waitForSelector('#mn-xl-xem', { timeout: 10000 });
+    const hop = await page.locator('#modal-overlay').innerText();
+    check('bốn ngày không sửa gắn "giống bản đang có, không đổi"',
+      (hop.match(/giống bản đang có, không đổi/g) || []).length === 4, hop.slice(0, 600));
+    const nut = await page.locator('#mn-xl-luu').innerText();
+    check('nút lưu chỉ tính ngày có đổi: "Lưu 1 ngày vào thực đơn"', /Lưu 1 ngày vào thực đơn/.test(nut), nut);
+    await page.click('#mn-xl-luu');
+    await page.waitForTimeout(1500);
+    const sau = (await req('GET', '/api/menu?week=1', { cookie: QL })).data.menus;
+    check('lưu xong: chỉ thứ Ba thành bản riêng, ba ngày kia vẫn theo bản dùng chung',
+      sau.map(m => m.rieng).join() === 'true,true,false,false,false', sau.map(m => [m.date, m.rieng]));
     await ctx.close();
   }
 
