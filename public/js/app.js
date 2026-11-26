@@ -238,7 +238,28 @@ window.App = {
     if (!r || !r.ly) return;
     // Cô có thể đã bấm đi màn khác trong lúc chờ mạng — đừng vẽ đè lên đó.
     if ((location.hash.replace(/^#\/?/, '') || '').split('/')[0] !== name) return;
+    if (r.ly === 'dung-duoc') return this.moLaiPhanHeVuaBat(root, name, ve);
     ve(this.loiKhongMoDuoc(r));
+  },
+
+  // PHẦN VỪA ĐƯỢC BẬT LẠI TRONG LÚC TRANG ĐANG MỞ (R1-B16).
+  //
+  // Danh sách phân hệ nạp một lần lúc mở app. Nhà trường bật lại Học phí sau
+  // đó thì gia đình chưa tải lại trang bấm vào vẫn gặp "Phần này không mở
+  // trong tài khoản của bạn" — đọc như bị cắt quyền — trong khi máy chủ nói
+  // dùng được. Nạp lại danh sách MỘT lần rồi mở lại màn; vẫn chưa thấy thì
+  // nói thật là phần này vừa được bật lại và mời tải lại trang. Chỉ một lần
+  // cho mỗi phần, để không bao giờ thành vòng lặp gọi mạng.
+  async moLaiPhanHeVuaBat(root, name, ve) {
+    const cauTaiLai = 'Phần này vừa được nhà trường bật lại — bạn tải lại trang giúp nhé.';
+    this._daNapLaiPhanHe = this._daNapLaiPhanHe || {};
+    if (this._daNapLaiPhanHe[name]) return ve(cauTaiLai);
+    this._daNapLaiPhanHe[name] = true;
+    await this.loadModules();
+    if ((location.hash.replace(/^#\/?/, '') || '').split('/')[0] !== name) return;
+    if (!this.moduleEnabled(name)) return ve(cauTaiLai);
+    delete this._daNapLaiPhanHe[name];
+    this.route();
   },
 
   loiKhongMoDuoc(r) {
