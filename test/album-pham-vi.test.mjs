@@ -179,7 +179,34 @@ try {
     check('NHÀ KHÔNG ĐƯỢC CHỌN THÌ KHÔNG MỞ ĐƯỢC NỮA — thu hẹp có hiệu lực ngay',
       khongChon.status === 403 || khongChon.status === 404, khongChon.status);
 
-    const hoi = await req('GET', `/api/albums/${alMoi}/nha`, { cookie: GV });
+    // NHÀ CÙNG NHÓM KHÔNG ĐƯỢC CHỌN (Đ261c, kiểm thử R4-B1). Nhà ngoài nhóm ở
+    // trên vốn không mở được album của nhóm này, nên phép kiểm đó xanh cả khi
+    // chế độ bị bỏ qua. Người cần canh là nhà TRONG nhóm: bé s5 của p4 đang
+    // học nhóm c1, mà cô chỉ chọn p1.
+    const PH_CUNG_NHOM = (await login('ph.lan', '123456')).cookie;   // p4 — con s5 ở c1
+    const cungNhom = await req('GET', `/api/albums/${alMoi}`, { cookie: PH_CUNG_NHOM });
+    check('NHÀ CÙNG NHÓM KHÔNG ĐƯỢC CHỌN THÌ KHÔNG MỞ ĐƯỢC ALBUM',
+      cungNhom.status === 403 || cungNhom.status === 404, cungNhom.status);
+    const dsCungNhom = (await req('GET', '/api/albums', { cookie: PH_CUNG_NHOM })).data || [];
+    check('và album ấy KHÔNG nằm trong danh sách của nhà đó',
+      !dsCungNhom.some(a => a.id === alMoi), dsCungNhom.map(a => a.id));
+    const dsCu = (await req('GET', '/api/albums?keCaLopCu=1', { cookie: PH_CUNG_NHOM })).data || [];
+    check('kể cả khi hỏi thêm album các năm trước',
+      !dsCu.some(a => a.id === alMoi), dsCu.map(a => a.id));
+    const anhCt = (await req('GET', `/api/albums/${alMoi}`, { cookie: GV })).data?.photos || [];
+    const anhMo = anhCt.find(p => (p.beTrongAnh || []).some(b => b.id === 's1')) || anhCt[0];
+    check('đối chứng — album có tấm ảnh để thử đường tải', !!anhMo, anhCt.length);
+    const tai = await req('GET', `/api/albums/${alMoi}/photo/${anhMo.id}`, { cookie: PH_CUNG_NHOM });
+    check('ĐƯỜNG TẢI ẢNH CŨNG CHẶN nhà cùng nhóm không được chọn', tai.status === 403, tai.status);
+    const bia = await req('GET', `/api/albums/${alMoi}/photo/${anhMo.id}?bia=1`, { cookie: PH_CUNG_NHOM });
+    check('và đường ảnh bìa video cũng vậy', bia.status === 403, bia.status);
+    const taiDuocChon = await req('GET', `/api/albums/${alMoi}/photo/${anhMo.id}`, { cookie: PH1 });
+    check('đối chứng — nhà được chọn qua được chốt quyền của đường tải (ảnh minh hoạ không có tệp: 404)',
+      taiDuocChon.status === 404, taiDuocChon.status);
+    check('và album nằm trong danh sách của nhà được chọn',
+      ((await req('GET', '/api/albums', { cookie: PH1 })).data || []).some(a => a.id === alMoi));
+
+    const hoi =await req('GET', `/api/albums/${alMoi}/nha`, { cookie: GV });
     check('cô đọc lại được danh sách nhà đã chọn để tích sẵn ô',
       hoi.status === 200 && (hoi.data.nha || []).includes('p1'), hoi.data);
 
