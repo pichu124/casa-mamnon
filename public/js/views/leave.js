@@ -248,13 +248,21 @@ App.views.leave = {
   },
 
   // Bảng sửa từng ngày, dùng chung cho lúc duyệt và lúc sửa lại sau duyệt.
-  bangSuaNgay(dong) {
+  //
+  // `laGoiY`: các dòng là GỢI Ý của máy (lúc duyệt), nên lý do trong ô là câu
+  // máy tự điền cho đúng lựa chọn gợi ý ấy. Văn phòng đổi lựa chọn thì câu đó
+  // hết đúng — "Gửi đơn sau 7 giờ sáng" cạnh "Nghỉ có phép · Được hoàn tiền
+  // ăn" (R2-L4) — nên ganBangSuaNgay xoá nó, và điền lại khi đổi về như gợi ý.
+  // Lúc sửa sau duyệt thì lý do là thứ văn phòng đã lưu: không đụng tới.
+  bangSuaNgay(dong, laGoiY = false) {
     return `
       <div class="field">
         <label>Chi tiết từng ngày</label>
         <div class="hint">Máy điền sẵn gợi ý theo giờ gửi đơn, thứ trong tuần và lịch nghỉ của trường. Văn phòng sửa được từng dòng.</div>
         ${dong.map((x, i) => `
-          <div class="list-row lv-ngay" data-ngay="${UI.esc(x.ngay)}" style="align-items:flex-start">
+          <div class="list-row lv-ngay" data-ngay="${UI.esc(x.ngay)}"${laGoiY && x.lyDo ? `
+            data-goi-y-phep="${UI.esc(x.coPhep)}" data-goi-y-hoan="${UI.esc(x.duocHoan)}" data-goi-y-ly-do="${UI.esc(x.lyDo)}"` : ''}
+            style="align-items:flex-start">
             <div class="row-main">
               <div class="row-title small">${UI.esc(UI.fmtDate(x.ngay))}</div>
               <label class="small" style="display:flex;gap:6px;align-items:center;margin:4px 0">
@@ -283,12 +291,21 @@ App.views.leave = {
     for (const dongEl of document.querySelectorAll('.lv-ngay')) {
       const phep = dongEl.querySelector('.lv-ng-phep');
       const hoan = dongEl.querySelector('.lv-ng-hoan');
+      const lyDo = dongEl.querySelector('.lv-ng-lydo');
+      const goiY = dongEl.dataset;
+      const theoGoiY = () => {
+        if (goiY.goiYLyDo === undefined) return;
+        const nhuGoiY = (phep.checked ? 'co' : 'khong') === goiY.goiYPhep && hoan.value === goiY.goiYHoan;
+        if (!nhuGoiY && lyDo.value.trim() === goiY.goiYLyDo) lyDo.value = '';
+        else if (nhuGoiY && !lyDo.value.trim()) lyDo.value = goiY.goiYLyDo;
+      };
       phep.onchange = () => {
         if (!phep.checked) hoan.value = 'khong';
         hoan.disabled = !phep.checked;
+        theoGoiY();
         tong();
       };
-      hoan.onchange = tong;
+      hoan.onchange = () => { theoGoiY(); tong(); };
     }
     tong();
   },
@@ -529,7 +546,7 @@ App.views.leave = {
       </div>
       <div class="small" style="margin:2px 0 12px">${UI.esc(l.reason)}</div>
       ${approve ? `
-        ${this.bangSuaNgay(l.goiYTheoNgay || [])}
+        ${this.bangSuaNgay(l.goiYTheoNgay || [], true)}
         <div class="field">
           <label>Ghi chú nội bộ về tiền ăn</label>
           <input id="lv-hoan-ghichu" placeholder="Ví dụ: đã báo bếp cắt suất từ thứ Ba">

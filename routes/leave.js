@@ -269,7 +269,12 @@ function docTheoNgay(l, vao) {
           + 'của trường, không hoàn thêm lần nữa',
       };
     }
-    theo.set(ng, { ngay: ng, coPhep, duocHoan, lyDo: String(x.lyDo || '').trim().slice(0, TOI_DA_LY_DO_NGAY) });
+    let lyDo = String(x.lyDo || '').trim().slice(0, TOI_DA_LY_DO_NGAY);
+    // "Gửi đơn sau 7 giờ sáng" là lý do máy điền cho gợi ý KHÔNG phép. Văn phòng
+    // cho có phép mà câu ấy còn trong ô (màn duyệt đời cũ không xoá) thì gia
+    // đình đọc một lý do trái với kết quả, và sổ điểm danh nối theo (R2-L4).
+    if (coPhep === 'co' && lyDo === LY_DO_TRE) lyDo = '';
+    theo.set(ng, { ngay: ng, coPhep, duocHoan, lyDo });
   }
   const thieu = can.filter(ng => !theo.has(ng));
   if (thieu.length) return { loi: `Còn ${thieu.length} ngày chưa ghi: ${thieu.map(chuNgay).join(', ')}` };
