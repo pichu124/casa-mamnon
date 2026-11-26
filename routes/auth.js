@@ -396,14 +396,19 @@ function khoiTruong() {
 // đã chặn mọi API khác cho tài khoản này, nhưng /api/auth thì mở — và gói đầy
 // đủ ở trên mang theo hồ sơ bé (địa chỉ, nhóm máu, dị ứng), danh sách cô, mọi
 // nhóm của trường. Nên ở đây không có bé, không có nhóm, không có tab Quản
-// trị; giữ nguyên hình dạng các trường để app khởi động được. Đặt mật khẩu
-// xong, màn đặt mật khẩu gọi lại /api/auth/me để nạp đủ.
+// trị; giữ nguyên hình dạng các trường để app khởi động được. Chức vụ và cơ
+// sở của chính tài khoản quản trị vẫn đi kèm (nói về người đăng nhập, không về
+// bé). Đặt mật khẩu xong, màn đặt mật khẩu gọi lại /api/auth/me để nạp đủ.
 function goiMatKhauTam(user) {
+  const quanTri = user.role === 'admin';
   return {
     user: {
       id: user.id, username: user.username, name: user.name, title: user.title || '',
       role: user.role, avatar: user.avatar || null, mustChangePassword: true,
-      nhomCuaCo: [], classIds: [], coSo: null, chucVu: null, moHoSoBe: false, tabQuanTri: null,
+      nhomCuaCo: [], classIds: [],
+      coSo: quanTri ? (db.phamViCoSo(user) || null) : null,
+      chucVu: quanTri ? db.chucVu(user) : null,
+      moHoSoBe: false, tabQuanTri: null,
     },
     students: [],
     classes: [],

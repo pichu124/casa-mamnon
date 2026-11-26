@@ -135,8 +135,13 @@ console.log('\n[5] Nhập thật');
   const pw = dungChung.find(t => !t.matKhau.includes('đã có'))?.matKhau;
   const PH = await login('0911111111', pw);
   check('phụ huynh mới đăng nhập được', PH.status === 200, PH.status);
-  check('thấy đúng 2 con của mình', PH.data?.students?.length === 2, PH.data?.students?.map(s => s.name));
   check('phụ huynh mới bị buộc đổi mật khẩu', PH.data?.user?.mustChangePassword === true);
+  // Còn mật khẩu tạm thì gói đăng nhập không có bé nào (Đ261j, O5) — thấy con
+  // sau khi đã đặt mật khẩu riêng.
+  check('còn mật khẩu tạm: chưa thấy bé nào', PH.data?.students?.length === 0, PH.data?.students?.length);
+  await req('POST', '/api/auth/set-new-password', { cookie: PH.cookie, body: { newPassword: 'giadinh2026' } });
+  const meMoi = await req('GET', '/api/auth/me', { cookie: PH.cookie });
+  check('đặt mật khẩu xong: thấy đúng 2 con của mình', meMoi.data?.students?.length === 2, meMoi.data?.students?.map(s => s.name));
 }
 
 console.log('\n[6] Quản lý học sinh');
