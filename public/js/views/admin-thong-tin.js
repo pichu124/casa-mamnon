@@ -822,7 +822,7 @@ Object.assign(App.views.admin, {
             <div class="muted small mt-8">Mật khẩu chỉ hiện đúng lần này; lần đăng nhập đầu app sẽ bắt đổi.</div>
           </div>` : ''}
         <button class="btn primary block mt-8" id="nb-xong">Xong</button>
-      `, 'Đã nhận bé');
+      `, 'Đã nhận bé', { giuKhiBamNen: true });
       // KHÔNG vẽ lại danh sách nhóm khi phiếu đang mở. `UI.modal()` gọi
       // `closeModal()` ngay dòng đầu, nên một lượt vẽ lại là ĐÓNG MẤT phiếu —
       // và mật khẩu ấy không xem lại được, tức gia đình không đăng nhập được
