@@ -296,6 +296,9 @@ window.UI = (() => {
     </div>`;
     if (!(tuyChon && tuyChon.giuKhiBamNen)) {
       ov.addEventListener('click', (e) => { if (e.target === ov) closeModal(); });
+    } else {
+      // Đánh dấu để dongHopKhiDoiMan() bên dưới cũng không tự đóng hộp này.
+      ov.dataset.giuKhiDoiMan = '1';
     }
     document.body.appendChild(ov);
     return ov;
@@ -303,6 +306,20 @@ window.UI = (() => {
   function closeModal() {
     const ov = document.getElementById('modal-overlay');
     if (ov) ov.remove();
+  }
+
+  // ĐỔI MÀN THÌ ĐÓNG HỘP ĐANG MỞ (thêm 11/2026, R2-L2 / R1-B12). Bấm nút quay
+  // lại của điện thoại hay đổi địa chỉ thì màn bên dưới đã đổi mà hộp cũ vẫn
+  // phủ lên. app.js gọi hàm này mỗi lần địa chỉ đổi.
+  //
+  // TRỪ hộp mở bằng `giuKhiBamNen` (phiếu mật khẩu tạm, chỉ hiện một lần):
+  // lỡ chạm nút quay lại là mất cả loạt mật khẩu, nên hộp ấy chỉ đóng khi
+  // người dùng tự bấm đóng. Trả về true khi đã đóng một hộp.
+  function dongHopKhiDoiMan() {
+    const ov = document.getElementById('modal-overlay');
+    if (!ov || ov.dataset.giuKhiDoiMan === '1') return false;
+    ov.remove();
+    return true;
   }
 
   // ===========================================================================
@@ -674,6 +691,7 @@ window.UI = (() => {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
     ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
     pageHeader, avatar, emptyState, studentBar, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
+    dongHopKhiDoiMan,
     badge, ATT_STATUS, DOW,
     nenAnh, nenVideo, guiVideoMayChu,
     maAnToan, dongThongTin,

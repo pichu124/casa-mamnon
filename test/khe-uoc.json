@@ -125,6 +125,7 @@
     "viSaoKhongThay": "ham(2)"
   },
   "lib/thong-bao-be.js": {
+    "TRANG_DAU": "number",
     "conCua": "ham(1)",
     "danhDaDoc": "ham(2)",
     "danhSachCua": "ham(1)",
@@ -178,6 +179,7 @@
     "avatar": "ham(1)",
     "badge": "ham(2)",
     "closeModal": "ham(0)",
+    "dongHopKhiDoiMan": "ham(0)",
     "dongNgayViet": "ham(1)",
     "dongThongTin": "ham(2)",
     "emptyState": "ham(2)",
