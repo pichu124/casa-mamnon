@@ -461,13 +461,31 @@ function locTheoThe(photos, user, cheDo, beTrongAnh) {
 
 // Báo gia đình từng bé vừa được gắn thẻ — MỘT tin mỗi bé mỗi album mỗi ngày,
 // không phải một tin cho mỗi tấm ảnh cô gắn (gắn 30 tấm là 30 lần rung máy).
-function baoBeDuocGanThe(album, studentIds, nguoiTao) {
+//
+// CHỈ BÁO KHI NHÀ ẤY THẤY ĐƯỢC ÍT NHẤT MỘT TRONG CÁC TẤM VỪA GẮN (Đ261c, R4-B4).
+// Tấm có bé khác chưa đồng ý chia sẻ thì ẩn với nhà này; báo "Có ảnh mới của
+// con" rồi mở album ra không thấy tấm nào là app tự nói sai. Hỏi ĐÚNG ba chốt
+// của đường xem: mở được album, luật ảnh nhóm, và chế độ theo thẻ.
+function nhaThayAnh(album, be, photoIds) {
+  const anh = db.all('album_photos',
+    `SELECT * FROM album_photos WHERE albumId = ? AND id IN (${photoIds.map(() => '?').join(',')})`,
+    [album.id, ...photoIds]);
+  if (!anh.length) return false;
+  const cheDo = cheDoCua(album.id);
+  return (be.parentIds || []).map(id => db.findUser(id)).some((u) => {
+    if (!u || u.role !== 'parent' || !xemDuocAlbum(u, album.classId, album.date, album.id)) return false;
+    const thay = locAnhChoNguoiXem(anh, u, album.classId);
+    return locTheoThe(thay, u, cheDo, db.beTrongCacAnh(thay.map(x => x.id))).length > 0;
+  });
+}
+function baoBeDuocGanThe(album, studentIds, nguoiTao, photoIds) {
   try {
     const hash = `#/albums/${album.id}`;
     const [tuUtc, denUtc] = ngay.khoangUtcCuaNgay(ngay.homNay());
     for (const id of studentIds || []) {
       const be = db.findStudent(id);
       if (!be) continue;
+      if (!nhaThayAnh(album, be, photoIds || [])) continue;
       const daBao = db.first('thongbao_be',
         'SELECT id FROM thongbao_be WHERE studentId = ? AND hash = ? AND taoLuc >= ? AND taoLuc < ?',
         [be.id, hash, tuUtc, denUtc]);
@@ -1308,7 +1326,7 @@ module.exports = (app) => {
     const daGan = db.datBeTrongAnh(photo.id, xin);
     db.audit(req.user.id, 'photo-tag', photo.id, { albumId: album.id, soBe: daGan.length });
     // Báo gia đình bé VỪA được gắn (không báo lại bé đã có thẻ từ trước).
-    baoBeDuocGanThe(album, daGan.filter(id => !truoc.has(id)), req.user.id);
+    baoBeDuocGanThe(album, daGan.filter(id => !truoc.has(id)), req.user.id, [photo.id]);
     res.json({ photoId: photo.id, studentIds: daGan });
   });
 
@@ -1524,7 +1542,7 @@ module.exports = (app) => {
       }
     });
     db.audit(req.user.id, 'photo-tag-nhieu', album.id, { soAnh: anh.length, soBe: beXin.length });
-    baoBeDuocGanThe(album, [...moi], req.user.id);
+    baoBeDuocGanThe(album, [...moi], req.user.id, anh.map(a => a.id));
     res.json({ soAnh: anh.length, soBe: beXin.length, soBeMoiDuocBao: moi.size });
   });
 
