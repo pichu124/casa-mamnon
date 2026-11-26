@@ -185,9 +185,29 @@ App.views.dashboard = {
   // nhìn thấy mỗi sáng, và sai theo kiểu làm người ta nghi ngờ mọi thứ bên dưới.
   vaiTro(user, child) {
     if (user.role === 'admin') return 'Quản trị nhà trường';
-    if (user.role === 'teacher') return `Cô phụ trách ${UI.esc(this.teacherClassName())}`;
+    if (user.role === 'teacher') return this.vaiCuaCo();
     if (child) return `Phụ huynh bé ${UI.esc(child.name)} · ${UI.esc(child.className || '')}`;
     return 'Phụ huynh';
+  },
+
+  // GỌI ĐÚNG VAI CỦA CÔ Ở TỪNG NHÓM (R2-C1). "Cô phụ trách" là tên của cô chủ
+  // nhiệm; cô nước ngoài và cô thể chất là "Cô nước ngoài Chồi 2, Lá 1", "Cô
+  // thể chất Nhà trẻ 1" — tên vai lấy từ lib/nhom-co.js qua /api/auth/me. Cô
+  // mang hai vai ở hai nhóm thì nêu cả hai. Máy chủ đời cũ không kèm vai thì
+  // về đúng câu cũ.
+  vaiCuaCo() {
+    const ds = (App.state.user || {}).nhomCuaCo || [];
+    const theoVai = new Map();
+    for (const n of ds) {
+      const ten = n.nhomCo && n.nhomCo !== 'chu-nhiem' && n.tenNhomCo ? n.tenNhomCo : 'Cô phụ trách';
+      if (!theoVai.has(ten)) theoVai.set(ten, []);
+      theoVai.get(ten).push(n);
+    }
+    if (theoVai.size <= 1) {
+      const [ten] = theoVai.keys();
+      return `${UI.esc(ten || 'Cô phụ trách')} ${UI.esc(this.teacherClassName())}`;
+    }
+    return [...theoVai].map(([ten, nhom]) => `${UI.esc(ten)} ${UI.esc(UI.noiTenNhom(nhom))}`).join(' · ');
   },
 
   // Cô mầm non có thể phụ trách nhiều nhóm — nêu đủ, đừng chỉ nêu nhóm đầu.
@@ -243,8 +263,12 @@ App.views.dashboard = {
           ${chonNhom}
         </div>
         ${this.dongDem(d.dem, d.phanHe, d.truongNghi)}
+        ${d.truongNghi && d.be.length ? `<div class="hn-truong-nghi small" id="hn-truong-nghi"
+          style="margin:6px 0;padding:6px 10px;border-radius:10px;background:var(--bg-2);line-height:1.5">
+          🏖️ <b>Trường nghỉ</b>${d.truongNghi.ten ? ` — ${UI.esc(d.truongNghi.ten)}` : ''}. Không cần điểm danh;
+          bé nào vẫn tới thì cô ghi như mọi ngày.</div>` : ''}
         ${d.be.length
-          ? `<div class="be-luoi">${d.be.map(b => this.chipBe(b, d.truongNghi)).join('')}</div>${this.chuThich()}`
+          ? `<div class="be-luoi">${d.be.map(b => this.chipBe(b, d.truongNghi)).join('')}</div>${this.chuThich(d.truongNghi)}`
           : '<div class="muted small" style="padding:6px 0">Nhóm chưa có bé nào.</div>'}
         <div class="hn-viec">${this.nutViec(d)}</div>
         <a class="hn-link" href="#/dashboard/nhom/${UI.maAnToan(d.nhom.id)}">
@@ -296,7 +320,10 @@ App.views.dashboard = {
       </button>`;
   },
 
-  chuThich() {
+  // Ngày trường nghỉ, chấm xám nghĩa là "Trường nghỉ", không phải "Chưa điểm
+  // danh" (R2-L8): chữ ấy trước chỉ nằm ở chú thích khi trỏ chuột, mà điện
+  // thoại không có chuột.
+  chuThich(truongNghi = null) {
     const muc = [
       ['present', UI.ATT_STATUS.present.label],
       ['late', UI.ATT_STATUS.late.label],
@@ -305,7 +332,7 @@ App.views.dashboard = {
     ];
     return `<div class="hn-chu-thich">${muc.map(([k, ten]) =>
       `<span><i style="background:${UI.ATT_STATUS[k].color}"></i>${UI.esc(ten)}</span>`).join('')}
-      <span><i style="background:var(--line-strong)"></i>Chưa điểm danh</span>
+      <span><i style="background:var(--line-strong)"></i>${truongNghi ? 'Trường nghỉ' : 'Chưa điểm danh'}</span>
       <span>💊 thuốc · ✉️ đơn chờ · 📝 đã ghi nhật ký · 🏠 đã đón về</span>
     </div>`;
   },

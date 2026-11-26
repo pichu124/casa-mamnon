@@ -1,6 +1,7 @@
 // Đăng nhập / đăng xuất / thông tin phiên hiện tại / đổi mật khẩu.
 const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
+const nhomCo = require('../lib/nhom-co');
 const password = require('../lib/password');
 const {
   createSession, destroySession, destroyUserSessions,
@@ -237,7 +238,15 @@ function mePayload(user) {
   // Nhóm lớp của cô đi kèm ngay từ lúc đăng nhập, để giao diện không phải đoán
   // qua `user.classId` — cột đó chỉ chứa nổi MỘT nhóm, còn cô mầm non có thể
   // phụ trách nhiều nhóm.
-  const nhom = user.role === 'teacher' ? nl.nhomCuaCo(user.id) : [];
+  // Kèm nhóm cô (chủ nhiệm / nước ngoài / thể chất) của từng nhóm — CHỈ THÊM
+  // trường — để trang chủ gọi đúng "Cô nước ngoài Chồi 2", không gọi mọi cô là
+  // "Cô phụ trách" (R2-C1).
+  const nhom = user.role === 'teacher'
+    ? nl.nhomCuaCo(user.id).map((c) => {
+      const ma = nhomCo.nhomCua(db, c.id, user.id);
+      return { ...c, nhomCo: ma, tenNhomCo: nhomCo.TEN_NHOM[ma] || '' };
+    })
+    : [];
   return {
     user: {
       ...publicUser(user), nhomCuaCo: nhom, classIds: nhom.map(c => c.id),
