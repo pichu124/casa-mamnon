@@ -509,10 +509,7 @@ Object.assign(App.views.admin, {
           <option value="mau-giao" ${c.luaTuoi === 'mau-giao' ? 'selected' : ''}>Mẫu giáo (3–6 tuổi)</option>
         </select>
         <div class="muted small mt-8" style="line-height:1.6">
-          Khai <b>Nhà trẻ</b> thì cô của nhóm thấy ô <b>thay bỉm</b> và <b>bú bình</b> cho
-          <b>mọi bé trong nhóm</b>, kể cả bé vừa qua 36 tháng — hỏi theo ngày sinh thì ô ấy
-          biến mất giữa năm học, ngay lúc cô đang dùng.
-          <div class="mt-8">
+          <div>
             Khai <b>Mẫu giáo</b> thì mục <b>Nhật ký của bé</b> không hiện ở màn gia đình nữa.
             Dữ liệu đã ghi <b>vẫn còn nguyên</b> — khai lại là hiện lại.
           </div>
