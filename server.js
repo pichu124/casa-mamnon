@@ -135,6 +135,26 @@ app.use('/api', (req, res, next) => {
   auth.requireAuth(req, res, next);
 });
 
+// MẬT KHẨU TẠM CHỈ DÙNG ĐỂ ĐẶT MẬT KHẨU RIÊNG (Đ261b, lỗi O5).
+//
+// Mật khẩu tạm do trường cấp đi qua tay nhiều người: in trên giấy, đọc qua
+// điện thoại, phát ở buổi họp. Bản trước chỉ MÀN HÌNH bắt đổi mật khẩu
+// (public/js/app.js), còn API thì mở hết — ai nhặt được tờ giấy và gọi thẳng
+// API là xem được hồ sơ bé mà chủ tài khoản không hề biết. Nay tài khoản còn
+// `mustChangePassword` chỉ gọi được /api/auth/* (biết mình là ai, đặt mật khẩu
+// mới, đăng xuất) và GET /api/modules (giao diện nạp ngay lúc đăng nhập, để
+// vẽ được app khi vừa đặt xong). Đặt trước mọi route và phân hệ nên đường thêm
+// sau này cũng không lọt.
+app.use('/api', (req, res, next) => {
+  if (!req.user || !req.user.mustChangePassword) return next();
+  if (/^\/auth\//i.test(req.path)) return next();
+  if (req.method === 'GET' && /^\/modules\/?$/i.test(req.path)) return next();
+  return res.status(403).json({
+    error: 'Tài khoản đang dùng mật khẩu tạm của nhà trường. '
+      + 'Vui lòng đặt mật khẩu riêng trước khi dùng các phần khác của app.',
+  });
+});
+
 // Chặn API của phân hệ đang tắt. Đặt sau lớp kiểm tra đăng nhập và trước khi
 // nạp route, để việc tắt một phân hệ chặn được cả đường vào dữ liệu chứ không
 // chỉ giấu biểu tượng ngoài giao diện.
