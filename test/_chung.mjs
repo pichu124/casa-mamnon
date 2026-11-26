@@ -6,6 +6,7 @@
 //   - KHÔNG bao giờ đụng tới dữ liệu thật của trường trong `data/school.db`;
 //   - các bộ không giẫm chân nhau, chạy lại bao nhiêu lần cũng cho kết quả như nhau.
 import fs from 'fs';
+import crypto from 'crypto';
 import os from 'os';
 import path from 'path';
 import { createRequire } from 'module';
@@ -355,6 +356,13 @@ export async function dungMayChu({ port, dir, env = {} }) {
       await batDau();
     },
   };
+}
+
+// Giá trị nằm trong cột `sessions.token` cho một token phiên (cookie `session=`).
+// Từ Đ261b (lỗi O4) bảng chỉ giữ mã băm của token, không giữ token thô — bài
+// nào lùi `createdAt` hay đếm dòng phiên theo cookie thì tra bằng giá trị này.
+export function maPhienTrongBang(token) {
+  return 'sha256$' + crypto.createHash('sha256').update(String(token)).digest('hex');
 }
 
 // Gọi API kèm cookie, trả về { status, data, setCookie }.

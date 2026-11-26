@@ -88,9 +88,10 @@ function chiNguoiGiuKhoa(req, res) {
 
 // Mốc tạo của phiên đang gọi (`sessions.createdAt`) — thứ nối một đăng ký đẩy
 // với phiên đăng nhập của máy đó (Đ255, xem `guiChoNguoi` ở lib/day.js).
+// `attachUser` đã đọc sẵn dòng phiên (Đ261b): bảng chỉ lưu mã băm của token,
+// nên tra lại bằng token thô ở đây sẽ không thấy gì.
 function mocPhien(req) {
-  const s = db.first('sessions', 'SELECT createdAt FROM sessions WHERE token = ?', [req.sessionToken || '']);
-  return s ? Number(s.createdAt) : null;
+  return Number.isFinite(req.sessionCreatedAt) ? req.sessionCreatedAt : null;
 }
 
 module.exports = (app) => {

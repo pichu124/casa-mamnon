@@ -333,18 +333,29 @@ function warnDefaultPasswords() {
 
   // MỖI NHỊP SOÁT MỘT TÀI KHOẢN, RỒI NHẢ MÁY CHO NGƯỜI ĐANG CHỜ (Đ251).
   //
-  // Mỗi lần băm thử là khoảng 40 mili-giây và chặn cả tiến trình. Bản trước
-  // lọc cả danh sách trong một mạch, ngay sau khi mở cổng: với một trường cỡ
-  // ba trăm bé (hơn sáu trăm người dùng) là chừng nửa phút máy chủ nhận kết
-  // nối mà không trả lời ai, sau MỖI lần cập nhật. (Con số viết bằng chữ có
-  // chủ ý: `test:may-chu` đòi mọi câu "<số> tài khoản" trong tệp này nói đúng
-  // số tài khoản mẫu.) Nay giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ
-  // trước; lời cảnh báo in ra muộn hơn vài giây nhưng vẫn đếm đủ từng tài
-  // khoản. `test/khoi-dong-khong-treo.test.mjs` canh cả hai điều ấy.
+  // Mỗi lần băm thử là khoảng 40 mili-giây. Bản trước lọc cả danh sách trong
+  // một mạch, ngay sau khi mở cổng: với một trường cỡ ba trăm bé (hơn sáu trăm
+  // người dùng) là chừng nửa phút máy chủ nhận kết nối mà không trả lời ai,
+  // sau MỖI lần cập nhật. (Con số viết bằng chữ có chủ ý: `test:may-chu` đòi
+  // mọi câu "<số> tài khoản" trong tệp này nói đúng số tài khoản mẫu.) Nay
+  // giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ trước; lời cảnh báo in
+  // ra muộn hơn vài giây nhưng vẫn đếm đủ từng tài khoản.
+  // `test/khoi-dong-khong-treo.test.mjs` canh cả hai điều ấy.
+  //
+  // BĂM Ở LUỒNG PHỤ, TỪNG LẦN MỘT (Đ261b). Chia nhịp thôi thì mỗi nhịp vẫn giữ
+  // vòng lặp ~40 ms đồng bộ: đo với sáu trăm mười tài khoản, khoảng 25 giây
+  // liền huy hiệu chậm từ 2 lên 30 ms, đăng nhập 136 ms. `verifyAsync` băm ở
+  // bể luồng của Node nên vòng lặp rảnh hẳn; và vì chỉ một lần băm chạy mỗi
+  // lúc, phép soát chiếm đúng một luồng trong bể — các luồng còn lại để dành
+  // cho người đang đăng nhập.
   //
   // Danh sách đọc MỘT lần ở đây; các nhịp sau không chạm cơ sở dữ liệu, nên
   // máy chủ tắt giữa chừng cũng không có gì dở dang.
   const ds = db.all('users', 'SELECT id, passwordHash FROM users');
+  const trungMau = async (bam) => {
+    for (const m of dsMau) if (await password.verifyAsync(m, bam)) return true;
+    return false;
+  };
   let i = 0;
   let soYeu = 0;
   const soatTiep = () => {
@@ -358,8 +369,10 @@ function warnDefaultPasswords() {
       return;
     }
     const u = ds[i++];
-    if (dsMau.some(m => password.verify(m, u.passwordHash))) soYeu++;
-    setImmediate(soatTiep);
+    trungMau(u.passwordHash).then((trung) => {
+      if (trung) soYeu++;
+      setImmediate(soatTiep);
+    });
   };
   soatTiep();
 }

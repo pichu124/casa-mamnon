@@ -26,7 +26,7 @@ import Database from 'better-sqlite3';
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoReq, taoLogin, taoBoDem,
-  CHROMIUM, tatBannerMoiCai,
+  CHROMIUM, tatBannerMoiCai, maPhienTrongBang,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -57,7 +57,7 @@ const MAY_NAY = 'https://day.example.invalid/may-nay';
     cookie: cu.cookie, body: { subscription: { endpoint: MAY_NAY, keys: { p256dh: 'k', auth: 'k' } } },
   });
   const moc = Date.now() - 31 * 24 * 3600 * 1000;
-  ghi('UPDATE sessions SET createdAt = ? WHERE token = ?', moc, cu.cookie.split('=')[1]);
+  ghi('UPDATE sessions SET createdAt = ? WHERE token = ?', moc, maPhienTrongBang(cu.cookie.split('=')[1]));
   ghi('UPDATE push_dang_ky_phien SET phienTaoLuc = ?, daNhac = 1 WHERE endpoint = ?', moc, MAY_NAY);
 }
 
@@ -132,7 +132,7 @@ async function moLaiApp() {
 }
 async function mocPhienCuaTrinhDuyet() {
   const c = (await ctx.cookies()).find(x => x.name === 'session');
-  return c ? (doc('SELECT createdAt FROM sessions WHERE token = ?', c.value)[0] || {}).createdAt || null : null;
+  return c ? (doc('SELECT createdAt FROM sessions WHERE token = ?', maPhienTrongBang(c.value))[0] || {}).createdAt || null : null;
 }
 const oTrangChu = () => page.locator('.tile-grid').isVisible();
 const coBaoLoi = () => page.locator('.toast.error').count();
