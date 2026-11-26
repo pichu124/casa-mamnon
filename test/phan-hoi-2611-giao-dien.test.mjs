@@ -5,6 +5,9 @@
 //
 //   1. R3-1 — gia đình đọc báo cáo 6 tháng: ô mức có chữ ("Đã vững (S)",
 //      "Chưa quan sát thấy (N)"), mức N màu xám (QUY TẮC 2).
+//   2. R3-12 (QUY TẮC 5) — cô bấm "Gửi quản lý duyệt" ở báo cáo tháng có
+//      "Đã thấy con làm được" mà hai ô việc làm tiếp trống: bị chặn, có lời
+//      nhắc, bản vẫn là nháp.
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin,
@@ -91,6 +94,47 @@ try {
     await page.waitForTimeout(1200);
     const lai = await page.locator('#view .badge').allInnerTexts();
     check('bấm "Xem báo cáo khác" rồi mở lại vẫn có chữ', lai.includes('Đã vững (S)'), lai);
+    await ctx.close();
+  }
+
+  // =========================================================================
+  console.log('\n[2] R3-12 — báo cáo tháng có nhận định mà chưa có việc làm tiếp: chặn gửi');
+  {
+    const THANG = HOM.slice(0, 7);
+    const dm = (await req('GET', '/api/kehoachbe/bai-hoc', { cookie: GV })).data.baiHoc;
+    const thapHong = dm.find(b => b.ten === 'Tháp hồng');
+    await req('PUT', '/api/kehoachbe', { cookie: GV, body: { classId: 'c1', thang: THANG,
+      danhSach: [{ studentId: 's6', baiHoc: [{ baiHocId: thapHong.id, nhan: 'hoc-moi' }] }] } });
+    const ke = ((await req('GET', `/api/kehoachbe?classId=c1&thang=${THANG}`, { cookie: GV })).data.danhSach || [])
+      .find(x => x.studentId === 's6').ke;
+    await req('PUT', '/api/kehoachbe/nhin-lai', { cookie: GV, body: { id: ke.id,
+      baiHoc: [{ id: ke.baiHoc.find(b => b.baiHocId === thapHong.id).id, mucDo: 'da-vung', tiepTuc: '' }] } });
+    const mau = await req('POST', '/api/baocaohoctap/mau', { cookie: QT, body: {
+      loai: 'thang', ten: 'Báo cáo tháng thử (Đ261e)', tuThang: 0, denThang: 72,
+      dong: [{ nhom: 'II. NHẬN THỨC', tieuDe: 'Giác quan', kieu: 'chu', gocLinhVuc: 'giac-quan' }] } });
+    const mo = await req('POST', '/api/baocaohoctap/ban', { cookie: GV, body: {
+      studentId: 's6', mauId: mau.data.mau.id, tuNgay: `${THANG}-01`, denNgay: HOM } });
+    const banId = mo.data.ban.id;
+    check('đối chứng — bản điền sẵn có "Đã thấy con làm được"',
+      /Đã thấy con làm được: Tháp hồng/.test(mo.data.ban.dong[0].chu), mo.data.ban.dong[0].chu);
+
+    const { ctx, page } = await moTrang();
+    await dangNhap(page, 'giaovien', '123456');
+    await moMan(page, '#/baocaohoctap');
+    await page.evaluate((id) => { App.views.baocaohoctap._banId = id; App.route(); }, banId);
+    await page.waitForSelector('#bc-gui', { timeout: 10000 });
+    await page.click('#bc-gui');
+    await page.waitForTimeout(1200);
+    const loi = await page.locator('#toast, .toast').allInnerTexts().catch(() => []);
+    check('lời nhắc hiện ra: cần ghi "ở lớp cô làm gì tiếp" hoặc "ở nhà…"',
+      loi.some(t => /ở lớp cô làm gì tiếp/.test(t)), loi);
+    const ban = (await req('GET', `/api/baocaohoctap/ban/${banId}`, { cookie: GV })).data.ban;
+    check('bản vẫn là nháp, chưa sang chờ duyệt', ban.trangThai === 'nhap', ban.buoc);
+    await page.fill('#bc-nha', 'Cho con xếp chồng các hộp sữa từ to đến nhỏ.');
+    await page.click('#bc-gui');
+    await page.waitForTimeout(1200);
+    const sau = (await req('GET', `/api/baocaohoctap/ban/${banId}`, { cookie: GV })).data.ban;
+    check('ghi một dòng "Ở nhà gia đình chơi cùng con" rồi bấm gửi: sang chờ duyệt', sau.buoc === 'cho-duyet', sau.buoc);
     await ctx.close();
   }
 

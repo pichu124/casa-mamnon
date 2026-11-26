@@ -147,6 +147,18 @@ const NHAN = { 'hoc-moi': 'học mới', 'on-tap': 'ôn tập', 'mo-rong': 'mở
 // ghi ở bảng `MUC` bên trên.
 const DA_QUAN_SAT_THAY = ['dang-hinh-thanh', 'da-vung', 'vuot-troi'];
 
+// QUY TẮC 5 Ở BÁO CÁO THÁNG (Đ261e). Bản tháng không có ô mức: nhận định nằm
+// trong chữ máy điền sẵn từ Kế hoạch của bé (`dienSanTuKeHoach`) — dòng "Đã
+// thấy con làm được: …" và chữ quy ước W/S/M cạnh từng bài ("• Rót nước (ôn
+// tập · S)"). Chữ N/NA không phải nhận định, cùng luật với `DA_QUAN_SAT_THAY`.
+// Dòng "Tiếp tục cùng con: …" KHÔNG phải gợi ý hành động cho gia đình: gợi ý
+// chỉ là hai ô `oLopLamGi` / `oNhaChoiGi`, máy không bao giờ điền sẵn.
+const NHAN_DINH_TRONG_CHU = [
+  /^\s*Đã thấy con làm được\s*:/m,
+  /^\s*•[^\n]*\((?:[^()\n]*·\s*)?(?:W|S|M)\)\s*$/m,
+];
+const coNhanDinhTrongChu = (chu) => NHAN_DINH_TRONG_CHU.some(re => re.test(String(chu || '')));
+
 const KIEU_DONG = ['chu', 'muc'];
 
 const TOI_DA_O = 2000;
@@ -1014,7 +1026,9 @@ module.exports = (app, { db, modules }) => {
       `SELECT COUNT(*) AS n FROM baocaohoctap_o WHERE banId = ? AND muc IN (${
         DA_QUAN_SAT_THAY.map(() => '?').join(',')})`,
       [ban.id, ...DA_QUAN_SAT_THAY]);
-    if (soODaThay > 0
+    const coNhanDinh = soODaThay > 0 || db.all('baocaohoctap_o',
+      "SELECT chu FROM baocaohoctap_o WHERE banId = ? AND chu != ''", [ban.id]).some(x => coNhanDinhTrongChu(x.chu));
+    if (coNhanDinh
       && !String(ban.oLopLamGi || '').trim() && !String(ban.oNhaChoiGi || '').trim()) {
       return res.status(400).json({
         error: 'Bản này đã ghi nhận điều cô quan sát thấy ở bé. Cô ghi thêm một dòng '

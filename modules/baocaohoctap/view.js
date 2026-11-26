@@ -467,9 +467,10 @@ App.views.baocaohoctap = {
           <textarea id="bc-lop" class="bc-o-viet" rows="2">${UI.esc(b.oLopLamGi)}</textarea></div>
         <div class="field"><label>Ở nhà gia đình chơi cùng con</label>
           <textarea id="bc-nha" class="bc-o-viet" rows="2">${UI.esc(b.oNhaChoiGi)}</textarea>
-          <div class="hint">Bản nào có ghi nhận điều cô <b>đã quan sát thấy</b> ở bé thì cần
-          ít nhất một trong hai ô trên — đây là màn hình duy nhất gia đình đọc được các mức
-          đánh giá, và đọc xong họ cần biết làm gì tiếp.</div></div>
+          <div class="hint">Bản nào có ghi nhận điều cô <b>đã quan sát thấy</b> ở bé (mức W, S, M,
+          hay dòng "Đã thấy con làm được") thì cần ít nhất một trong hai ô trên mới gửi được —
+          đây là màn hình duy nhất gia đình đọc được các mức đánh giá, và đọc xong họ cần biết
+          làm gì tiếp. Dòng "Tiếp tục cùng con" trong ô ở trên chưa tính là việc làm tiếp.</div></div>
       </div>
 
       ${b.daGui ? '' : `<button class="btn block mt-14" id="bc-luu">${UI.icon('check', 18)} Lưu nháp</button>`}
