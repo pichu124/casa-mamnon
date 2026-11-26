@@ -2124,7 +2124,13 @@ module.exports = (app) => {
     // Ghi vết chuyển lớp TRƯỚC khi ghi đè, để còn đọc được lớp cũ. Không có bước
     // này thì lịch sử lớp chỉ đúng với em học trọn năm, còn em chuyển lớp giữa
     // năm sẽ mất đoạn đầu.
-    if (patch.classId !== undefined && patch.classId !== s.classId) {
+    //
+    // Lượt NHẬN LẠI kèm đổi nhóm thì không ghi ở đây (Đ261j): mở khoảng nhóm
+    // mới trước là `ghiNhanLai` bên dưới thấy "đã có khoảng" và không dựng lại
+    // giai đoạn trước lần nghỉ của hồ sơ cũ — gia đình mất album nhóm cũ. Bé
+    // đang nghỉ thì không có khoảng mở nào để đóng; `ghiNhanLai` mở khoảng mới.
+    const nhanLai = !s.active && req.body.active !== undefined && !!req.body.active;
+    if (patch.classId !== undefined && patch.classId !== s.classId && !nhanLai) {
       lsl.ghiChuyenLop(s.id, patch.classId, lsl.homNay());
     }
     // Nhận lại em đã cho nghỉ. Xóa luôn ngày nghỉ để hồ sơ không mâu thuẫn:
@@ -2139,7 +2145,7 @@ module.exports = (app) => {
     // bản cũ thì bé còn đang "nghỉ" nên không khoảng nào được mở, và lần nghỉ
     // sau gia đình mất album của giai đoạn đi học lại.
     if (patch.active) {
-      if (!s.active) lsl.ghiNhanLai(s.id, s.leftAt, lsl.homNay());
+      if (!s.active) lsl.ghiNhanLai(s.id, s.leftAt, lsl.homNay(), s.classId);
       else if (s.classId) lsl.baoDamCoKhoang(s.id);
     }
     // Nhận lại cũng là ĐI HỌC LẠI sau bảo lưu (Đ239d2), còn đánh dấu nghỉ ở đây
