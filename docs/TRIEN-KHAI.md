@@ -355,6 +355,65 @@ Không có HTTPS thì app không cài được lên màn hình chính và không
 mất mạng — xem mục 1 của `docs/PHEP-THU-DIEN-THOAI.md`. Bước 9 của
 `docs/CAI-DAT-VPS.docx` ghi cùng các lệnh dưới đây, kèm bảng kiểm.
 
+**Chọn MỘT trong hai cửa trước app: Caddy (cách A) hoặc nginx + certbot (cách B).**
+Máy InterData đang chạy thật dùng **Caddy** (tự xin và tự gia hạn chứng chỉ, cấu
+hình ngắn) — làm cách A ngay dưới, rồi **bỏ qua bước 8** trong khối lệnh phía sau
+(bước 8 là cách B) và làm tiếp bước 9, 10 như nhau.
+
+#### Cách A — Caddy (máy thật đang dùng)
+
+```bash
+# Cài Caddy từ kho chính thức (một lần)
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.cu-$(date +%Y%m%d) 2>/dev/null || true
+sudo tee /etc/caddy/Caddyfile >/dev/null <<'CADDY'
+<tên-miền-của-trường> {
+    # Nén chữ (JS, CSS, JSON) trước khi gửi về điện thoại. Màn của văn phòng,
+    # ban giám hiệu nhận 300 KB JSON mỗi lần mở app; nén còn khoảng một phần năm.
+    # Caddy tự bỏ qua ảnh, video đã nén sẵn.
+    encode zstd gzip
+
+    # Tiêu đề bảo mật (CSP, X-Frame-Options, nosniff, Referrer-Policy, HSTS) do
+    # chính app đặt — đừng đặt lặp ở đây. Chỉ giấu tên phần mềm máy chủ.
+    header -Server
+
+    # Nhật ký truy cập để tra cứu khi có sự cố: giữ 30 ngày. Có địa chỉ mạng của
+    # người dùng — kể trong văn bản thông báo xử lý dữ liệu gửi phụ huynh.
+    log {
+        output file /var/log/caddy/casa-mamnon-truy-cap.log {
+            roll_size 50MiB
+            roll_keep 20
+            roll_keep_for 720h
+        }
+    }
+
+    reverse_proxy 127.0.0.1:3000
+}
+CADDY
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+
+#    Kiểm: ổ khoá lên, có nén, có nhật ký
+curl -sI https://<tên-miền-của-trường>/healthz | head -1          # HTTP/2 200
+curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' \
+  https://<tên-miền-của-trường>/js/app.js | grep -i content-encoding   # content-encoding: gzip (hoặc zstd)
+sudo tail -2 /var/log/caddy/casa-mamnon-truy-cap.log
+```
+
+Máy dùng chung với app khác (casa-lead) thì giữ nguyên khối của app kia trong
+cùng tệp, chỉ thêm hoặc sửa khối của casa-mamnon. Lỗi chứng chỉ: `sudo journalctl -u
+caddy -n 30 --no-pager` — gần như luôn là tên miền chưa trỏ đúng IP hoặc cổng 80/443
+chưa mở. Có Caddy đứng trước thì **giữ `TRUST_PROXY` mặc định** (xem
+`docs/CAP-NHAT-MAY-CHU.md`).
+
+#### Cách B — nginx + certbot
+
+Khối lệnh dưới đây (bước 8). Bước 9 (buộc HTTPS) và bước 10 (tường lửa) làm cho
+cả hai cách.
+
 ```bash
 # 8. nginx đứng trước app: HTTPS và nén
 sudo apt install -y nginx
@@ -445,6 +504,32 @@ là không tệp mã nào được nén, mà nginx không báo gì.
 
 Muốn xem app chạy khi chưa có máy chủ: dùng `npm run ban-thu` trên máy của mình
 (xem `docs/PHEP-THU-DIEN-THOAI.md`).
+
+---
+
+## Vận hành sau khi cài: nhật ký hệ thống, giám sát, cập nhật
+
+Bốn việc làm một lần ngay sau khi cài, trước ngày phát tài khoản. Lệnh đầy đủ ở
+`docs/DUA-VAO-DUNG.md`:
+
+| Việc | Vì sao | Ở đâu |
+|---|---|---|
+| **Giám sát** mỗi 5 phút (`scripts/canh-may.js`, systemd timer): `/healthz`, % ổ, tuổi bản sao, ffmpeg; báo người trực qua Telegram hoặc thư | Không có gì báo ra ngoài khi app chết, ổ đầy hay sao lưu ngừng | mục A6 |
+| **Giới hạn journald** (`SystemMaxUse=500M`) | Nhật ký của app, Caddy, bộ canh không có trần thì lấy tới 10% ổ | mục B2 |
+| **Xoay vòng** `backup.log`, `soat-may-chu.log` (logrotate) | Hai tệp chỉ có tăng | mục B3 |
+| **Cập nhật bảo mật tự động** (`unattended-upgrades`, tự khởi động lại 03:30) | Máy mở ra Internet; app tự bật lại vì dịch vụ đã `enable` | mục B4 |
+
+Giới hạn journald, chép được ngay:
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nSystemMaxUse=500M\nMaxRetentionSec=3month\n' | sudo tee /etc/systemd/journald.conf.d/casa.conf
+sudo systemctl restart systemd-journald && journalctl --disk-usage
+```
+
+Cập nhật mã trên máy đang chạy: dùng `scripts/cap-nhat-may-chu.sh` (sao lưu trước,
+cài thư viện vào thư mục tạm, kiểm `/healthz` sau khi khởi động lại, hỏng thì tự quay
+lui) — cách cài ở `docs/MAY-CHU-THU-INTERDATA.md`, mục 2.
 
 ---
 
