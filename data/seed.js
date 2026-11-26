@@ -1255,6 +1255,16 @@ function generate() {
   };
 
   const stats = importSnapshot(db);
+  // SỔ KHOẢNG HỌC CỦA BÉ MẪU (Đ261c, kiểm thử R4-B2). Không có dòng nào thì
+  // "Cho nghỉ" không có gì để đóng, và gia đình mất hết album cũ — đúng lỗi
+  // người thử gặp. Bắt đầu từ mốc sớm hơn trong hai: đầu năm học, và 60 ngày
+  // trước (album, điểm danh mẫu nằm trong khoảng ấy dù sinh vào ngày nào).
+  {
+    const lsl = require('../lib/lich-su-lop');
+    const dauNam = lsl.dauNamHoc(schoolYear);
+    const tu = dauNam && dauNam < fmt(daysAgo(60)) ? dauNam : fmt(daysAgo(60));
+    for (const s of students) if (s.classId) lsl.moKhoang(s.id, s.classId, tu);
+  }
   ganCoNuocNgoai(require('../lib/db'));
   // Ba trạng thái đồng ý ở trên là CỐ Ý, kể cả bé chưa nộp giấy: đánh dấu đã
   // qua bước điền "đồng ý theo giấy nhập học" (Đ260i) để máy chủ không điền lấp
