@@ -1849,7 +1849,7 @@ App.views.hanhtrinh = {
         huy: () => dung || !conHop(),
         tien: ({ daGui, tong }) => { ve('ht-nen-dongho', `Đang gửi ${mb(daGui, tong)}`); thanh(daGui, tong || 1); },
         dangNen: ({ tienDo }) => {
-          ve('ht-nen-tieu-de', 'Máy chủ đang làm nét video…');
+          ve('ht-nen-tieu-de', 'Máy chủ đang xử lý video…');
           ve('ht-nen-dongho', '(thường bằng độ dài đoạn phim hoặc nhanh hơn)');
           thanh(tienDo, 1);
         },
@@ -1865,7 +1865,7 @@ App.views.hanhtrinh = {
       this._videoDaNen = kq.maTep;
       xem.innerHTML = '<video muted playsinline style="width:100%;height:100%;object-fit:cover"></video>';
       xem.firstChild.src = URL.createObjectURL(f);
-      nen.innerHTML = '<div class="hint">Máy chủ đã làm nét xong — cô bấm Lưu nhé.</div>';
+      nen.innerHTML = '<div class="hint">Máy chủ đã xử lý xong — cô bấm Lưu nhé.</div>';
     } catch (err) {
       if (!conHop()) return;
       nen.innerHTML = '';

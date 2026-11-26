@@ -771,7 +771,7 @@ App.views.albums = {
       const goiY = document.getElementById('al-pick-goi-y');
       if (!co || !goiY || this._phien !== phien) return;
       goiY.innerHTML = 'Chọn được nhiều tệp cùng lúc. Trên điện thoại có thể chụp hoặc quay trực tiếp. '
-        + 'Ảnh tự thu nhỏ trước khi gửi. <b>Video gửi nguyên bản lên máy chủ</b> để máy chủ làm nét lại '
+        + 'Ảnh tự thu nhỏ trước khi gửi. <b>Video gửi nguyên bản lên máy chủ</b> để máy chủ xử lý lại '
         + '(720p) — video dài thì gửi lâu hơn, cô giữ màn hình mở tới khi xong.';
     });
   },
@@ -835,7 +835,7 @@ App.views.albums = {
               thanh(daGui, tong || 1);
             },
             dangNen: ({ tienDo }) => {
-              ve('al-nen-tieu-de', '✨ Máy chủ đang làm nét video…');
+              ve('al-nen-tieu-de', '✨ Máy chủ đang xử lý video…');
               ve('al-nen-dongho', '(thường bằng độ dài đoạn phim hoặc nhanh hơn)');
               ve('al-nen-loi-dan', 'Đã gửi xong. Xin cô để nguyên màn hình này — video sẽ hiện ngay bên dưới.');
               thanh(tienDo, 1);
