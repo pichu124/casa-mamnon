@@ -276,11 +276,20 @@ App.views.dashboard = {
       </section>`;
   },
 
-  // Màu trạng thái của một bé hôm nay — lấy từ bảng dùng chung UI.ATT_STATUS để
-  // trang chủ và màn Điểm danh nói cùng một màu. Chưa có dòng nào thì màu
-  // trung tính: đó là việc cô chưa làm, không phải một lời nào về bé.
+  // "Nghỉ không phép" là CAM, cùng màu với màn Điểm danh và màn gia đình
+  // (Đ261d, Đ261i). UI.ATT_STATUS dùng chung vẫn tô đỏ và ui.js chỉ được thêm,
+  // nên đổi màu ở đây — y như `trangThai()` của attendance.js.
+  trangThai(k) {
+    const st = UI.ATT_STATUS[k];
+    if (k === 'absent_unexcused' && st) return { ...st, cls: 'dd-cam', color: '#c2410c' };
+    return st;
+  },
+
+  // Màu trạng thái của một bé hôm nay — cùng màu với màn Điểm danh. Chưa có
+  // dòng nào thì màu trung tính: đó là việc cô chưa làm, không phải một lời
+  // nào về bé.
   mauCua(b) {
-    if (b.diemDanh && UI.ATT_STATUS[b.diemDanh]) return UI.ATT_STATUS[b.diemDanh].color;
+    if (b.diemDanh && this.trangThai(b.diemDanh)) return this.trangThai(b.diemDanh).color;
     if (b.nghiCoPhep) return UI.ATT_STATUS.absent_excused.color;
     return 'var(--line-strong)';
   },
@@ -331,7 +340,7 @@ App.views.dashboard = {
       ['absent_unexcused', UI.ATT_STATUS.absent_unexcused.label],
     ];
     return `<div class="hn-chu-thich">${muc.map(([k, ten]) =>
-      `<span><i style="background:${UI.ATT_STATUS[k].color}"></i>${UI.esc(ten)}</span>`).join('')}
+      `<span><i style="background:${this.trangThai(k).color}"></i>${UI.esc(ten)}</span>`).join('')}
       <span><i style="background:var(--line-strong)"></i>${truongNghi ? 'Trường nghỉ' : 'Chưa điểm danh'}</span>
       <span>💊 thuốc · ✉️ đơn chờ · 📝 đã ghi nhật ký · 🏠 đã đón về</span>
     </div>`;
@@ -346,7 +355,7 @@ App.views.dashboard = {
       muc.push(p('Có mặt', dem.coMat, UI.ATT_STATUS.present.color));
       if (dem.denMuon) muc.push(p('Đến muộn', dem.denMuon, UI.ATT_STATUS.late.color));
       if (dem.nghiPhep) muc.push(p('Nghỉ có phép', dem.nghiPhep, UI.ATT_STATUS.absent_excused.color));
-      if (dem.nghiKhongPhep) muc.push(p('Nghỉ không phép', dem.nghiKhongPhep, UI.ATT_STATUS.absent_unexcused.color));
+      if (dem.nghiKhongPhep) muc.push(p('Nghỉ không phép', dem.nghiKhongPhep, this.trangThai('absent_unexcused').color));
       if (!truongNghi) muc.push(p('Chưa điểm danh', dem.chuaDiemDanh, 'var(--line-strong)'));
       // Ra về ghi ở màn Điểm danh từ Đ210.
       if (dem.daVe) muc.push(p('Đã về', dem.daVe));
@@ -519,7 +528,7 @@ App.views.dashboard = {
   },
 
   dongBe(b, laVanPhong, truongNghi) {
-    const conf = b.diemDanh ? UI.ATT_STATUS[b.diemDanh] : null;
+    const conf = b.diemDanh ? this.trangThai(b.diemDanh) : null;
     const chuaCo = truongNghi ? UI.badge('Trường nghỉ', 'gray')
       : (b.nghiCoPhep ? UI.badge('Có đơn nghỉ đã duyệt', 'blue') : UI.badge('Chưa điểm danh', 'gray'));
     const trangThai = conf ? UI.badge(conf.label, conf.cls) : chuaCo;

@@ -337,6 +337,18 @@ App.views.attendance = {
   },
 
   theRaSoatVanPhong(r, ds, tenNhom) {
+    // Ngày không học (Đ261i): máy chủ đã trả danh sách rỗng, và "Cả trường đã
+    // xong — mọi bé đều đã có dòng điểm danh" là câu sai vào thứ Bảy.
+    if (r.ngayKhongHoc && !ds.length) {
+      return `<div class="card" id="att-ngay-khong-hoc">
+        <div class="card-title">${r.ngayKhongHoc === 'cuoi-tuan'
+    ? 'Thứ Bảy, Chủ nhật không cần rà soát' : 'Trường nghỉ, không cần rà soát'}</div>
+        <div class="muted small" style="line-height:1.7">
+          Ngày này không phải ngày học nên văn phòng không cần gọi cuộc nào.
+          Bé nào vẫn tới trường thì vẫn chấm như mọi ngày.
+        </div>
+      </div>`;
+    }
     if (!r.quaGio) {
       return `<div class="card">
         <div class="card-title">Sáng nay còn đang điểm danh</div>
