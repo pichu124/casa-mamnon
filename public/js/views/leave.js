@@ -360,11 +360,14 @@ App.views.leave = {
         <textarea id="lv-reason" placeholder="Ví dụ: Con bị sốt nhẹ, gia đình xin phép cho con ở nhà theo dõi."></textarea>
         <div class="hint">Đơn được gửi tới văn phòng nhà trường để duyệt. Cô phụ trách cũng đọc được đơn để biết hôm đó con nghỉ.</div>
       </div>
-      <button class="btn primary block" onclick="App.views.leave.submitCreate()">${UI.icon('send', 18)} Gửi đơn xin phép</button>
+      <button class="btn primary block" id="lv-gui" onclick="App.views.leave.submitCreate(this)">${UI.icon('send', 18)} Gửi đơn xin phép</button>
     `, 'Tạo đơn xin phép');
   },
 
-  async submitCreate() {
+  // KHOÁ NÚT KHI ĐANG GỬI (R2-L1): mạng chậm thì gia đình bấm lần nữa vì
+  // tưởng chưa ăn, và trước đây thành hai đơn. Máy chủ cũng tự chặn đơn trùng.
+  async submitCreate(nut) {
+    if (this._dangGui) return;
     const sel = document.getElementById('lv-student');
     const current = App.currentStudent();
     const studentId = sel ? sel.value : (current ? current.id : null);
@@ -374,13 +377,20 @@ App.views.leave = {
     if (!fromDate || !toDate) return UI.toast('Gia đình chọn ngày nghỉ giúp cô nhé', 'error');
     if (fromDate > toDate) return UI.toast('Ngày bắt đầu phải trước hoặc trùng ngày kết thúc', 'error');
     if (!reason) return UI.toast('Gia đình nhập lý do xin nghỉ giúp cô nhé', 'error');
+    this._dangGui = true;
+    if (nut) nut.disabled = true;
     try {
       await API.post('/api/leave', { studentId, fromDate, toDate, reason });
       UI.toast('Đã gửi đơn xin phép tới nhà trường', 'success');
       UI.closeModal();
       App.route();
       App.refreshBadges();
-    } catch (err) { UI.toast(err.message, 'error'); }
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    } finally {
+      this._dangGui = false;
+      if (nut) nut.disabled = false;
+    }
   },
 
   showDetail(id) {

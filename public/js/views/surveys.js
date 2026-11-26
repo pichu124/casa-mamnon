@@ -104,11 +104,14 @@ App.views.surveys = {
                 </label>`).join('')
               : `<textarea name="ans-${UI.esc(q.id)}" placeholder="Nhập câu trả lời của gia đình..."></textarea>`}
           </div>`).join('')}
-        <button class="btn primary block" onclick="App.views.surveys.submitAnswers()">${UI.icon('send', 18)} Gửi câu trả lời</button>
+        <button class="btn primary block" id="sv-gui-tra-loi" onclick="App.views.surveys.submitAnswers(this)">${UI.icon('send', 18)} Gửi câu trả lời</button>
       </form>`, sv.title);
   },
 
-  async submitAnswers() {
+  // Khoá nút khi đang gửi (R2-L1): bấm lần hai lúc mạng chậm thì máy chủ báo
+  // "đã trả lời rồi" ngay sau câu "Đã gửi", và gia đình không biết tin câu nào.
+  async submitAnswers(nut) {
+    if (this._dangGui) return;
     const sv = this._survey;
     const form = document.getElementById('survey-form');
     if (!sv || !form) return;
@@ -130,13 +133,20 @@ App.views.surveys = {
         answers[q.id] = val;
       }
     }
+    this._dangGui = true;
+    if (nut) nut.disabled = true;
     try {
       await API.post(`/api/surveys/${sv.id}/respond`, { answers });
       UI.toast('Đã gửi câu trả lời. Cảm ơn quý phụ huynh!', 'success');
       UI.closeModal();
       App.route();
       App.refreshBadges();
-    } catch (err) { UI.toast(err.message, 'error'); }
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    } finally {
+      this._dangGui = false;
+      if (nut) nut.disabled = false;
+    }
   },
 
   // Modal xem lại câu trả lời của mình (hoặc khảo sát đã kết thúc).
