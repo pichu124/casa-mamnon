@@ -3,7 +3,9 @@
 > **Máy này là MÁY THỬ, chạy dữ liệu mẫu.** Chụp ảnh đồ vật, không chụp trẻ thật.
 > Trước khi nhập dữ liệu thật của trường phải xong bốn việc ghi ở mục N7 của
 > `docs/TIEN-DO.md` (tên miền của trường, chốt chỗ để bản sao ngoài máy, xác
-> nhận giá gia hạn, đổi sang dữ liệu thật).
+> nhận giá gia hạn, đổi sang dữ liệu thật). Danh sách đầy đủ, kèm lệnh từng việc
+> (cài mới trên thư mục sạch, giám sát, diễn tập khôi phục, nhập danh sách, phát tài
+> khoản): `docs/DUA-VAO-DUNG.md`.
 >
 > Tệp này ghi **cách làm** với đúng máy đang chạy. Thông tin gói, cấu hình, hạn
 > thuê và các việc còn mở nằm ở mục **N7** của `docs/TIEN-DO.md`. Quy trình
@@ -75,42 +77,74 @@ curl -s https://casa-school.duckdns.org/sw.js | grep "const VERSION"   # số ph
 
 Không ra `HTTP/2 200` thì xem lỗi: `sudo journalctl -u casa-mamnon -n 50 --no-pager`.
 
-**Lưu thành một lệnh** (làm một lần):
+Đó là cách làm tay, để hiểu từng bước. Dùng hằng ngày thì chạy `~/cap-nhat.sh` ngay
+dưới: dòng `npm ci` làm tay mà mất mạng giữa chừng là app mất thư viện, và làm tay
+thì không có bước tự quay lui.
+
+**Cập nhật bằng một lệnh — `~/cap-nhat.sh`** (Đ261g). Script nằm trong kho:
+`scripts/cap-nhat-may-chu.sh`. Chép một bản ra ngoài kho mã (để `git pull` không
+thay tệp đang chạy), làm một lần và làm lại mỗi khi script trong kho đổi:
 
 ```bash
-cat > ~/cap-nhat.sh <<'EOF'
-#!/bin/bash
-set -e
-cd /opt/casa-mamnon
-echo "Bản đang chạy: $(git log --oneline -1)"
-DATA_DIR=/var/lib/casa-mamnon npm run backup
-git pull origin main
-npm ci --omit=dev
-sudo systemctl restart casa-mamnon
-sleep 3
-curl -sI https://casa-school.duckdns.org/healthz | head -1
-curl -s https://casa-school.duckdns.org/sw.js | grep "const VERSION"
-echo "Bản mới: $(git log --oneline -1)"
-EOF
-chmod +x ~/cap-nhat.sh
+cp /opt/casa-mamnon/scripts/cap-nhat-may-chu.sh ~/cap-nhat.sh && chmod +x ~/cap-nhat.sh
 ```
 
-Từ đó mỗi lần chỉ cần `~/cap-nhat.sh`. Bước nào lỗi là dừng ngay, app vẫn chạy
-bản cũ.
+Mỗi lần cập nhật:
+
+```bash
+TEN_MIEN=casa-school.duckdns.org ~/cap-nhat.sh
+```
+
+Script làm, theo thứ tự (bước nào hỏng thì dừng ở đó, app vẫn chạy bản cũ):
+
+1. Kho mã có sửa tay chưa commit → dừng.
+2. Sao lưu (`npm run backup`); in tên bản sao trước cập nhật — **ghi lại tên này**.
+3. `git fetch`; không có gì mới thì thoát.
+4. Chỉ khi `package.json` / `package-lock.json` đổi: `npm ci` vào **thư mục tạm**.
+   Mất mạng giữa chừng thì `node_modules` đang chạy còn nguyên. (Bản cũ chạy
+   `npm ci` thẳng trong `/opt/casa-mamnon`: `npm ci` xoá `node_modules` trước khi
+   cài, nên hỏng giữa chừng là app đang chạy mất thư viện, và lần tự khởi động lại
+   kế tiếp thì chết.)
+5. Đổi sang mã mới; thư viện cũ giữ ở `node_modules.truoc-cap-nhat`.
+6. Khởi động lại **hai lần**, mỗi lần chờ `/healthz` trả `{"ok":true}` (cả qua
+   `https://TEN_MIEN` nếu có). Không lên → **tự quay lui** mã và thư viện, khởi động
+   lại bản cũ, gửi tin cho người trực (khi đã cài kênh báo ở `docs/DUA-VAO-DUNG.md`,
+   mục A6), in 30 dòng nhật ký. Dữ liệu **không** tự khôi phục: xem "Quay lui" dưới.
 
 **Điện thoại đã cài app:** mở, đóng hẳn, mở lại — lần mở thứ hai mới là bản mới.
 
 ### Quay lui về bản trước
 
+**Khi chỉ cần đổi mã** (bản mới chạy được nhưng có lỗi giao diện, lỗi một màn):
+
 ```bash
 cd /opt/casa-mamnon
-git checkout <mã đã ghi>          # ví dụ: git checkout 2dd1b3c
-npm ci --omit=dev
+git log --oneline -5                              # tìm mã bản trước
+git checkout <mã-bản-trước>                       # ví dụ: git checkout 2dd1b3c
+[ -d node_modules.truoc-cap-nhat ] && mv node_modules node_modules.hong && mv node_modules.truoc-cap-nhat node_modules
 sudo systemctl restart casa-mamnon
+curl -s -H 'X-Forwarded-Proto: https' http://127.0.0.1:3000/healthz   # {"ok":true}
 ```
 
-Dữ liệu không bị ảnh hưởng (nằm ở thư mục khác). Khi có bản sửa: `git checkout
-main` rồi cập nhật lại như trên.
+(Dòng `node_modules` chỉ cần khi lần cập nhật ấy có đổi thư viện; xong thì `rm -rf
+node_modules.hong`.) Khi có bản sửa: `git checkout main` rồi `~/cap-nhat.sh`.
+
+**Khi bản mới đã kịp ghi dữ liệu mà bản cũ đọc sai** (hiếm: mọi bảng mới đều chỉ
+thêm, không đổi bảng cũ — nhưng một bản lỗi có thể đã ghi sai dữ liệu): đổi mã như
+trên, rồi khôi phục bản sao **trước cập nhật** mà script đã in ở bước 2.
+
+```bash
+cd /opt/casa-mamnon
+sudo systemctl stop casa-mamnon
+DATA_DIR=/var/lib/casa-mamnon npm run restore -- <tên-bản-sao-trước-cập-nhật>   # ví dụ school-20261126-2130.db.gz
+sudo systemctl start casa-mamnon
+```
+
+**Mọi thứ cô và gia đình ghi từ lúc cập nhật tới lúc khôi phục sẽ mất** (điểm danh,
+tin nhắn, ảnh mới vẫn còn trong `uploads/` nhưng không còn dòng nào trỏ tới). Vì
+vậy: cập nhật ngoài giờ học, và quyết khôi phục dữ liệu càng sớm càng tốt. Script
+khôi phục đổi tên dữ liệu hiện tại để giữ lại (`school.db.truoc-khi-khoi-phuc-*`),
+không xoá — lỡ tay vẫn quay lại được.
 
 ### Thử một nhánh CHƯA gộp vào `main`
 
@@ -156,6 +190,10 @@ máy này. Dòng cron 02:00 được nối thêm:
 ```
 ; rclone copy /var/lib/casa-mamnon/backups mahoa:casa-mamnon
 ```
+
+**Phải đổi `;` thành `&&` và thêm báo lỗi** (Đ261g): với `;`, sao lưu hỏng thì
+rclone vẫn chạy, đẩy lại bản cũ, không ai biết. Dòng thay thế đầy đủ ở
+`docs/DUA-VAO-DUNG.md`, mục A4.
 
 - `gdrive:` là Google Drive; `mahoa:` là lớp mã hoá (`crypt` của rclone) đặt
   trên thư mục `gdrive:casa-sao-luu`. Tên tệp, tên thư mục và nội dung đều mã
@@ -276,6 +314,8 @@ bước 4–9), khác ở mấy chỗ:
 | Không SSH vào được | Bảng điều khiển InterData → Enduser Panel (Virtualizor) → mở màn hình máy (VNC) |
 | Sao lưu đêm qua không có | `tail -50 ~/backup-casa.log`, `crontab -l` |
 | Đĩa sắp đầy | `df -h /`, `du -sh /var/lib/casa-mamnon/*`; ngưỡng cảnh báo có sẵn trong `npm run kiem-tra-may-chu` |
+| Bộ canh máy báo gì, lượt gần nhất ra sao | `journalctl -u casa-canh-may -n 30 --no-pager`; `systemctl list-timers casa-canh-may.timer` (cài ở `docs/DUA-VAO-DUNG.md`, mục A6) |
+| Cập nhật vừa tự quay lui | Đọc 30 dòng nhật ký script in ra; `sudo journalctl -u casa-mamnon -n 100 --no-pager`; `git log --oneline -3` để biết đang chạy bản nào |
 | Video lại nén trên điện thoại (mờ), hay cô báo "máy chủ chưa làm nét được" | `ffmpeg -version`; `sudo journalctl -u casa-mamnon -n 200 --no-pager \| grep nen-video` — xem mục 7 |
 
 ---
