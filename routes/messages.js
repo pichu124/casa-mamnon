@@ -354,6 +354,22 @@ function kenhCuaBe(studentId, loai) {
     'SELECT * FROM kenh_hoi_thoai WHERE studentId = ? AND loai = ?', [studentId, loai]);
 }
 
+// Bản lô của `kenhCuaBe` cho một loại kênh: { studentId → kênh }. Một bé lỡ có
+// hai kênh cùng loại thì lấy dòng ghi trước (rowid nhỏ nhất), tức đúng dòng
+// `kenhCuaBe` trả về.
+function kenhCuaCacBe(studentIds, loai) {
+  const ra = new Map();
+  for (let i = 0; i < studentIds.length; i += 400) {
+    const lo = studentIds.slice(i, i + 400);
+    for (const r of db.all('kenh_hoi_thoai',
+      `SELECT * FROM kenh_hoi_thoai WHERE loai = ? AND studentId IN (${lo.map(() => '?').join(',')})
+        ORDER BY rowid`, [loai, ...lo])) {
+      if (!ra.has(r.studentId)) ra.set(r.studentId, r);
+    }
+  }
+  return ra;
+}
+
 // ĐỒNG BỘ HÀNG THÀNH VIÊN CHO NHỮNG KÊNH NGƯỜI NÀY ĐƯỢC VÀO.
 //
 // Chạy ở đầu đường lấy danh sách hội thoại. Thường không ghi gì cả — chỉ ghi
@@ -520,13 +536,26 @@ function contactsFor(user) {
       });
     }
   } else if (user.role === 'teacher') {
-    for (const s of db.studentsOf(user)) {
-      if (!s.classId) continue;
-      const cls = db.findClass(s.classId);
+    // HỎI THEO NHÓM, KHÔNG THEO BÉ (Đ261f). Cô nước ngoài dạy cả 12 nhóm là 300
+    // bé. Bản cũ hỏi bốn câu cho mỗi bé (nhóm, vai, cài đặt, kênh), tức 1.236
+    // câu cho một lần mở màn Nhắn tin. Nhóm, vai và công tắc kênh là chuyện
+    // của NHÓM nên hỏi một lần mỗi nhóm; kênh đã có hỏi một lượt cho cả danh sách.
+    const cacBe = db.studentsOf(user).filter(s => s.classId);
+    const cuaNhom = new Map();
+    for (const s of cacBe) {
+      if (cuaNhom.has(s.classId)) continue;
       // Cô mở được đúng kênh ứng với vai cô giữ Ở NHÓM CỦA BÉ ĐÓ.
       const loai = loaiKenhCuaCo(s.classId, user.id);
-      if (!loai || !kenhDangMo(loai)) continue;
-      const daCo = kenhCuaBe(s.id, loai);
+      cuaNhom.set(s.classId, { cls: db.findClass(s.classId), loai: loai && kenhDangMo(loai) ? loai : null });
+    }
+    const kenhDaCo = new Map();
+    for (const loai of new Set([...cuaNhom.values()].map(n => n.loai).filter(Boolean))) {
+      kenhDaCo.set(loai, kenhCuaCacBe(cacBe.filter(s => cuaNhom.get(s.classId).loai === loai).map(s => s.id), loai));
+    }
+    for (const s of cacBe) {
+      const { cls, loai } = cuaNhom.get(s.classId);
+      if (!loai) continue;
+      const daCo = kenhDaCo.get(loai).get(s.id);
       out.push({
         kenh: loai, studentId: s.id,
         name: `Gia đình bé ${s.name}`,
