@@ -56,6 +56,30 @@ cũng không đứng tên trường: người làm phần mềm nghỉ là trư�
 | 2 | Chủ dự án | Kiểm trên VPS: `getent hosts <ten-mien>` phải in đúng IP | 1 phút |
 | 3 | Chủ dự án | Đổi khối Caddy — mẫu đủ ở `docs/TRIEN-KHAI.md`, mục *Caddy*: `sudo nano /etc/caddy/Caddyfile`, đổi dòng đầu khối thành `<ten-mien> {`, rồi `sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy` | 10 phút |
 | 4 | Chủ dự án | `curl -I https://<ten-mien>/healthz` → `HTTP/2 200`; `DATA_DIR=/var/lib/casa-mamnon npm run kiem-tra-may-chu -- --ten-mien=<ten-mien>` → mục chứng chỉ ĐẠT | 5 phút |
+| 5 | Chủ dự án | Kiểm nén trên một đường **JSON có đăng nhập**, không chỉ tệp tĩnh — lệnh ở khung ngay dưới. Phải in `content-encoding: gzip` (hoặc `zstd`) | 5 phút |
+
+**Vì sao bước 5:** app không tự nén; nén là việc của Caddy (`encode zstd gzip`, mẫu ở
+`docs/TRIEN-KHAI.md`). Phép kiểm cũ chỉ `curl` một tệp `.js`, mà thứ nặng nhất lại là
+JSON sau đăng nhập: `/api/auth/me` và `/api/students` của văn phòng, ban giám hiệu
+khoảng **306–319 KB** mỗi lần mở app với 300 bé; nén gzip còn **13–15 KB** (đo trong
+đợt thử tải 26/11, Đ261f). Caddy hay khối proxy sửa sai mà bỏ sót JSON thì điện
+thoại phụ huynh, cô trên 4G tải gấp hai mươi lần mà không ai thấy lỗi.
+
+```bash
+# --- chạy trên VPS, tài khoản nào của app cũng được; xong thì đăng xuất như dòng cuối ---
+read -rs -p 'Mật khẩu: ' MK; echo                    # gõ ẩn, không vào lịch sử lệnh
+curl -s -o /dev/null -c ~/.casa-thu-nen -H 'Content-Type: application/json' \
+  --data "{\"username\":\"<tên đăng nhập>\",\"password\":\"$MK\"}" https://<ten-mien>/api/auth/login
+unset MK
+curl -s -o /dev/null -D - -b ~/.casa-thu-nen -H 'Accept-Encoding: gzip' \
+  https://<ten-mien>/api/auth/me | grep -iE '^HTTP|content-encoding'   # HTTP/2 200 và content-encoding: gzip
+curl -s -o /dev/null -b ~/.casa-thu-nen -X POST https://<ten-mien>/api/auth/logout
+rm -f ~/.casa-thu-nen                                 # tệp có cookie phiên — xoá ngay
+```
+
+Ra `HTTP/2 401` là đăng nhập chưa được (sai tên, mật khẩu có dấu `"`): thử lại. Ra
+`200` mà không có dòng `content-encoding` thì xem lại khối Caddy trước khi phát tài
+khoản.
 
 ### A2. Chỗ để bản sao ngoài máy — CHỜ CHỦ DỰ ÁN QUYẾT
 
@@ -262,30 +286,35 @@ vào cuối dòng cron thứ Hai (kèm nạp `canh-may.env` như dòng sao lưu 
 
 Màn nhập: **Cài đặt → Nhóm lớp, cô, nhập danh sách → Thông tin bé & nhân sự →
 Nhập danh sách bé**. Chỉ nhận **CSV**, không nhận `.xlsx`. Bấm **Tải tệp mẫu CSV**
-để lấy mẫu 11 cột: `Mã của bé, Họ tên, Ngày sinh, Giới tính, Nhóm, Cơ sở, Địa chỉ,
-Họ tên phụ huynh, Điện thoại, Email, Dân tộc`. Mỗi dòng một bé, **một** phụ huynh.
+để lấy mẫu 14 cột: `Mã của bé, Họ tên, Ngày sinh, Giới tính, Nhóm, Cơ sở, Địa chỉ,
+Họ tên phụ huynh, Điện thoại, Email, Dân tộc, Họ tên phụ huynh 2, Điện thoại phụ
+huynh 2, Quan hệ phụ huynh 2`. Mỗi dòng một bé; ba cột phụ huynh 2 để trống được
+(bản Đ261a — bản trước chỉ có 11 cột, một phụ huynh).
 
 Chuẩn bị từ Excel của trường (văn phòng, 2–4 giờ cho 300 bé):
 
-1. Mở tệp mẫu bằng Excel, **xoá dòng ví dụ** (bé "Nguyễn Bảo An", số 0912345678):
-   để lại là nhập thêm một bé ảo kèm tài khoản theo số đó.
-2. Trước khi dán dữ liệu: chọn cả cột **Ngày sinh** → chuột phải → *Định dạng ô*
-   (Format Cells) → **Văn bản** (Text). Ghi ngày theo dạng **`2023-09-24`**
-   (năm-tháng-ngày, đủ 4 chữ số năm). **Không** để Excel tự đổi thành `24/09/2023`:
-   Excel cài vùng Việt Nam lưu kiểu đó ra CSV, và bản hiện tại của app có thể hiện
-   sai ngày, sai tuổi, hoặc "NaN" (lỗi O1 của đợt thử 26/11 — xem B9).
-3. Cột **Điện thoại**: cũng để kiểu Văn bản, để giữ số 0 ở đầu. Anh chị em dùng
-   chung một số điện thoại thì được nối vào cùng một tài khoản nhà.
-4. Cột **Nhóm**: gõ đúng y tên nhóm, có dấu (gõ "Mam 1" thay vì "Mầm 1" là app tạo
-   một nhóm mới chỉ có một bé). Màn xem trước có dòng xanh "Sẽ tạo mới … nhóm: …":
-   **đọc kỹ dòng đó** trước khi bấm nhập.
+1. Mở tệp mẫu bằng Excel. Dòng ví dụ mang mã **`VI-DU`** (tên "dòng ví dụ — xoá
+   đi"): nên xoá; quên xoá thì màn xem trước báo "Đã bỏ qua dòng ví dụ của tệp
+   mẫu" và **không** nhập dòng đó.
+2. Cột **Ngày sinh**: ghi kiểu Việt Nam **ngày/tháng/năm** (`24/09/2023`), hoặc
+   `2023-09-24`; Excel tự đổi thành số ngày cũng đọc được. App đọc ngày trước, tháng
+   sau, không đoán kiểu Mỹ. Ngày không có thật (`31/02/2024`), ngày ở tương lai, bé
+   trên 7 tuổi là dòng lỗi; bé dưới 12 tháng hay trên 6 tuổi là thẻ vàng cảnh báo,
+   vẫn nhập được.
+3. Cột **Điện thoại** (và Điện thoại phụ huynh 2): để kiểu **Văn bản** (chuột phải →
+   *Định dạng ô* → Văn bản), để giữ số 0 ở đầu. Anh chị em dùng chung một số điện
+   thoại thì được nối vào cùng một tài khoản nhà — kể cả số của phụ huynh 2.
+4. Cột **Nhóm**: gõ đúng y tên nhóm, có dấu. Gõ "Mam 1" trong khi đã có "Mầm 1"
+   thì màn xem trước hiện thẻ đỏ "Xem lại tên nhóm trước khi nhập — Sẽ tạo nhóm MỚI
+   'Mam 1' (giống 'Mầm 1' đã có?)": sửa trong tệp rồi tải lên lại, không thì các bé
+   ấy vào một nhóm riêng.
 5. Lưu: *Tệp → Lưu dưới dạng* → kiểu **CSV UTF-8 (Comma delimited) (*.csv)** — đúng
    dòng có chữ **UTF-8**. Kiểu CSV thường (ANSI) bị app chặn kèm hướng dẫn.
 6. Tải lên, đọc màn xem trước (số "Sẽ nhập", dòng lỗi, dòng trùng), rồi mới nhập.
    Nhập lại cùng tệp không tạo bé trùng.
 
-Trong lúc nhập 300 bé, máy chủ đứng khoảng **11 giây** (cả trường chờ): nhập ngoài
-giờ học. Ngay sau khi nhập: chạy một lần sao lưu tay (`npm run backup`) và làm A5.
+Nhập 300 bé mất khoảng **7 giây** và từ bản Đ261a không còn làm cả app đứng (trước
+đó ~11 giây cả trường chờ); vẫn nên nhập ngoài giờ học. Ngay sau khi nhập: chạy một lần sao lưu tay (`npm run backup`) và làm A5.
 
 ### A8. Khai lứa "Nhà trẻ"
 
@@ -298,10 +327,11 @@ làm mất sổ của bé. 5 phút.
 ### A9. Cấp và phát tài khoản phụ huynh
 
 **Quyết trước (chủ dự án + văn phòng, 1 buổi):** một tài khoản mỗi nhà, hay bố và
-mẹ mỗi người một tài khoản? Mẫu nhập chỉ có **một** phụ huynh mỗi dòng. Phụ huynh
-thứ hai phải thêm tay từng bé (khoảng 1–1,5 phút mỗi lượt, ~4–6 giờ cho 250 bé —
-ước lượng), và nhà có hai con thì phụ huynh thứ hai nhận **hai tài khoản riêng**
-(lỗi O2, xem B9). Nếu chọn "mỗi nhà một tài khoản" thì không vướng.
+mẹ mỗi người một tài khoản? Từ bản Đ261a mẫu nhập có ba cột **phụ huynh 2**: điền
+luôn trong tệp, nhà có hai con mà phụ huynh 2 cùng số thì chỉ có **một** tài khoản.
+Thêm tay sau này ở "Thêm phụ huynh cho bé": số đã có tài khoản thì máy **hỏi** rồi
+nối bé vào tài khoản đó. Còn một đường vẫn sinh tài khoản thứ hai: phụ huynh 2 nhập
+ở phiếu **Nhận một bé** luôn được tạo mới (xem B9).
 
 **Phát tài khoản** (khoảng 280 tài khoản cho 300 bé, gấp đôi nếu cả bố lẫn mẹ):
 
@@ -316,10 +346,12 @@ thứ hai phải thêm tay từng bé (khoảng 1–1,5 phút mỗi lượt, ~4�
    không in mật khẩu cho dòng đó. **1–2 giờ dựng mẫu, 1–2 giờ in và cắt (~35–70 trang)**.
 3. Phát tận tay khi đón bé, trong **1–2 tuần**; đánh dấu nhà đã nhận. Nhắn Zalo
    từng nhà thì khoảng 9 giờ công và để lại mật khẩu trong tin nhắn — không khuyên.
-4. **Đừng phát cùng lúc cho cả trường trong một buổi họp dùng Wi-Fi của trường:**
-   bản hiện tại khoá theo địa chỉ mạng, 8 lần gõ sai từ bất kỳ ai trong cùng mạng
-   Wi-Fi là **mọi người** trong mạng ấy bị khoá 15 phút (lỗi O3, xem B9). Rải theo
-   nhóm, hoặc dặn phụ huynh đăng nhập bằng 4G.
+4. **Phát ở buổi họp dùng Wi-Fi của trường được** từ bản Đ261b: khoá đăng nhập đếm
+   theo từng tài khoản trên từng mạng — sai 5 lần thì chỉ tài khoản đó bị khoá 15
+   phút trên mạng ấy, nhà khác cùng Wi-Fi vẫn vào được. Cả mạng chỉ bị chặn khi
+   tổng số lần sai từ mạng đó vượt 100 trong 15 phút. Lưu ý: nếu sau này đặt
+   Cloudflare trước Caddy thì mọi người hiện ra cùng một địa chỉ mạng — phải sửa
+   cấu hình `trust proxy` trước khi bật.
 5. Quên mật khẩu: văn phòng cấp lại ở **Cài đặt → Tài khoản & phân quyền → Tài khoản**.
 
 Rải việc phát ra 1–2 tuần cũng tránh được một rủi ro dài hạn: phiên đăng nhập hết
@@ -388,6 +420,31 @@ lui. Bản mới nằm trong kho: `scripts/cap-nhat-may-chu.sh` (sao lưu → c�
 vào thư mục tạm → đổi chỗ → khởi động lại hai lần, chờ `/healthz` → hỏng thì quay
 lui mã và thư viện, báo người trực). Cài: `docs/MAY-CHU-THU-INTERDATA.md`, mục 2.
 Chủ dự án, 15 phút.
+
+**Lần cập nhật lên bản đợt Đ261 (lần đầu có script mới) — ba điều phải biết:**
+
+- **Bắt buộc cài lại thư viện.** `package-lock.json` đổi (`body-parser` 2.4.0, `qs`
+  6.17.1 — vá lỗ `npm audit` mức cao, Đ261b). Script mới tự `npm ci` khi khoá gói
+  đổi (bước 4 của nó), nên **chép script mới ra trước** rồi mới chạy, vì bản
+  `~/cap-nhat.sh` đang có trên máy là bản cũ:
+
+  ```bash
+  cd /opt/casa-mamnon && git fetch origin
+  git show origin/main:scripts/cap-nhat-may-chu.sh > ~/cap-nhat.sh && chmod +x ~/cap-nhat.sh
+  TEN_MIEN=<ten-mien> ~/cap-nhat.sh
+  npm ls body-parser qs                  # phải là body-parser@2.4.0, qs@6.17.1
+  npm audit --omit=dev                   # found 0 vulnerabilities
+  ```
+
+  Cập nhật tay theo `docs/MAY-CHU-THU-INTERDATA.md` mục 2 thì dòng `npm ci --omit=dev`
+  **không được bỏ**.
+- **Phiên đăng nhập được băm lúc khởi động** (Đ261b, O4): không ai bị đăng xuất. Bản
+  sao lưu làm **trước** lần cập nhật này vẫn chứa phiên dạng thô, dùng được tới khi
+  phiên hết hạn (tối đa 30 ngày): giữ chúng đúng chỗ như A2 dặn, đừng chép đi đâu.
+  Muốn chặn hẳn thì phải xoá mọi phiên cũ, tức đăng xuất cả trường — chủ dự án quyết.
+- **Quay lui về bản trước Đ261** (theo "Quay lui" ở `docs/MAY-CHU-THU-INTERDATA.md`)
+  thì mọi người phải đăng nhập lại một lần (bản cũ không đọc được phiên đã băm);
+  không mất dữ liệu.
 
 ### B2. Giới hạn nhật ký hệ thống (journald)
 
@@ -482,16 +539,17 @@ có đứng tên trường không. Chủ dự án, một email.
 
 ### B9. Lỗi đã biết của đợt thử 26/11 cần lập trình sửa
 
-Kiểm trạng thái ở `docs/TIEN-DO.md` trước ngày nhập — có thể đã sửa ở đợt Đ261.
+Đối chiếu ngày 26/11 sau khi gộp đợt Đ261 (chi tiết từng đơn vị ở `docs/TIEN-DO.md`,
+khung "Đ261"). Máy chạy thật phải ở bản có đủ các bản vá này (B1).
 
-| Lỗi | Hậu quả | Tạm thời trong lúc chờ |
+| Lỗi | Hậu quả | Trạng thái / tạm thời |
 |---|---|---|
-| O1 — ngày sinh nhập nguyên văn | `24/09/2023` thành "NaN"; `12/5/24` đọc kiểu Mỹ; ngày tương lai, bé 11 tuổi đều được nhận | A7 bước 2 (ngày dạng `2023-09-24`, cột kiểu Văn bản); A8 |
-| O2 — phụ huynh thứ hai | nhà nhiều con sinh ra nhiều tài khoản cho cùng một người | Chọn "mỗi nhà một tài khoản" ở A9 |
-| O3 — khoá theo địa chỉ mạng | cả mạng Wi-Fi bị khoá 15 phút; ngược lại đăng nhập đúng một lần là xoá bộ đếm | A9 bước 4. **Chuyển lên mục A nếu phát tài khoản ở buổi họp dùng Wi-Fi trường** |
-| O4 — phiên đăng nhập lưu thô trong cơ sở dữ liệu | ai cầm tệp sao lưu là đăng nhập được như quản trị tới 30 ngày | Thư mục 700 (A3); bản sao ngoài máy phải mã hoá (A2) |
-| O5 — mật khẩu tạm không hết hạn, API không bắt đổi | | Phát phiếu nhanh, nhắc đổi |
-| `npm audit` — `body-parser` mức cao | gửi một yêu cầu nén đặc biệt làm treo máy chủ | `npm audit fix`, commit riêng, chạy bộ kiểm thử đầy đủ |
+| O1 — ngày sinh nhập nguyên văn | `24/09/2023` thành "NaN"; `12/5/24` đọc kiểu Mỹ; ngày tương lai, bé 11 tuổi đều được nhận | **Đã sửa (Đ261a)** — xem A7 bước 2 |
+| O2 — phụ huynh thứ hai | nhà nhiều con sinh ra nhiều tài khoản cho cùng một người | **Đã sửa ở nhập tệp và "Thêm phụ huynh" (Đ261a).** Còn ở phiếu **Nhận một bé**: phụ huynh 2 luôn được tạo tài khoản mới — thêm phụ huynh 2 bằng "Thêm phụ huynh cho bé" thay vì ở phiếu đó |
+| O3 — khoá theo địa chỉ mạng | cả mạng Wi-Fi bị khoá 15 phút; ngược lại đăng nhập đúng một lần là xoá bộ đếm | **Đã sửa (Đ261b)** — A9 bước 4 |
+| O4 — phiên đăng nhập lưu thô trong cơ sở dữ liệu | ai cầm tệp sao lưu là đăng nhập được như quản trị tới 30 ngày | **Đã sửa (Đ261b)**; bản sao làm trước lần cập nhật vẫn còn phiên thô tới 30 ngày (B1). Vẫn giữ thư mục 700 (A3), bản sao ngoài máy mã hoá (A2) |
+| O5 — mật khẩu tạm không hết hạn, API không bắt đổi | phiếu mật khẩu tạm rơi vào tay người khác là đọc được hồ sơ bé mà không cần đặt mật khẩu mới | **Đang sửa (Đ261h)** — chặn ở máy chủ. Trong lúc chờ: phát phiếu nhanh, nhắc đổi |
+| `npm audit` — `body-parser` mức cao | gửi một yêu cầu nén đặc biệt làm treo máy chủ | **Đã sửa (Đ261b)** — sau khi cập nhật phải `npm ci` (B1) |
 
 ---
 
@@ -505,10 +563,13 @@ Kiểm trạng thái ở `docs/TIEN-DO.md` trước ngày nhập — có thể �
 - **Nhật ký truy cập** để tra cứu khi có sự cố: đã có trong khối Caddy mẫu của
   `docs/TRIEN-KHAI.md` (giữ 30 ngày). Nhật ký này có địa chỉ mạng của phụ huynh:
   kể nó trong văn bản thông báo xử lý dữ liệu (A10 mục 2).
-- Nhập 300 bé làm máy chủ đứng 11 giây (ba cơ sở ~35 giây); gõ nhầm tên nhóm tạo
-  nhóm mới lặng lẽ (O6, O7).
-- Xuất Excel điểm danh "giờ vào ra" dài ngày làm cả app đứng (~0,6 giây cho 5 tháng,
-  ~1,5 giây cả năm, ~4 giây cả trường); đăng nhập băm mật khẩu đồng bộ (~45 ms mỗi
-  lượt) — đáng sửa trước khi mở ba cơ sở.
+- ~~Nhập 300 bé làm máy chủ đứng 11 giây; gõ nhầm tên nhóm tạo nhóm mới lặng lẽ (O6,
+  O7)~~ — đã sửa ở Đ261a (A7).
+- ~~Xuất Excel điểm danh "giờ vào ra" dài ngày làm cả app đứng; đăng nhập băm mật
+  khẩu đồng bộ~~ — đã sửa ở Đ261f (xuất không chặn app, mỗi lúc một lượt xuất) và
+  Đ261b (băm ở luồng phụ). Còn lại cho lúc mở ba cơ sở: gói JSON của văn phòng, ban
+  giám hiệu ~300 KB mỗi lần mở app (phần lớn là danh sách cô lặp lại theo từng bé) —
+  nén ở Caddy (A1 bước 5) che được phần lớn; nhập danh sách cô còn băm mật khẩu
+  đồng bộ.
 - Trang in phiếu tài khoản có mã QR (thay bước trộn thư ở A9, tiết kiệm vài giờ cho
   văn phòng mỗi khoá nhập học).

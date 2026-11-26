@@ -316,7 +316,7 @@ bước 4–9), khác ở mấy chỗ:
 | Đĩa sắp đầy | `df -h /`, `du -sh /var/lib/casa-mamnon/*`; ngưỡng cảnh báo có sẵn trong `npm run kiem-tra-may-chu` |
 | Bộ canh máy báo gì, lượt gần nhất ra sao | `journalctl -u casa-canh-may -n 30 --no-pager`; `systemctl list-timers casa-canh-may.timer` (cài ở `docs/DUA-VAO-DUNG.md`, mục A6) |
 | Cập nhật vừa tự quay lui | Đọc 30 dòng nhật ký script in ra; `sudo journalctl -u casa-mamnon -n 100 --no-pager`; `git log --oneline -3` để biết đang chạy bản nào |
-| Video lại nén trên điện thoại (mờ), hay cô báo "máy chủ chưa làm nét được" | `ffmpeg -version`; `sudo journalctl -u casa-mamnon -n 200 --no-pager \| grep nen-video` — xem mục 7 |
+| Video lại nén trên điện thoại (mờ), hay cô báo "Máy chủ chưa xử lý được video này" | `ffmpeg -version`; `sudo journalctl -u casa-mamnon -n 200 --no-pager \| grep nen-video` — xem mục 7 |
 
 ---
 
