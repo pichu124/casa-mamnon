@@ -53,7 +53,7 @@ Mười việc máy kiểm thử không làm thay được: chúng chỉ chạy 
 | Người đóng vai phụ huynh | phuhuynh (mẹ bé Bảo An và bé Bảo Nam), phuhuynh2 (bố bé Gia Hân), ph.minh (bố bé Gia Bảo), ph.trang (mẹ bé Gia Huy, nhà trẻ) | D | Điện thoại |
 | Cả nhóm, cuối buổi | như ghi ở từng việc | E |  |
 
-**Mật khẩu** do người phụ trách buổi thử phát. Tài khoản nhà trường (hieutruong, vanphong1, ketoan, quanly1) phải đặt mật khẩu mới ở lần đăng nhập đầu: từ 8 ký tự, có cả chữ và số. Đặt xong thì báo những người dùng chung tài khoản đó. Gõ sai mật khẩu 8 lần là cả mạng Wi-Fi bị khoá 15 phút, nên gõ cẩn thận.
+**Mật khẩu** do người phụ trách buổi thử phát. Tài khoản nhà trường (hieutruong, vanphong1, ketoan, quanly1) phải đặt mật khẩu mới ở lần đăng nhập đầu: từ 8 ký tự, có cả chữ và số. Đặt xong thì báo những người dùng chung tài khoản đó. Gõ sai mật khẩu của một tài khoản 5 lần là tài khoản đó bị khoá 15 phút trên mạng ấy (tài khoản khác cùng Wi-Fi vẫn vào được), nên gõ cẩn thận.
 
 **Không làm trên máy thử:**
 
