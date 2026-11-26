@@ -1,6 +1,7 @@
 // Đăng nhập / đăng xuất / thông tin phiên hiện tại / đổi mật khẩu.
 const db = require('../lib/db');
 const nl = require('../lib/nhom-lop');
+const nhomCo = require('../lib/nhom-co');
 const password = require('../lib/password');
 const {
   createSession, destroySession, destroyUserSessions,
@@ -8,26 +9,58 @@ const {
 } = require('../lib/auth');
 
 // ---------------------------------------------------------------------------
-// Chống dò mật khẩu — HAI bộ đếm, cố ý khác nhau
+// Chống dò mật khẩu — BA bộ đếm, mỗi bộ chặn một kiểu dò (Đ261b, lỗi O3)
 //
-// Bộ thứ nhất đếm theo ĐỊA CHỈ và khóa cứng 15 phút. Một mình nó là chưa đủ:
-// địa chỉ mà máy chủ nhìn thấy có thể do chính người gõ mật khẩu tự khai qua
-// header X-Forwarded-For, nên đổi giá trị đó mỗi lần thử là bộ đếm về không.
-// Vì vậy ở đây KHÔNG đọc thẳng header nữa mà dùng req.ip — giá trị do Express
-// tính, có tính tới cấu hình 'trust proxy'. Khi đặt máy chủ tại trường mà không
-// có lớp proxy phía trước, phải đặt TRUST_PROXY=0 thì req.ip mới đáng tin.
+// Địa chỉ là req.ip — giá trị Express tính có xét 'trust proxy', KHÔNG đọc
+// thẳng header X-Forwarded-For (người dò tự khai được, đổi mỗi lần là bộ đếm
+// về không). Máy chủ đặt tại trường mà không có proxy phía trước thì phải đặt
+// TRUST_PROXY=0, req.ip mới đáng tin.
 //
-// Bộ thứ hai đếm theo TÊN ĐĂNG NHẬP và CHẬM DẦN chứ không khóa. Đây mới là thứ
-// bịt được lỗ trên, vì kẻ dò đổi địa chỉ kiểu gì cũng vẫn phải nhắm vào một tên
-// đăng nhập. Cố ý không khóa cứng theo tên: tên đăng nhập của phụ huynh sinh từ
-// số điện thoại nên người ngoài đoán được, khóa cứng là mở ra một cách phá mới —
-// nhập sai vài lần để khóa phụ huynh khác khỏi app.
+// 1. Theo CẶP (địa chỉ, tên đăng nhập): sai 5 lần là khoá đúng cặp đó 15 phút.
+//    Trần chặt, và nó chỉ chạm tới người đang gõ sai.
+// 2. Theo ĐỊA CHỈ: trần rộng (100 lần sai trong 15 phút), chặn một máy dò rải
+//    đều trên nhiều tên. Bản trước khoá cả địa chỉ sau 8 lần sai với BẤT KỲ
+//    tên nào — Wi-Fi của trường, buổi họp phát tài khoản là cả trăm gia đình
+//    chung một địa chỉ, vài người gõ nhầm là người gõ đúng cũng bị chặn. Bản
+//    trước cũng xoá bộ đếm khi có người đăng nhập đúng: kẻ dò có một tài khoản
+//    thật cứ sai 7 lần lại vào tài khoản của mình một lần là dò mãi không khoá.
+//    Nay đăng nhập đúng chỉ trả lại đúng lượt của chính nó.
+// 3. Theo TÊN ĐĂNG NHẬP trên mọi địa chỉ: chậm dần từ lần sai thứ 4, và trần
+//    30 lần sai trong 15 phút. Tên đăng nhập của gia đình là số điện thoại,
+//    đoán được; kẻ dò đổi địa chỉ mỗi lần thì hai bộ trên không bao giờ chạm
+//    trần. Chậm dần một mình không đủ: các lượt gửi song song cùng chờ một
+//    lúc rồi cùng được thử.
+//
+// Trần theo tên là dao hai lưỡi: người ngoài sai 30 lần là khoá được một gia
+// đình. Nên nơi đã từng đăng nhập ĐÚNG tài khoản ấy (cặp địa chỉ + tên trong
+// `daVaoDung`) thì trần theo tên và trần theo địa chỉ không chặn — điện thoại
+// ở nhà, Wi-Fi trường quen thuộc vẫn vào. Trần theo cặp thì không miễn cho ai.
+//
+// Lượt thử được ghi vào bộ đếm NGAY KHI tới, trước lúc chờ và lúc băm; đăng
+// nhập đúng thì trả lại. Ghi sau khi băm xong thì 60 lượt gửi song song cùng
+// lọt qua phép soát trần trước khi lượt nào kịp ghi.
+//
+// Mọi bộ đếm nằm trong bộ nhớ: khởi động lại máy chủ là về 0.
 // ---------------------------------------------------------------------------
-const MAX_ATTEMPTS = 8;
-const LOCK_MS = 15 * 60 * 1000; // khóa 15 phút
+const LOCK_MS = 15 * 60 * 1000; // khoá 15 phút; cũng là cửa sổ đếm lần sai
+const TRAN_CAP = 5;             // lần sai của một cặp (địa chỉ, tên đăng nhập)
+const TRAN_DIA_CHI = 100;       // lần sai từ một địa chỉ, mọi tên cộng lại
+const TRAN_TEN = 30;            // lần sai vào một tên, mọi địa chỉ cộng lại
+const NHO_VAO_DUNG_MS = 30 * 24 * 60 * 60 * 1000; // nhớ nơi đã vào đúng 30 ngày
 const NGUONG_CHAM = 3;          // sai quá số lần này thì bắt đầu trả lời chậm dần
 const CHAM_TOI_DA_MS = 8000;
 const TRAN_SO_MUC = 5000;       // trần số mục mỗi bộ đếm, để bộ nhớ không phình
+
+// ĐỘ DÀI TỐI ĐA CỦA CHUỖI NGƯỜI DÙNG GÕ (Đ261j). Tên đăng nhập là khoá của bộ
+// đếm, giữ trong bộ nhớ ít nhất 15 phút: không giới hạn thì vài chục lượt gửi
+// tên cỡ chục MB là máy chủ 1 GB hết bộ nhớ. Tên thật của trường (số điện
+// thoại, `ho.ten`) chỉ vài chục ký tự. Trần mật khẩu áp cả khi đặt mật khẩu
+// mới, nên không tài khoản nào có mật khẩu dài hơn trần đăng nhập.
+const TEN_TOI_DA = 100;
+const MAT_KHAU_TOI_DA = 200;
+const DAI_QUA = 'Tên đăng nhập hoặc mật khẩu dài quá. Vui lòng kiểm tra lại.';
+const MAT_KHAU_DAI_QUA = `Mật khẩu dài quá — tối đa ${MAT_KHAU_TOI_DA} ký tự.`;
+const daiQua = (x, tran) => String(x ?? '').length > tran;
 
 // Những khoá của khối `settings.school` được phép đi ra cho người đăng nhập
 // (Đ165). Xem chú thích dài ở chỗ dùng, trong gói `/api/auth/me`.
@@ -37,11 +70,16 @@ const KHOA_TRUONG_CHO_PHEP = [
   'name', 'address', 'phone', 'email', 'currentYear', 'years', 'emailKeToan',
 ];
 
-const attempts = new Map(); // địa chỉ -> { count, firstAt, lockedUntil }
-const theoTen = new Map();  // tên đăng nhập -> { count, firstAt }
+// Mỗi bộ: khoá -> { count, firstAt, lockedUntil }
+const theoDiaChi = new Map();
+const theoCap = new Map();
+const theoTen = new Map();
+const daVaoDung = new Map(); // cặp -> { firstAt: lần vào đúng gần nhất }
 
+// Cắt ngắn vì địa chỉ cũng là khoá của bộ đếm: sau proxy, `req.ip` lấy từ
+// X-Forwarded-For — chuỗi do người gửi khai, dài được tới cỡ 16 KB.
 function clientIp(req) {
-  return req.ip || req.socket.remoteAddress || 'unknown';
+  return String(req.ip || req.socket.remoteAddress || 'unknown').slice(0, 64);
 }
 
 // Ghi vào bộ đếm nhưng không để nó phình vô hạn: chạm trần thì bỏ bớt các mục cũ
@@ -57,51 +95,93 @@ function datVaoBo(bo, khoa, rec) {
 }
 
 function khoaTen(username) {
-  return String(username || '').trim().toLowerCase();
+  return String(username || '').trim().toLowerCase().slice(0, TEN_TOI_DA);
 }
 
-function lockRemaining(ip) {
-  const rec = attempts.get(ip);
+const khoaCap = (ip, ten) => `${ip}\n${ten}`;
+
+// Còn bao nhiêu mili-giây khoá; 0 là không khoá.
+function conKhoa(bo, khoa) {
+  const rec = bo.get(khoa);
   if (!rec || !rec.lockedUntil) return 0;
   const left = rec.lockedUntil - Date.now();
-  if (left <= 0) { attempts.delete(ip); return 0; }
+  if (left <= 0) { bo.delete(khoa); return 0; }
   return left;
 }
 
-// Số mili giây phải chờ trước khi trả lời, tính theo số lần sai của TÊN ĐĂNG NHẬP.
-// Tăng gấp đôi mỗi lần: 0,5s → 1s → 2s → 4s → 8s rồi dừng ở đó. Đủ để hạ tốc độ
-// dò từ khoảng 19 lần/giây xuống dưới 1 lần/8 giây, mà người gõ nhầm mật khẩu
-// thật thì hầu như không thấy phiền.
-function choChamTheoTen(username) {
-  const rec = theoTen.get(khoaTen(username));
-  if (!rec) return 0;
-  if (Date.now() - rec.firstAt > LOCK_MS) return 0;
-  if (rec.count <= NGUONG_CHAM) return 0;
-  return Math.min(250 * 2 ** (rec.count - NGUONG_CHAM), CHAM_TOI_DA_MS);
-}
-
-function noteFailure(ip, username) {
+// Cộng một lượt thử; chạm trần thì khoá 15 phút kể từ lúc này. Quá 15 phút kể
+// từ lượt đầu mà chưa khoá thì đếm lại từ đầu.
+function demThem(bo, khoa, tran) {
   const now = Date.now();
-  const rec = attempts.get(ip) || { count: 0, firstAt: now, lockedUntil: 0 };
-  // Quá 15 phút kể từ lần sai đầu tiên thì đếm lại từ đầu.
-  if (now - rec.firstAt > LOCK_MS) { rec.count = 0; rec.firstAt = now; }
+  const rec = bo.get(khoa) || { count: 0, firstAt: now, lockedUntil: 0 };
+  if (!rec.lockedUntil && now - rec.firstAt > LOCK_MS) { rec.count = 0; rec.firstAt = now; }
   rec.count += 1;
-  if (rec.count >= MAX_ATTEMPTS) rec.lockedUntil = now + LOCK_MS;
-  datVaoBo(attempts, ip, rec);
-
-  const ten = khoaTen(username);
-  if (ten) {
-    const r2 = theoTen.get(ten) || { count: 0, firstAt: now };
-    if (now - r2.firstAt > LOCK_MS) { r2.count = 0; r2.firstAt = now; }
-    r2.count += 1;
-    datVaoBo(theoTen, ten, r2);
-  }
+  if (rec.count >= tran && !rec.lockedUntil) rec.lockedUntil = now + LOCK_MS;
+  datVaoBo(bo, khoa, rec);
 }
 
-function clearFailures(ip, username) {
-  attempts.delete(ip);
+// Lượt vừa ghi hoá ra là đăng nhập đúng: trả lại đúng một lượt, không xoá lượt
+// sai của ai. Khoá chỉ đặt khi bộ đếm chạm trần, nên trả lượt mà tụt dưới trần
+// nghĩa là chính lượt đúng này đã đẩy bộ đếm chạm trần — gỡ khoá ấy.
+function traLuot(bo, khoa, tran) {
+  const rec = bo.get(khoa);
+  if (!rec) return;
+  rec.count = Math.max(0, rec.count - 1);
+  if (rec.count < tran) rec.lockedUntil = 0;
+}
+
+function daTungVaoDung(ip, ten) {
+  const rec = daVaoDung.get(khoaCap(ip, ten));
+  return !!rec && Date.now() - rec.firstAt < NHO_VAO_DUNG_MS;
+}
+
+// Lượt đăng nhập này có bị chặn không. Trả về null, hoặc { ms, loi } để báo.
+function biChan(ip, ten) {
+  const capKhoa = conKhoa(theoCap, khoaCap(ip, ten));
+  if (capKhoa) return { ms: capKhoa, loi: 'cap' };
+  const quen = daTungVaoDung(ip, ten);
+  const diaChiKhoa = conKhoa(theoDiaChi, ip);
+  if (diaChiKhoa && !quen) return { ms: diaChiKhoa, loi: 'dia-chi' };
+  const tenKhoa = ten ? conKhoa(theoTen, ten) : 0;
+  if (tenKhoa && !quen) return { ms: tenKhoa, loi: 'ten' };
+  return null;
+}
+
+function ghiLuotThu(ip, ten) {
+  demThem(theoDiaChi, ip, TRAN_DIA_CHI);
+  demThem(theoCap, khoaCap(ip, ten), TRAN_CAP);
+  if (ten) demThem(theoTen, ten, TRAN_TEN);
+}
+
+// CẤP LẠI MẬT KHẨU GỠ KHOÁ CỦA TÊN ẤY (Đ261j). Câu báo khoá theo tên mời gia
+// đình "nhờ cô phụ trách cấp lại mật khẩu" — cấp lại mà không gỡ thì gia đình
+// vào bằng 4G (chưa từng vào đúng từ đó) vẫn bị chặn thêm tới 15 phút. Gỡ cả
+// khoá theo cặp của tên ấy: mật khẩu cũ đã hết hiệu lực, lượt dò cũ vô nghĩa.
+// Bộ đếm theo địa chỉ thì không đụng — nó không thuộc về tài khoản nào.
+function goKhoaTheoTen(username) {
   const ten = khoaTen(username);
+  if (!ten) return;
+  theoTen.delete(ten);
+  const duoi = `\n${ten}`;
+  for (const k of [...theoCap.keys()]) if (k.endsWith(duoi)) theoCap.delete(k);
+}
+
+function daVaoDuoc(ip, ten) {
+  traLuot(theoDiaChi, ip, TRAN_DIA_CHI);
+  theoCap.delete(khoaCap(ip, ten));
   if (ten) theoTen.delete(ten);
+  datVaoBo(daVaoDung, khoaCap(ip, ten), { firstAt: Date.now() });
+}
+
+// Số mili giây phải chờ trước khi trả lời, tính theo số lần sai TRƯỚC lượt này
+// của TÊN ĐĂNG NHẬP. Tăng gấp đôi mỗi lần: 0,5s → 1s → 2s → 4s → 8s rồi dừng ở
+// đó. Người gõ nhầm mật khẩu thật thì hầu như không thấy phiền.
+function choChamTheoTen(ten) {
+  const rec = theoTen.get(ten);
+  if (!rec) return 0;
+  const truoc = rec.count - 1; // lượt này đã được ghi
+  if (truoc <= NGUONG_CHAM) return 0;
+  return Math.min(250 * 2 ** (truoc - NGUONG_CHAM), CHAM_TOI_DA_MS);
 }
 
 const nghi = (ms) => (ms > 0 ? new Promise(r => setTimeout(r, ms)) : Promise.resolve());
@@ -114,11 +194,13 @@ const BAM_GIA = password.hash('bam-gia-de-can-bang-thoi-gian-tra-loi');
 // Dọn bản ghi cũ để Map không phình vô hạn.
 const cleanupTimer = setInterval(() => {
   const now = Date.now();
-  for (const [ip, rec] of attempts) {
-    if (now - rec.firstAt > LOCK_MS && (!rec.lockedUntil || rec.lockedUntil < now)) attempts.delete(ip);
+  for (const bo of [theoDiaChi, theoCap, theoTen]) {
+    for (const [k, rec] of bo) {
+      if (now - rec.firstAt > LOCK_MS && (!rec.lockedUntil || rec.lockedUntil < now)) bo.delete(k);
+    }
   }
-  for (const [ten, rec] of theoTen) {
-    if (now - rec.firstAt > LOCK_MS) theoTen.delete(ten);
+  for (const [k, rec] of daVaoDung) {
+    if (now - rec.firstAt > NHO_VAO_DUNG_MS) daVaoDung.delete(k);
   }
 }, 10 * 60 * 1000);
 cleanupTimer.unref();
@@ -185,6 +267,7 @@ function tabQuanTriAnToan(user) {
 
 // Gói dữ liệu trả về sau đăng nhập: người dùng + học sinh liên quan + lớp + trường.
 function mePayload(user) {
+  if (user.mustChangePassword) return goiMatKhauTam(user);
   const day = duocDocHoSoBe(user);
 
   // MỘT NHÓM HỎI MỘT LẦN, KHÔNG PHẢI MỘT LẦN CHO MỖI BÉ.
@@ -237,7 +320,15 @@ function mePayload(user) {
   // Nhóm lớp của cô đi kèm ngay từ lúc đăng nhập, để giao diện không phải đoán
   // qua `user.classId` — cột đó chỉ chứa nổi MỘT nhóm, còn cô mầm non có thể
   // phụ trách nhiều nhóm.
-  const nhom = user.role === 'teacher' ? nl.nhomCuaCo(user.id) : [];
+  // Kèm nhóm cô (chủ nhiệm / nước ngoài / thể chất) của từng nhóm — CHỈ THÊM
+  // trường — để trang chủ gọi đúng "Cô nước ngoài Chồi 2", không gọi mọi cô là
+  // "Cô phụ trách" (R2-C1).
+  const nhom = user.role === 'teacher'
+    ? nl.nhomCuaCo(user.id).map((c) => {
+      const ma = nhomCo.nhomCua(db, c.id, user.id);
+      return { ...c, nhomCo: ma, tenNhomCo: nhomCo.TEN_NHOM[ma] || '' };
+    })
+    : [];
   return {
     user: {
       ...publicUser(user), nhomCuaCo: nhom, classIds: nhom.map(c => c.id),
@@ -284,16 +375,44 @@ function mePayload(user) {
     //
     // Danh sách này giữ ĐÚNG những gì đang đi ra hôm nay, không bớt một khoá:
     // hành vi không đổi một chút nào, chỉ khác ở chỗ ngày mai.
-    school: (() => {
-      const truong = db.school();
-      if (!truong) return truong;
-      const coSo = db.campuses().map(c => ({ id: c.id, name: c.name }));
-      const ra = { coSo };
-      for (const k of KHOA_TRUONG_CHO_PHEP) {
-        if (truong[k] !== undefined) ra[k] = truong[k];
-      }
-      return ra;
-    })(),
+    school: khoiTruong(),
+  };
+}
+
+function khoiTruong() {
+  const truong = db.school();
+  if (!truong) return truong;
+  const coSo = db.campuses().map(c => ({ id: c.id, name: c.name }));
+  const ra = { coSo };
+  for (const k of KHOA_TRUONG_CHO_PHEP) {
+    if (truong[k] !== undefined) ra[k] = truong[k];
+  }
+  return ra;
+}
+
+// TÀI KHOẢN CÒN MẬT KHẨU TẠM CHỈ NHẬN ĐỦ ĐỂ VẼ MÀN ĐẶT MẬT KHẨU (Đ261j, O5).
+//
+// Mật khẩu tạm đi qua tay nhiều người (giấy in, đọc qua điện thoại). server.js
+// đã chặn mọi API khác cho tài khoản này, nhưng /api/auth thì mở — và gói đầy
+// đủ ở trên mang theo hồ sơ bé (địa chỉ, nhóm máu, dị ứng), danh sách cô, mọi
+// nhóm của trường. Nên ở đây không có bé, không có nhóm, không có tab Quản
+// trị; giữ nguyên hình dạng các trường để app khởi động được. Chức vụ và cơ
+// sở của chính tài khoản quản trị vẫn đi kèm (nói về người đăng nhập, không về
+// bé). Đặt mật khẩu xong, màn đặt mật khẩu gọi lại /api/auth/me để nạp đủ.
+function goiMatKhauTam(user) {
+  const quanTri = user.role === 'admin';
+  return {
+    user: {
+      id: user.id, username: user.username, name: user.name, title: user.title || '',
+      role: user.role, avatar: user.avatar || null, mustChangePassword: true,
+      nhomCuaCo: [], classIds: [],
+      coSo: quanTri ? (db.phamViCoSo(user) || null) : null,
+      chucVu: quanTri ? db.chucVu(user) : null,
+      moHoSoBe: false, tabQuanTri: null,
+    },
+    students: [],
+    classes: [],
+    school: khoiTruong(),
   };
 }
 
@@ -301,18 +420,27 @@ module.exports = (app) => {
   app.post('/api/auth/login', async (req, res) => {
     const ip = clientIp(req);
     const { username, password: plain } = req.body || {};
+    // Từ chối TRƯỚC khi chạm bộ đếm và trước khi băm (Đ261j).
+    if (daiQua(username, TEN_TOI_DA) || daiQua(plain, MAT_KHAU_TOI_DA)) {
+      return res.status(400).json({ error: DAI_QUA });
+    }
+    const ten = khoaTen(username);
 
-    const locked = lockRemaining(ip);
-    if (locked) {
-      const minutes = Math.ceil(locked / 60000);
+    const chan = biChan(ip, ten);
+    if (chan) {
+      const minutes = Math.ceil(chan.ms / 60000);
       return res.status(429).json({
-        error: `Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau ${minutes} phút.`,
+        error: chan.loi === 'ten'
+          ? `Tài khoản này vừa bị nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau ${minutes} phút, `
+            + 'hoặc nhờ cô phụ trách cấp lại mật khẩu.'
+          : `Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau ${minutes} phút.`,
       });
     }
+    ghiLuotThu(ip, ten);
 
     // Tên đăng nhập này vừa sai nhiều lần thì trả lời chậm lại. Chờ TRƯỚC khi
     // kiểm mật khẩu, để người dò không đo được gì qua thời gian phản hồi.
-    await nghi(choChamTheoTen(username));
+    await nghi(choChamTheoTen(ten));
 
     const user = db.findUserByUsername(username);
 
@@ -320,15 +448,14 @@ module.exports = (app) => {
     // mật khẩu, để không giúp người lạ dò ra tài khoản nào có thật. Không tìm
     // thấy tài khoản thì vẫn băm một lần với chuỗi giả, cho thời gian trả lời
     // giống hệt trường hợp có tài khoản.
+    // Băm ở luồng phụ (verifyAsync, Đ261b): ~45 ms mỗi lượt mà chạy đồng bộ
+    // thì cả trường đứng chờ một người đăng nhập.
     const ok = user && user.active
-      ? password.verify(String(plain || ''), user.passwordHash)
-      : (password.verify(String(plain || ''), BAM_GIA), false);
-    if (!ok) {
-      noteFailure(ip, username);
-      return res.status(401).json({ error: 'Sai tên đăng nhập hoặc mật khẩu' });
-    }
+      ? await password.verifyAsync(String(plain || ''), user.passwordHash)
+      : (await password.verifyAsync(String(plain || ''), BAM_GIA), false);
+    if (!ok) return res.status(401).json({ error: 'Sai tên đăng nhập hoặc mật khẩu' });
 
-    clearFailures(ip, username);
+    daVaoDuoc(ip, ten);
     const token = createSession(user.id);
     db.audit(user.id, 'login', null, { ip });
     res.setHeader('Set-Cookie', sessionCookie(req, token));
@@ -365,14 +492,15 @@ module.exports = (app) => {
 
   // Đổi mật khẩu khi đang dùng mật khẩu tạm do giáo viên cấp.
   // Không hỏi mật khẩu cũ vì người dùng vừa nhập nó để vào được đến đây.
-  app.post('/api/auth/set-new-password', requireAuth, (req, res) => {
+  app.post('/api/auth/set-new-password', requireAuth, async (req, res) => {
     if (!req.user.mustChangePassword) {
       return res.status(400).json({ error: 'Tài khoản không ở trạng thái cần đổi mật khẩu' });
     }
     const { newPassword } = req.body || {};
+    if (daiQua(newPassword, MAT_KHAU_TOI_DA)) return res.status(400).json({ error: MAT_KHAU_DAI_QUA });
     const weak = password.checkStrength(newPassword);
     if (weak) return res.status(400).json({ error: weak });
-    if (password.verify(String(newPassword), req.user.passwordHash)) {
+    if (await password.verifyAsync(String(newPassword), req.user.passwordHash)) {
       return res.status(400).json({ error: 'Mật khẩu mới phải khác mật khẩu tạm vừa được cấp' });
     }
 
@@ -386,9 +514,11 @@ module.exports = (app) => {
   });
 
   // Đổi mật khẩu. Sau khi đổi, mọi thiết bị khác bị đăng xuất.
-  app.post('/api/auth/change-password', requireAuth, (req, res) => {
+  app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
-    if (!password.verify(String(currentPassword || ''), req.user.passwordHash)) {
+    if (daiQua(currentPassword, MAT_KHAU_TOI_DA)) return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng' });
+    if (daiQua(newPassword, MAT_KHAU_TOI_DA)) return res.status(400).json({ error: MAT_KHAU_DAI_QUA });
+    if (!(await password.verifyAsync(String(currentPassword || ''), req.user.passwordHash))) {
       return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng' });
     }
     const weak = password.checkStrength(newPassword);
@@ -414,3 +544,4 @@ module.exports = (app) => {
 
 module.exports.mePayload = mePayload;
 module.exports.publicUser = publicUser;
+module.exports.goKhoaTheoTen = goKhoaTheoTen;

@@ -195,17 +195,18 @@ function laNguoiGiuLopCu(user, lop) {
   return user.role === 'teacher' && db.isTeacherOfClass(user.id, lop.id);
 }
 function xemDuocAlbum(user, classId, ngayAlbum, albumId) {
-  if (db.canAccessClass(user, classId)) return true;
-  if (laNguoiGiuLopCu(user, lopDaDong(classId))) return true;
-  // HAI CHẾ ĐỘ MỞ RA NGOÀI NHÓM (Đ197, việc 29) — hỏi SAU ba chốt cũ, nên
-  // không một album nào đang có đổi hành vi: chế độ mặc định vẫn là
-  // 'cong-khai', và nhánh này chỉ chạy khi trường CHỦ ĐỘNG đổi.
+  // HAI CHẾ ĐỘ CỦA GIA ĐÌNH HỎI TRƯỚC MỌI CHỐT NHÓM (Đ197 việc 29; Đ261c).
+  //
+  // 'chon-nha' là chế độ HẸP NHẤT: đúng những nhà cô đã chọn, không ai khác —
+  // kể cả nhà có con đang học chính nhóm đó. Bản trước hỏi `canAccessClass`
+  // trước, nên mọi nhà trong nhóm vẫn mở được album "Chỉ những nhà cô chọn"
+  // (kiểm thử R4-B1). 'ca-truong' đứng chung chỗ cho gọn: hỏi trước hay sau
+  // `canAccessClass` thì câu trả lời của nó vẫn là có.
   if (albumId && user && user.role === 'parent') {
     const cd = cheDoCua(albumId);
     // 'ca-truong': mọi gia đình trong trường. Vẫn phải qua `locAnhChoNguoiXem`
     // từng tấm ở dưới — mở album không phải mở ảnh.
     if (cd === 'ca-truong') return true;
-    // 'chon-nha': đúng những nhà cô đã chọn, không ai khác.
     if (cd === 'chon-nha') {
       try {
         return !!db.first('album_nha',
@@ -214,6 +215,8 @@ function xemDuocAlbum(user, classId, ngayAlbum, albumId) {
       } catch (_) { return false; }
     }
   }
+  if (db.canAccessClass(user, classId)) return true;
+  if (laNguoiGiuLopCu(user, lopDaDong(classId))) return true;
   // Phụ huynh: chỉ ảnh chụp trong ĐÚNG khoảng con còn học lớp đó.
   //
   // Mở cả lớp cũ thì một em chuyển đi tháng 10 vẫn xem được ảnh chụp tháng 12,
@@ -367,17 +370,31 @@ function ghiNguoiDang(photoIds, userId) {
 // GẮN THẺ được (`dayDu`). Văn phòng, ban giám hiệu hay Marketing mở album ra
 // không được biết nhà nào đã từ chối — họ chỉ cần biết tấm ảnh đã có bé được
 // gắn hay chưa.
-function ganThemDanhSachBe(anh, user, dayDu = true) {
+//
+// `tra` là bảng tra dựng MỘT LƯỢT cho cả album (Đ261f): { the: photoId → [bé],
+// be: id → { id, name }, dongY: id → đồng ý }. Bản cũ hỏi ba câu cho mỗi tấm
+// và mỗi bé: một album 30 tấm của cô tốn 320 câu.
+function ganThemDanhSachBe(anh, user, dayDu, tra) {
   if (!user || user.role === 'parent') return anh;
-  const ids = db.beTrongAnh(anh.id);
+  const ids = tra.the.get(anh.id) || [];
   return {
     ...anh,
     beTrongAnh: ids.map(id => {
       if (!dayDu) return { id };
-      const b = db.findStudent(id);
-      return b ? { id: b.id, name: b.name, dongYChiaSe: db.dongYCuaBe(b.id).chiaSeGiaDinh } : null;
+      const b = tra.be.get(id);
+      return b ? { id: b.id, name: b.name, dongYChiaSe: tra.dongY.get(b.id).chiaSeGiaDinh } : null;
     }).filter(Boolean),
   };
+}
+function traBeTrongAlbum(the) {
+  const ids = [...new Set([...the.values()].flat())];
+  const be = new Map();
+  for (let i = 0; i < ids.length; i += 400) {
+    const lo = ids.slice(i, i + 400);
+    for (const b of db.all('students',
+      `SELECT id, name FROM students WHERE id IN (${lo.map(() => '?').join(',')})`, lo)) be.set(b.id, b);
+  }
+  return { the, be, dongY: db.dongYCuaCacBe(ids) };
 }
 
 // Lời nhắc cho PHỤ HUYNH khi có ảnh đang chờ cô gắn thẻ.
@@ -406,9 +423,10 @@ function nhacChoPhuHuynh(tatCaAnh, anhXemDuoc, classId) {
 //
 // Trả về object rỗng khi không có gì phải nhắc, để màn hình cũ không đổi một
 // chữ nào ở trường hợp thường gặp nhất.
-function nhacGanThe(tatCaAnh, classId) {
+// `the`: photoId → [bé], đã tra một lượt cho cả album.
+function nhacGanThe(tatCaAnh, classId, the) {
   if (!db.coBeTuChoiChiaSe(classId)) return {};
-  const chuaGan = (tatCaAnh || []).filter(a => !db.beTrongAnh(a.id).length);
+  const chuaGan = (tatCaAnh || []).filter(a => !(the.get(a.id) || []).length);
   if (!chuaGan.length) return {};
   return {
     nhacGanThe: {
@@ -458,13 +476,31 @@ function locTheoThe(photos, user, cheDo, beTrongAnh) {
 
 // Báo gia đình từng bé vừa được gắn thẻ — MỘT tin mỗi bé mỗi album mỗi ngày,
 // không phải một tin cho mỗi tấm ảnh cô gắn (gắn 30 tấm là 30 lần rung máy).
-function baoBeDuocGanThe(album, studentIds, nguoiTao) {
+//
+// CHỈ BÁO KHI NHÀ ẤY THẤY ĐƯỢC ÍT NHẤT MỘT TRONG CÁC TẤM VỪA GẮN (Đ261c, R4-B4).
+// Tấm có bé khác chưa đồng ý chia sẻ thì ẩn với nhà này; báo "Có ảnh mới của
+// con" rồi mở album ra không thấy tấm nào là app tự nói sai. Hỏi ĐÚNG ba chốt
+// của đường xem: mở được album, luật ảnh nhóm, và chế độ theo thẻ.
+function nhaThayAnh(album, be, photoIds) {
+  const anh = db.all('album_photos',
+    `SELECT * FROM album_photos WHERE albumId = ? AND id IN (${photoIds.map(() => '?').join(',')})`,
+    [album.id, ...photoIds]);
+  if (!anh.length) return false;
+  const cheDo = cheDoCua(album.id);
+  return (be.parentIds || []).map(id => db.findUser(id)).some((u) => {
+    if (!u || u.role !== 'parent' || !xemDuocAlbum(u, album.classId, album.date, album.id)) return false;
+    const thay = locAnhChoNguoiXem(anh, u, album.classId);
+    return locTheoThe(thay, u, cheDo, db.beTrongCacAnh(thay.map(x => x.id))).length > 0;
+  });
+}
+function baoBeDuocGanThe(album, studentIds, nguoiTao, photoIds) {
   try {
     const hash = `#/albums/${album.id}`;
     const [tuUtc, denUtc] = ngay.khoangUtcCuaNgay(ngay.homNay());
     for (const id of studentIds || []) {
       const be = db.findStudent(id);
       if (!be) continue;
+      if (!nhaThayAnh(album, be, photoIds || [])) continue;
       const daBao = db.first('thongbao_be',
         'SELECT id FROM thongbao_be WHERE studentId = ? AND hash = ? AND taoLuc >= ? AND taoLuc < ?',
         [be.id, hash, tuUtc, denUtc]);
@@ -585,18 +621,26 @@ module.exports = (app) => {
     // Hai bảng này đều nhỏ và có chỉ mục (`album_che_do` khoá chính theo
     // album, `album_nha` có chỉ mục theo nhà), nên đây là hai lượt đọc rẻ, cố
     // định — không phải một lượt cho mỗi album.
-    let albumMoThem = [];
+    //
+    // 'chon-nha' còn là chế độ THU HẸP: nhà trong nhóm mà cô không chọn thì
+    // album ấy không được lọt vào danh sách qua đường nhóm (R4-B1), nên gom
+    // luôn mã mọi album 'chon-nha' — bảng nhỏ, một lượt đọc.
+    let caTruong = [];
+    let nhaChon = [];
+    let chonNha = [];
     if (req.user.role === 'parent') {
       try {
-        albumMoThem = [
-          ...db.all('album_che_do',
-            "SELECT albumId FROM album_che_do WHERE cheDo = 'ca-truong'").map(r => r.albumId),
-          ...db.all('album_nha',
-            'SELECT albumId FROM album_nha WHERE parentId = ?', [req.user.id]).map(r => r.albumId),
-        ];
-      } catch (_) { albumMoThem = []; }
+        caTruong = db.all('album_che_do',
+          "SELECT albumId FROM album_che_do WHERE cheDo = 'ca-truong'").map(r => r.albumId);
+        nhaChon = db.all('album_nha',
+          'SELECT albumId FROM album_nha WHERE parentId = ?', [req.user.id]).map(r => r.albumId);
+        chonNha = db.all('album_che_do',
+          "SELECT albumId FROM album_che_do WHERE cheDo = 'chon-nha'").map(r => r.albumId);
+      } catch (_) { caTruong = []; nhaChon = []; chonNha = []; }
     }
-    const moThem = new Set(albumMoThem.filter(Boolean));
+    const moThem = new Set([...caTruong, ...nhaChon].filter(Boolean));
+    const nhaChonSet = new Set(nhaChon);
+    const chonNhaSet = new Set(chonNha);
 
     const tatCa = [...new Set([...classIds, ...lopCu, ...khoangCu.map(k => k.classId)])];
     if (!tatCa.length && !moThem.size) return res.json([]);
@@ -616,9 +660,13 @@ module.exports = (app) => {
       if (!khoangTheoLop.has(k.classId)) khoangTheoLop.set(k.classId, []);
       khoangTheoLop.get(k.classId).push(k);
     }
-    const xemNhanh = (a) => moThem.has(a.id) || nhomDangMo.has(a.classId) || lopCuSet.has(a.classId)
-      || (khoangTheoLop.get(a.classId) || [])
-        .some(k => !a.date || (String(a.date) >= k.tu && String(a.date) <= k.den));
+    // 'chon-nha' với gia đình: CHỈ danh sách nhà được chọn, như `xemDuocAlbum`.
+    const xemNhanh = (a) => {
+      if (chonNhaSet.has(a.id)) return nhaChonSet.has(a.id);
+      return moThem.has(a.id) || nhomDangMo.has(a.classId) || lopCuSet.has(a.classId)
+        || (khoangTheoLop.get(a.classId) || [])
+          .some(k => !a.date || (String(a.date) >= k.tu && String(a.date) <= k.den));
+    };
 
     const markMo = [...moThem].map(() => '?').join(',');
     const daLocTheoKhoang = db.all('albums',
@@ -709,6 +757,9 @@ module.exports = (app) => {
           const cover = xemDuoc[0] || null;
           return {
             photoCount: xemDuoc.length,
+            // Trong số ấy bao nhiêu là video — thẻ album ghi "2 ảnh, 1 video"
+            // thay vì gọi video là ảnh (R4-B6).
+            videoCount: xemDuoc.filter(x => uploads.laVideo(x.file)).length,
             cover: cover && uploads.biaCua(cover.file) ? { ...cover, coBia: true } : cover,
           };
         })(),
@@ -744,13 +795,17 @@ module.exports = (app) => {
     // không phải nhận hết rồi giao diện che bớt.
     const tatCaAnh = photosOf(album.id);
     const cheDo = cheDoCua(album.id);
-    const quaDongY = locAnhChoNguoiXem(tatCaAnh, req.user, album.classId);
+    // Thẻ bé của cả album tra MỘT LƯỢT, và luật đồng ý chạy bản lô (Đ261f).
+    // Bản từng tấm hỏi một câu cho mỗi ảnh và một câu cho mỗi bé được gắn.
+    const the = db.beTrongCacAnh(tatCaAnh.map(x => x.id));
+    const quaDongY = locAnhChoNguoiXemNhieuNhom({ [album.classId]: tatCaAnh }, req.user)[album.classId] || [];
     // Tấm nào người này xoá được — màn hình chỉ vẽ nút xoá trên đúng những tấm ấy.
     const qx = quyenXoaAnh(req.user, album);
     const nguoiDang = !qx.tatCa && qx.cuaMinh ? nguoiDangCuaAlbum(album.id) : new Map();
-    album.photos = locTheoThe(quaDongY, req.user, cheDo, db.beTrongCacAnh(quaDongY.map(x => x.id)))
+    const tra = req.user.role === 'parent' ? null : traBeTrongAlbum(the);
+    album.photos = locTheoThe(quaDongY, req.user, cheDo, the)
       .map(a => ({
-        ...ganThemDanhSachBe(a, req.user, !!quyen.ganThe),
+        ...ganThemDanhSachBe(a, req.user, !!quyen.ganThe, tra),
         xoaDuoc: qx.tatCa || (qx.cuaMinh && nguoiDang.get(a.id) === req.user.id),
         // Video máy chủ nén có ảnh bìa (Đ260f): ô lưới dùng làm poster.
         ...(uploads.biaCua(a.file) ? { coBia: true } : {}),
@@ -783,7 +838,7 @@ module.exports = (app) => {
         ? (cheDo === 'theo-the'
           ? { nhacChoPhuHuynh: 'Album này cô gắn thẻ từng bé: gia đình chỉ thấy những tấm có con mình. Ảnh cô chưa gắn thẻ thì chưa hiện với nhà nào.' }
           : nhacChoPhuHuynh(tatCaAnh, album.photos, album.classId))
-        : nhacGanThe(tatCaAnh, album.classId)),
+        : nhacGanThe(tatCaAnh, album.classId, the)),
     });
   });
 
@@ -1293,7 +1348,7 @@ module.exports = (app) => {
     const daGan = db.datBeTrongAnh(photo.id, xin);
     db.audit(req.user.id, 'photo-tag', photo.id, { albumId: album.id, soBe: daGan.length });
     // Báo gia đình bé VỪA được gắn (không báo lại bé đã có thẻ từ trước).
-    baoBeDuocGanThe(album, daGan.filter(id => !truoc.has(id)), req.user.id);
+    baoBeDuocGanThe(album, daGan.filter(id => !truoc.has(id)), req.user.id, [photo.id]);
     res.json({ photoId: photo.id, studentIds: daGan });
   });
 
@@ -1509,7 +1564,7 @@ module.exports = (app) => {
       }
     });
     db.audit(req.user.id, 'photo-tag-nhieu', album.id, { soAnh: anh.length, soBe: beXin.length });
-    baoBeDuocGanThe(album, [...moi], req.user.id);
+    baoBeDuocGanThe(album, [...moi], req.user.id, anh.map(a => a.id));
     res.json({ soAnh: anh.length, soBe: beXin.length, soBeMoiDuocBao: moi.size });
   });
 

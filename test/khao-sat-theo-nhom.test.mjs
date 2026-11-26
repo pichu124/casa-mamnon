@@ -17,7 +17,7 @@
 import fs from 'fs';
 import path from 'path';
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, khoaVaoCoSo, GOC,
 } from './_chung.mjs';
 
@@ -26,6 +26,7 @@ sinhDuLieu(DIR);
 
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkCS2 = taoQuanTri(DIR, 'Quản Lý CS2', 'quanly2');
+daDoiMatKhau(DIR, 'hieutruong', 'quanly2');
 khoaVaoCoSo(DIR, 'quanly2', 'cs2');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4150), dir: DIR });

@@ -224,7 +224,7 @@ App.views.notifications = {
         <div class="hint" id="nt-ct-goi-y">${UI.esc(this.GOI_Y_NHAP_HOC)}</div>` : ''}
       ${n.coTheSua ? `
         <div class="flex mt-14" style="gap:8px">
-          <button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>
+          ${n.suaNoiDungDuoc === false ? '' : `<button class="btn outline" style="flex:1" onclick="App.views.notifications.openSua('${UI.esc(n.id)}')">Sửa lại</button>`}
           <button class="btn danger-soft" style="flex:1" onclick="App.views.notifications.hoiThuHoi('${UI.esc(n.id)}')">Thu hồi</button>
         </div>` : ''}
     `, 'Chi tiết thông báo');
@@ -429,6 +429,13 @@ App.views.notifications = {
     this.doiPhamVi('nt', aud);
   },
 
+  // Lời báo đỏ của lần bấm Gửi hỏng trước ("Vui lòng tích chọn…") còn đứng
+  // trên màn vài giây. Gửi lại được thì gỡ nó đi, để nó không đứng cạnh câu
+  // "Đã gửi thông báo" như thể vẫn còn lỗi (R4-B8). Màn Khảo sát dùng chung.
+  xoaBaoLoiCu() {
+    document.querySelectorAll('#toast-zone .toast.error').forEach(t => t.remove());
+  },
+
   async submitCreate() {
     const title = document.getElementById('nt-title').value.trim();
     const body = document.getElementById('nt-body').value.trim();
@@ -446,6 +453,7 @@ App.views.notifications = {
     if (ghim && ghim.checked) goi.pinned = true;
     try {
       await API.post('/api/notifications', goi);
+      this.xoaBaoLoiCu();
       UI.toast('Đã gửi thông báo', 'success');
       UI.closeModal();
       App.route();

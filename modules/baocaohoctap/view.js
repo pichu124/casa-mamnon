@@ -67,6 +67,12 @@ App.views.baocaohoctap = {
     return { tu: `${t.slice(0, 7)}-01`, den: t };
   },
 
+  // "11/2026" từ "2026-11" (Đ261e: không in tháng dạng máy).
+  thangSo(thang) {
+    const [n, t] = String(thang || '').split('-');
+    return t ? `${Number(t)}/${n}` : String(thang || '');
+  },
+
   tenMuc(ma) {
     const m = (this._mucList || []).find(x => x.ma === ma);
     return m ? m.ten : '';
@@ -81,7 +87,13 @@ App.views.baocaohoctap = {
     this._tuNgay = this._tuNgay || ky.tu;
     this._denNgay = this._denNgay || ky.den;
 
-    if (this.laGiaDinh()) return this.veGiaDinh(root);
+    // Gia đình cũng cần bảng năm mức: thiếu nó thì ô mức của báo cáo 6 tháng
+    // chỉ còn màu, không còn chữ (lỗi R3-1, đợt 26/11).
+    if (this.laGiaDinh()) {
+      const m = await API.get('/api/baocaohoctap/mau');
+      this._mucList = m.muc || [];
+      return this.veGiaDinh(root);
+    }
 
     // TẮT MỘT MẪU KHÔNG ĐƯỢC LÀ CỬA MỘT CHIỀU.
     //
@@ -461,9 +473,10 @@ App.views.baocaohoctap = {
           <textarea id="bc-lop" class="bc-o-viet" rows="2">${UI.esc(b.oLopLamGi)}</textarea></div>
         <div class="field"><label>Ở nhà gia đình chơi cùng con</label>
           <textarea id="bc-nha" class="bc-o-viet" rows="2">${UI.esc(b.oNhaChoiGi)}</textarea>
-          <div class="hint">Bản nào có ghi nhận điều cô <b>đã quan sát thấy</b> ở bé thì cần
-          ít nhất một trong hai ô trên — đây là màn hình duy nhất gia đình đọc được các mức
-          đánh giá, và đọc xong họ cần biết làm gì tiếp.</div></div>
+          <div class="hint">Bản nào có ghi nhận điều cô <b>đã quan sát thấy</b> ở bé (mức W, S, M,
+          hay dòng "Đã thấy con làm được") thì cần ít nhất một trong hai ô trên mới gửi được —
+          đây là màn hình duy nhất gia đình đọc được các mức đánh giá, và đọc xong họ cần biết
+          làm gì tiếp. Dòng "Tiếp tục cùng con" trong ô ở trên chưa tính là việc làm tiếp.</div></div>
       </div>
 
       ${b.daGui ? '' : `<button class="btn block mt-14" id="bc-luu">${UI.icon('check', 18)} Lưu nháp</button>`}
@@ -631,12 +644,12 @@ App.views.baocaohoctap = {
       return UI.toast('Nhà trường chưa bật phần Kế hoạch của bé', 'error');
     }
     if (!(d.goiY || []).length) {
-      return UI.toast(`Kế hoạch của bé tháng ${d.thang || ''} chưa có bài hay ghi chép nào để mời sang`, 'error');
+      return UI.toast(`Kế hoạch của bé tháng ${this.thangSo(d.thang)} chưa có bài hay ghi chép nào để mời sang`, 'error');
     }
 
     UI.modal(`
       <div class="muted small" style="line-height:1.7;margin-bottom:10px">
-        Đây là chữ cô đã ghi ở <b>Kế hoạch của bé</b> tháng ${UI.esc(d.thang)}.
+        Đây là chữ cô đã ghi ở <b>Kế hoạch của bé</b> tháng ${UI.esc(this.thangSo(d.thang))}.
         Bấm <b>Chép</b> để đưa vào ô tổng hợp rồi sửa lại cho gia đình đọc.
       </div>
       ${(d.goiY || []).map((g, i) => `

@@ -12,7 +12,7 @@
 import path from 'path';
 import { createRequire } from 'module';
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, datChucVu, khoaVaoCoSo,
 } from './_chung.mjs';
 
@@ -35,6 +35,7 @@ sinhDuLieu(DIR);
 const mkQL = taoQuanTri(DIR, 'Quản Lý CS1', 'quanly1');
 const mkVP = taoQuanTri(DIR, 'Văn Phòng CS1', 'vanphong1');
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
+daDoiMatKhau(DIR, 'quanly1', 'vanphong1', 'hieutruong');
 khoaVaoCoSo(DIR, 'quanly1', 'cs1');
 datChucVu(DIR, 'vanphong1', 'vanphong-coso');
 khoaVaoCoSo(DIR, 'vanphong1', 'cs1');

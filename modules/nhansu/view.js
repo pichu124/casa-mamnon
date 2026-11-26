@@ -512,7 +512,7 @@ App.views.nhansu = {
       </div>
       <div class="field mt-14">
         <label>Số tiếng ở trường để đủ 1 công (tính từ lúc vào tới lúc về, không trừ giờ nghỉ trưa)</label>
-        <input type="number" id="qt-gio" min="1" max="12" step="0.5" value="${UI.esc(String(Number(t.phutDuCong) / 60))}">
+        <input id="qt-gio" inputmode="decimal" autocomplete="off" value="${UI.esc(String(Number(t.phutDuCong) / 60))}">
       </div>
       <div class="field"><label>Ca sáng — từ</label><input type="time" id="qt-ca1tu" value="${UI.esc(t.ca1Tu)}"></div>
       <div class="field"><label>Ca sáng — đến</label><input type="time" id="qt-ca1den" value="${UI.esc(t.ca1Den)}"></div>
@@ -521,15 +521,22 @@ App.views.nhansu = {
       <div class="muted small">Ở trường trọn một ca thì được nửa công.</div>
       <div class="field mt-8">
         <label>Số phút cho phép xê dịch ở mỗi đầu ca</label>
-        <input type="number" id="qt-dudi" min="0" max="120" step="1" value="${UI.esc(String(t.phutDuDi))}">
+        <input id="qt-dudi" inputmode="numeric" autocomplete="off" value="${UI.esc(String(t.phutDuDi))}">
       </div>
       <button class="btn primary block" id="qt-luu">${UI.icon('check', 18)} Lưu, áp dụng từ ${UI.esc(this.ngayDep(q.ngayMai))}</button>
       <button class="btn outline block mt-8" onclick="UI.closeModal()">Quay lại</button>
     `, 'Tính công theo giờ ở cổng');
     document.getElementById('qt-luu').onclick = async () => {
-      const gio = Number(document.getElementById('qt-gio').value);
+      // Ô chữ, không phải type="number" (Đ261i): ô số của trình duyệt bỏ dấu
+      // phẩy, nên "7,5" tiếng thành 75 và "1,5" phút thành 15 mà không báo gì.
+      const gio = Number(document.getElementById('qt-gio').value.trim().replace(',', '.'));
       if (!(gio >= 1 && gio <= 12)) { UI.toast('Số tiếng đủ công phải từ 1 đến 12', 'error'); return; }
       const v = id => document.getElementById(id).value;
+      const duDi = v('qt-dudi').trim();
+      if (duDi !== '' && !/^\d+$/.test(duDi)) {
+        UI.toast('Số phút xê dịch chỉ gồm chữ số, ví dụ 15', 'error');
+        return;
+      }
       try {
         await API.put('/api/nhansu/quy-tac-cong', {
           bat: true,
@@ -539,7 +546,7 @@ App.views.nhansu = {
           ca1Den: v('qt-ca1den'),
           ca2Tu: v('qt-ca2tu'),
           ca2Den: v('qt-ca2den'),
-          phutDuDi: Number(v('qt-dudi')),
+          phutDuDi: Number(duDi),
         });
         UI.toast(`Đã lưu, áp dụng từ ${this.ngayDep(q.ngayMai)}`, 'success');
         UI.closeModal();

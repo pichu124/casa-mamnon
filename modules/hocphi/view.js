@@ -165,6 +165,19 @@ App.views.hocphi = {
       </select></div>`;
   },
 
+  // SỐ TIỀN GÕ CÓ DẤU CHẤM, DẤU PHẨY (Đ261i). Ô type="number" đọc "500.000"
+  // thành 500 đồng và "1,5" thành 15 đồng mà không báo gì, trong khi người Việt
+  // quen gõ dấu chấm ngăn hàng nghìn. Ô tiền nay là ô chữ inputmode="numeric":
+  // nhận "500000", "500.000", "500,000", "500 000"; kiểu khác thì báo rõ và
+  // không gửi gì đi. Ô trống để máy chủ báo như trước.
+  soTienNhap(v, ten = 'Số tiền') {
+    const s = String(v == null ? '' : v).trim();
+    if (s === '' || /^\d+$/.test(s)) return s;
+    const m = /^\d{1,3}([., ])\d{3}(?:\1\d{3})*$/.exec(s);
+    if (m) return s.split(m[1]).join('');
+    throw new Error(`${ten} chỉ gồm chữ số, ví dụ 500000 hoặc 500.000`);
+  },
+
   moTao(sid) {
     const homNay = UI.todayStr();              // giờ Việt Nam
     const thang = Number(homNay.slice(5, 7));
@@ -174,7 +187,7 @@ App.views.hocphi = {
       <div class="field"><label>Nội dung</label>
         <input id="hp-nd" placeholder="Ví dụ: Tiền ăn tháng 9"></div>
       <div class="field"><label>Số tiền (đồng)</label>
-        <input id="hp-tien" type="number" min="1000" step="1000" placeholder="500000"></div>
+        <input id="hp-tien" inputmode="numeric" autocomplete="off" placeholder="500000"></div>
       <div class="field"><label>Hạn nộp</label><input id="hp-han" type="date"></div>
       <button class="btn primary block" id="hp-luu">Tạo khoản thu</button>
     `, 'Tạo khoản thu');
@@ -201,7 +214,7 @@ App.views.hocphi = {
       studentId: sid,
       kyThu: document.getElementById('hp-ky').value,
       noiDung: document.getElementById('hp-nd').value,
-      soTien: document.getElementById('hp-tien').value,
+      soTien: this.soTienNhap(document.getElementById('hp-tien').value),
       hanNop: document.getElementById('hp-han').value || null,
     });
     let banChup = null;
@@ -221,8 +234,8 @@ App.views.hocphi = {
       // bấm được lần nữa; khoá vĩnh viễn là bắt kế toán đóng hộp thoại và gõ
       // lại từ đầu, tức biến một lỗi nhỏ thành mất trắng phần đã gõ.
       const moLaiNut = () => { nutLuu.disabled = false; nutLuu.textContent = chuNut; };
-      banChup = chupBieuMau();
       try {
+        banChup = chupBieuMau();
         await ghi(false);
       } catch (err) {
         // 409 = "bé này đã có đúng khoản ấy" — CẢNH BÁO, không phải lỗi. Hỏi
@@ -315,7 +328,7 @@ App.views.hocphi = {
       <div class="field"><label>Nội dung</label>
         <input id="hpd-nd" placeholder="Ví dụ: Tiền ăn tháng 9"></div>
       <div class="field"><label>Số tiền mỗi bé (đồng)</label>
-        <input id="hpd-tien" type="number" min="1000" step="1000" placeholder="500000"></div>
+        <input id="hpd-tien" inputmode="numeric" autocomplete="off" placeholder="500000"></div>
       <div class="field"><label>Hạn nộp</label><input id="hpd-han" type="date"></div>
       <button class="btn primary block" id="hpd-luu">Ghi sổ</button>
     `, 'Ghi sổ cho cả nhóm');
@@ -337,7 +350,7 @@ App.views.hocphi = {
             : pham === 'coso' ? document.getElementById('hpd-cs').value : '',
           kyThu: document.getElementById('hpd-ky').value,
           noiDung: document.getElementById('hpd-nd').value,
-          soTien: document.getElementById('hpd-tien').value,
+          soTien: this.soTienNhap(document.getElementById('hpd-tien').value),
           hanNop: document.getElementById('hpd-han').value || null,
         });
         UI.closeModal();
@@ -532,7 +545,7 @@ App.views.hocphi = {
           <option value="phan-tram">Phần trăm</option>
         </select></div>
       <div class="field"><label>Mức ưu đãi</label>
-        <input id="hpu-muc" type="number" min="1" step="1000" placeholder="500000"></div>
+        <input id="hpu-muc" inputmode="numeric" autocomplete="off" placeholder="500000"></div>
       <div class="field"><label>Từ ngày</label><input id="hpu-tu" type="date"></div>
       <div class="field"><label>Hết hạn ngày</label><input id="hpu-den" type="date">
         <div class="muted small mt-8">Để trống nếu ưu đãi không có hạn.</div></div>
@@ -546,7 +559,7 @@ App.views.hocphi = {
           studentId: document.getElementById('hpu-be').value,
           ten: document.getElementById('hpu-ten').value,
           kieu: document.getElementById('hpu-kieu').value,
-          giaTri: document.getElementById('hpu-muc').value,
+          giaTri: this.soTienNhap(document.getElementById('hpu-muc').value, 'Mức ưu đãi'),
           tuNgay: document.getElementById('hpu-tu').value || null,
           denNgay: document.getElementById('hpu-den').value || null,
           ghiChu: document.getElementById('hpu-ghi').value,
@@ -614,6 +627,7 @@ App.views.hocphi = {
             ${bp.quyen.duyetDuoc ? `<button class="btn sm primary" data-bp-duyet="${UI.esc(bp.id)}">Duyệt</button>` : ''}
             ${bp.quyen.duyetDuoc ? `<button class="btn sm outline" data-bp-tra="${UI.esc(bp.id)}">Trả lại</button>` : ''}
             ${bp.quyen.xinMoDuoc ? `<button class="btn sm outline" data-bp-xin="${UI.esc(bp.id)}">Xin mở khoá</button>` : ''}
+            ${bp.quyen.moKhoaDuoc ? `<button class="btn sm outline" data-bp-mo-thang="${UI.esc(bp.id)}">Mở khoá</button>` : ''}
             ${bp.quyen.traLoiXinMoDuoc ? `<button class="btn sm primary" data-bp-mo="${UI.esc(bp.id)}">Mở khoá</button>` : ''}
             ${bp.quyen.traLoiXinMoDuoc ? `<button class="btn sm outline" data-bp-tuchoimo="${UI.esc(bp.id)}">Chưa mở</button>` : ''}
           </div>
@@ -672,6 +686,15 @@ App.views.hocphi = {
           { lyDo: y }, 'Đã gửi lời xin mở khoá');
       };
     }
+    // Người duyệt được mở thẳng (Đ261e): cùng đường xin-mo, máy chủ mở luôn.
+    for (const nut of document.querySelectorAll('button[data-bp-mo-thang]')) {
+      nut.onclick = () => {
+        const y = prompt('Mở khoá bảng giá này để sửa gì? (ghi lại cho sổ)');
+        if (!y || !y.trim()) return;
+        chay(`/api/hocphi/bieu-phi/${encodeURIComponent(nut.dataset.bpMoThang)}/xin-mo`,
+          { lyDo: y }, 'Đã mở khoá — bảng giá về đang soạn');
+      };
+    }
     for (const nut of document.querySelectorAll('button[data-bp-mo]')) {
       nut.onclick = () => {
         if (!confirm('Mở khoá bảng giá này để kế toán sửa?')) return;
@@ -707,7 +730,7 @@ App.views.hocphi = {
               <option value="${UI.esc(l.ma)}" ${l.ma === d.loai ? 'selected' : ''}>${UI.esc(l.ten)}</option>`).join('')}
             </select></div>
           <div class="field"><label>Số tiền mỗi tháng</label>
-            <input data-bpd-tien="${i}" type="number" min="0" step="1000" value="${UI.esc(String(d.soTien))}"></div>
+            <input data-bpd-tien="${i}" inputmode="numeric" autocomplete="off" value="${UI.esc(String(d.soTien))}"></div>
         </div>
         <div class="row-end">
           ${this._bpDong.length > 1 ? `<button class="btn sm outline" data-bpd-xoa="${i}">Bỏ dòng</button>` : ''}
@@ -762,7 +785,7 @@ App.views.hocphi = {
           namHoc: document.getElementById('hpb-nam').value,
           campusId: bp ? bp.campusId : undefined,
           ghiChu: document.getElementById('hpb-ghi').value,
-          dong: this._bpDong,
+          dong: this._bpDong.map((d, i) => ({ ...d, soTien: this.soTienNhap(d.soTien, `Số tiền ở khoản thứ ${i + 1}`) })),
         });
         UI.closeModal();
         UI.toast('Đã lưu bản nháp', 'success');

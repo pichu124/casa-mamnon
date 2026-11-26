@@ -27,7 +27,7 @@ import path from 'path';
 import { createRequire } from 'module';
 import { spawnSync } from 'child_process';
 import {
-  GOC, MAU, HOM_NAY, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, taoQuanTri,
+  GOC, MAU, HOM_NAY, thuMucTam, donThuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, daDoiMatKhau,
   dungMayChu, taoBoDem, taoReq, taoLogin,
 } from './_chung.mjs';
 
@@ -169,6 +169,7 @@ sinhDuLieu(DIR);
 // Đúng cách máy cũ lưu công tắc: một dòng `enabled = 1` trong `module_settings`.
 batPhanHe(DIR, ['dontra']);
 const mkQT = taoQuanTri(DIR, 'Hiệu Trưởng Máy Cũ', 'mc_qt');
+daDoiMatKhau(DIR, 'mc_qt');
 
 const BAN_DAU = chupBonBang();
 const CHUOI_BAN_DAU = JSON.stringify(BAN_DAU);

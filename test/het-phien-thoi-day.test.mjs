@@ -31,6 +31,7 @@ import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import {
   GOC, thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoBoDem, taoReq, taoLogin,
+  maPhienTrongBang,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -70,7 +71,7 @@ const noi = (endpoint) => (coBangNoi()
   : null);
 const soDong = (bang) => (bang === 'push_dang_ky_phien' && !coBangNoi() ? -1 : doc(`SELECT COUNT(*) AS n FROM ${bang}`)[0].n);
 const chuCua = (endpoint) => (doc('SELECT userId FROM push_dang_ky WHERE endpoint = ?', endpoint)[0] || {}).userId || null;
-const maPhien = (cookie) => cookie.split('=')[1];
+const maPhien = (cookie) => maPhienTrongBang(cookie.split('=')[1]);
 const taoLucCua = (cookie) => (doc('SELECT createdAt FROM sessions WHERE token = ?', maPhien(cookie))[0] || {}).createdAt || null;
 
 // Lùi tuổi của một phiên, như thể người ấy đăng nhập (và bật thông báo) từ

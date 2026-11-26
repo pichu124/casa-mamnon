@@ -13,7 +13,7 @@
 // Bộ này canh cả ba, và canh thêm chiều ngược: đường viết thường vẫn hoạt động
 // y như cũ (không được "sửa lỗ" bằng cách chặn nhầm người dùng thật).
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, datChucVu,
 } from './_chung.mjs';
 
@@ -22,6 +22,7 @@ sinhDuLieu(DIR);
 
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkKT = taoQuanTri(DIR, 'Chị Kế Toán', 'ketoan');
+daDoiMatKhau(DIR, 'hieutruong', 'ketoan');
 datChucVu(DIR, 'ketoan', 'ketoan');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4100), dir: DIR });

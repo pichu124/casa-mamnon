@@ -6,6 +6,7 @@
 //   - KHÔNG bao giờ đụng tới dữ liệu thật của trường trong `data/school.db`;
 //   - các bộ không giẫm chân nhau, chạy lại bao nhiêu lần cũng cho kết quả như nhau.
 import fs from 'fs';
+import crypto from 'crypto';
 import os from 'os';
 import path from 'path';
 import { createRequire } from 'module';
@@ -293,6 +294,21 @@ export function taoQuanTri(dir, hoTen, tenDangNhap) {
   return mk;
 }
 
+// Đánh dấu các tài khoản là ĐÃ tự đặt mật khẩu riêng, giữ nguyên mật khẩu.
+//
+// Từ Đ261b (lỗi O5) tài khoản còn mật khẩu tạm chỉ gọi được /api/auth/* và
+// GET /api/modules. Bài nào chỉ cần một quản trị dùng được ngay — không phải
+// bài về chính bước đặt mật khẩu — gọi hàm này ngay sau `taoQuanTri`: đúng
+// trạng thái của tài khoản thật sau khi chủ nhân đã đổi mật khẩu tạm.
+export function daDoiMatKhau(dir, ...tenDangNhap) {
+  chayTrenCsdl(dir, `
+    const dat = db.prepare('UPDATE users SET mustChangePassword = 0 WHERE username = ?');
+    for (const t of process.argv.slice(2)) {
+      if (dat.run(t).changes !== 1) throw new Error('daDoiMatKhau: không có tài khoản ' + t);
+    }
+  `, tenDangNhap);
+}
+
 // Dựng máy chủ và chờ tới khi nó trả lời được. Trả về đối tượng có hàm `dung()`
 // và `khoiDongLai()` để thử các tình huống khởi động lại.
 export async function dungMayChu({ port, dir, env = {} }) {
@@ -355,6 +371,13 @@ export async function dungMayChu({ port, dir, env = {} }) {
       await batDau();
     },
   };
+}
+
+// Giá trị nằm trong cột `sessions.token` cho một token phiên (cookie `session=`).
+// Từ Đ261b (lỗi O4) bảng chỉ giữ mã băm của token, không giữ token thô — bài
+// nào lùi `createdAt` hay đếm dòng phiên theo cookie thì tra bằng giá trị này.
+export function maPhienTrongBang(token) {
+  return 'sha256$' + crypto.createHash('sha256').update(String(token)).digest('hex');
 }
 
 // Gọi API kèm cookie, trả về { status, data, setCookie }.

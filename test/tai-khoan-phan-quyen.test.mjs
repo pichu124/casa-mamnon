@@ -370,9 +370,17 @@ console.log('\n[7] Văn phòng thêm phụ huynh thứ hai cho một bé đã c�
     nk.slice(0, 3).map(x => x.action));
   check('và Nhật ký KHÔNG chứa mật khẩu tạm', !JSON.stringify(nk).includes(r.data?.temporaryPassword || '@@'));
 
-  // TRÙNG SỐ ĐIỆN THOẠI KHÔNG ĐƯỢC NỐI VÀO TÀI KHOẢN CÓ SẴN.
+  // TRÙNG SỐ ĐIỆN THOẠI KHÔNG ĐƯỢC TỰ NỐI VÀO TÀI KHOẢN CÓ SẴN.
+  //
+  // Đ261a (báo cáo O2, chủ dự án duyệt đổi): trước đây trùng số thì tạo một
+  // tài khoản MỚI cùng số (bố ba con nhận ba tài khoản). Nay máy HỎI (409) và
+  // không ghi gì; chỉ nối khi văn phòng xác nhận — xem test/nhap-danh-sach-that.
+  // Điều canh ở đây giữ nguyên: chưa xác nhận thì người mang số ấy KHÔNG thấy bé.
+  const truocTrung = demTaiKhoan();
   const trung = await them(VP, 's4', { name: 'Người Gõ Trùng Số', phone: '0912 345 678' });
-  check('trùng số với một phụ huynh đang có vẫn tạo TÀI KHOẢN MỚI', trung.status === 201 && trung.data?.id !== 'p1', trung.data);
+  check('trùng số với một phụ huynh đang có → hỏi xác nhận, không tự nối',
+    trung.status === 409 && trung.data?.canXacNhan === true, trung.data);
+  check('và chưa xác nhận thì không sinh tài khoản nào', demTaiKhoan() === truocTrung, [truocTrung, demTaiKhoan()]);
   const cuaPH = await beCua(PH);
   check('và phụ huynh mang số đó KHÔNG được thấy bé Đức Anh (vẫn thấy con mình)',
     cuaPH.includes('s1') && !cuaPH.includes('s4'), cuaPH);

@@ -39,6 +39,7 @@ Object.assign(App.views.admin, {
       'student-bao-luu': 'Cho bé nghỉ học bảo lưu',
       'student-thoi-bao-luu': 'Thôi bảo lưu, cho bé nghỉ hẳn',
       'phu-huynh-them': 'Thêm tài khoản phụ huynh cho bé',
+      'phu-huynh-noi': 'Nối bé vào tài khoản phụ huynh đã có',
       'students-export': 'Xuất danh sách bé',
       'import-students': 'Nhập danh sách bé',
       'import-teachers': 'Nhập cô từ tệp',

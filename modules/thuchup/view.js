@@ -12,6 +12,14 @@
 // cùng một bản ghi gửi đi vài lần.
 App.views.thuchup = {
   _KHO: 'casa-thuchup',
+
+  // PHÉP THỬ GĐ 0 CHỈ HIỆN KHI ĐƯỢC GỌI (Đ261e, R3-6 / R1-B7). Thẻ "Đây là phép
+  // thử…" và bảng bấm giờ là dụng cụ đo của đợt thử, không phải phần của bản
+  // dùng thật: mở app bằng địa chỉ có `?thu=1` (vd `/?thu=1#/thuchup`) mới hiện.
+  // Việc bấm giờ vẫn ghi như cũ — chỉ là không bày ra trước mặt cô.
+  phepThu() {
+    try { return new URLSearchParams(location.search).get('thu') === '1'; } catch (_) { return false; }
+  },
   _BANG: 'hangdoi',
   _dangGui: false,
 
@@ -231,17 +239,18 @@ App.views.thuchup = {
       this._ds = ds;
     } catch (err) { mang = false; }
 
+    const thu = this.phepThu();
     root.innerHTML = `
       ${UI.pageHeader('Ghi nhanh')}
 
-      <div class="card" style="border-left:4px solid #5fb36a">
+      ${thu ? `<div class="card" id="tc-phep-thu" style="border-left:4px solid #5fb36a">
         <div class="row-title">Đây là phép thử, chưa phải bản dùng thật</div>
         <div class="row-sub" style="margin-top:6px">
           Cô thử ghi lại vài khoảnh khắc như lúc đứng lớp. Máy tự bấm giờ.
           <b>Hãy thử cả lúc tắt mạng</b> — ghi xong, đóng app, mở lại để xem
           bài ghi có tự gửi lên không.
         </div>
-      </div>
+      </div>` : ''}
 
       <button class="btn primary block" id="tc-ghi"
         style="font-size:1.15rem;padding:18px">📸 Ghi nhanh một khoảnh khắc</button>
@@ -293,7 +302,7 @@ App.views.thuchup = {
           <button class="btn sm outline mt-8" id="tc-gui">Thử gửi ngay</button>
         </div>` : ''}
 
-      ${kq.soLan ? `
+      ${thu && kq.soLan ? `
         <div class="stat-row">
           <div class="stat-box">
             <div class="stat-num" style="color:${kq.trungVi < 20 ? 'var(--success)' : 'var(--danger)'}">
@@ -324,7 +333,7 @@ App.views.thuchup = {
     g.suaLuc ? ` · <span class="muted">đã sửa ${UI.esc(UI.fmtDateShort(g.suaLuc))}</span>` : ''}</div>
               </div>
               <div class="row-end">
-                ${g.giay != null ? UI.badge(g.giay + 's', g.giay < 20 ? 'green' : 'orange') : ''}
+                ${thu && g.giay != null ? UI.badge(g.giay + 's', g.giay < 20 ? 'green' : 'orange') : ''}
                 ${g.ngoaiTuyen ? UI.badge('ngoại tuyến', 'gray') : ''}
                 ${g.suaDuoc ? `<button class="btn sm outline" data-sua-gn="${UI.esc(g.id)}"
                   title="Sửa lại lời ghi chú">${UI.icon('edit', 14)}</button>` : ''}

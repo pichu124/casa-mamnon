@@ -36,7 +36,14 @@ const DUONG_TAI_VIDEO = [
   /^\/api\/hanhtrinh\/nhap\/?$/i,            // nháp chưa gắn bé kèm video
 ];
 const laDuongTaiVideo = req => req.method === 'POST' && DUONG_TAI_VIDEO.some(re => re.test(req.path));
-app.use((req, res, next) => (laDuongTaiVideo(req) ? next() : DOC_JSON(req, res, next)));
+// /api/auth/* mở cho người chưa đăng nhập và chỉ nhận vài chuỗi ngắn (tên,
+// mật khẩu, địa chỉ đẩy): 16 KB là thừa, để người lạ không đẩy được 12 MB vào
+// đường đăng nhập (Đ261j).
+const DOC_JSON_AUTH = express.json({ limit: '16kb' });
+app.use((req, res, next) => {
+  if (laDuongTaiVideo(req)) return next();
+  return (/^\/api\/auth\//i.test(req.path) ? DOC_JSON_AUTH : DOC_JSON)(req, res, next);
+});
 
 // Buộc dùng HTTPS khi đã bật FORCE_HTTPS (nên bật khi chạy trên Internet).
 app.use((req, res, next) => {
@@ -133,6 +140,26 @@ app.get('/healthz', (req, res) => {
 app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/auth/')) return next();
   auth.requireAuth(req, res, next);
+});
+
+// MẬT KHẨU TẠM CHỈ DÙNG ĐỂ ĐẶT MẬT KHẨU RIÊNG (Đ261b, lỗi O5).
+//
+// Mật khẩu tạm do trường cấp đi qua tay nhiều người: in trên giấy, đọc qua
+// điện thoại, phát ở buổi họp. Bản trước chỉ MÀN HÌNH bắt đổi mật khẩu
+// (public/js/app.js), còn API thì mở hết — ai nhặt được tờ giấy và gọi thẳng
+// API là xem được hồ sơ bé mà chủ tài khoản không hề biết. Nay tài khoản còn
+// `mustChangePassword` chỉ gọi được /api/auth/* (biết mình là ai, đặt mật khẩu
+// mới, đăng xuất) và GET /api/modules (giao diện nạp ngay lúc đăng nhập, để
+// vẽ được app khi vừa đặt xong). Đặt trước mọi route và phân hệ nên đường thêm
+// sau này cũng không lọt.
+app.use('/api', (req, res, next) => {
+  if (!req.user || !req.user.mustChangePassword) return next();
+  if (/^\/auth\//i.test(req.path)) return next();
+  if (req.method === 'GET' && /^\/modules\/?$/i.test(req.path)) return next();
+  return res.status(403).json({
+    error: 'Tài khoản đang dùng mật khẩu tạm của nhà trường. '
+      + 'Vui lòng đặt mật khẩu riêng trước khi dùng các phần khác của app.',
+  });
 });
 
 // Chặn API của phân hệ đang tắt. Đặt sau lớp kiểm tra đăng nhập và trước khi
@@ -333,18 +360,29 @@ function warnDefaultPasswords() {
 
   // MỖI NHỊP SOÁT MỘT TÀI KHOẢN, RỒI NHẢ MÁY CHO NGƯỜI ĐANG CHỜ (Đ251).
   //
-  // Mỗi lần băm thử là khoảng 40 mili-giây và chặn cả tiến trình. Bản trước
-  // lọc cả danh sách trong một mạch, ngay sau khi mở cổng: với một trường cỡ
-  // ba trăm bé (hơn sáu trăm người dùng) là chừng nửa phút máy chủ nhận kết
-  // nối mà không trả lời ai, sau MỖI lần cập nhật. (Con số viết bằng chữ có
-  // chủ ý: `test:may-chu` đòi mọi câu "<số> tài khoản" trong tệp này nói đúng
-  // số tài khoản mẫu.) Nay giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ
-  // trước; lời cảnh báo in ra muộn hơn vài giây nhưng vẫn đếm đủ từng tài
-  // khoản. `test/khoi-dong-khong-treo.test.mjs` canh cả hai điều ấy.
+  // Mỗi lần băm thử là khoảng 40 mili-giây. Bản trước lọc cả danh sách trong
+  // một mạch, ngay sau khi mở cổng: với một trường cỡ ba trăm bé (hơn sáu trăm
+  // người dùng) là chừng nửa phút máy chủ nhận kết nối mà không trả lời ai,
+  // sau MỖI lần cập nhật. (Con số viết bằng chữ có chủ ý: `test:may-chu` đòi
+  // mọi câu "<số> tài khoản" trong tệp này nói đúng số tài khoản mẫu.) Nay
+  // giữa hai lần băm, mọi yêu cầu đang chờ được phục vụ trước; lời cảnh báo in
+  // ra muộn hơn vài giây nhưng vẫn đếm đủ từng tài khoản.
+  // `test/khoi-dong-khong-treo.test.mjs` canh cả hai điều ấy.
+  //
+  // BĂM Ở LUỒNG PHỤ, TỪNG LẦN MỘT (Đ261b). Chia nhịp thôi thì mỗi nhịp vẫn giữ
+  // vòng lặp ~40 ms đồng bộ: đo với sáu trăm mười tài khoản, khoảng 25 giây
+  // liền huy hiệu chậm từ 2 lên 30 ms, đăng nhập 136 ms. `verifyAsync` băm ở
+  // bể luồng của Node nên vòng lặp rảnh hẳn; và vì chỉ một lần băm chạy mỗi
+  // lúc, phép soát chiếm đúng một luồng trong bể — các luồng còn lại để dành
+  // cho người đang đăng nhập.
   //
   // Danh sách đọc MỘT lần ở đây; các nhịp sau không chạm cơ sở dữ liệu, nên
   // máy chủ tắt giữa chừng cũng không có gì dở dang.
   const ds = db.all('users', 'SELECT id, passwordHash FROM users');
+  const trungMau = async (bam) => {
+    for (const m of dsMau) if (await password.verifyAsync(m, bam)) return true;
+    return false;
+  };
   let i = 0;
   let soYeu = 0;
   const soatTiep = () => {
@@ -358,8 +396,10 @@ function warnDefaultPasswords() {
       return;
     }
     const u = ds[i++];
-    if (dsMau.some(m => password.verify(m, u.passwordHash))) soYeu++;
-    setImmediate(soatTiep);
+    trungMau(u.passwordHash).then((trung) => {
+      if (trung) soYeu++;
+      setImmediate(soatTiep);
+    });
   };
   soatTiep();
 }

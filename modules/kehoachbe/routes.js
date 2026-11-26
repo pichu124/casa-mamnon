@@ -358,6 +358,13 @@ function linhVucConChoManHinh() {
   return LINH_VUC_CON.map(([ma, ten, gocLinhVuc, lua]) => ({ ma, ten, gocLinhVuc, lua: lua || LUA_MAU_GIAO }));
 }
 
+// "11/2026" từ "2026-11", để tin báo ghi "tháng 11/2026" chứ không phải dạng
+// máy "tháng 2026-11" (Đ261e).
+function thangSo(thang) {
+  const [n, t] = String(thang || '').split('-');
+  return t ? `${Number(t)}/${n}` : String(thang || '');
+}
+
 function thangTruoc(thang) {
   const [nam, th] = thang.split('-').map(Number);
   const d = new Date(Date.UTC(nam, th - 2, 1));
@@ -1690,7 +1697,7 @@ module.exports = (app, { db, modules }) => {
       baoNhaTruongTheoNhom(classId, {
         loai: 'ke-hoach-gui', nguoiTao: req.user.id,
         tieuDe: 'Có kế hoạch của bé chờ duyệt',
-        noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${daGui} kế hoạch tháng ${thang}`
+        noiDung: `${tenNguoi(req.user.id) || 'Cô'} vừa gửi ${daGui} kế hoạch tháng ${thangSo(thang)}`
           + `${ct ? ` (${nhomCo.CHUONG_TRINH[ct]})` : ''}${lop ? ` của nhóm ${lop.name}` : ''}.`,
         hash: '#/kehoachbe/duyet',
         tru: req.user.id,
@@ -1813,7 +1820,7 @@ module.exports = (app, { db, modules }) => {
       if (!x.coLap) continue;
       if (!theoCo.has(x.coLap)) theoCo.set(x.coLap, []);
       const be = db.findStudent(x.k.studentId);
-      theoCo.get(x.coLap).push(`${be ? be.name : 'một bé'} (${nhomCo.CHUONG_TRINH[x.ct] || x.ct}, tháng ${x.k.thang})`);
+      theoCo.get(x.coLap).push(`${be ? be.name : 'một bé'} (${nhomCo.CHUONG_TRINH[x.ct] || x.ct}, tháng ${thangSo(x.k.thang)})`);
     }
     for (const [coId, ds] of theoCo) {
       baoCo(coId, quyet === 'tra-lai'
@@ -1852,14 +1859,16 @@ module.exports = (app, { db, modules }) => {
     const tu = ky === 'nam' ? `${Number(mocDung) - 1}-11` : lechThang(mocDung.slice(0, 7), -2);
     const den = ky === 'nam' ? `${Number(mocDung) + 1}-02` : lechThang(mocDung.slice(0, 7), 2);
     const ra = [];
-    const ke = tatCa
+    const keGoc = tatCa
       ? db.all('kehoachbe_ke',
         `SELECT * FROM kehoachbe_ke WHERE thang BETWEEN ? AND ?
             AND (guiLuc IS NOT NULL OR id IN (SELECT keId FROM kehoachbe_ke_ct WHERE guiLuc IS NOT NULL))`, [tu, den])
       : db.all('kehoachbe_ke',
         "SELECT * FROM kehoachbe_ke WHERE thang BETWEEN ? AND ? AND trangThai = 'cho-duyet'", [tu, den]);
-    for (const k of ke) {
-      if (!db.canAccessStudent(req.user, k.studentId)) continue;
+    // Quyền hỏi MỘT LƯỢT cho cả danh sách (Đ261f), cùng luật `canAccessStudent`.
+    const duocXem = db.beDuocXemTrong(req.user, keGoc.map(k => k.studentId));
+    for (const k of keGoc) {
+      if (!duocXem.has(k.studentId)) continue;
       const tt = trangThaiCt(k);
       for (const c of MA_CT) {
         const p = tt[c];
@@ -2324,8 +2333,13 @@ module.exports = (app, { db, modules }) => {
   //
   // Hai loại cộng lại thành một con số: kế hoạch cô gửi chờ duyệt, và đề xuất
   // sửa kế hoạch đã duyệt. Cả hai đều mở cùng một màn nên tách hai con số chỉ
-  // tổ rối. Lọc từng bé bằng `canAccessStudent` — quản lý cơ sở 1 không đếm bé
-  // của cơ sở 2.
+  // tổ rối. Lọc theo quyền với bé (`beDuocXemTrong`, cùng luật
+  // `canAccessStudent`, hỏi một lượt cho cả danh sách) — quản lý cơ sở 1 không
+  // đếm bé của cơ sở 2.
+  const demDuocXem = (user, ds) => {
+    const duoc = db.beDuocXemTrong(user, ds.map(k => k.studentId));
+    return ds.filter(k => duoc.has(k.studentId)).length;
+  };
   huyHieu.dangKy('kehoachbe', (user) => {
     if (!user) return 0;
     // CÔ: số phần kế hoạch quản lý GỬI LẠI cho chính cô sửa (góp ý 06/10,
@@ -2339,7 +2353,7 @@ module.exports = (app, { db, modules }) => {
         const cu = db.all('kehoachbe_ke',
           `SELECT studentId FROM kehoachbe_ke WHERE trangThai = 'tra-lai' AND coLap = ?
               AND id NOT IN (SELECT keId FROM kehoachbe_ke_ct) LIMIT 500`, [user.id]);
-        return [...tach, ...cu].filter(k => db.canAccessStudent(user, k.studentId)).length;
+        return demDuocXem(user, [...tach, ...cu]);
       } catch (_) { return 0; }
     }
     if (user.role !== 'admin') return 0;
@@ -2347,14 +2361,12 @@ module.exports = (app, { db, modules }) => {
     if (cv !== null && !baoNT.CHUC_VU_NHAN.includes(cv)) return 0;
     // Đếm theo KẾ HOẠCH (một bé một tháng), không theo từng phần: bản nào còn
     // phần chờ duyệt thì `trangThai` gộp của nó là 'cho-duyet' (dongBoKe).
-    const ke = db.all('kehoachbe_ke',
-      "SELECT studentId FROM kehoachbe_ke WHERE trangThai = 'cho-duyet' ORDER BY guiLuc DESC LIMIT 500")
-      .filter(k => db.canAccessStudent(user, k.studentId)).length;
-    const dx = db.all('kehoachbe_de_xuat',
+    const ke = demDuocXem(user, db.all('kehoachbe_ke',
+      "SELECT studentId FROM kehoachbe_ke WHERE trangThai = 'cho-duyet' ORDER BY guiLuc DESC LIMIT 500"));
+    const dx = demDuocXem(user, db.all('kehoachbe_de_xuat',
       `SELECT k.studentId AS studentId FROM kehoachbe_de_xuat d
          JOIN kehoachbe_ke k ON k.id = d.keId
-        WHERE d.trangThai = 'cho-duyet' ORDER BY d.taoLuc DESC LIMIT 500`)
-      .filter(k => db.canAccessStudent(user, k.studentId)).length;
+        WHERE d.trangThai = 'cho-duyet' ORDER BY d.taoLuc DESC LIMIT 500`));
     return ke + dx;
   });
 };

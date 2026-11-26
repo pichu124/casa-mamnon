@@ -383,6 +383,13 @@ module.exports = (app) => {
     // Đăng xuất mọi thiết bị của người đó: nếu tài khoản bị chiếm dụng thì
     // việc cấp lại mật khẩu phải cắt được phiên của kẻ đang dùng trộm.
     const kicked = destroyUserSessions(target.id, null);
+    // Gỡ khoá chống dò của tên này (Đ261j): câu báo khoá mời gia đình nhờ cô
+    // cấp lại mật khẩu, nên cấp lại xong phải vào được ngay. Nạp lúc gọi, trong
+    // khối bắt lỗi — routes/auth.js hỏng thì cấp lại mật khẩu vẫn chạy (và khi
+    // ấy chẳng còn bộ đếm nào để gỡ).
+    try { require('./auth').goKhoaTheoTen(target.username); } catch (err) {
+      console.error(`[accounts] không gỡ được khoá đăng nhập của ${target.username}: ${err && err.message}`);
+    }
     db.audit(req.user.id, 'reset-password', target.id, {
       targetName: target.name, targetUsername: target.username, kicked,
     });

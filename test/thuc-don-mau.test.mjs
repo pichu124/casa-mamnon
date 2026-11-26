@@ -15,7 +15,7 @@
 //      (Nhật ký và thực đơn tháng trước đọc từ đó).
 //   3. Gia đình được báo khi tuần sau lấy từ mẫu — không ai bấm Lưu nên đường
 //      báo cũ không chạy; việc hẹn giờ thứ Sáu thay chỗ nó, và chỉ báo một lần.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, HOM_NAY, GOC } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, HOM_NAY, GOC } from './_chung.mjs';
 import path from 'path';
 import { createRequire } from 'module';
 import { execFileSync } from 'child_process';
@@ -155,6 +155,7 @@ const DIR = thuMucTam('thuc-don-mau');
 sinhDuLieu(DIR);
 const mkCap1 = taoQuanTri(DIR, 'Ban Giám Hiệu', 'tdm_cap1');
 const mkCs2 = taoQuanTri(DIR, 'Quản lý Cơ sở 2', 'tdm_cs2');
+daDoiMatKhau(DIR, 'tdm_cap1', 'tdm_cs2');
 khoaVaoCoSo(DIR, 'tdm_cs2', 'cs2');
 {
   // Một bé ở nhóm cơ sở 2 (dữ liệu mẫu chưa có bé nào ở đó), con của phuhuynh2.

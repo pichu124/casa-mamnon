@@ -2,6 +2,15 @@
 App.views.settings = {
   render(root) {
     const { user, school } = App.state;
+    // LỐI VÀO QUẢN TRỊ CHỈ HIỆN KHI TÀI KHOẢN VÀO ĐƯỢC (R1-B11). Kế toán,
+    // Marketing, Bảo vệ cổng không có tab Quản trị nào (`tabQuanTri` rỗng), nên
+    // ba dòng dưới đây bấm vào chỉ gặp màn khoá. Nhân sự có tab Tài khoản
+    // nhưng không lo tài khoản gia đình. Máy chủ đời cũ không kèm danh sách tab
+    // (null) thì hiện như trước — máy chủ vẫn là người chốt.
+    const tab = user.role === 'admin' ? user.tabQuanTri : null;
+    const coTab = (ma) => !Array.isArray(tab) || tab.includes(ma);
+    const moQuanTri = !Array.isArray(tab) || tab.length > 0;
+    const moTkGiaDinh = moQuanTri && user.chucVu !== 'nhansu';
     root.innerHTML = `
       ${UI.pageHeader('Cài đặt')}
       <div class="card" style="display:flex;align-items:center;gap:14px">
@@ -38,16 +47,16 @@ App.views.settings = {
         </div>
       </div>
 
-      ${user.role === 'admin' ? `
-        <div class="card">
+      ${user.role === 'admin' && moQuanTri ? `
+        <div class="card" id="st-quan-tri">
           <div class="card-title">🏫 Quản trị nhà trường</div>
-          <div class="list-row clickable" id="st-tai-khoan" onclick="location.hash='#/admin/taikhoan'">
+          ${coTab('taikhoan') ? `<div class="list-row clickable" id="st-tai-khoan" onclick="location.hash='#/admin/taikhoan'">
             <div class="row-main">
               <div class="row-title">Tài khoản &amp; phân quyền</div>
               <div class="row-sub">Ai tạo tài khoản nào; tạo tài khoản, phân cô vào nhóm, chuyển cô giữa các nhóm</div>
             </div>
             <span class="muted">${UI.icon('chevron', 18)}</span>
-          </div>
+          </div>` : ''}
           <div class="list-row clickable" onclick="location.hash='#/admin'">
             <div class="row-main">
               <div class="row-title">Nhóm lớp, cô, nhập danh sách</div>
@@ -57,8 +66,8 @@ App.views.settings = {
           </div>
         </div>` : ''}
 
-      ${user.role === 'admin' ? `
-        <div class="card">
+      ${user.role === 'admin' && moTkGiaDinh ? `
+        <div class="card" id="st-tk-gia-dinh">
           <div class="card-title">👪 Tài khoản của gia đình</div>
           <div class="list-row clickable" onclick="location.hash='#/accounts'">
             <div class="row-main">

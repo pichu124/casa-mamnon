@@ -20,7 +20,7 @@
 // dữ liệu mẫu có thể đã có dòng điểm danh hôm nay, và bài này không được đỏ
 // theo lịch.
 import {
-  thuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, khoaVaoCoSo, datChucVu, batPhanHe, HOM_NAY, MAU,
 } from './_chung.mjs';
 
@@ -30,6 +30,7 @@ const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkCS2 = taoQuanTri(DIR, 'Quản Lý CS2', 'quanly2');
 khoaVaoCoSo(DIR, 'quanly2', 'cs2');
 const mkNS = taoQuanTri(DIR, 'Chị Nhân Sự', 'nhansu1');
+daDoiMatKhau(DIR, 'hieutruong', 'quanly2', 'nhansu1');
 datChucVu(DIR, 'nhansu1', 'nhansu');
 
 const sv = await dungMayChu({ port: Number(process.env.TEST_PORT || 4160), dir: DIR });

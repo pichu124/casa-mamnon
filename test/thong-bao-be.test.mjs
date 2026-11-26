@@ -14,7 +14,7 @@
 //   3. Xin quyền Notification chỉ hợp lệ khi sw.js có bộ nghe `push` thật —
 //      test/khong-hua-suong.test.mjs canh; ở đây canh mảnh máy chủ: khoá
 //      công khai, đăng ký, huỷ, gửi thử tới địa chỉ giả không làm sập.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, GOC, HOM_NAY } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, GOC, HOM_NAY } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -23,6 +23,7 @@ const { check, tongKet } = taoBoDem();
 const DIR = thuMucTam('thong-bao-be');
 sinhDuLieu(DIR);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'tbb_qt');
+daDoiMatKhau(DIR, 'tbb_qt');
 
 const { BASE, dung } = await dungMayChu({ port: 4623, dir: DIR });
 const req = taoReq(BASE);

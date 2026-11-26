@@ -297,7 +297,7 @@ console.log('══════════════════════�
 console.log('TÀI KHOẢN');
 console.log(`  Quản trị    ${tenQT} / ${mkQT}   (bị buộc đổi mật khẩu khi đăng nhập)`);
 console.log(`  Cô          giaovien / ${mkChung}      — nhóm Chồi 2`);
-console.log(`  Cô          giaovien4 / ${mkChung}     — nhóm Nhà trẻ 1 (có thay bỉm, bú bình)`);
+console.log(`  Cô          giaovien4 / ${mkChung}     — nhóm Nhà trẻ 1`);
 console.log(`  Gia đình    phuhuynh / ${mkChung}      — mẹ của bé An (Chồi 2) và bé Ngọc (Lá 1)`);
 console.log('');
 console.log('  Bốn tài khoản dưới đây cũng bị buộc đổi mật khẩu khi đăng nhập lần đầu.');

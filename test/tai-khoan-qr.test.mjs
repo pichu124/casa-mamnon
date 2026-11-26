@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import {
-  thuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, datChucVu, batPhanHe, GOC,
 } from './_chung.mjs';
 
@@ -31,6 +31,7 @@ const DIR = thuMucTam('tai-khoan-qr');
 sinhDuLieu(DIR);
 const mkHT = taoQuanTri(DIR, 'Hiệu Trưởng Q', 'q_ht');
 const mkKT = taoQuanTri(DIR, 'Kế Toán Q', 'q_kt');
+daDoiMatKhau(DIR, 'q_ht', 'q_kt');
 datChucVu(DIR, 'q_kt', 'ketoan');
 batPhanHe(DIR, ['hocphi']);
 

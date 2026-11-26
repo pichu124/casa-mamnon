@@ -163,11 +163,37 @@ function nhanKhoang(k) {
   return k.tu === `${th}-01` && k.den === cuoiThang(th) ? th : `${k.tu}_${k.den}`;
 }
 
-function guiTep(res, ten, cacBang) {
-  const buf = xlsx.ghi(cacBang.map(b => ({ ...b, hang: b.hang.map(h => h.map(khoaO)) })));
+// Nhường vòng lặp sự kiện giữa hai bước nặng của một lượt xuất, để người
+// dùng khác không phải chờ cả lượt xuất xong mới được trả lời. Hai nhịp
+// setImmediate, cùng lý do với `nhuongVongLap` của lib/xlsx.js: một nhịp thì
+// bước sau chạy liền bước trước, chưa ai khác được trả lời.
+const nhuongVongLap = () => new Promise(r => setImmediate(() => setImmediate(r)));
+
+// Dựng tệp bằng `xlsx.ghiAsync` — cùng các byte với `xlsx.ghi`, nhưng không
+// chặn máy chủ trong lúc dựng (Đ261f).
+async function guiTep(res, ten, cacBang) {
+  await nhuongVongLap();
+  const buf = await xlsx.ghiAsync(cacBang.map(b => ({ ...b, hang: b.hang.map(h => h.map(khoaO)) })));
   res.setHeader('Content-Type', KIEU_XLSX);
   res.setHeader('Content-Disposition', `attachment; filename="${ten}.xlsx"`);
   res.send(buf);
+}
+
+// MỖI LÚC MỘT LƯỢT XUẤT (Đ261f). Tệp dựng không chặn máy chủ nữa, nhưng
+// vẫn tốn CPU và bộ nhớ: năm tháng giờ vào ra cả cơ sở là hơn ba vạn dòng.
+// Ba người cùng bấm xuất cả năm thì cả trường chậm theo. Lượt đến sau trong
+// lúc một lượt đang dựng thì nghe 429, màn hình hiện đúng câu này.
+let dangXuat = false;
+function motLuot(xuly) {
+  return async (req, res) => {
+    if (dangXuat) return tuChoi(res, 429, 'Đang xuất một báo cáo khác, thử lại sau ít giây');
+    dangXuat = true;
+    try {
+      await xuly(req, res);
+    } finally {
+      dangXuat = false;
+    }
+  };
 }
 
 module.exports = (app, { db, modules }) => {
@@ -339,7 +365,10 @@ module.exports = (app, { db, modules }) => {
     const ds = nhom === null
       ? db.all('students', `SELECT * FROM students WHERE 1 = 1${loc}`, thamSo)
       : theoLo(nhom, (lo, m) => db.all('students', `SELECT * FROM students WHERE classId IN (${m})${loc}`, [...lo, ...thamSo]));
-    return { ds: ds.filter(b => db.canAccessStudent(user, b.id)).sort(theoTen), moTa };
+    // Quyền với từng bé, hỏi một lượt cho cả danh sách (Đ261f) — cùng luật
+    // `canAccessStudent`, kể cả bé đã nghỉ.
+    const duocXem = db.beDuocXemTrong(user, ds.map(b => b.id));
+    return { ds: ds.filter(b => duocXem.has(b.id)).sort(theoTen), moTa };
   }
 
   // BÉ KHÔNG CÒN ĐANG HỌC: từ ngày nào, và chữ ghi chú cho tệp ("Bảo lưu từ
@@ -453,7 +482,7 @@ module.exports = (app, { db, modules }) => {
   // =========================================================================
   // (a) ĐIỂM DANH CỦA BÉ
   // =========================================================================
-  app.get('/api/xuatbaocao/diemdanh-be', requireRole('admin'), (req, res) => {
+  app.get('/api/xuatbaocao/diemdanh-be', requireRole('admin'), motLuot(async (req, res) => {
     if (!chan(req, res, 'diemDanhBe')) return;
     const kieu = String(req.query.kieu || 'trangthai');
     if (kieu !== 'gio' && kieu !== 'trangthai') return tuChoi(res, 400, 'Chưa chọn kiểu báo cáo');
@@ -464,14 +493,26 @@ module.exports = (app, { db, modules }) => {
     const tenNhom = bangTenNhom();
     const nghi = beDaNghi(pv.ds);
     const beTheoId = new Map(pv.ds.map(b => [b.id, b]));
+    await nhuongVongLap();
     const ghi = theoLo(pv.ds.map(b => b.id), (lo, m) => db.all('attendance',
       `SELECT studentId, date, status, checkIn, checkOut FROM attendance
         WHERE date BETWEEN ? AND ? AND studentId IN (${m})`, [k.tu, k.den, ...lo]));
     const chuTrangThai = (st) => (TRANG_THAI_BE.find(x => x[0] === st) || [st, st])[1];
+    await nhuongVongLap();
 
     let cacBang;
     if (kieu === 'gio') {
-      ghi.sort((a, b) => a.date.localeCompare(b.date) || theoTen(beTheoId.get(a.studentId), beTheoId.get(b.studentId)));
+      // Theo ngày rồi theo tên. Thứ tự tên lấy từ `pv.ds`, vốn đã sắp bằng
+      // `theoTen`. So hai con số thay cho gần nửa triệu lần `localeCompare`
+      // (Đ261f: 190 ms chặn máy chủ với năm tháng của một cơ sở). Hai bé trùng
+      // tên chung một hạng, và sort giữ thứ tự cũ, nên tệp ra y như trước. Ngày
+      // dạng YYYY-MM-DD so theo mã ký tự cũng ra đúng thứ tự `localeCompare`.
+      const hangTen = new Map();
+      pv.ds.forEach((b, i) => hangTen.set(b.id,
+        i > 0 && theoTen(pv.ds[i - 1], b) === 0 ? hangTen.get(pv.ds[i - 1].id) : i));
+      ghi.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+        || hangTen.get(a.studentId) - hangTen.get(b.studentId));
+      await nhuongVongLap();
       cacBang = [{
         ten: 'Giờ vào ra', dongTieuDe: true, cot: [12, 12, 28, 16, 16, 10, 10, 22],
         hang: [
@@ -488,8 +529,8 @@ module.exports = (app, { db, modules }) => {
     }
     db.audit(req.user.id, 'xuatbaocao-diemdanh-be', null,
       { pham: req.query.pham, phamVi: pv.moTa, tu: k.tu, den: k.den, kieu, soBe: pv.ds.length });
-    guiTep(res, `diemdanh-be-${kieu}-${nhanKhoang(k)}`, cacBang);
-  });
+    return guiTep(res, `diemdanh-be-${kieu}-${nhanKhoang(k)}`, cacBang);
+  }));
 
   // Tổng hợp mỗi bé một dòng + lưới ngày.
   //
@@ -576,7 +617,7 @@ module.exports = (app, { db, modules }) => {
   // không bao giờ được đọc ra ở đây: ảnh khuôn mặt người lớn chỉ mở qua
   // `/api/nhansu/anh-cham-cong`.
   // =========================================================================
-  app.get('/api/xuatbaocao/diemdanh-co', requireRole('admin'), (req, res) => {
+  app.get('/api/xuatbaocao/diemdanh-co', requireRole('admin'), motLuot((req, res) => {
     const q = chan(req, res, 'diemDanhCo');
     if (!q) return;
     const kieu = String(req.query.kieu || 'trangthai');
@@ -659,8 +700,8 @@ module.exports = (app, { db, modules }) => {
     }
     db.audit(req.user.id, 'xuatbaocao-diemdanh-co', null,
       { pham: req.query.pham, phamVi: pv.moTa, tu: k.tu, den: k.den, kieu, soNguoi: pv.ds.length });
-    guiTep(res, `diemdanh-co-${kieu}-${nhanKhoang(k)}`, cacBang);
-  });
+    return guiTep(res, `diemdanh-co-${kieu}-${nhanKhoang(k)}`, cacBang);
+  }));
 
   // =========================================================================
   // (d) BÁO CÁO THÁNG / BÁO CÁO 6 THÁNG
@@ -670,7 +711,7 @@ module.exports = (app, { db, modules }) => {
   // ấy, nên cả bản nháp cũng ra — kèm chữ nói rõ bản đang ở bước nào. Bản nào
   // có kỳ CHẠM vào khoảng đang chọn thì vào tệp.
   // =========================================================================
-  app.get('/api/xuatbaocao/baocao-hoctap', requireRole('admin'), (req, res) => {
+  app.get('/api/xuatbaocao/baocao-hoctap', requireRole('admin'), motLuot((req, res) => {
     if (!chan(req, res, 'baoCaoHocTap')) return;
     const loai = String(req.query.loai || '');
     if (!LOAI_BAO_CAO[loai]) return tuChoi(res, 400, 'Chưa chọn loại báo cáo: báo cáo tháng hoặc báo cáo 6 tháng');
@@ -747,10 +788,10 @@ module.exports = (app, { db, modules }) => {
     }
     db.audit(req.user.id, 'xuatbaocao-baocao-hoctap', null,
       { pham: req.query.pham, phamVi: pv.moTa, loai, tu: k.tu, den: k.den, soBe: pv.ds.length, soBan: ban.length });
-    guiTep(res, `bao-cao-${loai}-${nhanKhoang(k)}`, [{
+    return guiTep(res, `bao-cao-${loai}-${nhanKhoang(k)}`, [{
       ten: LOAI_BAO_CAO[loai], dongTieuDe: true, cot: [12, 26, 14, 24, 22, 26, 30, 60, 22, 22], hang,
     }]);
-  });
+  }));
 
   // =========================================================================
   // (e) KẾ HOẠCH CỦA BÉ — theo tháng, hoặc một khoảng nhiều tháng
@@ -759,7 +800,7 @@ module.exports = (app, { db, modules }) => {
   // lĩnh vực, phần nhìn lại cuối tháng bằng chữ quy ước, việc tiếp tục ở
   // tháng sau, tình trạng duyệt. Không kèm nhận xét chữ của từng cô.
   // =========================================================================
-  app.get('/api/xuatbaocao/kehoach-be', requireRole('admin'), (req, res) => {
+  app.get('/api/xuatbaocao/kehoach-be', requireRole('admin'), motLuot((req, res) => {
     if (!chan(req, res, 'keHoachBe')) return;
     const k = khoangThoiGian(req, res);
     if (!k) return;
@@ -837,11 +878,11 @@ module.exports = (app, { db, modules }) => {
       ['', `${CHU_QUY_UOC['chua-quan-sat-thay']}: cô chưa có dịp thấy con làm — không phải con không làm được.`]];
     db.audit(req.user.id, 'xuatbaocao-kehoach-be', null,
       { pham: req.query.pham, phamVi: pv.moTa, tu: k.tu.slice(0, 7), den: k.den.slice(0, 7), soBe: pv.ds.length });
-    guiTep(res, `ke-hoach-be-${k.tu.slice(0, 7)}${k.tu.slice(0, 7) === k.den.slice(0, 7) ? '' : `_${k.den.slice(0, 7)}`}`, [
+    return guiTep(res, `ke-hoach-be-${k.tu.slice(0, 7)}${k.tu.slice(0, 7) === k.den.slice(0, 7) ? '' : `_${k.den.slice(0, 7)}`}`, [
       { ten: 'Kế hoạch của bé', dongTieuDe: true, cot: [12, 26, 14, 10, 18, 22, 40, 14, 12, 22, 18, 22], hang },
       { ten: 'Chú giải', dongTieuDe: true, cot: [8, 90], hang: chuGiai },
     ]);
-  });
+  }));
 
   // =========================================================================
   // (f) HỒ SƠ BÉ — cùng bộ cột, cùng nội dung từng ô với
@@ -849,7 +890,7 @@ module.exports = (app, { db, modules }) => {
   // Ghi nhật ký bằng CÙNG mã 'students-export': hỏi "ai đã tải danh sách bé
   // ra" thì một câu tra ra cả hai đường.
   // =========================================================================
-  app.get('/api/xuatbaocao/ho-so-be', requireRole('admin'), (req, res) => {
+  app.get('/api/xuatbaocao/ho-so-be', requireRole('admin'), motLuot((req, res) => {
     if (!chan(req, res, 'hoSoBe')) return;
     const keCaNghi = String(req.query.keCaNghi || '') === '1';
     const pv = beTrongPhamVi(req, res, { keCaNghi });
@@ -880,6 +921,14 @@ module.exports = (app, { db, modules }) => {
     const cccdTheoNguoi = new Map(db.all('user_profile',
       'SELECT userId, soCccd FROM user_profile').map(r => [r.userId, r.soCccd || '']));
     const noi = (v) => (v === true ? 'Đồng ý' : v === false ? 'Không đồng ý' : 'Chưa trả lời');
+    // Bé BẢO LƯU không phải bé đã nghỉ (Đ261a — B9): ghi "Bảo lưu từ …" như
+    // tệp điểm danh. Bé nghỉ hẳn giữ nguyên chữ "Đã nghỉ" của cột này.
+    const nghi = beDaNghi(rows);
+    const tinhTrang = (s) => {
+      if (s.active !== false && s.active !== 0) return 'Đang học';
+      const n = nghi.get(s.id);
+      return n && n.baoLuu ? n.chu : 'Đã nghỉ';
+    };
 
     const hang = [['Mã bé', 'Họ và tên', 'Ngày sinh', 'Tuổi', 'Giới tính', 'Nhóm lớp', 'Cơ sở',
       'Số định danh cá nhân', 'Dân tộc', 'Tiền sử bệnh / lưu ý đặc biệt',
@@ -909,15 +958,15 @@ module.exports = (app, { db, modules }) => {
           .map(l => `${l.hoTen}${l.quanHe ? ` — ${l.quanHe}` : ''}${l.dienThoai ? ` (${l.dienThoai})` : ''}`)
           .join(' · '),
         noi(d.hoSoHocTap), noi(d.chiaSeGiaDinh), noi(d.truyenThong), d.nguoiKy, d.ngayKy,
-        s.active === false || s.active === 0 ? 'Đã nghỉ' : 'Đang học',
+        tinhTrang(s),
       ]);
     }
     db.audit(req.user.id, 'students-export', null,
       { soBe: rows.length, keCaNghi, nguon: 'xuatbaocao', pham: req.query.pham, phamVi: pv.moTa });
-    guiTep(res, `ho-so-be-${ngay.homNay()}`, [{
+    return guiTep(res, `ho-so-be-${ngay.homNay()}`, [{
       ten: 'Hồ sơ bé', dongTieuDe: true,
       cot: [12, 26, 12, 12, 8, 14, 14, 16, 10, 8, 26, 30, 34, 30, 34, 14, 14, 14, 20, 12, 10],
       hang,
     }]);
-  });
+  }));
 };

@@ -30,8 +30,11 @@ App.views.login = {
         const me = await API.post('/api/auth/login', { username, password });
         App.applyMe(me);
         await App.loadModules();
-        location.hash = '#/';
-        App.route();
+        // Vẽ trang chủ MỘT lần (Đ261b): đổi hash thì sự kiện hashchange tự gọi
+        // App.route(); gọi thêm ở đây là cả chuỗi yêu cầu của trang chủ chạy
+        // hai lần. Hash đã là '#/' thì không có sự kiện nào, phải tự gọi.
+        if (location.hash === '#/') App.route();
+        else location.hash = '#/';
         App.startBadgePolling();
         App.moiCaiVaoManHinhChinh();
         App.dongBoDangKyDay();

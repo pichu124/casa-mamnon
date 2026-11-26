@@ -22,7 +22,7 @@
 // MỘT ĐIỀU NỮA: DỮ LIỆU CŨ KHÔNG ĐƯỢC MẤT. Thực đơn đã nhập trước đợt này nằm
 // trong `menus` và không có cơ sở nào cả. Mục [1] canh rằng nó vẫn hiện đúng
 // cho mọi người — Nguyên tắc số 1.
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, GOC } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, khoaVaoCoSo, GOC } from './_chung.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,6 +32,7 @@ const DIR = thuMucTam('thuc-don-co-so');
 sinhDuLieu(DIR);
 const mkCap1 = taoQuanTri(DIR, 'Ban Giám Hiệu', 'td_cap1');
 const mkCs2 = taoQuanTri(DIR, 'Quản lý Cơ sở 2', 'td_cs2');
+daDoiMatKhau(DIR, 'td_cap1', 'td_cs2');
 khoaVaoCoSo(DIR, 'td_cs2', 'cs2');
 
 const { BASE, dung } = await dungMayChu({ port: 4603, dir: DIR });

@@ -21,7 +21,7 @@
 //      không thấy bé cơ sở khác. Mục [4].
 //   4. MÀN HÌNH không còn phơi bốn nút tích trên từng dòng; chữ về bé chưa có
 //      dòng nào là chữ xám, không đỏ (QUY TẮC 2). Mục [5].
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, GOC, HOM_NAY, ngay } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, khoaVaoCoSo, datChucVu, GOC, HOM_NAY, ngay } from './_chung.mjs';
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
@@ -36,6 +36,7 @@ const mkVp = taoQuanTri(DIR, 'Văn phòng cơ sở 1', 'dta_vp');
 khoaVaoCoSo(DIR, 'dta_vp', 'cs1');
 datChucVu(DIR, 'dta_vp', 'vanphong-coso');
 const mkVp2 = taoQuanTri(DIR, 'Văn phòng cơ sở 2', 'dta_vp2');
+daDoiMatKhau(DIR, 'dta_qt', 'dta_vp', 'dta_vp2');
 khoaVaoCoSo(DIR, 'dta_vp2', 'cs2');
 datChucVu(DIR, 'dta_vp2', 'vanphong-coso');
 

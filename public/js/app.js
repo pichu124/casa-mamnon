@@ -34,6 +34,10 @@ window.App = {
       if (API.laMatMang && API.laMatMang(err)) this.showOffline();
       else this.showLogin();
     }
+    // Đổi màn (nút quay lại của điện thoại, đổi địa chỉ) thì đóng hộp đang mở
+    // TRƯỚC khi vẽ màn mới — không thì hộp cũ phủ lên màn mới (R2-L2). Phiếu
+    // mật khẩu chỉ hiện một lần thì UI.dongHopKhiDoiMan tự giữ lại.
+    window.addEventListener('hashchange', () => { if (UI.dongHopKhiDoiMan) UI.dongHopKhiDoiMan(); });
     window.addEventListener('hashchange', () => this.route());
   },
 
@@ -234,7 +238,28 @@ window.App = {
     if (!r || !r.ly) return;
     // Cô có thể đã bấm đi màn khác trong lúc chờ mạng — đừng vẽ đè lên đó.
     if ((location.hash.replace(/^#\/?/, '') || '').split('/')[0] !== name) return;
+    if (r.ly === 'dung-duoc') return this.moLaiPhanHeVuaBat(root, name, ve);
     ve(this.loiKhongMoDuoc(r));
+  },
+
+  // PHẦN VỪA ĐƯỢC BẬT LẠI TRONG LÚC TRANG ĐANG MỞ (R1-B16).
+  //
+  // Danh sách phân hệ nạp một lần lúc mở app. Nhà trường bật lại Học phí sau
+  // đó thì gia đình chưa tải lại trang bấm vào vẫn gặp "Phần này không mở
+  // trong tài khoản của bạn" — đọc như bị cắt quyền — trong khi máy chủ nói
+  // dùng được. Nạp lại danh sách MỘT lần rồi mở lại màn; vẫn chưa thấy thì
+  // nói thật là phần này vừa được bật lại và mời tải lại trang. Chỉ một lần
+  // cho mỗi phần, để không bao giờ thành vòng lặp gọi mạng.
+  async moLaiPhanHeVuaBat(root, name, ve) {
+    const cauTaiLai = 'Phần này vừa được nhà trường bật lại — bạn tải lại trang giúp nhé.';
+    this._daNapLaiPhanHe = this._daNapLaiPhanHe || {};
+    if (this._daNapLaiPhanHe[name]) return ve(cauTaiLai);
+    this._daNapLaiPhanHe[name] = true;
+    await this.loadModules();
+    if ((location.hash.replace(/^#\/?/, '') || '').split('/')[0] !== name) return;
+    if (!this.moduleEnabled(name)) return ve(cauTaiLai);
+    delete this._daNapLaiPhanHe[name];
+    this.route();
   },
 
   loiKhongMoDuoc(r) {
@@ -283,10 +308,7 @@ window.App = {
         <div class="card center" style="margin-top:36px">
           <div style="font-size:44px;line-height:1.2">📵</div>
           <h2 style="margin:8px 0 6px;font-size:19px">Máy đang không có mạng</h2>
-          <p class="muted" style="line-height:1.7;margin:0 0 14px">
-            App chưa gọi được về trường. Có sóng trở lại là màn hình tự mở ra,
-            và những gì cô đã ghi lúc mất mạng sẽ tự gửi đi, không mất.
-          </p>
+          <p class="muted" style="line-height:1.7;margin:0 0 14px">${UI.esc(this.cauMatMang())}</p>
           <button class="btn primary block" id="off-thu-lai">Thử lại</button>
         </div>`;
       const nut = document.getElementById('off-thu-lai');
@@ -297,6 +319,25 @@ window.App = {
       this._dangChoSong = true;
       window.addEventListener('online', () => location.reload());
     }
+  },
+
+  // CÂU CỦA MÀN MẤT MẠNG — CHỈ HỨA ĐIỀU APP LÀM ĐƯỢC (R2-L3, R4-B5).
+  //
+  // Câu cũ nói với mọi người "những gì cô đã ghi lúc mất mạng sẽ tự gửi đi":
+  // sai với điểm danh và nhật ký (không có hàng đợi, bật mạng lại bé vẫn chưa
+  // được ghi), và gia đình cũng đọc chữ "cô". Chỉ Ghi nhanh có hàng đợi trong
+  // máy. Lúc này app không gọi được /api/auth/me nên không biết vai; danh sách
+  // màn phân hệ nhớ trong máy có Ghi nhanh (chỉ cô và văn phòng có) thì nói
+  // câu của cô, không thì một câu trung tính đúng cho mọi người.
+  cauMatMang() {
+    let urls = [];
+    try { urls = JSON.parse(localStorage.getItem(this.KHOA_MAN_HINH_PHAN_HE) || '[]'); } catch (_) {}
+    const coGhiNhanh = Array.isArray(urls)
+      && urls.some(u => typeof u === 'string' && u.indexOf('/modules/thuchup/') === 0);
+    const dau = 'App chưa gọi được về trường. Có sóng trở lại là màn hình tự mở ra.';
+    return coGhiNhanh
+      ? `${dau} Bài Ghi nhanh đã lưu trên máy sẽ tự gửi đi khi có mạng; điểm danh và nhật ký cần có mạng mới ghi được.`
+      : `${dau} Gửi đơn, gửi tin nhắn hay câu trả lời cần có mạng mới gửi được.`;
   },
 
   // Địa chỉ tệp giao diện của các phân hệ đã bật, ghi lại lần nạp gần nhất.

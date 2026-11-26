@@ -38,7 +38,7 @@ import Database from 'better-sqlite3';
 import { chromium } from 'playwright';
 import {
   thuMucTam, donThuMucTam, sinhDuLieu, dungMayChu, taoReq, taoLogin, taoBoDem,
-  taoQuanTri, datChucVu, CHROMIUM, tatBannerMoiCai,
+  taoQuanTri, datChucVu, CHROMIUM, tatBannerMoiCai, maPhienTrongBang,
 } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
@@ -200,7 +200,7 @@ async function roiMayKhongDangXuat() {
 }
 async function mocPhienCuaTrinhDuyet() {
   const c = (await ctx.cookies()).find(x => x.name === 'session');
-  return c ? (doc('SELECT createdAt FROM sessions WHERE token = ?', c.value)[0] || {}).createdAt || null : null;
+  return c ? (doc('SELECT createdAt FROM sessions WHERE token = ?', maPhienTrongBang(c.value))[0] || {}).createdAt || null : null;
 }
 
 // Mở màn Cài đặt từ trang chủ và chép lại TỪNG trạng thái thẻ đi qua: dòng chữ

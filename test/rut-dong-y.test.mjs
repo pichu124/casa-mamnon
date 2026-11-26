@@ -36,7 +36,7 @@
 //       năng khác vẫn chạy y như cũ".
 import fs from 'fs';
 import path from 'path';
-import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, HOM_NAY, GOC } from './_chung.mjs';
+import { thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu, taoBoDem, taoReq, taoLogin, batPhanHe, HOM_NAY, GOC } from './_chung.mjs';
 
 const { check, tongKet } = taoBoDem();
 
@@ -44,6 +44,7 @@ const DIR = thuMucTam('rut-dong-y');
 sinhDuLieu(DIR, { phanHe: true });
 batPhanHe(DIR, ['hanhtrinh', 'kehoachbe', 'baocaohoctap', 'thuchup', 'nhatky']);
 const mkQt = taoQuanTri(DIR, 'Hiệu Trưởng', 'rdy_qt');
+daDoiMatKhau(DIR, 'rdy_qt');
 
 const { BASE, dung } = await dungMayChu({ port: 4601, dir: DIR });
 const req = taoReq(BASE);

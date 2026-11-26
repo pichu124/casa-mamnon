@@ -296,6 +296,9 @@ window.UI = (() => {
     </div>`;
     if (!(tuyChon && tuyChon.giuKhiBamNen)) {
       ov.addEventListener('click', (e) => { if (e.target === ov) closeModal(); });
+    } else {
+      // Đánh dấu để dongHopKhiDoiMan() bên dưới cũng không tự đóng hộp này.
+      ov.dataset.giuKhiDoiMan = '1';
     }
     document.body.appendChild(ov);
     return ov;
@@ -303,6 +306,20 @@ window.UI = (() => {
   function closeModal() {
     const ov = document.getElementById('modal-overlay');
     if (ov) ov.remove();
+  }
+
+  // ĐỔI MÀN THÌ ĐÓNG HỘP ĐANG MỞ (thêm 11/2026, R2-L2 / R1-B12). Bấm nút quay
+  // lại của điện thoại hay đổi địa chỉ thì màn bên dưới đã đổi mà hộp cũ vẫn
+  // phủ lên. app.js gọi hàm này mỗi lần địa chỉ đổi.
+  //
+  // TRỪ hộp mở bằng `giuKhiBamNen` (phiếu mật khẩu tạm, chỉ hiện một lần):
+  // lỡ chạm nút quay lại là mất cả loạt mật khẩu, nên hộp ấy chỉ đóng khi
+  // người dùng tự bấm đóng. Trả về true khi đã đóng một hộp.
+  function dongHopKhiDoiMan() {
+    const ov = document.getElementById('modal-overlay');
+    if (!ov || ov.dataset.giuKhiDoiMan === '1') return false;
+    ov.remove();
+    return true;
   }
 
   // ===========================================================================
@@ -649,11 +666,11 @@ window.UI = (() => {
         } catch (err) {
           if (!API.laMatMang(err) && !(err.status >= 500)) throw err;
           matLienLac += 1;
-          if (matLienLac >= 15) throw new Error('Mất liên lạc với máy chủ khi đang làm nét video — cô thử gửi lại giúp nhé');
+          if (matLienLac >= 15) throw new Error('Mất liên lạc với máy chủ khi đang xử lý video — cô thử gửi lại giúp nhé');
           continue;
         }
         if (tt.trangThai === 'xong') return { coNen: true, maTep: tt.maTep };
-        if (tt.trangThai === 'loi') throw new Error(tt.loi || 'Chưa làm nét được video này — cô gửi lại giúp nhé');
+        if (tt.trangThai === 'loi') throw new Error(tt.loi || 'Chưa xử lý được video này — cô gửi lại giúp nhé');
         dangNen({ tienDo: Number(tt.tienDo) || 0 });
       }
     } catch (err) {
@@ -674,6 +691,7 @@ window.UI = (() => {
     esc, icon, fmtDate, fmtDateShort, fmtTime, timeAgo, todayStr, parseDate,
     ngayVN, thangVN, gioVN, soGioVN, thuVN, dongNgayViet,
     pageHeader, avatar, emptyState, studentBar, thanhChonBeTheoCap, noiTenNhom, toast, modal, closeModal,
+    dongHopKhiDoiMan,
     badge, ATT_STATUS, DOW,
     nenAnh, nenVideo, guiVideoMayChu,
     maAnToan, dongThongTin,

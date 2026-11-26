@@ -34,6 +34,11 @@ sessions.json*
 *.p12
 
 node_modules/
+# Thư mục tạm của scripts/cap-nhat-may-chu.sh trên máy chủ: thư viện cũ giữ để
+# quay lui, thư mục cài thư viện mới, và bản hỏng lúc quay lui tay.
+/node_modules.truoc-cap-nhat/
+/node_modules.hong/
+/.cai-thu-vien.*/
 *.log
 .DS_Store
 

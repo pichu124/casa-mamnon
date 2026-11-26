@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
-import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerMoiCai } from './_chung.mjs';
+import { dungMayChu, thuMucTam, sinhDuLieu, batPhanHe, taoQuanTri, taoBoDem, CHROMIUM, tatBannerMoiCai, HOM_NAY } from './_chung.mjs';
 
 const DIR = thuMucTam('bien-soan-giao-dien');
 sinhDuLieu(DIR);
@@ -500,9 +500,11 @@ console.log('\n[12] Nhập lại tệp cũ: màn hình cảnh báo trùng thay v
   await page.evaluate(() => UI.closeModal());
   await page.waitForTimeout(400);
 
+  // Năm sinh tính lùi từ hôm nay (Đ261a): từ đợt ấy bé quá 7 tuổi là dòng lỗi.
+  const N4 = Number(HOM_NAY().slice(0, 4)) - 4;
   const TEP = 'Họ tên,Ngày sinh,Lớp,Họ tên phụ huynh,Điện thoại\n'
-    + 'Trịnh Thu Thảo,2018-03-03,Lớp Nhập Thử,Trịnh Văn Cha,0966000001\n'
-    + 'Vương Chí Kiên,2018-04-04,Lớp Nhập Thử,Vương Thị Mẹ,0966000002';
+    + `Trịnh Thu Thảo,${N4}-03-03,Lớp Nhập Thử,Trịnh Văn Cha,0966000001\n`
+    + `Vương Chí Kiên,${N4}-04-04,Lớp Nhập Thử,Vương Thị Mẹ,0966000002`;
   const tepCsv = { name: 'danh-sach.csv', mimeType: 'text/csv', buffer: Buffer.from(TEP, 'utf8') };
 
   const nhapTep = async () => {

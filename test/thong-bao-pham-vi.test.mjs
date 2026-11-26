@@ -12,7 +12,7 @@
 //      hỏi cơ sở — nên quản lý cơ sở A sửa và THU HỒI được thông báo nhóm
 //      của cơ sở B.
 import {
-  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, dungMayChu,
+  thuMucTam, donThuMucTam, sinhDuLieu, taoQuanTri, daDoiMatKhau, dungMayChu,
   taoBoDem, taoReq, taoLogin, datChucVu, khoaVaoCoSo,
 } from './_chung.mjs';
 
@@ -22,6 +22,7 @@ sinhDuLieu(DIR);
 const mkBGH = taoQuanTri(DIR, 'Hiệu Trưởng', 'hieutruong');
 const mkVP = taoQuanTri(DIR, 'Văn Phòng CS1', 'vanphong1');
 const mkQL = taoQuanTri(DIR, 'Quản Lý CS1', 'quanly1');
+daDoiMatKhau(DIR, 'hieutruong', 'vanphong1', 'quanly1');
 datChucVu(DIR, 'vanphong1', 'vanphong-coso');
 khoaVaoCoSo(DIR, 'vanphong1', 'cs1');
 khoaVaoCoSo(DIR, 'quanly1', 'cs1');
