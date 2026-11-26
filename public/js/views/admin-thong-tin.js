@@ -546,7 +546,8 @@ Object.assign(App.views.admin, {
           Nhóm mầm non thường có 2–3 cô cùng phụ trách. Cô được tích ở đây sẽ xem
           được hồ sơ các bé của nhóm; cô chọn ở ô trên là cô phụ trách chính.
           Một cô có thể phụ trách nhiều nhóm — tích thêm ở nhóm khác KHÔNG gỡ cô
-          khỏi nhóm này.
+          khỏi nhóm này, và chọn cô làm cô phụ trách ở đây KHÔNG đổi vai của cô ở
+          nhóm khác.
           <div class="mt-8">
             Ô bên phải là <b>chương trình cô phụ trách ở nhóm này</b>, khác với
             cô phụ trách chính ở ô trên. Gia đình nhắn tin được với

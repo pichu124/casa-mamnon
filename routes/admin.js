@@ -1132,7 +1132,7 @@ module.exports = (app) => {
   // hai nhóm một lượt). Trả về danh sách mã cô đã ghi.
   function ghiPhanCong({ cls, xinDu, chinhId, xinNhom }) {
     return db.tx(() => {
-      const daGhi = db.setClassTeachers(cls.id, xinDu, chinhId);
+      const daGhi = db.datCoCuaNhom(cls.id, xinDu, chinhId);
       if (xinNhom) {
         for (const [tid, ma] of Object.entries(xinNhom)) nhomCo.dat(db, cls.id, tid, ma);
       }
@@ -1228,7 +1228,7 @@ module.exports = (app) => {
       // Nhóm chưa có ai thì cô mới là cô phụ trách chính — giữ đúng hành vi cũ
       // cho luồng "tạo nhóm rồi tạo cô".
       if (classId) {
-        db.addClassTeacher(classId, rec.id,
+        db.themCoVaoNhom(classId, rec.id,
           db.teacherIdsOfClass(classId).length ? 'phu' : 'chinh');
       }
       // CÔ DO CẤP 3 TẠO THUỘC CƠ SỞ CỦA NGƯỜI TẠO (Đ239d1) — cùng lý do với
@@ -1687,7 +1687,7 @@ module.exports = (app) => {
         db.insert('users', rec);
         if (r.classId) {
           // Như tạo một cô: nhóm đã có cô thì cô mới là cô phụ, không đè ai.
-          db.addClassTeacher(r.classId, rec.id, db.teacherIdsOfClass(r.classId).length ? 'phu' : 'chinh');
+          db.themCoVaoNhom(r.classId, rec.id, db.teacherIdsOfClass(r.classId).length ? 'phu' : 'chinh');
           if (r.vai !== nhomCo.MAC_DINH) nhomCo.dat(db, r.classId, rec.id, r.vai);
         }
         if (r.campusId) db.insert('giao_vien_co_so', { userId: rec.id, campusId: r.campusId, taoLuc: rec.createdAt });
