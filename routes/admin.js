@@ -1816,12 +1816,26 @@ module.exports = (app) => {
       `SELECT * FROM quan_he_phu_huynh WHERE studentId IN (${dau})`, ids)
       .map(r => [`${r.studentId}|${r.parentId}`, r.quanHe]) : []);
     const ngayNhapHoc = nhapHoc.theoBe(ids);
-    res.json(db.withParents(rows).map(s => ({
+    // Đồng ý và người nhà cũng hỏi một lượt cho cả danh sách (Đ261f).
+    const dongY = db.dongYCuaCacBe(ids);
+    const coBe = db.withParents(rows);
+    const maNguoiNha = [...new Set(coBe.flatMap(s => s.parentIds))];
+    const nguoiNha = new Map();
+    const cccd = new Map();
+    for (let i = 0; i < maNguoiNha.length; i += 400) {
+      const lo = maNguoiNha.slice(i, i + 400);
+      const m = lo.map(() => '?').join(',');
+      for (const u of db.all('users', `SELECT * FROM users WHERE id IN (${m})`, lo)) nguoiNha.set(u.id, u);
+      for (const r of db.all('user_profile', `SELECT userId, soCccd FROM user_profile WHERE userId IN (${m})`, lo)) {
+        cccd.set(r.userId, r.soCccd || '');
+      }
+    }
+    res.json(coBe.map(s => ({
       ...s,
       // Đ260l: null = chưa ghi, mốc của gia đình là ngày tạo tài khoản.
       ngayNhapHoc: ngayNhapHoc.get(s.id) || null,
       ...db.hoSoBe(s.id),
-      dongY: db.dongYCuaBe(s.id),
+      dongY: dongY.get(s.id),
       // Hồ sơ còn thiếu món nào (Đ161) — để màn danh sách chỉ ngay chỗ phải
       // đòi, không bắt văn phòng mở từng hồ sơ ra dò.
       thieuHoSo: thieuGiHoSo(s.id, s.parentIds),
@@ -1830,12 +1844,12 @@ module.exports = (app) => {
       // học lại bằng đường khác không được làm màn hình nói sai.
       baoLuu: (!s.active && baoLuu.get(s.id)) || null,
       parents: s.parentIds.map(id => {
-        const p = db.findUser(id);
+        const p = nguoiNha.get(id);
         // Đường này đã là onlyAdmin nên số CCCD đi kèm được. Vẫn liệt kê từng
         // trường một chứ không trải cả hàng `users` ra: hàng đó có passwordHash.
         return p ? {
           id: p.id, name: `${p.title} ${p.name}`, username: p.username, phone: p.phone,
-          soCccd: db.hoSoNguoiDung(p.id).soCccd,
+          soCccd: cccd.get(p.id) || '',
           quanHe: quanHe.get(`${s.id}|${p.id}`) || '',
         } : null;
       }).filter(Boolean),

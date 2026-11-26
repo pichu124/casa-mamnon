@@ -367,17 +367,31 @@ function ghiNguoiDang(photoIds, userId) {
 // GẮN THẺ được (`dayDu`). Văn phòng, ban giám hiệu hay Marketing mở album ra
 // không được biết nhà nào đã từ chối — họ chỉ cần biết tấm ảnh đã có bé được
 // gắn hay chưa.
-function ganThemDanhSachBe(anh, user, dayDu = true) {
+//
+// `tra` là bảng tra dựng MỘT LƯỢT cho cả album (Đ261f): { the: photoId → [bé],
+// be: id → { id, name }, dongY: id → đồng ý }. Bản cũ hỏi ba câu cho mỗi tấm
+// và mỗi bé: một album 30 tấm của cô tốn 320 câu.
+function ganThemDanhSachBe(anh, user, dayDu, tra) {
   if (!user || user.role === 'parent') return anh;
-  const ids = db.beTrongAnh(anh.id);
+  const ids = tra.the.get(anh.id) || [];
   return {
     ...anh,
     beTrongAnh: ids.map(id => {
       if (!dayDu) return { id };
-      const b = db.findStudent(id);
-      return b ? { id: b.id, name: b.name, dongYChiaSe: db.dongYCuaBe(b.id).chiaSeGiaDinh } : null;
+      const b = tra.be.get(id);
+      return b ? { id: b.id, name: b.name, dongYChiaSe: tra.dongY.get(b.id).chiaSeGiaDinh } : null;
     }).filter(Boolean),
   };
+}
+function traBeTrongAlbum(the) {
+  const ids = [...new Set([...the.values()].flat())];
+  const be = new Map();
+  for (let i = 0; i < ids.length; i += 400) {
+    const lo = ids.slice(i, i + 400);
+    for (const b of db.all('students',
+      `SELECT id, name FROM students WHERE id IN (${lo.map(() => '?').join(',')})`, lo)) be.set(b.id, b);
+  }
+  return { the, be, dongY: db.dongYCuaCacBe(ids) };
 }
 
 // Lời nhắc cho PHỤ HUYNH khi có ảnh đang chờ cô gắn thẻ.
@@ -406,9 +420,10 @@ function nhacChoPhuHuynh(tatCaAnh, anhXemDuoc, classId) {
 //
 // Trả về object rỗng khi không có gì phải nhắc, để màn hình cũ không đổi một
 // chữ nào ở trường hợp thường gặp nhất.
-function nhacGanThe(tatCaAnh, classId) {
+// `the`: photoId → [bé], đã tra một lượt cho cả album.
+function nhacGanThe(tatCaAnh, classId, the) {
   if (!db.coBeTuChoiChiaSe(classId)) return {};
-  const chuaGan = (tatCaAnh || []).filter(a => !db.beTrongAnh(a.id).length);
+  const chuaGan = (tatCaAnh || []).filter(a => !(the.get(a.id) || []).length);
   if (!chuaGan.length) return {};
   return {
     nhacGanThe: {
@@ -744,13 +759,17 @@ module.exports = (app) => {
     // không phải nhận hết rồi giao diện che bớt.
     const tatCaAnh = photosOf(album.id);
     const cheDo = cheDoCua(album.id);
-    const quaDongY = locAnhChoNguoiXem(tatCaAnh, req.user, album.classId);
+    // Thẻ bé của cả album tra MỘT LƯỢT, và luật đồng ý chạy bản lô (Đ261f).
+    // Bản từng tấm hỏi một câu cho mỗi ảnh và một câu cho mỗi bé được gắn.
+    const the = db.beTrongCacAnh(tatCaAnh.map(x => x.id));
+    const quaDongY = locAnhChoNguoiXemNhieuNhom({ [album.classId]: tatCaAnh }, req.user)[album.classId] || [];
     // Tấm nào người này xoá được — màn hình chỉ vẽ nút xoá trên đúng những tấm ấy.
     const qx = quyenXoaAnh(req.user, album);
     const nguoiDang = !qx.tatCa && qx.cuaMinh ? nguoiDangCuaAlbum(album.id) : new Map();
-    album.photos = locTheoThe(quaDongY, req.user, cheDo, db.beTrongCacAnh(quaDongY.map(x => x.id)))
+    const tra = req.user.role === 'parent' ? null : traBeTrongAlbum(the);
+    album.photos = locTheoThe(quaDongY, req.user, cheDo, the)
       .map(a => ({
-        ...ganThemDanhSachBe(a, req.user, !!quyen.ganThe),
+        ...ganThemDanhSachBe(a, req.user, !!quyen.ganThe, tra),
         xoaDuoc: qx.tatCa || (qx.cuaMinh && nguoiDang.get(a.id) === req.user.id),
         // Video máy chủ nén có ảnh bìa (Đ260f): ô lưới dùng làm poster.
         ...(uploads.biaCua(a.file) ? { coBia: true } : {}),
@@ -783,7 +802,7 @@ module.exports = (app) => {
         ? (cheDo === 'theo-the'
           ? { nhacChoPhuHuynh: 'Album này cô gắn thẻ từng bé: gia đình chỉ thấy những tấm có con mình. Ảnh cô chưa gắn thẻ thì chưa hiện với nhà nào.' }
           : nhacChoPhuHuynh(tatCaAnh, album.photos, album.classId))
-        : nhacGanThe(tatCaAnh, album.classId)),
+        : nhacGanThe(tatCaAnh, album.classId, the)),
     });
   });
 
