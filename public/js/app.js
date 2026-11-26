@@ -34,6 +34,10 @@ window.App = {
       if (API.laMatMang && API.laMatMang(err)) this.showOffline();
       else this.showLogin();
     }
+    // Đổi màn (nút quay lại của điện thoại, đổi địa chỉ) thì đóng hộp đang mở
+    // TRƯỚC khi vẽ màn mới — không thì hộp cũ phủ lên màn mới (R2-L2). Phiếu
+    // mật khẩu chỉ hiện một lần thì UI.dongHopKhiDoiMan tự giữ lại.
+    window.addEventListener('hashchange', () => { if (UI.dongHopKhiDoiMan) UI.dongHopKhiDoiMan(); });
     window.addEventListener('hashchange', () => this.route());
   },
 
